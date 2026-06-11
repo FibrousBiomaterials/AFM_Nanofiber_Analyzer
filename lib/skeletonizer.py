@@ -176,14 +176,35 @@ class Skeletonizer:
             The input instance is updated in place.
             入力インスタンスをインプレースで更新する。
 
+        Raises
+        ------
+        ValueError
+            If `image.binarized_image` or `image.calibrated_image` is None,
+            i.e. segmentation or background calibration has not been run yet.
+
         Notes
         -----
+        Reads `image.binarized_image` and `image.calibrated_image`; writes
+        `image.skeleton_image`, `image.label_image`, `image.nLabels`,
+        `image.data`, `image.ep`, and `image.bp`.
+
         The workflow first thins the binary mask, removes short branches derived
         from low-height branch points, and then removes tiny or ring-shaped
         connected components.
         まず二値マスクを細線化し、低い高さの分岐点から伸びる短い枝を除去した後、
         微小成分やリング状成分を除去する。
         """
+        # Fail loudly at the stage boundary instead of deep inside skimage/cv2.
+        if image.binarized_image is None:
+            raise ValueError(
+                "Skeletonizer requires image.binarized_image; "
+                "run Segmenter on the image first."
+            )
+        if image.calibrated_image is None:
+            raise ValueError(
+                "Skeletonizer requires image.calibrated_image; "
+                "run BG_Calibrator_shimadzu on the image first."
+            )
 
         init_skeleton_image = thin(image.binarized_image).astype(np.uint8)
         self.image_size = image.binarized_image.shape[0]

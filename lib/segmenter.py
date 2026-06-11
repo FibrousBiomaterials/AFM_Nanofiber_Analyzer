@@ -130,8 +130,16 @@ class Segmenter:
             Processed image object with a `calibrated_image` height map.
             `calibrated_image` 高さマップを持つ処理済み画像オブジェクト。
 
+        Raises
+        ------
+        ValueError
+            If `image.calibrated_image` is None, i.e. background calibration
+            has not been run on this image yet.
+
         Notes
         -----
+        Reads `image.calibrated_image`; writes `image.binarized_image`.
+
         The pipeline combines global and local threshold masks, removes small
         components, filters nonlinear components with a Hough-line score,
         optionally removes weakly connected fragments, and finally removes
@@ -141,6 +149,12 @@ class Segmenter:
         最後に最大高さが `low_threshold` 未満の成分を除去する。
 
         """
+        # Fail loudly at the stage boundary instead of deep inside cv2/scipy.
+        if image.calibrated_image is None:
+            raise ValueError(
+                "Segmenter requires image.calibrated_image; "
+                "run BG_Calibrator_shimadzu on the image first."
+            )
 
         self.binary_image = self._binaryzation(
             image.calibrated_image, self.global_threshold, self.wsize_localbin

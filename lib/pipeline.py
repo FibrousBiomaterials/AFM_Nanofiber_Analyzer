@@ -306,10 +306,16 @@ def build_stages(p: ProcParams) -> PipelineStages:
     Construct the four pipeline stage objects from analysis parameters.
     解析パラメータから 4 つのパイプラインステージを構築する。
 
-    Stage objects are stateless between calls (results are written into the
-    `ProcessedImage`), so one set can be reused for a whole batch.
-    ステージオブジェクトは呼び出し間で状態を持たない（結果は `ProcessedImage`
-    に書き込まれる）ため、1 セットをバッチ全体で再利用できる。
+    Analysis results are written into the `ProcessedImage`. Stage objects do
+    keep per-call intermediate arrays on themselves for debugging and
+    parameter-tuning inspection, but those are overwritten on every call, so
+    one set can be reused for a sequential batch. Stage objects are NOT
+    thread-safe: do not share one set across concurrent workers.
+    解析結果は `ProcessedImage` に書き込まれる。ステージオブジェクトは
+    デバッグ・パラメータ調整時の確認用に呼び出しごとの中間配列を自身に
+    保持するが、毎回上書きされるため、逐次バッチなら 1 セットを再利用
+    できる。スレッドセーフではないため、並行ワーカー間で同一セットを
+    共有してはならない。
 
     Parameters
     ----------

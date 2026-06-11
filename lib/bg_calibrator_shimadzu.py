@@ -443,8 +443,15 @@ class BG_Calibrator_shimadzu:
             The result is written in-place to `image.calibrated_image`.
             結果は `image.calibrated_image` にインプレースで格納される。
 
+        Raises
+        ------
+        ValueError
+            If `image.original_image` is None.
+
         Notes
         -----
+        Reads `image.original_image`; writes `image.calibrated_image`.
+
         This method intentionally uses staged intermediate arrays so each step
         can be inspected during debugging or parameter tuning. The set of
         intermediates available on ``self`` depends on ``bg_method``:
@@ -489,6 +496,13 @@ class BG_Calibrator_shimadzu:
           ``bg_sm`` (Savitzky-Golay 後) を保持。``bg_open`` と
           ``bg_spline2d`` は ``None``。
         """
+        # Fail loudly at the stage boundary instead of deep inside the method.
+        if image.original_image is None:
+            raise ValueError(
+                "BG_Calibrator_shimadzu requires image.original_image; "
+                "construct ProcessedImage with the raw AFM height array."
+            )
+
         if self.bg_method == 'tophat':
             self._call_tophat(image)
         elif self.bg_method == 'spline2d':

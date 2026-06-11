@@ -89,9 +89,25 @@ class KinkDetector:
 
         Raises
         ------
+        ValueError
+            If `image.skeleton_image` is None, i.e. skeletonization has not
+            been run on this image yet.
         Exception
             Re-raises any exception after printing traceback.
+
+        Notes
+        -----
+        Reads `image.skeleton_image`; writes `image.kink_indices_by_label`,
+        `image.kink_angles_by_label`, `image.decomposed_indices_by_label`,
+        `image.all_kink_coordinates`, `image.all_kink_angles`, and
+        `image.decomposed_point_coordinates`.
         """
+        # Fail loudly at the stage boundary instead of deep inside imp_tools.
+        if image.skeleton_image is None:
+            raise ValueError(
+                "KinkDetector requires image.skeleton_image; "
+                "run Skeletonizer on the image first."
+            )
         try:
             # Remove branch points and L-corners for cleaner line tracking.
             no_bp_skel = imp_tools.remove_bp(image.skeleton_image)
