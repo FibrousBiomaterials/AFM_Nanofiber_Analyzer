@@ -58,7 +58,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+# Babel provides the pybabel CLI used by prepare_translate_catalogs.py and
+# catalog compilation; it is a development tool, not a runtime dependency.
+dev = ["pytest", "Babel"]
 
 [project.urls]
 Repository = "https://github.com/q9-droid/AFM_Nanofiber_Analyzer"

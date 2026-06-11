@@ -52,9 +52,10 @@ guis/afmpp_settings.json
 # ===== Analysis outputs =====
 # Exclude large or sensitive analysis results unless they are sample data
 # intentionally checked in under examples/.
+# Compiled translation catalogs (locale/**/*.mo) are intentionally
+# version-controlled so fresh clones get working translations without Babel.
 *.json
 *.b2z
-*.mo
 *_param.json
 *.npy
 buildold.py

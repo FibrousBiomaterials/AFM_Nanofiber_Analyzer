@@ -208,10 +208,22 @@ def main() -> None:
     _run_babel(["update", "-i", str(POT_FILE), "-d", str(LOCALE_DIR)])
     removed = _remove_all_obsolete_entries()
 
+    # Compile so the version-controlled .mo files never go stale after an
+    # update. Fuzzy entries are skipped by pybabel's default, so compiling
+    # here is safe even before translators review the catalogs. Re-run
+    # `pybabel compile -d locale` (and commit the .mo files) after editing
+    # msgstr values by hand.
+    # バージョン管理される .mo が更新後に古いまま残らないよう、ここで
+    # コンパイルする。fuzzy エントリは pybabel の既定で除外されるため、
+    # 翻訳者のレビュー前に実行しても安全。msgstr を手で編集した後は
+    # `pybabel compile -d locale` を再実行し、.mo もコミットすること。
+    _run_babel(["compile", "-d", str(LOCALE_DIR)])
+
     print(
         "Translation catalogs prepared without machine translation. "
         f"Added PLUGIN_INFO descriptions: {added}. "
-        f"Removed obsolete entries: {removed}."
+        f"Removed obsolete entries: {removed}. "
+        "Catalogs compiled to .mo."
     )
 
 

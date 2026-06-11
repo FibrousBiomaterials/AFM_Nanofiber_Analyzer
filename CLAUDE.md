@@ -739,15 +739,18 @@ in a worker thread, pass results or log events through `queue.Queue`, and poll
 from the main thread with `after()`. Prefer `lib/ui_tools.py` helpers such
 as `drain_ui_queue` for shared queue-draining behavior.
 
-### 8.5 Renames, imports, and warmup
+### 8.5 Renames and imports
 
 Do not rename `lib/` modules casually. If a module filename or public import
-path changes, check at least `lib/` imports, `guis/*.py`, `Main.py`
-`PRELOAD_LIBS`, `README.md`, and the Japanese specification.
+path changes, check at least `lib/` imports, `guis/*.py`, `README.md`, and
+the Japanese specification.
 
-`Main.py` uses `PRELOAD_LIBS` and a custom `--warmup` path to preload heavy
-libraries and project modules. Frozen PyInstaller builds should not rely on
-`-c` or `-m` restart behavior for warmup.
+`Main.py` launches each plugin through its `--run-plugin` subcommand, which
+imports the plugin module in a worker thread behind a splash window. Frozen
+PyInstaller builds must keep using this subcommand because the PyInstaller
+bootloader does not honor `-c` or `-m`. Keep libraries that are heavy to
+import and needed only by a specific feature (e.g. lmfit, pandas) as
+function-local imports so plugin startup stays fast.
 
 ### 8.6 Build and dependency helpers
 
@@ -781,6 +784,11 @@ all call sites in `guis/`, `Main.py`, and `lib/` imports.
 Translation uses `gettext`. Source strings wrapped in `_()` are extracted into
 `locale/<language>/LC_MESSAGES/messages.po`; compiled output is `messages.mo`.
 Do not edit `.mo` files directly — they are compiled from `.po`.
+Compiled `.mo` files are version-controlled so fresh clones get working
+translations without Babel. After editing a `.po`, run
+`pybabel compile -d locale` and commit the regenerated `.mo` together with the
+`.po`; `tests/test_translations.py` fails when a `.mo` is stale.
+`prepare_translate_catalogs.py` also compiles the catalogs as its final step.
 In PO syntax, an entry whose `msgstr ""` is followed by translated continuation
 string lines is not empty. When filling empty translations, treat those entries
 as existing translations and leave them unchanged.

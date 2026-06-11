@@ -246,9 +246,10 @@ python prepare_translate_catalogs.py
 ```
 
 This script extracts gettext messages, adds launcher descriptions from
-`PLUGIN_INFO["description"]`, updates the catalogs, and removes obsolete
-`#~` entries. It does not fill `msgstr` values automatically. Commit or back up
-catalogs first if you need to keep old obsolete translations for reference.
+`PLUGIN_INFO["description"]`, updates the catalogs, removes obsolete
+`#~` entries, and compiles the catalogs to `.mo`. It does not fill `msgstr`
+values automatically. Commit or back up catalogs first if you need to keep old
+obsolete translations for reference.
 
 After editing `messages.po`, review any `#, fuzzy` entries before distribution.
 Fuzzy entries are provisional Babel matches; confirm that the `msgid` and
@@ -264,6 +265,11 @@ paragraph or line break in the interface.
 ```powershell
 pybabel compile -d locale
 ```
+
+The compiled `.mo` files are version-controlled so that fresh clones get
+working translations without installing Babel. Commit the regenerated `.mo`
+files together with the edited `.po` files; the test suite fails when a
+`.mo` file is stale relative to its `.po` source.
 
 ### Manual setup from source
 
@@ -435,6 +441,15 @@ for wrapping it. Splitting the Python string literal across source lines is fine
 as long as it does not add an actual newline to the value.
 When changing `PLUGIN_INFO["description"]`, refresh the translation catalogs so
 the corresponding `msgid` is available to translators.
+
+`PLUGIN_INFO` may also define an optional numeric `order` key. The launcher
+sorts buttons by this value (smaller first); plugins without `order` appear
+after the ordered ones, in filename order. Unknown `PLUGIN_INFO` keys are
+ignored for forward compatibility. The plugin contract — a literal
+`PLUGIN_INFO` with non-empty `name` and `description` strings, a top-level
+`main()`, an `if __name__ == "__main__":` guard, and no GUI launch at import
+time — is enforced by `tests/test_plugins.py`, so a violating plugin fails the
+test suite instead of degrading silently in the launcher.
 
 ## Development Utilities
 

@@ -77,7 +77,6 @@ AFM_SYMBOL_FILENAME = "afm_symbol.png"
 MSG_HOVER_IDLE = (
     "Hover over a button on the right to display its description."
 )
-_PO_TRANSLATION_CACHE: dict[str, dict[str, str]] = {}
 
 def _run_plugin_and_exit(module_import_path: str):
     """
@@ -274,7 +273,7 @@ class ScrollableFrame(ttk.Frame):
 # =========================
 # Plugin discovery
 # =========================
-def _extract_plugin_info_static(py_file: Path) -> dict:
+def _extract_plugin_info_static(py_file: Path) -> tuple[dict, str]:
     """
     Parse a plugin file with `ast` and return its `PLUGIN_INFO` dict literal.
     プラグインファイルを `ast` でパースして `PLUGIN_INFO` の辞書リテラルを返す。
@@ -295,14 +294,22 @@ def _extract_plugin_info_static(py_file: Path) -> dict:
     `PLUGIN_INFO` は辞書リテラルであること（値は文字列・数値・リスト・dict・
     True・False・None のみ）。`ast.literal_eval` が安全に評価する。
 
-    Returns an empty dict on any parse / read / literal-eval failure.
-    パース / 読み込み / literal_eval のいずれかが失敗した場合は空 dict を返す。
+    Returns
+    -------
+    tuple
+        ``(info, error)``. On success ``error`` is an empty string; on any
+        read / parse / literal-eval failure ``info`` is an empty dict and
+        ``error`` holds a short reason, so the launcher can surface the
+        failure instead of degrading silently.
+        ``(info, error)`` の組。成功時は ``error`` が空文字列。読み込み /
+        パース / literal_eval に失敗した場合は ``info`` が空 dict、``error``
+        に短い理由が入り、ランチャーは静かに劣化せず失敗を表示できる。
     """
     try:
         source = py_file.read_text(encoding="utf-8")
         tree = ast.parse(source)
-    except Exception:
-        return {}
+    except Exception as e:
+        return {}, f"could not read or parse the file: {e}"
 
     for node in tree.body:
         if not isinstance(node, ast.Assign):
@@ -311,84 +318,16 @@ def _extract_plugin_info_static(py_file: Path) -> dict:
             if isinstance(target, ast.Name) and target.id == "PLUGIN_INFO":
                 try:
                     value = ast.literal_eval(node.value)
-                    return value if isinstance(value, dict) else {}
                 except Exception:
-                    return {}
-    return {}
-
-
-def _read_po_catalog(lang_code: str) -> dict[str, str]:
-    """
-    Read a gettext `.po` file into a simple singular-message dictionary.
-    gettext の `.po` ファイルを単数メッセージ用の辞書として読み込む。
-
-    This is a launcher-only fallback for plugin metadata. It keeps translated
-    launcher descriptions available even when the compiled `.mo` catalog has
-    not been regenerated yet.
-    ランチャーのプラグインメタデータ専用のフォールバックである。コンパイル済み
-    `.mo` カタログが未更新でも、ランチャー説明文の翻訳を利用できるようにする。
-    """
-    if lang_code in _PO_TRANSLATION_CACHE:
-        return _PO_TRANSLATION_CACHE[lang_code]
-
-    catalog: dict[str, str] = {}
-    po_path = BASE_DIR / "locale" / lang_code / "LC_MESSAGES" / "messages.po"
-    try:
-        text = po_path.read_text(encoding="utf-8")
-    except Exception:
-        _PO_TRANSLATION_CACHE[lang_code] = catalog
-        return catalog
-
-    def _collect_quoted(lines: list[str], start: int, keyword: str) -> tuple[str, int]:
-        first = lines[start][len(keyword):].strip()
-        parts = [ast.literal_eval(first)]
-        index = start + 1
-        while index < len(lines) and lines[index].startswith('"'):
-            parts.append(ast.literal_eval(lines[index]))
-            index += 1
-        return "".join(parts), index
-
-    for block in text.split("\n\n"):
-        lines = block.splitlines()
-        if any(line.startswith("#~") for line in lines):
-            continue
-        if any(line.startswith("#,") and "fuzzy" in line for line in lines):
-            continue
-        msgid_index = next(
-            (i for i, line in enumerate(lines) if line.startswith("msgid ")),
-            None,
-        )
-        msgstr_index = next(
-            (i for i, line in enumerate(lines) if line.startswith("msgstr ")),
-            None,
-        )
-        if msgid_index is None or msgstr_index is None:
-            continue
-        try:
-            msgid, _ = _collect_quoted(lines, msgid_index, "msgid ")
-            msgstr, _ = _collect_quoted(lines, msgstr_index, "msgstr ")
-        except Exception:
-            continue
-        if msgid and msgstr:
-            catalog[msgid] = msgstr
-
-    _PO_TRANSLATION_CACHE[lang_code] = catalog
-    return catalog
-
-
-def _translate_plugin_metadata(message: str) -> str:
-    """
-    Translate plugin metadata, falling back to `.po` when `.mo` is stale.
-    `.mo` が古い場合は `.po` にフォールバックしてプラグインメタデータを翻訳する。
-    """
-    translated = _(message)
-    if translated != message:
-        return translated
-
-    lang_code = current_language()
-    if lang_code == "Japanese":
-        return translated
-    return _read_po_catalog(lang_code).get(message, translated)
+                    return {}, (
+                        "PLUGIN_INFO is not a literal dict (values must be "
+                        "plain strings/numbers/lists/dicts; do not wrap them "
+                        "with _() or compute them)"
+                    )
+                if not isinstance(value, dict):
+                    return {}, "PLUGIN_INFO is not a dict"
+                return value, ""
+    return {}, "PLUGIN_INFO is not defined at module top level"
 
 
 def _discover_plugins() -> list[dict]:
@@ -424,13 +363,41 @@ def _discover_plugins() -> list[dict]:
         module_name = py_file.stem
         import_path = f"{GUIS_DIR_NAME}.{module_name}"
 
-        info = _extract_plugin_info_static(py_file)
+        info, error = _extract_plugin_info_static(py_file)
+
+        # gettext returns the PO header for "", so translate only when the
+        # description is non-empty.
+        # gettext は "" に対して PO ヘッダを返すため、説明文が非空のときだけ
+        # 翻訳する。
+        description = info.get("description", "")
+        if isinstance(description, str) and description:
+            description = _(description)
+
+        # Optional "order" key: plugins with smaller numbers appear first;
+        # plugins without it keep filename order after the ordered ones.
+        # Unknown PLUGIN_INFO keys are ignored for forward compatibility.
+        # 任意キー "order": 小さい数値のプラグインほど先頭に並ぶ。未指定の
+        # プラグインは、指定済みの後ろにファイル名順で並ぶ。未知のキーは
+        # 前方互換のため無視する。
+        raw_order = info.get("order")
+        if isinstance(raw_order, (int, float)) and not isinstance(raw_order, bool):
+            order = float(raw_order)
+        else:
+            order = float("inf")
+
         plugins.append({
             "module": import_path,
             "name": info.get("name", module_name),
-            "description": _translate_plugin_metadata(info.get("description", "")),
+            "description": description,
+            "order": order,
+            # Non-empty when PLUGIN_INFO could not be read; shown on hover.
+            # PLUGIN_INFO が読めなかったとき非空。ホバー時に表示する。
+            "error": error,
         })
 
+    # Stable sort: equal "order" values (including unset) keep filename order.
+    # 安定ソート: "order" が同値（未指定含む）の場合はファイル名順を維持する。
+    plugins.sort(key=lambda p: p["order"])
     return plugins
 
 
@@ -659,6 +626,16 @@ class MainApp(tk.Tk):
             btn.grid(row=i, column=0, sticky="ew", pady=4, padx=6)
 
             desc = plugin.get("description", "") or "(no description)"
+            if plugin.get("error"):
+                # Surface broken plugin metadata loudly instead of showing a
+                # bare "(no description)" and hiding the cause.
+                # 壊れたプラグインメタデータは "(no description)" の裏に
+                # 原因を隠さず、明示的に表示する。
+                desc = (
+                    f"[PLUGIN_INFO error] {plugin['error']}\n\n"
+                    "The tool may still launch, but its launcher metadata "
+                    "could not be read. See README \"Adding a GUI Plugin\"."
+                )
             btn.bind("<Enter>", lambda _e, d=desc: self._set_message(d))
 
         self.scrollable.inner.grid_columnconfigure(0, weight=1)
