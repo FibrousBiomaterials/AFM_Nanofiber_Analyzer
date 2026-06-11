@@ -318,6 +318,27 @@ The build script generates a PyInstaller bundle under `dist/Main/` and copies
 the plugin/resource folders needed by the launcher. Distribute the entire
 `dist/Main/` folder, not only `Main.exe`.
 
+## Supported Input Formats
+
+`lib/afm_io.py` loads text/CSV height exports and auto-detects the header
+length, column count, and encoding (UTF-8, cp932/Shift-JIS, latin-1 fallback),
+so no import settings are required. Two layouts are recognized:
+
+| Layout | Typical source | Description |
+|---|---|---|
+| Multi-column | Shimadzu SPM-9600 | Comma-separated values, one row per scan line. Non-square scans are supported. |
+| Single-column | Bruker NanoScope | Text header lines (e.g. `Height(nm)`) followed by one value per line. The value count must be a perfect square; the data is reshaped to `(s, s)`. |
+
+Height values are interpreted as nanometers. The physical scan size is not
+read from the input file; pixel-to-physical scaling is configured in the GUIs.
+Sample scans are bundled under `testdata_tunicateCNF/` (Shimadzu) and
+`Bruker_testdata/` (one representative Bruker NanoScope export).
+
+Despite its instrument-specific name, `BG_Calibrator_shimadzu` implements
+general line-scan AFM background correction and is applied to both formats;
+the name records the instrument the methods were developed on and is kept for
+compatibility.
+
 ## Analysis Pipeline
 
 ```text

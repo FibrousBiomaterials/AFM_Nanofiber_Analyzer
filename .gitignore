@@ -49,6 +49,12 @@ guis/afmpp_settings.json
 92_run_from_anaconda.bat
 92_run_from_anaconda.sh
 
+# ===== Sample data =====
+# Bruker NanoScope sample scans are 33 MB each; only one representative file
+# is version-controlled to keep clone size reasonable.
+Bruker_testdata/*
+!Bruker_testdata/NDTOC250306.000.txt
+
 # ===== Analysis outputs =====
 # Exclude large or sensitive analysis results unless they are sample data
 # intentionally checked in under examples/.

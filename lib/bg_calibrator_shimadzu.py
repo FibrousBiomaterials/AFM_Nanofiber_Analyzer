@@ -7,6 +7,16 @@ fiber regions from background, reconstructs a smooth background surface, and
 subtracts it from the original image.
 このモジュールは、ライン間の高さ差を推定し、繊維候補領域を背景から分離し、
 平滑な背景面を再構成して元画像から減算する処理を提供する。
+
+The class name records the instrument the methods were developed on; the
+algorithms themselves are general line-scan AFM background corrections and
+are also used on data from other instruments (e.g. Bruker NanoScope text
+exports). The name is kept for backward compatibility with existing code
+and saved settings.
+クラス名は手法の開発対象となった装置に由来する歴史的な名称である。
+アルゴリズム自体はラインスキャン AFM 一般の背景補正であり、他装置
+（例: Bruker NanoScope のテキストエクスポート）のデータにも使用される。
+名称は既存コード・保存済み設定との互換性のため維持している。
 """
 
 import numpy as np

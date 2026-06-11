@@ -28,6 +28,12 @@ if str(PROJECT_ROOT) not in sys.path:
 # リポジトリに同梱された島津機の実測テストデータ。
 REAL_DATA = PROJECT_ROOT / "testdata_tunicateCNF" / "test_1.txt"
 
+# Representative Bruker NanoScope single-column export (one file is bundled;
+# the rest of the folder is gitignored for clone-size reasons).
+# 代表の Bruker NanoScope 1 列形式エクスポート（クローンサイズの都合で
+# このフォルダは 1 ファイルのみバージョン管理されている）。
+BRUKER_DATA = PROJECT_ROOT / "Bruker_testdata" / "NDTOC250306.000.txt"
+
 
 # The "slow" marker is registered in pyproject.toml [tool.pytest.ini_options].
 # "slow" マーカーは pyproject.toml の [tool.pytest.ini_options] で登録される。
