@@ -1,0 +1,402 @@
+# AFM Nanofiber Analyzer
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.xxxxxxx.svg)](https://doi.org/10.5281/zenodo.xxxxxxx)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+
+AFM Nanofiber Analyzer is a tkinter-based desktop toolkit for preprocessing
+atomic force microscopy (AFM) height images and inspecting nanofiber morphology.
+It provides a plugin launcher, a preprocessing pipeline, profile and histogram
+tools, and a fiber-tracking viewer for bundle files produced by the pipeline.
+
+## Overview
+
+The application separates GUI plugins from the reusable modules they call:
+
+- `Main.py` launches GUI plugins discovered in `guis/`.
+- `guis/` contains the user-facing tkinter tools.
+- `lib/` contains AFM I/O, background calibration, segmentation,
+  skeleton cleanup, kink detection, fiber containers, bundle I/O, translation,
+  and shared UI helpers.
+
+GUI01 writes one compressed `.b2z` bundle per analyzed input file. Downstream
+GUIs read those bundles directly instead of relying on many sidecar `.npy`
+files.
+
+## GUI Tools
+
+| File | Launcher name | Purpose |
+|---|---|---|
+| `guis/GUI01_Image_Preprocessor.py` | Image Preprocessor | Load raw AFM text data, run background calibration, segmentation, skeletonization, and kink-related feature extraction, then save a `.b2z` bundle and a parameter JSON file. |
+| `guis/GUI02_PlotProfiler.py` | Plot Profiler | Load raw, calibrated, or bundled AFM height data and interactively extract height profiles along selected line segments. |
+| `guis/GUI03_Fiber_Height_Histogram.py` | Fiber Height Histogram | Compare height distributions from skeletonized fiber pixels across user-defined groups of `.b2z` bundles. |
+| `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | Load `.b2z` bundles, rebuild tracked `Fiber` objects, inspect individual fibers, export plots, and export fiber statistics to CSV. |
+
+## Directory Structure
+
+```text
+AFM_Nanofiber_Analyzer/
+|-- Main.py
+|-- babel.cfg
+|-- build.py
+|-- check.py
+|-- requirements.txt
+|-- 01_setup_venv.bat
+|-- 02_run_from_venv.bat
+|-- 11_setup_conda_env.bat
+|-- 12_run_from_conda_env.bat
+|-- 91_setup_anaconda.bat
+|-- 92_run_from_anaconda.bat
+|-- 01_setup_venv.sh
+|-- 02_run_from_venv.sh
+|-- 11_setup_conda_env.sh
+|-- 12_run_from_conda_env.sh
+|-- 91_setup_anaconda.sh
+|-- 92_run_from_anaconda.sh
+|-- guis/
+|   |-- GUI01_Image_Preprocessor.py
+|   |-- GUI02_PlotProfiler.py
+|   |-- GUI03_Fiber_Height_Histogram.py
+|   |-- GUI04_Tracking_fiber.py
+|   `-- __init__.py
+|-- lib/
+|   |-- afm_io.py
+|   |-- bg_calibrator_shimadzu.py
+|   |-- blosc2_io.py
+|   |-- fiber.py
+|   |-- fiber_tracking_image.py
+|   |-- imp_tools.py
+|   |-- kink_detector.py
+|   |-- processed_image.py
+|   |-- segmenter.py
+|   |-- skeletonizer.py
+|   |-- translator.py
+|   |-- ui_tools.py
+|   `-- __init__.py
+|-- locale/
+|   `-- ja/
+|       `-- LC_MESSAGES/
+|-- assets/
+|   `-- afm_symbol.png
+`-- README.md
+```
+
+Windows `.bat` helper scripts are intentionally kept ASCII-only. Japanese
+comments in UTF-8 batch files can be misread by `cmd.exe` under the system code
+page and executed as garbled commands, so Japanese maintenance notes belong in
+Markdown documents such as `docs/maintainer-notes.ja.md`.
+
+## Core Modules
+
+| Module | Main contents |
+|---|---|
+| `lib/afm_io.py` | Text/CSV AFM loader with automatic header, column, and encoding detection. |
+| `lib/bg_calibrator_shimadzu.py` | `BG_Calibrator_shimadzu`, with `inpaint`, `tophat`, `spline1d`, and `spline2d` background methods. |
+| `lib/blosc2_io.py` | Blosc2 array storage and `.b2z` TreeStore bundle helpers. |
+| `lib/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |
+| `lib/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |
+| `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
+| `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
+| `lib/processed_image.py` | `ProcessedImage`, the container passed through the GUI01 preprocessing pipeline. |
+| `lib/segmenter.py` | `Segmenter`, which builds binary nanofiber masks from calibrated AFM images. |
+| `lib/skeletonizer.py` | `Skeletonizer`, which thins segmented masks, prunes branches, and labels skeleton components. |
+| `lib/translator.py` | gettext language selection helpers. |
+| `lib/ui_tools.py` | Shared tkinter, matplotlib, logging, dialog, and export helpers used by the GUI plugins. |
+
+## Requirements
+
+- Python 3.10 or later
+- Windows is the primary target platform
+
+Install the Python dependencies listed in `requirements.txt`:
+
+```text
+blosc2
+lmfit
+mahotas
+matplotlib
+numpy
+opencv-python
+pandas
+Pillow
+scikit-image
+scipy
+```
+
+`check.py` can regenerate `requirements.txt` by scanning imports in the source
+tree. PyInstaller is used only for standalone builds and is installed
+separately when building a distribution.
+
+## Installation and Usage
+
+Before running the helper scripts, install one of the following Python
+distributions:
+
+- Python 3.10 or later from <https://www.python.org/>
+- Anaconda or Miniconda from <https://www.anaconda.com/download> or
+  <https://docs.conda.io/en/latest/miniconda.html>
+
+### Recommended: use a dedicated venv
+
+Clone the repository, move into the project root, and run the venv helper
+scripts for your operating system. This is the recommended setup because it
+keeps AFM Nanofiber Analyzer dependencies separate from packages already
+installed in Anaconda or other Python environments.
+
+```powershell
+git clone https://github.com/<your-username>/afm-nanofiber-analyzer.git
+cd afm-nanofiber-analyzer
+```
+
+Windows:
+
+```powershell
+.\01_setup_venv.bat
+.\02_run_from_venv.bat
+```
+
+macOS or Linux:
+
+```bash
+chmod +x 01_setup_venv.sh 02_run_from_venv.sh
+./01_setup_venv.sh
+./02_run_from_venv.sh
+```
+
+The setup scripts regenerate `requirements.txt` with `check.py` and install the
+dependencies. The run scripts launch `Main.py` with the configured Python
+interpreter.
+
+### Anaconda or Miniconda
+
+Starting the application directly from an existing Anaconda `base` environment
+is not recommended. Pre-installed binary packages such as NumPy, Matplotlib,
+SciPy, and scikit-image may conflict with the versions required by this
+application.
+
+If you need to use Anaconda or Miniconda, use the conda environment helper
+scripts. They create a dedicated `afm-analyzer` environment and run the
+application from that environment instead of modifying `base`.
+
+Windows:
+
+```powershell
+.\11_setup_conda_env.bat
+.\12_run_from_conda_env.bat
+```
+
+macOS or Linux:
+
+```bash
+chmod +x 11_setup_conda_env.sh 12_run_from_conda_env.sh
+./11_setup_conda_env.sh
+./12_run_from_conda_env.sh
+```
+
+The `91_setup_anaconda.*` and `92_run_from_anaconda.*` scripts are kept for
+compatibility with older distributions, but they should not be used for new
+setups because they install into an existing Anaconda environment.
+
+### Localization
+
+The graphical interface uses Python's `gettext` system for operational UI
+strings such as menus, buttons, dialogs, status messages, and tooltips.
+Translation catalogs are stored under `locale/`, and language selection is
+handled by `lib/translator.py` using the configured environment and system
+locale.
+
+Scientific and reproducibility-oriented strings, including plot titles, axis
+labels, CSV headers, exported result labels, data keys, and units, are kept in
+English so analysis outputs remain consistent across languages.
+
+To refresh translation catalogs after editing user-facing strings or plugin
+descriptions, run:
+
+```powershell
+python prepare_translate_catalogs.py
+```
+
+This script extracts gettext messages, adds launcher descriptions from
+`PLUGIN_INFO["description"]`, updates the catalogs, and removes obsolete
+`#~` entries. It does not fill `msgstr` values automatically. Commit or back up
+catalogs first if you need to keep old obsolete translations for reference.
+
+After editing `messages.po`, review any `#, fuzzy` entries before distribution.
+Fuzzy entries are provisional Babel matches; confirm that the `msgid` and
+`msgstr` meanings match and that placeholders such as `{path}`, `%s`, `%d`, and
+`\n` are preserved. Remove the `#, fuzzy` line only after the translation is
+confirmed. Then compile the catalogs:
+
+Do not add `\n` in the middle of a translated sentence only to tune visual line
+wrapping. Different languages wrap at different positions, so the UI should
+handle wrapping. Use explicit line breaks only when the text needs a meaningful
+paragraph or line break in the interface.
+
+```powershell
+pybabel compile -d locale
+```
+
+### Manual setup from source
+
+```powershell
+git clone https://github.com/<your-username>/afm-nanofiber-analyzer.git
+cd afm-nanofiber-analyzer
+
+py -3.12 -m venv .venv
+.\.venv\Scripts\activate
+
+python -m pip install -U pip
+python -m pip install -r requirements.txt
+
+python Main.py
+```
+
+### Build a standalone Windows bundle
+
+Install PyInstaller before running the build script:
+
+```powershell
+python -m pip install pyinstaller
+```
+
+```powershell
+python build.py
+```
+
+The build script generates a PyInstaller bundle under `dist/Main/` and copies
+the plugin/resource folders needed by the launcher. Distribute the entire
+`dist/Main/` folder, not only `Main.exe`.
+
+## Analysis Pipeline
+
+```text
+Raw AFM text/CSV input
+        |
+        v
+GUI01 Image Preprocessor
+        |
+        |-- afm_io.load_afm_text()
+        |-- BG_Calibrator_shimadzu
+        |-- Segmenter
+        |-- Skeletonizer
+        |-- KinkDetector
+        |
+        v
+<input_stem>.b2z      compressed TreeStore bundle
+<input_stem>_param.json
+        |
+        +-- GUI02 Plot Profiler
+        +-- GUI03 Fiber Height Histogram
+        `-- GUI04 Fiber Tracker
+```
+
+The preprocessing parameters are stored in the generated
+`<input_stem>_param.json` file. They cover background calibration, segmentation,
+skeletonization, and kink detection settings, including options such as
+background method, threshold values, branch pruning length, and kink angle
+threshold.
+
+## Data Format
+
+The current analysis output is a single `.b2z` bundle per input file. Bundles
+are written by `lib/blosc2_io.py` using `blosc2.TreeStore`.
+
+GUI01 writes these array keys:
+
+| Key | Content |
+|---|---|
+| `calibrated` | Background-corrected AFM height image. |
+| `binarized` | Binary nanofiber mask. |
+| `skeletonized` | Skeletonized fiber image. |
+| `bp` | Branch-point mask. |
+| `ep` | Endpoint mask. |
+| `kp` | Kink coordinates as a `(2, N)` array. |
+| `dp` | Decomposition-point coordinates as a `(2, N)` array. |
+| `ka` | Kink angles in radians. |
+
+GUI01 also writes `<input_stem>_param.json` for analysis parameters. The raw
+AFM image is not duplicated in the bundle because it can be reloaded from the
+source text file.
+
+## Adding a GUI Plugin
+
+1. Add a Python file under `guis/`.
+2. Define a literal `PLUGIN_INFO` dictionary near the top of the file.
+3. Define a typed `main() -> None` entry point.
+
+Example:
+
+```python
+PLUGIN_INFO = {
+    "name": "My Tool",
+    "description": "Short launcher-facing description.",
+}
+
+
+class App(tk.Tk):
+    ...
+
+
+def main() -> None:
+    app = App()
+    app.mainloop()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+`Main.py` discovers plugin files automatically. `PLUGIN_INFO` values must remain
+plain literals because the launcher reads them with `ast.literal_eval()`.
+Plugin names are shown as fixed English strings. Plugin descriptions are also
+plain literals in the plugin file, but `Main.py` passes them through gettext
+after AST parsing so they can be translated through the locale catalogs.
+Do not insert `\n` in `PLUGIN_INFO["description"]` only to tune launcher line
+wrapping. Keep the description as natural text; the launcher UI is responsible
+for wrapping it. Splitting the Python string literal across source lines is fine
+as long as it does not add an actual newline to the value.
+When changing `PLUGIN_INFO["description"]`, refresh the translation catalogs so
+the corresponding `msgid` is available to translators.
+
+## Development Utilities
+
+- `check.py` scans Python imports and writes `requirements.txt`.
+- `build.py` verifies imports, collects PyInstaller materials, writes
+  `Main.auto.spec`, runs PyInstaller, and copies project resource folders.
+- `Main.py --warmup` imports selected heavy modules to warm startup caches in
+  frozen builds.
+- `prepare_translate_catalogs.py` refreshes gettext catalogs, extracts plugin
+  descriptions, and removes obsolete translation entries.
+
+## Citation
+
+If you use this software in your research, please cite it as:
+
+```bibtex
+@software{afm_nanofiber_analyzer,
+  author    = {[Author Names]},
+  title     = {AFM Nanofiber Analyzer},
+  year      = {2025},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.xxxxxxx},
+  url       = {https://github.com/<your-username>/afm-nanofiber-analyzer}
+}
+```
+
+## Authors
+
+| Role | Name |
+|---|---|
+| Analysis algorithms and AFM-domain methods | [KK], [IT] |
+| GUI and application packaging | [KS] |
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for
+details.
+
+## Acknowledgements
+
+The background calibration workflow includes methods developed for Shimadzu
+SPM-9600 AFM data. Related AFM image-processing work is available at
+<https://github.com/terio0819/Image-processing-of-AFM-image>.
