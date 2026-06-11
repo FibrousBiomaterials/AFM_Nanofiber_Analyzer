@@ -71,6 +71,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- fiber_tracking_image.py
 |   |-- imp_tools.py
 |   |-- kink_detector.py
+|   |-- measure.py
 |   |-- pipeline.py
 |   |-- processed_image.py
 |   |-- segmenter.py
@@ -103,6 +104,7 @@ Markdown documents such as `docs/maintainer-notes.ja.md`.
 | `lib/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |
 | `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
 | `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
+| `lib/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
 | `lib/pipeline.py` | `ProcParams` parameter schema, `.b2z` key contract, and `process_file`, the GUI-independent pipeline driver shared by GUI01 and `cli.py`. |
 | `lib/processed_image.py` | `ProcessedImage`, the container passed through the GUI01 preprocessing pipeline. |
 | `lib/segmenter.py` | `Segmenter`, which builds binary nanofiber masks from calibrated AFM images. |
@@ -388,6 +390,31 @@ python cli.py process scan.txt --params my_param.json --output-dir results --ove
 the input file unless `--output-dir` is given. Inputs whose outputs already
 exist are skipped unless `--overwrite` is passed. `--save-original` embeds the
 raw height image in the bundle under the `original` key.
+
+### Command-line fiber measurement
+
+The fiber-level measurements shown by GUI03 and GUI04 are also available from
+the command line through `lib.measure` — the identical code path used by the
+GUIs — so the statistics CSV produced by `measure` is byte-identical to the
+GUI04 export for the same bundle and scale.
+
+```powershell
+# Per-fiber statistics (length, height median/max, endpoints, kinks).
+# The physical image size in micrometers must be given explicitly because
+# the scan size is not stored in the bundle.
+python cli.py measure results\*.b2z --scale-um 2.0
+python cli.py measure results --scale-um 2.0 --output-dir stats
+
+# Skeleton-pixel heights (the data behind the GUI03 height histogram).
+python cli.py heights results --output heights.csv
+```
+
+`measure` writes one `<stem>_fibers.csv` per bundle with columns `index`,
+`length_nm`, `height_median_nm`, `height_max_nm`, `ep_count`, `kink_count`,
+and `kink_angles_deg` (semicolon-separated degrees). `heights` prints a
+per-bundle summary and optionally writes a long-format CSV (`bundle`,
+`height_nm`) for regrouping and re-binning in external tools. Folder
+arguments expand to all bundles directly inside the folder.
 
 ### Running tests
 

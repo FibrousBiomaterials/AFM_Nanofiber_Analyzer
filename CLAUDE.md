@@ -773,6 +773,7 @@ all call sites in `guis/`, `Main.py`, and `lib/` imports.
 | `fiber_tracking_image.py` | `FiberTrackingImage` | GUI04 data container; builds `Fiber` instances from a `.b2z` bundle. |
 | `imp_tools.py` | `branchedPoints`, `endPoints`, `tracking`, `convert_track_to_distance` | |
 | `kink_detector.py` | `KinkDetector` | |
+| `measure.py` | `FiberStats`, `MeasureResult`, `compute_fiber_stats`, `load_tracking_image`, `measure_bundle`, `write_fiber_csv`, `all_pixel_height`, `skeleton_height_values`, `write_heights_csv`, `TRACKING_BUNDLE_KEYS`, `FIBER_CSV_COLUMNS` | GUI-independent fiber measurement shared by GUI03, GUI04, and `cli.py measure` / `heights`; keeps GUI and CLI statistics identical. |
 | `processed_image.py` | `ProcessedImage` | Image and result container for the GUI01 pipeline. |
 | `segmenter.py` | `Segmenter` | |
 | `skeletonizer.py` | `Skeletonizer` | |

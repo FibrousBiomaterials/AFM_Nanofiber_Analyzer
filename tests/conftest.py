@@ -39,11 +39,15 @@ BRUKER_DATA = PROJECT_ROOT / "Bruker_testdata" / "NDTOC250306.000.txt"
 # "slow" マーカーは pyproject.toml の [tool.pytest.ini_options] で登録される。
 
 
-@pytest.fixture
-def synthetic_fiber_txt(tmp_path):
+def write_synthetic_fiber_txt(out_dir) -> str:
     """
     Write a synthetic AFM text image containing one bent fiber.
     折れ曲がった繊維 1 本を含む合成 AFM テキスト画像を書き出す。
+
+    Shared by the function-scoped fixture below and by module-scoped fixtures
+    in individual test files that want to run the pipeline only once.
+    下の関数スコープのフィクスチャと、パイプラインを 1 回だけ実行したい
+    各テストファイルのモジュールスコープのフィクスチャから共用する。
 
     Returns
     -------
@@ -72,6 +76,15 @@ def synthetic_fiber_txt(tmp_path):
     background = 2.0 * xx / 191 + 1.0 * yy / 191
     image = fiber + background + rng.normal(0.0, 0.05, fiber.shape)
 
-    path = os.path.join(tmp_path, "synthetic_fiber.txt")
+    path = os.path.join(out_dir, "synthetic_fiber.txt")
     np.savetxt(path, image, delimiter=",", fmt="%.4f")
     return path
+
+
+@pytest.fixture
+def synthetic_fiber_txt(tmp_path):
+    """
+    Function-scoped path to the synthetic bent-fiber text image.
+    合成の折れ繊維テキスト画像への関数スコープのパス。
+    """
+    return write_synthetic_fiber_txt(tmp_path)

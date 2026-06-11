@@ -70,6 +70,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- fiber_tracking_image.py
 |   |-- imp_tools.py
 |   |-- kink_detector.py
+|   |-- measure.py
 |   |-- pipeline.py
 |   |-- processed_image.py
 |   |-- segmenter.py
@@ -103,6 +104,7 @@ Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにして
 | `lib/fiber_tracking_image.py` | GUI04 が GUI01 のバンドル出力からファイバーを再構築・追跡するための `FiberTrackingImage`。 |
 | `lib/imp_tools.py` | スケルトン形態処理、端点・分岐点検出、線追跡、経路距離変換のヘルパー。 |
 | `lib/kink_detector.py` | 追跡されたスケルトン成分からキンク点を検出する `KinkDetector`。 |
+| `lib/measure.py` | `.b2z` バンドルに対する GUI 非依存のファイバー計測。`measure_bundle`、ファイバーごとの `FiberStats`、スケルトン画素高さの収集、および GUI03/GUI04 と `cli.py` が共有する CSV 書き出し。 |
 | `lib/pipeline.py` | `ProcParams` パラメータスキーマ、`.b2z` キー契約、および GUI01 と `cli.py` が共有する GUI 非依存のパイプライン駆動関数 `process_file`。 |
 | `lib/processed_image.py` | GUI01 の前処理パイプラインで使う `ProcessedImage` コンテナ。 |
 | `lib/segmenter.py` | 背景補正済み AFM 画像からナノファイバー二値マスクを作成する `Segmenter`。 |
@@ -384,6 +386,32 @@ python cli.py process scan.txt --params my_param.json --output-dir results --ove
 出力が既に存在する入力は、`--overwrite` を付けない限りスキップされます。
 `--save-original` を付けると、元の高さ画像が `original` キーとしてバンドルに
 同梱されます。
+
+### コマンドラインでのファイバー計測
+
+GUI03 と GUI04 が表示するファイバー単位の計測値も、GUI と同一のコードパスで
+ある `lib.measure` を通じてコマンドラインから取得できます。そのため `measure`
+が出力する統計 CSV は、同じバンドルとスケールに対する GUI04 のエクスポートと
+バイト単位で一致します。
+
+```powershell
+# ファイバーごとの統計値（長さ、高さ中央値/最大値、端点数、キンク数）。
+# 走査範囲はバンドルに保存されていないため、画像の物理サイズ (µm) を
+# 明示的に指定する必要があります。
+python cli.py measure results\*.b2z --scale-um 2.0
+python cli.py measure results --scale-um 2.0 --output-dir stats
+
+# スケルトン画素の高さ値（GUI03 の高さヒストグラムの元データ）。
+python cli.py heights results --output heights.csv
+```
+
+`measure` はバンドル 1 件につき `<stem>_fibers.csv` を 1 つ書き出します。列は
+`index`、`length_nm`、`height_median_nm`、`height_max_nm`、`ep_count`、
+`kink_count`、`kink_angles_deg`（セミコロン区切りの度数値）です。`heights` は
+バンドルごとの要約を表示し、`--output` を付けると縦持ち形式の CSV
+（`bundle`、`height_nm`）を書き出して、外部ツールでの再グループ化・再ビニング
+に利用できます。フォルダを引数に渡すと、フォルダ直下の全バンドルに展開され
+ます。
 
 ### テストの実行
 

@@ -49,7 +49,12 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # ===== Project libraries =====
-from lib.blosc2_io import load_bundle, BUNDLE_EXT
+from lib.blosc2_io import BUNDLE_EXT
+# all_pixel_height moved to lib.measure; re-imported here so existing callers
+# of this module keep working.
+# all_pixel_height は lib.measure へ移設。本モジュールの既存利用側が動き続ける
+# よう、ここで再インポートする。
+from lib.measure import all_pixel_height, skeleton_height_values
 from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, setup_matplotlib_style, save_figure_with_dialog,
@@ -154,37 +159,6 @@ class Group:
         このグループが持つ警告または欠損メッセージの総数を返す。
         """
         return sum(len(self.folder_pairinfo.get(p, {}).get("missing", [])) for p in self.folder_paths)
-
-
-def all_pixel_height(calimage_list, sklimage_list):
-    """
-    Collect calibrated height values at skeletonized fiber pixels.
-    細線化された繊維画素位置の補正済み高さ値を収集する。
-
-    Parameters
-    ----------
-    calimage_list
-        Calibrated AFM height images whose values are sampled.
-        サンプリング対象となる補正済み AFM 高さ画像。
-    sklimage_list
-        Skeletonized masks; nonzero pixels mark fiber centerlines.
-        非ゼロ画素が繊維中心線を表す細線化マスク。
-
-    Returns
-    -------
-    list
-        Height values sampled from the calibrated images.
-        補正済み画像からサンプリングされた高さ値。
-
-    Notes
-    -----
-    The sampled values come from calibrated images, not from the raw AFM input.
-    サンプリング値は元の AFM 入力ではなく、補正済み画像から取得する。
-    """
-    all_height = []
-    for calimage, sklimage in zip(calimage_list, sklimage_list):
-        all_height.extend(calimage[np.where(sklimage)])
-    return all_height
 
 
 class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
@@ -1347,29 +1321,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     )
                     continue
 
-                calimage_list = []
-                sklimage_list = []
-
-                for cal_path, _skl_path in pairs:
-                    base = os.path.basename(cal_path)[:-len(self.BUNDLE_SUFFIX)]
-                    try:
-                        bundle = load_bundle(cal_path, keys=[self.CAL_KEY, self.SKL_KEY])
-                        calimage_list.append(bundle[self.CAL_KEY])
-                        sklimage_list.append(bundle[self.SKL_KEY])
-                    except Exception as e:
-                        errors.append(
-                            _("[{grp}/{folder}] 読込失敗: {base} ({err})").format(
-                                grp=grp_name, folder=folder_name, base=base, err=e
-                            )
-                        )
-                        continue
-
-                if not calimage_list:
-                    continue
-
+                # Loading and height collection are delegated to lib.measure,
+                # the same code path as `cli.py heights`. Per-bundle load
+                # errors come back as fixed English strings and are wrapped
+                # in translated group/folder context here.
+                # 読み込みと高さ収集は `cli.py heights` と同一経路の lib.measure
+                # へ委譲する。バンドルごとの読込エラーは固定英語文字列で返り、
+                # ここで翻訳済みのグループ/フォルダ文脈を付けて表示する。
+                bundle_paths = [cal_path for cal_path, _skl_path in pairs]
                 try:
-                    heights = all_pixel_height(calimage_list, sklimage_list)
-                    grp_heights.extend(heights)
+                    heights, load_errors = skeleton_height_values(bundle_paths)
                 except Exception as e:
                     errors.append(
                         _("[{grp}/{folder}] 高さ抽出に失敗: {err}").format(
@@ -1377,6 +1338,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         )
                     )
                     continue
+
+                for failed_path, msg in load_errors:
+                    base = os.path.basename(failed_path)[:-len(self.BUNDLE_SUFFIX)]
+                    errors.append(
+                        _("[{grp}/{folder}] 読込失敗: {base} ({err})").format(
+                            grp=grp_name, folder=folder_name, base=base, err=msg
+                        )
+                    )
+
+                grp_heights.extend(heights.tolist())
 
             if len(grp_heights) == 0:
                 errors.append(

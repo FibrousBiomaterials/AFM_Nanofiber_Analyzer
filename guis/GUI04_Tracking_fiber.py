@@ -44,7 +44,6 @@ PLUGIN_INFO = {
 
 # ===== Standard library =====
 import os
-import csv
 import math
 import traceback
 import queue
@@ -71,7 +70,11 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # lib/ フォルダ内の各モジュールをインポートする。これらが AFM 画像処理の本体。
 from lib.fiber_tracking_image import FiberTrackingImage
 from lib.fiber import Fiber
-from lib.blosc2_io import load_bundle, bundle_has_keys, BUNDLE_EXT
+from lib.blosc2_io import bundle_has_keys, BUNDLE_EXT
+from lib.measure import (
+    TRACKING_BUNDLE_KEYS, compute_fiber_stats, load_tracking_image,
+    measure_bundle, write_fiber_csv,
+)
 from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, setup_matplotlib_style, save_figure_with_dialog, ToolTip,
@@ -89,10 +92,9 @@ from lib.ui_tools import (
 # GUI01 が出力するバンドル内に含まれるべきキー（存在チェックに使用）。
 # A .b2z bundle is treated as analyzed data only when all keys are present.
 # .b2z バンドル内にこれら全てが揃っていれば解析済みデータとして扱う。
-REQUIRED_BUNDLE_KEYS = [
-    "calibrated", "skeletonized",
-    "bp", "ep", "kp", "dp", "ka",
-]
+# The key list is owned by lib.measure so the CLI and this GUI stay in sync.
+# キー一覧は lib.measure が管理し、CLI と本 GUI の整合を保つ。
+REQUIRED_BUNDLE_KEYS = TRACKING_BUNDLE_KEYS
 
 DEFAULT_HEIGHT_YLIM:           float = 20.0
 # The full image size is entered in micrometers and converted to nanometers internally.
@@ -188,37 +190,15 @@ def build_processed_image(stem: str, size_per_pixel: float) -> FiberTrackingImag
     Notes
     -----
     This loader restores precomputed arrays and does not rerun the lib
-    processing modules such as ``BG_Calibrator``.
+    processing modules such as ``BG_Calibrator``. The loading logic lives in
+    `lib.measure.load_tracking_image`; this wrapper keeps the historical
+    stem-based signature for existing callers.
     事前計算済み配列を復元するだけで、``BG_Calibrator`` などの lib
-    処理モジュールは再実行しない。
+    処理モジュールは再実行しない。読み込み処理本体は
+    `lib.measure.load_tracking_image` にあり、このラッパーは既存呼び出し元の
+    ための stem ベースの従来シグネチャを維持する。
     """
-    # Load all required bundle keys in one call so the dataset is reconstructed atomically.
-    # データセットを一貫して再構築できるよう、必要キーを 1 回でまとめて読み込む。
-    data = load_bundle(stem + BUNDLE_EXT, keys=REQUIRED_BUNDLE_KEYS)
-
-    cal = data["calibrated"]
-    skl = data["skeletonized"].astype(np.uint8)
-    bp  = data["bp"].astype(np.uint8)
-    ep  = data["ep"].astype(np.uint8)
-    kp  = data["kp"]   # shape (2, N)
-    dp  = data["dp"]   # shape (2, N)
-    ka  = data["ka"]   # shape (N,)
-
-    image = FiberTrackingImage(
-        original_AFM=cal,
-        name=os.path.basename(stem),
-        size_per_pixel=size_per_pixel,
-    )
-    # Assign GUI01 analysis outputs directly to the tracking image attributes.
-    # GUI01 の解析結果を属性に直接代入する。
-    image.calibrated_image             = cal
-    image.skeleton_image               = skl
-    image.bp                           = bp
-    image.ep                           = ep
-    image.all_kink_coordinates         = (kp[0], kp[1])
-    image.decomposed_point_coordinates = dp
-    image.all_kink_angles              = ka
-    return image
+    return load_tracking_image(stem + BUNDLE_EXT, size_per_pixel)
 
 
 # ===== Main window =====
@@ -1020,10 +1000,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # スケールは内部状態（確定済み値）を参照する。
             # While the Entry is unconfirmed, the committed value remains active until Enter.
         # 入力欄が未確定（青色）の間は古い内部値が使われ、Enter 確定後に反映される。
-        # The analysis pipeline uses nanometers, so convert micrometers here.
-        # 解析パイプライン内部では nm 単位を使うため、ここで µm → nm 換算する。
         scale_um = self.scale_um
-        scale_nm = self._get_scale_nm()
+        # measure_bundle takes micrometers. Derive the worker value from
+        # _get_scale_nm() to keep its non-positive-input fallback semantics.
+        # measure_bundle は µm 単位を受け取る。非正値入力時のフォールバック挙動を
+        # 維持するため、ワーカーへ渡す値は _get_scale_nm() から導出する。
+        worker_scale_um = self._get_scale_nm() / 1000.0
 
         self._loaded_scale_um = scale_um
         self._log(
@@ -1034,30 +1016,22 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._set_ui_enabled(False)
         self._show_progress(_("ファイル読み込み中..."), 0)
 
-        def _worker(stem=stem, scale_nm=scale_nm):
+        def _worker(stem=stem, scale_um=worker_scale_um):
             """
             Load one bundle and run fiber analysis off the Tk main thread.
             Tk メインスレッド外で 1 つのバンドル読み込みとファイバー解析を実行する。
+
+            Loading, tracing, and statistics are delegated to
+            `lib.measure.measure_bundle`, the same code path as `cli.py
+            measure`, so GUI and CLI results are identical.
+            読み込み・追跡・統計は `cli.py measure` と同一経路の
+            `lib.measure.measure_bundle` へ委譲し、GUI と CLI の結果を一致させる。
             """
             try:
-                # Load only calibrated here to get image dimensions for size_per_pixel.
-                # 画像ピクセル数を取得して size_per_pixel を決定する。
-                # build_processed_image loads the full bundle later.
-                # バンドルからの calibrated 読み込みは build_processed_image 内で行うため、
-                # this branch performs a partial load for dimensions only.
-                # ここではサイズ取得のために部分ロード（calibrated キーのみ）する。
-                cal_tmp = load_bundle(stem + BUNDLE_EXT, keys=["calibrated"])["calibrated"]
-                px = max(cal_tmp.shape[0], cal_tmp.shape[1])
-                size_per_pixel = scale_nm / px
-
-                image = build_processed_image(stem, size_per_pixel)
-
-                # Always run fiber analysis in ThreadPoolExecutor.
-                # ファイバー解析は常に並列処理 (ThreadPoolExecutor) で実行する。
-                # The overhead is negligible for small sets and beneficial for large sets.
-                # 少数本でもオーバーヘッドはほぼ無く、多数本では確実に高速化されるため、
-                # so there is no sequential/parallel threshold switch.
-                # 閾値による逐次/並列の切替は行わない。
+                # Fiber analysis always runs in a ThreadPoolExecutor inside
+                # measure_bundle; the overhead is negligible for small sets.
+                # ファイバー解析は measure_bundle 内で常に ThreadPoolExecutor に
+                # より並列実行される。少数本でもオーバーヘッドはほぼ無い。
                 self.ui_queue.put(("log", _("ファイバー解析を開始 (並列処理)...")))
 
                 _last_pct_ref = [-1]
@@ -1071,18 +1045,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         _last_pct_ref[0] = pct
                         self.ui_queue.put(("progress", (done, total)))
 
-                fibers = image.fibers_in_image_parallel(
-                    max_workers=None,
+                result = measure_bundle(
+                    stem + BUNDLE_EXT,
+                    scale_um=scale_um,
                     progress_cb=_progress,
                 )
+                image, fibers = result.image, result.fibers
 
-                # Precompute statistics for table rebuilds.
+                # Precompute (median, max) pairs for table rebuilds.
+                # テーブル再構築用に (中央値, 最大値) ペアを事前計算しておく。
                 stats = [
-                    (
-                        float(np.median(f.height)) if len(f.height) > 0 else 0.0,
-                        float(np.max(f.height))    if len(f.height) > 0 else 0.0,
-                    )
-                    for f in fibers
+                    (s.height_median_nm, s.height_max_nm) for s in result.stats
                 ]
                 self.ui_queue.put(("file_loaded", (stem, image, fibers, stats)))
             except Exception:
@@ -1158,13 +1131,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Use direct index lookup when no filter is active and the cache is valid.
         # フィルターなし かつ キャッシュが有効な場合はインデックスで直接参照する。
         use_cache = (not self._filter_active) and len(self._fiber_stats) == len(fibers)
+        if not use_cache:
+            # Recompute through lib.measure so filtered rows use the same
+            # statistic definitions as the worker and the CSV export.
+            # フィルター後の行もワーカー・CSV 出力と同じ統計定義になるよう、
+            # lib.measure 経由で再計算する。
+            fresh = [
+                (s.height_median_nm, s.height_max_nm)
+                for s in compute_fiber_stats(fibers)
+            ]
 
         for i, f in enumerate(fibers):
-            if use_cache:
-                med, mx = self._fiber_stats[i]
-            else:
-                med = float(np.median(f.height)) if len(f.height) > 0 else 0.0
-                mx  = float(np.max(f.height))    if len(f.height) > 0 else 0.0
+            med, mx = self._fiber_stats[i] if use_cache else fresh[i]
             self.fiber_tree.insert("", "end", iid=str(i), values=(
                 i,
                 f"{f.length:.0f}",
@@ -1724,23 +1702,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         name = self.current_image.name
         def _write_csv(path):
-            with open(path, "w", newline="", encoding="utf-8-sig") as f:
-                writer = csv.writer(f)
-                writer.writerow(["index", "length_nm", "height_median_nm", "height_max_nm",
-                                 "ep_count", "kink_count", "kink_angles_deg"])
-                for i, fib in enumerate(fibers):
-                    med    = float(np.median(fib.height)) if len(fib.height) > 0 else 0.0
-                    mx     = float(np.max(fib.height))    if len(fib.height) > 0 else 0.0
-                    angles = [round(float(a) * 180.0 / np.pi, 1) for a in fib.kink_angles]
-                    writer.writerow([
-                        i,
-                        f"{fib.length:.1f}",
-                        f"{med:.3f}",
-                        f"{mx:.3f}",
-                        len(fib.ep_indices),
-                        len(fib.kink_indices),
-                        ";".join(f"{a:.1f}" for a in angles),
-                    ])
+            # Columns and formatting are owned by lib.measure, so this export
+            # stays byte-identical to the `cli.py measure` output.
+            # 列と書式は lib.measure が管理しており、このエクスポートは
+            # `cli.py measure` の出力とバイト単位で一致する。
+            write_fiber_csv(path, compute_fiber_stats(fibers))
 
         save_csv_with_dialog(
             self,
