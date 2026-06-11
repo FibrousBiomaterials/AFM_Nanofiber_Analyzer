@@ -30,7 +30,6 @@ import os
 
 # ===== Numerical / scientific libraries =====
 import numpy as np
-import pandas as pd
 from skimage.measure import profile_line
 
 # ===== GUI libraries =====
@@ -1786,6 +1785,10 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         Export the current height profile to CSV.
         現在の高さプロファイルを CSV に出力する。
         """
+        # Local import: pandas is used only for this CSV export and costs
+        # about 1 s to import, so it is kept out of GUI startup.
+        import pandas as pd
+
         filename = os.path.splitext(os.path.basename(self.path))[0]
         def _write_csv(path):
             # CSV is exported with the displayed unit so the file contents match

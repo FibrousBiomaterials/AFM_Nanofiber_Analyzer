@@ -1,0 +1,78 @@
+# Packaging metadata for AFM Nanofiber Analyzer.
+#
+# Scope: this configuration targets a development / editable install
+# (`pip install -e .`) so the launcher, GUIs, CLI, and tests run from a
+# checkout with declared dependencies. End-user distribution remains the
+# PyInstaller bundle produced by build.py (see README). The historical
+# top-level package names `lib` and `guis` are kept for compatibility with
+# the launcher and frozen builds, so a non-editable site-packages install
+# is not supported.
+#
+# 本設定は開発用の editable インストール（`pip install -e .`）を対象とする。
+# エンドユーザー向け配布は従来どおり build.py が生成する PyInstaller
+# バンドルである。トップレベルパッケージ名 `lib` / `guis` はランチャーと
+# 凍結ビルドとの互換のため維持しており、site-packages への通常インストール
+# は対象外。
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "afm-nanofiber-analyzer"
+version = "1.0.0"
+description = "GUI toolkit and CLI for preprocessing AFM height images and analyzing nanofiber morphology"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    { name = "Kayoko Kobayashi" },
+    { name = "Tomoki Ito" },
+    { name = "Shingo Kiyoto" },
+]
+keywords = [
+    "AFM",
+    "atomic force microscopy",
+    "nanofiber",
+    "image analysis",
+    "skeletonization",
+]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+# Loose runtime requirements; the verified snapshot is requirements.lock.txt.
+# 実行時依存の緩い指定。検証済みスナップショットは requirements.lock.txt。
+dependencies = [
+    "blosc2",
+    "lmfit",
+    "mahotas",
+    "matplotlib",
+    "numpy",
+    "opencv-python",
+    "pandas",
+    "Pillow",
+    "scikit-image",
+    "scipy",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.urls]
+Repository = "https://github.com/q9-droid/AFM_Nanofiber_Analyzer"
+
+[project.scripts]
+afm-analyzer = "Main:main"
+afm-analyzer-cli = "cli:main"
+
+[tool.setuptools]
+packages = ["lib", "guis"]
+py-modules = ["Main", "cli"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: integration tests that process full-size real scans",
+]

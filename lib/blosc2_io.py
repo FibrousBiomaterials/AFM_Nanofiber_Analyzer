@@ -64,7 +64,14 @@ def save_blosc2(path: str, x: np.ndarray) -> None:
     # Empty arrays must bypass blosc2 packer due to known crash behavior.
     # 既知のクラッシュ挙動があるため、空配列は blosc2 圧縮を回避する。
     if x.size == 0:
-        np.save(path, x)
+        # Write through an open file handle: np.save(path, ...) appends ".npy"
+        # when the path has another extension, which would desynchronize the
+        # saved filename from the one load_blosc2 reads.
+        # ファイルハンドル経由で書き込む。np.save(path, ...) はパスが別の拡張子
+        # のとき ".npy" を自動付加するため、load_blosc2 が読むファイル名と
+        # ずれてしまう。
+        with open(path, "wb") as f:
+            np.save(f, x)
         return
     with open(path, "wb") as f:
         f.write(blosc2.pack_array2(x))

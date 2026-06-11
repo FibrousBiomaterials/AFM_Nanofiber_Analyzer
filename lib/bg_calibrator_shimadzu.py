@@ -11,7 +11,6 @@ subtracts it from the original image.
 
 import numpy as np
 import cv2
-from lmfit.models import GaussianModel, PolynomialModel
 from scipy import interpolate, signal
 
 from .processed_image import ProcessedImage
@@ -1072,11 +1071,17 @@ class BG_Calibrator_shimadzu:
         The Gaussian center/sigma are later used as robust thresholds in `_dif_sep`.
         ここで得たガウス中心値とシグマは、後段 `_dif_sep` のしきい値に使われる。
         """
+        # Local import: lmfit takes ~3 s to import and is used only by this
+        # histogram fit, so loading it here keeps GUI and CLI startup fast.
+        # lmfit は import に約 3 秒かかり、このヒストグラムフィットでしか
+        # 使わないため、ここで読み込んで GUI / CLI の起動を速く保つ。
+        from lmfit.models import GaussianModel, PolynomialModel
+
         histx = np.histogram(np.ravel(dif_x), bins=bin_n)
         histy = np.histogram(np.ravel(dif_y), bins=bin_n)
         h_arrayx = (histx[1][1:] + histx[1][:-1]) / 2
         h_arrayy = (histy[1][1:] + histy[1][:-1]) / 2
-    
+
         bg = PolynomialModel(prefix='bg_', degree=1)
         pV1 = GaussianModel(prefix='pv1_')
         model = pV1 + bg

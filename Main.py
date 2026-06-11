@@ -8,9 +8,6 @@ Multi-entry design:
 
     - no subcommand           -> launch the main launcher GUI
                                  ランチャー GUI を起動する（通常モード）
-    - `--warmup`              -> import PRELOAD_LIBS and exit immediately
-                                 PRELOAD_LIBS を import して即終了する
-                                 （OS ページキャッシュ温め専用の子プロセス）
     - `--run-plugin <path>`   -> import the plugin module and call its main()
                                  指定プラグインを import して main() を呼ぶ
                                  （ランチャーから分離起動されたプラグイン）
@@ -24,13 +21,14 @@ Multi-entry design:
   自分自身のランチャーを再起動してしまいフォークボム化する。
   サブコマンド方式にすることでこの問題を回避している。
 
-Startup acceleration strategy:
-  (A) Preload heavy libraries in a background thread right after launch.
-      起動直後にバックグラウンドスレッドで重いライブラリを先読みする。
-  (B) Fire a throwaway `--warmup` subprocess on launch to additionally
-      warm the OS page cache from the child-process side.
-      加えて `--warmup` 付きの使い捨てサブプロセスを1回だけ起動し、
-      子プロセス側から見たページキャッシュも温めておく。
+Plugin startup:
+  `--run-plugin` shows a splash window while a worker thread imports the
+  plugin module. Heavy libraries are pulled in transitively by that single
+  import, so each plugin pays only for the libraries it actually uses.
+  `--run-plugin` はスプラッシュウィンドウを表示しつつ、ワーカースレッドで
+  プラグインモジュールを import する。重いライブラリはこの 1 回の import で
+  推移的に読み込まれるため、各プラグインは実際に使うライブラリの分だけ
+  起動コストを払う。
 """
 
 import sys
@@ -81,102 +79,6 @@ MSG_HOVER_IDLE = (
 )
 _PO_TRANSLATION_CACHE: dict[str, dict[str, str]] = {}
 
-# Libraries to preload. Keep this list in sync with what plugins import.
-# 事前ロード対象ライブラリ。プラグインが import するものと同期を保つ。
-#
-# Submodule names (e.g. "matplotlib.pyplot", "scipy.ndimage") are included
-# explicitly so that the full import chain up to those submodules is executed
-# during warmup. Importing only the top-level package does NOT pull in heavy
-# submodules like pyplot, so naming them here matters for real wall-clock gain.
-# サブモジュール名（例: "matplotlib.pyplot", "scipy.ndimage"）は明示的に
-# 入れている。トップレベルパッケージだけを import しても pyplot のような
-# 重いサブモジュールはロードされないため、ここに書くことが実時間短縮に効く。
-PRELOAD_LIBS = [
-    "numpy",
-    "matplotlib",
-    "matplotlib.pyplot",
-    "matplotlib.backends.backend_tkagg",
-    "tkinter.colorchooser",
-    "cv2",
-    "scipy",
-    "scipy.ndimage",
-    "scipy.optimize",
-    "scipy.signal",
-    "skimage",
-    "blosc2",
-    "pandas",
-    "lmfit",
-    "lib.fiber_tracking_image",
-    "lib.bg_calibrator_shimadzu",
-    "lib.kink_detector",
-    "lib.imp_tools",
-]
-
-
-# =========================
-# Warmup
-# =========================
-def _do_warmup() -> None:
-    """
-    Import PRELOAD_LIBS with matplotlib backend pre-set.
-    matplotlib backend を固定して PRELOAD_LIBS を順次 import する。
-
-    Called from two contexts:
-      - As a background thread in the launcher process (Strategy A).
-        ランチャープロセスのバックグラウンドスレッドとして(戦略A)。
-      - As the entry point of the `--warmup` subcommand (Strategy B's child).
-        `--warmup` サブコマンドのエントリポイントとして(戦略Bの子プロセス側)。
-    """
-    try:
-        import matplotlib
-        matplotlib.use("TkAgg")
-    except Exception:
-        pass
-    for name in PRELOAD_LIBS:
-        try:
-            importlib.import_module(name)
-        except Exception:
-            pass
-
-
-
-def _warmup_in_subprocess() -> None:
-    """
-    Strategy B: fire a throwaway subprocess that imports the same libs.
-    戦略B: 同じライブラリを import する使い捨てサブプロセスを1つ起動する。
-
-    This is purely to warm the OS page cache from the child-process side.
-    目的は子プロセス側から見た OS ページキャッシュを温めることのみ。
-    The process is not reused for actual plugin launching.
-    このプロセス自体はプラグイン起動に再利用しない。
-
-    Implementation note:
-      In frozen builds, `sys.executable` is `Main.exe` and the PyInstaller
-      bootloader ignores `-c` / `-m`. Naively running
-      `[sys.executable, "-c", "import ..."]` would therefore re-launch the
-      full launcher GUI and fork-bomb the desktop.
-      We instead pass our own `--warmup` subcommand, which is handled at
-      the top of `main()` and exits before any GUI is created.
-      凍結ビルドでは `sys.executable` が `Main.exe` であり、PyInstaller の
-      bootloader は `-c` / `-m` を解釈しない。そのまま
-      `[sys.executable, "-c", "import ..."]` とするとランチャー GUI が
-      再度立ち上がってフォークボム化してしまう。
-      そこで独自のサブコマンド `--warmup` を渡し、`main()` の冒頭で
-      GUI を作る前に処理・終了させる。
-    """
-    try:
-        subprocess.Popen(
-            [sys.executable, "--warmup"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            # On Windows, hide the console window of the child process.
-            # Windows では子プロセスのコンソールウィンドウを隠す。
-            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform.startswith("win") else 0,
-        )
-    except Exception:
-        pass
-
-
 def _run_plugin_and_exit(module_import_path: str):
     """
     Run a plugin after showing a splash progress window.
@@ -213,21 +115,20 @@ def _run_plugin_and_exit(module_import_path: str):
         anchor="center",
     ).pack(pady=(4, 4))
 
-    status_var = tk.StringVar(value="Preparing...")
+    status_var = tk.StringVar(value="Loading...")
     ttk.Label(frame, textvariable=status_var, anchor="center").pack(pady=(0, 6))
 
-    # Determinate mode: PRELOAD_LIBS count + 1 step for the plugin module itself.
-    total_steps = len(PRELOAD_LIBS) + 1
-    pbar = ttk.Progressbar(
-        frame, mode="determinate", length=360, maximum=total_steps
-    )
+    # Indeterminate mode: the plugin module is imported in a single step, so
+    # there is no meaningful step count to display.
+    # プラグインモジュールの import は単一ステップで進むため、表示すべき
+    # 段階数が存在しない。よって不確定モードで動かす。
+    pbar = ttk.Progressbar(frame, mode="indeterminate", length=360)
     pbar.pack(pady=4)
+    pbar.start(12)
 
     # ---- 2) Share worker-thread state ----
     # The main (Tkinter) thread and the worker thread communicate via these.
     state = {
-        "progress": 0,            # Completed step count.
-        "current": "",            # Module currently being loaded.
         "done": False,            # Completion flag.
         "module": None,           # Loaded plugin module.
         "error": None,            # Exception, if any.
@@ -235,28 +136,24 @@ def _run_plugin_and_exit(module_import_path: str):
 
     def worker():
         """
-        Import PRELOAD_LIBS and the plugin sequentially in a worker thread.
-        ワーカースレッドで PRELOAD_LIBS とプラグインを順次 import する。
+        Import the plugin module in a worker thread.
+        ワーカースレッドでプラグインモジュールを import する。
+
+        Heavy third-party libraries are pulled in transitively by this single
+        import, so each plugin pays only for the libraries it actually uses.
+        重いサードパーティライブラリはこの 1 回の import で推移的に読み込ま
+        れるため、各プラグインは実際に使うライブラリの分だけコストを払う。
         """
         try:
+            # Fix the backend before the plugin imports matplotlib.pyplot.
+            # プラグインが matplotlib.pyplot を import する前に backend を固定する。
             try:
                 import matplotlib
                 matplotlib.use("TkAgg")
             except Exception:
                 pass
 
-            for i, name in enumerate(PRELOAD_LIBS, 1):
-                state["current"] = name
-                try:
-                    importlib.import_module(name)
-                except Exception:
-                    pass  # Best effort.
-                state["progress"] = i
-
-            # Plugin module itself.
-            state["current"] = module_import_path
             state["module"] = importlib.import_module(module_import_path)
-            state["progress"] = total_steps
         except Exception as e:
             state["error"] = e
         finally:
@@ -264,12 +161,9 @@ def _run_plugin_and_exit(module_import_path: str):
 
     threading.Thread(target=worker, daemon=True).start()
 
-    # ---- 3) Poll progress from the main thread ----
-    # Poll state every 50ms and reflect it on the UI.
+    # ---- 3) Poll completion from the main thread ----
+    # Poll state every 50ms and exit the splash loop when the import is done.
     def poll():
-        pbar["value"] = state["progress"]
-        if state["current"]:
-            status_var.set(f"Loading {state['current']}...")
         if state["done"]:
             splash.quit()  # Exit mainloop.
         else:
@@ -833,19 +727,16 @@ def main():
     サブコマンドを振り分けた後、ランチャー GUI を起動する。
 
     Subcommand dispatching happens BEFORE any GUI is created so that
-    `--warmup` and `--run-plugin` never instantiate a launcher window.
+    `--run-plugin` never instantiates a launcher window.
     This is what prevents fork-bombing in the frozen build.
-    ``--warmup`` と ``--run-plugin`` でランチャー GUI が開かないよう、
-    サブコマンドの振り分けは GUI を作るより前に行う。これが凍結ビルドで
-    フォークボムを防いでいるキモの部分。
+    ``--run-plugin`` でランチャー GUI が開かないよう、サブコマンドの
+    振り分けは GUI を作るより前に行う。これが凍結ビルドでフォークボムを
+    防いでいるキモの部分。
     """
     # ---- Subcommand dispatch ----
     argv = sys.argv[1:]
     if argv:
         head = argv[0]
-        if head == "--warmup":
-            _do_warmup()
-            return
         if head == "--run-plugin":
             if len(argv) < 2:
                 _show_startup_error(
@@ -859,14 +750,6 @@ def main():
         # 未知の引数は無視してランチャーを通常起動する。
 
     # ---- Normal launcher mode ----
-    # Strategy A: warm this process's import cache in the background.
-    # 戦略A: バックグラウンドスレッドでこのプロセスのimportキャッシュを温める。
-    threading.Thread(target=_do_warmup, daemon=True).start()
-
-    # Strategy B: warm the OS page cache from a throwaway child process.
-    # 戦略B: 使い捨て子プロセスからも OS ページキャッシュを温める。
-    _warmup_in_subprocess()
-
     app = MainApp()
     app.mainloop()
 
