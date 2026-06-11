@@ -1,0 +1,399 @@
+# AFM Nanofiber Analyzer
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.xxxxxxx.svg)](https://doi.org/10.5281/zenodo.xxxxxxx)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+
+AFM Nanofiber Analyzer は、原子間力顕微鏡 (AFM) の高さ画像を前処理し、
+ナノファイバー形態を確認するための tkinter ベースのデスクトップツールです。
+プラグインランチャー、前処理パイプライン、プロファイル解析、ヒストグラム比較、
+およびパイプライン出力バンドルを確認するファイバー追跡ビューアを提供します。
+
+## 概要
+
+このアプリケーションは、GUI プラグインと再利用可能な解析モジュールを分離しています。
+
+- `Main.py` は `guis/` 内の GUI プラグインを検出して起動します。
+- `guis/` にはユーザーが操作する tkinter ツールが入っています。
+- `lib/` には AFM 入出力、背景補正、二値化、スケルトン処理、キンク検出、
+  ファイバーコンテナ、バンドル入出力、翻訳、共通 UI ヘルパーが入っています。
+
+GUI01 は解析対象の入力ファイルごとに、圧縮された `.b2z` バンドルを 1 つ
+出力します。後段の GUI は、多数の `.npy` サイドカーファイルではなく、
+このバンドルを直接読み込みます。
+
+## GUI ツール
+
+| ファイル | ランチャー名 | 用途 |
+|---|---|---|
+| `guis/GUI01_Image_Preprocessor.py` | Image Preprocessor | 生 AFM テキストデータを読み込み、背景補正、二値化、細線化、キンク関連特徴抽出を行い、`.b2z` バンドルとパラメータ JSON を保存します。 |
+| `guis/GUI02_PlotProfiler.py` | Plot Profiler | 生データ、補正済みデータ、またはバンドル化された AFM 高さデータを読み込み、選択した線分に沿った高さプロファイルを対話的に抽出します。 |
+| `guis/GUI03_Fiber_Height_Histogram.py` | Fiber Height Histogram | ユーザー定義グループごとに、`.b2z` バンドル群の細線化ファイバー画素から高さ分布を比較します。 |
+| `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | `.b2z` バンドルを読み込み、追跡済み `Fiber` オブジェクトを再構築し、個別ファイバーの確認、図の出力、ファイバー統計量の CSV 出力を行います。 |
+
+## ディレクトリ構成
+
+```text
+AFM_Nanofiber_Analyzer/
+|-- Main.py
+|-- babel.cfg
+|-- build.py
+|-- check.py
+|-- requirements.txt
+|-- 01_setup_venv.bat
+|-- 02_run_from_venv.bat
+|-- 11_setup_conda_env.bat
+|-- 12_run_from_conda_env.bat
+|-- 91_setup_anaconda.bat
+|-- 92_run_from_anaconda.bat
+|-- 01_setup_venv.sh
+|-- 02_run_from_venv.sh
+|-- 11_setup_conda_env.sh
+|-- 12_run_from_conda_env.sh
+|-- 91_setup_anaconda.sh
+|-- 92_run_from_anaconda.sh
+|-- guis/
+|   |-- GUI01_Image_Preprocessor.py
+|   |-- GUI02_PlotProfiler.py
+|   |-- GUI03_Fiber_Height_Histogram.py
+|   |-- GUI04_Tracking_fiber.py
+|   `-- __init__.py
+|-- lib/
+|   |-- afm_io.py
+|   |-- bg_calibrator_shimadzu.py
+|   |-- blosc2_io.py
+|   |-- fiber.py
+|   |-- fiber_tracking_image.py
+|   |-- imp_tools.py
+|   |-- kink_detector.py
+|   |-- processed_image.py
+|   |-- segmenter.py
+|   |-- skeletonizer.py
+|   |-- translator.py
+|   |-- ui_tools.py
+|   `-- __init__.py
+|-- locale/
+|   `-- ja/
+|       `-- LC_MESSAGES/
+|-- assets/
+|   `-- afm_symbol.png
+|-- README.md
+`-- README.ja.md
+```
+
+Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにしています。UTF-8 の
+バッチファイルに日本語コメントを書くと、`cmd.exe` がシステム既定のコードページで
+誤読し、文字化けした断片をコマンドとして実行することがあります。そのため、
+日本語の保守メモは `docs/maintainer-notes.ja.md` などの Markdown 文書に残します。
+
+## 主なモジュール
+
+| モジュール | 主な内容 |
+|---|---|
+| `lib/afm_io.py` | ヘッダー、列数、エンコーディングを自動検出する AFM テキスト / CSV ローダー。 |
+| `lib/bg_calibrator_shimadzu.py` | `inpaint`、`tophat`、`spline1d`、`spline2d` 背景補正方式を持つ `BG_Calibrator_shimadzu`。 |
+| `lib/blosc2_io.py` | Blosc2 配列保存と `.b2z` TreeStore バンドルの入出力ヘルパー。 |
+| `lib/fiber.py` | ファイバー形状、高さプロファイル、キンクインデックス、端点インデックスを保持する不変 `Fiber` dataclass。 |
+| `lib/fiber_tracking_image.py` | GUI04 が GUI01 のバンドル出力からファイバーを再構築・追跡するための `FiberTrackingImage`。 |
+| `lib/imp_tools.py` | スケルトン形態処理、端点・分岐点検出、線追跡、経路距離変換のヘルパー。 |
+| `lib/kink_detector.py` | 追跡されたスケルトン成分からキンク点を検出する `KinkDetector`。 |
+| `lib/processed_image.py` | GUI01 の前処理パイプラインで使う `ProcessedImage` コンテナ。 |
+| `lib/segmenter.py` | 背景補正済み AFM 画像からナノファイバー二値マスクを作成する `Segmenter`。 |
+| `lib/skeletonizer.py` | 二値マスクを細線化し、枝刈りとスケルトン成分ラベル付けを行う `Skeletonizer`。 |
+| `lib/translator.py` | gettext の言語選択ヘルパー。 |
+| `lib/ui_tools.py` | GUI プラグインで共有する tkinter、matplotlib、ログ、ダイアログ、出力ヘルパー。 |
+
+## 要件
+
+- Python 3.10 以降
+- Windows を主な対象環境としています
+
+Python 依存関係は `requirements.txt` に記載されています。
+
+```text
+blosc2
+lmfit
+mahotas
+matplotlib
+numpy
+opencv-python
+pandas
+Pillow
+scikit-image
+scipy
+```
+
+`check.py` はソースツリー内の import を走査して `requirements.txt` を再生成できます。
+PyInstaller はスタンドアロンビルド専用のツールであり、配布物をビルドする場合に
+別途インストールします。
+
+## インストールと使い方
+
+補助スクリプトを実行する前に、次のいずれかの Python 環境をインストールしてください。
+
+- Python 3.10 以降: <https://www.python.org/>
+- Anaconda または Miniconda:
+  <https://www.anaconda.com/download> または
+  <https://docs.conda.io/en/latest/miniconda.html>
+
+### 推奨: 専用 venv を使う
+
+リポジトリを clone し、プロジェクトルートへ移動してから、使用 OS に応じた
+venv 補助スクリプトを実行します。この方法は、AFM Nanofiber Analyzer の
+依存関係を Anaconda などの既存環境から分離できるため推奨です。
+
+```powershell
+git clone https://github.com/<your-username>/afm-nanofiber-analyzer.git
+cd afm-nanofiber-analyzer
+```
+
+Windows:
+
+```powershell
+.\01_setup_venv.bat
+.\02_run_from_venv.bat
+```
+
+macOS または Linux:
+
+```bash
+chmod +x 01_setup_venv.sh 02_run_from_venv.sh
+./01_setup_venv.sh
+./02_run_from_venv.sh
+```
+
+セットアップスクリプトは `check.py` で `requirements.txt` を再生成し、
+依存関係をインストールします。実行スクリプトは設定済み Python インタープリタで
+`Main.py` を起動します。
+
+### Anaconda または Miniconda
+
+既存の Anaconda `base` 環境から直接起動する方法は推奨しません。
+既にインストールされている NumPy、Matplotlib、SciPy、scikit-image などの
+バイナリ依存パッケージが、このアプリケーションで必要なバージョンと競合する
+可能性があります。
+
+Anaconda または Miniconda を使う場合は、conda 環境用補助スクリプトを使ってください。
+これらのスクリプトは専用の `afm-analyzer` 環境を作成し、`base` を変更せずに
+その環境からアプリケーションを起動します。
+
+Windows:
+
+```powershell
+.\11_setup_conda_env.bat
+.\12_run_from_conda_env.bat
+```
+
+macOS または Linux:
+
+```bash
+chmod +x 11_setup_conda_env.sh 12_run_from_conda_env.sh
+./11_setup_conda_env.sh
+./12_run_from_conda_env.sh
+```
+
+`91_setup_anaconda.*` と `92_run_from_anaconda.*` は旧配布物との互換性のために
+残していますが、既存 Anaconda 環境へ依存関係をインストールする旧方式のため、
+新規セットアップでは使わないでください。
+
+### ローカライズ
+
+GUI は、メニュー、ボタン、ダイアログ、ステータスメッセージ、ツールチップなどの
+操作用 UI 文字列に Python の `gettext` を使います。翻訳カタログは `locale/` に
+保存され、言語選択は `lib/translator.py` が環境設定とシステムロケールに基づいて
+処理します。
+
+グラフタイトル、軸ラベル、CSV ヘッダー、出力結果ラベル、データキー、単位など、
+科学的再現性に関わる文字列は英語固定です。解析出力が言語設定によって変わらない
+ようにするためです。
+
+ユーザー向け文字列やプラグイン説明を変更した後に翻訳カタログを更新するには、
+次を実行します。
+
+```powershell
+python prepare_translate_catalogs.py
+```
+
+このスクリプトは gettext メッセージの抽出、`PLUGIN_INFO["description"]` からの
+ランチャー説明文の抽出、カタログ更新、obsolete な `#~` エントリの削除を行います。
+`msgstr` は自動入力しません。古い obsolete 翻訳を参照用に残したい場合は、
+事前に Git commit またはバックアップを作成してください。
+
+`messages.po` を編集した後、配布前に `#, fuzzy` エントリを確認してください。
+fuzzy エントリは Babel が近い既存訳を仮流用したものです。`msgid` と `msgstr` の
+意味が一致しているか、`{path}`、`%s`、`%d`、`\n` などのプレースホルダーが
+保持されているかを確認します。翻訳を確定した後にだけ `#, fuzzy` 行を削除します。
+その後、翻訳カタログをコンパイルします。
+
+翻訳済み `msgstr` では、表示上の折り返し位置を調整する目的だけで、1文の途中に
+`\n` を入れないでください。適切な折り返し位置は言語ごとに異なるため、折り返しは
+UI 側に任せます。明示的な改行は、UI 上で意味のある段落区切りや改行が必要な場合
+だけ使用してください。
+
+```powershell
+pybabel compile -d locale
+```
+
+### ソースから手動セットアップする場合
+
+```powershell
+git clone https://github.com/<your-username>/afm-nanofiber-analyzer.git
+cd afm-nanofiber-analyzer
+
+py -3.12 -m venv .venv
+.\.venv\Scripts\activate
+
+python -m pip install -U pip
+python -m pip install -r requirements.txt
+
+python Main.py
+```
+
+### Windows 用スタンドアロンバンドルをビルドする
+
+ビルドスクリプトを実行する前に PyInstaller をインストールします。
+
+```powershell
+python -m pip install pyinstaller
+```
+
+```powershell
+python build.py
+```
+
+ビルドスクリプトは `dist/Main/` に PyInstaller バンドルを生成し、ランチャーに
+必要なプラグインとリソースフォルダをコピーします。配布時は `Main.exe` だけでなく、
+`dist/Main/` フォルダ全体を配布してください。
+
+## 解析パイプライン
+
+```text
+Raw AFM text/CSV input
+        |
+        v
+GUI01 Image Preprocessor
+        |
+        |-- afm_io.load_afm_text()
+        |-- BG_Calibrator_shimadzu
+        |-- Segmenter
+        |-- Skeletonizer
+        |-- KinkDetector
+        |
+        v
+<input_stem>.b2z      compressed TreeStore bundle
+<input_stem>_param.json
+        |
+        +-- GUI02 Plot Profiler
+        +-- GUI03 Fiber Height Histogram
+        `-- GUI04 Fiber Tracker
+```
+
+前処理パラメータは生成される `<input_stem>_param.json` に保存されます。
+背景補正、二値化、細線化、キンク検出の設定が含まれ、背景補正方式、しきい値、
+枝刈り長、キンク角度しきい値などを記録します。
+
+## データ形式
+
+現在の解析出力は、入力ファイルごとに 1 つの `.b2z` バンドルです。
+バンドルは `lib/blosc2_io.py` が `blosc2.TreeStore` を使って書き込みます。
+
+GUI01 は次の配列キーを書き込みます。
+
+| キー | 内容 |
+|---|---|
+| `calibrated` | 背景補正済み AFM 高さ画像。 |
+| `binarized` | ナノファイバー二値マスク。 |
+| `skeletonized` | 細線化されたファイバー画像。 |
+| `bp` | 分岐点マスク。 |
+| `ep` | 端点マスク。 |
+| `kp` | `(2, N)` 配列のキンク点座標。 |
+| `dp` | `(2, N)` 配列の分解点座標。 |
+| `ka` | ラジアン単位のキンク角度。 |
+
+GUI01 は解析パラメータとして `<input_stem>_param.json` も書き込みます。
+生 AFM 画像は、元のテキストファイルから再読み込みできるため、バンドル内には
+複製しません。
+
+## GUI プラグインを追加する
+
+1. `guis/` の下に Python ファイルを追加します。
+2. ファイル上部付近にリテラルな `PLUGIN_INFO` 辞書を定義します。
+3. 型付きの `main() -> None` エントリーポイントを定義します。
+
+例:
+
+```python
+PLUGIN_INFO = {
+    "name": "My Tool",
+    "description": "Short launcher-facing description.",
+}
+
+
+class App(tk.Tk):
+    ...
+
+
+def main() -> None:
+    app = App()
+    app.mainloop()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+`Main.py` はプラグインファイルを自動検出します。ランチャーは
+`ast.literal_eval()` で `PLUGIN_INFO` を読むため、値はプレーンなリテラルのままに
+してください。プラグイン名は英語固定文字列として表示されます。プラグイン説明も
+GUI ファイル内ではプレーンなリテラルですが、`Main.py` が AST 解析後に gettext に
+通すため、locale カタログで翻訳できます。
+`PLUGIN_INFO["description"]` には、ランチャー上の表示折り返しを調整する目的だけで
+`\n` を入れないでください。説明文は自然な文章として保持し、折り返しはランチャー
+UI 側に任せます。Python ソース上で文字列リテラルを複数行に分けることは、値に
+実際の改行が入らない限り問題ありません。
+
+`PLUGIN_INFO["description"]` を変更した場合は、対応する `msgid` を翻訳者が
+利用できるように翻訳カタログを更新してください。
+
+## 開発用ユーティリティ
+
+- `check.py` は Python import を走査し、`requirements.txt` を書き出します。
+- `build.py` は import 検証、PyInstaller 用材料の収集、`Main.auto.spec` の作成、
+  PyInstaller 実行、プロジェクトリソースフォルダのコピーを行います。
+- `Main.py --warmup` は frozen build の起動キャッシュを温めるため、選択された
+  重いモジュールを import します。
+- `prepare_translate_catalogs.py` は gettext カタログを更新し、プラグイン説明を
+  抽出し、obsolete な翻訳エントリを削除します。
+
+## 引用
+
+研究でこのソフトウェアを使用した場合は、次のように引用してください。
+
+```bibtex
+@software{afm_nanofiber_analyzer,
+  author    = {[Author Names]},
+  title     = {AFM Nanofiber Analyzer},
+  year      = {2025},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.xxxxxxx},
+  url       = {https://github.com/<your-username>/afm-nanofiber-analyzer}
+}
+```
+
+## 著者
+
+| 役割 | 名前 |
+|---|---|
+| 解析アルゴリズムと AFM ドメイン手法 | [KK], [IT] |
+| GUI とアプリケーションパッケージング | [KS] |
+
+## ライセンス
+
+このプロジェクトは MIT License の下で公開されています。詳細は [LICENSE](LICENSE) を
+参照してください。
+
+## 謝辞
+
+背景補正ワークフローには、Shimadzu SPM-9600 AFM データ向けに開発された手法が
+含まれています。関連する AFM 画像処理の取り組みは
+<https://github.com/terio0819/Image-processing-of-AFM-image> で公開されています。

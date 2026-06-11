@@ -1,0 +1,93 @@
+cff-version: "1.2.0"
+
+# ===================================================================
+# CITATION.cff — AFM Nanofiber Analyzer
+# GitHubにこのファイルを置くと「Cite this repository」ボタンが表示される
+# Zenodoと連携すると DOI も自動的に埋め込まれる
+# ===================================================================
+
+message: >
+  If you use this software in your research, please cite it using
+  the metadata in this file.
+
+title: "AFM Nanofiber Analyzer"
+
+abstract: >
+  A GUI-based toolkit for analyzing nanofiber morphology from AFM
+  (Atomic Force Microscopy) images. The pipeline covers background
+  calibration (Shimadzu SPM-9600), binarization, skeletonization,
+  endpoint/branch-point detection, height profiling, and statistical
+  analysis. The system features a plugin architecture that allows new
+  GUI modules to be added without modifying the launcher, and can be
+  packaged as a standalone Windows executable.
+
+version: "1.0.0"          # リリース時にバージョンを更新する
+
+date-released: "2026-01-01"   # 実際のリリース日に変更する
+
+license: MIT
+
+repository-code: "https://github.com/<your-username>/afm-nanofiber-analyzer"
+# ↑ 実際のGitHubリポジトリURLに変更する
+
+doi: "10.5281/zenodo.xxxxxxx"
+# ↑ Zenodo連携後に発行されたDOIに変更する
+
+url: "https://github.com/<your-username>/afm-nanofiber-analyzer"
+
+# -------------------------------------------------------------------
+# キーワード（ZenodoやGitHubの検索インデックスに使われる）
+# -------------------------------------------------------------------
+keywords:
+  - AFM
+  - atomic force microscopy
+  - nanofiber
+  - image analysis
+  - skeletonization
+  - background calibration
+  - GUI
+  - Python
+  - materials science
+
+# -------------------------------------------------------------------
+# 著者リスト（順番が引用文献での著者順になる）
+# -------------------------------------------------------------------
+authors:
+  - family-names: "Kobayashi"
+    given-names: "Kayoko"
+    affiliation: "Kyoto University"
+    orcid: "https://orcid.org/0000-0003-0459-7900"
+    # role: アルゴリズム設計・Library実装
+
+  - family-names: "Ito"
+    given-names: "Tomoki"
+    affiliation: "Tokyo University"
+    orcid: "https://orcid.org/0000-0002-2473-7117"
+    # role: アルゴリズム実装（Library）
+
+  - family-names: "Kiyoto"
+    given-names: "Shingo"
+    affiliation: "Kyoto University"
+    orcid: "https://orcid.org/0000-0002-5228-9964"
+    # role: GUIシステム設計・実装（guis/, Main.py, build.py）
+
+# -------------------------------------------------------------------
+# 関連論文・先行リポジトリがあれば記載する
+# -------------------------------------------------------------------
+references:
+  - type: software
+    title: "Image-processing-of-AFM-image"
+    authors:
+      - family-names: "Ito"
+        given-names: "Tomoki"
+    url: "https://github.com/terio0819/Image-processing-of-AFM-image"
+
+  # 関連論文がある場合はこのブロックを追加する
+  # - type: article
+  #   title: "（論文タイトル）"
+  #   authors:
+  #     - family-names: "..."
+  #       given-names: "..."
+  #   journal: "（雑誌名）"
+  #   year: 20XX
+  #   doi: "10.xxxx/xxxxxxx"

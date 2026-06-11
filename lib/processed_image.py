@@ -1,0 +1,118 @@
+"""
+Represent processed AFM image data and generate Fiber instances.
+処理済み AFM 画像データを保持し、Fiber インスタンスを生成する。
+
+This module stores intermediate images and analysis outputs used across
+the pipeline, then converts tracked skeleton components into Fiber objects.
+このモジュールは、解析パイプラインで使う中間画像と結果を保持し、
+追跡した骨格成分を Fiber オブジェクトへ変換する。
+"""
+
+import cv2
+import numpy as np
+
+from . import imp_tools
+from .fiber import Fiber
+
+
+class ProcessedImage:
+    """
+    Store processed AFM image data and derived fiber metadata.
+    処理済み AFM 画像データと派生した繊維メタデータを保持する。
+
+    Attributes
+    ----------
+    name
+        Identifier or file name for this image.
+        この画像の識別名またはファイル名。
+    original_image
+        Original 2D AFM image array.
+        元の 2 次元 AFM 画像配列。
+    size_per_pixel
+        Physical size represented by one pixel.
+        1 ピクセルが表す実空間サイズ。
+    calibrated_image
+        Background-corrected AFM height image set by the calibrator.
+        キャリブレーション処理で設定される背景補正済み AFM 高さ画像。
+    binarized_image
+        Binary fiber mask set by the segmenter.
+        セグメンテーション処理で設定される繊維の二値マスク。
+    skeleton_image
+        Skeletonized fiber image set by the skeletonizer.
+        スケルトン化処理で設定される繊維の骨格画像。
+    nLabels
+        Number of connected-component labels generated from the skeleton.
+        骨格画像から生成される連結成分ラベル数。
+    data
+        Connected-component statistics indexed by label.
+        ラベルで参照する連結成分の統計情報。
+    label_image
+        Label image for connected components in the skeleton.
+        骨格画像内の連結成分ラベル画像。
+    bp
+        Branch-point mask on the skeleton.
+        骨格上の分岐点マスク。
+    ep
+        Endpoint mask on the skeleton.
+        骨格上の終端点マスク。
+    kink_indices_by_label
+        Kink indices keyed by connected-component label.
+        連結成分ラベルごとのキンク位置インデックス。
+    kink_angles_by_label
+        Kink angles keyed by connected-component label.
+        連結成分ラベルごとのキンク角度。
+    decomposed_indices_by_label
+        Decomposition-point indices keyed by connected-component label.
+        連結成分ラベルごとの分解点インデックス。
+    """
+
+    def __init__(
+        self,
+        original_AFM: np.ndarray,
+        name: str,
+        size_per_pixel: float = 5000 / 1024,
+    ) -> None:
+        """
+        Initialize a container for AFM image processing results.
+        AFM 画像処理結果を保持するコンテナを初期化する。
+
+        Parameters
+        ----------
+        original_AFM
+            Original 2D AFM image array.
+            元の 2 次元 AFM 画像配列。
+        name
+            Identifier or file name for this image.
+            この画像の識別名またはファイル名。
+        size_per_pixel
+            Physical size represented by one pixel.
+            1 ピクセルが表す実空間サイズ。
+        """
+        self.name: str = name
+        self.original_image: np.ndarray = original_AFM
+        self.size_per_pixel: float = size_per_pixel
+
+        # Store images produced by later pipeline stages.
+        # 後続のパイプライン段階で生成される画像を保持する。
+        self.calibrated_image: Optional[np.ndarray] = None
+        self.binarized_image: Optional[np.ndarray] = None
+        self.skeleton_image: Optional[np.ndarray] = None
+
+        # Connected component outputs generated from skeleton image.
+        # 骨格画像から生成される連結成分情報。
+        self.nLabels: Optional[int] = None
+        self.data: Optional[tuple] = None
+        self.label_image: Optional[np.ndarray] = None
+
+        # Branch points and endpoints on the skeleton.
+        # 骨格上の分岐点と終端点。
+        self.bp = None
+        self.ep = None
+
+        # Keep kink/decomposition indices by connected-component label.
+        # キンク・分解点をラベルごとの辞書で保持する。
+        # Mapping format: label(int) -> ndarray index array for xtrack/ytrack.
+        # { label(int): ndarray of indices into that label's xtrack/ytrack }
+        self.kink_indices_by_label: dict[int, np.ndarray] = {}
+        self.kink_angles_by_label:  dict[int, np.ndarray] = {}
+        self.decomposed_indices_by_label: dict[int, np.ndarray] = {}

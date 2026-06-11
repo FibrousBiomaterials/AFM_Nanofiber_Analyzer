@@ -1,0 +1,59 @@
+# ===== Python bytecode =====
+__pycache__/
+*.py[cod]
+*.pyo
+
+# ===== Virtual environments =====
+.venv/
+venv/
+env/
+.env/
+.conda-env/
+
+# ===== PyInstaller build output =====
+build/
+dist/
+*.spec
+# Keep Main.auto.spec only if you intentionally version-control it.
+# Remove the *.spec line above if so.
+
+# ===== Distribution / packaging =====
+*.egg-info/
+.eggs/
+
+# ===== IDE and editor settings =====
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ===== OS-generated files =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Personal AI-tool configuration =====
+# CLAUDE.md and AGENTS.md are intentionally version-controlled.
+.claude/
+.lang_preference
+
+# ===== GUI local settings (machine-specific, regenerated at runtime) =====
+guis/afmpp_settings.json
+
+# ===== Generated local launchers =====
+# Setup scripts recreate these with machine-local paths.
+02_run_from_venv.bat
+02_run_from_venv.sh
+12_run_from_conda_env.bat
+12_run_from_conda_env.sh
+92_run_from_anaconda.bat
+92_run_from_anaconda.sh
+
+# ===== Analysis outputs =====
+# Exclude large or sensitive analysis results unless they are sample data
+# intentionally checked in under examples/.
+*.json
+*.b2z
+*.mo
+*_param.json
+*.npy
