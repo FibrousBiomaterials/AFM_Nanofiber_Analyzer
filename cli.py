@@ -47,6 +47,7 @@ from lib.pipeline import (
     existing_min_set,
     merge_params_dict,
     process_file,
+    validate_params,
 )
 
 
@@ -106,8 +107,9 @@ def cmd_process(args: argparse.Namespace) -> int:
     -------
     int
         0 when every file succeeded, 1 when any file failed, 2 when no
-        usable input file was found.
-        全ファイル成功で 0、いずれか失敗で 1、有効な入力が無ければ 2。
+        usable input file was found or the parameters are invalid.
+        全ファイル成功で 0、いずれか失敗で 1、有効な入力が無いか
+        パラメータが不正なら 2。
     """
     inputs = _expand_inputs(args.inputs)
     inputs = [p for p in inputs if os.path.isfile(p)]
@@ -116,6 +118,18 @@ def cmd_process(args: argparse.Namespace) -> int:
         return 2
 
     params = _load_params(args.params) if args.params else ProcParams()
+
+    # Validate once before the batch so every problem is reported together,
+    # instead of the same failure repeating per input file.
+    # バッチ開始前に一括検証し、同じ失敗が入力ファイルごとに繰り返される
+    # 代わりに全問題をまとめて報告する。
+    problems = validate_params(params)
+    if problems:
+        print("error: invalid analysis parameters:", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
+        return 2
+
     if args.output_dir:
         os.makedirs(args.output_dir, exist_ok=True)
 

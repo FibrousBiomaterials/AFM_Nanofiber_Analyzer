@@ -67,7 +67,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # バッチ方針（スキップ/上書き/停止）と UI 表示のみを担当する。
 from lib.pipeline import (
     ProcParams, PipelineStages, build_stages, process_file,
-    bundle_path_for, existing_min_set, merge_params_dict,
+    bundle_path_for, existing_min_set, merge_params_dict, validate_params,
 )
 from lib.blosc2_io import load_bundle
 from lib.afm_io import load_afm_text
@@ -1062,6 +1062,22 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         # Freeze pending settings at run start so dialog edits cannot affect the worker.
         self.params_active = ProcParams(**asdict(self.params_pending))
+
+        # Reject invalid parameters before the worker starts, listing every
+        # problem at once. Detail lines stay in fixed English because they
+        # name serialized ProcParams fields.
+        # ワーカー開始前に不正パラメータを拒否し、全問題を一括表示する。
+        # 詳細行はシリアライズされる ProcParams フィールド名を含むため
+        # 固定英語のままとする。
+        problems = validate_params(self.params_active)
+        if problems:
+            detail = "\n".join(f"- {p}" for p in problems)
+            self._log(_("解析パラメータが不正なため開始できません。") + "\n" + detail)
+            messagebox.showerror(
+                _("エラー"),
+                _("解析パラメータが不正なため開始できません。") + "\n\n" + detail,
+            )
+            return
 
         # Snapshot the save-original flag at run start; worker threads must not read
         # tkinter variables directly, and the user could toggle it mid-batch.

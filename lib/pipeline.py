@@ -273,6 +273,140 @@ def merge_params_dict(d: Dict) -> Tuple[ProcParams, List[str], List[str]]:
     return ProcParams(**merged), missing, obsolete
 
 
+# Allowed values for enumerated string parameters.
+# 列挙型文字列パラメータの許容値。
+BG_METHODS = ("inpaint", "tophat", "spline1d", "spline2d")
+SPLINE1D_AXES = ("x", "y")
+
+
+def validate_params(p: ProcParams) -> List[str]:
+    """
+    Return all detected problems in analysis parameters; empty when valid.
+    解析パラメータの問題点をすべて返す。問題がなければ空リスト。
+
+    All violations are collected instead of failing fast, so a parameter JSON
+    can be fixed in one editing pass. Messages are fixed English strings
+    because field names are serialized identifiers; callers wrap them in
+    translated UI text as needed (gettext stays out of the analysis layer).
+    一括修正できるよう fail-fast にせず全違反を収集する。フィールド名は
+    シリアライズされる識別子のため、メッセージは固定英語とする。表示用の
+    翻訳文への包み込みは呼び出し側が行う（解析層に gettext を持ち込まない）。
+
+    Only constraints that provably break the pipeline or are structurally
+    nonsensical are enforced. Settings such as a negative `low_threshold`
+    (which disables low-component removal) stay legal on purpose.
+    パイプラインが確実に壊れる制約、または構造的に無意味な値のみを検査する。
+    負の `low_threshold`（低成分除去の実質無効化）のような使い方は意図的に
+    許容したままにする。
+
+    Notes
+    -----
+    Range sources verified against the libraries in use:
+    使用ライブラリに対して検証済みの制約の出典:
+
+    - `savgol_polyorder < savgol_window`: required by
+      `scipy.signal.savgol_filter`.
+    - `wsize_localbin` odd: required by `skimage.filters.threshold_local`.
+    - `spline2d_degree` 1-5: `scipy.interpolate.SmoothBivariateSpline` kx/ky.
+    - `spline1d_degree` 1-5: pandas spline interpolation delegates to
+      `scipy.interpolate.UnivariateSpline` (k must be 1-5).
+    """
+    problems: List[str] = []
+
+    def _num(value) -> bool:
+        # bool passes isinstance(int) checks but is never a valid number here.
+        # bool は isinstance(int) を満たすが、数値パラメータとしては常に不正。
+        return (
+            isinstance(value, (int, float, np.integer, np.floating))
+            and not isinstance(value, bool)
+        )
+
+    def _intval(value) -> bool:
+        return isinstance(value, (int, np.integer)) and not isinstance(value, bool)
+
+    def require(condition: bool, message: str) -> None:
+        if not condition:
+            problems.append(message)
+
+    # --- Background calibration ---
+    require(p.bg_method in BG_METHODS,
+            f"bg_method must be one of {BG_METHODS}, got {p.bg_method!r}")
+    require(_intval(p.tophat_se_size) and p.tophat_se_size >= 1,
+            f"tophat_se_size must be a positive int (px), got {p.tophat_se_size!r}")
+    require(p.spline1d_axis in SPLINE1D_AXES,
+            f"spline1d_axis must be one of {SPLINE1D_AXES}, got {p.spline1d_axis!r}")
+    require(_intval(p.spline1d_degree) and 1 <= p.spline1d_degree <= 5,
+            f"spline1d_degree must be an int in [1, 5], got {p.spline1d_degree!r}")
+    require(_intval(p.spline2d_degree) and 1 <= p.spline2d_degree <= 5,
+            f"spline2d_degree must be an int in [1, 5], got {p.spline2d_degree!r}")
+    require(_intval(p.spline2d_subsample) and p.spline2d_subsample >= 1,
+            f"spline2d_subsample must be a positive int, got {p.spline2d_subsample!r}")
+    require(p.spline2d_smoothing is None
+            or (_num(p.spline2d_smoothing) and p.spline2d_smoothing >= 0),
+            f"spline2d_smoothing must be None or a non-negative number, "
+            f"got {p.spline2d_smoothing!r}")
+    for name in ("threshold_factor", "fiber_detect_factor", "noise_detect_factor"):
+        value = getattr(p, name)
+        require(_num(value) and value > 0,
+                f"{name} must be a positive number, got {value!r}")
+    require(_intval(p.savgol_window) and p.savgol_window >= 1,
+            f"savgol_window must be a positive int, got {p.savgol_window!r}")
+    require(_intval(p.savgol_polyorder) and p.savgol_polyorder >= 0,
+            f"savgol_polyorder must be a non-negative int, got {p.savgol_polyorder!r}")
+    if _intval(p.savgol_window) and _intval(p.savgol_polyorder):
+        require(p.savgol_polyorder < p.savgol_window,
+                f"savgol_polyorder must be less than savgol_window, got "
+                f"polyorder={p.savgol_polyorder} >= window={p.savgol_window}")
+    require(isinstance(p.apply_median, bool),
+            f"apply_median must be a bool, got {p.apply_median!r}")
+    require(_intval(p.mask_dilation) and p.mask_dilation >= 0,
+            f"mask_dilation must be a non-negative int (0 disables dilation), "
+            f"got {p.mask_dilation!r}")
+    require(_intval(p.min_mask_component_area) and p.min_mask_component_area >= 1,
+            f"min_mask_component_area must be a positive int (1 disables "
+            f"filtering), got {p.min_mask_component_area!r}")
+
+    # --- Binarization ---
+    require(_intval(p.wsize_localbin) and p.wsize_localbin >= 1
+            and p.wsize_localbin % 2 == 1,
+            f"wsize_localbin must be a positive odd int (local-threshold "
+            f"block size), got {p.wsize_localbin!r}")
+    require(_num(p.global_threshold),
+            f"global_threshold must be a number (nm), got {p.global_threshold!r}")
+    require(_intval(p.area_min) and p.area_min >= 0,
+            f"area_min must be a non-negative int (px^2), got {p.area_min!r}")
+    require(_intval(p.area_min_connecting) and p.area_min_connecting >= 0,
+            f"area_min_connecting must be a non-negative int (px^2), "
+            f"got {p.area_min_connecting!r}")
+    require(isinstance(p.apply_no_connecting, bool),
+            f"apply_no_connecting must be a bool, got {p.apply_no_connecting!r}")
+    require(_intval(p.h_length) and p.h_length >= 1,
+            f"h_length must be a positive int (px), got {p.h_length!r}")
+    require(_num(p.h_sratio) and p.h_sratio >= 0,
+            f"h_sratio must be a non-negative number, got {p.h_sratio!r}")
+    require(_num(p.low_threshold),
+            f"low_threshold must be a number (nm), got {p.low_threshold!r}")
+
+    # --- Skeletonization ---
+    require(_num(p.bp_height),
+            f"bp_height must be a number (nm), got {p.bp_height!r}")
+    # branch_length is also the tracking window radius; 0 would create empty
+    # slices and crash the branch-tracking loop.
+    # branch_length は追跡窓の半径でもあり、0 だと空スライスになって
+    # 枝追跡ループが壊れる。
+    require(_intval(p.branch_length) and p.branch_length >= 1,
+            f"branch_length must be a positive int (px), got {p.branch_length!r}")
+    require(_intval(p.min_area) and p.min_area >= 0,
+            f"min_area must be a non-negative int (px^2), got {p.min_area!r}")
+
+    # --- Kink detection ---
+    require(_num(p.kinkangle_deg) and 0 <= p.kinkangle_deg <= 180,
+            f"kinkangle_deg must be a number in [0, 180] degrees, "
+            f"got {p.kinkangle_deg!r}")
+
+    return problems
+
+
 @dataclass
 class PipelineStages:
     """
@@ -456,6 +590,10 @@ def process_file(
 
     Raises
     ------
+    ValueError
+        If `params` fails `validate_params`; the message lists every problem.
+        `params` が `validate_params` に通らない場合。メッセージに全問題を
+        列挙する。
     Exception
         Any stage or I/O failure propagates unchanged; batch callers decide
         whether to continue with remaining files.
@@ -463,6 +601,15 @@ def process_file(
         呼び出し側が行う。
     """
     t0 = time.time()
+
+    # Reject invalid parameters before any file I/O or stage construction.
+    # ファイル入出力やステージ構築の前に不正パラメータを拒否する。
+    problems = validate_params(params)
+    if problems:
+        raise ValueError(
+            "Invalid analysis parameters:\n- " + "\n- ".join(problems)
+        )
+
     if stages is None:
         stages = build_stages(params)
 
