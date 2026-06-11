@@ -41,6 +41,7 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 # ===== Project libraries =====
+from lib.blosc2_io import load_bundle, load_bundle_meta
 from lib.pipeline import (
     ProcParams,
     build_stages,
@@ -192,6 +193,78 @@ def cmd_show_params(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export(args: argparse.Namespace) -> int:
+    """
+    Export `.b2z` bundles to standard formats readable outside this project.
+    `.b2z` バンドルを本プロジェクト外でも読める標準形式へエクスポートする。
+
+    `npz` writes one compressed NumPy archive per bundle; `csv` writes one
+    text file per array key. Bundle metadata (analysis parameters and
+    provenance) is always written as a `<stem>_meta.json` sidecar.
+    `npz` はバンドルごとに 1 つの圧縮 NumPy アーカイブを、`csv` は配列キー
+    ごとに 1 つのテキストファイルを書き出す。バンドルのメタデータ（解析
+    パラメータと来歴）は常に `<stem>_meta.json` として併記出力される。
+
+    Returns
+    -------
+    int
+        0 when every bundle exported, 1 when any failed, 2 when no usable
+        input bundle was found.
+        全バンドル成功で 0、いずれか失敗で 1、有効な入力が無ければ 2。
+    """
+    # Local import: NumPy is needed only by this subcommand's writers.
+    import numpy as np
+
+    inputs = _expand_inputs(args.inputs)
+    inputs = [p for p in inputs if os.path.isfile(p)]
+    if not inputs:
+        print("error: no input bundle files found", file=sys.stderr)
+        return 2
+
+    if args.output_dir:
+        os.makedirs(args.output_dir, exist_ok=True)
+
+    failures = []
+    for i, bundle_path in enumerate(inputs, 1):
+        name = os.path.basename(bundle_path)
+        stem = _output_stem(bundle_path, args.output_dir)
+        print(f"[{i}/{len(inputs)}] {name}: ", end="", flush=True)
+        try:
+            arrays = load_bundle(bundle_path)
+            meta = load_bundle_meta(bundle_path)
+
+            if args.format == "npz":
+                out_path = stem + ".npz"
+                np.savez_compressed(out_path, **arrays)
+                written = os.path.basename(out_path)
+            else:
+                # One CSV per key; 1D arrays are written as a single row.
+                # キーごとに 1 つの CSV。1 次元配列は 1 行として書き出す。
+                for key, arr in arrays.items():
+                    np.savetxt(
+                        f"{stem}_{key}.csv", np.atleast_2d(arr),
+                        delimiter=",", fmt="%.10g",
+                    )
+                written = f"{os.path.basename(stem)}_<key>.csv"
+
+            meta_path = stem + "_meta.json"
+            with open(meta_path, "w", encoding="utf-8") as f:
+                # default=str keeps export usable even if a future bundle
+                # carries metadata values JSON cannot represent natively.
+                json.dump(meta, f, ensure_ascii=False, indent=2, default=str)
+
+            print(f"done -> {written} + {os.path.basename(meta_path)}")
+        except Exception as e:
+            print("FAILED")
+            print(f"    {type(e).__name__}: {e}", file=sys.stderr)
+            failures.append(name)
+
+    if failures:
+        print("failed bundles: " + ", ".join(failures), file=sys.stderr)
+        return 1
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """
     Build the argument parser for the CLI entry point.
@@ -239,6 +312,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="print default analysis parameters as JSON",
     )
     p_show.set_defaults(func=cmd_show_params)
+
+    p_export = sub.add_parser(
+        "export",
+        help="export .b2z bundles to standard formats (NumPy .npz or CSV)",
+    )
+    p_export.add_argument(
+        "inputs", nargs="+",
+        help="input .b2z bundle files (glob patterns are expanded)",
+    )
+    p_export.add_argument(
+        "--format", choices=("npz", "csv"), default="npz",
+        help="output format: one .npz archive per bundle (default), "
+             "or one CSV file per array key",
+    )
+    p_export.add_argument(
+        "--output-dir", metavar="DIR",
+        help="directory for exported files (default: next to each bundle)",
+    )
+    p_export.set_defaults(func=cmd_export)
 
     return parser
 

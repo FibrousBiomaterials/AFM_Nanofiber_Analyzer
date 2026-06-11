@@ -383,24 +383,66 @@ python -m pytest tests/ -m "not slow"   # skip the real-scan integration test
 ## Data Format
 
 The current analysis output is a single `.b2z` bundle per input file. Bundles
-are written by `lib/blosc2_io.py` using `blosc2.TreeStore`.
+are written by `lib/blosc2_io.py` using `blosc2.TreeStore`. The layout is
+documented below so the bundles can be read without this project's code, and
+`cli.py export` converts them to standard formats (see the end of this
+section).
 
 GUI01 writes these array keys:
 
+| Key | Shape | Content |
+|---|---|---|
+| `calibrated` | `(H, W)` | Background-corrected AFM height image, floating point, in nm. |
+| `binarized` | `(H, W)` | Binary nanofiber mask (nonzero = fiber). |
+| `skeletonized` | `(H, W)` | Skeletonized fiber image (nonzero = centerline). |
+| `bp` | `(H, W)` | Branch-point mask on the skeleton (nonzero = branch point). |
+| `ep` | `(H, W)` | Endpoint mask on the skeleton (nonzero = endpoint). |
+| `kp` | `(2, N)` | Kink-point pixel coordinates; see the convention below. |
+| `dp` | `(2, M)` | Decomposition-point pixel coordinates; see the convention below. |
+| `ka` | `(N,)` | Kink interior angles in radians, one per `kp` column. |
+| `original` | `(H+1, W+1)` | Raw height image in nm; present only when saving the original was requested. |
+
+All image-like arrays in one bundle share the same `(H, W)` shape. The
+background calibrator trims one pixel per axis, so `H` and `W` are one less
+than the raw input size (and one less than `original` when present).
+
+Coordinate convention: `kp[0]` and `dp[0]` hold x (column) indices, and
+`kp[1]` and `dp[1]` hold y (row) indices — 0-based pixel positions in the
+`calibrated` image. For example, `calibrated[kp[1][i], kp[0][i]]` is the
+height at the i-th kink.
+
+Each bundle also stores root metadata (blosc2 `vlmeta`):
+
 | Key | Content |
 |---|---|
-| `calibrated` | Background-corrected AFM height image. |
-| `binarized` | Binary nanofiber mask. |
-| `skeletonized` | Skeletonized fiber image. |
-| `bp` | Branch-point mask. |
-| `ep` | Endpoint mask. |
-| `kp` | Kink coordinates as a `(2, N)` array. |
-| `dp` | Decomposition-point coordinates as a `(2, N)` array. |
-| `ka` | Kink angles in radians. |
+| `params` | Analysis-parameter dictionary, identical to `<input_stem>_param.json`. |
+| `version` | Bundle format version (currently `"1.0"`). |
+| `software_version` | Application release that wrote the bundle. |
+| `input_file` | Base name of the processed input file. |
+| `input_sha256` | SHA-256 digest of the input file contents. |
+| `created_utc` | Processing time as an ISO 8601 UTC timestamp. |
+
+The provenance keys (`software_version`, `input_file`, `input_sha256`,
+`created_utc`) are optional: bundles written by older releases lack them, and
+readers must not require them.
 
 GUI01 also writes `<input_stem>_param.json` for analysis parameters. The raw
-AFM image is not duplicated in the bundle because it can be reloaded from the
-source text file.
+AFM image is not duplicated in the bundle by default because it can be
+reloaded from the source text file.
+
+### Exporting bundles to standard formats
+
+`.b2z` is a project-specific container. To use analysis results outside this
+project, export bundles to standard formats:
+
+```powershell
+python cli.py export results\*.b2z                # one .npz archive per bundle
+python cli.py export results\*.b2z --format csv   # one CSV file per array key
+```
+
+Both formats are accompanied by a `<stem>_meta.json` sidecar holding the
+bundle metadata. NumPy `.npz` archives can be read with standard tooling from
+Python, MATLAB, R, and Julia.
 
 ## Adding a GUI Plugin
 

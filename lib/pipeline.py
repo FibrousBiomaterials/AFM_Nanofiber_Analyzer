@@ -23,16 +23,19 @@ gettext out of the analysis layer.
 """
 
 # ===== Standard library =====
+import hashlib
 import json
 import os
 import time
 from dataclasses import dataclass, asdict
+from datetime import datetime, timezone
 from typing import Callable, Dict, List, Optional, Tuple
 
 # ===== Numerical / scientific libraries =====
 import numpy as np
 
 # ===== Project libraries =====
+from . import __version__
 from .afm_io import load_afm_text
 from .bg_calibrator_shimadzu import BG_Calibrator_shimadzu
 from .blosc2_io import save_bundle, bundle_has_keys, BUNDLE_EXT
@@ -209,6 +212,22 @@ OPTIONAL_BUNDLE_KEYS = ["original"]
 # `on_stage` コールバックへ順に通知される固定の英語ステージキー。
 # 内部識別子でありユーザー表示文字列ではないため翻訳しない。
 STAGE_KEYS = ("load", "bg", "binarize", "skeletonize", "kink", "save")
+
+
+def _sha256_of_file(path: str) -> str:
+    """
+    Return the SHA-256 hex digest of a file's contents.
+    ファイル内容の SHA-256 16進ダイジェストを返す。
+
+    Recorded in bundle provenance metadata so the exact input of an analysis
+    can be verified afterwards.
+    解析の入力を事後検証できるよう、バンドルの来歴メタデータに記録される。
+    """
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def bundle_path_for(stem: str) -> str:
@@ -665,9 +684,23 @@ def process_file(
         arrays["original"] = height_data
 
     params_dict = asdict(params)
+    # Provenance metadata: records which input was processed, by which
+    # software release, and when, so a bundle's origin can be verified
+    # afterwards. "version" is the bundle FORMAT version, distinct from
+    # "software_version" (the application release). Readers must treat the
+    # provenance keys as optional — bundles written by older releases lack them.
+    # 来歴メタデータ: どの入力を・どのリリースのソフトで・いつ処理したかを
+    # 記録し、バンドルの由来を事後検証できるようにする。"version" はバンドル
+    # 形式のバージョンであり、"software_version"（アプリのリリース）とは別物。
+    # 旧リリースが書いたバンドルには来歴キーが無いため、読み取り側は任意
+    # キーとして扱うこと。
     vlmeta = {
-        "params":  params_dict,                  # Analysis parameters for reproducibility.
-        "version": "1.0",
+        "params":           params_dict,          # Analysis parameters for reproducibility.
+        "version":          "1.0",                # Bundle format version.
+        "software_version": __version__,
+        "input_file":       os.path.basename(txt_path),
+        "input_sha256":     _sha256_of_file(txt_path),
+        "created_utc":      datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
 
     bundle_path = bundle_path_for(stem)

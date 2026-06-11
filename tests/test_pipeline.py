@@ -11,12 +11,16 @@ details are tuned, unlike golden-value tests on real data.
 の調整後も成立し続ける。
 """
 
+import hashlib
 import json
 import os
+import re
+from pathlib import Path
 
 import numpy as np
 import pytest
 
+import lib
 from lib.blosc2_io import load_bundle, load_bundle_meta
 from lib.pipeline import (
     ProcParams, STAGE_KEYS, REQUIRED_BUNDLE_KEYS,
@@ -125,6 +129,29 @@ def test_vlmeta_records_params(pipeline_result):
     meta = load_bundle_meta(result.bundle_path)
     assert meta["version"] == "1.0"
     assert meta["params"]["bg_method"] == "tophat"
+
+
+def test_vlmeta_records_provenance(pipeline_result, synthetic_fiber_txt):
+    """Bundle metadata identifies the input file, software release, and time."""
+    result, _events = pipeline_result
+    meta = load_bundle_meta(result.bundle_path)
+
+    assert meta["software_version"] == lib.__version__
+    assert meta["input_file"] == os.path.basename(synthetic_fiber_txt)
+    with open(synthetic_fiber_txt, "rb") as f:
+        assert meta["input_sha256"] == hashlib.sha256(f.read()).hexdigest()
+    # ISO 8601 UTC timestamp, e.g. 2026-06-11T05:00:00+00:00.
+    assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", meta["created_utc"])
+
+
+def test_software_version_matches_pyproject():
+    """lib.__version__ is the runtime copy of the pyproject [project] version."""
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    match = re.search(
+        r'^version\s*=\s*"([^"]+)"', pyproject.read_text(encoding="utf-8"), re.M
+    )
+    assert match is not None, "version not found in pyproject.toml"
+    assert lib.__version__ == match.group(1)
 
 
 def test_save_original_key_is_optional(synthetic_fiber_txt, tmp_path):
