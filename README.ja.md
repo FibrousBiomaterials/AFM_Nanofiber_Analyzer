@@ -66,6 +66,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- afm_io.py
 |   |-- bg_calibrator_shimadzu.py
 |   |-- blosc2_io.py
+|   |-- bundle_schema.py
 |   |-- fiber.py
 |   |-- fiber_tracking_image.py
 |   |-- imp_tools.py
@@ -100,6 +101,7 @@ Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにして
 | `lib/afm_io.py` | ヘッダー、列数、エンコーディングを自動検出する AFM テキスト / CSV ローダー。 |
 | `lib/bg_calibrator_shimadzu.py` | `inpaint`、`tophat`、`spline1d`、`spline2d` 背景補正方式を持つ `BG_Calibrator_shimadzu`。 |
 | `lib/blosc2_io.py` | Blosc2 配列保存と `.b2z` TreeStore バンドルの入出力ヘルパー。 |
+| `lib/bundle_schema.py` | `.b2z` 契約の実行可能スキーマ。必須キー、配列形状、値域、単位、座標規約、形式バージョンを定義し、`validate_bundle` が書き込み時と読み込み時に強制する。 |
 | `lib/fiber.py` | ファイバー形状、高さプロファイル、キンクインデックス、端点インデックスを保持する不変 `Fiber` dataclass。 |
 | `lib/fiber_tracking_image.py` | GUI04 が GUI01 のバンドル出力からファイバーを再構築・追跡するための `FiberTrackingImage`。 |
 | `lib/imp_tools.py` | スケルトン形態処理、端点・分岐点検出、線追跡、経路距離変換のヘルパー。 |
@@ -385,7 +387,25 @@ python cli.py process scan.txt --params my_param.json --output-dir results --ove
 ます。出力先は `--output-dir` を指定しない限り入力ファイルと同じ場所です。
 出力が既に存在する入力は、`--overwrite` を付けない限りスキップされます。
 `--save-original` を付けると、元の高さ画像が `original` キーとしてバンドルに
-同梱されます。
+同梱されます。`--strict` を付けると、`--params` ファイル内の未知キーは無視
+されずエラーになります。typo したキーが黙って既定値にフォールバックする事故を
+防げます。
+
+### バンドルの検証
+
+`.b2z` 契約（必須キー、配列形状、マスク値、キンク角の単位、形式バージョン）は
+`lib/bundle_schema.py` がコードとして定義しています。パイプラインは保存前に
+全バンドルを検証し、計測層は読み込み時に検証します。`validate` は同じ検査を
+任意のタイミングで実行します:
+
+```powershell
+python cli.py validate results\*.b2z
+```
+
+各バンドルは `OK`（形式バージョン、画像サイズ、キンク数、来歴の有無を併記）
+または `INVALID`（具体的な契約違反を列挙）として報告されます。いずれかの
+バンドルが不適合のとき終了コードが非ゼロになるため、スクリプト化された
+ワークフローのガードとして使えます。
 
 ### コマンドラインでのファイバー計測
 

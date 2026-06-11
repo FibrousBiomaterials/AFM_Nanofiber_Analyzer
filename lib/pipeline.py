@@ -39,6 +39,14 @@ from . import __version__
 from .afm_io import load_afm_text
 from .bg_calibrator_shimadzu import BG_Calibrator_shimadzu
 from .blosc2_io import save_bundle, bundle_has_keys, BUNDLE_EXT
+# The bundle key contract and format version are owned by bundle_schema;
+# re-imported here so existing `pipeline.REQUIRED_BUNDLE_KEYS` users keep working.
+# バンドルのキー契約と形式バージョンは bundle_schema が管理する。既存の
+# `pipeline.REQUIRED_BUNDLE_KEYS` 利用側が動き続けるよう、ここで再インポートする。
+from .bundle_schema import (
+    BUNDLE_FORMAT_VERSION, OPTIONAL_BUNDLE_KEYS, REQUIRED_BUNDLE_KEYS,
+    validate_bundle,
+)
 from .kink_detector import KinkDetector
 from .processed_image import ProcessedImage
 from .segmenter import Segmenter
@@ -185,27 +193,6 @@ class ProcParams:
     # Kink-detection parameters.
     kinkangle_deg: float = 150.0          # Bends at or below this angle are detected as kinks.
 
-
-# Bundle keys required to treat a file as analyzed.
-# One .b2z bundle is written per analyzed file; all keys below must exist.
-# 1 解析ファイルにつき 1 つの .b2z バンドルが生成され、下記キーが揃っていれば解析済みと判定する。
-#   /calibrated   : Background-corrected image.
-#   /binarized    : Binarized image.
-#   /skeletonized : Skeletonized image.
-#   /bp           : Branch-point mask.
-#   /ep           : End-point mask.
-#   /kp           : Kink coordinates, shape (2, N), [0]=x, [1]=y.
-#   /dp           : Decomposed points used for kink detection, shape (2, N).
-#   /ka           : Kink angles in radians, shape (N,).
-REQUIRED_BUNDLE_KEYS = [
-    "calibrated", "binarized", "skeletonized",
-    "bp", "ep",
-    "kp", "dp", "ka",
-]
-
-# Optional keys must not affect the analyzed/not-analyzed decision for backward compatibility.
-# 後方互換のため、任意キーは解析済み判定に使わない。
-OPTIONAL_BUNDLE_KEYS = ["original"]
 
 # Fixed English stage keys reported through the `on_stage` callback, in order.
 # These are internal identifiers, not user-visible text; do not translate them.
@@ -683,6 +670,18 @@ def process_file(
     if save_original:
         arrays["original"] = height_data
 
+    # Enforce the bundle contract at write time. A violation here is a bug in
+    # the pipeline itself, so fail loudly instead of saving a malformed bundle
+    # that downstream GUIs would only reject much later.
+    # 書き込み時点でバンドル契約を強制する。ここでの違反はパイプライン自体の
+    # バグなので、不正なバンドルを保存してしまい下流 GUI で初めて発覚する
+    # 事態を避け、即座に失敗させる。
+    problems = validate_bundle(arrays, require=REQUIRED_BUNDLE_KEYS)
+    if problems:
+        raise ValueError(
+            "bundle contract violation before save: " + "; ".join(problems)
+        )
+
     params_dict = asdict(params)
     # Provenance metadata: records which input was processed, by which
     # software release, and when, so a bundle's origin can be verified
@@ -696,7 +695,7 @@ def process_file(
     # キーとして扱うこと。
     vlmeta = {
         "params":           params_dict,          # Analysis parameters for reproducibility.
-        "version":          "1.0",                # Bundle format version.
+        "version":          BUNDLE_FORMAT_VERSION,  # Bundle format version.
         "software_version": __version__,
         "input_file":       os.path.basename(txt_path),
         "input_sha256":     _sha256_of_file(txt_path),

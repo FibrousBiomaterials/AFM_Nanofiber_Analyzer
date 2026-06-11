@@ -27,6 +27,7 @@ Usage examples
     python cli.py show-params > default_param.json
     python cli.py measure out/*.b2z --scale-um 2.0
     python cli.py heights out/ --output heights.csv
+    python cli.py validate out/*.b2z
 
 Output messages are fixed English strings; this interface is intended for
 scripting and JOSS-reviewer use, so it does not load gettext catalogs.
@@ -51,6 +52,7 @@ if BASE_DIR not in sys.path:
 
 # ===== Project libraries =====
 from lib.blosc2_io import BUNDLE_EXT, load_bundle, load_bundle_meta
+from lib.bundle_schema import REQUIRED_BUNDLE_KEYS, validate_bundle
 from lib.measure import (
     measure_bundle,
     skeleton_height_values,
@@ -83,19 +85,34 @@ def _expand_inputs(patterns: list) -> list:
     return list(seen)
 
 
-def _load_params(path: str) -> ProcParams:
+def _load_params(path: str, strict: bool = False) -> ProcParams:
     """
     Load analysis parameters from a JSON file, reporting reconciled keys.
     JSON ファイルから解析パラメータを読み込み、整合処理したキーを報告する。
 
     Missing keys are filled from `ProcParams` defaults and unknown keys are
-    ignored, matching the GUI startup-settings behavior.
+    ignored, matching the GUI startup-settings behavior. With `strict`,
+    unknown keys raise instead, because a typoed key would otherwise silently
+    fall back to the default value and change the analysis without notice.
     欠損キーは `ProcParams` の既定値で補完し、未知キーは無視する。GUI の
-    起動時設定と同じ挙動である。
+    起動時設定と同じ挙動である。`strict` 指定時は未知キーを例外にする。
+    typo したキーが黙って既定値へフォールバックし、気づかないまま解析条件が
+    変わることを防ぐためである。
+
+    Raises
+    ------
+    ValueError
+        If `strict` is true and the file contains keys unknown to
+        `ProcParams`.
     """
     with open(path, "r", encoding="utf-8") as f:
         d = json.load(f)
     params, missing, obsolete = merge_params_dict(d)
+    if strict and obsolete:
+        raise ValueError(
+            "unknown parameter keys (use show-params for the valid set): "
+            + ", ".join(obsolete)
+        )
     if missing:
         print(f"[params] missing keys filled from defaults: {', '.join(missing)}")
     if obsolete:
@@ -133,7 +150,11 @@ def cmd_process(args: argparse.Namespace) -> int:
         print("error: no input files found", file=sys.stderr)
         return 2
 
-    params = _load_params(args.params) if args.params else ProcParams()
+    try:
+        params = _load_params(args.params, strict=args.strict) if args.params else ProcParams()
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
 
     # Validate once before the batch so every problem is reported together,
     # instead of the same failure repeating per input file.
@@ -409,6 +430,71 @@ def cmd_heights(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_validate(args: argparse.Namespace) -> int:
+    """
+    Check `.b2z` bundles against the bundle contract and report problems.
+    `.b2z` バンドルを契約と照合し、問題を報告する。
+
+    Verifies required keys, array shapes, mask values, kink-angle units, and
+    the recorded format version through `lib.bundle_schema.validate_bundle`.
+    Provenance metadata presence is reported as information, not as a
+    failure, because bundles from old releases legitimately lack it.
+    必須キー、配列形状、マスク値、キンク角の単位、記録された形式バージョンを
+    `lib.bundle_schema.validate_bundle` で検証する。来歴メタデータの有無は
+    情報として表示するだけで失敗にはしない。旧リリースのバンドルには来歴が
+    無いのが正常なためである。
+
+    Returns
+    -------
+    int
+        0 when every bundle conforms, 1 when any violates the contract or
+        cannot be read, 2 when no usable input bundle was found.
+        全バンドル適合で 0、違反または読込不能があれば 1、有効な入力が
+        無ければ 2。
+    """
+    inputs = _expand_bundle_inputs(args.inputs)
+    if not inputs:
+        print("error: no input bundle files found", file=sys.stderr)
+        return 2
+
+    n_invalid = 0
+    for i, bundle_path in enumerate(inputs, 1):
+        name = os.path.basename(bundle_path)
+        try:
+            arrays = load_bundle(bundle_path)
+            meta = load_bundle_meta(bundle_path)
+        except Exception as e:
+            print(f"[{i}/{len(inputs)}] {name}: UNREADABLE")
+            print(f"    {type(e).__name__}: {e}", file=sys.stderr)
+            n_invalid += 1
+            continue
+
+        problems = validate_bundle(arrays, meta=meta, require=REQUIRED_BUNDLE_KEYS)
+        if problems:
+            print(f"[{i}/{len(inputs)}] {name}: INVALID")
+            for problem in problems:
+                print(f"    - {problem}", file=sys.stderr)
+            n_invalid += 1
+            continue
+
+        # Provenance keys are optional (old bundles lack them); report only.
+        # 来歴キーは任意（旧バンドルには無い）。報告のみ行う。
+        has_provenance = all(
+            k in meta for k in ("software_version", "input_file", "input_sha256")
+        )
+        n_kinks = arrays["ka"].shape[0]
+        version = meta.get("version", "unrecorded")
+        print(
+            f"[{i}/{len(inputs)}] {name}: OK "
+            f"(format {version}, image {arrays['calibrated'].shape[0]}x"
+            f"{arrays['calibrated'].shape[1]}, {n_kinks} kinks, "
+            f"provenance {'present' if has_provenance else 'absent'})"
+        )
+
+    print(f"finished: {len(inputs) - n_invalid} valid, {n_invalid} invalid")
+    return 1 if n_invalid else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """
     Build the argument parser for the CLI entry point.
@@ -448,6 +534,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_proc.add_argument(
         "--save-original", action="store_true",
         help="also store the raw height image in the bundle ('original' key)",
+    )
+    p_proc.add_argument(
+        "--strict", action="store_true",
+        help="fail when the --params file contains unknown keys "
+             "(catches typos that would silently fall back to defaults)",
     )
     p_proc.set_defaults(func=cmd_process)
 
@@ -514,6 +605,18 @@ def build_parser() -> argparse.ArgumentParser:
              "(columns: bundle, height_nm)",
     )
     p_heights.set_defaults(func=cmd_heights)
+
+    p_validate = sub.add_parser(
+        "validate",
+        help="check .b2z bundles against the bundle contract "
+             "(keys, shapes, units, format version)",
+    )
+    p_validate.add_argument(
+        "inputs", nargs="+",
+        help="input .b2z bundle files or folders "
+             "(glob patterns are expanded; folders take all bundles inside)",
+    )
+    p_validate.set_defaults(func=cmd_validate)
 
     return parser
 

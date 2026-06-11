@@ -709,9 +709,18 @@ The main bundle keys shared by GUI01, GUI02, GUI03, and GUI04 are:
 | `ka` | Kink angles in radians. |
 
 GUI04 treats `calibrated`, `skeletonized`, `bp`, `ep`, `kp`, `dp`, and `ka` as
-required keys. If a `.b2z` key, shape, unit, or meaning changes, ask before
-touching additional files and keep at least these files consistent:
+required keys.
 
+The contract above is enforced in code by `lib/bundle_schema.py`
+(`validate_bundle`): the pipeline validates before saving, `lib/measure.py`
+validates at load time, and `cli.py validate` checks bundles on demand. The
+bundle format version (`BUNDLE_FORMAT_VERSION`, recorded in vlmeta as
+`version`) also lives there; bump it only when keys, shapes, or units change.
+
+If a `.b2z` key, shape, unit, or meaning changes, ask before touching
+additional files and keep at least these files consistent:
+
+- `lib/bundle_schema.py` (schema, format version, and validation rules)
 - `guis/GUI01_Image_Preprocessor.py`
 - `guis/GUI02_PlotProfiler.py`
 - `guis/GUI03_Fiber_Height_Histogram.py`
@@ -769,6 +778,7 @@ all call sites in `guis/`, `Main.py`, and `lib/` imports.
 | `afm_io.py` | `load_afm_text` | Loads AFM text/CSV as NumPy array; auto-detects header rows, column count, and encoding. |
 | `bg_calibrator_shimadzu.py` | `BG_Calibrator_shimadzu` | See §8.1 for `bg_method` options. |
 | `blosc2_io.py` | `save_blosc2`, `load_blosc2`, `save_bundle`, `load_bundle` | |
+| `bundle_schema.py` | `validate_bundle`, `BUNDLE_FORMAT_VERSION`, `SUPPORTED_BUNDLE_VERSIONS`, `REQUIRED_BUNDLE_KEYS`, `OPTIONAL_BUNDLE_KEYS`, `TRACKING_BUNDLE_KEYS` | Executable `.b2z` contract (§8.2): keys, shapes, units, coordinate convention, format version. Depends only on NumPy. |
 | `fiber.py` | `Fiber` | Immutable dataclass holding height, length, kink points, and endpoints per fiber. |
 | `fiber_tracking_image.py` | `FiberTrackingImage` | GUI04 data container; builds `Fiber` instances from a `.b2z` bundle. |
 | `imp_tools.py` | `branchedPoints`, `endPoints`, `tracking`, `convert_track_to_distance` | |

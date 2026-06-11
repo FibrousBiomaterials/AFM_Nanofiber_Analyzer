@@ -67,6 +67,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- afm_io.py
 |   |-- bg_calibrator_shimadzu.py
 |   |-- blosc2_io.py
+|   |-- bundle_schema.py
 |   |-- fiber.py
 |   |-- fiber_tracking_image.py
 |   |-- imp_tools.py
@@ -100,6 +101,7 @@ Markdown documents such as `docs/maintainer-notes.ja.md`.
 | `lib/afm_io.py` | Text/CSV AFM loader with automatic header, column, and encoding detection. |
 | `lib/bg_calibrator_shimadzu.py` | `BG_Calibrator_shimadzu`, with `inpaint`, `tophat`, `spline1d`, and `spline2d` background methods. |
 | `lib/blosc2_io.py` | Blosc2 array storage and `.b2z` TreeStore bundle helpers. |
+| `lib/bundle_schema.py` | Executable `.b2z` contract: required keys, array shapes, value ranges, units, coordinate convention, and format version, with `validate_bundle` enforcing them at write and load time. |
 | `lib/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |
 | `lib/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |
 | `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
@@ -389,7 +391,25 @@ python cli.py process scan.txt --params my_param.json --output-dir results --ove
 `process` writes one `.b2z` bundle and one `_param.json` per input, next to
 the input file unless `--output-dir` is given. Inputs whose outputs already
 exist are skipped unless `--overwrite` is passed. `--save-original` embeds the
-raw height image in the bundle under the `original` key.
+raw height image in the bundle under the `original` key. With `--strict`,
+unknown keys in the `--params` file are an error instead of being ignored,
+which catches typos that would otherwise silently fall back to defaults.
+
+### Validating bundles
+
+The `.b2z` contract (required keys, array shapes, mask values, kink-angle
+units, format version) is defined in code by `lib/bundle_schema.py`. The
+pipeline validates every bundle before saving and the measurement layer
+validates at load time; `validate` runs the same checks on demand:
+
+```powershell
+python cli.py validate results\*.b2z
+```
+
+Each bundle is reported as `OK` (with format version, image size, kink count,
+and provenance status) or `INVALID` with the specific contract violations.
+The exit code is non-zero when any bundle fails, so the command can guard
+scripted workflows.
 
 ### Command-line fiber measurement
 

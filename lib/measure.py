@@ -43,18 +43,14 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 # ===== Project libraries =====
-from .blosc2_io import load_bundle
+from .blosc2_io import load_bundle, load_bundle_meta
+# The key contract and validation are owned by bundle_schema; TRACKING_BUNDLE_KEYS
+# is re-imported here so existing `measure.TRACKING_BUNDLE_KEYS` users keep working.
+# キー契約と検証は bundle_schema が管理する。既存の
+# `measure.TRACKING_BUNDLE_KEYS` 利用側が動き続けるよう、ここで再インポートする。
+from .bundle_schema import TRACKING_BUNDLE_KEYS, validate_bundle
 from .fiber import Fiber
 from .fiber_tracking_image import FiberTrackingImage
-
-# Bundle keys required to rebuild a FiberTrackingImage (GUI04 contract).
-# Unlike lib.pipeline.REQUIRED_BUNDLE_KEYS, `binarized` is not needed here.
-# FiberTrackingImage の再構築に必要なバンドルキー（GUI04 契約）。
-# lib.pipeline.REQUIRED_BUNDLE_KEYS と異なり `binarized` は不要。
-TRACKING_BUNDLE_KEYS = [
-    "calibrated", "skeletonized",
-    "bp", "ep", "kp", "dp", "ka",
-]
 
 # Column order of the per-fiber statistics CSV. This is the single source of
 # truth shared by the GUI04 export and the `cli.py measure` subcommand.
@@ -170,6 +166,44 @@ def compute_fiber_stats(fibers: Sequence[Fiber]) -> List[FiberStats]:
     return stats
 
 
+def _load_validated_arrays(bundle_path: str, keys: List[str]) -> Dict[str, np.ndarray]:
+    """
+    Load bundle keys and enforce the ``.b2z`` contract before use.
+    バンドルキーを読み込み、使用前に ``.b2z`` 契約を強制する。
+
+    Validation here converts malformed bundles into one clear error at the
+    load boundary instead of cryptic NumPy failures inside fiber tracking.
+    The format version recorded in vlmeta is checked as well, so bundles
+    written by an incompatible future release are rejected explicitly.
+    ここで検証することで、不正なバンドルはファイバー追跡内部での不可解な
+    NumPy エラーではなく、読み込み境界での明確なエラー 1 件になる。vlmeta に
+    記録された形式バージョンも照合し、非互換な将来リリースが書いたバンドルを
+    明示的に拒否する。
+
+    Raises
+    ------
+    ValueError
+        If the loaded arrays or the recorded format version violate the
+        bundle contract.
+    """
+    arrays = load_bundle(bundle_path, keys=keys)
+    try:
+        meta = load_bundle_meta(bundle_path)
+    except Exception:
+        # Bundles from old releases may lack readable metadata; the array
+        # checks below still apply.
+        # 旧リリースのバンドルはメタデータを読めないことがあるが、配列の
+        # 検証は引き続き適用する。
+        meta = None
+    problems = validate_bundle(arrays, meta=meta, require=keys)
+    if problems:
+        raise ValueError(
+            f"bundle contract violation in {os.path.basename(bundle_path)}: "
+            + "; ".join(problems)
+        )
+    return arrays
+
+
 def _tracking_image_from_arrays(
     name: str,
     data: Dict[str, np.ndarray],
@@ -228,10 +262,16 @@ def load_tracking_image(bundle_path: str, size_per_pixel: float) -> FiberTrackin
     FiberTrackingImage
         Reconstructed object populated with GUI01 analysis outputs.
         GUI01 の解析結果を設定した再構築済みオブジェクト。
+
+    Raises
+    ------
+    ValueError
+        If the bundle violates the ``.b2z`` contract (see
+        `lib.bundle_schema.validate_bundle`).
     """
     # Load all required bundle keys in one call so the dataset is reconstructed atomically.
     # データセットを一貫して再構築できるよう、必要キーを 1 回でまとめて読み込む。
-    data = load_bundle(bundle_path, keys=TRACKING_BUNDLE_KEYS)
+    data = _load_validated_arrays(bundle_path, TRACKING_BUNDLE_KEYS)
     name = os.path.splitext(os.path.basename(bundle_path))[0]
     return _tracking_image_from_arrays(name, data, size_per_pixel)
 
@@ -273,12 +313,13 @@ def measure_bundle(
     Raises
     ------
     ValueError
-        If `scale_um` is not a positive number.
+        If `scale_um` is not a positive number, or if the bundle violates
+        the ``.b2z`` contract (see `lib.bundle_schema.validate_bundle`).
     """
     if not (scale_um > 0):
         raise ValueError(f"scale_um must be a positive number, got {scale_um!r}")
 
-    data = load_bundle(bundle_path, keys=TRACKING_BUNDLE_KEYS)
+    data = _load_validated_arrays(bundle_path, TRACKING_BUNDLE_KEYS)
     shape = data["calibrated"].shape
     # The longer image axis defines the pixel size so non-square scans keep
     # the user-entered scale on their long side, matching GUI04.
@@ -398,7 +439,11 @@ def skeleton_height_values(
     errors: List[Tuple[str, str]] = []
     for path in bundle_paths:
         try:
-            bundle = load_bundle(path, keys=["calibrated", "skeletonized"])
+            # Contract validation included: a malformed bundle becomes an
+            # error entry here instead of corrupting the pooled heights.
+            # 契約検証込み。不正なバンドルは集約高さ値を汚染せず、ここで
+            # エラー項目になる。
+            bundle = _load_validated_arrays(path, ["calibrated", "skeletonized"])
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
