@@ -1,0 +1,47 @@
+# Run the pytest suite on every push and pull request.
+# The matrix covers the primary target platform (Windows) plus Linux, on the
+# oldest broadly wheel-supported and a recent Python version.
+# push / pull request ごとに pytest スイートを実行する。マトリクスは主対象の
+# Windows と Linux、および wheel 供給が安定している新旧 2 つの Python を覆う。
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.11", "3.13"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      # opencv-python (non-headless) needs libGL at import time on Linux.
+      # Linux では opencv-python (非 headless) の import に libGL が必要。
+      - name: Install OpenCV system libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1
+
+      - name: Install package with test dependencies
+        run: python -m pip install -e ".[dev]"
+
+      # Fails on drift between code imports, pyproject dependencies,
+      # and the installed environment.
+      # コードの import・pyproject の依存宣言・実環境のずれを検出して失敗させる。
+      - name: Check dependency consistency
+        run: python check.py --verify
+
+      - name: Run tests
+        run: python -m pytest -v

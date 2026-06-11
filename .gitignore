@@ -57,3 +57,4 @@ guis/afmpp_settings.json
 *.mo
 *_param.json
 *.npy
+buildold.py

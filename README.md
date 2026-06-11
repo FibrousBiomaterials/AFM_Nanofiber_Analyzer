@@ -3,6 +3,7 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.xxxxxxx.svg)](https://doi.org/10.5281/zenodo.xxxxxxx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![tests](https://github.com/q9-droid/AFM_Nanofiber_Analyzer/actions/workflows/test.yml/badge.svg)](https://github.com/q9-droid/AFM_Nanofiber_Analyzer/actions/workflows/test.yml)
 
 AFM Nanofiber Analyzer is a tkinter-based desktop toolkit for preprocessing
 atomic force microscopy (AFM) height images and inspecting nanofiber morphology.
@@ -37,10 +38,13 @@ files.
 ```text
 AFM_Nanofiber_Analyzer/
 |-- Main.py
+|-- cli.py
 |-- babel.cfg
 |-- build.py
 |-- check.py
+|-- pyproject.toml
 |-- requirements.txt
+|-- requirements.lock.txt
 |-- 01_setup_venv.bat
 |-- 02_run_from_venv.bat
 |-- 11_setup_conda_env.bat
@@ -67,12 +71,14 @@ AFM_Nanofiber_Analyzer/
 |   |-- fiber_tracking_image.py
 |   |-- imp_tools.py
 |   |-- kink_detector.py
+|   |-- pipeline.py
 |   |-- processed_image.py
 |   |-- segmenter.py
 |   |-- skeletonizer.py
 |   |-- translator.py
 |   |-- ui_tools.py
 |   `-- __init__.py
+|-- tests/
 |-- locale/
 |   `-- ja/
 |       `-- LC_MESSAGES/
@@ -97,6 +103,7 @@ Markdown documents such as `docs/maintainer-notes.ja.md`.
 | `lib/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |
 | `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
 | `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
+| `lib/pipeline.py` | `ProcParams` parameter schema, `.b2z` key contract, and `process_file`, the GUI-independent pipeline driver shared by GUI01 and `cli.py`. |
 | `lib/processed_image.py` | `ProcessedImage`, the container passed through the GUI01 preprocessing pipeline. |
 | `lib/segmenter.py` | `Segmenter`, which builds binary nanofiber masks from calibrated AFM images. |
 | `lib/skeletonizer.py` | `Skeletonizer`, which thins segmented masks, prunes branches, and labels skeleton components. |
@@ -126,6 +133,28 @@ scipy
 `check.py` can regenerate `requirements.txt` by scanning imports in the source
 tree. PyInstaller is used only for standalone builds and is installed
 separately when building a distribution.
+
+For an exact, reproducible environment, `requirements.lock.txt` records a
+test-verified snapshot of all package versions:
+
+```powershell
+python -m pip install -r requirements.lock.txt
+```
+
+`check.py` also provides dependency consistency checking and pinning:
+
+```powershell
+python check.py            # regenerate the loose requirements.txt (as before)
+python check.py --verify   # CI-style check: code imports vs pyproject vs environment
+python check.py --pin      # re-lock requirements.lock.txt after all checks and tests pass
+```
+
+`--verify` exits nonzero when an import is missing from `pyproject.toml`
+dependencies (or vice versa), when a scanned dependency is not installed, or
+when `pip check` reports version conflicts. `--pin` runs those same checks
+plus the pytest suite, and rewrites `requirements.lock.txt` only when
+everything passes, so the lock file always records a version set that the
+tests have actually validated.
 
 ## Installation and Usage
 
@@ -251,6 +280,22 @@ python -m pip install -r requirements.txt
 python Main.py
 ```
 
+### Editable install for development (pip)
+
+The project ships a `pyproject.toml` for development installs. Installing in
+editable mode declares all runtime dependencies and registers two console
+commands; adding `[dev]` also installs pytest:
+
+```powershell
+python -m pip install -e ".[dev]"
+
+afm-analyzer                          # launcher GUI (same as python Main.py)
+afm-analyzer-cli process data\*.txt   # batch pipeline (same as python cli.py)
+```
+
+The editable install targets development from a checkout. End-user
+distribution remains the PyInstaller bundle described below.
+
 ### Build a standalone Windows bundle
 
 Install PyInstaller before running the build script:
@@ -295,6 +340,39 @@ The preprocessing parameters are stored in the generated
 skeletonization, and kink detection settings, including options such as
 background method, threshold values, branch pruning length, and kink angle
 threshold.
+
+### Command-line batch processing
+
+The same pipeline can be run without the GUI through `cli.py`, which calls
+`lib.pipeline.process_file` — the identical code path used by GUI01 — so CLI
+and GUI outputs match for the same input and parameters. This supports
+scripted batch runs and reproducible analyses.
+
+```powershell
+# Print the default analysis parameters as an editable JSON template.
+python cli.py show-params > my_param.json
+
+# Process files with default or customized parameters.
+python cli.py process testdata_tunicateCNF\*.txt
+python cli.py process scan.txt --params my_param.json --output-dir results --overwrite
+```
+
+`process` writes one `.b2z` bundle and one `_param.json` per input, next to
+the input file unless `--output-dir` is given. Inputs whose outputs already
+exist are skipped unless `--overwrite` is passed. `--save-original` embeds the
+raw height image in the bundle under the `original` key.
+
+### Running tests
+
+The test suite uses pytest. Unit tests run on a small synthetic fiber image;
+an integration test processes a bundled real scan with default parameters and
+compares summary statistics against recorded baseline values.
+
+```powershell
+python -m pip install pytest
+python -m pytest tests/
+python -m pytest tests/ -m "not slow"   # skip the real-scan integration test
+```
 
 ## Data Format
 
@@ -360,7 +438,10 @@ the corresponding `msgid` is available to translators.
 
 ## Development Utilities
 
-- `check.py` scans Python imports and writes `requirements.txt`.
+- `check.py` scans Python imports and writes `requirements.txt`; `--verify`
+  reports drift between code imports, `pyproject.toml`, and the installed
+  environment, and `--pin` regenerates `requirements.lock.txt` after the
+  consistency checks and the test suite pass.
 - `build.py` verifies imports, collects PyInstaller materials, writes
   `Main.auto.spec`, runs PyInstaller, and copies project resource folders.
 - `Main.py --warmup` imports selected heavy modules to warm startup caches in

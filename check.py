@@ -1,19 +1,50 @@
 """
-Scan Python files and generate a minimal `requirements.txt`.
-Python ファイルを走査し、最小限の `requirements.txt` を生成する。
+Scan project imports, check dependency consistency, and pin versions.
+プロジェクトの import を走査し、依存の整合性検査とバージョン固定を行う。
 
-This module is also used as a utility provider for `build.py`:
-`IMPORT_TO_PIP`, `is_stdlib`, `top_level`, `extract_imports`, and
-`iter_py_files` are imported from build.py to avoid duplicated logic.
-このモジュールは `build.py` のユーティリティ提供元としても使われる：
-`IMPORT_TO_PIP` / `is_stdlib` / `top_level` / `extract_imports` /
-`iter_py_files` は build.py から import され、ロジック重複を避ける。
+Modes
+-----
+``python check.py``
+    Scan imports and regenerate the loose `requirements.txt` (historical
+    behavior, kept compatible with the setup scripts that run before any
+    dependency is installed). When packages are already installed, a
+    consistency report is printed as warnings only.
+    import を走査して緩い `requirements.txt` を再生成する（従来動作。依存
+    インストール前に実行されるセットアップスクリプトとの互換を維持）。
+    パッケージ導入済みの環境では整合性レポートを警告として表示する。
+``python check.py --verify``
+    Check-only mode for CI: report drift between scanned imports, pyproject
+    dependencies, and the installed environment; exit nonzero on problems.
+    CI 向けの検査専用モード。走査結果・pyproject の依存・実環境の食い違いを
+    報告し、問題があれば非ゼロで終了する。
+``python check.py --pin``
+    Run all consistency checks plus the pytest suite, then regenerate
+    `requirements.lock.txt` from the current environment only if everything
+    passes, so the lock always records a test-verified version set.
+    全整合性検査と pytest スイートを実行し、すべて合格した場合のみ現環境から
+    `requirements.lock.txt` を再生成する。lock は常にテスト検証済みの
+    バージョンセットを記録する。
+
+The current `build.py` intentionally does not read `check.py` or
+`requirements.txt` as its dependency source (see build.py's docstring), but
+the helper functions here (`IMPORT_TO_PIP`, `is_stdlib`, `top_level`,
+`extract_imports`, `iter_py_files`) keep stable signatures for reuse.
+現在の `build.py` は意図的に `check.py` / `requirements.txt` をビルド依存の
+情報源として使わない（build.py の docstring 参照）。ただし本モジュールの
+ヘルパー関数（`IMPORT_TO_PIP` / `is_stdlib` / `top_level` /
+`extract_imports` / `iter_py_files`）は再利用のためシグネチャを安定に保つ。
 """
 
 from __future__ import annotations
 
+import argparse
 import ast
+import datetime
+import importlib.metadata
 import importlib.util
+import platform
+import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -57,7 +88,21 @@ BUNDLED_WITH_PARENT = {
 }
 
 # Keep this map for version constraints that are confirmed by testing.
+# Map pip name -> requirement string written into requirements.txt
+# (e.g. {"numpy": "numpy>=2.0"}). Exact pins live in requirements.lock.txt,
+# which `--pin` regenerates only after the test suite passes.
+# テストで確認済みのバージョン制約を書く場所。pip 名 -> requirements.txt に
+# 書き込む要求文字列（例: {"numpy": "numpy>=2.0"}）。厳密な固定は
+# requirements.lock.txt が担い、`--pin` がテスト合格時のみ再生成する。
 PACKAGE_CONSTRAINTS = {}
+
+# Distribution name of this project itself; excluded from the lock file
+# because the editable self-install is not a third-party dependency.
+# 本プロジェクト自身のディストリビューション名。editable インストールされた
+# 自分自身はサードパーティ依存ではないため lock から除外する。
+PROJECT_DIST_NAME = "afm-nanofiber-analyzer"
+
+LOCK_FILENAME = "requirements.lock.txt"
 
 
 def top_level(name: str) -> str:
@@ -222,9 +267,12 @@ def normalize_pip_name(import_name: str) -> str:
     Normalized package name for `requirements.txt`.
     `requirements.txt` 用に正規化したパッケージ名。
     """
-    # Resolve known import-name/package-name mismatches first.
+    # Resolve known import-name/package-name mismatches first. Version
+    # constraints are applied later by `write_requirements`, so this function
+    # always returns a plain distribution name usable for metadata lookups.
+    # バージョン制約は後段の `write_requirements` で適用するため、この関数は
+    # 常にメタデータ照会に使える素のディストリビューション名を返す。
     pip_name = IMPORT_TO_PIP.get(import_name, import_name)
-    pip_name = PACKAGE_CONSTRAINTS.get(pip_name, pip_name)
     # Trim whitespace to avoid accidental formatting variations.
     return pip_name.strip()
 
@@ -260,33 +308,293 @@ def collect_external_imports(files: list[Path] | None = None) -> set[str]:
     return {m for m in all_imports if not is_stdlib(m)}
 
 
-def main() -> None:
+def canonical_name(name: str) -> str:
     """
-    Run dependency scan and write `requirements.txt`.
-    依存パッケージを走査して `requirements.txt` を生成する。
+    Normalize a distribution name for comparison (PEP 503 style).
+    比較用にディストリビューション名を正規化する（PEP 503 準拠）。
+    """
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def installed_version(pip_name: str) -> str | None:
+    """
+    Return the installed version of a distribution, or None if absent.
+    ディストリビューションの導入済みバージョンを返す。未導入なら None。
+    """
+    try:
+        return importlib.metadata.version(pip_name)
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
+def read_pyproject_dependencies() -> set[str] | None:
+    """
+    Return canonical dependency names declared in pyproject.toml.
+    pyproject.toml に宣言された依存名を正規化した集合として返す。
+
+    Returns
+    -------
+    set of str or None
+        Canonical names from `[project] dependencies`, or None when the file
+        is missing or `tomllib` is unavailable (Python 3.10).
+        `[project] dependencies` の正規化名。ファイルが無い、または
+        `tomllib` が使えない（Python 3.10）場合は None。
+    """
+    try:
+        import tomllib
+    except ModuleNotFoundError:
+        return None
+    path = ROOT / "pyproject.toml"
+    if not path.is_file():
+        return None
+    with open(path, "rb") as f:
+        data = tomllib.load(f)
+    names: set[str] = set()
+    for spec in data.get("project", {}).get("dependencies", []):
+        # Take the name part before any extras / version specifier.
+        m = re.match(r"\s*([A-Za-z0-9._-]+)", spec)
+        if m:
+            names.add(canonical_name(m.group(1)))
+    return names
+
+
+def scan_pip_names() -> list[str]:
+    """
+    Return sorted pip names of all scanned direct dependencies.
+    走査で得た直接依存の pip 名を整列したリストで返す。
+    """
+    externals = collect_external_imports()
+    return sorted({normalize_pip_name(m) for m in externals}, key=str.lower)
+
+
+def report_consistency(pip_names: list[str]) -> list[str]:
+    """
+    Check scanned imports against the environment and pyproject.toml.
+    走査した import を実環境および pyproject.toml と突き合わせる。
+
+    Two checks are performed: (1) every scanned direct dependency must be
+    installed (its version is reported), and (2) the scanned dependency set
+    must equal `[project] dependencies`, catching both "imported but not
+    declared" and "declared but no longer imported" drift.
+    検査は 2 つ。(1) 走査された直接依存がすべて導入済みであること（バージョン
+    も報告する）。(2) 走査結果の依存集合が `[project] dependencies` と一致する
+    こと。「import したのに宣言し忘れ」「もう使っていないのに宣言が残存」の
+    両方向のずれを検出する。
+
+    Parameters
+    ----------
+    pip_names
+        Direct dependency pip names from `scan_pip_names()`.
+        `scan_pip_names()` が返す直接依存の pip 名。
+
+    Returns
+    -------
+    list of str
+        Human-readable problem descriptions; empty when fully consistent.
+        問題の説明文のリスト。完全に整合していれば空。
+    """
+    problems: list[str] = []
+
+    print("=== Installed versions of scanned dependencies ===")
+    missing: list[str] = []
+    for name in pip_names:
+        ver = installed_version(name)
+        if ver is None:
+            missing.append(name)
+            print(f"{name:<24} NOT INSTALLED")
+        else:
+            print(f"{name:<24} {ver}")
+    if missing:
+        problems.append("not installed: " + ", ".join(missing))
+
+    declared = read_pyproject_dependencies()
+    if declared is None:
+        print("note: pyproject.toml dependencies not checked "
+              "(file missing or tomllib unavailable on Python 3.10)")
+        return problems
+
+    scanned = {canonical_name(n) for n in pip_names}
+    only_code = sorted(scanned - declared)
+    only_decl = sorted(declared - scanned)
+    if only_code:
+        problems.append(
+            "imported in code but missing from pyproject dependencies: "
+            + ", ".join(only_code)
+        )
+    if only_decl:
+        problems.append(
+            "declared in pyproject but not imported by scanned code: "
+            + ", ".join(only_decl)
+        )
+    if not only_code and not only_decl:
+        print("pyproject dependencies: in sync with scanned imports")
+    return problems
+
+
+def run_pip_check() -> bool:
+    """
+    Run `pip check` to detect version conflicts among installed packages.
+    `pip check` を実行し、導入済みパッケージ間のバージョン矛盾を検出する。
+    """
+    proc = subprocess.run(
+        [sys.executable, "-m", "pip", "check"],
+        capture_output=True, text=True,
+    )
+    output = (proc.stdout or "").strip()
+    print(output if output else "pip check: no broken requirements found")
+    if proc.returncode != 0 and proc.stderr:
+        print(proc.stderr.strip(), file=sys.stderr)
+    return proc.returncode == 0
+
+
+def run_pytest() -> bool:
+    """
+    Run the project test suite; pinning requires a green run.
+    プロジェクトのテストスイートを実行する。固定にはグリーンが必須。
+    """
+    print("=== Running test suite (required before pinning) ===")
+    proc = subprocess.run([sys.executable, "-m", "pytest", "-q"], cwd=ROOT)
+    return proc.returncode == 0
+
+
+def write_lock_file() -> Path:
+    """
+    Regenerate `requirements.lock.txt` from the current environment.
+    現環境から `requirements.lock.txt` を再生成する。
+
+    The editable self-install of this project is excluded; everything else
+    (including dev tools such as pytest) is recorded so the snapshot
+    reproduces the verified environment exactly.
+    本プロジェクト自身の editable インストールは除外する。それ以外（pytest
+    などの開発ツールを含む）はすべて記録し、検証済み環境を正確に再現できる
+    スナップショットとする。
+    """
+    proc = subprocess.run(
+        [sys.executable, "-m", "pip", "freeze"],
+        capture_output=True, text=True, check=True,
+    )
+    lines: list[str] = []
+    for raw in proc.stdout.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("-e "):
+            continue
+        name = re.split(r"==| @ ", line)[0]
+        if canonical_name(name) == PROJECT_DIST_NAME:
+            continue
+        lines.append(line)
+
+    header = [
+        "# Test-verified full environment snapshot for reproducible installs.",
+        f"# Generated by `python check.py --pin` on {datetime.date.today().isoformat()} "
+        f"(Python {platform.python_version()}, {platform.system()}).",
+        "# The pytest suite passed against exactly these versions.",
+        "# Reproduce:  python -m pip install -r requirements.lock.txt",
+        "# For loose runtime requirements see requirements.txt.",
+    ]
+    path = ROOT / LOCK_FILENAME
+    path.write_text("\n".join(header + lines) + "\n", encoding="utf-8")
+    return path
+
+
+def write_requirements(pip_names: list[str]) -> Path:
+    """
+    Write the loose `requirements.txt` from scanned dependencies.
+    走査した依存から緩い `requirements.txt` を書き出す。
+    """
+    reqs = [PACKAGE_CONSTRAINTS.get(n, n) for n in pip_names]
+    req_path = ROOT / "requirements.txt"
+    req_path.write_text("\n".join(reqs) + ("\n" if reqs else ""), encoding="utf-8")
+    return req_path
+
+
+def main(argv: list[str] | None = None) -> int:
+    """
+    Dispatch scan / verify / pin modes and return a process exit code.
+    scan / verify / pin の各モードへ振り分け、終了コードを返す。
 
     Notes
     -----
-    Prints summary to console and writes file to project root.
-    コンソールに要約を表示し、プロジェクトルートへファイルを書き出す。
+    The default mode must stay non-fatal: the setup scripts run it before any
+    dependency is installed, so consistency findings are warnings there.
+    既定モードは失敗してはならない。セットアップスクリプトが依存導入前に
+    実行するため、整合性の指摘はそのモードでは警告に留める。
     """
-    externals = sorted(collect_external_imports(), key=str.lower)
+    parser = argparse.ArgumentParser(
+        description="Scan project imports, check dependency consistency, "
+                    "and pin verified versions."
+    )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--verify", action="store_true",
+        help="check-only mode: report drift between code imports, pyproject "
+             "dependencies, and the installed environment; exit 1 on problems",
+    )
+    group.add_argument(
+        "--pin", action="store_true",
+        help="run all consistency checks and the test suite, then regenerate "
+             f"{LOCK_FILENAME} from the current environment",
+    )
+    args = parser.parse_args(argv)
 
-    # Print human-readable summary to terminal.
+    externals = sorted(collect_external_imports(), key=str.lower)
     print("=== External (non-stdlib) top-level imports ===")
     for m in externals:
         print(m)
-    print(f"\nCount: {len(externals)}")
+    print(f"\nCount: {len(externals)}\n")
 
-    # Normalize to pip names and write deterministic requirements.txt.
-    reqs = sorted({normalize_pip_name(m) for m in externals}, key=str.lower)
-    req_path = ROOT / "requirements.txt"
-    req_path.write_text("\n".join(reqs) + ("\n" if reqs else ""), encoding="utf-8")
+    pip_names = sorted({normalize_pip_name(m) for m in externals}, key=str.lower)
 
-    print(f"\nWrote: {req_path}")
+    if args.verify:
+        problems = report_consistency(pip_names)
+        if not run_pip_check():
+            problems.append("pip check reported broken requirements")
+        if problems:
+            print("\nVERIFY FAILED:", file=sys.stderr)
+            for p in problems:
+                print(f"  - {p}", file=sys.stderr)
+            return 1
+        print("\nVerify: OK (imports, pyproject, and environment are consistent)")
+        return 0
+
+    if args.pin:
+        problems = report_consistency(pip_names)
+        if not run_pip_check():
+            problems.append("pip check reported broken requirements")
+        if problems:
+            print("\nPIN ABORTED (fix these before pinning):", file=sys.stderr)
+            for p in problems:
+                print(f"  - {p}", file=sys.stderr)
+            return 1
+        if not run_pytest():
+            print("\nPIN ABORTED: test suite failed; lock file not updated.",
+                  file=sys.stderr)
+            return 1
+        req_path = write_requirements(pip_names)
+        lock_path = write_lock_file()
+        print(f"\nWrote: {req_path}")
+        print(f"Wrote: {lock_path} (test-verified pin of the current environment)")
+        return 0
+
+    # Default mode: regenerate requirements.txt; report consistency only as
+    # warnings, and only when the environment has at least one dependency
+    # installed (the setup scripts run this before installing anything).
+    # 既定モード: requirements.txt を再生成する。整合性は警告としてのみ報告し、
+    # 依存が 1 つも入っていない環境（セットアップスクリプトの導入前実行）では
+    # レポート自体を省略する。
+    req_path = write_requirements(pip_names)
+    print(f"Wrote: {req_path}")
     print("Install: pip install -r requirements.txt")
+
+    if any(installed_version(n) is not None for n in pip_names):
+        print()
+        problems = report_consistency(pip_names)
+        for p in problems:
+            print(f"warning: {p}")
+        print("\nRun `python check.py --verify` for a CI-style strict check, "
+              "or `--pin` to refresh the lock file after tests pass.")
+    return 0
 
 
 if __name__ == "__main__":
     # Script entry point when executed directly.
-    main()
+    sys.exit(main())

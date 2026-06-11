@@ -61,14 +61,15 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # ===== Project libraries =====
-# These modules implement the AFM image-processing pipeline used by this GUI.
-# これらのモジュールが GUI から呼び出す AFM 画像処理本体である。
-from lib.bg_calibrator_shimadzu import BG_Calibrator_shimadzu
-from lib.processed_image import ProcessedImage
-from lib.kink_detector import KinkDetector
-from lib.segmenter import Segmenter
-from lib.skeletonizer import Skeletonizer
-from lib.blosc2_io import save_bundle, load_bundle, bundle_has_keys, BUNDLE_EXT
+# lib.pipeline drives the AFM preprocessing pipeline shared with the CLI;
+# this GUI only adds batch policy (skip/overwrite/stop) and UI reporting.
+# lib.pipeline が CLI と共通の前処理パイプラインを駆動する。本 GUI は
+# バッチ方針（スキップ/上書き/停止）と UI 表示のみを担当する。
+from lib.pipeline import (
+    ProcParams, PipelineStages, build_stages, process_file,
+    bundle_path_for, existing_min_set, merge_params_dict,
+)
+from lib.blosc2_io import load_bundle
 from lib.afm_io import load_afm_text
 from lib.translator import _
 from lib.ui_tools import (
@@ -111,141 +112,38 @@ def status_label(status: str) -> str:
     }.get(status, status)
 
 
-# ===== Settings =====
-@dataclass
-class ProcParams:
+def stage_label(stage: str) -> str:
     """
-    Processing parameters shared by the preprocessing pipeline.
-    前処理パイプラインで共有する解析パラメータ。
+    Convert a pipeline stage key from `lib.pipeline` to a translated label.
+    `lib.pipeline` のステージキーを翻訳済みの表示ラベルへ変換する。
 
-    Attributes
+    Parameters
     ----------
-    bg_method
-        Background-estimation method.
-        背景推定方式。
-    tophat_se_size
-        Diameter of the structuring element in pixels for `tophat`.
-        `tophat` 用の構造要素直径 (px)。
-    spline1d_axis
-        Direction used by the one-dimensional spline background model.
-        1D スプライン背景モデルで補間する方向。
-    spline1d_degree
-        Spline degree used by `spline1d`.
-        `spline1d` で用いるスプライン次数。
-    spline2d_degree
-        Spline degree used by `spline2d`.
-        `spline2d` で用いるスプライン次数。
-    spline2d_subsample
-        Pixel subsampling factor for the `spline2d` fit.
-        `spline2d` フィット用の画素サブサンプル係数。
-    spline2d_smoothing
-        Smoothing factor for `spline2d`; kept out of the GUI by default.
-        `spline2d` の平滑化係数。既定では GUI に露出しない。
-    threshold_factor
-        Sigma multiplier used to define the background range.
-        背景範囲を定める sigma 係数。
-    fiber_detect_factor
-        Threshold for excluding abrupt height changes as fibers.
-        急峻な高さ変化を繊維として除外するしきい値。
-    noise_detect_factor
-        Threshold for distinguishing structural changes from noise.
-        構造変化とノイズを区別するしきい値。
-    savgol_window
-        Window length for the Savitzky-Golay smoothing filter.
-        Savitzky-Golay 平滑化フィルタの窓幅。
-    savgol_polyorder
-        Polynomial order for the Savitzky-Golay filter.
-        Savitzky-Golay フィルタの多項式次数。
-    apply_median
-        Whether to apply a final median filter.
-        最後に中央値フィルタを適用するか。
-    mask_dilation
-        Pixel radius used to dilate the fiber mask.
-        繊維マスクを膨張させる画素数。
-    min_mask_component_area
-        Minimum connected-component area retained in the mask.
-        マスク内に保持する連結成分の最小面積。
-    wsize_localbin
-        Window size for local thresholding.
-        局所しきい値計算のウィンドウサイズ。
-    global_threshold
-        Global binarization threshold.
-        全体一律の二値化しきい値。
-    area_min
-        Minimum component area retained after binarization.
-        二値化後に保持する連結成分の最小面積。
-    area_min_connecting
-        Area threshold used by the disconnected-component cleanup.
-        つながり除去で用いる面積しきい値。
-    apply_no_connecting
-        Whether to run disconnected-component cleanup.
-        つながり除去を実行するか。
-    h_length
-        Minimum line length for Hough-based line detection.
-        Hough 変換で線分とみなす最小長。
-    h_sratio
-        Line-likeness threshold.
-        線らしさを示す s_ratio のしきい値。
-    low_threshold
-        Height threshold in nanometers for removing low components.
-        低い成分を除去する高さしきい値 (nm)。
-    bp_height
-        Height threshold for branch-point filtering.
-        分岐点を判定する高さしきい値。
-    branch_length
-        Maximum branch length traced during skeleton cleanup.
-        スケルトン整理時に枝として追跡する最大長。
-    min_area
-        Minimum area retained after skeletonization.
-        細線化後に保持する最小面積。
-    kinkangle_deg
-        Bend-angle threshold in degrees for kink detection.
-        キンク検出に用いる折れ角しきい値 (度)。
+    stage
+        One of `lib.pipeline.STAGE_KEYS`.
+        `lib.pipeline.STAGE_KEYS` のいずれかの値。
 
-    Notes
-    -----
-    Physical image size is intentionally excluded. It is display metadata, not
-    an analysis parameter, and folders may contain images with different scan
-    sizes.
-    画像の実寸は意図的に除外している。実寸は解析結果に影響しない表示用
-    メタ情報であり、同一フォルダ内に異なるスキャンサイズの画像が混在する
-    可能性があるため。
+    Returns
+    -------
+    str
+        Translated progress label, or the input value if unknown.
+        翻訳済みの進捗ラベル。不明な値は入力値をそのまま返す。
     """
+    return {
+        "load":        _("読み込み"),
+        "bg":          _("BG補正"),
+        "binarize":    _("二値化/成分処理"),
+        "skeletonize": _("細線化"),
+        "kink":        _("kink検出"),
+        "save":        _("保存"),
+    }.get(stage, stage)
 
-    # BG_Calibrator_shimadzu parameters.
-    bg_method: str = "inpaint"             # Background method: inpaint, tophat, spline1d, or spline2d.
-    tophat_se_size: int = 25               # Structuring-element diameter for tophat, in pixels.
-    spline1d_axis: str = "x"               # Axis used for the one-dimensional spline interpolation.
-    spline1d_degree: int = 2               # Spline degree for spline1d; practical range is 1 to 3.
-    spline2d_degree: int = 2               # Spline degree for spline2d; practical range is 1 to 3.
-    spline2d_subsample: int = 4            # Pixel subsampling factor per axis for spline2d.
-    spline2d_smoothing: Optional[float] = None  # Hidden advanced spline2d smoothing value; None keeps SciPy's default and avoids unstable near-interpolation fits.
-    threshold_factor: float = 2.0          # Sigma multiplier for the background range.
-    fiber_detect_factor: float = 10.0      # Threshold for treating abrupt height changes as fibers.
-    noise_detect_factor: float = 10.0      # Threshold for separating structural change from noise.
-    savgol_window: int = 31                # Savitzky-Golay smoothing window for inpaint, tophat, and spline1d.
-    savgol_polyorder: int = 1              # Savitzky-Golay polynomial order for inpaint, tophat, and spline1d.
-    apply_median: bool = False             # Whether to apply the final median filter.
-    mask_dilation: int = 3                 # Fiber-mask dilation radius in pixels; 0 disables dilation.
-    min_mask_component_area: int = 10      # Minimum mask component area retained before dilation; 1 disables filtering.
 
-    # Segmenter parameters.
-    wsize_localbin: int = 17               # Window size for local thresholding.
-    global_threshold: float = 0.3         # Global binarization threshold.
-    area_min: int = 100                    # Minimum component area retained, in px^2.
-    area_min_connecting: int = 3           # Area threshold for disconnected-component cleanup.
-    apply_no_connecting: bool = False      # Whether to run disconnected-component cleanup.
-    h_length: int = 20                     # Minimum Hough line length.
-    h_sratio: float = 0.5                  # Line-likeness threshold.
-    low_threshold: float = 1.8             # Low-height removal threshold, in nanometers.
-
-    # Skeletonizer parameters.
-    bp_height: float = 10.0               # Height threshold for branch-point filtering.
-    branch_length: int = 12               # Maximum branch length traced during skeleton cleanup, in pixels.
-    min_area: int = 10                    # Minimum area retained after skeletonization.
-
-    # Kink-detection parameters.
-    kinkangle_deg: float = 150.0          # Bends at or below this angle are detected as kinks.
+# ===== Settings =====
+# `ProcParams` (the analysis-parameter schema) lives in lib/pipeline.py so the
+# GUI and the CLI share one definition; this file keeps only UI-state settings.
+# 解析パラメータスキーマ `ProcParams` は GUI と CLI で定義を共有するため
+# lib/pipeline.py にあり、このファイルは UI 状態の設定のみを持つ。
 
 # Settings filename stored next to this GUI script.
 SETTINGS_FILENAME = "afmpp_settings.json"
@@ -375,29 +273,20 @@ def load_or_create_startup_params() -> Tuple[ProcParams, List[str]]:
         with open(path, "r", encoding="utf-8") as f:
             d = json.load(f)
 
-        # Fill missing keys from ProcParams defaults so old settings files keep working
-        # when new fields are added.
-        # 旧設定ファイルに新規フィールドが無いだけで全設定が失われないよう、
-        # 欠損キーは ProcParams の既定値で補完する。
-        defaults_dict = asdict(default_params)
-        missing = [k for k in defaults_dict if k not in d]
+        # Missing/unknown-key reconciliation is shared with the CLI through
+        # lib.pipeline; this function only translates the reports for the UI.
+        # 欠損・未知キーの整合処理は lib.pipeline 経由で CLI と共有し、
+        # この関数は UI 向けの翻訳メッセージ化のみを行う。
+        params, missing, obsolete = merge_params_dict(d)
         if missing:
             logs.append(_("起動時設定ファイルに不足キーがありました（デフォルトで補完）: %s")
                         % ", ".join(missing))
-            merged = {k: d.get(k, defaults_dict[k]) for k in defaults_dict}
-        else:
-            merged = {k: d[k] for k in defaults_dict}
-
-        # Ignore keys outside the current ProcParams schema, but log them for users.
-        # 現在の ProcParams スキーマに含まれないキーは無視しつつ、ユーザーへの
-        # 案内としてログに残す。
-        obsolete = [k for k in d if k not in defaults_dict]
         if obsolete:
             logs.append(_("起動時設定ファイルに使われていないキーがありました（無視）: %s")
                         % ", ".join(obsolete))
 
         # Reuse the same key layout as the per-analysis parameter JSON.
-        return ProcParams(**merged), logs
+        return params, logs
 
     except Exception as e:
         logs.append(_("起動時設定ファイルの読み込みに失敗しました（デフォルトにフォールバック）: %s") % e)
@@ -448,42 +337,10 @@ class FileItem:
         return os.path.splitext(os.path.basename(self.txt_path))[0]
 
 
-# Bundle keys required to treat a file as analyzed.
-# One .b2z bundle is written per analyzed file; all keys below must exist.
-# 1 解析ファイルにつき 1 つの .b2z バンドルが生成され、下記キーが揃っていれば解析済みと判定する。
-#   /calibrated   : Background-corrected image.
-#   /binarized    : Binarized image.
-#   /skeletonized : Skeletonized image.
-#   /bp           : Branch-point mask.
-#   /ep           : End-point mask.
-#   /kp           : Kink coordinates, shape (2, N), [0]=x, [1]=y.
-#   /dp           : Decomposed points used for kink detection, shape (2, N).
-#   /ka           : Kink angles in radians, shape (N,).
-REQUIRED_BUNDLE_KEYS = [
-    "calibrated", "binarized", "skeletonized",
-    "bp", "ep",
-    "kp", "dp", "ka",
-]
-
-# Optional keys must not affect the analyzed/not-analyzed decision for backward compatibility.
-# 後方互換のため、任意キーは解析済み判定に使わない。
-OPTIONAL_BUNDLE_KEYS = ["original"]
-
-
-def bundle_path_for(stem: str) -> str:
-    """
-    Return the bundle path for an extensionless input path.
-    拡張子を除いた入力パスに対応するバンドルパスを返す。
-    """
-    return stem + BUNDLE_EXT
-
-
-def existing_min_set(stem: str) -> Tuple[bool, List[str]]:
-    """
-    Check whether all required bundle keys exist for an input stem.
-    入力 stem に対応するバンドルへ必須キーが揃っているか確認する。
-    """
-    return bundle_has_keys(bundle_path_for(stem), REQUIRED_BUNDLE_KEYS)
+# The .b2z bundle key contract (REQUIRED_BUNDLE_KEYS / OPTIONAL_BUNDLE_KEYS)
+# and the analyzed-state check `existing_min_set` live in lib/pipeline.py.
+# .b2z バンドルのキー契約（REQUIRED_BUNDLE_KEYS / OPTIONAL_BUNDLE_KEYS）と
+# 解析済み判定 `existing_min_set` は lib/pipeline.py にある。
 
 
 def open_folder_in_os(path: str) -> None:
@@ -1246,43 +1103,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Worker threads must report all UI changes through self.ui_queue.
         try:
             # Reuse processing objects across the batch after parameters are frozen.
-            p = self.params_active
-            bg_calibrator = BG_Calibrator_shimadzu(
-                bg_method=p.bg_method,
-                tophat_se_size=p.tophat_se_size,
-                spline1d_axis=p.spline1d_axis,
-                spline1d_degree=p.spline1d_degree,
-                spline2d_degree=p.spline2d_degree,
-                spline2d_subsample=p.spline2d_subsample,
-                spline2d_smoothing=p.spline2d_smoothing,
-                threshold_factor=p.threshold_factor,
-                fiber_detect_factor=p.fiber_detect_factor,
-                noise_detect_factor=p.noise_detect_factor,
-                savgol_window=p.savgol_window,
-                savgol_polyorder=p.savgol_polyorder,
-                apply_median=p.apply_median,
-                mask_dilation=p.mask_dilation,
-                min_mask_component_area=p.min_mask_component_area,
-            )
-            segmenter = Segmenter(
-                wsize_localbin=p.wsize_localbin,
-                global_threshold=p.global_threshold,
-                area_min=p.area_min,
-                area_min_connecting=p.area_min_connecting,
-                apply_no_connecting=p.apply_no_connecting,
-                h_length=p.h_length,
-                h_sratio=p.h_sratio,
-                low_threshold=p.low_threshold,
-            )
-            skeletonizer = Skeletonizer(
-                bp_height=p.bp_height,
-                branch_length=p.branch_length,
-                min_area=p.min_area,
-            )
-            kink_detector = KinkDetector(
-                # KinkDetector expects radians, while the GUI exposes degrees.
-                threshold_angle_from_decomposed_indices=p.kinkangle_deg * np.pi / 180.0
-            )
+            # Stage construction is shared with the CLI through lib.pipeline.
+            # パラメータ固定後、ステージをバッチ全体で再利用する。
+            # ステージ構築は lib.pipeline 経由で CLI と共有する。
+            stages = build_stages(self.params_active)
 
             for it in targets:
                 if self.stop_event.is_set():
@@ -1304,9 +1128,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     self.ui_queue.put(("progress_detail", (fname, _("完了"))))
                     continue
 
-                self._process_single_item(
-                    it, fname, iid, bg_calibrator, segmenter, skeletonizer, kink_detector
-                )
+                self._process_single_item(it, fname, iid, stages)
 
         finally:
             # Always unblock the main UI controls, even after an exception or stop.
@@ -1317,75 +1139,30 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         it: FileItem,
         fname: str,
         iid: Optional[str],
-        bg_calibrator: BG_Calibrator_shimadzu,
-        segmenter: Segmenter,
-        skeletonizer: Skeletonizer,
-        kink_detector: KinkDetector,
+        stages: PipelineStages,
     ) -> None:
         """
-        Run the preprocessing pipeline and save outputs for one file.
-        1 ファイルに対して前処理パイプラインを実行し、出力を保存する。
+        Run the shared pipeline on one file and report progress to the UI.
+        共有パイプラインを 1 ファイルに実行し、進捗を UI へ通知する。
+
+        The pipeline itself (stage order, output bundle, sidecar JSON) lives in
+        `lib.pipeline.process_file`; this method only maps stage keys to
+        translated progress labels and converts the outcome into UI events.
+        パイプライン本体（ステージ順序・バンドル出力・サイドカー JSON）は
+        `lib.pipeline.process_file` にあり、このメソッドはステージキーの
+        翻訳ラベル変換と結果の UI イベント化のみを行う。
         """
-        # Run the full preprocessing pipeline for one input file.
-        t0 = time.time()
         try:
             # Each stage reports a translated progress label through the UI queue.
-            self.ui_queue.put(("progress_detail", (fname, _("読み込み"))))
-            height_data = load_afm_text(it.txt_path)
-            image = ProcessedImage(original_AFM=height_data, name=it.basename_stem)
-
-            self.ui_queue.put(("progress_detail", (fname, _("BG補正"))))
-            bg_calibrator(image)
-
-            self.ui_queue.put(("progress_detail", (fname, _("二値化/成分処理"))))
-            segmenter(image)
-
-            self.ui_queue.put(("progress_detail", (fname, _("細線化"))))
-            skeletonizer(image)
-
-            self.ui_queue.put(("progress_detail", (fname, _("kink検出"))))
-            kink_detector(image)
-
-            # Save all derived analysis outputs into one .b2z bundle.
-            # 下流 GUI が 1 ファイルから必要な配列をまとめて読み込めるようにする。
-            self.ui_queue.put(("progress_detail", (fname, _("保存"))))
-
-            # Store point coordinate pairs as shape (2, N) arrays for GUI04.
-            kp_x, kp_y = image.all_kink_coordinates
-            dp_x, dp_y = image.decomposed_point_coordinates
-
-            arrays = {
-                "calibrated":   image.calibrated_image,
-                "binarized":    image.binarized_image,
-                "skeletonized": image.skeleton_image,
-                "bp":           image.bp,                        # Branch-point mask.
-                "ep":           image.ep,                        # End-point mask.
-                "kp":           np.stack([kp_x, kp_y]),          # Kink coordinates, shape (2, N).
-                "dp":           np.stack([dp_x, dp_y]),          # Decomposed-point coordinates, shape (2, N).
-                "ka":           image.all_kink_angles,           # Kink angles in radians.
-            }
-
-            # Optionally bundle the raw original AFM height image. When included,
-            # the .b2z is self-contained (no dependency on the source .txt) and can
-            # serve as a fast-loading input for downstream machine-learning GUIs.
-            # 任意で元の AFM 高さ画像を同梱する。同梱すると .b2z は .txt に依存せず
-            # 自己完結し、下流の機械学習用 GUI の高速読み込み入力としても使える。
-            if self._save_original_active:
-                arrays["original"] = height_data
-
-            params_dict = asdict(self.params_active)
-            vlmeta = {
-                "params":  params_dict,                  # Analysis parameters for reproducibility.
-                "version": "1.0",
-            }
-
-            save_bundle(bundle_path_for(it.stem), arrays, vlmeta=vlmeta)
-
-            # Keep analysis parameters as sidecar JSON because it is easy to inspect by hand.
-            param_path = it.stem + "_param.json"
-            with open(param_path, "w", encoding="utf-8") as f:
-                json.dump(params_dict, f, ensure_ascii=False, indent=2)
-
+            result = process_file(
+                it.txt_path,
+                self.params_active,
+                stages=stages,
+                save_original=self._save_original_active,
+                on_stage=lambda s: self.ui_queue.put(
+                    ("progress_detail", (fname, stage_label(s)))
+                ),
+            )
             self.ui_queue.put(("progress_detail", (fname, _("完了"))))
 
         except Exception as e:
@@ -1399,8 +1176,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return
 
         # Report timing only after all outputs and sidecar metadata are written.
-        dt = time.time() - t0
-        dt_s = f"{dt:.2f}"
+        dt_s = f"{result.elapsed_s:.2f}"
         self.ui_queue.put(("log", _("解析完了: %s (%ss)") % (fname, dt_s)))
         if iid:
             self.ui_queue.put(("status", (iid, STATUS_ANALYZED, dt_s)))
