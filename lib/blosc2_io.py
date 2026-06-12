@@ -220,13 +220,22 @@ def load_bundle_meta(path: str) -> dict:
     -------
     Decoded vlmeta dictionary. Empty dict if no metadata.
     デコード済み vlmeta 辞書。メタデータがなければ空辞書。
+
+    Raises
+    ------
+    Exception
+        Any blosc2 read or decode failure propagates unchanged. A bundle
+        without metadata is not an error (blosc2 itself yields an empty
+        dict), so an exception here means real corruption; swallowing it
+        would let the format-version check be skipped silently.
+        blosc2 の読み込み・デコード失敗はそのまま送出する。メタデータの無い
+        バンドルはエラーではなく（blosc2 自体が空辞書を返す）、ここでの例外は
+        本物の破損を意味する。握りつぶすと形式バージョン検査が黙って
+        スキップされてしまう。
     """
     with blosc2.TreeStore(path, mode="r") as ts:
         # `vlmeta[:]` returns all metadata as a dict with string keys.
-        try:
-            return dict(ts.vlmeta[:])
-        except Exception:
-            return {}
+        return dict(ts.vlmeta[:])
 
 
 def bundle_keys(path: str) -> list[str]:

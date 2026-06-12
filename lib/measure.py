@@ -184,17 +184,23 @@ def _load_validated_arrays(bundle_path: str, keys: List[str]) -> Dict[str, np.nd
     ------
     ValueError
         If the loaded arrays or the recorded format version violate the
-        bundle contract.
+        bundle contract, or if the bundle metadata cannot be read.
     """
     arrays = load_bundle(bundle_path, keys=keys)
+    # A bundle without metadata legitimately yields an empty dict (bundles
+    # from old releases lack vlmeta). A read failure here means corruption,
+    # so it becomes a loud contract error instead of silently skipping the
+    # format-version check.
+    # メタデータの無いバンドル（旧リリース製）は正常に空辞書になる。ここでの
+    # 読み込み失敗は破損を意味するため、形式バージョン検査を黙ってスキップ
+    # せず、明示的な契約エラーにする。
     try:
         meta = load_bundle_meta(bundle_path)
-    except Exception:
-        # Bundles from old releases may lack readable metadata; the array
-        # checks below still apply.
-        # 旧リリースのバンドルはメタデータを読めないことがあるが、配列の
-        # 検証は引き続き適用する。
-        meta = None
+    except Exception as e:
+        raise ValueError(
+            f"unreadable bundle metadata in {os.path.basename(bundle_path)}: "
+            f"{type(e).__name__}: {e}"
+        ) from e
     problems = validate_bundle(arrays, meta=meta, require=keys)
     if problems:
         raise ValueError(

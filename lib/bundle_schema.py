@@ -35,6 +35,23 @@ Contract summary / 契約の要約
   ``original``（任意キー）は背景補正器による 1 画素トリミング**前**の生画像で、
   形状が他の画像キーと異なるのは仕様である。
 
+Known accepted limitation / 既知の許容済み制限
+----------------------------------------------
+The one-pixel trim is a legacy artifact of the gradient-based background
+mask (a row/column difference shrinks the array by one), not a scientific
+requirement. It shifts the coordinate frame of every processed key by one
+pixel relative to ``original``, so raw and processed data cannot be compared
+pixel-aligned. It is kept in format 1.0 because removing it changes the
+shape contract of every existing bundle; restoring full-size output (e.g.
+by padding the trimmed edge) is the leading candidate change for bundle
+format 2.0.
+1 画素トリミングは勾配ベースの背景マスク（行・列差分で配列が 1 つ縮む）に
+由来する歴史的産物であり、科学的な必然ではない。処理済みキーの座標系が
+``original`` に対して 1 画素ずれるため、生データと処理結果を画素単位で
+整合比較できない。トリミングの廃止は既存全バンドルの形状契約を変えるため
+形式 1.0 では維持し、フルサイズ出力への復元（トリム端のパディング等）を
+バンドル形式 2.0 の変更候補の筆頭とする。
+
 This module depends only on NumPy so GUI plugins and `lib.measure` can import
 it without pulling in the heavy preprocessing stack.
 本モジュールの依存は NumPy のみとし、GUI プラグインや `lib.measure` が重い

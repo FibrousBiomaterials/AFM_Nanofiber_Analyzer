@@ -54,8 +54,12 @@ class Fiber:
         A fiber is treated as independent when this has length 2.
         端点のインデックス列。要素数が 2 のとき独立したファイバーと判定する。
     kink_angles
-        Angle values at kink points (deg).
-        各キンク点における角度列 (deg)。
+        Interior angles at kink points in radians, same unit as the bundle
+        ``ka`` key. Degrees appear only in user-facing output; the conversion
+        is centralized in `lib.measure.FiberStats.kink_angles_deg`.
+        各キンク点における内角列（ラジアン）。バンドルの ``ka`` キーと同じ
+        単位で保持する。度数値はユーザー向け出力でのみ使い、変換は
+        `lib.measure.FiberStats.kink_angles_deg` に一元化されている。
     decomposed_point_indices
         Indices of decomposition points used for piecewise approximation.
         分解点のインデックス列。

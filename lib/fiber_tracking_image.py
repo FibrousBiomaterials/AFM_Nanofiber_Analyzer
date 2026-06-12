@@ -26,51 +26,80 @@ from . import imp_tools
 from .fiber import Fiber
 
 
-def _process_single_fiber(args: tuple) -> "Fiber":
+def _build_fiber(
+    label_image: np.ndarray,
+    label: int,
+    data_row,
+    cal: np.ndarray,
+    size_per_pixel: float,
+    kink_set: set,
+    dp_set: set,
+    ep_set: set,
+    kink_angle_map: dict,
+) -> Fiber:
     """
-    Process one fiber entry for parallel execution.
-    並列実行用に1本分のファイバーを処理する。
+    Build one Fiber from a labeled skeleton component and feature lookups.
+    ラベル付き骨格成分と特徴点テーブルから Fiber を 1 本構築する。
+
+    Single implementation shared by the sequential and parallel paths
+    (`_generate_fiber_instances` and `fibers_in_image_parallel`), so the two
+    paths cannot drift apart and always produce identical fibers.
+    逐次経路と並列経路（`_generate_fiber_instances` と
+    `fibers_in_image_parallel`）が共有する唯一の実装。両経路の結果が
+    乖離せず、常に同一の Fiber を生成する。
 
     Parameters
     ----------
-    args
-        Packed arguments used by the thread worker.
-        スレッドワーカーで使用する引数をまとめたタプル。
-        (label_image, label, data_row, cal, size_per_pixel,
-         all_kink_x, all_kink_y, all_kink_angles, dp_x, dp_y, ep_arr)
+    label_image
+        Connected-component label image of the cleaned skeleton.
+        整理済み骨格の連結成分ラベル画像。
+    label
+        Component label of the fiber to build.
+        構築対象ファイバーの成分ラベル。
+    data_row
+        OpenCV component stats row ``(x, y, width, height, area)``.
+        OpenCV 連結成分統計の行 ``(x, y, width, height, area)``。
+    cal
+        Calibrated height image sampled along the track.
+        トラックに沿って高さを取得する補正済み画像。
+    size_per_pixel
+        Physical pixel size in nm/px used for path-length conversion.
+        経路長変換に使う物理ピクセルサイズ (nm/px)。
+    kink_set
+        ``(x, y)`` coordinate set of kink points.
+        キンク点の ``(x, y)`` 座標集合。
+    dp_set
+        ``(x, y)`` coordinate set of decomposition points.
+        分解点の ``(x, y)`` 座標集合。
+    ep_set
+        ``(x, y)`` coordinate set of end points.
+        端点の ``(x, y)`` 座標集合。
+    kink_angle_map
+        Mapping from ``(x, y)`` kink coordinates to angles in radians.
+        キンク座標 ``(x, y)`` からラジアン角度値への対応辞書。
 
     Returns
     -------
-    One constructed Fiber object for the given label.
-    指定ラベルに対応する1つの Fiber オブジェクト。
+    Fiber
+        Constructed fiber for the given label.
+        指定ラベルに対して構築された Fiber。
     """
-    (label_image, label, data_row, cal, size_per_pixel,
-     all_kink_x, all_kink_y, all_kink_angles,
-     dp_x, dp_y, ep_arr) = args
-
     # `data_row` is OpenCV component stats: (x, y, width, height, area).
-    x, y, w, h, size = data_row
+    x, y, w, h, _size = data_row
     target_image = np.where(label_image == label, 1, 0).astype(np.uint8)
     # Track skeleton pixels in order so we can treat the fiber as a 1D sequence.
     # 骨格ピクセルを順序付きで追跡し、ファイバーを1次元列として扱えるようにする。
     xtrack_prcimg, ytrack_prcimg = imp_tools.tracking(target_image)
-    xtrack  = xtrack_prcimg - x
-    ytrack  = ytrack_prcimg - y
+    xtrack = xtrack_prcimg - x
+    ytrack = ytrack_prcimg - y
     horizon = imp_tools.convert_track_to_distance(xtrack, ytrack, size_per_pixel)
-    height  = cal[ytrack_prcimg, xtrack_prcimg]
+    height = cal[ytrack_prcimg, xtrack_prcimg]
     fiber_image = cal[y: y + h, x: x + w].copy()
 
-    # Convert coordinate arrays to sets for O(1) membership checks.
-    kink_set  = set(zip(all_kink_x.tolist(), all_kink_y.tolist()))
-    dp_set    = set(zip(dp_x.tolist(), dp_y.tolist()))
-    ep_y_arr, ep_x_arr = np.where(ep_arr)
-    ep_set    = set(zip(ep_x_arr.tolist(), ep_y_arr.tolist()))
-    # Build a coordinate->angle map to recover kink angles quickly.
-    kink_angle_map = {
-        (int(kx), int(ky)): float(ka)
-        for kx, ky, ka in zip(all_kink_x, all_kink_y, all_kink_angles)
-    }
-
+    # Linear scan keeps index alignment with the xtrack/ytrack arrays, so all
+    # feature indices come out in track order for downstream consistency.
+    # 線形走査により xtrack/ytrack 配列とのインデックス対応を保つ。特徴点の
+    # インデックスは後段処理の一貫性のため追跡順になる。
     kink_indices, decomposed_point_indices, ep_indices = [], [], []
     for i, (px, py) in enumerate(zip(xtrack_prcimg.tolist(), ytrack_prcimg.tolist())):
         if (px, py) in kink_set:
@@ -80,16 +109,17 @@ def _process_single_fiber(args: tuple) -> "Fiber":
         if (px, py) in ep_set:
             ep_indices.append(i)
 
-    kink_indices_arr = np.array(kink_indices)
+    # Translate each kink index back into a coordinate key to read its angle.
+    # 各 kink インデックスを座標キーに変換し、辞書から角度を取得する。
     kink_angles = np.array([
         kink_angle_map[(int(xtrack_prcimg[i]), int(ytrack_prcimg[i]))]
-        for i in kink_indices_arr
+        for i in kink_indices
         if (int(xtrack_prcimg[i]), int(ytrack_prcimg[i])) in kink_angle_map
     ])
 
     return Fiber(
         fiber_image, tuple(data_row), xtrack, ytrack, horizon, height,
-        kink_indices_arr, np.array(ep_indices),
+        np.array(kink_indices), np.array(ep_indices),
         kink_angles, np.array(decomposed_point_indices),
     )
 
@@ -239,34 +269,27 @@ class FiberTrackingImage:
         Fiber list extracted in parallel.
         並列処理で抽出された Fiber のリスト。
         """
-        # Remove branch points and L-corners to simplify each component into a line-like shape.
-        # 分岐点とL字角を除去し、各成分を線状に近い形へ単純化する。
-        no_bp_skel      = imp_tools.remove_bp(self.skeleton_image)
-        no_Lcorner_skel = imp_tools.remove_Lcorner(no_bp_skel)
-        nLabels, label_image, data, _ = cv2.connectedComponentsWithStats(no_Lcorner_skel)
+        nLabels, label_image, data = self._labeled_components(self.skeleton_image)
+        kink_set, dp_set, ep_set, kink_angle_map = self._feature_lookups()
 
-        all_kink_x, all_kink_y = self.all_kink_coordinates
-        dp_x = self.decomposed_point_coordinates[0]
-        dp_y = self.decomposed_point_coordinates[1]
-
-        # Pass only explicit arrays into the worker so the threaded path is independent of self state changes.
-        args_list = [
-            (
-                label_image, label, data[label],
-                self.calibrated_image, self.size_per_pixel,
-                all_kink_x, all_kink_y, self.all_kink_angles,
-                dp_x, dp_y, self.ep,
-            )
-            for label in range(1, nLabels)
-        ]
-        total = len(args_list)
+        total = nLabels - 1
         # Keep output order stable by storing each future result at its original index.
         results: list[Optional[Fiber]] = [None] * total
 
+        # Workers receive explicit references, so the threaded path is
+        # independent of later self state changes; the lookup tables are
+        # built once and only read afterwards, making them safe to share.
+        # ワーカーには明示的な参照を渡すため、実行中に self の状態が変わっても
+        # 影響しない。テーブルは一度だけ構築され以後は読み取り専用なので、
+        # スレッド間で共有しても安全。
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_idx = {
-                executor.submit(_process_single_fiber, args): i
-                for i, args in enumerate(args_list)
+                executor.submit(
+                    _build_fiber, label_image, label, data[label],
+                    self.calibrated_image, self.size_per_pixel,
+                    kink_set, dp_set, ep_set, kink_angle_map,
+                ): i
+                for i, label in enumerate(range(1, nLabels))
             }
             # Count completed tasks to report progress in real time.
             done = 0
@@ -339,13 +362,69 @@ class FiberTrackingImage:
         Constructed fibers for each connected component.
         各連結成分に対して構築された Fiber のリスト。
         """
-        # Same preprocessing as parallel path: remove branching artifacts before labeling.
-        # 並列経路と同じ前処理として、ラベリング前に分岐アーティファクトを除去する。
+        nLabels, label_image, data = self._labeled_components(skeleton_image)
+        kink_set, dp_set, ep_set, kink_angle_map = self._feature_lookups()
+
+        fiber_instances = []
+        total = nLabels - 1
+        for done, label in enumerate(range(1, nLabels), start=1):
+            fiber_instances.append(_build_fiber(
+                label_image, label, data[label],
+                self.calibrated_image, self.size_per_pixel,
+                kink_set, dp_set, ep_set, kink_angle_map,
+            ))
+            if progress_cb is not None:
+                progress_cb(done, total)
+        return fiber_instances
+
+    def _labeled_components(
+        self,
+        skeleton_image: np.ndarray,
+    ) -> tuple[int, np.ndarray, np.ndarray]:
+        """
+        Label line-like skeleton components after branch cleanup.
+        分岐除去後の線状骨格成分をラベリングする。
+
+        Remove branch points and L-corners first so each connected component
+        becomes a line-like shape that `imp_tools.tracking` can follow as a
+        single path. Shared by the sequential and parallel tracing paths.
+        分岐点とL字角を先に除去し、各連結成分を `imp_tools.tracking` が単一の
+        経路として追跡できる線状の形へ単純化する。逐次・並列の両経路で共有する。
+
+        Returns
+        -------
+        tuple
+            ``(nLabels, label_image, data)`` from
+            ``cv2.connectedComponentsWithStats``.
+            ``cv2.connectedComponentsWithStats`` の
+            ``(nLabels, label_image, data)``。
+        """
         no_bp_skel = imp_tools.remove_bp(skeleton_image)
         no_Lcorner_skel = imp_tools.remove_Lcorner(no_bp_skel)
-        nLabels, label_image, data, center = cv2.connectedComponentsWithStats(no_Lcorner_skel)
+        nLabels, label_image, data, _center = \
+            cv2.connectedComponentsWithStats(no_Lcorner_skel)
+        return nLabels, label_image, data
 
-        # Build lookup set/dict tables once before component loop.
+    def _feature_lookups(self) -> tuple[set, set, set, dict]:
+        """
+        Build coordinate lookup tables for kink, decomposition, and end points.
+        キンク・分解点・端点の座標検索テーブルを構築する。
+
+        Sets and the angle dict give O(1) membership checks during track
+        scanning. They are built once per tracing call and only read
+        afterwards, so parallel workers can share them safely.
+        集合と角度辞書によりトラック走査中の照合を O(1) にする。追跡呼び出し
+        ごとに一度だけ構築し、その後は読み取り専用のため並列ワーカー間で
+        安全に共有できる。
+
+        Returns
+        -------
+        tuple
+            ``(kink_set, dp_set, ep_set, kink_angle_map)`` consumed by
+            `_build_fiber`.
+            `_build_fiber` が使用する
+            ``(kink_set, dp_set, ep_set, kink_angle_map)``。
+        """
         all_kink_x, all_kink_y = self.all_kink_coordinates
         kink_set: set[tuple] = set(zip(all_kink_x.tolist(), all_kink_y.tolist()))
         kink_angle_map: dict[tuple, float] = {
@@ -358,148 +437,4 @@ class FiberTrackingImage:
         ))
         ep_y, ep_x = np.where(self.ep)
         ep_set: set[tuple] = set(zip(ep_x.tolist(), ep_y.tolist()))
-
-        fiber_instances = []
-        total = nLabels - 1
-        for done, label in enumerate(range(1, nLabels), start=1):
-            x, y, w, h, size = data[label]
-            target_image = np.where(label_image == label, 1, 0).astype(np.uint8)
-            xtrack_prcimg, ytrack_prcimg = imp_tools.tracking(target_image)
-            xtrack = xtrack_prcimg - x
-            ytrack = ytrack_prcimg - y
-            horizon = imp_tools.convert_track_to_distance(xtrack, ytrack, self.size_per_pixel)
-            height = self.calibrated_image[ytrack_prcimg, xtrack_prcimg]
-            fiber_image = self.calibrated_image[y: y + h, x: x + w].copy()
-
-            # Resolve feature indices from prebuilt lookup tables.
-            kink_indices, decomposed_point_indices = \
-                self._calc_kink_and_decomposed_point_indices(
-                    xtrack_prcimg, ytrack_prcimg, kink_set, dp_set)
-            ep_indices = self._calc_endpoint_indices(
-                xtrack_prcimg, ytrack_prcimg, ep_set)
-            kink_angles = self._get_kink_angles_in_fiber(
-                xtrack_prcimg, ytrack_prcimg, kink_indices, kink_angle_map)
-
-            fiber = Fiber(fiber_image, tuple(data[label]), xtrack, ytrack, horizon, height,
-                          kink_indices, ep_indices, kink_angles, decomposed_point_indices)
-            fiber_instances.append(fiber)
-            if progress_cb is not None:
-                progress_cb(done, total)
-        return fiber_instances
-
-    def _calc_kink_and_decomposed_point_indices(
-        self,
-        xtrack_prcimg: np.ndarray,
-        ytrack_prcimg: np.ndarray,
-        kink_set: set,
-        dp_set: set,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Return kink and decomposition-point indices from tracked coordinates.
-        トラック座標列からキンクと分解点のインデックスを返す。
-
-        Parameters
-        ----------
-        xtrack_prcimg
-            X coordinates on processed image track.
-            処理画像上トラックの x 座標列。
-        ytrack_prcimg
-            Y coordinates on processed image track.
-            処理画像上トラックの y 座標列。
-        kink_set
-            Coordinate set of kink points.
-            kink 点座標の集合。
-        dp_set
-            Coordinate set of decomposition points.
-            分解点座標の集合。
-
-        Returns
-        -------
-        `(kink_indices, decomposed_point_indices)`.
-        `(kink_indices, decomposed_point_indices)`。
-        """
-        # Linear scan keeps index alignment with xtrack/ytrack arrays.
-        # 線形走査により xtrack/ytrack 配列とのインデックス対応を保つ。
-        kink_indices = []
-        decomposed_point_indices = []
-        for i, (x, y) in enumerate(zip(xtrack_prcimg.tolist(), ytrack_prcimg.tolist())):
-            if (x, y) in kink_set:
-                kink_indices.append(i)
-            if (x, y) in dp_set:
-                decomposed_point_indices.append(i)
-        return np.array(kink_indices), np.array(decomposed_point_indices)
-
-    def _calc_endpoint_indices(
-        self,
-        xtrack_prcimg: np.ndarray,
-        ytrack_prcimg: np.ndarray,
-        ep_set: set,
-    ) -> np.ndarray:
-        """
-        Return endpoint indices from tracked coordinates.
-        トラック座標列から端点のインデックスを返す。
-
-        Parameters
-        ----------
-        xtrack_prcimg
-            X coordinates on processed image track.
-            処理画像上トラックの x 座標列。
-        ytrack_prcimg
-            Y coordinates on processed image track.
-            処理画像上トラックの y 座標列。
-        ep_set
-            Coordinate set of endpoint pixels.
-            端点ピクセル座標の集合。
-
-        Returns
-        -------
-        Endpoint index array. Empty if none exists.
-        端点インデックス配列。該当がなければ空配列。
-        """
-        # Endpoint indices are returned in track order for consistent downstream usage.
-        # 端点インデックスは後段処理の一貫性のため追跡順で返す。
-        ep_indices = []
-        for i, (x, y) in enumerate(zip(xtrack_prcimg.tolist(), ytrack_prcimg.tolist())):
-            if (x, y) in ep_set:
-                ep_indices.append(i)
-        return np.array(ep_indices)
-
-    def _get_kink_angles_in_fiber(
-        self,
-        xtrack_prcimg: np.ndarray,
-        ytrack_prcimg: np.ndarray,
-        kink_indices: np.ndarray,
-        kink_angle_map: dict,
-    ) -> np.ndarray:
-        """
-        Get kink angles for indices using coordinate-to-angle mapping.
-        座標→角度マップを用いてキンクインデックスの角度を取得する。
-
-        Parameters
-        ----------
-        xtrack_prcimg
-            X coordinates on processed image track.
-            処理画像上トラックの x 座標列。
-        ytrack_prcimg
-            Y coordinates on processed image track.
-            処理画像上トラックの y 座標列。
-        kink_indices
-            Indices identified as kink points.
-            kink 点として識別されたインデックス列。
-        kink_angle_map
-            Mapping from `(x, y)` coordinates to angle values.
-            `(x, y)` 座標から角度値への対応辞書。
-
-        Returns
-        -------
-        Angle array aligned with valid kink indices.
-        有効な kink インデックスに対応する角度配列。
-        """
-        # Translate each kink index into a coordinate key, then read angle from dictionary.
-        # 各 kink インデックスを座標キーに変換し、辞書から角度を取得する。
-        kink_angles = []
-        for i in kink_indices:
-            key = (int(xtrack_prcimg[i]), int(ytrack_prcimg[i]))
-            if key in kink_angle_map:
-                kink_angles.append(kink_angle_map[key])
-        return np.array(kink_angles)
+        return kink_set, dp_set, ep_set, kink_angle_map
