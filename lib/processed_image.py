@@ -8,6 +8,8 @@ the pipeline, then converts tracked skeleton components into Fiber objects.
 追跡した骨格成分を Fiber オブジェクトへ変換する。
 """
 
+from typing import Optional
+
 import cv2
 import numpy as np
 
@@ -29,8 +31,9 @@ class ProcessedImage:
         Original 2D AFM image array.
         元の 2 次元 AFM 画像配列。
     size_per_pixel
-        Physical size represented by one pixel.
-        1 ピクセルが表す実空間サイズ。
+        Physical size represented by one pixel (nm/px); None when the scan
+        scale is unknown.
+        1 ピクセルが表す実空間サイズ (nm/px)。スキャンスケール未知の場合は None。
     calibrated_image
         Background-corrected AFM height image set by the calibrator.
         キャリブレーション処理で設定される背景補正済み AFM 高さ画像。
@@ -70,7 +73,7 @@ class ProcessedImage:
         self,
         original_AFM: np.ndarray,
         name: str,
-        size_per_pixel: float = 5000 / 1024,
+        size_per_pixel: Optional[float] = None,
     ) -> None:
         """
         Initialize a container for AFM image processing results.
@@ -85,12 +88,18 @@ class ProcessedImage:
             Identifier or file name for this image.
             この画像の識別名またはファイル名。
         size_per_pixel
-            Physical size represented by one pixel.
-            1 ピクセルが表す実空間サイズ。
+            Physical size represented by one pixel (nm/px). None means the
+            scan scale is unknown; the preprocessing stages never read this
+            field, and leaving it None makes an accidental length computation
+            fail loudly instead of silently assuming a default scan size.
+            1 ピクセルが表す実空間サイズ (nm/px)。None はスキャンスケール
+            未知を意味する。前処理ステージはこのフィールドを参照しないため、
+            None のままなら誤って長さ計算に使われた際に、既定スキャンサイズを
+            黙って仮定せず明示的に失敗する。
         """
         self.name: str = name
         self.original_image: np.ndarray = original_AFM
-        self.size_per_pixel: float = size_per_pixel
+        self.size_per_pixel: Optional[float] = size_per_pixel
 
         # Store images produced by later pipeline stages.
         # 後続のパイプライン段階で生成される画像を保持する。

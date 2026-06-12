@@ -103,7 +103,6 @@ DEFAULT_HEIGHT_YLIM:           float = 20.0
 # GUI01 と仕様を揃え、入力欄の単位は µm 固定で、軸目盛単位の表示だけ µm/nm を切り替える。
 DEFAULT_IMAGE_SIZE_UM:         float = 2.0               # 画像全体のサイズ (µm)
 DEFAULT_IMAGE_SIZE_NM:         float = DEFAULT_IMAGE_SIZE_UM * 1000.0  # 内部処理用 (nm)
-DEFAULT_SIZE_PER_PIXEL:        float = 5000.0 / 1024.0   # Fallback pixel size (nm/px).
 # Fiber analysis is always parallelized with ThreadPoolExecutor.
 # ファイバー解析は常に ThreadPoolExecutor で並列化する。
 
@@ -2395,12 +2394,16 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
             full_px = max(app.current_image.calibrated_image.shape[:2])
             spp = scale / full_px
         else:
-            # Fallback: DEFAULT value divided by 1024 px, converted to the axis-label unit.
-            # フォールバック：DEFAULT 値（µm）/ 1024 px。単位は軸ラベルに合わせる。
-            if unit_label == "nm":
-                spp = DEFAULT_SIZE_PER_PIXEL
-            else:
-                spp = DEFAULT_SIZE_PER_PIXEL / 1000.0
+            # Fallback when no dataset is loaded: assume a 1024 px image and
+            # derive the pixel size from the committed scale (`scale` is
+            # already in the axis-label unit), so this path stays consistent
+            # with the scale-entry fallback instead of assuming a separate
+            # fixed scan size.
+            # データ未ロード時のフォールバック：1024 px 画像を仮定し、確定済み
+            # スケールから画素サイズを導出する（`scale` は軸ラベル単位に換算
+            # 済み）。スケール入力欄のフォールバックと別の固定スキャンサイズを
+            # 仮定しないことで、両者の整合を保つ。
+            spp = scale / 1024.0
 
         # Use the three local font-size settings.
         fs_label = self._fiber_label_fs

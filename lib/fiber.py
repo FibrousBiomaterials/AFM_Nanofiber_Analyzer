@@ -14,10 +14,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-# Default pixel size based on 5000 nm scan width over 1024 pixels.
-# デフォルトのピクセルサイズ: スキャン範囲 5000 nm を 1024 ピクセルで割った値 (nm/px)
-_DEFAULT_PIXELSIZE = 5000 / 1024
-
 
 @dataclass(frozen=True)
 class Fiber:

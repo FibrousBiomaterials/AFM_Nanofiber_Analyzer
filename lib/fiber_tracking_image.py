@@ -113,8 +113,9 @@ class FiberTrackingImage:
         Original AFM image array.
         元の AFM 画像配列。
     size_per_pixel
-        Physical size represented by one pixel.
-        1ピクセルが表す実空間サイズ。
+        Physical size represented by one pixel (nm/px); None when the scan
+        scale is unknown.
+        1ピクセルが表す実空間サイズ (nm/px)。スキャンスケール未知の場合は None。
     calibrated_image
         Calibrated AFM image loaded from GUI01 output.
         GUI01 出力から読み込む補正済み AFM 画像。
@@ -142,7 +143,7 @@ class FiberTrackingImage:
         self,
         original_AFM: np.ndarray,
         name: str,
-        size_per_pixel: float = 5000 / 1024,
+        size_per_pixel: Optional[float] = None,
     ) -> None:
         """
         Initialize container fields for GUI04 tracking workflow.
@@ -157,12 +158,17 @@ class FiberTrackingImage:
             Name or identifier of this image.
             画像名または識別子。
         size_per_pixel
-            Physical length represented by one pixel.
-            1ピクセルあたりの実空間長。
+            Physical length represented by one pixel (nm/px). None means the
+            scan scale is unknown; fiber-length computation then fails loudly
+            instead of silently assuming a default scan size, so callers that
+            trace fibers must always pass an explicit value.
+            1ピクセルあたりの実空間長 (nm/px)。None はスキャンスケール未知を
+            意味し、ファイバー長計算は既定スキャンサイズを黙って仮定せず明示的に
+            失敗する。ファイバー追跡を行う呼び出し側は必ず明示値を渡すこと。
         """
         self.name: str = name
         self.original_image: np.ndarray = original_AFM
-        self.size_per_pixel: float = size_per_pixel
+        self.size_per_pixel: Optional[float] = size_per_pixel
 
         # GUI04 populates these arrays from GUI01 output files.
         # GUI04 が GUI01 出力ファイルからこれらの配列を設定する。
