@@ -1,18 +1,40 @@
+# Agent Instructions
+
+This file (`AGENTS.md`) is the **canonical instruction file** for every AI
+coding agent working in this repository (Claude Code, Codex, and others).
+`CLAUDE.md` exists only as a thin pointer that imports this file for Claude
+Code. Apply rule changes here and only here; never add rules to `CLAUDE.md`,
+and never let the two files diverge.
+
 # Editing Rules
 
 - Do not edit files not explicitly requested by the user.
 - Do not perform unrelated refactors, formatting changes, translations, or cleanup.
 - Before editing, state the target file paths and the intended change.
-- If the change may require touching additional files, ask first.
-- Preserve Japanese text unless the user explicitly asks to translate it.
+- If the change may require touching additional files, ask first. Files that
+  this document explicitly requires to stay consistent (the README pair, the
+  `.b2z` contract files in §8.2, translation catalogs in §8.8) count as part
+  of the requested change once the user approves the edit that triggers them.
+- Preserve Japanese text unless the user explicitly asks to translate it or a
+  rule in this file requires it (README synchronization below, comment policy
+  in §4).
 - When reading files with non-ASCII text, retry with UTF-8 or cp932 before concluding the text is garbled.
-- Do not rewrite an entire non-ASCII file through PowerShell `Set-Content`, shell redirection, or ad hoc scripts merely to make targeted edits; this can permanently save mojibake. Use `apply_patch` for small edits, and preserve the file's existing encoding.
+- Do not rewrite an entire non-ASCII file through PowerShell `Set-Content`, shell redirection, or ad hoc scripts merely to make targeted edits; this can permanently save mojibake. Use your agent's targeted-edit tool (`apply_patch`, `Edit`, or equivalent) for small edits, and preserve the file's existing encoding.
 - If Japanese text appears garbled after an edit, stop immediately and restore the affected comments/docstrings from Git or a known-good UTF-8/cp932 backup before making further changes.
 - Prefer minimal diffs over full rewrites.
-- When editing `README.md`, apply the same corresponding edit to `README.ja.md`.
-- Do not run destructive Git commands.
+- `README.md` and `README.ja.md` are a synchronized pair. When editing either
+  one, apply the same corresponding edit to the other. Translating the edited
+  passage into the other file's language is part of this synchronization and
+  does not require a separate translation request.
+- Do not run Git commands that discard or rewrite committed history or
+  uncommitted work (`reset --hard`, `push --force`, `clean`, `rebase`, branch
+  deletion, history filtering) unless the user explicitly requests that
+  specific operation. Exception: restoring files corrupted by your own edit
+  (e.g., `git restore <file>`) under the mojibake rule above is allowed.
 - Do not use personal information (email addresses, real names, etc.) obtained from system context in examples, output, or generated code. Use placeholder values (e.g., `your@email.com`, `Your Name`) instead.
-- Do not display the user's local directory paths in chat responses.
+- Do not display the user's local absolute paths (anything outside the
+  repository, such as the user profile directory) in chat responses.
+  Repository-relative paths are fine.
 
 # Commenting and Docstring Rules
 
@@ -38,7 +60,7 @@ comment, as defined in §1.
 | Windows `.bat` comments | Keep executable `.bat` files ASCII-only. Use concise English `REM` comments only; put Japanese explanations in Markdown documentation instead. |
 | `.sh` comments | Follow the same intent-focused policy as Python inline comments. For setup, launch, build, and environment scripts, write concise English comments first and Japanese comments directly below for purpose, prerequisites, environment assumptions, failure-prone steps, and non-obvious command choices. Do not explain every command line-by-line. |
 | Inline / block comments (existing Japanese) | See §4. Default is keep-and-translate, not delete. |
-| README, `docs/`, user-facing prose | English only. Provide `README.ja.md` separately if needed. |
+| README, `docs/`, user-facing prose | English only. Provide `*.ja.md` counterparts separately if needed (e.g., `README.ja.md`, `docs/maintainer-notes.ja.md`). |
 | `PLUGIN_INFO`, `gettext` / `_()` strings | See §6. |
 
 The asymmetry between docstrings and inline comments is intentional.
@@ -68,11 +90,10 @@ only, because `cmd.exe` may interpret UTF-8 comments using the system code page
 and execute garbled fragments as commands.
 
 ```python
-# Try headerless first; fall back to 92-row skip for legacy Shimadzu format.
-try:
-    return np.loadtxt(path, delimiter=",", usecols=range(n), encoding="cp932")
-except Exception:
-    return np.loadtxt(path, delimiter=",", usecols=range(n), skiprows=92, encoding="cp932")
+# Try utf-8-sig first (it also reads BOM-less UTF-8), then cp932 for files
+# exported on Japanese Windows; latin-1 is a last-resort byte-preserving fallback.
+for enc in ("utf-8-sig", "cp932", "utf-8", "latin-1"):
+    ...
 ```
 
 ### 2.2 Bilingual only for domain-specific notes
@@ -105,62 +126,25 @@ i += 1   # skip the header row before entering the main loop
 
 ## 3. Docstrings
 
-All public modules, classes, and functions require a docstring with both an
-English line and a Japanese line on the summary and on each parameter / return
-/ attribute entry, as specified in §1. Use **NumPy-style headings** so Sphinx
-and numpydoc can parse them; headings themselves stay in English.
+All public modules, classes, and functions require a docstring. Apply the
+bilingual defaults from §1: English is always required, and the summary line
+plus each parameter / return / attribute entry carries an English line and a
+Japanese line by default. Use **NumPy-style headings** so Sphinx and numpydoc
+can parse them; headings themselves stay in English.
 
 ### 3.1 Type hints and docstrings
 
 If a parameter or return value already has a type hint, do **not** repeat the
 type in the docstring. Describe meaning, units, constraints, and assumptions.
 
-### 3.2 Function docstring template
-
-```python
-def detect_kinks(skeleton: np.ndarray, angle_threshold_deg: float) -> list[tuple[int, int]]:
-    """
-    Detect kink points along a skeletonized fiber trace.
-    細線化された繊維トレース上のキンク点を検出する。
-
-    Parameters
-    ----------
-    skeleton
-        Binary skeleton image of the fiber. Nonzero pixels mark the centerline.
-        繊維の二値化スケルトン画像。非ゼロ画素が繊維中心線を表す。
-    angle_threshold_deg
-        Interior-angle threshold (degrees). A three-point bend with an interior
-        angle below this value is flagged as a kink.
-        3 点折れ線の内角がこの値 (度) 未満のとき、その点をキンクとして検出する。
-
-    Returns
-    -------
-    list of tuple
-        Detected kink coordinates as ``(row, col)`` pairs.
-        検出されたキンク点の (行, 列) 座標のリスト。
-
-    Raises
-    ------
-    ValueError
-        If `skeleton` is not a 2D array.
-
-    Notes
-    -----
-    The interior angle is computed from a windowed three-point sampling along
-    the skeleton, not from global curvature fitting.
-    内角はスケルトンに沿ったウィンドウ 3 点サンプリングから計算され、
-    大域的な曲率フィッティングは行わない。
-    """
-```
-
-Heading rules:
+### 3.2 Heading rules
 
 - Use standard English headings: `Parameters`, `Returns`, `Raises`, `Notes`,
   `Attributes`.
 - Do **not** write `Parameters / パラメータ` etc. — translated headings can
   break doc generators.
 
-Bilingual decisions inside the docstring:
+### 3.3 Bilingual decisions inside the docstring
 
 - Summary line, `Parameters`, `Returns`, `Attributes`: bilingual by default
   (English line then Japanese line).
@@ -170,81 +154,11 @@ Bilingual decisions inside the docstring:
   or other domain knowledge; English only when it is a routine implementation
   note.
 
-### 3.3 Class docstring template
+### 3.4 Templates
 
-```python
-class FiberTracker:
-    """
-    Trace individual nanofibers from an AFM height image.
-    AFM 高さ画像から個々のナノファイバーをトレースするクラス。
-
-    Attributes
-    ----------
-    min_length_px
-        Minimum trace length in pixels required to retain a fiber candidate.
-        候補繊維として保持する最小トレース長 (px)。
-    branch_length
-        Maximum branch length in pixels explored during skeleton walking.
-        スケルトン追跡時に探索する最大分岐長 (px)。
-    """
-```
-
-### 3.4 Module-level docstring template
-
-```python
-"""
-Background calibration for Shimadzu SPM-9600 AFM images.
-島津 SPM-9600 AFM 画像のバックグラウンド補正モジュール。
-
-Removes line-by-line baseline drift introduced by the scanner while preserving
-nanofiber features above the noise floor.
-スキャナ由来の行ごとのベースラインドリフトを除去しつつ、
-ノイズフロアより上のナノファイバー構造を保持する。
-"""
-```
-
-### 3.5 Private function docstring template
-
-Short private helper — summary only, bilingual:
-
-```python
-def _interior_angle_deg(p0: tuple, p1: tuple, p2: tuple) -> float:
-    """
-    Return the interior angle (degrees) at p1 formed by p0–p1–p2.
-    p0–p1–p2 で構成される折れ線の p1 における内角 (度) を返す。
-
-    Used by `detect_kinks` for the windowed three-point bend test.
-    """
-```
-
-Private helper with algorithm rationale — bilingual on the summary and on the
-explanatory body; routine parameter notes English only:
-
-```python
-def _remove_line_drift(image: np.ndarray, order: int = 1) -> np.ndarray:
-    """
-    Subtract a per-row polynomial baseline from an AFM height image.
-    AFM 高さ画像から、行ごとの多項式ベースラインを差し引く。
-
-    Shimadzu SPM-9600 scans introduce a slow drift along the fast-scan axis
-    that is uncorrelated between rows. Fitting and subtracting a low-order
-    polynomial per row removes this drift without flattening nanofiber
-    features, because fibers are narrow compared to the row length.
-    島津 SPM-9600 のスキャンでは高速走査軸方向に行間で無相関な緩やかなドリフトが
-    生じる。行ごとに低次多項式をフィットして差し引くことで、行長に比べて細い
-    ナノファイバー構造を潰さずにドリフトのみを除去できる。
-
-    Parameters
-    ----------
-    image
-        2D height map in nanometers.
-    order
-        Polynomial order for the per-row fit. Order 1 is the default and is
-        usually sufficient; higher orders risk fitting the fiber itself.
-        行ごとの多項式の次数。通常は 1 で十分。高次にすると繊維本体まで
-        フィットしてしまう恐れがある。
-    """
-```
+Worked templates for function, class, module-level, and private-function
+docstrings live in `docs/docstring-templates.md`. Follow them when writing or
+rewriting docstrings; they illustrate this policy and do not add to it.
 
 ---
 
@@ -393,8 +307,8 @@ paper or submission materials per current JOSS guidelines.
 
 `PLUGIN_INFO` in each GUI plugin file is parsed by `Main.py` via
 `ast.literal_eval()`. Function calls such as `_("...")` cause a parse error.
-Keep values as plain string literals; do not wrap with `_()`. The project will
-standardize these values in English.
+Keep values as plain string literals; do not wrap with `_()`. These values
+are standardized in English.
 Do not insert `\n` in `PLUGIN_INFO["description"]` only to control launcher
 line wrapping. Keep descriptions as natural text; `Main.py` and the UI layout
 are responsible for wrapping. Splitting a Python string literal across source
@@ -420,9 +334,6 @@ UI-facing strings (button labels, window titles, status messages, tooltips,
 error dialogs) are managed by `gettext` / `_()` and translated through the
 `.po` / `.mo` pipeline. Do not apply the bilingual comment rule to them and do
 not rewrite them unless the UI text itself is being intentionally updated.
-In PO syntax, an entry whose `msgstr ""` is followed by translated continuation
-string lines is not empty. When filling empty translations, treat those entries
-as existing translations and leave them unchanged.
 Do not insert `\n` in the middle of a sentence only to control visual line
 wrapping in translated `msgstr` entries. Different languages wrap naturally at
 different positions, so UI layout should handle wrapping. Use explicit `\n`
@@ -639,7 +550,9 @@ When creating a new GUI plugin, ensure that:
 - imports follow the standard grouping
 - GUI launch is guarded by `if __name__ == "__main__"`
 - common behavior uses `lib.ui_tools` helpers where applicable
-- user-facing strings use `_()` unless they are `PLUGIN_INFO` values
+- operational user-facing strings use `_()` per §6.2; plot text, exported
+  labels, scientific units, `PLUGIN_INFO` values, and internal state keys
+  stay fixed English
 - internal state keys remain fixed English identifiers
 - outputs and input expectations are documented in the module docstring
 - long-running work does not block the Tk event loop
@@ -649,12 +562,20 @@ When creating a new GUI plugin, ensure that:
 
 ## 8. Project Architecture and Data Contracts
 
-These project-level contracts come from the Japanese project specification and
-are intended to prevent local edits from breaking cross-GUI workflows.
+These project-level contracts prevent local edits from breaking cross-GUI
+workflows. Where a contract also exists in code, **the code is the source of
+truth**: `lib/bundle_schema.py` defines the `.b2z` contract and
+`lib/pipeline.py` defines `ProcParams` and the stage pipeline. If this
+document and the code disagree, trust the code and update this document in
+the same change.
 
-### 8.1 GUI01 analysis pipeline
+### 8.1 Preprocessing pipeline (`lib/pipeline.py`)
 
-`GUI01_Image_Preprocessor.py` processes each input AFM file in this order:
+The preprocessing pipeline is implemented in `lib/pipeline.py`.
+`guis/GUI01_Image_Preprocessor.py` and `cli.py process` both call
+`lib.pipeline.process_file`, so the GUI and CLI entry points produce
+identical analysis outputs for the same input and parameters. Each input AFM
+file is processed in this order:
 
 ```text
 raw AFM text/CSV
@@ -668,8 +589,25 @@ raw AFM text/CSV
 ```
 
 Keep background calibration, segmentation, skeletonization, and kink detection
-as separate responsibilities. Analysis parameters are defined through
-`ProcParams` and saved beside the bundle as `<input_stem>_param.json`.
+as separate responsibilities.
+
+Analysis parameters are defined by the `ProcParams` dataclass in
+`lib/pipeline.py` and saved beside the bundle as `<input_stem>_param.json`.
+Field names are serialized verbatim into that file, so **every `ProcParams`
+field name is frozen** — a rename silently breaks parameter reload. The
+authoritative field list is the dataclass itself; do not maintain copies of it
+in documentation.
+
+`BGCalibrator` (in `lib/bg_calibrator.py`; the historical name
+`BG_Calibrator_shimadzu` remains importable through a compatibility shim)
+supports four `bg_method` values:
+
+| `bg_method` | Description |
+|---|---|
+| `inpaint` | Masks fiber candidates via gradient histogram and ridge detection, then estimates background with inpainting. |
+| `tophat` | Fast morphological top-hat correction without masking. |
+| `spline1d` | 1D B-spline interpolation per row or column; effective for line-noise-dominant images. |
+| `spline2d` | 2D B-spline to estimate a smooth background surface. |
 
 ### 8.2 `.b2z` bundle contract
 
@@ -678,30 +616,32 @@ GUI01 currently saves one `<input_stem>.b2z` bundle and one
 workflow that emitted multiple standalone `.npy` files unless the user
 explicitly requests a format migration.
 
-The main bundle keys shared by GUI01, GUI02, GUI03, and GUI04 are:
+The executable contract — required and optional keys, array shapes, units,
+coordinate convention, and the bundle format version — is defined in
+`lib/bundle_schema.py` (`REQUIRED_BUNDLE_KEYS`, `OPTIONAL_BUNDLE_KEYS`,
+`TRACKING_BUNDLE_KEYS`, `validate_bundle`, `BUNDLE_FORMAT_VERSION`,
+`SUPPORTED_BUNDLE_VERSIONS`). Read the key list, shapes, and units there;
+this document intentionally does not duplicate them. The pipeline validates
+before saving, `lib/measure.py` validates at load time, and `cli.py validate`
+checks bundles on demand. Bump `BUNDLE_FORMAT_VERSION` (recorded in vlmeta as
+`version`) only when keys, shapes, or units change.
 
-| Key | Contract |
-|---|---|
-| `calibrated` | Background-corrected AFM height image. |
-| `binarized` | Binary fiber mask. |
-| `skeletonized` | Skeletonized fiber image. |
-| `bp` | Branch-point mask. |
-| `ep` | Endpoint mask. |
-| `kp` | Kink-point coordinates with shape `(2, N)`. |
-| `dp` | Decomposition-point coordinates with shape `(2, N)`. |
-| `ka` | Kink angles in radians. |
+GUI04 requires the keys listed in `TRACKING_BUNDLE_KEYS` (`calibrated`,
+`skeletonized`, `bp`, `ep`, `kp`, `dp`, `ka`).
 
-GUI04 treats `calibrated`, `skeletonized`, `bp`, `ep`, `kp`, `dp`, and `ka` as
-required keys. If a `.b2z` key, shape, unit, or meaning changes, ask before
-touching additional files and keep at least these files consistent:
+If a `.b2z` key, shape, unit, or meaning changes, ask before touching
+additional files and keep at least these files consistent:
 
+- `lib/bundle_schema.py` (schema, format version, and validation rules)
+- `lib/pipeline.py`
+- `lib/measure.py`
 - `guis/GUI01_Image_Preprocessor.py`
 - `guis/GUI02_PlotProfiler.py`
 - `guis/GUI03_Fiber_Height_Histogram.py`
 - `guis/GUI04_Tracking_fiber.py`
 - `lib/blosc2_io.py`
-- `README.md`
-- `AFM_Nanofiber_Analyzer_日本語仕様書.md`
+- `README.md` / `README.ja.md`
+- `docs/maintainer-notes.ja.md`
 
 ### 8.3 GUI-specific data expectations
 
@@ -725,8 +665,8 @@ as `drain_ui_queue` for shared queue-draining behavior.
 ### 8.5 Renames and imports
 
 Do not rename `lib/` modules casually. If a module filename or public import
-path changes, check at least `lib/` imports, `guis/*.py`, `README.md`, and
-the Japanese specification.
+path changes, check at least `lib/` imports, `guis/*.py`, `README.md`,
+`README.ja.md`, and `docs/maintainer-notes.ja.md`.
 
 `Main.py` launches each plugin through its `--run-plugin` subcommand, which
 imports the plugin module in a worker thread behind a splash window. Frozen
@@ -742,14 +682,71 @@ performs PyInstaller-oriented import checks, spec generation, build execution,
 and copies `guis/`, `lib/`, `locale/`, and `assets/` into `dist/Main/`.
 Distribution should treat the entire `dist/Main/` folder as the deliverable.
 
+### 8.7 lib module APIs
+
+Do not rename the public classes and functions listed below without updating
+all call sites in `guis/`, `Main.py`, `cli.py`, `tests/`, and `lib/` imports.
+
+| Module | Public API | Notes |
+|---|---|---|
+| `afm_io.py` | `load_afm_text`, `detect_afm_format`, `AfmTextFormat`, `FORMAT_KINDS` | Loads AFM text/CSV as NumPy array; auto-detects header rows, column count, and encoding. `detect_afm_format` reports the detected layout without loading the data. |
+| `bg_calibrator.py` | `BGCalibrator` | See §8.1 for `bg_method` options. |
+| `bg_calibrator_shimadzu.py` | `BG_Calibrator_shimadzu` | Compatibility shim; alias of `BGCalibrator`. Do not add new code here. |
+| `blosc2_io.py` | `save_blosc2`, `load_blosc2`, `save_bundle`, `load_bundle` | |
+| `bundle_schema.py` | `validate_bundle`, `BUNDLE_FORMAT_VERSION`, `SUPPORTED_BUNDLE_VERSIONS`, `REQUIRED_BUNDLE_KEYS`, `OPTIONAL_BUNDLE_KEYS`, `TRACKING_BUNDLE_KEYS` | Executable `.b2z` contract (§8.2): keys, shapes, units, coordinate convention, format version. Depends only on NumPy. |
+| `fiber.py` | `Fiber` | Immutable dataclass holding height, length, kink points, and endpoints per fiber. |
+| `fiber_tracking_image.py` | `FiberTrackingImage` | GUI04 data container; builds `Fiber` instances from a `.b2z` bundle. |
+| `imp_tools.py` | `branchedPoints`, `endPoints`, `tracking`, `convert_track_to_distance` | |
+| `kink_detector.py` | `KinkDetector` | |
+| `measure.py` | `FiberStats`, `MeasureResult`, `compute_fiber_stats`, `load_tracking_image`, `measure_bundle`, `write_fiber_csv`, `all_pixel_height`, `skeleton_height_values`, `write_heights_csv`, `TRACKING_BUNDLE_KEYS`, `FIBER_CSV_COLUMNS` | GUI-independent fiber measurement shared by GUI03, GUI04, and `cli.py measure` / `heights`; keeps GUI and CLI statistics identical. |
+| `pipeline.py` | `ProcParams`, `STAGE_KEYS`, `build_stages`, `PipelineStages`, `process_file`, `PipelineResult`, `merge_params_dict`, `validate_params`, `existing_min_set`, `bundle_path_for`, `param_path_for` | GUI-independent preprocessing driver shared by GUI01 and `cli.py process`; owns `ProcParams` (field names frozen, §8.1) and stage construction. |
+| `processed_image.py` | `ProcessedImage` | Image and result container for the GUI01 pipeline. |
+| `segmenter.py` | `Segmenter` | |
+| `skeletonizer.py` | `Skeletonizer` | |
+| `translator.py` | `_`, `set_language`, `current_language` | |
+| `ui_tools.py` | See §7.4 | Shared GUI helpers; prefer these over local re-implementations. |
+
+### 8.8 Translation catalog maintenance
+
+Translation uses `gettext`. Source strings wrapped in `_()` are extracted into
+`locale/<language>/LC_MESSAGES/messages.po`; compiled output is `messages.mo`.
+Do not edit `.mo` files directly — they are compiled from `.po`.
+Compiled `.mo` files are version-controlled so fresh clones get working
+translations without Babel. After editing a `.po`, run
+`pybabel compile -d locale` and commit the regenerated `.mo` together with the
+`.po`; `tests/test_translations.py` fails when a `.mo` is stale.
+`prepare_translate_catalogs.py` also compiles the catalogs as its final step.
+In PO syntax, an entry whose `msgstr ""` is followed by translated continuation
+string lines is not empty. When filling empty translations, treat those entries
+as existing translations and leave them unchanged.
+Do not insert `\n` in the middle of a translated sentence only to control
+visual wrapping. Preserve source-required line breaks, and use explicit `\n`
+only for meaningful UI paragraphs or line breaks.
+
+When UI strings are added or changed, update the catalogs:
+
+```powershell
+pybabel extract -F babel.cfg -o locale/messages.pot .
+pybabel update -i locale/messages.pot -d locale
+pybabel compile -d locale
+```
+
+To add a new language:
+
+```powershell
+pybabel init -i locale/messages.pot -d locale -l <language_code>
+```
+
 ## 9. Summary
 
 | Item | Rule |
 |---|---|
+| Canonical agent rules file | This file (`AGENTS.md`); `CLAUDE.md` only imports it. Never let them diverge. |
 | Primary review language | English |
 | Bilingual order | English first, Japanese second |
 | Module / class / public-function docstring | Bilingual default on summary + Parameters/Returns/Attributes; Raises/Notes bilingual only when it adds domain context |
 | Private function docstring | Summary line bilingual; body bilingual for algorithm / physical / instrument-specific notes, English only for routine notes |
+| Docstring templates | `docs/docstring-templates.md` |
 | New / rewritten inline comments | English required; add Japanese only for domain notes |
 | Windows `.bat` comments | ASCII-only executable files; English `REM` comments only; put Japanese explanations in Markdown documentation |
 | `.sh` comments | Same intent-focused policy as Python comments; for setup/launch scripts, use concise English-first comments with Japanese directly below for purpose, prerequisites, environment assumptions, failure-prone steps, and non-obvious command choices |
@@ -769,5 +766,10 @@ Distribution should treat the entire `dist/Main/` folder as the deliverable.
 | GUI imports | Group as standard library, numerical/scientific, GUI, plotting, project libraries |
 | GUI entry point | Use `main() -> None` and guard GUI launch behind `if __name__ == "__main__"` |
 | Shared GUI helpers | Prefer `lib.ui_tools` / `lib/ui_tools.py` for common GUI behavior. |
-| `.b2z` bundle contract | Preserve shared keys, shapes, and units across GUI01-GUI04 unless coordinating all dependent files. |
+| `.b2z` bundle contract | Defined in `lib/bundle_schema.py` (code is source of truth); coordinate dependent files per §8.2. |
 | Long-running GUI work | Use worker threads, `queue.Queue`, and Tk `after()` polling; do not block the main loop. |
+| `ProcParams` field names | Frozen (serialized verbatim into `_param.json`); authoritative list is the dataclass in `lib/pipeline.py`. |
+| `lib/` module public APIs | Do not rename classes/functions in §8.7 without updating all call sites. |
+| Translation catalogs | Update with `pybabel extract/update/compile`; never edit `.mo` files directly (§8.8). |
+| README pair | `README.md` ↔ `README.ja.md` stay synchronized in both directions, including translation of the edited passage. |
+| Destructive Git operations | Forbidden unless explicitly requested; `git restore` of files corrupted by your own edit is allowed. |
