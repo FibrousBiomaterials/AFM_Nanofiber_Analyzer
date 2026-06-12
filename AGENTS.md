@@ -660,7 +660,7 @@ are intended to prevent local edits from breaking cross-GUI workflows.
 raw AFM text/CSV
     -> afm_io.load_afm_text()
     -> ProcessedImage
-    -> BG_Calibrator_shimadzu
+    -> BGCalibrator
     -> Segmenter
     -> Skeletonizer
     -> KinkDetector

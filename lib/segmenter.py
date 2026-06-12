@@ -153,7 +153,7 @@ class Segmenter:
         if image.calibrated_image is None:
             raise ValueError(
                 "Segmenter requires image.calibrated_image; "
-                "run BG_Calibrator_shimadzu on the image first."
+                "run BGCalibrator on the image first."
             )
 
         self.binary_image = self._binaryzation(

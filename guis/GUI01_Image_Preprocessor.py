@@ -19,7 +19,7 @@ PLUGIN_INFO = {
     "name": "Image Preprocessor",
     "description": (
         "AFMで撮影したナノファイバー画像に対して、以下の前処理を順に実行します。\n"
-        "・バックグラウンド補正（lib/bg_calibrator_shimadzu.py）\n"
+        "・バックグラウンド補正（lib/bg_calibrator.py）\n"
         "・二値化（lib/segmenter.py）\n"
         "・細線化（lib/skeletonizer.py）\n"
         "・EP（端点）、BP（分岐点）、DP（分解点）、KP（キンク点）、KA（キンク角）の抽出（lib/kink_detector.py）\n"
@@ -1729,11 +1729,11 @@ class SettingsDialog(tk.Toplevel):
             dsc.pack(side="left", padx=8, fill="x", expand=True)
             self._param_rows[key] = {"label": lbl, "input": cb, "desc": dsc}
 
-        # ---- BG_Calibrator_shimadzu ----
+        # ---- BGCalibrator ----
         # Scan size is display metadata, not an analysis parameter; GUI01,
         # GUI02, and GUI04 handle it as view state.
         # 画像の実寸は解析結果に影響せず、表示時にユーザーが都度設定する。
-        lf_bg = ttk.LabelFrame(plf, text=_("BG_Calibrator_shimadzu"))
+        lf_bg = ttk.LabelFrame(plf, text=_("BGCalibrator"))
         lf_bg.pack(fill="x", padx=6, pady=6)
         # Dim parameters that do not apply to the selected background method.
         #   inpaint     : gradient-ridge detection followed by Navier-Stokes inpainting.

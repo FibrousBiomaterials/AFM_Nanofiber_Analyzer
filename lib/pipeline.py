@@ -36,8 +36,8 @@ import numpy as np
 
 # ===== Project libraries =====
 from . import __version__
-from .afm_io import load_afm_text
-from .bg_calibrator_shimadzu import BG_Calibrator_shimadzu
+from .afm_io import detect_afm_format, load_afm_text
+from .bg_calibrator import BGCalibrator
 from .blosc2_io import save_bundle, bundle_has_keys, BUNDLE_EXT
 # The bundle key contract and format version are owned by bundle_schema;
 # re-imported here so existing `pipeline.REQUIRED_BUNDLE_KEYS` users keep working.
@@ -158,7 +158,7 @@ class ProcParams:
     可能性があるため。
     """
 
-    # BG_Calibrator_shimadzu parameters.
+    # BGCalibrator parameters.
     bg_method: str = "inpaint"             # Background method: inpaint, tophat, spline1d, or spline2d.
     tophat_se_size: int = 25               # Structuring-element diameter for tophat, in pixels.
     spline1d_axis: str = "x"               # Axis used for the one-dimensional spline interpolation.
@@ -435,7 +435,7 @@ class PipelineStages:
         キンク検出ステージ。
     """
 
-    bg_calibrator: BG_Calibrator_shimadzu
+    bg_calibrator: BGCalibrator
     segmenter: Segmenter
     skeletonizer: Skeletonizer
     kink_detector: KinkDetector
@@ -469,7 +469,7 @@ def build_stages(p: ProcParams) -> PipelineStages:
         Ready-to-call stage objects.
         呼び出し可能な状態のステージオブジェクト群。
     """
-    bg_calibrator = BG_Calibrator_shimadzu(
+    bg_calibrator = BGCalibrator(
         bg_method=p.bg_method,
         tophat_se_size=p.tophat_se_size,
         spline1d_axis=p.spline1d_axis,
@@ -550,6 +550,7 @@ def process_file(
     output_dir: Optional[str] = None,
     save_original: bool = False,
     on_stage: Optional[Callable[[str], None]] = None,
+    input_format: str = "auto",
 ) -> PipelineResult:
     """
     Run the full preprocessing pipeline on one input file and save outputs.
@@ -587,6 +588,13 @@ def process_file(
         Optional progress callback receiving one of `STAGE_KEYS` before each
         stage starts.
         各ステージ開始前に `STAGE_KEYS` の値を受け取る進捗コールバック。
+    input_format
+        Text-layout selection passed to `detect_afm_format`: ``"auto"``
+        (default), ``"multi-column"``, or ``"single-column"``. The resolved
+        layout is recorded in the bundle provenance metadata.
+        `detect_afm_format` へ渡すテキストレイアウト指定。``"auto"``（既定）、
+        ``"multi-column"``、``"single-column"``。確定したレイアウトは
+        バンドルの来歴メタデータへ記録される。
 
     Returns
     -------
@@ -624,7 +632,10 @@ def process_file(
             on_stage(stage)
 
     report("load")
-    height_data = load_afm_text(txt_path)
+    # Resolve the text layout once, load with it, and keep it for provenance.
+    # テキストレイアウトを一度確定し、それで読み込み、来歴記録用に保持する。
+    text_format = detect_afm_format(txt_path, fmt=input_format)
+    height_data = load_afm_text(txt_path, fmt=text_format)
     name = os.path.splitext(os.path.basename(txt_path))[0]
     image = ProcessedImage(original_AFM=height_data, name=name)
 
@@ -700,6 +711,11 @@ def process_file(
         "input_file":       os.path.basename(txt_path),
         "input_sha256":     _sha256_of_file(txt_path),
         "created_utc":      datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        # How the input text was parsed (kind/skiprows/n_cols/encoding), so a
+        # suspected layout mis-detection can be audited after the fact.
+        # 入力テキストの解釈方法（種別・スキップ行数・列数・エンコーディング）。
+        # レイアウト誤判定が疑われた際に事後監査できるようにする。
+        "input_format":     asdict(text_format),
     }
 
     bundle_path = bundle_path_for(stem)

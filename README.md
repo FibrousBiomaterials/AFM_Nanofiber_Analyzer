@@ -65,6 +65,7 @@ AFM_Nanofiber_Analyzer/
 |   `-- __init__.py
 |-- lib/
 |   |-- afm_io.py
+|   |-- bg_calibrator.py
 |   |-- bg_calibrator_shimadzu.py
 |   |-- blosc2_io.py
 |   |-- bundle_schema.py
@@ -98,8 +99,9 @@ Markdown documents such as `docs/maintainer-notes.ja.md`.
 
 | Module | Main contents |
 |---|---|
-| `lib/afm_io.py` | Text/CSV AFM loader with automatic header, column, and encoding detection. |
-| `lib/bg_calibrator_shimadzu.py` | `BG_Calibrator_shimadzu`, with `inpaint`, `tophat`, `spline1d`, and `spline2d` background methods. |
+| `lib/afm_io.py` | Text/CSV AFM loader with automatic header, column, and encoding detection, explicit format override, and layout-consistency verification. |
+| `lib/bg_calibrator.py` | `BGCalibrator`, with `inpaint`, `tophat`, `spline1d`, and `spline2d` background methods. |
+| `lib/bg_calibrator_shimadzu.py` | Compatibility shim keeping the historical `BG_Calibrator_shimadzu` name importable. |
 | `lib/blosc2_io.py` | Blosc2 array storage and `.b2z` TreeStore bundle helpers. |
 | `lib/bundle_schema.py` | Executable `.b2z` contract: required keys, array shapes, value ranges, units, coordinate convention, and format version, with `validate_bundle` enforcing them at write and load time. |
 | `lib/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |
@@ -338,10 +340,11 @@ read from the input file; pixel-to-physical scaling is configured in the GUIs.
 Sample scans are bundled under `testdata_tunicateCNF/` (Shimadzu) and
 `Bruker_testdata/` (one representative Bruker NanoScope export).
 
-Despite its instrument-specific name, `BG_Calibrator_shimadzu` implements
-general line-scan AFM background correction and is applied to both formats;
-the name records the instrument the methods were developed on and is kept for
-compatibility.
+The background calibrator (`BGCalibrator` in `lib/bg_calibrator.py`)
+implements general line-scan AFM background correction and is applied to both
+formats. It was developed on Shimadzu SPM-9600 scans and was historically
+named `BG_Calibrator_shimadzu`; that import path and class name remain
+available through a compatibility shim.
 
 ## Analysis Pipeline
 
@@ -352,7 +355,7 @@ Raw AFM text/CSV input
 GUI01 Image Preprocessor
         |
         |-- afm_io.load_afm_text()
-        |-- BG_Calibrator_shimadzu
+        |-- BGCalibrator
         |-- Segmenter
         |-- Skeletonizer
         |-- KinkDetector
@@ -394,6 +397,9 @@ exist are skipped unless `--overwrite` is passed. `--save-original` embeds the
 raw height image in the bundle under the `original` key. With `--strict`,
 unknown keys in the `--params` file are an error instead of being ignored,
 which catches typos that would otherwise silently fall back to defaults.
+`--format` forces the input text layout (`multi-column` or `single-column`)
+when auto-detection would lock onto a numeric header block; the resolved
+layout is always recorded in the bundle metadata (`input_format`) for audit.
 
 ### Validating bundles
 

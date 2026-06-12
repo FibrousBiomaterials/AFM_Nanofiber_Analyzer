@@ -131,6 +131,16 @@ def test_vlmeta_records_params(pipeline_result):
     assert meta["params"]["bg_method"] == "tophat"
 
 
+def test_vlmeta_records_input_format(pipeline_result):
+    """Bundle metadata records how the input text layout was parsed."""
+    result, _events = pipeline_result
+    meta = load_bundle_meta(result.bundle_path)
+    assert meta["input_format"] == {
+        "kind": "multi-column", "skiprows": 0, "n_cols": 192,
+        "encoding": "utf-8-sig",
+    }
+
+
 def test_vlmeta_records_provenance(pipeline_result, synthetic_fiber_txt):
     """Bundle metadata identifies the input file, software release, and time."""
     result, _events = pipeline_result

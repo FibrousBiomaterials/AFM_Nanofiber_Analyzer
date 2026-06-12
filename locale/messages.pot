@@ -422,7 +422,7 @@ msgid "解析条件（次回解析時にのみ反映）"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:1736
-msgid "BG_Calibrator_shimadzu"
+msgid "BGCalibrator"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:1747

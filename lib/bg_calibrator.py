@@ -1,6 +1,6 @@
 """
-Background calibration utilities for Shimadzu SPM-9600 AFM images.
-島津 SPM-9600 由来の AFM 画像に対する背景補正ユーティリティ。
+Background calibration utilities for line-scan AFM height images.
+ラインスキャン AFM 高さ画像に対する背景補正ユーティリティ。
 
 This module estimates line-to-line height differences, separates candidate
 fiber regions from background, reconstructs a smooth background surface, and
@@ -8,15 +8,18 @@ subtracts it from the original image.
 このモジュールは、ライン間の高さ差を推定し、繊維候補領域を背景から分離し、
 平滑な背景面を再構成して元画像から減算する処理を提供する。
 
-The class name records the instrument the methods were developed on; the
-algorithms themselves are general line-scan AFM background corrections and
-are also used on data from other instruments (e.g. Bruker NanoScope text
-exports). The name is kept for backward compatibility with existing code
-and saved settings.
-クラス名は手法の開発対象となった装置に由来する歴史的な名称である。
-アルゴリズム自体はラインスキャン AFM 一般の背景補正であり、他装置
-（例: Bruker NanoScope のテキストエクスポート）のデータにも使用される。
-名称は既存コード・保存済み設定との互換性のため維持している。
+The methods were developed on Shimadzu SPM-9600 scans, and the module was
+historically named ``bg_calibrator_shimadzu``. The algorithms are general
+line-scan AFM background corrections and are also used on data from other
+instruments (e.g. Bruker NanoScope text exports), so the module and class
+were renamed to instrument-neutral names. The historical import path and
+class name remain available through the ``bg_calibrator_shimadzu`` shim.
+本手法は島津 SPM-9600 のスキャンを対象に開発され、モジュール名も歴史的に
+``bg_calibrator_shimadzu`` だった。アルゴリズム自体はラインスキャン AFM
+一般の背景補正であり、他装置（例: Bruker NanoScope のテキストエクスポート）
+のデータにも使用されるため、モジュール名・クラス名を装置非依存の名称へ
+改めた。従来の import パスとクラス名は ``bg_calibrator_shimadzu`` シム
+経由で引き続き利用できる。
 """
 
 import numpy as np
@@ -26,10 +29,10 @@ from scipy import interpolate, signal
 from .processed_image import ProcessedImage
 
 
-class BG_Calibrator_shimadzu:
+class BGCalibrator:
     """
-    Calibrate and remove background trend from Shimadzu AFM images.
-    島津 AFM 画像の背景トレンドを補正・除去するクラス。
+    Calibrate and remove background trend from line-scan AFM images.
+    ラインスキャン AFM 画像の背景トレンドを補正・除去するクラス。
 
     The class identifies likely non-fiber regions from gradient statistics and
     builds a smooth background model from those regions.
@@ -509,7 +512,7 @@ class BG_Calibrator_shimadzu:
         # Fail loudly at the stage boundary instead of deep inside the method.
         if image.original_image is None:
             raise ValueError(
-                "BG_Calibrator_shimadzu requires image.original_image; "
+                "BGCalibrator requires image.original_image; "
                 "construct ProcessedImage with the raw AFM height array."
             )
 

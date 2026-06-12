@@ -64,6 +64,7 @@ AFM_Nanofiber_Analyzer/
 |   `-- __init__.py
 |-- lib/
 |   |-- afm_io.py
+|   |-- bg_calibrator.py
 |   |-- bg_calibrator_shimadzu.py
 |   |-- blosc2_io.py
 |   |-- bundle_schema.py
@@ -98,8 +99,9 @@ Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにして
 
 | モジュール | 主な内容 |
 |---|---|
-| `lib/afm_io.py` | ヘッダー、列数、エンコーディングを自動検出する AFM テキスト / CSV ローダー。 |
-| `lib/bg_calibrator_shimadzu.py` | `inpaint`、`tophat`、`spline1d`、`spline2d` 背景補正方式を持つ `BG_Calibrator_shimadzu`。 |
+| `lib/afm_io.py` | ヘッダー、列数、エンコーディングを自動検出する AFM テキスト / CSV ローダー。形式の明示指定とレイアウト整合検証に対応。 |
+| `lib/bg_calibrator.py` | `inpaint`、`tophat`、`spline1d`、`spline2d` 背景補正方式を持つ `BGCalibrator`。 |
+| `lib/bg_calibrator_shimadzu.py` | 従来名 `BG_Calibrator_shimadzu` を import 可能に保つ互換シム。 |
 | `lib/blosc2_io.py` | Blosc2 配列保存と `.b2z` TreeStore バンドルの入出力ヘルパー。 |
 | `lib/bundle_schema.py` | `.b2z` 契約の実行可能スキーマ。必須キー、配列形状、値域、単位、座標規約、形式バージョンを定義し、`validate_bundle` が書き込み時と読み込み時に強制する。 |
 | `lib/fiber.py` | ファイバー形状、高さプロファイル、キンクインデックス、端点インデックスを保持する不変 `Fiber` dataclass。 |
@@ -336,9 +338,11 @@ python build.py
 スキャンは `testdata_tunicateCNF/`（島津）と `Bruker_testdata/`（代表 1 件の
 Bruker NanoScope エクスポート）に同梱されています。
 
-`BG_Calibrator_shimadzu` は装置固有の名前を持ちますが、実装はラインスキャン
-AFM 一般の背景補正であり、両フォーマットに適用されます。名称は手法の開発
-対象となった装置に由来し、互換性のため維持されています。
+背景補正器（`lib/bg_calibrator.py` の `BGCalibrator`）はラインスキャン AFM
+一般の背景補正を実装しており、両フォーマットに適用されます。本手法は島津
+SPM-9600 のスキャンを対象に開発され、歴史的に `BG_Calibrator_shimadzu` と
+命名されていました。従来の import パスとクラス名は互換シム経由で引き続き
+利用できます。
 
 ## 解析パイプライン
 
@@ -349,7 +353,7 @@ Raw AFM text/CSV input
 GUI01 Image Preprocessor
         |
         |-- afm_io.load_afm_text()
-        |-- BG_Calibrator_shimadzu
+        |-- BGCalibrator
         |-- Segmenter
         |-- Skeletonizer
         |-- KinkDetector
@@ -389,7 +393,10 @@ python cli.py process scan.txt --params my_param.json --output-dir results --ove
 `--save-original` を付けると、元の高さ画像が `original` キーとしてバンドルに
 同梱されます。`--strict` を付けると、`--params` ファイル内の未知キーは無視
 されずエラーになります。typo したキーが黙って既定値にフォールバックする事故を
-防げます。
+防げます。`--format` は入力テキストのレイアウト（`multi-column` /
+`single-column`）を明示指定します。自動判定がヘッダ内の数値ブロックに固定
+されてしまう場合の回避手段で、確定したレイアウトは常にバンドルのメタデータ
+（`input_format`）へ監査用に記録されます。
 
 ### バンドルの検証
 

@@ -203,7 +203,7 @@ class Skeletonizer:
         if image.calibrated_image is None:
             raise ValueError(
                 "Skeletonizer requires image.calibrated_image; "
-                "run BG_Calibrator_shimadzu on the image first."
+                "run BGCalibrator on the image first."
             )
 
         init_skeleton_image = thin(image.binarized_image).astype(np.uint8)

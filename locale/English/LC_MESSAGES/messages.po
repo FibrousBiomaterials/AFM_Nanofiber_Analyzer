@@ -430,8 +430,8 @@ msgid "解析条件（次回解析時にのみ反映）"
 msgstr "Analysis Settings (applied only on next analysis)"
 
 #: guis/GUI01_Image_Preprocessor.py:1736
-msgid "BG_Calibrator_shimadzu"
-msgstr "BG_Calibrator_shimadzu"
+msgid "BGCalibrator"
+msgstr "BGCalibrator"
 
 #: guis/GUI01_Image_Preprocessor.py:1747
 msgid "bg_method"

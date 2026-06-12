@@ -657,7 +657,7 @@ are intended to prevent local edits from breaking cross-GUI workflows.
 raw AFM text/CSV
     -> afm_io.load_afm_text()
     -> ProcessedImage
-    -> BG_Calibrator_shimadzu
+    -> BGCalibrator
     -> Segmenter
     -> Skeletonizer
     -> KinkDetector
@@ -668,7 +668,9 @@ Keep background calibration, segmentation, skeletonization, and kink detection
 as separate responsibilities. Analysis parameters are defined through
 `ProcParams` and saved beside the bundle as `<input_stem>_param.json`.
 
-`BG_Calibrator_shimadzu` supports four `bg_method` values:
+`BGCalibrator` (in `lib/bg_calibrator.py`; the historical name
+`BG_Calibrator_shimadzu` remains importable through a compatibility shim)
+supports four `bg_method` values:
 
 | `bg_method` | Description |
 |---|---|
@@ -776,7 +778,8 @@ all call sites in `guis/`, `Main.py`, and `lib/` imports.
 | Module | Public API | Notes |
 |---|---|---|
 | `afm_io.py` | `load_afm_text` | Loads AFM text/CSV as NumPy array; auto-detects header rows, column count, and encoding. |
-| `bg_calibrator_shimadzu.py` | `BG_Calibrator_shimadzu` | See §8.1 for `bg_method` options. |
+| `bg_calibrator.py` | `BGCalibrator` | See §8.1 for `bg_method` options. |
+| `bg_calibrator_shimadzu.py` | `BG_Calibrator_shimadzu` | Compatibility shim; alias of `BGCalibrator`. Do not add new code here. |
 | `blosc2_io.py` | `save_blosc2`, `load_blosc2`, `save_bundle`, `load_bundle` | |
 | `bundle_schema.py` | `validate_bundle`, `BUNDLE_FORMAT_VERSION`, `SUPPORTED_BUNDLE_VERSIONS`, `REQUIRED_BUNDLE_KEYS`, `OPTIONAL_BUNDLE_KEYS`, `TRACKING_BUNDLE_KEYS` | Executable `.b2z` contract (§8.2): keys, shapes, units, coordinate convention, format version. Depends only on NumPy. |
 | `fiber.py` | `Fiber` | Immutable dataclass holding height, length, kink points, and endpoints per fiber. |

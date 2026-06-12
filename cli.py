@@ -196,6 +196,7 @@ def cmd_process(args: argparse.Namespace) -> int:
                 output_dir=args.output_dir or None,
                 save_original=args.save_original,
                 on_stage=lambda s: print(s, end=" ", flush=True),
+                input_format=args.format,
             )
         except Exception as e:
             print("FAILED")
@@ -534,6 +535,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_proc.add_argument(
         "--save-original", action="store_true",
         help="also store the raw height image in the bundle ('original' key)",
+    )
+    p_proc.add_argument(
+        "--format", choices=("auto", "multi-column", "single-column"),
+        default="auto",
+        help="input text layout (default: auto-detect). Use an explicit "
+             "layout when auto-detection locks onto a numeric header block; "
+             "the resolved layout is recorded in the bundle metadata",
     )
     p_proc.add_argument(
         "--strict", action="store_true",
