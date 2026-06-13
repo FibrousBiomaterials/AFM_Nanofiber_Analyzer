@@ -195,8 +195,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
     # 入力は GUI01_Image_Preprocessor が出力する .b2z バンドル形式で、
     # calibrated / skeletonized が同一ファイルに含まれる。
     BUNDLE_SUFFIX = BUNDLE_EXT
-    CAL_KEY = "calibrated"
-    SKL_KEY = "skeletonized"
 
     # Internal display-mode keys stay untranslated; UI labels go through gettext.
     # 表示モードの内部キーは翻訳せず、UI 表示のみ _() 経由で行う。
@@ -550,7 +548,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._scroll_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self._inner_frame = ttk.Frame(self._scroll_canvas)
-        self._inner_window_id = self._scroll_canvas.create_window(
+        self._scroll_canvas.create_window(
             (0, 0), window=self._inner_frame, anchor="nw"
         )
 
@@ -1500,6 +1498,21 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             else:
                 return (counts / total_for_div) * 100.0, "Frequency (%)"
 
+        def annotate_height_stats(ax, r):
+            """
+            Draw the mean/std/mode height annotation box for one group.
+            1 グループ分の平均/標準偏差/最頻値の注釈ボックスを描画する。
+            """
+            text = "height = {m} ± {s} nm\nmode = {mo} nm".format(
+                m=f"{r['mean']:.2f}", s=f"{r['std']:.2f}",
+                mo=f"{r['mode']:.2f}" if not np.isnan(r["mode"]) else "-",
+            )
+            ax.text(
+                0.45, 0.95, text,
+                transform=ax.transAxes, ha="left", va="top",
+                fontsize=ann_fs,
+            )
+
         n = len(results)
 
         if display_mode == self.MODE_OVERLAY or n == 1:
@@ -1529,16 +1542,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 ax.legend(fontsize=group_name_fs, loc="upper right")
 
             if show_height_text and n == 1:
-                r = results[0]
-                text = "height = {m} ± {s} nm\nmode = {mo} nm".format(
-                    m=f"{r['mean']:.2f}", s=f"{r['std']:.2f}",
-                    mo=f"{r['mode']:.2f}" if not np.isnan(r["mode"]) else "-",
-                )
-                ax.text(
-                    0.45, 0.95, text,
-                    transform=ax.transAxes, ha="left", va="top",
-                    fontsize=ann_fs,
-                )
+                annotate_height_stats(ax, results[0])
 
         else:
             # In stacked mode, fig_h is the height per subplot, so the figure scales with n.
@@ -1564,15 +1568,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 ax.tick_params(axis="both", labelsize=tick_fs)
 
                 if show_height_text:
-                    text = "height = {m} ± {s} nm\nmode = {mo} nm".format(
-                        m=f"{r['mean']:.2f}", s=f"{r['std']:.2f}",
-                        mo=f"{r['mode']:.2f}" if not np.isnan(r["mode"]) else "-",
-                    )
-                    ax.text(
-                        0.45, 0.95, text,
-                        transform=ax.transAxes, ha="left", va="top",
-                        fontsize=ann_fs,
-                    )
+                    annotate_height_stats(ax, r)
 
             axes[-1].set_xlabel("height (nm)", fontsize=label_fs)
 

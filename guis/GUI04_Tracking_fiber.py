@@ -102,7 +102,6 @@ DEFAULT_HEIGHT_YLIM:           float = 20.0
 # Match GUI01: entry values stay in micrometers, while tick labels can switch units.
 # GUI01 と仕様を揃え、入力欄の単位は µm 固定で、軸目盛単位の表示だけ µm/nm を切り替える。
 DEFAULT_IMAGE_SIZE_UM:         float = 2.0               # 画像全体のサイズ (µm)
-DEFAULT_IMAGE_SIZE_NM:         float = DEFAULT_IMAGE_SIZE_UM * 1000.0  # 内部処理用 (nm)
 # Fiber analysis is always parallelized with ThreadPoolExecutor.
 # ファイバー解析は常に ThreadPoolExecutor で並列化する。
 
@@ -1111,7 +1110,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Enable or disable selection widgets during loading.
         読み込み中の誤操作を防ぐため、選択ウィジェットを有効化または無効化する。
         """
-        state = "normal" if enabled else "disabled"
         self.file_tree.configure(selectmode="browse" if enabled else "none")
         self.fiber_tree.configure(selectmode="browse" if enabled else "none")
 
@@ -2493,7 +2491,7 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         #   "axes_right" ... 軸の外（右側）に配置（プロットとの重なりを物理的に回避）
         #   other keys   ... pass the matplotlib loc string through
         #   それ以外      ... matplotlib の loc 文字列をそのまま使用
-        handles, labels = ax.get_legend_handles_labels()
+        handles = ax.get_legend_handles_labels()[0]
         if handles and legend_loc != "off":
             if legend_loc == "axes_right":
                 ax.legend(fontsize=legend_fs, loc="upper left",

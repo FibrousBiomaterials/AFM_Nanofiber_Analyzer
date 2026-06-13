@@ -39,7 +39,6 @@ PLUGIN_INFO = {
 import os
 import sys
 import json
-import time
 import traceback
 import threading
 import queue
@@ -1672,39 +1671,50 @@ class SettingsDialog(tk.Toplevel):
         # {key: {"label": Label, "input": Entry/Combobox/Checkbutton, "desc": Label}}
         self._param_rows: Dict[str, Dict[str, tk.Widget]] = {}
 
-        def add_field(parent_lf: ttk.LabelFrame, key: str, label: str, desc: str, width: int = 12) -> None:
+        def _begin_param_row(parent_lf: ttk.LabelFrame, label: str):
             """
-            Add a text-entry parameter row.
-            テキスト入力用のパラメータ行を追加する。
+            Create the frame and left-aligned label shared by every parameter row.
+            すべてのパラメータ行で共通のフレームと左寄せラベルを生成する。
             """
             frm = ttk.Frame(parent_lf)
             frm.pack(fill="x", pady=3)
             lbl = ttk.Label(frm, text=label, width=26)
             lbl.pack(side="left")
+            return frm, lbl
+
+        def _register_param_row(frm: ttk.Frame, key: str, lbl: ttk.Label,
+                                input_widget: tk.Widget, desc: str) -> None:
+            """
+            Attach the trailing description label and register the row widgets.
+            末尾の説明ラベルを付けて、行のウィジェットを登録する。
+            """
+            dsc = ttk.Label(frm, text=desc, foreground="#444", justify="left")
+            dsc.pack(side="left", padx=8, fill="x", expand=True)
+            self._param_rows[key] = {"label": lbl, "input": input_widget, "desc": dsc}
+
+        def add_field(parent_lf: ttk.LabelFrame, key: str, label: str, desc: str, width: int = 12) -> None:
+            """
+            Add a text-entry parameter row.
+            テキスト入力用のパラメータ行を追加する。
+            """
+            frm, lbl = _begin_param_row(parent_lf, label)
             v = tk.StringVar()
             self.vars[key] = v
             ent = ttk.Entry(frm, textvariable=v, width=width)
             ent.pack(side="left", padx=6)
-            dsc = ttk.Label(frm, text=desc, foreground="#444", justify="left")
-            dsc.pack(side="left", padx=8, fill="x", expand=True)
-            self._param_rows[key] = {"label": lbl, "input": ent, "desc": dsc}
+            _register_param_row(frm, key, lbl, ent, desc)
 
         def add_bool(parent_lf: ttk.LabelFrame, key: str, label: str, desc: str) -> None:
             """
             Add a boolean checkbox parameter row.
             真偽値チェックボックス用のパラメータ行を追加する。
             """
-            frm = ttk.Frame(parent_lf)
-            frm.pack(fill="x", pady=3)
-            lbl = ttk.Label(frm, text=label, width=26)
-            lbl.pack(side="left")
+            frm, lbl = _begin_param_row(parent_lf, label)
             v = tk.BooleanVar()
             self.vars[key] = v
             chk = ttk.Checkbutton(frm, variable=v)
             chk.pack(side="left", padx=6)
-            dsc = ttk.Label(frm, text=desc, foreground="#444", justify="left")
-            dsc.pack(side="left", padx=8, fill="x", expand=True)
-            self._param_rows[key] = {"label": lbl, "input": chk, "desc": dsc}
+            _register_param_row(frm, key, lbl, chk, desc)
 
         def add_choice(parent_lf: ttk.LabelFrame, key: str, label: str,
                        choices: list, desc: str, width: int = 12,
@@ -1714,10 +1724,7 @@ class SettingsDialog(tk.Toplevel):
             読み取り専用選択肢のパラメータ行を追加する。
             """
             # Store choice values as strings, then cast in _apply_vars_to_refs.
-            frm = ttk.Frame(parent_lf)
-            frm.pack(fill="x", pady=3)
-            lbl = ttk.Label(frm, text=label, width=26)
-            lbl.pack(side="left")
+            frm, lbl = _begin_param_row(parent_lf, label)
             v = tk.StringVar()
             self.vars[key] = v
             cb = ttk.Combobox(frm, textvariable=v, values=choices,
@@ -1725,9 +1732,7 @@ class SettingsDialog(tk.Toplevel):
             cb.pack(side="left", padx=6)
             if command is not None:
                 cb.bind("<<ComboboxSelected>>", lambda e: command())
-            dsc = ttk.Label(frm, text=desc, foreground="#444", justify="left")
-            dsc.pack(side="left", padx=8, fill="x", expand=True)
-            self._param_rows[key] = {"label": lbl, "input": cb, "desc": dsc}
+            _register_param_row(frm, key, lbl, cb, desc)
 
         # ---- BGCalibrator ----
         # Scan size is display metadata, not an analysis parameter; GUI01,

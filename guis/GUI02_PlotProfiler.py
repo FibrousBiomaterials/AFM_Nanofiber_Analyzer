@@ -61,11 +61,6 @@ from lib.ui_tools import (
 )
 
 # ===== Constants =====
-DEFAULT_WIDTH = 1024
-DEFAULT_HEIGHT = 640
-MIN_WIDTH = 900
-MIN_HEIGHT = 580
-
 # Default scan size used as the initial scale value (µm).
 # 初期スケール値として用いる既定スキャンサイズ (µm)。GUI01 / GUI04 と揃える。
 DEFAULT_IMAGE_SIZE_UM = 2.0
