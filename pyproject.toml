@@ -47,7 +47,6 @@ classifiers = [
 dependencies = [
     "blosc2",
     "lmfit",
-    "mahotas",
     "matplotlib",
     "numpy",
     "opencv-python",

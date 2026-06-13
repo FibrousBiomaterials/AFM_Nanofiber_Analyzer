@@ -17,103 +17,16 @@ from numpy.typing import NDArray
 from scipy.ndimage import maximum_filter
 from skimage.morphology import skeletonize, thin
 
+from . import imp_tools
 from .processed_image import ProcessedImage
 
 
-# ---------------------------------------------------------------------------
-# Fast cv2-based replacements for imp_tools.endPoints / imp_tools.branchedPoints
-#
-# imp_tools uses mahotas.morph.hitmiss which is ~6x slower than cv2.MORPH_HITMISS
-# on the same patterns. Kernel value mapping: mahotas 0→-1(bg), 1→1(fg), 2→0(dc).
-# Patterns and rotation order replicate imp_tools.py exactly so outputs are identical.
-# ---------------------------------------------------------------------------
-
-def _mh_to_cv2_kernel(arr: np.ndarray) -> np.ndarray:
-    """
-    Convert a mahotas hit-miss kernel to the OpenCV kernel convention.
-    mahotas の hit-miss カーネルを OpenCV のカーネル表現へ変換する。
-    """
-    return np.where(arr == 2, 0, np.where(arr == 0, -1, 1)).astype(np.int8)
-
-
-def _build_ep_patterns() -> list[np.ndarray]:
-    """
-    Build endpoint hit-miss kernels compatible with OpenCV.
-    OpenCV で利用できる端点検出用 hit-miss カーネルを構築する。
-    """
-    ep1 = np.array([[0, 0, 0], [0, 1, 0], [2, 1, 2]])
-    ep2 = np.array([[0, 0, 0], [0, 1, 0], [0, 0, 1]])
-    ep_single = np.array([[0, 0, 0], [0, 1, 0], [0, 0, 0]])
-    pats = []
-    for k in range(4):
-        for p in [ep1, ep2]:
-            pats.append(_mh_to_cv2_kernel(np.rot90(p, k=k)))
-    pats.append(_mh_to_cv2_kernel(ep_single))
-    return pats
-
-
-def _build_bp_patterns() -> list[np.ndarray]:
-    """
-    Build branch-point hit-miss kernels compatible with OpenCV.
-    OpenCV で利用できる分岐点検出用 hit-miss カーネルを構築する。
-    """
-    vh_xbranch      = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
-    diagonal_xbranch = np.array([[1, 0, 1], [0, 1, 0], [1, 0, 1]])
-    vh_ybranch      = np.array([[1, 0, 1], [0, 1, 0], [2, 1, 2]])
-    diagonal_ybranch = np.array([[0, 1, 2], [1, 1, 2], [2, 2, 1]])
-    vh_tbranch      = np.array([[0, 0, 0], [1, 1, 1], [0, 1, 0]])
-    diagonal_tbranch = np.array([[1, 0, 1], [0, 1, 0], [1, 0, 0]])
-    square_branch   = np.array([[2, 2, 2], [1, 1, 2], [1, 1, 2]])
-    pats = []
-    for k in range(4):
-        for p in [vh_ybranch, diagonal_ybranch, vh_tbranch, diagonal_tbranch]:
-            pats.append(_mh_to_cv2_kernel(np.rot90(p, k=k)))
-    for p in [vh_xbranch, diagonal_xbranch, square_branch]:
-        pats.append(_mh_to_cv2_kernel(p))
-    return pats
-
-
-# Precompute pattern lists once at module import time
-_EP_PATTERNS_CV2 = _build_ep_patterns()
-_BP_PATTERNS_CV2 = _build_bp_patterns()
-
-
-def _apply_hitmiss_patterns(
-    skel: NDArray[np.uint8], patterns: list[np.ndarray]
-) -> NDArray[np.uint8]:
-    """
-    Union the cv2 hit-or-miss responses of a skeleton against several kernels.
-    複数カーネルに対するスケルトンの cv2 hit-or-miss 応答を論理和で集約する。
-
-    Shared core of `_fast_end_points` and `_fast_branched_points`; only the
-    kernel list differs between endpoint and branch-point detection. The
-    one-pixel zero pad lets 3x3 kernels evaluate border skeleton pixels, and
-    the matching crop restores the original shape.
-    `_fast_end_points` と `_fast_branched_points` の共通処理で、端点検出と
-    分岐点検出の違いはカーネルリストのみ。1 画素ゼロパディングで境界画素にも
-    3x3 カーネルを適用し、対応するクロップで元の形状へ戻す。
-    """
-    padded = np.pad(skel, pad_width=1, mode='constant', constant_values=0)
-    hits = np.zeros_like(padded, dtype=np.uint8)
-    for p in patterns:
-        hits |= cv2.morphologyEx(padded, cv2.MORPH_HITMISS, p)
-    return np.ascontiguousarray(np.where(hits > 0, 1, 0).astype(np.uint8)[1:-1, 1:-1])
-
-
-def _fast_end_points(skel: NDArray[np.uint8]) -> NDArray[np.uint8]:
-    """
-    Return endpoints using a cv2-based replacement for imp_tools.endPoints.
-    imp_tools.endPoints と同じ出力を cv2 ベースの代替処理で返す。
-    """
-    return _apply_hitmiss_patterns(skel, _EP_PATTERNS_CV2)
-
-
-def _fast_branched_points(skel: NDArray[np.uint8]) -> NDArray[np.uint8]:
-    """
-    Return branch points using a cv2-based replacement for imp_tools.branchedPoints.
-    imp_tools.branchedPoints と同じ出力を cv2 ベースの代替処理で返す。
-    """
-    return _apply_hitmiss_patterns(skel, _BP_PATTERNS_CV2)
+# Endpoint / branch-point detection lives in imp_tools, which now uses the same
+# OpenCV MORPH_HITMISS path that was previously duplicated here. Skeletonizer
+# calls imp_tools.endPoints / imp_tools.branchedPoints directly.
+# 端点・分岐点検出は imp_tools 側にあり、以前ここに重複していた OpenCV
+# MORPH_HITMISS と同じ処理を使う。Skeletonizer は imp_tools.endPoints /
+# imp_tools.branchedPoints を直接呼ぶ。
 
 
 class Skeletonizer:
@@ -241,8 +154,8 @@ class Skeletonizer:
         image.nLabels = nLabels
         image.data = data
 
-        image.ep = _fast_end_points(nosmall_skeleton_image)
-        image.bp = _fast_branched_points(nosmall_skeleton_image)
+        image.ep = imp_tools.endPoints(nosmall_skeleton_image)
+        image.bp = imp_tools.branchedPoints(nosmall_skeleton_image)
 
 
     def prune_branches(
@@ -330,7 +243,7 @@ class Skeletonizer:
             Coordinates are stored on the instance.
             座標はインスタンスに保存される。
         """
-        all_bps = _fast_branched_points(init_skeleton_image)
+        all_bps = imp_tools.branchedPoints(init_skeleton_image)
         low_bp_coor = np.where(all_bps & (calibrated_image < bp_height))
         high_bp_coor = np.where(all_bps & (calibrated_image >= bp_height))
         self._coor_low_bps = low_bp_coor
@@ -354,7 +267,7 @@ class Skeletonizer:
         膨張半径は `branch_length` で制御されるため、短い枝とみなせる端点のみが
         枝刈り候補になる。
         """
-        all_eps_image = _fast_end_points(self._init_skeleton_image)
+        all_eps_image = imp_tools.endPoints(self._init_skeleton_image)
         _low_bps_image = np.zeros((self.image_size, self.image_size), dtype=np.uint8)
         _low_bps_image[self._coor_low_bps] = 1
 
@@ -465,7 +378,7 @@ class Skeletonizer:
         """
         returned_image = np.copy(skeleton_image)
         nLabels, label_Images, data, center = cv2.connectedComponentsWithStats(returned_image)
-        ep = _fast_end_points(returned_image)
+        ep = imp_tools.endPoints(returned_image)
         ring_frac_label = np.setdiff1d(np.arange(1, nLabels), label_Images[ep > 0])
         # Vectorize: collect all labels to remove, then apply a single boolean mask
         areas = np.array([data[i][4] for i in range(1, nLabels)])

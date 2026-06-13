@@ -126,7 +126,6 @@ Python 依存関係は `requirements.txt` に記載されています。
 ```text
 blosc2
 lmfit
-mahotas
 matplotlib
 numpy
 opencv-python

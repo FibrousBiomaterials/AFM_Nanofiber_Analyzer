@@ -126,7 +126,6 @@ Install the Python dependencies listed in `requirements.txt`:
 ```text
 blosc2
 lmfit
-mahotas
 matplotlib
 numpy
 opencv-python
