@@ -464,7 +464,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         # Overlay option for the skeletonized preview panel.
         self.overlay_mode_var = tk.StringVar(value=_("非表示"))
-        self.preview_mode_var = tk.StringVar(value="original")
 
         # ===== Preview data cache =====
         # Reload bundles only when the selected file or bundle mtime changes.

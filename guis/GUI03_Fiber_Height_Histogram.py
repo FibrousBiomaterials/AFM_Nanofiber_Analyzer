@@ -50,11 +50,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # ===== Project libraries =====
 from lib.blosc2_io import BUNDLE_EXT
-# all_pixel_height moved to lib.measure; re-imported here so existing callers
-# of this module keep working.
-# all_pixel_height は lib.measure へ移設。本モジュールの既存利用側が動き続ける
-# よう、ここで再インポートする。
-from lib.measure import all_pixel_height, skeleton_height_values
+from lib.measure import skeleton_height_values
 from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, setup_matplotlib_style, save_figure_with_dialog,

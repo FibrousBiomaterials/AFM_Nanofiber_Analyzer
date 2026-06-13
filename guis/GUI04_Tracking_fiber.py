@@ -72,7 +72,7 @@ from lib.fiber_tracking_image import FiberTrackingImage
 from lib.fiber import Fiber
 from lib.blosc2_io import bundle_has_keys, BUNDLE_EXT
 from lib.measure import (
-    TRACKING_BUNDLE_KEYS, compute_fiber_stats, load_tracking_image,
+    TRACKING_BUNDLE_KEYS, compute_fiber_stats,
     measure_bundle, write_fiber_csv,
 )
 from lib.translator import _
@@ -165,40 +165,6 @@ def find_analyzed_stems(folder: str) -> List[str]:
     return stems
 
 
-def build_processed_image(stem: str, size_per_pixel: float) -> FiberTrackingImage:
-    """
-    Rebuild a ``FiberTrackingImage`` from a GUI01 ``.b2z`` bundle.
-    GUI01 が保存した ``.b2z`` バンドルから ``FiberTrackingImage`` を再構築する。
-
-    Parameters
-    ----------
-    stem
-        Full path without the bundle extension.
-        バンドル拡張子を除いたフルパス。
-    size_per_pixel
-        Physical pixel size used for fiber-length calculations.
-        ファイバー長さ計算に使う物理ピクセルサイズ。
-
-    Returns
-    -------
-    FiberTrackingImage
-        Reconstructed object populated with GUI01 analysis outputs.
-        GUI01 の解析結果を設定した再構築済みオブジェクト。
-
-    Notes
-    -----
-    This loader restores precomputed arrays and does not rerun the lib
-    processing modules such as ``BG_Calibrator``. The loading logic lives in
-    `lib.measure.load_tracking_image`; this wrapper keeps the historical
-    stem-based signature for existing callers.
-    事前計算済み配列を復元するだけで、``BG_Calibrator`` などの lib
-    処理モジュールは再実行しない。読み込み処理本体は
-    `lib.measure.load_tracking_image` にあり、このラッパーは既存呼び出し元の
-    ための stem ベースの従来シグネチャを維持する。
-    """
-    return load_tracking_image(stem + BUNDLE_EXT, size_per_pixel)
-
-
 # ===== Main window =====
 
 class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
@@ -263,10 +229,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         # Flag used while a worker thread is loading a dataset.
         self.is_running: bool = False
-
-        # Keep the last loaded scale (micrometers) to detect redraw changes.
-        # 直前のロード時に使った scale (µm)。再描画時に変化を検知するために保持。
-        self._loaded_scale_um: float = DEFAULT_IMAGE_SIZE_UM
 
         # Keep at most one non-modal detail window for the enlarged image and profile.
         # 個別表示（拡大像 + プロファイル）への参照。非モーダルで1つだけ開く。
@@ -624,18 +586,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self.fiber_tree.heading(col, text=col)
             self.fiber_tree.column(col, width=col_widths[col], anchor="center")
         self.fiber_tree.bind("<<TreeviewSelect>>", self._on_fiber_select)
-
-    def _build_right_pane(self, parent: ttk.Frame) -> None:
-        """
-        Keep an intentionally empty right-pane hook for compatibility.
-        互換性のため、意図的に空の右ペイン用フックを残す。
-
-        Main-window controls are built by ``_build_center_pane`` and
-        detail-window controls are built by ``FiberDetailWindow``.
-        メインウィンドウの操作部は ``_build_center_pane`` が、個別表示の操作部は
-        ``FiberDetailWindow`` が構築する。
-        """
-        pass
 
     # =========================================================================
     # matplotlib figure initialization
@@ -1005,7 +955,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 維持するため、ワーカーへ渡す値は _get_scale_nm() から導出する。
         worker_scale_um = self._get_scale_nm() / 1000.0
 
-        self._loaded_scale_um = scale_um
         self._log(
             (_("読み込み中: {name}  スケール={scale}") + " µm ...").format(
                 name=os.path.basename(stem), scale=self._fmt_num(scale_um)
@@ -1077,10 +1026,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._filtered_fibers = []
         self._overview_bg_drawn = False   # 背景キャッシュを無効化
         self._highlight_patch   = None
-
-        # Remember the scale used for this load so redraws can detect changes.
-        # ロード完了時点の scale を記録（再描画時の変化検知に使用）。
-        self._loaded_scale_um = self.scale_um
 
         # -- Auto-update vmin/vmax only when auto mode is enabled --
         if self.auto_vrange_var.get() and image.calibrated_image is not None:
