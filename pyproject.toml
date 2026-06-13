@@ -60,7 +60,10 @@ dependencies = [
 [project.optional-dependencies]
 # Babel provides the pybabel CLI used by prepare_translate_catalogs.py and
 # catalog compilation; it is a development tool, not a runtime dependency.
-dev = ["pytest", "Babel"]
+# pytest-xdist parallelizes the slow full-size regression tests across CPU
+# cores (`pytest -n auto`), which is the main lever for shortening the strict
+# regression suite; see [tool.pytest.ini_options] addopts.
+dev = ["pytest", "pytest-xdist", "Babel"]
 
 [project.urls]
 Repository = "https://github.com/q9-droid/AFM_Nanofiber_Analyzer"
@@ -75,6 +78,13 @@ py-modules = ["Main", "cli"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Run tests in parallel across CPU cores via pytest-xdist. This roughly halves
+# the wall time of the full suite, whose cost is dominated by the slow
+# full-size regression tests (test_integration.py, test_strict_regression.py).
+# All tests are isolated (per-test tmp_path / tempdir), so parallel execution
+# is output-equivalent to serial. Override with `-n0` for serial runs, e.g.
+# when debugging a single test and you want live, ordered output.
+addopts = ["-n", "auto"]
 markers = [
     "slow: integration tests that process full-size real scans",
 ]

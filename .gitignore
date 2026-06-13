@@ -61,6 +61,9 @@ Bruker_testdata/*
 # Compiled translation catalogs (locale/**/*.mo) are intentionally
 # version-controlled so fresh clones get working translations without Babel.
 *.json
+# Strict-regression golden baseline must be version-controlled so the
+# tests/test_strict_regression.py guard runs (not skips) on fresh clones and CI.
+!tests/strict_regression_golden.json
 *.b2z
 *_param.json
 *.npy
