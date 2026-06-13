@@ -1596,15 +1596,15 @@ msgstr "Load complete: {name}  Fiber count: {count}"
 msgid "フィルター適用中..."
 msgstr "Applying filter..."
 
-#: guis/GUI04_Tracking_fiber.py:1496
+#: guis/GUI04_Tracking_fiber.py:1468
 #, python-brace-format
-msgid "フィルター適用中: {lo} ≤ 中央値 ≤ {hi}"
-msgstr "Applying filter: {lo} <= median <= {hi}"
+msgid "フィルター適用中: 高さ {lo}〜{hi}"
+msgstr "Applying filter: height {lo}-{hi}"
 
-#: guis/GUI04_Tracking_fiber.py:1583
+#: guis/GUI04_Tracking_fiber.py:1515
 #, python-brace-format
-msgid "フィルター適用完了: {lo} ≤ 中央値 ≤ {hi}"
-msgstr "Filter applied: {lo} <= median <= {hi}"
+msgid "フィルター適用完了: 高さ {lo}〜{hi}"
+msgstr "Filter applied: height {lo}-{hi}"
 
 #: guis/GUI04_Tracking_fiber.py:1584
 #, python-brace-format

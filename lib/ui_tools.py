@@ -611,13 +611,6 @@ class UnconfirmedEntryMixin:
 
         self._refresh_all_entry_states(items)
 
-    def _mark_entry_state(self, entry, committed_str) -> None:
-        """
-        Refresh the confirmed/unconfirmed style for one Entry widget.
-        単一 Entry の確定/未確定スタイルを再評価する。
-        """
-        mark_entry_state(entry, committed_str)
-
     def _refresh_all_entry_states(self, registry=None) -> None:
         """
         Refresh confirmed/unconfirmed styles for all registered Entry widgets.
@@ -782,66 +775,6 @@ class UnconfirmedEntryMixin:
                 log_fn(_("vmin/vmax を自動設定: {lo} / {hi}").format(lo=v_lo, hi=v_hi))
 
         return v_lo, v_hi
-
-    # -------------------------------------------------------------------------
-    # Create an Entry and register it in one step.
-    # Entry 生成 + 登録の 1 ステップ化（コピペ3行を1関数に）
-    # -------------------------------------------------------------------------
-    def _make_committed_entry(self, parent, attr_name, commit_cb, *,
-                              width=7, textvariable=None, registry=None,
-                              **entry_kwargs):
-        """
-        Create an Entry and register it with the Enter-to-commit mechanism.
-        Entry を生成し、Enter 確定機構に登録するまでを 1 呼び出しで行う。
-
-        各 GUI で「Entry を作る → ``_register_unconfirmed_entry`` を呼ぶ」の
-        3 行セットを書く箇所が 40 か所以上ある。本ヘルパーはその定型を
-        1 呼び出しに圧縮する。
-
-        Parameters
-        ----------
-        parent : tk widget
-            Entry の親フレーム。
-        attr_name : str
-            ``self.<attr_name>`` の確定値を Entry 初期表示・getter に使う。
-        commit_cb : callable[[], bool]
-            Enter 押下時の確定関数（``_commit_float_fields`` を呼ぶ ``validate_*``
-            など）。
-        width : int
-            Entry の幅。
-        textvariable : tk.Variable | None
-            既存の ``tk.StringVar`` を紐づける場合に渡す。``None`` ならバインドしない
-            （素の Entry になり、entry.get()/insert を使う）。
-        registry : list | None
-            登録簿。サブダイアログが独自のレジストリを使う場合に明示する。
-        **entry_kwargs
-            ttk.Entry に渡す追加キーワード引数。
-
-        Returns
-        -------
-        ttk.Entry
-            生成・登録した Entry。
-        """
-        kwargs = dict(entry_kwargs)
-        if textvariable is not None:
-            kwargs["textvariable"] = textvariable
-            # var に確定値の文字列を入れておく（既に入っていれば上書きしない）
-            try:
-                if textvariable.get() == "":
-                    textvariable.set(self._fmt_num(getattr(self, attr_name)))
-            except tk.TclError:
-                pass
-        entry = ttk.Entry(parent, width=width, **kwargs)
-        if textvariable is None:
-            # 直接 Entry に確定値を表示する
-            entry.insert(0, self._fmt_num(getattr(self, attr_name)))
-        self._register_unconfirmed_entry(
-            entry,
-            lambda an=attr_name: self._fmt_num(getattr(self, an)),
-            commit_cb,
-            registry=registry,
-        )
-        return entry
 
 
 class LogMixin:
@@ -1142,7 +1075,6 @@ PLOT_FS_DEFAULTS = {
 # Replace any remaining U+03BC occurrences in code with this constant.
 # 既存コードに "μm" (U+03BC) が残っている場合は、この定数で置換すること。
 UNIT_MICROMETER = "\u00b5m"   # = "µm"
-UNIT_NANOMETER  = "nm"
 
 # --- Auto vmin/vmax defaults --------------------------------------------------
 # Fallback AFM heatmap display range in nanometers.

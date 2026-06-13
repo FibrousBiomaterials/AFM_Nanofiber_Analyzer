@@ -245,7 +245,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # -- Application state --
         self.folder_path:    str = ""
         self.current_image:  Optional[FiberTrackingImage] = None
-        self.current_fibers: List[Fiber] = []    # fibers_in_image() の結果
+        self.current_fibers: List[Fiber] = []    # measure_bundle() の結果
         self.current_stem:   str = ""
 
         # Index of the selected fiber in the current table.
@@ -688,7 +688,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
     # Shared implementation is centralized in ui_tools.UnconfirmedEntryMixin.
     # 共通実装は ui_tools.UnconfirmedEntryMixin に集約済み。
     # _fmt_num / _register_unconfirmed_entry / _commit_all_unconfirmed /
-    # _mark_entry_state / _refresh_all_entry_states は Mixin から継承する。
+    # _refresh_all_entry_states は Mixin から継承する。
 
     def _commit_scale_um(self) -> bool:
         """
@@ -1318,11 +1318,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         現在のフィルター状態に合わせて AFM 全体像の背景を再構築する。
 
         Without a filter, every fiber is shown with a white box and original
-        index. With a filter, retained fibers use magenta boxes and table
-        indices, while excluded fibers use thin gray boxes.
-        フィルターなしでは全ファイバーを白枠と元番号で表示する。フィルターありでは
-        フィルター済みファイバーをマゼンタ枠とテーブル連番で表示し、それ以外は
-        グレー細枠で表示する。
+        index. With the height filter on, the extracted skeleton pixels are
+        scattered in magenta over the AFM image, matching the pixel-level
+        ``specific_height_fibers`` extraction: a fiber contributes only the
+        sub-segments whose calibrated height lies in the selected range.
+        フィルターなしでは全ファイバーを白枠と元番号で表示する。高さフィルター
+        ON では、抽出されたスケルトン画素をマゼンタで AFM 像上に散布表示し、
+        画素単位の ``specific_height_fibers`` 抽出（補正高さが範囲内の区間のみ
+        残る）に一致させる。
         """
         if not self._filter_active:
             self._draw_overview_background()
@@ -1338,30 +1341,22 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         self._draw_overview_background(
             labeled_fibers=[],
-            title_suffix="  [filter: {count} fibers]".format(count=len(filtered)),
+            title_suffix="  [filter: {count} segments]".format(count=len(filtered)),
         )
         ax = self._afm_ax
-        filtered_set = set(id(f) for f in filtered)
-        for f in self.current_fibers:
-            if id(f) not in filtered_set:
-                x, y, h, w, _unused = f.data
-                ax.add_patch(plt.Rectangle(
-                    (x * size_per_pixel, y * size_per_pixel),
-                    h * size_per_pixel, w * size_per_pixel,
-                    linewidth=0.6, linestyle=":", edgecolor="gray", facecolor="none", alpha=0.35,
-                ))
-        for disp_i, f in enumerate(filtered):
-            x, y, h, w, _unused = f.data
-            x_p = x * size_per_pixel
-            y_p = y * size_per_pixel
-            h_p = h * size_per_pixel
-            w_p = w * size_per_pixel
-            ax.add_patch(plt.Rectangle(
-                (x_p, y_p), h_p, w_p,
-                linewidth=1.5, linestyle="-", edgecolor="magenta", facecolor="none", alpha=0.85,
-            ))
-            ax.text(x_p + h_p / 2, y_p + w_p / 2, str(disp_i),
-                    color="magenta", fontsize=7, ha="center", va="center", fontweight="bold")
+        # Scatter the surviving skeleton pixels of each extracted segment. The
+        # track arrays are bbox-local (xtrack = global_x - x), so add the bbox
+        # origin before scaling to the physical tick-display unit.
+        # 抽出された各区間の残存スケルトン画素を散布表示する。track 配列は BBox
+        # ローカル座標（xtrack = グローバルx - x）なので、物理表示単位へスケール
+        # する前に BBox 原点を加える。
+        for f in filtered:
+            x, y, _h, _w, _unused = f.data
+            ax.scatter(
+                (f.xtrack + x) * size_per_pixel,
+                (f.ytrack + y) * size_per_pixel,
+                c="magenta", s=4, edgecolors="none",
+            )
 
     def _draw_overview(self, selected_fiber: Optional[Fiber] = None) -> None:
         """
@@ -1470,30 +1465,28 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._set_ui_enabled(False)
         self._show_progress(_("フィルター適用中..."), 0)
         self._log(
-            (_("フィルター適用中: {lo} ≤ 中央値 ≤ {hi}") + " nm").format(lo=lo, hi=hi)
+            (_("フィルター適用中: 高さ {lo}〜{hi}") + " nm").format(lo=lo, hi=hi)
         )
 
-        total = len(self.current_fibers)
+        image = self.current_image
 
         def _worker():
             """
-            Filter fibers by median height off the Tk main thread.
-            Tk メインスレッド外で中央値高さによるファイバー抽出を行う。
+            Extract specific-height fiber segments off the Tk main thread.
+            Tk メインスレッド外で特定高さのファイバー区間を画素単位で抽出する。
             """
             try:
-                fibers_list = self.current_fibers
-                result = []
-                last_pct = -1
-                for i, f in enumerate(fibers_list):
-                    med = float(np.median(f.height)) if len(f.height) > 0 else 0.0
-                    if lo <= med <= hi:
-                        result.append(f)
-                    pct = int((i + 1) / total * 100) if total > 0 else 100
-                    # Send progress in 1% steps and skip duplicate percentages.
-                    # 1% 刻みで送信（重複する pct は除外）。
-                    if pct != last_pct:
-                        self.ui_queue.put(("filter_progress", pct))
-                        last_pct = pct
+                # Pixel-level extraction: keep only skeleton pixels whose
+                # calibrated height is within [lo, hi] and rebuild fibers from
+                # them. Delegates to FiberTrackingImage.specific_height_fibers
+                # so the GUI matches the reference height-filter behavior, which
+                # isolates the portions at a target height (e.g. dents) rather
+                # than selecting whole fibers by a summary statistic.
+                # 画素単位抽出。補正高さが [lo, hi] のスケルトン画素のみを残して
+                # 再構築する。specific_height_fibers に委譲し、要約統計で
+                # ファイバーを丸ごと選ぶのではなく特定高さの箇所（凹みなど）を
+                # 切り出す、本来の高さフィルター仕様に一致させる。
+                result = image.specific_height_fibers(lo, hi)
                 self.ui_queue.put(("filter_done", (result, lo, hi)))
             except Exception:
                 self.ui_queue.put(("filter_error", traceback.format_exc()))
@@ -1509,55 +1502,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._filtered_fibers = filtered
         self._populate_fiber_table(filtered)
 
-        # Update the AFM overview.
+        # Rebuild the overview so the extracted skeleton pixels are scattered
+        # over the AFM image. The drawing itself lives in _rebuild_overview_bg
+        # so the filtered overview is defined in one place.
+        # 抽出スケルトン画素を AFM 像上に散布表示するため全体像を再構築する。
+        # 描画本体は _rebuild_overview_bg に一本化している。
         self._overview_bg_drawn = False
-
-        # Compute size_per_pixel in the selected tick-display unit.
-        # 軸表示単位に合わせて size_per_pixel を計算（µm / nm）。
-        scale, _unit_label = self._get_extent_scale_and_unit()
-
-        img = self.current_image.calibrated_image
-        size_per_pixel = scale / max(img.shape[:2])
-
-        # Draw the base image without boxes, then add filtered and excluded boxes.
-        # まずベース画像を枠なしで描画し、後からフィルター内外の枠を追加する。
-        self._draw_overview_background(
-            labeled_fibers=[],   # Base image only, with no BBOX labels.
-            title_suffix="  [filter: {count} fibers]".format(count=len(filtered)),
-        )
-        ax = self._afm_ax
-
-        # Draw excluded fibers as thin gray boxes.
-        # 全ファイバーをグレー細枠で表示（フィルター外を示す）。
-        filtered_set = set(id(f) for f in filtered)
-        for f in self.current_fibers:
-            if id(f) not in filtered_set:
-                x, y, h, w, _unused = f.data
-                ax.add_patch(plt.Rectangle(
-                    (x * size_per_pixel, y * size_per_pixel),
-                    h * size_per_pixel, w * size_per_pixel,
-                    linewidth=0.6, linestyle=":", edgecolor="gray", facecolor="none", alpha=0.35,
-                ))
-
-        # Draw filtered fibers with magenta boxes and table-order indices.
-        # フィルター済みファイバーをマゼンタBBOX＋テーブル連番で表示する。
-        for disp_i, f in enumerate(filtered):
-            x, y, h, w, _unused = f.data
-            x_p = x * size_per_pixel
-            y_p = y * size_per_pixel
-            h_p = h * size_per_pixel
-            w_p = w * size_per_pixel
-            ax.add_patch(plt.Rectangle(
-                (x_p, y_p), h_p, w_p,
-                linewidth=1.5, linestyle="-", edgecolor="magenta", facecolor="none", alpha=0.85,
-            ))
-            ax.text(x_p + h_p / 2, y_p + w_p / 2, str(disp_i),
-                    color="magenta", fontsize=7, ha="center", va="center", fontweight="bold")
-
+        self._rebuild_overview_bg()
         self._afm_canvas.draw_idle()
 
         self._log(
-            (_("フィルター適用完了: {lo} ≤ 中央値 ≤ {hi}") + " nm → "
+            (_("フィルター適用完了: 高さ {lo}〜{hi}") + " nm → "
              + _("{count} 件")).format(lo=lo, hi=hi, count=len(filtered))
         )
 
@@ -1756,14 +1711,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 name=os.path.basename(stem), tb=tb
             ))
 
-        def _on_filter_progress(payload):
-            pct = payload
-            self._show_progress(_("フィルター適用中... {pct}%").format(pct=pct), pct)
-            # Also show text progress in the log by replacing the tail line.
-            # ログにもテキストプログレスバーを表示（最終行を上書き）。
-            bar_txt = "█" * (pct // 5) + "░" * (20 - pct // 5)
-            replace_log_tail(self.log_text, f"  [{bar_txt}] {pct}%")
-
         def _on_filter_done(payload):
             filtered, lo, hi = payload
             self._hide_progress()
@@ -1781,7 +1728,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "progress": _on_progress,
             "file_loaded": _on_file_loaded,
             "file_error": _on_file_error,
-            "filter_progress": _on_filter_progress,
             "filter_done": _on_filter_done,
             "filter_error": _on_filter_error,
         })

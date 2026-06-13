@@ -1546,15 +1546,15 @@ msgstr "読み込み完了: {name}  ファイバー数: {count}"
 msgid "フィルター適用中..."
 msgstr "フィルター適用中..."
 
-#: guis/GUI04_Tracking_fiber.py:1496
-#, fuzzy, python-brace-format
-msgid "フィルター適用中: {lo} ≤ 中央値 ≤ {hi}"
-msgstr "フィルター適用中: {lo} ≤ 中央値 < {hi} nm"
+#: guis/GUI04_Tracking_fiber.py:1468
+#, python-brace-format
+msgid "フィルター適用中: 高さ {lo}〜{hi}"
+msgstr "フィルター適用中: 高さ {lo}〜{hi}"
 
-#: guis/GUI04_Tracking_fiber.py:1583
-#, fuzzy, python-brace-format
-msgid "フィルター適用完了: {lo} ≤ 中央値 ≤ {hi}"
-msgstr "フィルター適用中: {lo} ≤ 中央値 < {hi} nm"
+#: guis/GUI04_Tracking_fiber.py:1515
+#, python-brace-format
+msgid "フィルター適用完了: 高さ {lo}〜{hi}"
+msgstr "フィルター適用完了: 高さ {lo}〜{hi}"
 
 #: guis/GUI04_Tracking_fiber.py:1584
 #, fuzzy, python-brace-format

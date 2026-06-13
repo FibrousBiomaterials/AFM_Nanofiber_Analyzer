@@ -1530,15 +1530,15 @@ msgstr "加载完成: {name}  纤维数: {count}"
 msgid "フィルター適用中..."
 msgstr "正在应用过滤器..."
 
-#: guis/GUI04_Tracking_fiber.py:1496
+#: guis/GUI04_Tracking_fiber.py:1468
 #, python-brace-format
-msgid "フィルター適用中: {lo} ≤ 中央値 ≤ {hi}"
-msgstr "正在应用过滤器: {lo} ≤ 中位数 ≤ {hi}"
+msgid "フィルター適用中: 高さ {lo}〜{hi}"
+msgstr "正在应用过滤器: 高度 {lo}〜{hi}"
 
-#: guis/GUI04_Tracking_fiber.py:1583
+#: guis/GUI04_Tracking_fiber.py:1515
 #, python-brace-format
-msgid "フィルター適用完了: {lo} ≤ 中央値 ≤ {hi}"
-msgstr "过滤器应用完成: {lo} ≤ 中位数 ≤ {hi}"
+msgid "フィルター適用完了: 高さ {lo}〜{hi}"
+msgstr "过滤器应用完成: 高度 {lo}〜{hi}"
 
 #: guis/GUI04_Tracking_fiber.py:1584
 #, python-brace-format

@@ -221,29 +221,6 @@ class FiberTrackingImage:
         self.all_kink_angles: Optional[np.ndarray] = None
         self.decomposed_point_coordinates: Optional[np.ndarray] = None
 
-    def fibers_in_image(
-        self,
-        progress_cb: Optional[Callable[[int, int], None]] = None,
-    ) -> list[Fiber]:
-        """
-        Process all fibers sequentially and return them.
-        全ファイバーを逐次処理して返す。
-        If provided, `progress_cb(done, total)` is called after each fiber.
-        progress_cb(done, total) が指定されていれば1本処理するごとに呼ぶ。
-
-        Parameters
-        ----------
-        progress_cb
-            Progress callback receiving `(done, total)`.
-            `(done, total)` を受け取る進捗コールバック。
-
-        Returns
-        -------
-        Fiber list extracted from the image.
-        画像から抽出された Fiber のリスト。
-        """
-        return self._generate_fiber_instances(self.skeleton_image, progress_cb=progress_cb)
-
     def fibers_in_image_parallel(
         self,
         max_workers: Optional[int] = None,
@@ -312,6 +289,18 @@ class FiberTrackingImage:
         """
         Extract fibers whose heights are within a selected range.
         指定した高さ範囲に含まれるファイバーを抽出する。
+
+        The height test is applied per skeleton pixel: only skeleton pixels
+        whose calibrated height satisfies the range are kept, and fibers are
+        rebuilt from those surviving pixels. A single input fiber can therefore
+        be split into shorter sub-segments or partially removed, so this
+        extracts the portions at a specific height (e.g. dents), not whole
+        fibers selected by a summary statistic.
+        高さ判定はスケルトン画素ごとに行う。補正高さが範囲を満たす画素のみを
+        残し、残った画素からファイバーを再構築する。そのため 1 本の入力
+        ファイバーが短いサブセグメントに分割されたり一部が除去されたりする。
+        要約統計でファイバーを丸ごと選ぶのではなく、特定の高さを持つ箇所
+        （凹みなど）を抜き出す操作である。
 
         Parameters
         ----------
