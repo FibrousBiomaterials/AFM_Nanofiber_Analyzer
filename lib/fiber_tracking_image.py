@@ -246,38 +246,10 @@ class FiberTrackingImage:
         Fiber list extracted in parallel.
         並列処理で抽出された Fiber のリスト。
         """
-        nLabels, label_image, data = self._labeled_components(self.skeleton_image)
-        kink_set, dp_set, ep_set, kink_angle_map = self._feature_lookups()
-
-        total = nLabels - 1
-        # Keep output order stable by storing each future result at its original index.
-        results: list[Optional[Fiber]] = [None] * total
-
-        # Workers receive explicit references, so the threaded path is
-        # independent of later self state changes; the lookup tables are
-        # built once and only read afterwards, making them safe to share.
-        # ワーカーには明示的な参照を渡すため、実行中に self の状態が変わっても
-        # 影響しない。テーブルは一度だけ構築され以後は読み取り専用なので、
-        # スレッド間で共有しても安全。
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_idx = {
-                executor.submit(
-                    _build_fiber, label_image, label, data[label],
-                    self.calibrated_image, self.size_per_pixel,
-                    kink_set, dp_set, ep_set, kink_angle_map,
-                ): i
-                for i, label in enumerate(range(1, nLabels))
-            }
-            # Count completed tasks to report progress in real time.
-            done = 0
-            for future in as_completed(future_to_idx):
-                idx = future_to_idx[future]
-                results[idx] = future.result()
-                done += 1
-                if progress_cb is not None:
-                    progress_cb(done, total)
-
-        return [f for f in results if f is not None]
+        return self._generate_fiber_instances(
+            self.skeleton_image, parallel=True,
+            max_workers=max_workers, progress_cb=progress_cb,
+        )
 
     def specific_height_fibers(
         self,
@@ -326,45 +298,100 @@ class FiberTrackingImage:
         upper_cond = (self.calibrated_image <= upper_height) if include_upper_limit else (self.calibrated_image < upper_height)
         # Keep only skeleton pixels whose calibrated heights satisfy both conditions.
         skeleton_image = np.where(lower_cond & upper_cond & self.skeleton_image, 1, 0).astype(np.uint8)
-        return self._generate_fiber_instances(skeleton_image)
+        # Build in parallel: same fibers as the sequential path, just faster.
+        # 並列で構築する。逐次と同一の Fiber を、より高速に得るだけ。
+        return self._generate_fiber_instances(skeleton_image, parallel=True)
 
     def _generate_fiber_instances(
         self,
         skeleton_image: np.ndarray,
+        *,
+        parallel: bool = False,
+        max_workers: Optional[int] = None,
         progress_cb: Optional[Callable[[int, int], None]] = None,
     ) -> list[Fiber]:
         """
         Generate Fiber instances from a skeleton image.
         骨格画像から Fiber インスタンス群を生成する。
 
+        Shared builder behind `fibers_in_image_parallel` and
+        `specific_height_fibers`. The two only differ in which skeleton they
+        pass in, so keeping one builder means both always produce fibers the
+        same way.
+        `fibers_in_image_parallel` と `specific_height_fibers` の共通ビルダー。
+        両者は渡すスケルトンが違うだけなので、ビルダーを 1 つに保てば両者は
+        常に同じ手順で Fiber を生成する。
+
         Parameters
         ----------
         skeleton_image
             Binary skeleton image used for component extraction.
             連結成分抽出に使う2値骨格画像。
+        parallel
+            When True, build fibers with a `ThreadPoolExecutor`. `_build_fiber`
+            is a pure function of its arguments and the lookup tables are
+            read-only after construction, so the threaded result is identical
+            to the sequential one (output stays in label order). Most of the
+            per-fiber cost is `imp_tools.tracking`'s hit-or-miss matching in
+            native code that releases the GIL, so threading gives a real
+            speedup.
+            True のとき `ThreadPoolExecutor` でファイバーを構築する。
+            `_build_fiber` は引数のみに依存する純関数で、参照テーブルは構築後
+            読み取り専用のため、並列結果は逐次と同一になる（出力はラベル順）。
+            ファイバーごとの処理時間の大半は GIL を解放するネイティブコード
+            （`imp_tools.tracking` の hit-or-miss 照合）が占めるため、並列化が
+            実際に効く。
+        max_workers
+            Maximum number of worker threads when `parallel` is True.
+            `parallel` が True のときのワーカースレッド最大数。
         progress_cb
             Progress callback receiving `(done, total)`.
             `(done, total)` を受け取る進捗コールバック。
 
         Returns
         -------
-        Constructed fibers for each connected component.
-        各連結成分に対して構築された Fiber のリスト。
+        Constructed fibers for each connected component, in label order.
+        各連結成分に対して構築された Fiber のリスト（ラベル順）。
         """
         nLabels, label_image, data = self._labeled_components(skeleton_image)
         kink_set, dp_set, ep_set, kink_angle_map = self._feature_lookups()
-
-        fiber_instances = []
         total = nLabels - 1
-        for done, label in enumerate(range(1, nLabels), start=1):
-            fiber_instances.append(_build_fiber(
-                label_image, label, data[label],
-                self.calibrated_image, self.size_per_pixel,
+
+        # Bind the shared, read-only inputs once so both paths and every worker
+        # use the same references.
+        # 共有の読み取り専用入力を一度束ねておき、両経路・全ワーカーで同じ参照を使う。
+        cal = self.calibrated_image
+        spp = self.size_per_pixel
+
+        def build(label: int) -> Fiber:
+            return _build_fiber(
+                label_image, label, data[label], cal, spp,
                 kink_set, dp_set, ep_set, kink_angle_map,
-            ))
-            if progress_cb is not None:
-                progress_cb(done, total)
-        return fiber_instances
+            )
+
+        if not parallel:
+            fiber_instances = []
+            for done, label in enumerate(range(1, nLabels), start=1):
+                fiber_instances.append(build(label))
+                if progress_cb is not None:
+                    progress_cb(done, total)
+            return fiber_instances
+
+        # Store each result at its label index to keep the sequential order.
+        # 結果をラベルのインデックス位置へ格納し、逐次と同じ順序を保つ。
+        results: list[Optional[Fiber]] = [None] * total
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_idx = {
+                executor.submit(build, label): i
+                for i, label in enumerate(range(1, nLabels))
+            }
+            done = 0
+            for future in as_completed(future_to_idx):
+                results[future_to_idx[future]] = future.result()
+                done += 1
+                if progress_cb is not None:
+                    progress_cb(done, total)
+        return [f for f in results if f is not None]
 
     def _labeled_components(
         self,
