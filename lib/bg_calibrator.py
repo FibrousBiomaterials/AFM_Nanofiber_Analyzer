@@ -525,17 +525,35 @@ class BGCalibrator:
         else:
             self._call_inpaint(image)
 
-    def _call_inpaint(self, image: ProcessedImage) -> None:
+    def _detect_fiber_mask(self, original: np.ndarray) -> None:
         """
-        Run the legacy inpaint-based pipeline.
-        従来の inpaint ベースのパイプラインを実行する。
+        Run inpaint-style ridge detection up to the fiber mask intermediates.
+        inpaint 系のリッジ検出をファイバーマスク中間配列まで実行する。
+
+        Shared prelude of `_call_inpaint`, `_call_spline2d`, and
+        `_call_spline1d`: all three need the same gradient-histogram fiber
+        mask before they diverge on how they fill the background. The
+        intermediates ``dif_x`` ... ``tri_difx_fill``/``tri_dify_fill`` are
+        stored on ``self`` exactly as before, so the three paths cannot drift
+        apart and every consumed ``bg_only`` is identical to the legacy code.
+        `_call_inpaint` / `_call_spline2d` / `_call_spline1d` で共通の前段。
+        3 方式とも背景の埋め方が分かれる前に同じ勾配ヒストグラム由来の
+        ファイバーマスクを必要とする。中間配列 ``dif_x`` 〜
+        ``tri_difx_fill``/``tri_dify_fill`` は従来どおり ``self`` に保持する。
         """
-        self.dif_x, self.dif_y = self._difXY(image.original_image)
+        self.dif_x, self.dif_y = self._difXY(original)
         # Fit histogram models to estimate background-difference distribution.
         self.histx, self.histy, self.outx, self.outy = self._bg_fit(self.dif_x, self.dif_y)
         self.tri_difx, self.tri_dify = self._dif_sep(self.dif_x, self.dif_y, self.outx, self.outy)
         # Fill likely fiber regions from ternary difference patterns.
         self.tri_difx_fill, self.tri_dify_fill = self._extract_fiber(self.tri_difx, self.tri_dify)
+
+    def _call_inpaint(self, image: ProcessedImage) -> None:
+        """
+        Run the legacy inpaint-based pipeline.
+        従来の inpaint ベースのパイプラインを実行する。
+        """
+        self._detect_fiber_mask(image.original_image)
         self.bg_only, self.bg_sm = self._bg_generate(image.original_image, self.tri_difx_fill, self.tri_dify_fill)
         # Clear intermediates from the other paths so callers can tell
         # which path ran.
@@ -696,10 +714,7 @@ class BGCalibrator:
         # spline2d は概念的に「inpaint と同じマスク + 別の埋め方」なので、
         # `_bg_generate` までは `_call_inpaint` と同じ処理が必要になる。
         # ``bg_only`` (マスク位置が NaN になった画像) と背景候補マスクを得る。
-        self.dif_x, self.dif_y = self._difXY(original)
-        self.histx, self.histy, self.outx, self.outy = self._bg_fit(self.dif_x, self.dif_y)
-        self.tri_difx, self.tri_dify = self._dif_sep(self.dif_x, self.dif_y, self.outx, self.outy)
-        self.tri_difx_fill, self.tri_dify_fill = self._extract_fiber(self.tri_difx, self.tri_dify)
+        self._detect_fiber_mask(original)
         # `_bg_generate` returns ``bg_only`` (NaN at fiber, shape (H-1, W-1))
         # and a savgol-smoothed bg as the second value. We use only
         # ``bg_only`` here; the background surface is built from the spline
@@ -886,10 +901,7 @@ class BGCalibrator:
         # 流用する。必要なのは ``bg_only`` (マスク位置 NaN、(H-1, W-1) 形状)
         # のみで、`_bg_generate` が返す平滑化 bg は 1D スプラインで埋め直す
         # ため破棄する。
-        self.dif_x, self.dif_y = self._difXY(original)
-        self.histx, self.histy, self.outx, self.outy = self._bg_fit(self.dif_x, self.dif_y)
-        self.tri_difx, self.tri_dify = self._dif_sep(self.dif_x, self.dif_y, self.outx, self.outy)
-        self.tri_difx_fill, self.tri_dify_fill = self._extract_fiber(self.tri_difx, self.tri_dify)
+        self._detect_fiber_mask(original)
         self.bg_only, _ = self._bg_generate(original, self.tri_difx_fill, self.tri_dify_fill)
 
         # Mark intermediates from the other paths as unused.

@@ -8,7 +8,6 @@ into piecewise linear segments and identifies sharp bends by angle thresholding.
 角度しきい値により鋭い折れ曲がりを抽出する検出クラスを提供する。
 """
 
-from collections.abc import Iterable
 import traceback
 
 import cv2
@@ -156,60 +155,6 @@ class KinkDetector:
             # Print full traceback before re-raising the original exception.
             print(traceback.format_exc())
             raise e
-
-    @staticmethod
-    def _calc_line_to_points_dist(a, b, x, y) -> NDArray:
-        """
-        Compute perpendicular distance from line AB to one or many points.
-        直線 AB から1点または複数点までの垂直距離を計算する。
-
-        Parameters
-        ----------
-        a
-            First point defining the reference line.
-            基準直線を定義する第1点。
-        b
-            Second point defining the reference line.
-            基準直線を定義する第2点。
-        x
-            X coordinate(s) of query point(s).
-            距離を求める点の x 座標（単数または複数）。
-        y
-            Y coordinate(s) of query point(s).
-            距離を求める点の y 座標（単数または複数）。
-
-        Returns
-        -------
-        NDArray
-            Perpendicular distance array.
-            垂直距離の配列。
-
-        Raises
-        ------
-        ValueError
-            If x and y are iterables with different lengths.
-        """
-        # Compute point-to-line distance(s) using 2D cross product.
-        A = np.array(a, dtype=float)
-        B = np.array(b, dtype=float)
-        AB = B - A
-        length_AB = np.linalg.norm(AB)
-
-        # Handle scalar inputs as a single point distance.
-        if not isinstance(x, Iterable) and not isinstance(y, Iterable):
-            AC = np.array([x, y], dtype=float) - A
-            return np.array([abs(np.cross(AB, AC)) / length_AB])
-
-        # Validate paired iterable inputs have matching lengths.
-        if isinstance(x, Iterable) and isinstance(y, Iterable) and len(x) != len(y):
-            raise ValueError('The length of x and y must be the same.')
-
-        # Use vectorized computation to avoid Python loops.
-        xs = np.asarray(x, dtype=float)
-        ys = np.asarray(y, dtype=float)
-        # Compute 2D cross product magnitude with line vector AB.
-        cross = AB[0] * (ys - A[1]) - AB[1] * (xs - A[0])
-        return np.abs(cross) / length_AB
 
     def _binary_decompose_simple(
         self,

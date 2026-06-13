@@ -985,15 +985,8 @@ class ToolTip:
             # Reset reference to indicate hidden state.
             # 変数をリセットして「非表示状態」に戻す
             self.tooltip = None  # 変数をリセットして「非表示状態」に戻す
-            
-# --- Shared window-size policy ------------------------------------------------
-# Treat 1366x768 displays as the minimum supported target.
-# 1366x768 機を最低保証ターゲットとする。
-# After subtracting taskbar/titlebar space, about 700 px is a safe height limit.
-# タスクバー・タイトルバー分を引くと縦は約 700 px が安全上限。
-SAFE_MAX_WIDTH  = 1280   # 1366px幅で左右余白確保
-SAFE_MAX_HEIGHT = 700    # 1366x768機で確実に収まる縦上限
-    
+
+
 def center_window(win, w, h, taskbar_offset=40):
     """
     Center a window on screen with a small upward taskbar offset.

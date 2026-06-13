@@ -78,16 +78,34 @@ _EP_PATTERNS_CV2 = _build_ep_patterns()
 _BP_PATTERNS_CV2 = _build_bp_patterns()
 
 
+def _apply_hitmiss_patterns(
+    skel: NDArray[np.uint8], patterns: list[np.ndarray]
+) -> NDArray[np.uint8]:
+    """
+    Union the cv2 hit-or-miss responses of a skeleton against several kernels.
+    複数カーネルに対するスケルトンの cv2 hit-or-miss 応答を論理和で集約する。
+
+    Shared core of `_fast_end_points` and `_fast_branched_points`; only the
+    kernel list differs between endpoint and branch-point detection. The
+    one-pixel zero pad lets 3x3 kernels evaluate border skeleton pixels, and
+    the matching crop restores the original shape.
+    `_fast_end_points` と `_fast_branched_points` の共通処理で、端点検出と
+    分岐点検出の違いはカーネルリストのみ。1 画素ゼロパディングで境界画素にも
+    3x3 カーネルを適用し、対応するクロップで元の形状へ戻す。
+    """
+    padded = np.pad(skel, pad_width=1, mode='constant', constant_values=0)
+    hits = np.zeros_like(padded, dtype=np.uint8)
+    for p in patterns:
+        hits |= cv2.morphologyEx(padded, cv2.MORPH_HITMISS, p)
+    return np.ascontiguousarray(np.where(hits > 0, 1, 0).astype(np.uint8)[1:-1, 1:-1])
+
+
 def _fast_end_points(skel: NDArray[np.uint8]) -> NDArray[np.uint8]:
     """
     Return endpoints using a cv2-based replacement for imp_tools.endPoints.
     imp_tools.endPoints と同じ出力を cv2 ベースの代替処理で返す。
     """
-    padded = np.pad(skel, pad_width=1, mode='constant', constant_values=0)
-    hits = np.zeros_like(padded, dtype=np.uint8)
-    for p in _EP_PATTERNS_CV2:
-        hits |= cv2.morphologyEx(padded, cv2.MORPH_HITMISS, p)
-    return np.ascontiguousarray(np.where(hits > 0, 1, 0).astype(np.uint8)[1:-1, 1:-1])
+    return _apply_hitmiss_patterns(skel, _EP_PATTERNS_CV2)
 
 
 def _fast_branched_points(skel: NDArray[np.uint8]) -> NDArray[np.uint8]:
@@ -95,11 +113,7 @@ def _fast_branched_points(skel: NDArray[np.uint8]) -> NDArray[np.uint8]:
     Return branch points using a cv2-based replacement for imp_tools.branchedPoints.
     imp_tools.branchedPoints と同じ出力を cv2 ベースの代替処理で返す。
     """
-    padded = np.pad(skel, pad_width=1, mode='constant', constant_values=0)
-    hits = np.zeros_like(padded, dtype=np.uint8)
-    for p in _BP_PATTERNS_CV2:
-        hits |= cv2.morphologyEx(padded, cv2.MORPH_HITMISS, p)
-    return np.ascontiguousarray(np.where(hits > 0, 1, 0).astype(np.uint8)[1:-1, 1:-1])
+    return _apply_hitmiss_patterns(skel, _BP_PATTERNS_CV2)
 
 
 class Skeletonizer:
