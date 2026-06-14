@@ -8,7 +8,7 @@ into piecewise linear segments and identifies sharp bends by angle thresholding.
 角度しきい値により鋭い折れ曲がりを抽出する検出クラスを提供する。
 """
 
-import traceback
+import logging
 
 import cv2
 import numpy as np
@@ -16,6 +16,8 @@ from numpy.typing import NDArray
 
 from . import imp_tools
 from .processed_image import ProcessedImage
+
+logger = logging.getLogger(__name__)
 
 
 class KinkDetector:
@@ -92,7 +94,7 @@ class KinkDetector:
             If `image.skeleton_image` is None, i.e. skeletonization has not
             been run on this image yet.
         Exception
-            Re-raises any exception after printing traceback.
+            Re-raises any exception unchanged after logging its traceback.
 
         Notes
         -----
@@ -151,10 +153,11 @@ class KinkDetector:
             image.all_kink_angles = np.array(all_kink_angles)
             image.decomposed_point_coordinates = (np.array(decomposed_point_x), np.array(decomposed_point_y))
 
-        except Exception as e:
-            # Print full traceback before re-raising the original exception.
-            print(traceback.format_exc())
-            raise e
+        except Exception:
+            # Log the full traceback before re-raising the original exception
+            # unchanged (bare `raise` preserves the exception and its chain).
+            logger.exception("Kink detection failed")
+            raise
 
     def _binary_decompose_simple(
         self,

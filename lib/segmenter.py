@@ -20,6 +20,12 @@ from skimage.transform import hough_line, hough_line_peaks
 if TYPE_CHECKING:
     from .processed_image import ProcessedImage
 
+# Tiny denominator offset guarding the straightness-ratio division against an
+# empty edge map (zero-sum denominator).
+# 直線性比の除算で、エッジマップが空（分母の総和が 0）になる場合のゼロ除算を
+# 防ぐための微小オフセット。
+_DENOM_EPS = 1e-21
+
 
 class Segmenter:
     """
@@ -228,42 +234,42 @@ class Segmenter:
             np.uint8(out_binary_image), 8
         )
         for i in range(1, n_labels):
-            try:
-                left, top, width, height, area = stats[i]
-                # Large components are retained without the linearity test.
-                if area >= 1000:
-                    continue
-                # Components shorter than the Hough threshold cannot form a retained line.
-                if max(width, height) < self.h_length:
-                    out_binary_image[label_image == i] = 0
-                    continue
-                target = out_binary_image[
-                    top : top + height, left : left + width
-                ]
-                target_edge = canny(target, sigma=0, low_threshold=0, high_threshold=1)
-                # Use Hough accumulator votes as a proxy for detected line length.
-                # Hough アキュムレータの投票数を、検出された直線長の代理指標として使う。
-                h, theta, d = hough_line(target_edge)
-                accums, _, _ = hough_line_peaks(
-                    h, theta, d,
-                    min_distance=max(1, linegap),
-                    min_angle=1,
-                    threshold=h_length,
-                )
-                if len(accums) > 0:
-                    total_length = float(np.sum(accums))
-                else:
-                    total_length = 0.0
-                # Add a tiny denominator offset to avoid division by zero.
-                s_ratio = total_length / (np.sum(target_edge)+0.000000000000000000001)
-                self.h_sratio_list.append(s_ratio)
-
-                if s_ratio < h_sratio and np.sum(target) < 1000:
-                    out_binary_image[label_image == i] = 0
-
-            except RuntimeWarning:
-                print(f"Division by zero while processing label {i}.")
+            left, top, width, height, area = stats[i]
+            # Large components are retained without the linearity test.
+            if area >= 1000:
                 continue
+            # Components shorter than the Hough threshold cannot form a retained line.
+            if max(width, height) < self.h_length:
+                out_binary_image[label_image == i] = 0
+                continue
+            target = out_binary_image[
+                top : top + height, left : left + width
+            ]
+            target_edge = canny(target, sigma=0, low_threshold=0, high_threshold=1)
+            # Use Hough accumulator votes as a proxy for detected line length.
+            # Hough アキュムレータの投票数を、検出された直線長の代理指標として使う。
+            h, theta, d = hough_line(target_edge)
+            accums, _, _ = hough_line_peaks(
+                h, theta, d,
+                min_distance=max(1, linegap),
+                min_angle=1,
+                threshold=h_length,
+            )
+            if len(accums) > 0:
+                total_length = float(np.sum(accums))
+            else:
+                total_length = 0.0
+            # Offset the denominator so an empty edge map cannot divide by zero.
+            # NumPy only warns (does not raise) on a zero denominator, so this
+            # offset is the actual guard.
+            # エッジマップが空でもゼロ除算にならないよう分母をオフセットする。
+            # NumPy はゼロ除算でも例外を送出せず警告のみのため、このオフセットが
+            # 実際の保護になる。
+            s_ratio = total_length / (np.sum(target_edge) + _DENOM_EPS)
+            self.h_sratio_list.append(s_ratio)
+
+            if s_ratio < h_sratio and np.sum(target) < 1000:
+                out_binary_image[label_image == i] = 0
 
         return out_binary_image
 
