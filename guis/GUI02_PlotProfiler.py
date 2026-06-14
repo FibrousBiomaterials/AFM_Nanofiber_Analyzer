@@ -780,7 +780,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
 
         # Remove all marked points.
         buttoncl2 = ttk.Button(
-            action_row, text=_("全点取り消し"), command=self.cancel_plot2)
+            action_row, text=_("全点取り消し"), command=self.clear_all_points)
         buttoncl2.grid(row=0, column=1, padx=(0, 16))
 
         # Reserve guide-label space; text is filled after a file is loaded.
@@ -917,7 +917,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # Button row for profile export/layout actions, initially empty.
         self.profile_button_row = ttk.Frame(self.profile_panel)
         self.profile_button_row.grid(row=1, column=0, sticky="ew", pady=(4, 0))
-        # Buttons are created by make_profile() and hidden by delete_canvas2().
+        # Buttons are created by make_profile() and hidden by hide_profile_canvas().
         self.buttonsavecsv = None
         self.button_save_profile_img = None
         self.open_button = None
@@ -1159,7 +1159,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         if self.flag2:
             self.make_profile()
 
-    def NDload(self, path) -> np.ndarray | None:
+    def load_array_file(self, path) -> np.ndarray | None:
         """
         Load a 2D AFM height array from bundle, NumPy, text, or CSV input.
         バンドル、NumPy、テキスト、CSV 入力から 2D AFM 高さ配列を読み込む。
@@ -1243,8 +1243,8 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # 再オープン時にそこを開く。GUI01 / GUI03 / GUI04 と同じ挙動。
         # File-type filter: keep "all files" as the last (most permissive) entry
         # so users can still open arbitrarily named exports. Specific entries
-        # mirror the formats accepted by NDload.
-        # 拡張子フィルタ: NDload が受け付ける形式を明示しつつ、最後に「すべて」を
+        # mirror the formats accepted by load_array_file.
+        # 拡張子フィルタ: load_array_file が受け付ける形式を明示しつつ、最後に「すべて」を
         # 残して任意のエクスポートも開けるようにする。
         filetype = [
             (_("AFMデータ"), ("*" + BUNDLE_EXT, "*.npy", "*.csv", "*.txt")),
@@ -1289,11 +1289,11 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         self.filename = os.path.basename(self.path)
 
         if reload or getattr(self, "img", None) is None:
-            # Load (or reload) the file from disk. NDload returns None and
+            # Load (or reload) the file from disk. load_array_file returns None and
             # shows an error dialog if anything fails.
-            # ディスクから読み込み（または再読み込み）する。NDload は失敗時に
-            # None を返し、エラーダイアログ自体は NDload 側で表示済み。
-            img = self.NDload(self.path)
+            # ディスクから読み込み（または再読み込み）する。load_array_file は失敗時に
+            # None を返し、エラーダイアログ自体は load_array_file 側で表示済み。
+            img = self.load_array_file(self.path)
             if img is None:
                 # Keep the existing display if loading fails.
                 return
@@ -1385,7 +1385,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         """
         # Clear any existing profile so it cannot be mixed with a newly loaded file.
         if self.flag2:
-            self.delete_canvas2()
+            self.hide_profile_canvas()
         # Start each file with a blank point list.
         self.xlist = []
         self.ylist = []
@@ -1450,11 +1450,11 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             if event.button == 3:
                 # event.xdata / event.ydata are in the heatmap's display unit
                 # (µm or nm) because they correspond to the imshow extent. We
-                # store the points in µm internally so profile2p can apply the
+                # store the points in µm internally so profile_between_points can apply the
                 # fixed scale_um→pixel conversion regardless of the radio state.
                 # event.xdata / event.ydata は imshow の extent に対応した
                 # 「表示単位」座標 (µm or nm) として返ってくる。内部表現は µm 固定
-                # にしておけば、ラジオ切替に関係なく profile2p が
+                # にしておけば、ラジオ切替に関係なく profile_between_points が
                 # scale_um→ピクセル変換をそのまま使える。
                 x_disp, y_disp = (event.xdata, event.ydata)
                 unit_now = self.unit_var.get()
@@ -1549,18 +1549,18 @@ class App(tk.Tk, UnconfirmedEntryMixin):
                 if len(self.xlist) > 1:
                     self.make_profile()
                 else:
-                    self.delete_canvas2()
+                    self.hide_profile_canvas()
 
         if not self.flag1:
             messagebox.showerror(_("エラー"), _("画像を開いてください"))
 
-    def cancel_plot2(self) -> None:
+    def clear_all_points(self) -> None:
         """
         Remove all marked points and any displayed profile.
         すべての打点と表示中のプロファイルを削除する。
         """
         if self.flag2:
-            self.delete_canvas2()
+            self.hide_profile_canvas()
         if self.flag1:
             if not hasattr(self, 'xlist') or self.xlist == []:
                 messagebox.showerror(_("エラー"), _("打点されていません"))
@@ -1573,7 +1573,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         else:
             messagebox.showerror(_("エラー"), _("画像を開いてください"))
 
-    def profile2p(self, x1, x2, y1, y2) -> tuple[np.ndarray, np.ndarray]:
+    def profile_between_points(self, x1, x2, y1, y2) -> tuple[np.ndarray, np.ndarray]:
         """
         Compute a height profile between two points stored in micrometers.
         µm 単位で保持された 2 点間の高さプロファイルを計算する。
@@ -1643,7 +1643,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             x2 = self.xlist[1]
             y1 = self.ylist[0]
             y2 = self.ylist[1]
-            self.profilex, self.profiley = self.profile2p(x1, x2, y1, y2)
+            self.profilex, self.profiley = self.profile_between_points(x1, x2, y1, y2)
             dotlist = None
         elif len(self.xlist) > 2:
             # Concatenate profiles across all adjacent point pairs.
@@ -1657,7 +1657,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
                 y2 = self.ylist[i + 1]
 
                 # Compute the i-th segment profile.
-                addprofilex, addprofiley = self.profile2p(x1, x2, y1, y2)
+                addprofilex, addprofiley = self.profile_between_points(x1, x2, y1, y2)
 
                 if i == 0:
                     # Keep the first segment unchanged.
@@ -1718,7 +1718,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
                 self.profile_placeholder.grid_remove()
             except tk.TclError:
                 pass
-        # Re-show the canvas if delete_canvas2 previously hid it.
+        # Re-show the canvas if hide_profile_canvas previously hid it.
         try:
             self.image_widget2.grid()
         except tk.TclError:
@@ -1763,14 +1763,14 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         self.fig2.subplots_adjust(left=left, bottom=bottom, right=0.97, top=0.97)
         self.canvas2.draw()
 
-        # Re-show buttons if delete_canvas2 hid them.
+        # Re-show buttons if hide_profile_canvas hid them.
         for btn in (self.buttonsavecsv, self.button_save_profile_img, self.open_button):
             if btn is not None and not btn.winfo_ismapped():
                 btn.pack(side="left", padx=(0, 8))
 
         self.flag2 = True
 
-    def delete_canvas2(self) -> None:
+    def hide_profile_canvas(self) -> None:
         """
         Hide the profile graph while keeping reusable Figure/Canvas objects.
         再利用可能な Figure/Canvas を保持したままプロファイルグラフを隠す。
