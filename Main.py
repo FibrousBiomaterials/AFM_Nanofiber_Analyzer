@@ -78,20 +78,21 @@ MSG_HOVER_IDLE = (
     "Hover over a button on the right to display its description."
 )
 
-def _run_plugin_and_exit(module_import_path: str):
+def _build_splash(module_import_path: str) -> tuple[tk.Tk, ttk.Progressbar]:
     """
-    Run a plugin after showing a splash progress window.
-    スプラッシュ進捗ウィンドウを表示してからプラグインを実行する。
+    Build and show a splash window with a running indeterminate progress bar.
+    起動中の不確定プログレスバー付きスプラッシュウィンドウを構築して表示する。
 
-    Heavy imports run in a worker thread so the tkinter splash can keep
-    updating while startup work proceeds.
-    重い import はワーカースレッドで実行し、起動処理中も tkinter の
-    スプラッシュ表示を更新できるようにする。
+    Returns
+    -------
+    tuple
+        ``(splash, pbar)`` — the splash window and its already-started progress
+        bar. The caller owns teardown: stop ``pbar`` before destroying
+        ``splash`` so no pending ttk "after" callback fires post-destroy.
+        ``(splash, pbar)`` の組。スプラッシュウィンドウと開始済みのプログレス
+        バー。後始末は呼び出し側の責務で、破棄前に ``pbar`` を停止すること
+        （破棄後に ttk の after コールバックが発火しないようにするため）。
     """
-    import tkinter as tk
-    from tkinter import ttk
-
-    # ---- 1) Build splash window ----
     splash = tk.Tk()
     splash.title("Loading...")
     splash.overrideredirect(True)
@@ -114,8 +115,11 @@ def _run_plugin_and_exit(module_import_path: str):
         anchor="center",
     ).pack(pady=(4, 4))
 
-    status_var = tk.StringVar(value="Loading...")
-    ttk.Label(frame, textvariable=status_var, anchor="center").pack(pady=(0, 6))
+    # Static status text: the plugin import is a single step, so this label
+    # never changes — a plain label avoids keeping a StringVar alive.
+    # ステータス表示は固定文言（import は単一ステップで更新されない）。
+    # StringVar を生存させ続けずに済むようプレーンなラベルにする。
+    ttk.Label(frame, text="Loading...", anchor="center").pack(pady=(0, 6))
 
     # Indeterminate mode: the plugin module is imported in a single step, so
     # there is no meaningful step count to display.
@@ -124,6 +128,21 @@ def _run_plugin_and_exit(module_import_path: str):
     pbar = ttk.Progressbar(frame, mode="indeterminate", length=360)
     pbar.pack(pady=4)
     pbar.start(12)
+    return splash, pbar
+
+
+def _run_plugin_and_exit(module_import_path: str) -> None:
+    """
+    Run a plugin after showing a splash progress window.
+    スプラッシュ進捗ウィンドウを表示してからプラグインを実行する。
+
+    Heavy imports run in a worker thread so the tkinter splash can keep
+    updating while startup work proceeds.
+    重い import はワーカースレッドで実行し、起動処理中も tkinter の
+    スプラッシュ表示を更新できるようにする。
+    """
+    # ---- 1) Build splash window ----
+    splash, pbar = _build_splash(module_import_path)
 
     # ---- 2) Share worker-thread state ----
     # The main (Tkinter) thread and the worker thread communicate via these.
@@ -651,7 +670,7 @@ class MainApp(tk.Tk):
         self.scrollable.inner.grid_columnconfigure(0, weight=1)
 
     # -------- Plugin launching --------
-    def _launch(self, module_import_path: str):
+    def _launch(self, module_import_path: str) -> None:
         """
         Launch a plugin in a subprocess.
         プラグインをサブプロセスで起動する。
@@ -708,7 +727,7 @@ class MainApp(tk.Tk):
 # =========================
 # Entry point
 # =========================
-def main():
+def main() -> None:
     """
     Dispatch subcommands, then launch the main launcher GUI.
     サブコマンドを振り分けた後、ランチャー GUI を起動する。
