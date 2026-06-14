@@ -65,7 +65,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # lib.pipeline が CLI と共通の前処理パイプラインを駆動する。本 GUI は
 # バッチ方針（スキップ/上書き/停止）と UI 表示のみを担当する。
 from lib.pipeline import (
-    ProcParams, PipelineStages, build_stages, process_file,
+    ProcParams, PipelineStages, STAGE_KEYS, build_stages, process_file,
     bundle_path_for, existing_min_set, merge_params_dict, validate_params,
 )
 from lib.blosc2_io import load_bundle
@@ -611,7 +611,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.progress_count_var = tk.StringVar(value=_("-/- 完了"))
         ttk.Label(prog_frame, textvariable=self.progress_count_var).pack(side="left", padx=(4, 10))
 
-        self.progressbar = ttk.Progressbar(prog_frame, mode="determinate", maximum=100)
+        # Green progress bar. The shared "clam" theme renders the bar from style
+        # colors (unlike Windows native themes), so a custom style fill applies.
+        # 緑色の進捗バー。共有テーマ "clam" はスタイル色でバーを描画するため
+        # （Windows ネイティブテーマと異なり）塗り色の指定が反映される。
+        ttk.Style(self).configure(
+            "Green.Horizontal.TProgressbar", background="#28a745"
+        )
+        self.progressbar = ttk.Progressbar(
+            prog_frame, mode="determinate", maximum=100,
+            style="Green.Horizontal.TProgressbar",
+        )
         self.progressbar.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
         self.progress_detail_var = tk.StringVar(value=_("-"))
@@ -1166,16 +1176,21 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         `lib.pipeline.process_file` にあり、このメソッドはステージキーの
         翻訳ラベル変換と結果の UI イベント化のみを行う。
         """
+        # Each stage reports both its key (to advance the progress bar within a
+        # single file) and a translated label (for the detail text).
+        # 各ステージはキー（1 ファイル内でバーを進めるため）と翻訳ラベル
+        # （詳細テキスト用）の両方を通知する。
+        def report_stage(s: str) -> None:
+            self.ui_queue.put(("stage", s))
+            self.ui_queue.put(("progress_detail", (fname, stage_label(s))))
+
         try:
-            # Each stage reports a translated progress label through the UI queue.
             result = process_file(
                 it.txt_path,
                 self.params_active,
                 stages=stages,
                 save_original=self._save_original_active,
-                on_stage=lambda s: self.ui_queue.put(
-                    ("progress_detail", (fname, stage_label(s)))
-                ),
+                on_stage=report_stage,
             )
             self.ui_queue.put(("progress_detail", (fname, _("完了"))))
 
@@ -1220,6 +1235,21 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 _("{0}/{1} 完了").format(self._done_tasks, self._total_tasks)
             )
 
+        def _on_stage(payload):
+            # Advance the bar within the current file so it keeps moving even
+            # for a single-file batch; full completion is handled by _on_progress.
+            # 現在処理中のファイル内でバーを進め、1 ファイルのみのバッチでも
+            # 動いて見えるようにする。完了時の更新は _on_progress が担当する。
+            if self._total_tasks <= 0:
+                return
+            try:
+                idx = STAGE_KEYS.index(payload)
+            except ValueError:
+                return
+            frac = idx / len(STAGE_KEYS)
+            pct = ((self._done_tasks + frac) / self._total_tasks) * 100.0
+            self.progressbar["value"] = pct
+
         def _on_done(_payload):
             # Re-analysis may have changed the selected bundle, so reload preview data.
             self.is_running = False
@@ -1232,6 +1262,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "log": lambda payload: self._log(str(payload)),
             "status": _on_status,
             "progress": _on_progress,
+            "stage": _on_stage,
             "progress_detail": lambda payload: self.progress_detail_var.set(
                 _("{0} / {1}").format(payload[0], payload[1])
             ),
