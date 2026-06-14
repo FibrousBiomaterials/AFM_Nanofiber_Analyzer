@@ -46,6 +46,7 @@ import platform
 import re
 import subprocess
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -358,13 +359,31 @@ def read_pyproject_dependencies() -> set[str] | None:
     return names
 
 
+def pip_names_from_externals(externals: Iterable[str]) -> list[str]:
+    """
+    Normalize and sort external import names into pip names.
+    外部 import 名を pip 名へ正規化し整列する。
+
+    Parameters
+    ----------
+    externals
+        External top-level import names from `collect_external_imports()`.
+        `collect_external_imports()` が返す外部トップレベル import 名。
+
+    Returns
+    -------
+    Deduplicated pip names sorted case-insensitively.
+    重複排除し大文字小文字を無視して整列した pip 名。
+    """
+    return sorted({normalize_pip_name(m) for m in externals}, key=str.lower)
+
+
 def scan_pip_names() -> list[str]:
     """
     Return sorted pip names of all scanned direct dependencies.
     走査で得た直接依存の pip 名を整列したリストで返す。
     """
-    externals = collect_external_imports()
-    return sorted({normalize_pip_name(m) for m in externals}, key=str.lower)
+    return pip_names_from_externals(collect_external_imports())
 
 
 def report_consistency(pip_names: list[str]) -> list[str]:
@@ -457,6 +476,47 @@ def run_pytest() -> bool:
     return proc.returncode == 0
 
 
+def collect_consistency_problems(pip_names: list[str]) -> list[str]:
+    """
+    Gather all dependency-consistency problems shared by verify and pin.
+    verify と pin が共有する依存整合性の問題をまとめて収集する。
+
+    Parameters
+    ----------
+    pip_names
+        Direct dependency pip names from `scan_pip_names()`.
+        `scan_pip_names()` が返す直接依存の pip 名。
+
+    Returns
+    -------
+    Human-readable problem descriptions; empty when fully consistent.
+    問題の説明文のリスト。完全に整合していれば空。
+    """
+    problems = report_consistency(pip_names)
+    if not run_pip_check():
+        problems.append("pip check reported broken requirements")
+    return problems
+
+
+def print_problems(header: str, problems: list[str]) -> None:
+    """
+    Print a header and a bulleted problem list to stderr.
+    見出しと箇条書きの問題リストを stderr へ出力する。
+
+    Parameters
+    ----------
+    header
+        Leading line shown before the bullet list.
+        箇条書きの前に表示する見出し行。
+    problems
+        Problem descriptions to list.
+        列挙する問題の説明文。
+    """
+    print(header, file=sys.stderr)
+    for p in problems:
+        print(f"  - {p}", file=sys.stderr)
+
+
 def write_lock_file() -> Path:
     """
     Regenerate `requirements.lock.txt` from the current environment.
@@ -542,28 +602,20 @@ def main(argv: list[str] | None = None) -> int:
         print(m)
     print(f"\nCount: {len(externals)}\n")
 
-    pip_names = sorted({normalize_pip_name(m) for m in externals}, key=str.lower)
+    pip_names = pip_names_from_externals(externals)
 
     if args.verify:
-        problems = report_consistency(pip_names)
-        if not run_pip_check():
-            problems.append("pip check reported broken requirements")
+        problems = collect_consistency_problems(pip_names)
         if problems:
-            print("\nVERIFY FAILED:", file=sys.stderr)
-            for p in problems:
-                print(f"  - {p}", file=sys.stderr)
+            print_problems("\nVERIFY FAILED:", problems)
             return 1
         print("\nVerify: OK (imports, pyproject, and environment are consistent)")
         return 0
 
     if args.pin:
-        problems = report_consistency(pip_names)
-        if not run_pip_check():
-            problems.append("pip check reported broken requirements")
+        problems = collect_consistency_problems(pip_names)
         if problems:
-            print("\nPIN ABORTED (fix these before pinning):", file=sys.stderr)
-            for p in problems:
-                print(f"  - {p}", file=sys.stderr)
+            print_problems("\nPIN ABORTED (fix these before pinning):", problems)
             return 1
         if not run_pytest():
             print("\nPIN ABORTED: test suite failed; lock file not updated.",
