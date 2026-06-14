@@ -635,7 +635,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Build the preview controls in three compact rows.
         # Entry-based numeric controls use Enter-to-commit so partial edits do not
         # immediately redraw figures with invalid or unintended values.
+        self._build_preview_scale_row()
+        self._build_preview_font_row()
+        self._build_preview_overlay_row()
 
+    def _build_preview_scale_row(self) -> None:
+        """
+        Build preview row 1: scale display, physical scale, axis unit, vmin/vmax.
+        プレビュー行1（スケール表示・実寸・軸単位・vmin/vmax）を構築する。
+        """
         # -- Row 1: scale display, physical scale, axis unit, vmin/vmax --
         ctrl1 = ttk.Frame(self.right_frame)
         ctrl1.pack(side="top", fill="x", padx=4, pady=(4, 2))
@@ -693,6 +701,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self.validate_vrange,
         )
 
+    def _build_preview_font_row(self) -> None:
+        """
+        Build preview row 2: title toggle and title/label/tick/legend font sizes.
+        プレビュー行2（タイトル表示＋タイトル/軸ラベル/軸目盛/凡例のフォントサイズ）を構築する。
+        """
         # -- Row 2: title toggle and font sizes --
         ctrl2 = ttk.Frame(self.right_frame)
         ctrl2.pack(side="top", fill="x", padx=4, pady=(0, 2))
@@ -739,6 +752,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self.validate_main_font_sizes,
         )
 
+    def _build_preview_overlay_row(self) -> None:
+        """
+        Build preview row 3: overlay selector, image export, and single-view dialog.
+        プレビュー行3（重ね表示セレクタ・画像保存・個別表示）を構築する。
+        """
         # -- Row 3: overlay, image export, and single-view dialog --
         ctrl3 = ttk.Frame(self.right_frame)
         ctrl3.pack(side="top", fill="x", padx=4, pady=(0, 4))
@@ -2326,6 +2344,18 @@ class SingleViewDialog(tk.Toplevel, UnconfirmedEntryMixin):
         操作部と matplotlib キャンバスを配置するフレームを構築する。
         """
         # Controls are split into two compact rows above the figure.
+        self._build_display_controls()
+        self._build_font_controls()
+
+        # FigureCanvasTkAgg is attached here after _build_ui returns.
+        self.view_frame = ttk.Frame(self)
+        self.view_frame.pack(fill="both", expand=True, padx=8, pady=8)
+
+    def _build_display_controls(self) -> None:
+        """
+        Build the display-mode row: mode, overlay, scale, axis unit, vmin/vmax, save.
+        表示モード行（表示種別・重ね表示・スケール・軸単位・vmin/vmax・保存）を構築する。
+        """
         top = ttk.Frame(self)
         top.pack(side="top", fill="x", padx=8, pady=(6, 2))
 
@@ -2395,6 +2425,11 @@ class SingleViewDialog(tk.Toplevel, UnconfirmedEntryMixin):
 
         ttk.Button(top, text=_("画像を保存"), command=self._export).pack(side="left", padx=10)
 
+    def _build_font_controls(self) -> None:
+        """
+        Build the font-size row: title toggle and title/cbar/label/tick/legend sizes.
+        フォントサイズ行（タイトル表示＋タイトル/カラーバー/軸ラベル/軸目盛/凡例）を構築する。
+        """
         # Font-size entries share one Enter-to-commit registry.
         bottom = ttk.Frame(self)
         bottom.pack(side="top", fill="x", padx=8, pady=(0, 4))
@@ -2450,10 +2485,6 @@ class SingleViewDialog(tk.Toplevel, UnconfirmedEntryMixin):
             self.validate_dialog_font_sizes,
             registry=self._unconfirmed_entries,
         )
-
-        # FigureCanvasTkAgg is attached here after _build_ui returns.
-        self.view_frame = ttk.Frame(self)
-        self.view_frame.pack(fill="both", expand=True, padx=8, pady=8)
 
     def validate_dialog_font_sizes(self):
         """

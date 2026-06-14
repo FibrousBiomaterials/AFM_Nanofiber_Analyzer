@@ -145,6 +145,22 @@ class ModalWindow(UnconfirmedEntryMixin):
         self.canvas_frame = ttk.Frame(self.modal_window)
         self.canvas_frame.pack(side="top", fill="both", expand=True, padx=8, pady=(0, 8))
 
+        self._build_modal_controls(control_frame)
+
+        # Draw once immediately after the window opens.
+        self.draw_graph()
+
+        # grab_set() gives this window modal control over UI events.
+        self.modal_window.grab_set()
+
+        # Route the window-manager close button through the cleanup path.
+        self.modal_window.protocol("WM_DELETE_WINDOW", self.close)
+
+    def _build_modal_controls(self, control_frame: ttk.Frame) -> None:
+        """
+        Build the modal editor's control row (size, font, tick, grid, save).
+        モーダル編集の操作行（サイズ・フォント・目盛り・グリッド・保存）を構築する。
+        """
         # Numeric entries use Enter-to-commit; comboboxes redraw immediately.
         # 数値 Entry は Enter 確定、Combobox は選択時に即時再描画する。
         # Keep the modal registry separate from the main App registry.
@@ -232,15 +248,6 @@ class ModalWindow(UnconfirmedEntryMixin):
         self.save_fig_button = ttk.Button(
             control_frame, text=_("画像を保存"), command=self.save_figure)
         self.save_fig_button.grid(row=0, column=col, padx=(8, 0))
-
-        # Draw once immediately after the window opens.
-        self.draw_graph()
-
-        # grab_set() gives this window modal control over UI events.
-        self.modal_window.grab_set()
-
-        # Route the window-manager close button through the cleanup path.
-        self.modal_window.protocol("WM_DELETE_WINDOW", self.close)
 
     def close(self) -> None:
         """

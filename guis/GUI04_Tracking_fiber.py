@@ -430,10 +430,29 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         vert = ttk.PanedWindow(right_outer, orient="vertical")
         vert.pack(fill="both", expand=True)
 
-        # -- AFM overview, upper row --
-        afm_outer = ttk.Frame(vert)
-        vert.add(afm_outer, weight=4)
+        self._build_afm_overview(vert)
+        self._build_log_panel(vert)
 
+    def _build_afm_overview(self, parent: ttk.Frame) -> None:
+        """
+        Build the AFM overview panel (controls, font sizes, and plot frame).
+        AFM 全体像パネル（操作部・フォントサイズ・描画フレーム）を構築する。
+        """
+        # -- AFM overview, upper row --
+        afm_outer = ttk.Frame(parent)
+        parent.add(afm_outer, weight=4)
+
+        self._build_afm_controls(afm_outer)
+        self._build_afm_font_row(afm_outer)
+
+        self._afm_frame = ttk.Frame(afm_outer)
+        self._afm_frame.pack(fill="both", expand=True, padx=2, pady=2)
+
+    def _build_afm_controls(self, afm_outer: ttk.Frame) -> None:
+        """
+        Build AFM overview row 1: title, auto mode, vmin/vmax, and action buttons.
+        AFM 全体像 行1（タイトル・自動・vmin/vmax・操作ボタン）を構築する。
+        """
         # Row 1: title, vmin/vmax, auto mode, and action buttons.
         afm_header1 = ttk.Frame(afm_outer)
         afm_header1.pack(side="top", fill="x", padx=2, pady=(2, 0))
@@ -479,6 +498,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             command=self._open_detail_window,
         ).pack(side="left", padx=4)
 
+    def _build_afm_font_row(self, afm_outer: ttk.Frame) -> None:
+        """
+        Build AFM overview row 2: title, axis-label, tick, and colorbar font sizes.
+        AFM 全体像 行2（タイトル/軸ラベル/軸目盛/カラーバーのフォントサイズ）を構築する。
+        """
         # Row 2: four font sizes for title, axis label, ticks, and colorbar.
         afm_header2 = ttk.Frame(afm_outer)
         afm_header2.pack(side="top", fill="x", padx=2, pady=(0, 2))
@@ -519,17 +543,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._commit_afm_font_sizes,
         )
 
-        self._afm_frame = ttk.Frame(afm_outer)
-        self._afm_frame.pack(fill="both", expand=True, padx=2, pady=2)
-
+    def _build_log_panel(self, parent: ttk.Frame) -> None:
+        """
+        Build the log panel (save-log button and scrolled text), matching GUI01.
+        ログパネル（ログ保存ボタンとスクロール付きテキスト）を GUI01 と同様に構築する。
+        """
         # -- Log, lower row: match GUI01 behavior --
         # ── ログ（下段） ── GUI01 と同じ仕様に揃える。
         # Use only a Save Log button in the header, without a LabelFrame.
         # ・LabelFrame は使わず、「ログを保存」ボタンのみをヘッダー行に置く。
         # Keep the text area and scrollbar in the inner log container.
         # ・テキストエリアとスクロールバーは内側コンテナ log_inner にまとめる。
-        log_outer = ttk.Frame(vert)
-        vert.add(log_outer, weight=1)
+        log_outer = ttk.Frame(parent)
+        parent.add(log_outer, weight=1)
 
         # Put the Save Log button at the left edge of the header row.
         # ログヘッダー行：「ログを保存」ボタンを左端に配置する。
