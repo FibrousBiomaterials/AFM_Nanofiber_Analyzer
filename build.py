@@ -138,6 +138,22 @@ def _stdlib_module_names() -> set[str]:
     return names
 
 
+def _is_external_top_level(name: str, stdlib: set[str]) -> bool:
+    """
+    Return whether a dotted import name belongs to an external package.
+    ドット区切りの import 名が外部パッケージに属するかを返す。
+
+    External means the top-level package is neither a local project package
+    (`guis`, `lib`) nor part of the Python standard library, so PyInstaller
+    must collect it.
+    外部とは、トップレベルパッケージがローカルのプロジェクトパッケージ
+    (`guis`, `lib`) でも Python 標準ライブラリでもないことを指し、
+    PyInstaller による収集が必要となる。
+    """
+    top_level = name.split(".", 1)[0]
+    return top_level not in LOCAL_TOP_LEVEL and top_level not in stdlib
+
+
 def imported_modules_to_collect_packages(imports: set[str]) -> set[str]:
     """
     Select external top-level packages that need PyInstaller collection.
@@ -158,10 +174,8 @@ def imported_modules_to_collect_packages(imports: set[str]) -> set[str]:
     stdlib = _stdlib_module_names()
     packages: set[str] = set()
     for name in imports:
-        top_level = name.split(".", 1)[0]
-        if top_level in LOCAL_TOP_LEVEL or top_level in stdlib:
-            continue
-        packages.add(top_level)
+        if _is_external_top_level(name, stdlib):
+            packages.add(name.split(".", 1)[0])
     return packages
 
 
@@ -248,12 +262,7 @@ def collect_pyinstaller_materials(
     hiddenimports: list[str] = sorted(
         name
         for name in project_imports
-        if name in EXTRA_HIDDENIMPORTS
-        or (
-            name.split(".", 1)[0] in packages
-            and name.split(".", 1)[0] not in stdlib
-            and name.split(".", 1)[0] not in LOCAL_TOP_LEVEL
-        )
+        if name in EXTRA_HIDDENIMPORTS or _is_external_top_level(name, stdlib)
     )
     datas: list = []
     binaries: list = []
@@ -273,12 +282,7 @@ def collect_pyinstaller_materials(
                 hiddenimports.append(pkg)
 
     # Deduplicate while preserving the first-seen order.
-    seen: set[str] = set()
-    unique_hidden: list[str] = []
-    for x in hiddenimports:
-        if x not in seen:
-            seen.add(x)
-            unique_hidden.append(x)
+    unique_hidden = list(dict.fromkeys(hiddenimports))
 
     return unique_hidden, datas, binaries
 
