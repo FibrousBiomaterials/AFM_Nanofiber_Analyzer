@@ -14,6 +14,7 @@ import os
 import queue
 import time
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import filedialog, messagebox, ttk
 
 import matplotlib.pyplot as plt
@@ -47,6 +48,23 @@ def setup_ttk_theme(root: tk.Misc, *, theme: str = "clam",
     except tk.TclError:
         pass
     return bg
+
+
+def localized_combobox_width(values, min_width=4, max_width=16):
+    """
+    Return a bounded Combobox width for translated labels.
+    翻訳後ラベルに合わせた上限付き Combobox 幅を返す。
+    """
+    if not values:
+        return min_width
+    try:
+        font = tkfont.nametofont("TkDefaultFont")
+        zero_width = max(font.measure("0"), 1)
+        label_width = max(font.measure(str(value)) for value in values)
+        width = int(label_width / zero_width) + 4
+    except tk.TclError:
+        width = max(len(str(value)) for value in values) + 2
+    return max(min_width, min(max_width, width))
 
 
 def rewrite_entries(pairs, *, formatter=str) -> None:

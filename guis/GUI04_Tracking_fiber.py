@@ -56,7 +56,6 @@ import numpy as np
 
 # ===== GUI libraries =====
 import tkinter as tk
-import tkinter.font as tkfont
 from tkinter import ttk, filedialog, messagebox
 
 # ===== Plotting libraries =====
@@ -81,7 +80,7 @@ from lib.ui_tools import (
     setup_ttk_theme, rewrite_entries, replace_log_tail,
     save_text_widget_log, create_scrolled_text, create_scrolled_treeview,
     drain_ui_queue, extent_scale_and_unit, save_csv_with_dialog,
-    UnconfirmedEntryMixin, LogMixin,
+    UnconfirmedEntryMixin, LogMixin, localized_combobox_width,
     PLOT_FS_DEFAULTS, UNIT_MICROMETER,
     DEFAULT_VMIN, DEFAULT_VMAX,
 )
@@ -107,23 +106,6 @@ DEFAULT_IMAGE_SIZE_UM:         float = 2.0               # 画像全体のサイ
 
 
 # ===== Utility functions =====
-
-def _localized_combobox_width(values, min_width=4, max_width=16):
-    """
-    Return a bounded Combobox width for translated labels.
-    翻訳後ラベルに合わせた上限付き Combobox 幅を返す。
-    """
-    if not values:
-        return min_width
-    try:
-        font = tkfont.nametofont("TkDefaultFont")
-        zero_width = max(font.measure("0"), 1)
-        label_width = max(font.measure(str(value)) for value in values)
-        width = int(label_width / zero_width) + 4
-    except tk.TclError:
-        width = max(len(str(value)) for value in values) + 2
-    return max(min_width, min(max_width, width))
-
 
 def find_analyzed_stems(folder: str) -> List[str]:
     """
@@ -2110,7 +2092,7 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         cb_tick_dir = ttk.Combobox(p_row2, textvariable=self._tick_dir_var,
                                    values=tick_dir_labels,
                                    state="readonly",
-                                   width=_localized_combobox_width(
+                                   width=localized_combobox_width(
                                        tick_dir_labels, min_width=7, max_width=14))
         cb_tick_dir.pack(side="left", padx=(2, 8))
         ttk.Label(p_row2, text=_("グリッド表示")).pack(side="left")
@@ -2118,7 +2100,7 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         cb_grid = ttk.Combobox(p_row2, textvariable=self._grid_var,
                                values=grid_labels,
                                state="readonly",
-                               width=_localized_combobox_width(
+                               width=localized_combobox_width(
                                    grid_labels, min_width=7, max_width=14))
         cb_grid.pack(side="left", padx=(2, 8))
         ttk.Label(p_row2, text=_("凡例位置")).pack(side="left")
@@ -2126,7 +2108,7 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         cb_legend_loc = ttk.Combobox(p_row2, textvariable=self._legend_loc_var,
                                      values=legend_loc_labels,
                                      state="readonly",
-                                     width=_localized_combobox_width(
+                                     width=localized_combobox_width(
                                          legend_loc_labels, min_width=9, max_width=24))
         cb_legend_loc.pack(side="left", padx=(2, 8))
         # Display-element label and checkboxes.

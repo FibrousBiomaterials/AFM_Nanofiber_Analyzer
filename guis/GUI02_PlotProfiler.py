@@ -34,7 +34,6 @@ from skimage.measure import profile_line
 
 # ===== GUI libraries =====
 import tkinter as tk
-import tkinter.font as tkfont
 from tkinter import filedialog, messagebox, ttk
 
 # ===== Plotting libraries =====
@@ -56,7 +55,7 @@ from lib.ui_tools import (
     apply_window_size, ToolTip, setup_matplotlib_style,
     save_figure_with_dialog, PLOT_FS_DEFAULTS, setup_ttk_theme,
     UNIT_MICROMETER, extent_scale_and_unit, save_csv_with_dialog,
-    UnconfirmedEntryMixin,
+    UnconfirmedEntryMixin, localized_combobox_width,
     DEFAULT_VMIN, DEFAULT_VMAX,
 )
 
@@ -64,23 +63,6 @@ from lib.ui_tools import (
 # Default scan size used as the initial scale value (µm).
 # 初期スケール値として用いる既定スキャンサイズ (µm)。GUI01 / GUI04 と揃える。
 DEFAULT_IMAGE_SIZE_UM = 2.0
-
-
-def _localized_combobox_width(values, min_width=4, max_width=16):
-    """
-    Return a bounded Combobox width for translated labels.
-    翻訳後ラベルに合わせた上限付き Combobox 幅を返す。
-    """
-    if not values:
-        return min_width
-    try:
-        font = tkfont.nametofont("TkDefaultFont")
-        zero_width = max(font.measure("0"), 1)
-        label_width = max(font.measure(str(value)) for value in values)
-        width = int(label_width / zero_width) + 4
-    except tk.TclError:
-        width = max(len(str(value)) for value in values) + 2
-    return max(min_width, min(max_width, width))
 
 
 class ModalWindow(UnconfirmedEntryMixin):
@@ -224,7 +206,7 @@ class ModalWindow(UnconfirmedEntryMixin):
         optiondirect = [_("外向き"), _("内向き"), _("両方")]
         self.drbox = ttk.Combobox(
             control_frame, values=optiondirect, state="readonly",
-            width=_localized_combobox_width(optiondirect, min_width=6, max_width=14),
+            width=localized_combobox_width(optiondirect, min_width=6, max_width=14),
         )
         self.drbox.set(optiondirect[0])
         self.drbox.grid(row=0, column=col, padx=(0, 8))
@@ -237,7 +219,7 @@ class ModalWindow(UnconfirmedEntryMixin):
         optiongrid = [_("無し"), _("x軸"), _("y軸"), _("両方")]
         self.gridbox = ttk.Combobox(
             control_frame, values=optiongrid, state="readonly",
-            width=_localized_combobox_width(optiongrid, min_width=4, max_width=12),
+            width=localized_combobox_width(optiongrid, min_width=4, max_width=12),
         )
         self.gridbox.set(optiongrid[0])
         self.gridbox.grid(row=0, column=col, padx=(0, 8))
@@ -707,7 +689,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         optionrf = [_("最大"), _("最小"), _("平均")]
         self.rfbox = ttk.Combobox(
             param_row, values=optionrf, state="readonly",
-            width=_localized_combobox_width(optionrf, min_width=4, max_width=12),
+            width=localized_combobox_width(optionrf, min_width=4, max_width=12),
         )
         self.rfbox.set(optionrf[0])
         self.rfbox.bind("<<ComboboxSelected>>", self.rf_selected)
