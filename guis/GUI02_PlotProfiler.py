@@ -550,6 +550,10 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # Create the modal editor wrapper; it opens lazily.
         self.modal = ModalWindow(self)
 
+        # Registry for Entry fields whose text may differ from committed state.
+        # Entry 表示文字列と確定済み内部値の差分を管理する登録簿。
+        self._init_unconfirmed_registry()
+
         # Root container for all visible content.
         self.labelFrame = ttk.Frame(self)
         self.labelFrame.pack(fill="both", expand=True, padx=4, pady=4)
@@ -561,6 +565,17 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         self.labelFrame.rowconfigure(3, weight=1)
         self.labelFrame.columnconfigure(0, weight=1)
 
+        # Build each UI region top-to-bottom; creation order is preserved.
+        self._build_file_row()
+        self._build_param_row()
+        self._build_action_row()
+        self._build_content_area()
+
+    def _build_file_row(self) -> None:
+        """
+        Build the file-selection row (Row 0).
+        ファイル選択行（Row 0）を構築する。
+        """
         # Row 0: file selection.
         file_row = ttk.Frame(self.labelFrame)
         file_row.grid(row=0, column=0, sticky="ew", padx=6, pady=(6, 2))
@@ -577,15 +592,17 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         self.showfilename = None
         file_row.columnconfigure(1, weight=1)
 
-        # Row 1: scale, height range, line width, aggregation method, and font sizes.
+    def _build_param_row(self) -> None:
+        """
+        Build the parameter row (Row 1): scale, height range, line width,
+        aggregation method, and font sizes.
+        パラメータ行（Row 1）: スケール・高さ範囲・線幅・計算方法・
+        フォントサイズを構築する。
+        """
         # Numeric Entry values are committed only by Enter; unit radios apply immediately.
         # 数値 Entry は Enter でのみ確定し、単位ラジオは選択時に即時反映する。
         param_row = ttk.Frame(self.labelFrame)
         param_row.grid(row=1, column=0, sticky="ew", padx=6, pady=2)
-
-        # Registry for Entry fields whose text may differ from committed state.
-        # Entry 表示文字列と確定済み内部値の差分を管理する登録簿。
-        self._init_unconfirmed_registry()
 
         # Physical-size input stays in micrometers; radios only change displayed tick units.
         # 実寸入力は µm 固定で、ラジオは軸目盛の表示単位だけを切り替える。
@@ -747,6 +764,11 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         )
         c += 1
 
+    def _build_action_row(self) -> None:
+        """
+        Build the point-cancel action row (Row 2).
+        打点取り消し操作行（Row 2）を構築する。
+        """
         # Row 2: point-cancel actions and operation guide.
         action_row = ttk.Frame(self.labelFrame)
         action_row.grid(row=2, column=0, sticky="ew", padx=6, pady=2)
@@ -766,6 +788,11 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         self.guide_label.grid(row=0, column=2, sticky="w")
         action_row.columnconfigure(2, weight=1)
 
+    def _build_content_area(self) -> None:
+        """
+        Build the content area (Row 3): heatmap panel, separator, profile panel.
+        コンテンツ領域（Row 3）: ヒートマップ・セパレータ・プロファイルを構築する。
+        """
         # Row 3: content area with heatmap panel, separator, and profile panel.
         content_row = ttk.Frame(self.labelFrame)
         content_row.grid(row=3, column=0, sticky="nsew", padx=6, pady=(2, 6))
@@ -775,6 +802,20 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         content_row.columnconfigure(2, weight=1, uniform="panels")
         content_row.rowconfigure(0, weight=1)
 
+        # -- Center separator: visually separates heatmap and profile workflows. --
+        # Grid placement is order-independent, so the separator is created here.
+        ttk.Separator(content_row, orient="vertical").grid(
+            row=0, column=1, sticky="ns", padx=4,
+        )
+
+        self._build_heatmap_panel(content_row)
+        self._build_profile_panel(content_row)
+
+    def _build_heatmap_panel(self, content_row) -> None:
+        """
+        Build the left heatmap panel with its toolbar and action buttons.
+        左側のヒートマップパネル（ツールバー・操作ボタン付き）を構築する。
+        """
         # -- Left panel: heatmap --
         self.heatmap_panel = ttk.Frame(content_row)
         self.heatmap_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
@@ -820,9 +861,16 @@ class App(tk.Tk, UnconfirmedEntryMixin):
                 txt = child.cget("text")
             except tk.TclError:
                 continue
-            # Destroy unwanted toolbar buttons while leaving labels untouched.
+            # Hide unwanted toolbar buttons instead of destroying them: matplotlib
+            # keeps references to Back/Forward in NavigationToolbar2Tk._buttons and
+            # configures their state from set_history_buttons() during Pan/Zoom.
+            # Destroying the widgets makes that call raise TclError, so only unmap them.
+            # 不要なボタンは破棄せず非表示にする。matplotlib は Back/Forward を
+            # NavigationToolbar2Tk._buttons に保持し、Pan/Zoom 操作時に
+            # set_history_buttons() でその state を設定する。破棄するとこの呼び出しが
+            # TclError になるため、レイアウトから外すだけにとどめる。
             if isinstance(child, (tk.Button, ttk.Button)) and txt not in _KEEP_BUTTON_TEXTS:
-                child.destroy()
+                child.pack_forget()
 
         # Custom reset button redraws the heatmap with the current view settings.
         buttonhome = ttk.Button(
@@ -836,11 +884,11 @@ class App(tk.Tk, UnconfirmedEntryMixin):
 
         self.canvas.draw()
 
-        # -- Center separator: visually separates heatmap and profile workflows. --
-        ttk.Separator(content_row, orient="vertical").grid(
-            row=0, column=1, sticky="ns", padx=4,
-        )
-
+    def _build_profile_panel(self, content_row) -> None:
+        """
+        Build the right profile panel and lazy-canvas placeholders.
+        右側のプロファイルパネルと遅延生成キャンバスのプレースホルダを構築する。
+        """
         # -- Right panel: height profile --
         self.profile_panel = ttk.Frame(content_row)
         self.profile_panel.grid(row=0, column=2, sticky="nsew", padx=(4, 0))

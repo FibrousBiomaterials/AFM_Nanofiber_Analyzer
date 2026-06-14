@@ -172,6 +172,16 @@ def _run_plugin_and_exit(module_import_path: str):
     splash.mainloop()
 
     # ---- 4) Clean up splash window ----
+    # Stop the indeterminate animation before destroying the splash. Otherwise a
+    # pending ttk Autoincrement "after" callback fires after the application is
+    # destroyed, raising "TclError: application has been destroyed".
+    # スプラッシュ破棄前に不確定モードのアニメーションを停止する。停止しないと
+    # ttk の Autoincrement の after コールバックがアプリ破棄後に発火し、
+    # 「TclError: application has been destroyed」が発生する。
+    try:
+        pbar.stop()
+    except tk.TclError:
+        pass
     splash.destroy()
 
     # ---- 5) Check load errors ----

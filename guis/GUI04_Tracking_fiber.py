@@ -1927,13 +1927,28 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         # =====================================================================
         fiber_outer = ttk.Frame(horiz)
         horiz.add(fiber_outer, weight=1)
+        self._build_fiber_settings(fiber_outer)
+        self._build_fiber_canvas(fiber_outer)
 
+        # =====================================================================
+        # Right column: profile settings and canvas.
+        # =====================================================================
+        prof_outer = ttk.Frame(horiz)
+        horiz.add(prof_outer, weight=1)
+        self._build_profile_settings(prof_outer)
+        self._build_profile_canvas(prof_outer)
+
+    def _build_fiber_settings(self, parent: ttk.Frame) -> None:
+        """
+        Build the enlarged-image settings row (size, fonts, save button).
+        拡大像の設定行（サイズ・フォント・画像保存ボタン）を構築する。
+        """
         # -- Enlarged-image display settings, row 1: width, height, and font sizes --
         # Use a leading label instead of a LabelFrame.
         # LabelFrame は使わず、行頭ラベルでセクションを示す。
         # Font-size entries sit to the right of the height entry after the layout change.
         # 各フォントサイズ入力欄（軸ラベル/軸目盛/カラーバー）は高さ入力欄の右側に並べる（仕様変更）。
-        f_row1 = ttk.Frame(fiber_outer)
+        f_row1 = ttk.Frame(parent)
         f_row1.pack(side="top", fill="x", padx=2, pady=(2, 2))
         ttk.Label(f_row1, text=_("幅") + " (px)").pack(side="left", padx=(0, 6))
         self.ent_fiber_w = ttk.Entry(f_row1, width=5, textvariable=self._fiber_w_var)
@@ -1991,8 +2006,13 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         ttk.Button(f_row1, text=_("画像を保存"),
                    command=self._save_fiber_image).pack(side="left", padx=(2, 4))
 
+    def _build_fiber_canvas(self, parent: ttk.Frame) -> None:
+        """
+        Build the enlarged-image canvas and its Matplotlib figure.
+        拡大像 Canvas と Matplotlib Figure を構築する。
+        """
         # -- Enlarged-image canvas --
-        fiber_canvas_holder = tk.Canvas(fiber_outer, highlightthickness=0,
+        fiber_canvas_holder = tk.Canvas(parent, highlightthickness=0,
                                         borderwidth=0)
         fiber_canvas_holder.pack(side="top", fill="both", expand=True)
         self._fiber_holder = fiber_canvas_holder
@@ -2006,17 +2026,16 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         self._fiber_canvas = FigureCanvasTkAgg(self._fiber_fig, master=self._fiber_inner)
         self._fiber_canvas.get_tk_widget().pack(side="top", anchor="nw")
 
-        # =====================================================================
-        # Right column: profile settings and canvas.
-        # =====================================================================
-        prof_outer = ttk.Frame(horiz)
-        horiz.add(prof_outer, weight=1)
-
+    def _build_profile_settings(self, parent: ttk.Frame) -> None:
+        """
+        Build the three profile-settings rows (entries, display options, save).
+        プロファイル設定の3行（入力欄・表示オプション・保存）を構築する。
+        """
         # Row 1: profile width, height, label/tick/legend fonts, and Y-axis maximum.
         # 行1: プロファイル表示設定: 幅 / 高さ / 軸ラベルfs / 軸目盛fs / 凡例fs / y軸最大値。
         # Font-size and Y-axis entries sit to the right of the height entry after the layout change.
         # 各フォントサイズ入力欄（軸ラベル/軸目盛/凡例）および y軸最大値(nm) は高さ入力欄の右側に並べる（仕様変更）。
-        p_row1 = ttk.Frame(prof_outer)
+        p_row1 = ttk.Frame(parent)
         p_row1.pack(side="top", fill="x", padx=2, pady=(2, 2))
         ttk.Label(p_row1, text=_("幅") + " (px)").pack(side="left", padx=(0, 6))
         self.ent_prof_w = ttk.Entry(p_row1, width=5, textvariable=self._prof_w_var)
@@ -2085,7 +2104,7 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         # 行2にはプロファイル表示操作をまとめ、画像保存は行1に残す。
         # Profile y-limits are recomputed automatically for each selected fiber.
         # プロファイル y 上限は選択ファイバーごとに自動再計算する。
-        p_row2 = ttk.Frame(prof_outer)
+        p_row2 = ttk.Frame(parent)
         p_row2.pack(side="top", fill="x", padx=2, pady=(0, 2))
         ttk.Label(p_row2, text=_("目盛りの向き")).pack(side="left")
         tick_dir_labels = [label for _key, label in self._tick_dir_choices]
@@ -2127,7 +2146,7 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
 
         # Row 3: Save Image button, separated from row 2.
         # 行3: 画像保存ボタン（行2から分離）。
-        p_row3 = ttk.Frame(prof_outer)
+        p_row3 = ttk.Frame(parent)
         p_row3.pack(side="top", fill="x", padx=2, pady=(0, 2))
         ttk.Button(p_row3, text=_("画像を保存"),
                    command=self._save_profile_image).pack(side="left", padx=(0, 4))
@@ -2136,8 +2155,13 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         cb_grid.bind("<<ComboboxSelected>>", lambda _e: self._redraw_profile())
         cb_legend_loc.bind("<<ComboboxSelected>>", lambda _e: self._redraw_profile())
 
+    def _build_profile_canvas(self, parent: ttk.Frame) -> None:
+        """
+        Build the profile canvas and its Matplotlib figure.
+        プロファイル Canvas と Matplotlib Figure を構築する。
+        """
         # -- Profile canvas --
-        prof_canvas_holder = tk.Canvas(prof_outer, highlightthickness=0,
+        prof_canvas_holder = tk.Canvas(parent, highlightthickness=0,
                                        borderwidth=0)
         prof_canvas_holder.pack(side="top", fill="both", expand=True)
         self._prof_holder = prof_canvas_holder

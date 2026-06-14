@@ -1654,6 +1654,18 @@ class SettingsDialog(tk.Toplevel):
         Build the scrollable parameter editor and action buttons.
         スクロール可能なパラメータ編集部と操作ボタンを構築する。
         """
+        # Build top-to-bottom; the analysis-params frame is shared by the sections.
+        plf = self._build_scroll_container()
+        self._build_bg_section(plf)
+        self._build_param_sections(plf)
+        self._build_save_options()
+        self._build_buttons()
+
+    def _build_scroll_container(self) -> ttk.LabelFrame:
+        """
+        Build the scrollable canvas region and return the analysis-params frame.
+        スクロール可能な canvas 領域を構築し、解析条件フレームを返す。
+        """
         container = ttk.Frame(self)
         container.pack(fill="both", expand=True, padx=10, pady=10)
 
@@ -1700,70 +1712,106 @@ class SettingsDialog(tk.Toplevel):
         # Keep row widgets so bg_method can dim unused parameters.
         # {key: {"label": Label, "input": Entry/Combobox/Checkbutton, "desc": Label}}
         self._param_rows: Dict[str, Dict[str, tk.Widget]] = {}
+        return plf
 
-        def _begin_param_row(parent_lf: ttk.LabelFrame, label: str):
-            """
-            Create the frame and left-aligned label shared by every parameter row.
-            すべてのパラメータ行で共通のフレームと左寄せラベルを生成する。
-            """
-            frm = ttk.Frame(parent_lf)
-            frm.pack(fill="x", pady=3)
-            lbl = ttk.Label(frm, text=label, width=26)
-            lbl.pack(side="left")
-            return frm, lbl
+    def _begin_param_row(self, parent_lf: ttk.LabelFrame, label: str):
+        """
+        Create the frame and left-aligned label shared by every parameter row.
+        すべてのパラメータ行で共通のフレームと左寄せラベルを生成する。
+        """
+        frm = ttk.Frame(parent_lf)
+        frm.pack(fill="x", pady=3)
+        lbl = ttk.Label(frm, text=label, width=26)
+        lbl.pack(side="left")
+        return frm, lbl
 
-        def _register_param_row(frm: ttk.Frame, key: str, lbl: ttk.Label,
-                                input_widget: tk.Widget, desc: str) -> None:
-            """
-            Attach the trailing description label and register the row widgets.
-            末尾の説明ラベルを付けて、行のウィジェットを登録する。
-            """
-            dsc = ttk.Label(frm, text=desc, foreground="#444", justify="left")
-            dsc.pack(side="left", padx=8, fill="x", expand=True)
-            self._param_rows[key] = {"label": lbl, "input": input_widget, "desc": dsc}
+    def _register_param_row(self, frm: ttk.Frame, key: str, lbl: ttk.Label,
+                            input_widget: tk.Widget, desc: str) -> None:
+        """
+        Attach the trailing description label and register the row widgets.
+        末尾の説明ラベルを付けて、行のウィジェットを登録する。
+        """
+        dsc = ttk.Label(frm, text=desc, foreground="#444", justify="left")
+        dsc.pack(side="left", padx=8, fill="x", expand=True)
+        self._param_rows[key] = {"label": lbl, "input": input_widget, "desc": dsc}
 
-        def add_field(parent_lf: ttk.LabelFrame, key: str, label: str, desc: str, width: int = 12) -> None:
-            """
-            Add a text-entry parameter row.
-            テキスト入力用のパラメータ行を追加する。
-            """
-            frm, lbl = _begin_param_row(parent_lf, label)
-            v = tk.StringVar()
-            self.vars[key] = v
-            ent = ttk.Entry(frm, textvariable=v, width=width)
-            ent.pack(side="left", padx=6)
-            _register_param_row(frm, key, lbl, ent, desc)
+    def _add_field(self, parent_lf: ttk.LabelFrame, key: str, label: str,
+                   desc: str, width: int = 12) -> None:
+        """
+        Add a text-entry parameter row.
+        テキスト入力用のパラメータ行を追加する。
+        """
+        frm, lbl = self._begin_param_row(parent_lf, label)
+        v = tk.StringVar()
+        self.vars[key] = v
+        ent = ttk.Entry(frm, textvariable=v, width=width)
+        ent.pack(side="left", padx=6)
+        self._register_param_row(frm, key, lbl, ent, desc)
 
-        def add_bool(parent_lf: ttk.LabelFrame, key: str, label: str, desc: str) -> None:
-            """
-            Add a boolean checkbox parameter row.
-            真偽値チェックボックス用のパラメータ行を追加する。
-            """
-            frm, lbl = _begin_param_row(parent_lf, label)
-            v = tk.BooleanVar()
-            self.vars[key] = v
-            chk = ttk.Checkbutton(frm, variable=v)
-            chk.pack(side="left", padx=6)
-            _register_param_row(frm, key, lbl, chk, desc)
+    def _add_bool(self, parent_lf: ttk.LabelFrame, key: str, label: str,
+                  desc: str) -> None:
+        """
+        Add a boolean checkbox parameter row.
+        真偽値チェックボックス用のパラメータ行を追加する。
+        """
+        frm, lbl = self._begin_param_row(parent_lf, label)
+        v = tk.BooleanVar()
+        self.vars[key] = v
+        chk = ttk.Checkbutton(frm, variable=v)
+        chk.pack(side="left", padx=6)
+        self._register_param_row(frm, key, lbl, chk, desc)
 
-        def add_choice(parent_lf: ttk.LabelFrame, key: str, label: str,
-                       choices: list, desc: str, width: int = 12,
-                       command=None) -> None:
-            """
-            Add a readonly choice parameter row.
-            読み取り専用選択肢のパラメータ行を追加する。
-            """
-            # Store choice values as strings, then cast in _apply_vars_to_refs.
-            frm, lbl = _begin_param_row(parent_lf, label)
-            v = tk.StringVar()
-            self.vars[key] = v
-            cb = ttk.Combobox(frm, textvariable=v, values=choices,
-                              width=width, state="readonly")
-            cb.pack(side="left", padx=6)
-            if command is not None:
-                cb.bind("<<ComboboxSelected>>", lambda e: command())
-            _register_param_row(frm, key, lbl, cb, desc)
+    def _add_choice(self, parent_lf: ttk.LabelFrame, key: str, label: str,
+                    desc: str, choices: list, width: int = 12,
+                    command=None) -> None:
+        """
+        Add a readonly choice parameter row.
+        読み取り専用選択肢のパラメータ行を追加する。
+        """
+        # Store choice values as strings, then cast in _apply_vars_to_refs.
+        frm, lbl = self._begin_param_row(parent_lf, label)
+        v = tk.StringVar()
+        self.vars[key] = v
+        cb = ttk.Combobox(frm, textvariable=v, values=choices,
+                          width=width, state="readonly")
+        cb.pack(side="left", padx=6)
+        if command is not None:
+            cb.bind("<<ComboboxSelected>>", lambda e: command())
+        self._register_param_row(frm, key, lbl, cb, desc)
 
+    def _add_fields(self, parent_lf: ttk.LabelFrame, specs) -> None:
+        """
+        Add a sequence of parameter rows from declarative specs.
+        宣言的な spec 列からパラメータ行をまとめて追加する。
+
+        Notes
+        -----
+        Each spec is ``(kind, key, label, desc, opts)`` where ``kind`` is
+        ``"field"``, ``"bool"``, or ``"choice"`` and ``opts`` is a dict of
+        optional keyword arguments (``width`` / ``choices`` / ``command``).
+        各 spec は ``(種別, キー, ラベル, 説明, オプション)``。種別は
+        ``"field"`` / ``"bool"`` / ``"choice"`` で、オプション辞書に
+        ``width`` / ``choices`` / ``command`` を渡す。
+        Specs are built at call time so gettext follows the active language;
+        do not lift them to a module/class constant.
+        spec は呼び出し時に構築し gettext が現在の言語に追従するようにする。
+        モジュール/クラス定数へ引き上げてはならない。
+        """
+        for kind, key, label, desc, opts in specs:
+            if kind == "field":
+                self._add_field(parent_lf, key, label, desc, **opts)
+            elif kind == "bool":
+                self._add_bool(parent_lf, key, label, desc, **opts)
+            elif kind == "choice":
+                self._add_choice(parent_lf, key, label, desc, **opts)
+            else:
+                raise ValueError(f"unknown parameter row kind: {kind!r}")
+
+    def _build_bg_section(self, plf: ttk.LabelFrame) -> None:
+        """
+        Build the BGCalibrator parameter group with method-specific fields.
+        BGCalibrator パラメータ群（方式別フィールド付き）を構築する。
+        """
         # ---- BGCalibrator ----
         # Scan size is display metadata, not an analysis parameter; GUI01,
         # GUI02, and GUI04 handle it as view state.
@@ -1779,10 +1827,10 @@ class SettingsDialog(tk.Toplevel):
         #   spline1d    : 行/列ごとの 1D B-スプライン + 端の線形外挿
         #   spline2d    : 2D B-spline fit for globally smooth backgrounds.
         #   spline2d    : 大局的に滑らかな背景向けの 2D B-スプラインフィット
-        add_choice(lf_bg, "bg_method", _("bg_method"),
-                   ["inpaint", "tophat", "spline1d", "spline2d"],
-                   _("背景推定方式（下の説明参照）。選択に応じて使うパラメータのみ有効化されます"),
-                   command=self._on_bg_method_changed)
+        self._add_choice(lf_bg, "bg_method", _("bg_method"),
+                         _("背景推定方式（下の説明参照）。選択に応じて使うパラメータのみ有効化されます"),
+                         choices=["inpaint", "tophat", "spline1d", "spline2d"],
+                         command=self._on_bg_method_changed)
 
         # Method descriptions are keyed by bg_method and displayed in menu order.
         self._bg_method_descs = {
@@ -1798,64 +1846,85 @@ class SettingsDialog(tk.Toplevel):
                       foreground="#555", justify="left").pack(anchor="w")
 
         # --- Parameters are ordered by method: inpaint, tophat, spline1d, spline2d. ---
-        # tophat-specific.
-        add_field(lf_bg, "tophat_se_size", "tophat_se_size",
-                  _("[tophat時のみ] 構造要素直径") + " (px)。"
-                  + _("最大ファイバー幅の2〜3倍。奇数(偶数は+1)"), 10)
-        # spline1d-specific.
-        add_choice(lf_bg, "spline1d_axis", "spline1d_axis",
-                   ["y", "x"],
-                   _("[spline1d時のみ] 除去する縞の向き。'y'=横縞(各走査ラインが上下にずれるノイズ)を除去/各列を縦に補間。'x'=縦縞を除去/各行を横に補間(良好な結果が多い)"))
-        add_field(lf_bg, "spline1d_degree", "spline1d_degree",
-                  _("[spline1d時のみ] 行/列スプライン order。実用範囲1〜3 (2=旧pandas互換)。点数不足の行は線形に自動フォールバック"), 10)
-        # spline2d-specific.
-        add_field(lf_bg, "spline2d_degree", "spline2d_degree",
-                  _("[spline2d時のみ] スプライン次数。実用範囲1〜3 (1=双線形、2=旧pandas互換、3=双立方)。[1,5]"), 10)
-        add_field(lf_bg, "spline2d_subsample", "spline2d_subsample",
-                  _("[spline2d時のみ] フィット用画素サブサンプル係数。大きいほど高速、品質影響は微少。デフォルト4"), 10)
-        # spline2d_smoothing is hidden because low smoothing can become ill-conditioned
-        # and very slow; spline2d_subsample is the safer GUI-facing speed control.
-        # spline2d パイプラインでは小さな s が悪条件・極端に低速な準補間に
-        # なり得るため、GUI から外して ProcParams 既定の None に固定する。
-        # Mask and threshold parameters shared by inpaint, spline1d, and spline2d.
-        add_field(lf_bg, "threshold_factor", "threshold_factor", _("[inpaint, spline1d, spline2d時] 背景範囲（中心±sigma*係数）を決める係数"))
-        add_field(lf_bg, "fiber_detect_factor", "fiber_detect_factor", _("[inpaint, spline1d, spline2d時] [1,0,-1]の急変を繊維として除外する距離しきい値"))
-        add_field(lf_bg, "noise_detect_factor", "noise_detect_factor", _("[inpaint, spline1d, spline2d時] [1,-1]の急変が一定以上離れている場合に構造とみなすしきい値"))
-        # Smoothing parameters shared by inpaint, tophat, and spline1d.
-        add_field(lf_bg, "savgol_window", "savgol_window", _("[inpaint, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）"), 10)
-        add_field(lf_bg, "savgol_polyorder", "savgol_polyorder", _("[inpaint, tophat, spline1d時] Savitzky-Golayフィルタの多項式次数"), 10)
-        # Post-processing shared by all methods.
-        add_bool(lf_bg, "apply_median", "apply_median", _("中央値フィルタを最後にかける（点ノイズに強い）"))
-        # Mask dilation parameters shared by inpaint, spline1d, and spline2d.
-        add_field(lf_bg, "mask_dilation", "mask_dilation", _("[inpaint, spline1d, spline2d時] 繊維マスクを膨張させる画素数（0でdilationなし）"), 10)
-        add_field(lf_bg, "min_mask_component_area", "min_mask_component_area",
-                  _("[inpaint, spline1d, spline2d時] dilation前にマスクから除外する連結成分の最小面積") + " (px)。"
-                  + _("1でフィルタ無効"), 10)
+        self._add_fields(lf_bg, [
+            # tophat-specific.
+            ("field", "tophat_se_size", "tophat_se_size",
+             _("[tophat時のみ] 構造要素直径") + " (px)。"
+             + _("最大ファイバー幅の2〜3倍。奇数(偶数は+1)"), {"width": 10}),
+            # spline1d-specific.
+            ("choice", "spline1d_axis", "spline1d_axis",
+             _("[spline1d時のみ] 除去する縞の向き。'y'=横縞(各走査ラインが上下にずれるノイズ)を除去/各列を縦に補間。'x'=縦縞を除去/各行を横に補間(良好な結果が多い)"),
+             {"choices": ["y", "x"]}),
+            ("field", "spline1d_degree", "spline1d_degree",
+             _("[spline1d時のみ] 行/列スプライン order。実用範囲1〜3 (2=旧pandas互換)。点数不足の行は線形に自動フォールバック"), {"width": 10}),
+            # spline2d-specific.
+            ("field", "spline2d_degree", "spline2d_degree",
+             _("[spline2d時のみ] スプライン次数。実用範囲1〜3 (1=双線形、2=旧pandas互換、3=双立方)。[1,5]"), {"width": 10}),
+            ("field", "spline2d_subsample", "spline2d_subsample",
+             _("[spline2d時のみ] フィット用画素サブサンプル係数。大きいほど高速、品質影響は微少。デフォルト4"), {"width": 10}),
+            # spline2d_smoothing is hidden because low smoothing can become ill-conditioned
+            # and very slow; spline2d_subsample is the safer GUI-facing speed control.
+            # spline2d パイプラインでは小さな s が悪条件・極端に低速な準補間に
+            # なり得るため、GUI から外して ProcParams 既定の None に固定する。
+            # Mask and threshold parameters shared by inpaint, spline1d, and spline2d.
+            ("field", "threshold_factor", "threshold_factor",
+             _("[inpaint, spline1d, spline2d時] 背景範囲（中心±sigma*係数）を決める係数"), {}),
+            ("field", "fiber_detect_factor", "fiber_detect_factor",
+             _("[inpaint, spline1d, spline2d時] [1,0,-1]の急変を繊維として除外する距離しきい値"), {}),
+            ("field", "noise_detect_factor", "noise_detect_factor",
+             _("[inpaint, spline1d, spline2d時] [1,-1]の急変が一定以上離れている場合に構造とみなすしきい値"), {}),
+            # Smoothing parameters shared by inpaint, tophat, and spline1d.
+            ("field", "savgol_window", "savgol_window",
+             _("[inpaint, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）"), {"width": 10}),
+            ("field", "savgol_polyorder", "savgol_polyorder",
+             _("[inpaint, tophat, spline1d時] Savitzky-Golayフィルタの多項式次数"), {"width": 10}),
+            # Post-processing shared by all methods.
+            ("bool", "apply_median", "apply_median",
+             _("中央値フィルタを最後にかける（点ノイズに強い）"), {}),
+            # Mask dilation parameters shared by inpaint, spline1d, and spline2d.
+            ("field", "mask_dilation", "mask_dilation",
+             _("[inpaint, spline1d, spline2d時] 繊維マスクを膨張させる画素数（0でdilationなし）"), {"width": 10}),
+            ("field", "min_mask_component_area", "min_mask_component_area",
+             _("[inpaint, spline1d, spline2d時] dilation前にマスクから除外する連結成分の最小面積") + " (px)。"
+             + _("1でフィルタ無効"), {"width": 10}),
+        ])
 
-        # ---- Segmenter ----
-        lf_seg = ttk.LabelFrame(plf, text=_("Segmenter"))
-        lf_seg.pack(fill="x", padx=6, pady=6)
-        add_field(lf_seg, "wsize_localbin", "wsize_localbin", _("局所しきい値の計算に使う窓サイズ"), 10)
-        add_field(lf_seg, "global_threshold", "global_threshold", _("全体一律の2値化しきい値"))
-        add_field(lf_seg, "area_min", "area_min", _("小さい連結成分を消す面積しきい値"), 10)
-        add_field(lf_seg, "area_min_connecting", "area_min_connecting", _("つながり成分を除くときの面積しきい値"), 10)
-        add_bool(lf_seg, "apply_no_connecting", "apply_no_connecting", _("つながり除去を実行するかどうか"))
-        add_field(lf_seg, "h_length", "h_length", _("線分検出で線分とみなす最小長さ"), 10)
-        add_field(lf_seg, "h_sratio", "h_sratio", _("線っぽさ") + " (s_ratio) " + _("のしきい値"))
-        add_field(lf_seg, "low_threshold", "low_threshold", _("高さが低い成分を消すしきい値"))
+    def _build_param_sections(self, plf: ttk.LabelFrame) -> None:
+        """
+        Build the Segmenter, Skeletonizer, and Kinkdetector parameter groups.
+        Segmenter・Skeletonizer・Kinkdetector のパラメータ群を構築する。
+        """
+        # Built at call time so gettext follows the active language (see _add_fields).
+        sections = [
+            (_("Segmenter"), [
+                ("field", "wsize_localbin", "wsize_localbin", _("局所しきい値の計算に使う窓サイズ"), {"width": 10}),
+                ("field", "global_threshold", "global_threshold", _("全体一律の2値化しきい値"), {}),
+                ("field", "area_min", "area_min", _("小さい連結成分を消す面積しきい値"), {"width": 10}),
+                ("field", "area_min_connecting", "area_min_connecting", _("つながり成分を除くときの面積しきい値"), {"width": 10}),
+                ("bool", "apply_no_connecting", "apply_no_connecting", _("つながり除去を実行するかどうか"), {}),
+                ("field", "h_length", "h_length", _("線分検出で線分とみなす最小長さ"), {"width": 10}),
+                ("field", "h_sratio", "h_sratio", _("線っぽさ") + " (s_ratio) " + _("のしきい値"), {}),
+                ("field", "low_threshold", "low_threshold", _("高さが低い成分を消すしきい値"), {}),
+            ]),
+            (_("Skeletonizer"), [
+                ("field", "bp_height", "bp_height", _("分岐点が低い高さか判定するしきい値"), {}),
+                ("field", "branch_length", "branch_length", _("枝とみなす短い線を追跡する最大長"), {"width": 10}),
+                ("field", "min_area", "min_area", _("小さすぎる線分（ノイズ）を削除する面積しきい値"), {"width": 10}),
+            ]),
+            (_("Kinkdetector"), [
+                ("field", "kinkangle_deg", "kinkangle_deg", _("折れ線近似の3点のなす角がこの値以下ならkink判定"), {}),
+            ]),
+        ]
+        for title, specs in sections:
+            lf = ttk.LabelFrame(plf, text=title)
+            lf.pack(fill="x", padx=6, pady=6)
+            self._add_fields(lf, specs)
 
-        # ---- Skeletonizer ----
-        lf_skl = ttk.LabelFrame(plf, text=_("Skeletonizer"))
-        lf_skl.pack(fill="x", padx=6, pady=6)
-        add_field(lf_skl, "bp_height", "bp_height", _("分岐点が低い高さか判定するしきい値"))
-        add_field(lf_skl, "branch_length", "branch_length", _("枝とみなす短い線を追跡する最大長"), 10)
-        add_field(lf_skl, "min_area", "min_area", _("小さすぎる線分（ノイズ）を削除する面積しきい値"), 10)
-
-        # ---- Kinkdetector ----
-        lf_kink = ttk.LabelFrame(plf, text=_("Kinkdetector"))
-        lf_kink.pack(fill="x", padx=6, pady=6)
-        add_field(lf_kink, "kinkangle_deg", "kinkangle_deg", _("折れ線近似の3点のなす角がこの値以下ならkink判定"))
-
+    def _build_save_options(self) -> None:
+        """
+        Build the save-options group (save_original is UI state, not analysis).
+        保存オプション群を構築する（save_original は解析条件ではなく UI 状態）。
+        """
         # ---- Save options ----
         # Placed outside the "解析条件" frame because save_original does not change
         # analysis results; it only controls whether the raw image is bundled.
@@ -1876,6 +1945,11 @@ class SettingsDialog(tk.Toplevel):
             foreground="#444", justify="left",
         ).pack(side="left", padx=8, fill="x", expand=True)
 
+    def _build_buttons(self) -> None:
+        """
+        Build the bottom action button row.
+        下部の操作ボタン行を構築する。
+        """
         # JSON save/load uses the same schema as the per-analysis parameter sidecar.
         btns = ttk.Frame(self)
         btns.pack(side="bottom", fill="x", padx=10, pady=10)

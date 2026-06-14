@@ -260,7 +260,27 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         outer.add(left, weight=1)
         outer.add(right, weight=3)
 
-        frm_group = ttk.Frame(left)
+        # Build each pane top-to-bottom; creation order is preserved.
+        self._build_left_pane(left)
+        self._build_right_pane(right)
+
+        self._update_summary()
+
+    def _build_left_pane(self, parent: ttk.Frame) -> None:
+        """
+        Build the left pane: group/folder tree, result table, and log area.
+        左ペイン（グループ/フォルダツリー・結果表・ログ領域）を構築する。
+        """
+        self._build_group_panel(parent)
+        self._build_result_panel(parent)
+        self._build_log_panel(parent)
+
+    def _build_group_panel(self, parent: ttk.Frame) -> None:
+        """
+        Build the group/folder controls, tree view, and summary label.
+        グループ/フォルダ操作部・ツリー・サマリラベルを構築する。
+        """
+        frm_group = ttk.Frame(parent)
         frm_group.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
         grp_btn_row = ttk.Frame(frm_group)
@@ -318,7 +338,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
         ttk.Label(frm_group, textvariable=self.summary_var).pack(anchor="w", padx=6, pady=(0, 6))
 
-        frm_res = ttk.Frame(left)
+    def _build_result_panel(self, parent: ttk.Frame) -> None:
+        """
+        Build the per-group statistics result table and its save button.
+        グループ別統計結果テーブルと保存ボタンを構築する。
+        """
+        frm_res = ttk.Frame(parent)
         frm_res.pack(fill=tk.BOTH, expand=False, padx=4, pady=4)
 
         res_btn_row = ttk.Frame(frm_res)
@@ -357,7 +382,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             scrollbar_pack_kwargs={"side": tk.LEFT, "fill": tk.Y, "pady": 6},
         )
 
-        frm_log = ttk.Frame(left)
+    def _build_log_panel(self, parent: ttk.Frame) -> None:
+        """
+        Build the log area and its save button.
+        ログ領域とログ保存ボタンを構築する。
+        """
+        frm_log = ttk.Frame(parent)
         frm_log.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
         # The save-log button also labels the log area, avoiding a redundant heading.
@@ -380,10 +410,27 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             text_side=tk.LEFT,
         )
 
-        frm_plot = ttk.Frame(right)
+    def _build_right_pane(self, parent: ttk.Frame) -> None:
+        """
+        Build the right pane: action bar, histogram controls, plot options,
+        and the scrollable plot canvas.
+        右ペイン（操作バー・ヒストグラム設定・図オプション・スクロール可能な
+        描画キャンバス）を構築する。
+        """
+        frm_plot = ttk.Frame(parent)
         frm_plot.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
-        actionbar = ttk.Frame(frm_plot)
+        self._build_action_bar(frm_plot)
+        self._build_histogram_controls(frm_plot)
+        self._build_plot_options(frm_plot)
+        self._build_plot_canvas(frm_plot)
+
+    def _build_action_bar(self, parent: ttk.Frame) -> None:
+        """
+        Build the run / save-figure / save-CSV action bar.
+        ヒストグラム作成・画像保存・数値保存の操作バーを構築する。
+        """
+        actionbar = ttk.Frame(parent)
         actionbar.pack(fill=tk.X, padx=6, pady=(6, 2))
 
         self.btn_run = ttk.Button(actionbar, text=_("ヒストグラム作成"), command=self.on_run)
@@ -395,7 +442,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.btn_save_csv = ttk.Button(actionbar, text=_("数値を保存"), command=self.on_save_csv, state=tk.DISABLED)
         self.btn_save_csv.pack(side=tk.LEFT, padx=(6, 0))
 
-        topbar = ttk.Frame(frm_plot)
+    def _build_histogram_controls(self, parent: ttk.Frame) -> None:
+        """
+        Build the histogram range entries and view-option controls.
+        ヒストグラム範囲入力と表示オプションの操作部を構築する。
+        """
+        topbar = ttk.Frame(parent)
         topbar.pack(fill=tk.X, padx=6, pady=(2, 4))
 
         # Histogram range changes are committed with Enter and trigger recalculation.
@@ -462,7 +514,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             command=self._on_view_option_change,
         ).pack(side=tk.LEFT, padx=(0, 12))
 
-        optbar = ttk.Frame(frm_plot)
+    def _build_plot_options(self, parent: ttk.Frame) -> None:
+        """
+        Build the figure-size and font-size option controls.
+        図サイズ・フォントサイズのオプション操作部を構築する。
+        """
+        optbar = ttk.Frame(parent)
         optbar.pack(fill=tk.X, padx=6, pady=(0, 6))
 
         self.fig_w_var = tk.StringVar(value=self._fmt_num(self.fig_w))
@@ -528,10 +585,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._commit_plot_params,
         )
 
+    def _build_plot_canvas(self, parent: ttk.Frame) -> None:
+        """
+        Build the scrollable plot canvas hosting the histogram figure.
+        ヒストグラム Figure を載せるスクロール可能な描画キャンバスを構築する。
+        """
         # Add scrollbars because stacked plots can become taller than the window.
         # グループ数が多くなると Figure 縦長が巨大化するため、Canvas にスクロールバーを付けて
         # ウィンドウサイズを超えても全体を見られるようにする。
-        canvas_holder = ttk.Frame(frm_plot)
+        canvas_holder = ttk.Frame(parent)
         canvas_holder.pack(fill=tk.BOTH, expand=True, padx=6, pady=(0, 6))
 
         self._scroll_canvas = tk.Canvas(canvas_holder, highlightthickness=0)
@@ -557,8 +619,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self._inner_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-
-        self._update_summary()
 
     def _on_inner_configure(self, event) -> None:
         """
