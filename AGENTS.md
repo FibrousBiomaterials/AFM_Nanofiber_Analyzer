@@ -18,7 +18,13 @@ and never let the two files diverge.
 - Preserve Japanese text unless the user explicitly asks to translate it or a
   rule in this file requires it (README synchronization below, comment policy
   in §4).
-- When reading files with non-ASCII text, retry with UTF-8 or cp932 before concluding the text is garbled.
+- When reading files with non-ASCII text, do not conclude that the file is
+  garbled from terminal display alone. PowerShell `Get-Content`, shell output,
+  and chat/tool renderers may misdecode otherwise valid UTF-8 text. Before
+  reporting mojibake or editing to "fix" it, inspect the file bytes and decode
+  explicitly with UTF-8/UTF-8-SIG and cp932; treat the text as garbled only if
+  the decoded file contents themselves contain replacement characters or
+  mojibake patterns.
 - Do not rewrite an entire non-ASCII file through PowerShell `Set-Content`, shell redirection, or ad hoc scripts merely to make targeted edits; this can permanently save mojibake. Use your agent's targeted-edit tool (`apply_patch`, `Edit`, or equivalent) for small edits, and preserve the file's existing encoding.
 - If Japanese text appears garbled after an edit, stop immediately and restore the affected comments/docstrings from Git or a known-good UTF-8/cp932 backup before making further changes.
 - Prefer minimal diffs over full rewrites.
