@@ -25,7 +25,9 @@ import numpy as np
 import pytest
 
 import cli
+from lib import imp_tools
 from lib.blosc2_io import load_bundle
+from lib.fiber_tracking_image import FiberTrackingImage
 from lib.measure import (
     FIBER_CSV_COLUMNS,
     compute_fiber_stats,
@@ -115,6 +117,45 @@ def test_load_tracking_image_matches_measure_bundle(measured):
         image.calibrated_image, result.image.calibrated_image
     )
     assert image.size_per_pixel == result.image.size_per_pixel
+
+
+def test_tracking_rejects_non_two_endpoint_component():
+    """A malformed skeleton component fails with a clear tracing error."""
+    skeleton = np.zeros((8, 8), dtype=np.uint8)
+    skeleton[2, 1:5] = 1
+    skeleton[1:5, 3] = 1
+    with pytest.raises(ValueError, match="exactly 2 endpoints"):
+        imp_tools.tracking(skeleton)
+
+
+def test_tracking_image_skips_untraceable_components():
+    """One untraceable component does not discard traceable fibers."""
+    skeleton = np.zeros((24, 24), dtype=np.uint8)
+    skeleton[2, 2:16] = 1
+    skeleton[10, 10:15] = 1
+    skeleton[14, 10:15] = 1
+    skeleton[10:15, 10] = 1
+    skeleton[10:15, 14] = 1
+
+    image = FiberTrackingImage(
+        original_AFM=np.zeros_like(skeleton, dtype=float),
+        name="mixed",
+        size_per_pixel=1.0,
+    )
+    image.calibrated_image = np.ones_like(skeleton, dtype=float)
+    image.skeleton_image = skeleton
+    image.ep = imp_tools.endPoints(skeleton)
+    image.all_kink_coordinates = (
+        np.array([], dtype=np.int64),
+        np.array([], dtype=np.int64),
+    )
+    image.decomposed_point_coordinates = np.zeros((2, 0), dtype=np.int64)
+    image.all_kink_angles = np.array([], dtype=float)
+
+    fibers = image.fibers_in_image_parallel(max_workers=1)
+    assert len(fibers) == 1
+    assert len(image.skipped_fiber_labels) == 1
+    assert "exactly 2 endpoints" in image.skipped_fiber_labels[0][1]
 
 
 def test_measure_bundle_rejects_invalid_scale(measured):

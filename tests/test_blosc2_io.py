@@ -7,7 +7,9 @@ lib/blosc2_io.py の配列・バンドル往復テスト。
 import os
 
 import numpy as np
+import pytest
 
+import lib.blosc2_io as blosc2_io
 from lib.blosc2_io import (
     save_blosc2, load_blosc2,
     save_bundle, load_bundle, load_bundle_meta,
@@ -67,6 +69,24 @@ def test_bundle_roundtrip_with_vlmeta(tmp_path):
     loaded_meta = load_bundle_meta(path)
     assert loaded_meta["version"] == "1.0"
     assert loaded_meta["params"]["bg_method"] == "tophat"
+
+
+def test_save_bundle_failure_preserves_existing_file(tmp_path, monkeypatch):
+    """A failed rewrite must not corrupt the previous valid bundle."""
+    path = os.path.join(tmp_path, "out.b2z")
+    save_bundle(path, {"a": np.array([1])})
+
+    class FailingTreeStore:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("simulated write failure")
+
+    with monkeypatch.context() as m:
+        m.setattr(blosc2_io.blosc2, "TreeStore", FailingTreeStore)
+        with pytest.raises(RuntimeError, match="simulated write failure"):
+            save_bundle(path, {"a": np.array([2])})
+
+    loaded = load_bundle(path)
+    np.testing.assert_array_equal(loaded["a"], np.array([1]))
 
 
 def test_load_bundle_key_subset(tmp_path):
