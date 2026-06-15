@@ -8,10 +8,9 @@ set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR" || exit 1
 
-echo "[1/5] Searching for Anaconda or Miniconda Python..."
+echo "[1/4] Searching for Anaconda or Miniconda Python..."
 ANACONDA_PYTHON=""
 CONDA_ROOT=""
-CONDA_CMD=""
 
 # Prefer the already-active conda environment so users can choose their own install.
 # ユーザーが選んだ環境を使えるよう、まず現在有効な conda 環境を優先する。
@@ -67,14 +66,8 @@ if [ -n "$CONDA_ROOT" ] && [ -f "$CONDA_ROOT/etc/profile.d/conda.sh" ]; then
     conda activate "$CONDA_ROOT"
 fi
 
-if [ -n "$CONDA_ROOT" ] && [ -x "$CONDA_ROOT/bin/conda" ]; then
-    CONDA_CMD="$CONDA_ROOT/bin/conda"
-elif command -v conda >/dev/null 2>&1; then
-    CONDA_CMD="$(command -v conda)"
-fi
-
 echo
-echo "[2/5] Upgrading pip..."
+echo "[2/4] Upgrading pip..."
 "$ANACONDA_PYTHON" -m pip install --upgrade pip
 if [ $? -ne 0 ]; then
     echo "Failed to upgrade pip."
@@ -82,61 +75,26 @@ if [ $? -ne 0 ]; then
 fi
 
 echo
-echo "[3/5] Generating requirements..."
-# check.py regenerates requirements.txt from the project imports before install.
-# check.py はインストール前にプロジェクトの import から requirements.txt を再生成する。
-"$ANACONDA_PYTHON" check.py
+echo "[3/4] Installing the package and dependencies..."
+# Editable install resolves dependencies from pyproject.toml (the single source
+# of truth) and registers the afm-analyzer / afm-analyzer-cli console commands.
+# 編集可能インストールは依存関係を単一の真実の源である pyproject.toml から解決し、
+# afm-analyzer / afm-analyzer-cli コマンドを登録する。
+"$ANACONDA_PYTHON" -m pip install -e .
 if [ $? -ne 0 ]; then
-    echo "Failed to generate requirements.txt."
+    echo "Failed to install the package."
     exit 1
 fi
 
 echo
-echo "[4/5] Installing requirements..."
-if [ -n "$CONDA_CMD" ]; then
-    echo "Installing mahotas with conda-forge first to avoid pip build failures..."
-    # mahotas can require native builds; conda-forge usually provides a wheel-equivalent package.
-    # mahotas はネイティブビルドが必要になることがあり、conda-forge なら通常はビルド済み相当のパッケージを使える。
-    "$CONDA_CMD" install -y -c conda-forge mahotas
-    if [ $? -ne 0 ]; then
-        echo "conda-forge mahotas install failed; continuing with pip requirements."
-    fi
-fi
-"$ANACONDA_PYTHON" -m pip install -r requirements.txt
+echo "[4/4] Recording the Anaconda Python path for 92_run_from_anaconda.sh..."
+# The static launcher reads this machine-local path; the file stays gitignored.
+# 静的ランチャーはこのマシン固有パスを読み込む。ファイルは gitignore 対象のまま。
+printf '%s\n' "$ANACONDA_PYTHON" > .afm_anaconda_python
 if [ $? -ne 0 ]; then
-    echo "Failed to install requirements."
+    echo "Failed to record the Anaconda Python path."
     exit 1
 fi
-
-echo
-echo "[5/5] Writing 92_run_from_anaconda.sh..."
-cat > 92_run_from_anaconda.sh <<EOF
-#!/usr/bin/env bash
-# Start AFM Nanofiber Analyzer with the Anaconda/Miniconda Python detected by setup.
-# setup で検出した Anaconda/Miniconda の Python で AFM Nanofiber Analyzer を起動する。
-# Re-run 91_setup_anaconda.sh if this Python path changes.
-# この Python パスが変わった場合は 91_setup_anaconda.sh を再実行する。
-set -u
-
-SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-cd "\$SCRIPT_DIR" || exit 1
-
-ANACONDA_PYTHON="$ANACONDA_PYTHON"
-
-if [ ! -x "\$ANACONDA_PYTHON" ]; then
-    echo "Anaconda Python was not found:"
-    echo "\$ANACONDA_PYTHON"
-    echo "Please run 91_setup_anaconda.sh again."
-    exit 1
-fi
-
-"\$ANACONDA_PYTHON" Main.py
-EOF
-if [ $? -ne 0 ]; then
-    echo "Failed to write 92_run_from_anaconda.sh."
-    exit 1
-fi
-chmod +x 92_run_from_anaconda.sh
 
 echo
 echo "Setup completed."

@@ -7,7 +7,7 @@ cd /d "%~dp0"
 set "ENV_DIR=%~dp0.conda-env"
 set "CONDA_CMD="
 
-echo [1/6] Searching for conda...
+echo [1/4] Searching for conda...
 
 REM Prefer CONDA_EXE when running from Anaconda Prompt because it points to the active installation.
 if defined CONDA_EXE (
@@ -55,7 +55,7 @@ echo Found:
 echo %CONDA_CMD%
 
 echo.
-echo [2/6] Creating or reusing conda environment:
+echo [2/4] Creating or reusing conda environment:
 echo %ENV_DIR%
 REM conda run is used instead of activation so this script works from plain cmd.exe.
 call "%CONDA_CMD%" run -p "%ENV_DIR%" python --version >nul 2>nul
@@ -71,7 +71,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [3/6] Upgrading pip...
+echo [3/4] Upgrading pip...
 call "%CONDA_CMD%" run -p "%ENV_DIR%" python -m pip install --upgrade pip
 if errorlevel 1 (
     echo Failed to upgrade pip.
@@ -80,92 +80,12 @@ if errorlevel 1 (
 )
 
 echo.
-echo [4/6] Generating requirements...
-REM check.py regenerates requirements.txt from the project imports before install.
-call "%CONDA_CMD%" run -p "%ENV_DIR%" python check.py
+echo [4/4] Installing the package and dependencies...
+REM Editable install resolves dependencies from pyproject.toml (the single source
+REM of truth) and registers the afm-analyzer / afm-analyzer-cli console commands.
+call "%CONDA_CMD%" run -p "%ENV_DIR%" python -m pip install -e .
 if errorlevel 1 (
-    echo Failed to generate requirements.txt.
-    pause
-    exit /b 1
-)
-
-echo.
-echo [5/6] Installing requirements...
-echo Installing mahotas with conda-forge first to avoid pip build failures...
-call "%CONDA_CMD%" install -y -p "%ENV_DIR%" -c conda-forge mahotas
-if errorlevel 1 (
-    echo conda-forge mahotas install failed; continuing with pip requirements.
-)
-call "%CONDA_CMD%" run -p "%ENV_DIR%" python -m pip install -r requirements.txt
-if errorlevel 1 (
-    echo Failed to install requirements.
-    pause
-    exit /b 1
-)
-
-echo.
-echo [6/6] Writing 12_run_from_conda_env.bat...
-(
-    echo @echo off
-    echo REM Start AFM Nanofiber Analyzer inside the dedicated conda environment.
-    echo REM Run 11_setup_conda_env.bat first if the environment has not been created.
-    echo setlocal
-    echo cd /d "%%~dp0"
-    echo.
-    echo set "ENV_DIR=%%~dp0.conda-env"
-    echo set "CONDA_CMD="
-    echo.
-    echo if defined CONDA_EXE ^(
-    echo     if exist "%%CONDA_EXE%%" ^(
-    echo         set "CONDA_CMD=%%CONDA_EXE%%"
-    echo         goto found_conda
-    echo     ^)
-    echo ^)
-    echo.
-    echo where conda ^>nul 2^>nul
-    echo if not errorlevel 1 ^(
-    echo     set "CONDA_CMD=conda"
-    echo     goto found_conda
-    echo ^)
-    echo.
-    echo for %%%%C in ^(
-    echo     "%%USERPROFILE%%\anaconda3\Scripts\conda.exe"
-    echo     "%%USERPROFILE%%\miniconda3\Scripts\conda.exe"
-    echo     "%%USERPROFILE%%\anaconda3\condabin\conda.bat"
-    echo     "%%USERPROFILE%%\miniconda3\condabin\conda.bat"
-    echo     "%%LOCALAPPDATA%%\anaconda3\Scripts\conda.exe"
-    echo     "%%LOCALAPPDATA%%\miniconda3\Scripts\conda.exe"
-    echo     "%%LOCALAPPDATA%%\anaconda3\condabin\conda.bat"
-    echo     "%%LOCALAPPDATA%%\miniconda3\condabin\conda.bat"
-    echo     "%%ProgramData%%\anaconda3\Scripts\conda.exe"
-    echo     "%%ProgramData%%\miniconda3\Scripts\conda.exe"
-    echo     "%%ProgramData%%\anaconda3\condabin\conda.bat"
-    echo     "%%ProgramData%%\miniconda3\condabin\conda.bat"
-    echo ^) do ^(
-    echo     if exist "%%%%~C" ^(
-    echo         set "CONDA_CMD=%%%%~C"
-    echo         goto found_conda
-    echo     ^)
-    echo ^)
-    echo.
-    echo echo conda was not found.
-    echo echo Please install Anaconda/Miniconda, or run this file from Anaconda Prompt.
-    echo pause
-    echo exit /b 1
-    echo.
-    echo :found_conda
-    echo call "%%CONDA_CMD%%" run -p "%%ENV_DIR%%" python "%%~dp0Main.py"
-    echo if errorlevel 1 ^(
-    echo     echo.
-    echo     echo Failed to start the application.
-    echo     echo Please run 11_setup_conda_env.bat first.
-    echo     pause
-    echo     exit /b 1
-    echo ^)
-    echo exit /b 0
-) > 12_run_from_conda_env.bat
-if errorlevel 1 (
-    echo Failed to write 12_run_from_conda_env.bat.
+    echo Failed to install the package.
     pause
     exit /b 1
 )

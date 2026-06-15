@@ -40,14 +40,12 @@ desktop.ini
 # ===== GUI local settings (machine-specific, regenerated at runtime) =====
 guis/afmpp_settings.json
 
-# ===== Generated local launchers =====
-# The conda/anaconda setup scripts still recreate these; 92_* bakes a
-# machine-local Anaconda path, so they stay untracked. The venv launcher
-# (02_run_from_venv.*) is now a tracked static file and is not listed here.
-12_run_from_conda_env.bat
-12_run_from_conda_env.sh
-92_run_from_anaconda.bat
-92_run_from_anaconda.sh
+# ===== Machine-local launcher data =====
+# All run launchers (02/12/92) are now tracked static files. The Anaconda
+# track still needs a machine-specific interpreter path: 91_setup_anaconda.*
+# records it here for the static 92_run_from_anaconda.* launcher, so this data
+# file is untracked while the launchers themselves are version-controlled.
+.afm_anaconda_python
 
 # ===== Sample data =====
 # Bruker NanoScope sample scans are 33 MB each; only one representative file
