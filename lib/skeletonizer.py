@@ -45,9 +45,9 @@ class Skeletonizer:
     min_area
         Minimum connected-component area retained in the final skeleton.
         最終スケルトンに残す連結成分の最小面積。
-    image_size
-        Width and height of the square working image.
-        正方形の作業画像の幅および高さ。
+    image_shape
+        Shape of the working image as ``(height, width)``.
+        作業画像の形状 ``(高さ, 幅)``。
     """
 
     def __init__(
@@ -75,7 +75,7 @@ class Skeletonizer:
         self.bp_height = bp_height
         self.branch_length = branch_length
         self.min_area = min_area
-        self.image_size = None
+        self.image_shape = None
         self._coor_low_bps = None
         self._coor_high_bps = None
         self._coor_close_eps = None
@@ -134,7 +134,7 @@ class Skeletonizer:
             )
 
         init_skeleton_image = thin(image.binarized_image).astype(np.uint8)
-        self.image_size = image.binarized_image.shape[0]
+        self.image_shape = image.binarized_image.shape
         self._init_skeleton_image = init_skeleton_image
         self.set_low_bp_coor(image.calibrated_image, init_skeleton_image, self.bp_height)
         self.get_close_eps()
@@ -209,7 +209,7 @@ class Skeletonizer:
             Binary image whose nonzero pixels mark branches to remove.
             非ゼロ画素が除去対象の枝を表す二値画像。
         """
-        branches_image = np.zeros((self.image_size, self.image_size), dtype=np.uint8)
+        branches_image = np.zeros_like(init_skeleton_image, dtype=np.uint8)
         coor_branch = self.track_branches()
         if coor_branch[0].size != 0:
             branches_image[coor_branch] = 1
@@ -268,7 +268,7 @@ class Skeletonizer:
         枝刈り候補になる。
         """
         all_eps_image = imp_tools.endPoints(self._init_skeleton_image)
-        _low_bps_image = np.zeros((self.image_size, self.image_size), dtype=np.uint8)
+        _low_bps_image = np.zeros_like(self._init_skeleton_image, dtype=np.uint8)
         _low_bps_image[self._coor_low_bps] = 1
 
         k = self.branch_length
@@ -301,18 +301,20 @@ class Skeletonizer:
         branches_coor_y = []
         image_for_tracking = self._init_skeleton_image.copy()
 
-        image_low_bps = np.zeros((self.image_size, self.image_size), dtype=bool)
+        height, width = image_for_tracking.shape
+
+        image_low_bps = np.zeros_like(image_for_tracking, dtype=bool)
         image_low_bps[self._coor_low_bps] = True  # Mark low branch points in the boolean mask.
 
-        image_high_bps = np.zeros((self.image_size, self.image_size), dtype=bool)
+        image_high_bps = np.zeros_like(image_for_tracking, dtype=bool)
         image_high_bps[self._coor_high_bps] = True
         # Start tracking from endpoints and stop when a low branch point is reached.
         # ep からトラック開始。low_bp にぶつかったら終了。
         starts_x, starts_y = self._coor_close_eps
         for step_num, (start_x, start_y) in enumerate(zip(starts_x, starts_y)):
             bl = self.branch_length
-            if (start_x < bl or start_x + bl > self.image_size or
-                    start_y < bl or start_y + bl > self.image_size):
+            if (start_x < bl or start_x + bl > height or
+                    start_y < bl or start_y + bl > width):
                 continue
         
             tracking_area = image_for_tracking[

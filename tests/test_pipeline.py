@@ -35,6 +35,24 @@ from lib.pipeline import (
 FAST_PARAMS = ProcParams(bg_method="tophat")
 
 
+def _write_rectangular_fiber_txt(out_dir) -> str:
+    """Write a small non-square AFM-like CSV image."""
+    import cv2
+
+    rng = np.random.default_rng(123)
+    height, width = 64, 96
+    fiber = np.zeros((height, width), np.float32)
+    cv2.line(fiber, (12, 20), (82, 42), 1.0, 3)
+    fiber = cv2.GaussianBlur(fiber, (5, 5), 0) * 3.0
+    yy, xx = np.mgrid[0:height, 0:width]
+    background = 1.0 * xx / (width - 1) + 0.5 * yy / (height - 1)
+    image = fiber + background + rng.normal(0.0, 0.03, fiber.shape)
+
+    path = os.path.join(out_dir, "rectangular_fiber.txt")
+    np.savetxt(path, image, delimiter=",", fmt="%.4f")
+    return path
+
+
 @pytest.fixture
 def pipeline_result(synthetic_fiber_txt, tmp_path):
     """Run the full pipeline once and share the result across assertions."""
@@ -70,6 +88,29 @@ def test_outputs_written_and_recognized(pipeline_result):
     assert ok, f"missing bundle keys: {missing}"
 
 
+def test_save_failure_preserves_previous_outputs(synthetic_fiber_txt, tmp_path, monkeypatch):
+    """A save-time failure leaves the previous bundle and param JSON intact."""
+    out_dir = os.path.join(tmp_path, "atomic")
+    os.makedirs(out_dir)
+    first = process_file(synthetic_fiber_txt, FAST_PARAMS, output_dir=out_dir)
+    original_meta = load_bundle_meta(first.bundle_path)
+    with open(first.param_path, "r", encoding="utf-8") as f:
+        original_params = json.load(f)
+
+    def fail_save_bundle(*args, **kwargs):
+        raise RuntimeError("simulated bundle write failure")
+
+    monkeypatch.setattr("lib.pipeline.save_bundle", fail_save_bundle)
+    changed_params = ProcParams(bg_method="tophat", kinkangle_deg=120.0)
+    with pytest.raises(RuntimeError, match="simulated bundle write failure"):
+        process_file(synthetic_fiber_txt, changed_params, output_dir=out_dir)
+
+    assert load_bundle_meta(first.bundle_path) == original_meta
+    with open(first.param_path, "r", encoding="utf-8") as f:
+        assert json.load(f) == original_params
+    assert not [name for name in os.listdir(out_dir) if ".tmp" in name]
+
+
 def test_bundle_contract(pipeline_result):
     """The bundle holds all required keys with the documented shapes/units."""
     result, _events = pipeline_result
@@ -94,6 +135,24 @@ def test_bundle_contract(pipeline_result):
     assert data["dp"].ndim == 2 and data["dp"].shape[0] == 2
     assert data["ka"].shape == (data["kp"].shape[1],)
     assert np.all(data["ka"] > 0) and np.all(data["ka"] < np.pi)
+
+
+def test_non_square_input_processes_with_rectangular_bundle_shapes(tmp_path):
+    """A rectangular multi-column input stays rectangular through the pipeline."""
+    txt_path = _write_rectangular_fiber_txt(tmp_path)
+    out_dir = os.path.join(tmp_path, "rectangular_out")
+    os.makedirs(out_dir)
+
+    result = process_file(
+        txt_path, FAST_PARAMS, output_dir=out_dir, input_format="multi-column",
+    )
+    data = load_bundle(result.bundle_path)
+    image_shape = (63, 95)
+    assert data["calibrated"].shape == image_shape
+    assert data["binarized"].shape == image_shape
+    assert data["skeletonized"].shape == image_shape
+    assert data["bp"].shape == image_shape
+    assert data["ep"].shape == image_shape
 
 
 def test_detects_the_drawn_kink(pipeline_result):
