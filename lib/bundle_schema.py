@@ -121,6 +121,17 @@ _BINARY_KEYS = ("binarized", "skeletonized", "bp", "ep")
 _POINT_KEYS = ("kp", "dp")
 
 
+def _is_finite_array(a: np.ndarray) -> bool:
+    """
+    Return whether all array values are finite numeric values.
+    配列の全値が有限の数値かどうかを返す。
+    """
+    try:
+        return bool(np.isfinite(a).all())
+    except TypeError:
+        return False
+
+
 def validate_bundle(
     arrays: Dict[str, np.ndarray],
     meta: Optional[Dict] = None,
@@ -207,6 +218,10 @@ def validate_bundle(
             f"original: expected a 2D image, got {arrays['original'].ndim}D"
         )
 
+    for key in ("calibrated", "original"):
+        if key in arrays and not _is_finite_array(arrays[key]):
+            problems.append(f"{key}: image values must be finite numbers")
+
     # --- Binary masks: values restricted to {0, 1} --------------------------
     for key in _BINARY_KEYS:
         if key not in arrays:
@@ -222,6 +237,12 @@ def validate_bundle(
         a = arrays[key]
         if a.ndim != 2 or a.shape[0] != 2:
             problems.append(f"{key}: expected shape (2, N), got {a.shape}")
+            continue
+        if a.size > 0 and not np.issubdtype(a.dtype, np.integer):
+            problems.append(f"{key}: coordinate arrays must use an integer dtype")
+            continue
+        if a.size > 0 and not _is_finite_array(a):
+            problems.append(f"{key}: coordinates must be finite numbers")
             continue
         if image_shape is not None and a.shape[1] > 0:
             # Row 0 is x (column index), row 1 is y (row index). The bound
@@ -244,6 +265,8 @@ def validate_bundle(
         if ka.ndim != 1:
             problems.append(f"ka: expected shape (N,), got {ka.shape}")
         else:
+            if not _is_finite_array(ka):
+                problems.append("ka: kink angles must be finite numbers")
             if "kp" in arrays and arrays["kp"].ndim == 2 \
                     and arrays["kp"].shape[0] == 2 \
                     and ka.shape[0] != arrays["kp"].shape[1]:

@@ -26,6 +26,7 @@ gettext out of the analysis layer.
 import hashlib
 import json
 import os
+import tempfile
 import time
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
@@ -215,6 +216,20 @@ def _sha256_of_file(path: str) -> str:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _temp_sibling_path(path: str, suffix: str = ".tmp") -> str:
+    """
+    Create and return a temporary sibling path for atomic output replacement.
+    原子的な出力置換に使う同一ディレクトリ内の一時パスを作成して返す。
+    """
+    directory = os.path.dirname(os.path.abspath(path))
+    basename = os.path.basename(path)
+    fd, tmp_path = tempfile.mkstemp(
+        prefix=f".{basename}.", suffix=suffix, dir=directory,
+    )
+    os.close(fd)
+    return tmp_path
 
 
 def bundle_path_for(stem: str) -> str:
@@ -668,8 +683,8 @@ def process_file(
         "skeletonized": image.skeleton_image,
         "bp":           image.bp,                        # Branch-point mask.
         "ep":           image.ep,                        # End-point mask.
-        "kp":           np.stack([kp_x, kp_y]),          # Kink coordinates, shape (2, N).
-        "dp":           np.stack([dp_x, dp_y]),          # Decomposed-point coordinates, shape (2, N).
+        "kp":           np.stack([kp_x, kp_y]).astype(np.int64),  # Kink coordinates, shape (2, N).
+        "dp":           np.stack([dp_x, dp_y]).astype(np.int64),  # Decomposed-point coordinates, shape (2, N).
         "ka":           image.all_kink_angles,           # Kink angles in radians.
     }
 
@@ -718,14 +733,27 @@ def process_file(
         "input_format":     asdict(text_format),
     }
 
-    bundle_path = bundle_path_for(stem)
-    save_bundle(bundle_path, arrays, vlmeta=vlmeta)
-
-    # Keep analysis parameters as sidecar JSON because it is easy to inspect by hand.
-    # 解析パラメータは手で確認しやすいよう、サイドカー JSON としても保存する。
     param_path = param_path_for(stem)
-    with open(param_path, "w", encoding="utf-8") as f:
-        json.dump(params_dict, f, ensure_ascii=False, indent=2)
+    bundle_path = bundle_path_for(stem)
+    bundle_tmp = _temp_sibling_path(bundle_path, suffix=".tmp.b2z")
+    param_tmp = _temp_sibling_path(param_path)
+    try:
+        save_bundle(bundle_tmp, arrays, vlmeta=vlmeta)
+
+        # Keep analysis parameters as sidecar JSON because it is easy to inspect by hand.
+        # 解析パラメータは手で確認しやすいよう、サイドカー JSON としても保存する。
+        with open(param_tmp, "w", encoding="utf-8") as f:
+            json.dump(params_dict, f, ensure_ascii=False, indent=2)
+
+        os.replace(bundle_tmp, bundle_path)
+        os.replace(param_tmp, param_path)
+    except Exception:
+        for tmp in (bundle_tmp, param_tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+        raise
 
     return PipelineResult(
         image=image,

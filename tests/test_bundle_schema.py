@@ -108,6 +108,13 @@ def test_ka_degrees_rejected():
     assert any("radians" in p for p in problems)
 
 
+def test_ka_non_finite_rejected():
+    arrays = _valid_arrays()
+    arrays["ka"] = np.array([np.nan])
+    problems = validate_bundle(arrays)
+    assert any("ka:" in p and "finite" in p for p in problems)
+
+
 def test_image_shape_mismatch_reported():
     arrays = _valid_arrays()
     arrays["skeletonized"] = np.zeros((9, 9), np.uint8)
@@ -120,6 +127,20 @@ def test_non_binary_mask_rejected():
     arrays["skeletonized"] = arrays["skeletonized"] * 255
     problems = validate_bundle(arrays)
     assert any("skeletonized" in p and "0 or 1" in p for p in problems)
+
+
+def test_non_finite_height_image_rejected():
+    arrays = _valid_arrays()
+    arrays["calibrated"][0, 0] = np.nan
+    problems = validate_bundle(arrays)
+    assert any("calibrated:" in p and "finite" in p for p in problems)
+
+
+def test_point_coordinates_must_be_integer_dtype():
+    arrays = _valid_arrays()
+    arrays["kp"] = np.array([[3.5], [4.0]], dtype=float)
+    problems = validate_bundle(arrays)
+    assert any("kp:" in p and "integer dtype" in p for p in problems)
 
 
 def test_swapped_xy_detected_on_non_square_image():
@@ -191,6 +212,8 @@ def test_real_pipeline_output_conforms(real_bundle):
     meta = load_bundle_meta(real_bundle)
     assert validate_bundle(arrays, meta=meta, require=REQUIRED_BUNDLE_KEYS) == []
     assert meta["version"] == BUNDLE_FORMAT_VERSION
+    assert np.issubdtype(arrays["kp"].dtype, np.integer)
+    assert np.issubdtype(arrays["dp"].dtype, np.integer)
 
 
 def test_load_tracking_image_rejects_degree_angles(real_bundle, tmp_path):

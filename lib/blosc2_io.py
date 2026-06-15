@@ -26,6 +26,9 @@ and load-time format detection is done using file magic bytes.
 読み込み時にファイル先頭のマジックバイトで自動判定する。
 """
 
+import os
+import tempfile
+
 import numpy as np
 import blosc2
 
@@ -155,20 +158,36 @@ def save_bundle(path: str, arrays: dict, vlmeta: dict | None = None) -> None:
     This function writes the bundle to disk and returns nothing.
     この関数はバンドルをディスクに書き込み、戻り値は持たない。
     """
-    # Open TreeStore in write mode so an existing file is overwritten cleanly.
-    # 既存ファイルがあっても確実に上書きされるよう書き込みモードで開く。
-    with blosc2.TreeStore(path, mode="w") as ts:
-        for key, arr in arrays.items():
-            # Normalize key: ensure it starts with "/" as required by TreeStore.
-            # TreeStore のキーは "/" で始まる必要があるため正規化する。
-            k = key if key.startswith("/") else "/" + key
-            ts[k] = np.asarray(arr)
+    directory = os.path.dirname(os.path.abspath(path))
+    basename = os.path.basename(path)
+    fd, tmp_path = tempfile.mkstemp(
+        prefix=f".{basename}.", suffix=".tmp.b2z", dir=directory,
+    )
+    os.close(fd)
+    try:
+        # Open TreeStore in write mode on a sibling temp file, then atomically
+        # replace the final path only after the bundle has been closed cleanly.
+        # 同じディレクトリの一時ファイルに書き、正常に close できてから
+        # 最終パスを原子的に置き換える。
+        with blosc2.TreeStore(tmp_path, mode="w") as ts:
+            for key, arr in arrays.items():
+                # Normalize key: ensure it starts with "/" as required by TreeStore.
+                # TreeStore のキーは "/" で始まる必要があるため正規化する。
+                k = key if key.startswith("/") else "/" + key
+                ts[k] = np.asarray(arr)
 
-        # Persist optional user metadata into the root vlmeta storage.
-        # ユーザーメタデータをルートの vlmeta に書き込む。
-        if vlmeta:
-            for k, v in vlmeta.items():
-                ts.vlmeta[k] = v
+            # Persist optional user metadata into the root vlmeta storage.
+            # ユーザーメタデータをルートの vlmeta に書き込む。
+            if vlmeta:
+                for k, v in vlmeta.items():
+                    ts.vlmeta[k] = v
+        os.replace(tmp_path, path)
+    except Exception:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def load_bundle(path: str, keys: list[str] | None = None) -> dict:
@@ -284,7 +303,6 @@ def bundle_has_keys(path: str, required: list[str]) -> tuple[bool, list[str]]:
     leading slash.
     全て存在するか、および存在しないキー一覧（先頭の "/" 付き）。
     """
-    import os
     if not os.path.isfile(path):
         return False, [k if k.startswith("/") else "/" + k for k in required]
 
