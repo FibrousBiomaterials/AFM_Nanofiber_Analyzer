@@ -29,7 +29,7 @@ files.
 | File | Launcher name | Purpose |
 |---|---|---|
 | `guis/GUI01_Image_Preprocessor.py` | Image Preprocessor | Load raw AFM text data, run background calibration, segmentation, skeletonization, and kink-related feature extraction, then save a `.b2z` bundle and a parameter JSON file. Each file carries its own physical scan size (auto-filled from the instrument header, or set per file from the scale field or a CSV manifest), stored in the bundle for reproducible length measurements. |
-| `guis/GUI02_PlotProfiler.py` | Plot Profiler | Load raw, calibrated, or bundled AFM height data and interactively extract height profiles along selected line segments. |
+| `guis/GUI02_PlotProfiler.py` | Plot Profiler | Load raw, calibrated, or bundled AFM height data and interactively extract height profiles along selected line segments. The scale defaults to the recorded (`.b2z`) or header (text/CSV) scan size so profile distances are reproducible. |
 | `guis/GUI03_Fiber_Height_Histogram.py` | Fiber Height Histogram | Compare height distributions from skeletonized fiber pixels across user-defined groups of `.b2z` bundles. |
 | `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | Load `.b2z` bundles, rebuild tracked `Fiber` objects, inspect individual fibers, export plots, and export fiber statistics to CSV. |
 

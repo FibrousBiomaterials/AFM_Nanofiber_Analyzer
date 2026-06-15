@@ -49,7 +49,8 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 # These modules provide project-level data loading, plotting defaults, and UI helpers.
 # これらのモジュールは本プロジェクト共通の読み込み、描画既定値、UI 補助機能を提供する。
 from lib.blosc2_io import load_blosc2, load_bundle, BUNDLE_EXT
-from lib.afm_io import load_afm_text
+from lib.afm_io import load_afm_text, read_scan_size
+from lib.measure import read_scan_size_from_bundle
 from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, ToolTip, setup_matplotlib_style,
@@ -1238,6 +1239,53 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         self.image_size = data.shape[0]
         return data
 
+    def _apply_loaded_scan_size(self, path: str) -> bool:
+        """
+        Default the scale to a file's recorded or header scan size, if any.
+        ファイルの記録走査範囲またはヘッダ走査範囲があればスケールを既定化する。
+
+        For `.b2z` bundles the value comes from the recorded ``spatial_calibration``;
+        for text/CSV inputs it is read from the instrument header. The X axis
+        supplies the single scale value, matching GUI01/GUI04. Inputs without a
+        known scan size (e.g. `.npy`) keep the current scale.
+        `.b2z` は記録された ``spatial_calibration`` から、テキスト/CSV は装置ヘッダ
+        から取得する。GUI01/GUI04 に合わせ X 軸を単一スケール値とする。走査範囲が
+        不明な入力（`.npy` 等）は現在のスケールを保持する。
+
+        Returns
+        -------
+        bool
+            True when a scan size was found and applied to the scale entry.
+            走査範囲が見つかりスケール入力欄へ適用された場合に True。
+        """
+        size_um = None
+        try:
+            if path.endswith(BUNDLE_EXT):
+                recorded = read_scan_size_from_bundle(path)
+                if recorded is not None:
+                    size_um = recorded[0]
+            elif not path.endswith(".npy"):
+                header = read_scan_size(path)
+                if header is not None:
+                    size_um = header.x_um
+        except Exception:
+            # A metadata/header read failure must not block loading the image.
+            # メタデータ/ヘッダ読み取り失敗で画像読み込みを妨げない。
+            size_um = None
+        if size_um is None or size_um <= 0:
+            return False
+        self.scale_um = size_um
+        # Mirror the committed value into the entry and clear the unconfirmed
+        # styling so the field reads as confirmed.
+        # 確定値を入力欄へ反映し、未確定スタイルを解除して確定表示にする。
+        self.entryas.delete(0, "end")
+        self.entryas.insert(0, self._fmt_num(self.scale_um))
+        try:
+            self._refresh_all_entry_states()
+        except Exception:
+            pass
+        return True
+
     def load_image(self) -> None:
         """
         Open a file dialog and load the selected AFM data file.
@@ -1422,6 +1470,14 @@ class App(tk.Tk, UnconfirmedEntryMixin):
 
         # If the file can be loaded, show it and enable profile picking.
         if path and os.path.isfile(path):
+            # Default the scale to this file's recorded/header scan size so
+            # profile distances are reproducible; the user can still override.
+            # Done before the first draw so the axis extent uses the new scale.
+            # プロファイル距離を再現可能にするため、スケールをこのファイルの記録/
+            # ヘッダ走査範囲で既定化する（ユーザーは上書き可能）。初回描画前に
+            # 行い、軸 extent に新スケールを反映する。
+            self._apply_loaded_scan_size(path)
+
             # New file selected — force a fresh load.
             # 新しいファイルが選ばれたので必ずディスクから読み込む。
             self.image_showing(reload=True)
