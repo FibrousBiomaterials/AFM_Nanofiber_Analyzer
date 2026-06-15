@@ -72,7 +72,7 @@ from lib.fiber import Fiber
 from lib.blosc2_io import bundle_has_keys, BUNDLE_EXT
 from lib.measure import (
     TRACKING_BUNDLE_KEYS, compute_fiber_stats,
-    measure_bundle, write_fiber_csv,
+    measure_bundle, read_scan_size_from_bundle, write_fiber_csv,
 )
 from lib.translator import _
 from lib.ui_tools import (
@@ -951,6 +951,23 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return
 
         self.is_running = True
+
+        # Default the scale to the bundle's recorded scan size so fiber lengths
+        # are reproduced from the bundle alone. The X axis supplies the scalar
+        # scale, matching measure_bundle. The user can still override via the
+        # entry; bundles without a recorded scan size keep the current value.
+        # スケールをバンドル記録の走査範囲で既定化し、ファイバー長をバンドル単体で
+        # 再現する。measure_bundle に合わせ X 軸をスカラースケールとする。入力欄で
+        # 上書きは可能で、走査範囲未記録のバンドルは現在値を保持する。
+        recorded = read_scan_size_from_bundle(stem + BUNDLE_EXT)
+        if recorded is not None and abs(recorded[0] - self.scale_um) > 1e-9:
+            self.scale_um = recorded[0]
+            self.scale_um_var.set(self._fmt_num(self.scale_um))
+            self._log(
+                (_("バンドル記録のスケール {scale} µm を使用します。")).format(
+                    scale=self._fmt_num(self.scale_um)
+                )
+            )
 
         # Use committed internal scale, not unconfirmed Entry text.
         # スケールは内部状態（確定済み値）を参照する。

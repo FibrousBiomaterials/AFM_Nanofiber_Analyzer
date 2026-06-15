@@ -1949,3 +1949,75 @@ msgstr ""
 "\n"
 "Specify the GUI01 output folder as the input folder.\n"
 
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "選択行に適用"
+msgstr "Apply to selected"
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "全行に適用"
+msgstr "Apply to all"
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール表(CSV)読込"
+msgstr "Load scale table (CSV)"
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール入力欄の値を選択行へ適用します。"
+msgstr "Apply the value in the scale field to the selected rows."
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "ヘッダから取得できないファイルにスケールを与えるときに使います。"
+msgstr "Use this to set the scale for files without a header scan size."
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "ファイル名とスケールを対応付けた CSV を読み込みます。"
+msgstr "Load a CSV mapping file names to scales."
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "列: filename, scale_um もしくは scale_x_um, scale_y_um。"
+msgstr "Columns: filename, scale_um or scale_x_um, scale_y_um."
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール: ヘッダ取得 %d 件 / 未設定 %d 件"
+msgstr "Scale: %d from header / %d unset"
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "未設定のファイルは「選択行に適用」または「スケール表(CSV)読込」で設定してください。"
+msgstr "Set unset files via 'Apply to selected' or 'Load scale table (CSV)'."
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "適用する行を選択してください。"
+msgstr "Select the rows to apply to."
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール %g µm を %d 件に適用しました。"
+msgstr "Applied scale %g µm to %d file(s)."
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール表(CSV)を選択"
+msgstr "Select scale table (CSV)"
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール表の読み込みに失敗しました: %s"
+msgstr "Failed to load the scale table: %s"
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール表に有効な行がありませんでした。"
+msgstr "The scale table had no valid rows."
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール表を適用しました: 一致 %d 件 / 未一致 %d 件"
+msgstr "Applied the scale table: %d matched / %d unmatched."
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール未設定のファイルがあります。先にスケールを設定してください:"
+msgstr "Some files have no scale set. Set the scale first:"
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "選択されたファイルのスケールが複数あります。ファイルごとのスケールで処理します。続行しますか？"
+msgstr "The selected files have multiple scales. They will be processed with their per-file scales. Continue?"
+
+#: guis/GUI04_Tracking_fiber.py
+msgid "バンドル記録のスケール {scale} µm を使用します。"
+msgstr "Using the scan size {scale} µm recorded in the bundle."

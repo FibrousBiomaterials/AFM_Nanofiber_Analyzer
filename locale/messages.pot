@@ -1781,3 +1781,75 @@ msgid ""
 "\n"
 "入力フォルダは GUI01 の出力フォルダをそのまま指定してください。\n"
 msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "選択行に適用"
+msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "全行に適用"
+msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール表(CSV)読込"
+msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール入力欄の値を選択行へ適用します。"
+msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "ヘッダから取得できないファイルにスケールを与えるときに使います。"
+msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "ファイル名とスケールを対応付けた CSV を読み込みます。"
+msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "列: filename, scale_um もしくは scale_x_um, scale_y_um。"
+msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール: ヘッダ取得 %d 件 / 未設定 %d 件"
+msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "未設定のファイルは「選択行に適用」または「スケール表(CSV)読込」で設定してください。"
+msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "適用する行を選択してください。"
+msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール %g µm を %d 件に適用しました。"
+msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール表(CSV)を選択"
+msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール表の読み込みに失敗しました: %s"
+msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール表に有効な行がありませんでした。"
+msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール表を適用しました: 一致 %d 件 / 未一致 %d 件"
+msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール未設定のファイルがあります。先にスケールを設定してください:"
+msgstr ""
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "選択されたファイルのスケールが複数あります。ファイルごとのスケールで処理します。続行しますか？"
+msgstr ""
+
+#: guis/GUI04_Tracking_fiber.py
+msgid "バンドル記録のスケール {scale} µm を使用します。"
+msgstr ""

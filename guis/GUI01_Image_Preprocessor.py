@@ -38,6 +38,7 @@ PLUGIN_INFO = {
 # ===== Standard library =====
 import os
 import sys
+import csv
 import json
 import traceback
 import threading
@@ -69,7 +70,7 @@ from lib.pipeline import (
     bundle_path_for, existing_min_set, merge_params_dict, validate_params,
 )
 from lib.blosc2_io import load_bundle
-from lib.afm_io import load_afm_text
+from lib.afm_io import load_afm_text, read_scan_size
 from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, ToolTip, setup_matplotlib_style,
@@ -312,12 +313,52 @@ class FileItem:
     missing_reason
         Reason why an expected analysis output is missing.
         期待される解析出力が欠損している理由。
+    scale_x_um, scale_y_um
+        Per-file physical scan size in micrometers, stored in the bundle so
+        length measurements are reproducible. ``None`` means the scan size is
+        not yet known (no header value and no manual/manifest entry).
+        ファイル単位の物理走査範囲 (µm)。長さ計測を再現可能にするためバンドルへ
+        保存する。``None`` は走査範囲が未確定（ヘッダ値も手入力/マニフェスト値も
+        無い）であることを表す。
+    scale_source
+        Provenance of the scan size: ``""`` (unset) or one of
+        `SCAN_SIZE_SOURCES` (``input_header`` / ``manifest`` / ``manual``).
+        走査範囲の出所。``""``（未設定）または `SCAN_SIZE_SOURCES`
+        （``input_header`` / ``manifest`` / ``manual``）のいずれか。
     """
 
     txt_path: str
     status: str = STATUS_PENDING
     proc_time_s: str = ""
     missing_reason: str = ""
+    scale_x_um: Optional[float] = None
+    scale_y_um: Optional[float] = None
+    scale_source: str = ""
+
+    @property
+    def has_scale(self) -> bool:
+        """
+        Return whether a positive per-axis scan size is set.
+        軸ごとの正の走査範囲が設定されているかを返す。
+        """
+        return (
+            self.scale_x_um is not None and self.scale_y_um is not None
+            and self.scale_x_um > 0 and self.scale_y_um > 0
+        )
+
+    @property
+    def scale_display(self) -> str:
+        """
+        Format the scan size for the file table, or ``-`` when unset.
+        ファイル表向けに走査範囲を整形する。未設定時は ``-``。
+        """
+        if self.scale_x_um is None or self.scale_y_um is None:
+            return "-"
+        if abs(self.scale_x_um - self.scale_y_um) < 1e-9:
+            return f"{self.scale_x_um:g}"
+        # Non-square scans show both axes (e.g. Shimadzu SizeX != SizeY).
+        # 非正方走査は両軸を表示する（島津の SizeX != SizeY 等）。
+        return f"{self.scale_x_um:g}×{self.scale_y_um:g}"
 
     @property
     def stem(self) -> str:
@@ -567,7 +608,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         list_inner = ttk.Frame(list_frame)
         list_inner.pack(fill="both", expand=True)
 
-        columns = ("name", "status", "time")
+        columns = ("name", "scale", "status", "time")
         self.tree, _tree_vsb = create_scrolled_treeview(
             list_inner,
             columns=columns,
@@ -576,14 +617,49 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             height=14,
             headings={
                 "name": _("ファイル名"),
+                "scale": _("スケール") + " (µm)",
                 "status": _("状態"),
                 "time": _("処理時間") + " (s)",
             },
             column_options={
-                "name": {"width": 260, "anchor": "w"},
+                "name": {"width": 220, "anchor": "w"},
+                "scale": {"width": 80, "anchor": "center"},
                 "status": {"width": 90, "anchor": "center"},
                 "time": {"width": 90, "anchor": "center"},
             },
+        )
+
+        # Scale-assignment toolbar: fill the per-file scan size from the scale
+        # entry (manual) or a CSV manifest. Header values are filled on load.
+        # スケール割り当てツールバー：スケール入力欄（手動）または CSV
+        # マニフェストでファイル単位の走査範囲を設定する。ヘッダ値は読み込み時に充填。
+        scale_bar = ttk.Frame(list_frame)
+        scale_bar.pack(side="top", fill="x", padx=2, pady=(2, 0))
+        ttk.Label(scale_bar, text=_("スケール") + " (µm):").pack(side="left", padx=(0, 2))
+        self.btn_apply_scale_sel = ttk.Button(
+            scale_bar, text=_("選択行に適用"),
+            command=lambda: self.on_apply_scale_to_rows(selected_only=True),
+        )
+        self.btn_apply_scale_sel.pack(side="left", padx=2)
+        self.btn_apply_scale_all = ttk.Button(
+            scale_bar, text=_("全行に適用"),
+            command=lambda: self.on_apply_scale_to_rows(selected_only=False),
+        )
+        self.btn_apply_scale_all.pack(side="left", padx=2)
+        self.btn_load_manifest = ttk.Button(
+            scale_bar, text=_("スケール表(CSV)読込"),
+            command=self.on_load_scale_manifest,
+        )
+        self.btn_load_manifest.pack(side="left", padx=2)
+        ToolTip(
+            self.btn_apply_scale_sel,
+            _("スケール入力欄の値を選択行へ適用します。") + "\n"
+            + _("ヘッダから取得できないファイルにスケールを与えるときに使います。"),
+        )
+        ToolTip(
+            self.btn_load_manifest,
+            _("ファイル名とスケールを対応付けた CSV を読み込みます。") + "\n"
+            + _("列: filename, scale_um もしくは scale_x_um, scale_y_um。"),
         )
 
         # Left pane: log display.
@@ -907,7 +983,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         1 件のファイル項目を Treeview と検索用辞書へ挿入する。
         """
         # Store both lookup directions because later queue messages carry only iid.
-        iid = self.tree.insert("", "end", values=(os.path.basename(item.txt_path), status_label(item.status), item.proc_time_s))
+        iid = self.tree.insert(
+            "", "end",
+            values=(
+                os.path.basename(item.txt_path), item.scale_display,
+                status_label(item.status), item.proc_time_s,
+            ),
+        )
         self.item_by_iid[iid] = item
         self.iid_by_path[item.txt_path] = iid
 
@@ -920,7 +1002,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         it = self.item_by_iid.get(iid)
         if not it:
             return
-        self.tree.item(iid, values=(os.path.basename(it.txt_path), status_label(it.status), it.proc_time_s))
+        self.tree.item(
+            iid,
+            values=(
+                os.path.basename(it.txt_path), it.scale_display,
+                status_label(it.status), it.proc_time_s,
+            ),
+        )
 
     def _find_iid_for_item(self, item: FileItem) -> Optional[str]:
         """
@@ -950,16 +1038,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     pass
 
         running = self.is_running
-        _set([self.btn_select_folder, self.chk_skip, self.btn_run_all, self.btn_settings],
+        _set([self.btn_select_folder, self.chk_skip, self.btn_run_all, self.btn_settings,
+              self.btn_apply_scale_all, self.btn_load_manifest],
              "disabled" if running else "!disabled")
         _set([self.btn_stop], "!disabled" if running else "disabled")
 
-        # Single-file analysis is available only when at least one row is selected.
+        # Single-file analysis and apply-to-selected are available only when at
+        # least one row is selected.
         if running:
-            _set([self.btn_run_sel], "disabled")
+            _set([self.btn_run_sel, self.btn_apply_scale_sel], "disabled")
         else:
             has_sel = bool(self.tree.selection())
-            _set([self.btn_run_sel], "!disabled" if has_sel else "disabled")
+            _set([self.btn_run_sel, self.btn_apply_scale_sel],
+                 "!disabled" if has_sel else "disabled")
 
     def _on_tree_select(self) -> None:
         """
@@ -1006,6 +1097,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._invalidate_current_data()
 
         # Detect existing outputs only when a folder is selected.
+        n_from_header = 0
         for fn in files:
             full = os.path.join(folder, fn)
             item = FileItem(txt_path=full)
@@ -1018,13 +1110,185 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 if missing:
                     item.missing_reason = _("欠損: ") + ", ".join(missing)
                     self._log(_("%s: 未解析（%s）") % (fn, item.missing_reason))
+            # Auto-fill the scan size from the instrument header (Shimadzu
+            # SizeX/SizeY). Files without a header scan size stay unset and
+            # need a manual or manifest value before processing.
+            # 装置ヘッダ（島津 SizeX/SizeY）から走査範囲を自動取得する。ヘッダに
+            # 走査範囲が無いファイルは未設定のままで、処理前に手動または
+            # マニフェストで値を与える必要がある。
+            if self._autofill_scale_from_header(item):
+                n_from_header += 1
             self.items.append(item)
             self._insert_item(item)
 
         if not self.items:
             self._log(_("対象 .txt がありません。"))
+        else:
+            n_unset = sum(1 for it in self.items if not it.has_scale)
+            self._log(
+                _("スケール: ヘッダ取得 %d 件 / 未設定 %d 件")
+                % (n_from_header, n_unset)
+            )
+            if n_unset:
+                self._log(
+                    _("未設定のファイルは「選択行に適用」または「スケール表(CSV)読込」で設定してください。")
+                )
         self._update_controls_state()
         self.on_redraw_preview()
+
+    # ---------- Scale assignment ----------
+    def _autofill_scale_from_header(self, item: FileItem) -> bool:
+        """
+        Set a file's scan size from its instrument header, if recorded.
+        記録があればファイルの走査範囲を装置ヘッダから設定する。
+
+        Returns
+        -------
+        bool
+            True when a header scan size was found and applied.
+            ヘッダの走査範囲が見つかり適用された場合に True。
+        """
+        try:
+            size = read_scan_size(item.txt_path)
+        except Exception:
+            # A header read failure must not abort folder loading; the file
+            # simply stays unset and can be filled manually.
+            # ヘッダ読み取り失敗でフォルダ読み込みを中断しない。該当ファイルは
+            # 未設定のままとし、手動で設定できる。
+            size = None
+        if size is None:
+            return False
+        item.scale_x_um = size.x_um
+        item.scale_y_um = size.y_um
+        item.scale_source = "input_header"
+        return True
+
+    def on_apply_scale_to_rows(self, selected_only: bool) -> None:
+        """
+        Apply the scale entry value to selected or all file rows (manual source).
+        スケール入力欄の値を選択行または全行へ適用する（手動ソース）。
+        """
+        if self.is_running:
+            return
+        # Commit and validate the scale entry before applying it.
+        # 適用前にスケール入力欄を確定・検証する。
+        if not self.validate_scale_um():
+            return
+        if selected_only:
+            iids = list(self.tree.selection())
+            if not iids:
+                messagebox.showinfo(_("注意"), _("適用する行を選択してください。"))
+                return
+        else:
+            iids = list(self.tree.get_children())
+        value = float(self.scale_um)
+        for iid in iids:
+            it = self.item_by_iid.get(iid)
+            if it is None:
+                continue
+            it.scale_x_um = value
+            it.scale_y_um = value
+            it.scale_source = "manual"
+            self._refresh_tree_row(iid)
+        self._log(_("スケール %g µm を %d 件に適用しました。") % (value, len(iids)))
+
+    def on_load_scale_manifest(self) -> None:
+        """
+        Load a CSV mapping file names to scan sizes and apply them by name.
+        ファイル名と走査範囲を対応付けた CSV を読み込み、名前一致で適用する。
+
+        Notes
+        -----
+        The CSV must have a header row with a ``filename`` column and either a
+        single ``scale_um`` column or separate ``scale_x_um`` / ``scale_y_um``
+        columns. File names match by base name, with or without extension.
+        CSV はヘッダ行を持ち、``filename`` 列と、``scale_um`` 単一列または
+        ``scale_x_um`` / ``scale_y_um`` の分割列のいずれかを含む必要がある。
+        ファイル名は拡張子の有無を問わず基底名で一致させる。
+        """
+        if self.is_running:
+            return
+        path = filedialog.askopenfilename(
+            title=_("スケール表(CSV)を選択"),
+            filetypes=[("CSV", "*.csv"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+        try:
+            mapping = self._parse_scale_manifest(path)
+        except Exception as e:
+            messagebox.showerror(_("エラー"), _("スケール表の読み込みに失敗しました: %s") % e)
+            return
+        if not mapping:
+            messagebox.showwarning(_("注意"), _("スケール表に有効な行がありませんでした。"))
+            return
+
+        # Match listed files by base name, accepting entries given with or
+        # without the file extension.
+        # 一覧のファイルを基底名で照合する。拡張子付き・無しのどちらの記載も許す。
+        n_matched = 0
+        for iid in self.tree.get_children():
+            it = self.item_by_iid.get(iid)
+            if it is None:
+                continue
+            base = os.path.basename(it.txt_path)
+            stem = os.path.splitext(base)[0]
+            entry = mapping.get(base) or mapping.get(stem)
+            if entry is None:
+                continue
+            it.scale_x_um, it.scale_y_um = entry
+            it.scale_source = "manifest"
+            self._refresh_tree_row(iid)
+            n_matched += 1
+        n_unmatched = len(mapping) - n_matched
+        self._log(
+            _("スケール表を適用しました: 一致 %d 件 / 未一致 %d 件")
+            % (n_matched, max(n_unmatched, 0))
+        )
+
+    @staticmethod
+    def _parse_scale_manifest(path: str) -> Dict[str, Tuple[float, float]]:
+        """
+        Parse a scale-manifest CSV into a ``{name: (x_um, y_um)}`` mapping.
+        スケールマニフェスト CSV を ``{名前: (x_um, y_um)}`` 辞書へ解析する。
+
+        Raises
+        ------
+        ValueError
+            If the required columns are missing.
+            必須列が無い場合。
+        """
+        mapping: Dict[str, Tuple[float, float]] = {}
+        # utf-8-sig also reads BOM-less UTF-8, matching Excel exports on
+        # Japanese Windows.
+        # utf-8-sig は BOM 無し UTF-8 も読め、日本語 Windows の Excel 出力に合う。
+        with open(path, newline="", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            cols = set(reader.fieldnames or [])
+            if "filename" not in cols:
+                raise ValueError("missing 'filename' column")
+            has_single = "scale_um" in cols
+            has_xy = "scale_x_um" in cols and "scale_y_um" in cols
+            if not (has_single or has_xy):
+                raise ValueError(
+                    "missing scale columns ('scale_um' or "
+                    "'scale_x_um'/'scale_y_um')"
+                )
+            for row in reader:
+                name = (row.get("filename") or "").strip()
+                if not name:
+                    continue
+                try:
+                    if has_xy and (row.get("scale_x_um") or "").strip():
+                        x = float(row["scale_x_um"])
+                        y = float(row["scale_y_um"])
+                    else:
+                        x = y = float(row["scale_um"])
+                except (TypeError, ValueError):
+                    continue
+                if x > 0 and y > 0:
+                    mapping[name] = (x, y)
+        return mapping
 
     # ---------- Analysis ----------
     def _check_folder_selected(self) -> bool:
@@ -1071,6 +1335,61 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._log(_("停止要求を受け付けました（安全に中断します）"))
         self.progress_detail_var.set(_("停止要求を送信しました…"))
         self.stop_event.set()
+
+    def _scales_ready_for_run(self, targets: List[FileItem], overwrite: bool) -> bool:
+        """
+        Check per-file scan sizes before a run, prompting on mixed scales.
+        実行前にファイル単位の走査範囲を確認し、複数スケール時は確認する。
+
+        Parameters
+        ----------
+        overwrite
+            Whether existing outputs are reprocessed; when False, files with
+            existing outputs are skipped and excluded from the scale check.
+            既存出力を再処理するか。False のとき既存出力のあるファイルは
+            スキップされ、スケール検査の対象から除外する。
+
+        Returns
+        -------
+        bool
+            True when processing may proceed; False to abort.
+            処理を続行してよい場合は True、中止する場合は False。
+        """
+        # Only files that will actually be processed need a scale.
+        # 実際に処理されるファイルのみスケールが必要。
+        to_process = []
+        for it in targets:
+            ok, _missing = existing_min_set(it.stem)
+            if ok and not overwrite:
+                continue
+            to_process.append(it)
+
+        unset = [it for it in to_process if not it.has_scale]
+        if unset:
+            names = ", ".join(os.path.basename(it.txt_path) for it in unset[:10])
+            if len(unset) > 10:
+                names += f" (+{len(unset) - 10})"
+            msg = _("スケール未設定のファイルがあります。先にスケールを設定してください:")
+            self._log(msg + " " + names)
+            messagebox.showerror(_("エラー"), msg + "\n\n" + names)
+            return False
+
+        # Distinct per-axis sizes among the files to process. More than one is
+        # allowed (mixed-scale folders are valid) but confirmed, since it is
+        # also a common sign of a manifest or selection mistake.
+        # 処理対象ファイル間で異なる軸別サイズの集合。複数あっても許容するが
+        # （混在フォルダは正当）、マニフェストや選択ミスの兆候でもあるため確認する。
+        distinct = {
+            (round(it.scale_x_um, 6), round(it.scale_y_um, 6)) for it in to_process
+        }
+        if len(distinct) > 1:
+            if not messagebox.askokcancel(
+                _("確認"),
+                _("選択されたファイルのスケールが複数あります。"
+                  "ファイルごとのスケールで処理します。続行しますか？"),
+            ):
+                return False
+        return True
 
     def _start_processing(self, targets: List[FileItem]) -> None:
         """
@@ -1120,6 +1439,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 if ok:
                     n_over += 1
             self._log(_("上書き対象ファイル数: %d") % n_over)
+
+        # Validate the per-file scan size, but only for files that will actually
+        # be processed (skipped existing outputs keep their stored scale).
+        # ファイル単位の走査範囲を検証する。ただし実際に処理されるファイルのみ
+        # 対象とする（スキップされる既存出力は保存済みスケールを保持する）。
+        if not self._scales_ready_for_run(targets, overwrite):
+            return
 
         # Progressbar stores a percentage; completed count is tracked separately.
         self._total_tasks = len(targets)
@@ -1203,12 +1529,21 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self.ui_queue.put(("progress_detail", (fname, stage_label(s))))
 
         try:
+            # Pass the per-file scan size resolved on the main thread (header,
+            # manifest, or manual) so the bundle records its spatial calibration.
+            # メインスレッドで解決したファイル単位の走査範囲（ヘッダ/マニフェスト/
+            # 手動）を渡し、バンドルへ空間較正を記録する。
+            scan_size_um = None
+            if it.has_scale:
+                scan_size_um = (it.scale_x_um, it.scale_y_um)
             result = process_file(
                 it.txt_path,
                 self.params_active,
                 stages=stages,
                 save_original=self._save_original_active,
                 on_stage=report_stage,
+                scan_size_um=scan_size_um,
+                scan_size_source=it.scale_source or "manual",
             )
             self.ui_queue.put(("progress_detail", (fname, _("完了"))))
 
