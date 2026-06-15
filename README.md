@@ -339,9 +339,11 @@ so no import settings are required. Two layouts are recognized:
 | Multi-column | Shimadzu SPM-9600 | Comma-separated values, one row per scan line. Non-square scans are supported. |
 | Single-column | Bruker NanoScope | Text header lines (e.g. `Height(nm)`) followed by one value per line. The value count must be a perfect square; the data is reshaped to `(s, s)`. |
 
-Height values are interpreted as nanometers. The physical scan size is not
-read from the input file; pixel-to-physical scaling is configured in the GUIs.
-Sample scans are bundled under `testdata_tunicateCNF/` (Shimadzu) and
+Height values are interpreted as nanometers. The physical scan size is read
+from the instrument header when present (Shimadzu `SizeX` / `SizeY`) and stored
+in the bundle as the spatial calibration; inputs without a header scan size
+(e.g. bare Bruker NanoScope exports) take the scan size from the GUI/CLI
+instead. Sample scans are bundled under `testdata_tunicateCNF/` (Shimadzu) and
 `Bruker_testdata/` (one representative Bruker NanoScope export).
 
 The background calibrator (`BGCalibrator` in `lib/bg_calibrator.py`)
@@ -404,6 +406,11 @@ which catches typos that would otherwise silently fall back to defaults.
 `--format` forces the input text layout (`multi-column` or `single-column`)
 when auto-detection would lock onto a numeric header block; the resolved
 layout is always recorded in the bundle metadata (`input_format`) for audit.
+`--scale-um` records the physical scan size (in micrometers, applied to both
+axes) in the bundle, overriding the value read from the instrument header; when
+omitted, the header scan size is used if present, otherwise no scan size is
+stored. Because the scan size travels per file, a folder mixing scans of
+different sizes is processed correctly without one batch-wide value.
 
 ### Validating bundles
 
@@ -430,8 +437,9 @@ GUI04 export for the same bundle and scale.
 
 ```powershell
 # Per-fiber statistics (length, height median/max, endpoints, kinks).
-# The physical image size in micrometers must be given explicitly because
-# the scan size is not stored in the bundle.
+# --scale-um is optional: when omitted, the scan size recorded in each bundle
+# is used. Pass it explicitly for older bundles that have no recorded scan size.
+python cli.py measure results\*.b2z
 python cli.py measure results\*.b2z --scale-um 2.0
 python cli.py measure results --scale-um 2.0 --output-dir stats
 
@@ -499,10 +507,14 @@ Each bundle also stores root metadata (blosc2 `vlmeta`):
 | `input_file` | Base name of the processed input file. |
 | `input_sha256` | SHA-256 digest of the input file contents. |
 | `created_utc` | Processing time as an ISO 8601 UTC timestamp. |
+| `input_format` | Detected text layout (`kind`, `skiprows`, `n_cols`, `encoding`). |
+| `spatial_calibration` | Physical scan size: `scan_size_x_um`, `scan_size_y_um`, and `source` (`input_header`, `manifest`, or `manual`). Present only when the scan size is known. |
 
 The provenance keys (`software_version`, `input_file`, `input_sha256`,
-`created_utc`) are optional: bundles written by older releases lack them, and
-readers must not require them.
+`created_utc`, `input_format`, `spatial_calibration`) are optional: bundles
+written by older releases lack them, and readers must not require them. When
+`spatial_calibration` is present, `measure` and GUI04 default the scale to its
+recorded value, so fiber lengths are reproducible from the bundle alone.
 
 GUI01 also writes `<input_stem>_param.json` for analysis parameters. The raw
 AFM image is not duplicated in the bundle by default because it can be

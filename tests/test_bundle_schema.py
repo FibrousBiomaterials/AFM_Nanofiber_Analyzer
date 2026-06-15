@@ -24,8 +24,12 @@ from lib.blosc2_io import load_bundle, load_bundle_meta, save_bundle
 from lib.bundle_schema import (
     BUNDLE_FORMAT_VERSION,
     REQUIRED_BUNDLE_KEYS,
+    SCAN_SIZE_SOURCES,
+    SPATIAL_CALIBRATION_KEY,
     SUPPORTED_BUNDLE_VERSIONS,
     TRACKING_BUNDLE_KEYS,
+    make_spatial_calibration,
+    scan_size_um_from_meta,
     validate_bundle,
 )
 from lib.measure import load_tracking_image, skeleton_height_values
@@ -278,3 +282,44 @@ def test_cli_process_strict_rejects_unknown_param_key(tmp_path):
 def test_tracking_keys_subset_of_required():
     """The GUI04/measure contract must stay a subset of the writer contract."""
     assert set(TRACKING_BUNDLE_KEYS) <= set(REQUIRED_BUNDLE_KEYS)
+
+
+# --- spatial_calibration: scan-size provenance metadata --------------------
+
+def test_make_spatial_calibration_roundtrips_through_reader():
+    """A built calibration entry is read back as the same (x, y) scan size."""
+    cal = make_spatial_calibration(2.0, 3.0, "input_header")
+    assert cal == {
+        "scan_size_x_um": 2.0,
+        "scan_size_y_um": 3.0,
+        "source": "input_header",
+    }
+    meta = {SPATIAL_CALIBRATION_KEY: cal}
+    assert scan_size_um_from_meta(meta) == (2.0, 3.0)
+
+
+def test_make_spatial_calibration_rejects_nonpositive_and_bad_source():
+    with pytest.raises(ValueError, match="scan size must be positive"):
+        make_spatial_calibration(0.0, 2.0, "manual")
+    with pytest.raises(ValueError, match="unknown scan-size source"):
+        make_spatial_calibration(2.0, 2.0, "guess")
+
+
+def test_scan_size_sources_are_known():
+    """Every documented source must be accepted by the builder."""
+    for source in SCAN_SIZE_SOURCES:
+        cal = make_spatial_calibration(1.0, 1.0, source)
+        assert cal["source"] == source
+
+
+def test_scan_size_um_from_meta_handles_missing_and_malformed():
+    """Absent, non-dict, incomplete, or non-positive calibrations yield None."""
+    assert scan_size_um_from_meta(None) is None
+    assert scan_size_um_from_meta({}) is None
+    assert scan_size_um_from_meta({SPATIAL_CALIBRATION_KEY: "x"}) is None
+    assert scan_size_um_from_meta(
+        {SPATIAL_CALIBRATION_KEY: {"scan_size_x_um": 2.0}}
+    ) is None
+    assert scan_size_um_from_meta(
+        {SPATIAL_CALIBRATION_KEY: {"scan_size_x_um": -1.0, "scan_size_y_um": 2.0}}
+    ) is None

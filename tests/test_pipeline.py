@@ -22,11 +22,14 @@ import pytest
 
 import lib
 from lib.blosc2_io import load_bundle, load_bundle_meta
+from lib.bundle_schema import SPATIAL_CALIBRATION_KEY
+from lib.measure import measure_bundle
 from lib.pipeline import (
     ProcParams, STAGE_KEYS, REQUIRED_BUNDLE_KEYS,
     build_stages, process_file, merge_params_dict,
     bundle_path_for, param_path_for, existing_min_set,
 )
+from tests.conftest import write_synthetic_fiber_txt
 
 # tophat keeps the unit test fast; the slow integration test covers the
 # default inpaint method on a real scan.
@@ -211,6 +214,82 @@ def test_vlmeta_records_provenance(pipeline_result, synthetic_fiber_txt):
         assert meta["input_sha256"] == hashlib.sha256(f.read()).hexdigest()
     # ISO 8601 UTC timestamp, e.g. 2026-06-11T05:00:00+00:00.
     assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", meta["created_utc"])
+
+
+def _write_shimadzu_fiber_txt(out_dir, *, size_x="2.0000um", size_y="2.0000um") -> str:
+    """Write a synthetic fiber image prefixed with a Shimadzu scan-size header.
+
+    Lets the pipeline exercise header-derived spatial calibration without the
+    large bundled scan; the numeric body is the same bent-fiber image.
+    巨大な同梱スキャンに依存せず、ヘッダ由来の空間較正をパイプラインで検証する。
+    数値本体は同じ折れ繊維画像。
+    """
+    base = write_synthetic_fiber_txt(out_dir)
+    body = Path(base).read_text(encoding="utf-8")
+    header = (
+        "Shimadzu SPM File Format Version 4.30\n"
+        "[SCANNING PARAMS]\n"
+        f"SizeX: {size_x}\n"
+        f"SizeY: {size_y}\n"
+    )
+    path = os.path.join(out_dir, "shimadzu_fiber.txt")
+    Path(path).write_text(header + body, encoding="utf-8")
+    return path
+
+
+def test_vlmeta_records_scan_size_from_header(tmp_path):
+    """A Shimadzu header populates spatial_calibration with source input_header."""
+    out_dir = os.path.join(tmp_path, "hdr")
+    os.makedirs(out_dir)
+    txt = _write_shimadzu_fiber_txt(out_dir, size_x="2.0000um", size_y="2.0000um")
+    result = process_file(txt, FAST_PARAMS, output_dir=out_dir)
+    cal = load_bundle_meta(result.bundle_path)[SPATIAL_CALIBRATION_KEY]
+    assert cal == {
+        "scan_size_x_um": 2.0, "scan_size_y_um": 2.0, "source": "input_header",
+    }
+
+
+def test_explicit_scan_size_overrides_header(tmp_path):
+    """An explicit scan_size_um wins over the header and records its source."""
+    out_dir = os.path.join(tmp_path, "override")
+    os.makedirs(out_dir)
+    txt = _write_shimadzu_fiber_txt(out_dir, size_x="2.0000um", size_y="2.0000um")
+    result = process_file(
+        txt, FAST_PARAMS, output_dir=out_dir,
+        scan_size_um=(5.0, 5.0), scan_size_source="manifest",
+    )
+    cal = load_bundle_meta(result.bundle_path)[SPATIAL_CALIBRATION_KEY]
+    assert cal == {
+        "scan_size_x_um": 5.0, "scan_size_y_um": 5.0, "source": "manifest",
+    }
+
+
+def test_no_scan_size_omits_calibration(pipeline_result):
+    """A headerless input without an explicit size stores no calibration key."""
+    result, _events = pipeline_result
+    meta = load_bundle_meta(result.bundle_path)
+    assert SPATIAL_CALIBRATION_KEY not in meta
+
+
+def test_measure_bundle_defaults_to_recorded_scan_size(tmp_path):
+    """measure_bundle(scale_um=None) reuses the scan size stored in the bundle."""
+    out_dir = os.path.join(tmp_path, "measure_default")
+    os.makedirs(out_dir)
+    txt = write_synthetic_fiber_txt(out_dir)
+    result = process_file(
+        txt, FAST_PARAMS, output_dir=out_dir, scan_size_um=(2.0, 2.0),
+    )
+    from_recorded = measure_bundle(result.bundle_path, scale_um=None)
+    from_explicit = measure_bundle(result.bundle_path, scale_um=2.0)
+    assert from_recorded.image.size_per_pixel == from_explicit.image.size_per_pixel
+    assert len(from_recorded.fibers) == len(from_explicit.fibers)
+
+
+def test_measure_bundle_without_scale_or_record_raises(pipeline_result):
+    """With neither an explicit scale nor a recorded one, measurement refuses."""
+    result, _events = pipeline_result
+    with pytest.raises(ValueError, match="records no scan size"):
+        measure_bundle(result.bundle_path, scale_um=None)
 
 
 def test_software_version_matches_pyproject():

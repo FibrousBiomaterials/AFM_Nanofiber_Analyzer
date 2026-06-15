@@ -24,13 +24,17 @@ keeps gettext out of the analysis layer; callers translate as needed.
 
 Notes
 -----
-The physical scan size is not yet stored in the bundle metadata, so callers
-must supply `scale_um` (full image width in micrometers) explicitly. When
-scan-size provenance is added to the bundle contract, `scale_um` can become
-optional and default to the recorded value.
-走査範囲はまだバンドルのメタデータに保存されていないため、呼び出し側が
-`scale_um`（画像全幅、µm）を明示的に渡す必要がある。走査範囲が来歴情報として
-バンドル契約に追加されれば、`scale_um` は省略可能にして記録値を既定にできる。
+When a bundle records the physical scan size (``spatial_calibration`` vlmeta,
+populated from the instrument header or a manual/manifest value at processing
+time), `measure_bundle` defaults `scale_um` to that recorded value, so
+length and distance results are reproducible from the bundle alone. Callers
+may still pass `scale_um` explicitly, and must do so for older bundles that
+predate the scan-size contract.
+バンドルが物理走査範囲（``spatial_calibration`` vlmeta。処理時に装置ヘッダ
+または手入力／マニフェスト値から設定される）を記録していれば、
+`measure_bundle` は `scale_um` をその記録値で既定化するため、長さ・距離の
+結果がバンドル単体で再現できる。呼び出し側は `scale_um` を明示指定もでき、
+走査範囲契約より前のバンドルでは明示指定が必須となる。
 """
 
 # ===== Standard library =====
@@ -48,7 +52,11 @@ from .blosc2_io import load_bundle, load_bundle_meta
 # is re-imported here so existing `measure.TRACKING_BUNDLE_KEYS` users keep working.
 # キー契約と検証は bundle_schema が管理する。既存の
 # `measure.TRACKING_BUNDLE_KEYS` 利用側が動き続けるよう、ここで再インポートする。
-from .bundle_schema import TRACKING_BUNDLE_KEYS, validate_bundle
+from .bundle_schema import (
+    TRACKING_BUNDLE_KEYS,
+    scan_size_um_from_meta,
+    validate_bundle,
+)
 from .fiber import Fiber
 from .fiber_tracking_image import FiberTrackingImage
 
@@ -282,9 +290,34 @@ def load_tracking_image(bundle_path: str, size_per_pixel: float) -> FiberTrackin
     return _tracking_image_from_arrays(name, data, size_per_pixel)
 
 
+def read_scan_size_from_bundle(
+    bundle_path: str,
+) -> Optional[Tuple[float, float]]:
+    """
+    Read the recorded scan size ``(x_um, y_um)`` from a bundle, if present.
+    バンドルに記録された走査範囲 ``(x_um, y_um)`` を読み取る（記録があれば）。
+
+    Parameters
+    ----------
+    bundle_path
+        Path to the ``.b2z`` bundle file.
+        ``.b2z`` バンドルファイルのパス。
+
+    Returns
+    -------
+    tuple of float or None
+        Per-axis scan size in micrometers, or ``None`` when the bundle stores
+        no valid spatial calibration (e.g. bundles written before the scan
+        size was added to the contract).
+        軸ごとの走査範囲 (µm)。有効な空間較正が無ければ ``None``（走査範囲が
+        契約へ追加される前に書かれたバンドル等）。
+    """
+    return scan_size_um_from_meta(load_bundle_meta(bundle_path))
+
+
 def measure_bundle(
     bundle_path: str,
-    scale_um: float,
+    scale_um: Optional[float] = None,
     max_workers: Optional[int] = None,
     progress_cb: Optional[Callable[[int, int], None]] = None,
 ) -> MeasureResult:
@@ -300,9 +333,15 @@ def measure_bundle(
     scale_um
         Full physical image size in micrometers. The pixel size is derived as
         ``scale_um * 1000 / max(height_px, width_px)``, matching the GUI04
-        convention for non-square images.
+        convention for non-square images. When ``None``, the scan size
+        recorded in the bundle (``spatial_calibration``) is used; its X size
+        supplies the scale. A ``ValueError`` is raised if neither an explicit
+        value nor a recorded scan size is available.
         画像全体の物理サイズ (µm)。ピクセルサイズは GUI04 の非正方画像の規約に
-        合わせ ``scale_um * 1000 / max(縦px, 横px)`` で導出する。
+        合わせ ``scale_um * 1000 / max(縦px, 横px)`` で導出する。``None`` の
+        ときはバンドルに記録された走査範囲（``spatial_calibration``）を使い、
+        その X サイズをスケールに用いる。明示値も記録値も無い場合は
+        ``ValueError`` を送出する。
     max_workers
         Maximum number of worker threads for parallel fiber tracing.
         並列ファイバー追跡に使うワーカースレッドの最大数。
@@ -319,9 +358,24 @@ def measure_bundle(
     Raises
     ------
     ValueError
-        If `scale_um` is not a positive number, or if the bundle violates
+        If `scale_um` is ``None`` and the bundle records no scan size, if the
+        resolved scale is not a positive number, or if the bundle violates
         the ``.b2z`` contract (see `lib.bundle_schema.validate_bundle`).
     """
+    if scale_um is None:
+        recorded = read_scan_size_from_bundle(bundle_path)
+        if recorded is None:
+            raise ValueError(
+                "scale_um is None and the bundle records no scan size; "
+                "pass scale_um explicitly or re-process the input so its "
+                "scan size is stored in the bundle"
+            )
+        # Scalar scale follows the X axis to match the historical single-value
+        # convention; for square scans X and Y are equal.
+        # 従来の単一値規約に合わせ X 軸をスカラースケールとする。正方走査では
+        # X と Y は等しい。
+        scale_um = recorded[0]
+
     if not (scale_um > 0):
         raise ValueError(f"scale_um must be a positive number, got {scale_um!r}")
 

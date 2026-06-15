@@ -150,6 +150,10 @@ def cmd_process(args: argparse.Namespace) -> int:
         print("error: no input files found", file=sys.stderr)
         return 2
 
+    if args.scale_um is not None and not (args.scale_um > 0):
+        print("error: --scale-um must be a positive number", file=sys.stderr)
+        return 2
+
     try:
         params = _load_params(args.params, strict=args.strict) if args.params else ProcParams()
     except ValueError as e:
@@ -197,6 +201,11 @@ def cmd_process(args: argparse.Namespace) -> int:
                 save_original=args.save_original,
                 on_stage=lambda s: print(s, end=" ", flush=True),
                 input_format=args.format,
+                scan_size_um=(
+                    (args.scale_um, args.scale_um)
+                    if args.scale_um is not None else None
+                ),
+                scan_size_source="manual",
             )
         except Exception as e:
             print("FAILED")
@@ -347,7 +356,11 @@ def cmd_measure(args: argparse.Namespace) -> int:
     if not inputs:
         print("error: no input bundle files found", file=sys.stderr)
         return 2
-    if not (args.scale_um > 0):
+    # When given, the scale must be positive; when omitted (None), each bundle
+    # falls back to its own recorded scan size inside measure_bundle.
+    # 指定時はスケールが正であること。省略時 (None) は各バンドルが
+    # measure_bundle 内で自身の記録走査範囲にフォールバックする。
+    if args.scale_um is not None and not (args.scale_um > 0):
         print("error: --scale-um must be a positive number", file=sys.stderr)
         return 2
 
@@ -544,6 +557,13 @@ def build_parser() -> argparse.ArgumentParser:
              "the resolved layout is recorded in the bundle metadata",
     )
     p_proc.add_argument(
+        "--scale-um", type=float, default=None, metavar="UM",
+        help="physical scan size in micrometers to record in the bundle "
+             "(applied to both axes). Overrides the value read from the "
+             "instrument header; when omitted, the header value is used if "
+             "present, otherwise no scan size is stored.",
+    )
+    p_proc.add_argument(
         "--strict", action="store_true",
         help="fail when the --params file contains unknown keys "
              "(catches typos that would silently fall back to defaults)",
@@ -585,10 +605,11 @@ def build_parser() -> argparse.ArgumentParser:
              "(glob patterns are expanded; folders take all bundles inside)",
     )
     p_measure.add_argument(
-        "--scale-um", type=float, required=True, metavar="UM",
+        "--scale-um", type=float, default=None, metavar="UM",
         help="full physical image size in micrometers; the pixel size is "
-             "scale / max(image height, image width). The scan size is not "
-             "stored in the bundle, so it must be given explicitly.",
+             "scale / max(image height, image width). Optional: when omitted, "
+             "the scan size recorded in each bundle is used; bundles without a "
+             "recorded scan size are reported as failures.",
     )
     p_measure.add_argument(
         "--output-dir", metavar="DIR",

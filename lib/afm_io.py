@@ -44,6 +44,7 @@ data must never mis-parse silently, two safeguards exist:
   レイアウト不一致は黙った切り捨てや汚染データではなく明示エラーになる。
 """
 
+import re
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
 
@@ -91,6 +92,49 @@ class AfmTextFormat:
     skiprows: int
     n_cols: int
     encoding: str
+
+
+@dataclass(frozen=True)
+class ScanSize:
+    """
+    Physical scan size parsed from an instrument file header, in micrometers.
+    装置ファイルのヘッダから読み取った物理走査範囲 (µm)。
+
+    Attributes
+    ----------
+    x_um
+        Fast-scan (X) physical size in micrometers.
+        高速走査軸 (X) の物理サイズ (µm)。
+    y_um
+        Slow-scan (Y) physical size in micrometers.
+        低速走査軸 (Y) の物理サイズ (µm)。
+
+    Notes
+    -----
+    X and Y are kept separate because AFM scans are not always square; the
+    measurement layer can use the per-axis size for non-square pixel grids.
+    AFM 走査は常に正方形とは限らないため X と Y を分けて保持する。非正方形の
+    画素グリッドでも計測層が軸別サイズを利用できる。
+    """
+
+    x_um: float
+    y_um: float
+
+
+# Shimadzu SPM file headers record the scan range under [SCANNING PARAMS] as
+# e.g. ``SizeX: 2.0000um`` / ``SizeY: 2.0000um``. The unit is um or nm.
+# 島津 SPM のヘッダは [SCANNING PARAMS] 配下に走査範囲を ``SizeX: 2.0000um`` /
+# ``SizeY: 2.0000um`` の形で記録する。単位は um または nm。
+_SHIMADZU_SIZE_RE = re.compile(
+    r"^\s*Size([XY])\s*:\s*([0-9.eE+\-]+)\s*(um|nm|µm)\b",
+    re.IGNORECASE,
+)
+
+# Maximum header lines scanned for scan-size keys. The scan range sits in the
+# small text header, so reading the whole multi-megabyte data body is wasteful.
+# 走査範囲キーを探すヘッダ行数の上限。走査範囲は小さなテキストヘッダ内にあり、
+# 数 MB のデータ本体まで走査するのは無駄なため。
+_SCAN_SIZE_HEADER_SCAN_LIMIT = 200
 
 
 def _read_text_lines(path: str) -> Tuple[List[str], str]:
@@ -304,6 +348,66 @@ def detect_afm_format(path: str, fmt: str = "auto") -> AfmTextFormat:
     if skiprows is None:
         raise ValueError(f"数値データ領域を検出できませんでした: {path}")
     return AfmTextFormat("single-column", skiprows, 1, encoding)
+
+
+def read_scan_size(path: str) -> Optional[ScanSize]:
+    """
+    Read the physical scan size from an AFM file header, if present.
+    AFM ファイルのヘッダから物理走査範囲を読み取る（記録があれば）。
+
+    Currently this recognizes the Shimadzu SPM ``SizeX`` / ``SizeY`` header
+    keys under ``[SCANNING PARAMS]``. Exports that strip the header (e.g. the
+    bare ``Height(nm)`` single-column text from Bruker NanoScope) carry no
+    scan size, so the caller must obtain it elsewhere.
+    現状は ``[SCANNING PARAMS]`` 配下の島津 SPM の ``SizeX`` / ``SizeY`` キーを
+    認識する。ヘッダを落としたエクスポート（Bruker NanoScope の ``Height(nm)``
+    だけの 1 列テキスト等）は走査範囲を持たないため、呼び出し側が別途取得する。
+
+    Parameters
+    ----------
+    path
+        Path to the AFM text/CSV file.
+        AFM テキスト/CSV ファイルのパス。
+
+    Returns
+    -------
+    ScanSize or None
+        Parsed scan size in micrometers, or ``None`` when the header does not
+        record it.
+        µm 単位の走査範囲。ヘッダに記録が無ければ ``None``。
+
+    Notes
+    -----
+    A header that records only one of the two axes is treated as missing,
+    because a single-axis scan size cannot calibrate length in both
+    directions and is more likely a malformed header than a real scan.
+    片方の軸しか記録されていないヘッダは「無し」として扱う。片軸だけの走査範囲
+    では両方向の長さを較正できず、実走査よりもヘッダ不整合である可能性が高い。
+    """
+    lines, _encoding = _read_text_lines(path)
+
+    x_um: Optional[float] = None
+    y_um: Optional[float] = None
+    for line in lines[:_SCAN_SIZE_HEADER_SCAN_LIMIT]:
+        m = _SHIMADZU_SIZE_RE.match(line)
+        if m is None:
+            continue
+        axis, value, unit = m.group(1).upper(), float(m.group(2)), m.group(3).lower()
+        # Normalize to micrometers; "µm" and "um" are both micrometers.
+        # µm へ正規化する（"µm" と "um" はいずれもマイクロメートル）。
+        value_um = value / 1000.0 if unit == "nm" else value
+        if axis == "X":
+            x_um = value_um
+        else:
+            y_um = value_um
+        if x_um is not None and y_um is not None:
+            break
+
+    if x_um is None or y_um is None:
+        return None
+    if not (x_um > 0 and y_um > 0):
+        return None
+    return ScanSize(x_um=x_um, y_um=y_um)
 
 
 def load_afm_text(

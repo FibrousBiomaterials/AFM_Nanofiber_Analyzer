@@ -59,7 +59,7 @@ it without pulling in the heavy preprocessing stack.
 """
 
 # ===== Standard library =====
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 # ===== Numerical / scientific libraries =====
 import numpy as np
@@ -96,6 +96,26 @@ REQUIRED_BUNDLE_KEYS = [
 # Optional keys must not affect the analyzed/not-analyzed decision for backward compatibility.
 # 後方互換のため、任意キーは解析済み判定に使わない。
 OPTIONAL_BUNDLE_KEYS = ["original"]
+
+# vlmeta key holding the physical spatial calibration (scan size). It is
+# optional provenance metadata, like "input_format": bundles written before
+# this key existed simply lack it, and readers must treat its absence as
+# "scale unknown" rather than an error. Storing it lets length/distance
+# measurements be reproduced from the bundle alone instead of re-entering the
+# scan size at measurement time.
+# 物理空間較正（走査範囲）を保持する vlmeta キー。"input_format" と同様の
+# 任意の来歴メタデータで、このキー導入前のバンドルには存在しない。読み取り側は
+# 欠落を「スケール不明」として扱い、エラーにしてはならない。これを保存すると、
+# 計測時に走査範囲を再入力せずバンドル単体で長さ・距離計測を再現できる。
+SPATIAL_CALIBRATION_KEY = "spatial_calibration"
+
+# Where a stored scan size came from, recorded as the calibration "source".
+# Priority when resolving a value is input_header > manifest > manual, but any
+# single bundle records exactly the source that produced its stored value.
+# 保存された走査範囲の出所を示す較正の "source"。値を解決する際の優先順位は
+# input_header > manifest > manual だが、各バンドルにはその値を生んだ source を
+# そのまま記録する。
+SCAN_SIZE_SOURCES = ("input_header", "manifest", "manual")
 
 # Keys needed to rebuild a FiberTrackingImage (GUI04 / lib.measure contract).
 # Unlike REQUIRED_BUNDLE_KEYS, `binarized` is not needed for tracking.
@@ -293,3 +313,93 @@ def validate_bundle(
             )
 
     return problems
+
+
+def make_spatial_calibration(
+    x_um: float, y_um: float, source: str
+) -> Dict[str, object]:
+    """
+    Build the ``spatial_calibration`` vlmeta entry for a known scan size.
+    既知の走査範囲から ``spatial_calibration`` vlmeta エントリを組み立てる。
+
+    Parameters
+    ----------
+    x_um, y_um
+        Physical scan size per axis in micrometers; both must be positive.
+        軸ごとの物理走査範囲 (µm)。いずれも正の値であること。
+    source
+        Provenance of the value, one of `SCAN_SIZE_SOURCES`.
+        値の出所。`SCAN_SIZE_SOURCES` のいずれか。
+
+    Returns
+    -------
+    dict
+        msgpack-serializable mapping to store under `SPATIAL_CALIBRATION_KEY`.
+        `SPATIAL_CALIBRATION_KEY` 配下に保存する msgpack 直列化可能な辞書。
+
+    Notes
+    -----
+    Pixel size is intentionally not stored: it is a derived quantity
+    (``scan_size_um * 1000 / pixels`` along each axis) that the measurement
+    layer recomputes from the saved image shape, so persisting it would risk
+    drifting out of sync with the actual array (and with the one-pixel trim
+    documented at module top).
+    ピクセルサイズは意図的に保存しない。これは各軸の
+    ``走査範囲_um * 1000 / 画素数`` から導出される量で、計測層が保存済み画像形状
+    から再計算する。保存すると実配列（およびモジュール冒頭に記載の 1 画素
+    トリミング）と不整合になる恐れがあるため。
+
+    Raises
+    ------
+    ValueError
+        If a size is not positive or `source` is not a known source.
+    """
+    if not (x_um > 0 and y_um > 0):
+        raise ValueError(
+            f"scan size must be positive, got x={x_um!r}, y={y_um!r}"
+        )
+    if source not in SCAN_SIZE_SOURCES:
+        raise ValueError(
+            f"unknown scan-size source {source!r} "
+            f"(expected one of {', '.join(SCAN_SIZE_SOURCES)})"
+        )
+    return {
+        "scan_size_x_um": float(x_um),
+        "scan_size_y_um": float(y_um),
+        "source": source,
+    }
+
+
+def scan_size_um_from_meta(
+    meta: Optional[Dict],
+) -> Optional[Tuple[float, float]]:
+    """
+    Extract ``(x_um, y_um)`` scan size from bundle vlmeta, if recorded.
+    バンドル vlmeta から走査範囲 ``(x_um, y_um)`` を取り出す（記録があれば）。
+
+    Parameters
+    ----------
+    meta
+        Bundle vlmeta dictionary, or ``None``.
+        バンドルの vlmeta 辞書、または ``None``。
+
+    Returns
+    -------
+    tuple of float or None
+        Per-axis scan size in micrometers, or ``None`` when the bundle does
+        not record a valid spatial calibration.
+        軸ごとの走査範囲 (µm)。有効な空間較正が記録されていなければ ``None``。
+    """
+    if not meta:
+        return None
+    cal = meta.get(SPATIAL_CALIBRATION_KEY)
+    if not isinstance(cal, dict):
+        return None
+    try:
+        x_um = float(cal["scan_size_x_um"])
+        y_um = float(cal["scan_size_y_um"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not (x_um > 0 and y_um > 0):
+        return None
+    return x_um, y_um

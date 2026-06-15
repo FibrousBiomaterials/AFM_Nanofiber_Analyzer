@@ -695,16 +695,16 @@ all call sites in `guis/`, `Main.py`, `cli.py`, `tests/`, and `lib/` imports.
 
 | Module | Public API | Notes |
 |---|---|---|
-| `afm_io.py` | `load_afm_text`, `detect_afm_format`, `AfmTextFormat`, `FORMAT_KINDS` | Loads AFM text/CSV as NumPy array; auto-detects header rows, column count, and encoding. `detect_afm_format` reports the detected layout without loading the data. |
+| `afm_io.py` | `load_afm_text`, `detect_afm_format`, `read_scan_size`, `AfmTextFormat`, `ScanSize`, `FORMAT_KINDS` | Loads AFM text/CSV as NumPy array; auto-detects header rows, column count, and encoding. `detect_afm_format` reports the detected layout without loading the data. `read_scan_size` reads the physical scan size from the instrument header (Shimadzu `SizeX`/`SizeY`) when present. |
 | `bg_calibrator.py` | `BGCalibrator` | See §8.1 for `bg_method` options. |
 | `bg_calibrator_shimadzu.py` | `BG_Calibrator_shimadzu` | Compatibility shim; alias of `BGCalibrator`. Do not add new code here. |
 | `blosc2_io.py` | `save_blosc2`, `load_blosc2`, `save_bundle`, `load_bundle` | |
-| `bundle_schema.py` | `validate_bundle`, `BUNDLE_FORMAT_VERSION`, `SUPPORTED_BUNDLE_VERSIONS`, `REQUIRED_BUNDLE_KEYS`, `OPTIONAL_BUNDLE_KEYS`, `TRACKING_BUNDLE_KEYS` | Executable `.b2z` contract (§8.2): keys, shapes, units, coordinate convention, format version. Depends only on NumPy. |
+| `bundle_schema.py` | `validate_bundle`, `BUNDLE_FORMAT_VERSION`, `SUPPORTED_BUNDLE_VERSIONS`, `REQUIRED_BUNDLE_KEYS`, `OPTIONAL_BUNDLE_KEYS`, `TRACKING_BUNDLE_KEYS`, `SPATIAL_CALIBRATION_KEY`, `SCAN_SIZE_SOURCES`, `make_spatial_calibration`, `scan_size_um_from_meta` | Executable `.b2z` contract (§8.2): keys, shapes, units, coordinate convention, format version, and the optional `spatial_calibration` vlmeta entry (scan size + source). Depends only on NumPy. |
 | `fiber.py` | `Fiber` | Immutable dataclass holding height, length, kink points, and endpoints per fiber. |
 | `fiber_tracking_image.py` | `FiberTrackingImage` | GUI04 data container; builds `Fiber` instances from a `.b2z` bundle. |
 | `imp_tools.py` | `branchedPoints`, `endPoints`, `tracking`, `convert_track_to_distance` | |
 | `kink_detector.py` | `KinkDetector` | |
-| `measure.py` | `FiberStats`, `MeasureResult`, `compute_fiber_stats`, `load_tracking_image`, `measure_bundle`, `write_fiber_csv`, `all_pixel_height`, `skeleton_height_values`, `write_heights_csv`, `TRACKING_BUNDLE_KEYS`, `FIBER_CSV_COLUMNS` | GUI-independent fiber measurement shared by GUI03, GUI04, and `cli.py measure` / `heights`; keeps GUI and CLI statistics identical. |
+| `measure.py` | `FiberStats`, `MeasureResult`, `compute_fiber_stats`, `load_tracking_image`, `measure_bundle`, `read_scan_size_from_bundle`, `write_fiber_csv`, `all_pixel_height`, `skeleton_height_values`, `write_heights_csv`, `TRACKING_BUNDLE_KEYS`, `FIBER_CSV_COLUMNS` | GUI-independent fiber measurement shared by GUI03, GUI04, and `cli.py measure` / `heights`; keeps GUI and CLI statistics identical. `measure_bundle` defaults its scale to the bundle's recorded scan size when `scale_um` is omitted. |
 | `pipeline.py` | `ProcParams`, `STAGE_KEYS`, `build_stages`, `PipelineStages`, `process_file`, `PipelineResult`, `merge_params_dict`, `validate_params`, `existing_min_set`, `bundle_path_for`, `param_path_for` | GUI-independent preprocessing driver shared by GUI01 and `cli.py process`; owns `ProcParams` (field names frozen, §8.1) and stage construction. |
 | `processed_image.py` | `ProcessedImage` | Image and result container for the GUI01 pipeline. |
 | `segmenter.py` | `Segmenter` | |

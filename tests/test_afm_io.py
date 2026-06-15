@@ -7,7 +7,13 @@ lib/afm_io.py のテキスト読み込みテスト。
 import numpy as np
 import pytest
 
-from lib.afm_io import AfmTextFormat, detect_afm_format, load_afm_text
+from lib.afm_io import (
+    AfmTextFormat,
+    ScanSize,
+    detect_afm_format,
+    load_afm_text,
+    read_scan_size,
+)
 from tests.conftest import BRUKER_DATA, REAL_DATA
 
 
@@ -157,3 +163,63 @@ def test_non_finite_values_rejected(tmp_path):
     path.write_text("\n".join(rows) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="non-finite"):
         load_afm_text(str(path))
+
+
+# --- read_scan_size: physical scan range from instrument headers -----------
+
+def _write_shimadzu_header(path, *, size_x="2.0000um", size_y="2.0000um",
+                           include_x=True, include_y=True) -> None:
+    """Write a minimal Shimadzu-style header followed by multi-column data.
+
+    Mirrors the real [SCANNING PARAMS] block so the SizeX/SizeY parser is
+    exercised without depending on the large bundled scan.
+    実機の [SCANNING PARAMS] ブロックを模し、巨大な同梱スキャンに依存せず
+    SizeX/SizeY パーサを検証する。
+    """
+    header = ["Shimadzu SPM File Format Version 4.30", "[SCANNING PARAMS]"]
+    if include_x:
+        header.append(f"SizeX: {size_x}")
+    if include_y:
+        header.append(f"SizeY: {size_y}")
+    header += ["PixelsX: 12", "PixelsY: 12"]
+    rows = [",".join(["1.0"] * 12) for _ in range(12)]
+    path.write_text("\n".join(header + rows) + "\n", encoding="utf-8")
+
+
+def test_read_scan_size_parses_micrometers(tmp_path):
+    """SizeX/SizeY in um are read as-is into a ScanSize."""
+    path = tmp_path / "shimadzu_um.txt"
+    _write_shimadzu_header(path, size_x="2.0000um", size_y="3.0000um")
+    assert read_scan_size(str(path)) == ScanSize(x_um=2.0, y_um=3.0)
+
+
+def test_read_scan_size_converts_nanometers(tmp_path):
+    """SizeX/SizeY in nm are converted to micrometers."""
+    path = tmp_path / "shimadzu_nm.txt"
+    _write_shimadzu_header(path, size_x="500.0nm", size_y="500.0nm")
+    assert read_scan_size(str(path)) == ScanSize(x_um=0.5, y_um=0.5)
+
+
+def test_read_scan_size_absent_returns_none(tmp_path):
+    """A header without SizeX/SizeY (e.g. a bare CSV) yields None."""
+    rows = [",".join(["1.0"] * 12) for _ in range(12)]
+    path = tmp_path / "headerless.txt"
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    assert read_scan_size(str(path)) is None
+
+
+def test_read_scan_size_single_axis_is_treated_as_missing(tmp_path):
+    """One-axis-only headers cannot calibrate both directions, so return None."""
+    path = tmp_path / "shimadzu_x_only.txt"
+    _write_shimadzu_header(path, include_y=False)
+    assert read_scan_size(str(path)) is None
+
+
+@pytest.mark.skipif(not (REAL_DATA.parent.parent / "testdata_higherplantTOC").exists(),
+                    reason="bundled Shimadzu header scan not present")
+def test_read_scan_size_on_bundled_shimadzu_scan():
+    """The bundled higher-plant Shimadzu scan reports its 2.0 um scan range."""
+    scan = REAL_DATA.parent.parent / "testdata_higherplantTOC" / "_20250319-151513_T.ssp .txt"
+    if not scan.exists():
+        pytest.skip("bundled Shimadzu header scan not present")
+    assert read_scan_size(str(scan)) == ScanSize(x_um=2.0, y_um=2.0)

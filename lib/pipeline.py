@@ -37,7 +37,7 @@ import numpy as np
 
 # ===== Project libraries =====
 from . import __version__
-from .afm_io import detect_afm_format, load_afm_text
+from .afm_io import detect_afm_format, load_afm_text, read_scan_size
 from .bg_calibrator import BGCalibrator
 from .blosc2_io import save_bundle, bundle_has_keys, BUNDLE_EXT
 # The bundle key contract and format version are owned by bundle_schema;
@@ -46,7 +46,7 @@ from .blosc2_io import save_bundle, bundle_has_keys, BUNDLE_EXT
 # `pipeline.REQUIRED_BUNDLE_KEYS` 利用側が動き続けるよう、ここで再インポートする。
 from .bundle_schema import (
     BUNDLE_FORMAT_VERSION, OPTIONAL_BUNDLE_KEYS, REQUIRED_BUNDLE_KEYS,
-    validate_bundle,
+    SPATIAL_CALIBRATION_KEY, make_spatial_calibration, validate_bundle,
 )
 from .kink_detector import KinkDetector
 from .processed_image import ProcessedImage
@@ -566,6 +566,8 @@ def process_file(
     save_original: bool = False,
     on_stage: Optional[Callable[[str], None]] = None,
     input_format: str = "auto",
+    scan_size_um: Optional[Tuple[float, float]] = None,
+    scan_size_source: str = "manual",
 ) -> PipelineResult:
     """
     Run the full preprocessing pipeline on one input file and save outputs.
@@ -610,6 +612,24 @@ def process_file(
         `detect_afm_format` へ渡すテキストレイアウト指定。``"auto"``（既定）、
         ``"multi-column"``、``"single-column"``。確定したレイアウトは
         バンドルの来歴メタデータへ記録される。
+    scan_size_um
+        Physical scan size ``(x_um, y_um)`` to record as the bundle spatial
+        calibration. When ``None``, the size is read from the input file
+        header (Shimadzu ``SizeX`` / ``SizeY``); if the header lacks it, no
+        calibration is stored and the scan size must be supplied at
+        measurement time.
+        バンドルの空間較正として記録する物理走査範囲 ``(x_um, y_um)``。
+        ``None`` のときは入力ファイルのヘッダ（島津 ``SizeX`` / ``SizeY``）から
+        取得する。ヘッダに無ければ較正は保存されず、走査範囲は計測時に与える
+        必要がある。
+    scan_size_source
+        Provenance label for an explicit `scan_size_um`, one of
+        `SCAN_SIZE_SOURCES` (typically ``"manual"`` or ``"manifest"``).
+        Ignored when the size comes from the header (recorded as
+        ``"input_header"``).
+        明示指定した `scan_size_um` の出所ラベル。`SCAN_SIZE_SOURCES` のいずれか
+        （通常 ``"manual"`` か ``"manifest"``）。ヘッダ由来の場合は無視され
+        ``"input_header"`` として記録される。
 
     Returns
     -------
@@ -653,6 +673,25 @@ def process_file(
     height_data = load_afm_text(txt_path, fmt=text_format)
     name = os.path.splitext(os.path.basename(txt_path))[0]
     image = ProcessedImage(original_AFM=height_data, name=name)
+
+    # Resolve the spatial calibration: an explicit caller value (manual entry
+    # or a CSV manifest) wins; otherwise fall back to the instrument header.
+    # Stays None when neither source provides it, so the bundle simply omits
+    # the calibration and measurement-time entry remains the fallback.
+    # 空間較正を解決する。呼び出し側の明示値（手入力や CSV マニフェスト）を
+    # 優先し、無ければ装置ヘッダから取得する。どちらも無ければ None のままとし、
+    # バンドルは較正を省略して計測時入力をフォールバックに残す。
+    if scan_size_um is not None:
+        resolved_scan_size = (float(scan_size_um[0]), float(scan_size_um[1]))
+        resolved_scan_source = scan_size_source
+    else:
+        header_size = read_scan_size(txt_path)
+        if header_size is not None:
+            resolved_scan_size = (header_size.x_um, header_size.y_um)
+            resolved_scan_source = "input_header"
+        else:
+            resolved_scan_size = None
+            resolved_scan_source = None
 
     report("bg")
     stages.bg_calibrator(image)
@@ -732,6 +771,17 @@ def process_file(
         # レイアウト誤判定が疑われた際に事後監査できるようにする。
         "input_format":     asdict(text_format),
     }
+
+    # Record the physical scan size so length/distance measurements can be
+    # reproduced from the bundle alone (optional provenance, omitted when
+    # unknown — see SPATIAL_CALIBRATION_KEY in bundle_schema).
+    # 物理走査範囲を記録し、バンドル単体で長さ・距離計測を再現できるようにする
+    # （任意の来歴情報。不明な場合は省略。bundle_schema の
+    # SPATIAL_CALIBRATION_KEY を参照）。
+    if resolved_scan_size is not None:
+        vlmeta[SPATIAL_CALIBRATION_KEY] = make_spatial_calibration(
+            resolved_scan_size[0], resolved_scan_size[1], resolved_scan_source
+        )
 
     param_path = param_path_for(stem)
     bundle_path = bundle_path_for(stem)
