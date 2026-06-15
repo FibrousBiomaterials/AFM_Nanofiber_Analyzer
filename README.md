@@ -197,9 +197,14 @@ chmod +x 01_setup_venv.sh 02_run_from_venv.sh
 ./02_run_from_venv.sh
 ```
 
-The setup scripts regenerate `requirements.txt` with `check.py` and install the
-dependencies. The run scripts launch `Main.py` with the configured Python
-interpreter.
+The setup scripts create the `.venv`, upgrade `pip`, and install the project in
+editable mode (`pip install -e .`), so all dependencies come from
+`pyproject.toml` (the single source of truth) and the `afm-analyzer` /
+`afm-analyzer-cli` commands are registered. The run scripts launch `Main.py`
+from that `.venv`. Developers and reviewers can reproduce the same setup
+without the scripts using the editable-install commands below; for an exact,
+pinned version set, install `requirements.lock.txt` instead (see Requirements
+above).
 
 ### Anaconda or Miniconda
 

@@ -196,9 +196,14 @@ chmod +x 01_setup_venv.sh 02_run_from_venv.sh
 ./02_run_from_venv.sh
 ```
 
-セットアップスクリプトは `check.py` で `requirements.txt` を再生成し、
-依存関係をインストールします。実行スクリプトは設定済み Python インタープリタで
-`Main.py` を起動します。
+セットアップスクリプトは `.venv` を作成し、`pip` を更新したうえで、プロジェクトを
+編集可能モード(`pip install -e .`)でインストールします。これにより依存関係は
+すべて単一の真実の源である `pyproject.toml` から解決され、`afm-analyzer` /
+`afm-analyzer-cli` コマンドが登録されます。実行スクリプトはその `.venv` から
+`Main.py` を起動します。開発者やレビュアーは、スクリプトを使わずに後述の
+編集可能インストールのコマンドで同じ環境を再現できます。バージョンを厳密に
+固定したい場合は、代わりに `requirements.lock.txt` をインストールしてください
+(上記「要件」を参照)。
 
 ### Anaconda または Miniconda
 

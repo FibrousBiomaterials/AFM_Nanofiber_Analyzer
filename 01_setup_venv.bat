@@ -4,7 +4,7 @@ REM This path avoids conda and uses the Windows Python launcher.
 setlocal
 cd /d "%~dp0"
 
-echo [1/6] Checking Python...
+echo [1/4] Checking Python...
 py -3 --version
 if errorlevel 1 (
     echo.
@@ -15,7 +15,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [2/6] Creating virtual environment...
+echo [2/4] Creating virtual environment...
 py -3 -m venv .venv
 if errorlevel 1 (
     echo Failed to create .venv.
@@ -24,7 +24,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [3/6] Upgrading pip...
+echo [3/4] Upgrading pip...
 call ".venv\Scripts\python.exe" -m pip install --upgrade pip
 if errorlevel 1 (
     echo Failed to upgrade pip.
@@ -33,51 +33,12 @@ if errorlevel 1 (
 )
 
 echo.
-echo [4/6] Generating requirements...
-REM check.py regenerates requirements.txt from the project imports before install.
-call ".venv\Scripts\python.exe" check.py
+echo [4/4] Installing the package and dependencies...
+REM Editable install resolves dependencies from pyproject.toml (the single source
+REM of truth) and registers the afm-analyzer / afm-analyzer-cli console commands.
+call ".venv\Scripts\python.exe" -m pip install -e .
 if errorlevel 1 (
-    echo Failed to generate requirements.txt.
-    pause
-    exit /b 1
-)
-
-echo.
-echo [5/6] Installing requirements...
-call ".venv\Scripts\python.exe" -m pip install -r requirements.txt
-if errorlevel 1 (
-    echo Failed to install requirements.
-    pause
-    exit /b 1
-)
-
-echo.
-echo [6/6] Writing 02_run_from_venv.bat...
-(
-    echo @echo off
-    echo REM Start AFM Nanofiber Analyzer from the local .venv created by 01_setup_venv.bat.
-    echo setlocal
-    echo cd /d "%%~dp0"
-    echo.
-    echo if not exist ".venv\Scripts\python.exe" ^(
-    echo     echo .venv was not found.
-    echo     echo Please run 01_setup_venv.bat first.
-    echo     pause
-    echo     exit /b 1
-    echo ^)
-    echo.
-    echo call ".venv\Scripts\python.exe" "%%~dp0Main.py"
-    echo set "EXIT_CODE=%%ERRORLEVEL%%"
-    echo.
-    echo if not "%%EXIT_CODE%%"=="0" ^(
-    echo     echo Main.py exited with error code %%EXIT_CODE%%.
-    echo     pause
-    echo ^)
-    echo.
-    echo exit /b %%EXIT_CODE%%
-) > 02_run_from_venv.bat
-if errorlevel 1 (
-    echo Failed to write 02_run_from_venv.bat.
+    echo Failed to install the package.
     pause
     exit /b 1
 )

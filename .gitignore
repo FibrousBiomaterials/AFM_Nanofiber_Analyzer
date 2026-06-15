@@ -41,9 +41,9 @@ desktop.ini
 guis/afmpp_settings.json
 
 # ===== Generated local launchers =====
-# Setup scripts recreate these with machine-local paths.
-02_run_from_venv.bat
-02_run_from_venv.sh
+# The conda/anaconda setup scripts still recreate these; 92_* bakes a
+# machine-local Anaconda path, so they stay untracked. The venv launcher
+# (02_run_from_venv.*) is now a tracked static file and is not listed here.
 12_run_from_conda_env.bat
 12_run_from_conda_env.sh
 92_run_from_anaconda.bat

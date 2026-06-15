@@ -36,8 +36,8 @@ python -m pip install pyinstaller babel
 
 | ファイル | 用途 |
 |---|---|
-| `01_setup_venv.bat` | Windows で `.venv` を作成し、pip 更新、`requirements.txt` 更新、依存関係インストールを行う。 |
-| `01_setup_venv.sh` | macOS / Linux で `.venv` を作成し、pip 更新、`requirements.txt` 更新、依存関係インストール、実行権限設定を行う。 |
+| `01_setup_venv.bat` | Windows で `.venv` を作成し、pip を更新したうえで `pip install -e .`(依存関係は `pyproject.toml` から解決)を実行する。 |
+| `01_setup_venv.sh` | macOS / Linux で `.venv` を作成し、tkinter を確認し、pip を更新したうえで `pip install -e .`(依存関係は `pyproject.toml` から解決)を実行する。 |
 | `02_run_from_venv.bat` | Windows で `.venv\Scripts\python.exe` を使って `Main.py` を起動する。 |
 | `02_run_from_venv.sh` | macOS / Linux で `.venv/bin/python` を使って `Main.py` を起動する。 |
 | `11_setup_conda_env.bat` | Windows で専用 conda 環境 `afm-analyzer` を作成または再利用し、依存関係をインストールする。 |

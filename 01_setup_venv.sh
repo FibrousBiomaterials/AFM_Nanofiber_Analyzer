@@ -8,7 +8,7 @@ set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR" || exit 1
 
-echo "[1/7] Checking operating system..."
+echo "[1/6] Checking operating system..."
 OS_NAME="$(uname -s 2>/dev/null || echo unknown)"
 OS_PRETTY="$OS_NAME"
 if [ -r /etc/os-release ]; then
@@ -96,7 +96,7 @@ ensure_tkinter() {
 }
 
 echo
-echo "[2/7] Checking Python..."
+echo "[2/6] Checking Python..."
 PYTHON_CMD=""
 
 # Accept python3 or python, but only if it satisfies the supported version floor.
@@ -120,7 +120,7 @@ fi
 "$PYTHON_CMD" --version
 
 echo
-echo "[3/7] Checking tkinter..."
+echo "[3/6] Checking tkinter..."
 ensure_tkinter "$PYTHON_CMD"
 if [ $? -ne 0 ]; then
     echo
@@ -130,7 +130,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo
-echo "[4/7] Creating virtual environment..."
+echo "[4/6] Creating virtual environment..."
 "$PYTHON_CMD" -m venv .venv
 if [ $? -ne 0 ]; then
     echo "Failed to create .venv."
@@ -138,7 +138,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo
-echo "[5/7] Upgrading pip..."
+echo "[5/6] Upgrading pip..."
 ".venv/bin/python" -m pip install --upgrade pip
 if [ $? -ne 0 ]; then
     echo "Failed to upgrade pip."
@@ -146,47 +146,16 @@ if [ $? -ne 0 ]; then
 fi
 
 echo
-echo "[6/7] Generating requirements..."
-# check.py regenerates requirements.txt from the project imports before install.
-# check.py はインストール前にプロジェクトの import から requirements.txt を再生成する。
-".venv/bin/python" check.py
+echo "[6/6] Installing the package and dependencies..."
+# Editable install resolves dependencies from pyproject.toml (the single source
+# of truth) and registers the afm-analyzer / afm-analyzer-cli console commands.
+# 編集可能インストールは依存関係を単一の真実の源である pyproject.toml から解決し、
+# afm-analyzer / afm-analyzer-cli コマンドを登録する。
+".venv/bin/python" -m pip install -e .
 if [ $? -ne 0 ]; then
-    echo "Failed to generate requirements.txt."
+    echo "Failed to install the package."
     exit 1
 fi
-
-echo
-echo "[7/7] Installing requirements..."
-".venv/bin/python" -m pip install -r requirements.txt
-if [ $? -ne 0 ]; then
-    echo "Failed to install requirements."
-    exit 1
-fi
-
-echo
-echo "Writing 02_run_from_venv.sh..."
-cat > 02_run_from_venv.sh <<'EOF'
-#!/usr/bin/env bash
-# Start AFM Nanofiber Analyzer from the local .venv created by 01_setup_venv.sh.
-# 01_setup_venv.sh で作成したローカル .venv から AFM Nanofiber Analyzer を起動する。
-set -u
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR" || exit 1
-
-if [ ! -x ".venv/bin/python" ]; then
-    echo ".venv was not found."
-    echo "Please run 01_setup_venv.sh first."
-    exit 1
-fi
-
-".venv/bin/python" Main.py
-EOF
-if [ $? -ne 0 ]; then
-    echo "Failed to write 02_run_from_venv.sh."
-    exit 1
-fi
-chmod +x 02_run_from_venv.sh
 
 echo
 echo "Setup completed."
