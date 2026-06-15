@@ -126,7 +126,16 @@ class KinkDetector:
                 x, y, w, h, area = data[label]
                 sub_label = label_image[y:y+h, x:x+w]
                 target_image = (sub_label == label).astype(np.uint8)
-                _xtrack_local, _ytrack_local = imp_tools.tracking(target_image)
+                try:
+                    _xtrack_local, _ytrack_local = imp_tools.tracking(target_image)
+                except ValueError as exc:
+                    if "tracking requires exactly 2 endpoints" not in str(exc):
+                        raise
+                    logger.info(
+                        "Skipping untraceable skeleton component %s: %s",
+                        label, exc,
+                    )
+                    continue
                 # Tracking returns bounding-box-local coordinates, so restore image coordinates.
                 # tracking 結果は BBox ローカル座標なので元画像座標に戻す。
                 _xtrack = _xtrack_local + x

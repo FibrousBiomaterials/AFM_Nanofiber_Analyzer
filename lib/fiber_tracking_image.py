@@ -167,6 +167,9 @@ class FiberTrackingImage:
     all_kink_angles
         Angle values corresponding to kink points.
         kink 点に対応する角度配列。
+    skipped_fiber_labels
+        Labels skipped during the most recent tracing call with their reasons.
+        直近の追跡呼び出しでスキップされたラベルと理由。
     """
 
     def __init__(
@@ -220,6 +223,7 @@ class FiberTrackingImage:
             tuple[np.ndarray, np.ndarray]] = None
         self.all_kink_angles: Optional[np.ndarray] = None
         self.decomposed_point_coordinates: Optional[np.ndarray] = None
+        self.skipped_fiber_labels: tuple[tuple[int, str], ...] = ()
 
     def fibers_in_image_parallel(
         self,
@@ -356,6 +360,7 @@ class FiberTrackingImage:
         nLabels, label_image, data = self._labeled_components(skeleton_image)
         kink_set, dp_set, ep_set, kink_angle_map = self._feature_lookups()
         total = nLabels - 1
+        skipped: list[tuple[int, str]] = []
 
         # Bind the shared, read-only inputs once so both paths and every worker
         # use the same references.
@@ -372,9 +377,15 @@ class FiberTrackingImage:
         if not parallel:
             fiber_instances = []
             for done, label in enumerate(range(1, nLabels), start=1):
-                fiber_instances.append(build(label))
+                try:
+                    fiber_instances.append(build(label))
+                except ValueError as exc:
+                    if "tracking requires exactly 2 endpoints" not in str(exc):
+                        raise
+                    skipped.append((label, str(exc)))
                 if progress_cb is not None:
                     progress_cb(done, total)
+            self.skipped_fiber_labels = tuple(skipped)
             return fiber_instances
 
         # Store each result at its label index to keep the sequential order.
@@ -387,10 +398,17 @@ class FiberTrackingImage:
             }
             done = 0
             for future in as_completed(future_to_idx):
-                results[future_to_idx[future]] = future.result()
+                idx = future_to_idx[future]
+                try:
+                    results[idx] = future.result()
+                except ValueError as exc:
+                    if "tracking requires exactly 2 endpoints" not in str(exc):
+                        raise
+                    skipped.append((idx + 1, str(exc)))
                 done += 1
                 if progress_cb is not None:
                     progress_cb(done, total)
+        self.skipped_fiber_labels = tuple(sorted(skipped))
         return [f for f in results if f is not None]
 
     def _labeled_components(

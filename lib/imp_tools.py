@@ -282,7 +282,14 @@ def tracking(skeleton_image: NDArray[np.uint8]) -> tuple[NDArray, NDArray]:
     imgcopy = np.pad(imgcopy, pad_width=1, mode='constant', constant_values=0)
 
     ep = endPoints(imgcopy)
-    (ep_y_start, ep_y_end), (ep_x_start, ep_x_end) = np.where(ep)
+    ep_y, ep_x = np.where(ep)
+    if len(ep_y) != 2:
+        raise ValueError(
+            "tracking requires exactly 2 endpoints; "
+            f"detected {len(ep_y)} endpoint(s)"
+        )
+    ep_y_start, ep_y_end = ep_y
+    ep_x_start, ep_x_end = ep_x
 
     ytrack = [ep_y_start]
     xtrack = [ep_x_start]
