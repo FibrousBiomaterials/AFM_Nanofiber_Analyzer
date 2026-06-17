@@ -1585,6 +1585,10 @@ msgstr ""
 msgid "バンドル記録のスケール {x}×{y} µm を使用します。"
 msgstr ""
 
+#: guis/GUI01_Image_Preprocessor.py
+msgid "プレビューの軸目盛と、ファイルへ適用したときの長さ計測の基準に使われる。"
+msgstr ""
+
 #: guis/GUI04_Tracking_fiber.py:1095
 #, python-brace-format
 msgid "読み込み中: {name}  スケール={scale}"

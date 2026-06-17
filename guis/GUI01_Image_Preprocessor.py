@@ -655,10 +655,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
         ToolTip(
             self.ent_scale_um,
-            _("AFM 画像の一辺の実寸") + " (µm)。\n"
-            + _("解析結果には影響せず、スケール表示時の軸目盛のみに使われる。") + "\n"
-            + _("同一フォルダ内で画像ごとにスキャンサイズが異なる場合は、") + "\n"
-            + _("ファイルを選び直してから値を変更してください。"),
+            _("AFM 画像の X（幅）方向の実寸") + " (µm)。\n"
+            + _("プレビューの軸目盛と、ファイルへ適用したときの長さ計測の基準に使われる。"),
         )
         # Optional Y (height) size for rectangular scans. "X" is the left
         # entry, "Y" the right; an empty Y means a square scan (Y = X).

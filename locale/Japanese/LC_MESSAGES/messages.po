@@ -1956,3 +1956,7 @@ msgstr "Y スケール変更: ファイバーを再解析します..."
 #: guis/GUI04_Tracking_fiber.py
 msgid "バンドル記録のスケール {x}×{y} µm を使用します。"
 msgstr "バンドル記録のスケール {x}×{y} µm を使用します。"
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "プレビューの軸目盛と、ファイルへ適用したときの長さ計測の基準に使われる。"
+msgstr "プレビューの軸目盛と、ファイルへ適用したときの長さ計測の基準に使われる。"

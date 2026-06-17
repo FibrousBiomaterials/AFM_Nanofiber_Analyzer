@@ -1968,3 +1968,7 @@ msgstr "Y 比例已更改：正在重新分析纤维……"
 #: guis/GUI04_Tracking_fiber.py
 msgid "バンドル記録のスケール {x}×{y} µm を使用します。"
 msgstr "使用 bundle 中记录的扫描尺寸 {x}×{y} µm。"
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "プレビューの軸目盛と、ファイルへ適用したときの長さ計測の基準に使われる。"
+msgstr "用于预览的坐标轴刻度，并在应用到文件后作为长度测量的基准。"

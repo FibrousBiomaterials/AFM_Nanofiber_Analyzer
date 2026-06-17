@@ -2049,3 +2049,9 @@ msgstr "Y scale changed: re-analyzing fibers..."
 #: guis/GUI04_Tracking_fiber.py
 msgid "バンドル記録のスケール {x}×{y} µm を使用します。"
 msgstr "Using the scan size {x}×{y} µm recorded in the bundle."
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "プレビューの軸目盛と、ファイルへ適用したときの長さ計測の基準に使われる。"
+msgstr ""
+"Used for the preview axis ticks and, once applied to files, as the basis for "
+"length measurements."
