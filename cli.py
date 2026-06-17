@@ -153,6 +153,15 @@ def cmd_process(args: argparse.Namespace) -> int:
     if args.scale_um is not None and not (args.scale_um > 0):
         print("error: --scale-um must be a positive number", file=sys.stderr)
         return 2
+    if args.scale_y_um is not None and not (args.scale_y_um > 0):
+        print("error: --scale-y-um must be a positive number", file=sys.stderr)
+        return 2
+    if args.scale_y_um is not None and args.scale_um is None:
+        print(
+            "error: --scale-y-um requires --scale-um (X size) as well",
+            file=sys.stderr,
+        )
+        return 2
 
     try:
         params = _load_params(args.params, strict=args.strict) if args.params else ProcParams()
@@ -202,7 +211,7 @@ def cmd_process(args: argparse.Namespace) -> int:
                 on_stage=lambda s: print(s, end=" ", flush=True),
                 input_format=args.format,
                 scan_size_um=(
-                    (args.scale_um, args.scale_um)
+                    (args.scale_um, args.scale_y_um or args.scale_um)
                     if args.scale_um is not None else None
                 ),
                 scan_size_source="manual",
@@ -363,6 +372,15 @@ def cmd_measure(args: argparse.Namespace) -> int:
     if args.scale_um is not None and not (args.scale_um > 0):
         print("error: --scale-um must be a positive number", file=sys.stderr)
         return 2
+    if args.scale_y_um is not None and not (args.scale_y_um > 0):
+        print("error: --scale-y-um must be a positive number", file=sys.stderr)
+        return 2
+    if args.scale_y_um is not None and args.scale_um is None:
+        print(
+            "error: --scale-y-um requires --scale-um (X size) as well",
+            file=sys.stderr,
+        )
+        return 2
 
     if args.output_dir:
         os.makedirs(args.output_dir, exist_ok=True)
@@ -373,7 +391,9 @@ def cmd_measure(args: argparse.Namespace) -> int:
         stem = _output_stem(bundle_path, args.output_dir)
         print(f"[{i}/{len(inputs)}] {name}: ", end="", flush=True)
         try:
-            result = measure_bundle(bundle_path, scale_um=args.scale_um)
+            result = measure_bundle(
+                bundle_path, scale_um=args.scale_um, scale_y_um=args.scale_y_um,
+            )
             csv_path = stem + "_fibers.csv"
             write_fiber_csv(csv_path, result.stats)
         except Exception as e:
@@ -558,10 +578,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_proc.add_argument(
         "--scale-um", type=float, default=None, metavar="UM",
-        help="physical scan size in micrometers to record in the bundle "
-             "(applied to both axes). Overrides the value read from the "
-             "instrument header; when omitted, the header value is used if "
-             "present, otherwise no scan size is stored.",
+        help="physical scan size (X / width) in micrometers to record in the "
+             "bundle. Applied to both axes unless --scale-y-um is given. "
+             "Overrides the value read from the instrument header; when "
+             "omitted, the header value is used if present, otherwise no scan "
+             "size is stored.",
+    )
+    p_proc.add_argument(
+        "--scale-y-um", type=float, default=None, metavar="UM",
+        help="physical scan size (Y / height) in micrometers for rectangular "
+             "scans; requires --scale-um. When omitted, the Y size equals "
+             "--scale-um (square scan).",
     )
     p_proc.add_argument(
         "--strict", action="store_true",
@@ -606,10 +633,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_measure.add_argument(
         "--scale-um", type=float, default=None, metavar="UM",
-        help="full physical image size in micrometers; the pixel size is "
-             "scale / max(image height, image width). Optional: when omitted, "
-             "the scan size recorded in each bundle is used; bundles without a "
-             "recorded scan size are reported as failures.",
+        help="full physical image width (X) in micrometers; the X pixel size "
+             "is scale / image width. Applied to both axes unless --scale-y-um "
+             "is given. Optional: when omitted, the scan size recorded in each "
+             "bundle is used; bundles without a recorded scan size are reported "
+             "as failures.",
+    )
+    p_measure.add_argument(
+        "--scale-y-um", type=float, default=None, metavar="UM",
+        help="full physical image height (Y) in micrometers for rectangular "
+             "scans; the Y pixel size is scale / image height. Requires "
+             "--scale-um. When omitted, the Y size equals --scale-um.",
     )
     p_measure.add_argument(
         "--output-dir", metavar="DIR",

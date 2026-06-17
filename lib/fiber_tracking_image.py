@@ -36,6 +36,7 @@ def _build_fiber(
     dp_set: set,
     ep_set: set,
     kink_angle_map: dict,
+    y_size_per_pixel: Optional[float] = None,
 ) -> Fiber:
     """
     Build one Fiber from a labeled skeleton component and feature lookups.
@@ -63,8 +64,8 @@ def _build_fiber(
         Calibrated height image sampled along the track.
         トラックに沿って高さを取得する補正済み画像。
     size_per_pixel
-        Physical pixel size in nm/px used for path-length conversion.
-        経路長変換に使う物理ピクセルサイズ (nm/px)。
+        Physical X (column) pixel size in nm/px used for path-length conversion.
+        経路長変換に使う X（列）軸の物理ピクセルサイズ (nm/px)。
     kink_set
         ``(x, y)`` coordinate set of kink points.
         キンク点の ``(x, y)`` 座標集合。
@@ -77,6 +78,11 @@ def _build_fiber(
     kink_angle_map
         Mapping from ``(x, y)`` kink coordinates to angles in radians.
         キンク座標 ``(x, y)`` からラジアン角度値への対応辞書。
+    y_size_per_pixel
+        Physical Y (row) pixel size in nm/px. ``None`` reuses
+        ``size_per_pixel`` for an isotropic (square-pixel) scale.
+        Y（行）軸の物理ピクセルサイズ (nm/px)。``None`` のときは
+        ``size_per_pixel`` を流用し等方（正方ピクセル）スケールとする。
 
     Returns
     -------
@@ -92,7 +98,9 @@ def _build_fiber(
     xtrack_prcimg, ytrack_prcimg = imp_tools.tracking(target_image)
     xtrack = xtrack_prcimg - x
     ytrack = ytrack_prcimg - y
-    horizon = imp_tools.convert_track_to_distance(xtrack, ytrack, size_per_pixel)
+    horizon = imp_tools.convert_track_to_distance(
+        xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+    )
     height = cal[ytrack_prcimg, xtrack_prcimg]
     fiber_image = cal[y: y + h, x: x + w].copy()
 
@@ -143,9 +151,15 @@ class FiberTrackingImage:
         Original AFM image array.
         元の AFM 画像配列。
     size_per_pixel
-        Physical size represented by one pixel (nm/px); None when the scan
-        scale is unknown.
-        1ピクセルが表す実空間サイズ (nm/px)。スキャンスケール未知の場合は None。
+        Physical size represented by one pixel along the X (column) axis
+        (nm/px); None when the scan scale is unknown.
+        1ピクセルが表す X（列）軸方向の実空間サイズ (nm/px)。スキャンスケール
+        未知の場合は None。
+    y_size_per_pixel
+        Physical Y (row) pixel size (nm/px); None reuses ``size_per_pixel``
+        for an isotropic (square-pixel) scale.
+        Y（行）軸の物理ピクセルサイズ (nm/px)。None のときは
+        ``size_per_pixel`` を流用し等方（正方ピクセル）スケールとする。
     calibrated_image
         Calibrated AFM image loaded from GUI01 output.
         GUI01 出力から読み込む補正済み AFM 画像。
@@ -177,6 +191,7 @@ class FiberTrackingImage:
         original_AFM: np.ndarray,
         name: str,
         size_per_pixel: Optional[float] = None,
+        y_size_per_pixel: Optional[float] = None,
     ) -> None:
         """
         Initialize container fields for GUI04 tracking workflow.
@@ -191,17 +206,25 @@ class FiberTrackingImage:
             Name or identifier of this image.
             画像名または識別子。
         size_per_pixel
-            Physical length represented by one pixel (nm/px). None means the
-            scan scale is unknown; fiber-length computation then fails loudly
-            instead of silently assuming a default scan size, so callers that
-            trace fibers must always pass an explicit value.
-            1ピクセルあたりの実空間長 (nm/px)。None はスキャンスケール未知を
+            Physical X (column) pixel size (nm/px). None means the scan scale
+            is unknown; fiber-length computation then fails loudly instead of
+            silently assuming a default scan size, so callers that trace fibers
+            must always pass an explicit value.
+            X（列）軸の物理ピクセルサイズ (nm/px)。None はスキャンスケール未知を
             意味し、ファイバー長計算は既定スキャンサイズを黙って仮定せず明示的に
             失敗する。ファイバー追跡を行う呼び出し側は必ず明示値を渡すこと。
+        y_size_per_pixel
+            Physical Y (row) pixel size (nm/px). None reuses ``size_per_pixel``
+            so a single value keeps the historical isotropic behavior; pass a
+            distinct value for rectangular scans or non-square pixel grids.
+            Y（行）軸の物理ピクセルサイズ (nm/px)。None のときは
+            ``size_per_pixel`` を流用し、単一値で従来の等方挙動を保つ。矩形
+            スキャンや非正方ピクセル格子では別の値を渡す。
         """
         self.name: str = name
         self.original_image: np.ndarray = original_AFM
         self.size_per_pixel: Optional[float] = size_per_pixel
+        self.y_size_per_pixel: Optional[float] = y_size_per_pixel
 
         # GUI04 populates these arrays from GUI01 output files.
         # GUI04 が GUI01 出力ファイルからこれらの配列を設定する。
@@ -367,11 +390,16 @@ class FiberTrackingImage:
         # 共有の読み取り専用入力を一度束ねておき、両経路・全ワーカーで同じ参照を使う。
         cal = self.calibrated_image
         spp = self.size_per_pixel
+        # Y pixel size falls back to the X value, keeping isotropic behavior
+        # when only one scale is known.
+        # Y のピクセルサイズは X 値へフォールバックし、スケールが 1 つしか
+        # 分からない場合は等方挙動を保つ。
+        spp_y = self.y_size_per_pixel if self.y_size_per_pixel is not None else spp
 
         def build(label: int) -> Fiber:
             return _build_fiber(
                 label_image, label, data[label], cal, spp,
-                kink_set, dp_set, ep_set, kink_angle_map,
+                kink_set, dp_set, ep_set, kink_angle_map, spp_y,
             )
 
         if not parallel:

@@ -165,6 +165,58 @@ def test_measure_bundle_rejects_invalid_scale(measured):
         measure_bundle(bundle_path, scale_um=0.0)
 
 
+def test_convert_track_to_distance_isotropic_backward_compatible():
+    """Omitting the Y step keeps the historical isotropic behavior."""
+    # Orthogonal steps equal the pixel size.
+    horizon = imp_tools.convert_track_to_distance(
+        np.array([0, 1, 2, 3]), np.array([0, 0, 0, 0]), 10.0
+    )
+    assert horizon[-1] == pytest.approx(30.0)
+    # Diagonal steps equal sqrt(2) * pixel size.
+    diag = imp_tools.convert_track_to_distance(
+        np.array([0, 1, 2]), np.array([0, 1, 2]), 10.0
+    )
+    assert diag[-1] == pytest.approx(2 * 10.0 * np.sqrt(2))
+
+
+def test_convert_track_to_distance_anisotropic():
+    """Per-axis pixel sizes measure X, Y, and diagonal steps independently."""
+    horiz = imp_tools.convert_track_to_distance(
+        np.array([0, 1, 2, 3]), np.array([0, 0, 0, 0]), 10.0, 20.0
+    )
+    assert horiz[-1] == pytest.approx(30.0)  # X steps only
+    vert = imp_tools.convert_track_to_distance(
+        np.array([0, 0, 0, 0]), np.array([0, 1, 2, 3]), 10.0, 20.0
+    )
+    assert vert[-1] == pytest.approx(60.0)  # Y steps only
+    diag = imp_tools.convert_track_to_distance(
+        np.array([0, 1, 2]), np.array([0, 1, 2]), 10.0, 20.0
+    )
+    assert diag[-1] == pytest.approx(2 * np.hypot(10.0, 20.0))
+
+
+def test_measure_bundle_anisotropic_scale(measured):
+    """A larger Y scale enlarges the Y pixel size and the measured lengths."""
+    bundle_path, iso = measured
+    aniso = measure_bundle(
+        bundle_path, scale_um=SCALE_UM, scale_y_um=2 * SCALE_UM
+    )
+    # Square 191x191 grid: X pixel size unchanged, Y pixel size doubled.
+    assert aniso.image.size_per_pixel == pytest.approx(EXPECTED_SIZE_PER_PIXEL)
+    assert aniso.image.y_size_per_pixel == pytest.approx(
+        2 * EXPECTED_SIZE_PER_PIXEL
+    )
+    # The fiber spans both axes, so a larger Y scale must lengthen it.
+    assert aniso.stats[0].length_nm > iso.stats[0].length_nm
+
+
+def test_measure_bundle_rejects_invalid_scale_y(measured):
+    """A non-positive Y scale fails loudly like an invalid X scale."""
+    bundle_path, _result = measured
+    with pytest.raises(ValueError):
+        measure_bundle(bundle_path, scale_um=SCALE_UM, scale_y_um=0.0)
+
+
 def test_fiber_csv_schema_and_values(measured, tmp_path):
     """write_fiber_csv emits the documented columns with parseable values."""
     _bundle_path, result = measured

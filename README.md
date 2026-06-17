@@ -406,11 +406,12 @@ which catches typos that would otherwise silently fall back to defaults.
 `--format` forces the input text layout (`multi-column` or `single-column`)
 when auto-detection would lock onto a numeric header block; the resolved
 layout is always recorded in the bundle metadata (`input_format`) for audit.
-`--scale-um` records the physical scan size (in micrometers, applied to both
-axes) in the bundle, overriding the value read from the instrument header; when
-omitted, the header scan size is used if present, otherwise no scan size is
-stored. Because the scan size travels per file, a folder mixing scans of
-different sizes is processed correctly without one batch-wide value.
+`--scale-um` records the physical scan size (X / width, in micrometers) in the
+bundle, overriding the value read from the instrument header; when omitted, the
+header scan size is used if present, otherwise no scan size is stored. It is
+applied to both axes unless `--scale-y-um` records a different Y (height) size
+for a rectangular scan. Because the scan size travels per file, a folder mixing
+scans of different sizes is processed correctly without one batch-wide value.
 
 ### Validating bundles
 
@@ -439,9 +440,11 @@ GUI04 export for the same bundle and scale.
 # Per-fiber statistics (length, height median/max, endpoints, kinks).
 # --scale-um is optional: when omitted, the scan size recorded in each bundle
 # is used. Pass it explicitly for older bundles that have no recorded scan size.
+# The pixel size is resolved per axis, so add --scale-y-um for rectangular scans.
 python cli.py measure results\*.b2z
 python cli.py measure results\*.b2z --scale-um 2.0
 python cli.py measure results --scale-um 2.0 --output-dir stats
+python cli.py measure results\*.b2z --scale-um 5.0 --scale-y-um 2.5
 
 # Skeleton-pixel heights (the data behind the GUI03 height histogram).
 python cli.py heights results --output heights.csv

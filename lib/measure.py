@@ -222,15 +222,20 @@ def _tracking_image_from_arrays(
     name: str,
     data: Dict[str, np.ndarray],
     size_per_pixel: float,
+    y_size_per_pixel: Optional[float] = None,
 ) -> FiberTrackingImage:
     """
     Assemble a `FiberTrackingImage` from already-loaded bundle arrays.
     読み込み済みのバンドル配列から `FiberTrackingImage` を組み立てる。
 
     Used by both `load_tracking_image` and `measure_bundle` so the bundle is
-    read from disk only once per call path.
+    read from disk only once per call path. ``size_per_pixel`` is the X (column)
+    pixel size; ``y_size_per_pixel`` is the Y (row) pixel size and defaults to
+    the X value for an isotropic (square-pixel) scale.
     `load_tracking_image` と `measure_bundle` の両方から使い、各呼び出し経路で
-    バンドルのディスク読み込みを 1 回に抑える。
+    バンドルのディスク読み込みを 1 回に抑える。``size_per_pixel`` は X（列）軸、
+    ``y_size_per_pixel`` は Y（行）軸のピクセルサイズで、省略時は X 値を流用して
+    等方（正方ピクセル）スケールとする。
     """
     cal = data["calibrated"]
     skl = data["skeletonized"].astype(np.uint8)
@@ -244,6 +249,7 @@ def _tracking_image_from_arrays(
         original_AFM=cal,
         name=name,
         size_per_pixel=size_per_pixel,
+        y_size_per_pixel=y_size_per_pixel,
     )
     # Assign GUI01 analysis outputs directly; no lib processing module is rerun.
     # GUI01 の解析結果を属性へ直接代入する。lib の処理モジュールは再実行しない。
@@ -257,7 +263,11 @@ def _tracking_image_from_arrays(
     return image
 
 
-def load_tracking_image(bundle_path: str, size_per_pixel: float) -> FiberTrackingImage:
+def load_tracking_image(
+    bundle_path: str,
+    size_per_pixel: float,
+    y_size_per_pixel: Optional[float] = None,
+) -> FiberTrackingImage:
     """
     Rebuild a `FiberTrackingImage` from a GUI01 ``.b2z`` bundle.
     GUI01 が保存した ``.b2z`` バンドルから `FiberTrackingImage` を再構築する。
@@ -268,8 +278,14 @@ def load_tracking_image(bundle_path: str, size_per_pixel: float) -> FiberTrackin
         Path to the ``.b2z`` bundle file.
         ``.b2z`` バンドルファイルのパス。
     size_per_pixel
-        Physical pixel size in nanometers used for fiber-length calculations.
-        ファイバー長さ計算に使う物理ピクセルサイズ (nm/px)。
+        Physical X (column) pixel size in nanometers used for fiber-length
+        calculations.
+        ファイバー長さ計算に使う X（列）軸の物理ピクセルサイズ (nm/px)。
+    y_size_per_pixel
+        Physical Y (row) pixel size in nanometers. ``None`` reuses
+        ``size_per_pixel`` for an isotropic (square-pixel) scale.
+        Y（行）軸の物理ピクセルサイズ (nm/px)。``None`` のときは
+        ``size_per_pixel`` を流用し等方（正方ピクセル）スケールとする。
 
     Returns
     -------
@@ -287,7 +303,7 @@ def load_tracking_image(bundle_path: str, size_per_pixel: float) -> FiberTrackin
     # データセットを一貫して再構築できるよう、必要キーを 1 回でまとめて読み込む。
     data = _load_validated_arrays(bundle_path, TRACKING_BUNDLE_KEYS)
     name = os.path.splitext(os.path.basename(bundle_path))[0]
-    return _tracking_image_from_arrays(name, data, size_per_pixel)
+    return _tracking_image_from_arrays(name, data, size_per_pixel, y_size_per_pixel)
 
 
 def read_scan_size_from_bundle(
@@ -320,6 +336,7 @@ def measure_bundle(
     scale_um: Optional[float] = None,
     max_workers: Optional[int] = None,
     progress_cb: Optional[Callable[[int, int], None]] = None,
+    scale_y_um: Optional[float] = None,
 ) -> MeasureResult:
     """
     Trace all fibers in one bundle and compute their statistics.
@@ -331,23 +348,32 @@ def measure_bundle(
         Path to the ``.b2z`` bundle file.
         ``.b2z`` バンドルファイルのパス。
     scale_um
-        Full physical image size in micrometers. The pixel size is derived as
-        ``scale_um * 1000 / max(height_px, width_px)``, matching the GUI04
-        convention for non-square images. When ``None``, the scan size
-        recorded in the bundle (``spatial_calibration``) is used; its X size
-        supplies the scale. A ``ValueError`` is raised if neither an explicit
-        value nor a recorded scan size is available.
-        画像全体の物理サイズ (µm)。ピクセルサイズは GUI04 の非正方画像の規約に
-        合わせ ``scale_um * 1000 / max(縦px, 横px)`` で導出する。``None`` の
-        ときはバンドルに記録された走査範囲（``spatial_calibration``）を使い、
-        その X サイズをスケールに用いる。明示値も記録値も無い場合は
-        ``ValueError`` を送出する。
+        Full physical image width along the X (column) axis in micrometers.
+        The X pixel size is ``scale_um * 1000 / width_px``. When ``None``, the
+        scan size recorded in the bundle (``spatial_calibration``) supplies both
+        axes. A ``ValueError`` is raised if neither an explicit value nor a
+        recorded scan size is available.
+        X（列）軸方向の画像全体の物理幅 (µm)。X のピクセルサイズは
+        ``scale_um * 1000 / 横px``。``None`` のときはバンドルに記録された
+        走査範囲（``spatial_calibration``）が両軸を供給する。明示値も記録値も
+        無い場合は ``ValueError`` を送出する。
     max_workers
         Maximum number of worker threads for parallel fiber tracing.
         並列ファイバー追跡に使うワーカースレッドの最大数。
     progress_cb
         Progress callback receiving ``(done, total)`` per traced fiber.
         ファイバー 1 本完了ごとに ``(done, total)`` を受け取る進捗コールバック。
+    scale_y_um
+        Full physical image height along the Y (row) axis in micrometers. The
+        Y pixel size is ``scale_y_um * 1000 / height_px``. When ``None`` it
+        defaults to the recorded Y scan size (if ``scale_um`` is also ``None``)
+        or to ``scale_um`` otherwise, keeping the historical single-value
+        (square-scan) behavior. Pass a distinct value for rectangular scans.
+        Y（行）軸方向の画像全体の物理高さ (µm)。Y のピクセルサイズは
+        ``scale_y_um * 1000 / 縦px``。``None`` のときは（``scale_um`` も
+        ``None`` なら）記録された Y 走査範囲、そうでなければ ``scale_um`` を
+        既定値とし、従来の単一値（正方スキャン）挙動を保つ。矩形スキャンでは
+        別の値を渡す。
 
     Returns
     -------
@@ -358,9 +384,18 @@ def measure_bundle(
     Raises
     ------
     ValueError
-        If `scale_um` is ``None`` and the bundle records no scan size, if the
+        If `scale_um` is ``None`` and the bundle records no scan size, if a
         resolved scale is not a positive number, or if the bundle violates
         the ``.b2z`` contract (see `lib.bundle_schema.validate_bundle`).
+
+    Notes
+    -----
+    Pixel size is resolved per axis (X from image width, Y from image height)
+    so rectangular fields of view and non-square pixel grids are measured
+    correctly. Square scans on square pixel grids are unchanged.
+    ピクセルサイズは軸ごと（X は画像の幅、Y は画像の高さ）に解決するため、
+    矩形視野や非正方ピクセル格子も正しく測れる。正方ピクセル格子の正方スキャンの
+    結果は変わらない。
     """
     if scale_um is None:
         recorded = read_scan_size_from_bundle(bundle_path)
@@ -370,25 +405,35 @@ def measure_bundle(
                 "pass scale_um explicitly or re-process the input so its "
                 "scan size is stored in the bundle"
             )
-        # Scalar scale follows the X axis to match the historical single-value
-        # convention; for square scans X and Y are equal.
-        # 従来の単一値規約に合わせ X 軸をスカラースケールとする。正方走査では
-        # X と Y は等しい。
         scale_um = recorded[0]
+        if scale_y_um is None:
+            scale_y_um = recorded[1]
+
+    # A single value means a square scan, so Y reuses the X scale.
+    # 単一値は正方スキャンを意味するため、Y は X のスケールを流用する。
+    if scale_y_um is None:
+        scale_y_um = scale_um
 
     if not (scale_um > 0):
         raise ValueError(f"scale_um must be a positive number, got {scale_um!r}")
+    if not (scale_y_um > 0):
+        raise ValueError(
+            f"scale_y_um must be a positive number, got {scale_y_um!r}"
+        )
 
     data = _load_validated_arrays(bundle_path, TRACKING_BUNDLE_KEYS)
-    shape = data["calibrated"].shape
-    # The longer image axis defines the pixel size so non-square scans keep
-    # the user-entered scale on their long side, matching GUI04.
-    # 非正方スキャンでは長辺側にユーザー入力スケールを対応させるため、長い方の
-    # 軸でピクセルサイズを定義する（GUI04 と同一の規約）。
-    size_per_pixel = scale_um * 1000.0 / max(shape[0], shape[1])
+    height_px, width_px = data["calibrated"].shape
+    # Per-axis pixel size: X spans the columns (width), Y spans the rows
+    # (height), matching the bundle coordinate convention (x=column, y=row).
+    # 軸別ピクセルサイズ：X は列（幅）、Y は行（高さ）に対応し、バンドルの
+    # 座標規約（x=列, y=行）に一致する。
+    x_size_per_pixel = scale_um * 1000.0 / width_px
+    y_size_per_pixel = scale_y_um * 1000.0 / height_px
 
     name = os.path.splitext(os.path.basename(bundle_path))[0]
-    image = _tracking_image_from_arrays(name, data, size_per_pixel)
+    image = _tracking_image_from_arrays(
+        name, data, x_size_per_pixel, y_size_per_pixel,
+    )
     fibers = image.fibers_in_image_parallel(
         max_workers=max_workers,
         progress_cb=progress_cb,
