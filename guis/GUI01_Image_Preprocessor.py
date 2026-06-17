@@ -1436,8 +1436,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _scales_ready_for_run(self, targets: List[FileItem], overwrite: bool) -> bool:
         """
-        Check per-file scan sizes before a run, prompting on mixed scales.
-        実行前にファイル単位の走査範囲を確認し、複数スケール時は確認する。
+        Verify every file to be processed has a scan size set before a run.
+        実行前に、処理対象の全ファイルへ走査範囲が設定済みかを確認する。
+
+        Mixed per-file scales (including different X/Y sizes) are a supported
+        workflow — set from each file's header or a CSV manifest — so they are
+        not flagged; only files missing a scale block the run.
+        ファイル単位での異なるスケール（X/Y 別を含む）は、ヘッダや CSV
+        マニフェストから設定する正当なワークフローなので警告しない。実行を
+        止めるのはスケール未設定のファイルがある場合のみ。
 
         Parameters
         ----------
@@ -1472,21 +1479,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             messagebox.showerror(_("エラー"), msg + "\n\n" + names)
             return False
 
-        # Distinct per-axis sizes among the files to process. More than one is
-        # allowed (mixed-scale folders are valid) but confirmed, since it is
-        # also a common sign of a manifest or selection mistake.
-        # 処理対象ファイル間で異なる軸別サイズの集合。複数あっても許容するが
-        # （混在フォルダは正当）、マニフェストや選択ミスの兆候でもあるため確認する。
-        distinct = {
-            (round(it.scale_x_um, 6), round(it.scale_y_um, 6)) for it in to_process
-        }
-        if len(distinct) > 1:
-            if not messagebox.askokcancel(
-                _("確認"),
-                _("選択されたファイルのスケールが複数あります。"
-                  "ファイルごとのスケールで処理します。続行しますか？"),
-            ):
-                return False
         return True
 
     def _start_processing(self, targets: List[FileItem]) -> None:
