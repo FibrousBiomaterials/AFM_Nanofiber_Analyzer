@@ -56,6 +56,7 @@ from lib.ui_tools import (
     apply_window_size, ToolTip, setup_matplotlib_style,
     save_figure_with_dialog, PLOT_FS_DEFAULTS, setup_ttk_theme,
     UNIT_MICROMETER, extent_scale_and_unit, save_csv_with_dialog,
+    rewrite_entries, mark_entry_state,
     UnconfirmedEntryMixin, localized_combobox_width,
     DEFAULT_VMIN, DEFAULT_VMAX,
 )
@@ -533,7 +534,12 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # axis-tick unit (µm/nm) without changing this stored value.
         # 入力欄は µm 固定。ラジオボタンは軸目盛の表示単位 (µm/nm) を切り替えるだけで、
         # ここに保持する値そのものは変化させない（GUI01 / GUI04 と同仕様）。
+        # scale_um is the X (width) size; scale_y_um is the optional Y (height)
+        # size for rectangular scans. None means "same as X" (square scan).
+        # scale_um は X（幅）サイズ、scale_y_um は矩形スキャン用の任意の Y（高さ）
+        # サイズ。None は「X と同値」（正方スキャン）を意味する。
         self.scale_um = DEFAULT_IMAGE_SIZE_UM
+        self.scale_y_um = None
         self.unit = UNIT_MICROMETER
         # Heatmap height range is stored in nanometers and shared with GUI01/GUI04 defaults.
         # ヒートマップ高さ範囲は nm で保持し、GUI01 / GUI04 と共通の既定値を使う。
@@ -624,6 +630,27 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             self.entryas,
             lambda: self._fmt_num(self.scale_um),
             self.validate_input1,
+        )
+        ToolTip(self.entryas, _("AFM 画像の X（幅）方向の実寸") + " (µm)。")
+        c += 1
+        # Optional Y (height) size for rectangular scans. "X" is the left
+        # entry, "Y" the right; an empty Y means a square scan (Y = X).
+        # 矩形スキャン用の任意の Y（高さ）サイズ。左が X、右が Y で、Y 空欄は
+        # 正方スキャン（Y = X）を意味する。
+        ttk.Label(param_row, text="×").grid(row=0, column=c, padx=(0, 2))
+        c += 1
+        self.entry_scale_y = ttk.Entry(param_row, width=6)
+        self.entry_scale_y.grid(row=0, column=c, padx=(0, 4))
+        self._register_unconfirmed_entry(
+            self.entry_scale_y,
+            lambda: "" if self.scale_y_um is None
+            else self._fmt_num(self.scale_y_um),
+            self.validate_scale_y,
+        )
+        ToolTip(
+            self.entry_scale_y,
+            _("AFM 画像の Y（高さ）方向の実寸") + " (µm)。\n"
+            + _("空欄なら X（幅）と同じ（正方スキャン）。"),
         )
         c += 1
         # Use the shared U+00B5 micrometer symbol constant for label consistency.
@@ -986,7 +1013,12 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             True if the scale was committed; False if validation failed.
             スケール値を確定できた場合は True、不正値なら False。
         """
-        old_scale_um = self.scale_um
+        # Capture the effective per-axis scales before the commit so stored
+        # points can be rescaled by each axis's own ratio (Y follows X when
+        # the Y entry is empty, so changing X then rescales Y as well).
+        # コミット前に軸別の実効スケールを控え、各軸の比率で打点を再変換する
+        # （Y 欄が空なら Y は X に従うので、X 変更時は Y も再変換される）。
+        old_x, old_y = self._scale_xy_um()
 
         def _on_success():
             if self.flag1:
@@ -995,23 +1027,95 @@ class App(tk.Tk, UnconfirmedEntryMixin):
                 # スケール値の変更は軸の extent を変えるだけで画素データ自体は変わらない。
                 # キャッシュ済み画像を使い回す。
                 self.image_showing(reload=False)
-                # Rescale stored µm point coordinates when physical image size changes.
-                # 実寸スケール変更時は、µm 座標で保持している打点を比例変換する。
-                if self.xlist != []:
-                    oldxlist = np.array(self.xlist)
-                    oldylist = np.array(self.ylist)
-                    newxlist = oldxlist * self.scale_um / old_scale_um
-                    newylist = oldylist * self.scale_um / old_scale_um
-                    self.xlist = newxlist.tolist()
-                    self.ylist = newylist.tolist()
-                    self.line_redraw()
-                    if self.flag2:
-                        self.make_profile()
+                new_x, new_y = self._scale_xy_um()
+                self._rescale_points(old_x, new_x, old_y, new_y)
 
         return self._commit_float_fields(
             [(self.entryas, "scale_um", "scale_um")],
+            validator=lambda v: None if v["scale_um"] > 0
+            else _("スケール") + " (µm) " + _("は正の数を入力してください"),
             on_success=_on_success,
         )
+
+    def validate_scale_y(self) -> bool:
+        """
+        Validate and commit the optional Y (height) scale in micrometers.
+        任意の Y（高さ）スケール (µm) の入力欄を検証・確定する。
+
+        An empty field commits ``None`` (Y follows X, square scan); a non-empty
+        field must be positive. Stored points are rescaled along Y by the
+        change in the effective Y scale.
+        空欄は ``None`` を確定し（Y は X に従う＝正方スキャン）、非空欄は正の数で
+        あること。実効 Y スケールの変化分だけ打点を Y 方向に再変換する。
+        """
+        old_x, old_y = self._scale_xy_um()
+        raw = self.entry_scale_y.get().strip()
+        if raw == "":
+            self.scale_y_um = None
+            committed = ""
+        else:
+            try:
+                value = float(raw)
+            except ValueError:
+                messagebox.showerror(_("エラー"), _("数値を入力してください"))
+                return False
+            if not (value > 0):
+                messagebox.showerror(
+                    _("エラー"),
+                    _("スケール") + " (µm) " + _("は正の数を入力してください"),
+                )
+                return False
+            self.scale_y_um = value
+            committed = self._fmt_num(value)
+        rewrite_entries(((self.entry_scale_y, committed),))
+        mark_entry_state(self.entry_scale_y, committed)
+        if self.flag1:
+            self.image_showing(reload=False)
+            new_x, new_y = self._scale_xy_um()
+            self._rescale_points(old_x, new_x, old_y, new_y)
+        return True
+
+    def _scale_xy_um(self) -> tuple:
+        """
+        Return the (X, Y) scan size in micrometers; Y falls back to X when unset.
+        走査範囲 (X, Y) を µm で返す。Y 未設定時は X にフォールバックする。
+        """
+        y = self.scale_y_um if self.scale_y_um is not None else self.scale_um
+        return self.scale_um, y
+
+    def _rescale_points(self, old_x: float, new_x: float,
+                        old_y: float, new_y: float) -> None:
+        """
+        Rescale stored micrometer points when the physical scale changes.
+        実寸スケール変更時に、µm 単位で保持した打点を再変換する。
+
+        Points are kept at the same pixel location, so each axis is scaled by
+        its own new/old ratio.
+        打点は同じ画素位置に保つため、各軸を自身の new/old 比で拡縮する。
+        """
+        if not self.xlist:
+            return
+        self.xlist = (np.array(self.xlist) * new_x / old_x).tolist()
+        self.ylist = (np.array(self.ylist) * new_y / old_y).tolist()
+        self.line_redraw()
+        if self.flag2:
+            self.make_profile()
+
+    def _get_extent_scale_xy_and_unit(self) -> tuple:
+        """
+        Return per-axis extent scales and the shared unit label.
+        軸別の extent スケールと共通の単位ラベルを返す。
+
+        X uses the width scale and Y the height scale, so rectangular scans draw
+        with the correct physical aspect. Nanometer display multiplies by 1000.
+        X は幅スケール、Y は高さスケールを使い、矩形スキャンを正しい物理アスペクト
+        で描画する。nm 表示では 1000 倍する。
+        """
+        x_um, y_um = self._scale_xy_um()
+        unit = self.unit_var.get()
+        x_scale, unit_label = extent_scale_and_unit(x_um, unit)
+        y_scale, _unit_label = extent_scale_and_unit(y_um, unit)
+        return x_scale, y_scale, unit_label
 
     def _default_save_dir(self) -> str:
         """
@@ -1219,9 +1323,13 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             )
             return None
 
-        # GUI02 currently maps physical coordinates with one image_size value,
-        # so non-square arrays would produce incorrect coordinate conversion.
-        # GUI02 は 1 つの image_size で物理座標を変換するため、非正方形配列は未対応。
+        # GUI02 uses one pixel-grid side length (image_size) for both axes, so
+        # non-square pixel arrays are unsupported. Rectangular *scans* (a square
+        # pixel grid with different physical X/Y sizes) are supported via the
+        # separate X/Y scale entries.
+        # GUI02 は両軸で 1 つの画素格子辺長（image_size）を用いるため、非正方形
+        # の画素配列は未対応。矩形*スキャン*（正方画素格子で物理 X/Y サイズが
+        # 異なる場合）は X/Y 別スケール入力欄で対応する。
         if data.ndim != 2:
             messagebox.showerror(
                 _("エラー"),
@@ -1259,27 +1367,39 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             走査範囲が見つかりスケール入力欄へ適用された場合に True。
         """
         size_um = None
+        size_y_um = None
         try:
             if path.endswith(BUNDLE_EXT):
                 recorded = read_scan_size_from_bundle(path)
                 if recorded is not None:
-                    size_um = recorded[0]
+                    size_um, size_y_um = recorded
             elif not path.endswith(".npy"):
                 header = read_scan_size(path)
                 if header is not None:
-                    size_um = header.x_um
+                    size_um, size_y_um = header.x_um, header.y_um
         except Exception:
             # A metadata/header read failure must not block loading the image.
             # メタデータ/ヘッダ読み取り失敗で画像読み込みを妨げない。
             size_um = None
+            size_y_um = None
         if size_um is None or size_um <= 0:
             return False
         self.scale_um = size_um
-        # Mirror the committed value into the entry and clear the unconfirmed
-        # styling so the field reads as confirmed.
+        # A distinct Y size keeps a rectangular scan; an equal one leaves the
+        # Y entry empty (square scan).
+        # Y が異なれば矩形スキャン、等しければ Y 欄は空（正方スキャン）とする。
+        if size_y_um is not None and size_y_um > 0 and abs(size_y_um - size_um) > 1e-9:
+            self.scale_y_um = size_y_um
+        else:
+            self.scale_y_um = None
+        # Mirror the committed values into the entries and clear the unconfirmed
+        # styling so the fields read as confirmed.
         # 確定値を入力欄へ反映し、未確定スタイルを解除して確定表示にする。
         self.entryas.delete(0, "end")
         self.entryas.insert(0, self._fmt_num(self.scale_um))
+        self.entry_scale_y.delete(0, "end")
+        if self.scale_y_um is not None:
+            self.entry_scale_y.insert(0, self._fmt_num(self.scale_y_um))
         try:
             self._refresh_all_entry_states()
         except Exception:
@@ -1365,8 +1485,8 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # the unit radio; the stored value self.scale_um (µm) is unchanged.
         # 軸の extent は単位ラジオに応じた表示用スケール (µm or nm×1000) を使う。
         # 保持値 self.scale_um (µm) はラジオで変化しない。
-        scale_disp, unit_label = self._get_extent_scale_and_unit()
-        extent = [0, scale_disp, 0, scale_disp]
+        x_disp, y_disp, unit_label = self._get_extent_scale_xy_and_unit()
+        extent = [0, x_disp, 0, y_disp]
 
         if not self.flag1 or getattr(self, "aximg", None) is None:
             # First render creates the image artist and colorbar.
@@ -1663,13 +1783,18 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             µm 単位の距離軸と nm 単位のサンプリング済み高さ値。
         """
 
-        # Convert micrometer coordinates to ndarray pixel coordinates.
-        # imshow uses a lower-left displayed origin; ndarray indexing uses upper-left rows.
-        # imshow は表示上は左下原点、ndarray は左上原点なので y 方向を反転する。
-        tx1 = x1 * self.image_size / self.scale_um
-        tx2 = x2 * self.image_size / self.scale_um
-        ty1 = self.image_size - y1 * self.image_size / self.scale_um
-        ty2 = self.image_size - y2 * self.image_size / self.scale_um
+        # Convert micrometer coordinates to ndarray pixel coordinates per axis
+        # (X from the width scale, Y from the height scale), so rectangular
+        # scans map correctly. imshow uses a lower-left displayed origin while
+        # ndarray indexing uses upper-left rows, so y is flipped.
+        # µm 座標を軸別に画素座標へ変換する（X は幅スケール、Y は高さスケール）。
+        # これで矩形スキャンも正しく対応づく。imshow は表示上は左下原点、ndarray は
+        # 左上原点なので y 方向を反転する。
+        x_um, y_um = self._scale_xy_um()
+        tx1 = x1 * self.image_size / x_um
+        tx2 = x2 * self.image_size / x_um
+        ty1 = self.image_size - y1 * self.image_size / y_um
+        ty2 = self.image_size - y2 * self.image_size / y_um
         # profile_line expects coordinates as (row, col) = (y, x).
         start = np.array([ty1, tx1])
         end = np.array([ty2, tx2])
@@ -1677,7 +1802,10 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             self.img, start, end, mode='nearest',
             linewidth=self.linewidth, reduce_func=self.reduce_func,
         )
-        # Distance is stored in micrometers; display conversion happens later.
+        # The points are already stored in micrometers per axis, so their plain
+        # Euclidean separation is the true physical segment length.
+        # 打点は軸別に µm で保持済みなので、そのユークリッド距離が物理的な
+        # 区間長そのものになる。
         d = ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
         profilex = np.linspace(0, d, len(profile))
         return profilex, profile

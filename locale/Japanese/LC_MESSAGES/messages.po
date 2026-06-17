@@ -1858,20 +1858,20 @@ msgstr ""
 
 
 #: guis/GUI01_Image_Preprocessor.py
-msgid "選択行に適用"
-msgstr "選択行に適用"
+msgid "選択ファイルに適用"
+msgstr "選択ファイルに適用"
 
 #: guis/GUI01_Image_Preprocessor.py
-msgid "全行に適用"
-msgstr "全行に適用"
+msgid "全ファイルに適用"
+msgstr "全ファイルに適用"
 
 #: guis/GUI01_Image_Preprocessor.py
 msgid "スケール表(CSV)読込"
 msgstr "スケール表(CSV)読込"
 
 #: guis/GUI01_Image_Preprocessor.py
-msgid "スケール入力欄の値を選択行へ適用します。"
-msgstr "スケール入力欄の値を選択行へ適用します。"
+msgid "スケール入力欄の値を選択ファイルへ適用します。"
+msgstr "スケール入力欄の値を選択ファイルへ適用します。"
 
 #: guis/GUI01_Image_Preprocessor.py
 msgid "ヘッダから取得できないファイルにスケールを与えるときに使います。"
@@ -1890,12 +1890,16 @@ msgid "スケール: ヘッダ取得 %d 件 / 未設定 %d 件"
 msgstr "スケール: ヘッダ取得 %d 件 / 未設定 %d 件"
 
 #: guis/GUI01_Image_Preprocessor.py
-msgid "未設定のファイルは「選択行に適用」または「スケール表(CSV)読込」で設定してください。"
-msgstr "未設定のファイルは「選択行に適用」または「スケール表(CSV)読込」で設定してください。"
+msgid ""
+"スケール（画像の実寸 µm）が未設定のファイルがあります。「選択ファイルに適用」または"
+"「スケール表(CSV)読込」で設定してください。"
+msgstr ""
+"スケール（画像の実寸 µm）が未設定のファイルがあります。「選択ファイルに適用」または"
+"「スケール表(CSV)読込」で設定してください。"
 
 #: guis/GUI01_Image_Preprocessor.py
-msgid "適用する行を選択してください。"
-msgstr "適用する行を選択してください。"
+msgid "適用するファイルを選択してください。"
+msgstr "適用するファイルを選択してください。"
 
 #: guis/GUI01_Image_Preprocessor.py
 msgid "スケール %g µm を %d 件に適用しました。"
@@ -1928,3 +1932,27 @@ msgstr "選択されたファイルのスケールが複数あります。ファ
 #: guis/GUI04_Tracking_fiber.py
 msgid "バンドル記録のスケール {scale} µm を使用します。"
 msgstr "バンドル記録のスケール {scale} µm を使用します。"
+
+#: guis/GUI02_PlotProfiler.py
+msgid "AFM 画像の X（幅）方向の実寸"
+msgstr "AFM 画像の X（幅）方向の実寸"
+
+#: guis/GUI01_Image_Preprocessor.py guis/GUI02_PlotProfiler.py guis/GUI04_Tracking_fiber.py
+msgid "AFM 画像の Y（高さ）方向の実寸"
+msgstr "AFM 画像の Y（高さ）方向の実寸"
+
+#: guis/GUI01_Image_Preprocessor.py guis/GUI02_PlotProfiler.py guis/GUI04_Tracking_fiber.py
+msgid "空欄なら X（幅）と同じ（正方スキャン）。"
+msgstr "空欄なら X（幅）と同じ（正方スキャン）。"
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール %g×%g µm を %d 件に適用しました。"
+msgstr "スケール %g×%g µm を %d 件に適用しました。"
+
+#: guis/GUI04_Tracking_fiber.py
+msgid "Y スケール変更: ファイバーを再解析します..."
+msgstr "Y スケール変更: ファイバーを再解析します..."
+
+#: guis/GUI04_Tracking_fiber.py
+msgid "バンドル記録のスケール {x}×{y} µm を使用します。"
+msgstr "バンドル記録のスケール {x}×{y} µm を使用します。"

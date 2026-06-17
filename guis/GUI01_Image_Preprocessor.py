@@ -77,6 +77,7 @@ from lib.ui_tools import (
     save_figure_with_dialog, PLOT_FS_DEFAULTS, setup_ttk_theme,
     save_text_widget_log,
     create_scrolled_text, create_scrolled_treeview, drain_ui_queue,
+    rewrite_entries, mark_entry_state,
     UnconfirmedEntryMixin, LogMixin,
 )
 
@@ -481,8 +482,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.vmax_var = tk.StringVar(value=self._fmt_num(self.vmax))
 
         # Physical image size is display metadata, not an analysis parameter.
+        # scale_um is the X (width) size; scale_y_um is the optional Y (height)
+        # size for rectangular scans. None means "same as X" (square scan).
+        # scale_um は X（幅）サイズ、scale_y_um は矩形スキャン用の任意の Y（高さ）
+        # サイズ。None は「X と同値」（正方スキャン）を意味する。
         self.scale_um: float = 2.0
         self.scale_um_var = tk.StringVar(value=self._fmt_num(self.scale_um))
+        self.scale_y_um: Optional[float] = None
+        self.scale_y_um_var = tk.StringVar(value="")
 
         # Scale display is applied immediately to all preview panels.
         self.show_scale_var = tk.BooleanVar(value=False)
@@ -636,13 +643,50 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         scale_bar = ttk.Frame(list_frame)
         scale_bar.pack(side="top", fill="x", padx=2, pady=(2, 0))
         ttk.Label(scale_bar, text=_("スケール") + " (µm):").pack(side="left", padx=(0, 2))
+        # Scale entry sits next to the apply buttons that consume it, so the
+        # value source and its destination rows are visually grouped.
+        # 適用ボタンの直前に入力欄を置き、値の入力元と適用先を視覚的にまとめる。
+        self.ent_scale_um = ttk.Entry(scale_bar, width=7, textvariable=self.scale_um_var)
+        self.ent_scale_um.pack(side="left", padx=(0, 4))
+        self._register_unconfirmed_entry(
+            self.ent_scale_um,
+            lambda: self._fmt_num(self.scale_um),
+            self.validate_scale_um,
+        )
+        ToolTip(
+            self.ent_scale_um,
+            _("AFM 画像の一辺の実寸") + " (µm)。\n"
+            + _("解析結果には影響せず、スケール表示時の軸目盛のみに使われる。") + "\n"
+            + _("同一フォルダ内で画像ごとにスキャンサイズが異なる場合は、") + "\n"
+            + _("ファイルを選び直してから値を変更してください。"),
+        )
+        # Optional Y (height) size for rectangular scans. "X" is the left
+        # entry, "Y" the right; an empty Y means a square scan (Y = X).
+        # 矩形スキャン用の任意の Y（高さ）サイズ。左が X、右が Y で、Y 空欄は
+        # 正方スキャン（Y = X）を意味する。
+        ttk.Label(scale_bar, text="×").pack(side="left", padx=(0, 2))
+        self.ent_scale_y_um = ttk.Entry(
+            scale_bar, width=7, textvariable=self.scale_y_um_var,
+        )
+        self.ent_scale_y_um.pack(side="left", padx=(0, 4))
+        self._register_unconfirmed_entry(
+            self.ent_scale_y_um,
+            lambda: "" if self.scale_y_um is None
+            else self._fmt_num(self.scale_y_um),
+            self.validate_scale_y_um,
+        )
+        ToolTip(
+            self.ent_scale_y_um,
+            _("AFM 画像の Y（高さ）方向の実寸") + " (µm)。\n"
+            + _("空欄なら X（幅）と同じ（正方スキャン）。"),
+        )
         self.btn_apply_scale_sel = ttk.Button(
-            scale_bar, text=_("選択行に適用"),
+            scale_bar, text=_("選択ファイルに適用"),
             command=lambda: self.on_apply_scale_to_rows(selected_only=True),
         )
         self.btn_apply_scale_sel.pack(side="left", padx=2)
         self.btn_apply_scale_all = ttk.Button(
-            scale_bar, text=_("全行に適用"),
+            scale_bar, text=_("全ファイルに適用"),
             command=lambda: self.on_apply_scale_to_rows(selected_only=False),
         )
         self.btn_apply_scale_all.pack(side="left", padx=2)
@@ -653,7 +697,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.btn_load_manifest.pack(side="left", padx=2)
         ToolTip(
             self.btn_apply_scale_sel,
-            _("スケール入力欄の値を選択行へ適用します。") + "\n"
+            _("スケール入力欄の値を選択ファイルへ適用します。") + "\n"
             + _("ヘッダから取得できないファイルにスケールを与えるときに使います。"),
         )
         ToolTip(
@@ -730,22 +774,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             command=self.on_redraw_preview,
         ).pack(side="left", padx=(2, 4))
 
-        # Physical scale in micrometers, committed with Enter.
-        ttk.Label(ctrl1, text=_("スケール") + " (µm)").pack(side="left", padx=(8, 2))
-        self.ent_scale_um = ttk.Entry(ctrl1, width=7, textvariable=self.scale_um_var)
-        self.ent_scale_um.pack(side="left", padx=2)
-        self._register_unconfirmed_entry(
-            self.ent_scale_um,
-            lambda: self._fmt_num(self.scale_um),
-            self.validate_scale_um,
-        )
-        ToolTip(
-            self.ent_scale_um,
-            _("AFM 画像の一辺の実寸") + " (µm)。\n"
-            + _("解析結果には影響せず、スケール表示時の軸目盛のみに使われる。") + "\n"
-            + _("同一フォルダ内で画像ごとにスキャンサイズが異なる場合は、") + "\n"
-            + _("ファイルを選び直してから値を変更してください。"),
-        )
+        # The physical-scale entry now lives in the file-list scale toolbar,
+        # next to the buttons that apply it to rows (see _build_main_panes).
+        # 実寸スケール入力欄はファイル一覧のスケールツールバーへ移動した
+        # （適用ボタンの隣。_build_main_panes を参照）。
 
         # Axis tick unit, applied immediately.
         ttk.Label(ctrl1, text=_("軸目盛単位")).pack(side="left", padx=(10, 2))
@@ -935,6 +967,63 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             else _("スケール") + " (µm) " + _("は正の数を入力してください"),
             on_success=self.on_redraw_preview,
         )
+
+    def validate_scale_y_um(self) -> bool:
+        """
+        Validate and commit the optional Y (height) scale in micrometers.
+        任意の Y（高さ）スケール (µm) の入力欄を検証・確定する。
+
+        An empty field commits ``None``, meaning the Y size follows the X size
+        (square scan); a non-empty field must be a positive number. This is
+        kept separate from `validate_scale_um` because the shared
+        `_commit_float_fields` helper cannot express the empty-means-default
+        case.
+        空欄は ``None`` を確定し、Y サイズが X サイズに従う（正方スキャン）こと
+        を意味する。非空欄は正の数であること。空欄を既定値として扱う仕様は共有
+        ヘルパー `_commit_float_fields` では表現できないため別実装とする。
+
+        Returns
+        -------
+        bool
+            True when the value (including empty) was committed; False on a
+            non-numeric or non-positive entry.
+            値（空欄含む）を確定できた場合は True、数値でない・非正の場合は False。
+        """
+        raw = self.ent_scale_y_um.get().strip()
+        if raw == "":
+            self.scale_y_um = None
+            committed = ""
+        else:
+            try:
+                value = float(raw)
+            except ValueError:
+                messagebox.showerror(_("エラー"), _("数値を入力してください"))
+                return False
+            if not (value > 0):
+                messagebox.showerror(
+                    _("エラー"),
+                    _("スケール") + " (µm) " + _("は正の数を入力してください"),
+                )
+                return False
+            self.scale_y_um = value
+            committed = self._fmt_num(value)
+        rewrite_entries(((self.ent_scale_y_um, committed),))
+        mark_entry_state(self.ent_scale_y_um, committed)
+        self.on_redraw_preview()
+        return True
+
+    def _scale_xy_um(self) -> Tuple[float, float]:
+        """
+        Return the (X, Y) display scale in micrometers.
+        表示用スケール (X, Y) を µm で返す。
+
+        Y falls back to X when no separate Y size is set, so a single value
+        keeps a square scan.
+        個別の Y サイズが未設定なら Y は X にフォールバックし、単一値で正方
+        スキャンを保つ。
+        """
+        y = self.scale_y_um if self.scale_y_um is not None else self.scale_um
+        return self.scale_um, y
 
     def _bind_events(self) -> None:
         """
@@ -1131,7 +1220,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             )
             if n_unset:
                 self._log(
-                    _("未設定のファイルは「選択行に適用」または「スケール表(CSV)読込」で設定してください。")
+                    _("スケール（画像の実寸 µm）が未設定のファイルがあります。"
+                      "「選択ファイルに適用」または「スケール表(CSV)読込」で設定してください。")
                 )
         self._update_controls_state()
         self.on_redraw_preview()
@@ -1165,32 +1255,42 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def on_apply_scale_to_rows(self, selected_only: bool) -> None:
         """
-        Apply the scale entry value to selected or all file rows (manual source).
-        スケール入力欄の値を選択行または全行へ適用する（手動ソース）。
+        Apply the scale entry value to selected or all files (manual source).
+        スケール入力欄の値を選択ファイルまたは全ファイルへ適用する（手動ソース）。
         """
         if self.is_running:
             return
-        # Commit and validate the scale entry before applying it.
-        # 適用前にスケール入力欄を確定・検証する。
+        # Commit and validate both scale entries before applying them.
+        # 適用前に両方のスケール入力欄を確定・検証する。
         if not self.validate_scale_um():
+            return
+        if not self.validate_scale_y_um():
             return
         if selected_only:
             iids = list(self.tree.selection())
             if not iids:
-                messagebox.showinfo(_("注意"), _("適用する行を選択してください。"))
+                messagebox.showinfo(_("注意"), _("適用するファイルを選択してください。"))
                 return
         else:
             iids = list(self.tree.get_children())
-        value = float(self.scale_um)
+        # A blank Y entry applies a square scan (Y = X); otherwise X and Y differ.
+        # Y 欄が空なら正方スキャン（Y = X）を適用し、そうでなければ X と Y は異なる。
+        x_um, y_um = self._scale_xy_um()
         for iid in iids:
             it = self.item_by_iid.get(iid)
             if it is None:
                 continue
-            it.scale_x_um = value
-            it.scale_y_um = value
+            it.scale_x_um = x_um
+            it.scale_y_um = y_um
             it.scale_source = "manual"
             self._refresh_tree_row(iid)
-        self._log(_("スケール %g µm を %d 件に適用しました。") % (value, len(iids)))
+        if abs(x_um - y_um) < 1e-9:
+            self._log(_("スケール %g µm を %d 件に適用しました。") % (x_um, len(iids)))
+        else:
+            self._log(
+                _("スケール %g×%g µm を %d 件に適用しました。")
+                % (x_um, y_um, len(iids))
+            )
 
     def on_load_scale_manifest(self) -> None:
         """
@@ -1792,15 +1892,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         show_scale = self.show_scale_var.get()
         unit = self.unit_var.get()
+        # Per-axis physical extent: X from the width scale, Y from the height
+        # scale (equal for a square scan).
+        # 軸別の物理範囲：X は幅スケール、Y は高さスケール（正方スキャンでは等しい）。
+        x_um, y_um = self._scale_xy_um()
         if unit == "nm":
-            scale = self.scale_um * 1000.0
+            x_scale, y_scale = x_um * 1000.0, y_um * 1000.0
             unit_label = "nm"
         else:
-            scale = self.scale_um
+            x_scale, y_scale = x_um, y_um
             unit_label = "µm"
 
         # extent converts imshow from pixel coordinates to the selected physical scale.
-        extent = [0, scale, 0, scale] if show_scale else None
+        extent = [0, x_scale, 0, y_scale] if show_scale else None
 
         self._reset_axes()
 
@@ -2948,19 +3052,22 @@ class SingleViewDialog(tk.Toplevel, UnconfirmedEntryMixin):
         show_scale = self.show_scale_var.get()
         unit = self.unit_var.get()
         # Scan size is view metadata, so it comes from the main preview setting.
-        actual_um = float(self.parent.scale_um)
+        # Per-axis: X from the width scale, Y from the height scale.
+        # 走査範囲は表示メタ情報なのでメインプレビュー設定から取得する。
+        # 軸別に、X は幅スケール、Y は高さスケールを使う。
+        x_um, y_um = self.parent._scale_xy_um()
 
         if unit == "nm":
-            scale = actual_um * 1000.0
+            x_scale, y_scale = x_um * 1000.0, y_um * 1000.0
             unit_label = "nm"
         else:
-            scale = actual_um
+            x_scale, y_scale = x_um, y_um
             unit_label = "µm"
 
         extent = None
         if show_scale:
             # extent converts imshow from pixel coordinates to physical scale.
-            extent = [0, scale, 0, scale]
+            extent = [0, x_scale, 0, y_scale]
             self.ax.set_xlabel("({0})".format(unit_label))
             self.ax.set_ylabel("({0})".format(unit_label))
             self.ax.tick_params(labelsize=tkfs)

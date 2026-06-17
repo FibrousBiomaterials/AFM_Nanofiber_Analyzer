@@ -1951,11 +1951,11 @@ msgstr ""
 
 
 #: guis/GUI01_Image_Preprocessor.py
-msgid "選択行に適用"
+msgid "選択ファイルに適用"
 msgstr "Apply to selected"
 
 #: guis/GUI01_Image_Preprocessor.py
-msgid "全行に適用"
+msgid "全ファイルに適用"
 msgstr "Apply to all"
 
 #: guis/GUI01_Image_Preprocessor.py
@@ -1963,8 +1963,8 @@ msgid "スケール表(CSV)読込"
 msgstr "Load scale table (CSV)"
 
 #: guis/GUI01_Image_Preprocessor.py
-msgid "スケール入力欄の値を選択行へ適用します。"
-msgstr "Apply the value in the scale field to the selected rows."
+msgid "スケール入力欄の値を選択ファイルへ適用します。"
+msgstr "Apply the value in the scale field to the selected files."
 
 #: guis/GUI01_Image_Preprocessor.py
 msgid "ヘッダから取得できないファイルにスケールを与えるときに使います。"
@@ -1983,12 +1983,16 @@ msgid "スケール: ヘッダ取得 %d 件 / 未設定 %d 件"
 msgstr "Scale: %d from header / %d unset"
 
 #: guis/GUI01_Image_Preprocessor.py
-msgid "未設定のファイルは「選択行に適用」または「スケール表(CSV)読込」で設定してください。"
-msgstr "Set unset files via 'Apply to selected' or 'Load scale table (CSV)'."
+msgid ""
+"スケール（画像の実寸 µm）が未設定のファイルがあります。「選択ファイルに適用」または"
+"「スケール表(CSV)読込」で設定してください。"
+msgstr ""
+"Some files have no scale (physical image size in µm) set. Set it with 'Apply "
+"to selected' or 'Load scale table (CSV)'."
 
 #: guis/GUI01_Image_Preprocessor.py
-msgid "適用する行を選択してください。"
-msgstr "Select the rows to apply to."
+msgid "適用するファイルを選択してください。"
+msgstr "Select the files to apply to."
 
 #: guis/GUI01_Image_Preprocessor.py
 msgid "スケール %g µm を %d 件に適用しました。"
@@ -2021,3 +2025,27 @@ msgstr "The selected files have multiple scales. They will be processed with the
 #: guis/GUI04_Tracking_fiber.py
 msgid "バンドル記録のスケール {scale} µm を使用します。"
 msgstr "Using the scan size {scale} µm recorded in the bundle."
+
+#: guis/GUI02_PlotProfiler.py
+msgid "AFM 画像の X（幅）方向の実寸"
+msgstr "Actual X (width) size of the AFM image"
+
+#: guis/GUI01_Image_Preprocessor.py guis/GUI02_PlotProfiler.py guis/GUI04_Tracking_fiber.py
+msgid "AFM 画像の Y（高さ）方向の実寸"
+msgstr "Actual Y (height) size of the AFM image"
+
+#: guis/GUI01_Image_Preprocessor.py guis/GUI02_PlotProfiler.py guis/GUI04_Tracking_fiber.py
+msgid "空欄なら X（幅）と同じ（正方スキャン）。"
+msgstr "Leave empty to use the same value as X (width) — a square scan."
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール %g×%g µm を %d 件に適用しました。"
+msgstr "Applied scale %g×%g µm to %d file(s)."
+
+#: guis/GUI04_Tracking_fiber.py
+msgid "Y スケール変更: ファイバーを再解析します..."
+msgstr "Y scale changed: re-analyzing fibers..."
+
+#: guis/GUI04_Tracking_fiber.py
+msgid "バンドル記録のスケール {x}×{y} µm を使用します。"
+msgstr "Using the scan size {x}×{y} µm recorded in the bundle."

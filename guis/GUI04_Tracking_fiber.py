@@ -77,7 +77,7 @@ from lib.measure import (
 from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, setup_matplotlib_style, save_figure_with_dialog, ToolTip,
-    setup_ttk_theme, rewrite_entries, replace_log_tail,
+    setup_ttk_theme, rewrite_entries, mark_entry_state, replace_log_tail,
     save_text_widget_log, create_scrolled_text, create_scrolled_treeview,
     drain_ui_queue, extent_scale_and_unit, save_csv_with_dialog,
     UnconfirmedEntryMixin, LogMixin, localized_combobox_width,
@@ -225,7 +225,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # scale_um は GUI01 と仕様を揃え、入力欄の単位は µm 固定。
         # Tick-display units switch immediately through unit_var.
         # 軸目盛単位の表示（µm / nm）は unit_var で即時切替する。
+        # scale_um is the X (width) size; scale_y_um is the optional Y (height)
+        # size for rectangular scans. None means "same as X" (square scan).
+        # scale_um は X（幅）サイズ、scale_y_um は矩形スキャン用の任意の Y（高さ）
+        # サイズ。None は「X と同値」（正方スキャン）を意味する。
         self.scale_um: float = DEFAULT_IMAGE_SIZE_UM
+        self.scale_y_um: Optional[float] = None
         self.vmin:     float = DEFAULT_VMIN
         self.vmax:     float = DEFAULT_VMAX
         self.filter_min: float = 1.6
@@ -242,6 +247,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         # -- tkinter variables for Entry display --
         self.scale_um_var         = tk.StringVar(value=self._fmt_num(self.scale_um))
+        self.scale_y_um_var       = tk.StringVar(value="")
         self.vmin_var             = tk.StringVar(value=self._fmt_num(self.vmin))
         self.vmax_var             = tk.StringVar(value=self._fmt_num(self.vmax))
         self.filter_min_var       = tk.StringVar(value=self._fmt_num(self.filter_min))
@@ -325,6 +331,25 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self.ent_scale_um,
             _("AFM 画像の一辺の実寸") + " (µm)。\n"
             + _("ファイバー解析の長さ・座標換算に使われる重要な値。") + "\n"
+            + _("変更すると現在のファイルが再解析される。"),
+        )
+        # Optional Y (height) size for rectangular scans. "X" is the left
+        # entry, "Y" the right; an empty Y means a square scan (Y = X).
+        # 矩形スキャン用の任意の Y（高さ）サイズ。左が X、右が Y で、Y 空欄は
+        # 正方スキャン（Y = X）を意味する。
+        ttk.Label(bar, text="×").pack(side="left", padx=(0, 1))
+        self.ent_scale_y_um = ttk.Entry(bar, width=7, textvariable=self.scale_y_um_var)
+        self.ent_scale_y_um.pack(side="left", padx=2)
+        self._register_unconfirmed_entry(
+            self.ent_scale_y_um,
+            lambda: "" if self.scale_y_um is None
+            else self._fmt_num(self.scale_y_um),
+            self._commit_scale_y_um,
+        )
+        ToolTip(
+            self.ent_scale_y_um,
+            _("AFM 画像の Y（高さ）方向の実寸") + " (µm)。\n"
+            + _("空欄なら X（幅）と同じ（正方スキャン）。") + "\n"
             + _("変更すると現在のファイルが再解析される。"),
         )
 
@@ -679,6 +704,61 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             on_success=_on_success,
         )
 
+    def _commit_scale_y_um(self) -> bool:
+        """
+        Commit the optional Y (height) scale and reload if the value changed.
+        任意の Y（高さ）スケールを確定し、値が変化していれば再読み込みする。
+
+        An empty field commits ``None``, meaning the Y size follows the X size
+        (square scan); a non-empty field must be a positive number. Handled
+        separately from `_commit_scale_um` because the shared
+        `_commit_float_fields` helper cannot express the empty-means-default
+        case.
+        空欄は ``None`` を確定し、Y サイズが X サイズに従う（正方スキャン）こと
+        を意味する。非空欄は正の数であること。空欄を既定値として扱う仕様は共有
+        ヘルパー `_commit_float_fields` では表現できないため別実装とする。
+        """
+        old_scale_y = self.scale_y_um
+        raw = self.ent_scale_y_um.get().strip()
+        if raw == "":
+            self.scale_y_um = None
+            committed = ""
+        else:
+            try:
+                value = float(raw)
+            except ValueError:
+                messagebox.showerror(_("エラー"), _("数値を入力してください"))
+                return False
+            if not (value > 0):
+                messagebox.showerror(
+                    _("エラー"),
+                    _("スケール") + " (µm) " + _("には正の数値を入力してください。"),
+                )
+                return False
+            self.scale_y_um = value
+            committed = self._fmt_num(value)
+        rewrite_entries(((self.ent_scale_y_um, committed),))
+        mark_entry_state(self.ent_scale_y_um, committed)
+        # Reload only when the committed Y scale changed and a dataset exists.
+        # Y スケールが変化していてデータが読み込まれている場合のみ再解析する。
+        changed = (old_scale_y is None) != (self.scale_y_um is None) or (
+            old_scale_y is not None and self.scale_y_um is not None
+            and abs(old_scale_y - self.scale_y_um) > 1e-9
+        )
+        if changed and self.current_stem and self.current_image is not None:
+            self._log(_("Y スケール変更: ファイバーを再解析します..."))
+            self._overview_bg_drawn = False
+            self._reload_current_file()
+        return True
+
+    def _scale_xy_um(self) -> tuple:
+        """
+        Return the (X, Y) scan size in micrometers; Y falls back to X when unset.
+        走査範囲 (X, Y) を µm で返す。Y 未設定時は X にフォールバックする。
+        """
+        y = self.scale_y_um if self.scale_y_um is not None else self.scale_um
+        return self.scale_um, y
+
     def _on_unit_changed(self) -> None:
         """
         Handle tick-unit changes without rerunning fiber analysis.
@@ -724,16 +804,22 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         sc = self.scale_um if self.scale_um > 0 else DEFAULT_IMAGE_SIZE_UM
         return sc * 1000.0
 
-    def _get_extent_scale_and_unit(self) -> tuple:
+    def _get_extent_scale_xy_and_unit(self) -> tuple:
         """
-        Return the plot extent scale and unit label for tick display.
-        軸目盛表示用のスケール値と単位ラベルを返す。
+        Return per-axis extent scales and the shared unit label.
+        軸別の extent スケールと共通の単位ラベルを返す。
 
-        The input field is fixed in micrometers; nanometer display multiplies
-        the committed value by 1000, matching GUI01.
-        入力欄は µm 固定で、GUI01 と同じく nm 表示では確定値を 1000 倍する。
+        X uses the width scale and Y the height scale, so rectangular scans and
+        non-square pixel grids draw with the correct physical aspect. The input
+        fields are fixed in micrometers; nanometer display multiplies by 1000.
+        X は幅スケール、Y は高さスケールを使い、矩形スキャンや非正方ピクセル格子
+        を正しい物理アスペクトで描画する。入力欄は µm 固定で、nm 表示では 1000 倍する。
         """
-        return extent_scale_and_unit(self.scale_um, self.unit_var.get())
+        x_um, y_um = self._scale_xy_um()
+        unit = self.unit_var.get()
+        x_scale, unit_label = extent_scale_and_unit(x_um, unit)
+        y_scale, _unit_label = extent_scale_and_unit(y_um, unit)
+        return x_scale, y_scale, unit_label
 
     def _commit_vrange(self) -> bool:
         """
@@ -953,21 +1039,43 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.is_running = True
 
         # Default the scale to the bundle's recorded scan size so fiber lengths
-        # are reproduced from the bundle alone. The X axis supplies the scalar
-        # scale, matching measure_bundle. The user can still override via the
-        # entry; bundles without a recorded scan size keep the current value.
+        # are reproduced from the bundle alone. Both axes are adopted: a
+        # distinct Y size keeps a rectangular scan, an equal one leaves the Y
+        # entry empty (square scan). The user can still override via the
+        # entries; bundles without a recorded scan size keep the current value.
         # スケールをバンドル記録の走査範囲で既定化し、ファイバー長をバンドル単体で
-        # 再現する。measure_bundle に合わせ X 軸をスカラースケールとする。入力欄で
-        # 上書きは可能で、走査範囲未記録のバンドルは現在値を保持する。
+        # 再現する。両軸を採用し、Y が異なれば矩形スキャン、等しければ Y 欄は空
+        # （正方スキャン）とする。入力欄で上書きは可能で、走査範囲未記録の
+        # バンドルは現在値を保持する。
         recorded = read_scan_size_from_bundle(stem + BUNDLE_EXT)
-        if recorded is not None and abs(recorded[0] - self.scale_um) > 1e-9:
-            self.scale_um = recorded[0]
-            self.scale_um_var.set(self._fmt_num(self.scale_um))
-            self._log(
-                (_("バンドル記録のスケール {scale} µm を使用します。")).format(
-                    scale=self._fmt_num(self.scale_um)
-                )
+        if recorded is not None:
+            rec_x, rec_y = recorded
+            new_scale_y = rec_y if abs(rec_y - rec_x) > 1e-9 else None
+            x_changed = abs(rec_x - self.scale_um) > 1e-9
+            y_changed = (new_scale_y is None) != (self.scale_y_um is None) or (
+                new_scale_y is not None and self.scale_y_um is not None
+                and abs(new_scale_y - self.scale_y_um) > 1e-9
             )
+            if x_changed or y_changed:
+                self.scale_um = rec_x
+                self.scale_um_var.set(self._fmt_num(self.scale_um))
+                self.scale_y_um = new_scale_y
+                self.scale_y_um_var.set(
+                    "" if new_scale_y is None else self._fmt_num(new_scale_y)
+                )
+                if new_scale_y is None:
+                    self._log(
+                        (_("バンドル記録のスケール {scale} µm を使用します。")).format(
+                            scale=self._fmt_num(self.scale_um)
+                        )
+                    )
+                else:
+                    self._log(
+                        (_("バンドル記録のスケール {x}×{y} µm を使用します。")).format(
+                            x=self._fmt_num(self.scale_um),
+                            y=self._fmt_num(new_scale_y),
+                        )
+                    )
 
         # Use committed internal scale, not unconfirmed Entry text.
         # スケールは内部状態（確定済み値）を参照する。
@@ -979,6 +1087,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # measure_bundle は µm 単位を受け取る。非正値入力時のフォールバック挙動を
         # 維持するため、ワーカーへ渡す値は _get_scale_nm() から導出する。
         worker_scale_um = self._get_scale_nm() / 1000.0
+        # None lets measure_bundle reuse the X scale for Y (square scan).
+        # None なら measure_bundle が Y に X スケールを流用する（正方スキャン）。
+        worker_scale_y_um = self.scale_y_um
 
         self._log(
             (_("読み込み中: {name}  スケール={scale}") + " µm ...").format(
@@ -988,7 +1099,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._set_ui_enabled(False)
         self._show_progress(_("ファイル読み込み中..."), 0)
 
-        def _worker(stem=stem, scale_um=worker_scale_um):
+        def _worker(stem=stem, scale_um=worker_scale_um,
+                    scale_y_um=worker_scale_y_um):
             """
             Load one bundle and run fiber analysis off the Tk main thread.
             Tk メインスレッド外で 1 つのバンドル読み込みとファイバー解析を実行する。
@@ -1021,6 +1133,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     stem + BUNDLE_EXT,
                     scale_um=scale_um,
                     progress_cb=_progress,
+                    scale_y_um=scale_y_um,
                 )
                 image, fibers = result.image, result.fibers
 
@@ -1202,13 +1315,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # extent に使うスケール値と軸単位ラベルは unit_var に従う（µm / nm 切替）。
         # As in GUI01, nanometer display uses scale_um * 1000.
         # GUI01 と同じく、nm 選択時は scale_um * 1000 を使う。
-        scale, unit_label = self._get_extent_scale_and_unit()
+        x_scale, y_scale, unit_label = self._get_extent_scale_xy_and_unit()
 
         img = self.current_image.calibrated_image
         h_px, w_px = img.shape[:2]
-        # Preserve aspect ratio even for non-square images.
-        size_per_pixel = scale / max(h_px, w_px)
-        extent = [0, w_px * size_per_pixel, h_px * size_per_pixel, 0]
+        # Per-axis pixel size keeps the correct physical aspect for rectangular
+        # scans and non-square pixel grids (X from width, Y from height).
+        # 軸別ピクセルサイズで矩形スキャン・非正方格子の物理アスペクトを保つ
+        # （X は幅、Y は高さ由来）。
+        x_spp = x_scale / w_px
+        y_spp = y_scale / h_px
+        extent = [0, w_px * x_spp, h_px * y_spp, 0]
 
         ax = self._afm_ax
         ax.clear()
@@ -1228,12 +1345,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             labeled_fibers = list(enumerate(self.current_fibers))
 
         for disp_i, f in labeled_fibers:
+            # f.data is OpenCV stats (x, y, width, height, area); here `h` is the
+            # width (X extent) and `w` is the height (Y extent).
+            # f.data は OpenCV 統計 (x, y, 幅, 高さ, 面積)。ここで `h` は幅
+            # （X 方向）、`w` は高さ（Y 方向）。
             x, y, h, w, _unused = f.data
-            # Convert pixels to the physical scale used by extent.
-            x_p = x * size_per_pixel
-            y_p = y * size_per_pixel
-            h_p = h * size_per_pixel
-            w_p = w * size_per_pixel
+            # Convert pixels to the physical scale used by extent (per axis).
+            x_p = x * x_spp
+            y_p = y * y_spp
+            h_p = h * x_spp
+            w_p = w * y_spp
             ax.add_patch(plt.Rectangle(
                 (x_p, y_p), h_p, w_p,
                 linewidth=1.0, linestyle="--", edgecolor="white", facecolor="none", alpha=0.6,
@@ -1243,7 +1364,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         kp_x, kp_y = self.current_image.all_kink_coordinates
         if len(kp_x) > 0:
-            ax.scatter(kp_x * size_per_pixel, kp_y * size_per_pixel,
+            ax.scatter(kp_x * x_spp, kp_y * y_spp,
                        c="cyan", s=4, alpha=0.7, linewidths=0)
 
         # Use the four committed font-size settings.
@@ -1301,11 +1422,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         # Filter-active path.
         filtered = self._filtered_fibers
-        # Compute size_per_pixel in the selected tick-display unit.
-        # 軸表示単位に合わせて size_per_pixel を計算（µm / nm）。
-        scale, _unit_label = self._get_extent_scale_and_unit()
+        # Compute per-axis pixel size in the selected tick-display unit.
+        # 軸表示単位に合わせて軸別ピクセルサイズを計算（µm / nm）。
+        x_scale, y_scale, _unit_label = self._get_extent_scale_xy_and_unit()
         img = self.current_image.calibrated_image
-        size_per_pixel = scale / max(img.shape[:2])
+        h_px, w_px = img.shape[:2]
+        x_spp = x_scale / w_px
+        y_spp = y_scale / h_px
 
         self._draw_overview_background(
             labeled_fibers=[],
@@ -1321,8 +1444,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         for f in filtered:
             x, y, _h, _w, _unused = f.data
             ax.scatter(
-                (f.xtrack + x) * size_per_pixel,
-                (f.ytrack + y) * size_per_pixel,
+                (f.xtrack + x) * x_spp,
+                (f.ytrack + y) * y_spp,
                 c="magenta", s=4, edgecolors="none",
             )
 
@@ -1353,13 +1476,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Add the new highlight patch.
         if selected_fiber is not None:
             x, y, h, w, _unused = selected_fiber.data
-            # Convert pixels to the selected physical tick-display unit.
-            # 軸表示単位に合わせて px → 物理スケールへ変換する。
-            scale, _unit_label = self._get_extent_scale_and_unit()
+            # Convert pixels to the selected physical tick-display unit (per
+            # axis). `h` is the width (X extent), `w` the height (Y extent).
+            # 軸表示単位に合わせて px → 物理スケールへ軸別変換する。`h` は幅
+            # （X 方向）、`w` は高さ（Y 方向）。
+            x_scale, y_scale, _unit_label = self._get_extent_scale_xy_and_unit()
             img = self.current_image.calibrated_image
-            spp = scale / max(img.shape[0], img.shape[1])
+            h_px, w_px = img.shape[:2]
+            x_spp = x_scale / w_px
+            y_spp = y_scale / h_px
             patch = plt.Rectangle(
-                (x * spp, y * spp), h * spp, w * spp,
+                (x * x_spp, y * y_spp), h * x_spp, w * y_spp,
                 linewidth=2.0, linestyle="-", edgecolor="yellow", facecolor="none",
             )
             self._afm_ax.add_patch(patch)
@@ -2324,24 +2451,25 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         # 軸目盛単位（µm / nm）はメイン側ラジオの選択に従う。
         vmin = app.vmin
         vmax = app.vmax
-        scale, unit_label = app._get_extent_scale_and_unit()
+        x_scale, y_scale, unit_label = app._get_extent_scale_xy_and_unit()
 
-        # Derive physical scale per pixel from the main image size.
-        # 物理スケール/px をメイン画像サイズから算出する。
+        # Derive per-axis physical scale per pixel from the main image size
+        # (X from width, Y from height).
+        # 物理スケール/px をメイン画像サイズから軸別に算出する（X は幅、Y は高さ）。
         if app.current_image is not None:
-            full_px = max(app.current_image.calibrated_image.shape[:2])
-            spp = scale / full_px
+            full_h, full_w = app.current_image.calibrated_image.shape[:2]
+            x_spp = x_scale / full_w
+            y_spp = y_scale / full_h
         else:
             # Fallback when no dataset is loaded: assume a 1024 px image and
-            # derive the pixel size from the committed scale (`scale` is
-            # already in the axis-label unit), so this path stays consistent
-            # with the scale-entry fallback instead of assuming a separate
-            # fixed scan size.
+            # derive the pixel size from the committed scale (already in the
+            # axis-label unit), so this path stays consistent with the
+            # scale-entry fallback instead of assuming a separate fixed size.
             # データ未ロード時のフォールバック：1024 px 画像を仮定し、確定済み
-            # スケールから画素サイズを導出する（`scale` は軸ラベル単位に換算
-            # 済み）。スケール入力欄のフォールバックと別の固定スキャンサイズを
-            # 仮定しないことで、両者の整合を保つ。
-            spp = scale / 1024.0
+            # スケールから画素サイズを導出する（軸ラベル単位に換算済み）。
+            # スケール入力欄のフォールバックと別の固定サイズを仮定せず整合を保つ。
+            x_spp = x_scale / 1024.0
+            y_spp = y_scale / 1024.0
 
         # Use the three local font-size settings.
         fs_label = self._fiber_label_fs
@@ -2376,7 +2504,7 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
 
         img = fiber.fiber_image
         h_px_img, w_px_img = img.shape[:2]
-        extent = [0, w_px_img * spp, h_px_img * spp, 0]
+        extent = [0, w_px_img * x_spp, h_px_img * y_spp, 0]
 
         im = ax.imshow(img, cmap="afmhot", vmin=vmin, vmax=vmax,
                        extent=extent, aspect="equal")
@@ -2393,13 +2521,13 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
 
         # Fiber track line.
         if len(fiber.xtrack) > 0:
-            ax.plot(fiber.xtrack * spp, fiber.ytrack * spp,
+            ax.plot(fiber.xtrack * x_spp, fiber.ytrack * y_spp,
                     color="lime", lw=1.0, alpha=0.75, zorder=4)
 
         # Kink points.
         if len(fiber.kink_indices) > 0:
-            kx = fiber.xtrack[fiber.kink_indices] * spp
-            ky = fiber.ytrack[fiber.kink_indices] * spp
+            kx = fiber.xtrack[fiber.kink_indices] * x_spp
+            ky = fiber.ytrack[fiber.kink_indices] * y_spp
             ax.scatter(kx, ky, c="cyan", s=20, zorder=5)
 
         ax.set_xlabel("({0})".format(unit_label), fontsize=fs_label)

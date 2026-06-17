@@ -1872,20 +1872,20 @@ msgstr ""
 
 
 #: guis/GUI01_Image_Preprocessor.py
-msgid "選択行に適用"
-msgstr "应用到选中行"
+msgid "選択ファイルに適用"
+msgstr "应用到选中文件"
 
 #: guis/GUI01_Image_Preprocessor.py
-msgid "全行に適用"
-msgstr "应用到全部行"
+msgid "全ファイルに適用"
+msgstr "应用到全部文件"
 
 #: guis/GUI01_Image_Preprocessor.py
 msgid "スケール表(CSV)読込"
 msgstr "载入比例表(CSV)"
 
 #: guis/GUI01_Image_Preprocessor.py
-msgid "スケール入力欄の値を選択行へ適用します。"
-msgstr "将比例输入框的值应用到选中行。"
+msgid "スケール入力欄の値を選択ファイルへ適用します。"
+msgstr "将比例输入框的值应用到选中文件。"
 
 #: guis/GUI01_Image_Preprocessor.py
 msgid "ヘッダから取得できないファイルにスケールを与えるときに使います。"
@@ -1904,12 +1904,14 @@ msgid "スケール: ヘッダ取得 %d 件 / 未設定 %d 件"
 msgstr "比例: 头部获取 %d 个 / 未设置 %d 个"
 
 #: guis/GUI01_Image_Preprocessor.py
-msgid "未設定のファイルは「選択行に適用」または「スケール表(CSV)読込」で設定してください。"
-msgstr "未设置的文件请用「应用到选中行」或「载入比例表(CSV)」进行设置。"
+msgid ""
+"スケール（画像の実寸 µm）が未設定のファイルがあります。「選択ファイルに適用」または"
+"「スケール表(CSV)読込」で設定してください。"
+msgstr "有文件未设置比例（图像实际尺寸 µm）。请用「应用到选中文件」或「载入比例表(CSV)」进行设置。"
 
 #: guis/GUI01_Image_Preprocessor.py
-msgid "適用する行を選択してください。"
-msgstr "请选择要应用的行。"
+msgid "適用するファイルを選択してください。"
+msgstr "请选择要应用的文件。"
 
 #: guis/GUI01_Image_Preprocessor.py
 msgid "スケール %g µm を %d 件に適用しました。"
@@ -1942,3 +1944,27 @@ msgstr "选中的文件存在多个比例。将按每个文件各自的比例处
 #: guis/GUI04_Tracking_fiber.py
 msgid "バンドル記録のスケール {scale} µm を使用します。"
 msgstr "使用 bundle 中记录的扫描尺寸 {scale} µm。"
+
+#: guis/GUI02_PlotProfiler.py
+msgid "AFM 画像の X（幅）方向の実寸"
+msgstr "AFM 图像 X（宽度）方向的实际尺寸"
+
+#: guis/GUI01_Image_Preprocessor.py guis/GUI02_PlotProfiler.py guis/GUI04_Tracking_fiber.py
+msgid "AFM 画像の Y（高さ）方向の実寸"
+msgstr "AFM 图像 Y（高度）方向的实际尺寸"
+
+#: guis/GUI01_Image_Preprocessor.py guis/GUI02_PlotProfiler.py guis/GUI04_Tracking_fiber.py
+msgid "空欄なら X（幅）と同じ（正方スキャン）。"
+msgstr "留空则与 X（宽度）相同（正方扫描）。"
+
+#: guis/GUI01_Image_Preprocessor.py
+msgid "スケール %g×%g µm を %d 件に適用しました。"
+msgstr "已将比例 %g×%g µm 应用到 %d 个文件。"
+
+#: guis/GUI04_Tracking_fiber.py
+msgid "Y スケール変更: ファイバーを再解析します..."
+msgstr "Y 比例已更改：正在重新分析纤维……"
+
+#: guis/GUI04_Tracking_fiber.py
+msgid "バンドル記録のスケール {x}×{y} µm を使用します。"
+msgstr "使用 bundle 中记录的扫描尺寸 {x}×{y} µm。"
