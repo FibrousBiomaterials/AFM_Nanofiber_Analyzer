@@ -329,7 +329,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
         ToolTip(
             self.ent_scale_um,
-            _("AFM 画像の一辺の実寸") + " (µm)。\n"
+            _("AFM 画像の X（幅）方向の実寸") + " (µm)。\n"
             + _("ファイバー解析の長さ・座標換算に使われる重要な値。") + "\n"
             + _("変更すると現在のファイルが再解析される。"),
         )
