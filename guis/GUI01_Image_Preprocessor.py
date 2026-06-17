@@ -1924,12 +1924,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             if show_title:
                 ax.set_title(sub_titles[i], fontsize=tfs)
 
-        # Feature overlays are drawn on the skeletonized panel and share its scaling.
+        # Feature overlays are drawn on the skeletonized panel and share its
+        # per-axis scaling (X from the width scale, Y from the height scale).
+        # 特徴点の重ね表示は骨格パネルと同じ軸別スケール（X は幅、Y は高さ）を使う。
         sk_img = data["skeletonized"]
         if show_scale:
             h, w = sk_img.shape[:2]
-            sx = scale / max(w - 1, 1)
-            sy = scale / max(h - 1, 1)
+            sx = x_scale / max(w - 1, 1)
+            sy = y_scale / max(h - 1, 1)
         else:
             sx, sy = 1.0, 1.0
 

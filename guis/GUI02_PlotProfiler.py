@@ -1345,13 +1345,15 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         Default the scale to a file's recorded or header scan size, if any.
         ファイルの記録走査範囲またはヘッダ走査範囲があればスケールを既定化する。
 
-        For `.b2z` bundles the value comes from the recorded ``spatial_calibration``;
-        for text/CSV inputs it is read from the instrument header. The X axis
-        supplies the single scale value, matching GUI01/GUI04. Inputs without a
-        known scan size (e.g. `.npy`) keep the current scale.
+        For `.b2z` bundles the values come from the recorded
+        ``spatial_calibration``; for text/CSV inputs they are read from the
+        instrument header. Both axes are applied: a distinct Y size keeps a
+        rectangular scan, an equal one leaves the Y entry empty (square scan).
+        Inputs without a known scan size (e.g. `.npy`) keep the current scale.
         `.b2z` は記録された ``spatial_calibration`` から、テキスト/CSV は装置ヘッダ
-        から取得する。GUI01/GUI04 に合わせ X 軸を単一スケール値とする。走査範囲が
-        不明な入力（`.npy` 等）は現在のスケールを保持する。
+        から取得する。両軸を適用し、Y が異なれば矩形スキャン、等しければ Y 欄は
+        空（正方スキャン）とする。走査範囲が不明な入力（`.npy` 等）は現在の
+        スケールを保持する。
 
         Returns
         -------
