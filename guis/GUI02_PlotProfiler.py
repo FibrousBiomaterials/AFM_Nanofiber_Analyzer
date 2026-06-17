@@ -1285,8 +1285,8 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         Returns
         -------
         ndarray or None
-            Loaded square 2D height array, or None after showing an error dialog.
-            読み込んだ正方形 2D 高さ配列。失敗時はエラーダイアログ表示後に None。
+            Loaded 2D height array, or None after showing an error dialog.
+            読み込んだ 2D 高さ配列。失敗時はエラーダイアログ表示後に None。
         """
         data = None
         err_detail = ""
@@ -1323,28 +1323,21 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             )
             return None
 
-        # GUI02 uses one pixel-grid side length (image_size) for both axes, so
-        # non-square pixel arrays are unsupported. Rectangular *scans* (a square
-        # pixel grid with different physical X/Y sizes) are supported via the
-        # separate X/Y scale entries.
-        # GUI02 は両軸で 1 つの画素格子辺長（image_size）を用いるため、非正方形
-        # の画素配列は未対応。矩形*スキャン*（正方画素格子で物理 X/Y サイズが
-        # 異なる場合）は X/Y 別スケール入力欄で対応する。
+        # Pixel-to-physical conversion uses per-axis pixel counts, so both
+        # non-square pixel arrays and rectangular scans are supported; only a
+        # non-2D array is rejected.
+        # 画素→物理変換は軸別の画素数を用いるため、非正方形の画素配列と矩形
+        # スキャンの双方に対応する。拒否するのは 2 次元でない配列のみ。
         if data.ndim != 2:
             messagebox.showerror(
                 _("エラー"),
                 _("2 次元配列ではありません (shape={0})。").format(data.shape),
             )
             return None
-        if data.shape[0] != data.shape[1]:
-            messagebox.showerror(
-                _("エラー"),
-                _("非正方形のデータには未対応です (shape={0})。").format(data.shape),
-            )
-            return None
 
-        # Square image side length in pixels.
-        self.image_size = data.shape[0]
+        # Pixel-grid extents: image_h rows (Y), image_w columns (X).
+        # 画素格子の大きさ：image_h 行（Y）、image_w 列（X）。
+        self.image_h, self.image_w = data.shape[:2]
         return data
 
     def _apply_loaded_scan_size(self, path: str) -> bool:
@@ -1791,10 +1784,14 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # これで矩形スキャンも正しく対応づく。imshow は表示上は左下原点、ndarray は
         # 左上原点なので y 方向を反転する。
         x_um, y_um = self._scale_xy_um()
-        tx1 = x1 * self.image_size / x_um
-        tx2 = x2 * self.image_size / x_um
-        ty1 = self.image_size - y1 * self.image_size / y_um
-        ty2 = self.image_size - y2 * self.image_size / y_um
+        # Columns map X via image_w, rows map Y via image_h, so non-square pixel
+        # grids convert correctly.
+        # 列は image_w で X、行は image_h で Y に対応づけ、非正方形の画素格子も
+        # 正しく変換する。
+        tx1 = x1 * self.image_w / x_um
+        tx2 = x2 * self.image_w / x_um
+        ty1 = self.image_h - y1 * self.image_h / y_um
+        ty2 = self.image_h - y2 * self.image_h / y_um
         # profile_line expects coordinates as (row, col) = (y, x).
         start = np.array([ty1, tx1])
         end = np.array([ty2, tx2])
