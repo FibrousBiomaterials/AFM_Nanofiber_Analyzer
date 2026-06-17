@@ -1269,6 +1269,260 @@
       ]
     }
   },
+  "testdata_tunicateCNF/sample_anisotropic.txt": {
+    "inpaint::binarized": {
+      "dtype": "bool",
+      "sha256": "0fb833edd248b48192e48283812237f145f26753845a2e5dad9b365d7dbf7064",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "inpaint::bp": {
+      "dtype": "uint8",
+      "sha256": "8af91ba7c8a48955f62f3275472a084870c0d39b57b28b2e9a5f0580efe15cf5",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "inpaint::calibrated": {
+      "dtype": "float64",
+      "sha256": "68cfe54cf8ab2c20d3b4e73ae3c49d32b0f03d1f7692b4ac718b4b5dc6757afc",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "inpaint::dp": {
+      "dtype": "int64",
+      "sha256": "e7ceba5e35e6b2c5081098aa91afa466f6bbc6b8775a9849ec28e5e433d22e28",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    "inpaint::ep": {
+      "dtype": "uint8",
+      "sha256": "6abd7484c173cfb8c394f568513191dbaf1a9b27b751a2c3b5ab28ac1f341201",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "inpaint::ka": {
+      "dtype": "float64",
+      "sha256": "2813f2123d889be26ec97b6535704c4c7d0c247b94a6c4f4224609f11d98fbc3",
+      "shape": [
+        1
+      ]
+    },
+    "inpaint::kp": {
+      "dtype": "int64",
+      "sha256": "c9ad73f86f3982b1d1af249c59c332c8a031d0cd7b0e81fc2b2df3fe96265b57",
+      "shape": [
+        2,
+        1
+      ]
+    },
+    "inpaint::skeletonized": {
+      "dtype": "uint8",
+      "sha256": "32b199f632a90d9b356368c049fa5983f7ab49b20586d112e335ed2f049278a8",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "spline1d::binarized": {
+      "dtype": "bool",
+      "sha256": "96484cf374f5c890b22891579b0cdedf1e3dccc393e68215b2310cd220d33190",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "spline1d::bp": {
+      "dtype": "uint8",
+      "sha256": "8af91ba7c8a48955f62f3275472a084870c0d39b57b28b2e9a5f0580efe15cf5",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "spline1d::calibrated": {
+      "dtype": "float64",
+      "sha256": "0627f9d963dfa2c362e3bd8edbe43b3a863f40c2e266e23b42bb520b818ffcaf",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "spline1d::dp": {
+      "dtype": "int64",
+      "sha256": "e7ceba5e35e6b2c5081098aa91afa466f6bbc6b8775a9849ec28e5e433d22e28",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    "spline1d::ep": {
+      "dtype": "uint8",
+      "sha256": "6abd7484c173cfb8c394f568513191dbaf1a9b27b751a2c3b5ab28ac1f341201",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "spline1d::ka": {
+      "dtype": "float64",
+      "sha256": "2813f2123d889be26ec97b6535704c4c7d0c247b94a6c4f4224609f11d98fbc3",
+      "shape": [
+        1
+      ]
+    },
+    "spline1d::kp": {
+      "dtype": "int64",
+      "sha256": "c9ad73f86f3982b1d1af249c59c332c8a031d0cd7b0e81fc2b2df3fe96265b57",
+      "shape": [
+        2,
+        1
+      ]
+    },
+    "spline1d::skeletonized": {
+      "dtype": "uint8",
+      "sha256": "4e1c7698300582f977d1e1651e7a22f5708aba3d259a994fdd9e03a525ae2c8a",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "spline2d::binarized": {
+      "dtype": "bool",
+      "sha256": "2d20503db8180686d55e24525341ba523145bc654eb81b9c7e5533be3f6fdd8e",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "spline2d::bp": {
+      "dtype": "uint8",
+      "sha256": "8af91ba7c8a48955f62f3275472a084870c0d39b57b28b2e9a5f0580efe15cf5",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "spline2d::calibrated": {
+      "dtype": "float64",
+      "sha256": "81853e027960985cbb4dc68c1b285057790f67fc3ec97442247b03fc1109a987",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "spline2d::dp": {
+      "dtype": "int64",
+      "sha256": "e7ceba5e35e6b2c5081098aa91afa466f6bbc6b8775a9849ec28e5e433d22e28",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    "spline2d::ep": {
+      "dtype": "uint8",
+      "sha256": "6abd7484c173cfb8c394f568513191dbaf1a9b27b751a2c3b5ab28ac1f341201",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "spline2d::ka": {
+      "dtype": "float64",
+      "sha256": "2813f2123d889be26ec97b6535704c4c7d0c247b94a6c4f4224609f11d98fbc3",
+      "shape": [
+        1
+      ]
+    },
+    "spline2d::kp": {
+      "dtype": "int64",
+      "sha256": "c9ad73f86f3982b1d1af249c59c332c8a031d0cd7b0e81fc2b2df3fe96265b57",
+      "shape": [
+        2,
+        1
+      ]
+    },
+    "spline2d::skeletonized": {
+      "dtype": "uint8",
+      "sha256": "32b199f632a90d9b356368c049fa5983f7ab49b20586d112e335ed2f049278a8",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "tophat::binarized": {
+      "dtype": "bool",
+      "sha256": "2d20503db8180686d55e24525341ba523145bc654eb81b9c7e5533be3f6fdd8e",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "tophat::bp": {
+      "dtype": "uint8",
+      "sha256": "8af91ba7c8a48955f62f3275472a084870c0d39b57b28b2e9a5f0580efe15cf5",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "tophat::calibrated": {
+      "dtype": "float64",
+      "sha256": "22b1871a50995305c209008aae6aa45330aff77dfd2956c41b04a2a38991e6ff",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "tophat::dp": {
+      "dtype": "int64",
+      "sha256": "e7ceba5e35e6b2c5081098aa91afa466f6bbc6b8775a9849ec28e5e433d22e28",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    "tophat::ep": {
+      "dtype": "uint8",
+      "sha256": "6abd7484c173cfb8c394f568513191dbaf1a9b27b751a2c3b5ab28ac1f341201",
+      "shape": [
+        199,
+        99
+      ]
+    },
+    "tophat::ka": {
+      "dtype": "float64",
+      "sha256": "2813f2123d889be26ec97b6535704c4c7d0c247b94a6c4f4224609f11d98fbc3",
+      "shape": [
+        1
+      ]
+    },
+    "tophat::kp": {
+      "dtype": "int64",
+      "sha256": "c9ad73f86f3982b1d1af249c59c332c8a031d0cd7b0e81fc2b2df3fe96265b57",
+      "shape": [
+        2,
+        1
+      ]
+    },
+    "tophat::skeletonized": {
+      "dtype": "uint8",
+      "sha256": "32b199f632a90d9b356368c049fa5983f7ab49b20586d112e335ed2f049278a8",
+      "shape": [
+        199,
+        99
+      ]
+    }
+  },
   "testdata_tunicateCNF/test_1.txt": {
     "inpaint::binarized": {
       "dtype": "bool",

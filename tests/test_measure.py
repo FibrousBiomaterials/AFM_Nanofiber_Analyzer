@@ -26,7 +26,8 @@ import pytest
 
 import cli
 from lib import imp_tools
-from lib.blosc2_io import load_bundle
+from lib.blosc2_io import load_bundle, save_bundle
+from lib.bundle_schema import BUNDLE_FORMAT_VERSION
 from lib.fiber_tracking_image import FiberTrackingImage
 from lib.measure import (
     FIBER_CSV_COLUMNS,
@@ -215,6 +216,71 @@ def test_measure_bundle_rejects_invalid_scale_y(measured):
     bundle_path, _result = measured
     with pytest.raises(ValueError):
         measure_bundle(bundle_path, scale_um=SCALE_UM, scale_y_um=0.0)
+
+
+# A 15-pixel (14-step) straight line traces reliably, unlike a very short one.
+LINE_STEPS = 14
+
+
+def _write_straight_line_bundle(path, shape, orientation):
+    """
+    Save a minimal valid bundle with one straight skeleton fiber.
+    まっすぐな骨格ファイバー 1 本を持つ最小の有効バンドルを保存する。
+
+    The fiber is a single 15-pixel line (``LINE_STEPS`` unit steps) along one
+    axis, so its physical length is a closed-form ``LINE_STEPS *
+    per_axis_pixel_size`` — ideal for asserting per-axis pixel-size derivation
+    on non-square arrays without pipeline noise.
+    ファイバーは単一軸方向の 15 画素直線（``LINE_STEPS`` ステップ）で、物理長は
+    ``LINE_STEPS * 軸別ピクセルサイズ`` の閉形式になる。パイプライン由来の
+    ばらつき無しに非正方配列での軸別ピクセルサイズ導出を検証するのに適する。
+    """
+    skel = np.zeros(shape, np.uint8)
+    ep = np.zeros(shape, np.uint8)
+    if orientation == "horizontal":
+        skel[5, 5:5 + LINE_STEPS + 1] = 1
+        ep[5, 5] = ep[5, 5 + LINE_STEPS] = 1
+    else:  # vertical
+        skel[5:5 + LINE_STEPS + 1, 5] = 1
+        ep[5, 5] = ep[5 + LINE_STEPS, 5] = 1
+    arrays = {
+        "calibrated":   np.ones(shape, np.float64),
+        "binarized":    skel.astype(bool),
+        "skeletonized": skel,
+        "bp":           np.zeros(shape, np.uint8),
+        "ep":           ep,
+        "kp":           np.zeros((2, 0), np.int64),
+        "dp":           np.zeros((2, 0), np.int64),
+        "ka":           np.zeros((0,), np.float64),
+    }
+    save_bundle(path, arrays, vlmeta={"version": BUNDLE_FORMAT_VERSION})
+
+
+def test_measure_bundle_non_square_horizontal_uses_width_scale(tmp_path):
+    """On a tall (H>W) array, a horizontal fiber's length uses X = scale/width."""
+    # 40 rows x 30 cols: the old max(H,W) convention would wrongly divide by 40.
+    bundle = os.path.join(tmp_path, "h.b2z")
+    _write_straight_line_bundle(bundle, shape=(40, 30), orientation="horizontal")
+
+    result = measure_bundle(bundle, scale_um=3.0, scale_y_um=5.0)
+    assert result.image.calibrated_image.shape == (40, 30)
+    assert len(result.fibers) == 1
+    # x_px = 3.0 um * 1000 / 30 cols = 100 nm/px; 14 steps -> 1400 nm.
+    # The Y scale (5.0) must not affect a purely horizontal fiber.
+    assert result.stats[0].length_nm == pytest.approx(100.0 * LINE_STEPS)
+
+
+def test_measure_bundle_non_square_vertical_uses_height_scale(tmp_path):
+    """On a wide (W>H) array, a vertical fiber's length uses Y = scale/height."""
+    bundle = os.path.join(tmp_path, "v.b2z")
+    _write_straight_line_bundle(bundle, shape=(30, 40), orientation="vertical")
+
+    result = measure_bundle(bundle, scale_um=5.0, scale_y_um=3.0)
+    assert result.image.calibrated_image.shape == (30, 40)
+    assert len(result.fibers) == 1
+    # y_px = 3.0 um * 1000 / 30 rows = 100 nm/px; 14 steps -> 1400 nm.
+    # The X scale (5.0) must not affect a purely vertical fiber.
+    assert result.stats[0].length_nm == pytest.approx(100.0 * LINE_STEPS)
 
 
 def test_fiber_csv_schema_and_values(measured, tmp_path):
