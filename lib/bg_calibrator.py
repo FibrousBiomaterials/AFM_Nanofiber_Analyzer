@@ -38,10 +38,25 @@ class BGCalibrator:
     builds a smooth background model from those regions.
     このクラスは、勾配統計から非繊維領域を推定し、
     その領域を使って平滑な背景モデルを構築する。
+
+    Notes
+    -----
+    When run through the preprocessing pipeline, every constructor argument is
+    supplied explicitly from `lib.pipeline.ProcParams` (via
+    `pipeline.build_stages`), so `ProcParams` is the source of truth for
+    pipeline, GUI, and CLI runs. The constructor defaults below apply only to
+    direct, standalone construction and intentionally differ from some
+    `ProcParams` defaults; do not assume the two default sets match.
+    前処理パイプライン経由で使う場合、全コンストラクタ引数は
+    `lib.pipeline.ProcParams` から `pipeline.build_stages` を介して明示的に
+    渡されるため、パイプライン／GUI／CLI 実行では `ProcParams` がソース・
+    オブ・トゥルースとなる。以下のコンストラクタ既定値は直接単体構築した
+    ときにのみ効き、一部は `ProcParams` の既定値と意図的に異なる。両者の
+    既定値が一致する前提で扱わないこと。
     """
 
     def __init__(self, threshold_factor=3, fiber_detect_factor=10, noise_detect_factor=2,
-                 savgol_window=51, savgol_polyorder=2, savgol_axis='x', apply_median=True,
+                 savgol_window=51, savgol_polyorder=2, apply_median=True,
                  mask_dilation=3,
                  min_mask_component_area=10, bg_method='inpaint', tophat_se_size=25,
                  spline2d_degree=2, spline2d_subsample=4, spline2d_smoothing=None,
@@ -78,26 +93,6 @@ class BGCalibrator:
         savgol_polyorder : int
             Polynomial order used by the Savitzky-Golay filter.
             Savitzky-Golay フィルタで使う多項式次数。
-        savgol_axis : {'x', 'y'}, optional
-            Image axis along which the Savitzky-Golay background smoothing
-            is applied (for the ``'inpaint'``, ``'tophat'`` and
-            ``'spline1d'`` methods; ``'spline2d'`` does not smooth). ``'x'``
-            (default) smooths along image rows (``numpy`` axis -1), matching
-            the legacy behavior. ``'y'`` smooths down image columns
-            (``numpy`` axis 0). For ``'spline1d'`` the best choice is
-            usually *orthogonal* to ``spline1d_axis`` (e.g. ``spline1d_axis
-            ='y'`` with ``savgol_axis='x'``), so the per-line interpolation
-            and the smoothing attack the stripe from complementary
-            directions; this orthogonal pairing is the legacy default.
-            Default ``'x'``.
-            Savitzky-Golay 背景平滑化を適用する画像軸 (``'inpaint'``,
-            ``'tophat'``, ``'spline1d'`` 方式で有効。``'spline2d'`` は平滑化
-            しない)。``'x'`` (デフォルト) は画像の行方向 (``numpy`` 軸 -1) に
-            平滑化し、従来挙動に一致する。``'y'`` は列方向 (``numpy`` 軸 0) に
-            平滑化する。``'spline1d'`` では ``spline1d_axis`` と *直交* させる
-            (例: ``spline1d_axis='y'`` に対し ``savgol_axis='x'``) のが通常
-            最良で、行/列補間と平滑化が縞を相補的な方向から攻める。この直交
-            組み合わせが従来の既定である。デフォルトは ``'x'``。
         apply_median : bool
             If True, apply a 3x3 median blur after background subtraction.
             True の場合、背景減算後に 3x3 のメディアンぼかしを適用する。

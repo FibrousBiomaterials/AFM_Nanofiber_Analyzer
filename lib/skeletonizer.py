@@ -8,10 +8,7 @@ and labels the remaining skeleton segments for downstream fiber analysis.
 後段の繊維解析に使うスケルトン成分へラベル付けする。
 """
 
-import traceback
-
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
 from scipy.ndimage import maximum_filter
