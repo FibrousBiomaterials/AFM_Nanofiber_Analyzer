@@ -19,24 +19,20 @@ from numpy.typing import NDArray
 # Hit-or-miss pattern matching (OpenCV MORPH_HITMISS).
 # ヒットオアミス・パターンマッチング（OpenCV MORPH_HITMISS）。
 #
-# Patterns are written in the mahotas convention used by the original lab code
-# (0 = background, 1 = foreground, 2 = wildcard) and converted once to the
-# OpenCV convention (-1 = background, 1 = foreground, 0 = wildcard). cv2's
-# MORPH_HITMISS is ~6x faster than mahotas.morph.hitmiss on these 3x3 kernels;
-# the patterns and rotation order are preserved exactly, so the output is
-# byte-identical to the previous mahotas implementation (verified across the
-# bundled test datasets and per-fiber sub-images).
-# パターンは元のラボコードと同じ mahotas 表記（0=背景, 1=前景, 2=ワイルド
-# カード）で記述し、OpenCV 表記（-1=背景, 1=前景, 0=ワイルドカード）へ一度だけ
-# 変換する。cv2 の MORPH_HITMISS はこれら 3x3 カーネルで mahotas.morph.hitmiss
-# より約6倍速い。パターンと回転順は厳密に保つため、出力は従来の mahotas 実装と
-# バイト単位で一致する（同梱テストデータとファイバー部分画像で検証済み）。
+# Patterns are written with 0 = background, 1 = foreground, 2 = wildcard (the
+# encoding of the original lab code) and converted once to the OpenCV
+# convention (-1 = background, 1 = foreground, 0 = wildcard). The patterns and
+# their rotation order are preserved so each kernel matches the intended
+# skeleton neighborhood.
+# パターンは 0=背景, 1=前景, 2=ワイルドカード（元のラボコードの符号化）で記述し、
+# OpenCV 表記（-1=背景, 1=前景, 0=ワイルドカード）へ一度だけ変換する。パターン
+# と回転順は保持し、各カーネルが意図したスケルトン近傍に一致するようにする。
 # ---------------------------------------------------------------------------
 
 def _to_cv2_hitmiss_kernel(arr: np.ndarray) -> np.ndarray:
     """
-    Convert a mahotas-convention hit-or-miss kernel to the OpenCV convention.
-    mahotas 表記の hit-or-miss カーネルを OpenCV 表記へ変換する。
+    Convert a 0/1/2-encoded hit-or-miss kernel to the OpenCV convention.
+    0/1/2 符号化の hit-or-miss カーネルを OpenCV 表記へ変換する。
     """
     return np.where(arr == 2, 0, np.where(arr == 0, -1, 1)).astype(np.int8)
 
@@ -125,13 +121,13 @@ def branchedPoints(skel: NDArray[np.uint8]) -> NDArray[np.uint8]:
 
     Notes
     -----
-    The templates are written with ``2`` as the wildcard value (mahotas
-    convention) and converted once to OpenCV hit-or-miss kernels in
-    `_build_branch_patterns`. Pixels matched by more than one template are
-    still reported as 1 because the per-template responses are OR-combined.
-    テンプレートは ``2`` をワイルドカード値（mahotas 表記）として記述し、
-    `_build_branch_patterns` で OpenCV の hit-or-miss カーネルへ一度だけ変換する。
-    複数テンプレートに一致した画素も、応答を論理和で結合するため 1 として返る。
+    The templates are written with ``2`` as the wildcard value and converted
+    once to OpenCV hit-or-miss kernels in `_build_branch_patterns`. Pixels
+    matched by more than one template are still reported as 1 because the
+    per-template responses are OR-combined.
+    テンプレートは ``2`` をワイルドカード値として記述し、`_build_branch_patterns`
+    で OpenCV の hit-or-miss カーネルへ一度だけ変換する。複数テンプレートに一致
+    した画素も、応答を論理和で結合するため 1 として返る。
     """
     return _hitmiss_union(skel, _BRANCH_PATTERNS)
 
@@ -237,13 +233,13 @@ def remove_Lcorner(skeleton_image: NDArray[np.uint8]) -> NDArray[np.uint8]:
                         [0, 1, 0]])
 
     # cv2.MORPH_HITMISS needs uint8 input; the corner kernels have no wildcard,
-    # so the mahotas->OpenCV conversion is a plain 0->-1 / 1->1 remap. Each
-    # response is normalized to 0/1 before summing so ``imgcopy - hits`` stays
-    # bit-identical to the previous mahotas implementation.
+    # so the 0/1/2 -> OpenCV conversion is a plain 0->-1 / 1->1 remap. Each
+    # response is normalized to 0/1 before summing so ``imgcopy - hits`` removes
+    # exactly the pixels matched as L-shaped corners.
     # cv2.MORPH_HITMISS は uint8 入力を要する。コーナーカーネルはワイルドカード
-    # を持たないため、mahotas→OpenCV 変換は単純な 0→-1 / 1→1 の置換になる。
-    # 各応答を 0/1 に正規化してから加算し、``imgcopy - hits`` が従来の mahotas
-    # 実装とビット単位で一致するようにする。
+    # を持たないため、0/1/2→OpenCV 変換は単純な 0→-1 / 1→1 の置換になる。
+    # 各応答を 0/1 に正規化してから加算し、``imgcopy - hits`` が L 字コーナーとして
+    # 一致した画素だけを取り除くようにする。
     src = imgcopy.astype(np.uint8)
     hits = np.zeros_like(imgcopy, dtype=np.uint8)
     for corner_pattern in [corner, corner2, corner3, corner4]:
