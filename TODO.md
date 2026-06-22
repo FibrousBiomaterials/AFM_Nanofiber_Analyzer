@@ -3,130 +3,162 @@
 AFM Nanofiber Analyzer を GitHub で公開し、Zenodo でアーカイブし、JOSS
 投稿を目指すために用意すべきドキュメントを整理する。
 
-この TODO は、現時点のリポジトリを見た暫定判定を含む。
+この TODO は、現時点のリポジトリを見た暫定判定を含む（最終更新: 2026-06-22）。
 
 - `あり`: ファイルは存在する。
 - `要修正`: ファイルは存在するが、公開・JOSS・Zenodo 向けには内容の修正が必要。
 - `未作成`: ファイルが見当たらないため新規作成が必要。
 - `要確認`: ファイルはあるが、内容を詳しく確認して公開可否や十分性を判断する必要がある。
 
+## 0. 進捗サマリ（2026-06-22 時点）
+
+初版作成時点から進んだ主な項目:
+
+- `CONTRIBUTING.md`、`README.ja.md` を作成済み。
+- JOSS paper を作成済み。配置はリポジトリ直下の `paper.md` / `paper.bib`
+  （`paper/` サブフォルダではない）。`Summary` と `Statement of need` を含む。
+- CI を `.github/workflows/test.yml` として作成済み（push / pull request で
+  Ruff lint + Windows/Linux × Python 新旧マトリクスの pytest を実行）。
+- `cli.py` による GUI 非依存のバッチ処理（`process` / `validate` / `measure`
+  / `heights` / `export` / `show-params`）を追加済み。README に使用例あり。
+- `pyproject.toml` を追加し、editable install（`pip install -e .`）と `[dev]`
+  追加依存（pytest, pytest-xdist, Babel, ruff）を定義済み。
+- `requirements.lock.txt` を追加し、テスト検証済みの固定バージョンスナップ
+  ショットを提供。`check.py --pin` で再ロックする運用を確立。
+- `docs/maintainer-notes.ja.md`、`docs/docstring-templates.md` を作成済み。
+- 公開前整理対象だった `取説.txt`、`AFM_Nanofiber_Analyzer_日本語仕様書.md`、
+  `開発者メモ.md`、`buildold.py` はリポジトリから除去済み。`.lang_preference`、
+  `.claude/`、`__pycache__/` は `.gitignore` で除外済み。
+- `locale/` は `English` / `Japanese` / `Chinese` の構成で確定。
+
+未着手の主な残課題: README/CITATION のプレースホルダー解消、`CHANGELOG.md`、
+`CODE_OF_CONDUCT.md`、`SECURITY.md`、`SUPPORT.md`、`.zenodo.json`、
+リリース手順書、`examples/` 整備、各種 `docs/` ユーザー・開発者ガイド。
+
 ## 1. 最優先で用意すべき公開用ドキュメント
 
 | 文書 | 現状 | 目的 |
 |---|---|---|
 | `README.md` | あり・要修正 | GitHub の入口。ユーザー、レビュアー、共同研究者が最初に読む文書。 |
-| `LICENSE` | あり・要修正 | 利用・改変・再配布条件を明確にする法的文書。JOSS で必須。 |
+| `README.ja.md` | あり | 日本語ユーザー向けの README。英語版と同期する。 |
+| `LICENSE` | あり | 利用・改変・再配布条件を明確にする法的文書。JOSS で必須。著者4名を著作権者として併記。 |
 | `CITATION.cff` | あり・要修正 | GitHub の引用ボタン、Zenodo、JOSS 後の引用情報に使うメタデータ。 |
-| `requirements.txt` | あり・要確認 | Python 依存関係の一覧。レビュアーの再現インストールに必要。 |
-| `.gitignore` | あり・要確認 | 生成物、個人環境、解析一時ファイル、機密ファイルの混入防止。 |
+| `requirements.txt` | あり | Python 依存関係の一覧（緩い指定）。固定版は `requirements.lock.txt`。 |
+| `requirements.lock.txt` | あり | テスト検証済みの固定バージョンスナップショット。再現インストール用。 |
+| `pyproject.toml` | あり | パッケージメタデータ、editable install、`[dev]` 依存、ruff/pytest 設定。 |
+| `.gitignore` | あり | 生成物、個人環境、解析一時ファイル、機密ファイルの混入防止。 |
 
 ### `README.md` に必要な内容
 
-- [ ] ソフトウェアの目的を冒頭で簡潔に説明する。
-- [ ] AFM ナノファイバー解析で何を自動化・支援するソフトなのかを書く。
-- [ ] 対象ユーザーを書く。
-      例: AFM 画像からナノファイバー形態を解析する研究者。
-- [ ] 主な機能を書く。
-      例: 背景補正、セグメンテーション、スケルトン化、キンク検出、プロファイル抽出、高さ分布比較、fiber tracking。
-- [ ] 対応入力形式を書く。
-      例: Shimadzu SPM-9600 text/CSV、`.b2z`、`.npy`、`.csv`、`.txt`。
-- [ ] 主な出力を書く。
-      例: `.b2z`、`_param.json`、CSV、図のエクスポート。
-- [ ] インストール手順を書く。
-- [ ] 起動方法を書く。
-- [ ] 最小チュートリアルを書く。
-- [ ] サンプルデータを使った実行例を書く。
-- [ ] `.b2z` バンドルのデータ契約を書く。
-- [ ] GUI01、GUI02、GUI03、GUI04 の役割を説明する。
-- [ ] テスト実行方法を書く。
-- [ ] 既知の制限を書く。
-- [ ] 引用方法を書く。
-- [ ] ライセンスを書く。
-- [ ] 問い合わせ先または Issue の使い方を書く。
+- [x] ソフトウェアの目的を冒頭で簡潔に説明する。
+- [x] AFM ナノファイバー解析で何を自動化・支援するソフトなのかを書く。
+- [ ] 対象ユーザーを明示する（README 本文では設計説明が中心で、対象ユーザー
+      の記述が薄い。`paper.md` の Statement of need を要約して補う）。
+- [x] 主な機能を書く。
+      背景補正、セグメンテーション、スケルトン化、キンク検出、プロファイル抽出、高さ分布比較、fiber tracking。
+- [x] 対応入力形式を書く（Supported Input Formats 節）。
+- [x] 主な出力を書く（Data Format 節: `.b2z`、`_param.json`、CSV、図エクスポート）。
+- [x] インストール手順を書く（Installation and Usage 節: venv / conda / Anaconda）。
+- [x] 起動方法を書く。
+- [x] 最小チュートリアルを書く（CLI バッチ処理 + 起動手順）。
+- [x] サンプルデータを使った実行例を書く（`testdata_tunicateCNF` などを使用）。
+- [x] `.b2z` バンドルのデータ契約を書く（Data Format 節）。
+- [x] GUI01、GUI02、GUI03、GUI04 の役割を説明する（GUI Tools 節）。
+- [x] テスト実行方法を書く（Running tests 節）。
+- [ ] 既知の制限を書く（明示的な節がまだない）。
+- [x] 引用方法を書く（Citation 節）。
+- [x] ライセンスを書く（License 節）。
+- [ ] 問い合わせ先または Issue の使い方を書く（README 本文には窓口節がない。
+      `CONTRIBUTING.md` には記載済みなので、README からリンクする）。
 
 #### 現時点で不十分な点
 
-- [ ] Zenodo DOI が `10.5281/zenodo.xxxxxxx` のプレースホルダーになっている。
-- [ ] GitHub URL が `<your-username>` のプレースホルダーになっている。
-- [ ] Citation の BibTeX で著者が `[Author Names]` のままになっている。
-- [ ] Authors 欄が `[KK]`, `[IT]`, `[KS]` の略称になっており、公開用として不十分。
-- [ ] 実際にレビュアーが再現できるサンプルデータ付きチュートリアルが不足している。
-- [ ] テスト実行方法が不足している。
-- [ ] JOSS 投稿で重要な `Statement of need` 相当の説明が README 側にはまだ薄い。
-- [ ] `locale/` のディレクトリ構造説明が実際の `English`, `Japanese`, `Chinese` と一致しているか確認が必要。
+- [ ] Zenodo DOI badge が `10.5281/zenodo.xxxxxxx` のプレースホルダーのまま（README 冒頭）。
+- [ ] clone URL の GitHub URL が `<your-username>` のプレースホルダーのまま（2 か所）。
+- [x] Citation の BibTeX 著者名を正式名に更新済み（`CITATION.cff` と一致、README.md / README.ja.md 両方）。
+- [x] Authors 欄の略称を正式名に更新済み（README.md / README.ja.md 両方）。
+      併せて README.ja.md の BibTeX の `year` を 2026、`url` を実 URL に同期。
+- [x] テスト実行方法（Running tests 節を追加済み）。
+- [ ] `Statement of need` 相当の説明は `paper.md` に作成済みだが、README 本文は
+      設計説明が中心。README にも簡潔な必要性の説明を補うか検討する。
+- [x] `locale/` の構造説明が実際の `English` / `Japanese` / `Chinese` と一致。
 
 ### `LICENSE` に必要な内容
 
-- [ ] OSI 承認ライセンスを使う。
-- [ ] ライセンス本文を改変せずに入れる。
-- [ ] 著作権者名を書く。
-- [ ] 年を書く。
-- [ ] 共同著作の場合、著作権者をどう表記するか確認する。
+- [x] OSI 承認ライセンスを使う（MIT）。
+- [x] ライセンス本文を改変せずに入れる。
+- [x] 著作権者名を書く。
+- [x] 年を書く（2026）。
+- [x] 共同著作の著作権者表記を確定（著者4名を併記）。
 
-#### 現時点で不十分な点
+#### 現時点の状況
 
-- [ ] `Copyright (c) 2026 （Shingo Kiyoto）` の全角括弧付き表記を公開用に整える。
-- [ ] 著作権者が個人単独でよいか、共同著作者・所属機関を含めるべきか確認する。
-- [ ] README、CITATION、JOSS paper の著者情報と矛盾しないようにする。
+- [x] 著作権者表記を整理済み（`Copyright (c) 2026 Shingo Kiyoto, Keita Mayumi, Tomoki Ito, Kayoko Kobayashi`）。
+- [x] 著者4名を著作権者として併記し、`pyproject.toml` も 4 名（CITATION 順）に統一。
+- [x] README / CITATION.cff / `pyproject.toml` / LICENSE の著者情報を一致させた
+      （`paper.md` の著者・ORCID は提出前に再確認）。
 
 ### `CITATION.cff` に必要な内容
 
-- [ ] `cff-version` を書く。
-- [ ] `message` を書く。
-- [ ] `title` を書く。
-- [ ] `abstract` を書く。
-- [ ] `authors` を正式名、所属、ORCID 付きで書く。
-- [ ] `version` を実際のリリースバージョンに合わせる。
+- [x] `cff-version` を書く（`1.2.0`）。
+- [x] `message` を書く。
+- [x] `title` を書く。
+- [x] `abstract` を書く。
+- [x] `authors` を正式名、所属、ORCID 付きで書く。
+- [x] `version` を書く（`1.0.0`、`pyproject.toml` と一致）。
 - [ ] `date-released` を実際のリリース日に合わせる。
-- [ ] `repository-code` を実際の GitHub URL にする。
+- [x] `repository-code` を実際の GitHub URL にする。
 - [ ] Zenodo DOI が発行されたら `doi` を更新する。
-- [ ] `license` を `LICENSE` と一致させる。
-- [ ] 関連ソフトウェアや論文を `references` に入れる。
+- [x] `license` を `LICENSE` と一致させる（MIT）。
+- [x] 関連ソフトウェアを `references` に入れる（先行 AFM 画像処理リポジトリ）。
 
 #### 現時点で不十分な点
 
-- [ ] `cff-version` が見当たらない。CFF として必須なので追加する。
-- [ ] GitHub URL が `<your-username>` のプレースホルダーになっている。
-- [ ] DOI が `10.5281/zenodo.xxxxxxx` のプレースホルダーになっている。
-- [ ] `date-released: "2026-01-01"` が仮の日付に見えるため、実リリース日に直す。
+- [ ] `url:` フィールドが `<your-username>` のプレースホルダーのまま
+      （`repository-code:` は実 URL に更新済み）。
+- [ ] `doi: "10.5281/zenodo.xxxxxxx"` が Zenodo 発行前のプレースホルダーのまま。
+- [ ] `date-released: "2026-01-01"` が仮の日付。実リリース日に直す。
 - [ ] 著者順、所属、ORCID が最終版として正しいか確認する。
-- [ ] コメントが多く、GitHub/Zenodo のパーサーで問題にならないか確認する。
+- [ ] Zenodo 連携前に、日本語 YAML コメントがパーサーで問題にならないか確認する
+      （YAML 仕様上コメントは許容されるが、連携時に念のため確認）。
 
-### `requirements.txt` に必要な内容
+### `requirements.txt` / 依存関係に必要な内容
 
-- [ ] 実行に必要な依存関係だけを書く。
-- [ ] 開発用・ビルド用依存関係を入れるか分けるか決める。
-- [ ] バージョン範囲を書く。
-- [ ] README のインストール手順と一致させる。
-- [ ] CI で同じ依存関係を使う。
+- [x] 実行に必要な依存関係を書く（`requirements.txt`、`pyproject.toml` の `dependencies`）。
+- [x] 開発用・ビルド用依存関係を分ける（`pyproject.toml` の `[dev]` extra に集約）。
+- [x] 再現可能な固定バージョンを提供する（`requirements.lock.txt`）。
+- [x] README のインストール手順と一致させる（緩い `requirements.txt` と lock の両方を案内）。
+- [x] CI で同じ依存関係を使う（`.github/workflows/test.yml`）。
 
 #### 現時点で不十分な点
 
-- [ ] ほとんどの依存関係にバージョン範囲がない。
+- [x] 固定バージョンは `requirements.lock.txt` で提供（`requirements.txt` は意図的に緩い指定）。
 - [x] 未確認の `numpy<2` 制約を外し、`requirements.txt` は制約なしの `numpy` に戻した。
-- [ ] `pyinstaller` は現在の `requirements.txt` にはないが、README では `build.py` を案内しているため、ビルド用依存関係の扱いを決める必要がある。
-- [ ] `check.py` が `requirements.txt` を再生成する運用と、手作業で管理する運用のどちらにするか明確にする。
+- [x] `pyinstaller` はビルド時に別途インストールする方針を README に明記済み（実行時依存に含めない）。
+- [x] `check.py` の運用を確立（`python check.py` で `requirements.txt` 再生成、
+      `--verify` で整合チェック、`--pin` で `requirements.lock.txt` 再ロック）。
 
 ### `.gitignore` に必要な内容
 
-- [ ] Python キャッシュを除外する。
-- [ ] 仮想環境を除外する。
-- [ ] PyInstaller 生成物を除外する。
-- [ ] ローカル設定ファイルを除外する。
-- [ ] 解析の一時出力や巨大出力を除外する。
-- [ ] 機密データや未公開実験データが入る可能性のあるフォルダを除外する。
+- [x] Python キャッシュを除外する（`__pycache__/`、`*.py[cod]`）。
+- [x] 仮想環境を除外する（`.venv/`、`venv/`、`.conda-env/` など）。
+- [x] PyInstaller 生成物を除外する（`build/`、`dist/`、`*.spec`）。
+- [x] ローカル設定ファイルを除外する（`.claude/`、`.lang_preference`、`guis/afmpp_settings.json`）。
+- [x] 解析の一時出力や巨大出力を除外する（`*.b2z`、`*_param.json`、`*.npy`、`*.json`）。
+- [x] 機密データや大容量サンプルを管理する（`Bruker_testdata/*` を除外し代表 1 ファイルのみ追跡）。
 
-#### 現時点で確認すべき点
+#### 確認済みの点
 
-- [ ] リポジトリ内に `__pycache__/` と `.pyc` が存在しているため、追跡済みか未追跡か確認する。
-- [ ] `.lang_preference` や `.claude/` を公開してよいか確認する。
-- [ ] 解析出力フォルダがある場合、それが除外されているか確認する。
+- [x] `__pycache__/` と `.pyc` は `.gitignore` で除外済み（追跡されていない）。
+- [x] `.lang_preference` と `.claude/` は `.gitignore` で除外済み。
+- [x] 解析出力（`.b2z` / `_param.json` / `.npy` / `.json`）は除外済み。
+      golden baseline（`tests/strict_regression_golden.json`）と翻訳 `.mo` は例外で追跡。
 
 ## 2. JOSS・オープンソース公開で強く推奨される文書
 
 | 文書 | 現状 | 目的 |
 |---|---|---|
-| `CONTRIBUTING.md` | 未作成 | Issue、Pull Request、開発環境、テスト、コーディング方針を書く。 |
+| `CONTRIBUTING.md` | あり | Issue、Pull Request、開発環境、テスト、コーディング方針を書く。 |
 | `CHANGELOG.md` | 未作成 | リリースごとの変更履歴を記録する。 |
 | `CODE_OF_CONDUCT.md` | 未作成 | 公開プロジェクトとしての行動規範を書く。 |
 | `SECURITY.md` | 未作成 | 脆弱性や安全性問題の報告先を書く。 |
@@ -134,23 +166,18 @@ AFM Nanofiber Analyzer を GitHub で公開し、Zenodo でアーカイブし、
 
 ### `CONTRIBUTING.md` に必要な内容
 
-- [ ] Issue の立て方を書く。
-- [ ] バグ報告に必要な情報を書く。
-      例: OS、Python バージョン、入力ファイル形式、エラーメッセージ、再現手順。
-- [ ] 機能提案の方法を書く。
-- [ ] 開発環境の作り方を書く。
-- [ ] テストの実行方法を書く。
-- [ ] Pull Request の流れを書く。
-- [ ] GUI プラグイン追加時のルールを書く。
-- [ ] `.b2z` バンドル契約を壊す変更では事前相談が必要であることを書く。
-- [ ] コメント・docstring の英日方針を書く。
-- [ ] UI 文字列と scientific/reporting strings の翻訳方針を書く。
-
-#### 未作成のため必要な理由
-
-- JOSS レビューでは、外部ユーザーが参加できるプロジェクトか見られる。
-- `.b2z` 形式や GUI 間連携を壊さないため、変更ルールを明文化する必要がある。
-- 日本語コメントの扱いを誤ると、研究室内のドメイン知識が失われる。
+- [x] Issue の立て方を書く（Reporting bugs 節）。
+- [x] バグ報告に必要な情報を書く（OS、Python バージョン、入力形式、再現手順など）。
+- [x] 機能提案の方法を書く（Requesting features 節）。
+- [x] 開発環境の作り方を書く（Development setup 節）。
+- [x] テストの実行方法を書く（Running the tests 節）。
+- [x] Pull Request の流れを書く（Submitting a pull request 節）。
+- [ ] GUI プラグイン追加時のルールを書く（詳細は `AGENTS.md` §7。CONTRIBUTING
+      から要点参照を補えるか確認）。
+- [ ] `.b2z` バンドル契約を壊す変更では事前相談が必要であることを書く
+      （`AGENTS.md` §8 に記載。CONTRIBUTING でも触れるか確認）。
+- [x] コメント・docstring の英日方針を書く（Coding standards 節 / `AGENTS.md` 参照）。
+- [ ] UI 文字列と scientific/reporting strings の翻訳方針を書く（要確認）。
 
 ### `CHANGELOG.md` に必要な内容
 
@@ -203,54 +230,51 @@ AFM Nanofiber Analyzer を GitHub で公開し、Zenodo でアーカイブし、
 
 - JOSS 公開後にユーザーがどこへ相談すればよいか明確になる。
 - 研究室内連絡と公開 GitHub Issue を分けられる。
+- `CONTRIBUTING.md` の "Getting help and support" 節と内容が重複しないよう調整する。
 
 ## 3. JOSS 投稿に必要な論文関連文書
 
+JOSS paper はリポジトリ直下に配置済み（`paper/` サブフォルダではない点に注意）。
+
 | 文書 | 現状 | 目的 |
 |---|---|---|
-| `paper/paper.md` | 未作成 | JOSS 投稿本文。ソフトウェアの概要と必要性を書く。 |
-| `paper/paper.bib` | 未作成 | JOSS paper で引用する文献リスト。 |
-| `paper/figures/` | 未作成 | 必要に応じて JOSS paper 用の図を置く。 |
+| `paper.md` | あり・要確認 | JOSS 投稿本文。`Summary` と `Statement of need` を含む。 |
+| `paper.bib` | あり・要確認 | JOSS paper で引用する文献リスト。 |
+| 図ファイル | 未作成 | 必要に応じて JOSS paper 用の図を追加する。 |
 
-### `paper/paper.md` に必要な内容
+### `paper.md` に必要な内容
 
-- [ ] YAML ヘッダーを書く。
-- [ ] タイトルを書く。
-- [ ] 著者、所属、ORCID を書く。
-- [ ] `Summary` を書く。
-- [ ] `Statement of need` を書く。
-- [ ] 主な機能を書く。
-- [ ] 対象データとワークフローを書く。
-- [ ] 既存ツールとの関係を書く。
-- [ ] 研究上の利用場面を書く。
-- [ ] 謝辞を書く。
-- [ ] AI 支援を使った場合は、必要に応じて開示を書く。
-- [ ] `paper.bib` の文献を引用する。
+- [x] YAML ヘッダーを書く。
+- [x] タイトルを書く。
+- [x] 著者、所属、ORCID を書く（YAML ヘッダー内）。
+- [x] `Summary` を書く。
+- [x] `Statement of need` を書く。
+- [ ] 主な機能の説明が十分か確認する。
+- [ ] 対象データとワークフローの説明が十分か確認する。
+- [ ] 既存ツールとの関係の説明が十分か確認する。
+- [ ] 研究上の利用場面の説明が十分か確認する。
+- [x] 謝辞を書く（Acknowledgements 節）。
+- [ ] AI 支援を使った場合は、必要に応じて開示を書く（`AGENTS.md` §5 参照）。
+- [x] `paper.bib` の文献を引用する（References 節）。
 
-#### 未作成のため必要な理由
+#### 確認すべき点
 
-- JOSS は通常の論文原稿ではなく、ソフトウェアそのものを説明する短い paper を要求する。
-- 特に `Statement of need` が弱いと、研究ソフトとしての必要性が伝わりにくい。
-- README の説明だけでは JOSS 投稿要件を満たせない。
+- JOSS 提出前に著者・所属・ORCID が `CITATION.cff` と一致しているか確認する。
+- 図が必要なら追加し、`paper.md` から参照する。
 
-### `paper/paper.bib` に必要な内容
+### `paper.bib` に必要な内容
 
-- [ ] AFM 関連の基礎文献を入れる。
-- [ ] ナノファイバー解析に関する文献を入れる。
-- [ ] 画像解析・スケルトン化・セグメンテーション関連文献を入れる。
-- [ ] NumPy、SciPy、scikit-image、Matplotlib など主要ライブラリの引用を入れる。
-- [ ] 関連する先行ソフトウェアがあれば引用する。
-
-#### 未作成のため必要な理由
-
-- JOSS paper の主張を文献で支える必要がある。
-- 使用している科学計算ライブラリへの適切なクレジットになる。
+- [ ] AFM 関連の基礎文献が十分か確認する。
+- [ ] ナノファイバー解析に関する文献が十分か確認する。
+- [ ] 画像解析・スケルトン化・セグメンテーション関連文献が十分か確認する。
+- [ ] NumPy、SciPy、scikit-image、Matplotlib など主要ライブラリの引用が入っているか確認する。
+- [ ] 関連する先行ソフトウェアの引用が入っているか確認する。
 
 ## 4. ユーザー向け操作文書
 
 | 文書 | 現状 | 目的 |
 |---|---|---|
-| `README.ja.md` | 未作成 | 日本語ユーザー向けの導入・操作説明。 |
+| `README.ja.md` | あり | 日本語ユーザー向けの導入・操作説明（英語 README と同期）。 |
 | `docs/installation.md` | 未作成 | インストール手順を README から分離する場合に使う。 |
 | `docs/quickstart.md` | 未作成 | 最短で解析を試す手順を書く。 |
 | `docs/gui01_preprocessor.md` | 未作成 | GUI01 の入力、パラメータ、出力を詳しく説明する。 |
@@ -258,52 +282,36 @@ AFM Nanofiber Analyzer を GitHub で公開し、Zenodo でアーカイブし、
 | `docs/gui03_height_histogram.md` | 未作成 | GUI03 のグループ比較と出力を説明する。 |
 | `docs/gui04_fiber_tracking.md` | 未作成 | GUI04 の fiber tracking、CSV export、図保存を説明する。 |
 | `docs/troubleshooting.md` | 未作成 | よくあるエラーと対処を書く。 |
-| `取説.txt` | あり・要確認 | 既存の日本語操作説明と思われる。公開用文書へ整理する候補。 |
 
-### `README.ja.md` に必要な内容
-
-- [ ] 日本語で概要を書く。
-- [ ] インストール手順を書く。
-- [ ] 起動方法を書く。
-- [ ] GUI ごとの用途を書く。
-- [ ] AFM ファイルの読み込み方法を書く。
-- [ ] 解析パラメータの意味を書く。
-- [ ] 出力ファイルの読み方を書く。
-- [ ] よくあるエラーを書く。
-- [ ] 英語 README が正式な JOSS 向け文書であることを明記する。
-
-#### 未作成のため必要な理由
-
-- 研究室内・日本語ユーザー向けの操作説明を、JOSS 向け英語 README と分けて管理できる。
-- `取説.txt` や日本語仕様書の内容を、ユーザー向けに読みやすく再構成できる。
+`README.ja.md` 作成により、当初候補だった `取説.txt` の整理は不要になった
+（`取説.txt` はリポジトリから除去済み）。下記の `docs/` 配下のガイドは、
+README が長くなりすぎた場合や JOSS レビュアー向けに詳細を分離したい場合に
+作成する。現状は README / README.ja に主要手順がまとまっている。
 
 ### `docs/installation.md` に必要な内容
 
 - [ ] Windows の venv 手順を書く。
 - [ ] macOS/Linux の venv 手順を書く。
 - [ ] conda 環境の手順を書く。
-- [ ] 推奨しない手順を書く。
-      例: Anaconda base 環境への直接インストール。
+- [ ] 推奨しない手順を書く（例: Anaconda base 環境への直接インストール）。
 - [ ] Python バージョンを書く。
 - [ ] 依存関係のトラブルシューティングを書く。
 
-#### 未作成のため必要な理由
-
-- README が長くなりすぎる場合、インストール手順を独立させると保守しやすい。
-- JOSS レビュアーが環境構築で詰まったときに参照しやすい。
+（注: 現状これらは README の Installation and Usage 節に統合済み。独立文書化は任意。）
 
 ### `docs/quickstart.md` に必要な内容
 
-- [ ] サンプルデータの場所を書く。
+- [ ] サンプルデータの場所を書く（現状 `testdata_tunicateCNF` などがリポジトリにある）。
 - [ ] GUI01 で前処理する手順を書く。
 - [ ] 生成される `.b2z` と `_param.json` を説明する。
 - [ ] GUI02、GUI03、GUI04 でその出力を読む手順を書く。
 - [ ] 期待される結果を図または文章で示す。
 
-#### 未作成のため必要な理由
+#### 必要性
 
 - 初回ユーザーと JOSS レビュアーが、数分で動作確認できるようになる。
-- 現在の README にはサンプルデータ付きの再現可能な walkthrough が不足している。
+- 現状 README には CLI のサンプル実行例はあるが、GUI を使った再現可能な
+  walkthrough は薄い。
 
 ### GUI 別マニュアルに必要な内容
 
@@ -313,11 +321,6 @@ AFM Nanofiber Analyzer を GitHub で公開し、Zenodo でアーカイブし、
 - [ ] 出力ファイルを書く。
 - [ ] エラー時の確認点を書く。
 - [ ] 解析結果の解釈で注意すべき点を書く。
-
-#### 未作成のため必要な理由
-
-- GUI01 から GUI04 まで役割が分かれており、README だけでは操作説明が薄くなりやすい。
-- JOSS レビューでは「使えるソフトか」をレビュアーが実際に確認するため、GUI 操作説明が重要。
 
 ### `docs/troubleshooting.md` に必要な内容
 
@@ -329,23 +332,23 @@ AFM Nanofiber Analyzer を GitHub で公開し、Zenodo でアーカイブし、
 - [ ] `.b2z` が読めない場合の対処を書く。
 - [ ] 解析結果が空になる場合の確認点を書く。
 
-#### 未作成のため必要な理由
-
-- GUI アプリでは環境差・入力ファイル差による問い合わせが多くなる。
-- Issue を立てる前にユーザーが自分で確認できる。
-
 ## 5. 開発者・保守者向け文書
 
 | 文書 | 現状 | 目的 |
 |---|---|---|
+| `docs/maintainer-notes.ja.md` | あり | 日本語の保守者向けメモ。 |
+| `docs/docstring-templates.md` | あり | docstring テンプレート（`AGENTS.md` §3.4 から参照）。 |
+| `AGENTS.md` | あり | AI 編集エージェント向けの正準指示ファイル。設計・データ契約・翻訳方針も集約。 |
+| `CLAUDE.md` | あり | `AGENTS.md` を import する薄いポインタ。 |
 | `docs/developer_guide.md` | 未作成 | 開発環境、設計、テスト、リリース作業を書く。 |
-| `docs/data_contract.md` | 未作成 | `.b2z` と GUI 間データ契約を明文化する。 |
-| `docs/plugin_api.md` | 未作成 | GUI プラグインの作り方を書く。 |
-| `docs/localization.md` | 未作成 | gettext と翻訳対象文字列のルールを書く。 |
-| `AFM_Nanofiber_Analyzer_日本語仕様書.md` | あり・要確認 | 日本語仕様書。公開用に整理するか、内部資料として扱うか決める。 |
-| `開発者メモ.md` | あり・要確認 | 開発メモ。公開してよい情報だけに整理する必要がある。 |
-| `AGENTS.md` | あり・要確認 | AI 編集エージェント向け指示。公開リポジトリに含めるか判断する。 |
-| `CLAUDE.md` | あり・要確認 | AI ツール向け指示と思われる。公開リポジトリに含めるか判断する。 |
+| `docs/data_contract.md` | 未作成（任意） | `.b2z` 契約。コードの `lib/bundle_schema.py` が正準。 |
+| `docs/plugin_api.md` | 未作成（任意） | GUI プラグインの作り方。`AGENTS.md` §7 に既出。 |
+| `docs/localization.md` | 未作成（任意） | gettext と翻訳対象文字列のルール。`AGENTS.md` §8.8 に既出。 |
+
+設計・データ契約・プラグイン規約・翻訳方針は現状 `AGENTS.md` に集約されている。
+`docs/` 配下の開発者ガイドは、外部貢献者向けに `AGENTS.md` から要点を抜き出して
+公開用に整える場合に作成する（`AGENTS.md` は AI 編集エージェント向け指示であり、
+JOSS ソフトウェア提出物の一部ではない点に注意）。
 
 ### `docs/developer_guide.md` に必要な内容
 
@@ -358,62 +361,18 @@ AFM Nanofiber Analyzer を GitHub で公開し、Zenodo でアーカイブし、
 - [ ] リリース前チェックを書く。
 - [ ] PyInstaller ビルドの注意点を書く。
 
-#### 未作成のため必要な理由
+### `docs/data_contract.md` に必要な内容（任意）
 
-- 外部貢献者や JOSS レビュアーが内部構造を理解しやすくなる。
-- `build.py` や `check.py` のような補助スクリプトの意図を README から分離できる。
+- `.b2z` の実行契約はコードの `lib/bundle_schema.py` が正準（`AGENTS.md` §8.2）。
+- 文書化する場合は、コードを source of truth として要点を抜粋し、二重管理に
+  ならないようにする。
 
-### `docs/data_contract.md` に必要な内容
+### 既存の AI 指示ファイル・保守メモの扱い
 
-- [ ] `.b2z` の目的を書く。
-- [ ] GUI01 が書くキーを一覧化する。
-- [ ] GUI02、GUI03、GUI04 が読むキーを書く。
-- [ ] 各キーの shape、dtype、単位を書く。
-- [ ] `kp`, `dp`, `ka` の座標系と単位を書く。
-- [ ] `_param.json` の役割を書く。
-- [ ] 互換性を壊す変更のルールを書く。
-
-#### 未作成のため必要な理由
-
-- `.b2z` は GUI 間連携の中心なので、コードだけに依存すると破壊的変更に気づきにくい。
-- JOSS レビューでデータ出力の再現性を説明しやすくなる。
-
-### `docs/plugin_api.md` に必要な内容
-
-- [ ] `guis/` に置くファイルの条件を書く。
-- [ ] `PLUGIN_INFO` の形式を書く。
-- [ ] `main() -> None` の entry point を書く。
-- [ ] launcher が plugin を検出する仕組みを書く。
-- [ ] UI 文字列の gettext ルールを書く。
-- [ ] plot text や CSV headers を英語固定にするルールを書く。
-
-#### 未作成のため必要な理由
-
-- README に簡単な説明はあるが、GUI を増やす開発者向けには詳細が不足している。
-- `PLUGIN_INFO` は `ast.literal_eval()` に依存するため、関数呼び出しや動的値を避ける必要がある。
-
-### `docs/localization.md` に必要な内容
-
-- [ ] gettext の全体方針を書く。
-- [ ] `locale/` の構造を書く。
-- [ ] `messages.pot`, `.po`, `.mo` の更新手順を書く。
-- [ ] UI 文字列として翻訳するものを書く。
-- [ ] plot title、axis label、CSV header、units など英語固定にするものを書く。
-- [ ] 翻訳カタログ更新コマンドを書く。
-
-#### 未作成のため必要な理由
-
-- GUI が多言語対応しているため、翻訳対象の判断ルールが必要。
-- 科学的出力のラベルを言語で変えると再現性や比較性が下がるため、固定英語ルールを文書化する必要がある。
-
-### 既存の日本語仕様書・開発メモの扱い
-
-- [ ] `AFM_Nanofiber_Analyzer_日本語仕様書.md` を公開してよいか確認する。
-- [ ] 研究室内部情報、未公開データ、個人名、TODO、ローカル環境依存の記述がないか確認する。
-- [ ] 公開する場合は、ユーザー向け内容と開発者向け内容を分ける。
-- [ ] `開発者メモ.md` を公開してよいか確認する。
-- [ ] 公開しない場合は `.gitignore` や履歴整理の対象にするか検討する。
-- [ ] `AGENTS.md` と `CLAUDE.md` を公開するか、内部用として除外するか決める。
+- [x] 公開前整理対象だった `AFM_Nanofiber_Analyzer_日本語仕様書.md` と
+      `開発者メモ.md` はリポジトリから除去済み。
+- [x] `AGENTS.md` と `CLAUDE.md` は公開リポジトリに含める方針で確定
+      （`.gitignore` にも「intentionally version-controlled」と明記）。
 
 ## 6. リリース・Zenodo 関連文書
 
@@ -434,7 +393,7 @@ AFM Nanofiber Analyzer を GitHub で公開し、Zenodo でアーカイブし、
 - [ ] related_identifiers を書く。
 - [ ] communities を使う場合は確認する。
 
-#### 未作成のため必要な理由
+#### 必要性
 
 - `CITATION.cff` だけで十分な場合は必須ではない。
 - ただし、Zenodo 側の著者・所属・キーワード・関連論文を安定して管理したい場合は有用。
@@ -442,7 +401,7 @@ AFM Nanofiber Analyzer を GitHub で公開し、Zenodo でアーカイブし、
 ### `docs/release_process.md` に必要な内容
 
 - [ ] リリース前チェックを書く。
-- [ ] バージョン番号の決め方を書く。
+- [ ] バージョン番号の決め方を書く（`pyproject.toml` と `CITATION.cff` の `version` を一致させる）。
 - [ ] `CITATION.cff` の更新手順を書く。
 - [ ] `CHANGELOG.md` の更新手順を書く。
 - [ ] Git tag の作り方を書く。
@@ -451,53 +410,43 @@ AFM Nanofiber Analyzer を GitHub で公開し、Zenodo でアーカイブし、
 - [ ] README の DOI badge 更新手順を書く。
 - [ ] JOSS レビュー後の最終リリース手順を書く。
 
-#### 未作成のため必要な理由
-
-- JOSS レビュー後に最終版 DOI を発行する作業で混乱しにくくなる。
-- DOI、バージョン、release date の不一致を防げる。
-
 ## 7. テスト・CI 関連文書
 
 | 文書 | 現状 | 目的 |
 |---|---|---|
-| `.github/workflows/tests.yml` | 未作成 | GitHub Actions で自動テストを実行する。 |
+| `.github/workflows/test.yml` | あり | GitHub Actions で Ruff lint + pytest を実行する。 |
+| `tests/` | あり | pytest スイート（afm_io, pipeline, measure, bundle_schema, export, 翻訳, 回帰など）。 |
 | `tests/README.md` | 未作成 | テストデータ、fixture、実行範囲を説明する。 |
-| `docs/testing.md` | 未作成 | テスト方針と手動確認項目を書く。 |
+| `docs/testing.md` | 未作成（任意） | テスト方針と手動確認項目を書く。 |
 
-### `.github/workflows/tests.yml` に必要な内容
+### `.github/workflows/test.yml` の状況
 
-- [ ] push と pull request で実行する。
-- [ ] Python バージョンを指定する。
-- [ ] 依存関係をインストールする。
-- [ ] compile check を実行する。
-- [ ] import check を実行する。
-- [ ] `pytest` を実行する。
-- [ ] GUI を直接起動しない範囲でテストする。
+- [x] push と pull request で実行する。
+- [x] Python バージョンを指定する（新旧 2 バージョンのマトリクス）。
+- [x] 依存関係をインストールする。
+- [x] Ruff による lint を実行する。
+- [x] `pytest` を実行する（Windows / Linux マトリクス）。
+- [x] GUI を直接起動しない範囲でテストする。
+- [ ] `check.py --verify`（import 整合チェック）を CI に組み込むか検討する。
 
-#### 未作成のため必要な理由
+### `tests/README.md` / `docs/testing.md` に必要な内容
 
-- JOSS ではテスト可能性と継続的な品質確認が重視される。
-- GUI アプリでも `lib/` のコア処理は CI で確認できる。
-
-### `docs/testing.md` に必要な内容
-
-- [ ] 自動テストの実行方法を書く。
+- [ ] 自動テストの実行方法を書く（README / CONTRIBUTING に既出。テスト側にも要約があると親切）。
 - [ ] GUI の手動確認手順を書く。
-- [ ] サンプルデータの扱いを書く。
-- [ ] どの機能が自動テスト対象かを書く。
-- [ ] どの機能が手動確認対象かを書く。
-
-#### 未作成のため必要な理由
-
-- GUI の完全自動テストが難しい場合でも、手動確認項目を明示すればレビューしやすい。
-- 解析パイプラインの再現性確認を整理できる。
+- [ ] サンプルデータ（`testdata_*`、`Bruker_testdata`）の扱いを書く。
+- [ ] `slow` マーカー付き統合テストの位置づけを書く。
+- [ ] どの機能が自動テスト対象か / 手動確認対象かを書く。
 
 ## 8. サンプルデータ・チュートリアル関連文書
+
+リポジトリには既にサンプルスキャンがある（`testdata_tunicateCNF`、
+`testdata_higherplantTOC`、`Bruker_testdata`）。ただし配布条件や実行手順を
+まとめた `examples/` 構成は未整備。
 
 | 文書 | 現状 | 目的 |
 |---|---|---|
 | `examples/README.md` | 未作成 | サンプルデータと実行例を説明する。 |
-| `examples/` | 未作成 | 再配布可能な小さな入力データや期待出力を置く。 |
+| `examples/` | 未作成 | 再配布可能な小さな入力データや期待出力を整理して置く。 |
 | `docs/example_workflow.md` | 未作成 | 論文レビュアー向けの再現可能な解析例を書く。 |
 
 ### `examples/README.md` に必要な内容
@@ -509,35 +458,40 @@ AFM Nanofiber Analyzer を GitHub で公開し、Zenodo でアーカイブし、
 - [ ] 期待される出力を書く。
 - [ ] サンプルデータが実験的結論を主張するものではなく、動作確認用であることを書く。
 
-#### 未作成のため必要な理由
+#### 必要性
 
-- JOSS レビュアーが実際にソフトを動かすための材料になる。
-- ユーザーが自分のデータを入れる前に操作を試せる。
+- 既に `testdata_*` があるため、出典・再配布条件・実行手順を `examples/README.md`
+  などに明文化すれば JOSS レビュアーが動かしやすくなる。
 
 ## 9. 公開前に整理すべき既存ファイル
 
 | ファイル | 現状 | 対応方針 |
 |---|---|---|
-| `取説.txt` | あり・要確認 | 内容を確認し、`README.ja.md` または `docs/` に移すか決める。 |
-| `AFM_Nanofiber_Analyzer_日本語仕様書.md` | あり・要確認 | 公開仕様書にするか、内部資料として扱うか決める。 |
-| `開発者メモ.md` | あり・要確認 | 公開してよい内容か確認する。 |
-| `buildold.py` | あり・要確認 | 古いビルドスクリプトを公開する必要があるか確認する。 |
-| `CLAUDE.md` | あり・要確認 | 公開する必要があるか確認する。 |
-| `AGENTS.md` | あり・要確認 | 公開する必要があるか確認する。 |
-| `.claude/` | あり・要確認 | 公開不要なら除外する。 |
-| `.lang_preference` | あり・要確認 | 個人設定なら除外する。 |
-| `__pycache__/` | あり・要確認 | Git 管理対象なら削除し、`.gitignore` で除外する。 |
+| `取説.txt` | 除去済み | `README.ja.md` を作成済み。対応完了。 |
+| `AFM_Nanofiber_Analyzer_日本語仕様書.md` | 除去済み | リポジトリから除去済み。対応完了。 |
+| `開発者メモ.md` | 除去済み | リポジトリから除去済み。対応完了。 |
+| `buildold.py` | 除去済み | リポジトリから除去済み（`.gitignore` にも記載）。対応完了。 |
+| `CLAUDE.md` | あり | 公開する方針で確定（`AGENTS.md` を import する薄いポインタ）。 |
+| `AGENTS.md` | あり | 公開する方針で確定（AI 編集エージェント向け正準指示）。 |
+| `.claude/` | 除外済み | `.gitignore` で除外済み。 |
+| `.lang_preference` | 除外済み | `.gitignore` で除外済み（個人設定）。 |
+| `__pycache__/` | 除外済み | `.gitignore` で除外済み。 |
 
-## 10. 推奨する作業順
+## 10. 残作業の推奨順
 
-1. `README.md`, `LICENSE`, `CITATION.cff` のプレースホルダーを解消する。
-2. `.gitignore` を確認し、公開不要ファイルと生成物を除外する。
-3. `CONTRIBUTING.md` と `CHANGELOG.md` を作成する。
-4. `README.ja.md` または `docs/quickstart.md` を作成し、既存の `取説.txt` を整理する。
-5. `docs/data_contract.md` を作成し、`.b2z` のキー、shape、単位を明文化する。
-6. `docs/testing.md` と `.github/workflows/tests.yml` を作成する。
-7. `examples/` と再配布可能なサンプルデータを準備する。
-8. `paper/paper.md` と `paper/paper.bib` を作成する。
-9. `.zenodo.json` または `docs/release_process.md` を必要に応じて作成する。
-10. GitHub 公開後、初回 release と Zenodo DOI を作成する。
-11. JOSS レビュー後、最終 release を作成し、Zenodo DOI と JOSS DOI を反映する。
+1. README と CITATION.cff のプレースホルダーを解消する
+   （DOI、`<your-username>` URL、BibTeX 著者名、README Authors 略称）。
+2. LICENSE の著作権者表記と共同著作者の扱いを確定し、README / CITATION /
+   `pyproject.toml` / `paper.md` の著者情報を一致させる。
+3. `CHANGELOG.md` を作成する。
+4. `examples/README.md` を作成し、既存 `testdata_*` の出典・再配布条件・
+   実行手順を明文化する。
+5. README に「既知の制限」と「問い合わせ先 / Issue の使い方」を補い、
+   `CONTRIBUTING.md` へリンクする。
+6. `CODE_OF_CONDUCT.md`、`SECURITY.md`、`SUPPORT.md` を作成する（標準文面ベース）。
+7. JOSS 提出前に `paper.md` / `paper.bib` の内容（既存ツールとの関係、文献の
+   網羅性、AI 支援の開示）を確認する。
+8. 必要に応じて `.zenodo.json` と `docs/release_process.md` を作成する。
+9. GitHub 公開後、初回 release と Zenodo DOI を作成し、DOI を README /
+   CITATION.cff に反映する。
+10. JOSS レビュー後、最終 release を作成し、Zenodo DOI と JOSS DOI を反映する。

@@ -26,9 +26,10 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
-    { name = "Kayoko Kobayashi" },
-    { name = "Tomoki Ito" },
     { name = "Shingo Kiyoto" },
+    { name = "Keita Mayumi" },
+    { name = "Tomoki Ito" },
+    { name = "Kayoko Kobayashi" },
 ]
 keywords = [
     "AFM",

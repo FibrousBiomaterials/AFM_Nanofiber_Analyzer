@@ -8,15 +8,18 @@ tags:
   - image analysis
   - skeletonization
 authors:
-  - name: Kayoko Kobayashi
-    orcid: 0000-0003-0459-7900
+  - name: Shingo Kiyoto
+    orcid: 0000-0002-5228-9964
     affiliation: 1
     corresponding: true
+  - name: Keita Mayumi
+    orcid: 0009-0003-2304-7549
+    affiliation: 1
   - name: Tomoki Ito
     orcid: 0000-0002-2473-7117
     affiliation: 2
-  - name: Shingo Kiyoto
-    orcid: 0000-0002-5228-9964
+  - name: Kayoko Kobayashi
+    orcid: 0000-0003-0459-7900
     affiliation: 1
 affiliations:
   - name: Kyoto University, Japan
@@ -87,8 +90,10 @@ originating laboratory's maintainers as well as an international audience.
 
 # Acknowledgements
 
-We thank the members of the Research Institute for Sustainable Humanosphere,
-Kyoto University, for providing AFM measurements and domain feedback during
-development.
+During development, the authors used AI coding assistants — Claude Code
+(Anthropic) and Codex (OpenAI) — to help draft and refactor code and to
+translate docstrings and comments between English and Japanese. All
+AI-assisted output was reviewed and verified by the authors, who take full
+responsibility for the software and its documentation.
 
 # References

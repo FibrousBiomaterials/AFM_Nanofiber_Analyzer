@@ -178,8 +178,8 @@ keeps AFM Nanofiber Analyzer dependencies separate from packages already
 installed in Anaconda or other Python environments.
 
 ```powershell
-git clone https://github.com/<your-username>/afm-nanofiber-analyzer.git
-cd afm-nanofiber-analyzer
+git clone https://github.com/q9-droid/AFM_Nanofiber_Analyzer.git
+cd AFM_Nanofiber_Analyzer
 ```
 
 Windows:
@@ -284,8 +284,8 @@ files together with the edited `.po` files; the test suite fails when a
 ### Manual setup from source
 
 ```powershell
-git clone https://github.com/<your-username>/afm-nanofiber-analyzer.git
-cd afm-nanofiber-analyzer
+git clone https://github.com/q9-droid/AFM_Nanofiber_Analyzer.git
+cd AFM_Nanofiber_Analyzer
 
 py -3.12 -m venv .venv
 .\.venv\Scripts\activate
@@ -603,12 +603,12 @@ If you use this software in your research, please cite it as:
 
 ```bibtex
 @software{afm_nanofiber_analyzer,
-  author    = {[Author Names]},
+  author    = {Kiyoto, Shingo and Mayumi, Keita and Ito, Tomoki and Kobayashi, Kayoko},
   title     = {AFM Nanofiber Analyzer},
-  year      = {2025},
+  year      = {2026},
   publisher = {Zenodo},
   doi       = {10.5281/zenodo.xxxxxxx},
-  url       = {https://github.com/<your-username>/afm-nanofiber-analyzer}
+  url       = {https://github.com/q9-droid/AFM_Nanofiber_Analyzer}
 }
 ```
 
@@ -616,8 +616,8 @@ If you use this software in your research, please cite it as:
 
 | Role | Name |
 |---|---|
-| Analysis algorithms and AFM-domain methods | [KK], [IT] |
-| GUI and application packaging | [KS] |
+| Analysis algorithms and AFM-domain methods | Shingo Kiyoto, Keita Mayumi, Tomoki Ito, Kayoko Kobayashi |
+| GUI and application packaging | Shingo Kiyoto |
 
 ## License
 

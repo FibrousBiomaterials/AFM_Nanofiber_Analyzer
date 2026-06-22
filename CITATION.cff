@@ -27,13 +27,12 @@ date-released: "2026-01-01"   # 実際のリリース日に変更する
 
 license: MIT
 
-repository-code: "https://github.com/<your-username>/afm-nanofiber-analyzer"
-# ↑ 実際のGitHubリポジトリURLに変更する
+repository-code: "https://github.com/q9-droid/AFM_Nanofiber_Analyzer"
 
 doi: "10.5281/zenodo.xxxxxxx"
 # ↑ Zenodo連携後に発行されたDOIに変更する
 
-url: "https://github.com/<your-username>/afm-nanofiber-analyzer"
+url: "https://github.com/q9-droid/AFM_Nanofiber_Analyzer"
 
 # -------------------------------------------------------------------
 # キーワード（ZenodoやGitHubの検索インデックスに使われる）
@@ -53,24 +52,29 @@ keywords:
 # 著者リスト（順番が引用文献での著者順になる）
 # -------------------------------------------------------------------
 authors:
+  - family-names: "Kiyoto"
+    given-names: "Shingo"
+    affiliation: "Kyoto University"
+    orcid: "https://orcid.org/0000-0002-5228-9964"
+    # role: アルゴリズム設計・Library実装・GUIシステム設計・実装（guis/, Main.py, build.py）
+
+  - family-names: "Mayumi"
+    given-names: "Keita"
+    affiliation: "Kyoto University"
+    orcid: "https://orcid.org/0009-0003-2304-7549"
+    # role: アルゴリズム設計・Library実装   
+
+  - family-names: "Ito"
+    given-names: "Tomoki"
+    affiliation: "The University of Tokyo"
+    orcid: "https://orcid.org/0000-0002-2473-7117"
+    # role: アルゴリズム設計・Library実装
+
   - family-names: "Kobayashi"
     given-names: "Kayoko"
     affiliation: "Kyoto University"
     orcid: "https://orcid.org/0000-0003-0459-7900"
     # role: アルゴリズム設計・Library実装
-
-  - family-names: "Ito"
-    given-names: "Tomoki"
-    affiliation: "Tokyo University"
-    orcid: "https://orcid.org/0000-0002-2473-7117"
-    # role: アルゴリズム実装（Library）
-
-  - family-names: "Kiyoto"
-    given-names: "Shingo"
-    affiliation: "Kyoto University"
-    orcid: "https://orcid.org/0000-0002-5228-9964"
-    # role: GUIシステム設計・実装（guis/, Main.py, build.py）
-
 # -------------------------------------------------------------------
 # 関連論文・先行リポジトリがあれば記載する
 # -------------------------------------------------------------------
