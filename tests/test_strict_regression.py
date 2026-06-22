@@ -39,7 +39,6 @@ record the reason in the commit message::
 import glob
 import hashlib
 import json
-import os
 import tempfile
 from pathlib import Path
 

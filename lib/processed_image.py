@@ -1,20 +1,19 @@
 """
-Represent processed AFM image data and generate Fiber instances.
-処理済み AFM 画像データを保持し、Fiber インスタンスを生成する。
+Container for processed AFM image data and derived fiber metadata.
+処理済み AFM 画像データと派生した繊維メタデータを保持するコンテナ。
 
-This module stores intermediate images and analysis outputs used across
-the pipeline, then converts tracked skeleton components into Fiber objects.
-このモジュールは、解析パイプラインで使う中間画像と結果を保持し、
-追跡した骨格成分を Fiber オブジェクトへ変換する。
+This module stores the intermediate images and analysis outputs produced by
+the preprocessing pipeline stages. It is a passive data container; Fiber
+objects are built from this data by
+`lib.fiber_tracking_image.FiberTrackingImage`.
+このモジュールは前処理パイプライン各段階が生成する中間画像と解析結果を
+保持する。受動的なデータコンテナであり、Fiber オブジェクトの構築は
+`lib.fiber_tracking_image.FiberTrackingImage` が本データから行う。
 """
 
 from typing import Optional
 
-import cv2
 import numpy as np
-
-from . import imp_tools
-from .fiber import Fiber
 
 
 class ProcessedImage:

@@ -45,7 +45,7 @@ from .blosc2_io import save_bundle, bundle_has_keys, BUNDLE_EXT
 # バンドルのキー契約と形式バージョンは bundle_schema が管理する。既存の
 # `pipeline.REQUIRED_BUNDLE_KEYS` 利用側が動き続けるよう、ここで再インポートする。
 from .bundle_schema import (
-    BUNDLE_FORMAT_VERSION, OPTIONAL_BUNDLE_KEYS, REQUIRED_BUNDLE_KEYS,
+    BUNDLE_FORMAT_VERSION, OPTIONAL_BUNDLE_KEYS, REQUIRED_BUNDLE_KEYS,  # noqa: F401
     SPATIAL_CALIBRATION_KEY, make_spatial_calibration, validate_bundle,
 )
 from .kink_detector import KinkDetector

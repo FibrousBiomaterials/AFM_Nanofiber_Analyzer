@@ -11,6 +11,25 @@ on:
   pull_request:
 
 jobs:
+  # Lint runs once: Ruff results do not depend on OS or Python version, so the
+  # full test matrix below does not need to repeat it.
+  # Lint は 1 回だけ実行する。Ruff の結果は OS や Python バージョンに依存しない
+  # ため、下のテストマトリクスで繰り返す必要はない。
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Ruff
+        run: python -m pip install ruff
+
+      - name: Lint with Ruff
+        run: ruff check .
+
   test:
     strategy:
       fail-fast: false

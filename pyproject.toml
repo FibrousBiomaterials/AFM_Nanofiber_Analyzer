@@ -62,7 +62,7 @@ dependencies = [
 # pytest-xdist parallelizes the slow full-size regression tests across CPU
 # cores (`pytest -n auto`), which is the main lever for shortening the strict
 # regression suite; see [tool.pytest.ini_options] addopts.
-dev = ["pytest", "pytest-xdist", "Babel"]
+dev = ["pytest", "pytest-xdist", "Babel", "ruff"]
 
 [project.urls]
 Repository = "https://github.com/q9-droid/AFM_Nanofiber_Analyzer"
@@ -87,3 +87,17 @@ addopts = ["-n", "auto"]
 markers = [
     "slow: integration tests that process full-size real scans",
 ]
+
+[tool.ruff]
+# Skip the local conda environment checked out beside the source tree; .venv
+# and other VCS-ignored paths are excluded by Ruff's defaults.
+extend-exclude = [".conda-env", ".tmp"]
+target-version = "py310"
+
+[tool.ruff.lint]
+# Conservative, high-signal rule set: pyflakes (F) catches dead code, unused
+# imports, and undefined names; E9 catches syntax errors. Stylistic rules
+# (whitespace, line length) and import sorting are intentionally omitted to
+# avoid reformat churn in this bilingual-comment codebase. Expand the set
+# deliberately if a broader policy is wanted.
+select = ["E9", "F"]
