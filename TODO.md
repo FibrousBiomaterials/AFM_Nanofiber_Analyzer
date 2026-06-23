@@ -470,8 +470,8 @@ git show <commit>:<path>
       pyproject の Repository、CITATION.cff の repository-code/url とも一致）
 - 補足: DOI（`10.5281/zenodo.xxxxxxx`）と `CITATION.cff` の `date-released`
       （`2026-01-01`）は全ファイルで一致した**プレースホルダー**。整合性自体は問題なく、
-      実値化はフェーズ4（Zenodo 発行後）で行う。任意改善として README の BibTeX に
-      `version = {1.0.0}` を追加してもよい。
+      実値化はフェーズ4（Zenodo 発行後）で行う。README の BibTeX への
+      `version = {1.0.0}` 追加は適用済み（2026-06-23・README.md / README.ja.md 両方）。
 
 **0-5. ローカルでの最終テスト（CI と同じ内容をローカルで）**
 

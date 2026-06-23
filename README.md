@@ -646,6 +646,7 @@ If you use this software in your research, please cite it as:
   author    = {Kiyoto, Shingo and Mayumi, Keita and Ito, Tomoki and Kobayashi, Kayoko},
   title     = {AFM Nanofiber Analyzer},
   year      = {2026},
+  version   = {1.0.0},
   publisher = {Zenodo},
   doi       = {10.5281/zenodo.xxxxxxx},
   url       = {https://github.com/q9-droid/AFM_Nanofiber_Analyzer}
