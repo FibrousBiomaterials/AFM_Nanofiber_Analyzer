@@ -481,12 +481,14 @@ python -m pytest
 ruff check .
 ```
 
-- [ ] 上記がすべて通る
-      （2026-06-23: `ruff check .` パス。`check.py --verify` も OK。ただし後者は当初
-      `pip check` が古い editable メタデータの `mahotas` 要求で失敗したため、
-      `pip install -e . --no-deps` で再インストールして解消した〔リポジトリ側は終始
-      正しく fresh clone では再現しない〕。`pytest` は未実行＝フルサイズ回帰テストの
-      環境ブロッカーのため別途実施が必要）
+- [x] 上記がすべて通る
+      （2026-06-23 プロジェクト直下 `.venv` で確認。`ruff check .` パス／
+      `check.py --verify` OK〔当初 `pip check` が古い editable メタデータの
+      `mahotas` 要求で失敗→`pip install -e . --no-deps` で再インストールし解消。
+      リポジトリ側は終始正しく fresh clone では非再現〕／`python -m pytest`
+      **154 件すべてパス**〔fast 144 + slow 10、`-n auto`〕。以前の slow テスト
+      ブロッカーは別環境〔`.conda-env` の lmfit クラッシュ／兄弟 `..\.venv` の
+      argostranslate シャドーイング〕の話で、直下 `.venv` では発生しない）
 - [ ] `git status` がクリーン（必要な変更はコミット済み、不要な変更は無い）
 
 ### フェーズ 1: GitHub 公開
