@@ -10,6 +10,15 @@ atomic force microscopy (AFM) height images and inspecting nanofiber morphology.
 It provides a plugin launcher, a preprocessing pipeline, profile and histogram
 tools, and a fiber-tracking viewer for bundle files produced by the pipeline.
 
+It is intended for materials-science and polymer researchers — in particular
+those studying cellulose and other nanofibers — who need consistent,
+reproducible per-fiber measurements (length, height, branching, and kink
+angles) from large numbers of AFM scans. General-purpose scanning-probe
+software is well suited to image-level visualization and leveling but does not
+provide the fiber-centric skeleton tracing, kink detection, and grouped
+statistical comparison that this workflow targets; AFM Nanofiber Analyzer fills
+that gap with a documented, reproducible pipeline and a stable data format.
+
 ## Overview
 
 The application separates GUI plugins from the reusable modules they call:
@@ -83,7 +92,11 @@ AFM_Nanofiber_Analyzer/
 |   `-- __init__.py
 |-- tests/
 |-- locale/
-|   `-- ja/
+|   |-- English/
+|   |   `-- LC_MESSAGES/
+|   |-- Japanese/
+|   |   `-- LC_MESSAGES/
+|   `-- Chinese/
 |       `-- LC_MESSAGES/
 |-- assets/
 |   `-- afm_symbol.png
@@ -596,6 +609,33 @@ test suite instead of degrading silently in the launcher.
   `Main.auto.spec`, runs PyInstaller, and copies project resource folders.
 - `prepare_translate_catalogs.py` refreshes gettext catalogs, extracts plugin
   descriptions, and removes obsolete translation entries.
+
+## Known Limitations
+
+- Height values in the input text/CSV are interpreted as nanometers; exports in
+  other units must be converted before loading.
+- Single-column (Bruker NanoScope) exports must contain a perfect-square number
+  of height values, because the data is reshaped to a square `(s, s)` image.
+- Length measurements are only physically meaningful when a scan size is
+  available — read from the instrument header (Shimadzu `SizeX` / `SizeY`) or
+  supplied through the GUI/CLI. Without one, distances are reported in pixels.
+- The background calibration and default parameters were developed and tuned on
+  Shimadzu SPM-9600 scans. Other instruments are supported, but may need
+  parameter adjustment for good segmentation and skeletonization.
+- The graphical tools require a working Tk installation and are primarily
+  developed and tested on Windows; the CLI and library are platform-independent.
+- The `.b2z` bundle is a project-specific container. Use `cli.py export` to read
+  results in other environments (NumPy `.npz` or CSV).
+
+## Getting Help and Support
+
+- **Bug reports and feature requests:** open an issue on the
+  [issue tracker](https://github.com/q9-droid/AFM_Nanofiber_Analyzer/issues).
+- **Questions and usage help:** see
+  [CONTRIBUTING.md](CONTRIBUTING.md#getting-help-and-support) for where to ask.
+- When sharing a problem, please avoid attaching unpublished research data to
+  public issues; a description of the file format is usually enough to
+  reproduce loading problems.
 
 ## Citation
 

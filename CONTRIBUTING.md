@@ -88,14 +88,24 @@ before making non-trivial changes. Highlights:
 - **Data contract.** The `.b2z` bundle format is defined in
   `lib/bundle_schema.py`, which is the source of truth. Changing keys, shapes,
   or units requires bumping the format version and updating the dependent files
-  listed in `AGENTS.md`.
+  listed in `AGENTS.md` (§8). Because such a change can break cross-tool
+  workflows (GUI01–GUI04, the CLI, and external readers), please open an issue
+  to discuss it before submitting the pull request.
 - **GUI/CLI parity.** GUI plugins and the CLI share the pipeline in
   `lib/pipeline.py` and the measurement code in `lib/measure.py`. Keep analysis
   logic in `lib/` so both front ends stay numerically identical.
-- **Localization.** User-facing strings are translated with gettext. After
-  editing strings wrapped in `_()`, update the catalogs with `pybabel` and
-  commit the regenerated `.mo` files (see `AGENTS.md` §8.8). Do not edit `.mo`
-  files directly.
+- **GUI plugins.** New GUI tools live under `guis/` and follow the plugin
+  conventions in `AGENTS.md` §7: a literal `PLUGIN_INFO` dictionary, a typed
+  `main() -> None` entry point guarded by `if __name__ == "__main__":`, shared
+  helpers from `lib/ui_tools.py`, and no GUI launch at import time. The
+  "Adding a GUI Plugin" section of the README shows a minimal template.
+- **Localization.** Operational UI strings (menus, buttons, dialogs, status
+  messages, tooltips) are translated with gettext: wrap them in `_()`, then
+  update the catalogs with `pybabel` and commit the regenerated `.mo` files
+  (see `AGENTS.md` §8.8); do not edit `.mo` files directly. Scientific and
+  reporting strings — plot titles, axis labels, CSV headers, exported result
+  labels, data keys, and units — stay fixed in English so analysis outputs are
+  consistent across languages.
 - **README pair.** `README.md` and `README.ja.md` are kept synchronized; an
   edit to one should be mirrored (and translated) in the other.
 

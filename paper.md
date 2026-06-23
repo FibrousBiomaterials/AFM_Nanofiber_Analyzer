@@ -88,12 +88,109 @@ library API that other tools can build on. User-facing strings are localized
 through gettext (English and Japanese are provided) so the GUI is usable by the
 originating laboratory's maintainers as well as an international audience.
 
-# Acknowledgements
+# State of the field
+
+Several mature, openly licensed tools cover parts of the AFM analysis workflow.
+Gwyddion [@Necas2012] is the most widely used open-source scanning-probe
+microscopy package and provides extensive image-level functionality — levelling,
+filtering, statistical characterization, and grain (particle) analysis —
+together with a scripting interface. These capabilities target surfaces, grains,
+and roughness rather than networks of individual fibers, so Gwyddion does not
+provide the skeleton-based fiber tracing, kink-angle detection, or grouped
+comparison of per-fiber height distributions that this domain requires. The
+general scientific-Python ecosystem supplies the lower-level building blocks for
+such an analysis — n-dimensional arrays [@Harris2020], image processing and
+skeletonization [@vanderWalt2014], interpolation and signal routines
+[@Virtanen2020], and computer-vision primitives [@Bradski2000] — but assembling
+them into a consistent, validated, fiber-level pipeline is left to each
+laboratory.
+
+As a result, fiber-level AFM morphology is commonly quantified with bespoke,
+unpublished scripts; the analysis in `AFM Nanofiber Analyzer` itself began as
+such a collection of single-purpose scripts [@Ito_afm_image]. Rather than
+extending a surface-oriented tool with a fiber-specific plugin, or leaving the
+steps as disconnected scripts, this project consolidates the fiber-centric
+stages into one tested library with shared GUI and CLI front ends and an
+explicit, versioned data contract, so that the same analysis can be reproduced,
+scripted, and audited across machines.
+
+# Software design
+
+The toolkit is organized into three layers that share a single implementation of
+the analysis. Reusable modules in `lib/` perform AFM text/CSV input, background
+calibration, segmentation, skeletonization, kink detection, and per-fiber
+measurement. A tkinter plugin launcher discovers the four interactive tools in
+`guis/` — a preprocessor, a profile extractor, a height-distribution comparison
+tool, and a fiber tracker — while a command-line interface exposes the same
+operations for batch use. Both the GUI preprocessor and the CLI call the single
+pipeline function `process_file`, and both the GUI measurement views and the CLI
+call the same measurement routines, so a run from the GUI and the equivalent run
+from the CLI produce identical numerical results for the same input and
+parameters. Keeping the analysis logic in `lib/` and the user interfaces thin is
+a deliberate choice that prevents the two front ends from drifting apart.
+
+Results are persisted as one compressed bundle per input (`.b2z`, built on
+`blosc2`), accompanied by a JSON record of the analysis parameters. The bundle's
+contents — required array keys, shapes, value ranges, units, coordinate
+convention, and a format version — are defined by an executable schema that is
+validated both when bundles are written and when they are read, so downstream
+tools fail loudly on a malformed or out-of-contract bundle instead of producing
+silently wrong measurements. The physical scan size travels with each bundle,
+read from the instrument header when present (Shimadzu `SizeX`/`SizeY`) or
+supplied explicitly; this keeps length measurements reproducible from the bundle
+alone and lets a folder of differently sized scans be processed without a single
+batch-wide value. Bundles can be exported to standard NumPy `.npz` or CSV for
+use outside the project.
+
+Background calibration is provided as four interchangeable methods (inpainting,
+morphological top-hat, and 1D/2D spline surfaces) so that line-scan artefacts of
+differing severity can be addressed without changing the rest of the pipeline;
+it was developed and tuned on Shimadzu SPM-9600 height images but is not specific
+to that instrument. For laboratory users who do not maintain a Python
+environment, the application is packaged as a standalone Windows executable with
+PyInstaller; the trade-off is a larger download and a platform-specific build,
+while developers continue to install the package from source. An automated test
+suite — including a regression test that runs the full-size analysis on a real
+scan and compares summary statistics against recorded baselines — guards the
+numerical behaviour of the pipeline over time.
+
+# Research impact statement
+
+`AFM Nanofiber Analyzer` turns a laboratory AFM image-analysis workflow that was
+previously difficult to reproduce outside the originating scripts into a
+versioned, citable, and reviewer-testable software package. The repository
+includes representative AFM text exports from Shimadzu and Bruker instruments,
+command-line examples that process those files without GUI interaction, and
+automated regression tests that run the full analysis on a real scan and compare
+the resulting measurements against recorded baselines. These materials give
+reviewers and future users an objective way to verify that the software
+installs, reads real instrument exports, writes valid bundles, and preserves the
+numerical behaviour of the fiber-analysis pipeline over time.
+
+The package is designed for near-term reuse in nanocellulose and related
+materials workflows where researchers need to compare fiber height, length, and
+kink distributions across many AFM scans. Its impact is not limited to an
+interactive desktop GUI: the shared CLI and library layers allow the same
+analysis to be scripted for batch studies, embedded in other Python workflows,
+or exported to standard NumPy and CSV formats for downstream statistics. The
+validated `.b2z` bundle contract also makes intermediate AFM analysis products
+shareable between collaborators without relying on many loose sidecar arrays or
+undocumented local scripts.
+
+# AI usage disclosure
 
 During development, the authors used AI coding assistants — Claude Code
-(Anthropic) and Codex (OpenAI) — to help draft and refactor code and to
-translate docstrings and comments between English and Japanese. All
-AI-assisted output was reviewed and verified by the authors, who take full
-responsibility for the software and its documentation.
+(Anthropic) and Codex (OpenAI) — to help draft and refactor code, to write and
+translate docstrings and comments between English and Japanese, and to prepare
+documentation. The assistants were used under author supervision; they did not
+design the analysis methods or determine scientific results. All AI-assisted
+output was reviewed, edited, and verified by the authors against the source code
+and their domain knowledge, and the authors take full responsibility for the
+software and its documentation.
+
+# Acknowledgements
+
+<!-- Authors: add funding sources, instrument facilities, and personal
+acknowledgements here before submission. -->
 
 # References
