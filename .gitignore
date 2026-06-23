@@ -37,6 +37,12 @@ desktop.ini
 .claude/
 .lang_preference
 
+# ===== Internal documentation (not for publication) =====
+# Co-author onboarding guide distributed privately, not published in the public
+# repository. Excluded so it is not accidentally committed; share it via email
+# or a shared drive instead of relying on git clone.
+docs/installation-guide.ja.md
+
 # ===== GUI local settings (machine-specific, regenerated at runtime) =====
 guis/afmpp_settings.json
 
