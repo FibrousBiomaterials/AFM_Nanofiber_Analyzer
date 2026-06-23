@@ -3,22 +3,25 @@
 AFM Nanofiber Analyzer を GitHub で公開し、Zenodo でアーカイブし、JOSS
 投稿を目指すために用意すべきドキュメントを整理する。
 
-この TODO は、現時点のリポジトリを見た暫定判定を含む（最終更新: 2026-06-22）。
+この TODO は、現時点のリポジトリを見た暫定判定を含む（最終更新: 2026-06-23）。
 
 - `あり`: ファイルは存在する。
 - `要修正`: ファイルは存在するが、公開・JOSS・Zenodo 向けには内容の修正が必要。
 - `未作成`: ファイルが見当たらないため新規作成が必要。
 - `要確認`: ファイルはあるが、内容を詳しく確認して公開可否や十分性を判断する必要がある。
 
-## 0. 進捗サマリ（2026-06-22 時点）
+## 0. 進捗サマリ（2026-06-23 時点）
 
 初版作成時点から進んだ主な項目:
 
 - `CONTRIBUTING.md`、`README.ja.md` を作成済み。
 - JOSS paper を作成済み。配置はリポジトリ直下の `paper.md` / `paper.bib`
-  （`paper/` サブフォルダではない）。`Summary` と `Statement of need` を含む。
+  （`paper/` サブフォルダではない）。`Summary` と `Statement of need` は含むが、
+  現行 JOSS 必須節（`State of the field`、`Software design`、
+  `Research impact statement`、`AI usage disclosure`）は未整備。
 - CI を `.github/workflows/test.yml` として作成済み（push / pull request で
-  Ruff lint + Windows/Linux × Python 新旧マトリクスの pytest を実行）。
+  Ruff lint + `check.py --verify` + Windows/Linux × Python 新旧マトリクスの
+  pytest を実行）。
 - `cli.py` による GUI 非依存のバッチ処理（`process` / `validate` / `measure`
   / `heights` / `export` / `show-params`）を追加済み。README に使用例あり。
 - `pyproject.toml` を追加し、editable install（`pip install -e .`）と `[dev]`
@@ -29,11 +32,14 @@ AFM Nanofiber Analyzer を GitHub で公開し、Zenodo でアーカイブし、
 - 公開前整理対象だった `取説.txt`、`AFM_Nanofiber_Analyzer_日本語仕様書.md`、
   `開発者メモ.md`、`buildold.py` はリポジトリから除去済み。`.lang_preference`、
   `.claude/`、`__pycache__/` は `.gitignore` で除外済み。
-- `locale/` は `English` / `Japanese` / `Chinese` の構成で確定。
+- `locale/` は `English` / `Japanese` / `Chinese` の構成で確定。ただし README /
+  README.ja の Directory Structure は旧 `locale/ja/` 表記が残っており要修正。
 
-未着手の主な残課題: README/CITATION のプレースホルダー解消、`CHANGELOG.md`、
-`CODE_OF_CONDUCT.md`、`SECURITY.md`、`SUPPORT.md`、`.zenodo.json`、
-リリース手順書、`examples/` 整備、各種 `docs/` ユーザー・開発者ガイド。
+未着手の主な残課題: JOSS paper の現行必須節追加、JOSS 事前スクリーニング向けの
+公開開発履歴・release/tag・Issue/PR 運用実績の確認、README/CITATION の
+プレースホルダー解消、`CHANGELOG.md`、`CODE_OF_CONDUCT.md`、`SECURITY.md`、
+`SUPPORT.md`、`.zenodo.json` または CITATION-only 運用の確定、リリース手順書、
+`examples/` 整備、各種 `docs/` ユーザー・開発者ガイド。
 
 ## 1. 最優先で用意すべき公開用ドキュメント
 
@@ -74,14 +80,17 @@ AFM Nanofiber Analyzer を GitHub で公開し、Zenodo でアーカイブし、
 #### 現時点で不十分な点
 
 - [ ] Zenodo DOI badge が `10.5281/zenodo.xxxxxxx` のプレースホルダーのまま（README 冒頭）。
-- [ ] clone URL の GitHub URL が `<your-username>` のプレースホルダーのまま（2 か所）。
+- [ ] `README.ja.md` の clone URL が `<your-username>` のプレースホルダーのまま
+      （2 か所）。`README.md` 側は実 URL に更新済み。
 - [x] Citation の BibTeX 著者名を正式名に更新済み（`CITATION.cff` と一致、README.md / README.ja.md 両方）。
 - [x] Authors 欄の略称を正式名に更新済み（README.md / README.ja.md 両方）。
       併せて README.ja.md の BibTeX の `year` を 2026、`url` を実 URL に同期。
 - [x] テスト実行方法（Running tests 節を追加済み）。
 - [ ] `Statement of need` 相当の説明は `paper.md` に作成済みだが、README 本文は
       設計説明が中心。README にも簡潔な必要性の説明を補うか検討する。
-- [x] `locale/` の構造説明が実際の `English` / `Japanese` / `Chinese` と一致。
+- [ ] README / README.ja の Directory Structure では `locale/ja/` と書かれているが、
+      実際の構成は `locale/English` / `locale/Japanese` / `locale/Chinese`。
+      説明を実体に合わせる。
 
 ### `LICENSE` に必要な内容
 
@@ -111,15 +120,19 @@ AFM Nanofiber Analyzer を GitHub で公開し、Zenodo でアーカイブし、
 - [ ] Zenodo DOI が発行されたら `doi` を更新する。
 - [x] `license` を `LICENSE` と一致させる（MIT）。
 - [x] 関連ソフトウェアを `references` に入れる（先行 AFM 画像処理リポジトリ）。
+- [ ] Zenodo 連携前に `cff-convert` 等で `CITATION.cff` を検証する。
+- [ ] `.zenodo.json` を追加する場合、Zenodo は `CITATION.cff` ではなく
+      `.zenodo.json` のメタデータを使うため、両者の内容を同期する。
 
 #### 現時点で不十分な点
 
-- [ ] `url:` フィールドが `<your-username>` のプレースホルダーのまま
-      （`repository-code:` は実 URL に更新済み）。
+- [x] `url:` フィールドは実 URL に更新済み
+      （`repository-code:` も実 URL に更新済み）。
 - [ ] `doi: "10.5281/zenodo.xxxxxxx"` が Zenodo 発行前のプレースホルダーのまま。
 - [ ] `date-released: "2026-01-01"` が仮の日付。実リリース日に直す。
 - [ ] 著者順、所属、ORCID が最終版として正しいか確認する。
-- [ ] Zenodo 連携前に、日本語 YAML コメントがパーサーで問題にならないか確認する
+- [ ] Zenodo 連携前に、日本語 YAML コメントを含む現在のファイルが
+      Zenodo / `cff-convert` 系の検証で問題にならないか確認する
       （YAML 仕様上コメントは許容されるが、連携時に念のため確認）。
 
 ### `requirements.txt` / 依存関係に必要な内容
@@ -163,6 +176,21 @@ AFM Nanofiber Analyzer を GitHub で公開し、Zenodo でアーカイブし、
 | `CODE_OF_CONDUCT.md` | 未作成 | 公開プロジェクトとしての行動規範を書く。 |
 | `SECURITY.md` | 未作成 | 脆弱性や安全性問題の報告先を書く。 |
 | `SUPPORT.md` | 未作成 | 質問、バグ報告、研究利用相談の窓口を整理する。 |
+
+### JOSS 事前スクリーニングで確認される公開開発実績
+
+- [ ] GitHub リポジトリが公開され、ソース閲覧・clone・Issue 作成・変更提案が
+      登録不要または通常の無料アカウントで可能であることを確認する。
+- [ ] JOSS 提出時点で、公開状態の開発履歴が 6 か月超あることを確認する
+      （非公開開発を直前に dump しただけの履歴は不可）。
+- [ ] コミット履歴が短期間の集中投入だけでなく、利用・修正・改善の反復を示して
+      いることを確認する。
+- [ ] 少なくとも 1 つ以上の tagged release または明文化された release process を
+      用意する。
+- [ ] public Issue / PR / Discussions、または paper 内の研究利用実績により、
+      共同開発・外部利用・研究グループ内利用の具体的な証拠を示せるようにする。
+- [ ] JOSS submission では、提出者が主要貢献者であること、著者全員が著者リストに
+      同意していること、利益相反や関連投稿があれば開示することを確認する。
 
 ### `CONTRIBUTING.md` に必要な内容
 
@@ -238,7 +266,7 @@ JOSS paper はリポジトリ直下に配置済み（`paper/` サブフォルダ
 
 | 文書 | 現状 | 目的 |
 |---|---|---|
-| `paper.md` | あり・要確認 | JOSS 投稿本文。`Summary` と `Statement of need` を含む。 |
+| `paper.md` | あり・要修正 | JOSS 投稿本文。`Summary` と `Statement of need` は含むが、現行必須節が不足。 |
 | `paper.bib` | あり・要確認 | JOSS paper で引用する文献リスト。 |
 | 図ファイル | 未作成 | 必要に応じて JOSS paper 用の図を追加する。 |
 
@@ -249,18 +277,32 @@ JOSS paper はリポジトリ直下に配置済み（`paper/` サブフォルダ
 - [x] 著者、所属、ORCID を書く（YAML ヘッダー内）。
 - [x] `Summary` を書く。
 - [x] `Statement of need` を書く。
+- [ ] `State of the field` 節を書く（関連ソフトウェアとの比較と、
+      既存ツールへ貢献するのではなく本ソフトを整備する理由）。
+- [ ] `Software design` 節を書く（GUI/CLI/library 分離、`.b2z` 契約、
+      GUI/CLI 数値一致、PyInstaller 配布などの設計判断とトレードオフ）。
+- [ ] `Research impact statement` 節を書く（実利用、関連研究、ベンチマーク、
+      再現可能なサンプル解析、外部利用見込みを、単なる将来期待ではなく具体的に示す）。
+- [ ] `AI usage disclosure` 節を書く。AI を使った場合はツール名、利用範囲、
+      人間による検証を明記し、使っていない場合もその旨を明記する。
+- [ ] JOSS paper の本文量を 750-1750 words の目安に収める
+      （現状は metadata を含めても約 650 words で短め）。
 - [ ] 主な機能の説明が十分か確認する。
 - [ ] 対象データとワークフローの説明が十分か確認する。
 - [ ] 既存ツールとの関係の説明が十分か確認する。
 - [ ] 研究上の利用場面の説明が十分か確認する。
 - [x] 謝辞を書く（Acknowledgements 節）。
-- [ ] AI 支援を使った場合は、必要に応じて開示を書く（`AGENTS.md` §5 参照）。
+- [ ] JOSS 提出時または最終受理前に、Zenodo 等のソフトウェアアーカイブ DOI を
+      paper / submission metadata に反映する。
 - [x] `paper.bib` の文献を引用する（References 節）。
 
 #### 確認すべき点
 
 - JOSS 提出前に著者・所属・ORCID が `CITATION.cff` と一致しているか確認する。
 - 図が必要なら追加し、`paper.md` から参照する。
+- JOSS は、公開リポジトリ・OSI ライセンス・テスト・ドキュメントだけでなく、
+  公開開発履歴、release/tag、Issue/PR などのオープン開発実績も確認する。
+  GitHub 公開日と公開履歴が 6 か月超あるかを提出前に確認する。
 
 ### `paper.bib` に必要な内容
 
@@ -384,6 +426,9 @@ JOSS ソフトウェア提出物の一部ではない点に注意）。
 
 ### `.zenodo.json` に必要な内容
 
+- [ ] `.zenodo.json` を作成するか、`CITATION.cff` のみで運用するかを決める。
+      Zenodo は両方がある場合 `.zenodo.json` を優先し、`CITATION.cff` を
+      GitHub release archiving 用メタデータとしては無視する。
 - [ ] title を書く。
 - [ ] upload_type を書く。
 - [ ] creators を正式名、所属、ORCID 付きで書く。
@@ -391,22 +436,37 @@ JOSS ソフトウェア提出物の一部ではない点に注意）。
 - [ ] license を書く。
 - [ ] keywords を書く。
 - [ ] related_identifiers を書く。
+- [ ] version、access_right、language、contributors、grants を使うか確認する。
 - [ ] communities を使う場合は確認する。
+- [ ] `.zenodo.json` を使う場合、`CITATION.cff` / `pyproject.toml` /
+      README / paper と title・version・creator・license がずれないようにする。
 
 #### 必要性
 
 - `CITATION.cff` だけで十分な場合は必須ではない。
 - ただし、Zenodo 側の著者・所属・キーワード・関連論文を安定して管理したい場合は有用。
+- funding、community、access_right、related_identifiers など Zenodo 固有の
+  metadata を固定したい場合は `.zenodo.json` が必要。
 
 ### `docs/release_process.md` に必要な内容
 
 - [ ] リリース前チェックを書く。
 - [ ] バージョン番号の決め方を書く（`pyproject.toml` と `CITATION.cff` の `version` を一致させる）。
 - [ ] `CITATION.cff` の更新手順を書く。
+- [ ] `.zenodo.json` を使う場合の更新手順と、`CITATION.cff` との優先関係を書く。
 - [ ] `CHANGELOG.md` の更新手順を書く。
+- [ ] Zenodo アカウントで GitHub / ORCID を連携する手順を書く。
+- [ ] Zenodo の GitHub integration で対象リポジトリを enable する手順を書く。
 - [ ] Git tag の作り方を書く。
 - [ ] GitHub Release の作り方を書く。
+- [ ] GitHub Release 後、Zenodo が release を処理するまで待ち、失敗時は
+      Zenodo 側の error 表示を確認して metadata を修正する手順を書く。
 - [ ] Zenodo DOI の確認手順を書く。
+- [ ] Zenodo record の resource type が Software であること、release archive が
+      1 つの圧縮ソースアーカイブとして保存されていること、Software Heritage への
+      archival status を確認する手順を書く。
+- [ ] Zenodo の version DOI と all-versions/concept DOI のどちらを README badge、
+      CITATION、JOSS 最終アーカイブ DOI に使うか確認する手順を書く。
 - [ ] README の DOI badge 更新手順を書く。
 - [ ] JOSS レビュー後の最終リリース手順を書く。
 
@@ -425,9 +485,9 @@ JOSS ソフトウェア提出物の一部ではない点に注意）。
 - [x] Python バージョンを指定する（新旧 2 バージョンのマトリクス）。
 - [x] 依存関係をインストールする。
 - [x] Ruff による lint を実行する。
+- [x] `check.py --verify`（import / pyproject / 環境の整合チェック）を実行する。
 - [x] `pytest` を実行する（Windows / Linux マトリクス）。
 - [x] GUI を直接起動しない範囲でテストする。
-- [ ] `check.py --verify`（import 整合チェック）を CI に組み込むか検討する。
 
 ### `tests/README.md` / `docs/testing.md` に必要な内容
 
@@ -479,19 +539,23 @@ JOSS ソフトウェア提出物の一部ではない点に注意）。
 
 ## 10. 残作業の推奨順
 
-1. README と CITATION.cff のプレースホルダーを解消する
-   （DOI、`<your-username>` URL、BibTeX 著者名、README Authors 略称）。
-2. LICENSE の著作権者表記と共同著作者の扱いを確定し、README / CITATION /
+1. JOSS 事前スクリーニングに向けて、GitHub の公開日、6 か月超の公開履歴、
+   release/tag、public Issue/PR/Discussions、研究利用実績を確認する。
+2. `paper.md` に現行 JOSS 必須節（`State of the field`、`Software design`、
+   `Research impact statement`、`AI usage disclosure`）を追加し、750-1750 words
+   の範囲に収める。
+3. README / README.ja / CITATION.cff の非 DOI プレースホルダーを解消する
+   （`README.ja.md` の clone URL、README の locale 構造、著者・URL・version）。
+4. LICENSE の著作権者表記と共同著作者の扱いを確定し、README / CITATION /
    `pyproject.toml` / `paper.md` の著者情報を一致させる。
-3. `CHANGELOG.md` を作成する。
-4. `examples/README.md` を作成し、既存 `testdata_*` の出典・再配布条件・
+5. `CHANGELOG.md` を作成する。
+6. `examples/README.md` を作成し、既存 `testdata_*` の出典・再配布条件・
    実行手順を明文化する。
-5. README に「既知の制限」と「問い合わせ先 / Issue の使い方」を補い、
+7. README に「既知の制限」と「問い合わせ先 / Issue の使い方」を補い、
    `CONTRIBUTING.md` へリンクする。
-6. `CODE_OF_CONDUCT.md`、`SECURITY.md`、`SUPPORT.md` を作成する（標準文面ベース）。
-7. JOSS 提出前に `paper.md` / `paper.bib` の内容（既存ツールとの関係、文献の
-   網羅性、AI 支援の開示）を確認する。
-8. 必要に応じて `.zenodo.json` と `docs/release_process.md` を作成する。
-9. GitHub 公開後、初回 release と Zenodo DOI を作成し、DOI を README /
-   CITATION.cff に反映する。
-10. JOSS レビュー後、最終 release を作成し、Zenodo DOI と JOSS DOI を反映する。
+8. `CODE_OF_CONDUCT.md`、`SECURITY.md`、`SUPPORT.md` を作成する（標準文面ベース）。
+9. `.zenodo.json` を使うか CITATION-only で行くかを決め、
+   `docs/release_process.md` を作成する。
+10. GitHub release と Zenodo DOI を作成し、DOI を README / CITATION.cff /
+    paper / submission metadata に反映する。JOSS レビュー後は最終 release を作成し、
+    Zenodo DOI と JOSS DOI を反映する。
