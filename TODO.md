@@ -371,3 +371,236 @@ JOSS paper はリポジトリ直下に配置済み（`paper/` サブフォルダ
 7. GitHub release と Zenodo DOI を作成し、DOI を README / README.ja /
    `CITATION.cff` / `paper.md` / submission metadata に反映する。
 8. JOSS submission form から投稿する。
+
+## 11. GitHub 公開・Zenodo 連携・JOSS 投稿の実施手順（Step by Step）
+
+本章は §6（リリース・Zenodo 関連）と §10（残作業の推奨順）を、**実際の操作レベル**
+まで落とし込んだ手順書である。上から順に実行する。記号の意味:
+
+- **⚠️**: 一度実行すると取り消しにくい、または不可逆な操作。実行前に共著者と合意する。
+- `- [ ]`: 完了したらチェックを入れる確認項目。
+- コードブロック内のコマンドは、特記なき限りリポジトリのルートで実行する。
+
+**前提**
+
+- 作業者がリポジトリの owner であること（GitHub アカウント `q9-droid`、または移行先の
+  organization）。
+- 公開作業は清都が行い、共著者には §B 相当（著者・所属・ORCID・ライセンス・公開同意）の
+  確認だけ依頼する想定。
+
+**全体像（時系列）**
+
+```text
+フェーズ0  公開前ゲート（合意・履歴・秘密情報・整合・テスト）
+   │   ⚠️ ここを通過しないと公開しない
+フェーズ1  GitHub を Public にする  ← この日が JOSS 6か月クロック開始日
+   │
+フェーズ2  公開後 6か月の運用（コミット・Issue/PR を継続）  … フェーズ3以降と並行
+   │
+フェーズ3  Zenodo 連携 → 最初のリリース → DOI 発行
+   │
+フェーズ4  発行された DOI を README/CITATION/paper に反映
+   │
+フェーズ5  公開から6か月経過後、JOSS へ投稿
+```
+
+> 重要な原則: 論文本文・謝辞・DOI などはフェーズ2以降に詰めれば間に合う。
+> 6か月クロックは「公開した日」から始まり前倒しできないため、フェーズ0の
+> ゲートを満たしたら**まず公開する**のが最短ルート。
+
+### フェーズ 0: 公開前のゲート（⚠️ 通過するまで公開しない）
+
+**0-1. 共著者の合意（§B 相当）**
+
+- [ ] 著者リスト・著者順・corresponding author（清都）
+- [ ] 各自の所属（伊藤＝東京大学／他3名＝京都大学）と ORCID
+- [ ] ライセンス MIT・著作権者4名併記
+- [ ] リポジトリを公開すること自体への全員同意
+- [ ] `AGENTS.md` / `CLAUDE.md` を公開する方針
+
+**0-2. ⚠️ git 履歴の最終確認（公開後は履歴も全世界に見える）— 確認済み（2026-06-23）**
+
+過去に作業ツリーから消したファイルもコミット履歴に残るため点検した。
+**機微情報は無く、履歴スクラブは不要**と判断した。再確認は下のコマンドで再現できる
+（PowerShell では `grep` を `Select-String` に置き換える）。
+
+```bash
+# (1) 履歴にあるが現ツリーに無いファイル＝スクラブ候補
+comm -23 <(git log --all --pretty=format: --name-only | sed '/^$/d' | sort -u) \
+         <(git ls-files | sort -u)
+# (2) 秘密情報スキャン（何も出なければクリーン）
+git log -p --all | grep -nEi 'api[_-]?key|secret|token|password|passwd|private key'
+# (3) 個々のファイルの中身を確認する（<commit>:<path> を指定）
+git show <commit>:<path>
+```
+
+確認結果:
+
+- [x] `開発者メモ.md` / `取説.txt` / `AFM_Nanofiber_Analyzer_日本語仕様書.md`:
+      履歴にもディスクにも存在しない（初回コミット前に除去済み。確認対象の実体なし）。
+- [x] `buildold.py`: 履歴のみに残る旧 PyInstaller ビルド補助スクリプト。
+      パスワード・トークン・個人情報・未公開データは含まれない（現行 `build.py` の旧版）。
+- [x] `docs/installation-guide.ja.md`: 履歴に残る内部オンボーディング文書。機微情報なし
+      （今セッションで追跡解除済み。§9 / `.gitignore` 参照）。
+- [x] 秘密情報スキャン 0 件。コミットのメールは GitHub の
+      `…@users.noreply.github.com` のみ（個人メール露出なし）。
+- [x] 結論: **履歴スクラブは不要。このまま公開して問題なし。** 美観目的で
+      `buildold.py` 等を履歴から消したい場合のみ
+      `git filter-repo --invert-paths --path <file>` で除去できる
+      （破壊的操作・要バックアップ・共著者の clone 前に実施）。公開上の必要性はない。
+
+**0-3. 秘密情報・不要物の混入チェック（working tree と履歴の両方）**
+
+- [x] API キー・トークン・パスワード・個人メール等が含まれていないか検索する
+      （2026-06-23 実施・0 件。0-2 参照）
+- [x] `.gitignore` が venv（`.venv` / `.conda-env`）・ローカル設定・解析出力
+      （`*.b2z` / `*_param.json` / `*.npy`）・大容量サンプルを除外していることを確認
+      （2026-06-23: 追跡対象に環境/出力物の紛れ込みなし。`git ls-files` で確認済み）
+- [x] `git status` に意図しない追跡対象が無いか確認
+      （2026-06-23: 作業中の `TODO.md` 以外はクリーン）
+
+**0-4. メタデータの整合確認 — 確認済み（2026-06-23）**
+
+- [x] `LICENSE` / `CITATION.cff` / `pyproject.toml` / `README` の著者情報が一致
+      （著者4名・氏名・著者順 Kiyoto→Mayumi→Ito→Kobayashi・所属
+      〔伊藤＝東京大学／他3名＝京都大学〕・ORCID〔CITATION.cff↔paper.md〕・
+      version 1.0.0〔pyproject↔CITATION.cff〕・license MIT が全ファイルで一致）
+- [x] `README.md` / `README.ja.md` の clone URL が実 URL と一致
+      （`https://github.com/q9-droid/AFM_Nanofiber_Analyzer` で統一。
+      pyproject の Repository、CITATION.cff の repository-code/url とも一致）
+- 補足: DOI（`10.5281/zenodo.xxxxxxx`）と `CITATION.cff` の `date-released`
+      （`2026-01-01`）は全ファイルで一致した**プレースホルダー**。整合性自体は問題なく、
+      実値化はフェーズ4（Zenodo 発行後）で行う。任意改善として README の BibTeX に
+      `version = {1.0.0}` を追加してもよい。
+
+**0-5. ローカルでの最終テスト（CI と同じ内容をローカルで）**
+
+```bash
+python check.py --verify
+python -m pytest
+ruff check .
+```
+
+- [ ] 上記がすべて通る
+      （2026-06-23: `ruff check .` パス。`check.py --verify` も OK。ただし後者は当初
+      `pip check` が古い editable メタデータの `mahotas` 要求で失敗したため、
+      `pip install -e . --no-deps` で再インストールして解消した〔リポジトリ側は終始
+      正しく fresh clone では再現しない〕。`pytest` は未実行＝フルサイズ回帰テストの
+      環境ブロッカーのため別途実施が必要）
+- [ ] `git status` がクリーン（必要な変更はコミット済み、不要な変更は無い）
+
+### フェーズ 1: GitHub 公開
+
+**1-1. 最終 main を push する**
+
+```bash
+git push origin main
+```
+
+（タグ／リリースはフェーズ3で作るので、ここでは push のみ）
+
+**1-2. ⚠️ リポジトリを Public にする**
+
+- 既存の private リポジトリ `q9-droid/AFM_Nanofiber_Analyzer` の場合:
+  GitHub → 対象リポジトリ → **Settings** → 最下部 **Danger Zone** →
+  **Change repository visibility** → **Make public** → 指示に従い確認入力。
+- organization へ移す方針なら、先に **Settings → Transfer ownership** で移管してから
+  公開する。URL が変わるため、後で `CITATION.cff` / `README` の URL を更新すること。
+
+**1-3. 公開設定を整える**
+
+- [ ] **Settings → General → Features** で **Issues** を ON（JOSS は public Issue を要求）
+- [ ] 必要なら **Discussions** を ON
+- [ ] **About**（リポジトリ右上の歯車）に短い説明・トピック
+      （例: `afm`, `nanofiber`, `image-analysis`, `python`）・ライセンス表示を設定
+- [ ] リポジトリ先頭に **"Cite this repository"** ボタンが出るか確認（`CITATION.cff` 由来）
+
+**1-4. 公開アクセスを検証する**
+
+- [ ] ログアウト、またはシークレットウィンドウでリポジトリページが見える
+- [ ] 無関係な環境/アカウントで `git clone` できる
+- [ ] `README` が正しくレンダリングされる
+- [ ] 第三者が Issue を作成できる
+
+**1-5. 公開日を記録する（= JOSS 6か月クロック開始日）**
+
+- [ ] 公開日をメモし共著者に共有する
+- [ ] この日を起点に、最短の JOSS 投稿可能日（公開＋6か月）を把握する
+
+### フェーズ 2: 公開後 6か月の運用（フェーズ3以降と並行して継続）
+
+「非公開開発を直前に dump しただけ」と見なされないよう、実利用の痕跡を残す。
+
+- [ ] 実利用に伴うコミット・修正・改善を継続的に入れる
+- [ ] public Issue / PR / Discussion を実際に回す（運用担当を決める）
+- [ ] 他著者の公開貢献（コミット／レビュー／Issue）を残す
+- [ ] 少なくとも 1 つの tagged release を用意する（フェーズ3で v1.0.0 を作成）
+
+### フェーズ 3: Zenodo 連携と最初のリリース
+
+> **⚠️ 順序が重要**: Zenodo でリポジトリを有効化した**後**に作成したリリースだけが
+> アーカイブされる。有効化前のリリースは取り込まれない。必ず 3-1 → 3-2 → 3-4 の順で行う。
+> また Zenodo の GitHub 連携は**公開リポジトリ**が対象（フェーズ1で公開済みであること）。
+
+**3-1. Zenodo にログインし GitHub と連携する**
+
+- <https://zenodo.org> → **Log in** → **Log in with GitHub** を選ぶ
+- 初回は GitHub の認可（authorize）を求められるので許可する
+
+**3-2. 対象リポジトリを有効化する**
+
+- Zenodo 右上アカウントメニュー → **GitHub**
+  （<https://zenodo.org/account/settings/github/>）
+- リポジトリ一覧から `AFM_Nanofiber_Analyzer` のトグルを **ON** にする
+- 一覧に出ない場合は **Sync now** を押す（private のままだと出ない／取り込めない）
+
+**3-3. リリースのメタデータを準備する**
+
+- [ ] version を確定（`1.0.0`、`pyproject.toml` と一致）
+- [ ] `CITATION.cff` を `cff-convert` 等で検証（日本語 YAML コメントが問題にならないか確認）
+- [ ] **concept DOI（全バージョン）と version DOI のどちらを** README badge /
+      `CITATION.cff` / JOSS 最終アーカイブに使うか決める
+- [ ] `.zenodo.json` を置かず `CITATION.cff` のみで運用する方針を最終確認（§6 参照）
+
+**3-4. GitHub Release（タグ）を作る**
+
+```bash
+git tag -a v1.0.0 -m "AFM Nanofiber Analyzer 1.0.0"
+git push origin v1.0.0
+```
+
+- GitHub → **Releases** → **Draft a new release** → タグ `v1.0.0` を選択 →
+  タイトルと本文（`CHANGELOG.md` の 1.0.0 を転記）→ **Publish release**
+
+**3-5. Zenodo がアーカイブし DOI を発行するのを確認する**
+
+- 数分待つと Zenodo の **GitHub / Uploads** に新しい record が現れる
+- [ ] resource type が **Software** になっている
+- [ ] creators（著者4名）・ORCID・所属が正しい
+- [ ] license が **MIT**
+- [ ] title / version が正しい
+- 失敗時は Zenodo 側のエラー表示を見てメタデータを直し、必要なら新しいリリースで
+  再取り込みするか、record を **Edit** で修正する
+
+### フェーズ 4: 発行された DOI の反映
+
+- [ ] `CITATION.cff` の `doi:` と `date-released:` を実値に更新
+- [ ] `README.md` / `README.ja.md` の DOI badge を実 DOI に更新（**同期ペア両方**）
+- [ ] `CHANGELOG.md` の日付（`TBD`）を実リリース日に更新
+- [ ] これらをコミットする（patch リリース `v1.0.1` を切るかは任意）
+
+> 注意（chicken-and-egg）: アーカイブ済み `v1.0.0` のスナップショット自体には、
+> そのリリース自身の DOI は入らない。README / `CITATION.cff` への DOI 反映は
+> 後追いコミットで問題ない。安定した参照には concept DOI（全バージョン）を使うとよい。
+
+### フェーズ 5: JOSS 投稿（公開から6か月経過後）
+
+- [ ] `paper.md` の `Research impact statement` の事実関係を著者が最終確認
+- [ ] `paper.md` の `Acknowledgements`（資金・施設・協力者）を著者が記入
+- [ ] `paper.bib` の文献に可能な範囲で DOI を付与
+- [ ] `paper.md` が Open Journals 形式でコンパイルできるか確認
+- [ ] JOSS submission form（<https://joss.theoj.org>）から投稿する:
+      リポジトリ URL とアーカイブ DOI を入力し、提出者が主要貢献者であること、
+      著者全員が著者リストに同意していること、利益相反／関連投稿の開示を確認する
+- [ ] レビュー完了後、最終リリースを作成し、Zenodo DOI と release version を
+      review issue に報告する
