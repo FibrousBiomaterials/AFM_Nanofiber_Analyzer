@@ -211,7 +211,7 @@ msgstr "Axis Label"
 #: guis/GUI04_Tracking_fiber.py:582 guis/GUI04_Tracking_fiber.py:2134
 #: guis/GUI04_Tracking_fiber.py:2212
 msgid "軸目盛"
-msgstr "Axis Ticks"
+msgstr "Ticks"
 
 #: guis/GUI01_Image_Preprocessor.py:725 guis/GUI01_Image_Preprocessor.py:2335
 #: guis/GUI04_Tracking_fiber.py:2221
