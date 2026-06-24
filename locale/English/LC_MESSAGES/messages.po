@@ -1718,9 +1718,9 @@ msgstr "Individual View - {name} / fiber #{idx}"
 msgid "フォントサイズ：軸ラベル"
 msgstr "Font Size: Axis Label"
 
-#: guis/GUI04_Tracking_fiber.py:2236
-msgid "y軸最大値"
-msgstr "Y-axis Maximum"
+#: guis/GUI04_Tracking_fiber.py:2298
+msgid "Y最大"
+msgstr "Y max"
 
 #: guis/GUI04_Tracking_fiber.py:2262
 msgid "グリッド表示"

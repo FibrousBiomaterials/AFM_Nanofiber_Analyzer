@@ -284,6 +284,7 @@ class FiberTrackingImage:
         upper_height: Union[int, float],
         include_lower_limit: bool = True,
         include_upper_limit: bool = True,
+        progress_cb: Optional[Callable[[int, int], None]] = None,
     ) -> list[Fiber]:
         """
         Extract fibers whose heights are within a selected range.
@@ -315,6 +316,11 @@ class FiberTrackingImage:
         include_upper_limit
             Whether upper bound is inclusive.
             上限値を含むかどうか。
+        progress_cb
+            Optional progress callback receiving ``(done, total)`` once per
+            rebuilt connected component.
+            連結成分を 1 つ再構築するごとに ``(done, total)`` を受け取る任意の
+            進捗コールバック。
 
         Returns
         -------
@@ -327,7 +333,9 @@ class FiberTrackingImage:
         skeleton_image = np.where(lower_cond & upper_cond & self.skeleton_image, 1, 0).astype(np.uint8)
         # Build in parallel: same fibers as the sequential path, just faster.
         # 並列で構築する。逐次と同一の Fiber を、より高速に得るだけ。
-        return self._generate_fiber_instances(skeleton_image, parallel=True)
+        return self._generate_fiber_instances(
+            skeleton_image, parallel=True, progress_cb=progress_cb,
+        )
 
     def _generate_fiber_instances(
         self,

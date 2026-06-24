@@ -1652,9 +1652,9 @@ msgstr "单独显示 - {name} / fiber #{idx}"
 msgid "フォントサイズ：軸ラベル"
 msgstr "字体大小：坐标轴标签"
 
-#: guis/GUI04_Tracking_fiber.py:2236
-msgid "y軸最大値"
-msgstr "y轴最大值"
+#: guis/GUI04_Tracking_fiber.py:2298
+msgid "Y最大"
+msgstr "Y最大值"
 
 #: guis/GUI04_Tracking_fiber.py:2262
 msgid "グリッド表示"

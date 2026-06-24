@@ -1669,10 +1669,9 @@ msgstr ""
 msgid "フォントサイズ：軸ラベル"
 msgstr "フォントサイズ"
 
-#: guis/GUI04_Tracking_fiber.py:2236
-#, fuzzy
-msgid "y軸最大値"
-msgstr "最大値(nm)"
+#: guis/GUI04_Tracking_fiber.py:2298
+msgid "Y最大"
+msgstr "Y最大"
 
 #: guis/GUI04_Tracking_fiber.py:2262
 msgid "グリッド表示"

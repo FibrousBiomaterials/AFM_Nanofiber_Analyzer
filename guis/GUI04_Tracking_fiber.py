@@ -209,6 +209,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Cache fiber statistics so table rebuilds do not recompute them.
         self._fiber_stats: List[tuple] = []   # [(median, max), ...]
 
+        # Progress-bar state. The first update of a run appends a fresh log
+        # line; later updates overwrite it in place via replace_log_tail.
+        # 進捗バーの状態。各実行の最初の更新でログ行を 1 行追加し、以降は
+        # replace_log_tail で同じ行を上書きしていく。
+        self._progress_started: bool = False
+
         # Flag used while a worker thread is loading a dataset.
         self.is_running: bool = False
 
@@ -1406,15 +1412,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Rebuild the AFM overview background with the current filter state.
         現在のフィルター状態に合わせて AFM 全体像の背景を再構築する。
 
-        Without a filter, every fiber is shown with a white box and original
-        index. With the height filter on, the extracted skeleton pixels are
-        scattered in magenta over the AFM image, matching the pixel-level
-        ``specific_height_fibers`` extraction: a fiber contributes only the
-        sub-segments whose calibrated height lies in the selected range.
-        フィルターなしでは全ファイバーを白枠と元番号で表示する。高さフィルター
-        ON では、抽出されたスケルトン画素をマゼンタで AFM 像上に散布表示し、
-        画素単位の ``specific_height_fibers`` 抽出（補正高さが範囲内の区間のみ
-        残る）に一致させる。
+        Without a filter, every fiber is shown with a dashed white box and its
+        original index. With the height filter on, each surviving fiber keeps
+        the same dashed white box and number (renumbered over the filtered
+        list, matching the fiber table) and additionally has its extracted
+        skeleton pixels scattered in magenta over the AFM image, matching the
+        pixel-level ``specific_height_fibers`` extraction: a fiber contributes
+        only the sub-segments whose calibrated height lies in the selected
+        range.
+        フィルターなしでは全ファイバーを破線白枠と元番号で表示する。高さ
+        フィルター ON でも各残存ファイバーを同じ破線白枠と番号（フィルター後
+        リストで振り直した、一覧テーブルと一致する番号）で表示し、さらに抽出
+        されたスケルトン画素をマゼンタで AFM 像上に散布表示して、画素単位の
+        ``specific_height_fibers`` 抽出（補正高さが範囲内の区間のみ残る）に
+        一致させる。
         """
         if not self._filter_active:
             self._draw_overview_background()
@@ -1430,8 +1441,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         x_spp = x_scale / w_px
         y_spp = y_scale / h_px
 
+        # Box and number each surviving fiber with the filtered-list index so
+        # the overview labels match the fiber table, then overlay the magenta
+        # skeleton scatter below.
+        # 残存ファイバーをフィルター後リストの番号で枠付け・番号付けし、一覧
+        # テーブルと一致させたうえで、下にマゼンタのスケルトン散布を重ねる。
         self._draw_overview_background(
-            labeled_fibers=[],
+            labeled_fibers=list(enumerate(filtered)),
             title_suffix="  [filter: {count} segments]".format(count=len(filtered)),
         )
         ax = self._afm_ax
@@ -1506,19 +1522,56 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
     # メインウィンドウからは _update_detail_window() を経由して再描画依頼する。
     # =========================================================================
 
+    @staticmethod
+    def _format_progress_bar(done: int, total: int, width: int = 24) -> str:
+        """
+        Render a smooth text progress bar for the log.
+        ログ用に滑らかなテキスト進捗バーを生成する。
+
+        Eighth-block characters give the bar 8x the resolution of a whole-cell
+        bar, so each ~1% worker update visibly advances it instead of standing
+        still for several updates and then jumping a full cell.
+        1/8 ブロック文字でセル単位バーの 8 倍の解像度を持たせる。これにより
+        ワーカーからの約 1% ごとの更新でバーが必ず少し進み、数回分まったく
+        動かずに突然 1 セル飛ぶ「飛び飛び」表示を防ぐ。
+        """
+        frac = (done / total) if total > 0 else 0.0
+        frac = 0.0 if frac < 0.0 else (1.0 if frac > 1.0 else frac)
+        # Quantize to eighth-cell steps (width * 8 sub-steps total).
+        eighths = int(round(frac * width * 8))
+        full, rem = divmod(eighths, 8)
+        partials = " ▏▎▍▌▋▊▉"   # index 0 = none, 1..7 = left eighth blocks
+        bar = "█" * full
+        if full < width:
+            if rem:
+                bar += partials[rem] + "░" * (width - full - 1)
+            else:
+                bar += "░" * (width - full)
+        pct = int(round(frac * 100))
+        return f"  [{bar}] {done}/{total} ({pct}%)"
+
     def _show_progress(self, label: str = "", value: int = 0) -> None:
         """
-        Keep the progress-bar API as a no-op because progress is shown in the log.
-        進捗はログに表示するため、プログレスバー API は no-op として残す。
+        Begin a progress run shown as a single, in-place log line.
+        進捗の表示を開始する（ログ内の 1 行を上書き更新する方式）。
+
+        Progress is rendered in the log rather than a separate widget, so this
+        only arms the next update to append a fresh bar line; subsequent
+        updates overwrite that line.
+        進捗は専用ウィジェットではなくログに描画するため、ここでは次の更新で
+        バー行を新規追加するよう状態を整えるだけ。以降の更新は同じ行を上書きする。
         """
-        pass
+        self._progress_started = False
 
     def _hide_progress(self) -> None:
         """
-        Keep the progress-hide API as a no-op because progress is shown in the log.
-        進捗はログに表示するため、プログレス非表示 API は no-op として残す。
+        End the current progress run.
+        進捗の表示を終了する。
+
+        Resets the in-place update state so the next run starts on a new line.
+        上書き更新の状態をリセットし、次回の進捗が新しい行から始まるようにする。
         """
-        pass
+        self._progress_started = False
 
     # =========================================================================
     # Height filter
@@ -1581,7 +1634,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # 再構築する。specific_height_fibers に委譲し、要約統計で
                 # ファイバーを丸ごと選ぶのではなく特定高さの箇所（凹みなど）を
                 # 切り出す、本来の高さフィルター仕様に一致させる。
-                result = image.specific_height_fibers(lo, hi)
+                _last_pct_ref = [-1]
+                def _progress(done: int, total: int) -> None:
+                    """
+                    Forward height-filter rebuild progress to the UI queue.
+                    高さフィルター再構築の進捗を UI キューへ転送する。
+                    """
+                    pct = int(done / total * 100) if total > 0 else 0
+                    if pct != _last_pct_ref[0]:
+                        _last_pct_ref[0] = pct
+                        self.ui_queue.put(("progress", (done, total)))
+
+                result = image.specific_height_fibers(lo, hi, progress_cb=_progress)
                 self.ui_queue.put(("filter_done", (result, lo, hi)))
             except Exception:
                 self.ui_queue.put(("filter_error", traceback.format_exc()))
@@ -1779,16 +1843,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         def _on_progress(payload):
             done, total = payload
-            pct = int(done / total * 100) if total > 0 else 0
-            self._show_progress(
-                _("ファイバー解析中... {done}/{total} ({pct}%)").format(
-                    done=done, total=total, pct=pct
-                ),
-                pct,
-            )
-            # Also show a compact text progress bar in the log.
-            bar = "█" * (pct // 5) + "░" * (20 - pct // 5)
-            replace_log_tail(self.log_text, f"  [{bar}] {done}/{total} ({pct}%)")
+            bar_line = self._format_progress_bar(done, total)
+            # First update of a run appends a new line; later ones overwrite it
+            # so the bar advances in place instead of flooding the log.
+            # 実行の最初の更新で行を追加し、以降は同じ行を上書きしてバーをその場で
+            # 進める（ログが大量の行で埋まらないようにする）。
+            if not self._progress_started:
+                self._log(bar_line)
+                self._progress_started = True
+            else:
+                replace_log_tail(self.log_text, bar_line)
 
         def _on_file_loaded(payload):
             stem, image, fibers, stats = payload
@@ -2201,10 +2265,10 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         Build the three profile-settings rows (entries, display options, save).
         プロファイル設定の3行（入力欄・表示オプション・保存）を構築する。
         """
-        # Row 1: profile width, height, label/tick/legend fonts, and Y-axis maximum.
-        # 行1: プロファイル表示設定: 幅 / 高さ / 軸ラベルfs / 軸目盛fs / 凡例fs / y軸最大値。
-        # Font-size and Y-axis entries sit to the right of the height entry after the layout change.
-        # 各フォントサイズ入力欄（軸ラベル/軸目盛/凡例）および y軸最大値(nm) は高さ入力欄の右側に並べる（仕様変更）。
+        # Row 1: profile width, height, Y-axis maximum, then label/tick/legend fonts.
+        # 行1: プロファイル表示設定: 幅 / 高さ / y軸最大値 / 軸ラベルfs / 軸目盛fs / 凡例fs。
+        # Y-axis maximum sits between the height entry and the font-size entries.
+        # y軸最大値(nm) は高さ入力欄と各フォントサイズ入力欄の間に配置する。
         p_row1 = ttk.Frame(parent)
         p_row1.pack(side="top", fill="x", padx=2, pady=(2, 2))
         ttk.Label(p_row1, text=_("幅") + " (px)").pack(side="left", padx=(0, 6))
@@ -2223,6 +2287,21 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
             self.ent_prof_h,
             lambda: self._app._fmt_num(self._prof_h),
             self._commit_profile_settings,
+            registry=self._unconfirmed_entries,
+        )
+        # Place Y-axis maximum to the left of the axis-label font size after the layout change.
+        # y軸最大値(nm) は軸ラベル fs の左（高さ入力欄の右）に配置（仕様変更）。
+        # Synchronize _ylim and _ylim_var with _fmt_num to avoid a false
+        # unconfirmed state during initial drawing.
+        # 内部状態 self._ylim と表示用 StringVar self._ylim_var を _fmt_num で同期させて、
+        # 初期描画時に「未確定」状態（青色）になるバグを回避する。
+        ttk.Label(p_row1, text=_("Y最大") + " (nm)").pack(side="left", padx=(0, 2))
+        self.ent_ylim = ttk.Entry(p_row1, width=5, textvariable=self._ylim_var)
+        self.ent_ylim.pack(side="left", padx=(0, 8))
+        self._app._register_unconfirmed_entry(
+            self.ent_ylim,
+            lambda: self._app._fmt_num(self._ylim),
+            self._commit_ylim,
             registry=self._unconfirmed_entries,
         )
         ttk.Label(p_row1, text=_("フォントサイズ：軸ラベル")).pack(side="left", padx=(0, 2))
@@ -2252,26 +2331,11 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
             self._commit_profile_settings,
             registry=self._unconfirmed_entries,
         )
-        # Place Y-axis maximum to the right of legend font size after the layout change.
-        # y軸最大値(nm) は凡例 fs の右に配置（仕様変更）。
-        # Synchronize _ylim and _ylim_var with _fmt_num to avoid a false
-        # unconfirmed state during initial drawing.
-        # 内部状態 self._ylim と表示用 StringVar self._ylim_var を _fmt_num で同期させて、
-        # 初期描画時に「未確定」状態（青色）になるバグを回避する。
-        ttk.Label(p_row1, text=_("y軸最大値") + " (nm)").pack(side="left", padx=(0, 2))
-        self.ent_ylim = ttk.Entry(p_row1, width=5, textvariable=self._ylim_var)
-        self.ent_ylim.pack(side="left", padx=(0, 8))
-        self._app._register_unconfirmed_entry(
-            self.ent_ylim,
-            lambda: self._app._fmt_num(self._ylim),
-            self._commit_ylim,
-            registry=self._unconfirmed_entries,
-        )
 
-        # Row 2: tick direction, grid mode, legend location, and displayed elements.
-        # 行2: 目盛りの向き / グリッド表示 / 表示要素。
-        # Row 2 collects profile display controls; image saving stays in row 1.
-        # 行2にはプロファイル表示操作をまとめ、画像保存は行1に残す。
+        # Row 2: tick direction, grid mode, and legend location.
+        # 行2: 目盛りの向き / グリッド表示 / 凡例位置。
+        # Display-element checkboxes live with the save button in row 3.
+        # 表示要素チェックボックスは行3の保存ボタンと同じ行に置く。
         # Profile y-limits are recomputed automatically for each selected fiber.
         # プロファイル y 上限は選択ファイバーごとに自動再計算する。
         p_row2 = ttk.Frame(parent)
@@ -2300,24 +2364,24 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
                                      width=localized_combobox_width(
                                          legend_loc_labels, min_width=9, max_width=24))
         cb_legend_loc.pack(side="left", padx=(2, 8))
-        # Display-element label and checkboxes.
-        # 表示要素ラベル＋チェックボックス。
-        ttk.Label(p_row2, text=_("表示：")).pack(side="left", padx=(2, 4))
+
+        # Row 3: display-element checkboxes, then the Save Image button.
+        # 行3: 表示要素チェックボックス → 画像保存ボタン。
+        p_row3 = ttk.Frame(parent)
+        p_row3.pack(side="top", fill="x", padx=2, pady=(0, 2))
+        # Display-element label and checkboxes, placed left of the save button.
+        # 表示要素ラベル＋チェックボックス（画像を保存ボタンの左に配置）。
+        ttk.Label(p_row3, text=_("表示：")).pack(side="left", padx=(2, 4))
         ttk.Checkbutton(
-            p_row2, text=_("キンク"),
+            p_row3, text=_("キンク"),
             variable=self._app.show_kink_var,
             command=self._redraw_profile,
         ).pack(side="left", padx=(0, 4))
         ttk.Checkbutton(
-            p_row2, text=_("中央値/最大値"),
+            p_row3, text=_("中央値/最大値"),
             variable=self._app.show_medmax_var,
             command=self._redraw_profile,
         ).pack(side="left", padx=(0, 4))
-
-        # Row 3: Save Image button, separated from row 2.
-        # 行3: 画像保存ボタン（行2から分離）。
-        p_row3 = ttk.Frame(parent)
-        p_row3.pack(side="top", fill="x", padx=2, pady=(0, 2))
         ttk.Button(p_row3, text=_("画像を保存"),
                    command=self._save_profile_image).pack(side="left", padx=(0, 4))
         # Combobox selections redraw immediately.
