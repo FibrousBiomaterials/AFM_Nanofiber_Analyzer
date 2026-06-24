@@ -43,6 +43,11 @@ desktop.ini
 # or a shared drive instead of relying on git clone.
 docs/installation-guide.ja.md
 
+# ===== Promotional drafts (not for publication) =====
+# Local working folder for note articles and other promotional material.
+# Kept out of the public repository; share drafts privately instead.
+promo/
+
 # ===== GUI local settings (machine-specific, regenerated at runtime) =====
 guis/afmpp_settings.json
 
