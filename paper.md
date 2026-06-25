@@ -119,15 +119,18 @@ scripted, and audited across machines.
 The toolkit is organized into three layers that share a single implementation of
 the analysis. Reusable modules in `lib/` perform AFM text/CSV input, background
 calibration, segmentation, skeletonization, kink detection, and per-fiber
-measurement. A tkinter plugin launcher discovers the four interactive tools in
-`guis/` — a preprocessor, a profile extractor, a height-distribution comparison
-tool, and a fiber tracker — while a command-line interface exposes the same
-operations for batch use. Both the GUI preprocessor and the CLI call the single
-pipeline function `process_file`, and both the GUI measurement views and the CLI
-call the same measurement routines, so a run from the GUI and the equivalent run
-from the CLI produce identical numerical results for the same input and
-parameters. Keeping the analysis logic in `lib/` and the user interfaces thin is
-a deliberate choice that prevents the two front ends from drifting apart.
+measurement (\autoref{fig:pipeline}). A tkinter plugin launcher discovers the
+four interactive tools in `guis/` — a preprocessor, a profile extractor, a
+height-distribution comparison tool, and a fiber tracker — while a
+command-line interface exposes the same operations for batch use. Both the GUI
+preprocessor and the CLI call the single pipeline function `process_file`, and
+both the GUI measurement views and the CLI call the same measurement routines,
+so a run from the GUI and the equivalent run from the CLI produce identical
+numerical results for the same input and parameters. Keeping the analysis logic
+in `lib/` and the user interfaces thin is a deliberate choice that prevents the
+two front ends from drifting apart.
+
+![Analysis pipeline: the six stages from raw AFM height image to per-fiber statistics.\label{fig:pipeline}](figures/pipeline.png)
 
 Results are persisted as one compressed bundle per input (`.b2z`, built on
 `blosc2`), accompanied by a JSON record of the analysis parameters. The bundle's
@@ -152,7 +155,11 @@ PyInstaller; the trade-off is a larger download and a platform-specific build,
 while developers continue to install the package from source. An automated test
 suite — including a regression test that runs the full-size analysis on a real
 scan and compares summary statistics against recorded baselines — guards the
-numerical behaviour of the pipeline over time.
+numerical behaviour of the pipeline over time. \autoref{fig:gui01} shows the
+preprocessor GUI after a completed analysis, with the calibrated height image,
+binarized mask, skeleton overlay, and per-run statistics visible simultaneously.
+
+![GUI01 Image Preprocessor after analysis: calibrated image, binarized mask, skeletonized overlay, and statistics panel.\label{fig:gui01}](figures/gui01_result.png)
 
 # Research impact statement
 
