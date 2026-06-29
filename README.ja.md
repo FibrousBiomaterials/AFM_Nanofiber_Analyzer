@@ -5,6 +5,8 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![tests](https://github.com/q9-droid/AFM_Nanofiber_Analyzer/actions/workflows/test.yml/badge.svg)](https://github.com/q9-droid/AFM_Nanofiber_Analyzer/actions/workflows/test.yml)
 
+![AFM Nanofiber Analyzer の概要図](assets/afm_symbol.png)
+
 AFM Nanofiber Analyzer は、原子間力顕微鏡 (AFM) の高さ画像を前処理し、
 ナノファイバー形態を確認するための tkinter ベースのデスクトップツールです。
 プラグインランチャー、前処理パイプライン、プロファイル解析、ヒストグラム比較、

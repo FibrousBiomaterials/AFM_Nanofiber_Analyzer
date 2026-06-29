@@ -5,6 +5,8 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![tests](https://github.com/q9-droid/AFM_Nanofiber_Analyzer/actions/workflows/test.yml/badge.svg)](https://github.com/q9-droid/AFM_Nanofiber_Analyzer/actions/workflows/test.yml)
 
+![AFM Nanofiber Analyzer overview](assets/afm_symbol.png)
+
 AFM Nanofiber Analyzer is a tkinter-based desktop toolkit for preprocessing
 atomic force microscopy (AFM) height images and inspecting nanofiber morphology.
 It provides a plugin launcher, a preprocessing pipeline, profile and histogram
