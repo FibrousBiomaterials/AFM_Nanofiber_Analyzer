@@ -34,6 +34,14 @@ REAL_DATA = PROJECT_ROOT / "testdata_tunicateCNF" / "test_1.txt"
 # このフォルダは 1 ファイルのみバージョン管理されている）。
 BRUKER_DATA = PROJECT_ROOT / "Bruker_testdata" / "NDTOC250306.000.txt"
 
+# Representative Gwyddion "Export Text" matrix (whitespace-separated, height in
+# meters, localized "# Width/Height/Value units" header). Bundled only when the
+# folder is present, like the Bruker sample above.
+# 代表の Gwyddion「Export Text」行列（空白区切り、高さはメートル、ローカライズ
+# された "# 幅/高さ/値の単位" ヘッダ）。上の Bruker 同様、フォルダがある場合のみ
+# 同梱される。
+GWYDDION_DATA = PROJECT_ROOT / "testdata_Gwyddion" / "_20241115-150641_T.txt"
+
 
 # The "slow" marker is registered in pyproject.toml [tool.pytest.ini_options].
 # "slow" マーカーは pyproject.toml の [tool.pytest.ini_options] で登録される。

@@ -344,20 +344,40 @@ the plugin/resource folders needed by the launcher. Distribute the entire
 ## Supported Input Formats
 
 `lib/afm_io.py` loads text/CSV height exports and auto-detects the header
-length, column count, and encoding (UTF-8, cp932/Shift-JIS, latin-1 fallback),
-so no import settings are required. Two layouts are recognized:
+length, column count, delimiter, and encoding (UTF-8, cp932/Shift-JIS, latin-1
+fallback), so no import settings are required. Two layouts are recognized
+(the multi-column delimiter, comma or whitespace/tab, is auto-detected):
 
 | Layout | Typical source | Description |
 |---|---|---|
 | Multi-column | Shimadzu SPM-9600 | Comma-separated values, one row per scan line. Non-square scans are supported. |
+| Multi-column | Gwyddion "Export Text" | Whitespace/tab-separated matrix with a localized `# Width` / `# Height` / `# Value units` comment header. See below. |
 | Single-column | Bruker NanoScope | Text header lines (e.g. `Height(nm)`) followed by one value per line. The value count must be a perfect square; the data is reshaped to `(s, s)`. |
 
 Height values are interpreted as nanometers. The physical scan size is read
-from the instrument header when present (Shimadzu `SizeX` / `SizeY`) and stored
-in the bundle as the spatial calibration; inputs without a header scan size
-(e.g. bare Bruker NanoScope exports) take the scan size from the GUI/CLI
-instead. Sample scans are bundled under `testdata_tunicateCNF/` (Shimadzu) and
-`Bruker_testdata/` (one representative Bruker NanoScope export).
+from the instrument header when present (Shimadzu `SizeX` / `SizeY`, or
+Gwyddion `# Width` / `# Height`) and stored in the bundle as the spatial
+calibration; inputs without a header scan size (e.g. bare Bruker NanoScope
+exports) take the scan size from the GUI/CLI instead. Sample scans are bundled
+under `testdata_tunicateCNF/` (Shimadzu) and `Bruker_testdata/` (one
+representative Bruker NanoScope export).
+
+### Other instruments via Gwyddion
+
+Files from instruments without a layout above (Asylum Research, JPK, Park
+Systems, Nanonis, Olympus, …) are supported by converting them to text with
+[Gwyddion](http://gwyddion.net/), the free SPM toolkit that reads 100+ native
+formats: open the file, then **File > Save As** and choose **"Export Text"**
+(a plain-text data matrix). This loader reads the resulting `.txt` directly.
+Gwyddion writes the matrix in SI units (meters) with a small comment header
+recording the scan size and value unit; both are normalized automatically
+(heights to nm, sizes to µm). The header keys are written in Gwyddion's UI
+language — English (`# Width`/`# Height`/`# Value units`) and Japanese
+(`# 幅`/`# 高さ`/`# 値の単位`) are both recognized, since parsing keys off the
+value structure rather than the translated words. Keep the informational header
+enabled on export so the scan size is preserved; otherwise set it in the
+GUI/CLI. Bruker `.spm` binaries can likewise be exported to text from
+NanoScope and read via the single-column layout above.
 
 The background calibrator (`BGCalibrator` in `lib/bg_calibrator.py`)
 implements general line-scan AFM background correction and is applied to both

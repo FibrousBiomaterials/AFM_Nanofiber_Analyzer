@@ -14,7 +14,7 @@ from lib.afm_io import (
     load_afm_text,
     read_scan_size,
 )
-from tests.conftest import BRUKER_DATA, REAL_DATA
+from tests.conftest import BRUKER_DATA, GWYDDION_DATA, REAL_DATA
 
 
 def test_load_synthetic_csv(synthetic_fiber_txt):
@@ -73,6 +73,89 @@ def test_load_real_bruker_scan():
     assert a.shape == (1024, 1024)
     assert a.dtype == np.float64
     assert np.isfinite(a).all()
+
+
+# ---------------------------------------------------------------------------
+# Gwyddion "Export Text" matrices (whitespace-separated, height in meters)
+# ---------------------------------------------------------------------------
+
+def _write_gwyddion_txt(path, values_m, *, width="0.5 µm", height="0.5 µm",
+                        unit="m", japanese=False) -> None:
+    """Write a Gwyddion "Export Text" matrix with a localized comment header.
+
+    Mirrors the real export: a few ``# key: value`` comment lines (key words in
+    the Gwyddion UI language, colon ASCII or full-width) followed by a
+    tab-separated height matrix in SI units (meters).
+    実機の Export Text を模す。``# キー: 値`` のコメント行（キー語は Gwyddion の
+    UI 言語、コロンは半角/全角）の後に、SI 単位（メートル）のタブ区切り高さ行列。
+    """
+    if japanese:
+        header = ["# チャネル： Topography", f"# 幅: {width}",
+                  f"# 高さ： {height}", f"# 値の単位: {unit}"]
+    else:
+        header = ["# Channel: Topography", f"# Width: {width}",
+                  f"# Height: {height}", f"# Value units: {unit}"]
+    rows = ["\t".join(f"{v:.6e}" for v in row) for row in values_m]
+    path.write_text("\n".join(header + rows) + "\n", encoding="utf-8")
+
+
+def test_load_gwyddion_japanese_header(tmp_path):
+    """A Japanese-locale Gwyddion export: tab matrix, m->nm, 幅/高さ scan size."""
+    rng = np.random.default_rng(1)
+    values_m = rng.uniform(2.0e-7, 6.0e-7, (12, 12))  # heights in meters
+    path = tmp_path / "gwy_ja.txt"
+    _write_gwyddion_txt(path, values_m, japanese=True)
+
+    info = detect_afm_format(str(path))
+    assert info.kind == "multi-column"
+    assert info.skiprows == 4
+    assert info.n_cols == 12
+
+    # Height is converted from meters to nanometers (x 1e9).
+    a = load_afm_text(str(path))
+    assert a.shape == (12, 12)
+    np.testing.assert_allclose(a, values_m * 1.0e9, rtol=1e-5)
+
+    # Scan size is parsed from the localized 幅/高さ comments.
+    assert read_scan_size(str(path)) == ScanSize(x_um=0.5, y_um=0.5)
+
+
+def test_load_gwyddion_english_header(tmp_path):
+    """Locale independence: English Width/Height/Value-unit keys parse too."""
+    values_m = np.full((12, 12), 1.0e-9)  # 1 nm everywhere
+    path = tmp_path / "gwy_en.txt"
+    _write_gwyddion_txt(path, values_m, width="2 µm", height="1 µm")
+
+    a = load_afm_text(str(path))
+    np.testing.assert_allclose(a, np.full((12, 12), 1.0), rtol=1e-9)
+    assert read_scan_size(str(path)) == ScanSize(x_um=2.0, y_um=1.0)
+
+
+def test_load_whitespace_matrix_without_header(tmp_path):
+    """A bare whitespace matrix (no unit header) loads as-is, no scaling."""
+    rng = np.random.default_rng(2)
+    values = rng.normal(0.0, 5.0, (12, 12))
+    path = tmp_path / "ws.txt"
+    path.write_text(
+        "\n".join("\t".join(f"{v:.6e}" for v in row) for row in values) + "\n",
+        encoding="utf-8",
+    )
+    a = load_afm_text(str(path))
+    assert a.shape == (12, 12)
+    np.testing.assert_allclose(a, values, rtol=1e-6)
+    assert read_scan_size(str(path)) is None
+
+
+@pytest.mark.skipif(not GWYDDION_DATA.exists(), reason="bundled Gwyddion scan not present")
+def test_load_real_gwyddion_scan():
+    """The bundled Gwyddion export loads as a finite 1024x1024 image in nm."""
+    a = load_afm_text(str(GWYDDION_DATA))
+    assert a.shape == (1024, 1024)
+    assert a.dtype == np.float64
+    assert np.isfinite(a).all()
+    # Heights are in nm after the m->nm conversion (hundreds of nm here).
+    assert 10.0 < np.ptp(a) < 5000.0
+    assert read_scan_size(str(GWYDDION_DATA)) == ScanSize(x_um=5.0, y_um=5.0)
 
 
 # ---------------------------------------------------------------------------
