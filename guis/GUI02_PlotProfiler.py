@@ -888,14 +888,36 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # Let the heatmap canvas expand with the panel.
         self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
 
-        # Toolbar plus reset and image-save buttons.
+        # Toolbar plus reset and image-save buttons, kept on a single row.
         heatmap_tb_row = ttk.Frame(self.heatmap_panel)
         heatmap_tb_row.grid(row=1, column=0, sticky="ew", pady=(4, 0))
+
+        # Pack the custom reset/save buttons (side="right") BEFORE the toolbar so the
+        # toolbar's growable coordinate readout can never squeeze them on hover.
+        # ツールバーの座標表示はホバー時に横へ伸びるため、独自ボタンを先に右側へ確保し、
+        # 押し潰されないようにする。
+        # Custom reset button redraws the heatmap with the current view settings.
+        buttonhome = ttk.Button(
+            heatmap_tb_row, text=_("リセット"), command=self.home)
+        buttonhome.pack(side="right", padx=(8, 0))
+
+        # Custom image-save button exports the current heatmap figure.
+        button_save_img = ttk.Button(
+            heatmap_tb_row, text=_("画像を保存"), command=self.save_heatmap_image)
+        button_save_img.pack(side="right", padx=(8, 0))
+
         # NavigationToolbar2Tk uses pack internally, so isolate it in a dedicated frame.
         toolbar_frame = ttk.Frame(heatmap_tb_row)
-        toolbar_frame.pack(side="left", fill="x", expand=True)
         toolbar = NavigationToolbar2Tk(self.canvas, toolbar_frame)
         toolbar.update()
+        # NavigationToolbar2Tk is a fixed figure-width frame (pack_propagate(False)), so it
+        # spreads Pan/Zoom and the right-aligned coordinate readout across the whole figure
+        # width. Re-enable propagation so the toolbar shrinks to just Pan/Zoom, removing that
+        # dead space and leaving room for the custom buttons on the same row.
+        # ツールバーは図幅で固定（pack_propagate(False)）のため、Pan/Zoom と右寄せの座標表示が
+        # 図幅いっぱいに引き離される。伝播を戻して Pan/Zoom 幅まで縮め、その空白をなくして
+        # 同じ行に独自ボタンを収める。
+        toolbar.pack_propagate(True)
 
         # NavigationToolbar2Tk uses classic tk widgets, so manually match the clam background.
         # NavigationToolbar2Tk は ttk テーマ外のため、clam 背景色へ手動で揃える。
@@ -930,15 +952,11 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             if isinstance(child, (tk.Button, ttk.Button)) and txt not in _KEEP_BUTTON_TEXTS:
                 child.pack_forget()
 
-        # Custom reset button redraws the heatmap with the current view settings.
-        buttonhome = ttk.Button(
-            heatmap_tb_row, text=_("リセット"), command=self.home)
-        buttonhome.pack(side="right", padx=(8, 0))
-
-        # Custom image-save button exports the current heatmap figure.
-        button_save_img = ttk.Button(
-            heatmap_tb_row, text=_("画像を保存"), command=self.save_heatmap_image)
-        button_save_img.pack(side="right", padx=(8, 0))
+        # Place the toolbar last (side="left", no fill/expand) so it occupies only its own
+        # width and leaves the rest of the row for the custom buttons packed above.
+        # ツールバーは最後に左寄せ（fill/expand なし）で配置し、自分の幅だけ占有して
+        # 残りを上で確保した独自ボタンへ渡す。
+        toolbar_frame.pack(side="left")
 
         self.canvas.draw()
 
