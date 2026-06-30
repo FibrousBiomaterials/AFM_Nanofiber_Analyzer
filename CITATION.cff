@@ -13,13 +13,13 @@ message: >
 title: "AFM Nanofiber Analyzer"
 
 abstract: >
-  A GUI-based toolkit for analyzing nanofiber morphology from AFM
-  (Atomic Force Microscopy) images. The pipeline covers background
-  calibration (Shimadzu SPM-9600), binarization, skeletonization,
-  endpoint/branch-point detection, height profiling, and statistical
-  analysis. The system features a plugin architecture that allows new
-  GUI modules to be added without modifying the launcher, and can be
-  packaged as a standalone Windows executable.
+  A GUI and command-line toolkit for analyzing nanofiber morphology from
+  Atomic Force Microscopy (AFM) height images. It reads text/CSV exports and
+  native Gwyddion `.gwy` files, then performs background calibration, binarization,
+  skeletonization, kink and endpoint/branch-point detection, height profiling,
+  and per-fiber statistical analysis. Results are stored in validated,
+  versioned bundle files, and the application can be packaged as a standalone
+  Windows bundle.
 
 version: "1.0.0"          # リリース時にバージョンを更新する
 

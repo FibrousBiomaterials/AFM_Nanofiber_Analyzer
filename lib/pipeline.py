@@ -4,16 +4,19 @@ GUI-independent driver for the AFM nanofiber preprocessing pipeline.
 GUI に依存しない AFM ナノファイバー前処理パイプラインの駆動モジュール。
 
 This module owns the analysis-side responsibilities that were previously
-embedded in GUI01: the `ProcParams` parameter schema, the `.b2z` bundle key
-contract, stage construction, and single-file processing with output saving.
-GUI01 に埋め込まれていた解析側の責務（`ProcParams` スキーマ、`.b2z` バンドル
-キー契約、ステージ構築、1 ファイル処理と出力保存）をこのモジュールが持つ。
+embedded in GUI01: the `ProcParams` parameter schema, stage construction, and
+single-file processing with output saving. The executable `.b2z` contract is
+owned by `lib.bundle_schema` and enforced here before saving.
+GUI01 に埋め込まれていた解析側の責務（`ProcParams` スキーマ、ステージ構築、
+1 ファイル処理と出力保存）をこのモジュールが持つ。実行可能な `.b2z` 契約は
+`lib.bundle_schema` が管理し、本モジュールは保存前にそれを適用する。
 
 GUI01 and the command-line interface both call `process_file`, so the two
-entry points always produce byte-identical analysis outputs for the same
-input and parameters.
+entry points produce the same analysis arrays and parameter sidecar for the
+same input and settings. Run-specific provenance such as `created_utc` differs.
 GUI01 とコマンドラインの両方が `process_file` を呼ぶため、同じ入力と
-パラメータに対して両入口の解析出力は常に一致する。
+設定に対して両入口の解析配列とパラメータサイドカーは一致する。
+`created_utc` など実行固有の来歴情報は異なる。
 
 Progress reporting uses fixed English stage keys (see `STAGE_KEYS`) passed to
 an optional callback; callers translate or print them as needed. This keeps
@@ -601,9 +604,9 @@ def process_file(
         出力先ディレクトリ。省略時は入力ファイルと同じディレクトリ。
     save_original
         When True, the raw height image is bundled under the "original" key,
-        making the `.b2z` self-contained (no dependency on the source text).
-        True のとき元の高さ画像を "original" キーで同梱し、`.b2z` を入力
-        テキストに依存しない自己完結形式にする。
+        making the `.b2z` self-contained (no dependency on the source input).
+        True のとき元の高さ画像を "original" キーで同梱し、`.b2z` を元の
+        入力ファイルに依存しない自己完結形式にする。
     on_stage
         Optional progress callback receiving one of `STAGE_KEYS` before each
         stage starts.
@@ -636,11 +639,15 @@ def process_file(
     gwy_channel
         Channel selector for a ``.gwy`` input, forwarded to
         `lib.gwy_io.load_gwy_image`: ``None`` auto-selects the topography
-        channel, an integer selects by channel id, a string by title. Ignored
-        for text/CSV inputs.
+        channel, an integer selects by channel id, a string by title.
+        Explicitly selected non-length channels retain their native values and
+        are not suitable for this height-in-nm pipeline. Ignored for text/CSV
+        inputs.
         ``.gwy`` 入力のチャンネル指定で `lib.gwy_io.load_gwy_image` へ渡す。
         ``None`` は地形チャンネルを自動選択、整数はチャンネル id、文字列は
-        タイトルで選択する。テキスト/CSV 入力では無視される。
+        タイトルで選択する。長さ以外のチャンネルを明示選択した場合は元単位の
+        ままなので、nm 高さを前提とする本パイプラインには適さない。
+        テキスト/CSV 入力では無視される。
 
     Returns
     -------
@@ -680,16 +687,20 @@ def process_file(
     report("load")
     # Load the height image and capture how it was parsed, branching on the
     # input format: a Gwyddion native .gwy (binary, multi-channel) reads through
-    # lib.gwy_io; everything else is a text/CSV export read through afm_io. Both
-    # branches yield a height array (nm), an optional header scan size, and a
-    # provenance dict recorded under vlmeta "input_format".
+    # lib.gwy_io; everything else is a text/CSV export read through afm_io.
+    # Normal height channels yield nm values; an explicitly selected non-length
+    # .gwy channel retains native values (and is unsuitable for this pipeline).
+    # Both branches also yield an optional scan size and "input_format"
+    # provenance.
     # 入力形式で分岐して高さ画像と解釈方法を取得する。Gwyddion ネイティブの .gwy
     # （バイナリ・複数チャンネル）は lib.gwy_io で、それ以外のテキスト/CSV
-    # エクスポートは afm_io で読み込む。どちらも高さ配列 (nm)・任意のヘッダ走査
-    # 範囲・vlmeta "input_format" に記録する来歴 dict を返す。
+    # エクスポートは afm_io で読み込む。通常の高さチャンネルは nm で返り、長さ
+    # 以外の .gwy チャンネルを明示選択した場合は元単位のまま（本処理には不適切）。
+    # どちらも任意の走査範囲と vlmeta "input_format" 用の来歴を併せて返す。
     if os.path.splitext(txt_path)[1].lower() == ".gwy":
-        # Local import keeps the optional gwyfile dependency out of text-only runs.
-        # ローカル import によりオプション依存の gwyfile をテキスト専用実行から外す。
+        # Local import keeps the feature-specific gwyfile dependency out of
+        # text-only runs.
+        # ローカル import により .gwy 用の gwyfile 依存をテキスト専用実行から外す。
         from .gwy_io import load_gwy_image
         gwy_image = load_gwy_image(txt_path, channel=gwy_channel)
         height_data = gwy_image.data
@@ -765,10 +776,10 @@ def process_file(
     }
 
     # Optionally bundle the raw original AFM height image. When included,
-    # the .b2z is self-contained (no dependency on the source .txt) and can
+    # the .b2z is self-contained (no dependency on the source input) and can
     # serve as a fast-loading input for downstream machine-learning GUIs.
-    # 任意で元の AFM 高さ画像を同梱する。同梱すると .b2z は .txt に依存せず
-    # 自己完結し、下流の機械学習用 GUI の高速読み込み入力としても使える。
+    # 任意で元の AFM 高さ画像を同梱する。同梱すると .b2z は元の入力ファイルに
+    # 依存せず自己完結し、下流の機械学習用 GUI の高速読み込み入力にも使える。
     if save_original:
         arrays["original"] = height_data
 

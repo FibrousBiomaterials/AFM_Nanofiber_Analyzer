@@ -2,10 +2,11 @@
 Skeleton morphology and fiber measurement helpers for AFM nanofiber images.
 AFM ナノファイバー画像のスケルトン形態処理と繊維計測用ヘルパー。
 
-Provides branch/end-point detection, skeleton tracing, path-distance
-conversion, and aggregate fiber height utilities used by the GUI tools.
-GUI ツールで使う分岐点・端点検出、スケルトン追跡、経路距離変換、
-および繊維高さの集計ユーティリティを提供する。
+Provides branch/end-point detection, skeleton cleanup, ordered tracing, and
+per-axis path-distance conversion used by the preprocessing and measurement
+layers.
+前処理層と計測層で使う分岐点・端点検出、スケルトン整理、順序付き追跡、
+軸別の経路距離換算を提供する。
 """
 
 from typing import Optional, Union

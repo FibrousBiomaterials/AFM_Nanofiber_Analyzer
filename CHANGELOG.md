@@ -22,6 +22,8 @@ release date when the version is tagged.
 - GUI-independent preprocessing pipeline (`lib/pipeline.py`) shared by GUI01 and
   the CLI, covering background calibration, segmentation, skeletonization, and
   kink detection.
+- AFM input through auto-detected text/CSV layouts and native, multi-channel
+  Gwyddion `.gwy` files with topography-channel auto-selection.
 - Command-line interface (`cli.py`) with `process`, `validate`, `measure`,
   `heights`, `export`, and `show-params` subcommands.
 - Single-bundle output format (`.b2z`) with an executable, versioned schema

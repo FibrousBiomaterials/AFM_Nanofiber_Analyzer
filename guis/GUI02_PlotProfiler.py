@@ -2,11 +2,13 @@
 GUI plugin for extracting AFM height profiles.
 AFM 高さプロファイルを抽出する GUI プラグイン。
 
-The plugin loads calibrated AFM height maps, lets the user mark two or more
-points on the heatmap, and computes concatenated height profiles along the
-selected segments using `skimage.measure.profile_line`.
-補正済み AFM 高さ画像を読み込み、ヒートマップ上で 2 点以上を指定して
-`skimage.measure.profile_line` により各線分上の高さプロファイルを連結して計算する。
+The plugin loads two-dimensional AFM arrays from bundles, NumPy files,
+text/CSV exports, or native Gwyddion files; it lets the user mark two or more
+points on the heatmap and computes concatenated profiles along the selected
+segments using `skimage.measure.profile_line`.
+バンドル、NumPy ファイル、テキスト/CSV エクスポート、または Gwyddion
+ネイティブファイルから 2 次元 AFM 配列を読み込み、ヒートマップ上で 2 点以上を
+指定して `skimage.measure.profile_line` により各線分のプロファイルを連結計算する。
 """
 
 # ===== Plugin metadata =====
@@ -1375,14 +1377,15 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         ファイルの記録走査範囲またはヘッダ走査範囲があればスケールを既定化する。
 
         For `.b2z` bundles the values come from the recorded
-        ``spatial_calibration``; for text/CSV inputs they are read from the
-        instrument header. Both axes are applied: a distinct Y size keeps a
-        rectangular scan, an equal one leaves the Y entry empty (square scan).
-        Inputs without a known scan size (e.g. `.npy`) keep the current scale.
-        `.b2z` は記録された ``spatial_calibration`` から、テキスト/CSV は装置ヘッダ
-        から取得する。両軸を適用し、Y が異なれば矩形スキャン、等しければ Y 欄は
-        空（正方スキャン）とする。走査範囲が不明な入力（`.npy` 等）は現在の
-        スケールを保持する。
+        ``spatial_calibration``; text/CSV inputs use instrument-header values,
+        and native `.gwy` inputs use the default channel extents. Both axes are
+        applied: a distinct Y size keeps a rectangular scan, an equal one
+        leaves the Y entry empty (square scan). Inputs without a known scan
+        size (e.g. `.npy`) keep the current scale.
+        `.b2z` は記録された ``spatial_calibration``、テキスト/CSV は装置ヘッダ、
+        ネイティブ `.gwy` は既定チャンネルの範囲から取得する。両軸を適用し、
+        Y が異なれば矩形スキャン、等しければ Y 欄は空（正方スキャン）とする。
+        走査範囲が不明な入力（`.npy` 等）は現在のスケールを保持する。
 
         Returns
         -------
@@ -1587,10 +1590,15 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             )
             self.ax.set_title(self.filename, fontsize=self.fs_title)
 
-            # The colorbar label "(nm)" is fixed because AFM height is always
-            # expressed in nm; the unit_var radio controls only the horizontal
-            # scale (µm/nm). Do not couple this label to self.unit.
-            # カラーバーのラベル "(nm)" は固定。AFM の高さは常に nm 単位で扱うため。
+            # The intended length-valued .gwy channels and all other supported
+            # height inputs are normalized to nm, so the colorbar label is
+            # fixed. An explicitly selected non-length .gwy channel retains
+            # native values and is outside this height-profile convention.
+            # 通常対象とする長さ単位の .gwy チャンネルと他の高さ入力は nm へ正規化
+            # するため、カラーバーラベルは固定する。長さ以外の .gwy チャンネルを
+            # 明示選択した場合は元単位のままで、高さプロファイル規約の対象外となる。
+            # unit_var controls only the horizontal scale (µm/nm).
+            # unit_var は横方向スケール (µm/nm) だけを切り替える。
             divider = make_axes_locatable(self.ax)
             self.cax = divider.append_axes("right", size="5%", pad=0.1)
             self.cbar = self.fig.colorbar(

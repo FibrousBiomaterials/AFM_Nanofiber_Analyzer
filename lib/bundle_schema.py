@@ -3,17 +3,16 @@
 Executable schema for the ``.b2z`` bundle contract.
 ``.b2z`` バンドル契約の実行可能スキーマ。
 
-This module is the single in-code definition of the bundle contract that was
-previously documented only in prose (README, the Japanese specification, and
-AGENTS.md §8.2): required keys, array shapes, value ranges, units, and the
-coordinate convention. `validate_bundle` turns contract violations into clear
-English messages instead of letting malformed bundles fail deep inside the
-tracking code with cryptic NumPy errors.
-本モジュールは、これまで散文（README、日本語仕様書、AGENTS.md §8.2）でのみ
-記述されていたバンドル契約（必須キー、配列形状、値域、単位、座標規約）の
-コード上の唯一の定義である。`validate_bundle` は契約違反を明確な英語
-メッセージへ変換し、壊れたバンドルが追跡コードの奥で不可解な NumPy エラーに
-なるのを防ぐ。
+This module is the single in-code definition of the bundle contract: required
+keys, array shapes, value ranges, units, and the coordinate convention.
+README and AGENTS.md §8.2 describe the contract, but this code is the source of
+truth. `validate_bundle` turns violations into clear English messages instead
+of letting malformed bundles fail deep inside the tracking code with cryptic
+NumPy errors.
+本モジュールはバンドル契約（必須キー、配列形状、値域、単位、座標規約）の
+コード上の唯一の定義である。README と AGENTS.md §8.2 にも説明はあるが、
+本コードを正準とする。`validate_bundle` は契約違反を明確な英語メッセージへ
+変換し、壊れたバンドルが追跡コードの奥で不可解な NumPy エラーになるのを防ぐ。
 
 Contract summary / 契約の要約
 -----------------------------

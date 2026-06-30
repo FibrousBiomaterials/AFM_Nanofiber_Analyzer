@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-Load Gwyddion native ``.gwy`` files as NumPy height arrays.
-Gwyddion ネイティブの ``.gwy`` ファイルを NumPy 高さ配列として読み込む。
+Load data channels from Gwyddion native ``.gwy`` files.
+Gwyddion ネイティブの ``.gwy`` ファイルからデータチャンネルを読み込む。
 
 This module is the binary counterpart to `afm_io`, which handles text/CSV
-exports. Reading ``.gwy`` directly removes the manual "Export Text" step for
-the many instruments Gwyddion already understands (Asylum, JPK, Park, Nanonis,
-Olympus, …): the user opens the vendor file in this software just like a text
-scan.
+exports. After Gwyddion opens a supported vendor format (Asylum, JPK, Park,
+Nanonis, Olympus, …) and saves its container as ``.gwy``, this module reads
+that container directly and avoids the separate "Export Text" step. It does
+not parse those vendor formats themselves.
 本モジュールはテキスト/CSV を扱う `afm_io` のバイナリ版にあたる。``.gwy`` を
-直接読むことで、Gwyddion が既に解釈できる多数の機種（Asylum・JPK・Park・
-Nanonis・Olympus 等）について手動の「Export Text」工程を省ける。利用者は
-ベンダーファイルをテキストスキャンと同じ感覚で本ソフトに読み込める。
+直接読むことで、Gwyddion が対応する多数の機種（Asylum・JPK・Park・Nanonis・
+Olympus 等）のファイルを Gwyddion で開いて ``.gwy`` として保存した後、別途
+「Export Text」する工程を省ける。本モジュール自体は各社形式を直接解析しない。
 
 A ``.gwy`` container holds multiple channels (topography, phase, amplitude,
 forward/backward passes, …), so a channel must be chosen. `select_default_channel`
@@ -21,6 +21,12 @@ channel id or title (GUI dropdown, CLI ``--channel``).
 ため、チャンネルの選択が必要になる。`select_default_channel` が地形/高さ
 チャンネルを自動選択し、呼び出し側はチャンネル id またはタイトルで上書き
 できる（GUI のドロップダウン、CLI の ``--channel``）。
+
+Length-valued channels are normalized to nanometers. An explicitly selected
+non-length channel is returned unchanged in its native value unit; callers
+must not treat such data as nm height.
+長さ単位のチャンネルは nm へ正規化する。長さ以外のチャンネルを明示選択した
+場合は元の値単位のまま返すため、呼び出し側は nm 高さとして扱ってはならない。
 
 The dependency on the third-party ``gwyfile`` package is intentionally kept as
 a function-local import: ``gwyfile`` is a pure-Python, NumPy-only reader, so it
@@ -120,14 +126,16 @@ class GwyChannel:
 @dataclass(frozen=True)
 class GwyImage:
     """
-    One channel loaded from a ``.gwy`` file as an analysis-ready height image.
-    ``.gwy`` から読み込んだ 1 チャンネルを、解析可能な高さ画像として表す。
+    One channel loaded from a ``.gwy`` file with its spatial metadata.
+    ``.gwy`` から読み込んだ 1 チャンネルと空間メタデータを表す。
 
     Attributes
     ----------
     data
-        2-D height array in nanometers.
-        nm 単位の 2 次元高さ配列。
+        Two-dimensional channel array. Length-valued channels are converted to
+        nanometers; non-length channels retain their native values.
+        2 次元チャンネル配列。長さ単位のチャンネルは nm へ換算し、長さ以外の
+        チャンネルは元の値を保持する。
     scan_size
         Physical scan size in micrometers, or ``None`` when absent.
         µm 単位の物理走査範囲。無い場合は ``None``。
@@ -205,7 +213,7 @@ def _load_container(path: str):
     Raises
     ------
     ImportError
-        When the optional ``gwyfile`` package is not installed.
+        When the ``gwyfile`` package required for `.gwy` input is not installed.
     """
     try:
         import gwyfile
@@ -386,7 +394,7 @@ def list_gwy_channels(path: str) -> List[GwyChannel]:
     Raises
     ------
     ImportError
-        When the optional ``gwyfile`` package is not installed.
+        When the ``gwyfile`` package required for `.gwy` input is not installed.
     ValueError
         When the file contains no data channel.
     """
@@ -400,8 +408,8 @@ def load_gwy_image(
     path: str, channel: Optional[Union[int, str]] = None,
 ) -> GwyImage:
     """
-    Load one channel of a ``.gwy`` file as a height image in nanometers.
-    ``.gwy`` ファイルの 1 チャンネルを nm 単位の高さ画像として読み込む。
+    Load one channel of a ``.gwy`` file and normalize length values to nm.
+    ``.gwy`` の 1 チャンネルを読み込み、長さの値を nm へ正規化する。
 
     Parameters
     ----------
@@ -417,13 +425,15 @@ def load_gwy_image(
     Returns
     -------
     GwyImage
-        Height array (nm), scan size (µm or ``None``), and channel metadata.
-        高さ配列 (nm)、走査範囲 (µm または ``None``)、チャンネルメタデータ。
+        Channel array, scan size (µm or ``None``), and channel metadata.
+        Length-valued arrays are in nm; non-length arrays retain native values.
+        チャンネル配列、走査範囲 (µm または ``None``)、チャンネルメタデータ。
+        長さ単位の配列は nm、長さ以外の配列は元の値を保持する。
 
     Raises
     ------
     ImportError
-        When the optional ``gwyfile`` package is not installed.
+        When the ``gwyfile`` package required for `.gwy` input is not installed.
     ValueError
         When the file has no channel, the selector matches none, or the loaded
         channel contains non-finite values.

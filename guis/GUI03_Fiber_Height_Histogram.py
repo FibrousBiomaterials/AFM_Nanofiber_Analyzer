@@ -131,8 +131,10 @@ class Group:
         within the same group.
         このグループに登録されたフォルダパス。同一グループ内の重複は許可しない。
     folder_pairinfo
-        Per-folder scan results containing valid bundle counts and warnings.
-        有効バンドル数と警告を保持するフォルダ単位のスキャン結果。
+        Per-folder scan results containing candidate bundle counts and
+        discovery warnings. Bundle contents are validated during loading.
+        候補バンドル数と探索時の警告を保持するフォルダ単位のスキャン結果。
+        バンドル内容は読み込み時に検証する。
     """
 
     def __init__(self, name: str, color: str) -> None:
@@ -144,8 +146,8 @@ class Group:
 
     def total_pairs(self) -> int:
         """
-        Return the total valid bundle count for this group.
-        このグループが持つ有効バンドル総数を返す。
+        Return the total candidate bundle count for this group.
+        このグループが持つ候補バンドル総数を返す。
         """
         return sum(self.folder_pairinfo.get(p, {}).get("pairs", 0) for p in self.folder_paths)
 
@@ -950,8 +952,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _scan_folder(self, folder: str) -> dict:
         """
-        Scan one folder and summarize usable bundle counts and warnings.
-        1 つのフォルダをスキャンし、利用可能なバンドル数と警告を要約する。
+        Scan one folder and summarize candidate bundle counts and warnings.
+        1 つのフォルダをスキャンし、候補バンドル数と警告を要約する。
         """
         pairs, missing = self._find_pairs(folder)
         return {"pairs": len(pairs), "missing": missing}

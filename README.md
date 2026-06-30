@@ -39,12 +39,12 @@ files.
 
 | File | Launcher name | Purpose |
 |---|---|---|
-| `guis/GUI01_Image_Preprocessor.py` | Image Preprocessor | Load raw AFM text data, run background calibration, segmentation, skeletonization, and kink-related feature extraction, then save a `.b2z` bundle and a parameter JSON file. Each file carries its own physical scan size (auto-filled from the instrument header, or set per file from the scale field or a CSV manifest), stored in the bundle for reproducible length measurements. |
-| `guis/GUI02_PlotProfiler.py` | Plot Profiler | Load raw, calibrated, or bundled AFM height data and interactively extract height profiles along selected line segments. The scale defaults to the recorded (`.b2z`) or header (text/CSV) scan size so profile distances are reproducible. |
+| `guis/GUI01_Image_Preprocessor.py` | Image Preprocessor | Load AFM `.txt` exports or native Gwyddion `.gwy` files, run background calibration, segmentation, skeletonization, and kink-related feature extraction, then save a `.b2z` bundle and a parameter JSON file. Each file carries its own physical scan size (auto-filled from the input, or set per file from the scale field or a CSV manifest), stored in the bundle for reproducible length measurements. |
+| `guis/GUI02_PlotProfiler.py` | Plot Profiler | Load raw, calibrated, or bundled AFM height data and interactively extract height profiles along selected line segments. The scale defaults to the recorded (`.b2z`), header (text/CSV), or channel-extent (`.gwy`) scan size so profile distances are reproducible. |
 | `guis/GUI03_Fiber_Height_Histogram.py` | Fiber Height Histogram | Compare height distributions from skeletonized fiber pixels across user-defined groups of `.b2z` bundles. |
 | `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | Load `.b2z` bundles, rebuild tracked `Fiber` objects, inspect individual fibers, export plots, and export fiber statistics to CSV. |
 
-## Directory Structure
+## Selected Directory Structure
 
 ```text
 AFM_Nanofiber_Analyzer/
@@ -82,6 +82,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- bundle_schema.py
 |   |-- fiber.py
 |   |-- fiber_tracking_image.py
+|   |-- gwy_io.py
 |   |-- imp_tools.py
 |   |-- kink_detector.py
 |   |-- measure.py
@@ -102,7 +103,8 @@ AFM_Nanofiber_Analyzer/
 |       `-- LC_MESSAGES/
 |-- assets/
 |   `-- afm_symbol.png
-`-- README.md
+|-- README.md
+`-- README.ja.md
 ```
 
 Windows `.bat` helper scripts are intentionally kept ASCII-only. Japanese
@@ -121,10 +123,11 @@ Markdown documents such as `docs/maintainer-notes.ja.md`.
 | `lib/bundle_schema.py` | Executable `.b2z` contract: required keys, array shapes, value ranges, units, coordinate convention, and format version, with `validate_bundle` enforcing them at write and load time. |
 | `lib/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |
 | `lib/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |
+| `lib/gwy_io.py` | Lazy-loading reader for native, multi-channel Gwyddion `.gwy` files, including channel selection, length-channel conversion to nm, and scan-size extraction. |
 | `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
 | `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
 | `lib/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
-| `lib/pipeline.py` | `ProcParams` parameter schema, `.b2z` key contract, and `process_file`, the GUI-independent pipeline driver shared by GUI01 and `cli.py`. |
+| `lib/pipeline.py` | `ProcParams` parameter schema, stage construction, and `process_file`, the GUI-independent pipeline driver shared by GUI01 and `cli.py`; the `.b2z` contract itself lives in `lib/bundle_schema.py`. |
 | `lib/processed_image.py` | `ProcessedImage`, the container passed through the GUI01 preprocessing pipeline. |
 | `lib/segmenter.py` | `Segmenter`, which builds binary nanofiber masks from calibrated AFM images. |
 | `lib/skeletonizer.py` | `Skeletonizer`, which thins segmented masks, prunes branches, and labels skeleton components. |
@@ -140,6 +143,7 @@ Install the Python dependencies listed in `requirements.txt`:
 
 ```text
 blosc2
+gwyfile
 lmfit
 matplotlib
 numpy
@@ -160,6 +164,11 @@ test-verified snapshot of all package versions:
 ```powershell
 python -m pip install -r requirements.lock.txt
 ```
+
+The lock file header records the Python version and operating system on which
+the snapshot was tested. Use it on a matching environment; on other supported
+Python versions or operating systems, install from `pyproject.toml` or the
+loose `requirements.txt` so pip can select compatible wheels.
 
 `check.py` also provides dependency consistency checking and pinning:
 
@@ -229,8 +238,9 @@ SciPy, and scikit-image may conflict with the versions required by this
 application.
 
 If you need to use Anaconda or Miniconda, use the conda environment helper
-scripts. They create a dedicated `afm-analyzer` environment and run the
-application from that environment instead of modifying `base`.
+scripts. They create a dedicated prefix environment under `.conda-env/` in the
+project folder and run the application from that environment instead of
+modifying `base`.
 
 Windows:
 
@@ -255,9 +265,9 @@ setups because they install into an existing Anaconda environment.
 
 The graphical interface uses Python's `gettext` system for operational UI
 strings such as menus, buttons, dialogs, status messages, and tooltips.
-Translation catalogs are stored under `locale/`, and language selection is
-handled by `lib/translator.py` using the configured environment and system
-locale.
+Translation catalogs are stored under `locale/`, and the launcher provides the
+language selector. The selected catalog directory name is saved in
+`.lang_preference`; English is used by default when no saved selection exists.
 
 Scientific and reproducibility-oriented strings, including plot titles, axis
 labels, CSV headers, exported result labels, data keys, and units, are kept in
@@ -356,13 +366,19 @@ fallback), so no import settings are required. Two layouts are recognized
 | Multi-column | Gwyddion "Export Text" | Whitespace/tab-separated matrix with a localized `# Width` / `# Height` / `# Value units` comment header. See below. |
 | Single-column | Bruker NanoScope | Text header lines (e.g. `Height(nm)`) followed by one value per line. The value count must be a perfect square; the data is reshaped to `(s, s)`. |
 
-Height values are interpreted as nanometers. The physical scan size is read
-from the instrument header when present (Shimadzu `SizeX` / `SizeY`, or
-Gwyddion `# Width` / `# Height`) and stored in the bundle as the spatial
-calibration; inputs without a header scan size (e.g. bare Bruker NanoScope
-exports) take the scan size from the GUI/CLI instead. Sample scans are bundled
-under `testdata_tunicateCNF/` (Shimadzu) and `Bruker_testdata/` (one
-representative Bruker NanoScope export).
+Height arrays are returned in nanometers. Files without a recognized value-unit
+header are assumed to already contain nm values; Gwyddion Export Text files
+that declare a supported length unit are converted to nm. The physical scan
+size is read from the input when present (Shimadzu `SizeX` / `SizeY`,
+Gwyddion `# Width` / `# Height`, or native `.gwy` channel extents) and stored
+in the bundle as the spatial calibration. Inputs without a recorded scan size
+(e.g. bare Bruker NanoScope exports) take it from the GUI/CLI instead.
+
+Representative inputs are bundled under `testdata_tunicateCNF/` and
+`testdata_higherplantTOC/` (multi-column scans), `testdata_Bruker_txt/`
+(single-column Bruker export), `testdata_Gwyddion_txt/` (Gwyddion Export
+Text), and `testdata_Geyddion_gwy/` (native `.gwy`; the existing directory
+spelling is retained for compatibility).
 
 ### Other instruments via Gwyddion
 
@@ -377,10 +393,13 @@ GUI02 (Plot Profiler), or `cli.py process`, exactly like a text scan. A `.gwy`
 container holds several channels (topography, phase, amplitude, …); the
 topography/height channel is auto-selected, and you can override it by id or
 title — a dropdown appears in GUI02 for multi-channel files, and `cli.py
-process` accepts `--channel <id|name>`. Heights are converted from Gwyddion's
-SI meters to nm and the scan size is read from the channel extents. Reading
-`.gwy` requires the lightweight, pure-Python `gwyfile` package (a declared
-dependency); it is imported lazily, so text-only workflows never load it.
+process` accepts `--channel <id|name>`. Length-valued channels are converted
+from their SI unit to nm and the scan size is read from the channel extents.
+An explicitly selected non-length channel is passed through in its native
+values; it is not suitable for workflows or labels that assume height in nm.
+Reading `.gwy` requires the lightweight, pure-Python `gwyfile` package (a
+declared dependency); it is imported lazily, so text-only workflows never
+load it.
 
 **Export Text (`.txt`).** Alternatively, in Gwyddion open the file, then
 **File > Save As** and choose **"Export Text"** (a plain-text data matrix),
@@ -403,18 +422,17 @@ available through a compatibility shim.
 ## Analysis Pipeline
 
 ```text
-Raw AFM text/CSV input
-        |
-        v
-GUI01 Image Preprocessor
-        |
-        |-- afm_io.load_afm_text()
-        |-- BGCalibrator
-        |-- Segmenter
-        |-- Skeletonizer
-        |-- KinkDetector
-        |
-        v
+AFM text/CSV  --> afm_io.load_afm_text() --+
+                                            |
+Gwyddion .gwy --> gwy_io.load_gwy_image() --+
+                                            v
+                                  GUI01 / process_file
+                                            |
+                                            |-- BGCalibrator
+                                            |-- Segmenter
+                                            |-- Skeletonizer
+                                            |-- KinkDetector
+                                            v
 <input_stem>.b2z      compressed TreeStore bundle
 <input_stem>_param.json
         |
@@ -433,7 +451,8 @@ threshold.
 
 The same pipeline can be run without the GUI through `cli.py`, which calls
 `lib.pipeline.process_file` — the identical code path used by GUI01 — so CLI
-and GUI outputs match for the same input and parameters. This supports
+and GUI analysis arrays and parameters match for the same input and settings.
+Run-specific provenance such as `created_utc` naturally differs. This supports
 scripted batch runs and reproducible analyses.
 
 ```powershell
@@ -479,10 +498,12 @@ scripted workflows.
 
 ### Command-line fiber measurement
 
-The fiber-level measurements shown by GUI03 and GUI04 are also available from
-the command line through `lib.measure` — the identical code path used by the
-GUIs — so the statistics CSV produced by `measure` is byte-identical to the
-GUI04 export for the same bundle and scale.
+The per-fiber measurements shown by GUI04 are available through `measure`, and
+the skeleton-pixel heights used by GUI03 are available through `heights`.
+Both commands use `lib.measure`, the same analysis layer as the GUIs. A
+complete, unfiltered GUI04 export uses the same CSV writer as `measure` and is
+byte-identical for the same bundle and scale; an active GUI04 height filter
+intentionally exports only the filtered fiber portions.
 
 ```powershell
 # Per-fiber statistics (length, height median/max, endpoints, kinks).
@@ -507,9 +528,9 @@ arguments expand to all bundles directly inside the folder.
 
 ### Running tests
 
-The test suite uses pytest. Unit tests run on a small synthetic fiber image;
-an integration test processes a bundled real scan with default parameters and
-compares summary statistics against recorded baseline values.
+The test suite uses pytest. Unit tests run on small synthetic inputs; the
+integration and strict-regression tests process bundled real scans and compare
+their outputs against recorded baseline values.
 
 ```powershell
 python -m pip install pytest
@@ -558,7 +579,7 @@ Each bundle also stores root metadata (blosc2 `vlmeta`):
 | `input_file` | Base name of the processed input file. |
 | `input_sha256` | SHA-256 digest of the input file contents. |
 | `created_utc` | Processing time as an ISO 8601 UTC timestamp. |
-| `input_format` | Detected text layout (`kind`, `skiprows`, `n_cols`, `encoding`). |
+| `input_format` | Input interpretation. Text inputs record `kind`, `skiprows`, `n_cols`, and `encoding`; native `.gwy` inputs record `kind="gwy"` plus the selected channel id, title, and value-axis unit. |
 | `spatial_calibration` | Physical scan size: `scan_size_x_um`, `scan_size_y_um`, and `source` (`input_header`, `manifest`, or `manual`). Present only when the scan size is known. |
 
 The provenance keys (`software_version`, `input_file`, `input_sha256`,
@@ -569,7 +590,7 @@ recorded value, so fiber lengths are reproducible from the bundle alone.
 
 GUI01 also writes `<input_stem>_param.json` for analysis parameters. The raw
 AFM image is not duplicated in the bundle by default because it can be
-reloaded from the source text file.
+reloaded from the source input file.
 
 ### Exporting bundles to standard formats
 
@@ -647,13 +668,17 @@ test suite instead of degrading silently in the launcher.
 
 ## Known Limitations
 
-- Height values in the input text/CSV are interpreted as nanometers; exports in
-  other units must be converted before loading.
+- Text/CSV values without a recognized value-unit header are assumed to be
+  nanometers. Gwyddion Export Text files with a supported length-unit header
+  are converted automatically; other unitless exports must be converted before
+  loading.
 - Single-column (Bruker NanoScope) exports must contain a perfect-square number
   of height values, because the data is reshaped to a square `(s, s)` image.
-- Length measurements are only physically meaningful when a scan size is
-  available — read from the instrument header (Shimadzu `SizeX` / `SizeY`) or
-  supplied through the GUI/CLI. Without one, distances are reported in pixels.
+- Length measurements require a physical scan size from the input metadata or
+  the GUI/CLI. GUI01 requires one before processing; `cli.py measure` fails
+  clearly if neither the bundle nor `--scale-um` supplies it. GUI02 and GUI04
+  keep their current editable scale for older inputs that lack recorded
+  calibration, so users must verify or replace that value.
 - The background calibration and default parameters were developed and tuned on
   Shimadzu SPM-9600 scans. Other instruments are supported, but may need
   parameter adjustment for good segmentation and skeletonization.

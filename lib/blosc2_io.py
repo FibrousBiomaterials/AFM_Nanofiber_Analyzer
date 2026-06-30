@@ -3,16 +3,12 @@
 Save and load NumPy arrays with blosc2 compression.
 blosc2 圧縮を用いて NumPy 配列を保存・読み込みする。
 
-This module centralizes lightweight I/O helpers used by multiple GUIs.
-このモジュールは複数 GUI で使う軽量 I/O ヘルパーを一元管理する。
-It provides `save_blosc2` and `load_blosc2` so callers do not need to care
-about storage backend details.
-呼び出し側が保存形式の詳細を意識しなくてよいように
-`save_blosc2` と `load_blosc2` を提供する。
-
-Used by GUI01_Image_Processer, GUI03_Histogram_maker, and GUI04_Tracking.
-GUI01_Image_Processer / GUI03_Histogram_maker / GUI04_Tracking で
-使用される save_blosc2 / load_blosc2 をここに一元化する。
+This module centralizes the legacy single-array payload helpers
+(`save_blosc2` / `load_blosc2`) and the current multi-array `.b2z` bundle API
+used by the pipeline, CLI, measurement layer, and GUI plugins.
+本モジュールは、従来の単一配列 payload ヘルパー
+（`save_blosc2` / `load_blosc2`）と、パイプライン・CLI・計測層・GUI
+プラグインが使う現行の複数配列 `.b2z` バンドル API を一元管理する。
 
 Notes
 -----
@@ -124,9 +120,9 @@ def load_blosc2(path: str) -> np.ndarray:
 # 内部的には `blosc2.TreeStore` を使い、階層キー（例: "/calibrated",
 # "/binarized"）配下に配列を格納し、可変長メタデータ（vlmeta）も併せて保持する。
 #
-# Designed to replace per-array .npy files with one bundle file per source.
-# 1解析対象（1つのtxt）あたり .npy 群を出力していた旧仕様を、
-# 1ファイル（.b2z）にまとめる新仕様に置き換えるために設計されている。
+# Designed to replace per-array .npy files with one bundle per source input.
+# 1 解析対象（テキスト/CSV または .gwy）ごとに .npy 群を出力していた旧仕様を、
+# 1 ファイル（.b2z）へまとめる現行仕様に置き換えるために設計されている。
 # =============================================================================
 
 BUNDLE_EXT = ".b2z"

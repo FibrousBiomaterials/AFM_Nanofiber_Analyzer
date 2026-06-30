@@ -36,9 +36,10 @@ Atomic force microscopy (AFM) resolves the height topography of individual
 nanofibers, but turning raw height scans into quantitative, per-fiber
 measurements is laborious and difficult to reproduce by hand. `AFM Nanofiber
 Analyzer` is a Python toolkit that automates this workflow. It reads AFM height
-images exported as text or CSV, removes instrument background, segments and
-skeletonizes the fibers, detects sharp bends ("kinks"), and reports per-fiber
-statistics such as length, height, and kink geometry.
+images exported as text/CSV or stored in native Gwyddion `.gwy` files, removes
+instrument background, segments and skeletonizes the fibers, detects sharp
+bends ("kinks"), and reports per-fiber statistics such as length, height, and
+kink geometry.
 
 The software exposes the same analysis through three complementary surfaces: a
 tkinter plugin launcher with four interactive tools (preprocessing, profile
@@ -51,8 +52,8 @@ Intermediate and final results are stored in a single compressed bundle file
 per input (`.b2z`) whose contents — array keys, shapes, units, and coordinate
 convention — are governed by an executable schema that is validated when
 bundles are written and read. The toolkit can be installed from source for
-development or packaged as a standalone Windows executable for laboratory users
-who do not maintain a Python environment.
+development or packaged as a standalone Windows application bundle for
+laboratory users who do not maintain a Python environment.
 
 # Statement of need
 
@@ -85,8 +86,9 @@ The software is intended for materials-science and polymer researchers who work
 with AFM images of fibrous samples. It lowers the barrier to consistent,
 high-throughput morphological analysis and provides a stable data format and
 library API that other tools can build on. User-facing strings are localized
-through gettext (English and Japanese are provided) so the GUI is usable by the
-originating laboratory's maintainers as well as an international audience.
+through gettext (English, Japanese, and Chinese catalogs are provided) so the
+GUI is usable by the originating laboratory's maintainers as well as an
+international audience.
 
 # State of the field
 
@@ -116,19 +118,19 @@ scripted, and audited across machines.
 
 # Software design
 
-The toolkit is organized into three layers that share a single implementation of
-the analysis. Reusable modules in `lib/` perform AFM text/CSV input, background
-calibration, segmentation, skeletonization, kink detection, and per-fiber
-measurement (\autoref{fig:pipeline}). A tkinter plugin launcher discovers the
-four interactive tools in `guis/` — a preprocessor, a profile extractor, a
-height-distribution comparison tool, and a fiber tracker — while a
-command-line interface exposes the same operations for batch use. Both the GUI
+The toolkit is organized into three layers that share a single implementation
+of the analysis. Reusable modules in `lib/` perform AFM text/CSV and native
+Gwyddion input, background calibration, segmentation, skeletonization, kink
+detection, and per-fiber measurement (\autoref{fig:pipeline}). A tkinter plugin
+launcher discovers the four interactive tools in `guis/` — a preprocessor, a
+profile extractor, a height-distribution comparison tool, and a fiber tracker
+— while a command-line interface provides batch preprocessing, validation,
+measurement, skeleton-height extraction, and bundle export. Both the GUI
 preprocessor and the CLI call the single pipeline function `process_file`, and
-both the GUI measurement views and the CLI call the same measurement routines,
-so a run from the GUI and the equivalent run from the CLI produce identical
-numerical results for the same input and parameters. Keeping the analysis logic
-in `lib/` and the user interfaces thin is a deliberate choice that prevents the
-two front ends from drifting apart.
+the GUI measurement views and CLI call the same measurement routines, so
+equivalent runs produce identical numerical results for the same input and
+parameters. Keeping the analysis logic in `lib/` and the user interfaces thin
+is a deliberate choice that prevents the front ends from drifting apart.
 
 ![Analysis pipeline: the six stages from raw AFM height image to per-fiber statistics.\label{fig:pipeline}](figures/pipeline.png)
 
@@ -139,27 +141,24 @@ convention, and a format version — are defined by an executable schema that is
 validated both when bundles are written and when they are read, so downstream
 tools fail loudly on a malformed or out-of-contract bundle instead of producing
 silently wrong measurements. The physical scan size travels with each bundle,
-read from the instrument header when present (Shimadzu `SizeX`/`SizeY`) or
-supplied explicitly; this keeps length measurements reproducible from the bundle
-alone and lets a folder of differently sized scans be processed without a single
-batch-wide value. Bundles can be exported to standard NumPy `.npz` or CSV for
-use outside the project.
+read from the input when present (Shimadzu `SizeX`/`SizeY`, Gwyddion Export
+Text metadata, or native `.gwy` channel extents) or supplied explicitly; this
+keeps length measurements reproducible from the bundle alone and lets a folder
+of differently sized scans be processed without a single batch-wide value.
+Bundles can be exported to standard NumPy `.npz` or CSV for use outside the
+project.
 
 Background calibration is provided as four interchangeable methods (inpainting,
 morphological top-hat, and 1D/2D spline surfaces) so that line-scan artefacts of
 differing severity can be addressed without changing the rest of the pipeline;
 it was developed and tuned on Shimadzu SPM-9600 height images but is not specific
 to that instrument. For laboratory users who do not maintain a Python
-environment, the application is packaged as a standalone Windows executable with
-PyInstaller; the trade-off is a larger download and a platform-specific build,
-while developers continue to install the package from source. An automated test
-suite — including a regression test that runs the full-size analysis on a real
-scan and compares summary statistics against recorded baselines — guards the
-numerical behaviour of the pipeline over time. \autoref{fig:gui01} shows the
-preprocessor GUI after a completed analysis, with the calibrated height image,
-binarized mask, skeleton overlay, and per-run statistics visible simultaneously.
-
-![GUI01 Image Preprocessor after analysis: calibrated image, binarized mask, skeletonized overlay, and statistics panel.\label{fig:gui01}](figures/gui01_result.png)
+environment, the application is packaged as a standalone Windows application
+bundle with PyInstaller; the trade-off is a larger download and a
+platform-specific build, while developers continue to install the package from
+source. An automated test suite — including regression tests that run the
+full-size analysis on real scans and compare outputs against recorded baselines
+— guards the numerical behaviour of the pipeline over time.
 
 # Research impact statement
 
@@ -167,12 +166,12 @@ binarized mask, skeleton overlay, and per-run statistics visible simultaneously.
 previously difficult to reproduce outside the originating scripts into a
 versioned, citable, and reviewer-testable software package. The repository
 includes representative AFM text exports from Shimadzu and Bruker instruments,
-command-line examples that process those files without GUI interaction, and
-automated regression tests that run the full analysis on a real scan and compare
-the resulting measurements against recorded baselines. These materials give
-reviewers and future users an objective way to verify that the software
-installs, reads real instrument exports, writes valid bundles, and preserves the
-numerical behaviour of the fiber-analysis pipeline over time.
+Gwyddion Export Text samples, and a native `.gwy` file, along with command-line
+examples and automated regression tests that run the full analysis on real
+scans. These materials give reviewers and future users an objective way to
+verify that the software installs, reads real instrument exports, writes valid
+bundles, and preserves the numerical behaviour of the fiber-analysis pipeline
+over time.
 
 The package is designed for near-term reuse in nanocellulose and related
 materials workflows where researchers need to compare fiber height, length, and

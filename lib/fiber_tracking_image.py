@@ -2,18 +2,20 @@
 Fiber tracking container and worker helpers for the GUI04 fiber view.
 GUI04 のファイバー表示・追跡用コンテナとワーカー補助関数。
 
-This module loads arrays saved by GUI01_Image_Processer_Shimadzu and builds
-Fiber objects for display, profile extraction, and speed-oriented processing.
-GUI01_Image_Processer_Shimadzu が保存した配列を読み込み、表示・プロファイル抽出・
-高速化処理に使う Fiber オブジェクトを構築する。
+This module receives arrays loaded from GUI01 `.b2z` bundles and builds
+`Fiber` objects for display, profile extraction, filtering, and measurement.
+GUI01 の `.b2z` バンドルから読み込まれた配列を受け取り、表示・プロファイル抽出・
+フィルタリング・計測に使う `Fiber` オブジェクトを構築する。
 
 Notes
 -----
-`processed_image.py` owns the GUI01 analysis and save pipeline. This module
-is only for GUI04 loading, display, and fiber tracking; it does not run BG
-correction, binarization, or skeletonization.
-`processed_image.py` は GUI01 の解析・保存パイプラインを担当する。本モジュールは
-GUI04 の読み込み・表示・ファイバー追跡専用であり、BG 補正・二値化・細線化は行わない。
+`lib.pipeline` owns preprocessing and bundle creation, while `lib.measure`
+loads and validates bundles before populating this container. This module
+handles fiber reconstruction only; it does not run background correction,
+binarization, or skeletonization.
+前処理とバンドル作成は `lib.pipeline`、バンドルの読み込み・検証は `lib.measure`
+が担当してから本コンテナへ設定する。本モジュールはファイバー再構築のみを扱い、
+背景補正・二値化・細線化は行わない。
 """
 
 from concurrent.futures import ThreadPoolExecutor, as_completed

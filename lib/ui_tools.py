@@ -3,10 +3,11 @@
 Provide shared tkinter UI utilities used across the GUI.
 GUI 全体で共通利用する tkinter ユーティリティを提供する。
 
-This module currently includes a tooltip helper class that displays
-short guidance text when users hover the mouse over a widget.
-このモジュールには現在、ウィジェットにマウスを重ねたときに
-説明文を表示するツールチップ補助クラスが含まれる。
+The helpers cover shared theme and plotting defaults, file-save dialogs,
+scrollable widgets, worker-to-UI queue draining, committed-entry handling,
+logging, and tooltips.
+共通テーマ・描画既定値、ファイル保存ダイアログ、スクロール可能ウィジェット、
+ワーカーから UI へのキュー処理、入力欄の確定管理、ログ、ツールチップを扱う。
 """
 
 import math

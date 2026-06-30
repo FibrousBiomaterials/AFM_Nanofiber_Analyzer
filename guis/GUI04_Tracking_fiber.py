@@ -91,8 +91,10 @@ from lib.ui_tools import (
 # GUI01 が出力するバンドル内に含まれるべきキー（存在チェックに使用）。
 # A .b2z bundle is treated as analyzed data only when all keys are present.
 # .b2z バンドル内にこれら全てが揃っていれば解析済みデータとして扱う。
-# The key list is owned by lib.measure so the CLI and this GUI stay in sync.
-# キー一覧は lib.measure が管理し、CLI と本 GUI の整合を保つ。
+# The key list is owned by lib.bundle_schema and re-exported by lib.measure so
+# the CLI and this GUI stay in sync.
+# キー一覧は lib.bundle_schema が管理し、lib.measure から再公開することで
+# CLI と本 GUI の整合を保つ。
 REQUIRED_BUNDLE_KEYS = TRACKING_BUNDLE_KEYS
 
 DEFAULT_HEIGHT_YLIM:           float = 20.0
@@ -1083,10 +1085,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         )
                     )
 
-        # Use committed internal scale, not unconfirmed Entry text.
-        # スケールは内部状態（確定済み値）を参照する。
-            # While the Entry is unconfirmed, the committed value remains active until Enter.
-        # 入力欄が未確定（青色）の間は古い内部値が使われ、Enter 確定後に反映される。
+        # Use committed internal scale, not unconfirmed Entry text. While an
+        # Entry is unconfirmed, the old committed value remains active.
+        # スケールは入力欄の未確定文字列ではなく内部の確定済み値を参照し、
+        # Enter で確定するまでは従来値を使う。
         scale_um = self.scale_um
         # measure_bundle takes micrometers. Derive the worker value from
         # _get_scale_nm() to keep its non-positive-input fallback semantics.
@@ -1815,10 +1817,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         name = self.current_image.name
         def _write_csv(path):
-            # Columns and formatting are owned by lib.measure, so this export
-            # stays byte-identical to the `cli.py measure` output.
-            # 列と書式は lib.measure が管理しており、このエクスポートは
-            # `cli.py measure` の出力とバイト単位で一致する。
+            # Columns and formatting are owned by lib.measure. A complete,
+            # unfiltered export is byte-identical to `cli.py measure`; an
+            # active height filter intentionally writes only retained portions.
+            # 列と書式は lib.measure が管理する。全件・フィルターなしなら
+            # `cli.py measure` とバイト単位で一致し、高さフィルター有効時は
+            # 意図どおり残った部分だけを書き出す。
             write_fiber_csv(path, compute_fiber_stats(fibers))
 
         save_csv_with_dialog(

@@ -48,15 +48,17 @@ python -m pip install -e ".[dev]"
 ```
 
 This installs the launcher (`afm-analyzer`), the CLI (`afm-analyzer-cli`), and
-the test tools (`pytest`, `pytest-xdist`, `Babel`). End-user distribution is the
-standalone Windows bundle produced by `build.py`; see the README for details.
+the development tools (`pytest`, `pytest-xdist`, `Babel`, and Ruff). End-user
+distribution is the standalone Windows bundle produced by `build.py`; see the
+README for details.
 
 ## Running the tests
 
-Run the full suite before opening a pull request:
+Run the test suite and lint checks before opening a pull request:
 
 ```bash
 python -m pytest
+ruff check .
 ```
 
 The suite includes slow regression tests that process full-size real scans;
