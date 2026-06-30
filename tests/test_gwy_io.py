@@ -15,12 +15,32 @@ pytest.importorskip("gwyfile")
 
 from lib.afm_io import ScanSize, load_afm_image, read_scan_size
 from lib.gwy_io import (
-    GwyChannel,
     list_gwy_channels,
     load_gwy_image,
     read_gwy_scan_size,
     select_default_channel,
 )
+from tests.conftest import REAL_GWY_DATA
+
+
+@pytest.mark.skipif(not REAL_GWY_DATA.exists(), reason="bundled .gwy scan not present")
+def test_load_real_gwy_scan():
+    """
+    Load the bundled native Gwyddion scan with its physical calibration.
+    同梱 Gwyddion ネイティブスキャンを物理較正情報とともに読み込む。
+    """
+    channels = list_gwy_channels(str(REAL_GWY_DATA))
+    assert len(channels) == 1
+    assert channels[0].title == "Topography"
+    assert channels[0].z_unit == "m"
+
+    image = load_gwy_image(str(REAL_GWY_DATA))
+    assert image.data.shape == (1024, 1024)
+    assert image.data.dtype == np.float64
+    assert np.isfinite(image.data).all()
+    assert 100.0 < image.data.min() < image.data.max() < 1000.0
+    assert image.scan_size.x_um == pytest.approx(2.0)
+    assert image.scan_size.y_um == pytest.approx(2.0)
 
 
 def test_list_channels(synthetic_fiber_gwy):
@@ -88,7 +108,6 @@ def test_unknown_channel_raises(synthetic_fiber_gwy, selector):
 
 def test_non_finite_channel_rejected(tmp_path):
     """A channel containing NaN/Inf is rejected at load time."""
-    import gwyfile
     from gwyfile.objects import GwyContainer, GwyDataField, GwySIUnit
 
     data = np.ones((8, 8))

@@ -26,21 +26,33 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # Real Shimadzu test scans bundled with the repository.
 # リポジトリに同梱された島津機の実測テストデータ。
-REAL_DATA = PROJECT_ROOT / "testdata_tunicateCNF" / "test_1.txt"
+REAL_DATA = PROJECT_ROOT / "testdata_tunicateCNF" / "TunicateACTOCCNF.txt"
+HIGHER_PLANT_DATA = (
+    PROJECT_ROOT / "testdata_higherplantTOC" / "_20250318-164122_T.ssp .txt"
+)
 
 # Representative Bruker NanoScope single-column export (one file is bundled;
 # the rest of the folder is gitignored for clone-size reasons).
 # 代表の Bruker NanoScope 1 列形式エクスポート（クローンサイズの都合で
 # このフォルダは 1 ファイルのみバージョン管理されている）。
-BRUKER_DATA = PROJECT_ROOT / "Bruker_testdata" / "NDTOC250306.000.txt"
+BRUKER_DATA = PROJECT_ROOT / "testdata_Bruker_txt" / "NDTOC250306.000.txt"
 
-# Representative Gwyddion "Export Text" matrix (whitespace-separated, height in
-# meters, localized "# Width/Height/Value units" header). Bundled only when the
-# folder is present, like the Bruker sample above.
-# 代表の Gwyddion「Export Text」行列（空白区切り、高さはメートル、ローカライズ
-# された "# 幅/高さ/値の単位" ヘッダ）。上の Bruker 同様、フォルダがある場合のみ
-# 同梱される。
-GWYDDION_DATA = PROJECT_ROOT / "testdata_Gwyddion" / "_20241115-150641_T.txt"
+# Gwyddion "Export Text" matrices with Japanese and English localized headers.
+# Both contain whitespace-separated heights in meters from the same scan.
+# Gwyddion「Export Text」の日本語・英語ヘッダ版。同一スキャンの高さを
+# メートル単位の空白区切り行列として保持する。
+GWYDDION_DATA = (
+    PROJECT_ROOT / "testdata_Gwyddion_txt" / "_20250318-164122_T.ssp.txt"
+)
+GWYDDION_ENGLISH_DATA = (
+    PROJECT_ROOT / "testdata_Gwyddion_txt" / "_20250318-164122_T.ssp2.txt"
+)
+
+# Gwyddion native file exported from the same scan as the text samples.
+# 上記テキスト試料と同じスキャンを保存した Gwyddion ネイティブファイル。
+REAL_GWY_DATA = (
+    PROJECT_ROOT / "testdata_Geyddion_gwy" / "_20250318-164122_T.ssp.gwy"
+)
 
 
 # The "slow" marker is registered in pyproject.toml [tool.pytest.ini_options].
@@ -122,7 +134,6 @@ def write_synthetic_fiber_gwy(out_dir, *, x_um: float = 2.0, y_um: float = 2.0) 
         折れ繊維を保持し、走査範囲は ``x_um`` × ``y_um``。
     """
     import cv2
-    import gwyfile
     from gwyfile.objects import GwyContainer, GwyDataField, GwySIUnit
 
     rng = np.random.default_rng(7)

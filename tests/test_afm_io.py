@@ -14,7 +14,13 @@ from lib.afm_io import (
     load_afm_text,
     read_scan_size,
 )
-from tests.conftest import BRUKER_DATA, GWYDDION_DATA, REAL_DATA
+from tests.conftest import (
+    BRUKER_DATA,
+    GWYDDION_DATA,
+    GWYDDION_ENGLISH_DATA,
+    HIGHER_PLANT_DATA,
+    REAL_DATA,
+)
 
 
 def test_load_synthetic_csv(synthetic_fiber_txt):
@@ -146,16 +152,24 @@ def test_load_whitespace_matrix_without_header(tmp_path):
     assert read_scan_size(str(path)) is None
 
 
-@pytest.mark.skipif(not GWYDDION_DATA.exists(), reason="bundled Gwyddion scan not present")
-def test_load_real_gwyddion_scan():
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.param(GWYDDION_DATA, id="japanese-header"),
+        pytest.param(GWYDDION_ENGLISH_DATA, id="english-header"),
+    ],
+)
+def test_load_real_gwyddion_scan(path):
     """The bundled Gwyddion export loads as a finite 1024x1024 image in nm."""
-    a = load_afm_text(str(GWYDDION_DATA))
+    if not path.exists():
+        pytest.skip("bundled Gwyddion scan not present")
+    a = load_afm_text(str(path))
     assert a.shape == (1024, 1024)
     assert a.dtype == np.float64
     assert np.isfinite(a).all()
     # Heights are in nm after the m->nm conversion (hundreds of nm here).
     assert 10.0 < np.ptp(a) < 5000.0
-    assert read_scan_size(str(GWYDDION_DATA)) == ScanSize(x_um=5.0, y_um=5.0)
+    assert read_scan_size(str(path)) == ScanSize(x_um=2.0, y_um=2.0)
 
 
 # ---------------------------------------------------------------------------
@@ -298,11 +312,10 @@ def test_read_scan_size_single_axis_is_treated_as_missing(tmp_path):
     assert read_scan_size(str(path)) is None
 
 
-@pytest.mark.skipif(not (REAL_DATA.parent.parent / "testdata_higherplantTOC").exists(),
-                    reason="bundled Shimadzu header scan not present")
+@pytest.mark.skipif(
+    not HIGHER_PLANT_DATA.exists(),
+    reason="bundled Shimadzu header scan not present",
+)
 def test_read_scan_size_on_bundled_shimadzu_scan():
     """The bundled higher-plant Shimadzu scan reports its 2.0 um scan range."""
-    scan = REAL_DATA.parent.parent / "testdata_higherplantTOC" / "_20250319-151513_T.ssp .txt"
-    if not scan.exists():
-        pytest.skip("bundled Shimadzu header scan not present")
-    assert read_scan_size(str(scan)) == ScanSize(x_um=2.0, y_um=2.0)
+    assert read_scan_size(str(HIGHER_PLANT_DATA)) == ScanSize(x_um=2.0, y_um=2.0)

@@ -23,12 +23,12 @@ from lib.pipeline import ProcParams, process_file
 from tests.conftest import REAL_DATA
 
 # Baseline statistics recorded with the default parameters (bg_method=inpaint)
-# on testdata_tunicateCNF/test_1.txt.
-# testdata_tunicateCNF/test_1.txt に既定パラメータ（bg_method=inpaint）を
-# 適用して記録した基準統計値。
-GOLDEN_SKELETON_PX = 3976
-GOLDEN_BINARIZED_PX = 22591
-GOLDEN_N_KINKS = 64
+# on testdata_tunicateCNF/TunicateACTOCCNF.txt.
+# testdata_tunicateCNF/TunicateACTOCCNF.txt に既定パラメータ
+# （bg_method=inpaint）を適用して記録した基準統計値。
+GOLDEN_SKELETON_PX = 8225
+GOLDEN_BINARIZED_PX = 80685
+GOLDEN_N_KINKS = 87
 RELATIVE_TOLERANCE = 0.05
 
 pytestmark = [
