@@ -740,7 +740,24 @@ Do not insert `\n` in the middle of a translated sentence only to control
 visual wrapping. Preserve source-required line breaks, and use explicit `\n`
 only for meaningful UI paragraphs or line breaks.
 
-When UI strings are added or changed, update the catalogs:
+When UI strings or `PLUGIN_INFO` descriptions are added or changed, refresh the
+catalogs through the project script, which is the canonical entry point:
+
+```powershell
+python prepare_translate_catalogs.py
+```
+
+It runs `pybabel extract`, injects each `PLUGIN_INFO["description"]` literal into
+`locale/messages.pot`, runs `pybabel update`, removes obsolete `#~` entries, and
+finally `pybabel compile`. The injection step is essential: `PLUGIN_INFO`
+descriptions are plain literals and are deliberately not wrapped in `_()`
+(§6.1), so a bare `pybabel extract` never sees them. Running the raw Babel
+commands below on their own drops those descriptions from `messages.pot`,
+`pybabel update` then marks the matching `.po` entries obsolete (`#~`), the
+compiled `.mo` loses them, and the launcher hover text falls back to the
+untranslated Japanese source. The script does not fill `msgstr`, so commit or
+back up the catalogs first when you want to keep prior translations for
+reference. Use the raw commands only to inspect the individual steps it performs:
 
 ```powershell
 pybabel extract -F babel.cfg -o locale/messages.pot .
@@ -787,6 +804,6 @@ pybabel init -i locale/messages.pot -d locale -l <language_code>
 | Long-running GUI work | Use worker threads, `queue.Queue`, and Tk `after()` polling; do not block the main loop. |
 | `ProcParams` field names | Frozen (serialized verbatim into `_param.json`); authoritative list is the dataclass in `lib/pipeline.py`. |
 | `lib/` module public APIs | Do not rename classes/functions in §8.7 without updating all call sites. |
-| Translation catalogs | Update with `pybabel extract/update/compile`; never edit `.mo` files directly (§8.8). |
+| Translation catalogs | Refresh with `python prepare_translate_catalogs.py` (keeps `PLUGIN_INFO` descriptions; a bare `pybabel extract/update` drops them and obsoletes the entries); never edit `.mo` files directly (§8.8). |
 | README pair | `README.md` ↔ `README.ja.md` stay synchronized in both directions, including translation of the edited passage. |
 | Destructive Git operations | Forbidden unless explicitly requested; `git restore` of files corrupted by your own edit is allowed. |
