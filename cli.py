@@ -24,6 +24,7 @@ Usage examples
 --------------
     python cli.py process data/*.txt
     python cli.py process scan.txt --params my_param.json --output-dir out/
+    python cli.py process scan.gwy --channel Topography
     python cli.py show-params > default_param.json
     python cli.py measure out/*.b2z --scale-um 2.0
     python cli.py heights out/ --output heights.csv
@@ -215,6 +216,7 @@ def cmd_process(args: argparse.Namespace) -> int:
                     if args.scale_um is not None else None
                 ),
                 scan_size_source="manual",
+                gwy_channel=args.channel,
             )
         except Exception as e:
             print("FAILED")
@@ -545,11 +547,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_proc = sub.add_parser(
         "process",
-        help="process raw AFM text/CSV files into .b2z bundles",
+        help="process raw AFM text/CSV or Gwyddion .gwy files into .b2z bundles",
     )
     p_proc.add_argument(
         "inputs", nargs="+",
-        help="input AFM text/CSV files (glob patterns are expanded)",
+        help="input AFM text/CSV or Gwyddion .gwy files "
+             "(glob patterns are expanded)",
     )
     p_proc.add_argument(
         "--params", metavar="JSON",
@@ -574,7 +577,14 @@ def build_parser() -> argparse.ArgumentParser:
         default="auto",
         help="input text layout (default: auto-detect). Use an explicit "
              "layout when auto-detection locks onto a numeric header block; "
-             "the resolved layout is recorded in the bundle metadata",
+             "the resolved layout is recorded in the bundle metadata. Ignored "
+             "for .gwy inputs",
+    )
+    p_proc.add_argument(
+        "--channel", metavar="ID_OR_NAME", default=None,
+        help="for Gwyddion .gwy inputs, the channel to analyze, by id (e.g. 1) "
+             "or title (e.g. Topography). Default: auto-select the "
+             "topography/height channel. Ignored for text/CSV inputs",
     )
     p_proc.add_argument(
         "--scale-um", type=float, default=None, metavar="UM",

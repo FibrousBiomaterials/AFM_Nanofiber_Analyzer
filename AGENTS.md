@@ -584,8 +584,8 @@ identical analysis outputs for the same input and parameters. Each input AFM
 file is processed in this order:
 
 ```text
-raw AFM text/CSV
-    -> afm_io.load_afm_text()
+raw AFM text/CSV  -> afm_io.load_afm_text()
+Gwyddion .gwy     -> gwy_io.load_gwy_image()
     -> ProcessedImage
     -> BGCalibrator
     -> Segmenter
@@ -593,6 +593,11 @@ raw AFM text/CSV
     -> KinkDetector
     -> .b2z bundle + _param.json
 ```
+
+`process_file` dispatches by extension: `.gwy` inputs load through
+`lib/gwy_io.py` (selecting one channel), everything else loads through
+`lib/afm_io.py`. Both yield a nm height array and an optional scan size, so the
+stages downstream are identical regardless of input format.
 
 Keep background calibration, segmentation, skeletonization, and kink detection
 as separate responsibilities.
@@ -651,9 +656,11 @@ additional files and keep at least these files consistent:
 
 ### 8.3 GUI-specific data expectations
 
-- GUI02 accepts `.b2z`, `.npy`, `.csv`, and `.txt` inputs. For `.b2z`, it reads
-  the `calibrated` key and extracts line profiles with
-  `skimage.measure.profile_line`.
+- GUI02 accepts `.b2z`, `.npy`, `.csv`, `.txt`, and Gwyddion `.gwy` inputs. For
+  `.b2z`, it reads the `calibrated` key and extracts line profiles with
+  `skimage.measure.profile_line`. For `.gwy` it reads the selected channel
+  through `lib/gwy_io.py` (auto-selected topography by default; a channel
+  dropdown appears for multi-channel files).
 - GUI03 expects GUI01 `.b2z` bundles, reads `calibrated` and `skeletonized`, and
   compares height distributions from skeleton pixels across grouped datasets.
 - GUI04 expects GUI01 `.b2z` bundles, reconstructs individual `Fiber` instances
@@ -679,7 +686,10 @@ imports the plugin module in a worker thread behind a splash window. Frozen
 PyInstaller builds must keep using this subcommand because the PyInstaller
 bootloader does not honor `-c` or `-m`. Keep libraries that are heavy to
 import and needed only by a specific feature (e.g. lmfit, pandas) as
-function-local imports so plugin startup stays fast.
+function-local imports so plugin startup stays fast. The `gwyfile` package
+(read `.gwy` files in `lib/gwy_io.py`) follows the same rule: it is imported
+inside the functions that open a `.gwy`, so text-only workflows and plugin
+startup never load it.
 
 ### 8.6 Build and dependency helpers
 
@@ -695,13 +705,14 @@ all call sites in `guis/`, `Main.py`, `cli.py`, `tests/`, and `lib/` imports.
 
 | Module | Public API | Notes |
 |---|---|---|
-| `afm_io.py` | `load_afm_text`, `detect_afm_format`, `read_scan_size`, `AfmTextFormat`, `ScanSize`, `FORMAT_KINDS` | Loads AFM text/CSV as NumPy array; auto-detects header rows, column count, and encoding. `detect_afm_format` reports the detected layout without loading the data. `read_scan_size` reads the physical scan size from the instrument header (Shimadzu `SizeX`/`SizeY`) when present. |
+| `afm_io.py` | `load_afm_text`, `load_afm_image`, `detect_afm_format`, `read_scan_size`, `AfmTextFormat`, `ScanSize`, `FORMAT_KINDS` | Loads AFM text/CSV as NumPy array; auto-detects header rows, column count, and encoding. `detect_afm_format` reports the detected layout without loading the data. `read_scan_size` reads the physical scan size from the instrument header (Shimadzu `SizeX`/`SizeY`) when present. `load_afm_image` and `read_scan_size` dispatch `.gwy` paths to `gwy_io.py` (importing `gwyfile` only there), so callers handle text and `.gwy` inputs uniformly. |
 | `bg_calibrator.py` | `BGCalibrator` | See §8.1 for `bg_method` options. |
 | `bg_calibrator_shimadzu.py` | `BG_Calibrator_shimadzu` | Compatibility shim; alias of `BGCalibrator`. Do not add new code here. |
 | `blosc2_io.py` | `save_blosc2`, `load_blosc2`, `save_bundle`, `load_bundle` | |
 | `bundle_schema.py` | `validate_bundle`, `BUNDLE_FORMAT_VERSION`, `SUPPORTED_BUNDLE_VERSIONS`, `REQUIRED_BUNDLE_KEYS`, `OPTIONAL_BUNDLE_KEYS`, `TRACKING_BUNDLE_KEYS`, `SPATIAL_CALIBRATION_KEY`, `SCAN_SIZE_SOURCES`, `make_spatial_calibration`, `scan_size_um_from_meta` | Executable `.b2z` contract (§8.2): keys, shapes, units, coordinate convention, format version, and the optional `spatial_calibration` vlmeta entry (scan size + source). Depends only on NumPy. |
 | `fiber.py` | `Fiber` | Immutable dataclass holding height, length, kink points, and endpoints per fiber. |
 | `fiber_tracking_image.py` | `FiberTrackingImage` | GUI04 data container; builds `Fiber` instances from a `.b2z` bundle. |
+| `gwy_io.py` | `GWY_EXT`, `GwyChannel`, `GwyImage`, `list_gwy_channels`, `load_gwy_image`, `read_gwy_scan_size`, `select_default_channel`, `is_gwy_path` | Reads Gwyddion native `.gwy` files (binary, multi-channel). `load_gwy_image` returns the selected channel's height matrix in nm plus its scan size (µm); `select_default_channel` auto-selects the topography/height channel, overridable by id or title. Imports the optional `gwyfile` package lazily inside its functions; reuses `afm_io.ScanSize`. |
 | `imp_tools.py` | `branchedPoints`, `endPoints`, `tracking`, `convert_track_to_distance` | |
 | `kink_detector.py` | `KinkDetector` | |
 | `measure.py` | `FiberStats`, `MeasureResult`, `compute_fiber_stats`, `load_tracking_image`, `measure_bundle`, `read_scan_size_from_bundle`, `write_fiber_csv`, `all_pixel_height`, `skeleton_height_values`, `write_heights_csv`, `TRACKING_BUNDLE_KEYS`, `FIBER_CSV_COLUMNS` | GUI-independent fiber measurement shared by GUI03, GUI04, and `cli.py measure` / `heights`; keeps GUI and CLI statistics identical. `measure_bundle` resolves the pixel size per axis (X from image width, Y from image height) so rectangular scans and non-square pixel grids are measured correctly; it defaults both axes to the bundle's recorded scan size when `scale_um` / `scale_y_um` are omitted, and a single `scale_um` keeps a square scan. |

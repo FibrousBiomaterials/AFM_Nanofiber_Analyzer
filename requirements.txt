@@ -1,4 +1,5 @@
 blosc2
+gwyfile
 lmfit
 matplotlib
 numpy

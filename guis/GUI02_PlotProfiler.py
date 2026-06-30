@@ -20,7 +20,7 @@ PLUGIN_INFO = {
         "AFMの高さプロファイルをGUIで取得します。\n"
         "高さプロファイルは skimage.measure の profile_line を用いて計算します。\n"
         "Image_Preprocessor でバックグラウンド補正済みの二次元データ配列を読み込めます。\n"
-        "対応形式: .b2z バンドル（calibratedキーを自動抽出）/ .npy / csv / txt。\n"
+        "対応形式: .b2z バンドル（calibratedキーを自動抽出）/ .npy / csv / txt / Gwyddion .gwy。\n"
         "高さプロファイルのグラフはレイアウトを調整したうえで画像として出力することも可能です。"
     )
 }
@@ -50,6 +50,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 # これらのモジュールは本プロジェクト共通の読み込み、描画既定値、UI 補助機能を提供する。
 from lib.blosc2_io import load_blosc2, load_bundle, BUNDLE_EXT
 from lib.afm_io import load_afm_text, read_scan_size
+from lib.gwy_io import GWY_EXT, list_gwy_channels, load_gwy_image, select_default_channel
 from lib.measure import read_scan_size_from_bundle
 from lib.translator import _
 from lib.ui_tools import (
@@ -605,6 +606,26 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         self.label2.grid(row=0, column=1, sticky="w")
         self.showfilename = None
         file_row.columnconfigure(1, weight=1)
+
+        # Channel selector for multi-channel Gwyddion .gwy inputs. Hidden until a
+        # .gwy with more than one channel is loaded; the topography channel is
+        # auto-selected, and changing this dropdown reloads another channel.
+        # 複数チャンネルの Gwyddion .gwy 入力用チャンネル選択。チャンネルが複数
+        # ある .gwy を読むまで非表示。地形チャンネルを自動選択し、このドロップ
+        # ダウンを変更すると別チャンネルを読み込む。
+        self.gwy_channel_label = ttk.Label(file_row, text=_("チャンネル"))
+        self.gwy_channel_box = ttk.Combobox(file_row, state="readonly", width=22)
+        self.gwy_channel_box.bind(
+            "<<ComboboxSelected>>", lambda _e: self._on_gwy_channel_change()
+        )
+        self.gwy_channel_label.grid(row=0, column=2, padx=(8, 2))
+        self.gwy_channel_box.grid(row=0, column=3, padx=(0, 4))
+        self.gwy_channel_label.grid_remove()
+        self.gwy_channel_box.grid_remove()
+        # Channels of the current .gwy and the chosen id (None = text / auto).
+        # 現在の .gwy のチャンネルと選択中の id（None = テキスト / 自動）。
+        self._gwy_channels = []
+        self._gwy_channel_id = None
 
     def _build_param_row(self) -> None:
         """
@@ -1273,8 +1294,8 @@ class App(tk.Tk, UnconfirmedEntryMixin):
 
     def load_array_file(self, path) -> np.ndarray | None:
         """
-        Load a 2D AFM height array from bundle, NumPy, text, or CSV input.
-        バンドル、NumPy、テキスト、CSV 入力から 2D AFM 高さ配列を読み込む。
+        Load a 2D AFM height array from bundle, NumPy, text, CSV, or .gwy input.
+        バンドル、NumPy、テキスト、CSV、.gwy 入力から 2D AFM 高さ配列を読み込む。
 
         Parameters
         ----------
@@ -1303,6 +1324,14 @@ class App(tk.Tk, UnconfirmedEntryMixin):
                     data = np.load(path, allow_pickle=True)
                 except Exception:
                     data = load_blosc2(path)
+            elif path.lower().endswith(GWY_EXT):
+                # Gwyddion native .gwy: load the channel chosen via the channel
+                # dropdown (self._gwy_channel_id), defaulting to the
+                # auto-selected topography channel when unset.
+                # Gwyddion ネイティブ .gwy：チャンネルドロップダウンで選んだ
+                # チャンネル（self._gwy_channel_id）を読み込む。未設定時は自動
+                # 選択された地形チャンネルを既定とする。
+                data = load_gwy_image(path, channel=self._gwy_channel_id).data
             else:
                 # Text / CSV — delegate to the AFM text loader, which auto-detects
                 # the header layout (Shimadzu multi-column, Bruker single-column),
@@ -1401,6 +1430,69 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             pass
         return True
 
+    def _setup_gwy_channel_selector(self, path: str) -> None:
+        """
+        Prepare the channel dropdown for a newly selected input file.
+        新しく選択された入力ファイル向けにチャンネルドロップダウンを準備する。
+
+        Resets to auto-selection for every file. For a Gwyddion ``.gwy`` with
+        more than one channel, the dropdown is populated and shown with the
+        auto-selected topography channel preselected; for single-channel ``.gwy``
+        and all other formats it is hidden, since there is nothing to choose.
+        ファイルごとに自動選択へリセットする。チャンネルが複数ある Gwyddion
+        ``.gwy`` ではドロップダウンを生成・表示し、自動選択された地形チャンネルを
+        初期選択にする。単一チャンネルの ``.gwy`` やその他の形式では選ぶ対象が
+        無いため非表示にする。
+        """
+        # New file: start from auto-selection (topography), regardless of format.
+        # 新しいファイル：形式によらず自動選択（地形）から始める。
+        self._gwy_channels = []
+        self._gwy_channel_id = None
+
+        if not path.lower().endswith(GWY_EXT):
+            self.gwy_channel_label.grid_remove()
+            self.gwy_channel_box.grid_remove()
+            return
+
+        try:
+            channels = list_gwy_channels(path)
+        except Exception:
+            # A channel-listing failure must not block loading; load_array_file
+            # surfaces the real error when it tries to read the image.
+            # チャンネル列挙の失敗で読み込みを止めない。実際のエラーは
+            # load_array_file が画像読込時に表示する。
+            channels = []
+
+        self._gwy_channels = channels
+        if len(channels) <= 1:
+            self.gwy_channel_label.grid_remove()
+            self.gwy_channel_box.grid_remove()
+            return
+
+        default = select_default_channel(channels)
+        self._gwy_channel_id = default.channel_id
+        self.gwy_channel_box.configure(
+            values=[c.display_label for c in channels]
+        )
+        self.gwy_channel_box.current(channels.index(default))
+        self.gwy_channel_label.grid()
+        self.gwy_channel_box.grid()
+
+    def _on_gwy_channel_change(self) -> None:
+        """
+        Reload the image with the channel chosen in the dropdown.
+        ドロップダウンで選んだチャンネルで画像を再読み込みする。
+        """
+        index = self.gwy_channel_box.current()
+        if index < 0 or index >= len(self._gwy_channels):
+            return
+        self._gwy_channel_id = self._gwy_channels[index].channel_id
+        # Reload from disk with the new channel; the scan size is shared across
+        # channels, so the current scale stays valid.
+        # 新しいチャンネルでディスクから再読み込みする。走査範囲はチャンネル間で
+        # 共通のため、現在のスケールはそのまま有効。
+        self.image_showing(reload=True)
+
     def load_image(self) -> None:
         """
         Open a file dialog and load the selected AFM data file.
@@ -1417,10 +1509,11 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # 拡張子フィルタ: load_array_file が受け付ける形式を明示しつつ、最後に「すべて」を
         # 残して任意のエクスポートも開けるようにする。
         filetype = [
-            (_("AFMデータ"), ("*" + BUNDLE_EXT, "*.npy", "*.csv", "*.txt")),
+            (_("AFMデータ"), ("*" + BUNDLE_EXT, "*.npy", "*.csv", "*.txt", "*" + GWY_EXT)),
             (_("バンドル"),   "*" + BUNDLE_EXT),
             (_(".npy"),       "*.npy"),
             (_("テキスト/CSV"), ("*.csv", "*.txt")),
+            (_("Gwyddion"),   "*" + GWY_EXT),
             (_("すべて"),     "*"),
         ]
 
@@ -1585,6 +1678,12 @@ class App(tk.Tk, UnconfirmedEntryMixin):
 
         # If the file can be loaded, show it and enable profile picking.
         if path and os.path.isfile(path):
+            # Prepare the .gwy channel dropdown (shown only for multi-channel
+            # .gwy) before loading, so the first draw uses the chosen channel.
+            # .gwy のチャンネルドロップダウン（複数チャンネルの .gwy でのみ表示）を
+            # 読み込み前に準備し、初回描画で選択チャンネルを使うようにする。
+            self._setup_gwy_channel_selector(path)
+
             # Default the scale to this file's recorded/header scan size so
             # profile distances are reproducible; the user can still override.
             # Done before the first draw so the axis extent uses the new scale.

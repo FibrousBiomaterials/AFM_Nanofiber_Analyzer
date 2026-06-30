@@ -47,6 +47,7 @@ classifiers = [
 # 実行時依存の緩い指定。検証済みスナップショットは requirements.lock.txt。
 dependencies = [
     "blosc2",
+    "gwyfile",
     "lmfit",
     "matplotlib",
     "numpy",

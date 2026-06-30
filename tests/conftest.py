@@ -96,3 +96,69 @@ def synthetic_fiber_txt(tmp_path):
     合成の折れ繊維テキスト画像への関数スコープのパス。
     """
     return write_synthetic_fiber_txt(tmp_path)
+
+
+def write_synthetic_fiber_gwy(out_dir, *, x_um: float = 2.0, y_um: float = 2.0) -> str:
+    """
+    Write a two-channel Gwyddion ``.gwy`` file for .gwy-path tests.
+    .gwy 経路テスト用に 2 チャンネルの Gwyddion ``.gwy`` ファイルを書き出す。
+
+    Channel 0 is a non-length "Phase" channel and channel 1 is the topography
+    height channel, so tests can assert that channel auto-selection skips the
+    lower-id phase channel and picks topography by its length (meter) unit.
+    Heights are stored in SI meters as Gwyddion does, so the reader must convert
+    them back to nanometers.
+    チャンネル 0 は長さ単位でない "Phase"、チャンネル 1 が地形（高さ）チャンネル
+    で、チャンネル自動選択が id の小さい位相チャンネルを飛ばし、長さ（メートル）
+    単位で地形を選ぶことを検証できる。高さは Gwyddion と同様 SI メートルで保存
+    するため、リーダは nm へ戻す必要がある。
+
+    Returns
+    -------
+    str
+        Path to a 128x128 ``.gwy`` whose topography channel holds a ~3 nm bent
+        fiber on a tilted-plane background; the scan size is ``x_um`` × ``y_um``.
+        128x128 の ``.gwy`` のパス。地形チャンネルは傾斜平面背景上の高さ約 3 nm の
+        折れ繊維を保持し、走査範囲は ``x_um`` × ``y_um``。
+    """
+    import cv2
+    import gwyfile
+    from gwyfile.objects import GwyContainer, GwyDataField, GwySIUnit
+
+    rng = np.random.default_rng(7)
+    fiber = np.zeros((128, 128), np.float32)
+    cv2.line(fiber, (20, 20), (70, 60), 1.0, 3)
+    cv2.line(fiber, (70, 60), (90, 110), 1.0, 3)
+    fiber = cv2.GaussianBlur(fiber, (5, 5), 0) * 3.0  # Peak height ~3 nm.
+    yy, xx = np.mgrid[0:128, 0:128]
+    background = 2.0 * xx / 127 + 1.0 * yy / 127
+    height_nm = (fiber + background + rng.normal(0.0, 0.05, fiber.shape)).astype(float)
+
+    # Gwyddion stores topography in base SI meters; convert nm -> m for storage.
+    # Gwyddion は地形を基底 SI のメートルで保存するため、保存時に nm -> m へ換算する。
+    topo = GwyDataField(
+        height_nm * 1e-9, xreal=x_um * 1e-6, yreal=y_um * 1e-6,
+        si_unit_z=GwySIUnit(unitstr="m"),
+    )
+    phase = GwyDataField(
+        np.full((128, 128), 0.25), xreal=x_um * 1e-6, yreal=y_um * 1e-6,
+        si_unit_z=GwySIUnit(unitstr="rad"),
+    )
+    container = GwyContainer()
+    container["/0/data"] = phase
+    container["/0/data/title"] = "Phase"
+    container["/1/data"] = topo
+    container["/1/data/title"] = "Topography"
+
+    path = os.path.join(out_dir, "synthetic_fiber.gwy")
+    container.tofile(path)
+    return path
+
+
+@pytest.fixture
+def synthetic_fiber_gwy(tmp_path):
+    """
+    Function-scoped path to the synthetic two-channel ``.gwy`` file.
+    合成 2 チャンネル ``.gwy`` ファイルへの関数スコープのパス。
+    """
+    return write_synthetic_fiber_gwy(tmp_path)

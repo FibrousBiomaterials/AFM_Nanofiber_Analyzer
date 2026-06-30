@@ -30,7 +30,7 @@ import tempfile
 import time
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 # ===== Numerical / scientific libraries =====
 import numpy as np
@@ -568,6 +568,7 @@ def process_file(
     input_format: str = "auto",
     scan_size_um: Optional[Tuple[float, float]] = None,
     scan_size_source: str = "manual",
+    gwy_channel: Optional[Union[int, str]] = None,
 ) -> PipelineResult:
     """
     Run the full preprocessing pipeline on one input file and save outputs.
@@ -584,8 +585,10 @@ def process_file(
     Parameters
     ----------
     txt_path
-        Path to the raw AFM text/CSV input file.
-        生の AFM テキスト/CSV 入力ファイルのパス。
+        Path to the raw AFM input file: a text/CSV export or a Gwyddion native
+        ``.gwy`` file (dispatched by extension).
+        生の AFM 入力ファイルのパス。テキスト/CSV エクスポート、または Gwyddion
+        ネイティブの ``.gwy`` ファイル（拡張子で振り分ける）。
     params
         Analysis parameters; serialized verbatim into the sidecar JSON.
         解析パラメータ。そのままサイドカー JSON にシリアライズされる。
@@ -630,6 +633,14 @@ def process_file(
         明示指定した `scan_size_um` の出所ラベル。`SCAN_SIZE_SOURCES` のいずれか
         （通常 ``"manual"`` か ``"manifest"``）。ヘッダ由来の場合は無視され
         ``"input_header"`` として記録される。
+    gwy_channel
+        Channel selector for a ``.gwy`` input, forwarded to
+        `lib.gwy_io.load_gwy_image`: ``None`` auto-selects the topography
+        channel, an integer selects by channel id, a string by title. Ignored
+        for text/CSV inputs.
+        ``.gwy`` 入力のチャンネル指定で `lib.gwy_io.load_gwy_image` へ渡す。
+        ``None`` は地形チャンネルを自動選択、整数はチャンネル id、文字列は
+        タイトルで選択する。テキスト/CSV 入力では無視される。
 
     Returns
     -------
@@ -667,25 +678,51 @@ def process_file(
             on_stage(stage)
 
     report("load")
-    # Resolve the text layout once, load with it, and keep it for provenance.
-    # テキストレイアウトを一度確定し、それで読み込み、来歴記録用に保持する。
-    text_format = detect_afm_format(txt_path, fmt=input_format)
-    height_data = load_afm_text(txt_path, fmt=text_format)
+    # Load the height image and capture how it was parsed, branching on the
+    # input format: a Gwyddion native .gwy (binary, multi-channel) reads through
+    # lib.gwy_io; everything else is a text/CSV export read through afm_io. Both
+    # branches yield a height array (nm), an optional header scan size, and a
+    # provenance dict recorded under vlmeta "input_format".
+    # 入力形式で分岐して高さ画像と解釈方法を取得する。Gwyddion ネイティブの .gwy
+    # （バイナリ・複数チャンネル）は lib.gwy_io で、それ以外のテキスト/CSV
+    # エクスポートは afm_io で読み込む。どちらも高さ配列 (nm)・任意のヘッダ走査
+    # 範囲・vlmeta "input_format" に記録する来歴 dict を返す。
+    if os.path.splitext(txt_path)[1].lower() == ".gwy":
+        # Local import keeps the optional gwyfile dependency out of text-only runs.
+        # ローカル import によりオプション依存の gwyfile をテキスト専用実行から外す。
+        from .gwy_io import load_gwy_image
+        gwy_image = load_gwy_image(txt_path, channel=gwy_channel)
+        height_data = gwy_image.data
+        header_size = gwy_image.scan_size
+        input_format_meta = {
+            "kind": "gwy",
+            "channel_id": gwy_image.channel.channel_id,
+            "channel_title": gwy_image.channel.title,
+            "z_unit": gwy_image.channel.z_unit,
+        }
+    else:
+        # Resolve the text layout once, load with it, and keep it for provenance.
+        # テキストレイアウトを一度確定し、それで読み込み、来歴記録用に保持する。
+        text_format = detect_afm_format(txt_path, fmt=input_format)
+        height_data = load_afm_text(txt_path, fmt=text_format)
+        header_size = read_scan_size(txt_path)
+        input_format_meta = asdict(text_format)
     name = os.path.splitext(os.path.basename(txt_path))[0]
     image = ProcessedImage(original_AFM=height_data, name=name)
 
     # Resolve the spatial calibration: an explicit caller value (manual entry
-    # or a CSV manifest) wins; otherwise fall back to the instrument header.
-    # Stays None when neither source provides it, so the bundle simply omits
-    # the calibration and measurement-time entry remains the fallback.
+    # or a CSV manifest) wins; otherwise fall back to the scan size read from
+    # the input above (instrument text header or .gwy extents). Stays None when
+    # neither source provides it, so the bundle simply omits the calibration and
+    # measurement-time entry remains the fallback.
     # 空間較正を解決する。呼び出し側の明示値（手入力や CSV マニフェスト）を
-    # 優先し、無ければ装置ヘッダから取得する。どちらも無ければ None のままとし、
-    # バンドルは較正を省略して計測時入力をフォールバックに残す。
+    # 優先し、無ければ上で入力から読んだ走査範囲（装置テキストヘッダまたは .gwy の
+    # 範囲）を使う。どちらも無ければ None のままとし、バンドルは較正を省略して
+    # 計測時入力をフォールバックに残す。
     if scan_size_um is not None:
         resolved_scan_size = (float(scan_size_um[0]), float(scan_size_um[1]))
         resolved_scan_source = scan_size_source
     else:
-        header_size = read_scan_size(txt_path)
         if header_size is not None:
             resolved_scan_size = (header_size.x_um, header_size.y_um)
             resolved_scan_source = "input_header"
@@ -765,11 +802,13 @@ def process_file(
         "input_file":       os.path.basename(txt_path),
         "input_sha256":     _sha256_of_file(txt_path),
         "created_utc":      datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        # How the input text was parsed (kind/skiprows/n_cols/encoding), so a
-        # suspected layout mis-detection can be audited after the fact.
-        # 入力テキストの解釈方法（種別・スキップ行数・列数・エンコーディング）。
-        # レイアウト誤判定が疑われた際に事後監査できるようにする。
-        "input_format":     asdict(text_format),
+        # How the input was parsed, so a suspected mis-detection can be audited
+        # after the fact. For text/CSV this is kind/skiprows/n_cols/encoding;
+        # for a .gwy it is kind="gwy" plus the channel id/title/z-unit used.
+        # 入力の解釈方法。事後に誤判定を監査できるようにする。テキスト/CSV では
+        # 種別・スキップ行数・列数・エンコーディング、.gwy では kind="gwy" と
+        # 使用したチャンネルの id/タイトル/z 単位を記録する。
+        "input_format":     input_format_meta,
     }
 
     # Record the physical scan size so length/distance measurements can be

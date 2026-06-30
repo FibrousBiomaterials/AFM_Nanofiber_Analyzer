@@ -128,6 +128,27 @@ import 時に作成しないでください。
 互換性に影響する可能性があります。単なる綴り修正でも、保存済みデータや
 ランチャーから参照されている場合は互換性問題として扱ってください。
 
+## 入力フォーマットと Gwyddion `.gwy`
+
+生の AFM 入力は拡張子で振り分けます。テキスト/CSV は `lib/afm_io.py`、Gwyddion
+ネイティブの `.gwy` は `lib/gwy_io.py` が読み込みます。`process_file`（GUI01 /
+`cli.py process` 共通）と GUI02、および `afm_io.load_afm_image` /
+`afm_io.read_scan_size` がこの振り分けを行います。どちらの経路も nm 単位の高さ
+配列と任意の走査範囲を返すため、以降のステージは入力形式に依存しません。
+
+`.gwy` はバイナリの複数チャンネルコンテナです。`gwy_io.select_default_channel`
+が地形/高さチャンネル（長さ単位 `m` を持つもの）を自動選択し、id またはタイトルで
+上書きできます（GUI02 はドロップダウン、`cli.py process` は `--channel`、GUI01
+バッチは自動選択のみ）。高さは Gwyddion の SI メートルから nm へ、走査範囲は
+チャンネルの `xreal`/`yreal` から µm へ換算します。
+
+`.gwy` の読み込みには純 Python・NumPy のみ依存の `gwyfile` パッケージが必要です。
+`requirements.txt` / `pyproject.toml` の宣言済み依存ですが、`lib/gwy_io.py` 内の
+関数ローカル import に留めているため、テキスト専用のワークフローやプラグイン起動
+時には読み込まれません（§8.5 の lmfit / pandas と同方針）。`.gwy` の `input_format`
+来歴は vlmeta に `{"kind": "gwy", "channel_id", "channel_title", "z_unit"}` として
+記録されます（`.b2z` の配列キー契約自体は変更していません）。
+
 ## `.b2z` データ契約
 
 GUI01 は解析対象の入力ファイルごとに、1 つの `<input_stem>.b2z` バンドルと

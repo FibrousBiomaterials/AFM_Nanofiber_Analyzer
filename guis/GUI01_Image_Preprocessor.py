@@ -70,7 +70,7 @@ from lib.pipeline import (
     bundle_path_for, existing_min_set, merge_params_dict, validate_params,
 )
 from lib.blosc2_io import load_bundle
-from lib.afm_io import load_afm_text, read_scan_size
+from lib.afm_io import load_afm_image, read_scan_size
 from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, ToolTip, setup_matplotlib_style,
@@ -297,14 +297,16 @@ def load_or_create_startup_params() -> Tuple[ProcParams, List[str]]:
 @dataclass
 class FileItem:
     """
-    Track one input text file and its analysis state.
-    1 つの入力テキストファイルと解析状態を保持する。
+    Track one input file and its analysis state.
+    1 つの入力ファイルと解析状態を保持する。
 
     Attributes
     ----------
     txt_path
-        Absolute path to the input `.txt` file.
-        入力 `.txt` ファイルの絶対パス。
+        Absolute path to the input file: a text/CSV export or a Gwyddion native
+        `.gwy` file. The field name is retained for compatibility.
+        入力ファイルの絶対パス。テキスト/CSV エクスポートまたは Gwyddion
+        ネイティブ `.gwy` ファイル。フィールド名は互換性のため維持する。
     status
         Internal analysis status key.
         解析状態を表す内部キー。
@@ -1164,7 +1166,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Ask for an input folder and populate the batch file list.
         入力フォルダを選択し、一括処理用ファイル一覧を作成する。
         """
-        folder = filedialog.askdirectory(title=_("入力フォルダを選択（.txtを含む）"))
+        folder = filedialog.askdirectory(title=_("入力フォルダを選択（.txt / .gwy を含む）"))
         if not folder:
             return
 
@@ -1173,7 +1175,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         try:
             # Sort input files for deterministic batch order and log output.
-            files = sorted([f for f in os.listdir(folder) if f.lower().endswith(".txt")])
+            # Accept both text/CSV exports (.txt) and Gwyddion native files
+            # (.gwy); the pipeline dispatches by extension.
+            # テキスト/CSV エクスポート (.txt) と Gwyddion ネイティブ (.gwy) の
+            # 双方を受け付ける。パイプラインが拡張子で振り分ける。
+            files = sorted(
+                f for f in os.listdir(folder)
+                if f.lower().endswith((".txt", ".gwy"))
+            )
         except Exception as e:
             self._log(_("フォルダ読み込み失敗: %s") % e)
             return
@@ -1209,7 +1218,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._insert_item(item)
 
         if not self.items:
-            self._log(_("対象 .txt がありません。"))
+            self._log(_("対象ファイル（.txt / .gwy）がありません。"))
         else:
             n_unset = sum(1 for it in self.items if not it.has_scale)
             self._log(
@@ -1774,11 +1783,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         #
         # The original image source depends on the bundle: if the .b2z was saved
         # with "元データを保存" ON it contains an "original" key, which is read
-        # directly (faster than re-parsing the source .txt, notably for large or
-        # slow-to-parse text formats). Otherwise fall back to load_afm_text.
+        # directly (faster than re-parsing the source file, notably for large or
+        # slow-to-parse inputs). Otherwise fall back to load_afm_image.
         # 元画像の取得元はバンドル依存。「元データを保存」ON で保存された .b2z は
-        # "original" キーを含むのでそこから直接読む（.txt 再パースより速く、特に
-        # 大きい/解析の重いテキスト形式で効く）。無ければ load_afm_text に戻す。
+        # "original" キーを含むのでそこから直接読む（元ファイル再パースより速く、
+        # 特に大きい/解析の重い入力で効く）。無ければ load_afm_image に戻す。
         if it.status != STATUS_ANALYZED:
             return None
 
@@ -1791,7 +1800,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             if "original" in data:
                 ori = data["original"]
             else:
-                ori = load_afm_text(it.txt_path)
+                # Reload the raw height image when "original" was not bundled.
+                # load_afm_image dispatches by extension so both text/CSV and
+                # Gwyddion .gwy inputs (auto-selected channel) preview correctly.
+                # "original" 未同梱時は生の高さ画像を読み直す。load_afm_image は
+                # 拡張子で振り分けるため、テキスト/CSV と Gwyddion .gwy（自動選択
+                # チャンネル）のいずれもプレビューできる。
+                ori = load_afm_image(it.txt_path)
 
             # Return every key used by the preview renderer and single-view dialog.
             return {

@@ -367,19 +367,32 @@ representative Bruker NanoScope export).
 ### Other instruments via Gwyddion
 
 Files from instruments without a layout above (Asylum Research, JPK, Park
-Systems, Nanonis, Olympus, …) are supported by converting them to text with
+Systems, Nanonis, Olympus, …) are supported through
 [Gwyddion](http://gwyddion.net/), the free SPM toolkit that reads 100+ native
-formats: open the file, then **File > Save As** and choose **"Export Text"**
-(a plain-text data matrix). This loader reads the resulting `.txt` directly.
-Gwyddion writes the matrix in SI units (meters) with a small comment header
-recording the scan size and value unit; both are normalized automatically
-(heights to nm, sizes to µm). The header keys are written in Gwyddion's UI
-language — English (`# Width`/`# Height`/`# Value units`) and Japanese
-(`# 幅`/`# 高さ`/`# 値の単位`) are both recognized, since parsing keys off the
-value structure rather than the translated words. Keep the informational header
-enabled on export so the scan size is preserved; otherwise set it in the
-GUI/CLI. Bruker `.spm` binaries can likewise be exported to text from
-NanoScope and read via the single-column layout above.
+formats. There are two routes:
+
+**Native `.gwy` files (recommended).** Gwyddion's own `.gwy` files are read
+directly, with no manual export step: select a `.gwy` in GUI01 (batch folder),
+GUI02 (Plot Profiler), or `cli.py process`, exactly like a text scan. A `.gwy`
+container holds several channels (topography, phase, amplitude, …); the
+topography/height channel is auto-selected, and you can override it by id or
+title — a dropdown appears in GUI02 for multi-channel files, and `cli.py
+process` accepts `--channel <id|name>`. Heights are converted from Gwyddion's
+SI meters to nm and the scan size is read from the channel extents. Reading
+`.gwy` requires the lightweight, pure-Python `gwyfile` package (a declared
+dependency); it is imported lazily, so text-only workflows never load it.
+
+**Export Text (`.txt`).** Alternatively, in Gwyddion open the file, then
+**File > Save As** and choose **"Export Text"** (a plain-text data matrix),
+which this loader reads as `.txt`. Gwyddion writes the matrix in SI units
+(meters) with a small comment header recording the scan size and value unit;
+both are normalized automatically (heights to nm, sizes to µm). The header keys
+are written in Gwyddion's UI language — English (`# Width`/`# Height`/`# Value
+units`) and Japanese (`# 幅`/`# 高さ`/`# 値の単位`) are both recognized, since
+parsing keys off the value structure rather than the translated words. Keep the
+informational header enabled on export so the scan size is preserved; otherwise
+set it in the GUI/CLI. Bruker `.spm` binaries can likewise be exported to text
+from NanoScope and read via the single-column layout above.
 
 The background calibrator (`BGCalibrator` in `lib/bg_calibrator.py`)
 implements general line-scan AFM background correction and is applied to both
