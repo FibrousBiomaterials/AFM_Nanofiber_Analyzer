@@ -134,6 +134,32 @@ is a deliberate choice that prevents the front ends from drifting apart.
 
 ![Analysis pipeline: the six stages from raw AFM height image to per-fiber statistics.\label{fig:pipeline}](figures/pipeline.png)
 
+The four interactive tools form a sequential workflow over the shared bundle
+format. The *Image Preprocessor* (GUI01; \autoref{fig:gui01}) is the graphical
+front end to the pipeline above: it batch-processes input scans, exposes the
+four background-calibration methods together with the segmentation,
+skeletonization, and kink-detection parameters, and writes one `.b2z` bundle and
+parameter record per input. The remaining three tools consume those bundles. The
+*Plot Profiler* (GUI02; \autoref{fig:gui02}) extracts height profiles along
+user-drawn lines (with scikit-image `profile_line`) from the calibrated image
+and exports publication-ready profile plots; it also reads loose `.npy`, CSV,
+text, and `.gwy` inputs. The *Fiber Height Histogram* (GUI03;
+\autoref{fig:gui03}) collects calibrated height values along the skeleton and
+compares height distributions across user-defined groups of datasets as stacked
+or overlaid histograms. The *Fiber Tracker* (GUI04; \autoref{fig:gui04})
+reconstructs individual fibers from a bundle and presents per-fiber height
+profiles, kink and endpoint geometry, and summary statistics (height, length,
+endpoint and kink counts, and kink angle), with height-range filtering and CSV
+and figure export.
+
+![The Image Preprocessor (GUI01): the graphical front end to the analysis pipeline, where input scans are batch-processed, the background-calibration method and pipeline parameters are selected, and one `.b2z` bundle is written per input.\label{fig:gui01}](figures/gui01.png)
+
+![The Plot Profiler (GUI02): height profiles are extracted along user-drawn lines from the calibrated image and exported as profile plots.\label{fig:gui02}](figures/gui02.png)
+
+![The Fiber Height Histogram (GUI03): calibrated height values sampled along the skeleton are compared across user-defined groups of datasets as stacked or overlaid histograms.\label{fig:gui03}](figures/gui03.png)
+
+![The Fiber Tracker (GUI04): individual fibers reconstructed from a bundle, shown with per-fiber height profiles, kink and endpoint geometry, and summary statistics.\label{fig:gui04}](figures/gui04.png)
+
 Results are persisted as one compressed bundle per input (`.b2z`, built on
 `blosc2`), accompanied by a JSON record of the analysis parameters. The bundle's
 contents — required array keys, shapes, value ranges, units, coordinate
