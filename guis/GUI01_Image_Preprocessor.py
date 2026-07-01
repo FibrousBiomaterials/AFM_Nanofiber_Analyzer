@@ -792,27 +792,32 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Build preview controls for scale, contrast, overlays, and export.
         スケール、コントラスト、重ね表示、書き出し用のプレビュー操作部を構築する。
         """
-        # Build the preview controls in three compact rows.
+        # Build the preview controls in two compact rows.
         # Entry-based numeric controls use Enter-to-commit so partial edits do not
         # immediately redraw figures with invalid or unintended values.
         self._build_preview_scale_row()
         self._build_preview_font_row()
-        self._build_preview_overlay_row()
 
     def _build_preview_scale_row(self) -> None:
         """
-        Build preview row 1: scale display, physical scale, axis unit, vmin/vmax.
-        プレビュー行1（スケール表示・実寸・軸単位・vmin/vmax）を構築する。
+        Build preview row 1: title/scale display, axis unit, vmin/vmax, overlay.
+        プレビュー行1（タイトル/スケール表示・軸単位・vmin/vmax・重ね表示）を構築する。
         """
-        # -- Row 1: scale display, physical scale, axis unit, vmin/vmax --
+        # -- Row 1: title/scale display, axis unit, vmin/vmax, overlay --
         ctrl1 = ttk.Frame(self.right_frame)
         ctrl1.pack(side="top", fill="x", padx=4, pady=(4, 2))
+
+        # Title display toggle applies immediately.
+        ttk.Checkbutton(
+            ctrl1, text=_("タイトル表示"), variable=self.show_title_var,
+            command=self.on_redraw_preview,
+        ).pack(side="left", padx=(2, 4))
 
         # Scale display toggle applies immediately.
         ttk.Checkbutton(
             ctrl1, text=_("スケール表示"), variable=self.show_scale_var,
             command=self.on_redraw_preview,
-        ).pack(side="left", padx=(2, 4))
+        ).pack(side="left", padx=(0, 4))
 
         # The physical-scale entry now lives in the file-list scale toolbar,
         # next to the buttons that apply it to rows (see _build_main_panes).
@@ -849,20 +854,36 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self.validate_vrange,
         )
 
+        # Overlay selector for the skeletonized panel.
+        lbl_overlay = ttk.Label(ctrl1, text=_("重ね表示"))
+        lbl_overlay.pack(side="left", padx=(14, 2))
+        self.cmb_overlay = ttk.Combobox(
+            ctrl1, width=10, textvariable=self.overlay_mode_var,
+            values=[_("非表示"), "EP", "BP", "KP", "DP"],
+            state="readonly"
+        )
+        self.cmb_overlay.pack(side="left", padx=2)
+        self.cmb_overlay.bind("<<ComboboxSelected>>", lambda e: self.on_redraw_preview())
+
+        # Explain abbreviated feature names in the tooltip.
+        overlay_help = (
+            _("Skeletonized 画像に重ねる特徴点の種類を選択します。") + "\n"
+            "  " + _("非表示") + "           : " + _("重ね表示しません") + "\n"
+            "  EP (End Point)     : " + _("ファイバーの端点（青）")          + "\n"
+            "  BP (Branch Point)  : " + _("ファイバーの分岐点（赤）")        + "\n"
+            "  KP (Kink Point)    : " + _("ファイバーのキンク点（シアン）")  + "\n"
+            "  DP (Decomposed Point) : " + _("ファイバーの分解点（オレンジ）")
+        )
+        ToolTip(lbl_overlay, overlay_help)
+
     def _build_preview_font_row(self) -> None:
         """
-        Build preview row 2: title toggle and title/label/tick/legend font sizes.
-        プレビュー行2（タイトル表示＋タイトル/軸ラベル/軸目盛/凡例のフォントサイズ）を構築する。
+        Build preview row 2: title/label/tick/legend font sizes, image export, single-view.
+        プレビュー行2（タイトル/軸ラベル/軸目盛/凡例のフォントサイズ・画像保存・個別表示）を構築する。
         """
-        # -- Row 2: title toggle and font sizes --
+        # -- Row 2: font sizes, image export, and single-view dialog --
         ctrl2 = ttk.Frame(self.right_frame)
-        ctrl2.pack(side="top", fill="x", padx=4, pady=(0, 2))
-
-        # Title display toggle applies immediately.
-        ttk.Checkbutton(
-            ctrl2, text=_("タイトル表示"), variable=self.show_title_var,
-            command=self.on_redraw_preview,
-        ).pack(side="left", padx=(2, 4))
+        ctrl2.pack(side="top", fill="x", padx=4, pady=(0, 4))
 
         ttk.Label(ctrl2, text=_("フォントサイズ：タイトル")).pack(side="left", padx=(8, 2))
         self.ent_title_fs = ttk.Entry(ctrl2, width=5, textvariable=self.title_fs_var)
@@ -900,44 +921,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self.validate_main_font_sizes,
         )
 
-    def _build_preview_overlay_row(self) -> None:
-        """
-        Build preview row 3: overlay selector, image export, and single-view dialog.
-        プレビュー行3（重ね表示セレクタ・画像保存・個別表示）を構築する。
-        """
-        # -- Row 3: overlay, image export, and single-view dialog --
-        ctrl3 = ttk.Frame(self.right_frame)
-        ctrl3.pack(side="top", fill="x", padx=4, pady=(0, 4))
-
-        # Overlay selector for the skeletonized panel.
-        lbl_overlay = ttk.Label(ctrl3, text=_("重ね表示"))
-        lbl_overlay.pack(side="left", padx=(2, 2))
-        self.cmb_overlay = ttk.Combobox(
-            ctrl3, width=10, textvariable=self.overlay_mode_var,
-            values=[_("非表示"), "EP", "BP", "KP", "DP"],
-            state="readonly"
-        )
-        self.cmb_overlay.pack(side="left", padx=2)
-        self.cmb_overlay.bind("<<ComboboxSelected>>", lambda e: self.on_redraw_preview())
-
-        # Explain abbreviated feature names in the tooltip.
-        overlay_help = (
-            _("Skeletonized 画像に重ねる特徴点の種類を選択します。") + "\n"
-            "  " + _("非表示") + "           : " + _("重ね表示しません") + "\n"
-            "  EP (End Point)     : " + _("ファイバーの端点（青）")          + "\n"
-            "  BP (Branch Point)  : " + _("ファイバーの分岐点（赤）")        + "\n"
-            "  KP (Kink Point)    : " + _("ファイバーのキンク点（シアン）")  + "\n"
-            "  DP (Decomposed Point) : " + _("ファイバーの分解点（オレンジ）")
-        )
-        ToolTip(lbl_overlay, overlay_help)
-
         # Export the full right-pane preview figure.
         self.btn_export_preview = ttk.Button(
-            ctrl3, text=_("画像を保存"), command=self.on_export_preview)
+            ctrl2, text=_("画像を保存"), command=self.on_export_preview)
         self.btn_export_preview.pack(side="left", padx=(16, 4))
 
         self.btn_open_single = ttk.Button(
-            ctrl3, text=_("個別表示"), command=self.on_open_single_view)
+            ctrl2, text=_("個別表示"), command=self.on_open_single_view)
         self.btn_open_single.pack(side="left", padx=4)
 
     # ---------- Unconfirmed-entry mechanism, shared with GUI02 ----------
@@ -2867,8 +2857,8 @@ class SingleViewDialog(tk.Toplevel, UnconfirmedEntryMixin):
 
     def _build_display_controls(self) -> None:
         """
-        Build the display-mode row: mode, overlay, scale, axis unit, vmin/vmax, save.
-        表示モード行（表示種別・重ね表示・スケール・軸単位・vmin/vmax・保存）を構築する。
+        Build the display-mode row: mode, title/scale, axis unit, vmin/vmax, overlay.
+        表示モード行（表示種別・タイトル/スケール・軸単位・vmin/vmax・重ね表示）を構築する。
         """
         top = ttk.Frame(self)
         top.pack(side="top", fill="x", padx=8, pady=(6, 2))
@@ -2882,29 +2872,9 @@ class SingleViewDialog(tk.Toplevel, UnconfirmedEntryMixin):
         self.cmb_mode.pack(side="left", padx=2)
         self.cmb_mode.bind("<<ComboboxSelected>>", lambda e: self._on_mode_changed())
 
-        # Overlay selection is used only for the skeletonized view.
-        lbl_overlay = ttk.Label(top, text=_("重ね表示"))
-        lbl_overlay.pack(side="left", padx=(10, 2))
-        self.cmb_overlay = ttk.Combobox(
-            top, width=10, textvariable=self.overlay_mode_var,
-            values=[_("非表示"), "EP", "BP", "KP", "DP"],
-            state="readonly"
-        )
-        self.cmb_overlay.pack(side="left", padx=2)
-        self.cmb_overlay.bind("<<ComboboxSelected>>", lambda e: self._draw())
-
-        # Explain abbreviated feature names in a tooltip.
-        overlay_help = (
-            _("Skeletonized 画像に重ねる特徴点の種類を選択します。") + "\n"
-            "  " + _("非表示") + "           : " + _("重ね描きしません") + "\n"
-            "  EP (End Point)     : " + _("ファイバーの端点（青）")          + "\n"
-            "  BP (Branch Point)  : " + _("ファイバーの分岐点（赤）")        + "\n"
-            "  KP (Kink Point)    : " + _("ファイバーのキンク点（シアン）")  + "\n"
-            "  DP (Decomposed Point) : " + _("ファイバーの分解点（オレンジ）")
-        )
-        ToolTip(lbl_overlay, overlay_help)
-
-        ttk.Checkbutton(top, text=_("スケール表示"), variable=self.show_scale_var, command=self._draw).pack(side="left", padx=10)
+        # Title/scale display toggles apply immediately.
+        ttk.Checkbutton(top, text=_("タイトル表示"), variable=self.show_title_var, command=self._draw).pack(side="left", padx=(10, 4))
+        ttk.Checkbutton(top, text=_("スケール表示"), variable=self.show_scale_var, command=self._draw).pack(side="left", padx=(0, 10))
 
         # Use radiobuttons because there are only two axis-unit choices.
         ttk.Label(top, text=_("軸目盛単位")).pack(side="left", padx=(10, 2))
@@ -2937,18 +2907,44 @@ class SingleViewDialog(tk.Toplevel, UnconfirmedEntryMixin):
             registry=self._unconfirmed_entries,
         )
 
-        ttk.Button(top, text=_("画像を保存"), command=self._export).pack(side="left", padx=10)
+        # Overlay selection is used only for the skeletonized view. A dedicated
+        # style maps the disabled state to a gray foreground so that, when
+        # _update_epbp_state disables the combobox for other modes, the grayed
+        # text makes the not-selectable state easy to read at a glance.
+        # 重ね表示は細線化ビューでのみ有効。専用スタイルで無効状態を灰色文字に
+        # 対応付け、_update_epbp_state が他モードで無効化したときに選択不可で
+        # あることをひと目で読み取れるようにする。
+        lbl_overlay = ttk.Label(top, text=_("重ね表示"))
+        lbl_overlay.pack(side="left", padx=(14, 2))
+        self._overlay_style = "Overlay.TCombobox"
+        ttk.Style(self).map(self._overlay_style, foreground=[("disabled", "#8a8a8a")])
+        self.cmb_overlay = ttk.Combobox(
+            top, width=10, textvariable=self.overlay_mode_var,
+            values=[_("非表示"), "EP", "BP", "KP", "DP"],
+            state="readonly", style=self._overlay_style,
+        )
+        self.cmb_overlay.pack(side="left", padx=2)
+        self.cmb_overlay.bind("<<ComboboxSelected>>", lambda e: self._draw())
+
+        # Explain abbreviated feature names in a tooltip.
+        overlay_help = (
+            _("Skeletonized 画像に重ねる特徴点の種類を選択します。") + "\n"
+            "  " + _("非表示") + "           : " + _("重ね描きしません") + "\n"
+            "  EP (End Point)     : " + _("ファイバーの端点（青）")          + "\n"
+            "  BP (Branch Point)  : " + _("ファイバーの分岐点（赤）")        + "\n"
+            "  KP (Kink Point)    : " + _("ファイバーのキンク点（シアン）")  + "\n"
+            "  DP (Decomposed Point) : " + _("ファイバーの分解点（オレンジ）")
+        )
+        ToolTip(lbl_overlay, overlay_help)
 
     def _build_font_controls(self) -> None:
         """
-        Build the font-size row: title toggle and title/cbar/label/tick/legend sizes.
-        フォントサイズ行（タイトル表示＋タイトル/カラーバー/軸ラベル/軸目盛/凡例）を構築する。
+        Build the font-size row: title/cbar/label/tick/legend sizes and image export.
+        フォントサイズ行（タイトル/カラーバー/軸ラベル/軸目盛/凡例のサイズ・画像保存）を構築する。
         """
         # Font-size entries share one Enter-to-commit registry.
         bottom = ttk.Frame(self)
         bottom.pack(side="top", fill="x", padx=8, pady=(0, 4))
-
-        ttk.Checkbutton(bottom, text=_("タイトル表示"), variable=self.show_title_var, command=self._draw).pack(side="left", padx=(2, 4))
 
         ttk.Label(bottom, text=_("フォントサイズ：タイトル")).pack(side="left", padx=(2, 2))
         self.ent_title_fs = ttk.Entry(bottom, width=5, textvariable=self.title_fs_var)
@@ -2999,6 +2995,8 @@ class SingleViewDialog(tk.Toplevel, UnconfirmedEntryMixin):
             self.validate_dialog_font_sizes,
             registry=self._unconfirmed_entries,
         )
+
+        ttk.Button(bottom, text=_("画像を保存"), command=self._export).pack(side="left", padx=(16, 4))
 
     def validate_dialog_font_sizes(self):
         """
