@@ -49,7 +49,7 @@ dependencies = [
     "blosc2",
     "gwyfile",
     "lmfit",
-    "matplotlib",
+    "matplotlib>=3.10",
     "numpy",
     "opencv-python",
     "pandas",

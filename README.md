@@ -339,7 +339,16 @@ distribution remains the PyInstaller bundle described below.
 
 ### Build a standalone Windows bundle
 
-Install PyInstaller before running the build script:
+For a reproducible bundle, provision the build environment from the
+test-verified lock file so the shipped binary embeds the same dependency
+versions the test suite passed against:
+
+```powershell
+python -m pip install -r requirements.lock.txt
+```
+
+Install PyInstaller before running the build script (it is not part of the
+runtime dependencies and is not recorded in the lock file):
 
 ```powershell
 python -m pip install pyinstaller

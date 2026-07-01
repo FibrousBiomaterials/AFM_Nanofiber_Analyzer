@@ -95,7 +95,14 @@ BUNDLED_WITH_PARENT = {
 # テストで確認済みのバージョン制約を書く場所。pip 名 -> requirements.txt に
 # 書き込む要求文字列（例: {"numpy": "numpy>=2.0"}）。厳密な固定は
 # requirements.lock.txt が担い、`--pin` がテスト合格時のみ再生成する。
-PACKAGE_CONSTRAINTS = {}
+PACKAGE_CONSTRAINTS = {
+    # Lower bound documents the oldest matplotlib series exercised by the test
+    # suite (the lock lineage was 3.10.9) and pairs with requires-python>=3.10.
+    # It guards fresh installs from resolving an unexpectedly old matplotlib
+    # while staying loose enough not to obstruct JOSS reviewers; the exact
+    # verified pin lives in requirements.lock.txt.
+    "matplotlib": "matplotlib>=3.10",
+}
 
 # Distribution name of this project itself; excluded from the lock file
 # because the editable self-install is not a third-party dependency.
