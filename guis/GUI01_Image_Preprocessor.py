@@ -648,6 +648,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Scale entry sits next to the apply buttons that consume it, so the
         # value source and its destination rows are visually grouped.
         # 適用ボタンの直前に入力欄を置き、値の入力元と適用先を視覚的にまとめる。
+        # "X" / "Y" labels mark each axis so first-time users can tell the two
+        # fields apart (width vs. height).
+        # "X" / "Y" ラベルで各軸を示し、初見のユーザーが 2 つの欄（幅・高さ）を
+        # 区別できるようにする。
+        ttk.Label(scale_bar, text="X").pack(side="left", padx=(0, 2))
         self.ent_scale_um = ttk.Entry(scale_bar, width=7, textvariable=self.scale_um_var)
         self.ent_scale_um.pack(side="left", padx=(0, 4))
         self._register_unconfirmed_entry(
@@ -660,11 +665,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             _("AFM 画像の X（幅）方向の実寸") + " (µm)。\n"
             + _("プレビューの軸目盛と、ファイルへ適用したときの長さ計測の基準に使われる。"),
         )
-        # Optional Y (height) size for rectangular scans. "X" is the left
-        # entry, "Y" the right; an empty Y means a square scan (Y = X).
-        # 矩形スキャン用の任意の Y（高さ）サイズ。左が X、右が Y で、Y 空欄は
-        # 正方スキャン（Y = X）を意味する。
+        # Optional Y (height) size for rectangular scans. The "X" / "Y" labels
+        # mark which field is which; an empty Y means a square scan (Y = X),
+        # reinforced by the "= X" ghost placeholder shown while Y is blank.
+        # 矩形スキャン用の任意の Y（高さ）サイズ。"X" / "Y" ラベルでどちらの欄か
+        # を示す。Y 空欄は正方スキャン（Y = X）を意味し、Y が空のときに表示する
+        # "= X" ゴーストプレースホルダでもそれを補強する。
         ttk.Label(scale_bar, text="×").pack(side="left", padx=(0, 2))
+        ttk.Label(scale_bar, text="Y").pack(side="left", padx=(0, 2))
         self.ent_scale_y_um = ttk.Entry(
             scale_bar, width=7, textvariable=self.scale_y_um_var,
         )
@@ -680,6 +688,36 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             _("AFM 画像の Y（高さ）方向の実寸") + " (µm)。\n"
             + _("空欄なら X（幅）と同じ（正方スキャン）。"),
         )
+        # Ghost placeholder overlaid on the empty Y field so first-time users
+        # see that a blank Y means "Y = X" (square scan). It is a separate
+        # Label placed on top of the Entry rather than inserted text, so
+        # Entry.get() stays "" and the Enter-to-commit / validation machinery
+        # keeps treating an untouched Y field as unset.
+        # 空の Y 欄に重ねるゴーストプレースホルダ。空欄が「Y = X」（正方スキャン）
+        # を意味することを初見のユーザーに伝える。入力テキストではなく Entry に
+        # 重ねた別 Label なので Entry.get() は "" のままとなり、Enter 確定・検証
+        # 機構は未入力の Y 欄を未設定として扱い続ける。
+        field_bg = ttk.Style(self).lookup("TEntry", "fieldbackground") or "white"
+        # Strip the Label border and internal padding so the ghost fits inside
+        # the Entry field height and does not spill below it.
+        # Label の枠と内側余白を除去し、ゴーストが Entry の高さに収まって
+        # 下にはみ出さないようにする。
+        self._scale_y_ph = tk.Label(
+            self.ent_scale_y_um, text="= X", fg="#8a8a8a", bg=field_bg,
+            bd=0, padx=0, pady=0, highlightthickness=0,
+        )
+        # Clicking the ghost text focuses the underlying Entry.
+        # ゴーストテキストのクリックで下の Entry にフォーカスを移す。
+        self._scale_y_ph.bind(
+            "<Button-1>", lambda _e: self.ent_scale_y_um.focus_set()
+        )
+        self.ent_scale_y_um.bind(
+            "<FocusIn>", self._refresh_scale_y_placeholder, add="+"
+        )
+        self.ent_scale_y_um.bind(
+            "<FocusOut>", self._refresh_scale_y_placeholder, add="+"
+        )
+        self._refresh_scale_y_placeholder()
         self.btn_apply_scale_sel = ttk.Button(
             scale_bar, text=_("選択ファイルに適用"),
             command=lambda: self.on_apply_scale_to_rows(selected_only=True),
@@ -1011,6 +1049,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             committed = self._fmt_num(value)
         rewrite_entries(((self.ent_scale_y_um, committed),))
         mark_entry_state(self.ent_scale_y_um, committed)
+        # Re-show the "= X" ghost when the field committed back to empty.
+        # 空欄に確定した場合は "= X" ゴーストを再表示する。
+        self._refresh_scale_y_placeholder()
         self.on_redraw_preview()
         return True
 
@@ -1026,6 +1067,31 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         y = self.scale_y_um if self.scale_y_um is not None else self.scale_um
         return self.scale_um, y
+
+    def _refresh_scale_y_placeholder(self, _event=None) -> None:
+        """
+        Show or hide the "= X" ghost on the Y (height) scale field.
+        Y（高さ）スケール欄の "= X" ゴーストの表示/非表示を切り替える。
+
+        The ghost is shown only while the Y field is empty and unfocused, so it
+        reads as placeholder text hinting that a blank Y follows X (square
+        scan) without ever contributing to ``Entry.get()``.
+        ゴーストは Y 欄が空かつ非フォーカスのときだけ表示し、空の Y が X に従う
+        （正方スキャン）ことを示すプレースホルダとして読ませる。Entry.get() には
+        一切影響しない。
+        """
+        entry = self.ent_scale_y_um
+        try:
+            focused = entry.focus_get() is entry
+            empty = entry.get() == ""
+        except tk.TclError:
+            return
+        if empty and not focused:
+            # Overlay the ghost at the left inner edge of the field.
+            # フィールド左内側にゴーストを重ねる。
+            self._scale_y_ph.place(x=4, rely=0.5, anchor="w")
+        else:
+            self._scale_y_ph.place_forget()
 
     def _bind_events(self) -> None:
         """
