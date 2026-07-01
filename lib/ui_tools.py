@@ -912,6 +912,16 @@ class ToolTip:
             This method updates UI state and does not return a value.
             UI 状態を更新するだけで戻り値はない。
         """
+        # A stale popup can linger if a previous <Leave> was missed (for
+        # example during rapid Enter/Leave crossings over a child widget
+        # overlaid on the target). Destroy it before creating a new one so
+        # tooltips never accumulate and stay stuck on screen.
+        # 直前の <Leave> を取りこぼすと古いポップアップが残ることがある（対象に
+        # 重ねた子ウィジェット上での高速な出入りなど）。新規作成前に破棄し、
+        # ツールチップが画面に溜まって消えなくなるのを防ぐ。
+        if self.tooltip is not None:
+            self.tooltip.destroy()
+            self.tooltip = None
         # Read absolute pointer position on the screen.
         # event.x_root / event.y_root: absolute mouse coordinates on screen.
         x = event.x_root
@@ -922,9 +932,13 @@ class ToolTip:
         # Remove window decorations for tooltip-like appearance.
         # 枠なし（タイトルバーを消してポップアップ風にする）
         self.tooltip.wm_overrideredirect(True)  # 枠なし（タイトルバーを消してポップアップ風にする）
-        # Place popup close to current cursor position.
-        # カーソルの位置に表示
-        self.tooltip.wm_geometry(f"+{x+0}+{y-5}")  # カーソルの位置に表示
+        # Offset the popup below-right of the cursor. Placing it directly under
+        # the pointer makes the popup itself trigger a <Leave> on the target,
+        # producing a hide/show flicker loop.
+        # ポップアップはカーソルの右下にずらして表示する。ポインタ直下に出すと
+        # ポップアップ自身が対象の <Leave> を誘発し、表示/非表示のちらつきが
+        # 起きるため。
+        self.tooltip.wm_geometry(f"+{x+12}+{y+18}")
         # Render tooltip text with simple bordered white label.
         # ポップアップの中身: 白背景・枠付きのラベル
         label = tk.Label(self.tooltip, text=self.text, background="white", relief="solid", borderwidth=1)
