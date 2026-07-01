@@ -136,6 +136,19 @@ def replace_log_tail(text_widget, msg, *, readonly: bool = True) -> None:
             _set_text_state(text_widget, "disabled")
 
 
+def clear_text_widget_log(text_widget, *, readonly: bool = True) -> None:
+    """Remove all text from a log Text widget, toggling readonly state as needed."""
+    if readonly:
+        _set_text_state(text_widget, "normal")
+    try:
+        text_widget.delete("1.0", tk.END)
+    except (tk.TclError, AttributeError):
+        pass
+    finally:
+        if readonly:
+            _set_text_state(text_widget, "disabled")
+
+
 def save_text_widget_log(parent, text_widget, *, initial_dir=None,
                          initialfile: str = "log.txt",
                          title=None, empty_warning: bool = False,
@@ -817,6 +830,10 @@ class LogMixin:
     def _log(self, msg) -> None:
         """ログテキストウィジェットに1行追加する。"""
         append_log(self.log_text, msg)
+
+    def _clear_log(self) -> None:
+        """ログテキストウィジェットの内容を全消去する。"""
+        clear_text_widget_log(self.log_text)
 
     def _log_exception(self, prefix: str, exc: BaseException) -> None:
         """例外をスタックトレース付きでログに出す。"""

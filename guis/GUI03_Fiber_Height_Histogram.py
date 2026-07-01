@@ -399,6 +399,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         self.btn_save_log = ttk.Button(log_btn_row, text=_("ログを保存"), command=self.on_save_log)
         self.btn_save_log.pack(side=tk.LEFT)
+        self.btn_clear_log = ttk.Button(log_btn_row, text=_("ログをクリア"), command=self._clear_log)
+        self.btn_clear_log.pack(side=tk.LEFT, padx=(4, 0))
 
         log_body = ttk.Frame(frm_log)
         log_body.pack(fill=tk.BOTH, expand=True, padx=6, pady=(0, 6))

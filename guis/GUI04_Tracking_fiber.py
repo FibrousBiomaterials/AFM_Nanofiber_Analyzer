@@ -601,6 +601,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.btn_save_log = ttk.Button(log_header, text=_("ログを保存"),
                                        command=self.on_save_log)
         self.btn_save_log.pack(side="left")
+        self.btn_clear_log = ttk.Button(log_header, text=_("ログをクリア"),
+                                        command=self._clear_log)
+        self.btn_clear_log.pack(side="left", padx=(4, 0))
 
         # Inner container for log text and scrollbar.
         log_inner = ttk.Frame(log_outer)
