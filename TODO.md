@@ -338,7 +338,7 @@ JOSS paper はリポジトリ直下に配置済み（`paper/` サブフォルダ
 
 リポジトリには既にサンプルスキャンがある（`testdata_tunicateCNF`、
 `testdata_higherplantTOC`、`testdata_Bruker_txt`、`testdata_Gwyddion_txt`、
-`testdata_Geyddion_gwy`）。`examples/` 構成は §0.1 方針により見送り。README の
+`testdata_Gwyddion_gwy`）。`examples/` 構成は §0.1 方針により見送り。README の
 CLI 例、JOSS paper の `Research impact statement`、テストスイートで再現可能性を
 説明する。
 

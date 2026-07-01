@@ -51,7 +51,7 @@ GWYDDION_ENGLISH_DATA = (
 # Gwyddion native file exported from the same scan as the text samples.
 # 上記テキスト試料と同じスキャンを保存した Gwyddion ネイティブファイル。
 REAL_GWY_DATA = (
-    PROJECT_ROOT / "testdata_Geyddion_gwy" / "_20250318-164122_T.ssp.gwy"
+    PROJECT_ROOT / "testdata_Gwyddion_gwy" / "_20250318-164122_T.ssp.gwy"
 )
 
 

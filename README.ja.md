@@ -379,8 +379,8 @@ python build.py
 
 代表入力は `testdata_tunicateCNF/` と `testdata_higherplantTOC/`（多列形式）、
 `testdata_Bruker_txt/`（Bruker 1 列形式）、`testdata_Gwyddion_txt/`
-（Gwyddion Export Text）、`testdata_Geyddion_gwy/`（ネイティブ `.gwy`。
-既存のディレクトリ綴りは互換性のため維持）に同梱されています。
+（Gwyddion Export Text）、`testdata_Gwyddion_gwy/`（ネイティブ `.gwy`）に
+同梱されています。
 
 ### Gwyddion 経由でのその他機種の対応
 

@@ -386,8 +386,7 @@ in the bundle as the spatial calibration. Inputs without a recorded scan size
 Representative inputs are bundled under `testdata_tunicateCNF/` and
 `testdata_higherplantTOC/` (multi-column scans), `testdata_Bruker_txt/`
 (single-column Bruker export), `testdata_Gwyddion_txt/` (Gwyddion Export
-Text), and `testdata_Geyddion_gwy/` (native `.gwy`; the existing directory
-spelling is retained for compatibility).
+Text), and `testdata_Gwyddion_gwy/` (native `.gwy`).
 
 ### Other instruments via Gwyddion
 
