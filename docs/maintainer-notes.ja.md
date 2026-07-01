@@ -36,16 +36,10 @@ python -m pip install pyinstaller babel
 
 | ファイル | 用途 |
 |---|---|
-| `01_setup_venv.bat` | Windows で `.venv` を作成し、pip を更新したうえで `pip install -e .`(依存関係は `pyproject.toml` から解決)を実行する。 |
-| `01_setup_venv.sh` | macOS / Linux で `.venv` を作成し、tkinter を確認し、pip を更新したうえで `pip install -e .`(依存関係は `pyproject.toml` から解決)を実行する。 |
-| `02_run_from_venv.bat` | Windows で `.venv\Scripts\python.exe` を使って `Main.py` を起動する。 |
-| `02_run_from_venv.sh` | macOS / Linux で `.venv/bin/python` を使って `Main.py` を起動する。 |
-| `11_setup_conda_env.bat` | Windows でプロジェクト内の prefix 環境 `.conda-env` を作成または再利用し、依存関係をインストールする。 |
-| `11_setup_conda_env.sh` | macOS / Linux で prefix 環境 `.conda-env`（`AFM_ANALYZER_CONDA_ENV_DIR` で変更可）を作成または再利用し、依存関係をインストールする。 |
-| `12_run_from_conda_env.bat` | Windows で `.conda-env` の Python を使って `Main.py` を起動する。 |
-| `12_run_from_conda_env.sh` | macOS / Linux で `.conda-env`（または `AFM_ANALYZER_CONDA_ENV_DIR` の指定先）の Python を使って `Main.py` を起動する。 |
-| `91_setup_anaconda.bat` / `91_setup_anaconda.sh` | 既存 Anaconda / Miniconda 環境へ直接依存関係を入れる旧方式。新規利用は非推奨。 |
-| `92_run_from_anaconda.bat` / `92_run_from_anaconda.sh` | 旧方式の Anaconda / Miniconda Python を使って `Main.py` を起動する。 |
+| `run_venv.bat` | Windows 用の冪等ランチャー。起動ごとに軽量チェックを行い、`.venv\Scripts\python.exe` が無ければ壊れた `.venv` を削除してクリーン再構築、マーカー `.venv\.afm_setup_done` だけ無ければ既存 `.venv` へ再インストール、両方あればそのまま起動する。セットアップは `.venv` 作成→pip 更新→`pip install -e .`(依存は `pyproject.toml` から解決)→マーカー書き込みの順。 |
+| `run_venv.sh` | macOS / Linux 用の冪等ランチャー。起動ごとに軽量チェックを行い、`.venv/bin/python` が無ければ壊れた `.venv` を削除して tkinter 確認込みでクリーン再構築、マーカー `.venv/.afm_setup_done` だけ無ければ既存 `.venv` へ再インストール、両方あればそのまま起動する。 |
+| `run_conda.bat` | Windows 用の冪等ランチャー。conda を検出したうえで軽量チェックを行い、`.conda-env\python.exe` が無ければ prefix 環境 `.conda-env` を削除して再作成、マーカー `.conda-env\.afm_setup_done` だけ無ければ既存環境へ再インストール、両方あれば `conda run` で `Main.py` を起動する。 |
+| `run_conda.sh` | macOS / Linux 用の冪等ランチャー。conda を検出したうえで軽量チェックを行い、`.conda-env/bin/python`（既定。`AFM_ANALYZER_CONDA_ENV_DIR` で変更可）が無ければ prefix 環境を削除して再作成、マーカーだけ無ければ既存環境へ再インストール、両方あれば `conda run` で `Main.py` を起動する。 |
 
 Windows の `.bat` ファイルは、実行されるファイル本体を ASCII のみにしてください。
 UTF-8 で保存した日本語 `REM` コメントでも、`cmd.exe` がシステム既定のコードページで

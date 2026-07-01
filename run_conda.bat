@@ -1,14 +1,14 @@
 @echo off
-REM Create or update a dedicated conda environment for AFM Nanofiber Analyzer.
-REM The environment is created in the project folder as .conda-env.
+REM Idempotent launcher for AFM Nanofiber Analyzer using a dedicated conda env.
+REM First run creates the .conda-env prefix and installs the package; later runs just start the app.
+REM If .conda-env is later damaged, the launcher repairs it automatically (see below).
 setlocal
 cd /d "%~dp0"
 
 set "ENV_DIR=%~dp0.conda-env"
 set "CONDA_CMD="
 
-echo [1/4] Searching for conda...
-
+REM ---- Locate conda (needed both to create the env and to run from it) ----
 REM Prefer CONDA_EXE when running from Anaconda Prompt because it points to the active installation.
 if defined CONDA_EXE (
     if exist "%CONDA_EXE%" (
@@ -54,33 +54,51 @@ exit /b 1
 echo Found:
 echo %CONDA_CMD%
 
-echo.
-echo [2/4] Creating or reusing conda environment:
-echo %ENV_DIR%
-REM conda run is used instead of activation so this script works from plain cmd.exe.
-call "%CONDA_CMD%" run -p "%ENV_DIR%" python --version >nul 2>nul
-if errorlevel 1 (
-    call "%CONDA_CMD%" create -y -p "%ENV_DIR%" python=3.11 pip
-    if errorlevel 1 (
-        echo Failed to create conda environment.
-        pause
-        exit /b 1
-    )
-) else (
-    echo Environment already exists.
+REM Health check (cheap file-existence tests only):
+REM   - env interpreter missing -> clean rebuild of the prefix
+REM   - setup marker missing     -> reinstall into the existing env
+REM   - both present             -> run straight away
+REM The marker lives inside the env, so deleting the whole folder forces a rebuild.
+if not exist "%ENV_DIR%\python.exe" goto rebuild
+if not exist "%ENV_DIR%\.afm_setup_done" goto reinstall
+goto run
+
+:rebuild
+REM The env interpreter is missing, so remove any leftover prefix and recreate it.
+REM A fresh prefix avoids the case where a deleted package still has surviving
+REM dist-info metadata, which would make pip skip reinstalling it.
+if exist "%ENV_DIR%" (
+    echo Removing the incomplete conda environment for a clean rebuild...
+    rmdir /s /q "%ENV_DIR%"
 )
 
 echo.
-echo [3/4] Upgrading pip...
+echo Creating conda environment:
+echo %ENV_DIR%
+call "%CONDA_CMD%" create -y -p "%ENV_DIR%" python=3.11 pip
+if errorlevel 1 (
+    echo Failed to create conda environment.
+    pause
+    exit /b 1
+)
+
+echo.
+echo Upgrading pip...
 call "%CONDA_CMD%" run -p "%ENV_DIR%" python -m pip install --upgrade pip
 if errorlevel 1 (
     echo Failed to upgrade pip.
     pause
     exit /b 1
 )
+goto install
 
+:reinstall
+echo The setup marker is missing; reinstalling into the existing conda environment...
+goto install
+
+:install
 echo.
-echo [4/4] Installing the package and dependencies...
+echo Installing the package and dependencies...
 REM Editable install resolves dependencies from pyproject.toml (the single source
 REM of truth) and registers the afm-analyzer / afm-analyzer-cli console commands.
 call "%CONDA_CMD%" run -p "%ENV_DIR%" python -m pip install -e .
@@ -90,9 +108,20 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM Record a successful setup so later launches skip straight to running.
+> "%ENV_DIR%\.afm_setup_done" echo ok
 echo.
 echo Setup completed.
 echo Conda environment:
 echo %ENV_DIR%
-echo You can now start the application with 12_run_from_conda_env.bat.
+
+:run
+call "%CONDA_CMD%" run -p "%ENV_DIR%" python "%~dp0Main.py"
+if errorlevel 1 (
+    echo.
+    echo Failed to start the application.
+    echo If the environment is broken, delete the .conda-env folder and run this file again.
+    pause
+    exit /b 1
+)
 exit /b 0

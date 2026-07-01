@@ -56,18 +56,10 @@ AFM_Nanofiber_Analyzer/
 |-- pyproject.toml
 |-- requirements.txt
 |-- requirements.lock.txt
-|-- 01_setup_venv.bat
-|-- 02_run_from_venv.bat
-|-- 11_setup_conda_env.bat
-|-- 12_run_from_conda_env.bat
-|-- 91_setup_anaconda.bat
-|-- 92_run_from_anaconda.bat
-|-- 01_setup_venv.sh
-|-- 02_run_from_venv.sh
-|-- 11_setup_conda_env.sh
-|-- 12_run_from_conda_env.sh
-|-- 91_setup_anaconda.sh
-|-- 92_run_from_anaconda.sh
+|-- run_venv.bat
+|-- run_conda.bat
+|-- run_venv.sh
+|-- run_conda.sh
 |-- guis/
 |   |-- GUI01_Image_Preprocessor.py
 |   |-- GUI02_PlotProfiler.py
@@ -196,10 +188,10 @@ distributions:
 
 ### Recommended: use a dedicated venv
 
-Clone the repository, move into the project root, and run the venv helper
-scripts for your operating system. This is the recommended setup because it
-keeps AFM Nanofiber Analyzer dependencies separate from packages already
-installed in Anaconda or other Python environments.
+Clone the repository, move into the project root, and run the venv launcher for
+your operating system. This is the recommended setup because it keeps AFM
+Nanofiber Analyzer dependencies separate from packages already installed in
+Anaconda or other Python environments.
 
 ```powershell
 git clone https://github.com/q9-droid/AFM_Nanofiber_Analyzer.git
@@ -209,26 +201,31 @@ cd AFM_Nanofiber_Analyzer
 Windows:
 
 ```powershell
-.\01_setup_venv.bat
-.\02_run_from_venv.bat
+.\run_venv.bat
 ```
 
 macOS or Linux:
 
 ```bash
-chmod +x 01_setup_venv.sh 02_run_from_venv.sh
-./01_setup_venv.sh
-./02_run_from_venv.sh
+chmod +x run_venv.sh
+./run_venv.sh
 ```
 
-The setup scripts create the `.venv`, upgrade `pip`, and install the project in
-editable mode (`pip install -e .`), so all dependencies come from
-`pyproject.toml` (the single source of truth) and the `afm-analyzer` /
-`afm-analyzer-cli` commands are registered. The run scripts launch `Main.py`
-from that `.venv`. Developers and reviewers can reproduce the same setup
-without the scripts using the editable-install commands below; for an exact,
-pinned version set, install `requirements.lock.txt` instead (see Requirements
-above).
+`run_venv` is a single, idempotent launcher. The first run creates the `.venv`,
+upgrades `pip`, and installs the project in editable mode (`pip install -e .`),
+so all dependencies come from `pyproject.toml` (the single source of truth) and
+the `afm-analyzer` / `afm-analyzer-cli` commands are registered. It then starts
+`Main.py`, and every later run detects the completed setup and launches straight
+from that `.venv` without reinstalling. If `.venv` is later damaged — for
+example, files are deleted by accident — the next run repairs it automatically:
+a missing interpreter triggers a clean rebuild (the broken `.venv` is removed
+first), and a missing setup marker triggers a reinstall. This quick check is
+file-existence only, so it does not slow a healthy launch; if a subtler breakage
+slips past it, delete the `.venv` folder and run the launcher again to force a
+full rebuild. Developers and reviewers can reproduce
+the same setup without the launcher using the editable-install commands below;
+for an exact, pinned version set, install `requirements.lock.txt` instead (see
+Requirements above).
 
 ### Anaconda or Miniconda
 
@@ -237,29 +234,27 @@ is not recommended. Pre-installed binary packages such as NumPy, Matplotlib,
 SciPy, and scikit-image may conflict with the versions required by this
 application.
 
-If you need to use Anaconda or Miniconda, use the conda environment helper
-scripts. They create a dedicated prefix environment under `.conda-env/` in the
-project folder and run the application from that environment instead of
-modifying `base`.
+If you need to use Anaconda or Miniconda, use the conda launcher. Like
+`run_venv`, it is a single, idempotent launcher: the first run creates a
+dedicated prefix environment under `.conda-env/` in the project folder and
+installs the package into it, and every later run launches the application from
+that environment instead of modifying `base`. It self-repairs the same way as
+`run_venv`: a missing env interpreter triggers a clean rebuild of `.conda-env`,
+and a missing setup marker triggers a reinstall; delete the `.conda-env` folder
+and rerun to force a full rebuild.
 
 Windows:
 
 ```powershell
-.\11_setup_conda_env.bat
-.\12_run_from_conda_env.bat
+.\run_conda.bat
 ```
 
 macOS or Linux:
 
 ```bash
-chmod +x 11_setup_conda_env.sh 12_run_from_conda_env.sh
-./11_setup_conda_env.sh
-./12_run_from_conda_env.sh
+chmod +x run_conda.sh
+./run_conda.sh
 ```
-
-The `91_setup_anaconda.*` and `92_run_from_anaconda.*` scripts are kept for
-compatibility with older distributions, but they should not be used for new
-setups because they install into an existing Anaconda environment.
 
 ### Localization
 

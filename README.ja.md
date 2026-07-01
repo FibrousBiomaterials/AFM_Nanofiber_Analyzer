@@ -54,18 +54,10 @@ AFM_Nanofiber_Analyzer/
 |-- pyproject.toml
 |-- requirements.txt
 |-- requirements.lock.txt
-|-- 01_setup_venv.bat
-|-- 02_run_from_venv.bat
-|-- 11_setup_conda_env.bat
-|-- 12_run_from_conda_env.bat
-|-- 91_setup_anaconda.bat
-|-- 92_run_from_anaconda.bat
-|-- 01_setup_venv.sh
-|-- 02_run_from_venv.sh
-|-- 11_setup_conda_env.sh
-|-- 12_run_from_conda_env.sh
-|-- 91_setup_anaconda.sh
-|-- 92_run_from_anaconda.sh
+|-- run_venv.bat
+|-- run_conda.bat
+|-- run_venv.sh
+|-- run_conda.sh
 |-- guis/
 |   |-- GUI01_Image_Preprocessor.py
 |   |-- GUI02_PlotProfiler.py
@@ -195,7 +187,7 @@ python check.py --pin      # 全検査とテスト合格後に requirements.lock
 ### 推奨: 専用 venv を使う
 
 リポジトリを clone し、プロジェクトルートへ移動してから、使用 OS に応じた
-venv 補助スクリプトを実行します。この方法は、AFM Nanofiber Analyzer の
+venv ランチャーを実行します。この方法は、AFM Nanofiber Analyzer の
 依存関係を Anaconda などの既存環境から分離できるため推奨です。
 
 ```powershell
@@ -206,24 +198,28 @@ cd AFM_Nanofiber_Analyzer
 Windows:
 
 ```powershell
-.\01_setup_venv.bat
-.\02_run_from_venv.bat
+.\run_venv.bat
 ```
 
 macOS または Linux:
 
 ```bash
-chmod +x 01_setup_venv.sh 02_run_from_venv.sh
-./01_setup_venv.sh
-./02_run_from_venv.sh
+chmod +x run_venv.sh
+./run_venv.sh
 ```
 
-セットアップスクリプトは `.venv` を作成し、`pip` を更新したうえで、プロジェクトを
-編集可能モード(`pip install -e .`)でインストールします。これにより依存関係は
-すべて単一の真実の源である `pyproject.toml` から解決され、`afm-analyzer` /
-`afm-analyzer-cli` コマンドが登録されます。実行スクリプトはその `.venv` から
-`Main.py` を起動します。開発者やレビュアーは、スクリプトを使わずに後述の
-編集可能インストールのコマンドで同じ環境を再現できます。バージョンを厳密に
+`run_venv` は単一の冪等ランチャーです。初回実行時に `.venv` を作成し、`pip` を
+更新したうえで、プロジェクトを編集可能モード(`pip install -e .`)でインストール
+します。これにより依存関係はすべて単一の真実の源である `pyproject.toml` から
+解決され、`afm-analyzer` / `afm-analyzer-cli` コマンドが登録されます。続けて
+`Main.py` を起動し、2 回目以降は完了済みのセットアップを検出して再インストール
+せずにその `.venv` から直接起動します。誤操作などで後から `.venv` が壊れた場合は、
+次回起動時に自動修復します。インタプリタが失われていればクリーン再構築（壊れた
+`.venv` を先に削除）し、セットアップマーカーだけが失われていれば再インストール
+します。この判定はファイルの有無だけを見るため、正常時の起動は遅くなりません。
+判定をすり抜ける軽微な破損があった場合は、`.venv` フォルダを削除してからランチャー
+を再実行すればフル再構築されます。開発者やレビュアーは、ランチャーを使わずに
+後述の編集可能インストールのコマンドで同じ環境を再現できます。バージョンを厳密に
 固定したい場合は、代わりに `requirements.lock.txt` をインストールしてください
 (上記「要件」を参照)。
 
@@ -234,28 +230,26 @@ chmod +x 01_setup_venv.sh 02_run_from_venv.sh
 バイナリ依存パッケージが、このアプリケーションで必要なバージョンと競合する
 可能性があります。
 
-Anaconda または Miniconda を使う場合は、conda 環境用補助スクリプトを使ってください。
-これらのスクリプトはプロジェクトフォルダ内の `.conda-env/` に専用の prefix
-環境を作成し、`base` を変更せずにその環境からアプリケーションを起動します。
+Anaconda または Miniconda を使う場合は、conda ランチャーを使ってください。
+`run_venv` と同様に単一の冪等ランチャーで、初回実行時にプロジェクトフォルダ内の
+`.conda-env/` へ専用の prefix 環境を作成してパッケージをインストールし、2 回目
+以降は `base` を変更せずにその環境からアプリケーションを起動します。`run_venv`
+と同様に自動修復し、環境のインタプリタが失われていれば `.conda-env` をクリーン
+再構築、セットアップマーカーだけが失われていれば再インストールします。フル再構築
+したい場合は `.conda-env` フォルダを削除してから再実行してください。
 
 Windows:
 
 ```powershell
-.\11_setup_conda_env.bat
-.\12_run_from_conda_env.bat
+.\run_conda.bat
 ```
 
 macOS または Linux:
 
 ```bash
-chmod +x 11_setup_conda_env.sh 12_run_from_conda_env.sh
-./11_setup_conda_env.sh
-./12_run_from_conda_env.sh
+chmod +x run_conda.sh
+./run_conda.sh
 ```
-
-`91_setup_anaconda.*` と `92_run_from_anaconda.*` は旧配布物との互換性のために
-残していますが、既存 Anaconda 環境へ依存関係をインストールする旧方式のため、
-新規セットアップでは使わないでください。
 
 ### ローカライズ
 
