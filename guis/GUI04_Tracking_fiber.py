@@ -563,7 +563,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ttk.Button(afm_header1, text=_("画像を保存"),
                    command=self._export_overview).pack(side="left", padx=(10, 4))
         ttk.Button(
-            afm_header1, text=_("個別表示を開く"),
+            afm_header1, text=_("個別表示"),
             command=self._open_detail_window,
         ).pack(side="left", padx=4)
 

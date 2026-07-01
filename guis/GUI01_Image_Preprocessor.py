@@ -719,7 +719,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
         self._refresh_scale_y_placeholder()
         self.btn_apply_scale_sel = ttk.Button(
-            scale_bar, text=_("選択ファイルに適用"),
+            scale_bar, text=_("適用"),
             command=lambda: self.on_apply_scale_to_rows(selected_only=True),
         )
         self.btn_apply_scale_sel.pack(side="left", padx=2)
@@ -1286,7 +1286,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             if n_unset:
                 self._log(
                     _("スケール（画像の実寸 µm）が未設定のファイルがあります。"
-                      "「選択ファイルに適用」または「スケール表(CSV)読込」で設定してください。")
+                      "「適用」または「スケール表(CSV)読込」で設定してください。")
                 )
         self._update_controls_state()
         self.on_redraw_preview()
