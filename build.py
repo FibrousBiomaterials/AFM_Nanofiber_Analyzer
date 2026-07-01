@@ -17,6 +17,14 @@ imports but not in pip package requirements.
 意図的に使わない。PyInstaller には `tkinter.colorchooser` のような
 標準ライブラリのサブモジュールやプラグイン内だけの import も必要であり、
 それらは pip パッケージ要件ではなくソースコード上の import に現れる。
+
+This only governs what PyInstaller collects, not how the build environment is
+provisioned. For a reproducible bundle, install `requirements.lock.txt` into the
+build environment before running this script (see README, "Build a standalone
+Windows bundle").
+これは PyInstaller が収集する対象を規定するだけで、ビルド環境の用意方法とは
+別である。再現性のあるバンドルには、本スクリプト実行前に `requirements.lock.txt`
+をビルド環境へインストールする（README「Build a standalone Windows bundle」を参照）。
 """
 
 from __future__ import annotations
