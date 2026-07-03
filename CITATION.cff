@@ -3,7 +3,8 @@ cff-version: "1.2.0"
 # ===================================================================
 # CITATION.cff — AFM Nanofiber Analyzer
 # GitHubにこのファイルを置くと「Cite this repository」ボタンが表示される
-# Zenodoと連携すると DOI も自動的に埋め込まれる
+# Add doi and date-released after the first archived release.
+# 初回リリースのアーカイブ後に doi と date-released を追加する。
 # ===================================================================
 
 message: >
@@ -23,14 +24,9 @@ abstract: >
 
 version: "1.0.0"          # リリース時にバージョンを更新する
 
-date-released: "2026-01-01"   # 実際のリリース日に変更する
-
 license: MIT
 
 repository-code: "https://github.com/q9-droid/AFM_Nanofiber_Analyzer"
-
-doi: "10.5281/zenodo.xxxxxxx"
-# ↑ Zenodo連携後に発行されたDOIに変更する
 
 url: "https://github.com/q9-droid/AFM_Nanofiber_Analyzer"
 

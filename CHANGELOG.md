@@ -8,11 +8,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [1.0.0] - TBD
-
-First public release, prepared for archival on Zenodo and submission to the
-Journal of Open Source Software (JOSS). Replace the `TBD` date with the actual
-release date when the version is tagged.
+Changes prepared for the first public release, subsequent archival on Zenodo,
+and submission to the Journal of Open Source Software (JOSS).
 
 ### Added
 
@@ -43,5 +40,4 @@ release date when the version is tagged.
   `SUPPORT.md`, maintainer notes, docstring templates, and a JOSS paper
   (`paper.md`).
 
-[Unreleased]: https://github.com/q9-droid/AFM_Nanofiber_Analyzer/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/q9-droid/AFM_Nanofiber_Analyzer/releases/tag/v1.0.0
+[Unreleased]: https://github.com/q9-droid/AFM_Nanofiber_Analyzer/commits/main

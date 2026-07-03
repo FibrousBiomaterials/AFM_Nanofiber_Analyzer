@@ -1,6 +1,5 @@
 # AFM Nanofiber Analyzer
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.xxxxxxx.svg)](https://doi.org/10.5281/zenodo.xxxxxxx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![tests](https://github.com/q9-droid/AFM_Nanofiber_Analyzer/actions/workflows/test.yml/badge.svg)](https://github.com/q9-droid/AFM_Nanofiber_Analyzer/actions/workflows/test.yml)
@@ -710,8 +709,6 @@ If you use this software in your research, please cite it as:
   title     = {AFM Nanofiber Analyzer},
   year      = {2026},
   version   = {1.0.0},
-  publisher = {Zenodo},
-  doi       = {10.5281/zenodo.xxxxxxx},
   url       = {https://github.com/q9-droid/AFM_Nanofiber_Analyzer}
 }
 ```
