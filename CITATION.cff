@@ -52,25 +52,25 @@ authors:
     given-names: "Shingo"
     affiliation: "Kyoto University"
     orcid: "https://orcid.org/0000-0002-5228-9964"
-    # role: アルゴリズム設計・Library実装・GUIシステム設計・実装（guis/, Main.py, build.py）
+    # role: Software (feature implementation, packaging, release preparation, documentation), Validation
 
   - family-names: "Mayumi"
     given-names: "Keita"
     affiliation: "Kyoto University"
     orcid: "https://orcid.org/0009-0003-2304-7549"
-    # role: アルゴリズム設計・Library実装   
+    # role: Software (feature implementation), Validation  
 
   - family-names: "Ito"
     given-names: "Tomoki"
     affiliation: "The University of Tokyo"
     orcid: "https://orcid.org/0000-0002-2473-7117"
-    # role: アルゴリズム設計・Library実装
+    # role: Software (core implementation)
 
   - family-names: "Kobayashi"
     given-names: "Kayoko"
     affiliation: "Kyoto University"
     orcid: "https://orcid.org/0000-0003-0459-7900"
-    # role: アルゴリズム設計・Library実装
+    # role: Conceptualization, Software (initial implementation)
 # -------------------------------------------------------------------
 # 関連論文・先行リポジトリがあれば記載する
 # -------------------------------------------------------------------
