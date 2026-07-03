@@ -204,8 +204,12 @@ over time.
 
 The package is designed for near-term reuse in nanocellulose and related
 materials workflows where researchers need to compare fiber height, length, and
-kink distributions across many AFM scans, as in the authors' recent study of
-the cross-sectional dimensions of tunicate nanocelluloses [@Mayumi2026]. Its
+kink distributions across many AFM scans. Its background-correction and
+automated fiber-detection and height-measurement stages grew out of the
+precursor scripts the authors used to obtain AFM fiber heights in a recent study
+of the cross-sectional dimensions of tunicate nanocelluloses [@Mayumi2026];
+packaging and hardening that code is what makes such analyses reproducible and
+reusable beyond the original study. Its
 impact is not limited to an
 interactive desktop GUI: the shared CLI and library layers allow the same
 analysis to be scripted for batch studies, embedded in other Python workflows,
