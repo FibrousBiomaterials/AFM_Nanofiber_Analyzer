@@ -77,8 +77,9 @@ SciPy [@Virtanen2020], scikit-image [@vanderWalt2014],
 OpenCV [@Bradski2000], lmfit [@Newville2014], and Matplotlib [@Hunter2007].
 It packages the background-calibration, segmentation, skeletonization, and
 kink-detection stages that were previously implemented as ad hoc scripts
-[@Ito_afm_image] into a maintained, tested library with both interactive and
-batch front ends. Background calibration offers four interchangeable methods
+[@Ito_afm_image] — already used to analyze AFM images of nanocellulose in
+earlier studies [@Ito2022; @Ito2025] — into a maintained, tested library with
+both interactive and batch front ends. Background calibration offers four interchangeable methods
 (inpainting, morphological top-hat, and 1D/2D spline surfaces) and was tuned
 for, but is not limited to, height images exported by a Shimadzu SPM-9600
 instrument. The shared pipeline, the validated bundle contract, and an

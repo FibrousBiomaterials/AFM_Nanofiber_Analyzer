@@ -715,8 +715,9 @@ If you use this software in your research, please cite it as:
 
 ### Related publications
 
-The following studies by the authors illustrate the AFM-based nanofiber
-analyses that this toolkit supports:
+The precursor scripts that this toolkit packages and extends were used in the
+following studies by the authors, which illustrate the AFM-based nanofiber
+analyses it supports:
 
 - Ito, T., Daicho, K., Fujisawa, S., Saito, T., & Kobayashi, K. (2022).
   Atomic-scale dents on cellulose nanofibers: the origin of diverse defects in
