@@ -42,6 +42,9 @@ desktop.ini
 .lang_preference
 
 # ===== Internal documentation (not for publication) =====
+# Keep the local publication and submission checklist out of the repository.
+/TODO.md
+
 # Co-author onboarding guide distributed privately, not published in the public
 # repository. Excluded so it is not accidentally committed; share it via email
 # or a shared drive instead of relying on git clone.
