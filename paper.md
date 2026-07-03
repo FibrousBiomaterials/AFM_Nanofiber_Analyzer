@@ -76,8 +76,9 @@ pipeline built on the scientific Python stack — NumPy [@Harris2020],
 SciPy [@Virtanen2020], scikit-image [@vanderWalt2014],
 OpenCV [@Bradski2000], lmfit [@Newville2014], and Matplotlib [@Hunter2007].
 It packages the background-calibration, segmentation, skeletonization, and
-kink-detection stages that were previously implemented as ad hoc scripts
-[@Ito_afm_image] — already used to analyze AFM images of nanocellulose in
+kink-detection stages that were previously implemented as project-specific
+research scripts [@Ito_afm_image] — already used to analyze AFM images of
+nanocellulose in
 earlier studies [@Ito2022; @Ito2025] — into a maintained, tested library with
 both interactive and batch front ends. Background calibration offers four interchangeable methods
 (inpainting, morphological top-hat, and 1D/2D spline surfaces) and was tuned
