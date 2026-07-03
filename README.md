@@ -713,12 +713,33 @@ If you use this software in your research, please cite it as:
 }
 ```
 
+### Related publications
+
+The following studies by the authors illustrate the AFM-based nanofiber
+analyses that this toolkit supports:
+
+- Ito, T., Daicho, K., Fujisawa, S., Saito, T., & Kobayashi, K. (2022).
+  Atomic-scale dents on cellulose nanofibers: the origin of diverse defects in
+  sustainable fibrillar materials. *Nanoscale Horizons*, 7, 1186–1191.
+  <https://doi.org/10.1039/D2NH00355D>
+- Ito, T., Daicho, K., Fujisawa, S., Saito, T., & Kobayashi, K. (2025).
+  Defectless and uniform single-crystallite dispersions of sustainable wood
+  nanocellulose with a regulated right-handed twist periodicity.
+  *Nano Letters*, 25, 6085–6091.
+  <https://doi.org/10.1021/acs.nanolett.4c06483>
+- Mayumi, K., Ito, T., Kiyoto, S., Wada, M., & Kobayashi, K. (2026).
+  Cross-sectional dimensions of tunicate nanocelluloses: broad size
+  distribution and their origins. *Cellulose*, 33, 3903–3914.
+  <https://doi.org/10.1007/s10570-026-07059-3>
+
 ## Authors
 
 | Role | Name |
 |---|---|
-| Analysis algorithms and AFM-domain methods | Shingo Kiyoto, Keita Mayumi, Tomoki Ito, Kayoko Kobayashi |
-| GUI and application packaging | Shingo Kiyoto |
+| Packaging, Release preparation, Documentation | Shingo Kiyoto |
+| Feature implementation, Validation | Shingo Kiyoto, Keita Mayumi |
+| Core implementation | Tomoki Ito |
+| Conceptualization, Software initial implementation | Kayoko Kobayashi |
 
 ## License
 

@@ -82,12 +82,65 @@ references:
         given-names: "Tomoki"
     url: "https://github.com/terio0819/Image-processing-of-AFM-image"
 
-  # 関連論文がある場合はこのブロックを追加する
-  # - type: article
-  #   title: "（論文タイトル）"
-  #   authors:
-  #     - family-names: "..."
-  #       given-names: "..."
-  #   journal: "（雑誌名）"
-  #   year: 20XX
-  #   doi: "10.xxxx/xxxxxxx"
+  - type: article
+    title: "Atomic-scale dents on cellulose nanofibers: the origin of diverse defects in sustainable fibrillar materials"
+    authors:
+      - family-names: "Ito"
+        given-names: "Tomoki"
+      - family-names: "Daicho"
+        given-names: "Kazuho"
+      - family-names: "Fujisawa"
+        given-names: "Shuji"
+      - family-names: "Saito"
+        given-names: "Tsuguyuki"
+      - family-names: "Kobayashi"
+        given-names: "Kayoko"
+    journal: "Nanoscale Horizons"
+    year: 2022
+    volume: 7
+    issue: "10"
+    start: 1186
+    end: 1191
+    doi: "10.1039/D2NH00355D"
+
+  - type: article
+    title: "Defectless and Uniform Single-Crystallite Dispersions of Sustainable Wood Nanocellulose with a Regulated Right-Handed Twist Periodicity"
+    authors:
+      - family-names: "Ito"
+        given-names: "Tomoki"
+      - family-names: "Daicho"
+        given-names: "Kazuho"
+      - family-names: "Fujisawa"
+        given-names: "Shuji"
+      - family-names: "Saito"
+        given-names: "Tsuguyuki"
+      - family-names: "Kobayashi"
+        given-names: "Kayoko"
+    journal: "Nano Letters"
+    year: 2025
+    volume: 25
+    issue: "15"
+    start: 6085
+    end: 6091
+    doi: "10.1021/acs.nanolett.4c06483"
+
+  - type: article
+    title: "Cross-sectional dimensions of tunicate nanocelluloses: broad size distribution and their origins"
+    authors:
+      - family-names: "Mayumi"
+        given-names: "Keita"
+      - family-names: "Ito"
+        given-names: "Tomoki"
+      - family-names: "Kiyoto"
+        given-names: "Shingo"
+      - family-names: "Wada"
+        given-names: "Masahisa"
+      - family-names: "Kobayashi"
+        given-names: "Kayoko"
+    journal: "Cellulose"
+    year: 2026
+    volume: 33
+    issue: "7"
+    start: 3903
+    end: 3914
+    doi: "10.1007/s10570-026-07059-3"

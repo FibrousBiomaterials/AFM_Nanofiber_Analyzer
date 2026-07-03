@@ -60,8 +60,10 @@ laboratory users who do not maintain a Python environment.
 Researchers studying cellulose nanofibers and related nanomaterials routinely
 acquire large numbers of AFM scans and need fiber-level descriptors — height,
 length, branching, and kink angle distributions — to characterize how
-processing conditions affect morphology. General-purpose scanning-probe
-software such as Gwyddion [@Necas2012] is excellent for image-level
+processing conditions affect morphology. Kinks and related fiber-level defects
+are of particular interest in this field because they govern the structural
+quality of nanocellulose materials [@Ito2022; @Ito2025]. General-purpose
+scanning-probe software such as Gwyddion [@Necas2012] is excellent for image-level
 visualization, leveling, and grain analysis, but it does not provide the
 fiber-centric skeleton tracing, kink detection, and grouped statistical
 comparison that this domain requires. As a result, these measurements are often
@@ -201,7 +203,9 @@ over time.
 
 The package is designed for near-term reuse in nanocellulose and related
 materials workflows where researchers need to compare fiber height, length, and
-kink distributions across many AFM scans. Its impact is not limited to an
+kink distributions across many AFM scans, as in the authors' recent study of
+the cross-sectional dimensions of tunicate nanocelluloses [@Mayumi2026]. Its
+impact is not limited to an
 interactive desktop GUI: the shared CLI and library layers allow the same
 analysis to be scripted for batch studies, embedded in other Python workflows,
 or exported to standard NumPy and CSV formats for downstream statistics. The
