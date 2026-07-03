@@ -21,6 +21,7 @@ authors:
   - name: Kayoko Kobayashi
     orcid: 0000-0003-0459-7900
     affiliation: 1
+    corresponding: true
 affiliations:
   - name: Kyoto University, Japan
     index: 1
