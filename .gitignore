@@ -5,6 +5,7 @@ __pycache__/
 
 # ===== Test and tool caches =====
 .pytest_cache/
+.ruff_cache/
 .tmp/
 
 # ===== Virtual environments =====
@@ -61,8 +62,8 @@ guis/afmpp_settings.json
 # ===== Sample data =====
 # Bruker NanoScope sample scans are 33 MB each; only one representative file
 # is version-controlled to keep clone size reasonable.
-Bruker_testdata/*
-!Bruker_testdata/NDTOC250306.000.txt
+testdata_Bruker_txt/*
+!testdata_Bruker_txt/NDTOC250306.000.txt
 
 # ===== Analysis outputs =====
 # Exclude large or sensitive analysis results unless they are sample data
@@ -76,4 +77,25 @@ Bruker_testdata/*
 *.b2z
 *_param.json
 *.npy
+# cli.py "export" writes one .npz archive per bundle by default.
+*.npz
+# Leftovers from interrupted atomic writes (lib/pipeline.py, lib/blosc2_io.py).
+*.tmp
+# Per-file CSV exports from GUI02/GUI03/GUI04 and cli.py measure/heights.
+*_fibers.csv
+*_profile.csv
+*_heights*.csv
+/histogram_stats_*.csv
+/histogram_log_*.txt
+/heights.csv
+# cli.py "export --format csv" writes one <stem>_<key>.csv per bundle array.
+*_original.csv
+*_calibrated.csv
+*_binarized.csv
+*_skeletonized.csv
+*_bp.csv
+*_ep.csv
+*_kp.csv
+*_dp.csv
+*_ka.csv
 buildold.py
