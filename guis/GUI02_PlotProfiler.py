@@ -1405,9 +1405,10 @@ class App(tk.Tk, UnconfirmedEntryMixin):
                 bundle = load_bundle(path, keys=["calibrated"])
                 data = bundle["calibrated"]
             elif path.endswith(".npy"):
-                # Try standard NumPy first, then Blosc2-compressed arrays.
+                # User-selected .npy files may be untrusted, so never execute
+                # pickled object payloads; then try the Blosc2 fallback.
                 try:
-                    data = np.load(path, allow_pickle=True)
+                    data = np.load(path, allow_pickle=False)
                 except Exception:
                     data = load_blosc2(path)
             elif path.lower().endswith(GWY_EXT):
