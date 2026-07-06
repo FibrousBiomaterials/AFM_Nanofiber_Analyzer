@@ -236,7 +236,4 @@ software and its documentation.
 This work was supported by JST CREST, Japan (Grant Number JPMJCR22L3) and
 JSPS KAKENHI grants (21H04733, 26K23040).
 
-<!-- Authors: add instrument facilities and personal acknowledgements here
-before submission. -->
-
 # References
