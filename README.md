@@ -747,6 +747,9 @@ analyses it supports:
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for
 details.
 
+The overview artwork in `assets/afm_symbol.png` was generated with ChatGPT
+(OpenAI).
+
 ## Acknowledgements
 
 The background calibration workflow includes methods developed for Shimadzu
