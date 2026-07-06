@@ -382,6 +382,10 @@ Representative inputs are bundled under `testdata_tunicateCNF/` and
 (single-column Bruker export), `testdata_Gwyddion_txt/` (Gwyddion Export
 Text), and `testdata_Gwyddion_gwy/` (native `.gwy`).
 
+These example AFM datasets were acquired experimentally by the project authors
+and are included as reproducible example inputs. The authors confirm that they
+have permission to redistribute these datasets.
+
 ### Other instruments via Gwyddion
 
 Files from instruments without a layout above (Asylum Research, JPK, Park

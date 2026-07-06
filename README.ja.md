@@ -375,6 +375,10 @@ python build.py
 （Gwyddion Export Text）、`testdata_Gwyddion_gwy/`（ネイティブ `.gwy`）に
 同梱されています。
 
+これらのサンプル AFM データセットは、本プロジェクトの著者らが実験で取得し、
+再現可能な入力例として収録しています。著者らは、これらのデータセットを
+再配布する権限を有することを確認しています。
+
 ### Gwyddion 経由でのその他機種の対応
 
 上記レイアウトに該当しない機種（Asylum Research、JPK、Park Systems、Nanonis、
