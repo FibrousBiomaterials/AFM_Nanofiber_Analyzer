@@ -222,14 +222,16 @@ undocumented local scripts.
 
 # AI usage disclosure
 
-During development, the authors used AI coding assistants — Claude Code
-(Anthropic) and Codex (OpenAI) — to help draft and refactor code, to write and
-translate docstrings and comments between English and Japanese, and to prepare
-documentation. The assistants were used under author supervision; they did not
-design the analysis methods or determine scientific results. All AI-assisted
-output was reviewed, edited, and verified by the authors against the source code
-and their domain knowledge, and the authors take full responsibility for the
-software and its documentation.
+During software development and preparation of the JOSS submission, the authors
+used Codex with ChatGPT 5.5 (OpenAI), Claude Opus 4.8 (Anthropic), and Claude
+Fable 5 (Anthropic). These tools assisted with drafting and refactoring code;
+writing and translating docstrings and comments between English and Japanese;
+and drafting and revising documentation and the JOSS manuscript. The tools were
+used under author supervision; they did not design the analysis methods or
+determine scientific results. All AI-assisted output was reviewed, edited, and
+verified by the authors against the source code and their domain knowledge. The
+authors made the core design and scientific decisions and take full
+responsibility for the software, documentation, and manuscript.
 
 # Acknowledgements
 
