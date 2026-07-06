@@ -26,9 +26,9 @@ version: "1.0.0"          # リリース時にバージョンを更新する
 
 license: MIT
 
-repository-code: "https://github.com/q9-droid/AFM_Nanofiber_Analyzer"
+repository-code: "https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer"
 
-url: "https://github.com/q9-droid/AFM_Nanofiber_Analyzer"
+url: "https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer"
 
 # -------------------------------------------------------------------
 # キーワード（ZenodoやGitHubの検索インデックスに使われる）

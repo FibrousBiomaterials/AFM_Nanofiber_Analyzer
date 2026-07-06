@@ -67,7 +67,7 @@ dependencies = [
 dev = ["pytest", "pytest-xdist", "Babel", "ruff"]
 
 [project.urls]
-Repository = "https://github.com/q9-droid/AFM_Nanofiber_Analyzer"
+Repository = "https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer"
 
 [project.scripts]
 afm-analyzer = "Main:main"
