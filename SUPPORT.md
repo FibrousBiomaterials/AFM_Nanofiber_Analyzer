@@ -7,7 +7,7 @@ requests — are covered separately in [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Reporting bugs
 
 Open an issue on the
-[issue tracker](https://github.com/q9-droid/AFM_Nanofiber_Analyzer/issues).
+[issue tracker](https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/issues).
 The details that make a report reproducible are listed under
 [Reporting bugs](CONTRIBUTING.md#reporting-bugs) in `CONTRIBUTING.md`: your
 operating system and Python version, how you installed the toolkit, the full
@@ -16,7 +16,7 @@ error message or traceback, and the input file format.
 ## Asking questions
 
 For usage questions and "how do I…" help, open a thread on the GitHub
-[Discussions](https://github.com/q9-droid/AFM_Nanofiber_Analyzer/discussions)
+[Discussions](https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/discussions)
 page if it is enabled, or open an issue labeled `question`.
 
 ## Sharing data safely

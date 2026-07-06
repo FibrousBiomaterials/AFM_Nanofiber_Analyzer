@@ -8,7 +8,7 @@ documentation fixes, and pull requests — are welcome.
 ## Getting help and support
 
 - **Questions and usage help:** open a thread on the GitHub
-  [Discussions](https://github.com/q9-droid/AFM_Nanofiber_Analyzer/discussions)
+  [Discussions](https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/discussions)
   page if it is enabled, or open an issue labeled `question`.
 - **Documentation:** the user-facing documentation is the `README.md`
   (English) / `README.ja.md` (Japanese) pair. Maintainer-oriented notes live in
@@ -20,7 +20,7 @@ and ask — we would rather hear about it.
 ## Reporting bugs
 
 Please open an issue on the
-[issue tracker](https://github.com/q9-droid/AFM_Nanofiber_Analyzer/issues) and
+[issue tracker](https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/issues) and
 include, where possible:
 
 - what you did, what you expected, and what actually happened;

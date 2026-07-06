@@ -40,4 +40,4 @@ and submission to the Journal of Open Source Software (JOSS).
   `SUPPORT.md`, maintainer notes, docstring templates, and a JOSS paper
   (`paper.md`).
 
-[Unreleased]: https://github.com/q9-droid/AFM_Nanofiber_Analyzer/commits/main
+[Unreleased]: https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/commits/main

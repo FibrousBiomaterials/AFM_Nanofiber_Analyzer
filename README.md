@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![tests](https://github.com/q9-droid/AFM_Nanofiber_Analyzer/actions/workflows/test.yml/badge.svg)](https://github.com/q9-droid/AFM_Nanofiber_Analyzer/actions/workflows/test.yml)
+[![tests](https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/actions/workflows/test.yml/badge.svg)](https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/actions/workflows/test.yml)
 
 ![AFM Nanofiber Analyzer overview](assets/afm_symbol.png)
 
@@ -193,7 +193,7 @@ Nanofiber Analyzer dependencies separate from packages already installed in
 Anaconda or other Python environments.
 
 ```powershell
-git clone https://github.com/q9-droid/AFM_Nanofiber_Analyzer.git
+git clone https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer.git
 cd AFM_Nanofiber_Analyzer
 ```
 
@@ -303,7 +303,7 @@ files together with the edited `.po` files; the test suite fails when a
 ### Manual setup from source
 
 ```powershell
-git clone https://github.com/q9-droid/AFM_Nanofiber_Analyzer.git
+git clone https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer.git
 cd AFM_Nanofiber_Analyzer
 
 py -3.12 -m venv .venv
@@ -692,7 +692,7 @@ test suite instead of degrading silently in the launcher.
 ## Getting Help and Support
 
 - **Bug reports and feature requests:** open an issue on the
-  [issue tracker](https://github.com/q9-droid/AFM_Nanofiber_Analyzer/issues).
+  [issue tracker](https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/issues).
 - **Questions and usage help:** see
   [CONTRIBUTING.md](CONTRIBUTING.md#getting-help-and-support) for where to ask.
 - When sharing a problem, please avoid attaching unpublished research data to
@@ -709,7 +709,7 @@ If you use this software in your research, please cite it as:
   title     = {AFM Nanofiber Analyzer},
   year      = {2026},
   version   = {1.0.0},
-  url       = {https://github.com/q9-droid/AFM_Nanofiber_Analyzer}
+  url       = {https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer}
 }
 ```
 
