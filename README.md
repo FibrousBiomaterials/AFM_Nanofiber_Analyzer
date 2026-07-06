@@ -739,12 +739,15 @@ analyses it supports:
 
 ## Authors
 
-| Role | Name |
+| Name | Contributions |
 |---|---|
-| Packaging, Release preparation, Documentation | Shingo Kiyoto |
-| Feature implementation, Validation | Shingo Kiyoto, Keita Mayumi |
-| Core implementation | Tomoki Ito |
-| Conceptualization, Software initial implementation | Kayoko Kobayashi |
+| Shingo Kiyoto | Packaging, Release preparation, Documentation, Feature implementation, Validation |
+| Tomoki Ito | Core implementation (lead) |
+| Keita Mayumi | Feature implementation, Validation |
+| Kayoko Kobayashi | Conceptualization, Software initial implementation |
+
+The original core codebase was implemented by Tomoki Ito, and the current
+software builds upon it.
 
 ## License
 

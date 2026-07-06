@@ -12,12 +12,12 @@ authors:
     orcid: 0000-0002-5228-9964
     affiliation: 1
     corresponding: true
-  - name: Keita Mayumi
-    orcid: 0009-0003-2304-7549
-    affiliation: 1
   - name: Tomoki Ito
     orcid: 0000-0002-2473-7117
     affiliation: 2
+  - name: Keita Mayumi
+    orcid: 0009-0003-2304-7549
+    affiliation: 1
   - name: Kayoko Kobayashi
     orcid: 0000-0003-0459-7900
     affiliation: 1

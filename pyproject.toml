@@ -27,8 +27,8 @@ requires-python = ">=3.10"
 license = "MIT"
 authors = [
     { name = "Shingo Kiyoto" },
-    { name = "Keita Mayumi" },
     { name = "Tomoki Ito" },
+    { name = "Keita Mayumi" },
     { name = "Kayoko Kobayashi" },
 ]
 keywords = [
