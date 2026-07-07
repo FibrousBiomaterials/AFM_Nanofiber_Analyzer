@@ -17,7 +17,7 @@ reproducible morphological measurements (length, height, endpoint and kink
 counts, and kink angles) from large numbers of AFM scans. General-purpose scanning-probe
 software is well suited to image-level visualization and leveling but does not
 provide the fiber-centric skeleton tracing, kink detection, and grouped
-statistical comparison that this workflow targets; AFM Nanofiber Analyzer fills
+statistical comparison of nanofiber heights that this workflow targets; AFM Nanofiber Analyzer fills
 that gap with a documented, reproducible pipeline and a stable data format.
 
 ## Overview
