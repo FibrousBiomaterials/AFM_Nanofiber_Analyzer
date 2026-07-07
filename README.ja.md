@@ -50,6 +50,7 @@ AFM_Nanofiber_Analyzer/
 |-- babel.cfg
 |-- build.py
 |-- check.py
+|-- prepare_translate_catalogs.py
 |-- pyproject.toml
 |-- requirements.txt
 |-- requirements.lock.txt
@@ -99,7 +100,7 @@ AFM_Nanofiber_Analyzer/
 Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにしています。UTF-8 の
 バッチファイルに日本語コメントを書くと、`cmd.exe` がシステム既定のコードページで
 誤読し、文字化けした断片をコマンドとして実行することがあります。そのため、
-日本語の保守メモは `docs/maintainer-notes.ja.md` などの Markdown 文書に残します。
+日本語の保守メモは `README.ja.md` などの Markdown 文書に残します。
 
 ## 主なモジュール
 
@@ -293,6 +294,22 @@ pybabel compile -d locale
 Babel をインストールせずに翻訳が機能します。`.po` を編集したら、再生成した
 `.mo` も一緒にコミットしてください。`.mo` が `.po` より古い場合はテスト
 スイートが失敗します。
+
+空の `msgstr` が多い場合は、コーディングアシスタントに下訳を作らせられます。
+カタログと言語を 1 つ指定し、次のように制約を与えます。
+
+> `locale\<Language>\LC_MESSAGES\messages.po` にある、空の `msgstr ""` に対応する
+> msgid の<言語>訳を記入してください。msgid、コメント行、既に入力済みの msgstr、
+> ファイル構造、ヘッダー項目、`#~` で始まる obsolete entry は変更しないでください。
+> `msgstr ""` の直後に翻訳済みの継続行がある項目は空ではないため、変更しないで
+> ください。`#, fuzzy` が付いた項目は、意味、プレースホルダー（`{path}`、`%s`、
+> `%d`）、改行を確認し、必要に応じて msgstr を修正したうえで `#, fuzzy` 行を
+> 削除してください。プレースホルダーと必要な `\n` は保持し、msgid と同じ情報量で
+> 訳してください。表示上の折り返し調整のためだけに `\n` を入れないでください。
+> 判断に迷った項目は報告に列挙し、保守・点検担当者が GUI 上で妥当性を確認します。
+
+AI による下訳は配布前に必ず GUI 上で確認し、その後で上記のとおりカタログを
+コンパイルしてください。
 
 ### ソースから手動セットアップする場合
 

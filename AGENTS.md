@@ -66,7 +66,7 @@ comment, as defined in §1.
 | Windows `.bat` comments | Keep executable `.bat` files ASCII-only. Use concise English `REM` comments only; put Japanese explanations in Markdown documentation instead. |
 | `.sh` comments | Follow the same intent-focused policy as Python inline comments. For setup, launch, build, and environment scripts, write concise English comments first and Japanese comments directly below for purpose, prerequisites, environment assumptions, failure-prone steps, and non-obvious command choices. Do not explain every command line-by-line. |
 | Inline / block comments (existing Japanese) | See §4. Default is keep-and-translate, not delete. |
-| README, `docs/`, user-facing prose | English only. Provide `*.ja.md` counterparts separately if needed (e.g., `README.ja.md`, `docs/maintainer-notes.ja.md`). |
+| README, `docs/`, user-facing prose | English only. Provide `*.ja.md` counterparts separately if needed (e.g., `README.ja.md`). |
 | `PLUGIN_INFO`, `gettext` / `_()` strings | See §6. |
 
 The asymmetry between docstrings and inline comments is intentional.
@@ -159,12 +159,6 @@ type in the docstring. Describe meaning, units, constraints, and assumptions.
 - `Notes`: bilingual when it records algorithm rationale, instrument behavior,
   or other domain knowledge; English only when it is a routine implementation
   note.
-
-### 3.4 Templates
-
-Worked templates for function, class, module-level, and private-function
-docstrings live in `docs/docstring-templates.md`. Follow them when writing or
-rewriting docstrings; they illustrate this policy and do not add to it.
 
 ---
 
@@ -652,7 +646,6 @@ additional files and keep at least these files consistent:
 - `guis/GUI04_Tracking_fiber.py`
 - `lib/blosc2_io.py`
 - `README.md` / `README.ja.md`
-- `docs/maintainer-notes.ja.md`
 
 ### 8.3 GUI-specific data expectations
 
@@ -678,8 +671,8 @@ as `drain_ui_queue` for shared queue-draining behavior.
 ### 8.5 Renames and imports
 
 Do not rename `lib/` modules casually. If a module filename or public import
-path changes, check at least `lib/` imports, `guis/*.py`, `README.md`,
-`README.ja.md`, and `docs/maintainer-notes.ja.md`.
+path changes, check at least `lib/` imports, `guis/*.py`, `README.md`, and
+`README.ja.md`.
 
 `Main.py` launches each plugin through its `--run-plugin` subcommand, which
 imports the plugin module in a worker thread behind a splash window. Frozen
@@ -780,7 +773,6 @@ pybabel init -i locale/messages.pot -d locale -l <language_code>
 | Bilingual order | English first, Japanese second |
 | Module / class / public-function docstring | Bilingual default on summary + Parameters/Returns/Attributes; Raises/Notes bilingual only when it adds domain context |
 | Private function docstring | Summary line bilingual; body bilingual for algorithm / physical / instrument-specific notes, English only for routine notes |
-| Docstring templates | `docs/docstring-templates.md` |
 | New / rewritten inline comments | English required; add Japanese only for domain notes |
 | Windows `.bat` comments | ASCII-only executable files; English `REM` comments only; put Japanese explanations in Markdown documentation |
 | `.sh` comments | Same intent-focused policy as Python comments; for setup/launch scripts, use concise English-first comments with Japanese directly below for purpose, prerequisites, environment assumptions, failure-prone steps, and non-obvious command choices |

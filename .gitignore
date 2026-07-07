@@ -46,11 +46,6 @@ desktop.ini
 # Keep the local publication and submission checklist out of the repository.
 /TODO.md
 
-# Co-author onboarding guide distributed privately, not published in the public
-# repository. Excluded so it is not accidentally committed; share it via email
-# or a shared drive instead of relying on git clone.
-docs/installation-guide.ja.md
-
 # ===== Promotional drafts (not for publication) =====
 # Local working folder for note articles and other promotional material.
 # Kept out of the public repository; share drafts privately instead.

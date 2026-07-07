@@ -52,6 +52,7 @@ AFM_Nanofiber_Analyzer/
 |-- babel.cfg
 |-- build.py
 |-- check.py
+|-- prepare_translate_catalogs.py
 |-- pyproject.toml
 |-- requirements.txt
 |-- requirements.lock.txt
@@ -101,7 +102,7 @@ AFM_Nanofiber_Analyzer/
 Windows `.bat` helper scripts are intentionally kept ASCII-only. Japanese
 comments in UTF-8 batch files can be misread by `cmd.exe` under the system code
 page and executed as garbled commands, so Japanese maintenance notes belong in
-Markdown documents such as `docs/maintainer-notes.ja.md`.
+Markdown documentation such as this README's Japanese counterpart, `README.ja.md`.
 
 ## Core Modules
 
@@ -299,6 +300,23 @@ The compiled `.mo` files are version-controlled so that fresh clones get
 working translations without installing Babel. Commit the regenerated `.mo`
 files together with the edited `.po` files; the test suite fails when a
 `.mo` file is stale relative to its `.po` source.
+
+When many `msgstr` values are empty, a coding assistant can draft them. Point
+it at one catalog and language and constrain it, for example:
+
+> Fill in the <language> translation for every `msgid` whose `msgstr ""` is
+> empty in `locale/<Language>/LC_MESSAGES/messages.po`. Do not change `msgid`,
+> comment lines, already-filled `msgstr` values, the file structure, header
+> fields, or `#~` obsolete entries. An entry whose `msgstr ""` is followed by
+> translated continuation lines is not empty—leave it unchanged. For `#, fuzzy`
+> entries, check the meaning, placeholders (`{path}`, `%s`, `%d`), and line
+> breaks, fix the `msgstr` if needed, then delete the `#, fuzzy` line. Preserve
+> placeholders and any required `\n`, and match the information content of the
+> `msgid`; do not insert `\n` only to tune visual wrapping. List any entries you
+> were unsure about so a maintainer can confirm them in the running GUI.
+
+Always confirm AI-drafted translations in the GUI before distribution, then
+compile the catalogs as shown above.
 
 ### Manual setup from source
 
