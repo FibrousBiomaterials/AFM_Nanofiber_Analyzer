@@ -136,7 +136,7 @@ Install the Python dependencies listed in `requirements.txt`:
 blosc2
 gwyfile
 lmfit
-matplotlib
+matplotlib>=3.10
 numpy
 opencv-python
 pandas
@@ -319,7 +319,8 @@ python Main.py
 
 The project ships a `pyproject.toml` for development installs. Installing in
 editable mode declares all runtime dependencies and registers two console
-commands; adding `[dev]` also installs pytest:
+commands; adding `[dev]` also installs the development tools (pytest,
+pytest-xdist, Babel, and ruff):
 
 ```powershell
 python -m pip install -e ".[dev]"
@@ -534,12 +535,14 @@ arguments expand to all bundles directly inside the folder.
 
 ### Running tests
 
-The test suite uses pytest. Unit tests run on small synthetic inputs; the
-integration and strict-regression tests process bundled real scans and compare
-their outputs against recorded baseline values.
+The test suite uses pytest and runs in parallel through pytest-xdist
+(`pyproject.toml` sets `-n auto`), so both packages are required — the
+editable `[dev]` install above provides them. Unit tests run on small
+synthetic inputs; the integration and strict-regression tests process bundled
+real scans and compare their outputs against recorded baseline values.
 
 ```powershell
-python -m pip install pytest
+python -m pip install pytest pytest-xdist
 python -m pytest tests/
 python -m pytest tests/ -m "not slow"   # skip the real-scan integration test
 ```

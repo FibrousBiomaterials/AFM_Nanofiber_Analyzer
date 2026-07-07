@@ -134,7 +134,7 @@ Python 依存関係は `requirements.txt` に記載されています。
 blosc2
 gwyfile
 lmfit
-matplotlib
+matplotlib>=3.10
 numpy
 opencv-python
 pandas
@@ -313,7 +313,8 @@ python Main.py
 
 開発用インストールのために `pyproject.toml` を同梱しています。editable モードで
 インストールすると、全実行時依存が宣言どおりに解決され、コンソールコマンドが
-2 つ登録されます。`[dev]` を付けると pytest も同時にインストールされます:
+2 つ登録されます。`[dev]` を付けると開発ツール (pytest、pytest-xdist、Babel、
+ruff) も同時にインストールされます:
 
 ```powershell
 python -m pip install -e ".[dev]"
@@ -523,12 +524,14 @@ python cli.py heights results --output heights.csv
 
 ### テストの実行
 
-テストスイートは pytest を使用します。単体テストは小さな合成入力で実行され、
-統合テストと厳密回帰テストは同梱の実測スキャンを処理し、出力を記録済みの
-基準値と比較します。
+テストスイートは pytest を使用し、pytest-xdist による並列実行を前提としています
+（`pyproject.toml` に `-n auto` が設定されているため、両パッケージが必要です。
+前述の editable `[dev]` インストールでも両方導入されます）。単体テストは小さな
+合成入力で実行され、統合テストと厳密回帰テストは同梱の実測スキャンを処理し、
+出力を記録済みの基準値と比較します。
 
 ```powershell
-python -m pip install pytest
+python -m pip install pytest pytest-xdist
 python -m pytest tests/
 python -m pytest tests/ -m "not slow"   # 実測スキャンの統合テストをスキップ
 ```
