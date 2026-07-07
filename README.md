@@ -280,16 +280,16 @@ This script extracts gettext messages, adds launcher descriptions from
 values automatically. Commit or back up catalogs first if you need to keep old
 obsolete translations for reference.
 
+Do not add `\n` in the middle of a translated sentence only to tune visual line
+wrapping. Different languages wrap at different positions, so the UI should
+handle wrapping. Use explicit line breaks only when the text needs a meaningful
+paragraph or line break in the interface.
+
 After editing `messages.po`, review any `#, fuzzy` entries before distribution.
 Fuzzy entries are provisional Babel matches; confirm that the `msgid` and
 `msgstr` meanings match and that placeholders such as `{path}`, `%s`, `%d`, and
 `\n` are preserved. Remove the `#, fuzzy` line only after the translation is
 confirmed. Then compile the catalogs:
-
-Do not add `\n` in the middle of a translated sentence only to tune visual line
-wrapping. Different languages wrap at different positions, so the UI should
-handle wrapping. Use explicit line breaks only when the text needs a meaningful
-paragraph or line break in the interface.
 
 ```powershell
 pybabel compile -d locale
@@ -413,8 +413,8 @@ which this loader reads as `.txt`. Gwyddion writes the matrix in SI units
 (meters) with a small comment header recording the scan size and value unit;
 both are normalized automatically (heights to nm, sizes to µm). The header keys
 are written in Gwyddion's UI language — English (`# Width`/`# Height`/`# Value
-units`) and Japanese (`# 幅`/`# 高さ`/`# 値の単位`) are both recognized, since
-parsing keys off the value structure rather than the translated words. Keep the
+units`) and Japanese (`# 幅`/`# 高さ`/`# 値の単位`) are both recognized, because
+keys are parsed from the value structure rather than the translated words. Keep the
 informational header enabled on export so the scan size is preserved; otherwise
 set it in the GUI/CLI. Bruker `.spm` binaries can likewise be exported to text
 from NanoScope and read via the single-column layout above.
