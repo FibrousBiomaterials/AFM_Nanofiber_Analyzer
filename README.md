@@ -211,7 +211,7 @@ chmod +x run_venv.sh
 ./run_venv.sh
 ```
 
-`run_venv` is a single, idempotent launcher. The first run creates the `.venv`,
+`run_venv` is an idempotent launcher that handles both setup and startup. The first run creates the `.venv`,
 upgrades `pip`, and installs the project in editable mode (`pip install -e .`),
 so all dependencies come from `pyproject.toml` (the single source of truth) and
 the `afm-analyzer` / `afm-analyzer-cli` commands are registered. It then starts

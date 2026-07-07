@@ -208,7 +208,7 @@ chmod +x run_venv.sh
 ./run_venv.sh
 ```
 
-`run_venv` は単一の冪等ランチャーです。初回実行時に `.venv` を作成し、`pip` を
+`run_venv` はセットアップと起動を兼ねる冪等ランチャーです。初回実行時に `.venv` を作成し、`pip` を
 更新したうえで、プロジェクトを編集可能モード(`pip install -e .`)でインストール
 します。これにより依存関係はすべて単一の真実の源である `pyproject.toml` から
 解決され、`afm-analyzer` / `afm-analyzer-cli` コマンドが登録されます。続けて
