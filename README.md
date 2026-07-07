@@ -13,8 +13,8 @@ tools, and a fiber-tracking viewer for bundle files produced by the pipeline.
 
 It is intended for materials-science and polymer researchers — in particular
 those studying cellulose and other nanofibers — who need consistent,
-reproducible per-fiber measurements (length, height, branching, and kink
-angles) from large numbers of AFM scans. General-purpose scanning-probe
+reproducible morphological measurements (length, height, endpoint and kink
+counts, and kink angles) from large numbers of AFM scans. General-purpose scanning-probe
 software is well suited to image-level visualization and leveling but does not
 provide the fiber-centric skeleton tracing, kink detection, and grouped
 statistical comparison that this workflow targets; AFM Nanofiber Analyzer fills
