@@ -31,8 +31,7 @@ The application separates GUI plugins from the reusable modules they call:
   and shared UI helpers.
 
 GUI01 writes one compressed `.b2z` bundle per analyzed input file. Downstream
-GUIs read those bundles directly instead of relying on many sidecar `.npy`
-files.
+GUIs read those bundles directly.
 
 ## GUI Tools
 
