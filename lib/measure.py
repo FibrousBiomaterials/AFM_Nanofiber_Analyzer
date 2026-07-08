@@ -353,14 +353,19 @@ def measure_bundle(
         Path to the ``.b2z`` bundle file.
         ``.b2z`` バンドルファイルのパス。
     scale_um
-        Full physical image width along the X (column) axis in micrometers.
-        The X pixel size is ``scale_um * 1000 / width_px``. When ``None``, the
-        scan size recorded in the bundle (``spatial_calibration``) supplies both
-        axes. A ``ValueError`` is raised if neither an explicit value nor a
-        recorded scan size is available.
-        X（列）軸方向の画像全体の物理幅 (µm)。X のピクセルサイズは
-        ``scale_um * 1000 / 横px``。``None`` のときはバンドルに記録された
-        走査範囲（``spatial_calibration``）が両軸を供給する。明示値も記録値も
+        Full physical width of the raw scan along the X (column) axis in
+        micrometers. The X pixel size is ``scale_um * 1000 / (width_px + 1)``
+        because the analysis arrays are cropped by one column relative to the
+        raw scan (see the pixel-size note in the function body). When
+        ``None``, the scan size recorded in the bundle
+        (``spatial_calibration``) supplies both axes. A ``ValueError`` is
+        raised if neither an explicit value nor a recorded scan size is
+        available.
+        X（列）軸方向の生スキャン全体の物理幅 (µm)。解析配列は生スキャンより
+        1 列クロップされているため、X のピクセルサイズは
+        ``scale_um * 1000 / (横px + 1)``（関数本体のピクセルサイズ注記参照）。
+        ``None`` のときはバンドルに記録された走査範囲
+        （``spatial_calibration``）が両軸を供給する。明示値も記録値も
         無い場合は ``ValueError`` を送出する。
     max_workers
         Maximum number of worker threads for parallel fiber tracing.
@@ -369,13 +374,16 @@ def measure_bundle(
         Progress callback receiving ``(done, total)`` per traced fiber.
         ファイバー 1 本完了ごとに ``(done, total)`` を受け取る進捗コールバック。
     scale_y_um
-        Full physical image height along the Y (row) axis in micrometers. The
-        Y pixel size is ``scale_y_um * 1000 / height_px``. When ``None`` it
-        defaults to the recorded Y scan size (if ``scale_um`` is also ``None``)
-        or to ``scale_um`` otherwise, keeping the historical single-value
-        (square-scan) behavior. Pass a distinct value for rectangular scans.
-        Y（行）軸方向の画像全体の物理高さ (µm)。Y のピクセルサイズは
-        ``scale_y_um * 1000 / 縦px``。``None`` のときは（``scale_um`` も
+        Full physical height of the raw scan along the Y (row) axis in
+        micrometers. The Y pixel size is
+        ``scale_y_um * 1000 / (height_px + 1)``, mirroring the one-row crop
+        of the analysis arrays. When ``None`` it defaults to the recorded Y
+        scan size (if ``scale_um`` is also ``None``) or to ``scale_um``
+        otherwise, keeping the historical single-value (square-scan)
+        behavior. Pass a distinct value for rectangular scans.
+        Y（行）軸方向の生スキャン全体の物理高さ (µm)。解析配列の 1 行クロップに
+        対応して、Y のピクセルサイズは ``scale_y_um * 1000 / (縦px + 1)``。
+        ``None`` のときは（``scale_um`` も
         ``None`` なら）記録された Y 走査範囲、そうでなければ ``scale_um`` を
         既定値とし、従来の単一値（正方スキャン）挙動を保つ。矩形スキャンでは
         別の値を渡す。
@@ -430,10 +438,17 @@ def measure_bundle(
     height_px, width_px = data["calibrated"].shape
     # Per-axis pixel size: X spans the columns (width), Y spans the rows
     # (height), matching the bundle coordinate convention (x=column, y=row).
+    # The scan size describes the raw scan, but BGCalibrator crops every
+    # analysis array by one row and one column (``original[1:, 1:]``), so the
+    # raw pixel count is the bundle shape plus one. Dividing by the cropped
+    # shape would inflate every length by width/(width-1) (~0.2% at 512 px).
     # 軸別ピクセルサイズ：X は列（幅）、Y は行（高さ）に対応し、バンドルの
-    # 座標規約（x=列, y=行）に一致する。
-    x_size_per_pixel = scale_um * 1000.0 / width_px
-    y_size_per_pixel = scale_y_um * 1000.0 / height_px
+    # 座標規約（x=列, y=行）に一致する。走査範囲は生スキャン全体の寸法だが、
+    # BGCalibrator は解析配列を 1 行・1 列クロップする（``original[1:, 1:]``）
+    # ため、生スキャンの画素数はバンドル形状 +1 になる。クロップ後の形状で
+    # 割ると全長さが width/(width-1) 倍（512 px で約 +0.2%）に膨らむ。
+    x_size_per_pixel = scale_um * 1000.0 / (width_px + 1)
+    y_size_per_pixel = scale_y_um * 1000.0 / (height_px + 1)
 
     name = os.path.splitext(os.path.basename(bundle_path))[0]
     image = _tracking_image_from_arrays(

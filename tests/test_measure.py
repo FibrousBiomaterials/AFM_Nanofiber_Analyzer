@@ -45,12 +45,25 @@ from tests.conftest import write_synthetic_fiber_txt
 # 高速な tophat を使う。物理的な検証内容は bg_method に依存しない。
 FAST_PARAMS = ProcParams(bg_method="tophat")
 
-# The calibrator trims the 192x192 input to 191x191, so scale_um=1.91 gives an
-# exact pixel size of 10 nm/px and keeps length assertions easy to read.
-# 補正器が 192x192 入力を 191x191 にトリミングするため、scale_um=1.91 で
-# ピクセルサイズがちょうど 10 nm/px になり、長さの検証式が読みやすくなる。
-SCALE_UM = 1.91
+# The scan size refers to the raw 192x192 scan; the calibrator trims the
+# analysis arrays to 191x191 and measure_bundle divides by the raw pixel
+# count (bundle shape + 1), so scale_um=1.92 gives an exact pixel size of
+# 10 nm/px and keeps length assertions easy to read.
+# 走査範囲は生の 192x192 スキャンに対する寸法。補正器は解析配列を 191x191 に
+# トリミングし、measure_bundle は生スキャンの画素数（バンドル形状 +1）で
+# 割るため、scale_um=1.92 でピクセルサイズがちょうど 10 nm/px になり、
+# 長さの検証式が読みやすくなる。
+SCALE_UM = 1.92
 EXPECTED_SIZE_PER_PIXEL = 10.0
+
+# Corrected chain-code step weights used by convert_track_to_distance
+# (Kulpa 1977; Vossepoel & Smeulders 1982). Pinned here so an accidental
+# change to the documented constants fails these tests.
+# convert_track_to_distance が使う補正済みチェーンコード重み
+# (Kulpa 1977; Vossepoel & Smeulders 1982)。文書化された定数が誤って変わったら
+# テストが失敗するよう、ここに値を固定する。
+STEP_ORTHOGONAL = 0.948
+STEP_DIAGONAL = 1.340
 
 
 @pytest.fixture(scope="module")
@@ -69,7 +82,7 @@ def measured(tmp_path_factory):
 
 
 def test_pixel_size_follows_gui04_convention(measured):
-    """size_per_pixel is scale_nm divided by the longer image axis."""
+    """size_per_pixel is scale_nm divided by the raw scan pixel count."""
     _bundle_path, result = measured
     assert result.image.size_per_pixel == pytest.approx(EXPECTED_SIZE_PER_PIXEL)
 
@@ -82,10 +95,12 @@ def test_single_fiber_with_drawn_geometry(measured):
     s = result.stats[0]
 
     # The drawn pixel path is ~173 px (axis steps plus diagonal steps), i.e.
-    # ~1730 nm at 10 nm/px; skeleton end erosion shortens it slightly.
+    # ~1730 nm naive at 10 nm/px, or ~1640 nm after the chain-code length
+    # correction (~x0.948); skeleton end erosion shortens it slightly.
     # 描画した画素経路は約 173 px（軸方向ステップ + 斜めステップ）で、
-    # 10 nm/px なら約 1730 nm。骨格端の侵食でわずかに短くなる。
-    assert 1500.0 < s.length_nm < 1900.0
+    # 10 nm/px なら素朴計算で約 1730 nm、チェーンコード長補正（約 x0.948）後は
+    # 約 1640 nm。骨格端の侵食でわずかに短くなる。
+    assert 1400.0 < s.length_nm < 1800.0
 
     # The fiber is drawn ~3 nm high; the median must sit near that value.
     # 繊維は高さ約 3 nm で描画されており、中央値はその近傍になるはず。
@@ -166,18 +181,22 @@ def test_measure_bundle_rejects_invalid_scale(measured):
         measure_bundle(bundle_path, scale_um=0.0)
 
 
-def test_convert_track_to_distance_isotropic_backward_compatible():
-    """Omitting the Y step keeps the historical isotropic behavior."""
-    # Orthogonal steps equal the pixel size.
+def test_convert_track_to_distance_isotropic_corrected_weights():
+    """Isotropic steps carry the Kulpa-corrected chain-code weights."""
+    # Orthogonal steps count as 0.948 * pixel size (naive weight 1 would
+    # overestimate digital curve length by ~5.5% on average).
+    # 直交ステップは 0.948 × ピクセルサイズ（素朴な重み 1 はデジタル曲線長を
+    # 平均約 5.5% 過大評価する）。
     horizon = imp_tools.convert_track_to_distance(
         np.array([0, 1, 2, 3]), np.array([0, 0, 0, 0]), 10.0
     )
-    assert horizon[-1] == pytest.approx(30.0)
-    # Diagonal steps equal sqrt(2) * pixel size.
+    assert horizon[-1] == pytest.approx(3 * STEP_ORTHOGONAL * 10.0)
+    # Diagonal steps count as 1.340 * pixel size (instead of sqrt(2)).
+    # 斜めステップは sqrt(2) ではなく 1.340 × ピクセルサイズ。
     diag = imp_tools.convert_track_to_distance(
         np.array([0, 1, 2]), np.array([0, 1, 2]), 10.0
     )
-    assert diag[-1] == pytest.approx(2 * 10.0 * np.sqrt(2))
+    assert diag[-1] == pytest.approx(2 * STEP_DIAGONAL * 10.0)
 
 
 def test_convert_track_to_distance_anisotropic():
@@ -185,15 +204,21 @@ def test_convert_track_to_distance_anisotropic():
     horiz = imp_tools.convert_track_to_distance(
         np.array([0, 1, 2, 3]), np.array([0, 0, 0, 0]), 10.0, 20.0
     )
-    assert horiz[-1] == pytest.approx(30.0)  # X steps only
+    assert horiz[-1] == pytest.approx(3 * STEP_ORTHOGONAL * 10.0)  # X steps only
     vert = imp_tools.convert_track_to_distance(
         np.array([0, 0, 0, 0]), np.array([0, 1, 2, 3]), 10.0, 20.0
     )
-    assert vert[-1] == pytest.approx(60.0)  # Y steps only
+    assert vert[-1] == pytest.approx(3 * STEP_ORTHOGONAL * 20.0)  # Y steps only
+    # Anisotropic diagonal steps scale the Euclidean step by the same
+    # correction factor as the isotropic case (1.340 / sqrt(2)).
+    # 異方性の斜めステップは、等方の場合と同じ補正係数 (1.340 / sqrt(2)) を
+    # ユークリッドステップ長に乗じる。
     diag = imp_tools.convert_track_to_distance(
         np.array([0, 1, 2]), np.array([0, 1, 2]), 10.0, 20.0
     )
-    assert diag[-1] == pytest.approx(2 * np.hypot(10.0, 20.0))
+    assert diag[-1] == pytest.approx(
+        2 * (STEP_DIAGONAL / np.sqrt(2)) * np.hypot(10.0, 20.0)
+    )
 
 
 def test_measure_bundle_anisotropic_scale(measured):
@@ -229,11 +254,13 @@ def _write_straight_line_bundle(path, shape, orientation):
 
     The fiber is a single 15-pixel line (``LINE_STEPS`` unit steps) along one
     axis, so its physical length is a closed-form ``LINE_STEPS *
-    per_axis_pixel_size`` — ideal for asserting per-axis pixel-size derivation
-    on non-square arrays without pipeline noise.
+    STEP_ORTHOGONAL * per_axis_pixel_size`` (orthogonal chain-code weight) —
+    ideal for asserting per-axis pixel-size derivation on non-square arrays
+    without pipeline noise.
     ファイバーは単一軸方向の 15 画素直線（``LINE_STEPS`` ステップ）で、物理長は
-    ``LINE_STEPS * 軸別ピクセルサイズ`` の閉形式になる。パイプライン由来の
-    ばらつき無しに非正方配列での軸別ピクセルサイズ導出を検証するのに適する。
+    ``LINE_STEPS * STEP_ORTHOGONAL * 軸別ピクセルサイズ``（直交チェーンコード
+    重み）の閉形式になる。パイプライン由来のばらつき無しに非正方配列での
+    軸別ピクセルサイズ導出を検証するのに適する。
     """
     skel = np.zeros(shape, np.uint8)
     ep = np.zeros(shape, np.uint8)
@@ -262,12 +289,15 @@ def test_measure_bundle_non_square_horizontal_uses_width_scale(tmp_path):
     bundle = os.path.join(tmp_path, "h.b2z")
     _write_straight_line_bundle(bundle, shape=(40, 30), orientation="horizontal")
 
-    result = measure_bundle(bundle, scale_um=3.0, scale_y_um=5.0)
+    result = measure_bundle(bundle, scale_um=3.1, scale_y_um=5.0)
     assert result.image.calibrated_image.shape == (40, 30)
     assert len(result.fibers) == 1
-    # x_px = 3.0 um * 1000 / 30 cols = 100 nm/px; 14 steps -> 1400 nm.
+    # x_px = 3.1 um * 1000 / (30 + 1) raw cols = 100 nm/px;
+    # 14 orthogonal steps -> 0.948 * 1400 nm.
     # The Y scale (5.0) must not affect a purely horizontal fiber.
-    assert result.stats[0].length_nm == pytest.approx(100.0 * LINE_STEPS)
+    assert result.stats[0].length_nm == pytest.approx(
+        STEP_ORTHOGONAL * 100.0 * LINE_STEPS
+    )
 
 
 def test_measure_bundle_non_square_vertical_uses_height_scale(tmp_path):
@@ -275,12 +305,15 @@ def test_measure_bundle_non_square_vertical_uses_height_scale(tmp_path):
     bundle = os.path.join(tmp_path, "v.b2z")
     _write_straight_line_bundle(bundle, shape=(30, 40), orientation="vertical")
 
-    result = measure_bundle(bundle, scale_um=5.0, scale_y_um=3.0)
+    result = measure_bundle(bundle, scale_um=5.0, scale_y_um=3.1)
     assert result.image.calibrated_image.shape == (30, 40)
     assert len(result.fibers) == 1
-    # y_px = 3.0 um * 1000 / 30 rows = 100 nm/px; 14 steps -> 1400 nm.
+    # y_px = 3.1 um * 1000 / (30 + 1) raw rows = 100 nm/px;
+    # 14 orthogonal steps -> 0.948 * 1400 nm.
     # The X scale (5.0) must not affect a purely vertical fiber.
-    assert result.stats[0].length_nm == pytest.approx(100.0 * LINE_STEPS)
+    assert result.stats[0].length_nm == pytest.approx(
+        STEP_ORTHOGONAL * 100.0 * LINE_STEPS
+    )
 
 
 def test_fiber_csv_schema_and_values(measured, tmp_path):

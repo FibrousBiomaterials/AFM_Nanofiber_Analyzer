@@ -155,10 +155,14 @@ class BGCalibrator:
             opened image, i.e. the result of erosion followed by dilation.
             Bright structures narrower than ``tophat_se_size`` are removed
             and treated as foreground; broader features remain in the
-            background model. No fiber mask is computed, so ridge-detection
-            parameters (``threshold_factor`` etc.) are ignored. Empirically
-            faster and produces more uniform background subtraction than
-            ``'inpaint'`` for fiber-on-substrate AFM images.
+            background model. Because the opening is a lower-envelope
+            estimator, the subtracted image is re-centered by its median so
+            the substrate level sits at 0 nm and calibrated heights stay
+            comparable with the interpolating methods. No fiber mask is
+            computed, so ridge-detection parameters (``threshold_factor``
+            etc.) are ignored. Empirically faster and produces more uniform
+            background subtraction than ``'inpaint'`` for fiber-on-substrate
+            AFM images.
 
             ``'spline2d'``: tensor-product bivariate B-spline fitted to
             background-candidate pixels via
@@ -214,7 +218,10 @@ class BGCalibrator:
             ``'tophat'``: 直径 ``tophat_se_size`` の円形構造要素を用いる
             形態学的 opening。背景は opening 後の画像（収縮→膨張）そのもの。
             ``tophat_se_size`` より細い明るい構造は除去されて前景扱いに、
-            それより太い構造は背景モデルに残る。ファイバーマスクを一切
+            それより太い構造は背景モデルに残る。opening は下側包絡線の
+            推定量であるため、減算後の画像は中央値で再センタリングして
+            基板レベルを 0 nm に揃え、補正後の高さが補間系方式と比較可能に
+            なるようにする。ファイバーマスクを一切
             使わないため、リッジ検出系パラメータ (``threshold_factor`` 等)
             は無視される。ファイバー/基板型の AFM 画像では ``'inpaint'``
             より高速かつ背景補正の一様性が高い、というのが本リポジトリの
@@ -295,13 +302,12 @@ class BGCalibrator:
             ``bg_method='spline2d'``. Controls the trade-off between
             following the background-candidate points (small ``s``) and a
             smoother surface (large ``s``). The default ``None`` uses
-            SciPy's own default (``s = m``, the number of fit points). With
-            the ``'spline2d'`` pipeline this only governs the surface at
-            masked (fiber) positions, because background-candidate pixels
-            are restored exactly from the original image afterwards (see
-            ``_call_spline2d``); the SciPy default therefore gives a smooth,
-            well-conditioned interpolation of the substrate beneath each
-            fiber. Do not set this to ``0`` for full-resolution AFM scans:
+            SciPy's own default (``s = m``, the number of fit points). The
+            fitted surface is subtracted in full (see ``_call_spline2d``),
+            so ``s`` governs the smoothness of the whole background
+            estimate, at fiber and substrate positions alike; the SciPy
+            default gives a smooth, well-conditioned surface. Do not set
+            this to ``0`` for full-resolution AFM scans:
             interpolating tens of thousands of scattered points is
             ill-conditioned and extremely slow. Pass a positive number only
             to deliberately smooth the under-fiber surface more (or less)
@@ -310,10 +316,10 @@ class BGCalibrator:
             ``scipy.interpolate.SmoothBivariateSpline`` に渡す平滑化係数
             ``s``。背景候補点への追従 (``s`` 小) と曲面の滑らかさ (``s`` 大)
             のトレードオフを決める。デフォルト ``None`` は SciPy 既定
-            (``s = m``、フィット点数) を使う。``'spline2d'`` パイプラインでは
-            この値はマスク (ファイバー) 位置の曲面のみを左右する。背景候補
-            画素は後段で原画像値に厳密復元されるため (``_call_spline2d``
-            参照)、既定値でもファイバー直下の基板を滑らかに補間できる。
+            (``s = m``、フィット点数) を使う。フィット済み曲面は全面減算
+            されるため (``_call_spline2d`` 参照)、``s`` は繊維位置・基板位置を
+            問わず背景推定全体の滑らかさを左右する。既定値でも滑らかで
+            良条件の曲面が得られる。
             全解像度の AFM 画像では ``0`` を指定してはいけない。数万の散布点を
             補間するのは悪条件で極端に遅い。既定より強く (または弱く) 平滑化
             したい場合のみ正の数を渡す。``None`` または非負の数値のみ。
@@ -580,6 +586,16 @@ class BGCalibrator:
         になるよう揃え、下流ステージ (Segmenter 等) が ``bg_method`` の
         違いを意識せず同じ配列形状を受け取れるようにする。リッジ検出系
         中間配列 (``dif_x`` 等) は計算しないため ``None`` を設定する。
+
+        Because the opening is a lower-envelope estimator (it is <= the
+        original everywhere), the subtracted image is finally re-centered by
+        its median so the substrate level sits at 0 nm; without this step the
+        background would carry a positive, noise-dependent offset and the
+        calibrated heights would not be comparable with the other methods.
+        opening は下側包絡線の推定量（常に元画像以下）であるため、減算後の
+        画像は最後に中央値で再センタリングして基板レベルを 0 nm に揃える。
+        この処理が無いと背景にノイズ依存の正のオフセットが残り、補正後の
+        高さが他方式と比較できなくなる。
         """
         original = image.original_image
         # Mark intermediates from the other paths as unused so accidental
@@ -623,6 +639,22 @@ class BGCalibrator:
         self.bg_sm = signal.savgol_filter(self.bg_open, self.savgol_window, self.savgol_polyorder)
         calibrated_image = original[1:, 1:] - self.bg_sm[1:, 1:]
 
+        # Morphological opening is a lower-envelope estimator: over a noisy
+        # substrate it tracks the local noise minima, so after subtraction the
+        # substrate level floats above zero by roughly the noise-envelope
+        # depth instead of centering at 0 nm. Re-center with the image median
+        # (robust while fibers cover less than about half the image) so the
+        # absolute nm thresholds downstream (global_threshold, low_threshold,
+        # bp_height) keep the same meaning as with the interpolating
+        # background methods, which pass through the middle of the noise.
+        # 形態学的 opening は下側包絡線の推定量であり、ノイズのある基板では
+        # 局所極小に張り付く。そのため減算後の基板レベルは 0 nm ではなく
+        # ノイズ包絡の深さ分だけ正側に浮く。画像中央値（繊維被覆率が約半分
+        # 未満なら頑健）で再センタリングし、下流の nm 絶対しきい値
+        # (global_threshold, low_threshold, bp_height) が、ノイズの中央を通る
+        # 補間系の背景方式と同じ意味を持つようにする。
+        calibrated_image -= np.median(calibrated_image)
+
         if self.apply_median:
             calibrated_image = cv2.medianBlur(calibrated_image.astype(np.float32), ksize=3)
 
@@ -656,18 +688,17 @@ class BGCalibrator:
           ``(y_full, x_full)`` rectangular-grid form
           ``spl(np.arange(H), np.arange(W))``, which uses the fast tensor
           form internally. ``spline2d_smoothing`` sets the spline ``s``.
-        * Known background-candidate pixels are restored from the original
-          image, so the spline value is used only at masked (fiber)
-          positions. As a result the substrate is reproduced exactly and
-          subtracts to zero, while each fiber is measured against the
-          spline's smooth interpolation of the substrate beneath it.
-        * No Savitzky-Golay smoothing is applied. With the exact-restore
-          step above, smoothing the background would re-introduce
-          substrate noise into the subtracted result (it acts as a
-          high-pass filter on the unchanged background pixels) without
-          improving the fiber-region estimate, so it is intentionally
-          omitted here. Output is cropped to ``(H-1, W-1)`` to match the
-          other pipelines.
+        * The fitted surface is subtracted in full, at fiber and substrate
+          positions alike, exactly like the other background methods. The
+          calibrated substrate therefore retains its measurement noise, as
+          it must: an earlier revision restored background-candidate pixels
+          exactly from the original image, which forced the substrate to
+          exactly zero, erased the noise from the data, and clipped the
+          shoulders of fibers the mask misclassified as background.
+        * No Savitzky-Golay smoothing is applied: the spline surface is
+          already smooth by construction, so the row-wise smoothing pass
+          used by the other methods would add nothing. Output is cropped
+          to ``(H-1, W-1)`` to match the other pipelines.
 
         これは従来の ``pandas`` 1D スプライン補間の概念的な 2D 拡張。従来
         パイプラインは勾配ヒストグラムからファイバーマスクを計算し
@@ -688,15 +719,15 @@ class BGCalibrator:
           ``spl(np.arange(H), np.arange(W))`` の矩形格子形式で全グリッド
           上に行う (内部的に高速テンソル形式が使われる)。
           ``spline2d_smoothing`` がスプラインの ``s`` を決める。
-        * 既知の背景候補画素はスプラインの値ではなく原画像値で復元する。
-          そのためスプライン値はマスク (ファイバー) 位置でのみ使われる。
-          結果として基板は厳密に再現され減算後はゼロになり、各ファイバーは
-          その直下の基板をスプラインで滑らかに補間した曲面に対して測られる。
-        * Savitzky-Golay 平滑化はかけない。上の厳密復元により、背景を平滑化
-          すると (変更していない背景画素に対するハイパスフィルタとして働き)
-          減算結果に基板ノイズを再注入してしまい、しかもファイバー領域の
-          推定は改善しないため、ここでは意図的に省く。出力は他パイプラインと
-          揃えて ``(H-1, W-1)`` にクロップする。
+        * フィット済み曲面は、他の背景方式と同様に繊維位置・基板位置を
+          問わず全面で減算する。したがって補正後の基板には測定ノイズが
+          そのまま残る（残るべきものである）。旧版は背景候補画素を原画像値で
+          厳密復元していたが、それは基板を厳密にゼロへ固定してデータから
+          ノイズを消去し、マスクが背景と誤分類した繊維の肩を切り落として
+          いた。
+        * Savitzky-Golay 平滑化はかけない。スプライン曲面は構成上すでに
+          滑らかで、他方式の行方向平滑化を重ねても意味がないためである。
+          出力は他パイプラインと揃えて ``(H-1, W-1)`` にクロップする。
         """
         original = image.original_image
 
@@ -765,17 +796,18 @@ class BGCalibrator:
         # degrees along the row and column axes; we use the same value
         # along both to match the legacy 1D spline's behavior. ``s`` is the
         # smoothing factor from ``spline2d_smoothing``; ``None`` lets SciPy
-        # use its default (``s`` = number of points), which only governs the
-        # under-fiber surface here because background pixels are restored
-        # exactly below. Do not force ``s=0`` on full-resolution scans:
-        # interpolating tens of thousands of scattered points is
-        # ill-conditioned and extremely slow.
+        # use its default (``s`` = number of points). The surface is
+        # subtracted in full below, so ``s`` governs the smoothness of the
+        # whole background estimate, at fiber and substrate positions alike.
+        # Do not force ``s=0`` on full-resolution scans: interpolating tens
+        # of thousands of scattered points is ill-conditioned and extremely
+        # slow.
         # テンソル積 B-スプラインをフィットする。``kx``, ``ky`` は行/列方向の
         # 多項式次数。レガシー 1D スプラインの挙動と揃えるため両軸同じ次数。
         # ``s`` は ``spline2d_smoothing`` の平滑化係数。``None`` なら SciPy 既定
-        # (``s`` = 点数) を使う。下で背景画素を厳密復元するため、この値は
-        # ファイバー直下の曲面のみを左右する。全解像度の画像で ``s=0`` を
-        # 強制してはいけない。数万散布点の補間は悪条件で極端に遅い。
+        # (``s`` = 点数) を使う。下で曲面を全面減算するため、``s`` は繊維位置・
+        # 基板位置を問わず背景推定全体の滑らかさを左右する。全解像度の画像で
+        # ``s=0`` を強制してはいけない。数万散布点の補間は悪条件で極端に遅い。
         if self.spline2d_smoothing is None:
             spl = interpolate.SmoothBivariateSpline(y_fit, x_fit, v_fit, kx=deg, ky=deg)
         else:
@@ -790,25 +822,29 @@ class BGCalibrator:
         # はテンソル積分離が効くため、散布点形式 ``spl.ev(yr, xr)`` より
         # ずっと速い。
         bg_spline = spl(np.arange(Hm), np.arange(Wm))
-        # At known background-candidate pixels, restore the original value
-        # over the spline approximation: the spline is only trusted at
-        # masked (fiber) positions. This makes the substrate subtract to
-        # exactly zero and measures each fiber against the spline's smooth
-        # interpolation of the substrate beneath it.
-        # 背景候補画素では、スプラインの近似値より原画像値を復元する
-        # (スプラインはマスク位置だけで信頼する)。これにより基板は厳密に
-        # ゼロへ減算され、各ファイバーはその直下の基板をスプラインで補間した
-        # 曲面に対して測られる。
-        bg_spline[~fiber_mask_dense] = original[1:, 1:][~fiber_mask_dense]
+        # The spline surface is subtracted in full, at fiber and background
+        # positions alike. The background model must stay a *model*: replacing
+        # it with the original values at background-candidate pixels (as an
+        # earlier revision did) forces the substrate to exactly zero, which
+        # deletes the measurement noise from the data, makes downstream
+        # statistics on background pixels meaningless, and clips the shoulders
+        # of any fiber the mask misclassified as background.
+        # スプライン曲面は、繊維位置・背景位置を問わず全面で減算する。背景
+        # モデルはあくまで「モデル」に留めるべきで、背景候補画素を原画像値で
+        # 置き換える方式（旧版の挙動）は基板を厳密にゼロへ固定してしまい、
+        # データから測定ノイズを消去し、背景画素に対する下流統計を無意味に
+        # し、マスクが背景と誤分類した繊維の肩を切り落とす。
         self.bg_spline2d = bg_spline
 
-        # No Savitzky-Golay smoothing here (see Notes): with the exact
-        # restore above, smoothing the background only re-injects substrate
-        # noise into the result. ``bg_spline`` already has the (H-1, W-1)
-        # shape used by the other pipelines.
-        # ここでは Savitzky-Golay 平滑化をかけない (Notes 参照)。上の厳密復元の
-        # 下では、背景の平滑化は結果に基板ノイズを再注入するだけ。``bg_spline``
-        # は既に他パイプラインと同じ (H-1, W-1) 形状を持つ。
+        # No Savitzky-Golay smoothing here (see Notes): the fitted spline
+        # surface is already smooth by construction, so the row-wise
+        # Savitzky-Golay pass used by the other methods would add nothing.
+        # ``bg_spline`` already has the (H-1, W-1) shape used by the other
+        # pipelines.
+        # ここでは Savitzky-Golay 平滑化をかけない (Notes 参照)。フィット済み
+        # スプライン曲面は構成上すでに滑らかで、他方式の行方向 Savitzky-Golay
+        # を重ねても意味がない。``bg_spline`` は既に他パイプラインと同じ
+        # (H-1, W-1) 形状を持つ。
         self.bg_sm = bg_spline
         calibrated_image = original[1:, 1:] - self.bg_sm
 
@@ -852,11 +888,13 @@ class BGCalibrator:
         line up/down offsets); ``'x'`` interpolates each row across the
         image and targets *vertical* stripes instead.
 
-        Unlike ``'spline2d'``, this path follows the legacy behavior of
-        Savitzky-Golay smoothing the interpolated background and
-        subtracting it *in full* (no exact restore of background-candidate
-        pixels). On line-noise-dominated scans this is empirically the
-        better-behaved choice; see the class docstring.
+        Like every background method, the estimated background is
+        subtracted *in full*. Unlike ``'spline2d'``, this path follows the
+        legacy behavior of Savitzky-Golay smoothing the interpolated
+        background first (the per-line interpolation is not smooth by
+        construction the way the 2D spline surface is). On
+        line-noise-dominated scans this per-line approach is empirically
+        the better-behaved choice; see the class docstring.
 
         これは従来 ``pandas`` の行/列スプライン背景
         (``BG_Calibrator_shimadzuOld`` 参照) の正統な復活版で、2 点を
@@ -881,10 +919,12 @@ class BGCalibrator:
         ラインが上下にずれるオフセット) を均す。``'x'`` は代わりに各行を横方向
         に補間し *縦縞* を対象とする。
 
-        ``'spline2d'`` と異なり、本パスは旧来挙動に従って補間背景を
-        Savitzky-Golay 平滑化し、背景候補画素を厳密復元せず *そのまま全面*
-        減算する。ラインノイズ主体のスキャンでは経験的にこちらの方が
-        振る舞いが良い (クラス docstring 参照)。
+        他の背景方式と同様、推定した背景は *そのまま全面* 減算する。
+        ``'spline2d'`` と異なるのは、旧来挙動に従って補間背景を先に
+        Savitzky-Golay 平滑化する点である（行/列ごとの補間は 2D スプライン
+        曲面のように構成上滑らかにはならないため）。ラインノイズ主体の
+        スキャンでは経験的にこの行/列方式の方が振る舞いが良い
+        (クラス docstring 参照)。
         """
         original = image.original_image
 

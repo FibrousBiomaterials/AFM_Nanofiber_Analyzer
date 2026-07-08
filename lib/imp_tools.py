@@ -320,6 +320,24 @@ def tracking(skeleton_image: NDArray[np.uint8]) -> tuple[NDArray, NDArray]:
 
 
 
+# Corrected chain-code step weights for digital curve length estimation.
+# Summing naive weights (1 for orthogonal, sqrt(2) for diagonal steps) along
+# an 8-connected pixel chain systematically overestimates the length of the
+# underlying continuous curve: up to +8.2% for a straight line at 22.5 deg
+# and about +5.5% averaged over orientations. The corrected weights below
+# (diagonal = orthogonal * sqrt(2) to 3 decimals) make the estimate unbiased
+# on average for straight segments of uniformly distributed orientation
+# (Kulpa 1977; Vossepoel & Smeulders 1982).
+# デジタル曲線長推定のための補正済みチェーンコード重み。8 連結画素チェーンを
+# 素朴な重み (直交 1、斜め sqrt(2)) で積算すると、元の連続曲線の長さを系統的に
+# 過大評価する (22.5 度の直線で最大 +8.2%、方位平均で約 +5.5%)。下記の補正
+# 重み (斜め = 直交 × sqrt(2)、小数 3 桁精度) を使うと、方位が一様分布する
+# 直線分に対して平均的に不偏な推定になる
+# (Kulpa 1977; Vossepoel & Smeulders 1982)。
+_CHAIN_STEP_ORTHOGONAL = 0.948
+_CHAIN_STEP_DIAGONAL = 1.340
+
+
 def convert_track_to_distance(xtrack: np.ndarray,
                               ytrack: np.ndarray,
                               pixel_step_size: Union[int, float],
@@ -354,17 +372,29 @@ def convert_track_to_distance(xtrack: np.ndarray,
 
     Notes
     -----
-    Each inter-pixel step is the Euclidean distance with per-axis pixel sizes:
-    ``sqrt((dx * x_step)^2 + (dy * y_step)^2)``. For an isotropic scale this
-    reduces to ``pixel_step_size`` for orthogonal steps and
-    ``sqrt(2) * pixel_step_size`` for diagonal steps, so anisotropic scans
-    (rectangular field of view or non-square pixel grids) are measured
-    correctly while square scans are unchanged.
+    Each inter-pixel step starts from the Euclidean distance with per-axis
+    pixel sizes, ``sqrt((dx * x_step)^2 + (dy * y_step)^2)``, so anisotropic
+    scans (rectangular field of view or non-square pixel grids) are handled.
     画素間ステップは軸別ピクセルサイズによるユークリッド距離
-    ``sqrt((dx * x_step)^2 + (dy * y_step)^2)`` とする。等方スケールでは直交
-    ステップが ``pixel_step_size``、斜めステップが ``sqrt(2) * pixel_step_size``
-    に一致するため、矩形視野や非正方ピクセル格子の異方性スキャンを正しく測りつつ、
-    正方スキャンの結果は変わらない。
+    ``sqrt((dx * x_step)^2 + (dy * y_step)^2)`` を基礎とするため、矩形視野や
+    非正方ピクセル格子の異方性スキャンにも対応する。
+
+    Each step is then rescaled by the corrected chain-code weight for its
+    type: on a square grid, orthogonal steps count as
+    ``0.948 * pixel_step_size`` and diagonal steps as
+    ``1.340 * pixel_step_size``. The naive weights (1, ``sqrt(2)``) are known
+    to overestimate digital curve length by up to +8.2% (about +5.5% averaged
+    over orientations); the corrected weights remove that bias on average
+    (Kulpa 1977; Vossepoel & Smeulders 1982). The correction constants are
+    derived for square grids; on anisotropic grids they are applied per step
+    type as an approximation.
+    各ステップはその種別に応じた補正済みチェーンコード重みで再スケールする。
+    正方格子では直交ステップが ``0.948 * pixel_step_size``、斜めステップが
+    ``1.340 * pixel_step_size`` になる。素朴な重み (1, ``sqrt(2)``) はデジタル
+    曲線長を最大 +8.2% (方位平均で約 +5.5%) 過大評価することが知られており、
+    補正重みはこのバイアスを平均的に除去する
+    (Kulpa 1977; Vossepoel & Smeulders 1982)。補正定数は正方格子で導出された
+    ものであり、異方性格子ではステップ種別ごとの近似として適用する。
     """
     x_step = pixel_step_size
     y_step = pixel_step_size if y_pixel_step_size is None else y_pixel_step_size
@@ -373,6 +403,17 @@ def convert_track_to_distance(xtrack: np.ndarray,
     xmove = np.delete(xmove, 0)
     ymove = np.delete(ymove, 0)
     steps = np.sqrt((xmove * x_step) ** 2 + (ymove * y_step) ** 2)
+    # Rescale each step by its chain-code correction: on a square grid this
+    # gives 0.948 * step for orthogonal moves and 1.340 * step for diagonal
+    # moves (1.340 = 0.948 * sqrt(2) to 3 decimals), removing the known
+    # systematic overestimation of naive 8-connected path length.
+    # 各ステップをチェーンコード補正で再スケールする。正方格子では直交移動が
+    # 0.948 倍、斜め移動が 1.340 倍 (1.340 = 0.948 × sqrt(2)、小数 3 桁精度)
+    # になり、素朴な 8 連結経路長の既知の系統的過大評価を除去する。
+    diagonal = (xmove != 0) & (ymove != 0)
+    steps = steps * np.where(
+        diagonal, _CHAIN_STEP_DIAGONAL / np.sqrt(2.0), _CHAIN_STEP_ORTHOGONAL
+    )
     horizon = np.empty(len(steps) + 1)
     horizon[0] = 0.0
     horizon[1:] = np.cumsum(steps)
