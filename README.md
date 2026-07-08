@@ -729,7 +729,7 @@ If you use this software in your research, please cite it as:
 
 ```bibtex
 @software{afm_nanofiber_analyzer,
-  author    = {Kiyoto, Shingo and Mayumi, Keita and Ito, Tomoki and Kobayashi, Kayoko},
+  author    = {Kiyoto, Shingo and Ito, Tomoki and Mayumi, Keita and Kobayashi, Kayoko},
   title     = {AFM Nanofiber Analyzer},
   year      = {2026},
   version   = {1.0.0},
