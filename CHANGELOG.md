@@ -8,8 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Changes prepared for the first public release, subsequent archival on Zenodo,
-and submission to the Journal of Open Source Software (JOSS).
+## [1.0.0] - 2026-07-08
+
+Initial public release, prepared for subsequent archival on Zenodo and
+submission to the Journal of Open Source Software (JOSS).
 
 ### Added
 
@@ -40,4 +42,5 @@ and submission to the Journal of Open Source Software (JOSS).
   `SUPPORT.md`, maintainer notes, docstring templates, and a JOSS paper
   (`paper.md`).
 
-[Unreleased]: https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/commits/main
+[Unreleased]: https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/releases/tag/v1.0.0

@@ -3,8 +3,8 @@ cff-version: "1.2.0"
 # ===================================================================
 # CITATION.cff — AFM Nanofiber Analyzer
 # GitHubにこのファイルを置くと「Cite this repository」ボタンが表示される
-# Add doi and date-released after the first archived release.
-# 初回リリースのアーカイブ後に doi と date-released を追加する。
+# Add doi after the first archived release (Zenodo / JOSS).
+# 初回リリースのアーカイブ後 (Zenodo / JOSS) に doi を追加する。
 # ===================================================================
 
 message: >
@@ -23,6 +23,8 @@ abstract: >
   Windows bundle.
 
 version: "1.0.0"          # リリース時にバージョンを更新する
+
+date-released: "2026-07-08"   # First public release / 初回公開日
 
 license: MIT
 
