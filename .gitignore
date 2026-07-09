@@ -45,6 +45,10 @@ desktop.ini
 # ===== Internal documentation (not for publication) =====
 # Keep the local publication and submission checklist out of the repository.
 /TODO.md
+# Local maintainer release checklist (Japanese, internal-only).
+/RELEASING.md
+# Local notes on GitHub repository publication settings (Japanese, internal-only).
+/GITHUB_PUBLICATION_SETTINGS.md
 
 # ===== Promotional drafts (not for publication) =====
 # Local working folder for note articles and other promotional material.
