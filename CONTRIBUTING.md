@@ -110,6 +110,14 @@ appending the marker `sensitive-ok` to it. In an emergency, `git commit --no-ver
 `git push --no-verify` bypasses the corresponding hook entirely; prefer
 fixing or suppressing the finding instead.
 
+These checks are a safety net against common accidents, not an exhaustive
+scanner: they cannot recognize confidential terms missing from the local
+block list, secrets without a known format, or the contents of binary files.
+The authoritative list of built-in patterns is `RULES` in
+`scripts/check_sensitive.py`. Treat a passing check as a guard, not as
+clearance — reviewing the diff before publishing remains the contributor's
+responsibility.
+
 ## Coding standards
 
 The repository follows a detailed set of conventions for code structure,
