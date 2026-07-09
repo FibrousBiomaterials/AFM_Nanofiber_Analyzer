@@ -69,7 +69,10 @@ from lib.pipeline import (
     ProcParams, PipelineStages, STAGE_KEYS, build_stages, process_file,
     bundle_path_for, existing_min_set, merge_params_dict, validate_params,
 )
-from lib.blosc2_io import load_bundle
+from lib.blosc2_io import load_bundle, load_bundle_meta
+from lib.bundle_schema import (
+    SCAN_SIZE_SOURCES, SPATIAL_CALIBRATION_KEY, scan_size_um_from_meta,
+)
 from lib.afm_io import load_afm_image, read_scan_size
 from lib.translator import _
 from lib.ui_tools import (
@@ -350,18 +353,29 @@ class FileItem:
         )
 
     @property
-    def scale_display(self) -> str:
+    def scale_x_display(self) -> str:
         """
-        Format the scan size for the file table, or ``-`` when unset.
-        ファイル表向けに走査範囲を整形する。未設定時は ``-``。
+        Format the X (width) scan size for the file table, or ``-`` when unset.
+        ファイル表向けに X（幅）走査範囲を整形する。未設定時は ``-``。
         """
-        if self.scale_x_um is None or self.scale_y_um is None:
-            return "-"
-        if abs(self.scale_x_um - self.scale_y_um) < 1e-9:
-            return f"{self.scale_x_um:g}"
-        # Non-square scans show both axes (e.g. Shimadzu SizeX != SizeY).
-        # 非正方走査は両軸を表示する（島津の SizeX != SizeY 等）。
-        return f"{self.scale_x_um:g}×{self.scale_y_um:g}"
+        return "-" if self.scale_x_um is None else f"{self.scale_x_um:g}"
+
+    @property
+    def scale_y_display(self) -> str:
+        """
+        Format the Y (height) scan size for the file table, or ``-`` when unset.
+        ファイル表向けに Y（高さ）走査範囲を整形する。未設定時は ``-``。
+
+        Notes
+        -----
+        X and Y are separate table columns so each value sits directly above
+        the entry field that edits it; non-square scans (e.g. Shimadzu
+        SizeX != SizeY) simply show different values in the two columns.
+        X と Y を別列にし、各値がそれを編集する入力欄の真上に並ぶようにする。
+        非正方走査（島津の SizeX != SizeY 等）は 2 列に異なる値が表示される
+        だけである。
+        """
+        return "-" if self.scale_y_um is None else f"{self.scale_y_um:g}"
 
     @property
     def stem(self) -> str:
@@ -520,6 +534,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._current_item: Optional[FileItem] = None
         self._current_data: Optional[Dict[str, np.ndarray]] = None
         self._current_mtime: float = 0.0
+        # Scan size recorded in the cached bundle's vlmeta (spatial_calibration),
+        # or None when the bundle predates that metadata.
+        # キャッシュ中バンドルの vlmeta（spatial_calibration）に記録された走査範囲。
+        # メタデータ導入前のバンドルでは None。
+        self._current_scan_size_um: Optional[Tuple[float, float]] = None
 
         # ===== Registry for unconfirmed entries in the main window =====
         # SingleViewDialog owns a separate registry selected by the registry argument.
@@ -617,7 +636,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         list_inner = ttk.Frame(list_frame)
         list_inner.pack(fill="both", expand=True)
 
-        columns = ("name", "scale", "status", "time")
+        columns = ("name", "scale_x", "scale_y", "status", "time")
         self.tree, _tree_vsb = create_scrolled_treeview(
             list_inner,
             columns=columns,
@@ -626,35 +645,62 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             height=14,
             headings={
                 "name": _("ファイル名"),
-                "scale": _("スケール") + " (µm)",
+                # Axis names with units are fixed scientific labels (§6.2),
+                # so the X/Y headings are not wrapped in _().
+                # 軸名＋単位は固定の科学ラベル（§6.2）なので X/Y 見出しは
+                # _() で包まない。
+                "scale_x": "X (µm)",
+                "scale_y": "Y (µm)",
                 "status": _("状態"),
                 "time": _("処理時間") + " (s)",
             },
             column_options={
+                # The X/Y scale columns are sized to the entry fields placed
+                # directly below them; their headings double as the entry
+                # labels.
+                # X/Y スケール列は直下に置く入力欄に合わせた幅にする。
+                # 列見出しが入力欄のラベルを兼ねる。
                 "name": {"width": 220, "anchor": "w"},
-                "scale": {"width": 80, "anchor": "center"},
-                "status": {"width": 90, "anchor": "center"},
-                "time": {"width": 90, "anchor": "center"},
+                "scale_x": {"width": 70, "anchor": "center"},
+                "scale_y": {"width": 70, "anchor": "center"},
+                "status": {"width": 70, "anchor": "center"},
+                "time": {"width": 80, "anchor": "center"},
             },
         )
 
-        # Scale-assignment toolbar: fill the per-file scan size from the scale
-        # entry (manual) or a CSV manifest. Header values are filled on load.
-        # スケール割り当てツールバー：スケール入力欄（手動）または CSV
-        # マニフェストでファイル単位の走査範囲を設定する。ヘッダ値は読み込み時に充填。
-        scale_bar = ttk.Frame(list_frame)
-        scale_bar.pack(side="top", fill="x", padx=2, pady=(2, 0))
-        ttk.Label(scale_bar, text=_("スケール") + " (µm):").pack(side="left", padx=(0, 2))
-        # Scale entry sits next to the apply buttons that consume it, so the
-        # value source and its destination rows are visually grouped.
-        # 適用ボタンの直前に入力欄を置き、値の入力元と適用先を視覚的にまとめる。
-        # "X" / "Y" labels mark each axis so first-time users can tell the two
-        # fields apart (width vs. height).
-        # "X" / "Y" ラベルで各軸を示し、初見のユーザーが 2 つの欄（幅・高さ）を
-        # 区別できるようにする。
-        ttk.Label(scale_bar, text="X").pack(side="left", padx=(0, 2))
-        self.ent_scale_um = ttk.Entry(scale_bar, width=7, textvariable=self.scale_um_var)
-        self.ent_scale_um.pack(side="left", padx=(0, 4))
+        # Scale-assignment rows: fill the per-file scan size from the X/Y
+        # entries (manual) or a CSV manifest. Header/bundle values are filled
+        # on load. Spacers kept in sync with the live column geometry place
+        # the X entry directly under the "X (µm)" column and the Y entry
+        # directly under the "Y (µm)" column (see _sync_scale_rows_indent),
+        # so each column heading doubles as the label of the entry below it.
+        # スケール割り当て行：X/Y 入力欄（手動）または CSV マニフェストで
+        # ファイル単位の走査範囲を設定する。ヘッダ/バンドル値は読み込み時に
+        # 充填。実際の列座標に同期するスペーサで、X 入力欄を「X (µm)」列、
+        # Y 入力欄を「Y (µm)」列の真下に配置する（_sync_scale_rows_indent を
+        # 参照）。各列見出しが直下の入力欄のラベルを兼ねる。
+        scale_entry_row = ttk.Frame(list_frame)
+        scale_entry_row.pack(side="top", fill="x", padx=2, pady=(2, 0))
+        scale_btn_row = ttk.Frame(list_frame)
+        scale_btn_row.pack(side="top", fill="x", padx=2, pady=(2, 0))
+        # Empty frames honor their requested width, so they act as spacers
+        # whose width _sync_scale_rows_indent recomputes on relayout.
+        # 空のフレームは要求幅がそのまま効くため、_sync_scale_rows_indent が
+        # 再レイアウト時に幅を計算し直すスペーサとして使える。
+        self._scale_entry_spacer = ttk.Frame(scale_entry_row, width=0)
+        self._scale_entry_spacer.pack(side="left")
+        self._scale_btn_spacer = ttk.Frame(scale_btn_row, width=0)
+        self._scale_btn_spacer.pack(side="left")
+        # Re-align whenever the tree relayouts or a column separator is dragged.
+        # ツリーの再レイアウト時や列境界のドラッグ時に字下げを追従させる。
+        self.tree.bind("<Configure>", self._schedule_scale_rows_sync, add="+")
+        self.tree.bind("<B1-Motion>", self._schedule_scale_rows_sync, add="+")
+        self.tree.bind("<ButtonRelease-1>", self._schedule_scale_rows_sync, add="+")
+        self._schedule_scale_rows_sync()
+        self.ent_scale_um = ttk.Entry(
+            scale_entry_row, width=7, textvariable=self.scale_um_var,
+        )
+        self.ent_scale_um.pack(side="left")
         self._register_unconfirmed_entry(
             self.ent_scale_um,
             lambda: self._fmt_num(self.scale_um),
@@ -665,18 +711,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             _("AFM 画像の X（幅）方向の実寸") + " (µm)。\n"
             + _("プレビューの軸目盛と、ファイルへ適用したときの長さ計測の基準に使われる。"),
         )
-        # Optional Y (height) size for rectangular scans. The "X" / "Y" labels
-        # mark which field is which; an empty Y means a square scan (Y = X),
-        # reinforced by the "= X" ghost placeholder shown while Y is blank.
-        # 矩形スキャン用の任意の Y（高さ）サイズ。"X" / "Y" ラベルでどちらの欄か
-        # を示す。Y 空欄は正方スキャン（Y = X）を意味し、Y が空のときに表示する
-        # "= X" ゴーストプレースホルダでもそれを補強する。
-        ttk.Label(scale_bar, text="×").pack(side="left", padx=(0, 2))
-        ttk.Label(scale_bar, text="Y").pack(side="left", padx=(0, 2))
+        # Optional Y (height) size for rectangular scans. The "Y (µm)" column
+        # heading above marks the field; an empty Y means a square scan
+        # (Y = X), reinforced by the "= X" ghost placeholder shown while Y is
+        # blank. The gap spacer pushes this entry to the Y column's left edge.
+        # 矩形スキャン用の任意の Y（高さ）サイズ。真上の「Y (µm)」列見出しが
+        # どの欄かを示す。Y 空欄は正方スキャン（Y = X）を意味し、Y が空のとき
+        # に表示する "= X" ゴーストプレースホルダでもそれを補強する。隙間
+        # スペーサがこの入力欄を Y 列の左端まで押し出す。
+        self._scale_gap_spacer = ttk.Frame(scale_entry_row, width=0)
+        self._scale_gap_spacer.pack(side="left")
         self.ent_scale_y_um = ttk.Entry(
-            scale_bar, width=7, textvariable=self.scale_y_um_var,
+            scale_entry_row, width=7, textvariable=self.scale_y_um_var,
         )
-        self.ent_scale_y_um.pack(side="left", padx=(0, 4))
+        self.ent_scale_y_um.pack(side="left")
         self._register_unconfirmed_entry(
             self.ent_scale_y_um,
             lambda: "" if self.scale_y_um is None
@@ -718,18 +766,24 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "<FocusOut>", self._refresh_scale_y_placeholder, add="+"
         )
         self._refresh_scale_y_placeholder()
+        # The apply/manifest buttons occupy their own row below the entries;
+        # they are wider than the X/Y columns, so only their left edge lines
+        # up with the X column and they extend under the columns to the right.
+        # 適用・マニフェスト読込ボタンは入力欄の下の独立した行に置く。ボタン列
+        # は X/Y 列より幅広のため、左端のみを X 列に揃えて右側は右隣の列の
+        # 下まで伸びる。
         self.btn_apply_scale_sel = ttk.Button(
-            scale_bar, text=_("適用"),
+            scale_btn_row, text=_("適用"),
             command=lambda: self.on_apply_scale_to_rows(selected_only=True),
         )
-        self.btn_apply_scale_sel.pack(side="left", padx=2)
+        self.btn_apply_scale_sel.pack(side="left", padx=(0, 2))
         self.btn_apply_scale_all = ttk.Button(
-            scale_bar, text=_("全ファイルに適用"),
+            scale_btn_row, text=_("全ファイルに適用"),
             command=lambda: self.on_apply_scale_to_rows(selected_only=False),
         )
         self.btn_apply_scale_all.pack(side="left", padx=2)
         self.btn_load_manifest = ttk.Button(
-            scale_bar, text=_("スケール表(CSV)読込"),
+            scale_btn_row, text=_("スケール表(CSV)読込"),
             command=self.on_load_scale_manifest,
         )
         self.btn_load_manifest.pack(side="left", padx=2)
@@ -786,6 +840,60 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         self.progress_detail_var = tk.StringVar(value=_("-"))
         ttk.Label(prog_frame, textvariable=self.progress_detail_var).pack(side="left", padx=(0, 4))
+
+    def _schedule_scale_rows_sync(self, _event=None) -> None:
+        """
+        Defer the scale-row indent sync until the pending relayout completes.
+        保留中の再レイアウト完了後までスケール行の字下げ同期を遅延させる。
+        """
+        # The Treeview still reports pre-layout column widths while a
+        # <Configure> event is being delivered, so syncing immediately would
+        # read stale widths; at idle time column stretching has finished.
+        # <Configure> イベント配信中の Treeview はレイアウト前の列幅を返す
+        # ため、即時同期では古い幅を読んでしまう。アイドル時なら列の伸縮が
+        # 完了している。
+        self.after_idle(self._sync_scale_rows_indent)
+
+    def _sync_scale_rows_indent(self, _event=None) -> None:
+        """
+        Align the X/Y scale entries under their file-table columns.
+        X/Y スケール入力欄をそれぞれのファイル一覧列の真下に揃える。
+        """
+        # Column widths change with pane resizes and user drags, so the
+        # spacer widths are recomputed from live widget geometry on every
+        # relayout instead of being fixed at build time.
+        # 列幅はペインのリサイズやユーザーのドラッグで変わるため、スペーサ幅は
+        # 構築時に固定せず、再レイアウトのたびに実際のウィジェット座標から
+        # 計算し直す。
+        try:
+            tree_x = self.tree.winfo_rootx()
+            x_col_left = tree_x + self.tree.column("name", "width")
+            y_col_left = x_col_left + self.tree.column("scale_x", "width")
+
+            # Entry row: indent to the X column's left edge, then size the
+            # gap between the entries so the Y entry starts at the Y column.
+            # 入力行：X 列の左端まで字下げし、Y 入力欄が Y 列から始まるよう
+            # 入力欄間の隙間幅を調整する。
+            row_x = self._scale_entry_spacer.master.winfo_rootx()
+            indent = max(x_col_left - row_x, 0)
+            self._scale_entry_spacer.configure(width=indent)
+            x_entry_right = row_x + indent + self.ent_scale_um.winfo_width()
+            self._scale_gap_spacer.configure(
+                width=max(y_col_left - x_entry_right, 0)
+            )
+
+            # Button row: only its left edge lines up with the X column.
+            # ボタン行は左端のみを X 列に揃える。
+            btn_row_x = self._scale_btn_spacer.master.winfo_rootx()
+            self._scale_btn_spacer.configure(
+                width=max(x_col_left - btn_row_x, 0)
+            )
+        except tk.TclError:
+            # Geometry may be unavailable while widgets are not yet mapped
+            # during startup; the pending <Configure> event re-syncs later.
+            # 起動中でウィジェット未マップの間はジオメトリを取得できないことが
+            # ある。後続の <Configure> イベントで再同期される。
+            pass
 
     def _build_preview_area(self) -> None:
         """
@@ -1047,16 +1155,59 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _scale_xy_um(self) -> Tuple[float, float]:
         """
-        Return the (X, Y) display scale in micrometers.
-        表示用スケール (X, Y) を µm で返す。
+        Return the toolbar-entry (X, Y) scale in micrometers.
+        ツールバー入力欄の (X, Y) スケールを µm で返す。
 
         Y falls back to X when no separate Y size is set, so a single value
-        keeps a square scan.
+        keeps a square scan. This is the value assigned to files via the
+        apply buttons; preview rendering resolves its display scale through
+        `_preview_scale_xy_um` and uses this entry only as the last fallback.
         個別の Y サイズが未設定なら Y は X にフォールバックし、単一値で正方
-        スキャンを保つ。
+        スキャンを保つ。これは「適用」ボタンでファイルに割り当てる値であり、
+        プレビュー描画は `_preview_scale_xy_um` で表示スケールを解決し、
+        本入力欄は最終フォールバックとしてのみ使う。
         """
         y = self.scale_y_um if self.scale_y_um is not None else self.scale_um
         return self.scale_um, y
+
+    def _preview_scale_xy_um(self, it: FileItem) -> Tuple[float, float]:
+        """
+        Resolve the (X, Y) display scale in micrometers for one file's preview.
+        ファイル 1 件のプレビュー表示に使う (X, Y) スケール (µm) を解決する。
+
+        Parameters
+        ----------
+        it
+            File whose preview is being rendered.
+            プレビュー描画対象のファイル。
+
+        Returns
+        -------
+        tuple of float
+            Per-axis physical scan size in micrometers.
+            軸ごとの物理走査範囲 (µm)。
+
+        Notes
+        -----
+        Resolution order: (1) the scan size recorded in the analyzed ``.b2z``
+        bundle — the value the analysis actually used, and the one GUI03/GUI04
+        and the CLI read from the same bundle; (2) the per-file scale
+        (header / manifest / manual), which covers bundles saved before
+        ``spatial_calibration`` existed; (3) the toolbar entry as the last
+        fallback for files with no scale information at all.
+        解決順: (1) 解析済み ``.b2z`` に記録された走査範囲（解析が実際に使った
+        値で、GUI03/GUI04 や CLI が同じバンドルから読む値と一致）、
+        (2) ファイル単位スケール（ヘッダ/マニフェスト/手動。
+        ``spatial_calibration`` 導入前のバンドルを補う）、(3) スケール情報が
+        全く無いファイル向けの最終フォールバックとしてツールバー入力欄。
+        """
+        # The vlmeta scan size is cached alongside the preview arrays, so it
+        # is only valid while `it` is the currently cached item.
+        if self._current_item is it and self._current_scan_size_um is not None:
+            return self._current_scan_size_um
+        if it.has_scale:
+            return it.scale_x_um, it.scale_y_um
+        return self._scale_xy_um()
 
     def _refresh_scale_y_placeholder(self, _event=None) -> None:
         """
@@ -1133,7 +1284,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         iid = self.tree.insert(
             "", "end",
             values=(
-                os.path.basename(item.txt_path), item.scale_display,
+                os.path.basename(item.txt_path),
+                item.scale_x_display, item.scale_y_display,
                 status_label(item.status), item.proc_time_s,
             ),
         )
@@ -1152,7 +1304,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.tree.item(
             iid,
             values=(
-                os.path.basename(it.txt_path), it.scale_display,
+                os.path.basename(it.txt_path),
+                it.scale_x_display, it.scale_y_display,
                 status_label(it.status), it.proc_time_s,
             ),
         )
@@ -1251,6 +1404,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._invalidate_current_data()
 
         # Detect existing outputs only when a folder is selected.
+        n_from_bundle = 0
         n_from_header = 0
         for fn in files:
             full = os.path.join(folder, fn)
@@ -1264,13 +1418,21 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 if missing:
                     item.missing_reason = _("欠損: ") + ", ".join(missing)
                     self._log(_("%s: 未解析（%s）") % (fn, item.missing_reason))
-            # Auto-fill the scan size from the instrument header (Shimadzu
-            # SizeX/SizeY). Files without a header scan size stay unset and
-            # need a manual or manifest value before processing.
-            # 装置ヘッダ（島津 SizeX/SizeY）から走査範囲を自動取得する。ヘッダに
-            # 走査範囲が無いファイルは未設定のままで、処理前に手動または
-            # マニフェストで値を与える必要がある。
-            if self._autofill_scale_from_header(item):
+            # Auto-fill the scan size: analyzed files first restore the value
+            # recorded in their .b2z bundle (what the previous run actually
+            # used); otherwise fall back to the instrument header (Shimadzu
+            # SizeX/SizeY). Files with neither stay unset and need a manual
+            # or manifest value before processing.
+            # 走査範囲の自動設定：解析済みファイルはまず .b2z バンドルの記録値
+            # （前回実行が実際に使った値）を復元し、それ以外は装置ヘッダ（島津
+            # SizeX/SizeY）から取得する。どちらも無いファイルは未設定のままで、
+            # 処理前に手動またはマニフェストで値を与える必要がある。
+            if (
+                item.status == STATUS_ANALYZED
+                and self._autofill_scale_from_bundle(item)
+            ):
+                n_from_bundle += 1
+            elif self._autofill_scale_from_header(item):
                 n_from_header += 1
             self.items.append(item)
             self._insert_item(item)
@@ -1280,8 +1442,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         else:
             n_unset = sum(1 for it in self.items if not it.has_scale)
             self._log(
-                _("スケール: ヘッダ取得 %d 件 / 未設定 %d 件")
-                % (n_from_header, n_unset)
+                _("スケール: バンドル記録 %d 件 / ヘッダ取得 %d 件 / 未設定 %d 件")
+                % (n_from_bundle, n_from_header, n_unset)
             )
             if n_unset:
                 self._log(
@@ -1316,6 +1478,47 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         item.scale_x_um = size.x_um
         item.scale_y_um = size.y_um
         item.scale_source = "input_header"
+        return True
+
+    def _autofill_scale_from_bundle(self, item: FileItem) -> bool:
+        """
+        Restore a file's scan size from its analyzed output bundle, if recorded.
+        記録があれば解析済み出力バンドルからファイルの走査範囲を復元する。
+
+        Returns
+        -------
+        bool
+            True when a recorded scan size was found and applied.
+            記録された走査範囲が見つかり適用された場合に True。
+
+        Notes
+        -----
+        The bundle value is the scan size the previous analysis actually
+        used, so it takes precedence over the input header for analyzed
+        files: when the two differ, the user deliberately overrode the
+        header value (manually or via a manifest) before the last run, and
+        restoring that choice keeps a re-run reproducible. It also matches
+        the preview scale resolution (`_preview_scale_xy_um`) and the value
+        GUI03/GUI04 and the CLI read from the same bundle.
+        バンドル値は前回の解析が実際に使った走査範囲であり、解析済みファイル
+        では入力ヘッダより優先する。両者が食い違うのは前回実行前にユーザーが
+        意図的に（手動またはマニフェストで）ヘッダ値を上書きした場合であり、
+        その選択を復元することで再解析の再現性が保たれる。プレビューの
+        スケール解決（`_preview_scale_xy_um`）や、GUI03/GUI04・CLI が同じ
+        バンドルから読む値とも一致する。
+        """
+        meta = self._read_bundle_meta_safe(item)
+        size = scan_size_um_from_meta(meta)
+        if size is None:
+            return False
+        item.scale_x_um, item.scale_y_um = size
+        # Restore the recorded provenance so a re-run writes the same source.
+        # An unknown source value degrades to "" (unset) per the FileItem contract.
+        # 記録された来歴を復元し、再解析時も同じ source が書き込まれるようにする。
+        # 未知の source 値は FileItem の契約に従い ""（未設定）へ落とす。
+        cal = meta.get(SPATIAL_CALIBRATION_KEY)
+        source = cal.get("source") if isinstance(cal, dict) else None
+        item.scale_source = source if source in SCAN_SIZE_SOURCES else ""
         return True
 
     def on_apply_scale_to_rows(self, selected_only: bool) -> None:
@@ -1882,6 +2085,35 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._log_exception(_("プレビュー読み込み失敗"), e)
             return None
 
+    def _read_bundle_meta_safe(self, it: FileItem) -> Dict:
+        """
+        Read a file's bundle vlmeta, or an empty dict when unavailable.
+        ファイルのバンドル vlmeta を読み込み、読めない場合は空辞書を返す。
+        """
+        # A metadata read failure must not break folder scans or previews;
+        # the scale simply falls back to the per-file or toolbar-entry value.
+        # メタデータ読み込み失敗でフォルダ走査やプレビューを壊さない。スケールは
+        # ファイル単位値または入力欄の値へフォールバックするだけにする。
+        try:
+            return load_bundle_meta(bundle_path_for(it.stem))
+        except Exception:
+            return {}
+
+    def _load_bundle_scan_size(self, it: FileItem) -> Optional[Tuple[float, float]]:
+        """
+        Read the scan size recorded in a file's output bundle, if any.
+        ファイルの出力バンドルに記録された走査範囲があれば読み込む。
+
+        Returns
+        -------
+        tuple of float or None
+            Per-axis scan size in micrometers, or ``None`` when the bundle
+            does not record a spatial calibration or cannot be read.
+            軸ごとの走査範囲 (µm)。空間較正が未記録、または読み込み不能な
+            場合は ``None``。
+        """
+        return scan_size_um_from_meta(self._read_bundle_meta_safe(it))
+
     def _invalidate_current_data(self) -> None:
         """
         Clear the cached preview bundle data.
@@ -1891,6 +2123,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._current_item = None
         self._current_data = None
         self._current_mtime = 0.0
+        self._current_scan_size_um = None
 
     def _ensure_current_data(self, it: FileItem) -> Optional[Dict[str, np.ndarray]]:
         """
@@ -1912,6 +2145,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._current_item = it
         self._current_data = data
         self._current_mtime = mtime
+        # Refresh the recorded scan size together with the arrays so a
+        # re-analyzed bundle updates the preview scale as well.
+        # 再解析されたバンドルでプレビューのスケールも更新されるよう、
+        # 記録走査範囲は配列と同時に読み直す。
+        self._current_scan_size_um = self._load_bundle_scan_size(it)
         return data
 
     def on_redraw_preview(self) -> None:
@@ -1956,9 +2194,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         show_scale = self.show_scale_var.get()
         unit = self.unit_var.get()
         # Per-axis physical extent: X from the width scale, Y from the height
-        # scale (equal for a square scan).
-        # 軸別の物理範囲：X は幅スケール、Y は高さスケール（正方スキャンでは等しい）。
-        x_um, y_um = self._scale_xy_um()
+        # scale (equal for a square scan). The scale is resolved per file
+        # (bundle record, then per-file value, then the toolbar entry).
+        # 軸別の物理範囲：X は幅スケール、Y は高さスケール（正方スキャンでは
+        # 等しい）。スケールはファイル単位で解決する（バンドル記録値 →
+        # ファイル単位値 → ツールバー入力欄の順）。
+        x_um, y_um = self._preview_scale_xy_um(it)
         if unit == "nm":
             x_scale, y_scale = x_um * 1000.0, y_um * 1000.0
             unit_label = "nm"
@@ -3124,11 +3365,13 @@ class SingleViewDialog(tk.Toplevel, UnconfirmedEntryMixin):
         # Axis extent and units.
         show_scale = self.show_scale_var.get()
         unit = self.unit_var.get()
-        # Scan size is view metadata, so it comes from the main preview setting.
-        # Per-axis: X from the width scale, Y from the height scale.
-        # 走査範囲は表示メタ情報なのでメインプレビュー設定から取得する。
+        # The scale is resolved per file through the parent, using the same
+        # order as the main preview (bundle record, then per-file value, then
+        # the toolbar entry). Per-axis: X from the width, Y from the height.
+        # スケールは親経由でファイル単位に解決し、メインプレビューと同じ順
+        # （バンドル記録値 → ファイル単位値 → ツールバー入力欄）を使う。
         # 軸別に、X は幅スケール、Y は高さスケールを使う。
-        x_um, y_um = self.parent._scale_xy_um()
+        x_um, y_um = self.parent._preview_scale_xy_um(self.item)
 
         if unit == "nm":
             x_scale, y_scale = x_um * 1000.0, y_um * 1000.0
