@@ -1,0 +1,40 @@
+{
+  "title": "AFM Nanofiber Analyzer",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "MIT",
+  "description": "A GUI and command-line toolkit for analyzing nanofiber morphology from Atomic Force Microscopy (AFM) height images. It reads text/CSV exports and native Gwyddion .gwy files, then performs background calibration, binarization, skeletonization, kink and endpoint/branch-point detection, height profiling, and per-fiber statistical analysis. Results are stored in validated, versioned bundle files, and the application can be packaged as a standalone Windows bundle.",
+  "keywords": [
+    "AFM",
+    "atomic force microscopy",
+    "nanofiber",
+    "image analysis",
+    "skeletonization",
+    "background calibration",
+    "GUI",
+    "Python",
+    "materials science"
+  ],
+  "creators": [
+    {
+      "name": "Kiyoto, Shingo",
+      "affiliation": "Kyoto University",
+      "orcid": "0000-0002-5228-9964"
+    },
+    {
+      "name": "Ito, Tomoki",
+      "affiliation": "The University of Tokyo",
+      "orcid": "0000-0002-2473-7117"
+    },
+    {
+      "name": "Mayumi, Keita",
+      "affiliation": "Kyoto University",
+      "orcid": "0009-0003-2304-7549"
+    },
+    {
+      "name": "Kobayashi, Kayoko",
+      "affiliation": "Kyoto University",
+      "orcid": "0000-0003-0459-7900"
+    }
+  ]
+}

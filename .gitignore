@@ -73,6 +73,9 @@ testdata_Bruker_txt/*
 # Strict-regression golden baseline must be version-controlled so the
 # tests/test_strict_regression.py guard runs (not skips) on fresh clones and CI.
 !tests/strict_regression_golden.json
+# Zenodo deposition metadata must be version-controlled so the Zenodo GitHub
+# integration reads it from the archived release; otherwise *.json above hides it.
+!.zenodo.json
 *.b2z
 *_param.json
 *.npy
