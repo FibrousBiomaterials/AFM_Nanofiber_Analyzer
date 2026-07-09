@@ -8,6 +8,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Commit- and push-time safety checks (`.githooks/pre-commit`,
+  `.githooks/pre-push`, `scripts/check_sensitive.py`) that scan staged diffs
+  and outgoing commits for credentials, e-mail addresses, machine-local
+  absolute paths, and a locally defined block list before anything is
+  published; enable once per clone with `git config core.hooksPath .githooks`
+  (see CONTRIBUTING.md).
+
 ## [1.0.0] - 2026-07-08
 
 Initial public release, prepared for subsequent archival on Zenodo and

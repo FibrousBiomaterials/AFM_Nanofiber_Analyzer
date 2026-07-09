@@ -72,6 +72,44 @@ verify them:
 python check.py --verify
 ```
 
+## Commit and push safety checks
+
+The repository ships two hooks that guard against publishing sensitive
+information: a `pre-commit` hook that scans the staged diff before it enters
+the history, and a `pre-push` hook that scans outgoing commits — added lines,
+commit messages, and touched file paths — before anything leaves the machine.
+Both look for credentials, e-mail addresses, machine-local absolute paths,
+and a locally defined block list. The pre-push hook is the final net: it
+also covers commit messages, merge commits, and commits created with
+`--no-verify`. Git never activates hooks automatically, so enable them once
+per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The checker only needs a Python interpreter on `PATH` (the development
+environment is fine). On macOS/Linux, make sure the hooks are executable
+(`chmod +x .githooks/pre-commit .githooks/pre-push`). To scan manually
+without committing or pushing:
+
+```bash
+python scripts/check_sensitive.py --staged
+python scripts/check_sensitive.py --range origin/main..HEAD
+```
+
+Two optional, never-committed files under `.git/info/` tune the check per
+clone: `sensitive_words.txt` holds site-specific blocked words (one per line,
+case-insensitive; adding your own name and e-mail address is recommended),
+and `sensitive_allow.txt` holds suppression regexes for false positives.
+Never write the blocked words themselves into a tracked file (notes,
+documentation, or configuration): committing the block list would publish
+the very words it is meant to protect. Keep them only under `.git/info/`,
+which git cannot track. A single flagged line can also be suppressed by
+appending the marker `sensitive-ok` to it. In an emergency, `git commit --no-verify` or
+`git push --no-verify` bypasses the corresponding hook entirely; prefer
+fixing or suppressing the finding instead.
+
 ## Coding standards
 
 The repository follows a detailed set of conventions for code structure,

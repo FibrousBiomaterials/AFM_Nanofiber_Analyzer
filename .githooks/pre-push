@@ -1,0 +1,45 @@
+#!/bin/sh
+# Pre-push safety check: scan outgoing commits for credentials, personal
+# information, machine-local absolute paths, and locally defined blocked
+# words before anything leaves this machine. A finding blocks the push.
+# push 前の安全確認: 送信予定のコミットに認証情報・個人情報・ローカル絶対
+# パス・ローカル定義の NG ワードが含まれていないか検査し、検出時は push を
+# 中止する。
+#
+# Enable once per clone (git never activates hooks automatically):
+# クローンごとに一度だけ有効化する(git はフックを自動では有効化しない):
+#   git config core.hooksPath .githooks
+#
+# Bypass for a single push only when you are sure (use sparingly):
+# 確信がある場合のみ、次で 1 回だけ迂回できる(乱用しないこと):
+#   git push --no-verify
+
+set -u
+
+repo_root=$(git rev-parse --show-toplevel) || exit 1
+checker="$repo_root/scripts/check_sensitive.py"
+
+# Fail closed: a missing checker script also blocks the push.
+# フェイルクローズ方針: 検査スクリプトが無い場合も push を中止する。
+if [ ! -f "$checker" ]; then
+    echo "pre-push: $checker not found; blocking push (fail-closed)." >&2
+    exit 1
+fi
+
+# Prefer "python" (present in this project's venv/conda setups); fall back
+# to python3, then to the Windows "py" launcher used by plain Git Bash.
+if command -v python >/dev/null 2>&1; then
+    py=python
+elif command -v python3 >/dev/null 2>&1; then
+    py=python3
+elif command -v py >/dev/null 2>&1; then
+    py="py -3"
+else
+    echo "pre-push: no Python interpreter found; blocking push (fail-closed)." >&2
+    exit 1
+fi
+
+# $1 = remote name, $2 = remote URL; the ref updates arrive on stdin and are
+# passed straight through to the checker. $py is intentionally unquoted so
+# "py -3" splits into command and argument.
+exec $py "$checker" --remote "${1:-}" --url "${2:-}"

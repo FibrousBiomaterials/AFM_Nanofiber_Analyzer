@@ -1,0 +1,46 @@
+#!/bin/sh
+# Pre-commit safety check: scan the staged diff for credentials, personal
+# information, machine-local absolute paths, and locally defined blocked
+# words before they enter the history. A finding blocks the commit.
+# The pre-push hook remains the final net: it also covers commit messages
+# and merge commits, which this hook cannot see.
+# コミット前の安全確認: ステージ済み差分に認証情報・個人情報・ローカル絶対
+# パス・ローカル定義の NG ワードが含まれていないか検査し、検出時はコミットを
+# 中止する。コミットメッセージとマージコミットはこのフックでは検査できない
+# ため、pre-push フックが最終防衛線として引き続き検査する。
+#
+# Enable once per clone (git never activates hooks automatically):
+# クローンごとに一度だけ有効化する(git はフックを自動では有効化しない):
+#   git config core.hooksPath .githooks
+#
+# Bypass for a single commit only when you are sure (use sparingly):
+# 確信がある場合のみ、次で 1 回だけ迂回できる(乱用しないこと):
+#   git commit --no-verify
+
+set -u
+
+repo_root=$(git rev-parse --show-toplevel) || exit 1
+checker="$repo_root/scripts/check_sensitive.py"
+
+# Fail closed: a missing checker script also blocks the commit.
+# フェイルクローズ方針: 検査スクリプトが無い場合もコミットを中止する。
+if [ ! -f "$checker" ]; then
+    echo "pre-commit: $checker not found; blocking commit (fail-closed)." >&2
+    exit 1
+fi
+
+# Prefer "python" (present in this project's venv/conda setups); fall back
+# to python3, then to the Windows "py" launcher used by plain Git Bash.
+if command -v python >/dev/null 2>&1; then
+    py=python
+elif command -v python3 >/dev/null 2>&1; then
+    py=python3
+elif command -v py >/dev/null 2>&1; then
+    py="py -3"
+else
+    echo "pre-commit: no Python interpreter found; blocking commit (fail-closed)." >&2
+    exit 1
+fi
+
+# $py is intentionally unquoted so "py -3" splits into command and argument.
+exec $py "$checker" --staged
