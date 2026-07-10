@@ -22,6 +22,7 @@ and load-time format detection is done using file magic bytes.
 読み込み時にファイル先頭のマジックバイトで自動判定する。
 """
 
+import math
 import os
 import tempfile
 
@@ -127,6 +128,23 @@ def load_blosc2(path: str) -> np.ndarray:
 
 BUNDLE_EXT = ".b2z"
 
+# Default guard limits for `load_bundle`. Blosc2 metadata declares each
+# array's shape and dtype without decompressing it, and highly compressible
+# data means a bundle of a few hundred bytes on disk can declare a
+# decompressed size in the terabytes. Checking the declared sizes against
+# these caps before materializing protects every `load_bundle` caller (GUI
+# preview, CLI export/validate, measurement) from decompression-bomb bundles.
+# The defaults sit far above any legitimate AFM bundle: a bundle holds about
+# ten keys, and even an 8192x8192 float64 height image is only 0.5 GiB.
+# blosc2 のメタデータは展開せずに各配列の shape/dtype を宣言できるため、
+# 高圧縮データではディスク上数百バイトのバンドルがテラバイト級の展開後
+# サイズを宣言し得る。実体化前に宣言サイズを上限と照合することで、全ての
+# `load_bundle` 呼び出し元を展開爆弾から保護する。既定値は正当な AFM
+# バンドル（約 10 キー、8192x8192 の float64 高さ画像でも 0.5 GiB）より
+# 十分大きく取ってある。
+MAX_BUNDLE_KEYS = 64
+MAX_BUNDLE_DECOMPRESSED_BYTES = 4 * 1024**3  # 4 GiB
+
 
 def save_bundle(path: str, arrays: dict, vlmeta: dict | None = None) -> None:
     """
@@ -186,7 +204,13 @@ def save_bundle(path: str, arrays: dict, vlmeta: dict | None = None) -> None:
         raise
 
 
-def load_bundle(path: str, keys: list[str] | None = None) -> dict:
+def load_bundle(
+    path: str,
+    keys: list[str] | None = None,
+    *,
+    max_keys: int | None = MAX_BUNDLE_KEYS,
+    max_decompressed_bytes: int | None = MAX_BUNDLE_DECOMPRESSED_BYTES,
+) -> dict:
     """
     Load arrays from a bundle file as a dictionary.
     バンドルファイルから配列を読み込み、辞書として返す。
@@ -201,11 +225,26 @@ def load_bundle(path: str, keys: list[str] | None = None) -> dict:
         Leading "/" is optional.
         読み込むキーのサブセット。None の場合は全リーフデータセットを読み込む。
         先頭の "/" は任意。
+    max_keys
+        Maximum number of keys to load. None disables the check.
+        読み込むキー数の上限。None で検査を無効化する。
+    max_decompressed_bytes
+        Maximum total decompressed size (bytes) the requested arrays may
+        declare in their metadata. None disables the check.
+        読み込む配列がメタデータで宣言できる展開後合計サイズ（バイト）の
+        上限。None で検査を無効化する。
 
     Returns
     -------
     Mapping from key name (without leading "/") to loaded NumPy array.
     キー名（先頭の "/" は除去）から NumPy 配列への辞書。
+
+    Raises
+    ------
+    ValueError
+        If the bundle declares more keys or a larger decompressed size than
+        the limits allow. Raised before any oversized array is materialized,
+        so a crafted (or corrupted) bundle cannot exhaust memory during load.
     """
     out: dict = {}
     with blosc2.TreeStore(path, mode="r") as ts:
@@ -214,9 +253,30 @@ def load_bundle(path: str, keys: list[str] | None = None) -> dict:
         else:
             target_keys = [k if k.startswith("/") else "/" + k for k in keys]
 
+        if max_keys is not None and len(target_keys) > max_keys:
+            raise ValueError(
+                f"bundle declares {len(target_keys)} keys, exceeding the "
+                f"limit of {max_keys}: {path}"
+            )
+
+        # Sum each array's declared decompressed size (shape x itemsize, read
+        # from blosc2 metadata without decompressing) and refuse the load
+        # before `[:]` would materialize anything past the cap.
+        # 各配列の宣言展開サイズ（shape × itemsize、展開せずメタデータから
+        # 取得）を積算し、`[:]` が上限超過分を実体化する前に読み込みを拒否する。
+        total_bytes = 0
         for k in target_keys:
+            node = ts[k]
+            total_bytes += math.prod(node.shape) * node.dtype.itemsize
+            if (max_decompressed_bytes is not None
+                    and total_bytes > max_decompressed_bytes):
+                raise ValueError(
+                    f"bundle arrays declare more than "
+                    f"{max_decompressed_bytes} decompressed bytes "
+                    f"({k!r} raises the total to {total_bytes}): {path}"
+                )
             # `[:]` materializes the (possibly compressed) NDArray as a NumPy array.
-            out[k.lstrip("/")] = ts[k][:]
+            out[k.lstrip("/")] = node[:]
     return out
 
 

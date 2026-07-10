@@ -118,3 +118,52 @@ def test_bundle_keys_lists_leaves(tmp_path):
     path = os.path.join(tmp_path, "out.b2z")
     save_bundle(path, {"a": np.zeros(3), "b": np.ones((2, 2))})
     assert sorted(bundle_keys(path)) == ["/a", "/b"]
+
+
+def test_load_bundle_rejects_too_many_keys(tmp_path):
+    """load_bundle refuses bundles that declare more keys than max_keys."""
+    path = os.path.join(tmp_path, "out.b2z")
+    save_bundle(path, {"a": np.zeros(3), "b": np.ones(3), "c": np.ones(3)})
+
+    with pytest.raises(ValueError, match="keys"):
+        load_bundle(path, max_keys=2)
+
+    # The same bundle loads at or below the limit, and with the check disabled.
+    assert set(load_bundle(path, max_keys=3)) == {"a", "b", "c"}
+    assert set(load_bundle(path, max_keys=None)) == {"a", "b", "c"}
+
+
+def test_load_bundle_rejects_oversized_declared_arrays(tmp_path):
+    """load_bundle refuses arrays whose declared decompressed size exceeds the cap.
+
+    A decompression-bomb .b2z is tiny on disk while declaring a huge
+    decompressed size, so the guard must act on the declared shape/dtype
+    before materialization — not on the file size.
+    """
+    path = os.path.join(tmp_path, "out.b2z")
+    save_bundle(path, {"big": np.zeros((64, 64), dtype=np.float64)})  # 32 KiB
+
+    with pytest.raises(ValueError, match="decompressed"):
+        load_bundle(path, max_decompressed_bytes=1024)
+
+    # The cap also applies when an explicit key subset is requested.
+    with pytest.raises(ValueError, match="decompressed"):
+        load_bundle(path, keys=["big"], max_decompressed_bytes=1024)
+
+    loaded = load_bundle(path, max_decompressed_bytes=None)
+    assert loaded["big"].shape == (64, 64)
+
+
+def test_load_bundle_byte_cap_is_cumulative(tmp_path):
+    """The decompressed-bytes cap applies to the total across all arrays."""
+    path = os.path.join(tmp_path, "out.b2z")
+    save_bundle(path, {
+        "a": np.zeros(128, dtype=np.float64),  # 1 KiB each
+        "b": np.zeros(128, dtype=np.float64),
+    })
+
+    # Each array fits alone, but together they exceed the cap.
+    with pytest.raises(ValueError, match="decompressed"):
+        load_bundle(path, max_decompressed_bytes=1536)
+
+    assert set(load_bundle(path, max_decompressed_bytes=2048)) == {"a", "b"}

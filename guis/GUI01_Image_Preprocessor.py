@@ -69,7 +69,7 @@ from lib.pipeline import (
     ProcParams, PipelineStages, STAGE_KEYS, build_stages, process_file,
     bundle_path_for, existing_min_set, merge_params_dict, validate_params,
 )
-from lib.blosc2_io import load_bundle, load_bundle_meta
+from lib.blosc2_io import bundle_has_keys, load_bundle, load_bundle_meta
 from lib.bundle_schema import (
     SCAN_SIZE_SOURCES, SPATIAL_CALIBRATION_KEY, scan_size_um_from_meta,
 )
@@ -2055,8 +2055,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         try:
             bundle_path = bundle_path_for(it.stem)
 
-            # Required keys mirror _process_single_item; missing keys surface as KeyError.
-            data = load_bundle(bundle_path)
+            # Load only the keys the preview renders instead of every key, so
+            # an unexpected extra array in a bundle cannot balloon memory.
+            # Required keys mirror _process_single_item; missing keys surface
+            # as KeyError.
+            # プレビューが描画するキーだけを読み込み、バンドル内の想定外の
+            # 配列でメモリを浪費しないようにする。
+            preview_keys = [
+                "calibrated", "binarized", "skeletonized",
+                "bp", "ep", "kp", "dp", "ka",
+            ]
+            has_original, _missing = bundle_has_keys(bundle_path, ["original"])
+            if has_original:
+                preview_keys.append("original")
+            data = load_bundle(bundle_path, keys=preview_keys)
 
             if "original" in data:
                 ori = data["original"]
