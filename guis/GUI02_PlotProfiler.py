@@ -1405,12 +1405,16 @@ class App(tk.Tk, UnconfirmedEntryMixin):
                 bundle = load_bundle(path, keys=["calibrated"])
                 data = bundle["calibrated"]
             elif path.endswith(".npy"):
-                # User-selected .npy files may be untrusted, so never execute
-                # pickled object payloads; then try the Blosc2 fallback.
-                try:
-                    data = np.load(path, allow_pickle=False)
-                except Exception:
-                    data = load_blosc2(path)
+                # load_blosc2 dispatches on the file's magic bytes, so both a
+                # real .npy and a Blosc2 payload saved under a .npy name load
+                # here. User-selected files may be untrusted, so it never
+                # executes pickled object payloads and rejects a header that
+                # declares an oversized array before allocating it.
+                # load_blosc2 はマジックバイトで振り分けるため、本物の .npy と
+                # .npy 名で保存された Blosc2 payload の双方をここで読み込める。
+                # ユーザー選択ファイルは信頼できないため、pickle 化オブジェクトを
+                # 実行せず、巨大配列を宣言するヘッダを確保前に拒否する。
+                data = load_blosc2(path)
             elif path.lower().endswith(GWY_EXT):
                 # Gwyddion native .gwy: load the channel chosen via the channel
                 # dropdown (self._gwy_channel_id), defaulting to the

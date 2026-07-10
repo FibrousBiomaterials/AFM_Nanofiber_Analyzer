@@ -49,9 +49,13 @@ import numpy as np
 # ===== Project libraries =====
 # Reuse the text loader's ScanSize so the pipeline and GUIs treat a scan size
 # read from a .gwy and one read from a text header identically.
+# check_input_file_size applies the project-wide input file-size cap
+# (`lib.afm_io.MAX_INPUT_FILE_BYTES`) to .gwy inputs as well.
 # テキストローダの ScanSize を再利用し、.gwy から読んだ走査範囲とテキスト
 # ヘッダから読んだ走査範囲をパイプライン・GUI が同一に扱えるようにする。
-from .afm_io import ScanSize
+# check_input_file_size はプロジェクト共通の入力ファイルサイズ上限
+# （`lib.afm_io.MAX_INPUT_FILE_BYTES`）を .gwy 入力にも適用する。
+from .afm_io import ScanSize, check_input_file_size
 
 # Canonical extension for Gwyddion native files. `afm_io` dispatches on this.
 # Gwyddion ネイティブファイルの正規拡張子。`afm_io` がこれで振り分ける。
@@ -214,7 +218,17 @@ def _load_container(path: str):
     ------
     ImportError
         When the ``gwyfile`` package required for `.gwy` input is not installed.
+    ValueError
+        When the file exceeds `lib.afm_io.MAX_INPUT_FILE_BYTES`.
     """
+    # Apply the project-wide input size cap before gwyfile parses the whole
+    # container into memory. A .gwy stores channel data as raw double arrays,
+    # so the file size bounds the decoded data size.
+    # gwyfile がコンテナ全体をメモリへ展開する前に、プロジェクト共通の入力
+    # サイズ上限を適用する。.gwy はチャンネルデータを生の double 配列で
+    # 格納するため、ファイルサイズが展開後サイズの上界になる。
+    check_input_file_size(path)
+
     try:
         import gwyfile
     except ImportError as exc:  # pragma: no cover - exercised only without gwyfile

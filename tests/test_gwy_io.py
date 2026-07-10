@@ -172,3 +172,20 @@ def test_pipeline_channel_override(synthetic_fiber_gwy, tmp_path):
     )
     meta = load_bundle_meta(result.bundle_path)
     assert meta["input_format"]["channel_title"] == "Phase"
+
+
+def test_gwy_input_file_size_limit(synthetic_fiber_gwy, monkeypatch):
+    """A .gwy larger than the shared input cap is rejected before parsing."""
+    import lib.afm_io as afm_io
+
+    monkeypatch.setattr(afm_io, "MAX_INPUT_FILE_BYTES", 16)
+    with pytest.raises(ValueError, match="exceeding"):
+        load_gwy_image(synthetic_fiber_gwy)
+    with pytest.raises(ValueError, match="exceeding"):
+        list_gwy_channels(synthetic_fiber_gwy)
+    with pytest.raises(ValueError, match="exceeding"):
+        read_gwy_scan_size(synthetic_fiber_gwy)
+
+    # Restoring a generous limit loads the same file normally.
+    monkeypatch.setattr(afm_io, "MAX_INPUT_FILE_BYTES", 2 * 1024**3)
+    assert load_gwy_image(synthetic_fiber_gwy).data.shape == (128, 128)

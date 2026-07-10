@@ -201,6 +201,57 @@ _LENGTH_UNIT_TO_NM = {
 # 数 MB のデータ本体まで走査するのは無駄なため。
 _SCAN_SIZE_HEADER_SCAN_LIMIT = 200
 
+# Maximum input file size accepted by the loaders, in bytes. Parsing
+# materializes the whole file in memory (the line list, then the float array),
+# so an oversized or wrongly selected input (e.g. a multi-gigabyte log file)
+# would exhaust memory long before any layout error surfaces. The cap sits far
+# above real AFM exports — an 8192x8192 multi-column text matrix is about
+# 1 GiB — and `lib.gwy_io` applies the same cap to `.gwy` files. Set to None
+# to disable the check.
+# ローダが受け付ける入力ファイルサイズの上限（バイト）。解析時にはファイル
+# 全体（行リスト、続いて float 配列）をメモリへ実体化するため、巨大な入力や
+# 誤選択された入力（数 GB のログファイル等）はレイアウトエラーより先に
+# メモリを枯渇させる。上限は実際の AFM 出力（8192x8192 の多列テキスト行列で
+# 約 1 GiB）より十分大きく、`lib.gwy_io` も同じ上限を `.gwy` に適用する。
+# None で検査を無効化できる。
+MAX_INPUT_FILE_BYTES = 2 * 1024**3  # 2 GiB
+
+
+def check_input_file_size(path: str) -> None:
+    """
+    Reject an input file larger than `MAX_INPUT_FILE_BYTES` before reading it.
+    `MAX_INPUT_FILE_BYTES` を超える入力ファイルを読み込み前に拒否する。
+
+    Shared by the text loaders in this module and the ``.gwy`` loader in
+    `lib.gwy_io`, so every input format applies the same file-size policy.
+    The limit is read at call time; callers with legitimately larger files can
+    raise `MAX_INPUT_FILE_BYTES` on this module or set it to ``None``.
+    本モジュールのテキストローダと `lib.gwy_io` の ``.gwy`` ローダが共用し、
+    全入力形式に同じファイルサイズ方針を適用する。上限は呼び出し時に参照する
+    ため、正当に大きなファイルを扱う場合は本モジュールの
+    `MAX_INPUT_FILE_BYTES` を引き上げるか ``None`` にできる。
+
+    Raises
+    ------
+    ValueError
+        If the file exists and exceeds the limit.
+    """
+    limit = MAX_INPUT_FILE_BYTES
+    if limit is None:
+        return
+    try:
+        size = os.path.getsize(path)
+    except OSError:
+        # Let the actual read report missing/unreadable files as before.
+        # 欠損・読込不能ファイルは従来どおり実際の読み込み側に報告させる。
+        return
+    if size > limit:
+        raise ValueError(
+            f"input file is {size} bytes, exceeding the {limit}-byte limit "
+            f"(raise lib.afm_io.MAX_INPUT_FILE_BYTES to load larger files): "
+            f"{path}"
+        )
+
 
 def _read_text_lines(path: str) -> Tuple[List[str], str]:
     """
@@ -213,6 +264,10 @@ def _read_text_lines(path: str) -> Tuple[List[str], str]:
         ``(lines, encoding)`` where `encoding` is the codec that succeeded.
         ``(行リスト, 成功したエンコーディング名)``。
     """
+    # Enforce the input size cap before the whole file is read into memory.
+    # ファイル全体をメモリへ読み込む前に入力サイズ上限を適用する。
+    check_input_file_size(path)
+
     # Try UTF-8 with BOM first; this codec also handles UTF-8 without BOM.
     # UTF-8 BOM 付きを最優先で試す（BOM なしの UTF-8 でもこのコーデックで読める）。
     # Then try cp932, with latin-1 only as a last-resort byte-preserving fallback.
@@ -404,9 +459,9 @@ def detect_afm_format(path: str, fmt: str = "auto") -> AfmTextFormat:
     Raises
     ------
     ValueError
-        If `fmt` is unknown, or no numeric data region matching the
-        requested layout can be found, or the multi-column region has an
-        inconsistent column count.
+        If `fmt` is unknown, the file exceeds `MAX_INPUT_FILE_BYTES`, no
+        numeric data region matching the requested layout can be found, or
+        the multi-column region has an inconsistent column count.
     """
     if fmt not in FORMAT_KINDS:
         raise ValueError(
@@ -652,14 +707,21 @@ def load_afm_text(
     Raises
     ------
     ValueError
-        If the numeric data region cannot be detected, if the multi-column
-        region has an inconsistent column count, if a single-column file
-        does not contain a perfect-square number of values, or if the loaded
-        data contains non-finite values.
-        数値データ領域を検出できない場合、多列領域の列数が一致しない場合、
-        1 列形式の要素数が平方数にならない場合、または読み込んだデータに
-        非有限値が含まれる場合。
+        If the file exceeds `MAX_INPUT_FILE_BYTES`, if the numeric data
+        region cannot be detected, if the multi-column region has an
+        inconsistent column count, if a single-column file does not contain
+        a perfect-square number of values, or if the loaded data contains
+        non-finite values.
+        ファイルが `MAX_INPUT_FILE_BYTES` を超える場合、数値データ領域を
+        検出できない場合、多列領域の列数が一致しない場合、1 列形式の要素数が
+        平方数にならない場合、または読み込んだデータに非有限値が含まれる場合。
     """
+    # Check here as well as in _read_text_lines: a pre-detected AfmTextFormat
+    # skips detection, and np.loadtxt below reads the whole file regardless.
+    # _read_text_lines に加えてここでも検査する。事前検出済みの AfmTextFormat
+    # を渡すと検出が省かれ、下の np.loadtxt はいずれにせよ全体を読むため。
+    check_input_file_size(path)
+
     info = fmt if isinstance(fmt, AfmTextFormat) else detect_afm_format(path, fmt)
 
     # Read the small text header once to recover the delimiter (Gwyddion uses

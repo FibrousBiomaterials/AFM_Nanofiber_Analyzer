@@ -167,3 +167,61 @@ def test_load_bundle_byte_cap_is_cumulative(tmp_path):
         load_bundle(path, max_decompressed_bytes=1536)
 
     assert set(load_bundle(path, max_decompressed_bytes=2048)) == {"a", "b"}
+
+
+def _write_header_only_npy(path, shape, dtype="<f8") -> None:
+    """Write a .npy header declaring `shape` with no data body.
+
+    This is the shape a decompression/allocation bomb takes for .npy: the file
+    stays tiny while its header declares an arbitrarily large array, and
+    np.load allocates the declared size before it discovers the truncated body.
+    """
+    header = {"descr": dtype, "fortran_order": False, "shape": shape}
+    with open(path, "wb") as f:
+        np.lib.format.write_array_header_1_0(f, header)
+
+
+def test_load_blosc2_rejects_oversized_npy_header(tmp_path):
+    """A .npy header declaring a huge array is refused before np.load allocates."""
+    path = os.path.join(tmp_path, "bomb.npy")
+    _write_header_only_npy(path, (1_000_000, 1_000_000))  # 8 TB declared
+    assert os.path.getsize(path) < 1024               # tiny on disk
+
+    with pytest.raises(ValueError, match="decompressed bytes"):
+        load_blosc2(path)
+
+
+def test_load_blosc2_rejects_oversized_blosc2_payload(tmp_path):
+    """A blosc2 payload declaring more than the cap is refused before unpacking."""
+    path = os.path.join(tmp_path, "big.bl2")
+    save_blosc2(path, np.zeros((64, 64), dtype=np.float64))  # 32 KiB declared
+
+    with pytest.raises(ValueError, match="decompressed bytes"):
+        load_blosc2(path, max_decompressed_bytes=1024)
+
+    # Below the cap, and with the check disabled, the array loads normally.
+    assert load_blosc2(path, max_decompressed_bytes=32768).shape == (64, 64)
+    assert load_blosc2(path, max_decompressed_bytes=None).shape == (64, 64)
+
+
+def test_load_blosc2_npy_cap_is_configurable(tmp_path):
+    """The .npy branch honors an explicit cap and its disabled form."""
+    path = os.path.join(tmp_path, "small.npy")
+    x = np.zeros((16, 16), dtype=np.float64)  # 2 KiB
+    with open(path, "wb") as f:
+        np.save(f, x)
+
+    with pytest.raises(ValueError, match="decompressed bytes"):
+        load_blosc2(path, max_decompressed_bytes=1024)
+
+    np.testing.assert_array_equal(load_blosc2(path, max_decompressed_bytes=None), x)
+
+
+def test_load_blosc2_rejects_pickled_payload(tmp_path):
+    """An object-dtype .npy (pickled payload) is never unpickled."""
+    path = os.path.join(tmp_path, "pickled.npy")
+    with open(path, "wb") as f:
+        np.save(f, np.array([{"a": 1}], dtype=object), allow_pickle=True)
+
+    with pytest.raises(ValueError, match="[Oo]bject arrays"):
+        load_blosc2(path)

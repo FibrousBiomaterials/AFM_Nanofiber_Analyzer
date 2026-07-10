@@ -319,3 +319,37 @@ def test_read_scan_size_single_axis_is_treated_as_missing(tmp_path):
 def test_read_scan_size_on_bundled_shimadzu_scan():
     """The bundled higher-plant Shimadzu scan reports its 2.0 um scan range."""
     assert read_scan_size(str(HIGHER_PLANT_DATA)) == ScanSize(x_um=2.0, y_um=2.0)
+
+
+def test_input_file_size_limit(tmp_path, monkeypatch):
+    """Oversized input files are rejected before any content is parsed."""
+    import lib.afm_io as afm_io
+
+    path = tmp_path / "big.txt"
+    rows = "\n".join(",".join("1.0" for _ in range(16)) for _ in range(16))
+    path.write_text(rows + "\n", encoding="utf-8")
+    # Detect the layout up front so the pre-detected-format path is covered too.
+    fmt = detect_afm_format(str(path))
+
+    monkeypatch.setattr(afm_io, "MAX_INPUT_FILE_BYTES", 16)
+    with pytest.raises(ValueError, match="exceeding"):
+        load_afm_text(str(path))
+    with pytest.raises(ValueError, match="exceeding"):
+        load_afm_text(str(path), fmt=fmt)
+    with pytest.raises(ValueError, match="exceeding"):
+        detect_afm_format(str(path))
+    with pytest.raises(ValueError, match="exceeding"):
+        read_scan_size(str(path))
+
+    # Setting the limit to None disables the check for legitimately large files.
+    monkeypatch.setattr(afm_io, "MAX_INPUT_FILE_BYTES", None)
+    assert load_afm_text(str(path)).shape == (16, 16)
+
+
+def test_input_file_size_limit_missing_file(tmp_path, monkeypatch):
+    """A missing file still reports the loader's usual error, not the cap's."""
+    import lib.afm_io as afm_io
+
+    monkeypatch.setattr(afm_io, "MAX_INPUT_FILE_BYTES", 16)
+    with pytest.raises(ValueError, match="読み込めません"):
+        load_afm_text(str(tmp_path / "nope.txt"))

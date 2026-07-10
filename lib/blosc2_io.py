@@ -32,6 +32,24 @@ import blosc2
 # Magic bytes at the head of NumPy `.npy` files.
 _NPY_MAGIC = b'\x93NUMPY'
 
+# Default cap on the decompressed size of a single array loaded by
+# `load_blosc2`, in bytes. Both storage formats it reads declare their array
+# size in a small header: a `.npy` header declares shape and dtype, and a
+# blosc2 cframe declares its uncompressed byte count. In both cases the
+# declared size is unrelated to the file size — a 128-byte `.npy` can declare
+# a multi-terabyte array, and a compressed blosc2 payload of constant values
+# stays tiny on disk — so the declared size is checked before the array is
+# materialized. Matches `MAX_BUNDLE_DECOMPRESSED_BYTES`; set to None to
+# disable the check.
+# `load_blosc2` が読み込む単一配列の展開後サイズ上限（バイト）。読み込む 2 つの
+# 保存形式はいずれも小さなヘッダで配列サイズを宣言する。`.npy` ヘッダは shape と
+# dtype を、blosc2 cframe は非圧縮バイト数を宣言する。いずれも宣言サイズと
+# ファイルサイズは無関係で、128 バイトの `.npy` がテラバイト級の配列を宣言でき、
+# 定数値を圧縮した blosc2 payload はディスク上で極小に留まる。そのため配列を
+# 実体化する前に宣言サイズを検査する。`MAX_BUNDLE_DECOMPRESSED_BYTES` と同値。
+# None で検査を無効化できる。
+MAX_ARRAY_DECOMPRESSED_BYTES = 4 * 1024**3  # 4 GiB
+
 
 def save_blosc2(path: str, x: np.ndarray) -> None:
     """
@@ -77,7 +95,60 @@ def save_blosc2(path: str, x: np.ndarray) -> None:
         f.write(blosc2.pack_array2(x))
 
 
-def load_blosc2(path: str) -> np.ndarray:
+def _check_size_limit(declared_bytes: int, limit: int | None, path: str) -> None:
+    """
+    Raise when an array's declared size exceeds `limit`.
+    配列の宣言サイズが `limit` を超える場合に例外を送出する。
+    """
+    if limit is not None and declared_bytes > limit:
+        raise ValueError(
+            f"array declares {declared_bytes} decompressed bytes, exceeding "
+            f"the {limit}-byte limit (raise "
+            f"lib.blosc2_io.MAX_ARRAY_DECOMPRESSED_BYTES to load larger "
+            f"arrays): {path}"
+        )
+
+
+def _npy_declared_bytes(path: str) -> int | None:
+    """
+    Read a `.npy` header's declared array size in bytes, without loading it.
+    `.npy` ヘッダが宣言する配列サイズ（バイト）を、読み込まずに取得する。
+
+    Returns
+    -------
+    Declared byte count, or None when the header format version is one this
+    function cannot parse (the caller then lets `np.load` report the problem).
+    宣言バイト数。ヘッダの形式バージョンを解釈できない場合は None（呼び出し側は
+    `np.load` に問題を報告させる）。
+
+    Notes
+    -----
+    `np.load` allocates the full array declared by the header before it reads
+    the body, so a truncated file with a large declared shape raises only
+    after the allocation is attempted. Reading the header first turns that
+    into a cheap, explicit rejection.
+    `np.load` はヘッダが宣言する配列全体を確保してから本体を読むため、宣言
+    shape が巨大な切り詰めファイルは確保を試みた後にしか失敗しない。先に
+    ヘッダを読むことで、安価かつ明示的な拒否に変えられる。
+    """
+    header_readers = {
+        (1, 0): np.lib.format.read_array_header_1_0,
+        (2, 0): np.lib.format.read_array_header_2_0,
+    }
+    with open(path, "rb") as f:
+        version = np.lib.format.read_magic(f)
+        reader = header_readers.get(version)
+        if reader is None:
+            return None
+        shape, _fortran_order, dtype = reader(f)
+    return math.prod(shape) * dtype.itemsize
+
+
+def load_blosc2(
+    path: str,
+    *,
+    max_decompressed_bytes: int | None = MAX_ARRAY_DECOMPRESSED_BYTES,
+) -> np.ndarray:
     """
     Load an array saved in either blosc2 or NumPy `.npy` format.
     blosc2 形式または NumPy `.npy` 形式で保存された配列を読み込む。
@@ -94,11 +165,23 @@ def load_blosc2(path: str) -> np.ndarray:
     path
         File path to read.
         読み込むファイルパス。
+    max_decompressed_bytes
+        Maximum array size (bytes) the file's header may declare. None
+        disables the check.
+        ファイルのヘッダが宣言できる配列サイズ（バイト）の上限。None で検査を
+        無効化する。
 
     Returns
     -------
     Loaded NumPy array.
     読み込まれた NumPy 配列。
+
+    Raises
+    ------
+    ValueError
+        If the header declares an array larger than the limit. Raised before
+        the array is allocated or decompressed, so a crafted (or corrupted)
+        file cannot exhaust memory during load.
     """
     # Read only the header prefix needed for format detection.
     # 形式判定に必要な先頭部分だけを先に読み取る。
@@ -106,10 +189,36 @@ def load_blosc2(path: str) -> np.ndarray:
         header = f.read(len(_NPY_MAGIC))
 
     if header == _NPY_MAGIC:
-        return np.load(path)
+        declared = _npy_declared_bytes(path)
+        if declared is not None:
+            _check_size_limit(declared, max_decompressed_bytes, path)
+        # allow_pickle=False is the NumPy default, but stated explicitly:
+        # this loader is reachable from user-selected files, which must never
+        # execute a pickled object payload.
+        # allow_pickle=False は NumPy の既定値だが明示する。本ローダーはユーザーが
+        # 選択したファイルから到達しうるため、pickle 化されたオブジェクトを
+        # 決して実行してはならない。
+        return np.load(path, allow_pickle=False)
 
     with open(path, "rb") as f:
-        return blosc2.unpack_array2(f.read())
+        payload = f.read()
+
+    # A blosc2 cframe records its uncompressed size in the frame header, so the
+    # SChunk view reports `nbytes` without decompressing any chunk. An
+    # unparseable payload yields no size; `unpack_array2` then raises its own
+    # error without allocating.
+    # blosc2 の cframe は非圧縮サイズをフレームヘッダに記録するため、SChunk
+    # ビューはチャンクを展開せずに `nbytes` を返す。解釈できない payload では
+    # サイズが得られないが、その場合 `unpack_array2` が確保を伴わず自前の
+    # エラーを送出する。
+    try:
+        declared = blosc2.schunk_from_cframe(payload, copy=False).nbytes
+    except Exception:
+        declared = None
+    if declared is not None:
+        _check_size_limit(declared, max_decompressed_bytes, path)
+
+    return blosc2.unpack_array2(payload)
 
 
 # =============================================================================
