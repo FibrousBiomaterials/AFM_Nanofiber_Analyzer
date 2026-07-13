@@ -173,3 +173,142 @@ def synthetic_fiber_gwy(tmp_path):
     合成 2 チャンネル ``.gwy`` ファイルへの関数スコープのパス。
     """
     return write_synthetic_fiber_gwy(tmp_path)
+
+
+# ===== GUI test support =====
+#
+# GUI tests drive the plugins through their action methods and through the
+# dialogs they open, never through widget lookup by name or label. Asserting on
+# widget structure would make the suite fail on every cosmetic UI change; going
+# through the action methods means a passing test says the *behavior* still
+# holds, and a failing test means the behavior changed.
+# GUI テストはウィジェットを名前やラベルで探して操作せず、アクションメソッドと
+# ダイアログ経由で駆動する。ウィジェット構造を検証すると UI の見た目を変える
+# たびにテストが壊れるが、この方式なら「振る舞い」が変わったときだけ失敗する。
+
+
+def tk_available() -> bool:
+    """
+    Report whether a Tk root window can be created in this environment.
+    この環境で Tk のルートウィンドウを生成できるかを返す。
+
+    Tk needs a display, so the GUI tests are skipped on a headless machine and
+    on CI runners that are not wrapped in a virtual framebuffer (xvfb-run).
+    Tk は表示装置を要求するため、ヘッドレス環境や仮想フレームバッファ
+    (xvfb-run) の下で動いていない CI では GUI テストをスキップする。
+    """
+    import tkinter as tk
+
+    try:
+        root = tk.Tk()
+    except Exception:
+        return False
+    root.destroy()
+    return True
+
+
+requires_tk = pytest.mark.skipif(
+    not tk_available(), reason="no display available for Tk"
+)
+
+
+def pump_until(app, predicate, timeout: float = 180.0, interval: float = 0.01) -> None:
+    """
+    Run the Tk event loop until ``predicate`` holds or the timeout expires.
+    ``predicate`` が成立するまで、あるいはタイムアウトまで Tk のイベントループを回す。
+
+    The GUI plugins hand long work to a worker thread and deliver its results
+    through a queue drained by an ``after()`` callback (AGENTS.md section 8.4).
+    A test therefore cannot simply join the thread: without an event loop the
+    queue is never drained and the app never leaves its running state.
+    GUI プラグインは重い処理をワーカースレッドに渡し、結果は ``after()`` で
+    排出されるキュー経由で届く。したがってスレッドを join するだけでは不十分で、
+    イベントループを回さない限りキューは排出されず実行状態も解除されない。
+
+    Raises
+    ------
+    TimeoutError
+        If the predicate does not hold within ``timeout`` seconds.
+    """
+    import time
+
+    deadline = time.monotonic() + timeout
+    while not predicate():
+        if time.monotonic() > deadline:
+            raise TimeoutError(f"GUI did not reach the expected state in {timeout}s")
+        app.update()
+        time.sleep(interval)
+
+
+@pytest.fixture
+def tk_app():
+    """
+    Construct GUI plugin windows and guarantee they are destroyed afterwards.
+    GUI プラグインのウィンドウを生成し、終了時に確実に破棄する。
+
+    Returns
+    -------
+    callable
+        Factory taking an ``App`` class, returning a constructed and laid-out
+        instance. Widgets are only created once the event loop processes the
+        idle queue, so the factory pumps it before returning: construction
+        errors surface inside the test rather than at teardown.
+        ``App`` クラスを受け取り、構築済みインスタンスを返すファクトリ。
+        ウィジェットはイベントループがアイドルキューを処理して初めて生成される
+        ため、返す前にポンプする。これにより構築時エラーが teardown ではなく
+        テスト本体で表面化する。
+    """
+    apps = []
+
+    def _make(app_cls):
+        app = app_cls()
+        apps.append(app)
+        app.update_idletasks()
+        return app
+
+    yield _make
+
+    for app in apps:
+        try:
+            app.destroy()
+        except Exception:
+            # A test that already failed may leave a half-torn-down window;
+            # do not mask the real failure with a teardown error.
+            pass
+
+
+@pytest.fixture
+def silence_dialogs(monkeypatch):
+    """
+    Replace modal dialogs in a GUI module with recorders.
+    GUI モジュール内のモーダルダイアログを記録用の代替に差し替える。
+
+    A modal ``messagebox`` call blocks forever without a user, so any error path
+    a test happens to hit would hang the suite instead of failing it. Recording
+    the calls also lets a test assert that the GUI *did* report a problem.
+    モーダルな ``messagebox`` は人がいない環境では永久に待ち続けるため、テストが
+    エラー経路を踏むとスイートがハングする。呼び出しを記録に置き換えることで
+    ハングを防ぎ、GUI がエラーを報告したこと自体も検証できるようにする。
+
+    Returns
+    -------
+    callable
+        Factory taking the GUI module, returning a list that receives one
+        ``(kind, title, message)`` tuple per dialog the GUI opens.
+    """
+
+    def _install(module):
+        calls = []
+
+        def recorder(kind):
+            def _call(title=None, message=None, *args, **kwargs):
+                calls.append((kind, title, message))
+                return True
+
+            return _call
+
+        for kind in ("showerror", "showinfo", "showwarning"):
+            monkeypatch.setattr(module.messagebox, kind, recorder(kind))
+        return calls
+
+    return _install

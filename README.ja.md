@@ -552,6 +552,15 @@ python -m pytest tests/
 python -m pytest tests/ -m "not slow"   # 実測スキャンの統合テストをスキップ
 ```
 
+GUI テストは各プラグインのウィンドウを構築し、さらに GUI01 を一括解析まで駆動
+するため、表示装置を必要とします。Windows やデスクトップセッションのある環境では
+上記スイートの一部として実行され、ヘッドレス環境では自動的にスキップされます。
+CI では Linux 上で仮想フレームバッファを介して実行します。
+
+```bash
+xvfb-run -a python -m pytest tests/
+```
+
 ### API ドキュメント
 
 `lib/` 以下のモジュールは Sphinx でドキュメント化されており、docstring から

@@ -48,13 +48,18 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      # opencv-python (non-headless) needs libGL at import time on Linux.
-      # Linux では opencv-python (非 headless) の import に libGL が必要。
-      - name: Install OpenCV system libraries (Linux)
+      # opencv-python (non-headless) needs libGL at import time on Linux, and
+      # the GUI tests need a display: Xvfb provides a virtual one so the Tk
+      # windows can be built on a headless runner. Without it those tests skip.
+      # Linux では opencv-python (非 headless) の import に libGL が必要。また
+      # GUI テストは表示装置を要求するため、Xvfb で仮想ディスプレイを与えて
+      # ヘッドレスランナーでも Tk ウィンドウを構築できるようにする（無い場合は
+      # 当該テストはスキップされる）。
+      - name: Install OpenCV and X server system libraries (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgl1
+          sudo apt-get install -y libgl1 xvfb
 
       - name: Install package with test dependencies
         run: python -m pip install -e ".[dev]"
@@ -65,5 +70,12 @@ jobs:
       - name: Check dependency consistency
         run: python check.py --verify
 
-      - name: Run tests
+      # Windows runners have a real desktop session, so Tk works directly.
+      # Windows ランナーは実デスクトップセッションを持つため Tk はそのまま動く。
+      - name: Run tests (Windows)
+        if: runner.os == 'Windows'
         run: python -m pytest -v
+
+      - name: Run tests (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a python -m pytest -v

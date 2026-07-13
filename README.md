@@ -564,6 +564,15 @@ python -m pytest tests/
 python -m pytest tests/ -m "not slow"   # skip the real-scan integration test
 ```
 
+The GUI tests build each plugin's window and drive GUI01 through a full batch
+run, so they need a display. On Windows and on any desktop session they run as
+part of the suite above; on a headless machine they skip themselves. CI runs
+them on Linux under a virtual framebuffer:
+
+```bash
+xvfb-run -a python -m pytest tests/
+```
+
 ### API documentation
 
 The modules in `lib/` are documented with Sphinx, which renders their
