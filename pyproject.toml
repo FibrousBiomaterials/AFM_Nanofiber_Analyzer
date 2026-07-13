@@ -65,6 +65,9 @@ dependencies = [
 # cores (`pytest -n auto`), which is the main lever for shortening the strict
 # regression suite; see [tool.pytest.ini_options] addopts.
 dev = ["pytest", "pytest-xdist", "Babel", "ruff"]
+# Sphinx renders the lib/ docstrings into the API reference under docs/.
+# Napoleon (NumPy-style parsing) ships with Sphinx; furo is the HTML theme.
+docs = ["sphinx", "furo"]
 
 [project.urls]
 Repository = "https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer"

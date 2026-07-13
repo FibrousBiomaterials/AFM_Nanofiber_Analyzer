@@ -26,6 +26,10 @@ dist/
 *.egg-info/
 .eggs/
 
+# ===== Generated documentation =====
+# Sphinx HTML output; the published copy is built by .github/workflows/docs.yml.
+/docs/_build/
+
 # ===== IDE and editor settings =====
 .vscode/
 .idea/

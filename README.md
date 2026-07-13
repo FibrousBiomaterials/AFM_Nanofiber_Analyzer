@@ -564,6 +564,25 @@ python -m pytest tests/
 python -m pytest tests/ -m "not slow"   # skip the real-scan integration test
 ```
 
+### API documentation
+
+The modules in `lib/` are documented with Sphinx, which renders their
+docstrings into an API reference. The published version is built from `main` by
+`.github/workflows/docs.yml` and served from GitHub Pages.
+
+To build it locally, install the `docs` extra and run Sphinx **from the `docs/`
+directory** — the working directory matters, because `docs/docutils.conf` is
+what allows inline markup to sit next to Japanese text in the bilingual
+docstrings:
+
+```powershell
+python -m pip install -e ".[docs]"
+cd docs
+python -m sphinx -b html . _build/html
+```
+
+The entry point is then `docs/_build/html/index.html`.
+
 ## Data Format
 
 The current analysis output is a single `.b2z` bundle per input file. Bundles

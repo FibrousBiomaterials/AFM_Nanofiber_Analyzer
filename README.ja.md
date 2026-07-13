@@ -552,6 +552,25 @@ python -m pytest tests/
 python -m pytest tests/ -m "not slow"   # 実測スキャンの統合テストをスキップ
 ```
 
+### API ドキュメント
+
+`lib/` 以下のモジュールは Sphinx でドキュメント化されており、docstring から
+API リファレンスが生成されます。公開版は `.github/workflows/docs.yml` が `main`
+からビルドし、GitHub Pages で配信します。
+
+ローカルでビルドするには、`docs` エクストラをインストールし、**`docs/`
+ディレクトリを作業ディレクトリにして** Sphinx を実行します。作業ディレクトリが
+重要なのは、日英併記の docstring 中でインラインマークアップを日本語に隣接させる
+ことを許可しているのが `docs/docutils.conf` だからです。
+
+```powershell
+python -m pip install -e ".[docs]"
+cd docs
+python -m sphinx -b html . _build/html
+```
+
+生成物の入口は `docs/_build/html/index.html` です。
+
 ## データ形式
 
 現在の解析出力は、入力ファイルごとに 1 つの `.b2z` バンドルです。
