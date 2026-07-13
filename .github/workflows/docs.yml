@@ -13,6 +13,15 @@ on:
 permissions:
   contents: read
 
+# Two pushes to main in quick succession would otherwise start two deployments
+# that race for the same Pages site and fail one of them. Queue them instead of
+# cancelling: a superseded run still deploys, and the last one wins.
+# 短時間に main へ 2 回 push すると、同一の Pages サイトへ同時にデプロイしようと
+# して一方が失敗する。キャンセルではなくキューイングし、最後の実行を反映させる。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
