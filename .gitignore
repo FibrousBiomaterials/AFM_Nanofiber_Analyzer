@@ -49,6 +49,9 @@ desktop.ini
 /RELEASING.md
 # Local notes on GitHub repository publication settings (Japanese, internal-only).
 /GITHUB_PUBLICATION_SETTINGS.md
+# Local comparative usage guides for external AFM analysis tools.
+/docs/related_afm_tools.md
+/docs/related_afm_tools.ja.md
 
 # ===== Promotional drafts (not for publication) =====
 # Local working folder for note articles and other promotional material.
