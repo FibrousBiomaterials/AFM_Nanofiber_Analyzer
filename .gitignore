@@ -57,10 +57,10 @@ desktop.ini
 /docs/related_afm_tools.md
 /docs/related_afm_tools.ja.md
 
-# ===== Promotional drafts (not for publication) =====
-# Local working folder for note articles and other promotional material.
-# Kept out of the public repository; share drafts privately instead.
-promo/
+# ===== Private local documentation (not for publication) =====
+# Local-only workflows, maintainer notes, and promotional drafts.
+# Keep this directory out of the public repository and back it up separately.
+/private_docs/
 
 # ===== GUI local settings (machine-specific, regenerated at runtime) =====
 guis/afmpp_settings.json
