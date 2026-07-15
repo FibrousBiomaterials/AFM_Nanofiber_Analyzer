@@ -45,6 +45,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
 # FigureCanvasTkAgg embeds matplotlib figures in tkinter windows.
 # NavigationToolbar2Tk provides the matplotlib pan/zoom toolbar inside tkinter.
+from matplotlib.patches import Polygon
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # ===== Project libraries =====
@@ -550,6 +551,11 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         self.vmax = float(DEFAULT_VMAX)
         self.linewidth = 3
         self.reduce_func = np.max
+        # Band patches visualizing the profile_line sampling width on the heatmap.
+        # Kept in data coordinates so pan/zoom rescales them automatically.
+        # ヒートマップ上に profile_line のサンプリング幅を可視化する帯パッチ。
+        # データ座標で保持するため、パン/ズーム時に自動で拡縮される。
+        self._band_patches = []
 
         # Auto vmin/vmax follows each loaded image so users can inspect varied files quickly.
         # 自動 vmin/vmax は画像ごとの範囲に追随し、多様な画像を切替確認しやすくする。
@@ -774,7 +780,9 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             "高さプロファイルを取得する線分の垂直方向の幅（ピクセル数）。\n"
             "1 にすると線分の真上のみ、3 以上にすると周囲数ピクセルも含めて\n"
             "下の「計算方法」で集計した値が高さとして使われます。\n"
-            "ナノファイバーの場合、3〜5 程度に設定するとノイズの影響を抑えられます。"
+            "ナノファイバーの場合、3〜5 程度に設定するとノイズの影響を抑えられます。\n"
+            "設定した幅は左のヒートマップ上に青い帯として表示され、"
+            "ズームすると画素サイズに応じて拡縮します。"
         ))
         c += 1
         self.entrylw = ttk.Entry(param_row, width=4)
@@ -1349,6 +1357,13 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             線幅を確定できた場合は True、不正値なら False。
         """
         def _on_success():
+            # Update only the band patches in place so the current pan/zoom
+            # view is kept (image_showing would reset the view limits).
+            # 帯パッチだけをその場で更新し、現在のパン/ズーム表示を保持する
+            # （image_showing を呼ぶと表示範囲がリセットされるため）。
+            if self.flag1:
+                self._redraw_bands()
+                self.canvas.draw_idle()
             if self.flag2:
                 self.make_profile()
 
@@ -1674,6 +1689,9 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         if not self.flag1 or getattr(self, "aximg", None) is None:
             # First render creates the image artist and colorbar.
             self.ax.cla()
+            # cla() already detached any band patches; reset the registry.
+            # cla() が帯パッチを外し済みなので、登録リストだけ初期化する。
+            self._band_patches = []
             # afmhot is retained as the AFM-oriented heatmap colormap.
             # afmhot は AFM 画像向けのヒートマップとして維持する。
             self.aximg = self.ax.imshow(
@@ -1709,6 +1727,9 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             # Later redraws reuse AxesImage and remove only point/line overlays.
             for line in list(self.ax.lines):
                 line.remove()
+            # Sampling-width bands are patches, so remove them separately.
+            # サンプリング幅の帯は patch なので、線とは別に削除する。
+            self._clear_band_patches()
 
             # Replace pixel data only on reload; display-only changes avoid set_data().
             # reload 時だけ画素データを入れ替え、表示設定変更では set_data() を避ける。
@@ -1858,12 +1879,124 @@ class App(tk.Tk, UnconfirmedEntryMixin):
                         linelistx, linelisty, "--", linewidth=2.0, color='b', alpha=0.5,
                     )
                     self.ax.plot(x_disp, y_disp, marker='.', color='r')
+                    # Show the profile_line sampling width for the new segment.
+                    # The point is not appended yet, so xlist[-1] is the previous point.
+                    # 新しい区間の profile_line サンプリング幅を帯で表示する。
+                    # この時点では打点が未追加なので xlist[-1] は前点を指す。
+                    self._draw_segment_band(
+                        self.xlist[-1], self.ylist[-1], x_val, y_val,
+                    )
                     self.canvas.draw()
                 # Store normalized micrometer coordinates.
                 self.xlist.append(x_val)
                 self.ylist.append(y_val)
                 if len(self.xlist) > 1:
                     self.make_profile()
+
+    def _clear_band_patches(self) -> None:
+        """
+        Remove all sampling-width band patches from the heatmap.
+        ヒートマップからサンプリング幅の帯パッチをすべて取り除く。
+        """
+        for patch in self._band_patches:
+            try:
+                patch.remove()
+            except Exception:
+                # Already detached (e.g. by ax.cla()) — nothing left to remove.
+                pass
+        self._band_patches = []
+
+    def _draw_segment_band(self, x1, y1, x2, y2) -> None:
+        """
+        Draw the profile_line sampling band for one segment on the heatmap.
+        1 区間分の profile_line サンプリング帯をヒートマップに描画する。
+
+        Parameters
+        ----------
+        x1
+            Segment start-point x-coordinate in micrometers.
+            区間始点の x 座標 (µm)。
+        y1
+            Segment start-point y-coordinate in micrometers.
+            区間始点の y 座標 (µm)。
+        x2
+            Segment end-point x-coordinate in micrometers.
+            区間終点の x 座標 (µm)。
+        y2
+            Segment end-point y-coordinate in micrometers.
+            区間終点の y 座標 (µm)。
+
+        Notes
+        -----
+        profile_line samples in pixel space, so the perpendicular offset is
+        computed in pixel coordinates first and converted to display units
+        afterwards. With non-square pixels (rectangular scans) the band can
+        look skewed on screen; that skew is the true sampled region.
+        profile_line は画素空間でサンプリングするため、垂直方向のオフセットを
+        まず画素座標で計算し、その後に表示単位へ変換する。非正方形画素（矩形
+        スキャン）では帯が画面上で歪んで見えるが、それが実際のサンプリング
+        領域である。
+        """
+        # µm → pixel (col, row); the same mapping as profile_between_points,
+        # including the y flip between imshow (lower-left) and ndarray rows.
+        # µm → 画素 (列, 行)。profile_between_points と同一の変換式で、imshow
+        # （左下原点）と ndarray 行（左上原点）の y 反転も含む。
+        x_um, y_um = self._scale_xy_um()
+        c1 = x1 * self.image_w / x_um
+        c2 = x2 * self.image_w / x_um
+        r1 = self.image_h - y1 * self.image_h / y_um
+        r2 = self.image_h - y2 * self.image_h / y_um
+        dc = c2 - c1
+        dr = r2 - r1
+        norm = float(np.hypot(dc, dr))
+        if norm == 0.0:
+            # Zero-length segment has no direction, so there is no band to draw.
+            return
+        # Unit normal to the segment in pixel space.
+        nc = -dr / norm
+        nr = dc / norm
+        # profile_line places sample centers across (linewidth - 1) px and each
+        # sampled pixel extends ±0.5 px, so the covered band is linewidth px wide.
+        # profile_line はサンプル中心を (linewidth - 1) px にわたって配置し、
+        # 各画素が ±0.5 px を占めるため、カバーされる帯の全幅は linewidth px になる。
+        half = self.linewidth / 2.0
+        corners_px = (
+            (c1 + nc * half, r1 + nr * half),
+            (c2 + nc * half, r2 + nr * half),
+            (c2 - nc * half, r2 - nr * half),
+            (c1 - nc * half, r1 - nr * half),
+        )
+        # Pixel → display units (µm or nm). Keeping the polygon in data
+        # coordinates lets matplotlib rescale it automatically on pan/zoom.
+        # 画素 → 表示単位 (µm or nm)。ポリゴンをデータ座標に置くことで、
+        # パン/ズーム時に matplotlib が自動で拡縮する。
+        x_disp, y_disp, _unit = self._get_extent_scale_xy_and_unit()
+        corners = [
+            (c * x_disp / self.image_w,
+             (self.image_h - r) * y_disp / self.image_h)
+            for c, r in corners_px
+        ]
+        # zorder=1 places the band above the image (0) but below lines/markers (2).
+        patch = Polygon(
+            corners, closed=True, facecolor="b", edgecolor="none",
+            alpha=0.25, zorder=1,
+        )
+        self.ax.add_patch(patch)
+        self._band_patches.append(patch)
+
+    def _redraw_bands(self) -> None:
+        """
+        Rebuild the sampling-width bands for every stored segment.
+        保持済みの全区間についてサンプリング幅の帯を再構築する。
+        """
+        self._clear_band_patches()
+        if len(getattr(self, "xlist", [])) < 2:
+            return
+        for i in range(len(self.xlist) - 1):
+            self._draw_segment_band(
+                self.xlist[i], self.ylist[i],
+                self.xlist[i + 1], self.ylist[i + 1],
+            )
 
     def line_redraw(self) -> None:
         """
@@ -1882,6 +2015,10 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         else:
             xs = list(self.xlist)
             ys = list(self.ylist)
+
+        # Rebuild the sampling-width bands beneath the dashed segment lines.
+        # 破線の区間線の下にサンプリング幅の帯を再構築する。
+        self._redraw_bands()
 
         if len(xs) == 1:
             self.ax.plot(xs[0], ys[0], marker='.', color='b')
