@@ -1130,28 +1130,79 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _on_tree_right_click(self, event) -> None:
         """
-        Open the group context menu for rename, color, and delete actions.
-        名前変更、色変更、削除操作用のグループコンテキストメニューを開く。
+        Open the context menu for the group or folder row under the pointer.
+        ポインタ下のグループ行またはフォルダ行のコンテキストメニューを開く。
         """
         iid = self.tree.identify_row(event.y)
         if not iid:
             return
         g, folder = self._find_group_by_iid(iid)
-        if g is None or folder is not None:
+        if g is None:
             return
         # Select the row under the pointer before opening its context menu.
         # コンテキストメニューを開く前に、ポインタ下の行を選択状態にする。
         self.tree.selection_set(iid)
 
+        if folder is None:
+            menu = self._build_group_context_menu(g)
+        else:
+            menu = self._build_folder_context_menu(g, folder)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def _build_group_context_menu(self, g: Group) -> tk.Menu:
+        """
+        Build the group context menu for rename, color, and delete actions.
+        名前変更、色変更、削除操作用のグループコンテキストメニューを構築する。
+        """
         menu = tk.Menu(self, tearoff=0)
         menu.add_command(label=_("名前を変更"), command=lambda: self._rename_group(g))
         menu.add_command(label=_("色を変更"), command=lambda: self._change_color(g))
         menu.add_separator()
         menu.add_command(label=_("グループ削除"), command=self.on_remove_group)
-        try:
-            menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            menu.grab_release()
+        return menu
+
+    def _build_folder_context_menu(self, g: Group, folder: str) -> tk.Menu:
+        """
+        Build the folder context menu for group-name and clipboard actions.
+        フォルダ名のグループ名反映・クリップボードコピー用メニューを構築する。
+        """
+        menu = tk.Menu(self, tearoff=0)
+        menu.add_command(
+            label=_("フォルダ名をグループ名にする"),
+            command=lambda: self._set_group_name_from_folder(g, folder),
+        )
+        menu.add_command(
+            label=_("フォルダ名をコピーする"),
+            command=lambda: self._copy_folder_name(folder),
+        )
+        return menu
+
+    def _set_group_name_from_folder(self, g: Group, folder: str) -> None:
+        """
+        Rename the group to the selected folder's basename.
+        選択したフォルダのベース名をグループ名に設定する。
+        """
+        new_name = os.path.basename(folder) or folder
+        # Duplicate names are allowed because group color/order can still distinguish them.
+        # グループ色や順序で識別できるため、同名は警告ログのみで許容する。
+        if any(other is not g and other.name == new_name for other in self.groups):
+            self._log(_("注意: 同名のグループ「{n}」が既に存在します。").format(n=new_name))
+        g.name = new_name
+        self._refresh_group_row(g)
+        self._log(_("グループ名変更: {name}").format(name=new_name))
+
+    def _copy_folder_name(self, folder: str) -> None:
+        """
+        Copy the selected folder's basename to the clipboard.
+        選択したフォルダのベース名をクリップボードにコピーする。
+        """
+        name = os.path.basename(folder) or folder
+        self.clipboard_clear()
+        self.clipboard_append(name)
+        self._log(_("フォルダ名をコピーしました: {name}").format(name=name))
 
     def _rename_group(self, g: Group) -> None:
         """
