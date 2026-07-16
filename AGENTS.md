@@ -558,6 +558,36 @@ When creating a new GUI plugin, ensure that:
 - long-running work does not block the Tk event loop
 - logs, warnings, and errors are visible to the user when analysis fails
 
+### 7.10 Verifying GUI and visual changes
+
+A GUI change is not verified until the *rendered* result has been confirmed
+through the *real* run path. Model values and in-process shortcuts routinely
+disagree with what the user sees, so treat them as hints, not proof.
+
+- **Drive the real run path, not `App(); app.update()`.** A manual
+  `update()`/`update_idletasks()` forces geometry to settle synchronously and
+  hides event-timing and window-sizing races that only appear under
+  `mainloop()` or the launcher (`Main.py --run-plugin <module>`). Verify
+  layout/resize/maximize behavior by actually running the app (a subprocess
+  launch, or an `App()` with a real `mainloop()` plus an `after()` probe).
+- **Confirm the rendering, not just the data model.** A widget's data model
+  can report the intended state while the canvas draws something else. Check
+  the draw state or the pixels, not only the model. Concrete trap: tksheet's
+  `Sheet.column_width(<int col>, width, redraw=True)` updates `col_positions`
+  but does **not** run the full redraw that resets the canvas `scrollregion`,
+  so a widened column is painted only up to the stale scrollregion and leaves
+  a blank strip; call `Sheet.refresh()` afterwards. Reading
+  `get_column_widths()` alone would have (and did) falsely report "no gap".
+- **Believe a user-reported visual defect.** If the user says a margin,
+  misalignment, or artifact is present and a check disagrees, the check is
+  suspect first — a hand-written pixel/geometry analyzer can misclassify
+  borders or gridlines. Re-examine the actual output before re-asserting that
+  it is fixed.
+- **Scope any screen capture to the target window.** Foreground-then-grab can
+  capture whatever window is in front (including unrelated private content).
+  Capture the specific window handle (e.g. Windows `PrintWindow`) and confirm
+  it is the intended app window.
+
 ---
 
 ## 8. Project Architecture and Data Contracts
@@ -792,6 +822,7 @@ pybabel init -i locale/messages.pot -d locale -l <language_code>
 | GUI imports | Group as standard library, numerical/scientific, GUI, plotting, project libraries |
 | GUI entry point | Use `main() -> None` and guard GUI launch behind `if __name__ == "__main__"` |
 | Shared GUI helpers | Prefer `lib.ui_tools` / `lib/ui_tools.py` for common GUI behavior. |
+| Verifying GUI/visual changes | Confirm the rendered result via the real run path (not `app.update()`, not the data model); believe user-reported visual defects; scope screen captures to the app window (§7.10). |
 | `.b2z` bundle contract | Defined in `lib/bundle_schema.py` (code is source of truth); coordinate dependent files per §8.2. |
 | Long-running GUI work | Use worker threads, `queue.Queue`, and Tk `after()` polling; do not block the main loop. |
 | `ProcParams` field names | Frozen (serialized verbatim into `_param.json`); authoritative list is the dataclass in `lib/pipeline.py`. |
