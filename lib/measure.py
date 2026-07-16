@@ -63,6 +63,7 @@ from .bundle_schema import (
     validate_bundle,
 )
 from .fiber import Fiber
+from .fiber_connector import ConnectParams, connect_fiber_fragments
 from .fiber_tracking_image import FiberTrackingImage
 
 # Column order of the per-fiber statistics CSV. This is the single source of
@@ -342,6 +343,8 @@ def measure_bundle(
     max_workers: Optional[int] = None,
     progress_cb: Optional[Callable[[int, int], None]] = None,
     scale_y_um: Optional[float] = None,
+    connect_fibers: bool = False,
+    connect_params: Optional[ConnectParams] = None,
 ) -> MeasureResult:
     """
     Trace all fibers in one bundle and compute their statistics.
@@ -387,12 +390,29 @@ def measure_bundle(
         ``None`` なら）記録された Y 走査範囲、そうでなければ ``scale_um`` を
         既定値とし、従来の単一値（正方スキャン）挙動を保つ。矩形スキャンでは
         別の値を渡す。
+    connect_fibers
+        When ``True``, reconnect the traced skeleton fragments into whole
+        fibrils with `lib.fiber_connector.connect_fiber_fragments` before
+        computing statistics. Fragments that GUI01 split at crossings and
+        branches are then measured as single fibers. Defaults to ``False``
+        (each skeleton fragment is one fiber, the historical behavior).
+        ``True`` のとき、統計計算の前に、追跡した骨格断片を
+        `lib.fiber_connector.connect_fiber_fragments` で 1 本のフィブリルへ
+        再結合する。GUI01 が交差・分岐で分断した断片が 1 本の繊維として計測
+        される。既定は ``False``（各骨格断片が 1 本の繊維、従来挙動）。
+    connect_params
+        Reconnection thresholds used when ``connect_fibers`` is ``True``.
+        ``None`` uses `ConnectParams` defaults.
+        ``connect_fibers`` が ``True`` のときに使う再結合しきい値。``None`` は
+        `ConnectParams` の既定値を使う。
 
     Returns
     -------
     MeasureResult
-        Rebuilt image, traced fibers, and per-fiber statistics.
-        再構築済み画像、追跡されたファイバー、ファイバーごとの統計値。
+        Rebuilt image, traced (optionally reconnected) fibers, and per-fiber
+        statistics.
+        再構築済み画像、追跡（必要に応じて再結合）されたファイバー、
+        ファイバーごとの統計値。
 
     Raises
     ------
@@ -458,6 +478,16 @@ def measure_bundle(
         max_workers=max_workers,
         progress_cb=progress_cb,
     )
+    if connect_fibers:
+        # Reconnect crossing/branching fragments into whole fibrils. This runs
+        # after fragment tracing because the connector grows fibrils from the
+        # traced fragments and reuses the same image height data.
+        # 交差・分岐した断片を 1 本のフィブリルへ再結合する。連結器は追跡済み
+        # 断片からフィブリルを成長させ、同じ画像の高さデータを再利用するため、
+        # 断片追跡の後に実行する。
+        fibers = connect_fiber_fragments(
+            image, fibers, params=connect_params or ConnectParams(),
+        )
     return MeasureResult(image=image, fibers=fibers, stats=compute_fiber_stats(fibers))
 
 

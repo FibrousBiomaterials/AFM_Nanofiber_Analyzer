@@ -38,7 +38,7 @@ GUI01 は解析対象の入力ファイルごとに、圧縮された `.b2z` バ
 | `guis/GUI01_Image_Preprocessor.py` | Image Preprocessor | AFM の `.txt` エクスポートまたは Gwyddion ネイティブ `.gwy` を読み込み、背景補正、二値化、細線化、キンク関連特徴抽出を行い、`.b2z` バンドルとパラメータ JSON を保存します。各ファイルは固有の物理走査範囲を持ち（入力から自動充填、またはファイル表の X/Y セルの直接編集〈表計算ソフトからの貼り付け対応〉、一括スケール入力欄、CSV マニフェストでファイル単位に設定）、長さ計測を再現できるようバンドルへ保存します。 |
 | `guis/GUI02_PlotProfiler.py` | Plot Profiler | 生データ、補正済みデータ、またはバンドル化された AFM 高さデータを読み込み、選択した線分に沿った高さプロファイルを対話的に抽出します。プロファイル距離を再現可能にするため、スケールは記録値（`.b2z`）、ヘッダ（テキスト/CSV）、またはチャンネル範囲（`.gwy`）の走査範囲で既定化します。 |
 | `guis/GUI03_Fiber_Height_Histogram.py` | Fiber Height Histogram | ユーザー定義グループごとに、`.b2z` バンドル群の細線化ファイバー画素から高さ分布を比較します。 |
-| `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | `.b2z` バンドルを読み込み、追跡済み `Fiber` オブジェクトを再構築し、個別ファイバーの確認、図の出力、ファイバー統計量の CSV 出力を行います。 |
+| `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | `.b2z` バンドルを読み込み、追跡済み `Fiber` オブジェクトを再構築し、個別ファイバーの確認、図の出力、ファイバー統計量の CSV 出力を行います。任意のファイバー連結モード（トグルと設定ウインドウ）では、交差・分岐で分断された骨格断片を計測前に 1 本のフィブリルへ再結合します。 |
 
 ## 主なディレクトリ構成
 
@@ -111,6 +111,7 @@ Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにして
 | `lib/blosc2_io.py` | Blosc2 配列保存と `.b2z` TreeStore バンドルの入出力ヘルパー。 |
 | `lib/bundle_schema.py` | `.b2z` 契約の実行可能スキーマ。必須キー、配列形状、値域、単位、座標規約、形式バージョンを定義し、`validate_bundle` が書き込み時と読み込み時に強制する。 |
 | `lib/fiber.py` | ファイバー形状、高さプロファイル、キンクインデックス、端点インデックスを保持する不変 `Fiber` dataclass。 |
+| `lib/fiber_connector.py` | `connect_fiber_fragments` と `ConnectParams`。交差・分岐で分断された骨格断片を 1 本のフィブリルへ再結合する。GUI04 の任意のファイバー連結モードで使用。 |
 | `lib/fiber_tracking_image.py` | GUI04 が GUI01 のバンドル出力からファイバーを再構築・追跡するための `FiberTrackingImage`。 |
 | `lib/gwy_io.py` | ネイティブな複数チャンネル Gwyddion `.gwy` を遅延読み込みし、チャンネル選択、長さチャンネルの nm 換算、走査範囲抽出を行うローダー。 |
 | `lib/imp_tools.py` | スケルトン形態処理、端点・分岐点検出、線追跡、経路距離変換のヘルパー。 |

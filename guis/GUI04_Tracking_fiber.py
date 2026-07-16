@@ -34,6 +34,7 @@ PLUGIN_INFO = {
         "・AFM全体像とファイバー一覧の対応表示\n"
         "・ファイバーごとの高さプロファイル（キンク位置・端点・中央値/最大値線）\n"
         "・統計値（高さ中央値・最大値・長さ・端点数・キンク数・キンク角度）\n"
+        "・ファイバー連結（交差・分岐で分断された断片を1本のフィブリルへ再結合、ON/OFF・パラメータ設定可）\n"
         "・高さ範囲フィルター（specific_height_fibers 相当）\n"
         "・高さプロファイル、ファイバー拡大像、およびAFM全体像の PNG 出力\n"
         "・全ファイバーの統計値 CSV エクスポート\n"
@@ -69,6 +70,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # lib/ フォルダ内の各モジュールをインポートする。これらが AFM 画像処理の本体。
 from lib.fiber_tracking_image import FiberTrackingImage
 from lib.fiber import Fiber
+from lib.fiber_connector import ConnectParams
 from lib.blosc2_io import bundle_has_keys, BUNDLE_EXT
 from lib.measure import (
     TRACKING_BUNDLE_KEYS, compute_fiber_stats,
@@ -284,6 +286,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # デフォルト OFF。即時反映で適用/リセット。
         self.filter_enabled_var   = tk.BooleanVar(value=False)
 
+        # -- Fiber-connection (whole-fibril) toggle and its parameters --
+        # Default is off; toggling re-analyzes the current dataset. When on,
+        # GUI01 skeleton fragments split at crossings/branches are reconnected
+        # into whole fibrils before measurement (see lib.fiber_connector).
+        # ── ファイバー連結（フィブリル一本化）トグルとパラメータ ──
+        # 既定 OFF。切替で現在データを再解析する。ON のとき、GUI01 が交差・分岐で
+        # 分断した骨格断片を計測前に 1 本のフィブリルへ再結合する
+        # （lib.fiber_connector を参照）。
+        self.connect_enabled_var  = tk.BooleanVar(value=False)
+        self.connect_params: ConnectParams = ConnectParams()
+        # Keep at most one non-modal connection-settings window.
+        # 連結設定ウインドウは非モーダルで 1 つだけ保持する。
+        self._connect_window: Optional["ConnectSettingsWindow"] = None
+
         # -- Profile element checkboxes --
         # ── プロファイル描画要素チェックボックス ──
         self.show_kink_var   = tk.BooleanVar(value=True)
@@ -434,6 +450,26 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             lambda: self._fmt_num(self.filter_max),
             self._commit_filter_range,
         )
+
+        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=6, pady=2)
+
+        # -- Fiber connection: checkbox re-analyzes; button opens the settings window --
+        # ── ファイバー連結 ── チェックボックスで再解析、ボタンで設定ウインドウを開く。
+        chk_connect = ttk.Checkbutton(
+            bar, text=_("ファイバー連結"),
+            variable=self.connect_enabled_var,
+            command=self._on_connect_toggle,
+        )
+        chk_connect.pack(side="left", padx=(2, 2))
+        ToolTip(chk_connect, _(
+            "ON時: 交差・分岐で分断された骨格断片を 1 本のフィブリルへ再結合してから計測する。\n"
+            "OFF時: 各骨格断片を 1 本のファイバーとして扱う（従来動作）。\n"
+            "切り替えると現在のデータセットを再解析する。"
+        ))
+        ttk.Button(
+            bar, text=_("連結設定…"),
+            command=self._open_connect_settings,
+        ).pack(side="left", padx=(0, 4))
 
     def _build_main(self) -> None:
         """
@@ -1169,16 +1205,27 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # None なら measure_bundle が Y に X スケールを流用する（正方スキャン）。
         worker_scale_y_um = self.scale_y_um
 
+        # Capture the connection state now so the worker is not affected by later
+        # UI toggles; ConnectParams is immutable, so sharing the reference is safe.
+        # 後続の UI 操作の影響を受けないよう連結状態をここで確定する。ConnectParams
+        # は不変なので参照共有で安全。
+        connect_fibers = bool(self.connect_enabled_var.get())
+        connect_params = self.connect_params
+
         self._log(
             (_("読み込み中: {name}  スケール={scale}") + " µm ...").format(
                 name=os.path.basename(stem), scale=self._fmt_num(scale_um)
             )
         )
+        if connect_fibers:
+            self._log(_("ファイバー連結が有効です（断片を再結合します）。"))
         self._set_ui_enabled(False)
         self._show_progress(_("ファイル読み込み中..."), 0)
 
         def _worker(stem=stem, scale_um=worker_scale_um,
-                    scale_y_um=worker_scale_y_um):
+                    scale_y_um=worker_scale_y_um,
+                    connect_fibers=connect_fibers,
+                    connect_params=connect_params):
             """
             Load one bundle and run fiber analysis off the Tk main thread.
             Tk メインスレッド外で 1 つのバンドル読み込みとファイバー解析を実行する。
@@ -1212,6 +1259,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     scale_um=scale_um,
                     progress_cb=_progress,
                     scale_y_um=scale_y_um,
+                    connect_fibers=connect_fibers,
+                    connect_params=connect_params,
                 )
                 image, fibers = result.image, result.fibers
 
@@ -1760,6 +1809,62 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._rebuild_overview_bg()
             self._afm_canvas.draw_idle()
         self._log(_("フィルターをリセットしました。"))
+
+    # =========================================================================
+    # Fiber connection (whole-fibril)
+    # =========================================================================
+
+    def _on_connect_toggle(self) -> None:
+        """
+        Handle the fiber-connection checkbox by re-analyzing the dataset.
+        ファイバー連結チェックボックスの切替でデータセットを再解析する。
+
+        Connection changes how fibers are built from the skeleton, so the only
+        way to reflect it is to re-run the analysis. When no dataset is loaded,
+        the checkbox state is kept and applied on the next selection.
+        連結はスケルトンからのファイバー構築方法を変えるため、反映には解析の
+        再実行が必要。データ未読込ならチェック状態のみ保持し、次の選択で適用する。
+        """
+        state = _("有効") if self.connect_enabled_var.get() else _("無効")
+        self._log(_("ファイバー連結: {state}").format(state=state))
+        if self.current_stem and self.current_image is not None and not self.is_running:
+            self._reload_current_file()
+
+    def _open_connect_settings(self) -> None:
+        """
+        Open the non-modal connection-settings window, reusing one instance.
+        非モーダルの連結設定ウインドウを開く（インスタンスは 1 つを再利用）。
+        """
+        if self._connect_window is not None and self._connect_window.winfo_exists():
+            try:
+                self._connect_window.deiconify()
+                self._connect_window.lift()
+                self._connect_window.focus_set()
+            except Exception:
+                # Recreate the window if the stored reference is stale.
+                # 参照が壊れていれば作り直す。
+                self._connect_window = None
+                self._open_connect_settings()
+            return
+        self._connect_window = ConnectSettingsWindow(self)
+
+    def _apply_connect_params(self, params: ConnectParams) -> None:
+        """
+        Store new connection parameters and re-analyze if connection is active.
+        新しい連結パラメータを保存し、連結が有効なら再解析する。
+        """
+        self.connect_params = params
+        self._log(_("連結パラメータを更新しました。"))
+        if self.connect_enabled_var.get() and self.current_stem \
+                and self.current_image is not None and not self.is_running:
+            self._reload_current_file()
+
+    def _on_connect_window_closed(self) -> None:
+        """
+        Clear the stored connection-settings window reference after close.
+        連結設定ウインドウのクローズ後に参照をクリアする。
+        """
+        self._connect_window = None
 
     # =========================================================================
     # Automatic vrange toggle
@@ -2841,6 +2946,156 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         # メインアプリへ通知（参照クリア）。
         try:
             self._app._on_detail_window_closed()
+        except Exception:
+            pass
+        self.destroy()
+
+
+# ===== Dialog: fiber-connection settings =====
+
+class ConnectSettingsWindow(tk.Toplevel):
+    """
+    Non-modal window to edit fiber-connection parameters.
+    ファイバー連結パラメータを編集する非モーダルウインドウ。
+
+    Attributes
+    ----------
+    _app
+        Main application window that owns `connect_params` and re-analysis.
+        `connect_params` と再解析を保持するメインアプリケーションウインドウ。
+
+    Notes
+    -----
+    Fields map one-to-one onto `lib.fiber_connector.ConnectParams`. Applying
+    validates all six values, stores a new immutable `ConnectParams` on the main
+    window, and re-analyzes the current dataset when connection is enabled.
+    各入力欄は `lib.fiber_connector.ConnectParams` と 1 対 1 に対応する。適用時に
+    6 値を検証し、新しい不変 `ConnectParams` をメインウインドウへ保存し、連結が
+    有効なら現在のデータセットを再解析する。
+    """
+
+    def __init__(self, parent: "App") -> None:
+        """
+        Build the connection-settings window from the app's current parameters.
+        アプリの現在パラメータから連結設定ウインドウを構築する。
+        """
+        super().__init__(parent)
+        self._app: "App" = parent
+        self.title(_("ファイバー連結の設定"))
+        setup_ttk_theme(self)
+        apply_window_size(self, 460, 340, min_w=420, min_h=300)
+
+        p = parent.connect_params
+        # Row spec: (attr, label text, kind, help text). The label keeps fixed
+        # scientific units in English (§6.2); "kind" drives validation.
+        # 行仕様: (属性, ラベル, 種別, 補足)。ラベルの科学単位は英語固定（§6.2）。
+        # "kind" が検証方法を決める。
+        self._rows = (
+            ("clusters_range",  _("連結距離") + " (px)", "pos_float",
+             _("端点どうしがこの距離以内なら連結候補にする。")),
+            ("angle_threshold", _("直線性の角度しきい値") + " (degree)", "angle",
+             _("両端点の角度がこの値を超える（＝ほぼ直線）ときのみ連結する。")),
+            ("lookback_length", _("方向推定の振り返り点数"), "int_ge2",
+             _("端点での向きを推定するのに使うトラック点数。")),
+            ("num_avg_points",  _("橋渡し高さの平均点数"), "int_ge1",
+             _("連結部の高さを決めるために平均する端点サンプル数。")),
+            ("height_diff_ratio", _("高さ差の許容比"), "pos_float",
+             _("高さ中央値の相対差がこの値以下の断片のみ連結する。大きいほど緩い。")),
+            ("trim_points",     _("交差ノイズのトリミング点数"), "int_ge0",
+             _("連結前に接合部付近から切り落とす骨格点数。")),
+        )
+
+        self._vars: dict = {}
+        body = ttk.Frame(self)
+        body.pack(fill="both", expand=True, padx=10, pady=8)
+
+        for r, (attr, label, _kind, hint) in enumerate(self._rows):
+            ttk.Label(body, text=label).grid(row=r, column=0, sticky="w", padx=(0, 6), pady=3)
+            var = tk.StringVar(value=self._fmt_value(getattr(p, attr)))
+            ent = ttk.Entry(body, width=10, textvariable=var)
+            ent.grid(row=r, column=1, sticky="w", pady=3)
+            self._vars[attr] = var
+            ToolTip(ent, hint)
+        body.columnconfigure(0, weight=1)
+
+        btns = ttk.Frame(self)
+        btns.pack(side="bottom", fill="x", padx=10, pady=(0, 10))
+        ttk.Button(btns, text=_("適用"), command=self._on_apply).pack(side="right", padx=(4, 0))
+        ttk.Button(btns, text=_("既定値に戻す"), command=self._on_reset).pack(side="right", padx=(4, 0))
+        ttk.Button(btns, text=_("閉じる"), command=self._on_close).pack(side="right", padx=(4, 0))
+
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    @staticmethod
+    def _fmt_value(value) -> str:
+        """
+        Format a parameter value for its entry (ints without a decimal point).
+        パラメータ値を入力欄用に整形する（整数は小数点なしで表示）。
+        """
+        if isinstance(value, int):
+            return str(value)
+        # Trim a trailing ".0" so 20.0 shows as "20" while 0.3 stays "0.3".
+        # 末尾の ".0" を落とし、20.0 は "20"、0.3 は "0.3" と表示する。
+        text = f"{value:g}"
+        return text
+
+    def _parse_field(self, attr: str, kind: str, raw: str) -> float:
+        """
+        Parse and range-check one field, raising ``ValueError`` on invalid input.
+        1 つの入力欄を解析・範囲検査し、不正なら ``ValueError`` を送出する。
+        """
+        raw = raw.strip()
+        if kind.startswith("int"):
+            value: float = int(round(float(raw)))
+        else:
+            value = float(raw)
+
+        if kind == "pos_float" and not (value > 0):
+            raise ValueError(_("正の数値を入力してください。"))
+        if kind == "angle" and not (0 < value <= 180):
+            raise ValueError(_("0 より大きく 180 以下の角度を入力してください。"))
+        if kind == "int_ge2" and value < 2:
+            raise ValueError(_("2 以上の整数を入力してください。"))
+        if kind == "int_ge1" and value < 1:
+            raise ValueError(_("1 以上の整数を入力してください。"))
+        if kind == "int_ge0" and value < 0:
+            raise ValueError(_("0 以上の整数を入力してください。"))
+        return value
+
+    def _on_apply(self) -> None:
+        """
+        Validate all fields and push a new `ConnectParams` to the main window.
+        全欄を検証し、新しい `ConnectParams` をメインウインドウへ渡す。
+        """
+        values: dict = {}
+        for attr, label, kind, _hint in self._rows:
+            try:
+                values[attr] = self._parse_field(attr, kind, self._vars[attr].get())
+            except ValueError as exc:
+                messagebox.showerror(
+                    _("入力エラー"),
+                    "{label}: {msg}".format(label=label, msg=str(exc)),
+                    parent=self,
+                )
+                return
+        self._app._apply_connect_params(ConnectParams(**values))
+
+    def _on_reset(self) -> None:
+        """
+        Reset all entry fields to the `ConnectParams` defaults.
+        全入力欄を `ConnectParams` の既定値に戻す。
+        """
+        defaults = ConnectParams()
+        for attr, _label, _kind, _hint in self._rows:
+            self._vars[attr].set(self._fmt_value(getattr(defaults, attr)))
+
+    def _on_close(self) -> None:
+        """
+        Notify the main window and close this settings window.
+        メインウインドウへ通知してこの設定ウインドウを閉じる。
+        """
+        try:
+            self._app._on_connect_window_closed()
         except Exception:
             pass
         self.destroy()

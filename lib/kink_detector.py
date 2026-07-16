@@ -168,6 +168,53 @@ class KinkDetector:
             logger.exception("Kink detection failed")
             raise
 
+    def kinks_and_decomposed_from_track(
+        self,
+        xtrack: NDArray,
+        ytrack: NDArray,
+    ) -> tuple[NDArray, NDArray, NDArray]:
+        """
+        Detect kink and decomposition indices for a single ordered track.
+        順序付き 1 本のトラックから kink・分解点インデックスを検出する。
+
+        Public wrapper over the piecewise-linear decomposition and angle-based
+        kink detection so callers can recompute features on a reconstructed
+        track (for example a fiber assembled from several fragments) without
+        reaching into the private helpers. The detector's own thresholds
+        (`threshold_distance`, `threshold_angle_from_decomposed_indices`) are
+        used, so the result matches the per-label detection in `__call__`.
+        折れ線分解と角度ベースの kink 検出の公開ラッパー。再構築したトラック
+        （複数断片から連結したファイバーなど）に対して、private ヘルパーへ直接
+        触れずに特徴点を再計算できるようにする。検出器自身のしきい値
+        （`threshold_distance`、`threshold_angle_from_decomposed_indices`）を
+        使うため、`__call__` のラベル単位検出と結果が一致する。
+
+        Parameters
+        ----------
+        xtrack
+            X coordinates of the ordered skeleton track.
+            順序付き骨格トラックの x 座標列。
+        ytrack
+            Y coordinates of the ordered skeleton track.
+            順序付き骨格トラックの y 座標列。
+
+        Returns
+        -------
+        tuple of ndarray
+            ``(kink_indices, kink_angles, decomposed_indices)``. Kink angles are
+            interior angles in radians; all indices point into the track arrays.
+            ``(kink_indices, kink_angles, decomposed_indices)``。kink 角度は
+            ラジアンの内角で、各インデックスはトラック配列に対応する。
+        """
+        decomposed_indices = self._binary_decompose_simple(
+            xtrack, ytrack, self.threshold_distance,
+        )
+        kink_indices, kink_angles = self._detect_kink_from_decomposed_indices(
+            xtrack, ytrack, decomposed_indices,
+            self.threshold_angle_from_decomposed_indices,
+        )
+        return kink_indices, kink_angles, decomposed_indices
+
     def _binary_decompose_simple(
         self,
         skel_coor_x: NDArray,

@@ -40,7 +40,7 @@ GUIs read those bundles directly.
 | `guis/GUI01_Image_Preprocessor.py` | Image Preprocessor | Load AFM `.txt` exports or native Gwyddion `.gwy` files, run background calibration, segmentation, skeletonization, and kink-related feature extraction, then save a `.b2z` bundle and a parameter JSON file. Each file carries its own physical scan size (auto-filled from the input, or set per file by editing the X/Y cells in the file table — including paste from a spreadsheet — via the batch scale fields, or from a CSV manifest), stored in the bundle for reproducible length measurements. |
 | `guis/GUI02_PlotProfiler.py` | Plot Profiler | Load raw, calibrated, or bundled AFM height data and interactively extract height profiles along selected line segments. The scale defaults to the recorded (`.b2z`), header (text/CSV), or channel-extent (`.gwy`) scan size so profile distances are reproducible. |
 | `guis/GUI03_Fiber_Height_Histogram.py` | Fiber Height Histogram | Compare height distributions from skeletonized fiber pixels across user-defined groups of `.b2z` bundles. |
-| `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | Load `.b2z` bundles, rebuild tracked `Fiber` objects, inspect individual fibers, export plots, and export fiber statistics to CSV. |
+| `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | Load `.b2z` bundles, rebuild tracked `Fiber` objects, inspect individual fibers, export plots, and export fiber statistics to CSV. An optional fiber-connection mode (toggle plus a settings window) reconnects skeleton fragments split at crossings and branches into whole fibrils before measurement. |
 
 ## Selected Directory Structure
 
@@ -113,6 +113,7 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | `lib/blosc2_io.py` | Blosc2 array storage and `.b2z` TreeStore bundle helpers. |
 | `lib/bundle_schema.py` | Executable `.b2z` contract: required keys, array shapes, value ranges, units, coordinate convention, and format version, with `validate_bundle` enforcing them at write and load time. |
 | `lib/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |
+| `lib/fiber_connector.py` | `connect_fiber_fragments` and `ConnectParams`: reconnect skeleton fragments split at crossings/branches into whole fibrils, used by GUI04's optional fiber-connection mode. |
 | `lib/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |
 | `lib/gwy_io.py` | Lazy-loading reader for native, multi-channel Gwyddion `.gwy` files, including channel selection, length-channel conversion to nm, and scan-size extraction. |
 | `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
