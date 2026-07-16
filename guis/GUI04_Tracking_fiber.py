@@ -71,7 +71,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from lib.fiber_tracking_image import FiberTrackingImage
 from lib.fiber import Fiber
 from lib.fiber_connector import ConnectParams, filter_fibers_by_height
-from lib.blosc2_io import bundle_has_keys, BUNDLE_EXT
+from lib.blosc2_io import bundle_has_keys, load_bundle, BUNDLE_EXT
 from lib.measure import (
     TRACKING_BUNDLE_KEYS, compute_fiber_stats,
     measure_bundle, read_scan_size_from_bundle, write_fiber_csv,
@@ -107,6 +107,16 @@ DEFAULT_HEIGHT_YLIM:           float = 20.0
 DEFAULT_IMAGE_SIZE_UM:         float = 2.0               # 画像全体のサイズ (µm)
 # Fiber analysis is always parallelized with ThreadPoolExecutor.
 # ファイバー解析は常に ThreadPoolExecutor で並列化する。
+
+# AFM overview display modes. Internal state keys (fixed English identifiers),
+# selected by the mode radio buttons and read by the overview renderers.
+# "height" keeps the afmhot image with per-fiber boxes; "fibers" scatters each
+# fiber in its own color over the binarized silhouette.
+# AFM 全体像の表示モード。モード選択ラジオが設定し全体像描画が参照する
+# 内部状態キー（固定英語識別子）。"height" は afmhot 画像＋ファイバー枠、
+# "fibers" は二値化シルエット上に各ファイバーを個別色で散布する。
+OVERVIEW_MODE_HEIGHT = "height"
+OVERVIEW_MODE_FIBERS = "fibers"
 
 
 # ===== Utility functions =====
@@ -304,6 +314,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # ── プロファイル描画要素チェックボックス ──
         self.show_kink_var   = tk.BooleanVar(value=True)
         self.show_medmax_var = tk.BooleanVar(value=True)
+
+        # -- AFM overview display mode (height image vs. color-coded fibers) --
+        # Height and fiber modes are two renderings of the same overview and
+        # share vmin/vmax, fonts, selection, and the height filter; the radio
+        # only re-renders in place. The value is an internal state key.
+        # ── AFM 全体像の表示モード（高さ画像／ファイバー色分け）──
+        # 両モードは同一全体像の描き分けで、vmin/vmax・フォント・選択・高さ
+        # フィルターを共有し、ラジオは同じ場所を再描画するだけ。値は内部状態キー。
+        self.overview_mode_var = tk.StringVar(value=OVERVIEW_MODE_HEIGHT)
 
         # ===== Unconfirmed-entry registry for the main window =====
         # Each entry is (entry_widget, committed-value getter, commit callback).
@@ -562,6 +581,29 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         afm_header1 = ttk.Frame(afm_outer)
         afm_header1.pack(side="top", fill="x", padx=2, pady=(2, 0))
         ttk.Label(afm_header1, text=_("AFM 全体像"), font=("", 9, "bold")).pack(side="left", padx=4)
+
+        # Display-mode switch: height image (current) vs. color-coded fibers.
+        # Same canvas is re-rendered; this is a mode radio, not a separate tab.
+        # 表示モード切替：高さ画像（現行）／ファイバー色分け。同一キャンバスを
+        # 再描画する（別タブではなくモードラジオ）。
+        rb_height = ttk.Radiobutton(
+            afm_header1, text=_("高さ"),
+            variable=self.overview_mode_var, value=OVERVIEW_MODE_HEIGHT,
+            command=self._on_overview_mode_change,
+        )
+        rb_height.pack(side="left", padx=(6, 0))
+        rb_fibers = ttk.Radiobutton(
+            afm_header1, text=_("ファイバー色分け"),
+            variable=self.overview_mode_var, value=OVERVIEW_MODE_FIBERS,
+            command=self._on_overview_mode_change,
+        )
+        rb_fibers.pack(side="left", padx=(0, 2))
+        ToolTip(rb_fibers, _(
+            "各ファイバーを個別色で二値化像上に散布表示します。\n"
+            "どの骨格がひとつのフィブリルに繋がったかを一目で確認でき、\n"
+            "ファイバー連結の結果検証に有効です。"
+        ))
+        ttk.Separator(afm_header1, orient="vertical").pack(side="left", fill="y", padx=6, pady=2)
 
         # Auto checkbox to the left of vmin.
         chk_auto = ttk.Checkbutton(
@@ -1300,7 +1342,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             name=os.path.basename(stem), count=len(fibers)
         ))
         self._populate_fiber_table(fibers)
-        self._draw_overview_background()
+        # Dispatch by display mode so the fiber view survives a file switch.
+        # 表示モードで分岐し、ファイル切替後も色分け表示を維持する。
+        self._rebuild_overview_bg()
 
         # Auto-select the first fiber after file selection, unlike folder selection.
         # 先頭ファイバーを自動選択（ファイル選択時は内部選択を行う、フォルダ選択時とは別）。
@@ -1547,7 +1591,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         されたスケルトン画素をマゼンタで AFM 像上に散布表示して、画素単位の
         ``specific_height_fibers`` 抽出（補正高さが範囲内の区間のみ残る）に
         一致させる。
+
+        In color-coded fiber mode the height background is replaced entirely by
+        `_draw_overview_fibers_bg`, which honors the same filter state.
+        色分けモードでは高さ背景を `_draw_overview_fibers_bg` で丸ごと差し替える
+        （同じフィルター状態を反映する）。
         """
+        # Color-coded fiber mode owns its own background renderer.
+        # 色分けモードは専用の背景描画に委譲する。
+        if self.overview_mode_var.get() == OVERVIEW_MODE_FIBERS:
+            self._draw_overview_fibers_bg()
+            return
+
         if not self._filter_active:
             self._draw_overview_background()
             return
@@ -1585,6 +1640,132 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 (f.ytrack + y) * y_spp,
                 c="magenta", s=4, edgecolors="none",
             )
+
+    def _binarized_backdrop(self) -> Optional[np.ndarray]:
+        """
+        Return the binarized fiber mask for the current dataset, or ``None``.
+        現在データセットの二値化ファイバーマスクを返す。取得できなければ ``None``。
+
+        ``binarized`` is a required ``.b2z`` key but `measure_bundle` does not
+        load it, so it is read lazily on first use and cached on the tracking
+        image to avoid re-reading the bundle on every color-mode redraw.
+        ``binarized`` は ``.b2z`` の必須キーだが `measure_bundle` は読み込まない
+        ため、初回に遅延読み込みして tracking 画像へキャッシュし、色分けモードの
+        再描画ごとにバンドルを読み直さないようにする。
+        """
+        image = self.current_image
+        if image is None:
+            return None
+        if image.binarized_image is not None:
+            return image.binarized_image
+        if not self.current_stem:
+            return None
+        try:
+            arrays = load_bundle(self.current_stem + BUNDLE_EXT, keys=["binarized"])
+            image.binarized_image = arrays["binarized"]
+        except Exception:
+            # Leave it unset so the caller falls back to the grayscale height image.
+            # 未設定のままにし、呼び出し側でグレースケール高さ画像にフォールバックする。
+            image.binarized_image = None
+        return image.binarized_image
+
+    def _draw_overview_fibers_bg(self) -> None:
+        """
+        Draw and cache the color-coded fiber overview background.
+        色分けファイバー表示の背景を描画してキャッシュする。
+
+        Each fiber (the filtered subset when the height filter is active,
+        otherwise every fiber) is scattered in its own color over the binarized
+        fiber silhouette, so which skeleton pixels belong to one fibril is
+        visible at a glance. This is the primary way to verify the
+        fiber-connection result, which the single-color height overview cannot
+        show. vmin/vmax do not apply because the background is binary, so no
+        height colorbar is drawn.
+        各ファイバー（高さフィルター有効時は残存分、無効時は全ファイバー）を
+        二値化シルエット上に個別色で散布し、どの骨格画素が 1 本のフィブリルに
+        属するかを一目で確認できるようにする。単色の高さ表示では見えない
+        ファイバー連結の結果を検証する主手段。背景が二値のため vmin/vmax は
+        効かず、高さカラーバーも描かない。
+        """
+        if self.current_image is None:
+            return
+        # Extent and units follow unit_var, matching the height overview.
+        # extent と単位は unit_var に従い、高さ表示と揃える。
+        x_scale, y_scale, unit_label = self._get_extent_scale_xy_and_unit()
+        img = self.current_image.calibrated_image
+        h_px, w_px = img.shape[:2]
+        x_spp = x_scale / w_px
+        y_spp = y_scale / h_px
+        extent = [0, w_px * x_spp, h_px * y_spp, 0]
+
+        ax = self._afm_ax
+        ax.clear()
+        # A binary background carries no height scale, so drop the colorbar left
+        # over from height mode instead of stacking a new one each redraw.
+        # 二値背景に高さスケールは無いため、高さモードのカラーバーを削除する
+        # （再描画ごとに増殖させない）。
+        if self._afm_cbar is not None:
+            try:
+                self._afm_cbar.remove()
+            except Exception:
+                pass
+            self._afm_cbar = None
+        ax.axis("on")
+
+        # Prefer the binarized silhouette as a clean, high-contrast backdrop;
+        # fall back to the grayscale height image if it cannot be read.
+        # 高コントラストな背景として二値化シルエットを優先し、読み込めない場合は
+        # グレースケールの高さ画像にフォールバックする。
+        backdrop = self._binarized_backdrop()
+        if backdrop is None:
+            backdrop = img
+        ax.imshow(backdrop, cmap="gray", extent=extent, aspect="equal")
+
+        # Color each fiber the same way in both filtered and unfiltered states.
+        # フィルター有無にかかわらず同じ方式で各ファイバーを配色する。
+        fibers = self._filtered_fibers if self._filter_active else self.current_fibers
+        n = len(fibers)
+        if n > 0:
+            # Deterministic shuffle: neighboring fibers get distinct colors while
+            # the same dataset always colors identically across redraws (unlike
+            # the reference notebook, which re-randomizes every run).
+            # 決定論的シャッフル：近接ファイバーに異なる色を与えつつ、同一データ
+            # セットでは再描画ごとに同じ配色になる（毎回ランダム化する参照
+            # ノートブックとは異なる）。
+            order = np.random.default_rng(0).permutation(n)
+            cmap = plt.get_cmap("rainbow")
+            denom = max(n - 1, 1)
+            for color_idx, f in zip(order, fibers):
+                # f.data is OpenCV stats (x, y, width, height, area); tracks are
+                # bbox-local, so add the bbox origin before scaling.
+                # f.data は OpenCV 統計 (x, y, 幅, 高さ, 面積)。track は BBox
+                # ローカルなので、スケールする前に BBox 原点を加える。
+                x, y, _h, _w, _unused = f.data
+                ax.scatter(
+                    (f.xtrack + x) * x_spp,
+                    (f.ytrack + y) * y_spp,
+                    color=cmap(color_idx / denom),
+                    s=4, alpha=0.7, edgecolors="none",
+                )
+
+        # Reuse the committed font sizes; the colorbar size is unused here.
+        # 確定済みフォントサイズを流用する（ここではカラーバー用は未使用）。
+        ax.set_xlabel("({0})".format(unit_label), fontsize=self.fs_label)
+        ax.set_ylabel("({0})".format(unit_label), fontsize=self.fs_label)
+        ax.tick_params(labelsize=self.fs_tick)
+
+        suffix = (
+            "  [filter: {count} segments]".format(count=n)
+            if self._filter_active
+            else "  [fibers: {count}]".format(count=n)
+        )
+        ax.set_title(self.current_image.name + suffix, fontsize=self.fs_title, pad=3)
+        self._afm_fig.tight_layout(pad=0.5)
+
+        self._highlight_patch   = None
+        self._overview_bg_drawn = True
+        # Do not call draw_idle here; the caller owns the final canvas draw.
+        # draw_idle はここでは呼ばない。呼び出し元が最終描画を行う。
 
     def _draw_overview(self, selected_fiber: Optional[Fiber] = None) -> None:
         """
@@ -1915,7 +2096,34 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._draw_overview(selected_fiber=fiber)
             self._update_detail_window(fiber)
         elif self.current_image is not None:
-            self._draw_overview_background()
+            # Dispatch by display mode so a mode-mismatched background is not drawn.
+            # 表示モードで分岐し、モード不一致の背景を描かないようにする。
+            self._rebuild_overview_bg()
+            self._afm_canvas.draw_idle()
+
+    def _on_overview_mode_change(self) -> None:
+        """
+        Redraw the overview in place after switching display mode.
+        表示モード切替後に全体像を同じ場所で再描画する。
+
+        Height and fiber modes are two renderings of the same overview, so only
+        the cached background is invalidated and rebuilt; the current selection,
+        height filter, vmin/vmax, and font sizes are preserved.
+        高さ／色分けは同一全体像の描き分けなので、背景キャッシュだけを無効化して
+        再構築し、選択・高さフィルター・vmin/vmax・フォントサイズは保持する。
+        """
+        if self.current_image is None:
+            return
+        self._overview_bg_drawn = False
+        fiber = self._current_fiber()
+        if fiber is not None:
+            # _draw_overview rebuilds the invalidated background (mode-aware via
+            # _rebuild_overview_bg) and re-adds the selection highlight.
+            # _draw_overview は無効化した背景を（_rebuild_overview_bg 経由で
+            # モード対応で）再構築し、選択ハイライトを付け直す。
+            self._draw_overview(selected_fiber=fiber)
+        else:
+            self._rebuild_overview_bg()
             self._afm_canvas.draw_idle()
 
     def _redraw_profile(self) -> None:
