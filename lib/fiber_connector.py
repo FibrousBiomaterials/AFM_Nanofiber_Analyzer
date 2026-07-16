@@ -426,3 +426,140 @@ def _rebuild_connected_fiber(
         np.asarray(kink_indices), ep_indices,
         np.asarray(kink_angles), np.asarray(decomposed_point_indices),
     )
+
+
+def filter_fibers_by_height(
+    image: FiberTrackingImage,
+    fibers: Sequence[Fiber],
+    lower_height: float,
+    upper_height: float,
+    include_lower_limit: bool = True,
+    include_upper_limit: bool = True,
+    progress_cb: Optional[Callable[[int, int], None]] = None,
+) -> List[Fiber]:
+    """
+    Extract the height-band portions of already-built fibers, one fiber at a time.
+    構築済みファイバーから、指定高さ帯に入る区間をファイバー単位で切り出す。
+
+    Unlike `FiberTrackingImage.specific_height_fibers`, which masks the raw
+    skeleton by the calibrated image, this tests each fiber against its own
+    height profile (`Fiber.height`). For fibrils produced by
+    `connect_fiber_fragments` that profile includes the interpolated bridge
+    heights, so a bridge whose height stays in band keeps the fibril joined
+    instead of re-splitting it at every reconnection gap. This is the
+    "connect, then filter" order GUI04 uses when both the fiber-connection and
+    height-filter modes are active.
+    生スケルトンを補正画像でマスクする
+    `FiberTrackingImage.specific_height_fibers` と異なり、本関数は各ファイバー
+    自身の高さプロファイル（`Fiber.height`）で判定する。`connect_fiber_fragments`
+    が生成したフィブリルではこのプロファイルに橋渡し部の補間高さが含まれるため、
+    橋渡しが帯域内に収まる限りフィブリルは連結を保ち、再結合の隙間ごとに
+    再分断されない。GUI04 で連結モードと高さフィルターの両方が有効なときに使う
+    「連結してからフィルター」の順序に対応する。
+
+    Parameters
+    ----------
+    image
+        Tracking container supplying the resolved per-axis pixel sizes used to
+        recompute each sub-segment's path length.
+        各サブ区間の経路長を再計算するために使う軸別ピクセルサイズを提供する
+        追跡コンテナ。
+    fibers
+        Fibers to filter, typically the connected fibrils GUI04 currently
+        displays (`connect_fiber_fragments` output).
+        フィルター対象のファイバー。通常は GUI04 が表示中の連結フィブリル
+        （`connect_fiber_fragments` の出力）。
+    lower_height, upper_height
+        Height band in nanometers, matching the units of `Fiber.height`.
+        高さ帯（nm）。`Fiber.height` の単位に一致する。
+    include_lower_limit, include_upper_limit
+        Whether each bound is inclusive.
+        各境界を含むかどうか。
+    progress_cb
+        Optional callback receiving ``(done, total)`` once per input fiber.
+        入力ファイバー 1 本ごとに ``(done, total)`` を受け取る任意のコールバック。
+
+    Returns
+    -------
+    list of Fiber
+        Rebuilt sub-fibers for every contiguous in-band run, in input order.
+        帯域内の連続区間ごとに再構築したサブファイバー（入力順）。
+    """
+    if not fibers:
+        return []
+
+    spp = image.size_per_pixel
+    spp_y = image.y_size_per_pixel if image.y_size_per_pixel is not None else spp
+    # Reuse one detector for every rebuilt sub-fiber, mirroring
+    # connect_fiber_fragments so kink thresholds stay consistent.
+    # 全サブファイバーで検出器を使い回し、connect_fiber_fragments と同じ
+    # キンクしきい値で一貫させる。
+    detector = KinkDetector()
+
+    total = len(fibers)
+    result: List[Fiber] = []
+    for i, fib in enumerate(fibers):
+        if progress_cb is not None:
+            progress_cb(i + 1, total)
+
+        h = np.asarray(fib.height)
+        lower_cond = (h >= lower_height) if include_lower_limit else (h > lower_height)
+        upper_cond = (h <= upper_height) if include_upper_limit else (h < upper_height)
+        in_band = lower_cond & upper_cond
+        if not in_band.any():
+            continue
+
+        # Track points are stored relative to the fiber's bounding box; add the
+        # (x, y) offset back to index the shared calibrated image space.
+        # トラック点は外接矩形基準で保持されるため、(x, y) オフセットを戻して
+        # 共有の補正画像座標に合わせる。
+        abs_x = np.asarray(fib.xtrack) + fib.data[0]
+        abs_y = np.asarray(fib.ytrack) + fib.data[1]
+
+        for start, stop in _contiguous_runs(in_band):
+            # A rebuilt fiber needs two real endpoints to form a path; drop
+            # single-point survivors that cannot become a segment.
+            # 再構築ファイバーは経路を成すのに端点が 2 つ必要。区間にならない
+            # 1 点だけの残存はスキップする。
+            if stop - start < 2:
+                continue
+            xs = list(abs_x[start:stop])
+            ys = list(abs_y[start:stop])
+            hs = list(h[start:stop])
+            try:
+                result.append(
+                    _rebuild_connected_fiber(image, detector, xs, ys, hs, spp, spp_y)
+                )
+            except Exception:
+                # A degenerate run (e.g. collinear duplicates) can fail feature
+                # recomputation; skip it rather than aborting the whole filter.
+                # 退化区間（同一点の連続など）は特徴再計算に失敗しうる。フィルター
+                # 全体を中断せずスキップする。
+                continue
+
+    return result
+
+
+def _contiguous_runs(mask: np.ndarray) -> List[tuple]:
+    """
+    Return ``(start, stop)`` index pairs for each maximal True run in ``mask``.
+    ``mask`` 内の最長 True 連続区間ごとに ``(start, stop)`` インデックス対を返す。
+
+    ``stop`` is exclusive, so ``mask[start:stop]`` is the run. Runs follow the
+    ordered track, so each slice is one physically contiguous sub-path.
+    ``stop`` は排他的で ``mask[start:stop]`` が区間になる。区間は順序付きトラックに
+    沿うため、各スライスは物理的に連続した 1 つの部分経路となる。
+    """
+    runs: List[tuple] = []
+    n = len(mask)
+    i = 0
+    while i < n:
+        if mask[i]:
+            j = i + 1
+            while j < n and mask[j]:
+                j += 1
+            runs.append((i, j))
+            i = j
+        else:
+            i += 1
+    return runs

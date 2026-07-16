@@ -70,7 +70,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # lib/ フォルダ内の各モジュールをインポートする。これらが AFM 画像処理の本体。
 from lib.fiber_tracking_image import FiberTrackingImage
 from lib.fiber import Fiber
-from lib.fiber_connector import ConnectParams
+from lib.fiber_connector import ConnectParams, filter_fibers_by_height
 from lib.blosc2_io import bundle_has_keys, BUNDLE_EXT
 from lib.measure import (
     TRACKING_BUNDLE_KEYS, compute_fiber_stats,
@@ -1738,23 +1738,23 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
 
         image = self.current_image
+        # Compose with fiber connection: when connection is active, filter the
+        # connected fibrils (current_fibers) rather than the raw skeleton, so the
+        # "connect, then filter" order is preserved and the connector cannot
+        # bridge across regions the filter removes.
+        # ファイバー連結との合成：連結が有効なときは生スケルトンではなく連結済み
+        # フィブリル（current_fibers）をフィルターする。これにより「連結してから
+        # フィルター」の順序が保たれ、連結器がフィルターで除去した領域を橋渡しで
+        # 埋め戻すことはない。
+        connect_fibers = bool(self.connect_enabled_var.get())
+        connected_fibers = self.current_fibers
 
         def _worker():
             """
             Extract specific-height fiber segments off the Tk main thread.
-            Tk メインスレッド外で特定高さのファイバー区間を画素単位で抽出する。
+            Tk メインスレッド外で特定高さのファイバー区間を抽出する。
             """
             try:
-                # Pixel-level extraction: keep only skeleton pixels whose
-                # calibrated height is within [lo, hi] and rebuild fibers from
-                # them. Delegates to FiberTrackingImage.specific_height_fibers
-                # so the GUI matches the reference height-filter behavior, which
-                # isolates the portions at a target height (e.g. dents) rather
-                # than selecting whole fibers by a summary statistic.
-                # 画素単位抽出。補正高さが [lo, hi] のスケルトン画素のみを残して
-                # 再構築する。specific_height_fibers に委譲し、要約統計で
-                # ファイバーを丸ごと選ぶのではなく特定高さの箇所（凹みなど）を
-                # 切り出す、本来の高さフィルター仕様に一致させる。
                 _last_pct_ref = [-1]
                 def _progress(done: int, total: int) -> None:
                     """
@@ -1766,7 +1766,31 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         _last_pct_ref[0] = pct
                         self.ui_queue.put(("progress", (done, total)))
 
-                result = image.specific_height_fibers(lo, hi, progress_cb=_progress)
+                if connect_fibers:
+                    # Connect-then-filter: test each connected fibril against its
+                    # own height profile (including interpolated bridge heights)
+                    # and slice out the in-band runs, so an in-band bridge keeps
+                    # the fibril joined instead of re-splitting it.
+                    # 連結してからフィルター：連結済みフィブリルを自身の高さ
+                    # プロファイル（橋渡し補間値を含む）で判定し帯域内区間を
+                    # 切り出す。帯域内の橋渡しはフィブリルを連結したまま保つ。
+                    result = filter_fibers_by_height(
+                        image, connected_fibers, lo, hi, progress_cb=_progress,
+                    )
+                else:
+                    # Pixel-level extraction on the raw skeleton: keep only
+                    # skeleton pixels whose calibrated height is within [lo, hi]
+                    # and rebuild fibers from them. Delegates to
+                    # FiberTrackingImage.specific_height_fibers so the GUI matches
+                    # the reference height-filter behavior, which isolates the
+                    # portions at a target height (e.g. dents) rather than
+                    # selecting whole fibers by a summary statistic.
+                    # 生スケルトン上の画素単位抽出。補正高さが [lo, hi] の
+                    # スケルトン画素のみを残して再構築する。specific_height_fibers
+                    # に委譲し、要約統計でファイバーを丸ごと選ぶのではなく特定
+                    # 高さの箇所（凹みなど）を切り出す、本来の高さフィルター仕様に
+                    # 一致させる。
+                    result = image.specific_height_fibers(lo, hi, progress_cb=_progress)
                 self.ui_queue.put(("filter_done", (result, lo, hi)))
             except Exception:
                 self.ui_queue.put(("filter_error", traceback.format_exc()))
