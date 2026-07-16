@@ -35,7 +35,7 @@ GUI01 は解析対象の入力ファイルごとに、圧縮された `.b2z` バ
 
 | ファイル | ランチャー名 | 用途 |
 |---|---|---|
-| `guis/GUI01_Image_Preprocessor.py` | Image Preprocessor | AFM の `.txt` エクスポートまたは Gwyddion ネイティブ `.gwy` を読み込み、背景補正、二値化、細線化、キンク関連特徴抽出を行い、`.b2z` バンドルとパラメータ JSON を保存します。各ファイルは固有の物理走査範囲を持ち（入力から自動充填、またはスケール入力欄や CSV マニフェストでファイル単位に設定）、長さ計測を再現できるようバンドルへ保存します。 |
+| `guis/GUI01_Image_Preprocessor.py` | Image Preprocessor | AFM の `.txt` エクスポートまたは Gwyddion ネイティブ `.gwy` を読み込み、背景補正、二値化、細線化、キンク関連特徴抽出を行い、`.b2z` バンドルとパラメータ JSON を保存します。各ファイルは固有の物理走査範囲を持ち（入力から自動充填、またはファイル表の X/Y セルの直接編集〈表計算ソフトからの貼り付け対応〉、一括スケール入力欄、CSV マニフェストでファイル単位に設定）、長さ計測を再現できるようバンドルへ保存します。 |
 | `guis/GUI02_PlotProfiler.py` | Plot Profiler | 生データ、補正済みデータ、またはバンドル化された AFM 高さデータを読み込み、選択した線分に沿った高さプロファイルを対話的に抽出します。プロファイル距離を再現可能にするため、スケールは記録値（`.b2z`）、ヘッダ（テキスト/CSV）、またはチャンネル範囲（`.gwy`）の走査範囲で既定化します。 |
 | `guis/GUI03_Fiber_Height_Histogram.py` | Fiber Height Histogram | ユーザー定義グループごとに、`.b2z` バンドル群の細線化ファイバー画素から高さ分布を比較します。 |
 | `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | `.b2z` バンドルを読み込み、追跡済み `Fiber` オブジェクトを再構築し、個別ファイバーの確認、図の出力、ファイバー統計量の CSV 出力を行います。 |
@@ -141,6 +141,7 @@ pandas
 Pillow
 scikit-image
 scipy
+tksheet
 ```
 
 `check.py` はソースツリー内の import を走査して `requirements.txt` を再生成できます。

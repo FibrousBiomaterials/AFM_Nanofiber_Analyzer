@@ -53,6 +53,13 @@ import numpy as np
 # ===== GUI libraries =====
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
+# tksheet provides the Excel-like editable grid used for the file table
+# (per-cell editing, read-only columns, clipboard paste from spreadsheets),
+# which plain ttk.Treeview cannot offer (no per-cell widgets or styling).
+# tksheet はファイル表に使う Excel 風の編集可能グリッド（セル単位編集・
+# 読み取り専用列・表計算ソフトからの貼り付け）を提供する。ttk.Treeview は
+# セル単位のウィジェットや装飾を持たないため、この仕様を実現できない。
+from tksheet import Sheet
 
 # ===== Plotting libraries =====
 import matplotlib
@@ -79,7 +86,7 @@ from lib.ui_tools import (
     apply_window_size, ToolTip, setup_matplotlib_style,
     save_figure_with_dialog, PLOT_FS_DEFAULTS, setup_ttk_theme,
     save_text_widget_log,
-    create_scrolled_text, create_scrolled_treeview, drain_ui_queue,
+    create_scrolled_text, drain_ui_queue,
     rewrite_entries, mark_entry_state,
     UnconfirmedEntryMixin, LogMixin,
 )
@@ -90,6 +97,17 @@ from lib.ui_tools import (
 STATUS_PENDING  = "pending"    # Not analyzed.
 STATUS_RUNNING  = "running"    # Analysis in progress.
 STATUS_ANALYZED = "analyzed"   # Analysis complete.
+
+# ===== File-table column layout =====
+# Fixed column order of the tksheet file table; rows are append-only and the
+# table is only cleared wholesale, so the row index doubles as the row id.
+# tksheet ファイル表の固定列順。行は追記のみで表は全消去のみのため、
+# 行インデックスがそのまま行 ID を兼ねる。
+COL_NAME, COL_X, COL_Y, COL_STATUS, COL_TIME = range(5)
+# Only the X/Y scan-size columns accept user edits; the rest are read-only.
+# ユーザーが編集できるのは X/Y 走査範囲列のみで、残りは読み取り専用。
+SCALE_COLS = (COL_X, COL_Y)
+READONLY_COLS = (COL_NAME, COL_STATUS, COL_TIME)
 
 
 def status_label(status: str) -> str:
@@ -106,8 +124,8 @@ def status_label(status: str) -> str:
     Returns
     -------
     str
-        Translated label for the Treeview, or the input value if unknown.
-        Treeview 用の翻訳済みラベル。不明な値は入力値をそのまま返す。
+        Translated label for the file table, or the input value if unknown.
+        ファイル表用の翻訳済みラベル。不明な値は入力値をそのまま返す。
     """
     return {
         STATUS_PENDING:  _("未解析"),
@@ -355,27 +373,34 @@ class FileItem:
     @property
     def scale_x_display(self) -> str:
         """
-        Format the X (width) scan size for the file table, or ``-`` when unset.
-        ファイル表向けに X（幅）走査範囲を整形する。未設定時は ``-``。
+        Format the X (width) scan size for the file table.
+        ファイル表向けに X（幅）走査範囲を整形する。
+
+        An unset size shows an empty cell; in the spreadsheet-style table an
+        empty editable cell reads as "fill me in".
+        未設定時は空セルを表示する。表計算風の表では空の編集可能セルが
+        「ここに入力する」ことを自然に伝える。
         """
-        return "-" if self.scale_x_um is None else f"{self.scale_x_um:g}"
+        return "" if self.scale_x_um is None else f"{self.scale_x_um:g}"
 
     @property
     def scale_y_display(self) -> str:
         """
-        Format the Y (height) scan size for the file table, or ``-`` when unset.
-        ファイル表向けに Y（高さ）走査範囲を整形する。未設定時は ``-``。
+        Format the Y (height) scan size for the file table.
+        ファイル表向けに Y（高さ）走査範囲を整形する。
 
         Notes
         -----
-        X and Y are separate table columns so each value sits directly above
-        the entry field that edits it; non-square scans (e.g. Shimadzu
-        SizeX != SizeY) simply show different values in the two columns.
-        X と Y を別列にし、各値がそれを編集する入力欄の真上に並ぶようにする。
-        非正方走査（島津の SizeX != SizeY 等）は 2 列に異なる値が表示される
-        だけである。
+        An unset Y shows ``= X`` so first-time users read a blank Y as
+        "Y follows X" (square scan); non-square scans (e.g. Shimadzu
+        SizeX != SizeY) simply show different numbers in the two columns.
+        Cell edit validation accepts ``= X`` (and an empty cell) as "unset".
+        未設定の Y は ``= X`` と表示し、初見のユーザーが空の Y を「Y は X に
+        従う」（正方スキャン）と読めるようにする。非正方走査（島津の
+        SizeX != SizeY 等）は 2 列に異なる数値が表示されるだけである。セル編集
+        の検証は ``= X``（および空セル）を「未設定」として受理する。
         """
-        return "-" if self.scale_y_um is None else f"{self.scale_y_um:g}"
+        return "= X" if self.scale_y_um is None else f"{self.scale_y_um:g}"
 
     @property
     def stem(self) -> str:
@@ -455,8 +480,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # ===== Application state =====
         self.folder_path: str = ""
         self.items: List[FileItem] = []
-        self.item_by_iid: Dict[str, FileItem] = {}
-        self.iid_by_path: Dict[str, str] = {}
+        # Row ids are the tksheet row indices (append-only table, see COL_*).
+        # 行 ID は tksheet の行インデックス（追記のみの表。COL_* を参照）。
+        self.item_by_iid: Dict[int, FileItem] = {}
+        self.iid_by_path: Dict[str, int] = {}
 
         # Load startup settings before building widgets so controls reflect persisted values.
         p, startup_logs = load_or_create_startup_params()
@@ -506,6 +533,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.scale_um_var = tk.StringVar(value=self._fmt_num(self.scale_um))
         self.scale_y_um: Optional[float] = None
         self.scale_y_um_var = tk.StringVar(value="")
+
+        # Guard for programmatic sheet writes: _refresh_tree_row and friends
+        # set this so _on_sheet_modified only reacts to user-driven edits.
+        # プログラムからのシート書き込み用ガード。_refresh_tree_row 等が設定し、
+        # _on_sheet_modified がユーザー操作による編集にのみ反応するようにする。
+        self._sheet_syncing = False
+        # Row shown in the preview and the pending-idle-redraw flag; preview
+        # reloads are deferred to idle time so cell editing stays responsive.
+        # プレビュー表示中の行とアイドル再描画の保留フラグ。プレビュー再読込を
+        # アイドル時へ遅延させ、セル編集の応答性を保つ。
+        self._preview_row: Optional[int] = None
+        self._preview_redraw_pending = False
 
         # Scale display is applied immediately to all preview panels.
         self.show_scale_var = tk.BooleanVar(value=False)
@@ -630,77 +669,196 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Left pane: file list.
         list_frame = ttk.Frame(self.left_frame)
         list_frame.pack(fill="both", expand=True, padx=4, pady=4)
-        ttk.Label(list_frame, text=_("ファイル一覧")).pack(side="top", anchor="w", padx=2, pady=(0, 2))
+        list_header = ttk.Frame(list_frame)
+        list_header.pack(side="top", fill="x", padx=2, pady=(0, 2))
+        ttk.Label(list_header, text=_("ファイル一覧")).pack(side="left", anchor="w")
+        # Discoverability hint: the X/Y scale cells are edited directly in the
+        # spreadsheet-style table, and clipboard paste from Excel-like tools is
+        # supported.
+        # 発見性のヒント：X/Y スケールセルは表計算風の表で直接編集でき、Excel 等
+        # からのクリップボード貼り付けにも対応する。
+        ttk.Label(
+            list_header,
+            text=_("X / Y セルは直接入力・Excel から貼り付け可"),
+            foreground="#8a8a8a",
+        ).pack(side="left", padx=(8, 0))
 
-        # Inner frame keeps the Treeview and its scrollbar aligned.
+        # Inner frame hosts the spreadsheet-style file table.
         list_inner = ttk.Frame(list_frame)
         list_inner.pack(fill="both", expand=True)
 
-        columns = ("name", "scale_x", "scale_y", "status", "time")
-        self.tree, _tree_vsb = create_scrolled_treeview(
+        # Excel-like file table (tksheet): X/Y scan-size cells are white and
+        # editable in place; the other columns are gray and read-only. Editing
+        # follows spreadsheet conventions (click + type, double-click, F2,
+        # Ctrl+C/V/Z), so first-time users can reuse Excel habits, including
+        # pasting X/Y columns copied from a spreadsheet.
+        # Excel 風のファイル表（tksheet）。X/Y 走査範囲セルは白色でその場編集
+        # でき、他の列は灰色の読み取り専用。編集は表計算ソフトの流儀
+        # （クリック＋入力、ダブルクリック、F2、Ctrl+C/V/Z）に従うため、初見の
+        # ユーザーも Excel の操作感をそのまま使える。表計算ソフトからコピーした
+        # X/Y 列の貼り付けにも対応する。
+        self.sheet = Sheet(
             list_inner,
-            columns=columns,
-            show="headings",
-            selectmode="extended",
-            height=14,
-            headings={
-                "name": _("ファイル名"),
+            headers=[
+                _("ファイル名"),
                 # Axis names with units are fixed scientific labels (§6.2),
                 # so the X/Y headings are not wrapped in _().
                 # 軸名＋単位は固定の科学ラベル（§6.2）なので X/Y 見出しは
                 # _() で包まない。
-                "scale_x": "X (µm)",
-                "scale_y": "Y (µm)",
-                "status": _("状態"),
-                "time": _("処理時間") + " (s)",
-            },
-            column_options={
-                # The X/Y scale columns are sized to the entry fields placed
-                # directly below them; their headings double as the entry
-                # labels.
-                # X/Y スケール列は直下に置く入力欄に合わせた幅にする。
-                # 列見出しが入力欄のラベルを兼ねる。
-                "name": {"width": 220, "anchor": "w"},
-                "scale_x": {"width": 70, "anchor": "center"},
-                "scale_y": {"width": 70, "anchor": "center"},
-                "status": {"width": 70, "anchor": "center"},
-                "time": {"width": 80, "anchor": "center"},
-            },
+                "X (µm)",
+                "Y (µm)",
+                _("状態"),
+                _("処理時間") + " (s)",
+            ],
+            show_row_index=False,
+            height=300,
+            # Committing an edit with Enter stays on the same cell instead of
+            # jumping down, so editing one file's scale does not move focus to
+            # the next file unexpectedly; the user picks the next cell to edit.
+            # Enter による確定は下のセルへ飛ばずその場に留まる。あるファイルの
+            # スケールを編集してもフォーカスが次のファイルへ勝手に移らず、次に
+            # 編集するセルはユーザーが選ぶ。
+            edit_cell_return="",
+            # No blank scrollable strip after the last column; the file-name
+            # column is then sized to the exact remaining table width by
+            # _fit_name_column, so the columns always fill the table precisely.
+            # The stretch column is the NAME column (Explorer-style), not the
+            # last one: left-aligned names make its spare width read as normal,
+            # whereas spare width in a trailing numeric column reads as a
+            # blank margin.
+            # 最終列の右にスクロール可能な空白帯を作らない。ファイル名列は
+            # _fit_name_column がテーブルの残り幅ちょうどに合わせるため、列は
+            # 常にテーブル幅を正確に埋める。伸ばす列は（エクスプローラ式に）
+            # 最終列ではなくファイル名列とする。左寄せのファイル名では余り幅が
+            # 自然に見えるのに対し、末尾の数値列の余り幅は空白の余白に見えて
+            # しまうためである。
+            empty_horizontal=0,
         )
+        self.sheet.pack(fill="both", expand=True)
+        # Selection, in-cell editing, clipboard, and right-click menu bindings.
+        # "single_select" makes a plain click REPLACE the previous selection
+        # (do not add "toggle_select": tksheet applies the last-listed mode, and
+        # toggle mode accumulates selections so earlier clicks never deselect);
+        # Ctrl+click / drag extend the selection for the batch actions.
+        # "cut" is deliberately not enabled: cutting an X cell would clear a
+        # required value, which validation rejects, so the command only confuses.
+        # 選択・セル内編集・クリップボード・右クリックメニューのバインディング。
+        # "single_select" により通常クリックは直前の選択を置き換える
+        # （"toggle_select" を足さないこと：tksheet は後に書いたモードを採用し、
+        # トグルモードは選択が蓄積して前のクリックが解除されなくなる）。
+        # Ctrl＋クリックとドラッグが一括操作向けの複数選択を担う。
+        # "cut" は意図的に無効：X セルの切り取りは必須値の消去となり検証で
+        # 拒否されるため、コマンドがあっても混乱させるだけである。
+        #
+        # Manual column-width resizing is intentionally NOT enabled. The
+        # numeric columns have fixed semantic widths and the file-name column
+        # auto-fills the remaining table width (see _fit_name_column), so a
+        # user drag has nothing useful to do and only fought the auto-fill
+        # (dragging one separator appeared to move the other columns).
+        # 手動の列幅リサイズは意図的に有効化しない。数値系の列は意味的に固定幅で、
+        # ファイル名列がテーブルの残り幅を自動で埋める（_fit_name_column を参照）
+        # ため、ユーザーのドラッグに有用な役割はなく、自動フィットと競合する
+        # だけだった（ある境界をドラッグすると他の列が動いて見えた）。
+        self.sheet.enable_bindings(
+            "single_select", "row_select", "ctrl_select", "drag_select",
+            "arrowkeys", "edit_cell", "copy", "paste", "delete", "undo",
+            "right_click_popup_menu", "rc_select",
+        )
+        # Localize the tksheet right-click menu labels so they match the rest of
+        # the (Japanese-primary) UI instead of tksheet's English defaults.
+        # tksheet の右クリックメニューのラベルをローカライズし、tksheet の英語
+        # 既定ではなく（日本語主体の）他の UI と揃える。
+        self.sheet.set_options(
+            edit_cell_label=_("セルを編集"),
+            copy_label=_("コピー"),
+            paste_label=_("貼り付け"),
+            delete_label=_("削除"),
+            undo_label=_("元に戻す"),
+        )
+        # A single left-click on an editable X/Y cell opens its editor right
+        # away (same as the right-click "Edit cell" command), and the Delete
+        # menu entry is pruned unless it applies (only a Y cell may be cleared).
+        # 編集可能な X/Y セルはシングル左クリックで即座に編集欄を開く
+        # （右クリックの「セルを編集」と同じ効果）。Delete メニュー項目は
+        # 有効な場合（消去できるのは Y セルのみ）以外は取り除く。
+        self.sheet.bind("<ButtonRelease-1>", self._on_sheet_click_release)
+        self.sheet.bind("<3>", self._prune_rc_menu)
+        # Fixed widths for all columns except the file name: the name column is
+        # recomputed by _fit_name_column as the exact remainder of the table
+        # width (its 300 px here is only the pre-layout fallback).
+        # ファイル名以外は固定幅。ファイル名列は _fit_name_column がテーブル幅
+        # の残りちょうどに再計算する（ここでの 300 px はレイアウト前の暫定値）。
+        for col, width in (
+            (COL_NAME, 300), (COL_X, 70), (COL_Y, 70),
+            (COL_STATUS, 70), (COL_TIME, 100),
+        ):
+            self.sheet.column_width(col, width)
+        # Keep the name column filling the table via a lightweight periodic
+        # check instead of resize/redraw events. Every event-based trigger
+        # tried here (Configure, debounced Configure, <<SheetRedrawn>>) raced
+        # the window-maximize sizing: the fit fired while the canvas still
+        # reported its old width and no later event re-ran it, leaving a wide
+        # blank strip after the last column. Polling reads the *current* width
+        # each tick, so it always converges within one interval of any size
+        # change, regardless of event ordering. The check is idempotent (it
+        # only resizes when the columns do not already fill the table), so it
+        # costs a width comparison when nothing changed and never fights a
+        # manual column drag.
+        # リサイズ/再描画イベントではなく軽量な定期チェックでファイル名列を
+        # テーブルに追従させる。ここで試したイベント方式（Configure、デバウンス
+        # 付き Configure、<<SheetRedrawn>>）はいずれもウィンドウ最大化のサイズ
+        # 確定と競合した。キャンバスがまだ旧幅を返している間にフィットが走り、
+        # その後に再実行するイベントが来ないため、最終列の後に幅広の空白帯が
+        # 残った。ポーリングは毎回*現在の*幅を読むので、イベント順序に関係なく
+        # サイズ変化から 1 間隔以内に必ず収束する。チェックは冪等（列がすでに
+        # テーブルを埋めていれば何もしない）なので、変化が無ければ幅比較のみで
+        # 済み、手動の列ドラッグとも競合しない。
+        self._fit_name_column()
+        self.after(150, self._fit_name_loop)
+        # Read-only columns are tinted gray so the editable white X/Y cells
+        # stand out as input fields at rest, without hovering.
+        # 読み取り専用列を灰色にし、編集可能な白い X/Y セルがホバーなしでも
+        # 入力欄として浮き上がるようにする。
+        self.sheet.readonly_columns(columns=list(READONLY_COLS), readonly=True)
+        self.sheet.highlight_columns(
+            columns=list(READONLY_COLS), bg="#efefef", fg="#444444",
+        )
+        # Every user-driven cell change (typing, paste, undo) passes through
+        # validation first, then _on_sheet_modified syncs FileItem state.
+        # ユーザー操作によるセル変更（入力・貼り付け・元に戻す）はまず検証を
+        # 通り、その後 _on_sheet_modified が FileItem の状態と同期する。
+        self.sheet.edit_validation(self._validate_sheet_edit)
+        self.sheet.bind("<<SheetModified>>", self._on_sheet_modified)
 
-        # Scale-assignment rows: fill the per-file scan size from the X/Y
-        # entries (manual) or a CSV manifest. Header/bundle values are filled
-        # on load. Spacers kept in sync with the live column geometry place
-        # the X entry directly under the "X (µm)" column and the Y entry
-        # directly under the "Y (µm)" column (see _sync_scale_rows_indent),
-        # so each column heading doubles as the label of the entry below it.
-        # スケール割り当て行：X/Y 入力欄（手動）または CSV マニフェストで
-        # ファイル単位の走査範囲を設定する。ヘッダ/バンドル値は読み込み時に
-        # 充填。実際の列座標に同期するスペーサで、X 入力欄を「X (µm)」列、
-        # Y 入力欄を「Y (µm)」列の真下に配置する（_sync_scale_rows_indent を
-        # 参照）。各列見出しが直下の入力欄のラベルを兼ねる。
-        scale_entry_row = ttk.Frame(list_frame)
-        scale_entry_row.pack(side="top", fill="x", padx=2, pady=(2, 0))
-        scale_btn_row = ttk.Frame(list_frame)
-        scale_btn_row.pack(side="top", fill="x", padx=2, pady=(2, 0))
-        # Empty frames honor their requested width, so they act as spacers
-        # whose width _sync_scale_rows_indent recomputes on relayout.
-        # 空のフレームは要求幅がそのまま効くため、_sync_scale_rows_indent が
-        # 再レイアウト時に幅を計算し直すスペーサとして使える。
-        self._scale_entry_spacer = ttk.Frame(scale_entry_row, width=0)
-        self._scale_entry_spacer.pack(side="left")
-        self._scale_btn_spacer = ttk.Frame(scale_btn_row, width=0)
-        self._scale_btn_spacer.pack(side="left")
-        # Re-align whenever the tree relayouts or a column separator is dragged.
-        # ツリーの再レイアウト時や列境界のドラッグ時に字下げを追従させる。
-        self.tree.bind("<Configure>", self._schedule_scale_rows_sync, add="+")
-        self.tree.bind("<B1-Motion>", self._schedule_scale_rows_sync, add="+")
-        self.tree.bind("<ButtonRelease-1>", self._schedule_scale_rows_sync, add="+")
-        self._schedule_scale_rows_sync()
+        # Scale batch panel: assign the same scan size to the selected or all
+        # files, or load per-file sizes from a CSV manifest. Per-file X/Y values
+        # are edited in the table above; this panel only drives batch assignment
+        # and, as a last resort, the preview fallback scale. Header/bundle values
+        # are filled on load.
+        # スケール一括パネル：同一の走査範囲を選択ファイルまたは全ファイルへ割り
+        # 当てるか、CSV マニフェストからファイル単位のサイズを読み込む。ファイル
+        # 単位の X/Y 値は上の表で編集する。本パネルは一括割り当てと、最終手段と
+        # してのプレビューのフォールバックスケールのみを担う。ヘッダ/バンドル値は
+        # 読み込み時に充填。
+        # A borderless frame keeps the batch controls visually part of the file
+        # table block; the apply buttons themselves explain what the entries do.
+        # 枠なしフレームで一括操作をファイル表ブロックの一部として見せる。入力欄
+        # の役割は適用ボタン自体が説明する。
+        scale_frame = ttk.Frame(list_frame)
+        scale_frame.pack(side="top", fill="x", padx=2, pady=(4, 0))
+
+        scale_entry_row = ttk.Frame(scale_frame)
+        scale_entry_row.pack(side="top", fill="x")
+        # Axis names and the unit are fixed scientific labels (§6.2), so "X"/"Y"
+        # and "µm" are not wrapped in _().
+        # 軸名と単位は固定の科学ラベル（§6.2）なので "X"/"Y" と "µm" は _() で
+        # 包まない。
+        ttk.Label(scale_entry_row, text="X").pack(side="left")
         self.ent_scale_um = ttk.Entry(
             scale_entry_row, width=7, textvariable=self.scale_um_var,
         )
-        self.ent_scale_um.pack(side="left")
+        self.ent_scale_um.pack(side="left", padx=(3, 2))
+        ttk.Label(scale_entry_row, text="µm").pack(side="left", padx=(0, 12))
         self._register_unconfirmed_entry(
             self.ent_scale_um,
             lambda: self._fmt_num(self.scale_um),
@@ -711,20 +869,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             _("AFM 画像の X（幅）方向の実寸") + " (µm)。\n"
             + _("プレビューの軸目盛と、ファイルへ適用したときの長さ計測の基準に使われる。"),
         )
-        # Optional Y (height) size for rectangular scans. The "Y (µm)" column
-        # heading above marks the field; an empty Y means a square scan
-        # (Y = X), reinforced by the "= X" ghost placeholder shown while Y is
-        # blank. The gap spacer pushes this entry to the Y column's left edge.
-        # 矩形スキャン用の任意の Y（高さ）サイズ。真上の「Y (µm)」列見出しが
-        # どの欄かを示す。Y 空欄は正方スキャン（Y = X）を意味し、Y が空のとき
-        # に表示する "= X" ゴーストプレースホルダでもそれを補強する。隙間
-        # スペーサがこの入力欄を Y 列の左端まで押し出す。
-        self._scale_gap_spacer = ttk.Frame(scale_entry_row, width=0)
-        self._scale_gap_spacer.pack(side="left")
+        # Optional Y (height) size for rectangular scans; an empty Y means a
+        # square scan (Y = X), reinforced by the "= X" ghost placeholder shown
+        # while Y is blank.
+        # 矩形スキャン用の任意の Y（高さ）サイズ。Y 空欄は正方スキャン（Y = X）
+        # を意味し、Y が空のときに表示する "= X" ゴーストプレースホルダでも
+        # それを補強する。
+        ttk.Label(scale_entry_row, text="Y").pack(side="left")
         self.ent_scale_y_um = ttk.Entry(
             scale_entry_row, width=7, textvariable=self.scale_y_um_var,
         )
-        self.ent_scale_y_um.pack(side="left")
+        self.ent_scale_y_um.pack(side="left", padx=(3, 2))
+        ttk.Label(scale_entry_row, text="µm").pack(side="left")
         self._register_unconfirmed_entry(
             self.ent_scale_y_um,
             lambda: "" if self.scale_y_um is None
@@ -766,24 +922,23 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "<FocusOut>", self._refresh_scale_y_placeholder, add="+"
         )
         self._refresh_scale_y_placeholder()
-        # The apply/manifest buttons occupy their own row below the entries;
-        # they are wider than the X/Y columns, so only their left edge lines
-        # up with the X column and they extend under the columns to the right.
-        # 適用・マニフェスト読込ボタンは入力欄の下の独立した行に置く。ボタン列
-        # は X/Y 列より幅広のため、左端のみを X 列に揃えて右側は右隣の列の
-        # 下まで伸びる。
+
+        # The apply / manifest buttons sit to the right of the X/Y entries on
+        # the same row, so the whole batch control reads as one line.
+        # 適用・マニフェスト読込ボタンは X/Y 入力欄の右・同じ行に置き、一括操作
+        # 全体が 1 行として読めるようにする。
         self.btn_apply_scale_sel = ttk.Button(
-            scale_btn_row, text=_("適用"),
+            scale_entry_row, text=_("選択ファイルに適用"),
             command=lambda: self.on_apply_scale_to_rows(selected_only=True),
         )
-        self.btn_apply_scale_sel.pack(side="left", padx=(0, 2))
+        self.btn_apply_scale_sel.pack(side="left", padx=(12, 2))
         self.btn_apply_scale_all = ttk.Button(
-            scale_btn_row, text=_("全ファイルに適用"),
+            scale_entry_row, text=_("全ファイルに適用"),
             command=lambda: self.on_apply_scale_to_rows(selected_only=False),
         )
         self.btn_apply_scale_all.pack(side="left", padx=2)
         self.btn_load_manifest = ttk.Button(
-            scale_btn_row, text=_("スケール表(CSV)読込"),
+            scale_entry_row, text=_("スケール表(CSV)読込"),
             command=self.on_load_scale_manifest,
         )
         self.btn_load_manifest.pack(side="left", padx=2)
@@ -841,59 +996,313 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.progress_detail_var = tk.StringVar(value=_("-"))
         ttk.Label(prog_frame, textvariable=self.progress_detail_var).pack(side="left", padx=(0, 4))
 
-    def _schedule_scale_rows_sync(self, _event=None) -> None:
+    @staticmethod
+    def _parse_scale_y_text(text: str) -> Tuple[bool, Optional[float]]:
         """
-        Defer the scale-row indent sync until the pending relayout completes.
-        保留中の再レイアウト完了後までスケール行の字下げ同期を遅延させる。
-        """
-        # The Treeview still reports pre-layout column widths while a
-        # <Configure> event is being delivered, so syncing immediately would
-        # read stale widths; at idle time column stretching has finished.
-        # <Configure> イベント配信中の Treeview はレイアウト前の列幅を返す
-        # ため、即時同期では古い幅を読んでしまう。アイドル時なら列の伸縮が
-        # 完了している。
-        self.after_idle(self._sync_scale_rows_indent)
+        Parse a Y-cell string into (is_valid, value); ``None`` means "= X".
+        Y セル文字列を (妥当か, 値) に解析する。``None`` は「= X」を意味する。
 
-    def _sync_scale_rows_indent(self, _event=None) -> None:
+        An empty string and the literal ``= X`` display text (any spacing/case)
+        are both accepted as "unset", so deleting the text and leaving the
+        shown placeholder behave identically.
+        空文字と表示文字列 ``= X``（空白・大文字小文字は不問）はどちらも
+        「未設定」として受理する。文字を消しても、表示のままでも同じ挙動になる。
         """
-        Align the X/Y scale entries under their file-table columns.
-        X/Y スケール入力欄をそれぞれのファイル一覧列の真下に揃える。
-        """
-        # Column widths change with pane resizes and user drags, so the
-        # spacer widths are recomputed from live widget geometry on every
-        # relayout instead of being fixed at build time.
-        # 列幅はペインのリサイズやユーザーのドラッグで変わるため、スペーサ幅は
-        # 構築時に固定せず、再レイアウトのたびに実際のウィジェット座標から
-        # 計算し直す。
+        norm = text.replace(" ", "").lower()
+        if norm in ("", "=x"):
+            return True, None
         try:
-            tree_x = self.tree.winfo_rootx()
-            x_col_left = tree_x + self.tree.column("name", "width")
-            y_col_left = x_col_left + self.tree.column("scale_x", "width")
+            v = float(text)
+        except ValueError:
+            return False, None
+        return (v > 0), (v if v > 0 else None)
 
-            # Entry row: indent to the X column's left edge, then size the
-            # gap between the entries so the Y entry starts at the Y column.
-            # 入力行：X 列の左端まで字下げし、Y 入力欄が Y 列から始まるよう
-            # 入力欄間の隙間幅を調整する。
-            row_x = self._scale_entry_spacer.master.winfo_rootx()
-            indent = max(x_col_left - row_x, 0)
-            self._scale_entry_spacer.configure(width=indent)
-            x_entry_right = row_x + indent + self.ent_scale_um.winfo_width()
-            self._scale_gap_spacer.configure(
-                width=max(y_col_left - x_entry_right, 0)
-            )
+    def _validate_sheet_edit(self, event) -> Optional[str]:
+        """
+        Validate one user cell edit (typing or paste) before it is applied.
+        ユーザーのセル編集（入力・貼り付け）を適用前に 1 件ずつ検証する。
 
-            # Button row: only its left edge lines up with the X column.
-            # ボタン行は左端のみを X 列に揃える。
-            btn_row_x = self._scale_btn_spacer.master.winfo_rootx()
-            self._scale_btn_spacer.configure(
-                width=max(x_col_left - btn_row_x, 0)
-            )
+        Returns
+        -------
+        str or None
+            The accepted text, or ``None`` to reject the edit and keep the
+            previous cell value. Rejection rings the bell instead of raising a
+            dialog so a paste with some bad cells is not interrupted per cell.
+            受理するテキスト。``None`` は編集を拒否して元のセル値を保つ。拒否は
+            ダイアログではなくベル音で知らせ、一部に不正セルを含む貼り付けが
+            セルごとに中断されないようにする。
+        """
+        # The table is frozen while a batch run is using the file list.
+        # 一括処理がファイル一覧を使用中は表を凍結する。
+        if self.is_running:
+            return None
+        row, col = event.row, event.column
+        if col not in SCALE_COLS or row not in self.item_by_iid:
+            return None
+        text = "" if event.value is None else str(event.value).strip()
+        if col == COL_Y:
+            ok, _v = self._parse_scale_y_text(text)
+            if not ok:
+                self.bell()
+                return None
+            return text
+        # X requires a positive number; an empty X stays rejected because a
+        # file with no width scale cannot be measured.
+        # X は正の数が必須。幅スケールの無いファイルは計測できないため、空の X
+        # は拒否のままとする。
+        try:
+            v = float(text)
+        except ValueError:
+            self.bell()
+            return None
+        if not v > 0:
+            self.bell()
+            return None
+        return text
+
+    def _on_sheet_click_release(self, _event=None) -> None:
+        """
+        Open the cell editor right after a single click on an X/Y cell.
+        X/Y セルのシングルクリック直後にセル編集欄を開く。
+
+        Bound to the sheet's Button-1 release hook. Mouse-only by design:
+        arrow-key navigation must not auto-open editors, or the arrow keys
+        would get captured by the editor and navigation would become
+        impossible.
+        シートの Button-1 リリースフックに束縛する。意図的にマウス限定とする：
+        矢印キーでの移動時に編集欄が自動で開くと、矢印キーが編集欄に奪われて
+        移動できなくなるためである。
+        """
+        # Defer the open past the events still queued for this click: tksheet
+        # reuses a single editor widget, and when this click just closed a
+        # previous editor, that widget's pending <FocusOut> would fire after
+        # this handler and instantly close an editor opened synchronously here.
+        # At idle time the stale <FocusOut> has been processed (harmlessly, the
+        # old value was already committed) and the new editor stays open.
+        # このクリック分でキューに残っているイベントの後まで開くのを遅らせる。
+        # tksheet は編集ウィジェットを 1 個使い回すため、このクリックが直前の
+        # 編集欄を閉じた場合、そのウィジェットに滞留した <FocusOut> が本
+        # ハンドラの後に発火し、ここで同期的に開いた編集欄を即座に閉じてしまう。
+        # アイドル時には滞留 <FocusOut> は処理済み（旧値は確定済みなので無害）
+        # で、新しい編集欄は開いたままになる。
+        self.after_idle(self._open_selected_scale_cell)
+
+    def _open_selected_scale_cell(self) -> None:
+        """
+        Open the editor when a single editable X/Y cell is selected.
+        編集可能な X/Y セルが単独選択されているときに編集欄を開く。
+        """
+        if self.is_running:
+            return
+        cur = self.sheet.get_currently_selected()
+        # Selected.type_ is "cells" for cell selections ("rows"/"columns" for
+        # header-driven ones).
+        # Selected.type_ はセル選択で "cells"（見出し起点は "rows"/"columns"）。
+        if not cur or cur.type_ != "cells" or cur.column not in SCALE_COLS:
+            return
+        # Only a plain single-cell click edits; a drag or Ctrl+click selection
+        # is a batch-target selection, not an edit request.
+        # 素のシングルセルクリックのみ編集に入る。ドラッグや Ctrl＋クリックの
+        # 選択は一括操作の対象選択であり、編集要求ではない。
+        if len(self.sheet.get_selected_cells()) != 1:
+            return
+        if cur.row not in self.item_by_iid:
+            return
+        self.sheet.open_cell()
+
+    def _prune_rc_menu(self, _event=None) -> None:
+        """
+        Drop the Delete entry from the right-click menu unless it applies.
+        右クリックメニューから、有効でない場合の Delete 項目を取り除く。
+
+        tksheet builds the popup menu from the enabled bindings before this
+        hook runs and pops it up afterwards, so entries can be removed here.
+        Clearing a cell is only meaningful for Y cells (an empty Y means
+        "= X"); X is required and read-only columns cannot be cleared, so the
+        entry is shown only when every selected cell is in the Y column.
+        tksheet は本フックの前に有効バインディングからポップアップメニューを
+        構築し、後で表示するため、ここで項目を除去できる。セルの消去が意味を
+        持つのは Y セルだけ（空の Y は「= X」を意味する）で、X は必須値、
+        読み取り専用列は消去不能。そのため選択セルがすべて Y 列のときのみ
+        項目を残す。
+        """
+        cells = self.sheet.get_selected_cells()
+        if cells and all(c == COL_Y for (_r, c) in cells):
+            return
+        delete_label = self.sheet.ops.delete_label
+        for menu in (
+            self.sheet.MT.rc_popup_menu, self.sheet.MT.empty_rc_popup_menu,
+        ):
+            if menu is None:
+                continue
+            end = menu.index("end")
+            if end is None:
+                continue
+            # Iterate backwards so deleting an entry does not shift the rest.
+            # 項目の削除で残りの位置がずれないよう逆順に走査する。
+            for i in range(end, -1, -1):
+                try:
+                    if menu.entrycget(i, "label") == delete_label:
+                        menu.delete(i)
+                except tk.TclError:
+                    # Separators have no label option.
+                    # セパレータは label オプションを持たない。
+                    continue
+
+    def _fit_name_loop(self) -> None:
+        """
+        Periodically keep the file-name column filling the table, then reschedule.
+        ファイル名列がテーブルを埋め続けるよう定期実行し、再予約する。
+        """
+        self._fit_name_column()
+        self.after(150, self._fit_name_loop)
+
+    def _fit_name_column(self) -> None:
+        """
+        Size the file-name column to the exact remaining table width.
+        ファイル名列をテーブルの残り幅ちょうどのサイズにする。
+
+        The name column absorbs whatever width the fixed X/Y/status/time
+        columns leave over, so the columns always fill the table exactly and
+        the numeric columns stay compact against the right edge with no blank
+        margin after them. Spare width inside the left-aligned name column
+        reads naturally (Explorer-style). When the pane is too narrow, a
+        160 px floor keeps names readable and the horizontal scrollbar takes
+        over.
+        固定幅の X/Y/状態/処理時間列が残した幅をファイル名列が吸収するため、
+        列は常にテーブルを正確に埋め、数値系の列は右端まで詰めて並び、その後ろ
+        に空白の余白が残らない。左寄せのファイル名列内の余り幅は（エクスプローラ
+        式で）自然に見える。ペインが狭すぎる場合は下限 160 px でファイル名の
+        可読性を保ち、水平スクロールバーに委ねる。
+        """
+        try:
+            table_w = self.sheet.MT.winfo_width()
         except tk.TclError:
-            # Geometry may be unavailable while widgets are not yet mapped
-            # during startup; the pending <Configure> event re-syncs later.
-            # 起動中でウィジェット未マップの間はジオメトリを取得できないことが
-            # ある。後続の <Configure> イベントで再同期される。
+            return
+        # Not yet mapped: a later tick fits it once the canvas has a real width.
+        # 未マップ時：キャンバスが実幅を持った後の後続チェックでフィットする。
+        if table_w <= 1:
+            return
+        widths = self.sheet.get_column_widths()
+        if len(widths) != COL_TIME + 1:
+            return
+        others = sum(widths) - widths[COL_NAME]
+        desired = max(int(table_w) - others, 160)
+        # Idempotent: only resize when the columns do not already fill the table.
+        # 冪等：列がまだテーブルを埋めていないときだけリサイズする。
+        if desired != widths[COL_NAME]:
+            # column_width() on a single int column updates col_positions but
+            # (despite redraw=True) does NOT run the full redraw that recomputes
+            # the canvas scrollregion, so the widened column would be drawn only
+            # up to the stale scrollregion and leave a blank strip. refresh()
+            # forces the full redraw so the new width is actually painted.
+            # 単一の int 列に対する column_width() は col_positions を更新するが、
+            # redraw=True でもキャンバスの scrollregion を再計算するフル再描画を
+            # 実行しない。そのため広げた列は古い scrollregion までしか描画されず
+            # 空白帯が残る。refresh() でフル再描画を強制し、新しい幅を実際に
+            # 反映させる。
+            self.sheet.column_width(COL_NAME, desired, redraw=False)
+            self.sheet.refresh()
+
+    def _on_sheet_modified(self, event=None) -> None:
+        """
+        Sync FileItem state after user-driven sheet changes (edit/paste/undo).
+        ユーザー操作によるシート変更（編集・貼り付け・元に戻す）後に FileItem
+        の状態を同期する。
+
+        The changed cells' current text is the source of truth here, so undo
+        and multi-cell paste flow through the same path as a single edit.
+        ここでは変更セルの現在テキストを正とみなすため、元に戻す操作や複数セル
+        貼り付けも単一編集と同じ経路で処理される。
+
+        Notes
+        -----
+        tksheet calls this synchronously from inside its edit-commit sequence
+        (``emit_event`` invokes bound callbacks directly, before the editor is
+        hidden and the selection settles), so mutating the sheet here
+        (``set_row_data`` / ``redraw``) or running the potentially slow preview
+        reload would re-enter and corrupt that teardown — the symptom being a
+        cell that stays "stuck" in edit mode. All side effects are therefore
+        deferred to idle time, once tksheet has finished closing the editor.
+        tksheet は編集確定シーケンスの内部からこれを同期的に呼ぶ（``emit_event``
+        がエディタを隠し選択が確定する前に、束縛コールバックを直接実行する）。
+        そのためここでシートを変更（``set_row_data`` / ``redraw``）したり、遅い
+        可能性のあるプレビュー再読込を走らせると、後始末に再入して壊し、セルが
+        編集モードから「抜けられない」症状になる。よって副作用はすべてアイドル
+        時へ遅延し、tksheet がエディタを閉じ切った後に実行する。
+        """
+        if self._sheet_syncing:
+            return
+        # Collect the affected row set from the event; fall back to all rows.
+        # イベントから影響行の集合を得る。取得できなければ全行を対象にする。
+        try:
+            cells = event["cells"]["table"]
+            rows = sorted({r for (r, _c) in cells})
+        except Exception:
+            rows = sorted(self.item_by_iid.keys())
+        self.after_idle(lambda: self._apply_sheet_edits(rows))
+
+    def _apply_sheet_edits(self, rows: List[int]) -> None:
+        """
+        Sync the given rows from the sheet to FileItems, off the edit path.
+        指定行をシートから FileItem へ同期する（編集フローの外で実行）。
+        """
+        if self.is_running:
+            # A batch run owns the FileItems; revert any slipped-through change
+            # (e.g. undo, which bypasses edit validation) back to item state.
+            # 一括処理中は FileItem を処理側が所有する。検証を通らない変更
+            # （例: 元に戻す）が紛れ込んだ場合は項目状態へ巻き戻す。
+            for r in rows:
+                self._refresh_tree_row(r)
+            return
+        changed = False
+        for r in rows:
+            changed = self._sync_row_from_sheet(r) or changed
+        if changed:
+            # Reflect new per-file scales in the preview axis ticks.
+            # 新しいファイル単位スケールをプレビューの軸目盛へ反映する。
+            self.on_redraw_preview()
+
+    def _sync_row_from_sheet(self, row: int) -> bool:
+        """
+        Pull one row's X/Y cell text into its FileItem and re-render the row.
+        1 行分の X/Y セルテキストを FileItem へ取り込み、行を再描画する。
+
+        Returns
+        -------
+        bool
+            True when a scan-size value actually changed.
+            走査範囲の値が実際に変化した場合に True。
+        """
+        it = self.item_by_iid.get(row)
+        if it is None:
+            return False
+        x_text = str(self.sheet.get_cell_data(row, COL_X) or "").strip()
+        y_text = str(self.sheet.get_cell_data(row, COL_Y) or "").strip()
+        changed = False
+        try:
+            x_val = float(x_text)
+            if x_val > 0 and x_val != it.scale_x_um:
+                it.scale_x_um = x_val
+                changed = True
+        except ValueError:
+            # Unparsable X text (validation rejects it for user edits) keeps
+            # the previous value; the re-render below restores the display.
+            # 解析不能な X テキスト（ユーザー編集は検証で拒否済み）は前の値を
+            # 保持し、下の再描画で表示を復元する。
             pass
+        ok, y_val = self._parse_scale_y_text(y_text)
+        if ok and y_val != it.scale_y_um:
+            it.scale_y_um = y_val
+            changed = True
+        if changed:
+            it.scale_source = "manual"
+        # Always re-render so cell text returns to canonical display form
+        # (e.g. "2.0" -> "2", blank Y -> "= X").
+        # セルテキストを正規表示（例: "2.0"→"2"、空 Y→"= X"）へ戻すため
+        # 常に再描画する。
+        self._refresh_tree_row(row)
+        return changed
 
     def _build_preview_area(self) -> None:
         """
@@ -1239,8 +1648,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Bind GUI events that update controls and preview state.
         操作部とプレビュー状態を更新する GUI イベントを結び付ける。
         """
-        # Refresh preview state when the selected Treeview row changes.
-        self.tree.bind("<<TreeviewSelect>>", lambda e: self._on_tree_select())
+        # Refresh preview state when the sheet selection changes.
+        self.sheet.bind("<<SheetSelect>>", lambda e: self._on_sheet_select())
 
     # ---------- Log ----------
     # _log and _log_exception come from ui_tools.LogMixin.
@@ -1264,58 +1673,90 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         return bool(self.folder_path)
 
     # ---------- File List Updates ----------
+    @staticmethod
+    def _row_values(item: FileItem) -> List[str]:
+        """
+        Build the file-table cell texts for one file item.
+        1 件のファイル項目からファイル表のセルテキストを組み立てる。
+        """
+        return [
+            os.path.basename(item.txt_path),
+            item.scale_x_display, item.scale_y_display,
+            status_label(item.status), str(item.proc_time_s),
+        ]
+
     def _clear_tree(self) -> None:
         """
         Clear the file table and its path lookup dictionaries.
         ファイル表とパス検索用辞書を消去する。
         """
-        # Keep Treeview rows and lookup dictionaries in sync.
-        for iid in self.tree.get_children():
-            self.tree.delete(iid)
+        # Keep sheet rows and lookup dictionaries in sync.
+        self._sheet_syncing = True
+        try:
+            self.sheet.set_sheet_data([], reset_col_positions=False)
+            self.sheet.deselect()
+        finally:
+            self._sheet_syncing = False
         self.item_by_iid.clear()
         self.iid_by_path.clear()
+        self._preview_row = None
 
     def _insert_item(self, item: FileItem) -> None:
         """
-        Insert one file item into the Treeview and lookup dictionaries.
-        1 件のファイル項目を Treeview と検索用辞書へ挿入する。
+        Insert one file item into the sheet and lookup dictionaries.
+        1 件のファイル項目をシートと検索用辞書へ挿入する。
         """
-        # Store both lookup directions because later queue messages carry only iid.
-        iid = self.tree.insert(
-            "", "end",
-            values=(
-                os.path.basename(item.txt_path),
-                item.scale_x_display, item.scale_y_display,
-                status_label(item.status), item.proc_time_s,
-            ),
-        )
-        self.item_by_iid[iid] = item
-        self.iid_by_path[item.txt_path] = iid
+        # Store both lookup directions because later queue messages carry only
+        # the row id; rows are append-only so the index is stable.
+        # 後続のキューメッセージは行 ID のみを運ぶため双方向の対応を保持する。
+        # 行は追記のみなのでインデックスは安定している。
+        row = len(self.item_by_iid)
+        self._sheet_syncing = True
+        try:
+            # Default idx appends at the end; passing idx="end" makes tksheet
+            # drop the cell values on a sheet whose data started empty.
+            # 既定の idx は末尾へ追加する。idx="end" を渡すと、データが空で
+            # 始まったシートでは tksheet がセル値を落としてしまう。
+            self.sheet.insert_row(self._row_values(item))
+        finally:
+            self._sheet_syncing = False
+        self.item_by_iid[row] = item
+        self.iid_by_path[item.txt_path] = row
 
-    def _refresh_tree_row(self, iid: str) -> None:
+    def _refresh_tree_row(self, iid: int) -> None:
         """
-        Refresh one Treeview row from its FileItem state.
-        FileItem の状態から Treeview の 1 行を更新する。
+        Refresh one file-table row from its FileItem state.
+        FileItem の状態からファイル表の 1 行を更新する。
         """
         # Re-render one row from the authoritative FileItem state.
         it = self.item_by_iid.get(iid)
         if not it:
             return
-        self.tree.item(
-            iid,
-            values=(
-                os.path.basename(it.txt_path),
-                it.scale_x_display, it.scale_y_display,
-                status_label(it.status), it.proc_time_s,
-            ),
-        )
+        self._sheet_syncing = True
+        try:
+            self.sheet.set_row_data(iid, values=self._row_values(it))
+            self.sheet.redraw()
+        finally:
+            self._sheet_syncing = False
 
-    def _find_iid_for_item(self, item: FileItem) -> Optional[str]:
+    def _selected_rows(self) -> List[int]:
         """
-        Return the Treeview row id for a file item.
-        ファイル項目に対応する Treeview 行 ID を返す。
+        Return the selected file-table rows in ascending order.
+        選択中のファイル表の行を昇順で返す。
+
+        Selected cells count their rows too, so picking X/Y cells (not whole
+        rows) still targets those files for the batch actions.
+        選択セルもその行として数えるため、行全体でなく X/Y セルを選択した
+        場合も一括操作の対象になる。
         """
-        # Return the Treeview row id for a FileItem, if it is still listed.
+        return sorted(self.sheet.get_selected_rows(get_cells_as_rows=True))
+
+    def _find_iid_for_item(self, item: FileItem) -> Optional[int]:
+        """
+        Return the file-table row id for a file item.
+        ファイル項目に対応するファイル表の行 ID を返す。
+        """
+        # Return the sheet row id for a FileItem, if it is still listed.
         return self.iid_by_path.get(item.txt_path)
 
     # ---------- UI State ----------
@@ -1348,16 +1789,51 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if running:
             _set([self.btn_run_sel, self.btn_apply_scale_sel], "disabled")
         else:
-            has_sel = bool(self.tree.selection())
+            has_sel = bool(self.sheet.get_selected_rows(get_cells_as_rows=True))
             _set([self.btn_run_sel, self.btn_apply_scale_sel],
                  "!disabled" if has_sel else "disabled")
 
-    def _on_tree_select(self) -> None:
+    def _on_sheet_select(self) -> None:
         """
         Handle file-table selection changes.
         ファイル表の選択変更を処理する。
+
+        Only selecting a cell in the file-name column switches the preview;
+        picking X/Y (or status/time) cells edits or selects without touching
+        it, an empty selection (e.g. clicking past the last row) keeps the
+        current preview instead of clearing it, and the reload is deferred to
+        idle time so cell editing is never stalled behind the (potentially
+        slow) preview load.
+        プレビューを切り替えるのはファイル名列のセルを選択したときだけ。X/Y
+        （や状態・処理時間）セルの選択は編集・選択のみでプレビューに触れず、
+        空選択（最終行より下をクリック等）では消さずに現在のプレビューを保つ。
+        再読込はアイドル時へ遅延し、セル編集が（遅い可能性のある）プレビュー
+        読込に待たされないようにする。
         """
         self._update_controls_state()
+        cur = self.sheet.get_currently_selected()
+        row = cur.row if cur else None
+        col = cur.column if cur else None
+        # Only the file-name column drives the preview; everything else keeps
+        # it as is, so scale editing never yanks the right pane around.
+        # プレビューを動かすのはファイル名列のみ。それ以外では据え置き、
+        # スケール編集で右ペインが振り回されないようにする。
+        if (
+            row is None or col != COL_NAME
+            or row not in self.item_by_iid or row == self._preview_row
+        ):
+            return
+        self._preview_row = row
+        if not self._preview_redraw_pending:
+            self._preview_redraw_pending = True
+            self.after_idle(self._deferred_preview_redraw)
+
+    def _deferred_preview_redraw(self) -> None:
+        """
+        Run the preview redraw scheduled by `_on_sheet_select`.
+        `_on_sheet_select` が予約したプレビュー再描画を実行する。
+        """
+        self._preview_redraw_pending = False
         self.on_redraw_preview()
 
     def _on_toggle_skip_checkbox(self) -> None:
@@ -1535,12 +2011,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if not self.validate_scale_y_um():
             return
         if selected_only:
-            iids = list(self.tree.selection())
+            iids = self._selected_rows()
             if not iids:
                 messagebox.showinfo(_("注意"), _("適用するファイルを選択してください。"))
                 return
         else:
-            iids = list(self.tree.get_children())
+            iids = sorted(self.item_by_iid.keys())
         # A blank Y entry applies a square scan (Y = X); otherwise X and Y differ.
         # Y 欄が空なら正方スキャン（Y = X）を適用し、そうでなければ X と Y は異なる。
         x_um, y_um = self._scale_xy_um()
@@ -1595,7 +2071,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # without the file extension.
         # 一覧のファイルを基底名で照合する。拡張子付き・無しのどちらの記載も許す。
         n_matched = 0
-        for iid in self.tree.get_children():
+        for iid in sorted(self.item_by_iid.keys()):
             it = self.item_by_iid.get(iid)
             if it is None:
                 continue
@@ -1686,7 +2162,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         if not self._check_folder_selected():
             return
-        sel_iids = list(self.tree.selection())
+        sel_iids = self._selected_rows()
         if not sel_iids:
             return
         targets = [self.item_by_iid[iid] for iid in sel_iids if iid in self.item_by_iid]
@@ -1842,15 +2318,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     break
 
                 fname = os.path.basename(it.txt_path)
+                # Row ids are ints and row 0 is falsy, so compare with None.
+                # 行 ID は int で行 0 は偽値になるため None と比較する。
                 iid = self._find_iid_for_item(it)
-                if iid:
+                if iid is not None:
                     self.ui_queue.put(("status", (iid, STATUS_RUNNING, "")))
 
                 # Re-check existing outputs at run time without changing folder-scan state.
                 ok, _missing = existing_min_set(it.stem)
                 if ok and not overwrite:
                     self.ui_queue.put(("log", _("%s: 既存データのためスキップ") % fname))
-                    if iid:
+                    if iid is not None:
                         self.ui_queue.put(("status", (iid, STATUS_ANALYZED, it.proc_time_s)))
                     self.ui_queue.put(("progress", 1))
                     self.ui_queue.put(("progress_detail", (fname, _("完了"))))
@@ -1866,7 +2344,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self,
         it: FileItem,
         fname: str,
-        iid: Optional[str],
+        iid: Optional[int],
         stages: PipelineStages,
     ) -> None:
         """
@@ -1911,7 +2389,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # A failed file returns to pending while the rest of the batch continues.
             tb = traceback.format_exc()
             self.ui_queue.put(("log", _("解析失敗: %s\n%s\n%s") % (fname, e, tb)))
-            if iid:
+            if iid is not None:
                 self.ui_queue.put(("status", (iid, STATUS_PENDING, "")))
             self.ui_queue.put(("progress", 1))
             self.ui_queue.put(("progress_detail", (fname, _("失敗"))))
@@ -1920,7 +2398,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Report timing only after all outputs and sidecar metadata are written.
         dt_s = f"{result.elapsed_s:.2f}"
         self.ui_queue.put(("log", _("解析完了: %s (%ss)") % (fname, dt_s)))
-        if iid:
+        if iid is not None:
             self.ui_queue.put(("status", (iid, STATUS_ANALYZED, dt_s)))
         self.ui_queue.put(("progress", 1))
 
@@ -2012,15 +2490,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _get_selected_item_for_preview(self) -> Optional[FileItem]:
         """
-        Return the first selected item used by the preview renderer.
-        プレビュー描画に使う最初の選択項目を返す。
+        Return the item currently shown in the preview.
+        現在プレビューに表示している項目を返す。
         """
-        sel = self.tree.selection()
-        if not sel:
+        # `_preview_row` tracks the last file row deliberately chosen for the
+        # preview (see _on_sheet_select); it is not cleared by an empty
+        # selection, so the preview persists while the user edits X/Y cells.
+        # `_preview_row` はプレビュー用に意図的に選ばれた最後のファイル行を
+        # 保持する（_on_sheet_select を参照）。空選択では消えないため、X/Y セル
+        # 編集中もプレビューは維持される。
+        if self._preview_row is None:
             return None
-        # Preview uses the first selected row when the Treeview has multi-selection.
-        iid = sel[0]
-        return self.item_by_iid.get(iid)
+        return self.item_by_iid.get(self._preview_row)
 
     def _bundle_mtime_safe(self, it: FileItem) -> float:
         """
