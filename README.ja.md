@@ -435,25 +435,15 @@ SPM-9600 のスキャンを対象に開発され、歴史的に `BG_Calibrator_s
 
 ## 解析パイプライン
 
-```text
-AFM text/CSV  --> afm_io.load_afm_text() --+
-                                            |
-Gwyddion .gwy --> gwy_io.load_gwy_image() --+
-                                            v
-                                  GUI01 / process_file
-                                            |
-                                            |-- BGCalibrator
-                                            |-- Segmenter
-                                            |-- Skeletonizer
-                                            |-- KinkDetector
-                                            v
-<input_stem>.b2z      compressed TreeStore bundle
-<input_stem>_param.json
-        |
-        +-- GUI02 Plot Profiler
-        +-- GUI03 Fiber Height Histogram
-        `-- GUI04 Fiber Tracker
-```
+![AFM 高さ入力、GUI01 の前処理ステージ、`.b2z` バンドル、および後段の GUI 解析からなる共有ワークフロー。](figures/pipeline.png)
+
+テキスト / CSV 出力は `afm_io.load_afm_text()` が、ネイティブな Gwyddion ファイルは
+`gwy_io.load_gwy_image()` が読み込みます。いずれも GUI01 と `cli.py` が共有する
+コードパスである `lib.pipeline.process_file` に渡され、`BGCalibrator`、`Segmenter`、
+`Skeletonizer`、`KinkDetector` をこの順に適用したうえで、入力 1 件につき圧縮
+TreeStore バンドル `<input_stem>.b2z` と `<input_stem>_param.json` を 1 つずつ
+書き出します。Plot Profiler（GUI02）、Fiber Height Histogram（GUI03）、
+Fiber Tracker（GUI04）はこれらのバンドルを読み込みます。
 
 前処理パラメータは生成される `<input_stem>_param.json` に保存されます。
 背景補正、二値化、細線化、キンク検出の設定が含まれ、背景補正方式、しきい値、

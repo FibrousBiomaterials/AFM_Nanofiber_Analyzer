@@ -447,25 +447,15 @@ available through a compatibility shim.
 
 ## Analysis Pipeline
 
-```text
-AFM text/CSV  --> afm_io.load_afm_text() --+
-                                            |
-Gwyddion .gwy --> gwy_io.load_gwy_image() --+
-                                            v
-                                  GUI01 / process_file
-                                            |
-                                            |-- BGCalibrator
-                                            |-- Segmenter
-                                            |-- Skeletonizer
-                                            |-- KinkDetector
-                                            v
-<input_stem>.b2z      compressed TreeStore bundle
-<input_stem>_param.json
-        |
-        +-- GUI02 Plot Profiler
-        +-- GUI03 Fiber Height Histogram
-        `-- GUI04 Fiber Tracker
-```
+![Shared preprocessing and analysis workflow: AFM height input, the GUI01 preprocessing stages, the `.b2z` bundle, and the downstream GUI analyses.](figures/pipeline.png)
+
+Text and CSV exports are read by `afm_io.load_afm_text()`, native Gwyddion files
+by `gwy_io.load_gwy_image()`. Both feed `lib.pipeline.process_file` — the code
+path shared by GUI01 and `cli.py` — which applies `BGCalibrator`, `Segmenter`,
+`Skeletonizer`, and `KinkDetector` in that order and writes one
+`<input_stem>.b2z` compressed TreeStore bundle and one
+`<input_stem>_param.json` per input. The Plot Profiler (GUI02), Fiber Height
+Histogram (GUI03), and Fiber Tracker (GUI04) then read those bundles.
 
 The preprocessing parameters are stored in the generated
 `<input_stem>_param.json` file. They cover background calibration, segmentation,

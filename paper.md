@@ -136,31 +136,27 @@ analysis can be reproduced, scripted, and audited across machines.
 
 # Software design
 
-![Analysis pipeline: the six stages from raw AFM height image to per-fiber statistics.\label{fig:pipeline}](figures/pipeline.png)
+![Shared preprocessing and analysis workflow from AFM height input to downstream GUI analyses and a compressed bundle.\label{fig:pipeline}](figures/pipeline.png)
 
 The toolkit is organized so that both front ends share one implementation of the
-analysis. Modules in `lib/` perform AFM text/CSV and native Gwyddion input,
-background calibration, segmentation, skeletonization, kink detection, and
-per-fiber measurement. A tkinter launcher discovers the four interactive tools in
-`guis/`, while a command-line interface provides batch preprocessing, validation,
-measurement, skeleton-height extraction, and bundle export. The GUI preprocessor
-and the CLI call the same pipeline function, and the GUI measurement views and
-the CLI call the same measurement routines, so equivalent runs produce identical
-numerical results — keeping the analysis in `lib/` and the interfaces thin is a
-deliberate choice that prevents the front ends from drifting apart.
+analysis. As summarized in \autoref{fig:pipeline}, AFM height data from
+Shimadzu, Bruker or Gwyddion text exports, or native Gwyddion `.gwy` files, enters the
+*Image Preprocessor* (GUI01),
+which produces calibrated, binarized, and skeletonized/kink-detected images and
+writes them to one `.b2z` bundle per input. The resulting bundles are consumed by
+the *Plot Profiler* (GUI02), the *Fiber Height Histogram* (GUI03), and the *Fiber
+Tracker* (GUI04) for line-profile extraction, grouped height-distribution
+comparison, and per-fiber tracking and measurement, respectively. A tkinter
+launcher discovers these four tools in `guis/`.
 
-The four tools form a sequential workflow over the shared bundle format
-(\autoref{fig:guis}). The *Image Preprocessor* is the graphical front end to the
-pipeline: it batch-processes scans, exposes the background-calibration,
-segmentation, skeletonization, and kink-detection parameters, and writes one
-bundle and parameter record per input. The other three consume those bundles: the
-*Plot Profiler* extracts height profiles along user-drawn lines, the *Fiber Height
-Histogram* compares skeleton height distributions across user-defined groups of
-datasets, and the *Fiber Tracker* reconstructs individual fibers and reports
-per-fiber profiles, kink and endpoint geometry, and summary statistics, with CSV
-and figure export.
-
-![The four interactive tools: (a) Image Preprocessor, (b) Plot Profiler, (c) Fiber Height Histogram, (d) Fiber Tracker.\label{fig:guis}](figures/guis.png)
+Modules in `lib/` implement the input handling, background calibration,
+segmentation, skeletonization, kink detection, and per-fiber measurement. A
+command-line interface provides batch preprocessing, validation, measurement,
+skeleton-height extraction, and bundle export. The GUI preprocessor and the CLI
+call the same pipeline function, and the GUI measurement views and the CLI call
+the same measurement routines, so equivalent runs produce identical numerical
+results — keeping the analysis in `lib/` and the interfaces thin is a deliberate
+choice that prevents the front ends from drifting apart.
 
 Results are persisted as one compressed bundle per input (`.b2z`, built on
 `blosc2`) with a JSON record of the analysis parameters. The bundle's required
