@@ -60,6 +60,21 @@ TARGET_DIRS = [ROOT / "guis", ROOT / "lib"]
 # Ignore local project packages from external dependency list.
 IGNORE_TOPLEVEL = {"guis", "lib"}
 
+# ML modules whose imports are optional, training/inference-only dependencies
+# declared in [project.optional-dependencies] (the `ml` extra), not in the base
+# [project] dependencies. They are skipped by the base-dependency scan so that
+# scikit-learn (and later skl2onnx / onnxruntime) do not leak into
+# requirements.txt or the pyproject base dependency set. The base deps these
+# modules also use (numpy, etc.) are still covered because other scanned files
+# import them. Kept in sync with the `ml` extra and requirements-ml.txt by hand.
+# import が任意の学習/推論専用依存（[project.optional-dependencies] の `ml`
+# extra に宣言。基本の [project] dependencies ではない）である ML モジュール。
+# 基本依存スキャンから除外し、scikit-learn（将来は skl2onnx / onnxruntime）が
+# requirements.txt や pyproject の基本依存集合へ漏れないようにする。これらの
+# モジュールが併用する基本依存（numpy 等）は他の走査対象ファイルが import する
+# ため引き続きカバーされる。`ml` extra と requirements-ml.txt とは手動で同期する。
+OPTIONAL_DEP_MODULE_NAMES = {"ml_train.py", "ml_model.py"}
+
 # Map common import-name/package-name mismatches with a minimal explicit list.
 # import名 -> pip名（代表的なズレだけ最小限で吸収）
 IMPORT_TO_PIP = {
@@ -218,6 +233,12 @@ def iter_py_files(
         if not d.exists():
             continue
         py_files += [p for p in d.glob("*.py") if p.name != "__init__.py"]
+
+    # Drop modules whose imports are optional ML extras, not base dependencies,
+    # so the base-dependency scan does not demand them in requirements.txt.
+    # import が基本依存ではなく任意の ML extra であるモジュールを除外し、基本
+    # 依存スキャンがそれらを requirements.txt に要求しないようにする。
+    py_files = [p for p in py_files if p.name not in OPTIONAL_DEP_MODULE_NAMES]
 
     # Remove duplicates and keep deterministic ordering.
     return sorted(set(py_files), key=lambda p: p.as_posix().lower())

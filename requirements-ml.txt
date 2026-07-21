@@ -1,0 +1,31 @@
+# Machine-learning dependencies (optional, NOT required to run the app). The
+# whole ML feature is opt-in: lib/ml_train.py (training) and lib/ml_model.py
+# (ONNX export + inference) need these, but GUI01, GUI04, GUI06, the CLI, and
+# the classical pipeline import them only lazily -- and only when a user
+# actually trains or selects an ML model -- so the base app and end-user
+# PyInstaller builds run without them.
+# Install alongside the base requirements only when you use the ML features:
+#     pip install -r requirements.txt -r requirements-ml.txt
+#
+# 機械学習の依存（任意。アプリ実行には不要）。ML 機能全体がオプトイン：
+# lib/ml_train.py（学習）と lib/ml_model.py（ONNX エクスポート＋推論）が必要と
+# するが、GUI01・GUI04・GUI06・CLI・従来パイプラインはこれらを遅延 import する
+# のみで、しかも利用者が実際に学習または ML モデル選択をしたときだけ読み込む。
+# よって基本アプリとエンドユーザーの PyInstaller ビルドはこれら無しで動く。
+# ML 機能を使う場合のみ、基本要件と併せてインストールする:
+#     pip install -r requirements.txt -r requirements-ml.txt
+#
+# scikit-learn / skl2onnx: model training and ONNX export.
+# onnxruntime: runs the exported ONNX graph at inference.
+# protobuf<6: skl2onnx 1.20 + onnx 1.22 raise "Expected an int, got a boolean"
+#   converting a HistGradientBoosting classifier under protobuf >= 6 (verified
+#   locally); pinned until the upstream toolchain handles protobuf 6+.
+# scikit-learn / skl2onnx: モデル学習と ONNX エクスポート。
+# onnxruntime: 推論時にエクスポート済み ONNX グラフを実行する。
+# protobuf<6: skl2onnx 1.20 + onnx 1.22 が protobuf >= 6 で HistGradientBoosting
+#   分類器を変換する際に "Expected an int, got a boolean" を送出するため
+#   （ローカルで確認済み）。上流ツールチェーンが protobuf 6+ に対応するまで固定。
+scikit-learn
+skl2onnx
+onnxruntime
+protobuf<6

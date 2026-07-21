@@ -66,6 +66,37 @@ dependencies = [
 # cores (`pytest -n auto`), which is the main lever for shortening the strict
 # regression suite; see [tool.pytest.ini_options] addopts.
 dev = ["pytest", "pytest-xdist", "Babel", "ruff"]
+# Machine-learning model training. Optional and training-only: only
+# lib/ml_train.py needs it, and the shipped inference path is ONNX-based, so
+# GUI01, GUI04, the CLI, and end-user PyInstaller builds never require it.
+# check.py deliberately excludes the sklearn-importing ML modules from its
+# base-dependency scan (see OPTIONAL_DEP_MODULE_NAMES there), so these packages
+# stay out of [project] dependencies and requirements.txt. Mirrored in
+# requirements-ml.txt. The ONNX export/inference packages (skl2onnx,
+# onnxruntime) join this list when lib/ml_model.py lands.
+# Machine-learning models: training AND inference, all optional. The whole ML
+# feature is opt-in; the classical pipeline, plugin startup, and text-only
+# workflows never import these. scikit-learn + skl2onnx are training/export
+# only; onnxruntime runs the exported ONNX graph and is imported lazily (like
+# gwyfile in lib.gwy_io) only when a user selects an ML model, so it is not a
+# base dependency either. check.py excludes the ML modules that import these
+# from its base-dependency scan (see OPTIONAL_DEP_MODULE_NAMES there), keeping
+# them out of [project] dependencies and requirements.txt. Mirrored in
+# requirements-ml.txt. protobuf is pinned <6 because skl2onnx 1.20 + onnx 1.22
+# raise "Expected an int, got a boolean" when converting a
+# HistGradientBoosting classifier under protobuf >= 6 (verified locally).
+# 機械学習モデル：学習も推論もすべて任意。ML 機能全体がオプトインで、従来
+# パイプライン・プラグイン起動・テキスト専用ワークフローはこれらを import
+# しない。scikit-learn と skl2onnx は学習/エクスポート専用。onnxruntime は
+# エクスポート済み ONNX グラフを実行し、利用者が ML モデルを選択したときのみ
+# 遅延 import する（lib.gwy_io の gwyfile と同様）ため、基本依存でもない。
+# check.py はこれらを import する ML モジュールを基本依存スキャンから除外する
+# （同所の OPTIONAL_DEP_MODULE_NAMES 参照）ため、[project] dependencies と
+# requirements.txt に入らない。requirements-ml.txt と対応。protobuf を <6 に
+# 固定するのは、skl2onnx 1.20 + onnx 1.22 が protobuf >= 6 の下で
+# HistGradientBoosting 分類器を変換する際に "Expected an int, got a boolean" を
+# 送出するため（ローカルで確認済み）。
+ml = ["scikit-learn", "skl2onnx", "onnxruntime", "protobuf<6"]
 # Sphinx renders the lib/ docstrings into the API reference under docs/.
 # Napoleon (NumPy-style parsing) ships with Sphinx; furo is the HTML theme.
 docs = ["sphinx", "furo"]
