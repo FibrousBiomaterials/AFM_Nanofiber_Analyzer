@@ -244,6 +244,49 @@ def scan_bundle_folder(
     return infos
 
 
+def inspect_bundle(
+    path: str,
+    task: str = "binarize",
+    label_source: str = LABEL_SEGMENTER_INTERMEDIATE,
+) -> BundleLabelInfo:
+    """
+    Report whether a single ``.b2z`` bundle can serve as training data.
+    単一の ``.b2z`` バンドルが教師データになりうるかを報告する。
+
+    The single-file counterpart of `scan_bundle_folder`, for callers (e.g. a GUI
+    "add files" action) that select individual bundles rather than a folder.
+    `scan_bundle_folder` の単一ファイル版。フォルダではなく個別バンドルを選ぶ
+    呼び出し側（GUI の「ファイル追加」操作など）向け。
+
+    Parameters
+    ----------
+    path
+        Bundle file path.
+        バンドルファイルのパス。
+    task
+        Target task; currently only ``"binarize"`` is supported.
+        対象タスク。現状 ``"binarize"`` のみ対応。
+    label_source
+        Label source, one of `LABEL_SOURCES`.
+        ラベルの出所。`LABEL_SOURCES` のいずれか。
+
+    Returns
+    -------
+    BundleLabelInfo
+        Usability and, if not usable, the reason.
+        使用可否と、使用不可なら理由。
+
+    Raises
+    ------
+    ValueError
+        If `task` is unsupported or `label_source` is unknown.
+        `task` が非対応、または `label_source` が未知の場合。
+    """
+    _check_task(task)
+    _check_label_source(label_source)
+    return _inspect_bundle(path, label_source)
+
+
 def _inspect_bundle(path: str, label_source: str) -> BundleLabelInfo:
     """
     Inspect one bundle's keys and metadata for training-data suitability.
