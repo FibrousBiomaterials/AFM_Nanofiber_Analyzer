@@ -39,6 +39,13 @@ GUI01 は解析対象の入力ファイルごとに、圧縮された `.b2z` バ
 | `guis/GUI02_PlotProfiler.py` | Plot Profiler | 生データ、補正済みデータ、またはバンドル化された AFM 高さデータを読み込み、選択した線分に沿った高さプロファイルを対話的に抽出します。プロファイル距離を再現可能にするため、スケールは記録値（`.b2z`）、ヘッダ（テキスト/CSV）、またはチャンネル範囲（`.gwy`）の走査範囲で既定化します。 |
 | `guis/GUI03_Fiber_Height_Histogram.py` | Fiber Height Histogram | ユーザー定義グループごとに、`.b2z` バンドル群の細線化ファイバー画素から高さ分布を比較します。 |
 | `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | `.b2z` バンドルを読み込み、追跡済み `Fiber` オブジェクトを再構築し、個別ファイバーの確認、図の出力、ファイバー統計量の CSV 出力を行います。任意のファイバー連結モード（トグルと設定ウインドウ）では、交差・分岐で分断された骨格断片を計測前に 1 本のフィブリルへ再結合します。連結モードと高さフィルターは「連結してからフィルター」の順序で合成され、両方を有効にすると高さフィルターは連結済みフィブリルを自身の高さプロファイル（橋渡し部を含む）で切り出すため、両者は排他ではありません。 |
+| `guis/GUI05_ML_Model_Trainer.py` | ML Model Trainer | `.b2z` バンドルから画素単位の教師データを構築し、決定木の二値化分類器を交差検証して、`.afmml` モデルファイルとしてエクスポートします。任意・実験的な機械学習ワークフローの一部で、機械学習依存（後述）は学習実行時のみ読み込まれます。 |
+| `guis/GUI06_ML_Model_Compare.py` | ML Model Compare | 学習済みの `.afmml` 二値化モデルを `.b2z` バンドルへ適用し、そのマスクを古典参照マスクと Dice / IoU / 一致率で比較します。モデルを前処理パイプラインへ組み込む前に、統合する価値があるかを判断するために使います。 |
+
+ML Model Trainer と ML Model Compare は **任意・実験的** な追加機能です。古典的な
+前処理パイプライン（GUI01〜GUI04 と `cli.py`）は機械学習依存なしで動作し、
+ML ツールは二値化を学習可能な画素分類ステップとして検討するもので、完全に
+オプトインです。
 
 ## 主なディレクトリ構成
 
@@ -53,6 +60,7 @@ AFM_Nanofiber_Analyzer/
 |-- pyproject.toml
 |-- requirements.txt
 |-- requirements.lock.txt
+|-- requirements-ml.txt
 |-- run_venv.bat
 |-- run_conda.bat
 |-- run_venv.sh
@@ -62,6 +70,8 @@ AFM_Nanofiber_Analyzer/
 |   |-- GUI02_PlotProfiler.py
 |   |-- GUI03_Fiber_Height_Histogram.py
 |   |-- GUI04_Tracking_fiber.py
+|   |-- GUI05_ML_Model_Trainer.py
+|   |-- GUI06_ML_Model_Compare.py
 |   `-- __init__.py
 |-- lib/
 |   |-- afm_io.py
@@ -75,6 +85,11 @@ AFM_Nanofiber_Analyzer/
 |   |-- imp_tools.py
 |   |-- kink_detector.py
 |   |-- measure.py
+|   |-- ml_dataset.py
+|   |-- ml_features.py
+|   |-- ml_model.py
+|   |-- ml_schema.py
+|   |-- ml_train.py
 |   |-- pipeline.py
 |   |-- processed_image.py
 |   |-- segmenter.py
@@ -117,6 +132,11 @@ Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにして
 | `lib/imp_tools.py` | スケルトン形態処理、端点・分岐点検出、線追跡、経路距離変換のヘルパー。 |
 | `lib/kink_detector.py` | 追跡されたスケルトン成分からキンク点を検出する `KinkDetector`。 |
 | `lib/measure.py` | `.b2z` バンドルに対する GUI 非依存のファイバー計測。`measure_bundle`、ファイバーごとの `FiberStats`、スケルトン画素高さの収集、および GUI03/GUI04 と `cli.py` が共有する CSV 書き出し。 |
+| `lib/ml_dataset.py` | ML 二値化モデル向けに `.b2z` バンドルから画素単位の教師データを構築する。画像単位のグループ化とクラス均衡化を行う。依存は NumPy とパイプラインのみ（scikit-learn 不要）。 |
+| `lib/ml_features.py` | 画素単位のマルチスケール特徴抽出（平滑化高さ・勾配・ラプラシアン・ヘッセ固有値）と画像ごとのロバスト正規化。ML 前処理ステージで共有する。 |
+| `lib/ml_model.py` | `.afmml` モデルファイルの保存・読み込み・実行。学習済み分類器を ONNX へエクスポートし manifest とともに格納し、ONNX 推論を行う。読み込み時に manifest・ONNX の SHA-256・特徴仕様を検証し、ML ランタイムは遅延 import する。 |
+| `lib/ml_schema.py` | `.afmml` モデルファイル契約の実行可能スキーマ。アーカイブ構成、manifest キー、タスク／フレームワークの語彙、`validate_manifest`。依存は標準ライブラリのみ。 |
+| `lib/ml_train.py` | 決定木の二値化分類器（`RandomForest` / `HistGradientBoosting`）の学習とグループ考慮の交差検証。scikit-learn は学習専用の依存。 |
 | `lib/pipeline.py` | `ProcParams` パラメータスキーマ、ステージ構築、および GUI01 と `cli.py` が共有する GUI 非依存のパイプライン駆動関数 `process_file`。`.b2z` 契約自体は `lib/bundle_schema.py` にあります。 |
 | `lib/processed_image.py` | GUI01 の前処理パイプラインで使う `ProcessedImage` コンテナ。 |
 | `lib/segmenter.py` | 背景補正済み AFM 画像からナノファイバー二値マスクを作成する `Segmenter`。 |
@@ -144,6 +164,20 @@ scikit-image
 scipy
 tksheet
 ```
+
+機械学習ツール（ML Model Trainer と ML Model Compare）には、`requirements-ml.txt`
+に記載した追加の **任意** パッケージが必要です。古典的なパイプラインはこれらを
+一切 import しないため、ML モデルを学習または適用する場合にのみインストールします:
+
+```powershell
+python -m pip install -r requirements.txt -r requirements-ml.txt
+```
+
+これらのパッケージ（`scikit-learn`、`skl2onnx`、`onnxruntime`、および
+`protobuf < 6` の固定）は意図的に `requirements.txt` から除外しており、`check.py`
+はこれらを import する ML モジュールを基本依存スキャンから除外します。
+`pyproject.toml` の `ml` 追加依存グループとしても利用できます
+（`pip install .[ml]`）。
 
 `check.py` はソースツリー内の import を走査して `requirements.txt` を再生成できます。
 PyInstaller はスタンドアロンビルド専用のツールであり、配布物をビルドする場合に

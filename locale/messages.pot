@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-16 15:19+0900\n"
+"POT-Creation-Date: 2026-07-21 16:06+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -149,7 +149,8 @@ msgstr ""
 msgid "貼り付け"
 msgstr ""
 
-#: guis/GUI01_Image_Preprocessor.py:775
+#: guis/GUI01_Image_Preprocessor.py:775 guis/GUI05_ML_Model_Trainer.py:172
+#: guis/GUI06_ML_Model_Compare.py:212
 msgid "削除"
 msgstr ""
 
@@ -346,7 +347,8 @@ msgstr ""
 #: guis/GUI04_Tracking_fiber.py:855 guis/GUI04_Tracking_fiber.py:859
 #: guis/GUI04_Tracking_fiber.py:2836 guis/GUI04_Tracking_fiber.py:2839
 #: guis/GUI04_Tracking_fiber.py:2869 guis/GUI04_Tracking_fiber.py:2872
-#: lib/ui_tools.py:730 lib/ui_tools.py:740
+#: guis/GUI05_ML_Model_Trainer.py:713 guis/GUI06_ML_Model_Compare.py:318
+#: guis/GUI06_ML_Model_Compare.py:614 lib/ui_tools.py:730 lib/ui_tools.py:740
 msgid "エラー"
 msgstr ""
 
@@ -975,6 +977,7 @@ msgid "最小"
 msgstr ""
 
 #: guis/GUI02_PlotProfiler.py:810 guis/GUI02_PlotProfiler.py:1391
+#: guis/GUI05_ML_Model_Trainer.py:313
 msgid "平均"
 msgstr ""
 
@@ -1021,6 +1024,7 @@ msgid ""
 msgstr ""
 
 #: guis/GUI02_PlotProfiler.py:1457 guis/GUI03_Fiber_Height_Histogram.py:1379
+#: guis/GUI05_ML_Model_Trainer.py:713 guis/GUI06_ML_Model_Compare.py:614
 msgid "不明なエラー"
 msgstr ""
 
@@ -1033,7 +1037,8 @@ msgstr ""
 msgid "AFMデータ"
 msgstr ""
 
-#: guis/GUI02_PlotProfiler.py:1623
+#: guis/GUI02_PlotProfiler.py:1623 guis/GUI05_ML_Model_Trainer.py:189
+#: guis/GUI06_ML_Model_Compare.py:226
 msgid "バンドル"
 msgstr ""
 
@@ -1909,8 +1914,340 @@ msgstr ""
 msgid "0 以上の整数を入力してください。"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:3308
+#: guis/GUI04_Tracking_fiber.py:3308 guis/GUI05_ML_Model_Trainer.py:555
+#: guis/GUI06_ML_Model_Compare.py:491 guis/GUI06_ML_Model_Compare.py:546
 msgid "入力エラー"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:160
+msgid "データセット（.b2z バンドル）"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:166 guis/GUI06_ML_Model_Compare.py:206
+msgid "フォルダ追加..."
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:169 guis/GUI06_ML_Model_Compare.py:209
+msgid "ファイル追加..."
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:175 guis/GUI06_ML_Model_Compare.py:215
+msgid "クリア"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:190
+msgid "使用可否"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:191
+msgid "理由"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:209
+msgid "サンプリング"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:215
+msgid "ラベルの出所"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:220
+msgid ""
+"Segmenter intermediate はモデルが置き換える成分フィルタ前のマスク、bundle binarized "
+"は保存済みの最終マスクです。"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:223
+msgid "画像あたり最大サンプル数"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:228
+msgid "乱数シード"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:234
+msgid "画像ごとに繊維/背景を均衡させる"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:243
+msgid "モデル"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:249
+msgid "分類器"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:259
+msgid "木の本数／反復数"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:264
+msgid "交差検証の分割数"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:273 guis/GUI06_ML_Model_Compare.py:185
+msgid "ファイバーしきい値"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:286
+msgid "学習"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:289
+msgid "モデルをエクスポート..."
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:300
+msgid "結果"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:312 guis/GUI06_ML_Model_Compare.py:273
+msgid "指標"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:314
+msgid "標準偏差"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:323
+msgid "特徴重要度の上位"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:332 guis/GUI06_ML_Model_Compare.py:283
+msgid "ログ"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:338
+msgid "ログを保存..."
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:350
+msgid ".b2z バンドルのフォルダを追加して Train を押します。Export は前処理パイプライン用の .afmml モデルを保存します。"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:360 guis/GUI06_ML_Model_Compare.py:367
+msgid ".b2z バンドルを含むフォルダを選択"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:371 guis/GUI06_ML_Model_Compare.py:380
+msgid ".b2z バンドルファイルを選択"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:399 guis/GUI06_ML_Model_Compare.py:400
+msgid "選択したバンドルはすべて既に一覧にあります。"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:419
+msgid "走査に失敗しました"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:470
+#, python-brace-format
+msgid "{total} 件中 {usable} 件が使用可能"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:513
+msgid "データなし"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:513
+msgid "使用可能な .b2z バンドルを 1 つ以上追加してください。"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:526
+msgid "データセット構築と学習中..."
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:543
+msgid "画像あたりの最大サンプル数は正の整数または空欄にしてください。"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:547
+msgid "木の本数／反復数は正の整数にしてください。"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:550
+msgid "交差検証の分割数は 2 以上にしてください。"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:553 guis/GUI06_ML_Model_Compare.py:471
+msgid "ファイバーしきい値は 0〜1 の範囲で指定してください。"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:586 guis/GUI05_ML_Model_Trainer.py:678
+#: guis/GUI06_ML_Model_Compare.py:319 guis/GUI06_ML_Model_Compare.py:514
+#: guis/GUI06_ML_Model_Compare.py:569
+#, python-brace-format
+msgid ""
+"機械学習ライブラリがインストールされていません。\n"
+"{err}"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:591
+#, python-brace-format
+msgid "{n} 個のバンドルから画素データセットを構築中..."
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:600
+#, python-brace-format
+msgid "データセット: {n} サンプル、{g} 画像グループ、繊維 {f} / 背景 {b}。"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:613
+#, python-brace-format
+msgid "段階: {s}"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:643
+msgid "モデルを保存"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:652
+msgid "モデルを ONNX へエクスポート中..."
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:666
+msgid "モデル ID"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:666
+msgid "モデルファイルに記録する識別子:"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:704
+#, python-brace-format
+msgid "モデルを保存しました: {p}"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:706
+msgid "エクスポート完了"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:707
+#, python-brace-format
+msgid ""
+"モデル '{id}' を次へ保存しました:\n"
+"{p}"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:738
+#, python-brace-format
+msgid "学習完了: {n} サンプル、{g} 画像グループ。"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:747
+msgid "交差検証をスキップしました（画像グループが 2 つ以上必要）。"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:768
+msgid "（この分類器では利用できません）"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:157
+msgid "モデル（.afmml）"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:160
+msgid "モデルを読み込み..."
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:163
+msgid "モデル未読み込み。"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:172
+msgid "比較"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:178
+msgid "古典参照"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:192
+msgid "（空欄でモデル既定値）"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:200
+msgid "画像（.b2z バンドル）"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:240
+msgid "全比較"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:243
+msgid "図を保存..."
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:297
+msgid ".afmml モデルを読み込み .b2z バンドルを追加し、画像を選択して比較するか Compare all を使います。"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:308
+msgid ".afmml モデルを選択"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:325
+msgid "読み込みに失敗しました"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:334
+msgid "モデルが不適切"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:340
+#, python-brace-format
+msgid "モデルを読み込みました: {p}"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:356
+#, python-brace-format
+msgid ""
+"id: {id}\n"
+"task: {task}  しきい値: {thr}{dice}"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:497
+#, python-brace-format
+msgid "{name} を比較中..."
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:552
+#, python-brace-format
+msgid "全 {n} バンドルを比較中..."
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:583
+#, python-brace-format
+msgid "[{i}/{n}] {name}: dice={d:.4f}"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:586
+#, python-brace-format
+msgid "[{i}/{n}] {name}: スキップ（{err}）"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:590
+msgid "比較できるバンドルがありませんでした。"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:674
+#, python-brace-format
+msgid "選択中: {name}"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:692
+#, python-brace-format
+msgid "{n} 画像の集計:"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:699
+msgid "dice 下位 3 件:"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:705
+#, python-brace-format
+msgid "全比較完了: {n} 画像。"
 msgstr ""
 
 #: lib/ui_tools.py:165
@@ -2048,4 +2385,12 @@ msgid ""
 "・全ファイバーの統計値 CSV エクスポート\n"
 "\n"
 "入力フォルダは GUI01 の出力フォルダをそのまま指定してください。\n"
+msgstr ""
+
+#: guis/GUI05_ML_Model_Trainer.py:37
+msgid "Train a machine-learning binarization model from .b2z bundles and export it as a .afmml model file for the preprocessing pipeline. Select folders of Image Preprocessor bundles, build a pixel dataset, cross-validate a decision-tree classifier, and save the trained model. The ML libraries are optional and loaded only when training runs."
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:35
+msgid "Apply a trained .afmml binarization model to .b2z bundles and compare its mask against the classical reference mask, with Dice / IoU / agreement metrics. Use this to check whether an ML model is worth integrating before adding it to the preprocessing pipeline. The ML libraries are optional and loaded only when a model is applied."
 msgstr ""

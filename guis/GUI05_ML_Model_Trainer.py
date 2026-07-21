@@ -157,22 +157,22 @@ class App(tk.Tk, LogMixin):
         Build the bundle-folder list and its add/remove controls.
         バンドルフォルダ一覧と追加/削除操作部を構築する。
         """
-        lf = ttk.LabelFrame(parent, text=_("Dataset (.b2z bundles)"))
+        lf = ttk.LabelFrame(parent, text=_("データセット（.b2z バンドル）"))
         lf.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
         btn_row = ttk.Frame(lf)
         btn_row.pack(fill=tk.X, padx=4, pady=4)
         self.btn_add_folder = ttk.Button(
-            btn_row, text=_("Add folder..."), command=self.on_add_folder)
+            btn_row, text=_("フォルダ追加..."), command=self.on_add_folder)
         self.btn_add_folder.pack(side=tk.LEFT, padx=2)
         self.btn_add_files = ttk.Button(
-            btn_row, text=_("Add files..."), command=self.on_add_files)
+            btn_row, text=_("ファイル追加..."), command=self.on_add_files)
         self.btn_add_files.pack(side=tk.LEFT, padx=2)
         self.btn_remove = ttk.Button(
-            btn_row, text=_("Remove"), command=self.on_remove_entry)
+            btn_row, text=_("削除"), command=self.on_remove_entry)
         self.btn_remove.pack(side=tk.LEFT, padx=2)
         self.btn_clear = ttk.Button(
-            btn_row, text=_("Clear"), command=self.on_clear_entries)
+            btn_row, text=_("クリア"), command=self.on_clear_entries)
         self.btn_clear.pack(side=tk.LEFT, padx=2)
 
         # Column headings are UI labels; "usable"/"reason" values are English.
@@ -186,9 +186,9 @@ class App(tk.Tk, LogMixin):
             selectmode="extended",
             height=8,
             headings={
-                "bundle": _("Bundle"),
-                "usable": _("Usable"),
-                "reason": _("Reason"),
+                "bundle": _("バンドル"),
+                "usable": _("使用可否"),
+                "reason": _("理由"),
             },
             column_options={
                 "bundle": {"width": 220, "anchor": "w"},
@@ -206,32 +206,32 @@ class App(tk.Tk, LogMixin):
         Build the sampling controls (label source, balancing, sample cap, seed).
         サンプリング操作部（ラベル出所・均衡・サンプル上限・乱数種）を構築する。
         """
-        lf = ttk.LabelFrame(parent, text=_("Sampling"))
+        lf = ttk.LabelFrame(parent, text=_("サンプリング"))
         lf.pack(fill=tk.X, padx=4, pady=4)
 
         grid = ttk.Frame(lf)
         grid.pack(fill=tk.X, padx=4, pady=4)
 
-        ttk.Label(grid, text=_("Label source")).grid(row=0, column=0, sticky="w", padx=2, pady=2)
+        ttk.Label(grid, text=_("ラベルの出所")).grid(row=0, column=0, sticky="w", padx=2, pady=2)
         self.label_source_var = tk.StringVar(value=list(LABEL_SOURCE_LABELS)[0])
         cb = ttk.Combobox(grid, textvariable=self.label_source_var,
                           values=list(LABEL_SOURCE_LABELS), state="readonly", width=32)
         cb.grid(row=0, column=1, columnspan=3, sticky="w", padx=2, pady=2)
-        ToolTip(cb, _("Segmenter intermediate is the pre-component-filter mask "
-                      "the model replaces; bundle binarized is the final stored mask."))
+        ToolTip(cb, _("Segmenter intermediate はモデルが置き換える成分フィルタ前のマスク、"
+                      "bundle binarized は保存済みの最終マスクです。"))
 
-        ttk.Label(grid, text=_("Max samples/image")).grid(row=1, column=0, sticky="w", padx=2, pady=2)
+        ttk.Label(grid, text=_("画像あたり最大サンプル数")).grid(row=1, column=0, sticky="w", padx=2, pady=2)
         self.max_samples_var = tk.StringVar(value="20000")
         e1 = ttk.Entry(grid, textvariable=self.max_samples_var, width=10)
         e1.grid(row=1, column=1, sticky="w", padx=2, pady=2)
 
-        ttk.Label(grid, text=_("Random seed")).grid(row=1, column=2, sticky="w", padx=2, pady=2)
+        ttk.Label(grid, text=_("乱数シード")).grid(row=1, column=2, sticky="w", padx=2, pady=2)
         self.seed_var = tk.StringVar(value="0")
         e2 = ttk.Entry(grid, textvariable=self.seed_var, width=8)
         e2.grid(row=1, column=3, sticky="w", padx=2, pady=2)
 
         self.balance_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(grid, text=_("Balance fiber/background per image"),
+        ttk.Checkbutton(grid, text=_("画像ごとに繊維/背景を均衡させる"),
                         variable=self.balance_var).grid(
             row=2, column=0, columnspan=4, sticky="w", padx=2, pady=2)
 
@@ -240,13 +240,13 @@ class App(tk.Tk, LogMixin):
         Build the classifier-choice and hyperparameter controls.
         分類器選択とハイパーパラメータの操作部を構築する。
         """
-        lf = ttk.LabelFrame(parent, text=_("Model"))
+        lf = ttk.LabelFrame(parent, text=_("モデル"))
         lf.pack(fill=tk.X, padx=4, pady=4)
 
         grid = ttk.Frame(lf)
         grid.pack(fill=tk.X, padx=4, pady=4)
 
-        ttk.Label(grid, text=_("Classifier")).grid(row=0, column=0, sticky="w", padx=2, pady=2)
+        ttk.Label(grid, text=_("分類器")).grid(row=0, column=0, sticky="w", padx=2, pady=2)
         self.kind_var = tk.StringVar(value=list(MODEL_KIND_LABELS)[0])
         ttk.Combobox(grid, textvariable=self.kind_var,
                      values=list(MODEL_KIND_LABELS), state="readonly", width=24).grid(
@@ -256,12 +256,12 @@ class App(tk.Tk, LogMixin):
         # The worker passes both to ModelConfig, which uses the relevant one.
         # n_estimators は Random Forest、max_iter は HistGradientBoosting に効く。
         # ワーカーは両方を ModelConfig へ渡し、該当する側だけが使われる。
-        ttk.Label(grid, text=_("Trees / iterations")).grid(row=1, column=0, sticky="w", padx=2, pady=2)
+        ttk.Label(grid, text=_("木の本数／反復数")).grid(row=1, column=0, sticky="w", padx=2, pady=2)
         self.n_estimators_var = tk.StringVar(value="200")
         ttk.Entry(grid, textvariable=self.n_estimators_var, width=8).grid(
             row=1, column=1, sticky="w", padx=2, pady=2)
 
-        ttk.Label(grid, text=_("CV folds")).grid(row=1, column=2, sticky="w", padx=2, pady=2)
+        ttk.Label(grid, text=_("交差検証の分割数")).grid(row=1, column=2, sticky="w", padx=2, pady=2)
         self.n_splits_var = tk.StringVar(value="5")
         ttk.Entry(grid, textvariable=self.n_splits_var, width=6).grid(
             row=1, column=3, sticky="w", padx=2, pady=2)
@@ -270,7 +270,7 @@ class App(tk.Tk, LogMixin):
         # segmentation_threshold; label stays with the fixed unit-free notion.
         # 「Fiber threshold」は繊維判定の確率しきい値で、モデルの
         # segmentation_threshold として記録される。
-        ttk.Label(grid, text=_("Fiber threshold")).grid(row=2, column=0, sticky="w", padx=2, pady=2)
+        ttk.Label(grid, text=_("ファイバーしきい値")).grid(row=2, column=0, sticky="w", padx=2, pady=2)
         self.threshold_var = tk.StringVar(value="0.5")
         ttk.Entry(grid, textvariable=self.threshold_var, width=8).grid(
             row=2, column=1, sticky="w", padx=2, pady=2)
@@ -283,10 +283,10 @@ class App(tk.Tk, LogMixin):
         bar = ttk.Frame(parent)
         bar.pack(fill=tk.X, padx=4, pady=(2, 6))
 
-        self.btn_train = ttk.Button(bar, text=_("Train"), command=self.on_train)
+        self.btn_train = ttk.Button(bar, text=_("学習"), command=self.on_train)
         self.btn_train.pack(side=tk.LEFT, padx=2)
         self.btn_export = ttk.Button(
-            bar, text=_("Export model..."), command=self.on_export)
+            bar, text=_("モデルをエクスポート..."), command=self.on_export)
         self.btn_export.pack(side=tk.LEFT, padx=2)
 
         self.progress = ttk.Progressbar(bar, mode="indeterminate", length=140)
@@ -297,7 +297,7 @@ class App(tk.Tk, LogMixin):
         Build the cross-validation metrics table and feature-importance view.
         交差検証の指標テーブルと特徴重要度ビューを構築する。
         """
-        lf = ttk.LabelFrame(parent, text=_("Results"))
+        lf = ttk.LabelFrame(parent, text=_("結果"))
         lf.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
         # Metric names are fixed English scientific labels; only the column
@@ -309,9 +309,9 @@ class App(tk.Tk, LogMixin):
             show="headings",
             height=6,
             headings={
-                "metric": _("Metric"),
-                "mean": _("Mean"),
-                "std": _("Std"),
+                "metric": _("指標"),
+                "mean": _("平均"),
+                "std": _("標準偏差"),
             },
             column_options={
                 "metric": {"width": 140, "anchor": "w"},
@@ -320,7 +320,7 @@ class App(tk.Tk, LogMixin):
             },
         )
 
-        ttk.Label(lf, text=_("Top feature importances")).pack(anchor="w", padx=6, pady=(4, 0))
+        ttk.Label(lf, text=_("特徴重要度の上位")).pack(anchor="w", padx=6, pady=(4, 0))
         self.importance_text, _sb2 = create_scrolled_text(lf, height=8, width=40)
         self.importance_text.configure(state=tk.DISABLED)
 
@@ -329,13 +329,13 @@ class App(tk.Tk, LogMixin):
         Build the log text area and its save button.
         ログテキスト領域と保存ボタンを構築する。
         """
-        lf = ttk.LabelFrame(parent, text=_("Log"))
+        lf = ttk.LabelFrame(parent, text=_("ログ"))
         lf.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
         self.log_text, _sb = create_scrolled_text(lf, height=8, width=40)
         self.log_text.configure(state=tk.DISABLED)
 
-        ttk.Button(lf, text=_("Save log..."), command=self.on_save_log).pack(
+        ttk.Button(lf, text=_("ログを保存..."), command=self.on_save_log).pack(
             anchor="e", padx=6, pady=4)
 
     # ----- Logging ---------------------------------------------------------
@@ -347,8 +347,8 @@ class App(tk.Tk, LogMixin):
         Log a short usage hint at startup.
         起動時に短い使い方の案内をログへ表示する。
         """
-        self._log(_("Add folders of .b2z bundles, then Train. "
-                    "Export saves a .afmml model for the preprocessing pipeline."))
+        self._log(_(".b2z バンドルのフォルダを追加して Train を押します。"
+                    "Export は前処理パイプライン用の .afmml モデルを保存します。"))
 
     # ----- Dataset entry management ---------------------------------------
 
@@ -357,7 +357,7 @@ class App(tk.Tk, LogMixin):
         Add every ``.b2z`` bundle in a chosen folder as one dataset entry.
         選択したフォルダ内の全 ``.b2z`` バンドルを 1 つのデータセット項目として追加する。
         """
-        folder = filedialog.askdirectory(title=_("Select a folder of .b2z bundles"))
+        folder = filedialog.askdirectory(title=_(".b2z バンドルを含むフォルダを選択"))
         if not folder:
             return
         self._add_entry(folder, is_dir=True)
@@ -368,7 +368,7 @@ class App(tk.Tk, LogMixin):
         選択した 1 つ以上の ``.b2z`` ファイルを個別のデータセット項目として追加する。
         """
         paths = filedialog.askopenfilenames(
-            title=_("Select .b2z bundle files"),
+            title=_(".b2z バンドルファイルを選択"),
             filetypes=[("b2z bundles", "*.b2z"), ("All files", "*.*")],
         )
         for p in paths:
@@ -396,7 +396,7 @@ class App(tk.Tk, LogMixin):
         self._update_summary()
         self._update_controls_state()
         if added == 0 and new_infos:
-            self._log(_("All selected bundles were already in the list."))
+            self._log(_("選択したバンドルはすべて既に一覧にあります。"))
 
     def _add_entry(self, path: str, is_dir: bool) -> None:
         """
@@ -416,7 +416,7 @@ class App(tk.Tk, LogMixin):
             else:
                 infos = [md.inspect_bundle(path, task="binarize", label_source=label_source)]
         except Exception as exc:  # noqa: BLE001 - surface any scan failure to the user.
-            messagebox.showerror(_("Scan failed"), str(exc))
+            messagebox.showerror(_("走査に失敗しました"), str(exc))
             return
         self._add_scanned(infos)
 
@@ -467,7 +467,7 @@ class App(tk.Tk, LogMixin):
         # Fixed unit-free counts; the sentence itself is localized.
         # 単位のない件数。文自体はローカライズする。
         self.summary_var.set(
-            _("{usable} usable of {total} bundle(s)").format(usable=usable, total=total))
+            _("{total} 件中 {usable} 件が使用可能").format(usable=usable, total=total))
 
     # ----- Controls state --------------------------------------------------
 
@@ -510,7 +510,7 @@ class App(tk.Tk, LogMixin):
             return
         paths = self._usable_paths()
         if not paths:
-            messagebox.showwarning(_("No data"), _("Add at least one usable .b2z bundle."))
+            messagebox.showwarning(_("データなし"), _("使用可能な .b2z バンドルを 1 つ以上追加してください。"))
             return
 
         params = self._collect_train_params()
@@ -523,7 +523,7 @@ class App(tk.Tk, LogMixin):
 
         self.ui_queue = queue.Queue()
         self._set_running(True)
-        self._log(_("Building dataset and training..."))
+        self._log(_("データセット構築と学習中..."))
         threading.Thread(
             target=self._worker_train, args=(paths, params), daemon=True).start()
         self.after(60, self._poll_ui_queue)
@@ -540,19 +540,19 @@ class App(tk.Tk, LogMixin):
             max_samples_txt = self.max_samples_var.get().strip()
             max_samples = None if max_samples_txt == "" else int(max_samples_txt)
             if max_samples is not None and max_samples <= 0:
-                raise ValueError(_("Max samples/image must be a positive integer or blank."))
+                raise ValueError(_("画像あたりの最大サンプル数は正の整数または空欄にしてください。"))
             seed = int(self.seed_var.get().strip())
             n_estimators = int(self.n_estimators_var.get().strip())
             if n_estimators <= 0:
-                raise ValueError(_("Trees / iterations must be a positive integer."))
+                raise ValueError(_("木の本数／反復数は正の整数にしてください。"))
             n_splits = int(self.n_splits_var.get().strip())
             if n_splits < 2:
-                raise ValueError(_("CV folds must be at least 2."))
+                raise ValueError(_("交差検証の分割数は 2 以上にしてください。"))
             threshold = float(self.threshold_var.get().strip())
             if not (0.0 <= threshold <= 1.0):
-                raise ValueError(_("Fiber threshold must be between 0 and 1."))
+                raise ValueError(_("ファイバーしきい値は 0〜1 の範囲で指定してください。"))
         except ValueError as exc:
-            messagebox.showerror(_("Invalid input"), str(exc))
+            messagebox.showerror(_("入力エラー"), str(exc))
             return None
 
         return {
@@ -583,12 +583,12 @@ class App(tk.Tk, LogMixin):
             from lib import ml_train as mt
         except ImportError as exc:
             self.ui_queue.put(("fatal", {
-                "text": _("The machine-learning libraries are not installed.\n{err}")
+                "text": _("機械学習ライブラリがインストールされていません。\n{err}")
                         .format(err=str(exc))}))
             return
 
         try:
-            self.ui_queue.put(("log", _("Building pixel dataset from {n} bundle(s)...")
+            self.ui_queue.put(("log", _("{n} 個のバンドルから画素データセットを構築中...")
                                .format(n=len(paths))))
             dataset = md.build_pixel_dataset(
                 paths, task="binarize",
@@ -597,8 +597,8 @@ class App(tk.Tk, LogMixin):
                 balance=params["balance"],
                 random_state=params["seed"],
             )
-            self.ui_queue.put(("log", _("Dataset: {n} samples, {g} image group(s), "
-                                        "{f} fiber / {b} background.").format(
+            self.ui_queue.put(("log", _("データセット: {n} サンプル、{g} 画像グループ、"
+                                        "繊維 {f} / 背景 {b}。").format(
                 n=dataset.X.shape[0], g=len(dataset.group_names),
                 f=dataset.n_fiber, b=dataset.n_background)))
 
@@ -610,7 +610,7 @@ class App(tk.Tk, LogMixin):
             )
 
             def progress_cb(stage: str) -> None:
-                self.ui_queue.put(("log", _("stage: {s}").format(s=stage)))
+                self.ui_queue.put(("log", _("段階: {s}").format(s=stage)))
 
             result = mt.train(
                 dataset, config,
@@ -640,7 +640,7 @@ class App(tk.Tk, LogMixin):
         if not model_id:
             return
         path = filedialog.asksaveasfilename(
-            title=_("Save model"),
+            title=_("モデルを保存"),
             defaultextension=".afmml",
             filetypes=[("AFM ML model", "*.afmml")],
         )
@@ -649,7 +649,7 @@ class App(tk.Tk, LogMixin):
 
         self.ui_queue = queue.Queue()
         self._set_running(True)
-        self._log(_("Exporting model to ONNX..."))
+        self._log(_("モデルを ONNX へエクスポート中..."))
         threading.Thread(
             target=self._worker_export,
             args=(path, model_id, self._train_result, self._dataset_provenance),
@@ -663,7 +663,7 @@ class App(tk.Tk, LogMixin):
         """
         default = f"binarize-{self._trained_kind or 'model'}"
         return simpledialog.askstring(
-            _("Model ID"), _("Identifier to record in the model file:"),
+            _("モデル ID"), _("モデルファイルに記録する識別子:"),
             initialvalue=default, parent=self)
 
     def _worker_export(self, path: str, model_id: str, result, provenance) -> None:
@@ -675,7 +675,7 @@ class App(tk.Tk, LogMixin):
             from lib import ml_model as mm
         except ImportError as exc:
             self.ui_queue.put(("fatal", {
-                "text": _("The machine-learning libraries are not installed.\n{err}")
+                "text": _("機械学習ライブラリがインストールされていません。\n{err}")
                         .format(err=str(exc))}))
             return
         try:
@@ -701,16 +701,16 @@ class App(tk.Tk, LogMixin):
 
         def _on_exported(payload):
             self._set_running(False)
-            self._log(_("Saved model: {p}").format(p=payload["path"]))
+            self._log(_("モデルを保存しました: {p}").format(p=payload["path"]))
             messagebox.showinfo(
-                _("Export complete"),
-                _("Saved model '{id}' to:\n{p}").format(
+                _("エクスポート完了"),
+                _("モデル '{id}' を次へ保存しました:\n{p}").format(
                     id=payload["model_id"], p=payload["path"]))
             return False
 
         def _on_fatal(payload):
             self._set_running(False)
-            messagebox.showerror(_("Error"), payload.get("text", _("Unknown error")))
+            messagebox.showerror(_("エラー"), payload.get("text", _("不明なエラー")))
             trace = payload.get("trace", "")
             if trace:
                 self._log(trace)
@@ -735,7 +735,7 @@ class App(tk.Tk, LogMixin):
         self._dataset_provenance = payload["provenance"]
         self._trained_kind = payload["kind"]
 
-        self._log(_("Training complete: {n} samples, {g} image group(s).").format(
+        self._log(_("学習完了: {n} サンプル、{g} 画像グループ。").format(
             n=result.n_samples, g=result.n_groups))
 
         # Metrics table: mean/std per metric from cross-validation.
@@ -744,7 +744,7 @@ class App(tk.Tk, LogMixin):
             self.metrics_tree.delete(item)
         cv = result.cv_metrics
         if not cv:
-            self._log(_("Cross-validation was skipped (need at least 2 image groups)."))
+            self._log(_("交差検証をスキップしました（画像グループが 2 つ以上必要）。"))
         for metric in _METRIC_ROWS:
             mean = cv.get(f"{metric}_mean")
             std = cv.get(f"{metric}_std")
@@ -765,7 +765,7 @@ class App(tk.Tk, LogMixin):
         self.importance_text.delete("1.0", tk.END)
         if not importances:
             self.importance_text.insert(
-                tk.END, _("(not available for this classifier)"))
+                tk.END, _("（この分類器では利用できません）"))
         else:
             ranked = sorted(importances.items(), key=lambda kv: -kv[1])
             for name, weight in ranked:

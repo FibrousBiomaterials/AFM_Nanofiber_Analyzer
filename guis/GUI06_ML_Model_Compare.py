@@ -154,13 +154,13 @@ class App(tk.Tk, LogMixin):
         Build the model-load button and manifest-info display.
         モデル読み込みボタンと manifest 情報の表示を構築する。
         """
-        lf = ttk.LabelFrame(parent, text=_("Model (.afmml)"))
+        lf = ttk.LabelFrame(parent, text=_("モデル（.afmml）"))
         lf.pack(fill=tk.X, padx=4, pady=4)
 
-        ttk.Button(lf, text=_("Load model..."), command=self.on_load_model).pack(
+        ttk.Button(lf, text=_("モデルを読み込み..."), command=self.on_load_model).pack(
             anchor="w", padx=6, pady=4)
 
-        self.model_info_var = tk.StringVar(value=_("No model loaded."))
+        self.model_info_var = tk.StringVar(value=_("モデル未読み込み。"))
         ttk.Label(lf, textvariable=self.model_info_var, justify="left").pack(
             anchor="w", padx=6, pady=(0, 4))
 
@@ -169,27 +169,27 @@ class App(tk.Tk, LogMixin):
         Build the classical-reference and threshold controls.
         古典参照としきい値の操作部を構築する。
         """
-        lf = ttk.LabelFrame(parent, text=_("Comparison"))
+        lf = ttk.LabelFrame(parent, text=_("比較"))
         lf.pack(fill=tk.X, padx=4, pady=4)
 
         grid = ttk.Frame(lf)
         grid.pack(fill=tk.X, padx=4, pady=4)
 
-        ttk.Label(grid, text=_("Classical reference")).grid(
+        ttk.Label(grid, text=_("古典参照")).grid(
             row=0, column=0, sticky="w", padx=2, pady=2)
         self.reference_var = tk.StringVar(value=list(REFERENCE_LABELS)[0])
         ttk.Combobox(grid, textvariable=self.reference_var,
                      values=list(REFERENCE_LABELS), state="readonly", width=30).grid(
             row=0, column=1, sticky="w", padx=2, pady=2)
 
-        ttk.Label(grid, text=_("Fiber threshold")).grid(
+        ttk.Label(grid, text=_("ファイバーしきい値")).grid(
             row=1, column=0, sticky="w", padx=2, pady=2)
         # Blank means use the model's recorded threshold.
         # 空欄はモデルに記録されたしきい値を使う意味。
         self.threshold_var = tk.StringVar(value="")
         ttk.Entry(grid, textvariable=self.threshold_var, width=10).grid(
             row=1, column=1, sticky="w", padx=2, pady=2)
-        ttk.Label(grid, text=_("(blank = model default)")).grid(
+        ttk.Label(grid, text=_("（空欄でモデル既定値）")).grid(
             row=1, column=2, sticky="w", padx=2, pady=2)
 
     def _build_image_panel(self, parent: ttk.Frame) -> None:
@@ -197,22 +197,22 @@ class App(tk.Tk, LogMixin):
         Build the bundle list and its add/remove controls.
         バンドル一覧と追加/削除操作部を構築する。
         """
-        lf = ttk.LabelFrame(parent, text=_("Images (.b2z bundles)"))
+        lf = ttk.LabelFrame(parent, text=_("画像（.b2z バンドル）"))
         lf.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
         btn_row = ttk.Frame(lf)
         btn_row.pack(fill=tk.X, padx=4, pady=4)
         self.btn_add_folder = ttk.Button(
-            btn_row, text=_("Add folder..."), command=self.on_add_folder)
+            btn_row, text=_("フォルダ追加..."), command=self.on_add_folder)
         self.btn_add_folder.pack(side=tk.LEFT, padx=2)
         self.btn_add_files = ttk.Button(
-            btn_row, text=_("Add files..."), command=self.on_add_files)
+            btn_row, text=_("ファイル追加..."), command=self.on_add_files)
         self.btn_add_files.pack(side=tk.LEFT, padx=2)
         self.btn_remove = ttk.Button(
-            btn_row, text=_("Remove"), command=self.on_remove)
+            btn_row, text=_("削除"), command=self.on_remove)
         self.btn_remove.pack(side=tk.LEFT, padx=2)
         self.btn_clear = ttk.Button(
-            btn_row, text=_("Clear"), command=self.on_clear)
+            btn_row, text=_("クリア"), command=self.on_clear)
         self.btn_clear.pack(side=tk.LEFT, padx=2)
 
         tree_frame = ttk.Frame(lf)
@@ -223,7 +223,7 @@ class App(tk.Tk, LogMixin):
             show="headings",
             selectmode="browse",
             height=8,
-            headings={"bundle": _("Bundle")},
+            headings={"bundle": _("バンドル")},
             column_options={"bundle": {"width": 240, "anchor": "w"}},
         )
         self.tree.bind("<<TreeviewSelect>>", self._on_select_image)
@@ -237,10 +237,10 @@ class App(tk.Tk, LogMixin):
         bar.pack(fill=tk.X, padx=4, pady=(2, 6))
 
         self.btn_compare_all = ttk.Button(
-            bar, text=_("Compare all"), command=self.on_compare_all)
+            bar, text=_("全比較"), command=self.on_compare_all)
         self.btn_compare_all.pack(side=tk.LEFT, padx=2)
         self.btn_save_fig = ttk.Button(
-            bar, text=_("Save figure..."), command=self.on_save_figure)
+            bar, text=_("図を保存..."), command=self.on_save_figure)
         self.btn_save_fig.pack(side=tk.LEFT, padx=2)
 
         self.progress = ttk.Progressbar(bar, mode="indeterminate", length=130)
@@ -270,7 +270,7 @@ class App(tk.Tk, LogMixin):
         Build the metrics text area.
         指標テキスト領域を構築する。
         """
-        lf = ttk.LabelFrame(parent, text=_("Metrics"))
+        lf = ttk.LabelFrame(parent, text=_("指標"))
         lf.pack(fill=tk.X, padx=4, pady=4)
         self.metrics_text, _sb = create_scrolled_text(lf, height=6, width=40)
         self.metrics_text.configure(state=tk.DISABLED)
@@ -280,7 +280,7 @@ class App(tk.Tk, LogMixin):
         Build the log text area.
         ログテキスト領域を構築する。
         """
-        lf = ttk.LabelFrame(parent, text=_("Log"))
+        lf = ttk.LabelFrame(parent, text=_("ログ"))
         lf.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
         self.log_text, _sb = create_scrolled_text(lf, height=5, width=40)
         self.log_text.configure(state=tk.DISABLED)
@@ -294,8 +294,8 @@ class App(tk.Tk, LogMixin):
         Log a short usage hint at startup.
         起動時に短い使い方の案内をログへ表示する。
         """
-        self._log(_("Load a .afmml model and add .b2z bundles, then select an "
-                    "image to compare or use Compare all."))
+        self._log(_(".afmml モデルを読み込み .b2z バンドルを追加し、"
+                    "画像を選択して比較するか Compare all を使います。"))
 
     # ----- Model loading ---------------------------------------------------
 
@@ -305,7 +305,7 @@ class App(tk.Tk, LogMixin):
         ``.afmml`` 二値化モデルを読み込み検証する。
         """
         path = filedialog.askopenfilename(
-            title=_("Select a .afmml model"),
+            title=_(".afmml モデルを選択"),
             filetypes=[("AFM ML model", "*.afmml"), ("All files", "*.*")],
         )
         if not path:
@@ -315,14 +315,14 @@ class App(tk.Tk, LogMixin):
             from lib.ml_schema import SEGMENTATION_TASKS, validate_manifest
         except ImportError as exc:
             messagebox.showerror(
-                _("Error"),
-                _("The machine-learning libraries are not installed.\n{err}")
+                _("エラー"),
+                _("機械学習ライブラリがインストールされていません。\n{err}")
                 .format(err=str(exc)))
             return
         try:
             model = mm.load_model(path)
         except Exception as exc:  # noqa: BLE001 - report any load failure.
-            messagebox.showerror(_("Load failed"), str(exc))
+            messagebox.showerror(_("読み込みに失敗しました"), str(exc))
             return
 
         # Only a binarization model belongs in this comparison; reject others
@@ -331,13 +331,13 @@ class App(tk.Tk, LogMixin):
         # 黙って誤った結果を出さない。
         problems = validate_manifest(model.manifest, require_task=SEGMENTATION_TASKS)
         if problems:
-            messagebox.showerror(_("Wrong model"), "; ".join(problems))
+            messagebox.showerror(_("モデルが不適切"), "; ".join(problems))
             return
 
         self._model = model
         self._model_path = path
         self._show_model_info(model)
-        self._log(_("Loaded model: {p}").format(p=os.path.basename(path)))
+        self._log(_("モデルを読み込みました: {p}").format(p=os.path.basename(path)))
         self._update_controls_state()
 
     def _show_model_info(self, model) -> None:
@@ -353,7 +353,7 @@ class App(tk.Tk, LogMixin):
             # 指標ラベルは固定。周囲の文のみローカライズする。
             dice = "  CV dice={:.4f}".format(metrics["dice_mean"])
         self.model_info_var.set(
-            _("id: {id}\ntask: {task}  threshold: {thr}{dice}").format(
+            _("id: {id}\ntask: {task}  しきい値: {thr}{dice}").format(
                 id=m.get("model_id", "?"), task=m.get("task", "?"),
                 thr=model.fiber_threshold, dice=dice))
 
@@ -364,7 +364,7 @@ class App(tk.Tk, LogMixin):
         Add every ``.b2z`` file in a chosen folder.
         選択したフォルダ内の全 ``.b2z`` ファイルを追加する。
         """
-        folder = filedialog.askdirectory(title=_("Select a folder of .b2z bundles"))
+        folder = filedialog.askdirectory(title=_(".b2z バンドルを含むフォルダを選択"))
         if not folder:
             return
         paths = [os.path.join(folder, n) for n in sorted(os.listdir(folder))
@@ -377,7 +377,7 @@ class App(tk.Tk, LogMixin):
         選択した ``.b2z`` ファイルを追加する。
         """
         paths = filedialog.askopenfilenames(
-            title=_("Select .b2z bundle files"),
+            title=_(".b2z バンドルファイルを選択"),
             filetypes=[("b2z bundles", "*.b2z"), ("All files", "*.*")])
         self._add_paths(list(paths))
 
@@ -397,7 +397,7 @@ class App(tk.Tk, LogMixin):
             added += 1
         self._update_controls_state()
         if added == 0 and paths:
-            self._log(_("All selected bundles were already in the list."))
+            self._log(_("選択したバンドルはすべて既に一覧にあります。"))
 
     def on_remove(self) -> None:
         """
@@ -468,7 +468,7 @@ class App(tk.Tk, LogMixin):
             return None
         value = float(txt)
         if not (0.0 <= value <= 1.0):
-            raise ValueError(_("Fiber threshold must be between 0 and 1."))
+            raise ValueError(_("ファイバーしきい値は 0〜1 の範囲で指定してください。"))
         return value
 
     # ----- Single-image comparison ----------------------------------------
@@ -488,13 +488,13 @@ class App(tk.Tk, LogMixin):
         try:
             threshold = self._resolved_threshold()
         except ValueError as exc:
-            messagebox.showerror(_("Invalid input"), str(exc))
+            messagebox.showerror(_("入力エラー"), str(exc))
             return
 
         reference = REFERENCE_LABELS[self.reference_var.get()]
         self.ui_queue = queue.Queue()
         self._set_running(True)
-        self._log(_("Comparing {name}...").format(name=os.path.basename(path)))
+        self._log(_("{name} を比較中...").format(name=os.path.basename(path)))
         threading.Thread(
             target=self._worker_compare_one,
             args=(path, reference, threshold), daemon=True).start()
@@ -511,7 +511,7 @@ class App(tk.Tk, LogMixin):
             from lib import ml_dataset as md
         except ImportError as exc:
             self.ui_queue.put(("fatal", {
-                "text": _("The machine-learning libraries are not installed.\n{err}")
+                "text": _("機械学習ライブラリがインストールされていません。\n{err}")
                         .format(err=str(exc))}))
             return
         try:
@@ -543,13 +543,13 @@ class App(tk.Tk, LogMixin):
         try:
             threshold = self._resolved_threshold()
         except ValueError as exc:
-            messagebox.showerror(_("Invalid input"), str(exc))
+            messagebox.showerror(_("入力エラー"), str(exc))
             return
 
         reference = REFERENCE_LABELS[self.reference_var.get()]
         self.ui_queue = queue.Queue()
         self._set_running(True)
-        self._log(_("Comparing all {n} bundle(s)...").format(n=len(self.bundles)))
+        self._log(_("全 {n} バンドルを比較中...").format(n=len(self.bundles)))
         threading.Thread(
             target=self._worker_compare_all,
             args=(list(self.bundles), reference, threshold), daemon=True).start()
@@ -566,7 +566,7 @@ class App(tk.Tk, LogMixin):
             from lib import ml_dataset as md
         except ImportError as exc:
             self.ui_queue.put(("fatal", {
-                "text": _("The machine-learning libraries are not installed.\n{err}")
+                "text": _("機械学習ライブラリがインストールされていません。\n{err}")
                         .format(err=str(exc))}))
             return
 
@@ -583,11 +583,11 @@ class App(tk.Tk, LogMixin):
                 self.ui_queue.put(("log", _("[{i}/{n}] {name}: dice={d:.4f}").format(
                     i=i, n=len(paths), name=name, d=metrics["dice"])))
             except Exception as exc:  # noqa: BLE001 - skip a failed bundle, keep going.
-                self.ui_queue.put(("log", _("[{i}/{n}] {name}: skipped ({err})").format(
+                self.ui_queue.put(("log", _("[{i}/{n}] {name}: スキップ（{err}）").format(
                     i=i, n=len(paths), name=name, err=str(exc))))
 
         if not per_image:
-            self.ui_queue.put(("fatal", {"text": _("No bundle could be compared.")}))
+            self.ui_queue.put(("fatal", {"text": _("比較できるバンドルがありませんでした。")}))
             return
         self.ui_queue.put(("compared_all", {"per_image": per_image}))
 
@@ -611,7 +611,7 @@ class App(tk.Tk, LogMixin):
 
         def _on_fatal(payload):
             self._set_running(False)
-            messagebox.showerror(_("Error"), payload.get("text", _("Unknown error")))
+            messagebox.showerror(_("エラー"), payload.get("text", _("不明なエラー")))
             trace = payload.get("trace", "")
             if trace:
                 self._log(trace)
@@ -671,7 +671,7 @@ class App(tk.Tk, LogMixin):
         # Metric names (dice, iou, ...) are fixed English; the header line is
         # localized. Keep the model-vs-classical framing explicit.
         # 指標名（dice, iou, ...）は固定英語。見出し行はローカライズする。
-        lines = [_("Selected: {name}").format(name=name),
+        lines = [_("選択中: {name}").format(name=name),
                  "  dice={dice:.4f}  iou={iou:.4f}".format(**metrics),
                  "  agreement={agreement:.4f}  ".format(**metrics)
                  + "ml_fiber={ml_fiber:.4f}  classical_fiber={cl_fiber:.4f}".format(
@@ -689,20 +689,20 @@ class App(tk.Tk, LogMixin):
         iou = np.array([m["iou"] for m in per_image], dtype=float)
         agree = np.array([m["agreement"] for m in per_image], dtype=float)
         lines = [
-            _("Aggregate over {n} image(s):").format(n=len(per_image)),
+            _("{n} 画像の集計:").format(n=len(per_image)),
             "  dice  mean={:.4f}  min={:.4f}  max={:.4f}".format(
                 dice.mean(), dice.min(), dice.max()),
             "  iou   mean={:.4f}  min={:.4f}  max={:.4f}".format(
                 iou.mean(), iou.min(), iou.max()),
             "  agreement mean={:.4f}".format(agree.mean()),
             "",
-            _("Worst 3 by dice:"),
+            _("dice 下位 3 件:"),
         ]
         worst = sorted(per_image, key=lambda m: m["dice"])[:3]
         for m in worst:
             lines.append("  {name}: dice={dice:.4f}".format(**m))
         self._set_metrics_text("\n".join(lines))
-        self._log(_("Compare all complete: {n} image(s).").format(n=len(per_image)))
+        self._log(_("全比較完了: {n} 画像。").format(n=len(per_image)))
 
     def _set_metrics_text(self, text: str) -> None:
         """
