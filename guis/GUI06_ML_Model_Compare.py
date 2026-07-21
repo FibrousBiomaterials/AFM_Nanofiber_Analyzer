@@ -1,0 +1,774 @@
+# -*- coding: utf-8 -*-
+"""
+Apply a machine-learning binarization model and compare it to the classical result.
+機械学習の二値化モデルを適用し、古典的な結果と比較する。
+
+This GUI loads a ``.afmml`` binarization model, applies it to ``.b2z`` bundles,
+and shows the model's mask beside the classical reference mask (the same label
+the model was trained against) with agreement metrics. It is the maturity gate
+for the ML binarization model: it is where a trained model is checked against
+the classical pipeline before any decision to integrate it into GUI01. Inputs
+are a ``.afmml`` model plus ``.b2z`` bundles; there is no output file (this is a
+comparison tool).
+本 GUI は ``.afmml`` 二値化モデルを読み込み、``.b2z`` バンドルへ適用し、モデルの
+マスクを古典参照マスク（モデルが学習対象とした同じラベル）と並べて一致指標
+とともに表示する。ML 二値化モデルの成熟度ゲートであり、学習済みモデルを GUI01
+へ統合する判断の前に古典パイプラインと照合する場所である。入力は ``.afmml``
+モデルと ``.b2z`` バンドルで、出力ファイルはない（比較ツール）。
+
+The machine-learning libraries (onnxruntime and the feature stack) are imported
+lazily inside the worker thread, so this plugin starts without them and reports
+a clear install hint if applying a model needs them.
+機械学習ライブラリ（onnxruntime と特徴スタック）はワーカースレッド内で遅延
+import する。したがって本プラグインはそれら無しで起動し、モデル適用時に必要に
+なれば明確な導入案内を表示する。
+"""
+
+# ===== Plugin metadata =====
+# Main.py reads this dictionary with AST parsing for the launcher screen.
+# Values must remain plain string literals because they are passed to literal_eval.
+# Main.py がこのファイルを AST 解析で読み取るため、値は literal_eval 可能な
+# 文字列リテラルのままにする（_() で包まない）。
+PLUGIN_INFO = {
+    "name": "ML Model Compare",
+    "description": (
+        "Apply a trained .afmml binarization model to .b2z bundles and compare "
+        "its mask against the classical reference mask, with Dice / IoU / "
+        "agreement metrics. Use this to check whether an ML model is worth "
+        "integrating before adding it to the preprocessing pipeline. "
+        "The ML libraries are optional and loaded only when a model is applied."
+    )
+}
+
+# ===== Standard library =====
+import os
+import queue
+import threading
+import traceback
+from typing import Dict, List, Optional
+
+# ===== Numerical / scientific libraries =====
+import numpy as np
+
+# ===== GUI libraries =====
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
+
+# ===== Plotting libraries =====
+import matplotlib
+matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+# ===== Project libraries =====
+from lib.translator import _
+from lib.ui_tools import (
+    apply_window_size, setup_ttk_theme, setup_matplotlib_style,
+    create_scrolled_text, create_scrolled_treeview,
+    compute_auto_vrange,
+    save_figure_with_dialog, drain_ui_queue, LogMixin,
+)
+
+# Classical reference choices, mirroring lib.ml_dataset.LABEL_SOURCES. Default is
+# the Segmenter intermediate mask, which is what a binarize model reproduces, so
+# agreement with it measures how faithfully the model learned its target.
+# 古典参照の選択肢。lib.ml_dataset.LABEL_SOURCES と一致。既定は Segmenter の
+# 中間マスクで、これは binarize モデルが再現する対象なので、これとの一致度は
+# モデルが対象をどれだけ忠実に学習したかを測る。
+REFERENCE_LABELS = {
+    "Segmenter intermediate (pre-filter)": "segmenter_intermediate",
+    "Bundle binarized (final)": "bundle_binarized",
+}
+
+# Subplot titles are fixed English plot text (not localized, per the UI-string
+# policy for scientific/plot labels).
+# サブプロットのタイトルは固定英語のプロット文字（科学的・プロットラベルの
+# UI 文字列方針によりローカライズしない）。
+_PANEL_TITLES = ("Calibrated", "ML mask", "Classical", "Difference")
+
+
+class App(tk.Tk, LogMixin):
+    """
+    Main window for applying a model and comparing it to the classical mask.
+    モデルを適用し古典マスクと比較するメインウィンドウ。
+    """
+
+    def __init__(self) -> None:
+        """
+        Initialize the window, state, controls, and figure.
+        ウィンドウ・状態・操作部・図を初期化する。
+        """
+        super().__init__()
+        self.title(PLUGIN_INFO["name"])
+
+        setup_matplotlib_style(font_size=10)
+        self._clam_bg = setup_ttk_theme(self)
+        apply_window_size(self, 1300, 820, min_w=1050, min_h=680)
+
+        # Loaded model (lib.ml_model.LoadedModel) and its manifest; None until
+        # a model is loaded.
+        # 読み込み済みモデル（lib.ml_model.LoadedModel）とその manifest。
+        # モデル読み込みまで None。
+        self._model = None
+        self._model_path: str = ""
+        # Flat list of bundle paths added for comparison.
+        # 比較用に追加したバンドルパスのフラットな一覧。
+        self.bundles: List[str] = []
+        # Aggregate metrics from the last "Compare all" run.
+        # 直近の「Compare all」実行による集計指標。
+        self._aggregate: Optional[Dict] = None
+
+        self.ui_queue: queue.Queue = queue.Queue()
+        self.is_running = False
+
+        self._build_ui()
+        self._log_initial_message()
+        self._update_controls_state()
+
+    # ----- UI construction -------------------------------------------------
+
+    def _build_ui(self) -> None:
+        """
+        Build the two-pane layout: controls left, figure and metrics right.
+        2 ペイン構成を構築する。左が操作部、右が図と指標。
+        """
+        outer = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
+        outer.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+
+        left = ttk.Frame(outer)
+        right = ttk.Frame(outer)
+        outer.add(left, weight=2)
+        outer.add(right, weight=3)
+
+        self._build_model_panel(left)
+        self._build_reference_panel(left)
+        self._build_image_panel(left)
+        self._build_action_bar(left)
+
+        self._build_figure_panel(right)
+        self._build_metrics_panel(right)
+        self._build_log_panel(right)
+
+    def _build_model_panel(self, parent: ttk.Frame) -> None:
+        """
+        Build the model-load button and manifest-info display.
+        モデル読み込みボタンと manifest 情報の表示を構築する。
+        """
+        lf = ttk.LabelFrame(parent, text=_("Model (.afmml)"))
+        lf.pack(fill=tk.X, padx=4, pady=4)
+
+        ttk.Button(lf, text=_("Load model..."), command=self.on_load_model).pack(
+            anchor="w", padx=6, pady=4)
+
+        self.model_info_var = tk.StringVar(value=_("No model loaded."))
+        ttk.Label(lf, textvariable=self.model_info_var, justify="left").pack(
+            anchor="w", padx=6, pady=(0, 4))
+
+    def _build_reference_panel(self, parent: ttk.Frame) -> None:
+        """
+        Build the classical-reference and threshold controls.
+        古典参照としきい値の操作部を構築する。
+        """
+        lf = ttk.LabelFrame(parent, text=_("Comparison"))
+        lf.pack(fill=tk.X, padx=4, pady=4)
+
+        grid = ttk.Frame(lf)
+        grid.pack(fill=tk.X, padx=4, pady=4)
+
+        ttk.Label(grid, text=_("Classical reference")).grid(
+            row=0, column=0, sticky="w", padx=2, pady=2)
+        self.reference_var = tk.StringVar(value=list(REFERENCE_LABELS)[0])
+        ttk.Combobox(grid, textvariable=self.reference_var,
+                     values=list(REFERENCE_LABELS), state="readonly", width=30).grid(
+            row=0, column=1, sticky="w", padx=2, pady=2)
+
+        ttk.Label(grid, text=_("Fiber threshold")).grid(
+            row=1, column=0, sticky="w", padx=2, pady=2)
+        # Blank means use the model's recorded threshold.
+        # 空欄はモデルに記録されたしきい値を使う意味。
+        self.threshold_var = tk.StringVar(value="")
+        ttk.Entry(grid, textvariable=self.threshold_var, width=10).grid(
+            row=1, column=1, sticky="w", padx=2, pady=2)
+        ttk.Label(grid, text=_("(blank = model default)")).grid(
+            row=1, column=2, sticky="w", padx=2, pady=2)
+
+    def _build_image_panel(self, parent: ttk.Frame) -> None:
+        """
+        Build the bundle list and its add/remove controls.
+        バンドル一覧と追加/削除操作部を構築する。
+        """
+        lf = ttk.LabelFrame(parent, text=_("Images (.b2z bundles)"))
+        lf.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+
+        btn_row = ttk.Frame(lf)
+        btn_row.pack(fill=tk.X, padx=4, pady=4)
+        self.btn_add_folder = ttk.Button(
+            btn_row, text=_("Add folder..."), command=self.on_add_folder)
+        self.btn_add_folder.pack(side=tk.LEFT, padx=2)
+        self.btn_add_files = ttk.Button(
+            btn_row, text=_("Add files..."), command=self.on_add_files)
+        self.btn_add_files.pack(side=tk.LEFT, padx=2)
+        self.btn_remove = ttk.Button(
+            btn_row, text=_("Remove"), command=self.on_remove)
+        self.btn_remove.pack(side=tk.LEFT, padx=2)
+        self.btn_clear = ttk.Button(
+            btn_row, text=_("Clear"), command=self.on_clear)
+        self.btn_clear.pack(side=tk.LEFT, padx=2)
+
+        tree_frame = ttk.Frame(lf)
+        tree_frame.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        self.tree, _sb = create_scrolled_treeview(
+            tree_frame,
+            columns=("bundle",),
+            show="headings",
+            selectmode="browse",
+            height=8,
+            headings={"bundle": _("Bundle")},
+            column_options={"bundle": {"width": 240, "anchor": "w"}},
+        )
+        self.tree.bind("<<TreeviewSelect>>", self._on_select_image)
+
+    def _build_action_bar(self, parent: ttk.Frame) -> None:
+        """
+        Build the compare-all button and progress indicator.
+        全比較ボタンと進捗表示を構築する。
+        """
+        bar = ttk.Frame(parent)
+        bar.pack(fill=tk.X, padx=4, pady=(2, 6))
+
+        self.btn_compare_all = ttk.Button(
+            bar, text=_("Compare all"), command=self.on_compare_all)
+        self.btn_compare_all.pack(side=tk.LEFT, padx=2)
+        self.btn_save_fig = ttk.Button(
+            bar, text=_("Save figure..."), command=self.on_save_figure)
+        self.btn_save_fig.pack(side=tk.LEFT, padx=2)
+
+        self.progress = ttk.Progressbar(bar, mode="indeterminate", length=130)
+        self.progress.pack(side=tk.RIGHT, padx=4)
+
+    def _build_figure_panel(self, parent: ttk.Frame) -> None:
+        """
+        Build the 2x2 comparison figure embedded in the window.
+        ウィンドウに埋め込む 2x2 比較図を構築する。
+        """
+        frame = ttk.Frame(parent)
+        frame.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+
+        self.fig = plt.Figure(figsize=(6.4, 6.0), dpi=90)
+        self.axes = self.fig.subplots(2, 2)
+        for ax, title in zip(self.axes.ravel(), _PANEL_TITLES):
+            ax.set_title(title)
+            ax.axis("off")
+        self.fig.tight_layout()
+
+        self.canvas = FigureCanvasTkAgg(self.fig, master=frame)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self.canvas.draw()
+
+    def _build_metrics_panel(self, parent: ttk.Frame) -> None:
+        """
+        Build the metrics text area.
+        指標テキスト領域を構築する。
+        """
+        lf = ttk.LabelFrame(parent, text=_("Metrics"))
+        lf.pack(fill=tk.X, padx=4, pady=4)
+        self.metrics_text, _sb = create_scrolled_text(lf, height=6, width=40)
+        self.metrics_text.configure(state=tk.DISABLED)
+
+    def _build_log_panel(self, parent: ttk.Frame) -> None:
+        """
+        Build the log text area.
+        ログテキスト領域を構築する。
+        """
+        lf = ttk.LabelFrame(parent, text=_("Log"))
+        lf.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        self.log_text, _sb = create_scrolled_text(lf, height=5, width=40)
+        self.log_text.configure(state=tk.DISABLED)
+
+    # ----- Logging ---------------------------------------------------------
+    # `_log` / `_log_exception` come from LogMixin (they drive self.log_text).
+    # `_log` / `_log_exception` は LogMixin 由来（self.log_text を操作する）。
+
+    def _log_initial_message(self) -> None:
+        """
+        Log a short usage hint at startup.
+        起動時に短い使い方の案内をログへ表示する。
+        """
+        self._log(_("Load a .afmml model and add .b2z bundles, then select an "
+                    "image to compare or use Compare all."))
+
+    # ----- Model loading ---------------------------------------------------
+
+    def on_load_model(self) -> None:
+        """
+        Load and validate a ``.afmml`` binarization model.
+        ``.afmml`` 二値化モデルを読み込み検証する。
+        """
+        path = filedialog.askopenfilename(
+            title=_("Select a .afmml model"),
+            filetypes=[("AFM ML model", "*.afmml"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+        try:
+            from lib import ml_model as mm
+            from lib.ml_schema import SEGMENTATION_TASKS, validate_manifest
+        except ImportError as exc:
+            messagebox.showerror(
+                _("Error"),
+                _("The machine-learning libraries are not installed.\n{err}")
+                .format(err=str(exc)))
+            return
+        try:
+            model = mm.load_model(path)
+        except Exception as exc:  # noqa: BLE001 - report any load failure.
+            messagebox.showerror(_("Load failed"), str(exc))
+            return
+
+        # Only a binarization model belongs in this comparison; reject others
+        # with a message naming the accepted task, not a silent wrong result.
+        # この比較には二値化モデルのみが適する。他は受理タスクを明示して拒否し、
+        # 黙って誤った結果を出さない。
+        problems = validate_manifest(model.manifest, require_task=SEGMENTATION_TASKS)
+        if problems:
+            messagebox.showerror(_("Wrong model"), "; ".join(problems))
+            return
+
+        self._model = model
+        self._model_path = path
+        self._show_model_info(model)
+        self._log(_("Loaded model: {p}").format(p=os.path.basename(path)))
+        self._update_controls_state()
+
+    def _show_model_info(self, model) -> None:
+        """
+        Display key manifest fields for the loaded model.
+        読み込んだモデルの主要 manifest 項目を表示する。
+        """
+        m = model.manifest
+        dice = ""
+        metrics = m.get("metrics") or {}
+        if "dice_mean" in metrics:
+            # Fixed metric label; only the surrounding text is localized.
+            # 指標ラベルは固定。周囲の文のみローカライズする。
+            dice = "  CV dice={:.4f}".format(metrics["dice_mean"])
+        self.model_info_var.set(
+            _("id: {id}\ntask: {task}  threshold: {thr}{dice}").format(
+                id=m.get("model_id", "?"), task=m.get("task", "?"),
+                thr=model.fiber_threshold, dice=dice))
+
+    # ----- Image list management ------------------------------------------
+
+    def on_add_folder(self) -> None:
+        """
+        Add every ``.b2z`` file in a chosen folder.
+        選択したフォルダ内の全 ``.b2z`` ファイルを追加する。
+        """
+        folder = filedialog.askdirectory(title=_("Select a folder of .b2z bundles"))
+        if not folder:
+            return
+        paths = [os.path.join(folder, n) for n in sorted(os.listdir(folder))
+                 if n.lower().endswith(".b2z")]
+        self._add_paths(paths)
+
+    def on_add_files(self) -> None:
+        """
+        Add chosen ``.b2z`` files.
+        選択した ``.b2z`` ファイルを追加する。
+        """
+        paths = filedialog.askopenfilenames(
+            title=_("Select .b2z bundle files"),
+            filetypes=[("b2z bundles", "*.b2z"), ("All files", "*.*")])
+        self._add_paths(list(paths))
+
+    def _add_paths(self, paths: List[str]) -> None:
+        """
+        Append new bundle paths, skipping duplicates, and add tree rows.
+        新しいバンドルパスを追加し、重複を省いて行を挿入する。
+        """
+        existing = set(self.bundles)
+        added = 0
+        for p in paths:
+            if p in existing:
+                continue
+            existing.add(p)
+            self.bundles.append(p)
+            self.tree.insert("", tk.END, values=(os.path.basename(p),))
+            added += 1
+        self._update_controls_state()
+        if added == 0 and paths:
+            self._log(_("All selected bundles were already in the list."))
+
+    def on_remove(self) -> None:
+        """
+        Remove the selected bundle from the list.
+        選択したバンドルを一覧から削除する。
+        """
+        selected = self.tree.selection()
+        if not selected:
+            return
+        for iid in sorted((self.tree.index(i) for i in selected), reverse=True):
+            self.tree.delete(self.tree.get_children()[iid])
+            del self.bundles[iid]
+        self._update_controls_state()
+
+    def on_clear(self) -> None:
+        """
+        Remove all bundles from the list.
+        一覧から全バンドルを削除する。
+        """
+        self.bundles = []
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        self._update_controls_state()
+
+    # ----- Controls state --------------------------------------------------
+
+    def _update_controls_state(self) -> None:
+        """
+        Enable Compare all only when a model and at least one bundle exist.
+        モデルとバンドルが 1 つ以上あるときのみ Compare all を有効化する。
+        """
+        if self.is_running:
+            return
+        ready = self._model is not None and bool(self.bundles)
+        self.btn_compare_all.configure(state=tk.NORMAL if ready else tk.DISABLED)
+
+    def _set_running(self, running: bool) -> None:
+        """
+        Toggle controls and the progress bar while a worker is active.
+        ワーカー実行中に操作部と進捗バーを切り替える。
+        """
+        self.is_running = running
+        state = tk.DISABLED if running else tk.NORMAL
+        for b in (self.btn_add_folder, self.btn_add_files, self.btn_remove,
+                  self.btn_clear, self.btn_compare_all):
+            b.configure(state=state)
+        if running:
+            self.progress.start(12)
+        else:
+            self.progress.stop()
+            self._update_controls_state()
+
+    # ----- Threshold -------------------------------------------------------
+
+    def _resolved_threshold(self) -> Optional[float]:
+        """
+        Return the override threshold, or None to use the model default.
+        上書きしきい値を返す。モデル既定を使う場合は None。
+
+        Raises
+        ------
+        ValueError
+            If the entry is non-empty and not a number in ``[0, 1]``.
+            入力が空でなく、``[0, 1]`` の数値でない場合。
+        """
+        txt = self.threshold_var.get().strip()
+        if txt == "":
+            return None
+        value = float(txt)
+        if not (0.0 <= value <= 1.0):
+            raise ValueError(_("Fiber threshold must be between 0 and 1."))
+        return value
+
+    # ----- Single-image comparison ----------------------------------------
+
+    def _on_select_image(self, _event=None) -> None:
+        """
+        Compare the selected bundle in a worker and draw the result.
+        選択したバンドルをワーカーで比較し、結果を描画する。
+        """
+        if self.is_running or self._model is None:
+            return
+        selected = self.tree.selection()
+        if not selected:
+            return
+        idx = self.tree.index(selected[0])
+        path = self.bundles[idx]
+        try:
+            threshold = self._resolved_threshold()
+        except ValueError as exc:
+            messagebox.showerror(_("Invalid input"), str(exc))
+            return
+
+        reference = REFERENCE_LABELS[self.reference_var.get()]
+        self.ui_queue = queue.Queue()
+        self._set_running(True)
+        self._log(_("Comparing {name}...").format(name=os.path.basename(path)))
+        threading.Thread(
+            target=self._worker_compare_one,
+            args=(path, reference, threshold), daemon=True).start()
+        self.after(60, self._poll_ui_queue)
+
+    def _worker_compare_one(
+        self, path: str, reference: str, threshold: Optional[float]
+    ) -> None:
+        """
+        Compute the model mask, classical mask, and metrics for one bundle.
+        1 バンドルのモデルマスク・古典マスク・指標を計算する。
+        """
+        try:
+            from lib import ml_dataset as md
+        except ImportError as exc:
+            self.ui_queue.put(("fatal", {
+                "text": _("The machine-learning libraries are not installed.\n{err}")
+                        .format(err=str(exc))}))
+            return
+        try:
+            calibrated, classical = md.load_image_and_label(
+                path, task="binarize", label_source=reference)
+            ml_mask = self._model.predict_mask(calibrated, threshold=threshold)
+            classical_bool = classical.astype(bool)
+            metrics = _mask_metrics(ml_mask, classical_bool)
+            self.ui_queue.put(("compared_one", {
+                "name": os.path.basename(path),
+                "calibrated": calibrated,
+                "ml_mask": ml_mask,
+                "classical": classical_bool,
+                "metrics": metrics,
+            }))
+        except Exception as exc:  # noqa: BLE001 - report any comparison failure.
+            self.ui_queue.put(("fatal", {
+                "text": str(exc), "trace": traceback.format_exc()}))
+
+    # ----- Compare all -----------------------------------------------------
+
+    def on_compare_all(self) -> None:
+        """
+        Compute aggregate agreement metrics over every bundle in a worker.
+        全バンドルにわたる集計一致指標をワーカーで計算する。
+        """
+        if self.is_running or self._model is None or not self.bundles:
+            return
+        try:
+            threshold = self._resolved_threshold()
+        except ValueError as exc:
+            messagebox.showerror(_("Invalid input"), str(exc))
+            return
+
+        reference = REFERENCE_LABELS[self.reference_var.get()]
+        self.ui_queue = queue.Queue()
+        self._set_running(True)
+        self._log(_("Comparing all {n} bundle(s)...").format(n=len(self.bundles)))
+        threading.Thread(
+            target=self._worker_compare_all,
+            args=(list(self.bundles), reference, threshold), daemon=True).start()
+        self.after(60, self._poll_ui_queue)
+
+    def _worker_compare_all(
+        self, paths: List[str], reference: str, threshold: Optional[float]
+    ) -> None:
+        """
+        Accumulate per-image metrics across all bundles off the main thread.
+        メインスレッド外で全バンドルの画像ごと指標を積算する。
+        """
+        try:
+            from lib import ml_dataset as md
+        except ImportError as exc:
+            self.ui_queue.put(("fatal", {
+                "text": _("The machine-learning libraries are not installed.\n{err}")
+                        .format(err=str(exc))}))
+            return
+
+        per_image: List[Dict] = []
+        for i, path in enumerate(paths, start=1):
+            name = os.path.basename(path)
+            try:
+                calibrated, classical = md.load_image_and_label(
+                    path, task="binarize", label_source=reference)
+                ml_mask = self._model.predict_mask(calibrated, threshold=threshold)
+                metrics = _mask_metrics(ml_mask, classical.astype(bool))
+                metrics["name"] = name
+                per_image.append(metrics)
+                self.ui_queue.put(("log", _("[{i}/{n}] {name}: dice={d:.4f}").format(
+                    i=i, n=len(paths), name=name, d=metrics["dice"])))
+            except Exception as exc:  # noqa: BLE001 - skip a failed bundle, keep going.
+                self.ui_queue.put(("log", _("[{i}/{n}] {name}: skipped ({err})").format(
+                    i=i, n=len(paths), name=name, err=str(exc))))
+
+        if not per_image:
+            self.ui_queue.put(("fatal", {"text": _("No bundle could be compared.")}))
+            return
+        self.ui_queue.put(("compared_all", {"per_image": per_image}))
+
+    # ----- Queue polling ---------------------------------------------------
+
+    def _poll_ui_queue(self) -> None:
+        """
+        Drain worker messages and keep polling while a worker is active.
+        ワーカーメッセージを処理し、ワーカー実行中はポーリングを継続する。
+        """
+        def _on_compared_one(payload):
+            self._set_running(False)
+            self._draw_comparison(payload)
+            self._show_single_metrics(payload["name"], payload["metrics"])
+            return False
+
+        def _on_compared_all(payload):
+            self._set_running(False)
+            self._show_aggregate_metrics(payload["per_image"])
+            return False
+
+        def _on_fatal(payload):
+            self._set_running(False)
+            messagebox.showerror(_("Error"), payload.get("text", _("Unknown error")))
+            trace = payload.get("trace", "")
+            if trace:
+                self._log(trace)
+            return False
+
+        should_continue = drain_ui_queue(self.ui_queue, {
+            "log": self._log,
+            "compared_one": _on_compared_one,
+            "compared_all": _on_compared_all,
+            "fatal": _on_fatal,
+        })
+        if should_continue:
+            self.after(50, self._poll_ui_queue)
+
+    # ----- Rendering -------------------------------------------------------
+
+    def _draw_comparison(self, payload: Dict) -> None:
+        """
+        Draw the calibrated image, both masks, and their difference.
+        補正画像・両マスク・その差分を描画する。
+        """
+        calibrated = payload["calibrated"]
+        ml_mask = payload["ml_mask"]
+        classical = payload["classical"]
+        # Difference: +1 where only the model marks fiber, -1 where only the
+        # classical mask does; a diverging map makes each kind of disagreement
+        # visible at a glance.
+        # 差分：モデルのみが繊維とする画素を +1、古典のみを -1 とする。発散型
+        # カラーマップで各種の不一致が一目で分かる。
+        diff = ml_mask.astype(np.int8) - classical.astype(np.int8)
+
+        # compute_auto_vrange always returns an int (vmin, vmax), falling back
+        # to DEFAULT_VMIN/DEFAULT_VMAX for empty or all-NaN images.
+        # compute_auto_vrange は常に int の (vmin, vmax) を返し、空または全 NaN の
+        # 画像では DEFAULT_VMIN/DEFAULT_VMAX にフォールバックする。
+        vmin, vmax = compute_auto_vrange(calibrated)
+
+        panels = (calibrated, ml_mask, classical, diff)
+        for ax, title, data in zip(self.axes.ravel(), _PANEL_TITLES, panels):
+            ax.clear()
+            ax.set_title(title)
+            ax.axis("off")
+            if title == "Calibrated":
+                ax.imshow(data, cmap="afmhot", vmin=vmin, vmax=vmax)
+            elif title == "Difference":
+                ax.imshow(data, cmap="bwr", vmin=-1, vmax=1)
+            else:
+                ax.imshow(data, cmap="gray", vmin=0, vmax=1)
+        self.fig.tight_layout()
+        self.canvas.draw()
+
+    def _show_single_metrics(self, name: str, metrics: Dict) -> None:
+        """
+        Show agreement metrics for the selected image.
+        選択画像の一致指標を表示する。
+        """
+        # Metric names (dice, iou, ...) are fixed English; the header line is
+        # localized. Keep the model-vs-classical framing explicit.
+        # 指標名（dice, iou, ...）は固定英語。見出し行はローカライズする。
+        lines = [_("Selected: {name}").format(name=name),
+                 "  dice={dice:.4f}  iou={iou:.4f}".format(**metrics),
+                 "  agreement={agreement:.4f}  ".format(**metrics)
+                 + "ml_fiber={ml_fiber:.4f}  classical_fiber={cl_fiber:.4f}".format(
+                     ml_fiber=metrics["ml_fiber_frac"],
+                     cl_fiber=metrics["classical_fiber_frac"])]
+        self._set_metrics_text("\n".join(lines))
+
+    def _show_aggregate_metrics(self, per_image: List[Dict]) -> None:
+        """
+        Show mean/min/max of the per-image agreement metrics.
+        画像ごと一致指標の平均/最小/最大を表示する。
+        """
+        self._aggregate = per_image
+        dice = np.array([m["dice"] for m in per_image], dtype=float)
+        iou = np.array([m["iou"] for m in per_image], dtype=float)
+        agree = np.array([m["agreement"] for m in per_image], dtype=float)
+        lines = [
+            _("Aggregate over {n} image(s):").format(n=len(per_image)),
+            "  dice  mean={:.4f}  min={:.4f}  max={:.4f}".format(
+                dice.mean(), dice.min(), dice.max()),
+            "  iou   mean={:.4f}  min={:.4f}  max={:.4f}".format(
+                iou.mean(), iou.min(), iou.max()),
+            "  agreement mean={:.4f}".format(agree.mean()),
+            "",
+            _("Worst 3 by dice:"),
+        ]
+        worst = sorted(per_image, key=lambda m: m["dice"])[:3]
+        for m in worst:
+            lines.append("  {name}: dice={dice:.4f}".format(**m))
+        self._set_metrics_text("\n".join(lines))
+        self._log(_("Compare all complete: {n} image(s).").format(n=len(per_image)))
+
+    def _set_metrics_text(self, text: str) -> None:
+        """
+        Replace the metrics text area content.
+        指標テキスト領域の内容を置き換える。
+        """
+        self.metrics_text.configure(state=tk.NORMAL)
+        self.metrics_text.delete("1.0", tk.END)
+        self.metrics_text.insert(tk.END, text)
+        self.metrics_text.configure(state=tk.DISABLED)
+
+    def on_save_figure(self) -> None:
+        """
+        Save the current comparison figure via the shared helper.
+        現在の比較図を共有ヘルパー経由で保存する。
+        """
+        save_figure_with_dialog(self, self.fig, initial_name="ml_comparison")
+
+
+def _mask_metrics(ml_mask: np.ndarray, classical: np.ndarray) -> Dict:
+    """
+    Compute agreement metrics between a model mask and the classical mask.
+    モデルマスクと古典マスクの一致指標を計算する。
+
+    Parameters
+    ----------
+    ml_mask, classical
+        Boolean masks of the same shape; ``True`` marks fiber.
+        同形状の真偽マスク。``True`` が繊維。
+
+    Returns
+    -------
+    dict
+        ``dice``, ``iou``, ``agreement`` (fraction of pixels that agree), and
+        the fiber fractions of each mask. Dice/IoU are for the fiber class; an
+        empty-vs-empty case scores 1.0 (perfect agreement on "no fiber").
+        ``dice``、``iou``、``agreement``（一致画素の割合）、各マスクの繊維率。
+        Dice/IoU は繊維クラスに対する値で、両者とも空の場合は 1.0（「繊維なし」
+        で完全一致）とする。
+    """
+    a = ml_mask.astype(bool)
+    b = classical.astype(bool)
+    inter = int(np.count_nonzero(a & b))
+    union = int(np.count_nonzero(a | b))
+    a_sum = int(np.count_nonzero(a))
+    b_sum = int(np.count_nonzero(b))
+    n = a.size
+
+    # Both empty: define as perfect agreement on the fiber class rather than 0/0.
+    # 両方空：0/0 ではなく繊維クラスで完全一致と定義する。
+    dice = 1.0 if (a_sum + b_sum) == 0 else (2.0 * inter) / (a_sum + b_sum)
+    iou = 1.0 if union == 0 else inter / union
+    agreement = float(np.count_nonzero(a == b)) / n if n else 1.0
+    return {
+        "dice": float(dice),
+        "iou": float(iou),
+        "agreement": float(agreement),
+        "ml_fiber_frac": (a_sum / n) if n else 0.0,
+        "classical_fiber_frac": (b_sum / n) if n else 0.0,
+    }
+
+
+def main() -> None:
+    app = App()
+    app.mainloop()
+
+
+if __name__ == "__main__":
+    main()

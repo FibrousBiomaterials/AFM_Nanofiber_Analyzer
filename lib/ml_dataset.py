@@ -455,6 +455,63 @@ def build_pixel_dataset(
     )
 
 
+def load_image_and_label(
+    path: str,
+    task: str = "binarize",
+    label_source: str = LABEL_SEGMENTER_INTERMEDIATE,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Load one bundle's input image and its fiber/background label mask.
+    1 バンドルの入力画像と繊維/背景ラベルマスクを読み込む。
+
+    The public entry point onto the same ``(image, label)`` pair the dataset
+    builder uses per bundle, so a caller comparing a model against the classical
+    reference (e.g. an apply/compare GUI) obtains exactly the label the model
+    was trained against. For ``binarize`` the image is ``calibrated`` and the
+    label is either the re-run Segmenter intermediate mask or the stored
+    ``binarized`` mask (see module docstring).
+    データセット構築器がバンドルごとに使うのと同じ ``(画像, ラベル)`` 対への
+    公開入口。モデルを古典参照と比較する呼び出し側（適用・比較 GUI 等）が、
+    モデルの学習対象と厳密に同じラベルを得られるようにする。``binarize`` では
+    画像は ``calibrated``、ラベルは再実行 Segmenter の中間マスクか保存済み
+    ``binarized`` マスクのいずれか（モジュール docstring参照）。
+
+    Parameters
+    ----------
+    path
+        Bundle file path.
+        バンドルファイルのパス。
+    task
+        Target task; currently only ``"binarize"`` is supported.
+        対象タスク。現状 ``"binarize"`` のみ対応。
+    label_source
+        Label source, one of `LABEL_SOURCES`.
+        ラベルの出所。`LABEL_SOURCES` のいずれか。
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        ``(image, label)``; both 2D and the same shape, with the label holding
+        `LABEL_FIBER` / `LABEL_BACKGROUND`.
+        ``(画像, ラベル)``。ともに 2 次元で同形状、ラベルは `LABEL_FIBER` /
+        `LABEL_BACKGROUND` を持つ。
+
+    Raises
+    ------
+    ValueError
+        If `task`/`label_source` is invalid, or the bundle cannot yield the
+        pair (missing keys, or no parameters for the intermediate-mask re-run).
+        `task`/`label_source` が不正、またはバンドルが対を生成できない場合
+        （キー欠落、または中間マスク再実行のパラメータ欠如）。
+    """
+    _check_task(task)
+    _check_label_source(label_source)
+    try:
+        return _load_image_and_label(path, label_source)
+    except _UnusableBundle as exc:
+        raise ValueError(f"{path}: {exc}") from exc
+
+
 class _UnusableBundle(Exception):
     """
     Internal marker: a bundle cannot yield ``(image, label)`` for the task.
