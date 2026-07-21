@@ -39,7 +39,77 @@ else
     exit 1
 fi
 
-# $1 = remote name, $2 = remote URL; the ref updates arrive on stdin and are
-# passed straight through to the checker. $py is intentionally unquoted so
-# "py -3" splits into command and argument.
-exec $py "$checker" --remote "${1:-}" --url "${2:-}"
+# Protected branches whose pushed history must never be rewritten or deleted.
+# Force-pushing or deleting these locally is refused here as a first line of
+# defense; the authoritative guarantee is GitHub branch protection (server-side).
+# 履歴を巻き戻し・削除してはならない保護ブランチ。ここでの force-push/削除拒否は
+# ローカルの第一防衛線であり、最終的な保証は GitHub 側のブランチ保護で行う。
+PROTECTED_BRANCHES="main"
+
+# True when the argument is an all-zero object id (a branch delete in pre-push).
+# 引数が全ゼロのオブジェクト ID(pre-push ではブランチ削除)のとき真を返す。
+is_zero_sha() {
+    case "$1" in
+        "" ) return 1 ;;
+        *[!0]* ) return 1 ;;
+        * ) return 0 ;;
+    esac
+}
+
+# True when the branch name is in PROTECTED_BRANCHES.
+# ブランチ名が PROTECTED_BRANCHES に含まれるとき真を返す。
+is_protected() {
+    for b in $PROTECTED_BRANCHES; do
+        [ "$1" = "$b" ] && return 0
+    done
+    return 1
+}
+
+# Capture the ref-update list so it can be both inspected here and replayed to
+# the checker unchanged; a temp file preserves the bytes exactly (unlike $(cat)).
+# ref 更新リストを取り込み、ここでの検査とチェッカーへの再投入の両方に使う。
+# 一時ファイルなら $(cat) と違いバイト列をそのまま保てる。
+tmp=$(mktemp) || { echo "pre-push: mktemp failed; blocking (fail-closed)." >&2; exit 1; }
+trap 'rm -f "$tmp"' EXIT
+cat > "$tmp"
+
+# stdin lines: <local_ref> <local_sha> <remote_ref> <remote_sha>. Refuse a delete
+# (local_sha all zeros) or a non-fast-forward/force update to any protected branch.
+# stdin 各行: <local_ref> <local_sha> <remote_ref> <remote_sha>。保護ブランチへの
+# 削除(local_sha が全ゼロ)や non-fast-forward/force 更新を拒否する。
+blocked=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+    case "$remote_ref" in
+        refs/heads/* ) branch=${remote_ref#refs/heads/} ;;
+        * ) continue ;;
+    esac
+    is_protected "$branch" || continue
+
+    if is_zero_sha "$local_sha"; then
+        echo "pre-push: refusing to DELETE protected branch '$branch'." >&2
+        blocked=1
+    elif ! is_zero_sha "$remote_sha"; then
+        # exit 0 = fast-forward (ok); exit 1 = not an ancestor (force/non-ff);
+        # exit >=128 = remote object missing, cannot verify, so do not block here.
+        # 0=fast-forward(許可)、1=祖先でない(force/non-ff)、>=128=リモート
+        # オブジェクト欠落で判定不能のためここではブロックしない。
+        if git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
+            :
+        elif [ "$?" -eq 1 ]; then
+            echo "pre-push: refusing FORCE / non-fast-forward push to protected branch '$branch'." >&2
+            blocked=1
+        fi
+    fi
+done < "$tmp"
+
+if [ "$blocked" -ne 0 ]; then
+    echo "pre-push: blocked. Pushed history on protected branches must not be rewritten or deleted." >&2
+    echo "pre-push: bypass only if you are absolutely certain: git push --no-verify" >&2
+    exit 1
+fi
+
+# $1 = remote name, $2 = remote URL; the captured ref updates are replayed on
+# stdin and passed straight through to the checker. $py is intentionally
+# unquoted so "py -3" splits into command and argument.
+$py "$checker" --remote "${1:-}" --url "${2:-}" < "$tmp"
+exit $?
