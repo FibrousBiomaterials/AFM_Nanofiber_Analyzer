@@ -53,6 +53,7 @@ import numpy as np
 # ===== Project libraries =====
 from .ml_features import (
     config_from_spec, extract_pixel_features, flatten_features,
+    normalization_params,
 )
 from .ml_schema import (
     FEATURE_SPEC_MEMBER, MANIFEST_MEMBER, ONNX_MEMBER, MODEL_EXT,
@@ -156,6 +157,94 @@ class LoadedModel:
         proba = _find_probability_output(outputs)
         return _fiber_column(proba, self._session)
 
+    @property
+    def is_regression(self) -> bool:
+        """
+        Return whether this model predicts a continuous value.
+        このモデルが連続値を予測するかどうかを返す。
+        """
+        return self.task in _REGRESSION_TASKS
+
+    def predict_values(self, X: np.ndarray) -> np.ndarray:
+        """
+        Return the raw regression output for each feature row.
+        各特徴行に対する生の回帰出力を返す。
+
+        Parameters
+        ----------
+        X
+            Feature matrix of shape ``(n_samples, n_features)``.
+            形状 ``(n_samples, n_features)`` の特徴行列。
+
+        Returns
+        -------
+        numpy.ndarray
+            Shape ``(n_samples,)`` predictions in the model's training frame,
+            which for ``background_surface`` is the per-image normalized frame,
+            not nanometers. Use `predict_surface` to obtain nanometers.
+            形状 ``(n_samples,)`` の予測値。``background_surface`` では学習時の
+            フレーム（画像ごとの正規化フレーム）であり nm ではない。nm を得るには
+            `predict_surface` を使う。
+        """
+        self._ensure_session()
+        Xf = np.ascontiguousarray(X, dtype=np.float32)
+        outputs = self._session.run(None, {self._input_name: Xf})
+        values = np.asarray(outputs[0])
+        return values.reshape(-1).astype(np.float64)
+
+    def predict_surface(self, image: np.ndarray) -> np.ndarray:
+        """
+        Predict the background surface of a whole image, in nanometers.
+        画像全体の背景面を nm 単位で予測する。
+
+        Parameters
+        ----------
+        image
+            2D raw height image, aligned to the processed frame (see
+            `lib.ml_dataset` on the one-pixel trim).
+            処理後フレームに整列した 2 次元の生の高さ画像
+            （1 画素トリミングは `lib.ml_dataset` を参照）。
+
+        Returns
+        -------
+        numpy.ndarray
+            Background height in nanometers, same shape as `image`.
+            Subtracting it from `image` gives the background-corrected image.
+            `image` と同形状の nm 単位の背景高さ。`image` から差し引くと背景補正
+            済み画像が得られる。
+
+        Raises
+        ------
+        ValueError
+            If the model is not a regression model, has no feature spec, or the
+            stored spec cannot be reproduced by this release.
+            モデルが回帰モデルでない場合、特徴仕様が無い場合、または記録された
+            仕様を本リリースが再現できない場合。
+
+        Notes
+        -----
+        The estimator predicts in the per-image normalized frame the features
+        were computed in, so the prediction is converted back with the same
+        parameters recomputed from `image`. Without this the output would not
+        be in nanometers at all.
+        推定器は特徴を計算したのと同じ画像ごとの正規化フレームで予測するため、
+        `image` から再計算した同じパラメータで元に戻す。これを行わないと出力は
+        そもそも nm 単位にならない。
+        """
+        if not self.is_regression:
+            raise ValueError(
+                f"model task {self.task!r} is not a regression model; "
+                "predict_surface is for background_surface models"
+            )
+        if self.feature_spec is None:
+            raise ValueError("model has no feature spec; cannot extract features")
+        config = config_from_spec(self.feature_spec)
+        stack = extract_pixel_features(image, config)
+        feats = flatten_features(stack)
+        predicted = self.predict_values(feats)
+        center, scale = normalization_params(image, config.normalize)
+        return (predicted * scale + center).reshape(image.shape)
+
     def predict_mask(
         self,
         image: np.ndarray,
@@ -207,6 +296,132 @@ class LoadedModel:
         return mask
 
 
+# What a model of each task consumes and produces, recorded in the manifest so
+# a reader knows the meaning and unit of the input and output without guessing.
+# `background_surface` is the only regression task: it predicts a height, and
+# its prediction is returned in nanometers after the per-image normalization is
+# undone (see `LoadedModel.predict_surface`).
+# 各タスクのモデルが何を入力し何を出力するかを manifest に記録し、読み手が入力・
+# 出力の意味と単位を推測せずに済むようにする。`background_surface` のみ回帰タスク
+# で、高さを予測し、画像ごとの正規化を戻した nm 単位で返す
+# （`LoadedModel.predict_surface` 参照）。
+_TASK_SEMANTICS = {
+    "binarize": {
+        "input_semantics": "calibrated_height", "input_unit": "nm",
+        "output_semantics": "fiber_probability", "output_unit": "probability",
+    },
+    "bg_mask": {
+        "input_semantics": "raw_height", "input_unit": "nm",
+        "output_semantics": "fiber_mask_probability", "output_unit": "probability",
+    },
+    "background_surface": {
+        "input_semantics": "raw_height", "input_unit": "nm",
+        "output_semantics": "background_surface", "output_unit": "nm",
+    },
+}
+
+# Tasks whose estimator predicts a continuous value rather than class
+# probabilities; mirrors `lib.ml_dataset.REGRESSION_TASKS`.
+# クラス確率ではなく連続値を予測するタスク。`lib.ml_dataset.REGRESSION_TASKS`
+# と対応する。
+_REGRESSION_TASKS = ("background_surface",)
+
+
+def save_pixel_model(
+    path: str,
+    train_result,
+    *,
+    model_id: str,
+    dataset_provenance: Optional[List[Dict]] = None,
+    license: Optional[str] = None,
+) -> Dict:
+    """
+    Export a trained per-pixel model to a ``.afmml`` model file.
+    学習済みの画素単位モデルを ``.afmml`` モデルファイルへエクスポートする。
+
+    Handles every pixel task (``binarize``, ``bg_mask``,
+    ``background_surface``); the task comes from the training result and
+    decides the recorded semantics and whether a segmentation threshold
+    applies.
+    すべての画素タスク（``binarize``、``bg_mask``、``background_surface``）を
+    扱う。タスクは学習結果から取り、記録する意味付けと、セグメンテーション
+    しきい値が該当するかを決める。
+
+    Parameters
+    ----------
+    path
+        Output path; ``.afmml`` is appended when missing.
+        出力パス。拡張子が無ければ ``.afmml`` を付す。
+    train_result
+        `lib.ml_train.TrainResult` holding the fitted estimator, task, feature
+        spec, threshold, and cross-validation metrics.
+        学習済み推定器・タスク・特徴仕様・しきい値・交差検証指標を持つ
+        `lib.ml_train.TrainResult`。
+    model_id
+        Author-chosen identifier recorded in the manifest.
+        manifest に記録する作成者指定の識別子。
+    dataset_provenance
+        Optional per-source training-data records to summarize into the
+        manifest's training-data hash.
+        manifest の学習データハッシュへ要約する、任意の学習元記録。
+    license
+        Optional manifest license field.
+        任意の manifest ライセンスフィールド。
+
+    Returns
+    -------
+    dict
+        The manifest that was written.
+        書き込まれた manifest。
+
+    Raises
+    ------
+    ValueError
+        If the training result's task is not a known pixel task.
+        学習結果のタスクが既知の画素タスクでない場合。
+    ImportError
+        If skl2onnx is not installed.
+        skl2onnx が未導入の場合。
+    """
+    task = getattr(train_result, "task", "binarize")
+    if task not in _TASK_SEMANTICS:
+        raise ValueError(
+            f"task {task!r} is not a pixel task "
+            f"(expected one of {', '.join(_TASK_SEMANTICS)})"
+        )
+
+    n_features = int(train_result.n_features)
+    onnx_bytes = _export_estimator_to_onnx(train_result.estimator, n_features)
+
+    created = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    training_dataset_sha256 = (
+        _hash_provenance(dataset_provenance) if dataset_provenance else None
+    )
+    # A regression model has no class threshold, so the field stays absent
+    # rather than recording a value that would be meaningless on load.
+    # 回帰モデルにクラスしきい値は無いため、読み込み時に無意味な値を記録せず
+    # フィールド自体を省略する。
+    threshold = (None if task in _REGRESSION_TASKS
+                 else float(train_result.fiber_threshold))
+
+    manifest = make_manifest(
+        model_id=model_id,
+        task=task,
+        model_sha256=hashlib.sha256(onnx_bytes).hexdigest(),
+        created_utc=created,
+        training_framework="sklearn",
+        segmentation_threshold=threshold,
+        metrics=dict(train_result.cv_metrics) or None,
+        training_dataset_sha256=training_dataset_sha256,
+        license=license,
+        **_TASK_SEMANTICS[task],
+    )
+    _write_archive(
+        path, manifest, onnx_bytes, feature_spec=train_result.feature_spec
+    )
+    return manifest
+
+
 def save_binarize_model(
     path: str,
     train_result,
@@ -253,33 +468,18 @@ def save_binarize_model(
     ImportError
         If skl2onnx is not installed.
         skl2onnx が未導入の場合。
-    """
-    n_features = int(train_result.n_features)
-    onnx_bytes = _export_estimator_to_onnx(train_result.estimator, n_features)
 
-    created = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    training_dataset_sha256 = (
-        _hash_provenance(dataset_provenance) if dataset_provenance else None
+    Notes
+    -----
+    Thin wrapper over `save_pixel_model`, kept for callers that specifically
+    export a binarization model.
+    二値化モデルを明示的にエクスポートする呼び出し側のために残す
+    `save_pixel_model` の薄いラッパー。
+    """
+    return save_pixel_model(
+        path, train_result, model_id=model_id,
+        dataset_provenance=dataset_provenance, license=license,
     )
-    manifest = make_manifest(
-        model_id=model_id,
-        task="binarize",
-        model_sha256=hashlib.sha256(onnx_bytes).hexdigest(),
-        created_utc=created,
-        training_framework="sklearn",
-        input_semantics="calibrated_height",
-        input_unit="nm",
-        output_semantics="fiber_probability",
-        output_unit="probability",
-        segmentation_threshold=float(train_result.fiber_threshold),
-        metrics=dict(train_result.cv_metrics) or None,
-        training_dataset_sha256=training_dataset_sha256,
-        license=license,
-    )
-    _write_archive(
-        path, manifest, onnx_bytes, feature_spec=train_result.feature_spec
-    )
-    return manifest
 
 
 def load_model(path: str) -> LoadedModel:
@@ -377,20 +577,30 @@ def _export_estimator_to_onnx(estimator, n_features: int) -> bytes:
     Convert a fitted scikit-learn classifier to serialized ONNX bytes.
     学習済みの scikit-learn 分類器を直列化 ONNX バイト列へ変換する。
 
-    The graph takes a float32 ``(N, n_features)`` input and outputs a label and
-    a two-column probability; ``zipmap`` is disabled so the probability is a
-    plain array (not a list of dicts) for fast batched inference over pixels.
-    グラフは float32 の ``(N, n_features)`` 入力を取り、ラベルと 2 列の確率を
-    出力する。``zipmap`` は無効化し、確率を（辞書のリストではなく）素の配列に
-    して画素の高速バッチ推論に適するようにする。
+    The graph takes a float32 ``(N, n_features)`` input. A classifier outputs a
+    label and a two-column probability, with ``zipmap`` disabled so the
+    probability is a plain array (not a list of dicts) for fast batched
+    inference over pixels. A regressor outputs a single value column and
+    accepts no ``zipmap`` option, so the option is passed only for classifiers.
+    グラフは float32 の ``(N, n_features)`` 入力を取る。分類器はラベルと 2 列の
+    確率を出力し、``zipmap`` を無効化して確率を（辞書のリストではなく）素の配列に
+    し、画素の高速バッチ推論に適するようにする。回帰器は値 1 列を出力し
+    ``zipmap`` オプションを受け付けないため、このオプションは分類器にのみ渡す。
     """
     convert = _import_skl2onnx()
     to_onnx, FloatTensorType = convert
-    onnx_model = to_onnx(
-        estimator,
-        initial_types=[("X", FloatTensorType([None, n_features]))],
-        options={id(estimator): {"zipmap": False}},
-    )
+    initial_types = [("X", FloatTensorType([None, n_features]))]
+    # A classifier is the estimator that exposes predict_proba; only it accepts
+    # the zipmap option (a regressor raises NameError on it).
+    # predict_proba を持つ推定器が分類器であり、zipmap を受け付けるのはこちらのみ
+    # （回帰器では NameError になる）。
+    if hasattr(estimator, "predict_proba"):
+        onnx_model = to_onnx(
+            estimator, initial_types=initial_types,
+            options={id(estimator): {"zipmap": False}},
+        )
+    else:
+        onnx_model = to_onnx(estimator, initial_types=initial_types)
     return onnx_model.SerializeToString()
 
 

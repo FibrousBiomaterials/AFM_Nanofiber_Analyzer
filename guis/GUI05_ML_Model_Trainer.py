@@ -34,10 +34,13 @@ of scope for this version.
 PLUGIN_INFO = {
     "name": "ML Model Trainer",
     "description": (
-        "Train a machine-learning binarization model from .b2z bundles and "
-        "export it as a .afmml model file for the preprocessing pipeline. "
-        "Select folders of Image Preprocessor bundles, build a pixel dataset, "
-        "cross-validate a decision-tree classifier, and save the trained model. "
+        "Train a machine-learning preprocessing model from .b2z bundles and "
+        "export it as a .afmml model file. Choose the task: binarization, "
+        "background fiber-candidate mask, or background-surface regression "
+        "(the last two are the alternative background-correction approaches "
+        "and need the raw image in the bundle). Select folders of Image "
+        "Preprocessor bundles, build a pixel dataset, cross-validate a "
+        "decision-tree model, and save it. "
         "The ML libraries are optional and loaded only when training runs."
     )
 }
@@ -86,11 +89,31 @@ LABEL_SOURCE_LABELS = {
     "Bundle binarized (final)": "bundle_binarized",
 }
 
-# Metric keys shown in the results table, in display order. Fixed English:
-# these are scientific/reporting labels, not localized UI text.
-# 結果テーブルに表示する指標キー（表示順）。固定英語：科学的・報告用ラベルで
-# あり、ローカライズ対象の UI 文字列ではない。
+# Trainable tasks offered in the UI, mapping display label -> fixed task
+# identifier (the vocabulary is owned by lib.ml_schema). The two background
+# tasks are the alternative process-A approaches kept side by side so they can
+# be compared: `bg_mask` classifies fiber candidates and reuses the existing
+# background fill, `background_surface` regresses the background height itself.
+# UI が提示する学習可能タスク。表示ラベル -> 固定のタスク識別子（語彙は
+# lib.ml_schema が持つ）。2 つの背景タスクは比較のため併存させる工程Aの代替
+# 方式で、`bg_mask` は繊維候補を分類して既存の背景生成を再利用し、
+# `background_surface` は背景高さ自体を回帰する。
+TASK_LABELS = {
+    "Binarization (calibrated -> fiber mask)": "binarize",
+    "Background mask (raw -> fiber candidates)": "bg_mask",
+    "Background surface (raw -> background nm)": "background_surface",
+}
+
+# Tasks that regress a continuous target; mirrors lib.ml_dataset.REGRESSION_TASKS.
+# 連続値を回帰するタスク。lib.ml_dataset.REGRESSION_TASKS と対応。
+_REGRESSION_TASKS = ("background_surface",)
+
+# Metric keys shown in the results table, in display order, per task family.
+# Fixed English: these are scientific/reporting labels, not localized UI text.
+# タスク系統ごとに結果テーブルへ表示する指標キー（表示順）。固定英語：科学的・
+# 報告用ラベルであり、ローカライズ対象の UI 文字列ではない。
 _METRIC_ROWS = ("precision", "recall", "dice", "iou", "accuracy")
+_REGRESSION_METRIC_ROWS = ("mae", "rmse", "bias", "r2")
 
 
 class App(tk.Tk, LogMixin):
@@ -121,6 +144,7 @@ class App(tk.Tk, LogMixin):
         self._train_result = None
         self._dataset_provenance: Optional[List[Dict]] = None
         self._trained_kind: str = ""
+        self._trained_task: str = ""
         # False while a trained model is held in memory but not yet exported.
         # Drives the save reminders on retrain and on window close, because the
         # result lives only in memory and both actions would discard it.
@@ -220,28 +244,64 @@ class App(tk.Tk, LogMixin):
         grid = ttk.Frame(lf)
         grid.pack(fill=tk.X, padx=4, pady=4)
 
-        ttk.Label(grid, text=_("ラベルの出所")).grid(row=0, column=0, sticky="w", padx=2, pady=2)
+        ttk.Label(grid, text=_("学習するタスク")).grid(
+            row=0, column=0, sticky="w", padx=2, pady=2)
+        self.task_var = tk.StringVar(value=list(TASK_LABELS)[0])
+        task_cb = ttk.Combobox(grid, textvariable=self.task_var,
+                               values=list(TASK_LABELS), state="readonly", width=32)
+        task_cb.grid(row=0, column=1, columnspan=3, sticky="w", padx=2, pady=2)
+        task_cb.bind("<<ComboboxSelected>>", self._on_task_changed)
+        ToolTip(task_cb, _("背景マスクと背景面は工程Aの代替方式です。"
+                           "どちらも .b2z に生画像が必要です。"))
+
+        ttk.Label(grid, text=_("ラベルの出所")).grid(row=1, column=0, sticky="w", padx=2, pady=2)
         self.label_source_var = tk.StringVar(value=list(LABEL_SOURCE_LABELS)[0])
         cb = ttk.Combobox(grid, textvariable=self.label_source_var,
                           values=list(LABEL_SOURCE_LABELS), state="readonly", width=32)
-        cb.grid(row=0, column=1, columnspan=3, sticky="w", padx=2, pady=2)
+        cb.grid(row=1, column=1, columnspan=3, sticky="w", padx=2, pady=2)
+        self.label_source_combo = cb
         ToolTip(cb, _("Segmenter intermediate はモデルが置き換える成分フィルタ前のマスク、"
                       "bundle binarized は保存済みの最終マスクです。"))
 
-        ttk.Label(grid, text=_("画像あたり最大サンプル数")).grid(row=1, column=0, sticky="w", padx=2, pady=2)
+        ttk.Label(grid, text=_("画像あたり最大サンプル数")).grid(row=2, column=0, sticky="w", padx=2, pady=2)
         self.max_samples_var = tk.StringVar(value="20000")
         e1 = ttk.Entry(grid, textvariable=self.max_samples_var, width=10)
-        e1.grid(row=1, column=1, sticky="w", padx=2, pady=2)
+        e1.grid(row=2, column=1, sticky="w", padx=2, pady=2)
 
-        ttk.Label(grid, text=_("乱数シード")).grid(row=1, column=2, sticky="w", padx=2, pady=2)
+        ttk.Label(grid, text=_("乱数シード")).grid(row=2, column=2, sticky="w", padx=2, pady=2)
         self.seed_var = tk.StringVar(value="0")
         e2 = ttk.Entry(grid, textvariable=self.seed_var, width=8)
-        e2.grid(row=1, column=3, sticky="w", padx=2, pady=2)
+        e2.grid(row=2, column=3, sticky="w", padx=2, pady=2)
 
         self.balance_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(grid, text=_("画像ごとに繊維/背景を均衡させる"),
-                        variable=self.balance_var).grid(
-            row=2, column=0, columnspan=4, sticky="w", padx=2, pady=2)
+        self.balance_check = ttk.Checkbutton(
+            grid, text=_("画像ごとに繊維/背景を均衡させる"), variable=self.balance_var)
+        self.balance_check.grid(row=3, column=0, columnspan=4, sticky="w", padx=2, pady=2)
+
+        self._on_task_changed()
+
+    def _on_task_changed(self, _event=None) -> None:
+        """
+        Enable only the controls that apply to the selected task.
+        選択したタスクに該当する操作部のみを有効化する。
+
+        The label source is a binarize-only choice, and class balancing is
+        meaningless for a regression target, so both are dimmed rather than
+        silently ignored.
+        ラベルの出所は binarize 専用の選択肢であり、クラス均衡は回帰ターゲットに
+        意味がない。黙って無視せず、いずれも淡色表示にする。
+        """
+        task = TASK_LABELS[self.task_var.get()]
+        self.label_source_combo.configure(
+            state="readonly" if task == "binarize" else tk.DISABLED)
+        self.balance_check.configure(
+            state=tk.DISABLED if task in _REGRESSION_TASKS else tk.NORMAL)
+        # Re-scanning under a new task is required because usability differs
+        # (process A needs the raw image), so make the stale list obvious.
+        # タスクが変わると使用可否の条件も変わる（工程Aは生画像が必要）ため、
+        # 再走査が必要であることを分かるようにする。
+        if self.bundles:
+            self._log(_("タスクを変更しました。バンドルを再走査してください。"))
 
     def _build_model_panel(self, parent: ttk.Frame) -> None:
         """
@@ -416,13 +476,14 @@ class App(tk.Tk, LogMixin):
         走査は（numpy/pipeline、scikit-learn ではない）データセットモジュールを
         遅延 import するため、応答性を保ち ML スタックを引き込まない。
         """
+        task = TASK_LABELS[self.task_var.get()]
         label_source = LABEL_SOURCE_LABELS[self.label_source_var.get()]
         try:
             from lib import ml_dataset as md
             if is_dir:
-                infos = md.scan_bundle_folder(path, task="binarize", label_source=label_source)
+                infos = md.scan_bundle_folder(path, task=task, label_source=label_source)
             else:
-                infos = [md.inspect_bundle(path, task="binarize", label_source=label_source)]
+                infos = [md.inspect_bundle(path, task=task, label_source=label_source)]
         except Exception as exc:  # noqa: BLE001 - surface any scan failure to the user.
             messagebox.showerror(_("走査に失敗しました"), str(exc))
             return
@@ -593,6 +654,7 @@ class App(tk.Tk, LogMixin):
             return None
 
         return {
+            "task": TASK_LABELS[self.task_var.get()],
             "label_source": LABEL_SOURCE_LABELS[self.label_source_var.get()],
             "max_samples": max_samples,
             "balance": bool(self.balance_var.get()),
@@ -628,7 +690,7 @@ class App(tk.Tk, LogMixin):
             self.ui_queue.put(("log", _("{n} 個のバンドルから画素データセットを構築中...")
                                .format(n=len(paths))))
             dataset = md.build_pixel_dataset(
-                paths, task="binarize",
+                paths, task=params["task"],
                 label_source=params["label_source"],
                 max_samples_per_image=params["max_samples"],
                 balance=params["balance"],
@@ -659,6 +721,7 @@ class App(tk.Tk, LogMixin):
                 "result": result,
                 "provenance": dataset.provenance,
                 "kind": params["kind"],
+                "task": params["task"],
             }))
         except Exception as exc:  # noqa: BLE001 - report any training failure.
             self.ui_queue.put(("fatal", {
@@ -722,7 +785,7 @@ class App(tk.Tk, LogMixin):
         Prompt for a model identifier, defaulting to the classifier kind.
         モデル識別子を尋ねる。既定は分類器の種類。
         """
-        default = f"binarize-{self._trained_kind or 'model'}"
+        default = f"{self._trained_task or 'model'}-{self._trained_kind or 'rf'}"
         return simpledialog.askstring(
             _("モデル ID"), _("モデルファイルに記録する識別子:"),
             initialvalue=default, parent=self)
@@ -740,7 +803,7 @@ class App(tk.Tk, LogMixin):
                         .format(err=str(exc))}))
             return
         try:
-            manifest = mm.save_binarize_model(
+            manifest = mm.save_pixel_model(
                 path, result, model_id=model_id, dataset_provenance=provenance)
             final = path if path.lower().endswith(".afmml") else path + ".afmml"
             self.ui_queue.put(("exported", {"path": final, "model_id": manifest["model_id"]}))
@@ -806,6 +869,7 @@ class App(tk.Tk, LogMixin):
         self._train_result = result
         self._dataset_provenance = payload["provenance"]
         self._trained_kind = payload["kind"]
+        self._trained_task = payload["task"]
         self._model_saved = False
 
         self._log(_("学習完了: {n} サンプル、{g} 画像グループ。").format(
@@ -818,7 +882,9 @@ class App(tk.Tk, LogMixin):
         cv = result.cv_metrics
         if not cv:
             self._log(_("交差検証をスキップしました（画像グループが 2 つ以上必要）。"))
-        for metric in _METRIC_ROWS:
+        rows = (_REGRESSION_METRIC_ROWS
+                if self._trained_task in _REGRESSION_TASKS else _METRIC_ROWS)
+        for metric in rows:
             mean = cv.get(f"{metric}_mean")
             std = cv.get(f"{metric}_std")
             if mean is None:

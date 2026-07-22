@@ -424,6 +424,65 @@ def flatten_features(stack: np.ndarray) -> np.ndarray:
     return stack.reshape(h * w, f)
 
 
+def normalization_params(
+    image: np.ndarray, method: str = "median_mad"
+) -> Tuple[float, float]:
+    """
+    Return the per-image ``(center, scale)`` used to normalize an image.
+    画像の正規化に用いる ``(center, scale)`` を返す。
+
+    Normalization is ``(image - center) / scale``, so a value predicted in the
+    normalized frame is converted back with ``value * scale + center``. A
+    regression target (e.g. the background surface in nanometers) must be
+    expressed in the same frame as the features and converted back on output:
+    the features are per-image normalized, so a model trained against absolute
+    nanometers would be asked to infer an absolute level that the normalized
+    features no longer carry.
+    正規化は ``(image - center) / scale`` であり、正規化フレームで予測した値は
+    ``value * scale + center`` で戻す。回帰ターゲット（例：nm 単位の背景面）は
+    特徴と同じフレームで表し、出力時に戻す必要がある。特徴は画像ごとに正規化
+    されるため、絶対 nm を学習対象にすると、正規化後の特徴がもはや持たない絶対
+    水準の推定をモデルに求めることになる。
+
+    Parameters
+    ----------
+    image
+        2D image the parameters are computed from.
+        パラメータを計算する対象の 2 次元画像。
+    method
+        Normalization scheme; see `PixelFeatureConfig.normalize`.
+        正規化方式。`PixelFeatureConfig.normalize` を参照。
+
+    Returns
+    -------
+    tuple of float
+        ``(center, scale)``; ``(0.0, 1.0)`` when normalization is disabled.
+        ``(center, scale)``。正規化を行わない場合は ``(0.0, 1.0)``。
+
+    Raises
+    ------
+    ValueError
+        If `method` is unknown.
+        `method` が未知の場合。
+    """
+    if method == "none":
+        return 0.0, 1.0
+    if method == "median_mad":
+        work = np.asarray(image, dtype=np.float64)
+        if not np.isfinite(work).all():
+            work = np.nan_to_num(work, nan=0.0, posinf=0.0, neginf=0.0)
+        center = float(np.median(work))
+        mad = float(np.median(np.abs(work - center)))
+        # The epsilon is part of the divisor actually used, so include it here
+        # to keep the inverse exact.
+        # イプシロンは実際に使う除数の一部なので、逆変換を厳密に保つため含める。
+        scale = mad * _MAD_TO_STD + _NORM_EPS
+        return center, scale
+    raise ValueError(
+        f"unknown normalize method {method!r} (expected 'median_mad' or 'none')"
+    )
+
+
 def _normalize(image: np.ndarray, method: str) -> np.ndarray:
     """
     Apply per-image normalization.
@@ -439,14 +498,8 @@ def _normalize(image: np.ndarray, method: str) -> np.ndarray:
     """
     if method == "none":
         return image
-    if method == "median_mad":
-        median = float(np.median(image))
-        mad = float(np.median(np.abs(image - median)))
-        scale = mad * _MAD_TO_STD
-        return (image - median) / (scale + _NORM_EPS)
-    raise ValueError(
-        f"unknown normalize method {method!r} (expected 'median_mad' or 'none')"
-    )
+    center, scale = normalization_params(image, method)
+    return (image - center) / scale
 
 
 def _hessian_eigenvalues(image: np.ndarray, sigma: float) -> Tuple[np.ndarray, np.ndarray]:

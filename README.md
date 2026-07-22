@@ -41,13 +41,14 @@ GUIs read those bundles directly.
 | `guis/GUI02_PlotProfiler.py` | Plot Profiler | Load raw, calibrated, or bundled AFM height data and interactively extract height profiles along selected line segments. The scale defaults to the recorded (`.b2z`), header (text/CSV), or channel-extent (`.gwy`) scan size so profile distances are reproducible. |
 | `guis/GUI03_Fiber_Height_Histogram.py` | Fiber Height Histogram | Compare height distributions from skeletonized fiber pixels across user-defined groups of `.b2z` bundles. |
 | `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | Load `.b2z` bundles, rebuild tracked `Fiber` objects, inspect individual fibers, export plots, and export fiber statistics to CSV. An optional fiber-connection mode (toggle plus a settings window) reconnects skeleton fragments split at crossings and branches into whole fibrils before measurement. The connection and height-filter modes compose in "connect, then filter" order: when both are on, the height filter slices each connected fibril by its own height profile (including bridge heights), so the two are not mutually exclusive. |
-| `guis/GUI05_ML_Model_Trainer.py` | ML Model Trainer | Build a per-pixel training dataset from `.b2z` bundles, cross-validate a decision-tree binarization classifier, and export it as an `.afmml` model file. Part of the optional, experimental machine-learning workflow; the ML dependencies (see below) are loaded only when a training run starts. |
-| `guis/GUI06_ML_Model_Compare.py` | ML Model Compare | Apply a trained `.afmml` binarization model to `.b2z` bundles and compare its mask against the classical reference mask with Dice / IoU / agreement metrics. Use it to judge whether a model is worth integrating before adding it to the preprocessing pipeline. |
+| `guis/GUI05_ML_Model_Trainer.py` | ML Model Trainer | Build a per-pixel training dataset from `.b2z` bundles, cross-validate a decision-tree model, and export it as an `.afmml` model file. Three tasks are selectable: binarization, background fiber-candidate mask, and background-surface regression. The two background tasks are the alternative background-correction approaches, kept side by side so they can be compared; both read the raw height image, so their bundles need the optional `original` key (written with `save_original`) or the raw input file beside the bundle. Part of the optional, experimental machine-learning workflow; the ML dependencies (see below) are loaded only when a training run starts. |
+| `guis/GUI06_ML_Model_Compare.py` | ML Model Compare | Apply a trained `.afmml` model to `.b2z` bundles and compare it against the classical result. Binarization and background-mask models are scored mask-to-mask with Dice / IoU / agreement; a background-surface model is scored in nanometers against the surface the pipeline subtracted. Use it to judge whether a model is worth integrating before adding it to the preprocessing pipeline. |
 
 The ML Model Trainer and ML Model Compare are an **optional, experimental**
 addition. The classical preprocessing pipeline (GUI01–GUI04 and `cli.py`) runs
 without any machine-learning dependency; the ML tools inspect binarization as a
-learnable pixel-classification step and stay fully opt-in.
+learnable pixel-classification step -- and background correction as either
+a mask-classification or a surface-regression step -- and stay fully opt-in.
 
 ## Selected Directory Structure
 
@@ -134,11 +135,11 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
 | `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
 | `lib/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
-| `lib/ml_dataset.py` | Build per-pixel training datasets from `.b2z` bundles for the ML binarization model, with per-image grouping and class balancing. Depends only on NumPy and the pipeline (no scikit-learn). |
+| `lib/ml_dataset.py` | Build per-pixel training datasets from `.b2z` bundles for each ML task (binarization, background mask, background surface), with per-image grouping, class balancing, and the one-pixel raw/processed alignment. Depends only on NumPy and the pipeline (no scikit-learn). |
 | `lib/ml_features.py` | Per-pixel multi-scale feature extraction (smoothed height, gradient, Laplacian, Hessian eigenvalues) with per-image robust normalization, shared by the ML preprocessing stages. |
 | `lib/ml_model.py` | Save, load, and run `.afmml` model files: export a trained classifier to ONNX, pack it with its manifest, and run ONNX inference. Verifies the manifest, ONNX SHA-256, and feature spec on load; imports the ML runtime lazily. |
 | `lib/ml_schema.py` | Executable `.afmml` model-file contract: archive layout, manifest keys, task/framework vocabularies, and `validate_manifest`. Depends only on the standard library. |
-| `lib/ml_train.py` | Train and group-aware cross-validate the decision-tree binarization classifier (`RandomForest` / `HistGradientBoosting`); scikit-learn is a training-only dependency. |
+| `lib/ml_train.py` | Train and group-aware cross-validate the decision-tree models (`RandomForest` / `HistGradientBoosting`), as a classifier or, for the background surface, a regressor; scikit-learn is a training-only dependency. |
 | `lib/pipeline.py` | `ProcParams` parameter schema, stage construction, and `process_file`, the GUI-independent pipeline driver shared by GUI01 and `cli.py`; the `.b2z` contract itself lives in `lib/bundle_schema.py`. |
 | `lib/processed_image.py` | `ProcessedImage`, the container passed through the GUI01 preprocessing pipeline. |
 | `lib/segmenter.py` | `Segmenter`, which builds binary nanofiber masks from calibrated AFM images. |

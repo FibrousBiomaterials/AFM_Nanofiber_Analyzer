@@ -32,10 +32,12 @@ import する。したがって本プラグインはそれら無しで起動し�
 PLUGIN_INFO = {
     "name": "ML Model Compare",
     "description": (
-        "Apply a trained .afmml binarization model to .b2z bundles and compare "
-        "its mask against the classical reference mask, with Dice / IoU / "
-        "agreement metrics. Use this to check whether an ML model is worth "
-        "integrating before adding it to the preprocessing pipeline. "
+        "Apply a trained .afmml preprocessing model to .b2z bundles and compare "
+        "it against the classical result. A binarization or background-mask "
+        "model is scored mask-to-mask with Dice / IoU / agreement; a "
+        "background-surface model is scored in nanometers against the surface "
+        "the pipeline subtracted. Use this to check whether an ML model is "
+        "worth integrating before adding it to the preprocessing pipeline. "
         "The ML libraries are optional and loaded only when a model is applied."
     )
 }
@@ -85,6 +87,9 @@ REFERENCE_LABELS = {
 # サブプロットのタイトルは固定英語のプロット文字（科学的・プロットラベルの
 # UI 文字列方針によりローカライズしない）。
 _PANEL_TITLES = ("Calibrated", "ML mask", "Classical", "Difference")
+_REGRESSION_PANEL_TITLES = (
+    "Raw height", "ML background (nm)", "Classical background (nm)",
+    "Difference (nm)")
 
 
 class App(tk.Tk, LogMixin):
@@ -312,7 +317,8 @@ class App(tk.Tk, LogMixin):
             return
         try:
             from lib import ml_model as mm
-            from lib.ml_schema import SEGMENTATION_TASKS, validate_manifest
+            from lib.ml_schema import (
+                BACKGROUND_TASKS, SEGMENTATION_TASKS, validate_manifest)
         except ImportError as exc:
             messagebox.showerror(
                 _("エラー"),
@@ -325,11 +331,14 @@ class App(tk.Tk, LogMixin):
             messagebox.showerror(_("読み込みに失敗しました"), str(exc))
             return
 
-        # Only a binarization model belongs in this comparison; reject others
-        # with a message naming the accepted task, not a silent wrong result.
-        # この比較には二値化モデルのみが適する。他は受理タスクを明示して拒否し、
-        # 黙って誤った結果を出さない。
-        problems = validate_manifest(model.manifest, require_task=SEGMENTATION_TASKS)
+        # Every per-pixel model can be compared here; a fragment-pair
+        # (`connect`) model cannot, and is rejected with a message naming the
+        # accepted tasks rather than producing a silently wrong result.
+        # 画素単位モデルはいずれもここで比較できる。断片ペア（`connect`）モデルは
+        # 比較できないため、受理タスクを明示して拒否し、黙って誤った結果を
+        # 出さない。
+        accepted = tuple(SEGMENTATION_TASKS) + tuple(BACKGROUND_TASKS)
+        problems = validate_manifest(model.manifest, require_task=accepted)
         if problems:
             messagebox.showerror(_("モデルが不適切"), "; ".join(problems))
             return
@@ -500,6 +509,44 @@ class App(tk.Tk, LogMixin):
             args=(path, reference, threshold), daemon=True).start()
         self.after(60, self._poll_ui_queue)
 
+    def _compare_one(
+        self, path: str, reference: str, threshold: Optional[float]
+    ) -> Dict:
+        """
+        Apply the model to one bundle and score it against the classical result.
+        1 バンドルへモデルを適用し、古典的な結果と照合して採点する。
+
+        Dispatches on the model's task: a classifier is compared mask-to-mask,
+        while the background-surface regressor is compared in nanometers
+        against the surface the pipeline actually subtracted.
+        モデルのタスクで振り分ける。分類器はマスク同士で比較し、背景面回帰器は
+        パイプラインが実際に差し引いた背景面と nm 単位で比較する。
+        """
+        from lib import ml_dataset as md
+
+        task = self._model.task
+        image, classical = md.load_image_and_label(
+            path, task=task, label_source=reference)
+
+        if self._model.is_regression:
+            predicted = self._model.predict_surface(image)
+            metrics = _surface_metrics(predicted, classical)
+            panels = (image, predicted, classical, predicted - classical)
+        else:
+            predicted = self._model.predict_mask(image, threshold=threshold)
+            classical = classical.astype(bool)
+            metrics = _mask_metrics(predicted, classical)
+            panels = (image, predicted, classical,
+                      predicted.astype(np.int8) - classical.astype(np.int8))
+
+        return {
+            "name": os.path.basename(path),
+            "task": task,
+            "regression": self._model.is_regression,
+            "panels": panels,
+            "metrics": metrics,
+        }
+
     def _worker_compare_one(
         self, path: str, reference: str, threshold: Optional[float]
     ) -> None:
@@ -515,18 +562,8 @@ class App(tk.Tk, LogMixin):
                         .format(err=str(exc))}))
             return
         try:
-            calibrated, classical = md.load_image_and_label(
-                path, task="binarize", label_source=reference)
-            ml_mask = self._model.predict_mask(calibrated, threshold=threshold)
-            classical_bool = classical.astype(bool)
-            metrics = _mask_metrics(ml_mask, classical_bool)
-            self.ui_queue.put(("compared_one", {
-                "name": os.path.basename(path),
-                "calibrated": calibrated,
-                "ml_mask": ml_mask,
-                "classical": classical_bool,
-                "metrics": metrics,
-            }))
+            payload = self._compare_one(path, reference, threshold)
+            self.ui_queue.put(("compared_one", payload))
         except Exception as exc:  # noqa: BLE001 - report any comparison failure.
             self.ui_queue.put(("fatal", {
                 "text": str(exc), "trace": traceback.format_exc()}))
@@ -574,14 +611,11 @@ class App(tk.Tk, LogMixin):
         for i, path in enumerate(paths, start=1):
             name = os.path.basename(path)
             try:
-                calibrated, classical = md.load_image_and_label(
-                    path, task="binarize", label_source=reference)
-                ml_mask = self._model.predict_mask(calibrated, threshold=threshold)
-                metrics = _mask_metrics(ml_mask, classical.astype(bool))
+                metrics = self._compare_one(path, reference, threshold)["metrics"]
                 metrics["name"] = name
                 per_image.append(metrics)
-                self.ui_queue.put(("log", _("[{i}/{n}] {name}: dice={d:.4f}").format(
-                    i=i, n=len(paths), name=name, d=metrics["dice"])))
+                self.ui_queue.put(("log", _("[{i}/{n}] {name}: {s}").format(
+                    i=i, n=len(paths), name=name, s=_summarize_metrics(metrics))))
             except Exception as exc:  # noqa: BLE001 - skip a failed bundle, keep going.
                 self.ui_queue.put(("log", _("[{i}/{n}] {name}: スキップ（{err}）").format(
                     i=i, n=len(paths), name=name, err=str(exc))))
@@ -633,31 +667,40 @@ class App(tk.Tk, LogMixin):
         Draw the calibrated image, both masks, and their difference.
         補正画像・両マスク・その差分を描画する。
         """
-        calibrated = payload["calibrated"]
-        ml_mask = payload["ml_mask"]
-        classical = payload["classical"]
-        # Difference: +1 where only the model marks fiber, -1 where only the
-        # classical mask does; a diverging map makes each kind of disagreement
-        # visible at a glance.
-        # 差分：モデルのみが繊維とする画素を +1、古典のみを -1 とする。発散型
-        # カラーマップで各種の不一致が一目で分かる。
-        diff = ml_mask.astype(np.int8) - classical.astype(np.int8)
+        image, predicted, classical, diff = payload["panels"]
+        regression = payload.get("regression", False)
+        titles = _REGRESSION_PANEL_TITLES if regression else _PANEL_TITLES
 
         # compute_auto_vrange always returns an int (vmin, vmax), falling back
         # to DEFAULT_VMIN/DEFAULT_VMAX for empty or all-NaN images.
         # compute_auto_vrange は常に int の (vmin, vmax) を返し、空または全 NaN の
         # 画像では DEFAULT_VMIN/DEFAULT_VMAX にフォールバックする。
-        vmin, vmax = compute_auto_vrange(calibrated)
+        vmin, vmax = compute_auto_vrange(image)
 
-        panels = (calibrated, ml_mask, classical, diff)
-        for ax, title, data in zip(self.axes.ravel(), _PANEL_TITLES, panels):
+        span, s_min, s_max = 1.0, 0.0, 1.0
+        if regression:
+            # The two surfaces share one range so they are visually comparable,
+            # and the difference gets a symmetric range centred on zero so that
+            # over- and under-estimation are distinguishable by colour.
+            # 2 枚の背景面は視覚的に比較できるよう同一レンジを共有し、差分は
+            # ゼロ中心の対称レンジとして過大推定と過小推定を色で区別できるようにする。
+            both = np.concatenate([np.ravel(predicted), np.ravel(classical)])
+            s_min, s_max = float(np.min(both)), float(np.max(both))
+            span = float(np.max(np.abs(diff))) or 1.0
+
+        for ax, title, data in zip(
+            self.axes.ravel(), titles, (image, predicted, classical, diff)
+        ):
             ax.clear()
             ax.set_title(title)
             ax.axis("off")
-            if title == "Calibrated":
+            if title in ("Calibrated", "Raw height"):
                 ax.imshow(data, cmap="afmhot", vmin=vmin, vmax=vmax)
-            elif title == "Difference":
-                ax.imshow(data, cmap="bwr", vmin=-1, vmax=1)
+            elif title.startswith("Difference"):
+                limit = span if regression else 1
+                ax.imshow(data, cmap="bwr", vmin=-limit, vmax=limit)
+            elif regression:
+                ax.imshow(data, cmap="afmhot", vmin=s_min, vmax=s_max)
             else:
                 ax.imshow(data, cmap="gray", vmin=0, vmax=1)
         self.fig.tight_layout()
@@ -671,12 +714,19 @@ class App(tk.Tk, LogMixin):
         # Metric names (dice, iou, ...) are fixed English; the header line is
         # localized. Keep the model-vs-classical framing explicit.
         # 指標名（dice, iou, ...）は固定英語。見出し行はローカライズする。
-        lines = [_("選択中: {name}").format(name=name),
-                 "  dice={dice:.4f}  iou={iou:.4f}".format(**metrics),
-                 "  agreement={agreement:.4f}  ".format(**metrics)
-                 + "ml_fiber={ml_fiber:.4f}  classical_fiber={cl_fiber:.4f}".format(
-                     ml_fiber=metrics["ml_fiber_frac"],
-                     cl_fiber=metrics["classical_fiber_frac"])]
+        lines = [_("選択中: {name}").format(name=name)]
+        if "dice" in metrics:
+            lines.append("  dice={dice:.4f}  iou={iou:.4f}".format(**metrics))
+            lines.append(
+                "  agreement={agreement:.4f}  ".format(**metrics)
+                + "ml_fiber={ml_fiber:.4f}  classical_fiber={cl_fiber:.4f}".format(
+                    ml_fiber=metrics["ml_fiber_frac"],
+                    cl_fiber=metrics["classical_fiber_frac"]))
+        else:
+            lines.append(
+                "  mae={mae_nm:.3f} nm  rmse={rmse_nm:.3f} nm".format(**metrics))
+            lines.append(
+                "  bias={bias_nm:+.3f} nm  max_abs={max_abs_nm:.3f} nm".format(**metrics))
         self._set_metrics_text("\n".join(lines))
 
     def _show_aggregate_metrics(self, per_image: List[Dict]) -> None:
@@ -685,22 +735,38 @@ class App(tk.Tk, LogMixin):
         画像ごと一致指標の平均/最小/最大を表示する。
         """
         self._aggregate = per_image
-        dice = np.array([m["dice"] for m in per_image], dtype=float)
-        iou = np.array([m["iou"] for m in per_image], dtype=float)
-        agree = np.array([m["agreement"] for m in per_image], dtype=float)
-        lines = [
-            _("{n} 画像の集計:").format(n=len(per_image)),
-            "  dice  mean={:.4f}  min={:.4f}  max={:.4f}".format(
-                dice.mean(), dice.min(), dice.max()),
-            "  iou   mean={:.4f}  min={:.4f}  max={:.4f}".format(
-                iou.mean(), iou.min(), iou.max()),
-            "  agreement mean={:.4f}".format(agree.mean()),
-            "",
-            _("dice 下位 3 件:"),
-        ]
-        worst = sorted(per_image, key=lambda m: m["dice"])[:3]
-        for m in worst:
-            lines.append("  {name}: dice={dice:.4f}".format(**m))
+        lines = [_("{n} 画像の集計:").format(n=len(per_image))]
+        if "dice" in per_image[0]:
+            dice = np.array([m["dice"] for m in per_image], dtype=float)
+            iou = np.array([m["iou"] for m in per_image], dtype=float)
+            agree = np.array([m["agreement"] for m in per_image], dtype=float)
+            lines += [
+                "  dice  mean={:.4f}  min={:.4f}  max={:.4f}".format(
+                    dice.mean(), dice.min(), dice.max()),
+                "  iou   mean={:.4f}  min={:.4f}  max={:.4f}".format(
+                    iou.mean(), iou.min(), iou.max()),
+                "  agreement mean={:.4f}".format(agree.mean()),
+                "",
+                _("dice 下位 3 件:"),
+            ]
+            worst = sorted(per_image, key=lambda m: m["dice"])[:3]
+            for m in worst:
+                lines.append("  {name}: dice={dice:.4f}".format(**m))
+        else:
+            mae = np.array([m["mae_nm"] for m in per_image], dtype=float)
+            rmse = np.array([m["rmse_nm"] for m in per_image], dtype=float)
+            bias = np.array([m["bias_nm"] for m in per_image], dtype=float)
+            lines += [
+                "  mae  mean={:.3f} nm  min={:.3f}  max={:.3f}".format(
+                    mae.mean(), mae.min(), mae.max()),
+                "  rmse mean={:.3f} nm".format(rmse.mean()),
+                "  bias mean={:+.3f} nm".format(bias.mean()),
+                "",
+                _("mae 上位 3 件:"),
+            ]
+            worst = sorted(per_image, key=lambda m: -m["mae_nm"])[:3]
+            for m in worst:
+                lines.append("  {name}: mae={mae_nm:.3f} nm".format(**m))
         self._set_metrics_text("\n".join(lines))
         self._log(_("全比較完了: {n} 画像。").format(n=len(per_image)))
 
@@ -720,6 +786,38 @@ class App(tk.Tk, LogMixin):
         現在の比較図を共有ヘルパー経由で保存する。
         """
         save_figure_with_dialog(self, self.fig, initial_name="ml_comparison")
+
+
+def _surface_metrics(predicted: np.ndarray, classical: np.ndarray) -> Dict:
+    """
+    Compare a predicted background surface with the pipeline's, in nanometers.
+    予測した背景面をパイプラインのものと nm 単位で比較する。
+
+    Reported in the target's own unit so the numbers read directly as the height
+    error the correction would introduce. ``bias`` is the signed mean error: a
+    nonzero bias shifts every corrected height, which matters more for fiber
+    height measurement than a symmetric spread of the same magnitude.
+    ターゲット自身の単位で報告し、補正が持ち込む高さ誤差としてそのまま読める
+    ようにする。``bias`` は符号付き平均誤差で、ゼロでない偏りは補正後の全高さを
+    ずらす。これは同じ大きさの対称的なばらつきより繊維高さ計測に効く。
+    """
+    diff = np.asarray(predicted, dtype=float) - np.asarray(classical, dtype=float)
+    return {
+        "mae_nm": float(np.mean(np.abs(diff))),
+        "rmse_nm": float(np.sqrt(np.mean(diff ** 2))),
+        "bias_nm": float(np.mean(diff)),
+        "max_abs_nm": float(np.max(np.abs(diff))) if diff.size else 0.0,
+    }
+
+
+def _summarize_metrics(metrics: Dict) -> str:
+    """
+    Format a one-line summary of whichever metric family a result carries.
+    結果が持つ指標系統に応じた 1 行要約を整形する。
+    """
+    if "dice" in metrics:
+        return "dice={:.4f}".format(metrics["dice"])
+    return "mae={:.3f} nm".format(metrics.get("mae_nm", float("nan")))
 
 
 def _mask_metrics(ml_mask: np.ndarray, classical: np.ndarray) -> Dict:

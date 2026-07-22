@@ -66,14 +66,18 @@ import numpy as np
 # 唯一の目的が学習のため module 冒頭で import する。したがって GUI は
 # lib.ml_train を遅延 import すること（利用者が学習を開始したときのみ）。
 # プラグイン起動時に scikit-learn の import コストを払わせないため。
-from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
+from sklearn.ensemble import (
+    HistGradientBoostingClassifier, HistGradientBoostingRegressor,
+    RandomForestClassifier, RandomForestRegressor,
+)
 from sklearn.metrics import (
-    f1_score, jaccard_score, precision_score, recall_score,
+    f1_score, jaccard_score, mean_absolute_error, mean_squared_error,
+    precision_score, r2_score, recall_score,
 )
 from sklearn.model_selection import GroupKFold
 
 # ===== Project libraries =====
-from .ml_dataset import LABEL_FIBER, PixelDataset
+from .ml_dataset import LABEL_FIBER, PixelDataset, is_regression_task
 
 # Classifier kinds. Fixed English identifiers recorded with a model; do not
 # translate. `random_forest` is the default baseline; `hist_gradient_boosting`
@@ -196,40 +200,61 @@ class TrainResult:
     n_features: int = 0
     n_groups: int = 0
     fiber_threshold: float = DEFAULT_FIBER_THRESHOLD
+    task: str = "binarize"
+
+    @property
+    def is_regression(self) -> bool:
+        """
+        Return whether this model predicts a continuous value.
+        このモデルが連続値を予測するかどうかを返す。
+        """
+        return is_regression_task(self.task)
 
 
-def build_estimator(config: ModelConfig):
+def build_estimator(config: ModelConfig, *, regression: bool = False):
     """
-    Construct an unfitted scikit-learn classifier from a config.
-    設定から未学習の scikit-learn 分類器を構築する。
+    Construct an unfitted scikit-learn estimator from a config.
+    設定から未学習の scikit-learn 推定器を構築する。
 
     Parameters
     ----------
     config
-        Classifier choice and hyperparameters.
-        分類器の選択とハイパーパラメータ。
+        Estimator choice and hyperparameters.
+        推定器の選択とハイパーパラメータ。
+    regression
+        Build a regressor (continuous target, e.g. ``background_surface``)
+        instead of a classifier. The tree ensemble is otherwise identical, so
+        the same hyperparameters apply to both.
+        分類器ではなく回帰器（連続値ターゲット、例：``background_surface``）を
+        構築する。それ以外は同じ決定木アンサンブルであり、同じハイパー
+        パラメータが両方に適用される。
 
     Returns
     -------
-    sklearn.base.ClassifierMixin
-        An estimator exposing ``fit`` and ``predict_proba``.
-        ``fit`` と ``predict_proba`` を備えた推定器。
+    sklearn.base.BaseEstimator
+        An estimator exposing ``fit`` plus ``predict_proba`` (classifier) or
+        ``predict`` (regressor).
+        ``fit`` と、``predict_proba``（分類器）または ``predict``（回帰器）を
+        備えた推定器。
 
     Raises
     ------
     ValueError
-        If `config.kind` is not a known classifier.
-        `config.kind` が既知の分類器でない場合。
+        If `config.kind` is not a known estimator kind.
+        `config.kind` が既知の推定器種別でない場合。
     """
     if config.kind == MODEL_RANDOM_FOREST:
-        return RandomForestClassifier(
+        cls = RandomForestRegressor if regression else RandomForestClassifier
+        return cls(
             n_estimators=config.n_estimators,
             max_depth=config.max_depth,
             random_state=config.random_state,
             n_jobs=config.n_jobs,
         )
     if config.kind == MODEL_HIST_GRADIENT_BOOSTING:
-        return HistGradientBoostingClassifier(
+        cls = (HistGradientBoostingRegressor if regression
+               else HistGradientBoostingClassifier)
+        return cls(
             max_iter=config.max_iter,
             max_depth=config.max_depth,
             learning_rate=config.learning_rate,
@@ -297,6 +322,7 @@ def train(
         if progress_cb is not None:
             progress_cb(stage)
 
+    regression = dataset.is_regression
     n_groups = len(np.unique(dataset.groups))
     fold_metrics = cross_validate(
         dataset, config, n_splits=n_splits, fiber_threshold=fiber_threshold,
@@ -304,7 +330,7 @@ def train(
     )
 
     report("final_fit")
-    estimator = build_estimator(config)
+    estimator = build_estimator(config, regression=regression)
     estimator.fit(dataset.X, dataset.y)
 
     importances: Dict[str, float] = {}
@@ -327,6 +353,7 @@ def train(
         n_features=int(dataset.X.shape[1]),
         n_groups=n_groups,
         fiber_threshold=fiber_threshold,
+        task=dataset.task,
     )
 
 
@@ -379,6 +406,7 @@ def cross_validate(
         # 1 つでは、漏れなく検証する対象が無い。
         return []
 
+    regression = dataset.is_regression
     splits = min(n_splits, n_groups)
     gkf = GroupKFold(n_splits=splits)
 
@@ -388,11 +416,16 @@ def cross_validate(
     ):
         if progress_cb is not None:
             progress_cb(f"cv_fold_{i}_of_{splits}")
-        estimator = build_estimator(config)
+        estimator = build_estimator(config, regression=regression)
         estimator.fit(dataset.X[train_idx], dataset.y[train_idx])
         y_true = dataset.y[val_idx]
-        y_pred = _predict_labels(estimator, dataset.X[val_idx], fiber_threshold)
-        fold_metrics.append(_binary_metrics(y_true, y_pred))
+        if regression:
+            y_pred = estimator.predict(dataset.X[val_idx])
+            fold_metrics.append(_regression_metrics(y_true, y_pred))
+        else:
+            y_pred = _predict_labels(
+                estimator, dataset.X[val_idx], fiber_threshold)
+            fold_metrics.append(_binary_metrics(y_true, y_pred))
 
     return fold_metrics
 
@@ -444,6 +477,31 @@ def _binary_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
         "dice": float(f1_score(y_true, y_pred, pos_label=LABEL_FIBER, zero_division=0)),
         "iou": float(jaccard_score(y_true, y_pred, pos_label=LABEL_FIBER, zero_division=0)),
         "accuracy": float(np.mean(y_true == y_pred)),
+    }
+
+
+def _regression_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+    """
+    Compute background-surface regression metrics for one fold.
+    1 フォールド分の背景面回帰指標を計算する。
+
+    ``mae`` and ``rmse`` are in the target's own unit -- nanometers for
+    ``background_surface`` -- so they read directly as the height error the
+    correction would introduce. ``bias`` is the signed mean error: a nonzero
+    bias shifts the whole corrected image up or down, which matters more for
+    height measurement than a symmetric spread of the same size.
+    ``mae`` と ``rmse`` はターゲット自身の単位（``background_surface`` では nm）
+    なので、補正が持ち込む高さ誤差としてそのまま読める。``bias`` は符号付きの
+    平均誤差で、ゼロでない偏りは補正後画像全体を上下にずらす。これは同じ大きさの
+    対称的なばらつきよりも高さ計測に効く。
+    """
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+    return {
+        "mae": float(mean_absolute_error(y_true, y_pred)),
+        "rmse": float(np.sqrt(mean_squared_error(y_true, y_pred))),
+        "bias": float(np.mean(y_pred - y_true)),
+        "r2": float(r2_score(y_true, y_pred)),
     }
 
 
