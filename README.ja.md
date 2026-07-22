@@ -41,6 +41,7 @@ GUI01 は解析対象の入力ファイルごとに、圧縮された `.b2z` バ
 | `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | `.b2z` バンドルを読み込み、追跡済み `Fiber` オブジェクトを再構築し、個別ファイバーの確認、図の出力、ファイバー統計量の CSV 出力を行います。任意のファイバー連結モード（トグルと設定ウインドウ）では、交差・分岐で分断された骨格断片を計測前に 1 本のフィブリルへ再結合します。連結モードと高さフィルターは「連結してからフィルター」の順序で合成され、両方を有効にすると高さフィルターは連結済みフィブリルを自身の高さプロファイル（橋渡し部を含む）で切り出すため、両者は排他ではありません。 |
 | `guis/GUI05_ML_Model_Trainer.py` | ML Model Trainer | `.b2z` バンドルから画素単位の教師データを構築し、決定木モデルを交差検証して、`.afmml` モデルファイルとしてエクスポートします。タスクは二値化・背景の繊維候補マスク・背景面回帰の 3 つから選択できます。背景系の 2 タスクは背景補正の代替方式で、比較できるよう併存させています。いずれも生の高さ画像を読むため、対象バンドルには任意キー `original`（`save_original` 指定時に書かれる）か、バンドルの隣にある生の入力ファイルが必要です。任意・実験的な機械学習ワークフローの一部で、機械学習依存（後述）は学習実行時のみ読み込まれます。 |
 | `guis/GUI06_ML_Model_Compare.py` | ML Model Compare | 学習済みの `.afmml` モデルを `.b2z` バンドルへ適用し、古典的な結果と比較します。二値化モデルと背景マスクモデルは Dice / IoU / 一致率でマスク同士を、背景面モデルはパイプラインが差し引いた背景面と nm 単位で採点します。モデルを前処理パイプラインへ組み込む前に、統合する価値があるかを判断するために使います。 |
+| `guis/GUI07_ML_Connect_Annotator.py` | ML Connect Annotator | `.b2z` バンドル内のファイバー連結候補を検分し、どの断片端が同一フィブリルに属するかを記録します。候補をクリックすると判定が切り替わり、提示に無い連結を追加でき、判断はバンドルの隣の `<stem>_connect_labels.json` sidecar へ保存されます。バンドル自体は変更しません。画素モデルと異なり、このラベルはパイプラインから蒸留できません（どの断片が 1 本のフィブリルを成すかを知る規則がパイプラインに無いためです）。したがって、この人手による検分が連結モデルを学習させます。 |
 
 ML Model Trainer と ML Model Compare は **任意・実験的** な追加機能です。古典的な
 前処理パイプライン（GUI01〜GUI04 と `cli.py`）は機械学習依存なしで動作し、
@@ -72,6 +73,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- GUI04_Tracking_fiber.py
 |   |-- GUI05_ML_Model_Trainer.py
 |   |-- GUI06_ML_Model_Compare.py
+|   |-- GUI07_ML_Connect_Annotator.py
 |   `-- __init__.py
 |-- lib/
 |   |-- afm_io.py
@@ -85,6 +87,9 @@ AFM_Nanofiber_Analyzer/
 |   |-- imp_tools.py
 |   |-- kink_detector.py
 |   |-- measure.py
+|   |-- ml_connect_dataset.py
+|   |-- ml_connect_features.py
+|   |-- ml_connect_labels.py
 |   |-- ml_dataset.py
 |   |-- ml_features.py
 |   |-- ml_model.py
@@ -132,6 +137,9 @@ Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにして
 | `lib/imp_tools.py` | スケルトン形態処理、端点・分岐点検出、線追跡、経路距離変換のヘルパー。 |
 | `lib/kink_detector.py` | 追跡されたスケルトン成分からキンク点を検出する `KinkDetector`。 |
 | `lib/measure.py` | `.b2z` バンドルに対する GUI 非依存のファイバー計測。`measure_bundle`、ファイバーごとの `FiberStats`、スケルトン画素高さの収集、および GUI03/GUI04 と `cli.py` が共有する CSV 書き出し。 |
+| `lib/ml_connect_dataset.py` | バンドルとそのラベル sidecar から断片ペアの教師データセットを構築する。画像単位でグループ化し、標本になるのは判断済みの候補のみ。 |
+| `lib/ml_connect_features.py` | 候補となる断片端ペアの順序非依存な特徴抽出。隙間に沿って標本化した高さ（古典的な距離・角度ルールが使わない証拠）を含む。 |
+| `lib/ml_connect_labels.py` | 連結ラベル sidecar の実行可能な契約。判定の語彙、ハッシュによる骨格への結び付け、検証。依存は標準ライブラリと NumPy のみ。 |
 | `lib/ml_dataset.py` | ML の各タスク（二値化・背景マスク・背景面）向けに `.b2z` バンドルから画素単位の教師データを構築する。画像単位のグループ化、クラス均衡化、生画像と処理済み画像の 1 画素整列を行う。依存は NumPy とパイプラインのみ（scikit-learn 不要）。 |
 | `lib/ml_features.py` | 画素単位のマルチスケール特徴抽出（平滑化高さ・勾配・ラプラシアン・ヘッセ固有値）と画像ごとのロバスト正規化。ML 前処理ステージで共有する。 |
 | `lib/ml_model.py` | `.afmml` モデルファイルの保存・読み込み・実行。学習済み分類器を ONNX へエクスポートし manifest とともに格納し、ONNX 推論を行う。読み込み時に manifest・ONNX の SHA-256・特徴仕様を検証し、ML ランタイムは遅延 import する。 |

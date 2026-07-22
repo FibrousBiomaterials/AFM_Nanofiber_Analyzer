@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-22 12:04+0900\n"
+"POT-Creation-Date: 2026-07-22 13:50+0900\n"
 "PO-Revision-Date: 2026-04-27 14:35+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -351,7 +351,9 @@ msgstr "must be a positive number"
 #: guis/GUI04_Tracking_fiber.py:2836 guis/GUI04_Tracking_fiber.py:2839
 #: guis/GUI04_Tracking_fiber.py:2869 guis/GUI04_Tracking_fiber.py:2872
 #: guis/GUI05_ML_Model_Trainer.py:848 guis/GUI06_ML_Model_Compare.py:324
-#: guis/GUI06_ML_Model_Compare.py:648 lib/ui_tools.py:730 lib/ui_tools.py:740
+#: guis/GUI06_ML_Model_Compare.py:648 guis/GUI07_ML_Connect_Annotator.py:452
+#: guis/GUI07_ML_Connect_Annotator.py:689 lib/ui_tools.py:730
+#: lib/ui_tools.py:740
 msgid "エラー"
 msgstr "Error"
 
@@ -806,6 +808,7 @@ msgstr "Setting changes canceled"
 #: guis/GUI01_Image_Preprocessor.py:3362 guis/GUI01_Image_Preprocessor.py:3413
 #: guis/GUI03_Fiber_Height_Histogram.py:1002
 #: guis/GUI03_Fiber_Height_Histogram.py:1038
+#: guis/GUI07_ML_Connect_Annotator.py:666
 msgid "確認"
 msgstr "Confirm"
 
@@ -1118,6 +1121,7 @@ msgstr ""
 
 #: guis/GUI02_PlotProfiler.py:1457 guis/GUI03_Fiber_Height_Histogram.py:1379
 #: guis/GUI05_ML_Model_Trainer.py:848 guis/GUI06_ML_Model_Compare.py:648
+#: guis/GUI07_ML_Connect_Annotator.py:452
 msgid "不明なエラー"
 msgstr "Unknown Error"
 
@@ -2043,6 +2047,7 @@ msgstr "must be a positive number"
 
 #: guis/GUI04_Tracking_fiber.py:3308 guis/GUI05_ML_Model_Trainer.py:653
 #: guis/GUI06_ML_Model_Compare.py:500 guis/GUI06_ML_Model_Compare.py:583
+#: guis/GUI07_ML_Connect_Annotator.py:344
 msgid "入力エラー"
 msgstr "Invalid input"
 
@@ -2157,6 +2162,7 @@ msgid "特徴重要度の上位"
 msgstr "Top feature importances"
 
 #: guis/GUI05_ML_Model_Trainer.py:400 guis/GUI06_ML_Model_Compare.py:288
+#: guis/GUI07_ML_Connect_Annotator.py:306
 msgid "ログ"
 msgstr "Log"
 
@@ -2348,7 +2354,7 @@ msgstr "Images (.b2z bundles)"
 msgid "全比較"
 msgstr "Compare all"
 
-#: guis/GUI06_ML_Model_Compare.py:248
+#: guis/GUI06_ML_Model_Compare.py:248 guis/GUI07_ML_Connect_Annotator.py:295
 msgid "図を保存..."
 msgstr "Save figure..."
 
@@ -2428,6 +2434,143 @@ msgstr "Worst 3 by mae:"
 #, python-brace-format
 msgid "全比較完了: {n} 画像。"
 msgstr "Compare all complete: {n} image(s)."
+
+#: guis/GUI07_ML_Connect_Annotator.py:187
+msgid "バンドル（.b2z）"
+msgstr "Bundle (.b2z)"
+
+#: guis/GUI07_ML_Connect_Annotator.py:191
+msgid "バンドルを開く..."
+msgstr "Open bundle..."
+
+#: guis/GUI07_ML_Connect_Annotator.py:194
+msgid "未読み込み。"
+msgstr "Not loaded."
+
+#: guis/GUI07_ML_Connect_Annotator.py:200
+msgid "候補の距離上限 (px)"
+msgstr "Max candidate distance (px)"
+
+#: guis/GUI07_ML_Connect_Annotator.py:204
+msgid "この距離より近い端点の組を候補として提示します。古典的な連結器より緩くすることで、規則が捨てる正しい連結も検分できます。"
+msgstr ""
+"Pairs of endpoints closer than this are proposed as candidates. Keeping "
+"it looser than the classical connector lets correct joins the rule "
+"discards be reviewed too."
+
+#: guis/GUI07_ML_Connect_Annotator.py:213
+msgid "検分"
+msgstr "Review"
+
+#: guis/GUI07_ML_Connect_Annotator.py:237
+msgid "連結を手動で追加"
+msgstr "Add a connection by hand"
+
+#: guis/GUI07_ML_Connect_Annotator.py:241
+msgid "端点を 2 つ続けてクリックすると、候補に無い連結を追加します。距離ゲートが落とした正しい連結を教師にする唯一の方法です。"
+msgstr ""
+"Click two endpoints in turn to add a connection the proposals missed. "
+"This is the only way a correct join dropped by the distance gate becomes "
+"training data."
+
+#: guis/GUI07_ML_Connect_Annotator.py:253
+msgid "ラベルを保存"
+msgstr "Save labels"
+
+#: guis/GUI07_ML_Connect_Annotator.py:256
+msgid "残りを reject"
+msgstr "Reject the rest"
+
+#: guis/GUI07_ML_Connect_Annotator.py:259
+msgid "未判断の候補をまとめて reject にします。正しい連結に印を付け終えた後の仕上げに使います。"
+msgstr ""
+"Set every still-undecided candidate to reject. Use it to finish a review "
+"after marking the correct connections."
+
+#: guis/GUI07_ML_Connect_Annotator.py:320
+msgid "バンドルを開き、候補をクリックして判定を切り替えます。保存するとバンドルの隣にラベルファイルが書かれます。"
+msgstr ""
+"Open a bundle and click a candidate to cycle its verdict. Saving writes a"
+" label file beside the bundle."
+
+#: guis/GUI07_ML_Connect_Annotator.py:335
+msgid ".b2z バンドルを選択"
+msgstr "Select a .b2z bundle"
+
+#: guis/GUI07_ML_Connect_Annotator.py:342
+msgid "候補の距離上限は正の数にしてください。"
+msgstr "Max candidate distance must be a positive number."
+
+#: guis/GUI07_ML_Connect_Annotator.py:349
+#, python-brace-format
+msgid "{name} を読み込み中..."
+msgstr "Loading {name}..."
+
+#: guis/GUI07_ML_Connect_Annotator.py:381
+msgid "断片を再構築中..."
+msgstr "Rebuilding fragments..."
+
+#: guis/GUI07_ML_Connect_Annotator.py:482
+#, python-brace-format
+msgid "候補 {n} 件を提示しました。"
+msgstr "Proposed {n} candidate(s)."
+
+#: guis/GUI07_ML_Connect_Annotator.py:484
+#, python-brace-format
+msgid "既存ラベルから {n} 件を復元しました。"
+msgstr "Restored {n} judgement(s) from the existing labels."
+
+#: guis/GUI07_ML_Connect_Annotator.py:591
+msgid "その組はすでに候補にあります。"
+msgstr "That pair is already a candidate."
+
+#: guis/GUI07_ML_Connect_Annotator.py:601
+msgid "連結を手動で追加しました。"
+msgstr "Added a connection by hand."
+
+#: guis/GUI07_ML_Connect_Annotator.py:663
+msgid "未判断の候補はありません。"
+msgstr "There are no undecided candidates."
+
+#: guis/GUI07_ML_Connect_Annotator.py:667
+#, python-brace-format
+msgid "未判断の {n} 件を reject にします。よろしいですか。"
+msgstr "Set the {n} undecided candidate(s) to reject. Continue?"
+
+#: guis/GUI07_ML_Connect_Annotator.py:716
+msgid "保存に失敗しました"
+msgstr "Save failed"
+
+#: guis/GUI07_ML_Connect_Annotator.py:720
+#, python-brace-format
+msgid "ラベルを保存しました: {p}"
+msgstr "Saved labels: {p}"
+
+#: guis/GUI07_ML_Connect_Annotator.py:724
+msgid "保存しました"
+msgstr "Saved"
+
+#: guis/GUI07_ML_Connect_Annotator.py:725
+#, python-brace-format
+msgid ""
+"{decided} 件の判断を保存しました。\n"
+"{p}"
+msgstr ""
+"Saved {decided} judgement(s).\n"
+"{p}"
+
+#: guis/GUI07_ML_Connect_Annotator.py:753
+#, python-brace-format
+msgid "候補 {total} 件中 {decided} 件が学習に使えます。"
+msgstr "{decided} of {total} candidate(s) are usable for training."
+
+#: guis/GUI07_ML_Connect_Annotator.py:801
+msgid "未保存の判断"
+msgstr "Unsaved judgements"
+
+#: guis/GUI07_ML_Connect_Annotator.py:802
+msgid "保存していない判断があります。破棄して続行しますか。"
+msgstr "There are unsaved judgements. Discard them and continue?"
 
 #: lib/ui_tools.py:165
 msgid "ログ無し"
@@ -2642,5 +2785,14 @@ msgid ""
 "subtracted. Use this to check whether an ML model is worth integrating "
 "before adding it to the preprocessing pipeline. The ML libraries are "
 "optional and loaded only when a model is applied."
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:43
+msgid ""
+"Review fiber-connection candidates in a .b2z bundle and record which "
+"fragment ends belong to the same fibril. Click a candidate to cycle its "
+"verdict, add a connection the proposals missed, and save the judgements "
+"to a label file beside the bundle. Those labels train the connection "
+"model; the bundle itself is never modified."
 msgstr ""
 

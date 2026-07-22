@@ -43,6 +43,7 @@ GUIs read those bundles directly.
 | `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | Load `.b2z` bundles, rebuild tracked `Fiber` objects, inspect individual fibers, export plots, and export fiber statistics to CSV. An optional fiber-connection mode (toggle plus a settings window) reconnects skeleton fragments split at crossings and branches into whole fibrils before measurement. The connection and height-filter modes compose in "connect, then filter" order: when both are on, the height filter slices each connected fibril by its own height profile (including bridge heights), so the two are not mutually exclusive. |
 | `guis/GUI05_ML_Model_Trainer.py` | ML Model Trainer | Build a per-pixel training dataset from `.b2z` bundles, cross-validate a decision-tree model, and export it as an `.afmml` model file. Three tasks are selectable: binarization, background fiber-candidate mask, and background-surface regression. The two background tasks are the alternative background-correction approaches, kept side by side so they can be compared; both read the raw height image, so their bundles need the optional `original` key (written with `save_original`) or the raw input file beside the bundle. Part of the optional, experimental machine-learning workflow; the ML dependencies (see below) are loaded only when a training run starts. |
 | `guis/GUI06_ML_Model_Compare.py` | ML Model Compare | Apply a trained `.afmml` model to `.b2z` bundles and compare it against the classical result. Binarization and background-mask models are scored mask-to-mask with Dice / IoU / agreement; a background-surface model is scored in nanometers against the surface the pipeline subtracted. Use it to judge whether a model is worth integrating before adding it to the preprocessing pipeline. |
+| `guis/GUI07_ML_Connect_Annotator.py` | ML Connect Annotator | Review fiber-connection candidates in a `.b2z` bundle and record which fragment ends belong to the same fibril. Click a candidate to cycle its verdict, add a connection the proposals missed, and save the judgements to a `<stem>_connect_labels.json` sidecar beside the bundle; the bundle itself is never modified. Unlike the pixel models, these labels cannot be distilled from the pipeline -- no rule in it knows which fragments form one fibril -- so this human review is what trains the connection model. |
 
 The ML Model Trainer and ML Model Compare are an **optional, experimental**
 addition. The classical preprocessing pipeline (GUI01–GUI04 and `cli.py`) runs
@@ -75,6 +76,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- GUI04_Tracking_fiber.py
 |   |-- GUI05_ML_Model_Trainer.py
 |   |-- GUI06_ML_Model_Compare.py
+|   |-- GUI07_ML_Connect_Annotator.py
 |   `-- __init__.py
 |-- lib/
 |   |-- afm_io.py
@@ -88,6 +90,9 @@ AFM_Nanofiber_Analyzer/
 |   |-- imp_tools.py
 |   |-- kink_detector.py
 |   |-- measure.py
+|   |-- ml_connect_dataset.py
+|   |-- ml_connect_features.py
+|   |-- ml_connect_labels.py
 |   |-- ml_dataset.py
 |   |-- ml_features.py
 |   |-- ml_model.py
@@ -135,6 +140,9 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
 | `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
 | `lib/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
+| `lib/ml_connect_dataset.py` | Build fragment-pair training datasets from bundles and their label sidecars, with per-image grouping. Only decided candidates become samples. |
+| `lib/ml_connect_features.py` | Order-independent feature extraction for a candidate fragment-end pair, including height sampled along the gap -- the evidence the classical distance-and-angle rule never uses. |
+| `lib/ml_connect_labels.py` | Executable contract for the connection-label sidecar: verdict vocabulary, skeleton binding by hash, and validation. Depends only on the standard library and NumPy. |
 | `lib/ml_dataset.py` | Build per-pixel training datasets from `.b2z` bundles for each ML task (binarization, background mask, background surface), with per-image grouping, class balancing, and the one-pixel raw/processed alignment. Depends only on NumPy and the pipeline (no scikit-learn). |
 | `lib/ml_features.py` | Per-pixel multi-scale feature extraction (smoothed height, gradient, Laplacian, Hessian eigenvalues) with per-image robust normalization, shared by the ML preprocessing stages. |
 | `lib/ml_model.py` | Save, load, and run `.afmml` model files: export a trained classifier to ONNX, pack it with its manifest, and run ONNX inference. Verifies the manifest, ONNX SHA-256, and feature spec on load; imports the ML runtime lazily. |

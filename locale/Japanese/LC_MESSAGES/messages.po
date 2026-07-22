@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-22 12:04+0900\n"
+"POT-Creation-Date: 2026-07-22 13:50+0900\n"
 "PO-Revision-Date: 2026-04-27 14:35+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja\n"
@@ -357,7 +357,9 @@ msgstr "数値を入力してください"
 #: guis/GUI04_Tracking_fiber.py:2836 guis/GUI04_Tracking_fiber.py:2839
 #: guis/GUI04_Tracking_fiber.py:2869 guis/GUI04_Tracking_fiber.py:2872
 #: guis/GUI05_ML_Model_Trainer.py:848 guis/GUI06_ML_Model_Compare.py:324
-#: guis/GUI06_ML_Model_Compare.py:648 lib/ui_tools.py:730 lib/ui_tools.py:740
+#: guis/GUI06_ML_Model_Compare.py:648 guis/GUI07_ML_Connect_Annotator.py:452
+#: guis/GUI07_ML_Connect_Annotator.py:689 lib/ui_tools.py:730
+#: lib/ui_tools.py:740
 msgid "エラー"
 msgstr "エラー"
 
@@ -773,6 +775,7 @@ msgstr "設定変更をキャンセルしました"
 #: guis/GUI01_Image_Preprocessor.py:3362 guis/GUI01_Image_Preprocessor.py:3413
 #: guis/GUI03_Fiber_Height_Histogram.py:1002
 #: guis/GUI03_Fiber_Height_Histogram.py:1038
+#: guis/GUI07_ML_Connect_Annotator.py:666
 msgid "確認"
 msgstr ""
 
@@ -1056,6 +1059,7 @@ msgstr "サポートしていない形式か、ファイルが壊れている可
 
 #: guis/GUI02_PlotProfiler.py:1457 guis/GUI03_Fiber_Height_Histogram.py:1379
 #: guis/GUI05_ML_Model_Trainer.py:848 guis/GUI06_ML_Model_Compare.py:648
+#: guis/GUI07_ML_Connect_Annotator.py:452
 msgid "不明なエラー"
 msgstr "不明なエラー"
 
@@ -1988,6 +1992,7 @@ msgstr "数値を入力してください"
 
 #: guis/GUI04_Tracking_fiber.py:3308 guis/GUI05_ML_Model_Trainer.py:653
 #: guis/GUI06_ML_Model_Compare.py:500 guis/GUI06_ML_Model_Compare.py:583
+#: guis/GUI07_ML_Connect_Annotator.py:344
 msgid "入力エラー"
 msgstr ""
 
@@ -2098,6 +2103,7 @@ msgid "特徴重要度の上位"
 msgstr ""
 
 #: guis/GUI05_ML_Model_Trainer.py:400 guis/GUI06_ML_Model_Compare.py:288
+#: guis/GUI07_ML_Connect_Annotator.py:306
 msgid "ログ"
 msgstr ""
 
@@ -2283,7 +2289,7 @@ msgstr ""
 msgid "全比較"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:248
+#: guis/GUI06_ML_Model_Compare.py:248 guis/GUI07_ML_Connect_Annotator.py:295
 msgid "図を保存..."
 msgstr ""
 
@@ -2360,6 +2366,131 @@ msgstr ""
 #: guis/GUI06_ML_Model_Compare.py:771
 #, python-brace-format
 msgid "全比較完了: {n} 画像。"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:187
+msgid "バンドル（.b2z）"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:191
+msgid "バンドルを開く..."
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:194
+msgid "未読み込み。"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:200
+msgid "候補の距離上限 (px)"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:204
+msgid "この距離より近い端点の組を候補として提示します。古典的な連結器より緩くすることで、規則が捨てる正しい連結も検分できます。"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:213
+msgid "検分"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:237
+msgid "連結を手動で追加"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:241
+msgid "端点を 2 つ続けてクリックすると、候補に無い連結を追加します。距離ゲートが落とした正しい連結を教師にする唯一の方法です。"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:253
+msgid "ラベルを保存"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:256
+msgid "残りを reject"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:259
+msgid "未判断の候補をまとめて reject にします。正しい連結に印を付け終えた後の仕上げに使います。"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:320
+msgid "バンドルを開き、候補をクリックして判定を切り替えます。保存するとバンドルの隣にラベルファイルが書かれます。"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:335
+msgid ".b2z バンドルを選択"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:342
+msgid "候補の距離上限は正の数にしてください。"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:349
+#, python-brace-format
+msgid "{name} を読み込み中..."
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:381
+msgid "断片を再構築中..."
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:482
+#, python-brace-format
+msgid "候補 {n} 件を提示しました。"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:484
+#, python-brace-format
+msgid "既存ラベルから {n} 件を復元しました。"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:591
+msgid "その組はすでに候補にあります。"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:601
+msgid "連結を手動で追加しました。"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:663
+msgid "未判断の候補はありません。"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:667
+#, python-brace-format
+msgid "未判断の {n} 件を reject にします。よろしいですか。"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:716
+msgid "保存に失敗しました"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:720
+#, python-brace-format
+msgid "ラベルを保存しました: {p}"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:724
+msgid "保存しました"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:725
+#, python-brace-format
+msgid ""
+"{decided} 件の判断を保存しました。\n"
+"{p}"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:753
+#, python-brace-format
+msgid "候補 {total} 件中 {decided} 件が学習に使えます。"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:801
+msgid "未保存の判断"
+msgstr ""
+
+#: guis/GUI07_ML_Connect_Annotator.py:802
+msgid "保存していない判断があります。破棄して続行しますか。"
 msgstr ""
 
 #: lib/ui_tools.py:165
@@ -2534,4 +2665,16 @@ msgstr ""
 "学習済みの .afmml 前処理モデルを .b2z バンドルへ適用し、古典的な結果と比較します。二値化モデルと背景マスクモデルは Dice / "
 "IoU / 一致率でマスク同士を、背景面モデルは パイプラインが差し引いた背景面と nm 単位で採点します。前処理パイプラインへ組み込む前に、ML"
 " モデルを統合する価値があるか確認するのに使います。機械学習ライブラリは任意で、モデル適用時のみ読み込みます。"
+
+#: guis/GUI07_ML_Connect_Annotator.py:43
+msgid ""
+"Review fiber-connection candidates in a .b2z bundle and record which "
+"fragment ends belong to the same fibril. Click a candidate to cycle its "
+"verdict, add a connection the proposals missed, and save the judgements "
+"to a label file beside the bundle. Those labels train the connection "
+"model; the bundle itself is never modified."
+msgstr ""
+".b2z バンドル内のファイバー連結候補を検分し、どの断片端が同一フィブリルに属するかを "
+"記録します。候補をクリックすると判定が切り替わり、提示に無い連結を追加でき、判断は "
+"バンドルの隣のラベルファイルへ保存されます。このラベルが連結モデルを学習します。バンドル自体は変更しません。"
 
