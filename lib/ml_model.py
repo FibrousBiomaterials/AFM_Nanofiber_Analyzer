@@ -318,6 +318,16 @@ _TASK_SEMANTICS = {
         "input_semantics": "raw_height", "input_unit": "nm",
         "output_semantics": "background_surface", "output_unit": "nm",
     },
+    # Not a pixel task: the input is one row per candidate fragment-end pair
+    # (see lib.ml_connect_features), whose columns mix pixels, degrees, and
+    # nanometres, so the unit is recorded as "mixed" rather than a single one.
+    # 画素タスクではない。入力は候補となる断片端ペアごとに 1 行
+    # （lib.ml_connect_features 参照）で、その列は画素・度・nm が混在するため、
+    # 単位は 1 つに定めず "mixed" として記録する。
+    "connect": {
+        "input_semantics": "fragment_pair_features", "input_unit": "mixed",
+        "output_semantics": "connection_probability", "output_unit": "probability",
+    },
 }
 
 # Tasks whose estimator predicts a continuous value rather than class
@@ -327,7 +337,7 @@ _TASK_SEMANTICS = {
 _REGRESSION_TASKS = ("background_surface",)
 
 
-def save_pixel_model(
+def save_model(
     path: str,
     train_result,
     *,
@@ -336,16 +346,16 @@ def save_pixel_model(
     license: Optional[str] = None,
 ) -> Dict:
     """
-    Export a trained per-pixel model to a ``.afmml`` model file.
-    学習済みの画素単位モデルを ``.afmml`` モデルファイルへエクスポートする。
+    Export any trained model to a ``.afmml`` model file.
+    学習済みの任意のモデルを ``.afmml`` モデルファイルへエクスポートする。
 
-    Handles every pixel task (``binarize``, ``bg_mask``,
-    ``background_surface``); the task comes from the training result and
+    Handles every task in `_TASK_SEMANTICS` -- the three pixel tasks and the
+    fragment-pair ``connect`` task. The task comes from the training result and
     decides the recorded semantics and whether a segmentation threshold
     applies.
-    すべての画素タスク（``binarize``、``bg_mask``、``background_surface``）を
-    扱う。タスクは学習結果から取り、記録する意味付けと、セグメンテーション
-    しきい値が該当するかを決める。
+    `_TASK_SEMANTICS` のすべてのタスク、すなわち 3 つの画素タスクと断片ペアの
+    ``connect`` タスクを扱う。タスクは学習結果から取り、記録する意味付けと、
+    セグメンテーションしきい値が該当するかを決める。
 
     Parameters
     ----------
@@ -386,7 +396,7 @@ def save_pixel_model(
     task = getattr(train_result, "task", "binarize")
     if task not in _TASK_SEMANTICS:
         raise ValueError(
-            f"task {task!r} is not a pixel task "
+            f"task {task!r} is not a known model task "
             f"(expected one of {', '.join(_TASK_SEMANTICS)})"
         )
 
@@ -420,6 +430,29 @@ def save_pixel_model(
         path, manifest, onnx_bytes, feature_spec=train_result.feature_spec
     )
     return manifest
+
+
+def save_pixel_model(
+    path: str,
+    train_result,
+    *,
+    model_id: str,
+    dataset_provenance: Optional[List[Dict]] = None,
+    license: Optional[str] = None,
+) -> Dict:
+    """
+    Export a trained per-pixel model; alias of `save_model`.
+    学習済みの画素単位モデルをエクスポートする。`save_model` の別名。
+
+    Kept for callers that specifically export a pixel model. `save_model`
+    handles every task, including the fragment-pair connection model.
+    画素モデルを明示的にエクスポートする呼び出し側のために残す。`save_model` は
+    断片ペアの連結モデルを含むすべてのタスクを扱う。
+    """
+    return save_model(
+        path, train_result, model_id=model_id,
+        dataset_provenance=dataset_provenance, license=license,
+    )
 
 
 def save_binarize_model(
@@ -476,7 +509,7 @@ def save_binarize_model(
     二値化モデルを明示的にエクスポートする呼び出し側のために残す
     `save_pixel_model` の薄いラッパー。
     """
-    return save_pixel_model(
+    return save_model(
         path, train_result, model_id=model_id,
         dataset_provenance=dataset_provenance, license=license,
     )

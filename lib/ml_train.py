@@ -1,31 +1,33 @@
 # -*- coding: utf-8 -*-
 """
-Train and cross-validate the tree-ensemble pixel classifier (process B first).
-決定木アンサンブル画素分類器の学習と交差検証（まず工程B）。
+Train and cross-validate the tree-ensemble models for every ML task.
+すべての ML タスク向けの決定木アンサンブルモデルの学習と交差検証。
 
-This module trains the decision-tree side of the binarization model on a
-`lib.ml_dataset.PixelDataset`. Per the ML plan (see
-``private_docs/design/ml-decisions-record.ja.md``, internal), the tree ensemble
-is implemented first as the baseline; a deep model is compared against it only
-after it is shown to be beaten on a held-out test. Training uses scikit-learn;
-inference never does -- a trained estimator is later exported to ONNX by the
-(not-yet-built) ``lib.ml_model``, so GUI01/GUI04/GUI06 and the CLI need no
-scikit-learn at inference time.
-本モジュールは `lib.ml_dataset.PixelDataset` 上で二値化モデルの決定木側を
-学習する。ML 計画（``private_docs/design/ml-decisions-record.ja.md``、非公開）に
-従い、決定木アンサンブルをベースラインとして先に実装する。深層モデルは、
-独立テストでこれを上回ると示せてから比較する。学習は scikit-learn を使うが、
-推論は使わない。学習済み推定器は後に（未実装の）``lib.ml_model`` が ONNX へ
-エクスポートするため、GUI01/GUI04/GUI06 と CLI は推論時に scikit-learn を
-必要としない。
+This module trains the decision-tree side of any task whose dataset matches
+`TrainingDataset`: the pixel models (binarization and the two background
+approaches) and the fragment-pair connection model alike. It handles both
+classification and regression, deciding which from the dataset. Per the ML plan
+(see ``private_docs/design/ml-decisions-record.ja.md``, internal), the tree
+ensemble is implemented first as the baseline; a deep model is compared against
+it only after it is shown to be beaten on a held-out test. Training uses
+scikit-learn; inference never does -- `lib.ml_model` exports a trained estimator
+to ONNX, so the GUIs and the CLI need no scikit-learn at inference time.
+本モジュールは、データセットが `TrainingDataset` に適合する任意のタスクについて
+決定木側を学習する。画素モデル（二値化と 2 つの背景方式）も断片ペアの連結モデルも
+同様に扱う。分類と回帰の両方に対応し、どちらかはデータセットから判断する。
+ML 計画（``private_docs/design/ml-decisions-record.ja.md``、非公開）に従い、
+決定木アンサンブルをベースラインとして先に実装する。深層モデルは、独立テストで
+これを上回ると示せてから比較する。学習は scikit-learn を使うが、推論は使わない。
+`lib.ml_model` が学習済み推定器を ONNX へエクスポートするため、GUI と CLI は
+推論時に scikit-learn を必要としない。
 
 Cross-validation is group-aware / 交差検証はグループを考慮する
 --------------------------------------------------------------
-Folds are split by source image (`PixelDataset.groups`), never by pixel, so no
+Folds are split by source image (`TrainingDataset.groups`), never by sample, so no
 image contributes pixels to both the train and validation side of a fold.
 Splitting pixels randomly would leak information, because neighboring pixels of
 one image are strongly correlated, and would report optimistic scores.
-フォールドは出所画像（`PixelDataset.groups`）で分割し、画素では分割しない。
+フォールドは出所画像（`TrainingDataset.groups`）で分割し、標本では分割しない。
 1 枚の画像が同一フォールドの学習側と検証側の両方へ画素を供給しないように
 する。画素を無作為に分割すると、1 枚の画像の近傍画素が強く相関するため
 情報が漏れ、楽観的なスコアを報告してしまう。
@@ -52,7 +54,7 @@ claiming absolute performance.
 
 # ===== Standard library =====
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Protocol
 
 # ===== Numerical / scientific libraries =====
 import numpy as np
@@ -77,7 +79,7 @@ from sklearn.metrics import (
 from sklearn.model_selection import GroupKFold
 
 # ===== Project libraries =====
-from .ml_dataset import LABEL_FIBER, PixelDataset, is_regression_task
+from .ml_dataset import LABEL_FIBER, is_regression_task
 
 # Classifier kinds. Fixed English identifiers recorded with a model; do not
 # translate. `random_forest` is the default baseline; `hist_gradient_boosting`
@@ -97,6 +99,62 @@ MODEL_KINDS = (MODEL_RANDOM_FOREST, MODEL_HIST_GRADIENT_BOOSTING)
 # 画素を繊維と判定する既定の確率しきい値。"binarize" モデルが manifest の
 # `segmentation_threshold` として記録する値でもあるため名前付き定数にする。
 DEFAULT_FIBER_THRESHOLD = 0.5
+
+
+class TrainingDataset(Protocol):
+    """
+    The dataset shape this module trains on, whatever produced it.
+    本モジュールが学習に用いるデータセットの形。生成元は問わない。
+
+    Declared here, in the consumer, rather than as a base class the producers
+    must inherit: a pixel dataset (`lib.ml_dataset.PixelDataset`) and a
+    fragment-pair dataset (`lib.ml_connect_dataset.PairDataset`) share nothing
+    but this shape, and neither should have to import this module -- doing so
+    would pull scikit-learn into the data-building path, which is deliberately
+    free of it. Any object with these attributes can be trained on.
+    生成側が継承すべき基底クラスではなく、利用側である本モジュールで宣言する。
+    画素データセット（`lib.ml_dataset.PixelDataset`）と断片ペアデータセット
+    （`lib.ml_connect_dataset.PairDataset`）はこの形以外に共通点を持たず、どちらも
+    本モジュールを import すべきではない。import すると、意図的に scikit-learn を
+    含めていないデータ構築経路へ scikit-learn を持ち込むことになる。これらの属性を
+    持つ任意のオブジェクトを学習に使える。
+
+    Attributes
+    ----------
+    X
+        Feature matrix of shape ``(n_samples, n_features)``.
+        形状 ``(n_samples, n_features)`` の特徴行列。
+    y
+        Target vector; class labels, or continuous values for a regression
+        task.
+        ターゲットベクトル。クラスラベル、または回帰タスクでは連続値。
+    groups
+        Source-image index per sample, so a fold can hold out whole images.
+        サンプルごとの出所画像番号。フォールドが画像単位で除外できるようにする。
+    feature_names
+        Ordered names matching the columns of `X`.
+        `X` の列に対応する順序付きの名前。
+    feature_spec
+        Feature-extractor spec carried through to the trained model.
+        学習済みモデルへ引き継ぐ特徴抽出器の仕様。
+    task
+        The task identifier this dataset was built for.
+        このデータセットを構築したタスク識別子。
+    is_regression
+        Whether `y` holds a continuous target.
+        `y` が連続値ターゲットかどうか。
+    """
+
+    X: np.ndarray
+    y: np.ndarray
+    groups: np.ndarray
+    feature_names: List[str]
+    feature_spec: Dict
+    task: str
+
+    @property
+    def is_regression(self) -> bool:
+        ...
 
 
 @dataclass(frozen=True)
@@ -266,7 +324,7 @@ def build_estimator(config: ModelConfig, *, regression: bool = False):
 
 
 def train(
-    dataset: PixelDataset,
+    dataset: TrainingDataset,
     config: ModelConfig = ModelConfig(),
     *,
     n_splits: int = 5,
@@ -358,7 +416,7 @@ def train(
 
 
 def cross_validate(
-    dataset: PixelDataset,
+    dataset: TrainingDataset,
     config: ModelConfig = ModelConfig(),
     *,
     n_splits: int = 5,
