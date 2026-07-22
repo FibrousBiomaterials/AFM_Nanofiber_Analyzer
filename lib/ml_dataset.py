@@ -79,6 +79,25 @@ which needs the analysis parameters stored in the bundle vlmeta.
 一致させる。取得には Segmenter の再実行が必要で、バンドル vlmeta に保存された
 解析パラメータを要する。
 
+Expert corrections / 専門家による修正
+--------------------------------------
+Both mask labels above are distilled from the classical pipeline, so a model
+trained only on them can imitate the pipeline but never beat it. The
+`LABEL_EXPERT_CORRECTED` source lifts that ceiling: it takes the same base label
+and overlays the hand-painted corrections stored in the bundle's mask-label
+sidecar (see `lib.ml_mask_labels`). The base is still reconstructed here, so a
+sidecar records only what a person changed and the distilled part stays
+reproducible. Corrections are bound to the image they were drawn on by hash and
+to the mask they were drawn over by name; a mismatch makes the bundle unusable
+rather than silently training on the uncorrected label.
+上記のマスクラベルはいずれも古典パイプラインからの蒸留であり、それだけで学習した
+モデルはパイプラインを模倣できても上回れない。`LABEL_EXPERT_CORRECTED` はこの上限を
+外す。同じベースラベルを取り、バンドルのマスクラベル sidecar に保存された手描きの
+修正を重ねる（`lib.ml_mask_labels` 参照）。ベースはここで再構成するため、sidecar は
+人が変更した箇所だけを記録し、蒸留部分は再現可能なままである。修正は、描いた画像へ
+ハッシュで、描いた対象のマスクへ名前で束縛される。不一致のときは、未修正のラベルで
+黙って学習せず、そのバンドルを使用不可とする。
+
 Splitting / 分割
 ----------------
 Every sample carries a group index identifying its source bundle, so a
@@ -117,6 +136,11 @@ from .ml_features import (
     PixelFeatureConfig, extract_pixel_features, feature_names, flatten_features,
     normalization_params,
 )
+from .ml_mask_labels import (
+    BASE_BUNDLE_BINARIZED, BASE_SEGMENTER_INTERMEDIATE, DEFAULT_BASE_SOURCE,
+    apply_edits, edited_indices, image_sha256, inspect_mask_labels,
+    label_path_for, load_mask_labels,
+)
 
 # Pixel label convention: fiber vs background. Fixed integer identifiers, not
 # user-visible text; do not translate.
@@ -125,12 +149,30 @@ from .ml_features import (
 LABEL_BACKGROUND = 0
 LABEL_FIBER = 1
 
-# Label sources for the binarize task (see module docstring). Fixed English
-# identifiers.
-# binarize タスクのラベル出所（モジュール docstring参照）。固定英語識別子。
-LABEL_SEGMENTER_INTERMEDIATE = "segmenter_intermediate"  # B-1: pre-component-filter mask (default).
-LABEL_BUNDLE_BINARIZED = "bundle_binarized"              # B-2: final stored mask.
-LABEL_SOURCES = (LABEL_SEGMENTER_INTERMEDIATE, LABEL_BUNDLE_BINARIZED)
+# Label sources (see module docstring). Fixed English identifiers, taken from
+# `lib.ml_mask_labels` for the two distilled masks so the sidecar contract and
+# this module cannot drift apart on what a correction was drawn over.
+# The first two apply to `binarize` only; `expert_corrected` applies to every
+# task whose target is a mask a person can paint.
+# ラベルの出所（モジュール docstring参照）。固定英語識別子。蒸留による 2 つの
+# マスクは `lib.ml_mask_labels` から取り、修正を何の上に描いたかについて sidecar
+# 契約と本モジュールがずれないようにする。前 2 者は `binarize` のみ、
+# `expert_corrected` は人がペイントできるマスクを持つ全タスクに適用される。
+LABEL_SEGMENTER_INTERMEDIATE = BASE_SEGMENTER_INTERMEDIATE  # B-1: pre-component-filter mask (default).
+LABEL_BUNDLE_BINARIZED = BASE_BUNDLE_BINARIZED              # B-2: final stored mask.
+LABEL_EXPERT_CORRECTED = "expert_corrected"                 # Base mask plus hand-painted corrections.
+LABEL_SOURCES = (
+    LABEL_SEGMENTER_INTERMEDIATE, LABEL_BUNDLE_BINARIZED, LABEL_EXPERT_CORRECTED)
+
+# Which base mask each task's corrections are drawn over, and therefore which
+# tasks accept corrections at all. Owned by `lib.ml_mask_labels` so the
+# annotation tool that writes a sidecar and this module that reads it cannot
+# disagree about what a correction was drawn over.
+# 各タスクの修正がどのベースマスクの上に描かれるか、したがってどのタスクが修正を
+# 受け付けるか。`lib.ml_mask_labels` が所有する。sidecar を書くアノテーションツールと
+# それを読む本モジュールが、修正を何の上に描いたかについて食い違わないようにするため
+# である。
+_CORRECTION_BASE = DEFAULT_BASE_SOURCE
 
 # Tasks this module can build a dataset for; the vocabulary is owned by
 # `lib.ml_schema`. `connect` (fragment pairs, not pixels) is not a pixel task
@@ -325,8 +367,7 @@ def scan_bundle_folder(
         If `task` is unsupported or `label_source` is unknown.
         `task` が非対応、または `label_source` が未知の場合。
     """
-    _check_task(task)
-    _check_label_source(label_source)
+    _check_task_and_source(task, label_source)
 
     infos: List[BundleLabelInfo] = []
     for name in sorted(os.listdir(folder)):
@@ -375,8 +416,7 @@ def inspect_bundle(
         If `task` is unsupported or `label_source` is unknown.
         `task` が非対応、または `label_source` が未知の場合。
     """
-    _check_task(task)
-    _check_label_source(label_source)
+    _check_task_and_source(task, label_source)
     return _inspect_bundle(path, task, label_source)
 
 
@@ -408,18 +448,34 @@ def _inspect_bundle(path: str, task: str, label_source: str) -> BundleLabelInfo:
         )
 
     if task in ("bg_mask", "background_surface"):
-        return _inspect_background_bundle(path, task, meta, has_params)
-
-    if label_source == LABEL_SEGMENTER_INTERMEDIATE and not has_params:
-        return BundleLabelInfo(
+        info = _inspect_background_bundle(path, task, meta, has_params)
+    elif label_source != LABEL_BUNDLE_BINARIZED and not has_params:
+        # Both the intermediate mask and a correction drawn over it need the
+        # Segmenter re-run, so they share this requirement.
+        # 中間マスクも、その上に描かれた修正も Segmenter の再実行を要するため、
+        # この要件を共有する。
+        info = BundleLabelInfo(
             path=path, usable=False,
             reason="no analysis parameters in bundle; cannot re-run Segmenter "
                    "for the intermediate-mask label (use label_source="
                    f"{LABEL_BUNDLE_BINARIZED!r} or re-process the input)",
             has_params=False,
         )
+    else:
+        info = BundleLabelInfo(path=path, usable=True, has_params=has_params)
 
-    return BundleLabelInfo(path=path, usable=True, has_params=has_params)
+    # The base label is reachable; corrections additionally need a readable
+    # sidecar. Checked last so a bundle that fails both is reported by the more
+    # fundamental reason.
+    # ベースラベルには到達できる。修正はさらに読み取り可能な sidecar を要する。
+    # 両方に失敗するバンドルはより根本的な理由で報告されるよう、最後に検査する。
+    if info.usable and label_source == LABEL_EXPERT_CORRECTED:
+        ok, reason = inspect_mask_labels(path)
+        if not ok:
+            return BundleLabelInfo(
+                path=path, usable=False, reason=reason, has_params=has_params)
+
+    return info
 
 
 def _inspect_background_bundle(
@@ -532,8 +588,7 @@ def build_pixel_dataset(
         `task`/`label_source` が不正、または使用可能なバンドルが 1 つも
         サンプルを生まない場合。
     """
-    _check_task(task)
-    _check_label_source(label_source)
+    _check_task_and_source(task, label_source)
 
     # Class balancing is meaningless for a continuous target, so a regression
     # task ignores `balance` and draws a plain random subset instead.
@@ -553,7 +608,7 @@ def build_pixel_dataset(
     for path in bundle_paths:
         stem = os.path.splitext(os.path.basename(path))[0]
         try:
-            image, label = _load_image_and_label(path, task, label_source)
+            image, label, edited = _load_image_and_label(path, task, label_source)
         except _UnusableBundle as exc:
             if skip_unusable:
                 provenance.append({"file": os.path.basename(path),
@@ -587,7 +642,8 @@ def build_pixel_dataset(
         labels = np.asarray(label, dtype=target_dtype).reshape(-1)  # (H*W,)
 
         sel = _select_indices(
-            labels, max_samples_per_image, balance and not regression, rng)
+            labels, max_samples_per_image, balance and not regression, rng,
+            required=edited)
         if sel.size == 0:
             provenance.append({"file": os.path.basename(path), "used": False,
                                "reason": "no samples after balancing (empty class)"})
@@ -606,6 +662,23 @@ def build_pixel_dataset(
             "input_sha256": meta.get("input_sha256"),
             "n_samples": int(sel.size),
         }
+        # The label source is a real choice only for `binarize` and for
+        # corrections. Every other task's label follows from the task alone, so
+        # recording a value there would invent a distinction that does not exist.
+        # ラベルの出所が実際の選択肢となるのは `binarize` と修正の場合だけである。
+        # それ以外のタスクのラベルはタスクだけで定まるため、そこに値を記録すると
+        # 存在しない区別を捏造することになる。
+        if task == "binarize" or label_source == LABEL_EXPERT_CORRECTED:
+            record["label_source"] = label_source
+        if edited is not None:
+            # Recorded so a trained model's provenance shows how much of its
+            # label came from a person rather than from the classical pipeline;
+            # the design note is explicit that the two are not the same quality
+            # (ml-gui-system-design.ja.md §12.4, internal).
+            # 学習済みモデルの来歴に、ラベルのうちどれだけが古典パイプラインでは
+            # なく人に由来するかを残すために記録する。両者を同じ品質として扱わない
+            # ことは設計記録に明記されている（ml-gui-system-design.ja.md §12.4、非公開）。
+            record["n_edited"] = int(np.asarray(edited).size)
         if not regression:
             record["n_fiber"] = int(np.count_nonzero(labels[sel] == LABEL_FIBER))
             record["n_background"] = int(
@@ -643,13 +716,15 @@ def load_image_and_label(
     builder uses per bundle, so a caller comparing a model against the classical
     reference (e.g. an apply/compare GUI) obtains exactly the label the model
     was trained against. For ``binarize`` the image is ``calibrated`` and the
-    label is either the re-run Segmenter intermediate mask or the stored
-    ``binarized`` mask (see module docstring).
+    label is either the re-run Segmenter intermediate mask, the stored
+    ``binarized`` mask, or a base mask with the hand-painted corrections applied
+    (see module docstring).
     データセット構築器がバンドルごとに使うのと同じ ``(画像, ラベル)`` 対への
     公開入口。モデルを古典参照と比較する呼び出し側（適用・比較 GUI 等）が、
     モデルの学習対象と厳密に同じラベルを得られるようにする。``binarize`` では
-    画像は ``calibrated``、ラベルは再実行 Segmenter の中間マスクか保存済み
-    ``binarized`` マスクのいずれか（モジュール docstring参照）。
+    画像は ``calibrated``、ラベルは再実行 Segmenter の中間マスク、保存済み
+    ``binarized`` マスク、またはベースマスクへ手描きの修正を適用したものの
+    いずれか（モジュール docstring参照）。
 
     Parameters
     ----------
@@ -675,16 +750,18 @@ def load_image_and_label(
     ------
     ValueError
         If `task`/`label_source` is invalid, or the bundle cannot yield the
-        pair (missing keys, or no parameters for the intermediate-mask re-run).
+        pair (missing keys, no parameters for the intermediate-mask re-run, or
+        missing/mismatched corrections when they were requested).
         `task`/`label_source` が不正、またはバンドルが対を生成できない場合
-        （キー欠落、または中間マスク再実行のパラメータ欠如）。
+        （キー欠落、中間マスク再実行のパラメータ欠如、あるいは修正を要求した
+        のに修正が無いか不一致の場合）。
     """
-    _check_task(task)
-    _check_label_source(label_source)
+    _check_task_and_source(task, label_source)
     try:
-        return _load_image_and_label(path, task, label_source)
+        image, label, _edited = _load_image_and_label(path, task, label_source)
     except _UnusableBundle as exc:
         raise ValueError(f"{path}: {exc}") from exc
+    return image, label
 
 
 class _UnusableBundle(Exception):
@@ -696,33 +773,48 @@ class _UnusableBundle(Exception):
 
 def _load_image_and_label(
     path: str, task: str, label_source: str
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """
     Load the input image and target for one bundle, dispatching on the task.
     タスクで振り分けて、1 バンドルの入力画像とターゲットを読み込む。
 
     See the module docstring for the per-task input/target table.
     タスクごとの入力／ターゲット対応は、モジュール docstring の表を参照。
+
+    Returns
+    -------
+    tuple
+        ``(image, target, edited)``, where `edited` holds the flat indices of
+        hand-corrected pixels, or ``None`` when no corrections were applied.
+        The third element exists so the sampler can keep those pixels; a plain
+        random draw would discard nearly all of them (see `_select_indices`).
+        ``(画像, ターゲット, edited)``。`edited` は手修正した画素の平坦添字で、
+        修正を適用していない場合は ``None``。第 3 要素はサンプラーがそれらの画素を
+        残せるようにするためにある。素の無作為抽出ではそのほとんどが捨てられる
+        （`_select_indices` 参照）。
     """
     if task == "binarize":
         return _binarize_pair(path, label_source)
     if task == "bg_mask":
-        return _bg_mask_pair(path)
+        return _bg_mask_pair(path, label_source)
     if task == "background_surface":
         return _background_surface_pair(path)
     raise _UnusableBundle(f"unsupported task {task!r}")
 
 
-def _binarize_pair(path: str, label_source: str) -> Tuple[np.ndarray, np.ndarray]:
+def _binarize_pair(
+    path: str, label_source: str
+) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """
     Load the ``calibrated`` image and the fiber/background mask (process B).
     ``calibrated`` 画像と繊維/背景マスクを読み込む（工程B）。
 
     The label is either the Segmenter's pre-filter intermediate mask (re-run
-    from the bundle's stored parameters) or the bundle's final ``binarized``
-    mask.
+    from the bundle's stored parameters), the bundle's final ``binarized``
+    mask, or the intermediate mask with hand-painted corrections applied.
     ラベルは Segmenter のフィルタ前中間マスク（バンドル保存パラメータから
-    再実行）か、バンドルの最終 ``binarized`` マスクのいずれか。
+    再実行）、バンドルの最終 ``binarized`` マスク、または中間マスクへ手描きの
+    修正を適用したもののいずれか。
     """
     try:
         needed = ["calibrated"] + (
@@ -748,13 +840,22 @@ def _binarize_pair(path: str, label_source: str) -> Tuple[np.ndarray, np.ndarray
         raise _UnusableBundle(
             f"label shape {label.shape} != calibrated shape {calibrated.shape}"
         )
-    return calibrated, label
+    if label_source == LABEL_EXPERT_CORRECTED:
+        return (calibrated,) + _apply_corrections(path, calibrated, label, "binarize")
+    return calibrated, label, None
 
 
-def _bg_mask_pair(path: str) -> Tuple[np.ndarray, np.ndarray]:
+def _bg_mask_pair(
+    path: str, label_source: str
+) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """
     Load the aligned raw height and the fiber-candidate mask (process A).
     整列済みの生の高さと繊維候補マスクを読み込む（工程A）。
+
+    Hand-painted corrections are applied on top when `label_source` asks for
+    them; the mask below is always the base they are drawn over.
+    `label_source` が要求する場合は、その上に手描きの修正を適用する。以下の
+    マスクは常にそれらを描く対象のベースである。
 
     The label is the gradient-ridge fiber mask the background calibrator builds
     before it fills the background, recovered by re-running `BGCalibrator` with
@@ -799,10 +900,73 @@ def _bg_mask_pair(path: str) -> Tuple[np.ndarray, np.ndarray]:
         raise _UnusableBundle(
             f"mask shape {label.shape} != aligned raw shape {aligned.shape}"
         )
-    return aligned, label
+    if label_source == LABEL_EXPERT_CORRECTED:
+        return (aligned,) + _apply_corrections(path, aligned, label, "bg_mask")
+    return aligned, label, None
 
 
-def _background_surface_pair(path: str) -> Tuple[np.ndarray, np.ndarray]:
+def _apply_corrections(
+    path: str, image: np.ndarray, base_label: np.ndarray, task: str
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Overlay a bundle's hand-painted corrections on its distilled base label.
+    バンドルの手描き修正を、蒸留したベースラベルへ重ねる。
+
+    Parameters
+    ----------
+    path
+        Bundle file path; the sidecar is found beside it.
+        バンドルファイルのパス。sidecar はその隣にある。
+    image
+        The image the corrections were drawn on, used to verify the binding.
+        修正を描いた画像。束縛の照合に使う。
+    base_label
+        The distilled mask the corrections were drawn over.
+        修正を描いた対象の、蒸留によるマスク。
+    task
+        Task being built; must be a key of `_CORRECTION_BASE`.
+        構築中のタスク。`_CORRECTION_BASE` のキーでなければならない。
+
+    Returns
+    -------
+    tuple
+        ``(label, edited)``: the corrected mask and the flat indices a person
+        judged.
+        ``(ラベル, edited)``。修正後のマスクと、人が判断した画素の平坦添字。
+
+    Raises
+    ------
+    _UnusableBundle
+        If the sidecar is absent, unreadable, or bound to a different image,
+        task, or base mask. Every one of these is refused rather than ignored,
+        because falling back to the uncorrected label would leave the user
+        believing their corrections are in the training set.
+        sidecar が存在しない、読めない、あるいは別の画像・タスク・ベースマスクへ
+        束縛されている場合。いずれも無視せず拒否する。未修正のラベルへ暗黙に
+        戻ると、利用者は自分の修正が学習に入っていると思い込んだままになるため
+        である。
+    """
+    sidecar = label_path_for(path)
+    if not os.path.isfile(sidecar):
+        raise _UnusableBundle(
+            f"no mask corrections: {os.path.basename(sidecar)} not found "
+            f"beside the bundle")
+    try:
+        labels = load_mask_labels(
+            sidecar,
+            expected_image_sha256=image_sha256(image),
+            expected_task=task,
+            expected_base_source=_CORRECTION_BASE[task],
+            expected_shape=base_label.shape,
+        )
+    except ValueError as exc:
+        raise _UnusableBundle(str(exc)) from exc
+    return apply_edits(base_label, labels.edits), edited_indices(labels.edits)
+
+
+def _background_surface_pair(
+    path: str,
+) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """
     Load the aligned raw height and the background surface in nm (process A).
     整列済みの生の高さと nm 単位の背景面を読み込む（工程A）。
@@ -837,7 +1001,11 @@ def _background_surface_pair(path: str) -> Tuple[np.ndarray, np.ndarray]:
     surface_nm = np.asarray(aligned, dtype=np.float64) - np.asarray(
         calibrated, dtype=np.float64
     )
-    return aligned, surface_nm
+    # No corrections: a continuous height target has no mask to paint, which
+    # `_check_task_and_source` refuses before this point.
+    # 修正は無い。連続値の高さターゲットにはペイントすべきマスクが無く、
+    # `_check_task_and_source` がここへ至る前に拒否する。
+    return aligned, surface_nm, None
 
 
 def _load_original(path: str) -> np.ndarray:
@@ -945,6 +1113,7 @@ def _select_indices(
     max_samples_per_image: Optional[int],
     balance: bool,
     rng: np.random.Generator,
+    required: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """
     Choose flat pixel indices to sample from one image's label vector.
@@ -960,14 +1129,64 @@ def _select_indices(
     素の無作為部分集合を抽出する。均衡下でいずれかのクラスを欠く画像は
     サンプルを生まない。単一クラスの抽出では繊維対背景の境界を学習できない
     ためである。
-    """
-    fiber_idx = np.flatnonzero(labels == LABEL_FIBER)
-    bg_idx = np.flatnonzero(labels == LABEL_BACKGROUND)
 
+    Parameters
+    ----------
+    required
+        Indices that must appear in the result whatever the draw does, used for
+        hand-corrected pixels. ``None`` means no such pixels.
+        抽出結果に必ず含める添字。手修正した画素に使う。``None`` はそうした画素が
+        無いことを意味する。
+
+    Notes
+    -----
+    Required indices are kept even when they alone exceed
+    `max_samples_per_image`, and they slightly unbalance a balanced draw. Both
+    are deliberate: the cap and the balancing exist to bound and shape a random
+    draw over hundreds of thousands of distilled pixels, while corrections
+    number in the hundreds and are the only labels in the image that a person
+    actually looked at. Dropping them to satisfy either rule would leave the
+    training set indistinguishable from an uncorrected one, without any error
+    to show for it.
+    必須の添字は、それだけで `max_samples_per_image` を超える場合でも保持し、
+    均衡抽出をわずかに崩す。いずれも意図的である。上限と均衡は、数十万の蒸留画素に
+    対する無作為抽出を制限し形を整えるために存在するが、修正は数百のオーダーであり、
+    画像の中で人が実際に見た唯一のラベルである。どちらかの規則のために修正を落とせば、
+    学習集合は未修正のものと区別が付かなくなり、しかも何のエラーも残らない。
+    """
+    req = (np.empty(0, dtype=np.int64) if required is None
+           else np.asarray(required, dtype=np.int64).reshape(-1))
+
+    budget = max_samples_per_image
+    if budget is not None:
+        budget = max(budget - req.size, 0)
+
+    sel = _draw_sample(labels, budget, balance, rng)
+    if req.size == 0:
+        return sel
+    # `unique` also removes the overlap between the two sets, so a corrected
+    # pixel the random draw happened to pick is not counted twice.
+    # `unique` は 2 集合の重なりも除くため、無作為抽出がたまたま選んだ修正画素が
+    # 二重に数えられることはない。
+    return np.unique(np.concatenate([req, sel]))
+
+
+def _draw_sample(
+    labels: np.ndarray,
+    max_samples: Optional[int],
+    balance: bool,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """
+    Draw the random part of one image's sample, with or without class balancing.
+    1 画像の標本のうち無作為抽出部分を、クラス均衡の有無に応じて抽出する。
+    """
     if balance:
+        fiber_idx = np.flatnonzero(labels == LABEL_FIBER)
+        bg_idx = np.flatnonzero(labels == LABEL_BACKGROUND)
         n_each = min(fiber_idx.size, bg_idx.size)
-        if max_samples_per_image is not None:
-            n_each = min(n_each, max_samples_per_image // 2)
+        if max_samples is not None:
+            n_each = min(n_each, max_samples // 2)
         if n_each == 0:
             return np.empty(0, dtype=np.int64)
         sel_f = _draw(fiber_idx, n_each, rng)
@@ -975,8 +1194,8 @@ def _select_indices(
         return np.concatenate([sel_f, sel_b])
 
     all_idx = np.arange(labels.size, dtype=np.int64)
-    if max_samples_per_image is not None and all_idx.size > max_samples_per_image:
-        return _draw(all_idx, max_samples_per_image, rng)
+    if max_samples is not None and all_idx.size > max_samples:
+        return _draw(all_idx, max_samples, rng)
     return all_idx
 
 
@@ -1016,4 +1235,27 @@ def _check_label_source(label_source: str) -> None:
     if label_source not in LABEL_SOURCES:
         raise ValueError(
             f"label_source must be one of {LABEL_SOURCES}, got {label_source!r}"
+        )
+
+
+def _check_task_and_source(task: str, label_source: str) -> None:
+    """
+    Validate the task, the label source, and their combination.
+    タスク・ラベル出所・および両者の組み合わせを検証する。
+
+    Only the combination check is not obvious: a regression target has no mask
+    to paint, so asking for corrections there is a mistake in the request rather
+    than a missing sidecar, and saying so is more useful than reporting every
+    bundle as unusable.
+    自明でないのは組み合わせの検査だけである。回帰ターゲットにはペイントすべき
+    マスクが無く、そこへ修正を要求するのは sidecar の欠落ではなく要求自体の誤りで
+    ある。全バンドルを使用不可と報告するより、そう述べる方が有用である。
+    """
+    _check_task(task)
+    _check_label_source(label_source)
+    if label_source == LABEL_EXPERT_CORRECTED and task not in _CORRECTION_BASE:
+        raise ValueError(
+            f"label_source {LABEL_EXPERT_CORRECTED!r} does not apply to task "
+            f"{task!r}: its target is not a mask "
+            f"(paintable tasks: {', '.join(_CORRECTION_BASE)})"
         )

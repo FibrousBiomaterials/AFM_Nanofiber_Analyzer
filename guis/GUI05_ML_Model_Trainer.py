@@ -15,15 +15,21 @@ model file (ONNX graph plus manifest).
 （その ``calibrated`` 画像と、再実行した Segmenter のフィルタ前マスクをラベル
 とする）、出力は 1 つの ``.afmml`` モデルファイル（ONNX グラフと manifest）。
 
+For the two mask tasks the label can instead be the pipeline's mask with hand
+-painted corrections applied, drawn in the ML Mask Annotator and stored in a
+sidecar beside each bundle. A model distilled from the pipeline alone can
+imitate it but never beat it; the corrections are what lift that ceiling.
+2 つのマスクタスクでは、ラベルをパイプラインのマスクへ手描きの修正を適用した
+ものにもできる。修正は ML Mask Annotator で描き、各バンドルの隣の sidecar に
+保存される。パイプラインだけから蒸留したモデルはそれを模倣できても上回れない。
+この上限を外すのが修正である。
+
 The machine-learning libraries (scikit-learn, skl2onnx, onnxruntime) are
 optional and imported lazily inside the worker thread, so this plugin starts
 without them and reports a clear install hint if a training run needs them.
-Manual label correction and the background/fiber-identification models are out
-of scope for this version.
 機械学習ライブラリ（scikit-learn, skl2onnx, onnxruntime）は任意で、ワーカー
 スレッド内で遅延 import する。したがって本プラグインはそれら無しで起動し、
-学習実行時に必要になれば明確な導入案内を表示する。ラベルの手修正、背景／
-ファイバー識別モデルは本版の対象外。
+学習実行時に必要になれば明確な導入案内を表示する。
 """
 
 # ===== Plugin metadata =====
@@ -40,7 +46,9 @@ PLUGIN_INFO = {
         "(the last two are the alternative background-correction approaches "
         "and need the raw image in the bundle). Select folders of Image "
         "Preprocessor bundles, build a pixel dataset, cross-validate a "
-        "decision-tree model, and save it. "
+        "decision-tree model, and save it. For the two mask tasks the label "
+        "can be the pipeline's own mask or that mask with hand-painted "
+        "corrections from the ML Mask Annotator applied. "
         "The ML libraries are optional and loaded only when training runs."
     )
 }
@@ -87,6 +95,25 @@ MODEL_KIND_LABELS = {
 LABEL_SOURCE_LABELS = {
     "Segmenter intermediate (pre-filter)": "segmenter_intermediate",
     "Bundle binarized (final)": "bundle_binarized",
+    "Pipeline mask (distilled)": "segmenter_intermediate",
+    "Manual corrections (painted)": "expert_corrected",
+}
+
+# Which of the labels above each task offers. A task absent from this mapping
+# has no choice to make, because its label follows from the task alone.
+# "Pipeline mask (distilled)" is bg_mask's name for the default value: bg_mask
+# always rebuilds its base from the BGCalibrator and ignores the distilled
+# choice, so the value passed there only has to be a valid non-correction one.
+# 上記のうち各タスクが提示する選択肢。この対応に無いタスクは選択の余地がない。
+# ラベルがタスクだけで定まるためである。"Pipeline mask (distilled)" は bg_mask に
+# おける既定値の呼び名である。bg_mask はベースを常に BGCalibrator から再構築し、
+# 蒸留側の選択を無視するため、そこへ渡す値は修正以外の有効な値であればよい。
+TASK_LABEL_SOURCES = {
+    "binarize": ("Segmenter intermediate (pre-filter)",
+                 "Bundle binarized (final)",
+                 "Manual corrections (painted)"),
+    "bg_mask": ("Pipeline mask (distilled)",
+                "Manual corrections (painted)"),
 }
 
 # Trainable tasks offered in the UI, mapping display label -> fixed task
@@ -255,13 +282,19 @@ class App(tk.Tk, LogMixin):
                            "どちらも .b2z に生画像が必要です。"))
 
         ttk.Label(grid, text=_("ラベルの出所")).grid(row=1, column=0, sticky="w", padx=2, pady=2)
-        self.label_source_var = tk.StringVar(value=list(LABEL_SOURCE_LABELS)[0])
+        # Values are filled by _on_task_changed(), which knows the choices the
+        # selected task offers.
+        # 値は _on_task_changed() が埋める。選択中のタスクが提示する選択肢を
+        # 知っているのはそちらである。
+        self.label_source_var = tk.StringVar(value=TASK_LABEL_SOURCES["binarize"][0])
         cb = ttk.Combobox(grid, textvariable=self.label_source_var,
-                          values=list(LABEL_SOURCE_LABELS), state="readonly", width=32)
+                          values=[], state="readonly", width=32)
         cb.grid(row=1, column=1, columnspan=3, sticky="w", padx=2, pady=2)
         self.label_source_combo = cb
         ToolTip(cb, _("Segmenter intermediate はモデルが置き換える成分フィルタ前のマスク、"
-                      "bundle binarized は保存済みの最終マスクです。"))
+                      "bundle binarized は保存済みの最終マスクです。"
+                      "Manual corrections は ML Mask Annotator で描いた手修正を"
+                      "適用したマスクで、バンドルごとに sidecar が必要です。"))
 
         ttk.Label(grid, text=_("画像あたり最大サンプル数")).grid(row=2, column=0, sticky="w", padx=2, pady=2)
         self.max_samples_var = tk.StringVar(value="20000")
@@ -285,15 +318,26 @@ class App(tk.Tk, LogMixin):
         Enable only the controls that apply to the selected task.
         選択したタスクに該当する操作部のみを有効化する。
 
-        The label source is a binarize-only choice, and class balancing is
-        meaningless for a regression target, so both are dimmed rather than
-        silently ignored.
-        ラベルの出所は binarize 専用の選択肢であり、クラス均衡は回帰ターゲットに
-        意味がない。黙って無視せず、いずれも淡色表示にする。
+        The label sources differ per task, and class balancing is meaningless
+        for a regression target, so the combo is refilled and the checkbox is
+        dimmed rather than silently ignored.
+        ラベルの出所はタスクごとに異なり、クラス均衡は回帰ターゲットに意味が
+        ない。黙って無視せず、コンボボックスは選択肢を入れ替え、チェックボックス
+        は淡色表示にする。
         """
         task = TASK_LABELS[self.task_var.get()]
-        self.label_source_combo.configure(
-            state="readonly" if task == "binarize" else tk.DISABLED)
+        choices = TASK_LABEL_SOURCES.get(task, ())
+        if choices:
+            self.label_source_combo.configure(
+                values=list(choices), state="readonly")
+            # Carrying a choice the new task does not offer would send a label
+            # source the dataset builder rejects, so fall back to the default.
+            # 新しいタスクが提示しない選択を持ち越すと、データセット構築側が拒否する
+            # ラベル出所を送ることになるため、既定へ戻す。
+            if self.label_source_var.get() not in choices:
+                self.label_source_var.set(choices[0])
+        else:
+            self.label_source_combo.configure(state=tk.DISABLED)
         self.balance_check.configure(
             state=tk.DISABLED if task in _REGRESSION_TASKS else tk.NORMAL)
         # Re-scanning under a new task is required because usability differs
@@ -700,6 +744,17 @@ class App(tk.Tk, LogMixin):
                                         "繊維 {f} / 背景 {b}。").format(
                 n=dataset.X.shape[0], g=len(dataset.group_names),
                 f=dataset.n_fiber, b=dataset.n_background)))
+
+            # Report the hand-corrected share explicitly: it is the only part of
+            # the label a person actually looked at, and a run that silently
+            # included none of it would otherwise look identical to one that did.
+            # 手修正の割合は明示して報告する。ラベルのうち人が実際に見た唯一の部分で
+            # あり、それが黙って 1 画素も入らなかった実行は、そうでない実行と見分けが
+            # 付かなくなるためである。
+            n_edited = sum(int(rec.get("n_edited", 0))
+                           for rec in dataset.provenance if rec.get("used"))
+            if n_edited:
+                self.ui_queue.put(("log", _("うち手動修正画素: {n}。").format(n=n_edited)))
 
             config = mt.ModelConfig(
                 kind=params["kind"],

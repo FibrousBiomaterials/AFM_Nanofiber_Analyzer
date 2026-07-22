@@ -42,6 +42,7 @@ GUI01 は解析対象の入力ファイルごとに、圧縮された `.b2z` バ
 | `guis/GUI05_ML_Model_Trainer.py` | ML Model Trainer | `.b2z` バンドルから画素単位の教師データを構築し、決定木モデルを交差検証して、`.afmml` モデルファイルとしてエクスポートします。タスクは二値化・背景の繊維候補マスク・背景面回帰の 3 つから選択できます。背景系の 2 タスクは背景補正の代替方式で、比較できるよう併存させています。いずれも生の高さ画像を読むため、対象バンドルには任意キー `original`（`save_original` 指定時に書かれる）か、バンドルの隣にある生の入力ファイルが必要です。任意・実験的な機械学習ワークフローの一部で、機械学習依存（後述）は学習実行時のみ読み込まれます。 |
 | `guis/GUI06_ML_Model_Compare.py` | ML Model Compare | 学習済みの `.afmml` モデルを `.b2z` バンドルへ適用し、古典的な結果と比較します。二値化モデルと背景マスクモデルは Dice / IoU / 一致率でマスク同士を、背景面モデルはパイプラインが差し引いた背景面と nm 単位で採点します。モデルを前処理パイプラインへ組み込む前に、統合する価値があるかを判断するために使います。 |
 | `guis/GUI07_ML_Connect_Annotator.py` | ML Connect Annotator | `.b2z` バンドル内のファイバー連結候補を検分し、どの断片端が同一フィブリルに属するかを記録します。候補をクリックすると判定が切り替わり、提示に無い連結を追加でき、判断はバンドルの隣の `<stem>_connect_labels.json` sidecar へ保存されます。バンドル自体は変更しません。画素モデルと異なり、このラベルはパイプラインから蒸留できません（どの断片が 1 本のフィブリルを成すかを知る規則がパイプラインに無いためです）。したがって、この人手による検分が連結モデルを学習させます。 |
+| `guis/GUI08_ML_Mask_Annotator.py` | ML Mask Annotator | ML Model Trainer がそのまま学習に使うことになるパイプラインのマスクを、二値化タスクまたは背景の繊維候補タスクについて修正します。マスク単独または高さ画像への重ね描きの上で、画素を繊維または背景に塗り、3 面プレビューでパイプラインのマスクと結果を見比べ、バンドルの隣の `<stem>_mask_labels.b2z` sidecar へ保存します。バンドル自体は変更しません。保存されるのはパイプラインのマスクと最終的に食い違った画素だけであり、修正した画素と、たまたまパイプラインが正解していた画素とを区別できます。パイプラインだけから蒸留したモデルはそれを模倣できても上回れません。学習側でラベルの出所に `expert_corrected` を選ぶことが、この上限を外します。 |
 
 ML Model Trainer と ML Model Compare は **任意・実験的** な追加機能です。古典的な
 前処理パイプライン（GUI01〜GUI04 と `cli.py`）は機械学習依存なしで動作し、
@@ -74,6 +75,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- GUI05_ML_Model_Trainer.py
 |   |-- GUI06_ML_Model_Compare.py
 |   |-- GUI07_ML_Connect_Annotator.py
+|   |-- GUI08_ML_Mask_Annotator.py
 |   `-- __init__.py
 |-- lib/
 |   |-- afm_io.py
@@ -92,6 +94,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- ml_connect_labels.py
 |   |-- ml_dataset.py
 |   |-- ml_features.py
+|   |-- ml_mask_labels.py
 |   |-- ml_model.py
 |   |-- ml_schema.py
 |   |-- ml_train.py
@@ -142,6 +145,7 @@ Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにして
 | `lib/ml_connect_labels.py` | 連結ラベル sidecar の実行可能な契約。判定の語彙、ハッシュによる骨格への結び付け、検証。依存は標準ライブラリと NumPy のみ。 |
 | `lib/ml_dataset.py` | ML の各タスク（二値化・背景マスク・背景面）向けに `.b2z` バンドルから画素単位の教師データを構築する。画像単位のグループ化、クラス均衡化、生画像と処理済み画像の 1 画素整列を行う。依存は NumPy とパイプラインのみ（scikit-learn 不要）。 |
 | `lib/ml_features.py` | 画素単位のマルチスケール特徴抽出（平滑化高さ・勾配・ラプラシアン・ヘッセ固有値）と画像ごとのロバスト正規化。ML 前処理ステージで共有する。 |
+| `lib/ml_mask_labels.py` | マスク修正 sidecar の実行可能な契約。3 値の編集レイヤ、ハッシュによる修正対象画像への結び付けと名前によるベースマスクへの結び付け、検証。完成マスクではなくパイプラインのマスクとの差分を保存するため、人が判断した画素と未検分の画素を区別できる。依存は NumPy と `lib/blosc2_io.py` のみ。 |
 | `lib/ml_model.py` | `.afmml` モデルファイルの保存・読み込み・実行。学習済み分類器を ONNX へエクスポートし manifest とともに格納し、ONNX 推論を行う。読み込み時に manifest・ONNX の SHA-256・特徴仕様を検証し、ML ランタイムは遅延 import する。 |
 | `lib/ml_schema.py` | `.afmml` モデルファイル契約の実行可能スキーマ。アーカイブ構成、manifest キー、タスク／フレームワークの語彙、`validate_manifest`。依存は標準ライブラリのみ。 |
 | `lib/ml_train.py` | 決定木モデル（`RandomForest` / `HistGradientBoosting`）の学習とグループ考慮の交差検証。分類器として、背景面では回帰器として動作する。scikit-learn は学習専用の依存。 |

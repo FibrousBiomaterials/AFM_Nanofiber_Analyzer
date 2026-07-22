@@ -44,6 +44,7 @@ GUIs read those bundles directly.
 | `guis/GUI05_ML_Model_Trainer.py` | ML Model Trainer | Build a per-pixel training dataset from `.b2z` bundles, cross-validate a decision-tree model, and export it as an `.afmml` model file. Three tasks are selectable: binarization, background fiber-candidate mask, and background-surface regression. The two background tasks are the alternative background-correction approaches, kept side by side so they can be compared; both read the raw height image, so their bundles need the optional `original` key (written with `save_original`) or the raw input file beside the bundle. Part of the optional, experimental machine-learning workflow; the ML dependencies (see below) are loaded only when a training run starts. |
 | `guis/GUI06_ML_Model_Compare.py` | ML Model Compare | Apply a trained `.afmml` model to `.b2z` bundles and compare it against the classical result. Binarization and background-mask models are scored mask-to-mask with Dice / IoU / agreement; a background-surface model is scored in nanometers against the surface the pipeline subtracted. Use it to judge whether a model is worth integrating before adding it to the preprocessing pipeline. |
 | `guis/GUI07_ML_Connect_Annotator.py` | ML Connect Annotator | Review fiber-connection candidates in a `.b2z` bundle and record which fragment ends belong to the same fibril. Click a candidate to cycle its verdict, add a connection the proposals missed, and save the judgements to a `<stem>_connect_labels.json` sidecar beside the bundle; the bundle itself is never modified. Unlike the pixel models, these labels cannot be distilled from the pipeline -- no rule in it knows which fragments form one fibril -- so this human review is what trains the connection model. |
+| `guis/GUI08_ML_Mask_Annotator.py` | ML Mask Annotator | Correct the pipeline mask the ML Model Trainer would otherwise train on, for the binarization or background fiber-candidate task. Brush pixels to fiber or to background, on the mask alone or over the height image, compare the result against the pipeline's own mask in the three previews, and save to a `<stem>_mask_labels.b2z` sidecar beside the bundle; the bundle itself is never modified. Only the pixels that end up differing from the pipeline's mask are stored, so a corrected pixel stays distinguishable from one the pipeline happened to get right. A model distilled from the pipeline alone can imitate it but not beat it; selecting `expert_corrected` as the trainer's label source is what lifts that ceiling. |
 
 The ML Model Trainer and ML Model Compare are an **optional, experimental**
 addition. The classical preprocessing pipeline (GUI01–GUI04 and `cli.py`) runs
@@ -77,6 +78,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- GUI05_ML_Model_Trainer.py
 |   |-- GUI06_ML_Model_Compare.py
 |   |-- GUI07_ML_Connect_Annotator.py
+|   |-- GUI08_ML_Mask_Annotator.py
 |   `-- __init__.py
 |-- lib/
 |   |-- afm_io.py
@@ -95,6 +97,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- ml_connect_labels.py
 |   |-- ml_dataset.py
 |   |-- ml_features.py
+|   |-- ml_mask_labels.py
 |   |-- ml_model.py
 |   |-- ml_schema.py
 |   |-- ml_train.py
@@ -145,6 +148,7 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | `lib/ml_connect_labels.py` | Executable contract for the connection-label sidecar: verdict vocabulary, skeleton binding by hash, and validation. Depends only on the standard library and NumPy. |
 | `lib/ml_dataset.py` | Build per-pixel training datasets from `.b2z` bundles for each ML task (binarization, background mask, background surface), with per-image grouping, class balancing, and the one-pixel raw/processed alignment. Depends only on NumPy and the pipeline (no scikit-learn). |
 | `lib/ml_features.py` | Per-pixel multi-scale feature extraction (smoothed height, gradient, Laplacian, Hessian eigenvalues) with per-image robust normalization, shared by the ML preprocessing stages. |
+| `lib/ml_mask_labels.py` | Executable contract for the mask-correction sidecar: the three-valued edit layer, binding to the corrected image by hash and to the base mask by name, and validation. Stores the difference from the pipeline's mask rather than a finished mask, so a human-judged pixel stays distinguishable from an unexamined one. Depends only on NumPy and `lib/blosc2_io.py`. |
 | `lib/ml_model.py` | Save, load, and run `.afmml` model files: export a trained classifier to ONNX, pack it with its manifest, and run ONNX inference. Verifies the manifest, ONNX SHA-256, and feature spec on load; imports the ML runtime lazily. |
 | `lib/ml_schema.py` | Executable `.afmml` model-file contract: archive layout, manifest keys, task/framework vocabularies, and `validate_manifest`. Depends only on the standard library. |
 | `lib/ml_train.py` | Train and group-aware cross-validate the decision-tree models (`RandomForest` / `HistGradientBoosting`), as a classifier or, for the background surface, a regressor; scikit-learn is a training-only dependency. |
