@@ -121,6 +121,13 @@ class App(tk.Tk, LogMixin):
         self._train_result = None
         self._dataset_provenance: Optional[List[Dict]] = None
         self._trained_kind: str = ""
+        # False while a trained model is held in memory but not yet exported.
+        # Drives the save reminders on retrain and on window close, because the
+        # result lives only in memory and both actions would discard it.
+        # 学習済みモデルをメモリ保持しつつ未エクスポートの間は False。
+        # 結果はメモリ上にしか存在せず、再学習と終了はどちらもそれを破棄する
+        # ため、両者の保存確認を制御する。
+        self._model_saved: bool = True
 
         self.ui_queue: queue.Queue = queue.Queue()
         self.is_running = False
@@ -128,6 +135,7 @@ class App(tk.Tk, LogMixin):
         self._build_ui()
         self._log_initial_message()
         self._update_controls_state()
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     # ----- UI construction -------------------------------------------------
 
@@ -499,6 +507,27 @@ class App(tk.Tk, LogMixin):
             self.progress.stop()
             self._update_controls_state()
 
+    # ----- Unsaved-model guards --------------------------------------------
+
+    def _has_unsaved_model(self) -> bool:
+        """
+        Report whether a trained model is in memory but not yet exported.
+        学習済みモデルがメモリ上にあり未エクスポートかを返す。
+        """
+        return self._train_result is not None and not self._model_saved
+
+    def _on_close(self) -> None:
+        """
+        Confirm before closing while an unexported model is in memory.
+        未エクスポートのモデルがメモリ上にある場合、閉じる前に確認する。
+        """
+        if self._has_unsaved_model() and not messagebox.askyesno(
+                _("未保存のモデル"),
+                _("学習済みモデルがまだ保存されていません。\n"
+                  "保存せずに終了しますか？")):
+            return
+        self.destroy()
+
     # ----- Training --------------------------------------------------------
 
     def on_train(self) -> None:
@@ -515,6 +544,14 @@ class App(tk.Tk, LogMixin):
 
         params = self._collect_train_params()
         if params is None:
+            return
+
+        # Retraining overwrites the in-memory result, so confirm first when the
+        # previous model has not been exported yet.
+        if self._has_unsaved_model() and not messagebox.askyesno(
+                _("未保存のモデル"),
+                _("学習済みモデルがまだ保存されていません。\n"
+                  "再学習すると破棄されます。続行しますか？")):
             return
 
         self._train_result = None
@@ -629,6 +666,30 @@ class App(tk.Tk, LogMixin):
 
     # ----- Export ----------------------------------------------------------
 
+    def _prompt_save_model(self) -> None:
+        """
+        Offer to export the model immediately after a successful training run.
+        学習成功直後にモデルのエクスポートを提案する。
+
+        Declining is deliberately cheap so sweeping classifier parameters stays
+        practical, and it avoids forcing the skl2onnx conversion (only reached
+        from `on_export`) on runs the user only wants metrics from. The retrain
+        and close guards catch the model afterwards.
+        分類器パラメータを振る作業を実用的に保つため、断るコストは意図的に
+        低くしてある。指標だけを見たい実行で skl2onnx 変換（`on_export` から
+        のみ到達）を強制しないためでもある。取りこぼしは再学習時と終了時の
+        確認が拾う。
+        """
+        if self._train_result is None:
+            return
+        if messagebox.askyesno(
+                _("モデルを保存"),
+                _("学習が完了しました。モデルを今すぐ保存しますか？")):
+            self.on_export()
+        else:
+            self._log(
+                _("モデルは未保存です。[モデルをエクスポート...] からいつでも保存できます。"))
+
     def on_export(self) -> None:
         """
         Validate, ask for a path, and export the trained model in a worker.
@@ -695,12 +756,23 @@ class App(tk.Tk, LogMixin):
         ワーカーメッセージを処理し、ワーカー実行中はポーリングを継続する。
         """
         def _on_trained(payload):
-            self._set_running(False)
-            self._handle_trained(payload)
+            # Store the result before re-deriving control state: _set_running()
+            # asks _update_controls_state() whether Export may be enabled, and
+            # that check reads self._train_result, which _handle_trained sets.
+            # The finally clause keeps the controls unlocked even if rendering
+            # the metrics fails.
+            try:
+                self._handle_trained(payload)
+            finally:
+                self._set_running(False)
+            # Prompt after _set_running(False): on_export() refuses to run while
+            # a worker is still flagged as active.
+            self._prompt_save_model()
             return False
 
         def _on_exported(payload):
             self._set_running(False)
+            self._model_saved = True
             self._log(_("モデルを保存しました: {p}").format(p=payload["path"]))
             messagebox.showinfo(
                 _("エクスポート完了"),
@@ -734,6 +806,7 @@ class App(tk.Tk, LogMixin):
         self._train_result = result
         self._dataset_provenance = payload["provenance"]
         self._trained_kind = payload["kind"]
+        self._model_saved = False
 
         self._log(_("学習完了: {n} サンプル、{g} 画像グループ。").format(
             n=result.n_samples, g=result.n_groups))
