@@ -71,18 +71,25 @@ from lib.ui_tools import (
     save_figure_with_dialog, drain_ui_queue, LogMixin,
 )
 
-# Classical reference choices, mirroring lib.ml_dataset.LABEL_SOURCES. The
-# default (first entry) is the bundle's stored `binarized` mask -- the final
-# result GUI01 saved -- because it is the reference a user recognizes without
-# knowing the pipeline internals. The Segmenter intermediate (pre-filter) mask
-# is the binarize model's actual training target (the per-pixel threshold
-# decision before the component filters run); it is the second choice, for
-# measuring how faithfully the model learned that target.
-# 古典参照の選択肢。lib.ml_dataset.LABEL_SOURCES と一致。既定（先頭）はバンドルに
-# 保存された `binarized` マスク（GUI01 が保存した最終結果）で、パイプライン内部を
-# 知らなくても認識できる参照だからである。Segmenter の中間（フィルタ前）マスクは
-# binarize モデルが実際に学習する対象（成分フィルタが走る前の画素単位しきい値
-# 判断）であり、その学習忠実度を測るための第 2 の選択肢として残す。
+# Classical reference choices, mirroring lib.ml_dataset.LABEL_SOURCES. Each
+# reference fixes the pipeline stage the comparison runs at, and `_compare_one`
+# processes the model's mask to match that stage, so the two sides are always
+# compared like-for-like:
+#   - Binarized image in .b2z bundle (default): the final mask GUI01 saved
+#     (thresholding + component filters). The model's mask is run through the
+#     same component filters, so this scores the integrated end-to-end result.
+#   - Segmenter intermediate (pre-filter): the per-pixel threshold mask before
+#     the component filters -- the binarize model's actual training target. The
+#     model's mask is compared raw, so this scores learning fidelity.
+# 古典参照の選択肢。lib.ml_dataset.LABEL_SOURCES と一致。各参照は比較を行う
+# パイプライン段を定め、`_compare_one` がモデルのマスクをその段に合わせて処理する
+# ため、両者を常に同条件で比較できる：
+#   - Binarized image in .b2z bundle（既定）：GUI01 が保存した最終マスク（しきい値
+#     ＋成分フィルタ）。モデルのマスクにも同じ成分フィルタを掛けるので、統合後の
+#     end-to-end 結果を採点する。
+#   - Segmenter intermediate (pre-filter)：成分フィルタ前の画素単位しきい値マスク。
+#     binarize モデルが実際に学習した対象。モデルのマスクは生のまま比較するので、
+#     学習忠実度を採点する。
 REFERENCE_LABELS = {
     "Binarized image in .b2z bundle": "bundle_binarized",
     "Segmenter intermediate (pre-filter)": "segmenter_intermediate",
@@ -201,13 +208,13 @@ class App(tk.Tk, LogMixin):
             "<<ComboboxSelected>>", self._on_reference_changed)
         ToolTip(
             self.reference_combo,
-            _("右ペインの Classical に表示する古典マスクを選びます。\n"
-              "Binarized image in .b2z bundle: GUI01 が .b2z に保存した最終マスク。"
-              "しきい値で二値化し、さらに小さい・低い・曲がった塊を取り除く仕上げ"
-              "処理まで済ませたもの。\n"
-              "Segmenter intermediate (pre-filter): しきい値二値化だけのマスク。"
-              "binarize モデルが置き換えるのはこの二値化判断なので、"
-              "モデル自体の精度を見たいときはこちらを選びます。"))
+            _("右ペインの Classical に表示する古典マスクを選びます。"
+              "選んだ段にモデル出力もそろえて比較します。\n"
+              "Binarized image in .b2z bundle: GUI01 が .b2z に保存した最終マスク"
+              "（しきい値二値化＋小さい・低い・曲がった塊の除去）。モデル出力にも"
+              "同じ除去処理を掛けて、統合後の実性能を比べます。\n"
+              "Segmenter intermediate (pre-filter): 除去処理前の二値化だけのマスク。"
+              "モデル出力も生のまま比べ、モデル自体の精度を見ます。"))
 
         ttk.Label(grid, text=_("ファイバーしきい値")).grid(
             row=1, column=0, sticky="w", padx=2, pady=2)
@@ -571,6 +578,17 @@ class App(tk.Tk, LogMixin):
             panels = (image, predicted, classical, predicted - classical)
         else:
             predicted = self._model.predict_mask(image, threshold=threshold)
+            # For the post-filter reference, put the model's mask through the
+            # same component filters the pipeline applies, so both sides sit at
+            # the same stage (fair end-to-end) instead of raw-vs-filtered. Only
+            # the binarize task has these filters; other mask tasks (e.g.
+            # bg_mask) are compared as raw predictions.
+            # フィルタ後の参照では、モデルのマスクにもパイプラインと同じ成分
+            # フィルタを掛け、両者を同じ段にそろえる（統合後の end-to-end）。
+            # このフィルタを持つのは binarize タスクのみで、他のマスクタスク
+            # （例：bg_mask）は生の予測のまま比較する。
+            if task == "binarize" and reference == md.LABEL_BUNDLE_BINARIZED:
+                predicted = md.apply_pipeline_component_filters(path, predicted, image)
             classical = classical.astype(bool)
             metrics = _mask_metrics(predicted, classical)
             panels = (image, predicted, classical,

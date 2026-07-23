@@ -166,7 +166,54 @@ class Segmenter:
             image.calibrated_image, self.global_threshold, self.wsize_localbin
         )
 
-        self.no_small_binary_image = self._remove_small_fragments(self.binary_image, self.area_min)
+        # Run the post-thresholding component filters and final closing. Shared
+        # with `apply_component_filters` so an externally produced mask (e.g. an
+        # ML binarization prediction) is carried through the identical stage.
+        image.binarized_image = self.apply_component_filters(
+            self.binary_image, image.calibrated_image
+        )
+
+    def apply_component_filters(
+        self, mask: np.ndarray, height_image: np.ndarray
+    ) -> np.ndarray:
+        """
+        Apply the post-thresholding component filters to an external mask.
+        外部から与えた二値マスクに、しきい値後の成分フィルタ群を適用する。
+
+        Runs the same small-area, linearity, weak-connection, and maximum-height
+        filters (and the final morphological closing) that `__call__` applies
+        after `_binaryzation`, but starting from ``mask`` instead of this
+        Segmenter's own thresholding output. This lets a mask produced elsewhere
+        -- such as a machine-learning binarization model's prediction -- be
+        carried through the exact same pipeline stage, so it can be compared
+        against the stored ``binarized`` result at the same stage rather than as
+        a raw prediction.
+        `__call__` が `_binaryzation` の後に適用するのと同じ成分フィルタ（微小面積・
+        線形性・弱接続・最大高さ）と最終のモルフォロジー closing を、この Segmenter
+        自身のしきい値出力ではなく ``mask`` を起点に適用する。これにより、別途生成
+        したマスク（例：機械学習の二値化モデルの予測）を全く同じパイプライン段まで
+        通し、保存済み ``binarized`` 結果と同じ段で比較できる。
+
+        Parameters
+        ----------
+        mask
+            Binary fiber mask to filter; nonzero marks fiber.
+            フィルタ対象の二値繊維マスク。非ゼロが繊維。
+        height_image
+            Calibrated height map used by the low-height filter to measure each
+            component's maximum height; must match ``mask`` in shape.
+            低高さフィルタが各成分の最大高さを測るための補正済み高さマップ。
+            ``mask`` と同形状であること。
+
+        Returns
+        -------
+        ndarray
+            Boolean mask after all component filters and the final closing.
+            全成分フィルタと最終 closing を適用した後の真偽マスク。
+        """
+        binary = np.asarray(mask).astype(bool)
+
+        self.no_small_binary_image = self._remove_small_fragments(binary, self.area_min)
 
         self.no_linear_binary_image = self._remove_nonlinear_objects(
             self.no_small_binary_image, self.h_length, self.h_sratio
@@ -179,11 +226,10 @@ class Segmenter:
             self.no_connecting_binary_image = self.no_linear_binary_image
 
         self.no_low_binary_image = self.remove_low_component(
-            image.calibrated_image, self.no_connecting_binary_image
+            height_image, self.no_connecting_binary_image
         )
 
-        no_small_binary_image4 = closing(self.no_low_binary_image).astype(bool)
-        image.binarized_image = no_small_binary_image4
+        return closing(self.no_low_binary_image).astype(bool)
 
     @staticmethod
     def _binaryzation(

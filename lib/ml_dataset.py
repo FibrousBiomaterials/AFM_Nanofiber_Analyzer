@@ -1087,18 +1087,9 @@ def _segmenter_intermediate_mask(path: str, calibrated: np.ndarray) -> np.ndarra
     # stack, so importing it here keeps `import lib.ml_dataset` cheap.
     # ローカル import：重い前処理スタックを要するのはこの経路だけなので、
     # ここで import して `import lib.ml_dataset` を軽く保つ。
-    from .pipeline import merge_params_dict, build_stages
     from .processed_image import ProcessedImage
 
-    meta = _safe_meta(path)
-    params_dict = meta.get("params")
-    if not isinstance(params_dict, dict) or not params_dict:
-        raise _UnusableBundle(
-            "no analysis parameters in bundle; cannot re-run Segmenter"
-        )
-
-    params, _, _ = merge_params_dict(params_dict)
-    segmenter = build_stages(params).segmenter
+    segmenter = _build_segmenter_from_bundle(path)
 
     image = ProcessedImage(original_AFM=calibrated, name="ml_dataset")
     image.calibrated_image = calibrated
@@ -1106,6 +1097,82 @@ def _segmenter_intermediate_mask(path: str, calibrated: np.ndarray) -> np.ndarra
     if segmenter.binary_image is None:
         raise _UnusableBundle("Segmenter did not produce an intermediate mask")
     return segmenter.binary_image
+
+
+def _build_segmenter_from_bundle(path: str):
+    """
+    Build a Segmenter configured with the bundle's stored analysis parameters.
+    バンドルに保存された解析パラメータで構成した Segmenter を生成する。
+
+    The analysis parameters are read from the bundle vlmeta so the reconstructed
+    Segmenter matches how the bundle was made. Both the intermediate-mask
+    reconstruction and the predicted-mask filtering go through here, so the
+    param-to-Segmenter step lives in one place.
+    解析パラメータはバンドル vlmeta から読み取り、再構成した Segmenter がバンドル
+    生成時と一致するようにする。中間マスクの再構成と予測マスクのフィルタ適用が
+    ともにここを通るため、パラメータから Segmenter を作る処理を 1 箇所に集約する。
+    """
+    from .pipeline import merge_params_dict, build_stages
+
+    meta = _safe_meta(path)
+    params_dict = meta.get("params")
+    if not isinstance(params_dict, dict) or not params_dict:
+        raise _UnusableBundle(
+            "no analysis parameters in bundle; cannot re-run Segmenter"
+        )
+    params, _, _ = merge_params_dict(params_dict)
+    return build_stages(params).segmenter
+
+
+def apply_pipeline_component_filters(
+    path: str, mask: np.ndarray, calibrated: np.ndarray
+) -> np.ndarray:
+    """
+    Put a predicted binarize mask through the pipeline's component filters.
+    予測した二値化マスクを、パイプラインの成分フィルタに通す。
+
+    Builds the Segmenter from the bundle's stored parameters and applies its
+    post-thresholding component filters to ``mask`` (see
+    `Segmenter.apply_component_filters`). A binarize model reproduces only the
+    per-pixel thresholding decision; running its prediction through the same
+    filters brings it to the same pipeline stage as the stored ``binarized``
+    mask, so the two compare like-for-like (fair end-to-end) instead of
+    raw-prediction-vs-filtered-result.
+    バンドルに保存されたパラメータから Segmenter を構築し、しきい値後の成分
+    フィルタを ``mask`` に適用する（`Segmenter.apply_component_filters` 参照）。
+    binarize モデルが再現するのは画素単位のしきい値判断だけなので、その予測を同じ
+    フィルタに通すことで保存済み ``binarized`` マスクと同じ段にそろえ、生の予測 対
+    フィルタ後結果ではなく同条件（統合後の end-to-end）で比較できる。
+
+    Parameters
+    ----------
+    path
+        Bundle path whose stored parameters configure the Segmenter.
+        Segmenter を構成する保存パラメータを持つバンドルのパス。
+    mask
+        Predicted binary fiber mask; nonzero marks fiber.
+        予測した二値繊維マスク。非ゼロが繊維。
+    calibrated
+        Calibrated height image used by the low-height filter; must match
+        ``mask`` in shape.
+        低高さフィルタが使う補正済み高さ画像。``mask`` と同形状であること。
+
+    Returns
+    -------
+    ndarray
+        Boolean mask after the pipeline's component filters.
+        パイプラインの成分フィルタを適用した後の真偽マスク。
+
+    Raises
+    ------
+    _UnusableBundle
+        If the bundle stores no analysis parameters to rebuild the Segmenter.
+        Segmenter を再構築する解析パラメータがバンドルに無い場合。
+    """
+    segmenter = _build_segmenter_from_bundle(path)
+    return segmenter.apply_component_filters(
+        np.asarray(mask, dtype=bool), calibrated
+    )
 
 
 def _select_indices(

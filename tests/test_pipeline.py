@@ -333,3 +333,31 @@ def test_prebuilt_stages_match_fresh_stages(synthetic_fiber_txt, tmp_path):
     np.testing.assert_allclose(
         fresh.image.calibrated_image, reused.image.calibrated_image
     )
+
+
+def test_apply_component_filters_reproduces_call():
+    """Re-filtering the intermediate mask reproduces the full __call__ output.
+
+    Segmenter.apply_component_filters is the same post-thresholding stage
+    __call__ runs, extracted so an external mask (e.g. an ML prediction) can be
+    carried through it. Feeding the Segmenter's own intermediate mask back in
+    must therefore reproduce the pipeline's final binarized mask exactly.
+    """
+    import cv2
+    from lib.segmenter import Segmenter
+    from lib.processed_image import ProcessedImage
+
+    rng = np.random.default_rng(0)
+    calib = np.zeros((80, 80), np.float32)
+    cv2.line(calib, (10, 15), (70, 60), 1.0, 3)
+    cv2.line(calib, (6, 68), (74, 68), 1.0, 3)
+    calib = cv2.GaussianBlur(calib, (5, 5), 0) * 4.0
+    calib += rng.normal(0.0, 0.02, calib.shape).astype(np.float32)
+
+    seg = Segmenter()
+    image = ProcessedImage(original_AFM=calib, name="t")
+    image.calibrated_image = calib
+    seg(image)
+
+    refiltered = seg.apply_component_filters(seg.binary_image, calib)
+    np.testing.assert_array_equal(refiltered, image.binarized_image)

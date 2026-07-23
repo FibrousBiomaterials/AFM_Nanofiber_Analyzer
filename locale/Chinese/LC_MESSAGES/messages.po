@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-23 11:00+0900\n"
+"POT-Creation-Date: 2026-07-23 11:18+0900\n"
 "PO-Revision-Date: 2026-04-27 14:35+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh\n"
@@ -151,7 +151,7 @@ msgid "貼り付け"
 msgstr "粘贴"
 
 #: guis/GUI01_Image_Preprocessor.py:775 guis/GUI05_ML_Model_Trainer.py:231
-#: guis/GUI06_ML_Model_Compare.py:239
+#: guis/GUI06_ML_Model_Compare.py:246
 msgid "削除"
 msgstr "删除"
 
@@ -348,8 +348,8 @@ msgstr "必须输入正数"
 #: guis/GUI04_Tracking_fiber.py:855 guis/GUI04_Tracking_fiber.py:859
 #: guis/GUI04_Tracking_fiber.py:2836 guis/GUI04_Tracking_fiber.py:2839
 #: guis/GUI04_Tracking_fiber.py:2869 guis/GUI04_Tracking_fiber.py:2872
-#: guis/GUI05_ML_Model_Trainer.py:903 guis/GUI06_ML_Model_Compare.py:346
-#: guis/GUI06_ML_Model_Compare.py:685 guis/GUI07_ML_Connect_Annotator.py:452
+#: guis/GUI05_ML_Model_Trainer.py:903 guis/GUI06_ML_Model_Compare.py:353
+#: guis/GUI06_ML_Model_Compare.py:703 guis/GUI07_ML_Connect_Annotator.py:452
 #: guis/GUI07_ML_Connect_Annotator.py:689 guis/GUI08_ML_Mask_Annotator.py:585
 #: guis/GUI08_ML_Mask_Annotator.py:1002 lib/ui_tools.py:730 lib/ui_tools.py:740
 msgid "エラー"
@@ -1064,7 +1064,7 @@ msgstr ""
 "详细信息: {0}"
 
 #: guis/GUI02_PlotProfiler.py:1457 guis/GUI03_Fiber_Height_Histogram.py:1379
-#: guis/GUI05_ML_Model_Trainer.py:903 guis/GUI06_ML_Model_Compare.py:685
+#: guis/GUI05_ML_Model_Trainer.py:903 guis/GUI06_ML_Model_Compare.py:703
 #: guis/GUI07_ML_Connect_Annotator.py:452 guis/GUI08_ML_Mask_Annotator.py:585
 msgid "不明なエラー"
 msgstr "未知错误"
@@ -1079,7 +1079,7 @@ msgid "AFMデータ"
 msgstr "AFM 数据"
 
 #: guis/GUI02_PlotProfiler.py:1623 guis/GUI05_ML_Model_Trainer.py:248
-#: guis/GUI06_ML_Model_Compare.py:253
+#: guis/GUI06_ML_Model_Compare.py:260
 msgid "バンドル"
 msgstr "包文件"
 
@@ -1976,7 +1976,7 @@ msgid "0 以上の整数を入力してください。"
 msgstr "必须输入正数"
 
 #: guis/GUI04_Tracking_fiber.py:3308 guis/GUI05_ML_Model_Trainer.py:697
-#: guis/GUI06_ML_Model_Compare.py:537 guis/GUI06_ML_Model_Compare.py:620
+#: guis/GUI06_ML_Model_Compare.py:544 guis/GUI06_ML_Model_Compare.py:638
 #: guis/GUI07_ML_Connect_Annotator.py:344
 msgid "入力エラー"
 msgstr "输入无效"
@@ -1985,15 +1985,15 @@ msgstr "输入无效"
 msgid "データセット（.b2z バンドル）"
 msgstr "数据集（.b2z 数据包）"
 
-#: guis/GUI05_ML_Model_Trainer.py:225 guis/GUI06_ML_Model_Compare.py:233
+#: guis/GUI05_ML_Model_Trainer.py:225 guis/GUI06_ML_Model_Compare.py:240
 msgid "フォルダ追加..."
 msgstr "添加文件夹..."
 
-#: guis/GUI05_ML_Model_Trainer.py:228 guis/GUI06_ML_Model_Compare.py:236
+#: guis/GUI05_ML_Model_Trainer.py:228 guis/GUI06_ML_Model_Compare.py:243
 msgid "ファイル追加..."
 msgstr "添加文件..."
 
-#: guis/GUI05_ML_Model_Trainer.py:234 guis/GUI06_ML_Model_Compare.py:242
+#: guis/GUI05_ML_Model_Trainer.py:234 guis/GUI06_ML_Model_Compare.py:249
 msgid "クリア"
 msgstr "清除"
 
@@ -2061,7 +2061,7 @@ msgstr "树数／迭代次数"
 msgid "交差検証の分割数"
 msgstr "交叉验证折数"
 
-#: guis/GUI05_ML_Model_Trainer.py:385 guis/GUI06_ML_Model_Compare.py:212
+#: guis/GUI05_ML_Model_Trainer.py:385 guis/GUI06_ML_Model_Compare.py:219
 msgid "ファイバーしきい値"
 msgstr "纤维阈值"
 
@@ -2077,7 +2077,7 @@ msgstr "导出模型..."
 msgid "結果"
 msgstr "结果"
 
-#: guis/GUI05_ML_Model_Trainer.py:424 guis/GUI06_ML_Model_Compare.py:300
+#: guis/GUI05_ML_Model_Trainer.py:424 guis/GUI06_ML_Model_Compare.py:307
 msgid "指標"
 msgstr "指标"
 
@@ -2089,7 +2089,7 @@ msgstr "标准差"
 msgid "特徴重要度の上位"
 msgstr "特征重要度排名"
 
-#: guis/GUI05_ML_Model_Trainer.py:444 guis/GUI06_ML_Model_Compare.py:310
+#: guis/GUI05_ML_Model_Trainer.py:444 guis/GUI06_ML_Model_Compare.py:317
 #: guis/GUI07_ML_Connect_Annotator.py:306 guis/GUI08_ML_Mask_Annotator.py:455
 msgid "ログ"
 msgstr "日志"
@@ -2102,15 +2102,15 @@ msgstr "保存日志..."
 msgid ".b2z バンドルのフォルダを追加して Train を押します。Export は前処理パイプライン用の .afmml モデルを保存します。"
 msgstr "添加 .b2z 数据包文件夹后点击 Train。Export 会保存用于预处理流程的 .afmml 模型。"
 
-#: guis/GUI05_ML_Model_Trainer.py:472 guis/GUI06_ML_Model_Compare.py:398
+#: guis/GUI05_ML_Model_Trainer.py:472 guis/GUI06_ML_Model_Compare.py:405
 msgid ".b2z バンドルを含むフォルダを選択"
 msgstr "选择包含 .b2z 数据包的文件夹"
 
-#: guis/GUI05_ML_Model_Trainer.py:483 guis/GUI06_ML_Model_Compare.py:411
+#: guis/GUI05_ML_Model_Trainer.py:483 guis/GUI06_ML_Model_Compare.py:418
 msgid ".b2z バンドルファイルを選択"
 msgstr "选择 .b2z 数据包文件"
 
-#: guis/GUI05_ML_Model_Trainer.py:511 guis/GUI06_ML_Model_Compare.py:431
+#: guis/GUI05_ML_Model_Trainer.py:511 guis/GUI06_ML_Model_Compare.py:438
 msgid "選択したバンドルはすべて既に一覧にあります。"
 msgstr "所选数据包均已在列表中。"
 
@@ -2167,13 +2167,13 @@ msgstr "树数／迭代次数必须为正整数。"
 msgid "交差検証の分割数は 2 以上にしてください。"
 msgstr "交叉验证折数至少为 2。"
 
-#: guis/GUI05_ML_Model_Trainer.py:695 guis/GUI06_ML_Model_Compare.py:502
+#: guis/GUI05_ML_Model_Trainer.py:695 guis/GUI06_ML_Model_Compare.py:509
 msgid "ファイバーしきい値は 0〜1 の範囲で指定してください。"
 msgstr "纤维阈值必须在 0 到 1 之间。"
 
 #: guis/GUI05_ML_Model_Trainer.py:729 guis/GUI05_ML_Model_Trainer.py:857
-#: guis/GUI06_ML_Model_Compare.py:347 guis/GUI06_ML_Model_Compare.py:598
-#: guis/GUI06_ML_Model_Compare.py:643
+#: guis/GUI06_ML_Model_Compare.py:354 guis/GUI06_ML_Model_Compare.py:616
+#: guis/GUI06_ML_Model_Compare.py:661
 #, python-brace-format
 msgid ""
 "機械学習ライブラリがインストールされていません。\n"
@@ -2253,128 +2253,127 @@ msgstr "已跳过交叉验证（至少需要 2 个图像组）。"
 msgid "（この分類器では利用できません）"
 msgstr "（该分类器不提供）"
 
-#: guis/GUI06_ML_Model_Compare.py:168
+#: guis/GUI06_ML_Model_Compare.py:175
 msgid "モデル（.afmml）"
 msgstr "模型（.afmml）"
 
-#: guis/GUI06_ML_Model_Compare.py:171
+#: guis/GUI06_ML_Model_Compare.py:178
 msgid "モデルを読み込み..."
 msgstr "加载模型..."
 
-#: guis/GUI06_ML_Model_Compare.py:174
+#: guis/GUI06_ML_Model_Compare.py:181
 msgid "モデル未読み込み。"
 msgstr "未加载模型。"
 
-#: guis/GUI06_ML_Model_Compare.py:183 guis/GUI08_ML_Mask_Annotator.py:439
+#: guis/GUI06_ML_Model_Compare.py:190 guis/GUI08_ML_Mask_Annotator.py:439
 msgid "比較"
 msgstr "比较"
 
-#: guis/GUI06_ML_Model_Compare.py:189
+#: guis/GUI06_ML_Model_Compare.py:196
 msgid "古典参照"
 msgstr "经典参考"
 
-#: guis/GUI06_ML_Model_Compare.py:204
+#: guis/GUI06_ML_Model_Compare.py:211
 msgid ""
-"右ペインの Classical に表示する古典マスクを選びます。\n"
+"右ペインの Classical に表示する古典マスクを選びます。選んだ段にモデル出力もそろえて比較します。\n"
 "Binarized image in .b2z bundle: GUI01 が .b2z "
-"に保存した最終マスク。しきい値で二値化し、さらに小さい・低い・曲がった塊を取り除く仕上げ処理まで済ませたもの。\n"
-"Segmenter intermediate (pre-filter): しきい値二値化だけのマスク。binarize "
-"モデルが置き換えるのはこの二値化判断なので、モデル自体の精度を見たいときはこちらを選びます。"
+"に保存した最終マスク（しきい値二値化＋小さい・低い・曲がった塊の除去）。モデル出力にも同じ除去処理を掛けて、統合後の実性能を比べます。\n"
+"Segmenter intermediate (pre-filter): "
+"除去処理前の二値化だけのマスク。モデル出力も生のまま比べ、モデル自体の精度を見ます。"
 msgstr ""
-"选择右侧 Classical 面板中显示的经典掩膜。\n"
+"选择右侧 Classical 面板中显示的经典掩膜；比较前会把模型输出也对齐到所选阶段。\n"
 "Binarized image in .b2z bundle：GUI01 保存到 .b2z "
-"的最终掩膜。先做阈值二值化，再经过去除小、矮、弯曲斑块的收尾处理。\n"
-"Segmenter intermediate (pre-filter)：仅做阈值二值化的掩膜。binarize "
-"模型替换的正是这一步二值化判断，想评估模型本身的精度时选它。"
+"的最终掩膜（阈值二值化，再去除小、矮、弯曲的斑块）。对模型输出施加同样的去除处理，比较集成后的端到端结果。\n"
+"Segmenter intermediate (pre-filter)：去除处理之前、仅做阈值二值化的掩膜。模型输出也按原样比较，用于评估模型本身。"
 
-#: guis/GUI06_ML_Model_Compare.py:219
+#: guis/GUI06_ML_Model_Compare.py:226
 msgid "（空欄でモデル既定値）"
 msgstr "（留空为模型默认值）"
 
-#: guis/GUI06_ML_Model_Compare.py:227
+#: guis/GUI06_ML_Model_Compare.py:234
 msgid "画像（.b2z バンドル）"
 msgstr "图像（.b2z 数据包）"
 
-#: guis/GUI06_ML_Model_Compare.py:267
+#: guis/GUI06_ML_Model_Compare.py:274
 msgid "全比較"
 msgstr "比较全部"
 
-#: guis/GUI06_ML_Model_Compare.py:270 guis/GUI07_ML_Connect_Annotator.py:295
+#: guis/GUI06_ML_Model_Compare.py:277 guis/GUI07_ML_Connect_Annotator.py:295
 #: guis/GUI08_ML_Mask_Annotator.py:421
 msgid "図を保存..."
 msgstr "保存图像..."
 
-#: guis/GUI06_ML_Model_Compare.py:324
+#: guis/GUI06_ML_Model_Compare.py:331
 msgid ".afmml モデルを読み込み .b2z バンドルを追加し、画像を選択して比較するか Compare all を使います。"
 msgstr "加载 .afmml 模型并添加 .b2z 数据包，然后选择图像进行比较或使用 Compare all。"
 
-#: guis/GUI06_ML_Model_Compare.py:335
+#: guis/GUI06_ML_Model_Compare.py:342
 msgid ".afmml モデルを選択"
 msgstr "选择 .afmml 模型"
 
-#: guis/GUI06_ML_Model_Compare.py:353
+#: guis/GUI06_ML_Model_Compare.py:360
 msgid "読み込みに失敗しました"
 msgstr "加载失败"
 
-#: guis/GUI06_ML_Model_Compare.py:365
+#: guis/GUI06_ML_Model_Compare.py:372
 msgid "モデルが不適切"
 msgstr "模型不匹配"
 
-#: guis/GUI06_ML_Model_Compare.py:371
+#: guis/GUI06_ML_Model_Compare.py:378
 #, python-brace-format
 msgid "モデルを読み込みました: {p}"
 msgstr "已加载模型：{p}"
 
-#: guis/GUI06_ML_Model_Compare.py:387
+#: guis/GUI06_ML_Model_Compare.py:394
 #, python-brace-format
 msgid ""
 "id: {id}\n"
 "task: {task}  しきい値: {thr}{dice}"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:543
+#: guis/GUI06_ML_Model_Compare.py:550
 #, python-brace-format
 msgid "{name} を比較中..."
 msgstr "正在比较 {name}..."
 
-#: guis/GUI06_ML_Model_Compare.py:626
+#: guis/GUI06_ML_Model_Compare.py:644
 #, python-brace-format
 msgid "全 {n} バンドルを比較中..."
 msgstr "正在比较全部 {n} 个数据包..."
 
-#: guis/GUI06_ML_Model_Compare.py:654
+#: guis/GUI06_ML_Model_Compare.py:672
 #, fuzzy, python-brace-format
 msgid "[{i}/{n}] {name}: {s}"
 msgstr "[{i}/{n}] {name}：已跳过（{err}）"
 
-#: guis/GUI06_ML_Model_Compare.py:657
+#: guis/GUI06_ML_Model_Compare.py:675
 #, python-brace-format
 msgid "[{i}/{n}] {name}: スキップ（{err}）"
 msgstr "[{i}/{n}] {name}：已跳过（{err}）"
 
-#: guis/GUI06_ML_Model_Compare.py:661
+#: guis/GUI06_ML_Model_Compare.py:679
 msgid "比較できるバンドルがありませんでした。"
 msgstr "没有可比较的数据包。"
 
-#: guis/GUI06_ML_Model_Compare.py:754
+#: guis/GUI06_ML_Model_Compare.py:772
 #, python-brace-format
 msgid "選択中: {name}"
 msgstr "已选择：{name}"
 
-#: guis/GUI06_ML_Model_Compare.py:775
+#: guis/GUI06_ML_Model_Compare.py:793
 #, python-brace-format
 msgid "{n} 画像の集計:"
 msgstr "{n} 张图像的汇总："
 
-#: guis/GUI06_ML_Model_Compare.py:787
+#: guis/GUI06_ML_Model_Compare.py:805
 msgid "dice 下位 3 件:"
 msgstr "dice 最差的 3 项："
 
-#: guis/GUI06_ML_Model_Compare.py:802
+#: guis/GUI06_ML_Model_Compare.py:820
 msgid "mae 上位 3 件:"
 msgstr "mae 最差的 3 项："
 
-#: guis/GUI06_ML_Model_Compare.py:808
+#: guis/GUI06_ML_Model_Compare.py:826
 #, python-brace-format
 msgid "全比較完了: {n} 画像。"
 msgstr "全部比较完成：{n} 张图像。"
