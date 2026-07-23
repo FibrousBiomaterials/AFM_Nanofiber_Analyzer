@@ -54,7 +54,7 @@ from .bundle_schema import (
 from .kink_detector import KinkDetector
 from .processed_image import ProcessedImage
 from .segmenter import Segmenter
-from .skeletonizer import Skeletonizer
+from .skeletonizer import DEFAULT_MAX_LOOP_AREA, DEFAULT_SPUR_LENGTH, Skeletonizer
 
 
 @dataclass
@@ -143,6 +143,17 @@ class ProcParams:
     min_area
         Minimum area retained after skeletonization.
         細線化後に保持する最小面積。
+    max_loop_area
+        Maximum enclosed area (px) of skeleton loop artifacts collapsed into a
+        single line; 0 disables loop collapsing.
+        1 本の線へ潰すスケルトンループアーティファクトの最大囲み面積 (px)。
+        0 で無効化。
+    spur_length
+        Maximum dead-end spur length (px) pruned regardless of height; 0
+        disables spur pruning. Pixel-based, so adjust for coarse scans where
+        one pixel spans a large physical distance.
+        高さに関係なく除去する行き止まりスパーの最大長 (px)。0 で無効化。
+        画素単位のため、1 画素の実寸が大きい粗いスキャンでは調整すること。
     kinkangle_deg
         Bend-angle threshold in degrees for kink detection.
         キンク検出に用いる折れ角しきい値 (度)。
@@ -193,6 +204,8 @@ class ProcParams:
     bp_height: float = 10.0               # Height threshold for branch-point filtering.
     branch_length: int = 12               # Maximum branch length traced during skeleton cleanup, in pixels.
     min_area: int = 10                    # Minimum area retained after skeletonization.
+    max_loop_area: int = DEFAULT_MAX_LOOP_AREA  # Maximum enclosed area of loop artifacts to collapse, in px; 0 disables.
+    spur_length: int = DEFAULT_SPUR_LENGTH      # Maximum dead-end spur length pruned regardless of height, in pixels; 0 disables.
 
     # Kink-detection parameters.
     kinkangle_deg: float = 150.0          # Bends at or below this angle are detected as kinks.
@@ -422,6 +435,13 @@ def validate_params(p: ProcParams) -> List[str]:
             f"branch_length must be a positive int (px), got {p.branch_length!r}")
     require(_intval(p.min_area) and p.min_area >= 0,
             f"min_area must be a non-negative int (px^2), got {p.min_area!r}")
+    # 0 disables the corresponding cleanup step for both fields below.
+    require(_intval(p.max_loop_area) and p.max_loop_area >= 0,
+            f"max_loop_area must be a non-negative int (px^2), "
+            f"got {p.max_loop_area!r}")
+    require(_intval(p.spur_length) and p.spur_length >= 0,
+            f"spur_length must be a non-negative int (px), "
+            f"got {p.spur_length!r}")
 
     # --- Kink detection ---
     require(_num(p.kinkangle_deg) and 0 <= p.kinkangle_deg <= 180,
@@ -518,6 +538,8 @@ def build_stages(p: ProcParams) -> PipelineStages:
         bp_height=p.bp_height,
         branch_length=p.branch_length,
         min_area=p.min_area,
+        max_loop_area=p.max_loop_area,
+        spur_length=p.spur_length,
     )
     kink_detector = KinkDetector(
         # KinkDetector expects radians, while ProcParams stores degrees.

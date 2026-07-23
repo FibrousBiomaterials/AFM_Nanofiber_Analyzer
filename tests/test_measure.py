@@ -148,10 +148,16 @@ def test_tracking_image_skips_untraceable_components():
     """One untraceable component does not discard traceable fibers."""
     skeleton = np.zeros((24, 24), dtype=np.uint8)
     skeleton[2, 2:16] = 1
-    skeleton[10, 10:15] = 1
-    skeleton[14, 10:15] = 1
-    skeleton[10:15, 10] = 1
-    skeleton[10:15, 14] = 1
+    # The ring must enclose more than DEFAULT_MAX_LOOP_AREA (100 px) so the
+    # load-time loop collapsing keeps it intact and it still reaches tracking
+    # as an endpoint-free, untraceable component.
+    # リングの囲み面積は DEFAULT_MAX_LOOP_AREA (100 px) を超える必要がある。
+    # 読み込み時のループ潰しで温存され、端点なしの追跡不能成分のまま
+    # tracking に到達させるためである。
+    skeleton[5, 5:20] = 1
+    skeleton[19, 5:20] = 1
+    skeleton[5:20, 5] = 1
+    skeleton[5:20, 19] = 1
 
     image = FiberTrackingImage(
         original_AFM=np.zeros_like(skeleton, dtype=float),

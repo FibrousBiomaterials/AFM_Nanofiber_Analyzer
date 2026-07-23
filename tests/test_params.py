@@ -29,7 +29,7 @@ EXPECTED_FIELDS = {
     "wsize_localbin", "global_threshold", "area_min", "area_min_connecting",
     "apply_no_connecting", "h_length", "h_sratio", "low_threshold",
     # Skeletonization.
-    "bp_height", "branch_length", "min_area",
+    "bp_height", "branch_length", "min_area", "max_loop_area", "spur_length",
     # Kink detection.
     "kinkangle_deg",
 }
