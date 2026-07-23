@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-22 15:40+0900\n"
+"POT-Creation-Date: 2026-07-23 11:00+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -150,11 +150,11 @@ msgid "貼り付け"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:775 guis/GUI05_ML_Model_Trainer.py:231
-#: guis/GUI06_ML_Model_Compare.py:217
+#: guis/GUI06_ML_Model_Compare.py:239
 msgid "削除"
 msgstr ""
 
-#: guis/GUI01_Image_Preprocessor.py:776 guis/GUI08_ML_Mask_Annotator.py:345
+#: guis/GUI01_Image_Preprocessor.py:776 guis/GUI08_ML_Mask_Annotator.py:347
 msgid "元に戻す"
 msgstr ""
 
@@ -347,10 +347,10 @@ msgstr ""
 #: guis/GUI04_Tracking_fiber.py:855 guis/GUI04_Tracking_fiber.py:859
 #: guis/GUI04_Tracking_fiber.py:2836 guis/GUI04_Tracking_fiber.py:2839
 #: guis/GUI04_Tracking_fiber.py:2869 guis/GUI04_Tracking_fiber.py:2872
-#: guis/GUI05_ML_Model_Trainer.py:903 guis/GUI06_ML_Model_Compare.py:324
-#: guis/GUI06_ML_Model_Compare.py:648 guis/GUI07_ML_Connect_Annotator.py:452
-#: guis/GUI07_ML_Connect_Annotator.py:689 guis/GUI08_ML_Mask_Annotator.py:583
-#: guis/GUI08_ML_Mask_Annotator.py:986 lib/ui_tools.py:730 lib/ui_tools.py:740
+#: guis/GUI05_ML_Model_Trainer.py:903 guis/GUI06_ML_Model_Compare.py:346
+#: guis/GUI06_ML_Model_Compare.py:685 guis/GUI07_ML_Connect_Annotator.py:452
+#: guis/GUI07_ML_Connect_Annotator.py:689 guis/GUI08_ML_Mask_Annotator.py:585
+#: guis/GUI08_ML_Mask_Annotator.py:1002 lib/ui_tools.py:730 lib/ui_tools.py:740
 msgid "エラー"
 msgstr ""
 
@@ -754,7 +754,7 @@ msgstr ""
 #: guis/GUI01_Image_Preprocessor.py:3362 guis/GUI01_Image_Preprocessor.py:3413
 #: guis/GUI03_Fiber_Height_Histogram.py:1002
 #: guis/GUI03_Fiber_Height_Histogram.py:1038
-#: guis/GUI07_ML_Connect_Annotator.py:666 guis/GUI08_ML_Mask_Annotator.py:944
+#: guis/GUI07_ML_Connect_Annotator.py:666 guis/GUI08_ML_Mask_Annotator.py:960
 msgid "確認"
 msgstr ""
 
@@ -1027,8 +1027,8 @@ msgid ""
 msgstr ""
 
 #: guis/GUI02_PlotProfiler.py:1457 guis/GUI03_Fiber_Height_Histogram.py:1379
-#: guis/GUI05_ML_Model_Trainer.py:903 guis/GUI06_ML_Model_Compare.py:648
-#: guis/GUI07_ML_Connect_Annotator.py:452 guis/GUI08_ML_Mask_Annotator.py:583
+#: guis/GUI05_ML_Model_Trainer.py:903 guis/GUI06_ML_Model_Compare.py:685
+#: guis/GUI07_ML_Connect_Annotator.py:452 guis/GUI08_ML_Mask_Annotator.py:585
 msgid "不明なエラー"
 msgstr ""
 
@@ -1042,7 +1042,7 @@ msgid "AFMデータ"
 msgstr ""
 
 #: guis/GUI02_PlotProfiler.py:1623 guis/GUI05_ML_Model_Trainer.py:248
-#: guis/GUI06_ML_Model_Compare.py:231
+#: guis/GUI06_ML_Model_Compare.py:253
 msgid "バンドル"
 msgstr ""
 
@@ -1919,7 +1919,7 @@ msgid "0 以上の整数を入力してください。"
 msgstr ""
 
 #: guis/GUI04_Tracking_fiber.py:3308 guis/GUI05_ML_Model_Trainer.py:697
-#: guis/GUI06_ML_Model_Compare.py:500 guis/GUI06_ML_Model_Compare.py:583
+#: guis/GUI06_ML_Model_Compare.py:537 guis/GUI06_ML_Model_Compare.py:620
 #: guis/GUI07_ML_Connect_Annotator.py:344
 msgid "入力エラー"
 msgstr ""
@@ -1928,15 +1928,15 @@ msgstr ""
 msgid "データセット（.b2z バンドル）"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:225 guis/GUI06_ML_Model_Compare.py:211
+#: guis/GUI05_ML_Model_Trainer.py:225 guis/GUI06_ML_Model_Compare.py:233
 msgid "フォルダ追加..."
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:228 guis/GUI06_ML_Model_Compare.py:214
+#: guis/GUI05_ML_Model_Trainer.py:228 guis/GUI06_ML_Model_Compare.py:236
 msgid "ファイル追加..."
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:234 guis/GUI06_ML_Model_Compare.py:220
+#: guis/GUI05_ML_Model_Trainer.py:234 guis/GUI06_ML_Model_Compare.py:242
 msgid "クリア"
 msgstr ""
 
@@ -2003,7 +2003,7 @@ msgstr ""
 msgid "交差検証の分割数"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:385 guis/GUI06_ML_Model_Compare.py:190
+#: guis/GUI05_ML_Model_Trainer.py:385 guis/GUI06_ML_Model_Compare.py:212
 msgid "ファイバーしきい値"
 msgstr ""
 
@@ -2019,7 +2019,7 @@ msgstr ""
 msgid "結果"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:424 guis/GUI06_ML_Model_Compare.py:278
+#: guis/GUI05_ML_Model_Trainer.py:424 guis/GUI06_ML_Model_Compare.py:300
 msgid "指標"
 msgstr ""
 
@@ -2031,8 +2031,8 @@ msgstr ""
 msgid "特徴重要度の上位"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:444 guis/GUI06_ML_Model_Compare.py:288
-#: guis/GUI07_ML_Connect_Annotator.py:306 guis/GUI08_ML_Mask_Annotator.py:453
+#: guis/GUI05_ML_Model_Trainer.py:444 guis/GUI06_ML_Model_Compare.py:310
+#: guis/GUI07_ML_Connect_Annotator.py:306 guis/GUI08_ML_Mask_Annotator.py:455
 msgid "ログ"
 msgstr ""
 
@@ -2044,15 +2044,15 @@ msgstr ""
 msgid ".b2z バンドルのフォルダを追加して Train を押します。Export は前処理パイプライン用の .afmml モデルを保存します。"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:472 guis/GUI06_ML_Model_Compare.py:376
+#: guis/GUI05_ML_Model_Trainer.py:472 guis/GUI06_ML_Model_Compare.py:398
 msgid ".b2z バンドルを含むフォルダを選択"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:483 guis/GUI06_ML_Model_Compare.py:389
+#: guis/GUI05_ML_Model_Trainer.py:483 guis/GUI06_ML_Model_Compare.py:411
 msgid ".b2z バンドルファイルを選択"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:511 guis/GUI06_ML_Model_Compare.py:409
+#: guis/GUI05_ML_Model_Trainer.py:511 guis/GUI06_ML_Model_Compare.py:431
 msgid "選択したバンドルはすべて既に一覧にあります。"
 msgstr ""
 
@@ -2105,13 +2105,13 @@ msgstr ""
 msgid "交差検証の分割数は 2 以上にしてください。"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:695 guis/GUI06_ML_Model_Compare.py:480
+#: guis/GUI05_ML_Model_Trainer.py:695 guis/GUI06_ML_Model_Compare.py:502
 msgid "ファイバーしきい値は 0〜1 の範囲で指定してください。"
 msgstr ""
 
 #: guis/GUI05_ML_Model_Trainer.py:729 guis/GUI05_ML_Model_Trainer.py:857
-#: guis/GUI06_ML_Model_Compare.py:325 guis/GUI06_ML_Model_Compare.py:561
-#: guis/GUI06_ML_Model_Compare.py:606
+#: guis/GUI06_ML_Model_Compare.py:347 guis/GUI06_ML_Model_Compare.py:598
+#: guis/GUI06_ML_Model_Compare.py:643
 #, python-brace-format
 msgid ""
 "機械学習ライブラリがインストールされていません。\n"
@@ -2191,127 +2191,136 @@ msgstr ""
 msgid "（この分類器では利用できません）"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:162
+#: guis/GUI06_ML_Model_Compare.py:168
 msgid "モデル（.afmml）"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:165
+#: guis/GUI06_ML_Model_Compare.py:171
 msgid "モデルを読み込み..."
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:168
+#: guis/GUI06_ML_Model_Compare.py:174
 msgid "モデル未読み込み。"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:177 guis/GUI08_ML_Mask_Annotator.py:437
+#: guis/GUI06_ML_Model_Compare.py:183 guis/GUI08_ML_Mask_Annotator.py:439
 msgid "比較"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:183
+#: guis/GUI06_ML_Model_Compare.py:189
 msgid "古典参照"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:197
+#: guis/GUI06_ML_Model_Compare.py:204
+msgid ""
+"右ペインの Classical に表示する古典マスクを選びます。\n"
+"Binarized image in .b2z bundle: GUI01 が .b2z "
+"に保存した最終マスク。しきい値で二値化し、さらに小さい・低い・曲がった塊を取り除く仕上げ処理まで済ませたもの。\n"
+"Segmenter intermediate (pre-filter): しきい値二値化だけのマスク。binarize "
+"モデルが置き換えるのはこの二値化判断なので、モデル自体の精度を見たいときはこちらを選びます。"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:219
 msgid "（空欄でモデル既定値）"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:205
+#: guis/GUI06_ML_Model_Compare.py:227
 msgid "画像（.b2z バンドル）"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:245
+#: guis/GUI06_ML_Model_Compare.py:267
 msgid "全比較"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:248 guis/GUI07_ML_Connect_Annotator.py:295
-#: guis/GUI08_ML_Mask_Annotator.py:419
+#: guis/GUI06_ML_Model_Compare.py:270 guis/GUI07_ML_Connect_Annotator.py:295
+#: guis/GUI08_ML_Mask_Annotator.py:421
 msgid "図を保存..."
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:302
+#: guis/GUI06_ML_Model_Compare.py:324
 msgid ".afmml モデルを読み込み .b2z バンドルを追加し、画像を選択して比較するか Compare all を使います。"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:313
+#: guis/GUI06_ML_Model_Compare.py:335
 msgid ".afmml モデルを選択"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:331
+#: guis/GUI06_ML_Model_Compare.py:353
 msgid "読み込みに失敗しました"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:343
+#: guis/GUI06_ML_Model_Compare.py:365
 msgid "モデルが不適切"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:349
+#: guis/GUI06_ML_Model_Compare.py:371
 #, python-brace-format
 msgid "モデルを読み込みました: {p}"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:365
+#: guis/GUI06_ML_Model_Compare.py:387
 #, python-brace-format
 msgid ""
 "id: {id}\n"
 "task: {task}  しきい値: {thr}{dice}"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:506
+#: guis/GUI06_ML_Model_Compare.py:543
 #, python-brace-format
 msgid "{name} を比較中..."
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:589
+#: guis/GUI06_ML_Model_Compare.py:626
 #, python-brace-format
 msgid "全 {n} バンドルを比較中..."
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:617
+#: guis/GUI06_ML_Model_Compare.py:654
 #, python-brace-format
 msgid "[{i}/{n}] {name}: {s}"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:620
+#: guis/GUI06_ML_Model_Compare.py:657
 #, python-brace-format
 msgid "[{i}/{n}] {name}: スキップ（{err}）"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:624
+#: guis/GUI06_ML_Model_Compare.py:661
 msgid "比較できるバンドルがありませんでした。"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:717
+#: guis/GUI06_ML_Model_Compare.py:754
 #, python-brace-format
 msgid "選択中: {name}"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:738
+#: guis/GUI06_ML_Model_Compare.py:775
 #, python-brace-format
 msgid "{n} 画像の集計:"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:750
+#: guis/GUI06_ML_Model_Compare.py:787
 msgid "dice 下位 3 件:"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:765
+#: guis/GUI06_ML_Model_Compare.py:802
 msgid "mae 上位 3 件:"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:771
+#: guis/GUI06_ML_Model_Compare.py:808
 #, python-brace-format
 msgid "全比較完了: {n} 画像。"
 msgstr ""
 
-#: guis/GUI07_ML_Connect_Annotator.py:187 guis/GUI08_ML_Mask_Annotator.py:287
+#: guis/GUI07_ML_Connect_Annotator.py:187 guis/GUI08_ML_Mask_Annotator.py:289
 msgid "バンドル（.b2z）"
 msgstr ""
 
-#: guis/GUI07_ML_Connect_Annotator.py:191 guis/GUI08_ML_Mask_Annotator.py:301
+#: guis/GUI07_ML_Connect_Annotator.py:191 guis/GUI08_ML_Mask_Annotator.py:303
 msgid "バンドルを開く..."
 msgstr ""
 
-#: guis/GUI07_ML_Connect_Annotator.py:194 guis/GUI08_ML_Mask_Annotator.py:304
+#: guis/GUI07_ML_Connect_Annotator.py:194 guis/GUI08_ML_Mask_Annotator.py:306
 msgid "未読み込み。"
 msgstr ""
 
@@ -2351,7 +2360,7 @@ msgstr ""
 msgid "バンドルを開き、候補をクリックして判定を切り替えます。保存するとバンドルの隣にラベルファイルが書かれます。"
 msgstr ""
 
-#: guis/GUI07_ML_Connect_Annotator.py:335 guis/GUI08_ML_Mask_Annotator.py:482
+#: guis/GUI07_ML_Connect_Annotator.py:335 guis/GUI08_ML_Mask_Annotator.py:484
 msgid ".b2z バンドルを選択"
 msgstr ""
 
@@ -2359,7 +2368,7 @@ msgstr ""
 msgid "候補の距離上限は正の数にしてください。"
 msgstr ""
 
-#: guis/GUI07_ML_Connect_Annotator.py:349 guis/GUI08_ML_Mask_Annotator.py:490
+#: guis/GUI07_ML_Connect_Annotator.py:349 guis/GUI08_ML_Mask_Annotator.py:492
 #, python-brace-format
 msgid "{name} を読み込み中..."
 msgstr ""
@@ -2395,7 +2404,7 @@ msgstr ""
 msgid "未判断の {n} 件を reject にします。よろしいですか。"
 msgstr ""
 
-#: guis/GUI07_ML_Connect_Annotator.py:716 guis/GUI08_ML_Mask_Annotator.py:1009
+#: guis/GUI07_ML_Connect_Annotator.py:716 guis/GUI08_ML_Mask_Annotator.py:1025
 msgid "保存に失敗しました"
 msgstr ""
 
@@ -2404,7 +2413,7 @@ msgstr ""
 msgid "ラベルを保存しました: {p}"
 msgstr ""
 
-#: guis/GUI07_ML_Connect_Annotator.py:724 guis/GUI08_ML_Mask_Annotator.py:1017
+#: guis/GUI07_ML_Connect_Annotator.py:724 guis/GUI08_ML_Mask_Annotator.py:1033
 msgid "保存しました"
 msgstr ""
 
@@ -2428,125 +2437,125 @@ msgstr ""
 msgid "保存していない判断があります。破棄して続行しますか。"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:292
+#: guis/GUI08_ML_Mask_Annotator.py:294
 msgid "修正するタスク"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:297
+#: guis/GUI08_ML_Mask_Annotator.py:299
 msgid "マスクは学習側と同じ経路で再構築されます。背景マスクは .b2z に生画像が必要です。"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:313
+#: guis/GUI08_ML_Mask_Annotator.py:315
 msgid "ブラシ"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:323
+#: guis/GUI08_ML_Mask_Annotator.py:325
 msgid "繊維として塗る（白）"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:324
+#: guis/GUI08_ML_Mask_Annotator.py:326
 msgid "背景として塗る（黒）"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:336
+#: guis/GUI08_ML_Mask_Annotator.py:338
 msgid "ブラシ半径 (px)"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:348
+#: guis/GUI08_ML_Mask_Annotator.py:350
 msgid "修正をすべて消す"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:355
+#: guis/GUI08_ML_Mask_Annotator.py:357
 msgid "パイプラインのマスクと食い違った画素だけが保存されます。元の値へ塗り戻せばその判断は取り消されます。"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:367
+#: guis/GUI08_ML_Mask_Annotator.py:369
 msgid "修正を保存"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:370
+#: guis/GUI08_ML_Mask_Annotator.py:372
 msgid ""
 "バンドルの隣に修正ファイルを書き出します。ML Model Trainer でラベルの出所に Manual corrections "
 "を選ぶと使われます。"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:384
+#: guis/GUI08_ML_Mask_Annotator.py:386
 msgid "編集ペインの表示"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:387
+#: guis/GUI08_ML_Mask_Annotator.py:389
 msgid "マスクのみ"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:388
+#: guis/GUI08_ML_Mask_Annotator.py:390
 msgid "画像＋マスク"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:467
+#: guis/GUI08_ML_Mask_Annotator.py:469
 msgid "バンドルを開き、マスクの誤りをドラッグで塗り直します。保存するとバンドルの隣に修正ファイルが書かれます。"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:515
+#: guis/GUI08_ML_Mask_Annotator.py:517
 msgid "ベースマスクを再構築中..."
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:616
+#: guis/GUI08_ML_Mask_Annotator.py:618
 #, python-brace-format
 msgid "保存済みの修正 {n} 画素を復元しました。"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:621
+#: guis/GUI08_ML_Mask_Annotator.py:623
 msgid "既存の修正を読み込めません"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:622
+#: guis/GUI08_ML_Mask_Annotator.py:624
 msgid ""
 "バンドルの隣に修正ファイルがありますが、いま表示しているマスクのものではありません。\n"
 "空の状態で開始します。保存すると既存のファイルを上書きします。"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:945
+#: guis/GUI08_ML_Mask_Annotator.py:961
 msgid "この画像の修正をすべて消します。よろしいですか。"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:991
+#: guis/GUI08_ML_Mask_Annotator.py:1007
 msgid "修正がありません"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:992
+#: guis/GUI08_ML_Mask_Annotator.py:1008
 msgid "保存する修正がありません。マスクの誤りを塗ってから保存してください。"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:995
+#: guis/GUI08_ML_Mask_Annotator.py:1011
 msgid "上書きの確認"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:996
+#: guis/GUI08_ML_Mask_Annotator.py:1012
 msgid "別のマスク向けの修正ファイルが既にあります。上書きしますか。"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:1015
+#: guis/GUI08_ML_Mask_Annotator.py:1031
 #, python-brace-format
 msgid "修正を保存しました: {p}"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:1018
+#: guis/GUI08_ML_Mask_Annotator.py:1034
 #, python-brace-format
 msgid ""
 "{n} 画素の修正を保存しました。\n"
 "{p}"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:1045
+#: guis/GUI08_ML_Mask_Annotator.py:1061
 #, python-brace-format
 msgid "修正した画素: 繊維 {f} / 背景 {b}"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:1087
+#: guis/GUI08_ML_Mask_Annotator.py:1103
 msgid "未保存の修正"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:1088
+#: guis/GUI08_ML_Mask_Annotator.py:1104
 msgid "保存していない修正があります。破棄して続行しますか。"
 msgstr ""
 

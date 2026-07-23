@@ -67,19 +67,25 @@ from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, setup_ttk_theme, setup_matplotlib_style,
     create_scrolled_text, create_scrolled_treeview,
-    compute_auto_vrange,
+    compute_auto_vrange, ToolTip,
     save_figure_with_dialog, drain_ui_queue, LogMixin,
 )
 
-# Classical reference choices, mirroring lib.ml_dataset.LABEL_SOURCES. Default is
-# the Segmenter intermediate mask, which is what a binarize model reproduces, so
-# agreement with it measures how faithfully the model learned its target.
-# 古典参照の選択肢。lib.ml_dataset.LABEL_SOURCES と一致。既定は Segmenter の
-# 中間マスクで、これは binarize モデルが再現する対象なので、これとの一致度は
-# モデルが対象をどれだけ忠実に学習したかを測る。
+# Classical reference choices, mirroring lib.ml_dataset.LABEL_SOURCES. The
+# default (first entry) is the bundle's stored `binarized` mask -- the final
+# result GUI01 saved -- because it is the reference a user recognizes without
+# knowing the pipeline internals. The Segmenter intermediate (pre-filter) mask
+# is the binarize model's actual training target (the per-pixel threshold
+# decision before the component filters run); it is the second choice, for
+# measuring how faithfully the model learned that target.
+# 古典参照の選択肢。lib.ml_dataset.LABEL_SOURCES と一致。既定（先頭）はバンドルに
+# 保存された `binarized` マスク（GUI01 が保存した最終結果）で、パイプライン内部を
+# 知らなくても認識できる参照だからである。Segmenter の中間（フィルタ前）マスクは
+# binarize モデルが実際に学習する対象（成分フィルタが走る前の画素単位しきい値
+# 判断）であり、その学習忠実度を測るための第 2 の選択肢として残す。
 REFERENCE_LABELS = {
+    "Binarized image in .b2z bundle": "bundle_binarized",
     "Segmenter intermediate (pre-filter)": "segmenter_intermediate",
-    "Bundle binarized (final)": "bundle_binarized",
 }
 
 # Subplot titles are fixed English plot text (not localized, per the UI-string
@@ -183,9 +189,25 @@ class App(tk.Tk, LogMixin):
         ttk.Label(grid, text=_("古典参照")).grid(
             row=0, column=0, sticky="w", padx=2, pady=2)
         self.reference_var = tk.StringVar(value=list(REFERENCE_LABELS)[0])
-        ttk.Combobox(grid, textvariable=self.reference_var,
-                     values=list(REFERENCE_LABELS), state="readonly", width=30).grid(
-            row=0, column=1, sticky="w", padx=2, pady=2)
+        self.reference_combo = ttk.Combobox(
+            grid, textvariable=self.reference_var,
+            values=list(REFERENCE_LABELS), state="readonly", width=30)
+        self.reference_combo.grid(row=0, column=1, sticky="w", padx=2, pady=2)
+        # Re-render the currently selected image when the reference changes so
+        # the right pane always shows the mask against the chosen reference.
+        # 参照を切り替えたら選択中の画像を再描画し、右ペインが常に選択した参照に
+        # 対するマスクを表示するようにする。
+        self.reference_combo.bind(
+            "<<ComboboxSelected>>", self._on_reference_changed)
+        ToolTip(
+            self.reference_combo,
+            _("右ペインの Classical に表示する古典マスクを選びます。\n"
+              "Binarized image in .b2z bundle: GUI01 が .b2z に保存した最終マスク。"
+              "しきい値で二値化し、さらに小さい・低い・曲がった塊を取り除く仕上げ"
+              "処理まで済ませたもの。\n"
+              "Segmenter intermediate (pre-filter): しきい値二値化だけのマスク。"
+              "binarize モデルが置き換えるのはこの二値化判断なので、"
+              "モデル自体の精度を見たいときはこちらを選びます。"))
 
         ttk.Label(grid, text=_("ファイバーしきい値")).grid(
             row=1, column=0, sticky="w", padx=2, pady=2)
@@ -481,6 +503,21 @@ class App(tk.Tk, LogMixin):
         return value
 
     # ----- Single-image comparison ----------------------------------------
+
+    def _on_reference_changed(self, _event=None) -> None:
+        """
+        Re-render the current single-image comparison with the new reference.
+        参照を切り替えたとき、現在の単一画像比較を新しい参照で再描画する。
+
+        Delegates to `_on_select_image`, which reads the tree selection and the
+        reference dropdown together, so switching the reference recomputes the
+        right-pane masks and metrics against the newly chosen classical
+        reference. It is a no-op when no model is loaded or no image is selected.
+        `_on_select_image` に委譲する。ツリー選択と参照ドロップダウンを併せて読む
+        ため、参照を切り替えると右ペインのマスクと指標が新しい古典参照で再計算
+        される。モデル未読み込みまたは画像未選択のときは何もしない。
+        """
+        self._on_select_image()
 
     def _on_select_image(self, _event=None) -> None:
         """
