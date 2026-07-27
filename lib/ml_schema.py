@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Executable schema for the ``.afmml`` machine-learning model contract.
-``.afmml`` 機械学習モデル契約の実行可能スキーマ。
+Executable schema for the machine-learning model-file contract.
+機械学習モデルファイル契約の実行可能スキーマ。
 
 This module is the single in-code definition of the model-file contract: the
 archive layout, the manifest keys, the task/framework/format vocabularies, and
@@ -20,10 +20,14 @@ public repository), but this code is the source of truth, mirroring how
 
 Contract summary / 契約の要約
 -----------------------------
-- An ``.afmml`` file is a ZIP archive holding at least `MANIFEST_MEMBER`
-  (plain JSON) and `ONNX_MEMBER` (the ONNX inference graph).
-  ``.afmml`` は少なくとも `MANIFEST_MEMBER`（平文 JSON）と `ONNX_MEMBER`
-  （ONNX 推論グラフ）を保持する ZIP アーカイブ。
+- A model file is a ZIP archive holding at least `MANIFEST_MEMBER`
+  (plain JSON) and `ONNX_MEMBER` (the ONNX inference graph). Its extension
+  encodes the task (see `MODEL_EXT_BY_TASK`): ``.afmb`` binarize, ``.afmm``
+  bg_mask, ``.afms`` background_surface, ``.afmc`` connect.
+  モデルファイルは少なくとも `MANIFEST_MEMBER`（平文 JSON）と `ONNX_MEMBER`
+  （ONNX 推論グラフ）を保持する ZIP アーカイブ。その拡張子はタスクを表す
+  （`MODEL_EXT_BY_TASK` 参照）：``.afmb`` binarize、``.afmm`` bg_mask、
+  ``.afms`` background_surface、``.afmc`` connect。
 - Inference is ONNX-only by policy: no Python pickle/joblib estimator is ever
   loaded by GUI01, GUI04, GUI05, GUI06, or the CLI. Restoring an ONNX graph
   does not execute arbitrary Python code, unlike restoring a scikit-learn
@@ -84,8 +88,29 @@ MODEL_FORMAT_VERSION = "1.0"
 # 将来の形式変更を旧リリースが黙って誤解釈しないようにする。
 SUPPORTED_MODEL_VERSIONS = ("1.0",)
 
-# File extension for a model archive.
-MODEL_EXT = ".afmml"
+# File extension per task for a model archive. Each task carries its own
+# extension so a model's pipeline stage is visible -- and stays visible -- in a
+# plain file listing: an extension is far harder to change by accident than a
+# filename. The manifest `task` (below) remains the authoritative discriminator,
+# and loaders identify a model by its manifest, never by extension, so a
+# mismatched or renamed extension can never cause a wrong-stage model to be used
+# silently. Keys are the `MODEL_TASKS` values defined below.
+# タスクごとのモデルアーカイブ拡張子。各タスクが固有の拡張子を持ち、素のファイル
+# 一覧でモデルのパイプライン段が見分けられ、かつその見え方が安定する。拡張子は
+# ファイル名より誤って変わりにくいためである。正準の識別子は下の manifest `task`
+# であり、読み込み側は拡張子ではなく manifest でモデルを識別するため、拡張子の
+# 不一致やリネームで段違いのモデルが黙って使われることはない。キーは下で定義する
+# `MODEL_TASKS` の値。
+MODEL_EXT_BY_TASK = {
+    "binarize": ".afmb",
+    "bg_mask": ".afmm",
+    "background_surface": ".afms",
+    "connect": ".afmc",
+}
+
+# All distinct model extensions, e.g. for building file-dialog filters.
+# 全モデル拡張子（重複排除）。ファイルダイアログのフィルタ構築などに使う。
+MODEL_EXTS = tuple(dict.fromkeys(MODEL_EXT_BY_TASK.values()))
 
 # Archive member names. MANIFEST_MEMBER is plain JSON and readable on its own,
 # without touching ONNX_MEMBER. ONNX_MEMBER holds the inference graph; loading
@@ -233,13 +258,39 @@ OPTIONAL_MANIFEST_KEYS = (
 )
 
 
+def model_ext_for_task(task: str) -> str:
+    """
+    Return the model-file extension for a task.
+    タスクに対応するモデルファイル拡張子を返す。
+
+    Parameters
+    ----------
+    task
+        One of `MODEL_TASKS`.
+        `MODEL_TASKS` のいずれか。
+
+    Returns
+    -------
+    str
+        The task's extension, e.g. ``".afmb"`` for ``"binarize"``.
+        そのタスクの拡張子（例：``"binarize"`` なら ``".afmb"``）。
+
+    Raises
+    ------
+    KeyError
+        If `task` is not a known task.
+        `task` が既知のタスクでない場合。
+    """
+    return MODEL_EXT_BY_TASK[task]
+
+
 def validate_manifest(
     meta: Dict,
     require_task: Optional[Sequence[str]] = None,
 ) -> List[str]:
     """
-    Check model manifest contents against the ``.afmml`` contract.
-    モデル manifest の内容を ``.afmml`` 契約と照合する。
+    Check model manifest contents against the model-file contract.
+    モデル manifest の内容をモデルファイル契約と照合する。
 
     Only structural and vocabulary checks are performed here (keys present,
     values of a sane type, known enums). Checks that require reading the

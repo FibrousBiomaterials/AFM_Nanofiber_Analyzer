@@ -5,15 +5,17 @@ Train and export a machine-learning binarization model from ``.b2z`` bundles.
 
 This GUI builds a per-pixel training dataset from GUI01 output bundles, trains a
 decision-tree classifier to reproduce the pipeline's binarization decision, and
-exports the trained model as a ``.afmml`` file for use in the preprocessing
-pipeline. Inputs are ``.b2z`` bundles (their ``calibrated`` image plus the
-re-run Segmenter's pre-filter mask as the label); output is one ``.afmml``
-model file (ONNX graph plus manifest).
+exports the trained model as a model file for use in the preprocessing
+pipeline. The file's extension encodes the task (see
+`lib.ml_schema.MODEL_EXT_BY_TASK`). Inputs are ``.b2z`` bundles (their
+``calibrated`` image plus the re-run Segmenter's pre-filter mask as the label);
+output is one model file (ONNX graph plus manifest).
 本 GUI は GUI01 出力バンドルから画素単位の教師データを構築し、パイプラインの
 二値化判断を再現する決定木分類器を学習し、学習済みモデルを前処理パイプラインで
-使う ``.afmml`` ファイルとしてエクスポートする。入力は ``.b2z`` バンドル
+使うモデルファイルとしてエクスポートする。ファイルの拡張子はタスクを表す
+（`lib.ml_schema.MODEL_EXT_BY_TASK` 参照）。入力は ``.b2z`` バンドル
 （その ``calibrated`` 画像と、再実行した Segmenter のフィルタ前マスクをラベル
-とする）、出力は 1 つの ``.afmml`` モデルファイル（ONNX グラフと manifest）。
+とする）、出力は 1 つのモデルファイル（ONNX グラフと manifest）。
 
 For the two mask tasks the label can instead be the pipeline's mask with hand
 -painted corrections applied, drawn in the ML Mask Annotator and stored in a
@@ -41,7 +43,8 @@ PLUGIN_INFO = {
     "name": "ML Model Trainer",
     "description": (
         "Train a machine-learning preprocessing model from .b2z bundles and "
-        "export it as a .afmml model file. Choose the task: binarization, "
+        "export it as a model file whose extension encodes the task. Choose the "
+        "task: binarization, "
         "background fiber-candidate mask, or background-surface regression "
         "(the last two are the alternative background-correction approaches "
         "and need the raw image in the bundle). Select folders of Image "
@@ -56,6 +59,7 @@ PLUGIN_INFO = {
 # ===== Standard library =====
 import os
 import queue
+import re
 import threading
 import traceback
 from typing import Dict, List, Optional
@@ -460,7 +464,7 @@ class App(tk.Tk, LogMixin):
         起動時に短い使い方の案内をログへ表示する。
         """
         self._log(_(".b2z バンドルのフォルダを追加して Train を押します。"
-                    "Export は前処理パイプライン用の .afmml モデルを保存します。"))
+                    "Export は前処理パイプライン用のモデルを保存します。"))
 
     # ----- Dataset entry management ---------------------------------------
 
@@ -818,10 +822,23 @@ class App(tk.Tk, LogMixin):
         model_id = self._ask_model_id()
         if not model_id:
             return
+        # Build the suggested extension and filename from the trained task: the
+        # extension itself encodes the task (see lib.ml_schema.MODEL_EXT_BY_TASK),
+        # and the stem defaults to the chosen model_id ("<task>-<kind>"). The
+        # manifest task stays authoritative -- the worker's save writes the
+        # task's extension regardless of what is typed here.
+        # 学習したタスクから初期拡張子とファイル名を組み立てる。拡張子自体が
+        # タスクを表し（lib.ml_schema.MODEL_EXT_BY_TASK 参照）、stem は選んだ
+        # model_id（"<task>-<kind>"）を既定にする。正準は manifest の task で、
+        # ここで何を入力してもワーカーの保存はタスクの拡張子で書き出す。
+        from lib.ml_schema import MODEL_EXT_BY_TASK
+        ext = MODEL_EXT_BY_TASK.get(self._trained_task, "")
+        safe_stem = re.sub(r'[<>:"/\\|?*]', "_", model_id).strip() or "model"
         path = filedialog.asksaveasfilename(
             title=_("モデルを保存"),
-            defaultextension=".afmml",
-            filetypes=[("AFM ML model", "*.afmml")],
+            defaultextension=ext,
+            initialfile=f"{safe_stem}{ext}",
+            filetypes=[("AFM ML model", f"*{ext}")],
         )
         if not path:
             return
@@ -847,11 +864,12 @@ class App(tk.Tk, LogMixin):
 
     def _worker_export(self, path: str, model_id: str, result, provenance) -> None:
         """
-        Export the trained classifier to a ``.afmml`` file off the main thread.
-        学習済み分類器を ``.afmml`` ファイルへメインスレッド外でエクスポートする。
+        Export the trained classifier to a model file off the main thread.
+        学習済み分類器をモデルファイルへメインスレッド外でエクスポートする。
         """
         try:
             from lib import ml_model as mm
+            from lib.ml_schema import MODEL_EXT_BY_TASK
         except ImportError as exc:
             self.ui_queue.put(("fatal", {
                 "text": _("機械学習ライブラリがインストールされていません。\n{err}")
@@ -860,7 +878,14 @@ class App(tk.Tk, LogMixin):
         try:
             manifest = mm.save_pixel_model(
                 path, result, model_id=model_id, dataset_provenance=provenance)
-            final = path if path.lower().endswith(".afmml") else path + ".afmml"
+            # Mirror the task-specific extension the save applied, so the
+            # reported path matches the file actually written (save appends the
+            # task extension when the chosen path lacks it).
+            # 保存が付けたタスク固有の拡張子に合わせ、報告するパスを実際に
+            # 書き込まれたファイルと一致させる（選んだパスに拡張子が無ければ
+            # 保存側がタスク拡張子を付す）。
+            ext = MODEL_EXT_BY_TASK.get(manifest.get("task", ""), "")
+            final = path if (ext and path.lower().endswith(ext)) else path + ext
             self.ui_queue.put(("exported", {"path": final, "model_id": manifest["model_id"]}))
         except Exception as exc:  # noqa: BLE001 - report any export failure.
             self.ui_queue.put(("fatal", {

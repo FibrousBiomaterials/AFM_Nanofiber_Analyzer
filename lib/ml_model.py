@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Save, load, and run ``.afmml`` model files (ONNX inference for the ML stages).
-``.afmml`` モデルファイルの保存・読み込み・実行（ML ステージの ONNX 推論）。
+Save, load, and run model files (ONNX inference for the ML stages).
+モデルファイルの保存・読み込み・実行（ML ステージの ONNX 推論）。
 
 A trained scikit-learn classifier (from `lib.ml_train`) is exported to ONNX and
-packed into a ``.afmml`` archive with its manifest and, for pixel models, the
-feature spec. Inference loads that archive and runs the ONNX graph, so GUI01,
+packed into a model archive with its manifest and, for pixel models, the
+feature spec. The archive's extension encodes the task (see
+`lib.ml_schema.MODEL_EXT_BY_TASK`). Inference loads that archive and runs the ONNX graph, so GUI01,
 GUI04, GUI06, and the CLI never import scikit-learn and never deserialize a
 Python pickle. The ML packages (skl2onnx for export, onnxruntime for inference)
 are optional and imported lazily inside the functions that need them, mirroring
@@ -13,7 +14,8 @@ how `lib.gwy_io` imports gwyfile only when a ``.gwy`` is opened; the classical
 pipeline and plugin startup never load them, and a clear error naming the
 optional install is raised if they are missing.
 学習済みの scikit-learn 分類器（`lib.ml_train` 由来）を ONNX へエクスポートし、
-manifest と、画素モデルでは特徴仕様とともに ``.afmml`` アーカイブへ格納する。
+manifest と、画素モデルでは特徴仕様とともにモデルアーカイブへ格納する。
+アーカイブの拡張子はタスクを表す（`lib.ml_schema.MODEL_EXT_BY_TASK` 参照）。
 推論はそのアーカイブを読み ONNX グラフを実行するため、GUI01・GUI04・GUI06・
 CLI は scikit-learn を import せず、Python の pickle も復元しない。ML
 パッケージ（エクスポート用の skl2onnx、推論用の onnxruntime）は任意で、必要と
@@ -56,7 +58,7 @@ from .ml_features import (
     normalization_params,
 )
 from .ml_schema import (
-    FEATURE_SPEC_MEMBER, MANIFEST_MEMBER, ONNX_MEMBER, MODEL_EXT,
+    FEATURE_SPEC_MEMBER, MANIFEST_MEMBER, ONNX_MEMBER, MODEL_EXT_BY_TASK,
     make_manifest, validate_manifest,
 )
 
@@ -73,8 +75,8 @@ _ML_INSTALL_HINT = (
 @dataclass
 class LoadedModel:
     """
-    An ``.afmml`` model ready to run, with its manifest and feature spec.
-    実行可能な ``.afmml`` モデルと、その manifest・特徴仕様。
+    A model ready to run, with its manifest and feature spec.
+    実行可能なモデルと、その manifest・特徴仕様。
 
     Attributes
     ----------
@@ -346,8 +348,8 @@ def save_model(
     license: Optional[str] = None,
 ) -> Dict:
     """
-    Export any trained model to a ``.afmml`` model file.
-    学習済みの任意のモデルを ``.afmml`` モデルファイルへエクスポートする。
+    Export any trained model to a model file.
+    学習済みの任意のモデルをモデルファイルへエクスポートする。
 
     Handles every task in `_TASK_SEMANTICS` -- the three pixel tasks and the
     fragment-pair ``connect`` task. The task comes from the training result and
@@ -360,8 +362,8 @@ def save_model(
     Parameters
     ----------
     path
-        Output path; ``.afmml`` is appended when missing.
-        出力パス。拡張子が無ければ ``.afmml`` を付す。
+        Output path; the task's extension is appended when missing.
+        出力パス。拡張子が無ければタスク固有の拡張子を付す。
     train_result
         `lib.ml_train.TrainResult` holding the fitted estimator, task, feature
         spec, threshold, and cross-validation metrics.
@@ -464,14 +466,14 @@ def save_binarize_model(
     license: Optional[str] = None,
 ) -> Dict:
     """
-    Export a trained binarization classifier to a ``.afmml`` model file.
-    学習済みの二値化分類器を ``.afmml`` モデルファイルへエクスポートする。
+    Export a trained binarization classifier to a model file.
+    学習済みの二値化分類器をモデルファイルへエクスポートする。
 
     Parameters
     ----------
     path
-        Output path; ``.afmml`` is appended when missing.
-        出力パス。拡張子が無ければ ``.afmml`` を付す。
+        Output path; the task's extension is appended when missing.
+        出力パス。拡張子が無ければタスク固有の拡張子を付す。
     train_result
         `lib.ml_train.TrainResult` holding the fitted estimator, feature spec,
         threshold, and cross-validation metrics.
@@ -517,14 +519,14 @@ def save_binarize_model(
 
 def load_model(path: str) -> LoadedModel:
     """
-    Load and verify a ``.afmml`` model file.
-    ``.afmml`` モデルファイルを読み込み検証する。
+    Load and verify a model file.
+    モデルファイルを読み込み検証する。
 
     Parameters
     ----------
     path
-        Path to a ``.afmml`` archive.
-        ``.afmml`` アーカイブのパス。
+        Path to a model archive.
+        モデルアーカイブのパス。
 
     Returns
     -------
@@ -582,14 +584,14 @@ def load_model(path: str) -> LoadedModel:
 
 def read_manifest(path: str) -> Dict:
     """
-    Read just the manifest of a ``.afmml`` file without loading the ONNX graph.
-    ONNX グラフを読み込まずに ``.afmml`` の manifest のみを読む。
+    Read just the manifest of a model file without loading the ONNX graph.
+    ONNX グラフを読み込まずにモデルファイルの manifest のみを読む。
 
     Parameters
     ----------
     path
-        Path to a ``.afmml`` archive.
-        ``.afmml`` アーカイブのパス。
+        Path to a model archive.
+        モデルアーカイブのパス。
 
     Returns
     -------
@@ -645,18 +647,21 @@ def _write_archive(
     feature_spec: Optional[Dict] = None,
 ) -> str:
     """
-    Write a ``.afmml`` ZIP archive atomically.
-    ``.afmml`` ZIP アーカイブを原子的に書き込む。
+    Write a model ZIP archive atomically.
+    モデル ZIP アーカイブを原子的に書き込む。
 
     Writes to a temporary sibling file and renames into place so an interrupted
     write cannot leave a half-written model file, mirroring `lib.pipeline`'s
-    atomic bundle save.
+    atomic bundle save. The extension is chosen from the manifest's task, so a
+    model is saved with the task-specific extension (see `MODEL_EXT_BY_TASK`).
     一時的な同一ディレクトリ内ファイルへ書き込んでから所定名へリネームし、
     書き込み中断で半端なモデルファイルが残らないようにする。`lib.pipeline` の
-    原子的バンドル保存に倣う。
+    原子的バンドル保存に倣う。拡張子は manifest のタスクから選ぶため、モデルは
+    タスク固有の拡張子で保存される（`MODEL_EXT_BY_TASK` 参照）。
     """
-    if not path.lower().endswith(MODEL_EXT):
-        path = path + MODEL_EXT
+    ext = MODEL_EXT_BY_TASK.get(manifest.get("task", ""), "")
+    if ext and not path.lower().endswith(ext):
+        path = path + ext
 
     directory = os.path.dirname(os.path.abspath(path))
     fd, tmp_path = tempfile.mkstemp(

@@ -3,18 +3,19 @@
 Apply a machine-learning binarization model and compare it to the classical result.
 機械学習の二値化モデルを適用し、古典的な結果と比較する。
 
-This GUI loads a ``.afmml`` binarization model, applies it to ``.b2z`` bundles,
+This GUI loads a per-pixel preprocessing model, applies it to ``.b2z`` bundles,
 and shows the model's mask beside the classical reference mask (the same label
 the model was trained against) with agreement metrics. It is the maturity gate
 for the ML binarization model: it is where a trained model is checked against
 the classical pipeline before any decision to integrate it into GUI01. Inputs
-are a ``.afmml`` model plus ``.b2z`` bundles; there is no output file (this is a
-comparison tool).
-本 GUI は ``.afmml`` 二値化モデルを読み込み、``.b2z`` バンドルへ適用し、モデルの
+are a model file (extension per task, see `lib.ml_schema.MODEL_EXT_BY_TASK`)
+plus ``.b2z`` bundles; there is no output file (this is a comparison tool).
+本 GUI は画素単位の前処理モデルを読み込み、``.b2z`` バンドルへ適用し、モデルの
 マスクを古典参照マスク（モデルが学習対象とした同じラベル）と並べて一致指標
 とともに表示する。ML 二値化モデルの成熟度ゲートであり、学習済みモデルを GUI01
-へ統合する判断の前に古典パイプラインと照合する場所である。入力は ``.afmml``
-モデルと ``.b2z`` バンドルで、出力ファイルはない（比較ツール）。
+へ統合する判断の前に古典パイプラインと照合する場所である。入力はモデルファイル
+（拡張子はタスク別、`lib.ml_schema.MODEL_EXT_BY_TASK` 参照）と ``.b2z`` バンドルで、
+出力ファイルはない（比較ツール）。
 
 The machine-learning libraries (onnxruntime and the feature stack) are imported
 lazily inside the worker thread, so this plugin starts without them and reports
@@ -32,7 +33,7 @@ import する。したがって本プラグインはそれら無しで起動し�
 PLUGIN_INFO = {
     "name": "ML Model Compare",
     "description": (
-        "Apply a trained .afmml preprocessing model to .b2z bundles and compare "
+        "Apply a trained preprocessing model to .b2z bundles and compare "
         "it against the classical result. A binarization or background-mask "
         "model is scored mask-to-mask with Dice / IoU / agreement; a "
         "background-surface model is scored in nanometers against the surface "
@@ -105,6 +106,24 @@ _REGRESSION_PANEL_TITLES = (
     "Difference (nm)")
 
 
+def _threshold_from_manifest(manifest: Dict) -> float:
+    """
+    Return a manifest's fiber threshold, defaulting to 0.5.
+    manifest の繊維しきい値を返す。既定は 0.5。
+
+    Mirrors `lib.ml_model.LoadedModel.fiber_threshold` so a pre-load manifest
+    peek shows the same threshold the verified model would, without building a
+    `LoadedModel`. An explicit ``None`` check is required because a recorded
+    threshold of ``0.0`` is a valid value, not a "use the default" signal.
+    `lib.ml_model.LoadedModel.fiber_threshold` に倣い、`LoadedModel` を作らずに
+    読み込み前の manifest ピークでも検証後と同じしきい値を表示する。記録値
+    ``0.0`` は有効な値であり「既定を使う」の合図ではないため、明示的な ``None``
+    判定が必要。
+    """
+    value = manifest.get("segmentation_threshold")
+    return float(value) if value is not None else 0.5
+
+
 class App(tk.Tk, LogMixin):
     """
     Main window for applying a model and comparing it to the classical mask.
@@ -172,7 +191,7 @@ class App(tk.Tk, LogMixin):
         Build the model-load button and manifest-info display.
         モデル読み込みボタンと manifest 情報の表示を構築する。
         """
-        lf = ttk.LabelFrame(parent, text=_("モデル（.afmml）"))
+        lf = ttk.LabelFrame(parent, text=_("モデル"))
         lf.pack(fill=tk.X, padx=4, pady=4)
 
         ttk.Button(lf, text=_("モデルを読み込み..."), command=self.on_load_model).pack(
@@ -328,32 +347,58 @@ class App(tk.Tk, LogMixin):
         Log a short usage hint at startup.
         起動時に短い使い方の案内をログへ表示する。
         """
-        self._log(_(".afmml モデルを読み込み .b2z バンドルを追加し、"
+        self._log(_("モデルを読み込み .b2z バンドルを追加し、"
                     "画像を選択して比較するか Compare all を使います。"))
 
     # ----- Model loading ---------------------------------------------------
 
     def on_load_model(self) -> None:
         """
-        Load and validate a ``.afmml`` binarization model.
-        ``.afmml`` 二値化モデルを読み込み検証する。
+        Load and validate a per-pixel preprocessing model.
+        画素単位の前処理モデルを読み込み検証する。
         """
-        path = filedialog.askopenfilename(
-            title=_(".afmml モデルを選択"),
-            filetypes=[("AFM ML model", "*.afmml"), ("All files", "*.*")],
-        )
-        if not path:
-            return
         try:
             from lib import ml_model as mm
             from lib.ml_schema import (
-                BACKGROUND_TASKS, SEGMENTATION_TASKS, validate_manifest)
+                BACKGROUND_TASKS, MODEL_EXT_BY_TASK, SEGMENTATION_TASKS,
+                validate_manifest)
         except ImportError as exc:
             messagebox.showerror(
                 _("エラー"),
                 _("機械学習ライブラリがインストールされていません。\n{err}")
                 .format(err=str(exc)))
             return
+
+        # Offer only this stage's model extensions in the picker (segmentation
+        # + background tasks); a fragment-pair `connect` model cannot be
+        # compared here, so its extension is left out of the default filter.
+        # このピッカーには当段のモデル拡張子（二値化＋背景タスク）のみを提示する。
+        # 断片ペアの `connect` モデルはここで比較できないため、その拡張子は既定
+        # フィルタから外す。
+        accepted = tuple(SEGMENTATION_TASKS) + tuple(BACKGROUND_TASKS)
+        patterns = " ".join(f"*{MODEL_EXT_BY_TASK[t]}" for t in accepted)
+        path = filedialog.askopenfilename(
+            title=_("モデルを選択"),
+            filetypes=[("AFM ML model", patterns), ("All files", "*.*")],
+        )
+        if not path:
+            return
+        # Peek the manifest first (cheap: no ONNX bytes, no onnxruntime) so the
+        # model's task is shown as soon as a file is picked, before the heavier
+        # verified load. read_manifest does not validate, so the full load below
+        # still gates actual use; on a load failure the peeked task stays visible
+        # as a "which model did I pick" diagnostic.
+        # まず manifest だけを覗く（軽量：ONNX バイト列も onnxruntime も読まない）。
+        # ファイル選択直後に、本検証読み込みの前に task を表示する。read_manifest は
+        # 検証しないため実使用の可否は下の本読み込みが担う。読み込み失敗時も、覗いた
+        # task は「どのモデルを選んだか」の手がかりとして表示に残す。
+        try:
+            peeked = mm.read_manifest(path)
+        except Exception as exc:  # noqa: BLE001 - report any read failure.
+            messagebox.showerror(_("読み込みに失敗しました"), str(exc))
+            return
+        self._show_model_info(peeked, _threshold_from_manifest(peeked))
+
         try:
             model = mm.load_model(path)
         except Exception as exc:  # noqa: BLE001 - report any load failure.
@@ -362,11 +407,13 @@ class App(tk.Tk, LogMixin):
 
         # Every per-pixel model can be compared here; a fragment-pair
         # (`connect`) model cannot, and is rejected with a message naming the
-        # accepted tasks rather than producing a silently wrong result.
+        # accepted tasks rather than producing a silently wrong result. The
+        # picker's extension filter already steers toward `accepted`, but the
+        # extension is not authoritative, so revalidate against the manifest.
         # 画素単位モデルはいずれもここで比較できる。断片ペア（`connect`）モデルは
         # 比較できないため、受理タスクを明示して拒否し、黙って誤った結果を
-        # 出さない。
-        accepted = tuple(SEGMENTATION_TASKS) + tuple(BACKGROUND_TASKS)
+        # 出さない。ピッカーの拡張子フィルタは既に `accepted` へ誘導するが、拡張子は
+        # 正準ではないため manifest で再検証する。
         problems = validate_manifest(model.manifest, require_task=accepted)
         if problems:
             messagebox.showerror(_("モデルが不適切"), "; ".join(problems))
@@ -374,16 +421,23 @@ class App(tk.Tk, LogMixin):
 
         self._model = model
         self._model_path = path
-        self._show_model_info(model)
+        self._show_model_info(model.manifest, model.fiber_threshold)
         self._log(_("モデルを読み込みました: {p}").format(p=os.path.basename(path)))
         self._update_controls_state()
 
-    def _show_model_info(self, model) -> None:
+    def _show_model_info(self, manifest: Dict, threshold: float) -> None:
         """
-        Display key manifest fields for the loaded model.
-        読み込んだモデルの主要 manifest 項目を表示する。
+        Display key manifest fields for a model.
+        モデルの主要 manifest 項目を表示する。
+
+        Takes the manifest and threshold directly (not a `LoadedModel`) so the
+        same display serves both the pre-load manifest peek (via `read_manifest`)
+        and the verified load, without opening the ONNX graph for the peek.
+        `LoadedModel` ではなく manifest としきい値を直接受け取り、読み込み前の
+        manifest ピーク（`read_manifest` 経由）と検証読み込みの両方で同じ表示を
+        使えるようにする。ピークでは ONNX グラフを開かない。
         """
-        m = model.manifest
+        m = manifest
         dice = ""
         metrics = m.get("metrics") or {}
         if "dice_mean" in metrics:
@@ -393,7 +447,7 @@ class App(tk.Tk, LogMixin):
         self.model_info_var.set(
             _("id: {id}\ntask: {task}  しきい値: {thr}{dice}").format(
                 id=m.get("model_id", "?"), task=m.get("task", "?"),
-                thr=model.fiber_threshold, dice=dice))
+                thr=threshold, dice=dice))
 
     # ----- Image list management ------------------------------------------
 
