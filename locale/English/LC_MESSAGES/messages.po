@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-27 12:21+0900\n"
+"POT-Creation-Date: 2026-07-27 15:09+0900\n"
 "PO-Revision-Date: 2026-04-27 14:35+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -79,9 +79,9 @@ msgstr "Startup settings file had unused keys (ignored): %s"
 msgid "起動時設定ファイルの読み込みに失敗しました（デフォルトにフォールバック）: %s"
 msgstr "Failed to load startup settings file (falling back to defaults): %s"
 
-#: guis/GUI01_Image_Preprocessor.py:569 guis/GUI01_Image_Preprocessor.py:1379
-#: guis/GUI01_Image_Preprocessor.py:1388 guis/GUI01_Image_Preprocessor.py:3659
-#: guis/GUI01_Image_Preprocessor.py:3668
+#: guis/GUI01_Image_Preprocessor.py:601 guis/GUI01_Image_Preprocessor.py:1411
+#: guis/GUI01_Image_Preprocessor.py:1420 guis/GUI01_Image_Preprocessor.py:3694
+#: guis/GUI01_Image_Preprocessor.py:3703
 #: guis/GUI03_Fiber_Height_Histogram.py:496
 #: guis/GUI03_Fiber_Height_Histogram.py:1297
 #: guis/GUI03_Fiber_Height_Histogram.py:1605
@@ -91,210 +91,210 @@ msgstr "Failed to load startup settings file (falling back to defaults): %s"
 msgid "非表示"
 msgstr "Hidden"
 
-#: guis/GUI01_Image_Preprocessor.py:626
+#: guis/GUI01_Image_Preprocessor.py:658
 msgid "フォルダ選択"
 msgstr "Select Folder"
 
-#: guis/GUI01_Image_Preprocessor.py:633
+#: guis/GUI01_Image_Preprocessor.py:665
 msgid "解析済みを上書き"
 msgstr "Overwrite Analyzed Files"
 
-#: guis/GUI01_Image_Preprocessor.py:637
+#: guis/GUI01_Image_Preprocessor.py:669
 msgid "全て解析"
 msgstr "Analyze All"
 
-#: guis/GUI01_Image_Preprocessor.py:640
+#: guis/GUI01_Image_Preprocessor.py:672
 msgid "解析"
 msgstr "Analyze"
 
-#: guis/GUI01_Image_Preprocessor.py:643
+#: guis/GUI01_Image_Preprocessor.py:675
 msgid "停止"
 msgstr "Stop"
 
-#: guis/GUI01_Image_Preprocessor.py:649 guis/GUI01_Image_Preprocessor.py:2884
+#: guis/GUI01_Image_Preprocessor.py:681 guis/GUI01_Image_Preprocessor.py:2919
 msgid "設定"
 msgstr "Settings"
 
-#: guis/GUI01_Image_Preprocessor.py:652
+#: guis/GUI01_Image_Preprocessor.py:684
 msgid "出力先を開く"
 msgstr "Open Output Folder"
 
-#: guis/GUI01_Image_Preprocessor.py:674 guis/GUI04_Tracking_fiber.py:514
+#: guis/GUI01_Image_Preprocessor.py:706 guis/GUI04_Tracking_fiber.py:514
 #: guis/GUI07_ML_Connect_Annotator.py:602
 msgid "ファイル一覧"
 msgstr "File List"
 
-#: guis/GUI01_Image_Preprocessor.py:682
+#: guis/GUI01_Image_Preprocessor.py:714
 msgid "X / Y セルは直接入力・Excel から貼り付け可"
 msgstr "Type into the X / Y cells directly, or paste from Excel"
 
-#: guis/GUI01_Image_Preprocessor.py:703
+#: guis/GUI01_Image_Preprocessor.py:735
 msgid "ファイル名"
 msgstr "File Name"
 
-#: guis/GUI01_Image_Preprocessor.py:710
+#: guis/GUI01_Image_Preprocessor.py:742
 msgid "状態"
 msgstr "Status"
 
-#: guis/GUI01_Image_Preprocessor.py:711
+#: guis/GUI01_Image_Preprocessor.py:743
 msgid "処理時間"
 msgstr "Processing Time"
 
-#: guis/GUI01_Image_Preprocessor.py:772
+#: guis/GUI01_Image_Preprocessor.py:804
 msgid "セルを編集"
 msgstr "Edit cell"
 
-#: guis/GUI01_Image_Preprocessor.py:773
+#: guis/GUI01_Image_Preprocessor.py:805
 msgid "コピー"
 msgstr "Copy"
 
-#: guis/GUI01_Image_Preprocessor.py:774
+#: guis/GUI01_Image_Preprocessor.py:806
 msgid "貼り付け"
 msgstr "Paste"
 
-#: guis/GUI01_Image_Preprocessor.py:775 guis/GUI05_ML_Model_Trainer.py:235
+#: guis/GUI01_Image_Preprocessor.py:807 guis/GUI05_ML_Model_Trainer.py:237
 #: guis/GUI06_ML_Model_Compare.py:265 guis/GUI07_ML_Connect_Annotator.py:913
 msgid "削除"
 msgstr "Delete"
 
-#: guis/GUI01_Image_Preprocessor.py:776 guis/GUI08_ML_Mask_Annotator.py:347
+#: guis/GUI01_Image_Preprocessor.py:808 guis/GUI08_ML_Mask_Annotator.py:354
 msgid "元に戻す"
 msgstr "Undo"
 
-#: guis/GUI01_Image_Preprocessor.py:869 guis/GUI02_PlotProfiler.py:669
+#: guis/GUI01_Image_Preprocessor.py:901 guis/GUI02_PlotProfiler.py:669
 #: guis/GUI04_Tracking_fiber.py:380 guis/GUI07_ML_Connect_Annotator.py:468
 msgid "AFM 画像の X（幅）方向の実寸"
 msgstr "Actual X (width) size of the AFM image"
 
-#: guis/GUI01_Image_Preprocessor.py:870
+#: guis/GUI01_Image_Preprocessor.py:902
 msgid "プレビューの軸目盛と、ファイルへ適用したときの長さ計測の基準に使われる。"
 msgstr ""
 "Used for the preview axis ticks and, once applied to files, as the basis "
 "for length measurements."
 
-#: guis/GUI01_Image_Preprocessor.py:892 guis/GUI02_PlotProfiler.py:691
+#: guis/GUI01_Image_Preprocessor.py:924 guis/GUI02_PlotProfiler.py:691
 #: guis/GUI04_Tracking_fiber.py:402 guis/GUI07_ML_Connect_Annotator.py:490
 msgid "AFM 画像の Y（高さ）方向の実寸"
 msgstr "Actual Y (height) size of the AFM image"
 
-#: guis/GUI01_Image_Preprocessor.py:893 guis/GUI02_PlotProfiler.py:692
+#: guis/GUI01_Image_Preprocessor.py:925 guis/GUI02_PlotProfiler.py:692
 #: guis/GUI04_Tracking_fiber.py:403 guis/GUI07_ML_Connect_Annotator.py:491
 msgid "空欄なら X（幅）と同じ（正方スキャン）。"
 msgstr "Leave empty to use the same value as X (width) — a square scan."
 
-#: guis/GUI01_Image_Preprocessor.py:931
+#: guis/GUI01_Image_Preprocessor.py:963
 msgid "選択ファイルに適用"
 msgstr "Apply to selected files"
 
-#: guis/GUI01_Image_Preprocessor.py:936
+#: guis/GUI01_Image_Preprocessor.py:968
 msgid "全ファイルに適用"
 msgstr "Apply to all"
 
-#: guis/GUI01_Image_Preprocessor.py:941
+#: guis/GUI01_Image_Preprocessor.py:973
 msgid "スケール表(CSV)読込"
 msgstr "Load scale table (CSV)"
 
-#: guis/GUI01_Image_Preprocessor.py:947
+#: guis/GUI01_Image_Preprocessor.py:979
 msgid "スケール入力欄の値を選択ファイルへ適用します。"
 msgstr "Apply the value in the scale field to the selected files."
 
-#: guis/GUI01_Image_Preprocessor.py:948
+#: guis/GUI01_Image_Preprocessor.py:980
 msgid "ヘッダから取得できないファイルにスケールを与えるときに使います。"
 msgstr "Use this to set the scale for files without a header scan size."
 
-#: guis/GUI01_Image_Preprocessor.py:952
+#: guis/GUI01_Image_Preprocessor.py:984
 msgid "ファイル名とスケールを対応付けた CSV を読み込みます。"
 msgstr "Load a CSV mapping file names to scales."
 
-#: guis/GUI01_Image_Preprocessor.py:953
+#: guis/GUI01_Image_Preprocessor.py:985
 msgid "列: filename, scale_um もしくは scale_x_um, scale_y_um。"
 msgstr "Columns: filename, scale_um or scale_x_um, scale_y_um."
 
-#: guis/GUI01_Image_Preprocessor.py:963
+#: guis/GUI01_Image_Preprocessor.py:995
 #: guis/GUI03_Fiber_Height_Histogram.py:400 guis/GUI04_Tracking_fiber.py:715
 #: guis/GUI07_ML_Connect_Annotator.py:807 lib/ui_tools.py:173
 msgid "ログを保存"
 msgstr "Save Log"
 
-#: guis/GUI01_Image_Preprocessor.py:965
+#: guis/GUI01_Image_Preprocessor.py:997
 #: guis/GUI03_Fiber_Height_Histogram.py:402 guis/GUI04_Tracking_fiber.py:718
 #: guis/GUI07_ML_Connect_Annotator.py:810
 msgid "ログをクリア"
 msgstr "Clear Log"
 
-#: guis/GUI01_Image_Preprocessor.py:980
+#: guis/GUI01_Image_Preprocessor.py:1012
 msgid "-/- 完了"
 msgstr "-/- Completed"
 
-#: guis/GUI01_Image_Preprocessor.py:996 guis/GUI01_Image_Preprocessor.py:2292
+#: guis/GUI01_Image_Preprocessor.py:1028 guis/GUI01_Image_Preprocessor.py:2325
 msgid "-"
 msgstr "-"
 
-#: guis/GUI01_Image_Preprocessor.py:1329 guis/GUI01_Image_Preprocessor.py:3612
+#: guis/GUI01_Image_Preprocessor.py:1361 guis/GUI01_Image_Preprocessor.py:3647
 msgid "タイトル表示"
 msgstr "Show Title"
 
-#: guis/GUI01_Image_Preprocessor.py:1335 guis/GUI01_Image_Preprocessor.py:3613
+#: guis/GUI01_Image_Preprocessor.py:1367 guis/GUI01_Image_Preprocessor.py:3648
 msgid "スケール表示"
 msgstr "Show Scale"
 
-#: guis/GUI01_Image_Preprocessor.py:1345 guis/GUI01_Image_Preprocessor.py:3616
+#: guis/GUI01_Image_Preprocessor.py:1377 guis/GUI01_Image_Preprocessor.py:3651
 #: guis/GUI04_Tracking_fiber.py:437 guis/GUI07_ML_Connect_Annotator.py:525
 msgid "軸目盛単位"
 msgstr "Axis Tick Unit"
 
-#: guis/GUI01_Image_Preprocessor.py:1356 guis/GUI01_Image_Preprocessor.py:3627
+#: guis/GUI01_Image_Preprocessor.py:1388 guis/GUI01_Image_Preprocessor.py:3662
 #: guis/GUI04_Tracking_fiber.py:623 guis/GUI07_ML_Connect_Annotator.py:715
 msgid "vmin"
 msgstr "vmin"
 
-#: guis/GUI01_Image_Preprocessor.py:1365 guis/GUI01_Image_Preprocessor.py:3636
+#: guis/GUI01_Image_Preprocessor.py:1397 guis/GUI01_Image_Preprocessor.py:3671
 #: guis/GUI04_Tracking_fiber.py:631 guis/GUI07_ML_Connect_Annotator.py:723
 msgid "vmax"
 msgstr "vmax"
 
-#: guis/GUI01_Image_Preprocessor.py:1375 guis/GUI01_Image_Preprocessor.py:3653
+#: guis/GUI01_Image_Preprocessor.py:1407 guis/GUI01_Image_Preprocessor.py:3688
 #: guis/GUI03_Fiber_Height_Histogram.py:509
 msgid "重ね表示"
 msgstr "Overlay"
 
-#: guis/GUI01_Image_Preprocessor.py:1387 guis/GUI01_Image_Preprocessor.py:3667
+#: guis/GUI01_Image_Preprocessor.py:1419 guis/GUI01_Image_Preprocessor.py:3702
 msgid "Skeletonized 画像に重ねる特徴点の種類を選択します。"
 msgstr "Select the type of feature points to overlay on the Skeletonized image."
 
-#: guis/GUI01_Image_Preprocessor.py:1388
+#: guis/GUI01_Image_Preprocessor.py:1420
 msgid "重ね表示しません"
 msgstr "Do not overlay"
 
-#: guis/GUI01_Image_Preprocessor.py:1389 guis/GUI01_Image_Preprocessor.py:3669
+#: guis/GUI01_Image_Preprocessor.py:1421 guis/GUI01_Image_Preprocessor.py:3704
 msgid "ファイバーの端点（青）"
 msgstr "Fiber endpoints (blue)"
 
-#: guis/GUI01_Image_Preprocessor.py:1390 guis/GUI01_Image_Preprocessor.py:3670
+#: guis/GUI01_Image_Preprocessor.py:1422 guis/GUI01_Image_Preprocessor.py:3705
 msgid "ファイバーの分岐点（赤）"
 msgstr "Fiber branch points (red)"
 
-#: guis/GUI01_Image_Preprocessor.py:1391 guis/GUI01_Image_Preprocessor.py:3671
+#: guis/GUI01_Image_Preprocessor.py:1423 guis/GUI01_Image_Preprocessor.py:3706
 msgid "ファイバーのキンク点（シアン）"
 msgstr "Fiber kink points (cyan)"
 
-#: guis/GUI01_Image_Preprocessor.py:1392 guis/GUI01_Image_Preprocessor.py:3672
+#: guis/GUI01_Image_Preprocessor.py:1424 guis/GUI01_Image_Preprocessor.py:3707
 msgid "ファイバーの分解点（オレンジ）"
 msgstr "Fiber decomposition points (orange)"
 
-#: guis/GUI01_Image_Preprocessor.py:1405 guis/GUI01_Image_Preprocessor.py:3685
+#: guis/GUI01_Image_Preprocessor.py:1437 guis/GUI01_Image_Preprocessor.py:3720
 #: guis/GUI02_PlotProfiler.py:822 guis/GUI04_Tracking_fiber.py:657
 #: guis/GUI07_ML_Connect_Annotator.py:749
 msgid "フォントサイズ：タイトル"
 msgstr "Font Size: Title"
 
-#: guis/GUI01_Image_Preprocessor.py:1414 guis/GUI01_Image_Preprocessor.py:3705
+#: guis/GUI01_Image_Preprocessor.py:1446 guis/GUI01_Image_Preprocessor.py:3740
 #: guis/GUI02_PlotProfiler.py:835 guis/GUI03_Fiber_Height_Histogram.py:565
 #: guis/GUI04_Tracking_fiber.py:666 guis/GUI07_ML_Connect_Annotator.py:758
 msgid "軸ラベル"
 msgstr "Axis Label"
 
-#: guis/GUI01_Image_Preprocessor.py:1423 guis/GUI01_Image_Preprocessor.py:3715
+#: guis/GUI01_Image_Preprocessor.py:1455 guis/GUI01_Image_Preprocessor.py:3750
 #: guis/GUI02_PlotProfiler.py:847 guis/GUI03_Fiber_Height_Histogram.py:574
 #: guis/GUI04_Tracking_fiber.py:675 guis/GUI04_Tracking_fiber.py:2630
 #: guis/GUI04_Tracking_fiber.py:2727 guis/GUI07_ML_Connect_Annotator.py:767
@@ -303,12 +303,12 @@ msgstr "Axis Label"
 msgid "軸目盛"
 msgstr "Ticks"
 
-#: guis/GUI01_Image_Preprocessor.py:1432 guis/GUI01_Image_Preprocessor.py:3725
+#: guis/GUI01_Image_Preprocessor.py:1464 guis/GUI01_Image_Preprocessor.py:3760
 #: guis/GUI04_Tracking_fiber.py:2736 guis/GUI07_ML_Connect_Annotator.py:3336
 msgid "凡例"
 msgstr "Legend"
 
-#: guis/GUI01_Image_Preprocessor.py:1443 guis/GUI01_Image_Preprocessor.py:3735
+#: guis/GUI01_Image_Preprocessor.py:1475 guis/GUI01_Image_Preprocessor.py:3770
 #: guis/GUI02_PlotProfiler.py:255 guis/GUI02_PlotProfiler.py:952
 #: guis/GUI02_PlotProfiler.py:2228 guis/GUI03_Fiber_Height_Histogram.py:443
 #: guis/GUI03_Fiber_Height_Histogram.py:1734 guis/GUI04_Tracking_fiber.py:641
@@ -323,21 +323,21 @@ msgstr "Legend"
 msgid "画像を保存"
 msgstr "Save Image"
 
-#: guis/GUI01_Image_Preprocessor.py:1447 guis/GUI04_Tracking_fiber.py:644
+#: guis/GUI01_Image_Preprocessor.py:1479 guis/GUI04_Tracking_fiber.py:644
 #: guis/GUI07_ML_Connect_Annotator.py:736
 msgid "個別表示"
 msgstr "Individual View"
 
-#: guis/GUI01_Image_Preprocessor.py:1472 guis/GUI01_Image_Preprocessor.py:3784
+#: guis/GUI01_Image_Preprocessor.py:1504 guis/GUI01_Image_Preprocessor.py:3819
 msgid "vmin は vmax 以下にしてください"
 msgstr "vmin must be less than or equal to vmax"
 
-#: guis/GUI01_Image_Preprocessor.py:1496 guis/GUI01_Image_Preprocessor.py:3758
+#: guis/GUI01_Image_Preprocessor.py:1528 guis/GUI01_Image_Preprocessor.py:3793
 #: guis/GUI02_PlotProfiler.py:1088
 msgid "フォントサイズは 1〜60 の範囲で入力してください"
 msgstr "Enter a font size in the range 1-60."
 
-#: guis/GUI01_Image_Preprocessor.py:1514 guis/GUI01_Image_Preprocessor.py:1552
+#: guis/GUI01_Image_Preprocessor.py:1546 guis/GUI01_Image_Preprocessor.py:1584
 #: guis/GUI02_PlotProfiler.py:653 guis/GUI02_PlotProfiler.py:1123
 #: guis/GUI02_PlotProfiler.py:1152 guis/GUI04_Tracking_fiber.py:365
 #: guis/GUI04_Tracking_fiber.py:828 guis/GUI04_Tracking_fiber.py:860
@@ -347,16 +347,16 @@ msgstr "Enter a font size in the range 1-60."
 msgid "スケール"
 msgstr "Scale"
 
-#: guis/GUI01_Image_Preprocessor.py:1514 guis/GUI01_Image_Preprocessor.py:1552
+#: guis/GUI01_Image_Preprocessor.py:1546 guis/GUI01_Image_Preprocessor.py:1584
 #: guis/GUI02_PlotProfiler.py:1123 guis/GUI02_PlotProfiler.py:1152
 msgid "は正の数を入力してください"
 msgstr "must be a positive number"
 
-#: guis/GUI01_Image_Preprocessor.py:1547 guis/GUI01_Image_Preprocessor.py:1551
-#: guis/GUI01_Image_Preprocessor.py:2064 guis/GUI01_Image_Preprocessor.py:2225
-#: guis/GUI01_Image_Preprocessor.py:2241 guis/GUI01_Image_Preprocessor.py:2258
-#: guis/GUI01_Image_Preprocessor.py:3332 guis/GUI01_Image_Preprocessor.py:3399
-#: guis/GUI01_Image_Preprocessor.py:3446 guis/GUI01_Image_Preprocessor.py:3466
+#: guis/GUI01_Image_Preprocessor.py:1579 guis/GUI01_Image_Preprocessor.py:1583
+#: guis/GUI01_Image_Preprocessor.py:2097 guis/GUI01_Image_Preprocessor.py:2258
+#: guis/GUI01_Image_Preprocessor.py:2274 guis/GUI01_Image_Preprocessor.py:2291
+#: guis/GUI01_Image_Preprocessor.py:3367 guis/GUI01_Image_Preprocessor.py:3434
+#: guis/GUI01_Image_Preprocessor.py:3481 guis/GUI01_Image_Preprocessor.py:3501
 #: guis/GUI02_PlotProfiler.py:1147 guis/GUI02_PlotProfiler.py:1151
 #: guis/GUI02_PlotProfiler.py:1454 guis/GUI02_PlotProfiler.py:1468
 #: guis/GUI02_PlotProfiler.py:1637 guis/GUI02_PlotProfiler.py:2050
@@ -365,158 +365,158 @@ msgstr "must be a positive number"
 #: guis/GUI04_Tracking_fiber.py:855 guis/GUI04_Tracking_fiber.py:859
 #: guis/GUI04_Tracking_fiber.py:2836 guis/GUI04_Tracking_fiber.py:2839
 #: guis/GUI04_Tracking_fiber.py:2869 guis/GUI04_Tracking_fiber.py:2872
-#: guis/GUI05_ML_Model_Trainer.py:928 guis/GUI06_ML_Model_Compare.py:367
+#: guis/GUI05_ML_Model_Trainer.py:937 guis/GUI06_ML_Model_Compare.py:367
 #: guis/GUI06_ML_Model_Compare.py:757 guis/GUI07_ML_Connect_Annotator.py:1247
 #: guis/GUI07_ML_Connect_Annotator.py:1387
 #: guis/GUI07_ML_Connect_Annotator.py:1391
 #: guis/GUI07_ML_Connect_Annotator.py:3436
 #: guis/GUI07_ML_Connect_Annotator.py:3439
 #: guis/GUI07_ML_Connect_Annotator.py:3469
-#: guis/GUI07_ML_Connect_Annotator.py:3472 guis/GUI08_ML_Mask_Annotator.py:585
-#: guis/GUI08_ML_Mask_Annotator.py:1002 lib/ui_tools.py:730 lib/ui_tools.py:740
+#: guis/GUI07_ML_Connect_Annotator.py:3472 guis/GUI08_ML_Mask_Annotator.py:592
+#: guis/GUI08_ML_Mask_Annotator.py:1009 lib/ui_tools.py:730 lib/ui_tools.py:740
 msgid "エラー"
 msgstr "Error"
 
-#: guis/GUI01_Image_Preprocessor.py:1547 guis/GUI02_PlotProfiler.py:1147
+#: guis/GUI01_Image_Preprocessor.py:1579 guis/GUI02_PlotProfiler.py:1147
 #: guis/GUI04_Tracking_fiber.py:855 guis/GUI07_ML_Connect_Annotator.py:1387
 #: lib/ui_tools.py:730
 msgid "数値を入力してください"
 msgstr "Please enter a number"
 
-#: guis/GUI01_Image_Preprocessor.py:1846
+#: guis/GUI01_Image_Preprocessor.py:1879
 msgid "既存ファイル: 上書きON（解析開始前に上書き対象数をログ表示）"
 msgstr ""
 "Existing files: Overwrite ON (number of files to be overwritten will be "
 "shown in log before analysis)"
 
-#: guis/GUI01_Image_Preprocessor.py:1848
+#: guis/GUI01_Image_Preprocessor.py:1881
 msgid "既存ファイル: スキップ（再計算・上書きしない）"
 msgstr "Existing files: Skip (no recalculation or overwrite)"
 
-#: guis/GUI01_Image_Preprocessor.py:1856
+#: guis/GUI01_Image_Preprocessor.py:1889
 msgid "入力フォルダを選択（.txt / .gwy を含む）"
 msgstr "Select input folder (containing .txt / .gwy)"
 
-#: guis/GUI01_Image_Preprocessor.py:1861
+#: guis/GUI01_Image_Preprocessor.py:1894
 #, python-format
 msgid "フォルダ選択: %s"
 msgstr "Folder selected: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:1874
+#: guis/GUI01_Image_Preprocessor.py:1907
 #, python-format
 msgid "フォルダ読み込み失敗: %s"
 msgstr "Failed to load folder: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:1895
+#: guis/GUI01_Image_Preprocessor.py:1928
 msgid "欠損: "
 msgstr "Missing: "
 
-#: guis/GUI01_Image_Preprocessor.py:1896
+#: guis/GUI01_Image_Preprocessor.py:1929
 #, python-format
 msgid "%s: 未解析（%s）"
 msgstr "%s: Not Analyzed (%s)"
 
-#: guis/GUI01_Image_Preprocessor.py:1917
+#: guis/GUI01_Image_Preprocessor.py:1950
 msgid "対象ファイル（.txt / .gwy）がありません。"
 msgstr "No target .txt / .gwy files found."
 
-#: guis/GUI01_Image_Preprocessor.py:1921
+#: guis/GUI01_Image_Preprocessor.py:1954
 #, python-format
 msgid "スケール: バンドル記録 %d 件 / ヘッダ取得 %d 件 / 未設定 %d 件"
 msgstr "Scale: %d from bundle / %d from header / %d unset"
 
-#: guis/GUI01_Image_Preprocessor.py:1926
+#: guis/GUI01_Image_Preprocessor.py:1959
 msgid "スケール（画像の実寸 µm）が未設定のファイルがあります。「適用」または「スケール表(CSV)読込」で設定してください。"
 msgstr ""
 "Some files have no scale (physical image size in µm) set. Set it with "
 "'Apply' or 'Load scale table (CSV)'."
 
-#: guis/GUI01_Image_Preprocessor.py:2016 guis/GUI01_Image_Preprocessor.py:2067
-#: guis/GUI01_Image_Preprocessor.py:2144
+#: guis/GUI01_Image_Preprocessor.py:2049 guis/GUI01_Image_Preprocessor.py:2100
+#: guis/GUI01_Image_Preprocessor.py:2177
 msgid "注意"
 msgstr "Warning"
 
-#: guis/GUI01_Image_Preprocessor.py:2016
+#: guis/GUI01_Image_Preprocessor.py:2049
 msgid "適用するファイルを選択してください。"
 msgstr "Select the files to apply to."
 
-#: guis/GUI01_Image_Preprocessor.py:2032
+#: guis/GUI01_Image_Preprocessor.py:2065
 #, python-format
 msgid "スケール %g µm を %d 件に適用しました。"
 msgstr "Applied scale %g µm to %d file(s)."
 
-#: guis/GUI01_Image_Preprocessor.py:2035
+#: guis/GUI01_Image_Preprocessor.py:2068
 #, python-format
 msgid "スケール %g×%g µm を %d 件に適用しました。"
 msgstr "Applied scale %g×%g µm to %d file(s)."
 
-#: guis/GUI01_Image_Preprocessor.py:2056
+#: guis/GUI01_Image_Preprocessor.py:2089
 msgid "スケール表(CSV)を選択"
 msgstr "Select scale table (CSV)"
 
-#: guis/GUI01_Image_Preprocessor.py:2064
+#: guis/GUI01_Image_Preprocessor.py:2097
 #, python-format
 msgid "スケール表の読み込みに失敗しました: %s"
 msgstr "Failed to load the scale table: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:2067
+#: guis/GUI01_Image_Preprocessor.py:2100
 msgid "スケール表に有効な行がありませんでした。"
 msgstr "The scale table had no valid rows."
 
-#: guis/GUI01_Image_Preprocessor.py:2089
+#: guis/GUI01_Image_Preprocessor.py:2122
 #, python-format
 msgid "スケール表を適用しました: 一致 %d 件 / 未一致 %d 件"
 msgstr "Applied the scale table: %d matched / %d unmatched."
 
-#: guis/GUI01_Image_Preprocessor.py:2144
+#: guis/GUI01_Image_Preprocessor.py:2177
 msgid "先にフォルダを選択してください。"
 msgstr "Please select a folder first."
 
-#: guis/GUI01_Image_Preprocessor.py:2179
+#: guis/GUI01_Image_Preprocessor.py:2212
 msgid "停止要求を受け付けました（安全に中断します）"
 msgstr "Stop request received (will stop safely)"
 
-#: guis/GUI01_Image_Preprocessor.py:2180
+#: guis/GUI01_Image_Preprocessor.py:2213
 msgid "停止要求を送信しました…"
 msgstr "Stop request sent…"
 
-#: guis/GUI01_Image_Preprocessor.py:2223
+#: guis/GUI01_Image_Preprocessor.py:2256
 msgid "スケール未設定のファイルがあります。先にスケールを設定してください:"
 msgstr "Some files have no scale set. Set the scale first:"
 
-#: guis/GUI01_Image_Preprocessor.py:2241 guis/GUI01_Image_Preprocessor.py:2815
+#: guis/GUI01_Image_Preprocessor.py:2274 guis/GUI01_Image_Preprocessor.py:2850
 msgid "フォルダが選択されていません。"
 msgstr "No folder has been selected."
 
-#: guis/GUI01_Image_Preprocessor.py:2256 guis/GUI01_Image_Preprocessor.py:2259
+#: guis/GUI01_Image_Preprocessor.py:2289 guis/GUI01_Image_Preprocessor.py:2292
 msgid "解析パラメータが不正なため開始できません。"
 msgstr ""
 
-#: guis/GUI01_Image_Preprocessor.py:2277
+#: guis/GUI01_Image_Preprocessor.py:2310
 #, python-format
 msgid "上書き対象ファイル数: %d"
 msgstr "Number of files to overwrite: %d"
 
-#: guis/GUI01_Image_Preprocessor.py:2291 guis/GUI01_Image_Preprocessor.py:2426
+#: guis/GUI01_Image_Preprocessor.py:2324 guis/GUI01_Image_Preprocessor.py:2461
 #, python-brace-format
 msgid "{0}/{1} 完了"
 msgstr "{0}/{1} Completed"
 
-#: guis/GUI01_Image_Preprocessor.py:2317
+#: guis/GUI01_Image_Preprocessor.py:2350
 msgid "停止しました。"
 msgstr "Stopped."
 
-#: guis/GUI01_Image_Preprocessor.py:2330
+#: guis/GUI01_Image_Preprocessor.py:2363
 #, python-format
 msgid "%s: 既存データのためスキップ"
 msgstr "%s: Skipped (existing data)"
 
-#: guis/GUI01_Image_Preprocessor.py:2334 guis/GUI01_Image_Preprocessor.py:2386
+#: guis/GUI01_Image_Preprocessor.py:2367 guis/GUI01_Image_Preprocessor.py:2421
 #: guis/GUI03_Fiber_Height_Histogram.py:1587
 msgid "完了"
 msgstr "Completed"
 
-#: guis/GUI01_Image_Preprocessor.py:2391
+#: guis/GUI01_Image_Preprocessor.py:2426
 #, python-format
 msgid ""
 "解析失敗: %s\n"
@@ -527,25 +527,25 @@ msgstr ""
 "%s\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:2395
+#: guis/GUI01_Image_Preprocessor.py:2430
 msgid "失敗"
 msgstr "Failed"
 
-#: guis/GUI01_Image_Preprocessor.py:2400
+#: guis/GUI01_Image_Preprocessor.py:2435
 #, python-format
 msgid "解析完了: %s (%ss)"
 msgstr "Analysis completed: %s (%ss)"
 
-#: guis/GUI01_Image_Preprocessor.py:2458
+#: guis/GUI01_Image_Preprocessor.py:2493
 #, python-brace-format
 msgid "{0} / {1}"
 msgstr "{0} / {1}"
 
-#: guis/GUI01_Image_Preprocessor.py:2578
+#: guis/GUI01_Image_Preprocessor.py:2613
 msgid "プレビュー読み込み失敗"
 msgstr "Failed to load preview"
 
-#: guis/GUI01_Image_Preprocessor.py:2787 guis/GUI01_Image_Preprocessor.py:2815
+#: guis/GUI01_Image_Preprocessor.py:2822 guis/GUI01_Image_Preprocessor.py:2850
 #: guis/GUI02_PlotProfiler.py:1262 guis/GUI02_PlotProfiler.py:1277
 #: guis/GUI04_Tracking_fiber.py:2155 guis/GUI04_Tracking_fiber.py:2217
 #: guis/GUI04_Tracking_fiber.py:2222 guis/GUI07_ML_Connect_Annotator.py:2753
@@ -554,44 +554,44 @@ msgstr "Failed to load preview"
 msgid "情報"
 msgstr "Information"
 
-#: guis/GUI01_Image_Preprocessor.py:2787
+#: guis/GUI01_Image_Preprocessor.py:2822
 msgid "解析済みファイルを選択してください。"
 msgstr "Please select an already analyzed file."
 
-#: guis/GUI01_Image_Preprocessor.py:2804
+#: guis/GUI01_Image_Preprocessor.py:2839
 msgid "プレビュー画像を保存"
 msgstr "Save Preview Image"
 
-#: guis/GUI01_Image_Preprocessor.py:2831 guis/GUI04_Tracking_fiber.py:947
+#: guis/GUI01_Image_Preprocessor.py:2866 guis/GUI04_Tracking_fiber.py:947
 #: guis/GUI07_ML_Connect_Annotator.py:1479
 #, python-brace-format
 msgid "ログ保存: {path}"
 msgstr "Log saved: {path}"
 
-#: guis/GUI01_Image_Preprocessor.py:2832 guis/GUI04_Tracking_fiber.py:948
+#: guis/GUI01_Image_Preprocessor.py:2867 guis/GUI04_Tracking_fiber.py:948
 #: guis/GUI07_ML_Connect_Annotator.py:1480
 msgid "ログ保存失敗"
 msgstr "Failed to save log"
 
-#: guis/GUI01_Image_Preprocessor.py:2965
+#: guis/GUI01_Image_Preprocessor.py:3000
 msgid "解析条件（次回解析時にのみ反映）"
 msgstr "Analysis Settings (applied only on next analysis)"
 
-#: guis/GUI01_Image_Preprocessor.py:3075
+#: guis/GUI01_Image_Preprocessor.py:3110
 msgid "BGCalibrator"
 msgstr "BGCalibrator"
 
-#: guis/GUI01_Image_Preprocessor.py:3086
+#: guis/GUI01_Image_Preprocessor.py:3121
 msgid "bg_method"
 msgstr "bg_method"
 
-#: guis/GUI01_Image_Preprocessor.py:3087
+#: guis/GUI01_Image_Preprocessor.py:3122
 msgid "背景推定方式（下の説明参照）。選択に応じて使うパラメータのみ有効化されます"
 msgstr ""
 "Background estimation method (see descriptions below). Only the "
 "parameters used by the selected method are enabled."
 
-#: guis/GUI01_Image_Preprocessor.py:3093
+#: guis/GUI01_Image_Preprocessor.py:3128
 msgid ""
 "inpaint : 勾配リッジ検出 + Navier-Stokes "
 "inpaint。勾配で繊維マスクを作り背景を補間。汎用だがリッジ検出パラメータの調整が必要"
@@ -600,14 +600,14 @@ msgstr ""
 "fiber mask from gradients and interpolates the background. General-"
 "purpose, but ridge detection parameters must be tuned."
 
-#: guis/GUI01_Image_Preprocessor.py:3094
+#: guis/GUI01_Image_Preprocessor.py:3129
 msgid "tophat : 形態学的opening。tophat_se_size より細い明るい構造を前景として除去。マスク不要・高速・一様性に優れる"
 msgstr ""
 "tophat: morphological opening. Removes bright structures thinner than "
 "tophat_se_size as foreground. No mask required, fast, and good "
 "uniformity."
 
-#: guis/GUI01_Image_Preprocessor.py:3095
+#: guis/GUI01_Image_Preprocessor.py:3130
 msgid ""
 "spline1d : 行/列ごとの1D B-スプライン補間（オリジナル方式）。ライン間オフセット（縞）ノイズに有効。spline1d_axis "
 "で縞の向きを選択"
@@ -616,23 +616,23 @@ msgstr ""
 "Effective for line-to-line offset (stripe) noise. Select the stripe "
 "direction with spline1d_axis."
 
-#: guis/GUI01_Image_Preprocessor.py:3096
+#: guis/GUI01_Image_Preprocessor.py:3131
 msgid "spline2d : 2D B-スプラインフィット。背景を行毎でなく2D問題として一括で解く。大局的に滑らかな背景に向く"
 msgstr ""
 "spline2d: 2D B-spline fitting. Solves the background as a single 2D "
 "problem instead of row by row. Suitable for globally smooth backgrounds."
 
-#: guis/GUI01_Image_Preprocessor.py:3108
+#: guis/GUI01_Image_Preprocessor.py:3143
 msgid "[tophat時のみ] 構造要素直径"
 msgstr "[tophat only] Structuring element diameter"
 
-#: guis/GUI01_Image_Preprocessor.py:3109
+#: guis/GUI01_Image_Preprocessor.py:3144
 msgid "最大ファイバー幅の2〜3倍。奇数(偶数は+1)"
 msgstr ""
 "Set to 2-3 times the maximum fiber width. Use an odd number (even values "
 "are incremented by 1)."
 
-#: guis/GUI01_Image_Preprocessor.py:3112
+#: guis/GUI01_Image_Preprocessor.py:3147
 msgid ""
 "[spline1d時のみ] "
 "除去する縞の向き。'y'=横縞(各走査ラインが上下にずれるノイズ)を除去/各列を縦に補間。'x'=縦縞を除去/各行を横に補間(良好な結果が多い)"
@@ -642,190 +642,190 @@ msgstr ""
 "column vertically. 'x' removes vertical stripes and interpolates each row"
 " horizontally (often gives good results)."
 
-#: guis/GUI01_Image_Preprocessor.py:3115
+#: guis/GUI01_Image_Preprocessor.py:3150
 msgid "[spline1d時のみ] 行/列スプライン order。実用範囲1〜3 (2=旧pandas互換)。点数不足の行は線形に自動フォールバック"
 msgstr ""
 "[spline1d only] Row/column spline order. Practical range is 1-3 (2 = "
 "legacy pandas-compatible). Rows with too few points automatically fall "
 "back to linear fitting."
 
-#: guis/GUI01_Image_Preprocessor.py:3118
+#: guis/GUI01_Image_Preprocessor.py:3153
 msgid "[spline2d時のみ] スプライン次数。実用範囲1〜3 (1=双線形、2=旧pandas互換、3=双立方)。[1,5]"
 msgstr ""
 "[spline2d only] Spline degree. Practical range is 1-3 (1 = bilinear, 2 = "
 "legacy pandas-compatible, 3 = bicubic). [1,5]"
 
-#: guis/GUI01_Image_Preprocessor.py:3120
+#: guis/GUI01_Image_Preprocessor.py:3155
 msgid "[spline2d時のみ] フィット用画素サブサンプル係数。大きいほど高速、品質影響は微少。デフォルト4"
 msgstr ""
 "[spline2d only] Pixel subsampling factor for fitting. Larger values are "
 "faster with only minor quality impact. Default is 4."
 
-#: guis/GUI01_Image_Preprocessor.py:3127
+#: guis/GUI01_Image_Preprocessor.py:3162
 msgid "[inpaint, spline1d, spline2d時] 背景範囲（中心±sigma*係数）を決める係数"
 msgstr ""
 "[inpaint, spline1d, spline2d] Factor that determines the background range"
 " (center ± sigma * factor)."
 
-#: guis/GUI01_Image_Preprocessor.py:3129
+#: guis/GUI01_Image_Preprocessor.py:3164
 msgid "[inpaint, spline1d, spline2d時] [1,0,-1]の急変を繊維として除外する距離しきい値"
 msgstr ""
 "[inpaint, spline1d, spline2d] Distance threshold for excluding sudden "
 "changes such as [1,0,-1] as fibers"
 
-#: guis/GUI01_Image_Preprocessor.py:3131
+#: guis/GUI01_Image_Preprocessor.py:3166
 msgid "[inpaint, spline1d, spline2d時] [1,-1]の急変が一定以上離れている場合に構造とみなすしきい値"
 msgstr ""
 "[inpaint, spline1d, spline2d] Threshold for treating [1,-1] sudden "
 "changes as structures when they are separated by at least this distance"
 
-#: guis/GUI01_Image_Preprocessor.py:3134
+#: guis/GUI01_Image_Preprocessor.py:3169
 msgid "[inpaint, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）"
 msgstr ""
 "[inpaint, tophat, spline1d] Savitzky-Golay filter window length "
 "(smoothing range)"
 
-#: guis/GUI01_Image_Preprocessor.py:3136
+#: guis/GUI01_Image_Preprocessor.py:3171
 msgid "[inpaint, tophat, spline1d時] Savitzky-Golayフィルタの多項式次数"
 msgstr "[inpaint, tophat, spline1d] Savitzky-Golay filter polynomial order"
 
-#: guis/GUI01_Image_Preprocessor.py:3139
+#: guis/GUI01_Image_Preprocessor.py:3174
 msgid "中央値フィルタを最後にかける（点ノイズに強い）"
 msgstr "Apply median filter at the end (robust against point noise)"
 
-#: guis/GUI01_Image_Preprocessor.py:3142
+#: guis/GUI01_Image_Preprocessor.py:3177
 msgid "[inpaint, spline1d, spline2d時] 繊維マスクを膨張させる画素数（0でdilationなし）"
 msgstr ""
 "[inpaint, spline1d, spline2d] Number of pixels to dilate the fiber mask "
 "(0 = no dilation)"
 
-#: guis/GUI01_Image_Preprocessor.py:3144
+#: guis/GUI01_Image_Preprocessor.py:3179
 msgid "[inpaint, spline1d, spline2d時] dilation前にマスクから除外する連結成分の最小面積"
 msgstr ""
 "[inpaint, spline1d, spline2d] Minimum connected-component area to exclude"
 " from the mask before dilation"
 
-#: guis/GUI01_Image_Preprocessor.py:3145
+#: guis/GUI01_Image_Preprocessor.py:3180
 msgid "1でフィルタ無効"
 msgstr "1 disables the filter"
 
-#: guis/GUI01_Image_Preprocessor.py:3155
+#: guis/GUI01_Image_Preprocessor.py:3190
 msgid "Segmenter"
 msgstr "Segmenter"
 
-#: guis/GUI01_Image_Preprocessor.py:3156
+#: guis/GUI01_Image_Preprocessor.py:3191
 msgid "局所しきい値の計算に使う窓サイズ"
 msgstr "Window size used for local threshold calculation"
 
-#: guis/GUI01_Image_Preprocessor.py:3157
+#: guis/GUI01_Image_Preprocessor.py:3192
 msgid "全体一律の2値化しきい値"
 msgstr "Global binarization threshold"
 
-#: guis/GUI01_Image_Preprocessor.py:3158
+#: guis/GUI01_Image_Preprocessor.py:3193
 msgid "小さい連結成分を消す面積しきい値"
 msgstr "Area threshold to remove small connected components"
 
-#: guis/GUI01_Image_Preprocessor.py:3159
+#: guis/GUI01_Image_Preprocessor.py:3194
 msgid "つながり成分を除くときの面積しきい値"
 msgstr "Area threshold for removing connected components"
 
-#: guis/GUI01_Image_Preprocessor.py:3160
+#: guis/GUI01_Image_Preprocessor.py:3195
 msgid "つながり除去を実行するかどうか"
 msgstr "Whether to perform connected component removal"
 
-#: guis/GUI01_Image_Preprocessor.py:3161
+#: guis/GUI01_Image_Preprocessor.py:3196
 msgid "線分検出で線分とみなす最小長さ"
 msgstr "Minimum length to consider as a line segment in line detection"
 
-#: guis/GUI01_Image_Preprocessor.py:3162
+#: guis/GUI01_Image_Preprocessor.py:3197
 msgid "線っぽさ"
 msgstr "Line-likeness"
 
-#: guis/GUI01_Image_Preprocessor.py:3162
+#: guis/GUI01_Image_Preprocessor.py:3197
 msgid "のしきい値"
 msgstr "threshold"
 
-#: guis/GUI01_Image_Preprocessor.py:3163
+#: guis/GUI01_Image_Preprocessor.py:3198
 msgid "高さが低い成分を消すしきい値"
 msgstr "Height threshold to remove low-height components"
 
-#: guis/GUI01_Image_Preprocessor.py:3165
+#: guis/GUI01_Image_Preprocessor.py:3200
 msgid "Skeletonizer"
 msgstr "Skeletonizer"
 
-#: guis/GUI01_Image_Preprocessor.py:3166
+#: guis/GUI01_Image_Preprocessor.py:3201
 msgid "分岐点が低い高さか判定するしきい値"
 msgstr "Threshold to determine if a branch point has low height"
 
-#: guis/GUI01_Image_Preprocessor.py:3167
+#: guis/GUI01_Image_Preprocessor.py:3202
 msgid "枝とみなす短い線を追跡する最大長"
 msgstr "Maximum length to track short lines considered as branches"
 
-#: guis/GUI01_Image_Preprocessor.py:3168
+#: guis/GUI01_Image_Preprocessor.py:3203
 msgid "小さすぎる線分（ノイズ）を削除する面積しきい値"
 msgstr "Area threshold to remove too-small line segments (noise)"
 
-#: guis/GUI01_Image_Preprocessor.py:3169
+#: guis/GUI01_Image_Preprocessor.py:3204
 msgid "骨格上の小ループ（マスクの穴由来の二重線）を1本に潰す最大囲み面積。0で無効"
 msgstr ""
 "Maximum enclosed area of small skeleton loops (double lines around mask "
 "holes) collapsed into a single line. 0 disables"
 
-#: guis/GUI01_Image_Preprocessor.py:3170
+#: guis/GUI01_Image_Preprocessor.py:3205
 msgid "高さに関係なく除去する行き止まりの短い枝の最大長。画素単位のため解像度に応じて調整。0で無効"
 msgstr ""
 "Maximum length of dead-end spurs removed regardless of height. Pixel-"
 "based, so adjust for the scan resolution. 0 disables"
 
-#: guis/GUI01_Image_Preprocessor.py:3172
+#: guis/GUI01_Image_Preprocessor.py:3207
 msgid "Kinkdetector"
 msgstr "Kinkdetector"
 
-#: guis/GUI01_Image_Preprocessor.py:3173
+#: guis/GUI01_Image_Preprocessor.py:3208
 msgid "折れ線近似の3点のなす角がこの値以下ならkink判定"
 msgstr ""
 "Kink is detected if the angle formed by three points in polyline "
 "approximation is below this value"
 
-#: guis/GUI01_Image_Preprocessor.py:3191
+#: guis/GUI01_Image_Preprocessor.py:3226
 msgid "保存オプション"
 msgstr "Save Options"
 
-#: guis/GUI01_Image_Preprocessor.py:3196
+#: guis/GUI01_Image_Preprocessor.py:3231
 msgid "解析時に元データを保存"
 msgstr "Save original data during analysis"
 
-#: guis/GUI01_Image_Preprocessor.py:3202
+#: guis/GUI01_Image_Preprocessor.py:3237
 msgid "ONのとき、背景補正前の元データも解析後の .b2z に original として同梱します（解析条件には含まれません）"
 msgstr ""
 "When ON, the original data before background correction is also included "
 "in the analyzed .b2z as original (not included in analysis settings)"
 
-#: guis/GUI01_Image_Preprocessor.py:3214
+#: guis/GUI01_Image_Preprocessor.py:3249
 msgid "OK"
 msgstr "OK"
 
-#: guis/GUI01_Image_Preprocessor.py:3215
+#: guis/GUI01_Image_Preprocessor.py:3250
 msgid "設定の保存"
 msgstr "Save Settings"
 
-#: guis/GUI01_Image_Preprocessor.py:3216
+#: guis/GUI01_Image_Preprocessor.py:3251
 msgid "設定の読み込み"
 msgstr "Load Settings"
 
-#: guis/GUI01_Image_Preprocessor.py:3217
+#: guis/GUI01_Image_Preprocessor.py:3252
 msgid "キャンセル"
 msgstr "Cancel"
 
-#: guis/GUI01_Image_Preprocessor.py:3221
+#: guis/GUI01_Image_Preprocessor.py:3256
 msgid "現在値を既定値として保存"
 msgstr "Save Current Values as Defaults"
 
-#: guis/GUI01_Image_Preprocessor.py:3223
+#: guis/GUI01_Image_Preprocessor.py:3258
 msgid "初期値に戻す"
 msgstr "Restore Initial Values"
 
-#: guis/GUI01_Image_Preprocessor.py:3332
+#: guis/GUI01_Image_Preprocessor.py:3367
 #, python-format
 msgid ""
 "設定値の読み取りに失敗しました。\n"
@@ -834,22 +834,22 @@ msgstr ""
 "Failed to read settings.\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:3340
+#: guis/GUI01_Image_Preprocessor.py:3375
 msgid "設定を更新しました（次回解析時に反映）"
 msgstr "Settings updated (will be applied on next analysis)"
 
-#: guis/GUI01_Image_Preprocessor.py:3348
+#: guis/GUI01_Image_Preprocessor.py:3383
 msgid "設定変更をキャンセルしました"
 msgstr "Setting changes canceled"
 
-#: guis/GUI01_Image_Preprocessor.py:3364 guis/GUI01_Image_Preprocessor.py:3415
+#: guis/GUI01_Image_Preprocessor.py:3399 guis/GUI01_Image_Preprocessor.py:3450
 #: guis/GUI03_Fiber_Height_Histogram.py:1002
 #: guis/GUI03_Fiber_Height_Histogram.py:1038
-#: guis/GUI08_ML_Mask_Annotator.py:960
+#: guis/GUI08_ML_Mask_Annotator.py:967
 msgid "確認"
 msgstr "Confirm"
 
-#: guis/GUI01_Image_Preprocessor.py:3365
+#: guis/GUI01_Image_Preprocessor.py:3400
 msgid ""
 "現在のダイアログ値を起動時の既定値として保存します。\n"
 "起動時設定ファイルを上書きします。よろしいですか？"
@@ -857,12 +857,12 @@ msgstr ""
 "Save the current dialog values as startup defaults.\n"
 "This will overwrite the startup settings file. Continue?"
 
-#: guis/GUI01_Image_Preprocessor.py:3397
+#: guis/GUI01_Image_Preprocessor.py:3432
 #, python-format
 msgid "現在値を既定値として保存しました: %s"
 msgstr "Saved current values as defaults: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:3399
+#: guis/GUI01_Image_Preprocessor.py:3434
 #, python-format
 msgid ""
 "既定値の保存に失敗しました。\n"
@@ -871,7 +871,7 @@ msgstr ""
 "Failed to save defaults.\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:3416
+#: guis/GUI01_Image_Preprocessor.py:3451
 msgid ""
 "ダイアログの全パラメータと「元データを保存」を初期値に戻します。\n"
 "（この操作では設定ファイルは変更されません）\n"
@@ -882,24 +882,24 @@ msgstr ""
 "(This operation will not change the settings file.)\n"
 "Continue?"
 
-#: guis/GUI01_Image_Preprocessor.py:3424
+#: guis/GUI01_Image_Preprocessor.py:3459
 msgid "ダイアログを初期値に戻しました（未保存）"
 msgstr "Dialog restored to initial values (not saved)"
 
-#: guis/GUI01_Image_Preprocessor.py:3432
+#: guis/GUI01_Image_Preprocessor.py:3467
 msgid "設定の保存（JSON）"
 msgstr "Save Settings (JSON)"
 
-#: guis/GUI01_Image_Preprocessor.py:3436 guis/GUI01_Image_Preprocessor.py:3455
+#: guis/GUI01_Image_Preprocessor.py:3471 guis/GUI01_Image_Preprocessor.py:3490
 msgid "JSON"
 msgstr "JSON"
 
-#: guis/GUI01_Image_Preprocessor.py:3444
+#: guis/GUI01_Image_Preprocessor.py:3479
 #, python-format
 msgid "設定を保存しました: %s"
 msgstr "Settings saved: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:3446
+#: guis/GUI01_Image_Preprocessor.py:3481
 #, python-format
 msgid ""
 "保存に失敗しました。\n"
@@ -908,16 +908,16 @@ msgstr ""
 "Failed to save.\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:3454
+#: guis/GUI01_Image_Preprocessor.py:3489
 msgid "設定の読み込み（JSON）"
 msgstr "Load Settings (JSON)"
 
-#: guis/GUI01_Image_Preprocessor.py:3464
+#: guis/GUI01_Image_Preprocessor.py:3499
 #, python-format
 msgid "設定を読み込みました: %s"
 msgstr "Settings loaded: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:3466
+#: guis/GUI01_Image_Preprocessor.py:3501
 #, python-format
 msgid ""
 "読み込みに失敗しました。\n"
@@ -926,36 +926,36 @@ msgstr ""
 "Failed to load.\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:3475
+#: guis/GUI01_Image_Preprocessor.py:3510
 msgid "[Tkコールバック例外]\n"
 msgstr "[Tk callback exception]\n"
 
-#: guis/GUI01_Image_Preprocessor.py:3478
+#: guis/GUI01_Image_Preprocessor.py:3513
 msgid "内部エラー"
 msgstr "Internal Error"
 
-#: guis/GUI01_Image_Preprocessor.py:3524
+#: guis/GUI01_Image_Preprocessor.py:3559
 #, python-format
 msgid "個別表示: %s"
 msgstr "Individual view: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:3602
+#: guis/GUI01_Image_Preprocessor.py:3637
 #: guis/GUI03_Fiber_Height_Histogram.py:502
 msgid "表示"
 msgstr "Display"
 
-#: guis/GUI01_Image_Preprocessor.py:3668
+#: guis/GUI01_Image_Preprocessor.py:3703
 msgid "重ね描きしません"
 msgstr "Do not overlay"
 
-#: guis/GUI01_Image_Preprocessor.py:3695 guis/GUI02_PlotProfiler.py:859
+#: guis/GUI01_Image_Preprocessor.py:3730 guis/GUI02_PlotProfiler.py:859
 #: guis/GUI04_Tracking_fiber.py:684 guis/GUI04_Tracking_fiber.py:2640
 #: guis/GUI07_ML_Connect_Annotator.py:776
 #: guis/GUI07_ML_Connect_Annotator.py:3240
 msgid "カラーバー"
 msgstr "Colorbar"
 
-#: guis/GUI01_Image_Preprocessor.py:3956
+#: guis/GUI01_Image_Preprocessor.py:3991
 msgid "個別表示画像を保存"
 msgstr "Save Individual View Image"
 
@@ -1116,7 +1116,7 @@ msgid "最小"
 msgstr "Minimum"
 
 #: guis/GUI02_PlotProfiler.py:810 guis/GUI02_PlotProfiler.py:1391
-#: guis/GUI05_ML_Model_Trainer.py:429
+#: guis/GUI05_ML_Model_Trainer.py:438
 msgid "平均"
 msgstr "Average"
 
@@ -1168,8 +1168,8 @@ msgstr ""
 "Details: {0}"
 
 #: guis/GUI02_PlotProfiler.py:1457 guis/GUI03_Fiber_Height_Histogram.py:1379
-#: guis/GUI05_ML_Model_Trainer.py:928 guis/GUI06_ML_Model_Compare.py:757
-#: guis/GUI08_ML_Mask_Annotator.py:585
+#: guis/GUI05_ML_Model_Trainer.py:937 guis/GUI06_ML_Model_Compare.py:757
+#: guis/GUI08_ML_Mask_Annotator.py:592
 msgid "不明なエラー"
 msgstr "Unknown Error"
 
@@ -1182,7 +1182,7 @@ msgstr "Data is not a 2D array (shape={0})."
 msgid "AFMデータ"
 msgstr "AFM Data"
 
-#: guis/GUI02_PlotProfiler.py:1623 guis/GUI05_ML_Model_Trainer.py:252
+#: guis/GUI02_PlotProfiler.py:1623 guis/GUI05_ML_Model_Trainer.py:254
 #: guis/GUI06_ML_Model_Compare.py:279
 msgid "バンドル"
 msgstr "Bundle"
@@ -2102,55 +2102,61 @@ msgstr "must be a positive number"
 msgid "0 以上の整数を入力してください。"
 msgstr "must be a positive number"
 
-#: guis/GUI04_Tracking_fiber.py:3308 guis/GUI05_ML_Model_Trainer.py:701
+#: guis/GUI04_Tracking_fiber.py:3308 guis/GUI05_ML_Model_Trainer.py:710
 #: guis/GUI06_ML_Model_Compare.py:598 guis/GUI06_ML_Model_Compare.py:692
 #: guis/GUI07_ML_Connect_Annotator.py:3908
 msgid "入力エラー"
 msgstr "Invalid input"
 
-#: guis/GUI05_ML_Model_Trainer.py:223
+#: guis/GUI05_ML_Model_Trainer.py:225
 msgid "データセット（.b2z バンドル）"
 msgstr "Dataset (.b2z bundles)"
 
-#: guis/GUI05_ML_Model_Trainer.py:229 guis/GUI06_ML_Model_Compare.py:259
+#: guis/GUI05_ML_Model_Trainer.py:231 guis/GUI06_ML_Model_Compare.py:259
 msgid "フォルダ追加..."
 msgstr "Add folder..."
 
-#: guis/GUI05_ML_Model_Trainer.py:232 guis/GUI06_ML_Model_Compare.py:262
+#: guis/GUI05_ML_Model_Trainer.py:234 guis/GUI06_ML_Model_Compare.py:262
 msgid "ファイル追加..."
 msgstr "Add files..."
 
-#: guis/GUI05_ML_Model_Trainer.py:238 guis/GUI06_ML_Model_Compare.py:268
+#: guis/GUI05_ML_Model_Trainer.py:240 guis/GUI06_ML_Model_Compare.py:268
 msgid "クリア"
 msgstr "Clear"
 
-#: guis/GUI05_ML_Model_Trainer.py:253
+#: guis/GUI05_ML_Model_Trainer.py:255
 msgid "使用可否"
 msgstr "Usable"
 
-#: guis/GUI05_ML_Model_Trainer.py:254
+#: guis/GUI05_ML_Model_Trainer.py:256
 msgid "理由"
 msgstr "Reason"
 
-#: guis/GUI05_ML_Model_Trainer.py:272
+#: guis/GUI05_ML_Model_Trainer.py:274
 msgid "サンプリング"
 msgstr "Sampling"
 
-#: guis/GUI05_ML_Model_Trainer.py:278
+#: guis/GUI05_ML_Model_Trainer.py:280
 msgid "学習するタスク"
 msgstr "Training task"
 
-#: guis/GUI05_ML_Model_Trainer.py:285
-msgid "背景マスクと背景面は工程Aの代替方式です。どちらも .b2z に生画像が必要です。"
+#: guis/GUI05_ML_Model_Trainer.py:291
+#, python-brace-format
+msgid ""
+"{bg_mask} と {bg_surface} "
+"は背景補正（生画像から背景の起伏を取り除く工程）の代替方式です。どちらも補正前の生画像が必要です（.b2z の original "
+"キー、またはバンドルの隣に残っている元の入力ファイル）。"
 msgstr ""
-"Background mask and background surface are the alternative process-A "
-"approaches; both need the raw image in the .b2z."
+"{bg_mask} and {bg_surface} are alternative approaches to background "
+"correction (removing the background relief from the raw image). Both need"
+" the uncorrected raw image, taken from the .b2z original key or from the "
+"raw input file still kept beside the bundle."
 
-#: guis/GUI05_ML_Model_Trainer.py:288
+#: guis/GUI05_ML_Model_Trainer.py:297
 msgid "ラベルの出所"
 msgstr "Label source"
 
-#: guis/GUI05_ML_Model_Trainer.py:298
+#: guis/GUI05_ML_Model_Trainer.py:307
 #, fuzzy
 msgid ""
 "Segmenter intermediate はモデルが置き換える成分フィルタ前のマスク、bundle binarized "
@@ -2160,107 +2166,107 @@ msgstr ""
 "Segmenter intermediate is the pre-component-filter mask the model "
 "replaces; bundle binarized is the final stored mask."
 
-#: guis/GUI05_ML_Model_Trainer.py:303
+#: guis/GUI05_ML_Model_Trainer.py:312
 msgid "画像あたり最大サンプル数"
 msgstr "Max samples/image"
 
-#: guis/GUI05_ML_Model_Trainer.py:308
+#: guis/GUI05_ML_Model_Trainer.py:317
 msgid "乱数シード"
 msgstr "Random seed"
 
-#: guis/GUI05_ML_Model_Trainer.py:315
+#: guis/GUI05_ML_Model_Trainer.py:324
 msgid "画像ごとに繊維/背景を均衡させる"
 msgstr "Balance fiber/background per image"
 
-#: guis/GUI05_ML_Model_Trainer.py:352
+#: guis/GUI05_ML_Model_Trainer.py:361
 msgid "タスクを変更しました。バンドルを再走査してください。"
 msgstr "Task changed; re-scan the bundles."
 
-#: guis/GUI05_ML_Model_Trainer.py:359 guis/GUI06_ML_Model_Compare.py:194
+#: guis/GUI05_ML_Model_Trainer.py:368 guis/GUI06_ML_Model_Compare.py:194
 msgid "モデル"
 msgstr "Model"
 
-#: guis/GUI05_ML_Model_Trainer.py:365
+#: guis/GUI05_ML_Model_Trainer.py:374
 msgid "分類器"
 msgstr "Classifier"
 
-#: guis/GUI05_ML_Model_Trainer.py:375
+#: guis/GUI05_ML_Model_Trainer.py:384
 msgid "木の本数／反復数"
 msgstr "Trees / iterations"
 
-#: guis/GUI05_ML_Model_Trainer.py:380
+#: guis/GUI05_ML_Model_Trainer.py:389
 msgid "交差検証の分割数"
 msgstr "CV folds"
 
-#: guis/GUI05_ML_Model_Trainer.py:389 guis/GUI06_ML_Model_Compare.py:238
+#: guis/GUI05_ML_Model_Trainer.py:398 guis/GUI06_ML_Model_Compare.py:238
 msgid "ファイバーしきい値"
 msgstr "Fiber threshold"
 
-#: guis/GUI05_ML_Model_Trainer.py:402
+#: guis/GUI05_ML_Model_Trainer.py:411
 msgid "学習"
 msgstr "Train"
 
-#: guis/GUI05_ML_Model_Trainer.py:405
+#: guis/GUI05_ML_Model_Trainer.py:414
 msgid "モデルをエクスポート..."
 msgstr "Export model..."
 
-#: guis/GUI05_ML_Model_Trainer.py:416
+#: guis/GUI05_ML_Model_Trainer.py:425
 msgid "結果"
 msgstr "Results"
 
-#: guis/GUI05_ML_Model_Trainer.py:428 guis/GUI06_ML_Model_Compare.py:326
+#: guis/GUI05_ML_Model_Trainer.py:437 guis/GUI06_ML_Model_Compare.py:326
 msgid "指標"
 msgstr "Metrics"
 
-#: guis/GUI05_ML_Model_Trainer.py:430
+#: guis/GUI05_ML_Model_Trainer.py:439
 msgid "標準偏差"
 msgstr "Std"
 
-#: guis/GUI05_ML_Model_Trainer.py:439
+#: guis/GUI05_ML_Model_Trainer.py:448
 msgid "特徴重要度の上位"
 msgstr "Top feature importances"
 
-#: guis/GUI05_ML_Model_Trainer.py:448 guis/GUI06_ML_Model_Compare.py:336
-#: guis/GUI08_ML_Mask_Annotator.py:455
+#: guis/GUI05_ML_Model_Trainer.py:457 guis/GUI06_ML_Model_Compare.py:336
+#: guis/GUI08_ML_Mask_Annotator.py:462
 msgid "ログ"
 msgstr "Log"
 
-#: guis/GUI05_ML_Model_Trainer.py:454
+#: guis/GUI05_ML_Model_Trainer.py:463
 msgid "ログを保存..."
 msgstr "Save log..."
 
-#: guis/GUI05_ML_Model_Trainer.py:466
+#: guis/GUI05_ML_Model_Trainer.py:475
 msgid ".b2z バンドルのフォルダを追加して Train を押します。Export は前処理パイプライン用のモデルを保存します。"
 msgstr ""
 "Add folders of .b2z bundles, then Train. Export saves a model for the "
 "preprocessing pipeline."
 
-#: guis/GUI05_ML_Model_Trainer.py:476 guis/GUI06_ML_Model_Compare.py:459
+#: guis/GUI05_ML_Model_Trainer.py:485 guis/GUI06_ML_Model_Compare.py:459
 msgid ".b2z バンドルを含むフォルダを選択"
 msgstr "Select a folder of .b2z bundles"
 
-#: guis/GUI05_ML_Model_Trainer.py:487 guis/GUI06_ML_Model_Compare.py:472
+#: guis/GUI05_ML_Model_Trainer.py:496 guis/GUI06_ML_Model_Compare.py:472
 msgid ".b2z バンドルファイルを選択"
 msgstr "Select .b2z bundle files"
 
-#: guis/GUI05_ML_Model_Trainer.py:515 guis/GUI06_ML_Model_Compare.py:492
+#: guis/GUI05_ML_Model_Trainer.py:524 guis/GUI06_ML_Model_Compare.py:492
 msgid "選択したバンドルはすべて既に一覧にあります。"
 msgstr "All selected bundles were already in the list."
 
-#: guis/GUI05_ML_Model_Trainer.py:536
+#: guis/GUI05_ML_Model_Trainer.py:545
 msgid "走査に失敗しました"
 msgstr "Scan failed"
 
-#: guis/GUI05_ML_Model_Trainer.py:587
+#: guis/GUI05_ML_Model_Trainer.py:596
 #, python-brace-format
 msgid "{total} 件中 {usable} 件が使用可能"
 msgstr "{usable} usable of {total} bundle(s)"
 
-#: guis/GUI05_ML_Model_Trainer.py:634 guis/GUI05_ML_Model_Trainer.py:661
+#: guis/GUI05_ML_Model_Trainer.py:643 guis/GUI05_ML_Model_Trainer.py:670
 msgid "未保存のモデル"
 msgstr "Unsaved model"
 
-#: guis/GUI05_ML_Model_Trainer.py:635
+#: guis/GUI05_ML_Model_Trainer.py:644
 msgid ""
 "学習済みモデルがまだ保存されていません。\n"
 "保存せずに終了しますか？"
@@ -2268,15 +2274,15 @@ msgstr ""
 "The trained model has not been saved yet.\n"
 "Quit without saving it?"
 
-#: guis/GUI05_ML_Model_Trainer.py:651
+#: guis/GUI05_ML_Model_Trainer.py:660
 msgid "データなし"
 msgstr "No data"
 
-#: guis/GUI05_ML_Model_Trainer.py:651
+#: guis/GUI05_ML_Model_Trainer.py:660
 msgid "使用可能な .b2z バンドルを 1 つ以上追加してください。"
 msgstr "Add at least one usable .b2z bundle."
 
-#: guis/GUI05_ML_Model_Trainer.py:662
+#: guis/GUI05_ML_Model_Trainer.py:671
 msgid ""
 "学習済みモデルがまだ保存されていません。\n"
 "再学習すると破棄されます。続行しますか？"
@@ -2284,27 +2290,27 @@ msgstr ""
 "The trained model has not been saved yet.\n"
 "Retraining will discard it. Continue?"
 
-#: guis/GUI05_ML_Model_Trainer.py:672
+#: guis/GUI05_ML_Model_Trainer.py:681
 msgid "データセット構築と学習中..."
 msgstr "Building dataset and training..."
 
-#: guis/GUI05_ML_Model_Trainer.py:689
+#: guis/GUI05_ML_Model_Trainer.py:698
 msgid "画像あたりの最大サンプル数は正の整数または空欄にしてください。"
 msgstr "Max samples/image must be a positive integer or blank."
 
-#: guis/GUI05_ML_Model_Trainer.py:693
+#: guis/GUI05_ML_Model_Trainer.py:702
 msgid "木の本数／反復数は正の整数にしてください。"
 msgstr "Trees / iterations must be a positive integer."
 
-#: guis/GUI05_ML_Model_Trainer.py:696
+#: guis/GUI05_ML_Model_Trainer.py:705
 msgid "交差検証の分割数は 2 以上にしてください。"
 msgstr "CV folds must be at least 2."
 
-#: guis/GUI05_ML_Model_Trainer.py:699 guis/GUI06_ML_Model_Compare.py:563
+#: guis/GUI05_ML_Model_Trainer.py:708 guis/GUI06_ML_Model_Compare.py:563
 msgid "ファイバーしきい値は 0〜1 の範囲で指定してください。"
 msgstr "Fiber threshold must be between 0 and 1."
 
-#: guis/GUI05_ML_Model_Trainer.py:733 guis/GUI05_ML_Model_Trainer.py:875
+#: guis/GUI05_ML_Model_Trainer.py:742 guis/GUI05_ML_Model_Trainer.py:884
 #: guis/GUI06_ML_Model_Compare.py:368 guis/GUI06_ML_Model_Compare.py:670
 #: guis/GUI06_ML_Model_Compare.py:715
 #, python-brace-format
@@ -2313,76 +2319,76 @@ msgid ""
 "{err}"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:738
+#: guis/GUI05_ML_Model_Trainer.py:747
 #, python-brace-format
 msgid "{n} 個のバンドルから画素データセットを構築中..."
 msgstr "Building pixel dataset from {n} bundle(s)..."
 
-#: guis/GUI05_ML_Model_Trainer.py:747
+#: guis/GUI05_ML_Model_Trainer.py:756
 #, python-brace-format
 msgid "データセット: {n} サンプル、{g} 画像グループ、繊維 {f} / 背景 {b}。"
 msgstr "Dataset: {n} samples, {g} image group(s), {f} fiber / {b} background."
 
-#: guis/GUI05_ML_Model_Trainer.py:761
+#: guis/GUI05_ML_Model_Trainer.py:770
 #, python-brace-format
 msgid "うち手動修正画素: {n}。"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:771
+#: guis/GUI05_ML_Model_Trainer.py:780
 #, python-brace-format
 msgid "段階: {s}"
 msgstr "stage: {s}"
 
-#: guis/GUI05_ML_Model_Trainer.py:808 guis/GUI05_ML_Model_Trainer.py:838
+#: guis/GUI05_ML_Model_Trainer.py:817 guis/GUI05_ML_Model_Trainer.py:847
 msgid "モデルを保存"
 msgstr "Save model"
 
-#: guis/GUI05_ML_Model_Trainer.py:809
+#: guis/GUI05_ML_Model_Trainer.py:818
 msgid "学習が完了しました。モデルを今すぐ保存しますか？"
 msgstr "Training finished. Save the model now?"
 
-#: guis/GUI05_ML_Model_Trainer.py:813
+#: guis/GUI05_ML_Model_Trainer.py:822
 msgid "モデルは未保存です。[モデルをエクスポート...] からいつでも保存できます。"
 msgstr "The model is unsaved. You can save it any time with [Export model...]."
 
-#: guis/GUI05_ML_Model_Trainer.py:848
+#: guis/GUI05_ML_Model_Trainer.py:857
 msgid "モデルを ONNX へエクスポート中..."
 msgstr "Exporting model to ONNX..."
 
-#: guis/GUI05_ML_Model_Trainer.py:862
+#: guis/GUI05_ML_Model_Trainer.py:871
 msgid "モデル ID"
 msgstr "Model ID"
 
-#: guis/GUI05_ML_Model_Trainer.py:862
+#: guis/GUI05_ML_Model_Trainer.py:871
 msgid "モデルファイルに記録する識別子:"
 msgstr "Identifier to record in the model file:"
 
-#: guis/GUI05_ML_Model_Trainer.py:919
+#: guis/GUI05_ML_Model_Trainer.py:928
 #, python-brace-format
 msgid "モデルを保存しました: {p}"
 msgstr "Saved model: {p}"
 
-#: guis/GUI05_ML_Model_Trainer.py:921
+#: guis/GUI05_ML_Model_Trainer.py:930
 msgid "エクスポート完了"
 msgstr "Export complete"
 
-#: guis/GUI05_ML_Model_Trainer.py:922
+#: guis/GUI05_ML_Model_Trainer.py:931
 #, python-brace-format
 msgid ""
 "モデル '{id}' を次へ保存しました:\n"
 "{p}"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:955
+#: guis/GUI05_ML_Model_Trainer.py:964
 #, python-brace-format
 msgid "学習完了: {n} サンプル、{g} 画像グループ。"
 msgstr "Training complete: {n} samples, {g} image group(s)."
 
-#: guis/GUI05_ML_Model_Trainer.py:964
+#: guis/GUI05_ML_Model_Trainer.py:973
 msgid "交差検証をスキップしました（画像グループが 2 つ以上必要）。"
 msgstr "Cross-validation was skipped (need at least 2 image groups)."
 
-#: guis/GUI05_ML_Model_Trainer.py:987
+#: guis/GUI05_ML_Model_Trainer.py:996
 msgid "（この分類器では利用できません）"
 msgstr "(not available for this classifier)"
 
@@ -2394,7 +2400,7 @@ msgstr "Load model..."
 msgid "モデル未読み込み。"
 msgstr "No model loaded."
 
-#: guis/GUI06_ML_Model_Compare.py:209 guis/GUI08_ML_Mask_Annotator.py:439
+#: guis/GUI06_ML_Model_Compare.py:209 guis/GUI08_ML_Mask_Annotator.py:446
 msgid "比較"
 msgstr "Comparison"
 
@@ -2432,15 +2438,15 @@ msgstr "Images (.b2z bundles)"
 msgid "全比較"
 msgstr "Compare all"
 
-#: guis/GUI06_ML_Model_Compare.py:296 guis/GUI08_ML_Mask_Annotator.py:421
+#: guis/GUI06_ML_Model_Compare.py:296 guis/GUI08_ML_Mask_Annotator.py:428
 msgid "図を保存..."
 msgstr "Save figure..."
 
 #: guis/GUI06_ML_Model_Compare.py:350
 msgid "モデルを読み込み .b2z バンドルを追加し、画像を選択して比較するか Compare all を使います。"
 msgstr ""
-"Load a model and add .b2z bundles, then select an image to compare or use "
-"Compare all."
+"Load a model and add .b2z bundles, then select an image to compare or use"
+" Compare all."
 
 #: guis/GUI06_ML_Model_Compare.py:381
 msgid "モデルを選択"
@@ -2586,7 +2592,7 @@ msgstr "No connections"
 msgid "保存する連結がありません。ファイバーを連結してから保存してください。"
 msgstr "There are no connections to save. Connect fibers before saving."
 
-#: guis/GUI07_ML_Connect_Annotator.py:1271 guis/GUI08_ML_Mask_Annotator.py:1025
+#: guis/GUI07_ML_Connect_Annotator.py:1271 guis/GUI08_ML_Mask_Annotator.py:1032
 msgid "保存に失敗しました"
 msgstr "Save failed"
 
@@ -2595,7 +2601,7 @@ msgstr "Save failed"
 msgid "ラベルを保存しました: {p}"
 msgstr "Saved labels: {p}"
 
-#: guis/GUI07_ML_Connect_Annotator.py:1276 guis/GUI08_ML_Mask_Annotator.py:1033
+#: guis/GUI07_ML_Connect_Annotator.py:1276 guis/GUI08_ML_Mask_Annotator.py:1040
 msgid "保存しました"
 msgstr "Saved"
 
@@ -2622,127 +2628,133 @@ msgstr "Bundle (.b2z)"
 msgid "修正するタスク"
 msgstr "Training task"
 
-#: guis/GUI08_ML_Mask_Annotator.py:299
-msgid "マスクは学習側と同じ経路で再構築されます。背景マスクは .b2z に生画像が必要です。"
+#: guis/GUI08_ML_Mask_Annotator.py:304
+#, python-brace-format
+msgid ""
+"マスクは学習側と同じ経路で再構築されます。{bg_mask} は補正前の生画像が必要です（.b2z の original "
+"キー、またはバンドルの隣に残っている元の入力ファイル）。"
 msgstr ""
+"The mask is rebuilt through the same path training uses. {bg_mask} needs "
+"the uncorrected raw image, taken from the .b2z original key or from the "
+"raw input file still kept beside the bundle."
 
-#: guis/GUI08_ML_Mask_Annotator.py:303
+#: guis/GUI08_ML_Mask_Annotator.py:310
 msgid "バンドルを開く..."
 msgstr "Open bundle..."
 
-#: guis/GUI08_ML_Mask_Annotator.py:306
+#: guis/GUI08_ML_Mask_Annotator.py:313
 msgid "未読み込み。"
 msgstr "Not loaded."
 
-#: guis/GUI08_ML_Mask_Annotator.py:315
+#: guis/GUI08_ML_Mask_Annotator.py:322
 msgid "ブラシ"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:325
+#: guis/GUI08_ML_Mask_Annotator.py:332
 msgid "繊維として塗る（白）"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:326
+#: guis/GUI08_ML_Mask_Annotator.py:333
 msgid "背景として塗る（黒）"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:338
+#: guis/GUI08_ML_Mask_Annotator.py:345
 msgid "ブラシ半径 (px)"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:350
+#: guis/GUI08_ML_Mask_Annotator.py:357
 msgid "修正をすべて消す"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:357
+#: guis/GUI08_ML_Mask_Annotator.py:364
 msgid "パイプラインのマスクと食い違った画素だけが保存されます。元の値へ塗り戻せばその判断は取り消されます。"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:369
+#: guis/GUI08_ML_Mask_Annotator.py:376
 #, fuzzy
 msgid "修正を保存"
 msgstr "Save Figure"
 
-#: guis/GUI08_ML_Mask_Annotator.py:372
+#: guis/GUI08_ML_Mask_Annotator.py:379
 msgid ""
 "バンドルの隣に修正ファイルを書き出します。ML Model Trainer でラベルの出所に Manual corrections "
 "を選ぶと使われます。"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:386
+#: guis/GUI08_ML_Mask_Annotator.py:393
 msgid "編集ペインの表示"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:389
+#: guis/GUI08_ML_Mask_Annotator.py:396
 msgid "マスクのみ"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:390
+#: guis/GUI08_ML_Mask_Annotator.py:397
 msgid "画像＋マスク"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:469
+#: guis/GUI08_ML_Mask_Annotator.py:476
 #, fuzzy
 msgid "バンドルを開き、マスクの誤りをドラッグで塗り直します。保存するとバンドルの隣に修正ファイルが書かれます。"
 msgstr ""
 "Open a bundle and click a candidate to cycle its verdict. Saving writes a"
 " label file beside the bundle."
 
-#: guis/GUI08_ML_Mask_Annotator.py:484
+#: guis/GUI08_ML_Mask_Annotator.py:491
 msgid ".b2z バンドルを選択"
 msgstr "Select a .b2z bundle"
 
-#: guis/GUI08_ML_Mask_Annotator.py:492
+#: guis/GUI08_ML_Mask_Annotator.py:499
 #, python-brace-format
 msgid "{name} を読み込み中..."
 msgstr "Loading {name}..."
 
-#: guis/GUI08_ML_Mask_Annotator.py:517
+#: guis/GUI08_ML_Mask_Annotator.py:524
 #, fuzzy
 msgid "ベースマスクを再構築中..."
 msgstr "Rebuilding fragments..."
 
-#: guis/GUI08_ML_Mask_Annotator.py:618
+#: guis/GUI08_ML_Mask_Annotator.py:625
 #, fuzzy, python-brace-format
 msgid "保存済みの修正 {n} 画素を復元しました。"
 msgstr "Restored {n} judgement(s) from the existing labels."
 
-#: guis/GUI08_ML_Mask_Annotator.py:623
+#: guis/GUI08_ML_Mask_Annotator.py:630
 msgid "既存の修正を読み込めません"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:624
+#: guis/GUI08_ML_Mask_Annotator.py:631
 msgid ""
 "バンドルの隣に修正ファイルがありますが、いま表示しているマスクのものではありません。\n"
 "空の状態で開始します。保存すると既存のファイルを上書きします。"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:961
+#: guis/GUI08_ML_Mask_Annotator.py:968
 msgid "この画像の修正をすべて消します。よろしいですか。"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:1007
+#: guis/GUI08_ML_Mask_Annotator.py:1014
 msgid "修正がありません"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:1008
+#: guis/GUI08_ML_Mask_Annotator.py:1015
 msgid "保存する修正がありません。マスクの誤りを塗ってから保存してください。"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:1011
+#: guis/GUI08_ML_Mask_Annotator.py:1018
 msgid "上書きの確認"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:1012
+#: guis/GUI08_ML_Mask_Annotator.py:1019
 msgid "別のマスク向けの修正ファイルが既にあります。上書きしますか。"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:1031
+#: guis/GUI08_ML_Mask_Annotator.py:1038
 #, fuzzy, python-brace-format
 msgid "修正を保存しました: {p}"
 msgstr "Saved labels: {p}"
 
-#: guis/GUI08_ML_Mask_Annotator.py:1034
+#: guis/GUI08_ML_Mask_Annotator.py:1041
 #, fuzzy, python-brace-format
 msgid ""
 "{n} 画素の修正を保存しました。\n"
@@ -2751,17 +2763,17 @@ msgstr ""
 "Saved {decided} judgement(s).\n"
 "{p}"
 
-#: guis/GUI08_ML_Mask_Annotator.py:1061
+#: guis/GUI08_ML_Mask_Annotator.py:1068
 #, python-brace-format
 msgid "修正した画素: 繊維 {f} / 背景 {b}"
 msgstr ""
 
-#: guis/GUI08_ML_Mask_Annotator.py:1103
+#: guis/GUI08_ML_Mask_Annotator.py:1110
 #, fuzzy
 msgid "未保存の修正"
 msgstr "Unsaved judgements"
 
-#: guis/GUI08_ML_Mask_Annotator.py:1104
+#: guis/GUI08_ML_Mask_Annotator.py:1111
 #, fuzzy
 msgid "保存していない修正があります。破棄して続行しますか。"
 msgstr "There are unsaved judgements. Discard them and continue?"
@@ -2965,12 +2977,13 @@ msgid ""
 " it as a model file whose extension encodes the task. Choose the task: "
 "binarization, background fiber-candidate mask, or background-surface "
 "regression (the last two are the alternative background-correction "
-"approaches and need the raw image in the bundle). Select folders of Image"
-" Preprocessor bundles, build a pixel dataset, cross-validate a decision-"
-"tree model, and save it. For the two mask tasks the label can be the "
-"pipeline's own mask or that mask with hand-painted corrections from the "
-"ML Mask Annotator applied. The ML libraries are optional and loaded only "
-"when training runs."
+"approaches and need the raw height image, taken from the bundle's "
+"optional original key or from the raw input file kept beside the bundle)."
+" Select folders of Image Preprocessor bundles, build a pixel dataset, "
+"cross-validate a decision-tree model, and save it. For the two mask tasks"
+" the label can be the pipeline's own mask or that mask with hand-painted "
+"corrections from the ML Mask Annotator applied. The ML libraries are "
+"optional and loaded only when training runs."
 msgstr ""
 
 #: guis/GUI06_ML_Model_Compare.py:36

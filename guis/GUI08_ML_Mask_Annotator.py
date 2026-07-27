@@ -296,8 +296,15 @@ class App(tk.Tk, LogMixin):
         task_cb = ttk.Combobox(row, textvariable=self.task_var,
                                values=list(TASK_LABELS), state="readonly", width=34)
         task_cb.pack(anchor="w", pady=2)
-        ToolTip(task_cb, _("マスクは学習側と同じ経路で再構築されます。"
-                           "背景マスクは .b2z に生画像が必要です。"))
+        # Name the task with the English label the combobox itself shows, and
+        # state where the raw image may come from: it is read from the bundle's
+        # `original` key or, failing that, from the raw input file recorded in
+        # the metadata if it still sits beside the bundle (lib.ml_dataset).
+        ToolTip(task_cb, _(
+            "マスクは学習側と同じ経路で再構築されます。{bg_mask} は補正前の"
+            "生画像が必要です（.b2z の original キー、またはバンドルの隣に"
+            "残っている元の入力ファイル）。"
+        ).format(bg_mask="Background mask"))
 
         self.btn_open = ttk.Button(
             lf, text=_("バンドルを開く..."), command=self.on_open_bundle)

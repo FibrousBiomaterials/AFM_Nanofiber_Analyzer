@@ -47,7 +47,9 @@ PLUGIN_INFO = {
         "task: binarization, "
         "background fiber-candidate mask, or background-surface regression "
         "(the last two are the alternative background-correction approaches "
-        "and need the raw image in the bundle). Select folders of Image "
+        "and need the raw height image, taken from the bundle's optional "
+        "original key or from the raw input file kept beside the bundle). "
+        "Select folders of Image "
         "Preprocessor bundles, build a pixel dataset, cross-validate a "
         "decision-tree model, and save it. For the two mask tasks the label "
         "can be the pipeline's own mask or that mask with hand-painted "
@@ -282,8 +284,15 @@ class App(tk.Tk, LogMixin):
                                values=list(TASK_LABELS), state="readonly", width=32)
         task_cb.grid(row=0, column=1, columnspan=3, sticky="w", padx=2, pady=2)
         task_cb.bind("<<ComboboxSelected>>", self._on_task_changed)
-        ToolTip(task_cb, _("背景マスクと背景面は工程Aの代替方式です。"
-                           "どちらも .b2z に生画像が必要です。"))
+        # Name the two tasks with the English labels the combobox itself shows,
+        # and spell out what process A is, so the tooltip stays readable for a
+        # first-time user in any UI language.
+        ToolTip(task_cb, _(
+            "{bg_mask} と {bg_surface} は背景補正（生画像から背景の起伏を"
+            "取り除く工程）の代替方式です。どちらも補正前の生画像が必要です"
+            "（.b2z の original キー、またはバンドルの隣に残っている元の"
+            "入力ファイル）。"
+        ).format(bg_mask="Background mask", bg_surface="Background surface"))
 
         ttk.Label(grid, text=_("ラベルの出所")).grid(row=1, column=0, sticky="w", padx=2, pady=2)
         # Values are filled by _on_task_changed(), which knows the choices the
