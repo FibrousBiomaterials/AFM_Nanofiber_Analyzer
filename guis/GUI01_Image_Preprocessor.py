@@ -339,11 +339,15 @@ class FileItem:
         期待される解析出力が欠損している理由。
     scale_x_um, scale_y_um
         Per-file physical scan size in micrometers, stored in the bundle so
-        length measurements are reproducible. ``None`` means the scan size is
-        not yet known (no header value and no manual/manifest entry).
+        length measurements are reproducible. ``scale_x_um is None`` means the
+        scan size is not yet known (no header value and no manual/manifest
+        entry). ``scale_y_um is None`` instead means "follows X" (square scan);
+        use `scan_size_um` to read the resolved per-axis size.
         ファイル単位の物理走査範囲 (µm)。長さ計測を再現可能にするためバンドルへ
-        保存する。``None`` は走査範囲が未確定（ヘッダ値も手入力/マニフェスト値も
-        無い）であることを表す。
+        保存する。``scale_x_um`` が ``None`` は走査範囲が未確定（ヘッダ値も
+        手入力/マニフェスト値も無い）であることを表す。``scale_y_um`` の
+        ``None`` はこれとは異なり「X に従う」（正方スキャン）を意味する。
+        解決済みの軸ごとのサイズは `scan_size_um` から取得する。
     scale_source
         Provenance of the scan size: ``""`` (unset) or one of
         `SCAN_SIZE_SOURCES` (``input_header`` / ``manifest`` / ``manual``).
@@ -362,13 +366,41 @@ class FileItem:
     @property
     def has_scale(self) -> bool:
         """
-        Return whether a positive per-axis scan size is set.
-        軸ごとの正の走査範囲が設定されているかを返す。
+        Return whether the scan size is usable for measurement.
+        走査範囲が計測に使える状態かを返す。
+
+        Notes
+        -----
+        Only X is mandatory. An unset Y means "follows X" (square scan), the
+        same meaning the table shows as ``= X`` and the scale entry applies
+        via `_scale_xy_um`, so it must not be treated as missing here.
+        必須なのは X のみ。未設定の Y は「X に従う」（正方スキャン）を意味し、
+        表の ``= X`` 表示やスケール入力欄の `_scale_xy_um` と同じ意味なので、
+        ここで未設定として扱ってはならない。
         """
         return (
-            self.scale_x_um is not None and self.scale_y_um is not None
-            and self.scale_x_um > 0 and self.scale_y_um > 0
+            self.scale_x_um is not None and self.scale_x_um > 0
+            and (self.scale_y_um is None or self.scale_y_um > 0)
         )
+
+    @property
+    def scan_size_um(self) -> Optional[Tuple[float, float]]:
+        """
+        Return the resolved (X, Y) scan size in micrometers, or ``None``.
+        解決済みの (X, Y) 走査範囲 (µm) を返す。未確定なら ``None``。
+
+        Returns
+        -------
+        tuple of float or None
+            Per-axis scan size with Y resolved to X when Y is unset; ``None``
+            when no usable scan size is set.
+            軸ごとの走査範囲。Y が未設定なら Y は X に解決される。使用可能な
+            走査範囲が無い場合は ``None``。
+        """
+        if not self.has_scale:
+            return None
+        y = self.scale_y_um if self.scale_y_um is not None else self.scale_x_um
+        return self.scale_x_um, y
 
     @property
     def scale_x_display(self) -> str:
@@ -1614,8 +1646,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # is only valid while `it` is the currently cached item.
         if self._current_item is it and self._current_scan_size_um is not None:
             return self._current_scan_size_um
-        if it.has_scale:
-            return it.scale_x_um, it.scale_y_um
+        size = it.scan_size_um
+        if size is not None:
+            return size
         return self._scale_xy_um()
 
     def _refresh_scale_y_placeholder(self, _event=None) -> None:
@@ -2371,9 +2404,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # manifest, or manual) so the bundle records its spatial calibration.
             # メインスレッドで解決したファイル単位の走査範囲（ヘッダ/マニフェスト/
             # 手動）を渡し、バンドルへ空間較正を記録する。
-            scan_size_um = None
-            if it.has_scale:
-                scan_size_um = (it.scale_x_um, it.scale_y_um)
+            # A blank Y resolves to X here, so the bundle always records an
+            # explicit per-axis size rather than a half-filled one.
+            # 空欄の Y はここで X に解決するため、バンドルには常に軸ごとの
+            # 明示的なサイズが記録される。
+            scan_size_um = it.scan_size_um
             result = process_file(
                 it.txt_path,
                 self.params_active,
