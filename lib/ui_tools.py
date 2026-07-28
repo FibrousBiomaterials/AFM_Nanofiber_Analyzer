@@ -323,6 +323,162 @@ def create_scrolled_treeview(parent, *, columns=(), show="headings",
     return tree, scrollbar
 
 
+# Widget classes whose Tk class bindings consume <MouseWheel> to change their
+# own value (ttk::combobox::Scroll, ttk::spinbox::MouseWheel). Inside a scroll
+# region the wheel must scroll the view, never silently edit a parameter, so
+# `bind_mousewheel_scroll` overrides these per widget instance.
+# Tk のクラスバインドが <MouseWheel> を自身の値変更に使うウィジェットクラス。
+# スクロール領域内でホイールを回した際にパラメータが黙って書き換わるのを防ぐため、
+# `bind_mousewheel_scroll` はこれらをウィジェット単位で上書きする。
+_WHEEL_HIJACKING_CLASSES = ("TCombobox", "TSpinbox", "Spinbox")
+
+# Scrollbars already scroll their own widget from a Tk class binding, at a
+# coarser rate (4 units per notch). Adding a second handler on top of it would
+# scroll five times per notch, so wheel events landing on a scrollbar are left
+# to Tk and keep the behavior users already have there.
+# スクロールバーは Tk のクラスバインドで既に自分のウィジェットを（1 ノッチ
+# 4 単位という粗い刻みで）スクロールさせる。その上にハンドラを重ねると
+# 1 ノッチで 5 倍動いてしまうため、スクロールバー上のホイールイベントは Tk に
+# 任せ、そこでの既存の挙動をそのまま保つ。
+_WHEEL_SELF_SCROLLING_CLASSES = ("TScrollbar", "Scrollbar")
+
+
+def _wheel_scroll_steps(event) -> int:
+    """
+    Convert a wheel event into signed scroll units, or 0 when it carries none.
+    ホイールイベントを符号付きスクロール単位へ変換する（無ければ 0）。
+
+    Notes
+    -----
+    Windows and macOS deliver ``<MouseWheel>`` with ``event.delta`` (Windows
+    reports multiples of 120 per notch, macOS small counts), while X11 sends
+    ``<Button-4>`` / ``<Button-5>`` with no delta.
+    Windows と macOS は ``event.delta`` 付きの ``<MouseWheel>``（Windows は
+    1 ノッチ 120 単位、macOS は小さな値）を送り、X11 は delta を持たない
+    ``<Button-4>`` / ``<Button-5>`` を送る。
+    """
+    num = getattr(event, "num", 0)
+    if num == 4:
+        return -1
+    if num == 5:
+        return 1
+    delta = getattr(event, "delta", 0)
+    if not delta:
+        return 0
+    if abs(delta) >= 120:
+        return -int(delta / 120)
+    return -1 if delta > 0 else 1
+
+
+def bind_mousewheel_scroll(canvas, scope=None) -> None:
+    """
+    Scroll a canvas with the wheel anywhere inside a window, not only on its scrollbar.
+    スクロールバー上だけでなく、ウィンドウ内のどこでもホイールで canvas をスクロールさせる。
+
+    Parameters
+    ----------
+    canvas
+        Scrollable canvas whose vertical view the wheel drives.
+        ホイールで縦方向の表示位置を動かす、スクロール可能な canvas。
+    scope
+        Widget whose subtree reacts to the wheel; defaults to the canvas's own
+        toplevel window. Pass the enclosing panel when the window holds more
+        than one scrollable area, so each area answers only for itself.
+        ホイールに反応させる部分木のウィジェット。既定は canvas 自身の
+        トップレベルウィンドウ。1 つのウィンドウが複数のスクロール領域を
+        持つ場合は、各領域が自分の範囲だけに応答するよう、囲んでいるパネルを
+        渡すこと。
+
+    Notes
+    -----
+    Tk has no wheel binding of its own for a canvas, so without this the only
+    scrollable surface is the ttk.Scrollbar's own class binding — the wheel
+    works only while the pointer sits on the scrollbar itself.
+    Tk は canvas に対するホイールバインドを持たないため、これが無いと
+    ttk.Scrollbar のクラスバインドだけが効き、ポインタがスクロールバーの
+    上にあるときしかホイールが働かない。
+
+    The handler is bound to the toplevel rather than through ``bind_all``, so
+    it covers the window without leaking into other windows and dies with it.
+    The toplevel is the only container in a widget's bindtags — intermediate
+    frames are not — so a `scope` narrower than the window cannot be bound
+    directly and is honored by filtering on the event widget's path instead.
+    ハンドラは ``bind_all`` ではなくトップレベルに束縛するため、他のウィンドウ
+    へ漏れずにウィンドウを覆い、ウィンドウと同時に破棄される。ウィジェットの
+    bindtags に含まれるコンテナはトップレベルだけで中間フレームは含まれない
+    ため、ウィンドウより狭い `scope` は直接束縛できず、代わりにイベント発生
+    ウィジェットのパスで絞り込むことで実現する。
+
+    Descendant comboboxes and spinboxes additionally get an instance binding,
+    because instance bindings run before class bindings and can ``break`` out
+    of them; call this after the subtree has been built so those widgets exist.
+    子孫のコンボボックスとスピンボックスには加えてインスタンスバインドを張る。
+    インスタンスバインドはクラスバインドより先に実行され ``break`` で打ち切れる
+    ためである。対象ウィジェットが存在している必要があるので、部分木の構築後に
+    呼ぶこと。
+
+    Wheel events over a scrollbar are left to Tk so its existing rate is
+    preserved; see `_WHEEL_SELF_SCROLLING_CLASSES`.
+    スクロールバー上のホイールイベントは Tk に任せ、既存の刻み幅を保つ。
+    `_WHEEL_SELF_SCROLLING_CLASSES` を参照。
+    """
+    target = scope if scope is not None else canvas.winfo_toplevel()
+    scope_path = str(target)
+    scope_prefix = scope_path if scope_path.endswith(".") else scope_path + "."
+
+    def _in_scope(widget) -> bool:
+        """
+        Report whether a widget lies inside the scope subtree.
+        ウィジェットが scope の部分木の内側にあるかを判定する。
+        """
+        path = str(widget)
+        return path == scope_path or path.startswith(scope_prefix)
+
+    def _scroll(event):
+        steps = _wheel_scroll_steps(event)
+        if not steps:
+            return None
+        widget = getattr(event, "widget", None)
+        if widget is None or not hasattr(widget, "winfo_class"):
+            return None
+        if not _in_scope(widget):
+            return None
+        if widget.winfo_class() in _WHEEL_SELF_SCROLLING_CLASSES:
+            return None
+        try:
+            first, last = canvas.yview()
+            # Ignore the wheel when everything already fits, so it does not
+            # drag a fully visible view around.
+            if first <= 0.0 and last >= 1.0:
+                return None
+            canvas.yview_scroll(steps, "units")
+        except tk.TclError:
+            # The canvas was destroyed while the window was still alive.
+            return None
+        return None
+
+    def _scroll_and_break(event):
+        _scroll(event)
+        return "break"
+
+    toplevel = target.winfo_toplevel()
+    for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+        toplevel.bind(sequence, _scroll, add="+")
+
+    def _override_hijackers(widget) -> None:
+        """
+        Rebind wheel events on value-changing widgets down the subtree.
+        部分木を辿り、値が変わるウィジェットのホイールイベントを張り替える。
+        """
+        if widget.winfo_class() in _WHEEL_HIJACKING_CLASSES:
+            for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+                widget.bind(sequence, _scroll_and_break, add="+")
+        for child in widget.winfo_children():
+            _override_hijackers(child)
+
+    _override_hijackers(target)
+
+
 def extent_scale_and_unit(scale_um: float, unit: str) -> tuple:
     """
     Return plot extent scale and label for micrometer/nanometer tick display.

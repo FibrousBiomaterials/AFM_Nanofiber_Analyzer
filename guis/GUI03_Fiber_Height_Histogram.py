@@ -56,7 +56,7 @@ from lib.ui_tools import (
     apply_window_size, setup_matplotlib_style, save_figure_with_dialog,
     setup_ttk_theme,
     save_text_widget_log, create_scrolled_text, create_scrolled_treeview,
-    drain_ui_queue, save_csv_with_dialog,
+    drain_ui_queue, save_csv_with_dialog, bind_mousewheel_scroll,
     UnconfirmedEntryMixin, LogMixin,
 )
 
@@ -623,6 +623,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self._inner_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        # Scope the wheel to this panel: the window's other areas (log, file
+        # table) scroll themselves and must not drive the plot canvas.
+        bind_mousewheel_scroll(self._scroll_canvas, scope=canvas_holder)
 
     def _on_inner_configure(self, event) -> None:
         """

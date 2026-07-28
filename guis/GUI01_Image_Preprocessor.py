@@ -86,7 +86,7 @@ from lib.ui_tools import (
     apply_window_size, ToolTip, setup_matplotlib_style,
     save_figure_with_dialog, PLOT_FS_DEFAULTS, setup_ttk_theme,
     save_text_widget_log,
-    create_scrolled_text, drain_ui_queue,
+    create_scrolled_text, drain_ui_queue, bind_mousewheel_scroll,
     rewrite_entries, mark_entry_state,
     UnconfirmedEntryMixin, LogMixin,
 )
@@ -2951,6 +2951,9 @@ class SettingsDialog(tk.Toplevel):
         self._build_param_sections(plf)
         self._build_save_options()
         self._build_buttons()
+        # Bind last: the helper walks the finished subtree to take the wheel
+        # back from the comboboxes built above.
+        bind_mousewheel_scroll(self._scroll_canvas, scope=self)
 
     def _build_scroll_container(self) -> ttk.LabelFrame:
         """
@@ -2995,6 +2998,9 @@ class SettingsDialog(tk.Toplevel):
 
         canvas.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
+
+        # Kept so `_build_ui` can bind wheel scrolling once the subtree is built.
+        self._scroll_canvas = canvas
 
         # Parameters staged here apply only to the next analysis run.
         plf = ttk.LabelFrame(self.inner, text=_("解析条件（次回解析時にのみ反映）"))

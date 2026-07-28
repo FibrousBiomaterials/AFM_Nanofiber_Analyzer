@@ -476,6 +476,7 @@ GUI plugins, such as:
 - plot export via `save_figure_with_dialog`
 - tooltip behavior via `ToolTip`
 - log saving via `save_text_widget_log`
+- mouse-wheel scrolling of a canvas via `bind_mousewheel_scroll`
 - common unit strings such as `UNIT_MICROMETER`
 - common image display limits such as `DEFAULT_VMIN`, `DEFAULT_VMAX`, and
   `compute_auto_vrange`
