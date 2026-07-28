@@ -768,7 +768,7 @@ When UI strings or `PLUGIN_INFO` descriptions are added or changed, refresh the
 catalogs through the project script, which is the canonical entry point:
 
 ```powershell
-python prepare_translate_catalogs.py
+.venv\Scripts\python.exe prepare_translate_catalogs.py
 ```
 
 It runs `pybabel extract`, injects each `PLUGIN_INFO["description"]` literal into
@@ -794,6 +794,51 @@ To add a new language:
 ```powershell
 pybabel init -i locale/messages.pot -d locale -l <language_code>
 ```
+
+### 8.9 Python interpreter invocation
+
+The repository ships a single virtual environment at `.venv/`. Invoke Python
+through it, using exactly one spelling per shell:
+
+```bash
+# Bash tool (Git Bash)
+.venv/Scripts/python.exe -m pytest -q
+```
+
+```powershell
+# PowerShell tool
+.venv\Scripts\python.exe -m pytest -q
+```
+
+Do not substitute equivalent-looking variants such as
+`./.venv/Scripts/python.exe`, `.venv/Scripts/python` (no `.exe`),
+`..\.venv\Scripts\python.exe`, a bare `python`, or a `.conda-env/`
+interpreter. Only `.venv/` exists in this repository, and agent permission
+allowlists match on the command prefix, so every extra spelling of the same
+command needs its own rule and triggers a fresh approval prompt. One spelling
+per shell keeps that rule set small.
+
+### 8.10 Scratch and temporary files
+
+Write scratch files — probe scripts, intermediate data, screenshots, captured
+output, working copies — to `.tmp/` at the repository root. Create it on first
+use. Do not use a per-session scratch directory under the user profile
+(`%TEMP%`, `%LOCALAPPDATA%`) even when the agent harness assigns one by
+default, and do not invent a parallel directory such as `.temp/` or `tmp/`.
+
+`.tmp/` is already wired into every tool in this repository, so scratch files
+there cannot leak into the deliverable:
+
+- `.gitignore` ignores `.tmp/`
+- `[tool.ruff] extend-exclude` in `pyproject.toml` skips `.tmp`
+- `[tool.pytest.ini_options] testpaths = ["tests"]` never collects it
+- `check.py` scans only `Main.py`, `guis/`, and `lib/`, so `.tmp/` cannot
+  pollute the regenerated `requirements.txt`
+- `build.py` copies only `guis/`, `lib/`, `locale/`, and `assets/`
+
+Keeping scratch files inside the repository also means an agent needs no read
+permission outside the project directory, which keeps the permission allowlist
+narrow. `.tmp/` is not cleaned automatically; delete stale contents manually.
 
 ## 9. Summary
 
@@ -828,6 +873,8 @@ pybabel init -i locale/messages.pot -d locale -l <language_code>
 | Long-running GUI work | Use worker threads, `queue.Queue`, and Tk `after()` polling; do not block the main loop. |
 | `ProcParams` field names | Frozen (serialized verbatim into `_param.json`); authoritative list is the dataclass in `lib/pipeline.py`. |
 | `lib/` module public APIs | Do not rename classes/functions in §8.7 without updating all call sites. |
-| Translation catalogs | Refresh with `python prepare_translate_catalogs.py` (keeps `PLUGIN_INFO` descriptions; a bare `pybabel extract/update` drops them and obsoletes the entries); never edit `.mo` files directly (§8.8). |
+| Python interpreter | One spelling per shell: `.venv/Scripts/python.exe` (Bash), `.venv\Scripts\python.exe` (PowerShell). No `./` prefix, no bare `python`, no `.conda-env/` (§8.9). |
+| Scratch / temporary files | Write to `.tmp/` at the repository root, not to a harness-assigned scratch directory under the user profile (§8.10). |
+| Translation catalogs | Refresh with `.venv\Scripts\python.exe prepare_translate_catalogs.py` (keeps `PLUGIN_INFO` descriptions; a bare `pybabel extract/update` drops them and obsoletes the entries); never edit `.mo` files directly (§8.8). |
 | README pair | `README.md` ↔ `README.ja.md` stay synchronized in both directions, including translation of the edited passage. |
 | Destructive Git operations | Forbidden unless explicitly requested; `git restore` of files corrupted by your own edit is allowed. |
