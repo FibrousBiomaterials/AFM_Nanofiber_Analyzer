@@ -82,6 +82,7 @@ from lib.ui_tools import (
     setup_ttk_theme, rewrite_entries, mark_entry_state, replace_log_tail,
     save_text_widget_log, create_scrolled_text, create_scrolled_treeview,
     drain_ui_queue, extent_scale_and_unit, save_csv_with_dialog,
+    bind_mousewheel_scroll,
     UnconfirmedEntryMixin, LogMixin, localized_combobox_width,
     PLOT_FS_DEFAULTS, UNIT_MICROMETER,
     DEFAULT_VMIN, DEFAULT_VMAX,
@@ -2671,6 +2672,14 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         self._fiber_canvas = FigureCanvasTkAgg(self._fiber_fig, master=self._fiber_inner)
         self._fiber_canvas.get_tk_widget().pack(side="top", anchor="nw")
 
+        # This holder has no scrollbar, so the wheel is the only way to reach a
+        # figure taller than the pane. Scope it to the enlarged-image side so it
+        # does not fight the profile pane sharing this window.
+        # このホルダにはスクロールバーが無いため、ペインより縦長の Figure に
+        # 届く手段はホイールだけである。同一ウィンドウのプロファイル側と競合
+        # しないよう、拡大像側に範囲を限定する。
+        bind_mousewheel_scroll(self._fiber_holder, scope=parent)
+
     def _build_profile_settings(self, parent: ttk.Frame) -> None:
         """
         Build the three profile-settings rows (entries, display options, save).
@@ -2818,6 +2827,10 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         self._prof_ax     = self._prof_fig.add_subplot(111)
         self._prof_canvas = FigureCanvasTkAgg(self._prof_fig, master=self._prof_inner)
         self._prof_canvas.get_tk_widget().pack(side="top", anchor="nw")
+
+        # Same reasoning as the enlarged-image holder: no scrollbar here either,
+        # and the scope keeps the wheel on the profile side of the window.
+        bind_mousewheel_scroll(self._prof_holder, scope=parent)
 
     # -- Commit callbacks local to the detail window ---------------------------
 
