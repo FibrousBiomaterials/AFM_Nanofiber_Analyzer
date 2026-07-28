@@ -664,7 +664,10 @@ class App(tk.Tk, LogMixin):
         1 バンドルのモデルマスク・古典マスク・指標を計算する。
         """
         try:
-            from lib import ml_dataset as md
+            # Probe the optional ML stack. The import must execute -- locating
+            # the module (importlib.util.find_spec) would always succeed, since
+            # what fails is lib.ml_dataset's own scipy/skimage imports.
+            from lib import ml_dataset  # noqa: F401 - imported to raise here
         except ImportError as exc:
             self.ui_queue.put(("fatal", {
                 "text": _("機械学習ライブラリがインストールされていません。\n{err}")
@@ -709,7 +712,8 @@ class App(tk.Tk, LogMixin):
         メインスレッド外で全バンドルの画像ごと指標を積算する。
         """
         try:
-            from lib import ml_dataset as md
+            # Same pre-flight probe as _worker_compare_one.
+            from lib import ml_dataset  # noqa: F401 - imported to raise here
         except ImportError as exc:
             self.ui_queue.put(("fatal", {
                 "text": _("機械学習ライブラリがインストールされていません。\n{err}")

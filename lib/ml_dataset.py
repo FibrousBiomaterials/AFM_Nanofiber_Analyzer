@@ -869,7 +869,7 @@ def _bg_mask_pair(
     """
     # Local import: the heavy preprocessing stack is only needed on this path.
     # ローカル import：重い前処理スタックはこの経路でのみ必要。
-    from .pipeline import merge_params_dict, build_stages
+    from .pipeline import build_stages
     from .processed_image import ProcessedImage
 
     original = _load_original(path)
