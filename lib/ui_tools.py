@@ -44,6 +44,23 @@ def setup_ttk_theme(root: tk.Misc, *, theme: str = "clam",
     style.configure("Unconfirmed.TEntry", fieldbackground=unconfirmed_bg)
 
     bg = style.lookup("TFrame", "background") or "#dcdad5"
+
+    # clam gives TCombobox its own -foreground/-fieldbackground maps, which
+    # replace (not extend) the root style's "disabled -> gray" rule. A disabled
+    # combobox therefore keeps black text, and because it has left the readonly
+    # state it falls back to a white field, so an unavailable combobox looks
+    # *more* editable than a usable one. Re-insert disabled entries ahead of the
+    # theme's own so a disabled combobox dims like every other disabled widget.
+    # clam の TCombobox は独自の -foreground/-fieldbackground map を持ち、ルート
+    # スタイルの「disabled は灰色」を継承せず上書きする。そのため無効化しても
+    # 文字は黒のままで、readonly 状態を抜けた分だけ地色が白へ戻り、選択可能な
+    # ものより編集可能に見えてしまう。テーマ既定の前に disabled を差し込む。
+    disabled_fg = style.lookup(".", "foreground", ["disabled"]) or "#999999"
+    for option, value in (("foreground", disabled_fg), ("fieldbackground", bg)):
+        style.map("TCombobox",
+                  **{option: [("disabled", value)]
+                     + list(style.map("TCombobox", option))})
+
     try:
         root.configure(bg=bg)
     except tk.TclError:
