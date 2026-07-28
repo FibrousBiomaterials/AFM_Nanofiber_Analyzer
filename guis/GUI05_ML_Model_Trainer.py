@@ -122,6 +122,14 @@ TASK_LABEL_SOURCES = {
                 "Manual corrections (painted)"),
 }
 
+# Label source sent for a task that offers no choice. Any valid non-correction
+# source works: the dataset builder ignores it for such tasks (background_surface
+# rebuilds its target from the raw image), but it still validates the value.
+# 選択肢を持たないタスクで送るラベル出所。修正以外の有効な値であればよい。
+# データセット構築側はそうしたタスクでは値を無視する（background_surface は
+# ターゲットを生画像から再構築する）が、検証は通す必要がある。
+_FALLBACK_LABEL_SOURCE = "segmenter_intermediate"
+
 # Trainable tasks offered in the UI, mapping display label -> fixed task
 # identifier (the vocabulary is owned by lib.ml_schema). The two background
 # tasks are the alternative process-A approaches kept side by side so they can
@@ -304,10 +312,11 @@ class App(tk.Tk, LogMixin):
                           values=[], state="readonly", width=32)
         cb.grid(row=1, column=1, columnspan=3, sticky="w", padx=2, pady=2)
         self.label_source_combo = cb
-        ToolTip(cb, _("Segmenter intermediate はモデルが置き換える成分フィルタ前のマスク、"
-                      "bundle binarized は保存済みの最終マスクです。"
-                      "Manual corrections は ML Mask Annotator で描いた手修正を"
-                      "適用したマスクで、バンドルごとに sidecar が必要です。"))
+        # The choices differ per task, so the tooltip body is rewritten by
+        # _on_task_changed() instead of being fixed at construction time.
+        # 選択肢はタスクごとに異なるため、ツールチップ本文は生成時に固定せず
+        # _on_task_changed() が書き換える。
+        self.label_source_tip = ToolTip(cb, "")
 
         ttk.Label(grid, text=_("画像あたり最大サンプル数")).grid(row=2, column=0, sticky="w", padx=2, pady=2)
         self.max_samples_var = tk.StringVar(value="20000")
@@ -340,6 +349,7 @@ class App(tk.Tk, LogMixin):
         """
         task = TASK_LABELS[self.task_var.get()]
         choices = TASK_LABEL_SOURCES.get(task, ())
+        self.label_source_tip.text = self._label_source_help(task)
         if choices:
             self.label_source_combo.configure(
                 values=list(choices), state="readonly")
@@ -350,7 +360,14 @@ class App(tk.Tk, LogMixin):
             if self.label_source_var.get() not in choices:
                 self.label_source_var.set(choices[0])
         else:
-            self.label_source_combo.configure(state=tk.DISABLED)
+            # Clear the list and the shown text as well: leaving the previous
+            # task's choice visible would advertise a selection this task never
+            # makes. `_selected_label_source()` supplies the value to send.
+            # 一覧と表示文字列も消す。前のタスクの選択を残すと、このタスクが決して
+            # 行わない選択を提示することになる。送る値は
+            # `_selected_label_source()` が補う。
+            self.label_source_combo.configure(values=[], state=tk.DISABLED)
+            self.label_source_var.set("")
         self.balance_check.configure(
             state=tk.DISABLED if task in _REGRESSION_TASKS else tk.NORMAL)
         # Re-scanning under a new task is required because usability differs
@@ -359,6 +376,55 @@ class App(tk.Tk, LogMixin):
         # 再走査が必要であることを分かるようにする。
         if self.bundles:
             self._log(_("タスクを変更しました。バンドルを再走査してください。"))
+
+    @staticmethod
+    def _label_source_help(task: str) -> str:
+        """
+        Return the label-source tooltip for the given task.
+        指定したタスクに対応するラベル出所のツールチップ文を返す。
+
+        The choices in `TASK_LABEL_SOURCES` differ per task and even name the
+        same identifier differently, so one shared text would describe options
+        the list does not contain. The option names are inserted as fixed
+        English placeholders because they are the strings the combobox shows.
+        `TASK_LABEL_SOURCES` の選択肢はタスクごとに異なり、同じ識別子でも呼び名が
+        変わるため、共通の文面では一覧に無い選択肢を説明することになる。選択肢名は
+        コンボボックスが実際に表示する文字列なので、固定英語の差し込みとする。
+        """
+        if task == "binarize":
+            return _(
+                "{intermediate} はモデルが置き換える成分フィルタ前のマスク、"
+                "{binarized} は保存済みの最終マスクです。{painted} は ML Mask "
+                "Annotator で描いた手修正を適用したマスクで、バンドルごとに "
+                "sidecar が必要です。"
+            ).format(intermediate="Segmenter intermediate (pre-filter)",
+                     binarized="Bundle binarized (final)",
+                     painted="Manual corrections (painted)")
+        if task == "bg_mask":
+            return _(
+                "{distilled} は、背景を埋める前に BGCalibrator が作る勾配リッジ由来の"
+                "繊維候補マスクです（バンドル保存パラメータで再実行して復元します）。"
+                "{painted} は ML Mask Annotator で描いた手修正を適用したマスクで、"
+                "バンドルごとに sidecar が必要です。"
+            ).format(distilled="Pipeline mask (distilled)",
+                     painted="Manual corrections (painted)")
+        # No choice: the target follows from the bundle alone.
+        # 選択なし：ターゲットはバンドルだけで定まる。
+        return _("このタスクのラベルは選べません。ターゲットは整列済みの生画像から"
+                 "保存済み calibrated 画像を引いた背景の高さ（nm）に定まります。")
+
+    def _selected_label_source(self) -> str:
+        """
+        Return the label-source identifier to send for the current task.
+        現在のタスクに対して送るラベル出所の識別子を返す。
+
+        Tasks without a choice leave the combobox empty, so fall back instead of
+        failing the lookup.
+        選択肢を持たないタスクではコンボボックスが空になるため、検索失敗ではなく
+        既定値へフォールバックする。
+        """
+        return LABEL_SOURCE_LABELS.get(self.label_source_var.get(),
+                                       _FALLBACK_LABEL_SOURCE)
 
     def _build_model_panel(self, parent: ttk.Frame) -> None:
         """
@@ -534,7 +600,7 @@ class App(tk.Tk, LogMixin):
         遅延 import するため、応答性を保ち ML スタックを引き込まない。
         """
         task = TASK_LABELS[self.task_var.get()]
-        label_source = LABEL_SOURCE_LABELS[self.label_source_var.get()]
+        label_source = self._selected_label_source()
         try:
             from lib import ml_dataset as md
             if is_dir:
@@ -712,7 +778,7 @@ class App(tk.Tk, LogMixin):
 
         return {
             "task": TASK_LABELS[self.task_var.get()],
-            "label_source": LABEL_SOURCE_LABELS[self.label_source_var.get()],
+            "label_source": self._selected_label_source(),
             "max_samples": max_samples,
             "balance": bool(self.balance_var.get()),
             "seed": seed,
