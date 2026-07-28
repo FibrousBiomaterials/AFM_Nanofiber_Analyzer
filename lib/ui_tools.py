@@ -859,6 +859,21 @@ class LogMixin:
         self._log(_("{0}: {1}\n{2}").format(prefix, exc, tb))
 
 
+# Tooltip popup geometry, in pixels. The offsets place the popup clear of the
+# pointer; the margin is the gap kept from the screen edge. The wrap bounds cap
+# how wide a long message may grow before it is folded onto more lines: the
+# minimum stays above the widest space-aligned tooltip in this project (about
+# 390 px) so hand-formatted columns are not re-flowed.
+# ツールチップの配置寸法（ピクセル）。オフセットはポインタを避けるための距離、
+# マージンは画面端との間隔。折り返し幅の下限は、本プロジェクトで最も幅の広い
+# 空白桁揃えツールチップ（約 390 px）より大きく取り、手で整形した列を保つ。
+TOOLTIP_OFFSET_X = 12
+TOOLTIP_OFFSET_Y = 18
+TOOLTIP_MARGIN = 8
+TOOLTIP_MIN_WRAP = 400
+TOOLTIP_MAX_WRAP = 560
+
+
 class ToolTip:
     """
     Display a popup tooltip when the mouse hovers over a widget.
@@ -928,6 +943,21 @@ class ToolTip:
         None
             This method updates UI state and does not return a value.
             UI 状態を更新するだけで戻り値はない。
+
+        Notes
+        -----
+        Long messages are wrapped and the popup is flipped to the other side of
+        the cursor when it would cross a screen edge, so a tooltip is never cut
+        off at the display border.
+        長い本文は折り返し、画面端を越える場合はカーソルの反対側へ反転させるため、
+        ディスプレイの端でツールチップが途切れることはない。
+
+        Edge handling uses `winfo_screenwidth` / `winfo_screenheight`, which
+        report the primary display. On a multi-monitor setup a window moved to a
+        secondary display is placed against the primary display's bounds.
+        端の判定には `winfo_screenwidth` / `winfo_screenheight` を使うが、これらは
+        プライマリディスプレイの寸法を返す。マルチモニタ環境でウィンドウをサブ
+        ディスプレイへ移した場合、プライマリの境界を基準に配置される。
         """
         # A stale popup can linger if a previous <Leave> was missed (for
         # example during rapid Enter/Leave crossings over a child widget
@@ -939,27 +969,61 @@ class ToolTip:
         if self.tooltip is not None:
             self.tooltip.destroy()
             self.tooltip = None
-        # Read absolute pointer position on the screen.
-        # event.x_root / event.y_root: absolute mouse coordinates on screen.
-        x = event.x_root
-        y = event.y_root
         # Create a small top-level popup window.
         # tk.Toplevel creates a small child window for the tooltip.
         self.tooltip = tk.Toplevel(self.widget)
         # Remove window decorations for tooltip-like appearance.
         # 枠なし（タイトルバーを消してポップアップ風にする）
         self.tooltip.wm_overrideredirect(True)  # 枠なし（タイトルバーを消してポップアップ風にする）
+        # Placement needs the rendered size, which is only known once the label
+        # exists, so keep the popup hidden until the geometry is decided instead
+        # of letting it flash at the default position.
+        # 配置には描画後のサイズが必要で、それはラベル生成後にしか分からない。
+        # 既定位置で一瞬ちらつかせないよう、位置決定まで非表示にしておく。
+        self.tooltip.wm_withdraw()
+        # Bound the width so a long message wraps instead of extending off the
+        # screen as a single line. The floor keeps the wrap point above the
+        # widest space-aligned tooltip in the project, so hand-formatted columns
+        # are not re-flowed; the cap keeps the popup narrow on small displays.
+        # 長文が 1 行のまま画面外へ伸びないよう幅に上限を設ける。下限は本プロジェクト
+        # で最も幅の広い空白桁揃えツールチップより折り返し位置を右に保つためのもので、
+        # 手で整形した列が崩れない。上限は小さな画面で幅を取りすぎないようにする。
+        screen_w = self.widget.winfo_screenwidth()
+        screen_h = self.widget.winfo_screenheight()
+        wrap = min(TOOLTIP_MAX_WRAP, max(TOOLTIP_MIN_WRAP, screen_w // 3))
+        # Render tooltip text with simple bordered white label.
+        # ポップアップの中身: 白背景・枠付きのラベル
+        label = tk.Label(self.tooltip, text=self.text, background="white",
+                         relief="solid", borderwidth=1,
+                         wraplength=wrap, justify=tk.LEFT)
+        label.pack()
+        self.tooltip.update_idletasks()
+        width = self.tooltip.winfo_reqwidth()
+        height = self.tooltip.winfo_reqheight()
+
         # Offset the popup below-right of the cursor. Placing it directly under
         # the pointer makes the popup itself trigger a <Leave> on the target,
         # producing a hide/show flicker loop.
         # ポップアップはカーソルの右下にずらして表示する。ポインタ直下に出すと
         # ポップアップ自身が対象の <Leave> を誘発し、表示/非表示のちらつきが
         # 起きるため。
-        self.tooltip.wm_geometry(f"+{x+12}+{y+18}")
-        # Render tooltip text with simple bordered white label.
-        # ポップアップの中身: 白背景・枠付きのラベル
-        label = tk.Label(self.tooltip, text=self.text, background="white", relief="solid", borderwidth=1)
-        label.pack()
+        # When that side would run past a screen edge, flip to the opposite side
+        # of the cursor rather than sliding the popup back inside: sliding would
+        # move the popup over the pointer and start exactly that flicker loop.
+        # その側が画面端を越える場合は、内側へずらすのではなくカーソルの反対側へ
+        # 反転させる。内側へずらすとポインタを覆い、上記のちらつきループを招く。
+        x = event.x_root + TOOLTIP_OFFSET_X
+        if x + width > screen_w - TOOLTIP_MARGIN:
+            x = event.x_root - TOOLTIP_OFFSET_X - width
+        y = event.y_root + TOOLTIP_OFFSET_Y
+        if y + height > screen_h - TOOLTIP_MARGIN:
+            y = event.y_root - TOOLTIP_OFFSET_Y - height
+        # Last resort for a popup that fits on neither side; the pointer may end
+        # up covered, but an unreadable off-screen popup is worse.
+        x = max(TOOLTIP_MARGIN, min(x, screen_w - width - TOOLTIP_MARGIN))
+        y = max(TOOLTIP_MARGIN, min(y, screen_h - height - TOOLTIP_MARGIN))
+        self.tooltip.wm_geometry(f"+{x}+{y}")
+        self.tooltip.wm_deiconify()
 
     def hide_tooltip(self, event):
         """
