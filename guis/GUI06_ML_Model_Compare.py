@@ -191,25 +191,38 @@ class App(tk.Tk, LogMixin):
         Build the model-load button and manifest-info display.
         モデル読み込みボタンと manifest 情報の表示を構築する。
         """
-        lf = ttk.LabelFrame(parent, text=_("モデル"))
-        lf.pack(fill=tk.X, padx=4, pady=4)
+        # A plain Frame, not a LabelFrame: an untitled LabelFrame still reserves
+        # a blank row for the missing title and draws a border around a group
+        # that needs no heading. Keep the inner padx at 6 so the button lines up
+        # with the contents of the titled panels below.
+        # LabelFrame ではなく素の Frame を使う。見出しのない LabelFrame でも空の
+        # 見出し行分の高さを確保し、見出し不要のまとまりに枠線を描いてしまうため。
+        # 内側の padx は 6 のままにし、下の見出し付きパネルの内容と左端をそろえる。
+        frame = ttk.Frame(parent)
+        frame.pack(fill=tk.X, padx=4, pady=4)
 
-        ttk.Button(lf, text=_("モデルを読み込み..."), command=self.on_load_model).pack(
+        ttk.Button(frame, text=_("モデルを読み込み..."), command=self.on_load_model).pack(
             anchor="w", padx=6, pady=4)
 
+        # wraplength keeps a long model path from widening the left pane; the
+        # path is the first line of this label (see `_show_model_info`).
+        # wraplength は長いモデルパスが左ペインを押し広げるのを防ぐ。パスは本ラベル
+        # の先頭行に表示される（`_show_model_info` 参照）。
         self.model_info_var = tk.StringVar(value=_("モデル未読み込み。"))
-        ttk.Label(lf, textvariable=self.model_info_var, justify="left").pack(
-            anchor="w", padx=6, pady=(0, 4))
+        ttk.Label(frame, textvariable=self.model_info_var, justify="left",
+                  wraplength=360).pack(anchor="w", padx=6, pady=(0, 4))
 
     def _build_reference_panel(self, parent: ttk.Frame) -> None:
         """
         Build the classical-reference and threshold controls.
         古典参照としきい値の操作部を構築する。
         """
-        lf = ttk.LabelFrame(parent, text=_("比較"))
-        lf.pack(fill=tk.X, padx=4, pady=4)
+        # Plain Frame for the same reason as the model panel above.
+        # 上のモデルパネルと同じ理由で素の Frame を使う。
+        frame = ttk.Frame(parent)
+        frame.pack(fill=tk.X, padx=4, pady=4)
 
-        grid = ttk.Frame(lf)
+        grid = ttk.Frame(frame)
         grid.pack(fill=tk.X, padx=4, pady=4)
 
         ttk.Label(grid, text=_("古典参照")).grid(
@@ -397,7 +410,7 @@ class App(tk.Tk, LogMixin):
         except Exception as exc:  # noqa: BLE001 - report any read failure.
             messagebox.showerror(_("読み込みに失敗しました"), str(exc))
             return
-        self._show_model_info(peeked, _threshold_from_manifest(peeked))
+        self._show_model_info(peeked, _threshold_from_manifest(peeked), path)
 
         try:
             model = mm.load_model(path)
@@ -421,21 +434,31 @@ class App(tk.Tk, LogMixin):
 
         self._model = model
         self._model_path = path
-        self._show_model_info(model.manifest, model.fiber_threshold)
+        self._show_model_info(model.manifest, model.fiber_threshold, path)
         self._log(_("モデルを読み込みました: {p}").format(p=os.path.basename(path)))
         self._update_controls_state()
 
-    def _show_model_info(self, manifest: Dict, threshold: float) -> None:
+    def _show_model_info(
+        self, manifest: Dict, threshold: float, path: str
+    ) -> None:
         """
-        Display key manifest fields for a model.
-        モデルの主要 manifest 項目を表示する。
+        Display the model's file location and key manifest fields.
+        モデルのファイル位置と主要 manifest 項目を表示する。
 
-        Takes the manifest and threshold directly (not a `LoadedModel`) so the
-        same display serves both the pre-load manifest peek (via `read_manifest`)
-        and the verified load, without opening the ONNX graph for the peek.
-        `LoadedModel` ではなく manifest としきい値を直接受け取り、読み込み前の
+        Takes the manifest, threshold, and path directly (not a `LoadedModel`)
+        so the same display serves both the pre-load manifest peek (via
+        `read_manifest`) and the verified load, without opening the ONNX graph
+        for the peek.
+        `LoadedModel` ではなく manifest・しきい値・パスを直接受け取り、読み込み前の
         manifest ピーク（`read_manifest` 経由）と検証読み込みの両方で同じ表示を
         使えるようにする。ピークでは ONNX グラフを開かない。
+
+        The folder is shown above the file name because training runs export
+        models under the same file name, so the folder is often the only thing
+        that says which run the loaded model came from.
+        フォルダをファイル名の上に表示するのは、学習実行ごとに同じファイル名で
+        モデルを書き出すため、読み込んだモデルがどの実行のものかを示すのは
+        フォルダだけということが多いからである。
         """
         m = manifest
         dice = ""
@@ -444,8 +467,15 @@ class App(tk.Tk, LogMixin):
             # Fixed metric label; only the surrounding text is localized.
             # 指標ラベルは固定。周囲の文のみローカライズする。
             dice = "  CV dice={:.4f}".format(metrics["dice_mean"])
+        # A file path is not translatable text, so it is concatenated outside
+        # the gettext message rather than embedded in it.
+        # ファイルパスは翻訳対象の文ではないため、gettext メッセージに埋め込まず
+        # 外側で連結する。
+        directory, filename = os.path.split(path)
+        location = "{}\n{}\n".format(directory, filename) if directory else filename + "\n"
         self.model_info_var.set(
-            _("id: {id}\ntask: {task}  しきい値: {thr}{dice}").format(
+            location
+            + _("id: {id}\ntask: {task}  しきい値: {thr}{dice}").format(
                 id=m.get("model_id", "?"), task=m.get("task", "?"),
                 thr=threshold, dice=dice))
 
@@ -821,18 +851,38 @@ class App(tk.Tk, LogMixin):
 
     def _show_single_metrics(self, name: str, metrics: Dict) -> None:
         """
-        Show agreement metrics for the selected image.
-        選択画像の一致指標を表示する。
+        Show the mask-overlap summary for the selected image.
+        選択画像のマスク重なり要約を表示する。
+
+        Judging a single image is the Difference panel's job, not this text's:
+        the panel shows where and in what shape the two masks disagree, which is
+        what tells an expert whether the model or the classical result was the
+        wrong one. The fiber fractions are kept because they give the direction
+        of the disagreement (over- or under-detection) that a scalar hides.
+        1 画像の判断は本テキストではなく Difference パネルの役割である。パネルは
+        両マスクがどこにどんな形でずれたかを示し、モデルと古典のどちらが誤って
+        いたかを専門家が判断する材料になる。繊維率を残すのは、スカラーでは
+        隠れる不一致の向き（過検出か過小検出か）を示すためである。
         """
-        # Metric names (dice, iou, ...) are fixed English; the header line is
-        # localized. Keep the model-vs-classical framing explicit.
-        # 指標名（dice, iou, ...）は固定英語。見出し行はローカライズする。
+        # Metric names (dice, ml_fiber, ...) are fixed English; the header line
+        # is localized. Keep the model-vs-classical framing explicit.
+        # 指標名（dice, ml_fiber, ...）は固定英語。見出し行はローカライズする。
+        #
+        # `_mask_metrics` also returns iou and agreement; both are deliberately
+        # left out of the display. Within one image iou is a monotone transform
+        # of dice (dice = 2*iou/(1+iou)), so it flags no failure dice misses.
+        # agreement counts background pixels too, and at the few-percent fiber
+        # fractions of AFM images it stays near 1.0 for a good mask and for an
+        # all-background one alike.
+        # `_mask_metrics` は iou と agreement も返すが、いずれも意図的に表示しない。
+        # 1 画像内では iou は dice の単調変換（dice = 2*iou/(1+iou)）であり、dice が
+        # 見逃す失敗を一つも検出しない。agreement は背景画素も数えるため、繊維率が
+        # 数 % の AFM 画像では良いマスクでも全背景マスクでも 1.0 近くに張り付く。
         lines = [_("選択中: {name}").format(name=name)]
         if "dice" in metrics:
-            lines.append("  dice={dice:.4f}  iou={iou:.4f}".format(**metrics))
+            lines.append("  dice={dice:.4f}".format(**metrics))
             lines.append(
-                "  agreement={agreement:.4f}  ".format(**metrics)
-                + "ml_fiber={ml_fiber:.4f}  classical_fiber={cl_fiber:.4f}".format(
+                "  ml_fiber={ml_fiber:.4f}  classical_fiber={cl_fiber:.4f}".format(
                     ml_fiber=metrics["ml_fiber_frac"],
                     cl_fiber=metrics["classical_fiber_frac"]))
         else:
@@ -844,21 +894,27 @@ class App(tk.Tk, LogMixin):
 
     def _show_aggregate_metrics(self, per_image: List[Dict]) -> None:
         """
-        Show mean/min/max of the per-image agreement metrics.
-        画像ごと一致指標の平均/最小/最大を表示する。
+        Rank the per-image results and name the bundles worth opening.
+        画像ごとの結果を順位付けし、開く価値のあるバンドルを名指しする。
+
+        Dice is reported here as a sort key for triage, not as an accuracy
+        score. The reference is the classical pipeline's own output, so a low
+        dice means the two disagree, not that the model was wrong -- the
+        classical result may have been the wrong one. This list only narrows a
+        folder of bundles down to the few worth inspecting in the panels.
+        ここでの dice は精度スコアではなく、トリアージ用の並べ替えキーとして出す。
+        参照は古典パイプライン自身の出力なので、dice が低いことは両者がずれている
+        ことを意味するだけで、モデルが誤っていたとは限らない（古典側が誤っていた
+        可能性もある）。この一覧は、フォルダ内のバンドルをパネルで確認すべき数枚
+        まで絞り込むためのものである。
         """
         self._aggregate = per_image
         lines = [_("{n} 画像の集計:").format(n=len(per_image))]
         if "dice" in per_image[0]:
             dice = np.array([m["dice"] for m in per_image], dtype=float)
-            iou = np.array([m["iou"] for m in per_image], dtype=float)
-            agree = np.array([m["agreement"] for m in per_image], dtype=float)
             lines += [
                 "  dice  mean={:.4f}  min={:.4f}  max={:.4f}".format(
                     dice.mean(), dice.min(), dice.max()),
-                "  iou   mean={:.4f}  min={:.4f}  max={:.4f}".format(
-                    iou.mean(), iou.min(), iou.max()),
-                "  agreement mean={:.4f}".format(agree.mean()),
                 "",
                 _("dice 下位 3 件:"),
             ]
