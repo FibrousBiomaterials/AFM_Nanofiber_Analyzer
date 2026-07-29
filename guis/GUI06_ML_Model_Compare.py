@@ -35,7 +35,8 @@ PLUGIN_INFO = {
     "description": (
         "Apply a trained preprocessing model to .b2z bundles and compare "
         "it against the classical result. A binarization or background-mask "
-        "model is scored mask-to-mask with Dice / IoU / agreement; a "
+        "model is scored mask-to-mask with Dice and the fiber fraction of "
+        "each mask; a "
         "background-surface model is scored in nanometers against the surface "
         "the pipeline subtracted. Use this to check whether an ML model is "
         "worth integrating before adding it to the preprocessing pipeline. "

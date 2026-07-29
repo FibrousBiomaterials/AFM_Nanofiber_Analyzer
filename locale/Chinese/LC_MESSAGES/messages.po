@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-28 10:37+0900\n"
+"POT-Creation-Date: 2026-07-29 17:22+0900\n"
 "PO-Revision-Date: 2026-04-27 14:35+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh\n"
@@ -80,14 +80,14 @@ msgid "起動時設定ファイルの読み込みに失敗しました（デフ�
 msgstr "读取启动时配置文件失败（回退至默认设置）: %s"
 
 #: guis/GUI01_Image_Preprocessor.py:601 guis/GUI01_Image_Preprocessor.py:1411
-#: guis/GUI01_Image_Preprocessor.py:1420 guis/GUI01_Image_Preprocessor.py:3694
-#: guis/GUI01_Image_Preprocessor.py:3703
+#: guis/GUI01_Image_Preprocessor.py:1420 guis/GUI01_Image_Preprocessor.py:3700
+#: guis/GUI01_Image_Preprocessor.py:3709
 #: guis/GUI03_Fiber_Height_Histogram.py:496
-#: guis/GUI03_Fiber_Height_Histogram.py:1297
-#: guis/GUI03_Fiber_Height_Histogram.py:1605
-#: guis/GUI03_Fiber_Height_Histogram.py:1644
-#: guis/GUI03_Fiber_Height_Histogram.py:1674 guis/GUI04_Tracking_fiber.py:2448
-#: guis/GUI07_ML_Connect_Annotator.py:3048
+#: guis/GUI03_Fiber_Height_Histogram.py:1301
+#: guis/GUI03_Fiber_Height_Histogram.py:1609
+#: guis/GUI03_Fiber_Height_Histogram.py:1648
+#: guis/GUI03_Fiber_Height_Histogram.py:1678 guis/GUI04_Tracking_fiber.py:2449
+#: guis/GUI07_ML_Connect_Annotator.py:3049
 msgid "非表示"
 msgstr "隐藏"
 
@@ -119,8 +119,8 @@ msgstr "设置"
 msgid "出力先を開く"
 msgstr "打开输出文件夹"
 
-#: guis/GUI01_Image_Preprocessor.py:706 guis/GUI04_Tracking_fiber.py:514
-#: guis/GUI07_ML_Connect_Annotator.py:602
+#: guis/GUI01_Image_Preprocessor.py:706 guis/GUI04_Tracking_fiber.py:515
+#: guis/GUI07_ML_Connect_Annotator.py:603
 msgid "ファイル一覧"
 msgstr "文件列表"
 
@@ -153,7 +153,7 @@ msgid "貼り付け"
 msgstr "粘贴"
 
 #: guis/GUI01_Image_Preprocessor.py:807 guis/GUI05_ML_Model_Trainer.py:245
-#: guis/GUI06_ML_Model_Compare.py:265 guis/GUI07_ML_Connect_Annotator.py:913
+#: guis/GUI06_ML_Model_Compare.py:279 guis/GUI07_ML_Connect_Annotator.py:914
 msgid "削除"
 msgstr "删除"
 
@@ -162,7 +162,7 @@ msgid "元に戻す"
 msgstr "撤销"
 
 #: guis/GUI01_Image_Preprocessor.py:901 guis/GUI02_PlotProfiler.py:669
-#: guis/GUI04_Tracking_fiber.py:380 guis/GUI07_ML_Connect_Annotator.py:468
+#: guis/GUI04_Tracking_fiber.py:381 guis/GUI07_ML_Connect_Annotator.py:469
 msgid "AFM 画像の X（幅）方向の実寸"
 msgstr "AFM 图像 X（宽度）方向的实际尺寸"
 
@@ -171,12 +171,12 @@ msgid "プレビューの軸目盛と、ファイルへ適用したときの長�
 msgstr "用于预览的坐标轴刻度，并在应用到文件后作为长度测量的基准。"
 
 #: guis/GUI01_Image_Preprocessor.py:924 guis/GUI02_PlotProfiler.py:691
-#: guis/GUI04_Tracking_fiber.py:402 guis/GUI07_ML_Connect_Annotator.py:490
+#: guis/GUI04_Tracking_fiber.py:403 guis/GUI07_ML_Connect_Annotator.py:491
 msgid "AFM 画像の Y（高さ）方向の実寸"
 msgstr "AFM 图像 Y（高度）方向的实际尺寸"
 
 #: guis/GUI01_Image_Preprocessor.py:925 guis/GUI02_PlotProfiler.py:692
-#: guis/GUI04_Tracking_fiber.py:403 guis/GUI07_ML_Connect_Annotator.py:491
+#: guis/GUI04_Tracking_fiber.py:404 guis/GUI07_ML_Connect_Annotator.py:492
 msgid "空欄なら X（幅）と同じ（正方スキャン）。"
 msgstr "留空则与 X（宽度）相同（正方扫描）。"
 
@@ -209,14 +209,14 @@ msgid "列: filename, scale_um もしくは scale_x_um, scale_y_um。"
 msgstr "列: filename, scale_um 或 scale_x_um, scale_y_um。"
 
 #: guis/GUI01_Image_Preprocessor.py:995
-#: guis/GUI03_Fiber_Height_Histogram.py:400 guis/GUI04_Tracking_fiber.py:715
-#: guis/GUI07_ML_Connect_Annotator.py:807 lib/ui_tools.py:190
+#: guis/GUI03_Fiber_Height_Histogram.py:400 guis/GUI04_Tracking_fiber.py:716
+#: guis/GUI07_ML_Connect_Annotator.py:808 lib/ui_tools.py:190
 msgid "ログを保存"
 msgstr "保存日志"
 
 #: guis/GUI01_Image_Preprocessor.py:997
-#: guis/GUI03_Fiber_Height_Histogram.py:402 guis/GUI04_Tracking_fiber.py:718
-#: guis/GUI07_ML_Connect_Annotator.py:810
+#: guis/GUI03_Fiber_Height_Histogram.py:402 guis/GUI04_Tracking_fiber.py:719
+#: guis/GUI07_ML_Connect_Annotator.py:811
 msgid "ログをクリア"
 msgstr "清除日志"
 
@@ -228,35 +228,35 @@ msgstr "-/- 已完成"
 msgid "-"
 msgstr "-"
 
-#: guis/GUI01_Image_Preprocessor.py:1361 guis/GUI01_Image_Preprocessor.py:3647
+#: guis/GUI01_Image_Preprocessor.py:1361 guis/GUI01_Image_Preprocessor.py:3653
 msgid "タイトル表示"
 msgstr "显示标题"
 
-#: guis/GUI01_Image_Preprocessor.py:1367 guis/GUI01_Image_Preprocessor.py:3648
+#: guis/GUI01_Image_Preprocessor.py:1367 guis/GUI01_Image_Preprocessor.py:3654
 msgid "スケール表示"
 msgstr "显示比例尺"
 
-#: guis/GUI01_Image_Preprocessor.py:1377 guis/GUI01_Image_Preprocessor.py:3651
-#: guis/GUI04_Tracking_fiber.py:437 guis/GUI07_ML_Connect_Annotator.py:525
+#: guis/GUI01_Image_Preprocessor.py:1377 guis/GUI01_Image_Preprocessor.py:3657
+#: guis/GUI04_Tracking_fiber.py:438 guis/GUI07_ML_Connect_Annotator.py:526
 msgid "軸目盛単位"
 msgstr "坐标轴刻度单位"
 
-#: guis/GUI01_Image_Preprocessor.py:1388 guis/GUI01_Image_Preprocessor.py:3662
-#: guis/GUI04_Tracking_fiber.py:623 guis/GUI07_ML_Connect_Annotator.py:715
+#: guis/GUI01_Image_Preprocessor.py:1388 guis/GUI01_Image_Preprocessor.py:3668
+#: guis/GUI04_Tracking_fiber.py:624 guis/GUI07_ML_Connect_Annotator.py:716
 msgid "vmin"
 msgstr "vmin"
 
-#: guis/GUI01_Image_Preprocessor.py:1397 guis/GUI01_Image_Preprocessor.py:3671
-#: guis/GUI04_Tracking_fiber.py:631 guis/GUI07_ML_Connect_Annotator.py:723
+#: guis/GUI01_Image_Preprocessor.py:1397 guis/GUI01_Image_Preprocessor.py:3677
+#: guis/GUI04_Tracking_fiber.py:632 guis/GUI07_ML_Connect_Annotator.py:724
 msgid "vmax"
 msgstr "vmax"
 
-#: guis/GUI01_Image_Preprocessor.py:1407 guis/GUI01_Image_Preprocessor.py:3688
+#: guis/GUI01_Image_Preprocessor.py:1407 guis/GUI01_Image_Preprocessor.py:3694
 #: guis/GUI03_Fiber_Height_Histogram.py:509
 msgid "重ね表示"
 msgstr "叠加显示"
 
-#: guis/GUI01_Image_Preprocessor.py:1419 guis/GUI01_Image_Preprocessor.py:3702
+#: guis/GUI01_Image_Preprocessor.py:1419 guis/GUI01_Image_Preprocessor.py:3708
 msgid "Skeletonized 画像に重ねる特徴点の種類を選択します。"
 msgstr "选择要叠加到骨架化图像上的特征点类型。"
 
@@ -264,84 +264,84 @@ msgstr "选择要叠加到骨架化图像上的特征点类型。"
 msgid "重ね表示しません"
 msgstr "不叠加显示"
 
-#: guis/GUI01_Image_Preprocessor.py:1421 guis/GUI01_Image_Preprocessor.py:3704
+#: guis/GUI01_Image_Preprocessor.py:1421 guis/GUI01_Image_Preprocessor.py:3710
 msgid "ファイバーの端点（青）"
 msgstr "纤维端点（蓝色）"
 
-#: guis/GUI01_Image_Preprocessor.py:1422 guis/GUI01_Image_Preprocessor.py:3705
+#: guis/GUI01_Image_Preprocessor.py:1422 guis/GUI01_Image_Preprocessor.py:3711
 msgid "ファイバーの分岐点（赤）"
 msgstr "纤维分支点（红色）"
 
-#: guis/GUI01_Image_Preprocessor.py:1423 guis/GUI01_Image_Preprocessor.py:3706
+#: guis/GUI01_Image_Preprocessor.py:1423 guis/GUI01_Image_Preprocessor.py:3712
 msgid "ファイバーのキンク点（シアン）"
 msgstr "纤维扭结点（青色）"
 
-#: guis/GUI01_Image_Preprocessor.py:1424 guis/GUI01_Image_Preprocessor.py:3707
+#: guis/GUI01_Image_Preprocessor.py:1424 guis/GUI01_Image_Preprocessor.py:3713
 msgid "ファイバーの分解点（オレンジ）"
 msgstr "纤维分解点（橙色）"
 
-#: guis/GUI01_Image_Preprocessor.py:1437 guis/GUI01_Image_Preprocessor.py:3720
-#: guis/GUI02_PlotProfiler.py:822 guis/GUI04_Tracking_fiber.py:657
-#: guis/GUI07_ML_Connect_Annotator.py:749
+#: guis/GUI01_Image_Preprocessor.py:1437 guis/GUI01_Image_Preprocessor.py:3726
+#: guis/GUI02_PlotProfiler.py:822 guis/GUI04_Tracking_fiber.py:658
+#: guis/GUI07_ML_Connect_Annotator.py:750
 msgid "フォントサイズ：タイトル"
 msgstr "字体大小：标题"
 
-#: guis/GUI01_Image_Preprocessor.py:1446 guis/GUI01_Image_Preprocessor.py:3740
+#: guis/GUI01_Image_Preprocessor.py:1446 guis/GUI01_Image_Preprocessor.py:3746
 #: guis/GUI02_PlotProfiler.py:835 guis/GUI03_Fiber_Height_Histogram.py:565
-#: guis/GUI04_Tracking_fiber.py:666 guis/GUI07_ML_Connect_Annotator.py:758
+#: guis/GUI04_Tracking_fiber.py:667 guis/GUI07_ML_Connect_Annotator.py:759
 msgid "軸ラベル"
 msgstr "坐标轴标签"
 
-#: guis/GUI01_Image_Preprocessor.py:1455 guis/GUI01_Image_Preprocessor.py:3750
+#: guis/GUI01_Image_Preprocessor.py:1455 guis/GUI01_Image_Preprocessor.py:3756
 #: guis/GUI02_PlotProfiler.py:847 guis/GUI03_Fiber_Height_Histogram.py:574
-#: guis/GUI04_Tracking_fiber.py:675 guis/GUI04_Tracking_fiber.py:2630
-#: guis/GUI04_Tracking_fiber.py:2727 guis/GUI07_ML_Connect_Annotator.py:767
-#: guis/GUI07_ML_Connect_Annotator.py:3230
-#: guis/GUI07_ML_Connect_Annotator.py:3327
+#: guis/GUI04_Tracking_fiber.py:676 guis/GUI04_Tracking_fiber.py:2631
+#: guis/GUI04_Tracking_fiber.py:2736 guis/GUI07_ML_Connect_Annotator.py:768
+#: guis/GUI07_ML_Connect_Annotator.py:3231
+#: guis/GUI07_ML_Connect_Annotator.py:3336
 msgid "軸目盛"
 msgstr "坐标轴刻度"
 
-#: guis/GUI01_Image_Preprocessor.py:1464 guis/GUI01_Image_Preprocessor.py:3760
-#: guis/GUI04_Tracking_fiber.py:2736 guis/GUI07_ML_Connect_Annotator.py:3336
+#: guis/GUI01_Image_Preprocessor.py:1464 guis/GUI01_Image_Preprocessor.py:3766
+#: guis/GUI04_Tracking_fiber.py:2745 guis/GUI07_ML_Connect_Annotator.py:3345
 msgid "凡例"
 msgstr "图例"
 
-#: guis/GUI01_Image_Preprocessor.py:1475 guis/GUI01_Image_Preprocessor.py:3770
+#: guis/GUI01_Image_Preprocessor.py:1475 guis/GUI01_Image_Preprocessor.py:3776
 #: guis/GUI02_PlotProfiler.py:255 guis/GUI02_PlotProfiler.py:952
 #: guis/GUI02_PlotProfiler.py:2228 guis/GUI03_Fiber_Height_Histogram.py:443
-#: guis/GUI03_Fiber_Height_Histogram.py:1734 guis/GUI04_Tracking_fiber.py:641
-#: guis/GUI04_Tracking_fiber.py:2207 guis/GUI04_Tracking_fiber.py:2651
-#: guis/GUI04_Tracking_fiber.py:2796 guis/GUI04_Tracking_fiber.py:3152
-#: guis/GUI04_Tracking_fiber.py:3160 guis/GUI07_ML_Connect_Annotator.py:733
-#: guis/GUI07_ML_Connect_Annotator.py:2805
-#: guis/GUI07_ML_Connect_Annotator.py:3251
-#: guis/GUI07_ML_Connect_Annotator.py:3396
-#: guis/GUI07_ML_Connect_Annotator.py:3752
-#: guis/GUI07_ML_Connect_Annotator.py:3760
+#: guis/GUI03_Fiber_Height_Histogram.py:1738 guis/GUI04_Tracking_fiber.py:642
+#: guis/GUI04_Tracking_fiber.py:2208 guis/GUI04_Tracking_fiber.py:2652
+#: guis/GUI04_Tracking_fiber.py:2805 guis/GUI04_Tracking_fiber.py:3165
+#: guis/GUI04_Tracking_fiber.py:3173 guis/GUI07_ML_Connect_Annotator.py:734
+#: guis/GUI07_ML_Connect_Annotator.py:2806
+#: guis/GUI07_ML_Connect_Annotator.py:3252
+#: guis/GUI07_ML_Connect_Annotator.py:3405
+#: guis/GUI07_ML_Connect_Annotator.py:3765
+#: guis/GUI07_ML_Connect_Annotator.py:3773
 msgid "画像を保存"
 msgstr "保存图像"
 
-#: guis/GUI01_Image_Preprocessor.py:1479 guis/GUI04_Tracking_fiber.py:644
-#: guis/GUI07_ML_Connect_Annotator.py:736
+#: guis/GUI01_Image_Preprocessor.py:1479 guis/GUI04_Tracking_fiber.py:645
+#: guis/GUI07_ML_Connect_Annotator.py:737
 msgid "個別表示"
 msgstr "单独显示"
 
-#: guis/GUI01_Image_Preprocessor.py:1504 guis/GUI01_Image_Preprocessor.py:3819
+#: guis/GUI01_Image_Preprocessor.py:1504 guis/GUI01_Image_Preprocessor.py:3825
 msgid "vmin は vmax 以下にしてください"
 msgstr "vmin 必须小于或等于 vmax"
 
-#: guis/GUI01_Image_Preprocessor.py:1528 guis/GUI01_Image_Preprocessor.py:3793
+#: guis/GUI01_Image_Preprocessor.py:1528 guis/GUI01_Image_Preprocessor.py:3799
 #: guis/GUI02_PlotProfiler.py:1088
 msgid "フォントサイズは 1〜60 の範囲で入力してください"
 msgstr "请输入 1-60 范围内的字体大小。"
 
 #: guis/GUI01_Image_Preprocessor.py:1546 guis/GUI01_Image_Preprocessor.py:1584
 #: guis/GUI02_PlotProfiler.py:653 guis/GUI02_PlotProfiler.py:1123
-#: guis/GUI02_PlotProfiler.py:1152 guis/GUI04_Tracking_fiber.py:365
-#: guis/GUI04_Tracking_fiber.py:828 guis/GUI04_Tracking_fiber.py:860
-#: guis/GUI07_ML_Connect_Annotator.py:453
-#: guis/GUI07_ML_Connect_Annotator.py:1360
-#: guis/GUI07_ML_Connect_Annotator.py:1392
+#: guis/GUI02_PlotProfiler.py:1152 guis/GUI04_Tracking_fiber.py:366
+#: guis/GUI04_Tracking_fiber.py:829 guis/GUI04_Tracking_fiber.py:861
+#: guis/GUI07_ML_Connect_Annotator.py:454
+#: guis/GUI07_ML_Connect_Annotator.py:1361
+#: guis/GUI07_ML_Connect_Annotator.py:1393
 msgid "スケール"
 msgstr "比例尺"
 
@@ -353,31 +353,31 @@ msgstr "必须输入正数"
 #: guis/GUI01_Image_Preprocessor.py:1579 guis/GUI01_Image_Preprocessor.py:1583
 #: guis/GUI01_Image_Preprocessor.py:2097 guis/GUI01_Image_Preprocessor.py:2258
 #: guis/GUI01_Image_Preprocessor.py:2274 guis/GUI01_Image_Preprocessor.py:2291
-#: guis/GUI01_Image_Preprocessor.py:3367 guis/GUI01_Image_Preprocessor.py:3434
-#: guis/GUI01_Image_Preprocessor.py:3481 guis/GUI01_Image_Preprocessor.py:3501
+#: guis/GUI01_Image_Preprocessor.py:3373 guis/GUI01_Image_Preprocessor.py:3440
+#: guis/GUI01_Image_Preprocessor.py:3487 guis/GUI01_Image_Preprocessor.py:3507
 #: guis/GUI02_PlotProfiler.py:1147 guis/GUI02_PlotProfiler.py:1151
 #: guis/GUI02_PlotProfiler.py:1454 guis/GUI02_PlotProfiler.py:1468
 #: guis/GUI02_PlotProfiler.py:1637 guis/GUI02_PlotProfiler.py:2050
 #: guis/GUI02_PlotProfiler.py:2069 guis/GUI02_PlotProfiler.py:2080
 #: guis/GUI02_PlotProfiler.py:2088 guis/GUI02_PlotProfiler.py:2206
-#: guis/GUI04_Tracking_fiber.py:855 guis/GUI04_Tracking_fiber.py:859
-#: guis/GUI04_Tracking_fiber.py:2836 guis/GUI04_Tracking_fiber.py:2839
-#: guis/GUI04_Tracking_fiber.py:2869 guis/GUI04_Tracking_fiber.py:2872
-#: guis/GUI05_ML_Model_Trainer.py:1003 guis/GUI06_ML_Model_Compare.py:367
-#: guis/GUI06_ML_Model_Compare.py:757 guis/GUI07_ML_Connect_Annotator.py:1247
-#: guis/GUI07_ML_Connect_Annotator.py:1387
-#: guis/GUI07_ML_Connect_Annotator.py:1391
-#: guis/GUI07_ML_Connect_Annotator.py:3436
-#: guis/GUI07_ML_Connect_Annotator.py:3439
-#: guis/GUI07_ML_Connect_Annotator.py:3469
-#: guis/GUI07_ML_Connect_Annotator.py:3472 guis/GUI08_ML_Mask_Annotator.py:592
-#: guis/GUI08_ML_Mask_Annotator.py:1009 lib/ui_tools.py:747 lib/ui_tools.py:757
+#: guis/GUI04_Tracking_fiber.py:856 guis/GUI04_Tracking_fiber.py:860
+#: guis/GUI04_Tracking_fiber.py:2849 guis/GUI04_Tracking_fiber.py:2852
+#: guis/GUI04_Tracking_fiber.py:2882 guis/GUI04_Tracking_fiber.py:2885
+#: guis/GUI05_ML_Model_Trainer.py:1003 guis/GUI06_ML_Model_Compare.py:381
+#: guis/GUI06_ML_Model_Compare.py:792 guis/GUI07_ML_Connect_Annotator.py:1248
+#: guis/GUI07_ML_Connect_Annotator.py:1388
+#: guis/GUI07_ML_Connect_Annotator.py:1392
+#: guis/GUI07_ML_Connect_Annotator.py:3449
+#: guis/GUI07_ML_Connect_Annotator.py:3452
+#: guis/GUI07_ML_Connect_Annotator.py:3482
+#: guis/GUI07_ML_Connect_Annotator.py:3485 guis/GUI08_ML_Mask_Annotator.py:592
+#: guis/GUI08_ML_Mask_Annotator.py:1009 lib/ui_tools.py:903 lib/ui_tools.py:913
 msgid "エラー"
 msgstr "错误"
 
 #: guis/GUI01_Image_Preprocessor.py:1579 guis/GUI02_PlotProfiler.py:1147
-#: guis/GUI04_Tracking_fiber.py:855 guis/GUI07_ML_Connect_Annotator.py:1387
-#: lib/ui_tools.py:747
+#: guis/GUI04_Tracking_fiber.py:856 guis/GUI07_ML_Connect_Annotator.py:1388
+#: lib/ui_tools.py:903
 msgid "数値を入力してください"
 msgstr "请输入数值"
 
@@ -506,7 +506,7 @@ msgid "%s: 既存データのためスキップ"
 msgstr "%s: 因已存在数据而跳过"
 
 #: guis/GUI01_Image_Preprocessor.py:2367 guis/GUI01_Image_Preprocessor.py:2421
-#: guis/GUI03_Fiber_Height_Histogram.py:1587
+#: guis/GUI03_Fiber_Height_Histogram.py:1591
 msgid "完了"
 msgstr "完成"
 
@@ -541,10 +541,10 @@ msgstr "预览图像读取失败"
 
 #: guis/GUI01_Image_Preprocessor.py:2822 guis/GUI01_Image_Preprocessor.py:2850
 #: guis/GUI02_PlotProfiler.py:1262 guis/GUI02_PlotProfiler.py:1277
-#: guis/GUI04_Tracking_fiber.py:2155 guis/GUI04_Tracking_fiber.py:2217
-#: guis/GUI04_Tracking_fiber.py:2222 guis/GUI07_ML_Connect_Annotator.py:2753
-#: guis/GUI07_ML_Connect_Annotator.py:2815
-#: guis/GUI07_ML_Connect_Annotator.py:2820
+#: guis/GUI04_Tracking_fiber.py:2156 guis/GUI04_Tracking_fiber.py:2218
+#: guis/GUI04_Tracking_fiber.py:2223 guis/GUI07_ML_Connect_Annotator.py:2754
+#: guis/GUI07_ML_Connect_Annotator.py:2816
+#: guis/GUI07_ML_Connect_Annotator.py:2821
 msgid "情報"
 msgstr "信息"
 
@@ -556,62 +556,62 @@ msgstr "请选择已解析的文件。"
 msgid "プレビュー画像を保存"
 msgstr "保存预览图像"
 
-#: guis/GUI01_Image_Preprocessor.py:2866 guis/GUI04_Tracking_fiber.py:947
-#: guis/GUI07_ML_Connect_Annotator.py:1479
+#: guis/GUI01_Image_Preprocessor.py:2866 guis/GUI04_Tracking_fiber.py:948
+#: guis/GUI07_ML_Connect_Annotator.py:1480
 #, python-brace-format
 msgid "ログ保存: {path}"
 msgstr "日志已保存: {path}"
 
-#: guis/GUI01_Image_Preprocessor.py:2867 guis/GUI04_Tracking_fiber.py:948
-#: guis/GUI07_ML_Connect_Annotator.py:1480
+#: guis/GUI01_Image_Preprocessor.py:2867 guis/GUI04_Tracking_fiber.py:949
+#: guis/GUI07_ML_Connect_Annotator.py:1481
 msgid "ログ保存失敗"
 msgstr "日志保存失败"
 
-#: guis/GUI01_Image_Preprocessor.py:3000
+#: guis/GUI01_Image_Preprocessor.py:3006
 msgid "解析条件（次回解析時にのみ反映）"
 msgstr "解析条件（仅在下次解析时生效）"
 
-#: guis/GUI01_Image_Preprocessor.py:3110
+#: guis/GUI01_Image_Preprocessor.py:3116
 msgid "BGCalibrator"
 msgstr "BGCalibrator"
 
-#: guis/GUI01_Image_Preprocessor.py:3121
+#: guis/GUI01_Image_Preprocessor.py:3127
 msgid "bg_method"
 msgstr "bg_method"
 
-#: guis/GUI01_Image_Preprocessor.py:3122
+#: guis/GUI01_Image_Preprocessor.py:3128
 msgid "背景推定方式（下の説明参照）。選択に応じて使うパラメータのみ有効化されます"
 msgstr "背景估计方法（见下方说明）。只启用所选方法使用的参数。"
 
-#: guis/GUI01_Image_Preprocessor.py:3128
+#: guis/GUI01_Image_Preprocessor.py:3134
 msgid ""
 "inpaint : 勾配リッジ検出 + Navier-Stokes "
 "inpaint。勾配で繊維マスクを作り背景を補間。汎用だがリッジ検出パラメータの調整が必要"
 msgstr "inpaint：梯度脊线检测 + Navier-Stokes 修复。根据梯度生成纤维掩膜并插值背景。通用性高，但需要调整脊线检测参数。"
 
-#: guis/GUI01_Image_Preprocessor.py:3129
+#: guis/GUI01_Image_Preprocessor.py:3135
 msgid "tophat : 形態学的opening。tophat_se_size より細い明るい構造を前景として除去。マスク不要・高速・一様性に優れる"
 msgstr "tophat：形态学 opening。将比 tophat_se_size 更细的亮结构作为前景去除。无需掩膜、速度快、均匀性好。"
 
-#: guis/GUI01_Image_Preprocessor.py:3130
+#: guis/GUI01_Image_Preprocessor.py:3136
 msgid ""
 "spline1d : 行/列ごとの1D B-スプライン補間（オリジナル方式）。ライン間オフセット（縞）ノイズに有効。spline1d_axis "
 "で縞の向きを選択"
 msgstr "spline1d：按行/列进行 1D B 样条插值（原始方法）。对线间偏移（条纹）噪声有效。通过 spline1d_axis 选择条纹方向。"
 
-#: guis/GUI01_Image_Preprocessor.py:3131
+#: guis/GUI01_Image_Preprocessor.py:3137
 msgid "spline2d : 2D B-スプラインフィット。背景を行毎でなく2D問題として一括で解く。大局的に滑らかな背景に向く"
 msgstr "spline2d：2D B 样条拟合。将背景作为整体 2D 问题求解，而不是逐行处理。适合全局平滑的背景。"
 
-#: guis/GUI01_Image_Preprocessor.py:3143
+#: guis/GUI01_Image_Preprocessor.py:3149
 msgid "[tophat時のみ] 構造要素直径"
 msgstr "[仅 tophat] 结构元素直径"
 
-#: guis/GUI01_Image_Preprocessor.py:3144
+#: guis/GUI01_Image_Preprocessor.py:3150
 msgid "最大ファイバー幅の2〜3倍。奇数(偶数は+1)"
 msgstr "设为最大纤维宽度的 2-3 倍。使用奇数（偶数会 +1）。"
 
-#: guis/GUI01_Image_Preprocessor.py:3147
+#: guis/GUI01_Image_Preprocessor.py:3153
 msgid ""
 "[spline1d時のみ] "
 "除去する縞の向き。'y'=横縞(各走査ラインが上下にずれるノイズ)を除去/各列を縦に補間。'x'=縦縞を除去/各行を横に補間(良好な結果が多い)"
@@ -619,163 +619,163 @@ msgstr ""
 "[仅 spline1d] 要去除的条纹方向。'y' 去除横向条纹（各扫描线发生上下偏移的噪声）并对各列纵向插值。'x' "
 "去除纵向条纹并对各行横向插值（通常效果较好）。"
 
-#: guis/GUI01_Image_Preprocessor.py:3150
+#: guis/GUI01_Image_Preprocessor.py:3156
 msgid "[spline1d時のみ] 行/列スプライン order。実用範囲1〜3 (2=旧pandas互換)。点数不足の行は線形に自動フォールバック"
 msgstr "[仅 spline1d] 行/列样条 order。实用范围 1-3（2=旧 pandas 兼容）。点数不足的行会自动回退为线性。"
 
-#: guis/GUI01_Image_Preprocessor.py:3153
+#: guis/GUI01_Image_Preprocessor.py:3159
 msgid "[spline2d時のみ] スプライン次数。実用範囲1〜3 (1=双線形、2=旧pandas互換、3=双立方)。[1,5]"
 msgstr "[仅 spline2d] 样条次数。实用范围 1-3（1=双线性，2=旧 pandas 兼容，3=双三次）。[1,5]"
 
-#: guis/GUI01_Image_Preprocessor.py:3155
+#: guis/GUI01_Image_Preprocessor.py:3161
 msgid "[spline2d時のみ] フィット用画素サブサンプル係数。大きいほど高速、品質影響は微少。デフォルト4"
 msgstr "[仅 spline2d] 拟合用像素子采样系数。值越大速度越快，对质量影响很小。默认 4。"
 
-#: guis/GUI01_Image_Preprocessor.py:3162
+#: guis/GUI01_Image_Preprocessor.py:3168
 msgid "[inpaint, spline1d, spline2d時] 背景範囲（中心±sigma*係数）を決める係数"
 msgstr "[inpaint, spline1d, spline2d] 决定背景范围（中心 ± sigma * 系数）的系数。"
 
-#: guis/GUI01_Image_Preprocessor.py:3164
+#: guis/GUI01_Image_Preprocessor.py:3170
 msgid "[inpaint, spline1d, spline2d時] [1,0,-1]の急変を繊維として除外する距離しきい値"
 msgstr "[inpaint, spline1d, spline2d] 将 [1,0,-1] 等急变作为纤维排除的距离阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:3166
+#: guis/GUI01_Image_Preprocessor.py:3172
 msgid "[inpaint, spline1d, spline2d時] [1,-1]の急変が一定以上離れている場合に構造とみなすしきい値"
 msgstr "[inpaint, spline1d, spline2d] 当 [1,-1] 急变相隔一定距离以上时将其视为结构的阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:3169
+#: guis/GUI01_Image_Preprocessor.py:3175
 msgid "[inpaint, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）"
 msgstr "[inpaint, tophat, spline1d] Savitzky-Golay 滤波器的窗口宽度（平滑范围）"
 
-#: guis/GUI01_Image_Preprocessor.py:3171
+#: guis/GUI01_Image_Preprocessor.py:3177
 msgid "[inpaint, tophat, spline1d時] Savitzky-Golayフィルタの多項式次数"
 msgstr "[inpaint, tophat, spline1d] Savitzky-Golay 滤波器的多项式次数"
 
-#: guis/GUI01_Image_Preprocessor.py:3174
+#: guis/GUI01_Image_Preprocessor.py:3180
 msgid "中央値フィルタを最後にかける（点ノイズに強い）"
 msgstr "最后应用中值滤波器（对点噪声鲁棒）"
 
-#: guis/GUI01_Image_Preprocessor.py:3177
+#: guis/GUI01_Image_Preprocessor.py:3183
 msgid "[inpaint, spline1d, spline2d時] 繊維マスクを膨張させる画素数（0でdilationなし）"
 msgstr "[inpaint, spline1d, spline2d] 纤维掩膜膨胀的像素数（0 表示不膨胀）"
 
-#: guis/GUI01_Image_Preprocessor.py:3179
+#: guis/GUI01_Image_Preprocessor.py:3185
 msgid "[inpaint, spline1d, spline2d時] dilation前にマスクから除外する連結成分の最小面積"
 msgstr "[inpaint, spline1d, spline2d] dilation 前从掩膜中排除的连通成分最小面积"
 
-#: guis/GUI01_Image_Preprocessor.py:3180
+#: guis/GUI01_Image_Preprocessor.py:3186
 msgid "1でフィルタ無効"
 msgstr "设为 1 时禁用过滤器"
 
-#: guis/GUI01_Image_Preprocessor.py:3190
+#: guis/GUI01_Image_Preprocessor.py:3196
 msgid "Segmenter"
 msgstr "Segmenter"
 
-#: guis/GUI01_Image_Preprocessor.py:3191
+#: guis/GUI01_Image_Preprocessor.py:3197
 msgid "局所しきい値の計算に使う窓サイズ"
 msgstr "计算局部阈值使用的窗口大小"
 
-#: guis/GUI01_Image_Preprocessor.py:3192
+#: guis/GUI01_Image_Preprocessor.py:3198
 msgid "全体一律の2値化しきい値"
 msgstr "全局统一的二值化阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:3193
+#: guis/GUI01_Image_Preprocessor.py:3199
 msgid "小さい連結成分を消す面積しきい値"
 msgstr "删除小连通成分的面积阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:3194
+#: guis/GUI01_Image_Preprocessor.py:3200
 msgid "つながり成分を除くときの面積しきい値"
 msgstr "去除连接成分时的面积阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:3195
+#: guis/GUI01_Image_Preprocessor.py:3201
 msgid "つながり除去を実行するかどうか"
 msgstr "是否执行连接去除"
 
-#: guis/GUI01_Image_Preprocessor.py:3196
+#: guis/GUI01_Image_Preprocessor.py:3202
 msgid "線分検出で線分とみなす最小長さ"
 msgstr "线段检测中视为线段的最小长度"
 
-#: guis/GUI01_Image_Preprocessor.py:3197
+#: guis/GUI01_Image_Preprocessor.py:3203
 msgid "線っぽさ"
 msgstr "线状程度"
 
-#: guis/GUI01_Image_Preprocessor.py:3197
+#: guis/GUI01_Image_Preprocessor.py:3203
 msgid "のしきい値"
 msgstr "的阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:3198
+#: guis/GUI01_Image_Preprocessor.py:3204
 msgid "高さが低い成分を消すしきい値"
 msgstr "删除高度较低成分的阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:3200
+#: guis/GUI01_Image_Preprocessor.py:3206
 msgid "Skeletonizer"
 msgstr "Skeletonizer"
 
-#: guis/GUI01_Image_Preprocessor.py:3201
+#: guis/GUI01_Image_Preprocessor.py:3207
 msgid "分岐点が低い高さか判定するしきい値"
 msgstr "判断分支部点是否为低高度的阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:3202
+#: guis/GUI01_Image_Preprocessor.py:3208
 msgid "枝とみなす短い線を追跡する最大長"
 msgstr "视为分支的短线最大追踪长度"
 
-#: guis/GUI01_Image_Preprocessor.py:3203
+#: guis/GUI01_Image_Preprocessor.py:3209
 msgid "小さすぎる線分（ノイズ）を削除する面積しきい値"
 msgstr "删除过小线段（噪声）的面积阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:3204
+#: guis/GUI01_Image_Preprocessor.py:3210
 msgid "骨格上の小ループ（マスクの穴由来の二重線）を1本に潰す最大囲み面積。0で無効"
 msgstr "将骨架上的小环（掩膜孔洞造成的双线）压缩为单线的最大包围面积。0 为禁用"
 
-#: guis/GUI01_Image_Preprocessor.py:3205
+#: guis/GUI01_Image_Preprocessor.py:3211
 msgid "高さに関係なく除去する行き止まりの短い枝の最大長。画素単位のため解像度に応じて調整。0で無効"
 msgstr "不论高度一律移除的短小末端分支的最大长度。以像素为单位，请根据扫描分辨率调整。0 为禁用"
 
-#: guis/GUI01_Image_Preprocessor.py:3207
+#: guis/GUI01_Image_Preprocessor.py:3213
 msgid "Kinkdetector"
 msgstr "Kinkdetector"
 
-#: guis/GUI01_Image_Preprocessor.py:3208
+#: guis/GUI01_Image_Preprocessor.py:3214
 msgid "折れ線近似の3点のなす角がこの値以下ならkink判定"
 msgstr "折线逼近中3点夹角小于此值则判定为扭结（kink）"
 
-#: guis/GUI01_Image_Preprocessor.py:3226
+#: guis/GUI01_Image_Preprocessor.py:3232
 msgid "保存オプション"
 msgstr "保存选项"
 
-#: guis/GUI01_Image_Preprocessor.py:3231
+#: guis/GUI01_Image_Preprocessor.py:3237
 msgid "解析時に元データを保存"
 msgstr "解析时保存原始数据"
 
-#: guis/GUI01_Image_Preprocessor.py:3237
+#: guis/GUI01_Image_Preprocessor.py:3243
 msgid "ONのとき、背景補正前の元データも解析後の .b2z に original として同梱します（解析条件には含まれません）"
 msgstr "开启时，背景校正前的原始数据也会作为 original 打包到解析后的 .b2z 中（不包含在解析条件中）"
 
-#: guis/GUI01_Image_Preprocessor.py:3249
+#: guis/GUI01_Image_Preprocessor.py:3255
 msgid "OK"
 msgstr "确定"
 
-#: guis/GUI01_Image_Preprocessor.py:3250
+#: guis/GUI01_Image_Preprocessor.py:3256
 msgid "設定の保存"
 msgstr "保存设置"
 
-#: guis/GUI01_Image_Preprocessor.py:3251
+#: guis/GUI01_Image_Preprocessor.py:3257
 msgid "設定の読み込み"
 msgstr "加载设置"
 
-#: guis/GUI01_Image_Preprocessor.py:3252
+#: guis/GUI01_Image_Preprocessor.py:3258
 msgid "キャンセル"
 msgstr "取消"
 
-#: guis/GUI01_Image_Preprocessor.py:3256
+#: guis/GUI01_Image_Preprocessor.py:3262
 msgid "現在値を既定値として保存"
 msgstr "将当前值保存为默认值"
 
-#: guis/GUI01_Image_Preprocessor.py:3258
+#: guis/GUI01_Image_Preprocessor.py:3264
 msgid "初期値に戻す"
 msgstr "恢复初始值"
 
-#: guis/GUI01_Image_Preprocessor.py:3367
+#: guis/GUI01_Image_Preprocessor.py:3373
 #, python-format
 msgid ""
 "設定値の読み取りに失敗しました。\n"
@@ -784,22 +784,22 @@ msgstr ""
 "读取设置值失败。\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:3375
+#: guis/GUI01_Image_Preprocessor.py:3381
 msgid "設定を更新しました（次回解析時に反映）"
 msgstr "设置已更新（下次解析时生效）"
 
-#: guis/GUI01_Image_Preprocessor.py:3383
+#: guis/GUI01_Image_Preprocessor.py:3389
 msgid "設定変更をキャンセルしました"
 msgstr "已取消设置更改"
 
-#: guis/GUI01_Image_Preprocessor.py:3399 guis/GUI01_Image_Preprocessor.py:3450
-#: guis/GUI03_Fiber_Height_Histogram.py:1002
-#: guis/GUI03_Fiber_Height_Histogram.py:1038
+#: guis/GUI01_Image_Preprocessor.py:3405 guis/GUI01_Image_Preprocessor.py:3456
+#: guis/GUI03_Fiber_Height_Histogram.py:1006
+#: guis/GUI03_Fiber_Height_Histogram.py:1042
 #: guis/GUI08_ML_Mask_Annotator.py:967
 msgid "確認"
 msgstr "确认"
 
-#: guis/GUI01_Image_Preprocessor.py:3400
+#: guis/GUI01_Image_Preprocessor.py:3406
 msgid ""
 "現在のダイアログ値を起動時の既定値として保存します。\n"
 "起動時設定ファイルを上書きします。よろしいですか？"
@@ -807,12 +807,12 @@ msgstr ""
 "将当前对话框值保存为启动时默认值。\n"
 "这将覆盖启动时配置文件。是否继续？"
 
-#: guis/GUI01_Image_Preprocessor.py:3432
+#: guis/GUI01_Image_Preprocessor.py:3438
 #, python-format
 msgid "現在値を既定値として保存しました: %s"
 msgstr "已将当前值保存为默认值: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:3434
+#: guis/GUI01_Image_Preprocessor.py:3440
 #, python-format
 msgid ""
 "既定値の保存に失敗しました。\n"
@@ -821,7 +821,7 @@ msgstr ""
 "默认值保存失败。\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:3451
+#: guis/GUI01_Image_Preprocessor.py:3457
 msgid ""
 "ダイアログの全パラメータと「元データを保存」を初期値に戻します。\n"
 "（この操作では設定ファイルは変更されません）\n"
@@ -831,24 +831,24 @@ msgstr ""
 "（此操作不会更改配置文件）\n"
 "是否继续？"
 
-#: guis/GUI01_Image_Preprocessor.py:3459
+#: guis/GUI01_Image_Preprocessor.py:3465
 msgid "ダイアログを初期値に戻しました（未保存）"
 msgstr "已将对话框恢复为初始值（未保存）"
 
-#: guis/GUI01_Image_Preprocessor.py:3467
+#: guis/GUI01_Image_Preprocessor.py:3473
 msgid "設定の保存（JSON）"
 msgstr "保存设置（JSON）"
 
-#: guis/GUI01_Image_Preprocessor.py:3471 guis/GUI01_Image_Preprocessor.py:3490
+#: guis/GUI01_Image_Preprocessor.py:3477 guis/GUI01_Image_Preprocessor.py:3496
 msgid "JSON"
 msgstr "JSON"
 
-#: guis/GUI01_Image_Preprocessor.py:3479
+#: guis/GUI01_Image_Preprocessor.py:3485
 #, python-format
 msgid "設定を保存しました: %s"
 msgstr "设置已保存: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:3481
+#: guis/GUI01_Image_Preprocessor.py:3487
 #, python-format
 msgid ""
 "保存に失敗しました。\n"
@@ -857,16 +857,16 @@ msgstr ""
 "保存失败。\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:3489
+#: guis/GUI01_Image_Preprocessor.py:3495
 msgid "設定の読み込み（JSON）"
 msgstr "加载设置（JSON）"
 
-#: guis/GUI01_Image_Preprocessor.py:3499
+#: guis/GUI01_Image_Preprocessor.py:3505
 #, python-format
 msgid "設定を読み込みました: %s"
 msgstr "设置已加载: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:3501
+#: guis/GUI01_Image_Preprocessor.py:3507
 #, python-format
 msgid ""
 "読み込みに失敗しました。\n"
@@ -875,36 +875,36 @@ msgstr ""
 "加载失败。\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:3510
+#: guis/GUI01_Image_Preprocessor.py:3516
 msgid "[Tkコールバック例外]\n"
 msgstr "[Tk 回调异常]\n"
 
-#: guis/GUI01_Image_Preprocessor.py:3513
+#: guis/GUI01_Image_Preprocessor.py:3519
 msgid "内部エラー"
 msgstr "内部错误"
 
-#: guis/GUI01_Image_Preprocessor.py:3559
+#: guis/GUI01_Image_Preprocessor.py:3565
 #, python-format
 msgid "個別表示: %s"
 msgstr "单独显示: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:3637
+#: guis/GUI01_Image_Preprocessor.py:3643
 #: guis/GUI03_Fiber_Height_Histogram.py:502
 msgid "表示"
 msgstr "显示"
 
-#: guis/GUI01_Image_Preprocessor.py:3703
+#: guis/GUI01_Image_Preprocessor.py:3709
 msgid "重ね描きしません"
 msgstr "不叠加绘制"
 
-#: guis/GUI01_Image_Preprocessor.py:3730 guis/GUI02_PlotProfiler.py:859
-#: guis/GUI04_Tracking_fiber.py:684 guis/GUI04_Tracking_fiber.py:2640
-#: guis/GUI07_ML_Connect_Annotator.py:776
-#: guis/GUI07_ML_Connect_Annotator.py:3240
+#: guis/GUI01_Image_Preprocessor.py:3736 guis/GUI02_PlotProfiler.py:859
+#: guis/GUI04_Tracking_fiber.py:685 guis/GUI04_Tracking_fiber.py:2641
+#: guis/GUI07_ML_Connect_Annotator.py:777
+#: guis/GUI07_ML_Connect_Annotator.py:3241
 msgid "カラーバー"
 msgstr "颜色条"
 
-#: guis/GUI01_Image_Preprocessor.py:3991
+#: guis/GUI01_Image_Preprocessor.py:3997
 msgid "個別表示画像を保存"
 msgstr "保存单独显示图像"
 
@@ -912,17 +912,17 @@ msgstr "保存单独显示图像"
 msgid "Designed graph"
 msgstr "设计图表"
 
-#: guis/GUI02_PlotProfiler.py:177 guis/GUI04_Tracking_fiber.py:2598
-#: guis/GUI04_Tracking_fiber.py:2685 guis/GUI07_ML_Connect_Annotator.py:3198
-#: guis/GUI07_ML_Connect_Annotator.py:3285
+#: guis/GUI02_PlotProfiler.py:177 guis/GUI04_Tracking_fiber.py:2599
+#: guis/GUI04_Tracking_fiber.py:2694 guis/GUI07_ML_Connect_Annotator.py:3199
+#: guis/GUI07_ML_Connect_Annotator.py:3294
 msgid "幅"
 msgstr "宽度"
 
-#: guis/GUI02_PlotProfiler.py:189 guis/GUI04_Tracking_fiber.py:590
-#: guis/GUI04_Tracking_fiber.py:2607 guis/GUI04_Tracking_fiber.py:2694
-#: guis/GUI07_ML_Connect_Annotator.py:682
-#: guis/GUI07_ML_Connect_Annotator.py:3207
-#: guis/GUI07_ML_Connect_Annotator.py:3294
+#: guis/GUI02_PlotProfiler.py:189 guis/GUI04_Tracking_fiber.py:591
+#: guis/GUI04_Tracking_fiber.py:2608 guis/GUI04_Tracking_fiber.py:2703
+#: guis/GUI07_ML_Connect_Annotator.py:683
+#: guis/GUI07_ML_Connect_Annotator.py:3208
+#: guis/GUI07_ML_Connect_Annotator.py:3303
 msgid "高さ"
 msgstr "高度"
 
@@ -934,26 +934,26 @@ msgstr "坐标轴标签大小"
 msgid "目盛りサイズ"
 msgstr "刻度大小"
 
-#: guis/GUI02_PlotProfiler.py:225 guis/GUI04_Tracking_fiber.py:2754
-#: guis/GUI07_ML_Connect_Annotator.py:3354
+#: guis/GUI02_PlotProfiler.py:225 guis/GUI04_Tracking_fiber.py:2763
+#: guis/GUI07_ML_Connect_Annotator.py:3363
 msgid "目盛りの向き"
 msgstr "刻度方向"
 
 #: guis/GUI02_PlotProfiler.py:228 guis/GUI02_PlotProfiler.py:347
-#: guis/GUI04_Tracking_fiber.py:2412 guis/GUI07_ML_Connect_Annotator.py:3012
+#: guis/GUI04_Tracking_fiber.py:2413 guis/GUI07_ML_Connect_Annotator.py:3013
 msgid "外向き"
 msgstr "向外"
 
 #: guis/GUI02_PlotProfiler.py:228 guis/GUI02_PlotProfiler.py:349
-#: guis/GUI04_Tracking_fiber.py:2413 guis/GUI07_ML_Connect_Annotator.py:3013
+#: guis/GUI04_Tracking_fiber.py:2414 guis/GUI07_ML_Connect_Annotator.py:3014
 msgid "内向き"
 msgstr "向内"
 
 #: guis/GUI02_PlotProfiler.py:228 guis/GUI02_PlotProfiler.py:241
 #: guis/GUI02_PlotProfiler.py:351 guis/GUI02_PlotProfiler.py:365
-#: guis/GUI04_Tracking_fiber.py:2414 guis/GUI04_Tracking_fiber.py:2419
-#: guis/GUI07_ML_Connect_Annotator.py:3014
-#: guis/GUI07_ML_Connect_Annotator.py:3019
+#: guis/GUI04_Tracking_fiber.py:2415 guis/GUI04_Tracking_fiber.py:2420
+#: guis/GUI07_ML_Connect_Annotator.py:3015
+#: guis/GUI07_ML_Connect_Annotator.py:3020
 msgid "両方"
 msgstr "双向"
 
@@ -962,17 +962,17 @@ msgid "グリッド"
 msgstr "网格"
 
 #: guis/GUI02_PlotProfiler.py:241 guis/GUI02_PlotProfiler.py:356
-#: guis/GUI04_Tracking_fiber.py:2420 guis/GUI07_ML_Connect_Annotator.py:3020
+#: guis/GUI04_Tracking_fiber.py:2421 guis/GUI07_ML_Connect_Annotator.py:3021
 msgid "無し"
 msgstr "无"
 
 #: guis/GUI02_PlotProfiler.py:241 guis/GUI02_PlotProfiler.py:359
-#: guis/GUI04_Tracking_fiber.py:2417 guis/GUI07_ML_Connect_Annotator.py:3017
+#: guis/GUI04_Tracking_fiber.py:2418 guis/GUI07_ML_Connect_Annotator.py:3018
 msgid "x軸"
 msgstr "x轴"
 
 #: guis/GUI02_PlotProfiler.py:241 guis/GUI02_PlotProfiler.py:362
-#: guis/GUI04_Tracking_fiber.py:2418 guis/GUI07_ML_Connect_Annotator.py:3018
+#: guis/GUI04_Tracking_fiber.py:2419 guis/GUI07_ML_Connect_Annotator.py:3019
 msgid "y軸"
 msgstr "y轴"
 
@@ -992,13 +992,13 @@ msgstr "←点击此按钮选择文件"
 msgid "チャンネル"
 msgstr "通道"
 
-#: guis/GUI02_PlotProfiler.py:740 guis/GUI04_Tracking_fiber.py:610
-#: guis/GUI07_ML_Connect_Annotator.py:702
+#: guis/GUI02_PlotProfiler.py:740 guis/GUI04_Tracking_fiber.py:611
+#: guis/GUI07_ML_Connect_Annotator.py:703
 msgid "自動"
 msgstr "自动"
 
-#: guis/GUI02_PlotProfiler.py:746 guis/GUI04_Tracking_fiber.py:616
-#: guis/GUI07_ML_Connect_Annotator.py:708
+#: guis/GUI02_PlotProfiler.py:746 guis/GUI04_Tracking_fiber.py:617
+#: guis/GUI07_ML_Connect_Annotator.py:709
 msgid ""
 "ON時: 画像ごとに vmin/vmax を自動計算。\n"
 "  vmin = 画像最小値 を切り下げ\n"
@@ -1046,12 +1046,12 @@ msgstr ""
 "“平均值”：采用平均值（希望平滑噪声时）"
 
 #: guis/GUI02_PlotProfiler.py:810 guis/GUI02_PlotProfiler.py:1387
-#: guis/GUI04_Tracking_fiber.py:464 guis/GUI07_ML_Connect_Annotator.py:552
+#: guis/GUI04_Tracking_fiber.py:465 guis/GUI07_ML_Connect_Annotator.py:553
 msgid "最大"
 msgstr "最大值"
 
 #: guis/GUI02_PlotProfiler.py:810 guis/GUI02_PlotProfiler.py:1389
-#: guis/GUI04_Tracking_fiber.py:456 guis/GUI07_ML_Connect_Annotator.py:544
+#: guis/GUI04_Tracking_fiber.py:457 guis/GUI07_ML_Connect_Annotator.py:545
 msgid "最小"
 msgstr "最小值"
 
@@ -1107,8 +1107,8 @@ msgstr ""
 "文件格式可能不受支持，或文件可能已损坏。\n"
 "详细信息: {0}"
 
-#: guis/GUI02_PlotProfiler.py:1457 guis/GUI03_Fiber_Height_Histogram.py:1379
-#: guis/GUI05_ML_Model_Trainer.py:1003 guis/GUI06_ML_Model_Compare.py:757
+#: guis/GUI02_PlotProfiler.py:1457 guis/GUI03_Fiber_Height_Histogram.py:1383
+#: guis/GUI05_ML_Model_Trainer.py:1003 guis/GUI06_ML_Model_Compare.py:792
 #: guis/GUI08_ML_Mask_Annotator.py:592
 msgid "不明なエラー"
 msgstr "未知错误"
@@ -1123,7 +1123,7 @@ msgid "AFMデータ"
 msgstr "AFM 数据"
 
 #: guis/GUI02_PlotProfiler.py:1623 guis/GUI05_ML_Model_Trainer.py:262
-#: guis/GUI06_ML_Model_Compare.py:279
+#: guis/GUI06_ML_Model_Compare.py:293
 msgid "バンドル"
 msgstr "包文件"
 
@@ -1186,7 +1186,7 @@ msgid "グループ追加"
 msgstr "添加组"
 
 #: guis/GUI03_Fiber_Height_Histogram.py:294
-#: guis/GUI03_Fiber_Height_Histogram.py:1164
+#: guis/GUI03_Fiber_Height_Histogram.py:1168
 msgid "グループ削除"
 msgstr "删除组"
 
@@ -1219,13 +1219,13 @@ msgid "有効バンドル数"
 msgstr "有效包数量"
 
 #: guis/GUI03_Fiber_Height_Histogram.py:339
-#: guis/GUI03_Fiber_Height_Histogram.py:905
+#: guis/GUI03_Fiber_Height_Histogram.py:909
 #, python-brace-format
 msgid "グループ数: {g} / 有効バンドル総数: {p} / 欠損: {m}"
 msgstr "组数: {g} / 有效包总数: {p} / 缺失: {m}"
 
 #: guis/GUI03_Fiber_Height_Histogram.py:355
-#: guis/GUI03_Fiber_Height_Histogram.py:1842
+#: guis/GUI03_Fiber_Height_Histogram.py:1846
 msgid "統計値を保存"
 msgstr "保存统计值"
 
@@ -1277,91 +1277,91 @@ msgstr "字体大小：组名"
 msgid "統計値"
 msgstr "统计值"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:640
+#: guis/GUI03_Fiber_Height_Histogram.py:644
 msgid "使い方:\n"
 msgstr "使用方法:\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:641
+#: guis/GUI03_Fiber_Height_Histogram.py:645
 msgid "  1)「グループ追加」でデータ群を作成（自動で 1 個作成済み）\n"
 msgstr "  1) 使用“添加组”创建数据组（已自动创建 1 个）\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:642
+#: guis/GUI03_Fiber_Height_Histogram.py:646
 msgid "  2) Treeview でグループを選び「フォルダ追加」で .b2z バンドルを含むフォルダを登録\n"
 msgstr "  2) 在 Treeview 中选择组，并使用“添加文件夹”注册包含 .b2z 包的文件夹\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:643
+#: guis/GUI03_Fiber_Height_Histogram.py:647
 msgid "  3) 条件と表示モード（縦並び/重ね表示）を設定して「ヒストグラム作成」\n"
 msgstr "  3) 设置条件和显示模式（纵向排列/叠加显示），然后点击“生成直方图”\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:644
+#: guis/GUI03_Fiber_Height_Histogram.py:648
 msgid "  4) 必要に応じて「画像を保存」「数値を保存（グループ別CSV）」\n"
 msgstr "  4) 根据需要点击“保存图像”或“保存数值（按组 CSV）”\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:646
+#: guis/GUI03_Fiber_Height_Histogram.py:650
 msgid "ヒント:\n"
 msgstr "提示:\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:647
+#: guis/GUI03_Fiber_Height_Histogram.py:651
 msgid "  - グループをダブルクリックで名前変更／右クリックで色変更\n"
 msgstr "  - 双击组可重命名，右键可更改颜色\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:648
+#: guis/GUI03_Fiber_Height_Histogram.py:652
 #, python-brace-format
 msgid "  - 縦軸モード: 非表示=目盛なし / {density}=割合(0–1) / {percent}=パーセント\n"
 msgstr "  - 纵轴模式：隐藏=无刻度 / {density}=比例 (0-1) / {percent}=百分比\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:651
+#: guis/GUI03_Fiber_Height_Histogram.py:655
 #, python-brace-format
 msgid "  - グループ間でデータ数が大きく異なるときは {density} または {percent} を推奨\n"
 msgstr "  - 当组之间的数据数量差异较大时，建议使用 {density} 或 {percent}\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:711
+#: guis/GUI03_Fiber_Height_Histogram.py:715
 msgid "step は正の値にしてください。"
 msgstr "step 必须为正值。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:713
+#: guis/GUI03_Fiber_Height_Histogram.py:717
 msgid "max height は min height より大きくしてください。"
 msgstr "max height 必须大于 min height。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:749
+#: guis/GUI03_Fiber_Height_Histogram.py:753
 msgid "ヒストグラムの横/縦の長さは正の値にしてください。"
 msgstr "直方图的横/纵长度必须为正值。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:752
+#: guis/GUI03_Fiber_Height_Histogram.py:756
 msgid "フォントサイズは正の値にしてください。"
 msgstr "字体大小必须为正值。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:830
+#: guis/GUI03_Fiber_Height_Histogram.py:834
 msgid "pairs"
 msgstr ""
 
-#: guis/GUI03_Fiber_Height_Histogram.py:941
+#: guis/GUI03_Fiber_Height_Histogram.py:945
 #, python-brace-format
 msgid "[アクセス不可] {err}"
 msgstr "[无法访问] {err}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:945
+#: guis/GUI03_Fiber_Height_Histogram.py:949
 #, python-brace-format
 msgid "バンドルなし（*{ext} が見つかりません）"
 msgstr "无包文件（未找到 *{ext}）"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:987
+#: guis/GUI03_Fiber_Height_Histogram.py:991
 #, python-brace-format
 msgid "グループ追加: {name}"
 msgstr "已添加组: {name}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:996
-#: guis/GUI03_Fiber_Height_Histogram.py:1018
-#: guis/GUI03_Fiber_Height_Histogram.py:1055
-#: guis/GUI03_Fiber_Height_Histogram.py:1107
+#: guis/GUI03_Fiber_Height_Histogram.py:1000
+#: guis/GUI03_Fiber_Height_Histogram.py:1022
+#: guis/GUI03_Fiber_Height_Histogram.py:1059
+#: guis/GUI03_Fiber_Height_Histogram.py:1111
 msgid "未選択"
 msgstr "未选择"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:996
+#: guis/GUI03_Fiber_Height_Histogram.py:1000
 msgid "削除するグループを選択してください。"
 msgstr "请选择要删除的组。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1003
+#: guis/GUI03_Fiber_Height_Histogram.py:1007
 #, python-brace-format
 msgid ""
 "グループ「{name}」を削除しますか？\n"
@@ -1370,202 +1370,202 @@ msgstr ""
 "要删除组“{name}”吗？\n"
 "该组下的所有文件夹注册也会被解除。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1009
+#: guis/GUI03_Fiber_Height_Histogram.py:1013
 #, python-brace-format
 msgid "グループ削除: {name}"
 msgstr "已删除组: {name}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1018
+#: guis/GUI03_Fiber_Height_Histogram.py:1022
 msgid "並び替えるグループを選択してください。"
 msgstr "请选择要重新排序的组。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1038
+#: guis/GUI03_Fiber_Height_Histogram.py:1042
 msgid "すべてのグループとフォルダ登録を削除しますか？"
 msgstr "要删除所有组和文件夹注册吗？"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1045
+#: guis/GUI03_Fiber_Height_Histogram.py:1049
 msgid "全クリアしました。"
 msgstr "已全部清除。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1056
+#: guis/GUI03_Fiber_Height_Histogram.py:1060
 msgid "フォルダを追加する先のグループを Treeview で選択してください。"
 msgstr "请在 Treeview 中选择要添加文件夹的目标组。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1060
+#: guis/GUI03_Fiber_Height_Histogram.py:1064
 msgid "解析対象フォルダを選択"
 msgstr "选择解析目标文件夹"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1066
+#: guis/GUI03_Fiber_Height_Histogram.py:1070
 msgid "重複"
 msgstr "重复"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1066
+#: guis/GUI03_Fiber_Height_Histogram.py:1070
 msgid "このフォルダは同じグループに既に登録されています。"
 msgstr "此文件夹已注册到同一组。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1074
+#: guis/GUI03_Fiber_Height_Histogram.py:1078
 #, python-brace-format
 msgid "注意: 「{f}」は別グループ「{n}」にも登録されています。"
 msgstr "注意：“{f}”也已注册到另一个组“{n}”。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1093
+#: guis/GUI03_Fiber_Height_Histogram.py:1097
 #, python-brace-format
 msgid "[{name}] 追加: {path}"
 msgstr "[{name}] 已添加: {path}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1094
+#: guis/GUI03_Fiber_Height_Histogram.py:1098
 #, python-brace-format
 msgid "有効ペア数: {n}"
 msgstr "有效配对数: {n}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1096
+#: guis/GUI03_Fiber_Height_Histogram.py:1100
 msgid "欠損/注意:"
 msgstr "缺失/注意:"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1107
+#: guis/GUI03_Fiber_Height_Histogram.py:1111
 msgid "削除するフォルダ行を選択してください。"
 msgstr "请选择要删除的文件夹行。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1116
+#: guis/GUI03_Fiber_Height_Histogram.py:1120
 #, python-brace-format
 msgid "[{name}] フォルダ削除: {path}"
 msgstr "[{name}] 已删除文件夹: {path}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1161
+#: guis/GUI03_Fiber_Height_Histogram.py:1165
 msgid "名前を変更"
 msgstr "重命名"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1162
+#: guis/GUI03_Fiber_Height_Histogram.py:1166
 msgid "色を変更"
 msgstr "更改颜色"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1174
+#: guis/GUI03_Fiber_Height_Histogram.py:1178
 msgid "フォルダ名をグループ名にする"
 msgstr "将文件夹名设为组名"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1178
+#: guis/GUI03_Fiber_Height_Histogram.py:1182
 msgid "フォルダ名をコピーする"
 msgstr "复制文件夹名"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1192
-#: guis/GUI03_Fiber_Height_Histogram.py:1226
+#: guis/GUI03_Fiber_Height_Histogram.py:1196
+#: guis/GUI03_Fiber_Height_Histogram.py:1230
 #, python-brace-format
 msgid "注意: 同名のグループ「{n}」が既に存在します。"
 msgstr "注意：同名组“{n}”已存在。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1195
-#: guis/GUI03_Fiber_Height_Histogram.py:1229
+#: guis/GUI03_Fiber_Height_Histogram.py:1199
+#: guis/GUI03_Fiber_Height_Histogram.py:1233
 #, python-brace-format
 msgid "グループ名変更: {name}"
 msgstr "组名已更改: {name}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1205
+#: guis/GUI03_Fiber_Height_Histogram.py:1209
 #, python-brace-format
 msgid "フォルダ名をコピーしました: {name}"
 msgstr "已复制文件夹名：{name}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1213
+#: guis/GUI03_Fiber_Height_Histogram.py:1217
 msgid "グループ名変更"
 msgstr "更改组名"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1214
+#: guis/GUI03_Fiber_Height_Histogram.py:1218
 msgid "新しいグループ名を入力してください:"
 msgstr "请输入新的组名:"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1236
+#: guis/GUI03_Fiber_Height_Histogram.py:1240
 msgid "グループ色を選択"
 msgstr "选择组颜色"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1241
+#: guis/GUI03_Fiber_Height_Histogram.py:1245
 #, python-brace-format
 msgid "[{name}] 色を変更: {c}"
 msgstr "[{name}] 颜色已更改: {c}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1260
-#: guis/GUI03_Fiber_Height_Histogram.py:1265
+#: guis/GUI03_Fiber_Height_Histogram.py:1264
+#: guis/GUI03_Fiber_Height_Histogram.py:1269
 msgid "入力不足"
 msgstr "输入不足"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1260
+#: guis/GUI03_Fiber_Height_Histogram.py:1264
 msgid "グループが登録されていません。"
 msgstr "尚未注册任何组。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1266
+#: guis/GUI03_Fiber_Height_Histogram.py:1270
 msgid "どのグループにもフォルダが登録されていません。"
 msgstr "尚未注册任何文件夹。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1284
-#: guis/GUI03_Fiber_Height_Histogram.py:1290
+#: guis/GUI03_Fiber_Height_Histogram.py:1288
+#: guis/GUI03_Fiber_Height_Histogram.py:1294
 msgid "設定エラー"
 msgstr "设置错误"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1285
+#: guis/GUI03_Fiber_Height_Histogram.py:1289
 msgid "ヒストグラム範囲が不正です（min < max かつ step > 0）。"
 msgstr "直方图范围无效（需要 min < max 且 step > 0）。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1291
+#: guis/GUI03_Fiber_Height_Histogram.py:1295
 msgid "サイズ/フォントサイズは正の値にしてください。"
 msgstr "大小和字体大小必须为正值。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1299
+#: guis/GUI03_Fiber_Height_Histogram.py:1303
 #, python-brace-format
 msgid "注意: グループ間でデータ数が異なる場合、生カウント比較は誤解を招く可能性があります。{density} または {percent} を推奨します。"
 msgstr "注意：如果组之间的数据数量不同，比较原始计数可能会造成误解。建议使用 {density} 或 {percent}。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1310
+#: guis/GUI03_Fiber_Height_Histogram.py:1314
 msgid "有効ペアなし"
 msgstr "无有效配对"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1311
+#: guis/GUI03_Fiber_Height_Histogram.py:1315
 msgid "有効な calibrated/skeletonized バンドルが見つかりません。ログを確認してください。"
 msgstr "未找到有效的 calibrated/skeletonized 包。请检查日志。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1378
+#: guis/GUI03_Fiber_Height_Histogram.py:1382
 msgid "致命的エラー"
 msgstr "致命错误"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1424
+#: guis/GUI03_Fiber_Height_Histogram.py:1428
 #, python-brace-format
 msgid "[{grp}/{folder}] {msg}"
 msgstr "[{grp}/{folder}] {msg}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1429
+#: guis/GUI03_Fiber_Height_Histogram.py:1433
 #, python-brace-format
 msgid "[{grp}/{folder}] 有効ペアがありません"
 msgstr "[{grp}/{folder}] 无有效配对"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1445
+#: guis/GUI03_Fiber_Height_Histogram.py:1449
 #, python-brace-format
 msgid "[{grp}/{folder}] 高さ抽出に失敗: {err}"
 msgstr "[{grp}/{folder}] 高度提取失败: {err}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1454
+#: guis/GUI03_Fiber_Height_Histogram.py:1458
 #, python-brace-format
 msgid "[{grp}/{folder}] 読込失敗: {base} ({err})"
 msgstr "[{grp}/{folder}] 读取失败: {base} ({err})"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1463
+#: guis/GUI03_Fiber_Height_Histogram.py:1467
 #, python-brace-format
 msgid "[{grp}] データ 0 件のためスキップしました"
 msgstr "[{grp}] 因数据为 0 件而跳过"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1479
+#: guis/GUI03_Fiber_Height_Histogram.py:1483
 msgid "どのグループからも高さデータを得られませんでした..."
 msgstr "未能从任何组获取高度数据..."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1488
+#: guis/GUI03_Fiber_Height_Histogram.py:1492
 msgid "ヒストグラム範囲の準備に失敗しました。"
 msgstr "直方图范围准备失败。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1577
+#: guis/GUI03_Fiber_Height_Histogram.py:1581
 msgid "=== エラー/注意（処理は継続しました） ==="
 msgstr "=== 错误/注意（处理已继续） ==="
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1581
+#: guis/GUI03_Fiber_Height_Histogram.py:1585
 msgid "一部エラー"
 msgstr "部分错误"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1582
+#: guis/GUI03_Fiber_Height_Histogram.py:1586
 #, python-brace-format
 msgid ""
 "完了しましたが、エラー/欠損が {n} 件ありました。\n"
@@ -1574,33 +1574,33 @@ msgstr ""
 "已完成，但存在 {n} 处错误/缺失。\n"
 "详情请查看日志。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1728
-#: guis/GUI03_Fiber_Height_Histogram.py:1744
-#: guis/GUI03_Fiber_Height_Histogram.py:1808
+#: guis/GUI03_Fiber_Height_Histogram.py:1732
+#: guis/GUI03_Fiber_Height_Histogram.py:1748
+#: guis/GUI03_Fiber_Height_Histogram.py:1812
 msgid "未作成"
 msgstr "尚未生成"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1728
-#: guis/GUI03_Fiber_Height_Histogram.py:1744
-#: guis/GUI03_Fiber_Height_Histogram.py:1808
+#: guis/GUI03_Fiber_Height_Histogram.py:1732
+#: guis/GUI03_Fiber_Height_Histogram.py:1748
+#: guis/GUI03_Fiber_Height_Histogram.py:1812
 msgid "先にヒストグラムを作成してください。"
 msgstr "请先生成直方图。"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1748
+#: guis/GUI03_Fiber_Height_Histogram.py:1752
 msgid "CSV 保存先フォルダを選択"
 msgstr "选择 CSV 保存目标文件夹"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1778
+#: guis/GUI03_Fiber_Height_Histogram.py:1782
 #, python-brace-format
 msgid "{n} 個のCSVを保存しました → {dir}"
 msgstr "已保存 {n} 个 CSV → {dir}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1783
-#: guis/GUI03_Fiber_Height_Histogram.py:1845 lib/ui_tools.py:206
+#: guis/GUI03_Fiber_Height_Histogram.py:1787
+#: guis/GUI03_Fiber_Height_Histogram.py:1849 lib/ui_tools.py:206
 msgid "保存失敗"
 msgstr "保存失败"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1783 lib/ui_tools.py:459
+#: guis/GUI03_Fiber_Height_Histogram.py:1787 lib/ui_tools.py:615
 #, python-brace-format
 msgid ""
 "CSVの保存に失敗しました:\n"
@@ -1609,68 +1609,68 @@ msgstr ""
 "CSV 保存失败:\n"
 "{e}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1844
+#: guis/GUI03_Fiber_Height_Histogram.py:1848
 #, python-brace-format
 msgid "統計値を保存しました → {path}"
 msgstr "统计值已保存 → {path}"
 
-#: guis/GUI04_Tracking_fiber.py:356 guis/GUI07_ML_Connect_Annotator.py:444
+#: guis/GUI04_Tracking_fiber.py:357 guis/GUI07_ML_Connect_Annotator.py:445
 msgid "📂 フォルダ選択"
 msgstr "📂 选择文件夹"
 
-#: guis/GUI04_Tracking_fiber.py:381 guis/GUI07_ML_Connect_Annotator.py:469
+#: guis/GUI04_Tracking_fiber.py:382 guis/GUI07_ML_Connect_Annotator.py:470
 msgid "ファイバー解析の長さ・座標換算に使われる重要な値。"
 msgstr "用于纤维解析的长度和坐标换算的重要值。"
 
-#: guis/GUI04_Tracking_fiber.py:382 guis/GUI04_Tracking_fiber.py:404
-#: guis/GUI07_ML_Connect_Annotator.py:470
-#: guis/GUI07_ML_Connect_Annotator.py:492
+#: guis/GUI04_Tracking_fiber.py:383 guis/GUI04_Tracking_fiber.py:405
+#: guis/GUI07_ML_Connect_Annotator.py:471
+#: guis/GUI07_ML_Connect_Annotator.py:493
 msgid "変更すると現在のファイルが再解析される。"
 msgstr "更改后会重新解析当前文件。"
 
-#: guis/GUI04_Tracking_fiber.py:452 guis/GUI07_ML_Connect_Annotator.py:540
+#: guis/GUI04_Tracking_fiber.py:453 guis/GUI07_ML_Connect_Annotator.py:541
 msgid "高さフィルター"
 msgstr "高度过滤器"
 
-#: guis/GUI04_Tracking_fiber.py:478 guis/GUI07_ML_Connect_Annotator.py:566
+#: guis/GUI04_Tracking_fiber.py:479 guis/GUI07_ML_Connect_Annotator.py:567
 #, fuzzy
 msgid "ファイバー連結"
 msgstr "纤维列表"
 
-#: guis/GUI04_Tracking_fiber.py:484 guis/GUI07_ML_Connect_Annotator.py:572
+#: guis/GUI04_Tracking_fiber.py:485 guis/GUI07_ML_Connect_Annotator.py:573
 msgid ""
 "ON時: 交差・分岐で分断された骨格断片を 1 本のフィブリルへ再結合してから計測する。\n"
 "OFF時: 各骨格断片を 1 本のファイバーとして扱う（従来動作）。\n"
 "切り替えると現在のデータセットを再解析する。"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:489 guis/GUI07_ML_Connect_Annotator.py:577
+#: guis/GUI04_Tracking_fiber.py:490 guis/GUI07_ML_Connect_Annotator.py:578
 msgid "連結設定…"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:523 guis/GUI07_ML_Connect_Annotator.py:611
+#: guis/GUI04_Tracking_fiber.py:524 guis/GUI07_ML_Connect_Annotator.py:612
 msgid "データセット名"
 msgstr "数据集名称"
 
-#: guis/GUI04_Tracking_fiber.py:545 guis/GUI07_ML_Connect_Annotator.py:633
+#: guis/GUI04_Tracking_fiber.py:546 guis/GUI07_ML_Connect_Annotator.py:634
 msgid "ファイバー一覧"
 msgstr "纤维列表"
 
-#: guis/GUI04_Tracking_fiber.py:546 guis/GUI04_Tracking_fiber.py:2240
-#: guis/GUI07_ML_Connect_Annotator.py:634
-#: guis/GUI07_ML_Connect_Annotator.py:2838 lib/ui_tools.py:446
+#: guis/GUI04_Tracking_fiber.py:547 guis/GUI04_Tracking_fiber.py:2241
+#: guis/GUI07_ML_Connect_Annotator.py:635
+#: guis/GUI07_ML_Connect_Annotator.py:2839 lib/ui_tools.py:602
 msgid "CSVで保存"
 msgstr "保存为 CSV"
 
-#: guis/GUI04_Tracking_fiber.py:583 guis/GUI07_ML_Connect_Annotator.py:675
+#: guis/GUI04_Tracking_fiber.py:584 guis/GUI07_ML_Connect_Annotator.py:676
 msgid "AFM 全体像"
 msgstr "AFM 全图"
 
-#: guis/GUI04_Tracking_fiber.py:596 guis/GUI07_ML_Connect_Annotator.py:688
+#: guis/GUI04_Tracking_fiber.py:597 guis/GUI07_ML_Connect_Annotator.py:689
 msgid "ファイバー色分け"
 msgstr "纤维分色"
 
-#: guis/GUI04_Tracking_fiber.py:602 guis/GUI07_ML_Connect_Annotator.py:694
+#: guis/GUI04_Tracking_fiber.py:603 guis/GUI07_ML_Connect_Annotator.py:695
 msgid ""
 "各ファイバーを個別色で二値化像上に散布表示します。\n"
 "どの骨格がひとつのフィブリルに繋がったかを一目で確認でき、\n"
@@ -1680,151 +1680,151 @@ msgstr ""
 "可一目了然地看出哪些骨架连接成了同一条纤维，\n"
 "有助于验证纤维连接的结果。"
 
-#: guis/GUI04_Tracking_fiber.py:817 guis/GUI07_ML_Connect_Annotator.py:1349
+#: guis/GUI04_Tracking_fiber.py:818 guis/GUI07_ML_Connect_Annotator.py:1350
 msgid "スケール変更"
 msgstr "更改比例尺"
 
-#: guis/GUI04_Tracking_fiber.py:818 guis/GUI07_ML_Connect_Annotator.py:1350
+#: guis/GUI04_Tracking_fiber.py:819 guis/GUI07_ML_Connect_Annotator.py:1351
 msgid "ファイバーを再解析します..."
 msgstr "正在重新解析纤维..."
 
-#: guis/GUI04_Tracking_fiber.py:828 guis/GUI04_Tracking_fiber.py:860
-#: guis/GUI07_ML_Connect_Annotator.py:1360
-#: guis/GUI07_ML_Connect_Annotator.py:1392
+#: guis/GUI04_Tracking_fiber.py:829 guis/GUI04_Tracking_fiber.py:861
+#: guis/GUI07_ML_Connect_Annotator.py:1361
+#: guis/GUI07_ML_Connect_Annotator.py:1393
 msgid "には正の数値を入力してください。"
 msgstr "必须输入正数。"
 
-#: guis/GUI04_Tracking_fiber.py:877 guis/GUI07_ML_Connect_Annotator.py:1409
+#: guis/GUI04_Tracking_fiber.py:878 guis/GUI07_ML_Connect_Annotator.py:1410
 msgid "Y スケール変更: ファイバーを再解析します..."
 msgstr "Y 比例已更改：正在重新分析纤维……"
 
-#: guis/GUI04_Tracking_fiber.py:1005 guis/GUI07_ML_Connect_Annotator.py:1537
+#: guis/GUI04_Tracking_fiber.py:1006 guis/GUI07_ML_Connect_Annotator.py:1538
 msgid "vmin は vmax 以下にしてください。"
 msgstr "vmin 必须小于或等于 vmax。"
 
-#: guis/GUI04_Tracking_fiber.py:1028 guis/GUI07_ML_Connect_Annotator.py:1560
+#: guis/GUI04_Tracking_fiber.py:1029 guis/GUI07_ML_Connect_Annotator.py:1561
 msgid "最小値 < 最大値 となるように入力してください。"
 msgstr "请输入满足 最小值 < 最大值 的数值。"
 
-#: guis/GUI04_Tracking_fiber.py:1056 guis/GUI04_Tracking_fiber.py:2839
-#: guis/GUI04_Tracking_fiber.py:2872 guis/GUI07_ML_Connect_Annotator.py:1588
-#: guis/GUI07_ML_Connect_Annotator.py:3439
-#: guis/GUI07_ML_Connect_Annotator.py:3472
+#: guis/GUI04_Tracking_fiber.py:1057 guis/GUI04_Tracking_fiber.py:2852
+#: guis/GUI04_Tracking_fiber.py:2885 guis/GUI07_ML_Connect_Annotator.py:1589
+#: guis/GUI07_ML_Connect_Annotator.py:3452
+#: guis/GUI07_ML_Connect_Annotator.py:3485
 msgid "フォントサイズは 1〜60 の範囲で入力してください。"
 msgstr "请输入 1-60 范围内的字体大小。"
 
-#: guis/GUI04_Tracking_fiber.py:1121 guis/GUI07_ML_Connect_Annotator.py:1653
+#: guis/GUI04_Tracking_fiber.py:1122 guis/GUI07_ML_Connect_Annotator.py:1654
 msgid "GUI01 の出力フォルダを選択"
 msgstr "选择 GUI01 输出文件夹"
 
-#: guis/GUI04_Tracking_fiber.py:1125 guis/GUI07_ML_Connect_Annotator.py:1657
+#: guis/GUI04_Tracking_fiber.py:1126 guis/GUI07_ML_Connect_Annotator.py:1658
 #, python-brace-format
 msgid "フォルダ: {folder}"
 msgstr "文件夹: {folder}"
 
-#: guis/GUI04_Tracking_fiber.py:1166 guis/GUI07_ML_Connect_Annotator.py:1698
+#: guis/GUI04_Tracking_fiber.py:1167 guis/GUI07_ML_Connect_Annotator.py:1699
 msgid "解析済みデータセットが見つかりませんでした。"
 msgstr "未找到已解析的数据集。"
 
-#: guis/GUI04_Tracking_fiber.py:1171 guis/GUI07_ML_Connect_Annotator.py:1703
+#: guis/GUI04_Tracking_fiber.py:1172 guis/GUI07_ML_Connect_Annotator.py:1704
 #, python-brace-format
 msgid "{count} 件のデータセットを検出しました。"
 msgstr "检测到 {count} 个数据集。"
 
-#: guis/GUI04_Tracking_fiber.py:1189 guis/GUI07_ML_Connect_Annotator.py:1721
+#: guis/GUI04_Tracking_fiber.py:1190 guis/GUI07_ML_Connect_Annotator.py:1722
 msgid "読み込み中です。しばらくお待ちください。"
 msgstr "正在加载，请稍候。"
 
-#: guis/GUI04_Tracking_fiber.py:1224 guis/GUI07_ML_Connect_Annotator.py:1756
+#: guis/GUI04_Tracking_fiber.py:1225 guis/GUI07_ML_Connect_Annotator.py:1757
 #, python-brace-format
 msgid "バンドル記録のスケール {scale} µm を使用します。"
 msgstr "使用 bundle 中记录的扫描尺寸 {scale} µm。"
 
-#: guis/GUI04_Tracking_fiber.py:1230 guis/GUI07_ML_Connect_Annotator.py:1762
+#: guis/GUI04_Tracking_fiber.py:1231 guis/GUI07_ML_Connect_Annotator.py:1763
 #, python-brace-format
 msgid "バンドル記録のスケール {x}×{y} µm を使用します。"
 msgstr "使用 bundle 中记录的扫描尺寸 {x}×{y} µm。"
 
-#: guis/GUI04_Tracking_fiber.py:1258 guis/GUI07_ML_Connect_Annotator.py:1790
+#: guis/GUI04_Tracking_fiber.py:1259 guis/GUI07_ML_Connect_Annotator.py:1791
 #, python-brace-format
 msgid "読み込み中: {name}  スケール={scale}"
 msgstr "正在加载: {name}  比例尺={scale}"
 
-#: guis/GUI04_Tracking_fiber.py:1263 guis/GUI07_ML_Connect_Annotator.py:1795
+#: guis/GUI04_Tracking_fiber.py:1264 guis/GUI07_ML_Connect_Annotator.py:1796
 msgid "ファイバー連結が有効です（断片を再結合します）。"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:1265 guis/GUI07_ML_Connect_Annotator.py:1797
+#: guis/GUI04_Tracking_fiber.py:1266 guis/GUI07_ML_Connect_Annotator.py:1798
 msgid "ファイル読み込み中..."
 msgstr "正在读取文件..."
 
-#: guis/GUI04_Tracking_fiber.py:1286 guis/GUI07_ML_Connect_Annotator.py:1823
+#: guis/GUI04_Tracking_fiber.py:1287 guis/GUI07_ML_Connect_Annotator.py:1824
 msgid "ファイバー解析を開始 (並列処理)..."
 msgstr "开始纤维解析（并行处理）..."
 
-#: guis/GUI04_Tracking_fiber.py:1341 guis/GUI07_ML_Connect_Annotator.py:1925
+#: guis/GUI04_Tracking_fiber.py:1342 guis/GUI07_ML_Connect_Annotator.py:1926
 #, python-brace-format
 msgid "読み込み完了: {name}  ファイバー数: {count}"
 msgstr "加载完成: {name}  纤维数: {count}"
 
-#: guis/GUI04_Tracking_fiber.py:1916 guis/GUI07_ML_Connect_Annotator.py:2514
+#: guis/GUI04_Tracking_fiber.py:1917 guis/GUI07_ML_Connect_Annotator.py:2515
 msgid "フィルター適用中..."
 msgstr "正在应用过滤器..."
 
-#: guis/GUI04_Tracking_fiber.py:1918 guis/GUI07_ML_Connect_Annotator.py:2516
+#: guis/GUI04_Tracking_fiber.py:1919 guis/GUI07_ML_Connect_Annotator.py:2517
 #, python-brace-format
 msgid "フィルター適用中: 高さ {lo}〜{hi}"
 msgstr "正在应用过滤器: 高度 {lo}〜{hi}"
 
-#: guis/GUI04_Tracking_fiber.py:2000 guis/GUI07_ML_Connect_Annotator.py:2598
+#: guis/GUI04_Tracking_fiber.py:2001 guis/GUI07_ML_Connect_Annotator.py:2599
 #, python-brace-format
 msgid "フィルター適用完了: 高さ {lo}〜{hi}"
 msgstr "过滤器应用完成: 高度 {lo}〜{hi}"
 
-#: guis/GUI04_Tracking_fiber.py:2001 guis/GUI07_ML_Connect_Annotator.py:2599
+#: guis/GUI04_Tracking_fiber.py:2002 guis/GUI07_ML_Connect_Annotator.py:2600
 #, python-brace-format
 msgid "{count} 件"
 msgstr "{count} 件"
 
-#: guis/GUI04_Tracking_fiber.py:2016 guis/GUI07_ML_Connect_Annotator.py:2614
+#: guis/GUI04_Tracking_fiber.py:2017 guis/GUI07_ML_Connect_Annotator.py:2615
 msgid "フィルターをリセットしました。"
 msgstr "已重置过滤器。"
 
-#: guis/GUI04_Tracking_fiber.py:2033 guis/GUI07_ML_Connect_Annotator.py:2631
+#: guis/GUI04_Tracking_fiber.py:2034 guis/GUI07_ML_Connect_Annotator.py:2632
 msgid "有効"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:2033 guis/GUI07_ML_Connect_Annotator.py:2631
+#: guis/GUI04_Tracking_fiber.py:2034 guis/GUI07_ML_Connect_Annotator.py:2632
 msgid "無効"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:2034 guis/GUI07_ML_Connect_Annotator.py:2632
+#: guis/GUI04_Tracking_fiber.py:2035 guis/GUI07_ML_Connect_Annotator.py:2633
 #, python-brace-format
 msgid "ファイバー連結: {state}"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:2062 guis/GUI07_ML_Connect_Annotator.py:2660
+#: guis/GUI04_Tracking_fiber.py:2063 guis/GUI07_ML_Connect_Annotator.py:2661
 msgid "連結パラメータを更新しました。"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:2155 guis/GUI07_ML_Connect_Annotator.py:2753
+#: guis/GUI04_Tracking_fiber.py:2156 guis/GUI07_ML_Connect_Annotator.py:2754
 msgid "ファイバーを選択してください。"
 msgstr "请选择纤维。"
 
-#: guis/GUI04_Tracking_fiber.py:2217 guis/GUI07_ML_Connect_Annotator.py:2815
+#: guis/GUI04_Tracking_fiber.py:2218 guis/GUI07_ML_Connect_Annotator.py:2816
 msgid "データセットを選択してください。"
 msgstr "请选择数据集。"
 
-#: guis/GUI04_Tracking_fiber.py:2222 guis/GUI07_ML_Connect_Annotator.py:2820
+#: guis/GUI04_Tracking_fiber.py:2223 guis/GUI07_ML_Connect_Annotator.py:2821
 msgid "エクスポートするファイバーがありません。"
 msgstr "没有可导出的纤维。"
 
-#: guis/GUI04_Tracking_fiber.py:2242 guis/GUI07_ML_Connect_Annotator.py:2840
+#: guis/GUI04_Tracking_fiber.py:2243 guis/GUI07_ML_Connect_Annotator.py:2841
 #, python-brace-format
 msgid "{msg} ({count} 件)"
 msgstr "{msg} ({count} 件)"
 
-#: guis/GUI04_Tracking_fiber.py:2280 guis/GUI07_ML_Connect_Annotator.py:2880
+#: guis/GUI04_Tracking_fiber.py:2281 guis/GUI07_ML_Connect_Annotator.py:2881
 #, python-brace-format
 msgid ""
 "読み込みエラー: {name}\n"
@@ -1833,7 +1833,7 @@ msgstr ""
 "读取错误: {name}\n"
 "{tb}"
 
-#: guis/GUI04_Tracking_fiber.py:2294 guis/GUI07_ML_Connect_Annotator.py:2894
+#: guis/GUI04_Tracking_fiber.py:2295 guis/GUI07_ML_Connect_Annotator.py:2895
 #, python-brace-format
 msgid ""
 "フィルターエラー:\n"
@@ -1842,195 +1842,195 @@ msgstr ""
 "过滤器错误:\n"
 "{tb}"
 
-#: guis/GUI04_Tracking_fiber.py:2437 guis/GUI07_ML_Connect_Annotator.py:3037
+#: guis/GUI04_Tracking_fiber.py:2438 guis/GUI07_ML_Connect_Annotator.py:3038
 msgid "自動(best)"
 msgstr "自动(best)"
 
-#: guis/GUI04_Tracking_fiber.py:2438 guis/GUI07_ML_Connect_Annotator.py:3038
+#: guis/GUI04_Tracking_fiber.py:2439 guis/GUI07_ML_Connect_Annotator.py:3039
 msgid "右上"
 msgstr "右上"
 
-#: guis/GUI04_Tracking_fiber.py:2439 guis/GUI07_ML_Connect_Annotator.py:3039
+#: guis/GUI04_Tracking_fiber.py:2440 guis/GUI07_ML_Connect_Annotator.py:3040
 msgid "左上"
 msgstr "左上"
 
-#: guis/GUI04_Tracking_fiber.py:2440 guis/GUI07_ML_Connect_Annotator.py:3040
+#: guis/GUI04_Tracking_fiber.py:2441 guis/GUI07_ML_Connect_Annotator.py:3041
 msgid "右下"
 msgstr "右下"
 
-#: guis/GUI04_Tracking_fiber.py:2441 guis/GUI07_ML_Connect_Annotator.py:3041
+#: guis/GUI04_Tracking_fiber.py:2442 guis/GUI07_ML_Connect_Annotator.py:3042
 msgid "左下"
 msgstr "左下"
 
-#: guis/GUI04_Tracking_fiber.py:2442 guis/GUI07_ML_Connect_Annotator.py:3042
+#: guis/GUI04_Tracking_fiber.py:2443 guis/GUI07_ML_Connect_Annotator.py:3043
 msgid "上中央"
 msgstr "上方居中"
 
-#: guis/GUI04_Tracking_fiber.py:2443 guis/GUI07_ML_Connect_Annotator.py:3043
+#: guis/GUI04_Tracking_fiber.py:2444 guis/GUI07_ML_Connect_Annotator.py:3044
 msgid "下中央"
 msgstr "下方居中"
 
-#: guis/GUI04_Tracking_fiber.py:2444 guis/GUI07_ML_Connect_Annotator.py:3044
+#: guis/GUI04_Tracking_fiber.py:2445 guis/GUI07_ML_Connect_Annotator.py:3045
 msgid "左中央"
 msgstr "左侧居中"
 
-#: guis/GUI04_Tracking_fiber.py:2445 guis/GUI07_ML_Connect_Annotator.py:3045
+#: guis/GUI04_Tracking_fiber.py:2446 guis/GUI07_ML_Connect_Annotator.py:3046
 msgid "右中央"
 msgstr "右侧居中"
 
-#: guis/GUI04_Tracking_fiber.py:2446 guis/GUI07_ML_Connect_Annotator.py:3046
+#: guis/GUI04_Tracking_fiber.py:2447 guis/GUI07_ML_Connect_Annotator.py:3047
 msgid "中央"
 msgstr "居中"
 
-#: guis/GUI04_Tracking_fiber.py:2447 guis/GUI07_ML_Connect_Annotator.py:3047
+#: guis/GUI04_Tracking_fiber.py:2448 guis/GUI07_ML_Connect_Annotator.py:3048
 msgid "軸外(右)"
 msgstr "轴外（右）"
 
-#: guis/GUI04_Tracking_fiber.py:2551 guis/GUI07_ML_Connect_Annotator.py:3151
+#: guis/GUI04_Tracking_fiber.py:2552 guis/GUI07_ML_Connect_Annotator.py:3152
 #, python-brace-format
 msgid "個別表示 – {name}"
 msgstr "单独显示 - {name}"
 
-#: guis/GUI04_Tracking_fiber.py:2553 guis/GUI07_ML_Connect_Annotator.py:3153
+#: guis/GUI04_Tracking_fiber.py:2554 guis/GUI07_ML_Connect_Annotator.py:3154
 #, python-brace-format
 msgid "個別表示 – {name} / fiber #{idx}"
 msgstr "单独显示 - {name} / fiber #{idx}"
 
-#: guis/GUI04_Tracking_fiber.py:2620 guis/GUI04_Tracking_fiber.py:2718
-#: guis/GUI07_ML_Connect_Annotator.py:3220
-#: guis/GUI07_ML_Connect_Annotator.py:3318
+#: guis/GUI04_Tracking_fiber.py:2621 guis/GUI04_Tracking_fiber.py:2727
+#: guis/GUI07_ML_Connect_Annotator.py:3221
+#: guis/GUI07_ML_Connect_Annotator.py:3327
 msgid "フォントサイズ：軸ラベル"
 msgstr "字体大小：坐标轴标签"
 
-#: guis/GUI04_Tracking_fiber.py:2709 guis/GUI07_ML_Connect_Annotator.py:3309
+#: guis/GUI04_Tracking_fiber.py:2718 guis/GUI07_ML_Connect_Annotator.py:3318
 msgid "Y最大"
 msgstr "Y最大值"
 
-#: guis/GUI04_Tracking_fiber.py:2762 guis/GUI07_ML_Connect_Annotator.py:3362
+#: guis/GUI04_Tracking_fiber.py:2771 guis/GUI07_ML_Connect_Annotator.py:3371
 msgid "グリッド表示"
 msgstr "显示网格"
 
-#: guis/GUI04_Tracking_fiber.py:2770 guis/GUI07_ML_Connect_Annotator.py:3370
+#: guis/GUI04_Tracking_fiber.py:2779 guis/GUI07_ML_Connect_Annotator.py:3379
 msgid "凡例位置"
 msgstr "图例位置"
 
-#: guis/GUI04_Tracking_fiber.py:2785 guis/GUI07_ML_Connect_Annotator.py:3385
+#: guis/GUI04_Tracking_fiber.py:2794 guis/GUI07_ML_Connect_Annotator.py:3394
 msgid "表示："
 msgstr "显示："
 
-#: guis/GUI04_Tracking_fiber.py:2787 guis/GUI07_ML_Connect_Annotator.py:3387
+#: guis/GUI04_Tracking_fiber.py:2796 guis/GUI07_ML_Connect_Annotator.py:3396
 msgid "キンク"
 msgstr "扭结"
 
-#: guis/GUI04_Tracking_fiber.py:2792 guis/GUI07_ML_Connect_Annotator.py:3392
+#: guis/GUI04_Tracking_fiber.py:2801 guis/GUI07_ML_Connect_Annotator.py:3401
 msgid "中央値/最大値"
 msgstr "中位数/最大值"
 
-#: guis/GUI04_Tracking_fiber.py:2836 guis/GUI07_ML_Connect_Annotator.py:3436
+#: guis/GUI04_Tracking_fiber.py:2849 guis/GUI07_ML_Connect_Annotator.py:3449
 msgid "拡大像の設定値が不正です。"
 msgstr "放大图设置值无效。"
 
-#: guis/GUI04_Tracking_fiber.py:2869 guis/GUI07_ML_Connect_Annotator.py:3469
+#: guis/GUI04_Tracking_fiber.py:2882 guis/GUI07_ML_Connect_Annotator.py:3482
 msgid "プロファイルの設定値が不正です。"
 msgstr "剖面设置值无效。"
 
-#: guis/GUI04_Tracking_fiber.py:2898 guis/GUI07_ML_Connect_Annotator.py:3498
+#: guis/GUI04_Tracking_fiber.py:2911 guis/GUI07_ML_Connect_Annotator.py:3511
 msgid "y軸最大値には正の数値を入力してください。"
 msgstr "请为 y 轴最大值输入正数。"
 
-#: guis/GUI04_Tracking_fiber.py:3216 guis/GUI07_ML_Connect_Annotator.py:3816
+#: guis/GUI04_Tracking_fiber.py:3229 guis/GUI07_ML_Connect_Annotator.py:3829
 msgid "ファイバー連結の設定"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:3226 guis/GUI07_ML_Connect_Annotator.py:3826
+#: guis/GUI04_Tracking_fiber.py:3239 guis/GUI07_ML_Connect_Annotator.py:3839
 msgid "連結距離"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:3227 guis/GUI07_ML_Connect_Annotator.py:3827
+#: guis/GUI04_Tracking_fiber.py:3240 guis/GUI07_ML_Connect_Annotator.py:3840
 msgid "端点どうしがこの距離以内なら連結候補にする。"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:3228 guis/GUI07_ML_Connect_Annotator.py:3828
+#: guis/GUI04_Tracking_fiber.py:3241 guis/GUI07_ML_Connect_Annotator.py:3841
 #, fuzzy
 msgid "直線性の角度しきい値"
 msgstr "的阈值"
 
-#: guis/GUI04_Tracking_fiber.py:3229 guis/GUI07_ML_Connect_Annotator.py:3829
+#: guis/GUI04_Tracking_fiber.py:3242 guis/GUI07_ML_Connect_Annotator.py:3842
 msgid "両端点の角度がこの値を超える（＝ほぼ直線）ときのみ連結する。"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:3230 guis/GUI07_ML_Connect_Annotator.py:3830
+#: guis/GUI04_Tracking_fiber.py:3243 guis/GUI07_ML_Connect_Annotator.py:3843
 msgid "方向推定の振り返り点数"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:3231 guis/GUI07_ML_Connect_Annotator.py:3831
+#: guis/GUI04_Tracking_fiber.py:3244 guis/GUI07_ML_Connect_Annotator.py:3844
 msgid "端点での向きを推定するのに使うトラック点数。"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:3232 guis/GUI07_ML_Connect_Annotator.py:3832
+#: guis/GUI04_Tracking_fiber.py:3245 guis/GUI07_ML_Connect_Annotator.py:3845
 msgid "橋渡し高さの平均点数"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:3233 guis/GUI07_ML_Connect_Annotator.py:3833
+#: guis/GUI04_Tracking_fiber.py:3246 guis/GUI07_ML_Connect_Annotator.py:3846
 msgid "連結部の高さを決めるために平均する端点サンプル数。"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:3234 guis/GUI07_ML_Connect_Annotator.py:3834
+#: guis/GUI04_Tracking_fiber.py:3247 guis/GUI07_ML_Connect_Annotator.py:3847
 msgid "高さ差の許容比"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:3235 guis/GUI07_ML_Connect_Annotator.py:3835
+#: guis/GUI04_Tracking_fiber.py:3248 guis/GUI07_ML_Connect_Annotator.py:3848
 msgid "高さ中央値の相対差がこの値以下の断片のみ連結する。大きいほど緩い。"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:3236 guis/GUI07_ML_Connect_Annotator.py:3836
+#: guis/GUI04_Tracking_fiber.py:3249 guis/GUI07_ML_Connect_Annotator.py:3849
 msgid "交差ノイズのトリミング点数"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:3237 guis/GUI07_ML_Connect_Annotator.py:3837
+#: guis/GUI04_Tracking_fiber.py:3250 guis/GUI07_ML_Connect_Annotator.py:3850
 msgid "連結前に接合部付近から切り落とす骨格点数。"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:3255 guis/GUI07_ML_Connect_Annotator.py:3855
+#: guis/GUI04_Tracking_fiber.py:3268 guis/GUI07_ML_Connect_Annotator.py:3868
 msgid "適用"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:3256 guis/GUI07_ML_Connect_Annotator.py:3856
+#: guis/GUI04_Tracking_fiber.py:3269 guis/GUI07_ML_Connect_Annotator.py:3869
 #, fuzzy
 msgid "既定値に戻す"
 msgstr "恢复初始值"
 
-#: guis/GUI04_Tracking_fiber.py:3257 guis/GUI07_ML_Connect_Annotator.py:3857
+#: guis/GUI04_Tracking_fiber.py:3270 guis/GUI07_ML_Connect_Annotator.py:3870
 msgid "閉じる"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:3286 guis/GUI07_ML_Connect_Annotator.py:3886
+#: guis/GUI04_Tracking_fiber.py:3299 guis/GUI07_ML_Connect_Annotator.py:3899
 #, fuzzy
 msgid "正の数値を入力してください。"
 msgstr "必须输入正数。"
 
-#: guis/GUI04_Tracking_fiber.py:3288 guis/GUI07_ML_Connect_Annotator.py:3888
+#: guis/GUI04_Tracking_fiber.py:3301 guis/GUI07_ML_Connect_Annotator.py:3901
 msgid "0 より大きく 180 以下の角度を入力してください。"
 msgstr ""
 
-#: guis/GUI04_Tracking_fiber.py:3290 guis/GUI07_ML_Connect_Annotator.py:3890
+#: guis/GUI04_Tracking_fiber.py:3303 guis/GUI07_ML_Connect_Annotator.py:3903
 #, fuzzy
 msgid "2 以上の整数を入力してください。"
 msgstr "必须输入正数"
 
-#: guis/GUI04_Tracking_fiber.py:3292 guis/GUI07_ML_Connect_Annotator.py:3892
+#: guis/GUI04_Tracking_fiber.py:3305 guis/GUI07_ML_Connect_Annotator.py:3905
 #, fuzzy
 msgid "1 以上の整数を入力してください。"
 msgstr "必须输入正数"
 
-#: guis/GUI04_Tracking_fiber.py:3294 guis/GUI07_ML_Connect_Annotator.py:3894
+#: guis/GUI04_Tracking_fiber.py:3307 guis/GUI07_ML_Connect_Annotator.py:3907
 #, fuzzy
 msgid "0 以上の整数を入力してください。"
 msgstr "必须输入正数"
 
-#: guis/GUI04_Tracking_fiber.py:3308 guis/GUI05_ML_Model_Trainer.py:776
-#: guis/GUI06_ML_Model_Compare.py:598 guis/GUI06_ML_Model_Compare.py:692
-#: guis/GUI07_ML_Connect_Annotator.py:3908
+#: guis/GUI04_Tracking_fiber.py:3321 guis/GUI05_ML_Model_Trainer.py:776
+#: guis/GUI06_ML_Model_Compare.py:629 guis/GUI06_ML_Model_Compare.py:726
+#: guis/GUI07_ML_Connect_Annotator.py:3921
 msgid "入力エラー"
 msgstr "输入无效"
 
@@ -2038,15 +2038,15 @@ msgstr "输入无效"
 msgid "データセット（.b2z バンドル）"
 msgstr "数据集（.b2z 数据包）"
 
-#: guis/GUI05_ML_Model_Trainer.py:239 guis/GUI06_ML_Model_Compare.py:259
+#: guis/GUI05_ML_Model_Trainer.py:239 guis/GUI06_ML_Model_Compare.py:273
 msgid "フォルダ追加..."
 msgstr "添加文件夹..."
 
-#: guis/GUI05_ML_Model_Trainer.py:242 guis/GUI06_ML_Model_Compare.py:262
+#: guis/GUI05_ML_Model_Trainer.py:242 guis/GUI06_ML_Model_Compare.py:276
 msgid "ファイル追加..."
 msgstr "添加文件..."
 
-#: guis/GUI05_ML_Model_Trainer.py:248 guis/GUI06_ML_Model_Compare.py:268
+#: guis/GUI05_ML_Model_Trainer.py:248 guis/GUI06_ML_Model_Compare.py:282
 msgid "クリア"
 msgstr "清除"
 
@@ -2102,8 +2102,8 @@ msgid ""
 "{intermediate} はモデルが置き換える成分フィルタ前のマスク、{binarized} は保存済みの最終マスクです。{painted} "
 "は ML Mask Annotator で描いた手修正を適用したマスクで、バンドルごとに sidecar が必要です。"
 msgstr ""
-"{intermediate} 是模型替换的成分过滤前掩膜；{binarized} 是保存的最终掩膜。{painted} "
-"是在其上应用了 ML Mask Annotator 手工修正的掩膜，每个数据包都需要相应的 sidecar 文件。"
+"{intermediate} 是模型替换的成分过滤前掩膜；{binarized} 是保存的最终掩膜。{painted} 是在其上应用了 ML "
+"Mask Annotator 手工修正的掩膜，每个数据包都需要相应的 sidecar 文件。"
 
 #: guis/GUI05_ML_Model_Trainer.py:405
 #, python-brace-format
@@ -2112,17 +2112,15 @@ msgid ""
 "が作る勾配リッジ由来の繊維候補マスクです（バンドル保存パラメータで再実行して復元します）。{painted} は ML Mask "
 "Annotator で描いた手修正を適用したマスクで、バンドルごとに sidecar が必要です。"
 msgstr ""
-"{distilled} 是 BGCalibrator 在填充背景之前构建的、基于梯度脊的纤维候选掩膜"
-"（用数据包保存的参数重新运行校正器复原）。{painted} 是在其上应用了 ML Mask Annotator "
-"手工修正的掩膜，每个数据包都需要相应的 sidecar 文件。"
+"{distilled} 是 BGCalibrator "
+"在填充背景之前构建的、基于梯度脊的纤维候选掩膜（用数据包保存的参数重新运行校正器复原）。{painted} 是在其上应用了 ML Mask "
+"Annotator 手工修正的掩膜，每个数据包都需要相应的 sidecar 文件。"
 
 #: guis/GUI05_ML_Model_Trainer.py:413
 msgid "このタスクのラベルは選べません。ターゲットは整列済みの生画像から保存済み calibrated 画像を引いた背景の高さ（nm）に定まります。"
-msgstr ""
-"此任务无法选择标签。目标是固定的：从对齐后的原始图像中减去保存的 calibrated "
-"图像所得的背景高度（nm）。"
+msgstr "此任务无法选择标签。目标是固定的：从对齐后的原始图像中减去保存的 calibrated 图像所得的背景高度（nm）。"
 
-#: guis/GUI05_ML_Model_Trainer.py:434 guis/GUI06_ML_Model_Compare.py:194
+#: guis/GUI05_ML_Model_Trainer.py:434
 msgid "モデル"
 msgstr "模型"
 
@@ -2138,7 +2136,7 @@ msgstr "树数／迭代次数"
 msgid "交差検証の分割数"
 msgstr "交叉验证折数"
 
-#: guis/GUI05_ML_Model_Trainer.py:464 guis/GUI06_ML_Model_Compare.py:238
+#: guis/GUI05_ML_Model_Trainer.py:464 guis/GUI06_ML_Model_Compare.py:252
 msgid "ファイバーしきい値"
 msgstr "纤维阈值"
 
@@ -2154,7 +2152,7 @@ msgstr "导出模型..."
 msgid "結果"
 msgstr "结果"
 
-#: guis/GUI05_ML_Model_Trainer.py:503 guis/GUI06_ML_Model_Compare.py:326
+#: guis/GUI05_ML_Model_Trainer.py:503 guis/GUI06_ML_Model_Compare.py:340
 msgid "指標"
 msgstr "指标"
 
@@ -2166,7 +2164,7 @@ msgstr "标准差"
 msgid "特徴重要度の上位"
 msgstr "特征重要度排名"
 
-#: guis/GUI05_ML_Model_Trainer.py:523 guis/GUI06_ML_Model_Compare.py:336
+#: guis/GUI05_ML_Model_Trainer.py:523 guis/GUI06_ML_Model_Compare.py:350
 #: guis/GUI08_ML_Mask_Annotator.py:462
 msgid "ログ"
 msgstr "日志"
@@ -2179,15 +2177,15 @@ msgstr "保存日志..."
 msgid ".b2z バンドルのフォルダを追加して Train を押します。Export は前処理パイプライン用のモデルを保存します。"
 msgstr "添加 .b2z 数据包文件夹后点击 Train。Export 会保存用于预处理流程的模型。"
 
-#: guis/GUI05_ML_Model_Trainer.py:551 guis/GUI06_ML_Model_Compare.py:459
+#: guis/GUI05_ML_Model_Trainer.py:551 guis/GUI06_ML_Model_Compare.py:490
 msgid ".b2z バンドルを含むフォルダを選択"
 msgstr "选择包含 .b2z 数据包的文件夹"
 
-#: guis/GUI05_ML_Model_Trainer.py:562 guis/GUI06_ML_Model_Compare.py:472
+#: guis/GUI05_ML_Model_Trainer.py:562 guis/GUI06_ML_Model_Compare.py:503
 msgid ".b2z バンドルファイルを選択"
 msgstr "选择 .b2z 数据包文件"
 
-#: guis/GUI05_ML_Model_Trainer.py:590 guis/GUI06_ML_Model_Compare.py:492
+#: guis/GUI05_ML_Model_Trainer.py:590 guis/GUI06_ML_Model_Compare.py:523
 msgid "選択したバンドルはすべて既に一覧にあります。"
 msgstr "所选数据包均已在列表中。"
 
@@ -2244,13 +2242,13 @@ msgstr "树数／迭代次数必须为正整数。"
 msgid "交差検証の分割数は 2 以上にしてください。"
 msgstr "交叉验证折数至少为 2。"
 
-#: guis/GUI05_ML_Model_Trainer.py:774 guis/GUI06_ML_Model_Compare.py:563
+#: guis/GUI05_ML_Model_Trainer.py:774 guis/GUI06_ML_Model_Compare.py:594
 msgid "ファイバーしきい値は 0〜1 の範囲で指定してください。"
 msgstr "纤维阈值必须在 0 到 1 之间。"
 
 #: guis/GUI05_ML_Model_Trainer.py:808 guis/GUI05_ML_Model_Trainer.py:950
-#: guis/GUI06_ML_Model_Compare.py:368 guis/GUI06_ML_Model_Compare.py:670
-#: guis/GUI06_ML_Model_Compare.py:715
+#: guis/GUI06_ML_Model_Compare.py:382 guis/GUI06_ML_Model_Compare.py:704
+#: guis/GUI06_ML_Model_Compare.py:750
 #, python-brace-format
 msgid ""
 "機械学習ライブラリがインストールされていません。\n"
@@ -2330,23 +2328,19 @@ msgstr "已跳过交叉验证（至少需要 2 个图像组）。"
 msgid "（この分類器では利用できません）"
 msgstr "（该分类器不提供）"
 
-#: guis/GUI06_ML_Model_Compare.py:197
+#: guis/GUI06_ML_Model_Compare.py:205
 msgid "モデルを読み込み..."
 msgstr "加载模型..."
 
-#: guis/GUI06_ML_Model_Compare.py:200
+#: guis/GUI06_ML_Model_Compare.py:212
 msgid "モデル未読み込み。"
 msgstr "未加载模型。"
 
-#: guis/GUI06_ML_Model_Compare.py:209 guis/GUI08_ML_Mask_Annotator.py:446
-msgid "比較"
-msgstr "比较"
-
-#: guis/GUI06_ML_Model_Compare.py:215
+#: guis/GUI06_ML_Model_Compare.py:229
 msgid "古典参照"
 msgstr "经典参考"
 
-#: guis/GUI06_ML_Model_Compare.py:230
+#: guis/GUI06_ML_Model_Compare.py:244
 msgid ""
 "右ペインの Classical に表示する古典マスクを選びます。選んだ段にモデル出力もそろえて比較します。\n"
 "Binarized image in .b2z bundle: GUI01 が .b2z "
@@ -2359,181 +2353,181 @@ msgstr ""
 "的最终掩膜（阈值二值化，再去除小、矮、弯曲的斑块）。对模型输出施加同样的去除处理，比较集成后的端到端结果。\n"
 "Segmenter intermediate (pre-filter)：去除处理之前、仅做阈值二值化的掩膜。模型输出也按原样比较，用于评估模型本身。"
 
-#: guis/GUI06_ML_Model_Compare.py:245
+#: guis/GUI06_ML_Model_Compare.py:259
 msgid "（空欄でモデル既定値）"
 msgstr "（留空为模型默认值）"
 
-#: guis/GUI06_ML_Model_Compare.py:253
+#: guis/GUI06_ML_Model_Compare.py:267
 msgid "画像（.b2z バンドル）"
 msgstr "图像（.b2z 数据包）"
 
-#: guis/GUI06_ML_Model_Compare.py:293
+#: guis/GUI06_ML_Model_Compare.py:307
 msgid "全比較"
 msgstr "比较全部"
 
-#: guis/GUI06_ML_Model_Compare.py:296 guis/GUI08_ML_Mask_Annotator.py:428
+#: guis/GUI06_ML_Model_Compare.py:310 guis/GUI08_ML_Mask_Annotator.py:428
 msgid "図を保存..."
 msgstr "保存图像..."
 
-#: guis/GUI06_ML_Model_Compare.py:350
+#: guis/GUI06_ML_Model_Compare.py:364
 msgid "モデルを読み込み .b2z バンドルを追加し、画像を選択して比較するか Compare all を使います。"
 msgstr "加载模型并添加 .b2z 数据包，然后选择图像进行比较或使用 Compare all。"
 
-#: guis/GUI06_ML_Model_Compare.py:381
+#: guis/GUI06_ML_Model_Compare.py:395
 msgid "モデルを選択"
 msgstr "选择模型"
 
-#: guis/GUI06_ML_Model_Compare.py:398 guis/GUI06_ML_Model_Compare.py:405
+#: guis/GUI06_ML_Model_Compare.py:412 guis/GUI06_ML_Model_Compare.py:419
 msgid "読み込みに失敗しました"
 msgstr "加载失败"
 
-#: guis/GUI06_ML_Model_Compare.py:419
+#: guis/GUI06_ML_Model_Compare.py:433
 msgid "モデルが不適切"
 msgstr "模型不匹配"
 
-#: guis/GUI06_ML_Model_Compare.py:425
+#: guis/GUI06_ML_Model_Compare.py:439
 #, python-brace-format
 msgid "モデルを読み込みました: {p}"
 msgstr "已加载模型：{p}"
 
-#: guis/GUI06_ML_Model_Compare.py:448
+#: guis/GUI06_ML_Model_Compare.py:479
 #, python-brace-format
 msgid ""
 "id: {id}\n"
 "task: {task}  しきい値: {thr}{dice}"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:604
+#: guis/GUI06_ML_Model_Compare.py:635
 #, python-brace-format
 msgid "{name} を比較中..."
 msgstr "正在比较 {name}..."
 
-#: guis/GUI06_ML_Model_Compare.py:698
+#: guis/GUI06_ML_Model_Compare.py:732
 #, python-brace-format
 msgid "全 {n} バンドルを比較中..."
 msgstr "正在比较全部 {n} 个数据包..."
 
-#: guis/GUI06_ML_Model_Compare.py:726
+#: guis/GUI06_ML_Model_Compare.py:761
 #, fuzzy, python-brace-format
 msgid "[{i}/{n}] {name}: {s}"
 msgstr "[{i}/{n}] {name}：已跳过（{err}）"
 
-#: guis/GUI06_ML_Model_Compare.py:729
+#: guis/GUI06_ML_Model_Compare.py:764
 #, python-brace-format
 msgid "[{i}/{n}] {name}: スキップ（{err}）"
 msgstr "[{i}/{n}] {name}：已跳过（{err}）"
 
-#: guis/GUI06_ML_Model_Compare.py:733
+#: guis/GUI06_ML_Model_Compare.py:768
 msgid "比較できるバンドルがありませんでした。"
 msgstr "没有可比较的数据包。"
 
-#: guis/GUI06_ML_Model_Compare.py:826
+#: guis/GUI06_ML_Model_Compare.py:882
 #, python-brace-format
 msgid "選択中: {name}"
 msgstr "已选择：{name}"
 
-#: guis/GUI06_ML_Model_Compare.py:847
+#: guis/GUI06_ML_Model_Compare.py:913
 #, python-brace-format
 msgid "{n} 画像の集計:"
 msgstr "{n} 张图像的汇总："
 
-#: guis/GUI06_ML_Model_Compare.py:859
+#: guis/GUI06_ML_Model_Compare.py:920
 msgid "dice 下位 3 件:"
 msgstr "dice 最差的 3 项："
 
-#: guis/GUI06_ML_Model_Compare.py:874
+#: guis/GUI06_ML_Model_Compare.py:935
 msgid "mae 上位 3 件:"
 msgstr "mae 最差的 3 项："
 
-#: guis/GUI06_ML_Model_Compare.py:880
+#: guis/GUI06_ML_Model_Compare.py:941
 #, python-brace-format
 msgid "全比較完了: {n} 画像。"
 msgstr "全部比较完成：{n} 张图像。"
 
-#: guis/GUI07_ML_Connect_Annotator.py:850
+#: guis/GUI07_ML_Connect_Annotator.py:851
 msgid "ファイバー連結（手動）"
 msgstr "纤维连接（手动）"
 
-#: guis/GUI07_ML_Connect_Annotator.py:855
+#: guis/GUI07_ML_Connect_Annotator.py:856
 msgid ""
 "一覧か全体像でファイバーを選び、「始点に設定」を押し、別のファイバーを選んで「連結」で 2 "
 "本を結びます。自動連結の誤りは、連結を選んで「つながらない」で正します。"
 msgstr "在列表或全体图中选择纤维，按「设为起点」，再选择另一根纤维按「连结」将两者相连。自动连接的错误可选中该连接并按「不相连」来修正。"
 
-#: guis/GUI07_ML_Connect_Annotator.py:863
+#: guis/GUI07_ML_Connect_Annotator.py:864
 msgid "始点に設定"
 msgstr "设为起点"
 
-#: guis/GUI07_ML_Connect_Annotator.py:865
-#: guis/GUI07_ML_Connect_Annotator.py:1068
+#: guis/GUI07_ML_Connect_Annotator.py:866
+#: guis/GUI07_ML_Connect_Annotator.py:1069
 msgid "始点: —"
 msgstr "起点: —"
 
-#: guis/GUI07_ML_Connect_Annotator.py:868
+#: guis/GUI07_ML_Connect_Annotator.py:869
 msgid "連結"
 msgstr "连结"
 
-#: guis/GUI07_ML_Connect_Annotator.py:901
+#: guis/GUI07_ML_Connect_Annotator.py:902
 msgid "つながる"
 msgstr "同一纤维"
 
-#: guis/GUI07_ML_Connect_Annotator.py:905
+#: guis/GUI07_ML_Connect_Annotator.py:906
 msgid "つながらない"
 msgstr "不同纤维"
 
-#: guis/GUI07_ML_Connect_Annotator.py:909
+#: guis/GUI07_ML_Connect_Annotator.py:910
 msgid "保留"
 msgstr "待定"
 
-#: guis/GUI07_ML_Connect_Annotator.py:919
+#: guis/GUI07_ML_Connect_Annotator.py:920
 msgid "ラベルを保存"
 msgstr "保存标签"
 
-#: guis/GUI07_ML_Connect_Annotator.py:975
+#: guis/GUI07_ML_Connect_Annotator.py:976
 #, python-brace-format
 msgid "連結 {n} 件"
 msgstr "{n} 个连接"
 
-#: guis/GUI07_ML_Connect_Annotator.py:1034
+#: guis/GUI07_ML_Connect_Annotator.py:1035
 #, python-brace-format
 msgid "始点: #{i}"
 msgstr "起点: #{i}"
 
-#: guis/GUI07_ML_Connect_Annotator.py:1047
+#: guis/GUI07_ML_Connect_Annotator.py:1048
 msgid "その 2 本はすでに連結されています。"
 msgstr "这两根已经连接了。"
 
-#: guis/GUI07_ML_Connect_Annotator.py:1055
+#: guis/GUI07_ML_Connect_Annotator.py:1056
 msgid "端点が見つからないため連結できません。"
 msgstr "找不到端点，无法连接。"
 
-#: guis/GUI07_ML_Connect_Annotator.py:1069
+#: guis/GUI07_ML_Connect_Annotator.py:1070
 #, python-brace-format
 msgid "ファイバー #{a} と #{b} を連結しました。"
 msgstr "已连接纤维 #{a} 和 #{b}。"
 
-#: guis/GUI07_ML_Connect_Annotator.py:1241
+#: guis/GUI07_ML_Connect_Annotator.py:1242
 msgid "連結がありません"
 msgstr "没有连接"
 
-#: guis/GUI07_ML_Connect_Annotator.py:1242
+#: guis/GUI07_ML_Connect_Annotator.py:1243
 msgid "保存する連結がありません。ファイバーを連結してから保存してください。"
 msgstr "没有可保存的连接。请先连接纤维再保存。"
 
-#: guis/GUI07_ML_Connect_Annotator.py:1271 guis/GUI08_ML_Mask_Annotator.py:1032
+#: guis/GUI07_ML_Connect_Annotator.py:1272 guis/GUI08_ML_Mask_Annotator.py:1032
 msgid "保存に失敗しました"
 msgstr "保存失败"
 
-#: guis/GUI07_ML_Connect_Annotator.py:1274
+#: guis/GUI07_ML_Connect_Annotator.py:1275
 #, python-brace-format
 msgid "ラベルを保存しました: {p}"
 msgstr "已保存标签：{p}"
 
-#: guis/GUI07_ML_Connect_Annotator.py:1276 guis/GUI08_ML_Mask_Annotator.py:1040
+#: guis/GUI07_ML_Connect_Annotator.py:1277 guis/GUI08_ML_Mask_Annotator.py:1040
 msgid "保存しました"
 msgstr "已保存"
 
-#: guis/GUI07_ML_Connect_Annotator.py:1277
+#: guis/GUI07_ML_Connect_Annotator.py:1278
 #, python-brace-format
 msgid ""
 "連結 {n} 件を保存しました。\n"
@@ -2542,7 +2536,7 @@ msgstr ""
 "已保存 {n} 个连接。\n"
 "{p}"
 
-#: guis/GUI07_ML_Connect_Annotator.py:1929
+#: guis/GUI07_ML_Connect_Annotator.py:1930
 #, python-brace-format
 msgid "既存ラベルから連結 {n} 件を復元しました。"
 msgstr "从现有标签恢复了 {n} 个连接。"
@@ -2619,6 +2613,10 @@ msgstr ""
 #: guis/GUI08_ML_Mask_Annotator.py:397
 msgid "画像＋マスク"
 msgstr ""
+
+#: guis/GUI08_ML_Mask_Annotator.py:446
+msgid "比較"
+msgstr "比较"
 
 #: guis/GUI08_ML_Mask_Annotator.py:476
 #, fuzzy
@@ -2733,37 +2731,37 @@ msgstr ""
 msgid "ログを保存しました: {path}"
 msgstr "日志已保存: {path}"
 
-#: lib/ui_tools.py:398
+#: lib/ui_tools.py:554
 msgid "CSV"
 msgstr "CSV"
 
-#: lib/ui_tools.py:398
+#: lib/ui_tools.py:554
 msgid "All files"
 msgstr "所有文件"
 
-#: lib/ui_tools.py:458 lib/ui_tools.py:1313
+#: lib/ui_tools.py:614 lib/ui_tools.py:1533
 msgid "保存エラー"
 msgstr "保存错误"
 
-#: lib/ui_tools.py:464
+#: lib/ui_tools.py:620
 #, python-brace-format
 msgid "CSV 保存完了: {path}"
 msgstr "CSV 保存完成: {path}"
 
-#: lib/ui_tools.py:569
+#: lib/ui_tools.py:725
 msgid "パラメータを変更しました。Enter キーで確定するとグラフに反映されます。"
 msgstr "参数已更改。按 Enter 键确认后会反映到图表中。"
 
-#: lib/ui_tools.py:602
+#: lib/ui_tools.py:758
 msgid "Enter キーで確定します"
 msgstr "按 Enter 键确认"
 
-#: lib/ui_tools.py:824
+#: lib/ui_tools.py:980
 #, python-brace-format
 msgid "vmin/vmax を自動設定: {lo} / {hi}"
 msgstr "自动设置 vmin/vmax: {lo} / {hi}"
 
-#: lib/ui_tools.py:859
+#: lib/ui_tools.py:1015
 #, python-brace-format
 msgid ""
 "{0}: {1}\n"
@@ -2772,11 +2770,11 @@ msgstr ""
 "{0}: {1}\n"
 "{2}"
 
-#: lib/ui_tools.py:1302
+#: lib/ui_tools.py:1522
 msgid "図を保存"
 msgstr "保存图表"
 
-#: lib/ui_tools.py:1314
+#: lib/ui_tools.py:1534
 #, python-brace-format
 msgid ""
 "保存に失敗しました:\n"
@@ -2785,12 +2783,12 @@ msgstr ""
 "图表保存失败:\n"
 "{e}"
 
-#: lib/ui_tools.py:1317
+#: lib/ui_tools.py:1537
 #, python-brace-format
 msgid "保存: {path}"
 msgstr "已保存: {path}"
 
-#: lib/ui_tools.py:1321
+#: lib/ui_tools.py:1541
 msgid "保存完了"
 msgstr "保存完成"
 
@@ -2904,14 +2902,14 @@ msgstr ""
 msgid ""
 "Apply a trained preprocessing model to .b2z bundles and compare it "
 "against the classical result. A binarization or background-mask model is "
-"scored mask-to-mask with Dice / IoU / agreement; a background-surface "
-"model is scored in nanometers against the surface the pipeline "
-"subtracted. Use this to check whether an ML model is worth integrating "
-"before adding it to the preprocessing pipeline. The ML libraries are "
-"optional and loaded only when a model is applied."
+"scored mask-to-mask with Dice and the fiber fraction of each mask; a "
+"background-surface model is scored in nanometers against the surface the "
+"pipeline subtracted. Use this to check whether an ML model is worth "
+"integrating before adding it to the preprocessing pipeline. The ML "
+"libraries are optional and loaded only when a model is applied."
 msgstr ""
-"将训练好的预处理模型应用于 .b2z 数据包，并与经典结果比较。二值化模型和背景掩膜模型以 Dice / IoU / "
-"一致率进行掩膜比较；背景面模型则以纳米为单位与流程所减去的背景面比较。用于在将 ML "
+"将训练好的预处理模型应用于 .b2z 数据包，并与经典结果比较。二值化模型和背景掩膜模型以 Dice "
+"和各掩膜的纤维占比进行掩膜比较；背景面模型则以纳米为单位与流程所减去的背景面比较。用于在将 ML "
 "模型加入预处理流程之前，判断它是否值得集成。机器学习库为可选项，仅在应用模型时加载。"
 
 #: guis/GUI07_ML_Connect_Annotator.py:49
