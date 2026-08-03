@@ -4,18 +4,51 @@ Apply a machine-learning binarization model and compare it to the classical resu
 機械学習の二値化モデルを適用し、古典的な結果と比較する。
 
 This GUI loads a per-pixel preprocessing model, applies it to ``.b2z`` bundles,
-and shows the model's mask beside the classical reference mask (the same label
-the model was trained against) with agreement metrics. It is the maturity gate
-for the ML binarization model: it is where a trained model is checked against
-the classical pipeline before any decision to integrate it into GUI01. Inputs
-are a model file (extension per task, see `lib.ml_schema.MODEL_EXT_BY_TASK`)
-plus ``.b2z`` bundles; there is no output file (this is a comparison tool).
-本 GUI は画素単位の前処理モデルを読み込み、``.b2z`` バンドルへ適用し、モデルの
-マスクを古典参照マスク（モデルが学習対象とした同じラベル）と並べて一致指標
-とともに表示する。ML 二値化モデルの成熟度ゲートであり、学習済みモデルを GUI01
-へ統合する判断の前に古典パイプラインと照合する場所である。入力はモデルファイル
-（拡張子はタスク別、`lib.ml_schema.MODEL_EXT_BY_TASK` 参照）と ``.b2z`` バンドルで、
-出力ファイルはない（比較ツール）。
+and shows a 2x3 panel grid comparing the model against the classical pipeline,
+with agreement metrics. It is the maturity gate for the ML preprocessing
+models: it is where a trained model is checked against the classical pipeline
+before any decision to integrate it into GUI01. Inputs are a model file
+(extension per task, see `lib.ml_schema.MODEL_EXT_BY_TASK`) plus ``.b2z``
+bundles; there is no output file (this is a comparison tool).
+本 GUI は画素単位の前処理モデルを読み込み、``.b2z`` バンドルへ適用し、モデルと
+古典パイプラインを比較する 2x3 のパネル図を一致指標とともに表示する。ML 前処理
+モデルの成熟度ゲートであり、学習済みモデルを GUI01 へ統合する判断の前に古典
+パイプラインと照合する場所である。入力はモデルファイル（拡張子はタスク別、
+`lib.ml_schema.MODEL_EXT_BY_TASK` 参照）と ``.b2z`` バンドルで、出力ファイルは
+ない（比較ツール）。
+
+Panel layout / パネル構成
+-------------------------
+Every task reads the same way column by column: the left column holds the
+model's input and the difference between the two results, the middle column
+holds each side's raw output, and the right column holds each side's result at
+the stage the pipeline actually delivers. The top row is always the model and
+the bottom row the classical pipeline. What "raw output" and "delivered result"
+mean differs per task, because each task replaces a different decision:
+どのタスクも列ごとに同じ読み方をする。左列はモデルの入力と両結果の差分、中列は
+各側の素の出力、右列はパイプラインが実際に渡す段での各側の結果である。上段が常に
+モデル、下段が古典パイプライン。「素の出力」と「渡される結果」の意味はタスクごとに
+異なる。各タスクが置き換える判断が異なるためである：
+
+===================== ===================== ==============================
+task                  middle column         right column
+===================== ===================== ==============================
+``binarize``          threshold mask        after the Segmenter's component
+                                            filters
+``bg_mask``           fiber-candidate mask  after the background stage's
+                                            small-component removal and
+                                            dilation
+``background_surface`` background surface   raw image minus that surface
+                       (nm)                 (nm)
+===================== ===================== ==============================
+
+The difference panel shows the right column (what integration would actually
+change), while the metrics text reports both stages, so the figure answers
+"what does this change downstream" and the numbers answer "how faithful is the
+model itself".
+差分パネルは右列（統合したとき実際に変わるもの）を表示し、指標テキストは両段を
+報告する。図が「下流で何が変わるか」に、数値が「モデル自体がどれだけ忠実か」に
+答える分担である。
 
 The machine-learning libraries (onnxruntime and the feature stack) are imported
 lazily inside the worker thread, so this plugin starts without them and reports
@@ -34,9 +67,10 @@ PLUGIN_INFO = {
     "name": "ML Model Compare",
     "description": (
         "Apply a trained preprocessing model to .b2z bundles and compare "
-        "it against the classical result. A binarization or background-mask "
-        "model is scored mask-to-mask with Dice and the fiber fraction of "
-        "each mask; a "
+        "it against the classical result, panel by panel, both as the raw "
+        "stage output and as the result the pipeline would deliver. A "
+        "binarization or background-mask model is scored mask-to-mask with "
+        "Dice and the fiber fraction of each mask at both stages; a "
         "background-surface model is scored in nanometers against the surface "
         "the pipeline subtracted. Use this to check whether an ML model is "
         "worth integrating before adding it to the preprocessing pipeline. "
@@ -47,8 +81,10 @@ PLUGIN_INFO = {
 # ===== Standard library =====
 import os
 import queue
+import textwrap
 import threading
 import traceback
+from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 # ===== Numerical / scientific libraries =====
@@ -73,38 +109,83 @@ from lib.ui_tools import (
     save_figure_with_dialog, drain_ui_queue, LogMixin,
 )
 
-# Classical reference choices, mirroring lib.ml_dataset.LABEL_SOURCES. Each
-# reference fixes the pipeline stage the comparison runs at, and `_compare_one`
-# processes the model's mask to match that stage, so the two sides are always
-# compared like-for-like:
-#   - Binarized image in .b2z bundle (default): the final mask GUI01 saved
-#     (thresholding + component filters). The model's mask is run through the
-#     same component filters, so this scores the integrated end-to-end result.
-#   - Segmenter intermediate (pre-filter): the per-pixel threshold mask before
-#     the component filters -- the binarize model's actual training target. The
-#     model's mask is compared raw, so this scores learning fidelity.
-# 古典参照の選択肢。lib.ml_dataset.LABEL_SOURCES と一致。各参照は比較を行う
-# パイプライン段を定め、`_compare_one` がモデルのマスクをその段に合わせて処理する
-# ため、両者を常に同条件で比較できる：
-#   - Binarized image in .b2z bundle（既定）：GUI01 が保存した最終マスク（しきい値
-#     ＋成分フィルタ）。モデルのマスクにも同じ成分フィルタを掛けるので、統合後の
-#     end-to-end 結果を採点する。
-#   - Segmenter intermediate (pre-filter)：成分フィルタ前の画素単位しきい値マスク。
-#     binarize モデルが実際に学習した対象。モデルのマスクは生のまま比較するので、
-#     学習忠実度を採点する。
-REFERENCE_LABELS = {
-    "Binarized image in .b2z bundle": "bundle_binarized",
-    "Segmenter intermediate (pre-filter)": "segmenter_intermediate",
-}
-
 # Subplot titles are fixed English plot text (not localized, per the UI-string
-# policy for scientific/plot labels).
+# policy for scientific/plot labels). Each tuple is in Matplotlib's row-major
+# order for the 2x3 grid, i.e. top-left, top-middle, top-right, bottom-left,
+# bottom-middle, bottom-right; see the module docstring for what the columns
+# mean. Panel lists built below follow the same order.
 # サブプロットのタイトルは固定英語のプロット文字（科学的・プロットラベルの
-# UI 文字列方針によりローカライズしない）。
-_PANEL_TITLES = ("Calibrated", "ML mask", "Classical", "Difference")
-_REGRESSION_PANEL_TITLES = (
-    "Raw height", "ML background (nm)", "Classical background (nm)",
-    "Difference (nm)")
+# UI 文字列方針によりローカライズしない）。各タプルは 2x3 格子に対する Matplotlib
+# の行優先順、すなわち左上・中上・右上・左下・中下・右下の順である。列の意味は
+# モジュール docstring 参照。以下で組み立てるパネル一覧も同じ順に従う。
+_MASK_STAGE_TITLES = (
+    "ML mask (pre-filter)", "ML mask (post-filter)",
+    "Difference (post-filter)",
+    "Classical mask (pre-filter)", "Classical mask (post-filter)",
+)
+_BINARIZE_PANEL_TITLES = ("Calibrated",) + _MASK_STAGE_TITLES
+_BG_MASK_PANEL_TITLES = ("Raw height",) + _MASK_STAGE_TITLES
+_SURFACE_PANEL_TITLES = (
+    "Raw height", "ML background (nm)", "ML corrected (nm)",
+    "Difference (nm)", "Classical background (nm)", "Classical corrected (nm)",
+)
+
+# Colormaps, matching the rest of the project: height maps use the AFM colormap,
+# masks a plain 0/1 grayscale, and differences a diverging map centred on zero
+# so over- and under-detection are distinguishable by colour.
+# カラーマップはプロジェクト全体と同じ方針。高さマップは AFM 用、マスクは 0/1 の
+# 素のグレースケール、差分はゼロ中心の発散マップとし、過検出と過小検出を色で
+# 区別できるようにする。
+_CMAP_HEIGHT = "afmhot"
+_CMAP_MASK = "gray"
+_CMAP_DIFF = "bwr"
+
+# The two stages a mask task is scored at, as (metric-key suffix, display
+# label). Both are fixed English: the suffix is an internal key and the label
+# is reporting text shown beside the fixed metric names.
+# マスクタスクを採点する 2 つの段。(指標キーの接尾辞, 表示ラベル) の組。いずれも
+# 固定英語である。接尾辞は内部キーであり、ラベルは固定の指標名の横に出す報告用の
+# 文字列である。
+_MASK_STAGES = (("pre", "pre-filter"), ("post", "post-filter"))
+
+
+@dataclass
+class _Panel:
+    """
+    One subplot's data and how to draw it.
+    1 つのサブプロットのデータと描画方法。
+
+    Attributes
+    ----------
+    data
+        Image to draw, or ``None`` when this panel could not be computed.
+        描画する画像。計算できなかった場合は ``None``。
+    title
+        Fixed English plot title.
+        固定英語のプロットタイトル。
+    cmap, vmin, vmax
+        Matplotlib colormap and display range.
+        Matplotlib のカラーマップと表示レンジ。
+    note
+        Reason shown in place of the image when `data` is ``None``.
+        `data` が ``None`` のとき画像の代わりに表示する理由。
+
+    Notes
+    -----
+    The worker thread fills these in, so the display range of a panel pair that
+    must share one scale (the two background surfaces, say) is decided once,
+    where both arrays are in hand, rather than rediscovered at draw time.
+    ワーカースレッドがこれらを埋めるため、同一スケールを共有すべきパネル対
+    （例：2 枚の背景面）の表示レンジは、両配列が揃っている場所で 1 度だけ決まる。
+    描画時に再導出することはない。
+    """
+
+    data: Optional[np.ndarray]
+    title: str
+    cmap: str = _CMAP_MASK
+    vmin: float = 0.0
+    vmax: float = 1.0
+    note: str = ""
 
 
 def _threshold_from_manifest(manifest: Dict) -> float:
@@ -141,7 +222,15 @@ class App(tk.Tk, LogMixin):
 
         setup_matplotlib_style(font_size=10)
         self._clam_bg = setup_ttk_theme(self)
-        apply_window_size(self, 1300, 820, min_w=1050, min_h=680)
+        # Wider than the other plugins on purpose: the right pane holds six
+        # panels side by side, and the panels are the tool's actual output --
+        # the metrics text only ranks bundles, the panels are where a person
+        # judges which side was wrong.
+        # 他プラグインより意図的に横長にしている。右ペインに 6 枚のパネルが並び、
+        # そのパネルこそが本ツールの実質的な出力だからである。指標テキストは
+        # バンドルの順位付けに過ぎず、どちらが誤っていたかを人が判断するのは
+        # パネル上である。
+        apply_window_size(self, 1520, 860, min_w=1180, min_h=700)
 
         # Loaded model (lib.ml_model.LoadedModel) and its manifest; None until
         # a model is loaded.
@@ -175,11 +264,15 @@ class App(tk.Tk, LogMixin):
 
         left = ttk.Frame(outer)
         right = ttk.Frame(outer)
-        outer.add(left, weight=2)
+        # Most of any extra width goes to the panels: the controls need a fixed
+        # amount of space, while six panels keep getting more readable with it.
+        # 余った横幅の大半をパネル側へ回す。操作部が必要とする幅は一定だが、6 枚の
+        # パネルは幅が増えるほど読みやすくなり続けるためである。
+        outer.add(left, weight=1)
         outer.add(right, weight=3)
 
         self._build_model_panel(left)
-        self._build_reference_panel(left)
+        self._build_threshold_panel(left)
         self._build_image_panel(left)
         self._build_action_bar(left)
 
@@ -213,10 +306,10 @@ class App(tk.Tk, LogMixin):
         ttk.Label(frame, textvariable=self.model_info_var, justify="left",
                   wraplength=360).pack(anchor="w", padx=6, pady=(0, 4))
 
-    def _build_reference_panel(self, parent: ttk.Frame) -> None:
+    def _build_threshold_panel(self, parent: ttk.Frame) -> None:
         """
-        Build the classical-reference and threshold controls.
-        古典参照としきい値の操作部を構築する。
+        Build the fiber-threshold control.
+        ファイバーしきい値の操作部を構築する。
         """
         # Plain Frame for the same reason as the model panel above.
         # 上のモデルパネルと同じ理由で素の Frame を使う。
@@ -226,38 +319,19 @@ class App(tk.Tk, LogMixin):
         grid = ttk.Frame(frame)
         grid.pack(fill=tk.X, padx=4, pady=4)
 
-        ttk.Label(grid, text=_("古典参照")).grid(
-            row=0, column=0, sticky="w", padx=2, pady=2)
-        self.reference_var = tk.StringVar(value=list(REFERENCE_LABELS)[0])
-        self.reference_combo = ttk.Combobox(
-            grid, textvariable=self.reference_var,
-            values=list(REFERENCE_LABELS), state="readonly", width=30)
-        self.reference_combo.grid(row=0, column=1, sticky="w", padx=2, pady=2)
-        # Re-render the currently selected image when the reference changes so
-        # the right pane always shows the mask against the chosen reference.
-        # 参照を切り替えたら選択中の画像を再描画し、右ペインが常に選択した参照に
-        # 対するマスクを表示するようにする。
-        self.reference_combo.bind(
-            "<<ComboboxSelected>>", self._on_reference_changed)
-        ToolTip(
-            self.reference_combo,
-            _("右ペインの Classical に表示する古典マスクを選びます。"
-              "選んだ段にモデル出力もそろえて比較します。\n"
-              "Binarized image in .b2z bundle: GUI01 が .b2z に保存した最終マスク"
-              "（しきい値二値化＋小さい・低い・曲がった塊の除去）。モデル出力にも"
-              "同じ除去処理を掛けて、統合後の実性能を比べます。\n"
-              "Segmenter intermediate (pre-filter): 除去処理前の二値化だけのマスク。"
-              "モデル出力も生のまま比べ、モデル自体の精度を見ます。"))
-
-        ttk.Label(grid, text=_("ファイバーしきい値")).grid(
-            row=1, column=0, sticky="w", padx=2, pady=2)
+        threshold_label = ttk.Label(grid, text=_("ファイバーしきい値"))
+        threshold_label.grid(row=0, column=0, sticky="w", padx=2, pady=2)
         # Blank means use the model's recorded threshold.
         # 空欄はモデルに記録されたしきい値を使う意味。
         self.threshold_var = tk.StringVar(value="")
         ttk.Entry(grid, textvariable=self.threshold_var, width=10).grid(
-            row=1, column=1, sticky="w", padx=2, pady=2)
+            row=0, column=1, sticky="w", padx=2, pady=2)
         ttk.Label(grid, text=_("（空欄でモデル既定値）")).grid(
-            row=1, column=2, sticky="w", padx=2, pady=2)
+            row=0, column=2, sticky="w", padx=2, pady=2)
+        ToolTip(
+            threshold_label,
+            _("モデルの出力確率を繊維と判定するしきい値です。"
+              "背景面モデルには適用されません。"))
 
     def _build_image_panel(self, parent: ttk.Frame) -> None:
         """
@@ -315,16 +389,21 @@ class App(tk.Tk, LogMixin):
 
     def _build_figure_panel(self, parent: ttk.Frame) -> None:
         """
-        Build the 2x2 comparison figure embedded in the window.
-        ウィンドウに埋め込む 2x2 比較図を構築する。
+        Build the 2x3 comparison figure embedded in the window.
+        ウィンドウに埋め込む 2x3 比較図を構築する。
         """
         frame = ttk.Frame(parent)
         frame.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
-        self.fig = plt.Figure(figsize=(6.4, 6.0), dpi=90)
-        self.axes = self.fig.subplots(2, 2)
-        for ax, title in zip(self.axes.ravel(), _PANEL_TITLES):
-            ax.set_title(title)
+        self.fig = plt.Figure(figsize=(9.0, 6.2), dpi=90)
+        self.axes = self.fig.subplots(2, 3)
+        # No titles until a comparison runs: which panels the grid holds depends
+        # on the loaded model's task, so labelling them now would announce a
+        # layout that a background-surface model does not use.
+        # 比較を実行するまでタイトルは付けない。格子が何のパネルを持つかは読み込んだ
+        # モデルのタスクに依存するため、今ラベルを付けると背景面モデルでは使わない
+        # 構成を予告してしまう。
+        for ax in self.axes.ravel():
             ax.axis("off")
         self.fig.tight_layout()
 
@@ -347,8 +426,12 @@ class App(tk.Tk, LogMixin):
         Build the log text area.
         ログテキスト領域を構築する。
         """
+        # Not expanded: the figure frame above is the only widget that should
+        # absorb spare vertical space, because six panels lose readability fast.
+        # 伸縮させない。縦の余白を吸収してよいのは上の図フレームだけである。6 枚の
+        # パネルは縦が減ると急速に見づらくなるため。
         lf = ttk.LabelFrame(parent, text=_("ログ"))
-        lf.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        lf.pack(fill=tk.X, padx=4, pady=4)
         self.log_text, _sb = create_scrolled_text(lf, height=5, width=40)
         self.log_text.configure(state=tk.DISABLED)
 
@@ -596,21 +679,6 @@ class App(tk.Tk, LogMixin):
 
     # ----- Single-image comparison ----------------------------------------
 
-    def _on_reference_changed(self, _event=None) -> None:
-        """
-        Re-render the current single-image comparison with the new reference.
-        参照を切り替えたとき、現在の単一画像比較を新しい参照で再描画する。
-
-        Delegates to `_on_select_image`, which reads the tree selection and the
-        reference dropdown together, so switching the reference recomputes the
-        right-pane masks and metrics against the newly chosen classical
-        reference. It is a no-op when no model is loaded or no image is selected.
-        `_on_select_image` に委譲する。ツリー選択と参照ドロップダウンを併せて読む
-        ため、参照を切り替えると右ペインのマスクと指標が新しい古典参照で再計算
-        される。モデル未読み込みまたは画像未選択のときは何もしない。
-        """
-        self._on_select_image()
-
     def _on_select_image(self, _event=None) -> None:
         """
         Compare the selected bundle in a worker and draw the result.
@@ -629,55 +697,38 @@ class App(tk.Tk, LogMixin):
             messagebox.showerror(_("入力エラー"), str(exc))
             return
 
-        reference = REFERENCE_LABELS[self.reference_var.get()]
         self.ui_queue = queue.Queue()
         self._set_running(True)
         self._log(_("{name} を比較中...").format(name=os.path.basename(path)))
         threading.Thread(
             target=self._worker_compare_one,
-            args=(path, reference, threshold), daemon=True).start()
+            args=(path, threshold), daemon=True).start()
         self.after(60, self._poll_ui_queue)
 
-    def _compare_one(
-        self, path: str, reference: str, threshold: Optional[float]
-    ) -> Dict:
+    def _compare_one(self, path: str, threshold: Optional[float]) -> Dict:
         """
         Apply the model to one bundle and score it against the classical result.
         1 バンドルへモデルを適用し、古典的な結果と照合して採点する。
 
-        Dispatches on the model's task: a classifier is compared mask-to-mask,
-        while the background-surface regressor is compared in nanometers
-        against the surface the pipeline actually subtracted.
-        モデルのタスクで振り分ける。分類器はマスク同士で比較し、背景面回帰器は
-        パイプラインが実際に差し引いた背景面と nm 単位で比較する。
+        Dispatches on the model's task, because each task's classical
+        counterpart and integrated stage differ; see the module docstring for
+        the resulting panel layout. Panels and metrics are built together so a
+        displayed number can never describe a different computation than the
+        picture beside it.
+        モデルのタスクで振り分ける。タスクごとに古典側の対応物と統合後の段が
+        異なるためである。結果のパネル構成はモジュール docstring 参照。パネルと
+        指標は一緒に組み立てる。表示される数値が、隣の図と別の計算を指すことが
+        起こらないようにするためである。
         """
         from lib import ml_dataset as md
 
         task = self._model.task
-        image, classical = md.load_image_and_label(
-            path, task=task, label_source=reference)
-
         if self._model.is_regression:
-            predicted = self._model.predict_surface(image)
-            metrics = _surface_metrics(predicted, classical)
-            panels = (image, predicted, classical, predicted - classical)
+            panels, metrics = self._compare_surface(md, path)
+        elif task == "bg_mask":
+            panels, metrics = self._compare_bg_mask(md, path, threshold)
         else:
-            predicted = self._model.predict_mask(image, threshold=threshold)
-            # For the post-filter reference, put the model's mask through the
-            # same component filters the pipeline applies, so both sides sit at
-            # the same stage (fair end-to-end) instead of raw-vs-filtered. Only
-            # the binarize task has these filters; other mask tasks (e.g.
-            # bg_mask) are compared as raw predictions.
-            # フィルタ後の参照では、モデルのマスクにもパイプラインと同じ成分
-            # フィルタを掛け、両者を同じ段にそろえる（統合後の end-to-end）。
-            # このフィルタを持つのは binarize タスクのみで、他のマスクタスク
-            # （例：bg_mask）は生の予測のまま比較する。
-            if task == "binarize" and reference == md.LABEL_BUNDLE_BINARIZED:
-                predicted = md.apply_pipeline_component_filters(path, predicted, image)
-            classical = classical.astype(bool)
-            metrics = _mask_metrics(predicted, classical)
-            panels = (image, predicted, classical,
-                      predicted.astype(np.int8) - classical.astype(np.int8))
+            panels, metrics = self._compare_binarize(md, path, threshold)
 
         return {
             "name": os.path.basename(path),
@@ -687,9 +738,121 @@ class App(tk.Tk, LogMixin):
             "metrics": metrics,
         }
 
-    def _worker_compare_one(
-        self, path: str, reference: str, threshold: Optional[float]
-    ) -> None:
+    def _compare_binarize(
+        self, md, path: str, threshold: Optional[float]
+    ) -> tuple:
+        """
+        Build the binarize panels: threshold mask, then component-filtered mask.
+        binarize のパネルを構築する。しきい値マスクと、成分フィルタ後のマスク。
+
+        The stored ``binarized`` mask is the post-filter side and is always
+        available, while the pre-filter side has to be reconstructed by re-running
+        the Segmenter from the bundle's stored parameters -- which also gates the
+        model's post-filter panel, since the model's mask must pass through those
+        same filters. A bundle without parameters therefore keeps the panels it
+        can still show instead of failing the whole comparison.
+        保存済み ``binarized`` マスクがフィルタ後側であり常に得られる。一方フィルタ前側は
+        バンドル保存パラメータから Segmenter を再実行して復元する必要があり、これは
+        モデルのフィルタ後パネルの可否も左右する。モデルのマスクも同じフィルタを通す
+        必要があるためである。したがってパラメータの無いバンドルでは、比較全体を失敗と
+        せず、表示できるパネルだけを残す。
+        """
+        image, classical_post = md.load_image_and_label(
+            path, task="binarize", label_source=md.LABEL_BUNDLE_BINARIZED)
+        classical_post = classical_post.astype(bool)
+        ml_pre = self._model.predict_mask(image, threshold=threshold)
+
+        try:
+            _image, classical_pre = md.load_image_and_label(
+                path, task="binarize",
+                label_source=md.LABEL_SEGMENTER_INTERMEDIATE)
+            classical_pre = classical_pre.astype(bool)
+            ml_post = md.apply_pipeline_component_filters(path, ml_pre, image)
+            note = ""
+        except Exception as exc:  # noqa: BLE001 - degrade to the panels we have.
+            classical_pre = ml_post = None
+            note = _reason_text(exc, path)
+
+        return _mask_panels(
+            image, _BINARIZE_PANEL_TITLES, ml_pre, ml_post,
+            classical_pre, classical_post, note,
+        ), _mask_stage_metrics(ml_pre, classical_pre, ml_post, classical_post)
+
+    def _compare_bg_mask(self, md, path: str, threshold: Optional[float]) -> tuple:
+        """
+        Build the bg_mask panels: candidate mask, then the calibrator's cleanup.
+        bg_mask のパネルを構築する。候補マスクと、補正器の整形処理後。
+
+        The classical side is the gradient-ridge mask recovered by re-running
+        `BGCalibrator`, so the bundle's parameters are already required to get
+        here; the cleanup applied to both sides reads its settings from those
+        same parameters (see `lib.bg_mask_filter`).
+        古典側は `BGCalibrator` を再実行して復元する勾配リッジマスクなので、ここへ
+        到達する時点でバンドルのパラメータは既に必須である。両側へ適用する整形処理も
+        設定を同じパラメータから読む（`lib.bg_mask_filter` 参照）。
+        """
+        from lib.bg_mask_filter import filter_bg_fiber_mask_for_bundle, read_bundle_params
+
+        image, classical_pre = md.load_image_and_label(path, task="bg_mask")
+        classical_pre = classical_pre.astype(bool)
+        ml_pre = self._model.predict_mask(image, threshold=threshold)
+
+        params = read_bundle_params(path)
+        classical_post = filter_bg_fiber_mask_for_bundle(path, classical_pre, params)
+        ml_post = filter_bg_fiber_mask_for_bundle(path, ml_pre, params)
+
+        return _mask_panels(
+            image, _BG_MASK_PANEL_TITLES, ml_pre, ml_post,
+            classical_pre, classical_post, "",
+        ), _mask_stage_metrics(ml_pre, classical_pre, ml_post, classical_post)
+
+    def _compare_surface(self, md, path: str) -> tuple:
+        """
+        Build the background-surface panels: the surfaces and both corrections.
+        背景面のパネルを構築する。背景面 2 枚と、両者の補正後画像。
+
+        The right column subtracts each background from the same raw image, which
+        turns an abstract nanometer difference into the corrected images a person
+        already knows how to read. The classical corrected image is derived by
+        subtraction rather than read back from the bundle so both columns come
+        from one arithmetic, and the metrics stay those of the surfaces (the
+        difference between the corrected images is the same array negated).
+        右列は同じ生画像から各背景を差し引く。これにより抽象的な nm の差が、人が
+        既に読み慣れた補正後画像になる。古典側の補正後画像はバンドルから読み戻さず
+        減算で導く。両列を 1 つの演算から出すためである。指標は背景面のものを保つ
+        （補正後画像同士の差は同じ配列の符号反転である）。
+        """
+        image, classical_bg = md.load_image_and_label(
+            path, task="background_surface")
+        predicted_bg = self._model.predict_surface(image)
+        diff = predicted_bg - classical_bg
+        classical_corrected = image - classical_bg
+        ml_corrected = image - predicted_bg
+
+        raw_vmin, raw_vmax = compute_auto_vrange(image)
+        # Each pair shares one range so the two sides are visually comparable;
+        # the difference gets a symmetric range centred on zero.
+        # 各対は同一レンジを共有して視覚的に比較できるようにし、差分はゼロ中心の
+        # 対称レンジとする。
+        both_bg = np.concatenate([np.ravel(predicted_bg), np.ravel(classical_bg)])
+        bg_vmin, bg_vmax = float(np.min(both_bg)), float(np.max(both_bg))
+        corrected_vmin, corrected_vmax = compute_auto_vrange(classical_corrected)
+        span = float(np.max(np.abs(diff))) or 1.0
+
+        titles = _SURFACE_PANEL_TITLES
+        panels = [
+            _Panel(image, titles[0], _CMAP_HEIGHT, raw_vmin, raw_vmax),
+            _Panel(predicted_bg, titles[1], _CMAP_HEIGHT, bg_vmin, bg_vmax),
+            _Panel(ml_corrected, titles[2], _CMAP_HEIGHT,
+                   corrected_vmin, corrected_vmax),
+            _Panel(diff, titles[3], _CMAP_DIFF, -span, span),
+            _Panel(classical_bg, titles[4], _CMAP_HEIGHT, bg_vmin, bg_vmax),
+            _Panel(classical_corrected, titles[5], _CMAP_HEIGHT,
+                   corrected_vmin, corrected_vmax),
+        ]
+        return panels, _surface_metrics(predicted_bg, classical_bg)
+
+    def _worker_compare_one(self, path: str, threshold: Optional[float]) -> None:
         """
         Compute the model mask, classical mask, and metrics for one bundle.
         1 バンドルのモデルマスク・古典マスク・指標を計算する。
@@ -705,7 +868,7 @@ class App(tk.Tk, LogMixin):
                         .format(err=str(exc))}))
             return
         try:
-            payload = self._compare_one(path, reference, threshold)
+            payload = self._compare_one(path, threshold)
             self.ui_queue.put(("compared_one", payload))
         except Exception as exc:  # noqa: BLE001 - report any comparison failure.
             self.ui_queue.put(("fatal", {
@@ -726,17 +889,16 @@ class App(tk.Tk, LogMixin):
             messagebox.showerror(_("入力エラー"), str(exc))
             return
 
-        reference = REFERENCE_LABELS[self.reference_var.get()]
         self.ui_queue = queue.Queue()
         self._set_running(True)
         self._log(_("全 {n} バンドルを比較中...").format(n=len(self.bundles)))
         threading.Thread(
             target=self._worker_compare_all,
-            args=(list(self.bundles), reference, threshold), daemon=True).start()
+            args=(list(self.bundles), threshold), daemon=True).start()
         self.after(60, self._poll_ui_queue)
 
     def _worker_compare_all(
-        self, paths: List[str], reference: str, threshold: Optional[float]
+        self, paths: List[str], threshold: Optional[float]
     ) -> None:
         """
         Accumulate per-image metrics across all bundles off the main thread.
@@ -755,7 +917,7 @@ class App(tk.Tk, LogMixin):
         for i, path in enumerate(paths, start=1):
             name = os.path.basename(path)
             try:
-                metrics = self._compare_one(path, reference, threshold)["metrics"]
+                metrics = self._compare_one(path, threshold)["metrics"]
                 metrics["name"] = name
                 per_image.append(metrics)
                 self.ui_queue.put(("log", _("[{i}/{n}] {name}: {s}").format(
@@ -780,6 +942,12 @@ class App(tk.Tk, LogMixin):
             self._set_running(False)
             self._draw_comparison(payload)
             self._show_single_metrics(payload["name"], payload["metrics"])
+            # Panels the worker could not compute carry their reason; log it in
+            # full, since the panel itself only has room for a truncated copy.
+            # 計算できなかったパネルは理由を持つ。パネル自体には切り詰めた写ししか
+            # 収まらないため、ここで全文をログに残す。
+            for note in {p.note for p in payload["panels"] if p.data is None and p.note}:
+                self._log(note)
             return False
 
         def _on_compared_all(payload):
@@ -808,45 +976,35 @@ class App(tk.Tk, LogMixin):
 
     def _draw_comparison(self, payload: Dict) -> None:
         """
-        Draw the calibrated image, both masks, and their difference.
-        補正画像・両マスク・その差分を描画する。
+        Draw the six comparison panels prepared by the worker.
+        ワーカーが用意した 6 枚の比較パネルを描画する。
+
+        Every drawing decision (colormap, display range, shared scales) is
+        already fixed in each `_Panel`, so this method stays task-agnostic and
+        adding a task cannot require a change here.
+        描画の判断（カラーマップ・表示レンジ・共有スケール）は各 `_Panel` で既に
+        確定しているため、本メソッドはタスク非依存のままであり、タスクを追加しても
+        ここを変更する必要はない。
         """
-        image, predicted, classical, diff = payload["panels"]
-        regression = payload.get("regression", False)
-        titles = _REGRESSION_PANEL_TITLES if regression else _PANEL_TITLES
-
-        # compute_auto_vrange always returns an int (vmin, vmax), falling back
-        # to DEFAULT_VMIN/DEFAULT_VMAX for empty or all-NaN images.
-        # compute_auto_vrange は常に int の (vmin, vmax) を返し、空または全 NaN の
-        # 画像では DEFAULT_VMIN/DEFAULT_VMAX にフォールバックする。
-        vmin, vmax = compute_auto_vrange(image)
-
-        span, s_min, s_max = 1.0, 0.0, 1.0
-        if regression:
-            # The two surfaces share one range so they are visually comparable,
-            # and the difference gets a symmetric range centred on zero so that
-            # over- and under-estimation are distinguishable by colour.
-            # 2 枚の背景面は視覚的に比較できるよう同一レンジを共有し、差分は
-            # ゼロ中心の対称レンジとして過大推定と過小推定を色で区別できるようにする。
-            both = np.concatenate([np.ravel(predicted), np.ravel(classical)])
-            s_min, s_max = float(np.min(both)), float(np.max(both))
-            span = float(np.max(np.abs(diff))) or 1.0
-
-        for ax, title, data in zip(
-            self.axes.ravel(), titles, (image, predicted, classical, diff)
-        ):
+        for ax, panel in zip(self.axes.ravel(), payload["panels"]):
             ax.clear()
-            ax.set_title(title)
+            ax.set_title(panel.title)
             ax.axis("off")
-            if title in ("Calibrated", "Raw height"):
-                ax.imshow(data, cmap="afmhot", vmin=vmin, vmax=vmax)
-            elif title.startswith("Difference"):
-                limit = span if regression else 1
-                ax.imshow(data, cmap="bwr", vmin=-limit, vmax=limit)
-            elif regression:
-                ax.imshow(data, cmap="afmhot", vmin=s_min, vmax=s_max)
-            else:
-                ax.imshow(data, cmap="gray", vmin=0, vmax=1)
+            if panel.data is None:
+                # Reason text is a fixed English message from lib; wrapped
+                # because an axes has no automatic wrapping and truncated
+                # because the full text is already in the log.
+                # 理由の文言は lib 由来の固定英語メッセージ。軸は自動折り返しを
+                # しないため折り返し、全文は既にログにあるため切り詰める。
+                ax.text(0.5, 0.5,
+                        textwrap.fill(
+                            panel.note or _("このパネルは計算できませんでした。"),
+                            30)[:300],
+                        ha="center", va="center", fontsize=7,
+                        transform=ax.transAxes)
+                continue
+            ax.imshow(panel.data, cmap=panel.cmap,
+                      vmin=panel.vmin, vmax=panel.vmax)
         self.fig.tight_layout()
         self.canvas.draw()
 
@@ -879,18 +1037,33 @@ class App(tk.Tk, LogMixin):
         # 1 画像内では iou は dice の単調変換（dice = 2*iou/(1+iou)）であり、dice が
         # 見逃す失敗を一つも検出しない。agreement は背景画素も数えるため、繊維率が
         # 数 % の AFM 画像では良いマスクでも全背景マスクでも 1.0 近くに張り付く。
+        #
+        # Both stages are listed because they answer different questions: the
+        # pre-filter row is how faithfully the model reproduces the decision it
+        # replaces, the post-filter row is what integrating it would deliver.
+        # The Difference panel shows only the latter, so the former exists here.
+        # 両段を併記するのは、それぞれ別の問いに答えるためである。フィルタ前の行は
+        # モデルが置き換える判断をどれだけ忠実に再現したか、フィルタ後の行は統合した
+        # ときに得られるものである。Difference パネルは後者しか示さないため、前者は
+        # ここに置く。
         lines = [_("選択中: {name}").format(name=name)]
-        if "dice" in metrics:
-            lines.append("  dice={dice:.4f}".format(**metrics))
-            lines.append(
-                "  ml_fiber={ml_fiber:.4f}  classical_fiber={cl_fiber:.4f}".format(
-                    ml_fiber=metrics["ml_fiber_frac"],
-                    cl_fiber=metrics["classical_fiber_frac"]))
-        else:
+        if _is_surface_metrics(metrics):
             lines.append(
                 "  mae={mae_nm:.3f} nm  rmse={rmse_nm:.3f} nm".format(**metrics))
             lines.append(
                 "  bias={bias_nm:+.3f} nm  max_abs={max_abs_nm:.3f} nm".format(**metrics))
+        elif _has_stage_metrics(metrics):
+            for key, label in _MASK_STAGES:
+                if f"dice_{key}" not in metrics:
+                    continue
+                lines.append(
+                    "  {label:<12} dice={dice:.4f}  ml_fiber={ml:.4f}  "
+                    "classical_fiber={cl:.4f}".format(
+                        label=label + ":", dice=metrics[f"dice_{key}"],
+                        ml=metrics[f"ml_fiber_frac_{key}"],
+                        cl=metrics[f"classical_fiber_frac_{key}"]))
+        else:
+            lines.append(_("  採点できた段がありません（ログを参照）。"))
         self._set_metrics_text("\n".join(lines))
 
     def _show_aggregate_metrics(self, per_image: List[Dict]) -> None:
@@ -911,18 +1084,12 @@ class App(tk.Tk, LogMixin):
         """
         self._aggregate = per_image
         lines = [_("{n} 画像の集計:").format(n=len(per_image))]
-        if "dice" in per_image[0]:
-            dice = np.array([m["dice"] for m in per_image], dtype=float)
-            lines += [
-                "  dice  mean={:.4f}  min={:.4f}  max={:.4f}".format(
-                    dice.mean(), dice.min(), dice.max()),
-                "",
-                _("dice 下位 3 件:"),
-            ]
-            worst = sorted(per_image, key=lambda m: m["dice"])[:3]
-            for m in worst:
-                lines.append("  {name}: dice={dice:.4f}".format(**m))
-        else:
+        # Decided over every image, not the first one: a bundle whose stages
+        # could not be reconstructed carries no metric at all and would
+        # otherwise decide the format for the whole run.
+        # 先頭 1 件ではなく全画像で判定する。段を復元できなかったバンドルは指標を
+        # 一切持たず、そうしないと実行全体の書式をそれが決めてしまうためである。
+        if any(_is_surface_metrics(m) for m in per_image):
             mae = np.array([m["mae_nm"] for m in per_image], dtype=float)
             rmse = np.array([m["rmse_nm"] for m in per_image], dtype=float)
             bias = np.array([m["bias_nm"] for m in per_image], dtype=float)
@@ -937,6 +1104,30 @@ class App(tk.Tk, LogMixin):
             worst = sorted(per_image, key=lambda m: -m["mae_nm"])[:3]
             for m in worst:
                 lines.append("  {name}: mae={mae_nm:.3f} nm".format(**m))
+        elif any(_has_stage_metrics(m) for m in per_image):
+            for key, label in _MASK_STAGES:
+                dice = np.array([m[f"dice_{key}"] for m in per_image
+                                 if f"dice_{key}" in m], dtype=float)
+                if dice.size == 0:
+                    continue
+                lines.append(
+                    "  dice {label:<12} mean={:.4f}  min={:.4f}  max={:.4f}".format(
+                        dice.mean(), dice.min(), dice.max(), label=label))
+            # Ranked by the post-filter stage: this list exists to pick which
+            # bundles to open, and what an integrated model would deliver is
+            # what makes a bundle worth opening.
+            # 順位付けはフィルタ後の段で行う。この一覧は開くバンドルを選ぶために
+            # あり、開く価値を決めるのは統合したモデルが実際に出すものだからである。
+            lines += ["", _("dice 下位 3 件:")]
+            worst = sorted(per_image, key=_worst_dice_key)[:3]
+            for m in worst:
+                stages = "  ".join(
+                    "{}={:.4f}".format(label, m[f"dice_{key}"])
+                    for key, label in _MASK_STAGES if f"dice_{key}" in m)
+                lines.append("  {name}: {stages}".format(
+                    name=m["name"], stages=stages))
+        else:
+            lines.append(_("  採点できた段がありません（ログを参照）。"))
         self._set_metrics_text("\n".join(lines))
         self._log(_("全比較完了: {n} 画像。").format(n=len(per_image)))
 
@@ -985,9 +1176,154 @@ def _summarize_metrics(metrics: Dict) -> str:
     Format a one-line summary of whichever metric family a result carries.
     結果が持つ指標系統に応じた 1 行要約を整形する。
     """
-    if "dice" in metrics:
-        return "dice={:.4f}".format(metrics["dice"])
-    return "mae={:.3f} nm".format(metrics.get("mae_nm", float("nan")))
+    if _is_surface_metrics(metrics):
+        return "mae={:.3f} nm".format(metrics["mae_nm"])
+    if _has_stage_metrics(metrics):
+        return "  ".join(
+            "dice {}={:.4f}".format(label, metrics[f"dice_{key}"])
+            for key, label in _MASK_STAGES if f"dice_{key}" in metrics)
+    # Named, not left blank: in the per-image log line this is the only sign
+    # that a bundle was processed but could not be scored at any stage.
+    # 空欄にせず明示する。画像ごとのログ行では、そのバンドルが処理されたものの
+    # どの段でも採点できなかったことを示すのはこの表示だけだからである。
+    return _("採点できた段がありません")
+
+
+def _is_surface_metrics(metrics: Dict) -> bool:
+    """
+    Return whether a metrics dict came from the background-surface task.
+    指標辞書が背景面タスク由来かどうかを返す。
+
+    Notes
+    -----
+    Tested on the surface side, not the mask side: a mask task whose stages
+    could not be reconstructed carries no dice at all, and asking "does it have
+    dice" would then route an unscored mask result into the surface formatting
+    and fail on a missing key.
+    マスク側ではなく背景面側で判定する。段を復元できなかったマスクタスクは dice を
+    一切持たないため、「dice を持つか」で判定すると、採点できなかったマスクの結果が
+    背景面の書式へ流れ、存在しないキーで失敗するからである。
+    """
+    return "mae_nm" in metrics
+
+
+def _reason_text(exc: Exception, path: str) -> str:
+    """
+    Strip the bundle path that a lib error prefixes, leaving the reason itself.
+    lib のエラーが前置するバンドルパスを取り除き、理由本体だけを残す。
+
+    `lib.ml_dataset` prefixes its messages with the bundle path so a batch log
+    stays unambiguous. In a panel a few centimetres wide the path crowds out the
+    explanation, and the bundle is already named in the metrics text above.
+    `lib.ml_dataset` は一括処理のログを曖昧にしないため、メッセージにバンドルパスを
+    前置する。しかし数センチ幅のパネルではパスが説明を押し出してしまい、対象の
+    バンドル名は上の指標テキストに既に出ている。
+    """
+    return str(exc).replace(f"{path}: ", "", 1)
+
+
+def _has_stage_metrics(metrics: Dict) -> bool:
+    """
+    Return whether a mask task was scored at at least one stage.
+    マスクタスクが少なくとも一方の段で採点できたかどうかを返す。
+    """
+    return any(f"dice_{key}" in metrics for key, _label in _MASK_STAGES)
+
+
+def _worst_dice_key(metrics: Dict) -> float:
+    """
+    Return the dice a bundle should be ranked by, preferring the post-filter one.
+    バンドルの順位付けに使う dice を返す。フィルタ後の値を優先する。
+
+    A bundle whose post-filter stage could not be reconstructed still needs a
+    place in the ranking, so its pre-filter dice stands in; ranking it last
+    would hide a disagreement, and dropping it would hide the bundle.
+    フィルタ後の段を復元できなかったバンドルも順位に位置を要するため、フィルタ前の
+    dice で代用する。最下位に置けば不一致が見えなくなり、除外すればバンドル自体が
+    見えなくなる。
+    """
+    if "dice_post" in metrics:
+        return float(metrics["dice_post"])
+    return float(metrics.get("dice_pre", 1.0))
+
+
+def _mask_stage_metrics(
+    ml_pre: np.ndarray,
+    classical_pre: Optional[np.ndarray],
+    ml_post: Optional[np.ndarray],
+    classical_post: Optional[np.ndarray],
+) -> Dict:
+    """
+    Score a mask task at both stages, skipping a stage that is unavailable.
+    マスクタスクを両段で採点する。得られない段は飛ばす。
+
+    Returns
+    -------
+    dict
+        `_mask_metrics` entries suffixed with each stage's key, so a caller can
+        report the stages side by side and tell a missing stage from a zero.
+        各段のキーを接尾辞に付けた `_mask_metrics` の項目。呼び出し側が両段を
+        並べて報告でき、欠落した段と 0 の値を区別できる。
+    """
+    metrics: Dict = {}
+    for key, (ml, classical) in (
+        ("pre", (ml_pre, classical_pre)),
+        ("post", (ml_post, classical_post)),
+    ):
+        if ml is None or classical is None:
+            continue
+        for name, value in _mask_metrics(ml, classical).items():
+            metrics[f"{name}_{key}"] = value
+    return metrics
+
+
+def _mask_panels(
+    image: np.ndarray,
+    titles: tuple,
+    ml_pre: np.ndarray,
+    ml_post: Optional[np.ndarray],
+    classical_pre: Optional[np.ndarray],
+    classical_post: np.ndarray,
+    note: str,
+) -> List[_Panel]:
+    """
+    Lay out the six panels shared by the two mask tasks.
+    2 つのマスクタスクで共通の 6 パネルを配置する。
+
+    Both mask tasks differ only in what produced their masks, not in how the
+    comparison reads, so the layout lives here rather than in each builder.
+    2 つのマスクタスクの違いはマスクの生成元だけで、比較の読み方は同じであるため、
+    配置は各構築関数ではなくここに置く。
+
+    Parameters
+    ----------
+    titles
+        Panel titles in the grid's row-major order.
+        格子の行優先順に並べたパネルタイトル。
+    note
+        Reason attached to panels that could not be computed.
+        計算できなかったパネルに添える理由。
+    """
+    vmin, vmax = compute_auto_vrange(image)
+    # The difference is drawn for the post-filter stage: it is what integrating
+    # the model would actually change downstream (see the module docstring).
+    # 差分はフィルタ後の段について描く。モデルを統合したとき下流で実際に変わるのは
+    # そこだからである（モジュール docstring 参照）。
+    diff = None
+    if ml_post is not None and classical_post is not None:
+        diff = ml_post.astype(np.int8) - classical_post.astype(np.int8)
+
+    def mask_panel(data, title):
+        return _Panel(data, title, _CMAP_MASK, 0, 1, note)
+
+    return [
+        _Panel(image, titles[0], _CMAP_HEIGHT, vmin, vmax),
+        mask_panel(ml_pre, titles[1]),
+        mask_panel(ml_post, titles[2]),
+        _Panel(diff, titles[3], _CMAP_DIFF, -1, 1, note),
+        mask_panel(classical_pre, titles[4]),
+        mask_panel(classical_post, titles[5]),
+    ]
 
 
 def _mask_metrics(ml_mask: np.ndarray, classical: np.ndarray) -> Dict:

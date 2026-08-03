@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-29 17:22+0900\n"
+"POT-Creation-Date: 2026-08-03 12:49+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -152,7 +152,7 @@ msgid "貼り付け"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:807 guis/GUI05_ML_Model_Trainer.py:245
-#: guis/GUI06_ML_Model_Compare.py:279 guis/GUI07_ML_Connect_Annotator.py:914
+#: guis/GUI06_ML_Model_Compare.py:353 guis/GUI07_ML_Connect_Annotator.py:914
 msgid "削除"
 msgstr ""
 
@@ -362,8 +362,8 @@ msgstr ""
 #: guis/GUI04_Tracking_fiber.py:856 guis/GUI04_Tracking_fiber.py:860
 #: guis/GUI04_Tracking_fiber.py:2849 guis/GUI04_Tracking_fiber.py:2852
 #: guis/GUI04_Tracking_fiber.py:2882 guis/GUI04_Tracking_fiber.py:2885
-#: guis/GUI05_ML_Model_Trainer.py:1003 guis/GUI06_ML_Model_Compare.py:381
-#: guis/GUI06_ML_Model_Compare.py:792 guis/GUI07_ML_Connect_Annotator.py:1248
+#: guis/GUI05_ML_Model_Trainer.py:1003 guis/GUI06_ML_Model_Compare.py:464
+#: guis/GUI06_ML_Model_Compare.py:960 guis/GUI07_ML_Connect_Annotator.py:1248
 #: guis/GUI07_ML_Connect_Annotator.py:1388
 #: guis/GUI07_ML_Connect_Annotator.py:1392
 #: guis/GUI07_ML_Connect_Annotator.py:3449
@@ -1071,7 +1071,7 @@ msgid ""
 msgstr ""
 
 #: guis/GUI02_PlotProfiler.py:1457 guis/GUI03_Fiber_Height_Histogram.py:1383
-#: guis/GUI05_ML_Model_Trainer.py:1003 guis/GUI06_ML_Model_Compare.py:792
+#: guis/GUI05_ML_Model_Trainer.py:1003 guis/GUI06_ML_Model_Compare.py:960
 #: guis/GUI08_ML_Mask_Annotator.py:592
 msgid "不明なエラー"
 msgstr ""
@@ -1086,7 +1086,7 @@ msgid "AFMデータ"
 msgstr ""
 
 #: guis/GUI02_PlotProfiler.py:1623 guis/GUI05_ML_Model_Trainer.py:262
-#: guis/GUI06_ML_Model_Compare.py:293
+#: guis/GUI06_ML_Model_Compare.py:367
 msgid "バンドル"
 msgstr ""
 
@@ -1972,7 +1972,7 @@ msgid "0 以上の整数を入力してください。"
 msgstr ""
 
 #: guis/GUI04_Tracking_fiber.py:3321 guis/GUI05_ML_Model_Trainer.py:776
-#: guis/GUI06_ML_Model_Compare.py:629 guis/GUI06_ML_Model_Compare.py:726
+#: guis/GUI06_ML_Model_Compare.py:697 guis/GUI06_ML_Model_Compare.py:889
 #: guis/GUI07_ML_Connect_Annotator.py:3921
 msgid "入力エラー"
 msgstr ""
@@ -1981,15 +1981,15 @@ msgstr ""
 msgid "データセット（.b2z バンドル）"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:239 guis/GUI06_ML_Model_Compare.py:273
+#: guis/GUI05_ML_Model_Trainer.py:239 guis/GUI06_ML_Model_Compare.py:347
 msgid "フォルダ追加..."
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:242 guis/GUI06_ML_Model_Compare.py:276
+#: guis/GUI05_ML_Model_Trainer.py:242 guis/GUI06_ML_Model_Compare.py:350
 msgid "ファイル追加..."
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:248 guis/GUI06_ML_Model_Compare.py:282
+#: guis/GUI05_ML_Model_Trainer.py:248 guis/GUI06_ML_Model_Compare.py:356
 msgid "クリア"
 msgstr ""
 
@@ -2072,7 +2072,7 @@ msgstr ""
 msgid "交差検証の分割数"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:464 guis/GUI06_ML_Model_Compare.py:252
+#: guis/GUI05_ML_Model_Trainer.py:464 guis/GUI06_ML_Model_Compare.py:322
 msgid "ファイバーしきい値"
 msgstr ""
 
@@ -2088,7 +2088,7 @@ msgstr ""
 msgid "結果"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:503 guis/GUI06_ML_Model_Compare.py:340
+#: guis/GUI05_ML_Model_Trainer.py:503 guis/GUI06_ML_Model_Compare.py:419
 msgid "指標"
 msgstr ""
 
@@ -2100,7 +2100,7 @@ msgstr ""
 msgid "特徴重要度の上位"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:523 guis/GUI06_ML_Model_Compare.py:350
+#: guis/GUI05_ML_Model_Trainer.py:523 guis/GUI06_ML_Model_Compare.py:433
 #: guis/GUI08_ML_Mask_Annotator.py:462
 msgid "ログ"
 msgstr ""
@@ -2113,15 +2113,15 @@ msgstr ""
 msgid ".b2z バンドルのフォルダを追加して Train を押します。Export は前処理パイプライン用のモデルを保存します。"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:551 guis/GUI06_ML_Model_Compare.py:490
+#: guis/GUI05_ML_Model_Trainer.py:551 guis/GUI06_ML_Model_Compare.py:573
 msgid ".b2z バンドルを含むフォルダを選択"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:562 guis/GUI06_ML_Model_Compare.py:503
+#: guis/GUI05_ML_Model_Trainer.py:562 guis/GUI06_ML_Model_Compare.py:586
 msgid ".b2z バンドルファイルを選択"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:590 guis/GUI06_ML_Model_Compare.py:523
+#: guis/GUI05_ML_Model_Trainer.py:590 guis/GUI06_ML_Model_Compare.py:606
 msgid "選択したバンドルはすべて既に一覧にあります。"
 msgstr ""
 
@@ -2174,13 +2174,13 @@ msgstr ""
 msgid "交差検証の分割数は 2 以上にしてください。"
 msgstr ""
 
-#: guis/GUI05_ML_Model_Trainer.py:774 guis/GUI06_ML_Model_Compare.py:594
+#: guis/GUI05_ML_Model_Trainer.py:774 guis/GUI06_ML_Model_Compare.py:677
 msgid "ファイバーしきい値は 0〜1 の範囲で指定してください。"
 msgstr ""
 
 #: guis/GUI05_ML_Model_Trainer.py:808 guis/GUI05_ML_Model_Trainer.py:950
-#: guis/GUI06_ML_Model_Compare.py:382 guis/GUI06_ML_Model_Compare.py:704
-#: guis/GUI06_ML_Model_Compare.py:750
+#: guis/GUI06_ML_Model_Compare.py:465 guis/GUI06_ML_Model_Compare.py:867
+#: guis/GUI06_ML_Model_Compare.py:912
 #, python-brace-format
 msgid ""
 "機械学習ライブラリがインストールされていません。\n"
@@ -2260,116 +2260,119 @@ msgstr ""
 msgid "（この分類器では利用できません）"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:205
+#: guis/GUI06_ML_Model_Compare.py:298
 msgid "モデルを読み込み..."
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:212
+#: guis/GUI06_ML_Model_Compare.py:305
 msgid "モデル未読み込み。"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:229
-msgid "古典参照"
-msgstr ""
-
-#: guis/GUI06_ML_Model_Compare.py:244
-msgid ""
-"右ペインの Classical に表示する古典マスクを選びます。選んだ段にモデル出力もそろえて比較します。\n"
-"Binarized image in .b2z bundle: GUI01 が .b2z "
-"に保存した最終マスク（しきい値二値化＋小さい・低い・曲がった塊の除去）。モデル出力にも同じ除去処理を掛けて、統合後の実性能を比べます。\n"
-"Segmenter intermediate (pre-filter): "
-"除去処理前の二値化だけのマスク。モデル出力も生のまま比べ、モデル自体の精度を見ます。"
-msgstr ""
-
-#: guis/GUI06_ML_Model_Compare.py:259
+#: guis/GUI06_ML_Model_Compare.py:329
 msgid "（空欄でモデル既定値）"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:267
+#: guis/GUI06_ML_Model_Compare.py:333
+msgid "モデルの出力確率を繊維と判定するしきい値です。背景面モデルには適用されません。"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:341
 msgid "画像（.b2z バンドル）"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:307
+#: guis/GUI06_ML_Model_Compare.py:381
 msgid "全比較"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:310 guis/GUI08_ML_Mask_Annotator.py:428
+#: guis/GUI06_ML_Model_Compare.py:384 guis/GUI08_ML_Mask_Annotator.py:428
 msgid "図を保存..."
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:364
+#: guis/GUI06_ML_Model_Compare.py:447
 msgid "モデルを読み込み .b2z バンドルを追加し、画像を選択して比較するか Compare all を使います。"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:395
+#: guis/GUI06_ML_Model_Compare.py:478
 msgid "モデルを選択"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:412 guis/GUI06_ML_Model_Compare.py:419
+#: guis/GUI06_ML_Model_Compare.py:495 guis/GUI06_ML_Model_Compare.py:502
 msgid "読み込みに失敗しました"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:433
+#: guis/GUI06_ML_Model_Compare.py:516
 msgid "モデルが不適切"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:439
+#: guis/GUI06_ML_Model_Compare.py:522
 #, python-brace-format
 msgid "モデルを読み込みました: {p}"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:479
+#: guis/GUI06_ML_Model_Compare.py:562
 #, python-brace-format
 msgid ""
 "id: {id}\n"
 "task: {task}  しきい値: {thr}{dice}"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:635
+#: guis/GUI06_ML_Model_Compare.py:702
 #, python-brace-format
 msgid "{name} を比較中..."
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:732
+#: guis/GUI06_ML_Model_Compare.py:894
 #, python-brace-format
 msgid "全 {n} バンドルを比較中..."
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:761
+#: guis/GUI06_ML_Model_Compare.py:923
 #, python-brace-format
 msgid "[{i}/{n}] {name}: {s}"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:764
+#: guis/GUI06_ML_Model_Compare.py:926
 #, python-brace-format
 msgid "[{i}/{n}] {name}: スキップ（{err}）"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:768
+#: guis/GUI06_ML_Model_Compare.py:930
 msgid "比較できるバンドルがありませんでした。"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:882
+#: guis/GUI06_ML_Model_Compare.py:1001
+msgid "このパネルは計算できませんでした。"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:1049
 #, python-brace-format
 msgid "選択中: {name}"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:913
+#: guis/GUI06_ML_Model_Compare.py:1066 guis/GUI06_ML_Model_Compare.py:1130
+msgid "  採点できた段がありません（ログを参照）。"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:1086
 #, python-brace-format
 msgid "{n} 画像の集計:"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:920
-msgid "dice 下位 3 件:"
-msgstr ""
-
-#: guis/GUI06_ML_Model_Compare.py:935
+#: guis/GUI06_ML_Model_Compare.py:1102
 msgid "mae 上位 3 件:"
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:941
+#: guis/GUI06_ML_Model_Compare.py:1121
+msgid "dice 下位 3 件:"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:1132
 #, python-brace-format
 msgid "全比較完了: {n} 画像。"
+msgstr ""
+
+#: guis/GUI06_ML_Model_Compare.py:1189
+msgid "採点できた段がありません"
 msgstr ""
 
 #: guis/GUI07_ML_Connect_Annotator.py:851
@@ -2758,8 +2761,8 @@ msgstr ""
 msgid "Train a machine-learning preprocessing model from .b2z bundles and export it as a model file whose extension encodes the task. Choose the task: binarization, background fiber-candidate mask, or background-surface regression (the last two are the alternative background-correction approaches and need the raw height image, taken from the bundle's optional original key or from the raw input file kept beside the bundle). Select folders of Image Preprocessor bundles, build a pixel dataset, cross-validate a decision-tree model, and save it. For the two mask tasks the label can be the pipeline's own mask or that mask with hand-painted corrections from the ML Mask Annotator applied. The ML libraries are optional and loaded only when training runs."
 msgstr ""
 
-#: guis/GUI06_ML_Model_Compare.py:36
-msgid "Apply a trained preprocessing model to .b2z bundles and compare it against the classical result. A binarization or background-mask model is scored mask-to-mask with Dice and the fiber fraction of each mask; a background-surface model is scored in nanometers against the surface the pipeline subtracted. Use this to check whether an ML model is worth integrating before adding it to the preprocessing pipeline. The ML libraries are optional and loaded only when a model is applied."
+#: guis/GUI06_ML_Model_Compare.py:69
+msgid "Apply a trained preprocessing model to .b2z bundles and compare it against the classical result, panel by panel, both as the raw stage output and as the result the pipeline would deliver. A binarization or background-mask model is scored mask-to-mask with Dice and the fiber fraction of each mask at both stages; a background-surface model is scored in nanometers against the surface the pipeline subtracted. Use this to check whether an ML model is worth integrating before adding it to the preprocessing pipeline. The ML libraries are optional and loaded only when a model is applied."
 msgstr ""
 
 #: guis/GUI07_ML_Connect_Annotator.py:49
