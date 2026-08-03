@@ -187,6 +187,67 @@ def synthetic_fiber_gwy(tmp_path):
 # たびにテストが壊れるが、この方式なら「振る舞い」が変わったときだけ失敗する。
 
 
+# A Tk root sources the Tcl/Tk library files (tk.tcl, ttk/*.tcl) from disk on
+# creation. On the Windows CI runners that read intermittently fails: a worker
+# that built a Tk root seconds earlier suddenly cannot read
+# ttk/spinbox.tcl out of the hosted Python toolcache, and Tk reports it as
+# "Can't find a usable tk.tcl ... tk wasn't installed properly". It is a
+# transient filesystem condition (four xdist workers reading the same Tcl tree
+# while the runner's antivirus scans it), not a broken installation, so the
+# retry below recovers instead of skipping and losing the GUI coverage.
+# Tk ルートは生成時に Tcl/Tk のライブラリファイル (tk.tcl, ttk/*.tcl) をディスク
+# から source する。Windows の CI ランナーではこの読み取りが間欠的に失敗し、
+# 数秒前に Tk ルートを生成できた worker が突然 toolcache 内の ttk/spinbox.tcl を
+# 読めなくなる。インストール破損ではなく一時的なファイルシステム状態
+# （4 つの xdist worker が同一 Tcl ツリーを同時に読む一方でランナーのウイルス
+# 対策がスキャンしている）であるため、スキップして GUI の検証を失うのではなく
+# 再試行で回復させる。
+TK_STARTUP_ATTEMPTS = 3
+TK_STARTUP_RETRY_DELAY = 0.5
+
+_TK_STARTUP_GLITCH_MARKERS = ("usable tk.tcl", "tk wasn't installed properly")
+
+
+def _is_tk_startup_glitch(exc: BaseException) -> bool:
+    """
+    Report whether ``exc`` is the transient Tcl/Tk library-read failure.
+    ``exc`` が Tcl/Tk ライブラリ読み取りの一時的失敗かどうかを返す。
+
+    Matching on the message keeps the retry narrow: a real GUI regression (a
+    misspelled widget option, a missing callback, a changed ``lib.ui_tools``
+    helper) also raises ``TclError``, but with different wording, and must fail
+    on the first attempt rather than being retried into a slower failure.
+    メッセージで判定して再試行の対象を絞る。GUI の実バグ（ウィジェットオプション
+    の綴り誤り、コールバックの欠落、``lib.ui_tools`` ヘルパーの変更）も
+    ``TclError`` を送出するが文言が異なり、再試行で遅く失敗させるのではなく
+    初回で失敗させる必要がある。
+    """
+    message = str(exc).lower()
+    return any(marker in message for marker in _TK_STARTUP_GLITCH_MARKERS)
+
+
+def _build_tk_object(factory):
+    """
+    Call ``factory``, retrying only the transient Tk startup failure.
+    ``factory`` を呼び出し、Tk 起動時の一時的失敗に限って再試行する。
+
+    Any other exception, including the ``TclError`` raised when no display is
+    available, propagates from the first attempt.
+    表示装置が無い場合の ``TclError`` を含め、それ以外の例外は初回の試行で
+    そのまま送出される。
+    """
+    import time
+    import tkinter as tk
+
+    for attempt in range(TK_STARTUP_ATTEMPTS):
+        try:
+            return factory()
+        except tk.TclError as exc:
+            if attempt == TK_STARTUP_ATTEMPTS - 1 or not _is_tk_startup_glitch(exc):
+                raise
+            time.sleep(TK_STARTUP_RETRY_DELAY)
+
+
 def tk_available() -> bool:
     """
     Report whether a Tk root window can be created in this environment.
@@ -200,7 +261,7 @@ def tk_available() -> bool:
     import tkinter as tk
 
     try:
-        root = tk.Tk()
+        root = _build_tk_object(tk.Tk)
     except Exception:
         return False
     root.destroy()
@@ -261,7 +322,7 @@ def tk_app():
     apps = []
 
     def _make(app_cls):
-        app = app_cls()
+        app = _build_tk_object(app_cls)
         apps.append(app)
         app.update_idletasks()
         return app
