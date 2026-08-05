@@ -250,6 +250,20 @@ class App(tk.Tk, LogMixin):
         self._overlay_artist = None
         self._preview_mask_artist = None
 
+        # Blit state for the editing pane. The height image and its black
+        # backdrop never change while a bundle is open, so they are rasterized
+        # once into `_blit_bg` and only the painted layer is redrawn on top.
+        # `_blit_job` coalesces the redraws: motion events arrive faster than a
+        # full-resolution layer can be rendered, so they are collapsed into one
+        # repaint per idle cycle instead of queueing one each.
+        # 編集ペインの blit 用状態。高さ画像とその黒下地はバンドルを開いている間
+        # 変化しないため一度だけ `_blit_bg` へラスタ化し、その上に塗る層だけを
+        # 描き直す。`_blit_job` は再描画をまとめる。モーションイベントは全解像度の
+        # 層を描き切るより速く届くため、1 件ずつ積むのではなくアイドルごとに 1 回の
+        # 描き直しへ集約する。
+        self._blit_bg = None
+        self._blit_job = None
+
         self.ui_queue: queue.Queue = queue.Queue()
         self.is_running = False
 
@@ -431,6 +445,14 @@ class App(tk.Tk, LogMixin):
         self.canvas.mpl_connect("button_press_event", self._on_press)
         self.canvas.mpl_connect("motion_notify_event", self._on_motion)
         self.canvas.mpl_connect("button_release_event", self._on_release)
+        # Re-capture the blit background after every full draw. Taking the copy
+        # only here means a toolbar zoom or pan, a window resize, or a view
+        # switch refreshes it automatically, so a stale copy can never be
+        # restored over a pane whose extent has moved.
+        # フル描画のたびに blit 用背景を取り直す。複製をここだけで取ることで、
+        # ツールバーのズーム・パン、ウインドウのリサイズ、表示切替でも自動的に
+        # 更新され、表示範囲がずれたペインへ古い複製を復元してしまうことがない。
+        self.canvas.mpl_connect("draw_event", self._on_canvas_draw)
         self.canvas.draw()
 
     def _build_preview_panel(self, parent: ttk.Frame) -> None:
@@ -678,6 +700,9 @@ class App(tk.Tk, LogMixin):
         self._mask_artist = None
         self._overlay = None
         self._overlay_artist = None
+        # ax.clear() dropped whatever the cached background was drawn from.
+        # ax.clear() でキャッシュ背景の描画元が失われた。
+        self._blit_bg = None
 
         if self._mask is None:
             self.canvas.draw()
@@ -685,9 +710,13 @@ class App(tk.Tk, LogMixin):
             return
 
         if self.view_var.get() == VIEW_MASK_ONLY:
+            # animated=True keeps the painted layer out of the cached
+            # background so a stroke can be blitted over it (see _blit_view).
+            # animated=True で塗る層をキャッシュ背景から外し、ストロークをその上へ
+            # blit できるようにする（_blit_view 参照）。
             self._mask_artist = self.ax.imshow(
                 self._mask, cmap=MASK_CMAP, vmin=0, vmax=1,
-                interpolation="nearest")
+                interpolation="nearest", animated=True)
         else:
             # Composite the translucent layers over an explicit black layer,
             # not over the figure's white background: `afmhot` renders low
@@ -707,8 +736,12 @@ class App(tk.Tk, LogMixin):
             self.ax.imshow(self._image, cmap=HEIGHT_CMAP, vmin=vmin, vmax=vmax,
                            alpha=OVERLAY_IMAGE_ALPHA, interpolation="nearest")
             self._overlay = self._build_overlay()
+            # Only this layer changes while painting; the backdrop and the
+            # height image above stay in the cached background.
+            # 塗っている間に変化するのはこの層だけで、上の下地と高さ画像は
+            # キャッシュ背景側に残る。
             self._overlay_artist = self.ax.imshow(
-                self._overlay, interpolation="nearest")
+                self._overlay, interpolation="nearest", animated=True)
 
         self.fig.tight_layout()
         self.canvas.draw()
@@ -772,7 +805,85 @@ class App(tk.Tk, LogMixin):
             self._mask_artist.set_data(self._mask)
         if self._overlay_artist is not None:
             self._overlay_artist.set_data(self._overlay)
-        self.canvas.draw_idle()
+        self._schedule_blit()
+
+    # ----- Editing-pane blitting -------------------------------------------
+
+    def _painted_artists(self) -> List[object]:
+        """
+        Return the layers repainted over the cached editing-pane background.
+        キャッシュした編集ペイン背景の上に描き直す層を返す。
+
+        Exactly the layers a stroke changes: the mask in mask-only view, the
+        translucent correction overlay in the composited view.
+        ストロークが変える層そのもの。マスクのみ表示ではマスク、合成表示では
+        半透明の修正オーバーレイである。
+        """
+        return [a for a in (self._mask_artist, self._overlay_artist)
+                if a is not None]
+
+    def _on_canvas_draw(self, _event=None) -> None:
+        """
+        Capture the blit background and repaint the painted layers on it.
+        blit 用背景を取り込み、その上へ塗る層を描き直す。
+
+        Bound to the canvas ``draw_event``. Layers marked ``animated`` are
+        skipped by a full draw, so the copy taken here is the static backdrop
+        alone; drawing them straight afterwards puts them back on screen,
+        because ``FigureCanvasTkAgg.draw`` hands the Agg buffer to Tk only
+        after the event has been dispatched.
+        キャンバスの ``draw_event`` に接続する。``animated`` 指定の層はフル描画で
+        描かれないため、ここで取る複製は静的な下地のみとなる。直後にそれらを
+        描き直せば画面に戻るのは、``FigureCanvasTkAgg.draw`` がイベント配送の
+        後に Agg バッファを Tk へ渡すためである。
+        """
+        try:
+            self._blit_bg = self.canvas.copy_from_bbox(self.fig.bbox)
+            for art in self._painted_artists():
+                self.ax.draw_artist(art)
+        except Exception:
+            # Losing the copy only costs speed; _blit_view falls back to a
+            # full draw whenever it is missing.
+            # 複製を失っても代償は速度のみ。無ければ _blit_view がフル描画へ
+            # フォールバックする。
+            self._blit_bg = None
+
+    def _schedule_blit(self) -> None:
+        """
+        Request one repaint of the painted layers, coalescing bursts.
+        塗る層の描き直しを 1 回だけ要求し、連続要求をまとめる。
+
+        A drag delivers motion events faster than a full-resolution layer can
+        be rendered, so repainting on each one would queue work the pane can
+        never catch up with. Deferring to the idle callback collapses a burst
+        into a single repaint once the event queue has drained.
+        ドラッグでは全解像度の層を描き切るより速くモーションイベントが届くため、
+        1 件ごとに描き直すとペインが決して追いつけない量の処理が積まれる。アイドル
+        コールバックへ遅延させることで、イベントキューが空いた時点の 1 回へ集約する。
+        """
+        if self._blit_job is not None:
+            return
+        self._blit_job = self.after_idle(self._blit_view)
+
+    def _blit_view(self) -> None:
+        """
+        Repaint the painted layers over the cached background.
+        キャッシュ背景の上へ塗る層を描き直す。
+        """
+        self._blit_job = None
+        if self._blit_bg is None:
+            # No usable copy: draw fully and let _on_canvas_draw take a new one.
+            # 使える複製が無いのでフル描画し、_on_canvas_draw に取り直させる。
+            self.canvas.draw()
+            return
+        try:
+            self.canvas.restore_region(self._blit_bg)
+            for art in self._painted_artists():
+                self.ax.draw_artist(art)
+            self.canvas.blit(self.fig.bbox)
+        except Exception:
+            self._blit_bg = None
+            self.canvas.draw()
 
     def _refresh_previews(self) -> None:
         """
@@ -1046,7 +1157,26 @@ class App(tk.Tk, LogMixin):
         Save the current editing view via the shared helper.
         現在の編集ペインの表示を共有ヘルパー経由で保存する。
         """
-        save_figure_with_dialog(self, self.fig, initial_name="mask_annotation")
+        # Clear `animated` for the duration of the save. The painted layers are
+        # blitted on screen and are therefore skipped by a normal figure
+        # render, so saving without this would write out the backdrop alone and
+        # silently drop the correction the reviewer is looking at.
+        # 保存の間だけ `animated` を解除する。塗る層は画面上では blit しており
+        # 通常の Figure 描画では飛ばされるため、解除しないと下地だけが書き出され、
+        # 検分者が見ている修正が黙って落ちる。
+        painted = self._painted_artists()
+        for art in painted:
+            art.set_animated(False)
+        try:
+            save_figure_with_dialog(self, self.fig, initial_name="mask_annotation")
+        finally:
+            for art in painted:
+                art.set_animated(True)
+            # The export rendered those layers into the figure, so a background
+            # copy taken during it would have them baked in. Drop it.
+            # 出力時はそれらを図に描き込んだため、その間に取った背景複製には
+            # 焼き込まれている。破棄する。
+            self._blit_bg = None
 
     # ----- State -----------------------------------------------------------
 
@@ -1116,6 +1246,16 @@ class App(tk.Tk, LogMixin):
         未保存の修正がある状態で閉じる前に確認する。
         """
         if self._confirm_discard():
+            # Cancel a pending repaint so it cannot fire against a destroyed
+            # canvas after the window is gone.
+            # 保留中の描き直しを取り消し、破棄済みキャンバスに対して発火しない
+            # ようにする。
+            if self._blit_job is not None:
+                try:
+                    self.after_cancel(self._blit_job)
+                except Exception:
+                    pass
+                self._blit_job = None
             self.destroy()
 
 
