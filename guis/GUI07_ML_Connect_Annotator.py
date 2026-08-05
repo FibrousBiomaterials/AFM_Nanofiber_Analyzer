@@ -79,6 +79,7 @@ import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
+from matplotlib.collections import PatchCollection
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # ===== Project libraries =====
@@ -272,6 +273,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Cache the AFM overview background; only the highlight patch changes.
         self._highlight_patch: Optional[object] = None
         self._overview_bg_drawn: bool = False
+        # Rasterized copy of that background, used to blit the selection
+        # highlight and the connection lines without re-rendering the fiber
+        # boxes, index labels, and scatter behind them. ``None`` means the copy
+        # is missing or stale, and the next update falls back to a full draw.
+        # 上記背景のラスタ複製。選択ハイライトと連結線を、背後のファイバー枠・
+        # 番号ラベル・散布を描き直さずに blit するために使う。``None`` は複製が
+        # 無い／古いことを表し、次の更新はフル描画へフォールバックする。
+        self._afm_bg_region: Optional[object] = None
 
         # Cache fiber statistics so table rebuilds do not recompute them.
         self._fiber_stats: List[tuple] = []   # [(median, max), ...]
@@ -1175,6 +1184,98 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.btn_save_labels.configure(
             state=tk.NORMAL if (loaded and self._connections) else tk.DISABLED)
 
+    # ----- Overview blitting ----------------------------------------------
+
+    def _overview_animated_artists(self) -> List[object]:
+        """
+        Return the overview artists painted on top of the cached background.
+        キャッシュ背景の上に重ねて描く全体像アーティストを返す。
+
+        These are exactly the artists that change with the selection, so they
+        are the ones marked ``animated`` and blitted. The highlight comes first
+        and the connections after it, matching the draw order of a full render.
+        選択に応じて変化するのはこれらのアーティストだけなので、``animated``
+        指定して blit する対象もこれらである。フル描画時の重ね順に合わせ、
+        ハイライトを先、連結を後に並べる。
+        """
+        artists: List[object] = []
+        if self._highlight_patch is not None:
+            artists.append(self._highlight_patch)
+        artists.extend(self._connection_artists)
+        return artists
+
+    def _on_afm_draw(self, _event=None) -> None:
+        """
+        Capture the blit background and repaint the animated artists.
+        blit 用背景を取り込み、animated なアーティストを描き直す。
+
+        Bound to the canvas ``draw_event``. Artists marked ``animated`` are
+        skipped by a full draw, so the copy taken here holds the background
+        alone; drawing them immediately afterwards puts them back on screen,
+        because ``FigureCanvasTkAgg.draw`` pushes the Agg buffer to Tk only
+        after the event has been dispatched.
+        キャンバスの ``draw_event`` に接続する。``animated`` 指定のアーティストは
+        フル描画で描かれないため、ここで取る複製は背景のみを保持する。直後に
+        それらを描き直せば画面に戻るのは、``FigureCanvasTkAgg.draw`` が
+        イベント配送の後に Agg バッファを Tk へ転送するためである。
+        """
+        try:
+            self._afm_bg_region = self._afm_canvas.copy_from_bbox(self._afm_fig.bbox)
+            for art in self._overview_animated_artists():
+                self._afm_ax.draw_artist(art)
+        except Exception:
+            # A failed capture only costs performance: _blit_overview falls
+            # back to a full draw whenever the copy is missing.
+            # 取り込み失敗の代償は性能のみ。複製が無ければ _blit_overview は
+            # フル描画へフォールバックする。
+            self._afm_bg_region = None
+
+    def _blit_overview(self) -> None:
+        """
+        Repaint the selection highlight and connections without a full draw.
+        フル描画せずに選択ハイライトと連結を描き直す。
+
+        This is what keeps selection responsive on a dense image. A full
+        re-render repaints every fiber box and index label behind the
+        highlight, which dominates the cost once an image holds hundreds of
+        fibers; restoring the cached background instead leaves only the handful
+        of animated artists to draw.
+        密なデータで選択操作の応答性を保つのはこの処理である。フル再描画では
+        ハイライト背後のファイバー枠と番号ラベルをすべて描き直すことになり、
+        数百本規模の画像ではそれが支配的なコストになる。キャッシュ背景を復元
+        すれば、描くのは少数の animated アーティストだけで済む。
+        """
+        if self._afm_bg_region is None:
+            # No usable copy: draw fully and let _on_afm_draw take a new one.
+            # 使える複製が無いのでフル描画し、_on_afm_draw に取り直させる。
+            self._afm_canvas.draw()
+            return
+        try:
+            self._afm_canvas.restore_region(self._afm_bg_region)
+            for art in self._overview_animated_artists():
+                self._afm_ax.draw_artist(art)
+            self._afm_canvas.blit(self._afm_fig.bbox)
+        except Exception:
+            self._afm_bg_region = None
+            self._afm_canvas.draw()
+
+    def _invalidate_overview_blit(self) -> None:
+        """
+        Drop the cached background and the artists a rebuild has removed.
+        再構築で取り除かれた背景キャッシュとアーティストを破棄する。
+
+        Called wherever the overview axes are cleared. ``Axes.clear`` removes
+        the highlight and connection artists along with the background, so the
+        stored references must be dropped too, or blitting would keep drawing
+        artists that are no longer part of the axes.
+        全体像の軸をクリアする箇所から呼ぶ。``Axes.clear`` は背景と一緒に
+        ハイライトと連結のアーティストも取り除くため、保持している参照も破棄
+        しなければ、軸に属さなくなったアーティストを blit で描き続けてしまう。
+        """
+        self._afm_bg_region      = None
+        self._highlight_patch    = None
+        self._connection_artists = []
+
     # ----- Overview connection drawing ------------------------------------
 
     def _refresh_overview(self) -> None:
@@ -1218,14 +1319,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             selected = (index == self._conn_sel_idx)
             xs = [ax_ * x_spp, bx * x_spp]
             ys = [ay * y_spp, by * y_spp]
+            # animated=True keeps these out of the cached background so they
+            # can be blitted on top of it (see _blit_overview).
+            # animated=True でこれらをキャッシュ背景から外し、その上へ blit
+            # できるようにする（_blit_overview 参照）。
             line, = self._afm_ax.plot(
                 xs, ys, "-", linewidth=3.2 if selected else 1.8, color=color,
-                path_effects=halo, zorder=5)
+                path_effects=halo, zorder=5, animated=True)
             dots, = self._afm_ax.plot(
                 xs, ys, linestyle="none", marker="o",
                 markersize=7 if selected else 5, markerfacecolor=color,
                 markeredgecolor=CONNECTION_HALO_COLOR, markeredgewidth=1.2,
-                zorder=6)
+                zorder=6, animated=True)
             self._connection_artists.extend((line, dots))
 
     # ----- Saving connection labels ---------------------------------------
@@ -1295,6 +1400,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._afm_ax.axis("off")
         self._afm_canvas = FigureCanvasTkAgg(self._afm_fig, master=self._afm_frame)
         self._afm_canvas.get_tk_widget().pack(fill="both", expand=True)
+
+        # Re-capture the blit background after every full draw. This is the
+        # only place the copy is taken, so a resize, a DPI change, or a
+        # toolbar-driven redraw refreshes it automatically instead of leaving
+        # a copy whose size no longer matches the canvas.
+        # フル描画のたびに blit 用背景を取り直す。複製を取るのはここだけなので、
+        # リサイズ・DPI 変更・ツールバー由来の再描画でも自動的に更新され、
+        # キャンバスと寸法の合わない古い複製が残らない。
+        self._afm_canvas.mpl_connect("draw_event", self._on_afm_draw)
 
         # Store the overview colorbar so redraws can remove and recreate it.
         # AFM 全体像のカラーバー参照（再描画のたびに remove して作り直す）。
@@ -1674,7 +1788,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._fiber_stats   = []
         self._sel_idx       = None
         self._overview_bg_drawn = False
-        self._highlight_patch   = None
+        self._invalidate_overview_blit()
         # Clear the fiber table.
         for iid in self.fiber_tree.get_children():
             self.fiber_tree.delete(iid)
@@ -2109,6 +2223,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if labeled_fibers is None:
             labeled_fibers = list(enumerate(self.current_fibers))
 
+        boxes = []
         for disp_i, f in labeled_fibers:
             # f.data is OpenCV stats (x, y, width, height, area); here `h` is the
             # width (X extent) and `w` is the height (Y extent).
@@ -2120,12 +2235,29 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             y_p = y * y_spp
             h_p = h * x_spp
             w_p = w * y_spp
-            ax.add_patch(plt.Rectangle(
-                (x_p, y_p), h_p, w_p,
-                linewidth=1.0, linestyle="--", edgecolor="white", facecolor="none", alpha=0.6,
-            ))
+            boxes.append(plt.Rectangle((x_p, y_p), h_p, w_p))
             ax.text(x_p + h_p / 2, y_p + w_p / 2, str(disp_i),
                     color="white", fontsize=7, ha="center", va="center", fontweight="bold")
+        # The boxes all share one style, so they are drawn as a single
+        # collection instead of one patch artist per fiber. The style is given
+        # to the collection rather than to each Rectangle because a
+        # PatchCollection draws with its own properties by default.
+        # capstyle and joinstyle are set explicitly because Collection and
+        # Patch do not default to the same ones; without them the dashes and
+        # corners land on slightly different pixels than the per-patch drawing
+        # this replaces.
+        # 枠はすべて同じスタイルなので、ファイバーごとのパッチではなく 1 つの
+        # コレクションとして描く。スタイルを各 Rectangle ではなくコレクションへ
+        # 与えるのは、PatchCollection が既定で自身のプロパティで描画するためである。
+        # capstyle と joinstyle を明示するのは、Collection と Patch の既定値が
+        # 同じではないためである。指定しないと、破線と角がここで置き換えている
+        # パッチ単位の描画とわずかに異なる画素に落ちる。
+        if boxes:
+            ax.add_collection(PatchCollection(
+                boxes, linewidth=1.0, linestyle="--",
+                edgecolor="white", facecolor="none", alpha=0.6,
+                capstyle="butt", joinstyle="miter",
+            ))
 
         kp_x, kp_y = self.current_image.all_kink_coordinates
         if len(kp_x) > 0:
@@ -2159,7 +2291,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # tight_layout は背景描画時のみ（描画コストが高いため）。
         self._afm_fig.tight_layout(pad=0.5)
 
-        self._highlight_patch    = None
+        # ax.clear() above removed the highlight and connection artists along
+        # with the previous background, so their references go too.
+        # 上の ax.clear() が前の背景と一緒にハイライト・連結アーティストも
+        # 取り除いたので、その参照も破棄する。
+        self._invalidate_overview_blit()
         self._overview_bg_drawn  = True
         # Do not call draw_idle here; callers own the final canvas draw.
         # draw_idle はここでは呼ばない。
@@ -2227,11 +2363,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 抽出された各区間の残存スケルトン画素を散布表示する。track 配列は BBox
         # ローカル座標（xtrack = グローバルx - x）なので、物理表示単位へスケール
         # する前に BBox 原点を加える。
+        # All segments share one color, so they go into a single scatter; one
+        # call per segment would build one collection per segment for the same
+        # picture.
+        # 全区間が同じ色なので 1 回の scatter にまとめる。区間ごとに呼ぶと同じ絵の
+        # ために区間ごとのコレクションを作ることになる。
+        xs, ys = [], []
         for f in filtered:
             x, y, _h, _w, _unused = f.data
+            xs.append((f.xtrack + x) * x_spp)
+            ys.append((f.ytrack + y) * y_spp)
+        if xs:
             ax.scatter(
-                (f.xtrack + x) * x_spp,
-                (f.ytrack + y) * y_spp,
+                np.concatenate(xs),
+                np.concatenate(ys),
                 c="magenta", s=4, edgecolors="none",
             )
 
@@ -2329,16 +2474,33 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             order = np.random.default_rng(0).permutation(n)
             cmap = plt.get_cmap("rainbow")
             denom = max(n - 1, 1)
+            # Gather every fiber's pixels into one scatter rather than issuing
+            # one call per fiber: each call builds its own collection, so the
+            # per-call overhead is paid hundreds of times for what a single
+            # collection with a per-point color array draws identically.
+            # 全ファイバーの画素を 1 回の scatter にまとめる。ファイバーごとに呼ぶと
+            # そのたびに個別のコレクションが作られ、呼び出し単位のコストを数百回
+            # 払うことになる。点ごとの色配列を持つ 1 つのコレクションで同じ絵になる。
+            xs, ys, colors = [], [], []
             for color_idx, f in zip(order, fibers):
                 # f.data is OpenCV stats (x, y, width, height, area); tracks are
                 # bbox-local, so add the bbox origin before scaling.
                 # f.data は OpenCV 統計 (x, y, 幅, 高さ, 面積)。track は BBox
                 # ローカルなので、スケールする前に BBox 原点を加える。
                 x, y, _h, _w, _unused = f.data
+                xs.append((f.xtrack + x) * x_spp)
+                ys.append((f.ytrack + y) * y_spp)
+                # One color row per pixel of this fiber, so concatenating the
+                # per-fiber blocks keeps every point with its own fiber's color.
+                # このファイバーの画素 1 つにつき 1 行の色を持たせ、ファイバーごとの
+                # 塊を連結しても各点が自分のファイバーの色を保つようにする。
+                colors.append(np.tile(cmap(color_idx / denom),
+                                      (len(f.xtrack), 1)))
+            if xs:
                 ax.scatter(
-                    (f.xtrack + x) * x_spp,
-                    (f.ytrack + y) * y_spp,
-                    color=cmap(color_idx / denom),
+                    np.concatenate(xs),
+                    np.concatenate(ys),
+                    c=np.concatenate(colors),
                     s=4, alpha=0.7, edgecolors="none",
                 )
 
@@ -2356,7 +2518,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ax.set_title(self.current_image.name + suffix, fontsize=self.fs_title, pad=3)
         self._afm_fig.tight_layout(pad=0.5)
 
-        self._highlight_patch   = None
+        # ax.clear() above removed the highlight and connection artists along
+        # with the previous background, so their references go too.
+        # 上の ax.clear() が前の背景と一緒にハイライト・連結アーティストも
+        # 取り除いたので、その参照も破棄する。
+        self._invalidate_overview_blit()
         self._overview_bg_drawn = True
         # Do not call draw_idle here; the caller owns the final canvas draw.
         # draw_idle はここでは呼ばない。呼び出し元が最終描画を行う。
@@ -2400,6 +2566,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             patch = plt.Rectangle(
                 (x * x_spp, y * y_spp), h * x_spp, w * y_spp,
                 linewidth=2.0, linestyle="-", edgecolor="yellow", facecolor="none",
+                animated=True,
             )
             self._afm_ax.add_patch(patch)
             self._highlight_patch = patch
@@ -2409,7 +2576,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 手動連結をハイライトの上に描き、選択が変わるたびに両者をまとめて更新する。
         self._draw_connections()
 
-        self._afm_canvas.draw_idle()   # Do not call tight_layout().
+        # Blit rather than redraw: the background behind the highlight is
+        # unchanged here. Do not call tight_layout().
+        # 再描画ではなく blit する。ここではハイライト背後の背景は変化しない。
+        # tight_layout は呼ばない。
+        self._blit_overview()
 
     # =========================================================================
     # Drawing: fiber enlarged image
@@ -2799,13 +2970,33 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         現在の AFM 全体像 Figure を保存ダイアログ経由で出力する。
         """
         name = self.current_image.name if self.current_image else "overview"
-        save_figure_with_dialog(
-            self, self._afm_fig,
-            initial_name=f"{name}_overview.png",
-            initial_dir=self._default_save_dir(),
-            title=_("画像を保存"),
-            log_cb=self._log,
-        )
+        # Clear `animated` for the duration of the save. Those artists are
+        # skipped by a normal figure render because they are blitted on screen,
+        # so exporting without this would silently drop the selection highlight
+        # and the connection lines the user can see.
+        # 保存の間だけ `animated` を解除する。これらは画面上では blit している
+        # ため通常の Figure 描画では飛ばされ、解除しないと利用者に見えている
+        # 選択ハイライトと連結線が出力画像から黙って落ちる。
+        animated = self._overview_animated_artists()
+        for art in animated:
+            art.set_animated(False)
+        try:
+            save_figure_with_dialog(
+                self, self._afm_fig,
+                initial_name=f"{name}_overview.png",
+                initial_dir=self._default_save_dir(),
+                title=_("画像を保存"),
+                log_cb=self._log,
+            )
+        finally:
+            for art in animated:
+                art.set_animated(True)
+            # The export rendered the figure with those artists included, so
+            # any background copy taken during it would have them baked in.
+            # Drop it and let the next update re-capture a clean background.
+            # 出力時はこれらを含めて描画したため、その間に取った背景複製には
+            # それらが焼き込まれている。破棄し、次回更新で背景を取り直す。
+            self._afm_bg_region = None
 
     def _export_csv(self) -> None:
         """
