@@ -676,71 +676,106 @@ class Skeletonizer:
 
         Notes
         -----
-        Tracking stops when it reaches a low branch point, encounters a high
-        branch point, leaves the local branch window, or exhausts the configured
-        branch length.
-        低い分岐点に到達した場合、高い分岐点に接した場合、局所探索窓から外れる場合、
-        または設定された枝長を使い切った場合に追跡を停止する。
+        An arm is pruned when the walk reaches a low branch point, or when it
+        dead-ends without reaching any branch point (an isolated short
+        fragment). It is kept when the walk touches a high branch point or
+        exhausts the configured branch length, because neither confirms a short
+        low branch.
+        腕を刈るのは、探索が低い分岐点に到達した場合と、分岐点に到達しないまま
+        行き止まりになった場合（孤立した短片）である。高い分岐点に接した場合と
+        設定された枝長を使い切った場合は、短い低分岐であることが確認できないため
+        保持する。
+
+        The walk covers the whole image with explicit bounds checks. Tracing
+        inside a local crop instead made the neighborhood read as empty as soon
+        as the walk reached the crop edge, so the dead-end rule deleted up to
+        `branch_length` pixels from the tip of a fiber that merely continued
+        past the crop — regardless of its height, and therefore even for
+        fibers far above `bp_height`.
+        探索は画像全体を明示的な境界判定で辿る。従来の局所切り出し内での探索では、
+        探索が切り出しの端に達した時点で近傍が空と読めてしまい、行き止まり規則が、
+        単に切り出しの外へ続いていただけのファイバー先端を最大 `branch_length`
+        画素削除していた。高さを問わないため `bp_height` を大きく上回るファイバー
+        でも起きる。
         """
         branches_coor_x = []
         branches_coor_y = []
-        image_for_tracking = self._init_skeleton_image.copy()
+        # Read-only: the walk no longer blanks pixels as it advances, so the
+        # working copy the previous implementation needed is gone.
+        # 読み取り専用。探索が進行中に画素を消さなくなったため、従来必要だった
+        # 作業用コピーは不要になった。
+        skeleton = self._init_skeleton_image
+        height, width = skeleton.shape
 
-        height, width = image_for_tracking.shape
-
-        image_low_bps = np.zeros_like(image_for_tracking, dtype=bool)
+        image_low_bps = np.zeros(skeleton.shape, dtype=bool)
         image_low_bps[self._coor_low_bps] = True  # Mark low branch points in the boolean mask.
 
-        image_high_bps = np.zeros_like(image_for_tracking, dtype=bool)
+        image_high_bps = np.zeros(skeleton.shape, dtype=bool)
         image_high_bps[self._coor_high_bps] = True
+
+        def touches(mask: np.ndarray, row: int, col: int) -> bool:
+            """Whether `mask` is set anywhere in the 3x3 neighborhood of (row, col)."""
+            return bool(mask[max(0, row - 1): row + 2, max(0, col - 1): col + 2].any())
+
         # Start tracking from endpoints and stop when a low branch point is reached.
         # ep からトラック開始。low_bp にぶつかったら終了。
+        # `_coor_close_eps` comes from `np.where`, so `x` is a row index and `y`
+        # a column index throughout this method.
+        # `_coor_close_eps` は `np.where` 由来のため、本メソッドを通して `x` は行、
+        # `y` は列のインデックスを表す。
         starts_x, starts_y = self._coor_close_eps
-        for step_num, (start_x, start_y) in enumerate(zip(starts_x, starts_y)):
-            bl = self.branch_length
-            if (start_x < bl or start_x + bl > height or
-                    start_y < bl or start_y + bl > width):
+        bl = self.branch_length
+        for start_x, start_y in zip(starts_x, starts_y):
+            # Leave endpoints near the scan border alone. An arm ending that
+            # close to the edge is a fiber leaving the field of view rather
+            # than a branch tip, so pruning it would cut a real fiber short —
+            # the same reason `prune_short_spurs` keeps its `border_margin`
+            # arms. The margin reproduces the one the previous local-crop
+            # implementation imposed.
+            # スキャン端に近い端点は対象外とする。端の近くで終わる腕は枝の先端では
+            # なく視野外へ抜けるファイバーであり、刈ると実ファイバーを切り詰めて
+            # しまう（`prune_short_spurs` が `border_margin` の腕を残すのと同じ
+            # 理由）。余白は従来の局所切り出し実装が課していたものと同一。
+            if not (bl <= start_x <= height - bl and bl <= start_y <= width - bl):
                 continue
-        
-            tracking_area = image_for_tracking[
-                start_x - bl : start_x + bl,
-                start_y - bl : start_y + bl,
-            ]
-            image_for_low_bp_detection = image_low_bps[
-                start_x - bl : start_x + bl,
-                start_y - bl : start_y + bl,
-            ]
-            image_for_high_bp_detection = image_high_bps[
-                start_x - bl : start_x + bl,
-                start_y - bl : start_y + bl,
-            ]
-        
-            x, y = bl, bl
-            xtrack = [x + start_x - bl]
-            ytrack = [y + start_y - bl]
-        
-            for i in range(bl):
-                tracking_area[x, y] = 0
-                window = tracking_area[x - 1 : x + 2, y - 1 : y + 2]
-        
-                if (window == 0).all():
+            x, y = int(start_x), int(start_y)
+            xtrack = [x]
+            ytrack = [y]
+            # Each walk carries its own visited set. Blanking pixels in one
+            # shared working image, as before, let an earlier endpoint's walk
+            # hide skeleton from a later one, making the pruning result depend
+            # on the order endpoints happened to be processed in.
+            # 各探索は自前の訪問済み集合を持つ。従来のように共有の作業画像を
+            # 消し込むと、先に処理した端点の探索が後続の探索から骨格を隠すため、
+            # 枝刈り結果が端点の処理順に依存していた。
+            visited = {(x, y)}
+
+            for _ in range(bl):
+                # Raster order (row-major) reproduces the candidate preference
+                # of the legacy 3x3 `np.where` lookup.
+                next_pixels = [
+                    (x + dx, y + dy)
+                    for dx in (-1, 0, 1) for dy in (-1, 0, 1)
+                    if (dx, dy) != (0, 0)
+                    and 0 <= x + dx < height and 0 <= y + dy < width
+                    and skeleton[x + dx, y + dy]
+                    and (x + dx, y + dy) not in visited
+                ]
+                if not next_pixels:
                     branches_coor_x += xtrack
                     branches_coor_y += ytrack
                     break
-                elif image_for_low_bp_detection[x - 1 : x + 2, y - 1 : y + 2].any():
+                if touches(image_low_bps, x, y):
                     branches_coor_x += xtrack
                     branches_coor_y += ytrack
                     break
-                elif image_for_high_bp_detection[x - 1 : x + 2, y - 1 : y + 2].any():
+                if touches(image_high_bps, x, y):
                     break
-        
-                direction_rows, direction_cols = np.where(window != 0)
-                if len(direction_rows) == 0:
-                    break
-                x += int(direction_rows[0]) - 1
-                y += int(direction_cols[0]) - 1
-                xtrack.append(x + start_x - bl)
-                ytrack.append(y + start_y - bl)
+
+                x, y = next_pixels[0]
+                visited.add((x, y))
+                xtrack.append(x)
+                ytrack.append(y)
 
         branches_coor_x = np.asarray(branches_coor_x)
         branches_coor_y = np.asarray(branches_coor_y)

@@ -34,6 +34,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   change for fibers that touch the scan border; `calibrated` and `binarized` are
   unaffected. Re-run GUI01 or `cli.py process` to refresh existing `.b2z`
   bundles.
+- Branch pruning no longer deletes the tip of a fiber that merely continues
+  past its local search window. `Skeletonizer.track_branches` traced each
+  candidate arm inside a `2 * branch_length` crop, so once the walk reached the
+  crop edge the neighborhood read as empty, the "dead end" rule fired, and up
+  to `branch_length` pixels were removed from a real fiber — with no height
+  gate, so it applied to fibers far above `bp_height`. The walk now covers the
+  whole image with explicit bounds checks. Each walk also carries its own
+  visited set instead of blanking pixels in one shared working image, so the
+  result no longer depends on the order endpoints happen to be processed in.
+  Across the bundled scans and all four `bg_method` values this only restores
+  pixels (0 to 211 per image) that were previously over-deleted; it removes
+  nothing new.
 
 ## [1.0.0] - 2026-07-08
 
