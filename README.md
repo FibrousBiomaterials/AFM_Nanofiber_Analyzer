@@ -20,163 +20,20 @@ provide the fiber-centric skeleton tracing, kink detection, and grouped
 statistical comparison of nanofiber heights that this workflow targets; AFM Nanofiber Analyzer fills
 that gap with a documented, reproducible pipeline and a stable data format.
 
-## Overview
+## Demo
 
-The application separates GUI plugins from the reusable modules they call:
+![The four GUI plugins: (a) Image Preprocessor, (b) Plot Profiler, (c) Fiber Height Histogram, and (d) Fiber Tracker.](figures/guis.png)
 
-- `Main.py` launches GUI plugins discovered in `guis/`.
-- `guis/` contains the user-facing tkinter tools.
-- `lib/` contains AFM I/O, background calibration, segmentation,
-  skeleton cleanup, kink detection, fiber containers, bundle I/O, translation,
-  and shared UI helpers.
-
-GUI01 writes one compressed `.b2z` bundle per analyzed input file. Downstream
-GUIs read those bundles directly.
-
-## GUI Tools
-
-| File | Launcher name | Purpose |
-|---|---|---|
-| `guis/GUI01_Image_Preprocessor.py` | Image Preprocessor | Load AFM `.txt` exports or native Gwyddion `.gwy` files, run background calibration, segmentation, skeletonization, and kink-related feature extraction, then save a `.b2z` bundle and a parameter JSON file. Each file carries its own physical scan size (auto-filled from the input, or set per file by editing the X/Y cells in the file table — including paste from a spreadsheet — via the batch scale fields, or from a CSV manifest), stored in the bundle for reproducible length measurements. |
-| `guis/GUI02_PlotProfiler.py` | Plot Profiler | Load raw, calibrated, or bundled AFM height data and interactively extract height profiles along selected line segments. The scale defaults to the recorded (`.b2z`), header (text/CSV), or channel-extent (`.gwy`) scan size so profile distances are reproducible. |
-| `guis/GUI03_Fiber_Height_Histogram.py` | Fiber Height Histogram | Compare height distributions from skeletonized fiber pixels across user-defined groups of `.b2z` bundles. |
-| `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | Load `.b2z` bundles, rebuild tracked `Fiber` objects, inspect individual fibers, export plots, and export fiber statistics to CSV. An optional fiber-connection mode (toggle plus a settings window) reconnects skeleton fragments split at crossings and branches into whole fibrils before measurement. The connection and height-filter modes compose in "connect, then filter" order: when both are on, the height filter slices each connected fibril by its own height profile (including bridge heights), so the two are not mutually exclusive. |
-
-## Selected Directory Structure
-
-```text
-AFM_Nanofiber_Analyzer/
-|-- Main.py
-|-- cli.py
-|-- babel.cfg
-|-- build.py
-|-- check.py
-|-- prepare_translate_catalogs.py
-|-- pyproject.toml
-|-- requirements.txt
-|-- requirements.lock.txt
-|-- run_venv.bat
-|-- run_conda.bat
-|-- run_venv.sh
-|-- run_conda.sh
-|-- guis/
-|   |-- GUI01_Image_Preprocessor.py
-|   |-- GUI02_PlotProfiler.py
-|   |-- GUI03_Fiber_Height_Histogram.py
-|   |-- GUI04_Tracking_fiber.py
-|   `-- __init__.py
-|-- lib/
-|   |-- afm_io.py
-|   |-- bg_calibrator.py
-|   |-- bg_calibrator_shimadzu.py
-|   |-- blosc2_io.py
-|   |-- bundle_schema.py
-|   |-- fiber.py
-|   |-- fiber_tracking_image.py
-|   |-- gwy_io.py
-|   |-- imp_tools.py
-|   |-- kink_detector.py
-|   |-- measure.py
-|   |-- pipeline.py
-|   |-- processed_image.py
-|   |-- segmenter.py
-|   |-- skeletonizer.py
-|   |-- translator.py
-|   |-- ui_tools.py
-|   `-- __init__.py
-|-- tests/
-|-- locale/
-|   |-- English/
-|   |   `-- LC_MESSAGES/
-|   |-- Japanese/
-|   |   `-- LC_MESSAGES/
-|   `-- Chinese/
-|       `-- LC_MESSAGES/
-|-- assets/
-|   `-- afm_symbol.png
-|-- README.md
-`-- README.ja.md
-```
-
-Windows `.bat` helper scripts are intentionally kept ASCII-only. Japanese
-comments in UTF-8 batch files can be misread by `cmd.exe` under the system code
-page and executed as garbled commands, so Japanese maintenance notes belong in
-Markdown documentation such as this README's Japanese counterpart, `README.ja.md`.
-
-## Core Modules
-
-| Module | Main contents |
-|---|---|
-| `lib/afm_io.py` | Text/CSV AFM loader with automatic header, column, and encoding detection, explicit format override, and layout-consistency verification. |
-| `lib/bg_calibrator.py` | `BGCalibrator`, with `inpaint`, `tophat`, `spline1d`, and `spline2d` background methods. |
-| `lib/bg_calibrator_shimadzu.py` | Compatibility shim keeping the historical `BG_Calibrator_shimadzu` name importable. |
-| `lib/blosc2_io.py` | Blosc2 array storage and `.b2z` TreeStore bundle helpers. |
-| `lib/bundle_schema.py` | Executable `.b2z` contract: required keys, array shapes, value ranges, units, coordinate convention, and format version, with `validate_bundle` enforcing them at write and load time. |
-| `lib/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |
-| `lib/fiber_connector.py` | `connect_fiber_fragments` and `ConnectParams`: reconnect skeleton fragments split at crossings/branches into whole fibrils, used by GUI04's optional fiber-connection mode. |
-| `lib/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |
-| `lib/gwy_io.py` | Lazy-loading reader for native, multi-channel Gwyddion `.gwy` files, including channel selection, length-channel conversion to nm, and scan-size extraction. |
-| `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
-| `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
-| `lib/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
-| `lib/pipeline.py` | `ProcParams` parameter schema, stage construction, and `process_file`, the GUI-independent pipeline driver shared by GUI01 and `cli.py`; the `.b2z` contract itself lives in `lib/bundle_schema.py`. |
-| `lib/processed_image.py` | `ProcessedImage`, the container passed through the GUI01 preprocessing pipeline. |
-| `lib/segmenter.py` | `Segmenter`, which builds binary nanofiber masks from calibrated AFM images. |
-| `lib/skeletonizer.py` | `Skeletonizer`, which thins segmented masks, prunes branches, and labels skeleton components. |
-| `lib/translator.py` | gettext language selection helpers. |
-| `lib/ui_tools.py` | Shared tkinter, matplotlib, logging, dialog, and export helpers used by the GUI plugins. |
-
-## Requirements
-
-- Python 3.10 or later
-- Windows is the primary target platform
-
-Install the Python dependencies listed in `requirements.txt`:
-
-```text
-blosc2
-gwyfile
-lmfit
-matplotlib>=3.10
-numpy
-opencv-python
-pandas
-Pillow
-scikit-image
-scipy
-tksheet
-```
-
-`check.py` can regenerate `requirements.txt` by scanning imports in the source
-tree. PyInstaller is used only for standalone builds and is installed
-separately when building a distribution.
-
-For an exact, reproducible environment, `requirements.lock.txt` records a
-test-verified snapshot of all package versions:
-
-```powershell
-python -m pip install -r requirements.lock.txt
-```
-
-The lock file header records the Python version and operating system on which
-the snapshot was tested. Use it on a matching environment; on other supported
-Python versions or operating systems, install from `pyproject.toml` or the
-loose `requirements.txt` so pip can select compatible wheels.
-
-`check.py` also provides dependency consistency checking and pinning:
-
-```powershell
-python check.py            # regenerate the loose requirements.txt (as before)
-python check.py --verify   # CI-style check: code imports vs pyproject vs environment
-python check.py --pin      # re-lock requirements.lock.txt after all checks and tests pass
-```
-
-`--verify` exits nonzero when an import is missing from `pyproject.toml`
-dependencies (or vice versa), when a scanned dependency is not installed, or
-when `pip check` reports version conflicts. `--pin` runs those same checks
-plus the pytest suite, and rewrites `requirements.lock.txt` only when
-everything passes, so the lock file always records a version set that the
-tests have actually validated.
+- **(a) Image Preprocessor** runs an AFM height image through background
+  calibration, segmentation, and skeletonization, showing the original,
+  calibrated, binarized, and skeletonized stages with detected kink points
+  overlaid.
+- **(b) Plot Profiler** extracts a height profile along a line placed
+  interactively on the height map.
+- **(c) Fiber Height Histogram** compares skeleton-pixel height distributions
+  between user-defined sample groups and reports per-group statistics.
+- **(d) Fiber Tracker** lists per-fiber length, median and maximum height, and
+  endpoint and kink counts, and locates each fiber in the full scan.
 
 ## Installation and Usage
 
@@ -226,7 +83,7 @@ slips past it, delete the `.venv` folder and run the launcher again to force a
 full rebuild. Developers and reviewers can reproduce
 the same setup without the launcher using the editable-install commands below;
 for an exact, pinned version set, install `requirements.lock.txt` instead (see
-Requirements above).
+Dependencies below).
 
 ### Anaconda or Miniconda
 
@@ -375,6 +232,77 @@ python build.py
 The build script generates a PyInstaller bundle under `dist/Main/` and copies
 the plugin/resource folders needed by the launcher. Distribute the entire
 `dist/Main/` folder, not only `Main.exe`.
+
+## Dependencies
+
+- Python 3.10 or later
+- Windows is the primary target platform
+
+Runtime dependencies are declared in `pyproject.toml`, the single source of
+truth. The `run_venv` / `run_conda` launchers and the editable install resolve
+them automatically, so installing dependencies by hand is not normally
+necessary. `requirements.txt` is a generated convenience copy used by the
+manual setup path and can be refreshed with `check.py`. PyInstaller is used
+only for standalone builds and is installed separately when building a
+distribution.
+
+For an exact, reproducible environment, `requirements.lock.txt` records a
+test-verified snapshot of all package versions:
+
+```powershell
+python -m pip install -r requirements.lock.txt
+```
+
+The lock file header records the Python version and operating system on which
+the snapshot was tested. Use it on a matching environment; on other supported
+Python versions or operating systems, install from `pyproject.toml` or the
+loose `requirements.txt` so pip can select compatible wheels.
+
+`check.py` also checks dependency consistency and re-pins the lock file; see
+the Development Utilities section for its `--verify` and `--pin` modes.
+
+## GUI Tools
+
+### Image Preprocessor — `guis/GUI01_Image_Preprocessor.py`
+
+![Image Preprocessor window: file list with per-file scale, and the original, calibrated, binarized, and skeletonized stages with kink points overlaid.](figures/gui01.png)
+
+Load AFM `.txt` exports or native Gwyddion `.gwy` files, run background
+calibration, segmentation, skeletonization, and kink-related feature
+extraction, then save a `.b2z` bundle and a parameter JSON file. Each file
+carries its own physical scan size (auto-filled from the input, or set per file
+by editing the X/Y cells in the file table — including paste from a spreadsheet
+— via the batch scale fields, or from a CSV manifest), stored in the bundle for
+reproducible length measurements.
+
+### Plot Profiler — `guis/GUI02_PlotProfiler.py`
+
+![Plot Profiler window: a line placed on the AFM height map and the extracted height profile alongside it.](figures/gui02.png)
+
+Load raw, calibrated, or bundled AFM height data and interactively extract
+height profiles along selected line segments. The scale defaults to the
+recorded (`.b2z`), header (text/CSV), or channel-extent (`.gwy`) scan size so
+profile distances are reproducible.
+
+### Fiber Height Histogram — `guis/GUI03_Fiber_Height_Histogram.py`
+
+![Fiber Height Histogram window: two sample groups with their height distributions and a per-group statistics table.](figures/gui03.png)
+
+Compare height distributions from skeletonized fiber pixels across
+user-defined groups of `.b2z` bundles.
+
+### Fiber Tracker — `guis/GUI04_Tracking_fiber.py`
+
+![Fiber Tracker window: per-fiber statistics table beside the full AFM overview with the selected fiber highlighted.](figures/gui04.png)
+
+Load `.b2z` bundles, rebuild tracked `Fiber` objects, inspect individual
+fibers, export plots, and export fiber statistics to CSV. An optional
+fiber-connection mode (toggle plus a settings window) reconnects skeleton
+fragments split at crossings and branches into whole fibrils before
+measurement. The connection and height-filter modes compose in "connect, then
+filter" order: when both are on, the height filter slices each connected fibril
+by its own height profile (including bridge heights), so the two are not
+mutually exclusive.
 
 ## Supported Input Formats
 
@@ -652,6 +580,110 @@ Both formats are accompanied by a `<stem>_meta.json` sidecar holding the
 bundle metadata. NumPy `.npz` archives can be read with standard tooling from
 Python, MATLAB, R, and Julia.
 
+## Architecture
+
+The application separates GUI plugins from the reusable modules they call:
+
+- `Main.py` launches GUI plugins discovered in `guis/`.
+- `guis/` contains the user-facing tkinter tools.
+- `lib/` contains AFM I/O, background calibration, segmentation,
+  skeleton cleanup, kink detection, fiber containers, bundle I/O, translation,
+  and shared UI helpers.
+
+GUI01 writes one compressed `.b2z` bundle per analyzed input file. Downstream
+GUIs read those bundles directly.
+
+## Selected Directory Structure
+
+```text
+AFM_Nanofiber_Analyzer/
+|-- Main.py
+|-- cli.py
+|-- babel.cfg
+|-- build.py
+|-- check.py
+|-- prepare_translate_catalogs.py
+|-- pyproject.toml
+|-- requirements.txt
+|-- requirements.lock.txt
+|-- run_venv.bat
+|-- run_conda.bat
+|-- run_venv.sh
+|-- run_conda.sh
+|-- guis/
+|   |-- GUI01_Image_Preprocessor.py
+|   |-- GUI02_PlotProfiler.py
+|   |-- GUI03_Fiber_Height_Histogram.py
+|   |-- GUI04_Tracking_fiber.py
+|   `-- __init__.py
+|-- lib/
+|   |-- afm_io.py
+|   |-- bg_calibrator.py
+|   |-- bg_calibrator_shimadzu.py
+|   |-- blosc2_io.py
+|   |-- bundle_schema.py
+|   |-- fiber.py
+|   |-- fiber_tracking_image.py
+|   |-- gwy_io.py
+|   |-- imp_tools.py
+|   |-- kink_detector.py
+|   |-- measure.py
+|   |-- pipeline.py
+|   |-- processed_image.py
+|   |-- segmenter.py
+|   |-- skeletonizer.py
+|   |-- translator.py
+|   |-- ui_tools.py
+|   `-- __init__.py
+|-- tests/
+|-- locale/
+|   |-- English/
+|   |   `-- LC_MESSAGES/
+|   |-- Japanese/
+|   |   `-- LC_MESSAGES/
+|   `-- Chinese/
+|       `-- LC_MESSAGES/
+|-- assets/
+|   `-- afm_symbol.png
+|-- figures/
+|   |-- gui01.png
+|   |-- gui02.png
+|   |-- gui03.png
+|   |-- gui04.png
+|   |-- guis.png
+|   `-- pipeline.png
+|-- README.md
+`-- README.ja.md
+```
+
+Windows `.bat` helper scripts are intentionally kept ASCII-only. Japanese
+comments in UTF-8 batch files can be misread by `cmd.exe` under the system code
+page and executed as garbled commands, so Japanese maintenance notes belong in
+Markdown documentation such as this README's Japanese counterpart, `README.ja.md`.
+
+## Core Modules
+
+| Module | Main contents |
+|---|---|
+| `lib/afm_io.py` | Text/CSV AFM loader with automatic header, column, and encoding detection, explicit format override, and layout-consistency verification. |
+| `lib/bg_calibrator.py` | `BGCalibrator`, with `inpaint`, `tophat`, `spline1d`, and `spline2d` background methods. |
+| `lib/bg_calibrator_shimadzu.py` | Compatibility shim keeping the historical `BG_Calibrator_shimadzu` name importable. |
+| `lib/blosc2_io.py` | Blosc2 array storage and `.b2z` TreeStore bundle helpers. |
+| `lib/bundle_schema.py` | Executable `.b2z` contract: required keys, array shapes, value ranges, units, coordinate convention, and format version, with `validate_bundle` enforcing them at write and load time. |
+| `lib/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |
+| `lib/fiber_connector.py` | `connect_fiber_fragments` and `ConnectParams`: reconnect skeleton fragments split at crossings/branches into whole fibrils, used by GUI04's optional fiber-connection mode. |
+| `lib/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |
+| `lib/gwy_io.py` | Lazy-loading reader for native, multi-channel Gwyddion `.gwy` files, including channel selection, length-channel conversion to nm, and scan-size extraction. |
+| `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
+| `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
+| `lib/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
+| `lib/pipeline.py` | `ProcParams` parameter schema, stage construction, and `process_file`, the GUI-independent pipeline driver shared by GUI01 and `cli.py`; the `.b2z` contract itself lives in `lib/bundle_schema.py`. |
+| `lib/processed_image.py` | `ProcessedImage`, the container passed through the GUI01 preprocessing pipeline. |
+| `lib/segmenter.py` | `Segmenter`, which builds binary nanofiber masks from calibrated AFM images. |
+| `lib/skeletonizer.py` | `Skeletonizer`, which thins segmented masks, prunes branches, and labels skeleton components. |
+| `lib/translator.py` | gettext language selection helpers. |
+| `lib/ui_tools.py` | Shared tkinter, matplotlib, logging, dialog, and export helpers used by the GUI plugins. |
+
 ## Adding a GUI Plugin
 
 1. Add a Python file under `guis/`.
@@ -707,6 +739,19 @@ test suite instead of degrading silently in the launcher.
   reports drift between code imports, `pyproject.toml`, and the installed
   environment, and `--pin` regenerates `requirements.lock.txt` after the
   consistency checks and the test suite pass.
+
+  ```powershell
+  python check.py            # regenerate the loose requirements.txt
+  python check.py --verify   # CI-style check: code imports vs pyproject vs environment
+  python check.py --pin      # re-lock requirements.lock.txt after all checks and tests pass
+  ```
+
+  `--verify` exits nonzero when an import is missing from `pyproject.toml`
+  dependencies (or vice versa), when a scanned dependency is not installed, or
+  when `pip check` reports version conflicts. `--pin` runs those same checks
+  plus the pytest suite, and rewrites `requirements.lock.txt` only when
+  everything passes, so the lock file always records a version set that the
+  tests have actually validated.
 - `build.py` verifies imports, collects PyInstaller materials, writes
   `Main.auto.spec`, runs PyInstaller, and copies project resource folders.
 - `prepare_translate_catalogs.py` refreshes gettext catalogs, extracts plugin

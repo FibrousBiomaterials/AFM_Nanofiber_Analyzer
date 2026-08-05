@@ -19,162 +19,19 @@ AFM Nanofiber Analyzer は、原子間力顕微鏡 (AFM) の高さ画像を前�
 追跡、キンク検出、ナノファイバー試料グループ間の高さの統計比較は提供しません。AFM Nanofiber Analyzer は、
 文書化された再現可能なパイプラインと安定したデータ形式でその隙間を埋めます。
 
-## 概要
+## デモ
 
-このアプリケーションは、GUI プラグインと再利用可能な解析モジュールを分離しています。
+![4 つの GUI プラグイン: (a) Image Preprocessor、(b) Plot Profiler、(c) Fiber Height Histogram、(d) Fiber Tracker。](figures/guis.png)
 
-- `Main.py` は `guis/` 内の GUI プラグインを検出して起動します。
-- `guis/` にはユーザーが操作する tkinter ツールが入っています。
-- `lib/` には AFM 入出力、背景補正、二値化、スケルトン処理、キンク検出、
-  ファイバーコンテナ、バンドル入出力、翻訳、共通 UI ヘルパーが入っています。
-
-GUI01 は解析対象の入力ファイルごとに、圧縮された `.b2z` バンドルを 1 つ
-出力します。後段の GUI は、このバンドルを直接読み込みます。
-
-## GUI ツール
-
-| ファイル | ランチャー名 | 用途 |
-|---|---|---|
-| `guis/GUI01_Image_Preprocessor.py` | Image Preprocessor | AFM の `.txt` エクスポートまたは Gwyddion ネイティブ `.gwy` を読み込み、背景補正、二値化、細線化、キンク関連特徴抽出を行い、`.b2z` バンドルとパラメータ JSON を保存します。各ファイルは固有の物理走査範囲を持ち（入力から自動充填、またはファイル表の X/Y セルの直接編集〈表計算ソフトからの貼り付け対応〉、一括スケール入力欄、CSV マニフェストでファイル単位に設定）、長さ計測を再現できるようバンドルへ保存します。 |
-| `guis/GUI02_PlotProfiler.py` | Plot Profiler | 生データ、補正済みデータ、またはバンドル化された AFM 高さデータを読み込み、選択した線分に沿った高さプロファイルを対話的に抽出します。プロファイル距離を再現可能にするため、スケールは記録値（`.b2z`）、ヘッダ（テキスト/CSV）、またはチャンネル範囲（`.gwy`）の走査範囲で既定化します。 |
-| `guis/GUI03_Fiber_Height_Histogram.py` | Fiber Height Histogram | ユーザー定義グループごとに、`.b2z` バンドル群の細線化ファイバー画素から高さ分布を比較します。 |
-| `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | `.b2z` バンドルを読み込み、追跡済み `Fiber` オブジェクトを再構築し、個別ファイバーの確認、図の出力、ファイバー統計量の CSV 出力を行います。任意のファイバー連結モード（トグルと設定ウインドウ）では、交差・分岐で分断された骨格断片を計測前に 1 本のフィブリルへ再結合します。連結モードと高さフィルターは「連結してからフィルター」の順序で合成され、両方を有効にすると高さフィルターは連結済みフィブリルを自身の高さプロファイル（橋渡し部を含む）で切り出すため、両者は排他ではありません。 |
-
-## 主なディレクトリ構成
-
-```text
-AFM_Nanofiber_Analyzer/
-|-- Main.py
-|-- cli.py
-|-- babel.cfg
-|-- build.py
-|-- check.py
-|-- prepare_translate_catalogs.py
-|-- pyproject.toml
-|-- requirements.txt
-|-- requirements.lock.txt
-|-- run_venv.bat
-|-- run_conda.bat
-|-- run_venv.sh
-|-- run_conda.sh
-|-- guis/
-|   |-- GUI01_Image_Preprocessor.py
-|   |-- GUI02_PlotProfiler.py
-|   |-- GUI03_Fiber_Height_Histogram.py
-|   |-- GUI04_Tracking_fiber.py
-|   `-- __init__.py
-|-- lib/
-|   |-- afm_io.py
-|   |-- bg_calibrator.py
-|   |-- bg_calibrator_shimadzu.py
-|   |-- blosc2_io.py
-|   |-- bundle_schema.py
-|   |-- fiber.py
-|   |-- fiber_tracking_image.py
-|   |-- gwy_io.py
-|   |-- imp_tools.py
-|   |-- kink_detector.py
-|   |-- measure.py
-|   |-- pipeline.py
-|   |-- processed_image.py
-|   |-- segmenter.py
-|   |-- skeletonizer.py
-|   |-- translator.py
-|   |-- ui_tools.py
-|   `-- __init__.py
-|-- tests/
-|-- locale/
-|   |-- English/
-|   |   `-- LC_MESSAGES/
-|   |-- Japanese/
-|   |   `-- LC_MESSAGES/
-|   `-- Chinese/
-|       `-- LC_MESSAGES/
-|-- assets/
-|   `-- afm_symbol.png
-|-- README.md
-`-- README.ja.md
-```
-
-Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにしています。UTF-8 の
-バッチファイルに日本語コメントを書くと、`cmd.exe` がシステム既定のコードページで
-誤読し、文字化けした断片をコマンドとして実行することがあります。そのため、
-日本語の保守メモは `README.ja.md` などの Markdown 文書に残します。
-
-## 主なモジュール
-
-| モジュール | 主な内容 |
-|---|---|
-| `lib/afm_io.py` | ヘッダー、列数、エンコーディングを自動検出する AFM テキスト / CSV ローダー。形式の明示指定とレイアウト整合検証に対応。 |
-| `lib/bg_calibrator.py` | `inpaint`、`tophat`、`spline1d`、`spline2d` 背景補正方式を持つ `BGCalibrator`。 |
-| `lib/bg_calibrator_shimadzu.py` | 従来名 `BG_Calibrator_shimadzu` を import 可能に保つ互換シム。 |
-| `lib/blosc2_io.py` | Blosc2 配列保存と `.b2z` TreeStore バンドルの入出力ヘルパー。 |
-| `lib/bundle_schema.py` | `.b2z` 契約の実行可能スキーマ。必須キー、配列形状、値域、単位、座標規約、形式バージョンを定義し、`validate_bundle` が書き込み時と読み込み時に強制する。 |
-| `lib/fiber.py` | ファイバー形状、高さプロファイル、キンクインデックス、端点インデックスを保持する不変 `Fiber` dataclass。 |
-| `lib/fiber_connector.py` | `connect_fiber_fragments` と `ConnectParams`。交差・分岐で分断された骨格断片を 1 本のフィブリルへ再結合する。GUI04 の任意のファイバー連結モードで使用。 |
-| `lib/fiber_tracking_image.py` | GUI04 が GUI01 のバンドル出力からファイバーを再構築・追跡するための `FiberTrackingImage`。 |
-| `lib/gwy_io.py` | ネイティブな複数チャンネル Gwyddion `.gwy` を遅延読み込みし、チャンネル選択、長さチャンネルの nm 換算、走査範囲抽出を行うローダー。 |
-| `lib/imp_tools.py` | スケルトン形態処理、端点・分岐点検出、線追跡、経路距離変換のヘルパー。 |
-| `lib/kink_detector.py` | 追跡されたスケルトン成分からキンク点を検出する `KinkDetector`。 |
-| `lib/measure.py` | `.b2z` バンドルに対する GUI 非依存のファイバー計測。`measure_bundle`、ファイバーごとの `FiberStats`、スケルトン画素高さの収集、および GUI03/GUI04 と `cli.py` が共有する CSV 書き出し。 |
-| `lib/pipeline.py` | `ProcParams` パラメータスキーマ、ステージ構築、および GUI01 と `cli.py` が共有する GUI 非依存のパイプライン駆動関数 `process_file`。`.b2z` 契約自体は `lib/bundle_schema.py` にあります。 |
-| `lib/processed_image.py` | GUI01 の前処理パイプラインで使う `ProcessedImage` コンテナ。 |
-| `lib/segmenter.py` | 背景補正済み AFM 画像からナノファイバー二値マスクを作成する `Segmenter`。 |
-| `lib/skeletonizer.py` | 二値マスクを細線化し、枝刈りとスケルトン成分ラベル付けを行う `Skeletonizer`。 |
-| `lib/translator.py` | gettext の言語選択ヘルパー。 |
-| `lib/ui_tools.py` | GUI プラグインで共有する tkinter、matplotlib、ログ、ダイアログ、出力ヘルパー。 |
-
-## 要件
-
-- Python 3.10 以降
-- Windows を主な対象環境としています
-
-Python 依存関係は `requirements.txt` に記載されています。
-
-```text
-blosc2
-gwyfile
-lmfit
-matplotlib>=3.10
-numpy
-opencv-python
-pandas
-Pillow
-scikit-image
-scipy
-tksheet
-```
-
-`check.py` はソースツリー内の import を走査して `requirements.txt` を再生成できます。
-PyInstaller はスタンドアロンビルド専用のツールであり、配布物をビルドする場合に
-別途インストールします。
-
-環境を厳密に再現したい場合は、テストで検証済みの全パッケージバージョンを
-記録した `requirements.lock.txt` を使用してください:
-
-```powershell
-python -m pip install -r requirements.lock.txt
-```
-
-lock ファイルのヘッダーには、スナップショットを検証した Python バージョンと
-OS が記録されています。同じ環境で使用してください。ほかの対応 Python
-バージョンや OS では、pip が互換 wheel を選べるよう `pyproject.toml` または
-緩い `requirements.txt` からインストールします。
-
-`check.py` には依存関係の整合性チェックとバージョン固定の機能もあります:
-
-```powershell
-python check.py            # 緩い requirements.txt を再生成(従来どおり)
-python check.py --verify   # CI 向け検査: コードの import ⇔ pyproject ⇔ 実環境
-python check.py --pin      # 全検査とテスト合格後に requirements.lock.txt を再固定
-```
-
-`--verify` は、コードで import している依存が `pyproject.toml` に宣言されて
-いない場合(およびその逆)、走査された依存が未インストールの場合、`pip check`
-がバージョン矛盾を報告した場合に、非ゼロで終了します。`--pin` は同じ検査に
-加えて pytest スイートを実行し、すべて合格した場合のみ
-`requirements.lock.txt` を書き換えます。これにより lock ファイルは常に
-「テストで実際に検証されたバージョンの組み合わせ」を記録します。
+- **(a) Image Preprocessor** は AFM 高さ画像に背景補正、二値化、細線化を適用し、
+  元画像・補正後・二値化・細線化の各段階と、検出されたキンク点の重ね描きを
+  表示します。
+- **(b) Plot Profiler** は高さマップ上に対話的に配置した線分に沿って高さ
+  プロファイルを抽出します。
+- **(c) Fiber Height Histogram** はユーザー定義の試料グループ間で細線化画素の
+  高さ分布を比較し、グループごとの統計量を表示します。
+- **(d) Fiber Tracker** はファイバーごとの長さ、高さの中央値・最大値、端点数・
+  キンク数を一覧し、各ファイバーの位置を全体像上で示します。
 
 ## インストールと使い方
 
@@ -222,7 +79,7 @@ chmod +x run_venv.sh
 を再実行すればフル再構築されます。開発者やレビュアーは、ランチャーを使わずに
 後述の編集可能インストールのコマンドで同じ環境を再現できます。バージョンを厳密に
 固定したい場合は、代わりに `requirements.lock.txt` をインストールしてください
-(上記「要件」を参照)。
+(後述の「依存関係」を参照)。
 
 ### Anaconda または Miniconda
 
@@ -367,6 +224,74 @@ python build.py
 ビルドスクリプトは `dist/Main/` に PyInstaller バンドルを生成し、ランチャーに
 必要なプラグインとリソースフォルダをコピーします。配布時は `Main.exe` だけでなく、
 `dist/Main/` フォルダ全体を配布してください。
+
+## 依存関係
+
+- Python 3.10 以降
+- Windows を主な対象環境としています
+
+実行時の依存関係は、単一の真実の源である `pyproject.toml` に宣言されています。
+`run_venv` / `run_conda` ランチャーと編集可能インストールがこれらを自動で解決
+するため、通常は依存パッケージを手動でインストールする必要はありません。
+`requirements.txt` は手動セットアップ用に生成された補助的なコピーであり、
+`check.py` で再生成できます。PyInstaller はスタンドアロンビルド専用のツールで
+あり、配布物をビルドする場合に別途インストールします。
+
+環境を厳密に再現したい場合は、テストで検証済みの全パッケージバージョンを
+記録した `requirements.lock.txt` を使用してください:
+
+```powershell
+python -m pip install -r requirements.lock.txt
+```
+
+lock ファイルのヘッダーには、スナップショットを検証した Python バージョンと
+OS が記録されています。同じ環境で使用してください。ほかの対応 Python
+バージョンや OS では、pip が互換 wheel を選べるよう `pyproject.toml` または
+緩い `requirements.txt` からインストールします。
+
+`check.py` には依存関係の整合性チェックとバージョン固定の機能もあります。
+`--verify` と `--pin` については「開発用ユーティリティ」を参照してください。
+
+## GUI ツール
+
+### Image Preprocessor — `guis/GUI01_Image_Preprocessor.py`
+
+![Image Preprocessor のウインドウ: ファイル単位のスケールを持つファイル一覧と、元画像・補正後・二値化・細線化の各段階、およびキンク点の重ね描き。](figures/gui01.png)
+
+AFM の `.txt` エクスポートまたは Gwyddion ネイティブ `.gwy` を読み込み、背景
+補正、二値化、細線化、キンク関連特徴抽出を行い、`.b2z` バンドルとパラメータ
+JSON を保存します。各ファイルは固有の物理走査範囲を持ち（入力から自動充填、
+またはファイル表の X/Y セルの直接編集〈表計算ソフトからの貼り付け対応〉、一括
+スケール入力欄、CSV マニフェストでファイル単位に設定）、長さ計測を再現できる
+ようバンドルへ保存します。
+
+### Plot Profiler — `guis/GUI02_PlotProfiler.py`
+
+![Plot Profiler のウインドウ: AFM 高さマップ上に配置した線分と、その線分から抽出した高さプロファイル。](figures/gui02.png)
+
+生データ、補正済みデータ、またはバンドル化された AFM 高さデータを読み込み、
+選択した線分に沿った高さプロファイルを対話的に抽出します。プロファイル距離を
+再現可能にするため、スケールは記録値（`.b2z`）、ヘッダ（テキスト/CSV）、または
+チャンネル範囲（`.gwy`）の走査範囲で既定化します。
+
+### Fiber Height Histogram — `guis/GUI03_Fiber_Height_Histogram.py`
+
+![Fiber Height Histogram のウインドウ: 2 つの試料グループの高さ分布と、グループごとの統計量テーブル。](figures/gui03.png)
+
+ユーザー定義グループごとに、`.b2z` バンドル群の細線化ファイバー画素から高さ
+分布を比較します。
+
+### Fiber Tracker — `guis/GUI04_Tracking_fiber.py`
+
+![Fiber Tracker のウインドウ: ファイバーごとの統計量テーブルと、選択したファイバーを強調表示した AFM 全体像。](figures/gui04.png)
+
+`.b2z` バンドルを読み込み、追跡済み `Fiber` オブジェクトを再構築し、個別
+ファイバーの確認、図の出力、ファイバー統計量の CSV 出力を行います。任意の
+ファイバー連結モード（トグルと設定ウインドウ）では、交差・分岐で分断された
+骨格断片を計測前に 1 本のフィブリルへ再結合します。連結モードと高さフィルター
+は「連結してからフィルター」の順序で合成され、両方を有効にすると高さフィルター
+は連結済みフィブリルを自身の高さプロファイル（橋渡し部を含む）で切り出すため、
+両者は排他ではありません。
 
 ## 対応入力フォーマット
 
@@ -640,6 +565,109 @@ python cli.py export results\*.b2z --format csv   # 配列キーごとに 1 つ�
 併せて出力されます。NumPy `.npz` アーカイブは Python、MATLAB、R、Julia の
 標準的なツールで読み込めます。
 
+## アーキテクチャ
+
+このアプリケーションは、GUI プラグインと再利用可能な解析モジュールを分離しています。
+
+- `Main.py` は `guis/` 内の GUI プラグインを検出して起動します。
+- `guis/` にはユーザーが操作する tkinter ツールが入っています。
+- `lib/` には AFM 入出力、背景補正、二値化、スケルトン処理、キンク検出、
+  ファイバーコンテナ、バンドル入出力、翻訳、共通 UI ヘルパーが入っています。
+
+GUI01 は解析対象の入力ファイルごとに、圧縮された `.b2z` バンドルを 1 つ
+出力します。後段の GUI は、このバンドルを直接読み込みます。
+
+## 主なディレクトリ構成
+
+```text
+AFM_Nanofiber_Analyzer/
+|-- Main.py
+|-- cli.py
+|-- babel.cfg
+|-- build.py
+|-- check.py
+|-- prepare_translate_catalogs.py
+|-- pyproject.toml
+|-- requirements.txt
+|-- requirements.lock.txt
+|-- run_venv.bat
+|-- run_conda.bat
+|-- run_venv.sh
+|-- run_conda.sh
+|-- guis/
+|   |-- GUI01_Image_Preprocessor.py
+|   |-- GUI02_PlotProfiler.py
+|   |-- GUI03_Fiber_Height_Histogram.py
+|   |-- GUI04_Tracking_fiber.py
+|   `-- __init__.py
+|-- lib/
+|   |-- afm_io.py
+|   |-- bg_calibrator.py
+|   |-- bg_calibrator_shimadzu.py
+|   |-- blosc2_io.py
+|   |-- bundle_schema.py
+|   |-- fiber.py
+|   |-- fiber_tracking_image.py
+|   |-- gwy_io.py
+|   |-- imp_tools.py
+|   |-- kink_detector.py
+|   |-- measure.py
+|   |-- pipeline.py
+|   |-- processed_image.py
+|   |-- segmenter.py
+|   |-- skeletonizer.py
+|   |-- translator.py
+|   |-- ui_tools.py
+|   `-- __init__.py
+|-- tests/
+|-- locale/
+|   |-- English/
+|   |   `-- LC_MESSAGES/
+|   |-- Japanese/
+|   |   `-- LC_MESSAGES/
+|   `-- Chinese/
+|       `-- LC_MESSAGES/
+|-- assets/
+|   `-- afm_symbol.png
+|-- figures/
+|   |-- gui01.png
+|   |-- gui02.png
+|   |-- gui03.png
+|   |-- gui04.png
+|   |-- guis.png
+|   `-- pipeline.png
+|-- README.md
+`-- README.ja.md
+```
+
+Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにしています。UTF-8 の
+バッチファイルに日本語コメントを書くと、`cmd.exe` がシステム既定のコードページで
+誤読し、文字化けした断片をコマンドとして実行することがあります。そのため、
+日本語の保守メモは `README.ja.md` などの Markdown 文書に残します。
+
+## 主なモジュール
+
+| モジュール | 主な内容 |
+|---|---|
+| `lib/afm_io.py` | ヘッダー、列数、エンコーディングを自動検出する AFM テキスト / CSV ローダー。形式の明示指定とレイアウト整合検証に対応。 |
+| `lib/bg_calibrator.py` | `inpaint`、`tophat`、`spline1d`、`spline2d` 背景補正方式を持つ `BGCalibrator`。 |
+| `lib/bg_calibrator_shimadzu.py` | 従来名 `BG_Calibrator_shimadzu` を import 可能に保つ互換シム。 |
+| `lib/blosc2_io.py` | Blosc2 配列保存と `.b2z` TreeStore バンドルの入出力ヘルパー。 |
+| `lib/bundle_schema.py` | `.b2z` 契約の実行可能スキーマ。必須キー、配列形状、値域、単位、座標規約、形式バージョンを定義し、`validate_bundle` が書き込み時と読み込み時に強制する。 |
+| `lib/fiber.py` | ファイバー形状、高さプロファイル、キンクインデックス、端点インデックスを保持する不変 `Fiber` dataclass。 |
+| `lib/fiber_connector.py` | `connect_fiber_fragments` と `ConnectParams`。交差・分岐で分断された骨格断片を 1 本のフィブリルへ再結合する。GUI04 の任意のファイバー連結モードで使用。 |
+| `lib/fiber_tracking_image.py` | GUI04 が GUI01 のバンドル出力からファイバーを再構築・追跡するための `FiberTrackingImage`。 |
+| `lib/gwy_io.py` | ネイティブな複数チャンネル Gwyddion `.gwy` を遅延読み込みし、チャンネル選択、長さチャンネルの nm 換算、走査範囲抽出を行うローダー。 |
+| `lib/imp_tools.py` | スケルトン形態処理、端点・分岐点検出、線追跡、経路距離変換のヘルパー。 |
+| `lib/kink_detector.py` | 追跡されたスケルトン成分からキンク点を検出する `KinkDetector`。 |
+| `lib/measure.py` | `.b2z` バンドルに対する GUI 非依存のファイバー計測。`measure_bundle`、ファイバーごとの `FiberStats`、スケルトン画素高さの収集、および GUI03/GUI04 と `cli.py` が共有する CSV 書き出し。 |
+| `lib/pipeline.py` | `ProcParams` パラメータスキーマ、ステージ構築、および GUI01 と `cli.py` が共有する GUI 非依存のパイプライン駆動関数 `process_file`。`.b2z` 契約自体は `lib/bundle_schema.py` にあります。 |
+| `lib/processed_image.py` | GUI01 の前処理パイプラインで使う `ProcessedImage` コンテナ。 |
+| `lib/segmenter.py` | 背景補正済み AFM 画像からナノファイバー二値マスクを作成する `Segmenter`。 |
+| `lib/skeletonizer.py` | 二値マスクを細線化し、枝刈りとスケルトン成分ラベル付けを行う `Skeletonizer`。 |
+| `lib/translator.py` | gettext の言語選択ヘルパー。 |
+| `lib/ui_tools.py` | GUI プラグインで共有する tkinter、matplotlib、ログ、ダイアログ、出力ヘルパー。 |
+
 ## GUI プラグインを追加する
 
 1. `guis/` の下に Python ファイルを追加します。
@@ -695,6 +723,19 @@ UI 側に任せます。Python ソース上で文字列リテラルを複数行�
   `--verify` はコードの import・`pyproject.toml`・実環境のずれを報告し、
   `--pin` は整合性検査とテストスイートの合格後に
   `requirements.lock.txt` を再生成します。
+
+  ```powershell
+  python check.py            # 緩い requirements.txt を再生成
+  python check.py --verify   # CI 向け検査: コードの import ⇔ pyproject ⇔ 実環境
+  python check.py --pin      # 全検査とテスト合格後に requirements.lock.txt を再固定
+  ```
+
+  `--verify` は、コードで import している依存が `pyproject.toml` に宣言されて
+  いない場合(およびその逆)、走査された依存が未インストールの場合、`pip check`
+  がバージョン矛盾を報告した場合に、非ゼロで終了します。`--pin` は同じ検査に
+  加えて pytest スイートを実行し、すべて合格した場合のみ
+  `requirements.lock.txt` を書き換えます。これにより lock ファイルは常に
+  「テストで実際に検証されたバージョンの組み合わせ」を記録します。
 - `build.py` は import 検証、PyInstaller 用材料の収集、`Main.auto.spec` の作成、
   PyInstaller 実行、プロジェクトリソースフォルダのコピーを行います。
 - `prepare_translate_catalogs.py` は gettext カタログを更新し、プラグイン説明を
