@@ -188,6 +188,88 @@ class _Panel:
     note: str = ""
 
 
+# Target source width for one panel. Each of the six panels is only a couple of
+# hundred pixels wide on screen, so a full-resolution scan carries far more
+# detail than the panel can show; the target keeps roughly twice the on-screen
+# size so resampling still has headroom.
+# 1 パネル分の目標ソース幅。6 枚のパネルは画面上では数百画素幅しかなく、全解像度の
+# 走査はパネルが表示できる以上の情報量を持つ。再サンプリングの余裕を残すため、
+# 画面上の大きさのおよそ 2 倍を目標とする。
+_PANEL_DISPLAY_PX = 400
+
+
+def _reduce_for_display(data: np.ndarray,
+                        max_px: int = _PANEL_DISPLAY_PX) -> np.ndarray:
+    """
+    Reduce an image to panel resolution without hiding sparse disagreements.
+    まばらな食い違いを隠さずに、画像をパネル解像度へ縮約する。
+
+    Parameters
+    ----------
+    data
+        Panel image at full scan resolution.
+        全解像度のパネル画像。
+    max_px
+        Longest side to reduce towards; smaller inputs are returned unchanged.
+        縮約後の長辺の目安。これより小さい入力はそのまま返す。
+
+    Returns
+    -------
+    numpy.ndarray
+        Reduced image, or `data` itself when no reduction is worthwhile.
+        縮約後の画像。縮約する意味がない場合は `data` そのもの。
+
+    Notes
+    -----
+    How a block is collapsed depends on what the values mean, which the dtype
+    already distinguishes here: masks and the mask difference are integer, the
+    height and surface panels are floating point.
+
+    Floating-point panels are averaged, which is what Matplotlib's own
+    downscaling does, so those panels look as before.
+
+    Integer panels keep the block value of largest magnitude instead. This
+    matters because those panels are exactly where a single pixel carries
+    meaning: on a 1023-pixel scan drawn into a ~185-pixel panel, averaging
+    renders 200 scattered disagreement pixels at about 6% of full intensity,
+    effectively invisible, and plain subsampling drops roughly 92% of them
+    outright. Taking the extreme keeps every block that contains a
+    disagreement visible, and using the largest magnitude rather than the
+    maximum preserves the sign of the -1/0/+1 mask difference, so
+    over-detection and under-detection stay distinguishable by colour.
+    ブロックをどう畳むかは値の意味によって決まり、ここでは dtype がそれを区別
+    している。マスクとマスク差分は整数、高さと表面のパネルは浮動小数点である。
+
+    浮動小数点のパネルは平均する。これは Matplotlib 自身の縮小と同じ処理であり、
+    それらのパネルの見え方は従来どおりとなる。
+
+    整数のパネルは代わりにブロック内で絶対値が最大の値を残す。これが重要なのは、
+    1 画素が意味を持つのがまさにそれらのパネルだからである。1023 画素の走査を
+    約 185 画素のパネルへ描くとき、平均では散在する 200 個の食い違い画素が最大
+    強度の約 6% にまで落ちて事実上見えなくなり、単純な間引きではそのおよそ 92%
+    がそもそも失われる。極値を採れば食い違いを含むブロックはすべて見えたまま
+    残り、最大値ではなく絶対値最大とすることで -1/0/+1 のマスク差分の符号が保た
+    れるため、過検出と過小検出を色で区別できる状態が維持される。
+    """
+    h, w = data.shape[:2]
+    factor = int(max(h, w) // max_px)
+    if factor < 2:
+        return data
+    # Crop to a whole number of blocks; the discarded strip is at most
+    # `factor - 1` pixels and never reaches the panel's visible resolution.
+    # ブロックの整数個に収まるよう切り詰める。捨てる帯は最大でも `factor - 1`
+    # 画素で、パネルの見える解像度には届かない。
+    hh, ww = (h // factor) * factor, (w // factor) * factor
+    blocks = data[:hh, :ww].reshape(hh // factor, factor, ww // factor, factor)
+    if np.issubdtype(data.dtype, np.floating):
+        return blocks.mean(axis=(1, 3))
+    # Per block, keep the value furthest from zero.
+    # ブロックごとに、ゼロから最も遠い値を残す。
+    flat = blocks.transpose(0, 2, 1, 3).reshape(hh // factor, ww // factor, -1)
+    idx = np.abs(flat).argmax(axis=-1)
+    return np.take_along_axis(flat, idx[..., None], axis=-1)[..., 0]
+
+
 def _threshold_from_manifest(manifest: Dict) -> float:
     """
     Return a manifest's fiber threshold, defaulting to 0.5.
@@ -405,6 +487,21 @@ class App(tk.Tk, LogMixin):
         # 構成を予告してしまう。
         for ax in self.axes.ravel():
             ax.axis("off")
+        # Per-panel artists kept across comparisons. Rebuilding them means
+        # `Axes.clear`, which resets every axes property and costs more than
+        # pushing new data into the artist already there.
+        # 比較をまたいで保持するパネルごとのアーティスト。作り直すと `Axes.clear`
+        # となり、軸の全プロパティを初期化するため、既にあるアーティストへ新しい
+        # データを流し込むより高くつく。
+        self._panel_images: List[Optional[object]] = [None] * self.axes.size
+        self._panel_texts: List[Optional[object]] = [None] * self.axes.size
+        # Titles the current layout was computed for. Only a change here can
+        # change the layout, so re-running the solver on every comparison of
+        # the same task would be repeated work for an identical result.
+        # 現在のレイアウトを計算した対象のタイトル。レイアウトが変わりうるのは
+        # ここが変わるときだけなので、同じタスクの比較のたびにソルバを再実行しても
+        # 同一の結果を得るだけの無駄になる。
+        self._panel_titles_drawn: Optional[tuple] = None
         self.fig.tight_layout()
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=frame)
@@ -986,27 +1083,81 @@ class App(tk.Tk, LogMixin):
         確定しているため、本メソッドはタスク非依存のままであり、タスクを追加しても
         ここを変更する必要はない。
         """
-        for ax, panel in zip(self.axes.ravel(), payload["panels"]):
-            ax.clear()
-            ax.set_title(panel.title)
+        for i, (ax, panel) in enumerate(zip(self.axes.ravel(), payload["panels"])):
+            if ax.get_title() != panel.title:
+                ax.set_title(panel.title)
             ax.axis("off")
+
             if panel.data is None:
+                # Drop any image left from a previous comparison, then show the
+                # reason in its place.
+                # 前回の比較で残った画像を取り除き、その場所に理由を表示する。
+                self._clear_panel_image(i)
                 # Reason text is a fixed English message from lib; wrapped
                 # because an axes has no automatic wrapping and truncated
                 # because the full text is already in the log.
                 # 理由の文言は lib 由来の固定英語メッセージ。軸は自動折り返しを
                 # しないため折り返し、全文は既にログにあるため切り詰める。
-                ax.text(0.5, 0.5,
-                        textwrap.fill(
-                            panel.note or _("このパネルは計算できませんでした。"),
-                            30)[:300],
-                        ha="center", va="center", fontsize=7,
+                text = textwrap.fill(
+                    panel.note or _("このパネルは計算できませんでした。"),
+                    30)[:300]
+                artist = self._panel_texts[i]
+                if artist is None:
+                    self._panel_texts[i] = ax.text(
+                        0.5, 0.5, text, ha="center", va="center", fontsize=7,
                         transform=ax.transAxes)
+                else:
+                    artist.set_text(text)
+                    artist.set_visible(True)
                 continue
-            ax.imshow(panel.data, cmap=panel.cmap,
-                      vmin=panel.vmin, vmax=panel.vmax)
-        self.fig.tight_layout()
+
+            if self._panel_texts[i] is not None:
+                self._panel_texts[i].set_visible(False)
+
+            # Reduce to panel resolution before handing the array to Matplotlib;
+            # see _reduce_for_display for why integer panels are not averaged.
+            # Matplotlib へ渡す前にパネル解像度へ縮約する。整数パネルを平均しない
+            # 理由は _reduce_for_display を参照。
+            data = _reduce_for_display(panel.data)
+            image = self._panel_images[i]
+            # A changed shape would be drawn stretched into the previous
+            # extent, so the artist is rebuilt rather than refilled.
+            # 形状が変わった場合、前回の extent へ引き伸ばして描かれてしまうため、
+            # 中身を差し替えるのではなくアーティストを作り直す。
+            if image is not None and image.get_array().shape[:2] != data.shape[:2]:
+                self._clear_panel_image(i)
+                image = None
+            if image is None:
+                self._panel_images[i] = ax.imshow(
+                    data, cmap=panel.cmap, vmin=panel.vmin, vmax=panel.vmax)
+            else:
+                image.set_data(data)
+                image.set_cmap(panel.cmap)
+                image.set_clim(panel.vmin, panel.vmax)
+
+        # Re-solve the layout only when the titles it was computed for changed,
+        # which happens when the model's task changes the panel set.
+        # レイアウトの再計算は、その計算対象だったタイトルが変わったときだけ行う。
+        # これはモデルのタスクがパネル構成を変えたときに起きる。
+        titles = tuple(p.title for p in payload["panels"])
+        if titles != self._panel_titles_drawn:
+            self.fig.tight_layout()
+            self._panel_titles_drawn = titles
         self.canvas.draw()
+
+    def _clear_panel_image(self, index: int) -> None:
+        """
+        Remove the image artist held for one panel, if there is one.
+        1 つのパネルが保持する画像アーティストがあれば取り除く。
+        """
+        image = self._panel_images[index]
+        if image is None:
+            return
+        try:
+            image.remove()
+        except (ValueError, AttributeError):
+            pass
+        self._panel_images[index] = None
 
     def _show_single_metrics(self, name: str, metrics: Dict) -> None:
         """
