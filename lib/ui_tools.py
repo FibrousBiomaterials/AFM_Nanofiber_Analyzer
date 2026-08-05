@@ -18,7 +18,6 @@ import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import filedialog, messagebox, ttk
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 from lib.translator import _
@@ -1435,27 +1434,46 @@ def setup_matplotlib_style(font_size: int = 12) -> None:
 
     Call this once from each GUI's __init__ before creating any Figure.
     各 GUI の __init__ で Figure を作る前に一度だけ呼ぶこと。
+
+    Notes
+    -----
+    matplotlib is imported here rather than at module scope so that a GUI which
+    draws nothing (the model trainer, for example) does not pay for it merely
+    by using this module's Tk helpers. Importing it here also leaves the choice
+    of backend entirely to the importing GUI, instead of this module fixing it
+    as a side effect of being imported.
+    matplotlib をモジュール先頭ではなくここで import するのは、描画を行わない GUI
+    （たとえばモデル学習）が本モジュールの Tk ヘルパーを使うだけでその読み込み費用を
+    払わずに済むようにするためである。ここで import することで、バックエンドの選択も
+    本モジュールが import された副作用で決まるのではなく、import 側の GUI に完全に
+    委ねられる。
     """
+    # `matplotlib.rcParams` is the same object pyplot exposes as `plt.rcParams`,
+    # so the style is applied without loading pyplot at all.
+    # `matplotlib.rcParams` は pyplot が `plt.rcParams` として公開するものと同一
+    # オブジェクトであり、pyplot を読み込まずにスタイルを適用できる。
+    import matplotlib
+
     # Prefer sans-serif fonts suitable for publication figures.
     # フォント：論文体裁に合わせて sans-serif 系の Arial / Helvetica を優先。
-    plt.rcParams["font.family"] = "sans-serif"
-    plt.rcParams["font.sans-serif"] = ["Arial", "Helvetica", "DejaVu Sans"]
+    matplotlib.rcParams["font.family"] = "sans-serif"
+    matplotlib.rcParams["font.sans-serif"] = ["Arial", "Helvetica", "DejaVu Sans"]
 
     # Enable minor ticks to improve readability of histograms and profiles.
     # 補助目盛を表示（ヒストグラム・プロファイルの可読性向上）。
-    plt.rcParams["xtick.minor.visible"] = True
-    plt.rcParams["ytick.minor.visible"] = True
+    matplotlib.rcParams["xtick.minor.visible"] = True
+    matplotlib.rcParams["ytick.minor.visible"] = True
 
     # Font size is caller-controlled because each GUI has different layout constraints.
     # フォントサイズは引数で受ける（GUIごとに最適値が違うため）。
-    plt.rcParams["font.size"] = font_size
+    matplotlib.rcParams["font.size"] = font_size
 
     # Embed editable fonts in PDF/PS/SVG output.
     # PDF/PS/SVG 出力時にフォントを編集可能な形式で埋め込む。
     # （Illustrator 等で投稿後の図ラベル修正ができるようにする）
-    plt.rcParams["pdf.fonttype"] = 42
-    plt.rcParams["ps.fonttype"] = 42
-    plt.rcParams["svg.fonttype"] = "none"
+    matplotlib.rcParams["pdf.fonttype"] = 42
+    matplotlib.rcParams["ps.fonttype"] = 42
+    matplotlib.rcParams["svg.fonttype"] = "none"
 
 
 def figure_save_filetypes() -> list[tuple[str, str]]:

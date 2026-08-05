@@ -200,7 +200,47 @@ class App(tk.Tk, LogMixin):
         self._build_ui()
         self._log_initial_message()
         self._update_controls_state()
+        self._prewarm_ml_imports()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    # ----- Deferred ML imports ---------------------------------------------
+
+    def _prewarm_ml_imports(self) -> None:
+        """
+        Load the ML libraries in the background so training starts promptly.
+        学習がすぐ始まるよう、ML ライブラリを背後で読み込んでおく。
+
+        scikit-learn dominates this plugin's cost: importing it takes several
+        seconds, and the training worker is the first thing that needs it, so
+        without this the delay lands on the user right after they press the
+        train button. Loading it while they are still choosing bundles hides
+        it entirely. The import is only started here, never awaited: the worker
+        imports the same modules itself, which either finds them already loaded
+        or blocks on the same import until this thread finishes.
+        本プラグインの費用は scikit-learn が支配的である。import に数秒かかり、
+        最初にそれを必要とするのが学習ワーカーであるため、この処理が無いと遅延は
+        利用者が学習ボタンを押した直後に現れる。バンドルを選んでいる間に読み込めば
+        遅延は完全に隠れる。ここでは import を開始するだけで待ち合わせはしない。
+        ワーカーは同じモジュールを自分で import し、読み込み済みならそれを得るか、
+        本スレッドの完了まで同じ import で待つ。
+        """
+        def _load() -> None:
+            try:
+                from lib import ml_dataset, ml_train  # noqa: F401 - warm the cache.
+            except Exception:
+                # A missing or broken optional dependency is reported with a
+                # clear message by the training worker, which is where the user
+                # asked for the work. Failing quietly here avoids a dialog they
+                # did not trigger and cannot act on yet.
+                # 任意依存の欠落や破損は、利用者が実際に処理を依頼した学習ワーカー
+                # 側が明確なメッセージで報告する。ここで静かに失敗させることで、
+                # 利用者が起こしてもおらず、まだ対処もできないダイアログを出さない。
+                pass
+
+        # Daemon so a pending import can never keep the application alive.
+        # デーモンにして、未完了の import がアプリを終了させずに残さないようにする。
+        threading.Thread(target=_load, daemon=True,
+                         name="gui05-ml-import-prewarm").start()
 
     # ----- UI construction -------------------------------------------------
 
