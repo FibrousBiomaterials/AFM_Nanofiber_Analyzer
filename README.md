@@ -20,212 +20,23 @@ provide the fiber-centric skeleton tracing, kink detection, and grouped
 statistical comparison of nanofiber heights that this workflow targets; AFM Nanofiber Analyzer fills
 that gap with a documented, reproducible pipeline and a stable data format.
 
-## Overview
+## Demo
 
-The application separates GUI plugins from the reusable modules they call:
+![The four GUI plugins of the classical workflow: (a) Image Preprocessor, (b) Plot Profiler, (c) Fiber Height Histogram, and (d) Fiber Tracker.](figures/guis.png)
 
-- `Main.py` launches GUI plugins discovered in `guis/`.
-- `guis/` contains the user-facing tkinter tools.
-- `lib/` contains AFM I/O, background calibration, segmentation,
-  skeleton cleanup, kink detection, fiber containers, bundle I/O, translation,
-  and shared UI helpers.
+- **(a) Image Preprocessor** runs an AFM height image through background
+  calibration, segmentation, and skeletonization, showing the original,
+  calibrated, binarized, and skeletonized stages with detected kink points
+  overlaid.
+- **(b) Plot Profiler** extracts a height profile along a line placed
+  interactively on the height map.
+- **(c) Fiber Height Histogram** compares skeleton-pixel height distributions
+  between user-defined sample groups and reports per-group statistics.
+- **(d) Fiber Tracker** lists per-fiber length, median and maximum height, and
+  endpoint and kink counts, and locates each fiber in the full scan.
 
-GUI01 writes one compressed `.b2z` bundle per analyzed input file. Downstream
-GUIs read those bundles directly.
-
-## GUI Tools
-
-| File | Launcher name | Purpose |
-|---|---|---|
-| `guis/GUI01_Image_Preprocessor.py` | Image Preprocessor | Load AFM `.txt` exports or native Gwyddion `.gwy` files, run background calibration, segmentation, skeletonization, and kink-related feature extraction, then save a `.b2z` bundle and a parameter JSON file. Each file carries its own physical scan size (auto-filled from the input, or set per file by editing the X/Y cells in the file table — including paste from a spreadsheet — via the batch scale fields, or from a CSV manifest), stored in the bundle for reproducible length measurements. |
-| `guis/GUI02_PlotProfiler.py` | Plot Profiler | Load raw, calibrated, or bundled AFM height data and interactively extract height profiles along selected line segments. The scale defaults to the recorded (`.b2z`), header (text/CSV), or channel-extent (`.gwy`) scan size so profile distances are reproducible. |
-| `guis/GUI03_Fiber_Height_Histogram.py` | Fiber Height Histogram | Compare height distributions from skeletonized fiber pixels across user-defined groups of `.b2z` bundles. |
-| `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | Load `.b2z` bundles, rebuild tracked `Fiber` objects, inspect individual fibers, export plots, and export fiber statistics to CSV. An optional fiber-connection mode (toggle plus a settings window) reconnects skeleton fragments split at crossings and branches into whole fibrils before measurement. The connection and height-filter modes compose in "connect, then filter" order: when both are on, the height filter slices each connected fibril by its own height profile (including bridge heights), so the two are not mutually exclusive. |
-| `guis/GUI05_ML_Model_Trainer.py` | ML Model Trainer | Build a per-pixel training dataset from `.b2z` bundles, cross-validate a decision-tree model, and export it as a model file whose extension encodes the task (`.afmb` / `.afmm` / `.afms`). Three tasks are selectable: binarization, background fiber-candidate mask, and background-surface regression. The two background tasks are the alternative background-correction approaches, kept side by side so they can be compared; both read the raw height image, so their bundles need the optional `original` key (written with `save_original`) or the raw input file beside the bundle. Part of the optional, experimental machine-learning workflow; the ML dependencies (see below) are loaded only when a training run starts. |
-| `guis/GUI06_ML_Model_Compare.py` | ML Model Compare | Apply a trained model to `.b2z` bundles and compare it against the classical result in a 2x3 panel grid: the input and the difference on the left, each side's raw stage output in the middle, and each side's integrated result on the right. Binarization and background-mask models are scored mask-to-mask with Dice at both stages; a background-surface model is scored in nanometers against the surface the pipeline subtracted, with both corrected images shown side by side. Use it to judge whether a model is worth integrating before adding it to the preprocessing pipeline. |
-| `guis/GUI07_ML_Connect_Annotator.py` | ML Connect Annotator | Review fiber-connection candidates in a `.b2z` bundle and record which fragment ends belong to the same fibril. Click a candidate to cycle its verdict, add a connection the proposals missed, and save the judgements to a `<stem>_connect_labels.json` sidecar beside the bundle; the bundle itself is never modified. Unlike the pixel models, these labels cannot be distilled from the pipeline -- no rule in it knows which fragments form one fibril -- so this human review is what trains the connection model. |
-| `guis/GUI08_ML_Mask_Annotator.py` | ML Mask Annotator | Correct the pipeline mask the ML Model Trainer would otherwise train on, for the binarization or background fiber-candidate task. Brush pixels to fiber or to background, on the mask alone or over the height image, compare the result against the pipeline's own mask in the three previews, and save to a `<stem>_mask_labels.b2z` sidecar beside the bundle; the bundle itself is never modified. Only the pixels that end up differing from the pipeline's mask are stored, so a corrected pixel stays distinguishable from one the pipeline happened to get right. A model distilled from the pipeline alone can imitate it but not beat it; selecting `expert_corrected` as the trainer's label source is what lifts that ceiling. |
-
-The ML Model Trainer and ML Model Compare are an **optional, experimental**
-addition. The classical preprocessing pipeline (GUI01–GUI04 and `cli.py`) runs
-without any machine-learning dependency; the ML tools inspect binarization as a
-learnable pixel-classification step -- and background correction as either
-a mask-classification or a surface-regression step -- and stay fully opt-in.
-
-## Selected Directory Structure
-
-```text
-AFM_Nanofiber_Analyzer/
-|-- Main.py
-|-- cli.py
-|-- babel.cfg
-|-- build.py
-|-- check.py
-|-- prepare_translate_catalogs.py
-|-- pyproject.toml
-|-- requirements.txt
-|-- requirements.lock.txt
-|-- requirements-ml.txt
-|-- run_venv.bat
-|-- run_conda.bat
-|-- run_venv.sh
-|-- run_conda.sh
-|-- guis/
-|   |-- GUI01_Image_Preprocessor.py
-|   |-- GUI02_PlotProfiler.py
-|   |-- GUI03_Fiber_Height_Histogram.py
-|   |-- GUI04_Tracking_fiber.py
-|   |-- GUI05_ML_Model_Trainer.py
-|   |-- GUI06_ML_Model_Compare.py
-|   |-- GUI07_ML_Connect_Annotator.py
-|   |-- GUI08_ML_Mask_Annotator.py
-|   `-- __init__.py
-|-- lib/
-|   |-- afm_io.py
-|   |-- bg_calibrator.py
-|   |-- bg_calibrator_shimadzu.py
-|   |-- bg_mask_filter.py
-|   |-- blosc2_io.py
-|   |-- bundle_schema.py
-|   |-- fiber.py
-|   |-- fiber_tracking_image.py
-|   |-- gwy_io.py
-|   |-- imp_tools.py
-|   |-- kink_detector.py
-|   |-- measure.py
-|   |-- ml_connect_dataset.py
-|   |-- ml_connect_features.py
-|   |-- ml_connect_labels.py
-|   |-- ml_dataset.py
-|   |-- ml_features.py
-|   |-- ml_mask_labels.py
-|   |-- ml_model.py
-|   |-- ml_schema.py
-|   |-- ml_train.py
-|   |-- pipeline.py
-|   |-- processed_image.py
-|   |-- segmenter.py
-|   |-- skeletonizer.py
-|   |-- translator.py
-|   |-- ui_tools.py
-|   `-- __init__.py
-|-- tests/
-|-- locale/
-|   |-- English/
-|   |   `-- LC_MESSAGES/
-|   |-- Japanese/
-|   |   `-- LC_MESSAGES/
-|   `-- Chinese/
-|       `-- LC_MESSAGES/
-|-- assets/
-|   `-- afm_symbol.png
-|-- README.md
-`-- README.ja.md
-```
-
-Windows `.bat` helper scripts are intentionally kept ASCII-only. Japanese
-comments in UTF-8 batch files can be misread by `cmd.exe` under the system code
-page and executed as garbled commands, so Japanese maintenance notes belong in
-Markdown documentation such as this README's Japanese counterpart, `README.ja.md`.
-
-## Core Modules
-
-| Module | Main contents |
-|---|---|
-| `lib/afm_io.py` | Text/CSV AFM loader with automatic header, column, and encoding detection, explicit format override, and layout-consistency verification. |
-| `lib/bg_calibrator.py` | `BGCalibrator`, with `inpaint`, `tophat`, `spline1d`, and `spline2d` background methods. |
-| `lib/bg_calibrator_shimadzu.py` | Compatibility shim keeping the historical `BG_Calibrator_shimadzu` name importable. |
-| `lib/bg_mask_filter.py` | Apply the background stage's fiber-mask cleanup (small-component removal, then dilation) to an externally produced mask, so a background-mask model's prediction can be compared with the classical mask at the stage the pipeline actually uses. |
-| `lib/blosc2_io.py` | Blosc2 array storage and `.b2z` TreeStore bundle helpers. |
-| `lib/bundle_schema.py` | Executable `.b2z` contract: required keys, array shapes, value ranges, units, coordinate convention, and format version, with `validate_bundle` enforcing them at write and load time. |
-| `lib/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |
-| `lib/fiber_connector.py` | `connect_fiber_fragments` and `ConnectParams`: reconnect skeleton fragments split at crossings/branches into whole fibrils, used by GUI04's optional fiber-connection mode. |
-| `lib/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |
-| `lib/gwy_io.py` | Lazy-loading reader for native, multi-channel Gwyddion `.gwy` files, including channel selection, length-channel conversion to nm, and scan-size extraction. |
-| `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
-| `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
-| `lib/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
-| `lib/ml_connect_dataset.py` | Build fragment-pair training datasets from bundles and their label sidecars, with per-image grouping. Only decided candidates become samples. |
-| `lib/ml_connect_features.py` | Order-independent feature extraction for a candidate fragment-end pair, including height sampled along the gap -- the evidence the classical distance-and-angle rule never uses. |
-| `lib/ml_connect_labels.py` | Executable contract for the connection-label sidecar: verdict vocabulary, skeleton binding by hash, and validation. Depends only on the standard library and NumPy. |
-| `lib/ml_dataset.py` | Build per-pixel training datasets from `.b2z` bundles for each ML task (binarization, background mask, background surface), with per-image grouping, class balancing, and the one-pixel raw/processed alignment. Depends only on NumPy and the pipeline (no scikit-learn). |
-| `lib/ml_features.py` | Per-pixel multi-scale feature extraction (smoothed height, gradient, Laplacian, Hessian eigenvalues) with per-image robust normalization, shared by the ML preprocessing stages. |
-| `lib/ml_mask_labels.py` | Executable contract for the mask-correction sidecar: the three-valued edit layer, binding to the corrected image by hash and to the base mask by name, and validation. Stores the difference from the pipeline's mask rather than a finished mask, so a human-judged pixel stays distinguishable from an unexamined one. Depends only on NumPy and `lib/blosc2_io.py`. |
-| `lib/ml_model.py` | Save, load, and run model files (one extension per task): export a trained classifier to ONNX, pack it with its manifest, and run ONNX inference. Verifies the manifest, ONNX SHA-256, and feature spec on load; imports the ML runtime lazily. |
-| `lib/ml_schema.py` | Executable model-file contract: archive layout, manifest keys, task/framework vocabularies, the per-task file extensions, and `validate_manifest`. Depends only on the standard library. |
-| `lib/ml_train.py` | Train and group-aware cross-validate the decision-tree models (`RandomForest` / `HistGradientBoosting`), as a classifier or, for the background surface, a regressor; scikit-learn is a training-only dependency. |
-| `lib/pipeline.py` | `ProcParams` parameter schema, stage construction, and `process_file`, the GUI-independent pipeline driver shared by GUI01 and `cli.py`; the `.b2z` contract itself lives in `lib/bundle_schema.py`. |
-| `lib/processed_image.py` | `ProcessedImage`, the container passed through the GUI01 preprocessing pipeline. |
-| `lib/segmenter.py` | `Segmenter`, which builds binary nanofiber masks from calibrated AFM images. |
-| `lib/skeletonizer.py` | `Skeletonizer`, which thins segmented masks, prunes branches, and labels skeleton components. |
-| `lib/translator.py` | gettext language selection helpers. |
-| `lib/ui_tools.py` | Shared tkinter, matplotlib, logging, dialog, and export helpers used by the GUI plugins. |
-
-## Requirements
-
-- Python 3.10 or later
-- Windows is the primary target platform
-
-Install the Python dependencies listed in `requirements.txt`:
-
-```text
-blosc2
-gwyfile
-lmfit
-matplotlib>=3.10
-numpy
-opencv-python
-pandas
-Pillow
-scikit-image
-scipy
-tksheet
-```
-
-`check.py` can regenerate `requirements.txt` by scanning imports in the source
-tree. PyInstaller is used only for standalone builds and is installed
-separately when building a distribution.
-
-The machine-learning tools (ML Model Trainer and ML Model Compare) need extra,
-**optional** packages listed in `requirements-ml.txt`. The classical pipeline
-never imports them, so install them only to train or apply an ML model:
-
-```powershell
-python -m pip install -r requirements.txt -r requirements-ml.txt
-```
-
-These packages (`scikit-learn`, `skl2onnx`, `onnxruntime`, and a `protobuf < 6`
-pin) are intentionally kept out of `requirements.txt`, so `check.py` excludes
-the ML modules that import them from its base-dependency scan. They are also
-available as the `ml` optional-dependency group in `pyproject.toml`
-(`pip install .[ml]`).
-
-For an exact, reproducible environment, `requirements.lock.txt` records a
-test-verified snapshot of all package versions:
-
-```powershell
-python -m pip install -r requirements.lock.txt
-```
-
-The lock file header records the Python version and operating system on which
-the snapshot was tested. Use it on a matching environment; on other supported
-Python versions or operating systems, install from `pyproject.toml` or the
-loose `requirements.txt` so pip can select compatible wheels.
-
-`check.py` also provides dependency consistency checking and pinning:
-
-```powershell
-python check.py            # regenerate the loose requirements.txt (as before)
-python check.py --verify   # CI-style check: code imports vs pyproject vs environment
-python check.py --pin      # re-lock requirements.lock.txt after all checks and tests pass
-```
-
-`--verify` exits nonzero when an import is missing from `pyproject.toml`
-dependencies (or vice versa), when a scanned dependency is not installed, or
-when `pip check` reports version conflicts. `--pin` runs those same checks
-plus the pytest suite, and rewrites `requirements.lock.txt` only when
-everything passes, so the lock file always records a version set that the
-tests have actually validated.
+The optional machine-learning tools (GUI05–GUI08) are not shown here; see
+GUI Tools below.
 
 ## Installation and Usage
 
@@ -275,7 +86,7 @@ slips past it, delete the `.venv` folder and run the launcher again to force a
 full rebuild. Developers and reviewers can reproduce
 the same setup without the launcher using the editable-install commands below;
 for an exact, pinned version set, install `requirements.lock.txt` instead (see
-Requirements above).
+Dependencies below).
 
 ### Anaconda or Miniconda
 
@@ -424,6 +235,146 @@ python build.py
 The build script generates a PyInstaller bundle under `dist/Main/` and copies
 the plugin/resource folders needed by the launcher. Distribute the entire
 `dist/Main/` folder, not only `Main.exe`.
+
+## Dependencies
+
+- Python 3.10 or later
+- Windows is the primary target platform
+
+Runtime dependencies are declared in `pyproject.toml`, the single source of
+truth. The `run_venv` / `run_conda` launchers and the editable install resolve
+them automatically, so installing dependencies by hand is not normally
+necessary. `requirements.txt` is a generated convenience copy used by the
+manual setup path and can be refreshed with `check.py`. PyInstaller is used
+only for standalone builds and is installed separately when building a
+distribution.
+
+The machine-learning tools (ML Model Trainer and ML Model Compare) need extra,
+**optional** packages listed in `requirements-ml.txt`. The classical pipeline
+never imports them, so install them only to train or apply an ML model:
+
+```powershell
+python -m pip install -r requirements.txt -r requirements-ml.txt
+```
+
+These packages (`scikit-learn`, `skl2onnx`, `onnxruntime`, and a `protobuf < 6`
+pin) are intentionally kept out of `requirements.txt`, so `check.py` excludes
+the ML modules that import them from its base-dependency scan. They are also
+available as the `ml` optional-dependency group in `pyproject.toml`
+(`pip install .[ml]`).
+
+For an exact, reproducible environment, `requirements.lock.txt` records a
+test-verified snapshot of all package versions:
+
+```powershell
+python -m pip install -r requirements.lock.txt
+```
+
+The lock file header records the Python version and operating system on which
+the snapshot was tested. Use it on a matching environment; on other supported
+Python versions or operating systems, install from `pyproject.toml` or the
+loose `requirements.txt` so pip can select compatible wheels.
+
+`check.py` also checks dependency consistency and re-pins the lock file; see
+the Development Utilities section for its `--verify` and `--pin` modes.
+
+## GUI Tools
+
+### Image Preprocessor — `guis/GUI01_Image_Preprocessor.py`
+
+![Image Preprocessor window: file list with per-file scale, and the original, calibrated, binarized, and skeletonized stages with kink points overlaid.](figures/gui01.png)
+
+Load AFM `.txt` exports or native Gwyddion `.gwy` files, run background
+calibration, segmentation, skeletonization, and kink-related feature
+extraction, then save a `.b2z` bundle and a parameter JSON file. Each file
+carries its own physical scan size (auto-filled from the input, or set per file
+by editing the X/Y cells in the file table — including paste from a spreadsheet
+— via the batch scale fields, or from a CSV manifest), stored in the bundle for
+reproducible length measurements.
+
+### Plot Profiler — `guis/GUI02_PlotProfiler.py`
+
+![Plot Profiler window: a line placed on the AFM height map and the extracted height profile alongside it.](figures/gui02.png)
+
+Load raw, calibrated, or bundled AFM height data and interactively extract
+height profiles along selected line segments. The scale defaults to the
+recorded (`.b2z`), header (text/CSV), or channel-extent (`.gwy`) scan size so
+profile distances are reproducible.
+
+### Fiber Height Histogram — `guis/GUI03_Fiber_Height_Histogram.py`
+
+![Fiber Height Histogram window: two sample groups with their height distributions and a per-group statistics table.](figures/gui03.png)
+
+Compare height distributions from skeletonized fiber pixels across
+user-defined groups of `.b2z` bundles.
+
+### Fiber Tracker — `guis/GUI04_Tracking_fiber.py`
+
+![Fiber Tracker window: per-fiber statistics table beside the full AFM overview with the selected fiber highlighted.](figures/gui04.png)
+
+Load `.b2z` bundles, rebuild tracked `Fiber` objects, inspect individual
+fibers, export plots, and export fiber statistics to CSV. An optional
+fiber-connection mode (toggle plus a settings window) reconnects skeleton
+fragments split at crossings and branches into whole fibrils before
+measurement. The connection and height-filter modes compose in "connect, then
+filter" order: when both are on, the height filter slices each connected fibril
+by its own height profile (including bridge heights), so the two are not
+mutually exclusive.
+
+### Machine-learning tools (optional, experimental)
+
+The ML Model Trainer and ML Model Compare are an **optional, experimental**
+addition. The classical preprocessing pipeline (GUI01–GUI04 and `cli.py`) runs
+without any machine-learning dependency; the ML tools inspect binarization as a
+learnable pixel-classification step -- and background correction as either
+a mask-classification or a surface-regression step -- and stay fully opt-in.
+
+#### ML Model Trainer — `guis/GUI05_ML_Model_Trainer.py`
+
+Build a per-pixel training dataset from `.b2z` bundles, cross-validate a
+decision-tree model, and export it as a model file whose extension encodes the
+task (`.afmb` / `.afmm` / `.afms`). Three tasks are selectable: binarization,
+background fiber-candidate mask, and background-surface regression. The two
+background tasks are the alternative background-correction approaches, kept
+side by side so they can be compared; both read the raw height image, so their
+bundles need the optional `original` key (written with `save_original`) or the
+raw input file beside the bundle. Part of the optional, experimental
+machine-learning workflow; the ML dependencies (see Dependencies) are loaded
+only when a training run starts.
+
+#### ML Model Compare — `guis/GUI06_ML_Model_Compare.py`
+
+Apply a trained model to `.b2z` bundles and compare it against the classical
+result in a 2x3 panel grid: the input and the difference on the left, each
+side's raw stage output in the middle, and each side's integrated result on the
+right. Binarization and background-mask models are scored mask-to-mask with
+Dice at both stages; a background-surface model is scored in nanometers against
+the surface the pipeline subtracted, with both corrected images shown side by
+side. Use it to judge whether a model is worth integrating before adding it to
+the preprocessing pipeline.
+
+#### ML Connect Annotator — `guis/GUI07_ML_Connect_Annotator.py`
+
+Review fiber-connection candidates in a `.b2z` bundle and record which fragment
+ends belong to the same fibril. Click a candidate to cycle its verdict, add a
+connection the proposals missed, and save the judgements to a
+`<stem>_connect_labels.json` sidecar beside the bundle; the bundle itself is
+never modified. Unlike the pixel models, these labels cannot be distilled from
+the pipeline -- no rule in it knows which fragments form one fibril -- so this
+human review is what trains the connection model.
+
+#### ML Mask Annotator — `guis/GUI08_ML_Mask_Annotator.py`
+
+Correct the pipeline mask the ML Model Trainer would otherwise train on, for
+the binarization or background fiber-candidate task. Brush pixels to fiber or
+to background, on the mask alone or over the height image, compare the result
+against the pipeline's own mask in the three previews, and save to a
+`<stem>_mask_labels.b2z` sidecar beside the bundle; the bundle itself is never
+modified. Only the pixels that end up differing from the pipeline's mask are
+stored, so a corrected pixel stays distinguishable from one the pipeline
+happened to get right. A model distilled from the pipeline alone can imitate it
+but not beat it; selecting `expert_corrected` as the trainer's label source is
+what lifts that ceiling.
 
 ## Supported Input Formats
 
@@ -701,6 +652,135 @@ Both formats are accompanied by a `<stem>_meta.json` sidecar holding the
 bundle metadata. NumPy `.npz` archives can be read with standard tooling from
 Python, MATLAB, R, and Julia.
 
+## Architecture
+
+The application separates GUI plugins from the reusable modules they call:
+
+- `Main.py` launches GUI plugins discovered in `guis/`.
+- `guis/` contains the user-facing tkinter tools.
+- `lib/` contains AFM I/O, background calibration, segmentation,
+  skeleton cleanup, kink detection, fiber containers, bundle I/O, translation,
+  and shared UI helpers.
+
+GUI01 writes one compressed `.b2z` bundle per analyzed input file. Downstream
+GUIs read those bundles directly.
+
+## Selected Directory Structure
+
+```text
+AFM_Nanofiber_Analyzer/
+|-- Main.py
+|-- cli.py
+|-- babel.cfg
+|-- build.py
+|-- check.py
+|-- prepare_translate_catalogs.py
+|-- pyproject.toml
+|-- requirements.txt
+|-- requirements.lock.txt
+|-- requirements-ml.txt
+|-- run_venv.bat
+|-- run_conda.bat
+|-- run_venv.sh
+|-- run_conda.sh
+|-- guis/
+|   |-- GUI01_Image_Preprocessor.py
+|   |-- GUI02_PlotProfiler.py
+|   |-- GUI03_Fiber_Height_Histogram.py
+|   |-- GUI04_Tracking_fiber.py
+|   |-- GUI05_ML_Model_Trainer.py
+|   |-- GUI06_ML_Model_Compare.py
+|   |-- GUI07_ML_Connect_Annotator.py
+|   |-- GUI08_ML_Mask_Annotator.py
+|   `-- __init__.py
+|-- lib/
+|   |-- afm_io.py
+|   |-- bg_calibrator.py
+|   |-- bg_calibrator_shimadzu.py
+|   |-- bg_mask_filter.py
+|   |-- blosc2_io.py
+|   |-- bundle_schema.py
+|   |-- fiber.py
+|   |-- fiber_tracking_image.py
+|   |-- gwy_io.py
+|   |-- imp_tools.py
+|   |-- kink_detector.py
+|   |-- measure.py
+|   |-- ml_connect_dataset.py
+|   |-- ml_connect_features.py
+|   |-- ml_connect_labels.py
+|   |-- ml_dataset.py
+|   |-- ml_features.py
+|   |-- ml_mask_labels.py
+|   |-- ml_model.py
+|   |-- ml_schema.py
+|   |-- ml_train.py
+|   |-- pipeline.py
+|   |-- processed_image.py
+|   |-- segmenter.py
+|   |-- skeletonizer.py
+|   |-- translator.py
+|   |-- ui_tools.py
+|   `-- __init__.py
+|-- tests/
+|-- locale/
+|   |-- English/
+|   |   `-- LC_MESSAGES/
+|   |-- Japanese/
+|   |   `-- LC_MESSAGES/
+|   `-- Chinese/
+|       `-- LC_MESSAGES/
+|-- assets/
+|   `-- afm_symbol.png
+|-- figures/
+|   |-- gui01.png
+|   |-- gui02.png
+|   |-- gui03.png
+|   |-- gui04.png
+|   |-- guis.png
+|   `-- pipeline.png
+|-- README.md
+`-- README.ja.md
+```
+
+Windows `.bat` helper scripts are intentionally kept ASCII-only. Japanese
+comments in UTF-8 batch files can be misread by `cmd.exe` under the system code
+page and executed as garbled commands, so Japanese maintenance notes belong in
+Markdown documentation such as this README's Japanese counterpart, `README.ja.md`.
+
+## Core Modules
+
+| Module | Main contents |
+|---|---|
+| `lib/afm_io.py` | Text/CSV AFM loader with automatic header, column, and encoding detection, explicit format override, and layout-consistency verification. |
+| `lib/bg_calibrator.py` | `BGCalibrator`, with `inpaint`, `tophat`, `spline1d`, and `spline2d` background methods. |
+| `lib/bg_calibrator_shimadzu.py` | Compatibility shim keeping the historical `BG_Calibrator_shimadzu` name importable. |
+| `lib/bg_mask_filter.py` | Apply the background stage's fiber-mask cleanup (small-component removal, then dilation) to an externally produced mask, so a background-mask model's prediction can be compared with the classical mask at the stage the pipeline actually uses. |
+| `lib/blosc2_io.py` | Blosc2 array storage and `.b2z` TreeStore bundle helpers. |
+| `lib/bundle_schema.py` | Executable `.b2z` contract: required keys, array shapes, value ranges, units, coordinate convention, and format version, with `validate_bundle` enforcing them at write and load time. |
+| `lib/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |
+| `lib/fiber_connector.py` | `connect_fiber_fragments` and `ConnectParams`: reconnect skeleton fragments split at crossings/branches into whole fibrils, used by GUI04's optional fiber-connection mode. |
+| `lib/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |
+| `lib/gwy_io.py` | Lazy-loading reader for native, multi-channel Gwyddion `.gwy` files, including channel selection, length-channel conversion to nm, and scan-size extraction. |
+| `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
+| `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
+| `lib/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
+| `lib/ml_connect_dataset.py` | Build fragment-pair training datasets from bundles and their label sidecars, with per-image grouping. Only decided candidates become samples. |
+| `lib/ml_connect_features.py` | Order-independent feature extraction for a candidate fragment-end pair, including height sampled along the gap -- the evidence the classical distance-and-angle rule never uses. |
+| `lib/ml_connect_labels.py` | Executable contract for the connection-label sidecar: verdict vocabulary, skeleton binding by hash, and validation. Depends only on the standard library and NumPy. |
+| `lib/ml_dataset.py` | Build per-pixel training datasets from `.b2z` bundles for each ML task (binarization, background mask, background surface), with per-image grouping, class balancing, and the one-pixel raw/processed alignment. Depends only on NumPy and the pipeline (no scikit-learn). |
+| `lib/ml_features.py` | Per-pixel multi-scale feature extraction (smoothed height, gradient, Laplacian, Hessian eigenvalues) with per-image robust normalization, shared by the ML preprocessing stages. |
+| `lib/ml_mask_labels.py` | Executable contract for the mask-correction sidecar: the three-valued edit layer, binding to the corrected image by hash and to the base mask by name, and validation. Stores the difference from the pipeline's mask rather than a finished mask, so a human-judged pixel stays distinguishable from an unexamined one. Depends only on NumPy and `lib/blosc2_io.py`. |
+| `lib/ml_model.py` | Save, load, and run model files (one extension per task): export a trained classifier to ONNX, pack it with its manifest, and run ONNX inference. Verifies the manifest, ONNX SHA-256, and feature spec on load; imports the ML runtime lazily. |
+| `lib/ml_schema.py` | Executable model-file contract: archive layout, manifest keys, task/framework vocabularies, the per-task file extensions, and `validate_manifest`. Depends only on the standard library. |
+| `lib/ml_train.py` | Train and group-aware cross-validate the decision-tree models (`RandomForest` / `HistGradientBoosting`), as a classifier or, for the background surface, a regressor; scikit-learn is a training-only dependency. |
+| `lib/pipeline.py` | `ProcParams` parameter schema, stage construction, and `process_file`, the GUI-independent pipeline driver shared by GUI01 and `cli.py`; the `.b2z` contract itself lives in `lib/bundle_schema.py`. |
+| `lib/processed_image.py` | `ProcessedImage`, the container passed through the GUI01 preprocessing pipeline. |
+| `lib/segmenter.py` | `Segmenter`, which builds binary nanofiber masks from calibrated AFM images. |
+| `lib/skeletonizer.py` | `Skeletonizer`, which thins segmented masks, prunes branches, and labels skeleton components. |
+| `lib/translator.py` | gettext language selection helpers. |
+| `lib/ui_tools.py` | Shared tkinter, matplotlib, logging, dialog, and export helpers used by the GUI plugins. |
+
 ## Adding a GUI Plugin
 
 1. Add a Python file under `guis/`.
@@ -756,6 +836,19 @@ test suite instead of degrading silently in the launcher.
   reports drift between code imports, `pyproject.toml`, and the installed
   environment, and `--pin` regenerates `requirements.lock.txt` after the
   consistency checks and the test suite pass.
+
+  ```powershell
+  python check.py            # regenerate the loose requirements.txt
+  python check.py --verify   # CI-style check: code imports vs pyproject vs environment
+  python check.py --pin      # re-lock requirements.lock.txt after all checks and tests pass
+  ```
+
+  `--verify` exits nonzero when an import is missing from `pyproject.toml`
+  dependencies (or vice versa), when a scanned dependency is not installed, or
+  when `pip check` reports version conflicts. `--pin` runs those same checks
+  plus the pytest suite, and rewrites `requirements.lock.txt` only when
+  everything passes, so the lock file always records a version set that the
+  tests have actually validated.
 - `build.py` verifies imports, collects PyInstaller materials, writes
   `Main.auto.spec`, runs PyInstaller, and copies project resource folders.
 - `prepare_translate_catalogs.py` refreshes gettext catalogs, extracts plugin

@@ -19,210 +19,22 @@ AFM Nanofiber Analyzer は、原子間力顕微鏡 (AFM) の高さ画像を前�
 追跡、キンク検出、ナノファイバー試料グループ間の高さの統計比較は提供しません。AFM Nanofiber Analyzer は、
 文書化された再現可能なパイプラインと安定したデータ形式でその隙間を埋めます。
 
-## 概要
+## デモ
 
-このアプリケーションは、GUI プラグインと再利用可能な解析モジュールを分離しています。
+![古典的ワークフローの 4 つの GUI プラグイン: (a) Image Preprocessor、(b) Plot Profiler、(c) Fiber Height Histogram、(d) Fiber Tracker。](figures/guis.png)
 
-- `Main.py` は `guis/` 内の GUI プラグインを検出して起動します。
-- `guis/` にはユーザーが操作する tkinter ツールが入っています。
-- `lib/` には AFM 入出力、背景補正、二値化、スケルトン処理、キンク検出、
-  ファイバーコンテナ、バンドル入出力、翻訳、共通 UI ヘルパーが入っています。
+- **(a) Image Preprocessor** は AFM 高さ画像に背景補正、二値化、細線化を適用し、
+  元画像・補正後・二値化・細線化の各段階と、検出されたキンク点の重ね描きを
+  表示します。
+- **(b) Plot Profiler** は高さマップ上に対話的に配置した線分に沿って高さ
+  プロファイルを抽出します。
+- **(c) Fiber Height Histogram** はユーザー定義の試料グループ間で細線化画素の
+  高さ分布を比較し、グループごとの統計量を表示します。
+- **(d) Fiber Tracker** はファイバーごとの長さ、高さの中央値・最大値、端点数・
+  キンク数を一覧し、各ファイバーの位置を全体像上で示します。
 
-GUI01 は解析対象の入力ファイルごとに、圧縮された `.b2z` バンドルを 1 つ
-出力します。後段の GUI は、このバンドルを直接読み込みます。
-
-## GUI ツール
-
-| ファイル | ランチャー名 | 用途 |
-|---|---|---|
-| `guis/GUI01_Image_Preprocessor.py` | Image Preprocessor | AFM の `.txt` エクスポートまたは Gwyddion ネイティブ `.gwy` を読み込み、背景補正、二値化、細線化、キンク関連特徴抽出を行い、`.b2z` バンドルとパラメータ JSON を保存します。各ファイルは固有の物理走査範囲を持ち（入力から自動充填、またはファイル表の X/Y セルの直接編集〈表計算ソフトからの貼り付け対応〉、一括スケール入力欄、CSV マニフェストでファイル単位に設定）、長さ計測を再現できるようバンドルへ保存します。 |
-| `guis/GUI02_PlotProfiler.py` | Plot Profiler | 生データ、補正済みデータ、またはバンドル化された AFM 高さデータを読み込み、選択した線分に沿った高さプロファイルを対話的に抽出します。プロファイル距離を再現可能にするため、スケールは記録値（`.b2z`）、ヘッダ（テキスト/CSV）、またはチャンネル範囲（`.gwy`）の走査範囲で既定化します。 |
-| `guis/GUI03_Fiber_Height_Histogram.py` | Fiber Height Histogram | ユーザー定義グループごとに、`.b2z` バンドル群の細線化ファイバー画素から高さ分布を比較します。 |
-| `guis/GUI04_Tracking_fiber.py` | Fiber Tracker | `.b2z` バンドルを読み込み、追跡済み `Fiber` オブジェクトを再構築し、個別ファイバーの確認、図の出力、ファイバー統計量の CSV 出力を行います。任意のファイバー連結モード（トグルと設定ウインドウ）では、交差・分岐で分断された骨格断片を計測前に 1 本のフィブリルへ再結合します。連結モードと高さフィルターは「連結してからフィルター」の順序で合成され、両方を有効にすると高さフィルターは連結済みフィブリルを自身の高さプロファイル（橋渡し部を含む）で切り出すため、両者は排他ではありません。 |
-| `guis/GUI05_ML_Model_Trainer.py` | ML Model Trainer | `.b2z` バンドルから画素単位の教師データを構築し、決定木モデルを交差検証して、拡張子がタスクを表すモデルファイル（`.afmb` / `.afmm` / `.afms`）としてエクスポートします。タスクは二値化・背景の繊維候補マスク・背景面回帰の 3 つから選択できます。背景系の 2 タスクは背景補正の代替方式で、比較できるよう併存させています。いずれも生の高さ画像を読むため、対象バンドルには任意キー `original`（`save_original` 指定時に書かれる）か、バンドルの隣にある生の入力ファイルが必要です。任意・実験的な機械学習ワークフローの一部で、機械学習依存（後述）は学習実行時のみ読み込まれます。 |
-| `guis/GUI06_ML_Model_Compare.py` | ML Model Compare | 学習済みのモデルを `.b2z` バンドルへ適用し、古典的な結果と 2x3 のパネル図で比較します。左列が入力と差分、中列が各側の素の段出力、右列が各側の統合後の結果です。二値化モデルと背景マスクモデルは両段で Dice によりマスク同士を、背景面モデルはパイプラインが差し引いた背景面と nm 単位で採点し、両者の補正後画像を並べて表示します。モデルを前処理パイプラインへ組み込む前に、統合する価値があるかを判断するために使います。 |
-| `guis/GUI07_ML_Connect_Annotator.py` | ML Connect Annotator | `.b2z` バンドル内のファイバー連結候補を検分し、どの断片端が同一フィブリルに属するかを記録します。候補をクリックすると判定が切り替わり、提示に無い連結を追加でき、判断はバンドルの隣の `<stem>_connect_labels.json` sidecar へ保存されます。バンドル自体は変更しません。画素モデルと異なり、このラベルはパイプラインから蒸留できません（どの断片が 1 本のフィブリルを成すかを知る規則がパイプラインに無いためです）。したがって、この人手による検分が連結モデルを学習させます。 |
-| `guis/GUI08_ML_Mask_Annotator.py` | ML Mask Annotator | ML Model Trainer がそのまま学習に使うことになるパイプラインのマスクを、二値化タスクまたは背景の繊維候補タスクについて修正します。マスク単独または高さ画像への重ね描きの上で、画素を繊維または背景に塗り、3 面プレビューでパイプラインのマスクと結果を見比べ、バンドルの隣の `<stem>_mask_labels.b2z` sidecar へ保存します。バンドル自体は変更しません。保存されるのはパイプラインのマスクと最終的に食い違った画素だけであり、修正した画素と、たまたまパイプラインが正解していた画素とを区別できます。パイプラインだけから蒸留したモデルはそれを模倣できても上回れません。学習側でラベルの出所に `expert_corrected` を選ぶことが、この上限を外します。 |
-
-ML Model Trainer と ML Model Compare は **任意・実験的** な追加機能です。古典的な
-前処理パイプライン（GUI01〜GUI04 と `cli.py`）は機械学習依存なしで動作し、
-ML ツールは二値化を学習可能な画素分類ステップとして、背景補正をマスク分類
-または背景面回帰のステップとして検討するもので、完全にオプトインです。
-
-## 主なディレクトリ構成
-
-```text
-AFM_Nanofiber_Analyzer/
-|-- Main.py
-|-- cli.py
-|-- babel.cfg
-|-- build.py
-|-- check.py
-|-- prepare_translate_catalogs.py
-|-- pyproject.toml
-|-- requirements.txt
-|-- requirements.lock.txt
-|-- requirements-ml.txt
-|-- run_venv.bat
-|-- run_conda.bat
-|-- run_venv.sh
-|-- run_conda.sh
-|-- guis/
-|   |-- GUI01_Image_Preprocessor.py
-|   |-- GUI02_PlotProfiler.py
-|   |-- GUI03_Fiber_Height_Histogram.py
-|   |-- GUI04_Tracking_fiber.py
-|   |-- GUI05_ML_Model_Trainer.py
-|   |-- GUI06_ML_Model_Compare.py
-|   |-- GUI07_ML_Connect_Annotator.py
-|   |-- GUI08_ML_Mask_Annotator.py
-|   `-- __init__.py
-|-- lib/
-|   |-- afm_io.py
-|   |-- bg_calibrator.py
-|   |-- bg_calibrator_shimadzu.py
-|   |-- bg_mask_filter.py
-|   |-- blosc2_io.py
-|   |-- bundle_schema.py
-|   |-- fiber.py
-|   |-- fiber_tracking_image.py
-|   |-- gwy_io.py
-|   |-- imp_tools.py
-|   |-- kink_detector.py
-|   |-- measure.py
-|   |-- ml_connect_dataset.py
-|   |-- ml_connect_features.py
-|   |-- ml_connect_labels.py
-|   |-- ml_dataset.py
-|   |-- ml_features.py
-|   |-- ml_mask_labels.py
-|   |-- ml_model.py
-|   |-- ml_schema.py
-|   |-- ml_train.py
-|   |-- pipeline.py
-|   |-- processed_image.py
-|   |-- segmenter.py
-|   |-- skeletonizer.py
-|   |-- translator.py
-|   |-- ui_tools.py
-|   `-- __init__.py
-|-- tests/
-|-- locale/
-|   |-- English/
-|   |   `-- LC_MESSAGES/
-|   |-- Japanese/
-|   |   `-- LC_MESSAGES/
-|   `-- Chinese/
-|       `-- LC_MESSAGES/
-|-- assets/
-|   `-- afm_symbol.png
-|-- README.md
-`-- README.ja.md
-```
-
-Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにしています。UTF-8 の
-バッチファイルに日本語コメントを書くと、`cmd.exe` がシステム既定のコードページで
-誤読し、文字化けした断片をコマンドとして実行することがあります。そのため、
-日本語の保守メモは `README.ja.md` などの Markdown 文書に残します。
-
-## 主なモジュール
-
-| モジュール | 主な内容 |
-|---|---|
-| `lib/afm_io.py` | ヘッダー、列数、エンコーディングを自動検出する AFM テキスト / CSV ローダー。形式の明示指定とレイアウト整合検証に対応。 |
-| `lib/bg_calibrator.py` | `inpaint`、`tophat`、`spline1d`、`spline2d` 背景補正方式を持つ `BGCalibrator`。 |
-| `lib/bg_calibrator_shimadzu.py` | 従来名 `BG_Calibrator_shimadzu` を import 可能に保つ互換シム。 |
-| `lib/bg_mask_filter.py` | 背景段の繊維マスク整形処理（微小成分の除去と膨張）を外部で生成したマスクへ適用する。背景マスクモデルの予測を、パイプラインが実際に使う段で古典マスクと比較できるようにする。 |
-| `lib/blosc2_io.py` | Blosc2 配列保存と `.b2z` TreeStore バンドルの入出力ヘルパー。 |
-| `lib/bundle_schema.py` | `.b2z` 契約の実行可能スキーマ。必須キー、配列形状、値域、単位、座標規約、形式バージョンを定義し、`validate_bundle` が書き込み時と読み込み時に強制する。 |
-| `lib/fiber.py` | ファイバー形状、高さプロファイル、キンクインデックス、端点インデックスを保持する不変 `Fiber` dataclass。 |
-| `lib/fiber_connector.py` | `connect_fiber_fragments` と `ConnectParams`。交差・分岐で分断された骨格断片を 1 本のフィブリルへ再結合する。GUI04 の任意のファイバー連結モードで使用。 |
-| `lib/fiber_tracking_image.py` | GUI04 が GUI01 のバンドル出力からファイバーを再構築・追跡するための `FiberTrackingImage`。 |
-| `lib/gwy_io.py` | ネイティブな複数チャンネル Gwyddion `.gwy` を遅延読み込みし、チャンネル選択、長さチャンネルの nm 換算、走査範囲抽出を行うローダー。 |
-| `lib/imp_tools.py` | スケルトン形態処理、端点・分岐点検出、線追跡、経路距離変換のヘルパー。 |
-| `lib/kink_detector.py` | 追跡されたスケルトン成分からキンク点を検出する `KinkDetector`。 |
-| `lib/measure.py` | `.b2z` バンドルに対する GUI 非依存のファイバー計測。`measure_bundle`、ファイバーごとの `FiberStats`、スケルトン画素高さの収集、および GUI03/GUI04 と `cli.py` が共有する CSV 書き出し。 |
-| `lib/ml_connect_dataset.py` | バンドルとそのラベル sidecar から断片ペアの教師データセットを構築する。画像単位でグループ化し、標本になるのは判断済みの候補のみ。 |
-| `lib/ml_connect_features.py` | 候補となる断片端ペアの順序非依存な特徴抽出。隙間に沿って標本化した高さ（古典的な距離・角度ルールが使わない証拠）を含む。 |
-| `lib/ml_connect_labels.py` | 連結ラベル sidecar の実行可能な契約。判定の語彙、ハッシュによる骨格への結び付け、検証。依存は標準ライブラリと NumPy のみ。 |
-| `lib/ml_dataset.py` | ML の各タスク（二値化・背景マスク・背景面）向けに `.b2z` バンドルから画素単位の教師データを構築する。画像単位のグループ化、クラス均衡化、生画像と処理済み画像の 1 画素整列を行う。依存は NumPy とパイプラインのみ（scikit-learn 不要）。 |
-| `lib/ml_features.py` | 画素単位のマルチスケール特徴抽出（平滑化高さ・勾配・ラプラシアン・ヘッセ固有値）と画像ごとのロバスト正規化。ML 前処理ステージで共有する。 |
-| `lib/ml_mask_labels.py` | マスク修正 sidecar の実行可能な契約。3 値の編集レイヤ、ハッシュによる修正対象画像への結び付けと名前によるベースマスクへの結び付け、検証。完成マスクではなくパイプラインのマスクとの差分を保存するため、人が判断した画素と未検分の画素を区別できる。依存は NumPy と `lib/blosc2_io.py` のみ。 |
-| `lib/ml_model.py` | モデルファイル（拡張子はタスク別）の保存・読み込み・実行。学習済み分類器を ONNX へエクスポートし manifest とともに格納し、ONNX 推論を行う。読み込み時に manifest・ONNX の SHA-256・特徴仕様を検証し、ML ランタイムは遅延 import する。 |
-| `lib/ml_schema.py` | モデルファイル契約の実行可能スキーマ。アーカイブ構成、manifest キー、タスク／フレームワークの語彙、タスク別の拡張子、`validate_manifest`。依存は標準ライブラリのみ。 |
-| `lib/ml_train.py` | 決定木モデル（`RandomForest` / `HistGradientBoosting`）の学習とグループ考慮の交差検証。分類器として、背景面では回帰器として動作する。scikit-learn は学習専用の依存。 |
-| `lib/pipeline.py` | `ProcParams` パラメータスキーマ、ステージ構築、および GUI01 と `cli.py` が共有する GUI 非依存のパイプライン駆動関数 `process_file`。`.b2z` 契約自体は `lib/bundle_schema.py` にあります。 |
-| `lib/processed_image.py` | GUI01 の前処理パイプラインで使う `ProcessedImage` コンテナ。 |
-| `lib/segmenter.py` | 背景補正済み AFM 画像からナノファイバー二値マスクを作成する `Segmenter`。 |
-| `lib/skeletonizer.py` | 二値マスクを細線化し、枝刈りとスケルトン成分ラベル付けを行う `Skeletonizer`。 |
-| `lib/translator.py` | gettext の言語選択ヘルパー。 |
-| `lib/ui_tools.py` | GUI プラグインで共有する tkinter、matplotlib、ログ、ダイアログ、出力ヘルパー。 |
-
-## 要件
-
-- Python 3.10 以降
-- Windows を主な対象環境としています
-
-Python 依存関係は `requirements.txt` に記載されています。
-
-```text
-blosc2
-gwyfile
-lmfit
-matplotlib>=3.10
-numpy
-opencv-python
-pandas
-Pillow
-scikit-image
-scipy
-tksheet
-```
-
-機械学習ツール（ML Model Trainer と ML Model Compare）には、`requirements-ml.txt`
-に記載した追加の **任意** パッケージが必要です。古典的なパイプラインはこれらを
-一切 import しないため、ML モデルを学習または適用する場合にのみインストールします:
-
-```powershell
-python -m pip install -r requirements.txt -r requirements-ml.txt
-```
-
-これらのパッケージ（`scikit-learn`、`skl2onnx`、`onnxruntime`、および
-`protobuf < 6` の固定）は意図的に `requirements.txt` から除外しており、`check.py`
-はこれらを import する ML モジュールを基本依存スキャンから除外します。
-`pyproject.toml` の `ml` 追加依存グループとしても利用できます
-（`pip install .[ml]`）。
-
-`check.py` はソースツリー内の import を走査して `requirements.txt` を再生成できます。
-PyInstaller はスタンドアロンビルド専用のツールであり、配布物をビルドする場合に
-別途インストールします。
-
-環境を厳密に再現したい場合は、テストで検証済みの全パッケージバージョンを
-記録した `requirements.lock.txt` を使用してください:
-
-```powershell
-python -m pip install -r requirements.lock.txt
-```
-
-lock ファイルのヘッダーには、スナップショットを検証した Python バージョンと
-OS が記録されています。同じ環境で使用してください。ほかの対応 Python
-バージョンや OS では、pip が互換 wheel を選べるよう `pyproject.toml` または
-緩い `requirements.txt` からインストールします。
-
-`check.py` には依存関係の整合性チェックとバージョン固定の機能もあります:
-
-```powershell
-python check.py            # 緩い requirements.txt を再生成(従来どおり)
-python check.py --verify   # CI 向け検査: コードの import ⇔ pyproject ⇔ 実環境
-python check.py --pin      # 全検査とテスト合格後に requirements.lock.txt を再固定
-```
-
-`--verify` は、コードで import している依存が `pyproject.toml` に宣言されて
-いない場合(およびその逆)、走査された依存が未インストールの場合、`pip check`
-がバージョン矛盾を報告した場合に、非ゼロで終了します。`--pin` は同じ検査に
-加えて pytest スイートを実行し、すべて合格した場合のみ
-`requirements.lock.txt` を書き換えます。これにより lock ファイルは常に
-「テストで実際に検証されたバージョンの組み合わせ」を記録します。
+任意の機械学習ツール（GUI05〜GUI08）はここには含まれていません。後述の
+「GUI ツール」を参照してください。
 
 ## インストールと使い方
 
@@ -270,7 +82,7 @@ chmod +x run_venv.sh
 を再実行すればフル再構築されます。開発者やレビュアーは、ランチャーを使わずに
 後述の編集可能インストールのコマンドで同じ環境を再現できます。バージョンを厳密に
 固定したい場合は、代わりに `requirements.lock.txt` をインストールしてください
-(上記「要件」を参照)。
+(後述の「依存関係」を参照)。
 
 ### Anaconda または Miniconda
 
@@ -415,6 +227,136 @@ python build.py
 ビルドスクリプトは `dist/Main/` に PyInstaller バンドルを生成し、ランチャーに
 必要なプラグインとリソースフォルダをコピーします。配布時は `Main.exe` だけでなく、
 `dist/Main/` フォルダ全体を配布してください。
+
+## 依存関係
+
+- Python 3.10 以降
+- Windows を主な対象環境としています
+
+実行時の依存関係は、単一の真実の源である `pyproject.toml` に宣言されています。
+`run_venv` / `run_conda` ランチャーと編集可能インストールがこれらを自動で解決
+するため、通常は依存パッケージを手動でインストールする必要はありません。
+`requirements.txt` は手動セットアップ用に生成された補助的なコピーであり、
+`check.py` で再生成できます。PyInstaller はスタンドアロンビルド専用のツールで
+あり、配布物をビルドする場合に別途インストールします。
+
+機械学習ツール（ML Model Trainer と ML Model Compare）には、`requirements-ml.txt`
+に記載した追加の **任意** パッケージが必要です。古典的なパイプラインはこれらを
+一切 import しないため、ML モデルを学習または適用する場合にのみインストールします:
+
+```powershell
+python -m pip install -r requirements.txt -r requirements-ml.txt
+```
+
+これらのパッケージ（`scikit-learn`、`skl2onnx`、`onnxruntime`、および
+`protobuf < 6` の固定）は意図的に `requirements.txt` から除外しており、`check.py`
+はこれらを import する ML モジュールを基本依存スキャンから除外します。
+`pyproject.toml` の `ml` 追加依存グループとしても利用できます
+（`pip install .[ml]`）。
+
+環境を厳密に再現したい場合は、テストで検証済みの全パッケージバージョンを
+記録した `requirements.lock.txt` を使用してください:
+
+```powershell
+python -m pip install -r requirements.lock.txt
+```
+
+lock ファイルのヘッダーには、スナップショットを検証した Python バージョンと
+OS が記録されています。同じ環境で使用してください。ほかの対応 Python
+バージョンや OS では、pip が互換 wheel を選べるよう `pyproject.toml` または
+緩い `requirements.txt` からインストールします。
+
+`check.py` には依存関係の整合性チェックとバージョン固定の機能もあります。
+`--verify` と `--pin` については「開発用ユーティリティ」を参照してください。
+
+## GUI ツール
+
+### Image Preprocessor — `guis/GUI01_Image_Preprocessor.py`
+
+![Image Preprocessor のウインドウ: ファイル単位のスケールを持つファイル一覧と、元画像・補正後・二値化・細線化の各段階、およびキンク点の重ね描き。](figures/gui01.png)
+
+AFM の `.txt` エクスポートまたは Gwyddion ネイティブ `.gwy` を読み込み、背景
+補正、二値化、細線化、キンク関連特徴抽出を行い、`.b2z` バンドルとパラメータ
+JSON を保存します。各ファイルは固有の物理走査範囲を持ち（入力から自動充填、
+またはファイル表の X/Y セルの直接編集〈表計算ソフトからの貼り付け対応〉、一括
+スケール入力欄、CSV マニフェストでファイル単位に設定）、長さ計測を再現できる
+ようバンドルへ保存します。
+
+### Plot Profiler — `guis/GUI02_PlotProfiler.py`
+
+![Plot Profiler のウインドウ: AFM 高さマップ上に配置した線分と、その線分から抽出した高さプロファイル。](figures/gui02.png)
+
+生データ、補正済みデータ、またはバンドル化された AFM 高さデータを読み込み、
+選択した線分に沿った高さプロファイルを対話的に抽出します。プロファイル距離を
+再現可能にするため、スケールは記録値（`.b2z`）、ヘッダ（テキスト/CSV）、または
+チャンネル範囲（`.gwy`）の走査範囲で既定化します。
+
+### Fiber Height Histogram — `guis/GUI03_Fiber_Height_Histogram.py`
+
+![Fiber Height Histogram のウインドウ: 2 つの試料グループの高さ分布と、グループごとの統計量テーブル。](figures/gui03.png)
+
+ユーザー定義グループごとに、`.b2z` バンドル群の細線化ファイバー画素から高さ
+分布を比較します。
+
+### Fiber Tracker — `guis/GUI04_Tracking_fiber.py`
+
+![Fiber Tracker のウインドウ: ファイバーごとの統計量テーブルと、選択したファイバーを強調表示した AFM 全体像。](figures/gui04.png)
+
+`.b2z` バンドルを読み込み、追跡済み `Fiber` オブジェクトを再構築し、個別
+ファイバーの確認、図の出力、ファイバー統計量の CSV 出力を行います。任意の
+ファイバー連結モード（トグルと設定ウインドウ）では、交差・分岐で分断された
+骨格断片を計測前に 1 本のフィブリルへ再結合します。連結モードと高さフィルター
+は「連結してからフィルター」の順序で合成され、両方を有効にすると高さフィルター
+は連結済みフィブリルを自身の高さプロファイル（橋渡し部を含む）で切り出すため、
+両者は排他ではありません。
+
+### 機械学習ツール（任意・実験的）
+
+ML Model Trainer と ML Model Compare は **任意・実験的** な追加機能です。古典的な
+前処理パイプライン（GUI01〜GUI04 と `cli.py`）は機械学習依存なしで動作し、
+ML ツールは二値化を学習可能な画素分類ステップとして、背景補正をマスク分類
+または背景面回帰のステップとして検討するもので、完全にオプトインです。
+
+#### ML Model Trainer — `guis/GUI05_ML_Model_Trainer.py`
+
+`.b2z` バンドルから画素単位の教師データを構築し、決定木モデルを交差検証して、
+拡張子がタスクを表すモデルファイル（`.afmb` / `.afmm` / `.afms`）としてエクス
+ポートします。タスクは二値化・背景の繊維候補マスク・背景面回帰の 3 つから選択
+できます。背景系の 2 タスクは背景補正の代替方式で、比較できるよう併存させて
+います。いずれも生の高さ画像を読むため、対象バンドルには任意キー `original`
+（`save_original` 指定時に書かれる）か、バンドルの隣にある生の入力ファイルが
+必要です。任意・実験的な機械学習ワークフローの一部で、機械学習依存（「依存関係」
+を参照）は学習実行時のみ読み込まれます。
+
+#### ML Model Compare — `guis/GUI06_ML_Model_Compare.py`
+
+学習済みのモデルを `.b2z` バンドルへ適用し、古典的な結果と 2x3 のパネル図で
+比較します。左列が入力と差分、中列が各側の素の段出力、右列が各側の統合後の
+結果です。二値化モデルと背景マスクモデルは両段で Dice によりマスク同士を、
+背景面モデルはパイプラインが差し引いた背景面と nm 単位で採点し、両者の補正後
+画像を並べて表示します。モデルを前処理パイプラインへ組み込む前に、統合する
+価値があるかを判断するために使います。
+
+#### ML Connect Annotator — `guis/GUI07_ML_Connect_Annotator.py`
+
+`.b2z` バンドル内のファイバー連結候補を検分し、どの断片端が同一フィブリルに
+属するかを記録します。候補をクリックすると判定が切り替わり、提示に無い連結を
+追加でき、判断はバンドルの隣の `<stem>_connect_labels.json` sidecar へ保存され
+ます。バンドル自体は変更しません。画素モデルと異なり、このラベルはパイプライン
+から蒸留できません（どの断片が 1 本のフィブリルを成すかを知る規則がパイプライン
+に無いためです）。したがって、この人手による検分が連結モデルを学習させます。
+
+#### ML Mask Annotator — `guis/GUI08_ML_Mask_Annotator.py`
+
+ML Model Trainer がそのまま学習に使うことになるパイプラインのマスクを、二値化
+タスクまたは背景の繊維候補タスクについて修正します。マスク単独または高さ画像
+への重ね描きの上で、画素を繊維または背景に塗り、3 面プレビューでパイプラインの
+マスクと結果を見比べ、バンドルの隣の `<stem>_mask_labels.b2z` sidecar へ保存
+します。バンドル自体は変更しません。保存されるのはパイプラインのマスクと最終的
+に食い違った画素だけであり、修正した画素と、たまたまパイプラインが正解していた
+画素とを区別できます。パイプラインだけから蒸留したモデルはそれを模倣できても
+上回れません。学習側でラベルの出所に `expert_corrected` を選ぶことが、この上限
+を外します。
 
 ## 対応入力フォーマット
 
@@ -688,6 +630,134 @@ python cli.py export results\*.b2z --format csv   # 配列キーごとに 1 つ�
 併せて出力されます。NumPy `.npz` アーカイブは Python、MATLAB、R、Julia の
 標準的なツールで読み込めます。
 
+## アーキテクチャ
+
+このアプリケーションは、GUI プラグインと再利用可能な解析モジュールを分離しています。
+
+- `Main.py` は `guis/` 内の GUI プラグインを検出して起動します。
+- `guis/` にはユーザーが操作する tkinter ツールが入っています。
+- `lib/` には AFM 入出力、背景補正、二値化、スケルトン処理、キンク検出、
+  ファイバーコンテナ、バンドル入出力、翻訳、共通 UI ヘルパーが入っています。
+
+GUI01 は解析対象の入力ファイルごとに、圧縮された `.b2z` バンドルを 1 つ
+出力します。後段の GUI は、このバンドルを直接読み込みます。
+
+## 主なディレクトリ構成
+
+```text
+AFM_Nanofiber_Analyzer/
+|-- Main.py
+|-- cli.py
+|-- babel.cfg
+|-- build.py
+|-- check.py
+|-- prepare_translate_catalogs.py
+|-- pyproject.toml
+|-- requirements.txt
+|-- requirements.lock.txt
+|-- requirements-ml.txt
+|-- run_venv.bat
+|-- run_conda.bat
+|-- run_venv.sh
+|-- run_conda.sh
+|-- guis/
+|   |-- GUI01_Image_Preprocessor.py
+|   |-- GUI02_PlotProfiler.py
+|   |-- GUI03_Fiber_Height_Histogram.py
+|   |-- GUI04_Tracking_fiber.py
+|   |-- GUI05_ML_Model_Trainer.py
+|   |-- GUI06_ML_Model_Compare.py
+|   |-- GUI07_ML_Connect_Annotator.py
+|   |-- GUI08_ML_Mask_Annotator.py
+|   `-- __init__.py
+|-- lib/
+|   |-- afm_io.py
+|   |-- bg_calibrator.py
+|   |-- bg_calibrator_shimadzu.py
+|   |-- bg_mask_filter.py
+|   |-- blosc2_io.py
+|   |-- bundle_schema.py
+|   |-- fiber.py
+|   |-- fiber_tracking_image.py
+|   |-- gwy_io.py
+|   |-- imp_tools.py
+|   |-- kink_detector.py
+|   |-- measure.py
+|   |-- ml_connect_dataset.py
+|   |-- ml_connect_features.py
+|   |-- ml_connect_labels.py
+|   |-- ml_dataset.py
+|   |-- ml_features.py
+|   |-- ml_mask_labels.py
+|   |-- ml_model.py
+|   |-- ml_schema.py
+|   |-- ml_train.py
+|   |-- pipeline.py
+|   |-- processed_image.py
+|   |-- segmenter.py
+|   |-- skeletonizer.py
+|   |-- translator.py
+|   |-- ui_tools.py
+|   `-- __init__.py
+|-- tests/
+|-- locale/
+|   |-- English/
+|   |   `-- LC_MESSAGES/
+|   |-- Japanese/
+|   |   `-- LC_MESSAGES/
+|   `-- Chinese/
+|       `-- LC_MESSAGES/
+|-- assets/
+|   `-- afm_symbol.png
+|-- figures/
+|   |-- gui01.png
+|   |-- gui02.png
+|   |-- gui03.png
+|   |-- gui04.png
+|   |-- guis.png
+|   `-- pipeline.png
+|-- README.md
+`-- README.ja.md
+```
+
+Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにしています。UTF-8 の
+バッチファイルに日本語コメントを書くと、`cmd.exe` がシステム既定のコードページで
+誤読し、文字化けした断片をコマンドとして実行することがあります。そのため、
+日本語の保守メモは `README.ja.md` などの Markdown 文書に残します。
+
+## 主なモジュール
+
+| モジュール | 主な内容 |
+|---|---|
+| `lib/afm_io.py` | ヘッダー、列数、エンコーディングを自動検出する AFM テキスト / CSV ローダー。形式の明示指定とレイアウト整合検証に対応。 |
+| `lib/bg_calibrator.py` | `inpaint`、`tophat`、`spline1d`、`spline2d` 背景補正方式を持つ `BGCalibrator`。 |
+| `lib/bg_calibrator_shimadzu.py` | 従来名 `BG_Calibrator_shimadzu` を import 可能に保つ互換シム。 |
+| `lib/bg_mask_filter.py` | 背景段の繊維マスク整形処理（微小成分の除去と膨張）を外部で生成したマスクへ適用する。背景マスクモデルの予測を、パイプラインが実際に使う段で古典マスクと比較できるようにする。 |
+| `lib/blosc2_io.py` | Blosc2 配列保存と `.b2z` TreeStore バンドルの入出力ヘルパー。 |
+| `lib/bundle_schema.py` | `.b2z` 契約の実行可能スキーマ。必須キー、配列形状、値域、単位、座標規約、形式バージョンを定義し、`validate_bundle` が書き込み時と読み込み時に強制する。 |
+| `lib/fiber.py` | ファイバー形状、高さプロファイル、キンクインデックス、端点インデックスを保持する不変 `Fiber` dataclass。 |
+| `lib/fiber_connector.py` | `connect_fiber_fragments` と `ConnectParams`。交差・分岐で分断された骨格断片を 1 本のフィブリルへ再結合する。GUI04 の任意のファイバー連結モードで使用。 |
+| `lib/fiber_tracking_image.py` | GUI04 が GUI01 のバンドル出力からファイバーを再構築・追跡するための `FiberTrackingImage`。 |
+| `lib/gwy_io.py` | ネイティブな複数チャンネル Gwyddion `.gwy` を遅延読み込みし、チャンネル選択、長さチャンネルの nm 換算、走査範囲抽出を行うローダー。 |
+| `lib/imp_tools.py` | スケルトン形態処理、端点・分岐点検出、線追跡、経路距離変換のヘルパー。 |
+| `lib/kink_detector.py` | 追跡されたスケルトン成分からキンク点を検出する `KinkDetector`。 |
+| `lib/measure.py` | `.b2z` バンドルに対する GUI 非依存のファイバー計測。`measure_bundle`、ファイバーごとの `FiberStats`、スケルトン画素高さの収集、および GUI03/GUI04 と `cli.py` が共有する CSV 書き出し。 |
+| `lib/ml_connect_dataset.py` | バンドルとそのラベル sidecar から断片ペアの教師データセットを構築する。画像単位でグループ化し、標本になるのは判断済みの候補のみ。 |
+| `lib/ml_connect_features.py` | 候補となる断片端ペアの順序非依存な特徴抽出。隙間に沿って標本化した高さ（古典的な距離・角度ルールが使わない証拠）を含む。 |
+| `lib/ml_connect_labels.py` | 連結ラベル sidecar の実行可能な契約。判定の語彙、ハッシュによる骨格への結び付け、検証。依存は標準ライブラリと NumPy のみ。 |
+| `lib/ml_dataset.py` | ML の各タスク（二値化・背景マスク・背景面）向けに `.b2z` バンドルから画素単位の教師データを構築する。画像単位のグループ化、クラス均衡化、生画像と処理済み画像の 1 画素整列を行う。依存は NumPy とパイプラインのみ（scikit-learn 不要）。 |
+| `lib/ml_features.py` | 画素単位のマルチスケール特徴抽出（平滑化高さ・勾配・ラプラシアン・ヘッセ固有値）と画像ごとのロバスト正規化。ML 前処理ステージで共有する。 |
+| `lib/ml_mask_labels.py` | マスク修正 sidecar の実行可能な契約。3 値の編集レイヤ、ハッシュによる修正対象画像への結び付けと名前によるベースマスクへの結び付け、検証。完成マスクではなくパイプラインのマスクとの差分を保存するため、人が判断した画素と未検分の画素を区別できる。依存は NumPy と `lib/blosc2_io.py` のみ。 |
+| `lib/ml_model.py` | モデルファイル（拡張子はタスク別）の保存・読み込み・実行。学習済み分類器を ONNX へエクスポートし manifest とともに格納し、ONNX 推論を行う。読み込み時に manifest・ONNX の SHA-256・特徴仕様を検証し、ML ランタイムは遅延 import する。 |
+| `lib/ml_schema.py` | モデルファイル契約の実行可能スキーマ。アーカイブ構成、manifest キー、タスク／フレームワークの語彙、タスク別の拡張子、`validate_manifest`。依存は標準ライブラリのみ。 |
+| `lib/ml_train.py` | 決定木モデル（`RandomForest` / `HistGradientBoosting`）の学習とグループ考慮の交差検証。分類器として、背景面では回帰器として動作する。scikit-learn は学習専用の依存。 |
+| `lib/pipeline.py` | `ProcParams` パラメータスキーマ、ステージ構築、および GUI01 と `cli.py` が共有する GUI 非依存のパイプライン駆動関数 `process_file`。`.b2z` 契約自体は `lib/bundle_schema.py` にあります。 |
+| `lib/processed_image.py` | GUI01 の前処理パイプラインで使う `ProcessedImage` コンテナ。 |
+| `lib/segmenter.py` | 背景補正済み AFM 画像からナノファイバー二値マスクを作成する `Segmenter`。 |
+| `lib/skeletonizer.py` | 二値マスクを細線化し、枝刈りとスケルトン成分ラベル付けを行う `Skeletonizer`。 |
+| `lib/translator.py` | gettext の言語選択ヘルパー。 |
+| `lib/ui_tools.py` | GUI プラグインで共有する tkinter、matplotlib、ログ、ダイアログ、出力ヘルパー。 |
+
 ## GUI プラグインを追加する
 
 1. `guis/` の下に Python ファイルを追加します。
@@ -743,6 +813,19 @@ UI 側に任せます。Python ソース上で文字列リテラルを複数行�
   `--verify` はコードの import・`pyproject.toml`・実環境のずれを報告し、
   `--pin` は整合性検査とテストスイートの合格後に
   `requirements.lock.txt` を再生成します。
+
+  ```powershell
+  python check.py            # 緩い requirements.txt を再生成
+  python check.py --verify   # CI 向け検査: コードの import ⇔ pyproject ⇔ 実環境
+  python check.py --pin      # 全検査とテスト合格後に requirements.lock.txt を再固定
+  ```
+
+  `--verify` は、コードで import している依存が `pyproject.toml` に宣言されて
+  いない場合(およびその逆)、走査された依存が未インストールの場合、`pip check`
+  がバージョン矛盾を報告した場合に、非ゼロで終了します。`--pin` は同じ検査に
+  加えて pytest スイートを実行し、すべて合格した場合のみ
+  `requirements.lock.txt` を書き換えます。これにより lock ファイルは常に
+  「テストで実際に検証されたバージョンの組み合わせ」を記録します。
 - `build.py` は import 検証、PyInstaller 用材料の収集、`Main.auto.spec` の作成、
   PyInstaller 実行、プロジェクトリソースフォルダのコピーを行います。
 - `prepare_translate_catalogs.py` は gettext カタログを更新し、プラグイン説明を
