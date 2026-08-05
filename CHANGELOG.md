@@ -17,6 +17,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   published; enable once per clone with `git config core.hooksPath .githooks`
   (see CONTRIBUTING.md).
 
+### Fixed
+
+- Skeleton traces no longer bend away from the fiber centerline at the ends of
+  fibers that leave the field of view. Thinning treated everything outside the
+  image array as background, so a fiber crossing the scan border became a shape
+  cut flat by the edge, and the medial axis of that truncated end turned toward
+  the nearer corner of the cut. Thinning now runs on a border-replicated copy
+  of the mask (`thin_ignoring_image_border` in `lib/skeletonizer.py`), which
+  reduced the measured lateral offset between the trace and the height ridge at
+  border ends from about 1.9-2.1 px to about 0.8-1.0 px on the bundled scans.
+  Skeleton pixels away from the border are unchanged, and a per-component
+  fallback keeps the previous result for any mask blob that lies along the
+  border rather than crossing it, so no fiber is lost to the correction.
+  Preprocessing outputs (`skeletonized`, `bp`, `ep`, `kp`, `dp`, `ka`) therefore
+  change for fibers that touch the scan border; `calibrated` and `binarized` are
+  unaffected. Re-run GUI01 or `cli.py process` to refresh existing `.b2z`
+  bundles.
+
 ## [1.0.0] - 2026-07-08
 
 Initial public release, prepared for subsequent archival on Zenodo and
@@ -25,8 +43,7 @@ submission to the Journal of Open Source Software (JOSS).
 ### Added
 
 - tkinter plugin launcher (`Main.py`) with four interactive tools: Image
-  Preprocessor (GUI01), Plot Profiler (GUI02), Fiber Height Histogram (GUI03),
-  and Fiber Tracker (GUI04).
+  Preprocessor (GUI01), Plot Profigit
 - GUI-independent preprocessing pipeline (`lib/pipeline.py`) shared by GUI01 and
   the CLI, covering background calibration, segmentation, skeletonization, and
   kink detection.

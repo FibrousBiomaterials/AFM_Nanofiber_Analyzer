@@ -42,6 +42,19 @@ from .processed_image import ProcessedImage
 DEFAULT_MAX_LOOP_AREA = 100
 DEFAULT_SPUR_LENGTH = 12
 
+# Width the image border is replicated outward before thinning. `skimage.thin`
+# treats everything outside the array as background, so a fiber leaving the
+# field of view is a shape cut flat by the array edge, and the medial axis of
+# such a truncated end turns toward the nearer corner of the cut. 12 px is
+# about 1.3x the mean fiber width of the bundled scans (7.8-9.7 px), and the
+# bend reaches roughly half a fiber width inward, so this covers it with margin.
+# 細線化の前に画像端を外側へ複製する幅。`skimage.thin` は配列外をすべて背景と
+# して扱うため、視野外へ抜けるファイバーは配列端で平らに切断された形状になり、
+# その切断端の medial axis は切り口の近い側の角へ向かって折れる。12 px は同梱
+# スキャンの平均ファイバー幅 (7.8〜9.7 px) の約 1.3 倍であり、折れの及ぶ範囲
+# (おおよそファイバー幅の半分) を余裕をもって覆う。
+DEFAULT_BORDER_PAD = 12
+
 # Height-ratio guard for loop filling. A loop artifact encloses pixels of the
 # fiber body itself (just below the binarization threshold, e.g. 40-90% of the
 # surrounding ridge height on the bundled scans), while the enclosure formed
@@ -52,6 +65,78 @@ DEFAULT_SPUR_LENGTH = 12
 # 40〜90%）だが、実ファイバー 2 本が 2 点で接触してできる囲みは背景レベル
 # （リッジ高の約 10%）の画素を含む。0.3 は両者の間に双方向の余裕を持って位置する。
 DEFAULT_LOOP_HEIGHT_RATIO = 0.3
+
+
+def thin_ignoring_image_border(
+    binary_image: NDArray[np.uint8],
+    pad: int = DEFAULT_BORDER_PAD,
+) -> NDArray[np.uint8]:
+    """
+    Thin a binary mask without treating the image border as an object edge.
+    画像端を物体の輪郭として扱わずに二値マスクを細線化する。
+
+    Parameters
+    ----------
+    binary_image
+        Binary fiber mask. Nonzero pixels are treated as foreground.
+        二値のファイバーマスク。非ゼロ画素を前景として扱う。
+    pad
+        Width in pixels the border is replicated outward before thinning.
+        ``0`` reproduces plain `skimage.morphology.thin`.
+        細線化前に画像端を外側へ複製する幅 (px)。``0`` は素の
+        `skimage.morphology.thin` と同じ結果になる。
+
+    Returns
+    -------
+    ndarray
+        uint8 0/1 skeleton with the same shape as the input.
+        入力と同じ形状の uint8 0/1 スケルトン画像。
+
+    Notes
+    -----
+    A fiber leaving the field of view is cut flat by the array edge, and the
+    medial axis of such a truncated end turns toward the nearer corner of the
+    cut, so the traced line drifts off the fiber crest over its last pixels
+    (measured at about 2 px on the bundled scans, against about 0.5 px along
+    the rest of the fiber). Replicating the border extends those fibers
+    outward instead of capping them, which removes the bend. Pixels away from
+    the border are unaffected: on all bundled scans the skeleton outside a
+    12 px border band is identical with and without this correction.
+    視野外へ抜けるファイバーは配列端で平らに切断され、その切断端の medial axis
+    は切り口の近い側の角へ折れるため、追跡線が末端の数画素で稜線から外れる
+    (同梱スキャンでの実測は約 2 px。ファイバー中央部は約 0.5 px)。端を複製すると
+    ファイバーは打ち切られず外側へ延長されるため、この折れが消える。端から離れた
+    画素は影響を受けず、同梱スキャンでは 12 px の縁帯より内側のスケルトンは本補正
+    の有無で完全に一致する。
+
+    The replication also inflates a blob that lies *along* the border instead
+    of crossing it, and its axis can be pushed outside the image. Any mask
+    component the padded pass would leave without a skeleton keeps its plain
+    thinning result, so this correction never deletes a fiber.
+    一方で複製は、端を横切らず端に沿って延びる塊を太らせ、その軸を画像外へ
+    押し出すことがある。パディング版でスケルトンが空になる連結成分は素の細線化
+    結果を採用するため、本補正でファイバーが失われることはない。
+    """
+    mask = (np.asarray(binary_image) > 0).astype(np.uint8)
+    plain = thin(mask).astype(np.uint8)
+    if pad <= 0:
+        return plain
+
+    extended = np.pad(mask, pad, mode='edge')
+    padded = thin(extended).astype(np.uint8)[pad:-pad, pad:-pad]
+
+    # Per-component fallback for blobs whose axis the replication pushed out
+    # of the image; label 0 is the background and is never restored.
+    # 複製により軸が画像外へ出た塊だけを成分単位で素の結果へ戻す。ラベル 0 は
+    # 背景なので対象外。
+    n_labels, labels = cv2.connectedComponents(mask)
+    plain_counts = np.bincount(labels[plain > 0], minlength=n_labels)
+    padded_counts = np.bincount(labels[padded > 0], minlength=n_labels)
+    lost = np.nonzero((plain_counts > 0) & (padded_counts == 0))[0]
+    lost = lost[lost != 0]
+    if lost.size:
+        padded = np.where(np.isin(labels, lost), plain, padded).astype(np.uint8)
+    return padded
 
 
 def collapse_skeleton_loops(
@@ -397,11 +482,13 @@ class Skeletonizer:
         `image.skeleton_image`, `image.label_image`, `image.nLabels`,
         `image.data`, `image.ep`, and `image.bp`.
 
-        The workflow first thins the binary mask, removes short branches derived
-        from low-height branch points, collapses small loop artifacts and prunes
-        short spurs geometrically, and then removes tiny or ring-shaped
-        connected components.
-        まず二値マスクを細線化し、低い高さの分岐点から伸びる短い枝を除去し、
+        The workflow first thins the binary mask without letting the image
+        border cut fibers short (`thin_ignoring_image_border`), removes short
+        branches derived from low-height branch points, collapses small loop
+        artifacts and prunes short spurs geometrically, and then removes tiny
+        or ring-shaped connected components.
+        まず画像端でファイバーを切断しない形で二値マスクを細線化し
+        (`thin_ignoring_image_border`)、低い高さの分岐点から伸びる短い枝を除去し、
         小ループの潰しと短いスパーの幾何的除去を行った後、微小成分やリング状
         成分を除去する。
         """
@@ -417,7 +504,7 @@ class Skeletonizer:
                 "run BGCalibrator on the image first."
             )
 
-        init_skeleton_image = thin(image.binarized_image).astype(np.uint8)
+        init_skeleton_image = thin_ignoring_image_border(image.binarized_image)
         self.image_shape = image.binarized_image.shape
         self._init_skeleton_image = init_skeleton_image
         self.set_low_bp_coor(image.calibrated_image, init_skeleton_image, self.bp_height)
