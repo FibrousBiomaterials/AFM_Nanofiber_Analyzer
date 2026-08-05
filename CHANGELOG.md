@@ -16,6 +16,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   absolute paths, and a locally defined block list before anything is
   published; enable once per clone with `git config core.hooksPath .githooks`
   (see CONTRIBUTING.md).
+- A commit-time changelog check (`scripts/check_changelog.py`, run from
+  `.githooks/pre-commit`) that blocks a change to the strict-regression
+  goldens — that is, a change to the numbers the pipeline produces — unless the
+  same commit records it under `## [Unreleased]` here.
 
 ### Fixed
 

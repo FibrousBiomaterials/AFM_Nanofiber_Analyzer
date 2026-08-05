@@ -1,12 +1,18 @@
 #!/bin/sh
-# Pre-commit safety check: scan the staged diff for credentials, personal
-# information, machine-local absolute paths, and locally defined blocked
-# words before they enter the history. A finding blocks the commit.
-# The pre-push hook remains the final net: it also covers commit messages
-# and merge commits, which this hook cannot see.
-# コミット前の安全確認: ステージ済み差分に認証情報・個人情報・ローカル絶対
-# パス・ローカル定義の NG ワードが含まれていないか検査し、検出時はコミットを
-# 中止する。コミットメッセージとマージコミットはこのフックでは検査できない
+# Pre-commit checks, run in order against the staged diff:
+#   1. Sensitive information — credentials, personal information,
+#      machine-local absolute paths, and locally defined blocked words.
+#   2. Changelog — a change to the strict-regression goldens (i.e. the
+#      numeric results moved) must come with a CHANGELOG.md entry.
+# A finding in either check blocks the commit.
+# The pre-push hook remains the final net for check 1: it also covers commit
+# messages and merge commits, which this hook cannot see.
+# コミット前の確認をステージ済み差分に対して順に実行する。
+#   1. 機微情報 — 認証情報・個人情報・ローカル絶対パス・ローカル定義の NG ワード。
+#   2. CHANGELOG — 厳密回帰テストの golden 値が変わる(= 数値結果が変わる)変更には
+#      CHANGELOG.md への追記を必須にする。
+# どちらかで検出された場合はコミットを中止する。
+# 1 についてはコミットメッセージとマージコミットをこのフックでは検査できない
 # ため、pre-push フックが最終防衛線として引き続き検査する。
 #
 # Enable once per clone (git never activates hooks automatically):
@@ -21,13 +27,16 @@ set -u
 
 repo_root=$(git rev-parse --show-toplevel) || exit 1
 checker="$repo_root/scripts/check_sensitive.py"
+changelog_checker="$repo_root/scripts/check_changelog.py"
 
 # Fail closed: a missing checker script also blocks the commit.
 # フェイルクローズ方針: 検査スクリプトが無い場合もコミットを中止する。
-if [ ! -f "$checker" ]; then
-    echo "pre-commit: $checker not found; blocking commit (fail-closed)." >&2
-    exit 1
-fi
+for script in "$checker" "$changelog_checker"; do
+    if [ ! -f "$script" ]; then
+        echo "pre-commit: $script not found; blocking commit (fail-closed)." >&2
+        exit 1
+    fi
+done
 
 # Prefer "python" (present in this project's venv/conda setups); fall back
 # to python3, then to the Windows "py" launcher used by plain Git Bash.
@@ -43,4 +52,11 @@ else
 fi
 
 # $py is intentionally unquoted so "py -3" splits into command and argument.
-exec $py "$checker" --staged
+# Run the sensitive-information check first: it is the one that must never be
+# skipped, and stopping there keeps the changelog reminder out of the way while
+# a leak is being fixed.
+# 機微情報チェックを先に実行する。省略してはならないのはこちらであり、漏えいを
+# 直している最中に CHANGELOG の指摘が混ざらないようにする。
+$py "$checker" --staged || exit $?
+
+exec $py "$changelog_checker" --staged

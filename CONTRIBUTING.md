@@ -118,6 +118,23 @@ The authoritative list of built-in patterns is `RULES` in
 clearance — reviewing the diff before publishing remains the contributor's
 responsibility.
 
+## Changelog entries for result-changing fixes
+
+The `pre-commit` hook runs one more check after the sensitive-information
+scan. If a commit changes `tests/strict_regression_golden.json` — the recorded
+hashes of the pipeline's expected output — then the analysis produces different
+numbers than before, and the commit must also add a line under
+`## [Unreleased]` in `CHANGELOG.md` saying so, normally under `### Fixed`.
+This project is cited and its results are reproduced from a released version,
+so a change in output has to be visible in the changelog rather than only in
+the commit log. Do not set a version number or date in that entry; those are
+assigned when a release is cut. Scan manually with:
+
+```bash
+python scripts/check_changelog.py --staged
+python scripts/check_changelog.py --range origin/main..HEAD
+```
+
 ## Coding standards
 
 The repository follows a detailed set of conventions for code structure,
