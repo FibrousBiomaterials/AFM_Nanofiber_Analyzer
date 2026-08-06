@@ -1317,8 +1317,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             (ax_, ay), (bx, by) = conn["a_xy"], conn["b_xy"]
             color = VERDICT_COLORS[conn["verdict"]]
             selected = (index == self._conn_sel_idx)
-            xs = [ax_ * x_spp, bx * x_spp]
-            ys = [ay * y_spp, by * y_spp]
+            # +0.5 centers the endpoints in their pixels, so a connection line
+            # meets the track scatter it joins. Only the drawing is shifted:
+            # `a_xy`/`b_xy` stay integer pixel indices because they are written
+            # to the label file and keyed on there.
+            # +0.5 で端点を画素中心に置き、連結線が接続先のトラック散布と接する
+            # ようにする。ずらすのは描画だけで、`a_xy`/`b_xy` はラベルファイルへ
+            # 書き出しキーにも使う値なので整数の画素インデックスのままにする。
+            xs = [(ax_ + 0.5) * x_spp, (bx + 0.5) * x_spp]
+            ys = [(ay + 0.5) * y_spp, (by + 0.5) * y_spp]
             # animated=True keeps these out of the cached background so they
             # can be blitted on top of it (see _blit_overview).
             # animated=True でこれらをキャッシュ背景から外し、その上へ blit
@@ -2261,7 +2268,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         kp_x, kp_y = self.current_image.all_kink_coordinates
         if len(kp_x) > 0:
-            ax.scatter(kp_x * x_spp, kp_y * y_spp,
+            # +0.5 places each marker at its pixel center: imshow spreads
+            # w columns over the extent, so column c covers [c, c+1) * x_spp.
+            # +0.5 で各マーカーを画素中心へ置く。imshow は w 列を extent 全体へ
+            # 広げるため、列 c は [c, c+1) * x_spp を占める。
+            ax.scatter((kp_x + 0.5) * x_spp, (kp_y + 0.5) * y_spp,
                        c="cyan", s=4, alpha=0.7, linewidths=0)
 
         # Use the four committed font-size settings.
@@ -2371,8 +2382,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         xs, ys = [], []
         for f in filtered:
             x, y, _h, _w, _unused = f.data
-            xs.append((f.xtrack + x) * x_spp)
-            ys.append((f.ytrack + y) * y_spp)
+            # +0.5 centers each marker in its pixel (see the kink scatter).
+            # +0.5 で各マーカーを画素中心に置く（キンク散布と同じ補正）。
+            xs.append((f.xtrack + x + 0.5) * x_spp)
+            ys.append((f.ytrack + y + 0.5) * y_spp)
         if xs:
             ax.scatter(
                 np.concatenate(xs),
@@ -2488,8 +2501,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # f.data は OpenCV 統計 (x, y, 幅, 高さ, 面積)。track は BBox
                 # ローカルなので、スケールする前に BBox 原点を加える。
                 x, y, _h, _w, _unused = f.data
-                xs.append((f.xtrack + x) * x_spp)
-                ys.append((f.ytrack + y) * y_spp)
+                # +0.5 centers each marker in its pixel (see the height overview).
+                # +0.5 で各マーカーを画素中心に置く（高さ表示側と同じ補正）。
+                xs.append((f.xtrack + x + 0.5) * x_spp)
+                ys.append((f.ytrack + y + 0.5) * y_spp)
                 # One color row per pixel of this fiber, so concatenating the
                 # per-fiber blocks keeps every point with its own fiber's color.
                 # このファイバーの画素 1 つにつき 1 行の色を持たせ、ファイバーごとの
@@ -3798,15 +3813,20 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         self._fiber_cbar.ax.tick_params(labelsize=fs_cbar)
         self._fiber_cbar.set_label("Height (nm)", fontsize=fs_cbar)
 
-        # Fiber track line.
+        # Fiber track line. The 0.5 puts each track point at its pixel center
+        # so the line sits on the ridge instead of half a pixel up and left.
+        # 0.5 は各追跡点を画素中心へ置く補正。これを入れないと線が稜線から
+        # 左上へ半画素ずれる。
         if len(fiber.xtrack) > 0:
-            ax.plot(fiber.xtrack * x_spp, fiber.ytrack * y_spp,
+            ax.plot((fiber.xtrack + 0.5) * x_spp, (fiber.ytrack + 0.5) * y_spp,
                     color="lime", lw=1.0, alpha=0.75, zorder=4)
 
-        # Kink points.
+        # Kink points, centered in their pixels like the track line above so
+        # the markers stay on it.
+        # キンク点。上のトラック線と同じ画素中心補正を掛け、線上に載るようにする。
         if len(fiber.kink_indices) > 0:
-            kx = fiber.xtrack[fiber.kink_indices] * x_spp
-            ky = fiber.ytrack[fiber.kink_indices] * y_spp
+            kx = (fiber.xtrack[fiber.kink_indices] + 0.5) * x_spp
+            ky = (fiber.ytrack[fiber.kink_indices] + 0.5) * y_spp
             ax.scatter(kx, ky, c="cyan", s=20, zorder=5)
 
         ax.set_xlabel("({0})".format(unit_label), fontsize=fs_label)

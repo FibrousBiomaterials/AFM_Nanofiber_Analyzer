@@ -73,6 +73,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   band drawn on the heatmap is unchanged on screen — it always followed the
   marked points — but it now agrees with the pixels actually sampled, which it
   previously missed by that same half pixel.
+- GUI07 overlays are centered on their pixels too. The annotator was built on
+  GUI04 and inherited the same upper-left placement, so the fiber track, the
+  kink markers on both the overview and the single-fiber view, the filtered and
+  color-coded fiber scatters, and the connection lines were all drawn half a
+  pixel up and to the left. The connection lines are only shifted where they
+  are drawn: the endpoint coordinates recorded in a connection label file stay
+  integer pixel indices, so existing label files still match. Fiber bounding
+  boxes are unchanged — a box edge belongs at the pixel boundary, not its
+  center.
 
 ## [1.0.0] - 2026-07-08
 
