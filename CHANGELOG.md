@@ -77,6 +77,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   band drawn on the heatmap is unchanged on screen — it always followed the
   marked points — but it now agrees with the pixels actually sampled, which it
   previously missed by that same half pixel.
+- `run_venv.bat` now checks the Python version before building the `.venv`, and
+  both launchers point at the download page when no supported Python is found.
+  The Windows launcher only tested that the `py` launcher answered at all, so a
+  machine with Python 3.9 passed the check, created a `.venv`, and then failed
+  inside pip with a `requires-python` message that never mentioned Python's
+  version; a machine with `python.exe` on PATH but no `py` launcher was told to
+  install Python it already had. The launcher now takes the first of `py -3` and
+  `python` that satisfies the `>=3.10` floor from `pyproject.toml` — skipping
+  the Windows App Execution Alias stub, which opens the Microsoft Store instead
+  of running Python — and otherwise reports the version it found, or that it
+  found none, followed by <https://www.python.org/downloads/>. `run_venv.sh`
+  already enforced the floor and now reports the rejected version and suggests
+  the distribution package manager on Linux, with python.org as the fallback.
+- The `run_conda` launchers point at the conda installers when conda is not
+  found, instead of only naming Anaconda/Miniconda. They need no Python check:
+  `conda create` installs its own Python into the prefix, so conda itself is
+  the only prerequisite these launchers can be missing.
 
 ## [1.0.0] - 2026-07-08
 

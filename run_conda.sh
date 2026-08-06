@@ -50,8 +50,19 @@ if [ -z "$CONDA_CMD" ]; then
 fi
 
 if [ -z "$CONDA_CMD" ] || [ ! -x "$CONDA_CMD" ]; then
+    # No host Python check is needed here, unlike run_venv.sh: "conda create"
+    # below installs its own Python into the prefix, so conda itself is the only
+    # prerequisite this launcher can be missing.
+    # run_venv.sh と違い、ここでは PC 側の Python を確認しない。後段の
+    # "conda create" が prefix 内に専用の Python を導入するため、このランチャーで
+    # 不足しうる前提は conda 本体だけである。
     echo "conda was not found."
-    echo "Please install Anaconda/Miniconda, or run this file from a terminal where conda is available."
+    echo
+    echo "Install conda, then run this file again:"
+    echo "  Miniforge (conda-forge): https://conda-forge.org/download/"
+    echo "  All installers:          https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html"
+    echo
+    echo "If conda is already installed, run this file from a terminal where conda is available."
     exit 1
 fi
 

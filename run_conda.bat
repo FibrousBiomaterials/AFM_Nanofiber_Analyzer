@@ -45,8 +45,16 @@ for %%C in (
     )
 )
 
+REM No host Python check is needed here, unlike run_venv.bat: "conda create"
+REM below installs its own Python into the prefix, so conda itself is the only
+REM prerequisite this launcher can be missing.
 echo conda was not found.
-echo Please install Anaconda/Miniconda, or run this file from Anaconda Prompt.
+echo.
+echo Install conda, then run this file again:
+echo     Miniforge (conda-forge): https://conda-forge.org/download/
+echo     All installers:          https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html
+echo.
+echo If conda is already installed, run this file from Anaconda Prompt instead.
 pause
 exit /b 1
 
