@@ -91,7 +91,8 @@ submission to the Journal of Open Source Software (JOSS).
 ### Added
 
 - tkinter plugin launcher (`Main.py`) with four interactive tools: Image
-  Preprocessor (GUI01), Plot Profigit
+  Preprocessor (GUI01), Plot Profiler (GUI02), Fiber Height Histogram (GUI03),
+  and Fiber Tracker (GUI04).
 - GUI-independent preprocessing pipeline (`lib/pipeline.py`) shared by GUI01 and
   the CLI, covering background calibration, segmentation, skeletonization, and
   kink detection.
