@@ -120,6 +120,29 @@ run_install() {
     return 0
 }
 
+# Guide a first-time user to a supported Python. On Linux the distribution
+# package manager is the right route, so python.org is only the fallback there;
+# elsewhere the official installer is the primary answer.
+# 初回利用者を対応バージョンの Python へ案内する。Linux ではディストリのパッケージ
+# マネージャが本筋なので python.org は代替として示し、それ以外では公式インストーラを
+# 第一候補として示す。
+print_python_install_help() {
+    echo
+    if [ "$OS_NAME" = "Linux" ]; then
+        echo "Install it with your distribution's package manager, for example:"
+        echo "  Debian / Ubuntu : sudo apt install python3 python3-venv python3-tk"
+        echo "  Fedora / RHEL   : sudo dnf install python3 python3-tkinter"
+        echo "  Arch            : sudo pacman -S python tk"
+        echo
+        echo "If your distribution does not provide Python 3.10 or later, download it from:"
+    else
+        echo "Download and install Python 3.10 or later from the official site:"
+    fi
+    echo "  https://www.python.org/downloads/"
+    echo
+    echo "Then run this file again."
+}
+
 # Full rebuild: verify Python/tkinter, remove any broken .venv, recreate it, and
 # install. Used when the interpreter is missing (a fundamentally broken env).
 # フル再構築: Python/tkinter を確認し、壊れた .venv を削除して作り直し、導入する。
@@ -135,22 +158,34 @@ run_full_setup() {
     echo
     echo "Checking Python..."
     PYTHON_CMD=""
+    # Version of a rejected interpreter, reported so an outdated Python is
+    # distinguishable from no Python at all.
+    FOUND_VERSION=""
 
     # Accept python3 or python, but only if it satisfies the supported version floor.
+    # The floor mirrors requires-python in pyproject.toml.
     # python3 または python を受け入れるが、対応する最低バージョンを満たす場合に限る。
+    # この下限は pyproject.toml の requires-python と一致させる。
     for candidate in python3 python; do
         if command -v "$candidate" >/dev/null 2>&1; then
             if "$candidate" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1; then
                 PYTHON_CMD="$candidate"
                 break
             fi
+            if [ -z "$FOUND_VERSION" ]; then
+                FOUND_VERSION="$("$candidate" --version 2>&1)"
+            fi
         fi
     done
 
     if [ -z "$PYTHON_CMD" ]; then
         echo
-        echo "Python 3.10 or later was not found."
-        echo "Please install Python 3.10 or later, then run this file again."
+        if [ -n "$FOUND_VERSION" ]; then
+            echo "Found $FOUND_VERSION, but Python 3.10 or later is required."
+        else
+            echo "Python 3.10 or later was not found."
+        fi
+        print_python_install_help
         return 1
     fi
 
