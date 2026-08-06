@@ -1938,14 +1938,20 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         領域である。
         """
         # µm → pixel (col, row); the same mapping as profile_between_points,
-        # including the y flip between imshow (lower-left) and ndarray rows.
+        # including the y flip between imshow (lower-left) and ndarray rows and
+        # the -0.5 that undoes imshow's pixel-center placement (column c is
+        # drawn centered at (c + 0.5) * x_um / image_w). Using the same mapping
+        # is what makes the band mark the pixels profile_line actually samples.
         # µm → 画素 (列, 行)。profile_between_points と同一の変換式で、imshow
-        # （左下原点）と ndarray 行（左上原点）の y 反転も含む。
+        # （左下原点）と ndarray 行（左上原点）の y 反転に加え、imshow の画素中心
+        # 配置を打ち消す -0.5 も含む（列 c は (c + 0.5) * x_um / image_w を中心に
+        # 描かれる）。同一の変換式を使うことで、帯が profile_line の実サンプリング
+        # 画素を示すようになる。
         x_um, y_um = self._scale_xy_um()
-        c1 = x1 * self.image_w / x_um
-        c2 = x2 * self.image_w / x_um
-        r1 = self.image_h - y1 * self.image_h / y_um
-        r2 = self.image_h - y2 * self.image_h / y_um
+        c1 = x1 * self.image_w / x_um - 0.5
+        c2 = x2 * self.image_w / x_um - 0.5
+        r1 = self.image_h - y1 * self.image_h / y_um - 0.5
+        r2 = self.image_h - y2 * self.image_h / y_um - 0.5
         dc = c2 - c1
         dr = r2 - r1
         norm = float(np.hypot(dc, dr))
@@ -1966,14 +1972,17 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             (c2 - nc * half, r2 - nr * half),
             (c1 - nc * half, r1 - nr * half),
         )
-        # Pixel → display units (µm or nm). Keeping the polygon in data
-        # coordinates lets matplotlib rescale it automatically on pan/zoom.
-        # 画素 → 表示単位 (µm or nm)。ポリゴンをデータ座標に置くことで、
-        # パン/ズーム時に matplotlib が自動で拡縮する。
+        # Pixel → display units (µm or nm), re-applying the +0.5 pixel-center
+        # offset removed above so the polygon lands where imshow draws those
+        # pixels. Keeping the polygon in data coordinates lets matplotlib
+        # rescale it automatically on pan/zoom.
+        # 画素 → 表示単位 (µm or nm)。上で外した画素中心分の +0.5 を戻し、
+        # imshow がそれらの画素を描く位置にポリゴンを合わせる。ポリゴンをデータ
+        # 座標に置くことで、パン/ズーム時に matplotlib が自動で拡縮する。
         x_disp, y_disp, _unit = self._get_extent_scale_xy_and_unit()
         corners = [
-            (c * x_disp / self.image_w,
-             (self.image_h - r) * y_disp / self.image_h)
+            ((c + 0.5) * x_disp / self.image_w,
+             (self.image_h - r - 0.5) * y_disp / self.image_h)
             for c, r in corners_px
         ]
         # zorder=1 places the band above the image (0) but below lines/markers (2).
@@ -2126,10 +2135,18 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # grids convert correctly.
         # 列は image_w で X、行は image_h で Y に対応づけ、非正方形の画素格子も
         # 正しく変換する。
-        tx1 = x1 * self.image_w / x_um
-        tx2 = x2 * self.image_w / x_um
-        ty1 = self.image_h - y1 * self.image_h / y_um
-        ty2 = self.image_h - y2 * self.image_h / y_um
+        # The -0.5 inverts imshow's pixel-center placement: column c is drawn
+        # centered at (c + 0.5) * x_um / image_w, so a clicked coordinate maps
+        # back to index x * image_w / x_um - 0.5. Without it the profile was
+        # sampled half a pixel down and right of the point the user clicked.
+        # -0.5 は imshow の画素中心配置の逆変換。列 c は
+        # (c + 0.5) * x_um / image_w を中心に描かれるため、クリック座標は
+        # x * image_w / x_um - 0.5 のインデックスへ戻る。これが無いと
+        # プロファイルはクリック位置の半画素だけ右下からサンプリングされていた。
+        tx1 = x1 * self.image_w / x_um - 0.5
+        tx2 = x2 * self.image_w / x_um - 0.5
+        ty1 = self.image_h - y1 * self.image_h / y_um - 0.5
+        ty2 = self.image_h - y2 * self.image_h / y_um - 0.5
         # profile_line expects coordinates as (row, col) = (y, x).
         start = np.array([ty1, tx1])
         end = np.array([ty2, tx2])

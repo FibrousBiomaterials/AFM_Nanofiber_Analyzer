@@ -50,6 +50,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Across the bundled scans and all four `bg_method` values this only restores
   pixels (0 to 211 per image) that were previously over-deleted; it removes
   nothing new.
+- Feature overlays in GUI01 are no longer mirrored vertically **when the scale
+  display is enabled**. Endpoint, branch-point, kink and decomposition markers
+  were placed by scaling pixel indices with `scale / (n - 1)`, but `imshow`
+  draws row 0 at the top of an `extent` whose y axis runs upward, so the
+  markers were reflected about the image center. With the scale display off —
+  the default — panels are drawn in pixel coordinates and the overlay was
+  already correct, which is why this went unnoticed: it needed both a
+  non-default overlay mode and the scale display switched on. Measured on the
+  bundled tunicate scan, none of the drawn endpoint markers fell on a skeleton
+  pixel with the scale display on; now all of them do, in both display modes.
+  Both the 2x2 preview and the enlarged single-file view are corrected.
+- Overlays now sit at pixel centers rather than half a pixel up and to the
+  left. `imshow` spreads an image of `w` columns across the extent, so the
+  center of column `c` is at `(c + 0.5) * scale / w`; GUI01, GUI02 and GUI04
+  all placed overlay geometry at the pixel's upper-left corner instead. In
+  GUI04 this shifted the fiber track, kink markers and the color-coded fiber
+  scatter by half a pixel against the height image.
+- GUI02 height profiles are now sampled from the pixel that was clicked. The
+  micrometer-to-index conversion omitted the same half-pixel term, so
+  `profile_line` read half a pixel down and to the right of the marked points.
+  **Extracted profile values change from this version**, and the sampling-width
+  band drawn on the heatmap moves with them.
 
 ## [1.0.0] - 2026-07-08
 

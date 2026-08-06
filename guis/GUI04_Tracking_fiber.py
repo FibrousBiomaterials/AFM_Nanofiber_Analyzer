@@ -1636,9 +1636,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # する前に BBox 原点を加える。
         for f in filtered:
             x, y, _h, _w, _unused = f.data
+            # The 0.5 places each marker at the pixel center: imshow spreads
+            # w columns over the extent, so column c covers [c, c+1) * x_spp.
+            # 0.5 はマーカーを画素中心へ置くための補正。imshow は w 列を extent
+            # 全体へ広げるため、列 c は [c, c+1) * x_spp を占める。
             ax.scatter(
-                (f.xtrack + x) * x_spp,
-                (f.ytrack + y) * y_spp,
+                (f.xtrack + x + 0.5) * x_spp,
+                (f.ytrack + y + 0.5) * y_spp,
                 c="magenta", s=4, edgecolors="none",
             )
 
@@ -1742,9 +1746,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # f.data は OpenCV 統計 (x, y, 幅, 高さ, 面積)。track は BBox
                 # ローカルなので、スケールする前に BBox 原点を加える。
                 x, y, _h, _w, _unused = f.data
+                # +0.5 centers each marker in its pixel (see the height overview).
+                # +0.5 で各マーカーを画素中心に置く（高さ表示側と同じ補正）。
                 ax.scatter(
-                    (f.xtrack + x) * x_spp,
-                    (f.ytrack + y) * y_spp,
+                    (f.xtrack + x + 0.5) * x_spp,
+                    (f.ytrack + y + 0.5) * y_spp,
                     color=cmap(color_idx / denom),
                     s=4, alpha=0.7, edgecolors="none",
                 )
@@ -3007,15 +3013,20 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         self._fiber_cbar.ax.tick_params(labelsize=fs_cbar)
         self._fiber_cbar.set_label("Height (nm)", fontsize=fs_cbar)
 
-        # Fiber track line.
+        # Fiber track line. The 0.5 puts each track point at its pixel center
+        # so the line sits on the ridge instead of half a pixel up and left.
+        # 0.5 は各追跡点を画素中心へ置く補正。これを入れないと線が稜線から
+        # 左上へ半画素ずれる。
         if len(fiber.xtrack) > 0:
-            ax.plot(fiber.xtrack * x_spp, fiber.ytrack * y_spp,
+            ax.plot((fiber.xtrack + 0.5) * x_spp, (fiber.ytrack + 0.5) * y_spp,
                     color="lime", lw=1.0, alpha=0.75, zorder=4)
 
-        # Kink points.
+        # Kink points, centered in their pixels like the track line above so
+        # the markers stay on it.
+        # キンク点。上のトラック線と同じ画素中心補正を掛け、線上に載るようにする。
         if len(fiber.kink_indices) > 0:
-            kx = fiber.xtrack[fiber.kink_indices] * x_spp
-            ky = fiber.ytrack[fiber.kink_indices] * y_spp
+            kx = (fiber.xtrack[fiber.kink_indices] + 0.5) * x_spp
+            ky = (fiber.ytrack[fiber.kink_indices] + 0.5) * y_spp
             ax.scatter(kx, ky, c="cyan", s=20, zorder=5)
 
         ax.set_xlabel("({0})".format(unit_label), fontsize=fs_label)

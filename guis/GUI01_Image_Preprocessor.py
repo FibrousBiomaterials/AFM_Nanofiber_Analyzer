@@ -475,6 +475,86 @@ def open_folder_in_os(path: str) -> None:
         pass   # Folder display is optional; ignore file-manager failures.
 
 
+def feature_overlay_xy(
+    col: np.ndarray,
+    row: np.ndarray,
+    shape: Tuple[int, ...],
+    extent: Optional[List[float]],
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Convert feature pixel indices to the data coordinates `imshow` draws them at.
+    特徴点の画素インデックスを、`imshow` が描画するデータ座標へ変換する。
+
+    Parameters
+    ----------
+    col
+        Column indices of the feature pixels.
+        特徴点画素の列インデックス。
+    row
+        Row indices of the feature pixels.
+        特徴点画素の行インデックス。
+    shape
+        Shape of the displayed image; only the leading ``(height, width)`` is used.
+        表示中の画像の形状。先頭の ``(高さ, 幅)`` のみを使う。
+    extent
+        The ``extent`` passed to `imshow`, or ``None`` when the panel is drawn
+        in pixel coordinates.
+        `imshow` に渡した ``extent``。画素座標で描画する場合は ``None``。
+
+    Returns
+    -------
+    tuple of ndarray
+        ``(x, y)`` data coordinates of the pixel centers.
+        画素中心の ``(x, y)`` データ座標。
+
+    Notes
+    -----
+    `imshow` spreads an image of ``w`` columns over the full extent width, so
+    the center of column ``c`` sits at ``(c + 0.5) * x_scale / w`` — not at
+    ``c * x_scale / (w - 1)``, which places column 0 on the left edge and the
+    last column on the right edge. With ``extent = [0, x_scale, 0, y_scale]``
+    the y axis also runs upward while row indices run downward, so row 0 is
+    drawn at ``y_scale``. Scaling row indices directly by ``y_scale / (h - 1)``
+    therefore mirrored every overlay vertically. Measured by rendering the
+    pre-change module on the bundled tunicate scan, none of the drawn endpoint
+    markers landed on a skeleton pixel; with this conversion all of them do.
+    That mirroring only appeared with the scale display enabled — with it off
+    ``extent`` is ``None``, panels are drawn in pixel coordinates, and the old
+    mapping was already correct.
+    `imshow` は ``w`` 列の画像を extent の幅全体へ広げるため、列 ``c`` の中心は
+    ``(c + 0.5) * x_scale / w`` になる（``c * x_scale / (w - 1)`` ではない。
+    こちらは列 0 を左端、最終列を右端に置いてしまう）。さらに
+    ``extent = [0, x_scale, 0, y_scale]`` では y 軸が上向きなのに対し行
+    インデックスは下向きに増えるため、行 0 は ``y_scale`` の位置に描かれる。
+    行インデックスを ``y_scale / (h - 1)`` でそのまま拡大すると重ね表示が上下
+    反転していた。変更前モジュールを同梱の tunicate スキャンで実描画して計測した
+    ところ、骨格画素に載った端点マーカーは皆無で、本変換では全点が載る。
+    ただしこの反転はスケール表示が有効なときにのみ現れる。無効時は ``extent``
+    が ``None`` となり画素座標で描画されるため、変更前の変換でも正しかった。
+    """
+    if extent is None:
+        # Pixel coordinates: imshow indexes columns as x and rows as y, with
+        # the y axis already inverted, so the indices are the coordinates.
+        # 画素座標。imshow は列を x、行を y として扱い y 軸は反転済みなので、
+        # インデックスがそのまま座標になる。
+        return col, row
+    h, w = shape[:2]
+    # Matplotlib orders extent as (left, right, bottom, top), so y1 is the top
+    # edge — the side `imshow` draws row 0 against. Measuring rows down from y1
+    # rather than up from y0 is what keeps this correct for either orientation
+    # the project uses: GUI01's [0, x, 0, y] (top = y, y axis upward) and
+    # GUI04's [0, w, h, 0] (top = 0, y axis downward).
+    # matplotlib の extent は (左, 右, 下, 上) の順なので y1 が上端であり、
+    # `imshow` が行 0 を接する側になる。y0 から上向きに測るのではなく y1 から
+    # 下向きに測ることで、本プロジェクトが使う両方の向き——GUI01 の
+    # [0, x, 0, y]（上端 = y、y 軸は上向き）と GUI04 の [0, w, h, 0]
+    # （上端 = 0、y 軸は下向き）——のどちらでも正しくなる。
+    x0, x1, y0, y1 = extent[0], extent[1], extent[2], extent[3]
+    x = x0 + (col + 0.5) * (x1 - x0) / w
+    y = y1 - (row + 0.5) * (y1 - y0) / h
+    return x, y
+
+
 # ===== Main GUI =====
 class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
     """
@@ -2770,12 +2850,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # per-axis scaling (X from the width scale, Y from the height scale).
         # 特徴点の重ね表示は骨格パネルと同じ軸別スケール（X は幅、Y は高さ）を使う。
         sk_img = data["skeletonized"]
-        if show_scale:
-            h, w = sk_img.shape[:2]
-            sx = x_scale / max(w - 1, 1)
-            sy = y_scale / max(h - 1, 1)
-        else:
-            sx, sy = 1.0, 1.0
+
+        # `overlay_xy` takes (col, row). The two feature sources order their
+        # axes differently, so the argument order legitimately differs below:
+        # `np.where` on the ep/bp masks yields (row, col), while the bundle
+        # stores kp/dp as (2, N) with row 0 = x (col) and row 1 = y (row)
+        # per lib/bundle_schema.py. Do not "unify" these — it transposes the
+        # overlay.
+        # `overlay_xy` は (列, 行) を取る。2 つの特徴点ソースは軸の順序が異なる
+        # ため、下記で引数の順序が違うのは正しい。ep/bp マスクへの `np.where` は
+        # (行, 列) を返すのに対し、バンドルの kp/dp は形状 (2, N) で行 0 が x
+        # （列）、行 1 が y（行）である（lib/bundle_schema.py 参照）。両者を
+        # 「揃える」と重ね表示が転置されるので行わないこと。
+        def overlay_xy(col, row):
+            return feature_overlay_xy(col, row, sk_img.shape, extent)
 
         overlay = self.overlay_mode_var.get()
         ax_sk = self.preview_axes[1][1]
@@ -2783,19 +2871,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if overlay == "EP":
             ep = data["ep"].astype(bool)
             end_y, end_x = np.where(ep)
-            ax_sk.scatter(end_x * sx, end_y * sy, c="blue", s=10, label="EP")
+            ax_sk.scatter(*overlay_xy(end_x, end_y), c="blue", s=10, label="EP")
         elif overlay == "BP":
             bp = data["bp"].astype(bool)
             br_y, br_x = np.where(bp)
-            ax_sk.scatter(br_x * sx, br_y * sy, c="red", s=10, label="BP")
+            ax_sk.scatter(*overlay_xy(br_x, br_y), c="red", s=10, label="BP")
         elif overlay == "KP":
-            kp = data["kp"]   # shape: (2, N_kink)
+            kp = data["kp"]   # shape: (2, N_kink); [0] = x, [1] = y
             if kp.shape[1] > 0:
-                ax_sk.scatter(kp[0] * sx, kp[1] * sy, c="cyan", s=15, label="KP")
+                ax_sk.scatter(*overlay_xy(kp[0], kp[1]), c="cyan", s=15, label="KP")
         elif overlay == "DP":
-            dp = data["dp"]   # shape: (2, N_dp)
+            dp = data["dp"]   # shape: (2, N_dp); [0] = x, [1] = y
             if dp.shape[1] > 0:
-                ax_sk.scatter(dp[0] * sx, dp[1] * sy, c="orange", s=8, label="DP")
+                ax_sk.scatter(*overlay_xy(dp[0], dp[1]), c="orange", s=8, label="DP")
 
         # Show a legend only when an overlay is visible.
         if overlay in ("EP", "BP", "KP", "DP"):
@@ -3938,13 +4026,15 @@ class SingleViewDialog(tk.Toplevel, UnconfirmedEntryMixin):
         else:
             im = self.ax.imshow(img, cmap=cmap, extent=extent)
 
-        # Overlay coordinates use the same pixel-to-physical scaling as imshow.
-        if extent is not None:
-            h, w = img.shape[:2]
-            sx = (extent[1] - extent[0]) / max(w - 1, 1)
-            sy = (extent[3] - extent[2]) / max(h - 1, 1)
-        else:
-            sx, sy = 1.0, 1.0
+        # Overlay coordinates use the same pixel-to-physical mapping as imshow.
+        # Argument order differs per source by design: `np.where` gives
+        # (row, col), while kp/dp are stored (2, N) with [0] = x, [1] = y.
+        # See the matching note on the 2x2 preview overlay.
+        # 引数の順序がソースごとに異なるのは意図的。`np.where` は (行, 列) を
+        # 返すが、kp/dp は形状 (2, N) で [0] = x、[1] = y である。
+        # 2x2 プレビュー側の同じ注記を参照。
+        def overlay_xy(col, row):
+            return feature_overlay_xy(col, row, img.shape, extent)
 
         # Draw one selected feature overlay on skeletonized images.
         overlay = self.overlay_mode_var.get()
@@ -3952,19 +4042,19 @@ class SingleViewDialog(tk.Toplevel, UnconfirmedEntryMixin):
             if overlay == "EP":
                 ep = data["ep"].astype(bool)
                 end_y, end_x = np.where(ep)
-                self.ax.scatter(end_x * sx, end_y * sy, c="blue", s=10, label="EP")
+                self.ax.scatter(*overlay_xy(end_x, end_y), c="blue", s=10, label="EP")
             elif overlay == "BP":
                 bp = data["bp"].astype(bool)
                 br_y, br_x = np.where(bp)
-                self.ax.scatter(br_x * sx, br_y * sy, c="red", s=10, label="BP")
+                self.ax.scatter(*overlay_xy(br_x, br_y), c="red", s=10, label="BP")
             elif overlay == "KP":
-                kp = data["kp"]   # shape: (2, N_kink)
+                kp = data["kp"]   # shape: (2, N_kink); [0] = x, [1] = y
                 if kp.shape[1] > 0:
-                    self.ax.scatter(kp[0] * sx, kp[1] * sy, c="cyan", s=15, label="KP")
+                    self.ax.scatter(*overlay_xy(kp[0], kp[1]), c="cyan", s=15, label="KP")
             elif overlay == "DP":
-                dp = data["dp"]   # shape: (2, N_dp)
+                dp = data["dp"]   # shape: (2, N_dp); [0] = x, [1] = y
                 if dp.shape[1] > 0:
-                    self.ax.scatter(dp[0] * sx, dp[1] * sy, c="orange", s=8, label="DP")
+                    self.ax.scatter(*overlay_xy(dp[0], dp[1]), c="orange", s=8, label="DP")
 
             # Show a legend only when an overlay is visible.
             self.ax.legend(
