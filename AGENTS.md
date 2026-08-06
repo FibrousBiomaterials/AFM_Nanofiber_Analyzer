@@ -13,8 +13,9 @@ and never let the two files diverge.
 - Before editing, state the target file paths and the intended change.
 - If the change may require touching additional files, ask first. Files that
   this document explicitly requires to stay consistent (the README pair, the
-  `.b2z` contract files in §8.2, translation catalogs in §8.8) count as part
-  of the requested change once the user approves the edit that triggers them.
+  `.b2z` contract files in §8.2, translation catalogs in §8.8, the changelog
+  entry in §8.11) count as part of the requested change once the user approves
+  the edit that triggers them.
 - Preserve Japanese text unless the user explicitly asks to translate it or a
   rule in this file requires it (README synchronization below, comment policy
   in §4).
@@ -842,6 +843,45 @@ Keeping scratch files inside the repository also means an agent needs no read
 permission outside the project directory, which keeps the permission allowlist
 narrow. `.tmp/` is not cleaned automatically; delete stale contents manually.
 
+### 8.11 Result-changing fixes and `CHANGELOG.md`
+
+When a change makes the analysis produce different numbers, updating
+`CHANGELOG.md` is part of that change, not a separate task. This project is
+research software: users cite a version and reproduce results from it, so a
+silent change in output is a reproducibility break even when no API breaks.
+
+The trigger is `tests/strict_regression_golden.json`. If a change updates the
+recorded golden values, the pipeline's output moved and the changelog entry is
+mandatory. If the goldens are untouched, the results did not change and no
+entry is required on this ground.
+
+Add the entry under `## [Unreleased]`, normally under `### Fixed`, and state
+explicitly that results change from this version — the wording matters more
+than the version number the change eventually ships in (see `RELEASING.md`).
+Do not assign a version number or a date; that happens at release time.
+
+```markdown
+## [Unreleased]
+
+### Fixed
+
+- Skeletonization no longer bends away from the fiber center at the scan
+  border. **Measured lengths and heights change from this version**, so
+  results are not bit-identical to 1.0.0.
+```
+
+This is enforced mechanically by `scripts/check_changelog.py`, run from
+`.githooks/pre-commit`: a staged change to the goldens without a new line in
+the `[Unreleased]` section blocks the commit. Do not reach for
+`git commit --no-verify` to get past it — write the entry. The bypass exists
+only for the case where the goldens moved because test data was added or
+renamed while the analysis itself is unchanged.
+
+Changes that alter results usually also warrant an entry for other reasons
+(new features, removed APIs, packaging fixes); the changelog covers all
+notable changes, and this rule only makes the result-changing case
+non-optional.
+
 ## 9. Summary
 
 | Item | Rule |
@@ -879,4 +919,5 @@ narrow. `.tmp/` is not cleaned automatically; delete stale contents manually.
 | Scratch / temporary files | Write to `.tmp/` at the repository root, not to a harness-assigned scratch directory under the user profile (§8.10). |
 | Translation catalogs | Refresh with `.venv\Scripts\python.exe prepare_translate_catalogs.py` (keeps `PLUGIN_INFO` descriptions; a bare `pybabel extract/update` drops them and obsoletes the entries); never edit `.mo` files directly (§8.8). |
 | README pair | `README.md` ↔ `README.ja.md` stay synchronized in both directions, including translation of the edited passage. |
+| Result-changing fixes | If `tests/strict_regression_golden.json` changes, add a `CHANGELOG.md` `[Unreleased]` entry stating that results change from this version; enforced by `.githooks/pre-commit` (§8.11). |
 | Destructive Git operations | Forbidden unless explicitly requested; `git restore` of files corrupted by your own edit is allowed. |
