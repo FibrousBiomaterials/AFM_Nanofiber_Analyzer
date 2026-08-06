@@ -24,9 +24,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   image array as background, so a fiber crossing the scan border became a shape
   cut flat by the edge, and the medial axis of that truncated end turned toward
   the nearer corner of the cut. Thinning now runs on a border-replicated copy
-  of the mask (`thin_ignoring_image_border` in `lib/skeletonizer.py`), which
-  reduced the measured lateral offset between the trace and the height ridge at
-  border ends from about 1.9-2.1 px to about 0.8-1.0 px on the bundled scans.
+  of the mask (`thin_ignoring_image_border` in `lib/skeletonizer.py`). Measured
+  against the distance transform of the border-replicated mask — the definition
+  of how deep inside the fiber a pixel lies — the mean depth of skeleton pixels
+  within 12 px of the border rises from 3.4-3.6 px to 4.0-4.3 px on the bundled
+  scans, matching the 3.9-4.5 px seen away from the border. The pixels this
+  drops sat 2.6-2.7 px deep, that is, on the edge of the fiber mask.
   Skeleton pixels away from the border are unchanged, and a per-component
   fallback keeps the previous result for any mask blob that lies along the
   border rather than crossing it, so no fiber is lost to the correction.
@@ -66,8 +69,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - GUI02 height profiles are now sampled from the pixel that was clicked. The
   micrometer-to-index conversion omitted the same half-pixel term, so
   `profile_line` read half a pixel down and to the right of the marked points.
-  **Extracted profile values change from this version**, and the sampling-width
-  band drawn on the heatmap moves with them.
+  **Extracted profile values change from this version.** The sampling-width
+  band drawn on the heatmap is unchanged on screen — it always followed the
+  marked points — but it now agrees with the pixels actually sampled, which it
+  previously missed by that same half pixel.
 
 ## [1.0.0] - 2026-07-08
 
