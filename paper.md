@@ -168,8 +168,9 @@ metadata where the instrument records it, so length measurements are reproducibl
 from the bundle alone and a folder of differently sized scans needs no batch-wide
 value. Bundles export to NumPy `.npz` or CSV for use outside the project.
 
-Background calibration offers four interchangeable methods (inpainting,
-morphological top-hat, and 1D/2D spline surfaces) so line-scan artefacts of
+Background calibration offers four interchangeable methods (trend-surface removal
+with nearest-background hole filling, morphological top-hat, and 1D/2D spline
+surfaces) so line-scan artefacts of
 differing severity can be addressed without changing the rest of the pipeline; it
 was tuned on Shimadzu SPM-9600 height images but is not specific to that
 instrument. The repository ships representative AFM text exports from Shimadzu and
