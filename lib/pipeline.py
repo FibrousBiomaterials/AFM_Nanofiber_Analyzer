@@ -41,7 +41,7 @@ import numpy as np
 # ===== Project libraries =====
 from . import __version__
 from .afm_io import detect_afm_format, load_afm_text, read_scan_size
-from .bg_calibrator import BGCalibrator
+from .bg_calibrator import BG_METHOD_NAMES, BGCalibrator, canonical_bg_method
 from .blosc2_io import save_bundle, bundle_has_keys, BUNDLE_EXT
 # The bundle key contract and format version are owned by bundle_schema;
 # re-imported here so existing `pipeline.REQUIRED_BUNDLE_KEYS` users keep working.
@@ -174,7 +174,7 @@ class ProcParams:
     """
 
     # BGCalibrator parameters.
-    bg_method: str = "inpaint"             # Background method: inpaint, tophat, spline1d, or spline2d.
+    bg_method: str = "trendfill"           # Background method: trendfill, tophat, spline1d, or spline2d ("inpaint" is the retired name for trendfill).
     tophat_se_size: int = 25               # Structuring-element diameter for tophat, in pixels.
     spline1d_axis: str = "x"               # Axis used for the one-dimensional spline interpolation.
     spline1d_degree: int = 2               # Spline degree for spline1d; practical range is 1 to 3.
@@ -184,8 +184,8 @@ class ProcParams:
     threshold_factor: float = 2.0          # Sigma multiplier for the background range.
     fiber_detect_factor: float = 10.0      # Threshold for treating abrupt height changes as fibers.
     noise_detect_factor: float = 10.0      # Threshold for separating structural change from noise.
-    savgol_window: int = 31                # Savitzky-Golay smoothing window for inpaint, tophat, and spline1d.
-    savgol_polyorder: int = 1              # Savitzky-Golay polynomial order for inpaint, tophat, and spline1d.
+    savgol_window: int = 31                # Savitzky-Golay smoothing window for trendfill, tophat, and spline1d.
+    savgol_polyorder: int = 1              # Savitzky-Golay polynomial order for trendfill, tophat, and spline1d.
     apply_median: bool = False             # Whether to apply the final median filter.
     mask_dilation: int = 3                 # Fiber-mask dilation radius in pixels; 0 disables dilation.
     min_mask_component_area: int = 10      # Minimum mask component area retained before dilation; 1 disables filtering.
@@ -307,12 +307,18 @@ def merge_params_dict(d: Dict) -> Tuple[ProcParams, List[str], List[str]]:
     missing = [k for k in defaults_dict if k not in d]
     obsolete = [k for k in d if k not in defaults_dict]
     merged = {k: d.get(k, defaults_dict[k]) for k in defaults_dict}
+    merged["bg_method"] = canonical_bg_method(merged["bg_method"])
     return ProcParams(**merged), missing, obsolete
 
 
-# Allowed values for enumerated string parameters.
-# 列挙型文字列パラメータの許容値。
-BG_METHODS = ("inpaint", "tophat", "spline1d", "spline2d")
+# Allowed values for enumerated string parameters. `BG_METHODS` is the
+# canonical list; retired spellings accepted on load live in
+# `bg_calibrator.BG_METHOD_ALIASES` and are translated by
+# `canonical_bg_method`, imported above.
+# 列挙型文字列パラメータの許容値。`BG_METHODS` が正規の一覧で、読み込み時に
+# 受け付ける廃止済みの綴りは `bg_calibrator.BG_METHOD_ALIASES` にあり、上で
+# import した `canonical_bg_method` が変換する。
+BG_METHODS = BG_METHOD_NAMES
 SPLINE1D_AXES = ("x", "y")
 
 
@@ -366,7 +372,12 @@ def validate_params(p: ProcParams) -> List[str]:
             problems.append(message)
 
     # --- Background calibration ---
-    require(p.bg_method in BG_METHODS,
+    # Accept a retired spelling here as well, so a `ProcParams` built directly
+    # with the old value validates exactly like one loaded through
+    # `merge_params_dict`, which translates it.
+    # 廃止済みの綴りもここで受け付け、旧値で直接構築した `ProcParams` が、
+    # 変換を行う `merge_params_dict` 経由で読み込んだ場合と同じく検証を通るようにする。
+    require(canonical_bg_method(p.bg_method) in BG_METHODS,
             f"bg_method must be one of {BG_METHODS}, got {p.bg_method!r}")
     require(_intval(p.tophat_se_size) and p.tophat_se_size >= 1,
             f"tophat_se_size must be a positive int (px), got {p.tophat_se_size!r}")

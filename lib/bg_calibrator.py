@@ -25,8 +25,52 @@ class name remain available through the ``bg_calibrator_shimadzu`` shim.
 import numpy as np
 import cv2
 from scipy import interpolate, signal
+from scipy.ndimage import distance_transform_edt
 
 from .processed_image import ProcessedImage
+
+# Background-estimation methods, in the spelling written to `_param.json`.
+# 背景推定方式の一覧。`_param.json` へ書き出される綴りで保持する。
+BG_METHOD_NAMES = ("trendfill", "tophat", "spline1d", "spline2d")
+
+# Retired spellings mapped to their current name. Parameter files written
+# before the rename record ``"inpaint"``, and re-running an old analysis must
+# keep working, so the value is translated on load rather than rejected. The
+# method was renamed because it no longer inpaints: the mask is filled by a
+# second-order trend subtraction plus nearest-background propagation.
+# 廃止された綴りから現行名への対応表。改名前に書かれたパラメータファイルは
+# ``"inpaint"`` を記録しており、過去の解析を再実行できる必要があるため、値は
+# 拒否せず読み込み時に変換する。改名の理由は、この方式がもはや inpaint を
+# 行わないためである（実体は 2 次トレンド減算＋最近傍背景の伝播）。
+BG_METHOD_ALIASES = {"inpaint": "trendfill"}
+
+
+def canonical_bg_method(value: str) -> str:
+    """
+    Translate a retired ``bg_method`` spelling to its current name.
+    廃止された ``bg_method`` の綴りを現行名へ変換する。
+
+    Parameters
+    ----------
+    value
+        The ``bg_method`` value supplied by a caller or read from a file.
+        呼び出し側が指定した、またはファイルから読み込んだ ``bg_method`` の値。
+
+    Returns
+    -------
+    str
+        The current name, or ``value`` unchanged when it is not an alias.
+        現行名。エイリアスでない場合は ``value`` をそのまま返す。
+
+    Notes
+    -----
+    Unknown values pass through untouched so that reporting an invalid method
+    stays the caller's job (`BGCalibrator.__init__` and
+    `lib.pipeline.validate_params`).
+    未知の値はそのまま通し、不正な方式の報告は呼び出し側
+    (`BGCalibrator.__init__` と `lib.pipeline.validate_params`) の責務に保つ。
+    """
+    return BG_METHOD_ALIASES.get(value, value)
 
 
 class BGCalibrator:
@@ -58,7 +102,7 @@ class BGCalibrator:
     def __init__(self, threshold_factor=3, fiber_detect_factor=10, noise_detect_factor=2,
                  savgol_window=51, savgol_polyorder=2, apply_median=True,
                  mask_dilation=3,
-                 min_mask_component_area=10, bg_method='inpaint', tophat_se_size=25,
+                 min_mask_component_area=10, bg_method='trendfill', tophat_se_size=25,
                  spline2d_degree=2, spline2d_subsample=4, spline2d_smoothing=None,
                  spline1d_axis='y', spline1d_degree=2) -> None:
         """
@@ -69,21 +113,21 @@ class BGCalibrator:
         ----------
         threshold_factor : float, optional
             Sigma multiplier used when separating background-like differences.
-            Used when ``bg_method`` is ``'inpaint'`` or ``'spline2d'``.
+            Used when ``bg_method`` is ``'trendfill'`` or ``'spline2d'``.
             背景らしい差分を分離する際に使うシグマ倍率。
-            ``bg_method`` が ``'inpaint'`` または ``'spline2d'`` のときに
+            ``bg_method`` が ``'trendfill'`` または ``'spline2d'`` のときに
             使用される。
         fiber_detect_factor : int, optional
             Maximum inner-gap length for the [1, 0, -1] fiber pattern.
-            Used when ``bg_method`` is ``'inpaint'`` or ``'spline2d'``.
+            Used when ``bg_method`` is ``'trendfill'`` or ``'spline2d'``.
             [1, 0, -1] の繊維パターンで許容する内側ギャップ長の最大値。
-            ``bg_method`` が ``'inpaint'`` または ``'spline2d'`` のときに
+            ``bg_method`` が ``'trendfill'`` または ``'spline2d'`` のときに
             使用される。
         noise_detect_factor : int, optional
             Minimum span for the [1, -1] pattern to avoid tiny noise segments.
-            Used when ``bg_method`` is ``'inpaint'`` or ``'spline2d'``.
+            Used when ``bg_method`` is ``'trendfill'`` or ``'spline2d'``.
             微小ノイズを避けるための [1, -1] パターン最小スパン。
-            ``bg_method`` が ``'inpaint'`` または ``'spline2d'`` のときに
+            ``bg_method`` が ``'trendfill'`` または ``'spline2d'`` のときに
             使用される。
         savgol_window : int
             Window length used by the Savitzky-Golay smoothing filter.
@@ -104,14 +148,14 @@ class BGCalibrator:
             fibers. Larger values exclude more neighboring pixels from the
             background pool. Default is 3. Set to 0 to disable dilation
             (reproduces the original behavior). Used when ``bg_method``
-            is ``'inpaint'`` or ``'spline2d'``.
+            is ``'trendfill'`` or ``'spline2d'``.
             ファイバーマスクを膨張させるピクセル数。
             `_extract_fiber` で検出しきれないファイバー端ピクセルが背景推定に
             混入すると、補間・平滑化でファイバー周辺の背景推定値が過大になり、
             減算後に過剰減算（ファイバー両脇のえぐれ）が生じる。
             値を大きくするほど周辺の背景点も除外される。
             デフォルトは 3。0 を指定するとdilationなし（元の動作）。
-            ``bg_method`` が ``'inpaint'`` または ``'spline2d'`` のときに
+            ``bg_method`` が ``'trendfill'`` または ``'spline2d'`` のときに
             使用される。
         min_mask_component_area : int, optional
             Minimum 8-connected component area (in pixels) kept in the raw
@@ -125,7 +169,7 @@ class BGCalibrator:
             form much larger connected components and are kept. Set to 1
             to disable filtering (reproduces the previous behavior).
             Applied when `mask_dilation > 0` and ``bg_method`` is
-            ``'inpaint'`` or ``'spline2d'``.
+            ``'trendfill'`` or ``'spline2d'``.
             Default is 10.
             dilation 前の生ファイバーマスクから残す 8 連結成分の最小面積
             （ピクセル単位）。`_extract_fiber` の `[1, -1]` リッジパターンが
@@ -136,19 +180,25 @@ class BGCalibrator:
             画像にタイル状・細胞状パターンとして現れる）。本物のファイバーは
             十分大きな連結成分を形成するため残る。1 を指定するとフィルタなし
             （従来動作と一致）。`mask_dilation > 0` かつ ``bg_method`` が
-            ``'inpaint'`` または ``'spline2d'`` のときに適用される。
+            ``'trendfill'`` または ``'spline2d'`` のときに適用される。
             デフォルトは 10。
-        bg_method : {'inpaint', 'tophat', 'spline2d'}, optional
+        bg_method : {'trendfill', 'tophat', 'spline1d', 'spline2d'}, optional
             Background estimation strategy.
 
-            ``'inpaint'`` (default): the legacy two-stage approach. Detect
+            ``'trendfill'`` (default): the two-stage approach. Detect
             fiber-like ridges via gradient histogram thresholds and pattern
-            matching, mask them out, and fill the mask by Navier-Stokes
-            inpainting. Configurable via ``threshold_factor``,
-            ``fiber_detect_factor``, ``noise_detect_factor``,
-            ``mask_dilation``, ``min_mask_component_area``. Sensitive to
-            ridge-detection failures (fiber shoulders leaking through the
-            mask bias the background upward).
+            matching, mask them out, then fit and subtract a second-order
+            trend surface, fill the mask from the nearest background pixel,
+            smooth, and restore the trend. Configurable via
+            ``threshold_factor``, ``fiber_detect_factor``,
+            ``noise_detect_factor``, ``mask_dilation``,
+            ``min_mask_component_area``. Sensitive to ridge-detection
+            failures (fiber shoulders leaking through the mask bias the
+            background upward). The name is historical: the mask used to be
+            filled by OpenCV Navier-Stokes inpainting, which could not
+            reproduce the background slope across a hole (see
+            ``_bg_generate``). It is kept because ``bg_method`` values are
+            serialized verbatim into ``<input_stem>_param.json``.
 
             ``'tophat'``: morphological opening with a circular structuring
             element of diameter ``tophat_se_size``. Background equals the
@@ -161,7 +211,7 @@ class BGCalibrator:
             comparable with the interpolating methods. No fiber mask is
             computed, so ridge-detection parameters (``threshold_factor``
             etc.) are ignored. Empirically faster and produces more uniform
-            background subtraction than ``'inpaint'`` for fiber-on-substrate
+            background subtraction than ``'trendfill'`` for fiber-on-substrate
             AFM images.
 
             ``'spline2d'``: tensor-product bivariate B-spline fitted to
@@ -169,12 +219,12 @@ class BGCalibrator:
             ``scipy.interpolate.SmoothBivariateSpline``. Conceptually the
             2D extension of the legacy ``pandas`` 1D spline interpolation
             (same polynomial degree by default), but solved as a 2D
-            problem rather than row-by-row. Unlike ``'inpaint'``, the
+            problem rather than row-by-row. Unlike ``'trendfill'``, the
             global formulation makes the fit insensitive to local
             mask-boundary biases, so fiber shoulders that escape detection
             do not propagate into the background estimate as strongly.
             Configurable via ``spline2d_degree``, ``spline2d_subsample``
-            and ``spline2d_smoothing``. Requires the inpaint-style fiber
+            and ``spline2d_smoothing``. Requires the trendfill-style fiber
             mask (computed via ``threshold_factor`` etc.) to identify
             background-candidate pixels.
 
@@ -191,13 +241,13 @@ class BGCalibrator:
             the image instead and targets *vertical* stripes. For such
             stripe/line noise this per-line approach is often more effective
             than the globally-coupled ``'spline2d'`` fit. Uses the same
-            inpaint-style fiber mask (with ``mask_dilation`` and
+            trendfill-style fiber mask (with ``mask_dilation`` and
             ``min_mask_component_area``) to choose background-candidate
             pixels, the same ``pandas`` spline of order ``spline1d_degree``
             for the interior, then linear extrapolation at the line ends
             where pandas would otherwise degenerate to constant
             extrapolation (the known failure mode that originally motivated
-            replacing this method with ``'inpaint'``; it is fixed here).
+            replacing this method with ``'trendfill'``; it is fixed here).
             The background is then Savitzky-Golay smoothed and subtracted in
             full (no exact restore of background-candidate pixels),
             reproducing the legacy behavior that performs well on
@@ -206,14 +256,19 @@ class BGCalibrator:
 
             背景推定方式の選択。
 
-            ``'inpaint'`` (デフォルト): 従来の2段構えの方式。勾配ヒストグラムの
+            ``'trendfill'`` (デフォルト): 2段構えの方式。勾配ヒストグラムの
             閾値とパターンマッチでファイバー状リッジを検出してマスクし、
-            マスク領域を Navier-Stokes 法 inpaint で埋める。
+            2 次のトレンド曲面をフィットして減算し、マスク領域を最近傍の
+            背景画素の値で埋め、平滑化してからトレンドを復元する。
             ``threshold_factor``, ``fiber_detect_factor``,
             ``noise_detect_factor``, ``mask_dilation``,
             ``min_mask_component_area`` で挙動を制御する。リッジ検出の
             取りこぼし（ファイバーの肩がマスクを抜けて境界画素として残る現象）
-            に弱く、背景推定値が上方にバイアスする傾向がある。
+            に弱く、背景推定値が上方にバイアスする傾向がある。名称は歴史的な
+            もので、以前はマスク領域を OpenCV の Navier-Stokes 法 inpaint で
+            埋めていたが、この方式は穴を跨ぐ背景の傾斜を再現できなかった
+            (``_bg_generate`` 参照)。``bg_method`` の値は
+            ``<input_stem>_param.json`` へそのまま保存されるため名称は維持する。
 
             ``'tophat'``: 直径 ``tophat_se_size`` の円形構造要素を用いる
             形態学的 opening。背景は opening 後の画像（収縮→膨張）そのもの。
@@ -223,19 +278,19 @@ class BGCalibrator:
             基板レベルを 0 nm に揃え、補正後の高さが補間系方式と比較可能に
             なるようにする。ファイバーマスクを一切
             使わないため、リッジ検出系パラメータ (``threshold_factor`` 等)
-            は無視される。ファイバー/基板型の AFM 画像では ``'inpaint'``
+            は無視される。ファイバー/基板型の AFM 画像では ``'trendfill'``
             より高速かつ背景補正の一様性が高い、というのが本リポジトリの
             実証ベンチマーク結果である。
 
             ``'spline2d'``: ``scipy.interpolate.SmoothBivariateSpline`` で
             背景候補画素にフィットするテンソル積二変数 B-スプライン。概念的
             には従来 ``pandas`` の 1D スプライン補間の 2D 拡張 (デフォルト
-            次数も同じ) だが、行毎ではなく 2D 問題として解く。``'inpaint'``
+            次数も同じ) だが、行毎ではなく 2D 問題として解く。``'trendfill'``
             と違い、大局的なフィットなのでマスク境界の局所バイアスに鈍感で、
             ファイバーの肩がマスクをすり抜けても背景推定への影響は小さい。
             ``spline2d_degree``, ``spline2d_subsample``,
             ``spline2d_smoothing`` で挙動を制御する。背景候補画素を識別する
-            ために inpaint と同じファイバーマスク (``threshold_factor`` 等
+            ために trendfill と同じファイバーマスク (``threshold_factor`` 等
             で計算) を必要とする。
 
             ``'spline1d'``: 背景候補画素を1軸に沿って行/列ごとに 1D スプライン
@@ -246,11 +301,11 @@ class BGCalibrator:
             が高速走査軸のときに生じる一般的な AFM 形状) を均す。``'x'`` は
             代わりに各行を横方向に補間し *縦縞* を対象とする。こうした縞/ライン
             ノイズに対しては、本方式は大局結合する ``'spline2d'`` より有効な
-            ことが多い。背景候補画素の選択には inpaint と同じファイバーマスク
+            ことが多い。背景候補画素の選択には trendfill と同じファイバーマスク
             (``mask_dilation``, ``min_mask_component_area`` 込み) を使い、
             内側は order ``spline1d_degree`` の ``pandas`` スプライン、ライン
             端では pandas が定数外挿に縮退する区間を線形外挿で埋める (この
-            定数外挿への縮退こそ、本方式が当初 ``'inpaint'`` へ置き換えられた
+            定数外挿への縮退こそ、本方式が当初 ``'trendfill'`` へ置き換えられた
             既知の弱点であり、ここで修正している)。その後 Savitzky-Golay で
             平滑化し、背景候補画素を厳密復元せずそのまま全面減算する (従来
             挙動の再現)。ラインノイズ主体のスキャンで良好な結果を出す。
@@ -354,15 +409,17 @@ class BGCalibrator:
         Raises
         ------
         ValueError
-            If ``bg_method`` is not one of {'inpaint', 'tophat',
-            'spline2d', 'spline1d'}, if ``tophat_se_size`` is not a positive
+            If ``bg_method`` is not one of {'trendfill', 'tophat',
+            'spline2d', 'spline1d'} nor the retired alias ``'inpaint'``, if
+            ``tophat_se_size`` is not a positive
             integer, if ``spline2d_degree`` is not an integer in [1, 5], if
             ``spline2d_subsample`` is not a positive integer, if
             ``spline2d_smoothing`` is not ``None`` or a non-negative number,
             if ``spline1d_axis`` is not ``'y'`` or ``'x'``, or if
             ``spline1d_degree`` is not a positive integer.
-            ``bg_method`` が {'inpaint', 'tophat', 'spline2d', 'spline1d'}
-            以外、``tophat_se_size`` が正の整数でない、``spline2d_degree`` が
+            ``bg_method`` が {'trendfill', 'tophat', 'spline2d', 'spline1d'}
+            でも廃止済みエイリアス ``'inpaint'`` でもない、
+            ``tophat_se_size`` が正の整数でない、``spline2d_degree`` が
             [1, 5] の整数でない、``spline2d_subsample`` が正の整数でない、
             ``spline2d_smoothing`` が ``None`` でも非負の数値でもない、
             ``spline1d_axis`` が ``'y'`` でも ``'x'`` でもない、または
@@ -373,10 +430,14 @@ class BGCalibrator:
         Only parameters are stored here. Actual calibration runs in __call__.
         ここではパラメータのみ保持し、実際の補正処理は __call__ で実行する。
         """
-        if bg_method not in ('inpaint', 'tophat', 'spline2d', 'spline1d'):
+        # Accept the retired spelling so a pre-rename `_param.json` still runs.
+        # 改名前の `_param.json` がそのまま動くよう、旧綴りも受け付ける。
+        bg_method = canonical_bg_method(bg_method)
+        if bg_method not in BG_METHOD_NAMES:
             raise ValueError(
-                f"bg_method must be 'inpaint', 'tophat', 'spline2d' or "
-                f"'spline1d', got {bg_method!r}"
+                f"bg_method must be one of {BG_METHOD_NAMES} "
+                f"(or the retired alias {tuple(BG_METHOD_ALIASES)}), "
+                f"got {bg_method!r}"
             )
         if not isinstance(tophat_se_size, (int, np.integer)) or tophat_se_size < 1:
             raise ValueError(
@@ -470,19 +531,19 @@ class BGCalibrator:
         can be inspected during debugging or parameter tuning. The set of
         intermediates available on ``self`` depends on ``bg_method``:
 
-        - ``'inpaint'``: ``dif_x``, ``dif_y``, ``histx``, ``histy``,
+        - ``'trendfill'``: ``dif_x``, ``dif_y``, ``histx``, ``histy``,
           ``outx``, ``outy``, ``tri_difx``, ``tri_dify``, ``tri_difx_fill``,
           ``tri_dify_fill``, ``bg_only``, ``bg_sm``.
         - ``'tophat'``: only ``bg_open`` (raw morphological opening) and
           ``bg_sm`` (after Savitzky-Golay). The ridge-detection
           intermediates are set to ``None`` since the method does not
           compute them.
-        - ``'spline2d'``: the inpaint-style ridge-detection intermediates
+        - ``'spline2d'``: the trendfill-style ridge-detection intermediates
           (``dif_x`` ... ``bg_only``) are computed since the spline needs
           the fiber mask to identify background-candidate pixels, plus
           ``bg_spline2d`` (raw 2D spline surface) and ``bg_sm`` (after
           Savitzky-Golay). ``bg_open`` is set to ``None``.
-        - ``'spline1d'``: like ``'spline2d'``, the inpaint-style
+        - ``'spline1d'``: like ``'spline2d'``, the trendfill-style
           ridge-detection intermediates (``dif_x`` ... ``bg_only``) are
           computed for the fiber mask, plus ``bg_spline1d`` (raw per-line
           interpolated surface, before smoothing) and ``bg_sm`` (after
@@ -493,19 +554,19 @@ class BGCalibrator:
         デバッグ時やパラメータ調整時に各段階を確認しやすい。``self`` に
         残る中間配列の集合は ``bg_method`` に依存する:
 
-        - ``'inpaint'``: ``dif_x``, ``dif_y``, ``histx``, ``histy``,
+        - ``'trendfill'``: ``dif_x``, ``dif_y``, ``histx``, ``histy``,
           ``outx``, ``outy``, ``tri_difx``, ``tri_dify``,
           ``tri_difx_fill``, ``tri_dify_fill``, ``bg_only``, ``bg_sm``。
         - ``'tophat'``: ``bg_open`` (生の opening 結果) と ``bg_sm``
           (Savitzky-Golay 後) のみ。リッジ検出系の中間配列は計算しないため
           ``None`` を設定する。
         - ``'spline2d'``: スプラインが背景候補画素を識別するためにファイバー
-          マスクを必要とするので inpaint と同じリッジ検出系中間配列
+          マスクを必要とするので trendfill と同じリッジ検出系中間配列
           (``dif_x`` 〜 ``bg_only``) を計算し、加えて ``bg_spline2d``
           (生の 2D スプライン曲面) と ``bg_sm`` (Savitzky-Golay 後) を保持。
           ``bg_open`` は ``None``。
         - ``'spline1d'``: ``'spline2d'`` と同様、ファイバーマスクのため
-          inpaint と同じリッジ検出系中間配列 (``dif_x`` 〜 ``bg_only``) を
+          trendfill と同じリッジ検出系中間配列 (``dif_x`` 〜 ``bg_only``) を
           計算し、加えて ``bg_spline1d`` (平滑化前の生の行/列補間曲面) と
           ``bg_sm`` (Savitzky-Golay 後) を保持。``bg_open`` と
           ``bg_spline2d`` は ``None``。
@@ -524,20 +585,20 @@ class BGCalibrator:
         elif self.bg_method == 'spline1d':
             self._call_spline1d(image)
         else:
-            self._call_inpaint(image)
+            self._call_trendfill(image)
 
     def _detect_fiber_mask(self, original: np.ndarray) -> None:
         """
-        Run inpaint-style ridge detection up to the fiber mask intermediates.
-        inpaint 系のリッジ検出をファイバーマスク中間配列まで実行する。
+        Run trendfill-style ridge detection up to the fiber mask intermediates.
+        trendfill 系のリッジ検出をファイバーマスク中間配列まで実行する。
 
-        Shared prelude of `_call_inpaint`, `_call_spline2d`, and
+        Shared prelude of `_call_trendfill`, `_call_spline2d`, and
         `_call_spline1d`: all three need the same gradient-histogram fiber
         mask before they diverge on how they fill the background. The
         intermediates ``dif_x`` ... ``tri_difx_fill``/``tri_dify_fill`` are
         stored on ``self`` exactly as before, so the three paths cannot drift
         apart and every consumed ``bg_only`` is identical to the legacy code.
-        `_call_inpaint` / `_call_spline2d` / `_call_spline1d` で共通の前段。
+        `_call_trendfill` / `_call_spline2d` / `_call_spline1d` で共通の前段。
         3 方式とも背景の埋め方が分かれる前に同じ勾配ヒストグラム由来の
         ファイバーマスクを必要とする。中間配列 ``dif_x`` 〜
         ``tri_difx_fill``/``tri_dify_fill`` は従来どおり ``self`` に保持する。
@@ -549,10 +610,10 @@ class BGCalibrator:
         # Fill likely fiber regions from ternary difference patterns.
         self.tri_difx_fill, self.tri_dify_fill = self._extract_fiber(self.tri_difx, self.tri_dify)
 
-    def _call_inpaint(self, image: ProcessedImage) -> None:
+    def _call_trendfill(self, image: ProcessedImage) -> None:
         """
-        Run the legacy inpaint-based pipeline.
-        従来の inpaint ベースのパイプラインを実行する。
+        Run the ridge-mask, trend-subtraction and nearest-fill pipeline.
+        リッジマスク・トレンド減算・最近傍充填によるパイプラインを実行する。
         """
         self._detect_fiber_mask(image.original_image)
         self.bg_only, self.bg_sm = self._bg_generate(image.original_image, self.tri_difx_fill, self.tri_dify_fill)
@@ -625,18 +686,57 @@ class BGCalibrator:
             cv2.MORPH_ELLIPSE,
             (self.tophat_se_size, self.tophat_se_size),
         )
-        self.bg_open = cv2.morphologyEx(
-            original.astype(np.float32), cv2.MORPH_OPEN, se,
+        # Open a detrended copy, then restore the trend, for the same reason
+        # the trendfill path detrends: a raw scan carries a large sample tilt.
+        # Opening reproduces a plane in the image interior, but not within one
+        # structuring-element radius of the border, because erosion there takes
+        # its minimum from a clipped neighborhood that dilation cannot restore.
+        # On a 0.34 nm/px ramp with a 25-px element that leaves a band about
+        # 4 nm high down the uphill edge - far above the 0.3 nm binarization
+        # threshold, so the scan border was segmented as a fiber. Detrending
+        # first removes the slope the border effect feeds on.
+        # トレンドを除いた写しに opening をかけ、後でトレンドを戻す。理由は
+        # trendfill 経路と同じで、生の走査は大きな試料傾斜を伴うためである。
+        # opening は画像内部では平面を再現するが、構造要素の半径以内の境界域
+        # では再現しない。そこでは収縮が切り詰められた近傍から最小値を取り、
+        # 膨張が復元できないからである。0.34 nm/px の傾斜と直径 25 px の要素
+        # では、上り側の端に高さ約 4 nm の帯が残る。二値化しきい値 0.3 nm を
+        # 大きく超えるため、走査端が繊維として抽出されていた。先にデトレンド
+        # することで、この境界効果が餌にする傾斜そのものを取り除く。
+        # The trend is fitted over every pixel because this method computes no
+        # fiber mask. Fibers bias the surface upward, but only their spatial
+        # variation survives: a uniform offset passes unchanged through both
+        # the opening and the smoothing and is removed by the median
+        # re-centering below.
+        # 本方式は繊維マスクを作らないため、トレンドは全画素でフィットする。
+        # 繊維は曲面を上方へ偏らせるが、残るのはその空間変化だけである。
+        # 一様なオフセットは opening にも平滑化にもそのまま通り、後段の中央値
+        # 再センタリングで除かれる。
+        bg_trend = self._fit_trend_surface(
+            original, np.ones(original.shape, dtype=bool),
+        )
+        opened_detrended = cv2.morphologyEx(
+            (original - bg_trend).astype(np.float32), cv2.MORPH_OPEN, se,
         ).astype(np.float64)
+        self.bg_open = opened_detrended + bg_trend
 
-        # Apply the same Savitzky-Golay smoothing as the inpaint path so
+        # Apply the same Savitzky-Golay smoothing as the trendfill path so
         # that downstream noise characteristics are comparable between the
-        # two methods. Then crop by [1:, 1:] to match the legacy output
-        # shape produced by `_bg_calibrate`.
-        # inpaint パスと同じ Savitzky-Golay 平滑化をかけ、両方式の下流の
-        # ノイズ特性をそろえる。最終的に `_bg_calibrate` と同じ出力形状に
-        # 合わせるため `[1:, 1:]` で切り出す。
-        self.bg_sm = signal.savgol_filter(self.bg_open, self.savgol_window, self.savgol_polyorder)
+        # two methods. Smoothing runs on the detrended opening and the trend is
+        # restored afterwards: the filter is a moving average along X at
+        # `savgol_polyorder <= 1`, which does not reproduce a quadratic, so
+        # smoothing the trend-restored surface would fold the trend's curvature
+        # into the background estimate. Then crop by [1:, 1:] to match the
+        # legacy output shape produced by `_bg_calibrate`.
+        # trendfill パスと同じ Savitzky-Golay 平滑化をかけ、両方式の下流の
+        # ノイズ特性をそろえる。平滑化はデトレンド後の opening に対して行い、
+        # トレンドは後から戻す。`savgol_polyorder <= 1` のときこのフィルタは
+        # X 方向の単純移動平均であり 2 次曲面を再現しないため、トレンドを戻した
+        # 曲面を平滑化するとトレンドの曲率が背景推定へ混入してしまう。最終的に
+        # `_bg_calibrate` と同じ出力形状に合わせるため `[1:, 1:]` で切り出す。
+        self.bg_sm = signal.savgol_filter(
+            opened_detrended, self.savgol_window, self.savgol_polyorder,
+        ) + bg_trend
         calibrated_image = original[1:, 1:] - self.bg_sm[1:, 1:]
 
         # Morphological opening is a lower-envelope estimator: over a noisy
@@ -669,14 +769,14 @@ class BGCalibrator:
         -----
         This is the conceptual 2D extension of the legacy ``pandas`` 1D
         spline interpolation. The legacy pipeline computed a fiber mask
-        from gradient histograms (the inpaint pipeline's
+        from gradient histograms (the trendfill pipeline's
         ``_difXY`` ... ``_extract_fiber`` ... ``_bg_generate`` chain),
         marked fiber pixels as NaN, and called pandas' 1D spline
         interpolation row-by-row. Here we use the same fiber mask but
         fit a 2D B-spline globally to the background-candidate pixels
         with ``scipy.interpolate.SmoothBivariateSpline``.
 
-        Compared to ``'inpaint'``: same mask, different filler.
+        Compared to ``'trendfill'``: same mask, different filler.
 
         Implementation details:
 
@@ -702,13 +802,13 @@ class BGCalibrator:
 
         これは従来の ``pandas`` 1D スプライン補間の概念的な 2D 拡張。従来
         パイプラインは勾配ヒストグラムからファイバーマスクを計算し
-        (inpaint と同じ ``_difXY`` 〜 ``_extract_fiber`` 〜 ``_bg_generate``
+        (trendfill と同じ ``_difXY`` 〜 ``_extract_fiber`` 〜 ``_bg_generate``
         の流れ)、ファイバー画素を NaN にして pandas の 1D スプライン補間を
         行毎に呼んでいた。本メソッドは同じファイバーマスクを使うが、補間は
         ``scipy.interpolate.SmoothBivariateSpline`` で背景候補画素に対して
         2D B-スプラインを大局的にフィットする。
 
-        ``'inpaint'`` との比較: 同じマスク、別の埋め方。
+        ``'trendfill'`` との比較: 同じマスク、別の埋め方。
 
         実装上の注意:
 
@@ -731,14 +831,14 @@ class BGCalibrator:
         """
         original = image.original_image
 
-        # Reuse the inpaint-style ridge detection and fiber mask. This is
-        # the same code path as `_call_inpaint` up through `_bg_generate`,
-        # because spline2d is conceptually "inpaint mask + different
+        # Reuse the trendfill-style ridge detection and fiber mask. This is
+        # the same code path as `_call_trendfill` up through `_bg_generate`,
+        # because spline2d is conceptually "trendfill mask + different
         # interpolator". We need ``bg_only`` (image with NaN at masked
         # positions) and the implied background-candidate mask.
-        # inpaint と同じリッジ検出とファイバーマスク計算を流用する。
-        # spline2d は概念的に「inpaint と同じマスク + 別の埋め方」なので、
-        # `_bg_generate` までは `_call_inpaint` と同じ処理が必要になる。
+        # trendfill と同じリッジ検出とファイバーマスク計算を流用する。
+        # spline2d は概念的に「trendfill と同じマスク + 別の埋め方」なので、
+        # `_bg_generate` までは `_call_trendfill` と同じ処理が必要になる。
         # ``bg_only`` (マスク位置が NaN になった画像) と背景候補マスクを得る。
         self._detect_fiber_mask(original)
         # `_bg_generate` returns ``bg_only`` (NaN at fiber, shape (H-1, W-1))
@@ -864,17 +964,17 @@ class BGCalibrator:
         spline background (see ``BG_Calibrator_shimadzuOld``), modernised
         in two ways:
 
-        * The fiber mask reuses the inpaint pipeline's ridge detection
+        * The fiber mask reuses the trendfill pipeline's ridge detection
           *together with* ``mask_dilation`` and ``min_mask_component_area``
           (the legacy version had neither), so fiber-edge shoulders are
-          excluded from the background pool exactly as in ``'inpaint'`` and
+          excluded from the background pool exactly as in ``'trendfill'`` and
           ``'spline2d'``.
         * The legacy ``pandas`` spline degenerated to *constant*
           extrapolation at the ends of any line whose first/last valid
           sample was interior (e.g. a fiber touching the top or bottom
           edge along the interpolation axis). That biased the background
           and was the documented reason the method was originally dropped
-          in favour of ``'inpaint'``. Here the interior is still filled by
+          in favour of ``'trendfill'``. Here the interior is still filled by
           the ``pandas`` spline of order ``spline1d_degree``, but any
           leading/trailing run that ``pandas`` leaves as constant is
           overwritten by a *linear* extrapolation through the two nearest
@@ -900,14 +1000,14 @@ class BGCalibrator:
         (``BG_Calibrator_shimadzuOld`` 参照) の正統な復活版で、2 点を
         現代化している:
 
-        * ファイバーマスクは inpaint のリッジ検出に加えて ``mask_dilation``
+        * ファイバーマスクは trendfill のリッジ検出に加えて ``mask_dilation``
           と ``min_mask_component_area`` を併用する (旧版は両方なし)。
-          これにより ``'inpaint'`` / ``'spline2d'`` と同様、ファイバー端の
+          これにより ``'trendfill'`` / ``'spline2d'`` と同様、ファイバー端の
           肩部が背景プールから除外される。
         * 旧 ``pandas`` スプラインは、補間軸方向で最初/最後の有効サンプルが
           内側にあるライン (例: 補間軸の上下端にファイバーがかかる場合) で
           *定数* 外挿に縮退し、背景を歪めていた。これが本方式が当初
-          ``'inpaint'`` に置き換えられた既知の理由である。本実装では内側は
+          ``'trendfill'`` に置き換えられた既知の理由である。本実装では内側は
           引き続き order ``spline1d_degree`` の ``pandas`` スプラインで埋め、
           ``pandas`` が定数のまま残す先頭/末尾の区間のみ、そのラインの最近傍
           2 有効サンプルを通る *線形* 外挿で上書きする。要求 order に対して
@@ -928,11 +1028,11 @@ class BGCalibrator:
         """
         original = image.original_image
 
-        # Reuse the inpaint-style ridge detection and fiber mask, exactly as
+        # Reuse the trendfill-style ridge detection and fiber mask, exactly as
         # `_call_spline2d` does. We only need ``bg_only`` (image with NaN at
         # masked positions, shape (H-1, W-1)); the smoothed bg returned by
         # `_bg_generate` is discarded because we re-fill with the 1D spline.
-        # `_call_spline2d` と同じく inpaint のリッジ検出とファイバーマスクを
+        # `_call_spline2d` と同じく trendfill のリッジ検出とファイバーマスクを
         # 流用する。必要なのは ``bg_only`` (マスク位置 NaN、(H-1, W-1) 形状)
         # のみで、`_bg_generate` が返す平滑化 bg は 1D スプラインで埋め直す
         # ため破棄する。
@@ -1341,7 +1441,7 @@ class BGCalibrator:
         original: np.ndarray,
         tri_difx_fill: np.ndarray,
         tri_dify_fill: np.ndarray,
-    ) -> np.ndarray:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Build a smooth background from pixels not marked as fiber candidates.
         繊維候補としてマークされていない画素から平滑背景を構築する。
@@ -1390,15 +1490,59 @@ class BGCalibrator:
         偽検出が dilation で `(2 * mask_dilation + 1)^2` ピクセルの穴に
         増幅され、再構成背景にゴマ塩状ノイズを生むのを防ぐためである。
 
-        Missing values are filled by OpenCV Navier-Stokes inpainting. This
-        replaces both the earlier row-wise spline interpolation, which
-        degenerated to constant extrapolation near the top/bottom rows when
-        fibers reached the image boundary, and the later `griddata` prototype,
-        whose Delaunay triangulation dominated runtime on dense AFM images.
-        欠損値は OpenCV の Navier-Stokes 法 inpainting で埋める。これは、
-        画像上下端にファイバーがかかると定数外挿となり背景推定を歪めていた
-        従来の列方向スプライン補間と、Delaunay 三角形分割が高密度 AFM 画像で
-        実行時間を支配していた後続の `griddata` 試作実装の両方を置き換える。
+        The holes are filled on a *detrended* copy of the image: a second-order
+        surface is least-squares fitted to the background-candidate pixels and
+        subtracted, the holes are filled by nearest-valid propagation, the
+        result is Savitzky-Golay smoothed, and the surface is added back. The
+        detrending step is what makes the fill accurate, and it matters because
+        raw AFM scans routinely carry a large sample tilt: on the bundled scans
+        the least-squares plane drops 0.23-0.34 nm per pixel, so the background
+        falls 7-9 nm across a single fiber hole while the fiber itself is only
+        about 10 nm tall. Any fill that cannot reproduce that ramp leaves an
+        error comparable to the signal.
+        穴の充填は画像を *デトレンド* した写しの上で行う。背景候補画素に 2 次
+        曲面を最小二乗フィットして減算し、最近傍の有効画素を伝播させて穴を
+        埋め、Savitzky-Golay で平滑化してから曲面を足し戻す。精度の鍵はこの
+        デトレンドにある。生の AFM 走査は大きな試料傾斜を伴うのが普通で、
+        同梱スキャンでは最小二乗平面が 1 画素あたり 0.23〜0.34 nm 下がる。
+        つまり繊維 1 本分の穴を横切る間に背景が 7〜9 nm 落ちる一方、繊維自身の
+        高さは約 10 nm しかない。この傾斜を再現できない充填法は、信号と同程度
+        の誤差を残すことになる。
+
+        This replaces the previous OpenCV Navier-Stokes inpainting. That
+        scheme is a boundary-propagation method intended for thin scratches:
+        with `inpaintRadius=3` it extended each side of a hole inward as a
+        flat plateau and met in a step discontinuity at the middle, measured
+        at up to +/-4 nm across a 21-px hole. Because `savgol_polyorder <= 1`
+        makes the Savitzky-Golay pass a plain moving average along X, that
+        step was then averaged into the background estimate of every genuine
+        background pixel within half a window of the hole, producing an
+        antisymmetric halo (a trough on the uphill side, a ridge on the
+        downhill side) that reached +0.76 nm - above the default
+        `Segmenter.global_threshold` of 0.3 nm, so it binarized as a second
+        fiber running parallel to the real one.
+        これは従来の OpenCV Navier-Stokes inpainting を置き換えるものである。
+        あの方式は細い傷の修復を想定した境界伝播法で、`inpaintRadius=3` では
+        穴の左右それぞれの境界値を平坦に内側へ伸ばし、中央で段差になっていた
+        （幅 21 px の穴で実測 ±4 nm）。`savgol_polyorder <= 1` のとき
+        Savitzky-Golay は X 方向の単純移動平均そのものになるため、この段差が
+        穴から窓半分以内にある本物の背景画素の推定値へ平均化されて漏れ出し、
+        反対称のハロー（上り側に溝、下り側に尾根）を生んでいた。尾根は
+        +0.76 nm に達し、`Segmenter.global_threshold` の既定値 0.3 nm を
+        超えるため、実際の繊維に並走する 2 本目の繊維として二値化されていた。
+
+        Nearest-valid propagation is enough once the image is detrended: with
+        the trend removed the height difference across a hole is close to
+        zero, so the choice of filler barely matters (measured maximum
+        deviation from the chord across a 21-px hole: 0.24 nm for nearest
+        versus 0.20 nm for inpainting, against 3.93 nm before detrending).
+        Nearest-valid propagation also preserves the background-candidate
+        pixels exactly, so no explicit restore step is needed.
+        デトレンド後であれば最近傍伝播で十分である。トレンドを除くと穴を跨ぐ
+        高さ差がほぼゼロになるため、充填法の選択はほとんど効かない（幅 21 px
+        の穴で弦からの最大偏差は最近傍 0.24 nm、inpainting 0.20 nm。デトレンド
+        前は 3.93 nm）。また最近傍伝播は背景候補画素をそのまま保存するので、
+        明示的な復元処理を必要としない。
 
         The smoothed background is then obtained by Savitzky-Golay filtering.
         その後 Savitzky-Golay フィルタで平滑背景を得る。
@@ -1409,7 +1553,7 @@ class BGCalibrator:
         # 10-pixel false positives that scatter densely across noisy / wide-
         # field images. Without this filter, dilation expands each one into
         # a `(2 * mask_dilation + 1)^2` hole, producing a salt-and-pepper
-        # field across `bg_only` that destabilises the inpaint background
+        # field across `bg_only` that destabilises the background fill
         # (visible as a tiled / cellular artefact at mask_dilation >= 3).
         # Real fibers form much larger 8-connected components and survive.
         # Skipped when `mask_dilation == 0` so the original behavior is
@@ -1418,7 +1562,7 @@ class BGCalibrator:
         # 偽検出を拾い、ノイズの多い画像や広視野画像では画面全体に密に
         # 散らばる。フィルタなしで dilation すると 1 つの偽検出が
         # `(2 * mask_dilation + 1)^2` ピクセルの穴に膨張し、bg_only に
-        # ゴマ塩状の欠損を作って inpaint 背景を不安定化させる
+        # ゴマ塩状の欠損を作って背景の充填を不安定化させる
         # （mask_dilation >= 3 でタイル状・細胞状パターンとして見える）。
         # 本物のファイバーは十分大きな 8 連結成分を形成するため残る。
         # `mask_dilation == 0` の場合は従来動作と完全一致させるためスキップ。
@@ -1448,38 +1592,116 @@ class BGCalibrator:
         else:
             fiber_mask = raw_mask
 
-        bg_only = np.where(~fiber_mask, original[1:, 1:], float('nan'))
+        crop = original[1:, 1:]
+        bg_only = np.where(~fiber_mask, crop, float('nan'))
+        valid_mask = ~fiber_mask
 
-        # Fill NaN regions by OpenCV Navier-Stokes inpainting.
-        # This replaces scipy.interpolate.griddata (Delaunay triangulation +
-        # linear interpolation), which scales as O(N log N) over all valid
-        # pixels and dominates the entire pipeline runtime (~99% at 512x512).
-        # cv2.inpaint performs local PDE-based propagation only around the
-        # NaN mask, and is typically 30-150x faster while keeping the mean
-        # absolute background difference within ~1% of the reference std.
-        # NaN 領域を OpenCV の Navier-Stokes 法 inpainting で埋める。
-        # scipy の griddata（Delaunay + 線形補間）は全 valid 画素数に
-        # 対して O(N log N) のコストがかかり、パイプライン実行時間の
-        # 約99%(512x512 時)を占めていた。cv2.inpaint は NaN マスク周辺
-        # のみで局所的な偏微分方程式ベースの伝播を行うため、背景高さの
-        # 平均絶対差を std の ~1% 以内に保ちつつ 30〜150倍高速になる。
-        # Also note: cv2.inpaint intrinsically preserves input values at
-        # non-masked pixels, so the explicit valid-pixel overwrite below is
-        # defensive (keeps behavior bit-identical in case of float32<->float64
-        # precision drift inside cv2.inpaint).
-        # 補足: cv2.inpaint はマスク外の画素値を保存するが、float32/float64
-        # 往復による精度ドリフトを避けるため念のため明示的に valid 画素を
-        # 元の値で上書きする。
-        valid_mask = ~np.isnan(bg_only)
-        src_f32 = np.where(valid_mask, bg_only, 0.0).astype(np.float32)
-        inpaint_mask = (~valid_mask).astype(np.uint8)
-        bg_int = cv2.inpaint(
-            src_f32, inpaint_mask, 3, cv2.INPAINT_NS
-        ).astype(np.float64)
-        bg_int[valid_mask] = bg_only[valid_mask]
+        if not valid_mask.any():
+            # Pathological input: every pixel was classified as fiber, so there
+            # is no background information to fit or to propagate. Fall back to
+            # a flat zero background, which is what the previous inpainting path
+            # also produced for a fully masked image.
+            # 病的な入力: 全画素が繊維と判定され、フィットにも伝播にも使える
+            # 背景情報が無い。平坦なゼロ背景へフォールバックする。従来の
+            # inpainting 経路も全面マスク時は同じ結果を返していた。
+            return bg_only, np.zeros_like(crop, dtype=np.float64)
 
-        bg_sm = signal.savgol_filter(bg_int, self.savgol_window, self.savgol_polyorder)
+        # Remove the sample tilt/bowl before filling, then add it back after
+        # smoothing (see Notes for why this dominates the fill accuracy).
+        # 充填の前に試料の傾き・うねりを除去し、平滑化後に足し戻す
+        # （充填精度を支配する理由は Notes 参照）。
+        bg_trend = self._fit_trend_surface(crop, valid_mask)
+        detrended = crop - bg_trend
+
+        # Fill each masked pixel from its nearest background-candidate pixel.
+        # `distance_transform_edt` measures distance to the nearest zero of its
+        # input, so passing `fiber_mask` yields, for every pixel, the index of
+        # the nearest non-fiber pixel; background pixels index themselves and
+        # are therefore preserved exactly.
+        # マスク画素を最近傍の背景候補画素の値で埋める。
+        # `distance_transform_edt` は入力の 0 要素までの距離を測るため、
+        # `fiber_mask` を渡すと各画素について最近傍の非繊維画素の添字が得られる。
+        # 背景画素は自分自身を指すので、値はそのまま保存される。
+        nearest_idx = distance_transform_edt(
+            fiber_mask, return_distances=False, return_indices=True,
+        )
+        bg_int = detrended[tuple(nearest_idx)]
+
+        bg_sm = signal.savgol_filter(
+            bg_int, self.savgol_window, self.savgol_polyorder,
+        ) + bg_trend
         return bg_only, bg_sm
+
+    @staticmethod
+    def _fit_trend_surface(image: np.ndarray, valid_mask: np.ndarray) -> np.ndarray:
+        """
+        Least-squares fit a second-order surface to background-candidate pixels.
+        背景候補画素に 2 次曲面を最小二乗フィットする。
+
+        Parameters
+        ----------
+        image
+            Cropped height image the surface is fitted to.
+            曲面をフィットする対象の、切り出し済み高さ画像。
+        valid_mask
+            True where the pixel is a background candidate, i.e. not fiber.
+            背景候補（非繊維）画素で True となるマスク。
+
+        Returns
+        -------
+        np.ndarray
+            The fitted surface evaluated on the full grid, shaped like `image`.
+            全格子上で評価したフィット曲面。`image` と同じ形状。
+
+        Notes
+        -----
+        Second order rather than a plane because real scans are bowl-shaped as
+        well as tilted: on the bundled Bruker scan 32 nm of curvature remains
+        after the best-fit plane is removed. Fitting the quadratic reduced the
+        residual fill error across a fiber hole from 0.68 nm (plane) to 0.24 nm.
+        平面ではなく 2 次にするのは、実際の走査が傾いているだけでなく皿状に
+        歪んでいるためである。同梱の Bruker 走査では最適平面を除去した後も
+        32 nm のうねりが残る。2 次でフィットすると、繊維の穴を跨ぐ充填残差が
+        0.68 nm（平面）から 0.24 nm へ減少した。
+
+        Coordinates are normalised to [-1, 1] before the quadratic terms are
+        formed. On a 1024-px axis the raw-pixel design matrix has a condition
+        number near 3.6e6 against about 4 after normalisation; float64 SVD
+        solves either (the two fitted surfaces agreed to 1.8e-10 nm), but the
+        normalised form keeps headroom for larger scans.
+        2 次項を作る前に座標を [-1, 1] へ正規化する。1024 px 軸では生ピクセル
+        座標の設計行列の条件数が約 3.6e6、正規化後は約 4 になる。float64 の
+        SVD はどちらでも解ける（両者のフィット曲面の差は 1.8e-10 nm）が、
+        正規化しておく方が大きな走査に対して余裕がある。
+
+        The fit degrades gracefully when the background pixels are degenerate,
+        for example when they all lie on one row and leave the surface
+        unconstrained along the other axis. `numpy.linalg.lstsq` returns a
+        rank-deficient solution silently, so the rank is checked explicitly and
+        the fit falls back from the quadratic to a plane and then to the mean
+        background level.
+        背景画素の配置が退化している場合（例: 全点が 1 行に載り、他軸方向で
+        曲面が拘束されない場合）は段階的に劣化させる。`numpy.linalg.lstsq` は
+        ランク落ちでも黙って解を返すため、ランクを明示的に検査し、2 次 → 平面
+        → 背景の平均レベル、の順にフォールバックする。
+        """
+        h, w = image.shape
+        y_grid, x_grid = np.mgrid[0:h, 0:w]
+        # Normalise so that the x^2, y^2 and x*y columns stay O(1); see Notes.
+        x_n = x_grid / max(w - 1, 1) * 2.0 - 1.0
+        y_n = y_grid / max(h - 1, 1) * 2.0 - 1.0
+        ones = np.ones_like(x_n)
+
+        z = image[valid_mask]
+        for terms in (
+            (x_n * x_n, y_n * y_n, x_n * y_n, x_n, y_n, ones),
+            (x_n, y_n, ones),
+        ):
+            design = np.column_stack([t[valid_mask] for t in terms])
+            coef, _residuals, rank, _singular = np.linalg.lstsq(design, z, rcond=None)
+            if rank == design.shape[1]:
+                return sum(c * t for c, t in zip(coef, terms))
+        return np.full(image.shape, float(np.mean(z)), dtype=np.float64)
 
     @staticmethod
     def _bg_calibrate(original: np.ndarray, bg_sm: np.ndarray) -> np.ndarray:

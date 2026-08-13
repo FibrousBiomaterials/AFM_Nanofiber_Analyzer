@@ -32,8 +32,8 @@ from lib.pipeline import (
 from tests.conftest import write_synthetic_fiber_txt
 
 # tophat keeps the unit test fast; the slow integration test covers the
-# default inpaint method on a real scan.
-# 単体テストは高速な tophat を使い、既定の inpaint 法は実データの統合テスト
+# default trendfill method on a real scan.
+# 単体テストは高速な tophat を使い、既定の trendfill 法は実データの統合テスト
 # 側でカバーする。
 FAST_PARAMS = ProcParams(bg_method="tophat")
 

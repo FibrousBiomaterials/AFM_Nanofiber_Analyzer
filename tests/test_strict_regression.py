@@ -66,10 +66,10 @@ GOLDEN_PATH = Path(__file__).resolve().parent / "strict_regression_golden.json"
 SAMPLE_DIRS = ("testdata_tunicateCNF", "testdata_higherplantTOC")
 
 # All background-estimation methods are exercised so the strict baseline also
-# guards the spline and tophat code paths, not just the default inpaint.
-# 既定の inpaint だけでなく spline / tophat 経路も厳密ベースラインで守るため、
+# guards the spline and tophat code paths, not just the default trendfill.
+# 既定の trendfill だけでなく spline / tophat 経路も厳密ベースラインで守るため、
 # 全背景推定方式を実行する。
-BG_METHODS = ("inpaint", "tophat", "spline1d", "spline2d")
+BG_METHODS = ("trendfill", "tophat", "spline1d", "spline2d")
 
 # Output arrays compared. These are exactly the keys written into the .b2z
 # bundle, i.e. the full analysis output of the pipeline.
