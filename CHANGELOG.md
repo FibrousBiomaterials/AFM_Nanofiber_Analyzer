@@ -21,8 +21,54 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   goldens — that is, a change to the numbers the pipeline produces — unless the
   same commit records it under `## [Unreleased]` here.
 
+### Changed
+
+- The `inpaint` background method is renamed to `trendfill`, because it no
+  longer inpaints: the mask is filled by subtracting a fitted second-order
+  trend surface, propagating the nearest background pixel, smoothing, and
+  restoring the trend. `_param.json` files and GUI01 startup settings written
+  before the rename keep working — `"inpaint"` is translated to `"trendfill"`
+  on load (`lib.bg_calibrator.canonical_bg_method`), accepted by
+  `validate_params`, and normalized by `BGCalibrator`. Only the new name is
+  offered in the GUI01 dropdown.
+
 ### Fixed
 
+- The default background method no longer produces a false fiber running
+  parallel to a real one on tilted scans. **Measured lengths, heights, and
+  fiber counts change from this version**, so results with
+  `bg_method="trendfill"` (formerly `"inpaint"`) are not bit-identical to
+  1.0.0; `spline1d` and `spline2d` are unaffected. The mask holes were filled with OpenCV
+  Navier-Stokes inpainting, a boundary-propagation scheme meant for thin
+  scratches: with `inpaintRadius=3` it extended each side of a hole inward as a
+  flat plateau and met in a step of up to ±4 nm across a 21-px hole, because a
+  raw scan drops 7-9 nm of sample tilt across one fiber width while the fiber is
+  only about 10 nm tall. Since `savgol_polyorder <= 1` makes the Savitzky-Golay
+  pass a plain moving average along X, that step was averaged into the
+  background estimate of every genuine background pixel within half a window,
+  leaving a trough on the uphill side and a +0.76 nm ridge on the downhill side
+  — above the 0.3 nm `global_threshold`, so it binarized as a second fiber. The
+  hole filling now runs on a detrended copy of the image: a second-order surface
+  is fitted to the background-candidate pixels and subtracted, holes are filled
+  from the nearest background pixel, and the surface is restored after
+  smoothing. The residual halo on the affected scans falls from -0.82/+0.76 nm
+  to -0.14/+0.17 nm, both below the binarization threshold. On synthetic scans
+  with a known 8.0 nm fiber height the recovered height error improves from
+  +0.044 nm to -0.004 nm under a linear tilt and from -0.138 nm to -0.012 nm
+  under a quadratic bowl, and an untilted image is unchanged, since the
+  correction scales with the trend it removes. Re-run GUI01 or `cli.py process`
+  to refresh existing `.b2z` bundles.
+- `tophat` no longer segments the scan border as a fiber on tilted scans.
+  **Measured lengths, heights, and fiber counts change from this version** for
+  `bg_method="tophat"` as well. Morphological opening reproduces a plane in the
+  image interior but not within one structuring-element radius of the border,
+  where erosion takes its minimum from a clipped neighborhood that dilation
+  cannot restore; on a 0.34 nm/px ramp with the default 25-px element that left
+  a band about 4 nm high down the uphill edge, far above the 0.3 nm
+  binarization threshold. The opening now runs on a detrended copy and the
+  trend is restored after smoothing, which drops one affected scan from 7
+  binarized components (17,716 px) to 3 (9,459 px), matching what the
+  interpolating methods find on the same image.
 - Skeleton traces no longer bend away from the fiber centerline at the ends of
   fibers that leave the field of view. Thinning treated everything outside the
   image array as background, so a fiber crossing the scan border became a shape

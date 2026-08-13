@@ -146,11 +146,12 @@ FEATURE_SPEC_MEMBER = "feature_spec.json"
 # 文字列ではないため翻訳しない。
 #   bg_mask             : Per-pixel fiber/background classification feeding
 #                          the existing background fill (BGCalibrator's
-#                          Navier-Stokes inpaint + Savitzky-Golay smoothing);
-#                          the pixel classifier is the only replaced part.
-#                          既存の背景埋め（BGCalibrator の Navier-Stokes
-#                          inpaint + Savitzky-Golay 平滑化）へ渡す画素単位の
-#                          繊維/背景分類。置き換えるのは画素分類器のみ。
+#                          trend removal + nearest-background fill +
+#                          Savitzky-Golay smoothing); the pixel classifier is
+#                          the only replaced part.
+#                          既存の背景埋め（BGCalibrator のトレンド除去 +
+#                          最近傍背景充填 + Savitzky-Golay 平滑化）へ渡す
+#                          画素単位の繊維/背景分類。置き換えるのは画素分類器のみ。
 #   background_surface  : Direct regression of the background height surface
 #                          (nm), subtracted from the raw image; replaces the
 #                          entire background-generation step, not just the

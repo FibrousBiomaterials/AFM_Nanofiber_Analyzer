@@ -753,7 +753,7 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | Module | Main contents |
 |---|---|
 | `lib/afm_io.py` | Text/CSV AFM loader with automatic header, column, and encoding detection, explicit format override, and layout-consistency verification. |
-| `lib/bg_calibrator.py` | `BGCalibrator`, with `inpaint`, `tophat`, `spline1d`, and `spline2d` background methods. |
+| `lib/bg_calibrator.py` | `BGCalibrator`, with `trendfill`, `tophat`, `spline1d`, and `spline2d` background methods (`inpaint` is the retired name for `trendfill` and is still accepted in saved parameter files). |
 | `lib/bg_calibrator_shimadzu.py` | Compatibility shim keeping the historical `BG_Calibrator_shimadzu` name importable. |
 | `lib/bg_mask_filter.py` | Apply the background stage's fiber-mask cleanup (small-component removal, then dilation) to an externally produced mask, so a background-mask model's prediction can be compared with the classical mask at the stage the pipeline actually uses. |
 | `lib/blosc2_io.py` | Blosc2 array storage and `.b2z` TreeStore bundle helpers. |

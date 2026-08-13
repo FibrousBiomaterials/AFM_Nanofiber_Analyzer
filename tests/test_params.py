@@ -9,7 +9,10 @@ from dataclasses import asdict
 
 import pytest
 
-from lib.pipeline import ProcParams, merge_params_dict, process_file, validate_params
+from lib.bg_calibrator import BGCalibrator
+from lib.pipeline import (
+    ProcParams, canonical_bg_method, merge_params_dict, process_file, validate_params,
+)
 
 # Serialized schema contract: these names are written verbatim into
 # <input_stem>_param.json and the GUI01 startup-settings file. Renaming or
@@ -84,7 +87,7 @@ def test_schema_field_names_are_frozen():
 def test_default_params_are_valid():
     """The shipped defaults must pass validation for every background method."""
     assert validate_params(ProcParams()) == []
-    for method in ("inpaint", "tophat", "spline1d", "spline2d"):
+    for method in ("trendfill", "tophat", "spline1d", "spline2d"):
         assert validate_params(ProcParams(bg_method=method)) == []
 
 
@@ -92,6 +95,34 @@ def test_unknown_bg_method_is_reported():
     """A typo such as 'spline2dd' is rejected instead of selecting a method silently."""
     problems = validate_params(ProcParams(bg_method="spline2dd"))
     assert any("bg_method" in p for p in problems)
+
+
+def test_retired_bg_method_alias_still_loads():
+    """
+    A `_param.json` written before the rename keeps working.
+    改名前に書かれた `_param.json` が引き続き動作する。
+
+    `"inpaint"` was the name of `"trendfill"` up to 1.0.0. Re-running an old
+    analysis must not fail on the stored value, so `merge_params_dict`
+    translates it, `validate_params` accepts it, and `BGCalibrator` normalizes
+    it to the current name.
+    `"inpaint"` は 1.0.0 までの `"trendfill"` の名称である。過去の解析を再実行
+    したときに保存値で失敗してはならないため、`merge_params_dict` が変換し、
+    `validate_params` が受理し、`BGCalibrator` が現行名へ正規化する。
+    """
+    assert canonical_bg_method("inpaint") == "trendfill"
+    # An unrelated value passes through so validation stays the only reporter.
+    assert canonical_bg_method("spline2dd") == "spline2dd"
+
+    d = asdict(ProcParams())
+    d["bg_method"] = "inpaint"
+    params, missing, obsolete = merge_params_dict(d)
+    assert params.bg_method == "trendfill"
+    assert missing == [] and obsolete == []
+
+    # Built directly with the old value, it must validate the same way.
+    assert validate_params(ProcParams(bg_method="inpaint")) == []
+    assert BGCalibrator(bg_method="inpaint").bg_method == "trendfill"
 
 
 def test_savgol_polyorder_must_be_less_than_window():

@@ -21,12 +21,12 @@ task                  input image          target
 decision. ``bg_mask`` and ``background_surface`` (process A) are the two
 background-correction approaches kept side by side so they can be compared:
 the first classifies which pixels are fiber candidates and hands that mask to
-the existing inpaint-and-smooth background fill, the second regresses the
-background surface directly so it can be subtracted from the raw image.
+the existing detrend-fill-and-smooth background estimate, the second regresses
+the background surface directly so it can be subtracted from the raw image.
 ``binarize``（工程B）はパイプラインの画素単位しきい値判断を再現する。
 ``bg_mask`` と ``background_surface``（工程A）は比較のため併存させる 2 つの
-背景補正方式で、前者はどの画素が繊維候補かを分類して既存の inpaint・平滑化に
-よる背景生成へマスクを渡し、後者は背景面を直接回帰して生画像から差し引く。
+背景補正方式で、前者はどの画素が繊維候補かを分類して既存のトレンド除去・充填・
+平滑化による背景生成へマスクを渡し、後者は背景面を直接回帰して生画像から差し引く。
 
 Process A needs the raw height image / 工程A は生の高さ画像を要する
 --------------------------------------------------------------------
@@ -194,7 +194,7 @@ REGRESSION_TASKS = ("background_surface",)
 # `bg_mask` モデルが再現する勾配リッジ由来の繊維マスクを構築する背景方式。
 # `tophat` はこれを計算しないため、`tophat` で処理したバンドルからは
 # `bg_mask` のラベルを作れない。
-_MASK_BG_METHODS = ("inpaint", "spline1d", "spline2d")
+_MASK_BG_METHODS = ("trendfill", "spline1d", "spline2d")
 
 
 def is_regression_task(task: str) -> bool:

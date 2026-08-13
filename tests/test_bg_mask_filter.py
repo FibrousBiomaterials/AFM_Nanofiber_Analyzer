@@ -52,7 +52,7 @@ def test_matches_calibrator_cleanup(afm_image, mask_dilation, min_mask_component
     本モジュールが、補正器の背景から除外するマスクを再現する。
     """
     params = ProcParams(
-        bg_method="inpaint",
+        bg_method="trendfill",
         mask_dilation=mask_dilation,
         min_mask_component_area=min_mask_component_area,
     )

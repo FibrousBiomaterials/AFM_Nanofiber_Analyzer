@@ -28,7 +28,7 @@ PLUGIN_INFO = {
         "解析は別スレッド、UI更新はQueue経由です。\n"
         "\n"
         "Image Preprocessor では背景補正方式を 4 種類から選べます:\n"
-        "  - 'inpaint'     : 勾配リッジ検出 + NS inpaint\n"
+        "  - 'trendfill'   : 勾配リッジ検出 + 2次トレンド除去 + 最近傍充填\n"
         "  - 'tophat'      : 形態学的 opening (マスク不要、高速、一様性◎)\n"
         "  - 'spline1d'    : 行/列ごとの 1D B-スプライン補間 (端の線形外挿つき)。\n"
         "  - 'spline2d'    : 大局的に滑らかな背景向けの 2D B-スプラインフィット\n"
@@ -3204,33 +3204,39 @@ class SettingsDialog(tk.Toplevel):
         lf_bg = ttk.LabelFrame(plf, text=_("BGCalibrator"))
         lf_bg.pack(fill="x", padx=6, pady=6)
         # Dim parameters that do not apply to the selected background method.
-        #   inpaint     : gradient-ridge detection followed by Navier-Stokes inpainting.
-        #   inpaint     : 勾配リッジ検出 + NS inpaint
+        #   trendfill   : gradient-ridge detection, trend removal, nearest-background fill.
+        #   trendfill   : 勾配リッジ検出 + 2次トレンド除去 + 最近傍充填
         #   tophat      : morphological opening; no mask, fast, and spatially uniform.
         #   tophat      : 形態学的opening (マスク不要、高速、一様性◎)
         #   spline1d    : row/column 1D B-spline with linear edge extrapolation.
         #   spline1d    : 行/列ごとの 1D B-スプライン + 端の線形外挿
         #   spline2d    : 2D B-spline fit for globally smooth backgrounds.
         #   spline2d    : 大局的に滑らかな背景向けの 2D B-スプラインフィット
+        # "trendfill" was named "inpaint" up to 1.0.0. Parameter files still
+        # holding the old value are translated on load by
+        # `lib.pipeline.canonical_bg_method`, so only the current name is offered here.
+        # "trendfill" は 1.0.0 までは "inpaint" という名前だった。旧値を持つ
+        # パラメータファイルは読み込み時に `lib.pipeline.canonical_bg_method` が
+        # 変換するため、ここでは現行名のみを提示する。
         self._add_choice(lf_bg, "bg_method", _("bg_method"),
                          _("背景推定方式（下の説明参照）。選択に応じて使うパラメータのみ有効化されます"),
-                         choices=["inpaint", "tophat", "spline1d", "spline2d"],
+                         choices=["trendfill", "tophat", "spline1d", "spline2d"],
                          command=self._on_bg_method_changed)
 
         # Method descriptions are keyed by bg_method and displayed in menu order.
         self._bg_method_descs = {
-            "inpaint":  _("inpaint : 勾配リッジ検出 + Navier-Stokes inpaint。勾配で繊維マスクを作り背景を補間。汎用だがリッジ検出パラメータの調整が必要"),
+            "trendfill": _("trendfill : 勾配リッジ検出 + 2次トレンド除去 + 最近傍充填。勾配で繊維マスクを作り、試料傾斜を2次曲面で除いてから穴を埋める。汎用だがリッジ検出パラメータの調整が必要（1.0.0 では 'inpaint' という名前）"),
             "tophat":   _("tophat : 形態学的opening。tophat_se_size より細い明るい構造を前景として除去。マスク不要・高速・一様性に優れる"),
             "spline1d": _("spline1d : 行/列ごとの1D B-スプライン補間（オリジナル方式）。ライン間オフセット（縞）ノイズに有効。spline1d_axis で縞の向きを選択"),
             "spline2d": _("spline2d : 2D B-スプラインフィット。背景を行毎でなく2D問題として一括で解く。大局的に滑らかな背景に向く"),
         }
         bg_desc_frame = ttk.Frame(lf_bg)
         bg_desc_frame.pack(fill="x", padx=6, pady=(0, 6))
-        for _m in ["inpaint", "tophat", "spline1d", "spline2d"]:
+        for _m in ["trendfill", "tophat", "spline1d", "spline2d"]:
             ttk.Label(bg_desc_frame, text=self._bg_method_descs[_m],
                       foreground="#555", justify="left").pack(anchor="w")
 
-        # --- Parameters are ordered by method: inpaint, tophat, spline1d, spline2d. ---
+        # --- Parameters are ordered by method: trendfill, tophat, spline1d, spline2d. ---
         self._add_fields(lf_bg, [
             # tophat-specific.
             ("field", "tophat_se_size", "tophat_se_size",
@@ -3251,26 +3257,26 @@ class SettingsDialog(tk.Toplevel):
             # and very slow; spline2d_subsample is the safer GUI-facing speed control.
             # spline2d パイプラインでは小さな s が悪条件・極端に低速な準補間に
             # なり得るため、GUI から外して ProcParams 既定の None に固定する。
-            # Mask and threshold parameters shared by inpaint, spline1d, and spline2d.
+            # Mask and threshold parameters shared by trendfill, spline1d, and spline2d.
             ("field", "threshold_factor", "threshold_factor",
-             _("[inpaint, spline1d, spline2d時] 背景範囲（中心±sigma*係数）を決める係数"), {}),
+             _("[trendfill, spline1d, spline2d時] 背景範囲（中心±sigma*係数）を決める係数"), {}),
             ("field", "fiber_detect_factor", "fiber_detect_factor",
-             _("[inpaint, spline1d, spline2d時] [1,0,-1]の急変を繊維として除外する距離しきい値"), {}),
+             _("[trendfill, spline1d, spline2d時] [1,0,-1]の急変を繊維として除外する距離しきい値"), {}),
             ("field", "noise_detect_factor", "noise_detect_factor",
-             _("[inpaint, spline1d, spline2d時] [1,-1]の急変が一定以上離れている場合に構造とみなすしきい値"), {}),
-            # Smoothing parameters shared by inpaint, tophat, and spline1d.
+             _("[trendfill, spline1d, spline2d時] [1,-1]の急変が一定以上離れている場合に構造とみなすしきい値"), {}),
+            # Smoothing parameters shared by trendfill, tophat, and spline1d.
             ("field", "savgol_window", "savgol_window",
-             _("[inpaint, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）"), {"width": 10}),
+             _("[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）"), {"width": 10}),
             ("field", "savgol_polyorder", "savgol_polyorder",
-             _("[inpaint, tophat, spline1d時] Savitzky-Golayフィルタの多項式次数"), {"width": 10}),
+             _("[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの多項式次数"), {"width": 10}),
             # Post-processing shared by all methods.
             ("bool", "apply_median", "apply_median",
              _("中央値フィルタを最後にかける（点ノイズに強い）"), {}),
-            # Mask dilation parameters shared by inpaint, spline1d, and spline2d.
+            # Mask dilation parameters shared by trendfill, spline1d, and spline2d.
             ("field", "mask_dilation", "mask_dilation",
-             _("[inpaint, spline1d, spline2d時] 繊維マスクを膨張させる画素数（0でdilationなし）"), {"width": 10}),
+             _("[trendfill, spline1d, spline2d時] 繊維マスクを膨張させる画素数（0でdilationなし）"), {"width": 10}),
             ("field", "min_mask_component_area", "min_mask_component_area",
-             _("[inpaint, spline1d, spline2d時] dilation前にマスクから除外する連結成分の最小面積") + " (px)。"
+             _("[trendfill, spline1d, spline2d時] dilation前にマスクから除外する連結成分の最小面積") + " (px)。"
              + _("1でフィルタ無効"), {"width": 10}),
         ])
 
@@ -3355,7 +3361,7 @@ class SettingsDialog(tk.Toplevel):
 
     # Parameter rows enabled for each bg_method; rows not listed are dimmed.
     _BG_PARAM_USAGE: Dict[str, set] = {
-        "inpaint": {
+        "trendfill": {
             "threshold_factor", "fiber_detect_factor", "noise_detect_factor",
             "mask_dilation", "min_mask_component_area",
             "savgol_window", "savgol_polyorder",
