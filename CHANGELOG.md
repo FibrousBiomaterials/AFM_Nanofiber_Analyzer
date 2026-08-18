@@ -71,6 +71,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The automatic heatmap display range (`lib.ui_tools.compute_auto_vrange`,
+  used by GUI02 and GUI04) is now computed from robust statistics instead of
+  the image minimum and maximum, so a single contamination spike no longer
+  sets `vmax` far above the fibers and leaves the whole image dark, and a few
+  negative noise pixels no longer drag `vmin` tens of sigma below the
+  substrate and wash the image out. The lower bound comes from the background
+  mode and a noise sigma estimated from the deviations below it; the upper
+  bound is a percentile of the fiber pixels, taken over the bundle's skeleton
+  when GUI02 or GUI04 has one and over the above-background pixels otherwise.
+  Both bounds stay inside the data range, and the rule is tunable through the
+  `AUTO_VRANGE_*` module constants and the matching keyword arguments. Only
+  the display changes; no measured value is affected.
+
 - The `inpaint` background method is renamed to `trendfill`, because it no
   longer inpaints: the mask is filled by subtracting a fitted second-order
   trend surface, propagating the nearest background pixel, smoothing, and

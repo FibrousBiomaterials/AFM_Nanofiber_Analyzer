@@ -1336,8 +1336,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._highlight_patch   = None
 
         # -- Auto-update vmin/vmax only when auto mode is enabled --
+        # The skeleton is passed as the fiber mask so the upper bound is a
+        # percentile of the fibers themselves rather than of the whole image,
+        # which a contamination spike would otherwise dominate.
+        # スケルトンをファイバーマスクとして渡し、上端を画像全体ではなく
+        # ファイバー自身のパーセンタイルで決める（全体だとコンタミの
+        # スパイクに支配される）。
         if self.auto_vrange_var.get() and image.calibrated_image is not None:
-            self._apply_auto_vrange(image.calibrated_image, log=True)
+            self._apply_auto_vrange(
+                image.calibrated_image, mask=image.skeleton_image, log=True,
+            )
 
         self._log(_("読み込み完了: {name}  ファイバー数: {count}").format(
             name=os.path.basename(stem), count=len(fibers)
@@ -2095,7 +2103,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return
         if self.current_image is None or self.current_image.calibrated_image is None:
             return
-        self._apply_auto_vrange(self.current_image.calibrated_image, log=True)
+        self._apply_auto_vrange(
+            self.current_image.calibrated_image,
+            mask=self.current_image.skeleton_image,
+            log=True,
+        )
         # Update the drawings as well.
         self._overview_bg_drawn = False
         fiber = self._current_fiber()
