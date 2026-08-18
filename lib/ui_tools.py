@@ -934,7 +934,8 @@ class UnconfirmedEntryMixin:
     # Auto-compute vmin/vmax, update state, and rewrite Entries for GUI02/GUI04.
     # vmin/vmax の自動計算 → 内部状態反映 → Entry 書き戻し（GUI02/GUI04 共通）
     # -------------------------------------------------------------------------
-    def _apply_auto_vrange(self, image_array, *, log: bool = False) -> tuple | None:
+    def _apply_auto_vrange(self, image_array, *, mask=None,
+                           log: bool = False) -> tuple | None:
         """
         Compute vmin/vmax from an image array and commit them to state and Entries.
         画像配列から vmin/vmax を自動計算し、内部状態と Entry へ反映する。
@@ -952,6 +953,9 @@ class UnconfirmedEntryMixin:
         ----------
         image_array : array-like
             高さ画像（2D 配列）。``compute_auto_vrange`` に渡す。
+        mask : array-like or None
+            任意のファイバーマスク（バンドルの ``skeletonized``）。上端の推定に
+            使い、無い場合はマスク非依存の推定にフォールバックする。
         log : bool
             True かつ ``self._log`` が利用可能なら、確定値をログに出力する。
 
@@ -961,7 +965,7 @@ class UnconfirmedEntryMixin:
             計算した範囲。``ent_vmin`` / ``ent_vmax`` を持たない等で書き戻せない
             場合でも値自体は返す。
         """
-        v_lo, v_hi = compute_auto_vrange(image_array)
+        v_lo, v_hi = compute_auto_vrange(image_array, mask)
         self.vmin = float(v_lo)
         self.vmax = float(v_hi)
 
@@ -1374,58 +1378,285 @@ UNIT_MICROMETER = "\u00b5m"   # = "µm"
 DEFAULT_VMIN: float = -5.0
 DEFAULT_VMAX: float = 20.0
 
+# --- Auto vmin/vmax tuning constants ------------------------------------------
+# Tunable inputs of compute_auto_vrange(). They are module constants rather
+# than hard-coded literals so a caller can override one value per call without
+# reimplementing the rule; the GUIs use the defaults.
+# compute_auto_vrange() の調整値。呼び出し側が規則ごと書き直さずに 1 値だけ
+# 上書きできるよう、リテラル埋め込みではなくモジュール定数にしてある。GUI は
+# 既定値のまま使う。
 
-def compute_auto_vrange(image_array) -> tuple:
+# Lower bound = background level - k * background sigma. 3 sigma keeps the
+# substrate noise band inside the dark end without letting a scratch or a
+# spike set the bound.
+# 下端 = 背景レベル - k × 背景σ。3σ なら基板ノイズ帯を暗側に収めつつ、
+# スクラッチや単発スパイクに下端を決めさせない。
+AUTO_VRANGE_K_LOW: float = 3.0
+
+# Upper bound percentile taken over fiber-mask pixels (GUI04 / a GUI02 bundle).
+# ファイバーマスク画素に対して取る上端パーセンタイル（GUI04 / GUI02 のバンドル）。
+AUTO_VRANGE_FIBER_PCT: float = 99.0
+
+# Upper bound percentile used when no mask is available, taken over the
+# "above background" pixels only. It is higher than the mask percentile
+# because that population also contains fiber flanks, which sit lower than
+# the ridge the skeleton follows.
+# マスクが無い場合に「背景より上」の画素だけを母集団として取る上端
+# パーセンタイル。この母集団にはスケルトンが通る稜線より低いファイバー側面も
+# 含まれるため、マスク版より高い値を使う。
+AUTO_VRANGE_FG_PCT: float = 99.5
+
+# Largest share of pixels (%) the lower bound may push below the display
+# range. It matters for the raw, uncorrected images GUI02 can open: a tilted
+# substrate spreads over several nanometers, so the background is no longer a
+# narrow band and "level - k * sigma" would crush the low corner to black.
+# 下端が表示範囲外へ追い出してよい画素の割合の上限 (%)。GUI02 が開ける未補正の
+# 生画像で効く。傾斜した基板は数 nm に広がるため背景は狭い帯ではなくなり、
+# "level - k × sigma" では低い側の隅が黒く潰れてしまう。
+AUTO_VRANGE_LOW_CLIP_PCT: float = 0.5
+
+# Minimum vmax - vmin in nanometers, so a nearly featureless image still gets
+# a usable (non-degenerate) color range.
+# vmax - vmin の下限 (nm)。ほぼ平坦な画像でも縮退しない表示範囲を保つ。
+AUTO_VRANGE_MIN_SPAN: float = 1.0
+
+# Histogram bins used to locate the background mode, and the smallest pixel
+# count that makes a percentile of a subpopulation meaningful.
+# 背景モードを求めるヒストグラムのビン数と、部分母集団のパーセンタイルが
+# 意味を持つ最小画素数。
+_AUTO_VRANGE_BG_BINS: int = 512
+_AUTO_VRANGE_MIN_SUBSET: int = 50
+
+# Scale factor converting a median absolute deviation into a Gaussian sigma.
+# 中央絶対偏差を正規分布の σ に換算する係数。
+_MAD_TO_SIGMA: float = 1.4826
+
+
+def _background_level(values: np.ndarray) -> tuple:
     """
-    Compute auto vmin/vmax from a 2D image array.
-    画像配列から自動 vmin/vmax を返す。
+    Estimate the substrate level and its noise sigma from finite heights.
+    有限値の高さ配列から基板レベルとそのノイズ σ を推定する。
+
+    Parameters
+    ----------
+    values
+        1D array of finite height values in nanometers.
+        有限値のみを含む 1 次元の高さ配列 (nm)。
+
+    Returns
+    -------
+    (level, sigma) : tuple of float
+        Background height and its noise sigma, both in nanometers.
+        背景の高さとそのノイズ σ（いずれも nm）。
+
+    Notes
+    -----
+    The level is the histogram mode rather than the median, and sigma comes
+    from the deviations *below* the mode only. On an AFM image everything
+    that is not substrate — fibers, aggregates, dust — sits above the
+    background, so the lower half of the height distribution is pure noise
+    and cannot be contaminated by the sample. A plain median/MAD pair is
+    contaminated instead: on a densely covered image the median walks up
+    onto the fibers and the MAD inflates with fiber height.
+    レベルは中央値ではなくヒストグラムのモード、σ はモードより下側の偏差
+    だけから求める。AFM 画像では基板以外（ファイバー・凝集体・コンタミ）は
+    常に背景より上に出るため、高さ分布の下半分は純粋なノイズであり試料に
+    汚染されない。単純な中央値／MAD はこの性質を使えず、被覆率が高い画像では
+    中央値がファイバー側へ乗り上げ、MAD もファイバー高さの分だけ膨らむ。
+
+    The estimate assumes features protrude upward. On an image dominated by
+    pits or holes below the substrate the lower half is no longer pure noise
+    and sigma is overestimated; the caller clamps the bound to the data
+    minimum, so the result degrades to the old behavior instead of failing.
+    この推定は構造物が上向きに突出することを前提とする。基板より低い穴・
+    ピットが支配的な画像では下半分がノイズだけではなくなり σ を過大評価
+    するが、呼び出し側が下端をデータ最小値で頭打ちにするため、破綻せず
+    従来挙動相当に劣化するだけで済む。
+    """
+    # Build the histogram over the central range so a far-out spike cannot
+    # widen every bin and smear the background peak.
+    # 遠方のスパイクが全ビン幅を広げて背景ピークをぼかさないよう、中央域だけで
+    # ヒストグラムを作る。
+    lo, hi = (float(v) for v in np.percentile(values, (0.1, 99.9)))
+    if not (math.isfinite(lo) and math.isfinite(hi)) or hi <= lo:
+        return float(np.median(values)), 0.0
+
+    counts, edges = np.histogram(values, bins=_AUTO_VRANGE_BG_BINS, range=(lo, hi))
+    peak = int(np.argmax(counts))
+    level = float(0.5 * (edges[peak] + edges[peak + 1]))
+
+    below = values[values < level]
+    if below.size >= _AUTO_VRANGE_MIN_SUBSET:
+        # For a symmetric noise distribution the median deviation over the
+        # lower half equals the full MAD, so this is the ordinary robust
+        # sigma computed from the half that the sample cannot reach.
+        # 対称なノイズ分布では下半分の偏差中央値は全体の MAD と一致するため、
+        # これは試料が届かない側だけで計算した通常のロバスト σ に等しい。
+        sigma = _MAD_TO_SIGMA * float(np.median(level - below))
+    else:
+        sigma = _MAD_TO_SIGMA * float(np.median(np.abs(values - level)))
+
+    if not math.isfinite(sigma) or sigma <= 0.0:
+        sigma = float(np.std(values))
+    if not math.isfinite(sigma) or sigma <= 0.0:
+        sigma = 0.0
+    return level, sigma
+
+
+def compute_auto_vrange(
+    image_array,
+    mask=None,
+    *,
+    k_low: float = AUTO_VRANGE_K_LOW,
+    fiber_pct: float = AUTO_VRANGE_FIBER_PCT,
+    fg_pct: float = AUTO_VRANGE_FG_PCT,
+    low_clip_pct: float = AUTO_VRANGE_LOW_CLIP_PCT,
+    min_span: float = AUTO_VRANGE_MIN_SPAN,
+) -> tuple:
+    """
+    Compute outlier-resistant vmin/vmax from a 2D image array.
+    画像配列から外れ値に強い vmin/vmax を返す。
 
     Rule / 計算規則
-        vmin = floor(nanmin(arr))
-        vmax = ceil (nanmax(arr) + 1)
+        vmin = floor(min(background_level - k_low * background_sigma,
+                         percentile(image, low_clip_pct)))
+        vmax = ceil (percentile of the fiber pixels)
 
-    The lower bound is the minimum *raised* by 1 nm: AFM images often have
-    a few pixels of negative noise / scratch artefacts that pull ``nanmin``
-    well below the substrate level. Subtracting margin (the previous policy)
-    stretched the colormap downward and made the whole image look washed
-    out. Adding 1 nm instead trims the very bottom of the noise floor and
-    keeps the bright end of ``afmhot`` aligned with actual fiber heights.
-    下側は最小値をfloor で丸める
+    Both bounds are statistics of a chosen population, never a single
+    extreme pixel. The previous rule used ``nanmin``/``nanmax`` directly, so
+    one contamination spike set ``vmax`` far above the fibers and left the
+    whole heatmap dark, and a few negative noise pixels dragged ``vmin``
+    tens of sigma below the substrate and washed the image out.
+    両端とも選んだ母集団の統計量で決め、単一の極値では決めない。従来規則は
+    ``nanmin``/``nanmax`` を直接使っていたため、コンタミ 1 点で ``vmax`` が
+    ファイバーより遥かに上へ張り付いて画像全体が暗くなり、負のノイズ数画素で
+    ``vmin`` が基板より数十 σ 下がって画像が白っぽく飛んだ。
 
-    The upper bound uses the raw nanmax: percentile-based clipping was
-    attempted to suppress contamination spikes but was withdrawn because
-    on samples with low fiber coverage the fibers themselves were treated
-    as outliers and crushed into the dark end.
-    上側は素の最大値を使う。コンタミ抑制目的でパーセンタイル切りを
-    試みたが、ファイバー被覆率の低いサンプルではファイバー自身が
-    外れ値扱いされて暗側に潰れたため撤回した。
+    The upper population is chosen in this order:
 
-    NaN-tolerant. Empty arrays or unexpected types fall back to the
-    project-wide defaults ``DEFAULT_VMIN`` / ``DEFAULT_VMAX``.
-    NaN を含む可能性に備えて nanmin/nanmax を使う。空配列・想定外の型では
-    プロジェクト共通の既定値 ``DEFAULT_VMIN`` / ``DEFAULT_VMAX`` を返す。
+    1. ``mask`` pixels (the bundle's skeleton), if the mask is usable.
+    2. otherwise pixels above ``level + 3 * sigma`` — the fiber body.
+    3. otherwise ``level + 5 * sigma``, for an image with no features.
+
+    上側の母集団は 1. マスク（バンドルのスケルトン）画素、2. 使えなければ
+    ``level + 3σ`` を超える画素（ファイバー本体）、3. それも無ければ
+    ``level + 5σ``（構造の無い画像）の順に選ぶ。
+
+    Restricting the percentile to fiber pixels is what makes it safe here.
+    A percentile over *all* pixels was tried before and withdrawn because it
+    depends on fiber coverage: at the 0.2-0.9 % skeleton coverage of this
+    project's test images, even the 99th percentile of the whole image still
+    lands in the background, so the fibers saturate.
+    パーセンタイルをファイバー画素に限定する点が要である。かつて全画素の
+    パーセンタイルを試して撤回したのは、その値がファイバー被覆率に依存する
+    ためで、本プロジェクトの試験画像のスケルトン被覆率 0.2〜0.9 % では全画素の
+    99 パーセンタイルすら背景に落ち、ファイバーが飽和してしまう。
+
+    Parameters
+    ----------
+    image_array
+        Height image (2D array) in nanometers.
+        高さ画像（2D 配列、単位 nm）。
+    mask
+        Optional fiber mask with the same shape, typically the bundle's
+        ``skeletonized`` array. Pixels selected by the mask define the upper
+        bound. ``None`` falls back to the coverage-independent estimate.
+        任意のファイバーマスク（同形状、通常はバンドルの ``skeletonized``）。
+        マスクが選ぶ画素で上端を決める。``None`` なら被覆率に依存しない推定に
+        フォールバックする。
+    k_low
+        Number of background sigmas below the background level placed at
+        ``vmin``.
+        ``vmin`` を背景レベルの何 σ 下に置くか。
+    fiber_pct
+        Percentile taken over the mask pixels for ``vmax``.
+        ``vmax`` を決めるためにマスク画素に対して取るパーセンタイル。
+    fg_pct
+        Percentile taken over the above-background pixels when no mask is
+        given.
+        マスクが無いとき、背景より上の画素に対して取るパーセンタイル。
+    low_clip_pct
+        Largest share of pixels, in percent, that ``vmin`` may leave below the
+        display range.
+        ``vmin`` が表示範囲より下へ追い出してよい画素の割合の上限 (%)。
+    min_span
+        Smallest allowed ``vmax - vmin`` in nanometers.
+        許容する ``vmax - vmin`` の最小値 (nm)。
 
     Returns
     -------
     (vmin, vmax) : tuple of int
         Integer-valued bounds suitable for direct use as ``imshow(vmin=, vmax=)``.
+
+    Notes
+    -----
+    The bounds are clamped to the data range, so the result never widens the
+    display beyond what the image contains. Because the upper bound is a
+    percentile, a small fraction of pixels is expected to saturate — on this
+    project's test bundles under 0.12 %.
+    両端はデータ範囲で頭打ちにするため、画像に含まれる以上に表示範囲が広がる
+    ことはない。上端はパーセンタイルなので、わずかな画素は飽和する前提である
+    （本プロジェクトの試験バンドルでは 0.12 % 未満）。
+
+    NaN-tolerant. Empty arrays or unexpected types fall back to the
+    project-wide defaults ``DEFAULT_VMIN`` / ``DEFAULT_VMAX``.
+    NaN を含む可能性に備えて有限値だけを使う。空配列・想定外の型では
+    プロジェクト共通の既定値 ``DEFAULT_VMIN`` / ``DEFAULT_VMAX`` を返す。
     """
-    arr = np.asarray(image_array)
-    # Empty arrays use the project-wide fallback range.
-    # 空配列の場合は既定値で返す。
-    if arr.size == 0:
-        return int(math.floor(DEFAULT_VMIN)), int(math.ceil(DEFAULT_VMAX))
+    fallback = (int(math.floor(DEFAULT_VMIN)), int(math.ceil(DEFAULT_VMAX)))
     try:
-        mn = float(np.nanmin(arr))
-        mx = float(np.nanmax(arr))
+        arr = np.asarray(image_array, dtype=float)
     except (ValueError, TypeError):
-        return int(math.floor(DEFAULT_VMIN)), int(math.ceil(DEFAULT_VMAX))
-    # All-NaN arrays make nanmin/nanmax return NaN (with RuntimeWarning).
-    # All-NaN 配列のとき nanmin/nanmax は NaN を返す（RuntimeWarning 付き）。
-    # NaN を放置すると int(math.floor(NaN)) で ValueError になるためここで弾く。
-    if not (math.isfinite(mn) and math.isfinite(mx)):
-        return int(math.floor(DEFAULT_VMIN)), int(math.ceil(DEFAULT_VMAX))
-    return int(math.floor(mn + 1.0)), int(math.ceil(mx + 1.0))
+        return fallback
+    if arr.size == 0:
+        return fallback
+
+    finite = np.isfinite(arr)
+    values = arr[finite]
+    # An all-NaN image has no height information to scale to.
+    # 全 NaN の画像には基準にできる高さ情報が無い。
+    if values.size == 0:
+        return fallback
+
+    level, sigma = _background_level(values)
+
+    fiber_values = None
+    if mask is not None:
+        selected = np.asarray(mask).astype(bool, copy=False)
+        if selected.shape == arr.shape:
+            masked = arr[selected & finite]
+            if masked.size >= _AUTO_VRANGE_MIN_SUBSET:
+                fiber_values = masked
+    if fiber_values is not None:
+        top = float(np.percentile(fiber_values, fiber_pct))
+    else:
+        foreground = values[values > level + 3.0 * sigma]
+        # Require the foreground to be more than a handful of stray pixels
+        # before a percentile of it is trusted.
+        # 前景が数画素の飛び値でないことを確認してからパーセンタイルを信用する。
+        if foreground.size >= max(_AUTO_VRANGE_MIN_SUBSET, 0.0005 * values.size):
+            top = float(np.percentile(foreground, fg_pct))
+        else:
+            top = level + 5.0 * sigma
+
+    # Lower the bound if the sigma-based one would darken more than
+    # low_clip_pct of the image, which happens on a tilted uncorrected scan
+    # where the substrate is a broad ramp instead of a narrow noise band.
+    # σ ベースの下端が画素の low_clip_pct 超を暗側へ潰す場合は下端を下げる。
+    # 基板が狭いノイズ帯ではなく広い傾斜面になる未補正スキャンで起こる。
+    bottom = min(level - k_low * sigma,
+                 float(np.percentile(values, low_clip_pct)))
+
+    # Clamp to the data range: widening past it only wastes the colormap.
+    # データ範囲で頭打ちにする。これを超えて広げてもカラーマップを捨てるだけ。
+    bottom = max(bottom, float(values.min()))
+    top = min(top, float(values.max()))
+
+    v_lo = int(math.floor(bottom))
+    v_hi = int(math.ceil(top))
+    if v_hi - v_lo < min_span:
+        v_hi = v_lo + int(math.ceil(min_span))
+    return v_lo, v_hi
 
 
 def setup_matplotlib_style(font_size: int = 12) -> None:

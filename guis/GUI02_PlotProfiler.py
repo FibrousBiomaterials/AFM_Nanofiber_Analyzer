@@ -549,6 +549,14 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # ヒートマップ高さ範囲は nm で保持し、GUI01 / GUI04 と共通の既定値を使う。
         self.vmin = float(DEFAULT_VMIN)
         self.vmax = float(DEFAULT_VMAX)
+        # Fiber mask of the loaded image, available only for GUI01 bundles.
+        # It sharpens the auto vmin/vmax estimate and stays None for raw
+        # text/CSV/.npy/.gwy input, where the estimate falls back to a
+        # mask-free rule.
+        # 読み込み中画像のファイバーマスク。GUI01 バンドルのときだけ得られ、
+        # 自動 vmin/vmax の推定精度を上げる。生のテキスト/CSV/.npy/.gwy では
+        # None のままとし、マスク非依存の規則にフォールバックする。
+        self._fiber_mask = None
         self.linewidth = 3
         self.reduce_func = np.max
         # Band patches visualizing the profile_line sampling width on the heatmap.
@@ -1340,7 +1348,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # Nothing to recompute until an image has been loaded.
         if not self.flag1 or getattr(self, "img", None) is None:
             return
-        self._apply_auto_vrange(self.img, log=False)
+        self._apply_auto_vrange(self.img, mask=self._fiber_mask, log=False)
         # Redraw using cached image data with updated vmin/vmax.
         self.image_showing(reload=False)
         self.line_redraw()
@@ -1412,6 +1420,11 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         """
         data = None
         err_detail = ""
+        # Only a bundle carries a fiber mask; clear the previous one first so a
+        # later load cannot reuse the mask of the file loaded before it.
+        # ファイバーマスクを持つのはバンドルだけなので、先に前回分を捨てる。
+        # そうしないと後続の読み込みが前ファイルのマスクを使い回してしまう。
+        self._fiber_mask = None
 
         try:
             if path.endswith(BUNDLE_EXT):
@@ -1419,6 +1432,18 @@ class App(tk.Tk, UnconfirmedEntryMixin):
                 # GUI01 の .b2z バンドルでは、BG 補正済みの calibrated 画像を使う。
                 bundle = load_bundle(path, keys=["calibrated"])
                 data = bundle["calibrated"]
+                # The skeleton is read separately and its absence tolerated:
+                # a bundle without it must stay loadable, so a failure here
+                # only costs the sharper auto vmin/vmax estimate.
+                # スケルトンは別途読み、欠落を許容する。スケルトンを持たない
+                # バンドルも従来どおり開ける必要があるため、ここで失敗しても
+                # 失うのは自動 vmin/vmax の推定精度だけに留める。
+                try:
+                    self._fiber_mask = load_bundle(
+                        path, keys=["skeletonized"],
+                    )["skeletonized"]
+                except Exception:
+                    self._fiber_mask = None
             elif path.endswith(".npy"):
                 # load_blosc2 dispatches on the file's magic bytes, so both a
                 # real .npy and a Blosc2 payload saved under a .npy name load
@@ -1675,7 +1700,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             # Auto vmin/vmax is recomputed only after a successful file load.
             # 自動 vmin/vmax はファイル読込成功時だけ再計算する。
             if self.auto_vrange_var.get():
-                self._apply_auto_vrange(self.img, log=False)
+                self._apply_auto_vrange(self.img, mask=self._fiber_mask, log=False)
         # else: keep using the cached self.img — no disk I/O.
         # else 節: キャッシュ済み self.img をそのまま使う（ディスク I/O なし）。
 
