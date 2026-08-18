@@ -10,6 +10,54 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Background-estimation quality metrics (`lib/bg_quality.py`), so a
+  `bg_method` or parameter choice can be justified by numbers rather than by
+  eye. Halo detection samples a signed cross-section perpendicular to the
+  local fiber direction along the skeleton and uses no binarized mask, which
+  keeps it sensitive to the *antisymmetric* halo — a trough on one flank and a
+  ridge on the other — that any both-flanks-pooled statistic averages to zero.
+  The halo is read at the extremum located from the cross-section's
+  derivative, and its distance from the fiber is reported with it; averaging a
+  band placed by a rule of thumb only partly overlaps the real feature and
+  understates exactly the large halos that matter most. How far each
+  cross-section reaches follows the fiber width measured from the
+  cross-section itself, rather than a fixed pixel count, so the features of a
+  wide fiber cannot fall outside the range that was actually sampled; when the
+  image is too small to reach that far, the result reports the truncation
+  instead of unsampled features. Reported alongside it: `halo_wide_nm` for a
+  halo broader than the cross-section, which drags the cross-section's own
+  reference level with it and would otherwise read as no halo;
+  `halo_position_px` for how far the defect reaches; per-row and per-column
+  stripe residual, the defect `bg_method="spline1d"` exists to remove; and
+  `mask_footprint_nm`, which detects an over-dilated fiber mask imprinting its
+  dilation radius on the result (excluding real substrate structure from the
+  background pool makes the model unable to reproduce it, and the fiber floats
+  above the background). Seven numbers in total, covering three defects that
+  were each observed to occur while the other two read clean. No composite
+  score is produced, because collapsing these into one number needs weights
+  with no physical basis. They exist to screen which scans are worth training
+  on: the ML tasks are trained against the classical pipeline's output, so a
+  scan whose background correction went wrong supplies bad labels. Nothing in
+  the classical pipeline calls them, so its processing speed and its outputs
+  are unchanged.
+- `python cli.py bgquality` reports those metrics for existing `.b2z` bundles,
+  with `--csv` for a comparison table across a parameter sweep and
+  `--union-mask` to score every input over one identical pixel set so runs
+  that differ only in `bg_method` stay comparable.
+- `python cli.py bgcompare DIR_A DIR_B` compares two processing conditions run
+  on the same inputs, pairing bundles by filename. It always reports the fiber
+  population split into real fibers and shorter fragments (`--min-fiber-um`),
+  and always renders the calibrated, binarized and skeletonized images of both
+  conditions side by side at a fixed display range. Neither is optional:
+  a median pooled over a population whose composition changed measures the
+  composition rather than the measurement, and a fiber count read without the
+  images can suggest fibers were lost when they are intact.
+- The metrics are computed on demand and deliberately not stored in the
+  `.b2z` bundle. They are exactly reproducible from the arrays and parameters
+  it already holds, so a stored copy would save about a second per file while
+  making it possible to read back values from an older definition of the
+  metrics and compare them, unmarked, against current ones. The bundle format
+  and its contract are unchanged by this feature.
 - Commit- and push-time safety checks (`.githooks/pre-commit`,
   `.githooks/pre-push`, `scripts/check_sensitive.py`) that scan staged diffs
   and outgoing commits for credentials, e-mail addresses, machine-local

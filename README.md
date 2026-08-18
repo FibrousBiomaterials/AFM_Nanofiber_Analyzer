@@ -512,6 +512,104 @@ and provenance status) or `INVALID` with the specific contract violations.
 The exit code is non-zero when any bundle fails, so the command can guard
 scripted workflows.
 
+### Judging the background estimate
+
+Which of the four `bg_method` strategies suits a sample is not obvious in
+advance, so `lib/bg_quality.py` scores the result. The metrics exist to screen
+which scans are worth training an ML model on: the classical pipeline's output
+is what the ML tasks are trained against, so a scan whose background correction
+went wrong supplies bad labels. `bgquality` reports them for bundles you
+already have:
+
+```powershell
+python cli.py bgquality results\*.b2z --csv comparison.csv
+```
+
+The metrics are computed from the bundle every time and are deliberately not
+stored in it. They are exactly reproducible from the arrays and parameters the
+bundle already holds, so a stored copy would only save about a second per file
+while making it possible to read back values from an older definition of the
+metrics and compare them, unmarked, against current ones.
+
+Three defects are measured. Each was observed to occur while the other two read
+clean, and each points at a different fix.
+
+**A halo beside fibers**, from a background estimate that is wrong close to
+them. Read `halo_nm` against `global_threshold` (0.3 nm by default): a residual
+above that binarizes as a phantom fiber running parallel to a real one.
+
+| Metric | Meaning |
+|---|---|
+| `halo_nm` | Height left behind (positive) or over-subtracted (negative). Exactly `0.0` when the search found nothing. |
+| `halo_asymmetry_nm` | A trough on one flank and a ridge on the other. This antisymmetric artifact averages to zero in any statistic that pools both flanks, so it needs its own number. |
+| `halo_position_px` | How far from the fiber the defect peaks. A halo hugging the fiber points at the mask boundary, one further out at the smoothing window. |
+| `halo_wide_nm` | A halo broader than the cross-section, which drags the cross-section's own reference level with it and would otherwise read as no halo at all. |
+
+**Stripe residual**, from line-to-line offsets the background model did not
+remove. `row_residual_nm` and `col_residual_nm` are the strength of horizontal
+and vertical stripes; read them against `global_threshold` too, and read them
+as a pair — a large ratio between them identifies the stripe direction and so
+which `spline1d_axis` would fix it.
+
+**A mask footprint**, from over-dilating the calibrator's fiber mask until it
+excludes real substrate structure from the background pool. The model then
+cannot reproduce that structure, and the fiber floats above the background.
+`mask_footprint_nm` is the step this leaves at the dilation radius; it is unset
+for `tophat`, which builds no fiber mask.
+
+Halo detection samples a cross-section perpendicular to the local fiber
+direction at points along the skeleton and never consults the binarized mask,
+because a halo running parallel to a fiber merges into that fiber's binarized
+component and becomes invisible to any mask-anchored measurement.
+
+The halo is measured at the extremum located from the cross-section's
+derivative — the fiber apex, then the turning point where the surface stops
+descending — rather than by averaging a band placed by a rule of thumb, which
+only partly overlaps the real feature and understates exactly the large halos
+that matter most. Its distance from the fiber is reported alongside its height.
+
+One limitation is worth knowing: a *positive* halo close enough to the fiber
+only makes the flank decay more slowly, leaving the profile monotone with no
+feature separating halo from fiber tail. `halo_nm` reads exactly `0.0` there,
+which is the honest answer — but `mask_footprint_nm` and `halo_wide_nm` cover
+the systematic versions of that case, so check those too. A trench at the same
+distance always turns the profile around and is found.
+
+How far each cross-section reaches is not a fixed number of pixels: the fiber
+width is measured from the cross-section itself (at half maximum, so a halo
+cannot influence it), and the sampled length grows with that width and with
+the mask dilation radius. When the image is too small to reach that far, the
+result says so in `warnings` rather than reporting features it never sampled.
+
+There is deliberately no single composite score: combining these into one
+number requires weights with no physical basis. Read them individually, and
+compare methods on the same image rather than reading one value as an absolute
+error budget. Add `--union-mask` to score every input over one identical pixel
+set when the inputs are runs of the same file that differ only in `bg_method`.
+
+### Comparing two processing conditions
+
+Deciding between two settings means running both on the same inputs and
+comparing. `bgcompare` pairs the bundles by filename, scores both over one
+identical pixel set, and writes an image panel per file:
+
+```powershell
+python cli.py bgcompare results_trendfill results_spline2d --output-dir compare --csv compare.csv
+```
+
+Two things are always reported, and neither is optional, because omitting
+either is how a wrong conclusion gets stated with confidence:
+
+- **The fiber population is split** into real fibers (`--min-fiber-um`, 1 µm by
+  default) and shorter fragments. A worse setting usually *adds* short,
+  sub-nanometre false detections rather than degrading the real fibers, so a
+  median pooled over everything collapses while every real fiber is untouched.
+  On one bundled scan, `mask_dilation` 3 → 12 looks like a −85% height collapse
+  pooled, and is −1.4% on fibers ≥1 µm with 160 spurious fragments added.
+- **The calibrated, binarized and skeletonized images are rendered** side by
+  side at a fixed display range. A fiber count of 2 versus 8 reads as "the
+  fibers were lost" until the images show both fibers intact.
+
 ### Command-line fiber measurement
 
 The per-fiber measurements shown by GUI04 are available through `measure`, and

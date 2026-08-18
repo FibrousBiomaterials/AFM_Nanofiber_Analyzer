@@ -43,10 +43,14 @@ scripting and JOSS-reviewer use, so it does not load gettext catalogs.
 
 # ===== Standard library =====
 import argparse
+import csv
 import glob
 import json
 import os
 import sys
+
+# ===== Numerical / scientific libraries =====
+import numpy as np
 
 # Register the project root before importing local packages, mirroring
 # Main.py, so `python cli.py` works regardless of the caller's directory.
@@ -57,8 +61,13 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 # ===== Project libraries =====
+from lib.bg_quality import evaluate_background
 from lib.blosc2_io import BUNDLE_EXT, load_bundle, load_bundle_meta
-from lib.bundle_schema import REQUIRED_BUNDLE_KEYS, validate_bundle
+from lib.bundle_schema import (
+    REQUIRED_BUNDLE_KEYS,
+    scan_size_um_from_meta,
+    validate_bundle,
+)
 from lib.measure import (
     measure_bundle,
     skeleton_height_values,
@@ -536,6 +545,479 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 1 if n_invalid else 0
 
 
+# Metric columns of the `bgquality` CSV, in output order. Fixed English
+# identifiers matching the `BgQuality` field names, so a CSV column and the
+# dataclass attribute that produced it never drift apart.
+# `bgquality` の CSV 列（出力順）。`BgQuality` のフィールド名に一致する固定
+# 英語識別子とし、CSV 列とそれを生んだデータクラス属性が乖離しないようにする。
+BG_QUALITY_CSV_COLUMNS = [
+    "bundle",
+    "halo_nm",
+    "halo_asymmetry_nm",
+    "halo_position_px",
+    "halo_wide_nm",
+    "row_residual_nm",
+    "col_residual_nm",
+    "mask_footprint_nm",
+    "bg_method",
+]
+
+
+def cmd_bgquality(args: argparse.Namespace) -> int:
+    """
+    Report background-estimation quality metrics for `.b2z` bundles.
+    `.b2z` バンドルについて背景推定の品質指標を報告する。
+
+    The metrics are computed from the bundle's stored arrays every time. They
+    are never cached in the bundle: a cache would only save about a second per
+    file, and a bundle written under an earlier definition of the metrics would
+    be read back and silently compared against current-definition values.
+    指標はバンドルの保存済み配列から毎回計算する。バンドルへキャッシュすることは
+    ない。キャッシュしても 1 ファイルあたり約 1 秒の節約にしかならない一方、旧
+    定義で書かれたバンドルを読み戻すと現行定義の値と黙って比較されてしまうため
+    である。
+
+    Returns
+    -------
+    int
+        0 when every bundle produced metrics, 1 when any could not be read or
+        scored, 2 when no usable input bundle was found.
+        全バンドルで指標が得られれば 0、読込・採点に失敗したものがあれば 1、
+        有効な入力が無ければ 2。
+
+    Notes
+    -----
+    With `--union-mask`, every bundle is scored over the union of all the
+    exclusion masks instead of its own, so the stripe residual of different
+    `bg_method` runs is computed on one identical pixel set. This requires all
+    inputs to share one image shape, which holds when they are runs of the
+    same input file -- exactly the sweep case.
+    `--union-mask` を指定すると、各バンドルは自身のマスクではなく全マスクの
+    和集合で採点されるため、異なる `bg_method` 実行の縞残差が同一の画素集合で
+    計算される。全入力が同一の画像形状であることが前提となるが、同じ入力
+    ファイルに対する実行群であれば成立する。まさにスイープの場合である。
+    """
+    inputs = _expand_bundle_inputs(args.inputs)
+    if not inputs:
+        print("error: no input bundle files found", file=sys.stderr)
+        return 2
+
+    union_mask = None
+    if args.union_mask:
+        union_mask, problem = _build_union_mask(inputs)
+        if union_mask is None:
+            print(f"error: {problem}", file=sys.stderr)
+            return 1
+
+    rows = []
+    n_failed = 0
+    for i, bundle_path in enumerate(inputs, 1):
+        name = os.path.basename(bundle_path)
+        try:
+            meta = load_bundle_meta(bundle_path)
+            record = _score_bundle(bundle_path, meta, union_mask).to_meta()
+        except Exception as e:
+            print(f"[{i}/{len(inputs)}] {name}: FAILED")
+            print(f"    {type(e).__name__}: {e}", file=sys.stderr)
+            n_failed += 1
+            continue
+
+        bg_method = ""
+        params = meta.get("params")
+        if isinstance(params, dict):
+            bg_method = str(params.get("bg_method", ""))
+
+        row = {"bundle": name, "bg_method": bg_method}
+        for column in BG_QUALITY_CSV_COLUMNS:
+            if column in ("bundle", "bg_method"):
+                continue
+            row[column] = record.get(column, "")
+        rows.append(row)
+
+        print(f"[{i}/{len(inputs)}] {name}"
+              f"{' (' + bg_method + ')' if bg_method else ''}")
+        print(f"    halo = {_fmt_metric(record.get('halo_nm'))} nm "
+              f"(asym {_fmt_metric(record.get('halo_asymmetry_nm'))}, "
+              f"at {_fmt_metric(record.get('halo_position_px'), False)} px, "
+              f"wide {_fmt_metric(record.get('halo_wide_nm'))})")
+        print(f"    stripes = "
+              f"{_fmt_metric(record.get('row_residual_nm'), False)} / "
+              f"{_fmt_metric(record.get('col_residual_nm'), False)} nm (row/col)")
+        if record.get("mask_footprint_nm") is not None:
+            print(f"    mask footprint = "
+                  f"{_fmt_metric(record.get('mask_footprint_nm'))} nm")
+        for warning in record.get("warnings") or []:
+            print(f"    warning: {warning}")
+
+    if args.csv and rows:
+        with open(args.csv, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=BG_QUALITY_CSV_COLUMNS)
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"wrote {args.csv} ({len(rows)} rows)")
+
+    print(f"finished: {len(rows)} scored, {n_failed} failed")
+    return 1 if n_failed else 0
+
+
+def _score_bundle(bundle_path: str, meta: dict, union_mask):
+    """
+    Compute the background-quality metrics for one bundle.
+    1 つのバンドルについて背景品質指標を計算する。
+
+    Notes
+    -----
+    The fiber-mask dilation is read from the parameters the bundle recorded, so
+    `mask_footprint_nm` looks for its step at the radius that actually acted.
+    `tophat` builds no fiber mask, so nothing is passed and the footprint stays
+    unset.
+    繊維マスクの膨張量はバンドルが記録したパラメータから読む。これにより
+    `mask_footprint_nm` は実際に作用した半径で段差を探す。`tophat` は繊維
+    マスクを作らないため何も渡さず、足跡は未設定のままとなる。
+    """
+    arrays = load_bundle(
+        bundle_path, keys=["calibrated", "binarized", "skeletonized"]
+    )
+    params = meta.get("params") if isinstance(meta.get("params"), dict) else {}
+    dilation = None
+    if params.get("bg_method") != "tophat":
+        dilation = params.get("mask_dilation")
+    return evaluate_background(
+        arrays["calibrated"],
+        np.asarray(arrays["binarized"]).astype(bool),
+        np.asarray(arrays["skeletonized"]).astype(bool),
+        exclusion_mask=union_mask,
+        bg_mask_dilation_px=dilation,
+    )
+
+
+def _fiber_population(bundle_path: str, min_fiber_um: float):
+    """
+    Split the measured objects into real fibers and short fragments.
+    計測された物体を、実繊維と短い断片に分ける。
+
+    Parameters
+    ----------
+    bundle_path
+        Bundle to measure.
+        計測対象のバンドル。
+    min_fiber_um
+        Length at or above which an object counts as a real fiber.
+        これ以上の長さを持つ物体を実繊維とみなす境界。
+
+    Returns
+    -------
+    dict or None
+        Counts and median heights for each group, or `None` when the bundle
+        records no scan size and lengths cannot be resolved.
+        各グループの個数と高さ中央値。バンドルが走査範囲を記録しておらず長さを
+        解決できない場合は `None`。
+
+    Notes
+    -----
+    Reporting one median over every detected object is what makes a condition
+    comparison lie: a worse condition usually *adds* short, sub-nanometre false
+    detections rather than degrading the real fibers, so the pooled median
+    collapses while every real fiber is untouched. The two groups must be shown
+    separately for the comparison to mean anything.
+    検出された全物体をまとめて 1 つの中央値で報告することが、条件比較を誤らせる
+    元凶である。悪い条件は通常、実繊維を劣化させるのではなく 1 nm 未満の短い
+    誤検出を*追加*するため、実繊維が無傷でも合算した中央値だけが崩れる。比較が
+    意味を持つためには、2 つのグループを分けて示さなければならない。
+    """
+    scan = scan_size_um_from_meta(load_bundle_meta(bundle_path))
+    if scan is None:
+        return None
+    result = measure_bundle(bundle_path, scale_um=scan[0])
+    threshold_nm = min_fiber_um * 1000.0
+    real = [s for s in result.stats if s.length_nm >= threshold_nm]
+    fragments = [s for s in result.stats if s.length_nm < threshold_nm]
+
+    def summarize(group):
+        if not group:
+            return {"n": 0, "length_nm": float("nan"), "height_nm": float("nan")}
+        return {
+            "n": len(group),
+            "length_nm": float(np.median([s.length_nm for s in group])),
+            "height_nm": float(np.median([s.height_median_nm for s in group])),
+        }
+
+    return {"real": summarize(real), "fragments": summarize(fragments)}
+
+
+def _render_comparison(paths_by_label, out_png: str, captions) -> None:
+    """
+    Render the calibrated, binarized and skeletonized images per condition.
+    条件ごとに補正済み・二値化・細線化の各画像を描画する。
+
+    Parameters
+    ----------
+    paths_by_label
+        Ordered `(label, bundle_path)` pairs, one row of panels each.
+        順序付きの `(ラベル, バンドルパス)` の並び。各 1 行分のパネルになる。
+    out_png
+        Destination PNG path.
+        出力する PNG のパス。
+    captions
+        Per-label caption lines drawn under the row's first panel.
+        各行の先頭パネル下に描く、ラベルごとの説明行。
+
+    Notes
+    -----
+    The comparison is rendered, not optional, because judging a condition from
+    summary numbers alone is exactly how a wrong conclusion gets reported with
+    confidence: a fiber count of 8 versus 2 reads as "the fibers were lost"
+    until the images show both fibers intact with a few fragments added.
+    比較画像は任意ではなく必ず出力する。要約数値だけで条件を判断することこそ、
+    誤った結論を自信をもって報告する経路だからである。繊維数が 2 対 8 という
+    数値は「繊維が失われた」と読めてしまうが、画像を見れば両方の繊維は無傷で
+    断片がいくつか増えただけだと分かる。
+
+    Matplotlib is imported here rather than at module scope so the other
+    subcommands do not pay its import cost.
+    Matplotlib はモジュール先頭ではなくここで import し、他のサブコマンドが
+    その import コストを負担しないようにする。
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    panels = ("calibrated", "binarized", "skeletonized")
+    fig, axes = plt.subplots(
+        len(paths_by_label), len(panels),
+        figsize=(4.2 * len(panels), 4.4 * len(paths_by_label)),
+        squeeze=False,
+    )
+    for row, (label, path) in enumerate(paths_by_label):
+        arrays = load_bundle(path, keys=list(panels))
+        for col, key in enumerate(panels):
+            image = np.asarray(arrays[key])
+            ax = axes[row][col]
+            if key == "calibrated":
+                # Fixed display range across conditions; an auto range would
+                # rescale each panel and hide the very difference being judged.
+                # 表示範囲は条件間で固定する。自動範囲では各パネルが個別に
+                # 再スケールされ、判定したい差そのものが隠れてしまう。
+                ax.imshow(image.astype(float), cmap="afmhot", vmin=-2, vmax=12)
+            else:
+                ax.imshow(image.astype(bool), cmap="gray")
+            ax.set_title(f"{label}  {key}", fontsize=9)
+            ax.axis("off")
+        axes[row][0].set_xlabel(captions.get(label, ""), fontsize=8)
+        axes[row][0].axis("off")
+        axes[row][0].text(
+            0.0, -0.04, captions.get(label, ""), transform=axes[row][0].transAxes,
+            fontsize=8, va="top", ha="left", family="monospace",
+        )
+    fig.tight_layout()
+    fig.savefig(out_png, dpi=90)
+    plt.close(fig)
+
+
+def cmd_bgquality_compare(args: argparse.Namespace) -> int:
+    """
+    Compare two processing conditions run on the same inputs.
+    同一入力に対する 2 つの処理条件を比較する。
+
+    Pairs the bundles that share a filename between the two directories, scores
+    both over one identical pixel set, reports the fiber population split, and
+    renders the images side by side.
+    2 つのディレクトリ間でファイル名が一致するバンドルを対にし、両者を同一の
+    画素集合で採点し、繊維母集団の内訳を報告し、画像を並べて描画する。
+
+    Returns
+    -------
+    int
+        0 when every pair was compared, 1 on any failure, 2 when the two
+        directories share no bundle filename.
+        全ての対を比較できれば 0、失敗があれば 1、両ディレクトリに共通する
+        バンドル名が無ければ 2。
+
+    Notes
+    -----
+    Both the population split and the rendered images are produced
+    unconditionally. Each exists because omitting it produced a confidently
+    reported wrong conclusion: a pooled median hid that the real fibers were
+    unchanged, and absent images hid that no fiber had been lost at all.
+    母集団の内訳と描画画像は、いずれも無条件で出力する。どちらも、省いた結果と
+    して誤った結論を自信をもって報告した経緯があるために存在する。合算した
+    中央値は実繊維が無変化である事実を隠し、画像の不在は繊維が 1 本も失われて
+    いない事実を隠した。
+    """
+    labels = [os.path.basename(os.path.normpath(d)) or d for d in args.compare]
+    listings = []
+    for directory in args.compare:
+        if not os.path.isdir(directory):
+            print(f"error: not a directory: {directory}", file=sys.stderr)
+            return 2
+        listings.append({
+            f for f in os.listdir(directory) if f.lower().endswith(BUNDLE_EXT)
+        })
+
+    shared = sorted(listings[0] & listings[1])
+    if not shared:
+        print("error: the two directories share no bundle filename",
+              file=sys.stderr)
+        return 2
+
+    out_dir = args.output_dir or os.getcwd()
+    os.makedirs(out_dir, exist_ok=True)
+    rows = []
+    n_failed = 0
+
+    for i, name in enumerate(shared, 1):
+        paths = [os.path.join(d, name) for d in args.compare]
+        try:
+            # One identical pixel set for both, so the stripe residual of the
+            # two conditions is not computed over different substrate masks.
+            # 両条件を同一の画素集合で採点し、縞残差が異なる基板マスク上で
+            # 計算されないようにする。
+            union = None
+            for path in paths:
+                mask = np.asarray(
+                    load_bundle(path, keys=["binarized"])["binarized"]
+                ).astype(bool)
+                union = mask if union is None else (union | mask)
+
+            scored, populations = [], []
+            for path in paths:
+                meta = load_bundle_meta(path)
+                scored.append(_score_bundle(path, meta, union))
+                populations.append(_fiber_population(path, args.min_fiber_um))
+        except Exception as e:
+            print(f"[{i}/{len(shared)}] {name}: FAILED")
+            print(f"    {type(e).__name__}: {e}", file=sys.stderr)
+            n_failed += 1
+            continue
+
+        print(f"[{i}/{len(shared)}] {name}")
+        captions = {}
+        for label, quality, population in zip(labels, scored, populations):
+            record = quality.to_meta()
+            print(f"    {label}")
+            for line in quality.format_lines():
+                print(f"        {line}")
+            if population is None:
+                caption = "fiber split unavailable (bundle records no scan size)"
+                print(f"        {caption}")
+            else:
+                real, frag = population["real"], population["fragments"]
+                caption = (
+                    f"real (>={args.min_fiber_um:g}um): n={real['n']} "
+                    f"len={_fmt_or_dash(real['length_nm'], '.0f')}nm "
+                    f"h={_fmt_or_dash(real['height_nm'])}nm | "
+                    f"fragments: n={frag['n']} "
+                    f"h={_fmt_or_dash(frag['height_nm'])}nm"
+                )
+                print(f"        {caption}")
+            captions[label] = caption
+
+            row = {"bundle": name, "condition": label}
+            for column in BG_QUALITY_CSV_COLUMNS:
+                if column in ("bundle", "bg_method"):
+                    continue
+                row[column] = record.get(column, "")
+            if population is not None:
+                row["real_fiber_n"] = population["real"]["n"]
+                row["real_fiber_height_nm"] = population["real"]["height_nm"]
+                row["fragment_n"] = population["fragments"]["n"]
+                row["fragment_height_nm"] = population["fragments"]["height_nm"]
+            rows.append(row)
+
+        png = os.path.join(out_dir, os.path.splitext(name)[0] + "_compare.png")
+        _render_comparison(list(zip(labels, paths)), png, captions)
+        print(f"        images: {png}")
+
+    if args.csv and rows:
+        columns = ["bundle", "condition"] + [
+            c for c in BG_QUALITY_CSV_COLUMNS if c not in ("bundle", "bg_method")
+        ] + [
+            "real_fiber_n", "real_fiber_height_nm",
+            "fragment_n", "fragment_height_nm",
+        ]
+        with open(args.csv, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=columns, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"wrote {args.csv} ({len(rows)} rows)")
+
+    print(f"finished: {len(shared) - n_failed} pairs compared, {n_failed} failed")
+    return 1 if n_failed else 0
+
+
+def _fmt_or_dash(value, spec: str = ".2f") -> str:
+    """Format a number, showing a dash when the group it summarizes is empty."""
+    return "-" if value is None or not np.isfinite(value) else format(value, spec)
+
+
+def _fmt_metric(value, signed: bool = True) -> str:
+    """
+    Format one metric for console output, tolerating missing values.
+    欠損値を許容しつつ、指標 1 つをコンソール出力用に整形する。
+
+    Parameters
+    ----------
+    value
+        The metric, or `None` / a string when it was not computed.
+        指標。算出されなかった場合は `None` または文字列。
+    signed
+        Whether to force a leading sign. Set it for metrics whose direction
+        carries meaning (a halo can be a ridge or a trench) and clear it for
+        magnitudes such as spreads, which are never negative.
+        符号を常に付けるか。方向に意味のある指標（ハローは尾根にも溝にもなる）
+        では有効にし、ばらつきのような決して負にならない量では無効にする。
+    """
+    if value is None or isinstance(value, str):
+        return "n/a"
+    return f"{float(value):+.3f}" if signed else f"{float(value):.3f}"
+
+
+def _build_union_mask(bundle_paths: list):
+    """
+    Build the union of the binarized masks of every input bundle.
+    全入力バンドルの二値化マスクの和集合を構築する。
+
+    Parameters
+    ----------
+    bundle_paths
+        Bundle paths to combine.
+        統合対象のバンドルパス。
+
+    Returns
+    -------
+    tuple
+        `(mask, None)` on success, or `(None, message)` describing why the
+        masks could not be combined.
+        成功時は `(mask, None)`、失敗時は理由を示す `(None, message)`。
+
+    Notes
+    -----
+    Only the raw binarized masks are combined; `evaluate_background` applies
+    its own dilation to the result, so the dilation stays defined in exactly
+    one place.
+    統合するのは生の二値化マスクのみで、膨張処理は `evaluate_background` が
+    結果に対して適用する。これにより膨張の定義箇所が 1 か所に保たれる。
+    """
+    union = None
+    for path in bundle_paths:
+        try:
+            mask = np.asarray(
+                load_bundle(path, keys=["binarized"])["binarized"]
+            ).astype(bool)
+        except Exception as e:
+            return None, f"{os.path.basename(path)}: {type(e).__name__}: {e}"
+        if union is None:
+            union = mask
+        elif union.shape != mask.shape:
+            return None, (
+                "--union-mask requires one common image shape; "
+                f"{os.path.basename(path)} is {mask.shape}, expected {union.shape}"
+            )
+        else:
+            union |= mask
+    return union, None
+
+
 def build_parser() -> argparse.ArgumentParser:
     """
     Build the argument parser for the CLI entry point.
@@ -697,6 +1179,57 @@ def build_parser() -> argparse.ArgumentParser:
              "(glob patterns are expanded; folders take all bundles inside)",
     )
     p_validate.set_defaults(func=cmd_validate)
+
+    p_bgquality = sub.add_parser(
+        "bgquality",
+        help="report background-estimation quality metrics for .b2z bundles "
+             "(halo beside fibers, stripe residual, fiber-mask footprint)",
+    )
+    p_bgquality.add_argument(
+        "inputs", nargs="+",
+        help="input .b2z bundle files or folders "
+             "(glob patterns are expanded; folders take all bundles inside)",
+    )
+    p_bgquality.add_argument(
+        "--union-mask", action="store_true",
+        help="score every bundle over the union of all their fiber masks, so "
+             "runs that differ only in bg_method are compared on one identical "
+             "pixel set. Requires all inputs to share one image shape.",
+    )
+    p_bgquality.add_argument(
+        "--csv", metavar="CSV",
+        help="write one row per bundle to a comparison CSV",
+    )
+    p_bgquality.set_defaults(func=cmd_bgquality)
+
+    p_compare = sub.add_parser(
+        "bgcompare",
+        help="compare two processing conditions run on the same inputs: "
+             "metrics, fiber-population split, and side-by-side images",
+    )
+    p_compare.add_argument(
+        "compare", nargs=2, metavar="DIR",
+        help="two directories of .b2z bundles produced from the same inputs "
+             "under different settings; bundles are paired by filename",
+    )
+    p_compare.add_argument(
+        "--min-fiber-um", type=float, default=1.0, metavar="UM",
+        help="length at or above which a traced object counts as a real fiber "
+             "rather than a fragment (default: 1.0). The two groups are always "
+             "reported separately, because a pooled median over a population "
+             "whose composition changed measures the composition, not the "
+             "measurement.",
+    )
+    p_compare.add_argument(
+        "--output-dir", metavar="DIR",
+        help="directory for the <stem>_compare.png image panels "
+             "(default: current directory)",
+    )
+    p_compare.add_argument(
+        "--csv", metavar="CSV",
+        help="write one row per bundle and condition to a comparison CSV",
+    )
+    p_compare.set_defaults(func=cmd_bgquality_compare)
 
     return parser
 
