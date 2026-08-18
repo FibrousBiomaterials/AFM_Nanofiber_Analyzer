@@ -525,6 +525,35 @@ already have:
 python cli.py bgquality results\*.b2z --csv comparison.csv
 ```
 
+Each bundle prints three lines, which are the seven metrics in condensed form:
+
+```text
+[1/5] CNF0425_US0_20250428-162857_T.ssp .b2z (trendfill)
+    halo = -0.037 nm (asym -0.075, at 12.000 px, wide +0.005)
+    stripes = 0.002 / 0.004 nm (row/col)
+    mask footprint = +0.124 nm
+```
+
+| Printed as | Metric |
+|---|---|
+| `halo` | `halo_nm` |
+| `asym` | `halo_asymmetry_nm` |
+| `at ... px` | `halo_position_px` |
+| `wide` | `halo_wide_nm` |
+| `stripes` | `row_residual_nm` / `col_residual_nm` |
+| `mask footprint` | `mask_footprint_nm` |
+
+`at n/a px` means no significant extremum was found, which is also why `halo`
+reads exactly `+0.000`: the search ran and there was no halo. The
+`mask footprint` line is omitted for `tophat`, which builds no fiber mask.
+`--csv` writes the same seven metrics unrounded, one row per bundle, under
+their full names.
+
+Plain `bgquality` scores each bundle against its own fiber mask, which is right
+for looking at one run. Use `--union-mask`, or `bgcompare` below, when the
+inputs are different settings applied to the same scan — otherwise the stripe
+residuals are computed over different substrate masks and are not comparable.
+
 The metrics are computed from the bundle every time and are deliberately not
 stored in it. They are exactly reproducible from the arrays and parameters the
 bundle already holds, so a stored copy would only save about a second per file

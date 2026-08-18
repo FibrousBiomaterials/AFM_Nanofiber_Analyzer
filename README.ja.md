@@ -501,6 +501,34 @@ python cli.py validate results\*.b2z
 python cli.py bgquality results\*.b2z --csv comparison.csv
 ```
 
+バンドルごとに 3 行が出力されます。7 指標を圧縮した形です。
+
+```text
+[1/5] CNF0425_US0_20250428-162857_T.ssp .b2z (trendfill)
+    halo = -0.037 nm (asym -0.075, at 12.000 px, wide +0.005)
+    stripes = 0.002 / 0.004 nm (row/col)
+    mask footprint = +0.124 nm
+```
+
+| 表示 | 指標 |
+|---|---|
+| `halo` | `halo_nm` |
+| `asym` | `halo_asymmetry_nm` |
+| `at ... px` | `halo_position_px` |
+| `wide` | `halo_wide_nm` |
+| `stripes` | `row_residual_nm` / `col_residual_nm` |
+| `mask footprint` | `mask_footprint_nm` |
+
+`at n/a px` は有意な極値が見つからなかったことを表し、`halo` がちょうど
+`+0.000` になるのも同じ理由です（探索は実行され、ハローが無かった）。
+`mask footprint` の行は、繊維マスクを作らない `tophat` では省略されます。
+`--csv` は同じ 7 指標を丸めずフルネームの列で、1 バンドル 1 行として書き出します。
+
+素の `bgquality` は各バンドルを自身の繊維マスクで採点します。単一実行を見る用途
+にはこれが適切です。**同一スキャンに異なる設定を適用したもの同士を比べる場合は、
+`--union-mask` か後述の `bgcompare` を使ってください。** そうしないと縞残差が
+別々の基板マスク上で計算され、比較になりません。
+
 指標は毎回バンドルから計算し、意図的にバンドルへ保存しません。バンドルが既に
 保持する配列とパラメータから厳密に再現できるため、保存しても 1 ファイルあたり
 約 1 秒の節約にしかならない一方、古い定義の指標値を読み戻して現行の値と区別
