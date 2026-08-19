@@ -47,6 +47,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `.b2z` bundles can now be written and read under paths containing non-ASCII
+  characters, such as a Japanese folder or file name on Japanese Windows.
+  blosc2 encodes the path to UTF-8 and hands the bytes to the C-Blosc2
+  library, which opens files through the narrow CRT `fopen()`; on Windows that
+  call decodes them with the process ANSI code page, so any non-ASCII
+  character broke the open. Analysis ran to completion and then failed at the
+  save step with "Could not create the Schunk", while every reader failed with
+  "blosc2_schunk_open_offset(...) returned NULL" — and because the analyzed
+  state check treats a read failure as "keys missing", GUI01 showed an
+  analyzed input as unanalyzed and GUI04 silently omitted such bundles from
+  its folder list. `lib/blosc2_io.py` now stages the blosc2 side of the work
+  through an ASCII scratch directory: writes go through an ASCII working
+  directory (the `.b2z` zip itself is written by Python), and reads open the
+  bundle through an ASCII hard link, falling back to a copy across volumes.
+  Paths that are already ASCII are untouched, and the analysis output is
+  unchanged either way. Set `AFM_BLOSC2_SCRATCH_DIR` if none of the default
+  scratch locations (`%TEMP%`, `%PUBLIC%`, `%SystemRoot%\Temp`,
+  `%ProgramData%`) is usable. Reproduced identically on blosc2 4.7.0, 4.8.1,
+  and 4.11.0, so upgrading blosc2 is not an alternative.
 - GUI01's settings dialog no longer truncates its parameter descriptions. The
   description labels had no wrap length, so any sentence wider than the row cut
   off at the frame edge with no ellipsis and no tooltip to recover it from.

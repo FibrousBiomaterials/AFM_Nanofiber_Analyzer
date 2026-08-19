@@ -22,9 +22,12 @@ and load-time format detection is done using file magic bytes.
 読み込み時にファイル先頭のマジックバイトで自動判定する。
 """
 
+import contextlib
 import math
 import os
+import shutil
 import tempfile
+from typing import Iterator
 
 import numpy as np
 import blosc2
@@ -254,6 +257,169 @@ BUNDLE_EXT = ".b2z"
 MAX_BUNDLE_KEYS = 64
 MAX_BUNDLE_DECOMPRESSED_BYTES = 4 * 1024**3  # 4 GiB
 
+# Environment variable naming the scratch directory used by the non-ASCII path
+# workaround below. Set it when none of the default candidates is usable.
+_SCRATCH_ENV_VAR = "AFM_BLOSC2_SCRATCH_DIR"
+
+# Subdirectory created under the chosen scratch root, so the workaround's
+# temporary files stay identifiable and separate from unrelated temp data.
+_SCRATCH_DIR_NAME = "afm_nanofiber_analyzer_blosc2"
+
+# Cached `_ascii_scratch_root()` result; the probing it does is not worth
+# repeating on every bundle read.
+_ascii_scratch_root_cache: str | None = None
+
+
+def _needs_ascii_path(path: str) -> bool:
+    """
+    Report whether blosc2 needs an ASCII stand-in path for `path`.
+    `path` に対して blosc2 用の ASCII 代替パスが必要かを判定する。
+
+    Notes
+    -----
+    blosc2 encodes the path to UTF-8 and hands the bytes to the C-Blosc2
+    library, which opens files through the narrow CRT `fopen()`. On Windows
+    that call decodes the bytes with the process ANSI code page (cp932 on
+    Japanese Windows), so a path holding any non-ASCII character fails to
+    open: writing raises "Could not create the Schunk" and reading raises
+    "blosc2_schunk_open_offset(...) returned NULL". POSIX systems hand the
+    same UTF-8 bytes to a UTF-8 filesystem, so they need no workaround.
+    Reproduced identically on blosc2 4.7.0, 4.8.1, and 4.11.0 (C-Blosc2
+    3.3.2), so this is not a version-specific regression.
+    blosc2 はパスを UTF-8 でエンコードして C-Blosc2 へ渡し、C 側は narrow な
+    `fopen()` で開く。Windows ではこの `fopen()` がバイト列をプロセスの ANSI
+    コードページ（日本語 Windows では cp932）として解釈するため、非 ASCII 文字を
+    含むパスは開けない。POSIX では同じ UTF-8 バイト列が UTF-8 ファイルシステムに
+    そのまま渡るので回避不要。blosc2 4.7.0 / 4.8.1 / 4.11.0（C-Blosc2 3.3.2）で
+    同一の再現を確認済みで、特定版の退行ではない。
+    """
+    return os.name == "nt" and not str(path).isascii()
+
+
+def _ascii_scratch_root() -> str:
+    """
+    Return a writable directory whose absolute path is pure ASCII.
+    絶対パスが ASCII のみで構成された、書き込み可能なディレクトリを返す。
+
+    Raises
+    ------
+    RuntimeError
+        When no candidate directory is both ASCII and writable.
+
+    Notes
+    -----
+    The candidates are tried in order of locality to the user, but the usual
+    first choice can itself be unusable: `%TEMP%` sits under the user profile,
+    so an account named in Japanese makes it non-ASCII. `%PUBLIC%`,
+    `%SystemRoot%\\Temp`, and `%ProgramData%` are fixed ASCII paths on a
+    standard Windows install and serve as fallbacks.
+    候補はユーザーに近い順に試すが、通常の第一候補自体が使えないことがある。
+    `%TEMP%` はユーザープロファイル配下にあるため、日本語のアカウント名では
+    非 ASCII になる。`%PUBLIC%`・`%SystemRoot%\\Temp`・`%ProgramData%` は
+    標準的な Windows では ASCII 固定のパスであり、代替として使える。
+    """
+    global _ascii_scratch_root_cache
+    if _ascii_scratch_root_cache is not None:
+        return _ascii_scratch_root_cache
+
+    system_root = os.environ.get("SystemRoot")
+    candidates = [
+        os.environ.get(_SCRATCH_ENV_VAR),
+        tempfile.gettempdir(),
+        os.environ.get("PUBLIC"),
+        os.path.join(system_root, "Temp") if system_root else None,
+        os.environ.get("ProgramData"),
+    ]
+
+    for candidate in candidates:
+        if not candidate or not candidate.isascii():
+            continue
+        root = os.path.join(candidate, _SCRATCH_DIR_NAME)
+        try:
+            os.makedirs(root, exist_ok=True)
+            # Probe writability now rather than mid-analysis: a directory that
+            # exists but rejects writes must not be cached as usable.
+            with tempfile.NamedTemporaryFile(dir=root):
+                pass
+        except OSError:
+            continue
+        _ascii_scratch_root_cache = root
+        return root
+
+    raise RuntimeError(
+        "no ASCII-only writable directory is available for reading and "
+        "writing .b2z bundles under non-ASCII paths; set the "
+        f"{_SCRATCH_ENV_VAR} environment variable to a writable directory "
+        "whose full path contains only ASCII characters"
+    )
+
+
+@contextlib.contextmanager
+def _ascii_read_path(path: str) -> Iterator[str]:
+    """
+    Yield a path blosc2 can open in read mode for the bundle at `path`.
+    `path` のバンドルを blosc2 が読み取りモードで開けるパスを提供する。
+
+    Notes
+    -----
+    Read mode gives the C layer the `.b2z` itself (it opens the embedded
+    frames at zip offsets), so an ASCII working directory cannot help here and
+    the file has to be reachable under an ASCII name. A hard link achieves
+    that without copying any data; it requires the same volume, so bundles on
+    another drive or a network share fall back to a real copy.
+    読み取りモードでは C 層が `.b2z` 自体を開く（zip オフセット位置の埋め込み
+    フレームを読む）ため、ASCII の作業ディレクトリでは回避できず、ファイル自体が
+    ASCII 名で到達可能である必要がある。ハードリンクならデータを複製せずにこれを
+    満たせる。ただし同一ボリュームが条件なので、別ドライブやネットワーク共有上の
+    バンドルは実コピーにフォールバックする。
+    """
+    if not _needs_ascii_path(path):
+        yield path
+        return
+
+    workdir = tempfile.mkdtemp(dir=_ascii_scratch_root(), prefix="read_")
+    alias = os.path.join(workdir, "bundle" + BUNDLE_EXT)
+    try:
+        try:
+            os.link(path, alias)
+        except OSError:
+            shutil.copyfile(path, alias)
+        yield alias
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+
+@contextlib.contextmanager
+def _ascii_write_kwargs(path: str) -> Iterator[dict]:
+    """
+    Yield extra `TreeStore` keyword arguments for writing a bundle to `path`.
+    `path` へバンドルを書き込む `TreeStore` に渡す追加キーワード引数を提供する。
+
+    Notes
+    -----
+    A `.b2z` is a stored (uncompressed) zip that blosc2 builds by writing the
+    arrays into a working directory and zipping it at close. Only the working
+    directory is touched by the C layer; the zip itself is written by Python,
+    which handles any path. Pointing `tmpdir` at an ASCII directory therefore
+    makes the write succeed even when the destination path is not ASCII, with
+    no extra copy of the finished bundle.
+    `.b2z` は無圧縮 zip であり、blosc2 は配列を作業ディレクトリへ書き出し、
+    close 時に zip 化して生成する。C 層が触るのは作業ディレクトリだけで、zip
+    自体は Python が書くため任意のパスを扱える。したがって `tmpdir` に ASCII の
+    ディレクトリを指定すれば、保存先が非 ASCII でも完成後のバンドルを余分に
+    コピーすることなく書き込みが成功する。
+    """
+    if not _needs_ascii_path(path):
+        yield {}
+        return
+
+    # blosc2 does not clean up a caller-supplied tmpdir, so it is removed here.
+    workdir = tempfile.mkdtemp(dir=_ascii_scratch_root(), prefix="write_")
+    try:
+        yield {"tmpdir": workdir}
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
 
 def save_bundle(path: str, arrays: dict, vlmeta: dict | None = None) -> None:
     """
@@ -292,7 +458,10 @@ def save_bundle(path: str, arrays: dict, vlmeta: dict | None = None) -> None:
         # replace the final path only after the bundle has been closed cleanly.
         # 同じディレクトリの一時ファイルに書き、正常に close できてから
         # 最終パスを原子的に置き換える。
-        with blosc2.TreeStore(tmp_path, mode="w") as ts:
+        with (
+            _ascii_write_kwargs(tmp_path) as store_kwargs,
+            blosc2.TreeStore(tmp_path, mode="w", **store_kwargs) as ts,
+        ):
             for key, arr in arrays.items():
                 # Normalize key: ensure it starts with "/" as required by TreeStore.
                 # TreeStore のキーは "/" で始まる必要があるため正規化する。
@@ -356,9 +525,14 @@ def load_bundle(
         so a crafted (or corrupted) bundle cannot exhaust memory during load.
     """
     out: dict = {}
-    with blosc2.TreeStore(path, mode="r") as ts:
+    with (
+        _ascii_read_path(path) as open_path,
+        blosc2.TreeStore(open_path, mode="r") as ts,
+    ):
         if keys is None:
-            target_keys = bundle_keys(path)
+            # Reuse the already-prepared ASCII path so a non-ASCII bundle is
+            # not linked or copied a second time.
+            target_keys = bundle_keys(open_path)
         else:
             target_keys = [k if k.startswith("/") else "/" + k for k in keys]
 
@@ -417,7 +591,10 @@ def load_bundle_meta(path: str) -> dict:
         本物の破損を意味する。握りつぶすと形式バージョン検査が黙って
         スキップされてしまう。
     """
-    with blosc2.TreeStore(path, mode="r") as ts:
+    with (
+        _ascii_read_path(path) as open_path,
+        blosc2.TreeStore(open_path, mode="r") as ts,
+    ):
         # `vlmeta[:]` returns all metadata as a dict with string keys.
         return dict(ts.vlmeta[:])
 
@@ -439,7 +616,10 @@ def bundle_keys(path: str) -> list[str]:
     先頭の "/" を含むリーフキー一覧（例: ["/calibrated", "/binarized", ...]）。
     """
     keys: list[str] = []
-    with blosc2.TreeStore(path, mode="r") as ts:
+    with (
+        _ascii_read_path(path) as open_path,
+        blosc2.TreeStore(open_path, mode="r") as ts,
+    ):
         # `walk` yields (path, subgroups, leaves) tuples for each tree node.
         for parent, _subgroups, leaves in ts.walk("/"):
             base = parent.rstrip("/")

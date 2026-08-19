@@ -71,6 +71,96 @@ def test_bundle_roundtrip_with_vlmeta(tmp_path):
     assert loaded_meta["params"]["bg_method"] == "tophat"
 
 
+# Names covering several writing systems, used for both the folder and the
+# file. The failure they guard against is not per-language: it comes from
+# UTF-8 bytes being decoded with the ANSI code page, so it applies to any
+# non-ASCII character regardless of the script or the machine's code page --
+# a character that the code page *can* represent (Japanese under cp932) fails
+# just the same. These cases are therefore a breadth check, not a list of
+# separately supported languages.
+# フォルダ名とファイル名の双方に使う、複数の文字体系の名前。ここで防ぐ不具合は
+# 言語ごとのものではなく、UTF-8 バイト列を ANSI コードページとして解釈すること
+# に由来する。よって文字体系にもマシンのコードページにも依存せず、非 ASCII 文字
+# なら等しく発生する（cp932 で表現「できる」日本語でも同様に失敗する）。
+# したがってこれらは網羅性の確認であり、個別対応した言語の一覧ではない。
+NON_ASCII_PATH_NAMES = [
+    pytest.param("試料データ", id="japanese"),
+    pytest.param("样品数据", id="chinese-simplified"),
+    pytest.param("시료데이터", id="korean"),
+    pytest.param("Dữ liệu mẫu", id="vietnamese"),
+    pytest.param("Образец", id="cyrillic"),
+    # Outside the Basic Multilingual Plane: a surrogate pair in UTF-16, and a
+    # four-byte sequence in UTF-8.
+    pytest.param("𠮷野試料", id="non-bmp"),
+]
+
+
+@pytest.mark.parametrize("name", NON_ASCII_PATH_NAMES)
+def test_bundle_entry_points_work_under_non_ascii_path(tmp_path, name):
+    """Every bundle entry point works when the path holds non-ASCII text.
+
+    Regression test: blosc2 encodes the path to UTF-8 and hands the bytes to
+    the C layer, which on Windows decodes them with the ANSI code page. A
+    non-ASCII folder or file name therefore used to make writing raise
+    "Could not create the Schunk" and every read raise
+    "blosc2_schunk_open_offset(...) returned NULL", which surfaced in the GUIs
+    as bundles that could not be opened or were silently treated as missing.
+    """
+    folder = tmp_path / name
+    folder.mkdir()
+    path = os.path.join(folder, name + ".b2z")
+    arrays = {
+        "calibrated": np.arange(16, dtype=np.float64).reshape(4, 4),
+        "kp": np.array([[1, 2, 3], [4, 5, 6]]),
+    }
+
+    save_bundle(path, arrays, vlmeta={"version": "1.1"})
+    assert os.path.isfile(path)
+
+    loaded = load_bundle(path)
+    assert set(loaded) == {"calibrated", "kp"}
+    np.testing.assert_array_equal(loaded["calibrated"], arrays["calibrated"])
+    np.testing.assert_array_equal(loaded["kp"], arrays["kp"])
+
+    assert load_bundle_meta(path)["version"] == "1.1"
+    assert sorted(bundle_keys(path)) == ["/calibrated", "/kp"]
+    assert set(load_bundle(path, keys=["kp"])) == {"kp"}
+
+    ok, missing = bundle_has_keys(path, ["calibrated", "kp"])
+    assert ok and missing == []
+
+
+@pytest.mark.skipif(
+    os.name != "nt",
+    reason="the ASCII-path workaround only applies to Windows",
+)
+def test_non_ascii_path_workaround_removes_its_scratch_dirs(tmp_path, monkeypatch):
+    """The workaround leaves no temporary directory behind after use.
+
+    The scratch directory is redirected to a test-owned location so the
+    assertion cannot see temporary files belonging to a parallel worker.
+    """
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    if not str(scratch).isascii():
+        pytest.skip("pytest's own temporary directory is not ASCII")
+    monkeypatch.setenv(blosc2_io._SCRATCH_ENV_VAR, str(scratch))
+    monkeypatch.setattr(blosc2_io, "_ascii_scratch_root_cache", None)
+
+    folder = tmp_path / "日本語フォルダ"
+    folder.mkdir()
+    path = os.path.join(folder, "試料02.b2z")
+
+    save_bundle(path, {"a": np.zeros(4)})
+    load_bundle(path)
+    bundle_keys(path)
+    load_bundle_meta(path)
+
+    root = blosc2_io._ascii_scratch_root()
+    assert root.startswith(str(scratch))
+    assert os.listdir(root) == []
+
+
 def test_save_bundle_failure_preserves_existing_file(tmp_path, monkeypatch):
     """A failed rewrite must not corrupt the previous valid bundle."""
     path = os.path.join(tmp_path, "out.b2z")
