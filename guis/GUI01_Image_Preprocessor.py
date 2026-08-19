@@ -3208,8 +3208,8 @@ class SettingsDialog(tk.Toplevel):
         #   trendfill   : 勾配リッジ検出 + 2次トレンド除去 + 最近傍充填
         #   tophat      : morphological opening; no mask, fast, and spatially uniform.
         #   tophat      : 形態学的opening (マスク不要、高速、一様性◎)
-        #   spline1d    : row/column 1D B-spline with linear edge extrapolation.
-        #   spline1d    : 行/列ごとの 1D B-スプライン + 端の線形外挿
+        #   spline1d    : row/column 1D B-spline, extrapolated at the line ends.
+        #   spline1d    : 行/列ごとの 1D B-スプライン (ライン端は外挿)
         #   spline2d    : 2D B-spline fit for globally smooth backgrounds.
         #   spline2d    : 大局的に滑らかな背景向けの 2D B-スプラインフィット
         # "trendfill" was named "inpaint" up to 1.0.0. Parameter files still

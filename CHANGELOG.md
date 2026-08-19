@@ -47,6 +47,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `spline1d` no longer paints horizontal stripes that are absent from the raw
+  scan. **Measured lengths, heights, and fiber counts change from this
+  version** for `bg_method="spline1d"`; `trendfill`, `tophat`, and `spline2d`
+  are unaffected. Past the first and last background pixel of an interpolation
+  line there is background data on one side only, yet those runs were still
+  given a *shape* extrapolated from that single line: a slope through its two
+  nearest samples. The slope was therefore pixel-to-pixel noise, the resulting
+  ramp grew with the run length, and because every line was extrapolated
+  independently each one painted its own band - with `spline1d_axis="x"`, a
+  horizontal one. On a 1024x1024 scan, 487 of 1023 rows began inside a masked
+  run (median 13 px, up to 315 px) and the injected error reached 4.6 nm at the
+  median and 108 nm at worst, against a 0.3 nm `global_threshold`, so the
+  stripes binarized as false fibers. The whole fill now runs on a detrended
+  copy with the second-order trend restored afterwards, as `trendfill` already
+  did, so no filler has to reproduce the 0.23-0.34 nm/px sample tilt; and the
+  end runs hold the mean level of that line's nearest `savgol_window`
+  background samples instead of extrapolating a shape. After detrending, the
+  quantity that is still specific to a line is essentially its scan-line
+  offset, which is constant along the line, so holding a level estimates it
+  without extrapolating a slope, and averaging over a window keeps pixel noise
+  out of that level. Measured against a known background on four scans, with
+  the fiber geometry taken from the real data so the end-run statistics are
+  realistic, the RMS background error over the end-run pixels falls from
+  2.5-4.4 nm to 0.3-1.2 nm and the worst-case error from 15-30 nm to 2-4 nm.
+  Re-run GUI01 or `cli.py process` to refresh existing `.b2z` bundles.
 - The default background method no longer produces a false fiber running
   parallel to a real one on tilted scans. **Measured lengths, heights, and
   fiber counts change from this version**, so results with

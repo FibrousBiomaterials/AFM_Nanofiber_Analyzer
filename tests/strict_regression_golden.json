@@ -2,7 +2,7 @@
   "testdata_higherplantTOC/_20250318-164122_T.ssp .txt": {
     "spline1d::binarized": {
       "dtype": "bool",
-      "sha256": "6e626ee9d0cac3aa51aed59659aa652962c5d82fbb57e01ac1ac43ccee1b0fb5",
+      "sha256": "3e224db3c5efa9e6e5cb54c67757e86b790f8d95402852c47b42901cd86acf2a",
       "shape": [
         1023,
         1023
@@ -18,7 +18,7 @@
     },
     "spline1d::calibrated": {
       "dtype": "float64",
-      "sha256": "c0e70478360f02d9dbda361b9820f8f425ac04df7e2c9993843e1b2431549098",
+      "sha256": "e08f7dba87e0d1f314094b57671b6d1bab981c7f17dac83e3ac55cf2eb04d999",
       "shape": [
         1023,
         1023
@@ -26,15 +26,15 @@
     },
     "spline1d::dp": {
       "dtype": "int64",
-      "sha256": "eb4fdb13913883c638ec99b247a13de20093acd20e396dc149bf068324fe53c6",
+      "sha256": "34b6bb386538695970c1f2048c66ddb48f294d3e7cd719a2d887079f81135588",
       "shape": [
         2,
-        52
+        49
       ]
     },
     "spline1d::ep": {
       "dtype": "uint8",
-      "sha256": "72bff0d51e7b9886d633f54d0fb7fa104b99a60b2b53c6db80ae8de96cd6b133",
+      "sha256": "5e7d431d390bcaa02693006c6a0dfb8d03c6038efdbe0686975a09556e7139dc",
       "shape": [
         1023,
         1023
@@ -42,22 +42,22 @@
     },
     "spline1d::ka": {
       "dtype": "float64",
-      "sha256": "ef1d3268753d2d9e1b788b2b5297fd2d634a8bce9f9695166bb6b385b80bfc1c",
+      "sha256": "ff7ba1699a6f1f27a384c4231e308ff504c3c6d9820ea191999f1f51902f827c",
       "shape": [
-        14
+        12
       ]
     },
     "spline1d::kp": {
       "dtype": "int64",
-      "sha256": "d05b962ae3dce36f484f6d9828d96ae51c2787df60be2915d0fbec62f2d7f8f6",
+      "sha256": "9afcc634cc1e3761f80ac58ddfc8cfccbfd11f08d18688ddfa85ee4f01593eda",
       "shape": [
         2,
-        14
+        12
       ]
     },
     "spline1d::skeletonized": {
       "dtype": "uint8",
-      "sha256": "31bce9d8af932d55da86472569fa3c16de7db67d115b5f17bf3ccbf4475af56e",
+      "sha256": "b0fef52bb631a1a09950daefade48fbcef22bc64496f5fc23e54c79289fa3fd2",
       "shape": [
         1023,
         1023
@@ -256,7 +256,7 @@
   "testdata_tunicateCNF/TunicateACTOCCNF.txt": {
     "spline1d::binarized": {
       "dtype": "bool",
-      "sha256": "3ccc1302b659a56fa47d28f5e621806ee2d3bf11d7455859532dcd5a77fd1388",
+      "sha256": "6e718f8ac3c46e9a69f4004a914b9a308fe8f2ae340c249f409ea2d020843a8d",
       "shape": [
         1023,
         1023
@@ -264,7 +264,7 @@
     },
     "spline1d::bp": {
       "dtype": "uint8",
-      "sha256": "9596ebb47d00d04b18184dc403d80915d0160de1ad1d390d22c0e6a7cb86195b",
+      "sha256": "53b7f48ce1959be1d171f9f21e43b7d613551774d7008ed3e9a9aede6f283a1e",
       "shape": [
         1023,
         1023
@@ -272,7 +272,7 @@
     },
     "spline1d::calibrated": {
       "dtype": "float64",
-      "sha256": "54b8d968c5d63988dbad2d48e105295cbce7d552fe5e3384fd1813a1d324b84d",
+      "sha256": "dcbf04d872260aa71c008066c1eee85b84db1132cbf50733de83b4f3ca0f5704",
       "shape": [
         1023,
         1023
@@ -280,15 +280,15 @@
     },
     "spline1d::dp": {
       "dtype": "int64",
-      "sha256": "6d0806c2405122deb7d45a38920493d57ea8def92cee2ac8e697bdc29aac2b93",
+      "sha256": "957fe8adae9338b0d9678082a76edbdb961ee65830ed5efe14c665d075061523",
       "shape": [
         2,
-        250
+        236
       ]
     },
     "spline1d::ep": {
       "dtype": "uint8",
-      "sha256": "ecb1ea8fd1583b5e58895c2b41f11c4a8a8b3bb1e41d6b093542b821ea43abb7",
+      "sha256": "2e7ebf5555c253a70b40a1ab1224dda9337094fb629c6bce36878a5e9f7ea3fe",
       "shape": [
         1023,
         1023
@@ -296,22 +296,22 @@
     },
     "spline1d::ka": {
       "dtype": "float64",
-      "sha256": "091e50c533f7c9149eeb0c889e3c40a4ae37058b6819fa826dbe153fc40adc87",
+      "sha256": "8136a644a9aff04bd8191fe87235d335921a233c80f8f060df582f93eb591405",
       "shape": [
-        82
+        79
       ]
     },
     "spline1d::kp": {
       "dtype": "int64",
-      "sha256": "56c452519f89397c545d328fcb745257e62686bf40dc1792b7a91c3a17120021",
+      "sha256": "aa29e16f97292e05436440c209326cf40ab5761082b079bde18a05090974bd0f",
       "shape": [
         2,
-        82
+        79
       ]
     },
     "spline1d::skeletonized": {
       "dtype": "uint8",
-      "sha256": "8060e4dedfa874e56c3efbdbaa6a81cf6a32b6e130a9e9fda492492571cc43fb",
+      "sha256": "cfa07b38b05b099e9c01027d917046a9c2bd117c9a02eeface3a2bd58c776926",
       "shape": [
         1023,
         1023
