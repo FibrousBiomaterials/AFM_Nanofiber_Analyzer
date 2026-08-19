@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-19 12:50+0900\n"
+"POT-Creation-Date: 2026-08-19 13:27+0900\n"
 "PO-Revision-Date: 2026-04-27 14:35+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh\n"
@@ -570,9 +570,11 @@ msgstr "tophat：形态学 opening。将比 tophat_se_size 更细的亮结构作
 
 #: guis/GUI01_Image_Preprocessor.py:3230
 msgid ""
-"spline1d : 行/列ごとの1D B-スプライン補間（オリジナル方式）。ライン間オフセット（縞）ノイズに有効。spline1d_axis "
-"で縞の向きを選択"
-msgstr "spline1d：按行/列进行 1D B 样条插值（原始方法）。对线间偏移（条纹）噪声有效。通过 spline1d_axis 选择条纹方向。"
+"spline1d : 2次トレンド除去 + 行/列ごとの1D "
+"B-スプライン補間。縞ノイズに有効。ライン端は外挿せず自ラインの水準を保持。spline1d_axis で縞の向きを選択"
+msgstr ""
+"spline1d：二次趋势面去除 + 按行/列进行 1D B 样条插值。对条纹噪声有效。两端不做外推，而是保持该行/列自身的基准水平。通过 "
+"spline1d_axis 选择条纹方向。"
 
 #: guis/GUI01_Image_Preprocessor.py:3231
 msgid "spline2d : 2D B-スプラインフィット。背景を行毎でなく2D問題として一括で解く。大局的に滑らかな背景に向く"
@@ -619,8 +621,12 @@ msgid "[trendfill, spline1d, spline2d時] [1,-1]の急変が一定以上離れ�
 msgstr "[trendfill, spline1d, spline2d] 当 [1,-1] 急变相隔一定距离以上时将其视为结构的阈值"
 
 #: guis/GUI01_Image_Preprocessor.py:3269
-msgid "[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）"
-msgstr "[trendfill, tophat, spline1d] Savitzky-Golay 滤波器的窗口宽度（平滑范围）"
+msgid ""
+"[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）。spline1d "
+"ではライン端に保持する水準の平均本数も兼ねる"
+msgstr ""
+"[trendfill, tophat, spline1d] Savitzky-Golay 滤波器的窗口宽度（平滑范围）。在 spline1d "
+"中还决定两端保持水平时的平均样本数。"
 
 #: guis/GUI01_Image_Preprocessor.py:3271
 msgid "[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの多項式次数"

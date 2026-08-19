@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-19 12:50+0900\n"
+"POT-Creation-Date: 2026-08-19 13:27+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -563,8 +563,8 @@ msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:3230
 msgid ""
-"spline1d : 行/列ごとの1D B-スプライン補間（オリジナル方式）。ライン間オフセット（縞）ノイズに有効。spline1d_axis "
-"で縞の向きを選択"
+"spline1d : 2次トレンド除去 + 行/列ごとの1D "
+"B-スプライン補間。縞ノイズに有効。ライン端は外挿せず自ラインの水準を保持。spline1d_axis で縞の向きを選択"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:3231
@@ -610,7 +610,9 @@ msgid "[trendfill, spline1d, spline2d時] [1,-1]の急変が一定以上離れ�
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:3269
-msgid "[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）"
+msgid ""
+"[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）。spline1d "
+"ではライン端に保持する水準の平均本数も兼ねる"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:3271

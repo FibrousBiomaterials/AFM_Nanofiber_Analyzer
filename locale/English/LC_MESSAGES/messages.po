@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-19 12:50+0900\n"
+"POT-Creation-Date: 2026-08-19 13:27+0900\n"
 "PO-Revision-Date: 2026-04-27 14:35+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -583,12 +583,13 @@ msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:3230
 msgid ""
-"spline1d : 行/列ごとの1D B-スプライン補間（オリジナル方式）。ライン間オフセット（縞）ノイズに有効。spline1d_axis "
-"で縞の向きを選択"
+"spline1d : 2次トレンド除去 + 行/列ごとの1D "
+"B-スプライン補間。縞ノイズに有効。ライン端は外挿せず自ラインの水準を保持。spline1d_axis で縞の向きを選択"
 msgstr ""
-"spline1d: 1D B-spline interpolation by row/column (original method). "
-"Effective for line-to-line offset (stripe) noise. Select the stripe "
-"direction with spline1d_axis."
+"spline1d: second-order trend removal + 1D B-spline interpolation by "
+"row/column. Effective for stripe noise. The line ends hold that line's "
+"own level instead of extrapolating. Select the stripe direction with "
+"spline1d_axis."
 
 #: guis/GUI01_Image_Preprocessor.py:3231
 msgid "spline2d : 2D B-スプラインフィット。背景を行毎でなく2D問題として一括で解く。大局的に滑らかな背景に向く"
@@ -654,10 +655,13 @@ msgstr ""
 "changes as structures when they are separated by at least this distance"
 
 #: guis/GUI01_Image_Preprocessor.py:3269
-msgid "[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）"
+msgid ""
+"[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）。spline1d "
+"ではライン端に保持する水準の平均本数も兼ねる"
 msgstr ""
 "[trendfill, tophat, spline1d] Savitzky-Golay filter window length "
-"(smoothing range)"
+"(smoothing range). With spline1d it also sets how many samples are "
+"averaged for the level held at the line ends."
 
 #: guis/GUI01_Image_Preprocessor.py:3271
 msgid "[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの多項式次数"
