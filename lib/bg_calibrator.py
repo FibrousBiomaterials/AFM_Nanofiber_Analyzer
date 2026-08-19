@@ -243,11 +243,15 @@ class BGCalibrator:
             than the globally-coupled ``'spline2d'`` fit. Uses the same
             trendfill-style fiber mask (with ``mask_dilation`` and
             ``min_mask_component_area``) to choose background-candidate
-            pixels, the same ``pandas`` spline of order ``spline1d_degree``
-            for the interior, then linear extrapolation at the line ends
-            where pandas would otherwise degenerate to constant
-            extrapolation (the known failure mode that originally motivated
-            replacing this method with ``'trendfill'``; it is fixed here).
+            pixels, and the same ``pandas`` spline of order
+            ``spline1d_degree``, applied to a detrended copy. Beyond the
+            first/last background pixel of a line there is nothing to
+            interpolate between, so those runs are filled from the nearest
+            background pixel in 2D rather than extrapolated line by line;
+            a single-line extrapolation there stripes the image edge,
+            whether it degenerates to the constant padding that originally
+            motivated replacing this method with ``'trendfill'`` or follows
+            the fitted spline.
             The background is then Savitzky-Golay smoothed and subtracted in
             full (no exact restore of background-candidate pixels),
             reproducing the legacy behavior that performs well on
@@ -303,10 +307,13 @@ class BGCalibrator:
             ノイズに対しては、本方式は大局結合する ``'spline2d'`` より有効な
             ことが多い。背景候補画素の選択には trendfill と同じファイバーマスク
             (``mask_dilation``, ``min_mask_component_area`` 込み) を使い、
-            内側は order ``spline1d_degree`` の ``pandas`` スプライン、ライン
-            端では pandas が定数外挿に縮退する区間を線形外挿で埋める (この
-            定数外挿への縮退こそ、本方式が当初 ``'trendfill'`` へ置き換えられた
-            既知の弱点であり、ここで修正している)。その後 Savitzky-Golay で
+            補間にはデトレンドした写しへ order ``spline1d_degree`` の
+            ``pandas`` スプラインを適用する。各ラインの最初/最後の背景画素
+            より外側は補間する材料が無いため、ライン単位で外挿するのではなく
+            2 次元の最近傍背景画素から埋める。ここでライン単独の外挿を行うと
+            画像端に縞が出る。本方式が当初 ``'trendfill'`` へ置き換えられた
+            理由である定数埋めに縮退した場合でも、フィットしたスプラインに
+            従った場合でも同様である。その後 Savitzky-Golay で
             平滑化し、背景候補画素を厳密復元せずそのまま全面減算する (従来
             挙動の再現)。ラインノイズ主体のスキャンで良好な結果を出す。
             ``spline1d_axis`` と ``spline1d_degree`` で挙動を制御する。
@@ -545,9 +552,10 @@ class BGCalibrator:
           Savitzky-Golay). ``bg_open`` is set to ``None``.
         - ``'spline1d'``: like ``'spline2d'``, the trendfill-style
           ridge-detection intermediates (``dif_x`` ... ``bg_only``) are
-          computed for the fiber mask, plus ``bg_spline1d`` (raw per-line
-          interpolated surface, before smoothing) and ``bg_sm`` (after
-          Savitzky-Golay). ``bg_open`` and ``bg_spline2d`` are set to
+          computed for the fiber mask, plus ``bg_spline1d`` (the assembled
+          background surface before smoothing: per-line interpolation, 2D
+          nearest fill at the line ends, trend restored) and ``bg_sm``
+          (after Savitzky-Golay). ``bg_open`` and ``bg_spline2d`` are set to
           ``None``.
 
         このメソッドは中間配列を段階的に保持する設計になっており、
@@ -567,7 +575,8 @@ class BGCalibrator:
           ``bg_open`` は ``None``。
         - ``'spline1d'``: ``'spline2d'`` と同様、ファイバーマスクのため
           trendfill と同じリッジ検出系中間配列 (``dif_x`` 〜 ``bg_only``) を
-          計算し、加えて ``bg_spline1d`` (平滑化前の生の行/列補間曲面) と
+          計算し、加えて ``bg_spline1d`` (平滑化前の背景曲面。行/列補間 +
+          ライン端の 2 次元最近傍充填 + トレンド復元まで済んだもの) と
           ``bg_sm`` (Savitzky-Golay 後) を保持。``bg_open`` と
           ``bg_spline2d`` は ``None``。
         """
@@ -969,18 +978,20 @@ class BGCalibrator:
           (the legacy version had neither), so fiber-edge shoulders are
           excluded from the background pool exactly as in ``'trendfill'`` and
           ``'spline2d'``.
-        * The legacy ``pandas`` spline degenerated to *constant*
-          extrapolation at the ends of any line whose first/last valid
-          sample was interior (e.g. a fiber touching the top or bottom
-          edge along the interpolation axis). That biased the background
-          and was the documented reason the method was originally dropped
-          in favour of ``'trendfill'``. Here the interior is still filled by
-          the ``pandas`` spline of order ``spline1d_degree``, but any
-          leading/trailing run that ``pandas`` leaves as constant is
-          overwritten by a *linear* extrapolation through the two nearest
-          valid samples of that line. Lines with too few valid points for
-          the requested spline order fall back to linear (then nearest)
-          interpolation automatically.
+        * The image is detrended before the fill and the trend restored
+          afterwards, as in ``'trendfill'``, so no filler has to reproduce
+          the sample tilt.
+        * The line ends are not extrapolated at all. Beyond the first/last
+          valid sample of a line - a fiber touching the image edge along the
+          interpolation axis - there is background data on one side only, so
+          any 1D model of that run is fitted to that single line and its
+          error is uncorrelated with the neighboring lines. The legacy
+          ``pandas`` behavior there (constant padding, the documented reason
+          the method was dropped in favour of ``'trendfill'``) is only one
+          instance of the problem: the fitted spline's own extrapolation
+          fails the same way, in smooth bands instead of thin streaks.
+          These runs are therefore filled from the nearest background pixel
+          in 2D, which draws on the neighboring lines.
 
         The stripe orientation is controlled by ``spline1d_axis``:
         ``'y'`` (default) interpolates each column down the image and, with
@@ -1004,15 +1015,16 @@ class BGCalibrator:
           と ``min_mask_component_area`` を併用する (旧版は両方なし)。
           これにより ``'trendfill'`` / ``'spline2d'`` と同様、ファイバー端の
           肩部が背景プールから除外される。
-        * 旧 ``pandas`` スプラインは、補間軸方向で最初/最後の有効サンプルが
-          内側にあるライン (例: 補間軸の上下端にファイバーがかかる場合) で
-          *定数* 外挿に縮退し、背景を歪めていた。これが本方式が当初
-          ``'trendfill'`` に置き換えられた既知の理由である。本実装では内側は
-          引き続き order ``spline1d_degree`` の ``pandas`` スプラインで埋め、
-          ``pandas`` が定数のまま残す先頭/末尾の区間のみ、そのラインの最近傍
-          2 有効サンプルを通る *線形* 外挿で上書きする。要求 order に対して
-          有効点が少なすぎるラインは自動的に線形 (さらに最近傍) 補間へ
-          フォールバックする。
+        * ``'trendfill'`` と同様、充填の前にデトレンドし後でトレンドを戻す。
+          どの充填器も試料傾斜を再現する必要がなくなる。
+        * ライン端は一切外挿しない。各ラインの最初/最後の有効サンプルより
+          外側 (補間軸の端にファイバーがかかる場合) は片側にしか背景データが
+          無いため、その区間を 1 次元でモデル化するとそのライン単独のフィット
+          になり、誤差は隣接ラインと無相関になる。旧 ``pandas`` の挙動である
+          定数埋め (本方式が ``'trendfill'`` へ置き換えられた既知の理由) は
+          この問題の一例にすぎず、フィットしたスプライン自身の外挿も同じ形で
+          破綻する。細いスジではなく滑らかな帯になるだけである。よってこの
+          区間は 2 次元の最近傍背景画素から埋め、隣接ラインを参照させる。
 
         除去する縞の向きは ``spline1d_axis`` で制御する。``'y'`` (デフォルト)
         は各列を画像の縦方向に補間し、Savitzky-Golay と併せて *横縞* (各走査
@@ -1044,13 +1056,53 @@ class BGCalibrator:
         self.bg_open = None
         self.bg_spline2d = None
 
-        # Fill the NaN (fiber) positions by per-line 1D spline interpolation
-        # with linear extrapolation at the line ends.
-        # NaN (ファイバー) 位置を、ライン端で線形外挿付きの行/列 1D スプライン
-        # 補間で埋める。
-        bg_int = self._spline1d_fill(
-            self.bg_only, axis=self.spline1d_axis, order=self.spline1d_degree,
-        )
+        crop = original[1:, 1:]
+        valid_mask = ~np.isnan(self.bg_only)
+
+        # Detrend before filling and restore the trend afterwards, exactly as
+        # `_bg_generate` does, so that neither filler has to reproduce the
+        # sample tilt (0.23-0.34 nm/px on the bundled scans).
+        # `_bg_generate` と同じく、充填の前にデトレンドし後でトレンドを戻す。
+        # どちらの充填器も試料傾斜（同梱スキャンで 0.23〜0.34 nm/px）を
+        # 再現しなくてよくなる。
+        if not valid_mask.any():
+            # Pathological input: every pixel was classified as fiber. Fall
+            # back to a flat zero background, as the other paths do.
+            # 病的な入力: 全画素が繊維と判定された。他方式と同様、平坦な
+            # ゼロ背景へフォールバックする。
+            bg_trend = np.zeros_like(crop, dtype=np.float64)
+            bg_int = np.zeros_like(crop, dtype=np.float64)
+        else:
+            bg_trend = self._fit_trend_surface(crop, valid_mask)
+            detrended = np.where(valid_mask, crop - bg_trend, float('nan'))
+
+            # Interpolate the masked positions along one axis. Inside a
+            # line's valid span the spline interpolates; beyond the first/last
+            # valid sample it holds the level of that line's nearest
+            # `savgol_window` background samples.
+            # マスク位置を 1 軸方向に補間する。各ラインの有効範囲内はスプライン
+            # で補間し、最初/最後の有効サンプルより外側は、そのライン自身の
+            # 最近傍 `savgol_window` 個の背景サンプルの水準を保持する。
+            bg_int = self._spline1d_fill(
+                detrended, axis=self.spline1d_axis, order=self.spline1d_degree,
+                end_window=self.savgol_window,
+            )
+
+            # Only fully masked lines can still be unfilled; they carry no
+            # information of their own, so take the nearest background pixel
+            # in 2D.
+            # ここで未充填として残るのは全域がマスクされたラインだけである。
+            # 自前の情報を持たないため、2 次元の最近傍背景画素を使う。
+            unfilled = np.isnan(bg_int)
+            if unfilled.any():
+                nearest_idx = distance_transform_edt(
+                    ~valid_mask, return_distances=False, return_indices=True,
+                )
+                nearest = np.where(valid_mask, crop - bg_trend, 0.0)[tuple(nearest_idx)]
+                bg_int = np.where(unfilled, nearest, bg_int)
+
+            bg_int = bg_int + bg_trend
+
         self.bg_spline1d = bg_int
 
         # Savitzky-Golay smoothing then full-frame subtraction, matching the
@@ -1066,16 +1118,19 @@ class BGCalibrator:
         image.calibrated_image = calibrated_image
 
     @staticmethod
-    def _spline1d_fill(bg_only: np.ndarray, axis: str = 'y', order: int = 2) -> np.ndarray:
+    def _spline1d_fill(bg_only: np.ndarray, axis: str = 'y', order: int = 2,
+                       end_window: int = 31) -> np.ndarray:
         """
-        Fill NaNs in ``bg_only`` by per-line 1D spline + linear extrapolation.
-        ``bg_only`` の NaN を行/列ごとの 1D スプライン + 線形外挿で埋める。
+        Interpolate the masked positions inside each line's valid span.
+        各ラインの有効範囲内にあるマスク位置を補間する。
 
         Parameters
         ----------
         bg_only : np.ndarray
-            2D array with NaN at masked (fiber) positions.
-            マスク (ファイバー) 位置が NaN の 2D 配列。
+            2D array with NaN at masked (fiber) positions. Pass a detrended
+            image: the per-line fit then models only the residual.
+            マスク (ファイバー) 位置が NaN の 2D 配列。デトレンド済み画像を
+            渡すこと。行/列ごとのフィットが残差だけをモデル化すればよくなる。
         axis : {'y', 'x'}
             ``'y'`` interpolates each column along rows (axis 0);
             ``'x'`` interpolates each row along columns (axis 1).
@@ -1084,25 +1139,42 @@ class BGCalibrator:
         order : int
             Spline order passed to ``pandas.Series.interpolate``.
             ``pandas.Series.interpolate`` に渡すスプライン order。
+        end_window : int
+            Number of a line's nearest valid samples averaged to set the level
+            held across its end runs.
+            ライン端の区間に保持する水準を決めるために平均する、そのラインの
+            最近傍有効サンプルの数。
 
         Returns
         -------
         np.ndarray
-            ``bg_only`` with all NaNs filled (float64).
-            すべての NaN を埋めた ``bg_only`` (float64)。
+            ``bg_only`` with the interior NaNs filled (float64). Positions
+            beyond the first/last valid sample of their line stay NaN.
+            内側の NaN を埋めた ``bg_only`` (float64)。各ラインの最初/最後の
+            有効サンプルより外側の位置は NaN のまま残る。
 
         Notes
         -----
-        Per line: interior NaNs are filled by the pandas spline of the given
-        order (falling back to linear, then nearest, when there are too few
-        valid points); leading/trailing runs that pandas leaves NaN (its
-        constant-extrapolation region) are overwritten by a linear
-        extrapolation through the two nearest valid samples. A fully-NaN
-        line (no valid samples at all) is left as zeros.
-        各ラインで、内側の NaN は指定 order の pandas スプライン (有効点が
-        少ない場合は線形→最近傍へフォールバック) で埋め、pandas が NaN の
-        まま残す先頭/末尾区間 (定数外挿域) は最近傍 2 有効サンプルを通る
-        線形外挿で上書きする。有効サンプルが皆無のラインは 0 のまま残す。
+        Per line, NaNs are filled by the pandas spline of the given order,
+        falling back to linear when there are too few valid points, and the
+        result is then restricted to the span between the first and the last
+        valid sample. Outside that span a line carries background data on one
+        side only, so anything a 1D method puts there is an extrapolation
+        fitted to that one line, and its error is uncorrelated between
+        neighboring lines. Returning NaN lets the caller fill those runs from
+        the neighboring lines instead, which is what keeps the estimate free
+        of per-line stripes; see `_call_spline1d`.
+        各ラインの NaN は指定 order の pandas スプライン (有効点が少ない場合は
+        線形へフォールバック) で埋め、その結果を最初と最後の有効サンプルの間に
+        限定する。この範囲の外側はラインの片側にしか背景データが無いため、
+        1 次元手法が入れる値はそのライン単独で当てた外挿であり、誤差は隣接
+        ラインと無相関になる。NaN を返すことで、その区間を隣接ラインから
+        埋める判断を呼び出し側に委ねる。これが推定値をライン単位の縞から
+        守っている (`_call_spline1d` 参照)。
+
+        A line with fewer than two valid samples is returned unchanged.
+        有効サンプルが 2 点未満のラインはそのまま返す。
+
         """
         import pandas as pd
 
@@ -1120,23 +1192,18 @@ class BGCalibrator:
             line = work[:, c]
             valid = ~np.isnan(line)
             n_valid = int(valid.sum())
-            if n_valid == 0:
-                # No information on this line; leave as zeros to avoid NaN
-                # propagating into savgol/subtraction.
-                # 情報なし。NaN が savgol/減算に伝播しないよう 0 のまま残す。
-                out[:, c] = 0.0
-                continue
-            if n_valid == 1:
-                # Single sample: constant is the only sensible fill.
-                # 1 点のみ: 定数で埋めるしかない。
-                out[:, c] = line[valid][0]
+            if n_valid < 2:
+                # Nothing to interpolate along this line. Its valid sample, if
+                # any, is left in place and the rest stays NaN for the caller.
+                # このラインには補間の材料が無い。有効サンプルがあればそのまま
+                # 残し、残りは NaN のまま呼び出し側に委ねる。
                 continue
 
-            # Interior interpolation via pandas. Choose a method that the
-            # available number of points can support: a spline of order k
-            # needs at least k+1 points; otherwise degrade gracefully.
-            # 内側補間は pandas で行う。点数が order を満たさない場合は緩やかに
-            # 劣化させる (order k のスプラインには最低 k+1 点必要)。
+            # Choose a method that the available number of points can support:
+            # a spline of order k needs at least k+1 points; otherwise degrade
+            # gracefully.
+            # 点数が order を満たさない場合は緩やかに劣化させる
+            # (order k のスプラインには最低 k+1 点必要)。
             s = pd.Series(line)
             if n_valid >= order + 1 and order >= 2:
                 filled = s.interpolate(method='spline', order=order,
@@ -1153,36 +1220,39 @@ class BGCalibrator:
             # ``copy=True`` で書き込み可能配列を保証する。
             filled = filled.to_numpy(copy=True)
 
-            # pandas leaves leading/trailing NaNs as the boundary value
-            # (constant extrapolation). Replace those runs with a linear
-            # extrapolation through the two nearest valid samples so a fiber
-            # reaching the line end does not bias the background.
-            # pandas は先頭/末尾の NaN を端の値 (定数外挿) で埋める。これらの
-            # 区間を最近傍 2 有効サンプルを通る線形外挿で置き換え、ラインの端に
-            # かかるファイバーが背景を歪めないようにする。
+            # Replace whatever pandas produced outside the valid span. Both
+            # branches extrapolate a *shape* there - the spline branch its own
+            # fit (scipy ``ext=0``), the linear branch a constant at the last
+            # sample - fitted to one line, so the error grows with the run
+            # length and is uncorrelated between neighboring lines: each line
+            # paints its own band. Hold the mean of that line's nearest
+            # ``end_window`` background samples instead. On a detrended image
+            # the remaining per-line quantity is essentially the scan-line
+            # offset, which is constant along the line, so holding a level
+            # estimates it without extrapolating a slope, and averaging
+            # ``end_window`` samples keeps the pixel noise out of that level.
+            # 有効範囲の外側に pandas が置いた値は差し替える。両分岐ともそこへ
+            # *形* を外挿しており (スプライン分岐は自身のフィット、scipy
+            # ``ext=0``。線形分岐は最終サンプルでの定数)、1 ライン単独の当てはめ
+            # なので誤差は区間長とともに増え、隣接ラインとは無相関になる。結果
+            # として各ラインが自前の帯を描く。代わりに、そのライン自身の最近傍
+            # ``end_window`` 個の背景サンプルの平均を保持する。デトレンド後に
+            # ライン固有として残る量は実質的に走査ラインのオフセットであり、
+            # ライン方向に一定なので、水準を保持すれば傾きを外挿せずにこれを
+            # 推定できる。``end_window`` 個を平均するのは、その水準に画素ノイズ
+            # を持ち込まないためである。
             valid_pos = np.flatnonzero(valid)
             first, last = valid_pos[0], valid_pos[-1]
+            k = max(1, min(end_window, n_valid))
+            filled[:first] = np.mean(line[valid_pos[:k]])
+            filled[last + 1:] = np.mean(line[valid_pos[-k:]])
 
-            # Leading run [0, first): extrapolate from the first two valids.
-            # 先頭区間 [0, first): 最初の 2 有効点から外挿。
-            if first > 0:
-                x0, x1 = idx[valid_pos[0]], idx[valid_pos[1]]
-                y0, y1 = line[valid_pos[0]], line[valid_pos[1]]
-                slope = (y1 - y0) / (x1 - x0)
-                filled[:first] = y0 + slope * (idx[:first] - x0)
-
-            # Trailing run (last, n): extrapolate from the last two valids.
-            # 末尾区間 (last, n): 最後の 2 有効点から外挿。
-            if last < n - 1:
-                x0, x1 = idx[valid_pos[-2]], idx[valid_pos[-1]]
-                y0, y1 = line[valid_pos[-2]], line[valid_pos[-1]]
-                slope = (y1 - y0) / (x1 - x0)
-                filled[last + 1:] = y1 + slope * (idx[last + 1:] - x1)
-
-            # Guard against any residual NaN (e.g. pathological pandas output).
-            # 残留 NaN への保険 (pandas の病的出力など)。
-            if np.isnan(filled).any():
-                still = np.isnan(filled)
+            # Guard against any residual NaN inside the span (e.g. pathological
+            # pandas output).
+            # 有効範囲内に NaN が残った場合の保険 (pandas の病的出力など)。
+            span = slice(first, last + 1)
+            if np.isnan(filled[span]).any():
+                still = np.flatnonzero(np.isnan(filled[span])) + first
                 filled[still] = np.interp(idx[still], idx[valid_pos], line[valid_pos])
 
             out[:, c] = filled
