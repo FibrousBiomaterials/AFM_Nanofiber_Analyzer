@@ -3118,7 +3118,38 @@ class SettingsDialog(tk.Toplevel):
         """
         dsc = ttk.Label(frm, text=desc, foreground="#444", justify="left")
         dsc.pack(side="left", padx=8, fill="x", expand=True)
+        # Same clipping problem as the background-method descriptions: with no
+        # wrap length the tail of the sentence is cut at the row edge and there
+        # is no tooltip to recover it from. The row leaves the label about
+        # 540 px, which the translations exceed - 13 of the 28 English rows
+        # overflow - so wrap to the width the row actually grants.
+        # 背景推定方式の説明と同じ切り落とし問題が起きる。折り返し幅を指定
+        # しないと文末が行の右端で切れ、しかもツールチップが無いので復元でき
+        # ない。行がラベルに与える幅は約 540 px で、翻訳はこれを超える（英語は
+        # 28 行中 13 行が超過）。よって行が実際に割り当てた幅で折り返す。
+        dsc._wrap_at = 0
+        dsc.bind("<Configure>", self._on_row_desc_resize)
         self._param_rows[key] = {"label": lbl, "input": input_widget, "desc": dsc}
+
+    def _on_row_desc_resize(self, event) -> None:
+        """
+        Re-wrap one parameter row's description to the width the row grants it.
+        パラメータ行の説明を、行が割り当てた幅に合わせて折り返し直す。
+
+        Notes
+        -----
+        Guarded on an actual width change for the same reason as
+        `_on_bg_desc_resize`: setting `wraplength` changes the label's height,
+        which relays out the row and re-fires `<Configure>`.
+        `_on_bg_desc_resize` と同じ理由で、幅が実際に変化したときだけ再設定
+        する。`wraplength` を変えるとラベルの高さが変わって行が再配置され、
+        `<Configure>` が再発火するためである。
+        """
+        label = event.widget
+        if event.width <= 1 or getattr(label, "_wrap_at", 0) == event.width:
+            return
+        label._wrap_at = event.width
+        label.configure(wraplength=event.width)
 
     def _add_field(self, parent_lf: ttk.LabelFrame, key: str, label: str,
                    desc: str, width: int = 12) -> None:
@@ -3227,14 +3258,29 @@ class SettingsDialog(tk.Toplevel):
         self._bg_method_descs = {
             "trendfill": _("trendfill : 勾配リッジ検出 + 2次トレンド除去 + 最近傍充填。勾配で繊維マスクを作り、試料傾斜を2次曲面で除いてから穴を埋める。汎用だがリッジ検出パラメータの調整が必要（1.0.0 では 'inpaint' という名前）"),
             "tophat":   _("tophat : 形態学的opening。tophat_se_size より細い明るい構造を前景として除去。マスク不要・高速・一様性に優れる"),
-            "spline1d": _("spline1d : 行/列ごとの1D B-スプライン補間（オリジナル方式）。ライン間オフセット（縞）ノイズに有効。spline1d_axis で縞の向きを選択"),
+            "spline1d": _("spline1d : 2次トレンド除去 + 行/列ごとの1D B-スプライン補間。縞ノイズに有効。ライン端は外挿せず自ラインの水準を保持。spline1d_axis で縞の向きを選択"),
             "spline2d": _("spline2d : 2D B-スプラインフィット。背景を行毎でなく2D問題として一括で解く。大局的に滑らかな背景に向く"),
         }
         bg_desc_frame = ttk.Frame(lf_bg)
         bg_desc_frame.pack(fill="x", padx=6, pady=(0, 6))
-        for _m in ["trendfill", "tophat", "spline1d", "spline2d"]:
+        # A ttk.Label without `wraplength` is clipped at the frame edge and the
+        # tail of the sentence is lost with no indication. These descriptions
+        # are long, and the translations are longer still - the English ones
+        # need up to twice the width of the Japanese source - so the wrap
+        # length has to follow the frame rather than be a fixed constant.
+        # `wraplength` を指定しない ttk.Label は枠の右端で切り落とされ、文の
+        # 末尾が何の表示もなく失われる。この説明文は長いうえ、翻訳はさらに
+        # 長い（英語は日本語原文の最大 2 倍の幅を要する）。したがって折り返し
+        # 幅は固定値ではなく枠幅に追随させる。
+        self._bg_desc_labels = [
             ttk.Label(bg_desc_frame, text=self._bg_method_descs[_m],
-                      foreground="#555", justify="left").pack(anchor="w")
+                      foreground="#555", justify="left")
+            for _m in ["trendfill", "tophat", "spline1d", "spline2d"]
+        ]
+        for _lb in self._bg_desc_labels:
+            _lb.pack(anchor="w", fill="x")
+        self._bg_desc_wrap = 0
+        bg_desc_frame.bind("<Configure>", self._on_bg_desc_resize)
 
         # --- Parameters are ordered by method: trendfill, tophat, spline1d, spline2d. ---
         self._add_fields(lf_bg, [
@@ -3266,7 +3312,7 @@ class SettingsDialog(tk.Toplevel):
              _("[trendfill, spline1d, spline2d時] [1,-1]の急変が一定以上離れている場合に構造とみなすしきい値"), {}),
             # Smoothing parameters shared by trendfill, tophat, and spline1d.
             ("field", "savgol_window", "savgol_window",
-             _("[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）"), {"width": 10}),
+             _("[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）。spline1d ではライン端に保持する水準の平均本数も兼ねる"), {"width": 10}),
             ("field", "savgol_polyorder", "savgol_polyorder",
              _("[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの多項式次数"), {"width": 10}),
             # Post-processing shared by all methods.
@@ -3279,6 +3325,27 @@ class SettingsDialog(tk.Toplevel):
              _("[trendfill, spline1d, spline2d時] dilation前にマスクから除外する連結成分の最小面積") + " (px)。"
              + _("1でフィルタ無効"), {"width": 10}),
         ])
+
+    def _on_bg_desc_resize(self, event) -> None:
+        """
+        Re-wrap the background-method descriptions to the frame width.
+        背景推定方式の説明文を枠幅に合わせて折り返し直す。
+
+        Notes
+        -----
+        Only an actual width change triggers a reconfigure. Setting
+        `wraplength` changes each label's height, which resizes the frame and
+        fires `<Configure>` again; without the guard that feedback keeps the
+        dialog busy re-laying out at a constant width.
+        幅が実際に変化したときだけ再設定する。`wraplength` を変えると各ラベル
+        の高さが変わって枠が再配置され、`<Configure>` が再発火する。ガードが
+        ないと、幅が変わっていないのにこの連鎖が続いてしまう。
+        """
+        if event.width == self._bg_desc_wrap or event.width <= 1:
+            return
+        self._bg_desc_wrap = event.width
+        for label in self._bg_desc_labels:
+            label.configure(wraplength=event.width)
 
     def _build_param_sections(self, plf: ttk.LabelFrame) -> None:
         """

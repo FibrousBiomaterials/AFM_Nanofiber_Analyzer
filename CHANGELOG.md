@@ -82,6 +82,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- GUI01's settings dialog no longer truncates its parameter descriptions. The
+  description labels had no wrap length, so any sentence wider than the row cut
+  off at the frame edge with no ellipsis and no tooltip to recover it from.
+  Translations are the longer ones: 13 of the 28 English parameter rows and two
+  of the four English background-method descriptions were losing their tails,
+  including the `trendfill` note that it was called `inpaint` in 1.0.0. The
+  labels now wrap to the width their row grants them.
 - `spline1d` no longer paints horizontal stripes that are absent from the raw
   scan. **Measured lengths, heights, and fiber counts change from this
   version** for `bg_method="spline1d"`; `trendfill`, `tophat`, and `spline2d`
