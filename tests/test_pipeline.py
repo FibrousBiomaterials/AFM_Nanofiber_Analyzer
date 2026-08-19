@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -89,6 +90,38 @@ def test_outputs_written_and_recognized(pipeline_result):
 
     ok, missing = existing_min_set(stem)
     assert ok, f"missing bundle keys: {missing}"
+
+
+def test_process_file_under_non_ascii_path(pipeline_result, synthetic_fiber_txt, tmp_path):
+    """A non-ASCII input and output path produce the same analysis as an ASCII one.
+
+    Regression test: the bundle writer failed outright under a Japanese
+    directory, and every reader failed on the resulting path, so GUI01 could
+    not save and `existing_min_set` reported an analyzed input as unanalyzed.
+    """
+    ascii_result, _events = pipeline_result
+
+    work_dir = tmp_path / "日本語入力"
+    work_dir.mkdir()
+    txt_path = str(work_dir / "試料01.txt")
+    shutil.copyfile(synthetic_fiber_txt, txt_path)
+
+    result = process_file(txt_path, FAST_PARAMS, output_dir=str(work_dir))
+
+    assert os.path.isfile(result.bundle_path)
+    assert os.path.isfile(result.param_path)
+
+    # The analyzed-state check must recognize the bundle; it swallows read
+    # failures as "all keys missing", which is how the GUIs used to show an
+    # analyzed input as unanalyzed.
+    ok, missing = existing_min_set(os.path.splitext(result.bundle_path)[0])
+    assert ok, f"missing bundle keys: {missing}"
+
+    ascii_arrays = load_bundle(ascii_result.bundle_path)
+    arrays = load_bundle(result.bundle_path)
+    assert set(arrays) == set(ascii_arrays)
+    for key, value in arrays.items():
+        np.testing.assert_array_equal(value, ascii_arrays[key], err_msg=key)
 
 
 def test_save_failure_preserves_previous_outputs(synthetic_fiber_txt, tmp_path, monkeypatch):
