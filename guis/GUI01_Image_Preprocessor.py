@@ -3294,12 +3294,12 @@ class SettingsDialog(tk.Toplevel):
             ("field", "threshold_factor", "threshold_factor",
              _("[trendfill, spline1d時] 背景範囲（中心±sigma*係数）を決める係数"), {}),
             ("field", "fiber_detect_factor", "fiber_detect_factor",
-             _("[trendfill, spline1d時] [1,0,-1]の急変を繊維として除外する距離しきい値"), {}),
+             _("[trendfill, spline1d時] [1,0,-1]の急変を繊維として除外する距離しきい値") + " (px)", {}),
             ("field", "noise_detect_factor", "noise_detect_factor",
-             _("[trendfill, spline1d時] [1,-1]の急変が一定以上離れている場合に構造とみなすしきい値"), {}),
+             _("[trendfill, spline1d時] [1,-1]の急変が一定以上離れている場合に構造とみなすしきい値") + " (px)", {}),
             # Smoothing parameters shared by trendfill, tophat, and spline1d.
             ("field", "savgol_window", "savgol_window",
-             _("[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）。spline1d ではライン端に保持する水準の平均本数も兼ねる"), {"width": 10}),
+             _("[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）。spline1d ではライン端に保持する水準の平均本数も兼ねる") + " (px)", {"width": 10}),
             ("field", "savgol_polyorder", "savgol_polyorder",
              _("[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの多項式次数"), {"width": 10}),
             # Post-processing shared by all methods.
@@ -3309,7 +3309,7 @@ class SettingsDialog(tk.Toplevel):
             ("field", "mask_dilation", "mask_dilation",
              _("[trendfill, spline1d時] 繊維マスクを膨張させる画素数（0でdilationなし）"), {"width": 10}),
             ("field", "min_mask_component_area", "min_mask_component_area",
-             _("[trendfill, spline1d時] dilation前にマスクから除外する連結成分の最小面積") + " (px)。"
+             _("[trendfill, spline1d時] dilation前にマスクから除外する連結成分の最小面積") + " (px^2)。"
              + _("1でフィルタ無効"), {"width": 10}),
         ])
 
@@ -3342,24 +3342,33 @@ class SettingsDialog(tk.Toplevel):
         # Built at call time so gettext follows the active language (see _add_fields).
         sections = [
             (_("Segmenter"), [
-                ("field", "wsize_localbin", "wsize_localbin", _("局所しきい値の計算に使う窓サイズ"), {"width": 10}),
-                ("field", "global_threshold", "global_threshold", _("全体一律の2値化しきい値"), {}),
-                ("field", "area_min", "area_min", _("小さい連結成分を消す面積しきい値"), {"width": 10}),
-                ("field", "area_min_connecting", "area_min_connecting", _("つながり成分を除くときの面積しきい値"), {"width": 10}),
+                ("field", "wsize_localbin", "wsize_localbin", _("局所しきい値の計算に使う窓サイズ") + " (px)", {"width": 10}),
+                ("field", "global_threshold", "global_threshold", _("全体一律の2値化しきい値") + " (nm)", {}),
+                ("field", "area_min", "area_min", _("小さい連結成分を消す面積しきい値") + " (px^2)", {"width": 10}),
+                ("field", "area_min_connecting", "area_min_connecting", _("つながり成分を除くときの面積しきい値") + " (px^2)", {"width": 10}),
                 ("bool", "apply_no_connecting", "apply_no_connecting", _("つながり除去を実行するかどうか"), {}),
-                ("field", "h_length", "h_length", _("線分検出で線分とみなす最小長さ"), {"width": 10}),
+                # h_length is shown as (px) because the filter that actually drops
+                # components compares it against the bounding-box max(width, height).
+                # The same value is also passed to `hough_line_peaks(threshold=...)`
+                # as a vote count, which is a line-length proxy rather than a length;
+                # see `Segmenter._remove_nonlinear_objects`.
+                # h_length を (px) と表示するのは、成分を実際に落とす判定が外接矩形の
+                # max(width, height) との比較だからである。同じ値は
+                # `hough_line_peaks(threshold=...)` へ投票数としても渡されるが、
+                # そちらは長さそのものではなく長さの代理指標である。
+                ("field", "h_length", "h_length", _("線分検出で線分とみなす最小長さ") + " (px)", {"width": 10}),
                 ("field", "h_sratio", "h_sratio", _("線っぽさ") + " (s_ratio) " + _("のしきい値"), {}),
-                ("field", "low_threshold", "low_threshold", _("高さが低い成分を消すしきい値"), {}),
+                ("field", "low_threshold", "low_threshold", _("高さが低い成分を消すしきい値") + " (nm)", {}),
             ]),
             (_("Skeletonizer"), [
-                ("field", "bp_height", "bp_height", _("分岐点が低い高さか判定するしきい値"), {}),
-                ("field", "branch_length", "branch_length", _("枝とみなす短い線を追跡する最大長"), {"width": 10}),
-                ("field", "min_area", "min_area", _("小さすぎる線分（ノイズ）を削除する面積しきい値"), {"width": 10}),
-                ("field", "max_loop_area", "max_loop_area", _("骨格上の小ループ（マスクの穴由来の二重線）を1本に潰す最大囲み面積。0で無効"), {"width": 10}),
+                ("field", "bp_height", "bp_height", _("分岐点が低い高さか判定するしきい値") + " (nm)", {}),
+                ("field", "branch_length", "branch_length", _("枝とみなす短い線を追跡する最大長") + " (px)", {"width": 10}),
+                ("field", "min_area", "min_area", _("小さすぎる線分（ノイズ）を削除する面積しきい値") + " (px^2)", {"width": 10}),
+                ("field", "max_loop_area", "max_loop_area", _("骨格上の小ループ（マスクの穴由来の二重線）を1本に潰す最大囲み面積。0で無効") + " (px^2)", {"width": 10}),
                 ("field", "spur_length", "spur_length", _("高さに関係なく除去する行き止まりの短い枝の最大長。画素単位のため解像度に応じて調整。0で無効"), {"width": 10}),
             ]),
             (_("Kinkdetector"), [
-                ("field", "kinkangle_deg", "kinkangle_deg", _("折れ線近似の3点のなす角がこの値以下ならkink判定"), {}),
+                ("field", "kinkangle_deg", "kinkangle_deg", _("折れ線近似の3点のなす角がこの値以下ならkink判定") + " (degree)", {}),
             ]),
         ]
         for title, specs in sections:
