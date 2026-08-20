@@ -63,69 +63,6 @@
         1023
       ]
     },
-    "spline2d::binarized": {
-      "dtype": "bool",
-      "sha256": "0d0b196b5fd8ddde755f4833d9a682b62afe793fe159ab85224b4705c5bde9e5",
-      "shape": [
-        1023,
-        1023
-      ]
-    },
-    "spline2d::bp": {
-      "dtype": "uint8",
-      "sha256": "7b938e821b27cd296cd077ebd9b693ae7c48147fbfc0ab07d60c81ae97f21f22",
-      "shape": [
-        1023,
-        1023
-      ]
-    },
-    "spline2d::calibrated": {
-      "dtype": "float64",
-      "sha256": "08578af1370349b262642cae9dbf6a3f2c6ff4104e7a1b005d879adeb687a578",
-      "shape": [
-        1023,
-        1023
-      ]
-    },
-    "spline2d::dp": {
-      "dtype": "int64",
-      "sha256": "887cf426bf525d226cee9c94cc4cf5a285016de5bf759a153207ee8df71758cf",
-      "shape": [
-        2,
-        63
-      ]
-    },
-    "spline2d::ep": {
-      "dtype": "uint8",
-      "sha256": "179b92956f61199563ea3826db87f0deb15837ced9294285707f816a7675df9d",
-      "shape": [
-        1023,
-        1023
-      ]
-    },
-    "spline2d::ka": {
-      "dtype": "float64",
-      "sha256": "3ab0b30dba600c1f5ad3a9a8f6d269a23bcc83b39ee1bb8cf2562cff373fa7b9",
-      "shape": [
-        16
-      ]
-    },
-    "spline2d::kp": {
-      "dtype": "int64",
-      "sha256": "b631bcd0b6947d2df9ac268c10948480c3f026c39ec98b11efd5d0263ba3c95f",
-      "shape": [
-        2,
-        16
-      ]
-    },
-    "spline2d::skeletonized": {
-      "dtype": "uint8",
-      "sha256": "b1e317fce79b36cd9534ebe3391a735b4e50c30bb59ee6b58e66255750a481a0",
-      "shape": [
-        1023,
-        1023
-      ]
-    },
     "tophat::binarized": {
       "dtype": "bool",
       "sha256": "182f1726193f835eed2b36997342aa47a98c6ad7dc338e1de06ed449be436327",
@@ -312,69 +249,6 @@
     "spline1d::skeletonized": {
       "dtype": "uint8",
       "sha256": "cfa07b38b05b099e9c01027d917046a9c2bd117c9a02eeface3a2bd58c776926",
-      "shape": [
-        1023,
-        1023
-      ]
-    },
-    "spline2d::binarized": {
-      "dtype": "bool",
-      "sha256": "810388675b550257f57d89524eeef79c49ab20216596c2d9b07563c6c36cd28c",
-      "shape": [
-        1023,
-        1023
-      ]
-    },
-    "spline2d::bp": {
-      "dtype": "uint8",
-      "sha256": "ae34d054a187958b902964a5e8e8eec4af39a0f22e09bcaaf15ee6b1111571a6",
-      "shape": [
-        1023,
-        1023
-      ]
-    },
-    "spline2d::calibrated": {
-      "dtype": "float64",
-      "sha256": "3a6e94fe64c5fdebacc4db26122debf96d6fcefe798f10cac3c9a3b7970e9fb7",
-      "shape": [
-        1023,
-        1023
-      ]
-    },
-    "spline2d::dp": {
-      "dtype": "int64",
-      "sha256": "aa8bb48499714a374f009ebd73b7b3495f0ccc47705a18c716ce608a40e66cf6",
-      "shape": [
-        2,
-        1012
-      ]
-    },
-    "spline2d::ep": {
-      "dtype": "uint8",
-      "sha256": "a0fd4cd5ecace9b2373b52ece50c8f200d5467ac5416a557e70c20ec68007f1a",
-      "shape": [
-        1023,
-        1023
-      ]
-    },
-    "spline2d::ka": {
-      "dtype": "float64",
-      "sha256": "86a25ffc3f6163dc0bf2bd21e275553d90eda1ec25cb0c05358a9263e9654279",
-      "shape": [
-        220
-      ]
-    },
-    "spline2d::kp": {
-      "dtype": "int64",
-      "sha256": "f505eafbd176c56d0b12515e1229353bbe6f9325923ce9b557d570b03dfd08b1",
-      "shape": [
-        2,
-        220
-      ]
-    },
-    "spline2d::skeletonized": {
-      "dtype": "uint8",
-      "sha256": "71beb65e75aacc5ef06ae57779991859ec2eeb2e0f55a0e058b8a5db3924ce97",
       "shape": [
         1023,
         1023

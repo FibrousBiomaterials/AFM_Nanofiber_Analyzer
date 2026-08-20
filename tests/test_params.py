@@ -9,7 +9,7 @@ from dataclasses import asdict
 
 import pytest
 
-from lib.bg_calibrator import BGCalibrator
+from lib.bg_calibrator import BG_METHOD_REMOVED, BGCalibrator
 from lib.pipeline import (
     ProcParams, canonical_bg_method, merge_params_dict, process_file, validate_params,
 )
@@ -24,7 +24,6 @@ from lib.pipeline import (
 EXPECTED_FIELDS = {
     # Background calibration.
     "bg_method", "tophat_se_size", "spline1d_axis", "spline1d_degree",
-    "spline2d_degree", "spline2d_subsample", "spline2d_smoothing",
     "threshold_factor", "fiber_detect_factor", "noise_detect_factor",
     "savgol_window", "savgol_polyorder", "apply_median",
     "mask_dilation", "min_mask_component_area",
@@ -87,7 +86,7 @@ def test_schema_field_names_are_frozen():
 def test_default_params_are_valid():
     """The shipped defaults must pass validation for every background method."""
     assert validate_params(ProcParams()) == []
-    for method in ("trendfill", "tophat", "spline1d", "spline2d"):
+    for method in ("trendfill", "tophat", "spline1d"):
         assert validate_params(ProcParams(bg_method=method)) == []
 
 
@@ -123,6 +122,45 @@ def test_retired_bg_method_alias_still_loads():
     # Built directly with the old value, it must validate the same way.
     assert validate_params(ProcParams(bg_method="inpaint")) == []
     assert BGCalibrator(bg_method="inpaint").bg_method == "trendfill"
+
+
+def test_removed_bg_method_is_rejected_not_substituted():
+    """
+    A `_param.json` selecting the removed `spline2d` stops with an explanation.
+    削除済みの `spline2d` を指す `_param.json` は、説明付きで停止する。
+
+    `"spline2d"` was removed after 1.0.0. Unlike the retired `"inpaint"`
+    spelling it is *not* aliased to a surviving method: silently substituting
+    one would change the numbers the stored parameter file reproduces, so the
+    run must stop and let the user choose a method explicitly.
+    `"spline2d"` は 1.0.0 以降に削除された。廃止綴り `"inpaint"` と違い、
+    生き残った方式へのエイリアスにはしない。黙って置換すると保存済み
+    パラメータファイルが再現する数値が変わるため、実行を止めて利用者に
+    方式を選ばせる必要がある。
+    """
+    assert "spline2d" in BG_METHOD_REMOVED
+    # Not translated away: it must still read as 'spline2d' after canonicalization.
+    assert canonical_bg_method("spline2d") == "spline2d"
+
+    problems = validate_params(ProcParams(bg_method="spline2d"))
+    assert any("bg_method" in p for p in problems)
+
+    with pytest.raises(ValueError, match="spline2d"):
+        BGCalibrator(bg_method="spline2d")
+
+    # Old parameter files also carry the spline2d_* fields; those are simply
+    # reported as unknown keys rather than blocking the merge.
+    d = asdict(ProcParams())
+    d["bg_method"] = "spline2d"
+    d["spline2d_degree"] = 2
+    d["spline2d_subsample"] = 4
+    d["spline2d_smoothing"] = None
+    params, missing, obsolete = merge_params_dict(d)
+    assert params.bg_method == "spline2d"
+    assert missing == []
+    assert set(obsolete) == {
+        "spline2d_degree", "spline2d_subsample", "spline2d_smoothing",
+    }
 
 
 def test_savgol_polyorder_must_be_less_than_window():

@@ -666,7 +666,7 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | Module | Main contents |
 |---|---|
 | `lib/afm_io.py` | Text/CSV AFM loader with automatic header, column, and encoding detection, explicit format override, and layout-consistency verification. |
-| `lib/bg_calibrator.py` | `BGCalibrator`, with `trendfill`, `tophat`, `spline1d`, and `spline2d` background methods (`inpaint` is the retired name for `trendfill` and is still accepted in saved parameter files). |
+| `lib/bg_calibrator.py` | `BGCalibrator`, with `trendfill`, `tophat`, and `spline1d` background methods (`inpaint` is the retired name for `trendfill` and is still accepted in saved parameter files; `spline2d` was removed after 1.0.0). |
 | `lib/bg_calibrator_shimadzu.py` | Compatibility shim keeping the historical `BG_Calibrator_shimadzu` name importable. |
 | `lib/blosc2_io.py` | Blosc2 array storage and `.b2z` TreeStore bundle helpers. |
 | `lib/bundle_schema.py` | Executable `.b2z` contract: required keys, array shapes, value ranges, units, coordinate convention, and format version, with `validate_bundle` enforcing them at write and load time. |

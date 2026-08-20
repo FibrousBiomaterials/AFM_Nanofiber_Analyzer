@@ -650,7 +650,7 @@ Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにして
 | モジュール | 主な内容 |
 |---|---|
 | `lib/afm_io.py` | ヘッダー、列数、エンコーディングを自動検出する AFM テキスト / CSV ローダー。形式の明示指定とレイアウト整合検証に対応。 |
-| `lib/bg_calibrator.py` | `trendfill`、`tophat`、`spline1d`、`spline2d` 背景補正方式を持つ `BGCalibrator`。（`inpaint` は `trendfill` の旧名で、保存済みパラメータファイルでは引き続き受け付けられる。） |
+| `lib/bg_calibrator.py` | `trendfill`、`tophat`、`spline1d` 背景補正方式を持つ `BGCalibrator`。（`inpaint` は `trendfill` の旧名で、保存済みパラメータファイルでは引き続き受け付けられる。`spline2d` は 1.0.0 より後に削除された。） |
 | `lib/bg_calibrator_shimadzu.py` | 従来名 `BG_Calibrator_shimadzu` を import 可能に保つ互換シム。 |
 | `lib/blosc2_io.py` | Blosc2 配列保存と `.b2z` TreeStore バンドルの入出力ヘルパー。 |
 | `lib/bundle_schema.py` | `.b2z` 契約の実行可能スキーマ。必須キー、配列形状、値域、単位、座標規約、形式バージョンを定義し、`validate_bundle` が書き込み時と読み込み時に強制する。 |

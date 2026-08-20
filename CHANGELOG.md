@@ -45,6 +45,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `validate_params`, and normalized by `BGCalibrator`. Only the new name is
   offered in the GUI01 dropdown.
 
+### Removed
+
+- The `spline2d` background-estimation method. On every test image it left the
+  largest background residual of the four methods — 1.3 to 6.1 nm peak-to-peak
+  across the scan-line profile, against 0.02 to 0.4 nm for `trendfill` and 0.2
+  to 0.8 nm for `tophat` — which shows up as heavy horizontal banding in the
+  calibrated image. The cause was its smoothing factor: `spline2d_smoothing`
+  defaulted to `None`, which hands SciPy's `SmoothBivariateSpline` the
+  heuristic `s = <number of fit points>`. That heuristic assumes the data has
+  unit standard deviation, so for AFM heights in nm it stops fitting as soon as
+  the residual reaches 1 nm RMS — on a 1023x1023 scan the resulting surface had
+  one interior knot along y and none along x, i.e. it subtracted a plane and
+  nothing else. Neither GUI-exposed parameter could correct this
+  (`spline2d_subsample` cancels out of the criterion, and `spline2d_degree`
+  only raises the order of that single patch), and `spline2d_smoothing` itself
+  was deliberately hidden from the GUI. Setting it to a statistically
+  appropriate value merely matched `trendfill` at roughly 20x the runtime, and
+  slightly below that value the fit diverged by six orders of magnitude behind
+  a FITPACK warning the code did not check. Use `trendfill`, or `spline1d` for
+  line-noise-dominated scans. **Results change from this version for anyone who
+  used `bg_method="spline2d"`**: a stored `_param.json` selecting it now stops
+  with an explanation rather than silently running a different method, since
+  substituting one would change the numbers that file reproduces. The
+  `spline2d_degree`, `spline2d_subsample`, and `spline2d_smoothing` fields are
+  gone from `ProcParams`; an older parameter file carrying them still loads,
+  with those keys reported as unknown. Output for `trendfill`, `tophat`, and
+  `spline1d` is bit-identical to before.
+
 ### Fixed
 
 - `.b2z` bundles can now be written and read under paths containing non-ASCII
