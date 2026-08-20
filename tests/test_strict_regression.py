@@ -69,7 +69,7 @@ SAMPLE_DIRS = ("testdata_tunicateCNF", "testdata_higherplantTOC")
 # guards the spline and tophat code paths, not just the default trendfill.
 # 既定の trendfill だけでなく spline / tophat 経路も厳密ベースラインで守るため、
 # 全背景推定方式を実行する。
-BG_METHODS = ("trendfill", "tophat", "spline1d", "spline2d")
+BG_METHODS = ("trendfill", "tophat", "spline1d")
 
 # Output arrays compared. These are exactly the keys written into the .b2z
 # bundle, i.e. the full analysis output of the pipeline.

@@ -41,7 +41,9 @@ import numpy as np
 # ===== Project libraries =====
 from . import __version__
 from .afm_io import detect_afm_format, load_afm_text, read_scan_size
-from .bg_calibrator import BG_METHOD_NAMES, BGCalibrator, canonical_bg_method
+from .bg_calibrator import (
+    BG_METHOD_NAMES, BG_METHOD_REMOVED, BGCalibrator, canonical_bg_method,
+)
 from .blosc2_io import save_bundle, bundle_has_keys, BUNDLE_EXT
 # The bundle key contract and format version are owned by bundle_schema;
 # re-imported here so existing `pipeline.REQUIRED_BUNDLE_KEYS` users keep working.
@@ -77,15 +79,6 @@ class ProcParams:
     spline1d_degree
         Spline degree used by `spline1d`.
         `spline1d` で用いるスプライン次数。
-    spline2d_degree
-        Spline degree used by `spline2d`.
-        `spline2d` で用いるスプライン次数。
-    spline2d_subsample
-        Pixel subsampling factor for the `spline2d` fit.
-        `spline2d` フィット用の画素サブサンプル係数。
-    spline2d_smoothing
-        Smoothing factor for `spline2d`; kept out of the GUI by default.
-        `spline2d` の平滑化係数。既定では GUI に露出しない。
     threshold_factor
         Sigma multiplier used to define the background range.
         背景範囲を定める sigma 係数。
@@ -174,13 +167,10 @@ class ProcParams:
     """
 
     # BGCalibrator parameters.
-    bg_method: str = "trendfill"           # Background method: trendfill, tophat, spline1d, or spline2d ("inpaint" is the retired name for trendfill).
+    bg_method: str = "trendfill"           # Background method: trendfill, tophat, or spline1d ("inpaint" is the retired name for trendfill; "spline2d" was removed after 1.0.0).
     tophat_se_size: int = 25               # Structuring-element diameter for tophat, in pixels.
     spline1d_axis: str = "x"               # Axis used for the one-dimensional spline interpolation.
     spline1d_degree: int = 2               # Spline degree for spline1d; practical range is 1 to 3.
-    spline2d_degree: int = 2               # Spline degree for spline2d; practical range is 1 to 3.
-    spline2d_subsample: int = 4            # Pixel subsampling factor per axis for spline2d.
-    spline2d_smoothing: Optional[float] = None  # Hidden advanced spline2d smoothing value; None keeps SciPy's default and avoids unstable near-interpolation fits.
     threshold_factor: float = 2.0          # Sigma multiplier for the background range.
     fiber_detect_factor: float = 10.0      # Threshold for treating abrupt height changes as fibers.
     noise_detect_factor: float = 10.0      # Threshold for separating structural change from noise.
@@ -350,7 +340,6 @@ def validate_params(p: ProcParams) -> List[str]:
     - `savgol_polyorder < savgol_window`: required by
       `scipy.signal.savgol_filter`.
     - `wsize_localbin` odd: required by `skimage.filters.threshold_local`.
-    - `spline2d_degree` 1-5: `scipy.interpolate.SmoothBivariateSpline` kx/ky.
     - `spline1d_degree` 1-5: pandas spline interpolation delegates to
       `scipy.interpolate.UnivariateSpline` (k must be 1-5).
     """
@@ -377,22 +366,25 @@ def validate_params(p: ProcParams) -> List[str]:
     # `merge_params_dict`, which translates it.
     # 廃止済みの綴りもここで受け付け、旧値で直接構築した `ProcParams` が、
     # 変換を行う `merge_params_dict` 経由で読み込んだ場合と同じく検証を通るようにする。
-    require(canonical_bg_method(p.bg_method) in BG_METHODS,
-            f"bg_method must be one of {BG_METHODS}, got {p.bg_method!r}")
+    # A removed method gets its own message. `validate_params` runs before
+    # `BGCalibrator.__init__`, so without this branch the caller would only ever
+    # see the generic "must be one of ..." line and never learn why the method
+    # is gone or what to use instead.
+    # 削除済みの方式には専用のメッセージを出す。`validate_params` は
+    # `BGCalibrator.__init__` より先に走るため、この分岐がないと呼び出し側には
+    # 汎用の「must be one of ...」しか届かず、削除理由も代替も分からない。
+    _canonical_bg = canonical_bg_method(p.bg_method)
+    if _canonical_bg in BG_METHOD_REMOVED:
+        problems.append(BG_METHOD_REMOVED[_canonical_bg])
+    else:
+        require(_canonical_bg in BG_METHODS,
+                f"bg_method must be one of {BG_METHODS}, got {p.bg_method!r}")
     require(_intval(p.tophat_se_size) and p.tophat_se_size >= 1,
             f"tophat_se_size must be a positive int (px), got {p.tophat_se_size!r}")
     require(p.spline1d_axis in SPLINE1D_AXES,
             f"spline1d_axis must be one of {SPLINE1D_AXES}, got {p.spline1d_axis!r}")
     require(_intval(p.spline1d_degree) and 1 <= p.spline1d_degree <= 5,
             f"spline1d_degree must be an int in [1, 5], got {p.spline1d_degree!r}")
-    require(_intval(p.spline2d_degree) and 1 <= p.spline2d_degree <= 5,
-            f"spline2d_degree must be an int in [1, 5], got {p.spline2d_degree!r}")
-    require(_intval(p.spline2d_subsample) and p.spline2d_subsample >= 1,
-            f"spline2d_subsample must be a positive int, got {p.spline2d_subsample!r}")
-    require(p.spline2d_smoothing is None
-            or (_num(p.spline2d_smoothing) and p.spline2d_smoothing >= 0),
-            f"spline2d_smoothing must be None or a non-negative number, "
-            f"got {p.spline2d_smoothing!r}")
     for name in ("threshold_factor", "fiber_detect_factor", "noise_detect_factor"):
         value = getattr(p, name)
         require(_num(value) and value > 0,
@@ -523,9 +515,6 @@ def build_stages(p: ProcParams) -> PipelineStages:
         tophat_se_size=p.tophat_se_size,
         spline1d_axis=p.spline1d_axis,
         spline1d_degree=p.spline1d_degree,
-        spline2d_degree=p.spline2d_degree,
-        spline2d_subsample=p.spline2d_subsample,
-        spline2d_smoothing=p.spline2d_smoothing,
         threshold_factor=p.threshold_factor,
         fiber_detect_factor=p.fiber_detect_factor,
         noise_detect_factor=p.noise_detect_factor,

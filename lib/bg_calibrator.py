@@ -24,14 +24,14 @@ class name remain available through the ``bg_calibrator_shimadzu`` shim.
 
 import numpy as np
 import cv2
-from scipy import interpolate, signal
+from scipy import signal
 from scipy.ndimage import distance_transform_edt
 
 from .processed_image import ProcessedImage
 
 # Background-estimation methods, in the spelling written to `_param.json`.
 # 背景推定方式の一覧。`_param.json` へ書き出される綴りで保持する。
-BG_METHOD_NAMES = ("trendfill", "tophat", "spline1d", "spline2d")
+BG_METHOD_NAMES = ("trendfill", "tophat", "spline1d")
 
 # Retired spellings mapped to their current name. Parameter files written
 # before the rename record ``"inpaint"``, and re-running an old analysis must
@@ -43,6 +43,26 @@ BG_METHOD_NAMES = ("trendfill", "tophat", "spline1d", "spline2d")
 # 拒否せず読み込み時に変換する。改名の理由は、この方式がもはや inpaint を
 # 行わないためである（実体は 2 次トレンド減算＋最近傍背景の伝播）。
 BG_METHOD_ALIASES = {"inpaint": "trendfill"}
+
+# Methods removed after 1.0.0, mapped to the guidance shown when a stored
+# parameter file still selects one. Unlike `BG_METHOD_ALIASES` these are *not*
+# translated to a surviving method: substituting one silently would change the
+# numbers a saved `_param.json` reproduces, which is a reproducibility break in
+# research software. The run stops instead and the user re-selects a method.
+# 1.0.0 以降に削除された方式と、保存済みパラメータファイルがそれを指していた
+# ときに示す案内の対応表。`BG_METHOD_ALIASES` と違い、生き残った方式へ読み
+# 替えることはしない。黙って置換すると保存済み `_param.json` が再現する数値が
+# 変わり、研究ソフトウェアとしての再現性を損なうためである。実行を止めて
+# 利用者に方式を選び直させる。
+BG_METHOD_REMOVED = {
+    "spline2d": (
+        "bg_method 'spline2d' was removed after 1.0.0. Its tensor-product "
+        "B-spline left the largest background residual of all methods on "
+        "every test image, and the smoothing factor that could have improved "
+        "it was not settable from the GUI. Use 'trendfill', or 'spline1d' for "
+        "line-noise-dominated scans, and re-run the analysis."
+    ),
+}
 
 
 def canonical_bg_method(value: str) -> str:
@@ -103,7 +123,6 @@ class BGCalibrator:
                  savgol_window=51, savgol_polyorder=2, apply_median=True,
                  mask_dilation=3,
                  min_mask_component_area=10, bg_method='trendfill', tophat_se_size=25,
-                 spline2d_degree=2, spline2d_subsample=4, spline2d_smoothing=None,
                  spline1d_axis='y', spline1d_degree=2) -> None:
         """
         Initialize background calibration parameters.
@@ -113,21 +132,21 @@ class BGCalibrator:
         ----------
         threshold_factor : float, optional
             Sigma multiplier used when separating background-like differences.
-            Used when ``bg_method`` is ``'trendfill'`` or ``'spline2d'``.
+            Used when ``bg_method`` is ``'trendfill'`` or ``'spline1d'``.
             背景らしい差分を分離する際に使うシグマ倍率。
-            ``bg_method`` が ``'trendfill'`` または ``'spline2d'`` のときに
+            ``bg_method`` が ``'trendfill'`` または ``'spline1d'`` のときに
             使用される。
         fiber_detect_factor : int, optional
             Maximum inner-gap length for the [1, 0, -1] fiber pattern.
-            Used when ``bg_method`` is ``'trendfill'`` or ``'spline2d'``.
+            Used when ``bg_method`` is ``'trendfill'`` or ``'spline1d'``.
             [1, 0, -1] の繊維パターンで許容する内側ギャップ長の最大値。
-            ``bg_method`` が ``'trendfill'`` または ``'spline2d'`` のときに
+            ``bg_method`` が ``'trendfill'`` または ``'spline1d'`` のときに
             使用される。
         noise_detect_factor : int, optional
             Minimum span for the [1, -1] pattern to avoid tiny noise segments.
-            Used when ``bg_method`` is ``'trendfill'`` or ``'spline2d'``.
+            Used when ``bg_method`` is ``'trendfill'`` or ``'spline1d'``.
             微小ノイズを避けるための [1, -1] パターン最小スパン。
-            ``bg_method`` が ``'trendfill'`` または ``'spline2d'`` のときに
+            ``bg_method`` が ``'trendfill'`` または ``'spline1d'`` のときに
             使用される。
         savgol_window : int
             Window length used by the Savitzky-Golay smoothing filter.
@@ -148,14 +167,14 @@ class BGCalibrator:
             fibers. Larger values exclude more neighboring pixels from the
             background pool. Default is 3. Set to 0 to disable dilation
             (reproduces the original behavior). Used when ``bg_method``
-            is ``'trendfill'`` or ``'spline2d'``.
+            is ``'trendfill'`` or ``'spline1d'``.
             ファイバーマスクを膨張させるピクセル数。
             `_extract_fiber` で検出しきれないファイバー端ピクセルが背景推定に
             混入すると、補間・平滑化でファイバー周辺の背景推定値が過大になり、
             減算後に過剰減算（ファイバー両脇のえぐれ）が生じる。
             値を大きくするほど周辺の背景点も除外される。
             デフォルトは 3。0 を指定するとdilationなし（元の動作）。
-            ``bg_method`` が ``'trendfill'`` または ``'spline2d'`` のときに
+            ``bg_method`` が ``'trendfill'`` または ``'spline1d'`` のときに
             使用される。
         min_mask_component_area : int, optional
             Minimum 8-connected component area (in pixels) kept in the raw
@@ -169,7 +188,7 @@ class BGCalibrator:
             form much larger connected components and are kept. Set to 1
             to disable filtering (reproduces the previous behavior).
             Applied when `mask_dilation > 0` and ``bg_method`` is
-            ``'trendfill'`` or ``'spline2d'``.
+            ``'trendfill'`` or ``'spline1d'``.
             Default is 10.
             dilation 前の生ファイバーマスクから残す 8 連結成分の最小面積
             （ピクセル単位）。`_extract_fiber` の `[1, -1]` リッジパターンが
@@ -180,9 +199,9 @@ class BGCalibrator:
             画像にタイル状・細胞状パターンとして現れる）。本物のファイバーは
             十分大きな連結成分を形成するため残る。1 を指定するとフィルタなし
             （従来動作と一致）。`mask_dilation > 0` かつ ``bg_method`` が
-            ``'trendfill'`` または ``'spline2d'`` のときに適用される。
+            ``'trendfill'`` または ``'spline1d'`` のときに適用される。
             デフォルトは 10。
-        bg_method : {'trendfill', 'tophat', 'spline1d', 'spline2d'}, optional
+        bg_method : {'trendfill', 'tophat', 'spline1d'}, optional
             Background estimation strategy.
 
             ``'trendfill'`` (default): the two-stage approach. Detect
@@ -214,20 +233,6 @@ class BGCalibrator:
             background subtraction than ``'trendfill'`` for fiber-on-substrate
             AFM images.
 
-            ``'spline2d'``: tensor-product bivariate B-spline fitted to
-            background-candidate pixels via
-            ``scipy.interpolate.SmoothBivariateSpline``. Conceptually the
-            2D extension of the legacy ``pandas`` 1D spline interpolation
-            (same polynomial degree by default), but solved as a 2D
-            problem rather than row-by-row. Unlike ``'trendfill'``, the
-            global formulation makes the fit insensitive to local
-            mask-boundary biases, so fiber shoulders that escape detection
-            do not propagate into the background estimate as strongly.
-            Configurable via ``spline2d_degree``, ``spline2d_subsample``
-            and ``spline2d_smoothing``. Requires the trendfill-style fiber
-            mask (computed via ``threshold_factor`` etc.) to identify
-            background-candidate pixels.
-
             ``'spline1d'``: per-line 1D spline interpolation of the
             background-candidate pixels along a single axis, the direct
             revival of the legacy ``pandas`` row/column spline. The
@@ -239,8 +244,8 @@ class BGCalibrator:
             (the common AFM geometry when the fast-scan axis lies along the
             image rows). ``spline1d_axis='x'`` interpolates each row across
             the image instead and targets *vertical* stripes. For such
-            stripe/line noise this per-line approach is often more effective
-            than the globally-coupled ``'spline2d'`` fit. Uses the same
+            stripe/line noise this per-line approach is effective because
+            each scan line keeps its own degree of freedom. Uses the same
             trendfill-style fiber mask (with ``mask_dilation`` and
             ``min_mask_component_area``) to choose background-candidate
             pixels, and the same ``pandas`` spline of order
@@ -286,17 +291,6 @@ class BGCalibrator:
             より高速かつ背景補正の一様性が高い、というのが本リポジトリの
             実証ベンチマーク結果である。
 
-            ``'spline2d'``: ``scipy.interpolate.SmoothBivariateSpline`` で
-            背景候補画素にフィットするテンソル積二変数 B-スプライン。概念的
-            には従来 ``pandas`` の 1D スプライン補間の 2D 拡張 (デフォルト
-            次数も同じ) だが、行毎ではなく 2D 問題として解く。``'trendfill'``
-            と違い、大局的なフィットなのでマスク境界の局所バイアスに鈍感で、
-            ファイバーの肩がマスクをすり抜けても背景推定への影響は小さい。
-            ``spline2d_degree``, ``spline2d_subsample``,
-            ``spline2d_smoothing`` で挙動を制御する。背景候補画素を識別する
-            ために trendfill と同じファイバーマスク (``threshold_factor`` 等
-            で計算) を必要とする。
-
             ``'spline1d'``: 背景候補画素を1軸に沿って行/列ごとに 1D スプライン
             補間する方式で、従来 ``pandas`` の行/列スプラインの正統な復活版。
             ``spline1d_axis`` で除去対象の縞の向きを選ぶ。``'y'`` (デフォルト)
@@ -304,8 +298,8 @@ class BGCalibrator:
             *横縞* (各走査ラインが上下にずれるライン間オフセット。画像の行方向
             が高速走査軸のときに生じる一般的な AFM 形状) を均す。``'x'`` は
             代わりに各行を横方向に補間し *縦縞* を対象とする。こうした縞/ライン
-            ノイズに対しては、本方式は大局結合する ``'spline2d'`` より有効な
-            ことが多い。背景候補画素の選択には trendfill と同じファイバーマスク
+            ノイズに対しては、走査ラインごとに独立した自由度を残せる本方式が
+            有効である。背景候補画素の選択には trendfill と同じファイバーマスク
             (``mask_dilation``, ``min_mask_component_area`` 込み) を使い、
             補間にはデトレンドした写しへ order ``spline1d_degree`` の
             ``pandas`` スプラインを適用する。各ラインの最初/最後の背景画素
@@ -331,60 +325,6 @@ class BGCalibrator:
             2〜3 倍)。小さすぎるとファイバーが背景に残り、大きすぎると本来
             背景として残すべき基板の局所構造も削られる。奇数のみ有効で、
             偶数を渡した場合は黙って +1 される。デフォルトは 25。
-        spline2d_degree : int, optional
-            Polynomial degree of the tensor-product B-spline used when
-            ``bg_method='spline2d'``. Same degree is used along both axes
-            (``kx = ky = spline2d_degree``). The legacy 1D ``pandas``
-            spline used order 2, so 2 is the default here for the closest
-            match. Common practical range is 1 (bilinear) to 3 (bicubic);
-            values >= 4 are accepted by SciPy but rarely useful for AFM
-            backgrounds. Must be in [1, 5].
-            ``bg_method='spline2d'`` のときのテンソル積 B-スプラインの多項式
-            次数。両軸で同じ次数を使う (``kx = ky = spline2d_degree``)。
-            従来の 1D ``pandas`` スプラインが次数 2 を使っていたため、最も
-            近い挙動になるよう本実装でも 2 をデフォルトとする。実用範囲は
-            1 (双線形) 〜 3 (双立方)。SciPy 側は 4, 5 も受け付けるが AFM 背景
-            では恩恵が少ない。[1, 5] の範囲必須。
-        spline2d_subsample : int, optional
-            Pixel subsampling factor used when fitting in
-            ``bg_method='spline2d'``. The fit uses every
-            ``spline2d_subsample``-th pixel along each axis. The spline is
-            intrinsically smooth so subsampling has negligible quality
-            impact; default 4 is a good speed-quality trade-off. Set to 1
-            to use every pixel (slower, no quality gain). Must be a
-            positive integer.
-            ``bg_method='spline2d'`` のフィット時に用いる画素サブサンプリン
-            グ係数。各軸 ``spline2d_subsample`` 画素おきに使う。スプライン
-            自体が滑らかなため結果品質への影響はほぼなく、デフォルト 4 で
-            速度と品質のバランスが良い。1 で全画素使用 (遅く、品質向上なし)。
-            正の整数のみ。
-        spline2d_smoothing : float or None, optional
-            Smoothing factor ``s`` passed to
-            ``scipy.interpolate.SmoothBivariateSpline`` when
-            ``bg_method='spline2d'``. Controls the trade-off between
-            following the background-candidate points (small ``s``) and a
-            smoother surface (large ``s``). The default ``None`` uses
-            SciPy's own default (``s = m``, the number of fit points). The
-            fitted surface is subtracted in full (see ``_call_spline2d``),
-            so ``s`` governs the smoothness of the whole background
-            estimate, at fiber and substrate positions alike; the SciPy
-            default gives a smooth, well-conditioned surface. Do not set
-            this to ``0`` for full-resolution AFM scans:
-            interpolating tens of thousands of scattered points is
-            ill-conditioned and extremely slow. Pass a positive number only
-            to deliberately smooth the under-fiber surface more (or less)
-            than the default. Must be ``None`` or a non-negative number.
-            ``bg_method='spline2d'`` のとき
-            ``scipy.interpolate.SmoothBivariateSpline`` に渡す平滑化係数
-            ``s``。背景候補点への追従 (``s`` 小) と曲面の滑らかさ (``s`` 大)
-            のトレードオフを決める。デフォルト ``None`` は SciPy 既定
-            (``s = m``、フィット点数) を使う。フィット済み曲面は全面減算
-            されるため (``_call_spline2d`` 参照)、``s`` は繊維位置・基板位置を
-            問わず背景推定全体の滑らかさを左右する。既定値でも滑らかで
-            良条件の曲面が得られる。
-            全解像度の AFM 画像では ``0`` を指定してはいけない。数万の散布点を
-            補間するのは悪条件で極端に遅い。既定より強く (または弱く) 平滑化
-            したい場合のみ正の数を渡す。``None`` または非負の数値のみ。
         spline1d_axis : {'y', 'x'}, optional
             Stripe orientation to remove when ``bg_method='spline1d'``,
             expressed as the interpolation axis. ``'y'`` (default)
@@ -416,19 +356,15 @@ class BGCalibrator:
         Raises
         ------
         ValueError
-            If ``bg_method`` is not one of {'trendfill', 'tophat',
-            'spline2d', 'spline1d'} nor the retired alias ``'inpaint'``, if
-            ``tophat_se_size`` is not a positive
-            integer, if ``spline2d_degree`` is not an integer in [1, 5], if
-            ``spline2d_subsample`` is not a positive integer, if
-            ``spline2d_smoothing`` is not ``None`` or a non-negative number,
-            if ``spline1d_axis`` is not ``'y'`` or ``'x'``, or if
+            If ``bg_method`` names a removed method listed in
+            `BG_METHOD_REMOVED`, if it is not one of {'trendfill', 'tophat',
+            'spline1d'} nor the retired alias ``'inpaint'``, if
+            ``tophat_se_size`` is not a positive integer, if
+            ``spline1d_axis`` is not ``'y'`` or ``'x'``, or if
             ``spline1d_degree`` is not a positive integer.
-            ``bg_method`` が {'trendfill', 'tophat', 'spline2d', 'spline1d'}
-            でも廃止済みエイリアス ``'inpaint'`` でもない、
-            ``tophat_se_size`` が正の整数でない、``spline2d_degree`` が
-            [1, 5] の整数でない、``spline2d_subsample`` が正の整数でない、
-            ``spline2d_smoothing`` が ``None`` でも非負の数値でもない、
+            ``bg_method`` が `BG_METHOD_REMOVED` に載る削除済み方式である、
+            {'trendfill', 'tophat', 'spline1d'} でも廃止済みエイリアス
+            ``'inpaint'`` でもない、``tophat_se_size`` が正の整数でない、
             ``spline1d_axis`` が ``'y'`` でも ``'x'`` でもない、または
             ``spline1d_degree`` が正の整数でない場合。
 
@@ -440,6 +376,13 @@ class BGCalibrator:
         # Accept the retired spelling so a pre-rename `_param.json` still runs.
         # 改名前の `_param.json` がそのまま動くよう、旧綴りも受け付ける。
         bg_method = canonical_bg_method(bg_method)
+        # Report a removed method by name, before the generic "unknown value"
+        # error, so a stored parameter file explains itself instead of looking
+        # like a typo.
+        # 削除済みの方式は、汎用の「未知の値」エラーより先に名指しで報告する。
+        # 保存済みパラメータファイルが打ち間違いに見えないようにするため。
+        if bg_method in BG_METHOD_REMOVED:
+            raise ValueError(BG_METHOD_REMOVED[bg_method])
         if bg_method not in BG_METHOD_NAMES:
             raise ValueError(
                 f"bg_method must be one of {BG_METHOD_NAMES} "
@@ -449,26 +392,6 @@ class BGCalibrator:
         if not isinstance(tophat_se_size, (int, np.integer)) or tophat_se_size < 1:
             raise ValueError(
                 f"tophat_se_size must be a positive int, got {tophat_se_size!r}"
-            )
-        # SciPy SmoothBivariateSpline accepts only 1..5 for kx and ky.
-        # SciPy の SmoothBivariateSpline は kx, ky を 1..5 の範囲でしか受け付けない
-        if not isinstance(spline2d_degree, (int, np.integer)) \
-                or spline2d_degree < 1 or spline2d_degree > 5:
-            raise ValueError(
-                f"spline2d_degree must be an int in [1, 5], got {spline2d_degree!r}"
-            )
-        if not isinstance(spline2d_subsample, (int, np.integer)) or spline2d_subsample < 1:
-            raise ValueError(
-                f"spline2d_subsample must be a positive int, got {spline2d_subsample!r}"
-            )
-        if spline2d_smoothing is not None and (
-                not isinstance(spline2d_smoothing, (int, float, np.integer, np.floating))
-                or isinstance(spline2d_smoothing, bool) or spline2d_smoothing < 0):
-            # Reject bool explicitly because it satisfies isinstance(int).
-            # bool は isinstance(int) を満たすが意味が変わるので個別に弾く
-            raise ValueError(
-                f"spline2d_smoothing must be None or a non-negative number, "
-                f"got {spline2d_smoothing!r}"
             )
         if spline1d_axis not in ('y', 'x'):
             raise ValueError(
@@ -498,12 +421,6 @@ class BGCalibrator:
         # so callers don't have to worry about parity.
         # 構造要素は奇数サイズである必要があるため、偶数なら +1 する。
         self.tophat_se_size = int(tophat_se_size) | 1
-
-        self.spline2d_degree = int(spline2d_degree)
-        self.spline2d_subsample = int(spline2d_subsample)
-        self.spline2d_smoothing = (
-            None if spline2d_smoothing is None else float(spline2d_smoothing)
-        )
 
         self.spline1d_axis = spline1d_axis
         self.spline1d_degree = int(spline1d_degree)
@@ -545,18 +462,12 @@ class BGCalibrator:
           ``bg_sm`` (after Savitzky-Golay). The ridge-detection
           intermediates are set to ``None`` since the method does not
           compute them.
-        - ``'spline2d'``: the trendfill-style ridge-detection intermediates
-          (``dif_x`` ... ``bg_only``) are computed since the spline needs
-          the fiber mask to identify background-candidate pixels, plus
-          ``bg_spline2d`` (raw 2D spline surface) and ``bg_sm`` (after
-          Savitzky-Golay). ``bg_open`` is set to ``None``.
-        - ``'spline1d'``: like ``'spline2d'``, the trendfill-style
-          ridge-detection intermediates (``dif_x`` ... ``bg_only``) are
-          computed for the fiber mask, plus ``bg_spline1d`` (the assembled
-          background surface before smoothing: per-line interpolation, 2D
-          nearest fill at the line ends, trend restored) and ``bg_sm``
-          (after Savitzky-Golay). ``bg_open`` and ``bg_spline2d`` are set to
-          ``None``.
+        - ``'spline1d'``: the trendfill-style ridge-detection intermediates
+          (``dif_x`` ... ``bg_only``) are computed for the fiber mask, plus
+          ``bg_spline1d`` (the assembled background surface before
+          smoothing: per-line interpolation, 2D nearest fill at the line
+          ends, trend restored) and ``bg_sm`` (after Savitzky-Golay).
+          ``bg_open`` is set to ``None``.
 
         このメソッドは中間配列を段階的に保持する設計になっており、
         デバッグ時やパラメータ調整時に各段階を確認しやすい。``self`` に
@@ -568,17 +479,11 @@ class BGCalibrator:
         - ``'tophat'``: ``bg_open`` (生の opening 結果) と ``bg_sm``
           (Savitzky-Golay 後) のみ。リッジ検出系の中間配列は計算しないため
           ``None`` を設定する。
-        - ``'spline2d'``: スプラインが背景候補画素を識別するためにファイバー
-          マスクを必要とするので trendfill と同じリッジ検出系中間配列
-          (``dif_x`` 〜 ``bg_only``) を計算し、加えて ``bg_spline2d``
-          (生の 2D スプライン曲面) と ``bg_sm`` (Savitzky-Golay 後) を保持。
-          ``bg_open`` は ``None``。
-        - ``'spline1d'``: ``'spline2d'`` と同様、ファイバーマスクのため
-          trendfill と同じリッジ検出系中間配列 (``dif_x`` 〜 ``bg_only``) を
-          計算し、加えて ``bg_spline1d`` (平滑化前の背景曲面。行/列補間 +
-          ライン端の 2 次元最近傍充填 + トレンド復元まで済んだもの) と
-          ``bg_sm`` (Savitzky-Golay 後) を保持。``bg_open`` と
-          ``bg_spline2d`` は ``None``。
+        - ``'spline1d'``: ファイバーマスクのため trendfill と同じリッジ検出系
+          中間配列 (``dif_x`` 〜 ``bg_only``) を計算し、加えて
+          ``bg_spline1d`` (平滑化前の背景曲面。行/列補間 + ライン端の 2 次元
+          最近傍充填 + トレンド復元まで済んだもの) と ``bg_sm``
+          (Savitzky-Golay 後) を保持。``bg_open`` は ``None``。
         """
         # Fail loudly at the stage boundary instead of deep inside the method.
         if image.original_image is None:
@@ -589,8 +494,6 @@ class BGCalibrator:
 
         if self.bg_method == 'tophat':
             self._call_tophat(image)
-        elif self.bg_method == 'spline2d':
-            self._call_spline2d(image)
         elif self.bg_method == 'spline1d':
             self._call_spline1d(image)
         else:
@@ -601,14 +504,14 @@ class BGCalibrator:
         Run trendfill-style ridge detection up to the fiber mask intermediates.
         trendfill 系のリッジ検出をファイバーマスク中間配列まで実行する。
 
-        Shared prelude of `_call_trendfill`, `_call_spline2d`, and
-        `_call_spline1d`: all three need the same gradient-histogram fiber
-        mask before they diverge on how they fill the background. The
+        Shared prelude of `_call_trendfill` and `_call_spline1d`: both need
+        the same gradient-histogram fiber mask before they diverge on how
+        they fill the background. The
         intermediates ``dif_x`` ... ``tri_difx_fill``/``tri_dify_fill`` are
         stored on ``self`` exactly as before, so the three paths cannot drift
         apart and every consumed ``bg_only`` is identical to the legacy code.
-        `_call_trendfill` / `_call_spline2d` / `_call_spline1d` で共通の前段。
-        3 方式とも背景の埋め方が分かれる前に同じ勾配ヒストグラム由来の
+        `_call_trendfill` / `_call_spline1d` で共通の前段。
+        両方式とも背景の埋め方が分かれる前に同じ勾配ヒストグラム由来の
         ファイバーマスクを必要とする。中間配列 ``dif_x`` 〜
         ``tri_difx_fill``/``tri_dify_fill`` は従来どおり ``self`` に保持する。
         """
@@ -630,7 +533,6 @@ class BGCalibrator:
         # which path ran.
         # 他方式の中間配列は走っていないことを明示するため None を設定。
         self.bg_open = None
-        self.bg_spline2d = None
         self.bg_spline1d = None
         calibrated_image = self._bg_calibrate(image.original_image, self.bg_sm)
 
@@ -679,7 +581,6 @@ class BGCalibrator:
         self.tri_difx = self.tri_dify = None
         self.tri_difx_fill = self.tri_dify_fill = None
         self.bg_only = None
-        self.bg_spline2d = None
         self.bg_spline1d = None
 
         # Morphological opening with a disk-shaped structuring element of
@@ -769,199 +670,6 @@ class BGCalibrator:
 
         image.calibrated_image = calibrated_image
 
-    def _call_spline2d(self, image: ProcessedImage) -> None:
-        """
-        Run the 2D tensor-product B-spline background fit.
-        テンソル積二変数 B-スプラインによる背景フィットを実行する。
-
-        Notes
-        -----
-        This is the conceptual 2D extension of the legacy ``pandas`` 1D
-        spline interpolation. The legacy pipeline computed a fiber mask
-        from gradient histograms (the trendfill pipeline's
-        ``_difXY`` ... ``_extract_fiber`` ... ``_bg_generate`` chain),
-        marked fiber pixels as NaN, and called pandas' 1D spline
-        interpolation row-by-row. Here we use the same fiber mask but
-        fit a 2D B-spline globally to the background-candidate pixels
-        with ``scipy.interpolate.SmoothBivariateSpline``.
-
-        Compared to ``'trendfill'``: same mask, different filler.
-
-        Implementation details:
-
-        * ``SmoothBivariateSpline`` refuses duplicate (y, x) coordinates,
-          so we work on a regular ``spline2d_subsample`` grid which is
-          guaranteed unique.
-        * The spline is fit on the subsampled background-candidate points
-          and then evaluated densely on the full grid via the
-          ``(y_full, x_full)`` rectangular-grid form
-          ``spl(np.arange(H), np.arange(W))``, which uses the fast tensor
-          form internally. ``spline2d_smoothing`` sets the spline ``s``.
-        * The fitted surface is subtracted in full, at fiber and substrate
-          positions alike, exactly like the other background methods. The
-          calibrated substrate therefore retains its measurement noise, as
-          it must: an earlier revision restored background-candidate pixels
-          exactly from the original image, which forced the substrate to
-          exactly zero, erased the noise from the data, and clipped the
-          shoulders of fibers the mask misclassified as background.
-        * No Savitzky-Golay smoothing is applied: the spline surface is
-          already smooth by construction, so the row-wise smoothing pass
-          used by the other methods would add nothing. Output is cropped
-          to ``(H-1, W-1)`` to match the other pipelines.
-
-        これは従来の ``pandas`` 1D スプライン補間の概念的な 2D 拡張。従来
-        パイプラインは勾配ヒストグラムからファイバーマスクを計算し
-        (trendfill と同じ ``_difXY`` 〜 ``_extract_fiber`` 〜 ``_bg_generate``
-        の流れ)、ファイバー画素を NaN にして pandas の 1D スプライン補間を
-        行毎に呼んでいた。本メソッドは同じファイバーマスクを使うが、補間は
-        ``scipy.interpolate.SmoothBivariateSpline`` で背景候補画素に対して
-        2D B-スプラインを大局的にフィットする。
-
-        ``'trendfill'`` との比較: 同じマスク、別の埋め方。
-
-        実装上の注意:
-
-        * ``SmoothBivariateSpline`` は重複する (y, x) 座標を受け付けない
-          ので、``spline2d_subsample`` 間隔の規則格子で作業する (重複なし
-          が保証される)。
-        * サブサンプル後の背景候補点でスプラインをフィットし、評価は
-          ``spl(np.arange(H), np.arange(W))`` の矩形格子形式で全グリッド
-          上に行う (内部的に高速テンソル形式が使われる)。
-          ``spline2d_smoothing`` がスプラインの ``s`` を決める。
-        * フィット済み曲面は、他の背景方式と同様に繊維位置・基板位置を
-          問わず全面で減算する。したがって補正後の基板には測定ノイズが
-          そのまま残る（残るべきものである）。旧版は背景候補画素を原画像値で
-          厳密復元していたが、それは基板を厳密にゼロへ固定してデータから
-          ノイズを消去し、マスクが背景と誤分類した繊維の肩を切り落として
-          いた。
-        * Savitzky-Golay 平滑化はかけない。スプライン曲面は構成上すでに
-          滑らかで、他方式の行方向平滑化を重ねても意味がないためである。
-          出力は他パイプラインと揃えて ``(H-1, W-1)`` にクロップする。
-        """
-        original = image.original_image
-
-        # Reuse the trendfill-style ridge detection and fiber mask. This is
-        # the same code path as `_call_trendfill` up through `_bg_generate`,
-        # because spline2d is conceptually "trendfill mask + different
-        # interpolator". We need ``bg_only`` (image with NaN at masked
-        # positions) and the implied background-candidate mask.
-        # trendfill と同じリッジ検出とファイバーマスク計算を流用する。
-        # spline2d は概念的に「trendfill と同じマスク + 別の埋め方」なので、
-        # `_bg_generate` までは `_call_trendfill` と同じ処理が必要になる。
-        # ``bg_only`` (マスク位置が NaN になった画像) と背景候補マスクを得る。
-        self._detect_fiber_mask(original)
-        # `_bg_generate` returns ``bg_only`` (NaN at fiber, shape (H-1, W-1))
-        # and a savgol-smoothed bg as the second value. We use only
-        # ``bg_only`` here; the background surface is built from the spline
-        # fit below instead.
-        # `_bg_generate` は (H-1, W-1) 形状の ``bg_only`` (ファイバー位置 NaN)
-        # と平滑化済み bg を返す。ここでは ``bg_only`` だけ使い、背景曲面は
-        # 下のスプライン fit から構築する。
-        self.bg_only, _ = self._bg_generate(original, self.tri_difx_fill, self.tri_dify_fill)
-        # ``bg_only`` has shape (H-1, W-1). Build the working grid on
-        # that shape for shape consistency with the legacy code path.
-        # ``bg_only`` は (H-1, W-1) 形状。レガシーパスとの形状整合性のため
-        # 作業用グリッドもその形状で構築する。
-        Hm, Wm = self.bg_only.shape
-        fiber_mask_dense = np.isnan(self.bg_only)
-
-        # Mark intermediates from the other path as unused.
-        # 他方式の中間配列は使わないことを明示。
-        self.bg_open = None
-        self.bg_spline1d = None
-
-        # Build the regular-grid subsampling of background-candidate
-        # pixels. ``SmoothBivariateSpline`` requires unique coordinates,
-        # which is guaranteed when we sample every ``s``-th pixel on a
-        # regular grid.
-        # 背景候補画素の規則格子サブサンプリングを構築する。
-        # ``SmoothBivariateSpline`` は一意座標を要求するが、規則格子上で
-        # ``s`` 画素おきに取れば自動的に保証される。
-        step = self.spline2d_subsample
-        deg = self.spline2d_degree
-        ys_sub = np.arange(0, Hm, step)
-        xs_sub = np.arange(0, Wm, step)
-        Yg, Xg = np.meshgrid(ys_sub, xs_sub, indexing='ij')
-        # Keep only sub-grid points that fall on background-candidate pixels.
-        # 背景候補画素に当たるサブ格子点のみ残す。
-        valid_sub = ~fiber_mask_dense[Yg, Xg]
-        y_fit = Yg[valid_sub].astype(np.float64)
-        x_fit = Xg[valid_sub].astype(np.float64)
-        v_fit = original[1:, 1:][Yg[valid_sub], Xg[valid_sub]].astype(np.float64)
-
-        # SmoothBivariateSpline needs at least (kx+1) * (ky+1) points to
-        # fit a degree-(kx, ky) spline. Guard against pathological inputs.
-        # SmoothBivariateSpline は次数 (kx, ky) のスプラインに最低
-        # (kx+1) * (ky+1) 点を要求する。病的な入力に備える。
-        min_pts = (deg + 1) * (deg + 1)
-        if len(v_fit) < min_pts:
-            raise RuntimeError(
-                f"spline2d: only {len(v_fit)} background pixels available "
-                f"after subsampling, need at least {min_pts}. "
-                f"Try reducing spline2d_subsample or spline2d_degree."
-            )
-
-        # Fit the tensor-product B-spline. ``kx``, ``ky`` are the polynomial
-        # degrees along the row and column axes; we use the same value
-        # along both to match the legacy 1D spline's behavior. ``s`` is the
-        # smoothing factor from ``spline2d_smoothing``; ``None`` lets SciPy
-        # use its default (``s`` = number of points). The surface is
-        # subtracted in full below, so ``s`` governs the smoothness of the
-        # whole background estimate, at fiber and substrate positions alike.
-        # Do not force ``s=0`` on full-resolution scans: interpolating tens
-        # of thousands of scattered points is ill-conditioned and extremely
-        # slow.
-        # テンソル積 B-スプラインをフィットする。``kx``, ``ky`` は行/列方向の
-        # 多項式次数。レガシー 1D スプラインの挙動と揃えるため両軸同じ次数。
-        # ``s`` は ``spline2d_smoothing`` の平滑化係数。``None`` なら SciPy 既定
-        # (``s`` = 点数) を使う。下で曲面を全面減算するため、``s`` は繊維位置・
-        # 基板位置を問わず背景推定全体の滑らかさを左右する。全解像度の画像で
-        # ``s=0`` を強制してはいけない。数万散布点の補間は悪条件で極端に遅い。
-        if self.spline2d_smoothing is None:
-            spl = interpolate.SmoothBivariateSpline(y_fit, x_fit, v_fit, kx=deg, ky=deg)
-        else:
-            spl = interpolate.SmoothBivariateSpline(
-                y_fit, x_fit, v_fit, kx=deg, ky=deg, s=self.spline2d_smoothing
-            )
-
-        # Evaluate the spline on the dense grid. The rectangular-grid call
-        # ``spl(ys, xs)`` is much faster than the scattered-point call
-        # ``spl.ev(yr, xr)`` because it uses tensor-product separation.
-        # スプラインを密グリッド上で評価する。矩形格子形式 ``spl(ys, xs)``
-        # はテンソル積分離が効くため、散布点形式 ``spl.ev(yr, xr)`` より
-        # ずっと速い。
-        bg_spline = spl(np.arange(Hm), np.arange(Wm))
-        # The spline surface is subtracted in full, at fiber and background
-        # positions alike. The background model must stay a *model*: replacing
-        # it with the original values at background-candidate pixels (as an
-        # earlier revision did) forces the substrate to exactly zero, which
-        # deletes the measurement noise from the data, makes downstream
-        # statistics on background pixels meaningless, and clips the shoulders
-        # of any fiber the mask misclassified as background.
-        # スプライン曲面は、繊維位置・背景位置を問わず全面で減算する。背景
-        # モデルはあくまで「モデル」に留めるべきで、背景候補画素を原画像値で
-        # 置き換える方式（旧版の挙動）は基板を厳密にゼロへ固定してしまい、
-        # データから測定ノイズを消去し、背景画素に対する下流統計を無意味に
-        # し、マスクが背景と誤分類した繊維の肩を切り落とす。
-        self.bg_spline2d = bg_spline
-
-        # No Savitzky-Golay smoothing here (see Notes): the fitted spline
-        # surface is already smooth by construction, so the row-wise
-        # Savitzky-Golay pass used by the other methods would add nothing.
-        # ``bg_spline`` already has the (H-1, W-1) shape used by the other
-        # pipelines.
-        # ここでは Savitzky-Golay 平滑化をかけない (Notes 参照)。フィット済み
-        # スプライン曲面は構成上すでに滑らかで、他方式の行方向 Savitzky-Golay
-        # を重ねても意味がない。``bg_spline`` は既に他パイプラインと同じ
-        # (H-1, W-1) 形状を持つ。
-        self.bg_sm = bg_spline
-        calibrated_image = original[1:, 1:] - self.bg_sm
-
-        if self.apply_median:
-            calibrated_image = cv2.medianBlur(calibrated_image.astype(np.float32), ksize=3)
-
-        image.calibrated_image = calibrated_image
-
     def _call_spline1d(self, image: ProcessedImage) -> None:
         """
         Run the per-line 1D spline background interpolation.
@@ -976,8 +684,7 @@ class BGCalibrator:
         * The fiber mask reuses the trendfill pipeline's ridge detection
           *together with* ``mask_dilation`` and ``min_mask_component_area``
           (the legacy version had neither), so fiber-edge shoulders are
-          excluded from the background pool exactly as in ``'trendfill'`` and
-          ``'spline2d'``.
+          excluded from the background pool exactly as in ``'trendfill'``.
         * The image is detrended before the fill and the trend restored
           afterwards, as in ``'trendfill'``, so no filler has to reproduce
           the sample tilt.
@@ -1000,10 +707,9 @@ class BGCalibrator:
         image and targets *vertical* stripes instead.
 
         Like every background method, the estimated background is
-        subtracted *in full*. Unlike ``'spline2d'``, this path follows the
-        legacy behavior of Savitzky-Golay smoothing the interpolated
-        background first (the per-line interpolation is not smooth by
-        construction the way the 2D spline surface is). On
+        subtracted *in full*, and this path follows the legacy behavior of
+        Savitzky-Golay smoothing the interpolated background first: the
+        per-line interpolation is not smooth by construction. On
         line-noise-dominated scans this per-line approach is empirically
         the better-behaved choice; see the class docstring.
 
@@ -1013,8 +719,8 @@ class BGCalibrator:
 
         * ファイバーマスクは trendfill のリッジ検出に加えて ``mask_dilation``
           と ``min_mask_component_area`` を併用する (旧版は両方なし)。
-          これにより ``'trendfill'`` / ``'spline2d'`` と同様、ファイバー端の
-          肩部が背景プールから除外される。
+          これにより ``'trendfill'`` と同様、ファイバー端の肩部が背景
+          プールから除外される。
         * ``'trendfill'`` と同様、充填の前にデトレンドし後でトレンドを戻す。
           どの充填器も試料傾斜を再現する必要がなくなる。
         * ライン端は一切外挿しない。各ラインの最初/最後の有効サンプルより
@@ -1031,21 +737,20 @@ class BGCalibrator:
         ラインが上下にずれるオフセット) を均す。``'x'`` は代わりに各行を横方向
         に補間し *縦縞* を対象とする。
 
-        他の背景方式と同様、推定した背景は *そのまま全面* 減算する。
-        ``'spline2d'`` と異なるのは、旧来挙動に従って補間背景を先に
-        Savitzky-Golay 平滑化する点である（行/列ごとの補間は 2D スプライン
-        曲面のように構成上滑らかにはならないため）。ラインノイズ主体の
+        他の背景方式と同様、推定した背景は *そのまま全面* 減算する。加えて
+        旧来挙動に従い、補間した背景を先に Savitzky-Golay 平滑化する（行/列
+        ごとの補間は構成上滑らかにはならないため）。ラインノイズ主体の
         スキャンでは経験的にこの行/列方式の方が振る舞いが良い
         (クラス docstring 参照)。
         """
         original = image.original_image
 
-        # Reuse the trendfill-style ridge detection and fiber mask, exactly as
-        # `_call_spline2d` does. We only need ``bg_only`` (image with NaN at
-        # masked positions, shape (H-1, W-1)); the smoothed bg returned by
-        # `_bg_generate` is discarded because we re-fill with the 1D spline.
-        # `_call_spline2d` と同じく trendfill のリッジ検出とファイバーマスクを
-        # 流用する。必要なのは ``bg_only`` (マスク位置 NaN、(H-1, W-1) 形状)
+        # Reuse the trendfill-style ridge detection and fiber mask. We only
+        # need ``bg_only`` (image with NaN at masked positions, shape
+        # (H-1, W-1)); the smoothed bg returned by `_bg_generate` is
+        # discarded because we re-fill with the 1D spline.
+        # trendfill のリッジ検出とファイバーマスクを流用する。必要なのは
+        # ``bg_only`` (マスク位置 NaN、(H-1, W-1) 形状)
         # のみで、`_bg_generate` が返す平滑化 bg は 1D スプラインで埋め直す
         # ため破棄する。
         self._detect_fiber_mask(original)
@@ -1054,7 +759,6 @@ class BGCalibrator:
         # Mark intermediates from the other paths as unused.
         # 他方式の中間配列は使わないことを明示。
         self.bg_open = None
-        self.bg_spline2d = None
 
         crop = original[1:, 1:]
         valid_mask = ~np.isnan(self.bg_only)

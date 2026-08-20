@@ -592,7 +592,7 @@ python cli.py bgquality results\*.b2z --csv comparison.csv
 ファイルごとに画像パネルを出力します:
 
 ```powershell
-python cli.py bgcompare results_trendfill results_spline2d --output-dir compare --csv compare.csv
+python cli.py bgcompare results_trendfill results_spline1d --output-dir compare --csv compare.csv
 ```
 
 次の 2 つは常に出力され、省略できません。どちらも、省いた結果として誤った
@@ -849,7 +849,7 @@ Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにして
 | モジュール | 主な内容 |
 |---|---|
 | `lib/afm_io.py` | ヘッダー、列数、エンコーディングを自動検出する AFM テキスト / CSV ローダー。形式の明示指定とレイアウト整合検証に対応。 |
-| `lib/bg_calibrator.py` | `trendfill`、`tophat`、`spline1d`、`spline2d` 背景補正方式を持つ `BGCalibrator`。（`inpaint` は `trendfill` の旧名で、保存済みパラメータファイルでは引き続き受け付けられる。） |
+| `lib/bg_calibrator.py` | `trendfill`、`tophat`、`spline1d` 背景補正方式を持つ `BGCalibrator`。（`inpaint` は `trendfill` の旧名で、保存済みパラメータファイルでは引き続き受け付けられる。`spline2d` は 1.0.0 より後に削除された。） |
 | `lib/bg_calibrator_shimadzu.py` | 従来名 `BG_Calibrator_shimadzu` を import 可能に保つ互換シム。 |
 | `lib/bg_mask_filter.py` | 背景段の繊維マスク整形処理（微小成分の除去と膨張）を外部で生成したマスクへ適用する。背景マスクモデルの予測を、パイプラインが実際に使う段で古典マスクと比較できるようにする。 |
 | `lib/blosc2_io.py` | Blosc2 配列保存と `.b2z` TreeStore バンドルの入出力ヘルパー。 |

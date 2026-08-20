@@ -194,7 +194,7 @@ REGRESSION_TASKS = ("background_surface",)
 # `bg_mask` モデルが再現する勾配リッジ由来の繊維マスクを構築する背景方式。
 # `tophat` はこれを計算しないため、`tophat` で処理したバンドルからは
 # `bg_mask` のラベルを作れない。
-_MASK_BG_METHODS = ("trendfill", "spline1d", "spline2d")
+_MASK_BG_METHODS = ("trendfill", "spline1d")
 
 
 def is_regression_task(task: str) -> bool:

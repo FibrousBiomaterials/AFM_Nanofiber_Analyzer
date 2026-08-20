@@ -623,7 +623,7 @@ comparing. `bgcompare` pairs the bundles by filename, scores both over one
 identical pixel set, and writes an image panel per file:
 
 ```powershell
-python cli.py bgcompare results_trendfill results_spline2d --output-dir compare --csv compare.csv
+python cli.py bgcompare results_trendfill results_spline1d --output-dir compare --csv compare.csv
 ```
 
 Two things are always reported, and neither is optional, because omitting
@@ -880,7 +880,7 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | Module | Main contents |
 |---|---|
 | `lib/afm_io.py` | Text/CSV AFM loader with automatic header, column, and encoding detection, explicit format override, and layout-consistency verification. |
-| `lib/bg_calibrator.py` | `BGCalibrator`, with `trendfill`, `tophat`, `spline1d`, and `spline2d` background methods (`inpaint` is the retired name for `trendfill` and is still accepted in saved parameter files). |
+| `lib/bg_calibrator.py` | `BGCalibrator`, with `trendfill`, `tophat`, and `spline1d` background methods (`inpaint` is the retired name for `trendfill` and is still accepted in saved parameter files; `spline2d` was removed after 1.0.0). |
 | `lib/bg_calibrator_shimadzu.py` | Compatibility shim keeping the historical `BG_Calibrator_shimadzu` name importable. |
 | `lib/bg_mask_filter.py` | Apply the background stage's fiber-mask cleanup (small-component removal, then dilation) to an externally produced mask, so a background-mask model's prediction can be compared with the classical mask at the stage the pipeline actually uses. |
 | `lib/blosc2_io.py` | Blosc2 array storage and `.b2z` TreeStore bundle helpers. |

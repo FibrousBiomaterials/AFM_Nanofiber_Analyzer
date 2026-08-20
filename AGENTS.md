@@ -637,7 +637,7 @@ in documentation.
 
 `BGCalibrator` (in `lib/bg_calibrator.py`; the historical name
 `BG_Calibrator_shimadzu` remains importable through a compatibility shim)
-supports four `bg_method` values. Retired spellings are listed in
+supports three `bg_method` values. Retired spellings are listed in
 `bg_calibrator.BG_METHOD_ALIASES` and translated by `canonical_bg_method`, so a
 `_param.json` written by an older version still runs; add an entry there rather
 than breaking an existing parameter file when a method is renamed.
@@ -647,7 +647,13 @@ than breaking an existing parameter file when a method is renamed.
 | `trendfill` | Masks fiber candidates via gradient histogram and ridge detection, then subtracts a fitted second-order trend surface, fills the mask from the nearest background pixel, smooths, and restores the trend. Named `inpaint` up to 1.0.0, when the fill was OpenCV Navier-Stokes inpainting. |
 | `tophat` | Fast morphological top-hat correction without masking; opens a detrended copy so the scan border is not segmented as a fiber. |
 | `spline1d` | 1D B-spline interpolation per row or column; effective for line-noise-dominant images. |
-| `spline2d` | 2D B-spline to estimate a smooth background surface. |
+
+`spline2d` (a 2D B-spline background surface) was removed after 1.0.0: it left
+the largest background residual of all methods on every test image, and the
+smoothing factor that could have improved it was not reachable from the GUI. It
+is listed in `bg_calibrator.BG_METHOD_REMOVED`, which reports removed methods by
+name instead of aliasing them to a survivor — silently substituting a method
+would change the numbers a stored `_param.json` reproduces.
 
 ### 8.2 `.b2z` bundle contract
 
@@ -734,7 +740,7 @@ all call sites in `guis/`, `Main.py`, `cli.py`, `tests/`, and `lib/` imports.
 | Module | Public API | Notes |
 |---|---|---|
 | `afm_io.py` | `load_afm_text`, `load_afm_image`, `detect_afm_format`, `read_scan_size`, `AfmTextFormat`, `ScanSize`, `FORMAT_KINDS` | Loads AFM text/CSV as NumPy array; auto-detects header rows, column count, and encoding. `detect_afm_format` reports the detected layout without loading the data. `read_scan_size` reads the physical scan size from the instrument header (Shimadzu `SizeX`/`SizeY`) when present. `load_afm_image` and `read_scan_size` dispatch `.gwy` paths to `gwy_io.py` (importing `gwyfile` only there), so callers handle text and `.gwy` inputs uniformly. |
-| `bg_calibrator.py` | `BGCalibrator`, `BG_METHOD_NAMES`, `BG_METHOD_ALIASES`, `canonical_bg_method` | See §8.1 for `bg_method` options. `BG_METHOD_NAMES` is the canonical method list; `canonical_bg_method` translates a retired spelling from `BG_METHOD_ALIASES` so a `_param.json` written by an older version still loads. |
+| `bg_calibrator.py` | `BGCalibrator`, `BG_METHOD_NAMES`, `BG_METHOD_ALIASES`, `BG_METHOD_REMOVED`, `canonical_bg_method` | See §8.1 for `bg_method` options. `BG_METHOD_NAMES` is the canonical method list; `canonical_bg_method` translates a retired spelling from `BG_METHOD_ALIASES` so a `_param.json` written by an older version still loads. `BG_METHOD_REMOVED` maps a deleted method to the message shown when a stored parameter file still selects it; removed methods are reported, never aliased to a survivor. |
 | `bg_calibrator_shimadzu.py` | `BG_Calibrator_shimadzu` | Compatibility shim; alias of `BGCalibrator`. Do not add new code here. |
 | `bg_mask_filter.py` | `filter_bg_fiber_mask`, `filter_bg_fiber_mask_for_bundle`, `read_bundle_params` | Applies the background stage's fiber-mask cleanup (small-component removal, then dilation) to an externally produced mask, so a `bg_mask` model's prediction can be compared with the classical mask at the stage the pipeline actually uses. Deliberately duplicates the block inside `BGCalibrator._bg_generate` instead of sharing it, so exposing the step cannot change any background-correction result; `tests/test_bg_mask_filter.py` pins the duplicate to the calibrator's real behavior and fails if they drift. |
 | `bg_quality.py` | `BgQuality`, `evaluate_background`, `WARN_HIGH_COVERAGE`, `WARN_NO_SKELETON`, `WARN_NO_PROFILES`, `WARN_FEW_PROFILES`, `WARN_NO_FAR_BACKGROUND`, `WARN_PROFILE_TRUNCATED`, `WARN_WIDE_HALO` | Scores how well the background was estimated on one processed bundle, so two runs on the same input can be compared and a scan can be screened before it becomes ML training data. Read-only: nothing in the classical pipeline calls it, and the metrics are never written to the `.b2z` bundle — they are exactly reproducible from the arrays and parameters it already holds, so a stored copy would only let values from an older metric definition be read back and compared, unmarked, against current ones. Surfaced by `cli.py bgquality` and `cli.py bgcompare`. Halo detection anchors on the skeleton and never consults the binarized mask; do not "simplify" it to a mask-anchored or both-flanks-pooled statistic, either of which cancels the antisymmetric halo it exists to find. |
