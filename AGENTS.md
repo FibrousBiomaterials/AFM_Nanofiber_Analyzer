@@ -892,6 +892,36 @@ Changes that alter results usually also warrant an entry for other reasons
 notable changes, and this rule only makes the result-changing case
 non-optional.
 
+### 8.12 Verifying analysis and detection changes
+
+A claim about *what the analysis detected* is not verified until the rendered
+images have been inspected. This applies to any statement that objects were
+detected, missed, gained, or lost, to any count / median / percentage over
+detected objects, and to any recommendation for a detection parameter
+(`global_threshold`, `area_min`, `h_length`, `low_threshold`, `min_area`, …).
+It is the analysis-side counterpart of §7.10.
+
+- **View the images, not only the numbers.** Render the calibrated height
+  image beside the stage outputs for the same crop, and overlay the candidate
+  result on the height image (captured vs. missed) rather than comparing two
+  binary masks to each other. A statistic over detected objects is a proxy;
+  when the thing under test is *what got detected*, the proxy measures the
+  very change it is supposed to be judging.
+- **A recovery-only metric is not evidence.** Any metric counting how many
+  targets a looser setting recovers improves monotonically as the threshold
+  drops. It must carry a false-positive term, or be replaced by inspection.
+- **No pipeline stage is ground truth.** The background-stage fiber mask, the
+  binarized mask, and the skeleton are all stage outputs with their own
+  misses; validating one against another inherits those misses. The reference
+  is the calibrated height image.
+- **Do not aggregate over a population whose composition changed.**
+  `measure_bundle` returns one entry per detected object, real fibers and
+  spurious detections alike, so a worse condition typically *adds* short
+  false detections rather than degrading the real fibers. Split real objects
+  from fragments, report both, and state the outcome variable explicitly.
+- **Believe a user-reported detection failure.** If the user says fibers are
+  missing and a metric disagrees, the metric is suspect first.
+
 ## 9. Summary
 
 | Item | Rule |
@@ -921,6 +951,7 @@ non-optional.
 | GUI entry point | Use `main() -> None` and guard GUI launch behind `if __name__ == "__main__"` |
 | Shared GUI helpers | Prefer `lib.ui_tools` / `lib/ui_tools.py` for common GUI behavior. |
 | Verifying GUI/visual changes | Confirm the rendered result via the real run path (not `app.update()`, not the data model); believe user-reported visual defects; scope screen captures to the app window (§7.10). |
+| Detection / analysis claims | Render and inspect the images before claiming what was detected or missed, or recommending a detection parameter; recovery-only metrics and other pipeline stages are not evidence (§8.12). |
 | `.b2z` bundle contract | Defined in `lib/bundle_schema.py` (code is source of truth); coordinate dependent files per §8.2. |
 | Long-running GUI work | Use worker threads, `queue.Queue`, and Tk `after()` polling; do not block the main loop. |
 | `ProcParams` field names | Frozen (serialized verbatim into `_param.json`); authoritative list is the dataclass in `lib/pipeline.py`. |
