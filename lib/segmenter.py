@@ -13,8 +13,13 @@ import cv2
 import numpy as np
 from scipy.ndimage import maximum as ndi_maximum
 from skimage.feature import canny
-from skimage.filters import threshold_local
-from skimage.morphology import binary_dilation, binary_erosion, closing
+from skimage.filters import (
+    apply_hysteresis_threshold, frangi, threshold_local, threshold_otsu,
+    threshold_triangle,
+)
+from skimage.morphology import (
+    binary_dilation, binary_erosion, closing, skeletonize,
+)
 from skimage.transform import hough_line, hough_line_peaks
 
 if TYPE_CHECKING:
@@ -70,6 +75,10 @@ class Segmenter:
         wsize_localbin: int = 17,
         h_length: int = 12,
         h_sratio: float = 0.3,
+        ridge_recovery: bool = False,
+        ridge_min_length_nm: float = 100.0,
+        ridge_min_width_nm: float = 3.0,
+        ridge_max_width_nm: float = 20.0,
     ) -> None:
         """
         Initialize segmentation thresholds and filtering options.
@@ -101,6 +110,26 @@ class Segmenter:
         h_sratio
             Minimum Hough-line score required to retain small components.
             小さい成分を保持するために必要な最小 Hough 直線スコア。
+        ridge_recovery
+            Whether to add fibers that thresholding missed entirely, found by
+            a multi-scale ridge filter. Off by default: enabling it changes
+            the analysis output.
+            しきい値処理が完全に取りこぼした繊維を、マルチスケールのリッジ
+            フィルタで検出して追加するか。既定は無効。有効にすると解析結果が
+            変わる。
+        ridge_min_length_nm
+            Shortest recovered segment kept, as a physical length. Below about
+            100 nm the candidates stop being distinguishable from particle
+            skirts and tip artifacts by eye.
+            回収するセグメントの最小長（物理量）。100 nm を下回るあたりから、
+            候補を粒子の裾や探針アーティファクトと目視で区別できなくなる。
+        ridge_min_width_nm, ridge_max_width_nm
+            Fiber half-width range searched by the ridge filter, as physical
+            lengths. Converted to pixel scales per image, so the same setting
+            means the same physical structure at any scan resolution.
+            リッジフィルタが探索する繊維半幅の範囲（物理量）。画像ごとに画素
+            スケールへ換算するため、同じ設定値が走査解像度によらず同じ物理
+            構造を意味する。
         """
 
         self.global_threshold = global_threshold
@@ -111,6 +140,10 @@ class Segmenter:
         self.low_threshold = low_threshold
         self.h_length = h_length
         self.h_sratio = h_sratio
+        self.ridge_recovery = ridge_recovery
+        self.ridge_min_length_nm = ridge_min_length_nm
+        self.ridge_min_width_nm = ridge_min_width_nm
+        self.ridge_max_width_nm = ridge_max_width_nm
 
         self.n_label = None
         self.no_linear = None
@@ -121,11 +154,14 @@ class Segmenter:
         self.no_linear_binary_image: Optional[np.ndarray]
         self.no_connecting_binary_image: Optional[np.ndarray]
         self.no_low_binary_image: Optional[np.ndarray]
+        self.ridge_recovered_image: Optional[np.ndarray]
 
         self.max_height_list: list = []
         self.h_sratio_list: list = []
 
-    def __call__(self, image: "ProcessedImage") -> None:
+    def __call__(
+        self, image: "ProcessedImage", nm_per_px: Optional[float] = None,
+    ) -> None:
         """
         Segment a calibrated AFM image and store the binary mask on it.
         補正済み AFM 画像を分割し、二値マスクを画像オブジェクトに格納する。
@@ -135,6 +171,12 @@ class Segmenter:
         image
             Processed image object with a `calibrated_image` height map.
             `calibrated_image` 高さマップを持つ処理済み画像オブジェクト。
+        nm_per_px
+            Pixel size in nanometres, required only by ridge recovery. When
+            omitted the recovery step is skipped, because its length and width
+            settings are physical and cannot be converted without it.
+            画素サイズ (nm)。リッジ回収でのみ必要。省略時は回収段を行わない。
+            回収段の長さ・幅設定は物理量であり、これなしでは換算できないため。
 
         Raises
         ------
@@ -170,29 +212,32 @@ class Segmenter:
         # with `apply_component_filters` so an externally produced mask (e.g. an
         # ML binarization prediction) is carried through the identical stage.
         image.binarized_image = self.apply_component_filters(
-            self.binary_image, image.calibrated_image
+            self.binary_image, image.calibrated_image, nm_per_px
         )
 
     def apply_component_filters(
-        self, mask: np.ndarray, height_image: np.ndarray
+        self,
+        mask: np.ndarray,
+        height_image: np.ndarray,
+        nm_per_px: Optional[float] = None,
     ) -> np.ndarray:
         """
         Apply the post-thresholding component filters to an external mask.
         外部から与えた二値マスクに、しきい値後の成分フィルタ群を適用する。
 
         Runs the same small-area, linearity, weak-connection, and maximum-height
-        filters (and the final morphological closing) that `__call__` applies
-        after `_binaryzation`, but starting from ``mask`` instead of this
-        Segmenter's own thresholding output. This lets a mask produced elsewhere
-        -- such as a machine-learning binarization model's prediction -- be
-        carried through the exact same pipeline stage, so it can be compared
-        against the stored ``binarized`` result at the same stage rather than as
-        a raw prediction.
+        filters -- plus ridge recovery and the final morphological closing --
+        that `__call__` applies after `_binaryzation`, but starting from ``mask``
+        instead of this Segmenter's own thresholding output. This lets a mask
+        produced elsewhere -- such as a machine-learning binarization model's
+        prediction -- be carried through the exact same pipeline stage, so it can
+        be compared against the stored ``binarized`` result at the same stage
+        rather than as a raw prediction.
         `__call__` が `_binaryzation` の後に適用するのと同じ成分フィルタ（微小面積・
-        線形性・弱接続・最大高さ）と最終のモルフォロジー closing を、この Segmenter
-        自身のしきい値出力ではなく ``mask`` を起点に適用する。これにより、別途生成
-        したマスク（例：機械学習の二値化モデルの予測）を全く同じパイプライン段まで
-        通し、保存済み ``binarized`` 結果と同じ段で比較できる。
+        線形性・弱接続・最大高さ）、リッジ回収、最終のモルフォロジー closing を、
+        この Segmenter 自身のしきい値出力ではなく ``mask`` を起点に適用する。これに
+        より、別途生成したマスク（例：機械学習の二値化モデルの予測）を全く同じ
+        パイプライン段まで通し、保存済み ``binarized`` 結果と同じ段で比較できる。
 
         Parameters
         ----------
@@ -204,6 +249,13 @@ class Segmenter:
             component's maximum height; must match ``mask`` in shape.
             低高さフィルタが各成分の最大高さを測るための補正済み高さマップ。
             ``mask`` と同形状であること。
+        nm_per_px
+            Pixel size in nanometres, required only by ridge recovery. Omitting
+            it skips that step, so a caller comparing against a stored
+            ``binarized`` mask must pass the same value `__call__` was given.
+            画素サイズ (nm)。リッジ回収でのみ必要。省略すると回収段を行わないため、
+            保存済み ``binarized`` マスクと比較する呼び出し側は `__call__` に渡した
+            値と同じものを渡すこと。
 
         Returns
         -------
@@ -229,7 +281,103 @@ class Segmenter:
             height_image, self.no_connecting_binary_image
         )
 
-        return closing(self.no_low_binary_image).astype(bool)
+        # Ridge recovery runs before the closing so a recovered segment that
+        # ends next to a kept component is bridged into it rather than left as
+        # a separate short fiber.
+        # リッジ回収は closing の前に行う。既存成分の隣で終わる回収セグメントが
+        # 独立した短繊維として残らず、closing で橋渡しされるようにするため。
+        self.ridge_recovered_image = self._recover_missed_ridges(
+            height_image, self.no_low_binary_image, nm_per_px,
+        )
+        recovered_union = self.no_low_binary_image | self.ridge_recovered_image
+
+        return closing(recovered_union).astype(bool)
+
+    def _recover_missed_ridges(
+        self,
+        calibrated_image: np.ndarray,
+        binary_image: np.ndarray,
+        nm_per_px: Optional[float],
+    ) -> np.ndarray:
+        """
+        Find fibers the thresholding pipeline missed entirely.
+        しきい値処理が完全に取りこぼした繊維を検出する。
+
+        Parameters
+        ----------
+        calibrated_image
+            Background-corrected height map the ridge filter runs on.
+            リッジフィルタを適用する背景補正済み高さマップ。
+        binary_image
+            Mask accepted so far; only material outside it can be recovered.
+            ここまでに採用されたマスク。この外側の実体だけが回収対象となる。
+        nm_per_px
+            Pixel size in nanometres, or None to skip recovery.
+            画素サイズ (nm)。None なら回収を行わない。
+
+        Returns
+        -------
+        np.ndarray
+            Boolean mask of recovered segments; all False when disabled.
+            回収したセグメントの真偽マスク。無効時は全て False。
+
+        Notes
+        -----
+        The candidate mask is subtracted from `binary_image` *before* the
+        connected-component pass, not after. Taking whole candidate components
+        that merely fail to touch the existing mask discards a long fiber the
+        moment it brushes the detected network anywhere, and long fibers touch
+        it most often — measured on one 10 um scan, 56 candidate components
+        held at least 100 nm of fiber outside the mask, one of them 1476 nm,
+        and all were dropped by that rule.
+        候補マスクは連結成分処理の *前* に `binary_image` を差し引く。既存
+        マスクに一切触れない成分だけを採る方式では、長い繊維が検出済みの網目
+        にどこか一点でも接した瞬間に丸ごと捨てられ、しかも長い繊維ほど接触
+        しやすい。ある 10 um 走査での実測では、マスク外に 100 nm 以上の実体を
+        持つ候補成分が 56 個あり（最大 1476 nm）、その全てが捨てられていた。
+
+        Hysteresis on the ridge response works where the same scheme on raw
+        amplitude does not: the response falls to near zero between fibers, so
+        the region grows to a boundary instead of percolating across the image.
+        リッジ応答に対するヒステリシスは、生の振幅に対する同じ方式と違って
+        機能する。応答は繊維間でほぼ 0 まで落ちるため、領域は画像全体へ
+        浸透せず境界で止まる。
+        """
+        empty = np.zeros_like(binary_image, dtype=bool)
+        if not self.ridge_recovery or not nm_per_px or nm_per_px <= 0:
+            return empty
+
+        # Physical half-widths become pixel scales here, so one setting means
+        # the same structure whatever the scan resolution.
+        lo = max(0.6, self.ridge_min_width_nm / nm_per_px)
+        hi = max(lo * 1.5, self.ridge_max_width_nm / nm_per_px)
+        sigmas = np.geomspace(lo, hi, 5)
+        response = np.nan_to_num(
+            frangi(calibrated_image, sigmas=sigmas, black_ridges=False)
+        )
+        if not np.any(response > 0):
+            return empty
+        try:
+            high = threshold_otsu(response)
+            low = threshold_triangle(response)
+        except ValueError:
+            # Degenerate response histogram; nothing dependable to recover.
+            return empty
+        if not low < high:
+            low = high * 0.3
+        candidate = apply_hysteresis_threshold(response, low, high)
+
+        outside = candidate & ~binary_image.astype(bool)
+        if not outside.any():
+            return empty
+        n_labels, labels = cv2.connectedComponents(outside.astype(np.uint8), connectivity=8)
+        keep = [
+            label for label in range(1, n_labels)
+            if skeletonize(labels == label).sum() * nm_per_px >= self.ridge_min_length_nm
+        ]
+        if not keep:
+            return empty
+        return np.isin(labels, keep)
 
     @staticmethod
     def _binaryzation(
