@@ -112,11 +112,13 @@ class Segmenter:
             小さい成分を保持するために必要な最小 Hough 直線スコア。
         ridge_recovery
             Whether to add fibers that thresholding missed entirely, found by
-            a multi-scale ridge filter. Off by default: enabling it changes
-            the analysis output.
+            a multi-scale ridge filter. Off by default so a stored parameter
+            file reproduces the numbers it was written with. The ridge filter
+            dominates the cost of this stage when on.
             しきい値処理が完全に取りこぼした繊維を、マルチスケールのリッジ
-            フィルタで検出して追加するか。既定は無効。有効にすると解析結果が
-            変わる。
+            フィルタで検出して追加するか。保存済みパラメータファイルが書かれた
+            当時の数値を再現できるよう既定は無効。有効時は本ステージの処理時間
+            をリッジフィルタが占める。
         ridge_min_length_nm
             Shortest recovered segment kept, as a physical length. Below about
             100 nm the candidates stop being distinguishable from particle

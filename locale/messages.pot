@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-25 10:28+0900\n"
+"POT-Creation-Date: 2026-08-25 10:48+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -83,7 +83,7 @@ msgstr ""
 #: guis/GUI01B_Image_Preprocessor.py:4016
 #: guis/GUI01B_Image_Preprocessor.py:4025 guis/GUI01_Image_Preprocessor.py:680
 #: guis/GUI01_Image_Preprocessor.py:1490 guis/GUI01_Image_Preprocessor.py:1499
-#: guis/GUI01_Image_Preprocessor.py:3860 guis/GUI01_Image_Preprocessor.py:3869
+#: guis/GUI01_Image_Preprocessor.py:3861 guis/GUI01_Image_Preprocessor.py:3870
 #: guis/GUI03_Fiber_Height_Histogram.py:496
 #: guis/GUI03_Fiber_Height_Histogram.py:1301
 #: guis/GUI03_Fiber_Height_Histogram.py:1609
@@ -232,44 +232,44 @@ msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1494
 #: guis/GUI01B_Image_Preprocessor.py:3969 guis/GUI01_Image_Preprocessor.py:1440
-#: guis/GUI01_Image_Preprocessor.py:3813
+#: guis/GUI01_Image_Preprocessor.py:3814
 msgid "タイトル表示"
 msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1500
 #: guis/GUI01B_Image_Preprocessor.py:3970 guis/GUI01_Image_Preprocessor.py:1446
-#: guis/GUI01_Image_Preprocessor.py:3814
+#: guis/GUI01_Image_Preprocessor.py:3815
 msgid "スケール表示"
 msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1510
 #: guis/GUI01B_Image_Preprocessor.py:3973 guis/GUI01_Image_Preprocessor.py:1456
-#: guis/GUI01_Image_Preprocessor.py:3817 guis/GUI04_Tracking_fiber.py:438
+#: guis/GUI01_Image_Preprocessor.py:3818 guis/GUI04_Tracking_fiber.py:438
 msgid "軸目盛単位"
 msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1521
 #: guis/GUI01B_Image_Preprocessor.py:3984 guis/GUI01_Image_Preprocessor.py:1467
-#: guis/GUI01_Image_Preprocessor.py:3828 guis/GUI04_Tracking_fiber.py:624
+#: guis/GUI01_Image_Preprocessor.py:3829 guis/GUI04_Tracking_fiber.py:624
 msgid "vmin"
 msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1530
 #: guis/GUI01B_Image_Preprocessor.py:3993 guis/GUI01_Image_Preprocessor.py:1476
-#: guis/GUI01_Image_Preprocessor.py:3837 guis/GUI04_Tracking_fiber.py:632
+#: guis/GUI01_Image_Preprocessor.py:3838 guis/GUI04_Tracking_fiber.py:632
 msgid "vmax"
 msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1540
 #: guis/GUI01B_Image_Preprocessor.py:4010 guis/GUI01_Image_Preprocessor.py:1486
-#: guis/GUI01_Image_Preprocessor.py:3854
+#: guis/GUI01_Image_Preprocessor.py:3855
 #: guis/GUI03_Fiber_Height_Histogram.py:509
 msgid "重ね表示"
 msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1552
 #: guis/GUI01B_Image_Preprocessor.py:4024 guis/GUI01_Image_Preprocessor.py:1498
-#: guis/GUI01_Image_Preprocessor.py:3868
+#: guis/GUI01_Image_Preprocessor.py:3869
 msgid "Skeletonized 画像に重ねる特徴点の種類を選択します。"
 msgstr ""
 
@@ -279,45 +279,45 @@ msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1554
 #: guis/GUI01B_Image_Preprocessor.py:4026 guis/GUI01_Image_Preprocessor.py:1500
-#: guis/GUI01_Image_Preprocessor.py:3870
+#: guis/GUI01_Image_Preprocessor.py:3871
 msgid "ファイバーの端点（青）"
 msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1555
 #: guis/GUI01B_Image_Preprocessor.py:4027 guis/GUI01_Image_Preprocessor.py:1501
-#: guis/GUI01_Image_Preprocessor.py:3871
+#: guis/GUI01_Image_Preprocessor.py:3872
 msgid "ファイバーの分岐点（赤）"
 msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1556
 #: guis/GUI01B_Image_Preprocessor.py:4028 guis/GUI01_Image_Preprocessor.py:1502
-#: guis/GUI01_Image_Preprocessor.py:3872
+#: guis/GUI01_Image_Preprocessor.py:3873
 msgid "ファイバーのキンク点（シアン）"
 msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1557
 #: guis/GUI01B_Image_Preprocessor.py:4029 guis/GUI01_Image_Preprocessor.py:1503
-#: guis/GUI01_Image_Preprocessor.py:3873
+#: guis/GUI01_Image_Preprocessor.py:3874
 msgid "ファイバーの分解点（オレンジ）"
 msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1570
 #: guis/GUI01B_Image_Preprocessor.py:4042 guis/GUI01_Image_Preprocessor.py:1516
-#: guis/GUI01_Image_Preprocessor.py:3886 guis/GUI02_PlotProfiler.py:830
+#: guis/GUI01_Image_Preprocessor.py:3887 guis/GUI02_PlotProfiler.py:830
 #: guis/GUI04_Tracking_fiber.py:658
 msgid "フォントサイズ：タイトル"
 msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1579
 #: guis/GUI01B_Image_Preprocessor.py:4062 guis/GUI01_Image_Preprocessor.py:1525
-#: guis/GUI01_Image_Preprocessor.py:3906 guis/GUI02_PlotProfiler.py:843
+#: guis/GUI01_Image_Preprocessor.py:3907 guis/GUI02_PlotProfiler.py:843
 #: guis/GUI03_Fiber_Height_Histogram.py:565 guis/GUI04_Tracking_fiber.py:667
 msgid "軸ラベル"
 msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1588
 #: guis/GUI01B_Image_Preprocessor.py:4072 guis/GUI01_Image_Preprocessor.py:1534
-#: guis/GUI01_Image_Preprocessor.py:3916 guis/GUI02_PlotProfiler.py:855
+#: guis/GUI01_Image_Preprocessor.py:3917 guis/GUI02_PlotProfiler.py:855
 #: guis/GUI03_Fiber_Height_Histogram.py:574 guis/GUI04_Tracking_fiber.py:676
 #: guis/GUI04_Tracking_fiber.py:2649 guis/GUI04_Tracking_fiber.py:2754
 msgid "軸目盛"
@@ -325,13 +325,13 @@ msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1597
 #: guis/GUI01B_Image_Preprocessor.py:4082 guis/GUI01_Image_Preprocessor.py:1543
-#: guis/GUI01_Image_Preprocessor.py:3926 guis/GUI04_Tracking_fiber.py:2763
+#: guis/GUI01_Image_Preprocessor.py:3927 guis/GUI04_Tracking_fiber.py:2763
 msgid "凡例"
 msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1608
 #: guis/GUI01B_Image_Preprocessor.py:4092 guis/GUI01_Image_Preprocessor.py:1554
-#: guis/GUI01_Image_Preprocessor.py:3936 guis/GUI02_PlotProfiler.py:255
+#: guis/GUI01_Image_Preprocessor.py:3937 guis/GUI02_PlotProfiler.py:255
 #: guis/GUI02_PlotProfiler.py:960 guis/GUI02_PlotProfiler.py:2270
 #: guis/GUI03_Fiber_Height_Histogram.py:443
 #: guis/GUI03_Fiber_Height_Histogram.py:1738 guis/GUI04_Tracking_fiber.py:642
@@ -348,13 +348,13 @@ msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1637
 #: guis/GUI01B_Image_Preprocessor.py:4141 guis/GUI01_Image_Preprocessor.py:1583
-#: guis/GUI01_Image_Preprocessor.py:3985
+#: guis/GUI01_Image_Preprocessor.py:3986
 msgid "vmin は vmax 以下にしてください"
 msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:1661
 #: guis/GUI01B_Image_Preprocessor.py:4115 guis/GUI01_Image_Preprocessor.py:1607
-#: guis/GUI01_Image_Preprocessor.py:3959 guis/GUI02_PlotProfiler.py:1096
+#: guis/GUI01_Image_Preprocessor.py:3960 guis/GUI02_PlotProfiler.py:1096
 msgid "フォントサイズは 1〜60 の範囲で入力してください"
 msgstr ""
 
@@ -386,9 +386,9 @@ msgstr ""
 #: guis/GUI01B_Image_Preprocessor.py:3823 guis/GUI01_Image_Preprocessor.py:1658
 #: guis/GUI01_Image_Preprocessor.py:1662 guis/GUI01_Image_Preprocessor.py:2176
 #: guis/GUI01_Image_Preprocessor.py:2337 guis/GUI01_Image_Preprocessor.py:2353
-#: guis/GUI01_Image_Preprocessor.py:2370 guis/GUI01_Image_Preprocessor.py:3533
-#: guis/GUI01_Image_Preprocessor.py:3600 guis/GUI01_Image_Preprocessor.py:3647
-#: guis/GUI01_Image_Preprocessor.py:3667 guis/GUI02_PlotProfiler.py:1155
+#: guis/GUI01_Image_Preprocessor.py:2370 guis/GUI01_Image_Preprocessor.py:3534
+#: guis/GUI01_Image_Preprocessor.py:3601 guis/GUI01_Image_Preprocessor.py:3648
+#: guis/GUI01_Image_Preprocessor.py:3668 guis/GUI02_PlotProfiler.py:1155
 #: guis/GUI02_PlotProfiler.py:1159 guis/GUI02_PlotProfiler.py:1479
 #: guis/GUI02_PlotProfiler.py:1493 guis/GUI02_PlotProfiler.py:1662
 #: guis/GUI02_PlotProfiler.py:2084 guis/GUI02_PlotProfiler.py:2103
@@ -736,209 +736,209 @@ msgstr ""
 msgid "高さが低い成分を消すしきい値"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3527 guis/GUI01_Image_Preprocessor.py:3371
+#: guis/GUI01B_Image_Preprocessor.py:3527 guis/GUI01_Image_Preprocessor.py:3372
 msgid "Skeletonizer"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3528 guis/GUI01_Image_Preprocessor.py:3372
+#: guis/GUI01B_Image_Preprocessor.py:3528 guis/GUI01_Image_Preprocessor.py:3373
 msgid "分岐点が低い高さか判定するしきい値"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3529 guis/GUI01_Image_Preprocessor.py:3373
+#: guis/GUI01B_Image_Preprocessor.py:3529 guis/GUI01_Image_Preprocessor.py:3374
 msgid "枝とみなす短い線を追跡する最大長"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3530 guis/GUI01_Image_Preprocessor.py:3374
+#: guis/GUI01B_Image_Preprocessor.py:3530 guis/GUI01_Image_Preprocessor.py:3375
 msgid "小さすぎる線分（ノイズ）を削除する面積しきい値"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3531 guis/GUI01_Image_Preprocessor.py:3375
+#: guis/GUI01B_Image_Preprocessor.py:3531 guis/GUI01_Image_Preprocessor.py:3376
 msgid "骨格上の小ループ（マスクの穴由来の二重線）を1本に潰す最大囲み面積。0で無効"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3532 guis/GUI01_Image_Preprocessor.py:3376
+#: guis/GUI01B_Image_Preprocessor.py:3532 guis/GUI01_Image_Preprocessor.py:3377
 msgid "高さに関係なく除去する行き止まりの短い枝の最大長。画素単位のため解像度に応じて調整。0で無効"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3534 guis/GUI01_Image_Preprocessor.py:3378
+#: guis/GUI01B_Image_Preprocessor.py:3534 guis/GUI01_Image_Preprocessor.py:3379
 msgid "Kinkdetector"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3535 guis/GUI01_Image_Preprocessor.py:3379
+#: guis/GUI01B_Image_Preprocessor.py:3535 guis/GUI01_Image_Preprocessor.py:3380
 msgid "折れ線近似の3点のなす角がこの値以下ならkink判定"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3553 guis/GUI01_Image_Preprocessor.py:3397
+#: guis/GUI01B_Image_Preprocessor.py:3553 guis/GUI01_Image_Preprocessor.py:3398
 msgid "保存オプション"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3558 guis/GUI01_Image_Preprocessor.py:3402
+#: guis/GUI01B_Image_Preprocessor.py:3558 guis/GUI01_Image_Preprocessor.py:3403
 msgid "解析時に元データを保存"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3564 guis/GUI01_Image_Preprocessor.py:3408
+#: guis/GUI01B_Image_Preprocessor.py:3564 guis/GUI01_Image_Preprocessor.py:3409
 msgid "ONのとき、背景補正前の元データも解析後の .b2z に original として同梱します（解析条件には含まれません）"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3576 guis/GUI01_Image_Preprocessor.py:3420
+#: guis/GUI01B_Image_Preprocessor.py:3576 guis/GUI01_Image_Preprocessor.py:3421
 msgid "OK"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3577 guis/GUI01_Image_Preprocessor.py:3421
+#: guis/GUI01B_Image_Preprocessor.py:3577 guis/GUI01_Image_Preprocessor.py:3422
 msgid "設定の保存"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3578 guis/GUI01_Image_Preprocessor.py:3422
+#: guis/GUI01B_Image_Preprocessor.py:3578 guis/GUI01_Image_Preprocessor.py:3423
 msgid "設定の読み込み"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3579 guis/GUI01_Image_Preprocessor.py:3423
+#: guis/GUI01B_Image_Preprocessor.py:3579 guis/GUI01_Image_Preprocessor.py:3424
 msgid "キャンセル"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3583 guis/GUI01_Image_Preprocessor.py:3427
+#: guis/GUI01B_Image_Preprocessor.py:3583 guis/GUI01_Image_Preprocessor.py:3428
 msgid "現在値を既定値として保存"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3585 guis/GUI01_Image_Preprocessor.py:3429
+#: guis/GUI01B_Image_Preprocessor.py:3585 guis/GUI01_Image_Preprocessor.py:3430
 msgid "初期値に戻す"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3689 guis/GUI01_Image_Preprocessor.py:3533
+#: guis/GUI01B_Image_Preprocessor.py:3689 guis/GUI01_Image_Preprocessor.py:3534
 #, python-format
 msgid ""
 "設定値の読み取りに失敗しました。\n"
 "%s"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3697 guis/GUI01_Image_Preprocessor.py:3541
+#: guis/GUI01B_Image_Preprocessor.py:3697 guis/GUI01_Image_Preprocessor.py:3542
 msgid "設定を更新しました（次回解析時に反映）"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3705 guis/GUI01_Image_Preprocessor.py:3549
+#: guis/GUI01B_Image_Preprocessor.py:3705 guis/GUI01_Image_Preprocessor.py:3550
 msgid "設定変更をキャンセルしました"
 msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:3721
-#: guis/GUI01B_Image_Preprocessor.py:3772 guis/GUI01_Image_Preprocessor.py:3565
-#: guis/GUI01_Image_Preprocessor.py:3616
+#: guis/GUI01B_Image_Preprocessor.py:3772 guis/GUI01_Image_Preprocessor.py:3566
+#: guis/GUI01_Image_Preprocessor.py:3617
 #: guis/GUI03_Fiber_Height_Histogram.py:1006
 #: guis/GUI03_Fiber_Height_Histogram.py:1042
 msgid "確認"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3722 guis/GUI01_Image_Preprocessor.py:3566
+#: guis/GUI01B_Image_Preprocessor.py:3722 guis/GUI01_Image_Preprocessor.py:3567
 msgid ""
 "現在のダイアログ値を起動時の既定値として保存します。\n"
 "起動時設定ファイルを上書きします。よろしいですか？"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3754 guis/GUI01_Image_Preprocessor.py:3598
+#: guis/GUI01B_Image_Preprocessor.py:3754 guis/GUI01_Image_Preprocessor.py:3599
 #, python-format
 msgid "現在値を既定値として保存しました: %s"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3756 guis/GUI01_Image_Preprocessor.py:3600
+#: guis/GUI01B_Image_Preprocessor.py:3756 guis/GUI01_Image_Preprocessor.py:3601
 #, python-format
 msgid ""
 "既定値の保存に失敗しました。\n"
 "%s"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3773 guis/GUI01_Image_Preprocessor.py:3617
+#: guis/GUI01B_Image_Preprocessor.py:3773 guis/GUI01_Image_Preprocessor.py:3618
 msgid ""
 "ダイアログの全パラメータと「元データを保存」を初期値に戻します。\n"
 "（この操作では設定ファイルは変更されません）\n"
 "よろしいですか？"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3781 guis/GUI01_Image_Preprocessor.py:3625
+#: guis/GUI01B_Image_Preprocessor.py:3781 guis/GUI01_Image_Preprocessor.py:3626
 msgid "ダイアログを初期値に戻しました（未保存）"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3789 guis/GUI01_Image_Preprocessor.py:3633
+#: guis/GUI01B_Image_Preprocessor.py:3789 guis/GUI01_Image_Preprocessor.py:3634
 msgid "設定の保存（JSON）"
 msgstr ""
 
 #: guis/GUI01B_Image_Preprocessor.py:3793
-#: guis/GUI01B_Image_Preprocessor.py:3812 guis/GUI01_Image_Preprocessor.py:3637
-#: guis/GUI01_Image_Preprocessor.py:3656
+#: guis/GUI01B_Image_Preprocessor.py:3812 guis/GUI01_Image_Preprocessor.py:3638
+#: guis/GUI01_Image_Preprocessor.py:3657
 msgid "JSON"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3801 guis/GUI01_Image_Preprocessor.py:3645
+#: guis/GUI01B_Image_Preprocessor.py:3801 guis/GUI01_Image_Preprocessor.py:3646
 #, python-format
 msgid "設定を保存しました: %s"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3803 guis/GUI01_Image_Preprocessor.py:3647
+#: guis/GUI01B_Image_Preprocessor.py:3803 guis/GUI01_Image_Preprocessor.py:3648
 #, python-format
 msgid ""
 "保存に失敗しました。\n"
 "%s"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3811 guis/GUI01_Image_Preprocessor.py:3655
+#: guis/GUI01B_Image_Preprocessor.py:3811 guis/GUI01_Image_Preprocessor.py:3656
 msgid "設定の読み込み（JSON）"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3821 guis/GUI01_Image_Preprocessor.py:3665
+#: guis/GUI01B_Image_Preprocessor.py:3821 guis/GUI01_Image_Preprocessor.py:3666
 #, python-format
 msgid "設定を読み込みました: %s"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3823 guis/GUI01_Image_Preprocessor.py:3667
+#: guis/GUI01B_Image_Preprocessor.py:3823 guis/GUI01_Image_Preprocessor.py:3668
 #, python-format
 msgid ""
 "読み込みに失敗しました。\n"
 "%s"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3832 guis/GUI01_Image_Preprocessor.py:3676
+#: guis/GUI01B_Image_Preprocessor.py:3832 guis/GUI01_Image_Preprocessor.py:3677
 msgid "[Tkコールバック例外]\n"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3835 guis/GUI01_Image_Preprocessor.py:3679
+#: guis/GUI01B_Image_Preprocessor.py:3835 guis/GUI01_Image_Preprocessor.py:3680
 msgid "内部エラー"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3881 guis/GUI01_Image_Preprocessor.py:3725
+#: guis/GUI01B_Image_Preprocessor.py:3881 guis/GUI01_Image_Preprocessor.py:3726
 #, python-format
 msgid "個別表示: %s"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:3959 guis/GUI01_Image_Preprocessor.py:3803
+#: guis/GUI01B_Image_Preprocessor.py:3959 guis/GUI01_Image_Preprocessor.py:3804
 #: guis/GUI03_Fiber_Height_Histogram.py:502
 msgid "表示"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:4025 guis/GUI01_Image_Preprocessor.py:3869
+#: guis/GUI01B_Image_Preprocessor.py:4025 guis/GUI01_Image_Preprocessor.py:3870
 msgid "重ね描きしません"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:4052 guis/GUI01_Image_Preprocessor.py:3896
+#: guis/GUI01B_Image_Preprocessor.py:4052 guis/GUI01_Image_Preprocessor.py:3897
 #: guis/GUI02_PlotProfiler.py:867 guis/GUI04_Tracking_fiber.py:685
 #: guis/GUI04_Tracking_fiber.py:2659
 msgid "カラーバー"
 msgstr ""
 
-#: guis/GUI01B_Image_Preprocessor.py:4315 guis/GUI01_Image_Preprocessor.py:4159
+#: guis/GUI01B_Image_Preprocessor.py:4315 guis/GUI01_Image_Preprocessor.py:4160
 msgid "個別表示画像を保存"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:3363
-msgid "取りこぼした繊維をリッジフィルタで追加（結果が変わる。実寸未設定時は無効）"
+msgid "しきい値で拾えなかった繊維をリッジフィルタで検出して追加する。1画像あたり数秒〜30秒遅くなる"
 msgstr ""
 
-#: guis/GUI01_Image_Preprocessor.py:3365
+#: guis/GUI01_Image_Preprocessor.py:3366
 msgid "[ridge_recovery時] 追加するセグメントの最小長"
 msgstr ""
 
-#: guis/GUI01_Image_Preprocessor.py:3367
+#: guis/GUI01_Image_Preprocessor.py:3368
 msgid "[ridge_recovery時] リッジフィルタが探索する繊維半幅の下限"
 msgstr ""
 
-#: guis/GUI01_Image_Preprocessor.py:3369
+#: guis/GUI01_Image_Preprocessor.py:3370
 msgid "[ridge_recovery時] リッジフィルタが探索する繊維半幅の上限"
 msgstr ""
 
