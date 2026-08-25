@@ -108,3 +108,6 @@ testdata_Bruker_txt/*
 *_dp.csv
 *_ka.csv
 buildold.py
+
+# Local diagnostic GUI variant; not part of the distributed plugin set.
+guis/GUI01B_Image_Preprocessor.py
