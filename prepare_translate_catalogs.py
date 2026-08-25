@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -39,6 +40,48 @@ def _run_babel(args: list[str]) -> None:
     プロジェクトルートから Babel コマンドを実行する。
     """
     subprocess.run(_babel_command() + args, cwd=BASE_DIR, check=True)
+
+
+def _tracked_python_files() -> Optional[list[str]]:
+    """
+    List the repository-relative paths of every git-tracked Python file.
+    git が追跡している Python ファイルのリポジトリ相対パスを列挙する。
+
+    Returns
+    -------
+    list of str or None
+        Tracked paths, or None when git cannot answer and the caller should
+        fall back to scanning the working tree.
+        追跡されているパス。git が応答できずスキャンへフォールバックすべき
+        場合は None。
+
+    Notes
+    -----
+    The catalogs are a product artifact, so their contents must be a function
+    of the repository rather than of whatever happens to sit in the working
+    tree. Babel resolves `babel.cfg`'s `**/*.py` against the filesystem and
+    knows nothing about git, so an ignored local file (the GUI01B diagnostic
+    copy of GUI01) otherwise lands in the catalogs and makes them differ
+    between a fresh clone and a developer's machine.
+    カタログは成果物であり、その内容は作業ツリーではなくリポジトリによって
+    決まらなければならない。Babel は `babel.cfg` の `**/*.py` をファイル
+    システム上で解決し git を一切見ないため、無視されたローカルファイル
+    (GUI01 の診断用コピー GUI01B) がカタログに入り、クローン直後と開発者の
+    手元とで内容が食い違ってしまう。
+
+    Returning None on failure keeps the script usable where git is absent --
+    a source tarball, for instance -- which is also a case where no ignored
+    file can be present to begin with.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "-z", "--", "*.py"],
+            cwd=BASE_DIR, capture_output=True, check=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    paths = [p for p in result.stdout.decode("utf-8").split("\0") if p]
+    return paths or None
 
 
 def _po_escape(text: str) -> str:
@@ -106,15 +149,31 @@ def _parse_msgids(po_text: str) -> set[str]:
     return msgids
 
 
-def _extract_plugin_descriptions() -> list[tuple[str, int, str]]:
+def _extract_plugin_descriptions(
+    tracked: Optional[list[str]] = None,
+) -> list[tuple[str, int, str]]:
     """
     Extract literal PLUGIN_INFO descriptions from GUI plugin files.
     GUI プラグインファイルからリテラルの PLUGIN_INFO description を抽出する。
+
+    Parameters
+    ----------
+    tracked
+        Git-tracked paths to restrict the scan to, or None to scan `guis/` as
+        it stands on disk. This is the second path into the catalogs, beside
+        Babel's own extraction, so it needs the same filter.
+        走査対象を限定する git 追跡パス。None なら `guis/` をディスク上の
+        状態のまま走査する。Babel の抽出と並ぶカタログへの second path で
+        あるため、同じフィルタが必要。
     """
+    allowed = None if tracked is None else set(tracked)
     descriptions: list[tuple[str, int, str]] = []
     for py_file in sorted(GUIS_DIR.glob("*.py"), key=lambda path: path.name.lower()):
         if py_file.name == "__init__.py":
             continue
+        if allowed is not None:
+            if py_file.relative_to(BASE_DIR).as_posix() not in allowed:
+                continue
 
         tree = ast.parse(py_file.read_text(encoding="utf-8"))
         for node in tree.body:
@@ -139,16 +198,26 @@ def _extract_plugin_descriptions() -> list[tuple[str, int, str]]:
     return descriptions
 
 
-def _append_plugin_descriptions_to_pot() -> int:
+def _append_plugin_descriptions_to_pot(
+    tracked: Optional[list[str]] = None,
+) -> int:
     """
     Add PLUGIN_INFO description msgids to the POT file when missing.
     POT ファイルに未登録の PLUGIN_INFO description msgid を追加する。
+
+    Parameters
+    ----------
+    tracked
+        Git-tracked paths limiting which plugin files are scanned, or None to
+        scan every file present in `guis/`.
+        走査するプラグインファイルを限定する git 追跡パス。None なら `guis/`
+        にある全ファイルを走査する。
     """
     text = POT_FILE.read_text(encoding="utf-8")
     existing = _parse_msgids(text)
     additions: list[str] = []
 
-    for rel_path, lineno, description in _extract_plugin_descriptions():
+    for rel_path, lineno, description in _extract_plugin_descriptions(tracked):
         if description in existing:
             continue
         additions.append("")
@@ -203,8 +272,17 @@ def main() -> None:
         raise FileNotFoundError(f"Missing Babel config: {BABEL_CFG}")
     LOCALE_DIR.mkdir(exist_ok=True)
 
-    _run_babel(["extract", "-F", str(BABEL_CFG), "-o", str(POT_FILE), "."])
-    added = _append_plugin_descriptions_to_pot()
+    tracked = _tracked_python_files()
+    if tracked is None:
+        print(
+            "  [WARN] git could not list tracked files; extracting from the "
+            "working tree. Ignored .py files, if any, will enter the catalogs."
+        )
+        inputs = ["."]
+    else:
+        inputs = tracked
+    _run_babel(["extract", "-F", str(BABEL_CFG), "-o", str(POT_FILE), *inputs])
+    added = _append_plugin_descriptions_to_pot(tracked)
     _run_babel(["update", "-i", str(POT_FILE), "-d", str(LOCALE_DIR)])
     removed = _remove_all_obsolete_entries()
 
