@@ -127,6 +127,20 @@ class ProcParams:
     low_threshold
         Height threshold in nanometers for removing low components.
         低い成分を除去する高さしきい値 (nm)。
+    ridge_recovery
+        Whether to add fibers that thresholding missed entirely, detected by a
+        multi-scale ridge filter. Off by default; enabling it changes results.
+        しきい値処理が完全に取りこぼした繊維を、マルチスケールのリッジ
+        フィルタで検出して追加するか。既定は無効で、有効にすると結果が変わる。
+    ridge_min_length_nm
+        Shortest recovered segment kept, in nanometers.
+        回収するセグメントの最小長 (nm)。
+    ridge_min_width_nm
+        Smallest fiber half-width searched by the ridge filter, in nanometers.
+        リッジフィルタが探索する繊維半幅の下限 (nm)。
+    ridge_max_width_nm
+        Largest fiber half-width searched by the ridge filter, in nanometers.
+        リッジフィルタが探索する繊維半幅の上限 (nm)。
     bp_height
         Height threshold for branch-point filtering.
         分岐点を判定する高さしきい値。
@@ -189,6 +203,10 @@ class ProcParams:
     h_length: int = 20                     # Minimum Hough line length.
     h_sratio: float = 0.5                  # Line-likeness threshold.
     low_threshold: float = 1.8             # Low-height removal threshold, in nanometers.
+    ridge_recovery: bool = False           # Recover thresholding misses with a ridge filter; off keeps 1.0.0 results.
+    ridge_min_length_nm: float = 100.0     # Shortest recovered segment kept, in nm.
+    ridge_min_width_nm: float = 3.0        # Ridge-filter fiber half-width lower bound, in nm.
+    ridge_max_width_nm: float = 20.0       # Ridge-filter fiber half-width upper bound, in nm.
 
     # Skeletonizer parameters.
     bp_height: float = 10.0               # Height threshold for branch-point filtering.
@@ -426,6 +444,18 @@ def validate_params(p: ProcParams) -> List[str]:
             f"h_sratio must be a non-negative number, got {p.h_sratio!r}")
     require(_num(p.low_threshold),
             f"low_threshold must be a number (nm), got {p.low_threshold!r}")
+    require(isinstance(p.ridge_recovery, bool),
+            f"ridge_recovery must be a bool, got {p.ridge_recovery!r}")
+    require(_num(p.ridge_min_length_nm) and p.ridge_min_length_nm > 0,
+            f"ridge_min_length_nm must be a positive number (nm), "
+            f"got {p.ridge_min_length_nm!r}")
+    require(_num(p.ridge_min_width_nm) and p.ridge_min_width_nm > 0,
+            f"ridge_min_width_nm must be a positive number (nm), "
+            f"got {p.ridge_min_width_nm!r}")
+    require(_num(p.ridge_max_width_nm)
+            and p.ridge_max_width_nm > p.ridge_min_width_nm,
+            f"ridge_max_width_nm must be a number (nm) greater than "
+            f"ridge_min_width_nm, got {p.ridge_max_width_nm!r}")
 
     # --- Skeletonization ---
     require(_num(p.bp_height),
@@ -533,6 +563,10 @@ def build_stages(p: ProcParams) -> PipelineStages:
         h_length=p.h_length,
         h_sratio=p.h_sratio,
         low_threshold=p.low_threshold,
+        ridge_recovery=p.ridge_recovery,
+        ridge_min_length_nm=p.ridge_min_length_nm,
+        ridge_min_width_nm=p.ridge_min_width_nm,
+        ridge_max_width_nm=p.ridge_max_width_nm,
     )
     skeletonizer = Skeletonizer(
         bp_height=p.bp_height,
@@ -767,7 +801,21 @@ def process_file(
     stages.bg_calibrator(image)
 
     report("binarize")
-    stages.segmenter(image)
+    # Ridge recovery states its length and width settings physically, so it
+    # needs the pixel size. X is used because the ridge filter is isotropic;
+    # a scan with very different X and Y pixel sizes would need a per-axis
+    # filter rather than a per-axis scale here. Without a resolved scan size
+    # the segmenter skips recovery rather than guessing.
+    # リッジ回収は長さ・幅設定を物理量で持つため画素サイズを必要とする。リッジ
+    # フィルタは等方的なので X を使う。X と Y の画素サイズが大きく異なる走査は、
+    # ここで軸別スケールを渡すのではなく軸別フィルタが必要になる。走査範囲が
+    # 未解決なら、推測せずに回収段を飛ばす。
+    nm_per_px = None
+    if resolved_scan_size is not None:
+        width_px = np.asarray(image.calibrated_image).shape[1]
+        if width_px > 0:
+            nm_per_px = resolved_scan_size[0] * 1000.0 / width_px
+    stages.segmenter(image, nm_per_px=nm_per_px)
 
     report("skeletonize")
     stages.skeletonizer(image)

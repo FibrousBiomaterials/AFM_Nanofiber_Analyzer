@@ -30,6 +30,9 @@ EXPECTED_FIELDS = {
     # Binarization.
     "wsize_localbin", "global_threshold", "area_min", "area_min_connecting",
     "apply_no_connecting", "h_length", "h_sratio", "low_threshold",
+    # Optional ridge recovery inside binarization.
+    "ridge_recovery", "ridge_min_length_nm",
+    "ridge_min_width_nm", "ridge_max_width_nm",
     # Skeletonization.
     "bp_height", "branch_length", "min_area", "max_loop_area", "spur_length",
     # Kink detection.

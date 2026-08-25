@@ -10,6 +10,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- An optional ridge-recovery step in binarization (`ProcParams.ridge_recovery`,
+  off by default) that adds fibers the height thresholding missed entirely.
+  A multi-scale ridge filter runs on the calibrated image, and the material it
+  finds outside the existing mask is kept when a segment is at least
+  `ridge_min_length_nm` long; the searched fiber half-width range is set in
+  nanometres (`ridge_min_width_nm`, `ridge_max_width_nm`) and converted per
+  image, so one setting means the same physical structure at any scan
+  resolution. Recovery only ever adds to the mask and needs a known scan size;
+  it is skipped when the pixel size cannot be resolved. **Results are
+  unchanged while it stays off**, which is the default. On a 10 µm scan at
+  9.78 nm/px it recovered 391 segments the previous pipeline dropped, while
+  adding nothing to four of the other five test datasets.
+
 - Commit- and push-time safety checks (`.githooks/pre-commit`,
   `.githooks/pre-push`, `scripts/check_sensitive.py`) that scan staged diffs
   and outgoing commits for credentials, e-mail addresses, machine-local
