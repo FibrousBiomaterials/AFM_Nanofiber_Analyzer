@@ -3360,7 +3360,8 @@ class SettingsDialog(tk.Toplevel):
                 ("field", "h_sratio", "h_sratio", _("線っぽさ") + " (s_ratio) " + _("のしきい値"), {}),
                 ("field", "low_threshold", "low_threshold", _("高さが低い成分を消すしきい値") + " (nm)", {}),
                 ("bool", "ridge_recovery", "ridge_recovery",
-                 _("取りこぼした繊維をリッジフィルタで追加（結果が変わる。実寸未設定時は無効）"), {}),
+                 _("しきい値で拾えなかった繊維をリッジフィルタで検出して追加する。"
+                   "1画像あたり数秒〜30秒遅くなる"), {}),
                 ("field", "ridge_min_length_nm", "ridge_min_length_nm",
                  _("[ridge_recovery時] 追加するセグメントの最小長") + " (nm)", {"width": 10}),
                 ("field", "ridge_min_width_nm", "ridge_min_width_nm",

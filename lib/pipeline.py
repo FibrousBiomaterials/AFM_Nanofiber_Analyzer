@@ -129,9 +129,13 @@ class ProcParams:
         低い成分を除去する高さしきい値 (nm)。
     ridge_recovery
         Whether to add fibers that thresholding missed entirely, detected by a
-        multi-scale ridge filter. Off by default; enabling it changes results.
+        multi-scale ridge filter. Off by default so a stored parameter file
+        reproduces the numbers it was written with; costs a few seconds to
+        half a minute per image when on.
         しきい値処理が完全に取りこぼした繊維を、マルチスケールのリッジ
-        フィルタで検出して追加するか。既定は無効で、有効にすると結果が変わる。
+        フィルタで検出して追加するか。保存済みパラメータファイルが書かれた
+        当時の数値を再現できるよう既定は無効。有効時は 1 画像あたり数秒〜
+        30 秒の追加コストがかかる。
     ridge_min_length_nm
         Shortest recovered segment kept, in nanometers.
         回収するセグメントの最小長 (nm)。
