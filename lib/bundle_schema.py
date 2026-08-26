@@ -116,6 +116,29 @@ SPATIAL_CALIBRATION_KEY = "spatial_calibration"
 # そのまま記録する。
 SCAN_SIZE_SOURCES = ("input_header", "manifest", "manual")
 
+# vlmeta key naming which part of the input file the bundle was produced from.
+# Present only when the analysis ran on a sub-range of the input's scan lines
+# (GUI01's scan-line-range crop, `cli.py process --rows`); a bundle covering
+# the whole image omits it. Holds `row_start` / `row_stop` (a half-open scan
+# line range) and `row_total` (the input's full scan-line count).
+# Optional provenance like `input_format`: readers must treat a missing entry
+# as "the whole image", never as an error.
+# Adding this key does not bump `BUNDLE_FORMAT_VERSION`: no array key, shape,
+# or unit changes, and a reader that does not know the key still interprets
+# every array correctly, because the stored arrays and the recorded
+# `spatial_calibration` already describe the cropped image.
+# バンドルが入力ファイルのどの部分から作られたかを示す vlmeta キー。解析が入力の
+# 走査線の部分範囲に対して行われた場合（GUI01 の走査線範囲切り出し、
+# `cli.py process --rows`）のみ存在し、画像全体のバンドルでは省略される。
+# `row_start` / `row_stop`（半開区間の走査線範囲）と `row_total`（入力の全走査
+# 線数）を持つ。`input_format` と同様の任意の来歴情報であり、読み取り側は欠落を
+# 「画像全体」と解釈しなければならず、エラーにしてはならない。
+# このキーの追加で `BUNDLE_FORMAT_VERSION` は上げない。配列キー・形状・単位の
+# いずれも変わらず、このキーを知らない読み取り側でも全配列を正しく解釈できる。
+# 保存された配列と記録済みの `spatial_calibration` が既に切り出し後の画像を
+# 表しているためである。
+SOURCE_REGION_KEY = "source_region"
+
 # Keys needed to rebuild a FiberTrackingImage (GUI04 / lib.measure contract).
 # Unlike REQUIRED_BUNDLE_KEYS, `binarized` is not needed for tracking.
 # FiberTrackingImage の再構築に必要なキー（GUI04 / lib.measure 契約）。

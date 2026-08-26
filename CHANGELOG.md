@@ -10,6 +10,37 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Analyzing only part of a scan's scan lines, so feedback-glitch bands can be
+  excluded instead of poisoning the whole image. GUI01 gains a "走査線範囲"
+  column (one input expands into one entry per range), a "縞ノイズで分割"
+  button that fills it from the stripe-noise screening, and a "分割を解除"
+  button that collapses the entries back (asking whether to delete the
+  outputs the split produced, since keeping them means the entries return
+  when the folder is reopened); `cli.py process` gains
+  `--rows START-STOP[,...]`; `lib.pipeline.process_file` gains `row_range`.
+  Each range is analyzed as its own image and written to
+  `<input_stem>_r<start>-<stop>.b2z`, with the range recorded in the bundle's
+  `source_region` metadata and restored from the output names when the folder
+  is reopened. The recorded Y scan size is scaled so the stored pixel size is
+  identical to the uncropped run's on both axes — a fiber measures the same
+  whether or not the scan was cropped. **Results are unchanged when no range is
+  given**, which is the default; `BUNDLE_FORMAT_VERSION` is unchanged because
+  no array key, shape, or unit changed.
+
+- A stripe-noise screening in GUI01 (`lib/stripe_noise.py`) that reports
+  feedback glitches before a scan is analyzed. A lost feedback loop displaces
+  whole scan lines, and because several analysis steps take a threshold from a
+  statistic over the *whole* image, one glitch band rescales the analysis
+  everywhere — on a bundled 10 µm scan the ridge-recovery hysteresis seed
+  landed above the maximum response of every fiber in the clean part of the
+  image, so nothing was recovered there at all. A new "縞ノイズ率" column shows
+  the percentage of affected scan lines per file, flagged cells are tinted, the
+  glitch-free scan-line ranges are listed in the log, and the affected lines
+  are shaded on the Original preview panel. The step threshold is in the
+  settings dialog under "縞ノイズの判定". **Analysis results are unchanged**:
+  the screening is read-only, no pipeline stage reads it, and nothing it
+  computes is written to the `.b2z` bundle.
+
 - An optional ridge-recovery step in binarization (`ProcParams.ridge_recovery`,
   off by default) that adds fibers the height thresholding missed entirely.
   A multi-scale ridge filter runs on the calibrated image, and the material it

@@ -620,6 +620,17 @@ Gwyddion .gwy     -> gwy_io.load_gwy_image()
     -> .b2z bundle + _param.json
 ```
 
+`process_file(row_range=...)` analyzes only a half-open range of scan lines,
+writing to `<input_stem>_r<start>-<stop>.b2z` (`row_range_suffix`) and recording
+the range in the bundle's `source_region` vlmeta entry. This is not the same as
+analyzing the whole image and ignoring part of it: stages take thresholds from
+statistics over the whole array, so excluding disturbed scan lines changes what
+the remaining lines are compared against. `scan_size_um` and the input header
+always describe the *whole* scan; `process_file` scales the recorded Y size so
+the stored pixel size is identical to the uncropped run's on both axes, and a
+fiber measures the same either way. GUI01 exposes this as the scan-line-range
+column and `cli.py process` as `--rows`.
+
 `process_file` dispatches by extension: `.gwy` inputs load through
 `lib/gwy_io.py` (selecting one channel), everything else loads through
 `lib/afm_io.py`. Both yield a nm height array and an optional scan size, so the
@@ -666,7 +677,9 @@ The executable contract — required and optional keys, array shapes, units,
 coordinate convention, and the bundle format version — is defined in
 `lib/bundle_schema.py` (`REQUIRED_BUNDLE_KEYS`, `OPTIONAL_BUNDLE_KEYS`,
 `TRACKING_BUNDLE_KEYS`, `validate_bundle`, `BUNDLE_FORMAT_VERSION`,
-`SUPPORTED_BUNDLE_VERSIONS`). Read the key list, shapes, and units there;
+`SUPPORTED_BUNDLE_VERSIONS`), along with the optional vlmeta entries
+`SPATIAL_CALIBRATION_KEY` and `SOURCE_REGION_KEY` (which scan lines of the
+input were analyzed; absent means the whole image). Read the key list, shapes, and units there;
 this document intentionally does not duplicate them. The pipeline validates
 before saving, `lib/measure.py` validates at load time, and `cli.py validate`
 checks bundles on demand. Bump `BUNDLE_FORMAT_VERSION` (recorded in vlmeta as
@@ -743,7 +756,7 @@ all call sites in `guis/`, `Main.py`, `cli.py`, `tests/`, and `lib/` imports.
 | `bg_calibrator.py` | `BGCalibrator`, `BG_METHOD_NAMES`, `BG_METHOD_ALIASES`, `BG_METHOD_REMOVED`, `canonical_bg_method` | See §8.1 for `bg_method` options. `BG_METHOD_NAMES` is the canonical method list; `canonical_bg_method` translates a retired spelling from `BG_METHOD_ALIASES` so a `_param.json` written by an older version still loads. `BG_METHOD_REMOVED` maps a deleted method to the message shown when a stored parameter file still selects it; removed methods are reported, never aliased to a survivor. |
 | `bg_calibrator_shimadzu.py` | `BG_Calibrator_shimadzu` | Compatibility shim; alias of `BGCalibrator`. Do not add new code here. |
 | `blosc2_io.py` | `save_blosc2`, `load_blosc2`, `save_bundle`, `load_bundle` | |
-| `bundle_schema.py` | `validate_bundle`, `BUNDLE_FORMAT_VERSION`, `SUPPORTED_BUNDLE_VERSIONS`, `REQUIRED_BUNDLE_KEYS`, `OPTIONAL_BUNDLE_KEYS`, `TRACKING_BUNDLE_KEYS`, `SPATIAL_CALIBRATION_KEY`, `SCAN_SIZE_SOURCES`, `make_spatial_calibration`, `scan_size_um_from_meta` | Executable `.b2z` contract (§8.2): keys, shapes, units, coordinate convention, format version, and the optional `spatial_calibration` vlmeta entry (scan size + source). Depends only on NumPy. |
+| `bundle_schema.py` | `validate_bundle`, `BUNDLE_FORMAT_VERSION`, `SUPPORTED_BUNDLE_VERSIONS`, `REQUIRED_BUNDLE_KEYS`, `OPTIONAL_BUNDLE_KEYS`, `TRACKING_BUNDLE_KEYS`, `SPATIAL_CALIBRATION_KEY`, `SOURCE_REGION_KEY`, `SCAN_SIZE_SOURCES`, `make_spatial_calibration`, `scan_size_um_from_meta` | Executable `.b2z` contract (§8.2): keys, shapes, units, coordinate convention, format version, and the optional `spatial_calibration` vlmeta entry (scan size + source). Depends only on NumPy. |
 | `fiber.py` | `Fiber` | Immutable dataclass holding height, length, kink points, and endpoints per fiber. |
 | `fiber_connector.py` | `ConnectParams`, `connect_fiber_fragments`, `filter_fibers_by_height`, `angle_between_three_points` | Reconnects skeleton fragments split at crossings/branches into whole fibrils by local position/direction/height continuity, rebuilding one `Fiber` per fibril (features recomputed via `KinkDetector`). Used by GUI04's optional fiber-connection mode via `measure_bundle(connect_fibers=True)`. Sequential (order-dependent), so not parallelized. `filter_fibers_by_height` implements GUI04's "connect, then filter" order: it slices each already-built fibril by its own `Fiber.height` profile (bridge heights included, so an in-band bridge keeps the fibril joined) instead of masking the raw skeleton like `FiberTrackingImage.specific_height_fibers`. |
 | `fiber_tracking_image.py` | `FiberTrackingImage` | GUI04 data container; builds `Fiber` instances from a `.b2z` bundle. |
@@ -751,10 +764,11 @@ all call sites in `guis/`, `Main.py`, `cli.py`, `tests/`, and `lib/` imports.
 | `imp_tools.py` | `branchedPoints`, `endPoints`, `tracking`, `convert_track_to_distance` | |
 | `kink_detector.py` | `KinkDetector` | |
 | `measure.py` | `FiberStats`, `MeasureResult`, `compute_fiber_stats`, `load_tracking_image`, `measure_bundle`, `read_scan_size_from_bundle`, `write_fiber_csv`, `all_pixel_height`, `skeleton_height_values`, `write_heights_csv`, `TRACKING_BUNDLE_KEYS`, `FIBER_CSV_COLUMNS` | GUI-independent fiber measurement shared by GUI03, GUI04, and `cli.py measure` / `heights`; keeps GUI and CLI statistics identical. `measure_bundle` resolves the pixel size per axis (X from image width, Y from image height) so rectangular scans and non-square pixel grids are measured correctly; it defaults both axes to the bundle's recorded scan size when `scale_um` / `scale_y_um` are omitted, and a single `scale_um` keeps a square scan. |
-| `pipeline.py` | `ProcParams`, `STAGE_KEYS`, `build_stages`, `PipelineStages`, `process_file`, `PipelineResult`, `merge_params_dict`, `validate_params`, `existing_min_set`, `bundle_path_for`, `param_path_for`, `BG_METHODS`, `canonical_bg_method` | GUI-independent preprocessing driver shared by GUI01 and `cli.py process`; owns `ProcParams` (field names frozen, §8.1) and stage construction. `BG_METHODS` and `canonical_bg_method` are re-exported from `bg_calibrator`; `merge_params_dict` applies the alias translation so every file-load path normalizes `bg_method`. |
+| `pipeline.py` | `ProcParams`, `STAGE_KEYS`, `build_stages`, `PipelineStages`, `process_file`, `PipelineResult`, `merge_params_dict`, `validate_params`, `existing_min_set`, `bundle_path_for`, `param_path_for`, `row_range_suffix`, `BG_METHODS`, `canonical_bg_method` | GUI-independent preprocessing driver shared by GUI01 and `cli.py process`; owns `ProcParams` (field names frozen, §8.1) and stage construction. `BG_METHODS` and `canonical_bg_method` are re-exported from `bg_calibrator`; `merge_params_dict` applies the alias translation so every file-load path normalizes `bg_method`. |
 | `processed_image.py` | `ProcessedImage` | Image and result container for the GUI01 pipeline. |
 | `segmenter.py` | `Segmenter` | |
 | `skeletonizer.py` | `Skeletonizer` | |
+| `stripe_noise.py` | `StripeNoise`, `evaluate_scan_lines`, `propose_clean_ranges`, `DEFAULT_STEP_THRESHOLD_NM`, `DEFAULT_GUARD_LINES` | Screens a raw scan for feedback glitches: flags scan lines displaced by a lost feedback loop (via the line-to-line median height step) and lists the runs of glitch-free lines. Read-only, like `bg_quality.py`: no pipeline stage calls it and nothing it computes is written to the `.b2z` bundle, since the metrics are exactly reproducible from the raw input. Surfaced by GUI01's stripe-noise-rate column. Depends only on NumPy. |
 | `translator.py` | `_`, `set_language`, `current_language` | |
 | `ui_tools.py` | See §7.4 | Shared GUI helpers; prefer these over local re-implementations. |
 

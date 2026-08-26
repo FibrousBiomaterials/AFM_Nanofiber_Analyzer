@@ -71,6 +71,7 @@ from lib.pipeline import (
     existing_min_set,
     merge_params_dict,
     process_file,
+    row_range_suffix,
     validate_params,
 )
 
@@ -126,15 +127,70 @@ def _load_params(path: str, strict: bool = False) -> ProcParams:
     return params
 
 
-def _output_stem(txt_path: str, output_dir: str) -> str:
+def _output_stem(txt_path: str, output_dir: str, row_range=None) -> str:
     """
     Return the extensionless output path for one input file.
     1 入力ファイルに対応する拡張子なしの出力パスを返す。
+
+    `row_range` selects one analyzed scan-line range, whose suffix has to match
+    what `process_file` writes, or the existing-output check would look at the
+    wrong path and re-run work that is already done.
+    `row_range` は解析する走査線範囲を指定する。その接尾辞は `process_file` が
+    書き出すものと一致していなければならない。さもないと既存出力の確認が別の
+    パスを見てしまい、済んでいる処理をやり直すことになる。
     """
-    name = os.path.splitext(os.path.basename(txt_path))[0]
+    name = os.path.splitext(os.path.basename(txt_path))[0] + row_range_suffix(row_range)
     if output_dir:
         return os.path.join(output_dir, name)
-    return os.path.splitext(txt_path)[0]
+    return os.path.splitext(txt_path)[0] + row_range_suffix(row_range)
+
+
+def _parse_row_ranges(text):
+    """
+    Parse a ``--rows`` value into half-open scan-line ranges.
+    ``--rows`` の値を半開区間の走査線範囲へ解析する。
+
+    Parameters
+    ----------
+    text
+        Comma-separated ``START-STOP`` ranges, or ``None`` for the whole image.
+        カンマ区切りの ``START-STOP`` 範囲。画像全体なら ``None``。
+
+    Returns
+    -------
+    list
+        One entry per range, or ``[None]`` meaning "analyze the whole image",
+        so callers can loop uniformly.
+        範囲ごとに 1 要素。``[None]`` は「画像全体を解析」を意味し、呼び出し側が
+        一様にループできるようにする。
+
+    Raises
+    ------
+    ValueError
+        If a range is malformed or not increasing. Bounds against the actual
+        image are checked later by `process_file`, which is the only place that
+        knows how many scan lines the input has.
+    """
+    if not text:
+        return [None]
+    ranges = []
+    for chunk in text.split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        start_text, sep, stop_text = chunk.partition("-")
+        if not sep:
+            raise ValueError(f"expected START-STOP, got {chunk!r}")
+        try:
+            start, stop = int(start_text), int(stop_text)
+        except ValueError:
+            raise ValueError(f"expected whole numbers in {chunk!r}") from None
+        if start < 0 or stop <= start:
+            raise ValueError(f"{chunk!r} is not a non-empty range")
+        ranges.append((start, stop))
+    if not ranges:
+        raise ValueError("no scan-line range given")
+    return ranges
 
 
 def cmd_process(args: argparse.Namespace) -> int:
@@ -170,6 +226,12 @@ def cmd_process(args: argparse.Namespace) -> int:
         return 2
 
     try:
+        row_ranges = _parse_row_ranges(getattr(args, "rows", None))
+    except ValueError as e:
+        print(f"error: --rows: {e}", file=sys.stderr)
+        return 2
+
+    try:
         params = _load_params(args.params, strict=args.strict) if args.params else ProcParams()
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
@@ -196,17 +258,30 @@ def cmd_process(args: argparse.Namespace) -> int:
     n_done = 0
     n_skipped = 0
     failures = []
-    for i, txt_path in enumerate(inputs, 1):
+    # One job per (input file, scan-line range) pair: asking for several ranges
+    # of one scan produces one bundle each, as the GUI's file table does.
+    # (入力ファイル, 走査線範囲) の組ごとに 1 ジョブ。1 つの走査に複数範囲を
+    # 指定すると、GUI のファイル表と同様それぞれ 1 バンドルを生成する。
+    jobs = [(txt_path, rr) for txt_path in inputs for rr in row_ranges]
+    for i, (txt_path, row_range) in enumerate(jobs, 1):
+        # Label for progress output only. The suffix is appended as a
+        # bracketed range rather than glued onto the file name, which would
+        # otherwise read as text after the extension ("scan.txt_r200-456").
+        # 進捗表示用のラベル。接尾辞はファイル名に直接繋げず角括弧の範囲として
+        # 付す。繋げると拡張子の後ろに文字列が続く形（"scan.txt_r200-456"）に
+        # 見えてしまうためである。
         name = os.path.basename(txt_path)
-        stem = _output_stem(txt_path, args.output_dir)
+        if row_range is not None:
+            name += " [{0}-{1}]".format(row_range[0], row_range[1])
+        stem = _output_stem(txt_path, args.output_dir, row_range)
 
         ok, _missing = existing_min_set(stem)
         if ok and not args.overwrite:
-            print(f"[{i}/{len(inputs)}] {name}: skipped (outputs exist; use --overwrite)")
+            print(f"[{i}/{len(jobs)}] {name}: skipped (outputs exist; use --overwrite)")
             n_skipped += 1
             continue
 
-        print(f"[{i}/{len(inputs)}] {name}: ", end="", flush=True)
+        print(f"[{i}/{len(jobs)}] {name}: ", end="", flush=True)
         try:
             result = process_file(
                 txt_path,
@@ -222,6 +297,7 @@ def cmd_process(args: argparse.Namespace) -> int:
                 ),
                 scan_size_source="manual",
                 gwy_channel=args.channel,
+                row_range=row_range,
             )
         except Exception as e:
             print("FAILED")
@@ -233,7 +309,7 @@ def cmd_process(args: argparse.Namespace) -> int:
 
     print(
         f"finished: {n_done} processed, {n_skipped} skipped, "
-        f"{len(failures)} failed (of {len(inputs)} inputs)"
+        f"{len(failures)} failed (of {len(jobs)} jobs)"
     )
     if failures:
         print("failed files: " + ", ".join(failures), file=sys.stderr)
@@ -606,6 +682,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="physical scan size (Y / height) in micrometers for rectangular "
              "scans; requires --scale-um. When omitted, the Y size equals "
              "--scale-um (square scan).",
+    )
+    p_proc.add_argument(
+        "--rows", metavar="START-STOP[,...]", default=None,
+        help="analyze only these scan lines, as half-open ranges counted from "
+             "0 (e.g. 473-696 or 473-696,709-842). Each range is analyzed as "
+             "its own image and written to its own bundle, suffixed _r<start>-"
+             "<stop>; --scale-um / --scale-y-um still give the WHOLE scan's "
+             "size and the stored Y size is scaled to the range. Use this to "
+             "exclude scan lines disturbed by feedback glitches: several "
+             "stages take a threshold from a statistic over the whole image, "
+             "so leaving them in changes what the rest is compared against. "
+             "Default: analyze the whole image.",
     )
     p_proc.add_argument(
         "--strict", action="store_true",

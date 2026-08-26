@@ -275,6 +275,24 @@ by editing the X/Y cells in the file table — including paste from a spreadshee
 — via the batch scale fields, or from a CSV manifest), stored in the bundle for
 reproducible length measurements.
 
+Selecting a folder also screens every scan for feedback glitches: a lost
+feedback loop displaces whole scan lines, and several analysis steps derive a
+threshold from a statistic over the whole image, so one glitch band can
+suppress detection across the rest of the field. The stripe-noise-rate column shows
+the percentage of scan lines affected, the log lists the glitch-free scan-line
+ranges, and those lines are shaded on the Original preview panel. The screening
+is a diagnostic only — it changes nothing the pipeline computes.
+
+When a scan is only partly usable, the scan-line-range column analyzes just the
+ranges you enter (`473-696,709-842`); "縞ノイズで分割" fills it from the
+screening and "分割を解除" collapses the entries back.
+Each range becomes its own entry and its own `.b2z`, and is analyzed as its own
+image, which is the point: the stages take thresholds from statistics over the
+whole array, so excluding the disturbed lines changes what the rest is compared
+against. The recorded scan size is scaled to the range, so a fiber measures the
+same whether or not the scan was cropped. The CLI equivalent is
+`cli.py process --rows`.
+
 ### Plot Profiler — `guis/GUI02_PlotProfiler.py`
 
 ![Plot Profiler window: a line placed on the AFM height map and the extracted height profile alongside it.](figures/gui02.png)
