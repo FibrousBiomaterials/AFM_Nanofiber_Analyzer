@@ -316,6 +316,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.show_kink_var   = tk.BooleanVar(value=True)
         self.show_medmax_var = tk.BooleanVar(value=True)
 
+        # -- Enlarged-image element checkboxes --
+        # ── 拡大像描画要素チェックボックス ──
+        # Kept separate from the profile toggles above: the enlarged image shows
+        # where a kink sits in 2D, the profile shows where it sits along the
+        # fiber length, so the two views are toggled independently. They live on
+        # the App, not on the detail window, so the choice survives closing and
+        # reopening that window.
+        # 上のプロファイル用とは別変数にする。拡大像は「2次元のどこにキンクが
+        # あるか」、プロファイルは「全長のどこにあるか」を示すもので用途が違う。
+        # 個別表示ウインドウは閉じると作り直されるため、状態を保持できるよう
+        # App 側に置く。
+        self.show_fiber_kink_var  = tk.BooleanVar(value=True)
+        self.show_fiber_track_var = tk.BooleanVar(value=True)
+
         # -- AFM overview display mode (height image vs. color-coded fibers) --
         # Height and fiber modes are two renderings of the same overview and
         # share vmin/vmax, fonts, selection, and the height filter; the radio
@@ -2604,8 +2618,8 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
 
     def _build_fiber_settings(self, parent: ttk.Frame) -> None:
         """
-        Build the enlarged-image settings row (size, fonts, save button).
-        拡大像の設定行（サイズ・フォント・画像保存ボタン）を構築する。
+        Build the enlarged-image settings rows (size, fonts, display, save).
+        拡大像の設定行（サイズ・フォント・表示要素・画像保存ボタン）を構築する。
         """
         # -- Enlarged-image display settings, row 1: width, height, and font sizes --
         # Use a leading label instead of a LabelFrame.
@@ -2667,8 +2681,26 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
             registry=self._unconfirmed_entries,
         )
 
-        ttk.Button(f_row1, text=_("画像を保存"),
-                   command=self._save_fiber_image).pack(side="left", padx=(2, 4))
+        # -- Enlarged-image display settings, row 2: display elements and save --
+        # Row 2 mirrors the profile column's checkbox row so each column's save
+        # button exports exactly what that column currently shows.
+        # 行2 はプロファイル側の表示要素行と同じ並びにする。各カラムの保存
+        # ボタンが、そのカラムで見えているものをそのまま出力するようにする。
+        f_row2 = ttk.Frame(parent)
+        f_row2.pack(side="top", fill="x", padx=2, pady=(0, 2))
+        ttk.Label(f_row2, text=_("表示：")).pack(side="left", padx=(2, 4))
+        ttk.Checkbutton(
+            f_row2, text=_("キンク"),
+            variable=self._app.show_fiber_kink_var,
+            command=self._redraw_fiber_image,
+        ).pack(side="left", padx=(0, 4))
+        ttk.Checkbutton(
+            f_row2, text=_("中心線"),
+            variable=self._app.show_fiber_track_var,
+            command=self._redraw_fiber_image,
+        ).pack(side="left", padx=(0, 4))
+        ttk.Button(f_row2, text=_("画像を保存"),
+                   command=self._save_fiber_image).pack(side="left", padx=(0, 4))
 
     def _build_fiber_canvas(self, parent: ttk.Frame) -> None:
         """
@@ -3029,14 +3061,14 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         # so the line sits on the ridge instead of half a pixel up and left.
         # 0.5 は各追跡点を画素中心へ置く補正。これを入れないと線が稜線から
         # 左上へ半画素ずれる。
-        if len(fiber.xtrack) > 0:
+        if app.show_fiber_track_var.get() and len(fiber.xtrack) > 0:
             ax.plot((fiber.xtrack + 0.5) * x_spp, (fiber.ytrack + 0.5) * y_spp,
                     color="lime", lw=1.0, alpha=0.75, zorder=4)
 
         # Kink points, centered in their pixels like the track line above so
         # the markers stay on it.
         # キンク点。上のトラック線と同じ画素中心補正を掛け、線上に載るようにする。
-        if len(fiber.kink_indices) > 0:
+        if app.show_fiber_kink_var.get() and len(fiber.kink_indices) > 0:
             kx = (fiber.xtrack[fiber.kink_indices] + 0.5) * x_spp
             ky = (fiber.ytrack[fiber.kink_indices] + 0.5) * y_spp
             ax.scatter(kx, ky, c="cyan", s=20, zorder=5)
