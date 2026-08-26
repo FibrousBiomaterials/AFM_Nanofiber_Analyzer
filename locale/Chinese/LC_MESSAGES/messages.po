@@ -583,7 +583,7 @@ msgstr "尚未选择文件夹。"
 
 #: guis/GUI01_Image_Preprocessor.py:3222 guis/GUI01_Image_Preprocessor.py:3225
 msgid "解析パラメータが不正なため開始できません。"
-msgstr ""
+msgstr "解析参数无效，无法开始。"
 
 #: guis/GUI01_Image_Preprocessor.py:3243
 #, python-format
@@ -802,19 +802,19 @@ msgstr "删除高度较低成分的阈值"
 
 #: guis/GUI01_Image_Preprocessor.py:4373
 msgid "しきい値で拾えなかった繊維をリッジフィルタで検出して追加する。1画像あたり数秒〜30秒遅くなる"
-msgstr ""
+msgstr "用脊线滤波器检测阈值未能提取的纤维并补充。每张图像会慢数秒～30 秒"
 
 #: guis/GUI01_Image_Preprocessor.py:4376
 msgid "[ridge_recovery時] 追加するセグメントの最小長"
-msgstr ""
+msgstr "[ridge_recovery] 补充线段的最小长度"
 
 #: guis/GUI01_Image_Preprocessor.py:4378
 msgid "[ridge_recovery時] リッジフィルタが探索する繊維半幅の下限"
-msgstr ""
+msgstr "[ridge_recovery] 脊线滤波器搜索的纤维半宽下限"
 
 #: guis/GUI01_Image_Preprocessor.py:4380
 msgid "[ridge_recovery時] リッジフィルタが探索する繊維半幅の上限"
-msgstr ""
+msgstr "[ridge_recovery] 脊线滤波器搜索的纤维半宽上限"
 
 #: guis/GUI01_Image_Preprocessor.py:4382
 msgid "Skeletonizer"
@@ -912,7 +912,7 @@ msgstr "设置已更新（下次解析时生效）"
 #: guis/GUI01_Image_Preprocessor.py:4641 guis/GUI01_Image_Preprocessor.py:4646
 #, python-brace-format
 msgid "「フィードバック不良とみなす段差」には正の数値を入力してください: {0}"
-msgstr "视为反馈失控的台阶"
+msgstr "请为“视为反馈失控的台阶”输入正数: {0}"
 
 #: guis/GUI01_Image_Preprocessor.py:4656
 msgid "設定変更をキャンセルしました"
@@ -1241,7 +1241,7 @@ msgstr "文本/CSV"
 
 #: guis/GUI02_PlotProfiler.py:1651
 msgid "Gwyddion"
-msgstr ""
+msgstr "Gwyddion"
 
 #: guis/GUI02_PlotProfiler.py:1652
 msgid "すべて"
@@ -1437,7 +1437,7 @@ msgstr "字体大小必须为正值。"
 
 #: guis/GUI03_Fiber_Height_Histogram.py:834
 msgid "pairs"
-msgstr ""
+msgstr "有效包数"
 
 #: guis/GUI03_Fiber_Height_Histogram.py:945
 #, python-brace-format
@@ -1736,7 +1736,7 @@ msgstr "高度过滤器"
 
 #: guis/GUI04_Tracking_fiber.py:479
 msgid "ファイバー連結"
-msgstr "纤维列表"
+msgstr "纤维连接"
 
 #: guis/GUI04_Tracking_fiber.py:485
 msgid ""
@@ -1744,10 +1744,13 @@ msgid ""
 "OFF時: 各骨格断片を 1 本のファイバーとして扱う（従来動作）。\n"
 "切り替えると現在のデータセットを再解析する。"
 msgstr ""
+"开启时: 将在交叉、分支处断开的骨架片段重新连接为 1 根纤丝后再进行测量。\n"
+"关闭时: 将每个骨架片段视为 1 根纤维（原有行为）。\n"
+"切换后会重新解析当前数据集。"
 
 #: guis/GUI04_Tracking_fiber.py:490
 msgid "連結設定…"
-msgstr ""
+msgstr "连接设置…"
 
 #: guis/GUI04_Tracking_fiber.py:524
 msgid "データセット名"
@@ -1848,7 +1851,7 @@ msgstr "正在加载: {name}  比例尺={scale}"
 
 #: guis/GUI04_Tracking_fiber.py:1264
 msgid "ファイバー連結が有効です（断片を再結合します）。"
-msgstr ""
+msgstr "已启用纤维连接（将重新连接片段）。"
 
 #: guis/GUI04_Tracking_fiber.py:1266
 msgid "ファイル読み込み中..."
@@ -1888,20 +1891,20 @@ msgstr "已重置过滤器。"
 
 #: guis/GUI04_Tracking_fiber.py:2048
 msgid "有効"
-msgstr ""
+msgstr "启用"
 
 #: guis/GUI04_Tracking_fiber.py:2048
 msgid "無効"
-msgstr ""
+msgstr "禁用"
 
 #: guis/GUI04_Tracking_fiber.py:2049
 #, python-brace-format
 msgid "ファイバー連結: {state}"
-msgstr ""
+msgstr "纤维连接: {state}"
 
 #: guis/GUI04_Tracking_fiber.py:2077
 msgid "連結パラメータを更新しました。"
-msgstr ""
+msgstr "已更新连接参数。"
 
 #: guis/GUI04_Tracking_fiber.py:2174
 msgid "ファイバーを選択してください。"
@@ -2034,59 +2037,59 @@ msgstr "请为 y 轴最大值输入正数。"
 
 #: guis/GUI04_Tracking_fiber.py:3252
 msgid "ファイバー連結の設定"
-msgstr ""
+msgstr "纤维连接设置"
 
 #: guis/GUI04_Tracking_fiber.py:3262
 msgid "連結距離"
-msgstr ""
+msgstr "连接距离"
 
 #: guis/GUI04_Tracking_fiber.py:3263
 msgid "端点どうしがこの距離以内なら連結候補にする。"
-msgstr ""
+msgstr "两端点相距在该距离以内时作为连接候选。"
 
 #: guis/GUI04_Tracking_fiber.py:3264
 msgid "直線性の角度しきい値"
-msgstr "的阈值"
+msgstr "直线性角度阈值"
 
 #: guis/GUI04_Tracking_fiber.py:3265
 msgid "両端点の角度がこの値を超える（＝ほぼ直線）ときのみ連結する。"
-msgstr ""
+msgstr "仅当两端点的夹角超过该值（＝近乎直线）时才连接。"
 
 #: guis/GUI04_Tracking_fiber.py:3266
 msgid "方向推定の振り返り点数"
-msgstr ""
+msgstr "方向估计的回溯点数"
 
 #: guis/GUI04_Tracking_fiber.py:3267
 msgid "端点での向きを推定するのに使うトラック点数。"
-msgstr ""
+msgstr "用于估计端点方向的轨迹点数。"
 
 #: guis/GUI04_Tracking_fiber.py:3268
 msgid "橋渡し高さの平均点数"
-msgstr ""
+msgstr "桥接高度的平均点数"
 
 #: guis/GUI04_Tracking_fiber.py:3269
 msgid "連結部の高さを決めるために平均する端点サンプル数。"
-msgstr ""
+msgstr "为确定连接部高度而平均的端点采样数。"
 
 #: guis/GUI04_Tracking_fiber.py:3270
 msgid "高さ差の許容比"
-msgstr ""
+msgstr "高度差容许比"
 
 #: guis/GUI04_Tracking_fiber.py:3271
 msgid "高さ中央値の相対差がこの値以下の断片のみ連結する。大きいほど緩い。"
-msgstr ""
+msgstr "仅连接高度中位数相对差在该值以下的片段。值越大越宽松。"
 
 #: guis/GUI04_Tracking_fiber.py:3272
 msgid "交差ノイズのトリミング点数"
-msgstr ""
+msgstr "交叉噪声的修剪点数"
 
 #: guis/GUI04_Tracking_fiber.py:3273
 msgid "連結前に接合部付近から切り落とす骨格点数。"
-msgstr ""
+msgstr "连接前从接合部附近切除的骨架点数。"
 
 #: guis/GUI04_Tracking_fiber.py:3291
 msgid "適用"
-msgstr ""
+msgstr "应用"
 
 #: guis/GUI04_Tracking_fiber.py:3292
 msgid "既定値に戻す"
@@ -2094,7 +2097,7 @@ msgstr "恢复初始值"
 
 #: guis/GUI04_Tracking_fiber.py:3293
 msgid "閉じる"
-msgstr ""
+msgstr "关闭"
 
 #: guis/GUI04_Tracking_fiber.py:3322
 msgid "正の数値を入力してください。"
@@ -2102,23 +2105,23 @@ msgstr "必须输入正数。"
 
 #: guis/GUI04_Tracking_fiber.py:3324
 msgid "0 より大きく 180 以下の角度を入力してください。"
-msgstr ""
+msgstr "请输入大于 0 且不超过 180 的角度。"
 
 #: guis/GUI04_Tracking_fiber.py:3326
 msgid "2 以上の整数を入力してください。"
-msgstr "必须输入正数"
+msgstr "必须输入不小于 2 的整数。"
 
 #: guis/GUI04_Tracking_fiber.py:3328
 msgid "1 以上の整数を入力してください。"
-msgstr "必须输入正数"
+msgstr "必须输入不小于 1 的整数。"
 
 #: guis/GUI04_Tracking_fiber.py:3330
 msgid "0 以上の整数を入力してください。"
-msgstr "必须输入正数"
+msgstr "必须输入不小于 0 的整数。"
 
 #: guis/GUI04_Tracking_fiber.py:3344
 msgid "入力エラー"
-msgstr "错误"
+msgstr "输入错误"
 
 #: lib/ui_tools.py:182
 msgid "ログ無し"
@@ -2289,6 +2292,7 @@ msgstr ""
 "- AFM 全图与纤维列表的对应显示\n"
 "- 每根纤维的高度剖面（扭结位置、端点、中位数/最大值线）\n"
 "- 统计值（高度中位数、最大值、长度、端点数、扭结数、扭结角度）\n"
+"- 纤维连接（将在交叉、分支处断开的片段重新连接为 1 根纤丝，可开关并设置参数）\n"
 "- 高度范围过滤器（相当于 specific_height_fibers）\n"
 "- 高度剖面、纤维放大图以及 AFM 全图的 PNG 输出\n"
 "- 所有纤维统计值的 CSV 导出\n"
