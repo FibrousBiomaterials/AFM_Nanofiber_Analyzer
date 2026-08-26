@@ -51,7 +51,8 @@ from .blosc2_io import save_bundle, bundle_has_keys, BUNDLE_EXT
 # `pipeline.REQUIRED_BUNDLE_KEYS` 利用側が動き続けるよう、ここで再インポートする。
 from .bundle_schema import (
     BUNDLE_FORMAT_VERSION, OPTIONAL_BUNDLE_KEYS, REQUIRED_BUNDLE_KEYS,  # noqa: F401
-    SPATIAL_CALIBRATION_KEY, make_spatial_calibration, validate_bundle,
+    SOURCE_REGION_KEY, SPATIAL_CALIBRATION_KEY, make_spatial_calibration,
+    validate_bundle,
 )
 from .kink_detector import KinkDetector
 from .processed_image import ProcessedImage
@@ -258,6 +259,40 @@ def _temp_sibling_path(path: str, suffix: str = ".tmp") -> str:
     )
     os.close(fd)
     return tmp_path
+
+
+def row_range_suffix(row_range: Optional[Tuple[int, int]]) -> str:
+    """
+    Return the output-name suffix identifying an analyzed scan-line range.
+    解析した走査線範囲を示す出力名の接尾辞を返す。
+
+    Parameters
+    ----------
+    row_range
+        Half-open ``(start, stop)`` scan-line range, or ``None`` for the whole
+        image.
+        半開区間 ``(start, stop)`` の走査線範囲。画像全体なら ``None``。
+
+    Returns
+    -------
+    str
+        ``""`` for the whole image, otherwise ``"_r<start>-<stop>"``.
+        画像全体なら ``""``、それ以外は ``"_r<start>-<stop>"``。
+
+    Notes
+    -----
+    One input file can be analyzed as several glitch-free scan-line ranges, so
+    the outputs need distinct names. The suffix carries the range itself rather
+    than an index, so a bundle stays identifiable after siblings are deleted or
+    re-cut, and it matches the ``source_region`` recorded inside the bundle.
+    1 つの入力ファイルを、グリッチのない複数の走査線範囲として解析することが
+    あるため、出力名を区別する必要がある。接尾辞には連番ではなく範囲そのものを
+    含める。こうすれば兄弟バンドルを削除・再切り出ししてもバンドル単体で識別でき、
+    バンドル内に記録される ``source_region`` とも一致する。
+    """
+    if row_range is None:
+        return ""
+    return "_r{0}-{1}".format(int(row_range[0]), int(row_range[1]))
 
 
 def bundle_path_for(stem: str) -> str:
@@ -632,6 +667,7 @@ def process_file(
     scan_size_um: Optional[Tuple[float, float]] = None,
     scan_size_source: str = "manual",
     gwy_channel: Optional[Union[int, str]] = None,
+    row_range: Optional[Tuple[int, int]] = None,
 ) -> PipelineResult:
     """
     Run the full preprocessing pipeline on one input file and save outputs.
@@ -708,6 +744,24 @@ def process_file(
         タイトルで選択する。長さ以外のチャンネルを明示選択した場合は元単位の
         ままなので、nm 高さを前提とする本パイプラインには適さない。
         テキスト/CSV 入力では無視される。
+    row_range
+        Half-open ``(start, stop)`` range of scan lines to analyze, or ``None``
+        for the whole image. `scan_size_um` and the input header always
+        describe the *whole* scan, so the recorded Y scan size is scaled down
+        to the cropped extent here rather than by the caller.
+        解析する走査線の半開区間 ``(start, stop)``。画像全体なら ``None``。
+        `scan_size_um` と入力ヘッダは常に走査 *全体* を表すため、記録する Y
+        走査範囲の切り出し分の縮小は呼び出し側ではなくここで行う。
+
+        Analyzing a sub-range is not the same as analyzing the whole image and
+        ignoring part of it: several stages take a threshold from a statistic
+        over the entire array, so excluding disturbed scan lines from the input
+        changes what the remaining lines are compared against. That is the
+        point of the option.
+        部分範囲の解析は、画像全体を解析して一部を無視することとは異なる。
+        複数の段が配列全体の統計からしきい値を決めるため、乱れた走査線を入力
+        から除くと、残りの走査線が何と比較されるかが変わる。この選択肢の意義は
+        そこにある。
 
     Returns
     -------
@@ -779,6 +833,25 @@ def process_file(
         header_size = read_scan_size(txt_path)
         input_format_meta = asdict(text_format)
     name = os.path.splitext(os.path.basename(txt_path))[0]
+
+    # Crop to the requested scan lines before any stage sees the array, so the
+    # image-wide statistics the stages derive are taken over the kept lines
+    # only. Recorded here as `full_rows` because the Y scan size below refers
+    # to the whole scan and has to be scaled by the kept fraction.
+    # どの段も配列を見る前に、要求された走査線へ切り出す。これにより各段が導く
+    # 画像全体の統計は、残した走査線だけから取られる。以下の Y 走査範囲は走査
+    # 全体を指すため、残した割合で縮める必要があり、ここで `full_rows` を控える。
+    full_rows = int(np.asarray(height_data).shape[0])
+    if row_range is not None:
+        start, stop = int(row_range[0]), int(row_range[1])
+        if not (0 <= start < stop <= full_rows):
+            raise ValueError(
+                f"row_range {(start, stop)} is not a non-empty range within "
+                f"the {full_rows} scan lines of {os.path.basename(txt_path)}"
+            )
+        height_data = np.ascontiguousarray(height_data[start:stop])
+        name += row_range_suffix((start, stop))
+
     image = ProcessedImage(original_AFM=height_data, name=name)
 
     # Resolve the spatial calibration: an explicit caller value (manual entry
@@ -828,8 +901,47 @@ def process_file(
     stages.kink_detector(image)
 
     report("save")
+    # Scale the recorded Y extent to the cropped image. Both sources above
+    # describe the *whole* scan, while the stored arrays cover the kept lines,
+    # and `lib.measure` derives the pixel size by dividing the recorded scan
+    # size by the stored shape.
+    #
+    # The factor is stored-rows over what the stored rows would have been for
+    # the whole image, not kept-input-rows over total-input-rows. The stages
+    # drop a row (the difference-based background stage crops by [1:, 1:]), so
+    # the ratio of *input* rows would leave the Y pixel size larger than X by
+    # 1/(kept - 1) — 0.4% on a 256-line crop but 3% on a 32-line one — and a
+    # fiber would then measure differently depending on whether the scan was
+    # cropped. Deriving the trim from this run keeps the whole-image path
+    # bit-identical (the factor is exactly 1) without assuming its size.
+    # 記録する Y 方向の実寸を切り出し後の画像へ合わせる。上記のどちらの取得元も
+    # 走査 *全体* を表す一方、保存される配列は残した走査線分しかなく、
+    # `lib.measure` は記録された走査範囲を保存形状で割って画素サイズを求める。
+    #
+    # 係数には「入力の残存行数 / 入力の全行数」ではなく「保存行数 / 画像全体
+    # だった場合の保存行数」を使う。各段は 1 行を落とすため（差分ベースの背景段が
+    # [1:, 1:] で切り出す）、入力行数の比では Y の画素サイズが X より
+    # 1/(残存行数 - 1) だけ大きくなる。256 行の切り出しで 0.4%、32 行なら 3% で
+    # あり、切り出しの有無で同じ繊維の計測長が変わってしまう。落ちた行数をこの
+    # 実行から求めることで、全体解析の経路は係数がちょうど 1 となりビット単位で
+    # 不変に保たれ、しかも落ちる行数を決め打ちせずに済む。
+    if row_range is not None and resolved_scan_size is not None:
+        kept_rows = int(row_range[1]) - int(row_range[0])
+        stored_rows = int(np.asarray(image.calibrated_image).shape[0])
+        full_stored_rows = full_rows - (kept_rows - stored_rows)
+        if full_stored_rows > 0:
+            resolved_scan_size = (
+                resolved_scan_size[0],
+                resolved_scan_size[1] * stored_rows / full_stored_rows,
+            )
+
+    # `name` already carries the scan-line-range suffix; add it to the
+    # alongside-the-input path too, so several ranges of one input file do not
+    # overwrite each other's bundle.
+    # `name` には既に走査線範囲の接尾辞が付いている。入力と同じ場所へ書く経路にも
+    # 付け、1 つの入力ファイルの複数範囲が互いのバンドルを上書きしないようにする。
     if output_dir is None:
-        stem = os.path.splitext(txt_path)[0]
+        stem = os.path.splitext(txt_path)[0] + row_range_suffix(row_range)
     else:
         stem = os.path.join(output_dir, name)
 
@@ -895,6 +1007,21 @@ def process_file(
         # 使用したチャンネルの id/タイトル/z 単位を記録する。
         "input_format":     input_format_meta,
     }
+
+    # Which part of the input was analyzed. Without this the bundle cannot be
+    # reproduced from `input_file` and `input_sha256` alone: those identify the
+    # whole source file, while the analysis may have run on a sub-range of its
+    # scan lines. Optional, so a bundle for a whole image simply omits it.
+    # 入力のどの部分を解析したか。これが無いとバンドルを `input_file` と
+    # `input_sha256` だけからは再現できない。両者はソースファイル全体を示す一方、
+    # 解析は走査線の部分範囲に対して行われている場合があるためである。任意項目で
+    # あり、画像全体のバンドルでは単に省略される。
+    if row_range is not None:
+        vlmeta[SOURCE_REGION_KEY] = {
+            "row_start":  int(row_range[0]),
+            "row_stop":   int(row_range[1]),
+            "row_total":  full_rows,
+        }
 
     # Record the physical scan size so length/distance measurements can be
     # reproduced from the bundle alone (optional provenance, omitted when

@@ -35,6 +35,7 @@ PLUGIN_INFO = {
 }
 
 # ===== Standard library =====
+import glob
 import os
 import sys
 import csv
@@ -65,6 +66,8 @@ import matplotlib
 matplotlib.use("TkAgg")   # Embed matplotlib figures in tkinter windows.
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.collections import PolyCollection
+from matplotlib.transforms import blended_transform_factory
 
 # ===== Project libraries =====
 # lib.pipeline drives the AFM preprocessing pipeline shared with the CLI;
@@ -73,13 +76,18 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # バッチ方針（スキップ/上書き/停止）と UI 表示のみを担当する。
 from lib.pipeline import (
     ProcParams, PipelineStages, STAGE_KEYS, build_stages, process_file,
-    bundle_path_for, existing_min_set, merge_params_dict, validate_params,
+    bundle_path_for, existing_min_set, merge_params_dict, param_path_for,
+    row_range_suffix, validate_params,
 )
-from lib.blosc2_io import bundle_has_keys, load_bundle, load_bundle_meta
+from lib.blosc2_io import BUNDLE_EXT, bundle_has_keys, load_bundle, load_bundle_meta
 from lib.bundle_schema import (
     SCAN_SIZE_SOURCES, SPATIAL_CALIBRATION_KEY, scan_size_um_from_meta,
 )
 from lib.afm_io import load_afm_image, read_scan_size
+from lib.stripe_noise import (
+    DEFAULT_STEP_THRESHOLD_NM, StripeNoise, evaluate_scan_lines,
+    propose_clean_ranges,
+)
 from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, ToolTip, setup_matplotlib_style,
@@ -102,11 +110,156 @@ STATUS_ANALYZED = "analyzed"   # Analysis complete.
 # table is only cleared wholesale, so the row index doubles as the row id.
 # tksheet ファイル表の固定列順。行は追記のみで表は全消去のみのため、
 # 行インデックスがそのまま行 ID を兼ねる。
-COL_NAME, COL_X, COL_Y, COL_STATUS, COL_TIME = range(5)
-# Only the X/Y scan-size columns accept user edits; the rest are read-only.
-# ユーザーが編集できるのは X/Y 走査範囲列のみで、残りは読み取り専用。
+COL_NAME, COL_X, COL_Y, COL_STRIPE, COL_ROWS, COL_STATUS, COL_TIME = range(7)
+# The X/Y scan-size cells and the scan-line-range cell accept user edits; the
+# rest are read-only.
+# ユーザーが編集できるのは X/Y 走査範囲セルと走査線範囲セルで、残りは
+# 読み取り専用。
 SCALE_COLS = (COL_X, COL_Y)
-READONLY_COLS = (COL_NAME, COL_STATUS, COL_TIME)
+EDITABLE_COLS = (COL_X, COL_Y, COL_ROWS)
+READONLY_COLS = (COL_NAME, COL_STRIPE, COL_STATUS, COL_TIME)
+
+# Scan-quality cell text while the background screening has not reached a file.
+# The screening reads every input file in full, so on a folder of large scans
+# the column fills in progressively rather than all at once.
+# 縞ノイズの検査が未到達のファイルに表示するセル文字。検査は各入力ファイルを
+# 全読み込みするため、大きな走査が並ぶフォルダでは列が順次埋まっていく。
+STRIPE_PENDING_TEXT = "…"
+
+# Cell tint for a file whose scan carries feedback glitches. The read-only
+# columns are gray by default, so a flagged cell needs its own color to be
+# noticeable without the user opening anything.
+# フィードバック不良を含む走査のセル色。読み取り専用列は既定で灰色のため、
+# 何も開かずに気付けるよう、警告セルには専用色を与える。
+STRIPE_WARN_BG = "#ffe2b8"
+STRIPE_WARN_FG = "#7a4a00"
+
+# Overlay marking glitch-affected scan lines on the Original preview panel.
+# Cyan is the complement of the afmhot colormap the panel uses, so the bands
+# read as an annotation over the data instead of as part of it. A red overlay
+# was tried first and was invisible: at 22% alpha over afmhot's orange the
+# bands could not be picked out from the scan's own banding at all.
+# Original プレビューでグリッチの影響を受けた走査線を示す重ね色。パネルが使う
+# afmhot カラーマップの補色であるシアンを用い、帯がデータの一部ではなく注記と
+# して読めるようにする。最初に試した赤は不可視だった。afmhot のオレンジに
+# 透明度 22% では、走査自体の縞と帯をまったく区別できなかった。
+STRIPE_BAND_COLOR = "#00c8d7"
+STRIPE_BAND_ALPHA = 0.35
+
+# Shortest run of glitch-free scan lines worth reporting as an analyzable
+# block. Below this a strip is too thin to hold a fiber worth measuring, and
+# listing every such sliver would bury the useful ranges in the log.
+# 解析可能なブロックとして報告する価値のある、グリッチのない連続走査線の最小数。
+# これ未満の帯は計測に足る繊維を含むには薄すぎ、そうした切れ端まで列挙すると
+# 有用な範囲がログに埋もれる。
+STRIPE_MIN_BLOCK_LINES = 32
+
+
+def discover_row_ranges(txt_path: str) -> List[Tuple[int, int]]:
+    """
+    Find the scan-line ranges an input file already has bundles for.
+    入力ファイルについて既にバンドルが存在する走査線範囲を探す。
+
+    Parameters
+    ----------
+    txt_path
+        Input file whose sibling bundles are inspected.
+        兄弟バンドルを調べる対象の入力ファイル。
+
+    Returns
+    -------
+    list of tuple
+        Half-open ranges in scan-line order; empty when the input has only a
+        whole-image bundle or none at all.
+        走査線順の半開区間。画像全体のバンドルしか無い、または何も無い場合は空。
+
+    Notes
+    -----
+    The analyzed range is recorded inside each bundle as ``source_region``, but
+    it is recovered from the file name here: the table has to be built before
+    any bundle is opened, and opening every candidate to read its metadata
+    would stall the folder scan on exactly the large scans this feature exists
+    for. The name is written by `lib.pipeline.row_range_suffix`, so the two
+    cannot drift apart.
+    解析範囲は各バンドル内に ``source_region`` として記録されているが、ここでは
+    ファイル名から復元する。表はバンドルを 1 つも開く前に構築する必要があり、
+    候補すべてを開いてメタデータを読むと、まさにこの機能が対象とする大きな走査で
+    フォルダ走査が停滞するためである。名前は `lib.pipeline.row_range_suffix` が
+    書くので、両者が食い違うことはない。
+    """
+    stem = os.path.splitext(txt_path)[0]
+    ranges: List[Tuple[int, int]] = []
+    for path in glob.glob(glob.escape(stem) + "_r*" + BUNDLE_EXT):
+        tail = os.path.splitext(os.path.basename(path))[0][len(os.path.basename(stem)):]
+        ok, parsed = parse_row_ranges_text(tail[len("_r"):])
+        if ok and len(parsed) == 1:
+            ranges.append(parsed[0])
+    return sorted(ranges)
+
+
+def parse_row_ranges_text(
+    text: str, full_rows: Optional[int] = None,
+) -> Tuple[bool, List[Tuple[int, int]]]:
+    """
+    Parse a scan-line-range cell into half-open ranges.
+    走査線範囲セルを半開区間へ解析する。
+
+    Parameters
+    ----------
+    text
+        Cell text: comma-separated ``START-STOP`` ranges. Empty means the whole
+        image.
+        セルのテキスト。カンマ区切りの ``START-STOP`` 範囲。空は画像全体を意味する。
+    full_rows
+        Scan-line count of the input, used to reject a range past its end.
+        ``None`` skips that check, which is what happens before the screening
+        has read the file.
+        入力の走査線数。末尾を超える範囲を拒否するために使う。``None`` の場合は
+        この検査を省く。検査がファイルを読む前はこの状態になる。
+
+    Returns
+    -------
+    tuple
+        ``(ok, ranges)``. ``ok`` is False for malformed input; ``ranges`` is
+        empty for the whole image.
+        ``(ok, ranges)``。``ok`` が False なら書式不正。``ranges`` が空なら画像全体。
+
+    Notes
+    -----
+    Ranges are validated as a set, not only one by one: overlapping ranges
+    would analyze the same scan lines twice and double-count every fiber in the
+    overlap, which is not something a user can see in a results table
+    afterwards.
+    範囲は 1 件ずつではなく集合として検証する。重なった範囲は同じ走査線を二重に
+    解析し、重複部の繊維をすべて二重計上するが、これは後から結果表を見ても
+    気づけないためである。
+    """
+    if not text.strip():
+        return True, []
+    ranges: List[Tuple[int, int]] = []
+    for chunk in text.split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        start_text, sep, stop_text = chunk.partition("-")
+        if not sep:
+            return False, []
+        try:
+            start, stop = int(start_text), int(stop_text)
+        except ValueError:
+            return False, []
+        if start < 0 or stop <= start:
+            return False, []
+        if full_rows is not None and stop > full_rows:
+            return False, []
+        ranges.append((start, stop))
+    if not ranges:
+        return False, []
+    ranges.sort()
+    for (_a0, a1), (b0, _b1) in zip(ranges, ranges[1:]):
+        if b0 < a1:
+            return False, []
+    return True, ranges
 
 
 def status_label(status: str) -> str:
@@ -184,6 +337,16 @@ UI_DEFAULTS = {
     # AFM height image inside the .b2z bundle under the "original" key.
     # True のとき、解析時に元の AFM 高さ画像を "original" キーとして .b2z に同梱する。
     "save_original": False,
+
+    # Line-to-line height step, in nanometres, above which a scan-line boundary
+    # is screened as a feedback glitch. It selects which files are flagged in
+    # the quality column and is a screening threshold, not an analysis
+    # parameter: no pipeline stage reads it and changing it cannot alter a
+    # measured result.
+    # 走査線境界をフィードバック不良として検出する線間高さ段差 (nm)。縞ノイズ率列で
+    # どのファイルが警告されるかを決める検査用しきい値であり、解析パラメータでは
+    # ない。パイプラインのどの段もこの値を読まず、変更しても測定結果は変わらない。
+    "stripe_step_nm": DEFAULT_STEP_THRESHOLD_NM,
 }
 
 
@@ -352,6 +515,26 @@ class FileItem:
         `SCAN_SIZE_SOURCES` (``input_header`` / ``manifest`` / ``manual``).
         走査範囲の出所。``""``（未設定）または `SCAN_SIZE_SOURCES`
         （``input_header`` / ``manifest`` / ``manual``）のいずれか。
+    stripe_noise
+        Feedback-glitch screening of the input scan, or ``None`` while the
+        background screening has not reached this file. It is a diagnostic
+        only: nothing here changes what the pipeline computes.
+        入力走査のフィードバック不良検査の結果。背景で走る検査がこのファイルに
+        未到達なら ``None``。あくまで診断であり、ここの値がパイプラインの計算を
+        変えることはない。
+    row_range
+        Half-open ``(start, stop)`` scan lines to analyze, or ``None`` for the
+        whole image. Unlike `stripe_noise` this *does* change the analysis:
+        the cropped image is what every stage sees.
+        解析する走査線の半開区間 ``(start, stop)``。画像全体なら ``None``。
+        `stripe_noise` と異なり、これは解析を変える。各段が見るのは切り出し後の
+        画像そのものになる。
+    full_rows
+        Scan-line count of the whole input, or ``None`` until it is known.
+        Needed to validate a typed range and to derive the analyzed Y extent
+        from the whole scan's Y size.
+        入力全体の走査線数。判明するまでは ``None``。入力された範囲の検証と、
+        走査全体の Y サイズから解析対象の Y 実寸を導くために必要。
     """
 
     txt_path: str
@@ -361,6 +544,9 @@ class FileItem:
     scale_x_um: Optional[float] = None
     scale_y_um: Optional[float] = None
     scale_source: str = ""
+    stripe_noise: Optional[StripeNoise] = None
+    row_range: Optional[Tuple[int, int]] = None
+    full_rows: Optional[int] = None
 
     @property
     def has_scale(self) -> bool:
@@ -431,15 +617,90 @@ class FileItem:
         SizeX != SizeY 等）は 2 列に異なる数値が表示されるだけである。セル編集
         の検証は ``= X``（および空セル）を「未設定」として受理する。
         """
+        # With a scan-line range set, the analyzed height is decided by the
+        # range, so the cell shows that derived extent instead of the whole
+        # scan's Y. `_validate_sheet_edit` rejects edits to it while a range is
+        # set, because typing here would otherwise be read as the whole scan's
+        # Y and silently contradict the number on screen.
+        # 走査線範囲を設定すると解析対象の高さは範囲側で決まるため、セルには走査
+        # 全体の Y ではなく導出された実寸を表示する。範囲設定中の当セルへの編集は
+        # `_validate_sheet_edit` が拒否する。そうしないと入力値が走査全体の Y と
+        # して解釈され、画面上の数値と静かに矛盾するためである。
+        if self.row_range is not None:
+            analyzed = self.analyzed_scan_size_um
+            return "" if analyzed is None else f"{analyzed[1]:g}"
         return "= X" if self.scale_y_um is None else f"{self.scale_y_um:g}"
+
+    @property
+    def stripe_display(self) -> str:
+        """
+        Format the stripe-noise screening result for the file table.
+        ファイル表向けに縞ノイズの検査結果を整形する。
+
+        Notes
+        -----
+        A flagged scan shows the percentage of scan lines affected rather than
+        a bare warning symbol, because the number is what decides the next
+        step: a few percent leaves the field usable as one block, while tens of
+        percent means the analysis must be restricted to glitch-free bands.
+        警告記号ではなく影響を受けた走査線の割合を表示する。次に何をすべきかを
+        決めるのはこの数値だからである。数 % なら視野を 1 ブロックとして使える
+        が、数十 % ならグリッチのない帯に解析を絞る必要がある。
+
+        A clean scan reads "0%" rather than a word, so the column stays a
+        single numeric scale the eye can run down. A non-zero fraction that
+        would round to zero is shown as "<1%" instead, because a tinted cell
+        reading "0%" contradicts itself.
+        清浄な走査は語ではなく "0%" と表示し、列を目で追える 1 本の数値尺度に
+        保つ。0 に丸められてしまう非ゼロの割合は "<1%" と表示する。着色された
+        セルに "0%" と出ては自己矛盾するためである。
+        """
+        if self.stripe_noise is None:
+            return STRIPE_PENDING_TEXT
+        percent = 100.0 * self.stripe_noise.bad_fraction
+        if 0.0 < percent < 0.5:
+            return "<1%"
+        return "{0:.0f}%".format(percent)
+
+    @property
+    def stripe_flagged(self) -> bool:
+        """
+        Return whether the screening found disturbed scan lines in this scan.
+        この走査で乱れた走査線が検出されたかを返す。
+
+        Notes
+        -----
+        Keyed on the affected-line fraction rather than on the step count, so
+        a scan line carrying no valid pixel at all — flagged directly, without
+        producing a height step — is reported like any other unusable line.
+        段差の数ではなく影響を受けた走査線の割合で判定する。有効画素を 1 つも
+        持たない走査線は高さ段差を生まずに直接不良とされるが、これも他の使えない
+        走査線と同様に報告されるようにするためである。
+        """
+        return (
+            self.stripe_noise is not None
+            and self.stripe_noise.bad_fraction > 0.0
+        )
 
     @property
     def stem(self) -> str:
         """
         Return the full path without the extension.
         拡張子を除いたフルパスを返す。
+
+        Notes
+        -----
+        A scan-line range is part of the identity of an output, not of the
+        input file: several ranges of one scan are separate analyses that must
+        not overwrite each other. The suffix therefore belongs here, where
+        every output path and the existing-output check derive from it, and it
+        matches what `lib.pipeline.process_file` writes.
+        走査線範囲は入力ファイルではなく出力の同一性の一部である。1 つの走査の
+        複数範囲は互いを上書きしてはならない別々の解析だからである。したがって
+        接尾辞はここに属する。全ての出力パスと既存出力の判定がここから導かれ、
+        `lib.pipeline.process_file` が書き出すものとも一致する。
         """
-        return os.path.splitext(self.txt_path)[0]
+        return os.path.splitext(self.txt_path)[0] + row_range_suffix(self.row_range)
 
     @property
     def basename_stem(self) -> str:
@@ -447,7 +708,61 @@ class FileItem:
         Return the filename without directory or extension.
         フォルダと拡張子を除いたファイル名を返す。
         """
-        return os.path.splitext(os.path.basename(self.txt_path))[0]
+        return (
+            os.path.splitext(os.path.basename(self.txt_path))[0]
+            + row_range_suffix(self.row_range)
+        )
+
+    @property
+    def analyzed_rows(self) -> Optional[int]:
+        """
+        Return how many scan lines this entry analyzes, or ``None`` if unknown.
+        この項目が解析する走査線数を返す。不明なら ``None``。
+        """
+        if self.row_range is not None:
+            return self.row_range[1] - self.row_range[0]
+        return self.full_rows
+
+    @property
+    def analyzed_scan_size_um(self) -> Optional[Tuple[float, float]]:
+        """
+        Return the (X, Y) extent actually analyzed, in micrometers.
+        実際に解析される (X, Y) の実寸 (µm) を返す。
+
+        Notes
+        -----
+        `scan_size_um` describes the whole scan, which is what the instrument
+        header reports and what the user types; this scales Y down to the
+        analyzed scan lines. Kept separate so editing the range never has to
+        rewrite the stored scan size, and clearing it restores the full extent.
+        `scan_size_um` は走査全体を表す。装置ヘッダが報告し、ユーザーが入力する
+        のもこの値である。本プロパティは Y を解析対象の走査線分へ縮める。両者を
+        分けておくことで、範囲を編集しても保存された走査範囲を書き換える必要が
+        なく、範囲を消せば全体の実寸に戻る。
+        """
+        whole = self.scan_size_um
+        if whole is None:
+            return None
+        if self.row_range is None or not self.full_rows:
+            return whole
+        kept = self.row_range[1] - self.row_range[0]
+        return whole[0], whole[1] * kept / self.full_rows
+
+    @property
+    def row_range_display(self) -> str:
+        """
+        Format the scan-line range for the file table.
+        ファイル表向けに走査線範囲を整形する。
+
+        An empty cell means the whole image, which is also what clearing the
+        cell restores; in the spreadsheet-style table an empty editable cell
+        reads as "nothing set" rather than as a value.
+        空セルは画像全体を意味し、セルを消したときに戻る状態でもある。表計算風の
+        表では、空の編集可能セルは値ではなく「未設定」として読める。
+        """
+        if self.row_range is None:
+            return ""
+        return "{0}-{1}".format(self.row_range[0], self.row_range[1])
 
 
 # The .b2z bundle key contract (REQUIRED_BUNDLE_KEYS / OPTIONAL_BUNDLE_KEYS)
@@ -594,7 +909,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Row ids are the tksheet row indices (append-only table, see COL_*).
         # 行 ID は tksheet の行インデックス（追記のみの表。COL_* を参照）。
         self.item_by_iid: Dict[int, FileItem] = {}
-        self.iid_by_path: Dict[str, int] = {}
+        # Keyed by FileItem.stem, not by input path: one input file can be
+        # listed as several scan-line ranges, and each is its own entry with
+        # its own row, status, and outputs. Keying by path would collapse
+        # them onto the last inserted row, sending every status update to
+        # the wrong entry.
+        # キーは入力パスではなく FileItem.stem。1 つの入力ファイルは複数の
+        # 走査線範囲として並び得て、それぞれが独自の行・状態・出力を持つ項目
+        # である。パスをキーにすると最後に挿入した行へ集約され、全ての状態
+        # 更新が誤った項目へ送られる。
+        self.iid_by_stem: Dict[str, int] = {}
 
         # Load startup settings before building widgets so controls reflect persisted values.
         p, startup_logs = load_or_create_startup_params()
@@ -608,6 +932,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.stop_event = threading.Event()
         self.ui_queue: "queue.Queue[Tuple[str, Any]]" = queue.Queue()
         # Worker threads must not touch tkinter widgets directly; use this queue.
+
+        # Generation counter for the background stripe-noise screening. Each
+        # folder selection starts a new screening thread; the previous one may
+        # still be reading a large file and would otherwise write its result
+        # into the row index of a different folder's file.
+        # 背景で走る縞ノイズ検査の世代カウンタ。フォルダを選ぶたびに新しい検査
+        # スレッドを開始するが、前回のスレッドがまだ大きなファイルを読んでいる
+        # 場合があり、そのままでは別フォルダのファイルの行番号へ結果を書き込む。
+        self._stripe_gen = 0
 
         # ===== Progress tracking =====
         self._total_tasks = 0
@@ -818,6 +1151,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # _() で包まない。
                 "X (µm)",
                 "Y (µm)",
+                # The heading names what is counted, not a quality score, so
+                # the percentage cannot be read the wrong way round. Under a
+                # "scan quality" heading the same number reads as a grade, and
+                # a clean scan showing a small number looks like poor quality.
+                # 見出しは品質の点数ではなく「何を数えたか」を示す。こうすれば
+                # 百分率を逆向きに読みようがない。「走査品質」という見出しの下
+                # では同じ数値が成績のように読め、清浄な走査ほど小さな値＝低品質
+                # に見えてしまう。
+                _("縞ノイズ率"),
+                _("走査線範囲"),
                 _("状態"),
                 _("処理時間") + " (s)",
             ],
@@ -900,8 +1243,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # ファイル名以外は固定幅。ファイル名列は _fit_name_column がテーブル幅
         # の残りちょうどに再計算する（ここでの 300 px はレイアウト前の暫定値）。
         for col, width in (
-            (COL_NAME, 300), (COL_X, 70), (COL_Y, 70),
-            (COL_STATUS, 70), (COL_TIME, 100),
+            (COL_NAME, 300), (COL_X, 62), (COL_Y, 62),
+            # Status holds the longest translated label of the fixed columns
+            # ("Not Analyzed"), so it is sized for that rather than for the
+            # shorter Japanese source text.
+            # 状態列は固定幅列の中で最も長い翻訳ラベル（"Not Analyzed"）を
+            # 収める必要があるため、短い日本語原文ではなくそちらに合わせる。
+            (COL_STRIPE, 82), (COL_ROWS, 92), (COL_STATUS, 92), (COL_TIME, 88),
         ):
             self.sheet.column_width(col, width)
         # Keep the name column filling the table via a lightweight periodic
@@ -1053,6 +1401,26 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             command=self.on_load_scale_manifest,
         )
         self.btn_load_manifest.pack(side="left", padx=2)
+        self.btn_split_rows = ttk.Button(
+            scale_entry_row, text=_("縞ノイズで分割"),
+            command=self.on_split_by_stripe_noise,
+        )
+        self.btn_split_rows.pack(side="left", padx=(12, 2))
+        self.btn_clear_split = ttk.Button(
+            scale_entry_row, text=_("分割を解除"),
+            command=self.on_clear_split,
+        )
+        self.btn_clear_split.pack(side="left", padx=2)
+        ToolTip(
+            self.btn_clear_split,
+            _("分割した項目を画像全体の 1 項目へ戻します。") + "\n"
+            + _("分割時に作成した .b2z を削除するかは実行時に確認します。"),
+        )
+        ToolTip(
+            self.btn_split_rows,
+            _("走査を縞ノイズの無い走査線範囲へ分割し、「走査線範囲」列へ入れます。") + "\n"
+            + _("選択中のファイル、選択が無ければ縞ノイズのある全ファイルが対象です。"),
+        )
         ToolTip(
             self.btn_apply_scale_sel,
             _("スケール入力欄の値を選択ファイルへ適用します。") + "\n"
@@ -1148,10 +1516,26 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if self.is_running:
             return None
         row, col = event.row, event.column
-        if col not in SCALE_COLS or row not in self.item_by_iid:
+        if col not in EDITABLE_COLS or row not in self.item_by_iid:
             return None
         text = "" if event.value is None else str(event.value).strip()
+        if col == COL_ROWS:
+            it = self.item_by_iid[row]
+            ok, _ranges = parse_row_ranges_text(text, it.full_rows)
+            if not ok:
+                self.bell()
+                return None
+            return text
         if col == COL_Y:
+            # A range decides the analyzed height, so the Y cell is showing a
+            # derived value; accepting a typed one here would store it as the
+            # whole scan's Y and disagree with what the cell displays.
+            # 範囲が解析対象の高さを決めるため、Y セルは導出値を表示している。
+            # ここでの入力を受理すると走査全体の Y として保存され、セルの表示と
+            # 食い違う。
+            if self.item_by_iid[row].row_range is not None:
+                self.bell()
+                return None
             ok, _v = self._parse_scale_y_text(text)
             if not ok:
                 self.bell()
@@ -1298,7 +1682,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if len(widths) != COL_TIME + 1:
             return
         others = sum(widths) - widths[COL_NAME]
-        desired = max(int(table_w) - others, 160)
+        # The floor has to leave a file name readable once the fixed columns
+        # (scan size, stripe rate, scan-line range, status, time) have taken
+        # their share. With several scan-line ranges of one scan listed, the
+        # name is what says which scan an entry belongs to, so squeezing it to
+        # nothing in favour of the horizontal scrollbar is the wrong trade.
+        # 下限は、固定幅列（走査範囲・縞ノイズ率・走査線範囲・状態・処理時間）が
+        # 取り分を確保した後でもファイル名が読める幅を残す必要がある。1 つの走査の
+        # 複数の走査線範囲が並ぶとき、どの走査の項目かを示すのはファイル名なので、
+        # 水平スクロールバーに委ねて名前を潰すのは筋が悪い。
+        desired = max(int(table_w) - others, 150)
         # Idempotent: only resize when the columns do not already fill the table.
         # 冪等：列がまだテーブルを埋めていないときだけリサイズする。
         if desired != widths[COL_NAME]:
@@ -1402,18 +1795,158 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # 解析不能な X テキスト（ユーザー編集は検証で拒否済み）は前の値を
             # 保持し、下の再描画で表示を復元する。
             pass
-        ok, y_val = self._parse_scale_y_text(y_text)
-        if ok and y_val != it.scale_y_um:
-            it.scale_y_um = y_val
-            changed = True
+        # A range makes the Y cell a derived display, so it must not be read
+        # back as an edit; without this guard the next sync would store the
+        # cropped extent as the whole scan's Y and shrink it again each time.
+        # 範囲を設定すると Y セルは導出表示になるため、編集として読み戻しては
+        # ならない。この防御が無いと次回の同期で切り出し後の実寸が走査全体の Y
+        # として保存され、同期のたびに縮んでいく。
+        if it.row_range is None:
+            ok, y_val = self._parse_scale_y_text(y_text)
+            if ok and y_val != it.scale_y_um:
+                it.scale_y_um = y_val
+                changed = True
         if changed:
             it.scale_source = "manual"
+
+        rows_text = str(self.sheet.get_cell_data(row, COL_ROWS) or "").strip()
+        if self._apply_row_ranges_text(row, rows_text):
+            # The entry list changed shape; it has been re-rendered wholesale.
+            # 項目一覧の構成が変わったため、まとめて再描画済み。
+            return True
         # Always re-render so cell text returns to canonical display form
         # (e.g. "2.0" -> "2", blank Y -> "= X").
         # セルテキストを正規表示（例: "2.0"→"2"、空 Y→"= X"）へ戻すため
         # 常に再描画する。
         self._refresh_tree_row(row)
         return changed
+
+    def _apply_row_ranges_text(self, row: int, text: str) -> bool:
+        """
+        Apply an edited scan-line-range cell, expanding the entry if needed.
+        編集された走査線範囲セルを適用し、必要なら項目を展開する。
+
+        Parameters
+        ----------
+        row
+            File-table row whose range cell was edited.
+            範囲セルが編集されたファイル表の行。
+        text
+            Cell text; one or more ranges, or empty for the whole image.
+            セルのテキスト。1 つ以上の範囲、または画像全体を表す空文字。
+
+        Returns
+        -------
+        bool
+            True when the entry list was rebuilt, so the caller must not
+            re-render the single row it started from.
+            項目一覧を再構築した場合に True。呼び出し元は元の行だけを再描画して
+            はならない。
+
+        Notes
+        -----
+        Typing several ranges into one cell expands that entry into one entry
+        per range, because each range is a separate analysis with its own
+        bundle, status, and processing time. Collapsing them back into one row
+        would leave no place to show that one range succeeded and another
+        failed.
+        1 つのセルに複数の範囲を入力すると、その項目は範囲ごとの項目へ展開される。
+        各範囲は独自のバンドル・状態・処理時間を持つ別々の解析だからである。1 行に
+        まとめたままでは、ある範囲が成功し別の範囲が失敗したことを表示する場所が
+        なくなる。
+        """
+        it = self.item_by_iid.get(row)
+        if it is None:
+            return False
+        ok, ranges = parse_row_ranges_text(text, it.full_rows)
+        if not ok:
+            return False
+
+        new_ranges = ranges if ranges else [None]
+        if new_ranges == [it.row_range]:
+            return False
+
+        # Siblings are every entry already derived from the same input file.
+        # Replacing the whole family at once keeps the ranges of one scan
+        # contiguous in the table and prevents a stale sibling from surviving a
+        # re-cut into a different set of ranges.
+        # 兄弟項目とは、同じ入力ファイルから既に派生した全項目である。一家をまとめて
+        # 置き換えることで、1 つの走査の範囲が表内で連続して並び、別の範囲構成へ
+        # 切り直したときに古い兄弟が residual として残らない。
+        keep = [x for x in self.items if x.txt_path != it.txt_path]
+        rebuilt = []
+        for rr in new_ranges:
+            sibling = next(
+                (x for x in self.items
+                 if x.txt_path == it.txt_path and x.row_range == rr),
+                None,
+            )
+            if sibling is not None:
+                rebuilt.append(sibling)
+                continue
+            fresh = FileItem(
+                txt_path=it.txt_path,
+                scale_x_um=it.scale_x_um,
+                scale_y_um=it.scale_y_um,
+                scale_source=it.scale_source,
+                stripe_noise=it.stripe_noise,
+                full_rows=it.full_rows,
+                row_range=rr,
+            )
+            self._refresh_status_from_disk(fresh)
+            rebuilt.append(fresh)
+
+        # Preserve the original file order: put the rebuilt family back where
+        # the edited entry sat.
+        # 元のファイル順を保つため、再構築した一家を編集された項目の位置へ戻す。
+        insert_at = min(
+            (i for i, x in enumerate(self.items) if x.txt_path == it.txt_path),
+            default=len(keep),
+        )
+        head = [x for x in self.items[:insert_at] if x.txt_path != it.txt_path]
+        tail = keep[len(head):]
+        self.items = head + rebuilt + tail
+        self._rebuild_table()
+        return True
+
+    def _refresh_status_from_disk(self, item: FileItem) -> None:
+        """
+        Set an entry's status from whether its own outputs already exist.
+        自身の出力が既に存在するかどうかから項目の状態を設定する。
+        """
+        ok, missing = existing_min_set(item.stem)
+        item.status = STATUS_ANALYZED if ok else STATUS_PENDING
+        item.missing_reason = "" if ok or not missing else _("欠損: ") + ", ".join(missing)
+
+    def _rebuild_table(self) -> None:
+        """
+        Re-render the whole file table from `self.items`.
+        `self.items` からファイル表全体を再描画する。
+
+        Used when the entry list changes shape rather than content — expanding
+        one input into several scan-line ranges, or collapsing it back. Row ids
+        are positional, so every lookup has to be rebuilt with them.
+        項目一覧の内容ではなく構成が変わったとき——1 入力を複数の走査線範囲へ
+        展開する、あるいは戻すとき——に使う。行 ID は位置に依存するため、対応表も
+        すべて作り直す必要がある。
+        """
+        selected = self._preview_row
+        selected_stem = None
+        if selected is not None and selected in self.item_by_iid:
+            selected_stem = self.item_by_iid[selected].stem
+        self._clear_tree()
+        for item in self.items:
+            self._insert_item(item)
+        # Follow the previewed entry to its new row so the preview does not
+        # jump to an unrelated file when the table is re-laid out.
+        # 表を組み直したときにプレビューが無関係なファイルへ飛ばないよう、
+        # 表示中の項目を新しい行位置へ追従させる。
+        if selected_stem is not None:
+            for iid, item in self.item_by_iid.items():
+                if item.stem == selected_stem:
+                    self._preview_row = iid
+                    break
+        self._update_controls_state()
 
     def _build_preview_area(self) -> None:
         """
@@ -1794,6 +2327,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         return [
             os.path.basename(item.txt_path),
             item.scale_x_display, item.scale_y_display,
+            item.stripe_display, item.row_range_display,
             status_label(item.status), str(item.proc_time_s),
         ]
 
@@ -1810,7 +2344,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         finally:
             self._sheet_syncing = False
         self.item_by_iid.clear()
-        self.iid_by_path.clear()
+        self.iid_by_stem.clear()
         self._preview_row = None
 
     def _insert_item(self, item: FileItem) -> None:
@@ -1833,7 +2367,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         finally:
             self._sheet_syncing = False
         self.item_by_iid[row] = item
-        self.iid_by_path[item.txt_path] = row
+        self.iid_by_stem[item.stem] = row
 
     def _refresh_tree_row(self, iid: int) -> None:
         """
@@ -1847,9 +2381,31 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._sheet_syncing = True
         try:
             self.sheet.set_row_data(iid, values=self._row_values(it))
+            self._tint_stripe_cell(iid, it)
             self.sheet.redraw()
         finally:
             self._sheet_syncing = False
+
+    def _tint_stripe_cell(self, iid: int, item: FileItem) -> None:
+        """
+        Color one stripe-noise cell according to its screening result.
+        縞ノイズセルを検査結果に応じて着色する。
+
+        Notes
+        -----
+        A per-cell highlight is applied rather than left to the column-wide
+        gray of the read-only columns, so a flagged scan is visible at rest
+        without the user opening the log or hovering anything.
+        読み取り専用列の一律の灰色に任せず、セル単位で着色する。ログを開いたり
+        ホバーしたりしなくても、警告のある走査がその場で見えるようにするため。
+        """
+        if item.stripe_flagged:
+            self.sheet.highlight_cells(
+                row=iid, column=COL_STRIPE,
+                bg=STRIPE_WARN_BG, fg=STRIPE_WARN_FG,
+            )
+        else:
+            self.sheet.dehighlight_cells(row=iid, column=COL_STRIPE)
 
     def _selected_rows(self) -> List[int]:
         """
@@ -1869,7 +2425,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ファイル項目に対応するファイル表の行 ID を返す。
         """
         # Return the sheet row id for a FileItem, if it is still listed.
-        return self.iid_by_path.get(item.txt_path)
+        return self.iid_by_stem.get(item.stem)
 
     # ---------- UI State ----------
     def _update_controls_state(self) -> None:
@@ -1892,7 +2448,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         running = self.is_running
         _set([self.btn_select_folder, self.chk_skip, self.btn_run_all, self.btn_settings,
-              self.btn_apply_scale_all, self.btn_load_manifest],
+              self.btn_apply_scale_all, self.btn_load_manifest,
+              self.btn_split_rows, self.btn_clear_split],
              "disabled" if running else "!disabled")
         _set([self.btn_stop], "!disabled" if running else "disabled")
 
@@ -1994,10 +2551,36 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Detect existing outputs only when a folder is selected.
         n_from_bundle = 0
         n_from_header = 0
+        n_restored = 0
         for fn in files:
             full = os.path.join(folder, fn)
+            # Rebuild any scan-line-range entries this input was last analyzed
+            # as. The ranges live only in the output file names, so without
+            # this a reopened folder would list one whole-image entry marked
+            # unanalyzed while its range bundles sat beside it, unreachable
+            # from the table.
+            # この入力が前回どの走査線範囲として解析されたかを復元する。範囲は
+            # 出力ファイル名にしか残らないため、これが無いとフォルダを開き直した
+            # ときに未解析の画像全体の項目が 1 つ並ぶだけになり、隣にある範囲
+            # バンドルは表から辿れなくなる。
+            found_ranges = discover_row_ranges(full)
+            for row_range in found_ranges:
+                part = FileItem(txt_path=full, row_range=row_range)
+                self._refresh_status_from_disk(part)
+                if self._autofill_scale_from_header(part):
+                    n_from_header += 1
+                self.items.append(part)
+                self._insert_item(part)
+                n_restored += 1
+
             item = FileItem(txt_path=full)
             ok, missing = existing_min_set(item.stem)
+            if not ok and found_ranges:
+                # Analyzed as ranges only: a whole-image entry here would be a
+                # permanently unanalyzed row the user never asked for.
+                # 範囲としてのみ解析済みの場合。ここで画像全体の項目を並べると、
+                # ユーザーが求めていない恒久的な未解析行が残る。
+                continue
             if ok:
                 # The minimal bundle key set is enough to skip recalculation.
                 item.status = STATUS_ANALYZED
@@ -2028,6 +2611,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if not self.items:
             self._log(_("対象ファイル（.txt / .gwy）がありません。"))
         else:
+            if n_restored:
+                self._log(_("走査線範囲の項目を {0} 件復元しました。").format(n_restored))
             n_unset = sum(1 for it in self.items if not it.has_scale)
             self._log(
                 _("スケール: バンドル記録 %d 件 / ヘッダ取得 %d 件 / 未設定 %d 件")
@@ -2040,6 +2625,120 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 )
         self._update_controls_state()
         self.on_redraw_preview()
+        self._start_stripe_scan()
+
+    # ---------- Scan-quality screening ----------
+    def _start_stripe_scan(self) -> None:
+        """
+        Screen every listed file for feedback glitches in the background.
+        一覧の全ファイルをフィードバック不良について背景で検査する。
+
+        Notes
+        -----
+        The screening reads each input file in full, which on a folder of large
+        scans takes noticeably longer than building the table, so it runs off
+        the Tk main loop and the quality column fills in progressively.
+        検査は各入力ファイルを全読み込みするため、大きな走査が並ぶフォルダでは
+        表の構築より明らかに時間がかかる。したがって Tk のメインループから外して
+        実行し、縞ノイズ率の列は順次埋まっていく。
+        """
+        self._stripe_gen += 1
+        # One screening per input file, not per table entry: several scan-line
+        # ranges of one scan would otherwise re-read and re-screen the same
+        # (large) file once per range for an identical result.
+        # 検査は表の項目ごとではなく入力ファイルごとに 1 回。1 つの走査の複数の
+        # 走査線範囲について、同じ（大きな）ファイルを範囲の数だけ読み直して同一
+        # の結果を得ることになるためである。
+        targets = []
+        seen = set()
+        for iid, it in self.item_by_iid.items():
+            if it.txt_path in seen:
+                continue
+            seen.add(it.txt_path)
+            targets.append((iid, it.txt_path))
+        if not targets:
+            return
+        # Drop the previous verdicts before re-screening. The column fills in
+        # file by file, so leaving them would show a mix of old and new
+        # judgements with nothing to say which threshold produced which — a
+        # user re-reading the column mid-pass would take a stale verdict for
+        # the new one. Freshly listed files are already unscreened, so this
+        # only bites on a re-screen after a threshold change.
+        # 再検査の前に前回の判定を捨てる。列はファイル単位で埋まるため、残すと
+        # 新旧の判定が混在し、どちらがどのしきい値によるものか区別できない。
+        # 途中で列を読み直したユーザーは古い判定を新しいものと取り違える。
+        # 新規に一覧へ載ったファイルは元々未検査なので、これが効くのはしきい値
+        # 変更後の再検査のときだけである。
+        for iid, it in self.item_by_iid.items():
+            if it.stripe_noise is not None:
+                it.stripe_noise = None
+                self._refresh_tree_row(iid)
+        for item in self.items:
+            item.stripe_noise = None
+        threading.Thread(
+            target=self._stripe_worker,
+            args=(self._stripe_gen, targets),
+            daemon=True,
+        ).start()
+
+    def _stripe_worker(self, gen: int, targets: List[Tuple[int, str]]) -> None:
+        """
+        Worker body of the stripe-noise screening; posts results to `ui_queue`.
+        縞ノイズ検査のワーカー本体。結果を `ui_queue` へ送る。
+        """
+        threshold = float(self._ui_settings.get(
+            "stripe_step_nm", UI_DEFAULTS["stripe_step_nm"],
+        ))
+        n_flagged = 0
+        for iid, path in targets:
+            if gen != self._stripe_gen:
+                # A newer folder selection superseded this screening.
+                return
+            try:
+                quality = evaluate_scan_lines(
+                    load_afm_image(path), threshold_nm=threshold,
+                )
+            except Exception as e:
+                # A file the screening cannot read is left unscreened rather
+                # than blocking the rest of the folder; analysis reports its
+                # own load failure later if the user tries to process it.
+                # 読めないファイルは未検査のままにし、フォルダの残りを止めない。
+                # 実際に処理しようとした場合は解析側が読み込み失敗を報告する。
+                self.ui_queue.put(("log", _("縞ノイズ率を判定できません: {0} ({1})").format(
+                    os.path.basename(path), e,
+                )))
+                continue
+            self.ui_queue.put(("quality", (gen, iid, quality)))
+            if quality.flagged_steps == 0:
+                continue
+            n_flagged += 1
+            ranges = propose_clean_ranges(
+                quality, min_lines=STRIPE_MIN_BLOCK_LINES,
+            )
+            self.ui_queue.put(("log", _(
+                "{0}: 走査線の {1:.0f}% がフィードバック不良の影響下"
+                "（最大段差 {2:.0f} nm）"
+            ).format(
+                os.path.basename(path),
+                100.0 * quality.bad_fraction,
+                quality.worst_step_nm,
+            )))
+            # The clean ranges are what the user needs to act on the warning,
+            # so they are listed rather than left for the user to find.
+            # 警告に対処するために必要なのは清浄範囲そのものなので、ユーザーに
+            # 探させず列挙する。
+            if ranges:
+                self.ui_queue.put(("log", _("  グリッチのない走査線範囲: {0}").format(
+                    ", ".join(f"{a}-{b}" for a, b in ranges),
+                )))
+            else:
+                self.ui_queue.put(("log", _(
+                    "  解析に足る長さのグリッチのない範囲がありません。再測定を推奨します。"
+                )))
+        if gen == self._stripe_gen and n_flagged:
+            self.ui_queue.put(("log", _(
+                "縞ノイズ: {0} 件のファイルに走査の乱れがあります。"
+            ).format(n_flagged)))
 
     # ---------- Scale assignment ----------
     def _autofill_scale_from_header(self, item: FileItem) -> bool:
@@ -2108,6 +2807,161 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         source = cal.get("source") if isinstance(cal, dict) else None
         item.scale_source = source if source in SCAN_SIZE_SOURCES else ""
         return True
+
+    def on_clear_split(self) -> None:
+        """
+        Collapse split entries back to one whole-image entry per input file.
+        分割された項目を、入力ファイルごとに画像全体の 1 項目へ戻す。
+
+        Notes
+        -----
+        Clearing a range cell already does this, but only for whoever knows
+        that an empty cell means "the whole image"; the button is what makes
+        the split reversible without that knowledge.
+        範囲セルを空にしても同じことは起きるが、それは「空セル＝画像全体」と
+        知っている人にしか使えない。この知識なしに分割を取り消せるようにするのが
+        このボタンである。
+
+        The outputs the split produced are a separate question. They are real
+        analysis results, so they are never removed silently; but leaving them
+        means `discover_row_ranges` lists the split entries again the next time
+        the folder is opened, which would make the undo look like it did not
+        take. The user is therefore asked, with keeping them as the default.
+        分割で生成された出力は別の問題である。実際の解析結果であるため黙って
+        消すことはしない。しかし残せば、次にフォルダを開いたとき
+        `discover_row_ranges` が分割項目を再び並べ、解除が効いていないように
+        見える。したがってユーザーに確認し、既定は「残す」とする。
+        """
+        if self.is_running:
+            return
+        rows = self._selected_rows()
+        targets = [self.item_by_iid[r] for r in rows if r in self.item_by_iid]
+        if not targets:
+            targets = list(self.items)
+        paths = [p for p in dict.fromkeys(it.txt_path for it in targets)
+                 if any(x.txt_path == p and x.row_range is not None
+                        for x in self.items)]
+        if not paths:
+            self._log(_("分割された項目がありません。"))
+            return
+
+        # Collect the outputs before collapsing: afterwards the entries that
+        # name them are gone.
+        # まとめる前に出力を集める。まとめた後では、それらを指す項目が消えている。
+        outputs = []
+        for it in self.items:
+            if it.txt_path in paths and it.row_range is not None:
+                for path in (bundle_path_for(it.stem), param_path_for(it.stem)):
+                    if os.path.isfile(path):
+                        outputs.append(path)
+
+        delete = False
+        if outputs:
+            delete = messagebox.askyesno(
+                _("確認"),
+                _("分割を解除します。分割時に作成した出力 {0} 件も削除しますか？\n"
+                  "「いいえ」を選ぶとファイルは残り、次にフォルダを開いたときに"
+                  "分割された項目として再び一覧に並びます。").format(len(outputs)),
+                default="no",
+            )
+
+        n_collapsed = 0
+        for path in paths:
+            item = next((x for x in self.items if x.txt_path == path), None)
+            if item is None:
+                continue
+            iid = self._find_iid_for_item(item)
+            if iid is None:
+                continue
+            self._apply_row_ranges_text(iid, "")
+            n_collapsed += 1
+
+        if delete:
+            n_deleted = 0
+            for path in outputs:
+                try:
+                    os.remove(path)
+                    n_deleted += 1
+                except OSError as e:
+                    self._log(_("削除できません: {0} ({1})").format(
+                        os.path.basename(path), e,
+                    ))
+            self._log(_("分割時の出力を {0} 件削除しました。").format(n_deleted))
+            # Deleting the outputs changes what "analyzed" means for the
+            # collapsed entries, so re-read it from disk.
+            # 出力の削除はまとめ直した項目の解析済み判定を変えるため、ディスクから
+            # 読み直す。
+            for item in self.items:
+                if item.txt_path in paths:
+                    self._refresh_status_from_disk(item)
+                    iid = self._find_iid_for_item(item)
+                    if iid is not None:
+                        self._refresh_tree_row(iid)
+        elif outputs:
+            self._log(_("分割時の出力 {0} 件はそのまま残しました。").format(len(outputs)))
+        self._log(_("{0} 件のファイルの分割を解除しました。").format(n_collapsed))
+
+    def on_split_by_stripe_noise(self) -> None:
+        """
+        Split each target scan into its glitch-free scan-line ranges.
+        対象の各走査を、グリッチのない走査線範囲へ分割する。
+
+        Notes
+        -----
+        The split is written into the editable range cells rather than applied
+        at analysis time. It rests on a screening threshold that is a
+        heuristic, and the scan lines it drops are real data, so the user has
+        to be left looking at exactly what will be analyzed and free to widen,
+        narrow, or clear it. A scan with nothing to exclude is reported and
+        left whole rather than split into a single range for appearances.
+        分割は解析時に適用するのではなく、編集可能な範囲セルへ書き込む。分割は
+        経験則であるしきい値に基づいており、落とされる走査線も実データである。
+        したがってユーザーには何が解析されるかをそのまま見せ、広げる・狭める・
+        消すのいずれも自由にできる状態を残す必要がある。除外すべきものが無い走査は
+        体裁のために 1 件の範囲へ分割せず、その旨を報告して全体のまま残す。
+        """
+        if self.is_running:
+            return
+        rows = self._selected_rows()
+        targets = [self.item_by_iid[r] for r in rows if r in self.item_by_iid]
+        if not targets:
+            # No selection: split every scan that has something to exclude.
+            # 選択が無い場合は、除外すべきものがある全走査を分割する。
+            targets = [it for it in self.items if it.stripe_flagged]
+        if not targets:
+            self._log(_("分割できるファイルがありません（縞ノイズ検査が未完了か、乱れがありません）。"))
+            return
+
+        # One split per input file: entries of the same scan share a range
+        # set, and expanding one of them rebuilds the whole family anyway.
+        # 分割は入力ファイルごとに 1 回。同じ走査の各項目は範囲の集合を共有し、
+        # いずれかを展開すれば一家がまとめて再構築される。
+        n_split = 0
+        for path in dict.fromkeys(it.txt_path for it in targets):
+            item = next(x for x in self.items if x.txt_path == path)
+            if item.stripe_noise is None:
+                continue
+            ranges = propose_clean_ranges(
+                item.stripe_noise, min_lines=STRIPE_MIN_BLOCK_LINES,
+            )
+            name = os.path.basename(path)
+            if not ranges:
+                self._log(_("{0}: 解析に足る長さのグリッチのない範囲がありません。").format(name))
+                continue
+            if len(ranges) == 1 and ranges[0] == (0, item.stripe_noise.bad_lines.size):
+                self._log(_("{0}: 全体が使えるため範囲は不要です。").format(name))
+                continue
+            iid = self._find_iid_for_item(item)
+            if iid is None:
+                continue
+            text = ",".join(f"{a}-{b}" for a, b in ranges)
+            self._apply_row_ranges_text(iid, text)
+            self._log(_("{0}: 縞ノイズの無い {1} 件の範囲へ分割しました: {2}").format(
+                name, len(ranges), text,
+            ))
+            n_split += 1
+        if n_split:
+            self._log(_("範囲はセルを直接編集して調整できます（空にすると画像全体）。"))
 
     def on_apply_scale_to_rows(self, selected_only: bool) -> None:
         """
@@ -2487,6 +3341,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # explicit per-axis size rather than a half-filled one.
             # 空欄の Y はここで X に解決するため、バンドルには常に軸ごとの
             # 明示的なサイズが記録される。
+            # `process_file` scales the Y size to the analyzed scan lines
+            # itself, so it is handed the WHOLE scan's size, not the derived
+            # extent the Y cell displays.
+            # Y サイズを解析対象の走査線に合わせて縮めるのは `process_file` 側の
+            # 役目なので、渡すのは Y セルが表示する導出値ではなく走査 *全体* の
+            # サイズである。
             scan_size_um = it.scan_size_um
             result = process_file(
                 it.txt_path,
@@ -2496,6 +3356,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 on_stage=report_stage,
                 scan_size_um=scan_size_um,
                 scan_size_source=it.scale_source or "manual",
+                row_range=it.row_range,
             )
             self.ui_queue.put(("progress_detail", (fname, _("完了"))))
 
@@ -2529,6 +3390,36 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 it.status = status
                 it.proc_time_s = t
                 self._refresh_tree_row(iid)
+
+        def _on_stripe(payload):
+            gen, iid, quality = payload
+            # A folder switch invalidates row ids, so a late result from the
+            # previous screening must not be written into the new table.
+            # フォルダ切り替えで行 ID の意味が変わるため、前回の検査から遅れて
+            # 届いた結果を新しい表へ書き込んではならない。
+            if gen != self._stripe_gen:
+                return
+            it = self.item_by_iid.get(iid)
+            if it:
+                it.stripe_noise = quality
+                # The screening already read the file, so its line count comes
+                # free here; the range column needs it to reject a range past
+                # the end of the scan.
+                # 検査は既にファイルを読んでいるため、走査線数はここで無償で
+                # 得られる。範囲列は走査の末尾を超える範囲を拒否するために
+                # これを必要とする。
+                rows = int(np.asarray(quality.bad_lines).size)
+                for sibling in self.items:
+                    if sibling.txt_path == it.txt_path:
+                        sibling.full_rows = rows
+                        if sibling.stripe_noise is None:
+                            sibling.stripe_noise = quality
+                for sib_iid, sibling in self.item_by_iid.items():
+                    if sibling.txt_path == it.txt_path:
+                        self._refresh_tree_row(sib_iid)
+                if self._preview_row == iid:
+                    # The previewed scan now has glitch bands to shade.
+                    self.on_redraw_preview()
 
         def _on_progress(payload):
             self._done_tasks += int(payload)
@@ -2566,6 +3457,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         drain_ui_queue(self.ui_queue, {
             "log": lambda payload: self._log(str(payload)),
             "status": _on_status,
+            "quality": _on_stripe,
             "progress": _on_progress,
             "stage": _on_stage,
             "progress_detail": lambda payload: self.progress_detail_var.set(
@@ -2577,6 +3469,95 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.after(50, self._poll_ui_queue)
 
     # ---------- Preview (2x2) ----------
+    @staticmethod
+    def _shade_bad_scan_lines(
+        ax,
+        item: FileItem,
+        shape: Tuple[int, ...],
+        extent: Optional[List[float]],
+    ) -> None:
+        """
+        Shade the scan lines flagged by the quality screening on one panel.
+        縞ノイズ検査が検出した走査線を 1 つのパネル上で網掛けする。
+
+        Parameters
+        ----------
+        ax
+            Matplotlib axes the raw scan was drawn on.
+            生の走査を描画した Matplotlib の軸。
+        item
+            File item whose screening result is drawn; nothing is drawn when
+            it has not been screened or came out clean.
+            検査結果を描画するファイル項目。未検査または清浄なら何も描かない。
+        shape
+            Shape of the displayed image; only the leading height is used.
+            表示中の画像の形状。先頭の高さのみを使う。
+        extent
+            The ``extent`` passed to `imshow`, or ``None`` for pixel coordinates.
+            `imshow` に渡した ``extent``。画素座標なら ``None``。
+
+        Notes
+        -----
+        Row indices are converted through `feature_overlay_xy` rather than
+        scaled directly, so the bands stay put whether the panel is drawn in
+        pixel coordinates or in physical units with an upward y axis.
+        行インデックスは直接スケールせず `feature_overlay_xy` を通して変換する。
+        これにより、パネルが画素座標で描かれても、y 軸が上向きの物理単位で
+        描かれても、帯の位置がずれない。
+        """
+        quality = item.stripe_noise
+        if quality is None or not item.stripe_flagged:
+            return
+        bad = np.asarray(quality.bad_lines, dtype=bool)
+        # The screening judges the whole scan; a cropped entry displays only
+        # part of it. Slicing keeps the marks meaningful for a hand-picked
+        # range that still contains disturbed lines, instead of dropping the
+        # overlay because the lengths disagree.
+        # 検査は走査全体を判定するが、切り出し項目が表示するのはその一部である。
+        # 切り出して長さを揃えることで、乱れた走査線を含む手動指定の範囲でも表示
+        # が意味を保つ。長さの不一致を理由に重ね描き自体を捨てずに済む。
+        if item.row_range is not None and bad.size >= item.row_range[1]:
+            bad = bad[item.row_range[0]:item.row_range[1]]
+        # A screening computed on a differently sized array cannot be mapped
+        # onto this panel; drawing it anyway would mark the wrong lines.
+        # 大きさの異なる配列で計算された検査結果はこのパネルへ対応付けられない。
+        # 無理に描けば誤った走査線を指すことになる。
+        if bad.size != shape[0]:
+            return
+
+        # Boundaries of each contiguous run of flagged lines.
+        edges = np.flatnonzero(np.diff(np.concatenate(([0], bad.view(np.int8), [0]))))
+        verts = []
+        for start, stop in zip(edges[0::2], edges[1::2]):
+            _x, y_top = feature_overlay_xy(0.0, start - 0.5, shape, extent)
+            _x, y_bottom = feature_overlay_xy(0.0, stop - 0.5, shape, extent)
+            lo, hi = min(y_top, y_bottom), max(y_top, y_bottom)
+            # x in axes fraction spans the panel whatever the extent is; y stays
+            # in data coordinates so the bands track the image rows.
+            verts.append([(0.0, lo), (1.0, lo), (1.0, hi), (0.0, hi)])
+        if not verts:
+            return
+
+        # One collection rather than an `axhspan` per band. Each `axhspan` call
+        # requests an autoscale pass, which measured at +21 ms per preview
+        # redraw for the 11 bands of a typical flagged scan (88 -> 110 ms);
+        # a single collection added with `autolim=False` costs +0.6 ms.
+        # 帯ごとに `axhspan` を呼ばず 1 つのコレクションにまとめる。`axhspan` は
+        # 呼び出しごとにオートスケールを要求し、警告付き走査で典型的な 11 帯では
+        # プレビュー再描画あたり +21 ms（88→110 ms）を実測した。`autolim=False`
+        # で追加する単一コレクションなら +0.6 ms で済む。
+        ax.add_collection(
+            PolyCollection(
+                verts,
+                facecolors=STRIPE_BAND_COLOR,
+                alpha=STRIPE_BAND_ALPHA,
+                linewidths=0,
+                transform=blended_transform_factory(ax.transAxes, ax.transData),
+                zorder=2,
+            ),
+            autolim=False,
+        )
+
     def _reset_axes(self) -> None:
         """
         Clear all preview axes without deciding their visibility.
@@ -2675,6 +3656,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # 拡張子で振り分けるため、テキスト/CSV と Gwyddion .gwy（自動選択
                 # チャンネル）のいずれもプレビューできる。
                 ori = load_afm_image(it.txt_path)
+                # The source file holds every scan line, while the rest of the
+                # bundle covers only the analyzed range. Showing the whole scan
+                # next to the cropped stages would put a different field of
+                # view in the Original panel than in the other three.
+                # 元ファイルは全走査線を含むが、バンドルの残りは解析範囲だけを
+                # 覆う。切り出し済みの各段の隣に走査全体を出すと、Original
+                # パネルだけが他の 3 枚と異なる視野を映すことになる。
+                if it.row_range is not None:
+                    ori = ori[it.row_range[0]:it.row_range[1]]
 
             # Return every key used by the preview renderer and single-view dialog.
             return {
@@ -2844,6 +3834,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 ax.axis("off")
             if show_title:
                 ax.set_title(sub_titles[i], fontsize=tfs)
+
+        # Shade the scan lines the quality screening flagged, on the Original
+        # panel: the screening judges the raw scan, and seeing where the bands
+        # fall is what lets the user decide which part of the field to trust.
+        # 縞ノイズ検査が検出した走査線を Original パネル上で網掛けする。検査は
+        # 生の走査を判定するものであり、帯の位置が見えて初めて視野のどの部分を
+        # 信用するかを判断できる。
+        self._shade_bad_scan_lines(
+            self.preview_axes[0][0], it, data["original"].shape, extent,
+        )
 
         # Feature overlays are drawn on the skeletonized panel and share its
         # per-axis scaling (X from the width scale, Y from the height scale).
@@ -3023,6 +4023,15 @@ class SettingsDialog(tk.Toplevel):
         # save_original は ProcParams（解析パラメータ）ではなく UI 状態なので、
         # 専用変数で持ち、設定ファイルの _ui セクションへ保存する。初期値は親の現在値。
         self.save_original_var = tk.BooleanVar(value=bool(parent.save_original_var.get()))
+        # The glitch step threshold is likewise UI state: it decides which files
+        # the quality column flags and is read by no pipeline stage.
+        # グリッチ段差しきい値も同様に UI 状態。縞ノイズ率列でどのファイルを警告
+        # するかを決めるだけで、パイプラインのどの段も読まない。
+        self.stripe_step_var = tk.StringVar(
+            value="{0:g}".format(parent._ui_settings.get(
+                "stripe_step_nm", UI_DEFAULTS["stripe_step_nm"],
+            ))
+        )
         self._build_ui()
         self._populate_from_refs()
         self._on_bg_method_changed()
@@ -3036,6 +4045,7 @@ class SettingsDialog(tk.Toplevel):
         plf = self._build_scroll_container()
         self._build_bg_section(plf)
         self._build_param_sections(plf)
+        self._build_stripe_noise_options()
         self._build_save_options()
         self._build_buttons()
         # Bind last: the helper walks the finished subtree to take the wheel
@@ -3385,6 +4395,63 @@ class SettingsDialog(tk.Toplevel):
             lf.pack(fill="x", padx=6, pady=6)
             self._add_fields(lf, specs)
 
+    def _build_stripe_noise_options(self) -> None:
+        """
+        Build the stripe-noise screening group (UI state, not analysis).
+        縞ノイズ検査の設定群を構築する（解析条件ではなく UI 状態）。
+        """
+        # ---- Scan-quality screening ----
+        # Placed outside the "解析条件" frame: the threshold only decides which
+        # files the quality column flags. It cannot change a measured result,
+        # so it must not be mistaken for an analysis parameter or stored in the
+        # per-analysis _param.json sidecar.
+        # 「解析条件」フレームの外に置く。このしきい値は縞ノイズ率列でどのファイルを
+        # 警告するかを決めるだけで測定結果を変えられないため、解析パラメータと
+        # 混同されたり解析ごとの _param.json に保存されたりしてはならない。
+        lf_sq = ttk.LabelFrame(self.inner, text=_("縞ノイズの判定"))
+        lf_sq.pack(fill="x", padx=6, pady=6)
+        frm_sq = ttk.Frame(lf_sq)
+        frm_sq.pack(fill="x", pady=3)
+        ttk.Label(frm_sq, text=_("フィードバック不良とみなす段差") + " (nm)").pack(
+            side="left", padx=6,
+        )
+        ttk.Entry(frm_sq, textvariable=self.stripe_step_var, width=8).pack(
+            side="left", padx=6,
+        )
+        # The description goes on its own full-width row with a wraplength that
+        # follows the frame. Packed beside the entry it is clipped at the frame
+        # edge and the tail of the sentence is lost with no indication, and the
+        # English translation of this sentence is about twice the width of the
+        # Japanese source, so a fixed wrap width would not hold either.
+        # 説明文は枠幅に追随する wraplength を与えて全幅の別行に置く。入力欄の
+        # 横に並べると枠の右端で切り落とされ、文末が何の表示もなく失われる。
+        # またこの文の英訳は日本語原文の約 2 倍の幅を要するため、固定の折り返し
+        # 幅でも収まらない。
+        self._stripe_desc = ttk.Label(
+            lf_sq,
+            text=_("隣接走査線間の高さ段差がこの値を超える箇所を走査の乱れとして数え、"
+                   "影響を受けた走査線の割合を一覧の「縞ノイズ率」列に表示します"
+                   "（解析条件には含まれません）"),
+            foreground="#444", justify="left",
+        )
+        self._stripe_desc.pack(fill="x", padx=12, pady=(0, 6))
+        self._stripe_desc_wrap = 0
+        lf_sq.bind("<Configure>", self._on_stripe_desc_resize)
+
+    def _on_stripe_desc_resize(self, event) -> None:
+        """
+        Keep the stripe-noise description wrapped to the current frame width.
+        縞ノイズの説明文を現在の枠幅に合わせて折り返し続ける。
+        """
+        wrap = max(int(event.width) - 30, 120)
+        # Reconfiguring on every pixel of a drag would re-layout the dialog
+        # continuously, so only act on a change worth re-wrapping for.
+        # ドラッグ中に 1 画素ごと再設定するとダイアログの再レイアウトが続くため、
+        # 折り返し直しに値する変化のときだけ反映する。
+        if abs(wrap - self._stripe_desc_wrap) > 8:
+            self._stripe_desc_wrap = wrap
+            self._stripe_desc.configure(wraplength=wrap)
+
     def _build_save_options(self) -> None:
         """
         Build the save-options group (save_original is UI state, not analysis).
@@ -3533,14 +4600,53 @@ class SettingsDialog(tk.Toplevel):
         except Exception as e:
             messagebox.showerror(_("エラー"), _("設定値の読み取りに失敗しました。\n%s") % e)
             return
+        try:
+            stripe_step = self._read_stripe_step()
+        except ValueError as e:
+            messagebox.showerror(_("エラー"), str(e))
+            return
         # Reflect the UI-only save_original choice back to the parent and persist it.
         # UI 専用の save_original 選択を親へ反映し、起動時設定へ保存する。
         on = bool(self.save_original_var.get())
         self.parent.save_original_var.set(on)
         self.parent._ui_settings["save_original"] = on
+        rescreen = stripe_step != self.parent._ui_settings.get("stripe_step_nm")
+        self.parent._ui_settings["stripe_step_nm"] = stripe_step
         save_ui_settings(self.parent._ui_settings)
         self.parent._log(_("設定を更新しました（次回解析時に反映）"))
         self.destroy()
+        if rescreen:
+            # The quality column shows the old threshold's verdict until the
+            # files are screened again, so re-run it rather than leaving a
+            # stale judgement on screen.
+            # 再検査するまで縞ノイズ率列は旧しきい値の判定を表示し続けるため、
+            # 古い判定を残さず走査し直す。
+            self.parent._start_stripe_scan()
+
+    def _read_stripe_step(self) -> float:
+        """
+        Validate and return the glitch step threshold entered in the dialog.
+        ダイアログに入力されたグリッチ段差しきい値を検証して返す。
+
+        Raises
+        ------
+        ValueError
+            If the entry is not a positive number.
+        """
+        text = self.stripe_step_var.get().strip()
+        try:
+            value = float(text)
+        except (TypeError, ValueError):
+            raise ValueError(
+                _("「フィードバック不良とみなす段差」には正の数値を入力してください: {0}")
+                .format(text or "")
+            )
+        if not (value > 0.0):
+            raise ValueError(
+                _("「フィードバック不良とみなす段差」には正の数値を入力してください: {0}")
+                .format(text)
+            )
+        return value
 
     def on_cancel(self) -> None:
         """
@@ -3573,6 +4679,7 @@ class SettingsDialog(tk.Toplevel):
             self._apply_vars_to_refs()
             params_dict = asdict(self.params_ref)
             on = bool(self.save_original_var.get())
+            stripe_step = self._read_stripe_step()
 
             # Merge into the existing settings file: params at top level, UI under _ui.
             path = _settings_path()
@@ -3587,6 +4694,7 @@ class SettingsDialog(tk.Toplevel):
             if not isinstance(ui_section, dict):
                 ui_section = {}
             ui_section["save_original"] = on
+            ui_section["stripe_step_nm"] = stripe_step
 
             existing.update(params_dict)         # Overwrite ProcParams keys at top level.
             existing[UI_SETTINGS_KEY] = ui_section
@@ -3595,6 +4703,7 @@ class SettingsDialog(tk.Toplevel):
 
             # Keep the running session consistent with what was just saved.
             self.parent._ui_settings["save_original"] = on
+            self.parent._ui_settings["stripe_step_nm"] = stripe_step
             self.parent.save_original_var.set(on)
             self.parent._log(_("現在値を既定値として保存しました: %s") % path)
         except Exception as e:
@@ -3607,21 +4716,23 @@ class SettingsDialog(tk.Toplevel):
 
         Notes
         -----
-        Parameters revert to ProcParams() defaults and save_original reverts to
-        UI_DEFAULTS["save_original"] (OFF). The settings file is left untouched;
-        use "現在値を既定値として保存" to persist.
-        パラメータは ProcParams() 既定値、save_original は UI_DEFAULTS（OFF）へ戻す。
-        設定ファイルは変更しない。永続化は「現在値を既定値として保存」で行う。
+        Parameters revert to ProcParams() defaults, and the UI-only settings
+        (save_original, the glitch step threshold) revert to UI_DEFAULTS. The
+        settings file is left untouched; use "現在値を既定値として保存" to persist.
+        パラメータは ProcParams() 既定値、UI 専用設定（save_original とグリッチ
+        段差しきい値）は UI_DEFAULTS へ戻す。設定ファイルは変更しない。永続化は
+        「現在値を既定値として保存」で行う。
         """
         if not messagebox.askyesno(
             _("確認"),
-            _("ダイアログの全パラメータと「元データを保存」を初期値に戻します。\n"
+            _("ダイアログの全パラメータと「元データを保存」「縞ノイズの判定」を初期値に戻します。\n"
               "（この操作では設定ファイルは変更されません）\nよろしいですか？"),
         ):
             return
         # Reset only the on-screen variables; persistence is a separate explicit action.
         self._set_vars_from_dict(asdict(ProcParams()))
         self.save_original_var.set(bool(UI_DEFAULTS["save_original"]))
+        self.stripe_step_var.set("{0:g}".format(UI_DEFAULTS["stripe_step_nm"]))
         self._on_bg_method_changed()
         self.parent._log(_("ダイアログを初期値に戻しました（未保存）"))
 
