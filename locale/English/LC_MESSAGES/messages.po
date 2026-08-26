@@ -554,9 +554,7 @@ msgstr ""
 #: guis/GUI01_Image_Preprocessor.py:2949
 #, python-brace-format
 msgid "{0}: 解析に足る長さのグリッチのない範囲がありません。"
-msgstr ""
-"  No glitch-free range long enough to analyze. Re-measuring is "
-"recommended."
+msgstr "{0}: no glitch-free range long enough to analyze."
 
 #: guis/GUI01_Image_Preprocessor.py:2952
 #, python-brace-format
@@ -954,7 +952,7 @@ msgid "隣接走査線間の高さ段差がこの値を超える箇所を走査�
 msgstr ""
 "Boundaries whose height step between neighboring scan lines exceeds this "
 "value are counted as scan disturbances, and the percentage of affected "
-"scan lines is shown in the list's \"Scan quality\" column (not part of "
+"scan lines is shown in the list's \"Stripe noise\" column (not part of "
 "the analysis settings)"
 
 #: guis/GUI01_Image_Preprocessor.py:4465
@@ -2513,6 +2511,8 @@ msgid ""
 "機械学習ライブラリがインストールされていません。\n"
 "{err}"
 msgstr ""
+"Machine-learning libraries are not installed.\n"
+"{err}"
 
 #: guis/GUI05_ML_Model_Trainer.py:853
 #, python-brace-format
@@ -2527,7 +2527,7 @@ msgstr "Dataset: {n} samples, {g} image group(s), {f} fiber / {b} background."
 #: guis/GUI05_ML_Model_Trainer.py:876
 #, python-brace-format
 msgid "うち手動修正画素: {n}。"
-msgstr ""
+msgstr "Of these, {n} pixel(s) are hand-corrected."
 
 #: guis/GUI05_ML_Model_Trainer.py:886
 #, python-brace-format
@@ -2573,6 +2573,8 @@ msgid ""
 "モデル '{id}' を次へ保存しました:\n"
 "{p}"
 msgstr ""
+"Saved model '{id}' to:\n"
+"{p}"
 
 #: guis/GUI05_ML_Model_Trainer.py:1070
 #, python-brace-format
@@ -2646,6 +2648,8 @@ msgid ""
 "id: {id}\n"
 "task: {task}  しきい値: {thr}{dice}"
 msgstr ""
+"id: {id}\n"
+"task: {task}  threshold: {thr}{dice}"
 
 #: guis/GUI06_ML_Model_Compare.py:799
 #, python-brace-format
@@ -2660,7 +2664,7 @@ msgstr "Comparing all {n} bundle(s)..."
 #: guis/GUI06_ML_Model_Compare.py:1020
 #, python-brace-format
 msgid "[{i}/{n}] {name}: {s}"
-msgstr "[{i}/{n}] {name}: skipped ({err})"
+msgstr "[{i}/{n}] {name}: {s}"
 
 #: guis/GUI06_ML_Model_Compare.py:1023
 #, python-brace-format
@@ -2812,7 +2816,7 @@ msgstr "Bundle (.b2z)"
 
 #: guis/GUI08_ML_Mask_Annotator.py:308
 msgid "修正するタスク"
-msgstr "Training task"
+msgstr "Task to correct"
 
 #: guis/GUI08_ML_Mask_Annotator.py:318
 #, python-brace-format
@@ -2834,49 +2838,53 @@ msgstr "Not loaded."
 
 #: guis/GUI08_ML_Mask_Annotator.py:336
 msgid "ブラシ"
-msgstr ""
+msgstr "Brush"
 
 #: guis/GUI08_ML_Mask_Annotator.py:346
 msgid "繊維として塗る（白）"
-msgstr ""
+msgstr "Paint as fiber (white)"
 
 #: guis/GUI08_ML_Mask_Annotator.py:347
 msgid "背景として塗る（黒）"
-msgstr ""
+msgstr "Paint as background (black)"
 
 #: guis/GUI08_ML_Mask_Annotator.py:359
 msgid "ブラシ半径 (px)"
-msgstr ""
+msgstr "Brush radius (px)"
 
 #: guis/GUI08_ML_Mask_Annotator.py:371
 msgid "修正をすべて消す"
-msgstr ""
+msgstr "Clear all corrections"
 
 #: guis/GUI08_ML_Mask_Annotator.py:378
 msgid "パイプラインのマスクと食い違った画素だけが保存されます。元の値へ塗り戻せばその判断は取り消されます。"
 msgstr ""
+"Only pixels that differ from the pipeline's mask are saved. Painting a "
+"pixel back to its original value undoes that judgement."
 
 #: guis/GUI08_ML_Mask_Annotator.py:390
 msgid "修正を保存"
-msgstr "Save Figure"
+msgstr "Save corrections"
 
 #: guis/GUI08_ML_Mask_Annotator.py:393
 msgid ""
 "バンドルの隣に修正ファイルを書き出します。ML Model Trainer でラベルの出所に Manual corrections "
 "を選ぶと使われます。"
 msgstr ""
+"Writes a correction file beside the bundle. It is used when the label "
+"source in ML Model Trainer is set to Manual corrections."
 
 #: guis/GUI08_ML_Mask_Annotator.py:407
 msgid "編集ペインの表示"
-msgstr ""
+msgstr "Editing pane view"
 
 #: guis/GUI08_ML_Mask_Annotator.py:410
 msgid "マスクのみ"
-msgstr ""
+msgstr "Mask only"
 
 #: guis/GUI08_ML_Mask_Annotator.py:411
 msgid "画像＋マスク"
-msgstr ""
+msgstr "Image + mask"
 
 #: guis/GUI08_ML_Mask_Annotator.py:468
 msgid "比較"
@@ -2885,8 +2893,8 @@ msgstr "Comparison"
 #: guis/GUI08_ML_Mask_Annotator.py:498
 msgid "バンドルを開き、マスクの誤りをドラッグで塗り直します。保存するとバンドルの隣に修正ファイルが書かれます。"
 msgstr ""
-"Open a bundle and click a candidate to cycle its verdict. Saving writes a"
-" label file beside the bundle."
+"Open a bundle and drag to repaint the mask's errors. Saving writes a "
+"correction file beside the bundle."
 
 #: guis/GUI08_ML_Mask_Annotator.py:513
 msgid ".b2z バンドルを選択"
@@ -2899,47 +2907,52 @@ msgstr "Loading {name}..."
 
 #: guis/GUI08_ML_Mask_Annotator.py:546
 msgid "ベースマスクを再構築中..."
-msgstr "Rebuilding fragments..."
+msgstr "Rebuilding the base mask..."
 
 #: guis/GUI08_ML_Mask_Annotator.py:647
 #, python-brace-format
 msgid "保存済みの修正 {n} 画素を復元しました。"
-msgstr "Restored {n} judgement(s) from the existing labels."
+msgstr "Restored corrections for {n} pixel(s) from the saved file."
 
 #: guis/GUI08_ML_Mask_Annotator.py:652
 msgid "既存の修正を読み込めません"
-msgstr ""
+msgstr "Cannot load the existing corrections"
 
 #: guis/GUI08_ML_Mask_Annotator.py:653
 msgid ""
 "バンドルの隣に修正ファイルがありますが、いま表示しているマスクのものではありません。\n"
 "空の状態で開始します。保存すると既存のファイルを上書きします。"
 msgstr ""
+"A correction file sits beside the bundle, but it is not for the mask "
+"shown now.\n"
+"Starting empty. Saving will overwrite the existing file."
 
 #: guis/GUI08_ML_Mask_Annotator.py:1079
 msgid "この画像の修正をすべて消します。よろしいですか。"
-msgstr ""
+msgstr "This clears every correction for this image. Continue?"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1125
 msgid "修正がありません"
-msgstr ""
+msgstr "No corrections"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1126
 msgid "保存する修正がありません。マスクの誤りを塗ってから保存してください。"
 msgstr ""
+"There are no corrections to save. Paint over the mask's errors first, "
+"then save."
 
 #: guis/GUI08_ML_Mask_Annotator.py:1129
 msgid "上書きの確認"
-msgstr ""
+msgstr "Overwrite confirmation"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1130
 msgid "別のマスク向けの修正ファイルが既にあります。上書きしますか。"
-msgstr ""
+msgstr "A correction file for a different mask already exists. Overwrite it?"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1149
 #, python-brace-format
 msgid "修正を保存しました: {p}"
-msgstr "Saved labels: {p}"
+msgstr "Saved corrections: {p}"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1152
 #, python-brace-format
@@ -2947,21 +2960,21 @@ msgid ""
 "{n} 画素の修正を保存しました。\n"
 "{p}"
 msgstr ""
-"Saved {decided} judgement(s).\n"
+"Saved corrections for {n} pixel(s).\n"
 "{p}"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1198
 #, python-brace-format
 msgid "修正した画素: 繊維 {f} / 背景 {b}"
-msgstr ""
+msgstr "Corrected pixels: fiber {f} / background {b}"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1240
 msgid "未保存の修正"
-msgstr "Unsaved judgements"
+msgstr "Unsaved corrections"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1241
 msgid "保存していない修正があります。破棄して続行しますか。"
-msgstr "There are unsaved judgements. Discard them and continue?"
+msgstr "There are unsaved corrections. Discard them and continue?"
 
 #: lib/ui_tools.py:181
 msgid "ログ無し"
@@ -3170,6 +3183,17 @@ msgid ""
 "corrections from the ML Mask Annotator applied. The ML libraries are "
 "optional and loaded only when training runs."
 msgstr ""
+"Train a machine-learning preprocessing model from .b2z bundles and export"
+" it as a model file whose extension encodes the task. Choose the task: "
+"binarization, background fiber-candidate mask, or background-surface "
+"regression (the last two are the alternative background-correction "
+"approaches and need the raw height image, taken from the bundle's "
+"optional original key or from the raw input file kept beside the bundle)."
+" Select folders of Image Preprocessor bundles, build a pixel dataset, "
+"cross-validate a decision-tree model, and save it. For the two mask tasks"
+" the label can be the pipeline's own mask or that mask with hand-painted "
+"corrections from the ML Mask Annotator applied. The ML libraries are "
+"optional and loaded only when training runs."
 
 #: guis/GUI06_ML_Model_Compare.py:69
 msgid ""
@@ -3183,6 +3207,15 @@ msgid ""
 "to the preprocessing pipeline. The ML libraries are optional and loaded "
 "only when a model is applied."
 msgstr ""
+"Apply a trained preprocessing model to .b2z bundles and compare it "
+"against the classical result, panel by panel, both as the raw stage "
+"output and as the result the pipeline would deliver. A binarization or "
+"background-mask model is scored mask-to-mask with Dice and the fiber "
+"fraction of each mask at both stages; a background-surface model is "
+"scored in nanometers against the surface the pipeline subtracted. Use "
+"this to check whether an ML model is worth integrating before adding it "
+"to the preprocessing pipeline. The ML libraries are optional and loaded "
+"only when a model is applied."
 
 #: guis/GUI07_ML_Connect_Annotator.py:49
 msgid ""
@@ -3194,6 +3227,13 @@ msgid ""
 "the bundle to train the connection model; the bundle itself is never "
 "modified. Point the folder selector at the GUI01 output folder."
 msgstr ""
+"Annotate manual fiber connections on top of the GUI04 fiber-tracking "
+"view. Load a GUI01 .b2z bundle, see the detected fibers in a list and as "
+"boxes over the AFM image, then connect two fibers by hand to assert they "
+"belong to the same fibril, or mark a pair as not connected, correcting "
+"the automatic connector. The judgements are saved to a label file beside "
+"the bundle to train the connection model; the bundle itself is never "
+"modified. Point the folder selector at the GUI01 output folder."
 
 #: guis/GUI08_ML_Mask_Annotator.py:86
 msgid ""
@@ -3205,4 +3245,11 @@ msgid ""
 "the bundle itself is never modified. Those corrections let a model "
 "improve on the classical pipeline instead of only imitating it."
 msgstr ""
+"Paint corrections onto the pipeline mask a .b2z bundle would train the ML"
+" Model Trainer with, for the binarization or background fiber-candidate "
+"task. Brush pixels to fiber or to background, either on the mask alone or"
+" over the height image, compare the result against the pipeline's own "
+"mask in the previews, and save to a mask-label file beside the bundle; "
+"the bundle itself is never modified. Those corrections let a model "
+"improve on the classical pipeline instead of only imitating it."
 

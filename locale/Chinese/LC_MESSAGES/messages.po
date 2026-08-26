@@ -535,7 +535,7 @@ msgstr "没有可分割的文件（条纹噪声检查尚未完成，或不存在
 #: guis/GUI01_Image_Preprocessor.py:2949
 #, python-brace-format
 msgid "{0}: 解析に足る長さのグリッチのない範囲がありません。"
-msgstr "  没有足够长度的无故障范围。建议重新测量。"
+msgstr "{0}: 没有足够长度的无故障范围。"
 
 #: guis/GUI01_Image_Preprocessor.py:2952
 #, python-brace-format
@@ -889,7 +889,7 @@ msgstr "视为反馈失控的台阶"
 
 #: guis/GUI01_Image_Preprocessor.py:4432
 msgid "隣接走査線間の高さ段差がこの値を超える箇所を走査の乱れとして数え、影響を受けた走査線の割合を一覧の「縞ノイズ率」列に表示します（解析条件には含まれません）"
-msgstr "相邻扫描线之间的高度台阶超过此值的位置将被计为扫描扰动，受影响扫描线的比例显示在列表的“扫描质量”列中（不属于分析条件）"
+msgstr "相邻扫描线之间的高度台阶超过此值的位置将被计为扫描扰动，受影响扫描线的比例显示在列表的“条纹噪声率”列中（不属于分析条件）"
 
 #: guis/GUI01_Image_Preprocessor.py:4465
 msgid "保存オプション"
@@ -2400,6 +2400,8 @@ msgid ""
 "機械学習ライブラリがインストールされていません。\n"
 "{err}"
 msgstr ""
+"未安装机器学习库。\n"
+"{err}"
 
 #: guis/GUI05_ML_Model_Trainer.py:853
 #, python-brace-format
@@ -2414,7 +2416,7 @@ msgstr "数据集：{n} 个样本，{g} 个图像组，纤维 {f} / 背景 {b}�
 #: guis/GUI05_ML_Model_Trainer.py:876
 #, python-brace-format
 msgid "うち手動修正画素: {n}。"
-msgstr ""
+msgstr "其中手动修正像素: {n}。"
 
 #: guis/GUI05_ML_Model_Trainer.py:886
 #, python-brace-format
@@ -2460,6 +2462,8 @@ msgid ""
 "モデル '{id}' を次へ保存しました:\n"
 "{p}"
 msgstr ""
+"模型 '{id}' 已保存至:\n"
+"{p}"
 
 #: guis/GUI05_ML_Model_Trainer.py:1070
 #, python-brace-format
@@ -2529,6 +2533,8 @@ msgid ""
 "id: {id}\n"
 "task: {task}  しきい値: {thr}{dice}"
 msgstr ""
+"id: {id}\n"
+"task: {task}  阈值: {thr}{dice}"
 
 #: guis/GUI06_ML_Model_Compare.py:799
 #, python-brace-format
@@ -2543,7 +2549,7 @@ msgstr "正在比较全部 {n} 个数据包..."
 #: guis/GUI06_ML_Model_Compare.py:1020
 #, python-brace-format
 msgid "[{i}/{n}] {name}: {s}"
-msgstr "[{i}/{n}] {name}：已跳过（{err}）"
+msgstr "[{i}/{n}] {name}: {s}"
 
 #: guis/GUI06_ML_Model_Compare.py:1023
 #, python-brace-format
@@ -2692,7 +2698,7 @@ msgstr "数据包（.b2z）"
 
 #: guis/GUI08_ML_Mask_Annotator.py:308
 msgid "修正するタスク"
-msgstr "训练任务"
+msgstr "修正任务"
 
 #: guis/GUI08_ML_Mask_Annotator.py:318
 #, python-brace-format
@@ -2713,49 +2719,49 @@ msgstr "未加载。"
 
 #: guis/GUI08_ML_Mask_Annotator.py:336
 msgid "ブラシ"
-msgstr ""
+msgstr "画笔"
 
 #: guis/GUI08_ML_Mask_Annotator.py:346
 msgid "繊維として塗る（白）"
-msgstr ""
+msgstr "涂为纤维（白）"
 
 #: guis/GUI08_ML_Mask_Annotator.py:347
 msgid "背景として塗る（黒）"
-msgstr ""
+msgstr "涂为背景（黑）"
 
 #: guis/GUI08_ML_Mask_Annotator.py:359
 msgid "ブラシ半径 (px)"
-msgstr ""
+msgstr "画笔半径 (px)"
 
 #: guis/GUI08_ML_Mask_Annotator.py:371
 msgid "修正をすべて消す"
-msgstr ""
+msgstr "清除所有修正"
 
 #: guis/GUI08_ML_Mask_Annotator.py:378
 msgid "パイプラインのマスクと食い違った画素だけが保存されます。元の値へ塗り戻せばその判断は取り消されます。"
-msgstr ""
+msgstr "仅保存与流程掩膜不一致的像素。将像素涂回原值即可撤销该判定。"
 
 #: guis/GUI08_ML_Mask_Annotator.py:390
 msgid "修正を保存"
-msgstr "保存图表"
+msgstr "保存修正"
 
 #: guis/GUI08_ML_Mask_Annotator.py:393
 msgid ""
 "バンドルの隣に修正ファイルを書き出します。ML Model Trainer でラベルの出所に Manual corrections "
 "を選ぶと使われます。"
-msgstr ""
+msgstr "在数据包旁写出修正文件。当 ML Model Trainer 的标签来源选择 Manual corrections 时会使用该文件。"
 
 #: guis/GUI08_ML_Mask_Annotator.py:407
 msgid "編集ペインの表示"
-msgstr ""
+msgstr "编辑窗格的显示"
 
 #: guis/GUI08_ML_Mask_Annotator.py:410
 msgid "マスクのみ"
-msgstr ""
+msgstr "仅掩膜"
 
 #: guis/GUI08_ML_Mask_Annotator.py:411
 msgid "画像＋マスク"
-msgstr ""
+msgstr "图像＋掩膜"
 
 #: guis/GUI08_ML_Mask_Annotator.py:468
 msgid "比較"
@@ -2763,7 +2769,7 @@ msgstr "比较"
 
 #: guis/GUI08_ML_Mask_Annotator.py:498
 msgid "バンドルを開き、マスクの誤りをドラッグで塗り直します。保存するとバンドルの隣に修正ファイルが書かれます。"
-msgstr "打开数据包并点击候选以切换判定。保存时会在数据包旁写入标签文件。"
+msgstr "打开数据包，拖动涂改掩膜的错误处。保存时会在数据包旁写入修正文件。"
 
 #: guis/GUI08_ML_Mask_Annotator.py:513
 msgid ".b2z バンドルを選択"
@@ -2776,47 +2782,49 @@ msgstr "正在加载 {name}..."
 
 #: guis/GUI08_ML_Mask_Annotator.py:546
 msgid "ベースマスクを再構築中..."
-msgstr "正在重建片段..."
+msgstr "正在重建基础掩膜..."
 
 #: guis/GUI08_ML_Mask_Annotator.py:647
 #, python-brace-format
 msgid "保存済みの修正 {n} 画素を復元しました。"
-msgstr "已从现有标签恢复 {n} 项判断。"
+msgstr "已从保存的文件恢复 {n} 个像素的修正。"
 
 #: guis/GUI08_ML_Mask_Annotator.py:652
 msgid "既存の修正を読み込めません"
-msgstr ""
+msgstr "无法读取现有修正"
 
 #: guis/GUI08_ML_Mask_Annotator.py:653
 msgid ""
 "バンドルの隣に修正ファイルがありますが、いま表示しているマスクのものではありません。\n"
 "空の状態で開始します。保存すると既存のファイルを上書きします。"
 msgstr ""
+"数据包旁存在修正文件，但它不属于当前显示的掩膜。\n"
+"将以空白状态开始。保存时会覆盖现有文件。"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1079
 msgid "この画像の修正をすべて消します。よろしいですか。"
-msgstr ""
+msgstr "将清除此图像的所有修正。确定吗。"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1125
 msgid "修正がありません"
-msgstr ""
+msgstr "没有修正"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1126
 msgid "保存する修正がありません。マスクの誤りを塗ってから保存してください。"
-msgstr ""
+msgstr "没有可保存的修正。请先涂改掩膜的错误处再保存。"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1129
 msgid "上書きの確認"
-msgstr ""
+msgstr "覆盖确认"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1130
 msgid "別のマスク向けの修正ファイルが既にあります。上書きしますか。"
-msgstr ""
+msgstr "已存在针对其他掩膜的修正文件。是否覆盖？"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1149
 #, python-brace-format
 msgid "修正を保存しました: {p}"
-msgstr "已保存标签：{p}"
+msgstr "已保存修正：{p}"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1152
 #, python-brace-format
@@ -2824,21 +2832,21 @@ msgid ""
 "{n} 画素の修正を保存しました。\n"
 "{p}"
 msgstr ""
-"已保存 {decided} 项判断。\n"
+"已保存 {n} 个像素的修正。\n"
 "{p}"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1198
 #, python-brace-format
 msgid "修正した画素: 繊維 {f} / 背景 {b}"
-msgstr ""
+msgstr "已修正像素: 纤维 {f} / 背景 {b}"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1240
 msgid "未保存の修正"
-msgstr "未保存的判断"
+msgstr "未保存的修正"
 
 #: guis/GUI08_ML_Mask_Annotator.py:1241
 msgid "保存していない修正があります。破棄して続行しますか。"
-msgstr "存在未保存的判断。是否丢弃并继续？"
+msgstr "存在未保存的修正。是否丢弃并继续？"
 
 #: lib/ui_tools.py:181
 msgid "ログ無し"
@@ -3033,7 +3041,8 @@ msgstr ""
 "从 .b2z "
 "数据包训练机器学习预处理模型，并导出为扩展名表示任务的模型文件。可选任务：二值化、背景纤维候选掩膜或背景面回归（后两者是背景校正的替代方式，需要原始高度图像，其来源为数据包的可选键"
 " original，或仍保留在数据包旁边的原始输入文件）。选择 Image Preprocessor "
-"数据包文件夹，构建像素数据集，对决策树模型进行交叉验证并保存。机器学习库为可选项，仅在训练时加载。"
+"数据包文件夹，构建像素数据集，对决策树模型进行交叉验证并保存。对于两个掩膜任务，标签可以是流程自身的掩膜，也可以是在该掩膜上应用了 ML Mask"
+" Annotator 手工修正后的结果。机器学习库为可选项，仅在训练时加载。"
 
 #: guis/GUI06_ML_Model_Compare.py:69
 msgid ""
@@ -3076,4 +3085,6 @@ msgid ""
 "the bundle itself is never modified. Those corrections let a model "
 "improve on the classical pipeline instead of only imitating it."
 msgstr ""
+"针对二值化或背景纤维候选任务，在 .b2z 数据包用于训练 ML Model Trainer "
+"的流程掩膜上涂改修正。可将像素涂为纤维或背景，既可在掩膜上单独操作，也可叠加在高度图像上操作，并在预览中与流程自身的掩膜比较，最后保存为数据包旁的掩膜标签文件；数据包本身不会被修改。这些修正让模型能够超越经典流程，而不只是模仿它。"
 
