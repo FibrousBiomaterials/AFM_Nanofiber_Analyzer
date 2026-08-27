@@ -28,10 +28,12 @@ import cli
 from lib import imp_tools
 from lib.blosc2_io import load_bundle, save_bundle
 from lib.bundle_schema import BUNDLE_FORMAT_VERSION
+from lib.fiber import Fiber
 from lib.fiber_tracking_image import FiberTrackingImage
 from lib.measure import (
     FIBER_CSV_COLUMNS,
     compute_fiber_stats,
+    isolated_fiber_flags,
     load_tracking_image,
     measure_bundle,
     skeleton_height_values,
@@ -421,3 +423,84 @@ def test_write_heights_csv_groups_by_bundle_name(measured, tmp_path):
     with open(out_csv, "r", encoding="utf-8-sig", newline="") as f:
         rows = list(csv.reader(f))
     assert [r[0] for r in rows[1:]] == ["a", "a", "a", "b", "b"]
+
+
+def _straight_fiber(x0: int, x1: int, y: int) -> Fiber:
+    """
+    Build a minimal horizontal fiber whose track runs from x0 to x1 at row y.
+    行 y 上を x0 から x1 まで走る、水平な最小構成のファイバーを作る。
+
+    `isolated_fiber_flags` reads only ``data`` (bbox origin) and the track
+    arrays; the remaining fields are valid placeholders.
+    `isolated_fiber_flags` が読むのは ``data``（bbox 原点）とトラック配列のみ。
+    残りのフィールドは妥当なプレースホルダで埋める。
+    """
+    n = x1 - x0 + 1
+    return Fiber(
+        fiber_image=np.zeros((1, n)),
+        data=(x0, y, n, 1, n),
+        xtrack=np.arange(n),
+        ytrack=np.zeros(n, dtype=int),
+        horizon=np.arange(n, dtype=float),
+        height=np.zeros(n),
+        kink_indices=np.array([], dtype=int),
+        ep_indices=np.array([0, n - 1]),
+        kink_angles=np.array([]),
+        decomposed_point_indices=np.array([], dtype=int),
+    )
+
+
+def test_isolated_fiber_flags_exclude_fibers_reaching_a_crossing():
+    """
+    A fiber whose track reaches a branch point is not isolated.
+    トラックが分岐点に達するファイバーは孤立ではない。
+
+    This is the test behind GUI04's "孤立ファイバーのみ" filter. Fibers cut at a
+    crossing have a truncated length, so excluding them is what keeps the
+    length statistics free of partial measurements.
+    GUI04 の「孤立ファイバーのみ」フィルターの判定である。交差部で切断された
+    ファイバーは長さが切り詰められているため、除外することで長さ統計に部分
+    計測が混ざらないようにする。
+    """
+    image = FiberTrackingImage(
+        original_AFM=np.zeros((40, 40)), name="synthetic", size_per_pixel=10.0,
+    )
+    bp = np.zeros((40, 40), dtype=np.uint8)
+    bp[20, 20] = 1
+    image.bp = bp
+
+    far = _straight_fiber(x0=2, x1=12, y=5)
+    through = _straight_fiber(x0=14, x1=26, y=20)   # runs through (20, 20)
+    ending_at = _straight_fiber(x0=8, x1=18, y=20)  # terminal 2 px from (20, 20)
+
+    assert isolated_fiber_flags(image, [far, through, ending_at]) == [True, False, False]
+
+
+def test_isolated_fiber_flags_without_branch_mask_keep_every_fiber():
+    """
+    Without a `bp` mask the test cannot discriminate, so nothing is dropped.
+    `bp` マスクが無い場合は判別できないため、除外は行わない。
+    """
+    image = FiberTrackingImage(
+        original_AFM=np.zeros((40, 40)), name="synthetic", size_per_pixel=10.0,
+    )
+    fibers = [_straight_fiber(x0=2, x1=12, y=5)]
+    assert isolated_fiber_flags(image, fibers) == [True]
+
+
+def test_isolated_fiber_flags_match_endpoint_count_without_connection(measured):
+    """
+    Without fiber connection, isolation agrees with having two free ends.
+    ファイバー連結なしでは、孤立判定は自由端 2 つを持つことと一致する。
+
+    `remove_bp` cuts every fiber at its crossings before tracing, so a fragment
+    keeps both original endpoints exactly when it never reached one. The two
+    criteria are therefore equivalent in this mode, and the filter reproduces
+    what the endpoint count already showed.
+    追跡前に `remove_bp` が交差部で全ファイバーを切断するため、断片が元の端点を
+    2 つとも保つのは交差に達しなかった場合に限られる。このモードでは両基準が
+    等価であり、フィルターは端点数が示していた内容を再現する。
+    """
+    _bundle_path, result = measured
+    flags = isolated_fiber_flags(result.image, result.fibers)
+    assert flags == [s.ep_count == 2 for s in result.stats]

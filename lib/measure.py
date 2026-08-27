@@ -66,6 +66,16 @@ from .fiber import Fiber
 from .fiber_connector import ConnectParams, connect_fiber_fragments
 from .fiber_tracking_image import FiberTrackingImage
 
+# Chebyshev distance in pixels within which a track pixel counts as touching a
+# branch point. `imp_tools.remove_bp` clears a 3x3 neighborhood around each
+# branch point, so the terminal of a fragment cut there lands exactly 2 px from
+# the branch-point center; a smaller radius would miss every cut terminal.
+# 追跡画素が分岐点に接していると見なすチェビシェフ距離 (px)。
+# `imp_tools.remove_bp` は各分岐点の 3x3 近傍を消去するため、そこで切断された
+# 断片の端は分岐点中心のちょうど 2 px 先に来る。これより小さい半径では切断端を
+# 1 つも捉えられない。
+BRANCH_TOUCH_RADIUS_PX = 2
+
 # Column order of the per-fiber statistics CSV. This is the single source of
 # truth shared by the GUI04 export and the `cli.py measure` subcommand.
 # ファイバー統計 CSV の列順。GUI04 のエクスポートと `cli.py measure` が共有する
@@ -144,6 +154,91 @@ class MeasureResult:
     image: FiberTrackingImage
     fibers: List[Fiber]
     stats: List[FiberStats]
+
+
+def isolated_fiber_flags(
+    image: FiberTrackingImage,
+    fibers: Sequence[Fiber],
+) -> List[bool]:
+    """
+    Flag which fibers never touch another fiber anywhere along their path.
+    経路上のどこでも他のファイバーに接していないファイバーを判定する。
+
+    A fiber is isolated when no pixel of its track lies within
+    `BRANCH_TOUCH_RADIUS_PX` of a branch point of the source skeleton. Branch
+    points are where the skeleton of one fiber meets another, so this is a
+    direct test of entanglement rather than a proxy for it.
+    追跡画素のいずれもが元の骨格の分岐点から `BRANCH_TOUCH_RADIUS_PX` 以内に
+    無いとき、そのファイバーを孤立と判定する。分岐点は 1 本の骨格が別の骨格と
+    出会う位置なので、これは絡まりの代用指標ではなく直接の判定である。
+
+    The whole track is tested, not only its terminals, so the result means the
+    same thing with and without fiber connection. A fragment cut at a crossing
+    has a terminal at the cut; a fibril reconnected across that crossing has
+    interior pixels there instead. Testing terminals alone would call the
+    reconnected fibril isolated even though it runs straight through another
+    fiber.
+    端だけでなくトラック全体を判定するため、ファイバー連結の有無にかかわらず
+    結果の意味が変わらない。交差部で切断された断片はその位置に端を持ち、交差を
+    越えて再結合されたフィブリルは同じ位置に内部画素を持つ。端だけを見ると、
+    他のファイバーを貫通している再結合フィブリルまで孤立と判定してしまう。
+
+    Parameters
+    ----------
+    image
+        Tracking container whose `bp` branch-point mask defines the crossings.
+        交差位置を与える `bp` 分岐点マスクを持つ追跡コンテナ。
+    fibers
+        Fibers to classify, from either tracing mode.
+        判定対象のファイバー列。どちらの追跡モードのものでもよい。
+
+    Returns
+    -------
+    list of bool
+        One flag per input fiber, in the same order; True means isolated.
+        入力と同順の判定フラグ。True は孤立を意味する。
+
+    Notes
+    -----
+    A container without a `bp` mask cannot distinguish the two cases, so every
+    fiber is reported as isolated rather than silently dropping all of them.
+    `bp` マスクを持たないコンテナでは区別できないため、全て孤立として報告し、
+    黙って全件を除外することは避ける。
+    """
+    bp_mask = np.asarray(image.bp) if image.bp is not None else None
+    if bp_mask is None or bp_mask.ndim != 2 or not bp_mask.any():
+        return [True] * len(fibers)
+
+    by, bx = np.where(bp_mask)
+    r = BRANCH_TOUCH_RADIUS_PX
+    flags: List[bool] = []
+    for f in fibers:
+        # Track arrays are bbox-local; shift by the bbox origin to compare
+        # against the whole-image branch-point coordinates.
+        # トラック配列は BBox ローカル座標なので、BBox 原点を加えて全体画像上の
+        # 分岐点座標と比較する。
+        gx = np.asarray(f.xtrack) + f.data[0]
+        gy = np.asarray(f.ytrack) + f.data[1]
+        # Restrict to branch points inside the fiber's bounding box (grown by
+        # the touch radius) before the pairwise test, so a dense image does not
+        # cost len(track) * len(branch points) comparisons per fiber.
+        # 総当たり前に、ファイバーの外接矩形（接触半径分だけ拡張）内の分岐点へ
+        # 絞り込み、密な画像でファイバーごとに
+        # len(トラック) * len(分岐点) 回の比較を行わないようにする。
+        near_box = (
+            (bx >= gx.min() - r) & (bx <= gx.max() + r)
+            & (by >= gy.min() - r) & (by <= gy.max() + r)
+        )
+        if not near_box.any():
+            flags.append(True)
+            continue
+        cbx, cby = bx[near_box], by[near_box]
+        touching = (
+            (np.abs(cbx[:, None] - gx[None, :]) <= r)
+            & (np.abs(cby[:, None] - gy[None, :]) <= r)
+        ).any()
+        flags.append(not bool(touching))
+    return flags
 
 
 def compute_fiber_stats(fibers: Sequence[Fiber]) -> List[FiberStats]:

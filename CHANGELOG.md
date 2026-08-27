@@ -10,6 +10,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A "孤立ファイバーのみ" filter in GUI04 that restricts the fiber table, the
+  AFM overview, and the CSV export to fibers touching no other fiber anywhere
+  along their path (`lib.measure.isolated_fiber_flags`, exported alongside
+  `BRANCH_TOUCH_RADIUS_PX`). A fiber cut where it crosses another one has a
+  *truncated* length, not a short one, so mixing those fragments into the
+  population biases length statistics low. The filter selects among the fibers
+  already measured and triggers no reanalysis, and it is off by default, so
+  fiber counts stay comparable with earlier versions. It is mutually exclusive
+  with fiber connection — turning one on turns the other off — because
+  connection joins an isolated fiber to the network and it then stops being
+  isolated: on the bundled tunicate CNF scan the isolated count drops from 2 to
+  1 when connection is enabled. In a dense network most fibers reach a
+  crossing, so a small retained count is expected rather than a detection
+  failure. Note that the filter tests fiber topology, not whether an object is
+  a fiber — a scan-line artifact touches nothing and passes it; use GUI01's
+  stripe-noise screening for that.
+
 - Analyzing only part of a scan's scan lines, so feedback-glitch bands can be
   excluded instead of poisoning the whole image. GUI01 gains a "走査線範囲"
   column (one input expands into one entry per range), a "縞ノイズで分割"
