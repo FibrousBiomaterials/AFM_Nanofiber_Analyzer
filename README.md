@@ -340,6 +340,15 @@ failure. Note that the filter tests fiber topology, not whether an object is a
 fiber: a scan-line artifact touches nothing and passes it, which is what
 GUI01's stripe-noise screening is for.
 
+In the individual-fiber window, the enlarged image keeps an adjustable margin
+around the tracked range (default 10 px; 0 restores the tight crop) and marks
+that range with a dashed box. The tracked bounding box fits the fiber exactly,
+so without a margin both ends of the fiber sit on the frame and the image
+cannot show whether tracking stopped at a real end point or where the fiber
+crosses a neighbor — the very distinction the two filters above are about. The
+margin re-crops the same calibrated image for display only; no measured value
+depends on it.
+
 ## Supported Input Formats
 
 `lib/afm_io.py` loads text/CSV height exports and auto-detects the header
