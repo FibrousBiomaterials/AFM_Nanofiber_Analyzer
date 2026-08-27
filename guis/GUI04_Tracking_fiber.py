@@ -73,7 +73,7 @@ from lib.fiber import Fiber
 from lib.fiber_connector import ConnectParams, filter_fibers_by_height
 from lib.blosc2_io import bundle_has_keys, load_bundle, BUNDLE_EXT
 from lib.measure import (
-    TRACKING_BUNDLE_KEYS, compute_fiber_stats,
+    TRACKING_BUNDLE_KEYS, compute_fiber_stats, isolated_fiber_flags,
     measure_bundle, read_scan_size_from_bundle, write_fiber_csv,
 )
 from lib.translator import _
@@ -297,6 +297,22 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # デフォルト OFF。即時反映で適用/リセット。
         self.filter_enabled_var   = tk.BooleanVar(value=False)
 
+        # -- Isolated-fiber-only checkbox --
+        # Default is off, so the fiber count stays comparable with earlier
+        # versions. When on, only fibers that touch no other fiber anywhere
+        # along their path are listed. A fiber cut where it crosses another one
+        # has a truncated length rather than a short one, and a fibril
+        # reconnected across a crossing has a length that depends on the
+        # connector's judgment; excluding both leaves only fibers whose full
+        # length is measured directly.
+        # ── 孤立ファイバーのみ表示 ──
+        # 既定 OFF（従来版とファイバー本数を比較可能に保つ）。ON のとき、経路上の
+        # どこでも他のファイバーに接していないファイバーのみを一覧する。交差部で
+        # 切断されたファイバーの長さは「短い」のではなく「切り詰められている」。
+        # また交差を越えて再結合されたフィブリルの長さは連結器の判断に依存する。
+        # 両者を除外することで、全長を直接計測できたファイバーだけが残る。
+        self.isolated_only_var    = tk.BooleanVar(value=False)
+
         # -- Fiber-connection (whole-fibril) toggle and its parameters --
         # Default is off; toggling re-analyzes the current dataset. When on,
         # GUI01 skeleton fragments split at crossings/branches are reconnected
@@ -498,12 +514,37 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ToolTip(chk_connect, _(
             "ON時: 交差・分岐で分断された骨格断片を 1 本のフィブリルへ再結合してから計測する。\n"
             "OFF時: 各骨格断片を 1 本のファイバーとして扱う（従来動作）。\n"
+            "「孤立ファイバーのみ」とは排他で、一方を ON にすると他方は OFF になる。\n"
             "切り替えると現在のデータセットを再解析する。"
         ))
         ttk.Button(
             bar, text=_("連結設定…"),
             command=self._open_connect_settings,
         ).pack(side="left", padx=(0, 4))
+
+        # -- Isolated fibers only: pure view filter, no reanalysis --
+        # Placed next to the connection controls because the two answer the same
+        # problem in opposite ways: connection reconstructs a fiber through a
+        # crossing, this filter declines to trust any fiber that reaches one.
+        # ── 孤立ファイバーのみ ── 再解析を伴わない表示フィルター。
+        # 同じ問題に正反対の方針で答える機能なので連結操作の隣に配置する。連結は
+        # 交差を越えてファイバーを再構築し、本フィルターは交差に達したファイバー
+        # を信頼しない。
+        chk_isolated = ttk.Checkbutton(
+            bar, text=_("孤立ファイバーのみ"),
+            variable=self.isolated_only_var,
+            command=self._on_isolated_only_toggle,
+        )
+        chk_isolated.pack(side="left", padx=(2, 2))
+        ToolTip(chk_isolated, _(
+            "ON時: 他のファイバーと交差・接触していないファイバーだけを一覧・表示・"
+            "CSV 出力の対象にする。\n"
+            "交差部で切断されたファイバーは全長が不明なため、長さ統計から除外される。\n"
+            "「ファイバー連結」とは排他で、一方を ON にすると他方は OFF になる。"
+            "連結は交差を越えてファイバーをつなぐため、孤立ファイバーが"
+            "ネットワークに取り込まれ、孤立と判定されなくなる。\n"
+            "再解析は行わず、表示の絞り込みのみを切り替える。"
+        ))
 
     def _build_main(self) -> None:
         """
@@ -1364,7 +1405,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._log(_("読み込み完了: {name}  ファイバー数: {count}").format(
             name=os.path.basename(stem), count=len(fibers)
         ))
-        self._populate_fiber_table(fibers)
+        # Read back through the accessor so a checked isolated-fiber filter
+        # survives a file switch, as the height filter already does below.
+        # アクセサ経由で読み直し、孤立ファイバーフィルターがファイル切替後も
+        # 維持されるようにする（下の高さフィルターと同じ扱い）。
+        self._populate_fiber_table(self._display_fibers())
         # Dispatch by display mode so the fiber view survives a file switch.
         # 表示モードで分岐し、ファイル切替後も色分け表示を維持する。
         self._rebuild_overview_bg()
@@ -1403,8 +1448,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self.fiber_tree.delete(iid)
 
         # Use direct index lookup when no filter is active and the cache is valid.
+        # The cache is indexed by position in current_fibers, so any filter that
+        # drops rows invalidates that mapping.
         # フィルターなし かつ キャッシュが有効な場合はインデックスで直接参照する。
-        use_cache = (not self._filter_active) and len(self._fiber_stats) == len(fibers)
+        # キャッシュは current_fibers 内の位置で引くため、行を除外するフィルター
+        # が有効ならその対応は無効になる。
+        use_cache = (
+            (not self._filter_active)
+            and (not self.isolated_only_var.get())
+            and len(self._fiber_stats) == len(fibers)
+        )
         if not use_cache:
             # Recompute through lib.measure so filtered rows use the same
             # statistic definitions as the worker and the CSV export.
@@ -1456,6 +1509,31 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 個別表示が開いていれば追従させる（非モーダル）。
         self._update_detail_window(fiber)
 
+    def _display_fibers(self) -> List[Fiber]:
+        """
+        Return the fiber list every view, selection, and export must use.
+        一覧・選択・エクスポートが共通で使うファイバーリストを返す。
+
+        Single accessor for the displayed population, so the fiber table, the
+        overview, the detail window, and the CSV export can never disagree
+        about which fibers are in scope. Table row ids are positions in this
+        list, so all callers must read it rather than the raw fiber lists.
+        表示対象母集団への唯一のアクセサ。一覧テーブル・全体像・個別表示・CSV
+        出力の対象がずれないようにする。テーブルの行 ID はこのリスト内の位置な
+        ので、呼び出し側は生のリストではなく必ずこれを参照すること。
+
+        The height filter is applied first because it rebuilds fibers; the
+        isolation test then runs on the fibers as they are actually measured
+        and exported.
+        高さフィルターはファイバーを再構築するため先に適用し、孤立判定は実際に
+        計測・出力される状態のファイバーに対して行う。
+        """
+        fibers = self._filtered_fibers if self._filter_active else self.current_fibers
+        if self.isolated_only_var.get() and self.current_image is not None:
+            flags = isolated_fiber_flags(self.current_image, fibers)
+            fibers = [f for f, keep in zip(fibers, flags) if keep]
+        return fibers
+
     def _current_fiber(self) -> Optional[Fiber]:
         """
         Return the currently selected fiber, or ``None`` if no fiber is selected.
@@ -1463,7 +1541,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         if self._sel_idx is None:
             return None
-        fibers = self._filtered_fibers if self._filter_active else self.current_fibers
+        fibers = self._display_fibers()
         if self._sel_idx >= len(fibers):
             return None
         return fibers[self._sel_idx]
@@ -1626,12 +1704,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._draw_overview_fibers_bg()
             return
 
-        if not self._filter_active:
+        isolated_only = self.isolated_only_var.get()
+        if not self._filter_active and not isolated_only:
             self._draw_overview_background()
             return
 
-        # Filter-active path.
-        filtered = self._filtered_fibers
+        # Filter-active path (height filter, isolated-fiber filter, or both).
+        # フィルター有効時の経路（高さ・孤立ファイバー・両方のいずれか）。
+        filtered = self._display_fibers()
         # Compute per-axis pixel size in the selected tick-display unit.
         # 軸表示単位に合わせて軸別ピクセルサイズを計算（µm / nm）。
         x_scale, y_scale, _unit_label = self._get_extent_scale_xy_and_unit()
@@ -1645,9 +1725,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # skeleton scatter below.
         # 残存ファイバーをフィルター後リストの番号で枠付け・番号付けし、一覧
         # テーブルと一致させたうえで、下にマゼンタのスケルトン散布を重ねる。
+        # Plot title text stays fixed English per the UI-string policy.
+        parts = []
+        if self._filter_active:
+            parts.append("filter: {count} segments".format(count=len(filtered)))
+        if isolated_only:
+            parts.append("isolated fibers only")
         self._draw_overview_background(
             labeled_fibers=list(enumerate(filtered)),
-            title_suffix="  [filter: {count} segments]".format(count=len(filtered)),
+            title_suffix="  [{parts}]".format(parts=", ".join(parts)),
         )
         ax = self._afm_ax
         # Scatter the surviving skeleton pixels of each extracted segment. The
@@ -1656,6 +1742,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 抽出された各区間の残存スケルトン画素を散布表示する。track 配列は BBox
         # ローカル座標（xtrack = グローバルx - x）なので、物理表示単位へスケール
         # する前に BBox 原点を加える。
+        # The magenta scatter marks pixels the height filter extracted. The
+        # isolated-fiber filter selects whole fibers instead of pixels, so on
+        # its own it leaves the boxes and numbers without this overlay.
+        # マゼンタ散布は高さフィルターが抽出した画素を示す。孤立ファイバー
+        # フィルターは画素ではなくファイバー単位で選ぶため、単独使用時はこの
+        # 重ね描きを行わず枠と番号のみとする。
+        if not self._filter_active:
+            return
         for f in filtered:
             x, y, _h, _w, _unused = f.data
             # The 0.5 places each marker at the pixel center: imshow spreads
@@ -1750,7 +1844,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         # Color each fiber the same way in both filtered and unfiltered states.
         # フィルター有無にかかわらず同じ方式で各ファイバーを配色する。
-        fibers = self._filtered_fibers if self._filter_active else self.current_fibers
+        fibers = self._display_fibers()
         n = len(fibers)
         if n > 0:
             # Deterministic shuffle: neighboring fibers get distinct colors while
@@ -2014,7 +2108,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         self._filter_active   = True
         self._filtered_fibers = filtered
-        self._populate_fiber_table(filtered)
+        self._populate_fiber_table(self._display_fibers())
 
         # Rebuild the overview so the extracted skeleton pixels are scattered
         # over the AFM image. The drawing itself lives in _rebuild_overview_bg
@@ -2030,6 +2124,81 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
              + _("{count} 件")).format(lo=lo, hi=hi, count=len(filtered))
         )
 
+    def _on_isolated_only_toggle(self) -> None:
+        """
+        Handle isolated-fiber-only checkbox changes.
+        「孤立ファイバーのみ」チェックボックスの変更を処理する。
+
+        This is a selection over the fibers already measured, so it needs no
+        worker thread and no reanalysis: the table, overview, and export all
+        read `_display_fibers`, and redrawing is enough. The one exception is
+        switching off fiber connection, which does re-run the analysis.
+        既に計測済みのファイバーに対する絞り込みなので、ワーカースレッドも再解析
+        も不要。一覧・全体像・出力はいずれも `_display_fibers` を参照するため、
+        再描画のみでよい。唯一の例外はファイバー連結を OFF にする場合で、この
+        ときは解析が再実行される。
+        """
+        if self.isolated_only_var.get() and self.connect_enabled_var.get():
+            # Mutually exclusive: connection joins fibers across crossings, so
+            # an isolated fiber gets absorbed into the network and stops being
+            # isolated. Measuring isolated fibers means not reconnecting first.
+            # 排他。連結は交差を越えてファイバーをつなぐため、孤立ファイバーが
+            # ネットワークへ取り込まれ孤立でなくなる。孤立ファイバーを計測する
+            # とは、先に再結合しないということである。
+            self.connect_enabled_var.set(False)
+            self._log(_(
+                "「孤立ファイバーのみ」を ON にしたため、"
+                "「ファイバー連結」を OFF にしました。"
+            ))
+            # Re-analysis repopulates the table and overview through
+            # _display_fibers, so this handler has nothing further to do.
+            # 再解析が _display_fibers 経由で一覧と全体像を再構築するため、
+            # 本ハンドラでこれ以上行う処理はない。
+            self._on_connect_toggle()
+            return
+
+        if self.current_image is None:
+            # Keep only the checkbox state until a dataset is selected.
+            # データ未選択ならチェック状態だけ保持する（後で適用される）。
+            return
+
+        shown = self._display_fibers()
+        # Row ids are positions in the displayed list, so a stale selection can
+        # point past its end; clear it and let the table re-select.
+        # 行 ID は表示リスト内の位置なので、古い選択は末尾を超えることがある。
+        # いったん解除し、テーブル側で選び直させる。
+        self._sel_idx = None
+        self._populate_fiber_table(shown)
+        self._overview_bg_drawn = False
+        self._rebuild_overview_bg()
+        self._afm_canvas.draw_idle()
+
+        children = self.fiber_tree.get_children()
+        if children:
+            self.fiber_tree.selection_set(children[0])
+            self.fiber_tree.focus(children[0])
+            self._on_fiber_select()
+
+        if self.isolated_only_var.get():
+            total = len(
+                self._filtered_fibers if self._filter_active else self.current_fibers
+            )
+            self._log(_(
+                "孤立ファイバーのみ表示: {count} / {total} 件"
+                "（他のファイバーと交差・接触していないもの）"
+            ).format(count=len(shown), total=total))
+            # In a dense network almost every fiber reaches a crossing, so a
+            # small count is the expected outcome, not a detection failure.
+            # 密なネットワーク像ではほぼ全ファイバーが交差に達するため、残る本数
+            # が少ないのは想定どおりの結果であり、検出失敗ではない。
+            if total and len(shown) * 4 < total:
+                self._log(_(
+                    "注意: 交差に達したファイバーを全て除外したため、"
+                    "残った本数が少なくなっています。"
+                ))
+        else:
+            self._log(_("孤立ファイバーのみ表示を解除しました。"))
+
     def _reset_filter(self) -> None:
         """
         Clear the height filter and restore the full fiber table.
@@ -2038,7 +2207,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._filter_active   = False
         self._filtered_fibers = []
         if self.current_image is not None:
-            self._populate_fiber_table(self.current_fibers)
+            self._populate_fiber_table(self._display_fibers())
             self._overview_bg_drawn = False
             self._rebuild_overview_bg()
             self._afm_canvas.draw_idle()
@@ -2059,6 +2228,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         連結はスケルトンからのファイバー構築方法を変えるため、反映には解析の
         再実行が必要。データ未読込ならチェック状態のみ保持し、次の選択で適用する。
         """
+        if self.connect_enabled_var.get() and self.isolated_only_var.get():
+            # Mutually exclusive; see _on_isolated_only_toggle for why.
+            # 排他。理由は _on_isolated_only_toggle を参照。
+            self.isolated_only_var.set(False)
+            self._log(_(
+                "「ファイバー連結」を ON にしたため、"
+                "「孤立ファイバーのみ」を OFF にしました。"
+            ))
+
         state = _("有効") if self.connect_enabled_var.get() else _("無効")
         self._log(_("ファイバー連結: {state}").format(state=state))
         if self.current_stem and self.current_image is not None and not self.is_running:
@@ -2250,7 +2428,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             messagebox.showinfo(_("情報"), _("データセットを選択してください。"))
             return
 
-        fibers = self._filtered_fibers if self._filter_active else self.current_fibers
+        fibers = self._display_fibers()
         if not fibers:
             messagebox.showinfo(_("情報"), _("エクスポートするファイバーがありません。"))
             return
@@ -2259,10 +2437,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         def _write_csv(path):
             # Columns and formatting are owned by lib.measure. A complete,
             # unfiltered export is byte-identical to `cli.py measure`; an
-            # active height filter intentionally writes only retained portions.
+            # active height filter intentionally writes only retained portions,
+            # and the isolated-fiber filter only fibers touching no other.
+            # Either way the rows are renumbered from the exported list, so the
+            # `index` column matches the fiber table.
             # 列と書式は lib.measure が管理する。全件・フィルターなしなら
             # `cli.py measure` とバイト単位で一致し、高さフィルター有効時は
-            # 意図どおり残った部分だけを書き出す。
+            # 意図どおり残った部分だけを、孤立ファイバーフィルター有効時は
+            # 他に接していないファイバーだけを書き出す。いずれの場合も出力
+            # リストで採番し直すため、`index` 列は一覧テーブルと一致する。
             write_fiber_csv(path, compute_fiber_stats(fibers))
 
         save_csv_with_dialog(

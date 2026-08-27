@@ -322,6 +322,24 @@ filter" order: when both are on, the height filter slices each connected fibril
 by its own height profile (including bridge heights), so the two are not
 mutually exclusive.
 
+A separate isolated-fiber filter restricts the table, the overview, and the CSV
+export to fibers that touch no other fiber anywhere along their path
+(`lib.measure.isolated_fiber_flags`). A fiber cut where it crosses another one
+has a truncated length rather than a short one, so leaving those fragments in
+the population biases length statistics low. The filter selects among the
+fibers already measured and triggers no reanalysis.
+
+The isolated-fiber filter and fiber connection are mutually exclusive; turning
+one on turns the other off. They answer the same problem in opposite ways:
+connection reconstructs a fiber through a crossing, while this filter declines
+to trust any fiber that reaches one. Running both would also be
+self-defeating, because connection joins an isolated fiber to the network and
+it then stops being isolated. In a dense network most fibers reach a crossing,
+so a small retained count is the expected outcome rather than a detection
+failure. Note that the filter tests fiber topology, not whether an object is a
+fiber: a scan-line artifact touches nothing and passes it, which is what
+GUI01's stripe-noise screening is for.
+
 ## Supported Input Formats
 
 `lib/afm_io.py` loads text/CSV height exports and auto-detects the header
@@ -694,7 +712,7 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | `lib/gwy_io.py` | Lazy-loading reader for native, multi-channel Gwyddion `.gwy` files, including channel selection, length-channel conversion to nm, and scan-size extraction. |
 | `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
 | `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
-| `lib/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
+| `lib/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, `isolated_fiber_flags` (which fibers touch no other fiber), skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
 | `lib/pipeline.py` | `ProcParams` parameter schema, stage construction, and `process_file`, the GUI-independent pipeline driver shared by GUI01 and `cli.py`; the `.b2z` contract itself lives in `lib/bundle_schema.py`. |
 | `lib/processed_image.py` | `ProcessedImage`, the container passed through the GUI01 preprocessing pipeline. |
 | `lib/segmenter.py` | `Segmenter`, which builds binary nanofiber masks from calibrated AFM images. |
