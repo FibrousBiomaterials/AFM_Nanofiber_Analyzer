@@ -43,7 +43,8 @@ desktop.ini
 
 # ===== Personal AI-tool configuration =====
 # CLAUDE.md and AGENTS.md are intentionally version-controlled.
-.claude/
+# The .claude/ rules live at the end of this file: they need negation patterns
+# that must come after the *.json rule below.
 .lang_preference
 
 # ===== Internal documentation (not for publication) =====
@@ -111,3 +112,18 @@ buildold.py
 
 # Local diagnostic GUI variant; not part of the distributed plugin set.
 guis/GUI01B_Image_Preprocessor.py
+
+# ===== Claude Code project configuration =====
+# Shared on purpose: settings.json carries the hook wiring and the
+# destructive-command deny list, and hooks/ is the executable counterpart of
+# the verification rules in AGENTS.md 8.12. Personal overrides stay in
+# settings.local.json, which no negation re-includes.
+# Two git constraints fix both the position and the form of these rules:
+#   - a negation cannot re-include a file whose parent directory is excluded,
+#     so the pattern must be ".claude/*" rather than ".claude/".
+#   - the "*.json" rule above would otherwise re-ignore settings.json, so the
+#     negations must come after it.
+# Compiled hook bytecode stays ignored via the __pycache__/ rule at the top.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
