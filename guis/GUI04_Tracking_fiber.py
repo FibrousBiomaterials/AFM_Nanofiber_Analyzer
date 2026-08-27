@@ -106,6 +106,21 @@ DEFAULT_HEIGHT_YLIM:           float = 20.0
 # Match GUI01: entry values stay in micrometers, while tick labels can switch units.
 # GUI01 と仕様を揃え、入力欄の単位は µm 固定で、軸目盛単位の表示だけ µm/nm を切り替える。
 DEFAULT_IMAGE_SIZE_UM:         float = 2.0               # 画像全体のサイズ (µm)
+# Margin in pixels drawn around the tracked bounding box in the enlarged view.
+# The bounding box is tight, so both fiber ends touch the frame and one cannot
+# tell whether tracking stopped at a real end point or at a crossing with a
+# neighboring fiber; the margin brings that surrounding context into view.
+# Display only: no measured value is derived from the padded crop.
+# 個別表示の拡大像で、追跡した外接矩形の周囲に付ける余白（px）。外接矩形は
+# 密着しているため両端が必ず枠に接し、追跡が本当の端点で終わったのか隣接
+# ファイバーとの交差で切れたのかを判別できない。余白はその周辺状況を可視化
+# する。表示専用であり、余白付き切り出しから計測値を算出することはない。
+DEFAULT_FIBER_PAD_PX:          int   = 10
+# Upper bound for the margin entry. A margin wide enough to swallow the fiber
+# itself defeats the enlarged view, so the entry is capped rather than left open.
+# 余白入力欄の上限。ファイバー自体が埋もれるほど広い余白は拡大表示の意味を
+# 失わせるため、入力を無制限にせず上限を設ける。
+MAX_FIBER_PAD_PX:              int   = 200
 # Fiber analysis is always parallelized with ThreadPoolExecutor.
 # ファイバー解析は常に ThreadPoolExecutor で並列化する。
 
@@ -160,6 +175,51 @@ def find_analyzed_stems(folder: str) -> List[str]:
     except OSError:
         pass
     return stems
+
+
+def crop_with_margin(image: np.ndarray, bbox: tuple, pad: int) -> tuple:
+    """
+    Crop a fiber bounding box with a surrounding margin, clipped to the image.
+    ファイバーの外接矩形を周囲余白付きで切り出す（画像端でクリップする）。
+
+    Parameters
+    ----------
+    image
+        Calibrated height image the fiber was tracked in.
+        ファイバーを追跡した補正済み高さ画像。
+    bbox
+        Bounding box ``(x, y, width, height)`` in pixels, as stored in
+        ``Fiber.data``.
+        画素単位の外接矩形 ``(x, y, 幅, 高さ)``。``Fiber.data`` の保持形式。
+    pad
+        Requested margin in pixels on each side.
+        各辺に付ける余白 (px)。
+
+    Returns
+    -------
+    tuple
+        ``(crop, off_x, off_y)``: the cropped image, and the bounding-box origin
+        measured inside that crop.
+        ``(切り出し画像, off_x, off_y)``。off_* は切り出し画像内での外接矩形の原点。
+
+    Notes
+    -----
+    Near an image border the margin is clipped, so the applied margin is
+    asymmetric and smaller than ``pad``. Overlays must be offset by the returned
+    origin rather than by ``pad``; otherwise the centerline and kink markers
+    drift off the fiber for every fiber that touches a border.
+    画像端では余白がクリップされ、実際の余白は非対称かつ ``pad`` より小さくなる。
+    重ね描きのオフセットには ``pad`` ではなく戻り値の原点を使う必要がある。
+    さもないと画像端に接する全ファイバーで中心線・キンク点が像からずれる。
+    """
+    x, y, w, h = (int(v) for v in bbox[:4])
+    img_h, img_w = image.shape[:2]
+    pad = max(0, int(pad))
+    x0 = max(0, x - pad)
+    y0 = max(0, y - pad)
+    x1 = min(img_w, x + w + pad)
+    y1 = min(img_h, y + h + pad)
+    return image[y0:y1, x0:x1], x - x0, y - y0
 
 
 # ===== Main window =====
@@ -345,6 +405,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # App 側に置く。
         self.show_fiber_kink_var  = tk.BooleanVar(value=True)
         self.show_fiber_track_var = tk.BooleanVar(value=True)
+        # A margin around the crop lets neighboring fibers into the frame, so
+        # the tracked extent is outlined to keep the measured object
+        # unambiguous, including in exported figures.
+        # 余白を付けると隣接ファイバーが枠内に入るため、追跡した範囲を明示して
+        # 出力図でも計測対象を取り違えないようにする。
+        self.show_fiber_bbox_var  = tk.BooleanVar(value=True)
 
         # -- AFM overview display mode (height image vs. color-coded fibers) --
         # Height and fiber modes are two renderings of the same overview and
@@ -2579,6 +2645,12 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         self._prof_w:     int   = 520
         self._prof_h:     int   = 600
 
+        # Display-only margin around the tracked bounding box (see
+        # DEFAULT_FIBER_PAD_PX). Setting it to 0 restores the tight crop.
+        # 追跡した外接矩形の周囲に付ける表示専用の余白（DEFAULT_FIBER_PAD_PX
+        # 参照）。0 にすると従来どおり外接矩形ぴったりの切り出しになる。
+        self._fiber_pad:  int   = int(DEFAULT_FIBER_PAD_PX)
+
         # Use shared ui_tools font defaults.
         # フォントサイズは ui_tools の共通定数（PLOT_FS_DEFAULTS）に揃える。
         # The enlarged image splits label, tick, and colorbar font sizes.
@@ -2620,6 +2692,7 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         # -- tk variables for enlarged-image settings --
         self._fiber_w_var         = tk.StringVar(value=self._app._fmt_num(self._fiber_w))
         self._fiber_h_var         = tk.StringVar(value=self._app._fmt_num(self._fiber_h))
+        self._fiber_pad_var       = tk.StringVar(value=self._app._fmt_num(self._fiber_pad))
         self._fiber_label_fs_var  = tk.StringVar(value=self._app._fmt_num(self._fiber_label_fs))
         self._fiber_tick_fs_var   = tk.StringVar(value=self._app._fmt_num(self._fiber_tick_fs))
         self._fiber_cbar_fs_var   = tk.StringVar(value=self._app._fmt_num(self._fiber_cbar_fs))
@@ -2829,6 +2902,23 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
             self._commit_fiber_settings,
             registry=self._unconfirmed_entries,
         )
+        # Margin around the tracked bounding box; see DEFAULT_FIBER_PAD_PX.
+        # 追跡した外接矩形の周囲余白。DEFAULT_FIBER_PAD_PX 参照。
+        ttk.Label(f_row1, text=_("余白") + " (px)").pack(side="left")
+        self.ent_fiber_pad = ttk.Entry(f_row1, width=4, textvariable=self._fiber_pad_var)
+        self.ent_fiber_pad.pack(side="left", padx=(2, 8))
+        self._app._register_unconfirmed_entry(
+            self.ent_fiber_pad,
+            lambda: self._app._fmt_num(self._fiber_pad),
+            self._commit_fiber_settings,
+            registry=self._unconfirmed_entries,
+        )
+        ToolTip(self.ent_fiber_pad, _(
+            "追跡範囲の周囲を何画素分まで表示に含めるかを指定します。\n"
+            "端点で終わったのか交差で切れたのかを周囲ごと確認できます。\n"
+            "表示専用の設定で、長さ・高さなどの計測値には影響しません。\n"
+            "0 を指定すると追跡範囲ぴったりの切り出しに戻ります。"
+        ))
         # Split font sizes into axis label, tick, and colorbar controls.
         # フォントサイズは軸ラベル・軸目盛・カラーバーの3分割（高さの右側に配置）。
         # Colorbar tick and label fonts share one value, following GUI01 / GUI02.
@@ -2882,6 +2972,16 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
             variable=self._app.show_fiber_track_var,
             command=self._redraw_fiber_image,
         ).pack(side="left", padx=(0, 4))
+        chk_bbox = ttk.Checkbutton(
+            f_row2, text=_("追跡範囲"),
+            variable=self._app.show_fiber_bbox_var,
+            command=self._redraw_fiber_image,
+        )
+        chk_bbox.pack(side="left", padx=(0, 4))
+        ToolTip(chk_bbox, _(
+            "計測対象のファイバーを囲む破線枠を表示します。\n"
+            "余白に隣接ファイバーが写り込んでも、どれが計測対象かを取り違えずに済みます。"
+        ))
         ttk.Button(f_row2, text=_("画像を保存"),
                    command=self._save_fiber_image).pack(side="left", padx=(0, 4))
 
@@ -3075,6 +3175,7 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         try:
             new_w     = max(200, int(self._fiber_w_var.get().strip()))
             new_h     = max(150, int(self._fiber_h_var.get().strip()))
+            new_pad   = int(self._fiber_pad_var.get().strip())
             new_lblfs = float(self._fiber_label_fs_var.get().strip())
             new_tkfs  = float(self._fiber_tick_fs_var.get().strip())
             new_cbfs  = float(self._fiber_cbar_fs_var.get().strip())
@@ -3084,14 +3185,23 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         if not all(1 <= v <= 60 for v in (new_lblfs, new_tkfs, new_cbfs)):
             messagebox.showerror(_("エラー"), _("フォントサイズは 1〜60 の範囲で入力してください。"))
             return False
+        if not 0 <= new_pad <= MAX_FIBER_PAD_PX:
+            messagebox.showerror(
+                _("エラー"),
+                _("余白は 0〜{max} px の範囲で入力してください。").format(
+                    max=MAX_FIBER_PAD_PX),
+            )
+            return False
         self._fiber_w        = new_w
         self._fiber_h        = new_h
+        self._fiber_pad      = new_pad
         self._fiber_label_fs = new_lblfs
         self._fiber_tick_fs  = new_tkfs
         self._fiber_cbar_fs  = new_cbfs
         rewrite_entries((
             (self.ent_fiber_w,        self._fiber_w),
             (self.ent_fiber_h,        self._fiber_h),
+            (self.ent_fiber_pad,      self._fiber_pad),
             (self.ent_fiber_label_fs, self._fiber_label_fs),
             (self.ent_fiber_tick_fs,  self._fiber_tick_fs),
             (self.ent_fiber_cbar_fs,  self._fiber_cbar_fs),
@@ -3153,10 +3263,11 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         現在ファイバーの拡大 AFM 像を再描画する。
 
         This window inherits ``vmin``, ``vmax``, ``scale_um``, and tick-display
-        units from the main app; only figure size and local font sizes are
-        adjusted here.
-        本ウインドウはメインアプリの ``vmin``、``vmax``、``scale_um``、
-        軸目盛単位を継承し、ここでは Figure サイズとローカルフォントサイズだけを調整する。
+        units from the main app; figure size, local font sizes, and the margin
+        around the tracked bounding box are adjusted here.
+        本ウインドウはメインアプリの ``vmin``、``vmax``、``scale_um``、軸目盛単位
+        を継承し、ここでは Figure サイズ・ローカルフォントサイズ・追跡範囲周囲の
+        余白を調整する。
         """
         app = self._app
         fiber = self._fiber
@@ -3223,12 +3334,47 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
             self._fiber_cbar = None
         ax.axis("on")
 
-        img = fiber.fiber_image
+        # Re-crop the same calibrated image with a margin so the fiber ends are
+        # not flush with the frame and the surroundings (a real end point vs. a
+        # crossing with a neighbor) stay visible. This is display only: the
+        # cached Fiber.fiber_image and the bounding-box-relative xtrack/ytrack
+        # that lib/ measures from are left untouched, so overlays are shifted by
+        # the crop origin instead.
+        # 同じ補正画像を余白付きで切り直し、ファイバー端が枠に密着せず周囲の
+        # 状況（本当の端点か、隣接ファイバーとの交差か）を確認できるようにする。
+        # これは表示専用で、キャッシュ済みの Fiber.fiber_image と lib/ が計測に
+        # 使う外接矩形基準の xtrack/ytrack は変更しない。そのぶん重ね描き側を
+        # 切り出し原点だけずらす。
+        bbox_x, bbox_y, bbox_w, bbox_h = (int(v) for v in fiber.data[:4])
+        if app.current_image is not None and self._fiber_pad > 0:
+            img, off_x, off_y = crop_with_margin(
+                app.current_image.calibrated_image,
+                (bbox_x, bbox_y, bbox_w, bbox_h),
+                self._fiber_pad,
+            )
+        else:
+            # No dataset loaded, or no margin requested: the cached crop is
+            # already exactly the bounding box.
+            # データ未ロード、または余白なし指定：キャッシュ済み切り出しが
+            # そのまま外接矩形に一致する。
+            img, off_x, off_y = fiber.fiber_image, 0, 0
         h_px_img, w_px_img = img.shape[:2]
         extent = [0, w_px_img * x_spp, h_px_img * y_spp, 0]
 
         im = ax.imshow(img, cmap="afmhot", vmin=vmin, vmax=vmax,
                        extent=extent, aspect="equal")
+
+        # Outline the tracked bounding box so the measured fiber stays
+        # identifiable once the margin lets neighboring fibers into the frame.
+        # Same dashed white style as the overview boxes.
+        # 余白によって隣接ファイバーが枠内に入っても計測対象を識別できるよう、
+        # 追跡した外接矩形を明示する。全体像の枠と同じ白破線スタイル。
+        if app.show_fiber_bbox_var.get():
+            ax.add_patch(plt.Rectangle(
+                (off_x * x_spp, off_y * y_spp), bbox_w * x_spp, bbox_h * y_spp,
+                linewidth=0.8, linestyle="--", edgecolor="white",
+                facecolor="none", alpha=0.6, zorder=3,
+            ))
 
         # Add a colorbar with the same height as the heatmap.
         from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -3245,15 +3391,16 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         # 0.5 は各追跡点を画素中心へ置く補正。これを入れないと線が稜線から
         # 左上へ半画素ずれる。
         if app.show_fiber_track_var.get() and len(fiber.xtrack) > 0:
-            ax.plot((fiber.xtrack + 0.5) * x_spp, (fiber.ytrack + 0.5) * y_spp,
+            ax.plot((fiber.xtrack + off_x + 0.5) * x_spp,
+                    (fiber.ytrack + off_y + 0.5) * y_spp,
                     color="lime", lw=1.0, alpha=0.75, zorder=4)
 
         # Kink points, centered in their pixels like the track line above so
         # the markers stay on it.
         # キンク点。上のトラック線と同じ画素中心補正を掛け、線上に載るようにする。
         if app.show_fiber_kink_var.get() and len(fiber.kink_indices) > 0:
-            kx = (fiber.xtrack[fiber.kink_indices] + 0.5) * x_spp
-            ky = (fiber.ytrack[fiber.kink_indices] + 0.5) * y_spp
+            kx = (fiber.xtrack[fiber.kink_indices] + off_x + 0.5) * x_spp
+            ky = (fiber.ytrack[fiber.kink_indices] + off_y + 0.5) * y_spp
             ax.scatter(kx, ky, c="cyan", s=20, zorder=5)
 
         ax.set_xlabel("({0})".format(unit_label), fontsize=fs_label)

@@ -10,6 +10,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A margin around the tracked fiber in GUI04's individual-fiber view, set by a
+  "余白" entry in the enlarged-image settings (default 10 px, capped at 200;
+  0 reproduces the previous tight crop), plus a "追跡範囲" toggle that outlines
+  the tracked range with a dashed box. The tracked bounding box fits the fiber
+  exactly, so until now both fiber ends sat on the frame and the enlarged image
+  could not show whether tracking stopped at a real end point or where the
+  fiber crosses a neighbor — the distinction the isolated-fiber filter and
+  fiber connection exist to handle. The margin is clipped at the image border,
+  where it becomes asymmetric. This re-crops the same calibrated image for
+  display only: `Fiber.fiber_image` and the bounding-box-relative
+  `xtrack`/`ytrack` that `lib/` measures from are unchanged, so **no measured
+  value moves** and exported CSV statistics are unaffected. Only the exported
+  enlarged-image PNG changes, and setting the margin to 0 restores its previous
+  framing.
+
 - A "孤立ファイバーのみ" filter in GUI04 that restricts the fiber table, the
   AFM overview, and the CSV export to fibers touching no other fiber anywhere
   along their path (`lib.measure.isolated_fiber_flags`, exported alongside
