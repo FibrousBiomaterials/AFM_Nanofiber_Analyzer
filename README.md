@@ -357,6 +357,17 @@ failure. Note that the filter tests fiber topology, not whether an object is a
 fiber: a scan-line artifact touches nothing and passes it, which is what
 GUI01's stripe-noise screening is for.
 
+The AFM overview carries the same pan/zoom toolbar as the Plot Profiler, plus
+a reset button, a "zoom to selection" button, and a toggle for the fiber
+numbers and boxes. Zoom is what makes a dense scan legible: at full view the
+per-fiber numbers overlap into noise, and they are also the largest single cost
+in a redraw, so switching them off or zooming in (which draws only the numbers
+inside the visible region) makes panning noticeably more responsive. Changing
+vmin/vmax, a filter, or the display mode keeps the current view; switching the
+tick unit or the scan size rescales the axes and resets it. Selecting a fiber
+that lies outside a zoomed-in view pans to it without changing the zoom level.
+Saving the overview image exports exactly the region on screen.
+
 In the individual-fiber window, the enlarged image keeps an adjustable margin
 around the tracked range (default 10 px; 0 restores the tight crop) and marks
 that range with a dashed box. The tracked bounding box fits the fiber exactly,

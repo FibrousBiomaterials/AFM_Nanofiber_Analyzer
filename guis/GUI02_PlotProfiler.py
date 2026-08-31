@@ -42,9 +42,9 @@ from tkinter import filedialog, messagebox, ttk
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # FigureCanvasTkAgg embeds matplotlib figures in tkinter windows.
-# NavigationToolbar2Tk provides the matplotlib pan/zoom toolbar inside tkinter.
+# The pan/zoom toolbar itself comes from lib.ui_tools.build_pan_zoom_toolbar.
 from matplotlib.patches import Polygon
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -60,7 +60,7 @@ from lib.ui_tools import (
     apply_window_size, ToolTip, setup_matplotlib_style,
     save_figure_with_dialog, PLOT_FS_DEFAULTS, setup_ttk_theme,
     UNIT_MICROMETER, extent_scale_and_unit, save_csv_with_dialog,
-    rewrite_entries, mark_entry_state,
+    rewrite_entries, mark_entry_state, build_pan_zoom_toolbar,
     UnconfirmedEntryMixin, localized_combobox_width,
     DEFAULT_VMIN, DEFAULT_VMAX,
 )
@@ -960,51 +960,14 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             heatmap_tb_row, text=_("画像を保存"), command=self.save_heatmap_image)
         button_save_img.pack(side="right", padx=(8, 0))
 
-        # NavigationToolbar2Tk uses pack internally, so isolate it in a dedicated frame.
-        toolbar_frame = ttk.Frame(heatmap_tb_row)
-        toolbar = NavigationToolbar2Tk(self.canvas, toolbar_frame)
-        toolbar.update()
-        # NavigationToolbar2Tk is a fixed figure-width frame (pack_propagate(False)), so it
-        # spreads Pan/Zoom and the right-aligned coordinate readout across the whole figure
-        # width. Re-enable propagation so the toolbar shrinks to just Pan/Zoom, removing that
-        # dead space and leaving room for the custom buttons on the same row.
-        # ツールバーは図幅で固定（pack_propagate(False)）のため、Pan/Zoom と右寄せの座標表示が
-        # 図幅いっぱいに引き離される。伝播を戻して Pan/Zoom 幅まで縮め、その空白をなくして
-        # 同じ行に独自ボタンを収める。
-        toolbar.pack_propagate(True)
-
-        # NavigationToolbar2Tk uses classic tk widgets, so manually match the clam background.
-        # NavigationToolbar2Tk は ttk テーマ外のため、clam 背景色へ手動で揃える。
-        try:
-            toolbar.configure(bg=self._clam_bg)
-        except tk.TclError:
-            pass
-        for child in toolbar.winfo_children():
-            try:
-                child.configure(bg=self._clam_bg)
-            except tk.TclError:
-                # Skip widgets that do not expose a classic tk bg option.
-                pass
-
         # Keep only Pan/Zoom from the matplotlib toolbar; custom buttons handle reset/save.
         # matplotlib ツールバーは Pan/Zoom だけ残し、リセット/保存は独自ボタンで扱う。
-        _KEEP_BUTTON_TEXTS = {"Pan", "Zoom"}
-        for child in list(toolbar.winfo_children()):
-            # Both tk.Button and ttk.Button expose a text option.
-            try:
-                txt = child.cget("text")
-            except tk.TclError:
-                continue
-            # Hide unwanted toolbar buttons instead of destroying them: matplotlib
-            # keeps references to Back/Forward in NavigationToolbar2Tk._buttons and
-            # configures their state from set_history_buttons() during Pan/Zoom.
-            # Destroying the widgets makes that call raise TclError, so only unmap them.
-            # 不要なボタンは破棄せず非表示にする。matplotlib は Back/Forward を
-            # NavigationToolbar2Tk._buttons に保持し、Pan/Zoom 操作時に
-            # set_history_buttons() でその state を設定する。破棄するとこの呼び出しが
-            # TclError になるため、レイアウトから外すだけにとどめる。
-            if isinstance(child, (tk.Button, ttk.Button)) and txt not in _KEEP_BUTTON_TEXTS:
-                child.pack_forget()
+        # The shared helper also folds in the pack-propagation, clam-background,
+        # and do-not-destroy-Back/Forward workarounds (see lib/ui_tools.py).
+        # 共通ヘルパーが pack 伝播・clam 背景・Back/Forward を破棄しない回避策も
+        # まとめて適用する（lib/ui_tools.py 参照）。
+        toolbar_frame, _toolbar = build_pan_zoom_toolbar(
+            heatmap_tb_row, self.canvas, clam_bg=self._clam_bg)
 
         # Place the toolbar last (side="left", no fill/expand) so it occupies only its own
         # width and leaves the rest of the row for the custom buttons packed above.

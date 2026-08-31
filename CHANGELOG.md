@@ -10,6 +10,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Pan and zoom on GUI04's AFM overview, matching GUI02: the matplotlib
+  Pan/Zoom toolbar plus a "リセット" button, a "選択へズーム" button, and a
+  "番号・枠" toggle for the per-fiber numbers and dashed boxes. On a dense scan
+  the numbers overlap into noise at full view, which is what made zoom
+  necessary in the first place. Saving the overview exports the region on
+  screen, so a zoomed view doubles as a region export.
+
+  Three behaviors make it usable rather than merely present. A background
+  rebuild (vmin/vmax, either filter, fiber connection, display mode) now
+  restores the current view instead of snapping back to the whole image;
+  switching the tick unit or the scan size rescales the axes, so those reset to
+  the full view deliberately. Selecting a fiber that lies outside a zoomed-in
+  view pans to it at the same zoom level, but only for a selection the user
+  made — repopulating the fiber table re-selects row 0 on its own, and
+  following that would teleport the view on every filter toggle. Finally, the
+  fiber numbers and boxes outside the visible limits are no longer drawn: they
+  are the single largest cost in an overview redraw (about 410 ms of 940 ms on
+  a 136-fiber 1023x1023 scan), so a zoomed-in redraw drops to roughly 350 ms
+  and the toggle removes that cost entirely.
+
+- `lib.ui_tools.build_pan_zoom_toolbar`, which builds a matplotlib navigation
+  toolbar stripped to Pan/Zoom. It carries the three workarounds the GUI02
+  toolbar had accumulated (re-enable pack propagation so the toolbar does not
+  span the figure width, match the ttk theme background on classic tk widgets,
+  and unmap rather than destroy the unused buttons, because matplotlib still
+  configures Back/Forward during Pan/Zoom). GUI02 now uses it instead of its
+  own copy; its toolbar behavior is unchanged.
+
 - A margin around the tracked fiber in GUI04's individual-fiber view, set by a
   "余白" entry in the enlarged-image settings (default 10 px, capped at 200;
   0 reproduces the previous tight crop), plus a "追跡範囲" toggle that outlines

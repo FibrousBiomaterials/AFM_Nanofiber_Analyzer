@@ -82,7 +82,7 @@ from lib.ui_tools import (
     setup_ttk_theme, rewrite_entries, mark_entry_state, replace_log_tail,
     save_text_widget_log, create_scrolled_text, create_scrolled_treeview,
     drain_ui_queue, extent_scale_and_unit, save_csv_with_dialog,
-    bind_mousewheel_scroll,
+    bind_mousewheel_scroll, build_pan_zoom_toolbar,
     UnconfirmedEntryMixin, LogMixin, localized_combobox_width,
     PLOT_FS_DEFAULTS, UNIT_MICROMETER,
     DEFAULT_VMIN, DEFAULT_VMAX,
@@ -260,7 +260,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.title(PLUGIN_INFO["name"])
         setup_matplotlib_style(font_size=10)
 
-        setup_ttk_theme(self)
+        # Keep the theme background: the matplotlib navigation toolbar uses
+        # classic tk widgets that ignore the ttk theme and must be matched by hand.
+        # テーマ背景色を保持する。matplotlib のナビゲーションツールバーは ttk
+        # テーマ外の tk ウィジェットのため、手動で色を合わせる必要がある。
+        self._clam_bg = setup_ttk_theme(self)
 
         apply_window_size(self, 1450, 850, min_w=1100, min_h=700)
 
@@ -280,6 +284,28 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Cache the AFM overview background; only the highlight patch changes.
         self._highlight_patch: Optional[object] = None
         self._overview_bg_drawn: bool = False
+
+        # -- AFM overview pan/zoom view state --
+        # Full-view limits captured after each background draw, used by the
+        # reset button and to clamp panning at the image edge.
+        # 背景描画ごとに取得する全体表示の軸範囲。リセットボタンと、画像端で
+        # パンを止めるクランプに使う。
+        self._afm_home_limits: Optional[tuple] = None
+        # Signature of the data extent. A background rebuild keeps the current
+        # zoom only while this is unchanged; a unit or scale switch rescales the
+        # axes, so the old limits would frame a different region.
+        # データ extent の識別子。これが同じ間だけ再構築後もズームを維持する。
+        # 単位やスケールの切り替えで軸が張り替わると、旧い軸範囲は別の領域を
+        # 指してしまうため。
+        self._afm_extent_key: Optional[tuple] = None
+        # Fiber-number texts and dashed boxes, kept so the ones outside the
+        # visible limits can be skipped: they dominate the redraw cost, and a
+        # redraw happens on every pan/zoom step.
+        # ファイバー番号テキストと破線枠。表示範囲外のものを描画から外すために
+        # 保持する。これらは再描画コストの大半を占め、パン/ズームのたびに
+        # 再描画が走るため。
+        self._overview_labels: List[object] = []
+        self._overview_boxes:  List[object] = []
 
         # Cache fiber statistics so table rebuilds do not recompute them.
         self._fiber_stats: List[tuple] = []   # [(median, max), ...]
@@ -411,6 +437,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 余白を付けると隣接ファイバーが枠内に入るため、追跡した範囲を明示して
         # 出力図でも計測対象を取り違えないようにする。
         self.show_fiber_bbox_var  = tk.BooleanVar(value=True)
+
+        # Fiber numbers and boxes on the AFM overview. At full zoom-out on a
+        # dense image they overlap into noise and cost most of the redraw time,
+        # so they can be switched off.
+        # AFM 全体像のファイバー番号と枠。密な画像を全体表示すると番号が重なって
+        # 読めないうえ、再描画時間の大半を占めるため OFF にできるようにする。
+        self.show_overview_labels_var = tk.BooleanVar(value=True)
 
         # -- AFM overview display mode (height image vs. color-coded fibers) --
         # Height and fiber modes are two renderings of the same overview and
@@ -691,8 +724,62 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._build_afm_controls(afm_outer)
         self._build_afm_font_row(afm_outer)
 
+        # Pack the view-control row before the canvas frame: the canvas expands,
+        # so anything packed after it would be squeezed out of the pane.
+        # 表示操作行はキャンバスより先にパックする。キャンバスは expand する
+        # ため、後からパックすると領域を確保できない。
+        self._afm_tb_row = ttk.Frame(afm_outer)
+        self._afm_tb_row.pack(side="bottom", fill="x", padx=2, pady=(0, 2))
+
         self._afm_frame = ttk.Frame(afm_outer)
         self._afm_frame.pack(fill="both", expand=True, padx=2, pady=2)
+
+    def _build_afm_view_controls(self) -> None:
+        """
+        Build the AFM overview view row: pan/zoom toolbar and view buttons.
+        AFM 全体像の表示操作行（Pan/Zoom ツールバーと表示ボタン）を構築する。
+
+        Notes
+        -----
+        Called after ``_init_figures`` because the toolbar needs the canvas.
+        ツールバーはキャンバスを必要とするため、``_init_figures`` の後に呼ぶ。
+        """
+        row = self._afm_tb_row
+
+        # Pack the custom controls (side="right") BEFORE the toolbar so the
+        # toolbar's growable coordinate readout can never squeeze them.
+        # ツールバーの座標表示はホバー時に横へ伸びるため、独自コントロールを
+        # 先に右側へ確保して押し潰されないようにする。
+        ttk.Button(row, text=_("リセット"),
+                   command=self._reset_overview_view).pack(side="right", padx=(8, 0))
+        btn_zoom_sel = ttk.Button(row, text=_("選択へズーム"),
+                                  command=self._zoom_to_selected)
+        btn_zoom_sel.pack(side="right", padx=(8, 0))
+        ToolTip(btn_zoom_sel, _(
+            "選択中のファイバーが画面いっぱいになるまで拡大します。\n"
+            "表示範囲外のファイバーを選んだ場合は自動で表示範囲へ入りますが、\n"
+            "拡大率は変わりません。"
+        ))
+        chk_labels = ttk.Checkbutton(
+            row, text=_("番号・枠"),
+            variable=self.show_overview_labels_var,
+            command=self._on_overview_labels_toggle,
+        )
+        chk_labels.pack(side="right", padx=(8, 0))
+        ToolTip(chk_labels, _(
+            "各ファイバーの番号と破線枠の表示を切り替えます。\n"
+            "OFF にすると全体像の再描画が目に見えて速くなるため、\n"
+            "拡大・移動の操作が重いときに有効です。\n"
+            "選択中ファイバーの黄色い枠は常に表示されます。"
+        ))
+
+        # Place the toolbar last (side="left", no fill/expand) so it takes only
+        # its own width and leaves the rest of the row to the controls above.
+        # ツールバーは最後に左寄せで配置し、自分の幅だけ占有して残りを上の
+        # コントロールへ渡す。
+        toolbar_frame, _toolbar = build_pan_zoom_toolbar(
+            row, self._afm_canvas, clam_bg=self._clam_bg)
+        toolbar_frame.pack(side="left")
 
     def _build_afm_controls(self, afm_outer: ttk.Frame) -> None:
         """
@@ -892,6 +979,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Call tight_layout only once at initialization because it is expensive.
         # tight_layout は初期化時に1回だけ呼ぶ（描画のたびに呼ぶのは高コスト）。
         self._afm_fig.tight_layout(pad=0.5)
+
+        # The pan/zoom toolbar needs the canvas, so build its row now.
+        # Pan/Zoom ツールバーはキャンバスを必要とするため、ここで行を構築する。
+        self._build_afm_view_controls()
 
     # =========================================================================
     # Logging
@@ -1264,6 +1355,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._sel_idx       = None
         self._overview_bg_drawn = False
         self._highlight_patch   = None
+        # Drop the pan/zoom view state with the dataset: the next dataset gets
+        # its own full view, and stale limits must not be restored onto it.
+        # パン/ズームの状態もデータセットと一緒に破棄する。次のデータセットは
+        # 自身の全体表示から始まり、古い軸範囲を復元してはならない。
+        self._afm_home_limits = None
+        self._afm_extent_key  = None
+        self._overview_labels = []
+        self._overview_boxes  = []
         # Clear the fiber table.
         for iid in self.fiber_tree.get_children():
             self.fiber_tree.delete(iid)
@@ -1455,6 +1554,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._filtered_fibers = []
         self._overview_bg_drawn = False   # 背景キャッシュを無効化
         self._highlight_patch   = None
+        # Start every dataset at full view. Datasets in one folder usually share
+        # a scan size and pixel count, so the extent signature would match and
+        # the previous dataset's zoom would silently carry over onto a different
+        # image.
+        # データセットは必ず全体表示から始める。同一フォルダのデータセットは
+        # スキャンサイズも画素数も揃っていることが多く、extent 識別子が一致して
+        # 前のデータセットのズームが別の画像へそのまま持ち越されてしまう。
+        self._afm_extent_key = None
 
         # -- Auto-update vmin/vmax only when auto mode is enabled --
         # The skeleton is passed as the fiber mask so the upper bound is a
@@ -1486,7 +1593,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if children:
             self.fiber_tree.selection_set(children[0])
             self.fiber_tree.focus(children[0])
-            self._on_fiber_select()
+            # Programmatic re-selection, so keep the current pan/zoom view.
+            # プログラムによる選び直しのため、現在のパン/ズームを維持する。
+            self._on_fiber_select(follow_view=False)
 
         # If a new file is selected while the height filter is on, apply it automatically.
         # 高さフィルター ON のまま新ファイルに切り替わった場合、自動で適用する。
@@ -1549,10 +1658,29 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
     # Fiber selection
     # =========================================================================
 
-    def _on_fiber_select(self, _event=None) -> None:
+    def _on_fiber_select(self, _event=None, *, follow_view: bool = True) -> None:
         """
         Update overview highlighting and detail windows after fiber selection.
         ファイバー選択後に全体像のハイライトと個別表示を更新する。
+
+        Parameters
+        ----------
+        follow_view
+            Whether a zoomed-in overview may pan to the selected fiber. Callers
+            that re-select row 0 after repopulating the table pass ``False``.
+            ズーム中の全体像が選択ファイバーへパンしてよいか。テーブル再構築後に
+            先頭行を選び直す呼び出しは ``False`` を渡す。
+
+        Notes
+        -----
+        Repopulating the fiber table (a file load, or the isolated-fiber
+        filter) re-selects the first row programmatically. That is not the user
+        choosing a fiber, so panning there would teleport a zoomed-in view to
+        fiber 0 on every filter toggle.
+        ファイバーテーブルの再構築（ファイル読み込みや孤立ファイバーフィルター）
+        はプログラム側で先頭行を選び直す。これはユーザーがファイバーを選んだ
+        わけではないため、ここでパンするとフィルター切替のたびにズーム中の視野が
+        ファイバー 0 へ飛ばされてしまう。
         """
         sel = self.fiber_tree.selection()
         if not sel:
@@ -1570,6 +1698,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 個別表示では選択ファイバーごとにプロファイル y 上限を常に再計算する。
 
         self._draw_overview(selected_fiber=fiber)   # Replace only the highlight.
+
+        # A user selection is the one event that may move the view: while
+        # zoomed in, a highlight outside the visible limits would leave the
+        # screen unchanged and read as a dead control. Both calls schedule the
+        # same idle draw.
+        # 視野を動かしてよいのはユーザーによる選択だけである。ズーム中に表示
+        # 範囲外へハイライトを置いても画面は変わらず、操作が効いていないように
+        # 見える。2 つの呼び出しは同じアイドル描画にまとめられる。
+        if follow_view:
+            self._ensure_fiber_visible(fiber)
+            self._afm_canvas.draw_idle()
 
         # Keep the non-modal detail window synchronized if it is open.
         # 個別表示が開いていれば追従させる（非モーダル）。
@@ -1682,6 +1821,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if labeled_fibers is None:
             labeled_fibers = list(enumerate(self.current_fibers))
 
+        # ax.clear() above discarded the previous artists; collect the new ones
+        # so _cull_overview_labels can hide those outside the visible limits.
+        # 上の ax.clear() で以前の artist は破棄済み。表示範囲外を
+        # _cull_overview_labels で隠せるよう、新しい artist を集める。
+        self._overview_labels = []
+        self._overview_boxes  = []
+
         for disp_i, f in labeled_fibers:
             # f.data is OpenCV stats (x, y, width, height, area); here `h` is the
             # width (X extent) and `w` is the height (Y extent).
@@ -1693,12 +1839,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             y_p = y * y_spp
             h_p = h * x_spp
             w_p = w * y_spp
-            ax.add_patch(plt.Rectangle(
+            box = plt.Rectangle(
                 (x_p, y_p), h_p, w_p,
                 linewidth=1.0, linestyle="--", edgecolor="white", facecolor="none", alpha=0.6,
-            ))
-            ax.text(x_p + h_p / 2, y_p + w_p / 2, str(disp_i),
-                    color="white", fontsize=7, ha="center", va="center", fontweight="bold")
+            )
+            ax.add_patch(box)
+            # clip_on keeps a zoomed-in view from painting the numbers of
+            # off-screen fibers over the figure margins; patches clip already.
+            # clip_on はズーム時に画面外ファイバーの番号が図の余白へはみ出して
+            # 描かれるのを防ぐ。パッチ側は既定でクリップされる。
+            label = ax.text(x_p + h_p / 2, y_p + w_p / 2, str(disp_i),
+                            color="white", fontsize=7, ha="center", va="center",
+                            fontweight="bold", clip_on=True)
+            self._overview_boxes.append(box)
+            self._overview_labels.append(label)
 
         kp_x, kp_y = self.current_image.all_kink_coordinates
         if len(kp_x) > 0:
@@ -1740,6 +1894,287 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 呼び出し元(_draw_overview / _on_file_loaded)が責任を持って描画する。
 
     def _rebuild_overview_bg(self) -> None:
+        """
+        Rebuild the overview background while preserving the pan/zoom view.
+        パン/ズームの表示範囲を保ったまま全体像の背景を再構築する。
+
+        Notes
+        -----
+        Ten call sites invalidate the background cache (vmin/vmax, scale, unit,
+        filters, connection, display mode), and each one redraws through here.
+        Without restoring the limits, every one of those would snap a zoomed-in
+        view back to the whole image, which is exactly when the user is
+        comparing settings on one region.
+        背景キャッシュを無効化する呼び出しは 10 箇所（vmin/vmax・スケール・単位・
+        各フィルター・連結・表示モード）あり、いずれもここを通って再描画する。
+        軸範囲を復元しないと、そのすべてでズームが全体表示へ戻ってしまう。
+        設定を変えながら 1 箇所を見比べている最中こそ、その操作が起きる。
+
+        The view is restored only while the data extent is unchanged. Switching
+        the tick unit (µm/nm) or the scale rescales the axes, so the previous
+        limits would frame a different physical region; those reset to the full
+        view instead.
+        復元するのはデータ extent が変わらない間だけである。軸目盛単位（µm/nm）
+        やスケールを変えると軸が張り替わり、以前の軸範囲は別の物理領域を指す。
+        その場合は全体表示に戻す。
+        """
+        if self.current_image is None:
+            return
+        prev_key    = self._afm_extent_key
+        prev_limits = None
+        # Read the live axes, not `_overview_bg_drawn`: every caller clears that
+        # flag *before* redrawing, so keying off it would always miss the view
+        # that is still on screen.
+        # 参照するのは実際の軸であって `_overview_bg_drawn` ではない。呼び出し側は
+        # 再描画の前にこのフラグを落とすため、これを条件にすると画面に出ている
+        # 表示範囲を必ず取り逃がす。
+        if self._afm_home_limits is not None:
+            prev_limits = (self._afm_ax.get_xlim(), self._afm_ax.get_ylim())
+
+        self._rebuild_overview_artists()
+
+        ax = self._afm_ax
+        # Capture the full view before restoring, so the reset button and the
+        # pan clamp always refer to the whole image.
+        # 復元前に全体表示を控える。リセットとパンのクランプが常に画像全体を
+        # 基準にするため。
+        self._afm_home_limits = (ax.get_xlim(), ax.get_ylim())
+        new_key = self._overview_extent_key()
+        if prev_limits is not None and prev_key is not None and prev_key == new_key:
+            ax.set_xlim(*prev_limits[0])
+            ax.set_ylim(*prev_limits[1])
+        self._afm_extent_key = new_key
+
+        # ax.clear() replaces the axes callback registry, so reconnect after
+        # every rebuild. Nothing accumulates: the old registry is discarded.
+        # ax.clear() は軸のコールバック登録簿を作り直すため、再構築のたびに
+        # 接続し直す。古い登録簿は破棄されるので多重登録にはならない。
+        ax.callbacks.connect("xlim_changed", self._on_overview_lims_changed)
+        ax.callbacks.connect("ylim_changed", self._on_overview_lims_changed)
+        self._cull_overview_labels()
+
+    def _overview_extent_key(self) -> Optional[tuple]:
+        """
+        Return a signature of the overview's current data extent.
+        全体像の現在のデータ extent を表す識別子を返す。
+
+        Notes
+        -----
+        Two background draws share a signature exactly when their axes span the
+        same physical region, which is the condition for carrying a zoomed view
+        across a rebuild.
+        2 回の背景描画の識別子が一致するのは、軸が同じ物理領域を張るときだけで
+        あり、それがズーム状態を再構築後に持ち越せる条件である。
+        """
+        if self.current_image is None:
+            return None
+        x_scale, y_scale, unit_label = self._get_extent_scale_xy_and_unit()
+        h_px, w_px = self.current_image.calibrated_image.shape[:2]
+        return (round(float(x_scale), 9), round(float(y_scale), 9),
+                int(w_px), int(h_px), unit_label)
+
+    def _on_overview_lims_changed(self, _ax=None) -> None:
+        """
+        Re-cull the overview labels after a pan, zoom, or reset.
+        パン・ズーム・リセット後に全体像のラベルを絞り直す。
+        """
+        self._cull_overview_labels()
+
+    def _cull_overview_labels(self) -> None:
+        """
+        Draw only the fiber numbers and boxes inside the visible limits.
+        表示範囲内にあるファイバー番号と枠だけを描画対象にする。
+
+        Notes
+        -----
+        The numbers dominate the overview redraw: on a 136-fiber scan they cost
+        about 410 ms of a 940 ms redraw, and a redraw runs on every pan or zoom
+        step. Restricting them to the visible region cuts a zoomed-in redraw to
+        roughly 350 ms, and the display toggle removes them entirely.
+        番号の描画が全体像の再描画コストの大半を占める。136 本の画像では 940 ms
+        の再描画のうち約 410 ms がこれで、パン/ズームのたびに再描画が走る。表示
+        範囲内に限定すると拡大時の再描画は約 350 ms まで下がり、表示トグルを
+        OFF にすれば描画自体がなくなる。
+
+        The selected fiber's highlight patch is not in these lists, so it stays
+        visible in every case.
+        選択ファイバーの黄色いハイライトはこれらのリストに含まれないため、
+        どの場合でも表示され続ける。
+        """
+        show = self.show_overview_labels_var.get()
+        ax = self._afm_ax
+        x0, x1 = sorted(ax.get_xlim())
+        y0, y1 = sorted(ax.get_ylim())
+        for label in self._overview_labels:
+            if not show:
+                label.set_visible(False)
+                continue
+            lx, ly = label.get_position()
+            label.set_visible(x0 <= lx <= x1 and y0 <= ly <= y1)
+        for box in self._overview_boxes:
+            if not show:
+                box.set_visible(False)
+                continue
+            bx, by = box.get_xy()
+            bw, bh = box.get_width(), box.get_height()
+            # Keep a partially visible box: it is clipped to the axes anyway.
+            # 一部だけ見える枠は残す（軸でクリップされるため）。
+            box.set_visible(not (bx > x1 or bx + bw < x0 or by > y1 or by + bh < y0))
+
+    def _on_overview_labels_toggle(self) -> None:
+        """
+        Apply the fiber number and box display toggle.
+        ファイバー番号・枠の表示トグルを反映する。
+        """
+        self._cull_overview_labels()
+        self._afm_canvas.draw_idle()
+
+    def _fiber_view_bbox(self, fiber: Fiber) -> Optional[tuple]:
+        """
+        Return one fiber's bounding box in the overview's display units.
+        全体像の表示単位に変換したファイバー外接矩形を返す。
+
+        Returns
+        -------
+        tuple or None
+            ``(x0, x1, y0, y1)`` with ``x0 < x1`` and ``y0 < y1``, or ``None``
+            when no dataset is loaded.
+            ``x0 < x1``、``y0 < y1`` の ``(x0, x1, y0, y1)``。データ未ロード時は
+            ``None``。
+        """
+        if self.current_image is None:
+            return None
+        x_scale, y_scale, _unit = self._get_extent_scale_xy_and_unit()
+        h_px, w_px = self.current_image.calibrated_image.shape[:2]
+        x_spp = x_scale / w_px
+        y_spp = y_scale / h_px
+        # f.data is OpenCV stats (x, y, width, height, area); `h` is the X
+        # extent and `w` the Y extent, as elsewhere in this file.
+        x, y, h, w, _unused = fiber.data
+        return (x * x_spp, (x + h) * x_spp, y * y_spp, (y + w) * y_spp)
+
+    def _apply_overview_view(self, cx: float, cy: float,
+                             half_x: float, half_y: float) -> None:
+        """
+        Center the overview on a point, clamped to the full image.
+        全体像を指定点に中心合わせする（画像全体の範囲でクランプする）。
+
+        Parameters
+        ----------
+        cx, cy
+            Target center in display units.
+            表示単位での中心座標。
+        half_x, half_y
+            Half-spans of the requested view in display units.
+            表示単位での表示範囲の半幅・半高。
+
+        Notes
+        -----
+        Clamping keeps the view inside the image so panning to a fiber near the
+        border does not scroll empty space into the frame. The Y axis is
+        inverted by ``imshow``'s extent, so its orientation is read from the
+        current limits rather than assumed.
+        クランプにより表示範囲が画像内に収まり、端のファイバーへ移動しても
+        余白が入り込まない。Y 軸は ``imshow`` の extent により反転しているため、
+        向きは仮定せず現在の軸範囲から読み取る。
+        """
+        if self._afm_home_limits is None:
+            return
+        ax = self._afm_ax
+        hx0, hx1 = sorted(self._afm_home_limits[0])
+        hy0, hy1 = sorted(self._afm_home_limits[1])
+        half_x = min(half_x, (hx1 - hx0) / 2)
+        half_y = min(half_y, (hy1 - hy0) / 2)
+        cx = min(max(cx, hx0 + half_x), hx1 - half_x)
+        cy = min(max(cy, hy0 + half_y), hy1 - half_y)
+
+        y_inverted = ax.get_ylim()[0] > ax.get_ylim()[1]
+        ax.set_xlim(cx - half_x, cx + half_x)
+        if y_inverted:
+            ax.set_ylim(cy + half_y, cy - half_y)
+        else:
+            ax.set_ylim(cy - half_y, cy + half_y)
+
+    def _ensure_fiber_visible(self, fiber: Fiber) -> None:
+        """
+        Pan the overview to the selected fiber only when it is off-screen.
+        選択ファイバーが表示範囲外のときだけ全体像をパンする。
+
+        Notes
+        -----
+        Selecting a fiber replaces only the highlight patch, so while zoomed in
+        a selection outside the view would change nothing on screen and read as
+        a broken control. The zoom level is kept: this moves the view, it does
+        not reframe it.
+        ファイバー選択はハイライトを差し替えるだけのため、ズーム中に表示範囲外の
+        ファイバーを選ぶと画面上は何も起きず、操作が壊れているように見える。
+        拡大率は保つ。ここで行うのは表示位置の移動であって、拡大のやり直しでは
+        ない。
+        """
+        bbox = self._fiber_view_bbox(fiber)
+        if bbox is None or self._afm_home_limits is None:
+            return
+        fx0, fx1, fy0, fy1 = bbox
+        ax = self._afm_ax
+        vx0, vx1 = sorted(ax.get_xlim())
+        vy0, vy1 = sorted(ax.get_ylim())
+        if fx0 >= vx0 and fx1 <= vx1 and fy0 >= vy0 and fy1 <= vy1:
+            return
+        self._apply_overview_view(
+            (fx0 + fx1) / 2, (fy0 + fy1) / 2,
+            (vx1 - vx0) / 2, (vy1 - vy0) / 2,
+        )
+
+    def _zoom_to_selected(self) -> None:
+        """
+        Zoom the overview to the selected fiber.
+        全体像を選択中のファイバーまで拡大する。
+
+        Notes
+        -----
+        The requested span keeps the current view's aspect ratio, because the
+        axes hold ``aspect="equal"``: framing a long thin fiber by its bounding
+        box alone would shrink the axes box to that shape.
+        要求する表示範囲は現在の表示アスペクト比を保つ。軸は ``aspect="equal"``
+        のため、細長いファイバーを外接矩形そのままで囲むと軸の箱がその形まで
+        つぶれてしまう。
+        """
+        fiber = self._current_fiber()
+        if fiber is None or not self._overview_bg_drawn:
+            messagebox.showinfo(_("情報"), _("ファイバーを選択してください。"))
+            return
+        bbox = self._fiber_view_bbox(fiber)
+        if bbox is None or self._afm_home_limits is None:
+            return
+        fx0, fx1, fy0, fy1 = bbox
+        ax = self._afm_ax
+        vx0, vx1 = sorted(ax.get_xlim())
+        vy0, vy1 = sorted(ax.get_ylim())
+        view_ratio = (vx1 - vx0) / (vy1 - vy0) if vy1 > vy0 else 1.0
+
+        # 30% margin so the fiber is not flush with the panel edge.
+        # 端に密着しないよう 30% の余裕を持たせる。
+        half_x = max((fx1 - fx0) / 2, 1e-9) * 1.3
+        half_y = max((fy1 - fy0) / 2, 1e-9) * 1.3
+        if half_x / half_y < view_ratio:
+            half_x = half_y * view_ratio
+        else:
+            half_y = half_x / view_ratio
+        self._apply_overview_view((fx0 + fx1) / 2, (fy0 + fy1) / 2, half_x, half_y)
+        self._afm_canvas.draw_idle()
+
+    def _reset_overview_view(self) -> None:
+        """
+        Reset the overview to the full image without redrawing the background.
+        背景を再描画せずに全体像の表示範囲を画像全体へ戻す。
+        """
+        if self._afm_home_limits is None or not self._overview_bg_drawn:
+            return
+        self._afm_ax.set_xlim(*self._afm_home_limits[0])
+        self._afm_ax.set_ylim(*self._afm_home_limits[1])
+        self._afm_canvas.draw_idle()
+
+    def _rebuild_overview_artists(self) -> None:
         """
         Rebuild the AFM overview background with the current filter state.
         現在のフィルター状態に合わせて AFM 全体像の背景を再構築する。
@@ -1908,6 +2343,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             backdrop = img
         ax.imshow(backdrop, cmap="gray", extent=extent, aspect="equal")
 
+        # This mode draws no fiber numbers or boxes, so nothing is left to cull.
+        # 本モードは番号・枠を描かないため、カリング対象は空にする。
+        self._overview_labels = []
+        self._overview_boxes  = []
+
         # Color each fiber the same way in both filtered and unfiltered states.
         # フィルター有無にかかわらず同じ方式で各ファイバーを配色する。
         fibers = self._display_fibers()
@@ -1999,6 +2439,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._afm_ax.add_patch(patch)
             self._highlight_patch = patch
 
+        # Panning to the selection belongs to _on_fiber_select, not here: this
+        # method also runs for vmin/vmax, filter, and mode changes, and moving
+        # the view on those would yank a zoomed-in comparison off its region.
+        # 選択位置へのパンは _on_fiber_select の仕事であり、ここではない。本
+        # メソッドは vmin/vmax・フィルター・モード変更でも走るため、ここで視野を
+        # 動かすと、拡大して見比べている領域から引き剥がしてしまう。
         self._afm_canvas.draw_idle()   # Do not call tight_layout().
 
     # =========================================================================
@@ -2243,7 +2689,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if children:
             self.fiber_tree.selection_set(children[0])
             self.fiber_tree.focus(children[0])
-            self._on_fiber_select()
+            # Programmatic re-selection, so keep the current pan/zoom view.
+            # プログラムによる選び直しのため、現在のパン/ズームを維持する。
+            self._on_fiber_select(follow_view=False)
 
         if self.isolated_only_var.get():
             total = len(
