@@ -478,6 +478,7 @@ GUI plugins, such as:
 - tooltip behavior via `ToolTip`
 - log saving via `save_text_widget_log`
 - mouse-wheel scrolling of a canvas via `bind_mousewheel_scroll`
+- an embedded Matplotlib pan/zoom toolbar via `build_pan_zoom_toolbar`
 - common unit strings such as `UNIT_MICROMETER`
 - common image display limits such as `DEFAULT_VMIN`, `DEFAULT_VMAX`, and
   `compute_auto_vrange`

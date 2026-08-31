@@ -1689,6 +1689,98 @@ def setup_matplotlib_style(font_size: int = 12) -> None:
     plt.rcParams["svg.fonttype"] = "none"
 
 
+def build_pan_zoom_toolbar(parent, canvas, *, clam_bg=None,
+                           keep=("Pan", "Zoom")) -> tuple:
+    """
+    Build a matplotlib navigation toolbar stripped to its Pan/Zoom buttons.
+    matplotlib のナビゲーションツールバーを Pan/Zoom だけに絞って構築する。
+
+    Parameters
+    ----------
+    parent
+        Widget the toolbar frame is created in.
+        ツールバー用フレームを作る親ウィジェット。
+    canvas
+        Matplotlib Tk canvas the toolbar drives.
+        ツールバーが操作する matplotlib の Tk キャンバス。
+    clam_bg
+        Background color of the active ttk theme, or ``None`` to leave the
+        toolbar's classic-tk colors untouched.
+        使用中の ttk テーマの背景色。``None`` なら素の tk 配色のままにする。
+    keep
+        Button labels that stay visible; every other button is unmapped.
+        表示したままにするボタンのラベル。他のボタンは非表示にする。
+
+    Returns
+    -------
+    tuple
+        ``(frame, toolbar)``. The caller places ``frame`` itself, because the
+        surrounding row's packing order decides the layout (see Notes).
+        ``(frame, toolbar)``。フレームの配置は呼び出し側が行う。同じ行の
+        パック順序がレイアウトを左右するため（Notes 参照）。
+
+    Notes
+    -----
+    Three workarounds are folded in here so every caller inherits them:
+
+    1. ``NavigationToolbar2Tk`` is a figure-width frame with
+       ``pack_propagate(False)``, which spreads Pan/Zoom and the right-aligned
+       coordinate readout across the whole figure width. Propagation is
+       re-enabled so the toolbar shrinks to just its buttons and leaves the
+       rest of the row for the caller's own buttons.
+    2. The toolbar uses classic tk widgets, which ignore the ttk theme, so the
+       background is matched manually when ``clam_bg`` is given.
+    3. Unwanted buttons are unmapped, never destroyed: matplotlib keeps
+       Back/Forward in ``NavigationToolbar2Tk._buttons`` and configures their
+       state from ``set_history_buttons()`` during Pan/Zoom, which raises
+       ``TclError`` once the widgets are gone.
+    3 点目は特に重要である。不要ボタンを破棄すると、matplotlib が Pan/Zoom
+    操作中に呼ぶ ``set_history_buttons()`` が TclError になるため、レイアウト
+    から外すだけにとどめる。
+
+    Pack the caller's own buttons (``side="right"``) *before* placing the
+    returned frame, so the toolbar's growable coordinate readout cannot squeeze
+    them when the pointer moves over the canvas.
+    独自ボタンは ``side="right"`` で先にパックし、その後にこのフレームを置く
+    こと。ツールバーの座標表示はホバー時に横へ伸びるため、後から確保すると
+    押し潰される。
+    """
+    # Local import: only GUIs that embed a navigation toolbar need the Tk
+    # backend module, and ui_tools is imported by every GUI.
+    # ローカル import：ツールバーを組み込む GUI だけが Tk バックエンドを必要と
+    # するが、ui_tools は全 GUI から読み込まれるため。
+    from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+
+    frame = ttk.Frame(parent)
+    toolbar = NavigationToolbar2Tk(canvas, frame)
+    toolbar.update()
+    toolbar.pack_propagate(True)
+
+    if clam_bg is not None:
+        try:
+            toolbar.configure(bg=clam_bg)
+        except tk.TclError:
+            pass
+        for child in toolbar.winfo_children():
+            try:
+                child.configure(bg=clam_bg)
+            except tk.TclError:
+                # Skip widgets that do not expose a classic tk bg option.
+                pass
+
+    keep_texts = set(keep)
+    for child in list(toolbar.winfo_children()):
+        # Both tk.Button and ttk.Button expose a text option.
+        try:
+            txt = child.cget("text")
+        except tk.TclError:
+            continue
+        if isinstance(child, (tk.Button, ttk.Button)) and txt not in keep_texts:
+            child.pack_forget()
+
+    return frame, toolbar
+
+
 def figure_save_filetypes() -> list[tuple[str, str]]:
     """
     Filetypes list for figure save dialogs.
