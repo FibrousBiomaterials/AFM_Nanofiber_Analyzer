@@ -68,3 +68,57 @@ def test_gui03_window_builds(tk_app):
 
 def test_gui04_window_builds(tk_app):
     _assert_window_built(tk_app(gui04.App))
+
+
+def test_gui03_worker_stops_when_bin_edges_fail(tk_app, tmp_path, monkeypatch):
+    """
+    A failure building the bin edges reports once and ends the worker.
+    ビン境界の生成に失敗したとき、1 回だけ報告してワーカーを終了する。
+
+    This one worker path is worth pinning because its failure is invisible:
+    the fatal message reaches the user either way, so an unhandled exception
+    raised afterwards would only surface on stderr, which a windowed or frozen
+    build does not show.
+    このワーカー経路だけを固定するのは、失敗が目に見えないため。fatal 通知は
+    どちらにせよユーザーへ届くので、その後に送出される未処理例外は stderr に
+    しか現れず、ウィンドウアプリや凍結ビルドでは表示されない。
+    """
+    app = tk_app(gui03.App)
+
+    folder = tmp_path / "bundles"
+    folder.mkdir()
+    # _find_pairs only filters on the extension; the contents never get read
+    # because _collect_bundle_values is replaced below.
+    (folder / ("sample" + gui03.BUNDLE_EXT)).write_bytes(b"")
+
+    monkeypatch.setattr(
+        app, "_collect_bundle_values",
+        lambda paths, param, unit: ([1.0, 2.0, 3.0], 3, 1, []),
+    )
+
+    def _raise(*_args, **_kwargs):
+        raise MemoryError("simulated allocation failure")
+
+    monkeypatch.setattr(gui03.np, "arange", _raise)
+
+    app._worker_run({
+        "groups": [{
+            "id": "g", "name": "G", "color": "#1f77b4",
+            "folders": [str(folder)],
+        }],
+        "param": gui03.PARAM_HEIGHT,
+        "unit": gui03.UNIT_PIXEL,
+        "min_h": 0.0, "max_h": 10.0, "step": 0.2,
+        "yaxis_mode": "density", "display_mode": gui03.App.MODE_STACK,
+        "show_height_text": True,
+        "fig_w": 6.0, "fig_h": 3.0,
+        "label_fs": 15.0, "tick_fs": 15.0, "ann_fs": 15.0,
+        "group_name_fs": 15.0,
+    })
+
+    kinds = []
+    while not app.ui_queue.empty():
+        kinds.append(app.ui_queue.get_nowait()[0])
+
+    assert kinds.count("fatal") == 1
+    assert "done" not in kinds

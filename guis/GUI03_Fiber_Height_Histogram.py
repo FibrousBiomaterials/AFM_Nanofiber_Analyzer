@@ -2057,6 +2057,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "text": _("ヒストグラム範囲の準備に失敗しました。"),
                 "trace": traceback.format_exc(),
             }))
+            # Stop here: without `edges` the loop below raises UnboundLocalError
+            # deep in this worker thread, where the traceback only reaches stderr
+            # and is invisible in a windowed or frozen build. The range entries only
+            # enforce min < max and step > 0, so a wide range with a fine step
+            # (min=0, max=1e12, step=1e-6) still reaches this handler through
+            # np.arange's MemoryError.
+            # ここで処理を止める。`edges` が無いまま下のループへ進むとこのワーカー
+            # スレッド内で UnboundLocalError となり、そのトレースバックは stderr にしか
+            # 出ないためウィンドウアプリや凍結ビルドでは誰にも見えない。範囲入力が
+            # 保証するのは min < max と step > 0 だけなので、広い範囲に細かい step
+            # を与えると（min=0, max=1e12, step=1e-6）np.arange の MemoryError で
+            # 実際にこのハンドラへ到達する。
+            return
 
         for r in results:
             counts, _edges = np.histogram(r["values"], bins=edges, density=False)

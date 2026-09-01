@@ -222,6 +222,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- GUI03's worker thread now stops when it cannot build the histogram bin
+  edges, instead of reporting the failure and then continuing into the loop
+  that needs them. It reported the error to the user either way, so the
+  `UnboundLocalError` that followed only reached stderr — where a windowed or
+  frozen build shows it to nobody. The range entries enforce only min < max
+  and step > 0, so a wide range with a fine step (min=0, max=1e12, step=1e-6)
+  reaches the handler through `np.arange`'s `MemoryError`.
+
 - The traced centerline no longer makes a U-turn at a fiber tip where
   segmentation admitted a low, widened "skirt" of near-background pixels.
   Thinning follows the mask's medial axis into such a skirt and curls back
