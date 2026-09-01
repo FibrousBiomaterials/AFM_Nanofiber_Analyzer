@@ -32,6 +32,7 @@ from lib.fiber import Fiber
 from lib.fiber_tracking_image import FiberTrackingImage
 from lib.measure import (
     FIBER_CSV_COLUMNS,
+    collect_fiber_stats,
     compute_fiber_stats,
     isolated_fiber_flags,
     load_tracking_image,
@@ -396,6 +397,55 @@ def test_partial_failure_keeps_other_bundles(measured, tmp_path):
     heights, errors = skeleton_height_values([missing, bundle_path])
     assert heights.size > 0
     assert len(errors) == 1
+
+
+def test_collect_fiber_stats_matches_measure_bundle(measured):
+    """Collecting one bundle reproduces the statistics measure_bundle returns."""
+    bundle_path, result = measured
+    per_bundle, errors = collect_fiber_stats([bundle_path], scale_um=SCALE_UM)
+    assert errors == []
+    assert len(per_bundle) == 1
+    path, stats = per_bundle[0]
+    assert path == bundle_path
+    assert stats == result.stats
+
+
+def test_collect_fiber_stats_keeps_bundles_separate(measured):
+    """Each input path yields its own entry, so per-image aggregation is possible."""
+    bundle_path, _result = measured
+    per_bundle, errors = collect_fiber_stats(
+        [bundle_path, bundle_path], scale_um=SCALE_UM,
+    )
+    assert errors == []
+    assert len(per_bundle) == 2
+    assert [len(stats) for _p, stats in per_bundle] == [1, 1]
+
+
+def test_collect_fiber_stats_reports_bundle_without_scan_size(measured):
+    """A bundle with no recorded scan size errors instead of raising."""
+    bundle_path, _result = measured
+    # The synthetic fixture is processed from a header-less text file, so the
+    # bundle stores no scan size and the length scale cannot be resolved.
+    # 合成データはヘッダの無いテキストから処理されるためバンドルに走査範囲が
+    # 無く、長さのスケールを解決できない。
+    per_bundle, errors = collect_fiber_stats([bundle_path])
+    assert per_bundle == []
+    assert len(errors) == 1
+    assert errors[0][0] == bundle_path
+    assert "scale_um" in errors[0][1]
+
+
+def test_collect_fiber_stats_partial_failure(measured, tmp_path):
+    """One unreadable bundle does not discard statistics from readable ones."""
+    bundle_path, _result = measured
+    missing = os.path.join(tmp_path, "missing.b2z")
+    per_bundle, errors = collect_fiber_stats(
+        [missing, bundle_path], scale_um=SCALE_UM,
+    )
+    assert len(per_bundle) == 1
+    assert per_bundle[0][0] == bundle_path
+    assert len(errors) == 1
+    assert errors[0][0] == missing
 
 
 def test_cli_heights_writes_long_format_csv(measured, tmp_path):

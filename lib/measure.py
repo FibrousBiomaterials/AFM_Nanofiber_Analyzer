@@ -586,6 +586,79 @@ def measure_bundle(
     return MeasureResult(image=image, fibers=fibers, stats=compute_fiber_stats(fibers))
 
 
+def collect_fiber_stats(
+    bundle_paths: Sequence[str],
+    scale_um: Optional[float] = None,
+    scale_y_um: Optional[float] = None,
+    max_workers: Optional[int] = None,
+) -> Tuple[List[Tuple[str, List[FiberStats]]], List[Tuple[str, str]]]:
+    """
+    Measure several ``.b2z`` bundles and return per-fiber statistics per bundle.
+    複数の ``.b2z`` バンドルを計測し、バンドルごとのファイバー統計値を返す。
+
+    Parameters
+    ----------
+    bundle_paths
+        Paths to ``.b2z`` bundles containing the tracking keys.
+        追跡用キーを含む ``.b2z`` バンドルのパス。
+    scale_um
+        X-axis scan size in micrometers, forwarded to `measure_bundle`.
+        ``None`` lets each bundle supply its own recorded scan size, so a
+        folder of differently sized scans measures correctly in one call.
+        `measure_bundle` へ渡す X 軸走査範囲 (µm)。``None`` のとき各バンドルが
+        自身の記録済み走査範囲を使うため、寸法の異なるスキャンが混在する
+        フォルダも 1 回の呼び出しで正しく計測できる。
+    scale_y_um
+        Y-axis scan size in micrometers, forwarded to `measure_bundle`.
+        `measure_bundle` へ渡す Y 軸走査範囲 (µm)。
+    max_workers
+        Maximum number of worker threads used per bundle.
+        1 バンドルあたりの並列追跡ワーカースレッド数の上限。
+
+    Returns
+    -------
+    tuple
+        ``(per_bundle, errors)``. `per_bundle` lists ``(bundle_path, stats)``
+        pairs in input order for every bundle that measured successfully;
+        `errors` lists ``(bundle_path, message)`` pairs for the others, with
+        fixed English messages.
+        ``(per_bundle, errors)``。`per_bundle` は計測に成功したバンドルの
+        ``(バンドルパス, 統計値リスト)`` を入力順に並べたもの。`errors` は
+        失敗したバンドルの ``(バンドルパス, メッセージ)`` で、メッセージは
+        固定の英語文字列。
+
+    Notes
+    -----
+    This is the per-fiber counterpart of `skeleton_height_values` and shares
+    its failure contract: one unreadable or uncalibrated bundle becomes an
+    error entry instead of aborting the collection, so a grouped GUI run
+    degrades gracefully. Bundles are kept separate in the result because the
+    caller decides whether one sample is one fiber or one image; pooling them
+    here would destroy that distinction.
+    本関数は `skeleton_height_values` のファイバー単位版で、失敗時の契約も
+    共通である。読み込めない、あるいは走査範囲が未記録のバンドル 1 つで収集
+    全体を中断せず、エラー項目として返すため、グループ実行が部分的な失敗に
+    耐えられる。結果をバンドルごとに分けたまま返すのは、1 標本をファイバー
+    1 本とするか画像 1 枚とするかを呼び出し側が決めるためで、ここで併合すると
+    その区別が失われる。
+    """
+    per_bundle: List[Tuple[str, List[FiberStats]]] = []
+    errors: List[Tuple[str, str]] = []
+    for path in bundle_paths:
+        try:
+            result = measure_bundle(
+                path,
+                scale_um=scale_um,
+                scale_y_um=scale_y_um,
+                max_workers=max_workers,
+            )
+        except Exception as e:
+            errors.append((path, f"{type(e).__name__}: {e}"))
+            continue
+        per_bundle.append((path, list(result.stats)))
+    return per_bundle, errors
+
+
 def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
     """
     Write per-fiber statistics to a CSV file.

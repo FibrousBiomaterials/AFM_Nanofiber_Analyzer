@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-31 11:28+0900\n"
+"POT-Creation-Date: 2026-09-01 11:20+0900\n"
 "PO-Revision-Date: 2026-04-27 14:35+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -82,11 +82,11 @@ msgstr "Failed to load startup settings file (falling back to defaults): %s"
 #: guis/GUI01_Image_Preprocessor.py:1013 guis/GUI01_Image_Preprocessor.py:2023
 #: guis/GUI01_Image_Preprocessor.py:2032 guis/GUI01_Image_Preprocessor.py:4972
 #: guis/GUI01_Image_Preprocessor.py:4981
-#: guis/GUI03_Fiber_Height_Histogram.py:496
-#: guis/GUI03_Fiber_Height_Histogram.py:1301
-#: guis/GUI03_Fiber_Height_Histogram.py:1609
-#: guis/GUI03_Fiber_Height_Histogram.py:1648
-#: guis/GUI03_Fiber_Height_Histogram.py:1678 guis/GUI04_Tracking_fiber.py:3185
+#: guis/GUI03_Fiber_Height_Histogram.py:927
+#: guis/GUI03_Fiber_Height_Histogram.py:1743
+#: guis/GUI03_Fiber_Height_Histogram.py:2213
+#: guis/GUI03_Fiber_Height_Histogram.py:2288
+#: guis/GUI03_Fiber_Height_Histogram.py:2318 guis/GUI04_Tracking_fiber.py:3185
 msgid "非表示"
 msgstr "Hidden"
 
@@ -246,13 +246,13 @@ msgid "列: filename, scale_um もしくは scale_x_um, scale_y_um。"
 msgstr "Columns: filename, scale_um or scale_x_um, scale_y_um."
 
 #: guis/GUI01_Image_Preprocessor.py:1442
-#: guis/GUI03_Fiber_Height_Histogram.py:400 guis/GUI04_Tracking_fiber.py:924
+#: guis/GUI03_Fiber_Height_Histogram.py:671 guis/GUI04_Tracking_fiber.py:924
 #: lib/ui_tools.py:190
 msgid "ログを保存"
 msgstr "Save Log"
 
 #: guis/GUI01_Image_Preprocessor.py:1444
-#: guis/GUI03_Fiber_Height_Histogram.py:402 guis/GUI04_Tracking_fiber.py:927
+#: guis/GUI03_Fiber_Height_Histogram.py:673 guis/GUI04_Tracking_fiber.py:927
 msgid "ログをクリア"
 msgstr "Clear Log"
 
@@ -292,7 +292,7 @@ msgid "vmax"
 msgstr "vmax"
 
 #: guis/GUI01_Image_Preprocessor.py:2019 guis/GUI01_Image_Preprocessor.py:4966
-#: guis/GUI03_Fiber_Height_Histogram.py:509
+#: guis/GUI03_Fiber_Height_Histogram.py:940
 msgid "重ね表示"
 msgstr "Overlay"
 
@@ -326,13 +326,13 @@ msgid "フォントサイズ：タイトル"
 msgstr "Font Size: Title"
 
 #: guis/GUI01_Image_Preprocessor.py:2058 guis/GUI01_Image_Preprocessor.py:5018
-#: guis/GUI02_PlotProfiler.py:843 guis/GUI03_Fiber_Height_Histogram.py:565
+#: guis/GUI02_PlotProfiler.py:843 guis/GUI03_Fiber_Height_Histogram.py:996
 #: guis/GUI04_Tracking_fiber.py:875
 msgid "軸ラベル"
 msgstr "Axis Label"
 
 #: guis/GUI01_Image_Preprocessor.py:2067 guis/GUI01_Image_Preprocessor.py:5028
-#: guis/GUI02_PlotProfiler.py:855 guis/GUI03_Fiber_Height_Histogram.py:574
+#: guis/GUI02_PlotProfiler.py:855 guis/GUI03_Fiber_Height_Histogram.py:1005
 #: guis/GUI04_Tracking_fiber.py:884 guis/GUI04_Tracking_fiber.py:3384
 #: guis/GUI04_Tracking_fiber.py:3517
 msgid "軸目盛"
@@ -345,8 +345,8 @@ msgstr "Legend"
 
 #: guis/GUI01_Image_Preprocessor.py:2087 guis/GUI01_Image_Preprocessor.py:5048
 #: guis/GUI02_PlotProfiler.py:255 guis/GUI02_PlotProfiler.py:960
-#: guis/GUI02_PlotProfiler.py:2233 guis/GUI03_Fiber_Height_Histogram.py:443
-#: guis/GUI03_Fiber_Height_Histogram.py:1738 guis/GUI04_Tracking_fiber.py:850
+#: guis/GUI02_PlotProfiler.py:2233 guis/GUI03_Fiber_Height_Histogram.py:714
+#: guis/GUI03_Fiber_Height_Histogram.py:2380 guis/GUI04_Tracking_fiber.py:850
 #: guis/GUI04_Tracking_fiber.py:2932 guis/GUI04_Tracking_fiber.py:3433
 #: guis/GUI04_Tracking_fiber.py:3586 guis/GUI04_Tracking_fiber.py:3998
 #: guis/GUI04_Tracking_fiber.py:4006
@@ -484,8 +484,8 @@ msgstr "No split entries to collapse."
 
 #: guis/GUI01_Image_Preprocessor.py:2861 guis/GUI01_Image_Preprocessor.py:4672
 #: guis/GUI01_Image_Preprocessor.py:4727
-#: guis/GUI03_Fiber_Height_Histogram.py:1006
-#: guis/GUI03_Fiber_Height_Histogram.py:1042
+#: guis/GUI03_Fiber_Height_Histogram.py:1448
+#: guis/GUI03_Fiber_Height_Histogram.py:1484
 msgid "確認"
 msgstr "Confirm"
 
@@ -627,7 +627,7 @@ msgid "%s: 既存データのためスキップ"
 msgstr "%s: Skipped (existing data)"
 
 #: guis/GUI01_Image_Preprocessor.py:3300 guis/GUI01_Image_Preprocessor.py:3361
-#: guis/GUI03_Fiber_Height_Histogram.py:1591
+#: guis/GUI03_Fiber_Height_Histogram.py:2192
 msgid "完了"
 msgstr "Completed"
 
@@ -1076,7 +1076,7 @@ msgid "個別表示: %s"
 msgstr "Individual view: %s"
 
 #: guis/GUI01_Image_Preprocessor.py:4915
-#: guis/GUI03_Fiber_Height_Histogram.py:502
+#: guis/GUI03_Fiber_Height_Histogram.py:933
 msgid "表示"
 msgstr "Display"
 
@@ -1291,7 +1291,7 @@ msgstr ""
 "The format may be unsupported or the file may be corrupted.\n"
 "Details: {0}"
 
-#: guis/GUI02_PlotProfiler.py:1445 guis/GUI03_Fiber_Height_Histogram.py:1383
+#: guis/GUI02_PlotProfiler.py:1445 guis/GUI03_Fiber_Height_Histogram.py:1835
 msgid "不明なエラー"
 msgstr "Unknown Error"
 
@@ -1364,195 +1364,286 @@ msgstr "Create Graph with Layout Adjustment"
 msgid "保存先を選んで下さい"
 msgstr "Choose save destination"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:291
+#: guis/GUI03_Fiber_Height_Histogram.py:468
 msgid "グループ追加"
 msgstr "Add Group"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:294
-#: guis/GUI03_Fiber_Height_Histogram.py:1168
+#: guis/GUI03_Fiber_Height_Histogram.py:471
+#: guis/GUI03_Fiber_Height_Histogram.py:1610
 msgid "グループ削除"
 msgstr "Delete Group"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:297
+#: guis/GUI03_Fiber_Height_Histogram.py:474
 msgid "↑"
 msgstr "↑"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:300
+#: guis/GUI03_Fiber_Height_Histogram.py:477
 msgid "↓"
 msgstr "↓"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:303
+#: guis/GUI03_Fiber_Height_Histogram.py:480
 msgid "フォルダ追加"
 msgstr "Add Folder"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:306
+#: guis/GUI03_Fiber_Height_Histogram.py:483
 msgid "フォルダ削除"
 msgstr "Delete Folder"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:309
+#: guis/GUI03_Fiber_Height_Histogram.py:486
 msgid "全クリア"
 msgstr "Clear All"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:322
+#: guis/GUI03_Fiber_Height_Histogram.py:499
 msgid "グループ／フォルダ"
 msgstr "Group/Folder"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:323
+#: guis/GUI03_Fiber_Height_Histogram.py:500
 msgid "有効バンドル数"
 msgstr "Valid Bundle Count"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:339
-#: guis/GUI03_Fiber_Height_Histogram.py:909
+#: guis/GUI03_Fiber_Height_Histogram.py:516
+#: guis/GUI03_Fiber_Height_Histogram.py:1351
 #, python-brace-format
 msgid "グループ数: {g} / 有効バンドル総数: {p} / 欠損: {m}"
 msgstr "Groups: {g} / Total valid bundles: {p} / Missing: {m}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:355
-#: guis/GUI03_Fiber_Height_Histogram.py:1846
+#: guis/GUI03_Fiber_Height_Histogram.py:532
+#: guis/GUI03_Fiber_Height_Histogram.py:2519
 msgid "統計値を保存"
 msgstr "Save Statistics"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:440
+#: guis/GUI03_Fiber_Height_Histogram.py:651
+#, python-brace-format
+msgid "{param} ({value_unit}) / {sample} 単位"
+msgstr "{param} ({value_unit}) per {sample}"
+
+#: guis/GUI03_Fiber_Height_Histogram.py:711
 msgid "ヒストグラム作成"
 msgstr "Create Histogram"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:446
+#: guis/GUI03_Fiber_Height_Histogram.py:717
 msgid "数値を保存"
 msgstr "Save Values"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:463
+#: guis/GUI03_Fiber_Height_Histogram.py:745
+msgid "計測量"
+msgstr "Quantity"
+
+#: guis/GUI03_Fiber_Height_Histogram.py:754
+#, python-brace-format
+msgid ""
+"比較する形態パラメータを選びます。{height} はバンドルの補正済み画像と細線化画像から直接収集します。{length} / {angle} "
+"/ {density} はファイバー追跡の結果から算出するため、バンドルに走査範囲が記録されている必要があります。"
+msgstr ""
+"Choose the morphological parameter to compare. {height} is collected "
+"directly from the calibrated and skeletonized images in the bundle. "
+"{length} / {angle} / {density} are derived from fiber tracking, so the "
+"bundle must have a recorded scan size."
+
+#: guis/GUI03_Fiber_Height_Histogram.py:763
+msgid "集計単位"
+msgstr "Sample unit"
+
+#: guis/GUI03_Fiber_Height_Histogram.py:773
+#, python-brace-format
+msgid ""
+"1 標本の数え方を選びます。{pixel} は骨格画素 1 点、{kink} はキンク 1 点、{fiber} はファイバー 1 "
+"本（高さとキンク角はファイバー内の中央値）、{image} は画像 1 枚（その画像のファイバー値の中央値）です。{pixel} "
+"でまとめた分布は独立観測ではなく、長いファイバーほど重みが大きくなるため、群間比較では {fiber} または {image} "
+"でも確認してください。"
+msgstr ""
+"Choose what counts as one sample. {pixel} is one skeleton pixel, {kink} is "
+"one kink, {fiber} is one fiber (height and kink angle use the median within "
+"that fiber), and {image} is one image (the median of that image's fiber "
+"values). A distribution pooled over {pixel} is not a set of independent "
+"observations and weighs longer fibers more heavily, so also check {fiber} "
+"or {image} when comparing groups."
+
+#: guis/GUI03_Fiber_Height_Histogram.py:793
+msgid "1 標本 = 骨格画素 1 点"
+msgstr "1 sample = 1 skeleton pixel"
+
+#: guis/GUI03_Fiber_Height_Histogram.py:794
+msgid "1 標本 = キンク 1 点"
+msgstr "1 sample = 1 kink"
+
+#: guis/GUI03_Fiber_Height_Histogram.py:795
+msgid "1 標本 = ファイバー 1 本"
+msgstr "1 sample = 1 fiber"
+
+#: guis/GUI03_Fiber_Height_Histogram.py:796
+msgid "1 標本 = 画像 1 枚"
+msgstr "1 sample = 1 image"
+
+#: guis/GUI03_Fiber_Height_Histogram.py:852
+#, python-brace-format
+msgid ""
+"計測量を {param} に変更しました。ヒストグラム範囲を既定値（min={min}, max={max}, "
+"step={step}）に戻しました。"
+msgstr ""
+"Quantity changed to {param}. The histogram range was reset to its default "
+"(min={min}, max={max}, step={step})."
+
+#: guis/GUI03_Fiber_Height_Histogram.py:894
 msgid "min"
 msgstr "min"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:472
+#: guis/GUI03_Fiber_Height_Histogram.py:903
 msgid "max"
 msgstr "max"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:481
+#: guis/GUI03_Fiber_Height_Histogram.py:912
 msgid "step"
 msgstr "step"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:493
+#: guis/GUI03_Fiber_Height_Histogram.py:924
 msgid "Y"
 msgstr "Y"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:504
+#: guis/GUI03_Fiber_Height_Histogram.py:935
 msgid "縦並び"
 msgstr "Vertical Layout"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:516
+#: guis/GUI03_Fiber_Height_Histogram.py:947
 msgid "統計値表示"
 msgstr "Show Statistics"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:536
+#: guis/GUI03_Fiber_Height_Histogram.py:967
 msgid "横長"
 msgstr "Landscape"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:547
+#: guis/GUI03_Fiber_Height_Histogram.py:978
 msgid "縦長"
 msgstr "Portrait"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:556
+#: guis/GUI03_Fiber_Height_Histogram.py:987
 msgid "フォントサイズ：グループ名"
 msgstr "Font Size: Group Name"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:583
+#: guis/GUI03_Fiber_Height_Histogram.py:1014
 msgid "統計値"
 msgstr "Statistics"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:644
+#: guis/GUI03_Fiber_Height_Histogram.py:1075
 msgid "使い方:\n"
 msgstr "How to use:\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:645
+#: guis/GUI03_Fiber_Height_Histogram.py:1076
 msgid "  1)「グループ追加」でデータ群を作成（自動で 1 個作成済み）\n"
 msgstr ""
 "  1) Create a dataset group with \"Add Group\" (one is created "
 "automatically)\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:646
+#: guis/GUI03_Fiber_Height_Histogram.py:1077
 msgid "  2) Treeview でグループを選び「フォルダ追加」で .b2z バンドルを含むフォルダを登録\n"
 msgstr ""
 "  2) Select a group in the Treeview and register folders containing .b2z "
 "bundles with \"Add Folder\"\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:647
-msgid "  3) 条件と表示モード（縦並び/重ね表示）を設定して「ヒストグラム作成」\n"
+#: guis/GUI03_Fiber_Height_Histogram.py:1078
+msgid "  3) 計測量と集計単位、条件と表示モード（縦並び/重ね表示）を設定して「ヒストグラム作成」\n"
 msgstr ""
-"  3) Set conditions and display mode (vertical/overlay), then click "
-"\"Create Histogram\"\n"
+"  3) Set the quantity and sample unit, the range, and the display mode "
+"(vertical/overlay), then click \"Create Histogram\"\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:648
+#: guis/GUI03_Fiber_Height_Histogram.py:1079
 msgid "  4) 必要に応じて「画像を保存」「数値を保存（グループ別CSV）」\n"
 msgstr "  4) Use \"Save Image\" or \"Save Values (CSV by group)\" as needed\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:650
+#: guis/GUI03_Fiber_Height_Histogram.py:1081
 msgid "ヒント:\n"
 msgstr "Tips:\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:651
+#: guis/GUI03_Fiber_Height_Histogram.py:1082
 msgid "  - グループをダブルクリックで名前変更／右クリックで色変更\n"
 msgstr "  - Double-click a group to rename it / right-click to change its color\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:652
+#: guis/GUI03_Fiber_Height_Histogram.py:1083
 #, python-brace-format
 msgid "  - 縦軸モード: 非表示=目盛なし / {density}=割合(0–1) / {percent}=パーセント\n"
 msgstr ""
 "  - Y-axis mode: hidden=no ticks / {density}=fraction (0-1) / "
 "{percent}=percentage\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:655
+#: guis/GUI03_Fiber_Height_Histogram.py:1086
 #, python-brace-format
 msgid "  - グループ間でデータ数が大きく異なるときは {density} または {percent} を推奨\n"
 msgstr "  - Use {density} or {percent} when group sizes differ substantially\n"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:715
+#: guis/GUI03_Fiber_Height_Histogram.py:1089
+#, python-brace-format
+msgid ""
+"  - {pixel} "
+"集計は骨格画素をまとめた分布で、長いファイバーほど重みが大きく、同一ファイバーの隣接画素も独立ではありません。群間比較の根拠には {fiber} "
+"または {image} 集計での N も併せて確認してください。\n"
+msgstr ""
+"  - {pixel} aggregation pools skeleton pixels: longer fibers weigh more, "
+"and neighboring pixels of one fiber are not independent. When a group "
+"comparison rests on it, also check N under {fiber} or {image} "
+"aggregation.\n"
+
+#: guis/GUI03_Fiber_Height_Histogram.py:1094
+#, python-brace-format
+msgid "  - {height} 以外の計測量はファイバー追跡を行うため、バンドルに走査範囲が記録されている必要があり、処理時間も長くなります。\n"
+msgstr ""
+"  - Quantities other than {height} run fiber tracking, so the bundle must "
+"have a recorded scan size and processing takes longer.\n"
+
+#: guis/GUI03_Fiber_Height_Histogram.py:1096
+msgid ""
+"  - mode はヒストグラムのビン幅に依存します。step を変えると値が変わるため、報告には median と IQR を併記してください。"
+"\n"
+msgstr ""
+"  - mode depends on the histogram bin width and changes with step, so "
+"report median and IQR alongside it.\n"
+
+#: guis/GUI03_Fiber_Height_Histogram.py:1155
 msgid "step は正の値にしてください。"
 msgstr "Step must be a positive value."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:717
+#: guis/GUI03_Fiber_Height_Histogram.py:1157
 msgid "max height は min height より大きくしてください。"
 msgstr "Max height must be greater than min height."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:753
+#: guis/GUI03_Fiber_Height_Histogram.py:1193
 msgid "ヒストグラムの横/縦の長さは正の値にしてください。"
 msgstr "Histogram width/height must be positive values."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:756
+#: guis/GUI03_Fiber_Height_Histogram.py:1196
 msgid "フォントサイズは正の値にしてください。"
 msgstr "Font sizes must be positive values."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:834
+#: guis/GUI03_Fiber_Height_Histogram.py:1276
 msgid "pairs"
 msgstr "pairs"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:945
+#: guis/GUI03_Fiber_Height_Histogram.py:1387
 #, python-brace-format
 msgid "[アクセス不可] {err}"
 msgstr "[Access Denied] {err}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:949
+#: guis/GUI03_Fiber_Height_Histogram.py:1391
 #, python-brace-format
 msgid "バンドルなし（*{ext} が見つかりません）"
 msgstr "No bundle (*{ext} not found)"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:991
+#: guis/GUI03_Fiber_Height_Histogram.py:1433
 #, python-brace-format
 msgid "グループ追加: {name}"
 msgstr "Group added: {name}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1000
-#: guis/GUI03_Fiber_Height_Histogram.py:1022
-#: guis/GUI03_Fiber_Height_Histogram.py:1059
-#: guis/GUI03_Fiber_Height_Histogram.py:1111
+#: guis/GUI03_Fiber_Height_Histogram.py:1442
+#: guis/GUI03_Fiber_Height_Histogram.py:1464
+#: guis/GUI03_Fiber_Height_Histogram.py:1501
+#: guis/GUI03_Fiber_Height_Histogram.py:1553
 msgid "未選択"
 msgstr "Nothing selected"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1000
+#: guis/GUI03_Fiber_Height_Histogram.py:1442
 msgid "削除するグループを選択してください。"
 msgstr "Please select a group to delete."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1007
+#: guis/GUI03_Fiber_Height_Histogram.py:1449
 #, python-brace-format
 msgid ""
 "グループ「{name}」を削除しますか？\n"
@@ -1561,204 +1652,217 @@ msgstr ""
 "Delete group \"{name}\"?\n"
 "All folder registrations in this group will also be removed."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1013
+#: guis/GUI03_Fiber_Height_Histogram.py:1455
 #, python-brace-format
 msgid "グループ削除: {name}"
 msgstr "Group deleted: {name}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1022
+#: guis/GUI03_Fiber_Height_Histogram.py:1464
 msgid "並び替えるグループを選択してください。"
 msgstr "Please select a group to reorder."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1042
+#: guis/GUI03_Fiber_Height_Histogram.py:1484
 msgid "すべてのグループとフォルダ登録を削除しますか？"
 msgstr "Delete all groups and folder registrations?"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1049
+#: guis/GUI03_Fiber_Height_Histogram.py:1491
 msgid "全クリアしました。"
 msgstr "All cleared."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1060
+#: guis/GUI03_Fiber_Height_Histogram.py:1502
 msgid "フォルダを追加する先のグループを Treeview で選択してください。"
 msgstr "Select the group to add the folder to in the Treeview."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1064
+#: guis/GUI03_Fiber_Height_Histogram.py:1506
 msgid "解析対象フォルダを選択"
 msgstr "Select Analysis Target Folder"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1070
+#: guis/GUI03_Fiber_Height_Histogram.py:1512
 msgid "重複"
 msgstr "Duplicate"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1070
+#: guis/GUI03_Fiber_Height_Histogram.py:1512
 msgid "このフォルダは同じグループに既に登録されています。"
 msgstr "This folder is already registered in the same group."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1078
+#: guis/GUI03_Fiber_Height_Histogram.py:1520
 #, python-brace-format
 msgid "注意: 「{f}」は別グループ「{n}」にも登録されています。"
 msgstr "Warning: \"{f}\" is also registered in another group \"{n}\"."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1097
+#: guis/GUI03_Fiber_Height_Histogram.py:1539
 #, python-brace-format
 msgid "[{name}] 追加: {path}"
 msgstr "[{name}] Added: {path}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1098
+#: guis/GUI03_Fiber_Height_Histogram.py:1540
 #, python-brace-format
 msgid "有効ペア数: {n}"
 msgstr "Valid pairs: {n}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1100
+#: guis/GUI03_Fiber_Height_Histogram.py:1542
 msgid "欠損/注意:"
 msgstr "Missing/Warning:"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1111
+#: guis/GUI03_Fiber_Height_Histogram.py:1553
 msgid "削除するフォルダ行を選択してください。"
 msgstr "Please select the folder row to delete."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1120
+#: guis/GUI03_Fiber_Height_Histogram.py:1562
 #, python-brace-format
 msgid "[{name}] フォルダ削除: {path}"
 msgstr "[{name}] Folder deleted: {path}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1165
+#: guis/GUI03_Fiber_Height_Histogram.py:1607
 msgid "名前を変更"
 msgstr "Rename"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1166
+#: guis/GUI03_Fiber_Height_Histogram.py:1608
 msgid "色を変更"
 msgstr "Change Color"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1178
+#: guis/GUI03_Fiber_Height_Histogram.py:1620
 msgid "フォルダ名をグループ名にする"
 msgstr "Use folder name as group name"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1182
+#: guis/GUI03_Fiber_Height_Histogram.py:1624
 msgid "フォルダ名をコピーする"
 msgstr "Copy folder name"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1196
-#: guis/GUI03_Fiber_Height_Histogram.py:1230
+#: guis/GUI03_Fiber_Height_Histogram.py:1638
+#: guis/GUI03_Fiber_Height_Histogram.py:1672
 #, python-brace-format
 msgid "注意: 同名のグループ「{n}」が既に存在します。"
 msgstr "Warning: a group with the same name \"{n}\" already exists."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1199
-#: guis/GUI03_Fiber_Height_Histogram.py:1233
+#: guis/GUI03_Fiber_Height_Histogram.py:1641
+#: guis/GUI03_Fiber_Height_Histogram.py:1675
 #, python-brace-format
 msgid "グループ名変更: {name}"
 msgstr "Group renamed: {name}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1209
+#: guis/GUI03_Fiber_Height_Histogram.py:1651
 #, python-brace-format
 msgid "フォルダ名をコピーしました: {name}"
 msgstr "Copied folder name: {name}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1217
+#: guis/GUI03_Fiber_Height_Histogram.py:1659
 msgid "グループ名変更"
 msgstr "Rename Group"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1218
+#: guis/GUI03_Fiber_Height_Histogram.py:1660
 msgid "新しいグループ名を入力してください:"
 msgstr "Enter a new group name:"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1240
+#: guis/GUI03_Fiber_Height_Histogram.py:1682
 msgid "グループ色を選択"
 msgstr "Select Group Color"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1245
+#: guis/GUI03_Fiber_Height_Histogram.py:1687
 #, python-brace-format
 msgid "[{name}] 色を変更: {c}"
 msgstr "[{name}] Color changed: {c}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1264
-#: guis/GUI03_Fiber_Height_Histogram.py:1269
+#: guis/GUI03_Fiber_Height_Histogram.py:1706
+#: guis/GUI03_Fiber_Height_Histogram.py:1711
 msgid "入力不足"
 msgstr "Insufficient Input"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1264
+#: guis/GUI03_Fiber_Height_Histogram.py:1706
 msgid "グループが登録されていません。"
 msgstr "No groups registered."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1270
+#: guis/GUI03_Fiber_Height_Histogram.py:1712
 msgid "どのグループにもフォルダが登録されていません。"
 msgstr "No folders registered."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1288
-#: guis/GUI03_Fiber_Height_Histogram.py:1294
+#: guis/GUI03_Fiber_Height_Histogram.py:1730
+#: guis/GUI03_Fiber_Height_Histogram.py:1736
 msgid "設定エラー"
 msgstr "Setting Error"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1289
+#: guis/GUI03_Fiber_Height_Histogram.py:1731
 msgid "ヒストグラム範囲が不正です（min < max かつ step > 0）。"
 msgstr "Histogram range is invalid (min < max and step > 0 required)."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1295
+#: guis/GUI03_Fiber_Height_Histogram.py:1737
 msgid "サイズ/フォントサイズは正の値にしてください。"
 msgstr "Size and font size values must be positive."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1303
+#: guis/GUI03_Fiber_Height_Histogram.py:1745
 #, python-brace-format
 msgid "注意: グループ間でデータ数が異なる場合、生カウント比較は誤解を招く可能性があります。{density} または {percent} を推奨します。"
 msgstr ""
 "Warning: if data counts differ between groups, comparing raw counts may "
 "be misleading. Use {density} or {percent}."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1314
+#: guis/GUI03_Fiber_Height_Histogram.py:1756
 msgid "有効ペアなし"
 msgstr "No Valid Pairs"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1315
+#: guis/GUI03_Fiber_Height_Histogram.py:1757
 msgid "有効な calibrated/skeletonized バンドルが見つかりません。ログを確認してください。"
 msgstr "No valid calibrated/skeletonized bundles found. Please check the log."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1382
+#: guis/GUI03_Fiber_Height_Histogram.py:1834
 msgid "致命的エラー"
 msgstr "Fatal Error"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1428
+#: guis/GUI03_Fiber_Height_Histogram.py:1965
 #, python-brace-format
 msgid "[{grp}/{folder}] {msg}"
 msgstr "[{grp}/{folder}] {msg}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1433
+#: guis/GUI03_Fiber_Height_Histogram.py:1970
 #, python-brace-format
 msgid "[{grp}/{folder}] 有効ペアがありません"
 msgstr "[{grp}/{folder}] No valid pairs"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1449
+#: guis/GUI03_Fiber_Height_Histogram.py:1988
 #, python-brace-format
-msgid "[{grp}/{folder}] 高さ抽出に失敗: {err}"
-msgstr "[{grp}/{folder}] Height extraction failed: {err}"
+msgid "[{grp}/{folder}] {n} バンドルを計測中..."
+msgstr "[{grp}/{folder}] Measuring {n} bundles..."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1458
+#: guis/GUI03_Fiber_Height_Histogram.py:1997
+#, python-brace-format
+msgid "[{grp}/{folder}] {param} の抽出に失敗: {err}"
+msgstr "[{grp}/{folder}] {param} extraction failed: {err}"
+
+#: guis/GUI03_Fiber_Height_Histogram.py:2006
 #, python-brace-format
 msgid "[{grp}/{folder}] 読込失敗: {base} ({err})"
 msgstr "[{grp}/{folder}] Load failed: {base} ({err})"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1467
+#: guis/GUI03_Fiber_Height_Histogram.py:2018
 #, python-brace-format
 msgid "[{grp}] データ 0 件のためスキップしました"
 msgstr "[{grp}] Skipped because there are 0 data points"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1483
-msgid "どのグループからも高さデータを得られませんでした..."
-msgstr "Could not obtain height data from any group..."
+#: guis/GUI03_Fiber_Height_Histogram.py:2047
+#, python-brace-format
+msgid "どのグループからも {param} のデータを得られませんでした。ログを確認してください。"
+msgstr "Could not obtain {param} data from any group. Check the log."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1492
+#: guis/GUI03_Fiber_Height_Histogram.py:2057
 msgid "ヒストグラム範囲の準備に失敗しました。"
 msgstr "Failed to prepare the histogram range."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1581
+#: guis/GUI03_Fiber_Height_Histogram.py:2081
+#, python-brace-format
+msgid "[{grp}] {k} 件がヒストグラム範囲外です（統計値は全 {n} 件から計算しています）"
+msgstr ""
+"[{grp}] {k} samples fall outside the histogram range (statistics are "
+"computed from all {n} samples)"
+
+#: guis/GUI03_Fiber_Height_Histogram.py:2182
 msgid "=== エラー/注意（処理は継続しました） ==="
 msgstr "=== Errors/Warnings (processing continued) ==="
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1585
+#: guis/GUI03_Fiber_Height_Histogram.py:2186
 msgid "一部エラー"
 msgstr "Partial Errors"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1586
+#: guis/GUI03_Fiber_Height_Histogram.py:2187
 #, python-brace-format
 msgid ""
 "完了しましたが、エラー/欠損が {n} 件ありました。\n"
@@ -1767,33 +1871,33 @@ msgstr ""
 "Completed with {n} error(s)/missing file(s).\n"
 "Please check the log for details."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1732
-#: guis/GUI03_Fiber_Height_Histogram.py:1748
-#: guis/GUI03_Fiber_Height_Histogram.py:1812
+#: guis/GUI03_Fiber_Height_Histogram.py:2374
+#: guis/GUI03_Fiber_Height_Histogram.py:2390
+#: guis/GUI03_Fiber_Height_Histogram.py:2463
 msgid "未作成"
 msgstr "Not Created"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1732
-#: guis/GUI03_Fiber_Height_Histogram.py:1748
-#: guis/GUI03_Fiber_Height_Histogram.py:1812
+#: guis/GUI03_Fiber_Height_Histogram.py:2374
+#: guis/GUI03_Fiber_Height_Histogram.py:2390
+#: guis/GUI03_Fiber_Height_Histogram.py:2463
 msgid "先にヒストグラムを作成してください。"
 msgstr "Please create the histogram first."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1752
+#: guis/GUI03_Fiber_Height_Histogram.py:2394
 msgid "CSV 保存先フォルダを選択"
 msgstr "Select CSV Save Folder"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1782
+#: guis/GUI03_Fiber_Height_Histogram.py:2433
 #, python-brace-format
 msgid "{n} 個のCSVを保存しました → {dir}"
 msgstr "Saved {n} CSV files -> {dir}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1787
-#: guis/GUI03_Fiber_Height_Histogram.py:1849 lib/ui_tools.py:206
+#: guis/GUI03_Fiber_Height_Histogram.py:2438
+#: guis/GUI03_Fiber_Height_Histogram.py:2522 lib/ui_tools.py:206
 msgid "保存失敗"
 msgstr "Save Failed"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1787 lib/ui_tools.py:615
+#: guis/GUI03_Fiber_Height_Histogram.py:2438 lib/ui_tools.py:615
 #, python-brace-format
 msgid ""
 "CSVの保存に失敗しました:\n"
@@ -1802,7 +1906,7 @@ msgstr ""
 "Failed to save CSV:\n"
 "{e}"
 
-#: guis/GUI03_Fiber_Height_Histogram.py:1848
+#: guis/GUI03_Fiber_Height_Histogram.py:2521
 #, python-brace-format
 msgid "統計値を保存しました → {path}"
 msgstr "Statistics saved -> {path}"
@@ -1908,8 +2012,8 @@ msgid ""
 "選択中ファイバーの黄色い枠は常に表示されます。"
 msgstr ""
 "Toggles the per-fiber numbers and dashed boxes.\n"
-"Turning them off makes the overview redraw noticeably faster, which helps "
-"when zooming and panning feel slow.\n"
+"Turning them off makes the overview redraw noticeably faster, which helps"
+" when zooming and panning feel slow.\n"
 "The yellow box on the selected fiber is always shown."
 
 #: guis/GUI04_Tracking_fiber.py:792
@@ -2486,23 +2590,31 @@ msgstr ""
 "Height profile graphs can also be exported as images after adjusting the "
 "layout."
 
-#: guis/GUI03_Fiber_Height_Histogram.py:20
+#: guis/GUI03_Fiber_Height_Histogram.py:33
 msgid ""
-"AFMで撮影したナノファイバーの高さヒストグラムをGUIで作成するプログラムです。\n"
+"AFMで撮影したナノファイバーの形態パラメータのヒストグラムをGUIで作成するプログラムです。\n"
 "入力データには、Image Preprocessor が出力する .b2z バンドルファイルが必要です。\n"
-"バンドル内の calibrated（BG補正済み画像）および "
-"skeletonized（細線化画像）が読み込まれ、細線化された領域における補正済み画像の高さ値を収集してヒストグラムを作成します。\n"
-"複数のデータ群（グループ）を登録すると、グループごとに別々のヒストグラムを作成し、縦並び・重ね表示で比較表示できます。"
+"計測量は height（高さ）、contour length（輪郭長）、kink angle（キンク角）、kink "
+"density（キンク密度）から選べます。高さはバンドル内の calibrated（BG補正済み画像）と "
+"skeletonized（細線化画像）から収集し、輪郭長・キンク量はファイバー追跡結果から算出します。\n"
+"集計単位（骨格画素・ファイバー・キンク・画像）を切り替えられるため、画素をまとめた分布だけでなく、ファイバー単位・画像単位の分布としても比較できます。"
+"\n"
+"複数のデータ群（グループ）を登録すると、グループごとに別々のヒストグラムを作成し、縦並び・重ね表示で比較表示できます。中央値・四分位範囲・平均・標準偏差・最頻値と、標本数の内訳を併記します。"
 msgstr ""
-"Create height histograms of AFM nanofibers through a GUI.\n"
+"Create histograms of the morphological parameters of AFM nanofibers "
+"through a GUI.\n"
 "Input data must be .b2z bundle files output by Image Preprocessor.\n"
-"The calibrated (background-corrected image) and skeletonized "
-"(skeletonized image) data in each bundle are loaded, and height values "
-"from the corrected image are collected over skeletonized regions to "
-"create histograms.\n"
+"The quantity can be height, contour length, kink angle, or kink density. "
+"Height is collected from the calibrated (background-corrected) and "
+"skeletonized images in the bundle, while contour length and the kink "
+"quantities are derived from fiber tracking.\n"
+"The aggregation unit (skeleton pixel, fiber, kink, or image) is "
+"switchable, so distributions can be compared per fiber or per image "
+"rather than only as pooled pixels.\n"
 "When multiple data groups are registered, separate histograms are created"
 " for each group, and they can be compared in vertical layout or overlay "
-"display."
+"display. Median, interquartile range, mean, standard deviation, mode, and "
+"the sample-count breakdown are reported alongside."
 
 #: guis/GUI04_Tracking_fiber.py:31
 msgid ""

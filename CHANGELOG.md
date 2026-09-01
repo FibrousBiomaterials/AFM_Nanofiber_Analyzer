@@ -10,6 +10,49 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- GUI03 compares three morphological quantities besides height: `contour
+  length`, `kink angle`, and `kink density` (kinks per micrometer of contour).
+  These are the quantities dedicated fiber-tracking software reports for this
+  class of sample, and kink geometry in particular is what nanocellulose
+  studies use to characterize processing damage — the pipeline already
+  detected it, but only GUI04 could show it, one fiber at a time, with no way
+  to compare groups. Height still comes from the calibrated image at
+  skeletonized pixels; the other three come from the same per-fiber
+  measurement `cli.py measure` and GUI04 use, so they require a bundle with a
+  recorded scan size and take noticeably longer to compute.
+
+- A GUI03 aggregation-unit selector deciding what counts as one sample:
+  `pixel`, `kink`, `fiber` (the median within that fiber for height and kink
+  angle), or `image` (the median of that image's fiber values). Pooled
+  skeleton pixels are not independent observations — a long fiber contributes
+  more pixels than a short one, and neighboring pixels of one fiber repeat the
+  same object — so a group difference measured that way cannot carry the
+  weight a per-fiber or per-image one does. The statistics table and the figure
+  annotation therefore report the sample count broken down into samples,
+  fibers, and images rather than a single N. The default remains height per
+  skeleton pixel, so existing histograms are unchanged.
+
+- GUI03 reports median and interquartile range beside mean, standard
+  deviation, and mode, in the table, the figure annotation, and the statistics
+  CSV. Fiber morphology distributions are right-skewed (contour length
+  especially), and the mode moves with the histogram bin width, so neither
+  mean ± SD nor mode alone describes them. The statistics CSV gains
+  `quantity`, `sample unit`, `N samples`, `N in range`, `N fibers`, and
+  `N images` columns, and the raw-value CSV file names now carry the quantity
+  and unit (`<group>_contour_length_fiber.csv`) instead of always `_heights`.
+
+- GUI03 logs how many samples fall outside the plotted histogram range. The
+  summary statistics describe the whole sample while the bars show only the
+  selected range; the count makes that difference visible instead of leaving
+  excluded data silently missing from the figure.
+
+- `lib.measure.collect_fiber_stats`, the multi-bundle wrapper of
+  `measure_bundle` and the per-fiber counterpart of `skeleton_height_values`.
+  It shares that failure contract — an unreadable bundle, or one without a
+  recorded scan size, becomes an error entry instead of aborting the
+  collection — and returns results per bundle so the caller decides whether
+  one sample is one fiber or one image.
+
 - Pan and zoom on GUI04's AFM overview, matching GUI02: the matplotlib
   Pan/Zoom toolbar plus a "リセット" button, a "選択へズーム" button, and a
   "番号・枠" toggle for the per-fiber numbers and dashed boxes. On a dense scan

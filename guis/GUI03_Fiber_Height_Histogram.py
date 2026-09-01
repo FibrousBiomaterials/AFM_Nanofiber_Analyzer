@@ -1,12 +1,25 @@
 """
-Interactive height histogram GUI for AFM nanofiber analysis.
-AFM ナノファイバー解析用の高さヒストグラム GUI。
+Interactive morphology histogram GUI for AFM nanofiber analysis.
+AFM ナノファイバー解析用の形態パラメータヒストグラム GUI。
 
-Loads ``.b2z`` bundles produced by the image preprocessor, extracts height
-values from calibrated images at skeletonized fiber pixels, and compares the
-resulting distributions across user-defined groups.
-画像前処理 GUI が出力した ``.b2z`` バンドルを読み込み、細線化された繊維画素位置の
-補正済み画像の高さ値を抽出し、ユーザー定義グループ間で分布を比較する。
+Loads ``.b2z`` bundles produced by the image preprocessor and compares the
+distribution of one morphological quantity — height, contour length, kink
+angle, or kink density — across user-defined groups.
+画像前処理 GUI が出力した ``.b2z`` バンドルを読み込み、形態パラメータ
+（高さ・輪郭長・キンク角・キンク密度）のいずれか 1 つの分布を、ユーザー定義
+グループ間で比較する。
+
+The aggregation unit selects what counts as one sample: a skeleton pixel, a
+fiber, one kink, or a whole image. This matters for reporting because pooled
+skeleton pixels are not independent observations — a long fiber contributes
+more pixels than a short one, and neighboring pixels of one fiber repeat the
+same object — so group comparisons should also be inspected per fiber or per
+image.
+集計単位は「1 標本」を何と数えるかを選ぶ（骨格画素・ファイバー 1 本・キンク
+1 点・画像 1 枚）。骨格画素をまとめた分布は独立観測ではなく（長いファイバー
+ほど多くの画素を出し、同一ファイバーの隣接画素は同じ対象の繰り返しになる）、
+群間比較ではファイバー単位・画像単位でも確認する必要があるため、報告上この
+区別が重要になる。
 """
 
 # ===== Plugin metadata =====
@@ -17,10 +30,11 @@ resulting distributions across user-defined groups.
 PLUGIN_INFO = {
     "name": "Fiber Height Histogram",
     "description": (
-        "AFMで撮影したナノファイバーの高さヒストグラムをGUIで作成するプログラムです。\n"
+        "AFMで撮影したナノファイバーの形態パラメータのヒストグラムをGUIで作成するプログラムです。\n"
         "入力データには、Image Preprocessor が出力する .b2z バンドルファイルが必要です。\n"
-        "バンドル内の calibrated（BG補正済み画像）および skeletonized（細線化画像）が読み込まれ、細線化された領域における補正済み画像の高さ値を収集してヒストグラムを作成します。\n"
-        "複数のデータ群（グループ）を登録すると、グループごとに別々のヒストグラムを作成し、縦並び・重ね表示で比較表示できます。"
+        "計測量は height（高さ）、contour length（輪郭長）、kink angle（キンク角）、kink density（キンク密度）から選べます。高さはバンドル内の calibrated（BG補正済み画像）と skeletonized（細線化画像）から収集し、輪郭長・キンク量はファイバー追跡結果から算出します。\n"
+        "集計単位（骨格画素・ファイバー・キンク・画像）を切り替えられるため、画素をまとめた分布だけでなく、ファイバー単位・画像単位の分布としても比較できます。\n"
+        "複数のデータ群（グループ）を登録すると、グループごとに別々のヒストグラムを作成し、縦並び・重ね表示で比較表示できます。中央値・四分位範囲・平均・標準偏差・最頻値と、標本数の内訳を併記します。"
     )
 }
 
@@ -50,15 +64,163 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # ===== Project libraries =====
 from lib.blosc2_io import BUNDLE_EXT
-from lib.measure import skeleton_height_values
+from lib.measure import collect_fiber_stats, skeleton_height_values
 from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, setup_matplotlib_style, save_figure_with_dialog,
     setup_ttk_theme,
     save_text_widget_log, create_scrolled_text, create_scrolled_treeview,
     drain_ui_queue, save_csv_with_dialog, bind_mousewheel_scroll,
+    UNIT_MICROMETER, ToolTip,
     UnconfirmedEntryMixin, LogMixin,
 )
+
+
+# ===== Measured quantities and aggregation units =====
+# These are internal state keys and plot text, so they stay fixed English and
+# are never wrapped with _(): they name axes, CSV columns, and exported labels.
+# これらは内部状態キー兼プロット表記のため、固定英語のままとし _() を付けない。
+# 軸ラベル・CSV 列・出力ラベルに使われる。
+PARAM_HEIGHT = "height"
+PARAM_LENGTH = "contour length"
+PARAM_KINK_ANGLE = "kink angle"
+PARAM_KINK_DENSITY = "kink density"
+
+UNIT_PIXEL = "pixel"
+UNIT_KINK = "kink"
+UNIT_FIBER = "fiber"
+UNIT_IMAGE = "image"
+
+# Plural nouns used when reporting the sample count of each aggregation unit.
+# 各集計単位の標本数を表示するときに使う複数形の名詞。
+UNIT_NOUNS = {
+    UNIT_PIXEL: "px",
+    UNIT_KINK: "kinks",
+    UNIT_FIBER: "fibers",
+    UNIT_IMAGE: "images",
+}
+
+# Per-quantity display metadata and default histogram range.
+# The first entry of "units" is the default aggregation unit. The ranges are
+# starting points for typical nanocellulose scans, not physical limits: fibril
+# heights are a few nm, contour lengths hundreds of nm to a few µm, and kink
+# angles are interior angles so they approach 180 deg for a straight contour.
+# 計測量ごとの表示メタデータと既定ヒストグラム範囲。
+# "units" の先頭要素が既定の集計単位。範囲は典型的なナノセルロース試料向けの
+# 初期値であって物理的な上限下限ではない（フィブリル高さは数 nm、輪郭長は
+# 数百 nm〜数 µm、キンク角は内角なので直線的な輪郭ほど 180 度に近づく）。
+PARAM_SPECS = {
+    PARAM_HEIGHT: {
+        "slug": "height",
+        "value_unit": "nm",
+        "axis_label": "height (nm)",
+        "units": (UNIT_PIXEL, UNIT_FIBER, UNIT_IMAGE),
+        "default_range": (0.0, 10.0, 0.2),
+    },
+    PARAM_LENGTH: {
+        "slug": "contour_length",
+        "value_unit": "nm",
+        "axis_label": "contour length (nm)",
+        "units": (UNIT_FIBER, UNIT_IMAGE),
+        "default_range": (0.0, 3000.0, 100.0),
+    },
+    PARAM_KINK_ANGLE: {
+        "slug": "kink_angle",
+        "value_unit": "degree",
+        "axis_label": "kink angle (degree)",
+        "units": (UNIT_KINK, UNIT_FIBER, UNIT_IMAGE),
+        "default_range": (0.0, 180.0, 5.0),
+    },
+    PARAM_KINK_DENSITY: {
+        "slug": "kink_density",
+        "value_unit": "1/" + UNIT_MICROMETER,
+        "axis_label": "kink density (1/" + UNIT_MICROMETER + ")",
+        "units": (UNIT_FIBER, UNIT_IMAGE),
+        "default_range": (0.0, 20.0, 0.5),
+    },
+}
+
+# Order shown in the quantity selector.
+# 計測量セレクタに表示する順序。
+PARAM_ORDER = (PARAM_HEIGHT, PARAM_LENGTH, PARAM_KINK_ANGLE, PARAM_KINK_DENSITY)
+
+
+def _fiber_value(stat, param: str):
+    """
+    Return the per-fiber value of one measured quantity, or None if undefined.
+    1 本のファイバーにおける計測量の値を返す。定義できない場合は None。
+
+    Parameters
+    ----------
+    stat
+        Per-fiber statistics row from `lib.measure.compute_fiber_stats`.
+        `lib.measure.compute_fiber_stats` が返すファイバー単位の統計行。
+    param
+        Measured-quantity key from `PARAM_SPECS`.
+        `PARAM_SPECS` の計測量キー。
+
+    Returns
+    -------
+    float or None
+        Fiber-level value, or None when the fiber carries no such value.
+        ファイバー単位の値。その値を持たないファイバーでは None。
+
+    Notes
+    -----
+    A fiber represents its height and kink angle by the median of the values
+    sampled along it, so one fiber contributes exactly one sample regardless
+    of how long it is. Kink density is kinks per micrometer of contour, which
+    is the length-normalized form used to compare fibers of different length;
+    a fiber with no detected kink is a valid zero, not a missing value.
+    ファイバーの高さとキンク角は、そのファイバー上でサンプリングした値の
+    中央値で代表させる。これにより、長さにかかわらず 1 本が 1 標本になる。
+    キンク密度は輪郭長 1 µm あたりのキンク数で、長さの異なるファイバーを
+    比較するための長さ正規化形である。キンクが検出されなかったファイバーは
+    欠測ではなく 0 という有効な値として扱う。
+    """
+    if param == PARAM_HEIGHT:
+        return float(stat.height_median_nm)
+    if param == PARAM_LENGTH:
+        return float(stat.length_nm)
+    if param == PARAM_KINK_ANGLE:
+        if not stat.kink_angles_deg:
+            return None
+        return float(np.median(stat.kink_angles_deg))
+    if param == PARAM_KINK_DENSITY:
+        length_um = float(stat.length_nm) / 1000.0
+        if length_um <= 0.0:
+            return None
+        return float(stat.kink_count) / length_um
+    return None
+
+
+def _fiber_samples(stat, param: str, unit: str) -> list:
+    """
+    Return the samples one fiber contributes for a quantity and unit.
+    ある計測量・集計単位において 1 本のファイバーが出す標本を返す。
+
+    Parameters
+    ----------
+    stat
+        Per-fiber statistics row from `lib.measure.compute_fiber_stats`.
+        `lib.measure.compute_fiber_stats` が返すファイバー単位の統計行。
+    param
+        Measured-quantity key from `PARAM_SPECS`.
+        `PARAM_SPECS` の計測量キー。
+    unit
+        Aggregation-unit key; ``UNIT_KINK`` yields every kink of the fiber.
+        集計単位キー。``UNIT_KINK`` ではファイバー内の全キンクを返す。
+
+    Returns
+    -------
+    list of float
+        Zero or more samples, in track order for kink-level samples.
+        0 個以上の標本。キンク単位では追跡順に並ぶ。
+    """
+    if unit == UNIT_KINK:
+        return [float(a) for a in stat.kink_angles_deg]
+    value = _fiber_value(stat, param)
+    return [] if value is None else [value]
 
 
 def _default_color_palette():
@@ -161,8 +323,9 @@ class Group:
 
 class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
     """
-    Main window for grouped AFM nanofiber height histograms.
-    AFM ナノファイバー高さヒストグラムをグループ別に作成するメインウィンドウ。
+    Main window for grouped AFM nanofiber morphology histograms.
+    AFM ナノファイバーの形態パラメータヒストグラムをグループ別に作成する
+    メインウィンドウ。
 
     Attributes
     ----------
@@ -172,15 +335,21 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
     ui_queue
         Queue used to pass worker-thread results back to Tk's main thread.
         ワーカースレッドの結果を Tk メインスレッドへ渡すキュー。
+    param
+        Committed measured-quantity key from `PARAM_SPECS`.
+        確定済みの計測量キー（`PARAM_SPECS`）。
+    unit
+        Committed aggregation-unit key deciding what one sample counts as.
+        確定済みの集計単位キー。1 標本を何と数えるかを決める。
     min_h
-        Lower histogram edge in nanometers.
-        ヒストグラム下限値 (nm)。
+        Lower histogram edge, in the unit of the selected quantity.
+        ヒストグラム下限値（選択中の計測量の単位）。
     max_h
-        Upper histogram edge in nanometers.
-        ヒストグラム上限値 (nm)。
+        Upper histogram edge, in the unit of the selected quantity.
+        ヒストグラム上限値（選択中の計測量の単位）。
     step
-        Histogram bin width in nanometers.
-        ヒストグラムのビン幅 (nm)。
+        Histogram bin width, in the unit of the selected quantity.
+        ヒストグラムのビン幅（選択中の計測量の単位）。
     fig_w
         Figure width in inches.
         Figure の横幅 (inch)。
@@ -216,16 +385,24 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.groups = []
         self._last_results = None
         self._last_edges = None
+        self._last_param = None
+        self._last_unit = None
         self._has_result = False
 
         self.ui_queue = queue.Queue()
         self.is_running = False
 
+        # The measured quantity and the aggregation unit drive both the worker
+        # and every axis/heading label, so they are held as committed state
+        # rather than read from the widgets at draw time.
+        # 計測量と集計単位はワーカーと全ての軸・見出しラベルの両方を決めるため、
+        # 描画時にウィジェットから読むのではなく確定済み状態として保持する。
+        self.param = PARAM_HEIGHT
+        self.unit = PARAM_SPECS[PARAM_HEIGHT]["units"][0]
+
         # Keep committed values separate from Entry text so edits can be confirmed with Enter.
         # Entry の textvariable とは別に確定済みの値を保持し、Enter 確定で反映する。
-        self.min_h = 0.0
-        self.max_h = 10.0
-        self.step  = 0.2
+        self.min_h, self.max_h, self.step = PARAM_SPECS[PARAM_HEIGHT]["default_range"]
 
         # In stacked mode, fig_h is interpreted as the height of one subplot.
         # 縦並び時は fig_h を 1 サブプロット分の高さとして扱い、後で N 倍する。
@@ -357,31 +534,125 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
         self.btn_save_stats.pack(side=tk.LEFT)
 
+        # One caption carries the quantity, its unit, and the sample unit, so
+        # the value columns do not each have to repeat the unit. Repeating it
+        # widened the table enough to push the paned-window sash and shrink
+        # the plot area.
+        # 計測量・単位・集計単位はこのキャプションにまとめ、各数値列で単位を
+        # 繰り返さない。列ごとに単位を入れると表が広がり、ペインの仕切りが
+        # 動いてプロット領域が狭くなってしまう。
+        self.result_caption_var = tk.StringVar()
+        ttk.Label(res_btn_row, textvariable=self.result_caption_var).pack(
+            side=tk.LEFT, padx=(10, 0)
+        )
+        self._update_result_caption()
+
+        # The tree lives in its own row so a horizontal scrollbar can sit
+        # under it: the statistics row is wider than the left pane, and a
+        # Treeview clips overflowing columns without any scroll affordance.
+        # ツリーは専用の行に置き、その下に横スクロールバーを配置する。統計行は
+        # 左ペインより横に長く、Treeview は溢れた列をスクロール手段なしに
+        # 切り落としてしまうため。
+        res_tree_row = ttk.Frame(frm_res)
+        res_tree_row.pack(fill=tk.BOTH, expand=True, padx=6, pady=(6, 0))
+
         self.result_tree, _res_sb = create_scrolled_treeview(
-            frm_res,
-            columns=("group", "mean", "std", "mode", "n"),
+            res_tree_row,
+            columns=("group", "median", "iqr", "mean", "std", "mode",
+                     "n", "nfib", "nimg"),
             show="headings",
             height=5,
-            headings={
-                "group": "Group",
-                "mean": "mean (nm)",
-                "std": "std (nm)",
-                "mode": "mode (nm)",
-                "n": "N pixels",
-            },
+            headings=self._result_headings(self.param),
+            # Widths hold the formatted values, not a unit-bearing heading:
+            # the Treeview's requested width is the sum of these, and it
+            # pushes the paned-window sash, so every column widened here is
+            # width taken from the plot.
+            # 列幅は単位付き見出しではなく整形後の値に合わせる。Treeview の要求
+            # 幅はこれらの合計で、ペインの仕切りを押すため、ここで広げた分だけ
+            # プロット領域が狭くなる。
             column_options={
-                "group": {"width": 120, "anchor": "w"},
-                "mean": {"width": 80, "anchor": "e"},
-                "std": {"width": 80, "anchor": "e"},
-                "mode": {"width": 80, "anchor": "e"},
-                "n": {"width": 90, "anchor": "e"},
+                "group":  {"width": 100, "anchor": "w", "stretch": True},
+                "median": {"width": 72, "anchor": "e", "stretch": False},
+                "iqr":    {"width": 116, "anchor": "e", "stretch": False},
+                "mean":   {"width": 72, "anchor": "e", "stretch": False},
+                "std":    {"width": 68, "anchor": "e", "stretch": False},
+                "mode":   {"width": 68, "anchor": "e", "stretch": False},
+                "n":      {"width": 66, "anchor": "e", "stretch": False},
+                "nfib":   {"width": 62, "anchor": "e", "stretch": False},
+                "nimg":   {"width": 66, "anchor": "e", "stretch": False},
             },
             tree_pack_kwargs={
                 "side": tk.LEFT, "fill": tk.BOTH, "expand": True,
-                "padx": (6, 0), "pady": 6,
             },
             scrollbar_side=tk.LEFT,
-            scrollbar_pack_kwargs={"side": tk.LEFT, "fill": tk.Y, "pady": 6},
+            scrollbar_pack_kwargs={"side": tk.LEFT, "fill": tk.Y},
+        )
+
+        res_hsb = ttk.Scrollbar(
+            frm_res, orient=tk.HORIZONTAL, command=self.result_tree.xview,
+        )
+        self.result_tree.configure(xscrollcommand=res_hsb.set)
+        res_hsb.pack(fill=tk.X, padx=6, pady=(0, 6))
+
+    @staticmethod
+    def _result_headings(param: str) -> dict:
+        """
+        Return the result-table column headings.
+        結果テーブルの列見出しを返す。
+
+        Parameters
+        ----------
+        param
+            Measured-quantity key from `PARAM_SPECS`, reserved for headings
+            that need to vary by quantity.
+            `PARAM_SPECS` の計測量キー。計測量ごとに変える見出し用に受け取る。
+
+        Returns
+        -------
+        dict
+            Column-id to heading text mapping; headings are fixed English
+            because they label exported scientific quantities. The value unit
+            is not repeated per column — the caption above the table carries
+            it once.
+            列 ID から見出し文字列への対応。見出しは出力される科学的量の
+            ラベルであるため固定英語とする。値の単位は列ごとに繰り返さず、
+            表の上のキャプションで 1 回だけ示す。
+        """
+        return {
+            "group": "Group",
+            "median": "median",
+            "iqr": "IQR",
+            "mean": "mean",
+            "std": "std",
+            "mode": "mode",
+            "n": "N",
+            "nfib": "N fibers",
+            "nimg": "N images",
+        }
+
+    def _update_result_caption(self, param: str = None, unit: str = None) -> None:
+        """
+        Refresh the caption naming the quantity, its unit, and the sample unit.
+        計測量・単位・集計単位を示すキャプションを更新する。
+
+        Parameters
+        ----------
+        param
+            Quantity the table currently shows; defaults to the selection.
+            表が現在示している計測量。省略時は選択中の値。
+        unit
+            Aggregation unit the table currently shows; defaults to the
+            selection.
+            表が現在示している集計単位。省略時は選択中の値。
+        """
+        param = self.param if param is None else param
+        unit = self.unit if unit is None else unit
+        self.result_caption_var.set(
+            _("{param} ({value_unit}) / {sample} 単位").format(
+                param=param,
+                value_unit=PARAM_SPECS[param]["value_unit"],
+                sample=unit,
+            )
         )
 
     def _build_log_panel(self, parent: ttk.Frame) -> None:
@@ -446,11 +717,171 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.btn_save_csv = ttk.Button(actionbar, text=_("数値を保存"), command=self.on_save_csv, state=tk.DISABLED)
         self.btn_save_csv.pack(side=tk.LEFT, padx=(6, 0))
 
+    def _build_quantity_controls(self, parent: ttk.Frame) -> None:
+        """
+        Build the measured-quantity and aggregation-unit selectors.
+        計測量セレクタと集計単位セレクタを構築する。
+
+        Notes
+        -----
+        Both selectors invalidate cached results instead of redrawing them,
+        because a cached histogram belongs to the quantity and unit it was
+        computed with; redrawing it under a new axis label would present the
+        old numbers as if they were the new quantity.
+        どちらのセレクタもキャッシュ済み結果を再描画せず破棄する。キャッシュは
+        計算時の計測量・集計単位に紐づいており、新しい軸ラベルで再描画すると
+        古い数値を別の量として提示してしまうため。
+        """
+        parambar = ttk.Frame(parent)
+        parambar.pack(fill=tk.X, padx=6, pady=(6, 0))
+
+        # Quantity and unit keys are fixed English identifiers that also appear
+        # on axes and in exports, so they are shown verbatim; only the field
+        # labels and the hint text are localized. This matches the existing
+        # y-axis selector, which shows "density"/"percent" untranslated.
+        # 計測量・集計単位のキーは軸や出力にも現れる固定英語識別子のため、その
+        # まま表示し、ラベルとヒント文のみ翻訳対象とする。"density"/"percent"
+        # をそのまま表示する既存の縦軸セレクタと同じ方針。
+        ttk.Label(parambar, text=_("計測量")).pack(side=tk.LEFT)
+        self.param_var = tk.StringVar(value=self.param)
+        self.cmb_param = ttk.Combobox(
+            parambar, textvariable=self.param_var,
+            values=list(PARAM_ORDER), width=15, state="readonly",
+        )
+        self.cmb_param.pack(side=tk.LEFT, padx=(4, 12))
+        self.cmb_param.bind("<<ComboboxSelected>>", lambda _e: self._on_param_change())
+        ToolTip(self.cmb_param, _(
+            "比較する形態パラメータを選びます。{height} はバンドルの補正済み画像と"
+            "細線化画像から直接収集します。{length} / {angle} / {density} は"
+            "ファイバー追跡の結果から算出するため、バンドルに走査範囲が記録されている"
+            "必要があります。"
+        ).format(
+            height=PARAM_HEIGHT, length=PARAM_LENGTH,
+            angle=PARAM_KINK_ANGLE, density=PARAM_KINK_DENSITY,
+        ))
+
+        ttk.Label(parambar, text=_("集計単位")).pack(side=tk.LEFT)
+        self.unit_var = tk.StringVar(value=self.unit)
+        self.cmb_unit = ttk.Combobox(
+            parambar, textvariable=self.unit_var,
+            values=list(PARAM_SPECS[self.param]["units"]),
+            width=8, state="readonly",
+        )
+        self.cmb_unit.pack(side=tk.LEFT, padx=(4, 8))
+        self.cmb_unit.bind("<<ComboboxSelected>>", lambda _e: self._on_unit_change())
+        ToolTip(self.cmb_unit, _(
+            "1 標本の数え方を選びます。{pixel} は骨格画素 1 点、{kink} はキンク 1 点、"
+            "{fiber} はファイバー 1 本（高さとキンク角はファイバー内の中央値）、"
+            "{image} は画像 1 枚（その画像のファイバー値の中央値）です。"
+            "{pixel} でまとめた分布は独立観測ではなく、長いファイバーほど重みが"
+            "大きくなるため、群間比較では {fiber} または {image} でも確認してください。"
+        ).format(
+            pixel=UNIT_PIXEL, kink=UNIT_KINK,
+            fiber=UNIT_FIBER, image=UNIT_IMAGE,
+        ))
+
+        self.sample_hint_var = tk.StringVar()
+        ttk.Label(parambar, textvariable=self.sample_hint_var).pack(side=tk.LEFT)
+        self._update_sample_hint()
+
+    def _update_sample_hint(self) -> None:
+        """
+        Refresh the label describing what one sample is.
+        1 標本が何を指すかを説明するラベルを更新する。
+        """
+        hints = {
+            UNIT_PIXEL: _("1 標本 = 骨格画素 1 点"),
+            UNIT_KINK: _("1 標本 = キンク 1 点"),
+            UNIT_FIBER: _("1 標本 = ファイバー 1 本"),
+            UNIT_IMAGE: _("1 標本 = 画像 1 枚"),
+        }
+        self.sample_hint_var.set(hints.get(self.unit, ""))
+
+    def _apply_default_range(self, param: str) -> None:
+        """
+        Load one quantity's default histogram range into the range entries.
+        指定した計測量の既定ヒストグラム範囲を範囲入力欄へ読み込む。
+
+        Notes
+        -----
+        Quantities differ by orders of magnitude (nanometers of height versus
+        nanometers of contour length versus degrees), so a range carried over
+        from the previous quantity would usually produce an empty histogram.
+        計測量ごとに桁が大きく異なる（高さの nm、輪郭長の nm、角度の度）ため、
+        前の計測量の範囲をそのまま引き継ぐと、たいてい空のヒストグラムになる。
+        """
+        self.min_h, self.max_h, self.step = PARAM_SPECS[param]["default_range"]
+        self.min_var.set(self._fmt_num(self.min_h))
+        self.max_var.set(self._fmt_num(self.max_h))
+        self.step_var.set(self._fmt_num(self.step))
+        # Writing the StringVars does not fire the Entry key handlers, so the
+        # confirmed/unconfirmed styles are refreshed explicitly.
+        # StringVar への代入では Entry のキーハンドラが走らないため、確定/未確定
+        # スタイルを明示的に再評価する。
+        self._refresh_all_entry_states()
+
+    def _on_param_change(self) -> None:
+        """
+        Apply a measured-quantity change to units, range, headings, and state.
+        計測量の変更を集計単位・範囲・見出し・状態へ反映する。
+        """
+        param = self.param_var.get()
+        if param not in PARAM_SPECS:
+            self.param_var.set(self.param)
+            return
+        if param == self.param:
+            return
+
+        self.param = param
+        spec = PARAM_SPECS[param]
+
+        units = list(spec["units"])
+        self.cmb_unit.configure(values=units)
+        if self.unit not in units:
+            self.unit = units[0]
+            self.unit_var.set(self.unit)
+
+        self._apply_default_range(param)
+        for col, text in self._result_headings(param).items():
+            self.result_tree.heading(col, text=text)
+        self._update_sample_hint()
+        self._update_result_caption()
+        self._reset_result_state()
+
+        self._log(
+            _("計測量を {param} に変更しました。ヒストグラム範囲を既定値"
+              "（min={min}, max={max}, step={step}）に戻しました。").format(
+                param=param,
+                min=self._fmt_num(self.min_h),
+                max=self._fmt_num(self.max_h),
+                step=self._fmt_num(self.step),
+            )
+        )
+
+    def _on_unit_change(self) -> None:
+        """
+        Apply an aggregation-unit change and invalidate cached results.
+        集計単位の変更を反映し、キャッシュ済み結果を破棄する。
+        """
+        unit = self.unit_var.get()
+        if unit not in PARAM_SPECS[self.param]["units"]:
+            self.unit_var.set(self.unit)
+            return
+        if unit == self.unit:
+            return
+
+        self.unit = unit
+        self._update_sample_hint()
+        self._update_result_caption()
+        self._reset_result_state()
+
     def _build_histogram_controls(self, parent: ttk.Frame) -> None:
         """
-        Build the histogram range entries and view-option controls.
-        ヒストグラム範囲入力と表示オプションの操作部を構築する。
+        Build the quantity, unit, histogram range, and view-option controls.
+        計測量・集計単位・ヒストグラム範囲・表示オプションの操作部を構築する。
         """
+        self._build_quantity_controls(parent)
+
         topbar = ttk.Frame(parent)
         topbar.pack(fill=tk.X, padx=6, pady=(2, 4))
 
@@ -461,7 +892,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.step_var = tk.StringVar(value=self._fmt_num(self.step))
 
         ttk.Label(topbar, text=_("min")).pack(side=tk.LEFT)
-        self.ent_min = ttk.Entry(topbar, textvariable=self.min_var, width=4)
+        self.ent_min = ttk.Entry(topbar, textvariable=self.min_var, width=6)
         self.ent_min.pack(side=tk.LEFT, padx=(4, 8))
         self._register_unconfirmed_entry(
             self.ent_min,
@@ -470,7 +901,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
 
         ttk.Label(topbar, text=_("max")).pack(side=tk.LEFT)
-        self.ent_max = ttk.Entry(topbar, textvariable=self.max_var, width=4)
+        self.ent_max = ttk.Entry(topbar, textvariable=self.max_var, width=6)
         self.ent_max.pack(side=tk.LEFT, padx=(4, 8))
         self._register_unconfirmed_entry(
             self.ent_max,
@@ -479,7 +910,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
 
         ttk.Label(topbar, text=_("step")).pack(side=tk.LEFT)
-        self.ent_step = ttk.Entry(topbar, textvariable=self.step_var, width=4)
+        self.ent_step = ttk.Entry(topbar, textvariable=self.step_var, width=6)
         self.ent_step.pack(side=tk.LEFT, padx=(4, 12))
         self._register_unconfirmed_entry(
             self.ent_step,
@@ -618,7 +1049,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         self.fig = plt.Figure(figsize=(6, 3), dpi=100)
         self.ax = self.fig.add_subplot(111)
-        self.ax.set_xlabel("height (nm)")
+        self.ax.set_xlabel(PARAM_SPECS[self.param]["axis_label"])
         self.ax.set_yticks([])
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self._inner_frame)
@@ -644,7 +1075,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             _("使い方:\n")
             + _("  1)「グループ追加」でデータ群を作成（自動で 1 個作成済み）\n")
             + _("  2) Treeview でグループを選び「フォルダ追加」で .b2z バンドルを含むフォルダを登録\n")
-            + _("  3) 条件と表示モード（縦並び/重ね表示）を設定して「ヒストグラム作成」\n")
+            + _("  3) 計測量と集計単位、条件と表示モード（縦並び/重ね表示）を設定して「ヒストグラム作成」\n")
             + _("  4) 必要に応じて「画像を保存」「数値を保存（グループ別CSV）」\n")
             + "\n"
             + _("ヒント:\n")
@@ -655,6 +1086,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             + _("  - グループ間でデータ数が大きく異なるときは {density} または {percent} を推奨\n").format(
                 density="density", percent="percent"
             )
+            + _("  - {pixel} 集計は骨格画素をまとめた分布で、長いファイバーほど重みが大きく、"
+                "同一ファイバーの隣接画素も独立ではありません。群間比較の根拠には "
+                "{fiber} または {image} 集計での N も併せて確認してください。\n").format(
+                pixel=UNIT_PIXEL, fiber=UNIT_FIBER, image=UNIT_IMAGE
+            )
+            + _("  - {height} 以外の計測量はファイバー追跡を行うため、バンドルに走査範囲が"
+                "記録されている必要があり、処理時間も長くなります。\n").format(height=PARAM_HEIGHT)
+            + _("  - mode はヒストグラムのビン幅に依存します。step を変えると値が変わるため、"
+                "報告には median と IQR を併記してください。\n")
         )
         self._log(msg)
 
@@ -794,6 +1234,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._draw_figure(
             results=self._last_results,
             edges=self._last_edges,
+            param=self._last_param,
+            unit=self._last_unit,
             yaxis_mode=self.yaxis_mode_var.get(),
             display_mode=self.display_mode_var.get(),
             show_height_text=bool(self.show_height_text_var.get()),
@@ -1334,6 +1776,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.ui_queue = queue.Queue()
         args = {
             "groups": groups_payload,
+            "param": self.param,
+            "unit": self.unit,
             "min_h": min_h,
             "max_h": max_h,
             "step": step,
@@ -1365,6 +1809,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self.btn_run,
         ):
             b.configure(state=state)
+
+        # The selectors decide what the running worker is computing, so they
+        # stay locked until it finishes; "readonly" is their enabled state.
+        # セレクタは実行中のワーカーが何を計算するかを決めるため、完了まで
+        # 操作を止める。有効時の状態は "readonly"。
+        combo_state = tk.DISABLED if running else "readonly"
+        for c in (self.cmb_param, self.cmb_unit):
+            c.configure(state=combo_state)
 
     def _poll_ui_queue(self) -> None:
         """
@@ -1398,6 +1850,77 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if self.is_running:
             self.after(50, self._poll_ui_queue)
 
+    def _collect_bundle_values(self, bundle_paths, param: str, unit: str) -> tuple:
+        """
+        Collect one folder's samples for a quantity and aggregation unit.
+        1 フォルダ分の標本を、計測量と集計単位に従って収集する。
+
+        Parameters
+        ----------
+        bundle_paths
+            ``.b2z`` bundles to read, all from one registered folder.
+            読み込む ``.b2z`` バンドル。すべて同一の登録フォルダに属する。
+        param
+            Measured-quantity key from `PARAM_SPECS`.
+            `PARAM_SPECS` の計測量キー。
+        unit
+            Aggregation-unit key deciding what one sample counts as.
+            1 標本を何と数えるかを決める集計単位キー。
+
+        Returns
+        -------
+        tuple
+            ``(values, n_fibers, n_images, load_errors)``. `n_fibers` counts
+            the fibers that contributed at least one sample and is 0 in the
+            skeleton-pixel path, where fibers are not individuated.
+            `load_errors` holds ``(bundle_path, message)`` pairs.
+            ``(値リスト, ファイバー数, 画像数, 読込エラー)``。`n_fibers` は
+            1 標本以上を出したファイバーの数で、ファイバーを個体として扱わない
+            骨格画素経路では 0。`load_errors` は ``(バンドルパス, メッセージ)``。
+
+        Notes
+        -----
+        Only the height/pixel combination avoids fiber tracing, which is why
+        it is the one combination that works on bundles without a recorded
+        scan size: everything else needs a physical pixel size to convert
+        track steps into nanometers.
+        ファイバー追跡を回避できるのは height/pixel の組み合わせだけであり、
+        走査範囲が未記録のバンドルでも動くのはこの経路に限られる。他の経路は
+        追跡ステップを nm へ変換するために物理ピクセルサイズを必要とする。
+        """
+        if param == PARAM_HEIGHT and unit == UNIT_PIXEL:
+            heights, load_errors = skeleton_height_values(bundle_paths)
+            failed = {path for path, _msg in load_errors}
+            n_images = sum(1 for path in bundle_paths if path not in failed)
+            return heights.tolist(), 0, n_images, load_errors
+
+        per_bundle, load_errors = collect_fiber_stats(bundle_paths)
+        values = []
+        n_fibers = 0
+        n_images = 0
+        for _path, stats in per_bundle:
+            bundle_values = []
+            for stat in stats:
+                samples = _fiber_samples(stat, param, unit)
+                if not samples:
+                    continue
+                n_fibers += 1
+                bundle_values.extend(samples)
+
+            if not bundle_values:
+                continue
+            n_images += 1
+            if unit == UNIT_IMAGE:
+                # One sample per image, so a scan with many fibers does not
+                # outweigh a sparse scan of the same specimen.
+                # 1 画像 1 標本とし、ファイバーの多い画像が同じ試料の疎な画像を
+                # 押しのけないようにする。
+                values.append(float(np.median(bundle_values)))
+            else:
+                values.extend(bundle_values)
+
+        return values, n_fibers, n_images, load_errors
+
     def _worker_run(self, args: dict) -> None:
         """
         Compute histogram data in a background thread.
@@ -1412,13 +1935,27 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         min_h = args["min_h"]
         max_h = args["max_h"]
         step = args["step"]
+        param = args["param"]
+        unit = args["unit"]
+
+        # Skeleton pixels are read straight from the bundle arrays, so that
+        # one combination needs no fiber tracing and no scan size. Every other
+        # combination measures fibers and therefore cannot count "N fibers"
+        # in the pixel case, where fibers are never individuated.
+        # 骨格画素はバンドル配列から直接読むため、この組み合わせだけはファイバー
+        # 追跡も走査範囲も不要である。他の組み合わせはファイバーを計測する。
+        # 画素モードではファイバーを個体として切り出さないため、"N fibers" は
+        # 数えられない。
+        pixel_mode = (param == PARAM_HEIGHT and unit == UNIT_PIXEL)
 
         results = []
         errors = []
 
         for grp in groups:
             grp_name = grp["name"]
-            grp_heights = []
+            grp_values = []
+            grp_fibers = None if pixel_mode else 0
+            grp_images = 0
 
             for folder in grp["folders"]:
                 folder_name = os.path.basename(folder)
@@ -1434,20 +1971,31 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     )
                     continue
 
-                # Loading and height collection are delegated to lib.measure,
-                # the same code path as `cli.py heights`. Per-bundle load
-                # errors come back as fixed English strings and are wrapped
-                # in translated group/folder context here.
-                # 読み込みと高さ収集は `cli.py heights` と同一経路の lib.measure
-                # へ委譲する。バンドルごとの読込エラーは固定英語文字列で返り、
-                # ここで翻訳済みのグループ/フォルダ文脈を付けて表示する。
+                # Loading and measurement are delegated to lib.measure, the
+                # same code path as `cli.py heights` / `cli.py measure`.
+                # Per-bundle errors come back as fixed English strings and are
+                # wrapped in translated group/folder context here.
+                # 読み込みと計測は `cli.py heights` / `cli.py measure` と同一経路の
+                # lib.measure へ委譲する。バンドルごとのエラーは固定英語文字列で
+                # 返り、ここで翻訳済みのグループ/フォルダ文脈を付けて表示する。
                 bundle_paths = [cal_path for cal_path, _skl_path in pairs]
+                if not pixel_mode:
+                    # Fiber tracing is far slower than reading skeleton pixels,
+                    # so report progress instead of leaving the log silent.
+                    # ファイバー追跡は骨格画素の読み出しよりはるかに遅いため、
+                    # ログを無音にせず進捗を報告する。
+                    self.ui_queue.put(("log", _(
+                        "[{grp}/{folder}] {n} バンドルを計測中..."
+                    ).format(grp=grp_name, folder=folder_name, n=len(bundle_paths))))
+
                 try:
-                    heights, load_errors = skeleton_height_values(bundle_paths)
+                    values, n_fibers, n_images, load_errors = self._collect_bundle_values(
+                        bundle_paths, param, unit,
+                    )
                 except Exception as e:
                     errors.append(
-                        _("[{grp}/{folder}] 高さ抽出に失敗: {err}").format(
-                            grp=grp_name, folder=folder_name, err=e
+                        _("[{grp}/{folder}] {param} の抽出に失敗: {err}").format(
+                            grp=grp_name, folder=folder_name, param=param, err=e
                         )
                     )
                     continue
@@ -1460,27 +2008,44 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         )
                     )
 
-                grp_heights.extend(heights.tolist())
+                grp_values.extend(values)
+                grp_images += n_images
+                if grp_fibers is not None:
+                    grp_fibers += n_fibers
 
-            if len(grp_heights) == 0:
+            if len(grp_values) == 0:
                 errors.append(
                     _("[{grp}] データ 0 件のためスキップしました").format(grp=grp_name)
                 )
                 continue
 
-            arr = np.asarray(grp_heights, dtype=float)
+            arr = np.asarray(grp_values, dtype=float)
+            # Quartiles accompany mean/std because fiber morphology
+            # distributions are right-skewed; a median with its interquartile
+            # range describes them without assuming symmetry.
+            # 平均・標準偏差に加えて四分位数も求める。ファイバー形態の分布は
+            # 右に裾を引くため、対称性を仮定しない中央値と四分位範囲での
+            # 記述が必要になる。
+            q1, med, q3 = (float(v) for v in np.percentile(arr, [25.0, 50.0, 75.0]))
             results.append({
                 "id": grp["id"],
                 "name": grp_name,
                 "color": grp["color"],
-                "heights": arr,
+                "values": arr,
                 "mean": float(np.mean(arr)),
                 "std": float(np.std(arr)),
+                "median": med,
+                "q1": q1,
+                "q3": q3,
+                "n_samples": int(arr.size),
+                "n_fibers": grp_fibers,
+                "n_images": grp_images,
             })
 
         if not results:
             self.ui_queue.put(("fatal", {
-                "text": _("どのグループからも高さデータを得られませんでした..."),
+                "text": _("どのグループからも {param} のデータを得られませんでした。"
+                          "ログを確認してください。").format(param=param),
                 "trace": "",
             }))
             return
@@ -1494,7 +2059,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             }))
 
         for r in results:
-            counts, _edges = np.histogram(r["heights"], bins=edges, density=False)
+            counts, _edges = np.histogram(r["values"], bins=edges, density=False)
             total = int(counts.sum())
             r["counts"] = counts
             r["total"] = total
@@ -1504,9 +2069,26 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             else:
                 r["mode"] = float("nan")
 
+            # Summary statistics describe the whole sample, while the bars show
+            # only the selected range. Silently dropping out-of-range samples
+            # from the figure would misrepresent the distribution, so say how
+            # many were excluded rather than leaving the difference invisible.
+            # 要約統計量は全標本を、棒グラフは選択範囲のみを表す。範囲外の標本を
+            # 黙って図から落とすと分布を誤って伝えるため、除外件数を明示する。
+            outside = r["n_samples"] - total
+            if outside > 0:
+                errors.append(
+                    _("[{grp}] {k} 件がヒストグラム範囲外です"
+                      "（統計値は全 {n} 件から計算しています）").format(
+                        grp=r["name"], k=outside, n=r["n_samples"]
+                    )
+                )
+
         self.ui_queue.put(("done", {
             "results": results,
             "edges": edges,
+            "param": param,
+            "unit": unit,
             "yaxis_mode": args["yaxis_mode"],
             "display_mode": args["display_mode"],
             "show_height_text": args["show_height_text"],
@@ -1526,6 +2108,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         results = payload["results"]
         edges = payload["edges"]
+        param = payload["param"]
+        unit = payload["unit"]
         yaxis_mode = payload["yaxis_mode"]
         display_mode = payload["display_mode"]
         show_height_text = payload["show_height_text"]
@@ -1537,6 +2121,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         group_name_fs = payload["group_name_fs"]
         errors = payload["errors"]
 
+        for col, text in self._result_headings(param).items():
+            self.result_tree.heading(col, text=text)
+        self._update_result_caption(param, unit)
+
         for iid in self.result_tree.get_children(""):
             self.result_tree.delete(iid)
         for r in results:
@@ -1545,16 +2133,22 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "", tk.END,
                 values=(
                     r["name"],
+                    f"{r['median']:.3f}",
+                    f"{r['q1']:.3f}–{r['q3']:.3f}",
                     f"{r['mean']:.3f}",
                     f"{r['std']:.3f}",
                     mode_str,
-                    f"{r['total']:,}",
+                    f"{r['n_samples']:,}",
+                    "-" if r["n_fibers"] is None else f"{r['n_fibers']:,}",
+                    f"{r['n_images']:,}",
                 ),
             )
 
         self._draw_figure(
             results=results,
             edges=edges,
+            param=param,
+            unit=unit,
             yaxis_mode=yaxis_mode,
             display_mode=display_mode,
             show_height_text=show_height_text,
@@ -1567,9 +2161,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
 
         # Cache results so display-only options can redraw without recomputing counts.
+        # The quantity and unit are cached with them because a later redraw must
+        # label the figure with what was measured, not with the current selector
+        # value, which the user may already have changed.
         # 表示専用オプションでヒストグラム数を再計算せず再描画できるよう、結果を保持する。
+        # 計測量と集計単位も併せて保持する。再描画時のラベルは、既に変更されている
+        # かもしれない現在のセレクタ値ではなく、実際に計測した内容でなければならない。
         self._last_results = results
         self._last_edges = edges
+        self._last_param = param
+        self._last_unit = unit
         self._has_result = True
         self.btn_save_fig.configure(state=tk.NORMAL)
         self.btn_save_csv.configure(state=tk.NORMAL)
@@ -1590,7 +2191,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         else:
             self._log(_("完了"))
 
-    def _draw_figure(self, *, results, edges, yaxis_mode, display_mode,
+    def _draw_figure(self, *, results, edges, param, unit, yaxis_mode, display_mode,
                      show_height_text, fig_w, fig_h,
                      label_fs, tick_fs, ann_fs, group_name_fs):
         """
@@ -1599,6 +2200,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         self.fig.clf()
         widths = np.diff(edges)
+        spec = PARAM_SPECS[param]
+        value_unit = spec["value_unit"]
+        sample_noun = UNIT_NOUNS.get(unit, unit)
 
         def compute_y_and_label(counts, total):
             """
@@ -1615,16 +2219,52 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         def annotate_height_stats(ax, r):
             """
-            Draw the mean/std/mode height annotation box for one group.
-            1 グループ分の平均/標準偏差/最頻値の注釈ボックスを描画する。
+            Draw the summary-statistics annotation box for one group.
+            1 グループ分の要約統計量の注釈ボックスを描画する。
+
+            Notes
+            -----
+            The annotation is fixed English because it is figure text that
+            ends up in publications. It reports the median with its
+            interquartile range alongside mean ± SD, and states the sample
+            size in units of what was actually counted, so a reader can tell
+            a distribution over skeleton pixels from one over fibers.
+            この注釈は論文図に載る図中テキストのため固定英語とする。平均 ± 標準
+            偏差に加えて中央値と四分位範囲を示し、標本数は実際に数えた単位で
+            表記する。これにより、骨格画素の分布とファイバーの分布を読者が
+            区別できる。
             """
-            text = "height = {m} ± {s} nm\nmode = {mo} nm".format(
-                m=f"{r['mean']:.2f}", s=f"{r['std']:.2f}",
-                mo=f"{r['mode']:.2f}" if not np.isnan(r["mode"]) else "-",
-            )
+            lines = [
+                "{p} = {m} ± {s} {u}".format(
+                    p=param, m=f"{r['mean']:.2f}", s=f"{r['std']:.2f}", u=value_unit,
+                ),
+                "median = {md} {u} (IQR {q1}–{q3})".format(
+                    md=f"{r['median']:.2f}", u=value_unit,
+                    q1=f"{r['q1']:.2f}", q3=f"{r['q3']:.2f}",
+                ),
+                "mode = {mo} {u}".format(
+                    mo=f"{r['mode']:.2f}" if not np.isnan(r["mode"]) else "-",
+                    u=value_unit,
+                ),
+            ]
+            n_parts = ["{n:,} {noun}".format(n=r["n_samples"], noun=sample_noun)]
+            if r["n_fibers"] is not None and unit != UNIT_FIBER:
+                n_parts.append("{n:,} fibers".format(n=r["n_fibers"]))
+            if unit != UNIT_IMAGE:
+                n_parts.append("{n:,} images".format(n=r["n_images"]))
+            lines.append("N = " + ", ".join(n_parts))
+
+            # Anchored to the right edge so the box grows leftwards. Left
+            # anchoring clipped the longer lines this annotation now carries
+            # (a median with its IQR is far wider than a bare mean), and
+            # clipped text loses the number entirely, whereas overlapping a
+            # bar still reads.
+            # 右端を基準にし、ボックスが左へ伸びるようにする。左端基準では、
+            # 中央値と四分位範囲を含む長い行が切れてしまう。切れると数値自体が
+            # 失われるのに対し、棒と重なるだけなら判読できる。
             ax.text(
-                0.45, 0.95, text,
-                transform=ax.transAxes, ha="left", va="top",
+                0.98, 0.95, "\n".join(lines),
+                transform=ax.transAxes, ha="right", va="top",
                 fontsize=ann_fs,
             )
 
@@ -1650,7 +2290,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             else:
                 ax.set_ylabel(ylabel, fontsize=label_fs)
 
-            ax.set_xlabel("height (nm)", fontsize=label_fs)
+            ax.set_xlabel(spec["axis_label"], fontsize=label_fs)
             ax.tick_params(axis="both", labelsize=tick_fs)
 
             if n >= 2:
@@ -1685,7 +2325,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 if show_height_text:
                     annotate_height_stats(ax, r)
 
-            axes[-1].set_xlabel("height (nm)", fontsize=label_fs)
+            axes[-1].set_xlabel(spec["axis_label"], fontsize=label_fs)
 
         try:
             self.fig.tight_layout()
@@ -1715,11 +2355,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.btn_save_stats.configure(state=tk.DISABLED)
         self._last_results = None
         self._last_edges = None
+        self._last_param = None
+        self._last_unit = None
         self._has_result = False
 
         self.fig.clf()
         self.ax = self.fig.add_subplot(111)
-        self.ax.set_xlabel("height (nm)")
+        self.ax.set_xlabel(PARAM_SPECS[self.param]["axis_label"])
         self.ax.set_yticks([])
         self.canvas.draw()
 
@@ -1741,8 +2383,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def on_save_csv(self) -> None:
         """
-        Export raw sampled height values for each group as CSV files.
-        各グループのサンプリング済み高さ値を CSV ファイルとして出力する。
+        Export the raw sampled values of each group as CSV files.
+        各グループのサンプリング済みの値を CSV ファイルとして出力する。
         """
         if not self._has_result or not self._last_results:
             messagebox.showwarning(_("未作成"), _("先にヒストグラムを作成してください。"))
@@ -1755,6 +2397,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if not out_dir:
             return
 
+        # The quantity and unit go in the file name because the rows carry a
+        # bare number: without them, exported files of different quantities
+        # are indistinguishable once they leave this window.
+        # 行は数値のみを持つため、計測量と集計単位はファイル名に入れる。これが
+        # 無いと、このウィンドウを離れた時点で別々の計測量の出力を区別できない。
+        stem_suffix = "{slug}_{unit}".format(
+            slug=PARAM_SPECS[self._last_param]["slug"], unit=self._last_unit,
+        )
+
         used_names = set()
         saved_paths = []
         try:
@@ -1762,19 +2413,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 base_name = _sanitize_filename(r["name"])
                 # Add suffixes only when duplicate group names would collide on disk.
                 # 同名グループでファイル名が衝突する場合のみ通番を付与する。
-                candidate = f"{base_name}_heights"
+                candidate = f"{base_name}_{stem_suffix}"
                 suffix_idx = 2
                 while candidate in used_names:
-                    candidate = f"{base_name}_heights_{suffix_idx}"
+                    candidate = f"{base_name}_{stem_suffix}_{suffix_idx}"
                     suffix_idx += 1
                 used_names.add(candidate)
 
                 path = os.path.join(out_dir, candidate + ".csv")
                 with open(path, "w", newline="", encoding="utf-8") as f:
                     w = csv.writer(f)
-                    # Preserve the raw-data CSV contract: one height value per row.
-                    # 生データ CSV の契約として、1 行 1 高さ値で保存する。
-                    for v in r["heights"]:
+                    # Preserve the raw-data CSV contract: one sampled value per row.
+                    # 生データ CSV の契約として、1 行 1 標本値で保存する。
+                    for v in r["values"]:
                         w.writerow([float(v)])
                 saved_paths.append(path)
 
@@ -1816,6 +2467,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             ts=datetime.now().strftime("%Y%m%d_%H%M%S")
         )
 
+        value_unit = PARAM_SPECS[self._last_param]["value_unit"]
+
         def _write_stats(path):
             with open(path, "w", newline="", encoding="utf-8-sig") as f:
                 w = csv.writer(f)
@@ -1823,19 +2476,39 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     # Keep the data-column header language-independent for exported CSV.
                     # 出力 CSV のデータ列ヘッダは言語非依存にする。
                     "Group",
-                    "mean (nm)",
-                    "std (nm)",
-                    "mode (nm)",
-                    "N pixels",
+                    "quantity",
+                    "sample unit",
+                    "median ({0})".format(value_unit),
+                    "Q1 ({0})".format(value_unit),
+                    "Q3 ({0})".format(value_unit),
+                    "mean ({0})".format(value_unit),
+                    "std ({0})".format(value_unit),
+                    "mode ({0})".format(value_unit),
+                    # N samples is the whole sample the statistics describe;
+                    # N in range is what the drawn bars contain.
+                    # N samples は統計量の母体となる全標本数、N in range は
+                    # 描画された棒に含まれる標本数。
+                    "N samples",
+                    "N in range",
+                    "N fibers",
+                    "N images",
                 ])
                 for r in self._last_results:
                     mode_val = "" if np.isnan(r["mode"]) else f"{r['mode']:.3f}"
                     w.writerow([
                         r["name"],
+                        self._last_param,
+                        self._last_unit,
+                        f"{r['median']:.3f}",
+                        f"{r['q1']:.3f}",
+                        f"{r['q3']:.3f}",
                         f"{r['mean']:.3f}",
                         f"{r['std']:.3f}",
                         mode_val,
+                        int(r["n_samples"]),
                         int(r["total"]),
+                        "" if r["n_fibers"] is None else int(r["n_fibers"]),
+                        int(r["n_images"]),
                     ])
 
         save_csv_with_dialog(
