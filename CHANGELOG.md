@@ -21,6 +21,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   measurement `cli.py measure` and GUI04 use, so they require a bundle with a
   recorded scan size and take noticeably longer to compute.
 
+- A GUI03 `length` aggregation unit that weights each skeleton pixel by the
+  contour length it represents instead of counting points equally. Counting
+  carries two biases: within one image the skeleton alternates orthogonal and
+  diagonal steps whose corrected chain-code lengths differ by about 1.41x, and
+  across images the pixel size follows the scan size, so a finely sampled scan
+  dominates a pooled distribution. Weighting removes both and makes the
+  distribution scale-invariant — the fraction of observed contour length at
+  each height rather than the fraction of sampled points. Its sample size is
+  reported as a contour length in micrometers, and its raw-value CSV gains a
+  `weight_nm` column, without which the exported file would recompute an
+  unweighted distribution and silently disagree with the figure.
+
+- GUI03 reports non-fatal notices in the log only, instead of also opening a
+  modal dialog after every run. Most notices are routine — samples outside the
+  plotted range, a group too small for a histogram shape — so the dialog fired
+  on essentially every run, adding a dismissal that told the user nothing the
+  always-visible log panel did not already show. A run that produces no data
+  at all still raises its dialog.
+
+- GUI03 flags a group whose histogram has too few samples to show a shape
+  (fewer than eight) and points at the table's median and IQR instead. This is
+  the normal situation for the `image` unit, where a group holds as many
+  samples as it holds scans.
+
 - A GUI03 aggregation-unit selector deciding what counts as one sample:
   `pixel`, `kink`, `fiber` (the median within that fiber for height and kink
   angle), or `image` (the median of that image's fiber values). Pooled
@@ -40,11 +64,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `quantity`, `sample unit`, `N samples`, `N in range`, `N fibers`, and
   `N images` columns, and the raw-value CSV file names now carry the quantity
   and unit (`<group>_contour_length_fiber.csv`) instead of always `_heights`.
+  Kink density is written `µm⁻¹` in figures and `1/µm` in Tk labels and CSV
+  headers: `1/µm` straight after a number reads as part of the number
+  ("3.40 1/µm"), while the plain Unicode superscript minus is missing from
+  Arial — which this project's Matplotlib style asks for first — and draws as
+  a blank box, so figures get the exponent through Matplotlib mathtext.
 
-- GUI03 logs how many samples fall outside the plotted histogram range. The
-  summary statistics describe the whole sample while the bars show only the
-  selected range; the count makes that difference visible instead of leaving
-  excluded data silently missing from the figure.
+- GUI03 logs what share of the samples falls outside the plotted histogram
+  range. The summary statistics describe the whole sample while the bars show
+  only the selected range; the share makes that difference visible instead of
+  leaving excluded data silently missing from the figure.
+
+- `lib.measure.contour_length_weights` and
+  `lib.measure.collect_skeleton_height_profiles`, which return each tracked
+  point's height together with the contour length it represents (the weights
+  sum exactly to the fiber length). They sample the traced fibers rather than
+  the skeleton mask, so their population excludes the branch-point
+  neighborhoods removed before tracing.
 
 - `lib.measure.collect_fiber_stats`, the multi-bundle wrapper of
   `measure_bundle` and the per-fiber counterpart of `skeleton_height_values`.

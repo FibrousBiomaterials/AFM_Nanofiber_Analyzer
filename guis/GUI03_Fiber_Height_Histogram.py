@@ -64,7 +64,10 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # ===== Project libraries =====
 from lib.blosc2_io import BUNDLE_EXT
-from lib.measure import collect_fiber_stats, skeleton_height_values
+from lib.measure import (
+    collect_fiber_stats, collect_skeleton_height_profiles,
+    skeleton_height_values,
+)
 from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, setup_matplotlib_style, save_figure_with_dialog,
@@ -87,26 +90,69 @@ PARAM_KINK_ANGLE = "kink angle"
 PARAM_KINK_DENSITY = "kink density"
 
 UNIT_PIXEL = "pixel"
+UNIT_LENGTH = "length"
 UNIT_KINK = "kink"
 UNIT_FIBER = "fiber"
 UNIT_IMAGE = "image"
 
-# Plural nouns used when reporting the sample count of each aggregation unit.
-# 各集計単位の標本数を表示するときに使う複数形の名詞。
+# Inverse micrometer in two spellings, because no single one renders in both
+# places it is needed. "1/µm" written straight after a number reads as part of
+# the number ("3.40 1/µm"), so figures use the exponent form; but the plain
+# Unicode superscript minus (U+207B) is missing from Arial, which this
+# project's Matplotlib style asks for first, and renders as a blank box.
+# Matplotlib mathtext draws the exponent correctly by taking that one glyph
+# from its own math font, so figures use the mathtext form and everything
+# outside Matplotlib — Tk labels, CSV headers — uses the plain form.
+# µm の逆数を 2 通りで持つ。両方の用途で成立する表記が 1 つも無いため。"1/µm" は
+# 数値の直後だと数値の一部に見える（"3.40 1/µm"）ので図では指数表記を使いたいが、
+# 素の Unicode 上付きマイナス (U+207B) は本プロジェクトの Matplotlib スタイルが
+# 最優先に指定する Arial に存在せず、空の箱として描画される。Matplotlib の
+# mathtext はこのグリフだけを自前の数式フォントから取って正しく描くため、図では
+# mathtext 形式を、Matplotlib 外（Tk ラベル・CSV ヘッダ）では素の形式を使う。
+UNIT_PER_MICROMETER = "1/" + UNIT_MICROMETER
+UNIT_PER_MICROMETER_PLOT = r"$\mathregular{\mu m^{-1}}$"
+
+# Plural nouns used when reporting the sample size of each aggregation unit.
+# The length unit measures a contour length rather than counting objects, so
+# its "count" is reported in micrometers.
+# 各集計単位の標本量を表示するときに使う複数形の名詞。length 単位は個数では
+# なく輪郭長を測るため、その「数」は µm で報告する。
 UNIT_NOUNS = {
     UNIT_PIXEL: "px",
+    UNIT_LENGTH: UNIT_MICROMETER + " of contour",
     UNIT_KINK: "kinks",
     UNIT_FIBER: "fibers",
     UNIT_IMAGE: "images",
 }
 
+# Aggregation units whose sample size is a physical length, not a count.
+# They are formatted with a decimal and a unit instead of a thousands-grouped
+# integer.
+# 標本量が個数ではなく物理長になる集計単位。3 桁区切りの整数ではなく、小数と
+# 単位を付けて整形する。
+LENGTH_WEIGHTED_UNITS = (UNIT_LENGTH,)
+
+# Below this many samples a histogram shows no distribution shape, so the run
+# says so instead of letting a two-bar plot pass for one. It is a readability
+# threshold for the figure, not a statistical rule; the summary statistics are
+# reported at any sample size.
+# これ未満の標本数ではヒストグラムが分布の形を示さないため、2 本の棒を分布として
+# 通してしまう前にその旨を伝える。図の可読性のしきい値であって統計的な規則では
+# なく、要約統計量は標本数によらず報告する。
+MIN_SAMPLES_FOR_SHAPE = 8
+
 # Per-quantity display metadata and default histogram range.
-# The first entry of "units" is the default aggregation unit. The ranges are
-# starting points for typical nanocellulose scans, not physical limits: fibril
-# heights are a few nm, contour lengths hundreds of nm to a few µm, and kink
-# angles are interior angles so they approach 180 deg for a straight contour.
+# The first entry of "units" is the default aggregation unit. "value_unit" is
+# the plain-text unit for Tk labels and CSV headers; "value_unit_plot" is the
+# spelling Matplotlib draws and defaults to "value_unit" when the two agree.
+# The ranges are starting points for typical nanocellulose scans, not physical
+# limits: fibril heights are a few nm, contour lengths hundreds of nm to a few
+# µm, and kink angles are interior angles so they approach 180 deg for a
+# straight contour.
 # 計測量ごとの表示メタデータと既定ヒストグラム範囲。
-# "units" の先頭要素が既定の集計単位。範囲は典型的なナノセルロース試料向けの
+# "units" の先頭要素が既定の集計単位。"value_unit" は Tk ラベルと CSV ヘッダ用の
+# 素の単位表記、"value_unit_plot" は Matplotlib が描画する表記で、両者が一致する
+# 場合は "value_unit" が既定値になる。範囲は典型的なナノセルロース試料向けの
 # 初期値であって物理的な上限下限ではない（フィブリル高さは数 nm、輪郭長は
 # 数百 nm〜数 µm、キンク角は内角なので直線的な輪郭ほど 180 度に近づく）。
 PARAM_SPECS = {
@@ -114,7 +160,7 @@ PARAM_SPECS = {
         "slug": "height",
         "value_unit": "nm",
         "axis_label": "height (nm)",
-        "units": (UNIT_PIXEL, UNIT_FIBER, UNIT_IMAGE),
+        "units": (UNIT_PIXEL, UNIT_LENGTH, UNIT_FIBER, UNIT_IMAGE),
         "default_range": (0.0, 10.0, 0.2),
     },
     PARAM_LENGTH: {
@@ -133,12 +179,20 @@ PARAM_SPECS = {
     },
     PARAM_KINK_DENSITY: {
         "slug": "kink_density",
-        "value_unit": "1/" + UNIT_MICROMETER,
-        "axis_label": "kink density (1/" + UNIT_MICROMETER + ")",
+        "value_unit": UNIT_PER_MICROMETER,
+        "value_unit_plot": UNIT_PER_MICROMETER_PLOT,
+        "axis_label": "kink density (" + UNIT_PER_MICROMETER_PLOT + ")",
         "units": (UNIT_FIBER, UNIT_IMAGE),
         "default_range": (0.0, 20.0, 0.5),
     },
 }
+
+# Fill in the Matplotlib spelling for every quantity whose unit needs no
+# special drawing, so lookups never have to test for the key.
+# 特別な描画を要しない計測量については Matplotlib 用の表記を埋めておき、参照側が
+# キーの有無を判定しなくて済むようにする。
+for _spec in PARAM_SPECS.values():
+    _spec.setdefault("value_unit_plot", _spec["value_unit"])
 
 # Order shown in the quantity selector.
 # 計測量セレクタに表示する順序。
@@ -221,6 +275,125 @@ def _fiber_samples(stat, param: str, unit: str) -> list:
         return [float(a) for a in stat.kink_angles_deg]
     value = _fiber_value(stat, param)
     return [] if value is None else [value]
+
+
+def _summary_stats(values: np.ndarray, weights=None) -> dict:
+    """
+    Return mean, standard deviation, and quartiles of a sample.
+    標本の平均・標準偏差・四分位数を返す。
+
+    Parameters
+    ----------
+    values
+        Sample values in the unit of the measured quantity.
+        計測量の単位で表した標本値。
+    weights
+        Per-value weights, or None for an unweighted sample. Used by the
+        length-weighted aggregation, where a weight is the contour length in
+        nanometers that its value represents.
+        値ごとの重み。重みなしの標本では None。長さ重み付け集計で使い、その
+        場合の重みは各値が代表する輪郭長 (nm)。
+
+    Returns
+    -------
+    dict
+        Keys ``mean``, ``std``, ``q1``, ``median``, ``q3``.
+        キーは ``mean``, ``std``, ``q1``, ``median``, ``q3``。
+
+    Notes
+    -----
+    The unweighted branch calls NumPy directly rather than passing weights of
+    one to the weighted branch. The two quantile definitions do not agree
+    exactly, so routing every sample through the weighted path would silently
+    move the numbers of the existing unweighted modes.
+    重みなしの分岐では、1 の重みを weighted 側へ渡すのではなく NumPy を直接
+    呼ぶ。両者の分位数の定義は厳密には一致しないため、すべてを weighted 経路に
+    通すと既存の重みなしモードの数値が黙って変わってしまう。
+    """
+    if weights is None:
+        q1, median, q3 = (
+            float(v) for v in np.percentile(values, [25.0, 50.0, 75.0])
+        )
+        return {
+            "mean": float(np.mean(values)),
+            "std": float(np.std(values)),
+            "q1": q1, "median": median, "q3": q3,
+        }
+
+    total = float(weights.sum())
+    mean = float(np.sum(values * weights) / total)
+    variance = float(np.sum(weights * (values - mean) ** 2) / total)
+    order = np.argsort(values)
+    sorted_values = values[order]
+    sorted_weights = weights[order]
+    cumulative = np.cumsum(sorted_weights)
+    # Position each value at the midpoint of the weight interval it occupies,
+    # the standard weighted-percentile convention.
+    # 各値をそれが占める重み区間の中点に配置する。重み付きパーセンタイルの
+    # 標準的な定義。
+    positions = (cumulative - 0.5 * sorted_weights) / total
+    q1, median, q3 = (
+        float(v) for v in np.interp([0.25, 0.5, 0.75], positions, sorted_values)
+    )
+    return {
+        "mean": mean,
+        "std": float(np.sqrt(variance)),
+        "q1": q1, "median": median, "q3": q3,
+    }
+
+
+def _format_sample_size(value: float, unit: str) -> str:
+    """
+    Format a sample size for the aggregation unit that produced it.
+    集計単位に応じて標本量を整形する。
+
+    Parameters
+    ----------
+    value
+        Sample size: a count for counted units, a contour length in
+        nanometers for length-weighted units.
+        標本量。個数を数える単位では件数、長さ重み付けの単位では輪郭長 (nm)。
+    unit
+        Aggregation-unit key.
+        集計単位キー。
+
+    Returns
+    -------
+    str
+        Grouped integer for counts, or a micrometer value for lengths.
+        個数は 3 桁区切りの整数、長さは µm 表記。
+    """
+    if unit in LENGTH_WEIGHTED_UNITS:
+        return "{0:,.1f}".format(value / 1000.0)
+    return "{0:,}".format(int(value))
+
+
+def _sample_size_csv_value(value: float, unit: str):
+    """
+    Return a sample size as a bare number for CSV output.
+    CSV 出力用に、標本量を桁区切りなしの数値として返す。
+
+    Parameters
+    ----------
+    value
+        Sample size in the same terms as `_format_sample_size` takes.
+        `_format_sample_size` と同じ意味の標本量。
+    unit
+        Aggregation-unit key.
+        集計単位キー。
+
+    Returns
+    -------
+    int or str
+        Plain integer count, or a micrometer value without thousands
+        separators, which a spreadsheet or a script would otherwise read as
+        text rather than as a number.
+        素の整数の件数、または 3 桁区切りを含まない µm 値。区切りが入ると
+        表計算やスクリプトが数値ではなく文字列として読んでしまう。
+    """
+    if unit in LENGTH_WEIGHTED_UNITS:
+        return "{0:.4f}".format(value / 1000.0)
+    return int(value)
 
 
 def _default_color_palette():
@@ -775,8 +948,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "{image} は画像 1 枚（その画像のファイバー値の中央値）です。"
             "{pixel} でまとめた分布は独立観測ではなく、長いファイバーほど重みが"
             "大きくなるため、群間比較では {fiber} または {image} でも確認してください。"
+            "{length} は骨格画素を輪郭長で重み付けします。画素を等しく数えると、"
+            "斜めの骨格ステップが約 1.41 倍長いことと、走査範囲の異なる画像で"
+            "ピクセルサイズが変わることの 2 つの偏りが入ります。{length} は両方を"
+            "取り除き、「観測した輪郭長のうちの割合」を表す走査条件に依らない分布に"
+            "します。"
         ).format(
-            pixel=UNIT_PIXEL, kink=UNIT_KINK,
+            pixel=UNIT_PIXEL, length=UNIT_LENGTH, kink=UNIT_KINK,
             fiber=UNIT_FIBER, image=UNIT_IMAGE,
         ))
 
@@ -791,6 +969,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         hints = {
             UNIT_PIXEL: _("1 標本 = 骨格画素 1 点"),
+            UNIT_LENGTH: _("1 標本 = 骨格画素 1 点（輪郭長で重み付け）"),
             UNIT_KINK: _("1 標本 = キンク 1 点"),
             UNIT_FIBER: _("1 標本 = ファイバー 1 本"),
             UNIT_IMAGE: _("1 標本 = 画像 1 枚"),
@@ -1870,13 +2049,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Returns
         -------
         tuple
-            ``(values, n_fibers, n_images, load_errors)``. `n_fibers` counts
-            the fibers that contributed at least one sample and is 0 in the
-            skeleton-pixel path, where fibers are not individuated.
-            `load_errors` holds ``(bundle_path, message)`` pairs.
-            ``(値リスト, ファイバー数, 画像数, 読込エラー)``。`n_fibers` は
-            1 標本以上を出したファイバーの数で、ファイバーを個体として扱わない
-            骨格画素経路では 0。`load_errors` は ``(バンドルパス, メッセージ)``。
+            ``(values, weights, n_fibers, n_images, load_errors)``. `weights`
+            is None for every counted unit and holds the contour length in
+            nanometers that each value represents under ``UNIT_LENGTH``.
+            `n_fibers` counts the fibers that contributed at least one sample
+            and is 0 in the skeleton-pixel path, where fibers are not
+            individuated. `load_errors` holds ``(bundle_path, message)`` pairs.
+            ``(値リスト, 重み, ファイバー数, 画像数, 読込エラー)``。`weights` は
+            個数で数える単位では None、``UNIT_LENGTH`` では各値が代表する
+            輪郭長 (nm)。`n_fibers` は 1 標本以上を出したファイバーの数で、
+            ファイバーを個体として扱わない骨格画素経路では 0。`load_errors` は
+            ``(バンドルパス, メッセージ)``。
 
         Notes
         -----
@@ -1892,7 +2075,30 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             heights, load_errors = skeleton_height_values(bundle_paths)
             failed = {path for path, _msg in load_errors}
             n_images = sum(1 for path in bundle_paths if path not in failed)
-            return heights.tolist(), 0, n_images, load_errors
+            return heights.tolist(), None, 0, n_images, load_errors
+
+        if param == PARAM_HEIGHT and unit == UNIT_LENGTH:
+            # Length weighting walks the traced fibers rather than the skeleton
+            # mask, because the weight of a point is the contour length it
+            # represents and only the ordered track gives the step lengths.
+            # 長さ重み付けでは骨格マスクではなく追跡済みファイバーをたどる。点の
+            # 重みはその点が代表する輪郭長であり、ステップ長は順序付けられた
+            # トラックからしか得られないため。
+            profiles, load_errors = collect_skeleton_height_profiles(bundle_paths)
+            values = []
+            weights = []
+            n_images = 0
+            for _path, heights, point_weights in profiles:
+                if heights.size == 0:
+                    continue
+                n_images += 1
+                values.extend(heights.tolist())
+                weights.extend(point_weights.tolist())
+            # Fibers are traced here but not counted individually: the profiles
+            # arrive concatenated, which is what the weighted statistics need.
+            # ここではファイバーを追跡するが個体としては数えない。プロファイルは
+            # 連結された形で届き、重み付き統計に必要なのはその形だからである。
+            return values, weights, 0, n_images, load_errors
 
         per_bundle, load_errors = collect_fiber_stats(bundle_paths)
         values = []
@@ -1919,7 +2125,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             else:
                 values.extend(bundle_values)
 
-        return values, n_fibers, n_images, load_errors
+        return values, None, n_fibers, n_images, load_errors
 
     def _worker_run(self, args: dict) -> None:
         """
@@ -1947,6 +2153,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 画素モードではファイバーを個体として切り出さないため、"N fibers" は
         # 数えられない。
         pixel_mode = (param == PARAM_HEIGHT and unit == UNIT_PIXEL)
+        # The length unit traces fibers but concatenates their profiles, so it
+        # counts no individual fibers either.
+        # length 単位はファイバーを追跡するがプロファイルを連結するため、こちらも
+        # 個々のファイバーは数えない。
+        counts_fibers = not (pixel_mode or unit == UNIT_LENGTH)
+        weighted = unit in LENGTH_WEIGHTED_UNITS
 
         results = []
         errors = []
@@ -1954,7 +2166,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         for grp in groups:
             grp_name = grp["name"]
             grp_values = []
-            grp_fibers = None if pixel_mode else 0
+            grp_weights = [] if weighted else None
+            grp_fibers = 0 if counts_fibers else None
             grp_images = 0
 
             for folder in grp["folders"]:
@@ -1989,7 +2202,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     ).format(grp=grp_name, folder=folder_name, n=len(bundle_paths))))
 
                 try:
-                    values, n_fibers, n_images, load_errors = self._collect_bundle_values(
+                    (values, weights, n_fibers, n_images,
+                     load_errors) = self._collect_bundle_values(
                         bundle_paths, param, unit,
                     )
                 except Exception as e:
@@ -2009,6 +2223,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     )
 
                 grp_values.extend(values)
+                if grp_weights is not None:
+                    grp_weights.extend(weights)
                 grp_images += n_images
                 if grp_fibers is not None:
                     grp_fibers += n_fibers
@@ -2020,24 +2236,36 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 continue
 
             arr = np.asarray(grp_values, dtype=float)
+            wts = None if grp_weights is None else np.asarray(grp_weights, dtype=float)
             # Quartiles accompany mean/std because fiber morphology
             # distributions are right-skewed; a median with its interquartile
             # range describes them without assuming symmetry.
             # 平均・標準偏差に加えて四分位数も求める。ファイバー形態の分布は
             # 右に裾を引くため、対称性を仮定しない中央値と四分位範囲での
             # 記述が必要になる。
-            q1, med, q3 = (float(v) for v in np.percentile(arr, [25.0, 50.0, 75.0]))
+            stats = _summary_stats(arr, wts)
             results.append({
                 "id": grp["id"],
                 "name": grp_name,
                 "color": grp["color"],
                 "values": arr,
-                "mean": float(np.mean(arr)),
-                "std": float(np.std(arr)),
-                "median": med,
-                "q1": q1,
-                "q3": q3,
-                "n_samples": int(arr.size),
+                "weights": wts,
+                "mean": stats["mean"],
+                "std": stats["std"],
+                "median": stats["median"],
+                "q1": stats["q1"],
+                "q3": stats["q3"],
+                # The reported sample size is the total weight, which is a
+                # count when the weights are implicit ones and a contour
+                # length in nanometers under length weighting.
+                # 報告する標本量は重みの合計。重みが暗黙の 1 なら件数、長さ
+                # 重み付けなら輪郭長 (nm) になる。
+                "n_samples": float(arr.size) if wts is None else float(wts.sum()),
+                # The raw point count drives the "too few samples to read the
+                # shape" notice, which is about the histogram, not the weight.
+                # 「形状が読めるほど標本が無い」通知は生の点数で判断する。これは
+                # 重みではなくヒストグラムについての話であるため。
+                "n_raw": int(arr.size),
                 "n_fibers": grp_fibers,
                 "n_images": grp_images,
             })
@@ -2072,8 +2300,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return
 
         for r in results:
-            counts, _edges = np.histogram(r["values"], bins=edges, density=False)
-            total = int(counts.sum())
+            # Length weighting enters the histogram here as bin weights, so the
+            # bars show contour length per bin instead of a point count and
+            # agree with the weighted statistics above.
+            # 長さ重み付けはビンの重みとしてここでヒストグラムに入る。棒はビン
+            # ごとの点数ではなく輪郭長を表し、上の重み付き統計と一致する。
+            counts, _edges = np.histogram(
+                r["values"], bins=edges, weights=r["weights"], density=False,
+            )
+            total = float(counts.sum())
             r["counts"] = counts
             r["total"] = total
             if total > 0:
@@ -2084,16 +2319,38 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
             # Summary statistics describe the whole sample, while the bars show
             # only the selected range. Silently dropping out-of-range samples
-            # from the figure would misrepresent the distribution, so say how
-            # many were excluded rather than leaving the difference invisible.
+            # from the figure would misrepresent the distribution, so report the
+            # excluded share rather than leaving the difference invisible. A
+            # share rather than a count because the sample size is a length,
+            # not a count, under length weighting.
             # 要約統計量は全標本を、棒グラフは選択範囲のみを表す。範囲外の標本を
-            # 黙って図から落とすと分布を誤って伝えるため、除外件数を明示する。
+            # 黙って図から落とすと分布を誤って伝えるため、除外された割合を示す。
+            # 件数ではなく割合にするのは、長さ重み付けでは標本量が件数ではなく
+            # 長さになるため。
             outside = r["n_samples"] - total
-            if outside > 0:
+            if outside > 0 and r["n_samples"] > 0:
                 errors.append(
-                    _("[{grp}] {k} 件がヒストグラム範囲外です"
-                      "（統計値は全 {n} 件から計算しています）").format(
-                        grp=r["name"], k=outside, n=r["n_samples"]
+                    _("[{grp}] 標本の {pct}% がヒストグラム範囲外です"
+                      "（統計値は範囲外を含む全標本から計算しています）").format(
+                        grp=r["name"],
+                        pct="{0:.1f}".format(100.0 * outside / r["n_samples"]),
+                    )
+                )
+
+            # A histogram over a handful of samples shows no distribution
+            # shape, which is the normal situation for the image unit: a group
+            # holds as many samples as it holds scans. The table's median and
+            # IQR remain meaningful there, so point at them instead of letting
+            # a two-bar plot be read as a distribution.
+            # 標本が数個しかないヒストグラムは分布の形を示さない。これは image
+            # 単位では通常の状況で、グループの標本数は走査枚数そのものになる。
+            # その場合もテーブルの中央値と四分位範囲は意味を持つため、2 本の棒を
+            # 分布として読まれる前にそちらを参照するよう促す。
+            if r["n_raw"] < MIN_SAMPLES_FOR_SHAPE:
+                errors.append(
+                    _("[{grp}] 標本が {n} 個しかないため、ヒストグラムの形状は"
+                      "解釈できません。テーブルの median と IQR を参照してください。").format(
+                        grp=r["name"], n=r["n_raw"]
                     )
                 )
 
@@ -2151,7 +2408,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     f"{r['mean']:.3f}",
                     f"{r['std']:.3f}",
                     mode_str,
-                    f"{r['n_samples']:,}",
+                    _format_sample_size(r["n_samples"], unit),
                     "-" if r["n_fibers"] is None else f"{r['n_fibers']:,}",
                     f"{r['n_images']:,}",
                 ),
@@ -2189,18 +2446,23 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.btn_save_csv.configure(state=tk.NORMAL)
         self.btn_save_stats.configure(state=tk.NORMAL)
 
-        # Report non-fatal errors after successful output so users can still inspect results.
-        # 出力成功後に非致命的エラーをまとめて通知し、結果確認を妨げない。
+        # Non-fatal notices go to the log only. The run produced a result, and
+        # the log panel is always on screen, so a modal dialog would add a
+        # dismissal to every run without telling the user anything the log does
+        # not already show. Most of these notices are routine — samples outside
+        # the plotted range, a group too small for a histogram shape — and a
+        # dialog that appears every time stops being read. A run that produces
+        # nothing still raises the fatal dialog from _poll_ui_queue.
+        # 非致命的な通知はログのみに出す。実行自体は結果を出しており、ログ欄は
+        # 常に画面上にあるため、モーダルダイアログはログ以上の情報を与えないまま
+        # 毎回クリックを強いるだけになる。これらの通知の大半は日常的なもので
+        # （描画範囲外の標本、ヒストグラムの形が読めない小さなグループ）、毎回
+        # 出るダイアログは読まれなくなる。結果が 1 つも出ない実行では、
+        # _poll_ui_queue が従来どおり致命的エラーのダイアログを出す。
         if errors:
             self._log(_("=== エラー/注意（処理は継続しました） ==="))
             for e in errors:
                 self._log(f"- {e}")
-            messagebox.showwarning(
-                _("一部エラー"),
-                _("完了しましたが、エラー/欠損が {n} 件ありました。\n詳細はログを確認してください。").format(
-                    n=len(errors)
-                ),
-            )
         else:
             self._log(_("完了"))
 
@@ -2214,7 +2476,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.fig.clf()
         widths = np.diff(edges)
         spec = PARAM_SPECS[param]
-        value_unit = spec["value_unit"]
+        # Figure text uses the Matplotlib spelling of the unit; see
+        # UNIT_PER_MICROMETER for why the two spellings exist.
+        # 図中のテキストは Matplotlib 用の単位表記を使う。2 つの表記がある理由は
+        # UNIT_PER_MICROMETER を参照。
+        value_unit = spec["value_unit_plot"]
         sample_noun = UNIT_NOUNS.get(unit, unit)
 
         def compute_y_and_label(counts, total):
@@ -2260,7 +2526,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     u=value_unit,
                 ),
             ]
-            n_parts = ["{n:,} {noun}".format(n=r["n_samples"], noun=sample_noun)]
+            n_parts = ["{n} {noun}".format(
+                n=_format_sample_size(r["n_samples"], unit), noun=sample_noun,
+            )]
             if r["n_fibers"] is not None and unit != UNIT_FIBER:
                 n_parts.append("{n:,} fibers".format(n=r["n_fibers"]))
             if unit != UNIT_IMAGE:
@@ -2436,10 +2704,22 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 path = os.path.join(out_dir, candidate + ".csv")
                 with open(path, "w", newline="", encoding="utf-8") as f:
                     w = csv.writer(f)
-                    # Preserve the raw-data CSV contract: one sampled value per row.
-                    # 生データ CSV の契約として、1 行 1 標本値で保存する。
-                    for v in r["values"]:
-                        w.writerow([float(v)])
+                    if r["weights"] is None:
+                        # Preserve the raw-data CSV contract: one sampled value per row.
+                        # 生データ CSV の契約として、1 行 1 標本値で保存する。
+                        for v in r["values"]:
+                            w.writerow([float(v)])
+                    else:
+                        # A length-weighted sample needs its weights exported
+                        # too. Without them the file recomputes an unweighted
+                        # distribution and silently disagrees with the figure
+                        # and the statistics it came from.
+                        # 長さ重み付けの標本は重みも併せて出力する必要がある。重み
+                        # が無いと、そのファイルからは重みなしの分布が再計算され、
+                        # 元の図や統計値と黙って食い違ってしまう。
+                        w.writerow(["value_nm", "weight_nm"])
+                        for v, wt in zip(r["values"], r["weights"]):
+                            w.writerow([float(v), float(wt)])
                 saved_paths.append(path)
 
             self._log(
@@ -2498,9 +2778,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     "std ({0})".format(value_unit),
                     "mode ({0})".format(value_unit),
                     # N samples is the whole sample the statistics describe;
-                    # N in range is what the drawn bars contain.
-                    # N samples は統計量の母体となる全標本数、N in range は
-                    # 描画された棒に含まれる標本数。
+                    # N in range is what the drawn bars contain. Both are
+                    # counts for the counted units and a contour length in
+                    # micrometers under length weighting, which is what the
+                    # "sample unit" column identifies.
+                    # N samples は統計量の母体となる全標本量、N in range は
+                    # 描画された棒に含まれる標本量。どちらも個数で数える単位では
+                    # 件数、長さ重み付けでは輪郭長 (µm) であり、その区別は
+                    # "sample unit" 列が示す。
                     "N samples",
                     "N in range",
                     "N fibers",
@@ -2518,8 +2803,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         f"{r['mean']:.3f}",
                         f"{r['std']:.3f}",
                         mode_val,
-                        int(r["n_samples"]),
-                        int(r["total"]),
+                        _sample_size_csv_value(r["n_samples"], self._last_unit),
+                        _sample_size_csv_value(r["total"], self._last_unit),
                         "" if r["n_fibers"] is None else int(r["n_fibers"]),
                         int(r["n_images"]),
                     ])

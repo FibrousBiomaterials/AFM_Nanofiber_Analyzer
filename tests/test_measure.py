@@ -33,7 +33,9 @@ from lib.fiber_tracking_image import FiberTrackingImage
 from lib.measure import (
     FIBER_CSV_COLUMNS,
     collect_fiber_stats,
+    collect_skeleton_height_profiles,
     compute_fiber_stats,
+    contour_length_weights,
     isolated_fiber_flags,
     load_tracking_image,
     measure_bundle,
@@ -446,6 +448,50 @@ def test_collect_fiber_stats_partial_failure(measured, tmp_path):
     assert per_bundle[0][0] == bundle_path
     assert len(errors) == 1
     assert errors[0][0] == missing
+
+
+def test_contour_length_weights_sum_to_fiber_length(measured):
+    """Per-point weights add up to exactly the fiber's contour length."""
+    _bundle_path, result = measured
+    fiber = result.fibers[0]
+    weights = contour_length_weights(fiber.horizon)
+    assert weights.shape == fiber.height.shape
+    assert float(weights.sum()) == pytest.approx(float(fiber.length))
+    # Diagonal skeleton steps are longer than orthogonal ones, so equal
+    # weights would be wrong; the spread is what length weighting corrects.
+    # 斜めの骨格ステップは直交ステップより長いため、重みが一様では誤りになる。
+    # このばらつきこそ長さ重み付けが補正する対象である。
+    assert weights.max() > weights.min()
+
+
+def test_contour_length_weights_single_point_fiber():
+    """A one-point track represents no contour length and weighs zero."""
+    assert contour_length_weights(np.array([0.0])).tolist() == [0.0]
+
+
+def test_collect_skeleton_height_profiles_totals_match_fiber_lengths(measured):
+    """Collected weights total the summed contour length of the bundle."""
+    bundle_path, result = measured
+    per_bundle, errors = collect_skeleton_height_profiles(
+        [bundle_path], scale_um=SCALE_UM,
+    )
+    assert errors == []
+    assert len(per_bundle) == 1
+    path, heights, weights = per_bundle[0]
+    assert path == bundle_path
+    assert heights.shape == weights.shape
+    assert float(weights.sum()) == pytest.approx(
+        sum(s.length_nm for s in result.stats)
+    )
+
+
+def test_collect_skeleton_height_profiles_reports_bundle_without_scan_size(measured):
+    """A bundle with no recorded scan size errors instead of raising."""
+    bundle_path, _result = measured
+    per_bundle, errors = collect_skeleton_height_profiles([bundle_path])
+    assert per_bundle == []
+    assert len(errors) == 1
+    assert errors[0][0] == bundle_path
 
 
 def test_cli_heights_writes_long_format_csv(measured, tmp_path):

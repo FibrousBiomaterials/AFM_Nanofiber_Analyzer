@@ -17,6 +17,7 @@ is missing, a callback is misspelled, or a `lib.ui_tools` helper changed shape.
 ウィンドウがそもそも構築できない——を確実に捕捉する。
 """
 
+import numpy as np
 import pytest
 
 from conftest import requires_tk
@@ -93,7 +94,7 @@ def test_gui03_worker_stops_when_bin_edges_fail(tk_app, tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         app, "_collect_bundle_values",
-        lambda paths, param, unit: ([1.0, 2.0, 3.0], 3, 1, []),
+        lambda paths, param, unit: ([1.0, 2.0, 3.0], None, 3, 1, []),
     )
 
     def _raise(*_args, **_kwargs):
@@ -122,3 +123,46 @@ def test_gui03_worker_stops_when_bin_edges_fail(tk_app, tmp_path, monkeypatch):
 
     assert kinds.count("fatal") == 1
     assert "done" not in kinds
+
+
+def test_gui03_non_fatal_notices_stay_in_the_log(tk_app, silence_dialogs):
+    """
+    A completed run reports its notices in the log and opens no dialog.
+    完了した実行は通知をログに出し、ダイアログを開かない。
+
+    Most notices are routine — samples outside the plotted range, a group too
+    small for a histogram shape — so a modal dialog would interrupt every run
+    and stop being read. The log panel is always on screen and carries the
+    same text.
+    通知の大半は日常的なもの（描画範囲外の標本、ヒストグラムの形が読めない小さな
+    グループ）であり、モーダルダイアログは毎回の実行を中断させ、やがて読まれなく
+    なる。ログ欄は常に画面上にあり、同じ本文を表示する。
+    """
+    app = tk_app(gui03.App)
+    dialogs = silence_dialogs(gui03)
+
+    counts = np.array([2, 1], dtype=float)
+    app._handle_done({
+        "results": [{
+            "id": "g", "name": "G", "color": "#1f77b4",
+            "values": np.array([1.0, 2.0, 3.0]), "weights": None,
+            "mean": 2.0, "std": 0.8, "median": 2.0, "q1": 1.5, "q3": 2.5,
+            "n_samples": 3.0, "n_raw": 3, "n_fibers": 3, "n_images": 1,
+            "counts": counts, "total": float(counts.sum()), "mode": 1.5,
+        }],
+        "edges": np.array([0.0, 1.0, 2.0]),
+        "param": gui03.PARAM_HEIGHT,
+        "unit": gui03.UNIT_FIBER,
+        "yaxis_mode": "density",
+        "display_mode": gui03.App.MODE_STACK,
+        "show_height_text": True,
+        "fig_w": 6.0, "fig_h": 3.0,
+        "label_fs": 15.0, "tick_fs": 15.0, "ann_fs": 15.0,
+        "group_name_fs": 15.0,
+        "errors": ["notice one", "notice two"],
+    })
+
+    assert dialogs == []
+    log = app.log_text.get("1.0", "end")
+    assert "notice one" in log
+    assert "notice two" in log

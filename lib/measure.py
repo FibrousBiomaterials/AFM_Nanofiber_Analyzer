@@ -659,6 +659,144 @@ def collect_fiber_stats(
     return per_bundle, errors
 
 
+def contour_length_weights(horizon: np.ndarray) -> np.ndarray:
+    """
+    Return the contour length each tracked point represents, in nanometers.
+    追跡点 1 点が代表する輪郭長 (nm) を返す。
+
+    Parameters
+    ----------
+    horizon
+        Cumulative distance along one fiber's skeleton path, as stored in
+        `lib.fiber.Fiber.horizon`.
+        1 本のファイバーの骨格経路に沿った累積距離。`lib.fiber.Fiber.horizon`
+        に格納されているもの。
+
+    Returns
+    -------
+    ndarray
+        Per-point weights summing to the fiber's total length. A fiber of a
+        single point represents no contour length and gets weight zero.
+        合計がファイバー全長に一致する点ごとの重み。1 点だけのファイバーは
+        輪郭長を持たないため重み 0 になる。
+
+    Notes
+    -----
+    Each point takes half of the step on either side of it, so the weights
+    sum exactly to `horizon[-1] - horizon[0]`. Weighting by these instead of
+    counting points equally matters twice over. Within one image the skeleton
+    alternates orthogonal and diagonal steps, whose corrected chain-code
+    lengths differ by a factor of about 1.41, so counting points
+    under-represents the diagonal runs. Across images the pixel size differs
+    with the scan size, so a finely sampled scan contributes more points per
+    micrometer of fiber and would dominate a pooled distribution. Length
+    weighting removes both biases and makes the distribution scale-invariant:
+    it describes the fraction of observed contour length at each value rather
+    than the fraction of sampled points.
+    各点は前後のステップの半分ずつを受け取るため、重みの合計はちょうど
+    `horizon[-1] - horizon[0]` になる。点を等しく数える代わりにこの重みを使う
+    ことには 2 つの意味がある。1 枚の画像内では骨格が直交ステップと斜めステップ
+    を混在させ、補正済みチェーンコード長は約 1.41 倍異なるため、点を数えると
+    斜め区間が過小評価される。画像間では走査範囲に応じてピクセルサイズが変わり、
+    細かくサンプリングされた画像ほどファイバー 1 µm あたりの点数が多くなって
+    集約分布を支配してしまう。長さ重み付けは両方の偏りを取り除き、分布を
+    スケール不変にする。すなわち「サンプル点のうちの割合」ではなく「観測した
+    輪郭長のうちの割合」を表すようになる。
+    """
+    horizon = np.asarray(horizon, dtype=float)
+    if horizon.size < 2:
+        return np.zeros(horizon.shape, dtype=float)
+    steps = np.diff(horizon)
+    weights = np.empty(horizon.shape, dtype=float)
+    weights[0] = steps[0] / 2.0
+    weights[-1] = steps[-1] / 2.0
+    weights[1:-1] = (steps[:-1] + steps[1:]) / 2.0
+    return weights
+
+
+def collect_skeleton_height_profiles(
+    bundle_paths: Sequence[str],
+    scale_um: Optional[float] = None,
+    scale_y_um: Optional[float] = None,
+    max_workers: Optional[int] = None,
+) -> Tuple[List[Tuple[str, np.ndarray, np.ndarray]], List[Tuple[str, str]]]:
+    """
+    Collect tracked height profiles and their contour length weights.
+    追跡された高さプロファイルと、その輪郭長重みを収集する。
+
+    Parameters
+    ----------
+    bundle_paths
+        Paths to ``.b2z`` bundles containing the tracking keys.
+        追跡用キーを含む ``.b2z`` バンドルのパス。
+    scale_um
+        X-axis scan size in micrometers, forwarded to `measure_bundle`.
+        `measure_bundle` へ渡す X 軸走査範囲 (µm)。
+    scale_y_um
+        Y-axis scan size in micrometers, forwarded to `measure_bundle`.
+        `measure_bundle` へ渡す Y 軸走査範囲 (µm)。
+    max_workers
+        Maximum number of worker threads used per bundle.
+        1 バンドルあたりの並列追跡ワーカースレッド数の上限。
+
+    Returns
+    -------
+    tuple
+        ``(per_bundle, errors)``. `per_bundle` lists
+        ``(bundle_path, heights_nm, weights_nm)`` triples with every traced
+        fiber of that bundle concatenated; `errors` lists
+        ``(bundle_path, message)`` pairs with fixed English messages.
+        ``(per_bundle, errors)``。`per_bundle` はバンドルごとに
+        ``(バンドルパス, 高さ配列 (nm), 重み配列 (nm))`` を並べたもので、その
+        バンドルの全追跡ファイバーを連結して保持する。`errors` は
+        ``(バンドルパス, メッセージ)`` で、メッセージは固定の英語文字列。
+
+    Notes
+    -----
+    This is the length-weighted counterpart of `skeleton_height_values`, and
+    shares the same per-bundle failure contract. The two do not sample the
+    same population: `skeleton_height_values` reads every pixel of the
+    skeleton mask, while this walks the traced fibers, which exclude the
+    branch-point neighborhoods removed before tracing.
+    本関数は `skeleton_height_values` の長さ重み付け版で、バンドル単位の失敗
+    契約も共通である。ただし両者の母集団は同一ではない。
+    `skeleton_height_values` は骨格マスクの全画素を読むのに対し、本関数は追跡
+    済みファイバーをたどるため、追跡前に除去される分岐点近傍を含まない。
+    """
+    per_bundle: List[Tuple[str, np.ndarray, np.ndarray]] = []
+    errors: List[Tuple[str, str]] = []
+    for path in bundle_paths:
+        try:
+            result = measure_bundle(
+                path,
+                scale_um=scale_um,
+                scale_y_um=scale_y_um,
+                max_workers=max_workers,
+            )
+        except Exception as e:
+            errors.append((path, f"{type(e).__name__}: {e}"))
+            continue
+
+        heights: List[np.ndarray] = []
+        weights: List[np.ndarray] = []
+        for fiber in result.fibers:
+            height = np.asarray(fiber.height, dtype=float)
+            if height.size == 0:
+                continue
+            heights.append(height)
+            weights.append(contour_length_weights(fiber.horizon))
+
+        if heights:
+            per_bundle.append(
+                (path, np.concatenate(heights), np.concatenate(weights))
+            )
+        else:
+            per_bundle.append(
+                (path, np.empty(0, dtype=float), np.empty(0, dtype=float))
+            )
+    return per_bundle, errors
+
+
 def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
     """
     Write per-fiber statistics to a CSV file.

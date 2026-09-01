@@ -32,7 +32,8 @@ that gap with a documented, reproducible pipeline and a stable data format.
   interactively on the height map.
 - **(c) Fiber Height Histogram** compares the distribution of height, contour
   length, kink angle, or kink density between user-defined sample groups, per
-  skeleton pixel, per fiber, or per image, and reports per-group statistics.
+  skeleton pixel, per unit of contour length, per fiber, or per image, and
+  reports per-group statistics.
 - **(d) Fiber Tracker** lists per-fiber length, median and maximum height, and
   endpoint and kink counts, and locates each fiber in the full scan.
 
@@ -315,7 +316,8 @@ the other three come from the same per-fiber measurement `cli.py measure`
 and the Fiber Tracker use, so they need a bundle with a recorded scan size.
 
 A separate aggregation-unit selector decides what counts as one sample:
-`pixel` (one skeleton pixel), `kink` (one kink), `fiber` (one fiber, using
+`pixel` (one skeleton pixel), `length` (one skeleton pixel weighted by the
+contour length it represents), `kink` (one kink), `fiber` (one fiber, using
 the median within that fiber for height and kink angle), or `image` (one
 scan, using the median of that image's fiber values). This distinction is
 reported, not just applied: pooled skeleton pixels are not independent
@@ -323,11 +325,25 @@ observations — a long fiber contributes more pixels than a short one — so
 the statistics table and the figure annotation give the sample count broken
 down into samples, fibers, and images.
 
+`length` exists because counting skeleton pixels equally carries two biases.
+Within one image the skeleton alternates orthogonal and diagonal steps, whose
+corrected chain-code lengths differ by a factor of about 1.41; across images
+the pixel size follows the scan size, so a finely sampled scan contributes more
+points per micrometer of fiber and dominates a pooled distribution. Weighting
+each point by its step length removes both and makes the distribution
+scale-invariant: it describes the fraction of observed contour length at each
+height rather than the fraction of sampled points. Its sample size is reported
+as a contour length in micrometers, and its raw-value CSV carries a
+`weight_nm` column so the exported file reproduces the same distribution.
+
 Each group reports median and interquartile range alongside mean, standard
 deviation, and mode, because fiber morphology distributions are right-skewed
 and the mode moves with the histogram bin width. Samples outside the plotted
-range are counted in the log rather than dropped silently; the summary
-statistics always describe the whole sample.
+range are reported in the log as a percentage rather than dropped silently;
+the summary statistics always describe the whole sample. A group with fewer
+than eight samples is flagged as one whose histogram shape cannot be read —
+the normal situation for `image`, where a group holds as many samples as it
+holds scans, and where the table's median and IQR are the output to read.
 
 ### Fiber Tracker — `guis/GUI04_Tracking_fiber.py`
 
@@ -752,7 +768,7 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | `lib/gwy_io.py` | Lazy-loading reader for native, multi-channel Gwyddion `.gwy` files, including channel selection, length-channel conversion to nm, and scan-size extraction. |
 | `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
 | `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
-| `lib/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, `collect_fiber_stats` (per-fiber statistics over many bundles), `isolated_fiber_flags` (which fibers touch no other fiber), skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
+| `lib/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, `collect_fiber_stats` (per-fiber statistics over many bundles), `collect_skeleton_height_profiles` (tracked heights with the contour length each point represents), `isolated_fiber_flags` (which fibers touch no other fiber), skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
 | `lib/pipeline.py` | `ProcParams` parameter schema, stage construction, and `process_file`, the GUI-independent pipeline driver shared by GUI01 and `cli.py`; the `.b2z` contract itself lives in `lib/bundle_schema.py`. |
 | `lib/processed_image.py` | `ProcessedImage`, the container passed through the GUI01 preprocessing pipeline. |
 | `lib/segmenter.py` | `Segmenter`, which builds binary nanofiber masks from calibrated AFM images. |
