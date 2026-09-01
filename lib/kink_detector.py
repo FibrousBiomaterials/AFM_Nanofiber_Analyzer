@@ -335,6 +335,25 @@ class KinkDetector:
         kink_result
             `(kink_indices, kink_angles)` filtered by threshold.
             しきい値で抽出した `(kink_indices, kink_angles)`。
+
+        Notes
+        -----
+        A candidate is also required to have both arms — the index spans to
+        its neighboring decomposition vertices — of at least
+        `threshold_distance`. The track endpoints are vertices by
+        construction, so a terminal arm can be arbitrarily short (down to one
+        pixel), and the vertex positions themselves are only localized to
+        within `threshold_distance` by the decomposition; an angle measured
+        over a shorter arm therefore has no tangent support at the scale the
+        decomposition resolves and would report bends that are pure end
+        effects.
+        候補には、隣接する分解頂点までのインデックス幅（両腕）が
+        `threshold_distance` 以上であることも要求する。トラックの端点は構成上
+        必ず頂点になるため末端の腕はいくらでも短くなり得る（最短 1 画素）。
+        また頂点位置自体が分解によって `threshold_distance` の精度でしか
+        局在化されないため、それより短い腕で測った角度は分解が解像する
+        スケールでの接線の支持を持たず、純粋な端効果を折れ曲がりとして
+        報告してしまう。
         """
         # Compute angles at decomposition midpoints and keep sharp bends.
         kink_indices = []
@@ -359,4 +378,10 @@ class KinkDetector:
         norm2 = np.sqrt(v2x ** 2 + v2y ** 2)
         angles = np.arccos(dot / (norm1 * norm2))
         mask = angles <= threshold_angle
+        # Arm-support rule: see Notes. Both arms must span at least the
+        # decomposition scale for the angle to be meaningful.
+        # 腕支持ルール（Notes 参照）。角度が意味を持つには両腕が分解スケール
+        # 以上の幅を持つ必要がある。
+        mask &= (mid_idx - prev_idx) >= self.threshold_distance
+        mask &= (next_idx - mid_idx) >= self.threshold_distance
         return mid_idx[mask], angles[mask]

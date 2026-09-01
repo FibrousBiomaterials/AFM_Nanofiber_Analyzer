@@ -66,6 +66,43 @@ DEFAULT_BORDER_PAD = 12
 # （リッジ高の約 10%）の画素を含む。0.3 は両者の間に双方向の余裕を持って位置する。
 DEFAULT_LOOP_HEIGHT_RATIO = 0.3
 
+# Terminal-hook pruning defaults. When segmentation admits a low, widened
+# "skirt" at a fiber tip, thinning follows the mask's medial axis into the
+# skirt and curls back along its periphery, leaving a junction-free hook at
+# the end of an otherwise straight centerline. Neither branch pruning (needs
+# a branch point) nor spur pruning (needs a junction) nor loop collapsing
+# (needs an enclosed hole) can see it. A hook is recognized by a direction
+# reversal near an endpoint (interior apex angle below
+# DEFAULT_HOOK_APEX_ANGLE_DEG within DEFAULT_HOOK_LENGTH px of the end) and
+# trimmed only where the calibrated height has fallen below
+# DEFAULT_HOOK_HEIGHT_RATIO of the adjacent fiber body, so a genuinely bent
+# fiber end — which stays at fiber height — is never cut. On the bundled
+# scans hook pixels sit at 19-42% of body height while real bent ends and
+# junction wiggles sit at 55-113%, so 0.5 separates the regimes; 120 deg is
+# far sharper than the 150 deg kink threshold, keeping kink detection intact.
+# 末端フック除去の既定値。セグメンテーションがファイバー先端の低い「裾」を
+# マスクに含めると、細線化はその medial axis を裾へ辿って周縁を回り込み、
+# 直線的な中心線の末端に分岐点を持たないフックを残す。枝刈り（分岐点が必要）
+# もスパー除去（合流点が必要）もループ潰し（閉じた穴が必要）もこれを検出
+# できない。フックは端点近傍の方向反転（端から DEFAULT_HOOK_LENGTH px 以内で
+# 頂点内角が DEFAULT_HOOK_APEX_ANGLE_DEG 未満）で認識し、較正高さが隣接する
+# 本体の DEFAULT_HOOK_HEIGHT_RATIO 未満に落ちた画素だけを切除する。本当に
+# 折れ曲がった末端は繊維の高さを保つため決して切られない。同梱スキャンでは
+# フック画素は本体高の 19〜42%、実在の折れ末端・合流部の蛇行は 55〜113% で、
+# 0.5 が両者を分離する。120 度はキンク判定しきい値 150 度よりはるかに鋭く、
+# キンク検出には干渉しない。
+DEFAULT_HOOK_LENGTH = 12
+DEFAULT_HOOK_APEX_ANGLE_DEG = 120.0
+DEFAULT_HOOK_HEIGHT_RATIO = 0.5
+
+# Window sizes for terminal-hook analysis: pixels used to estimate the fiber
+# body direction at a candidate apex, and pixels of body used as the height
+# reference. Both are internal tuning constants, not user parameters.
+# 末端フック解析の窓幅。頂点候補での本体方向の推定に使う画素数と、高さ基準に
+# 使う本体画素数。どちらも内部調整定数でありユーザーパラメータではない。
+_HOOK_DIRECTION_WINDOW = 6
+_HOOK_BODY_WINDOW = 12
+
 
 def thin_ignoring_image_border(
     binary_image: NDArray[np.uint8],
@@ -372,6 +409,197 @@ def prune_short_spurs(
             return skel
 
 
+def _walk_from_endpoint(
+    skel: NDArray[np.uint8], sy: int, sx: int, max_steps: int,
+) -> list[tuple[int, int]]:
+    """
+    Collect the ordered single-path pixels starting at a skeleton endpoint.
+    スケルトン端点から始まる順序付き単一経路の画素列を収集する。
+
+    The walk follows the unique unvisited neighbor at each step and stops at a
+    dead end, at a junction (more than one continuation), or after `max_steps`
+    pixels, so it never wanders into ambiguous topology.
+    各ステップで唯一の未訪問隣接画素を辿り、行き止まり・合流点（続きが複数）・
+    `max_steps` 画素到達で停止する。曖昧なトポロジーへは踏み込まない。
+    """
+    height, width = skel.shape
+    path = [(sy, sx)]
+    cy, cx = sy, sx
+    while len(path) < max_steps:
+        candidates = []
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                if dy == 0 and dx == 0:
+                    continue
+                ny, nx = cy + dy, cx + dx
+                if not (0 <= ny < height and 0 <= nx < width):
+                    continue
+                if not skel[ny, nx] or (ny, nx) in path:
+                    continue
+                candidates.append((ny, nx))
+        if len(candidates) != 1:
+            break
+        cy, cx = candidates[0]
+        path.append((cy, cx))
+    return path
+
+
+def prune_terminal_hooks(
+    skeleton_image: NDArray[np.uint8],
+    calibrated_image: Optional[np.ndarray],
+    max_hook_length: int = DEFAULT_HOOK_LENGTH,
+    max_apex_angle_deg: float = DEFAULT_HOOK_APEX_ANGLE_DEG,
+    max_height_ratio: float = DEFAULT_HOOK_HEIGHT_RATIO,
+    border_margin: int = 2,
+) -> NDArray[np.uint8]:
+    """
+    Remove junction-free terminal hooks that curl back over background pixels.
+    背景画素の上へ折り返す、分岐点を持たない末端フックを除去する。
+
+    Parameters
+    ----------
+    skeleton_image
+        Binary skeleton image. Nonzero pixels are treated as skeleton pixels.
+        二値スケルトン画像。非ゼロ画素をスケルトン画素として扱う。
+    calibrated_image
+        Height-calibrated image supplying the background-level guard. ``None``
+        disables pruning entirely: without heights a reversal alone cannot be
+        distinguished from a genuinely bent fiber end, so nothing is trimmed.
+        背景レベル判定に使う較正済み高さ画像。``None`` の場合は除去を完全に
+        無効化する。高さ情報なしでは方向反転だけで本当に折れ曲がった末端と
+        区別できないため、何も切除しない。
+    max_hook_length
+        Maximum distance in pixels from an endpoint within which a reversal
+        apex is searched, and the cap on trimmed pixels. ``0`` disables
+        pruning.
+        反転頂点を探索する端点からの最大距離 (px)。切除画素数の上限でもある。
+        ``0`` で無効化。
+    max_apex_angle_deg
+        A terminal segment counts as reversed when the interior angle at some
+        apex — between the arm toward the fiber body and the chord to the
+        endpoint — is below this value (degrees; 180 = straight). Keep it well
+        below the kink-detection threshold so kink analysis is unaffected.
+        端から見た頂点の内角（本体側の腕と端点への弦のなす角。180 = 直線）が
+        この値（度）未満のとき、末端セグメントを反転とみなす。キンク検出への
+        干渉を避けるため、キンク判定しきい値より十分小さく保つこと。
+    max_height_ratio
+        Only pixels whose calibrated height is below this fraction of the
+        adjacent fiber body's median height are trimmed. This is the guard
+        that protects genuinely bent fiber ends, which stay at fiber height.
+        較正高さが隣接する本体の中央値高さのこの比率未満の画素だけを切除する。
+        繊維の高さを保つ本当に折れ曲がった末端を守るガードである。
+    border_margin
+        Endpoints within this many pixels of the image border are left alone,
+        matching the guard in `prune_short_spurs`: an arm ending at the scan
+        border is a fiber leaving the field of view, not an artifact.
+        画像端からこの画素数以内の端点は対象外とする（`prune_short_spurs` と
+        同じガード）。スキャン端で終わる腕は視野外へ続くファイバーであり
+        アーティファクトではない。
+
+    Returns
+    -------
+    ndarray
+        uint8 0/1 skeleton image with background-level terminal hooks removed.
+        背景レベルの末端フックを除去した uint8 0/1 スケルトン画像。
+
+    Notes
+    -----
+    Boundary-shape perturbations producing spurious terminal skeleton
+    segments, and their removal by pruning, are the classic artifact class of
+    the skeletonization literature (Shaked & Bruckstein 1998; Saha et al.
+    2016). Those binary-shape significance measures cannot help here, though:
+    relative to the (flawed) mask the hook is a faithful medial axis of the
+    admitted skirt, so the missing information is the height data. The
+    trimming criterion instead follows grayscale-guided fiber tracing (e.g.
+    FiberApp, Usov & Mezzenga 2015): a fiber centerline must lie on the height
+    ridge, so a reversed end segment running at background level is removed,
+    while a reversed end at fiber height is kept as real geometry. The height
+    gate mirrors `collapse_skeleton_loops`' ratio guard.
+    境界形状の摂動が偽の末端スケルトンセグメントを生み、それを枝刈りで除去
+    するという構図は、細線化文献の古典的なアーティファクト類型である
+    (Shaked & Bruckstein 1998; Saha et al. 2016)。ただし二値形状のみの有意性
+    測度はここでは役に立たない。（誤りを含む）マスクを所与とすればフックは
+    裾の忠実な medial axis であり、欠けている情報は高さデータだからである。
+    切除基準はグレースケール誘導の繊維トレース（例: FiberApp, Usov &
+    Mezzenga 2015）に従う。繊維の中心線は高さの稜線上になければならないため、
+    背景レベルを走る反転末端は除去し、繊維高さを保つ反転末端は実在の形状と
+    して保持する。高さゲートは `collapse_skeleton_loops` の比率ガードと同じ
+    設計である。
+
+    The trim is capped at the deepest reversal apex found, so a straight
+    faded end — even one at low height — is never shortened; only the pixels
+    of the returning tail itself are candidates.
+    切除は検出された最も深い反転頂点までに制限されるため、（低い高さでも）
+    まっすぐ薄れていく末端が短縮されることはない。折り返している尾の画素
+    だけが候補になる。
+    """
+    skel = (np.asarray(skeleton_image) > 0).astype(np.uint8)
+    if max_hook_length <= 0 or calibrated_image is None:
+        return skel
+    height, width = skel.shape
+    ep_mask = imp_tools.endPoints(skel).astype(bool) & (skel > 0)
+    walk_cap = max_hook_length + _HOOK_DIRECTION_WINDOW + _HOOK_BODY_WINDOW
+    for sy, sx in zip(*np.where(ep_mask)):
+        if (sy < border_margin or sx < border_margin
+                or sy >= height - border_margin
+                or sx >= width - border_margin):
+            continue
+        # A previous trim on a tiny component may have erased this endpoint.
+        # 小さな成分では先行する切除がこの端点を消していることがある。
+        if not skel[sy, sx]:
+            continue
+        path = _walk_from_endpoint(skel, int(sy), int(sx), walk_cap)
+        n = len(path)
+        py = np.array([p[0] for p in path], dtype=float)
+        px = np.array([p[1] for p in path], dtype=float)
+
+        # Deepest apex whose interior angle marks a reversal. The body arm is
+        # averaged over _HOOK_DIRECTION_WINDOW px so single-pixel jitter of
+        # the 8-connected chain cannot fake a reversal.
+        # 内角が反転を示す最も深い頂点を探す。本体側の腕は
+        # _HOOK_DIRECTION_WINDOW px で平均化し、8 連結チェーンの 1 画素の
+        # ジグザグが反転と誤認されないようにする。
+        apex = -1
+        for j in range(1, min(max_hook_length, n - _HOOK_DIRECTION_WINDOW - 1) + 1):
+            body_y = py[j + _HOOK_DIRECTION_WINDOW] - py[j]
+            body_x = px[j + _HOOK_DIRECTION_WINDOW] - px[j]
+            end_y = py[0] - py[j]
+            end_x = px[0] - px[j]
+            norm_body = float(np.hypot(body_y, body_x))
+            norm_end = float(np.hypot(end_y, end_x))
+            if norm_body == 0.0 or norm_end == 0.0:
+                continue
+            cos_apex = (body_y * end_y + body_x * end_x) / (norm_body * norm_end)
+            angle = float(np.degrees(np.arccos(np.clip(cos_apex, -1.0, 1.0))))
+            if angle < max_apex_angle_deg:
+                apex = j
+        if apex < 0:
+            continue
+
+        # Height reference from the fiber body just beyond the apex.
+        # 頂点のすぐ先の本体画素から高さ基準を取る。
+        body_px = path[apex + 1: apex + 1 + _HOOK_BODY_WINDOW]
+        if len(body_px) < 4:
+            continue
+        body_median = float(np.median(
+            [calibrated_image[p] for p in body_px]
+        ))
+        threshold = max_height_ratio * body_median
+        if threshold <= 0.0:
+            continue
+
+        # Trim the terminal run of background-level pixels, never past the
+        # apex, so at most the returning tail is removed.
+        # 端から背景レベル画素の連なりを切除する。頂点より先へは進まないため、
+        # 除去されるのは最大でも折り返しの尾だけである。
+        run = 0
+        while run < apex and calibrated_image[path[run]] < threshold:
+            run += 1
+        for i in range(run):
+            skel[path[i]] = 0
+    return skel
+
+
 class Skeletonizer:
     """
     Extract and clean skeleton traces from a segmented AFM nanofiber mask.
@@ -485,12 +713,15 @@ class Skeletonizer:
         The workflow first thins the binary mask without letting the image
         border cut fibers short (`thin_ignoring_image_border`), removes short
         branches derived from low-height branch points, collapses small loop
-        artifacts and prunes short spurs geometrically, and then removes tiny
-        or ring-shaped connected components.
+        artifacts and prunes short spurs geometrically, trims background-level
+        terminal hooks against the calibrated heights
+        (`prune_terminal_hooks`), and then removes tiny or ring-shaped
+        connected components.
         まず画像端でファイバーを切断しない形で二値マスクを細線化し
         (`thin_ignoring_image_border`)、低い高さの分岐点から伸びる短い枝を除去し、
-        小ループの潰しと短いスパーの幾何的除去を行った後、微小成分やリング状
-        成分を除去する。
+        小ループの潰しと短いスパーの幾何的除去を行い、較正高さに基づいて背景
+        レベルの末端フックを切除した後 (`prune_terminal_hooks`)、微小成分や
+        リング状成分を除去する。
         """
         # Fail loudly at the stage boundary instead of deep inside skimage/cv2.
         if image.binarized_image is None:
@@ -525,6 +756,13 @@ class Skeletonizer:
         )
         cleaned_skeleton_image = prune_short_spurs(
             cleaned_skeleton_image, self.spur_length
+        )
+        # Junction-free hooks at fiber tips (thinning curling into a low mask
+        # skirt) survive both passes above; trim them against the height data.
+        # ファイバー先端の分岐点を持たないフック（細線化が低いマスクの裾へ
+        # 回り込んだもの）は上の 2 パスでは残るため、高さデータで切除する。
+        cleaned_skeleton_image = prune_terminal_hooks(
+            cleaned_skeleton_image, image.calibrated_image
         )
         self._cleaned_skeleton_image = cleaned_skeleton_image
         nosmall_skeleton_image = self.remove_small_and_ring(cleaned_skeleton_image)

@@ -463,13 +463,21 @@ class FiberTrackingImage:
         fiber into many fragments. Then remove branch points and L-corners so
         each connected component becomes a line-like shape that
         `imp_tools.tracking` can follow as a single path. Shared by the
-        sequential and parallel tracing paths.
+        sequential and parallel tracing paths. Terminal-hook trimming
+        (`skeletonizer.prune_terminal_hooks`) is deliberately *not* applied
+        here: it changes measured values, so it runs only in the pipeline, and
+        a bundle that predates it must be reprocessed to receive the fix —
+        loading must not silently reinterpret the stored record.
         まず小ループの潰しと短いスパーの除去を行う。パイプラインがこの
         クリーニングを行う前に保存されたバンドルは連続ファイバー上に偽の
         分岐点を持ち、そこで切断すると 1 本のファイバーが多数の断片に分断
         されるためである。その後、分岐点とL字角を除去し、各連結成分を
         `imp_tools.tracking` が単一の経路として追跡できる線状の形へ単純化
-        する。逐次・並列の両経路で共有する。
+        する。逐次・並列の両経路で共有する。末端フック切除
+        （`skeletonizer.prune_terminal_hooks`）は意図的にここでは適用しない。
+        測定値を変える処理のためパイプラインでのみ実行し、それ以前の
+        バンドルは再処理によって修正を受け取る。読み込みが保存済みの記録を
+        黙って再解釈してはならない。
 
         Cleanup only removes or locally re-thins pixels, so bundle-stored
         feature coordinates (kinks, endpoints, decomposition points) keep

@@ -179,6 +179,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The traced centerline no longer makes a U-turn at a fiber tip where
+  segmentation admitted a low, widened "skirt" of near-background pixels.
+  Thinning follows the mask's medial axis into such a skirt and curls back
+  along its periphery, leaving a junction-free hook at the end of an otherwise
+  straight fiber — on the bundled higher-plant scan, fiber #0 carried an
+  8-pixel hook running at 19–42% of the fiber's body height, which faked two
+  kinks (119°, 104°) and inflated the length by 14 nm. No existing cleanup
+  could see it: branch pruning needs a branch point, spur pruning needs a
+  junction, and loop collapsing needs an enclosed hole. A new
+  `lib.skeletonizer.prune_terminal_hooks` pass recognizes a direction reversal
+  within 12 px of an endpoint and trims only pixels whose calibrated height is
+  below half the adjacent body's median — a genuinely bent fiber end keeps its
+  fiber-level height and is never cut (verified on every flagged end in the
+  bundled scans: real bends and junction wiggles sit at 55–113% of body
+  height). The pass runs only in the preprocessing pipeline, so the stored
+  bundle remains the single source of truth: a `.b2z` analyzed before this
+  version still contains the hook and must be reprocessed (GUI01 or
+  `cli.py process`) to receive the fix — GUI04 deliberately does not repair
+  it at load time, because a viewer silently changing stored results would
+  break the correspondence between a bundle and the numbers it reproduces.
+  Kink detection additionally requires both arms of a candidate bend to span
+  at least the decomposition scale (`threshold_distance`): the track endpoints
+  are decomposition vertices by construction, so a terminal arm could shrink
+  to 1–2 px and report an angle with no tangent support — across the bundled
+  scans this drops exactly one kink, the artifact above. **Measured lengths,
+  kink counts, and kink angles change from this version** for scans whose
+  skeletons carried such hooks; results are not bit-identical to 1.0.0.
 - `.b2z` bundles can now be written and read under paths containing non-ASCII
   characters, such as a Japanese folder or file name on Japanese Windows.
   blosc2 encodes the path to UTF-8 and hands the bytes to the C-Blosc2
