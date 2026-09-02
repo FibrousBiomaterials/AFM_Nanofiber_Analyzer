@@ -10,6 +10,36 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `straightness`, `curvature`, and `kink density` columns in the GUI04 fiber
+  table, with `lib.measure.fiber_mean_curvature`, `fiber_kink_angle`, and
+  `fiber_kink_density`.
+
+  GUI03 shows its quantities only pooled into a distribution, which gives no
+  way to judge whether an individual value is right; the fiber table puts each
+  one beside the fiber it describes, and selecting a row highlights that fiber
+  in the overview, so a number can be read against the shape it came from. The
+  new `lib.measure` functions are the single definition of each quantity,
+  called by both GUI04's table and GUI03's collection path, so the two windows
+  cannot drift apart. A test now fails if a GUI03 quantity has neither a GUI04
+  column nor a recorded reason for having none.
+
+  `kink angle` is that recorded exception. A cell holds one number, but the
+  kinks along a fiber are distinct defect events rather than repeated
+  measurements of a single fiber property the way height pixels are, so a
+  per-fiber summary of them describes no property of the fiber; for most fibers
+  it degenerates as well, since a fiber usually carries zero or one kink. The
+  individual angles are exported in full by the CSV.
+
+  A curvature cell can be blank, for a fiber shorter than the curvature window,
+  where 0 would read as perfectly straight. A kink density of 0 is shown,
+  because zero kinks over a measured contour length is a real measurement. The
+  log reports how many fibers the curvature window excluded.
+
+  `lib.ui_tools.create_scrolled_treeview` gained an `hscroll` option, used
+  here. A Treeview requests the sum of its column widths, so ten columns
+  pushed the paned divider far enough to force the AFM overview and its
+  buttons out of the window.
+
 - GUI03 `curvature`, with `lib.measure.fiber_curvature_profile` and
   `collect_fiber_curvature`.
 

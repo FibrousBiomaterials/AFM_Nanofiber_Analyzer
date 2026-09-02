@@ -257,10 +257,11 @@ def create_scrolled_treeview(parent, *, columns=(), show="headings",
                              scrollbar_side="right", tree_side="left",
                              tree_pack_kwargs=None,
                              scrollbar_pack_kwargs=None,
+                             hscroll=False,
                              **tree_kwargs):
     """
-    Create a Treeview with a vertical scrollbar and optional column metadata.
-    縦スクロールバー付き Treeview を作成し、任意の列メタデータを設定する。
+    Create a Treeview with scrollbars and optional column metadata.
+    スクロールバー付き Treeview を作成し、任意の列メタデータを設定する。
 
     Parameters
     ----------
@@ -291,12 +292,29 @@ def create_scrolled_treeview(parent, *, columns=(), show="headings",
     scrollbar_pack_kwargs
         Optional keyword arguments merged into the scrollbar ``pack`` call.
         スクロールバーの ``pack`` 呼び出しに追加する任意のキーワード引数。
+    hscroll
+        When ``True``, also add a horizontal scrollbar along the bottom.
+        ``True`` のとき、下端に横スクロールバーも追加する。
 
     Returns
     -------
     tuple
-        ``(tree, scrollbar)`` created and linked together.
-        作成して相互接続した ``(tree, scrollbar)``。
+        ``(tree, vertical_scrollbar)`` created and linked together. The
+        horizontal scrollbar, when requested, is packed and wired but not
+        returned, because callers only ever need to reach the tree.
+        作成して相互接続した ``(tree, 縦スクロールバー)``。横スクロールバーは、
+        要求された場合も配置と接続だけ行い戻り値には含めない。呼び出し側が必要と
+        するのは常に tree だけであるため。
+
+    Notes
+    -----
+    A Treeview requests the sum of its column widths, so a table with many
+    columns pushes its container wide enough to squeeze whatever shares the
+    window. `hscroll` lets the container be narrowed instead, keeping every
+    column reachable on any screen width.
+    Treeview は列幅の合計を要求サイズとするため、列の多いテーブルはコンテナを
+    押し広げ、同じウインドウを共有する他の要素を圧迫する。`hscroll` を使うと
+    代わりにコンテナを狭められるので、どの画面幅でも全ての列に到達できる。
     """
     kwargs = dict(tree_kwargs)
     kwargs["columns"] = columns
@@ -314,6 +332,16 @@ def create_scrolled_treeview(parent, *, columns=(), show="headings",
 
     scrollbar = ttk.Scrollbar(parent, orient="vertical", command=tree.yview)
     tree.configure(yscrollcommand=scrollbar.set)
+
+    # Pack the horizontal bar first so it claims the full-width bottom strip;
+    # packing it after the tree would leave it beside the tree instead.
+    # 横バーを先に配置し、下端の全幅を確保する。tree の後に配置すると下端では
+    # なく tree の横に並んでしまう。
+    if hscroll:
+        hbar = ttk.Scrollbar(parent, orient="horizontal", command=tree.xview)
+        tree.configure(xscrollcommand=hbar.set)
+        hbar.pack(side="bottom", fill="x")
+
     tree_pack = {"side": tree_side, "fill": "both", "expand": True}
     tree_pack.update(tree_pack_kwargs or {})
     scrollbar_pack = {"side": scrollbar_side, "fill": "y"}

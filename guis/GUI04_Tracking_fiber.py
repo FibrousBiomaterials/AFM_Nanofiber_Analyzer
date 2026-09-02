@@ -77,8 +77,10 @@ from lib.fiber_selection import (
     load_exclusions, save_exclusions,
 )
 from lib.measure import (
-    TRACKING_BUNDLE_KEYS, compute_fiber_stats, isolated_fiber_flags,
-    measure_bundle, read_scan_size_from_bundle, write_fiber_csv,
+    DEFAULT_CURVATURE_WINDOW_NM, TRACKING_BUNDLE_KEYS, compute_fiber_stats,
+    fiber_kink_density, fiber_mean_curvature,
+    isolated_fiber_flags, measure_bundle,
+    read_scan_size_from_bundle, write_fiber_csv,
 )
 from lib.translator import _
 from lib.ui_tools import (
@@ -226,6 +228,37 @@ def crop_with_margin(image: np.ndarray, bbox: tuple, pad: int) -> tuple:
     return image[y0:y1, x0:x1], x - x0, y - y0
 
 
+def blank_if_nan(value: float, fmt: str = "{0:.6g}") -> str:
+    """
+    Format a number for a table cell, leaving an undefined one blank.
+    表セル用に数値を整形し、未定義の値は空欄にする。
+
+    Parameters
+    ----------
+    value
+        Number to format; NaN means the quantity could not be computed.
+        整形する数値。NaN は計算できなかったことを意味する。
+    fmt
+        Format string applied to a finite value.
+        有限値に適用する書式文字列。
+
+    Returns
+    -------
+    str
+        Formatted number, or an empty string.
+        整形済みの数値、または空文字列。
+
+    Notes
+    -----
+    An empty cell reads as "not measured", whereas "nan" looks like a fault
+    and 0 would be taken for a measurement. A fiber shorter than the curvature
+    window is legitimately unmeasurable, not broken.
+    空欄は「未計測」として読まれるが、"nan" は不具合に見え、0 は計測値と取り違え
+    られる。曲率窓より短いファイバーは、壊れているのではなく正当に計測不能である。
+    """
+    return "" if not np.isfinite(value) else fmt.format(value)
+
+
 # ===== Main window =====
 
 class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
@@ -312,7 +345,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._overview_boxes:  List[object] = []
 
         # Cache fiber statistics so table rebuilds do not recompute them.
-        self._fiber_stats: List[tuple] = []   # [(median, max), ...]
+        # [(median, max, straightness, curvature, kink density), ...]
+        self._fiber_stats: List[tuple] = []
 
         # Progress-bar state. The first update of a run appends a fresh log
         # line; later updates overwrite it in place via replace_log_tail.
@@ -787,8 +821,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "ときだけ押せます。"
         ).format(suffix=EXCLUSION_SUFFIX))
         self._refresh_exclusion_button()
-        tbl_frame = ttk.Frame(tbl_outer)
+        # Stop the table's own width request from reaching the paned window.
+        # A Treeview asks for the sum of its column widths, which for this many
+        # columns is wider than the pane should be and would squeeze the AFM
+        # overview and the buttons above it out of the window. The table
+        # scrolls horizontally instead, so every column stays reachable and the
+        # user can still widen the pane by dragging the sash.
+        # テーブル自身の幅要求がペインドウィンドウへ伝わらないようにする。Treeview
+        # は列幅の合計を要求するが、この列数ではペインとして適切な幅を超え、AFM
+        # 全体像とその上のボタンをウインドウ外へ押し出してしまう。代わりに横
+        # スクロールさせることで全列に到達でき、サッシのドラッグで幅を広げることも
+        # できる。
+        tbl_frame = ttk.Frame(tbl_outer, width=560)
         tbl_frame.pack(fill="both", expand=True, padx=2, pady=2)
+        tbl_frame.pack_propagate(False)
         self._build_fiber_table(tbl_frame)
 
         # -- Right side: AFM overview above log --
@@ -1032,11 +1078,30 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Build the fiber table used for selecting tracked fibers.
         追跡済みファイバーを選択するための一覧テーブルを構築する。
         """
-        cols = ("#", "length (nm)", "median (nm)", "max (nm)", "EP count", "Kink count")
+        # Straightness and curvature sit beside the fiber they describe so a
+        # user can check them against the rendered fiber; GUI03 only ever shows
+        # their pooled distribution, where a wrong value is invisible.
+        # 直線度と曲率は、対象のファイバーの隣に並べて表示する。描画されたファイバー
+        # と照合して確認できるようにするためである。GUI03 はこれらを集約した分布と
+        # してしか示さないため、値が誤っていても気付けない。
+        cols = ("#", "length (nm)", "median (nm)", "max (nm)",
+                "straightness", "curvature (rad/" + UNIT_MICROMETER + ")",
+                "EP count", "Kink count",
+                "kink density (1/" + UNIT_MICROMETER + ")")
         self.fiber_tree, _fiber_vsb = create_scrolled_treeview(
             parent, columns=cols, show="headings", selectmode="browse",
+            hscroll=True,
         )
-        col_widths = {"#": 30, "length (nm)": 65, "median (nm)": 70, "max (nm)": 70, "EP count": 55, "Kink count": 65}
+        col_widths = {
+            "#": 30, "length (nm)": 65, "median (nm)": 70, "max (nm)": 70,
+            # Wide enough for the whole heading: a clipped "curvature (rad/µ"
+            # reads as a broken widget rather than as a unit.
+            # 見出し全体が収まる幅にする。"curvature (rad/µ" と切れると、単位では
+            # なくウィジェットの不具合に見えるため。
+            "straightness": 75, "curvature (rad/" + UNIT_MICROMETER + ")": 118,
+            "EP count": 55, "Kink count": 65,
+            "kink density (1/" + UNIT_MICROMETER + ")": 118,
+        }
         for col in cols:
             self.fiber_tree.heading(col, text=col)
             self.fiber_tree.column(col, width=col_widths[col], anchor="center")
@@ -1634,10 +1699,24 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 )
                 image, fibers = result.image, result.fibers
 
-                # Precompute (median, max) pairs for table rebuilds.
-                # テーブル再構築用に (中央値, 最大値) ペアを事前計算しておく。
+                # Precompute the table's per-fiber values here, in the worker,
+                # so a table rebuild on the main thread never has to measure.
+                # Straightness comes from `result.stats`, which measure_bundle
+                # already computed with the pixel size.
+                # テーブルに出すファイバーごとの値はワーカー側で事前計算し、メイン
+                # スレッドでのテーブル再構築時に計測が走らないようにする。直線度は
+                # measure_bundle がピクセルサイズ付きで計算済みの `result.stats`
+                # から取る。
+                x_spp = image.size_per_pixel
+                y_spp = image.y_size_per_pixel
                 stats = [
-                    (s.height_median_nm, s.height_max_nm) for s in result.stats
+                    (s.height_median_nm, s.height_max_nm, s.straightness,
+                     fiber_mean_curvature(
+                         f, x_spp, y_spp,
+                         window_nm=DEFAULT_CURVATURE_WINDOW_NM,
+                     ),
+                     fiber_kink_density(s))
+                    for s, f in zip(result.stats, fibers)
                 ]
                 self.ui_queue.put(("file_loaded", (stem, image, fibers, stats)))
             except Exception:
@@ -1711,6 +1790,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._log(_("読み込み完了: {name}  ファイバー数: {count}").format(
             name=os.path.basename(stem), count=len(fibers)
         ))
+        # A blank curvature cell is a fiber the window cannot span, not a
+        # failure; say so once, and name the window so the value can be matched
+        # against the one GUI03 histograms.
+        # 曲率欄が空なのは窓を張れないファイバーであり、失敗ではない。その旨を
+        # 一度だけ知らせ、GUI03 がヒストグラム化する値と照合できるよう窓の値も
+        # 併せて示す。
+        unmeasurable = sum(1 for s in stats if not np.isfinite(s[3]))
+        if unmeasurable:
+            self._log(_(
+                "曲率窓 {w} nm より短いファイバー {n} 本は曲率欄が空欄になります。"
+            ).format(
+                w=self._fmt_num(DEFAULT_CURVATURE_WINDOW_NM), n=unmeasurable,
+            ))
         # Read back through the accessor so a checked isolated-fiber filter
         # survives a file switch, as the height filter already does below.
         # アクセサ経由で読み直し、孤立ファイバーフィルターがファイル切替後も
@@ -1771,20 +1863,35 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # statistic definitions as the worker and the CSV export.
             # フィルター後の行もワーカー・CSV 出力と同じ統計定義になるよう、
             # lib.measure 経由で再計算する。
+            x_spp = self.current_image.size_per_pixel
+            y_spp = self.current_image.y_size_per_pixel
             fresh = [
-                (s.height_median_nm, s.height_max_nm)
-                for s in compute_fiber_stats(fibers)
+                (s.height_median_nm, s.height_max_nm, s.straightness,
+                 fiber_mean_curvature(
+                     f, x_spp, y_spp, window_nm=DEFAULT_CURVATURE_WINDOW_NM,
+                 ),
+                 fiber_kink_density(s))
+                for s, f in zip(compute_fiber_stats(fibers, x_spp, y_spp), fibers)
             ]
 
         for i, f in enumerate(fibers):
-            med, mx = self._fiber_stats[i] if use_cache else fresh[i]
+            med, mx, straight, curv, kink_dens = (
+                self._fiber_stats[i] if use_cache else fresh[i]
+            )
             self.fiber_tree.insert("", "end", iid=str(i), values=(
                 i,
                 f"{f.length:.0f}",
                 f"{med:.2f}",
                 f"{mx:.2f}",
+                blank_if_nan(straight, "{0:.3f}"),
+                blank_if_nan(curv, "{0:.2f}"),
                 len(f.ep_indices),
                 len(f.kink_indices),
+                # Zero kinks over a measured length is a real density, so a
+                # kinkless fiber shows 0.00 here rather than a blank cell.
+                # 計測済み長さに対するキンク 0 本は実在の密度であるため、キンクの
+                # 無いファイバーはここでは空欄ではなく 0.00 を表示する。
+                blank_if_nan(kink_dens, "{0:.2f}"),
             ))
 
     # =========================================================================

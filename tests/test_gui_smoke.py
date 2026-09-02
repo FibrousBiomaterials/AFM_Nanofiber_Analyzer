@@ -17,6 +17,8 @@ is missing, a callback is misspelled, or a `lib.ui_tools` helper changed shape.
 ウィンドウがそもそも構築できない——を確実に捕捉する。
 """
 
+import os
+
 import numpy as np
 import pytest
 
@@ -286,3 +288,168 @@ def test_gui03_non_fatal_notices_stay_in_the_log(tk_app, silence_dialogs):
     log = app.log_text.get("1.0", "end")
     assert "notice one" in log
     assert "notice two" in log
+
+
+def test_gui04_fiber_table_shows_straightness_and_curvature(tk_app, tmp_path):
+    """
+    The fiber table reports the per-fiber shape values GUI03 aggregates.
+    ファイバー一覧は、GUI03 が集約するファイバーごとの形状値を表示する。
+
+    GUI03 only ever shows these pooled into a distribution, where a wrong
+    value is invisible. Putting them beside the fiber they describe is the
+    only way a user can check them against the rendered fiber, so the columns
+    existing and being filled is the property worth pinning.
+    GUI03 はこれらを分布としてしか示さないため、値が誤っていても気付けない。
+    対象のファイバーの隣に並べることだけが、描画されたファイバーと照合する手段
+    である。よって列が存在し値が入ることが、固定すべき性質である。
+    """
+    from lib.measure import measure_bundle
+    from lib.pipeline import ProcParams, process_file
+    from conftest import write_synthetic_fiber_txt
+
+    txt = write_synthetic_fiber_txt(tmp_path)
+    out_dir = os.path.join(tmp_path, "out")
+    os.makedirs(out_dir)
+    bundle = process_file(txt, ProcParams(bg_method="tophat"),
+                          output_dir=out_dir).bundle_path
+    result = measure_bundle(bundle, scale_um=1.92)
+
+    app = tk_app(gui04.App)
+    assert "straightness" in app.fiber_tree.cget("columns")
+    curvature_col = [c for c in app.fiber_tree.cget("columns")
+                     if str(c).startswith("curvature")]
+    assert curvature_col, "the table must carry a curvature column"
+
+    app.current_image = result.image
+    app.current_fibers = result.fibers
+    # Empty the cache so the table recomputes, which is the path a height or
+    # isolated-fiber filter takes; it must fill the same columns.
+    # キャッシュを空にしてテーブル側で再計算させる。高さ／孤立ファイバーフィルター
+    # が通る経路であり、同じ列が埋まらなければならない。
+    app._fiber_stats = []
+    app._populate_fiber_table(result.fibers)
+
+    rows = app.fiber_tree.get_children("")
+    assert len(rows) == len(result.fibers)
+    values = app.fiber_tree.item(rows[0])["values"]
+    cols = list(app.fiber_tree.cget("columns"))
+    straight = float(values[cols.index("straightness")])
+    # The synthetic fiber is drawn with one bend, so it is neither a straight
+    # line nor a doubled-back tangle.
+    # 合成ファイバーは折れ目 1 つで描かれるため、直線でも折り返した塊でもない。
+    assert 0.5 < straight <= 1.0
+    assert straight == pytest.approx(result.stats[0].straightness, abs=5e-4)
+
+    curvature = values[cols.index(curvature_col[0])]
+    assert str(curvature).strip(), "a fiber longer than the window is measurable"
+    assert float(curvature) > 0.0
+
+
+def test_gui04_blank_curvature_cell_for_a_fiber_short_of_the_window(tk_app):
+    """
+    A fiber the curvature window cannot span leaves the cell blank, not zero.
+    曲率窓を張れないファイバーのセルは 0 ではなく空欄になる。
+
+    A zero would read as "perfectly straight", which is the opposite of "not
+    measured" and would silently enter any comparison the user makes by eye.
+    0 は「完全な直線」と読まれ、「未計測」とは正反対の意味になる。目視での比較に
+    そのまま紛れ込んでしまう。
+    """
+    assert gui04.blank_if_nan(float("nan"), "{0:.2f}") == ""
+    assert gui04.blank_if_nan(3.14159, "{0:.2f}") == "3.14"
+
+
+def test_gui03_and_gui04_agree_on_the_kink_quantities(tk_app):
+    """
+    GUI03's per-fiber kink values come from the same `lib.measure` functions
+    GUI04 shows, so a value checked beside a fiber is the value histogrammed.
+    GUI03 のファイバー単位のキンク値は、GUI04 が表示するのと同じ `lib.measure` の
+    関数から得る。ファイバーの横で確認した値が、そのままヒストグラム化される。
+
+    Two separate implementations of "the kink angle of a fiber" would let the
+    two windows disagree, which is exactly what the GUI04 columns exist to
+    rule out.
+    「ファイバーのキンク角」の実装が 2 つあると 2 つのウインドウが食い違いうる。
+    それを排除することこそが GUI04 の列の存在理由である。
+    """
+    from lib.measure import FiberStats, fiber_kink_angle, fiber_kink_density
+
+    stat = FiberStats(
+        index=0, length_nm=2000.0, height_median_nm=1.0, height_max_nm=2.0,
+        ep_count=2, kink_count=3, kink_angles_deg=(100.0, 120.0, 170.0),
+        straightness=0.8,
+    )
+    assert gui03._fiber_value(stat, gui03.PARAM_KINK_ANGLE) == pytest.approx(
+        fiber_kink_angle(stat)
+    )
+    assert gui03._fiber_value(stat, gui03.PARAM_KINK_DENSITY) == pytest.approx(
+        fiber_kink_density(stat)
+    )
+
+    # A kinkless fiber has no angle to contribute, but its density is a real
+    # zero, so GUI03 must drop the first and keep the second.
+    # キンクの無いファイバーは寄与する角度を持たないが、密度は実在の 0 である。
+    # GUI03 は前者を落とし、後者は残さなければならない。
+    kinkless = FiberStats(
+        index=1, length_nm=1000.0, height_median_nm=1.0, height_max_nm=2.0,
+        ep_count=2, kink_count=0, kink_angles_deg=(), straightness=1.0,
+    )
+    assert gui03._fiber_value(kinkless, gui03.PARAM_KINK_ANGLE) is None
+    assert gui03._fiber_value(kinkless, gui03.PARAM_KINK_DENSITY) == 0.0
+
+
+def test_gui04_fiber_table_covers_every_gui03_quantity(tk_app):
+    """
+    Every GUI03 quantity is readable per fiber in GUI04, except kink angle.
+    GUI03 の計測量は、キンク角を除きすべて GUI04 でファイバーごとに読める。
+
+    GUI03 shows these only pooled into a distribution, where a wrong value is
+    invisible. This test is what keeps a newly added GUI03 quantity from
+    shipping without a way for the user to check it against a real fiber.
+    GUI03 はこれらを分布としてしか示さないため、値が誤っていても気付けない。この
+    テストは、GUI03 に計測量を追加したとき、実際のファイバーと照合する手段が無い
+    まま出荷されることを防ぐ。
+
+    Kink angle is deliberately absent, and the reason is scientific rather
+    than a matter of table width: a cell holds one number, but the kinks along
+    a fiber are distinct defect events, not repeated measurements of one fiber
+    property the way height pixels are. A per-fiber median of them is not a
+    property of the fiber, and for most fibers it degenerates anyway -- in the
+    tunicate test image 27 of 37 fibers carry zero or one kink, so the median
+    is either undefined or just that single angle. The individual angles reach
+    the user through the CSV, which stores all of them.
+    キンク角を意図的に外しているのは、表の幅の問題ではなく科学的な理由による。
+    セルが持てる数値は 1 つだが、1 本のファイバー上の複数のキンクは、高さ画素の
+    ように 1 つのファイバー特性を繰り返し測ったものではなく、それぞれ独立した
+    欠陥事象である。その中央値はファイバーの性質ではなく、しかも大半の
+    ファイバーでは統計として成立しない。テスト画像では 37 本中 27 本がキンク
+    0 本または 1 本であり、中央値は未定義か単一の角度そのものになる。個々の角度は
+    全て CSV に保存され、そちらから参照できる。
+    """
+    app = tk_app(gui04.App)
+    columns = " | ".join(str(c) for c in app.fiber_tree.cget("columns"))
+
+    # Column headings carry units, so match on the quantity name alone.
+    # 列見出しには単位が付くため、計測量の名前だけで照合する。
+    expected = {
+        gui03.PARAM_HEIGHT: "median",
+        gui03.PARAM_LENGTH: "length",
+        gui03.PARAM_STRAIGHTNESS: "straightness",
+        gui03.PARAM_CURVATURE: "curvature",
+        gui03.PARAM_KINK_DENSITY: "kink density",
+    }
+    # Recorded here so removing the column stays a decision, not a regression.
+    # 列を持たないことを決定として記録し、退行と区別できるようにする。
+    deliberately_absent = {gui03.PARAM_KINK_ANGLE}
+
+    assert set(expected) | deliberately_absent == set(gui03.PARAM_ORDER), (
+        "a GUI03 quantity was added or removed; give it a GUI04 column and "
+        "update this mapping, or record it as deliberately absent with the "
+        "reason it cannot be shown per fiber"
+    )
+    for param, heading in expected.items():
+        assert heading in columns, f"{param} has no GUI04 column"
+    for param in deliberately_absent:
+        assert param not in columns, (
+            f"{param} is recorded as deliberately absent but has a column"
+        )

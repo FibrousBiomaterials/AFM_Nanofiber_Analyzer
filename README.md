@@ -34,8 +34,10 @@ that gap with a documented, reproducible pipeline and a stable data format.
   length, kink angle, or kink density between user-defined sample groups, per
   skeleton pixel, per unit of contour length, per fiber, or per image, and
   reports per-group statistics.
-- **(d) Fiber Tracker** lists per-fiber length, median and maximum height, and
-  endpoint and kink counts, and locates each fiber in the full scan.
+- **(d) Fiber Tracker** lists the per-fiber quantities the Fiber Height
+  Histogram can plot — length, median and maximum height, straightness,
+  curvature and kink density — plus endpoint and kink counts, and locates each
+  fiber in the full scan.
 
 ## Installation and Usage
 
@@ -397,7 +399,32 @@ holds scans, and where the table's median and IQR are the output to read.
 ![Fiber Tracker window: per-fiber statistics table beside the full AFM overview with the selected fiber highlighted.](figures/gui04.png)
 
 Load `.b2z` bundles, rebuild tracked `Fiber` objects, inspect individual
-fibers, export plots, and export fiber statistics to CSV. An optional
+fibers, export plots, and export fiber statistics to CSV.
+
+The fiber table lists length, median and maximum height, `straightness`,
+`curvature`, endpoint and kink counts, and `kink density` for each fiber.
+Those values are the same ones GUI03 histograms, computed by the same
+`lib.measure` functions and shown here beside the fiber they describe, because
+a pooled distribution gives no way to tell whether an individual value is
+right. Select a row and the overview highlights that fiber, so a number can be
+read against the shape it came from. The table scrolls horizontally, which
+keeps every column reachable without squeezing the overview.
+
+`kink angle` is the one plotted quantity with no column. A cell holds one
+number, but the kinks along a fiber are distinct defect events rather than
+repeated measurements of a single fiber property the way height pixels are, so
+a per-fiber summary of them describes no property of the fiber — and for most
+fibers it would degenerate, since a fiber usually carries zero or one kink. The
+individual angles are exported in full by the CSV, in the `kink_angles_deg`
+column.
+
+A curvature cell can be blank: a fiber shorter than the curvature window has no
+curvature, and showing 0 would read as perfectly straight. A kink density of 0
+is not blank, because zero kinks over a measured contour length is a real
+measurement. The log reports how many fibers the curvature window excluded.
+That window is the `lib.measure` default, which is also GUI03's default.
+
+An optional
 fiber-connection mode (toggle plus a settings window) reconnects skeleton
 fragments split at crossings and branches into whole fibrils before
 measurement. The connection and height-filter modes compose in "connect, then
