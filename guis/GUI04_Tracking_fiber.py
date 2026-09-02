@@ -72,6 +72,10 @@ from lib.fiber_tracking_image import FiberTrackingImage
 from lib.fiber import Fiber
 from lib.fiber_connector import ConnectParams, filter_fibers_by_height
 from lib.blosc2_io import bundle_has_keys, load_bundle, BUNDLE_EXT
+from lib.fiber_selection import (
+    EXCLUSION_SUFFIX, excluded_flags, exclusion_path_for, fiber_anchor,
+    load_exclusions, save_exclusions,
+)
 from lib.measure import (
     TRACKING_BUNDLE_KEYS, compute_fiber_stats, isolated_fiber_flags,
     measure_bundle, read_scan_size_from_bundle, write_fiber_csv,
@@ -399,6 +403,33 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 両者を除外することで、全長を直接計測できたファイバーだけが残る。
         self.isolated_only_var    = tk.BooleanVar(value=False)
 
+        # -- Manually excluded fibers for the current dataset --
+        # Loaded from and written back to `<stem>_excluded.json` beside the
+        # bundle, so a judgement made by looking at the overview survives the
+        # session and travels with the data. Automatic filters cannot curate a
+        # dense network — nearly every fiber there touches a crossing — so this
+        # visual judgement is the only way to drop debris and artifacts.
+        # ── 現在のデータセットで手動除外されたファイバー ──
+        # バンドル横の `<stem>_excluded.json` から読み書きするため、全体像を見て
+        # 下した判断がセッションを越えて残り、データと共に持ち運べる。密な
+        # ネットワークでは自動フィルターがキュレーションに使えない（ほぼ全ての
+        # ファイバーが交差に接する）ため、ゴミやアーティファクトを落とすには
+        # この目視判断しかない。
+        self._excluded_records = []
+
+        # Whether the exclusion set differs from what is on disk. Saving is a
+        # deliberate act rather than a side effect of clicking, because the
+        # sidecar is an analysis input: GUI03 aggregates over what it says, so
+        # a mis-click must not reach the file on its own. The cost of that
+        # choice is unsaved state, which the guards on dataset switch, folder
+        # change, and window close exist to keep from being lost silently.
+        # 除外集合がディスク上の内容と異なるかどうか。保存はクリックの副作用では
+        # なく意図的な操作とする。サイドカーは解析入力であり、GUI03 はその内容に
+        # 従って集計するため、誤クリックが独りでにファイルへ到達してはならない。
+        # その代償が未保存状態であり、データセット切替・フォルダ変更・ウインドウ
+        # 終了時のガードは、それを黙って失わせないために存在する。
+        self._exclusions_dirty = False
+
         # -- Fiber-connection (whole-fibril) toggle and its parameters --
         # Default is off; toggling re-analyzes the current dataset. When on,
         # GUI01 skeleton fragments split at crossings/branches are reconnected
@@ -465,6 +496,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._build_topbar()
         self._build_main()
         self._init_figures()
+
+        # Closing the window is a way out of the current dataset, so it has to
+        # offer to save unsaved exclusions like the other exit paths do.
+        # ウインドウを閉じる操作も現在のデータセットから出る経路であるため、他の
+        # 離脱経路と同様に未保存の除外の保存を確認する必要がある。
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         # Poll UI queue for current worker-thread messages and future async extensions.
         # キューポーリング（将来の非同期拡張用）。
@@ -699,6 +736,57 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         tbl_header.pack(side="top", fill="x", padx=2, pady=(2, 0))
         ttk.Label(tbl_header, text=_("ファイバー一覧"), font=("", 9, "bold")).pack(side="left", padx=4)
         ttk.Button(tbl_header, text=_("CSVで保存"), command=self._export_csv).pack(side="left", padx=4)
+
+        btn_exclude = ttk.Button(
+            tbl_header, text=_("選択を除外"), command=self._on_exclude_selected,
+        )
+        btn_exclude.pack(side="left", padx=4)
+        ToolTip(btn_exclude, _(
+            "選択中のファイバーを計測・CSV 出力の対象から外します。反映は即座"
+            "ですが、バンドル横の {suffix} への書き出しは「除外を保存」を押した"
+            "ときだけ行われます。自動フィルターでは落とせないゴミや走査線"
+            "アーティファクトを、全体像で確認しながら除くための機能です。"
+        ).format(suffix=EXCLUSION_SUFFIX))
+
+        self._btn_undo_exclusion = ttk.Button(
+            tbl_header, text=_("直前を取消"),
+            command=self._on_undo_last_exclusion,
+        )
+        self._btn_undo_exclusion.pack(side="left", padx=4)
+        ToolTip(self._btn_undo_exclusion, _(
+            "最後に行った除外を取り消します。繰り返し押すと、追加した逆順に"
+            "さかのぼって取り消せます。"
+        ))
+
+        # Named like the neighbouring "連結設定..." because it does the same
+        # kind of thing: open a window holding this feature's settings and
+        # actions. Its earlier name showed the exclusion count, which read as a
+        # status label and left users looking elsewhere for the controls it
+        # actually holds.
+        # 近くの「連結設定...」と同じ命名にする。この機能の設定と操作をまとめた
+        # ウインドウを開くという点で同種のボタンだからである。以前の名前は除外
+        # 件数を表示しており、状態表示のラベルに見えるため、実際にはこのボタンが
+        # 持っている操作をユーザーが別の場所に探しに行くことになっていた。
+        self._btn_manage_exclusions = ttk.Button(
+            tbl_header, text=_("除外設定..."),
+            command=self._on_manage_exclusions,
+        )
+        self._btn_manage_exclusions.pack(side="left", padx=4)
+        ToolTip(self._btn_manage_exclusions, _(
+            "このデータセットの除外を一覧し、任意の 1 件または全件を解除します。"
+            "解除もファイルへ書き出すには「除外を保存」が必要です。"
+        ))
+
+        self._btn_save_exclusions = ttk.Button(
+            tbl_header, text=_("除外を保存"), command=self._on_save_exclusions,
+        )
+        self._btn_save_exclusions.pack(side="left", padx=4)
+        ToolTip(self._btn_save_exclusions, _(
+            "現在の除外をバンドル横の {suffix} へ書き出します。除外が 1 件も無い"
+            "状態で保存すると、そのファイルは削除されます。未保存の変更がある"
+            "ときだけ押せます。"
+        ).format(suffix=EXCLUSION_SUFFIX))
+        self._refresh_exclusion_button()
         tbl_frame = ttk.Frame(tbl_outer)
         tbl_frame.pack(fill="both", expand=True, padx=2, pady=2)
         self._build_fiber_table(tbl_frame)
@@ -1331,6 +1419,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Handle folder selection and reset dataset-dependent UI state.
         フォルダ選択時に、データセット依存の UI 状態を初期化する。
         """
+        # Changing folders drops the current dataset, so its unsaved exclusions
+        # are offered first, before the dialog replaces everything.
+        # フォルダ変更は現在のデータセットを破棄するため、ダイアログで全てが
+        # 置き換わる前に未保存の除外の扱いを確認する。
+        if not self._confirm_unsaved_exclusions():
+            return
+
         folder = filedialog.askdirectory(title=_("GUI01 の出力フォルダを選択"))
         if not folder:
             return
@@ -1408,6 +1503,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         stem = sel[0]
         if self.is_running:
             self._log(_("読み込み中です。しばらくお待ちください。"))
+            return
+
+        # Exclusions belong to the dataset being left, so ask before the load
+        # replaces them. Cancelling restores the tree selection, otherwise the
+        # highlight would sit on a dataset that was never loaded.
+        # 除外はこれから離れるデータセットに属するため、読み込みが上書きする前に
+        # 確認する。中止した場合はツリーの選択を戻す。そうしないと、読み込まれて
+        # いないデータセットの上に選択表示だけが残る。
+        if not self._confirm_unsaved_exclusions():
+            if self.current_stem and self.file_tree.exists(self.current_stem):
+                self.file_tree.selection_set(self.current_stem)
+                self.file_tree.focus(self.current_stem)
             return
 
         self.is_running = True
@@ -1562,6 +1669,32 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # スキャンサイズも画素数も揃っていることが多く、extent 識別子が一致して
         # 前のデータセットのズームが別の画像へそのまま持ち越されてしまう。
         self._afm_extent_key = None
+
+        # Exclusions belong to the dataset, so they are reloaded with it. A
+        # broken sidecar is reported and treated as no exclusions for this
+        # session only; it is not overwritten until the user changes something,
+        # so a hand-edited file can still be repaired.
+        # 除外はデータセットに属するため、読み込みと同時に再読み込みする。壊れた
+        # サイドカーは報告した上で、このセッションに限り除外なしとして扱う。
+        # ユーザーが何か変更するまで上書きしないため、手編集したファイルを修復
+        # する余地を残す。
+        self._excluded_records = []
+        # Freshly loaded from disk, so nothing is pending. Any unsaved change
+        # from the previous dataset was already resolved by the guard in
+        # _on_file_select before this load was started.
+        # ディスクから読み直した直後なので保留中の変更は無い。前のデータセットの
+        # 未保存の変更は、この読み込みが始まる前に _on_file_select のガードで
+        # 処理済みである。
+        self._exclusions_dirty = False
+        try:
+            self._excluded_records = load_exclusions(self._exclusion_path())
+        except Exception as e:
+            self._log(_("除外ファイルを読めませんでした: {err}").format(err=e))
+        if self._excluded_records:
+            self._log(_("除外を復元しました: {n} 件").format(
+                n=len(self._excluded_records)
+            ))
+        self._refresh_exclusion_button()
 
         # -- Auto-update vmin/vmax only when auto mode is enabled --
         # The skeleton is passed as the fiber mask so the upper bound is a
@@ -1732,12 +1865,268 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         and exported.
         高さフィルターはファイバーを再構築するため先に適用し、孤立判定は実際に
         計測・出力される状態のファイバーに対して行う。
+
+        Manual exclusions are applied last, on the fibers as they will be
+        measured. They are a judgement about the object itself — debris, a
+        scan-line artifact — so they hold whatever the automatic filters did.
+        手動除外は最後に、実際に計測される状態のファイバーへ適用する。除外は
+        対象そのものについての判断（ゴミ、走査線アーティファクト）であるため、
+        自動フィルターの結果がどうであれ有効である。
         """
         fibers = self._filtered_fibers if self._filter_active else self.current_fibers
         if self.isolated_only_var.get() and self.current_image is not None:
             flags = isolated_fiber_flags(self.current_image, fibers)
             fibers = [f for f, keep in zip(fibers, flags) if keep]
+        if self._excluded_records:
+            dropped = excluded_flags(
+                fibers, [(r["x"], r["y"]) for r in self._excluded_records],
+            )
+            fibers = [f for f, drop in zip(fibers, dropped) if not drop]
         return fibers
+
+    # =========================================================================
+    # Manual fiber exclusion
+    # =========================================================================
+
+    def _exclusion_path(self) -> str:
+        """
+        Return the exclusion sidecar path for the current dataset.
+        現在のデータセットに対応する除外サイドカーのパスを返す。
+        """
+        return exclusion_path_for(self.current_stem + BUNDLE_EXT)
+
+    def _refresh_exclusion_button(self) -> None:
+        """
+        Enable the exclusion controls for the current exclusion state.
+        現在の除外状態に合わせて除外関連の操作部を有効・無効にする。
+
+        Notes
+        -----
+        Undo and the settings window act on the exclusion set, so with an
+        empty one they can only report that there is nothing to do; their
+        enabled state doubles as the at-a-glance indicator that this dataset
+        has exclusions at all. Save follows the unsaved flag instead, so an
+        enabled save button is the signal that something still has to be
+        written.
+        取消と設定ウインドウは除外集合に対する操作であり、空のときは「対象が
+        無い」としか返せない。有効・無効の状態は、このデータセットに除外がある
+        かどうかを一目で示す指標も兼ねる。保存は未保存フラグに従うため、保存
+        ボタンが有効であること自体が「まだ書き出すものがある」という合図になる。
+        """
+        state = tk.NORMAL if self._excluded_records else tk.DISABLED
+        for widget in (self._btn_undo_exclusion, self._btn_manage_exclusions):
+            widget.configure(state=state)
+        self._btn_save_exclusions.configure(
+            state=tk.NORMAL if self._exclusions_dirty else tk.DISABLED
+        )
+
+    def _refresh_population_views(self) -> None:
+        """
+        Rebuild the table and overview after the measured population changed.
+        計測対象母集団が変化した後に、一覧と全体像を再構築する。
+
+        Notes
+        -----
+        No worker thread and no reanalysis: this is a selection over fibers
+        that are already measured, and the table, overview, detail window, and
+        CSV export all read `_display_fibers`.
+        ワーカースレッドも再解析も不要。既に計測済みのファイバーに対する絞り込み
+        であり、一覧・全体像・個別表示・CSV 出力はいずれも `_display_fibers` を
+        参照するため。
+        """
+        # Row ids are positions in the displayed list, so a stale selection can
+        # point past its end; clear it and let the table re-select.
+        # 行 ID は表示リスト内の位置なので、古い選択は末尾を超えることがある。
+        # いったん解除し、テーブル側で選び直させる。
+        self._sel_idx = None
+        self._populate_fiber_table(self._display_fibers())
+        self._overview_bg_drawn = False
+        self._rebuild_overview_bg()
+        self._afm_canvas.draw_idle()
+
+        children = self.fiber_tree.get_children()
+        if children:
+            self.fiber_tree.selection_set(children[0])
+            self.fiber_tree.focus(children[0])
+            # Programmatic re-selection, so keep the current pan/zoom view.
+            # プログラムによる選び直しのため、現在のパン/ズームを維持する。
+            self._on_fiber_select(follow_view=False)
+
+    def _commit_exclusions(self) -> None:
+        """
+        Apply an exclusion-set change in memory and mark it unsaved.
+        除外集合の変更をメモリ上に反映し、未保存として記録する。
+
+        Notes
+        -----
+        The change takes effect in the table, the overview, and the CSV export
+        immediately, so the result of a judgement is visible at once; only the
+        sidecar waits for an explicit save. Nothing reaches disk here.
+        変更は一覧・全体像・CSV 出力へ即座に反映されるため、判断の結果はすぐ
+        目に見える。明示的な保存を待つのはサイドカーだけである。ここでは
+        ディスクへの書き込みを一切行わない。
+        """
+        self._exclusions_dirty = True
+        self._refresh_exclusion_button()
+        self._refresh_population_views()
+
+    def _on_save_exclusions(self) -> bool:
+        """
+        Write the exclusion set to the sidecar beside the bundle.
+        除外集合をバンドル横のサイドカーへ書き出す。
+
+        Returns
+        -------
+        bool
+            True when the file was written (or removed), False when the write
+            failed. The caller uses this to decide whether it is safe to leave
+            the dataset.
+            書き出し（または削除）に成功した場合は True、失敗した場合は False。
+            呼び出し側はこれを見て、データセットを離れてよいか判断する。
+
+        Notes
+        -----
+        An exclusion set that became empty removes the file rather than
+        writing an empty list, so "no sidecar" always means "nothing
+        excluded".
+        空になった除外集合は空リストを書かずファイルを削除する。これにより
+        「サイドカーが無い」は常に「除外なし」を意味する。
+        """
+        if self.current_image is None:
+            messagebox.showinfo(_("情報"), _("データセットを選択してください。"))
+            return False
+
+        try:
+            save_exclusions(
+                self._exclusion_path(),
+                os.path.basename(self.current_stem) + BUNDLE_EXT,
+                self._excluded_records,
+            )
+        except Exception as e:
+            messagebox.showerror(
+                _("保存失敗"),
+                _("除外ファイルを保存できませんでした:\n{err}").format(err=e),
+            )
+            return False
+
+        if self._excluded_records:
+            self._log(_("除外を保存しました（{n} 件）: {path}").format(
+                n=len(self._excluded_records),
+                path=os.path.basename(self._exclusion_path()),
+            ))
+        else:
+            self._log(_("除外が無くなったため、除外ファイルを削除しました: {path}").format(
+                path=os.path.basename(self._exclusion_path()),
+            ))
+
+        self._exclusions_dirty = False
+        self._refresh_exclusion_button()
+        return True
+
+    def _confirm_unsaved_exclusions(self) -> bool:
+        """
+        Offer to save unsaved exclusions before leaving the current dataset.
+        現在のデータセットを離れる前に、未保存の除外の保存可否を確認する。
+
+        Returns
+        -------
+        bool
+            True when it is safe to proceed, False when the user cancelled.
+            続行してよい場合は True、ユーザーが中止した場合は False。
+
+        Notes
+        -----
+        Manual saving is only safe if leaving cannot silently drop the work,
+        so every path out of a dataset — selecting another one, changing the
+        folder, closing the window — goes through here.
+        手動保存が成立するのは、離脱によって作業が黙って失われない場合に限る。
+        そのため、データセットから出る全ての経路（別データセットの選択、フォルダ
+        変更、ウインドウ終了）はここを通す。
+        """
+        if not self._exclusions_dirty:
+            return True
+
+        answer = messagebox.askyesnocancel(
+            _("未保存の除外"),
+            _("除外に未保存の変更があります（{n} 件）。保存しますか？\n"
+              "「いいえ」で破棄、「キャンセル」で操作を中止します。").format(
+                n=len(self._excluded_records)
+            ),
+        )
+        if answer is None:
+            return False
+        if answer:
+            return self._on_save_exclusions()
+
+        self._log(_("未保存の除外を破棄しました。"))
+        self._exclusions_dirty = False
+        return True
+
+    def _on_close(self) -> None:
+        """
+        Close the window, offering to save unsaved exclusions first.
+        未保存の除外の保存を確認したうえでウインドウを閉じる。
+        """
+        if not self._confirm_unsaved_exclusions():
+            return
+        self.destroy()
+
+    def _on_undo_last_exclusion(self) -> None:
+        """
+        Undo the most recent exclusion for the current dataset.
+        現在のデータセットで最後に行った除外を取り消す。
+
+        Notes
+        -----
+        Excluding is one click, so undoing must be too. Pressing this
+        repeatedly walks back through the exclusions in reverse order, because
+        the records keep the order they were added in and the sidecar
+        round-trips that order.
+        除外が 1 クリックである以上、取り消しも 1 クリックでなければならない。
+        繰り返し押すと追加した逆順にさかのぼる。レコードは追加順を保持し、
+        サイドカーもその順序を保って読み書きされるためである。
+        """
+        if not self._excluded_records:
+            messagebox.showinfo(_("情報"), _("取り消せる除外がありません。"))
+            return
+        record = self._excluded_records.pop()
+        self._log(_("直前の除外を取り消しました: 位置 ({x}, {y})").format(
+            x=record["x"], y=record["y"],
+        ))
+        self._commit_exclusions()
+
+
+    def _on_exclude_selected(self) -> None:
+        """
+        Exclude the selected fiber from measurement and export.
+        選択中のファイバーを計測・出力の対象から除外する。
+        """
+        fiber = self._current_fiber()
+        if fiber is None:
+            messagebox.showinfo(_("情報"), _("除外するファイバーを選択してください。"))
+            return
+
+        anchor = fiber_anchor(fiber)
+        self._excluded_records.append({
+            "x": anchor[0], "y": anchor[1], "note": "",
+        })
+        self._log(_(
+            "ファイバーを除外しました: 位置 ({x}, {y}) / 長さ {length:.0f} nm"
+        ).format(x=anchor[0], y=anchor[1], length=fiber.length))
+        self._commit_exclusions()
+
+    def _on_manage_exclusions(self) -> None:
+        """
+        Open the window listing this dataset's exclusions.
+        このデータセットの除外一覧ウィンドウを開く。
+        """
+        if self.current_image is None:
+            messagebox.showinfo(_("情報"), _("データセットを選択してください。"))
+            return
+        if not self._excluded_records:
+            messagebox.showinfo(_("情報"), _("除外されたファイバーはありません。"))
+            return
+        ExclusionWindow(self)
 
     def _current_fiber(self) -> Optional[Fiber]:
         """
@@ -2206,12 +2595,26 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return
 
         isolated_only = self.isolated_only_var.get()
-        if not self._filter_active and not isolated_only:
+        excluded = bool(self._excluded_records)
+        # The shortcut below draws every fiber with its position in
+        # `current_fibers`, which is only the right numbering while nothing
+        # narrows the population. Any narrowing — the height filter, the
+        # isolated-fiber filter, or manual exclusions — renumbers the table
+        # over the surviving fibers, so the overview has to be numbered from
+        # the same list or its labels stop naming the same objects.
+        # 下のショートカットは全ファイバーを `current_fibers` 内の位置で描画する。
+        # この番号が正しいのは母集団が絞られていない場合だけである。高さフィル
+        # ター・孤立ファイバーフィルター・手動除外のいずれで絞っても、一覧テーブル
+        # は残ったファイバーで採番し直すため、全体像も同じリストから採番しないと
+        # ラベルが同じ対象を指さなくなる。
+        if not self._filter_active and not isolated_only and not excluded:
             self._draw_overview_background()
             return
 
-        # Filter-active path (height filter, isolated-fiber filter, or both).
-        # フィルター有効時の経路（高さ・孤立ファイバー・両方のいずれか）。
+        # Narrowed-population path (height filter, isolated-fiber filter,
+        # manual exclusions, or any combination).
+        # 母集団が絞られている場合の経路（高さ・孤立ファイバー・手動除外、および
+        # それらの組み合わせ）。
         filtered = self._display_fibers()
         # Compute per-axis pixel size in the selected tick-display unit.
         # 軸表示単位に合わせて軸別ピクセルサイズを計算（µm / nm）。
@@ -2232,6 +2635,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             parts.append("filter: {count} segments".format(count=len(filtered)))
         if isolated_only:
             parts.append("isolated fibers only")
+        if excluded:
+            parts.append("{n} excluded".format(n=len(self._excluded_records)))
         self._draw_overview_background(
             labeled_fibers=list(enumerate(filtered)),
             title_suffix="  [{parts}]".format(parts=", ".join(parts)),
@@ -4177,6 +4582,133 @@ class ConnectSettingsWindow(tk.Toplevel):
         except Exception:
             pass
         self.destroy()
+
+
+class ExclusionWindow(tk.Toplevel):
+    """
+    Non-modal window listing and restoring manually excluded fibers.
+    手動除外したファイバーを一覧・復帰させる非モーダルウインドウ。
+
+    Attributes
+    ----------
+    _app
+        Main application window that owns the exclusion records.
+        除外レコードを保持するメインアプリケーションウインドウ。
+
+    Notes
+    -----
+    Excluded fibers leave `App._display_fibers`, which is the single accessor
+    the table, overview, detail view, and CSV export all read. That keeps
+    those views in agreement, but it also means an excluded fiber can no
+    longer be selected in the table — so restoring one needs its own list.
+    除外されたファイバーは `App._display_fibers` から外れる。これは一覧・全体像・
+    個別表示・CSV 出力が共通して参照する唯一のアクセサであり、各表示の整合性は
+    保たれるが、除外したファイバーは一覧で選択できなくなる。そのため復帰には
+    専用の一覧が要る。
+    """
+
+    def __init__(self, parent: "App") -> None:
+        """
+        Build the exclusion list window for the app's current dataset.
+        アプリの現在のデータセットに対する除外一覧ウインドウを構築する。
+        """
+        super().__init__(parent)
+        self._app: "App" = parent
+        self.title(_("除外したファイバー"))
+        setup_ttk_theme(self)
+        apply_window_size(self, 460, 320, min_w=380, min_h=240)
+
+        ttk.Label(self, text=_(
+            "位置は全体像の画素座標です。除外はバンドル横の {suffix} に保存されます。"
+        ).format(suffix=EXCLUSION_SUFFIX), wraplength=430).pack(
+            anchor="w", padx=8, pady=(8, 4)
+        )
+
+        list_frame = ttk.Frame(self)
+        list_frame.pack(fill="both", expand=True, padx=8, pady=(0, 4))
+        # Column headings name coordinates, so they stay fixed English like
+        # every other exported or scientific label in this project.
+        # 見出しは座標名のため、本プロジェクトの他の出力・科学ラベルと同様に
+        # 固定英語とする。
+        self._tree, _vsb = create_scrolled_treeview(
+            list_frame,
+            columns=("x", "y", "note"),
+            show="headings",
+            selectmode="browse",
+            headings={"x": "x (px)", "y": "y (px)", "note": "note"},
+            column_options={
+                "x": {"width": 80, "anchor": "e", "stretch": False},
+                "y": {"width": 80, "anchor": "e", "stretch": False},
+                "note": {"width": 240, "anchor": "w", "stretch": True},
+            },
+        )
+
+        btn_row = ttk.Frame(self)
+        btn_row.pack(fill="x", padx=8, pady=(0, 8))
+        ttk.Button(btn_row, text=_("選択を解除"),
+                   command=self._on_restore_selected).pack(side="left")
+        ttk.Button(btn_row, text=_("すべて解除"),
+                   command=self._on_restore_all).pack(side="left", padx=(6, 0))
+        ttk.Button(btn_row, text=_("閉じる"),
+                   command=self.destroy).pack(side="right")
+
+        self._reload()
+
+    def _reload(self) -> None:
+        """
+        Refill the list from the app's current exclusion records.
+        アプリの現在の除外レコードから一覧を再構築する。
+        """
+        for iid in self._tree.get_children():
+            self._tree.delete(iid)
+        for i, record in enumerate(self._app._excluded_records):
+            self._tree.insert("", "end", iid=str(i), values=(
+                record["x"], record["y"], record.get("note", ""),
+            ))
+        if not self._app._excluded_records:
+            self.destroy()
+
+    def _on_restore_selected(self) -> None:
+        """
+        Restore the selected fiber to the measured population.
+        選択中のファイバーを計測対象へ戻す。
+        """
+        selection = self._tree.selection()
+        if not selection:
+            messagebox.showinfo(_("情報"), _("解除する行を選択してください。"),
+                                parent=self)
+            return
+        index = int(selection[0])
+        record = self._app._excluded_records.pop(index)
+        self._app._log(_("除外を解除しました: 位置 ({x}, {y})").format(
+            x=record["x"], y=record["y"]
+        ))
+        self._app._commit_exclusions()
+        self._reload()
+
+    def _on_restore_all(self) -> None:
+        """
+        Restore every excluded fiber for this dataset.
+        このデータセットの除外をすべて解除する。
+
+        Confirmed first because it discards curation work made one judgement
+        at a time, which the undo button walks back only one step per press.
+        1 件ずつの判断を積み重ねたキュレーション結果を破棄する操作であり、取消
+        ボタンは 1 回押すごとに 1 件しか戻せないため、先に確認する。
+        """
+        if not messagebox.askyesno(
+            _("確認"),
+            _("このデータセットの除外 {n} 件をすべて解除しますか？").format(
+                n=len(self._app._excluded_records)
+            ),
+            parent=self,
+        ):
+            return
+        count = len(self._app._excluded_records)
+        self._app._excluded_records = []
+        self._app._log(_("除外をすべて解除しました: {n} 件").format(n=count))
+        self._app._commit_exclusions()
+        self._reload()
 
 
 # ===== Entry point =====

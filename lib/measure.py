@@ -64,6 +64,11 @@ from .bundle_schema import (
 )
 from .fiber import Fiber
 from .fiber_connector import ConnectParams, connect_fiber_fragments
+from .fiber_selection import (
+    excluded_flags,
+    exclusion_path_for,
+    load_exclusions,
+)
 from .fiber_tracking_image import FiberTrackingImage
 
 # Chebyshev distance in pixels within which a track pixel counts as touching a
@@ -586,11 +591,41 @@ def measure_bundle(
     return MeasureResult(image=image, fibers=fibers, stats=compute_fiber_stats(fibers))
 
 
+def _keep_after_exclusions(bundle_path: str, fibers: List) -> List[bool]:
+    """
+    Flag which fibers survive the bundle's manual exclusion sidecar.
+    バンドルの手動除外サイドカーを適用して残るファイバーを判定する。
+
+    Parameters
+    ----------
+    bundle_path
+        Bundle whose sidecar is consulted.
+        サイドカーを参照するバンドル。
+    fibers
+        Traced fibers to classify.
+        判定対象の追跡済みファイバー。
+
+    Returns
+    -------
+    list of bool
+        One flag per fiber; True means keep. Every fiber is kept when no
+        sidecar exists.
+        ファイバーごとの判定。True は残すことを意味する。サイドカーが無ければ
+        全て残す。
+    """
+    records = load_exclusions(exclusion_path_for(bundle_path))
+    if not records:
+        return [True] * len(fibers)
+    flags = excluded_flags(fibers, [(r["x"], r["y"]) for r in records])
+    return [not f for f in flags]
+
+
 def collect_fiber_stats(
     bundle_paths: Sequence[str],
     scale_um: Optional[float] = None,
     scale_y_um: Optional[float] = None,
     max_workers: Optional[int] = None,
+    apply_exclusions: bool = False,
 ) -> Tuple[List[Tuple[str, List[FiberStats]]], List[Tuple[str, str]]]:
     """
     Measure several ``.b2z`` bundles and return per-fiber statistics per bundle.
@@ -614,6 +649,15 @@ def collect_fiber_stats(
     max_workers
         Maximum number of worker threads used per bundle.
         1 バンドルあたりの並列追跡ワーカースレッド数の上限。
+    apply_exclusions
+        When ``True``, drop the fibers each bundle's
+        ``<stem>_excluded.json`` sidecar marks as manually excluded. Defaults
+        to ``False`` so an existing sidecar cannot silently change what
+        `cli.py measure` reports for a bundle it was not asked to curate.
+        ``True`` のとき、各バンドルの ``<stem>_excluded.json`` サイドカーが
+        手動除外として記録しているファイバーを取り除く。既定は ``False``。
+        キュレーションを指示されていないバンドルについて、既存のサイドカーが
+        `cli.py measure` の報告内容を黙って変えてしまわないようにするため。
 
     Returns
     -------
@@ -655,6 +699,23 @@ def collect_fiber_stats(
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
+
+        if apply_exclusions:
+            # Exclusions are applied to the traced fibers, then statistics are
+            # recomputed, so the `index` column is renumbered over the retained
+            # fibers exactly as GUI04's export does.
+            # 除外は追跡済みファイバーに適用し、その後で統計値を計算し直す。
+            # これにより `index` 列は GUI04 の出力と同様、残ったファイバーで
+            # 採番し直される。
+            try:
+                keep = _keep_after_exclusions(path, result.fibers)
+            except Exception as e:
+                errors.append((path, f"{type(e).__name__}: {e}"))
+                continue
+            fibers = [f for f, k in zip(result.fibers, keep) if k]
+            per_bundle.append((path, compute_fiber_stats(fibers)))
+            continue
+
         per_bundle.append((path, list(result.stats)))
     return per_bundle, errors
 
@@ -719,6 +780,7 @@ def collect_skeleton_height_profiles(
     scale_um: Optional[float] = None,
     scale_y_um: Optional[float] = None,
     max_workers: Optional[int] = None,
+    apply_exclusions: bool = False,
 ) -> Tuple[List[Tuple[str, np.ndarray, np.ndarray]], List[Tuple[str, str]]]:
     """
     Collect tracked height profiles and their contour length weights.
@@ -777,9 +839,18 @@ def collect_skeleton_height_profiles(
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
 
+        fibers = result.fibers
+        if apply_exclusions:
+            try:
+                keep = _keep_after_exclusions(path, fibers)
+            except Exception as e:
+                errors.append((path, f"{type(e).__name__}: {e}"))
+                continue
+            fibers = [f for f, k in zip(fibers, keep) if k]
+
         heights: List[np.ndarray] = []
         weights: List[np.ndarray] = []
-        for fiber in result.fibers:
+        for fiber in fibers:
             height = np.asarray(fiber.height, dtype=float)
             if height.size == 0:
                 continue
@@ -795,6 +866,118 @@ def collect_skeleton_height_profiles(
                 (path, np.empty(0, dtype=float), np.empty(0, dtype=float))
             )
     return per_bundle, errors
+
+
+def read_fiber_csv(path: str) -> List[FiberStats]:
+    """
+    Read a per-fiber statistics CSV back into `FiberStats` rows.
+    ファイバー統計 CSV を `FiberStats` の行として読み戻す。
+
+    Parameters
+    ----------
+    path
+        CSV written by `write_fiber_csv`, from GUI04's export or
+        ``cli.py measure``.
+        `write_fiber_csv` が書き出した CSV。GUI04 の出力または
+        ``cli.py measure`` によるもの。
+
+    Returns
+    -------
+    list of FiberStats
+        One row per fiber, in file order.
+        ファイバーごとの行を、ファイル内の順序で返す。
+
+    Raises
+    ------
+    ValueError
+        If the header does not match `FIBER_CSV_COLUMNS`, or a row cannot be
+        parsed. A file with the right name but the wrong columns is reported
+        rather than partially read.
+
+    Notes
+    -----
+    This closes the loop that makes visual curation usable: GUI04 exports the
+    fibers a person actually looked at and accepted, and reading them back
+    lets the distribution be built over exactly that population rather than
+    over every object the tracer found. The `index` column is the position
+    within the exported file, not within the bundle's full fiber list, because
+    the export renumbers what it writes.
+    目視によるキュレーションを実用にするための復路である。GUI04 は人が実際に
+    見て採用したファイバーを出力し、それを読み戻すことで、追跡器が見つけた
+    全ての対象ではなく、まさにその母集団に対して分布を作れる。`index` 列は
+    出力ファイル内での位置であり、バンドルの全ファイバーリスト内での位置では
+    ない。出力時に採番し直されるためである。
+    """
+    with open(path, "r", newline="", encoding="utf-8-sig") as f:
+        reader = csv.reader(f)
+        try:
+            header = next(reader)
+        except StopIteration:
+            raise ValueError(f"{path} is empty") from None
+
+        if [h.strip() for h in header] != list(FIBER_CSV_COLUMNS):
+            raise ValueError(
+                f"{path} is not a fiber statistics CSV; expected columns "
+                f"{list(FIBER_CSV_COLUMNS)}, found {header}"
+            )
+
+        stats: List[FiberStats] = []
+        for row_number, row in enumerate(reader, start=2):
+            if not row or all(not cell.strip() for cell in row):
+                continue
+            if len(row) != len(FIBER_CSV_COLUMNS):
+                raise ValueError(
+                    f"{path} line {row_number}: expected "
+                    f"{len(FIBER_CSV_COLUMNS)} columns, found {len(row)}"
+                )
+            try:
+                angles = tuple(
+                    float(a) for a in row[6].split(";") if a.strip()
+                )
+                stats.append(FiberStats(
+                    index=int(row[0]),
+                    length_nm=float(row[1]),
+                    height_median_nm=float(row[2]),
+                    height_max_nm=float(row[3]),
+                    ep_count=int(row[4]),
+                    kink_count=int(row[5]),
+                    kink_angles_deg=angles,
+                ))
+            except ValueError as e:
+                raise ValueError(f"{path} line {row_number}: {e}") from e
+    return stats
+
+
+def collect_fiber_stats_from_csv(
+    csv_paths: Sequence[str],
+) -> Tuple[List[Tuple[str, List[FiberStats]]], List[Tuple[str, str]]]:
+    """
+    Read several per-fiber CSV files, keeping each file separate.
+    複数のファイバー統計 CSV を、ファイルごとに分けたまま読み込む。
+
+    Parameters
+    ----------
+    csv_paths
+        Paths to CSV files written by `write_fiber_csv`.
+        `write_fiber_csv` が書き出した CSV のパス。
+
+    Returns
+    -------
+    tuple
+        ``(per_file, errors)`` with the same shape and failure contract as
+        `collect_fiber_stats`: one unreadable file becomes an error entry
+        instead of aborting the collection.
+        `collect_fiber_stats` と同じ形と失敗契約の ``(per_file, errors)``。
+        読めないファイル 1 つで収集全体を中断せず、エラー項目として返す。
+    """
+    per_file: List[Tuple[str, List[FiberStats]]] = []
+    errors: List[Tuple[str, str]] = []
+    for path in csv_paths:
+        try:
+            per_file.append((path, read_fiber_csv(path)))
+        except Exception as e:
+            errors.append((path, f"{type(e).__name__}: {e}"))
+    return per_file, errors
 
 
 def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:

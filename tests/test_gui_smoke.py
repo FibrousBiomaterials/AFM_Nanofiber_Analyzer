@@ -71,6 +71,119 @@ def test_gui04_window_builds(tk_app):
     _assert_window_built(tk_app(gui04.App))
 
 
+def test_gui04_exclusion_controls_start_disabled(tk_app):
+    """
+    Undo, the settings window, and save are disabled on a clean start.
+    起動直後は取消・設定ウインドウ・保存のいずれも無効になっている。
+
+    Undo and the settings window act on the exclusion set, and save follows
+    the unsaved flag; with nothing excluded and nothing pending, all three can
+    only report that there is nothing to do.
+    取消と設定ウインドウは除外集合に対する操作、保存は未保存フラグに従う。除外
+    も保留中の変更も無い状態では、3 つとも「対象が無い」としか返せない。
+    """
+    app = tk_app(gui04.App)
+    assert app._excluded_records == []
+    assert app._exclusions_dirty is False
+    assert str(app._btn_undo_exclusion.cget("state")) == "disabled"
+    assert str(app._btn_manage_exclusions.cget("state")) == "disabled"
+    assert str(app._btn_save_exclusions.cget("state")) == "disabled"
+
+
+class _StubFiber:
+    """Minimal stand-in carrying only what exclusion and drawing code reads."""
+
+    def __init__(self, x0, y0):
+        self.data = (x0, y0, 2, 2, None)
+        self.xtrack = np.array([0, 1], dtype=int)
+        self.ytrack = np.array([0, 0], dtype=int)
+
+
+class _StubImage:
+    """Minimal stand-in exposing the calibrated image the overview needs."""
+
+    def __init__(self):
+        self.calibrated_image = np.zeros((8, 8), dtype=float)
+
+
+def test_gui04_overview_is_numbered_from_the_displayed_fibers(tk_app, monkeypatch):
+    """
+    Excluding a fiber renumbers the overview labels with the fiber table.
+    ファイバーを除外すると、全体像のラベルも一覧テーブルと同じ採番になる。
+
+    The overview shortcut draws every fiber with its position in
+    `current_fibers`, which is the right numbering only while nothing narrows
+    the population. Exclusions narrow it without setting the filter flags, so
+    without this the labels would keep counting the excluded fibers and stop
+    naming the same objects as the table rows.
+    全体像のショートカットは全ファイバーを `current_fibers` 内の位置で描画する。
+    この番号が正しいのは母集団が絞られていない場合だけである。除外はフィルター
+    フラグを立てずに母集団を絞るため、この対応が無いとラベルは除外分を数え続け、
+    テーブルの行と同じ対象を指さなくなる。
+    """
+    app = tk_app(gui04.App)
+    app.current_image = _StubImage()
+    app.current_fibers = [_StubFiber(0, 0), _StubFiber(4, 0), _StubFiber(0, 4)]
+
+    calls = []
+    monkeypatch.setattr(
+        app, "_draw_overview_background",
+        lambda **kwargs: calls.append(kwargs),
+    )
+
+    app._rebuild_overview_artists()
+    assert calls[-1].get("labeled_fibers") is None, (
+        "with nothing excluded the overview draws every fiber as-is"
+    )
+
+    # Exclude the middle fiber by an anchor on its track.
+    # 中央のファイバーを、そのトラック上のアンカーで除外する。
+    app._excluded_records = [{"x": 4, "y": 0, "note": ""}]
+    app._rebuild_overview_artists()
+
+    displayed = app._display_fibers()
+    assert len(displayed) == 2
+    assert calls[-1]["labeled_fibers"] == list(enumerate(displayed))
+
+
+def test_gui04_clean_exclusions_leave_without_prompting(tk_app, monkeypatch):
+    """With nothing unsaved, leaving a dataset asks nothing."""
+    app = tk_app(gui04.App)
+
+    def _unexpected(*_args, **_kwargs):
+        raise AssertionError("a clean exclusion set must not prompt")
+
+    monkeypatch.setattr(gui04.messagebox, "askyesnocancel", _unexpected)
+    assert app._confirm_unsaved_exclusions() is True
+
+
+def test_gui04_unsaved_exclusions_block_leaving_on_cancel(tk_app, monkeypatch):
+    """
+    Cancelling the unsaved-exclusion prompt stops the caller from proceeding.
+    未保存の除外の確認をキャンセルすると、呼び出し側は処理を続行しない。
+
+    Manual saving is only safe if leaving a dataset cannot silently drop the
+    work, so this guard is what every exit path relies on.
+    手動保存が成立するのは、データセットからの離脱が作業を黙って捨てない場合に
+    限る。全ての離脱経路がこのガードに依存している。
+    """
+    app = tk_app(gui04.App)
+    app._excluded_records = [{"x": 1, "y": 2, "note": ""}]
+    app._exclusions_dirty = True
+
+    monkeypatch.setattr(gui04.messagebox, "askyesnocancel", lambda *a, **k: None)
+    assert app._confirm_unsaved_exclusions() is False
+    # Cancelling keeps the work pending rather than resolving it either way.
+    # キャンセルは、どちらにも決着させず作業を保留のまま残す。
+    assert app._exclusions_dirty is True
+
+    # Declining discards the change and lets the caller proceed.
+    # 「いいえ」は変更を破棄し、呼び出し側の処理を続行させる。
+    monkeypatch.setattr(gui04.messagebox, "askyesnocancel", lambda *a, **k: False)
+    assert app._confirm_unsaved_exclusions() is True
+    assert app._exclusions_dirty is False
+
+
 def test_gui03_worker_stops_when_bin_edges_fail(tk_app, tmp_path, monkeypatch):
     """
     A failure building the bin edges reports once and ends the worker.
@@ -94,7 +207,7 @@ def test_gui03_worker_stops_when_bin_edges_fail(tk_app, tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         app, "_collect_bundle_values",
-        lambda paths, param, unit: ([1.0, 2.0, 3.0], None, 3, 1, []),
+        lambda paths, param, unit, **kwargs: ([1.0, 2.0, 3.0], None, 3, 1, []),
     )
 
     def _raise(*_args, **_kwargs):
@@ -109,6 +222,8 @@ def test_gui03_worker_stops_when_bin_edges_fail(tk_app, tmp_path, monkeypatch):
         }],
         "param": gui03.PARAM_HEIGHT,
         "unit": gui03.UNIT_PIXEL,
+        "input_mode": gui03.INPUT_BUNDLE,
+        "apply_exclusions": False,
         "min_h": 0.0, "max_h": 10.0, "step": 0.2,
         "yaxis_mode": "density", "display_mode": gui03.App.MODE_STACK,
         "show_height_text": True,

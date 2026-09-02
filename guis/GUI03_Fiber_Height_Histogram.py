@@ -65,8 +65,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # ===== Project libraries =====
 from lib.blosc2_io import BUNDLE_EXT
 from lib.measure import (
-    collect_fiber_stats, collect_skeleton_height_profiles,
-    skeleton_height_values,
+    collect_fiber_stats, collect_fiber_stats_from_csv,
+    collect_skeleton_height_profiles, skeleton_height_values,
 )
 from lib.translator import _
 from lib.ui_tools import (
@@ -94,6 +94,34 @@ UNIT_LENGTH = "length"
 UNIT_KINK = "kink"
 UNIT_FIBER = "fiber"
 UNIT_IMAGE = "image"
+
+# Input types. Bundles carry the images, so they support every aggregation
+# unit and can have manual exclusions applied from their sidecars. A folder of
+# GUI04 fiber CSVs carries only per-fiber rows, but those rows are the fibers a
+# person looked at and accepted in the fiber tracker, which is the only way to
+# curate a dense network where nearly every fiber touches a crossing.
+# 入力タイプ。バンドルは画像を含むため全ての集計単位に対応し、サイドカーからの
+# 手動除外も適用できる。GUI04 のファイバー CSV のフォルダはファイバー単位の行
+# しか持たないが、その行はファイバートラッカーで人が見て採用したファイバーで
+# あり、ほぼ全てのファイバーが交差に接する密なネットワークをキュレーションする
+# 唯一の手段である。
+INPUT_BUNDLE = "bundle"
+INPUT_FIBER_CSV = "fiber csv"
+
+INPUT_ORDER = (INPUT_BUNDLE, INPUT_FIBER_CSV)
+
+# Suffix each input type is discovered by inside a registered folder.
+# 登録フォルダ内で各入力タイプを検出するための接尾辞。
+INPUT_SUFFIXES = {
+    INPUT_BUNDLE: BUNDLE_EXT,
+    INPUT_FIBER_CSV: "_fibers.csv",
+}
+
+# Aggregation units that need the bundle's images and tracks, so they are not
+# offered when the input is a per-fiber CSV.
+# バンドルの画像とトラックを必要とする集計単位。入力がファイバー単位の CSV の
+# ときは提供しない。
+BUNDLE_ONLY_UNITS = (UNIT_PIXEL, UNIT_LENGTH)
 
 # Inverse micrometer in two spellings, because no single one renders in both
 # places it is needed. "1/µm" written straight after a number reads as part of
@@ -573,6 +601,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.param = PARAM_HEIGHT
         self.unit = PARAM_SPECS[PARAM_HEIGHT]["units"][0]
 
+        # Input type and whether a bundle's manual exclusions are honored.
+        # Applying them is the default: a sidecar exists only because someone
+        # curated that dataset, and ignoring it would silently analyze objects
+        # they had already rejected.
+        # 入力タイプと、バンドルの手動除外を尊重するかどうか。適用を既定とする。
+        # サイドカーは誰かがそのデータセットをキュレーションしたときにのみ存在
+        # するため、無視すると既に棄却された対象を黙って解析することになる。
+        self.input_mode = INPUT_BUNDLE
+
         # Keep committed values separate from Entry text so edits can be confirmed with Enter.
         # Entry の textvariable とは別に確定済みの値を保持し、Enter 確定で反映する。
         self.min_h, self.max_h, self.step = PARAM_SPECS[PARAM_HEIGHT]["default_range"]
@@ -905,8 +942,45 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         計算時の計測量・集計単位に紐づいており、新しい軸ラベルで再描画すると
         古い数値を別の量として提示してしまうため。
         """
+        inputbar = ttk.Frame(parent)
+        inputbar.pack(fill=tk.X, padx=6, pady=(6, 0))
+
+        ttk.Label(inputbar, text=_("入力")).pack(side=tk.LEFT)
+        self.input_var = tk.StringVar(value=self.input_mode)
+        self.cmb_input = ttk.Combobox(
+            inputbar, textvariable=self.input_var,
+            values=list(INPUT_ORDER), width=11, state="readonly",
+        )
+        self.cmb_input.pack(side=tk.LEFT, padx=(4, 12))
+        self.cmb_input.bind("<<ComboboxSelected>>", lambda _e: self._on_input_change())
+        ToolTip(self.cmb_input, _(
+            "{bundle} は GUI01 が出力した .b2z を直接読み、全ての集計単位が使えます。"
+            "{csv} は Fiber Tracker が出力した {suffix} を読み、そこに残っている"
+            "ファイバーだけを集計します。密なネットワークでは自動フィルターで"
+            "ゴミを落とせないため、Fiber Tracker で全体像を見ながら除外し、その"
+            "結果を集計するのがこの経路の目的です。{csv} はファイバー単位の値しか"
+            "持たないため、{pixel} と {length} 集計は使えません。"
+        ).format(
+            bundle=INPUT_BUNDLE, csv=INPUT_FIBER_CSV,
+            suffix=INPUT_SUFFIXES[INPUT_FIBER_CSV],
+            pixel=UNIT_PIXEL, length=UNIT_LENGTH,
+        ))
+
+        self.apply_exclusions_var = tk.BooleanVar(value=True)
+        self.chk_exclusions = ttk.Checkbutton(
+            inputbar, text=_("除外を適用"),
+            variable=self.apply_exclusions_var,
+            command=self._on_exclusions_toggle,
+        )
+        self.chk_exclusions.pack(side=tk.LEFT)
+        ToolTip(self.chk_exclusions, _(
+            "バンドル横の {suffix} に記録された手動除外を適用します。Fiber Tracker "
+            "で除外したファイバーが集計から外れ、何本外れたかはログに出ます。"
+            "OFF にすると、追跡された全てのファイバーを集計します。"
+        ).format(suffix="_excluded.json"))
+
         parambar = ttk.Frame(parent)
-        parambar.pack(fill=tk.X, padx=6, pady=(6, 0))
+        parambar.pack(fill=tk.X, padx=6, pady=(4, 0))
 
         # Quantity and unit keys are fixed English identifiers that also appear
         # on axes and in exports, so they are shown verbatim; only the field
@@ -937,7 +1011,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.unit_var = tk.StringVar(value=self.unit)
         self.cmb_unit = ttk.Combobox(
             parambar, textvariable=self.unit_var,
-            values=list(PARAM_SPECS[self.param]["units"]),
+            values=self._available_units(self.param),
             width=8, state="readonly",
         )
         self.cmb_unit.pack(side=tk.LEFT, padx=(4, 8))
@@ -961,6 +1035,70 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.sample_hint_var = tk.StringVar()
         ttk.Label(parambar, textvariable=self.sample_hint_var).pack(side=tk.LEFT)
         self._update_sample_hint()
+
+    def _available_units(self, param: str) -> list:
+        """
+        Return the aggregation units the current input type can produce.
+        現在の入力タイプで算出できる集計単位を返す。
+
+        Parameters
+        ----------
+        param
+            Measured-quantity key from `PARAM_SPECS`.
+            `PARAM_SPECS` の計測量キー。
+
+        Returns
+        -------
+        list of str
+            Unit keys, in the quantity's declared order.
+            計測量の宣言順に並んだ集計単位キー。
+        """
+        units = list(PARAM_SPECS[param]["units"])
+        if self.input_mode != INPUT_BUNDLE:
+            units = [u for u in units if u not in BUNDLE_ONLY_UNITS]
+        return units
+
+    def _on_input_change(self) -> None:
+        """
+        Apply an input-type change to the unit list and cached results.
+        入力タイプの変更を集計単位一覧とキャッシュ済み結果へ反映する。
+        """
+        mode = self.input_var.get()
+        if mode not in INPUT_SUFFIXES:
+            self.input_var.set(self.input_mode)
+            return
+        if mode == self.input_mode:
+            return
+
+        self.input_mode = mode
+        units = self._available_units(self.param)
+        self.cmb_unit.configure(values=units)
+        if self.unit not in units:
+            self.unit = units[0]
+            self.unit_var.set(self.unit)
+            self._update_sample_hint()
+            self._update_result_caption()
+
+        # Exclusions live beside a bundle; a fiber CSV already has them baked
+        # in, because GUI04 exported only the fibers it was displaying.
+        # 除外はバンドルの横にある。ファイバー CSV には既に適用済みで、GUI04 が
+        # 表示中のファイバーだけを出力しているため。
+        self.chk_exclusions.configure(
+            state=tk.NORMAL if mode == INPUT_BUNDLE else tk.DISABLED
+        )
+
+        self._rescan_all()
+        self._reset_result_state()
+        self._log(_("入力を {mode} に変更しました（{suffix} を探索します）。").format(
+            mode=mode, suffix=INPUT_SUFFIXES[mode],
+        ))
+
+    def _on_exclusions_toggle(self) -> None:
+        """
+        Invalidate cached results when the exclusion setting changes.
+        除外設定の変更時にキャッシュ済み結果を破棄する。
+        """
+        self._reset_result_state()
 
     def _update_sample_hint(self) -> None:
         """
@@ -1012,9 +1150,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return
 
         self.param = param
-        spec = PARAM_SPECS[param]
 
-        units = list(spec["units"])
+        units = self._available_units(param)
         self.cmb_unit.configure(values=units)
         if self.unit not in units:
             self.unit = units[0]
@@ -1043,7 +1180,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         集計単位の変更を反映し、キャッシュ済み結果を破棄する。
         """
         unit = self.unit_var.get()
-        if unit not in PARAM_SPECS[self.param]["units"]:
+        if unit not in self._available_units(self.param):
             self.unit_var.set(self.unit)
             return
         if unit == self.unit:
@@ -1565,9 +1702,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         except Exception as e:
             return [], [_("[アクセス不可] {err}").format(err=e)]
 
-        bundle_files = [f for f in files if f.endswith(self.BUNDLE_SUFFIX)]
+        suffix = INPUT_SUFFIXES[self.input_mode]
+        bundle_files = [f for f in files if f.endswith(suffix)]
         if not bundle_files:
-            return [], [_("バンドルなし（*{ext} が見つかりません）").format(ext=self.BUNDLE_SUFFIX)]
+            return [], [_("入力なし（*{ext} が見つかりません）").format(ext=suffix)]
 
         pairs = []
         missing = []
@@ -1957,6 +2095,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "groups": groups_payload,
             "param": self.param,
             "unit": self.unit,
+            "input_mode": self.input_mode,
+            "apply_exclusions": bool(self.apply_exclusions_var.get()),
             "min_h": min_h,
             "max_h": max_h,
             "step": step,
@@ -1994,8 +2134,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # セレクタは実行中のワーカーが何を計算するかを決めるため、完了まで
         # 操作を止める。有効時の状態は "readonly"。
         combo_state = tk.DISABLED if running else "readonly"
-        for c in (self.cmb_param, self.cmb_unit):
+        for c in (self.cmb_param, self.cmb_unit, self.cmb_input):
             c.configure(state=combo_state)
+        self.chk_exclusions.configure(
+            state=tk.DISABLED
+            if (running or self.input_mode != INPUT_BUNDLE)
+            else tk.NORMAL
+        )
 
     def _poll_ui_queue(self) -> None:
         """
@@ -2029,7 +2174,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if self.is_running:
             self.after(50, self._poll_ui_queue)
 
-    def _collect_bundle_values(self, bundle_paths, param: str, unit: str) -> tuple:
+    def _collect_bundle_values(self, bundle_paths, param: str, unit: str,
+                               input_mode: str = INPUT_BUNDLE,
+                               apply_exclusions: bool = False) -> tuple:
         """
         Collect one folder's samples for a quantity and aggregation unit.
         1 フォルダ分の標本を、計測量と集計単位に従って収集する。
@@ -2071,6 +2218,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         走査範囲が未記録のバンドルでも動くのはこの経路に限られる。他の経路は
         追跡ステップを nm へ変換するために物理ピクセルサイズを必要とする。
         """
+        if input_mode == INPUT_FIBER_CSV:
+            # The rows are already the curated population: GUI04 exports what
+            # `_display_fibers` was showing, so filters, fiber connection, and
+            # manual exclusions are baked in and nothing is re-applied here.
+            # 行は既にキュレーション済みの母集団である。GUI04 は
+            # `_display_fibers` が表示していたものを出力するため、フィルター・
+            # ファイバー連結・手動除外は反映済みで、ここで再適用はしない。
+            per_file, load_errors = collect_fiber_stats_from_csv(bundle_paths)
+            return self._values_from_fiber_stats(per_file, param, unit) + (load_errors,)
+
         if param == PARAM_HEIGHT and unit == UNIT_PIXEL:
             heights, load_errors = skeleton_height_values(bundle_paths)
             failed = {path for path, _msg in load_errors}
@@ -2084,7 +2241,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # 長さ重み付けでは骨格マスクではなく追跡済みファイバーをたどる。点の
             # 重みはその点が代表する輪郭長であり、ステップ長は順序付けられた
             # トラックからしか得られないため。
-            profiles, load_errors = collect_skeleton_height_profiles(bundle_paths)
+            profiles, load_errors = collect_skeleton_height_profiles(
+                bundle_paths, apply_exclusions=apply_exclusions,
+            )
             values = []
             weights = []
             n_images = 0
@@ -2100,20 +2259,59 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # 連結された形で届き、重み付き統計に必要なのはその形だからである。
             return values, weights, 0, n_images, load_errors
 
-        per_bundle, load_errors = collect_fiber_stats(bundle_paths)
+        per_bundle, load_errors = collect_fiber_stats(
+            bundle_paths, apply_exclusions=apply_exclusions,
+        )
+        return self._values_from_fiber_stats(per_bundle, param, unit) + (load_errors,)
+
+    @staticmethod
+    def _values_from_fiber_stats(per_source, param: str, unit: str) -> tuple:
+        """
+        Turn per-source fiber statistics into samples for one quantity/unit.
+        ソースごとのファイバー統計を、計測量と集計単位に応じた標本へ変換する。
+
+        Parameters
+        ----------
+        per_source
+            ``(source_path, stats)`` pairs, one per bundle or per CSV file.
+            ``(ソースパス, 統計値リスト)`` のペア。バンドルまたは CSV 1 件ごと。
+        param
+            Measured-quantity key from `PARAM_SPECS`.
+            `PARAM_SPECS` の計測量キー。
+        unit
+            Aggregation-unit key.
+            集計単位キー。
+
+        Returns
+        -------
+        tuple
+            ``(values, weights, n_fibers, n_images)``; `weights` is always
+            None because these units count objects rather than length.
+            ``(値リスト, 重み, ファイバー数, 画像数)``。これらの単位は長さでは
+            なく個数を数えるため、`weights` は常に None。
+
+        Notes
+        -----
+        Shared by the bundle and CSV paths so a curated CSV and the bundle it
+        came from aggregate identically. That is what makes the two inputs
+        comparable rather than merely similar.
+        バンドル経路と CSV 経路で共有し、キュレーション済み CSV とその元となった
+        バンドルが同一に集計されるようにする。これにより 2 つの入力が「似ている」
+        ではなく「比較可能」になる。
+        """
         values = []
         n_fibers = 0
         n_images = 0
-        for _path, stats in per_bundle:
-            bundle_values = []
+        for _path, stats in per_source:
+            source_values = []
             for stat in stats:
                 samples = _fiber_samples(stat, param, unit)
                 if not samples:
                     continue
                 n_fibers += 1
-                bundle_values.extend(samples)
+                source_values.extend(samples)
 
-            if not bundle_values:
+            if not source_values:
                 continue
             n_images += 1
             if unit == UNIT_IMAGE:
@@ -2121,11 +2319,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # outweigh a sparse scan of the same specimen.
                 # 1 画像 1 標本とし、ファイバーの多い画像が同じ試料の疎な画像を
                 # 押しのけないようにする。
-                values.append(float(np.median(bundle_values)))
+                values.append(float(np.median(source_values)))
             else:
-                values.extend(bundle_values)
+                values.extend(source_values)
 
-        return values, None, n_fibers, n_images, load_errors
+        return values, None, n_fibers, n_images
 
     def _worker_run(self, args: dict) -> None:
         """
@@ -2143,6 +2341,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         step = args["step"]
         param = args["param"]
         unit = args["unit"]
+        input_mode = args["input_mode"]
+        # Exclusions live beside a bundle; a fiber CSV already has them applied.
+        # 除外はバンドル横にある。ファイバー CSV には既に適用済み。
+        apply_exclusions = (
+            args["apply_exclusions"] and input_mode == INPUT_BUNDLE
+        )
 
         # Skeleton pixels are read straight from the bundle arrays, so that
         # one combination needs no fiber tracing and no scan size. Every other
@@ -2152,12 +2356,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 追跡も走査範囲も不要である。他の組み合わせはファイバーを計測する。
         # 画素モードではファイバーを個体として切り出さないため、"N fibers" は
         # 数えられない。
-        pixel_mode = (param == PARAM_HEIGHT and unit == UNIT_PIXEL)
+        pixel_mode = (
+            input_mode == INPUT_BUNDLE
+            and param == PARAM_HEIGHT and unit == UNIT_PIXEL
+        )
         # The length unit traces fibers but concatenates their profiles, so it
         # counts no individual fibers either.
         # length 単位はファイバーを追跡するがプロファイルを連結するため、こちらも
         # 個々のファイバーは数えない。
-        counts_fibers = not (pixel_mode or unit == UNIT_LENGTH)
+        counts_fibers = not (pixel_mode or (
+            input_mode == INPUT_BUNDLE and unit == UNIT_LENGTH
+        ))
         weighted = unit in LENGTH_WEIGHTED_UNITS
 
         results = []
@@ -2201,10 +2410,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         "[{grp}/{folder}] {n} バンドルを計測中..."
                     ).format(grp=grp_name, folder=folder_name, n=len(bundle_paths))))
 
+
                 try:
                     (values, weights, n_fibers, n_images,
                      load_errors) = self._collect_bundle_values(
                         bundle_paths, param, unit,
+                        input_mode=input_mode,
+                        apply_exclusions=apply_exclusions,
                     )
                 except Exception as e:
                     errors.append(
@@ -2215,7 +2427,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     continue
 
                 for failed_path, msg in load_errors:
-                    base = os.path.basename(failed_path)[:-len(self.BUNDLE_SUFFIX)]
+                    suffix = INPUT_SUFFIXES[input_mode]
+                    base = os.path.basename(failed_path)[:-len(suffix)]
                     errors.append(
                         _("[{grp}/{folder}] 読込失敗: {base} ({err})").format(
                             grp=grp_name, folder=folder_name, base=base, err=msg

@@ -309,7 +309,17 @@ profile distances are reproducible.
 ![Fiber Height Histogram window: two sample groups with their height distributions and a per-group statistics table.](figures/gui03.png)
 
 Compare the distribution of one morphological quantity across user-defined
-groups of `.b2z` bundles. The quantity selector offers `height`,
+groups of inputs. The input selector takes either `bundle` — GUI01's `.b2z`
+files, which support every aggregation unit — or `fiber csv`, a folder of
+`_fibers.csv` files exported from the Fiber Tracker. The CSV path exists
+because automatic filters cannot curate a dense network: nearly every traced
+fiber there touches a crossing, so the Fiber Tracker's visual exclusion is the
+only way to drop debris and scan-line artifacts, and its export is exactly the
+population that survived that review. For bundle input, the same exclusions are
+applied from each bundle's `_excluded.json` sidecar unless the checkbox is
+cleared, and the log reports how many fibers each folder lost.
+
+The quantity selector offers `height`,
 `contour length`, `kink angle`, and `kink density` (kinks per micrometer of
 contour). Height comes from the calibrated image at skeletonized pixels;
 the other three come from the same per-fiber measurement `cli.py measure`
@@ -357,6 +367,24 @@ measurement. The connection and height-filter modes compose in "connect, then
 filter" order: when both are on, the height filter slices each connected fibril
 by its own height profile (including bridge heights), so the two are not
 mutually exclusive.
+
+Fibers can also be excluded by hand: select one, check it in the overview, and
+"選択を除外" drops it from the table, the overview, and the CSV export.
+"直前を取消" undoes the last exclusion, and pressing it repeatedly walks back
+through them in reverse order. Changes take effect in the views at once but
+reach the sidecar only when "除外を保存" is pressed, because that file is an
+analysis input — GUI03 aggregates over what it says — and a mis-click should
+not rewrite it on its own. Leaving a dataset with unsaved changes (selecting
+another dataset, changing folders, or closing the window) offers to save,
+discard, or cancel, so the choice is never made silently. This is
+what makes a dense network analyzable at all — nearly every fiber there touches
+a crossing, so no automatic filter can separate debris and scan-line artifacts
+from real fibrils. Exclusions are written to `<stem>_excluded.json` beside the
+bundle, so they survive the session, travel with the data, and can be audited or
+edited outside the app. Each exclusion records an anchor pixel on the excluded
+fiber's track rather than its row number, because turning fiber connection on or
+off renumbers the list while the pixel keeps its meaning. "除外設定..." opens a
+window listing them, where any one or all of them can be restored.
 
 A separate isolated-fiber filter restricts the table, the overview, and the CSV
 export to fibers that touch no other fiber anywhere along their path
@@ -764,6 +792,7 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | `lib/bundle_schema.py` | Executable `.b2z` contract: required keys, array shapes, value ranges, units, coordinate convention, and format version, with `validate_bundle` enforcing them at write and load time. |
 | `lib/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |
 | `lib/fiber_connector.py` | `connect_fiber_fragments` and `ConnectParams`: reconnect skeleton fragments split at crossings/branches into whole fibrils, used by GUI04's optional fiber-connection mode. |
+| `lib/fiber_selection.py` | Manual fiber exclusions stored in `<stem>_excluded.json` beside the bundle: written by GUI04, applied by `lib/measure.py`. An exclusion is an anchor pixel on the excluded fiber's track rather than a list index, so it keeps its meaning when fiber connection renumbers the list. |
 | `lib/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |
 | `lib/gwy_io.py` | Lazy-loading reader for native, multi-channel Gwyddion `.gwy` files, including channel selection, length-channel conversion to nm, and scan-size extraction. |
 | `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |

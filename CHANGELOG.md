@@ -10,6 +10,43 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Manual fiber exclusion in GUI04, and a GUI03 input path that consumes the
+  result. Automatic filters cannot curate a dense network: on a typical
+  entangled scan 58 of 60 traced fibers touch a crossing, so the isolated-fiber
+  filter leaves nothing to analyze and no rule separates debris and scan-line
+  artifacts from real fibrils. Visual judgement is the only option, so GUI04
+  gains "選択を除外" to drop the selected fiber from the table, the overview,
+  and the CSV export, "直前を取消" to undo the last exclusion (repeatably), and
+  a "除外設定..." window that lists them and restores any one or all of them.
+  Exclusions are stored in `<stem>_excluded.json` beside the bundle, so they
+  survive the session, travel with the data, and can be audited outside the app.
+  Changes take effect in the views at once but reach the sidecar only on
+  "除外を保存", because that file is an analysis input and a mis-click should
+  not rewrite it on its own. Every path out of a dataset — selecting another,
+  changing folders, closing the window — offers to save, discard, or cancel,
+  so unsaved curation is never dropped silently.
+
+  Each exclusion records an anchor pixel on the excluded fiber's track rather
+  than its row number, because turning fiber connection on or off renumbers the
+  fiber list while the pixel keeps its meaning — an anchor taken in fragment
+  mode still selects the same object once the fragments are connected.
+
+  GUI03 gains an input selector: `bundle` reads `.b2z` as before and applies
+  each bundle's exclusion sidecar (a checkbox turns that off, and the log
+  reports what was dropped), while `fiber csv` reads a folder of GUI04's
+  `_fibers.csv` exports, which are already exactly the fibers a person reviewed
+  and kept. Both paths aggregate through the same code, so a curated CSV and
+  its bundle give the same distribution. The CSV carries only per-fiber rows,
+  so the `pixel` and `length` aggregation units are offered for bundles only.
+
+- `lib/fiber_selection.py`, the exclusion contract (`exclusion_path_for`,
+  `fiber_anchor`, `excluded_flags`, `load_exclusions`, `save_exclusions`), and
+  `lib.measure.read_fiber_csv` / `collect_fiber_stats_from_csv`, which read
+  `write_fiber_csv` output back into `FiberStats`. `collect_fiber_stats` and
+  `collect_skeleton_height_profiles` take `apply_exclusions`, defaulting to
+  `False` so an existing sidecar never silently changes what `cli.py measure`
+  reports for a bundle nobody asked to curate.
+
 - GUI03 compares three morphological quantities besides height: `contour
   length`, `kink angle`, and `kink density` (kinks per micrometer of contour).
   These are the quantities dedicated fiber-tracking software reports for this

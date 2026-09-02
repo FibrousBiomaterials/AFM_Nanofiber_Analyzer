@@ -20,6 +20,7 @@ CSV 同一性テストは、`cli.py measure` と GUI04 のエクスポート経�
 
 import csv
 import os
+import shutil
 
 import numpy as np
 import pytest
@@ -30,15 +31,18 @@ from lib.blosc2_io import load_bundle, save_bundle
 from lib.bundle_schema import BUNDLE_FORMAT_VERSION
 from lib.fiber import Fiber
 from lib.fiber_tracking_image import FiberTrackingImage
+from lib.fiber_selection import exclusion_path_for, fiber_anchor, save_exclusions
 from lib.measure import (
     FIBER_CSV_COLUMNS,
     collect_fiber_stats,
+    collect_fiber_stats_from_csv,
     collect_skeleton_height_profiles,
     compute_fiber_stats,
     contour_length_weights,
     isolated_fiber_flags,
     load_tracking_image,
     measure_bundle,
+    read_fiber_csv,
     skeleton_height_values,
     write_fiber_csv,
     write_heights_csv,
@@ -492,6 +496,84 @@ def test_collect_skeleton_height_profiles_reports_bundle_without_scan_size(measu
     assert per_bundle == []
     assert len(errors) == 1
     assert errors[0][0] == bundle_path
+
+
+def test_fiber_csv_round_trip(measured, tmp_path):
+    """Reading back an exported CSV reproduces the statistics that wrote it."""
+    _bundle_path, result = measured
+    path = os.path.join(tmp_path, "sample_fibers.csv")
+    write_fiber_csv(path, result.stats)
+    back = read_fiber_csv(path)
+
+    assert len(back) == len(result.stats)
+    for original, restored in zip(result.stats, back):
+        assert restored.index == original.index
+        # write_fiber_csv formats length to 0.1 nm and heights to 0.001 nm.
+        # write_fiber_csv は長さを 0.1 nm、高さを 0.001 nm に丸めて出力する。
+        assert restored.length_nm == pytest.approx(original.length_nm, abs=0.05)
+        assert restored.height_median_nm == pytest.approx(
+            original.height_median_nm, abs=0.0005
+        )
+        assert restored.ep_count == original.ep_count
+        assert restored.kink_count == original.kink_count
+        assert len(restored.kink_angles_deg) == len(original.kink_angles_deg)
+
+
+def test_read_fiber_csv_rejects_a_foreign_csv(tmp_path):
+    """A CSV with different columns is reported, not partially read."""
+    path = os.path.join(tmp_path, "other.csv")
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        f.write("bundle,height_nm\na,1.0\n")
+    with pytest.raises(ValueError):
+        read_fiber_csv(path)
+
+
+def test_collect_fiber_stats_from_csv_keeps_files_separate(measured, tmp_path):
+    """Each CSV becomes its own entry, so per-image aggregation is possible."""
+    _bundle_path, result = measured
+    paths = []
+    for name in ("a_fibers.csv", "b_fibers.csv"):
+        path = os.path.join(tmp_path, name)
+        write_fiber_csv(path, result.stats)
+        paths.append(path)
+    missing = os.path.join(tmp_path, "missing_fibers.csv")
+
+    per_file, errors = collect_fiber_stats_from_csv(paths + [missing])
+    assert [p for p, _s in per_file] == paths
+    assert len(errors) == 1
+    assert errors[0][0] == missing
+
+
+def test_collect_fiber_stats_applies_the_exclusion_sidecar(measured, tmp_path):
+    """
+    An exclusion sidecar drops its fibers only when asked.
+    除外サイドカーは、要求されたときにのみ対象ファイバーを取り除く。
+
+    The default stays off so an existing sidecar cannot silently change what
+    `cli.py measure` reports for a bundle nobody asked to curate.
+    既定を OFF に保つことで、キュレーションを指示されていないバンドルについて
+    既存のサイドカーが `cli.py measure` の報告内容を黙って変えないようにする。
+    """
+    bundle_path, result = measured
+    # Copy the bundle so the shipped test data never gains a sidecar.
+    # 同梱テストデータにサイドカーを作らないよう、バンドルを複製して使う。
+    copied = os.path.join(tmp_path, "copy.b2z")
+    shutil.copyfile(bundle_path, copied)
+
+    anchor = fiber_anchor(result.fibers[0])
+    save_exclusions(
+        exclusion_path_for(copied), "copy.b2z",
+        [{"x": anchor[0], "y": anchor[1], "note": "debris"}],
+    )
+
+    plain, _errors = collect_fiber_stats([copied], scale_um=SCALE_UM)
+    curated, _errors2 = collect_fiber_stats(
+        [copied], scale_um=SCALE_UM, apply_exclusions=True,
+    )
+    assert len(curated[0][1]) == len(plain[0][1]) - 1
+    # Retained fibers are renumbered, matching GUI04's export.
+    # 残ったファイバーは採番し直され、GUI04 の出力と一致する。
+    assert [s.index for s in curated[0][1]] == list(range(len(curated[0][1])))
 
 
 def test_cli_heights_writes_long_format_csv(measured, tmp_path):
