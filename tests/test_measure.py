@@ -34,6 +34,7 @@ from lib.fiber_tracking_image import FiberTrackingImage
 from lib.fiber_selection import exclusion_path_for, fiber_anchor, save_exclusions
 from lib.measure import (
     FIBER_CSV_COLUMNS,
+    FiberStats,
     FIBER_CSV_COLUMNS_V1,
     collect_fiber_curvature,
     collect_fiber_stats,
@@ -42,6 +43,9 @@ from lib.measure import (
     compute_fiber_stats,
     contour_length_weights,
     fiber_curvature_profile,
+    fiber_kink_angle,
+    fiber_kink_density,
+    fiber_mean_curvature,
     fiber_straightness,
     isolated_fiber_flags,
     load_tracking_image,
@@ -697,6 +701,80 @@ def test_curvature_is_empty_for_a_fiber_shorter_than_the_window():
     spp = 2.0
     short = _ArcTrack(np.arange(10.0), np.zeros(10), spp)
     assert fiber_curvature_profile(short, spp, spp, window_nm=500.0).size == 0
+
+
+def test_kink_angle_and_density_handle_a_kinkless_fiber_differently():
+    """
+    A fiber with no kink has no angle but a real density of zero.
+    キンクの無いファイバーは角度を持たないが、密度は 0 という実在の値を持つ。
+
+    The asymmetry is the point: an undetected kink is not a measured angle of
+    zero, so averaging one in would pull the population toward a value no
+    fiber has; zero kinks over a measured contour length, on the other hand,
+    is a density that was genuinely measured.
+    この非対称性が要点である。キンクが検出されなかったことは「0 度のキンクを
+    計測した」ことではなく、平均に混ぜればどのファイバーも持たない値へ母集団を
+    引っ張る。一方、計測済みの輪郭長に対するキンク 0 本は、実際に計測された密度
+    である。
+    """
+    kinkless = FiberStats(
+        index=0, length_nm=1000.0, height_median_nm=1.0, height_max_nm=2.0,
+        ep_count=2, kink_count=0, kink_angles_deg=(), straightness=1.0,
+    )
+    assert np.isnan(fiber_kink_angle(kinkless))
+    assert fiber_kink_density(kinkless) == 0.0
+
+    kinked = FiberStats(
+        index=1, length_nm=2000.0, height_median_nm=1.0, height_max_nm=2.0,
+        ep_count=2, kink_count=3, kink_angles_deg=(100.0, 120.0, 170.0),
+        straightness=0.8,
+    )
+    # The median, not the mean, so one extreme kink does not represent the fiber.
+    # 平均ではなく中央値。極端なキンク 1 つがファイバーを代表しないようにする。
+    assert fiber_kink_angle(kinked) == pytest.approx(120.0)
+    assert fiber_kink_density(kinked) == pytest.approx(3.0 / 2.0)
+
+
+def test_kink_density_normalises_by_length():
+    """The same kink count over twice the contour is half the density."""
+    short = FiberStats(
+        index=0, length_nm=500.0, height_median_nm=1.0, height_max_nm=2.0,
+        ep_count=2, kink_count=4, kink_angles_deg=(90.0,) * 4, straightness=0.9,
+    )
+    long = FiberStats(
+        index=1, length_nm=1000.0, height_median_nm=1.0, height_max_nm=2.0,
+        ep_count=2, kink_count=4, kink_angles_deg=(90.0,) * 4, straightness=0.9,
+    )
+    assert fiber_kink_density(short) == pytest.approx(8.0)
+    assert fiber_kink_density(long) == pytest.approx(4.0)
+    # A zero-length fiber cannot yield a density and must not divide by zero.
+    # 長さ 0 のファイバーは密度を出せず、0 除算も起こしてはならない。
+    zero = FiberStats(
+        index=2, length_nm=0.0, height_median_nm=1.0, height_max_nm=2.0,
+        ep_count=2, kink_count=1, kink_angles_deg=(90.0,), straightness=1.0,
+    )
+    assert np.isnan(fiber_kink_density(zero))
+
+
+def test_mean_curvature_is_nan_for_a_fiber_shorter_than_the_window():
+    """
+    An unmeasurable fiber gives NaN, and a measurable one gives the profile mean.
+    計測不能なファイバーは NaN を返し、計測可能なものはプロファイルの平均を返す。
+
+    NaN rather than 0.0 because 0.0 means "perfectly straight", which a caller
+    would then average into a population that never measured the fiber at all.
+    0.0 は「完全な直線」を意味し、そもそも計測していないファイバーを母集団に
+    平均として混ぜてしまうため、0.0 ではなく NaN とする。
+    """
+    spp = 2.0
+    short = _ArcTrack(np.arange(10.0), np.zeros(10), spp)
+    assert np.isnan(fiber_mean_curvature(short, spp, spp, window_nm=500.0))
+
+    long_track = _ArcTrack(np.arange(400.0), np.zeros(400), spp)
+    profile = fiber_curvature_profile(long_track, spp, spp, window_nm=100.0)
+    assert fiber_mean_curvature(
+        long_track, spp, spp, window_nm=100.0
+    ) == pytest.approx(float(np.mean(profile)))
 
 
 def test_collect_fiber_curvature_reports_unmeasurable_fibers(measured):

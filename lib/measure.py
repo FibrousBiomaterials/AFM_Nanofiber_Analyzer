@@ -515,6 +515,58 @@ def fiber_curvature_profile(
     return (turn[good] / arc[good]) * 1000.0
 
 
+def fiber_mean_curvature(
+    fiber: Fiber,
+    x_size_per_pixel: float,
+    y_size_per_pixel: Optional[float] = None,
+    window_nm: float = DEFAULT_CURVATURE_WINDOW_NM,
+) -> float:
+    """
+    Return one fiber's mean curvature, in radians per micrometer.
+    1 本のファイバーの平均曲率 (rad/µm) を返す。
+
+    Parameters
+    ----------
+    fiber
+        Traced fiber to measure.
+        計測対象の追跡済みファイバー。
+    x_size_per_pixel
+        Physical X (column) pixel size in nanometers.
+        X（列）方向の物理ピクセルサイズ (nm)。
+    y_size_per_pixel
+        Physical Y (row) pixel size in nanometers; ``None`` reuses the X size.
+        Y（行）方向の物理ピクセルサイズ (nm)。``None`` のときは X の値を流用。
+    window_nm
+        Arc length the curvature estimator turns over.
+        曲率推定が回転角を測る弧長。
+
+    Returns
+    -------
+    float
+        Mean of the curvature profile, or NaN for a fiber shorter than the
+        window.
+        曲率プロファイルの平均。窓より短いファイバーでは NaN。
+
+    Notes
+    -----
+    NaN rather than 0.0 for a fiber the window cannot span, so a caller can
+    report it as unmeasured instead of counting it as perfectly straight.
+    窓が張れないファイバーは 0.0 ではなく NaN とする。呼び出し側が、完全な直線と
+    数えるのではなく未計測として報告できるようにするためである。
+
+    This is the single definition of "the curvature of a fiber": GUI04's fiber
+    table and `collect_fiber_curvature` both call it, so a value inspected
+    beside the fiber image is the same value GUI03 histograms.
+    これが「ファイバーの曲率」の唯一の定義である。GUI04 の一覧テーブルと
+    `collect_fiber_curvature` の双方がこれを呼ぶため、ファイバー画像の横で確認した
+    値は GUI03 がヒストグラム化する値と同一になる。
+    """
+    profile = fiber_curvature_profile(
+        fiber, x_size_per_pixel, y_size_per_pixel, window_nm=window_nm,
+    )
+    return float(np.mean(profile)) if profile.size else float("nan")
+
+
 def compute_fiber_stats(
     fibers: Sequence[Fiber],
     x_size_per_pixel: Optional[float] = None,
@@ -566,6 +618,77 @@ def compute_fiber_stats(
             straightness=straightness,
         ))
     return stats
+
+
+def fiber_kink_angle(stat: FiberStats) -> float:
+    """
+    Return one fiber's representative kink angle, in degrees.
+    1 本のファイバーを代表するキンク角 (degree) を返す。
+
+    Parameters
+    ----------
+    stat
+        Per-fiber statistics row.
+        ファイバー単位の統計行。
+
+    Returns
+    -------
+    float
+        Median of the fiber's kink angles, or NaN when it has no kink.
+        そのファイバーのキンク角の中央値。キンクが無い場合は NaN。
+
+    Notes
+    -----
+    The median makes one fiber contribute exactly one value however many kinks
+    it carries, so a heavily kinked fiber does not outweigh the rest.
+    中央値を使うことで、キンクの本数によらず 1 本のファイバーが 1 つの値を出す。
+    キンクの多いファイバーが他を圧倒しないようにするためである。
+
+    A fiber with no kink is NaN rather than 0: an undetected kink is not a
+    measured angle of zero, and averaging it in would pull the population
+    toward a value no fiber has.
+    キンクの無いファイバーは 0 ではなく NaN とする。キンクが検出されなかったこと
+    は「0 度のキンクを計測した」ことではなく、平均に混ぜるとどのファイバーも
+    持たない値へ母集団を引っ張ってしまう。
+    """
+    if not stat.kink_angles_deg:
+        return float("nan")
+    return float(np.median(stat.kink_angles_deg))
+
+
+def fiber_kink_density(stat: FiberStats) -> float:
+    """
+    Return one fiber's kink density, in kinks per micrometer of contour.
+    1 本のファイバーのキンク密度（輪郭長 1 µm あたりのキンク数）を返す。
+
+    Parameters
+    ----------
+    stat
+        Per-fiber statistics row.
+        ファイバー単位の統計行。
+
+    Returns
+    -------
+    float
+        Kinks per micrometer, or NaN when the contour length is unusable.
+        1 µm あたりのキンク数。輪郭長が使えない場合は NaN。
+
+    Notes
+    -----
+    Normalising by length is what makes fibers of different length
+    comparable; a raw kink count rises with length alone.
+    長さで正規化することが、長さの異なるファイバーを比較可能にする。素のキンク数
+    は長さだけでも増えてしまう。
+
+    Unlike `fiber_kink_angle`, a fiber with no kink is a valid zero here: zero
+    kinks over a measured length is a real density, not a missing measurement.
+    `fiber_kink_angle` と異なり、ここではキンクの無いファイバーは有効な 0 である。
+    計測済みの長さに対してキンク 0 本というのは実在の密度であり、欠測ではない。
+    """
+    length_um = float(stat.length_nm) / 1000.0
+    if length_um <= 0.0:
+        return float("nan")
+    return float(stat.kink_count) / length_um
 
 
 def _load_validated_arrays(bundle_path: str, keys: List[str]) -> Dict[str, np.ndarray]:
@@ -1246,14 +1369,12 @@ def collect_fiber_curvature(
 
         x_spp = result.image.size_per_pixel
         y_spp = result.image.y_size_per_pixel
-        curvature = []
-        for fiber in fibers:
-            profile = fiber_curvature_profile(
+        curvature = [
+            fiber_mean_curvature(
                 fiber, x_spp, y_spp, window_nm=curvature_window_nm,
             )
-            curvature.append(
-                float(np.mean(profile)) if profile.size else float("nan")
-            )
+            for fiber in fibers
+        ]
 
         per_bundle.append((path, np.asarray(curvature, dtype=float)))
     return per_bundle, errors

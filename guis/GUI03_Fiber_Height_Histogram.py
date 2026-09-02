@@ -68,7 +68,8 @@ from lib.group_compare import compare_groups
 from lib.measure import (
     DEFAULT_CURVATURE_WINDOW_NM,
     collect_fiber_curvature, collect_fiber_stats, collect_fiber_stats_from_csv,
-    collect_skeleton_height_profiles, skeleton_height_values,
+    collect_skeleton_height_profiles, fiber_kink_angle, fiber_kink_density,
+    skeleton_height_values,
 )
 from lib.translator import _
 from lib.ui_tools import (
@@ -318,15 +319,16 @@ def _fiber_value(stat, param: str):
         return float(stat.height_median_nm)
     if param == PARAM_LENGTH:
         return float(stat.length_nm)
+    # Both come from lib.measure so the value GUI04 shows beside a fiber is
+    # the value histogrammed here; an undefined one contributes nothing.
+    # どちらも lib.measure から得る。GUI04 がファイバーの横に表示する値と、ここで
+    # ヒストグラム化する値を一致させるため。未定義の値は寄与しない。
     if param == PARAM_KINK_ANGLE:
-        if not stat.kink_angles_deg:
-            return None
-        return float(np.median(stat.kink_angles_deg))
+        value = fiber_kink_angle(stat)
+        return None if not np.isfinite(value) else value
     if param == PARAM_KINK_DENSITY:
-        length_um = float(stat.length_nm) / 1000.0
-        if length_um <= 0.0:
-            return None
-        return float(stat.kink_count) / length_um
+        value = fiber_kink_density(stat)
+        return None if not np.isfinite(value) else value
     if param == PARAM_STRAIGHTNESS:
         # A CSV written before straightness existed leaves the field
         # undefined, and those fibers contribute nothing rather than a zero.
