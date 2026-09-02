@@ -64,8 +64,10 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # ===== Project libraries =====
 from lib.blosc2_io import BUNDLE_EXT
+from lib.group_compare import compare_groups
 from lib.measure import (
-    collect_fiber_stats, collect_fiber_stats_from_csv,
+    DEFAULT_CURVATURE_WINDOW_NM,
+    collect_fiber_curvature, collect_fiber_stats, collect_fiber_stats_from_csv,
     collect_skeleton_height_profiles, skeleton_height_values,
 )
 from lib.translator import _
@@ -88,6 +90,8 @@ PARAM_HEIGHT = "height"
 PARAM_LENGTH = "contour length"
 PARAM_KINK_ANGLE = "kink angle"
 PARAM_KINK_DENSITY = "kink density"
+PARAM_STRAIGHTNESS = "straightness"
+PARAM_CURVATURE = "curvature"
 
 UNIT_PIXEL = "pixel"
 UNIT_LENGTH = "length"
@@ -122,6 +126,34 @@ INPUT_SUFFIXES = {
 # バンドルの画像とトラックを必要とする集計単位。入力がファイバー単位の CSV の
 # ときは提供しない。
 BUNDLE_ONLY_UNITS = (UNIT_PIXEL, UNIT_LENGTH)
+
+# Quantities that need something only a bundle carries. Curvature is measured
+# by walking the traced track, which a per-fiber CSV does not store.
+# バンドルにしか無い情報を必要とする計測量。曲率は追跡トラックをたどって測る
+# 必要があるが、ファイバー単位の CSV にはトラックが保存されていない。
+BUNDLE_ONLY_PARAMS = (PARAM_CURVATURE,)
+
+# Plot types. The histogram shows the shape of one distribution, the ECDF
+# compares several without depending on a bin width, and the box summarises
+# each group's median and quartiles side by side.
+# プロットの種類。ヒストグラムは 1 つの分布の形を示し、ECDF はビン幅に依存せず
+# 複数を比較でき、箱ひげは各群の中央値と四分位数を並べて要約する。
+PLOT_HISTOGRAM = "histogram"
+PLOT_ECDF = "ECDF"
+PLOT_BOX = "box"
+
+PLOT_TYPES = (PLOT_HISTOGRAM, PLOT_ECDF, PLOT_BOX)
+
+# Aggregation units whose samples support a between-group test. The others are
+# excluded on principle rather than for convenience: skeleton pixels and
+# length-weighted points are not independent observations of a specimen, and
+# several kinks come from one fiber, so a p-value over them measures how
+# finely the images were sampled instead of whether the specimens differ.
+# 群間検定を適用できる集計単位。他を外すのは便宜ではなく原理による。骨格画素と
+# 長さ重み付けの点は試料の独立観測ではなく、複数のキンクは 1 本のファイバーから
+# 来る。それらに対する p 値は、試料が異なるかどうかではなく、画像をどれだけ
+# 細かくサンプリングしたかを測ってしまう。
+TESTABLE_UNITS = (UNIT_FIBER, UNIT_IMAGE)
 
 # Inverse micrometer in two spellings, because no single one renders in both
 # places it is needed. "1/µm" written straight after a number reads as part of
@@ -205,6 +237,25 @@ PARAM_SPECS = {
         "units": (UNIT_KINK, UNIT_FIBER, UNIT_IMAGE),
         "default_range": (0.0, 180.0, 5.0),
     },
+    PARAM_STRAIGHTNESS: {
+        "slug": "straightness",
+        "value_unit": "-",
+        # Dimensionless, so the label carries no unit; spelling the definition
+        # out here overflowed the axes on a box plot, and it belongs in the
+        # documentation rather than on every figure.
+        # 無次元量のためラベルに単位は付けない。定義を書き下すと箱ひげの軸から
+        # はみ出したうえ、その説明は毎回の図ではなくドキュメントに属する。
+        "axis_label": "straightness",
+        "units": (UNIT_FIBER, UNIT_IMAGE),
+        "default_range": (0.0, 1.02, 0.02),
+    },
+    PARAM_CURVATURE: {
+        "slug": "curvature",
+        "value_unit": "rad/" + UNIT_MICROMETER,
+        "axis_label": "curvature (rad/" + UNIT_MICROMETER + ")",
+        "units": (UNIT_FIBER, UNIT_IMAGE),
+        "default_range": (0.0, 20.0, 0.5),
+    },
     PARAM_KINK_DENSITY: {
         "slug": "kink_density",
         "value_unit": UNIT_PER_MICROMETER,
@@ -224,7 +275,10 @@ for _spec in PARAM_SPECS.values():
 
 # Order shown in the quantity selector.
 # 計測量セレクタに表示する順序。
-PARAM_ORDER = (PARAM_HEIGHT, PARAM_LENGTH, PARAM_KINK_ANGLE, PARAM_KINK_DENSITY)
+PARAM_ORDER = (
+    PARAM_HEIGHT, PARAM_LENGTH, PARAM_STRAIGHTNESS, PARAM_CURVATURE,
+    PARAM_KINK_ANGLE, PARAM_KINK_DENSITY,
+)
 
 
 def _fiber_value(stat, param: str):
@@ -273,6 +327,13 @@ def _fiber_value(stat, param: str):
         if length_um <= 0.0:
             return None
         return float(stat.kink_count) / length_um
+    if param == PARAM_STRAIGHTNESS:
+        # A CSV written before straightness existed leaves the field
+        # undefined, and those fibers contribute nothing rather than a zero.
+        # straightness が存在する前に書かれた CSV ではこの項目が未定義であり、
+        # そうしたファイバーは 0 ではなく「寄与なし」として扱う。
+        value = float(stat.straightness)
+        return None if not np.isfinite(value) else value
     return None
 
 
@@ -394,6 +455,32 @@ def _format_sample_size(value: float, unit: str) -> str:
     if unit in LENGTH_WEIGHTED_UNITS:
         return "{0:,.1f}".format(value / 1000.0)
     return "{0:,}".format(int(value))
+
+
+def _blank_if_nan(value: float, fmt: str = "{0:.6g}") -> str:
+    """
+    Format a number for CSV, leaving an undefined one as an empty cell.
+    CSV 用に数値を整形し、未定義の値は空セルにする。
+
+    Parameters
+    ----------
+    value
+        Number to format; NaN means the quantity was not computed.
+        整形する数値。NaN は計算されなかったことを意味する。
+    fmt
+        Format string applied to a finite value.
+        有限値に適用する書式文字列。
+
+    Returns
+    -------
+    str
+        Formatted number, or an empty string. An empty cell reads as missing
+        in every spreadsheet and analysis tool, whereas "nan" or 0 would be
+        taken for a measured value.
+        整形済みの数値、または空文字列。空セルはどの表計算・解析ツールでも欠測
+        として読まれるが、"nan" や 0 は計測値と取り違えられる。
+    """
+    return "" if not np.isfinite(value) else fmt.format(value)
 
 
 def _sample_size_csv_value(value: float, unit: str):
@@ -588,6 +675,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._last_edges = None
         self._last_param = None
         self._last_unit = None
+        self._last_comparisons = []
         self._has_result = False
 
         self.ui_queue = queue.Queue()
@@ -609,6 +697,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # サイドカーは誰かがそのデータセットをキュレーションしたときにのみ存在
         # するため、無視すると既に棄却された対象を黙って解析することになる。
         self.input_mode = INPUT_BUNDLE
+
+        # Arc length the curvature estimator turns over. Committed like the
+        # histogram range so an unconfirmed edit cannot reach a run.
+        # 曲率推定が回転角を測る弧長。ヒストグラム範囲と同様に確定値として保持し、
+        # 未確定の編集が実行へ届かないようにする。
+        self.curvature_window = DEFAULT_CURVATURE_WINDOW_NM
 
         # Keep committed values separate from Entry text so edits can be confirmed with Enter.
         # Entry の textvariable とは別に確定済みの値を保持し、Enter 確定で反映する。
@@ -662,6 +756,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         self._build_group_panel(parent)
         self._build_result_panel(parent)
+        self._build_comparison_panel(parent)
         self._build_log_panel(parent)
 
     def _build_group_panel(self, parent: ttk.Frame) -> None:
@@ -865,6 +960,77 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             )
         )
 
+    def _build_comparison_panel(self, parent: ttk.Frame) -> None:
+        """
+        Build the between-group comparison table.
+        群間比較テーブルを構築する。
+
+        Notes
+        -----
+        The statistics table above describes each group on its own, which
+        leaves the reader to judge from two medians whether a difference
+        exceeds the spread. This table answers that directly: a test of
+        whether the groups are distinguishable, and an effect size saying how
+        far apart they are independently of how many fibers were measured.
+        上の統計量テーブルは各群を単独で記述するため、差がばらつきを超えている
+        かどうかの判断は 2 つの中央値から読み手に委ねられる。この表はそれに直接
+        答える。群が区別できるかの検定と、計測したファイバー本数に依存せず隔たり
+        の大きさを示す効果量である。
+        """
+        frm = ttk.Frame(parent)
+        frm.pack(fill=tk.BOTH, expand=False, padx=4, pady=(0, 4))
+
+        header = ttk.Frame(frm)
+        header.pack(fill=tk.X, padx=6, pady=(0, 2))
+        self.btn_save_comparison = ttk.Button(
+            header, text=_("比較を保存"),
+            command=self.on_save_comparison, state=tk.DISABLED,
+        )
+        self.btn_save_comparison.pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(header, text=_("群間比較")).pack(side=tk.LEFT)
+        self.comparison_note_var = tk.StringVar()
+        ttk.Label(header, textvariable=self.comparison_note_var).pack(
+            side=tk.LEFT, padx=(8, 0)
+        )
+
+        tree_row = ttk.Frame(frm)
+        tree_row.pack(fill=tk.BOTH, expand=True, padx=6, pady=(0, 0))
+        # Headings name statistical quantities that also go into the exported
+        # CSV, so they stay fixed English like every other reported label.
+        # 見出しは出力 CSV にも入る統計量の名称であるため、他の報告ラベルと同様に
+        # 固定英語とする。
+        self.comparison_tree, _sb = create_scrolled_treeview(
+            tree_row,
+            columns=("pair", "n", "u", "ks", "delta", "magnitude"),
+            show="headings",
+            height=4,
+            headings={
+                "pair": "Pair",
+                "n": "N",
+                "u": "Mann-Whitney p",
+                "ks": "KS p",
+                "delta": "Cliff's delta",
+                "magnitude": "effect",
+            },
+            column_options={
+                "pair": {"width": 140, "anchor": "w", "stretch": True},
+                "n": {"width": 76, "anchor": "e", "stretch": False},
+                "u": {"width": 108, "anchor": "e", "stretch": False},
+                "ks": {"width": 90, "anchor": "e", "stretch": False},
+                "delta": {"width": 92, "anchor": "e", "stretch": False},
+                "magnitude": {"width": 80, "anchor": "w", "stretch": False},
+            },
+            tree_pack_kwargs={"side": tk.LEFT, "fill": tk.BOTH, "expand": True},
+            scrollbar_side=tk.LEFT,
+            scrollbar_pack_kwargs={"side": tk.LEFT, "fill": tk.Y},
+        )
+
+        hsb = ttk.Scrollbar(
+            frm, orient=tk.HORIZONTAL, command=self.comparison_tree.xview,
+        )
+        self.comparison_tree.configure(xscrollcommand=hsb.set)
+        hsb.pack(fill=tk.X, padx=6, pady=(0, 4))
+
     def _build_log_panel(self, parent: ttk.Frame) -> None:
         """
         Build the log area and its save button.
@@ -993,7 +1159,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.param_var = tk.StringVar(value=self.param)
         self.cmb_param = ttk.Combobox(
             parambar, textvariable=self.param_var,
-            values=list(PARAM_ORDER), width=15, state="readonly",
+            values=self._available_params(), width=17, state="readonly",
         )
         self.cmb_param.pack(side=tk.LEFT, padx=(4, 12))
         self.cmb_param.bind("<<ComboboxSelected>>", lambda _e: self._on_param_change())
@@ -1032,9 +1198,45 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             fiber=UNIT_FIBER, image=UNIT_IMAGE,
         ))
 
+        ttk.Label(parambar, text=_("曲率窓") + " (nm)").pack(side=tk.LEFT)
+        self.curvature_window_var = tk.StringVar(
+            value=self._fmt_num(self.curvature_window)
+        )
+        self.ent_curvature_window = ttk.Entry(
+            parambar, textvariable=self.curvature_window_var, width=6,
+        )
+        self.ent_curvature_window.pack(side=tk.LEFT, padx=(4, 8))
+        self._register_unconfirmed_entry(
+            self.ent_curvature_window,
+            lambda: self._fmt_num(self.curvature_window),
+            self._commit_curvature_window,
+        )
+        ToolTip(self.ent_curvature_window, _(
+            "{curvature} が回転角を測る弧長です。骨格のステップは直交か斜めしか"
+            "無いため画素スケールでは方向が量子化され、窓が小さすぎると真の曲率に"
+            "関係なく一定のノイズ値が返ります（既知半径の円弧に対し 20 nm では"
+            "常に 19.4 rad/{um} でした）。大きくすると滑らかになりますが、窓より"
+            "短いファイバーは測定対象から外れます。"
+        ).format(curvature=PARAM_CURVATURE, um=UNIT_MICROMETER))
+
         self.sample_hint_var = tk.StringVar()
         ttk.Label(parambar, textvariable=self.sample_hint_var).pack(side=tk.LEFT)
         self._update_sample_hint()
+
+    def _available_params(self) -> list:
+        """
+        Return the quantities the current input type can produce.
+        現在の入力タイプで算出できる計測量を返す。
+
+        Returns
+        -------
+        list of str
+            Quantity keys in `PARAM_ORDER`.
+            `PARAM_ORDER` の順に並んだ計測量キー。
+        """
+        if self.input_mode == INPUT_BUNDLE:
+            return list(PARAM_ORDER)
+        return [p for p in PARAM_ORDER if p not in BUNDLE_ONLY_PARAMS]
 
     def _available_units(self, param: str) -> list:
         """
@@ -1071,6 +1273,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return
 
         self.input_mode = mode
+
+        params = self._available_params()
+        self.cmb_param.configure(values=params)
+        if self.param not in params:
+            self.param = params[0]
+            self.param_var.set(self.param)
+            self._apply_default_range(self.param)
+            for col, text in self._result_headings(self.param).items():
+                self.result_tree.heading(col, text=text)
+
         units = self._available_units(self.param)
         self.cmb_unit.configure(values=units)
         if self.unit not in units:
@@ -1137,13 +1349,42 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # スタイルを明示的に再評価する。
         self._refresh_all_entry_states()
 
+    def _commit_curvature_window(self) -> bool:
+        """
+        Validate and commit the curvature window.
+        曲率窓を検証して確定する。
+
+        Returns
+        -------
+        bool
+            True when the value is committed; False when validation fails.
+            確定できた場合は True、不正値の場合は False。
+        """
+        def _check(v):
+            if v["curvature_window"] <= 0.0:
+                return _("曲率窓は正の値にしてください。")
+            return None
+
+        def _on_success():
+            # The window changes what is measured, not how it is drawn, so
+            # cached results no longer describe the current setting.
+            # 窓は描き方ではなく計測内容を変えるため、キャッシュ済み結果は現在の
+            # 設定を記述しなくなる。
+            self._reset_result_state()
+
+        return self._commit_float_fields(
+            [(self.ent_curvature_window, "curvature_window", "curvature window")],
+            validator=_check,
+            on_success=_on_success,
+        )
+
     def _on_param_change(self) -> None:
         """
         Apply a measured-quantity change to units, range, headings, and state.
         計測量の変更を集計単位・範囲・見出し・状態へ反映する。
         """
         param = self.param_var.get()
-        if param not in PARAM_SPECS:
+        if param not in self._available_params():
             self.param_var.set(self.param)
             return
         if param == self.param:
@@ -1247,16 +1488,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         self.display_mode_var = tk.StringVar(value=self.MODE_STACK)
         ttk.Label(topbar, text=_("表示")).pack(side=tk.LEFT)
-        ttk.Radiobutton(
+        self._rb_stack = ttk.Radiobutton(
             topbar, text=_("縦並び"),
             variable=self.display_mode_var, value=self.MODE_STACK,
             command=self._on_view_option_change,
-        ).pack(side=tk.LEFT, padx=(4, 0))
-        ttk.Radiobutton(
+        )
+        self._rb_stack.pack(side=tk.LEFT, padx=(4, 0))
+        self._rb_overlay = ttk.Radiobutton(
             topbar, text=_("重ね表示"),
             variable=self.display_mode_var, value=self.MODE_OVERLAY,
             command=self._on_view_option_change,
-        ).pack(side=tk.LEFT, padx=(4, 12))
+        )
+        self._rb_overlay.pack(side=tk.LEFT, padx=(4, 12))
 
         self.show_height_text_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(
@@ -1279,6 +1522,23 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.label_fs_var = tk.StringVar(value=self._fmt_num(self.label_fs))
         self.tick_fs_var = tk.StringVar(value=self._fmt_num(self.tick_fs))
         self.ann_fs_var = tk.StringVar(value=self._fmt_num(self.ann_fs))
+
+        self.plot_type_var = tk.StringVar(value=PLOT_HISTOGRAM)
+        ttk.Label(optbar, text=_("図")).pack(side=tk.LEFT)
+        self.cmb_plot_type = ttk.Combobox(
+            optbar, textvariable=self.plot_type_var,
+            values=list(PLOT_TYPES), width=10, state="readonly",
+        )
+        self.cmb_plot_type.pack(side=tk.LEFT, padx=(4, 12))
+        self.cmb_plot_type.bind(
+            "<<ComboboxSelected>>", lambda _e: self._on_plot_type_change()
+        )
+        ToolTip(self.cmb_plot_type, _(
+            "{histogram} は 1 群の分布の形を示します。{ecdf} は累積分布を重ねて"
+            "描くため、ビン幅に依存せずに群を比較できます。{box} は各群の中央値と"
+            "四分位数を並べて要約します。{ecdf} と {box} は常に重ね／並置表示に"
+            "なるため、縦並び・重ね表示の選択は使われません。"
+        ).format(histogram=PLOT_HISTOGRAM, ecdf=PLOT_ECDF, box=PLOT_BOX))
 
         ttk.Label(optbar, text=_("横長")).pack(side=tk.LEFT)
         self.ent_fig_w = ttk.Entry(optbar, textvariable=self.fig_w_var, width=4)
@@ -1529,6 +1789,26 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             on_success=_on_success,
         )
 
+    def _on_plot_type_change(self) -> None:
+        """
+        Redraw for a new plot type and grey out controls it does not use.
+        新しい図の種類で再描画し、その図が使わない操作部を無効化する。
+
+        Notes
+        -----
+        The ECDF and box plots put every group on one axes by construction, so
+        the stacked/overlaid choice has nothing to act on; disabling it says
+        that before the user changes it and sees nothing happen.
+        ECDF と箱ひげは構造上すべての群を 1 つの軸に描くため、縦並び／重ね表示の
+        選択には作用する対象が無い。無効化することで、変更しても何も起きないと
+        気づく前にそれを伝える。
+        """
+        stacking_used = self.plot_type_var.get() == PLOT_HISTOGRAM
+        state = tk.NORMAL if stacking_used else tk.DISABLED
+        for widget in (self._rb_stack, self._rb_overlay):
+            widget.configure(state=state)
+        self._on_view_option_change()
+
     def _on_view_option_change(self) -> None:
         """
         Apply lightweight view-option changes immediately.
@@ -1552,6 +1832,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             edges=self._last_edges,
             param=self._last_param,
             unit=self._last_unit,
+            plot_type=self.plot_type_var.get(),
             yaxis_mode=self.yaxis_mode_var.get(),
             display_mode=self.display_mode_var.get(),
             show_height_text=bool(self.show_height_text_var.get()),
@@ -2097,6 +2378,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "unit": self.unit,
             "input_mode": self.input_mode,
             "apply_exclusions": bool(self.apply_exclusions_var.get()),
+            "curvature_window": self.curvature_window,
+            "plot_type": self.plot_type_var.get(),
             "min_h": min_h,
             "max_h": max_h,
             "step": step,
@@ -2176,7 +2459,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _collect_bundle_values(self, bundle_paths, param: str, unit: str,
                                input_mode: str = INPUT_BUNDLE,
-                               apply_exclusions: bool = False) -> tuple:
+                               apply_exclusions: bool = False,
+                               curvature_window: float =
+                               DEFAULT_CURVATURE_WINDOW_NM) -> tuple:
         """
         Collect one folder's samples for a quantity and aggregation unit.
         1 フォルダ分の標本を、計測量と集計単位に従って収集する。
@@ -2259,10 +2544,98 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # 連結された形で届き、重み付き統計に必要なのはその形だからである。
             return values, weights, 0, n_images, load_errors
 
+        if param == PARAM_CURVATURE:
+            per_fiber, load_errors = collect_fiber_curvature(
+                bundle_paths,
+                apply_exclusions=apply_exclusions,
+                curvature_window_nm=curvature_window,
+            )
+            self._log_curvature_caveats(per_fiber, curvature_window)
+            return self._curvature_values(per_fiber, unit) + (load_errors,)
+
         per_bundle, load_errors = collect_fiber_stats(
             bundle_paths, apply_exclusions=apply_exclusions,
         )
         return self._values_from_fiber_stats(per_bundle, param, unit) + (load_errors,)
+
+    def _log_curvature_caveats(self, per_fiber, curvature_window: float) -> None:
+        """
+        Report how many fibers the curvature window excluded.
+        曲率窓が測定対象から外したファイバーの本数を報告する。
+
+        Parameters
+        ----------
+        per_fiber
+            ``(bundle_path, curvature)`` pairs.
+            ``(バンドルパス, 曲率)`` の列。
+        curvature_window
+            Arc length the curvature estimator used.
+            曲率推定が使った弧長。
+
+        Notes
+        -----
+        The note exists because the number on screen can be read as a property
+        of the specimen when it is partly a property of the measurement:
+        raising the window drops every fiber shorter than it, changing which
+        fibers the median describes.
+        この注記が存在するのは、画面上の数値が試料の性質として読まれ得るが実際
+        には一部が計測の性質であるためである。窓を大きくすると、それより短い
+        ファイバーが全て落ち、中央値が記述する対象そのものが変わる。
+        """
+        if not per_fiber:
+            return
+
+        total = sum(int(c.size) for _p, c in per_fiber)
+        measurable = sum(int(np.isfinite(c).sum()) for _p, c in per_fiber)
+        if measurable < total:
+            self.ui_queue.put(("log", _(
+                "曲率窓 {w} nm より短いファイバー {n} 本 / {total} 本は測定"
+                "対象外です。窓を広げるとさらに減ります。"
+            ).format(
+                w=self._fmt_num(curvature_window),
+                n=total - measurable, total=total,
+            )))
+
+    @staticmethod
+    def _curvature_values(per_fiber, unit: str) -> tuple:
+        """
+        Turn per-fiber curvature into samples at the requested unit.
+        ファイバーごとの曲率を、要求された集計単位の標本へ変換する。
+
+        Parameters
+        ----------
+        per_fiber
+            ``(bundle_path, curvature)`` pairs from
+            `lib.measure.collect_fiber_curvature`.
+            `lib.measure.collect_fiber_curvature` が返す
+            ``(バンドルパス, 曲率)`` の列。
+        unit
+            Aggregation-unit key.
+            集計単位キー。
+
+        Returns
+        -------
+        tuple
+            ``(values, weights, n_fibers, n_images)``; `weights` is always
+            None because the quantity counts objects.
+            ``(値, 重み, ファイバー数, 画像数)``。個数を数える量であるため
+            `weights` は常に None。
+        """
+        values = []
+        n_fibers = 0
+        n_images = 0
+        for _path, curvature in per_fiber:
+            measurable = curvature[np.isfinite(curvature)]
+            if measurable.size == 0:
+                continue
+            n_fibers += int(measurable.size)
+            n_images += 1
+            if unit == UNIT_IMAGE:
+                values.append(float(np.median(measurable)))
+            else:
+                values.extend(measurable.tolist())
+
+        return values, None, n_fibers, n_images
 
     @staticmethod
     def _values_from_fiber_stats(per_source, param: str, unit: str) -> tuple:
@@ -2347,6 +2720,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         apply_exclusions = (
             args["apply_exclusions"] and input_mode == INPUT_BUNDLE
         )
+        curvature_window = args["curvature_window"]
 
         # Skeleton pixels are read straight from the bundle arrays, so that
         # one combination needs no fiber tracing and no scan size. Every other
@@ -2417,6 +2791,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         bundle_paths, param, unit,
                         input_mode=input_mode,
                         apply_exclusions=apply_exclusions,
+                        curvature_window=curvature_window,
                     )
                 except Exception as e:
                     errors.append(
@@ -2567,11 +2942,36 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     )
                 )
 
+        # Between-group tests run here, on the samples as they were collected,
+        # so the comparison always describes the same population the table and
+        # the figure do.
+        # 群間検定は収集した標本に対してここで実行する。比較が常に、テーブルと図が
+        # 示すのと同じ母集団を記述するようにするためである。
+        comparisons = []
+        comparison_note = ""
+        if len(results) < 2:
+            comparison_note = _("比較には 2 群以上が必要です。")
+        elif unit not in TESTABLE_UNITS:
+            comparison_note = _(
+                "{unit} 集計の標本は独立観測ではないため検定しません。"
+                "{fiber} または {image} 集計に切り替えてください。"
+            ).format(unit=unit, fiber=UNIT_FIBER, image=UNIT_IMAGE)
+        else:
+            try:
+                comparisons = compare_groups(
+                    [(r["name"], r["values"]) for r in results]
+                )
+            except Exception as e:
+                comparison_note = _("群間比較に失敗しました: {err}").format(err=e)
+
         self.ui_queue.put(("done", {
             "results": results,
             "edges": edges,
             "param": param,
             "unit": unit,
+            "comparisons": comparisons,
+            "comparison_note": comparison_note,
+            "plot_type": args["plot_type"],
             "yaxis_mode": args["yaxis_mode"],
             "display_mode": args["display_mode"],
             "show_height_text": args["show_height_text"],
@@ -2593,6 +2993,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         edges = payload["edges"]
         param = payload["param"]
         unit = payload["unit"]
+        plot_type = payload["plot_type"]
         yaxis_mode = payload["yaxis_mode"]
         display_mode = payload["display_mode"]
         show_height_text = payload["show_height_text"]
@@ -2607,6 +3008,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         for col, text in self._result_headings(param).items():
             self.result_tree.heading(col, text=text)
         self._update_result_caption(param, unit)
+        self._last_comparisons = payload["comparisons"]
+        self._populate_comparison_table(
+            payload["comparisons"], payload["comparison_note"],
+        )
 
         for iid in self.result_tree.get_children(""):
             self.result_tree.delete(iid)
@@ -2632,6 +3037,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             edges=edges,
             param=param,
             unit=unit,
+            plot_type=plot_type,
             yaxis_mode=yaxis_mode,
             display_mode=display_mode,
             show_height_text=show_height_text,
@@ -2679,13 +3085,245 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         else:
             self._log(_("完了"))
 
-    def _draw_figure(self, *, results, edges, param, unit, yaxis_mode, display_mode,
+    @staticmethod
+    def _format_p(value: float) -> str:
+        """
+        Format a p-value for the comparison table.
+        比較テーブル用に p 値を整形する。
+
+        Parameters
+        ----------
+        value
+            Raw or adjusted p-value; NaN means the pair was not tested.
+            生または補正後の p 値。NaN は未検定を意味する。
+
+        Returns
+        -------
+        str
+            Fixed decimals down to 0.001 and scientific notation below, so a
+            very small p stays legible instead of collapsing to "0.000".
+            0.001 までは固定小数、それ未満は指数表記。非常に小さい p 値が
+            "0.000" に潰れず読めるようにする。
+        """
+        if not np.isfinite(value):
+            return "-"
+        if value < 0.001:
+            return "{0:.1e}".format(value)
+        return "{0:.3f}".format(value)
+
+    def _populate_comparison_table(self, comparisons, note: str) -> None:
+        """
+        Fill the between-group comparison table and its note.
+        群間比較テーブルと注記を埋める。
+
+        Parameters
+        ----------
+        comparisons
+            `lib.group_compare.PairComparison` rows, possibly empty.
+            `lib.group_compare.PairComparison` の行。空の場合もある。
+        note
+            Explanation shown when no comparison was run.
+            比較を実行しなかった場合に表示する説明。
+
+        Notes
+        -----
+        The adjusted p-values are the ones shown, with the raw value beside
+        them, because every pair of k groups is tested at once and reading the
+        raw values alone would find a difference among four groups about a
+        quarter of the time with none present.
+        表示するのは補正後の p 値で、生の値は併記する。k 群のすべてのペアを同時に
+        検定しており、生の値だけを見ると、差が無くても 4 群では約 1/4 の確率で
+        どこかに差が見つかってしまうためである。
+        """
+        for iid in self.comparison_tree.get_children(""):
+            self.comparison_tree.delete(iid)
+
+        self.btn_save_comparison.configure(
+            state=tk.NORMAL if comparisons else tk.DISABLED
+        )
+        if not comparisons:
+            self.comparison_note_var.set(note)
+            return
+
+        self.comparison_note_var.set(
+            _("p 値は Holm 補正後（括弧内は補正前）") if len(comparisons) > 1
+            else _("p 値（2 群のため補正不要）")
+        )
+        for c in comparisons:
+            if len(comparisons) > 1:
+                u_text = "{adj} ({raw})".format(
+                    adj=self._format_p(c.mannwhitney_p_adjusted),
+                    raw=self._format_p(c.mannwhitney_p),
+                )
+                ks_text = "{adj} ({raw})".format(
+                    adj=self._format_p(c.ks_p_adjusted),
+                    raw=self._format_p(c.ks_p),
+                )
+            else:
+                u_text = self._format_p(c.mannwhitney_p)
+                ks_text = self._format_p(c.ks_p)
+
+            self.comparison_tree.insert("", tk.END, values=(
+                "{a} vs {b}".format(a=c.group_a, b=c.group_b),
+                "{a:,} / {b:,}".format(a=c.n_a, b=c.n_b),
+                u_text,
+                ks_text,
+                "-" if not np.isfinite(c.cliffs_delta) else "{0:+.3f}".format(
+                    c.cliffs_delta
+                ),
+                c.magnitude or "-",
+            ))
+
+    def _finish_figure(self) -> None:
+        """
+        Lay out the figure and resize the scrollable canvas around it.
+        Figure のレイアウトを整え、スクロール可能なキャンバスを合わせて調整する。
+        """
+        try:
+            self.fig.tight_layout()
+        except Exception:
+            # Keep the GUI responsive even if Matplotlib cannot fit the layout.
+            # レイアウトに失敗しても GUI をクラッシュさせない。
+            pass
+
+        self.canvas.get_tk_widget().configure(
+            width=int(self.fig.get_size_inches()[0] * self.fig.get_dpi()),
+            height=int(self.fig.get_size_inches()[1] * self.fig.get_dpi()),
+        )
+        self.canvas.draw()
+        self._inner_frame.update_idletasks()
+        self._scroll_canvas.configure(scrollregion=self._scroll_canvas.bbox("all"))
+
+    def _draw_ecdf(self, *, results, param, fig_w, fig_h,
+                   label_fs, tick_fs, group_name_fs) -> None:
+        """
+        Draw one overlaid empirical cumulative distribution per group.
+        群ごとの経験累積分布を 1 つの軸へ重ねて描画する。
+
+        Notes
+        -----
+        The ECDF uses every sample at its own value, so unlike the histogram it
+        has no bin width to choose and cannot be made to show or hide a
+        difference by changing one. Overlaid curves also make the separation
+        between two groups readable directly as the horizontal gap, which is
+        what the effect size in the comparison table quantifies.
+        ECDF は各標本をその値のまま使うため、ヒストグラムと違いビン幅の選択が
+        なく、ビン幅を変えて差を見せたり隠したりすることができない。曲線を重ねる
+        と 2 群の隔たりが水平方向の差として直接読み取れる。これは比較テーブルの
+        効果量が数値化しているものでもある。
+        """
+        self.fig.clf()
+        self.fig.set_size_inches(fig_w, fig_h, forward=True)
+        ax = self.fig.add_subplot(111)
+        spec = PARAM_SPECS[param]
+
+        for r in results:
+            values = np.asarray(r["values"], dtype=float)
+            if values.size == 0:
+                continue
+            order = np.argsort(values)
+            sorted_values = values[order]
+            if r["weights"] is None:
+                weights = np.ones(sorted_values.shape, dtype=float)
+            else:
+                weights = np.asarray(r["weights"], dtype=float)[order]
+            # Weighted cumulative fraction, so the length unit's curve is the
+            # fraction of observed contour length below each value rather than
+            # the fraction of sampled points.
+            # 重み付き累積割合。length 単位の曲線が、サンプル点の割合ではなく、
+            # 各値以下にある観測輪郭長の割合を表すようにする。
+            cumulative = np.cumsum(weights) / float(weights.sum())
+            ax.step(
+                sorted_values, cumulative, where="post",
+                color=r["color"], label=r["name"], linewidth=1.6,
+            )
+
+        ax.set_xlabel(spec["axis_label"], fontsize=label_fs)
+        ax.set_ylabel("cumulative fraction", fontsize=label_fs)
+        ax.set_ylim(0.0, 1.02)
+        ax.tick_params(axis="both", labelsize=tick_fs)
+        if len(results) >= 2:
+            ax.legend(fontsize=group_name_fs, loc="lower right")
+        self._finish_figure()
+
+    def _draw_box(self, *, results, param, fig_w, fig_h,
+                  label_fs, tick_fs, group_name_fs) -> None:
+        """
+        Draw one box per group from the statistics the table reports.
+        テーブルが報告する統計量から、群ごとに 1 つの箱を描画する。
+
+        Notes
+        -----
+        The boxes are drawn from precomputed quartiles rather than by handing
+        Matplotlib the raw samples, so the box and the statistics table can
+        never disagree -- and so the length unit's boxes use its weighted
+        quartiles, which Matplotlib's own boxplot has no way to compute.
+        箱は生の標本を Matplotlib に渡すのではなく、あらかじめ計算した四分位数
+        から描く。これにより箱と統計量テーブルが食い違うことがなく、また length
+        単位では重み付き四分位数を使える。Matplotlib の boxplot 自身にはこれを
+        計算する手段が無い。
+        """
+        self.fig.clf()
+        self.fig.set_size_inches(fig_w, fig_h, forward=True)
+        ax = self.fig.add_subplot(111)
+        spec = PARAM_SPECS[param]
+
+        stats = []
+        for r in results:
+            values = np.asarray(r["values"], dtype=float)
+            iqr = r["q3"] - r["q1"]
+            # Tukey fences: the whiskers reach the furthest sample still within
+            # 1.5 IQR of the box, which is a property of the values present and
+            # so is read from the samples rather than from the weights.
+            # Tukey のフェンス。ひげは箱から 1.5 IQR 以内にある最も遠い標本まで
+            # 伸びる。これは存在する値の性質であるため、重みではなく標本から読む。
+            low_fence = r["q1"] - 1.5 * iqr
+            high_fence = r["q3"] + 1.5 * iqr
+            inside = values[(values >= low_fence) & (values <= high_fence)]
+            stats.append({
+                "label": r["name"],
+                "med": r["median"],
+                "q1": r["q1"],
+                "q3": r["q3"],
+                "whislo": float(inside.min()) if inside.size else r["q1"],
+                "whishi": float(inside.max()) if inside.size else r["q3"],
+                "fliers": [],
+            })
+
+        artists = ax.bxp(stats, showfliers=False, patch_artist=True)
+        for patch, r in zip(artists["boxes"], results):
+            patch.set_facecolor(r["color"])
+            patch.set_alpha(0.55)
+            patch.set_edgecolor(r["color"])
+        for median in artists["medians"]:
+            median.set_color("black")
+
+        ax.set_ylabel(spec["axis_label"], fontsize=label_fs)
+        ax.tick_params(axis="y", labelsize=tick_fs)
+        ax.tick_params(axis="x", labelsize=group_name_fs)
+        self._finish_figure()
+
+    def _draw_figure(self, *, results, edges, param, unit, plot_type,
+                     yaxis_mode, display_mode,
                      show_height_text, fig_w, fig_h,
                      label_fs, tick_fs, ann_fs, group_name_fs):
         """
-        Draw stacked or overlaid histograms for the latest group results.
-        最新のグループ別結果を縦並びまたは重ね表示のヒストグラムとして描画する。
+        Draw the latest group results as the selected plot type.
+        最新のグループ別結果を、選択された種類の図として描画する。
         """
+        if plot_type == PLOT_ECDF:
+            self._draw_ecdf(
+                results=results, param=param, fig_w=fig_w, fig_h=fig_h,
+                label_fs=label_fs, tick_fs=tick_fs, group_name_fs=group_name_fs,
+            )
+            return
+        if plot_type == PLOT_BOX:
+            self._draw_box(
+                results=results, param=param, fig_w=fig_w, fig_h=fig_h,
+                label_fs=label_fs, tick_fs=tick_fs, group_name_fs=group_name_fs,
+            )
+            return
+
         self.fig.clf()
         widths = np.diff(edges)
         spec = PARAM_SPECS[param]
@@ -2844,6 +3482,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         for iid in self.result_tree.get_children(""):
             self.result_tree.delete(iid)
 
+        for iid in self.comparison_tree.get_children(""):
+            self.comparison_tree.delete(iid)
+        self.comparison_note_var.set("")
+        self._last_comparisons = []
+        self.btn_save_comparison.configure(state=tk.DISABLED)
+
         self.btn_save_fig.configure(state=tk.DISABLED)
         self.btn_save_csv.configure(state=tk.DISABLED)
         self.btn_save_stats.configure(state=tk.DISABLED)
@@ -2942,6 +3586,64 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 self._log(f"  - {p}")
         except Exception as e:
             messagebox.showerror(_("保存失敗"), _("CSVの保存に失敗しました:\n{e}").format(e=e))
+
+    def on_save_comparison(self) -> None:
+        """
+        Export the between-group comparison as a CSV file.
+        群間比較を CSV ファイルとして出力する。
+
+        Notes
+        -----
+        Both the raw and the Holm-adjusted p-values are written. The adjusted
+        one is what a conclusion rests on, but the raw value is what another
+        correction could be recomputed from, so dropping it would make the
+        exported table impossible to re-analyze.
+        生の p 値と Holm 補正後の p 値をどちらも書き出す。結論の根拠になるのは
+        補正後の値だが、別の補正法を計算し直せるのは生の値からである。落とすと
+        出力した表を再解析できなくなる。
+        """
+        if not self._last_comparisons:
+            messagebox.showwarning(_("未作成"), _("先に群間比較を実行してください。"))
+            return
+
+        default_name = "group_comparison_{ts}.csv".format(
+            ts=datetime.now().strftime("%Y%m%d_%H%M%S")
+        )
+
+        def _write(path):
+            with open(path, "w", newline="", encoding="utf-8-sig") as f:
+                w = csv.writer(f)
+                # Fixed English headers, like every other exported table.
+                # 他の出力表と同様、ヘッダは固定英語とする。
+                w.writerow([
+                    "quantity", "sample unit",
+                    "group A", "group B", "N A", "N B",
+                    "Mann-Whitney p", "Mann-Whitney p (Holm)",
+                    "KS p", "KS p (Holm)",
+                    "Cliff's delta", "effect",
+                ])
+                for c in self._last_comparisons:
+                    w.writerow([
+                        self._last_param, self._last_unit,
+                        c.group_a, c.group_b, c.n_a, c.n_b,
+                        _blank_if_nan(c.mannwhitney_p),
+                        _blank_if_nan(c.mannwhitney_p_adjusted),
+                        _blank_if_nan(c.ks_p),
+                        _blank_if_nan(c.ks_p_adjusted),
+                        _blank_if_nan(c.cliffs_delta, "{0:.4f}"),
+                        c.magnitude,
+                    ])
+
+        save_csv_with_dialog(
+            self,
+            _write,
+            initial_dir=self._default_save_dir(),
+            initial_name=default_name,
+            title=_("比較を保存"),
+            log_cb=self._log,
+            success_message=_("群間比較を保存しました → {path}"),
+            error_title=_("保存失敗"),
+        )
 
     def on_save_log(self) -> None:
         """

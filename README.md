@@ -319,11 +319,33 @@ population that survived that review. For bundle input, the same exclusions are
 applied from each bundle's `_excluded.json` sidecar unless the checkbox is
 cleared, and the log reports how many fibers each folder lost.
 
-The quantity selector offers `height`,
-`contour length`, `kink angle`, and `kink density` (kinks per micrometer of
-contour). Height comes from the calibrated image at skeletonized pixels;
-the other three come from the same per-fiber measurement `cli.py measure`
-and the Fiber Tracker use, so they need a bundle with a recorded scan size.
+The quantity selector offers `height`, `contour length`, `straightness`,
+`curvature`, `kink angle`, and `kink density` (kinks per micrometer of
+contour). Height comes from the calibrated image at skeletonized pixels; the
+rest come from the same per-fiber measurement `cli.py measure` and the Fiber
+Tracker use, so they need a bundle with a recorded scan size.
+
+Every quantity here describes the shape of an individual fiber. Coverage-type
+quantities are deliberately absent: the specimen is a dispersion drop-cast onto
+the substrate and dried, so how densely it covers the scan is set by the
+dilution, the drop volume, and where in the dried droplet the scan was taken,
+not by the material.
+
+`straightness` divides the length of a digitised straight line between a
+fiber's endpoints by its contour length, both measured with the same corrected
+chain-code metric. That metric reports a straight digitised path as roughly 5%
+shorter than its Euclidean chord, so a raw chord-over-contour ratio would read
+1.055 for a straight fiber; measuring the reference line the same way puts a
+straight fiber at exactly 1.0.
+
+`curvature` is the mean turning rate along a fiber, measured over an arc window
+set by the "曲率窓" entry. The window is not optional: a skeleton step is
+orthogonal or diagonal only, so at the pixel scale the turning angle is
+quantised to multiples of 45 degrees and the estimate becomes a constant noise
+floor — against arcs of known radius, a 20 nm window returned 19.4 rad/µm
+whatever the true curvature, while 100 nm and above recovered 1/R to within
+about 15%. Raising it smooths the estimate but drops every fiber shorter than
+the window, so the log reports how many fibers that excluded.
 
 A separate aggregation-unit selector decides what counts as one sample:
 `pixel` (one skeleton pixel), `length` (one skeleton pixel weighted by the
@@ -345,6 +367,21 @@ scale-invariant: it describes the fraction of observed contour length at each
 height rather than the fraction of sampled points. Its sample size is reported
 as a contour length in micrometers, and its raw-value CSV carries a
 `weight_nm` column so the exported file reproduces the same distribution.
+
+The plot selector offers `histogram`, `ECDF`, and `box`. The ECDF places every
+group on one axes without a bin width to choose, so a difference cannot be made
+to appear or disappear by rebinning; the box summarises each group from the same
+quartiles the table reports, weighted ones included, which Matplotlib's own
+boxplot cannot compute.
+
+Below the statistics table, a comparison table tests every pair of groups with
+a two-sided Mann-Whitney U and a two-sample Kolmogorov-Smirnov test, Holm-
+corrected across all pairs, and reports Cliff's delta as an effect size that
+does not grow with sample size. The tests are offered only for the `fiber` and
+`image` units: skeleton pixels, length-weighted points, and several kinks from
+one fiber are not independent observations, so a p-value over them would
+measure how finely the images were sampled rather than whether the specimens
+differ.
 
 Each group reports median and interquartile range alongside mean, standard
 deviation, and mode, because fiber morphology distributions are right-skewed
@@ -792,6 +829,7 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | `lib/bundle_schema.py` | Executable `.b2z` contract: required keys, array shapes, value ranges, units, coordinate convention, and format version, with `validate_bundle` enforcing them at write and load time. |
 | `lib/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |
 | `lib/fiber_connector.py` | `connect_fiber_fragments` and `ConnectParams`: reconnect skeleton fragments split at crossings/branches into whole fibrils, used by GUI04's optional fiber-connection mode. |
+| `lib/group_compare.py` | Between-group comparison for GUI03: Mann-Whitney U and two-sample KS with Holm correction over all pairs, plus Cliff's delta as an effect size that does not grow with sample size. |
 | `lib/fiber_selection.py` | Manual fiber exclusions stored in `<stem>_excluded.json` beside the bundle: written by GUI04, applied by `lib/measure.py`. An exclusion is an anchor pixel on the excluded fiber's track rather than a list index, so it keeps its meaning when fiber connection renumbers the list. |
 | `lib/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |
 | `lib/gwy_io.py` | Lazy-loading reader for native, multi-channel Gwyddion `.gwy` files, including channel selection, length-channel conversion to nm, and scan-size extraction. |

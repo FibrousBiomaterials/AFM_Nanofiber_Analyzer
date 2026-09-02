@@ -10,6 +10,84 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- GUI03 `curvature`, with `lib.measure.fiber_curvature_profile` and
+  `collect_fiber_curvature`.
+
+  Curvature is the mean turning rate along a fiber over an arc window, exposed
+  as the "曲率窓" entry. A window is unavoidable: a skeleton step is
+  orthogonal or diagonal only, so at the pixel scale the turning angle is
+  quantised to multiples of 45 degrees. Measured against digitised arcs of
+  known radius, a 20 nm window returned 19.4 rad/µm whatever the true
+  curvature — a noise floor, not a measurement — and 50 nm was erratic
+  (-30%, -19%, +46% across three radii), while 100 nm and above settled to a
+  consistent 13-19% low. The residual is the contour-length metric
+  over-measuring strongly curved digitised paths (+15-21% at 1.5 rad of total
+  turn, +0.8% at 0.15 rad); the turning angle itself is exact. The default is
+  100 nm because a larger window drops every fiber shorter than it, and with
+  median fiber lengths near 200 nm a 200 nm default would silently halve the
+  population. The log reports how many fibers each window excluded.
+
+  Two quantities were implemented alongside curvature and then dropped before
+  release, both because they describe the preparation rather than the fibers.
+  The specimen this software analyses is a dispersion drop-cast onto the
+  substrate and dried. `orientation order S` (the 2D nematic order parameter
+  over one image's fibers) would have measured the number of traced fibers,
+  since drop-cast fibers have no preferred direction. `network density` (total
+  traced contour length per scanned area) would have measured the dilution,
+  the drop volume, and where in the dried droplet the scan was taken — and
+  because it aggregated per image, GUI03 would have run rank tests on it and
+  produced publication-shaped p-values for a difference in sample preparation.
+
+- A GUI03 `straightness` quantity, which divides the length of a digitised
+  straight line between a fiber's endpoints by its contour length, both
+  measured with the same corrected chain-code metric. That matters because the
+  metric reports a straight digitised path as roughly 5% shorter than its
+  Euclidean chord — measured directly, chord over contour is 1.0549 for a
+  horizontal or vertical line and 1.0554 for a 45-degree one — so a raw ratio
+  would put a straight fiber at 1.055 instead of 1.
+
+  Straightness is exported as a `FiberStats` field and a new CSV column, so it
+  reaches GUI03 through a curated GUI04 export as well as through a bundle. A
+  CSV written by 1.0.0 still reads, with straightness left undefined:
+  rejecting an older export would strand curation work that is still valid for
+  every other column. It needs the pixel size to compare a chord against a
+  contour length, and is undefined without one rather than silently zero.
+
+- A CSV export for the GUI03 comparison table, carrying both the raw and the
+  Holm-adjusted p-values. The adjusted value is what a conclusion rests on, but
+  only the raw one lets a different correction be recomputed later.
+
+- A between-group comparison table in GUI03, and `lib/group_compare.py` behind
+  it. The per-group statistics describe each group on its own, which left the
+  reader to judge from two medians whether a difference exceeds the spread.
+  Every pair is now tested with a two-sided Mann-Whitney U and a two-sample
+  Kolmogorov-Smirnov test — both rank-based, because these distributions are
+  right-skewed and a t-test's normality assumption does not hold — with Holm
+  correction across all pairs, since testing every pair of four groups at 0.05
+  finds a "difference" about a quarter of the time with none present.
+
+  Cliff's delta accompanies them as an effect size, because a rank test's
+  significance grows with sample size while the separation it measures does
+  not: with a few hundred fibers per group a negligible difference still
+  reaches a small p-value. It is derived from the U statistic rather than by
+  counting pairs, which would be quadratic in the sample sizes.
+
+  The tests are offered only for the `fiber` and `image` aggregation units.
+  Skeleton pixels, length-weighted points, and several kinks from one fiber are
+  not independent observations, so a p-value over them measures how finely the
+  images were sampled rather than whether the specimens differ; the other units
+  say so instead of producing a number.
+
+- GUI03 plot types `ECDF` and `box` beside the histogram. The ECDF puts every
+  group on one axes with no bin width to choose, so a difference cannot be made
+  to appear or disappear by rebinning, and the separation between two groups
+  reads directly as the horizontal gap. The box is drawn from the quartiles the
+  statistics table reports rather than from the raw samples, so the two can
+  never disagree — and so the `length` unit's boxes use its weighted quartiles,
+  which Matplotlib's own boxplot has no way to compute. The stacked/overlaid
+  choice is disabled for both, which place every group on one axes by
+  construction.
+
 - Manual fiber exclusion in GUI04, and a GUI03 input path that consumes the
   result. Automatic filters cannot curate a dense network: on a typical
   entangled scan 58 of 60 traced fibers touch a crossing, so the isolated-fiber
