@@ -3365,7 +3365,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # 意図どおり残った部分だけを、孤立ファイバーフィルター有効時は
             # 他に接していないファイバーだけを書き出す。いずれの場合も出力
             # リストで採番し直すため、`index` 列は一覧テーブルと一致する。
-            write_fiber_csv(path, compute_fiber_stats(fibers))
+            # Pass the per-axis pixel size so the exported straightness is
+            # filled in; without it that column would be blank and GUI03 could
+            # not histogram straightness from a curated export.
+            # 軸別ピクセルサイズを渡し、出力される straightness を埋める。渡さ
+            # ないとその列は空になり、キュレーション済み出力から GUI03 が直線度
+            # のヒストグラムを作れなくなる。
+            write_fiber_csv(path, compute_fiber_stats(
+                fibers,
+                self.current_image.size_per_pixel,
+                self.current_image.y_size_per_pixel,
+            ))
 
         save_csv_with_dialog(
             self,

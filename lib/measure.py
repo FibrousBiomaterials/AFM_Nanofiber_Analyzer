@@ -70,6 +70,11 @@ from .fiber_selection import (
     load_exclusions,
 )
 from .fiber_tracking_image import FiberTrackingImage
+# Straightness measures a straight reference line with the same corrected
+# chain-code metric the fiber's own length uses, so the two are comparable.
+# 直線度は、ファイバー自身の長さが使うのと同じ補正済みチェーンコード尺度で
+# 基準となる直線を測るため、両者が比較可能になる。
+from . import imp_tools
 
 # Chebyshev distance in pixels within which a track pixel counts as touching a
 # branch point. `imp_tools.remove_bp` clears a 3x3 neighborhood around each
@@ -81,14 +86,55 @@ from .fiber_tracking_image import FiberTrackingImage
 # 1 つも捉えられない。
 BRANCH_TOUCH_RADIUS_PX = 2
 
+# Arc length over which local curvature measures its turning angle, chosen by
+# measuring digitised circles of known radius and by rendering real fibers
+# coloured by curvature across a range of windows.
+#
+# Against arcs of known radius, a 20 nm window returned 19.4 rad/um whatever
+# the true curvature was -- the direction-quantisation floor, not a
+# measurement -- and 50 nm was erratic (-30%, -19%, +46% across three radii).
+# From 100 nm upwards the estimate settled to a consistent -13% to -19%. On a
+# real hooked fibril, 100 nm was the first window whose map separated the
+# straight runs from the corners; 400 nm smeared the corners into them.
+#
+# Larger is not simply better: a fiber shorter than the window yields no
+# curvature at all, and with median fiber lengths near 200 nm in these
+# samples, a 200 nm default would silently drop about half the population.
+# 100 nm is the smallest window that is not noise-dominated, which keeps the
+# most fibers measurable.
+# 局所曲率が回転角を測る弧長。既知半径の離散化円での測定と、窓幅を振って実際の
+# ファイバーを曲率で色分け描画した結果から選定した。
+#
+# 既知半径の円弧に対し、20 nm の窓は真の曲率によらず 19.4 rad/um を返した。これは
+# 計測ではなく方向量子化の下限である。50 nm は 3 つの半径で -30%, -19%, +46% と
+# 不安定だった。100 nm 以上では -13%〜-19% の一貫した値に落ち着く。実際の鉤状
+# フィブリルでは、直線部と角を区別できた最小の窓が 100 nm であり、400 nm では角が
+# 周囲へにじんだ。
+#
+# 大きければよいわけではない。窓より短いファイバーは曲率を一切返さず、これらの
+# 試料ではファイバー長の中央値が 200 nm 前後であるため、200 nm を既定にすると
+# 母集団の約半数が黙って落ちる。100 nm はノイズに支配されない最小の窓であり、
+# 測定可能なファイバーを最も多く残す。
+DEFAULT_CURVATURE_WINDOW_NM = 100.0
+
 # Column order of the per-fiber statistics CSV. This is the single source of
 # truth shared by the GUI04 export and the `cli.py measure` subcommand.
 # ファイバー統計 CSV の列順。GUI04 のエクスポートと `cli.py measure` が共有する
 # 唯一の定義源。
 FIBER_CSV_COLUMNS = (
     "index", "length_nm", "height_median_nm", "height_max_nm",
-    "ep_count", "kink_count", "kink_angles_deg",
+    "ep_count", "kink_count", "kink_angles_deg", "straightness",
 )
+
+# The column set shipped in 1.0.0, before straightness was added. Kept so a
+# CSV written by that version still reads: the file is how a curated fiber
+# population travels between GUI04 and GUI03, and rejecting an older export
+# would strand work that is still perfectly valid for every other column.
+# 1.0.0 で出荷した列構成（straightness 追加前）。そのバージョンが書き出した CSV
+# を今も読めるように残す。このファイルはキュレーション済みのファイバー母集団が
+# GUI04 から GUI03 へ渡る経路であり、古い出力を拒否すると、他の全列については
+# 依然として有効な作業を無駄にしてしまう。
+FIBER_CSV_COLUMNS_V1 = FIBER_CSV_COLUMNS[:-1]
 
 
 @dataclass(frozen=True)
@@ -126,6 +172,13 @@ class FiberStats:
         追跡順に並んだキンク内角（度）。バンドルは角度をラジアン（`ka` キー）で
         保存しているため、度への変換をここで一元化し、全ての利用側が同じ単位で
         出力する。
+    straightness
+        End-to-end distance divided by contour length, in (0, 1]; 1.0 is a
+        straight fiber and a coiled one approaches 0. NaN when the pixel size
+        was not supplied, or when the contour length is zero.
+        端点間距離を輪郭長で割った値（(0, 1]）。1.0 は直線状のファイバーで、
+        巻き込んだものほど 0 に近づく。ピクセルサイズが与えられなかった場合、
+        または輪郭長が 0 の場合は NaN。
     """
 
     index: int
@@ -135,6 +188,7 @@ class FiberStats:
     ep_count: int
     kink_count: int
     kink_angles_deg: Tuple[float, ...]
+    straightness: float = float("nan")
 
 
 @dataclass(frozen=True)
@@ -246,7 +300,226 @@ def isolated_fiber_flags(
     return flags
 
 
-def compute_fiber_stats(fibers: Sequence[Fiber]) -> List[FiberStats]:
+def fiber_straightness(
+    fiber: Fiber,
+    x_size_per_pixel: float,
+    y_size_per_pixel: Optional[float] = None,
+) -> float:
+    """
+    Return one fiber's end-to-end distance divided by its contour length.
+    1 本のファイバーの端点間距離を輪郭長で割った値を返す。
+
+    Parameters
+    ----------
+    fiber
+        Traced fiber whose track and contour length are read.
+        トラックと輪郭長を参照する追跡済みファイバー。
+    x_size_per_pixel
+        Physical X (column) pixel size in nanometers.
+        X（列）方向の物理ピクセルサイズ (nm)。
+    y_size_per_pixel
+        Physical Y (row) pixel size in nanometers; ``None`` reuses the X size
+        for a square pixel grid.
+        Y（行）方向の物理ピクセルサイズ (nm)。``None`` のときは正方ピクセル格子
+        として X の値を流用する。
+
+    Returns
+    -------
+    float
+        Ratio in [0, 1], or NaN when the contour length is zero. A straight
+        fiber gives exactly 1.0, a coiled one approaches 0, and a closed loop
+        gives 0.
+        [0, 1] の比。輪郭長が 0 の場合は NaN。直線状ならちょうど 1.0、巻き込んだ
+        ものほど 0 に近づき、閉ループは 0 になる。
+
+    Notes
+    -----
+    The numerator is not the Euclidean chord but the length of a digitised
+    straight line between the same two endpoints, measured with the same
+    corrected chain-code metric as the fiber itself. That metric weights an
+    orthogonal step 0.948 and a diagonal one 1.340 to remove the length
+    overestimate digitisation produces on generic curves, and it therefore
+    reports a perfectly straight track as about 5% shorter than its Euclidean
+    chord: measured directly, chord over contour comes to 1.0549 for a
+    horizontal or vertical line and 1.0554 for a 45-degree one. Measuring the
+    reference line the same way puts a straight fiber at exactly 1.0, which is
+    what "straightness" has to mean to be readable.
+
+    The cancellation is exact only when the fiber and its reference line are
+    made of the same mix of orthogonal and diagonal steps, which holds for a
+    straight fiber and approximately otherwise: a digitised semicircle reads
+    0.586 here against 0.637 for the Euclidean chord-over-arc definition. The
+    value is a dimensionless shape descriptor for comparing fibers measured
+    the same way, not a quantity to compare against a Euclidean ratio computed
+    elsewhere.
+    分子はユークリッド弦ではなく、同じ 2 端点を結ぶ離散化された直線の長さであり、
+    ファイバー自身と同じ補正済みチェーンコード尺度で測る。この尺度は直交ステップ
+    に 0.948、斜めステップに 1.340 の重みを与え、一般の曲線で離散化が生む長さの
+    過大評価を取り除くため、完全な直線経路をユークリッド弦より約 5% 短く報告
+    する。実測では chord / contour が水平・垂直で 1.0549、45 度で 1.0554 になる。
+    基準線を同じ方法で測ることで直線状のファイバーがちょうど 1.0 になり、
+    「直線度」として読める値になる。
+
+    偏りが完全に相殺されるのは、ファイバーと基準線の直交・斜めステップの構成が
+    一致する場合、すなわち直線状のファイバーに限られ、それ以外では近似である。
+    離散化した半円はここでは 0.586 となり、ユークリッドの弦/弧による定義の
+    0.637 とは異なる。この値は同じ方法で計測したファイバー同士を比較するための
+    無次元の形状記述子であり、他所で計算されたユークリッド比と突き合わせる量では
+    ない。
+
+    The endpoints are the first and last tracked points, so a fiber cut at a
+    crossing is described over the part that was actually traced.
+    Bounding-box offsets cancel in the difference and are not needed.
+    端点は追跡された最初と最後の点であり、交差で切断されたファイバーは実際に
+    追跡された部分について記述される。外接矩形のオフセットは差分で相殺される
+    ため不要である。
+    """
+    length = float(fiber.length)
+    if not (length > 0.0):
+        return float("nan")
+    if y_size_per_pixel is None:
+        y_size_per_pixel = x_size_per_pixel
+
+    x0, x1 = int(fiber.xtrack[0]), int(fiber.xtrack[-1])
+    y0, y1 = int(fiber.ytrack[0]), int(fiber.ytrack[-1])
+    steps = max(abs(x1 - x0), abs(y1 - y0))
+    if steps == 0:
+        # Both endpoints on one pixel: a closed loop, with no straight-line
+        # extent at all.
+        # 両端点が同一画素にある閉ループ。直線方向の広がりを持たない。
+        return 0.0
+
+    # Sampling at max(|dx|, |dy|) steps makes consecutive rounded points differ
+    # by at most one pixel per axis, so the result is an 8-connected line the
+    # chain-code metric can measure the same way it measures the fiber.
+    # max(|dx|, |dy|) 分割で標本化すると、丸めた連続点は各軸で最大 1 画素しか
+    # 違わないため、結果は 8 近傍で連結した直線となり、ファイバーと同じ方法で
+    # チェーンコード尺度が測れる。
+    t = np.linspace(0.0, 1.0, steps + 1)
+    line_x = np.rint(x0 + t * (x1 - x0)).astype(int)
+    line_y = np.rint(y0 + t * (y1 - y0)).astype(int)
+    straight = float(imp_tools.convert_track_to_distance(
+        line_x, line_y, x_size_per_pixel, y_size_per_pixel,
+    )[-1])
+    return float(straight / length)
+
+
+def fiber_curvature_profile(
+    fiber: Fiber,
+    x_size_per_pixel: float,
+    y_size_per_pixel: Optional[float] = None,
+    window_nm: float = DEFAULT_CURVATURE_WINDOW_NM,
+) -> np.ndarray:
+    """
+    Return local curvature along one fiber, in radians per micrometer.
+    1 本のファイバーに沿った局所曲率 (rad/µm) を返す。
+
+    Parameters
+    ----------
+    fiber
+        Traced fiber whose track and cumulative distance are read.
+        トラックと累積距離を参照する追跡済みファイバー。
+    x_size_per_pixel
+        Physical X (column) pixel size in nanometers.
+        X（列）方向の物理ピクセルサイズ (nm)。
+    y_size_per_pixel
+        Physical Y (row) pixel size in nanometers; ``None`` reuses the X size.
+        Y（行）方向の物理ピクセルサイズ (nm)。``None`` のときは X の値を流用。
+    window_nm
+        Arc length over which the turning angle is measured.
+        回転角を測る弧長。
+
+    Returns
+    -------
+    ndarray
+        One curvature per interior point that has a full window on both
+        sides; empty when the fiber is shorter than the window.
+        両側に完全な窓を確保できる内部点ごとに 1 つの曲率。ファイバーが窓より
+        短い場合は空。
+
+    Notes
+    -----
+    Curvature has to be measured over a window, not between neighbouring
+    pixels. A skeleton step is either orthogonal or diagonal, so the turning
+    angle between consecutive steps can only be a multiple of 45 degrees:
+    at the pixel scale the estimate is pure digitisation noise regardless of
+    the fiber's real shape. Taking the directions of two chords that span
+    ``window_nm`` of arc reduces that quantisation in proportion to the number
+    of pixels each chord covers.
+    曲率は隣接画素間ではなく窓幅にわたって測る必要がある。骨格のステップは直交か
+    斜めのいずれかであり、連続するステップ間の回転角は 45 度の倍数にしかならない。
+    つまり画素スケールでの推定は、ファイバーの実際の形状によらず離散化ノイズその
+    ものになる。``window_nm`` の弧長を張る 2 つの弦の方向を使えば、各弦が覆う画素
+    数に比例して量子化が減る。
+
+    The window is given in nanometers rather than pixels so the same setting
+    means the same physical smoothing on scans of different sizes.
+    窓幅は画素ではなく nm で指定する。走査範囲の異なる画像でも、同じ設定が同じ
+    物理的な平滑化を意味するようにするためである。
+    """
+    if y_size_per_pixel is None:
+        y_size_per_pixel = x_size_per_pixel
+
+    horizon = np.asarray(fiber.horizon, dtype=float)
+    if horizon.size < 3 or float(horizon[-1]) < window_nm:
+        return np.empty(0, dtype=float)
+
+    xs = np.asarray(fiber.xtrack, dtype=float) * x_size_per_pixel
+    ys = np.asarray(fiber.ytrack, dtype=float) * y_size_per_pixel
+    half = window_nm / 2.0
+
+    # searchsorted finds each point's window ends in one pass; the arc length
+    # is read back from `horizon` instead of assumed, because the two chords
+    # rarely land exactly on the requested half-window.
+    # searchsorted で各点の窓端を一括で求める。弧長は仮定せず `horizon` から
+    # 読み戻す。2 つの弦が要求した半窓にちょうど収まることはまれなためである。
+    before = np.searchsorted(horizon, horizon - half, side="left")
+    after = np.searchsorted(horizon, horizon + half, side="left")
+    valid = (before >= 0) & (after < horizon.size) & (after > before)
+    valid &= (horizon - horizon[np.clip(before, 0, horizon.size - 1)] >= half * 0.5)
+    if not valid.any():
+        return np.empty(0, dtype=float)
+    # The turning angle itself is exact on a digitised arc (measured: 0.0%
+    # error), so the residual bias of this estimator lives entirely in the
+    # denominator: the corrected chain-code metric over-measures a strongly
+    # curved digitised path, by 15-21% at 1.5 rad of total turn and 0.8% at
+    # 0.15 rad. Curvature therefore reads low in proportion to how tightly the
+    # fiber bends, consistently enough for comparison but not as an absolute.
+    # 回転角そのものは離散化された円弧に対して厳密である（実測誤差 0.0%）。
+    # したがってこの推定量に残る偏りは全て分母にある。補正済みチェーンコード尺度
+    # は強く曲がった離散化経路を過大に測り、総回転角 1.5 rad で +15〜21%、
+    # 0.15 rad で +0.8% になる。よって曲率はファイバーの曲がりが急なほど低く出る。
+    # 比較には十分一貫しているが、絶対値としては扱えない。
+
+    i = np.nonzero(valid)[0]
+    j = before[i]
+    k = after[i]
+
+    angle_in = np.arctan2(ys[i] - ys[j], xs[i] - xs[j])
+    angle_out = np.arctan2(ys[k] - ys[i], xs[k] - xs[i])
+    # Wrap into (-pi, pi] so a turn through the +-pi seam is small, not huge.
+    # (-pi, pi] へ折り返す。±pi の継ぎ目をまたぐ回転が巨大な値にならないように
+    # するため。
+    turn = np.abs((angle_out - angle_in + np.pi) % (2.0 * np.pi) - np.pi)
+    # The direction of a chord over a sub-arc is the tangent direction at that
+    # sub-arc's midpoint, so the two chord directions are separated by half the
+    # window, not the whole of it. Dividing by the full arc would report half
+    # the true curvature: measured against digitised circles of known radius,
+    # the uncorrected form came out 57% low at every radius and window.
+    # 部分弧に張る弦の方向は、その部分弧の中点における接線方向に等しい。したがって
+    # 2 つの弦方向の間隔は窓全体ではなくその半分である。弧全体で割ると真の曲率の
+    # 半分を報告してしまう。既知半径の離散化円で測ったところ、未補正の式は
+    # あらゆる半径・窓幅で 57% 低い値を返した。
+    arc = (horizon[k] - horizon[j]) / 2.0
+    good = arc > 0.0
+    return (turn[good] / arc[good]) * 1000.0
+
+
+def compute_fiber_stats(
+    fibers: Sequence[Fiber],
+    x_size_per_pixel: Optional[float] = None,
+    y_size_per_pixel: Optional[float] = None,
+) -> List[FiberStats]:
     """
     Compute summary statistics for each fiber.
     各ファイバーの要約統計値を計算する。
@@ -256,6 +529,16 @@ def compute_fiber_stats(fibers: Sequence[Fiber]) -> List[FiberStats]:
     fibers
         Fibers produced by `FiberTrackingImage`.
         `FiberTrackingImage` が生成したファイバー列。
+    x_size_per_pixel
+        Physical X pixel size in nanometers. Straightness needs it to measure
+        the chord in the same units as the contour length; without it that
+        one field is NaN and every other statistic is unaffected.
+        X 方向の物理ピクセルサイズ (nm)。直線度は弦を輪郭長と同じ単位で測るため
+        これを必要とする。与えない場合はその項目のみ NaN となり、他の統計値は
+        影響を受けない。
+    y_size_per_pixel
+        Physical Y pixel size in nanometers; ``None`` reuses the X size.
+        Y 方向の物理ピクセルサイズ (nm)。``None`` のときは X の値を流用する。
 
     Returns
     -------
@@ -268,6 +551,10 @@ def compute_fiber_stats(fibers: Sequence[Fiber]) -> List[FiberStats]:
         med = float(np.median(f.height)) if len(f.height) > 0 else 0.0
         mx = float(np.max(f.height)) if len(f.height) > 0 else 0.0
         angles = tuple(float(np.degrees(a)) for a in f.kink_angles)
+        straightness = (
+            float("nan") if x_size_per_pixel is None
+            else fiber_straightness(f, x_size_per_pixel, y_size_per_pixel)
+        )
         stats.append(FiberStats(
             index=i,
             length_nm=float(f.length),
@@ -276,6 +563,7 @@ def compute_fiber_stats(fibers: Sequence[Fiber]) -> List[FiberStats]:
             ep_count=len(f.ep_indices),
             kink_count=len(f.kink_indices),
             kink_angles_deg=angles,
+            straightness=straightness,
         ))
     return stats
 
@@ -588,7 +876,11 @@ def measure_bundle(
         fibers = connect_fiber_fragments(
             image, fibers, params=connect_params or ConnectParams(),
         )
-    return MeasureResult(image=image, fibers=fibers, stats=compute_fiber_stats(fibers))
+    return MeasureResult(
+        image=image,
+        fibers=fibers,
+        stats=compute_fiber_stats(fibers, x_size_per_pixel, y_size_per_pixel),
+    )
 
 
 def _keep_after_exclusions(bundle_path: str, fibers: List) -> List[bool]:
@@ -713,7 +1005,11 @@ def collect_fiber_stats(
                 errors.append((path, f"{type(e).__name__}: {e}"))
                 continue
             fibers = [f for f, k in zip(result.fibers, keep) if k]
-            per_bundle.append((path, compute_fiber_stats(fibers)))
+            per_bundle.append((path, compute_fiber_stats(
+                fibers,
+                result.image.size_per_pixel,
+                result.image.y_size_per_pixel,
+            )))
             continue
 
         per_bundle.append((path, list(result.stats)))
@@ -868,6 +1164,101 @@ def collect_skeleton_height_profiles(
     return per_bundle, errors
 
 
+def collect_fiber_curvature(
+    bundle_paths: Sequence[str],
+    scale_um: Optional[float] = None,
+    scale_y_um: Optional[float] = None,
+    max_workers: Optional[int] = None,
+    apply_exclusions: bool = False,
+    curvature_window_nm: float = DEFAULT_CURVATURE_WINDOW_NM,
+) -> Tuple[List[Tuple[str, np.ndarray]], List[Tuple[str, str]]]:
+    """
+    Measure the per-fiber mean curvature across several bundles.
+    複数のバンドルについて、ファイバーごとの平均曲率を計測する。
+
+    Parameters
+    ----------
+    bundle_paths
+        Paths to ``.b2z`` bundles containing the tracking keys.
+        追跡用キーを含む ``.b2z`` バンドルのパス。
+    scale_um
+        X-axis scan size in micrometers, forwarded to `measure_bundle`.
+        `measure_bundle` へ渡す X 軸走査範囲 (µm)。
+    scale_y_um
+        Y-axis scan size in micrometers, forwarded to `measure_bundle`.
+        `measure_bundle` へ渡す Y 軸走査範囲 (µm)。
+    max_workers
+        Maximum number of worker threads used per bundle.
+        1 バンドルあたりの並列追跡ワーカースレッド数の上限。
+    apply_exclusions
+        When ``True``, drop manually excluded fibers, as in
+        `collect_fiber_stats`.
+        ``True`` のとき、`collect_fiber_stats` と同様に手動除外されたファイバーを
+        取り除く。
+    curvature_window_nm
+        Arc length the curvature estimator turns over.
+        曲率推定が回転角を測る弧長。
+
+    Returns
+    -------
+    tuple
+        ``(per_bundle, errors)``. `per_bundle` lists
+        ``(bundle_path, mean_curvature)`` pairs whose array holds one entry
+        per fiber, NaN for a fiber shorter than the curvature window.
+        `errors` follows the same per-bundle failure contract as
+        `collect_fiber_stats`.
+        ``(per_bundle, errors)``。`per_bundle` はバンドルごとに
+        ``(バンドルパス, 平均曲率)`` を並べ、配列はファイバー 1 本につき 1 要素を
+        持つ。曲率窓より短いファイバーは NaN になる。`errors` は
+        `collect_fiber_stats` と同じバンドル単位の失敗契約に従う。
+
+    Notes
+    -----
+    A fiber too short for the window keeps NaN rather than 0.0, so a caller
+    can report how many fibers the window excluded instead of mistaking them
+    for perfectly straight ones.
+    窓より短いファイバーは 0.0 ではなく NaN のままとする。呼び出し側が、それらを
+    完全な直線と取り違えることなく、窓によって除外された本数を報告できるように
+    するためである。
+    """
+    per_bundle: List[Tuple[str, np.ndarray]] = []
+    errors: List[Tuple[str, str]] = []
+    for path in bundle_paths:
+        try:
+            result = measure_bundle(
+                path,
+                scale_um=scale_um,
+                scale_y_um=scale_y_um,
+                max_workers=max_workers,
+            )
+        except Exception as e:
+            errors.append((path, f"{type(e).__name__}: {e}"))
+            continue
+
+        fibers = result.fibers
+        if apply_exclusions:
+            try:
+                keep = _keep_after_exclusions(path, fibers)
+            except Exception as e:
+                errors.append((path, f"{type(e).__name__}: {e}"))
+                continue
+            fibers = [f for f, k in zip(fibers, keep) if k]
+
+        x_spp = result.image.size_per_pixel
+        y_spp = result.image.y_size_per_pixel
+        curvature = []
+        for fiber in fibers:
+            profile = fiber_curvature_profile(
+                fiber, x_spp, y_spp, window_nm=curvature_window_nm,
+            )
+            curvature.append(
+                float(np.mean(profile)) if profile.size else float("nan")
+            )
+
+        per_bundle.append((path, np.asarray(curvature, dtype=float)))
+    return per_bundle, errors
+
+
 def read_fiber_csv(path: str) -> List[FiberStats]:
     """
     Read a per-fiber statistics CSV back into `FiberStats` rows.
@@ -915,25 +1306,38 @@ def read_fiber_csv(path: str) -> List[FiberStats]:
         except StopIteration:
             raise ValueError(f"{path} is empty") from None
 
-        if [h.strip() for h in header] != list(FIBER_CSV_COLUMNS):
+        columns = [h.strip() for h in header]
+        if columns == list(FIBER_CSV_COLUMNS):
+            expected = FIBER_CSV_COLUMNS
+        elif columns == list(FIBER_CSV_COLUMNS_V1):
+            # A file written before straightness existed; every other column
+            # is unchanged, so it is read with that one field left undefined.
+            # straightness が存在する前に書かれたファイル。他の列は変わって
+            # いないため、その 1 項目だけ未定義として読む。
+            expected = FIBER_CSV_COLUMNS_V1
+        else:
             raise ValueError(
                 f"{path} is not a fiber statistics CSV; expected columns "
-                f"{list(FIBER_CSV_COLUMNS)}, found {header}"
+                f"{list(FIBER_CSV_COLUMNS)} or {list(FIBER_CSV_COLUMNS_V1)}, "
+                f"found {header}"
             )
 
         stats: List[FiberStats] = []
         for row_number, row in enumerate(reader, start=2):
             if not row or all(not cell.strip() for cell in row):
                 continue
-            if len(row) != len(FIBER_CSV_COLUMNS):
+            if len(row) != len(expected):
                 raise ValueError(
                     f"{path} line {row_number}: expected "
-                    f"{len(FIBER_CSV_COLUMNS)} columns, found {len(row)}"
+                    f"{len(expected)} columns, found {len(row)}"
                 )
             try:
                 angles = tuple(
                     float(a) for a in row[6].split(";") if a.strip()
                 )
+                straightness = float("nan")
+                if len(expected) > 7 and row[7].strip():
+                    straightness = float(row[7])
                 stats.append(FiberStats(
                     index=int(row[0]),
                     length_nm=float(row[1]),
@@ -942,6 +1346,7 @@ def read_fiber_csv(path: str) -> List[FiberStats]:
                     ep_count=int(row[4]),
                     kink_count=int(row[5]),
                     kink_angles_deg=angles,
+                    straightness=straightness,
                 ))
             except ValueError as e:
                 raise ValueError(f"{path} line {row_number}: {e}") from e
@@ -1013,6 +1418,7 @@ def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
                 s.ep_count,
                 s.kink_count,
                 ";".join(f"{a:.1f}" for a in s.kink_angles_deg),
+                "" if not np.isfinite(s.straightness) else f"{s.straightness:.4f}",
             ])
 
 

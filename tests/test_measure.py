@@ -34,11 +34,15 @@ from lib.fiber_tracking_image import FiberTrackingImage
 from lib.fiber_selection import exclusion_path_for, fiber_anchor, save_exclusions
 from lib.measure import (
     FIBER_CSV_COLUMNS,
+    FIBER_CSV_COLUMNS_V1,
+    collect_fiber_curvature,
     collect_fiber_stats,
     collect_fiber_stats_from_csv,
     collect_skeleton_height_profiles,
     compute_fiber_stats,
     contour_length_weights,
+    fiber_curvature_profile,
+    fiber_straightness,
     isolated_fiber_flags,
     load_tracking_image,
     measure_bundle,
@@ -128,7 +132,15 @@ def test_single_fiber_with_drawn_geometry(measured):
 def test_stats_match_recomputation_from_fibers(measured):
     """compute_fiber_stats on the returned fibers reproduces result.stats."""
     _bundle_path, result = measured
-    assert compute_fiber_stats(result.fibers) == result.stats
+    # The pixel size is passed because straightness needs it; measure_bundle
+    # supplies the same values, so the recomputation must too.
+    # 直線度がピクセルサイズを必要とするため引き渡す。measure_bundle も同じ値を
+    # 与えているので、再計算側も渡さなければ一致しない。
+    assert compute_fiber_stats(
+        result.fibers,
+        result.image.size_per_pixel,
+        result.image.y_size_per_pixel,
+    ) == result.stats
 
 
 def test_load_tracking_image_matches_measure_bundle(measured):
@@ -496,6 +508,209 @@ def test_collect_skeleton_height_profiles_reports_bundle_without_scan_size(measu
     assert per_bundle == []
     assert len(errors) == 1
     assert errors[0][0] == bundle_path
+
+
+class _StraightTrack:
+    """Minimal stand-in exposing the track and length straightness reads."""
+
+    def __init__(self, xs, ys, length):
+        self.xtrack = np.asarray(xs)
+        self.ytrack = np.asarray(ys)
+        self.length = length
+
+
+def _chain_code_length(xs, ys, spp):
+    return float(imp_tools.convert_track_to_distance(xs, ys, spp, spp)[-1])
+
+
+@pytest.mark.parametrize("name,xs,ys", [
+    ("horizontal", np.arange(51), np.zeros(51, dtype=int)),
+    ("vertical", np.zeros(51, dtype=int), np.arange(51)),
+    ("diagonal", np.arange(51), np.arange(51)),
+])
+def test_straight_tracks_have_straightness_one(name, xs, ys):
+    """
+    A perfectly straight track reads exactly 1.0 in any direction.
+    完全な直線トラックは、どの向きでもちょうど 1.0 になる。
+
+    The Euclidean chord over the corrected chain-code length would give about
+    1.055 instead, because that metric reports a straight digitised path as
+    roughly 5% shorter than its chord. Measuring the reference line the same
+    way is what puts straightness on a readable scale.
+    ユークリッド弦を補正済みチェーンコード長で割ると約 1.055 になる。この尺度は
+    離散化された直線経路を弦より約 5% 短く報告するためである。基準線を同じ方法で
+    測ることが、直線度を読める尺度に載せている。
+    """
+    spp = 10.0
+    length = _chain_code_length(xs, ys, spp)
+    assert fiber_straightness(
+        _StraightTrack(xs, ys, length), spp
+    ) == pytest.approx(1.0, abs=1e-9)
+
+
+def test_curved_track_is_less_straight_than_a_line():
+    """A digitised semicircle falls well below a straight track."""
+    theta = np.linspace(0.0, np.pi, 200)
+    xs = np.rint(50 + 40 * np.cos(theta)).astype(int)
+    ys = np.rint(50 + 40 * np.sin(theta)).astype(int)
+    keep = np.concatenate([[True], (np.abs(np.diff(xs)) + np.abs(np.diff(ys))) > 0])
+    xs, ys = xs[keep], ys[keep]
+    value = fiber_straightness(_StraightTrack(xs, ys, _chain_code_length(xs, ys, 10.0)), 10.0)
+    assert 0.4 < value < 0.8
+
+
+def test_closed_track_has_zero_straightness():
+    """A track returning to its start has no straight-line extent."""
+    xs = np.array([10, 11, 12, 11, 10])
+    ys = np.array([10, 11, 10, 9, 10])
+    assert fiber_straightness(_StraightTrack(xs, ys, 100.0), 10.0) == 0.0
+
+
+def test_straightness_is_bounded_on_a_real_bundle(measured):
+    """Every measured fiber lands in [0, 1]."""
+    _bundle_path, result = measured
+    values = [s.straightness for s in result.stats]
+    assert values
+    assert all(0.0 <= v <= 1.0 + 1e-9 for v in values)
+
+
+def test_straightness_is_undefined_without_a_pixel_size(measured):
+    """Omitting the scale leaves straightness undefined, not zero."""
+    _bundle_path, result = measured
+    stats = compute_fiber_stats(result.fibers)
+    assert all(np.isnan(s.straightness) for s in stats)
+    # Every other statistic is unaffected by the missing scale.
+    # 他の統計値はスケールが無くても影響を受けない。
+    assert [s.length_nm for s in stats] == [s.length_nm for s in result.stats]
+
+
+def test_read_fiber_csv_accepts_the_released_column_set(measured, tmp_path):
+    """
+    A CSV written before straightness existed still reads.
+    straightness 追加前に書かれた CSV も引き続き読める。
+
+    That file is how a curated fiber population travels from GUI04 to GUI03,
+    so rejecting an older export would strand work that is still valid for
+    every other column.
+    このファイルはキュレーション済みのファイバー母集団が GUI04 から GUI03 へ
+    渡る経路であり、古い出力を拒否すると、他の全列については依然として有効な
+    作業を無駄にしてしまう。
+    """
+    _bundle_path, result = measured
+    path = os.path.join(tmp_path, "legacy_fibers.csv")
+    with open(path, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        writer.writerow(list(FIBER_CSV_COLUMNS_V1))
+        for s in result.stats:
+            writer.writerow([
+                s.index, f"{s.length_nm:.1f}", f"{s.height_median_nm:.3f}",
+                f"{s.height_max_nm:.3f}", s.ep_count, s.kink_count,
+                ";".join(f"{a:.1f}" for a in s.kink_angles_deg),
+            ])
+
+    restored = read_fiber_csv(path)
+    assert len(restored) == len(result.stats)
+    assert all(np.isnan(s.straightness) for s in restored)
+    assert restored[0].length_nm == pytest.approx(result.stats[0].length_nm, abs=0.05)
+
+
+def _digitised_arc(radius_px, spp):
+    """Digitise a quarter circle the way a skeleton would."""
+    span = np.pi / 2.0
+    theta = np.linspace(0.0, span, int(radius_px * span * 4) + 2)
+    xs = np.rint(radius_px * np.cos(theta)).astype(int) + radius_px + 2
+    ys = np.rint(radius_px * np.sin(theta)).astype(int) + 2
+    keep = np.concatenate([[True], (np.abs(np.diff(xs)) + np.abs(np.diff(ys))) > 0])
+    return _ArcTrack(xs[keep].astype(float), ys[keep].astype(float), spp)
+
+
+class _ArcTrack:
+    """Minimal stand-in exposing the track and horizon curvature reads."""
+
+    def __init__(self, xs, ys, spp):
+        self.xtrack = xs
+        self.ytrack = ys
+        self.horizon = imp_tools.convert_track_to_distance(xs, ys, spp, spp)
+
+
+def test_curvature_of_a_straight_track_is_zero():
+    """A digitised straight line has no curvature at any window."""
+    spp = 2.0
+    track = _ArcTrack(np.arange(400.0), np.zeros(400), spp)
+    for window in (50.0, 100.0, 200.0):
+        profile = fiber_curvature_profile(track, spp, spp, window_nm=window)
+        assert profile.size > 0
+        assert float(np.max(profile)) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_curvature_recovers_a_known_radius():
+    """
+    A digitised arc of radius R measures close to 1/R.
+    半径 R の離散化円弧は 1/R に近い値として測られる。
+
+    The residual is the contour-length metric over-measuring a strongly
+    curved digitised path, not the turning angle, which is exact. The
+    tolerance is wide enough to accept that documented bias and narrow enough
+    to fail if the estimator loses its factor of two again: dividing by the
+    whole window instead of the half-window separating the two chord
+    midpoints reported half the true curvature.
+    残差は、回転角ではなく、輪郭長の尺度が強く曲がった離散化経路を過大に測ること
+    に由来する。回転角は厳密である。許容幅は、その文書化された偏りを受け入れつつ、
+    推定量が再び 2 倍の係数を失えば失敗する程度に狭くしてある。2 つの弦の中点を
+    隔てる半窓ではなく窓全体で割ると、真の曲率の半分を報告してしまう。
+    """
+    spp = 1.953
+    for radius_px in (100, 250):
+        radius_um = radius_px * spp / 1000.0
+        expected = 1.0 / radius_um
+        arc = _digitised_arc(radius_px, spp)
+        measured = float(np.median(
+            fiber_curvature_profile(arc, spp, spp, window_nm=100.0)
+        ))
+        assert measured == pytest.approx(expected, rel=0.30)
+
+
+def test_curvature_window_below_the_pixel_scale_is_noise():
+    """
+    A window of a few pixels reports the same value whatever the true curvature.
+    数画素の窓は、真の曲率によらず同じ値を返す。
+
+    Skeleton steps are orthogonal or diagonal only, so the turn between
+    consecutive steps is quantised to multiples of 45 degrees. This is why the
+    estimator takes a window at all, and why the default is not smaller.
+    骨格のステップは直交か斜めのみであり、連続するステップ間の回転は 45 度の
+    倍数に量子化される。推定量が窓を取る理由であり、既定値をこれ以上小さく
+    しない理由でもある。
+    """
+    spp = 1.953
+    tight = float(np.median(fiber_curvature_profile(
+        _digitised_arc(100, spp), spp, spp, window_nm=20.0)))
+    gentle = float(np.median(fiber_curvature_profile(
+        _digitised_arc(250, spp), spp, spp, window_nm=20.0)))
+    # The true curvatures differ by a factor of 2.5; the noise floor does not.
+    # 真の曲率は 2.5 倍違うが、ノイズ下限は違わない。
+    assert tight == pytest.approx(gentle, rel=0.05)
+
+
+def test_curvature_is_empty_for_a_fiber_shorter_than_the_window():
+    """A fiber that cannot span the window yields no curvature at all."""
+    spp = 2.0
+    short = _ArcTrack(np.arange(10.0), np.zeros(10), spp)
+    assert fiber_curvature_profile(short, spp, spp, window_nm=500.0).size == 0
+
+
+def test_collect_fiber_curvature_reports_unmeasurable_fibers(measured):
+    """A window longer than a fiber leaves its curvature undefined, not zero."""
+    bundle_path, result = measured
+    per_bundle, errors = collect_fiber_curvature(
+        [bundle_path], scale_um=SCALE_UM, curvature_window_nm=100000.0,
+    )
+    assert errors == []
+    _path, curvature = per_bundle[0]
+    # One entry per fiber survives, so the caller can count what it lost.
+    # ファイバー 1 本につき 1 要素が残るため、呼び出し側は失われた本数を数えられる。
+    assert curvature.size == len(result.fibers)
+    assert np.all(np.isnan(curvature))
 
 
 def test_fiber_csv_round_trip(measured, tmp_path):
