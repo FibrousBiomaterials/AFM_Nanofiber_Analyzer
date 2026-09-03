@@ -1,0 +1,47 @@
+#!/bin/sh
+# Commit-message check: block a message that carries leaked shell quoting
+# delimiters (PowerShell "@'" / "'@", POSIX here-document "EOF").
+# Passing a multi-line message with -m needs a different quoting form in
+# PowerShell than in sh, and using the wrong one leaves the delimiter in the
+# message: the commit succeeds with "@" as its subject line, and only a
+# history rewrite can fix it afterwards. Write the message to a file and use
+# "git commit -F <file>" instead, which behaves identically in both shells.
+# コミットメッセージ検査: シェルの引用区切り記号(PowerShell の "@'" / "'@"、
+# POSIX ヒアドキュメントの "EOF")が本文に紛れ込んだコミットを中止する。
+# 複数行のメッセージを -m で渡す書き方は PowerShell と sh で異なり、取り違えると
+# 区切り記号がメッセージに残る。コミット自体は成功してしまい、件名が "@" のまま
+# 記録され、後から直すには履歴の書き換えしかない。メッセージはファイルに書いて
+# "git commit -F <file>" で渡すこと。こちらは両方のシェルで同じ結果になる。
+#
+# Enable once per clone (git never activates hooks automatically):
+# クローンごとに一度だけ有効化する(git はフックを自動では有効化しない):
+#   git config core.hooksPath .githooks
+
+set -u
+
+repo_root=$(git rev-parse --show-toplevel) || exit 1
+checker="$repo_root/scripts/check_commit_msg.py"
+
+# Fail closed: a missing checker script also blocks the commit.
+# フェイルクローズ方針: 検査スクリプトが無い場合もコミットを中止する。
+if [ ! -f "$checker" ]; then
+    echo "commit-msg: $checker not found; blocking commit (fail-closed)." >&2
+    exit 1
+fi
+
+# Same interpreter search as the pre-commit hook: "python" first (this
+# project's venv/conda setups provide it), then python3, then the Windows
+# "py" launcher used by plain Git Bash.
+if command -v python >/dev/null 2>&1; then
+    py=python
+elif command -v python3 >/dev/null 2>&1; then
+    py=python3
+elif command -v py >/dev/null 2>&1; then
+    py="py -3"
+else
+    echo "commit-msg: no Python interpreter found; blocking commit (fail-closed)." >&2
+    exit 1
+fi
+
+# $py is intentionally unquoted so "py -3" splits into command and argument.
+exec $py "$checker" "$1"

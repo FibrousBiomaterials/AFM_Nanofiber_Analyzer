@@ -88,10 +88,19 @@ per clone:
 git config core.hooksPath .githooks
 ```
 
-The checker only needs a Python interpreter on `PATH` (the development
+A third hook, `commit-msg`, guards the message itself: it blocks a commit
+whose message still contains a shell quoting delimiter (`@'` / `'@` from a
+PowerShell here-string, `EOF` from a POSIX here-document). Passing a
+multi-line message with `-m` needs a different form in each shell, and using
+the wrong one leaves the delimiter in the message — the commit succeeds with
+`@` as its subject line, and only a history rewrite fixes it afterwards.
+Write the message to a file and pass it with `git commit -F <file>`, which
+behaves identically in both shells.
+
+The checkers only need a Python interpreter on `PATH` (the development
 environment is fine). On macOS/Linux, make sure the hooks are executable
-(`chmod +x .githooks/pre-commit .githooks/pre-push`). To scan manually
-without committing or pushing:
+(`chmod +x .githooks/pre-commit .githooks/commit-msg .githooks/pre-push`).
+To scan manually without committing or pushing:
 
 ```bash
 python scripts/check_sensitive.py --staged

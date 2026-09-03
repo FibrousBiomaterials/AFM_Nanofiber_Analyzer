@@ -38,6 +38,17 @@ and never let the two files diverge.
   deletion, history filtering) unless the user explicitly requests that
   specific operation. Exception: restoring files corrupted by your own edit
   (e.g., `git restore <file>`) under the mojibake rule above is allowed.
+- Write a multi-line commit message to a file under `.tmp/` and pass it with
+  `git commit -F .tmp/commit_msg.txt`. Never hand-quote one inline: PowerShell
+  needs a here-string (`@'` … `'@`) and POSIX `sh` needs a here-document
+  (`<<'EOF'` … `EOF`), the two are not interchangeable, and an agent that runs
+  the wrong form for the shell it is in leaves the delimiter in the message.
+  Nothing fails: the commit succeeds with `@` as its subject line and the real
+  summary pushed to line 2, and only a history rewrite — which the rule above
+  forbids without the user asking for it — can fix it afterwards. The `-F`
+  form is identical in both shells. `.githooks/commit-msg` blocks a message
+  that carries such a delimiter; write the message properly rather than
+  passing `--no-verify`.
 - Do not use personal information (email addresses, real names, etc.) obtained from system context in examples, output, or generated code. Use placeholder values (e.g., `your@email.com`, `Your Name`) instead.
 - Do not display the user's local absolute paths (anything outside the
   repository, such as the user profile directory) in chat responses.
@@ -977,3 +988,4 @@ It is the analysis-side counterpart of §7.10.
 | README pair | `README.md` ↔ `README.ja.md` stay synchronized in both directions, including translation of the edited passage. |
 | Result-changing fixes | If `tests/strict_regression_golden.json` changes, add a `CHANGELOG.md` `[Unreleased]` entry stating that results change from this version; enforced by `.githooks/pre-commit` (§8.11). |
 | Destructive Git operations | Forbidden unless explicitly requested; `git restore` of files corrupted by your own edit is allowed. |
+| Multi-line commit messages | Write to a file and pass with `git commit -F .tmp/commit_msg.txt`; never hand-quote inline (PowerShell `@'`…`'@` vs. `sh` `<<'EOF'`…`EOF` are not interchangeable, and the wrong one silently leaves the delimiter as the subject line). Enforced by `.githooks/commit-msg`. |
