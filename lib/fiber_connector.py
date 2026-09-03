@@ -115,6 +115,172 @@ def angle_between_three_points(A, B, D) -> float:
     return float(np.degrees(np.arccos(np.clip(cosine_angle, -1.0, 1.0))))
 
 
+def _fragment_end_geometry(
+    fragments: Sequence[Fiber],
+    lookback_length: int,
+) -> tuple:
+    """
+    Return each fragment's two ends with their look-back reference points.
+    各断片の 2 つの端点と、その振り返り基準点を返す。
+
+    Parameters
+    ----------
+    fragments
+        Traced fragments with bounding-box-local track arrays.
+        外接矩形ローカルのトラック配列を持つ追跡済み断片。
+    lookback_length
+        Number of track points back from an end used to estimate its local
+        direction.
+        端から局所方向を推定するために遡るトラック点数。
+
+    Returns
+    -------
+    tuple of ndarray
+        ``(ends, backs)``, both shaped ``(n_fragments, 2, 2)``: for each
+        fragment, the head and tail ``(row, col)`` endpoint and the look-back
+        point behind it.
+        ``(ends, backs)``。いずれも形状 ``(断片数, 2, 2)`` で、断片ごとに
+        先頭側・末尾側の ``(row, col)`` 端点と、その内側の振り返り点を持つ。
+
+    Notes
+    -----
+    Head and tail are built with the same shape so a candidate end and a
+    growing end can be compared by the same expression, which is what makes
+    the pairwise test below symmetric in form.
+    先頭側と末尾側を同じ形で構成し、候補側の端と成長側の端を同一の式で比較
+    できるようにする。これが以下の総当たり判定を形の上で対称にしている。
+    """
+    ends = np.zeros((len(fragments), 2, 2), dtype=float)
+    backs = np.zeros((len(fragments), 2, 2), dtype=float)
+    for i, frag in enumerate(fragments):
+        xs = np.asarray(frag.xtrack) + frag.data[0]
+        ys = np.asarray(frag.ytrack) + frag.data[1]
+        step = min(lookback_length, len(xs))
+        # Head end and the point `step - 1` further in.
+        # 先頭側の端点と、そこから内側へ `step - 1` 進んだ点。
+        ends[i, 0] = (ys[0], xs[0])
+        backs[i, 0] = (ys[step - 1], xs[step - 1])
+        # Tail end and the point `step` back from it.
+        # 末尾側の端点と、そこから `step` 戻った点。
+        ends[i, 1] = (ys[-1], xs[-1])
+        backs[i, 1] = (ys[-step], xs[-step])
+    return ends, backs
+
+
+def connection_candidate_flags(
+    image: FiberTrackingImage,
+    fragments: Sequence[Fiber],
+    params: ConnectParams = ConnectParams(),
+) -> List[bool]:
+    """
+    Flag which fragments have another fragment they could be joined to.
+    連結相手となり得る別の断片が存在する断片を判定する。
+
+    Parameters
+    ----------
+    image
+        Tracking container providing ``calibrated_image`` for the height gate.
+        高さ判定用の ``calibrated_image`` を提供する追跡コンテナ。
+    fragments
+        Fragments to classify.
+        判定対象の断片列。
+    params
+        The same thresholds `connect_fiber_fragments` uses.
+        `connect_fiber_fragments` が使うものと同じしきい値。
+
+    Returns
+    -------
+    list of bool
+        One flag per fragment; True means at least one other fragment passes
+        the distance, angle, and height gates against one of its ends.
+        断片ごとの判定。True は、いずれかの端に対して距離・角度・高さの各条件を
+        満たす別の断片が少なくとも 1 つ存在することを意味する。
+
+    Notes
+    -----
+    This asks whether the connector *could* extend a fragment, which is not the
+    same question as what `connect_fiber_fragments` actually did. That function
+    grows one fibril at a time and marks fragments as consumed, so whether a
+    given join happens depends on the order fragments are visited. A predicate
+    used to judge a fiber has to be independent of that order, so this one is
+    evaluated on the original fragments: each fragment's own end, its own
+    look-back direction, and its own median height, as they stand before any
+    growth.
+    本関数が問うのは連結器が断片を延長し*得る*かであり、
+    `connect_fiber_fragments` が実際に何を連結したかとは別の問いである。連結器は
+    フィブリルを 1 本ずつ成長させながら断片を消費済みにするため、ある連結が起きる
+    かは断片を訪れる順序に依存する。ファイバーの判定に使う述語はその順序から独立
+    していなければならないので、ここでは元の断片に対して評価する。すなわち、成長
+    前の状態における断片自身の端点・振り返り方向・高さ中央値を用いる。
+
+    A fragment with no candidate is one the connector has nothing to add to,
+    which is the closest available statement that its two ends are the fiber's
+    real ends rather than cuts. It is not proof: in a dense tangle the
+    connector also finds no candidate when the continuation is ambiguous, so
+    "no candidate" conflates "complete" with "gave up". That is why
+    `lib.measure.isolated_fiber_flags` uses it only in conjunction with the
+    branch-point and frame tests, never alone.
+    候補が無い断片とは、連結器が付け足すものを持たない断片であり、その 2 端が
+    切断ではなくファイバー本来の端であることを示す、利用可能な範囲で最も近い
+    言明である。ただし証明ではない。密に絡んだ領域では、続きが曖昧なときにも
+    連結器は候補を見つけられないため、「候補なし」は「完結している」と「諦めた」
+    を混同する。`lib.measure.isolated_fiber_flags` がこれを分岐点・枠の判定と
+    併用し、単独では使わないのはそのためである。
+    """
+    n = len(fragments)
+    if n < 2 or image.calibrated_image is None:
+        return [False] * n
+
+    cal = image.calibrated_image
+    ends, backs = _fragment_end_geometry(fragments, params.lookback_length)
+
+    medians = np.empty(n, dtype=float)
+    for i, frag in enumerate(fragments):
+        xs = np.asarray(frag.xtrack) + frag.data[0]
+        ys = np.asarray(frag.ytrack) + frag.data[1]
+        medians[i] = float(np.median(cal[ys, xs]))
+
+    # Shortlist by distance first: the angle test is the expensive one, and the
+    # connection range admits only a handful of end pairs on a real scan.
+    # 先に距離で候補を絞る。高価なのは角度判定であり、実際の走査像では連結範囲に
+    # 入る端点の組はごく少数に限られる。
+    flat_ends = ends.reshape(n * 2, 2)
+    deltas = flat_ends[:, None, :] - flat_ends[None, :, :]
+    dists = np.hypot(deltas[:, :, 0], deltas[:, :, 1])
+    owner = np.repeat(np.arange(n), 2)
+    close = (dists <= params.clusters_range) & (owner[:, None] != owner[None, :])
+
+    flags = [False] * n
+    for a, b in zip(*np.nonzero(close)):
+        i, e = owner[a], a % 2
+        j, f = owner[b], b % 2
+        if flags[i] and flags[j]:
+            continue
+        # Height gate, matching connect_fiber_fragments: a candidate at a very
+        # different height is a fiber crossing underneath, not a continuation.
+        # 高さ判定は connect_fiber_fragments と同じ。高さが大きく異なる候補は
+        # 続きではなく、下を横切る別の繊維である。
+        low = min(medians[i], medians[j])
+        if low > 0 and abs(medians[i] - medians[j]) / low > params.height_diff_ratio:
+            continue
+        A, B = backs[i, e], ends[i, e]
+        C, D = ends[j, f], backs[j, f]
+        if angle_between_three_points(A, B, D) > params.angle_threshold \
+                and angle_between_three_points(A, C, D) > params.angle_threshold:
+            # A joinable pair of ends disqualifies both fragments, not only the
+            # one taken as the growing side. The connector's gate is written
+            # from the growing fibril's point of view and is not symmetric, so
+            # testing one orientation alone missed fragments the connector had
+            # in fact absorbed from the other side.
+            # 連結可能な端点の組は、成長側として扱った断片だけでなく両方の断片を
+            # 対象外とする。連結器の判定は成長中のフィブリル側から書かれており
+            # 対称ではないため、片方の向きだけを試すと、実際には反対側から取り込
+            # まれていた断片を取り逃がしていた。
+            flags[i] = True
+            flags[j] = True
+    return flags
+
+
 def connect_fiber_fragments(
     image: FiberTrackingImage,
     fragments: Sequence[Fiber],

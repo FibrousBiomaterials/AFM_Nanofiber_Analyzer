@@ -95,10 +95,13 @@ def test_gui04_exclusion_controls_start_disabled(tk_app):
 class _StubFiber:
     """Minimal stand-in carrying only what exclusion and drawing code reads."""
 
-    def __init__(self, x0, y0):
+    def __init__(self, x0, y0, length=100.0):
         self.data = (x0, y0, 2, 2, None)
         self.xtrack = np.array([0, 1], dtype=int)
         self.ytrack = np.array([0, 0], dtype=int)
+        # Reported in the exclusion log line.
+        # 除外時のログ行に出力される。
+        self.length = length
 
 
 class _StubImage:
@@ -114,14 +117,14 @@ def test_gui04_overview_is_numbered_from_the_displayed_fibers(tk_app, monkeypatc
     ファイバーを除外すると、全体像のラベルも一覧テーブルと同じ採番になる。
 
     The overview shortcut draws every fiber with its position in
-    `current_fibers`, which is the right numbering only while nothing narrows
-    the population. Exclusions narrow it without setting the filter flags, so
-    without this the labels would keep counting the excluded fibers and stop
-    naming the same objects as the table rows.
+    `current_fibers`. Exclusions are applied before reconnection, so by the
+    time the overview runs they are already out of `current_fibers`; what this
+    checks is that the labels still come from `_display_fibers`, the one list
+    the table is built from, and that the excluded count reaches the title.
     全体像のショートカットは全ファイバーを `current_fibers` 内の位置で描画する。
-    この番号が正しいのは母集団が絞られていない場合だけである。除外はフィルター
-    フラグを立てずに母集団を絞るため、この対応が無いとラベルは除外分を数え続け、
-    テーブルの行と同じ対象を指さなくなる。
+    除外は再結合より前に適用されるため、全体像が動く時点で既に `current_fibers`
+    から取り除かれている。ここで確認するのは、ラベルが一覧テーブルの構築元と同じ
+    `_display_fibers` から採番されること、および除外件数がタイトルへ届くことである。
     """
     app = tk_app(gui04.App)
     app.current_image = _StubImage()
@@ -138,14 +141,107 @@ def test_gui04_overview_is_numbered_from_the_displayed_fibers(tk_app, monkeypatc
         "with nothing excluded the overview draws every fiber as-is"
     )
 
-    # Exclude the middle fiber by an anchor on its track.
-    # 中央のファイバーを、そのトラック上のアンカーで除外する。
+    # The middle fiber was excluded, so the curated population holds the other
+    # two and the sidecar keeps its anchor.
+    # 中央のファイバーが除外された状態。キュレーション済み母集団には残り 2 本が
+    # あり、サイドカーはそのアンカーを保持している。
+    app.current_fibers = [_StubFiber(0, 0), _StubFiber(0, 4)]
     app._excluded_records = [{"x": 4, "y": 0, "note": ""}]
     app._rebuild_overview_artists()
 
     displayed = app._display_fibers()
     assert len(displayed) == 2
     assert calls[-1]["labeled_fibers"] == list(enumerate(displayed))
+    assert "1 excluded" in calls[-1]["title_suffix"]
+
+
+def test_gui04_batch_exclusion_undoes_in_one_press(tk_app, monkeypatch):
+    """
+    Excluding several selected fibers is taken back by one undo press.
+    複数選択したファイバーの除外は、取り消し 1 回でまとめて戻る。
+
+    Debris is judged in groups while looking at the overview, so a mis-click
+    must give back the act the user performed, not the last anchor that act
+    happened to write.
+    ゴミは全体像を見ながらまとめて判断するため、誤クリックの取り消しは、その操作
+    がたまたま最後に書いたアンカー 1 件ではなく、ユーザーが行った操作を戻さなけれ
+    ばならない。
+    """
+    app = tk_app(gui04.App)
+    app.current_image = _StubImage()
+    fibers = [_StubFiber(0, 0), _StubFiber(4, 0), _StubFiber(0, 4)]
+    app.current_fibers = fibers
+    app.current_fragments = fibers
+    # The rebuild after an exclusion needs a real measurement; this test is
+    # about the record bookkeeping, so stub it out.
+    # 除外後の再構築は実際の計測を必要とするが、本テストの対象は記録の管理なので
+    # その部分は差し替える。
+    monkeypatch.setattr(app, "_recurate_population", lambda: None)
+
+    app._sel_indices = [0, 2]
+    app._sel_idx = 0
+    app._on_exclude_selected()
+
+    assert len(app._excluded_records) == 2
+    assert app._exclusion_groups == [2]
+
+    app._on_undo_last_exclusion()
+
+    assert app._excluded_records == []
+    assert app._exclusion_groups == []
+
+
+def test_gui04_reanalysis_keeps_unsaved_exclusions(tk_app, monkeypatch):
+    """
+    Re-analyzing the loaded dataset carries its exclusions through untouched.
+    読み込み済みデータセットの再解析は、その除外に手を触れず引き継ぐ。
+
+    Turning fiber connection on, changing the scale, or editing the connection
+    parameters all re-analyze the dataset that is staying loaded. Routing that
+    through the dataset-switch path asked whether to save the exclusions first
+    and discarded them on "no", so a user who had curated a scan and then
+    pressed "ファイバー連結" lost the curation. Saving is a deliberate act, so
+    the set lives in memory until the user saves it and a re-analysis must not
+    consult the sidecar.
+    ファイバー連結の ON、スケール変更、連結パラメータの編集は、いずれも読み込まれた
+    ままのデータセットを再解析する。これをデータセット切替の経路に通すと、先に除外を
+    保存するか尋ね、「いいえ」で破棄していた。そのため、走査像をキュレーションした
+    後に「ファイバー連結」を押したユーザーはその作業を失っていた。保存は意図的な
+    操作であり、集合はユーザーが保存するまでメモリ上に存在するので、再解析が
+    サイドカーを参照してはならない。
+    """
+    app = tk_app(gui04.App)
+    app.current_stem = "dataset"
+    app.current_image = _StubImage()
+
+    def _unexpected(*_args, **_kwargs):
+        raise AssertionError("a re-analysis must not prompt about exclusions")
+
+    monkeypatch.setattr(app, "_confirm_unsaved_exclusions", _unexpected)
+    started = []
+    monkeypatch.setattr(
+        app, "_start_analysis",
+        lambda stem, reuse_exclusions=False: started.append((stem, reuse_exclusions)),
+    )
+
+    app._reload_current_file()
+
+    assert started == [("dataset", True)]
+
+
+def test_gui04_fiber_table_allows_multiple_selection(tk_app):
+    """
+    The fiber table selects like Explorer, and re-enables that way after load.
+    ファイバー一覧は Explorer と同じ選択方式で、読み込み後もその方式に戻る。
+    """
+    app = tk_app(gui04.App)
+    assert str(app.fiber_tree.cget("selectmode")) == "extended"
+
+    app._set_ui_enabled(False)
+    assert str(app.fiber_tree.cget("selectmode")) == "none"
+
+    app._set_ui_enabled(True)
+    assert str(app.fiber_tree.cget("selectmode")) == "extended"
 
 
 def test_gui04_clean_exclusions_leave_without_prompting(tk_app, monkeypatch):

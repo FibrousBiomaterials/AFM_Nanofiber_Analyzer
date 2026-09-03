@@ -21,6 +21,7 @@ entries are skipped because the simple parser here does not model them.
 
 import ast
 import gettext
+import string
 from pathlib import Path
 
 import pytest
@@ -82,6 +83,28 @@ def _parse_po_singular_entries(po_path: Path) -> dict[str, str]:
     return catalog
 
 
+def _format_field_names(text: str) -> list[str]:
+    """
+    Return the named `str.format` placeholders in a string.
+    文字列に含まれる、名前付きの `str.format` プレースホルダを返す。
+
+    Positional and malformed fields are ignored: a message whose braces do not
+    parse is not a placeholder mismatch, and the caller only ever fills
+    keywords.
+    位置指定と解析できない波括弧は無視する。波括弧が解析できないメッセージは
+    プレースホルダの不一致ではなく、呼び出し側が埋めるのは常にキーワードである。
+    """
+    try:
+        parsed = list(string.Formatter().parse(text))
+    except ValueError:
+        return []
+    return [
+        field.split(".")[0].split("[")[0]
+        for _literal, field, _spec, _conv in parsed
+        if field
+    ]
+
+
 def test_po_files_exist():
     """At least one language catalog must ship with the repository."""
     assert PO_FILES, f"no messages.po found under {LOCALE_DIR}"
@@ -118,4 +141,35 @@ def test_mo_matches_po(po_path):
         f"{mo_path.name} is stale for {len(stale)} entr(y/ies), e.g. "
         f"{next(iter(stale.items()))!r}; "
         "run `pybabel compile -d locale` and commit the .mo files"
+    )
+
+
+@pytest.mark.parametrize("po_path", PO_FILES, ids=lambda p: p.parent.parent.name)
+def test_translations_use_only_their_own_placeholders(po_path):
+    """
+    No translation may name a placeholder its source string does not have.
+    翻訳は、原文に無いプレースホルダを使ってはならない。
+
+    A `str.format` placeholder is filled by keyword, so a translation naming
+    `{x}` for a message whose call passes only `{n}` raises `KeyError` at the
+    moment the message is shown — in one language only, in a code path a
+    Japanese-locale test run never reaches. `pybabel update` produces exactly
+    this: it carries a similar older translation over as a fuzzy match, and the
+    placeholders come with it.
+    `str.format` のプレースホルダはキーワードで埋められるため、`{n}` だけを渡す
+    メッセージの訳が `{x}` を名乗ると、その言語でだけ、表示された瞬間に
+    `KeyError` になる。日本語ロケールでのテスト実行では到達しない経路である。
+    `pybabel update` はまさにこれを生む。類似する古い訳を fuzzy 一致として
+    引き継ぎ、プレースホルダごと持ち込むためである。
+    """
+    offenders = {}
+    for msgid, msgstr in _parse_po_singular_entries(po_path).items():
+        source = set(_format_field_names(msgid))
+        extra = set(_format_field_names(msgstr)) - source
+        if extra:
+            offenders[msgid] = sorted(extra)
+    assert not offenders, (
+        f"{po_path.parent.parent.name}: {len(offenders)} translation(s) use a "
+        f"placeholder absent from the source string, e.g. "
+        f"{next(iter(offenders.items()))!r}"
     )

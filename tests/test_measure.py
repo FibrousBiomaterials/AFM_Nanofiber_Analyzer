@@ -947,6 +947,88 @@ def test_isolated_fiber_flags_exclude_fibers_reaching_a_crossing():
     assert isolated_fiber_flags(image, [far, through, ending_at]) == [True, False, False]
 
 
+def test_isolated_fiber_flags_exclude_fibers_reaching_the_frame():
+    """
+    A fiber touching the outermost row or column is not isolated.
+    最外周の行または列に接するファイバーは孤立ではない。
+
+    Such a fiber continues outside the scan, so its measured length is the part
+    that happened to fall inside the frame. The branch-point test cannot catch
+    this on its own — there are no branch points beyond the frame, which makes
+    a fiber leaving the scan look *more* isolated, not less.
+    このようなファイバーは走査範囲の外へ続いており、計測された長さは、たまたま
+    枠内に入った部分でしかない。分岐点の判定だけではこれを捉えられない。枠の外
+    に分岐点は無いため、走査範囲から出ていくファイバーほど、かえって孤立して
+    見えてしまう。
+    """
+    image = FiberTrackingImage(
+        original_AFM=np.zeros((40, 40)), name="synthetic", size_per_pixel=10.0,
+    )
+    image.bp = np.zeros((40, 40), dtype=np.uint8)
+    image.bp[35, 35] = 1
+
+    inside = _straight_fiber(x0=5, x1=15, y=5)
+    left_edge = _straight_fiber(x0=0, x1=15, y=10)
+    right_edge = _straight_fiber(x0=25, x1=39, y=15)
+
+    assert isolated_fiber_flags(
+        image, [inside, left_edge, right_edge]
+    ) == [True, False, False]
+
+
+def test_isolated_fiber_flags_exclude_fibers_the_connector_could_extend():
+    """
+    A fiber with a connectable neighbour is not measured over its whole length.
+    連結相手を持つファイバーは、全長を計測できたファイバーではない。
+
+    The branch-point test misses this case whenever the crossing sits just
+    outside its 2 px touch radius, while the connector plainly sees the fiber
+    continue past the gap.
+    交差が 2 画素の接触半径のわずかに外側にあると、分岐点の判定はこの場合を取り
+    逃がす。一方で連結器からは、隙間の先へファイバーが続いているのが明らかに
+    見えている。
+    """
+    image = FiberTrackingImage(
+        original_AFM=np.zeros((60, 60)), name="synthetic", size_per_pixel=10.0,
+    )
+    # A flat height field keeps the connector's height gate satisfied, so the
+    # test turns on the distance and angle gates alone.
+    # 高さを一定にして連結器の高さ判定を常に満たし、距離と角度の判定だけを
+    # 切り分けて検証する。
+    image.calibrated_image = np.full((60, 60), 5.0, dtype=float)
+    image.bp = np.zeros((60, 60), dtype=np.uint8)
+    image.bp[55, 55] = 1
+
+    # Two collinear fibers a short gap apart: each is the other's continuation.
+    # 短い隙間を挟んで一直線に並ぶ 2 本。互いが互いの続きである。
+    left = _straight_fiber(x0=5, x1=20, y=30)
+    right = _straight_fiber(x0=26, x1=41, y=30)
+    # A third fiber far away, with nothing to join to.
+    # 遠く離れた 3 本目。連結相手を持たない。
+    lone = _straight_fiber(x0=5, x1=20, y=10)
+
+    assert isolated_fiber_flags(image, [left, right, lone]) == [False, False, True]
+
+
+def test_isolated_fiber_flags_apply_the_frame_test_without_a_branch_mask():
+    """
+    The frame test still runs when no `bp` mask is available.
+    `bp` マスクが無い場合でも枠の判定は行われる。
+
+    Entanglement is unknowable without the mask, but the frame is not: it needs
+    only the image shape, so a fiber leaving the scan is still rejected.
+    マスクが無ければ絡まりは判定できないが、枠は判定できる。必要なのは画像の形状
+    だけなので、走査範囲から出ていくファイバーはこの場合も除外される。
+    """
+    image = FiberTrackingImage(
+        original_AFM=np.zeros((40, 40)), name="synthetic", size_per_pixel=10.0,
+    )
+    inside = _straight_fiber(x0=5, x1=15, y=5)
+    at_edge = _straight_fiber(x0=20, x1=39, y=10)
+
+    assert isolated_fiber_flags(image, [inside, at_edge]) == [True, False]
+
+
 def test_isolated_fiber_flags_without_branch_mask_keep_every_fiber():
     """
     Without a `bp` mask the test cannot discriminate, so nothing is dropped.
@@ -971,6 +1053,13 @@ def test_isolated_fiber_flags_match_endpoint_count_without_connection(measured):
     追跡前に `remove_bp` が交差部で全ファイバーを切断するため、断片が元の端点を
     2 つとも保つのは交差に達しなかった場合に限られる。このモードでは両基準が
     等価であり、フィルターは端点数が示していた内容を再現する。
+
+    The equivalence holds only away from the frame: a fiber running off the
+    scan edge keeps two endpoints but is not isolated. No fiber in this
+    fixture reaches the frame, which is what lets the assertion stand.
+    この等価性が成り立つのは枠から離れている場合に限る。走査範囲の外へ出ていく
+    ファイバーは端点を 2 つ保つが孤立ではない。本フィクスチャのファイバーはいず
+    れも枠に達しないため、この表明が成立する。
     """
     _bundle_path, result = measured
     flags = isolated_fiber_flags(result.image, result.fibers)

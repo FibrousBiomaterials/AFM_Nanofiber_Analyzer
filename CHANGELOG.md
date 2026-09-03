@@ -10,6 +10,42 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- GUI04's fiber table selects like Explorer: shift-click or drag for a range,
+  ctrl-click to add or remove single rows. "選択を除外" acts on the whole
+  selection, and "直前を取消" takes the whole batch back in one press, because
+  the unit of undo is one exclusion click rather than one stored record. Every
+  selected fiber is framed in the overview — the focused row solid, the rest
+  dashed — so a batch can be checked against the image before it is applied.
+
+  Debris and scan-line artifacts are judged in groups while looking at the
+  overview, and excluding them one row at a time was the slowest part of
+  curating a scan.
+
+  "個別表示", "選択へズーム", and the export filenames follow the focused row,
+  the one the user last clicked, so they stay unambiguous with several rows
+  selected and no longer need a single-selection rule.
+
+- GUI04 reports what fiber connection did: `ファイバー連結: 断片 61 本 →
+  フィブリル 31 本（30 件連結）`. The feature used to be silent about its
+  result — the log said it was enabled and nothing more — so a run that joined
+  nothing looked exactly like a run that joined everything. `MeasureResult`
+  gained `curated_count` (fibers left after exclusions, i.e. the number that
+  entered reconnection) for it; the difference from the fiber count is the
+  number of joins.
+
+  When a run joins nothing and the user has just pressed the checkbox, a dialog
+  says so. Joining nothing is a legitimate result, not an error — a well
+  dispersed specimen has no fragments to rejoin — so the checkbox is left as
+  the user set it, and the dialog never appears on a dataset switch, where it
+  would interrupt every load.
+
+- `tests/test_translations.py` now fails when a translation names a
+  `str.format` placeholder its source string does not have. `pybabel update`
+  carries a similar older translation over as a fuzzy match together with its
+  placeholders, which raises `KeyError` in that language only, at the moment
+  the message is shown — a path a Japanese-locale test run never reaches. Two
+  such entries were caught and fixed while adding the batch-exclusion message.
+
 - `straightness`, `curvature`, and `kink density` columns in the GUI04 fiber
   table, with `lib.measure.fiber_mean_curvature`, `fiber_kink_angle`, and
   `fiber_kink_density`.
@@ -402,6 +438,94 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `spline1d` is bit-identical to before.
 
 ### Fixed
+
+- GUI04's "孤立ファイバーのみ" filter now also rejects a fiber the reconnection
+  logic can find a partner for, using the thresholds set under "連結設定...".
+  The branch-point test misses exactly the case this catches: an end whose
+  nearest crossing sits just outside the 2 px touch radius while the connector
+  plainly sees the fiber continue past the gap. `lib.fiber_connector` gained
+  `connection_candidate_flags` for it, and `isolated_fiber_flags` gained a
+  `connect_params` argument. On two test scans the filter's output drops from
+  2 to 1 and from 9 to 7 fibers.
+
+  It is used **only in conjunction with the other two tests**. Alone it is far
+  looser — 51 of 61 and 110 of 136 fibers on those scans — because "no partner
+  found" conflates "this fiber is complete" with "the connector could not tell
+  what the continuation was", and the second case is common in a dense tangle.
+
+  The test is a standalone predicate over the original fragments, not a record
+  of what `connect_fiber_fragments` did: that function consumes fragments as it
+  grows, so which joins happen depends on the order fragments are visited, and
+  a predicate used to judge a fiber has to be independent of it. Against what
+  the connector actually joined, the predicate agreed on 145 of the 146
+  fragments it extended.
+
+- GUI04's "孤立ファイバーのみ" filter now also rejects a fiber whose track
+  reaches the outermost row or column of the image. Such a fiber continues
+  outside the scan, so what was measured is the part that happened to fall
+  inside the frame, not the fiber — exactly what the filter exists to keep out
+  of the length statistics. The branch-point test could not catch it on its
+  own, because there are no branch points beyond the frame, which made a fiber
+  running off the edge look *more* isolated rather than less. On two test
+  scans the filter's output drops from 3 to 2 and from 13 to 9 fibers.
+
+  The frame is the outermost row and column with no margin: measured on those
+  scans, the count of fibers reaching it was identical for margins of 0 through
+  5 pixels, so a fiber that leaves the scan reaches the very edge and a wider
+  margin would only start rejecting fibers that merely come close.
+
+  `isolated_fiber_flags` keeps its name and signature. Only GUI04 calls it, so
+  `cli.py` and GUI03 are unaffected except through a GUI04 CSV.
+
+- Re-analyzing the loaded dataset no longer discards its unsaved exclusions.
+  Turning fiber connection on, changing the scale, or editing the connection
+  parameters all re-analyze the dataset that is staying loaded, but they went
+  through the dataset-switch path, which asks whether to save the exclusions
+  before replacing them and discards them on "no". A user who had curated a
+  scan and then pressed "ファイバー連結" was asked to save or lose the work,
+  and lost it on "no" — the connection then ran over every fragment, including
+  the ones just rejected.
+
+  A re-analysis is not a dataset switch: the dataset stays loaded and its
+  exclusions stay with it, so `_reload_current_file` no longer routes through
+  `_on_file_select`, carries the in-memory set into the analysis, and leaves
+  its grouping and unsaved flag alone. The sidecar is read only when actually
+  switching datasets.
+
+- Manual fiber exclusions are applied to the traced fragments **before** fiber
+  connection instead of to the connected fibrils afterwards. **Results change
+  from this version whenever exclusions and fiber connection are used
+  together**, so a curated population measured with connection on is not
+  identical to 1.0.0. Nothing changes when either feature is used alone, and
+  `cli.py measure` and GUI03 never connect, so their numbers are unaffected
+  except through a GUI04 CSV.
+
+  Excluding one object used to delete others. An exclusion is stored as an
+  anchor pixel and was applied after connection, so once the connector had
+  joined a discarded speck of debris onto a real fiber, the anchor matched the
+  merged fibril and the real fiber went with it. On a test scan, excluding five
+  debris fragments discarded close to four times their combined contour length.
+  Curation is exactly the judgement that an object is not a fiber, so the
+  connector must not see it at all: `lib.measure.curate_fibers` now owns that
+  order, and `measure_bundle` takes an `exclude_anchors` argument. The height
+  filter deliberately keeps the opposite order — connect, then filter — because
+  it selects a height band inside a fibril, which only means something once the
+  fibril is whole.
+
+  Excluding a connected fibril in GUI04 now records one anchor per constituent
+  fragment (`lib.fiber_selection.constituent_anchors`). A fibril's own midpoint
+  lies on only one of the fragments it was built from, so a single anchor
+  removed that fragment and let the others reconnect into a shorter fibril:
+  the rejected object partly returned, and no longer matched its own anchor.
+  "直前を取消" now takes back one exclusion click rather than one record, so a
+  fibril excluded in one press is restored in one press. That grouping is a
+  within-session convenience — the sidecar stores no grouping, so a set
+  restored from disk steps back one record at a time.
+
+  `MeasureResult` gained a `fragments` field holding the traced fragments
+  before curation, so GUI04 rebuilds the population after an exclusion change
+  without tracing the bundle again; only the connector re-runs, in a worker
+  thread with the existing progress bar.
 
 - GUI03's worker thread now stops when it cannot build the histogram bin
   edges, instead of reporting the failure and then continuing into the loop

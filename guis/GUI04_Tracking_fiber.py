@@ -49,7 +49,7 @@ import math
 import traceback
 import queue
 import threading
-from typing import Optional, List
+from typing import List, Optional, Sequence
 
 # ===== Numerical / scientific libraries =====
 import numpy as np
@@ -73,12 +73,12 @@ from lib.fiber import Fiber
 from lib.fiber_connector import ConnectParams, filter_fibers_by_height
 from lib.blosc2_io import bundle_has_keys, load_bundle, BUNDLE_EXT
 from lib.fiber_selection import (
-    EXCLUSION_SUFFIX, excluded_flags, exclusion_path_for, fiber_anchor,
+    EXCLUSION_SUFFIX, constituent_anchors, exclusion_path_for,
     load_exclusions, save_exclusions,
 )
 from lib.measure import (
     DEFAULT_CURVATURE_WINDOW_NM, TRACKING_BUNDLE_KEYS, compute_fiber_stats,
-    fiber_kink_density, fiber_mean_curvature,
+    curate_fibers, fiber_kink_density, fiber_mean_curvature,
     isolated_fiber_flags, measure_bundle,
     read_scan_size_from_bundle, write_fiber_csv,
 )
@@ -259,6 +259,45 @@ def blank_if_nan(value: float, fmt: str = "{0:.6g}") -> str:
     return "" if not np.isfinite(value) else fmt.format(value)
 
 
+def table_row_values(result) -> List[tuple]:
+    """
+    Precompute the per-fiber values the fiber table displays.
+    ファイバー一覧が表示する、ファイバーごとの値を事前計算する。
+
+    Parameters
+    ----------
+    result
+        Measurement whose `fibers`, `stats`, and `image` pixel sizes are read.
+        `fibers`・`stats` と `image` のピクセルサイズを読み取る計測結果。
+
+    Returns
+    -------
+    list of tuple
+        ``(median_nm, max_nm, straightness, curvature, kink_density)`` per
+        fiber, aligned with ``result.fibers`` by index.
+        ファイバーごとの ``(median_nm, max_nm, straightness, curvature,
+        kink_density)``。``result.fibers`` とインデックスで対応する。
+
+    Notes
+    -----
+    Called off the Tk main thread so a table rebuild never has to measure.
+    Straightness comes from `result.stats`, which the measurement already
+    computed with the pixel size.
+    Tk メインスレッド外から呼び、テーブル再構築時に計測が走らないようにする。
+    直線度は、計測時にピクセルサイズ付きで算出済みの `result.stats` から取る。
+    """
+    x_spp = result.image.size_per_pixel
+    y_spp = result.image.y_size_per_pixel
+    return [
+        (s.height_median_nm, s.height_max_nm, s.straightness,
+         fiber_mean_curvature(
+             f, x_spp, y_spp, window_nm=DEFAULT_CURVATURE_WINDOW_NM,
+         ),
+         fiber_kink_density(s))
+        for s, f in zip(result.stats, result.fibers)
+    ]
+
+
 # ===== Main window =====
 
 class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
@@ -309,17 +348,32 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.folder_path:    str = ""
         self.current_image:  Optional[FiberTrackingImage] = None
         self.current_fibers: List[Fiber] = []    # measure_bundle() の結果
+        # Traced fragments before exclusions and connection. Kept so changing
+        # an exclusion can rebuild the population without tracing again:
+        # tracing costs several seconds, reconnecting well under one.
+        # 除外・連結を適用する前の追跡済み断片。除外を変更したときに追跡をやり
+        # 直さず母集団を組み立て直せるよう保持する。追跡には数秒かかるが、
+        # 再結合は 1 秒未満で済むためである。
+        self.current_fragments: List[Fiber] = []
         self.current_stem:   str = ""
 
-        # Index of the selected fiber in the current table.
+        # Index of the focused fiber in the current table. The table allows a
+        # multi-row selection, and this is the single row the detail window,
+        # the zoom, and the export filenames refer to.
+        # 一覧テーブル内でフォーカス中のファイバーの番号。テーブルは複数行選択を
+        # 許すが、個別表示・ズーム・出力ファイル名が参照するのはこの 1 行である。
         self._sel_idx: Optional[int] = None
+
+        # Every selected row, focused one included, for batch actions.
+        # 一括操作用の、フォーカス行を含む選択中の全行。
+        self._sel_indices: List[int] = []
 
         # Height filter state.
         self._filter_active:   bool = False
         self._filtered_fibers: List[Fiber] = []
 
         # Cache the AFM overview background; only the highlight patch changes.
-        self._highlight_patch: Optional[object] = None
+        self._highlight_patches: List[object] = []
         self._overview_bg_drawn: bool = False
 
         # -- AFM overview pan/zoom view state --
@@ -431,10 +485,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # length is measured directly.
         # ── 孤立ファイバーのみ表示 ──
         # 既定 OFF（従来版とファイバー本数を比較可能に保つ）。ON のとき、経路上の
-        # どこでも他のファイバーに接していないファイバーのみを一覧する。交差部で
-        # 切断されたファイバーの長さは「短い」のではなく「切り詰められている」。
-        # また交差を越えて再結合されたフィブリルの長さは連結器の判断に依存する。
-        # 両者を除外することで、全長を直接計測できたファイバーだけが残る。
+        # どこでも他のファイバーに接しておらず、かつ画像の端に達していないファイバー
+        # のみを一覧する。交差部で切断されたファイバーの長さは「短い」のではなく
+        # 「切り詰められている」。また交差を越えて再結合されたフィブリルの長さは
+        # 連結器の判断に依存する。画像の端に達したファイバーは枠の外へ続いており、
+        # 計測できたのは走査範囲に入った部分だけである。これらを除外することで、
+        # 全長を直接計測できたファイバーだけが残る。
         self.isolated_only_var    = tk.BooleanVar(value=False)
 
         # -- Manually excluded fibers for the current dataset --
@@ -450,6 +506,22 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # ファイバーが交差に接する）ため、ゴミやアーティファクトを落とすには
         # この目視判断しかない。
         self._excluded_records = []
+
+        # How many records each exclusion click appended, newest last, so undo
+        # can take back one action rather than one record. A single click on a
+        # connected fibril writes one anchor per constituent fragment, and
+        # undoing only the last of them would leave the fibril half excluded.
+        # The sidecar stores records with no grouping, so a set restored from
+        # disk starts as one group per record and undo then steps one at a
+        # time; grouping is a within-session convenience, not file content.
+        # 除外クリック 1 回で追加したレコード数を、新しいものを末尾にして保持する。
+        # 取り消しの単位をレコードではなく操作にするためである。連結済みフィブリル
+        # を 1 回クリックすると構成断片ごとにアンカーが書かれるため、末尾 1 件だけ
+        # を取り消すとフィブリルが中途半端に除外されたまま残る。サイドカーは
+        # グループ情報を持たないので、ディスクから復元した集合は 1 レコード 1
+        # グループから始まり、取り消しは 1 件ずつ進む。グループ化はセッション内の
+        # 利便性であって、ファイルの内容ではない。
+        self._exclusion_groups: List[int] = []
 
         # Whether the exclusion set differs from what is on disk. Saving is a
         # deliberate act rather than a side effect of clicking, because the
@@ -475,6 +547,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.connect_enabled_var  = tk.BooleanVar(value=False)
         self.connect_params: ConnectParams = ConnectParams()
         # Keep at most one non-modal connection-settings window.
+        # Whether the pending analysis was started by a press of the connection
+        # checkbox, which is the only case that may raise the "nothing to
+        # connect" dialog. A dataset switch must not interrupt every load with
+        # it.
+        # 実行中の解析が連結チェックボックスの操作によって始まったかどうか。
+        # 「連結対象なし」のダイアログを出してよいのはこの場合だけである。
+        # データセット切替のたびにこれで読み込みを遮ってはならない。
+        self._connect_toggle_pending: bool = False
+
         # 連結設定ウインドウは非モーダルで 1 つだけ保持する。
         self._connect_window: Optional["ConnectSettingsWindow"] = None
 
@@ -707,9 +788,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
         chk_isolated.pack(side="left", padx=(2, 2))
         ToolTip(chk_isolated, _(
-            "ON時: 他のファイバーと交差・接触していないファイバーだけを一覧・表示・"
+            "ON時: 全長を計測できたファイバーだけを一覧・表示・"
             "CSV 出力の対象にする。\n"
-            "交差部で切断されたファイバーは全長が不明なため、長さ統計から除外される。\n"
+            "他のファイバーと交差・接触しているファイバーは、そこで切断されて"
+            "全長が不明なため除外される。\n"
+            "画像の端に達しているファイバーも、枠の外へ続いており全長が不明な"
+            "ため除外される。\n"
+            "連結器が連結相手を見つけるファイバーも、その先に続きがあるため"
+            "除外される。判定には「連結設定...」の値を使う。\n"
+            "密な試料では残る本数が 0 に近くなることがある。全長を計測できた"
+            "ファイバーが実際に存在しないという結果であり、不具合ではない。\n"
             "「ファイバー連結」とは排他で、一方を ON にすると他方は OFF になる。"
             "連結は交差を越えてファイバーをつなぐため、孤立ファイバーが"
             "ネットワークに取り込まれ、孤立と判定されなくなる。\n"
@@ -776,10 +864,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
         btn_exclude.pack(side="left", padx=4)
         ToolTip(btn_exclude, _(
-            "選択中のファイバーを計測・CSV 出力の対象から外します。反映は即座"
-            "ですが、バンドル横の {suffix} への書き出しは「除外を保存」を押した"
-            "ときだけ行われます。自動フィルターでは落とせないゴミや走査線"
-            "アーティファクトを、全体像で確認しながら除くための機能です。"
+            "選択中のファイバーを計測・CSV 出力の対象から外します。\n"
+            "Shift クリックで範囲、Ctrl クリックで 1 本ずつ、複数のファイバーを"
+            "選べます。選択中のファイバーは全体像に枠で示されるので、押す前に"
+            "対象を確認できます。\n"
+            "複数選択したまま押した場合、「直前を取消」の 1 回で全部が戻ります。\n"
+            "バンドル横の {suffix} への書き出しは「除外を保存」を押したときだけ"
+            "行われます。自動フィルターでは落とせないゴミや走査線アーティファクト"
+            "を、全体像で確認しながら除くための機能です。"
         ).format(suffix=EXCLUSION_SUFFIX))
 
         self._btn_undo_exclusion = ttk.Button(
@@ -1088,8 +1180,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "straightness", "curvature (rad/" + UNIT_MICROMETER + ")",
                 "EP count", "Kink count",
                 "kink density (1/" + UNIT_MICROMETER + ")")
+        # "extended" gives the Explorer selection the user already knows: drag
+        # or shift-click for a range, ctrl-click to add or remove one row. It is
+        # what makes "選択を除外" usable on a scan whose debris comes in groups.
+        # "extended" は Explorer と同じ選択操作を与える。ドラッグまたは Shift
+        # クリックで範囲、Ctrl クリックで 1 行の追加・解除。ゴミがまとまって現れる
+        # 走査像で「選択を除外」を実用的にするのはこの操作である。
         self.fiber_tree, _fiber_vsb = create_scrolled_treeview(
-            parent, columns=cols, show="headings", selectmode="browse",
+            parent, columns=cols, show="headings", selectmode="extended",
             hscroll=True,
         )
         col_widths = {
@@ -1435,12 +1533,29 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _reload_current_file(self) -> None:
         """
-        Reload the current file after committed settings such as scale change.
-        スケール変更などの確定済み設定に合わせて現在ファイルを再読み込みする。
+        Re-analyze the loaded dataset after a setting such as scale changed.
+        スケールなどの設定変更に合わせて、読み込み済みデータセットを再解析する。
+
+        Notes
+        -----
+        This is not a dataset switch, so it does not go through
+        `_on_file_select`: that path asks whether to save unsaved exclusions
+        before replacing them, which is right when leaving a dataset and wrong
+        here. The dataset stays loaded and its exclusions stay with it, so
+        turning fiber connection on, changing the scale, or editing the
+        connection parameters carries the curation through untouched.
+        これはデータセットの切替ではないため `_on_file_select` を経由しない。同
+        メソッドは未保存の除外を置き換える前に保存の可否を尋ねるが、それはデータ
+        セットから離れるときに正しい処理であり、ここでは誤りである。データセットは
+        読み込まれたままで除外もそれに付随するので、ファイバー連結の ON、スケール
+        変更、連結パラメータの編集は、いずれもキュレーションをそのまま引き継ぐ。
         """
-        sel = self.file_tree.selection()
-        if sel:
-            self._on_file_select()
+        if not self.current_stem or self.current_image is None:
+            return
+        if self.is_running:
+            self._log(_("読み込み中です。しばらくお待ちください。"))
+            return
+        self._start_analysis(self.current_stem, reuse_exclusions=True)
 
     # =========================================================================
     # Automatic value helpers
@@ -1508,13 +1623,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._filter_active   = False
         self._filtered_fibers = []
         # Clear retained dataset objects.
-        self.current_image  = None
-        self.current_fibers = []
-        self.current_stem   = ""
-        self._fiber_stats   = []
-        self._sel_idx       = None
+        self.current_image     = None
+        self.current_fibers    = []
+        self.current_fragments = []
+        self.current_stem      = ""
+        self._fiber_stats      = []
+        self._sel_idx          = None
+        self._sel_indices      = []
         self._overview_bg_drawn = False
-        self._highlight_patch   = None
+        self._highlight_patches = []
         # Drop the pan/zoom view state with the dataset: the next dataset gets
         # its own full view, and stale limits must not be restored onto it.
         # パン/ズームの状態もデータセットと一緒に破棄する。次のデータセットは
@@ -1582,6 +1699,40 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 self.file_tree.focus(self.current_stem)
             return
 
+        self._start_analysis(stem, reuse_exclusions=False)
+
+    def _start_analysis(self, stem: str, reuse_exclusions: bool = False) -> None:
+        """
+        Run the analysis for one dataset in a worker thread.
+        1 つのデータセットの解析をワーカースレッドで実行する。
+
+        Parameters
+        ----------
+        stem
+            Dataset stem to analyze.
+            解析対象データセットの stem。
+        reuse_exclusions
+            Whether to carry the in-memory exclusion set through instead of
+            reading the sidecar. True when re-analyzing the dataset that is
+            already loaded.
+            サイドカーを読み直す代わりに、メモリ上の除外集合を引き継ぐかどうか。
+            既に読み込まれているデータセットを再解析する場合は True。
+
+        Notes
+        -----
+        Re-analyzing the loaded dataset must not touch its exclusions. They
+        belong to the dataset, which is not being left, and saving is a
+        deliberate act, so the set lives in memory until the user saves it.
+        Reading the sidecar here would replace that set with what is on disk —
+        nothing, for curation that has not been saved — and connecting or
+        changing the scale would silently undo the user's work.
+        読み込み済みデータセットの再解析は、その除外に手を触れてはならない。除外は
+        データセットに属し、そのデータセットから離れるわけではない。また保存は
+        意図的な操作であるため、集合はユーザーが保存するまでメモリ上に存在する。
+        ここでサイドカーを読むと、その集合がディスク上の内容（未保存のキュレーション
+        なら「何も無い」）で置き換えられ、連結やスケールの変更がユーザーの作業を
+        黙って取り消してしまう。
+        """
         self.is_running = True
 
         # Default the scale to the bundle's recorded scan size so fiber lengths
@@ -1647,6 +1798,31 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         connect_fibers = bool(self.connect_enabled_var.get())
         connect_params = self.connect_params
 
+        # Resolve the exclusions before starting the worker, so the anchors
+        # reach measure_bundle and are applied to the fragments before
+        # reconnection. Re-analyzing the loaded dataset carries the in-memory
+        # set through; only a dataset switch reads the sidecar. A broken
+        # sidecar is reported and treated as no exclusions for this session
+        # only; it is not overwritten until the user changes something, so a
+        # hand-edited file can still be repaired.
+        # 除外はワーカー開始前に確定させる。アンカーを measure_bundle へ渡し、
+        # 再結合より前に断片へ適用させるためである。読み込み済みデータセットの
+        # 再解析ではメモリ上の集合を引き継ぎ、サイドカーを読むのはデータセット
+        # 切替のときだけとする。壊れたサイドカーは報告した上で、このセッションに
+        # 限り除外なしとして扱う。ユーザーが何か変更するまで上書きしないため、
+        # 手編集したファイルを修復する余地を残す。
+        if reuse_exclusions:
+            loaded_records = list(self._excluded_records)
+        else:
+            loaded_records = []
+            try:
+                loaded_records = load_exclusions(
+                    exclusion_path_for(stem + BUNDLE_EXT)
+                )
+            except Exception as e:
+                self._log(_("除外ファイルを読めませんでした: {err}").format(err=e))
+        worker_anchors = [(r["x"], r["y"]) for r in loaded_records]
+
         self._log(
             (_("読み込み中: {name}  スケール={scale}") + " µm ...").format(
                 name=os.path.basename(stem), scale=self._fmt_num(scale_um)
@@ -1660,7 +1836,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         def _worker(stem=stem, scale_um=worker_scale_um,
                     scale_y_um=worker_scale_y_um,
                     connect_fibers=connect_fibers,
-                    connect_params=connect_params):
+                    connect_params=connect_params,
+                    exclude_anchors=worker_anchors,
+                    records=loaded_records,
+                    reuse_exclusions=reuse_exclusions):
             """
             Load one bundle and run fiber analysis off the Tk main thread.
             Tk メインスレッド外で 1 つのバンドル読み込みとファイバー解析を実行する。
@@ -1696,50 +1875,75 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     scale_y_um=scale_y_um,
                     connect_fibers=connect_fibers,
                     connect_params=connect_params,
+                    exclude_anchors=exclude_anchors,
                 )
-                image, fibers = result.image, result.fibers
-
-                # Precompute the table's per-fiber values here, in the worker,
-                # so a table rebuild on the main thread never has to measure.
-                # Straightness comes from `result.stats`, which measure_bundle
-                # already computed with the pixel size.
-                # テーブルに出すファイバーごとの値はワーカー側で事前計算し、メイン
-                # スレッドでのテーブル再構築時に計測が走らないようにする。直線度は
-                # measure_bundle がピクセルサイズ付きで計算済みの `result.stats`
-                # から取る。
-                x_spp = image.size_per_pixel
-                y_spp = image.y_size_per_pixel
-                stats = [
-                    (s.height_median_nm, s.height_max_nm, s.straightness,
-                     fiber_mean_curvature(
-                         f, x_spp, y_spp,
-                         window_nm=DEFAULT_CURVATURE_WINDOW_NM,
-                     ),
-                     fiber_kink_density(s))
-                    for s, f in zip(result.stats, fibers)
-                ]
-                self.ui_queue.put(("file_loaded", (stem, image, fibers, stats)))
+                stats = table_row_values(result)
+                self.ui_queue.put((
+                    "file_loaded",
+                    (stem, result.image, result.fibers, stats,
+                     result.fragments, records, result.curated_count,
+                     reuse_exclusions),
+                ))
             except Exception:
                 self.ui_queue.put(("file_error", (stem, traceback.format_exc())))
 
         threading.Thread(target=_worker, daemon=True).start()
 
-    def _on_file_loaded(self, stem: str, image, fibers: List[Fiber], stats: List[tuple]) -> None:
+    def _on_file_loaded(self, stem: str, image, fibers: List[Fiber],
+                        stats: List[tuple], fragments: List[Fiber],
+                        records: List[dict], curated_count: int,
+                        reuse_exclusions: bool = False) -> None:
         """
         Apply worker-thread load results to the UI on the main thread.
         ワーカースレッドから受け取った読み込み結果をメインスレッドで UI に反映する。
+
+        Parameters
+        ----------
+        stem
+            Dataset stem the results belong to.
+            結果が属するデータセットの stem。
+        image
+            Rebuilt tracking container.
+            再構築済みの追跡コンテナ。
+        fibers
+            Measured population, with the dataset's exclusions already applied.
+            計測対象の母集団。データセットの除外は適用済み。
+        stats
+            Per-fiber table values aligned with `fibers`.
+            `fibers` と対応する、一覧テーブル用のファイバーごとの値。
+        fragments
+            Traced fragments before exclusion and connection.
+            除外・連結を適用する前の追跡済み断片。
+        records
+            Exclusion records the worker applied, read from the sidecar.
+            ワーカーが適用した除外レコード。サイドカーから読み出したもの。
+        curated_count
+            How many fibers entered reconnection, i.e. survived the
+            exclusions. Reported against `fibers` so the log can say how many
+            joins the connector made.
+            再結合へ入った本数、すなわち除外を通過した本数。連結器が行った連結の
+            件数をログに出せるよう、`fibers` と対比して報告する。
+        reuse_exclusions
+            Whether this was a re-analysis of the dataset already loaded, in
+            which case the exclusion set is carried through untouched: its
+            grouping and its unsaved flag both belong to work in progress.
+            既に読み込まれているデータセットの再解析かどうか。その場合、除外集合は
+            手を触れずに引き継ぐ。グループ情報も未保存フラグも、進行中の作業に
+            属するものだからである。
         """
-        self.current_image   = image
-        self.current_stem    = stem
-        self.current_fibers  = fibers
-        self._fiber_stats    = stats
-        self._sel_idx        = None
+        self.current_image     = image
+        self.current_stem      = stem
+        self.current_fibers    = fibers
+        self.current_fragments = fragments
+        self._fiber_stats      = stats
+        self._sel_idx          = None
+        self._sel_indices      = []
         # Filter activation follows the checkbox and is applied later if enabled.
         # フィルターはチェックボックスの状態を参照する（チェックONなら後で適用）。
         self._filter_active  = False
         self._filtered_fibers = []
         self._overview_bg_drawn = False   # 背景キャッシュを無効化
-        self._highlight_patch   = None
+        self._highlight_patches = []
         # Start every dataset at full view. Datasets in one folder usually share
         # a scan size and pixel count, so the extent signature would match and
         # the previous dataset's zoom would silently carry over onto a different
@@ -1749,30 +1953,39 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 前のデータセットのズームが別の画像へそのまま持ち越されてしまう。
         self._afm_extent_key = None
 
-        # Exclusions belong to the dataset, so they are reloaded with it. A
-        # broken sidecar is reported and treated as no exclusions for this
-        # session only; it is not overwritten until the user changes something,
-        # so a hand-edited file can still be repaired.
-        # 除外はデータセットに属するため、読み込みと同時に再読み込みする。壊れた
-        # サイドカーは報告した上で、このセッションに限り除外なしとして扱う。
-        # ユーザーが何か変更するまで上書きしないため、手編集したファイルを修復
-        # する余地を残す。
-        self._excluded_records = []
-        # Freshly loaded from disk, so nothing is pending. Any unsaved change
-        # from the previous dataset was already resolved by the guard in
-        # _on_file_select before this load was started.
-        # ディスクから読み直した直後なので保留中の変更は無い。前のデータセットの
-        # 未保存の変更は、この読み込みが始まる前に _on_file_select のガードで
-        # 処理済みである。
-        self._exclusions_dirty = False
-        try:
-            self._excluded_records = load_exclusions(self._exclusion_path())
-        except Exception as e:
-            self._log(_("除外ファイルを読めませんでした: {err}").format(err=e))
-        if self._excluded_records:
-            self._log(_("除外を復元しました: {n} 件").format(
-                n=len(self._excluded_records)
-            ))
+        # Exclusions belong to the dataset, so they arrive with it. The set was
+        # resolved before the worker started and its anchors were applied to
+        # the fragments there, so the records only need installing here.
+        # 除外はデータセットに属するため、データと共に届く。集合はワーカー開始前に
+        # 確定させ、アンカーはその中で断片へ適用済みなので、ここではレコードを
+        # 設定するだけでよい。
+        #
+        # A re-analysis of the dataset already loaded leaves all of this alone:
+        # the records are the same objects it was given, and the grouping and
+        # the unsaved flag describe work in progress that connecting or
+        # rescaling must not discard.
+        # 読み込み済みデータセットの再解析では、これらに一切手を触れない。レコード
+        # は渡したものと同一であり、グループ情報と未保存フラグは進行中の作業を
+        # 表すもので、連結やスケール変更がそれを捨ててはならない。
+        if not reuse_exclusions:
+            self._excluded_records = list(records)
+            # A set restored from disk carries no grouping, so undo steps
+            # through it one record at a time; see the _exclusion_groups
+            # comment.
+            # ディスクから復元した集合はグループ情報を持たないため、取り消しは 1
+            # レコードずつ進む。詳細は _exclusion_groups のコメントを参照。
+            self._exclusion_groups = [1] * len(self._excluded_records)
+            # Freshly loaded from disk, so nothing is pending. Any unsaved
+            # change from the previous dataset was already resolved by the
+            # guard in _on_file_select before this load was started.
+            # ディスクから読み直した直後なので保留中の変更は無い。前のデータセット
+            # の未保存の変更は、この読み込みが始まる前に _on_file_select のガード
+            # で処理済みである。
+            self._exclusions_dirty = False
+            if self._excluded_records:
+                self._log(_("除外を復元しました: {n} 件").format(
+                    n=len(self._excluded_records)
+                ))
         self._refresh_exclusion_button()
 
         # -- Auto-update vmin/vmax only when auto mode is enabled --
@@ -1790,6 +2003,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._log(_("読み込み完了: {name}  ファイバー数: {count}").format(
             name=os.path.basename(stem), count=len(fibers)
         ))
+        self._report_connection_result(curated_count, len(fibers))
         # A blank curvature cell is a fiber the window cannot span, not a
         # failure; say so once, and name the window so the value can be matched
         # against the one GUI03 histograms.
@@ -1833,7 +2047,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         読み込み中の誤操作を防ぐため、選択ウィジェットを有効化または無効化する。
         """
         self.file_tree.configure(selectmode="browse" if enabled else "none")
-        self.fiber_tree.configure(selectmode="browse" if enabled else "none")
+        self.fiber_tree.configure(selectmode="extended" if enabled else "none")
 
     # =========================================================================
     # Fiber table
@@ -1925,8 +2139,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         sel = self.fiber_tree.selection()
         if not sel:
             return
-        idx = int(sel[0])
+        # The focused row is the one the user last clicked, and it is what the
+        # detail window, the zoom, and the exports act on. It is not always the
+        # first selected row: shift-clicking upwards focuses the top of the
+        # range while the anchor stays below it.
+        # フォーカス行はユーザーが最後にクリックした行であり、個別表示・ズーム・
+        # 出力の対象となる。選択の先頭行とは限らない。上方向へ Shift クリックした
+        # 場合、アンカーは下に残ったままフォーカスは範囲の先頭へ移る。
+        focus = self.fiber_tree.focus()
+        idx = int(focus) if focus in sel else int(sel[0])
         self._sel_idx = idx
+        self._sel_indices = sorted(int(iid) for iid in sel)
 
         fiber = self._current_fiber()
         if fiber is None:
@@ -1937,7 +2160,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Detail display always recomputes the profile y-limit for the selected fiber.
         # 個別表示では選択ファイバーごとにプロファイル y 上限を常に再計算する。
 
-        self._draw_overview(selected_fiber=fiber)   # Replace only the highlight.
+        # Frame every selected fiber, so a multi-row selection is visible in the
+        # overview before "選択を除外" acts on it.
+        # 選択中の全ファイバーを枠で示し、「選択を除外」を実行する前に対象を
+        # 全体像で確認できるようにする。
+        others = [f for f in self._selected_fibers() if f is not fiber]
+        self._draw_overview(selected_fiber=fiber, also_selected=others)
 
         # A user selection is the one event that may move the view: while
         # zoomed in, a highlight outside the visible limits would leave the
@@ -1973,22 +2201,23 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         高さフィルターはファイバーを再構築するため先に適用し、孤立判定は実際に
         計測・出力される状態のファイバーに対して行う。
 
-        Manual exclusions are applied last, on the fibers as they will be
-        measured. They are a judgement about the object itself — debris, a
-        scan-line artifact — so they hold whatever the automatic filters did.
-        手動除外は最後に、実際に計測される状態のファイバーへ適用する。除外は
-        対象そのものについての判断（ゴミ、走査線アーティファクト）であるため、
-        自動フィルターの結果がどうであれ有効である。
+        Manual exclusions are not applied here. They act on the fragments,
+        before reconnection, so `current_fibers` already excludes them; see
+        `lib.measure.curate_fibers` for why that order is required.
+        手動除外はここでは適用しない。除外は再結合より前に断片へ作用するため、
+        `current_fibers` の時点で既に除かれている。その順序が必要な理由は
+        `lib.measure.curate_fibers` を参照。
         """
         fibers = self._filtered_fibers if self._filter_active else self.current_fibers
         if self.isolated_only_var.get() and self.current_image is not None:
-            flags = isolated_fiber_flags(self.current_image, fibers)
-            fibers = [f for f, keep in zip(fibers, flags) if keep]
-        if self._excluded_records:
-            dropped = excluded_flags(
-                fibers, [(r["x"], r["y"]) for r in self._excluded_records],
+            # Pass the connection settings the user actually has, so the filter
+            # and the connection feature agree on what counts as a continuation.
+            # ユーザーが実際に設定している連結パラメータを渡し、何を「続き」と
+            # みなすかについてフィルターと連結機能の判断を一致させる。
+            flags = isolated_fiber_flags(
+                self.current_image, fibers, self.connect_params,
             )
-            fibers = [f for f, drop in zip(fibers, dropped) if not drop]
+            fibers = [f for f, keep in zip(fibers, flags) if keep]
         return fibers
 
     # =========================================================================
@@ -2046,6 +2275,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 行 ID は表示リスト内の位置なので、古い選択は末尾を超えることがある。
         # いったん解除し、テーブル側で選び直させる。
         self._sel_idx = None
+        self._sel_indices = []
         self._populate_fiber_table(self._display_fibers())
         self._overview_bg_drawn = False
         self._rebuild_overview_bg()
@@ -2058,6 +2288,105 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # Programmatic re-selection, so keep the current pan/zoom view.
             # プログラムによる選び直しのため、現在のパン/ズームを維持する。
             self._on_fiber_select(follow_view=False)
+
+    def _recurate_population(self) -> None:
+        """
+        Rebuild the measured population after the exclusion set changed.
+        除外集合が変化した後に、計測対象の母集団を組み立て直す。
+
+        Notes
+        -----
+        Exclusions act on the fragments before reconnection, so the population
+        is rebuilt from `current_fragments` instead of being filtered. Tracing
+        is not repeated — that is why the fragments are kept. Without
+        connection the rebuild is a list comprehension and runs inline; with
+        connection the connector has to run again, which is fast but not
+        instant, so it goes to a worker thread with the same progress bar the
+        file load uses.
+        除外は再結合より前に断片へ作用するため、母集団は絞り込みではなく
+        `current_fragments` から組み立て直す。追跡はやり直さない（断片を保持して
+        いるのはそのためである）。連結が無効ならリスト内包表記で済むのでその場で
+        実行し、有効なら連結器を再実行する必要がある。高速ではあるが即時ではない
+        ため、ファイル読み込みと同じ進捗バーを使ってワーカースレッドで行う。
+        """
+        if self.current_image is None or not self.current_fragments:
+            self._refresh_population_views()
+            return
+
+        anchors = [(r["x"], r["y"]) for r in self._excluded_records]
+        if not self.connect_enabled_var.get():
+            self._apply_curated(
+                curate_fibers(
+                    self.current_image, self.current_fragments,
+                    exclude_anchors=anchors,
+                )
+            )
+            return
+
+        if self.is_running:
+            return
+
+        image = self.current_image
+        fragments = self.current_fragments
+        connect_params = self.connect_params
+        stem = self.current_stem
+        self.is_running = True
+        self._set_ui_enabled(False)
+        self._show_progress(_("ファイバー連結中..."), 0)
+
+        def _worker():
+            """
+            Rebuild the curated, reconnected population off the Tk main thread.
+            キュレーション済み・再結合済みの母集団を Tk メインスレッド外で作る。
+            """
+            try:
+                result = curate_fibers(
+                    image, fragments,
+                    exclude_anchors=anchors,
+                    connect_fibers=True,
+                    connect_params=connect_params,
+                )
+                self.ui_queue.put((
+                    "recurated",
+                    (result.fibers, table_row_values(result),
+                     result.curated_count),
+                ))
+            except Exception:
+                self.ui_queue.put(("file_error", (stem, traceback.format_exc())))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _apply_curated(self, result) -> None:
+        """
+        Install a rebuilt population and refresh everything that reads it.
+        組み立て直した母集団を反映し、それを参照する表示を更新する。
+
+        Parameters
+        ----------
+        result
+            Rebuilt measurement whose `fibers` replace the current population.
+            `fibers` が現在の母集団を置き換える、組み立て直した計測結果。
+        """
+        self.current_fibers = list(result.fibers)
+        self._fiber_stats = table_row_values(result)
+        self._install_population()
+
+    def _install_population(self) -> None:
+        """
+        Refresh the views after `current_fibers` was replaced.
+        `current_fibers` を差し替えた後に表示を更新する。
+
+        Notes
+        -----
+        A height filter holds a list derived from the previous population, so
+        it is re-applied rather than reused; it refreshes the views itself.
+        高さフィルターは差し替え前の母集団から導かれたリストを保持しているため、
+        再利用せず適用し直す。表示の更新はフィルター側が行う。
+        """
+        if self._filter_active:
+            self._apply_filter()
+            return
+        self._refresh_population_views()
 
     def _commit_exclusions(self) -> None:
         """
@@ -2072,10 +2401,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         変更は一覧・全体像・CSV 出力へ即座に反映されるため、判断の結果はすぐ
         目に見える。明示的な保存を待つのはサイドカーだけである。ここでは
         ディスクへの書き込みを一切行わない。
+
+        Exclusions act on the fragments, before reconnection, so the measured
+        population has to be rebuilt rather than merely re-filtered.
+        除外は再結合より前に断片へ作用するため、計測対象の母集団は絞り直しでは
+        なく組み立て直す必要がある。
         """
         self._exclusions_dirty = True
         self._refresh_exclusion_button()
-        self._refresh_population_views()
+        self._recurate_population()
 
     def _on_save_exclusions(self) -> bool:
         """
@@ -2192,34 +2526,75 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         除外が 1 クリックである以上、取り消しも 1 クリックでなければならない。
         繰り返し押すと追加した逆順にさかのぼる。レコードは追加順を保持し、
         サイドカーもその順序を保って読み書きされるためである。
+
+        The unit is one exclusion click, not one record: excluding a connected
+        fibril writes an anchor per constituent fragment, and taking back only
+        the last of them would leave that fibril partly excluded.
+        取り消しの単位はレコード 1 件ではなく除外クリック 1 回である。連結済み
+        フィブリルの除外は構成断片ごとにアンカーを書くため、末尾 1 件だけを戻すと
+        そのフィブリルが部分的に除外されたまま残ってしまう。
         """
         if not self._excluded_records:
             messagebox.showinfo(_("情報"), _("取り消せる除外がありません。"))
             return
-        record = self._excluded_records.pop()
-        self._log(_("直前の除外を取り消しました: 位置 ({x}, {y})").format(
-            x=record["x"], y=record["y"],
-        ))
+        count = self._exclusion_groups.pop() if self._exclusion_groups else 1
+        count = max(1, min(count, len(self._excluded_records)))
+        removed = self._excluded_records[-count:]
+        del self._excluded_records[-count:]
+        if count == 1:
+            self._log(_("直前の除外を取り消しました: 位置 ({x}, {y})").format(
+                x=removed[0]["x"], y=removed[0]["y"],
+            ))
+        else:
+            self._log(_(
+                "直前の除外を取り消しました: {n} 件の記録"
+            ).format(n=count))
         self._commit_exclusions()
 
 
     def _on_exclude_selected(self) -> None:
         """
-        Exclude the selected fiber from measurement and export.
-        選択中のファイバーを計測・出力の対象から除外する。
+        Exclude every selected fiber from measurement and export.
+        選択中の全ファイバーを計測・出力の対象から除外する。
+
+        Notes
+        -----
+        One anchor is recorded per constituent fragment of each fiber, so that
+        excluding a connected fibril removes all of it; `lib.fiber_selection`
+        explains why the fibril's own midpoint is not enough.
+        各ファイバーの構成断片ごとに 1 つのアンカーを記録し、連結済みフィブリルを
+        除外したときにその全体が取り除かれるようにする。フィブリル自身の中点では
+        不十分な理由は `lib.fiber_selection` に記載している。
+
+        The whole selection becomes one undo step. Debris and scan-line
+        artifacts are judged in groups while looking at the overview, so
+        undoing a mis-click must take back the same act the user performed,
+        not the last anchor that act happened to write.
+        選択全体で 1 回分の取り消し単位とする。ゴミや走査線アーティファクトは
+        全体像を見ながらまとめて判断するものであり、誤クリックの取り消しは、
+        その操作がたまたま最後に書いたアンカー 1 件ではなく、ユーザーが行った
+        操作そのものを戻さなければならない。
         """
-        fiber = self._current_fiber()
-        if fiber is None:
+        fibers = self._selected_fibers()
+        if not fibers:
             messagebox.showinfo(_("情報"), _("除外するファイバーを選択してください。"))
             return
 
-        anchor = fiber_anchor(fiber)
-        self._excluded_records.append({
-            "x": anchor[0], "y": anchor[1], "note": "",
-        })
-        self._log(_(
-            "ファイバーを除外しました: 位置 ({x}, {y}) / 長さ {length:.0f} nm"
-        ).format(x=anchor[0], y=anchor[1], length=fiber.length))
+        anchors = []
+        for fiber in fibers:
+            anchors.extend(constituent_anchors(fiber, self.current_fragments))
+        for x, y in anchors:
+            self._excluded_records.append({"x": x, "y": y, "note": ""})
+        self._exclusion_groups.append(len(anchors))
+
+        if len(fibers) == 1:
+            self._log(_(
+                "ファイバーを除外しました: 位置 ({x}, {y}) / 長さ {length:.0f} nm"
+            ).format(x=anchors[0][0], y=anchors[0][1], length=fibers[0].length))
+        else:
+            self._log(_(
+                "ファイバーを {n} 本除外しました（合計長さ {length:.0f} nm）"
+            ).format(n=len(fibers), length=sum(f.length for f in fibers)))
         self._commit_exclusions()
 
     def _on_manage_exclusions(self) -> None:
@@ -2237,8 +2612,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _current_fiber(self) -> Optional[Fiber]:
         """
-        Return the currently selected fiber, or ``None`` if no fiber is selected.
-        現在選択中の Fiber を返し、未選択なら ``None`` を返す。
+        Return the focused fiber, or ``None`` if no fiber is focused.
+        フォーカス中の Fiber を返し、未選択なら ``None`` を返す。
+
+        Notes
+        -----
+        One fiber even while several rows are selected, because everything
+        that calls this shows or names a single object: the detail window, the
+        zoom, the export filename.
+        複数行が選択されていても 1 本を返す。本メソッドの呼び出し元（個別表示・
+        ズーム・出力ファイル名）はいずれも単一の対象を表示または命名するため
+        である。
         """
         if self._sel_idx is None:
             return None
@@ -2246,6 +2630,32 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if self._sel_idx >= len(fibers):
             return None
         return fibers[self._sel_idx]
+
+    def _selected_fibers(self) -> List[Fiber]:
+        """
+        Return every fiber the table currently has selected, in table order.
+        一覧テーブルで現在選択中の全 Fiber を、テーブル順で返す。
+
+        Returns
+        -------
+        list of Fiber
+            Selected fibers; the focused fiber alone when nothing else is
+            selected, and empty when the selection is stale or empty.
+            選択中のファイバー列。他に選択が無ければフォーカス中の 1 本のみ、
+            選択が空または古い場合は空リスト。
+
+        Notes
+        -----
+        Row ids are positions in `_display_fibers`, so a selection recorded
+        before the population changed can point past its end; those entries are
+        dropped rather than raising, because the table re-selects on its own
+        after every rebuild.
+        行 ID は `_display_fibers` 内の位置なので、母集団が変わる前に記録された
+        選択は末尾を超えることがある。テーブルは再構築のたびに自ら選び直すため、
+        そうした項目は例外にせず取り除く。
+        """
+        fibers = self._display_fibers()
+        return [fibers[i] for i in self._sel_indices if 0 <= i < len(fibers)]
 
     # =========================================================================
     # Drawing: AFM overview
@@ -2382,7 +2792,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # tight_layout は背景描画時のみ（描画コストが高いため）。
         self._afm_fig.tight_layout(pad=0.5)
 
-        self._highlight_patch    = None
+        self._highlight_patches = []
         self._overview_bg_drawn  = True
         # Do not call draw_idle here; callers own the final canvas draw.
         # draw_idle はここでは呼ばない。
@@ -2705,15 +3115,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         excluded = bool(self._excluded_records)
         # The shortcut below draws every fiber with its position in
         # `current_fibers`, which is only the right numbering while nothing
-        # narrows the population. Any narrowing — the height filter, the
-        # isolated-fiber filter, or manual exclusions — renumbers the table
-        # over the surviving fibers, so the overview has to be numbered from
-        # the same list or its labels stop naming the same objects.
+        # narrows the population further. The height filter and the
+        # isolated-fiber filter both do, and renumber the table over the
+        # surviving fibers, so the overview has to be numbered from the same
+        # list or its labels stop naming the same objects. Manual exclusions
+        # are already applied in `current_fibers`, so the numbering would hold
+        # without them; they take the long path only to have the count
+        # annotated in the title.
         # 下のショートカットは全ファイバーを `current_fibers` 内の位置で描画する。
-        # この番号が正しいのは母集団が絞られていない場合だけである。高さフィル
-        # ター・孤立ファイバーフィルター・手動除外のいずれで絞っても、一覧テーブル
-        # は残ったファイバーで採番し直すため、全体像も同じリストから採番しないと
-        # ラベルが同じ対象を指さなくなる。
+        # この番号が正しいのは、母集団がそれ以上絞られていない場合だけである。
+        # 高さフィルターと孤立ファイバーフィルターはどちらも母集団を絞り、一覧
+        # テーブルは残ったファイバーで採番し直すため、全体像も同じリストから採番
+        # しないとラベルが同じ対象を指さなくなる。手動除外は `current_fibers` の
+        # 時点で適用済みなので採番だけなら分岐は不要だが、件数をタイトルへ注記
+        # するためにこちらの経路を通す。
         if not self._filter_active and not isolated_only and not excluded:
             self._draw_overview_background()
             return
@@ -2903,18 +3318,40 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ax.set_title(self.current_image.name + suffix, fontsize=self.fs_title, pad=3)
         self._afm_fig.tight_layout(pad=0.5)
 
-        self._highlight_patch   = None
+        self._highlight_patches = []
         self._overview_bg_drawn = True
         # Do not call draw_idle here; the caller owns the final canvas draw.
         # draw_idle はここでは呼ばない。呼び出し元が最終描画を行う。
 
-    def _draw_overview(self, selected_fiber: Optional[Fiber] = None) -> None:
+    def _draw_overview(
+        self,
+        selected_fiber: Optional[Fiber] = None,
+        also_selected: Sequence[Fiber] = (),
+    ) -> None:
         """
-        Replace only the overview highlight patch.
-        全体像のハイライトパッチだけを差し替える。
+        Replace only the overview highlight patches.
+        全体像のハイライト枠だけを差し替える。
 
         The cached background is reused. If it is invalid, it is rebuilt first.
         背景は再描画せずキャッシュを使う。背景未描画の場合は先に再構築する。
+
+        Parameters
+        ----------
+        selected_fiber
+            Focused fiber, drawn with a solid frame. This is the one the detail
+            window and the export actions act on.
+            フォーカス中のファイバー。実線の枠で描く。個別表示や出力操作の対象と
+            なるのはこのファイバーである。
+        also_selected
+            The rest of a multi-row selection, drawn with dashed frames.
+            複数行選択の残り。破線の枠で描く。
+
+        Notes
+        -----
+        Every selected fiber is framed, not only the focused one, so a batch
+        exclusion can be checked against the image before it is applied.
+        フォーカス中のものだけでなく選択中の全ファイバーを枠で示す。一括除外を
+        実行する前に、その対象を画像上で確認できるようにするためである。
         """
         if self.current_image is None:
             return
@@ -2924,32 +3361,38 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if not self._overview_bg_drawn:
             self._rebuild_overview_bg()
 
-        # Remove the previous highlight patch.
-        if self._highlight_patch is not None:
+        # Remove the previous highlight patches.
+        for patch in self._highlight_patches:
             try:
-                self._highlight_patch.remove()
+                patch.remove()
             except ValueError:
                 pass
-            self._highlight_patch = None
+        self._highlight_patches = []
 
-        # Add the new highlight patch.
+        # Convert pixels to the selected physical tick-display unit (per axis).
+        # 軸表示単位に合わせて px → 物理スケールへ軸別変換する。
+        x_scale, y_scale, _unit_label = self._get_extent_scale_xy_and_unit()
+        img = self.current_image.calibrated_image
+        h_px, w_px = img.shape[:2]
+        x_spp = x_scale / w_px
+        y_spp = y_scale / h_px
+
+        # Draw the co-selected fibers first so the focused frame stays on top.
+        # フォーカス枠が上に来るよう、同時選択されたファイバーを先に描く。
+        outlines = [(f, "--", 1.2) for f in also_selected]
         if selected_fiber is not None:
-            x, y, h, w, _unused = selected_fiber.data
-            # Convert pixels to the selected physical tick-display unit (per
-            # axis). `h` is the width (X extent), `w` the height (Y extent).
-            # 軸表示単位に合わせて px → 物理スケールへ軸別変換する。`h` は幅
-            # （X 方向）、`w` は高さ（Y 方向）。
-            x_scale, y_scale, _unit_label = self._get_extent_scale_xy_and_unit()
-            img = self.current_image.calibrated_image
-            h_px, w_px = img.shape[:2]
-            x_spp = x_scale / w_px
-            y_spp = y_scale / h_px
+            outlines.append((selected_fiber, "-", 2.0))
+        for fiber, style, width in outlines:
+            # `h` is the width (X extent), `w` the height (Y extent).
+            # `h` は幅（X 方向）、`w` は高さ（Y 方向）。
+            x, y, h, w, _unused = fiber.data
             patch = plt.Rectangle(
                 (x * x_spp, y * y_spp), h * x_spp, w * y_spp,
-                linewidth=2.0, linestyle="-", edgecolor="yellow", facecolor="none",
+                linewidth=width, linestyle=style, edgecolor="yellow",
+                facecolor="none",
             )
             self._afm_ax.add_patch(patch)
-            self._highlight_patch = patch
+            self._highlight_patches.append(patch)
 
         # Panning to the selection belongs to _on_fiber_select, not here: this
         # method also runs for vmin/vmax, filter, and mode changes, and moving
@@ -3192,6 +3635,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 行 ID は表示リスト内の位置なので、古い選択は末尾を超えることがある。
         # いったん解除し、テーブル側で選び直させる。
         self._sel_idx = None
+        self._sel_indices = []
         self._populate_fiber_table(shown)
         self._overview_bg_drawn = False
         self._rebuild_overview_bg()
@@ -3211,7 +3655,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             )
             self._log(_(
                 "孤立ファイバーのみ表示: {count} / {total} 件"
-                "（他のファイバーと交差・接触していないもの）"
+                "（他のファイバーと交差・接触せず、画像の端にも達しておらず、"
+                "連結相手も見つからないもの）"
             ).format(count=len(shown), total=total))
             # In a dense network almost every fiber reaches a crossing, so a
             # small count is the expected outcome, not a detection failure.
@@ -3243,6 +3688,58 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
     # Fiber connection (whole-fibril)
     # =========================================================================
 
+    def _report_connection_result(self, before: int, after: int) -> None:
+        """
+        Log how many fibers the connector joined, and flag a run that joined none.
+        連結器が何本を連結したかをログに出し、1 件も連結しなかった実行を知らせる。
+
+        Parameters
+        ----------
+        before
+            Fibers that entered reconnection.
+            再結合へ入った本数。
+        after
+            Fibers that came out of it.
+            再結合から出てきた本数。
+
+        Notes
+        -----
+        Without this the feature was silent: the log said connection was
+        enabled and nothing more, so a run that joined nothing looked exactly
+        like a run that joined everything.
+        これが無い状態では機能が無言だった。ログは連結が有効であることしか伝えず、
+        1 件も連結しなかった実行と、すべて連結した実行が見分けられなかった。
+
+        Joining nothing is a legitimate result, not an error — a well dispersed
+        specimen has no fragments to rejoin — so it is reported rather than
+        treated as a failure, and the checkbox is left as the user set it. The
+        dialog appears only when the user just pressed the checkbox: on a
+        dataset switch the same message would interrupt every load.
+        1 件も連結しないことは正当な結果でありエラーではない。よく分散した試料には
+        再結合すべき断片が存在しない。したがって失敗として扱わず報告にとどめ、
+        チェックボックスはユーザーが設定したままにする。ダイアログはユーザーが
+        チェックボックスを操作した直後にだけ出す。データセット切替のたびに同じ
+        メッセージを出せば、読み込みのたびに操作を遮ることになる。
+        """
+        prompted = self._connect_toggle_pending
+        self._connect_toggle_pending = False
+        if not self.connect_enabled_var.get():
+            return
+
+        joins = max(0, before - after)
+        self._log(_(
+            "ファイバー連結: 断片 {before} 本 → フィブリル {after} 本"
+            "（{joins} 件連結）"
+        ).format(before=before, after=after, joins=joins))
+        if joins == 0 and prompted:
+            messagebox.showinfo(
+                _("情報"),
+                _("連結できる断片がありませんでした。\n"
+                  "この画像では、交差や隙間で分断された断片が見つからないという"
+                  "ことです。連結の設定は変更していないので、必要なら"
+                  "「連結設定...」のしきい値を確認してください。"),
+            )
+
     def _on_connect_toggle(self) -> None:
         """
         Handle the fiber-connection checkbox by re-analyzing the dataset.
@@ -3265,6 +3762,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         state = _("有効") if self.connect_enabled_var.get() else _("無効")
         self._log(_("ファイバー連結: {state}").format(state=state))
+        # Only a press of the checkbox may raise the "nothing to connect"
+        # dialog; the reload it starts is what eventually reports the counts.
+        # 「連結対象なし」のダイアログを出してよいのはチェックボックスの操作だけ
+        # である。ここで始まる再読み込みが、最終的に件数を報告する。
+        self._connect_toggle_pending = bool(self.connect_enabled_var.get())
         if self.current_stem and self.current_image is not None and not self.is_running:
             self._reload_current_file()
 
@@ -3518,11 +4020,30 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 replace_log_tail(self.log_text, bar_line)
 
         def _on_file_loaded(payload):
-            stem, image, fibers, stats = payload
+            (stem, image, fibers, stats, fragments, records, curated,
+             reuse) = payload
             self.is_running = False
             self._hide_progress()
             self._set_ui_enabled(True)
-            self._on_file_loaded(stem, image, fibers, stats)
+            self._on_file_loaded(stem, image, fibers, stats, fragments,
+                                 records, curated, reuse)
+
+        def _on_recurated(payload):
+            fibers, stats, curated = payload
+            self.is_running = False
+            self._hide_progress()
+            self._set_ui_enabled(True)
+            self.current_fibers = fibers
+            self._fiber_stats = stats
+            # An exclusion change re-runs the connector, so the join count
+            # changes with it; the dialog stays out of this path because the
+            # user pressed "選択を除外", not the connection checkbox.
+            # 除外の変更は連結器を再実行するため、連結件数もそれに伴って変わる。
+            # ユーザーが押したのは「選択を除外」であって連結チェックボックスでは
+            # ないので、この経路ではダイアログを出さない。
+            self._connect_toggle_pending = False
+            self._report_connection_result(curated, len(fibers))
+            self._install_population()
 
         def _on_file_error(payload):
             stem, tb = payload
@@ -3549,6 +4070,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "log": lambda payload: self._log(str(payload)),
             "progress": _on_progress,
             "file_loaded": _on_file_loaded,
+            "recurated": _on_recurated,
             "file_error": _on_file_error,
             "filter_done": _on_filter_done,
             "filter_error": _on_filter_error,
@@ -4797,6 +5319,13 @@ class ExclusionWindow(tk.Toplevel):
             return
         index = int(selection[0])
         record = self._app._excluded_records.pop(index)
+        # This window edits single records, so which records belonged to one
+        # exclusion click is no longer reconstructible; undo falls back to one
+        # record per press.
+        # 本ウインドウはレコード単位で編集するため、どのレコードが 1 回の除外
+        # クリックに属していたかは復元できない。取り消しは 1 回につき 1 レコード
+        # へ戻す。
+        self._app._exclusion_groups = [1] * len(self._app._excluded_records)
         self._app._log(_("除外を解除しました: 位置 ({x}, {y})").format(
             x=record["x"], y=record["y"]
         ))
@@ -4823,6 +5352,7 @@ class ExclusionWindow(tk.Toplevel):
             return
         count = len(self._app._excluded_records)
         self._app._excluded_records = []
+        self._app._exclusion_groups = []
         self._app._log(_("除外をすべて解除しました: {n} 件").format(n=count))
         self._app._commit_exclusions()
         self._reload()

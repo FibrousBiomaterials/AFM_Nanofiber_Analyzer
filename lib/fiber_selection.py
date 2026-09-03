@@ -127,6 +127,68 @@ def fiber_track_pixels(fiber) -> Set[Tuple[int, int]]:
     return set(zip(xs.tolist(), ys.tolist()))
 
 
+def constituent_anchors(fiber, fragments: Sequence = ()) -> List[Tuple[int, int]]:
+    """
+    Return the anchors that record one displayed fiber as excluded.
+    表示中のファイバー 1 本を除外として記録するためのアンカー列を返す。
+
+    Parameters
+    ----------
+    fiber
+        Fiber the user rejected, as it is displayed. With fiber connection
+        on this is a whole fibril; with it off it is a single fragment.
+        ユーザーが却下した、表示されているままのファイバー。ファイバー連結が
+        ON なら 1 本のフィブリル、OFF なら単一の断片である。
+    fragments
+        Traced fragments the displayed fiber was built from. Empty falls back
+        to the fiber's own anchor, which is correct when no fragment list is
+        available because the fiber is then a fragment itself.
+        表示中のファイバーの構成元となった追跡済み断片。空の場合はファイバー
+        自身のアンカーへフォールバックする。断片リストが無い状況ではファイバー
+        自体が断片なので、これで正しい。
+
+    Returns
+    -------
+    list of tuple of int
+        One ``(x, y)`` anchor per constituent fragment, in fragment order.
+        構成断片ごとに 1 つの ``(x, y)`` アンカーを、断片の順序で返す。
+
+    Notes
+    -----
+    One anchor per constituent fragment, not one for the displayed fiber,
+    because exclusions are applied to the fragments before reconnection (see
+    `lib.measure.curate_fibers`). A connected fibril's own midpoint lies on
+    only one of the fragments it was built from, so recording that single
+    anchor would remove one fragment and let the others reconnect into a
+    shorter fibril — the object the user rejected would partly come back, and
+    the anchor would no longer match it. On a test scan, rejecting the longest
+    fibril that way brought about a quarter of it back as a separate fiber.
+    表示中のファイバーに 1 つではなく、構成断片ごとに 1 つのアンカーを記録する。
+    除外は再結合より前に断片へ適用されるためである（`lib.measure.curate_fibers`
+    参照）。連結済みフィブリルの中点は構成断片のうち 1 本の上にしか無いため、その
+    1 つだけを記録すると断片 1 本が消えるだけで、残りが再結合してより短い
+    フィブリルとして復活する。ユーザーが却下した対象が部分的に戻り、しかも
+    アンカーはもうそれに一致しない。あるテスト画像では、最長のフィブリルをこの
+    方法で却下したところ、その約 4 分の 1 が別のファイバーとして戻った。
+
+    A fragment counts as constituent when more than half of its track lies on
+    the displayed fiber. A bare intersection test would also catch a fragment
+    the fibril merely crosses in a dense region.
+    断片の判定は、そのトラックの半数を超える画素が表示中のファイバー上にある
+    ことを条件とする。単なる共通部分の有無で判定すると、密な領域でフィブリルが
+    横切っただけの断片まで拾ってしまう。
+    """
+    pixels = fiber_track_pixels(fiber)
+    anchors = []
+    for frag in fragments:
+        frag_pixels = fiber_track_pixels(frag)
+        if not frag_pixels:
+            continue
+        if len(frag_pixels & pixels) * 2 > len(frag_pixels):
+            anchors.append(fiber_anchor(frag))
+    return anchors or [fiber_anchor(fiber)]
+
+
 def excluded_flags(
     fibers: Sequence,
     anchors: Iterable[Tuple[int, int]],

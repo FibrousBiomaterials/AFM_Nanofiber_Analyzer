@@ -45,7 +45,7 @@ predate the scan-size contract.
 # ===== Standard library =====
 import csv
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 # ===== Numerical / scientific libraries =====
@@ -63,7 +63,11 @@ from .bundle_schema import (
     validate_bundle,
 )
 from .fiber import Fiber
-from .fiber_connector import ConnectParams, connect_fiber_fragments
+from .fiber_connector import (
+    ConnectParams,
+    connect_fiber_fragments,
+    connection_candidate_flags,
+)
 from .fiber_selection import (
     excluded_flags,
     exclusion_path_for,
@@ -203,33 +207,140 @@ class MeasureResult:
         Rebuilt tracking container with `size_per_pixel` resolved.
         `size_per_pixel` を確定済みの再構築済み追跡コンテナ。
     fibers
-        Traced fibers in stable component order.
-        安定した連結成分順のファイバーリスト。
+        Measured fibers in stable component order, after exclusions and any
+        reconnection were applied.
+        除外と（有効なら）再結合を適用した後の、安定した連結成分順のファイバー
+        リスト。
     stats
         Per-fiber statistics aligned with `fibers` by index.
         `fibers` とインデックスで対応するファイバーごとの統計値。
+    fragments
+        Traced skeleton fragments as they came out of tracing, before any
+        exclusion or reconnection. Kept so a caller that changes the
+        curation can rebuild `fibers` without tracing the bundle again.
+        追跡直後の骨格断片。除外・再結合を適用する前の状態。キュレーションを
+        変更する呼び出し側が、バンドルを追跡し直さずに `fibers` を組み立て直せる
+        ようにするため保持する。
+    curated_count
+        How many fibers were left after exclusions, i.e. how many entered
+        reconnection. Equal to ``len(fibers)`` when reconnection was off, and
+        the difference from it is the number of joins the connector made.
+        除外の適用後に残ったファイバー数。すなわち再結合へ入った本数である。
+        再結合が無効なら ``len(fibers)`` に等しく、両者の差が連結器の行った連結
+        の件数となる。
     """
 
     image: FiberTrackingImage
     fibers: List[Fiber]
     stats: List[FiberStats]
+    fragments: List[Fiber] = field(default_factory=list)
+    curated_count: int = 0
+
+
+def _image_frame_shape(image: FiberTrackingImage) -> Optional[Tuple[int, int]]:
+    """
+    Return the ``(height, width)`` of the analyzed image, if it is knowable.
+    解析対象画像の ``(高さ, 幅)`` を返す（判明する場合）。
+
+    Parameters
+    ----------
+    image
+        Tracking container to read an image array from.
+        画像配列を読み取る追跡コンテナ。
+
+    Returns
+    -------
+    tuple of int or None
+        Pixel shape, or ``None`` when the container holds no 2-D array.
+        画素単位の形状。2 次元配列を持たないコンテナでは ``None``。
+
+    Notes
+    -----
+    Every bundle array shares one shape, so any of them answers the question;
+    they are tried in turn only because a container may be built with some of
+    them missing.
+    バンドルの各配列は同一形状なので、どれを見ても答えは同じである。順に試すの
+    は、一部の配列を持たないコンテナが構築され得るという理由だけによる。
+    """
+    for candidate in (image.calibrated_image, image.skeleton_image,
+                      image.bp, image.original_image):
+        if candidate is None:
+            continue
+        arr = np.asarray(candidate)
+        if arr.ndim == 2 and arr.size:
+            return (int(arr.shape[0]), int(arr.shape[1]))
+    return None
+
+
+def _reaches_frame(
+    fiber: Fiber,
+    frame: Optional[Tuple[int, int]],
+) -> bool:
+    """
+    Report whether a fiber's track reaches the outermost row or column.
+    ファイバーのトラックが最外周の行または列に達しているかを返す。
+
+    Parameters
+    ----------
+    fiber
+        Traced fiber with bounding-box-local track arrays.
+        外接矩形ローカルのトラック配列を持つ追跡済みファイバー。
+    frame
+        Image shape from `_image_frame_shape`; ``None`` disables the test.
+        `_image_frame_shape` が返した画像形状。``None`` の場合は判定しない。
+
+    Returns
+    -------
+    bool
+        True when the fiber continues beyond the scanned area.
+        走査範囲の外へ続いている場合に True。
+    """
+    if frame is None:
+        return False
+    height, width = frame
+    gx = np.asarray(fiber.xtrack) + fiber.data[0]
+    gy = np.asarray(fiber.ytrack) + fiber.data[1]
+    if gx.size == 0:
+        return False
+    return bool(
+        gx.min() <= 0 or gy.min() <= 0
+        or gx.max() >= width - 1 or gy.max() >= height - 1
+    )
 
 
 def isolated_fiber_flags(
     image: FiberTrackingImage,
     fibers: Sequence[Fiber],
+    connect_params: Optional[ConnectParams] = None,
 ) -> List[bool]:
     """
-    Flag which fibers never touch another fiber anywhere along their path.
-    経路上のどこでも他のファイバーに接していないファイバーを判定する。
+    Flag which fibers were measured over their whole length.
+    全長にわたって計測できたファイバーを判定する。
 
-    A fiber is isolated when no pixel of its track lies within
-    `BRANCH_TOUCH_RADIUS_PX` of a branch point of the source skeleton. Branch
-    points are where the skeleton of one fiber meets another, so this is a
-    direct test of entanglement rather than a proxy for it.
-    追跡画素のいずれもが元の骨格の分岐点から `BRANCH_TOUCH_RADIUS_PX` 以内に
-    無いとき、そのファイバーを孤立と判定する。分岐点は 1 本の骨格が別の骨格と
-    出会う位置なので、これは絡まりの代用指標ではなく直接の判定である。
+    A fiber qualifies when all three of these hold: no pixel of its track lies
+    within `BRANCH_TOUCH_RADIUS_PX` of a branch point of the source skeleton,
+    no pixel of its track reaches the outermost row or column of the image,
+    and the reconnection logic finds nothing it could be joined to. Branch
+    points are where the skeleton of one fiber meets another, so the first test
+    is a direct test of entanglement rather than a proxy for it; the second
+    catches a length cut short by the scan boundary; the third catches an end
+    the connector can see a continuation past.
+    次の 3 条件をすべて満たすとき、そのファイバーを対象とする。追跡画素のいずれ
+    もが元の骨格の分岐点から `BRANCH_TOUCH_RADIUS_PX` 以内に無いこと、追跡画素の
+    いずれもが画像の最外周の行・列に達していないこと、そして再結合ロジックが連結
+    相手を見つけないこと。分岐点は 1 本の骨格が別の骨格と出会う位置なので、第 1 の
+    判定は絡まりの代用指標ではなく直接の判定である。第 2 の判定は走査範囲の境界に
+    より切り詰められた長さを、第 3 の判定は連結器から見て続きがある端を捉える。
+
+    A fiber that reaches the frame continues outside it, so what was measured
+    is the part that happened to fall inside the scan, not the fiber. Nothing
+    in the branch-point test catches this: there are no branch points beyond
+    the frame, which makes a fiber running off the edge look *more* isolated,
+    not less.
+    画像の枠に達したファイバーは枠の外へ続いており、計測されたのはたまたま走査
+    範囲に入った部分であってファイバーそのものではない。分岐点の判定ではこれを
+    捉えられない。枠の外に分岐点は存在しないため、外へ出ていくファイバーほど、
+    かえって孤立しているように見えてしまう。
 
     The whole track is tested, not only its terminals, so the result means the
     same thing with and without fiber connection. A fragment cut at a crossing
@@ -245,11 +356,21 @@ def isolated_fiber_flags(
     Parameters
     ----------
     image
-        Tracking container whose `bp` branch-point mask defines the crossings.
-        交差位置を与える `bp` 分岐点マスクを持つ追跡コンテナ。
+        Tracking container whose `bp` branch-point mask defines the crossings
+        and whose image arrays give the frame the border test uses.
+        交差位置を与える `bp` 分岐点マスクと、枠の判定に使う画像配列を持つ追跡
+        コンテナ。
     fibers
         Fibers to classify, from either tracing mode.
         判定対象のファイバー列。どちらの追跡モードのものでもよい。
+    connect_params
+        Thresholds for the connection-candidate test. ``None`` uses
+        `ConnectParams` defaults. Pass the same values the connection feature
+        is set to, so the filter and the connector agree on what counts as a
+        continuation.
+        連結候補判定のしきい値。``None`` は `ConnectParams` の既定値を使う。連結
+        機能に設定されているものと同じ値を渡すこと。何を「続き」とみなすかについて
+        フィルターと連結器の判断を一致させるためである。
 
     Returns
     -------
@@ -259,25 +380,88 @@ def isolated_fiber_flags(
 
     Notes
     -----
-    A container without a `bp` mask cannot distinguish the two cases, so every
-    fiber is reported as isolated rather than silently dropping all of them.
-    `bp` マスクを持たないコンテナでは区別できないため、全て孤立として報告し、
-    黙って全件を除外することは避ける。
+    A container without a `bp` mask cannot judge entanglement, so no fiber is
+    dropped on that ground rather than silently dropping all of them; the
+    border test still applies, because it needs only the image shape.
+    `bp` マスクを持たないコンテナでは絡まりを判定できないため、その理由でファイ
+    バーを除外せず、黙って全件を落とすことを避ける。枠の判定は画像の形状だけを
+    必要とするため、この場合も引き続き適用する。
+
+    The frame is the outermost row and column, with no margin. Measured on two
+    real scans, the count of fibers reaching the frame was identical for
+    margins of 0 through 5 pixels: a fiber that leaves the scan reaches the
+    very edge, so a wider margin would only start excluding fibers that merely
+    come close.
+    枠とは最外周の行と列そのものであり、余白は取らない。実測した 2 枚の走査像で
+    は、枠に達するファイバーの本数が余白 0〜5 画素で同一だった。走査範囲から出て
+    いくファイバーは最外周まで到達するため、余白を広げても、近づいただけの
+    ファイバーを除外し始めるだけである。
+
+    The connection-candidate test is used **only in conjunction with the other
+    two, never alone**. On its own it is far looser: on two real scans it
+    admitted 51 of 61 and 110 of 136 fibers, against 3 and 13 for the
+    branch-point test, because "no candidate found" conflates "this fiber is
+    complete" with "the connector could not tell what the continuation was",
+    and the second case is common in a dense tangle. What it adds to the
+    conjunction is the case the branch-point test misses: an end whose nearest
+    branch point sits just outside the touch radius while the connector can
+    plainly see the fiber continue past it.
+    連結候補の判定は**他の 2 条件と併用する場合に限り**用い、単独では使わない。
+    単独ではるかに緩いためである。実測した 2 枚の走査像では、分岐点判定が 3 本・
+    13 本を通すのに対し、61 本中 51 本・136 本中 110 本を通した。「候補が見つから
+    ない」は「このファイバーは完結している」と「連結器には続きが判断できなかった」
+    を混同しており、後者は密に絡んだ領域で頻繁に起こる。この条件が組み合わせに
+    加えるのは、分岐点判定が取り逃がす場合である。すなわち、最も近い分岐点が接触
+    半径のわずかに外側にありながら、連結器からは続きが明らかに見えている端である。
+
+    Against what the connector actually joined on those two scans, the
+    candidate test agreed on 145 of the 146 fragments it extended. The one
+    disagreement had no other fragment end within `clusters_range` — its
+    nearest was 21.4 px against a 20 px range — so the connector reached it
+    from a position that exists only after growth, which an order-independent
+    predicate deliberately does not model.
+    この 2 枚について、連結器が実際に延長した 146 断片のうち 145 断片で候補判定は
+    一致した。唯一相違した 1 件は、`clusters_range` 内に他の断片の端点を持たず
+    （最近傍は 20 px の範囲に対して 21.4 px）、連結器は成長後にのみ存在する位置から
+    そこへ到達している。順序に依存しない述語は、その状態を意図的に扱わない。
     """
+    frame = _image_frame_shape(image)
+    # A fiber the connector could extend is not one whose whole length was
+    # measured, whatever the crossings and the frame say.
+    # 連結器が延長し得るファイバーは、交差や枠の判定がどうであれ、全長を計測できた
+    # ファイバーではない。
+    has_candidate = connection_candidate_flags(
+        image, fibers, connect_params or ConnectParams(),
+    )
     bp_mask = np.asarray(image.bp) if image.bp is not None else None
     if bp_mask is None or bp_mask.ndim != 2 or not bp_mask.any():
-        return [True] * len(fibers)
+        return [
+            (not _reaches_frame(f, frame)) and (not c)
+            for f, c in zip(fibers, has_candidate)
+        ]
 
     by, bx = np.where(bp_mask)
     r = BRANCH_TOUCH_RADIUS_PX
     flags: List[bool] = []
-    for f in fibers:
+    for f, candidate in zip(fibers, has_candidate):
         # Track arrays are bbox-local; shift by the bbox origin to compare
         # against the whole-image branch-point coordinates.
         # トラック配列は BBox ローカル座標なので、BBox 原点を加えて全体画像上の
         # 分岐点座標と比較する。
         gx = np.asarray(f.xtrack) + f.data[0]
         gy = np.asarray(f.ytrack) + f.data[1]
+        # A fiber the connector can extend, or one leaving the scan, is
+        # disqualified whatever the crossings say. Both tests are already
+        # computed or cheap, so they run before the branch-point search.
+        # 連結器が延長し得るファイバー、および走査範囲から出ていくファイバーは、
+        # 交差の有無にかかわらず対象外となる。どちらも計算済みまたは軽いので、
+        # 分岐点の探索より前に行う。
+        if candidate:
+            flags.append(False)
+            continue
+        if _reaches_frame(f, frame):
+            flags.append(False)
+            continue
         # Restrict to branch points inside the fiber's bounding box (grown by
         # the touch radius) before the pairwise test, so a dense image does not
         # cost len(track) * len(branch points) comparisons per fiber.
@@ -848,6 +1032,92 @@ def read_scan_size_from_bundle(
     return scan_size_um_from_meta(load_bundle_meta(bundle_path))
 
 
+def curate_fibers(
+    image: FiberTrackingImage,
+    fragments: Sequence[Fiber],
+    exclude_anchors: Sequence[Tuple[int, int]] = (),
+    connect_fibers: bool = False,
+    connect_params: Optional[ConnectParams] = None,
+) -> MeasureResult:
+    """
+    Build the measured population from traced skeleton fragments.
+    追跡済みの骨格断片から、計測対象の母集団を組み立てる。
+
+    Parameters
+    ----------
+    image
+        Tracking container the fragments were traced from, carrying the
+        resolved per-axis pixel size used for the statistics.
+        断片の追跡元となった追跡コンテナ。統計計算に使う軸別ピクセルサイズを
+        確定済みで保持する。
+    fragments
+        Traced skeleton fragments, before any curation is applied.
+        キュレーション適用前の追跡済み骨格断片。
+    exclude_anchors
+        Anchor pixels of manually excluded fibers, as recorded by
+        `lib.fiber_selection`. Empty means nothing was excluded.
+        `lib.fiber_selection` が記録した、手動除外ファイバーのアンカー画素。
+        空の場合は除外なしを意味する。
+    connect_fibers
+        Whether to reconnect the surviving fragments into whole fibrils.
+        残った断片を 1 本のフィブリルへ再結合するかどうか。
+    connect_params
+        Reconnection thresholds; ``None`` uses `ConnectParams` defaults.
+        再結合のしきい値。``None`` は `ConnectParams` の既定値を使う。
+
+    Returns
+    -------
+    MeasureResult
+        Curated population and its statistics, carrying `fragments` through
+        unchanged.
+        キュレーション済みの母集団と統計値。`fragments` はそのまま引き継ぐ。
+
+    Notes
+    -----
+    Exclusions are applied **before** reconnection, and this function is the
+    only place that decides that order. An exclusion states that an object is
+    not a fiber at all — debris, a scan-line artifact — so the connector must
+    never see it. Applied the other way round, a fibril is discarded whenever
+    it happens to have absorbed an excluded fragment, taking the real fiber
+    that fragment was joined to with it: on a test scan, excluding five
+    debris fragments discarded close to four times their total contour length
+    in fibrils.
+    除外は再結合の**前**に適用し、その順序を決めるのは本関数だけである。除外
+    とは「この対象はそもそもファイバーではない（ゴミ、走査線アーティファクト）」
+    という表明であり、連結器がそれを見てはならない。逆順で適用すると、除外され
+    た断片を取り込んだフィブリルが丸ごと捨てられ、その断片が繋がっていた実在の
+    ファイバーまで巻き添えで失われる。あるテスト画像では、ゴミ断片 5 本の除外に
+    より、その輪郭長合計の 4 倍近い長さのフィブリルが失われた。
+
+    The height filter deliberately keeps the opposite order — connect, then
+    filter, see `lib.fiber_connector.filter_fibers_by_height` — because it
+    selects a height band *inside* a real fibril, which only has a meaning
+    once the fibril is whole.
+    高さフィルターは意図的に逆の順序（連結してからフィルター、
+    `lib.fiber_connector.filter_fibers_by_height` 参照）を保つ。実在する
+    フィブリルの*内部*で高さ帯を選ぶ操作であり、フィブリルが 1 本に揃って初めて
+    意味を持つためである。
+    """
+    fibers = list(fragments)
+    if len(exclude_anchors) > 0:
+        drop = excluded_flags(fibers, exclude_anchors)
+        fibers = [f for f, d in zip(fibers, drop) if not d]
+    curated_count = len(fibers)
+    if connect_fibers:
+        fibers = connect_fiber_fragments(
+            image, fibers, params=connect_params or ConnectParams(),
+        )
+    return MeasureResult(
+        image=image,
+        fibers=fibers,
+        stats=compute_fiber_stats(
+            fibers, image.size_per_pixel, image.y_size_per_pixel,
+        ),
+        fragments=list(fragments),
+        curated_count=curated_count,
+    )
+
+
 def measure_bundle(
     bundle_path: str,
     scale_um: Optional[float] = None,
@@ -856,6 +1126,7 @@ def measure_bundle(
     scale_y_um: Optional[float] = None,
     connect_fibers: bool = False,
     connect_params: Optional[ConnectParams] = None,
+    exclude_anchors: Sequence[Tuple[int, int]] = (),
 ) -> MeasureResult:
     """
     Trace all fibers in one bundle and compute their statistics.
@@ -916,14 +1187,22 @@ def measure_bundle(
         ``None`` uses `ConnectParams` defaults.
         ``connect_fibers`` が ``True`` のときに使う再結合しきい値。``None`` は
         `ConnectParams` の既定値を使う。
+    exclude_anchors
+        Anchor pixels of manually excluded fibers, applied to the traced
+        fragments **before** reconnection (see `curate_fibers`). Defaults to
+        empty, so a bundle measures exactly as it did before unless the
+        caller asks for curation.
+        手動除外ファイバーのアンカー画素。再結合の**前**に、追跡済み断片へ
+        適用する（`curate_fibers` 参照）。既定は空で、呼び出し側がキュレーション
+        を要求しない限り、従来と全く同じ計測結果になる。
 
     Returns
     -------
     MeasureResult
-        Rebuilt image, traced (optionally reconnected) fibers, and per-fiber
-        statistics.
-        再構築済み画像、追跡（必要に応じて再結合）されたファイバー、
-        ファイバーごとの統計値。
+        Rebuilt image, traced (optionally curated and reconnected) fibers,
+        per-fiber statistics, and the uncurated fragments.
+        再構築済み画像、追跡（必要に応じてキュレーション・再結合）されたファイバー、
+        ファイバーごとの統計値、およびキュレーション前の断片。
 
     Raises
     ------
@@ -985,54 +1264,51 @@ def measure_bundle(
     image = _tracking_image_from_arrays(
         name, data, x_size_per_pixel, y_size_per_pixel,
     )
-    fibers = image.fibers_in_image_parallel(
+    fragments = image.fibers_in_image_parallel(
         max_workers=max_workers,
         progress_cb=progress_cb,
     )
-    if connect_fibers:
-        # Reconnect crossing/branching fragments into whole fibrils. This runs
-        # after fragment tracing because the connector grows fibrils from the
-        # traced fragments and reuses the same image height data.
-        # 交差・分岐した断片を 1 本のフィブリルへ再結合する。連結器は追跡済み
-        # 断片からフィブリルを成長させ、同じ画像の高さデータを再利用するため、
-        # 断片追跡の後に実行する。
-        fibers = connect_fiber_fragments(
-            image, fibers, params=connect_params or ConnectParams(),
-        )
-    return MeasureResult(
-        image=image,
-        fibers=fibers,
-        stats=compute_fiber_stats(fibers, x_size_per_pixel, y_size_per_pixel),
+    # Curation and reconnection both run after fragment tracing, and their
+    # order is owned by `curate_fibers`.
+    # キュレーションと再結合はいずれも断片追跡の後に実行し、その順序は
+    # `curate_fibers` が一元的に決める。
+    return curate_fibers(
+        image,
+        fragments,
+        exclude_anchors=exclude_anchors,
+        connect_fibers=connect_fibers,
+        connect_params=connect_params,
     )
 
 
-def _keep_after_exclusions(bundle_path: str, fibers: List) -> List[bool]:
+def _exclusion_anchors(bundle_path: str) -> List[Tuple[int, int]]:
     """
-    Flag which fibers survive the bundle's manual exclusion sidecar.
-    バンドルの手動除外サイドカーを適用して残るファイバーを判定する。
+    Read the anchor pixels from a bundle's manual exclusion sidecar.
+    バンドルの手動除外サイドカーからアンカー画素を読み出す。
 
     Parameters
     ----------
     bundle_path
         Bundle whose sidecar is consulted.
         サイドカーを参照するバンドル。
-    fibers
-        Traced fibers to classify.
-        判定対象の追跡済みファイバー。
 
     Returns
     -------
-    list of bool
-        One flag per fiber; True means keep. Every fiber is kept when no
-        sidecar exists.
-        ファイバーごとの判定。True は残すことを意味する。サイドカーが無ければ
-        全て残す。
+    list of tuple of int
+        ``(x, y)`` anchors in input order; empty when no sidecar exists.
+        入力順の ``(x, y)`` アンカー列。サイドカーが無ければ空。
+
+    Notes
+    -----
+    The anchors are handed to `measure_bundle` rather than applied to the
+    measured fibers here, so exclusions reach the fragments before
+    reconnection; `curate_fibers` documents why that order matters.
+    アンカーはここで計測済みファイバーへ適用せず `measure_bundle` へ渡す。
+    これにより除外は再結合より前に断片へ届く。その順序が重要な理由は
+    `curate_fibers` に記載している。
     """
     records = load_exclusions(exclusion_path_for(bundle_path))
-    if not records:
-        return [True] * len(fibers)
-    flags = excluded_flags(fibers, [(r["x"], r["y"]) for r in records])
-    return [not f for f in flags]
+    return [(int(r["x"]), int(r["y"])) for r in records]
 
 
 def collect_fiber_stats(
@@ -1104,35 +1380,22 @@ def collect_fiber_stats(
     per_bundle: List[Tuple[str, List[FiberStats]]] = []
     errors: List[Tuple[str, str]] = []
     for path in bundle_paths:
+        # Exclusions go in as anchors so `measure_bundle` applies them to the
+        # fragments; statistics then come back already renumbered over the
+        # retained fibers, exactly as GUI04's export does.
+        # 除外はアンカーとして渡し、`measure_bundle` が断片へ適用する。統計値は
+        # 残ったファイバーで採番し直された状態で返るため、GUI04 の出力と一致する。
         try:
+            anchors = _exclusion_anchors(path) if apply_exclusions else ()
             result = measure_bundle(
                 path,
                 scale_um=scale_um,
                 scale_y_um=scale_y_um,
                 max_workers=max_workers,
+                exclude_anchors=anchors,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
-            continue
-
-        if apply_exclusions:
-            # Exclusions are applied to the traced fibers, then statistics are
-            # recomputed, so the `index` column is renumbered over the retained
-            # fibers exactly as GUI04's export does.
-            # 除外は追跡済みファイバーに適用し、その後で統計値を計算し直す。
-            # これにより `index` 列は GUI04 の出力と同様、残ったファイバーで
-            # 採番し直される。
-            try:
-                keep = _keep_after_exclusions(path, result.fibers)
-            except Exception as e:
-                errors.append((path, f"{type(e).__name__}: {e}"))
-                continue
-            fibers = [f for f, k in zip(result.fibers, keep) if k]
-            per_bundle.append((path, compute_fiber_stats(
-                fibers,
-                result.image.size_per_pixel,
-                result.image.y_size_per_pixel,
-            )))
             continue
 
         per_bundle.append((path, list(result.stats)))
@@ -1248,24 +1511,19 @@ def collect_skeleton_height_profiles(
     errors: List[Tuple[str, str]] = []
     for path in bundle_paths:
         try:
+            anchors = _exclusion_anchors(path) if apply_exclusions else ()
             result = measure_bundle(
                 path,
                 scale_um=scale_um,
                 scale_y_um=scale_y_um,
                 max_workers=max_workers,
+                exclude_anchors=anchors,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
 
         fibers = result.fibers
-        if apply_exclusions:
-            try:
-                keep = _keep_after_exclusions(path, fibers)
-            except Exception as e:
-                errors.append((path, f"{type(e).__name__}: {e}"))
-                continue
-            fibers = [f for f, k in zip(fibers, keep) if k]
 
         heights: List[np.ndarray] = []
         weights: List[np.ndarray] = []
@@ -1348,24 +1606,19 @@ def collect_fiber_curvature(
     errors: List[Tuple[str, str]] = []
     for path in bundle_paths:
         try:
+            anchors = _exclusion_anchors(path) if apply_exclusions else ()
             result = measure_bundle(
                 path,
                 scale_um=scale_um,
                 scale_y_um=scale_y_um,
                 max_workers=max_workers,
+                exclude_anchors=anchors,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
 
         fibers = result.fibers
-        if apply_exclusions:
-            try:
-                keep = _keep_after_exclusions(path, fibers)
-            except Exception as e:
-                errors.append((path, f"{type(e).__name__}: {e}"))
-                continue
-            fibers = [f for f, k in zip(fibers, keep) if k]
 
         x_spp = result.image.size_per_pixel
         y_spp = result.image.y_size_per_pixel
