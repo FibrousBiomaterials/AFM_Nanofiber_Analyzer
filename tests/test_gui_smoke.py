@@ -408,6 +408,59 @@ def test_gui04_unsaved_exclusions_block_leaving_on_cancel(tk_app, monkeypatch):
     assert app._exclusions_dirty is False
 
 
+def test_gui04_undoing_every_exclusion_leaves_nothing_unsaved(tk_app, monkeypatch):
+    """
+    A set walked back to what is on disk stops counting as unsaved.
+    ディスク上の内容まで戻した集合は、未保存として扱われなくなる。
+
+    The unsaved flag decides both the save button and the prompt raised on the
+    way out of a dataset, so marking any touch of the set as pending asked the
+    user to save or discard a difference that did not exist. A confirmation
+    with nothing at stake trains the reflex that loses the work when the
+    prompt is real.
+    未保存フラグは保存ボタンと、データセットからの離脱時に出る確認ダイアログの
+    両方を決める。そのため集合に触れただけで保留扱いにすると、存在しない差分の
+    保存・破棄をユーザーに尋ねることになる。失うものが無い確認は、本当に必要な
+    確認のときに作業を失う反射を育てる。
+    """
+    app = tk_app(gui04.App)
+    app.current_image = _StubImage()
+    fibers = [_StubFiber(0, 0), _StubFiber(4, 0), _StubFiber(0, 4)]
+    app.current_fibers = fibers
+    app.current_fragments = fibers
+    monkeypatch.setattr(app, "_recurate_population", lambda: None)
+
+    app._sel_indices = [0, 2]
+    app._sel_idx = 0
+    app._on_exclude_selected()
+
+    assert app._exclusions_dirty is True
+    assert str(app._btn_save_exclusions.cget("state")) == "normal"
+
+    app._on_undo_last_exclusion()
+
+    assert app._excluded_records == []
+    assert app._exclusions_dirty is False
+    assert str(app._btn_save_exclusions.cget("state")) == "disabled"
+
+    def _unexpected(*_args, **_kwargs):
+        raise AssertionError("an unchanged exclusion set must not prompt")
+
+    monkeypatch.setattr(gui04.messagebox, "askyesnocancel", _unexpected)
+    assert app._confirm_unsaved_exclusions() is True
+
+    # The order the records sit in is not content: an anchor excludes whatever
+    # fiber passes through it, so re-excluding the same fibers in another order
+    # leaves nothing to write.
+    # レコードの並び順は内容ではない。アンカーはそこを通るファイバーを除外する
+    # ものであり、同じファイバーを別の順序で除外し直しても書き出すものは無い。
+    records = [{"x": 1, "y": 2, "note": ""}, {"x": 3, "y": 4, "note": "not isolated"}]
+    assert (gui04.exclusion_state_key(records)
+            == gui04.exclusion_state_key(list(reversed(records))))
+    assert (gui04.exclusion_state_key(records)
+            != gui04.exclusion_state_key(records[:1]))
+
+
 def test_gui03_worker_stops_when_bin_edges_fail(tk_app, tmp_path, monkeypatch):
     """
     A failure building the bin edges reports once and ends the worker.

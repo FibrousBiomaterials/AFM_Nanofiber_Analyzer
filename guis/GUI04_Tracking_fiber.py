@@ -298,6 +298,44 @@ def table_row_values(result) -> List[tuple]:
     ]
 
 
+def exclusion_state_key(records: Sequence[dict]) -> tuple:
+    """
+    Reduce an exclusion set to what distinguishes it from another one.
+    除外集合を、他の集合と区別される内容だけに還元する。
+
+    Parameters
+    ----------
+    records
+        Exclusion records with ``x`` / ``y`` and an optional ``note``.
+        ``x`` / ``y``（および任意の ``note``）を持つ除外レコード列。
+
+    Returns
+    -------
+    tuple
+        Comparable key; two sets with the same key exclude the same fibers.
+        比較可能なキー。同じキーの 2 つの集合は同じファイバーを除外する。
+
+    Notes
+    -----
+    Sorted, so the order the records happen to sit in does not count as a
+    difference: an anchor excludes a fiber whose track passes through it, so
+    re-excluding the same fibers in another order leaves the measured
+    population identical and there is nothing to write.
+    ソートするため、レコードの並び順の違いは差分として扱わない。アンカーは
+    「その点を通るファイバー」を除外するものであり、同じファイバーを別の順序で
+    除外し直しても計測対象は変わらず、書き出すものは何も無い。
+
+    The values are coerced the way `fiber_selection.save_exclusions` writes
+    them, so a set built in memory compares equal to the same set read back.
+    値は `fiber_selection.save_exclusions` が書き出すときと同じ型へ揃える。
+    メモリ上で作った集合と、それを読み戻した集合が等しく比較されるためである。
+    """
+    return tuple(sorted(
+        (int(r["x"]), int(r["y"]), str(r.get("note", "")))
+        for r in records
+    ))
+
+
 # ===== Main window =====
 
 class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
@@ -517,6 +555,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # その代償が未保存状態であり、データセット切替・フォルダ変更・ウインドウ
         # 終了時のガードは、それを黙って失わせないために存在する。
         self._exclusions_dirty = False
+
+        # The exclusion set as it stands on disk, kept as a comparison key so
+        # that "unsaved" is decided by content rather than by whether the set
+        # was touched. Excluding a fiber and undoing it leaves nothing to
+        # write, and a prompt raised when nothing is at stake teaches the user
+        # to dismiss the one that matters.
+        # ディスク上にある除外集合を比較キーとして保持する。「未保存」を、集合に
+        # 触ったかどうかではなく内容で判定するためである。除外して取り消せば書き
+        # 出すものは何も無く、失うものが無い場面で出る確認は、本当に必要な確認を
+        # 反射的に閉じる癖をユーザーに付けてしまう。
+        self._exclusions_saved_key: tuple = ()
 
         # -- Fiber-connection (whole-fibril) toggle and its parameters --
         # Default is off; toggling re-analyzes the current dataset. When on,
@@ -1963,13 +2012,24 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # ディスクから復元した集合はグループ情報を持たないため、取り消しは 1
             # レコードずつ進む。詳細は _exclusion_groups のコメントを参照。
             self._exclusion_groups = [1] * len(self._excluded_records)
-            # Freshly loaded from disk, so nothing is pending. Any unsaved
+            # Freshly loaded from disk, so nothing is pending and this set is
+            # the baseline every later edit is compared against. Any unsaved
             # change from the previous dataset was already resolved by the
             # guard in _on_file_select before this load was started.
-            # ディスクから読み直した直後なので保留中の変更は無い。前のデータセット
-            # の未保存の変更は、この読み込みが始まる前に _on_file_select のガード
-            # で処理済みである。
+            # ディスクから読み直した直後なので保留中の変更は無く、この集合が以後
+            # の編集を比較する基準となる。前のデータセットの未保存の変更は、この
+            # 読み込みが始まる前に _on_file_select のガードで処理済みである。
+            #
+            # A sidecar that failed to load arrives here empty, so the baseline
+            # is "no exclusions" and the broken file is left untouched until
+            # the user excludes something, exactly as the read path intends.
+            # 読み込みに失敗したサイドカーは空で届くため、基準は「除外なし」と
+            # なり、壊れたファイルはユーザーが何か除外するまで手を付けられない。
+            # これは読み込み側が意図した通りの挙動である。
             self._exclusions_dirty = False
+            self._exclusions_saved_key = exclusion_state_key(
+                self._excluded_records
+            )
             if self._excluded_records:
                 self._log(_("除外を復元しました: {n} 件").format(
                     n=len(self._excluded_records)
@@ -2370,8 +2430,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _commit_exclusions(self) -> None:
         """
-        Apply an exclusion-set change in memory and mark it unsaved.
-        除外集合の変更をメモリ上に反映し、未保存として記録する。
+        Apply an exclusion-set change in memory and record whether it is saved.
+        除外集合の変更をメモリ上に反映し、保存済みかどうかを記録する。
 
         Notes
         -----
@@ -2382,12 +2442,24 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         目に見える。明示的な保存を待つのはサイドカーだけである。ここでは
         ディスクへの書き込みを一切行わない。
 
+        The unsaved flag is a comparison against the set on disk, not a mark
+        that something was touched: excluding and adding, undoing, restoring
+        and clearing all arrive here, so a set walked back to what was saved
+        has nothing left to write and must not be announced as pending.
+        未保存フラグは「触った」という印ではなく、ディスク上の集合との比較結果で
+        ある。除外の追加・取消・個別解除・全解除はいずれもここを通るため、保存
+        済みの状態まで戻した集合には書き出すものが残っておらず、保留中として
+        知らせてはならない。
+
         Exclusions act on the fragments, before reconnection, so the measured
         population has to be rebuilt rather than merely re-filtered.
         除外は再結合より前に断片へ作用するため、計測対象の母集団は絞り直しでは
         なく組み立て直す必要がある。
         """
-        self._exclusions_dirty = True
+        self._exclusions_dirty = (
+            exclusion_state_key(self._excluded_records)
+            != self._exclusions_saved_key
+        )
         self._refresh_exclusion_button()
         self._recurate_population()
 
@@ -2440,7 +2512,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 path=os.path.basename(self._exclusion_path()),
             ))
 
+        # What was just written becomes the baseline for later comparisons.
+        # 今書き出した内容が、以後の比較の基準になる。
         self._exclusions_dirty = False
+        self._exclusions_saved_key = exclusion_state_key(self._excluded_records)
         self._refresh_exclusion_button()
         return True
 
@@ -2463,6 +2538,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         手動保存が成立するのは、離脱によって作業が黙って失われない場合に限る。
         そのため、データセットから出る全ての経路（別データセットの選択、フォルダ
         変更、ウインドウ終了）はここを通す。
+
+        Nothing is asked when the set matches the sidecar, which is what an
+        exclusion followed by its undo leaves behind: there would be no
+        difference to save and none to discard.
+        集合がサイドカーと一致するときは何も尋ねない。除外してから取り消した後は
+        この状態であり、保存すべき差分も破棄すべき差分も存在しない。
         """
         if not self._exclusions_dirty:
             return True
@@ -2480,7 +2561,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return self._on_save_exclusions()
 
         self._log(_("未保存の除外を破棄しました。"))
+        # The discarded set stays in memory until the next load replaces it,
+        # so it also becomes the baseline; otherwise the next edit would be
+        # compared against a file the user has just declined to write.
+        # 破棄された集合は次の読み込みで置き換わるまでメモリ上に残るため、これも
+        # 基準として扱う。そうしなければ、次の編集を「ユーザーが今まさに書かない
+        # と決めたファイル」と比較することになる。
         self._exclusions_dirty = False
+        self._exclusions_saved_key = exclusion_state_key(self._excluded_records)
         return True
 
     def _on_close(self) -> None:
