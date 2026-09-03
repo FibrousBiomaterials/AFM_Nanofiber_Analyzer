@@ -926,10 +926,10 @@ def test_isolated_fiber_flags_exclude_fibers_reaching_a_crossing():
     A fiber whose track reaches a branch point is not isolated.
     トラックが分岐点に達するファイバーは孤立ではない。
 
-    This is the test behind GUI04's "孤立ファイバーのみ" filter. Fibers cut at a
+    This is the test behind GUI04's "非孤立を除外" button. Fibers cut at a
     crossing have a truncated length, so excluding them is what keeps the
     length statistics free of partial measurements.
-    GUI04 の「孤立ファイバーのみ」フィルターの判定である。交差部で切断された
+    GUI04 の「非孤立を除外」ボタンの判定である。交差部で切断された
     ファイバーは長さが切り詰められているため、除外することで長さ統計に部分
     計測が混ざらないようにする。
     """

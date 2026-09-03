@@ -191,6 +191,132 @@ def test_gui04_batch_exclusion_undoes_in_one_press(tk_app, monkeypatch):
     assert app._exclusion_groups == []
 
 
+def test_gui04_non_isolated_exclusion_is_an_ordinary_exclusion(tk_app, monkeypatch):
+    """
+    "非孤立を除外" records anchors and undoes exactly like "選択を除外".
+    「非孤立を除外」は「選択を除外」と同じようにアンカーを記録し、同じように戻る。
+
+    Making it an exclusion rather than a view filter is the whole point of the
+    feature: the judgement then survives the session in the sidecar, is listed
+    with its reason in 「除外設定...」, and comes back in one undo press. The
+    note is what separates these from fibers rejected by eye.
+    表示フィルターではなく除外にしたことが本機能の要点である。これにより判断は
+    サイドカーとしてセッションを越えて残り、「除外設定...」に理由付きで一覧され、
+    取り消し 1 回で戻る。メモは目視で棄却したファイバーとの区別を与える。
+    """
+    app = tk_app(gui04.App)
+    app.current_image = _StubImage()
+    fibers = [_StubFiber(0, 0), _StubFiber(4, 0), _StubFiber(0, 4)]
+    app.current_fibers = fibers
+    app.current_fragments = fibers
+    monkeypatch.setattr(app, "_recurate_population", lambda: None)
+    monkeypatch.setattr(gui04.messagebox, "askyesno", lambda *a, **k: True)
+    # Only the first fiber was measured over its whole length; the other two
+    # are what the button has to exclude.
+    # 全長を計測できたのは先頭のみで、残る 2 本が除外対象となる。
+    monkeypatch.setattr(
+        gui04, "isolated_fiber_flags", lambda *a, **k: [True, False, False],
+    )
+
+    app._on_exclude_non_isolated()
+
+    assert len(app._excluded_records) == 2
+    assert all(r["note"] == "not isolated" for r in app._excluded_records)
+    assert app._exclusion_groups == [2], "one press is one undo step"
+
+    app._on_undo_last_exclusion()
+
+    assert app._excluded_records == []
+    assert app._exclusion_groups == []
+
+
+def test_gui04_non_isolated_exclusion_judges_the_measured_population(
+    tk_app, monkeypatch
+):
+    """
+    The isolation verdict is taken on `current_fibers`, not on the display list.
+    孤立判定は表示リストではなく `current_fibers` に対して行う。
+
+    With the height filter active the display list holds sub-segments cut out
+    of a fibril, whose ends are the filter's cuts rather than the fiber's own,
+    so "was this measured over its whole length?" has no meaning for them. The
+    verdict has to be taken on the fibers as they were traced — which is also
+    what lets the height filter be applied to the isolated population
+    afterwards, instead of the two narrowings having to exclude each other.
+    高さフィルターが有効なとき、表示リストはフィブリルから切り出された部分区間を
+    保持する。その端はファイバー本来の端ではなくフィルターの切断面であるため、
+    「全長を計測できたか」という問い自体が成立しない。判定は追跡された状態の
+    ファイバーに対して行わなければならない。これにより、2 つの絞り込みを排他に
+    することなく、孤立ファイバーの母集団へ高さフィルターを後からかけられる。
+    """
+    app = tk_app(gui04.App)
+    app.current_image = _StubImage()
+    traced = [_StubFiber(0, 0), _StubFiber(4, 0)]
+    app.current_fibers = traced
+    app.current_fragments = traced
+    # A height filter is on, so the display list is a different, longer list of
+    # sub-segments; the verdict must not be taken on it.
+    # 高さフィルターが有効で、表示リストは別物（部分区間の、より長いリスト）で
+    # ある。判定をこちらに対して行ってはならない。
+    app._filter_active = True
+    app._filtered_fibers = [_StubFiber(0, 0), _StubFiber(1, 0), _StubFiber(4, 0)]
+    monkeypatch.setattr(app, "_recurate_population", lambda: None)
+    monkeypatch.setattr(gui04.messagebox, "askyesno", lambda *a, **k: True)
+
+    judged = []
+
+    def _flags(image, fibers, params=None):
+        judged.append(list(fibers))
+        return [True] * len(fibers)
+
+    monkeypatch.setattr(gui04, "isolated_fiber_flags", _flags)
+    monkeypatch.setattr(gui04.messagebox, "showinfo", lambda *a, **k: None)
+
+    app._on_exclude_non_isolated()
+
+    assert judged, "the button has to reach the isolation test"
+    assert judged[-1] == traced
+
+
+def test_gui04_non_isolated_exclusion_requires_connection_off(tk_app, monkeypatch):
+    """
+    The button refuses while fiber connection is on, and changes nothing.
+    ファイバー連結が ON の間、本ボタンは実行を拒否し、何も変更しない。
+
+    Isolation is defined on the fragments as traced, and reconnection joins a
+    fiber across a crossing into the network so that it stops being isolated.
+    The precondition is reported rather than fixed silently: switching the
+    checkbox here would re-analyze the dataset as a side effect of pressing an
+    exclusion button.
+    孤立は追跡された状態の断片に対して定義され、再結合は交差を越えてファイバーを
+    ネットワークへつなぐため、そのファイバーは孤立でなくなる。前提条件は黙って
+    修正せず報告する。ここでチェックボックスを切り替えると、除外ボタンを押した
+    副作用としてデータセットが再解析されてしまうためである。
+    """
+    app = tk_app(gui04.App)
+    app.current_image = _StubImage()
+    app.current_fibers = [_StubFiber(0, 0)]
+    app.current_fragments = app.current_fibers
+    app.connect_enabled_var.set(True)
+
+    informed = []
+    monkeypatch.setattr(
+        gui04.messagebox, "showinfo", lambda *a, **k: informed.append(a),
+    )
+    monkeypatch.setattr(gui04, "isolated_fiber_flags", _unreachable_flags)
+
+    app._on_exclude_non_isolated()
+
+    assert informed, "the precondition has to be reported"
+    assert app._excluded_records == []
+    assert app.connect_enabled_var.get() is True
+
+
+def _unreachable_flags(*args, **kwargs):
+    """Fail if the isolation test runs when the precondition rejects the press."""
+    raise AssertionError("isolation must not be evaluated with connection on")
+
+
 def test_gui04_reanalysis_keeps_unsaved_exclusions(tk_app, monkeypatch):
     """
     Re-analyzing the loaded dataset carries its exclusions through untouched.
@@ -418,10 +544,10 @@ def test_gui04_fiber_table_shows_straightness_and_curvature(tk_app, tmp_path):
 
     app.current_image = result.image
     app.current_fibers = result.fibers
-    # Empty the cache so the table recomputes, which is the path a height or
-    # isolated-fiber filter takes; it must fill the same columns.
-    # キャッシュを空にしてテーブル側で再計算させる。高さ／孤立ファイバーフィルター
-    # が通る経路であり、同じ列が埋まらなければならない。
+    # Empty the cache so the table recomputes, which is the path the height
+    # filter takes; it must fill the same columns.
+    # キャッシュを空にしてテーブル側で再計算させる。高さフィルターが通る経路で
+    # あり、同じ列が埋まらなければならない。
     app._fiber_stats = []
     app._populate_fiber_table(result.fibers)
 

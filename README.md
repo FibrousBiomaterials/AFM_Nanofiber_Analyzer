@@ -450,23 +450,25 @@ fiber's track rather than its row number, because turning fiber connection on or
 off renumbers the list while the pixel keeps its meaning. "除外設定..." opens a
 window listing them, where any one or all of them can be restored.
 
-A separate isolated-fiber filter restricts the table, the overview, and the CSV
-export to fibers that touch no other fiber anywhere along their path
-(`lib.measure.isolated_fiber_flags`). A fiber cut where it crosses another one
-has a truncated length rather than a short one, so leaving those fragments in
-the population biases length statistics low. The filter selects among the
-fibers already measured and triggers no reanalysis.
+"非孤立を除外" is the bulk counterpart of "選択を除外": it excludes, in one
+press, every fiber whose whole length could not be measured
+(`lib.measure.isolated_fiber_flags`) — one that touches another fiber somewhere
+along its path, one that runs off the edge of the scan, or one the connector
+can see a continuation past. A fiber cut where it crosses another one has a
+truncated length rather than a short one, so leaving those fragments in the
+population biases length statistics low. The excluded fibers are recorded like
+any hand-picked exclusion, with the note `not isolated`, so one press of
+"直前を取消" takes them all back and "除外設定..." shows why each one went.
 
-The isolated-fiber filter and fiber connection are mutually exclusive; turning
-one on turns the other off. They answer the same problem in opposite ways:
-connection reconstructs a fiber through a crossing, while this filter declines
-to trust any fiber that reaches one. Running both would also be
-self-defeating, because connection joins an isolated fiber to the network and
-it then stops being isolated. In a dense network most fibers reach a crossing,
-so a small retained count is the expected outcome rather than a detection
-failure. Note that the filter tests fiber topology, not whether an object is a
-fiber: a scan-line artifact touches nothing and passes it, which is what
-GUI01's stripe-noise screening is for.
+Because this is an exclusion rather than a view filter, the verdict is taken
+once, on the fibers as they were traced, and the height filter can then be
+applied to the isolated population. Fiber connection has to be off: isolation
+is defined on the fragments as traced, and connection joins a fiber across a
+crossing into the network so that it stops being isolated. In a dense network
+most fibers reach a crossing, so a small remainder is the expected outcome
+rather than a detection failure. Note that the test is about fiber topology,
+not about whether an object is a fiber: a scan-line artifact touches nothing
+and survives it, which is what GUI01's stripe-noise screening is for.
 
 The AFM overview carries the same pan/zoom toolbar as the Plot Profiler, plus
 a reset button, a "zoom to selection" button, and a toggle for the fiber

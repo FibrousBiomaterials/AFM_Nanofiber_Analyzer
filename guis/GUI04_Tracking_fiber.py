@@ -475,24 +475,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # デフォルト OFF。即時反映で適用/リセット。
         self.filter_enabled_var   = tk.BooleanVar(value=False)
 
-        # -- Isolated-fiber-only checkbox --
-        # Default is off, so the fiber count stays comparable with earlier
-        # versions. When on, only fibers that touch no other fiber anywhere
-        # along their path are listed. A fiber cut where it crosses another one
-        # has a truncated length rather than a short one, and a fibril
-        # reconnected across a crossing has a length that depends on the
-        # connector's judgment; excluding both leaves only fibers whose full
-        # length is measured directly.
-        # ── 孤立ファイバーのみ表示 ──
-        # 既定 OFF（従来版とファイバー本数を比較可能に保つ）。ON のとき、経路上の
-        # どこでも他のファイバーに接しておらず、かつ画像の端に達していないファイバー
-        # のみを一覧する。交差部で切断されたファイバーの長さは「短い」のではなく
-        # 「切り詰められている」。また交差を越えて再結合されたフィブリルの長さは
-        # 連結器の判断に依存する。画像の端に達したファイバーは枠の外へ続いており、
-        # 計測できたのは走査範囲に入った部分だけである。これらを除外することで、
-        # 全長を直接計測できたファイバーだけが残る。
-        self.isolated_only_var    = tk.BooleanVar(value=False)
-
         # -- Manually excluded fibers for the current dataset --
         # Loaded from and written back to `<stem>_excluded.json` beside the
         # bundle, so a judgement made by looking at the overview survives the
@@ -765,44 +747,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ToolTip(chk_connect, _(
             "ON時: 交差・分岐で分断された骨格断片を 1 本のフィブリルへ再結合してから計測する。\n"
             "OFF時: 各骨格断片を 1 本のファイバーとして扱う（従来動作）。\n"
-            "「孤立ファイバーのみ」とは排他で、一方を ON にすると他方は OFF になる。\n"
             "切り替えると現在のデータセットを再解析する。"
         ))
         ttk.Button(
             bar, text=_("連結設定…"),
             command=self._open_connect_settings,
         ).pack(side="left", padx=(0, 4))
-
-        # -- Isolated fibers only: pure view filter, no reanalysis --
-        # Placed next to the connection controls because the two answer the same
-        # problem in opposite ways: connection reconstructs a fiber through a
-        # crossing, this filter declines to trust any fiber that reaches one.
-        # ── 孤立ファイバーのみ ── 再解析を伴わない表示フィルター。
-        # 同じ問題に正反対の方針で答える機能なので連結操作の隣に配置する。連結は
-        # 交差を越えてファイバーを再構築し、本フィルターは交差に達したファイバー
-        # を信頼しない。
-        chk_isolated = ttk.Checkbutton(
-            bar, text=_("孤立ファイバーのみ"),
-            variable=self.isolated_only_var,
-            command=self._on_isolated_only_toggle,
-        )
-        chk_isolated.pack(side="left", padx=(2, 2))
-        ToolTip(chk_isolated, _(
-            "ON時: 全長を計測できたファイバーだけを一覧・表示・"
-            "CSV 出力の対象にする。\n"
-            "他のファイバーと交差・接触しているファイバーは、そこで切断されて"
-            "全長が不明なため除外される。\n"
-            "画像の端に達しているファイバーも、枠の外へ続いており全長が不明な"
-            "ため除外される。\n"
-            "連結器が連結相手を見つけるファイバーも、その先に続きがあるため"
-            "除外される。判定には「連結設定...」の値を使う。\n"
-            "密な試料では残る本数が 0 に近くなることがある。全長を計測できた"
-            "ファイバーが実際に存在しないという結果であり、不具合ではない。\n"
-            "「ファイバー連結」とは排他で、一方を ON にすると他方は OFF になる。"
-            "連結は交差を越えてファイバーをつなぐため、孤立ファイバーが"
-            "ネットワークに取り込まれ、孤立と判定されなくなる。\n"
-            "再解析は行わず、表示の絞り込みのみを切り替える。"
-        ))
 
     def _build_main(self) -> None:
         """
@@ -873,6 +823,44 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "行われます。自動フィルターでは落とせないゴミや走査線アーティファクト"
             "を、全体像で確認しながら除くための機能です。"
         ).format(suffix=EXCLUSION_SUFFIX))
+
+        # Bulk counterpart of "選択を除外", and deliberately a button rather
+        # than a view filter. Isolation is a verdict about whether a fiber's
+        # whole length was measured, so it has to be decided on the fibers as
+        # traced. Re-evaluated at display time it was instead applied to
+        # whatever list the views held, including the sub-segments the height
+        # filter cuts out of a fibril, whose ends are cuts made by that filter
+        # rather than the fiber's own ends. Deciding it once, here, also lets
+        # the height filter run on the isolated population afterwards, which a
+        # mutually exclusive pair of filters would have made impossible.
+        # 「選択を除外」の一括版であり、表示フィルターではなくボタンとしたのは
+        # 意図的である。孤立とは「そのファイバーの全長を計測できたか」という判定
+        # であり、追跡された状態のファイバーに対して下さなければならない。表示
+        # のたびに再評価する方式では、各表示が保持する任意のリスト（高さフィルター
+        # がフィブリルから切り出した部分区間を含む）に適用されてしまう。その区間の
+        # 端はファイバー本来の端ではなくフィルターが入れた切断面である。ここで
+        # 一度だけ判定することにより、孤立ファイバーの母集団に対して高さフィルター
+        # を後からかけることもできる。排他の 2 フィルターでは不可能な操作である。
+        btn_non_isolated = ttk.Button(
+            tbl_header, text=_("非孤立を除外"),
+            command=self._on_exclude_non_isolated,
+        )
+        btn_non_isolated.pack(side="left", padx=4)
+        ToolTip(btn_non_isolated, _(
+            "全長を計測できなかったファイバーをまとめて除外し、孤立ファイバー"
+            "だけを残します。\n"
+            "他のファイバーと交差・接触しているファイバーは、そこで切断されて"
+            "全長が不明なため除外されます。\n"
+            "画像の端に達しているファイバーも、枠の外へ続いており全長が不明な"
+            "ため除外されます。\n"
+            "連結器が連結相手を見つけるファイバーも、その先に続きがあるため"
+            "除外されます。判定には「連結設定...」の値を使います。\n"
+            "密な試料では残る本数が 0 に近くなることがあります。全長を計測できた"
+            "ファイバーが実際に存在しないという結果であり、不具合ではありません。\n"
+            "除外は「選択を除外」と同じ扱いで、「直前を取消」の 1 回で全部が"
+            "戻ります。判定は連結前の断片に対して定義されるため、"
+            "「ファイバー連結」が ON のときは実行できません。"
+        ))
 
         self._btn_undo_exclusion = ttk.Button(
             tbl_header, text=_("直前を取消"),
@@ -2017,10 +2005,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             ).format(
                 w=self._fmt_num(DEFAULT_CURVATURE_WINDOW_NM), n=unmeasurable,
             ))
-        # Read back through the accessor so a checked isolated-fiber filter
-        # survives a file switch, as the height filter already does below.
-        # アクセサ経由で読み直し、孤立ファイバーフィルターがファイル切替後も
-        # 維持されるようにする（下の高さフィルターと同じ扱い）。
+        # Read back through the accessor, which is the single source of the
+        # displayed population; the height filter below then re-applies itself.
+        # 表示対象母集団の唯一の供給元であるアクセサ経由で読み直す。下の高さ
+        # フィルターはその後で自らを適用し直す。
         self._populate_fiber_table(self._display_fibers())
         # Dispatch by display mode so the fiber view survives a file switch.
         # 表示モードで分岐し、ファイル切替後も色分け表示を維持する。
@@ -2069,7 +2057,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # が有効ならその対応は無効になる。
         use_cache = (
             (not self._filter_active)
-            and (not self.isolated_only_var.get())
             and len(self._fiber_stats) == len(fibers)
         )
         if not use_cache:
@@ -2127,13 +2114,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         Notes
         -----
-        Repopulating the fiber table (a file load, or the isolated-fiber
-        filter) re-selects the first row programmatically. That is not the user
-        choosing a fiber, so panning there would teleport a zoomed-in view to
-        fiber 0 on every filter toggle.
-        ファイバーテーブルの再構築（ファイル読み込みや孤立ファイバーフィルター）
-        はプログラム側で先頭行を選び直す。これはユーザーがファイバーを選んだ
-        わけではないため、ここでパンするとフィルター切替のたびにズーム中の視野が
+        Repopulating the fiber table (a file load, the height filter, or an
+        exclusion) re-selects the first row programmatically. That is not the
+        user choosing a fiber, so panning there would teleport a zoomed-in view
+        to fiber 0 on every such change.
+        ファイバーテーブルの再構築（ファイル読み込み・高さフィルター・除外）は
+        プログラム側で先頭行を選び直す。これはユーザーがファイバーを選んだ
+        わけではないため、ここでパンすると母集団が変わるたびにズーム中の視野が
         ファイバー 0 へ飛ばされてしまう。
         """
         sel = self.fiber_tree.selection()
@@ -2195,30 +2182,23 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         出力の対象がずれないようにする。テーブルの行 ID はこのリスト内の位置な
         ので、呼び出し側は生のリストではなく必ずこれを参照すること。
 
-        The height filter is applied first because it rebuilds fibers; the
-        isolation test then runs on the fibers as they are actually measured
-        and exported.
-        高さフィルターはファイバーを再構築するため先に適用し、孤立判定は実際に
-        計測・出力される状態のファイバーに対して行う。
+        The height filter is the only narrowing applied here, and it is the
+        only one that belongs here: it selects a height band *inside* the
+        fibers, so it has to be re-derived whenever the population changes.
+        ここで適用する絞り込みは高さフィルターだけであり、ここに置いてよいのも
+        これだけである。ファイバーの*内部*で高さ帯を選ぶ操作であるため、母集団が
+        変わるたびに導き直す必要がある。
 
-        Manual exclusions are not applied here. They act on the fragments,
+        Manual exclusions are not applied here — neither the ones picked in the
+        table nor the ones "非孤立を除外" records. They act on the fragments,
         before reconnection, so `current_fibers` already excludes them; see
         `lib.measure.curate_fibers` for why that order is required.
-        手動除外はここでは適用しない。除外は再結合より前に断片へ作用するため、
+        手動除外はここでは適用しない。一覧で選んだものも「非孤立を除外」が記録
+        したものも同様である。除外は再結合より前に断片へ作用するため、
         `current_fibers` の時点で既に除かれている。その順序が必要な理由は
         `lib.measure.curate_fibers` を参照。
         """
-        fibers = self._filtered_fibers if self._filter_active else self.current_fibers
-        if self.isolated_only_var.get() and self.current_image is not None:
-            # Pass the connection settings the user actually has, so the filter
-            # and the connection feature agree on what counts as a continuation.
-            # ユーザーが実際に設定している連結パラメータを渡し、何を「続き」と
-            # みなすかについてフィルターと連結機能の判断を一致させる。
-            flags = isolated_fiber_flags(
-                self.current_image, fibers, self.connect_params,
-            )
-            fibers = [f for f, keep in zip(fibers, flags) if keep]
-        return fibers
+        return self._filtered_fibers if self._filter_active else self.current_fibers
 
     # =========================================================================
     # Manual fiber exclusion
@@ -2595,6 +2575,120 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._log(_(
                 "ファイバーを {n} 本除外しました（合計長さ {length:.0f} nm）"
             ).format(n=len(fibers), length=sum(f.length for f in fibers)))
+        self._commit_exclusions()
+
+    def _on_exclude_non_isolated(self) -> None:
+        """
+        Exclude every fiber whose whole length could not be measured.
+        全長を計測できなかったファイバーをすべて除外する。
+
+        Notes
+        -----
+        The same act as "選択を除外", decided by `lib.measure.isolated_fiber_flags`
+        instead of by pointing at rows: a fiber cut where it crosses another
+        one, a fiber running off the scan, or one the connector can see a
+        continuation past has a truncated length rather than a short one.
+        Recording it as an exclusion is what makes the judgement auditable in
+        「除外設定...」, undoable in one press, and persistent in the sidecar,
+        exactly like a hand-picked one.
+        「選択を除外」と同じ操作であり、対象を行で指す代わりに
+        `lib.measure.isolated_fiber_flags` が判定する。他のファイバーとの交差部で
+        切断されたファイバー、走査範囲の外へ出ていくファイバー、連結器から見て
+        続きのあるファイバーは、長さが「短い」のではなく「切り詰められている」。
+        これを除外として記録することで、手で選んだ除外と同じように「除外設定...」
+        で監査でき、1 回の取消で戻せ、サイドカーに残る。
+
+        The verdict is taken on `current_fibers`, never on `_display_fibers`.
+        With a height filter active the latter holds sub-segments cut out of a
+        fibril, whose ends are the filter's cuts rather than the fiber's own,
+        and "was this measured over its whole length?" has no meaning for them.
+        Deciding on the measured population instead lets the height filter be
+        applied to the isolated fibers afterwards.
+        判定は `_display_fibers` ではなく必ず `current_fibers` に対して行う。高さ
+        フィルターが有効なとき前者はフィブリルから切り出された部分区間を保持して
+        おり、その端はファイバー本来の端ではなくフィルターの切断面であるため、
+        「全長を計測できたか」という問い自体が成立しない。計測対象の母集団に対して
+        判定することで、孤立ファイバーへ後から高さフィルターをかけられる。
+
+        Fiber connection has to be off. Isolation is defined on the fragments
+        as traced, and reconnection joins a fiber across a crossing into the
+        network so that it stops being isolated. Rather than switching the
+        checkbox and re-analyzing behind the user's back, this reports the
+        precondition and leaves the choice with them.
+        ファイバー連結は OFF でなければならない。孤立は追跡された状態の断片に対
+        して定義され、再結合は交差を越えてファイバーをネットワークへつなぐため、
+        そのファイバーは孤立でなくなる。ユーザーの知らないところでチェックボックス
+        を切り替えて再解析するのではなく、前提条件を伝えて判断を委ねる。
+        """
+        if self.current_image is None or not self.current_fibers:
+            messagebox.showinfo(_("情報"), _("データセットを選択してください。"))
+            return
+
+        if self.connect_enabled_var.get():
+            messagebox.showinfo(
+                _("情報"),
+                _("「ファイバー連結」を OFF にしてから実行してください。\n"
+                  "孤立かどうかは連結前の断片に対して定義されます。連結は交差を"
+                  "越えてファイバーをつなぐため、孤立ファイバーがネットワークへ"
+                  "取り込まれ、孤立と判定されなくなります。"),
+            )
+            return
+
+        # Pass the connection settings the user actually has, so this and the
+        # connection feature agree on what counts as a continuation.
+        # ユーザーが実際に設定している連結パラメータを渡し、何を「続き」とみなすか
+        # について本判定と連結機能の判断を一致させる。
+        flags = isolated_fiber_flags(
+            self.current_image, self.current_fibers, self.connect_params,
+        )
+        targets = [f for f, keep in zip(self.current_fibers, flags) if not keep]
+        total = len(self.current_fibers)
+        if not targets:
+            messagebox.showinfo(_("情報"), _(
+                "除外対象がありません。{n} 本すべてが孤立と判定されました。"
+            ).format(n=total))
+            return
+
+        # Confirmed first because this is a committed edit, not a view toggle,
+        # and on a dense scan it removes nearly the whole population. The count
+        # is in the question so the size of the act is visible before it runs.
+        # 表示の切り替えではなく確定的な編集であり、密な走査像では母集団のほぼ
+        # 全部を取り除くため、先に確認する。操作の規模が実行前に見えるよう件数を
+        # 問い合わせ文に含める。
+        if not messagebox.askyesno(_("確認"), _(
+            "全長を計測できなかったファイバー {n} 本を除外します"
+            "（残り {rest} 本）。よろしいですか？"
+        ).format(n=len(targets), rest=total - len(targets))):
+            return
+
+        anchors = []
+        for fiber in targets:
+            anchors.extend(constituent_anchors(fiber, self.current_fragments))
+        # The note distinguishes these from fibers rejected by eye, so the
+        # exclusion window and the sidecar still say why each one went.
+        # このメモにより目視で棄却したファイバーと区別でき、除外ウインドウと
+        # サイドカーのどちらでも除外理由が分かる。
+        for x, y in anchors:
+            self._excluded_records.append({"x": x, "y": y, "note": "not isolated"})
+        # One press is one undo step, as for a multi-row "選択を除外".
+        # 1 回の押下を 1 回分の取り消し単位とする（複数行の「選択を除外」と同じ）。
+        self._exclusion_groups.append(len(anchors))
+
+        self._log(_(
+            "全長を計測できなかったファイバーを {n} 本除外しました"
+            "（残り {rest} / {total} 件）。"
+            "他のファイバーと交差・接触せず、画像の端にも達しておらず、"
+            "連結相手も見つからないファイバーだけが残ります。"
+        ).format(n=len(targets), rest=total - len(targets), total=total))
+        # In a dense network almost every fiber reaches a crossing, so a small
+        # remainder is the expected outcome, not a detection failure.
+        # 密なネットワーク像ではほぼ全ファイバーが交差に達するため、残る本数が
+        # 少ないのは想定どおりの結果であり、検出失敗ではない。
+        if (total - len(targets)) * 4 < total:
+            self._log(_(
+                "注意: 交差に達したファイバーを全て除外したため、"
+                "残った本数が少なくなっています。"
+            ))
         self._commit_exclusions()
 
     def _on_manage_exclusions(self) -> None:
@@ -3111,32 +3205,27 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._draw_overview_fibers_bg()
             return
 
-        isolated_only = self.isolated_only_var.get()
         excluded = bool(self._excluded_records)
         # The shortcut below draws every fiber with its position in
         # `current_fibers`, which is only the right numbering while nothing
-        # narrows the population further. The height filter and the
-        # isolated-fiber filter both do, and renumber the table over the
-        # surviving fibers, so the overview has to be numbered from the same
-        # list or its labels stop naming the same objects. Manual exclusions
-        # are already applied in `current_fibers`, so the numbering would hold
-        # without them; they take the long path only to have the count
-        # annotated in the title.
+        # narrows the population further. The height filter does, and renumbers
+        # the table over the surviving fibers, so the overview has to be
+        # numbered from the same list or its labels stop naming the same
+        # objects. Manual exclusions are already applied in `current_fibers`,
+        # so the numbering would hold without them; they take the long path
+        # only to have the count annotated in the title.
         # 下のショートカットは全ファイバーを `current_fibers` 内の位置で描画する。
         # この番号が正しいのは、母集団がそれ以上絞られていない場合だけである。
-        # 高さフィルターと孤立ファイバーフィルターはどちらも母集団を絞り、一覧
-        # テーブルは残ったファイバーで採番し直すため、全体像も同じリストから採番
-        # しないとラベルが同じ対象を指さなくなる。手動除外は `current_fibers` の
-        # 時点で適用済みなので採番だけなら分岐は不要だが、件数をタイトルへ注記
-        # するためにこちらの経路を通す。
-        if not self._filter_active and not isolated_only and not excluded:
+        # 高さフィルターは母集団を絞り、一覧テーブルは残ったファイバーで採番し直す
+        # ため、全体像も同じリストから採番しないとラベルが同じ対象を指さなくなる。
+        # 手動除外は `current_fibers` の時点で適用済みなので採番だけなら分岐は
+        # 不要だが、件数をタイトルへ注記するためにこちらの経路を通す。
+        if not self._filter_active and not excluded:
             self._draw_overview_background()
             return
 
-        # Narrowed-population path (height filter, isolated-fiber filter,
-        # manual exclusions, or any combination).
-        # 母集団が絞られている場合の経路（高さ・孤立ファイバー・手動除外、および
-        # それらの組み合わせ）。
+        # Narrowed-population path (height filter, manual exclusions, or both).
+        # 母集団が絞られている場合の経路（高さフィルター・手動除外・その併用）。
         filtered = self._display_fibers()
         # Compute per-axis pixel size in the selected tick-display unit.
         # 軸表示単位に合わせて軸別ピクセルサイズを計算（µm / nm）。
@@ -3155,8 +3244,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         parts = []
         if self._filter_active:
             parts.append("filter: {count} segments".format(count=len(filtered)))
-        if isolated_only:
-            parts.append("isolated fibers only")
         if excluded:
             parts.append("{n} excluded".format(n=len(self._excluded_records)))
         self._draw_overview_background(
@@ -3170,11 +3257,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 抽出された各区間の残存スケルトン画素を散布表示する。track 配列は BBox
         # ローカル座標（xtrack = グローバルx - x）なので、物理表示単位へスケール
         # する前に BBox 原点を加える。
-        # The magenta scatter marks pixels the height filter extracted. The
-        # isolated-fiber filter selects whole fibers instead of pixels, so on
-        # its own it leaves the boxes and numbers without this overlay.
-        # マゼンタ散布は高さフィルターが抽出した画素を示す。孤立ファイバー
-        # フィルターは画素ではなくファイバー単位で選ぶため、単独使用時はこの
+        # The magenta scatter marks pixels the height filter extracted.
+        # Exclusions remove whole fibers instead of pixels, so with only those
+        # applied the path above leaves the boxes and numbers without this
+        # overlay.
+        # マゼンタ散布は高さフィルターが抽出した画素を示す。除外は画素ではなく
+        # ファイバー単位で取り除くため、除外だけが適用されている場合は上の経路で
         # 重ね描きを行わず枠と番号のみとする。
         if not self._filter_active:
             return
@@ -3591,85 +3679,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
              + _("{count} 件")).format(lo=lo, hi=hi, count=len(filtered))
         )
 
-    def _on_isolated_only_toggle(self) -> None:
-        """
-        Handle isolated-fiber-only checkbox changes.
-        「孤立ファイバーのみ」チェックボックスの変更を処理する。
-
-        This is a selection over the fibers already measured, so it needs no
-        worker thread and no reanalysis: the table, overview, and export all
-        read `_display_fibers`, and redrawing is enough. The one exception is
-        switching off fiber connection, which does re-run the analysis.
-        既に計測済みのファイバーに対する絞り込みなので、ワーカースレッドも再解析
-        も不要。一覧・全体像・出力はいずれも `_display_fibers` を参照するため、
-        再描画のみでよい。唯一の例外はファイバー連結を OFF にする場合で、この
-        ときは解析が再実行される。
-        """
-        if self.isolated_only_var.get() and self.connect_enabled_var.get():
-            # Mutually exclusive: connection joins fibers across crossings, so
-            # an isolated fiber gets absorbed into the network and stops being
-            # isolated. Measuring isolated fibers means not reconnecting first.
-            # 排他。連結は交差を越えてファイバーをつなぐため、孤立ファイバーが
-            # ネットワークへ取り込まれ孤立でなくなる。孤立ファイバーを計測する
-            # とは、先に再結合しないということである。
-            self.connect_enabled_var.set(False)
-            self._log(_(
-                "「孤立ファイバーのみ」を ON にしたため、"
-                "「ファイバー連結」を OFF にしました。"
-            ))
-            # Re-analysis repopulates the table and overview through
-            # _display_fibers, so this handler has nothing further to do.
-            # 再解析が _display_fibers 経由で一覧と全体像を再構築するため、
-            # 本ハンドラでこれ以上行う処理はない。
-            self._on_connect_toggle()
-            return
-
-        if self.current_image is None:
-            # Keep only the checkbox state until a dataset is selected.
-            # データ未選択ならチェック状態だけ保持する（後で適用される）。
-            return
-
-        shown = self._display_fibers()
-        # Row ids are positions in the displayed list, so a stale selection can
-        # point past its end; clear it and let the table re-select.
-        # 行 ID は表示リスト内の位置なので、古い選択は末尾を超えることがある。
-        # いったん解除し、テーブル側で選び直させる。
-        self._sel_idx = None
-        self._sel_indices = []
-        self._populate_fiber_table(shown)
-        self._overview_bg_drawn = False
-        self._rebuild_overview_bg()
-        self._afm_canvas.draw_idle()
-
-        children = self.fiber_tree.get_children()
-        if children:
-            self.fiber_tree.selection_set(children[0])
-            self.fiber_tree.focus(children[0])
-            # Programmatic re-selection, so keep the current pan/zoom view.
-            # プログラムによる選び直しのため、現在のパン/ズームを維持する。
-            self._on_fiber_select(follow_view=False)
-
-        if self.isolated_only_var.get():
-            total = len(
-                self._filtered_fibers if self._filter_active else self.current_fibers
-            )
-            self._log(_(
-                "孤立ファイバーのみ表示: {count} / {total} 件"
-                "（他のファイバーと交差・接触せず、画像の端にも達しておらず、"
-                "連結相手も見つからないもの）"
-            ).format(count=len(shown), total=total))
-            # In a dense network almost every fiber reaches a crossing, so a
-            # small count is the expected outcome, not a detection failure.
-            # 密なネットワーク像ではほぼ全ファイバーが交差に達するため、残る本数
-            # が少ないのは想定どおりの結果であり、検出失敗ではない。
-            if total and len(shown) * 4 < total:
-                self._log(_(
-                    "注意: 交差に達したファイバーを全て除外したため、"
-                    "残った本数が少なくなっています。"
-                ))
-        else:
-            self._log(_("孤立ファイバーのみ表示を解除しました。"))
-
     def _reset_filter(self) -> None:
         """
         Clear the height filter and restore the full fiber table.
@@ -3751,15 +3760,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         連結はスケルトンからのファイバー構築方法を変えるため、反映には解析の
         再実行が必要。データ未読込ならチェック状態のみ保持し、次の選択で適用する。
         """
-        if self.connect_enabled_var.get() and self.isolated_only_var.get():
-            # Mutually exclusive; see _on_isolated_only_toggle for why.
-            # 排他。理由は _on_isolated_only_toggle を参照。
-            self.isolated_only_var.set(False)
-            self._log(_(
-                "「ファイバー連結」を ON にしたため、"
-                "「孤立ファイバーのみ」を OFF にしました。"
-            ))
-
         state = _("有効") if self.connect_enabled_var.get() else _("無効")
         self._log(_("ファイバー連結: {state}").format(state=state))
         # Only a press of the checkbox may raise the "nothing to connect"
@@ -3966,14 +3966,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # Columns and formatting are owned by lib.measure. A complete,
             # unfiltered export is byte-identical to `cli.py measure`; an
             # active height filter intentionally writes only retained portions,
-            # and the isolated-fiber filter only fibers touching no other.
-            # Either way the rows are renumbered from the exported list, so the
-            # `index` column matches the fiber table.
+            # and any exclusion has already removed its fibers from the
+            # population. Either way the rows are renumbered from the exported
+            # list, so the `index` column matches the fiber table.
             # 列と書式は lib.measure が管理する。全件・フィルターなしなら
             # `cli.py measure` とバイト単位で一致し、高さフィルター有効時は
-            # 意図どおり残った部分だけを、孤立ファイバーフィルター有効時は
-            # 他に接していないファイバーだけを書き出す。いずれの場合も出力
-            # リストで採番し直すため、`index` 列は一覧テーブルと一致する。
+            # 意図どおり残った部分だけを書き出す。除外されたファイバーはこの時点
+            # で既に母集団から外れている。いずれの場合も出力リストで採番し直す
+            # ため、`index` 列は一覧テーブルと一致する。
             # Pass the per-axis pixel size so the exported straightness is
             # filled in; without it that column would be blank and GUI03 could
             # not histogram straightness from a curated export.

@@ -387,6 +387,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- GUI04's "孤立ファイバーのみ" checkbox is now a "非孤立を除外" button, and the
+  fibers it rejects are recorded as ordinary manual exclusions (with the note
+  `not isolated`) instead of being hidden by a view filter. One press of
+  "直前を取消" takes the whole batch back, "除外設定..." lists them with the
+  reason, and "除外を保存" writes them to the sidecar like any other exclusion,
+  so the population is now narrowed in one place instead of two.
+
+  As a filter, the verdict was re-derived every time a view was drawn, which
+  applied it to whatever list the views held. With the height filter also on,
+  that list is the sub-segments `filter_fibers_by_height` cuts out of a fibril,
+  whose ends are the filter's own cuts rather than the fiber's — so "was this
+  measured over its whole length?" was being asked of objects for which it has
+  no meaning. On the tunicate test scan the two filters together reported 26
+  "isolated" objects out of 137 segments, 22 of them pieces of a fiber the
+  height filter had cut apart and 2-15 track pixels long, against 1 of 61 for
+  the fibers themselves. Taking the verdict once, on the fibers as traced,
+  removes that case entirely, and it also makes "isolate first, then filter by
+  height" possible — an order that mutually exclusive filters would have
+  forbidden.
+
+  Fiber connection and the isolated-fiber test are still incompatible, but the
+  button now reports the precondition and leaves the checkbox alone instead of
+  switching it off and re-analyzing on the user's behalf.
+
 - The automatic heatmap display range (`lib.ui_tools.compute_auto_vrange`,
   used by GUI02 and GUI04) is now computed from robust statistics instead of
   the image minimum and maximum, so a single contamination spike no longer
