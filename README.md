@@ -319,13 +319,22 @@ fiber there touches a crossing, so the Fiber Tracker's visual exclusion is the
 only way to drop debris and scan-line artifacts, and its export is exactly the
 population that survived that review. For bundle input, the same exclusions are
 applied from each bundle's `_excluded.json` sidecar unless the checkbox is
-cleared, and the log reports how many fibers each folder lost.
+cleared, and the log reports how many fibers each folder lost. "連結を適用"
+does the same for fiber connection: a bundle whose `_connect.json` sidecar was
+written by the Fiber Tracker is measured as the whole fibrils shown there
+rather than as skeleton fragments, and the log reports how many bundles in
+each folder carried those settings. Connection settings are per bundle, so a
+folder can be curated one bundle at a time; the count is what makes a
+partially curated folder visible.
 
 The quantity selector offers `height`, `contour length`, `straightness`,
 `curvature`, `kink angle`, and `kink density` (kinks per micrometer of
-contour). Height comes from the calibrated image at skeletonized pixels; the
-rest come from the same per-fiber measurement `cli.py measure` and the Fiber
-Tracker use, so they need a bundle with a recorded scan size.
+contour). All of them come from the same per-fiber measurement `cli.py
+measure` and the Fiber Tracker use, because exclusion and connection act on
+traced fibers and cannot be expressed on the skeleton mask. Height is the one
+quantity that still works on a bundle with no recorded scan size, since
+heights do not depend on the pixel size; the rest need the scan size to turn
+track steps into nanometers.
 
 Every quantity here describes the shape of an individual fiber. Coverage-type
 quantities are deliberately absent: the specimen is a dispersion drop-cast onto
@@ -432,11 +441,27 @@ filter" order: when both are on, the height filter slices each connected fibril
 by its own height profile (including bridge heights), so the two are not
 mutually exclusive.
 
+"除外・連結を保存" writes the exclusion set and the current connection state
+together, to `<stem>_excluded.json` and `<stem>_connect.json` beside the
+bundle, so the Fiber Height Histogram can aggregate the same population this
+window is showing. One press writes both and there is no way to write only
+one: while they had separate buttons, saving the connection, turning it off,
+curating as fragments and saving the exclusions left the pair on disk
+describing a state that was never on screen, and GUI03 then aggregated 29
+whole fibrils where the window showed 56 fragments with nothing to say so. What is stored is the decision and its
+thresholds, not the connections themselves: the connector is re-run from those
+values at measurement time, so the file cannot drift out of step with the
+bundle it sits beside. Loading a bundle that carries such a file adopts its
+settings, and the button is enabled exactly when the file no longer matches
+what the window shows. Unlike the exclusion sidecar, turning connection off
+and saving records `enabled: false` rather than deleting the file, which keeps
+the thresholds that were tuned.
+
 Fibers can also be excluded by hand: select one, check it in the overview, and
 "選択を除外" drops it from the table, the overview, and the CSV export.
 "直前を取消" undoes the last exclusion, and pressing it repeatedly walks back
 through them in reverse order. Changes take effect in the views at once but
-reach the sidecar only when "除外を保存" is pressed, because that file is an
+reach the sidecars only when "除外・連結を保存" is pressed, because those files are an
 analysis input — GUI03 aggregates over what it says — and a mis-click should
 not rewrite it on its own. Leaving a dataset with unsaved changes (selecting
 another dataset, changing folders, or closing the window) offers to save,
@@ -856,6 +881,7 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | `lib/bg_calibrator_shimadzu.py` | Compatibility shim keeping the historical `BG_Calibrator_shimadzu` name importable. |
 | `lib/blosc2_io.py` | Blosc2 array storage and `.b2z` TreeStore bundle helpers. |
 | `lib/bundle_schema.py` | Executable `.b2z` contract: required keys, array shapes, value ranges, units, coordinate convention, and format version, with `validate_bundle` enforcing them at write and load time. |
+| `lib/connect_selection.py` | Fiber-connection settings stored in `<stem>_connect.json` beside the bundle: written by GUI04, applied by `lib/measure.py`. Only the decision and its thresholds are stored, never the connections themselves, because the connector is deterministic and a stored result would be a cache that can disagree with the bundle. |
 | `lib/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |
 | `lib/fiber_connector.py` | `connect_fiber_fragments` and `ConnectParams`: reconnect skeleton fragments split at crossings/branches into whole fibrils, used by GUI04's optional fiber-connection mode. |
 | `lib/group_compare.py` | Between-group comparison for GUI03: Mann-Whitney U and two-sample KS with Holm correction over all pairs, plus Cliff's delta as an effect size that does not grow with sample size. |

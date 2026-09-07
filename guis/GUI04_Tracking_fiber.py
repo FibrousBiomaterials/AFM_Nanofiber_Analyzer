@@ -72,6 +72,10 @@ from lib.fiber_tracking_image import FiberTrackingImage
 from lib.fiber import Fiber
 from lib.fiber_connector import ConnectParams, filter_fibers_by_height
 from lib.blosc2_io import bundle_has_keys, load_bundle, BUNDLE_EXT
+from lib.connect_selection import (
+    CONNECT_SUFFIX, connect_path_for, connect_state_key,
+    load_connect_settings, save_connect_settings,
+)
 from lib.fiber_selection import (
     EXCLUSION_SUFFIX, constituent_anchors, exclusion_path_for,
     load_exclusions, save_exclusions,
@@ -590,6 +594,24 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 連結設定ウインドウは非モーダルで 1 つだけ保持する。
         self._connect_window: Optional["ConnectSettingsWindow"] = None
 
+        # The connection state as it stands in the loaded dataset's sidecar,
+        # kept as a comparison key so the save button reports whether the file
+        # and the checkbox still agree. ``None`` means no dataset is loaded and
+        # there is nothing to compare against.
+        # 読み込み済みデータセットのサイドカーにある連結状態を比較キーとして保持
+        # する。保存ボタンが「ファイルと画面の表示が一致しているか」を示せるように
+        # するためである。``None`` はデータセット未読込で比較対象が無いことを表す。
+        #
+        # This key and `_exclusions_saved_key` are one pending state, because
+        # one press writes both sidecars and `_confirm_unsaved_curation`
+        # guards both. Tracking them separately let the pair on disk record a
+        # combination that was never on screen.
+        # このキーと `_exclusions_saved_key` は 1 つの保留状態を成す。1 回の押下で
+        # 両サイドカーを書き、`_confirm_unsaved_curation` が両方を守るためである。
+        # 別々に追跡していたことが、ディスク上の 2 ファイルが画面に一度も存在しな
+        # かった組み合わせを記録する原因だった。
+        self._connect_saved_key: Optional[str] = None
+
         # -- Profile element checkboxes --
         # ── プロファイル描画要素チェックボックス ──
         self.show_kink_var   = tk.BooleanVar(value=True)
@@ -803,6 +825,46 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             command=self._open_connect_settings,
         ).pack(side="left", padx=(0, 4))
 
+        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=6, pady=2)
+
+        # One button writes both sidecars, and there is deliberately no way to
+        # write only one. Saving them separately let the pair on disk record a
+        # combination that was never on screen -- save the connection, turn it
+        # off, curate as fragments, save the exclusions, and GUI03 then
+        # aggregated 29 whole fibrils where this window was showing 56
+        # fragments, with nothing to say so.
+        # 1 つのボタンが両方のサイドカーを書き、片方だけを書く手段は意図的に設け
+        # ない。別々に保存できると、ディスク上の 2 ファイルが画面上に一度も存在
+        # しなかった組み合わせを記録し得る。連結を保存し、OFF にして断片として
+        # キュレーションし、除外を保存すると、この画面が 56 本の断片を表示して
+        # いるのに GUI03 は 29 本のフィブリルを集計し、それを知らせるものが何も
+        # 無かった。
+        #
+        # It sits here rather than beside the exclusion buttons because it
+        # writes both kinds of curation, and because the fiber-table header
+        # cannot fit a label that names both: measured in a real run it had
+        # 91 px free against the 103 px the name needs, so the label would be
+        # clipped. This row has the space and already holds the connection
+        # controls.
+        # 除外ボタンの隣ではなくここに置くのは、両方のキュレーションを書き出す
+        # ボタンであること、そしてファイバー一覧のヘッダ行では両方を名前に含む
+        # ラベルが収まらないためである。実行時の実測で空きは 91 px、必要幅は
+        # 103 px であり、ラベルが切れる。この行には余裕があり、連結の操作部も
+        # 既にここにある。
+        self._btn_save_curation = ttk.Button(
+            bar, text=_("除外・連結を保存"),
+            command=self._on_save_curation,
+        )
+        self._btn_save_curation.pack(side="left", padx=(0, 4))
+        ToolTip(self._btn_save_curation, _(
+            "現在の除外と連結設定を、バンドル横の {excluded} と {connect} へ"
+            "まとめて書き出します。Height Histogram の「除外を適用」「連結を適用」"
+            "がこの 2 ファイルを読み、この画面と同じ母集団を集計します。連結は"
+            "ON/OFF としきい値だけを書き出し、連結結果そのものは保存しません。"
+            "除外が 1 件も無い状態で保存すると除外ファイルは削除されます。"
+            "未保存の変更があるときだけ押せます。"
+        ).format(excluded=EXCLUSION_SUFFIX, connect=CONNECT_SUFFIX))
+
     def _build_main(self) -> None:
         """
         Build the main horizontal pane that contains file and analysis views.
@@ -937,19 +999,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._btn_manage_exclusions.pack(side="left", padx=4)
         ToolTip(self._btn_manage_exclusions, _(
             "このデータセットの除外を一覧し、任意の 1 件または全件を解除します。"
-            "解除もファイルへ書き出すには「除外を保存」が必要です。"
+            "解除もファイルへ書き出すには、上部の「除外・連結を保存」が必要です。"
         ))
 
-        self._btn_save_exclusions = ttk.Button(
-            tbl_header, text=_("除外を保存"), command=self._on_save_exclusions,
-        )
-        self._btn_save_exclusions.pack(side="left", padx=4)
-        ToolTip(self._btn_save_exclusions, _(
-            "現在の除外をバンドル横の {suffix} へ書き出します。除外が 1 件も無い"
-            "状態で保存すると、そのファイルは削除されます。未保存の変更がある"
-            "ときだけ押せます。"
-        ).format(suffix=EXCLUSION_SUFFIX))
-        self._refresh_exclusion_button()
+        # The save button lives in the toolbar and the other two here, so the
+        # first refresh has to wait until all three exist.
+        # 保存ボタンはツールバー、他の 2 つはここにあるため、最初の更新は 3 つとも
+        # 生成された後で行う。
+        self._refresh_curation_button()
+
         # Stop the table's own width request from reaching the paned window.
         # A Treeview asks for the sum of its column widths, which for this many
         # columns is wider than the pane should be and would squeeze the AFM
@@ -1640,7 +1698,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # are offered first, before the dialog replaces everything.
         # フォルダ変更は現在のデータセットを破棄するため、ダイアログで全てが
         # 置き換わる前に未保存の除外の扱いを確認する。
-        if not self._confirm_unsaved_exclusions():
+        if not self._confirm_unsaved_curation():
             return
 
         folder = filedialog.askdirectory(title=_("GUI01 の出力フォルダを選択"))
@@ -1730,7 +1788,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 除外はこれから離れるデータセットに属するため、読み込みが上書きする前に
         # 確認する。中止した場合はツリーの選択を戻す。そうしないと、読み込まれて
         # いないデータセットの上に選択表示だけが残る。
-        if not self._confirm_unsaved_exclusions():
+        if not self._confirm_unsaved_curation():
             if self.current_stem and self.file_tree.exists(self.current_stem):
                 self.file_tree.selection_set(self.current_stem)
                 self.file_tree.focus(self.current_stem)
@@ -1827,6 +1885,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # None lets measure_bundle reuse the X scale for Y (square scan).
         # None なら measure_bundle が Y に X スケールを流用する（正方スキャン）。
         worker_scale_y_um = self.scale_y_um
+
+        # A dataset switch adopts the incoming bundle's saved connection
+        # settings before the state is captured, so the analysis about to run
+        # is the one its sidecar describes. A re-analysis must not: it is
+        # started by the very toggle or parameter edit that would be undone.
+        # データセット切替では、状態を確定する前に読み込むバンドルの保存済み連結
+        # 設定を採用し、これから走る解析をサイドカーが記述するものと一致させる。
+        # 再解析では行わない。再解析はまさにその切替やパラメータ編集によって開始
+        # されるため、ここで読み直すとそれを取り消してしまう。
+        if not reuse_exclusions:
+            self._restore_connect_settings(stem)
 
         # Capture the connection state now so the worker is not affected by later
         # UI toggles; ConnectParams is immutable, so sharing the reference is safe.
@@ -2034,7 +2103,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 self._log(_("除外を復元しました: {n} 件").format(
                     n=len(self._excluded_records)
                 ))
-        self._refresh_exclusion_button()
+        self._refresh_curation_button()
 
         # -- Auto-update vmin/vmax only when auto mode is enabled --
         # The skeleton is passed as the fiber mask so the upper bound is a
@@ -2271,29 +2340,64 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         return exclusion_path_for(self.current_stem + BUNDLE_EXT)
 
-    def _refresh_exclusion_button(self) -> None:
+    def _curation_dirty(self) -> bool:
         """
-        Enable the exclusion controls for the current exclusion state.
-        現在の除外状態に合わせて除外関連の操作部を有効・無効にする。
+        Report whether the sidecars still describe what this window shows.
+        サイドカーがこのウインドウの表示内容をなお記述しているかを判定する。
+
+        Returns
+        -------
+        bool
+            True when either the exclusion set or the connection state differs
+            from what was last written.
+            除外集合または連結状態のいずれかが、最後に書き出した内容と異なる
+            場合に True。
+
+        Notes
+        -----
+        The two are one pending state because they are saved by one press.
+        Tracking them separately is what let the pair on disk describe a
+        combination that was never on screen.
+        両者は 1 回の押下で保存されるため、保留状態も 1 つとして扱う。別々に
+        追跡していたことが、ディスク上の 2 ファイルが画面に一度も存在しなかった
+        組み合わせを記述する原因だった。
+
+        A dataset that is not loaded has nothing to compare, and reports clean.
+        読み込まれていないデータセットは比較対象を持たないため、未保存なしと
+        報告する。
+        """
+        if self.current_image is None:
+            return False
+        connect_dirty = (
+            self._connect_saved_key is not None
+            and self._current_connect_key() != self._connect_saved_key
+        )
+        return self._exclusions_dirty or connect_dirty
+
+    def _refresh_curation_button(self) -> None:
+        """
+        Enable the curation controls for the current exclusion and connection state.
+        現在の除外・連結状態に合わせてキュレーション関連の操作部を有効・無効にする。
 
         Notes
         -----
         Undo and the settings window act on the exclusion set, so with an
         empty one they can only report that there is nothing to do; their
         enabled state doubles as the at-a-glance indicator that this dataset
-        has exclusions at all. Save follows the unsaved flag instead, so an
-        enabled save button is the signal that something still has to be
-        written.
+        has exclusions at all. Save follows the combined pending state
+        instead, so an enabled save button is the signal that the files beside
+        this bundle no longer describe what the window is showing.
         取消と設定ウインドウは除外集合に対する操作であり、空のときは「対象が
         無い」としか返せない。有効・無効の状態は、このデータセットに除外がある
-        かどうかを一目で示す指標も兼ねる。保存は未保存フラグに従うため、保存
-        ボタンが有効であること自体が「まだ書き出すものがある」という合図になる。
+        かどうかを一目で示す指標も兼ねる。保存は統合された保留状態に従うため、
+        保存ボタンが有効であること自体が「このバンドル横のファイルがもう画面の
+        表示を記述していない」という合図になる。
         """
         state = tk.NORMAL if self._excluded_records else tk.DISABLED
         for widget in (self._btn_undo_exclusion, self._btn_manage_exclusions):
             widget.configure(state=state)
-        self._btn_save_exclusions.configure(
-            state=tk.NORMAL if self._exclusions_dirty else tk.DISABLED
+        self._btn_save_curation.configure(
+            state=tk.NORMAL if self._curation_dirty() else tk.DISABLED
         )
 
     def _refresh_population_views(self) -> None:
@@ -2460,45 +2564,82 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             exclusion_state_key(self._excluded_records)
             != self._exclusions_saved_key
         )
-        self._refresh_exclusion_button()
+        self._refresh_curation_button()
         self._recurate_population()
 
-    def _on_save_exclusions(self) -> bool:
+    def _on_save_curation(self) -> bool:
         """
-        Write the exclusion set to the sidecar beside the bundle.
-        除外集合をバンドル横のサイドカーへ書き出す。
+        Write the exclusion set and the connection settings in one action.
+        除外集合と連結設定を 1 回の操作で書き出す。
 
         Returns
         -------
         bool
-            True when the file was written (or removed), False when the write
-            failed. The caller uses this to decide whether it is safe to leave
-            the dataset.
-            書き出し（または削除）に成功した場合は True、失敗した場合は False。
-            呼び出し側はこれを見て、データセットを離れてよいか判断する。
+            True when both files were written (or the exclusion file removed),
+            False when either write failed. The caller uses this to decide
+            whether it is safe to leave the dataset.
+            両ファイルの書き出し（または除外ファイルの削除）に成功した場合は
+            True、いずれかが失敗した場合は False。呼び出し側はこれを見て、
+            データセットを離れてよいか判断する。
 
         Notes
         -----
-        An exclusion set that became empty removes the file rather than
+        Both sidecars are written together and there is no way to write only
+        one, because they are read together: `lib.measure.curate_fibers`
+        applies the exclusions to the fragments and then connects the
+        survivors, so a pair recorded at different moments describes a
+        population that was never on screen. Saving them separately produced
+        exactly that -- 29 aggregated fibrils against 56 displayed fragments,
+        with nothing to say so.
+        2 つのサイドカーは常にまとめて書き出し、片方だけを書く手段は設けない。
+        読む側がまとめて読むためである。`lib.measure.curate_fibers` は除外を断片へ
+        適用してから残りを連結するので、別々の時点で記録された組は画面に一度も
+        存在しなかった母集団を記述する。実際、別々に保存できた時点では、表示中の
+        断片 56 本に対して集計側が 29 本のフィブリルを数え、それを知らせるものが
+        何も無かった。
+
+        An exclusion set that became empty removes its file rather than
         writing an empty list, so "no sidecar" always means "nothing
-        excluded".
+        excluded". The connection file is kept either way; see
+        `lib.connect_selection.save_connect_settings` for why the two differ.
         空になった除外集合は空リストを書かずファイルを削除する。これにより
-        「サイドカーが無い」は常に「除外なし」を意味する。
+        「サイドカーが無い」は常に「除外なし」を意味する。連結ファイルはどちらの
+        場合も残す。両者が異なる理由は
+        `lib.connect_selection.save_connect_settings` を参照。
+
+        The exclusion file is written first. If the connection write then
+        fails, the baselines are left untouched, so the button stays enabled
+        and the pending state still describes real work; a partial write is
+        reported rather than recorded as done.
+        除外ファイルを先に書く。続く連結の書き出しが失敗した場合は基準値を更新
+        しないため、ボタンは有効なままで保留状態は実際に残っている作業を示し
+        続ける。部分的な書き出しは、完了として記録せず報告する。
         """
         if self.current_image is None:
             messagebox.showinfo(_("情報"), _("データセットを選択してください。"))
             return False
 
+        bundle_name = os.path.basename(self.current_stem) + BUNDLE_EXT
         try:
             save_exclusions(
-                self._exclusion_path(),
-                os.path.basename(self.current_stem) + BUNDLE_EXT,
-                self._excluded_records,
+                self._exclusion_path(), bundle_name, self._excluded_records,
             )
         except Exception as e:
             messagebox.showerror(
                 _("保存失敗"),
                 _("除外ファイルを保存できませんでした:\n{err}").format(err=e),
+            )
+            return False
+
+        enabled = bool(self.connect_enabled_var.get())
+        try:
+            save_connect_settings(
+                self._connect_path(), bundle_name, enabled, self.connect_params,
+            )
+        except Exception as e:
+            messagebox.showerror(
+                _("保存失敗"),
+                _("連結設定ファイルを保存できませんでした:\n{err}").format(err=e),
             )
             return False
 
@@ -2511,18 +2652,23 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._log(_("除外が無くなったため、除外ファイルを削除しました: {path}").format(
                 path=os.path.basename(self._exclusion_path()),
             ))
+        self._log(_("連結設定を保存しました（{state}）: {path}").format(
+            state=_("有効") if enabled else _("無効"),
+            path=os.path.basename(self._connect_path()),
+        ))
 
         # What was just written becomes the baseline for later comparisons.
         # 今書き出した内容が、以後の比較の基準になる。
         self._exclusions_dirty = False
         self._exclusions_saved_key = exclusion_state_key(self._excluded_records)
-        self._refresh_exclusion_button()
+        self._connect_saved_key = self._current_connect_key()
+        self._refresh_curation_button()
         return True
 
-    def _confirm_unsaved_exclusions(self) -> bool:
+    def _confirm_unsaved_curation(self) -> bool:
         """
-        Offer to save unsaved exclusions before leaving the current dataset.
-        現在のデータセットを離れる前に、未保存の除外の保存可否を確認する。
+        Offer to save unsaved curation before leaving the current dataset.
+        現在のデータセットを離れる前に、未保存のキュレーションの保存可否を確認する。
 
         Returns
         -------
@@ -2539,18 +2685,25 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         そのため、データセットから出る全ての経路（別データセットの選択、フォルダ
         変更、ウインドウ終了）はここを通す。
 
-        Nothing is asked when the set matches the sidecar, which is what an
+        The connection state is covered as well as the exclusion set. It used
+        to be left out, so a dataset switch could drop an unsaved connection
+        change without a word while asking carefully about the exclusions.
+        除外集合だけでなく連結状態も対象とする。以前は連結が対象外だったため、
+        除外については丁寧に尋ねる一方で、未保存の連結変更はデータセット切替で
+        黙って失われ得た。
+
+        Nothing is asked when both match the sidecars, which is what an
         exclusion followed by its undo leaves behind: there would be no
         difference to save and none to discard.
-        集合がサイドカーと一致するときは何も尋ねない。除外してから取り消した後は
+        両方がサイドカーと一致するときは何も尋ねない。除外してから取り消した後は
         この状態であり、保存すべき差分も破棄すべき差分も存在しない。
         """
-        if not self._exclusions_dirty:
+        if not self._curation_dirty():
             return True
 
         answer = messagebox.askyesnocancel(
-            _("未保存の除外"),
-            _("除外に未保存の変更があります（{n} 件）。保存しますか？\n"
+            _("未保存のキュレーション"),
+            _("除外・連結設定に未保存の変更があります（除外 {n} 件）。保存しますか？\n"
               "「いいえ」で破棄、「キャンセル」で操作を中止します。").format(
                 n=len(self._excluded_records)
             ),
@@ -2558,25 +2711,26 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if answer is None:
             return False
         if answer:
-            return self._on_save_exclusions()
+            return self._on_save_curation()
 
-        self._log(_("未保存の除外を破棄しました。"))
-        # The discarded set stays in memory until the next load replaces it,
+        self._log(_("未保存のキュレーションを破棄しました。"))
+        # The discarded state stays in memory until the next load replaces it,
         # so it also becomes the baseline; otherwise the next edit would be
-        # compared against a file the user has just declined to write.
-        # 破棄された集合は次の読み込みで置き換わるまでメモリ上に残るため、これも
+        # compared against files the user has just declined to write.
+        # 破棄された状態は次の読み込みで置き換わるまでメモリ上に残るため、これも
         # 基準として扱う。そうしなければ、次の編集を「ユーザーが今まさに書かない
         # と決めたファイル」と比較することになる。
         self._exclusions_dirty = False
         self._exclusions_saved_key = exclusion_state_key(self._excluded_records)
+        self._connect_saved_key = self._current_connect_key()
         return True
 
     def _on_close(self) -> None:
         """
-        Close the window, offering to save unsaved exclusions first.
-        未保存の除外の保存を確認したうえでウインドウを閉じる。
+        Close the window, offering to save unsaved curation first.
+        未保存のキュレーションの保存を確認したうえでウインドウを閉じる。
         """
-        if not self._confirm_unsaved_exclusions():
+        if not self._confirm_unsaved_curation():
             return
         self.destroy()
 
@@ -3855,6 +4009,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 「連結対象なし」のダイアログを出してよいのはチェックボックスの操作だけ
         # である。ここで始まる再読み込みが、最終的に件数を報告する。
         self._connect_toggle_pending = bool(self.connect_enabled_var.get())
+        self._refresh_curation_button()
         if self.current_stem and self.current_image is not None and not self.is_running:
             self._reload_current_file()
 
@@ -3883,6 +4038,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         self.connect_params = params
         self._log(_("連結パラメータを更新しました。"))
+        self._refresh_curation_button()
         if self.connect_enabled_var.get() and self.current_stem \
                 and self.current_image is not None and not self.is_running:
             self._reload_current_file()
@@ -3893,6 +4049,84 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         連結設定ウインドウのクローズ後に参照をクリアする。
         """
         self._connect_window = None
+
+    def _connect_path(self) -> str:
+        """
+        Return the connection-settings sidecar path for the current dataset.
+        現在のデータセットに対応する連結設定サイドカーのパスを返す。
+        """
+        return connect_path_for(self.current_stem + BUNDLE_EXT)
+
+    def _current_connect_key(self) -> str:
+        """
+        Return the comparison key for the connection state now in the UI.
+        現在 UI 上にある連結状態の比較キーを返す。
+        """
+        return connect_state_key(
+            bool(self.connect_enabled_var.get()), self.connect_params,
+        )
+
+    def _restore_connect_settings(self, stem: str) -> None:
+        """
+        Adopt a dataset's saved connection settings before it is analyzed.
+        データセットの解析前に、保存済みの連結設定を採用する。
+
+        Parameters
+        ----------
+        stem
+            Dataset stem about to be analyzed.
+            これから解析するデータセットの stem。
+
+        Notes
+        -----
+        A bundle whose sidecar says how it should be connected is shown that
+        way, so what GUI04 displays and what GUI03 aggregates from the same
+        file cannot disagree. A bundle without a sidecar keeps the current
+        settings, so working through a folder does not reset the thresholds
+        at every step; the save button then reports that this bundle has not
+        been recorded yet.
+        サイドカーが連結方法を記録しているバンドルは、その通りに表示する。同じ
+        ファイルについて GUI04 の表示と GUI03 の集計が食い違わないようにするため
+        である。サイドカーの無いバンドルは現在の設定を保つため、フォルダを順に
+        処理してもしきい値が毎回リセットされない。この場合、保存ボタンが「この
+        バンドルはまだ記録されていない」ことを示す。
+
+        A sidecar that cannot be read is reported and treated as absent for
+        this session, matching how a broken exclusion file is handled: it is
+        left on disk untouched so a hand-edited file can still be repaired.
+        読み込めないサイドカーは報告のうえ、このセッションに限り無いものとして
+        扱う。壊れた除外ファイルと同じ扱いであり、手編集したファイルを修復できる
+        よう、ディスク上のファイルには手を触れない。
+        """
+        settings = None
+        try:
+            settings = load_connect_settings(connect_path_for(stem + BUNDLE_EXT))
+        except Exception as e:
+            self._log(_("連結設定ファイルを読めませんでした: {err}").format(err=e))
+
+        if settings is None:
+            # No saved decision for this bundle; the current settings stand.
+            # A missing file measures as "not connected", so it is compared as
+            # that: with connection off there is nothing to write and the
+            # button stays quiet, while with connection on the button lights
+            # up because the file does not describe what the window shows.
+            # This is not the ``None`` that means no dataset is loaded.
+            # このバンドルには保存済みの決定が無い。現在の設定をそのまま使う。
+            # ファイルが無い状態は「連結なし」として計測されるため、比較でもそう
+            # 扱う。連結が OFF なら書き出すものは無くボタンは静かなままで、ON なら
+            # ファイルが画面の表示を記述していないためボタンが点灯する。これは
+            # データセット未読込を意味する ``None`` とは別の状態である。
+            self._connect_saved_key = connect_state_key(False, ConnectParams())
+            return
+
+        self.connect_enabled_var.set(bool(settings.enabled))
+        self.connect_params = settings.params
+        self._connect_saved_key = connect_state_key(
+            settings.enabled, settings.params,
+        )
+        self._log(_("連結設定を復元しました: {state}").format(
+            state=_("有効") if settings.enabled else _("無効")
+        ))
 
     # =========================================================================
     # Automatic vrange toggle

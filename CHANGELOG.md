@@ -10,6 +10,36 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- GUI04 can save its fiber-connection settings beside the bundle, and GUI03 can
+  apply them. "除外・連結を保存" writes `<stem>_excluded.json` and
+  `<stem>_connect.json` in one press, and GUI03's new "連結を適用" checkbox
+  measures the whole fibrils the Fiber Tracker was showing instead of the
+  skeleton fragments. The two sidecars are never written separately: they are
+  read together, so a pair recorded at different moments would describe a
+  population that was never on screen: saving the connection, turning it off,
+  curating as fragments and saving the exclusions made GUI03 aggregate 29 whole
+  fibrils where the window showed 56 fragments, unsignalled. The unsaved-work
+  guard on leaving a dataset now covers the connection state as well, which it
+  did not before.
+
+  A population curated in GUI04 therefore reaches GUI03's `bundle` input
+  intact. Previously only the `fiber csv` export carried it, which gave up the
+  `pixel` and `length` aggregation units.
+
+  What is stored is the decision and its six thresholds, never the connections
+  themselves. The connector is deterministic given the bundle and
+  `ConnectParams`, so a stored list of joins would be a cache that can silently
+  disagree with the bundle beside it. The `links` key is reserved for manual
+  per-pair connection decisions and written empty, so adding them later needs
+  no format break; a reader refuses a file that carries entries it cannot
+  apply.
+
+  Connection settings are per bundle, so a folder can be curated one bundle at
+  a time. GUI03 logs how many bundles in each folder carried settings, because
+  a partially curated folder is otherwise invisible in the result. Uniformity
+  across compared groups is not enforced: `clusters_range` is in pixels, so the
+  same value is a different physical gap at a different scan size.
+
 - GUI04's fiber table selects like Explorer: shift-click or drag for a range,
   ctrl-click to add or remove single rows. "選択を除外" acts on the whole
   selection, and "直前を取消" takes the whole batch back in one press, because
@@ -386,6 +416,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   same commit records it under `## [Unreleased]` here.
 
 ### Changed
+
+- `measure.skeleton_height_values` now walks the traced fibers instead of
+  reading the calibrated image at every nonzero skeleton pixel, so GUI03's
+  `height`/`pixel` combination and `cli.py heights` honor manual exclusions and
+  saved connection settings. Neither can be expressed on the skeleton mask: an
+  exclusion names an object, and reconnection adds interpolated bridge pixels
+  that exist in no mask. **The pooled height distribution changes from this
+  version even with no curation applied**, because tracing drops the
+  branch-point neighborhoods the mask still contained — on two real scans the
+  point count fell by 2.0% and 4.4%, and those pixels sit at the crossings,
+  where the height is not one fiber's. The `pixel` unit is now the unweighted
+  counterpart of the `length` unit over the same population.
+
+  Bundles with no recorded scan size are still measurable for this quantity:
+  heights do not depend on the pixel size, and neither do the connector's gates
+  or kink detection, so such a bundle is traced with a placeholder scale.
 
 - GUI04's "孤立ファイバーのみ" checkbox is now a "非孤立を除外" button, and the
   fibers it rejects are recorded as ordinary manual exclusions (with the note

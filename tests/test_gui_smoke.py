@@ -24,6 +24,11 @@ import pytest
 
 from conftest import requires_tk
 
+from lib.connect_selection import (
+    connect_path_for, load_connect_settings, save_connect_settings,
+)
+from lib.fiber_selection import exclusion_path_for, load_exclusions
+
 import guis.GUI01_Image_Preprocessor as gui01
 import guis.GUI02_PlotProfiler as gui02
 import guis.GUI03_Fiber_Height_Histogram as gui03
@@ -89,7 +94,7 @@ def test_gui04_exclusion_controls_start_disabled(tk_app):
     assert app._exclusions_dirty is False
     assert str(app._btn_undo_exclusion.cget("state")) == "disabled"
     assert str(app._btn_manage_exclusions.cget("state")) == "disabled"
-    assert str(app._btn_save_exclusions.cget("state")) == "disabled"
+    assert str(app._btn_save_curation.cget("state")) == "disabled"
 
 
 class _StubFiber:
@@ -317,6 +322,216 @@ def _unreachable_flags(*args, **kwargs):
     raise AssertionError("isolation must not be evaluated with connection on")
 
 
+def test_gui04_curation_save_starts_disabled(tk_app):
+    """
+    The curation-save button is disabled until a dataset is loaded.
+    データセットを読み込むまで、キュレーションの保存ボタンは無効である。
+
+    There is no bundle to write the sidecars beside, so the button can only
+    report that there is nothing to do.
+    サイドカーを書き出す対象のバンドルが無いため、ボタンは「対象が無い」としか
+    返せない。
+    """
+    app = tk_app(gui04.App)
+    assert app._connect_saved_key is None
+    assert app._curation_dirty() is False
+    assert str(app._btn_save_curation.cget("state")) == "disabled"
+
+
+def test_gui04_curation_pending_covers_connection_as_well_as_exclusions(tk_app):
+    """
+    One pending state spans both sidecars, and follows content not clicks.
+    保留状態は 1 つで両サイドカーにまたがり、クリックの有無ではなく内容に従う。
+
+    They are saved by one press, so they must be tracked as one state:
+    tracking them separately is what let the pair on disk record a combination
+    that was never on screen. Turning a switch and turning it back leaves
+    nothing to write, exactly as an exclusion followed by its undo does.
+    両者は 1 回の押下で保存されるため、1 つの状態として追跡しなければならない。
+    別々に追跡していたことが、ディスク上の 2 ファイルが画面に一度も存在しなかった
+    組み合わせを記録する原因だった。スイッチを切り替えて戻せば書き出すものは残ら
+    ない。除外してから取り消した場合と同じである。
+    """
+    app = tk_app(gui04.App)
+    # Stand in for a loaded dataset whose sidecars match the current state.
+    # サイドカーが現在の状態と一致している、読み込み済みデータセットを模す。
+    app.current_image = _StubImage()
+    app._connect_saved_key = app._current_connect_key()
+    app._refresh_curation_button()
+    assert str(app._btn_save_curation.cget("state")) == "disabled"
+
+    app.connect_enabled_var.set(True)
+    app._refresh_curation_button()
+    assert app._curation_dirty() is True
+    assert str(app._btn_save_curation.cget("state")) == "normal"
+
+    app.connect_enabled_var.set(False)
+    app._refresh_curation_button()
+    assert str(app._btn_save_curation.cget("state")) == "disabled"
+
+    # An exclusion change alone also lights the one button.
+    # 除外側の変更だけでも、この 1 つのボタンが点灯する。
+    app._exclusions_dirty = True
+    app._refresh_curation_button()
+    assert str(app._btn_save_curation.cget("state")) == "normal"
+
+
+def test_gui04_thresholds_are_inert_while_connection_is_off(tk_app):
+    """
+    Editing a threshold with connection off leaves nothing to save.
+    連結が OFF のときにしきい値を編集しても、保存対象は生まれない。
+
+    A disabled connection stage does not read the thresholds, so the state is
+    the same one a missing sidecar describes; announcing it as pending would
+    prompt on every dataset switch for a difference that changes no number.
+    連結ステージが無効なときしきい値は読まれないため、状態はサイドカーが無い場合
+    と同一である。これを保留として知らせると、どの数値も変えない差分のために
+    データセット切替のたびに確認が出ることになる。
+    """
+    app = tk_app(gui04.App)
+    app.current_image = _StubImage()
+    app._connect_saved_key = app._current_connect_key()
+    app.connect_params = gui04.ConnectParams(clusters_range=44.0)
+    assert app._curation_dirty() is False
+
+
+def test_gui04_a_bundle_without_a_sidecar_keeps_the_current_settings(
+    tk_app, tmp_path
+):
+    """
+    Loading an unrecorded bundle leaves the thresholds alone and offers a save.
+    未記録のバンドルを読み込んでもしきい値はそのままで、保存が可能になる。
+
+    Working through a folder must not reset the tuning at every step; the
+    enabled save button is what says this bundle has not been recorded yet.
+    フォルダを順に処理するたびにチューニングがリセットされてはならない。保存
+    ボタンが有効であることが、このバンドルがまだ記録されていない合図となる。
+    """
+    app = tk_app(gui04.App)
+    app.current_image = _StubImage()
+    tuned = gui04.ConnectParams(clusters_range=33.0)
+    app.connect_params = tuned
+    app.connect_enabled_var.set(True)
+
+    app._restore_connect_settings(os.path.join(tmp_path, "unrecorded"))
+
+    assert app.connect_params == tuned
+    assert app.connect_enabled_var.get() is True
+    app._refresh_curation_button()
+    assert str(app._btn_save_curation.cget("state")) == "normal"
+
+
+def test_gui04_an_unrecorded_bundle_with_connection_off_is_not_pending(
+    tk_app, tmp_path
+):
+    """
+    A missing sidecar compares equal to "not connected".
+    サイドカーが無い状態は「連結なし」と等価に比較される。
+
+    Absence and a stored ``enabled: false`` measure identically, so the common
+    case of opening an uncurated bundle must not raise a save prompt.
+    ファイルの不在と保存された ``enabled: false`` は計測上等価であるため、未
+    キュレーションのバンドルを開くという通常の操作で保存確認が出てはならない。
+    """
+    app = tk_app(gui04.App)
+    app.current_image = _StubImage()
+    app.connect_enabled_var.set(False)
+
+    app._restore_connect_settings(os.path.join(tmp_path, "unrecorded"))
+
+    assert app._curation_dirty() is False
+
+
+def test_gui04_one_save_keeps_both_sidecars_describing_one_screen(
+    tk_app, tmp_path
+):
+    """
+    The sequence that used to desynchronise the two sidecars no longer can.
+    2 つのサイドカーを非同期化させていた操作手順が、もはや起こり得ないこと。
+
+    Save with connection on, turn it off, curate as fragments, save again.
+    While the two had their own save buttons, only the exclusion file advanced
+    and the connection file still said "connected": GUI03 then aggregated 29
+    whole fibrils where the window was showing 56 fragments, with nothing to
+    say so. One press writes both, so whatever is on disk after any save is a
+    state that was on screen.
+    連結 ON で保存し、OFF にして断片としてキュレーションし、再び保存する。両者に
+    別々の保存ボタンがあった頃は除外ファイルだけが進み、連結ファイルは「連結
+    する」と言ったままだった。その結果、ウインドウが 56 本の断片を表示している
+    のに GUI03 は 29 本のフィブリルを集計し、それを知らせるものが無かった。1 回の
+    押下で両方を書くため、任意の保存の後にディスク上にあるのは画面に存在した
+    状態である。
+    """
+    app = tk_app(gui04.App)
+    app.current_image = _StubImage()
+    app.current_stem = os.path.join(tmp_path, "scan")
+    bundle = app.current_stem + ".b2z"
+
+    # Step 1: connection on, saved.
+    # 手順 1: 連結 ON で保存。
+    app.connect_enabled_var.set(True)
+    assert app._on_save_curation() is True
+    assert load_connect_settings(connect_path_for(bundle)).enabled is True
+
+    # Step 2: connection turned off, fibers excluded as fragments, saved.
+    # 手順 2: 連結を OFF にし、断片としてファイバーを除外して保存。
+    app.connect_enabled_var.set(False)
+    app._excluded_records = [{"x": 1, "y": 2, "note": "debris"}]
+    app._exclusions_dirty = True
+    assert app._on_save_curation() is True
+
+    # Both files describe the same screen: not connected, one exclusion.
+    # 両ファイルが同じ画面を記述している。連結なし、除外 1 件。
+    assert load_connect_settings(connect_path_for(bundle)).enabled is False
+    assert len(load_exclusions(exclusion_path_for(bundle))) == 1
+    assert app._curation_dirty() is False
+
+
+def test_gui04_a_saved_sidecar_is_restored_on_load(tk_app, tmp_path):
+    """
+    A bundle that records how it should be connected is shown that way.
+    連結方法を記録したバンドルは、その通りに表示される。
+
+    Otherwise GUI04's view and GUI03's aggregation of the same file could
+    disagree, which is the whole point of storing the decision.
+    そうでなければ、同じファイルについて GUI04 の表示と GUI03 の集計が食い違い
+    うる。決定を保存する意義はまさにそこにある。
+    """
+    app = tk_app(gui04.App)
+    app.current_image = _StubImage()
+    stem = os.path.join(tmp_path, "scan")
+    save_connect_settings(
+        connect_path_for(stem + ".b2z"), "scan.b2z", True,
+        gui04.ConnectParams(clusters_range=12.5),
+    )
+
+    app._restore_connect_settings(stem)
+
+    assert app.connect_enabled_var.get() is True
+    assert app.connect_params.clusters_range == 12.5
+    app._refresh_curation_button()
+    assert str(app._btn_save_curation.cget("state")) == "disabled"
+
+
+def test_gui03_offers_connection_only_for_bundle_input(tk_app):
+    """
+    The connect switch is disabled for fiber CSV input, like the exclusion one.
+    ファイバー CSV 入力では、除外と同様に連結スイッチも無効になる。
+
+    A CSV was exported from the population GUI04 was displaying, so its
+    connection state is already baked into the rows.
+    CSV は GUI04 が表示していた母集団から出力されているため、連結状態は既に行へ
+    反映されている。
+    """
+    app = tk_app(gui03.App)
+    assert str(app.chk_connection.cget("state")) == "normal"
+
+    app.input_var.set(gui03.INPUT_FIBER_CSV)
+    app._on_input_change()
+    assert str(app.chk_connection.cget("state")) == "disabled"
+    assert str(app.chk_exclusions.cget("state")) == "disabled"
+
+
 def test_gui04_reanalysis_keeps_unsaved_exclusions(tk_app, monkeypatch):
     """
     Re-analyzing the loaded dataset carries its exclusions through untouched.
@@ -343,7 +558,7 @@ def test_gui04_reanalysis_keeps_unsaved_exclusions(tk_app, monkeypatch):
     def _unexpected(*_args, **_kwargs):
         raise AssertionError("a re-analysis must not prompt about exclusions")
 
-    monkeypatch.setattr(app, "_confirm_unsaved_exclusions", _unexpected)
+    monkeypatch.setattr(app, "_confirm_unsaved_curation", _unexpected)
     started = []
     monkeypatch.setattr(
         app, "_start_analysis",
@@ -378,7 +593,7 @@ def test_gui04_clean_exclusions_leave_without_prompting(tk_app, monkeypatch):
         raise AssertionError("a clean exclusion set must not prompt")
 
     monkeypatch.setattr(gui04.messagebox, "askyesnocancel", _unexpected)
-    assert app._confirm_unsaved_exclusions() is True
+    assert app._confirm_unsaved_curation() is True
 
 
 def test_gui04_unsaved_exclusions_block_leaving_on_cancel(tk_app, monkeypatch):
@@ -392,11 +607,12 @@ def test_gui04_unsaved_exclusions_block_leaving_on_cancel(tk_app, monkeypatch):
     限る。全ての離脱経路がこのガードに依存している。
     """
     app = tk_app(gui04.App)
+    app.current_image = _StubImage()
     app._excluded_records = [{"x": 1, "y": 2, "note": ""}]
     app._exclusions_dirty = True
 
     monkeypatch.setattr(gui04.messagebox, "askyesnocancel", lambda *a, **k: None)
-    assert app._confirm_unsaved_exclusions() is False
+    assert app._confirm_unsaved_curation() is False
     # Cancelling keeps the work pending rather than resolving it either way.
     # キャンセルは、どちらにも決着させず作業を保留のまま残す。
     assert app._exclusions_dirty is True
@@ -404,7 +620,7 @@ def test_gui04_unsaved_exclusions_block_leaving_on_cancel(tk_app, monkeypatch):
     # Declining discards the change and lets the caller proceed.
     # 「いいえ」は変更を破棄し、呼び出し側の処理を続行させる。
     monkeypatch.setattr(gui04.messagebox, "askyesnocancel", lambda *a, **k: False)
-    assert app._confirm_unsaved_exclusions() is True
+    assert app._confirm_unsaved_curation() is True
     assert app._exclusions_dirty is False
 
 
@@ -435,19 +651,19 @@ def test_gui04_undoing_every_exclusion_leaves_nothing_unsaved(tk_app, monkeypatc
     app._on_exclude_selected()
 
     assert app._exclusions_dirty is True
-    assert str(app._btn_save_exclusions.cget("state")) == "normal"
+    assert str(app._btn_save_curation.cget("state")) == "normal"
 
     app._on_undo_last_exclusion()
 
     assert app._excluded_records == []
     assert app._exclusions_dirty is False
-    assert str(app._btn_save_exclusions.cget("state")) == "disabled"
+    assert str(app._btn_save_curation.cget("state")) == "disabled"
 
     def _unexpected(*_args, **_kwargs):
         raise AssertionError("an unchanged exclusion set must not prompt")
 
     monkeypatch.setattr(gui04.messagebox, "askyesnocancel", _unexpected)
-    assert app._confirm_unsaved_exclusions() is True
+    assert app._confirm_unsaved_curation() is True
 
     # The order the records sit in is not content: an anchor excludes whatever
     # fiber passes through it, so re-excluding the same fibers in another order
@@ -501,6 +717,7 @@ def test_gui03_worker_stops_when_bin_edges_fail(tk_app, tmp_path, monkeypatch):
         "unit": gui03.UNIT_PIXEL,
         "input_mode": gui03.INPUT_BUNDLE,
         "apply_exclusions": False,
+        "apply_connection": False,
         "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
         "plot_type": gui03.PLOT_HISTOGRAM,
         "min_h": 0.0, "max_h": 10.0, "step": 0.2,

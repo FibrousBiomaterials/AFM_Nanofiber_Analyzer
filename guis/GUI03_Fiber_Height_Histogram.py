@@ -64,6 +64,9 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # ===== Project libraries =====
 from lib.blosc2_io import BUNDLE_EXT
+from lib.connect_selection import (
+    CONNECT_SUFFIX, connect_path_for, load_connect_settings,
+)
 from lib.group_compare import compare_groups
 from lib.measure import (
     DEFAULT_CURVATURE_WINDOW_NM,
@@ -1138,7 +1141,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.chk_exclusions = ttk.Checkbutton(
             inputbar, text=_("除外を適用"),
             variable=self.apply_exclusions_var,
-            command=self._on_exclusions_toggle,
+            command=self._on_curation_toggle,
         )
         self.chk_exclusions.pack(side=tk.LEFT)
         ToolTip(self.chk_exclusions, _(
@@ -1146,6 +1149,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "で除外したファイバーが集計から外れ、何本外れたかはログに出ます。"
             "OFF にすると、追跡された全てのファイバーを集計します。"
         ).format(suffix="_excluded.json"))
+
+        self.apply_connection_var = tk.BooleanVar(value=True)
+        self.chk_connection = ttk.Checkbutton(
+            inputbar, text=_("連結を適用"),
+            variable=self.apply_connection_var,
+            command=self._on_curation_toggle,
+        )
+        self.chk_connection.pack(side=tk.LEFT, padx=(8, 0))
+        ToolTip(self.chk_connection, _(
+            "バンドル横の {suffix} に記録された連結設定を適用します。Fiber Tracker "
+            "で「連結を保存」したバンドルは、そこで見ていたのと同じ 1 本の"
+            "フィブリルとして集計されます。設定ファイルの無いバンドルは骨格断片"
+            "のまま集計されるため、適用できた枚数はログに出ます。"
+        ).format(suffix=CONNECT_SUFFIX))
 
         parambar = ttk.Frame(parent)
         parambar.pack(fill=tk.X, padx=6, pady=(4, 0))
@@ -1166,10 +1183,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.cmb_param.pack(side=tk.LEFT, padx=(4, 12))
         self.cmb_param.bind("<<ComboboxSelected>>", lambda _e: self._on_param_change())
         ToolTip(self.cmb_param, _(
-            "比較する形態パラメータを選びます。{height} はバンドルの補正済み画像と"
-            "細線化画像から直接収集します。{length} / {angle} / {density} は"
-            "ファイバー追跡の結果から算出するため、バンドルに走査範囲が記録されている"
-            "必要があります。"
+            "比較する形態パラメータを選びます。いずれもファイバー追跡の結果から"
+            "算出します。{height} は追跡された点の高さをそのまま集めるため走査範囲"
+            "が未記録のバンドルでも計測できますが、{length} / {angle} / {density} は"
+            "バンドルに走査範囲が記録されている必要があります。"
         ).format(
             height=PARAM_HEIGHT, length=PARAM_LENGTH,
             angle=PARAM_KINK_ANGLE, density=PARAM_KINK_DENSITY,
@@ -1297,9 +1314,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # in, because GUI04 exported only the fibers it was displaying.
         # 除外はバンドルの横にある。ファイバー CSV には既に適用済みで、GUI04 が
         # 表示中のファイバーだけを出力しているため。
-        self.chk_exclusions.configure(
-            state=tk.NORMAL if mode == INPUT_BUNDLE else tk.DISABLED
-        )
+        for chk in (self.chk_exclusions, self.chk_connection):
+            chk.configure(
+                state=tk.NORMAL if mode == INPUT_BUNDLE else tk.DISABLED
+            )
 
         self._rescan_all()
         self._reset_result_state()
@@ -1307,10 +1325,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             mode=mode, suffix=INPUT_SUFFIXES[mode],
         ))
 
-    def _on_exclusions_toggle(self) -> None:
+    def _on_curation_toggle(self) -> None:
         """
-        Invalidate cached results when the exclusion setting changes.
-        除外設定の変更時にキャッシュ済み結果を破棄する。
+        Invalidate cached results when a curation setting changes.
+        キュレーション設定の変更時にキャッシュ済み結果を破棄する。
+
+        Notes
+        -----
+        Exclusion and connection both change which objects are measured, not
+        how a fixed set is displayed, so a cached result computed under the
+        previous setting describes a different population.
+        除外と連結はいずれも「固定された集合の見せ方」ではなく「何を計測対象と
+        するか」を変える。そのため、変更前の設定で計算されたキャッシュ結果は別の
+        母集団を記述している。
         """
         self._reset_result_state()
 
@@ -1669,8 +1696,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "{fiber} または {image} 集計での N も併せて確認してください。\n").format(
                 pixel=UNIT_PIXEL, fiber=UNIT_FIBER, image=UNIT_IMAGE
             )
-            + _("  - {height} 以外の計測量はファイバー追跡を行うため、バンドルに走査範囲が"
-                "記録されている必要があり、処理時間も長くなります。\n").format(height=PARAM_HEIGHT)
+            + _("  - どの計測量もファイバー追跡を行うため処理時間がかかります。{height} 以外は"
+                "バンドルに走査範囲が記録されている必要があります。\n").format(height=PARAM_HEIGHT)
             + _("  - mode はヒストグラムのビン幅に依存します。step を変えると値が変わるため、"
                 "報告には median と IQR を併記してください。\n")
         )
@@ -2380,6 +2407,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "unit": self.unit,
             "input_mode": self.input_mode,
             "apply_exclusions": bool(self.apply_exclusions_var.get()),
+            "apply_connection": bool(self.apply_connection_var.get()),
             "curvature_window": self.curvature_window,
             "plot_type": self.plot_type_var.get(),
             "min_h": min_h,
@@ -2421,11 +2449,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         combo_state = tk.DISABLED if running else "readonly"
         for c in (self.cmb_param, self.cmb_unit, self.cmb_input):
             c.configure(state=combo_state)
-        self.chk_exclusions.configure(
-            state=tk.DISABLED
-            if (running or self.input_mode != INPUT_BUNDLE)
-            else tk.NORMAL
-        )
+        for chk in (self.chk_exclusions, self.chk_connection):
+            chk.configure(
+                state=tk.DISABLED
+                if (running or self.input_mode != INPUT_BUNDLE)
+                else tk.NORMAL
+            )
 
     def _poll_ui_queue(self) -> None:
         """
@@ -2463,7 +2492,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                                input_mode: str = INPUT_BUNDLE,
                                apply_exclusions: bool = False,
                                curvature_window: float =
-                               DEFAULT_CURVATURE_WINDOW_NM) -> tuple:
+                               DEFAULT_CURVATURE_WINDOW_NM,
+                               apply_connection: bool = False) -> tuple:
         """
         Collect one folder's samples for a quantity and aggregation unit.
         1 フォルダ分の標本を、計測量と集計単位に従って収集する。
@@ -2497,13 +2527,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         Notes
         -----
-        Only the height/pixel combination avoids fiber tracing, which is why
-        it is the one combination that works on bundles without a recorded
-        scan size: everything else needs a physical pixel size to convert
+        Every bundle path traces fibers, because exclusion and connection act
+        on traced objects and neither can be expressed on the skeleton mask.
+        The height/pixel combination is still the only one that works on a
+        bundle without a recorded scan size: heights do not depend on the
+        pixel size, so `skeleton_height_values` measures such a bundle with a
+        placeholder, while everything else needs a physical pixel size to turn
         track steps into nanometers.
-        ファイバー追跡を回避できるのは height/pixel の組み合わせだけであり、
-        走査範囲が未記録のバンドルでも動くのはこの経路に限られる。他の経路は
-        追跡ステップを nm へ変換するために物理ピクセルサイズを必要とする。
+        どのバンドル経路もファイバー追跡を行う。除外と連結は追跡された対象に
+        作用するものであり、いずれも骨格マスク上では表現できないためである。
+        走査範囲が未記録のバンドルで動くのが height/pixel だけである点は変わら
+        ない。高さはピクセルサイズに依存しないため `skeleton_height_values` は
+        代替値で計測できるが、他の経路は追跡ステップを nm へ変換するために物理
+        ピクセルサイズを必要とする。
         """
         if input_mode == INPUT_FIBER_CSV:
             # The rows are already the curated population: GUI04 exports what
@@ -2516,7 +2552,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return self._values_from_fiber_stats(per_file, param, unit) + (load_errors,)
 
         if param == PARAM_HEIGHT and unit == UNIT_PIXEL:
-            heights, load_errors = skeleton_height_values(bundle_paths)
+            heights, load_errors = skeleton_height_values(
+                bundle_paths,
+                apply_exclusions=apply_exclusions,
+                apply_connection=apply_connection,
+            )
             failed = {path for path, _msg in load_errors}
             n_images = sum(1 for path in bundle_paths if path not in failed)
             return heights.tolist(), None, 0, n_images, load_errors
@@ -2529,7 +2569,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # 重みはその点が代表する輪郭長であり、ステップ長は順序付けられた
             # トラックからしか得られないため。
             profiles, load_errors = collect_skeleton_height_profiles(
-                bundle_paths, apply_exclusions=apply_exclusions,
+                bundle_paths,
+                apply_exclusions=apply_exclusions,
+                apply_connection=apply_connection,
             )
             values = []
             weights = []
@@ -2551,14 +2593,54 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 bundle_paths,
                 apply_exclusions=apply_exclusions,
                 curvature_window_nm=curvature_window,
+                apply_connection=apply_connection,
             )
             self._log_curvature_caveats(per_fiber, curvature_window)
             return self._curvature_values(per_fiber, unit) + (load_errors,)
 
         per_bundle, load_errors = collect_fiber_stats(
-            bundle_paths, apply_exclusions=apply_exclusions,
+            bundle_paths,
+            apply_exclusions=apply_exclusions,
+            apply_connection=apply_connection,
         )
         return self._values_from_fiber_stats(per_bundle, param, unit) + (load_errors,)
+
+    def _count_connected_bundles(self, bundle_paths) -> int:
+        """
+        Count the bundles whose sidecar enables fiber connection.
+        サイドカーがファイバー連結を有効にしているバンドル数を数える。
+
+        Parameters
+        ----------
+        bundle_paths
+            ``.b2z`` bundles about to be measured.
+            これから計測する ``.b2z`` バンドル。
+
+        Returns
+        -------
+        int
+            Bundles that will be measured as whole fibrils rather than as
+            skeleton fragments.
+            骨格断片ではなく 1 本のフィブリルとして計測されるバンドル数。
+
+        Notes
+        -----
+        An unreadable sidecar is passed over here rather than reported,
+        because the collector reads the same file and turns the failure into a
+        per-bundle load error, which is where the user sees it once.
+        読めないサイドカーはここでは報告せず読み飛ばす。コレクタが同じファイルを
+        読み、失敗をバンドル単位の読込エラーに変換するため、ユーザーはそちらで
+        一度だけ目にすることになる。
+        """
+        count = 0
+        for path in bundle_paths:
+            try:
+                settings = load_connect_settings(connect_path_for(path))
+            except Exception:
+                continue
+            if settings is not None and settings.enabled:
+                count += 1
+        return count
 
     def _log_curvature_caveats(self, per_fiber, curvature_window: float) -> None:
         """
@@ -2722,16 +2804,22 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         apply_exclusions = (
             args["apply_exclusions"] and input_mode == INPUT_BUNDLE
         )
+        # Connection settings live beside a bundle too; a fiber CSV was already
+        # exported from the connected population GUI04 was displaying.
+        # 連結設定もバンドルの横にある。ファイバー CSV は GUI04 が表示していた
+        # 連結済み母集団から既に出力されている。
+        apply_connection = (
+            args["apply_connection"] and input_mode == INPUT_BUNDLE
+        )
         curvature_window = args["curvature_window"]
 
-        # Skeleton pixels are read straight from the bundle arrays, so that
-        # one combination needs no fiber tracing and no scan size. Every other
-        # combination measures fibers and therefore cannot count "N fibers"
-        # in the pixel case, where fibers are never individuated.
-        # 骨格画素はバンドル配列から直接読むため、この組み合わせだけはファイバー
-        # 追跡も走査範囲も不要である。他の組み合わせはファイバーを計測する。
-        # 画素モードではファイバーを個体として切り出さないため、"N fibers" は
-        # 数えられない。
+        # The pixel combination pools every tracked point without individuating
+        # fibers, so it cannot count "N fibers"; it is also the only
+        # combination that runs on a bundle with no recorded scan size,
+        # because heights do not depend on the pixel size.
+        # 画素の組み合わせは追跡点を個体に分けずまとめるため "N fibers" を数え
+        # られない。また、高さがピクセルサイズに依存しないことから、走査範囲が
+        # 未記録のバンドルでも動く唯一の組み合わせでもある。
         pixel_mode = (
             input_mode == INPUT_BUNDLE
             and param == PARAM_HEIGHT and unit == UNIT_PIXEL
@@ -2777,14 +2865,29 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # lib.measure へ委譲する。バンドルごとのエラーは固定英語文字列で
                 # 返り、ここで翻訳済みのグループ/フォルダ文脈を付けて表示する。
                 bundle_paths = [cal_path for cal_path, _skl_path in pairs]
-                if not pixel_mode:
-                    # Fiber tracing is far slower than reading skeleton pixels,
-                    # so report progress instead of leaving the log silent.
-                    # ファイバー追跡は骨格画素の読み出しよりはるかに遅いため、
-                    # ログを無音にせず進捗を報告する。
-                    self.ui_queue.put(("log", _(
-                        "[{grp}/{folder}] {n} バンドルを計測中..."
-                    ).format(grp=grp_name, folder=folder_name, n=len(bundle_paths))))
+                # Every bundle path traces fibers, so none of them is fast
+                # enough to leave the log silent while it runs.
+                # どのバンドル経路もファイバー追跡を行うため、実行中にログを
+                # 無音にしてよいほど速い経路は無い。
+                self.ui_queue.put(("log", _(
+                    "[{grp}/{folder}] {n} バンドルを計測中..."
+                ).format(grp=grp_name, folder=folder_name, n=len(bundle_paths))))
+
+                # Say how many bundles actually carry connection settings. A
+                # bundle without the sidecar is measured as fragments, and the
+                # difference is otherwise invisible in the result.
+                # 実際に連結設定を持つバンドルが何個あるかを報告する。サイドカーの
+                # 無いバンドルは骨格断片として計測されるが、その差は結果からは
+                # 見えないためである。
+                if apply_connection:
+                    n_conn = self._count_connected_bundles(bundle_paths)
+                    msg = _("[{grp}/{folder}] 連結設定を適用: {n}/{total} バンドル")
+                    if n_conn < len(bundle_paths):
+                        msg += _("（残りは骨格断片のまま集計）")
+                    self.ui_queue.put(("log", msg.format(
+                        grp=grp_name, folder=folder_name,
+                        n=n_conn, total=len(bundle_paths),
+                    )))
 
 
                 try:
@@ -2793,6 +2896,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         bundle_paths, param, unit,
                         input_mode=input_mode,
                         apply_exclusions=apply_exclusions,
+                        apply_connection=apply_connection,
                         curvature_window=curvature_window,
                     )
                 except Exception as e:

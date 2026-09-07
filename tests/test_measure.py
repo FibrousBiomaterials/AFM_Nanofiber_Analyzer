@@ -31,6 +31,8 @@ from lib.blosc2_io import load_bundle, save_bundle
 from lib.bundle_schema import BUNDLE_FORMAT_VERSION
 from lib.fiber import Fiber
 from lib.fiber_tracking_image import FiberTrackingImage
+from lib.connect_selection import connect_path_for, save_connect_settings
+from lib.fiber_connector import ConnectParams
 from lib.fiber_selection import exclusion_path_for, fiber_anchor, save_exclusions
 from lib.measure import (
     FIBER_CSV_COLUMNS,
@@ -51,6 +53,7 @@ from lib.measure import (
     load_tracking_image,
     measure_bundle,
     read_fiber_csv,
+    read_scan_size_from_bundle,
     skeleton_height_values,
     write_fiber_csv,
     write_heights_csv,
@@ -393,14 +396,153 @@ def test_cli_measure_writes_identical_csv(measured, tmp_path):
 
 
 def test_skeleton_height_values_counts_and_range(measured):
-    """Collected heights cover every skeleton pixel and sit near 3 nm."""
-    bundle_path, _result = measured
+    """
+    Collected heights come from the traced fibers and sit near 3 nm.
+    収集される高さは追跡済みファイバー由来で、3 nm 付近に分布する。
+
+    The population is the tracked points, not the skeleton mask: only a traced
+    fiber can be excluded or reconnected. On this synthetic image the two
+    coincide because it has no branch points for `imp_tools.remove_bp` to
+    clear, which is what makes the comparison below exact.
+    母集団は骨格マスクではなく追跡点である。除外や再結合の対象になり得るのは
+    追跡済みファイバーだけであるため。この合成画像では `imp_tools.remove_bp` が
+    消去する分岐点が無いため両者が一致し、それが下の比較を厳密にしている。
+    """
+    bundle_path, result = measured
     heights, errors = skeleton_height_values([bundle_path])
     assert errors == []
 
+    assert heights.size == sum(len(f.height) for f in result.fibers)
     skeleton = load_bundle(bundle_path, keys=["skeletonized"])["skeletonized"]
     assert heights.size == int((skeleton > 0).sum())
     assert float(np.median(heights)) == pytest.approx(3.0, abs=0.7)
+
+
+def test_skeleton_height_values_applies_the_exclusion_sidecar(measured, tmp_path):
+    """
+    Excluding the only fiber empties the pixel-unit height population.
+    唯一のファイバーを除外すると、画素単位の高さ母集団が空になる。
+    """
+    bundle_path, result = measured
+    copied = os.path.join(tmp_path, "copy.b2z")
+    shutil.copyfile(bundle_path, copied)
+
+    anchor = fiber_anchor(result.fibers[0])
+    save_exclusions(
+        exclusion_path_for(copied), "copy.b2z",
+        [{"x": anchor[0], "y": anchor[1], "note": "debris"}],
+    )
+
+    plain, _errors = skeleton_height_values([copied])
+    curated, _errors2 = skeleton_height_values([copied], apply_exclusions=True)
+    assert plain.size > 0
+    assert curated.size == 0
+
+
+def test_skeleton_height_values_honors_the_connection_sidecar(measured, tmp_path):
+    """
+    The saved connection settings reach the pixel-unit population too.
+    保存済みの連結設定は、画素単位の母集団にも反映される。
+
+    Reconnection adds interpolated bridge points that exist in no mask, so a
+    result identical to the directly connected measurement is the evidence
+    that the sidecar was read and applied rather than ignored.
+    再結合はどのマスクにも存在しない補間点を追加するため、直接連結を指定した
+    計測と一致することが、サイドカーが無視されず読まれ適用された証拠になる。
+    """
+    bundle_path, _result = measured
+    copied = os.path.join(tmp_path, "copy.b2z")
+    shutil.copyfile(bundle_path, copied)
+    save_connect_settings(
+        connect_path_for(copied), "copy.b2z", True, ConnectParams(),
+    )
+
+    from_sidecar, errors = skeleton_height_values([copied], apply_connection=True)
+    assert errors == []
+
+    direct = measure_bundle(copied, scale_um=SCALE_UM, connect_fibers=True)
+    expected = np.concatenate([np.asarray(f.height, dtype=float)
+                               for f in direct.fibers])
+    assert from_sidecar.size == expected.size
+    assert np.allclose(np.sort(from_sidecar), np.sort(expected))
+
+
+def test_skeleton_height_values_needs_no_recorded_scan_size(measured, tmp_path):
+    """
+    Heights are measurable on a bundle that records no scan size.
+    走査範囲を記録していないバンドルでも高さは計測できる。
+
+    Heights do not depend on the pixel size, so tracing such a bundle with the
+    placeholder scale is exact for this quantity. This keeps working the one
+    combination that GUI03 offers for bundles predating the scan-size
+    contract.
+    高さはピクセルサイズに依存しないため、代替スケールで追跡してもこの量に
+    関しては厳密である。これにより、走査範囲契約より前のバンドルに対して GUI03
+    が提供する唯一の組み合わせが動き続ける。
+    """
+    bundle_path, _result = measured
+    stripped = os.path.join(tmp_path, "no_scan_size.b2z")
+    save_bundle(
+        stripped, load_bundle(bundle_path),
+        vlmeta={"version": BUNDLE_FORMAT_VERSION},
+    )
+    assert read_scan_size_from_bundle(stripped) is None
+
+    heights, errors = skeleton_height_values([stripped])
+    assert errors == []
+    reference, _errors = skeleton_height_values([bundle_path])
+    assert np.allclose(np.sort(heights), np.sort(reference))
+
+
+def test_collect_fiber_stats_honors_the_connection_sidecar(measured, tmp_path):
+    """
+    `apply_connection` reproduces a direct `connect_fibers=True` measurement.
+    `apply_connection` は `connect_fibers=True` を直接指定した計測を再現する。
+
+    Without a sidecar nothing changes, so an existing file is the only thing
+    that can alter what `cli.py measure` reports.
+    サイドカーが無ければ何も変わらない。`cli.py measure` の報告内容を変え得るのは
+    既存のファイルだけである。
+    """
+    bundle_path, _result = measured
+    copied = os.path.join(tmp_path, "copy.b2z")
+    shutil.copyfile(bundle_path, copied)
+
+    no_sidecar, _e1 = collect_fiber_stats(
+        [copied], scale_um=SCALE_UM, apply_connection=True,
+    )
+    plain, _e2 = collect_fiber_stats([copied], scale_um=SCALE_UM)
+    assert [s.length_nm for s in no_sidecar[0][1]] == \
+        [s.length_nm for s in plain[0][1]]
+
+    save_connect_settings(
+        connect_path_for(copied), "copy.b2z", True, ConnectParams(),
+    )
+    connected, _e3 = collect_fiber_stats(
+        [copied], scale_um=SCALE_UM, apply_connection=True,
+    )
+    direct = measure_bundle(copied, scale_um=SCALE_UM, connect_fibers=True)
+    assert [s.length_nm for s in connected[0][1]] == \
+        [s.length_nm for s in direct.stats]
+
+
+def test_a_disabled_connection_sidecar_measures_fragments(measured, tmp_path):
+    """
+    A sidecar recording "do not connect" measures exactly as no sidecar does.
+    「連結しない」と記録したサイドカーは、サイドカー無しと同じ計測結果になる。
+    """
+    bundle_path, _result = measured
+    copied = os.path.join(tmp_path, "copy.b2z")
+    shutil.copyfile(bundle_path, copied)
+    save_connect_settings(
+        connect_path_for(copied), "copy.b2z", False, ConnectParams(),
+    )
+
+    off, _e1 = collect_fiber_stats(
+        [copied], scale_um=SCALE_UM, apply_connection=True,
+    )
+    plain, _e2 = collect_fiber_stats([copied], scale_um=SCALE_UM)
+    assert [s.length_nm for s in off[0][1]] == [s.length_nm for s in plain[0][1]]
 
 
 def test_skeleton_height_values_reports_missing_bundle(measured, tmp_path):

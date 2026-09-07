@@ -5,11 +5,11 @@ GUI01 の ``.b2z`` バンドルに対する GUI 非依存のファイバー計�
 
 This module owns the measurement-side responsibilities that were previously
 embedded in GUI03 and GUI04: rebuilding `FiberTrackingImage` objects from a
-bundle, computing per-fiber summary statistics, collecting skeleton-pixel
+bundle, computing per-fiber summary statistics, collecting tracked fiber
 heights, and writing the result CSV files.
 GUI03 と GUI04 に埋め込まれていた計測側の責務（バンドルからの
-`FiberTrackingImage` 再構築、ファイバーごとの要約統計、スケルトン画素高さの
-収集、結果 CSV の書き出し）をこのモジュールが持つ。
+`FiberTrackingImage` 再構築、ファイバーごとの要約統計、追跡済みファイバーの
+高さ収集、結果 CSV の書き出し）をこのモジュールが持つ。
 
 GUI04 and the `measure` command both call `measure_bundle` and
 `write_fiber_csv`, so a complete, unfiltered GUI04 export matches the CLI for
@@ -62,6 +62,7 @@ from .bundle_schema import (
     scan_size_um_from_meta,
     validate_bundle,
 )
+from .connect_selection import connect_path_for, load_connect_settings
 from .fiber import Fiber
 from .fiber_connector import (
     ConnectParams,
@@ -89,6 +90,24 @@ from . import imp_tools
 # 断片の端は分岐点中心のちょうど 2 px 先に来る。これより小さい半径では切断端を
 # 1 つも捉えられない。
 BRANCH_TOUCH_RADIUS_PX = 2
+
+# Placeholder scan size used by `skeleton_height_values` for a bundle that
+# records none. Heights are sampled from the calibrated image and every
+# connection gate is computed in pixel, degree, and relative-height space
+# (`fiber_connector.connect_fiber_fragments`), as is kink detection, which
+# reads pixel coordinates only. The pixel size therefore reaches nothing but
+# `Fiber.horizon`, the contour length, which that collector never reads. This
+# keeps skeleton heights measurable on bundles written before the scan size
+# joined the contract, as they were when the heights came straight from the
+# skeleton mask.
+# 走査範囲を記録していないバンドルのために `skeleton_height_values` が使う
+# 代替走査範囲。高さは補正済み画像から採り、連結の判定は全て画素・度・相対高さ
+# の空間で行われ（`fiber_connector.connect_fiber_fragments`）、キンク検出も
+# 画素座標しか見ない。したがってピクセルサイズが影響するのは輪郭長である
+# `Fiber.horizon` だけであり、当該コレクタはそれを一切読まない。これにより、
+# 走査範囲が契約へ加わる前に書かれたバンドルでも、骨格マスクから直接高さを
+# 読んでいた頃と同様に高さを計測できる。
+HEIGHT_ONLY_SCALE_UM = 1.0
 
 # Arc length over which local curvature measures its turning angle, chosen by
 # measuring digitised circles of known radius and by rendering real fibers
@@ -1311,12 +1330,62 @@ def _exclusion_anchors(bundle_path: str) -> List[Tuple[int, int]]:
     return [(int(r["x"]), int(r["y"])) for r in records]
 
 
+def _curation_for(
+    bundle_path: str,
+    apply_exclusions: bool,
+    apply_connection: bool,
+) -> Tuple[List[Tuple[int, int]], bool, Optional[ConnectParams]]:
+    """
+    Resolve one bundle's sidecar curation into `measure_bundle` arguments.
+    1 バンドルのサイドカーによるキュレーションを `measure_bundle` の引数へ解決する。
+
+    Parameters
+    ----------
+    bundle_path
+        Bundle whose sidecars are consulted.
+        サイドカーを参照するバンドル。
+    apply_exclusions
+        Whether the manual exclusion sidecar is honored.
+        手動除外サイドカーを尊重するかどうか。
+    apply_connection
+        Whether the connection-settings sidecar is honored.
+        連結設定サイドカーを尊重するかどうか。
+
+    Returns
+    -------
+    tuple
+        ``(exclude_anchors, connect_fibers, connect_params)``, ready to pass
+        straight to `measure_bundle`.
+        ``(除外アンカー, 連結するか, 連結しきい値)``。`measure_bundle` へ
+        そのまま渡せる形で返す。
+
+    Notes
+    -----
+    Every collector resolves the two sidecars through this one function, so
+    they cannot drift apart in what "apply the saved curation" means. The
+    order the two are applied in is not decided here: `curate_fibers` owns it.
+    全てのコレクタは 2 つのサイドカーをこの関数経由で解決するため、「保存済みの
+    キュレーションを適用する」の意味がコレクタ間でずれることがない。両者を適用
+    する順序はここでは決めない。それは `curate_fibers` の責務である。
+    """
+    anchors = _exclusion_anchors(bundle_path) if apply_exclusions else []
+    connect_fibers = False
+    connect_params: Optional[ConnectParams] = None
+    if apply_connection:
+        settings = load_connect_settings(connect_path_for(bundle_path))
+        if settings is not None and settings.enabled:
+            connect_fibers = True
+            connect_params = settings.params
+    return anchors, connect_fibers, connect_params
+
+
 def collect_fiber_stats(
     bundle_paths: Sequence[str],
     scale_um: Optional[float] = None,
     scale_y_um: Optional[float] = None,
     max_workers: Optional[int] = None,
     apply_exclusions: bool = False,
+    apply_connection: bool = False,
 ) -> Tuple[List[Tuple[str, List[FiberStats]]], List[Tuple[str, str]]]:
     """
     Measure several ``.b2z`` bundles and return per-fiber statistics per bundle.
@@ -1349,6 +1418,17 @@ def collect_fiber_stats(
         手動除外として記録しているファイバーを取り除く。既定は ``False``。
         キュレーションを指示されていないバンドルについて、既存のサイドカーが
         `cli.py measure` の報告内容を黙って変えてしまわないようにするため。
+    apply_connection
+        When ``True``, reconnect fragments into whole fibrils for every bundle
+        whose ``<stem>_connect.json`` sidecar enables it, using the thresholds
+        that sidecar records. Defaults to ``False`` for the same reason
+        `apply_exclusions` does. A bundle without the sidecar is measured as
+        fragments, so a folder can be curated one bundle at a time.
+        ``True`` のとき、``<stem>_connect.json`` サイドカーが連結を有効にして
+        いるバンドルについて、そのサイドカーが記録するしきい値で断片を 1 本の
+        フィブリルへ再結合する。既定が ``False`` である理由は `apply_exclusions`
+        と同じ。サイドカーの無いバンドルは断片として計測されるため、フォルダを
+        1 バンドルずつキュレーションできる。
 
     Returns
     -------
@@ -1386,13 +1466,17 @@ def collect_fiber_stats(
         # 除外はアンカーとして渡し、`measure_bundle` が断片へ適用する。統計値は
         # 残ったファイバーで採番し直された状態で返るため、GUI04 の出力と一致する。
         try:
-            anchors = _exclusion_anchors(path) if apply_exclusions else ()
+            anchors, connect_fibers, connect_params = _curation_for(
+                path, apply_exclusions, apply_connection,
+            )
             result = measure_bundle(
                 path,
                 scale_um=scale_um,
                 scale_y_um=scale_y_um,
                 max_workers=max_workers,
                 exclude_anchors=anchors,
+                connect_fibers=connect_fibers,
+                connect_params=connect_params,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
@@ -1463,6 +1547,7 @@ def collect_skeleton_height_profiles(
     scale_y_um: Optional[float] = None,
     max_workers: Optional[int] = None,
     apply_exclusions: bool = False,
+    apply_connection: bool = False,
 ) -> Tuple[List[Tuple[str, np.ndarray, np.ndarray]], List[Tuple[str, str]]]:
     """
     Collect tracked height profiles and their contour length weights.
@@ -1482,6 +1567,16 @@ def collect_skeleton_height_profiles(
     max_workers
         Maximum number of worker threads used per bundle.
         1 バンドルあたりの並列追跡ワーカースレッド数の上限。
+    apply_exclusions
+        When ``True``, drop manually excluded fibers, as in
+        `collect_fiber_stats`.
+        ``True`` のとき、`collect_fiber_stats` と同様に手動除外されたファイバーを
+        取り除く。
+    apply_connection
+        When ``True``, honor each bundle's saved connection settings, as in
+        `collect_fiber_stats`.
+        ``True`` のとき、`collect_fiber_stats` と同様に各バンドルの保存済み連結
+        設定を尊重する。
 
     Returns
     -------
@@ -1511,13 +1606,17 @@ def collect_skeleton_height_profiles(
     errors: List[Tuple[str, str]] = []
     for path in bundle_paths:
         try:
-            anchors = _exclusion_anchors(path) if apply_exclusions else ()
+            anchors, connect_fibers, connect_params = _curation_for(
+                path, apply_exclusions, apply_connection,
+            )
             result = measure_bundle(
                 path,
                 scale_um=scale_um,
                 scale_y_um=scale_y_um,
                 max_workers=max_workers,
                 exclude_anchors=anchors,
+                connect_fibers=connect_fibers,
+                connect_params=connect_params,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
@@ -1552,6 +1651,7 @@ def collect_fiber_curvature(
     max_workers: Optional[int] = None,
     apply_exclusions: bool = False,
     curvature_window_nm: float = DEFAULT_CURVATURE_WINDOW_NM,
+    apply_connection: bool = False,
 ) -> Tuple[List[Tuple[str, np.ndarray]], List[Tuple[str, str]]]:
     """
     Measure the per-fiber mean curvature across several bundles.
@@ -1579,6 +1679,13 @@ def collect_fiber_curvature(
     curvature_window_nm
         Arc length the curvature estimator turns over.
         曲率推定が回転角を測る弧長。
+    apply_connection
+        When ``True``, honor each bundle's saved connection settings, as in
+        `collect_fiber_stats`. Curvature is measured along whole fibrils then,
+        which is not the same as the mean of its fragments' curvatures.
+        ``True`` のとき、`collect_fiber_stats` と同様に各バンドルの保存済み連結
+        設定を尊重する。その場合、曲率は 1 本のフィブリル全体に沿って計測される
+        が、これは構成断片の曲率の平均とは異なる。
 
     Returns
     -------
@@ -1606,13 +1713,17 @@ def collect_fiber_curvature(
     errors: List[Tuple[str, str]] = []
     for path in bundle_paths:
         try:
-            anchors = _exclusion_anchors(path) if apply_exclusions else ()
+            anchors, connect_fibers, connect_params = _curation_for(
+                path, apply_exclusions, apply_connection,
+            )
             result = measure_bundle(
                 path,
                 scale_um=scale_um,
                 scale_y_um=scale_y_um,
                 max_workers=max_workers,
                 exclude_anchors=anchors,
+                connect_fibers=connect_fibers,
+                connect_params=connect_params,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
@@ -1829,17 +1940,32 @@ def all_pixel_height(calimage_list, sklimage_list):
 
 def skeleton_height_values(
     bundle_paths: Sequence[str],
+    apply_exclusions: bool = False,
+    apply_connection: bool = False,
+    max_workers: Optional[int] = None,
 ) -> Tuple[np.ndarray, List[Tuple[str, str]]]:
     """
-    Collect skeleton-pixel heights from multiple ``.b2z`` bundles.
-    複数の ``.b2z`` バンドルからスケルトン画素の高さ値を収集する。
+    Collect tracked fiber heights from multiple ``.b2z`` bundles.
+    複数の ``.b2z`` バンドルから追跡済みファイバーの高さ値を収集する。
 
     Parameters
     ----------
     bundle_paths
-        Paths to ``.b2z`` bundles containing ``calibrated`` and
-        ``skeletonized`` keys.
-        ``calibrated`` と ``skeletonized`` キーを含む ``.b2z`` バンドルのパス。
+        Paths to ``.b2z`` bundles containing the tracking keys.
+        追跡用キーを含む ``.b2z`` バンドルのパス。
+    apply_exclusions
+        When ``True``, drop manually excluded fibers, as in
+        `collect_fiber_stats`.
+        ``True`` のとき、`collect_fiber_stats` と同様に手動除外されたファイバーを
+        取り除く。
+    apply_connection
+        When ``True``, honor each bundle's saved connection settings, as in
+        `collect_fiber_stats`.
+        ``True`` のとき、`collect_fiber_stats` と同様に各バンドルの保存済み連結
+        設定を尊重する。
+    max_workers
+        Maximum number of worker threads used per bundle.
+        1 バンドルあたりの並列追跡ワーカースレッド数の上限。
 
     Returns
     -------
@@ -1854,27 +1980,67 @@ def skeleton_height_values(
 
     Notes
     -----
+    The heights are sampled by walking the traced fibers, not by reading the
+    skeleton mask. Only a traced fiber can be excluded or reconnected -- an
+    exclusion names an object, and reconnection adds interpolated bridge
+    pixels that exist in no mask -- so a curated population is reachable only
+    through tracing. Up to 1.0.0 this read ``calibrated`` at every nonzero
+    ``skeletonized`` pixel, which ignored both sidecars.
+    高さは骨格マスクを読むのではなく、追跡済みファイバーをたどって採取する。
+    除外や再結合の対象になり得るのは追跡済みファイバーだけである。除外は対象
+    そのものを指し、再結合はどのマスクにも存在しない補間された橋渡し画素を
+    追加するためで、キュレーション済みの母集団へは追跡を通じてしか到達できない。
+    1.0.0 まではこの関数が ``skeletonized`` の非ゼロ画素すべてで ``calibrated``
+    を読んでおり、両方のサイドカーを無視していた。
+
+    The population therefore changed with this switch even when nothing is
+    excluded: tracing removes the branch-point neighborhoods that
+    `imp_tools.remove_bp` clears, which the mask still contained. This makes
+    the result the unweighted counterpart of
+    `collect_skeleton_height_profiles`, over the same fibers.
+    そのため、除外が 1 つも無い場合でも母集団はこの変更で変わった。追跡は
+    `imp_tools.remove_bp` が消去する分岐点近傍を除くが、マスクにはそれが残って
+    いたためである。この結果、本関数は同じファイバー群に対する
+    `collect_skeleton_height_profiles` の重み無し版になる。
+
     A load failure in one bundle does not abort the collection; remaining
     bundles are still processed so grouped GUI runs degrade gracefully.
     1 つのバンドルの読み込み失敗で収集全体は中断しない。残りのバンドルは
     処理を続け、グループ実行が部分的な失敗に耐えられるようにする。
     """
-    heights: List[float] = []
+    heights: List[np.ndarray] = []
     errors: List[Tuple[str, str]] = []
     for path in bundle_paths:
         try:
-            # Contract validation included: a malformed bundle becomes an
-            # error entry here instead of corrupting the pooled heights.
-            # 契約検証込み。不正なバンドルは集約高さ値を汚染せず、ここで
-            # エラー項目になる。
-            bundle = _load_validated_arrays(path, ["calibrated", "skeletonized"])
+            anchors, connect_fibers, connect_params = _curation_for(
+                path, apply_exclusions, apply_connection,
+            )
+            # Heights do not depend on the physical pixel size, so a bundle
+            # without a recorded scan size is still measurable here; see
+            # HEIGHT_ONLY_SCALE_UM.
+            # 高さは物理ピクセルサイズに依存しないため、走査範囲が未記録の
+            # バンドルもここでは計測できる。HEIGHT_ONLY_SCALE_UM を参照。
+            recorded = read_scan_size_from_bundle(path)
+            result = measure_bundle(
+                path,
+                scale_um=None if recorded else HEIGHT_ONLY_SCALE_UM,
+                max_workers=max_workers,
+                exclude_anchors=anchors,
+                connect_fibers=connect_fibers,
+                connect_params=connect_params,
+            )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
-        heights.extend(
-            all_pixel_height([bundle["calibrated"]], [bundle["skeletonized"]])
-        )
-    return np.asarray(heights, dtype=float), errors
+
+        for fiber in result.fibers:
+            height = np.asarray(fiber.height, dtype=float)
+            if height.size:
+                heights.append(height)
+
+    if not heights:
+        return np.empty(0, dtype=float), errors
+    return np.concatenate(heights), errors
 
 
 def write_heights_csv(
