@@ -1949,37 +1949,6 @@ def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
             ])
 
 
-def all_pixel_height(calimage_list, sklimage_list):
-    """
-    Collect calibrated height values at skeletonized fiber pixels.
-    細線化された繊維画素位置の補正済み高さ値を収集する。
-
-    Parameters
-    ----------
-    calimage_list
-        Calibrated AFM height images whose values are sampled.
-        サンプリング対象となる補正済み AFM 高さ画像。
-    sklimage_list
-        Skeletonized masks; nonzero pixels mark fiber centerlines.
-        非ゼロ画素が繊維中心線を表す細線化マスク。
-
-    Returns
-    -------
-    list
-        Height values sampled from the calibrated images.
-        補正済み画像からサンプリングされた高さ値。
-
-    Notes
-    -----
-    The sampled values come from calibrated images, not from the raw AFM input.
-    サンプリング値は元の AFM 入力ではなく、補正済み画像から取得する。
-    """
-    all_height = []
-    for calimage, sklimage in zip(calimage_list, sklimage_list):
-        all_height.extend(calimage[np.where(sklimage)])
-    return all_height
-
-
 def skeleton_height_values(
     bundle_paths: Sequence[str],
     apply_exclusions: bool = False,

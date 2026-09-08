@@ -11,6 +11,7 @@ import pytest
 
 from lib.fiber_selection import (
     EXCLUSION_FORMAT,
+    EXCLUSION_VERSION,
     exclusion_path_for,
     excluded_flags,
     fiber_anchor,
@@ -65,6 +66,54 @@ def test_no_anchors_excludes_nothing(traced):
     """An empty anchor set leaves every fiber in the population."""
     _bundle_path, measured = traced
     assert excluded_flags(measured.fibers, []) == [False] * len(measured.fibers)
+
+
+def test_a_newer_format_version_is_refused(tmp_path):
+    """
+    A sidecar from a future version is refused, not read by today's rules.
+    将来の版が書いたサイドカーは、現在の規則で読まずに拒否する。
+
+    A later version could give an entry a meaning beyond "exclude the fiber
+    through this pixel". Reading it as a plain point exclusion would measure a
+    population the user never chose, which is the same failure the malformed
+    case avoids. `connect_selection.load_connect_plan` refuses on the same
+    grounds, and the two sidecars are written together.
+    後の版では、エントリが「この画素を通るファイバーを除外する」を超える意味を
+    持ちうる。それを素の点除外として読めば、ユーザーが選んでいない母集団を計測
+    することになり、不正な形式の場合に避けている失敗と同じである。
+    `connect_selection.load_connect_plan` も同じ理由で拒否し、2 つのサイドカーは
+    まとめて書き出される。
+    """
+    path = os.path.join(tmp_path, "future_excluded.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({
+            "format": EXCLUSION_FORMAT,
+            "version": EXCLUSION_VERSION + 1,
+            "bundle": "sample.b2z",
+            "excluded": [{"x": 1, "y": 2, "note": ""}],
+        }, f)
+    with pytest.raises(ValueError, match="newer than the supported"):
+        load_exclusions(path)
+
+
+def test_a_sidecar_without_a_version_key_still_loads(tmp_path):
+    """
+    A file carrying no ``version`` reads as the current version.
+    ``version`` を持たないファイルは現行版として読む。
+
+    Every released version writes the key, so this covers a hand-edited file.
+    Tightening the guard to require it would reject work that is still valid.
+    出荷済みの全バージョンがこのキーを書くため、これは手編集ファイルのための
+    経路である。キーを必須にすると、依然として有効な作業を拒否してしまう。
+    """
+    path = os.path.join(tmp_path, "noversion_excluded.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({
+            "format": EXCLUSION_FORMAT,
+            "bundle": "sample.b2z",
+            "excluded": [{"x": 1, "y": 2, "note": "hand written"}],
+        }, f)
+    assert load_exclusions(path) == [{"x": 1, "y": 2, "note": "hand written"}]
 
 
 def test_round_trip_preserves_records(tmp_path):

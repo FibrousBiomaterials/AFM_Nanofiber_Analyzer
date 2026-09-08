@@ -513,6 +513,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
+- `lib.measure.all_pixel_height`. It was the body of `skeleton_height_values`
+  before that collector switched to walking the traced fibers, and it has had
+  no caller since. **It is not interchangeable with `skeleton_height_values`**:
+  it samples every nonzero pixel of the skeleton mask, which includes the
+  crossings that `imp_tools.remove_bp` clears before tracing. Measured on the
+  two bundled scans it counted 161 of 7,975 and 25 of 1,789 pixels the traced
+  population does not, and rendering those pixels over the calibrated height
+  image put every one of them on a visible fiber crossing, where the height is
+  two fibers stacked rather than one fiber's — their median height was 1.43x
+  and 1.78x that of the pixels tracing keeps. Taking raw arrays, it also could
+  not express a manual exclusion (which names an object) or a reconnection
+  (whose bridge pixels exist in no mask), so calling it silently bypassed both
+  sidecars. Use `skeleton_height_values`, and expect different numbers.
+
+- `lib.gwy_io.is_gwy_path`, which had no caller and could not gain one where it
+  mattered. `gwy_io` imports from `afm_io`, so `afm_io` cannot import `gwy_io`
+  at module level, and `afm_io` / `pipeline` deliberately test the extension
+  *before* their lazy `from . import gwy_io` so a text-only workflow never
+  loads the module. A predicate living in `gwy_io` is therefore unreachable
+  from the three places that test for a `.gwy` path; leaving it invited an
+  edit that would have introduced a circular import. Test inline with
+  `os.path.splitext(path)[1].lower() == ".gwy"`.
+
 - The `spline2d` background-estimation method. On every test image it left the
   largest background residual of the four methods — 1.3 to 6.1 nm peak-to-peak
   across the scan-line profile, against 0.02 to 0.4 nm for `trendfill` and 0.2
@@ -540,6 +563,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `spline1d` is bit-identical to before.
 
 ### Fixed
+
+- An exclusion sidecar whose `version` is newer than this release now raises
+  instead of being read by this version's rules. `lib.connect_selection`
+  already refused a newer connection file; `lib.fiber_selection` wrote the
+  version key and never read it back, and the asymmetry was undocumented, so a
+  maintainer could not tell whether it was deliberate. A later version could
+  give an entry a meaning beyond "exclude the fiber through this pixel", and
+  applying it as a plain point exclusion would measure a population the user
+  never chose. No file in existence triggers this: the key has been written
+  since the sidecar was introduced. A file with no `version` key still reads as
+  the current version, so a hand-written sidecar keeps loading.
 
 - A fiber crossing another one on the first analyzed scan line or in the first
   analyzed column is no longer dropped. `imp_tools.remove_bp` cuts the skeleton

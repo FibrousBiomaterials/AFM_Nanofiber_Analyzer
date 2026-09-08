@@ -256,9 +256,13 @@ def load_exclusions(path: str) -> List[Dict]:
     Raises
     ------
     ValueError
-        If the file exists but is not a valid exclusion record set. A
-        malformed sidecar is reported rather than ignored, because silently
-        treating it as empty would quietly restore fibers the user excluded.
+        If the file exists but is not a valid exclusion record set, or its
+        format version is newer than `EXCLUSION_VERSION`. A malformed sidecar
+        is reported rather than ignored, because silently treating it as empty
+        would quietly restore fibers the user excluded; a newer one is refused
+        for the same reason, since reading it by this version's rules could
+        apply a decision the user never made. A file with no ``version`` key
+        is read as the current version, so a hand-written sidecar still loads.
     """
     if not os.path.isfile(path):
         return []
@@ -272,6 +276,23 @@ def load_exclusions(path: str) -> List[Dict]:
     if not isinstance(payload, dict) or payload.get("format") != EXCLUSION_FORMAT:
         raise ValueError(
             f"{path} is not an exclusion file (missing format {EXCLUSION_FORMAT!r})"
+        )
+
+    version = payload.get("version", EXCLUSION_VERSION)
+    if not isinstance(version, int) or version > EXCLUSION_VERSION:
+        # A newer file is refused rather than read for the keys this version
+        # happens to understand, matching `connect_selection.load_connect_plan`.
+        # A future version could give an entry a meaning beyond "exclude the
+        # fiber through this pixel", and applying it as a plain point exclusion
+        # would measure a population the user never chose.
+        # 新しい形式のファイルは、本バージョンがたまたま解釈できるキーだけを拾って
+        # 読むのではなく拒否する。`connect_selection.load_connect_plan` と同じ扱い
+        # である。将来の版では、エントリが「この画素を通るファイバーを除外する」を
+        # 超える意味を持ちうる。それを素の点除外として適用すれば、ユーザーが選んで
+        # いない母集団を計測することになる。
+        raise ValueError(
+            f"{path} has format version {version!r}, newer than the supported "
+            f"{EXCLUSION_VERSION}; update the software to read it"
         )
 
     raw = payload.get("excluded", [])

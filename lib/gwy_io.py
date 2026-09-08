@@ -38,7 +38,6 @@ startup never import it.
 """
 
 # ===== Standard library =====
-import os
 import re
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
@@ -514,11 +513,3 @@ def read_gwy_scan_size(path: str) -> Optional[ScanSize]:
     index = _resolve_channel(channels, None)
     _meta, datafield = pairs[index]
     return _scan_size_from_datafield(datafield)
-
-
-def is_gwy_path(path: str) -> bool:
-    """
-    Return whether a path names a Gwyddion ``.gwy`` file by extension.
-    パスが拡張子で Gwyddion ``.gwy`` ファイルを指すかどうかを返す。
-    """
-    return os.path.splitext(path)[1].lower() == GWY_EXT
