@@ -541,6 +541,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A fiber crossing another one on the first analyzed scan line or in the first
+  analyzed column is no longer dropped. `imp_tools.remove_bp` cuts the skeleton
+  at each branch point by clearing a 3x3 neighborhood around it, but at row 0
+  or column 0 the neighborhood's lower bound went negative, which NumPy reads
+  as a position counted from the far edge, so the slice covered nothing and the
+  junction survived. `tracking` then saw a connected component with more than
+  two endpoints and `FiberTrackingImage` skipped it, losing every fiber in that
+  component rather than the crossing alone. **Results change from this version
+  for any image with a crossing on its first row or column**; neither bundled
+  test scan has one, so the recorded regression values are unchanged.
+
+- GUI04 builds its manual-connection candidate cache in one pass over the
+  fiber population instead of one pass per fiber. The end geometry and the
+  per-fiber median heights describe the whole population, so the old form
+  rebuilt both once per fiber: 0.55 s for 60 fibers on the Tk main thread,
+  growing as the square of the population. `lib.fiber_connector` gained
+  `connection_candidates_by_index` for it, which reports exactly what
+  `connection_candidates` reports per fiber. No measured quantity changes.
+
 - GUI04's "孤立ファイバーのみ" filter now also rejects a fiber the reconnection
   logic can find a partner for, using the thresholds set under "連結設定...".
   The branch-point test misses exactly the case this catches: an end whose

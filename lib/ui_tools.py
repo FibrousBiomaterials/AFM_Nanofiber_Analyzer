@@ -112,6 +112,48 @@ def mark_entry_state(entry, committed_str) -> None:
         pass
 
 
+def refresh_entry_placeholder(entry, ghost, *, x: int = 4) -> None:
+    """
+    Show or hide a placeholder ghost over an Entry.
+    入力欄に重ねたプレースホルダのゴーストを表示/非表示する。
+
+    Parameters
+    ----------
+    entry
+        Entry the ghost belongs to.
+        ゴーストが属する入力欄。
+    ghost
+        Widget placed over `entry` while the hint should be visible.
+        ヒントを見せる間、`entry` の上に重ねて配置するウィジェット。
+    x
+        Ghost's left inset within the entry, in pixels.
+        入力欄内でのゴーストの左オフセット（画素）。
+
+    Notes
+    -----
+    The ghost is shown only while the entry is empty and unfocused, so it
+    reads as placeholder text without ever contributing to ``Entry.get()``.
+    Overlaying a separate widget is what keeps the hint out of the committed
+    value; writing it into the entry would make the placeholder indis-
+    tinguishable from something the user typed.
+    ゴーストは入力欄が空かつ非フォーカスのときだけ表示し、``Entry.get()`` には
+    一切影響しないプレースホルダとして読ませる。別ウィジェットを重ねること自体
+    が、ヒントを確定値から切り離す手段である。入力欄へ文字を書き込む方式では、
+    プレースホルダとユーザーの入力を区別できなくなる。
+    """
+    try:
+        focused = entry.focus_get() is entry
+        empty = entry.get() == ""
+    except tk.TclError:
+        return
+    if empty and not focused:
+        # Overlay the ghost at the left inner edge of the field.
+        # フィールド左内側にゴーストを重ねる。
+        ghost.place(x=x, rely=0.5, anchor="w")
+    else:
+        ghost.place_forget()
+
+
 def _set_text_state(text_widget, state: str) -> None:
     try:
         text_widget.configure(state=state)
@@ -531,6 +573,78 @@ def extent_scale_and_unit(scale_um: float, unit: str) -> tuple:
     if unit == "nm":
         return scale_um * 1000.0, "nm"
     return scale_um, UNIT_MICROMETER
+
+
+def scale_xy_um(scale_um, scale_y_um) -> tuple:
+    """
+    Return the (X, Y) scan size in micrometers, a blank Y following X.
+    走査範囲 (X, Y) を µm で返す。Y が空の場合は X に従う。
+
+    Parameters
+    ----------
+    scale_um
+        Physical scan size along X (width), in micrometers.
+        X（幅）方向の物理走査範囲 (µm)。
+    scale_y_um
+        Physical scan size along Y (height), or ``None`` when not set.
+        Y（高さ）方向の物理走査範囲。未設定なら ``None``。
+
+    Returns
+    -------
+    tuple
+        ``(x_um, y_um)`` with the Y fallback already applied.
+        Y のフォールバックを適用済みの ``(x_um, y_um)``。
+
+    Notes
+    -----
+    An unset Y meaning "square scan" is a contract shared by every GUI that
+    offers the two scale fields, so it is resolved in one place: a GUI that
+    read a blank Y as zero, or as the image height in pixels, would draw and
+    measure a different physical aspect from its siblings for the same file.
+    Y 未設定を「正方スキャン」と解釈する規約は、2 つのスケール入力欄を持つ全 GUI
+    で共有される。そのため解決は 1 か所で行う。空の Y を 0 や画素数として読む GUI
+    があると、同じファイルに対して他の GUI と異なる物理アスペクトで描画・計測して
+    しまう。
+    """
+    return scale_um, (scale_um if scale_y_um is None else scale_y_um)
+
+
+def extent_scales_xy_and_unit(x_um: float, y_um: float, unit: str) -> tuple:
+    """
+    Return per-axis extent scales and the shared unit label.
+    軸別の extent スケールと共通の単位ラベルを返す。
+
+    Parameters
+    ----------
+    x_um
+        Physical scan size along X (width), in micrometers.
+        X（幅）方向の物理走査範囲 (µm)。
+    y_um
+        Physical scan size along Y (height), in micrometers.
+        Y（高さ）方向の物理走査範囲 (µm)。
+    unit
+        Requested display unit, as `extent_scale_and_unit` reads it.
+        表示単位。解釈は `extent_scale_and_unit` と同じ。
+
+    Returns
+    -------
+    tuple
+        ``(x_scale, y_scale, unit_label)`` for a Matplotlib extent and its
+        axis labels.
+        Matplotlib の extent と軸ラベルに使う ``(x_scale, y_scale, unit_label)``。
+
+    Notes
+    -----
+    X takes the width scale and Y the height scale, so a rectangular scan or a
+    non-square pixel grid draws with the correct physical aspect. Both axes are
+    converted with the same unit, so the single returned label describes both.
+    X は幅スケール、Y は高さスケールを取り、矩形スキャンや非正方ピクセル格子を
+    正しい物理アスペクトで描画する。両軸とも同じ単位で換算するため、返す 1 つの
+    ラベルが両軸を説明する。
+    """
+    x_scale, unit_label = extent_scale_and_unit(x_um, unit)
+    y_scale, _unit_label = extent_scale_and_unit(y_um, unit)
+    return x_scale, y_scale, unit_label
 
 
 def drain_ui_queue(ui_queue, handlers) -> bool:

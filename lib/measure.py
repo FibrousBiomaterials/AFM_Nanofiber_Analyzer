@@ -698,7 +698,7 @@ def fiber_curvature_profile(
     # 読み戻す。2 つの弦が要求した半窓にちょうど収まることはまれなためである。
     before = np.searchsorted(horizon, horizon - half, side="left")
     after = np.searchsorted(horizon, horizon + half, side="left")
-    valid = (before >= 0) & (after < horizon.size) & (after > before)
+    valid = (after < horizon.size) & (after > before)
     valid &= (horizon - horizon[np.clip(before, 0, horizon.size - 1)] >= half * 0.5)
     if not valid.any():
         return np.empty(0, dtype=float)
@@ -1383,7 +1383,7 @@ def _curation_for(
     bundle_path: str,
     apply_exclusions: bool,
     apply_connection: bool,
-) -> Tuple[List[Tuple[int, int]], bool, Optional[ConnectParams]]:
+) -> Tuple[List[Tuple[int, int]], Optional[ConnectionPlan]]:
     """
     Resolve one bundle's sidecar curation into `measure_bundle` arguments.
     1 バンドルのサイドカーによるキュレーションを `measure_bundle` の引数へ解決する。

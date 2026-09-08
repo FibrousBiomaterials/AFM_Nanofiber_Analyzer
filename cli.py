@@ -531,6 +531,15 @@ def cmd_heights(args: argparse.Namespace) -> int:
             continue
         stem = os.path.splitext(name)[0]
         per_bundle.append((stem, heights))
+        if heights.size == 0:
+            # A readable bundle whose skeleton traced no fiber is a real
+            # outcome, not a failure; summarizing it would emit NumPy's
+            # "mean of empty slice" warning and print nan for both statistics.
+            # 読み取れたバンドルでファイバーを 1 本も追跡できなかったのは正当な
+            # 結果であり失敗ではない。要約すると NumPy の「空スライスの平均」
+            # 警告が出て、両統計量とも nan と表示されてしまう。
+            print(f"[{i}/{len(inputs)}] {name}: no traced fiber points")
+            continue
         print(
             f"[{i}/{len(inputs)}] {name}: {heights.size} skeleton px, "
             f"mean {np.mean(heights):.3f} nm, std {np.std(heights):.3f} nm"

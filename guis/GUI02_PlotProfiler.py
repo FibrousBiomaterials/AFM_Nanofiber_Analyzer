@@ -59,8 +59,10 @@ from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, ToolTip, setup_matplotlib_style,
     save_figure_with_dialog, PLOT_FS_DEFAULTS, setup_ttk_theme,
-    UNIT_MICROMETER, extent_scale_and_unit, save_csv_with_dialog,
-    rewrite_entries, mark_entry_state, build_pan_zoom_toolbar,
+    UNIT_MICROMETER, extent_scale_and_unit, extent_scales_xy_and_unit,
+    save_csv_with_dialog, scale_xy_um,
+    rewrite_entries, mark_entry_state, refresh_entry_placeholder,
+    build_pan_zoom_toolbar,
     UnconfirmedEntryMixin, localized_combobox_width,
     DEFAULT_VMIN, DEFAULT_VMAX,
 )
@@ -1148,26 +1150,14 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         （正方スキャン）ことを示すプレースホルダとして読ませる。Entry.get() には
         一切影響しない。
         """
-        entry = self.entry_scale_y
-        try:
-            focused = entry.focus_get() is entry
-            empty = entry.get() == ""
-        except tk.TclError:
-            return
-        if empty and not focused:
-            # Overlay the ghost at the left inner edge of the field.
-            # フィールド左内側にゴーストを重ねる。
-            self._scale_y_ph.place(x=4, rely=0.5, anchor="w")
-        else:
-            self._scale_y_ph.place_forget()
+        refresh_entry_placeholder(self.entry_scale_y, self._scale_y_ph)
 
     def _scale_xy_um(self) -> tuple:
         """
         Return the (X, Y) scan size in micrometers; Y falls back to X when unset.
         走査範囲 (X, Y) を µm で返す。Y 未設定時は X にフォールバックする。
         """
-        y = self.scale_y_um if self.scale_y_um is not None else self.scale_um
-        return self.scale_um, y
+        return scale_xy_um(self.scale_um, self.scale_y_um)
 
     def _rescale_points(self, old_x: float, new_x: float,
                         old_y: float, new_y: float) -> None:
@@ -1197,11 +1187,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         X は幅スケール、Y は高さスケールを使い、矩形スキャンを正しい物理アスペクト
         で描画する。nm 表示では 1000 倍する。
         """
-        x_um, y_um = self._scale_xy_um()
-        unit = self.unit_var.get()
-        x_scale, unit_label = extent_scale_and_unit(x_um, unit)
-        y_scale, _unit_label = extent_scale_and_unit(y_um, unit)
-        return x_scale, y_scale, unit_label
+        return extent_scales_xy_and_unit(*self._scale_xy_um(), self.unit_var.get())
 
     def _default_save_dir(self) -> str:
         """

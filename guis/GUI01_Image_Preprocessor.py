@@ -94,7 +94,7 @@ from lib.ui_tools import (
     save_figure_with_dialog, PLOT_FS_DEFAULTS, setup_ttk_theme,
     save_text_widget_log,
     create_scrolled_text, drain_ui_queue, bind_mousewheel_scroll,
-    rewrite_entries, mark_entry_state,
+    rewrite_entries, mark_entry_state, refresh_entry_placeholder, scale_xy_um,
     UnconfirmedEntryMixin, LogMixin,
 )
 
@@ -2220,8 +2220,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         プレビュー描画は `_preview_scale_xy_um` で表示スケールを解決し、
         本入力欄は最終フォールバックとしてのみ使う。
         """
-        y = self.scale_y_um if self.scale_y_um is not None else self.scale_um
-        return self.scale_um, y
+        return scale_xy_um(self.scale_um, self.scale_y_um)
 
     def _preview_scale_xy_um(self, it: FileItem) -> Tuple[float, float]:
         """
@@ -2275,18 +2274,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         （正方スキャン）ことを示すプレースホルダとして読ませる。Entry.get() には
         一切影響しない。
         """
-        entry = self.ent_scale_y_um
-        try:
-            focused = entry.focus_get() is entry
-            empty = entry.get() == ""
-        except tk.TclError:
-            return
-        if empty and not focused:
-            # Overlay the ghost at the left inner edge of the field.
-            # フィールド左内側にゴーストを重ねる。
-            self._scale_y_ph.place(x=4, rely=0.5, anchor="w")
-        else:
-            self._scale_y_ph.place_forget()
+        refresh_entry_placeholder(self.ent_scale_y_um, self._scale_y_ph)
 
     def _bind_events(self) -> None:
         """

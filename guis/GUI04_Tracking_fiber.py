@@ -71,7 +71,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from lib.fiber_tracking_image import FiberTrackingImage
 from lib.fiber import Fiber
 from lib.fiber_connector import (
-    ConnectParams, chain_for_manual_join, connection_candidates,
+    ConnectParams, chain_for_manual_join, connection_candidates_by_index,
     filter_fibers_by_height, plan_from_auto_connect,
 )
 from lib.blosc2_io import bundle_has_keys, load_bundle, BUNDLE_EXT
@@ -96,7 +96,8 @@ from lib.ui_tools import (
     apply_window_size, setup_matplotlib_style, save_figure_with_dialog, ToolTip,
     setup_ttk_theme, rewrite_entries, mark_entry_state, replace_log_tail,
     save_text_widget_log, create_scrolled_text, create_scrolled_treeview,
-    drain_ui_queue, extent_scale_and_unit, save_csv_with_dialog,
+    drain_ui_queue, extent_scales_xy_and_unit,
+    save_csv_with_dialog, scale_xy_um, refresh_entry_placeholder,
     bind_mousewheel_scroll, build_pan_zoom_toolbar,
     UnconfirmedEntryMixin, LogMixin, localized_combobox_width,
     PLOT_FS_DEFAULTS, UNIT_MICROMETER,
@@ -1536,26 +1537,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         （正方スキャン）ことを示すプレースホルダとして読ませる。Entry.get() には
         一切影響しない。
         """
-        entry = self.ent_scale_y_um
-        try:
-            focused = entry.focus_get() is entry
-            empty = entry.get() == ""
-        except tk.TclError:
-            return
-        if empty and not focused:
-            # Overlay the ghost at the left inner edge of the field.
-            # フィールド左内側にゴーストを重ねる。
-            self._scale_y_ph.place(x=4, rely=0.5, anchor="w")
-        else:
-            self._scale_y_ph.place_forget()
+        refresh_entry_placeholder(self.ent_scale_y_um, self._scale_y_ph)
 
     def _scale_xy_um(self) -> tuple:
         """
         Return the (X, Y) scan size in micrometers; Y falls back to X when unset.
         走査範囲 (X, Y) を µm で返す。Y 未設定時は X にフォールバックする。
         """
-        y = self.scale_y_um if self.scale_y_um is not None else self.scale_um
-        return self.scale_um, y
+        return scale_xy_um(self.scale_um, self.scale_y_um)
 
     def _on_unit_changed(self) -> None:
         """
@@ -1613,11 +1602,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         X は幅スケール、Y は高さスケールを使い、矩形スキャンや非正方ピクセル格子
         を正しい物理アスペクトで描画する。入力欄は µm 固定で、nm 表示では 1000 倍する。
         """
-        x_um, y_um = self._scale_xy_um()
-        unit = self.unit_var.get()
-        x_scale, unit_label = extent_scale_and_unit(x_um, unit)
-        y_scale, _unit_label = extent_scale_and_unit(y_um, unit)
-        return x_scale, y_scale, unit_label
+        return extent_scales_xy_and_unit(*self._scale_xy_um(), self.unit_var.get())
 
     def _commit_vrange(self) -> bool:
         """
@@ -2560,12 +2545,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         -----
         Computed once per population change rather than once per selection,
         because the manual connection button has to be right the moment a row
-        is clicked. The cost is a distance comparison over the fiber ends,
-        which is the same order as the isolated-fiber test already pays.
+        is clicked. `connection_candidates_by_index` builds the end geometry
+        and the median heights once for the whole population, which is the same
+        order of work the isolated-fiber test already pays; asking
+        `connection_candidates` per fiber instead rebuilt both `n` times over.
         選択のたびではなく母集団の変化のたびに 1 度計算する。手動連結ボタンは行が
-        クリックされた瞬間に正しくなければならないためである。費用はファイバー端
-        どうしの距離比較であり、孤立ファイバー判定が既に払っているのと同じ程度で
-        ある。
+        クリックされた瞬間に正しくなければならないためである。
+        `connection_candidates_by_index` は端の幾何と高さ中央値を母集団全体に対し
+        1 度だけ構築するため、孤立ファイバー判定が既に払っているのと同程度の計算量
+        で済む。ファイバーごとに `connection_candidates` を呼ぶと、両者を `n` 回
+        作り直すことになっていた。
 
         Candidates are computed on `current_fibers`, never on the filtered
         list: a filter cut is not a fiber's end, so a candidate found at one
@@ -2576,15 +2565,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         見つかる候補はフィルターの中にしか存在しない対象どうしの連結を提示して
         しまう。
         """
-        self._candidate_cache = {}
         if self.current_image is None or len(self.current_fibers) < 2:
+            self._candidate_cache = {}
             return
-        for i in range(len(self.current_fibers)):
-            found = connection_candidates(
-                self.current_image, self.current_fibers, i, self.connect_params,
-            )
-            if found:
-                self._candidate_cache[i] = found
+        self._candidate_cache = connection_candidates_by_index(
+            self.current_image, self.current_fibers, self.connect_params,
+        )
 
     def _refresh_population_views(self) -> None:
         """

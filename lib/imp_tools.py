@@ -185,9 +185,18 @@ def remove_bp(
     bp = branchedPoints(imgcopy)
     bp_coor = np.where(bp)
     for bp_x, bp_y in zip(bp_coor[0], bp_coor[1]):
+        # Clamp the low edge at 0: a branch point on the first row or column
+        # gives a negative slice start, which NumPy reads as an index from the
+        # far end, so the assignment covers nothing and the junction survives.
+        # `tracking` then sees a component with more than two endpoints and
+        # `FiberTrackingImage` drops that fiber entirely.
+        # 下端を 0 で丸める。先頭行・先頭列にある分岐点はスライス開始が負になり、
+        # NumPy はこれを末尾からの位置と解釈するため、代入は何も覆わず分岐が
+        # 残る。すると `tracking` は端点が 3 つ以上の連結成分を見ることになり、
+        # `FiberTrackingImage` はそのファイバーを丸ごと捨ててしまう。
         imgcopy[
-        bp_x - remove_size: bp_x + remove_size + 1,
-        bp_y - remove_size: bp_y + remove_size + 1,
+        max(int(bp_x) - remove_size, 0): bp_x + remove_size + 1,
+        max(int(bp_y) - remove_size, 0): bp_y + remove_size + 1,
         ] = 0
 
     if min_area != 0:

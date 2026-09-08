@@ -39,6 +39,7 @@ from lib.fiber_connector import (
     connect_fiber_fragments,
     connection_candidate_flags,
     connection_candidates,
+    connection_candidates_by_index,
     plan_from_auto_connect,
 )
 from lib.fiber_selection import (
@@ -241,6 +242,42 @@ def test_connection_candidates_ignore_perpendicular_neighbours():
     )
 
     assert connection_candidate_flags(image, [horizontal, vertical]) == [False, False]
+
+
+def test_candidates_by_index_match_the_per_fiber_call():
+    """
+    The whole-population pass reports exactly what the per-fiber call does.
+    母集団一括の走査は、ファイバー単位の呼び出しと完全に同じ内容を報告する。
+
+    GUI04 needs every fiber's candidates before the table is filled, and the
+    end geometry and median heights describe the whole population, so building
+    them once is the difference between linear and quadratic setup. That is
+    only a safe substitution while the two agree entry for entry, including
+    the order the automatic candidates come first in.
+    GUI04 は表を埋める前に全ファイバーの候補を必要とし、端の幾何と高さ中央値は
+    いずれも母集団全体を記述する。したがって 1 度だけ構築することが、準備計算を
+    線形にするか二乗にするかを分ける。この置き換えが安全なのは、両者がエントリ
+    単位で、自動候補を先に並べる順序も含めて一致している間だけである。
+    """
+    image = _flat_image()
+    fibers = [
+        _horizontal_fragment(5, 20, y=25),
+        _horizontal_fragment(24, 39, y=25),
+        _horizontal_fragment(43, 58, y=25),
+        _horizontal_fragment(5, 20, y=60),
+    ]
+
+    batch = connection_candidates_by_index(image, fibers)
+    per_fiber = {
+        i: connection_candidates(image, fibers, i)
+        for i in range(len(fibers))
+    }
+    # Fibers with no candidate are absent from the mapping, so it doubles as
+    # the set of connectable fibers.
+    # 候補の無いファイバーは写像に含まれないため、これはそのまま「連結し得る
+    # ファイバーの集合」としても使える。
+    assert batch == {i: c for i, c in per_fiber.items() if c}
+    assert batch, "the fixture must produce at least one candidate"
 
 
 def test_excluding_a_fragment_does_not_delete_its_neighbour():
