@@ -62,11 +62,17 @@ from .bundle_schema import (
     scan_size_um_from_meta,
     validate_bundle,
 )
-from .connect_selection import connect_path_for, load_connect_settings
+from .connect_selection import (
+    ConnectionPlan,
+    connect_path_for,
+    load_connect_plan,
+    resolve_plan_chains,
+    skeleton_digest,
+)
 from .fiber import Fiber
 from .fiber_connector import (
     ConnectParams,
-    connect_fiber_fragments,
+    build_connected_fibers,
     connection_candidate_flags,
 )
 from .fiber_selection import (
@@ -242,11 +248,23 @@ class MeasureResult:
         ようにするため保持する。
     curated_count
         How many fibers were left after exclusions, i.e. how many entered
-        reconnection. Equal to ``len(fibers)`` when reconnection was off, and
-        the difference from it is the number of joins the connector made.
+        reconnection. Equal to ``len(fibers)`` when nothing was connected, and
+        the difference from it is the number of joins the plan made.
         除外の適用後に残ったファイバー数。すなわち再結合へ入った本数である。
-        再結合が無効なら ``len(fibers)`` に等しく、両者の差が連結器の行った連結
-        の件数となる。
+        何も連結されなければ ``len(fibers)`` に等しく、両者の差がプランの行った
+        連結の件数となる。
+    plan_missing
+        Chain members whose fragment is no longer present — excluded, or gone
+        because the bundle was re-analyzed. Reported rather than passed over:
+        a plan that half applies measures a population the user never saw.
+        断片がもう存在しない連鎖メンバーの数（除外された、あるいはバンドルの
+        再解析により失われた）。黙って読み飛ばさず報告する。半分だけ適用された
+        プランは、ユーザーが一度も見ていない母集団を計測するためである。
+    plan_splits
+        Stored chains that came apart into more than one piece, or vanished,
+        because of `plan_missing` members.
+        `plan_missing` のメンバーにより 2 つ以上に割れた、または消滅した保存済み
+        連鎖の本数。
     """
 
     image: FiberTrackingImage
@@ -254,6 +272,8 @@ class MeasureResult:
     stats: List[FiberStats]
     fragments: List[Fiber] = field(default_factory=list)
     curated_count: int = 0
+    plan_missing: int = 0
+    plan_splits: int = 0
 
 
 def _image_frame_shape(image: FiberTrackingImage) -> Optional[Tuple[int, int]]:
@@ -1055,8 +1075,7 @@ def curate_fibers(
     image: FiberTrackingImage,
     fragments: Sequence[Fiber],
     exclude_anchors: Sequence[Tuple[int, int]] = (),
-    connect_fibers: bool = False,
-    connect_params: Optional[ConnectParams] = None,
+    plan: Optional[ConnectionPlan] = None,
 ) -> MeasureResult:
     """
     Build the measured population from traced skeleton fragments.
@@ -1077,12 +1096,11 @@ def curate_fibers(
         `lib.fiber_selection`. Empty means nothing was excluded.
         `lib.fiber_selection` が記録した、手動除外ファイバーのアンカー画素。
         空の場合は除外なしを意味する。
-    connect_fibers
-        Whether to reconnect the surviving fragments into whole fibrils.
-        残った断片を 1 本のフィブリルへ再結合するかどうか。
-    connect_params
-        Reconnection thresholds; ``None`` uses `ConnectParams` defaults.
-        再結合のしきい値。``None`` は `ConnectParams` の既定値を使う。
+    plan
+        Recorded connection result naming which surviving fragments form one
+        fibril. ``None`` measures every fragment on its own.
+        どの断片が 1 本のフィブリルを成すかを指定する、記録済みの連結結果。
+        ``None`` の場合は各断片を単独で計測する。
 
     Returns
     -------
@@ -1116,16 +1134,33 @@ def curate_fibers(
     `lib.fiber_connector.filter_fibers_by_height` 参照）を保つ。実在する
     フィブリルの*内部*で高さ帯を選ぶ操作であり、フィブリルが 1 本に揃って初めて
     意味を持つためである。
+
+    No search runs here. The plan says which fragments are one fibril, and a
+    fragment removed from the middle of a chain splits it rather than starting
+    a new search over the survivors. That is what stops an exclusion from
+    *creating* a connection: with ``A-B-C`` recorded and ``B`` excluded, ``A``
+    and ``C`` stay separate, where re-running the search would have joined
+    them because ``C`` had become ``A``'s only remaining candidate — a fibril
+    nobody decided on, appearing as a side effect of discarding debris.
+    ここでは探索を行わない。どの断片が 1 本のフィブリルかはプランが定めており、
+    連鎖の途中から断片が失われた場合は、残りに対して探索をやり直すのではなく連鎖を
+    分割する。これが、除外が連結を*作り出す*ことを防いでいる。``A-B-C`` が記録され
+    ている状態で ``B`` を除外すると ``A`` と ``C`` は別々のまま残る。探索をやり直せば
+    ``C`` が ``A`` にとって唯一残った候補となるため両者は連結されるが、それは誰も
+    決めていないフィブリルであり、ゴミを捨てた副作用として現れるものである。
     """
     fibers = list(fragments)
     if len(exclude_anchors) > 0:
         drop = excluded_flags(fibers, exclude_anchors)
         fibers = [f for f, d in zip(fibers, drop) if not d]
     curated_count = len(fibers)
-    if connect_fibers:
-        fibers = connect_fiber_fragments(
-            image, fibers, params=connect_params or ConnectParams(),
-        )
+
+    missing = 0
+    splits = 0
+    if plan is not None and plan.chains:
+        chains, missing, splits = resolve_plan_chains(fibers, plan)
+        fibers = build_connected_fibers(image, fibers, chains, plan.params)
+
     return MeasureResult(
         image=image,
         fibers=fibers,
@@ -1134,6 +1169,8 @@ def curate_fibers(
         ),
         fragments=list(fragments),
         curated_count=curated_count,
+        plan_missing=missing,
+        plan_splits=splits,
     )
 
 
@@ -1143,8 +1180,7 @@ def measure_bundle(
     max_workers: Optional[int] = None,
     progress_cb: Optional[Callable[[int, int], None]] = None,
     scale_y_um: Optional[float] = None,
-    connect_fibers: bool = False,
-    connect_params: Optional[ConnectParams] = None,
+    plan: Optional[ConnectionPlan] = None,
     exclude_anchors: Sequence[Tuple[int, int]] = (),
 ) -> MeasureResult:
     """
@@ -1191,21 +1227,18 @@ def measure_bundle(
         ``None`` なら）記録された Y 走査範囲、そうでなければ ``scale_um`` を
         既定値とし、従来の単一値（正方スキャン）挙動を保つ。矩形スキャンでは
         別の値を渡す。
-    connect_fibers
-        When ``True``, reconnect the traced skeleton fragments into whole
-        fibrils with `lib.fiber_connector.connect_fiber_fragments` before
-        computing statistics. Fragments that GUI01 split at crossings and
-        branches are then measured as single fibers. Defaults to ``False``
-        (each skeleton fragment is one fiber, the historical behavior).
-        ``True`` のとき、統計計算の前に、追跡した骨格断片を
-        `lib.fiber_connector.connect_fiber_fragments` で 1 本のフィブリルへ
-        再結合する。GUI01 が交差・分岐で分断した断片が 1 本の繊維として計測
-        される。既定は ``False``（各骨格断片が 1 本の繊維、従来挙動）。
-    connect_params
-        Reconnection thresholds used when ``connect_fibers`` is ``True``.
-        ``None`` uses `ConnectParams` defaults.
-        ``connect_fibers`` が ``True`` のときに使う再結合しきい値。``None`` は
-        `ConnectParams` の既定値を使う。
+    plan
+        Recorded connection result saying which traced fragments form one
+        fibril, as written beside the bundle by the fiber tracker. Fragments
+        that GUI01 split at crossings and branches are then measured as single
+        fibers. Defaults to ``None`` (each skeleton fragment is one fiber, the
+        historical behavior). When the plan carries a skeleton fingerprint that
+        does not match this bundle, the measurement is refused.
+        どの追跡済み断片が 1 本のフィブリルを成すかを記録した連結結果。ファイバー
+        トラッカーがバンドルの横に書き出したもの。GUI01 が交差・分岐で分断した
+        断片が 1 本の繊維として計測される。既定は ``None``（各骨格断片が 1 本の
+        繊維、従来挙動）。プランが持つ骨格の指紋がこのバンドルと一致しない場合、
+        計測は拒否される。
     exclude_anchors
         Anchor pixels of manually excluded fibers, applied to the traced
         fragments **before** reconnection (see `curate_fibers`). Defaults to
@@ -1291,12 +1324,28 @@ def measure_bundle(
     # order is owned by `curate_fibers`.
     # キュレーションと再結合はいずれも断片追跡の後に実行し、その順序は
     # `curate_fibers` が一元的に決める。
+    if plan is not None and plan.skeleton_digest:
+        # A plan names fragments by anchor pixels on the skeleton it was built
+        # from. Re-analyzing the bundle moves those pixels, so the anchors
+        # would miss silently and the bundle would measure as fragments while
+        # the user believes their fibrils are being measured. Refuse instead.
+        # プランは、構築元の骨格上のアンカー画素で断片を指す。バンドルを再解析
+        # するとその画素は動くため、アンカーは黙って外れ、ユーザーがフィブリルを
+        # 計測していると信じている間にバンドルは断片として計測される。そうする
+        # 代わりに拒否する。
+        actual = skeleton_digest(data["skeletonized"])
+        if actual != plan.skeleton_digest:
+            raise ValueError(
+                "the connection file was recorded against a different "
+                "skeleton than this bundle now contains; the bundle has been "
+                "re-analyzed since, so connect it again in the fiber tracker"
+            )
+
     return curate_fibers(
         image,
         fragments,
         exclude_anchors=exclude_anchors,
-        connect_fibers=connect_fibers,
-        connect_params=connect_params,
+        plan=plan,
     )
 
 
@@ -1348,16 +1397,16 @@ def _curation_for(
         Whether the manual exclusion sidecar is honored.
         手動除外サイドカーを尊重するかどうか。
     apply_connection
-        Whether the connection-settings sidecar is honored.
-        連結設定サイドカーを尊重するかどうか。
+        Whether the connection sidecar is honored.
+        連結サイドカーを尊重するかどうか。
 
     Returns
     -------
     tuple
-        ``(exclude_anchors, connect_fibers, connect_params)``, ready to pass
-        straight to `measure_bundle`.
-        ``(除外アンカー, 連結するか, 連結しきい値)``。`measure_bundle` へ
-        そのまま渡せる形で返す。
+        ``(exclude_anchors, plan)``, ready to pass straight to
+        `measure_bundle`.
+        ``(除外アンカー, 連結プラン)``。`measure_bundle` へそのまま渡せる形で
+        返す。
 
     Notes
     -----
@@ -1369,14 +1418,10 @@ def _curation_for(
     する順序はここでは決めない。それは `curate_fibers` の責務である。
     """
     anchors = _exclusion_anchors(bundle_path) if apply_exclusions else []
-    connect_fibers = False
-    connect_params: Optional[ConnectParams] = None
+    plan: Optional[ConnectionPlan] = None
     if apply_connection:
-        settings = load_connect_settings(connect_path_for(bundle_path))
-        if settings is not None and settings.enabled:
-            connect_fibers = True
-            connect_params = settings.params
-    return anchors, connect_fibers, connect_params
+        plan = load_connect_plan(connect_path_for(bundle_path))
+    return anchors, plan
 
 
 def collect_fiber_stats(
@@ -1466,7 +1511,7 @@ def collect_fiber_stats(
         # 除外はアンカーとして渡し、`measure_bundle` が断片へ適用する。統計値は
         # 残ったファイバーで採番し直された状態で返るため、GUI04 の出力と一致する。
         try:
-            anchors, connect_fibers, connect_params = _curation_for(
+            anchors, plan = _curation_for(
                 path, apply_exclusions, apply_connection,
             )
             result = measure_bundle(
@@ -1475,8 +1520,7 @@ def collect_fiber_stats(
                 scale_y_um=scale_y_um,
                 max_workers=max_workers,
                 exclude_anchors=anchors,
-                connect_fibers=connect_fibers,
-                connect_params=connect_params,
+                plan=plan,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
@@ -1606,7 +1650,7 @@ def collect_skeleton_height_profiles(
     errors: List[Tuple[str, str]] = []
     for path in bundle_paths:
         try:
-            anchors, connect_fibers, connect_params = _curation_for(
+            anchors, plan = _curation_for(
                 path, apply_exclusions, apply_connection,
             )
             result = measure_bundle(
@@ -1615,8 +1659,7 @@ def collect_skeleton_height_profiles(
                 scale_y_um=scale_y_um,
                 max_workers=max_workers,
                 exclude_anchors=anchors,
-                connect_fibers=connect_fibers,
-                connect_params=connect_params,
+                plan=plan,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
@@ -1713,7 +1756,7 @@ def collect_fiber_curvature(
     errors: List[Tuple[str, str]] = []
     for path in bundle_paths:
         try:
-            anchors, connect_fibers, connect_params = _curation_for(
+            anchors, plan = _curation_for(
                 path, apply_exclusions, apply_connection,
             )
             result = measure_bundle(
@@ -1722,8 +1765,7 @@ def collect_fiber_curvature(
                 scale_y_um=scale_y_um,
                 max_workers=max_workers,
                 exclude_anchors=anchors,
-                connect_fibers=connect_fibers,
-                connect_params=connect_params,
+                plan=plan,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
@@ -2012,7 +2054,7 @@ def skeleton_height_values(
     errors: List[Tuple[str, str]] = []
     for path in bundle_paths:
         try:
-            anchors, connect_fibers, connect_params = _curation_for(
+            anchors, plan = _curation_for(
                 path, apply_exclusions, apply_connection,
             )
             # Heights do not depend on the physical pixel size, so a bundle
@@ -2026,8 +2068,7 @@ def skeleton_height_values(
                 scale_um=None if recorded else HEIGHT_ONLY_SCALE_UM,
                 max_workers=max_workers,
                 exclude_anchors=anchors,
-                connect_fibers=connect_fibers,
-                connect_params=connect_params,
+                plan=plan,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))

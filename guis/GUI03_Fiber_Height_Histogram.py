@@ -65,7 +65,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # ===== Project libraries =====
 from lib.blosc2_io import BUNDLE_EXT
 from lib.connect_selection import (
-    CONNECT_SUFFIX, connect_path_for, load_connect_settings,
+    CONNECT_SUFFIX, connect_path_for, load_connect_plan,
 )
 from lib.group_compare import compare_groups
 from lib.measure import (
@@ -1158,10 +1158,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
         self.chk_connection.pack(side=tk.LEFT, padx=(8, 0))
         ToolTip(self.chk_connection, _(
-            "バンドル横の {suffix} に記録された連結設定を適用します。Fiber Tracker "
-            "で「連結を保存」したバンドルは、そこで見ていたのと同じ 1 本の"
-            "フィブリルとして集計されます。設定ファイルの無いバンドルは骨格断片"
-            "のまま集計されるため、適用できた枚数はログに出ます。"
+            "バンドル横の {suffix} に記録された連結結果を適用します。Fiber Tracker "
+            "で連結して保存したバンドルは、そこで見ていたのと同じ 1 本の"
+            "フィブリルとして集計されます。自動連結と手動連結は区別されません。"
+            "記録されているのはどの断片が繋がっているかであり、探索はここでは"
+            "実行されないため、集計対象は画面で確認したものと一致します。"
+            "ファイルの無いバンドルは骨格断片のまま集計されるため、適用できた"
+            "枚数はログに出ます。"
         ).format(suffix=CONNECT_SUFFIX))
 
         parambar = ttk.Frame(parent)
@@ -2607,8 +2610,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _count_connected_bundles(self, bundle_paths) -> int:
         """
-        Count the bundles whose sidecar enables fiber connection.
-        サイドカーがファイバー連結を有効にしているバンドル数を数える。
+        Count the bundles whose sidecar records at least one connected fibril.
+        連結されたフィブリルを 1 本以上記録しているサイドカーを持つバンドル数を
+        数える。
 
         Parameters
         ----------
@@ -2635,10 +2639,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         count = 0
         for path in bundle_paths:
             try:
-                settings = load_connect_settings(connect_path_for(path))
+                plan = load_connect_plan(connect_path_for(path))
             except Exception:
                 continue
-            if settings is not None and settings.enabled:
+            if plan is not None and plan.chains:
                 count += 1
         return count
 

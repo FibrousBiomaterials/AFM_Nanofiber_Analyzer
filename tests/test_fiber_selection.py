@@ -141,10 +141,15 @@ def test_anchor_survives_fiber_connection(traced):
     ファイバーリストを採番し直すため、保存したインデックスはモード変更後に別の
     対象を指してしまう。
     """
+    from lib.connect_selection import plan_from_chains
+    from lib.fiber_connector import ConnectParams, plan_from_auto_connect
+
     bundle_path, measured = traced
     anchors = [fiber_anchor(measured.fibers[0])]
+    chains = plan_from_auto_connect(measured.image, measured.fragments)
     connected = measure_bundle(
-        bundle_path, scale_um=SCALE_UM, connect_fibers=True,
+        bundle_path, scale_um=SCALE_UM,
+        plan=plan_from_chains(measured.fragments, chains, ConnectParams()),
     )
     flags = excluded_flags(connected.fibers, anchors)
     assert sum(flags) == 1

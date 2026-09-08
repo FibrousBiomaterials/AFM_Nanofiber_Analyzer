@@ -6,30 +6,40 @@ lib/fiber_connector.py の断片再結合のテスト。
 These assert self-evident geometric properties: two near-collinear fragments a
 short gap apart are reconnected into a single fiber, while fragments that are
 far apart or nearly perpendicular are left separate. A synthetic-bundle test
-also checks the `measure_bundle(connect_fibers=True)` integration path so the
-GUI04 toggle exercises the same code as the CLI.
+also checks the `measure_bundle(plan=...)` integration path so the fiber
+tracker exercises the same code as the CLI.
 自明な幾何学的性質を検証する。短い隙間を挟んでほぼ一直線に並ぶ 2 断片は 1 本へ
 再結合され、離れている／ほぼ直交する断片は分離したまま残る。合成バンドルの
-テストは `measure_bundle(connect_fibers=True)` の統合経路も確認し、GUI04 の
-トグルが CLI と同じコードを通ることを保証する。
+テストは `measure_bundle(plan=...)` の統合経路も確認し、ファイバートラッカーが
+CLI と同じコードを通ることを保証する。
 
-The reconnection scenario is also where the exclusion ordering contract is
-pinned down, because it needs exactly this setup: two fragments the connector
-would merge, one of them excluded.
-除外の順序に関する契約もこの再結合シナリオで固定する。「連結器が統合するはずの
-2 断片のうち片方を除外する」という、まさにこの構成を必要とするためである。
+The reconnection scenario is also where the curation contracts are pinned
+down, because they need exactly this setup: fragments the search would merge,
+one of them excluded. Two of them are properties of storing the connection
+*result* — an exclusion may cut a recorded chain but never extend one, and a
+stored chain rebuilds the same fibers whatever order the file lists them in.
+キュレーションの契約もこの再結合シナリオで固定する。「探索が統合するはずの断片
+のうち 1 本を除外する」という、まさにこの構成を必要とするためである。そのうち
+2 つは連結*結果*を保存することの性質である。除外は記録された連鎖を切ることは
+できても伸ばすことはできず、保存された連鎖はファイル上の並び順によらず同じ
+ファイバーを再構築する。
 """
 
 import os
 
 import numpy as np
 
+from lib.connect_selection import plan_from_chains, resolve_plan_chains
 from lib.fiber import Fiber
 from lib.fiber_connector import (
     ConnectParams,
     angle_between_three_points,
+    build_connected_fibers,
+    chain_for_manual_join,
     connect_fiber_fragments,
     connection_candidate_flags,
+    connection_candidates,
+    plan_from_auto_connect,
 )
 from lib.fiber_selection import (
     constituent_anchors,
@@ -88,6 +98,21 @@ def _flat_image(size: int = 80, height_nm: float = 5.0) -> FiberTrackingImage:
     )
     image.calibrated_image = cal
     return image
+
+
+def _auto_plan(image, fragments, params=ConnectParams()):
+    """
+    Build the connection plan the automatic search finds for these fragments.
+    これらの断片について自動探索が見つける連結プランを作る。
+
+    The GUI stores a result rather than a request to search, so a test that
+    wants "connected" has to record what the search found, exactly as GUI04
+    does.
+    GUI は「探索せよ」という指示ではなく結果を保存するため、「連結された状態」を
+    使うテストは GUI04 と同じく探索の結果を記録する必要がある。
+    """
+    chains = plan_from_auto_connect(image, fragments, params)
+    return plan_from_chains(fragments, chains, params)
 
 
 def test_angle_between_three_points_straight_and_right():
@@ -168,23 +193,24 @@ def test_curate_fibers_reports_how_many_joins_were_made():
     near_b = _horizontal_fragment(24, 39, y=25)
     far = _horizontal_fragment(5, 20, y=60)
 
-    joined = curate_fibers(image, [near_a, near_b, far], connect_fibers=True)
+    frags = [near_a, near_b, far]
+    joined = curate_fibers(image, frags, plan=_auto_plan(image, frags))
     assert joined.curated_count == 3
     assert joined.curated_count - len(joined.fibers) == 1
 
     # Nothing within range of anything else: a real result, not a failure.
     # 互いに範囲内に無い構成。失敗ではなく実在の結果である。
+    far_apart = [_horizontal_fragment(5, 20, y=10),
+                 _horizontal_fragment(5, 20, y=60)]
     apart = curate_fibers(
-        image, [_horizontal_fragment(5, 20, y=10),
-                _horizontal_fragment(5, 20, y=60)],
-        connect_fibers=True,
+        image, far_apart, plan=_auto_plan(image, far_apart),
     )
     assert apart.curated_count - len(apart.fibers) == 0
 
     # With reconnection off the two counts agree, so the same subtraction
     # reports zero joins without a special case.
     # 再結合が無効なら両者は一致するため、同じ引き算が特別扱いなしに 0 件を返す。
-    plain = curate_fibers(image, [near_a, near_b, far])
+    plain = curate_fibers(image, frags)
     assert plain.curated_count == len(plain.fibers)
 
 
@@ -242,7 +268,7 @@ def test_excluding_a_fragment_does_not_delete_its_neighbour():
     result = curate_fibers(
         image, [frag_a, frag_b],
         exclude_anchors=[fiber_anchor(frag_a)],
-        connect_fibers=True,
+        plan=_auto_plan(image, [frag_a, frag_b]),
     )
 
     assert len(result.fibers) == 1
@@ -279,7 +305,7 @@ def test_excluding_a_connected_fibril_removes_all_of_it():
     result = curate_fibers(
         image, [frag_a, frag_b],
         exclude_anchors=anchors,
-        connect_fibers=True,
+        plan=_auto_plan(image, [frag_a, frag_b]),
     )
     assert result.fibers == []
 
@@ -288,9 +314,143 @@ def test_excluding_a_connected_fibril_removes_all_of_it():
     partial = curate_fibers(
         image, [frag_a, frag_b],
         exclude_anchors=[fiber_anchor(merged)],
-        connect_fibers=True,
+        plan=_auto_plan(image, [frag_a, frag_b]),
     )
     assert len(partial.fibers) == 1
+
+
+def test_excluding_the_middle_of_a_chain_does_not_join_its_neighbours():
+    """
+    Removing ``B`` from ``A-B-C`` leaves ``A`` and ``C`` separate.
+    ``A-B-C`` から ``B`` を取り除いても ``A`` と ``C`` は繋がらない。
+
+    This is what storing the result buys over storing the settings. Re-running
+    the search on the survivors would join ``A`` to ``C``, because ``C`` has
+    become ``A``'s only remaining candidate — a fibril the user never chose,
+    appearing as a side effect of discarding a speck of debris in the middle
+    of it. A recorded chain can only be cut by an exclusion, never extended.
+    設定ではなく結果を保存することの利点がこれである。残った断片に対して探索を
+    やり直すと、``C`` が ``A`` にとって唯一残った候補になるため両者は連結される。
+    それはユーザーが一度も選んでいないフィブリルであり、その途中にあったゴミを
+    1 粒捨てた副作用として現れる。記録された連鎖は、除外によって切られることは
+    あっても伸びることはない。
+    """
+    image = _flat_image(size=120)
+    frag_a = _horizontal_fragment(5, 20, y=25)
+    frag_b = _horizontal_fragment(24, 39, y=25)
+    frag_c = _horizontal_fragment(43, 58, y=25)
+    fragments = [frag_a, frag_b, frag_c]
+
+    plan = _auto_plan(image, fragments)
+    # Precondition: the search does chain all three together.
+    # 前提条件：探索は 3 本を 1 本の連鎖にまとめる。
+    assert len(plan.chains) == 1 and len(plan.chains[0]) == 3
+
+    result = curate_fibers(
+        image, fragments,
+        exclude_anchors=[fiber_anchor(frag_b)],
+        plan=plan,
+    )
+
+    # A and C survive as two separate fibers, and the split is reported.
+    # A と C は 2 本の別々のファイバーとして残り、分割が報告される。
+    assert len(result.fibers) == 2
+    assert result.plan_missing == 1
+    assert result.plan_splits == 1
+    kept = [fiber_track_pixels(f) for f in result.fibers]
+    assert any(px & fiber_track_pixels(frag_a) for px in kept)
+    assert any(px & fiber_track_pixels(frag_c) for px in kept)
+    assert not any(px & fiber_track_pixels(frag_b) for px in kept)
+
+
+def test_a_manual_join_connects_what_the_gates_reject():
+    """
+    A candidate the automatic gates refuse can still be joined by hand.
+    自動ゲートが拒否する候補でも、手動でなら連結できる。
+
+    The manual candidate list reaches past the automatic gates on purpose: the
+    join a human is needed for is exactly the one the machine declined. The
+    gates are reported per candidate so the decision is informed, not hidden.
+    手動候補の一覧は意図的に自動ゲートの外まで届く。人間が必要になる連結とは、
+    まさに機械が断った連結だからである。ゲートは候補ごとに報告され、判断は隠され
+    ずに行われる。
+    """
+    image = _flat_image()
+    horizontal = _horizontal_fragment(5, 20, y=25)
+    n = 16
+    vertical = Fiber(
+        fiber_image=np.zeros((n, 1)),
+        data=(22, 25, 1, n, n),
+        xtrack=np.zeros(n, dtype=int),
+        ytrack=np.arange(n),
+        horizon=np.arange(n, dtype=float),
+        height=np.zeros(n),
+        kink_indices=np.array([], dtype=int),
+        ep_indices=np.array([0, n - 1]),
+        kink_angles=np.array([]),
+        decomposed_point_indices=np.array([0, n - 1]),
+    )
+    fibers = [horizontal, vertical]
+
+    # The automatic search leaves these two alone.
+    # 自動探索はこの 2 本に手を付けない。
+    assert plan_from_auto_connect(image, fibers) == []
+
+    candidates = connection_candidates(image, fibers, 0)
+    assert candidates, "a near neighbour must still be offered to the user"
+    assert all(not c["auto"] for c in candidates), \
+        "and must be marked as failing the automatic gates"
+
+    best = candidates[0]
+    chains = chain_for_manual_join(
+        [[(0, False)], [(1, False)]], 0, best["self_end"],
+        best["index"], best["other_end"],
+    )
+    joined = build_connected_fibers(image, fibers, chains)
+
+    assert len(joined) == 1
+    merged = fiber_track_pixels(joined[0])
+    assert merged & fiber_track_pixels(horizontal)
+    assert merged & fiber_track_pixels(vertical)
+
+
+def test_a_stored_plan_does_not_depend_on_the_order_of_its_chains():
+    """
+    Shuffling the stored chains rebuilds the same fibers in the same order.
+    保存された連鎖を並べ替えても、同じファイバーが同じ順序で再構築される。
+
+    A chain is a decision, not a step in an algorithm, so the file must not
+    encode one. Construction places a chain at its lowest member index, which
+    is what makes the fiber list reproducible from a file whose chains could
+    have been written in any order.
+    連鎖はアルゴリズムの手順ではなく決定であるから、ファイルが手順を含んでは
+    ならない。構築は連鎖を最小メンバーインデックスの位置に置く。これにより、
+    どの順序で書かれた連鎖からでもファイバーリストが再現できる。
+    """
+    image = _flat_image(size=140)
+    fragments = [
+        _horizontal_fragment(5, 20, y=25),
+        _horizontal_fragment(24, 39, y=25),
+        _horizontal_fragment(5, 20, y=70),
+        _horizontal_fragment(24, 39, y=70),
+    ]
+    plan = _auto_plan(image, fragments)
+    assert len(plan.chains) == 2
+
+    forward, _m, _s = resolve_plan_chains(fragments, plan)
+    reverse, _m, _s = resolve_plan_chains(
+        fragments, plan.__class__(
+            chains=tuple(reversed(plan.chains)), params=plan.params,
+        ),
+    )
+
+    def signature(fibers):
+        return [
+            (len(f.xtrack), int(f.data[0]), int(f.data[1])) for f in fibers
+        ]
+
+    assert signature(build_connected_fibers(image, fragments, forward)) == \
+        signature(build_connected_fibers(image, fragments, reverse))
 
 
 def test_distant_fragments_are_not_connected():
@@ -337,10 +497,10 @@ def test_perpendicular_fragments_are_not_connected():
     assert len(result) == 2
 
 
-def test_measure_bundle_connect_flag_runs(tmp_path):
+def test_measure_bundle_applies_a_connection_plan(tmp_path):
     """
-    `measure_bundle(connect_fibers=True)` returns valid fibers and stats.
-    `measure_bundle(connect_fibers=True)` が妥当なファイバーと統計値を返す。
+    `measure_bundle(plan=...)` returns valid fibers and stats.
+    `measure_bundle(plan=...)` が妥当なファイバーと統計値を返す。
     """
     txt = write_synthetic_fiber_txt(tmp_path)
     out_dir = os.path.join(tmp_path, "out")
@@ -349,7 +509,8 @@ def test_measure_bundle_connect_flag_runs(tmp_path):
 
     plain = measure_bundle(pipeline_result.bundle_path, scale_um=1.92)
     connected = measure_bundle(
-        pipeline_result.bundle_path, scale_um=1.92, connect_fibers=True,
+        pipeline_result.bundle_path, scale_um=1.92,
+        plan=_auto_plan(plain.image, plain.fragments),
     )
 
     # Connection never invents fibers: it can only merge fragments, so the

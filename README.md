@@ -433,29 +433,42 @@ is not blank, because zero kinks over a measured contour length is a real
 measurement. The log reports how many fibers the curvature window excluded.
 That window is the `lib.measure` default, which is also GUI03's default.
 
-An optional
-fiber-connection mode (toggle plus a settings window) reconnects skeleton
-fragments split at crossings and branches into whole fibrils before
-measurement. The connection and height-filter modes compose in "connect, then
-filter" order: when both are on, the height filter slices each connected fibril
-by its own height profile (including bridge heights), so the two are not
-mutually exclusive.
+Skeleton fragments split at crossings and branches can be reconnected into
+whole fibrils before measurement. "自動連結" searches for continuations and
+adopts what it finds; "手動で連結…" offers, for one selected fiber, the
+candidates near its ends — with the distance, the angle, and whether the
+automatic search's gates accept each one — so a continuation the automatic
+gates declined can still be joined by eye. "連結を解除" takes a fibril back
+apart and "連結を取消" walks back one connection decision, including a whole
+automatic run. These are buttons rather than a mode switch because what they
+produce is a result that is kept: pressing "自動連結" again discards the
+current connection (it asks first), and editing a threshold changes nothing
+until the next press. Connection and the height filter compose in "connect,
+then filter" order: with both in effect the height filter slices each
+connected fibril by its own height profile (including bridge heights), so the
+two are not mutually exclusive.
 
-"除外・連結を保存" writes the exclusion set and the current connection state
-together, to `<stem>_excluded.json` and `<stem>_connect.json` beside the
-bundle, so the Fiber Height Histogram can aggregate the same population this
-window is showing. One press writes both and there is no way to write only
-one: while they had separate buttons, saving the connection, turning it off,
-curating as fragments and saving the exclusions left the pair on disk
-describing a state that was never on screen, and GUI03 then aggregated 29
-whole fibrils where the window showed 56 fragments with nothing to say so. What is stored is the decision and its
-thresholds, not the connections themselves: the connector is re-run from those
-values at measurement time, so the file cannot drift out of step with the
-bundle it sits beside. Loading a bundle that carries such a file adopts its
-settings, and the button is enabled exactly when the file no longer matches
-what the window shows. Unlike the exclusion sidecar, turning connection off
-and saving records `enabled: false` rather than deleting the file, which keeps
-the thresholds that were tuned.
+"除外・連結を保存" writes the exclusion set and the connection result together,
+to `<stem>_excluded.json` and `<stem>_connect.json` beside the bundle, so the
+Fiber Height Histogram can aggregate the same population this window is
+showing. One press writes both and there is no way to write only one: while
+they had separate buttons, saving the connection, turning it off, curating as
+fragments and saving the exclusions left the pair on disk describing a state
+that was never on screen, and GUI03 then aggregated 29 whole fibrils where the
+window showed 56 fragments with nothing to say so. What is stored is which
+fragments are joined, in what order and orientation — not the settings that
+produced them, and not whether a join was automatic or manual. Storing the
+result is what stops an exclusion from *creating* a connection: with `A-B-C`
+recorded and `B` excluded, `A` and `C` stay separate, where re-running the
+search would have joined them because `C` had become `A`'s only remaining
+candidate. Fragments are named by an anchor pixel on their track and the file
+carries a fingerprint of the skeleton it was built on, so re-analyzing the
+bundle in the Image Preprocessor makes the measurement refuse the file rather
+than silently measure against a skeleton that no longer exists. Loading a
+bundle that carries such a file restores its connection, and the save button is
+enabled exactly when the file no longer matches what the window shows. Unlike
+the exclusion sidecar, saving with nothing connected records an empty result
+rather than deleting the file, which keeps the thresholds that were tuned.
 
 Fibers can also be excluded by hand: select one, check it in the overview, and
 "選択を除外" drops it from the table, the overview, and the CSV export.
@@ -487,9 +500,12 @@ any hand-picked exclusion, with the note `not isolated`, so one press of
 
 Because this is an exclusion rather than a view filter, the verdict is taken
 once, on the fibers as they were traced, and the height filter can then be
-applied to the isolated population. Fiber connection has to be off: isolation
-is defined on the fragments as traced, and connection joins a fiber across a
-crossing into the network so that it stops being isolated. In a dense network
+applied to the isolated population. Nothing may be connected: isolation is
+defined on the fragments as traced, and connection joins a fiber across a
+crossing into the network so that it stops being isolated. The two are
+alternative answers to fragmentation — measure only what is whole, or make it
+whole — so the button reports the precondition instead of taking the
+connection apart on its own. In a dense network
 most fibers reach a crossing, so a small remainder is the expected outcome
 rather than a detection failure. Note that the test is about fiber topology,
 not about whether an object is a fiber: a scan-line artifact touches nothing
@@ -881,9 +897,9 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | `lib/bg_calibrator_shimadzu.py` | Compatibility shim keeping the historical `BG_Calibrator_shimadzu` name importable. |
 | `lib/blosc2_io.py` | Blosc2 array storage and `.b2z` TreeStore bundle helpers. |
 | `lib/bundle_schema.py` | Executable `.b2z` contract: required keys, array shapes, value ranges, units, coordinate convention, and format version, with `validate_bundle` enforcing them at write and load time. |
-| `lib/connect_selection.py` | Fiber-connection settings stored in `<stem>_connect.json` beside the bundle: written by GUI04, applied by `lib/measure.py`. Only the decision and its thresholds are stored, never the connections themselves, because the connector is deterministic and a stored result would be a cache that can disagree with the bundle. |
+| `lib/connect_selection.py` | Fiber-connection results stored in `<stem>_connect.json` beside the bundle: written by GUI04, applied by `lib/measure.py`. What is stored is which fragments are joined, in what order and orientation — named by anchor pixels, with a fingerprint of the skeleton they were found on, so a re-analyzed bundle is refused rather than measured against a plan describing a skeleton it no longer has. Whether a join was automatic or manual is deliberately not recorded. |
 | `lib/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |
-| `lib/fiber_connector.py` | `connect_fiber_fragments` and `ConnectParams`: reconnect skeleton fragments split at crossings/branches into whole fibrils, used by GUI04's optional fiber-connection mode. |
+| `lib/fiber_connector.py` | Reconnection of skeleton fragments split at crossings/branches into whole fibrils, split into a search (`plan_from_auto_connect`) and a construction (`build_connected_fibers`) so the decision the search reaches can be stored and rebuilt without searching again. `connection_candidates` backs GUI04's manual connection. |
 | `lib/group_compare.py` | Between-group comparison for GUI03: Mann-Whitney U and two-sample KS with Holm correction over all pairs, plus Cliff's delta as an effect size that does not grow with sample size. |
 | `lib/fiber_selection.py` | Manual fiber exclusions stored in `<stem>_excluded.json` beside the bundle: written by GUI04, applied by `lib/measure.py`. An exclusion is an anchor pixel on the excluded fiber's track rather than a list index, so it keeps its meaning when fiber connection renumbers the list. |
 | `lib/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |

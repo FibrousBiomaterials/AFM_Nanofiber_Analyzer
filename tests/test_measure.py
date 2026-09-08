@@ -31,7 +31,12 @@ from lib.blosc2_io import load_bundle, save_bundle
 from lib.bundle_schema import BUNDLE_FORMAT_VERSION
 from lib.fiber import Fiber
 from lib.fiber_tracking_image import FiberTrackingImage
-from lib.connect_selection import connect_path_for, save_connect_settings
+from lib.connect_selection import (
+    ConnectionPlan,
+    connect_path_for,
+    plan_from_chains,
+    save_connect_plan,
+)
 from lib.fiber_connector import ConnectParams
 from lib.fiber_selection import exclusion_path_for, fiber_anchor, save_exclusions
 from lib.measure import (
@@ -99,6 +104,23 @@ def measured(tmp_path_factory):
     pipeline_result = process_file(txt, FAST_PARAMS, output_dir=out_dir)
     result = measure_bundle(pipeline_result.bundle_path, scale_um=SCALE_UM)
     return pipeline_result.bundle_path, result
+
+
+def _auto_plan(bundle_path: str, params: ConnectParams = ConnectParams()):
+    """
+    Record the connection result the automatic search finds for a bundle.
+    バンドルについて自動探索が見つける連結結果を記録する。
+
+    The sidecar stores a result, so a test that wants a connected population
+    has to produce one first, exactly as the fiber tracker does before saving.
+    サイドカーは結果を保存するため、連結済みの母集団を使うテストはまずそれを作る
+    必要がある。保存前のファイバートラッカーと同じ手順である。
+    """
+    from lib.fiber_connector import plan_from_auto_connect
+
+    result = measure_bundle(bundle_path, scale_um=SCALE_UM)
+    chains = plan_from_auto_connect(result.image, result.fragments, params)
+    return plan_from_chains(result.fragments, chains, params)
 
 
 def test_pixel_size_follows_gui04_convention(measured):
@@ -453,14 +475,13 @@ def test_skeleton_height_values_honors_the_connection_sidecar(measured, tmp_path
     bundle_path, _result = measured
     copied = os.path.join(tmp_path, "copy.b2z")
     shutil.copyfile(bundle_path, copied)
-    save_connect_settings(
-        connect_path_for(copied), "copy.b2z", True, ConnectParams(),
-    )
+    plan = _auto_plan(copied)
+    save_connect_plan(connect_path_for(copied), "copy.b2z", plan)
 
     from_sidecar, errors = skeleton_height_values([copied], apply_connection=True)
     assert errors == []
 
-    direct = measure_bundle(copied, scale_um=SCALE_UM, connect_fibers=True)
+    direct = measure_bundle(copied, scale_um=SCALE_UM, plan=plan)
     expected = np.concatenate([np.asarray(f.height, dtype=float)
                                for f in direct.fibers])
     assert from_sidecar.size == expected.size
@@ -515,27 +536,26 @@ def test_collect_fiber_stats_honors_the_connection_sidecar(measured, tmp_path):
     assert [s.length_nm for s in no_sidecar[0][1]] == \
         [s.length_nm for s in plain[0][1]]
 
-    save_connect_settings(
-        connect_path_for(copied), "copy.b2z", True, ConnectParams(),
-    )
+    plan = _auto_plan(copied)
+    save_connect_plan(connect_path_for(copied), "copy.b2z", plan)
     connected, _e3 = collect_fiber_stats(
         [copied], scale_um=SCALE_UM, apply_connection=True,
     )
-    direct = measure_bundle(copied, scale_um=SCALE_UM, connect_fibers=True)
+    direct = measure_bundle(copied, scale_um=SCALE_UM, plan=plan)
     assert [s.length_nm for s in connected[0][1]] == \
         [s.length_nm for s in direct.stats]
 
 
-def test_a_disabled_connection_sidecar_measures_fragments(measured, tmp_path):
+def test_a_sidecar_connecting_nothing_measures_fragments(measured, tmp_path):
     """
-    A sidecar recording "do not connect" measures exactly as no sidecar does.
-    「連結しない」と記録したサイドカーは、サイドカー無しと同じ計測結果になる。
+    A sidecar recording "nothing connects" measures as no sidecar does.
+    「何も繋がらない」と記録したサイドカーは、サイドカー無しと同じ計測結果になる。
     """
     bundle_path, _result = measured
     copied = os.path.join(tmp_path, "copy.b2z")
     shutil.copyfile(bundle_path, copied)
-    save_connect_settings(
-        connect_path_for(copied), "copy.b2z", False, ConnectParams(),
+    save_connect_plan(
+        connect_path_for(copied), "copy.b2z", ConnectionPlan(),
     )
 
     off, _e1 = collect_fiber_stats(

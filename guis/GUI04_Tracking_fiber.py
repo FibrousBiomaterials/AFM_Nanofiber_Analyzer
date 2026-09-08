@@ -34,7 +34,7 @@ PLUGIN_INFO = {
         "・AFM全体像とファイバー一覧の対応表示\n"
         "・ファイバーごとの高さプロファイル（キンク位置・端点・中央値/最大値線）\n"
         "・統計値（高さ中央値・最大値・長さ・端点数・キンク数・キンク角度）\n"
-        "・ファイバー連結（交差・分岐で分断された断片を1本のフィブリルへ再結合、ON/OFF・パラメータ設定可）\n"
+        "・ファイバー連結（交差・分岐で分断された断片を1本のフィブリルへ再結合、自動探索と手動選択）\n"
         "・高さ範囲フィルター（specific_height_fibers 相当）\n"
         "・高さプロファイル、ファイバー拡大像、およびAFM全体像の PNG 出力\n"
         "・全ファイバーの統計値 CSV エクスポート\n"
@@ -49,7 +49,7 @@ import math
 import traceback
 import queue
 import threading
-from typing import List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence
 
 # ===== Numerical / scientific libraries =====
 import numpy as np
@@ -70,15 +70,20 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # lib/ フォルダ内の各モジュールをインポートする。これらが AFM 画像処理の本体。
 from lib.fiber_tracking_image import FiberTrackingImage
 from lib.fiber import Fiber
-from lib.fiber_connector import ConnectParams, filter_fibers_by_height
+from lib.fiber_connector import (
+    ConnectParams, chain_for_manual_join, connection_candidates,
+    filter_fibers_by_height, plan_from_auto_connect,
+)
 from lib.blosc2_io import bundle_has_keys, load_bundle, BUNDLE_EXT
 from lib.connect_selection import (
-    CONNECT_SUFFIX, connect_path_for, connect_state_key,
-    load_connect_settings, save_connect_settings,
+    CONNECT_SUFFIX, ChainMember, ConnectionPlan, connect_path_for,
+    load_connect_plan, plan_from_chains, plan_state_key, plan_with_chain,
+    plan_without_anchors, resolve_plan_chains, save_connect_plan,
+    skeleton_digest,
 )
 from lib.fiber_selection import (
-    EXCLUSION_SUFFIX, constituent_anchors, exclusion_path_for,
-    load_exclusions, save_exclusions,
+    EXCLUSION_SUFFIX, constituent_anchors, exclusion_path_for, excluded_flags,
+    fiber_anchor, load_exclusions, save_exclusions,
 )
 from lib.measure import (
     DEFAULT_CURVATURE_WINDOW_NM, TRACKING_BUNDLE_KEYS, compute_fiber_stats,
@@ -397,6 +402,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 直さず母集団を組み立て直せるよう保持する。追跡には数秒かかるが、
         # 再結合は 1 秒未満で済むためである。
         self.current_fragments: List[Fiber] = []
+        # Fingerprint of the loaded dataset's skeleton; empty until a load.
+        # 読み込み済みデータセットの骨格の指紋。読み込みまでは空。
+        self._skeleton_digest: str = ""
         self.current_stem:   str = ""
 
         # Index of the focused fiber in the current table. The table allows a
@@ -572,31 +580,48 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._exclusions_saved_key: tuple = ()
 
         # -- Fiber-connection (whole-fibril) toggle and its parameters --
-        # Default is off; toggling re-analyzes the current dataset. When on,
-        # GUI01 skeleton fragments split at crossings/branches are reconnected
-        # into whole fibrils before measurement (see lib.fiber_connector).
-        # ── ファイバー連結（フィブリル一本化）トグルとパラメータ ──
-        # 既定 OFF。切替で現在データを再解析する。ON のとき、GUI01 が交差・分岐で
-        # 分断した骨格断片を計測前に 1 本のフィブリルへ再結合する
-        # （lib.fiber_connector を参照）。
-        self.connect_enabled_var  = tk.BooleanVar(value=False)
+        # -- Fiber connection --
+        # ── ファイバー連結 ──
+        # The connection result for the loaded dataset: which fragments form
+        # one fibril. It is a record of decisions, not a mode, so nothing here
+        # re-runs a search — the automatic button produces a plan and every
+        # later read applies that plan. GUI01 fragments split at crossings and
+        # branches are measured as one fiber wherever a chain says so.
+        # 読み込み済みデータセットの連結結果。どの断片が 1 本のフィブリルを成すか
+        # を保持する。これはモードではなく決定の記録であるため、ここでは探索を
+        # 再実行しない。自動ボタンがプランを作り、以後の読み取りはそのプランを
+        # 適用するだけである。GUI01 が交差・分岐で分断した断片は、連鎖がそう述べる
+        # 箇所で 1 本のファイバーとして計測される。
+        self.connect_plan: ConnectionPlan = ConnectionPlan()
         self.connect_params: ConnectParams = ConnectParams()
-        # Keep at most one non-modal connection-settings window.
-        # Whether the pending analysis was started by a press of the connection
-        # checkbox, which is the only case that may raise the "nothing to
-        # connect" dialog. A dataset switch must not interrupt every load with
-        # it.
-        # 実行中の解析が連結チェックボックスの操作によって始まったかどうか。
-        # 「連結対象なし」のダイアログを出してよいのはこの場合だけである。
-        # データセット切替のたびにこれで読み込みを遮ってはならない。
-        self._connect_toggle_pending: bool = False
+
+        # Plans this session replaced, newest last, so one press of the undo
+        # button walks back one connection decision. The automatic button
+        # replaces the whole plan, and that counts as one step: it is a single
+        # act from the user's side and has to be reversible as one.
+        # 本セッションで置き換えたプランを新しい順に末尾へ積む。取消ボタン 1 回で
+        # 連結の判断を 1 つ戻すためである。自動ボタンはプラン全体を置き換えるが、
+        # それも 1 ステップとして数える。ユーザーから見れば 1 回の操作であり、
+        # 1 回で戻せなければならない。
+        self._connect_history: List[ConnectionPlan] = []
 
         # 連結設定ウインドウは非モーダルで 1 つだけ保持する。
         self._connect_window: Optional["ConnectSettingsWindow"] = None
+        # 連結候補ウインドウも同様に 1 つだけ保持する。
+        self._candidate_window: Optional["ConnectCandidateWindow"] = None
+
+        # Connection candidates for the displayed population, computed once
+        # when it changes and read on every selection. The manual connection
+        # button is enabled from this, so it has to be ready before the user
+        # clicks a row rather than after.
+        # 表示中の母集団に対する連結候補。母集団が変わったときに 1 度計算し、選択の
+        # たびに読む。手動連結ボタンの有効・無効をここから決めるため、ユーザーが行を
+        # クリックした後ではなく、その前に用意できていなければならない。
+        self._candidate_cache: Dict[int, List[dict]] = {}
 
         # The connection state as it stands in the loaded dataset's sidecar,
         # kept as a comparison key so the save button reports whether the file
-        # and the checkbox still agree. ``None`` means no dataset is loaded and
+        # and the screen still agree. ``None`` means no dataset is loaded and
         # there is nothing to compare against.
         # 読み込み済みデータセットのサイドカーにある連結状態を比較キーとして保持
         # する。保存ボタンが「ファイルと画面の表示が一致しているか」を示せるように
@@ -805,25 +830,86 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._commit_filter_range,
         )
 
-        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=6, pady=2)
+        # The connection controls get their own row. Six buttons do not fit
+        # beside the scale, unit, and filter controls in every language:
+        # measured in a real English run they overflowed the window and clipped
+        # the save button's label to "Save ". A second row costs one row of
+        # height and cannot clip as the labels grow.
+        # 連結の操作部は独立した行に置く。ボタン 6 個は、全ての言語でスケール・
+        # 単位・フィルターの各操作と同じ行に収まらない。実際に英語で起動して計測
+        # したところ、ウインドウ幅を超えて保存ボタンのラベルが "Save " まで切れて
+        # いた。行を 1 つ増やす代償は高さ 1 行分だけで、ラベルが長くなっても切れる
+        # ことがない。
+        bar = ttk.Frame(self)
+        bar.pack(side="top", fill="x", padx=8, pady=(0, 5))
 
-        # -- Fiber connection: checkbox re-analyzes; button opens the settings window --
-        # ── ファイバー連結 ── チェックボックスで再解析、ボタンで設定ウインドウを開く。
-        chk_connect = ttk.Checkbutton(
-            bar, text=_("ファイバー連結"),
-            variable=self.connect_enabled_var,
-            command=self._on_connect_toggle,
+        ttk.Label(bar, text=_("ファイバー連結")).pack(side="left", padx=(4, 6))
+
+        # -- Fiber connection: actions, not a mode --
+        # ── ファイバー連結 ── モードではなく操作。
+        #
+        # These are buttons rather than a checkbox because what they produce is
+        # a result that is kept: the automatic search runs once and its output
+        # becomes the connection, which the user then edits by hand. A checkbox
+        # would say the connection is re-derived whenever it is on, and that is
+        # exactly what stopped being true — a threshold edited afterwards
+        # cannot change a fiber, and excluding a fragment can no longer make
+        # the search invent a join nobody chose.
+        # チェックボックスではなくボタンにするのは、これらが生むのが「保持される
+        # 結果」だからである。自動探索は 1 度実行され、その出力が連結となり、
+        # ユーザーはそれを手で編集する。チェックボックスは「ON の間ずっと連結が
+        # 導出し直される」ことを意味するが、それはもう成り立たない。後からしきい値を
+        # 変えてもファイバーは変わらず、断片を除外しても探索が誰も選んでいない連結を
+        # 作り出すことはない。
+        self._btn_auto_connect = ttk.Button(
+            bar, text=_("自動連結"), command=self._on_auto_connect,
         )
-        chk_connect.pack(side="left", padx=(2, 2))
-        ToolTip(chk_connect, _(
-            "ON時: 交差・分岐で分断された骨格断片を 1 本のフィブリルへ再結合してから計測する。\n"
-            "OFF時: 各骨格断片を 1 本のファイバーとして扱う（従来動作）。\n"
-            "切り替えると現在のデータセットを再解析する。"
+        self._btn_auto_connect.pack(side="left", padx=(2, 2))
+        ToolTip(self._btn_auto_connect, _(
+            "交差・分岐で分断された骨格断片のうち、位置・向き・高さが連続する"
+            "ものを探索し、1 本のフィブリルとして連結します。\n"
+            "結果は連結として保持され、しきい値を後から変えても変化しません。"
+            "条件を変えたいときは設定を変更してから再度実行してください。\n"
+            "既に連結がある場合は、破棄してよいか確認します。"
         ))
         ttk.Button(
-            bar, text=_("連結設定…"),
+            bar, text=_("自動連結の設定…"),
             command=self._open_connect_settings,
         ).pack(side="left", padx=(0, 4))
+
+        self._btn_manual_connect = ttk.Button(
+            bar, text=_("手動で連結…"), command=self._on_manual_connect,
+            state=tk.DISABLED,
+        )
+        self._btn_manual_connect.pack(side="left", padx=(0, 2))
+        ToolTip(self._btn_manual_connect, _(
+            "ファイバー一覧で 1 本を選び、その端の近くにある連結先の候補から"
+            "相手を選んで連結します。\n"
+            "候補は自動連結より広い範囲で探し、自動連結の条件を満たすかどうかを"
+            "一覧に表示します。自動連結が角度や高さで見送った連結を、"
+            "画像を見て判断して繋ぐための操作です。\n"
+            "候補が 1 つも無いファイバーを選んでいるときは押せません。"
+        ))
+
+        self._btn_disconnect = ttk.Button(
+            bar, text=_("連結を解除"), command=self._on_disconnect_selected,
+            state=tk.DISABLED,
+        )
+        self._btn_disconnect.pack(side="left", padx=(0, 2))
+        ToolTip(self._btn_disconnect, _(
+            "選択中のフィブリルを構成断片へ戻します。\n"
+            "接合部を 1 つだけ外すのではなく全体を解体します。画面で指すのは"
+            "フィブリルであって内部の接合部ではないためです。"
+        ))
+
+        self._btn_undo_connect = ttk.Button(
+            bar, text=_("連結を取消"), command=self._on_undo_connect,
+            state=tk.DISABLED,
+        )
+        self._btn_undo_connect.pack(side="left", padx=(0, 4))
+        ToolTip(self._btn_undo_connect, _(
+            "直前の連結操作を取り消します。自動連結 1 回分も 1 操作として戻せます。"
+        ))
 
         ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=6, pady=2)
 
@@ -857,10 +943,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
         self._btn_save_curation.pack(side="left", padx=(0, 4))
         ToolTip(self._btn_save_curation, _(
-            "現在の除外と連結設定を、バンドル横の {excluded} と {connect} へ"
+            "現在の除外と連結を、バンドル横の {excluded} と {connect} へ"
             "まとめて書き出します。Height Histogram の「除外を適用」「連結を適用」"
             "がこの 2 ファイルを読み、この画面と同じ母集団を集計します。連結は"
-            "ON/OFF としきい値だけを書き出し、連結結果そのものは保存しません。"
+            "どの断片が繋がっているかを書き出し、自動か手動かは区別しません。"
             "除外が 1 件も無い状態で保存すると除外ファイルは削除されます。"
             "未保存の変更があるときだけ押せます。"
         ).format(excluded=EXCLUSION_SUFFIX, connect=CONNECT_SUFFIX))
@@ -1895,14 +1981,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 再解析では行わない。再解析はまさにその切替やパラメータ編集によって開始
         # されるため、ここで読み直すとそれを取り消してしまう。
         if not reuse_exclusions:
-            self._restore_connect_settings(stem)
+            self._restore_connect_plan(stem)
 
-        # Capture the connection state now so the worker is not affected by later
-        # UI toggles; ConnectParams is immutable, so sharing the reference is safe.
-        # 後続の UI 操作の影響を受けないよう連結状態をここで確定する。ConnectParams
-        # は不変なので参照共有で安全。
-        connect_fibers = bool(self.connect_enabled_var.get())
-        connect_params = self.connect_params
+        # Capture the connection result now so the worker is not affected by
+        # later edits; `ConnectionPlan` is immutable, so sharing it is safe.
+        # 後続の編集の影響を受けないよう連結結果をここで確定する。
+        # `ConnectionPlan` は不変なので共有して安全である。
+        worker_plan = self.connect_plan
 
         # Resolve the exclusions before starting the worker, so the anchors
         # reach measure_bundle and are applied to the fragments before
@@ -1934,15 +2019,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 name=os.path.basename(stem), scale=self._fmt_num(scale_um)
             )
         )
-        if connect_fibers:
-            self._log(_("ファイバー連結が有効です（断片を再結合します）。"))
+        if worker_plan.chains:
+            self._log(_(
+                "保存済みの連結を適用します（フィブリル {n} 本）。"
+            ).format(n=len(worker_plan.chains)))
         self._set_ui_enabled(False)
         self._show_progress(_("ファイル読み込み中..."), 0)
 
         def _worker(stem=stem, scale_um=worker_scale_um,
                     scale_y_um=worker_scale_y_um,
-                    connect_fibers=connect_fibers,
-                    connect_params=connect_params,
+                    plan=worker_plan,
                     exclude_anchors=worker_anchors,
                     records=loaded_records,
                     reuse_exclusions=reuse_exclusions):
@@ -1979,16 +2065,24 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     scale_um=scale_um,
                     progress_cb=_progress,
                     scale_y_um=scale_y_um,
-                    connect_fibers=connect_fibers,
-                    connect_params=connect_params,
+                    plan=plan,
                     exclude_anchors=exclude_anchors,
                 )
                 stats = table_row_values(result)
+                # The skeleton is fingerprinted here, on the worker, so a plan
+                # this window saves later records the skeleton it was actually
+                # built against rather than one read back at save time.
+                # 骨格の指紋はワーカー側のここで取る。後でこのウインドウが保存する
+                # プランが、保存時に読み直した骨格ではなく、実際に構築の基になった
+                # 骨格を記録するようにするためである。
+                digest = skeleton_digest(
+                    load_bundle(stem + BUNDLE_EXT)["skeletonized"]
+                )
                 self.ui_queue.put((
                     "file_loaded",
                     (stem, result.image, result.fibers, stats,
                      result.fragments, records, result.curated_count,
-                     reuse_exclusions),
+                     reuse_exclusions, digest),
                 ))
             except Exception:
                 self.ui_queue.put(("file_error", (stem, traceback.format_exc())))
@@ -1998,7 +2092,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
     def _on_file_loaded(self, stem: str, image, fibers: List[Fiber],
                         stats: List[tuple], fragments: List[Fiber],
                         records: List[dict], curated_count: int,
-                        reuse_exclusions: bool = False) -> None:
+                        reuse_exclusions: bool = False,
+                        digest: str = "") -> None:
         """
         Apply worker-thread load results to the UI on the main thread.
         ワーカースレッドから受け取った読み込み結果をメインスレッドで UI に反映する。
@@ -2044,6 +2139,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._fiber_stats      = stats
         self._sel_idx          = None
         self._sel_indices      = []
+        # The skeleton this dataset's fragments came from, fingerprinted so a
+        # plan saved for it records what it was built against.
+        # このデータセットの断片の由来である骨格の指紋。ここで保存されるプランが、
+        # 何を基に構築されたかを記録できるようにする。
+        self._skeleton_digest = digest
+        # A dataset switch starts a fresh undo history: the plans in it name
+        # fragments of the dataset being left, so applying one here would
+        # resolve its anchors against a different image.
+        # データセットの切替では取消履歴を作り直す。履歴中のプランは離れる側の
+        # データセットの断片を指しており、ここで適用するとアンカーが別の画像に
+        # 対して解決されてしまう。
+        if not reuse_exclusions:
+            self._connect_history = []
         # Filter activation follows the checkbox and is applied later if enabled.
         # フィルターはチェックボックスの状態を参照する（チェックONなら後で適用）。
         self._filter_active  = False
@@ -2134,6 +2242,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             ).format(
                 w=self._fmt_num(DEFAULT_CURVATURE_WINDOW_NM), n=unmeasurable,
             ))
+        # The manual connection button has to be right the moment the user
+        # clicks a row, so the candidates are ready before the table is filled.
+        # 手動連結ボタンは、ユーザーが行をクリックした瞬間に正しくなければならな
+        # いため、テーブルを埋める前に候補を用意しておく。
+        self._rebuild_candidate_cache()
         # Read back through the accessor, which is the single source of the
         # displayed population; the height filter below then re-applies itself.
         # 表示対象母集団の唯一の供給元であるアクセサ経由で読み直す。下の高さ
@@ -2266,6 +2379,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         idx = int(focus) if focus in sel else int(sel[0])
         self._sel_idx = idx
         self._sel_indices = sorted(int(iid) for iid in sel)
+        # The connection buttons describe what can be done to this selection,
+        # so they follow it rather than waiting for the next population change.
+        # 連結ボタンはこの選択に対して何ができるかを示すため、次の母集団変化を
+        # 待たず選択に追随させる。
+        self._refresh_connect_buttons()
 
         fiber = self._current_fiber()
         if fiber is None:
@@ -2399,6 +2517,74 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._btn_save_curation.configure(
             state=tk.NORMAL if self._curation_dirty() else tk.DISABLED
         )
+        self._btn_undo_connect.configure(
+            state=tk.NORMAL if self._connect_history else tk.DISABLED
+        )
+        self._refresh_connect_buttons()
+
+    def _refresh_connect_buttons(self) -> None:
+        """
+        Enable the connection buttons for the current selection.
+        現在の選択状態に合わせて連結ボタンの有効・無効を切り替える。
+
+        Notes
+        -----
+        Manual connection needs one fiber that has somewhere to go, so its
+        button follows the candidate list rather than merely "a row is
+        selected". A button that opens an empty list would make "no candidate
+        here" look like a defect; a disabled one says it before the click.
+        手動連結には、行き先を持つファイバーが 1 本必要である。そのためボタンは
+        「行が選択されている」ことではなく候補一覧に従う。空の一覧を開くボタンは
+        「ここには候補が無い」を不具合のように見せるが、無効なボタンはクリックする
+        前にそれを伝える。
+        """
+        index = self._selected_display_index()
+        self._btn_manual_connect.configure(
+            state=tk.NORMAL if self._candidate_cache.get(index) else tk.DISABLED
+        )
+        chains = self._display_chains()
+        connected = any(
+            i < len(chains) and len(chains[i]) > 1
+            for i in self._selected_display_indices()
+        )
+        self._btn_disconnect.configure(
+            state=tk.NORMAL if connected else tk.DISABLED
+        )
+
+    def _rebuild_candidate_cache(self) -> None:
+        """
+        Recompute the connection candidates for the measured population.
+        計測対象母集団に対する連結候補を計算し直す。
+
+        Notes
+        -----
+        Computed once per population change rather than once per selection,
+        because the manual connection button has to be right the moment a row
+        is clicked. The cost is a distance comparison over the fiber ends,
+        which is the same order as the isolated-fiber test already pays.
+        選択のたびではなく母集団の変化のたびに 1 度計算する。手動連結ボタンは行が
+        クリックされた瞬間に正しくなければならないためである。費用はファイバー端
+        どうしの距離比較であり、孤立ファイバー判定が既に払っているのと同じ程度で
+        ある。
+
+        Candidates are computed on `current_fibers`, never on the filtered
+        list: a filter cut is not a fiber's end, so a candidate found at one
+        would offer a connection between objects that exist only inside the
+        filter.
+        候補は `current_fibers` に対して計算し、フィルター後のリストに対しては
+        決して計算しない。フィルターの切断面はファイバーの端ではなく、そこで
+        見つかる候補はフィルターの中にしか存在しない対象どうしの連結を提示して
+        しまう。
+        """
+        self._candidate_cache = {}
+        if self.current_image is None or len(self.current_fibers) < 2:
+            return
+        for i in range(len(self.current_fibers)):
+            found = connection_candidates(
+                self.current_image, self.current_fibers, i, self.connect_params,
+            )
+            if found:
+                self._candidate_cache[i] = found
 
     def _refresh_population_views(self) -> None:
         """
@@ -2420,6 +2606,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # いったん解除し、テーブル側で選び直させる。
         self._sel_idx = None
         self._sel_indices = []
+        self._rebuild_candidate_cache()
         self._populate_fiber_table(self._display_fibers())
         self._overview_bg_drawn = False
         self._rebuild_overview_bg()
@@ -2435,70 +2622,49 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _recurate_population(self) -> None:
         """
-        Rebuild the measured population after the exclusion set changed.
-        除外集合が変化した後に、計測対象の母集団を組み立て直す。
+        Rebuild the measured population after the curation changed.
+        キュレーションが変化した後に、計測対象の母集団を組み立て直す。
 
         Notes
         -----
-        Exclusions act on the fragments before reconnection, so the population
-        is rebuilt from `current_fragments` instead of being filtered. Tracing
-        is not repeated — that is why the fragments are kept. Without
-        connection the rebuild is a list comprehension and runs inline; with
-        connection the connector has to run again, which is fast but not
-        instant, so it goes to a worker thread with the same progress bar the
-        file load uses.
-        除外は再結合より前に断片へ作用するため、母集団は絞り込みではなく
+        Exclusions act on the fragments before connection, so the population is
+        rebuilt from `current_fragments` instead of being filtered. Tracing is
+        not repeated — that is why the fragments are kept.
+        除外は連結より前に断片へ作用するため、母集団は絞り込みではなく
         `current_fragments` から組み立て直す。追跡はやり直さない（断片を保持して
-        いるのはそのためである）。連結が無効ならリスト内包表記で済むのでその場で
-        実行し、有効なら連結器を再実行する必要がある。高速ではあるが即時ではない
-        ため、ファイル読み込みと同じ進捗バーを使ってワーカースレッドで行う。
+        いるのはそのためである）。
+
+        This runs inline even with a connection applied. It used to need a
+        worker thread and a progress bar because it re-ran the search over
+        every fragment; a recorded plan only has to dock the chains it names,
+        which costs what the kink detection over those tracks costs and is
+        over before the window could repaint.
+        連結が適用されている場合でも、この処理はその場で実行する。以前は全断片に
+        対して探索をやり直していたためワーカースレッドと進捗バーが必要だったが、
+        記録済みプランは指定された連鎖を繋ぐだけでよく、その費用はそれらのトラック
+        に対する kink 検出と同程度で、ウインドウが再描画するより早く終わる。
+
+        A split is reported, because a chain that came apart is a fibril the
+        user connected and is no longer seeing.
+        分割は報告する。割れた連鎖は、ユーザーが連結したにもかかわらず今は見えて
+        いないフィブリルだからである。
         """
         if self.current_image is None or not self.current_fragments:
             self._refresh_population_views()
             return
 
         anchors = [(r["x"], r["y"]) for r in self._excluded_records]
-        if not self.connect_enabled_var.get():
-            self._apply_curated(
-                curate_fibers(
-                    self.current_image, self.current_fragments,
-                    exclude_anchors=anchors,
-                )
-            )
-            return
-
-        if self.is_running:
-            return
-
-        image = self.current_image
-        fragments = self.current_fragments
-        connect_params = self.connect_params
-        stem = self.current_stem
-        self.is_running = True
-        self._set_ui_enabled(False)
-        self._show_progress(_("ファイバー連結中..."), 0)
-
-        def _worker():
-            """
-            Rebuild the curated, reconnected population off the Tk main thread.
-            キュレーション済み・再結合済みの母集団を Tk メインスレッド外で作る。
-            """
-            try:
-                result = curate_fibers(
-                    image, fragments,
-                    exclude_anchors=anchors,
-                    connect_fibers=True,
-                    connect_params=connect_params,
-                )
-                self.ui_queue.put((
-                    "recurated",
-                    (result.fibers, table_row_values(result),
-                     result.curated_count),
-                ))
-            except Exception:
-                self.ui_queue.put(("file_error", (stem, traceback.format_exc())))
-
-        threading.Thread(target=_worker, daemon=True).start()
+        result = curate_fibers(
+            self.current_image, self.current_fragments,
+            exclude_anchors=anchors,
+            plan=self.connect_plan,
+        )
+        if result.plan_splits:
+            self._log(_(
+                "除外により、連結したフィブリル {n} 本が分割されました"
+                "（断片 {m} 本が除外対象）。"
+            ).format(n=result.plan_splits, m=result.plan_missing))
+        self._apply_curated(result)
 
     def _apply_curated(self, result) -> None:
         """
@@ -2631,17 +2797,27 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             )
             return False
 
-        enabled = bool(self.connect_enabled_var.get())
+        # The plan is written with the thresholds now in the settings window
+        # and the fingerprint of the skeleton it was built on, so a later read
+        # can tell a re-analyzed bundle from an untouched one.
+        # プランは、現在設定ウインドウにあるしきい値と、構築元となった骨格の指紋
+        # を添えて書き出す。後から読むときに、再解析されたバンドルと手つかずの
+        # バンドルを区別できるようにするためである。
+        plan = ConnectionPlan(
+            chains=self.connect_plan.chains,
+            params=self.connect_params,
+            skeleton_digest=self._skeleton_digest,
+            fragment_count=len(self.current_fragments),
+        )
         try:
-            save_connect_settings(
-                self._connect_path(), bundle_name, enabled, self.connect_params,
-            )
+            save_connect_plan(self._connect_path(), bundle_name, plan)
         except Exception as e:
             messagebox.showerror(
                 _("保存失敗"),
-                _("連結設定ファイルを保存できませんでした:\n{err}").format(err=e),
+                _("連結ファイルを保存できませんでした:\n{err}").format(err=e),
             )
             return False
+        self.connect_plan = plan
 
         if self._excluded_records:
             self._log(_("除外を保存しました（{n} 件）: {path}").format(
@@ -2652,10 +2828,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._log(_("除外が無くなったため、除外ファイルを削除しました: {path}").format(
                 path=os.path.basename(self._exclusion_path()),
             ))
-        self._log(_("連結設定を保存しました（{state}）: {path}").format(
-            state=_("有効") if enabled else _("無効"),
-            path=os.path.basename(self._connect_path()),
-        ))
+        if plan.chains:
+            self._log(_(
+                "連結を保存しました（フィブリル {n} 本 / 断片 {m} 本）: {path}"
+            ).format(
+                n=len(plan.chains), m=plan.joined_fragment_count(),
+                path=os.path.basename(self._connect_path()),
+            ))
+        else:
+            self._log(_("連結を保存しました（連結なし）: {path}").format(
+                path=os.path.basename(self._connect_path()),
+            ))
 
         # What was just written becomes the baseline for later comparisons.
         # 今書き出した内容が、以後の比較の基準になる。
@@ -2866,13 +3049,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             messagebox.showinfo(_("情報"), _("データセットを選択してください。"))
             return
 
-        if self.connect_enabled_var.get():
+        if self.connect_plan.chains:
             messagebox.showinfo(
                 _("情報"),
-                _("「ファイバー連結」を OFF にしてから実行してください。\n"
+                _("「連結を解除」で連結を解いてから実行してください。\n"
                   "孤立かどうかは連結前の断片に対して定義されます。連結は交差を"
                   "越えてファイバーをつなぐため、孤立ファイバーがネットワークへ"
-                  "取り込まれ、孤立と判定されなくなります。"),
+                  "取り込まれ、孤立と判定されなくなります。\n"
+                  "連結と本操作は、断片化への対処として互いに排他的な方法です。"),
             )
             return
 
@@ -2992,6 +3176,55 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         fibers = self._display_fibers()
         return [fibers[i] for i in self._sel_indices if 0 <= i < len(fibers)]
+
+    def _selected_display_indices(self) -> List[int]:
+        """
+        Return the selected rows as positions in the measured population.
+        選択中の行を、計測対象母集団での位置として返す。
+
+        Returns
+        -------
+        list of int
+            Positions in `current_fibers`, which is the list the connection
+            plan indexes into. Empty while a height filter is active, because
+            the rows then name sub-segments cut out of a fibril rather than
+            the fibril itself.
+            `current_fibers` 内の位置。連結プランがインデックスで参照するのは
+            このリストである。高さフィルターが有効な間は空を返す。そのとき行が
+            指すのはフィブリルそのものではなく、そこから切り出された部分区間で
+            あるためである。
+
+        Notes
+        -----
+        Connecting is an act on whole fibers, so it is refused rather than
+        approximated while the displayed rows are filter cuts. This is the
+        same reasoning that keeps "非孤立を除外" off the filtered list: a cut
+        end is not a fiber's end, and a connection made to one would record a
+        join between objects that do not exist outside the filter.
+        連結はファイバー全体に対する操作であるため、表示行がフィルターの切断片で
+        ある間は近似せず拒否する。「非孤立を除外」をフィルター後のリストに対して
+        行わないのと同じ理屈である。切断面はファイバーの端ではなく、そこへの連結
+        はフィルターの外では存在しない対象どうしの結合を記録してしまう。
+        """
+        if self._filter_active:
+            return []
+        n = len(self.current_fibers)
+        return [i for i in self._sel_indices if 0 <= i < n]
+
+    def _selected_display_index(self) -> Optional[int]:
+        """
+        Return the single selected fiber's position, or ``None``.
+        単一選択されたファイバーの位置を返す。該当しなければ ``None``。
+
+        Notes
+        -----
+        A manual connection needs exactly one fiber, because the second one is
+        chosen from its candidate list rather than from the table.
+        手動連結にはちょうど 1 本が必要である。相手はテーブルではなく候補一覧から
+        選ぶためである。
+        """
+        indices = self._selected_display_indices()
+        return indices[0] if len(indices) == 1 else None
 
     # =========================================================================
     # Drawing: AFM overview
@@ -3847,7 +4080,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # フィブリル（current_fibers）をフィルターする。これにより「連結してから
         # フィルター」の順序が保たれ、連結器がフィルターで除去した領域を橋渡しで
         # 埋め戻すことはない。
-        connect_fibers = bool(self.connect_enabled_var.get())
+        connect_fibers = bool(self.connect_plan.chains)
         connected_fibers = self.current_fibers
 
         def _worker():
@@ -3972,9 +4205,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         チェックボックスを操作した直後にだけ出す。データセット切替のたびに同じ
         メッセージを出せば、読み込みのたびに操作を遮ることになる。
         """
-        prompted = self._connect_toggle_pending
-        self._connect_toggle_pending = False
-        if not self.connect_enabled_var.get():
+        if not self.connect_plan.chains:
             return
 
         joins = max(0, before - after)
@@ -3982,36 +4213,340 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "ファイバー連結: 断片 {before} 本 → フィブリル {after} 本"
             "（{joins} 件連結）"
         ).format(before=before, after=after, joins=joins))
-        if joins == 0 and prompted:
+
+    def _surviving_fragments(self) -> List[Fiber]:
+        """
+        Return the fragments the plan is applied to, after exclusions.
+        除外を適用した後の、プランの適用対象となる断片を返す。
+
+        Notes
+        -----
+        The same list `lib.measure.curate_fibers` builds the population from,
+        so a chain index here means the same fragment it does there. Deriving
+        it rather than caching it is what keeps the two from drifting when an
+        exclusion changes.
+        `lib.measure.curate_fibers` が母集団を組み立てる際に使うものと同じリスト
+        であり、ここでの連鎖インデックスは向こうと同じ断片を指す。保持せず毎回
+        導出することで、除外が変わったときに両者がずれない。
+        """
+        if not self.current_fragments:
+            return []
+        if not self._excluded_records:
+            return list(self.current_fragments)
+        anchors = [(r["x"], r["y"]) for r in self._excluded_records]
+        drop = excluded_flags(self.current_fragments, anchors)
+        return [f for f, d in zip(self.current_fragments, drop) if not d]
+
+    def _display_chains(self) -> List[List[tuple]]:
+        """
+        Return one chain per displayed fiber, in the displayed order.
+        表示中のファイバー 1 本につき 1 本の連鎖を、表示順で返す。
+
+        Returns
+        -------
+        list of list of tuple
+            ``(fragment_index, flip)`` per member, indexed into
+            `_surviving_fragments`. A fiber that is a bare fragment gets a
+            one-member chain, so a manual connection treats a fragment and a
+            fibril alike.
+            `_surviving_fragments` を参照する ``(断片インデックス, 反転)`` を
+            メンバーごとに持つ。素の断片であるファイバーは 1 メンバーの連鎖に
+            なるため、手動連結は断片とフィブリルを同じものとして扱える。
+
+        Notes
+        -----
+        Built to the same ordering rule
+        `lib.fiber_connector.build_connected_fibers` uses — a chain sits at its
+        lowest member index — so entry ``i`` here is the chain behind displayed
+        fiber ``i``. Any other rule would connect the wrong pair of fibers
+        while showing the right ones.
+        `lib.fiber_connector.build_connected_fibers` と同じ並び順の規則（連鎖は
+        その最小メンバーインデックスの位置に入る）で構築するため、ここでの要素
+        ``i`` は表示中のファイバー ``i`` の背後にある連鎖である。他の規則にすると、
+        正しいファイバーを表示しながら誤った組を連結することになる。
+        """
+        fragments = self._surviving_fragments()
+        if not fragments:
+            return []
+        chains, _missing, _splits = resolve_plan_chains(
+            fragments, self.connect_plan,
+        )
+        head = {min(int(i) for i, _f in c): c for c in chains}
+        claimed = {int(i) for c in chains for i, _f in c}
+        out: List[List[tuple]] = []
+        for i in range(len(fragments)):
+            if i in head:
+                out.append([(int(j), bool(f)) for j, f in head[i]])
+            elif i not in claimed:
+                out.append([(i, False)])
+        return out
+
+    def _set_connect_plan(self, plan: ConnectionPlan, message: str) -> None:
+        """
+        Adopt a new connection result and rebuild everything that reads it.
+        新しい連結結果を採用し、それを参照する表示を組み立て直す。
+
+        Parameters
+        ----------
+        plan
+            Result to adopt.
+            採用する結果。
+        message
+            Log line describing the act, already localized.
+            操作を説明するログ行。翻訳済みのものを渡す。
+
+        Notes
+        -----
+        The plan the window held is pushed onto the undo history first, so
+        every path that changes the connection is undoable by one press
+        without each caller having to remember to record it.
+        直前までウインドウが保持していたプランを先に取消履歴へ積む。これにより、
+        連結を変更するすべての経路が 1 回の押下で戻せるようになり、呼び出し側が
+        記録を忘れる余地が無くなる。
+        """
+        self._connect_history.append(self.connect_plan)
+        self.connect_plan = plan
+        self._log(message)
+        self._commit_connection()
+
+    def _commit_connection(self) -> None:
+        """
+        Apply a connection change in memory and record whether it is saved.
+        連結の変更をメモリ上に反映し、保存済みかどうかを記録する。
+
+        Notes
+        -----
+        The counterpart of `_commit_exclusions`, and deliberately its twin:
+        both compare against what is on disk rather than marking that
+        something was touched, so a change walked back to the saved state
+        leaves nothing pending.
+        `_commit_exclusions` の対応物であり、意図的にその双子としている。両者とも
+        「触った」という印ではなくディスク上の内容との比較を行うため、保存済みの
+        状態まで戻した変更には保留が残らない。
+        """
+        self._refresh_curation_button()
+        self._recurate_population()
+
+    def _on_auto_connect(self) -> None:
+        """
+        Search for continuations and adopt the result as the connection.
+        続きとなる断片を探索し、その結果を連結として採用する。
+
+        Notes
+        -----
+        The search runs over the traced fragments, not over the fibrils
+        currently on screen, so it produces a whole result rather than
+        extending one. That is why an existing connection is discarded rather
+        than added to: growing a fibril that is already the product of earlier
+        decisions would mix a fresh search with those decisions into something
+        the user could not take apart again.
+        探索は画面上のフィブリルではなく追跡済みの断片に対して実行されるため、
+        既存の連結を延長するのではなく結果全体を生む。既存の連結へ追加するのでは
+        なく破棄するのはそのためである。過去の判断の産物であるフィブリルをさらに
+        成長させると、新しい探索とそれらの判断が混ざり、ユーザーには二度と切り
+        分けられないものになる。
+        """
+        if self.current_image is None or not self.current_fragments:
+            messagebox.showinfo(_("情報"), _("データセットを選択してください。"))
+            return
+        if self.is_running:
+            self._log(_("読み込み中です。しばらくお待ちください。"))
+            return
+
+        if self.connect_plan.chains:
+            if not messagebox.askyesno(_("確認"), _(
+                "現在の連結結果（フィブリル {n} 本）は破棄され、自動連結の結果に"
+                "置き換わります。手動で連結したものも含まれます。\n"
+                "よろしいですか？"
+            ).format(n=len(self.connect_plan.chains))):
+                return
+
+        fragments = self._surviving_fragments()
+        if not fragments:
+            messagebox.showinfo(_("情報"), _("連結できるファイバーがありません。"))
+            return
+
+        image = self.current_image
+        params = self.connect_params
+        stem = self.current_stem
+        digest = self._skeleton_digest
+        self.is_running = True
+        self._set_ui_enabled(False)
+        self._show_progress(_("自動連結中..."), 0)
+
+        def _worker():
+            """
+            Search for continuations off the Tk main thread.
+            Tk メインスレッド外で、続きとなる断片を探索する。
+            """
+            try:
+                def _progress(done: int, total: int) -> None:
+                    self.ui_queue.put(("progress", (done, total)))
+
+                chains = plan_from_auto_connect(
+                    image, fragments, params, progress_cb=_progress,
+                )
+                self.ui_queue.put((
+                    "auto_connected",
+                    plan_from_chains(
+                        fragments, chains, params, digest=digest or "",
+                    ),
+                ))
+            except Exception:
+                self.ui_queue.put(("file_error", (stem, traceback.format_exc())))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _on_auto_connected(self, plan: ConnectionPlan) -> None:
+        """
+        Adopt the plan the automatic search produced.
+        自動探索が生成したプランを採用する。
+
+        Parameters
+        ----------
+        plan
+            Search result.
+            探索の結果。
+
+        Notes
+        -----
+        Joining nothing is a legitimate outcome, not an error — a well
+        dispersed specimen has no fragments to rejoin — so it is reported and
+        the plan is adopted as it stands. Treating it as a failure would
+        invite tuning the thresholds until the number looked right.
+        1 件も連結しないことは正当な結果でありエラーではない。よく分散した試料には
+        再結合すべき断片が存在しない。したがって報告したうえでプランをそのまま採用
+        する。失敗として扱えば、数字が良く見えるまでしきい値を調整することを招く。
+        """
+        self.is_running = False
+        self._set_ui_enabled(True)
+        self._hide_progress()
+        if not plan.chains:
+            self._log(_("自動連結: 連結できる断片はありませんでした。"))
             messagebox.showinfo(
                 _("情報"),
                 _("連結できる断片がありませんでした。\n"
                   "この画像では、交差や隙間で分断された断片が見つからないという"
-                  "ことです。連結の設定は変更していないので、必要なら"
-                  "「連結設定...」のしきい値を確認してください。"),
+                  "ことです。条件を変えたい場合は「自動連結の設定…」のしきい値を"
+                  "変更してから、もう一度実行してください。"),
             )
+            return
+        self._set_connect_plan(plan, _(
+            "自動連結を実行しました: フィブリル {n} 本（断片 {m} 本を連結）"
+        ).format(n=len(plan.chains), m=plan.joined_fragment_count()))
 
-    def _on_connect_toggle(self) -> None:
+    def _on_manual_connect(self) -> None:
         """
-        Handle the fiber-connection checkbox by re-analyzing the dataset.
-        ファイバー連結チェックボックスの切替でデータセットを再解析する。
+        Offer the connection candidates for the selected fiber.
+        選択中のファイバーに対する連結候補を提示する。
+        """
+        if self.current_image is None:
+            messagebox.showinfo(_("情報"), _("データセットを選択してください。"))
+            return
+        index = self._selected_display_index()
+        if index is None:
+            messagebox.showinfo(
+                _("情報"), _("連結するファイバーを 1 本だけ選択してください。"),
+            )
+            return
+        if not self._candidate_cache.get(index):
+            messagebox.showinfo(
+                _("情報"),
+                _("このファイバーの端の近くに、連結できる相手がありません。"),
+            )
+            return
+        if self._candidate_window is not None \
+                and self._candidate_window.winfo_exists():
+            self._candidate_window.destroy()
+        self._candidate_window = ConnectCandidateWindow(self, index)
 
-        Connection changes how fibers are built from the skeleton, so the only
-        way to reflect it is to re-run the analysis. When no dataset is loaded,
-        the checkbox state is kept and applied on the next selection.
-        連結はスケルトンからのファイバー構築方法を変えるため、反映には解析の
-        再実行が必要。データ未読込ならチェック状態のみ保持し、次の選択で適用する。
+    def _apply_manual_connection(self, index: int, candidate: dict) -> None:
         """
-        state = _("有効") if self.connect_enabled_var.get() else _("無効")
-        self._log(_("ファイバー連結: {state}").format(state=state))
-        # Only a press of the checkbox may raise the "nothing to connect"
-        # dialog; the reload it starts is what eventually reports the counts.
-        # 「連結対象なし」のダイアログを出してよいのはチェックボックスの操作だけ
-        # である。ここで始まる再読み込みが、最終的に件数を報告する。
-        self._connect_toggle_pending = bool(self.connect_enabled_var.get())
-        self._refresh_curation_button()
-        if self.current_stem and self.current_image is not None and not self.is_running:
-            self._reload_current_file()
+        Join the selected fiber to a chosen candidate.
+        選択中のファイバーを、選ばれた候補へ連結する。
+
+        Parameters
+        ----------
+        index
+            Position in the displayed population of the fiber being extended.
+            延長する側のファイバーの、表示中の母集団での位置。
+        candidate
+            One entry from `lib.fiber_connector.connection_candidates`.
+            `lib.fiber_connector.connection_candidates` の要素 1 つ。
+        """
+        fragments = self._surviving_fragments()
+        chains = self._display_chains()
+        if index >= len(chains) or candidate["index"] >= len(chains):
+            self._log(_("連結対象が変化したため、連結を中止しました。"))
+            return
+
+        merged = chain_for_manual_join(
+            chains, index, candidate["self_end"],
+            candidate["index"], candidate["other_end"],
+        )
+        # The merged chain sits where the extended fiber was; take it back out
+        # so only the new fibril is recorded, leaving every other chain in the
+        # plan exactly as it was.
+        # 統合された連鎖は、延長した側のファイバーがあった位置に入る。そこから
+        # 取り出し、新しいフィブリルだけを記録することで、プラン内の他の連鎖は
+        # そのまま残る。
+        position = index if index < candidate["index"] else index - 1
+        members = [
+            ChainMember(anchor=fiber_anchor(fragments[i]), flip=bool(flip))
+            for i, flip in merged[position]
+        ]
+        self._set_connect_plan(
+            plan_with_chain(self.connect_plan, members),
+            _("手動で連結しました: 断片 {n} 本のフィブリル"
+              "（距離 {d:.1f} px / 角度 {a:.0f} 度{auto}）").format(
+                n=len(members), d=candidate["distance"], a=candidate["angle"],
+                auto="" if candidate["auto"] else _(" / 自動連結の条件外"),
+            ),
+        )
+
+    def _on_disconnect_selected(self) -> None:
+        """
+        Take the selected fibril apart into the fragments it was built from.
+        選択中のフィブリルを、その構成断片へ戻す。
+        """
+        if self.current_image is None:
+            messagebox.showinfo(_("情報"), _("データセットを選択してください。"))
+            return
+        fragments = self._surviving_fragments()
+        chains = self._display_chains()
+        targets = [
+            i for i in self._selected_display_indices()
+            if i < len(chains) and len(chains[i]) > 1
+        ]
+        if not targets:
+            messagebox.showinfo(
+                _("情報"), _("連結されたファイバーを選択してください。"),
+            )
+            return
+
+        anchors = [
+            fiber_anchor(fragments[i])
+            for t in targets for i, _flip in chains[t]
+        ]
+        self._set_connect_plan(
+            plan_without_anchors(self.connect_plan, anchors),
+            _("連結を解除しました: {n} 本のフィブリルを断片へ戻しました。").format(
+                n=len(targets),
+            ),
+        )
+
+    def _on_undo_connect(self) -> None:
+        """
+        Undo the most recent connection change for the current dataset.
+        現在のデータセットで最後に行った連結の変更を取り消す。
+        """
+        if not self._connect_history:
+            messagebox.showinfo(_("情報"), _("取り消せる連結操作がありません。"))
+            return
+        previous = self._connect_history.pop()
+        self.connect_plan = previous
+        self._log(_("直前の連結操作を取り消しました。"))
+        self._commit_connection()
 
     def _open_connect_settings(self) -> None:
         """
@@ -4033,15 +4568,27 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _apply_connect_params(self, params: ConnectParams) -> None:
         """
-        Store new connection parameters and re-analyze if connection is active.
-        新しい連結パラメータを保存し、連結が有効なら再解析する。
+        Store the thresholds the next automatic search will use.
+        次回の自動連結が使うしきい値を保存する。
+
+        Notes
+        -----
+        Nothing is re-analyzed and no fiber changes. The thresholds are inputs
+        to the automatic search, and the search is an action the user takes;
+        they are not a mode the measured population is derived through. Editing
+        one used to re-run the whole analysis behind the user, which is the
+        behavior a button replaces.
+        再解析は行わず、ファイバーも変化しない。しきい値は自動探索への入力であり、
+        探索はユーザーが起こす操作である。計測対象の母集団がそこを経由して導出
+        されるようなモードではない。以前は 1 つ編集するたびにユーザーの背後で解析
+        全体が走り直しており、ボタン化が置き換えるのはその挙動である。
         """
         self.connect_params = params
-        self._log(_("連結パラメータを更新しました。"))
+        self._log(_(
+            "自動連結のしきい値を更新しました。"
+            "「自動連結」を実行すると反映されます。"
+        ))
         self._refresh_curation_button()
-        if self.connect_enabled_var.get() and self.current_stem \
-                and self.current_image is not None and not self.is_running:
-            self._reload_current_file()
 
     def _on_connect_window_closed(self) -> None:
         """
@@ -4062,14 +4609,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Return the comparison key for the connection state now in the UI.
         現在 UI 上にある連結状態の比較キーを返す。
         """
-        return connect_state_key(
-            bool(self.connect_enabled_var.get()), self.connect_params,
-        )
+        return plan_state_key(self.connect_plan)
 
-    def _restore_connect_settings(self, stem: str) -> None:
+    def _restore_connect_plan(self, stem: str) -> None:
         """
-        Adopt a dataset's saved connection settings before it is analyzed.
-        データセットの解析前に、保存済みの連結設定を採用する。
+        Adopt a dataset's saved connection result before it is analyzed.
+        データセットの解析前に、保存済みの連結結果を採用する。
 
         Parameters
         ----------
@@ -4079,17 +4624,21 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         Notes
         -----
-        A bundle whose sidecar says how it should be connected is shown that
-        way, so what GUI04 displays and what GUI03 aggregates from the same
-        file cannot disagree. A bundle without a sidecar keeps the current
-        settings, so working through a folder does not reset the thresholds
-        at every step; the save button then reports that this bundle has not
-        been recorded yet.
-        サイドカーが連結方法を記録しているバンドルは、その通りに表示する。同じ
-        ファイルについて GUI04 の表示と GUI03 の集計が食い違わないようにするため
-        である。サイドカーの無いバンドルは現在の設定を保つため、フォルダを順に
-        処理してもしきい値が毎回リセットされない。この場合、保存ボタンが「この
-        バンドルはまだ記録されていない」ことを示す。
+        A bundle whose sidecar records a connection is shown connected that
+        way, so what this window displays and what GUI03 aggregates from the
+        same file cannot disagree. A bundle without a sidecar starts
+        unconnected — a result cannot carry over to another image, because its
+        chains name fragments of the image it was made on — while the
+        thresholds are kept, so working through a folder does not reset them at
+        every step. The save button then reports that this bundle has not been
+        recorded yet.
+        サイドカーが連結を記録しているバンドルは、その通りに連結した状態で表示
+        する。同じファイルについてこのウインドウの表示と GUI03 の集計が食い違わ
+        ないようにするためである。サイドカーの無いバンドルは未連結で始まる。結果は
+        別の画像へ持ち越せない。その連鎖は、作られた画像の断片を指しているためで
+        ある。一方でしきい値は保つため、フォルダを順に処理しても毎回リセットされ
+        ない。この場合、保存ボタンが「このバンドルはまだ記録されていない」ことを
+        示す。
 
         A sidecar that cannot be read is reported and treated as absent for
         this session, matching how a broken exclusion file is handled: it is
@@ -4098,35 +4647,34 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         扱う。壊れた除外ファイルと同じ扱いであり、手編集したファイルを修復できる
         よう、ディスク上のファイルには手を触れない。
         """
-        settings = None
+        plan = None
         try:
-            settings = load_connect_settings(connect_path_for(stem + BUNDLE_EXT))
+            plan = load_connect_plan(connect_path_for(stem + BUNDLE_EXT))
         except Exception as e:
-            self._log(_("連結設定ファイルを読めませんでした: {err}").format(err=e))
+            self._log(_("連結ファイルを読めませんでした: {err}").format(err=e))
 
-        if settings is None:
-            # No saved decision for this bundle; the current settings stand.
-            # A missing file measures as "not connected", so it is compared as
-            # that: with connection off there is nothing to write and the
-            # button stays quiet, while with connection on the button lights
-            # up because the file does not describe what the window shows.
-            # This is not the ``None`` that means no dataset is loaded.
-            # このバンドルには保存済みの決定が無い。現在の設定をそのまま使う。
-            # ファイルが無い状態は「連結なし」として計測されるため、比較でもそう
-            # 扱う。連結が OFF なら書き出すものは無くボタンは静かなままで、ON なら
-            # ファイルが画面の表示を記述していないためボタンが点灯する。これは
-            # データセット未読込を意味する ``None`` とは別の状態である。
-            self._connect_saved_key = connect_state_key(False, ConnectParams())
+        if plan is None:
+            # No saved decision for this bundle. A missing file measures as
+            # "not connected", so it is compared as that: with nothing
+            # connected there is nothing to write and the save button stays
+            # quiet. This is not the ``None`` that means no dataset is loaded.
+            # このバンドルには保存済みの決定が無い。ファイルが無い状態は「連結
+            # なし」として計測されるため、比較でもそう扱う。何も連結されていなけ
+            # れば書き出すものは無く、保存ボタンは静かなままである。これはデータ
+            # セット未読込を意味する ``None`` とは別の状態である。
+            self.connect_plan = ConnectionPlan(params=self.connect_params)
+            self._connect_saved_key = plan_state_key(None)
             return
 
-        self.connect_enabled_var.set(bool(settings.enabled))
-        self.connect_params = settings.params
-        self._connect_saved_key = connect_state_key(
-            settings.enabled, settings.params,
-        )
-        self._log(_("連結設定を復元しました: {state}").format(
-            state=_("有効") if settings.enabled else _("無効")
-        ))
+        self.connect_plan = plan
+        self.connect_params = plan.params
+        self._connect_saved_key = plan_state_key(plan)
+        if plan.chains:
+            self._log(_(
+                "連結を復元しました: フィブリル {n} 本（断片 {m} 本）"
+            ).format(n=len(plan.chains), m=plan.joined_fragment_count()))
+        else:
+            self._log(_("連結を復元しました: 連結なし"))
 
     # =========================================================================
     # Automatic vrange toggle
@@ -4343,29 +4891,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         def _on_file_loaded(payload):
             (stem, image, fibers, stats, fragments, records, curated,
-             reuse) = payload
+             reuse, digest) = payload
             self.is_running = False
             self._hide_progress()
             self._set_ui_enabled(True)
             self._on_file_loaded(stem, image, fibers, stats, fragments,
-                                 records, curated, reuse)
-
-        def _on_recurated(payload):
-            fibers, stats, curated = payload
-            self.is_running = False
-            self._hide_progress()
-            self._set_ui_enabled(True)
-            self.current_fibers = fibers
-            self._fiber_stats = stats
-            # An exclusion change re-runs the connector, so the join count
-            # changes with it; the dialog stays out of this path because the
-            # user pressed "選択を除外", not the connection checkbox.
-            # 除外の変更は連結器を再実行するため、連結件数もそれに伴って変わる。
-            # ユーザーが押したのは「選択を除外」であって連結チェックボックスでは
-            # ないので、この経路ではダイアログを出さない。
-            self._connect_toggle_pending = False
-            self._report_connection_result(curated, len(fibers))
-            self._install_population()
+                                 records, curated, reuse, digest)
 
         def _on_file_error(payload):
             stem, tb = payload
@@ -4392,7 +4923,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "log": lambda payload: self._log(str(payload)),
             "progress": _on_progress,
             "file_loaded": _on_file_loaded,
-            "recurated": _on_recurated,
+            "auto_connected": self._on_auto_connected,
             "file_error": _on_file_error,
             "filter_done": _on_filter_done,
             "filter_error": _on_filter_error,
@@ -5542,6 +6073,160 @@ class ConnectSettingsWindow(tk.Toplevel):
             self._app._on_connect_window_closed()
         except Exception:
             pass
+        self.destroy()
+
+
+class ConnectCandidateWindow(tk.Toplevel):
+    """
+    Non-modal window listing what a selected fiber could be connected to.
+    選択中のファイバーの連結先候補を一覧する非モーダルウインドウ。
+
+    Attributes
+    ----------
+    _app
+        Main application window that owns the connection plan.
+        連結プランを保持するメインアプリケーションウインドウ。
+    _index
+        Position in the measured population of the fiber being extended.
+        延長する側のファイバーの、計測対象母集団での位置。
+
+    Notes
+    -----
+    The list is the whole point of the feature: the automatic search already
+    made its choice, and what a human adds is a decision about the candidates
+    it declined. Each row therefore reports the distance, the angle, and
+    whether the automatic gates accept it, so the user is choosing with the
+    same information the search had rather than against a hidden threshold.
+    この一覧こそが本機能の要点である。自動探索は既に選択を済ませており、人間が
+    付け加えるのは、探索が見送った候補についての判断である。したがって各行は距離・
+    角度と、自動連結の条件を満たすかどうかを示す。ユーザーが隠れたしきい値を相手に
+    するのではなく、探索と同じ情報を持って選べるようにするためである。
+    """
+
+    def __init__(self, parent: "App", index: int) -> None:
+        """
+        Build the candidate list for one fiber of the app's population.
+        アプリの母集団に属する 1 本のファイバーについて候補一覧を構築する。
+        """
+        super().__init__(parent)
+        self._app: "App" = parent
+        self._index = index
+        self._candidates = list(parent._candidate_cache.get(index, []))
+        self.title(_("連結先の候補"))
+        setup_ttk_theme(self)
+        apply_window_size(self, 560, 340, min_w=460, min_h=260)
+
+        ttk.Label(self, text=_(
+            "ファイバー #{n} の連結先を選んでください。距離は端どうしの画素距離、"
+            "角度は連結部の直線性です。「自動」が ✓ の候補は自動連結でも連結"
+            "される条件を満たしています。"
+        ).format(n=index), wraplength=530).pack(anchor="w", padx=8, pady=(8, 4))
+
+        list_frame = ttk.Frame(self)
+        list_frame.pack(fill="both", expand=True, padx=8, pady=(0, 4))
+        # Coordinate and unit headings stay fixed English like every other
+        # scientific label in this project; only "自動" is a verdict word.
+        # 座標・単位の見出しは、本プロジェクトの他の科学ラベルと同様に固定英語と
+        # する。「自動」だけが判定を表す語である。
+        self._tree, _vsb = create_scrolled_treeview(
+            list_frame,
+            columns=("fiber", "distance", "angle", "height", "auto"),
+            show="headings",
+            selectmode="browse",
+            headings={
+                "fiber": "fiber #", "distance": "distance (px)",
+                "angle": "angle (degree)", "height": "height diff",
+                "auto": _("自動"),
+            },
+            column_options={
+                "fiber": {"width": 70, "anchor": "e", "stretch": False},
+                "distance": {"width": 100, "anchor": "e", "stretch": False},
+                "angle": {"width": 110, "anchor": "e", "stretch": False},
+                "height": {"width": 90, "anchor": "e", "stretch": False},
+                "auto": {"width": 60, "anchor": "center", "stretch": False},
+            },
+        )
+        for i, cand in enumerate(self._candidates):
+            self._tree.insert("", "end", iid=str(i), values=(
+                cand["index"],
+                f"{cand['distance']:.1f}",
+                f"{cand['angle']:.0f}",
+                f"{cand['height_ratio']:.2f}",
+                "✓" if cand["auto"] else "",
+            ))
+        self._tree.bind("<<TreeviewSelect>>", self._on_highlight)
+
+        btn_row = ttk.Frame(self)
+        btn_row.pack(fill="x", padx=8, pady=(0, 8))
+        ttk.Button(btn_row, text=_("この候補と連結"),
+                   command=self._on_connect).pack(side="left")
+        ttk.Button(btn_row, text=_("閉じる"),
+                   command=self.destroy).pack(side="right")
+
+        children = self._tree.get_children()
+        if children:
+            self._tree.selection_set(children[0])
+            self._tree.focus(children[0])
+            self._on_highlight()
+
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _selected_candidate(self) -> Optional[dict]:
+        """
+        Return the highlighted candidate, or ``None`` when none is selected.
+        選択中の候補を返す。未選択なら ``None``。
+        """
+        selection = self._tree.selection()
+        if not selection:
+            return None
+        return self._candidates[int(selection[0])]
+
+    def _on_highlight(self, _event=None) -> None:
+        """
+        Show the highlighted candidate beside the fiber in the overview.
+        選択中の候補を、全体像上でファイバーと並べて示す。
+
+        Notes
+        -----
+        The user is judging whether two ends belong to one fibril, which is a
+        question about the image and not about the numbers in this list.
+        Selecting both fibers in the table puts them in the overview's
+        highlight, which is the view that answers it.
+        ユーザーが判断しているのは 2 つの端が 1 本のフィブリルに属するかであり、
+        これはこの一覧の数値ではなく画像についての問いである。テーブルで両方の
+        ファイバーを選択すると全体像のハイライトに入り、それが答えを与える表示に
+        なる。
+        """
+        candidate = self._selected_candidate()
+        if candidate is None:
+            return
+        tree = self._app.fiber_tree
+        rows = [str(self._index), str(candidate["index"])]
+        existing = set(tree.get_children())
+        rows = [r for r in rows if r in existing]
+        if len(rows) == 2:
+            tree.selection_set(rows)
+            tree.focus(rows[0])
+
+    def _on_connect(self) -> None:
+        """
+        Connect the fiber to the highlighted candidate and close.
+        選択中の候補とファイバーを連結し、ウインドウを閉じる。
+        """
+        candidate = self._selected_candidate()
+        if candidate is None:
+            messagebox.showinfo(_("情報"), _("連結する候補を選択してください。"),
+                                parent=self)
+            return
+        self._app._apply_manual_connection(self._index, candidate)
+        self.destroy()
+
+    def _on_close(self) -> None:
+        """
+        Clear the app's reference to this window and close it.
+        アプリ側の参照をクリアしてウインドウを閉じる。
+        """
+        self._app._candidate_window = None
         self.destroy()
 
 

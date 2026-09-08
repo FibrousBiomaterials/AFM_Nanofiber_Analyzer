@@ -25,7 +25,8 @@ import pytest
 from conftest import requires_tk
 
 from lib.connect_selection import (
-    connect_path_for, load_connect_settings, save_connect_settings,
+    ChainMember, ConnectionPlan, connect_path_for, load_connect_plan,
+    save_connect_plan,
 )
 from lib.fiber_selection import exclusion_path_for, load_exclusions
 
@@ -114,6 +115,21 @@ class _StubImage:
 
     def __init__(self):
         self.calibrated_image = np.zeros((8, 8), dtype=float)
+
+
+def _stub_plan(*anchors):
+    """
+    Build a plan whose one chain joins the given anchor pixels.
+    与えられたアンカー画素を 1 本の連鎖で繋ぐプランを作る。
+
+    The anchors need not resolve to any fragment: these tests are about the
+    pending state and the button wiring, which read the plan itself.
+    アンカーがどの断片に対応している必要もない。これらのテストが対象とするのは
+    保留状態とボタンの結線であり、いずれもプラン自体を読むためである。
+    """
+    return ConnectionPlan(
+        chains=(tuple(ChainMember(anchor=a, flip=False) for a in anchors),),
+    )
 
 
 def test_gui04_overview_is_numbered_from_the_displayed_fibers(tk_app, monkeypatch):
@@ -283,26 +299,28 @@ def test_gui04_non_isolated_exclusion_judges_the_measured_population(
     assert judged[-1] == traced
 
 
-def test_gui04_non_isolated_exclusion_requires_connection_off(tk_app, monkeypatch):
+def test_gui04_non_isolated_exclusion_requires_no_connection(tk_app, monkeypatch):
     """
-    The button refuses while fiber connection is on, and changes nothing.
-    ファイバー連結が ON の間、本ボタンは実行を拒否し、何も変更しない。
+    The button refuses while anything is connected, and changes nothing.
+    何かが連結されている間、本ボタンは実行を拒否し、何も変更しない。
 
-    Isolation is defined on the fragments as traced, and reconnection joins a
+    Isolation is defined on the fragments as traced, and connection joins a
     fiber across a crossing into the network so that it stops being isolated.
-    The precondition is reported rather than fixed silently: switching the
-    checkbox here would re-analyze the dataset as a side effect of pressing an
-    exclusion button.
-    孤立は追跡された状態の断片に対して定義され、再結合は交差を越えてファイバーを
-    ネットワークへつなぐため、そのファイバーは孤立でなくなる。前提条件は黙って
-    修正せず報告する。ここでチェックボックスを切り替えると、除外ボタンを押した
-    副作用としてデータセットが再解析されてしまうためである。
+    The two are alternative answers to fragmentation — measure only what is
+    whole, or make it whole — so the precondition is reported rather than
+    fixed silently: taking the connection apart here would discard decisions
+    as a side effect of pressing an exclusion button.
+    孤立は追跡された状態の断片に対して定義され、連結は交差を越えてファイバーを
+    ネットワークへつなぐため、そのファイバーは孤立でなくなる。両者は断片化に対する
+    代替の答え（完全なものだけを測るか、完全にするか）であるため、前提条件は黙って
+    修正せず報告する。ここで連結を解体すると、除外ボタンを押した副作用として判断が
+    捨てられてしまう。
     """
     app = tk_app(gui04.App)
     app.current_image = _StubImage()
     app.current_fibers = [_StubFiber(0, 0)]
     app.current_fragments = app.current_fibers
-    app.connect_enabled_var.set(True)
+    app.connect_plan = _stub_plan((0, 0), (5, 5))
 
     informed = []
     monkeypatch.setattr(
@@ -314,7 +332,7 @@ def test_gui04_non_isolated_exclusion_requires_connection_off(tk_app, monkeypatc
 
     assert informed, "the precondition has to be reported"
     assert app._excluded_records == []
-    assert app.connect_enabled_var.get() is True
+    assert app.connect_plan.chains, "the connection must be left alone"
 
 
 def _unreachable_flags(*args, **kwargs):
@@ -360,12 +378,12 @@ def test_gui04_curation_pending_covers_connection_as_well_as_exclusions(tk_app):
     app._refresh_curation_button()
     assert str(app._btn_save_curation.cget("state")) == "disabled"
 
-    app.connect_enabled_var.set(True)
+    app.connect_plan = _stub_plan((1, 1), (2, 2))
     app._refresh_curation_button()
     assert app._curation_dirty() is True
     assert str(app._btn_save_curation.cget("state")) == "normal"
 
-    app.connect_enabled_var.set(False)
+    app.connect_plan = gui04.ConnectionPlan()
     app._refresh_curation_button()
     assert str(app._btn_save_curation.cget("state")) == "disabled"
 
@@ -376,17 +394,19 @@ def test_gui04_curation_pending_covers_connection_as_well_as_exclusions(tk_app):
     assert str(app._btn_save_curation.cget("state")) == "normal"
 
 
-def test_gui04_thresholds_are_inert_while_connection_is_off(tk_app):
+def test_gui04_thresholds_alone_are_never_pending(tk_app):
     """
-    Editing a threshold with connection off leaves nothing to save.
-    連結が OFF のときにしきい値を編集しても、保存対象は生まれない。
+    Editing a threshold changes no fiber, so it is never something to save.
+    しきい値の編集はどのファイバーも変えないため、保存対象になることはない。
 
-    A disabled connection stage does not read the thresholds, so the state is
-    the same one a missing sidecar describes; announcing it as pending would
-    prompt on every dataset switch for a difference that changes no number.
-    連結ステージが無効なときしきい値は読まれないため、状態はサイドカーが無い場合
-    と同一である。これを保留として知らせると、どの数値も変えない差分のために
-    データセット切替のたびに確認が出ることになる。
+    Thresholds are inputs to the automatic search, and the search is an action
+    the user takes; once the chains are recorded they no longer take part in
+    building a fiber. Announcing an edit as pending would prompt on every
+    dataset switch for a difference that changes no number.
+    しきい値は自動探索への入力であり、探索はユーザーが起こす操作である。連鎖が
+    記録された後、しきい値はファイバーの構築に関与しない。編集を保留として知らせ
+    ると、どの数値も変えない差分のためにデータセット切替のたびに確認が出ることに
+    なる。
     """
     app = tk_app(gui04.App)
     app.current_image = _StubImage()
@@ -394,31 +414,40 @@ def test_gui04_thresholds_are_inert_while_connection_is_off(tk_app):
     app.connect_params = gui04.ConnectParams(clusters_range=44.0)
     assert app._curation_dirty() is False
 
+    # Still nothing to save once a connection exists and is recorded.
+    # 連結が存在し記録済みであっても、しきい値の変更だけでは保存対象にならない。
+    app.connect_plan = _stub_plan((1, 1), (2, 2))
+    app._connect_saved_key = app._current_connect_key()
+    app.connect_params = gui04.ConnectParams(clusters_range=7.0)
+    assert app._curation_dirty() is False
 
-def test_gui04_a_bundle_without_a_sidecar_keeps_the_current_settings(
+
+def test_gui04_a_bundle_without_a_sidecar_keeps_the_thresholds(
     tk_app, tmp_path
 ):
     """
-    Loading an unrecorded bundle leaves the thresholds alone and offers a save.
-    未記録のバンドルを読み込んでもしきい値はそのままで、保存が可能になる。
+    An unrecorded bundle starts unconnected but keeps the tuned thresholds.
+    未記録のバンドルは未連結で始まるが、調整済みのしきい値は保たれる。
 
-    Working through a folder must not reset the tuning at every step; the
-    enabled save button is what says this bundle has not been recorded yet.
-    フォルダを順に処理するたびにチューニングがリセットされてはならない。保存
-    ボタンが有効であることが、このバンドルがまだ記録されていない合図となる。
+    A connection result cannot carry over to another image, because its chains
+    name fragments of the image it was made on; the thresholds can, and
+    resetting them at every step of a folder would undo the user's tuning.
+    連結結果は別の画像へ持ち越せない。その連鎖は、作られた画像の断片を指している
+    ためである。しきい値は持ち越せるものであり、フォルダを 1 枚進むたびにリセット
+    してはユーザーの調整を無に帰す。
     """
     app = tk_app(gui04.App)
     app.current_image = _StubImage()
     tuned = gui04.ConnectParams(clusters_range=33.0)
     app.connect_params = tuned
-    app.connect_enabled_var.set(True)
+    app.connect_plan = _stub_plan((1, 1), (2, 2))
 
-    app._restore_connect_settings(os.path.join(tmp_path, "unrecorded"))
+    app._restore_connect_plan(os.path.join(tmp_path, "unrecorded"))
 
     assert app.connect_params == tuned
-    assert app.connect_enabled_var.get() is True
+    assert app.connect_plan.chains == ()
     app._refresh_curation_button()
-    assert str(app._btn_save_curation.cget("state")) == "normal"
+    assert str(app._btn_save_curation.cget("state")) == "disabled"
 
 
 def test_gui04_an_unrecorded_bundle_with_connection_off_is_not_pending(
@@ -428,16 +457,15 @@ def test_gui04_an_unrecorded_bundle_with_connection_off_is_not_pending(
     A missing sidecar compares equal to "not connected".
     サイドカーが無い状態は「連結なし」と等価に比較される。
 
-    Absence and a stored ``enabled: false`` measure identically, so the common
-    case of opening an uncurated bundle must not raise a save prompt.
-    ファイルの不在と保存された ``enabled: false`` は計測上等価であるため、未
+    Absence and a stored result with no chains measure identically, so the
+    common case of opening an uncurated bundle must not raise a save prompt.
+    ファイルの不在と、連鎖を持たない保存済み結果は計測上等価であるため、未
     キュレーションのバンドルを開くという通常の操作で保存確認が出てはならない。
     """
     app = tk_app(gui04.App)
     app.current_image = _StubImage()
-    app.connect_enabled_var.set(False)
 
-    app._restore_connect_settings(os.path.join(tmp_path, "unrecorded"))
+    app._restore_connect_plan(os.path.join(tmp_path, "unrecorded"))
 
     assert app._curation_dirty() is False
 
@@ -467,22 +495,22 @@ def test_gui04_one_save_keeps_both_sidecars_describing_one_screen(
     app.current_stem = os.path.join(tmp_path, "scan")
     bundle = app.current_stem + ".b2z"
 
-    # Step 1: connection on, saved.
-    # 手順 1: 連結 ON で保存。
-    app.connect_enabled_var.set(True)
+    # Step 1: connected, saved.
+    # 手順 1: 連結した状態で保存。
+    app.connect_plan = _stub_plan((1, 1), (2, 2))
     assert app._on_save_curation() is True
-    assert load_connect_settings(connect_path_for(bundle)).enabled is True
+    assert load_connect_plan(connect_path_for(bundle)).chains
 
-    # Step 2: connection turned off, fibers excluded as fragments, saved.
-    # 手順 2: 連結を OFF にし、断片としてファイバーを除外して保存。
-    app.connect_enabled_var.set(False)
+    # Step 2: connection taken apart, fibers excluded as fragments, saved.
+    # 手順 2: 連結を解除し、断片としてファイバーを除外して保存。
+    app.connect_plan = gui04.ConnectionPlan()
     app._excluded_records = [{"x": 1, "y": 2, "note": "debris"}]
     app._exclusions_dirty = True
     assert app._on_save_curation() is True
 
     # Both files describe the same screen: not connected, one exclusion.
     # 両ファイルが同じ画面を記述している。連結なし、除外 1 件。
-    assert load_connect_settings(connect_path_for(bundle)).enabled is False
+    assert load_connect_plan(connect_path_for(bundle)).chains == ()
     assert len(load_exclusions(exclusion_path_for(bundle))) == 1
     assert app._curation_dirty() is False
 
@@ -500,14 +528,15 @@ def test_gui04_a_saved_sidecar_is_restored_on_load(tk_app, tmp_path):
     app = tk_app(gui04.App)
     app.current_image = _StubImage()
     stem = os.path.join(tmp_path, "scan")
-    save_connect_settings(
-        connect_path_for(stem + ".b2z"), "scan.b2z", True,
-        gui04.ConnectParams(clusters_range=12.5),
+    saved = gui04.ConnectionPlan(
+        chains=_stub_plan((3, 4), (7, 8)).chains,
+        params=gui04.ConnectParams(clusters_range=12.5),
     )
+    save_connect_plan(connect_path_for(stem + ".b2z"), "scan.b2z", saved)
 
-    app._restore_connect_settings(stem)
+    app._restore_connect_plan(stem)
 
-    assert app.connect_enabled_var.get() is True
+    assert len(app.connect_plan.chains) == 1
     assert app.connect_params.clusters_range == 12.5
     app._refresh_curation_button()
     assert str(app._btn_save_curation.cget("state")) == "disabled"

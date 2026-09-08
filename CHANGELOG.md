@@ -10,35 +10,67 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- GUI04 can save its fiber-connection settings beside the bundle, and GUI03 can
-  apply them. "除外・連結を保存" writes `<stem>_excluded.json` and
-  `<stem>_connect.json` in one press, and GUI03's new "連結を適用" checkbox
-  measures the whole fibrils the Fiber Tracker was showing instead of the
-  skeleton fragments. The two sidecars are never written separately: they are
-  read together, so a pair recorded at different moments would describe a
-  population that was never on screen: saving the connection, turning it off,
-  curating as fragments and saving the exclusions made GUI03 aggregate 29 whole
-  fibrils where the window showed 56 fragments, unsignalled. The unsaved-work
-  guard on leaving a dataset now covers the connection state as well, which it
-  did not before.
+- GUI04 can connect skeleton fragments into whole fibrils by hand, and saves
+  the connection result beside the bundle for GUI03 to apply. "自動連結"
+  searches for continuations and adopts what it finds; "手動で連結…" offers,
+  for one selected fiber, the candidates near its ends — with the distance,
+  the angle, and whether the automatic search's gates accept each one — so a
+  continuation the automatic gates declined can still be joined by eye.
+  "連結を解除" takes a fibril back apart, and "連結を取消" walks back one
+  connection decision, including a whole automatic run.
+
+  These are buttons rather than a checkbox because what they produce is a
+  result that is kept. Pressing "自動連結" again discards the current
+  connection (it asks first), and editing a threshold now changes nothing
+  until the next press instead of re-analyzing the dataset behind the user.
+
+  "除外・連結を保存" writes `<stem>_excluded.json` and `<stem>_connect.json` in
+  one press, and GUI03's new "連結を適用" checkbox measures the whole fibrils
+  the Fiber Tracker was showing instead of the skeleton fragments. The two
+  sidecars are never written separately: they are read together, so a pair
+  recorded at different moments would describe a population that was never on
+  screen: saving the connection, turning it off, curating as fragments and
+  saving the exclusions made GUI03 aggregate 29 whole fibrils where the window
+  showed 56 fragments, unsignalled. The unsaved-work guard on leaving a dataset
+  now covers the connection as well, which it did not before.
 
   A population curated in GUI04 therefore reaches GUI03's `bundle` input
   intact. Previously only the `fiber csv` export carried it, which gave up the
   `pixel` and `length` aggregation units.
 
-  What is stored is the decision and its six thresholds, never the connections
-  themselves. The connector is deterministic given the bundle and
-  `ConnectParams`, so a stored list of joins would be a cache that can silently
-  disagree with the bundle beside it. The `links` key is reserved for manual
-  per-pair connection decisions and written empty, so adding them later needs
-  no format break; a reader refuses a file that carries entries it cannot
-  apply.
+  What is stored is which fragments are joined, in what order and orientation —
+  not the settings that produced them, and not whether a join was automatic or
+  manual. Storing the result is what stops an exclusion from *creating* a
+  connection: with `A-B-C` connected and `B` excluded, `A` and `C` stay
+  separate, where re-running the search joined them because `C` had become the
+  only remaining candidate — a fibril nobody chose, appearing as a side effect
+  of discarding a speck of debris. A recorded chain can be cut by an exclusion
+  and never extended.
 
-  Connection settings are per bundle, so a folder can be curated one bundle at
-  a time. GUI03 logs how many bundles in each folder carried settings, because
-  a partially curated folder is otherwise invisible in the result. Uniformity
+  The record is the join structure, not the geometry: fragments are named by an
+  anchor pixel on their track, and the fibril is docked again at measurement
+  time. Storing the pixels would be a cache that can disagree with the bundle
+  beside it — re-analyzing the bundle changes the skeleton, and a stored track
+  keeps "working" while describing a skeleton that no longer exists, whereas an
+  anchor matches no fragment and fails loudly. The file also carries a
+  fingerprint of the skeleton it was built on, so that check is immediate
+  rather than waiting for the anchors to miss.
+
+  Connection is per bundle, so a folder can be curated one bundle at a time.
+  GUI03 logs how many bundles in each folder carried a connection, because a
+  partially curated folder is otherwise invisible in the result. Uniformity
   across compared groups is not enforced: `clusters_range` is in pixels, so the
   same value is a different physical gap at a different scan size.
+
+  `lib/fiber_connector.py` is split into a search (`plan_from_auto_connect`)
+  and a construction (`build_connected_fibers`) for this, which is what lets
+  the decision the search reaches be stored and rebuilt without searching
+  again. The split is bit-identical to the previous connector on two real
+  scans. One behavior does change: a fragment no chain claims is now passed
+  through untouched instead of being rebuilt, so adding one join no longer
+  perturbs unrelated fibers. Length, height, and kink count are unaffected;
+  `EP count` is corrected, having previously been forced to 2 even for a
+  fragment whose second end is a cut at a crossing rather than a real endpoint.
 
 - GUI04's fiber table selects like Explorer: shift-click or drag for a range,
   ctrl-click to add or remove single rows. "選択を除外" acts on the whole
