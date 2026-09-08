@@ -2808,9 +2808,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         apply_exclusions = (
             args["apply_exclusions"] and input_mode == INPUT_BUNDLE
         )
-        # Connection settings live beside a bundle too; a fiber CSV was already
-        # exported from the connected population GUI04 was displaying.
-        # 連結設定もバンドルの横にある。ファイバー CSV は GUI04 が表示していた
+        # The connection result lives beside a bundle too; a fiber CSV was
+        # already exported from the connected population GUI04 was displaying.
+        # 連結結果もバンドルの横にある。ファイバー CSV は GUI04 が表示していた
         # 連結済み母集団から既に出力されている。
         apply_connection = (
             args["apply_connection"] and input_mode == INPUT_BUNDLE
@@ -2877,15 +2877,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     "[{grp}/{folder}] {n} バンドルを計測中..."
                 ).format(grp=grp_name, folder=folder_name, n=len(bundle_paths))))
 
-                # Say how many bundles actually carry connection settings. A
+                # Say how many bundles actually carry a saved connection. A
                 # bundle without the sidecar is measured as fragments, and the
                 # difference is otherwise invisible in the result.
-                # 実際に連結設定を持つバンドルが何個あるかを報告する。サイドカーの
-                # 無いバンドルは骨格断片として計測されるが、その差は結果からは
-                # 見えないためである。
+                # 実際に保存済みの連結を持つバンドルが何個あるかを報告する。
+                # サイドカーの無いバンドルは骨格断片として計測されるが、その差は
+                # 結果からは見えないためである。
                 if apply_connection:
                     n_conn = self._count_connected_bundles(bundle_paths)
-                    msg = _("[{grp}/{folder}] 連結設定を適用: {n}/{total} バンドル")
+                    msg = _("[{grp}/{folder}] 連結を適用: {n}/{total} バンドル")
                     if n_conn < len(bundle_paths):
                         msg += _("（残りは骨格断片のまま集計）")
                     self.ui_queue.put(("log", msg.format(

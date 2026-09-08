@@ -1617,10 +1617,10 @@ def collect_skeleton_height_profiles(
         ``True`` のとき、`collect_fiber_stats` と同様に手動除外されたファイバーを
         取り除く。
     apply_connection
-        When ``True``, honor each bundle's saved connection settings, as in
+        When ``True``, honor each bundle's saved connection result, as in
         `collect_fiber_stats`.
         ``True`` のとき、`collect_fiber_stats` と同様に各バンドルの保存済み連結
-        設定を尊重する。
+        結果を尊重する。
 
     Returns
     -------
@@ -1723,11 +1723,11 @@ def collect_fiber_curvature(
         Arc length the curvature estimator turns over.
         曲率推定が回転角を測る弧長。
     apply_connection
-        When ``True``, honor each bundle's saved connection settings, as in
+        When ``True``, honor each bundle's saved connection result, as in
         `collect_fiber_stats`. Curvature is measured along whole fibrils then,
         which is not the same as the mean of its fragments' curvatures.
         ``True`` のとき、`collect_fiber_stats` と同様に各バンドルの保存済み連結
-        設定を尊重する。その場合、曲率は 1 本のフィブリル全体に沿って計測される
+        結果を尊重する。その場合、曲率は 1 本のフィブリル全体に沿って計測される
         が、これは構成断片の曲率の平均とは異なる。
 
     Returns
@@ -2001,10 +2001,10 @@ def skeleton_height_values(
         ``True`` のとき、`collect_fiber_stats` と同様に手動除外されたファイバーを
         取り除く。
     apply_connection
-        When ``True``, honor each bundle's saved connection settings, as in
+        When ``True``, honor each bundle's saved connection result, as in
         `collect_fiber_stats`.
         ``True`` のとき、`collect_fiber_stats` と同様に各バンドルの保存済み連結
-        設定を尊重する。
+        結果を尊重する。
     max_workers
         Maximum number of worker threads used per bundle.
         1 バンドルあたりの並列追跡ワーカースレッド数の上限。

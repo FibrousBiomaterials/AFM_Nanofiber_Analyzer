@@ -13,18 +13,46 @@ GUI01 の前処理は分岐点を除去するため、交差・分岐する 1 �
 局所的な連続性をたどって断片を 1 本のフィブリルへ再結合し、再結合した各フィブリルに
 対して `Fiber` を再構築する。
 
+Reconnection is split in two. `plan_from_auto_connect` **searches**, returning
+one chain of ``(fragment index, flip)`` per fibril, and `build_connected_fibers`
+**constructs**, docking a chain back into a `Fiber`; `connect_fiber_fragments`
+composes the two for a caller with nothing to store. `connection_candidates`
+and `connection_candidates_by_index` list the partners a person can join by
+hand, and `chain_for_manual_join` splices two chains into one.
+再結合は 2 段に分かれる。`plan_from_auto_connect` が**探索**を行い、フィブリル
+ごとに ``(断片インデックス, 反転)`` の連鎖を 1 本返す。`build_connected_fibers`
+が**構築**を行い、連鎖を `Fiber` へ組み直す。`connect_fiber_fragments` は保存
+すべきものを持たない呼び出し側のために両者を合成したものである。
+`connection_candidates` と `connection_candidates_by_index` は人が手動で連結
+できる相手を列挙し、`chain_for_manual_join` は 2 本の連鎖を 1 本に繋ぐ。
+
 Notes
 -----
-The reconnection algorithm is a port of the lab notebook
-``generate_connected_fiber_instances``. It is inherently sequential
-(fragment consumption is order dependent), so it is not parallelized. Feature
-points (kink, decomposition, endpoint) are recomputed on the reconnected
-geometry rather than copied from the fragments, because reconnection creates
-new corners and merges former endpoints into the interior.
-再結合アルゴリズムはラボのノートブック ``generate_connected_fiber_instances``
-の移植である。断片の消費順に依存する逐次処理のため並列化しない。特徴点
-（kink・分解点・端点）は断片から複写せず、再結合後の形状に対して再計算する。
-再結合により新たな折れ点が生まれ、旧端点が内部に取り込まれるためである。
+The search is a port of the lab notebook
+``generate_connected_fiber_instances``. **Only the search is sequential**
+(it consumes fragments as it grows, so which joins happen depends on the
+visiting order), which is why it is not parallelized and why its result is
+recorded rather than repeated; construction is a pure function of the chain.
+That boundary is what lets a later measurement rebuild the fibrils that were
+on screen instead of searching again over a population that has meanwhile
+changed — see `lib.connect_selection`.
+探索はラボのノートブック ``generate_connected_fiber_instances`` の移植である。
+**逐次なのは探索だけ**であり（成長しながら断片を消費するため、どの連結が起きるかは
+訪問順に依存する）、並列化しないのも、結果を再現せず記録するのもこのためである。
+構築は連鎖の純関数である。この境界があるからこそ、後の計測は、その間に変化した
+母集団に対して探索をやり直すのではなく、画面に表示されていたフィブリルを組み直せる
+（`lib.connect_selection` を参照）。
+
+Feature points (kink, decomposition, endpoint) are recomputed on the
+reconnected geometry rather than copied from the fragments, because
+reconnection creates new corners and merges former endpoints into the
+interior. A fragment that **no chain claims is passed through untouched**, not
+rebuilt, so adding one join does not perturb every unrelated fiber in the
+image.
+特徴点（kink・分解点・端点）は断片から複写せず、再結合後の形状に対して再計算する。
+再結合により新たな折れ点が生まれ、旧端点が内部に取り込まれるためである。ただし
+**どの連鎖にも属さない断片は再構築せず、そのまま素通しする**。連結を 1 つ加えた
+だけで画像内の無関係なファイバーすべてが動いてしまわないようにするためである。
 """
 
 # ===== Standard library =====

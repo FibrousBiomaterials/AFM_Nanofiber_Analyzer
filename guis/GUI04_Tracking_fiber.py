@@ -1052,12 +1052,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "画像の端に達しているファイバーも、枠の外へ続いており全長が不明な"
             "ため除外されます。\n"
             "連結器が連結相手を見つけるファイバーも、その先に続きがあるため"
-            "除外されます。判定には「連結設定...」の値を使います。\n"
+            "除外されます。判定には「自動連結の設定…」の値を使います。\n"
             "密な試料では残る本数が 0 に近くなることがあります。全長を計測できた"
             "ファイバーが実際に存在しないという結果であり、不具合ではありません。\n"
             "除外は「選択を除外」と同じ扱いで、「直前を取消」の 1 回で全部が"
-            "戻ります。判定は連結前の断片に対して定義されるため、"
-            "「ファイバー連結」が ON のときは実行できません。"
+            "戻ります。判定は連結前の断片に対して定義されるため、連結済みの"
+            "フィブリルがあるときは先に「連結を解除」してください。"
         ))
 
         self._btn_undo_exclusion = ttk.Button(
@@ -1070,12 +1070,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "さかのぼって取り消せます。"
         ))
 
-        # Named like the neighbouring "連結設定..." because it does the same
+        # Named like the neighbouring "自動連結の設定…" because it does the same
         # kind of thing: open a window holding this feature's settings and
         # actions. Its earlier name showed the exclusion count, which read as a
         # status label and left users looking elsewhere for the controls it
         # actually holds.
-        # 近くの「連結設定...」と同じ命名にする。この機能の設定と操作をまとめた
+        # 近くの「自動連結の設定…」と同じ命名にする。この機能の設定と操作をまとめた
         # ウインドウを開くという点で同種のボタンだからである。以前の名前は除外
         # 件数を表示しており、状態表示のラベルに見えるため、実際にはこのボタンが
         # 持っている操作をユーザーが別の場所に探しに行くことになっていた。
@@ -1713,7 +1713,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         これはデータセットの切替ではないため `_on_file_select` を経由しない。同
         メソッドは未保存の除外を置き換える前に保存の可否を尋ねるが、それはデータ
         セットから離れるときに正しい処理であり、ここでは誤りである。データセットは
-        読み込まれたままで除外もそれに付随するので、ファイバー連結の ON、スケール
+        読み込まれたままで除外もそれに付随するので、自動連結の実行、スケール
         変更、連結パラメータの編集は、いずれもキュレーションをそのまま引き継ぐ。
         """
         if not self.current_stem or self.current_image is None:
@@ -2721,8 +2721,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _on_save_curation(self) -> bool:
         """
-        Write the exclusion set and the connection settings in one action.
-        除外集合と連結設定を 1 回の操作で書き出す。
+        Write the exclusion set and the connection result in one action.
+        除外集合と連結結果を 1 回の操作で書き出す。
 
         Returns
         -------
@@ -2753,11 +2753,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         An exclusion set that became empty removes its file rather than
         writing an empty list, so "no sidecar" always means "nothing
         excluded". The connection file is kept either way; see
-        `lib.connect_selection.save_connect_settings` for why the two differ.
+        `lib.connect_selection.save_connect_plan` for why the two differ.
         空になった除外集合は空リストを書かずファイルを削除する。これにより
         「サイドカーが無い」は常に「除外なし」を意味する。連結ファイルはどちらの
         場合も残す。両者が異なる理由は
-        `lib.connect_selection.save_connect_settings` を参照。
+        `lib.connect_selection.save_connect_plan` を参照。
 
         The exclusion file is written first. If the connection write then
         fails, the baselines are left untouched, so the button stays enabled
@@ -2872,7 +2872,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         answer = messagebox.askyesnocancel(
             _("未保存のキュレーション"),
-            _("除外・連結設定に未保存の変更があります（除外 {n} 件）。保存しますか？\n"
+            _("除外・連結に未保存の変更があります（除外 {n} 件）。保存しますか？\n"
               "「いいえ」で破棄、「キャンセル」で操作を中止します。").format(
                 n=len(self._excluded_records)
             ),
@@ -3021,15 +3021,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         「全長を計測できたか」という問い自体が成立しない。計測対象の母集団に対して
         判定することで、孤立ファイバーへ後から高さフィルターをかけられる。
 
-        Fiber connection has to be off. Isolation is defined on the fragments
-        as traced, and reconnection joins a fiber across a crossing into the
-        network so that it stops being isolated. Rather than switching the
-        checkbox and re-analyzing behind the user's back, this reports the
-        precondition and leaves the choice with them.
-        ファイバー連結は OFF でなければならない。孤立は追跡された状態の断片に対
+        Nothing may be connected yet. Isolation is defined on the fragments as
+        traced, and reconnection joins a fiber across a crossing into the
+        network so that it stops being isolated. So a plan holding any chain
+        makes this refuse and point at 「連結を解除」, rather than taking the
+        connection apart and re-analyzing behind the user's back: the chains
+        are a decision they made, and only they can say it should go.
+        連結が 1 件も無い状態でなければならない。孤立は追跡された状態の断片に対
         して定義され、再結合は交差を越えてファイバーをネットワークへつなぐため、
-        そのファイバーは孤立でなくなる。ユーザーの知らないところでチェックボックス
-        を切り替えて再解析するのではなく、前提条件を伝えて判断を委ねる。
+        そのファイバーは孤立でなくなる。したがって連鎖を 1 本でも持つプランがある
+        ときは実行を拒否し、「連結を解除」を案内する。ユーザーの知らないところで
+        連結を解いて再解析することはしない。連鎖はユーザーが下した決定であり、
+        それを取り消してよいと言えるのは本人だけだからである。
         """
         if self.current_image is None or not self.current_fibers:
             messagebox.showinfo(_("情報"), _("データセットを選択してください。"))
@@ -4585,8 +4588,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _connect_path(self) -> str:
         """
-        Return the connection-settings sidecar path for the current dataset.
-        現在のデータセットに対応する連結設定サイドカーのパスを返す。
+        Return the connection-result sidecar path for the current dataset.
+        現在のデータセットに対応する連結結果サイドカーのパスを返す。
         """
         return connect_path_for(self.current_stem + BUNDLE_EXT)
 
