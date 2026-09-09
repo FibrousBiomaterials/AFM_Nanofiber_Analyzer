@@ -153,6 +153,63 @@ def angle_between_three_points(A, B, D) -> float:
     return float(np.degrees(np.arccos(np.clip(cosine_angle, -1.0, 1.0))))
 
 
+def _detector_for(image: FiberTrackingImage) -> KinkDetector:
+    """
+    Build the kink detector the image was analyzed with.
+    その画像の解析に使われた kink 検出器を組み立てる。
+
+    Parameters
+    ----------
+    image
+        Tracking container carrying the thresholds `lib.measure` read from the
+        bundle. A field left at ``None`` means the bundle records no usable
+        value and the detector's own default applies.
+        `lib.measure` がバンドルから読み取ったしきい値を保持する追跡コンテナ。
+        ``None`` のフィールドは、使用可能な値がバンドルに無いことを意味し、
+        検出器自身の既定値を使う。
+
+    Returns
+    -------
+    KinkDetector
+        Detector matching the analysis that produced the image's stored kinks.
+        画像の保存済みキンクを生んだ解析と一致する検出器。
+
+    Notes
+    -----
+    This exists because a fiber the connector builds is displayed and measured
+    beside fibers it did not touch. Both construction sites used
+    ``KinkDetector()`` with its hard-coded defaults, so a scan analyzed at any
+    other angle put two rules in one image: measured on the tunicate test scan
+    re-analyzed at 130 degrees, the 15 reconnected fibrils carried 52 kinks
+    against the 22 the user's own threshold gives, while the 30 fragments no
+    chain claimed carried 9 kinks judged at 130. The extra ones were bends of
+    136 to 149 degrees on fibrils that curve smoothly in the height image.
+    本関数が存在するのは、連結器が組み立てたファイバーが、連結器の触れていない
+    ファイバーと並べて表示・計測されるためである。2 か所の生成箇所はどちらも
+    ハードコード既定値の ``KinkDetector()`` を使っており、既定以外の角度で解析
+    したスキャンでは 1 枚の画像に 2 つの規則が同居していた。tunicate テスト
+    スキャンを 130 度で再解析して実測すると、再結合フィブリル 15 本のキンクは
+    52 個で、ユーザー自身のしきい値なら 22 個、どの連鎖にも属さない断片 30 本は
+    130 度判定の 9 個であった。余分な分は、高さ画像では滑らかに湾曲している
+    フィブリル上の 136〜149 度の曲がりであった。
+
+    A `Fiber` the connector passes through untouched is unaffected either way:
+    its features come from the bundle, not from a detector.
+    連結器がそのまま通す `Fiber` はいずれにせよ影響を受けない。その特徴点は
+    検出器ではなくバンドル由来だからである。
+    """
+    kwargs = {}
+    if image.kink_angle_deg is not None:
+        # ProcParams stores degrees; KinkDetector expects radians.
+        # ProcParams は度で保持するが、KinkDetector はラジアンを受け取る。
+        kwargs["threshold_angle_from_decomposed_indices"] = (
+            image.kink_angle_deg * np.pi / 180.0
+        )
+    if image.kink_decompose_px is not None:
+        kwargs["threshold_distance"] = image.kink_decompose_px
+    return KinkDetector(**kwargs)
+
+
 def _fragment_end_geometry(
     fragments: Sequence[Fiber],
     lookback_length: int,
@@ -727,12 +784,12 @@ def build_connected_fibers(
 
     spp = image.size_per_pixel
     spp_y = image.y_size_per_pixel if image.y_size_per_pixel is not None else spp
-    # A single detector instance is reused for every reconnected fibril; its
-    # thresholds match the per-label kink detection GUI01 ran, so the recomputed
-    # features are consistent with the non-connected path.
-    # 検出器インスタンスは全フィブリルで使い回す。しきい値は GUI01 のラベル単位
-    # kink 検出と一致するため、再計算した特徴点は非連結経路とも整合する。
-    detector = KinkDetector()
+    # A single detector instance is reused for every reconnected fibril, built
+    # from the thresholds the image was analyzed with so the recomputed
+    # features are consistent with the fragments passed through untouched.
+    # 検出器インスタンスは全フィブリルで使い回す。画像の解析時しきい値から作る
+    # ため、再計算した特徴点は、そのまま通される断片とも整合する。
+    detector = _detector_for(image)
 
     chain_at: Dict[int, Sequence[Tuple[int, bool]]] = {}
     claimed: Dict[int, int] = {}
@@ -1372,7 +1429,7 @@ def filter_fibers_by_height(
     # connect_fiber_fragments so kink thresholds stay consistent.
     # 全サブファイバーで検出器を使い回し、connect_fiber_fragments と同じ
     # キンクしきい値で一貫させる。
-    detector = KinkDetector()
+    detector = _detector_for(image)
 
     total = len(fibers)
     result: List[Fiber] = []

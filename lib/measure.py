@@ -59,6 +59,7 @@ from .blosc2_io import load_bundle, load_bundle_meta
 # `measure.TRACKING_BUNDLE_KEYS` 利用側が動き続けるよう、ここで再インポートする。
 from .bundle_schema import (
     TRACKING_BUNDLE_KEYS,
+    kink_params_from_meta,
     scan_size_um_from_meta,
     validate_bundle,
 )
@@ -914,7 +915,9 @@ def fiber_kink_density(stat: FiberStats) -> float:
     return float(stat.kink_count) / length_um
 
 
-def _load_validated_arrays(bundle_path: str, keys: List[str]) -> Dict[str, np.ndarray]:
+def _load_validated_arrays(
+    bundle_path: str, keys: List[str],
+) -> Tuple[Dict[str, np.ndarray], Dict]:
     """
     Load bundle keys and enforce the ``.b2z`` contract before use.
     バンドルキーを読み込み、使用前に ``.b2z`` 契約を強制する。
@@ -927,6 +930,17 @@ def _load_validated_arrays(bundle_path: str, keys: List[str]) -> Dict[str, np.nd
     NumPy エラーではなく、読み込み境界での明確なエラー 1 件になる。vlmeta に
     記録された形式バージョンも照合し、非互換な将来リリースが書いたバンドルを
     明示的に拒否する。
+
+    Returns
+    -------
+    tuple
+        The requested arrays and the bundle's vlmeta. The metadata is returned
+        rather than discarded because it is already read here for the format
+        check, and the caller needs it to reproduce the analysis settings the
+        arrays were produced with.
+        要求された配列と、バンドルの vlmeta。メタデータは形式検査のためここで
+        既に読んでおり、呼び出し側は配列を生んだ解析設定を再現するために必要と
+        するため、捨てずに返す。
 
     Raises
     ------
@@ -955,7 +969,7 @@ def _load_validated_arrays(bundle_path: str, keys: List[str]) -> Dict[str, np.nd
             f"bundle contract violation in {os.path.basename(bundle_path)}: "
             + "; ".join(problems)
         )
-    return arrays
+    return arrays, meta
 
 
 def _tracking_image_from_arrays(
@@ -963,6 +977,7 @@ def _tracking_image_from_arrays(
     data: Dict[str, np.ndarray],
     size_per_pixel: float,
     y_size_per_pixel: Optional[float] = None,
+    meta: Optional[Dict] = None,
 ) -> FiberTrackingImage:
     """
     Assemble a `FiberTrackingImage` from already-loaded bundle arrays.
@@ -976,6 +991,16 @@ def _tracking_image_from_arrays(
     バンドルのディスク読み込みを 1 回に抑える。``size_per_pixel`` は X（列）軸、
     ``y_size_per_pixel`` は Y（行）軸のピクセルサイズで、省略時は X 値を流用して
     等方（正方ピクセル）スケールとする。
+
+    ``meta`` supplies the bundle's vlmeta so the kink thresholds the stored
+    kink points were detected with travel with the image. Anything that later
+    recomputes kinks on a track the bundle does not contain — a reconnected
+    fibril, a height-band sub-fiber — then judges it by the rule that produced
+    the rest of the image instead of a hard-coded default.
+    ``meta`` はバンドルの vlmeta を渡すもので、保存済みキンク点の検出に使われた
+    しきい値を画像と一緒に運ぶ。これにより、バンドルに含まれないトラック上で
+    後からキンクを再計算する処理（再結合フィブリル、高さ帯サブファイバー）が、
+    ハードコード既定値ではなく画像の他の部分を生んだ規則で判定するようになる。
     """
     cal = data["calibrated"]
     skl = data["skeletonized"].astype(np.uint8)
@@ -1000,6 +1025,7 @@ def _tracking_image_from_arrays(
     image.all_kink_coordinates = (kp[0], kp[1])
     image.decomposed_point_coordinates = dp
     image.all_kink_angles = ka
+    image.kink_angle_deg, image.kink_decompose_px = kink_params_from_meta(meta)
     return image
 
 
@@ -1041,9 +1067,11 @@ def load_tracking_image(
     """
     # Load all required bundle keys in one call so the dataset is reconstructed atomically.
     # データセットを一貫して再構築できるよう、必要キーを 1 回でまとめて読み込む。
-    data = _load_validated_arrays(bundle_path, TRACKING_BUNDLE_KEYS)
+    data, meta = _load_validated_arrays(bundle_path, TRACKING_BUNDLE_KEYS)
     name = os.path.splitext(os.path.basename(bundle_path))[0]
-    return _tracking_image_from_arrays(name, data, size_per_pixel, y_size_per_pixel)
+    return _tracking_image_from_arrays(
+        name, data, size_per_pixel, y_size_per_pixel, meta=meta,
+    )
 
 
 def read_scan_size_from_bundle(
@@ -1296,7 +1324,7 @@ def measure_bundle(
             f"scale_y_um must be a positive number, got {scale_y_um!r}"
         )
 
-    data = _load_validated_arrays(bundle_path, TRACKING_BUNDLE_KEYS)
+    data, meta = _load_validated_arrays(bundle_path, TRACKING_BUNDLE_KEYS)
     height_px, width_px = data["calibrated"].shape
     # Per-axis pixel size: X spans the columns (width), Y spans the rows
     # (height), matching the bundle coordinate convention (x=column, y=row).
@@ -1314,7 +1342,7 @@ def measure_bundle(
 
     name = os.path.splitext(os.path.basename(bundle_path))[0]
     image = _tracking_image_from_arrays(
-        name, data, x_size_per_pixel, y_size_per_pixel,
+        name, data, x_size_per_pixel, y_size_per_pixel, meta=meta,
     )
     fragments = image.fibers_in_image_parallel(
         max_workers=max_workers,

@@ -774,7 +774,7 @@ Each bundle also stores root metadata (blosc2 `vlmeta`):
 
 | Key | Content |
 |---|---|
-| `params` | Analysis-parameter dictionary, identical to `<input_stem>_param.json`. |
+| `params` | Analysis-parameter dictionary, identical to `<input_stem>_param.json`. Read back for `kinkangle_deg` and `kink_decompose_px` (see below); the remaining fields are provenance. |
 | `version` | Bundle format version (currently `"1.0"`). |
 | `software_version` | Application release that wrote the bundle. |
 | `input_file` | Base name of the processed input file. |
@@ -788,6 +788,15 @@ The provenance keys (`software_version`, `input_file`, `input_sha256`,
 written by older releases lack them, and readers must not require them. When
 `spatial_calibration` is present, `measure` and GUI04 default the scale to its
 recorded value, so fiber lengths are reproducible from the bundle alone.
+
+The kink thresholds in `params` are read back rather than treated as pure
+provenance. GUI04 recomputes kink points whenever it builds a track the bundle
+does not contain — a fibril reconnected from fragments, or a sub-fiber cut out
+by the height filter — and those fibers are then displayed and measured beside
+fibers whose kinks came straight from the bundle. Taking `kinkangle_deg` and
+`kink_decompose_px` from the bundle keeps one rule in one image. A bundle
+written before a threshold was recorded simply lacks it, and the analysis then
+falls back to the value that run used.
 
 GUI01 also writes `<input_stem>_param.json` for analysis parameters. The raw
 AFM image is not duplicated in the bundle by default because it can be

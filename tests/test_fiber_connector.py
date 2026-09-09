@@ -534,6 +534,99 @@ def test_perpendicular_fragments_are_not_connected():
     assert len(result) == 2
 
 
+def _bent_pair():
+    """
+    Build two fragments that reconnect into one fibril with a single bend.
+    再結合すると 1 か所だけ折れ曲がる 1 本のフィブリルになる 2 断片を作る。
+
+    The second fragment leaves the first at a 60 degree turn, so the joined
+    track has one corner and nothing else a kink detector could pick up.
+    2 本目は 1 本目から 60 度向きを変えて伸びるため、結合後のトラックには折れが
+    1 か所だけあり、キンク検出器が拾える他の特徴は無い。
+    """
+    def line(p, q, n):
+        return [(int(round(p[0] + (q[0] - p[0]) * t / (n - 1))),
+                 int(round(p[1] + (q[1] - p[1]) * t / (n - 1))))
+                for t in range(n)]
+
+    def fragment(points):
+        xs = np.array([p[0] for p in points])
+        ys = np.array([p[1] for p in points])
+        x0, y0 = int(xs.min()), int(ys.min())
+        w, h, n = int(xs.max() - x0 + 1), int(ys.max() - y0 + 1), len(points)
+        return Fiber(
+            fiber_image=np.zeros((h, w)),
+            data=(x0, y0, w, h, n),
+            xtrack=xs - x0,
+            ytrack=ys - y0,
+            horizon=np.arange(n, dtype=float),
+            height=np.full(n, 5.0),
+            kink_indices=np.array([], dtype=int),
+            ep_indices=np.array([0, n - 1]),
+            kink_angles=np.array([]),
+            decomposed_point_indices=np.array([0, n - 1]),
+        )
+
+    turn = np.radians(60.0)
+    straight = line((10, 60), (55, 60), 46)
+    bent = line((63, 60 - int(round(8 * np.tan(turn)))),
+                (63 + int(round(45 * np.cos(turn))),
+                 60 - int(round(45 * np.sin(turn)))), 46)
+    return [fragment(straight), fragment(bent)]
+
+
+def test_reconnected_fibril_uses_the_image_kink_threshold():
+    """
+    A reconnected fibril's kinks obey the threshold the image was analyzed at.
+    再結合フィブリルのキンクは、その画像の解析しきい値に従う。
+
+    The connector recomputes kinks because joining fragments creates corners
+    that exist in no fragment, but the fibril is then displayed and measured
+    beside fragments no chain claimed, whose kinks came from the bundle. Both
+    construction sites used `KinkDetector()` with its hard-coded defaults, so
+    a scan analyzed at any other angle showed two rules in one image.
+    連結器がキンクを再計算するのは、断片の結合によりどの断片にも無かった折れが
+    生じるためである。しかしそのフィブリルは、どの連鎖にも属さずキンクをバンドル
+    から受け取った断片と並べて表示・計測される。2 か所の生成箇所はどちらも
+    ハードコード既定値の `KinkDetector()` を使っていたため、既定以外の角度で解析
+    したスキャンでは 1 枚の画像に 2 つの規則が同居していた。
+
+    The junction trim and the interpolated bridge round the corner off, so the
+    120 degree turn built here is reported at about 133 degrees. The test
+    asserts that measured value lies between the two thresholds rather than
+    assuming it, so a change in the bridging geometry fails loudly instead of
+    quietly making the comparison vacuous.
+    接合部の切り落としと補間による橋渡しが角を丸めるため、ここで作る 120 度の
+    折れは約 133 度として報告される。テストはその実測値が 2 つのしきい値の間に
+    あることを assert する（仮定しない）ので、橋渡し形状が変わった場合は比較が
+    黙って無意味になるのではなく明示的に失敗する。
+    """
+    image = _flat_image(size=120)
+    fragments = _bent_pair()
+    chains = plan_from_auto_connect(image, fragments, ConnectParams())
+    assert sum(1 for chain in chains if len(chain) >= 2) == 1
+
+    image.kink_angle_deg = 150.0
+    loose = build_connected_fibers(image, fragments, chains, ConnectParams())
+    assert len(loose) == 1
+    angles_deg = np.degrees(loose[0].kink_angles)
+    assert len(angles_deg) == 1
+    assert 130.0 < angles_deg[0] < 150.0
+
+    image.kink_angle_deg = 130.0
+    strict = build_connected_fibers(image, fragments, chains, ConnectParams())
+    assert len(strict) == 1
+    assert len(strict[0].kink_indices) == 0
+
+    # An unrecorded threshold falls back to the detector default, which is the
+    # 150 degrees such a bundle was analyzed with.
+    # しきい値が未記録の場合は検出器既定値へフォールバックする。それはその
+    # バンドルが実際に解析された 150 度である。
+    image.kink_angle_deg = None
+    default = build_connected_fibers(image, fragments, chains, ConnectParams())
+    assert len(default[0].kink_indices) == 1
+
+
 def test_measure_bundle_applies_a_connection_plan(tmp_path):
     """
     `measure_bundle(plan=...)` returns valid fibers and stats.

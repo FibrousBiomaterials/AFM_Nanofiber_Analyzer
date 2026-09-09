@@ -23,11 +23,13 @@ import cli
 from lib.blosc2_io import load_bundle, load_bundle_meta, save_bundle
 from lib.bundle_schema import (
     BUNDLE_FORMAT_VERSION,
+    PARAMS_KEY,
     REQUIRED_BUNDLE_KEYS,
     SCAN_SIZE_SOURCES,
     SPATIAL_CALIBRATION_KEY,
     SUPPORTED_BUNDLE_VERSIONS,
     TRACKING_BUNDLE_KEYS,
+    kink_params_from_meta,
     make_spatial_calibration,
     scan_size_um_from_meta,
     validate_bundle,
@@ -323,3 +325,57 @@ def test_scan_size_um_from_meta_handles_missing_and_malformed():
     assert scan_size_um_from_meta(
         {SPATIAL_CALIBRATION_KEY: {"scan_size_x_um": -1.0, "scan_size_y_um": 2.0}}
     ) is None
+
+
+def test_kink_params_from_meta_reads_recorded_thresholds():
+    """The recorded angle and decomposition tolerance come back as stored."""
+    meta = {PARAMS_KEY: {"kinkangle_deg": 130.0, "kink_decompose_px": 2.5}}
+    assert kink_params_from_meta(meta) == (130.0, 2.5)
+
+
+def test_kink_params_from_meta_reports_each_field_independently():
+    """
+    A bundle predating `kink_decompose_px` still yields its recorded angle.
+    `kink_decompose_px` 導入前のバンドルでも、記録された角度は取り出せる。
+
+    The two thresholds entered `ProcParams` at different times, so treating
+    them as one all-or-nothing record would throw away the angle every bundle
+    written before the tolerance existed does carry.
+    2 つのしきい値は別々の時期に `ProcParams` へ加わったため、一括の全か無かの
+    記録として扱うと、許容値の導入前に書かれた全バンドルが実際に持っている角度
+    まで捨てることになる。
+    """
+    assert kink_params_from_meta({PARAMS_KEY: {"kinkangle_deg": 150.0}}) == (150.0, None)
+    assert kink_params_from_meta({PARAMS_KEY: {"kink_decompose_px": 3.0}}) == (None, 3.0)
+
+
+def test_kink_params_from_meta_handles_missing_and_malformed():
+    """Absent, non-dict, non-numeric, or out-of-range entries yield None."""
+    assert kink_params_from_meta(None) == (None, None)
+    assert kink_params_from_meta({}) == (None, None)
+    assert kink_params_from_meta({PARAMS_KEY: "x"}) == (None, None)
+    assert kink_params_from_meta({PARAMS_KEY: {"kinkangle_deg": "wide"}}) == (None, None)
+    # Bounds match lib.pipeline.validate_params: the angle is in [0, 180]
+    # degrees and the decomposition tolerance is strictly positive.
+    assert kink_params_from_meta({PARAMS_KEY: {"kinkangle_deg": 181.0}}) == (None, None)
+    assert kink_params_from_meta({PARAMS_KEY: {"kink_decompose_px": 0.0}}) == (None, None)
+    assert kink_params_from_meta(
+        {PARAMS_KEY: {"kinkangle_deg": float("nan")}}
+    ) == (None, None)
+
+
+def test_recorded_kink_thresholds_reach_the_tracking_image(real_bundle):
+    """
+    The thresholds the analysis ran with travel from the bundle to the image.
+    解析時のしきい値が、バンドルから追跡画像まで届く。
+
+    Everything that recomputes kinks on a track the bundle does not contain
+    reads them from there, so this is the join that makes a reconnected fibril
+    judged by the same rule as the rest of the image.
+    バンドルに含まれないトラック上でキンクを再計算する処理はすべてここから
+    値を読む。再結合フィブリルが画像の他の部分と同じ規則で判定されるのは、
+    この受け渡しがあるからである。
+    """
+    image = load_tracking_image(real_bundle, 10.0)
+    assert image.kink_angle_deg == FAST_PARAMS.kinkangle_deg
+    assert image.kink_decompose_px == FAST_PARAMS.kink_decompose_px

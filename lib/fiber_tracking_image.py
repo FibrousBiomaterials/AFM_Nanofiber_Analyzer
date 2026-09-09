@@ -186,6 +186,16 @@ class FiberTrackingImage:
     skipped_fiber_labels
         Labels skipped during the most recent tracing call with their reasons.
         直近の追跡呼び出しでスキップされたラベルと理由。
+    kink_angle_deg
+        Interior-angle threshold (degrees) the stored kink points were detected
+        with; None when the bundle does not record it.
+        保存済みキンク点の検出に使われた内角しきい値（度）。バンドルに記録が
+        無ければ None。
+    kink_decompose_px
+        Perpendicular tolerance (px) of the polyline decomposition those kink
+        points were judged at; None when the bundle does not record it.
+        それらのキンク点を判定した折れ線分解の垂直許容量 (px)。バンドルに記録が
+        無ければ None。
     """
 
     def __init__(
@@ -249,6 +259,26 @@ class FiberTrackingImage:
         self.all_kink_angles: Optional[np.ndarray] = None
         self.decomposed_point_coordinates: Optional[np.ndarray] = None
         self.skipped_fiber_labels: tuple[tuple[int, str], ...] = ()
+
+        # The kink thresholds that produced the arrays above, read from the
+        # bundle by `lib.measure`. They are carried on the container rather
+        # than passed per call because every consumer that recomputes kinks
+        # already holds the image, and one that had to be told separately is
+        # one that can be told wrong: `lib.fiber_connector` recomputed a
+        # reconnected fibril's kinks at the hard-coded defaults until this
+        # existed, so a scan analyzed at any other angle showed two rules at
+        # once. None means the bundle recorded no usable value, and the
+        # detector's own default applies — which is what such a run used.
+        # 上記の配列を生んだキンクしきい値。`lib.measure` がバンドルから読み取る。
+        # 呼び出しごとに渡すのではなくコンテナに載せるのは、キンクを再計算する
+        # 側は必ず image を持っており、別途伝える方式では伝え間違いが起きうる
+        # ためである。実際 `lib.fiber_connector` は本フィールド導入まで再結合
+        # フィブリルのキンクをハードコード既定値で再計算しており、既定以外の角度で
+        # 解析したスキャンでは 1 枚の画像に 2 つの規則が混在していた。None は
+        # 使用可能な値がバンドルに記録されていないことを表し、検出器自身の既定値を
+        # 使う。それがそのような実行で実際に使われた値である。
+        self.kink_angle_deg: Optional[float] = None
+        self.kink_decompose_px: Optional[float] = None
 
     def fibers_in_image_parallel(
         self,

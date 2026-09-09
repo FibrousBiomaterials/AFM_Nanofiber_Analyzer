@@ -139,6 +139,29 @@ SCAN_SIZE_SOURCES = ("input_header", "manifest", "manual")
 # 表しているためである。
 SOURCE_REGION_KEY = "source_region"
 
+# vlmeta key holding the `ProcParams` dictionary the analysis ran with, the
+# same content as the `<input_stem>_param.json` sidecar. It is provenance for
+# every field but two: a reader that recomputes kink points on a track the
+# bundle does not contain — reconnected fibrils, height-band sub-fibers — has
+# to apply the same rule that produced `kp` / `ka`, and the bundle is the only
+# place that rule travels with the arrays it explains. The sidecar is the
+# analysis *input* and is editable afterwards, so reading the thresholds from
+# it would let an edit change a fibril's kinks with no re-analysis.
+# Optional like the other provenance keys: bundles from older releases lack it,
+# and `kink_params_from_meta` reports a missing field as "not recorded" so the
+# caller falls back to the detector defaults those runs used.
+# 解析実行時の `ProcParams` 辞書を保持する vlmeta キー。内容は
+# `<input_stem>_param.json` サイドカーと同一。ほとんどのフィールドは来歴情報
+# だが、バンドルに含まれないトラック上でキンクを再計算する読み取り側
+# （再結合フィブリル、高さ帯サブファイバー）は `kp` / `ka` を生んだ規則と
+# 同じものを適用する必要があり、その規則が説明対象の配列と一緒に運ばれる場所は
+# バンドルだけである。サイドカーは解析の*入力*であり事後編集が可能なので、
+# そこからしきい値を読むと、再解析なしにフィブリルのキンクが変わってしまう。
+# 他の来歴キーと同様に任意項目。旧リリースのバンドルには存在せず、
+# `kink_params_from_meta` は欠落フィールドを「未記録」として返すため、
+# 呼び出し側はその実行が使った検出器既定値へフォールバックする。
+PARAMS_KEY = "params"
+
 # Keys needed to rebuild a FiberTrackingImage (GUI04 / lib.measure contract).
 # Unlike REQUIRED_BUNDLE_KEYS, `binarized` is not needed for tracking.
 # FiberTrackingImage の再構築に必要なキー（GUI04 / lib.measure 契約）。
@@ -425,3 +448,79 @@ def scan_size_um_from_meta(
     if not (x_um > 0 and y_um > 0):
         return None
     return x_um, y_um
+
+
+def kink_params_from_meta(
+    meta: Optional[Dict],
+) -> Tuple[Optional[float], Optional[float]]:
+    """
+    Extract the kink-detection thresholds the analysis ran with, if recorded.
+    解析実行時のキンク検出しきい値を取り出す（記録があれば）。
+
+    Parameters
+    ----------
+    meta
+        Bundle vlmeta dictionary, or ``None``.
+        バンドルの vlmeta 辞書、または ``None``。
+
+    Returns
+    -------
+    tuple
+        ``(kinkangle_deg, kink_decompose_px)``, each ``None`` when the bundle
+        does not record a valid value for it. The angle is in degrees, as
+        stored; converting to the radians `KinkDetector` takes is the caller's
+        job, and is done in exactly one place (`lib.pipeline.build_stages`).
+        ``(kinkangle_deg, kink_decompose_px)``。有効な値が記録されていない項目は
+        ``None``。角度は保存形式どおり度で返す。`KinkDetector` が受け取る
+        ラジアンへの変換は呼び出し側の役割で、変換箇所は 1 つだけである
+        （`lib.pipeline.build_stages`）。
+
+    Notes
+    -----
+    The two are reported independently because they entered the parameter set
+    at different times: a bundle written before `kink_decompose_px` existed
+    records the angle and not the tolerance, and that run used the detector's
+    own default for the tolerance. Returning ``None`` for the missing one lets
+    the caller reproduce exactly that, where a single "all or nothing" result
+    would discard the angle the bundle does record.
+    2 つを独立に返すのは、パラメータ集合へ加わった時期が異なるためである。
+    `kink_decompose_px` 導入前に書かれたバンドルは角度のみを記録しており、その
+    実行は許容値に検出器自身の既定値を使っていた。欠落側を ``None`` で返せば
+    呼び出し側はその状態をそのまま再現できる。一括で「全部あるか無しか」にすると、
+    バンドルが実際に記録している角度まで捨てることになる。
+
+    Bounds match `lib.pipeline.validate_params`, so a value this function
+    accepts is one the pipeline would have accepted. An out-of-range or
+    non-numeric entry reads as "not recorded" rather than raising: it is
+    provenance written by an unknown release, and refusing to open the bundle
+    over it would block measurement that does not depend on it.
+    値域は `lib.pipeline.validate_params` と一致させてあり、本関数が受け入れる値は
+    パイプラインが受け入れたはずの値である。範囲外や非数値は例外ではなく
+    「未記録」として扱う。これは未知のリリースが書いた来歴情報であり、それを理由に
+    バンドルを開けなくすると、その値に依存しない計測まで止めてしまうためである。
+    """
+    if not meta:
+        return None, None
+    params = meta.get(PARAMS_KEY)
+    if not isinstance(params, dict):
+        return None, None
+
+    def _valid(
+        key: str, lo: float, hi: Optional[float], strict_lo: bool = False,
+    ) -> Optional[float]:
+        try:
+            value = float(params[key])
+        except (KeyError, TypeError, ValueError):
+            return None
+        if not np.isfinite(value):
+            return None
+        if value < lo or (strict_lo and value == lo):
+            return None
+        if hi is not None and value > hi:
+            return None
+        return value
+
+    return (
+        _valid("kinkangle_deg", 0.0, 180.0),
+        _valid("kink_decompose_px", 0.0, None, strict_lo=True),
+    )

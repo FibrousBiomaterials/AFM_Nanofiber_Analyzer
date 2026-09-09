@@ -10,6 +10,37 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A fiber GUI04 builds itself — a fibril reconnected from fragments, or a
+  sub-fiber cut out by the height filter — now has its kinks judged by the
+  thresholds the scan was analyzed with, instead of the `KinkDetector`
+  defaults. **Kink counts, positions and angles on those fibers change for any
+  scan analyzed at a `kinkangle_deg` other than 150 or a `kink_decompose_px`
+  other than 3**; at the default settings nothing changes, and a fiber the
+  connector passes through untouched was never affected either way because its
+  features come from the bundle.
+
+  The connector has to recompute, because joining two fragments creates a
+  corner that exists in neither of them and retires the fragment ends that
+  were never fiber ends. But it built its detector with a bare
+  `KinkDetector()`, so the recomputed fibers were judged at 150 degrees while
+  the fragments beside them in the same image carried the user's own
+  threshold. Re-analyzing the bundled tunicate CNF scan at 130 degrees and
+  reconnecting, the 15 fibrils carried 52 kinks against the 22 that threshold
+  gives, while the 30 fragments no chain claimed carried 9. Inspected against
+  the calibrated height image, the extra ones are bends of 136 to 149 degrees
+  on fibrils that curve smoothly — exactly what setting 130 degrees asks the
+  analysis not to report.
+
+  The thresholds now travel with the arrays they explain: `process_file`
+  already recorded the whole parameter set in the bundle's `params` metadata,
+  and `lib.measure` reads `kinkangle_deg` and `kink_decompose_px` back out of
+  it onto the tracking image. They are deliberately not read from the
+  `<input_stem>_param.json` sidecar, which is the analysis input and stays
+  editable afterwards, so an edit there would change a fibril's kinks with no
+  re-analysis. A bundle written before a threshold was recorded lacks it and
+  falls back to the default that run used, so existing bundles measure exactly
+  as before.
+
 - A kink is now reported only where the bend is larger than the error bar on
   measuring it. The decomposition localizes a vertex only to within
   `threshold_distance` of the true path, so a vertex displaced by that much
