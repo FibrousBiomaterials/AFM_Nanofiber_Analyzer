@@ -1057,6 +1057,41 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   45 degrees at `L = W` settling at 57 to 59 from `L = 2 W`. A baseline of one
   line width sees less than half of a shallow corner.
 
+- One bend can still be reported at two neighbouring decomposition vertices,
+  and nothing suppresses the weaker of the two. Nothing does, because no
+  available criterion separates that case from two genuine corners that happen
+  to have no vertex between them.
+
+  It is rare now. Re-analyzed with the current detector, the three bundled
+  scans report 5, 69 and 68 kinks, of which 0, 25 and 20 are pairs sitting at
+  neighbouring vertices; only 0, 10 and 5 of those turn the same way, an S
+  being two real opposite bends that must never be merged. Inspected against
+  the calibrated height image, one pair of the 15 is unmistakably one apex
+  marked twice (tunicate CNF fiber 5, 148 and 147 degrees, the two markers
+  almost on the same pixel). The significance rule above had already removed
+  the higher-plant TOC case this was written for.
+
+  The criterion that ought to work does not. A circular arc of total turn
+  `theta` across a chord of length `A` departs from that chord by
+  `(A/2) * tan(theta/4)`, so where that is below `kink_decompose_px` the
+  decomposition could not have told an arc from a corner-straight-corner: it
+  would have placed the same two vertices either way, and reporting two kinks
+  asserts a distinction the data does not carry. Applied to the 15 same-way
+  pairs it merges 4 (3 on tunicate CNF, 1 on NDTOC, none on higher-plant TOC),
+  and against the height image the ordering it produces is not the ordering the
+  images give: it merges two pairs that sit on a faint ridge and on a crossing,
+  where the kinks are questionable for unrelated reasons, while the clearest
+  distributed bend on either scan — a smooth hairpin on tunicate CNF fiber 5,
+  104 and 148 degrees, no corner visible at either marker — is kept, missing
+  the threshold by 3 %. The decision boundary falls between 2.67 px (merged)
+  and 3.09 px (kept) while the visual verdicts interleave across it.
+
+  What is missing is the same thing the entry above records: a scale. Whether
+  a turn is one bend or two is a statement about the length over which it
+  happens, and the vertex spacing the decomposition chose is not that length —
+  it is set by the tolerance and by where the track's noise happened to peak.
+  A rule built on it correlates with the answer without measuring it.
+
 ## [1.0.0] - 2026-07-08
 
 Initial public release, prepared for subsequent archival on Zenodo and
