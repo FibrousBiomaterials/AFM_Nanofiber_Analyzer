@@ -10,6 +10,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A negative control for kink detection, built on synthetic scans whose fiber
+  centerline is an analytic curve (`tests/synthetic_fibers.py`). Every other
+  check compares the pipeline against a real scan, where nobody knows how many
+  kinks a fiber truly has, so a change in the kink count reads as neither
+  better nor worse. Here the answer is known by construction: a straight,
+  circular or tapering fiber has no kink, and a two-armed fiber has exactly one
+  at a known place, which makes a false positive and a miss separately visible.
+  `tests/test_synthetic_negative_control.py` pins that a smooth fiber yields no
+  kink, that a 145 degree bend is found where it is, that a 165 degree bend is
+  not reported, and that the tracked centerline stays on the fiber.
+
+  `scripts/kink_false_positive_sweep.py` sweeps noise, tip radius, curvature,
+  taper, background roughness, crossings and clutter, and reports false
+  positives per micrometre together with the recall of the known kink. The two
+  are never reported apart: recall on its own improves monotonically as a
+  threshold loosens. Height formation follows the AFM forward model — the ideal
+  fiber surface dilated by the probe apex, not blurred — and the background
+  roughness is matched to what the bundled scans carry after calibration,
+  because a symmetric or noiseless background cannot produce the mask asymmetry
+  that displaces a thinning-based centerline. The generated scans reproduce the
+  trade-off, not the real failure rate; the script's docstring says what the
+  numbers may and may not be used for.
+
 - GUI04 can connect skeleton fragments into whole fibrils by hand, and saves
   the connection result beside the bundle for GUI03 to apply. "自動連結"
   searches for continuations and adopts what it finds; "手動で連結…" offers,

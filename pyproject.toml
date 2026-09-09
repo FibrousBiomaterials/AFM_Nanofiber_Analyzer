@@ -91,7 +91,7 @@ testpaths = ["tests"]
 # when debugging a single test and you want live, ordered output.
 addopts = ["-n", "auto"]
 markers = [
-    "slow: integration tests that process full-size real scans",
+    "slow: tests that run the whole pipeline, over a full-size real scan or a generated one",
 ]
 
 [tool.ruff]
