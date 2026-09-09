@@ -944,6 +944,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `conda create` installs its own Python into the prefix, so conda itself is
   the only prerequisite these launchers can be missing.
 
+### Known issues
+
+- Every coordinate the software reports is one pixel from where it is in the
+  input file. Background calibration computes its gradients as
+  `image[:, 1:] - image[:, :-1]`, which loses one column and one row, and
+  crops its output to `original[1:, 1:]` so the shapes match
+  (`lib/bg_calibrator.py`). The calibrated image is therefore one pixel
+  smaller than the input on each axis, and pixel `(i, j)` of it is pixel
+  `(i + 1, j + 1)` of the raw scan: phase correlation puts the displacement at
+  exactly `(1.00, 1.00)` px on both bundled 1024 px scans.
+
+  Everything downstream is derived from the calibrated image, so the offset is
+  internally consistent and lengths, heights, angles and every comparison
+  between fibers are unaffected. What it does reach is any position read
+  against the original scan — a fiber's coordinates in a GUI or an exported
+  CSV, a kink's position, and the anchor pixels the exclusion and connection
+  sidecars store. One pixel is 2.0 nm on the bundled 2 um scans and 4.9 nm on
+  the 5 um one.
+
+  It also reaches the pixel size, which `lib/pipeline.py` obtains by dividing
+  the recorded scan size by the width of the *cropped* image. Whichever
+  convention an instrument uses for what its recorded scan size spans, the
+  crop changes that divisor by one, so the pixel size differs by one part in
+  the image width — about 0.1 % on a 1024 px scan — from what the same
+  formula would give on the uncropped image, and every length scales with it.
+
+  Fixing this changes every recorded coordinate and every length, so it is
+  recorded here rather than changed quietly.
+
 ## [1.0.0] - 2026-07-08
 
 Initial public release, prepared for subsequent archival on Zenodo and
