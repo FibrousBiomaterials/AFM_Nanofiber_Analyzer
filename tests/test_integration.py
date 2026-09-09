@@ -28,7 +28,7 @@ from tests.conftest import REAL_DATA
 # （bg_method=trendfill）を適用して記録した基準統計値。
 GOLDEN_SKELETON_PX = 7975
 GOLDEN_BINARIZED_PX = 80615
-GOLDEN_N_KINKS = 81
+GOLDEN_N_KINKS = 69
 RELATIVE_TOLERANCE = 0.05
 
 pytestmark = [

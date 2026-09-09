@@ -338,22 +338,58 @@ class KinkDetector:
 
         Notes
         -----
-        A candidate is also required to have both arms — the index spans to
-        its neighboring decomposition vertices — of at least
-        `threshold_distance`. The track endpoints are vertices by
-        construction, so a terminal arm can be arbitrarily short (down to one
-        pixel), and the vertex positions themselves are only localized to
-        within `threshold_distance` by the decomposition; an angle measured
-        over a shorter arm therefore has no tangent support at the scale the
-        decomposition resolves and would report bends that are pure end
-        effects.
-        候補には、隣接する分解頂点までのインデックス幅（両腕）が
-        `threshold_distance` 以上であることも要求する。トラックの端点は構成上
-        必ず頂点になるため末端の腕はいくらでも短くなり得る（最短 1 画素）。
-        また頂点位置自体が分解によって `threshold_distance` の精度でしか
-        局在化されないため、それより短い腕で測った角度は分解が解像する
-        スケールでの接線の支持を持たず、純粋な端効果を折れ曲がりとして
-        報告してしまう。
+        A candidate is also required to be larger than its own uncertainty.
+        The decomposition localizes a vertex only to within
+        `threshold_distance` of the true path, so a vertex displaced by that
+        much across an arm of length ``A`` tilts the arm by about
+        ``threshold_distance / A`` radians, and the two arms together move the
+        interior angle by about ``2 * threshold_distance / A``. What the
+        threshold tests is not the angle but its distance below a straight
+        line, ``pi - angle``, so a candidate is kept only where
+
+            ``pi - angle > 2 * threshold_distance / min(arm_prev, arm_next)``
+
+        that is, where the bend being reported is at least as large as the
+        error bar on measuring it.
+        候補には、その値が自身の不確かさを上回ることも要求する。分解は頂点を
+        真の経路から `threshold_distance` の精度でしか局在化しないため、その量
+        だけずれた頂点は長さ ``A`` の腕を約 ``threshold_distance / A`` ラジアン
+        傾け、両腕あわせて内角を約 ``2 * threshold_distance / A`` 動かす。
+        しきい値が検定しているのは角度そのものではなく、直線からの不足
+        ``pi - angle`` であるから、候補は
+
+            ``pi - angle > 2 * threshold_distance / min(arm_prev, arm_next)``
+
+        を満たすものだけを残す。つまり、報告しようとしている折れが、それを測る
+        誤差棒と同じかそれ以上の大きさを持つ場合に限る。
+
+        This replaces a fixed minimum arm length, and it behaves better for the
+        reason the fixed rule was wrong: how much support an angle needs is not
+        a constant, it depends on how sharp the angle is. A 120 degree bend is
+        60 degrees clear of straight and survives on a short arm; a 149 degree
+        bend is 31 degrees clear and needs three times as much before it can be
+        told from the vertex jitter. The rule is also free of any length scale
+        — `threshold_distance` and the arm are both in pixels and cancel — so
+        it means the same thing at any scan size, which a pixel count does not.
+        これは固定の最小腕長を置き換えるもので、固定規則が誤っていたのと同じ
+        理由でより良く振る舞う。角度が必要とする支持量は定数ではなく、角度の
+        鋭さに依存する。120 度の折れは直線から 60 度離れているので短い腕でも
+        残るが、149 度の折れは 31 度しか離れておらず、頂点の揺らぎと区別する
+        には 3 倍の腕を要する。また `threshold_distance` と腕はどちらも画素
+        単位で相殺するため長さスケールを含まず、画素数指定と違ってどの走査
+        サイズでも同じ意味を持つ。
+
+        The terminal arms are what this mainly removes. A track endpoint is a
+        decomposition vertex by construction, so a terminal arm can be as
+        short as one pixel, and after `imp_tools.remove_bp` most endpoints are
+        not fiber ends at all but cuts at a crossing, where the mask is at its
+        least symmetric about the ridge. Measured on the three bundled scans,
+        46 to 68 % of track ends lie within 3 px of a branch point.
+        主に除かれるのは末端の腕である。トラックの端点は構成上必ず分解頂点に
+        なるため末端の腕は 1 画素まで短くなり得るうえ、`imp_tools.remove_bp`
+        の後では端点の多くが繊維の終端ではなく交差での切断であり、そこはマスク
+        が稜線に対して最も非対称になる場所である。同梱の実スキャン 3 種で実測
+        すると、トラック端の 46〜68 % が分岐点から 3 px 以内にある。
         """
         # Compute angles at decomposition midpoints and keep sharp bends.
         kink_indices = []
@@ -378,10 +414,18 @@ class KinkDetector:
         norm2 = np.sqrt(v2x ** 2 + v2y ** 2)
         angles = np.arccos(dot / (norm1 * norm2))
         mask = angles <= threshold_angle
-        # Arm-support rule: see Notes. Both arms must span at least the
-        # decomposition scale for the angle to be meaningful.
-        # 腕支持ルール（Notes 参照）。角度が意味を持つには両腕が分解スケール
-        # 以上の幅を持つ必要がある。
-        mask &= (mid_idx - prev_idx) >= self.threshold_distance
-        mask &= (next_idx - mid_idx) >= self.threshold_distance
+
+        # Significance rule: see Notes. The bend must exceed the angular error
+        # the decomposition's vertex tolerance puts on measuring it. norm1 and
+        # norm2 are already the arm lengths in pixels, so no length scale
+        # enters and none has to be supplied.
+        # 有意性ルール（Notes 参照）。折れは、分解の頂点許容がその測定に与える
+        # 角度誤差を上回らなければならない。norm1 と norm2 は既に画素単位の腕長
+        # なので、長さスケールは入らず、与える必要もない。
+        arm = np.minimum(norm1, norm2)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            angular_error = np.where(arm > 0.0,
+                                     2.0 * self.threshold_distance / arm,
+                                     np.inf)
+        mask &= (np.pi - angles) > angular_error
         return mid_idx[mask], angles[mask]

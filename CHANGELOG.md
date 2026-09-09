@@ -8,6 +8,52 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- A kink is now reported only where the bend is larger than the error bar on
+  measuring it. The decomposition localizes a vertex only to within
+  `threshold_distance` of the true path, so a vertex displaced by that much
+  across an arm of length `A` moves the interior angle by about
+  `2 * threshold_distance / A`; a candidate is kept only where
+  `pi - angle` exceeds that. **Kink counts, kink positions and kink angles
+  change from this version**, so results are not bit-identical to 1.0.0. On
+  the bundled scans the count falls from 10 to 5 (higher-plant TOC), 81 to 69
+  (tunicate CNF) and 96 to 74 (Bruker NDTOC); nothing else in the pipeline
+  moves, so lengths, heights, straightness and curvature are unchanged.
+
+  This replaces a fixed minimum arm length of `threshold_distance` index
+  steps, which was three pixels against a fiber whose own mask is 7.5 to 9
+  pixels wide — an angle measured over less than half a fiber width, with no
+  tangent support at the scale the decomposition resolves. The fixed rule was
+  wrong in kind, not only in value: how much support an angle needs depends on
+  how sharp it is. A 120 degree bend is 60 degrees clear of straight and
+  survives on a short arm, while a 149 degree bend is 31 degrees clear and
+  needs three times as much before it can be told from vertex jitter. Both
+  sides of the new rule are in radians with the pixel units cancelling, so it
+  also means the same thing at any scan size, which a pixel count does not:
+  three pixels is 5.9 nm on a 2 um scan and 14.7 nm on a 5 um one.
+
+  What it removes is dominated by the terminal arms. A track endpoint is a
+  decomposition vertex by construction, so a terminal arm can be one pixel
+  long, and after branch-point removal most endpoints are not fiber ends but
+  cuts at a crossing, where the mask is least symmetric about the ridge: 46 to
+  68 % of track ends on the bundled scans lie within 3 px of a branch point.
+  Checked against the calibrated height image on the higher-plant TOC scan,
+  all five removed kinks are ones the height ridge has no bend at — a rounded
+  tip the skeleton turns into, a low mask skirt the skeleton falls into, a
+  junction the track ends in, a smooth hook that had been reported twice, and
+  a gradual arc — while all four kinks that do correspond to a bend of the
+  ridge are kept. On the Bruker NDTOC scan, 18 of the 22 removed kinks are
+  likewise absent from the ridge.
+
+  This does not make every reported kink a real one. 43 % of what survives on
+  the NDTOC scan still sits where the ridge has no bend, because those bends
+  are sharp — 115 to 136 degrees — and a sharp angle clears its error bar even
+  on a short arm. What is wrong there is the centerline, not the angle: the
+  skeleton is the medial axis of a thresholded mask, so wherever the mask is
+  not symmetric about the ridge the centerline is displaced and genuinely does
+  bend. That is a separate fix and this one does not attempt it.
+
 ### Added
 
 - A negative control for kink detection, built on synthetic scans whose fiber
