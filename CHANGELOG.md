@@ -973,6 +973,43 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Fixing this changes every recorded coordinate and every length, so it is
   recorded here rather than changed quietly.
 
+- A bend spread along a fiber can still be reported as a kink. The angle at a
+  decomposition vertex is measured between the chords to its two neighbouring
+  vertices, and those neighbours sit wherever the piecewise-linear
+  decomposition put them, so the measurement carries no scale: a corner and an
+  arc that turns by the same amount over a much longer stretch produce the same
+  angle. On the synthetic scans of `tests/synthetic_fibers.py`, which have no
+  tangent discontinuity anywhere, a meander of 57 nm minimum radius yields
+  about four such reports per fiber.
+
+  The distinction is measurable in principle. Compare the turn between chords
+  spanning an arc length `L` either side of the point with the same at `2L`:
+  for an arc the turn is proportional to `L`, for a corner it is independent of
+  it, so `K = 2*turn(L) - turn(2L)` is zero for the first and equals the bend
+  for the second. Measured against known geometry, `K` at `L = 3.5 W` (where
+  `W` is the mask area divided by the skeleton length, 9.0 to 10.1 px on the
+  bundled scans) separates all five families cleanly against the 30 degree
+  threshold the default `kinkangle_deg` implies: 36 for a 145 degree kink, 25
+  for a 155 degree one, 14 and 21 for meanders of 91 and 57 nm minimum radius,
+  and 7 for a 90 degree arc.
+
+  What blocks it is the amount of fiber the measurement needs, not the
+  arithmetic. `turn(2L)` reaches `7 W` either side, so the point needs `14 W`
+  of track around it — and 57 %, 72 % and 88 % of the fibers on the
+  higher-plant TOC, tunicate CNF and Bruker NDTOC scans are shorter than that
+  in total. Of the kinks those scans report, only 1 of 5, 32 of 69 and 23 of
+  74 could be evaluated at all. A chord also stops describing the fiber where
+  the track folds back inside the span, which a convoluted fibril does: of 13
+  kinks the test dropped, four had a `2 L` chord that crossed a fold and two or
+  three were corners the height image shows plainly.
+
+  The scale is recorded because any future attempt needs it. The turn at a
+  corner only reaches its full value once `L` exceeds the rounding that tip
+  broadening and thinning leave: for a 145 degree kink it reads 17 degrees at
+  `L = W` and settles at 32 to 34 from `L = 3.5 W`, and for a 120 degree kink
+  45 degrees at `L = W` settling at 57 to 59 from `L = 2 W`. A baseline of one
+  line width sees less than half of a shallow corner.
+
 ## [1.0.0] - 2026-07-08
 
 Initial public release, prepared for subsequent archival on Zenodo and
