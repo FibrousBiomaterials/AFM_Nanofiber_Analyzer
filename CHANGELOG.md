@@ -56,6 +56,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `ProcParams.kink_decompose_px` records the perpendicular tolerance of the
+  piecewise-linear decomposition a kink angle is measured on. It was a constant
+  inside `KinkDetector` that nothing passed and nothing wrote down, so the
+  scale a kink was judged at did not appear in `<input_stem>_param.json` and a
+  result could not be reproduced from its own sidecar. The default is the value
+  it always had, so no analysis output changes; a parameter file written before
+  this version loads with that default, as any missing key does.
+
+  It is left in pixels, like `spur_length` and `branch_length`. Pixels are the
+  wrong unit in principle — three pixels is 5.9 nm on a 2 um scan and 14.7 nm
+  on a 5 um one — but on the three bundled scans the fiber mask measures 7.5 to
+  10 px across, so the same three pixels land at 0.3 to 0.4 of a fiber width on
+  every one of them, and there is no measurement here showing that a
+  width-derived value would read any differently. Recording the number is what
+  was missing; changing it is a separate question that needs its own evidence.
+
 - A negative control for kink detection, built on synthetic scans whose fiber
   centerline is an analytic curve (`tests/synthetic_fibers.py`). Every other
   check compares the pipeline against a real scan, where nobody knows how many

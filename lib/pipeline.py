@@ -169,6 +169,27 @@ class ProcParams:
     kinkangle_deg
         Bend-angle threshold in degrees for kink detection.
         キンク検出に用いる折れ角しきい値 (度)。
+    kink_decompose_px
+        Perpendicular tolerance in pixels of the piecewise-linear
+        decomposition a kink angle is measured on: a vertex is inserted where
+        a track point lies at least this far from the chord it is being
+        approximated by. It therefore sets both the scale at which the
+        polyline follows the track and, since a vertex is localized only to
+        within it, the uncertainty the detector requires a reported bend to
+        exceed.
+        キンク角度を測る折れ線分解の垂直許容量 (px)。近似している弦からこの距離
+        以上離れたトラック点があれば頂点を挿入する。したがって折れ線がトラックを
+        追う尺度を決めると同時に、頂点がこの精度でしか局在化されないことから、
+        報告する折れが上回るべき不確かさも決める。
+
+        Pixel-based, like `spur_length` and `branch_length`. On the bundled
+        scans the fiber mask is 7.5 to 10 px across, so the default sits at
+        0.3 to 0.4 of a fiber width on all of them; a scan whose fibers span a
+        very different number of pixels needs a different value.
+        `spur_length` や `branch_length` と同じく画素基準である。同梱スキャン
+        では繊維マスクの幅が 7.5〜10 px なので、既定値はいずれでも繊維幅の
+        0.3〜0.4 倍にあたる。繊維が大きく異なる画素数を占める走査では別の値が
+        必要になる。
 
     Notes
     -----
@@ -222,6 +243,7 @@ class ProcParams:
 
     # Kink-detection parameters.
     kinkangle_deg: float = 150.0          # Bends at or below this angle are detected as kinks.
+    kink_decompose_px: float = 3.0        # Perpendicular tolerance of the polyline decomposition, in pixels.
 
 
 # Fixed English stage keys reported through the `on_stage` callback, in order.
@@ -519,6 +541,9 @@ def validate_params(p: ProcParams) -> List[str]:
     require(_num(p.kinkangle_deg) and 0 <= p.kinkangle_deg <= 180,
             f"kinkangle_deg must be a number in [0, 180] degrees, "
             f"got {p.kinkangle_deg!r}")
+    require(_num(p.kink_decompose_px) and p.kink_decompose_px > 0,
+            f"kink_decompose_px must be a positive number (px), "
+            f"got {p.kink_decompose_px!r}")
 
     return problems
 
@@ -615,9 +640,10 @@ def build_stages(p: ProcParams) -> PipelineStages:
         spur_length=p.spur_length,
     )
     kink_detector = KinkDetector(
+        threshold_distance=p.kink_decompose_px,
         # KinkDetector expects radians, while ProcParams stores degrees.
         # KinkDetector はラジアンを受け取るが、ProcParams は度で保持する。
-        threshold_angle_from_decomposed_indices=p.kinkangle_deg * np.pi / 180.0
+        threshold_angle_from_decomposed_indices=p.kinkangle_deg * np.pi / 180.0,
     )
     return PipelineStages(
         bg_calibrator=bg_calibrator,

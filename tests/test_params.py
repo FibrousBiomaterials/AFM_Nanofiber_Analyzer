@@ -36,7 +36,7 @@ EXPECTED_FIELDS = {
     # Skeletonization.
     "bp_height", "branch_length", "min_area", "max_loop_area", "spur_length",
     # Kink detection.
-    "kinkangle_deg",
+    "kinkangle_deg", "kink_decompose_px",
 }
 
 
