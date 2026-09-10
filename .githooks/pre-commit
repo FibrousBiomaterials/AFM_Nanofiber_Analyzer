@@ -4,14 +4,18 @@
 #      machine-local absolute paths, and locally defined blocked words.
 #   2. Changelog — a change to the strict-regression goldens (i.e. the
 #      numeric results moved) must come with a CHANGELOG.md entry.
-# A finding in either check blocks the commit.
+#   3. Algorithm docs — a change to one of the four algorithm modules must come
+#      with an update to docs/algorithms.md (or its Japanese counterpart).
+# A finding in any check blocks the commit.
 # The pre-push hook remains the final net for check 1: it also covers commit
 # messages and merge commits, which this hook cannot see.
 # コミット前の確認をステージ済み差分に対して順に実行する。
 #   1. 機微情報 — 認証情報・個人情報・ローカル絶対パス・ローカル定義の NG ワード。
 #   2. CHANGELOG — 厳密回帰テストの golden 値が変わる(= 数値結果が変わる)変更には
 #      CHANGELOG.md への追記を必須にする。
-# どちらかで検出された場合はコミットを中止する。
+#   3. アルゴリズム解説 — アルゴリズム 4 モジュールの変更には
+#      docs/algorithms.md(または日本語版)の更新を必須にする。
+# いずれかで検出された場合はコミットを中止する。
 # 1 についてはコミットメッセージとマージコミットをこのフックでは検査できない
 # ため、pre-push フックが最終防衛線として引き続き検査する。
 #
@@ -28,10 +32,11 @@ set -u
 repo_root=$(git rev-parse --show-toplevel) || exit 1
 checker="$repo_root/scripts/check_sensitive.py"
 changelog_checker="$repo_root/scripts/check_changelog.py"
+algorithm_doc_checker="$repo_root/scripts/check_algorithm_docs.py"
 
 # Fail closed: a missing checker script also blocks the commit.
 # フェイルクローズ方針: 検査スクリプトが無い場合もコミットを中止する。
-for script in "$checker" "$changelog_checker"; do
+for script in "$checker" "$changelog_checker" "$algorithm_doc_checker"; do
     if [ ! -f "$script" ]; then
         echo "pre-commit: $script not found; blocking commit (fail-closed)." >&2
         exit 1
@@ -59,4 +64,6 @@ fi
 # 直している最中に CHANGELOG の指摘が混ざらないようにする。
 $py "$checker" --staged || exit $?
 
-exec $py "$changelog_checker" --staged
+$py "$changelog_checker" --staged || exit $?
+
+exec $py "$algorithm_doc_checker" --staged

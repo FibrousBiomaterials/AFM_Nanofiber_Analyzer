@@ -20,7 +20,16 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
+    # Renders the Markdown pages (algorithms.md) alongside the reStructuredText
+    # ones. The narrative pages are Markdown so the same source reads correctly
+    # both here and on GitHub, which is where the .ja.md counterparts are read.
+    "myst_parser",
 ]
+
+# `dollarmath` enables $...$ and $$...$$ math. GitHub renders the same syntax
+# natively, so a formula written once displays in both places; the Sphinx-only
+# `.. math::` directive would show as raw text in the repository view.
+myst_enable_extensions = ["dollarmath"]
 
 # Docstrings follow NumPy style (see AGENTS.md section 3), not Google style.
 napoleon_numpy_docstring = True
@@ -44,7 +53,13 @@ intersphinx_mapping = {
 }
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build"]
+# The published site is English (see AGENTS.md section 1). The `*.ja.md`
+# counterparts stay version-controlled and are read on GitHub; excluding them
+# here keeps them out of the build instead of raising "not in any toctree".
+# `related_afm_tools.md` is a local-only guide (it is listed in .gitignore and
+# is absent from a fresh clone), so it is not part of the published site
+# either; naming it here keeps a local build warning-free.
+exclude_patterns = ["_build", "*.ja.md", "related_afm_tools.md"]
 
 html_theme = "furo"
 html_static_path = []

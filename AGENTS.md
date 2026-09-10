@@ -953,6 +953,59 @@ It is the analysis-side counterpart of §7.10.
 - **Believe a user-reported detection failure.** If the user says fibers are
   missing and a metric disagrees, the metric is suspect first.
 
+### 8.13 Algorithm changes and `docs/algorithms.md`
+
+`docs/algorithms.md` and its Japanese counterpart `docs/algorithms.ja.md`
+explain what background calibration, binarization, skeletonization, and kink
+detection do, and why, referencing the source by symbol name. They exist so the
+analysis is not a black box to the people who cite its output — a requirement
+of the JOSS submission and of the lab's own reproducibility. When a change
+alters what one of these four stages computes, updating both language versions
+is **part of that change**, not a follow-up task.
+
+The trigger is a change to any of:
+
+- `lib/bg_calibrator.py`
+- `lib/segmenter.py`
+- `lib/skeletonizer.py`
+- `lib/kink_detector.py`
+
+A stale explanation is worse than a missing one, because it is read as
+authoritative: a reader who checks the document instead of the code and finds a
+confident description of a rule the software no longer applies has been
+actively misled. This is the same reasoning as §4.4 (flag, do not guess) at
+document scale.
+
+Two mechanisms enforce it, and neither is sufficient alone:
+
+- `scripts/check_algorithm_docs.py`, run from `.githooks/pre-commit`, blocks a
+  commit that touches one of the four modules without touching either document.
+  It is the early warning, and it is bypassable (`--no-verify`) and opt-in per
+  clone, which is legitimate for a change that genuinely cannot affect the
+  explanation — a comment, a type hint, a behavior-preserving refactor.
+- `tests/test_algorithm_docs.py` runs in CI, where it cannot be skipped. It
+  checks that every project symbol the documents name still exists, that every
+  `ProcParams` field and every `bg_method` value is documented, that the two
+  language versions share one heading skeleton, and it fingerprints the four
+  modules with comments and docstrings removed. A behavioral change fails the
+  fingerprint test until `tests/algorithm_doc_manifest.json` is refreshed with
+  `.venv\Scripts\python.exe tests\test_algorithm_docs.py --update`.
+
+The fingerprint is a tripwire, not a proof: nothing forces the person
+refreshing it to have reread the document. That is what this rule is for. Do
+not refresh the manifest as a mechanical step to make a test pass — read the
+sections covering the stage you changed first, and update them when the
+explanation no longer matches.
+
+Reference code from these documents **by symbol name, never by line number**.
+Line numbers rot on the first unrelated edit and cannot be checked; symbol
+names are verified on every test run. Pasted code excerpts are avoided for the
+same reason.
+
+The two documents are a synchronized pair on the same terms as the README pair
+(see Editing Rules): an edit to either one requires the corresponding edit,
+including translation, in the other.
+
 ## 9. Summary
 
 | Item | Rule |
@@ -992,5 +1045,6 @@ It is the analysis-side counterpart of §7.10.
 | Translation catalogs | Refresh with `.venv\Scripts\python.exe prepare_translate_catalogs.py` (keeps `PLUGIN_INFO` descriptions; a bare `pybabel extract/update` drops them and obsoletes the entries); never edit `.mo` files directly (§8.8). |
 | README pair | `README.md` ↔ `README.ja.md` stay synchronized in both directions, including translation of the edited passage. |
 | Result-changing fixes | If `tests/strict_regression_golden.json` changes, add a `CHANGELOG.md` `[Unreleased]` entry stating that results change from this version; enforced by `.githooks/pre-commit` (§8.11). |
+| Algorithm changes | A change to `bg_calibrator.py`, `segmenter.py`, `skeletonizer.py`, or `kink_detector.py` includes updating `docs/algorithms.md` **and** `docs/algorithms.ja.md`; refresh `tests/algorithm_doc_manifest.json` only after rereading the affected sections. Reference code by symbol name, never by line number. Enforced by `.githooks/pre-commit` and `tests/test_algorithm_docs.py` (§8.13). |
 | Destructive Git operations | Forbidden unless explicitly requested; `git restore` of files corrupted by your own edit is allowed. |
 | Multi-line commit messages | Write to a file and pass with `git commit -F .tmp/commit_msg.txt`; never hand-quote inline (PowerShell `@'`…`'@` vs. `sh` `<<'EOF'`…`EOF` are not interchangeable, and the wrong one silently leaves the delimiter as the subject line). Enforced by `.githooks/commit-msg`. |

@@ -12,11 +12,14 @@ by the interactive tools in ``guis/`` and by the ``cli.py`` batch interface. The
 graphical and command-line front ends call the same pipeline and measurement
 routines, so equivalent runs produce identical numerical results.
 
-Installation, usage, the analysis pipeline, and the ``.b2z`` bundle format are
-described in the project README; this site covers the module-level API only.
+:doc:`algorithms` explains what the four preprocessing stages do and why, with
+references into the source; :doc:`api` documents each module's contract.
+Installation, usage, and the ``.b2z`` bundle format are described in the
+project README.
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents
 
+   algorithms
    api

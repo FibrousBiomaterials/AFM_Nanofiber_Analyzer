@@ -81,6 +81,10 @@ testdata_Bruker_txt/*
 # Strict-regression golden baseline must be version-controlled so the
 # tests/test_strict_regression.py guard runs (not skips) on fresh clones and CI.
 !tests/strict_regression_golden.json
+# Algorithm-document fingerprints, for the same reason: without this file
+# tests/test_algorithm_docs.py cannot tell whether the algorithms changed since
+# docs/algorithms.md was last reviewed, and CI would fail on a missing file.
+!tests/algorithm_doc_manifest.json
 # Zenodo deposition metadata must be version-controlled so the Zenodo GitHub
 # integration reads it from the archived release; otherwise *.json above hides it.
 !.zenodo.json

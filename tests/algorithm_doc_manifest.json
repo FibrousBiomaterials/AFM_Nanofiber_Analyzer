@@ -1,0 +1,9 @@
+{
+  "_comment": "SHA-256 of each algorithm module with comments and docstrings removed. Refresh with `python tests/test_algorithm_docs.py --update` only after reviewing docs/algorithms.md against the change.",
+  "modules": {
+    "lib/bg_calibrator.py": "e3f0956b64ecfbca511d4d3032c48c958c76821a3f4a31d54b07dcd554bf191f",
+    "lib/segmenter.py": "605070f3dbe7b323f221d8f160fb2a17579832a5f5b8485e788d4594922eec22",
+    "lib/skeletonizer.py": "9be60b10b4a2916c51eb91793395dc037b36dd8c2e088a30af3571bac26073ef",
+    "lib/kink_detector.py": "8105e1255a8d683074a55c321d3c9321ca98352c03b09ab3f0cf9c1130cf14f0"
+  }
+}

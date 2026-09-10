@@ -9,7 +9,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Fixed
-
 - A fiber GUI04 builds itself — a fibril reconnected from fragments, or a
   sub-fiber cut out by the height filter — now has its kinks judged by the
   thresholds the scan was analyzed with, instead of the `KinkDetector`
@@ -86,6 +85,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bend. That is a separate fix and this one does not attempt it.
 
 ### Added
+
+- `docs/algorithms.md` and `docs/algorithms.ja.md` explain what the four
+  preprocessing stages compute — background calibration, binarization,
+  skeletonization, kink detection — what each parameter changes, and why the
+  non-obvious decisions were made, referencing the source by symbol name. The
+  English version is published on the documentation site beside the API
+  reference. No analysis behavior changes.
+
+  The reasoning behind each stage was recorded only in the code comments,
+  where it is reachable by someone reading that function and by nobody else. A
+  user citing a fiber length had no document tying the number to the rules that
+  produced it, which is what "black box" means in practice for research
+  software.
+
+  Documentation that has silently gone stale is worse than none, because it is
+  read as authoritative, so the pair is held to the code mechanically rather
+  than by intention. `tests/test_algorithm_docs.py` checks that every project
+  symbol the documents name still exists, that every `ProcParams` field and
+  every `bg_method` value is documented, that the two language versions share
+  one heading skeleton, and it fingerprints the four algorithm modules with
+  comments and docstrings removed — so editing a comment does not fire, while
+  changing what the code computes fails the suite until the explanation has
+  been reviewed. `scripts/check_algorithm_docs.py`, added to
+  `.githooks/pre-commit`, gives the same warning at commit time. The rule the
+  two mechanisms serve is `AGENTS.md` section 8.13.
 
 - `ProcParams.kink_decompose_px` records the perpendicular tolerance of the
   piecewise-linear decomposition a kink angle is measured on. It was a constant

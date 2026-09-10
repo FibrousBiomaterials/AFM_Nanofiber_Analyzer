@@ -720,11 +720,27 @@ them on Linux under a virtual framebuffer:
 xvfb-run -a python -m pytest tests/
 ```
 
+### How the analysis works
+
+[`docs/algorithms.md`](docs/algorithms.md) explains what the four preprocessing
+stages — background calibration, binarization, skeletonization, and kink
+detection — actually do, what each parameter changes, and why each decision was
+made, with references into the source. Read it when you need to justify a
+number this software reports rather than only reproduce it.
+[`docs/algorithms.ja.md`](docs/algorithms.ja.md) is the Japanese counterpart.
+
+The document is kept in step with the code mechanically:
+`tests/test_algorithm_docs.py` verifies that every symbol it names still
+exists, that every analysis parameter is documented, and fingerprints the four
+algorithm modules so a change to what they compute fails the test suite until
+the explanation has been reviewed.
+
 ### API documentation
 
 The modules in `lib/` are documented with Sphinx, which renders their
-docstrings into an API reference. The published version is built from `main` by
-`.github/workflows/docs.yml` and served from GitHub Pages.
+docstrings into an API reference, alongside the algorithm document above. The
+published version is built from `main` by `.github/workflows/docs.yml` and
+served from GitHub Pages.
 
 To build it locally, install the `docs` extra and run Sphinx **from the `docs/`
 directory** — the working directory matters, because `docs/docutils.conf` is
