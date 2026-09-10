@@ -9,6 +9,61 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Fixed
+
+- `Segmenter._remove_nonlinear_objects` now judges each component on its own
+  pixels, and `Segmenter._remove_connecting_fragments` now iterates the real
+  component labels. **No analysis output changes**: the final binarized mask is
+  bit-identical on all 22 real scans tested, and
+  `tests/strict_regression_golden.json` is untouched.
+
+  The linearity filter asks, per component, "is this line-like enough to
+  keep?", and answered it from `out_binary_image[top:top + height, left:left +
+  width]` — the whole mask inside the component's bounding box, not the
+  component. A bounding box is axis-aligned, so a diagonal fiber's box is large
+  and mostly empty and neighbours land in it often. Their outlines entered the
+  Canny edge map and so both the numerator (Hough votes) and the denominator
+  (edge pixels) of `s_ratio`, and `np.sum(target)` counted them too. A
+  component's verdict could therefore depend on what happened to lie near it.
+  The crop is now `label_image[bbox] == i`.
+
+  The weak-connection cleanup looped `range(n_labels - 1)`, i.e. labels
+  `0 .. n-2`. `connectedComponentsWithStats` numbers 0 as the background and
+  the components 1..n-1, so the loop entered the background and never reached
+  the highest label. Entering the background is harmless — its area never meets
+  `area_min_connecting`, and clearing background pixels is a no-op — but the
+  skipped label is a real component, and since OpenCV numbers in raster order
+  it is the bottom-most one, so exactly one component per image escaped the
+  cleanup for a reason unrelated to its size. The loop now reads
+  `range(1, n_labels)`.
+
+  Measured before changing anything, over 22 real scans (the three bundled test
+  scans plus 19 further unpublished scans), each run with the parameters
+  recorded in its own `_param.json`: 3318 components, 1726 of them
+  linearity-tested. 341 tested components (20%) had a neighbour inside their
+  bounding box; the shift it put on `s_ratio` had a median of 0.027 and a
+  maximum of 0.97, so only components already sitting near `h_sratio` could
+  change side. Exactly one did, on the bundled NDTOC scan: a 410 px object at
+  the bottom edge whose `s_ratio` moved from 0.516 to 0.458 across the 0.5
+  threshold. Rendering it over the calibrated height image showed it peaks at
+  1.33 nm, below the 1.8 nm `low_threshold`, so `remove_low_component` deletes
+  it at the next stage either way. Running both variants through to the final
+  binarized mask confirmed this directly: 0 differing pixels on every one of
+  the 22 scans.
+
+  The cleanup path is off by default (`apply_no_connecting` is false in every
+  recorded `_param.json`), so it did not run in any of those analyses. Forced
+  on, the skipped label qualified for removal on 3 of the 22 scans; the objects
+  were 1 to 3 pixels — two at background level (0.58 and 0.59 nm) and one a
+  sliver erosion had carved off a real fiber's edge, which the following
+  dilation restores.
+
+  **To restore the previous behavior**, revert exactly two expressions in
+  `lib/segmenter.py`: in `_remove_nonlinear_objects`, `target =
+  label_image[top:top + height, left:left + width] == i` back to
+  `target = out_binary_image[top:top + height, left:left + width]`; and in
+  `_remove_connecting_fragments`, `for i in range(1, n_labels)` back to
+  `for i in range(n_labels - 1)`. Nothing else depends on either change.
+
 - A fiber GUI04 builds itself — a fibril reconnected from fragments, or a
   sub-fiber cut out by the height filter — now has its kinks judged by the
   thresholds the scan was analyzed with, instead of the `KinkDetector`

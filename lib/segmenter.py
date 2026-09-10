@@ -382,9 +382,23 @@ class Segmenter:
             if max(width, height) < self.h_length:
                 out_binary_image[label_image == i] = 0
                 continue
-            target = out_binary_image[
+            # Judge this component on its own pixels. The crop was previously
+            # taken from the whole mask (`out_binary_image[top:top + height,
+            # left:left + width]`), so any other component overlapping the same
+            # axis-aligned bounding box added its outline to the edge map, and
+            # therefore to both sides of the `s_ratio` fraction below. A
+            # diagonal fiber's bounding box is large and mostly empty, so
+            # neighbours land inside it often, and a component's verdict could
+            # depend on what happened to lie near it rather than on its own
+            # shape.
+            # 対象成分自身の画素だけで判定する。以前はマスク全体から切り出して
+            # いたため、同じ外接矩形に重なる別成分の輪郭がエッジマップに入り、
+            # 下の `s_ratio` の分子・分母の双方に影響していた。斜めに走る繊維の
+            # 外接矩形は大きくスカスカで隣接物が入り込みやすく、判定が自身の
+            # 形状ではなく「たまたま近くに何があったか」に左右されていた。
+            target = label_image[
                 top : top + height, left : left + width
-            ]
+            ] == i
             target_edge = canny(target, sigma=0, low_threshold=0, high_threshold=1)
             # Use Hough accumulator votes as a proxy for detected line length.
             # Hough アキュムレータの投票数を、検出された直線長の代理指標として使う。
@@ -408,6 +422,12 @@ class Segmenter:
             s_ratio = total_length / (np.sum(target_edge) + _DENOM_EPS)
             self.h_sratio_list.append(s_ratio)
 
+            # `np.sum(target)` is now the component's own area, which the
+            # `area >= 1000` guard above has already bounded, so this second
+            # term no longer decides anything. It is kept because it states the
+            # rule the filter is applying — only small components are dropped
+            # for being nonlinear — and removing it would silently widen the
+            # filter if that guard is ever changed.
             if s_ratio < h_sratio and np.sum(target) < 1000:
                 out_binary_image[label_image == i] = 0
 
@@ -423,7 +443,21 @@ class Segmenter:
         n_labels, label_image, stats, centers = cv2.connectedComponentsWithStats(
             np.uint8(out_binary_image), 8
         )
-        for i in range(n_labels - 1):
+        # `connectedComponentsWithStats` numbers labels 0..n_labels-1 with 0 as
+        # the background, so the real components are 1..n_labels-1. The loop
+        # previously read `range(n_labels - 1)`, which entered the background
+        # label (harmless: its area never meets the threshold, and clearing
+        # background pixels is a no-op) and never reached the highest label.
+        # OpenCV assigns labels in raster order, so the highest label is the
+        # component whose first pixel comes last, and exactly one component per
+        # image escaped this cleanup for a reason unrelated to its size.
+        # ラベルは 0..n_labels-1 で 0 が背景のため、実成分は 1..n_labels-1 で
+        # ある。以前は `range(n_labels - 1)` だったので背景ラベルに入り(面積が
+        # しきい値を満たさないうえ背景画素の消去は無操作なので無害)、最大
+        # ラベルには到達しなかった。OpenCV はラスタ順にラベルを振るため最大
+        # ラベルは最初の画素が最も後にある成分であり、画像ごとにちょうど 1 個の
+        # 成分が、その大きさとは無関係な理由でこの整理を免れていた。
+        for i in range(1, n_labels):
             *_, area = stats[i]
             if area <= self.area_min_connecting:
                 out_binary_image[label_image == i] = 0

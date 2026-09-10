@@ -344,20 +344,43 @@ Fibers do; contamination particles and tip artefacts do not.
   straight lines". A component is removed when $s_{\text{ratio}} <$ `h_sratio`
   (default 0.5) *and* its pixel count is below 1000.
 
-Two implementation details worth knowing: the Hough peak `threshold` argument
-is `h_length`, so that parameter acts as a minimum vote count (a proxy for line
-length) rather than a length in pixels; and the crop is taken from the whole
-mask within the component's bounding box, so a neighbouring component
-overlapping the same box contributes to the edge map.
+The edge map is built from the component's own pixels
+(`label_image[bbox] == i`), not from the whole mask inside the bounding box. A
+bounding box is axis-aligned, so a diagonal fiber's box is large and mostly
+empty and neighbouring objects land inside it often; cropping the whole mask
+let their outlines enter both sides of the $s_{\text{ratio}}$ fraction, and a
+component's verdict could turn on what happened to lie near it.
+
+> **This was changed after 1.0.0.** Measured over 22 real scans (3318
+> components, 1726 linearity-tested), 341 tested components had a neighbour
+> inside their bounding box, and on one scan one component was judged
+> differently because of it. The final binarized mask was bit-identical on
+> every scan, and the strict-regression goldens did not move, so no analysis
+> output changes — see `CHANGELOG.md` for the full record.
+
+One further detail: the Hough peak `threshold` argument is `h_length`, so that
+parameter acts as a minimum vote count (a proxy for line length) rather than a
+length in pixels. And because `target` is now the component alone, its pixel
+count equals `area`, which the `area >= 1000` guard has already bounded — the
+`np.sum(target) < 1000` term states the rule rather than deciding anything.
 
 ### 2.4 Weak-connection cleanup (off by default)
 
 `_remove_connecting_fragments` erodes the mask, drops components at or below
 `area_min_connecting` px (default 3), dilates back, and closes. The intent is
 to break fragments joined by a one-pixel-wide bridge. It runs only when
-`apply_no_connecting` is true, which is **not** the default. Note that its
-component loop covers labels `0 .. n-2`, so it includes the background label
-and does not test the last label.
+`apply_no_connecting` is true, which is **not** the default.
+
+> **This was changed after 1.0.0.** The component loop read
+> `range(n_labels - 1)`, covering labels `0 .. n-2`: it entered the background
+> label 0 and never reached the highest label. Because OpenCV numbers labels in
+> raster order, the highest label is the bottom-most component, so exactly one
+> component per image escaped the cleanup for a reason unrelated to its size.
+> The loop now reads `range(1, n_labels)`. Entering label 0 was harmless — its
+> area never meets the threshold, and clearing background pixels is a no-op —
+> so only the skipped component mattered. Since the path is off by default it
+> did not run in any recorded analysis; forced on over 22 real scans it skipped
+> a qualifying component on three of them, of 1 to 3 pixels.
 
 ### 2.5 Height filter
 
