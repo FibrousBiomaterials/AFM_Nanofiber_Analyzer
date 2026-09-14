@@ -34,6 +34,21 @@
           {
             "type": "command",
             "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.sh\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/detection_claim_prime.py\""
+          },
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.sh\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/question_first.py\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.sh\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/question_first.py\""
           }
         ]
       }

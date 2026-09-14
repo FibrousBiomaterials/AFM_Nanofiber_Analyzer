@@ -97,8 +97,14 @@ NOTE = (
 
 
 def main() -> int:
+    # Read bytes and decode UTF-8 explicitly: on Windows a piped stdin
+    # otherwise decodes with the locale code page (cp932), the Japanese in the
+    # prompt garbles, and TOPIC_RE's Japanese terms never match.
+    # バイト列で読み UTF-8 として明示的に復号する。Windows ではパイプの標準入力が
+    # ロケールのコードページ (cp932) で復号されてプロンプトの日本語が化け、
+    # TOPIC_RE の日本語の語が一致しなくなるため。
     try:
-        payload = json.load(sys.stdin)
+        payload = json.loads(sys.stdin.buffer.read().decode("utf-8", errors="replace"))
     except Exception:
         return 0
     prompt = str(payload.get("prompt", ""))
