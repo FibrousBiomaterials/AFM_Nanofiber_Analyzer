@@ -33,8 +33,8 @@ import json
 import os
 from typing import Dict, Iterable, List, Sequence, Set, Tuple
 
-# ===== Numerical / scientific libraries =====
-import numpy as np
+# ===== Project libraries =====
+from .fiber import skeleton_track
 
 # Sidecar file naming, matching `lib.pipeline.param_path_for`'s convention of
 # a suffix on the bundle stem.
@@ -98,16 +98,24 @@ def fiber_anchor(fiber) -> Tuple[int, int]:
     端点ではなくトラックの中点を使う。端点は交差でファイバーが切断された位置に
     あり、隣接する断片同士で共有され得るが、中点はユーザーが実際に指した対象の
     内部にある。
+
+    The anchor is a skeleton pixel (`fiber.skeleton_track`), not a point of
+    the drawn line, so a record keeps matching when the line's placement
+    changes and existing sidecars written before the centerline still apply.
+    アンカーは描画される線の点ではなくスケルトン画素（`fiber.skeleton_track`）
+    とする。線の置き方が変わっても記録が一致し続け、中心線より前に書かれた既存の
+    サイドカーもそのまま適用されるようにするためである。
     """
     x0, y0 = int(fiber.data[0]), int(fiber.data[1])
-    mid = len(fiber.xtrack) // 2
-    return (int(fiber.xtrack[mid]) + x0, int(fiber.ytrack[mid]) + y0)
+    xs, ys = skeleton_track(fiber)
+    mid = len(xs) // 2
+    return (int(xs[mid]) + x0, int(ys[mid]) + y0)
 
 
 def fiber_track_pixels(fiber) -> Set[Tuple[int, int]]:
     """
-    Return every whole-image pixel a fiber's track passes through.
-    ファイバーのトラックが通る全体像上の全画素を返す。
+    Return every whole-image skeleton pixel a fiber was traced from.
+    ファイバーの元になった全体像上の全スケルトン画素を返す。
 
     Parameters
     ----------
@@ -120,10 +128,18 @@ def fiber_track_pixels(fiber) -> Set[Tuple[int, int]]:
     set of tuple
         ``(x, y)`` pixel coordinates in the whole image.
         全体像における ``(x, y)`` 画素座標。
+
+    Notes
+    -----
+    These are the skeleton pixels (`fiber.skeleton_track`), which identify
+    the fiber, not the pixels under its drawn line; see `fiber_anchor`.
+    これは繊維を識別するスケルトン画素（`fiber.skeleton_track`）であり、描画
+    される線の下の画素ではない。`fiber_anchor` を参照。
     """
     x0, y0 = int(fiber.data[0]), int(fiber.data[1])
-    xs = np.asarray(fiber.xtrack, dtype=int) + x0
-    ys = np.asarray(fiber.ytrack, dtype=int) + y0
+    sx, sy = skeleton_track(fiber)
+    xs = sx + x0
+    ys = sy + y0
     return set(zip(xs.tolist(), ys.tolist()))
 
 

@@ -68,6 +68,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # ===== Project libraries =====
 # Import the lib modules that provide the AFM image-processing core.
 # lib/ フォルダ内の各モジュールをインポートする。これらが AFM 画像処理の本体。
+from lib.centerline import HALF_MAX_CENTERLINE
 from lib.fiber_tracking_image import FiberTrackingImage
 from lib.fiber import Fiber
 from lib.fiber_connector import (
@@ -2053,6 +2054,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     plan=plan,
                     exclude_anchors=exclude_anchors,
                 )
+                if result.image.centerline != HALF_MAX_CENTERLINE:
+                    # A bundle analyzed before format 1.1 keeps its skeleton
+                    # track, so say why its fibers look and measure as they
+                    # did before, and what changes that.
+                    # 形式 1.1 より前に解析したバンドルはスケルトントラックを
+                    # 使い続けるため、繊維の見え方と計測値が以前のままである
+                    # 理由と、それを変える方法を伝える。
+                    self.ui_queue.put(("log", _(
+                        "このバンドルは旧版で解析されたため、ファイバーをスケルトンに"
+                        "沿って描画・計測しています。GUI01 で再解析すると中心線に沿って"
+                        "計測されます。"
+                    )))
                 stats = table_row_values(result)
                 # The skeleton is fingerprinted here, on the worker, so a plan
                 # this window saves later records the skeleton it was actually
@@ -3318,10 +3331,34 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._overview_boxes.append(box)
             self._overview_labels.append(label)
 
-        kp_x, kp_y = self.current_image.all_kink_coordinates
-        if len(kp_x) > 0:
-            ax.scatter(kp_x * x_spp, kp_y * y_spp,
+        # Kinks of the fibers drawn, at their points on each fiber's line and
+        # centered in their pixels as in the fiber view. The bundle's own copy
+        # sits at skeleton pixels and cannot show a reconnected fibril's
+        # kinks, so the overview would disagree with the fiber it frames.
+        # Bends not judged next to an end are hollow grey, as in the fiber view.
+        # 描画するファイバーのキンクを、各ファイバーの線上の点に、ファイバー表示と
+        # 同じ画素中心補正を掛けて描く。バンドル自身の写しはスケルトン画素にあり、
+        # 再結合フィブリルのキンクも示せないため、全体像が枠で囲んだファイバーと
+        # 食い違ってしまう。端のそばで判定しなかった折れは、ファイバー表示と同じく
+        # 灰色の中空で描く。
+        kink_points, unjudged_points = [], []
+        for _disp_i, f in labeled_fibers:
+            ox, oy = f.data[0] + 0.5, f.data[1] + 0.5
+            if len(f.kink_indices) > 0:
+                kink_points.append(np.column_stack([
+                    f.xtrack[f.kink_indices] + ox, f.ytrack[f.kink_indices] + oy]))
+            unjudged = getattr(f, "unjudged_indices", None)
+            if unjudged is not None and len(unjudged) > 0:
+                unjudged_points.append(np.column_stack([
+                    f.xtrack[unjudged] + ox, f.ytrack[unjudged] + oy]))
+        if kink_points:
+            pts = np.vstack(kink_points)
+            ax.scatter(pts[:, 0] * x_spp, pts[:, 1] * y_spp,
                        c="cyan", s=4, alpha=0.7, linewidths=0)
+        if unjudged_points:
+            pts = np.vstack(unjudged_points)
+            ax.scatter(pts[:, 0] * x_spp, pts[:, 1] * y_spp,
+                       s=6, facecolors="none", edgecolors="0.6", linewidths=0.6)
 
         # Use the four committed font-size settings.
         fs_title = self.fs_title
@@ -5736,6 +5773,18 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
             kx = (fiber.xtrack[fiber.kink_indices] + off_x + 0.5) * x_spp
             ky = (fiber.ytrack[fiber.kink_indices] + off_y + 0.5) * y_spp
             ax.scatter(kx, ky, c="cyan", s=20, zorder=5)
+
+        # Bends the kink rule measured too close to an end of the fiber to
+        # judge. Hollow grey, so they read as "not judged" rather than as a
+        # kink or as nothing, and they are never counted.
+        # 繊維の端に近すぎてキンク規則が判定しなかった折れ。灰色の中空で描き、
+        # キンクとも「何もない」とも読めない「判定なし」として示す。数には入れない。
+        unjudged = getattr(fiber, "unjudged_indices", None)
+        if app.show_fiber_kink_var.get() and unjudged is not None and len(unjudged) > 0:
+            ux = (fiber.xtrack[unjudged] + off_x + 0.5) * x_spp
+            uy = (fiber.ytrack[unjudged] + off_y + 0.5) * y_spp
+            ax.scatter(ux, uy, s=20, facecolors="none", edgecolors="0.6",
+                       linewidths=1.0, zorder=5)
 
         ax.set_xlabel("({0})".format(unit_label), fontsize=fs_label)
         ax.set_ylabel("({0})".format(unit_label), fontsize=fs_label)

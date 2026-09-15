@@ -68,7 +68,16 @@ from tests.conftest import write_synthetic_fiber_txt
 
 # tophat keeps the test fast; physical assertions do not depend on bg_method.
 # 高速な tophat を使う。物理的な検証内容は bg_method に依存しない。
-FAST_PARAMS = ProcParams(bg_method="tophat")
+# The kink threshold is 155 degrees rather than the default 150 because the
+# rule reads the drawn 146.5 degree bend as a 29 degree turn (151 degrees
+# interior), just outside the default; see `test_detects_the_drawn_kink` in
+# test_pipeline.py. These tests check measurement and export, which need the
+# one drawn kink to be present.
+# キンクしきい値を既定の 150 度ではなく 155 度にするのは、規則が描いた 146.5 度の
+# 折れを 29 度の回転（内角 151 度）と読み、既定のすぐ外側になるためである
+# （test_pipeline.py の `test_detects_the_drawn_kink` 参照）。これらのテストは
+# 計測と出力を検査するもので、描いたキンク 1 つが存在する必要がある。
+FAST_PARAMS = ProcParams(bg_method="tophat", kinkangle_deg=155.0)
 
 # The scan size refers to the raw 192x192 scan; the calibrator trims the
 # analysis arrays to 191x191 and measure_bundle divides by the raw pixel
@@ -309,14 +318,18 @@ def _write_straight_line_bundle(path, shape, orientation):
     まっすぐな骨格ファイバー 1 本を持つ最小の有効バンドルを保存する。
 
     The fiber is a single 15-pixel line (``LINE_STEPS`` unit steps) along one
-    axis, so its physical length is a closed-form ``LINE_STEPS *
-    STEP_ORTHOGONAL * per_axis_pixel_size`` (orthogonal chain-code weight) —
-    ideal for asserting per-axis pixel-size derivation on non-square arrays
-    without pipeline noise.
-    ファイバーは単一軸方向の 15 画素直線（``LINE_STEPS`` ステップ）で、物理長は
-    ``LINE_STEPS * STEP_ORTHOGONAL * 軸別ピクセルサイズ``（直交チェーンコード
-    重み）の閉形式になる。パイプライン由来のばらつき無しに非正方配列での
-    軸別ピクセルサイズ導出を検証するのに適する。
+    axis on a flat height image, so its centerline stays on the pixel row or
+    column and its physical length is a closed-form ``LINE_STEPS *
+    per_axis_pixel_size`` — ideal for asserting per-axis pixel-size
+    derivation on non-square arrays without pipeline noise. The bundle is
+    written at the current format, so the fiber is measured along the
+    centerline, whose length is the plain Euclidean one.
+    ファイバーは平坦な高さ画像上の単一軸方向の 15 画素直線（``LINE_STEPS``
+    ステップ）で、中心線は画素の行または列の上に留まり、物理長は
+    ``LINE_STEPS * 軸別ピクセルサイズ`` の閉形式になる。パイプライン由来の
+    ばらつき無しに非正方配列での軸別ピクセルサイズ導出を検証するのに適する。
+    バンドルは現行形式で書くため、ファイバーは中心線に沿って計測され、その長さは
+    単純なユークリッド長である。
     """
     skel = np.zeros(shape, np.uint8)
     ep = np.zeros(shape, np.uint8)
@@ -349,11 +362,9 @@ def test_measure_bundle_non_square_horizontal_uses_width_scale(tmp_path):
     assert result.image.calibrated_image.shape == (40, 30)
     assert len(result.fibers) == 1
     # x_px = 3.1 um * 1000 / (30 + 1) raw cols = 100 nm/px;
-    # 14 orthogonal steps -> 0.948 * 1400 nm.
+    # 14 unit steps along the centerline -> 1400 nm.
     # The Y scale (5.0) must not affect a purely horizontal fiber.
-    assert result.stats[0].length_nm == pytest.approx(
-        STEP_ORTHOGONAL * 100.0 * LINE_STEPS
-    )
+    assert result.stats[0].length_nm == pytest.approx(100.0 * LINE_STEPS)
 
 
 def test_measure_bundle_non_square_vertical_uses_height_scale(tmp_path):
@@ -365,11 +376,9 @@ def test_measure_bundle_non_square_vertical_uses_height_scale(tmp_path):
     assert result.image.calibrated_image.shape == (30, 40)
     assert len(result.fibers) == 1
     # y_px = 3.1 um * 1000 / (30 + 1) raw rows = 100 nm/px;
-    # 14 orthogonal steps -> 0.948 * 1400 nm.
+    # 14 unit steps along the centerline -> 1400 nm.
     # The X scale (5.0) must not affect a purely vertical fiber.
-    assert result.stats[0].length_nm == pytest.approx(
-        STEP_ORTHOGONAL * 100.0 * LINE_STEPS
-    )
+    assert result.stats[0].length_nm == pytest.approx(100.0 * LINE_STEPS)
 
 
 def test_fiber_csv_schema_and_values(measured, tmp_path):

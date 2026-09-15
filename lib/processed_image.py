@@ -64,8 +64,16 @@ class ProcessedImage:
         Kink angles keyed by connected-component label.
         連結成分ラベルごとのキンク角度。
     decomposed_indices_by_label
-        Decomposition-point indices keyed by connected-component label.
-        連結成分ラベルごとの分解点インデックス。
+        Decomposition-point indices keyed by connected-component label. Empty
+        since bundle format 1.1, whose kink rule does not decompose the line;
+        kept because the bundle's ``dp`` key is written from it.
+        連結成分ラベルごとの分解点インデックス。バンドル形式 1.1 以降のキンク規則は
+        線を分解しないため空である。バンドルの ``dp`` キーをこれから書くために残す。
+    unjudged_indices_by_label
+        Indices of the bends the kink rule measured within 1.5 apparent widths
+        of a track end, where it does not judge them, keyed by label.
+        連結成分ラベルごとの、トラック端から見かけ幅 1.5 本分以内にあるため
+        キンク規則が判定しない折れのインデックス。
     """
 
     def __init__(
@@ -124,3 +132,4 @@ class ProcessedImage:
         self.kink_indices_by_label: dict[int, np.ndarray] = {}
         self.kink_angles_by_label:  dict[int, np.ndarray] = {}
         self.decomposed_indices_by_label: dict[int, np.ndarray] = {}
+        self.unjudged_indices_by_label: dict[int, np.ndarray] = {}

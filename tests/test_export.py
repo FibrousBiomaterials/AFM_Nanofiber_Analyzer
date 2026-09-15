@@ -73,6 +73,16 @@ def test_export_csv_writes_one_file_per_key(synthetic_fiber_txt, tmp_path):
     for key, arr in bundle.items():
         csv_path = os.path.join(out_dir, f"{stem}_{key}.csv")
         assert os.path.isfile(csv_path), f"missing CSV for key {key!r}"
+        if arr.size == 0:
+            # An empty array -- `dp` from format 1.1, or `kp` when no kink
+            # was found -- has no values to write, and CSV cannot record its
+            # shape; the file must still exist and hold nothing.
+            # 空配列（形式 1.1 以降の `dp`、キンクが無いときの `kp`）は書く値が
+            # 無く、CSV はその形状を記録できない。ファイルは存在し、中身が空で
+            # なければならない。
+            with open(csv_path, encoding="utf-8") as f:
+                assert f.read().strip() == ""
+            continue
         loaded = np.loadtxt(csv_path, delimiter=",", ndmin=2)
         np.testing.assert_allclose(loaded, np.atleast_2d(arr.astype(float)))
 

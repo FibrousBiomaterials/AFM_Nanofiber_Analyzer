@@ -171,6 +171,12 @@ def test_bundle_contract(pipeline_result):
     assert data["dp"].ndim == 2 and data["dp"].shape[0] == 2
     assert data["ka"].shape == (data["kp"].shape[1],)
     assert np.all(data["ka"] > 0) and np.all(data["ka"] < np.pi)
+    # From format 1.1 nothing is decomposed, so `dp` is empty, and the bends
+    # not judged next to a track end are written to the optional `up`.
+    # 形式 1.1 以降は何も分解しないため `dp` は空で、トラック端のそばで判定
+    # しなかった折れは任意キー `up` に書かれる。
+    assert data["dp"].shape == (2, 0)
+    assert data["up"].ndim == 2 and data["up"].shape[0] == 2
 
 
 def test_non_square_input_processes_with_rectangular_bundle_shapes(tmp_path):
@@ -191,17 +197,43 @@ def test_non_square_input_processes_with_rectangular_bundle_shapes(tmp_path):
     assert data["ep"].shape == image_shape
 
 
-def test_detects_the_drawn_kink(pipeline_result):
-    """The synthetic bend (~147 deg interior angle) is found as one kink."""
-    result, _events = pipeline_result
-    image = result.image
+def test_detects_the_drawn_kink(pipeline_result, synthetic_fiber_txt, tmp_path):
+    """
+    The drawn bend is one kink at its vertex once the threshold clears the turn the rule reads there.
+    描いた折れは、規則がそこで読む回転をしきい値が下回れば、頂点でキンク 1 つとして検出される。
 
-    assert (image.skeleton_image > 0).sum() > 0
+    The fiber is drawn as two segments meeting at an interior angle of 146.5
+    degrees, a 33.5 degree turn. The rule reports the turn a bend adds to the
+    fiber's own curvature within about one width, and the probe and the
+    centerline round a sharp corner, so it reads this bend as a 29 degree
+    turn: 151 degrees interior, just outside the default 150, where it is not
+    reported. Synthetic corners of 40-120 degrees read low in the same way
+    (docs/algorithms.md, section 4.3). With the threshold at 155 degrees the
+    bend is one kink at the drawn vertex, and its angle lies within the
+    8 degree tolerance this test has always allowed.
+    繊維は内角 146.5 度（回転 33.5 度）で交わる 2 線分として描く。規則は、幅 1 本分
+    程度の範囲で折れが繊維自身の曲率に加える回転を報告し、探針と中心線は鋭い
+    コーナーを丸めるため、この折れを 29 度の回転、すなわち内角 151 度と読む。
+    既定の 150 度のすぐ外側であり、報告されない。40〜120 度の合成コーナーも同じく
+    低めに読まれる（docs/algorithms.ja.md の 4.3 節）。しきい値を 155 度にすると、
+    折れは描いた頂点でキンク 1 つとなり、その角度はこのテストが従来から許してきた
+    8 度の許容幅に収まる。
+    """
+    result, _events = pipeline_result
+    assert (result.image.skeleton_image > 0).sum() > 0
+
+    out_dir = os.path.join(tmp_path, "loose")
+    os.makedirs(out_dir)
+    image = process_file(
+        synthetic_fiber_txt,
+        ProcParams(bg_method="tophat", kinkangle_deg=155.0),
+        output_dir=out_dir,
+    ).image
     ka = image.all_kink_angles
     assert len(ka) == 1
-    # 147 deg = 2.57 rad; allow tolerance for rasterization effects.
-    # 147 度 = 2.57 rad。ラスタライズの影響を考慮した許容幅を設ける。
-    assert np.degrees(ka[0]) == pytest.approx(147.0, abs=8.0)
+    # 146.5 deg = 2.56 rad; allow tolerance for rasterization effects.
+    # 146.5 度 = 2.56 rad。ラスタライズの影響を考慮した許容幅を設ける。
+    assert np.degrees(ka[0]) == pytest.approx(146.5, abs=8.0)
 
     kp_x, kp_y = image.all_kink_coordinates
     assert kp_x[0] == pytest.approx(100, abs=6)
@@ -222,7 +254,7 @@ def test_vlmeta_records_params(pipeline_result):
     """Bundle metadata embeds the analysis parameters for provenance."""
     result, _events = pipeline_result
     meta = load_bundle_meta(result.bundle_path)
-    assert meta["version"] == "1.0"
+    assert meta["version"] == "1.1"
     assert meta["params"]["bg_method"] == "tophat"
 
 

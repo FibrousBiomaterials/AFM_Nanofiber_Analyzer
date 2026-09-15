@@ -342,21 +342,29 @@ the substrate and dried, so how densely it covers the scan is set by the
 dilution, the drop volume, and where in the dried droplet the scan was taken,
 not by the material.
 
-`straightness` divides the length of a digitised straight line between a
-fiber's endpoints by its contour length, both measured with the same corrected
-chain-code metric. That metric reports a straight digitised path as roughly 5%
-shorter than its Euclidean chord, so a raw chord-over-contour ratio would read
-1.055 for a straight fiber; measuring the reference line the same way puts a
-straight fiber at exactly 1.0.
+Every fiber is measured along its **centerline**: the skeleton decides which
+pixels form one fiber, and each skeleton point is then moved to the midpoint of
+the fiber's height cross-section at half its maximum (see
+`docs/algorithms.md`, §4.2). Contour length is the Euclidean length of that
+line, and the heights are read along it. A bundle analyzed before format 1.1 is
+measured along its skeleton track until it is re-analyzed, and the log says so.
+
+`straightness` divides the Euclidean distance between a fiber's two ends by its
+contour length. A straight fiber reads 1.0 up to the small lateral noise of the
+line (0.9994 on a synthetic straight fiber). On a bundle older than format 1.1
+it divides the length of a digitised straight line between the endpoints by the
+contour length, both measured with the same corrected chain-code metric, which
+puts a straight skeleton track at exactly 1.0.
 
 `curvature` is the mean turning rate along a fiber, measured over an arc window
-set by the "曲率窓" entry. The window is not optional: a skeleton step is
-orthogonal or diagonal only, so at the pixel scale the turning angle is
-quantised to multiples of 45 degrees and the estimate becomes a constant noise
-floor — against arcs of known radius, a 20 nm window returned 19.4 rad/µm
-whatever the true curvature, while 100 nm and above recovered 1/R to within
-about 15%. Raising it smooths the estimate but drops every fiber shorter than
-the window, so the log reports how many fibers that excluded.
+set by the "曲率窓" entry. The window is not optional: over a few pixels the
+turning angle is set by the line's own lateral noise rather than by the fiber's
+shape. Against synthetic arcs of 80–400 nm radius (2 nm pixels), the
+centerline's estimate was within 2% of 1/R with a 100 nm window and within 3%
+at 50 nm, while a 20 nm window read the 400 nm arc as 1.9 times too curved; on
+the skeleton track, whose steps are orthogonal or diagonal only, a 20 nm window
+was off by 1.3–5.3 times. Raising the window smooths the estimate but drops
+every fiber shorter than it, so the log reports how many fibers that excluded.
 
 A separate aggregation-unit selector decides what counts as one sample:
 `pixel` (one skeleton pixel), `length` (one skeleton pixel weighted by the
@@ -368,9 +376,10 @@ observations — a long fiber contributes more pixels than a short one — so
 the statistics table and the figure annotation give the sample count broken
 down into samples, fibers, and images.
 
-`length` exists because counting skeleton pixels equally carries two biases.
-Within one image the skeleton alternates orthogonal and diagonal steps, whose
-corrected chain-code lengths differ by a factor of about 1.41; across images
+`length` exists because counting points equally carries two biases. There is
+one point per skeleton pixel, and the skeleton alternates orthogonal and
+diagonal steps, so within one image the stretch of line a point stands for
+varies by a factor of about 1.41; across images
 the pixel size follows the scan size, so a finely sampled scan contributes more
 points per micrometer of fiber and dominates a pooled distribution. Weighting
 each point by its step length removes both and makes the distribution
@@ -432,6 +441,12 @@ curvature, and showing 0 would read as perfectly straight. A kink density of 0
 is not blank, because zero kinks over a measured contour length is a real
 measurement. The log reports how many fibers the curvature window excluded.
 That window is the `lib.measure` default, which is also GUI03's default.
+
+Kinks are drawn as filled cyan points on the fiber's line, in the fiber view
+and in the overview. A bend closer than 1.5 apparent widths to an end of a
+fiber is drawn as a grey hollow circle instead: the kink rule measures it but
+does not judge it, because too little fiber lies on one side, and it is not
+counted in any kink number (see `docs/algorithms.md`, §4.4).
 
 Skeleton fragments split at crossings and branches can be reconnected into
 whole fibrils before measurement. "自動連結" searches for continuations and
@@ -773,16 +788,17 @@ GUI01 writes these array keys:
 | `bp` | `(H, W)` | Branch-point mask on the skeleton (nonzero = branch point). |
 | `ep` | `(H, W)` | Endpoint mask on the skeleton (nonzero = endpoint). |
 | `kp` | `(2, N)` | Kink-point pixel coordinates; see the convention below. |
-| `dp` | `(2, M)` | Decomposition-point pixel coordinates; see the convention below. |
-| `ka` | `(N,)` | Kink interior angles in radians, one per `kp` column. |
+| `dp` | `(2, M)` | Polyline vertices the kink rule of format 1.0 judged kinks at; written empty (`M` = 0) from format 1.1, whose rule does not decompose the line. |
+| `ka` | `(N,)` | Kink interior angles in radians, one per `kp` column: 180° minus the turning the bend adds to the fiber's own curvature (see `docs/algorithms.md`, §4.3). |
+| `up` | `(2, K)` | Bends the kink rule measured within 1.5 apparent fiber widths of a fiber end, where it does not judge them; see the convention below. GUI04 draws them as grey hollow circles and never counts them. Written from format 1.1. |
 | `original` | `(H+1, W+1)` | Raw height image in nm; present only when saving the original was requested. |
 
 All image-like arrays in one bundle share the same `(H, W)` shape. The
 background calibrator trims one pixel per axis, so `H` and `W` are one less
 than the raw input size (and one less than `original` when present).
 
-Coordinate convention: `kp[0]` and `dp[0]` hold x (column) indices, and
-`kp[1]` and `dp[1]` hold y (row) indices — 0-based pixel positions in the
+Coordinate convention: `kp[0]`, `dp[0]` and `up[0]` hold x (column) indices,
+and `kp[1]`, `dp[1]` and `up[1]` hold y (row) indices — 0-based pixel positions in the
 `calibrated` image. For example, `calibrated[kp[1][i], kp[0][i]]` is the
 height at the i-th kink.
 
@@ -790,8 +806,8 @@ Each bundle also stores root metadata (blosc2 `vlmeta`):
 
 | Key | Content |
 |---|---|
-| `params` | Analysis-parameter dictionary, identical to `<input_stem>_param.json`. Read back for `kinkangle_deg` and `kink_decompose_px` (see below); the remaining fields are provenance. |
-| `version` | Bundle format version (currently `"1.0"`). |
+| `params` | Analysis-parameter dictionary, identical to `<input_stem>_param.json`. Read back for `kinkangle_deg` (see below), and for `kink_decompose_px` on a bundle of format 1.0; the remaining fields are provenance. |
+| `version` | Bundle format version (currently `"1.1"`; a `"1.0"` bundle is measured along its skeleton track until it is re-analyzed). |
 | `software_version` | Application release that wrote the bundle. |
 | `input_file` | Base name of the processed input file. |
 | `input_sha256` | SHA-256 digest of the input file contents. |
@@ -809,10 +825,13 @@ The kink thresholds in `params` are read back rather than treated as pure
 provenance. GUI04 recomputes kink points whenever it builds a track the bundle
 does not contain — a fibril reconnected from fragments, or a sub-fiber cut out
 by the height filter — and those fibers are then displayed and measured beside
-fibers whose kinks came straight from the bundle. Taking `kinkangle_deg` and
-`kink_decompose_px` from the bundle keeps one rule in one image. A bundle
-written before a threshold was recorded simply lacks it, and the analysis then
-falls back to the value that run used.
+fibers whose kinks came straight from the bundle. Taking `kinkangle_deg` from
+the bundle keeps one rule in one image. `kink_decompose_px` no longer affects an
+analysis; a bundle of format 1.0 still applies the value it recorded when GUI04
+rebuilds a fibril in it, because that bundle was judged by the earlier polyline
+rule (see `docs/algorithms.md`, §4.6). A bundle written before a threshold was
+recorded simply lacks it, and the analysis then falls back to the value that
+run used.
 
 GUI01 also writes `<input_stem>_param.json` for analysis parameters. The raw
 AFM image is not duplicated in the bundle by default because it can be

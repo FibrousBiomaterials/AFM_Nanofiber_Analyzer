@@ -5,7 +5,7 @@ Strict (exact) pipeline-output regression test on the bundled real scans.
 
 Unlike `test_integration.py`, which checks a few summary statistics with a 5%
 tolerance, this test pins every output array of the preprocessing pipeline
-(`calibrated`, `binarized`, `skeletonized`, `bp`, `ep`, `kp`, `dp`, `ka`) to a
+(`calibrated`, `binarized`, `skeletonized`, `bp`, `ep`, `kp`, `dp`, `ka`, `up`) to a
 recorded SHA-256 baseline, for every bundled sample file in
 ``testdata_tunicateCNF`` and ``testdata_higherplantTOC`` and for all four
 ``bg_method`` values. It is the permanent form of the by-hand before/after
@@ -14,7 +14,7 @@ a single output value — including ``calibrated`` heights that the tolerant
 golden test could mask — makes this test fail.
 `test_integration.py` が要約統計を 5% 許容で照合するのに対し、本テストは
 前処理パイプラインの全出力配列（``calibrated``・``binarized``・
-``skeletonized``・``bp``・``ep``・``kp``・``dp``・``ka``）を記録済みの
+``skeletonized``・``bp``・``ep``・``kp``・``dp``・``ka``・``up``）を記録済みの
 SHA-256 ベースラインに固定する。対象は ``testdata_tunicateCNF`` と
 ``testdata_higherplantTOC`` の同梱サンプル全ファイル × 全 4 ``bg_method``。
 lib リファクタリング検証で手作業で行った前後の配列比較を恒久化したもので、
@@ -77,7 +77,7 @@ BG_METHODS = ("trendfill", "tophat", "spline1d")
 # 解析出力すべて）に一致する。
 ARRAY_KEYS = (
     "calibrated", "binarized", "skeletonized",
-    "bp", "ep", "kp", "dp", "ka",
+    "bp", "ep", "kp", "dp", "ka", "up",
 )
 
 
@@ -139,6 +139,7 @@ def _pipeline_signatures(txt_path: str) -> dict:
             image = result.image
             kx, ky = image.all_kink_coordinates
             dx, dy = image.decomposed_point_coordinates
+            ux, uy = image.unjudged_point_coordinates
             arrays = {
                 "calibrated":   image.calibrated_image,
                 "binarized":    image.binarized_image,
@@ -148,6 +149,7 @@ def _pipeline_signatures(txt_path: str) -> dict:
                 "kp":           np.stack([np.asarray(kx), np.asarray(ky)]),
                 "dp":           np.stack([np.asarray(dx), np.asarray(dy)]),
                 "ka":           np.asarray(image.all_kink_angles),
+                "up":           np.stack([np.asarray(ux), np.asarray(uy)]),
             }
             for key in ARRAY_KEYS:
                 sigs[f"{method}::{key}"] = _hash_array(arrays[key])

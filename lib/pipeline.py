@@ -167,29 +167,26 @@ class ProcParams:
         高さに関係なく除去する行き止まりスパーの最大長 (px)。0 で無効化。
         画素単位のため、1 画素の実寸が大きい粗いスキャンでは調整すること。
     kinkangle_deg
-        Bend-angle threshold in degrees for kink detection.
-        キンク検出に用いる折れ角しきい値 (度)。
+        Interior-angle threshold in degrees for kink detection: a bend is a
+        kink when the fiber's heading turns, beyond its own curvature there,
+        by at least 180 minus this (30 degrees at the default 150).
+        キンク検出に用いる内角しきい値 (度)。繊維の向きが、その場所での繊維
+        自身の曲率を超えて 180 からこれを引いた角度（既定の 150 では 30 度）以上
+        回る折れをキンクとする。
     kink_decompose_px
-        Perpendicular tolerance in pixels of the piecewise-linear
-        decomposition a kink angle is measured on: a vertex is inserted where
-        a track point lies at least this far from the chord it is being
-        approximated by. It therefore sets both the scale at which the
-        polyline follows the track and, since a vertex is localized only to
-        within it, the uncertainty the detector requires a reported bend to
-        exceed.
-        キンク角度を測る折れ線分解の垂直許容量 (px)。近似している弦からこの距離
-        以上離れたトラック点があれば頂点を挿入する。したがって折れ線がトラックを
-        追う尺度を決めると同時に、頂点がこの精度でしか局在化されないことから、
-        報告する折れが上回るべき不確かさも決める。
-
-        Pixel-based, like `spur_length` and `branch_length`. On the bundled
-        scans the fiber mask is 7.5 to 10 px across, so the default sits at
-        0.3 to 0.4 of a fiber width on all of them; a scan whose fibers span a
-        very different number of pixels needs a different value.
-        `spur_length` や `branch_length` と同じく画素基準である。同梱スキャン
-        では繊維マスクの幅が 7.5〜10 px なので、既定値はいずれでも繊維幅の
-        0.3〜0.4 倍にあたる。繊維が大きく異なる画素数を占める走査では別の値が
-        必要になる。
+        Not read by the current kink rule; the field stays because field names
+        are frozen and parameter files carrying it must keep loading. It was
+        the perpendicular tolerance, in pixels, of the polyline decomposition
+        the kink rule of bundle format 1.0 measured angles on. A 1.0 bundle
+        still applies the value it recorded when GUI04 rebuilds a reconnected
+        or height-filtered fiber in it, so that image keeps one rule until it
+        is re-analyzed.
+        現行のキンク規則は読まない。フィールド名は凍結されており、これを含む
+        パラメータファイルを読み込み続けられるよう残している。バンドル形式 1.0 の
+        キンク規則が角度を測った折れ線分解の垂直許容量（画素）であった。1.0 の
+        バンドルでは、GUI04 が再結合・高さ絞り込みしたファイバーを組み立て直す
+        ときに記録された値を今も適用し、その画像は再解析されるまで 1 つの規則を
+        保つ。
 
     Notes
     -----
@@ -242,8 +239,8 @@ class ProcParams:
     spur_length: int = DEFAULT_SPUR_LENGTH      # Maximum dead-end spur length pruned regardless of height, in pixels; 0 disables.
 
     # Kink-detection parameters.
-    kinkangle_deg: float = 150.0          # Bends at or below this angle are detected as kinks.
-    kink_decompose_px: float = 3.0        # Perpendicular tolerance of the polyline decomposition, in pixels.
+    kinkangle_deg: float = 150.0          # Bends at or below this interior angle are detected as kinks.
+    kink_decompose_px: float = 3.0        # Not read by the current rule; polyline tolerance of the format 1.0 rule, in pixels.
 
 
 # Fixed English stage keys reported through the `on_stage` callback, in order.
@@ -975,6 +972,7 @@ def process_file(
     # GUI04 用に座標ペアを shape (2, N) 配列として保存する。
     kp_x, kp_y = image.all_kink_coordinates
     dp_x, dp_y = image.decomposed_point_coordinates
+    up_x, up_y = image.unjudged_point_coordinates
 
     arrays = {
         "calibrated":   image.calibrated_image,
@@ -983,8 +981,9 @@ def process_file(
         "bp":           image.bp,                        # Branch-point mask.
         "ep":           image.ep,                        # End-point mask.
         "kp":           np.stack([kp_x, kp_y]).astype(np.int64),  # Kink coordinates, shape (2, N).
-        "dp":           np.stack([dp_x, dp_y]).astype(np.int64),  # Decomposed-point coordinates, shape (2, N).
+        "dp":           np.stack([dp_x, dp_y]).astype(np.int64),  # Empty since format 1.1; shape (2, 0).
         "ka":           image.all_kink_angles,           # Kink angles in radians.
+        "up":           np.stack([up_x, up_y]).astype(np.int64),  # Bends not judged next to a track end, shape (2, N).
     }
 
     # Optionally bundle the raw original AFM height image. When included,

@@ -64,6 +64,7 @@ ALGORITHM_MODULES = (
     "lib/segmenter.py",
     "lib/skeletonizer.py",
     "lib/kink_detector.py",
+    "lib/centerline.py",
 )
 
 # A backticked span that is a dotted Python path, e.g. `Segmenter._binaryzation`

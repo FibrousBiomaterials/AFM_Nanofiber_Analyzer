@@ -187,6 +187,33 @@ def test_original_exempt_from_shape_consistency():
     assert validate_bundle(arrays) == []
 
 
+def test_unjudged_points_are_optional():
+    """
+    A bundle without `up` still conforms: formats before 1.1 never wrote it.
+    `up` の無いバンドルも契約に適合する。形式 1.1 より前は書いていない。
+    """
+    arrays = _valid_arrays()
+    assert "up" not in arrays
+    assert validate_bundle(arrays, meta=_valid_meta(), require=REQUIRED_BUNDLE_KEYS) == []
+    assert "up" not in REQUIRED_BUNDLE_KEYS
+
+
+def test_unjudged_points_follow_the_point_layout():
+    """`up` is checked like `kp`: shape (2, N), integer dtype, inside the image."""
+    arrays = _valid_arrays()
+    arrays["up"] = np.array([[2], [4]])
+    assert validate_bundle(arrays) == []
+
+    arrays["up"] = np.array([[2, 4]])      # (1, 2) instead of (2, 1)
+    assert any(p.startswith("up:") and "(2, N)" in p for p in validate_bundle(arrays))
+
+    arrays["up"] = np.array([[2.5], [4.0]])
+    assert any(p.startswith("up:") and "integer dtype" in p for p in validate_bundle(arrays))
+
+    arrays["up"] = np.array([[20], [4]])   # x beyond the 8-pixel width
+    assert any(p.startswith("up:") and "x coordinates" in p for p in validate_bundle(arrays))
+
+
 # ---------------------------------------------------------------------------
 # Integration with the real pipeline and the IO boundaries
 # ---------------------------------------------------------------------------
@@ -220,12 +247,21 @@ def test_real_pipeline_output_conforms(real_bundle):
     assert meta["version"] == BUNDLE_FORMAT_VERSION
     assert np.issubdtype(arrays["kp"].dtype, np.integer)
     assert np.issubdtype(arrays["dp"].dtype, np.integer)
+    assert np.issubdtype(arrays["up"].dtype, np.integer)
 
 
 def test_load_tracking_image_rejects_degree_angles(real_bundle, tmp_path):
     """The measure loader fails loudly on a unit-violating bundle."""
     def mutate(arrays, meta):
-        arrays["ka"] = np.degrees(arrays["ka"])
+        # Store one kink, at a skeleton pixel, with its angle in degrees. The
+        # fixture's fiber need not carry a kink of its own: whether one is
+        # detected is not what this test is about.
+        # スケルトン画素に 1 つのキンクを、角度を度で置く。フィクスチャの繊維が
+        # 自前のキンクを持つ必要はない。検出されるかどうかはこのテストの対象では
+        # ないためである。
+        y, x = np.argwhere(arrays["skeletonized"] > 0)[0]
+        arrays["kp"] = np.array([[x], [y]], dtype=np.int64)
+        arrays["ka"] = np.array([147.0])
     bad = _corrupted_copy(real_bundle, tmp_path, mutate)
     with pytest.raises(ValueError, match="bundle contract violation"):
         load_tracking_image(bad, 10.0)

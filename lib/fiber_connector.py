@@ -43,13 +43,15 @@ changed — see `lib.connect_selection`.
 母集団に対して探索をやり直すのではなく、画面に表示されていたフィブリルを組み直せる
 （`lib.connect_selection` を参照）。
 
-Feature points (kink, decomposition, endpoint) are recomputed on the
+Feature points (kinks, the bends too close to an end to judge, and endpoints;
+decomposition points on a bundle of format 1.0) are recomputed on the
 reconnected geometry rather than copied from the fragments, because
 reconnection creates new corners and merges former endpoints into the
 interior. A fragment that **no chain claims is passed through untouched**, not
 rebuilt, so adding one join does not perturb every unrelated fiber in the
 image.
-特徴点（kink・分解点・端点）は断片から複写せず、再結合後の形状に対して再計算する。
+特徴点（キンク、端に近すぎて判定しない折れ、端点。形式 1.0 のバンドルでは分解点
+も）は断片から複写せず、再結合後の形状に対して再計算する。
 再結合により新たな折れ点が生まれ、旧端点が内部に取り込まれるためである。ただし
 **どの連鎖にも属さない断片は再構築せず、そのまま素通しする**。連結を 1 つ加えた
 だけで画像内の無関係なファイバーすべてが動いてしまわないようにするためである。
@@ -64,7 +66,13 @@ import numpy as np
 
 # ===== Project libraries =====
 from . import imp_tools
-from .fiber import Fiber
+from .centerline import (
+    HALF_MAX_CENTERLINE,
+    SKELETON_TRACK,
+    measure_apparent_width,
+    polyline_distance,
+)
+from .fiber import Fiber, skeleton_track
 from .fiber_tracking_image import FiberTrackingImage
 from .kink_detector import KinkDetector
 
@@ -248,8 +256,15 @@ def _fragment_end_geometry(
     ends = np.zeros((len(fragments), 2, 2), dtype=float)
     backs = np.zeros((len(fragments), 2, 2), dtype=float)
     for i, frag in enumerate(fragments):
-        xs = np.asarray(frag.xtrack) + frag.data[0]
-        ys = np.asarray(frag.ytrack) + frag.data[1]
+        # Ends and look-back points are read on the skeleton pixels, where the
+        # search thresholds were tuned: which fragments form one fibril is a
+        # question of topology, and the skeleton owns topology.
+        # 端点と振り返り点はスケルトン画素で読む。探索のしきい値はその上で調整
+        # したものであり、どの断片が 1 本のフィブリルかはトポロジーの問題で、
+        # トポロジーはスケルトンが担うためである。
+        sx, sy = skeleton_track(frag)
+        xs = sx + frag.data[0]
+        ys = sy + frag.data[1]
         step = min(lookback_length, len(xs))
         # Head end and the point `step - 1` further in.
         # 先頭側の端点と、そこから内側へ `step - 1` 進んだ点。
@@ -296,8 +311,13 @@ def _fragment_median_heights(
     """
     medians = np.empty(len(fragments), dtype=float)
     for i, frag in enumerate(fragments):
-        xs = np.asarray(frag.xtrack) + frag.data[0]
-        ys = np.asarray(frag.ytrack) + frag.data[1]
+        # Read on the skeleton pixels, like the end geometry, so the height
+        # gate means what it did when its threshold was chosen.
+        # 端の幾何と同じくスケルトン画素で読み、高さゲートがしきい値を決めたとき
+        # と同じ意味を保つようにする。
+        sx, sy = skeleton_track(frag)
+        xs = sx + frag.data[0]
+        ys = sy + frag.data[1]
         medians[i] = float(np.median(calibrated[ys, xs]))
     return medians
 
@@ -512,8 +532,11 @@ def plan_from_auto_connect(
         used[i] = True
 
         x_offset, y_offset = current_frag.data[0], current_frag.data[1]
-        current_x = list(current_frag.xtrack + x_offset)
-        current_y = list(current_frag.ytrack + y_offset)
+        # The search grows on skeleton pixels; see `_fragment_end_geometry`.
+        # 探索はスケルトン画素上で成長する。`_fragment_end_geometry` 参照。
+        seed_x, seed_y = skeleton_track(current_frag)
+        current_x = list(seed_x + x_offset)
+        current_y = list(seed_y + y_offset)
         current_h = list(cal[current_y, current_x])
 
         # Members absorbed on each side, in the order they were absorbed. The
@@ -555,8 +578,9 @@ def plan_from_auto_connect(
 
                     next_frag = fragments[j]
                     nx_offset, ny_offset = next_frag.data[0], next_frag.data[1]
-                    nx_pts = next_frag.xtrack + nx_offset
-                    ny_pts = next_frag.ytrack + ny_offset
+                    cand_x, cand_y = skeleton_track(next_frag)
+                    nx_pts = cand_x + nx_offset
+                    ny_pts = cand_y + ny_offset
 
                     next_h_all = cal[ny_pts, nx_pts]
                     next_median_h = np.median(next_h_all)
@@ -636,8 +660,9 @@ def plan_from_auto_connect(
                     head_members.append((best_next_idx, not bool(best_flip)))
 
                 nx_offset, ny_offset = next_frag.data[0], next_frag.data[1]
-                next_x = list(next_frag.xtrack + nx_offset)
-                next_y = list(next_frag.ytrack + ny_offset)
+                dock_x, dock_y = skeleton_track(next_frag)
+                next_x = list(dock_x + nx_offset)
+                next_y = list(dock_y + ny_offset)
                 next_h = list(cal[next_y, next_x])
 
                 # Orient the fragment so its start joins the current end.
@@ -871,20 +896,46 @@ def _build_chain_fiber(
     cal = image.calibrated_image
     trim = int(params.trim_points)
     n_avg = int(params.num_avg_points)
+    on_centerline = (
+        getattr(image, "centerline", SKELETON_TRACK) == HALF_MAX_CENTERLINE
+    )
 
+    # Two index-aligned tracks are docked together. The skeleton pixels carry
+    # the fibril's identity and set the bridge lengths exactly as before; the
+    # line is what the fibril is drawn and measured along, and each fragment
+    # keeps the line it was displayed with, so a join does not move it. For a
+    # bundle older than format 1.1 the two tracks are the same pixels.
+    # 添字の揃った 2 本のトラックを一緒に繋ぐ。スケルトン画素はフィブリルの識別を
+    # 担い、橋渡しの長さを従来どおりに決める。線はフィブリルを描画・計測する線で
+    # あり、各断片は表示されていた線をそのまま保つため、連結によって線は動かない。
+    # 形式 1.1 より古いバンドルでは 2 本は同じ画素である。
     xs: List[int] = []
     ys: List[int] = []
+    lxs: List[float] = []
+    lys: List[float] = []
     hs: List[float] = []
     last = len(chain) - 1
 
     for k, (idx, flip) in enumerate(chain):
         frag = fragments[idx]
-        fx = list(np.asarray(frag.xtrack) + frag.data[0])
-        fy = list(np.asarray(frag.ytrack) + frag.data[1])
+        sx, sy = skeleton_track(frag)
+        fx = list(sx + frag.data[0])
+        fy = list(sy + frag.data[1])
+        flx = list(np.asarray(frag.xtrack) + frag.data[0])
+        fly = list(np.asarray(frag.ytrack) + frag.data[1])
         if flip:
             fx.reverse()
             fy.reverse()
-        fh = list(cal[fy, fx])
+            flx.reverse()
+            fly.reverse()
+        if on_centerline:
+            # Heights along the fragment's own line, as it was measured alone.
+            # 断片単独で計測したときと同じ、その断片自身の線に沿った高さ。
+            fh = list(np.asarray(frag.height, dtype=float))
+            if flip:
+                fh.reverse()
+        else:
+            fh = list(cal[fy, fx])
 
         # Trim crossing-point noise from each end that meets another fragment.
         # 他の断片と接する各端から、交差点付近のノイズを切り落とす。
@@ -902,8 +953,10 @@ def _build_chain_fiber(
                 head_trim = 0
         if head_trim:
             fx, fy, fh = fx[head_trim:], fy[head_trim:], fh[head_trim:]
+            flx, fly = flx[head_trim:], fly[head_trim:]
         if tail_trim:
             fx, fy, fh = fx[:-tail_trim], fy[:-tail_trim], fh[:-tail_trim]
+            flx, fly = flx[:-tail_trim], fly[:-tail_trim]
 
         if xs:
             # Average endpoint heights to bridge smoothly across the gap, then
@@ -916,20 +969,32 @@ def _build_chain_fiber(
             head_avg = float(np.mean(fh[:min(n_avg, len(fh))]))
             num_points = max(abs(b_y - c_y), abs(b_x - c_x))
             if num_points > 1:
-                ys.extend(
-                    np.linspace(b_y, c_y, num=num_points).round().astype(int).tolist()[1:-1]
-                )
-                xs.extend(
-                    np.linspace(b_x, c_x, num=num_points).round().astype(int).tolist()[1:-1]
-                )
+                bridge_y = np.linspace(b_y, c_y, num=num_points).round().astype(int).tolist()[1:-1]
+                bridge_x = np.linspace(b_x, c_x, num=num_points).round().astype(int).tolist()[1:-1]
+                ys.extend(bridge_y)
+                xs.extend(bridge_x)
+                if on_centerline:
+                    # The line bridges straight between the two fragments'
+                    # lines, with as many points as the pixel bridge so the
+                    # two tracks stay index-aligned.
+                    # 線は 2 断片の線の間をまっすぐ橋渡しする。点数は画素の
+                    # 橋渡しと同じにし、2 本のトラックの添字を揃えたままにする。
+                    lys.extend(np.linspace(lys[-1], fly[0], num=num_points).tolist()[1:-1])
+                    lxs.extend(np.linspace(lxs[-1], flx[0], num=num_points).tolist()[1:-1])
+                else:
+                    lys.extend(bridge_y)
+                    lxs.extend(bridge_x)
                 hs.extend(np.linspace(tail_avg, head_avg, num=num_points).tolist()[1:-1])
 
         xs.extend(fx)
         ys.extend(fy)
+        lxs.extend(flx)
+        lys.extend(fly)
         hs.extend(fh)
 
     return _rebuild_connected_fiber(
-        image, detector, xs, ys, hs, size_per_pixel, y_size_per_pixel,
+        image, detector, lxs, lys, hs, size_per_pixel, y_size_per_pixel,
+        pixel_x=xs, pixel_y=ys,
     )
 
 
@@ -1316,50 +1381,101 @@ def _rebuild_connected_fiber(
     current_h: List,
     size_per_pixel: float,
     y_size_per_pixel: Optional[float],
+    pixel_x: Optional[List] = None,
+    pixel_y: Optional[List] = None,
 ) -> Fiber:
     """
     Rebuild one `Fiber` from a reconnected track and recompute its features.
     再結合したトラックから `Fiber` を 1 本再構築し、特徴点を再計算する。
 
-    Kink and decomposition indices are recomputed on the reconnected geometry
-    via `KinkDetector`, because joining fragments introduces new corners and the
-    former fragment endpoints are no longer real fiber ends. The two real
-    endpoints of the reconnected 1D path are the first and last track points.
-    kink・分解点インデックスは `KinkDetector` で再結合後の形状に対して再計算する。
-    断片の連結により新たな折れ点が生じ、旧断片端点はもはや真の繊維端ではない
-    ためである。再結合した 1 次元パスの真の端点は、トラックの先頭点と末尾点。
-    """
-    xtrack_prcimg = np.array(current_x)
-    ytrack_prcimg = np.array(current_y)
+    Kinks, and the bends too close to an end to judge, are recomputed on the
+    reconnected geometry via `KinkDetector`, because joining fragments
+    introduces new corners and the former fragment endpoints are no longer
+    real fiber ends: a bend that sat next to a cut is judged once the cut is
+    bridged. The two real endpoints of the reconnected 1D path are the first
+    and last track points. The rule is the one the bundle was judged by --
+    `KinkDetector.kinks_on_line` on the centerline, the polyline rule on the
+    skeleton track of a bundle older than format 1.1 -- so one image never
+    carries kinks from two rules.
+    キンクと、端に近すぎて判定しない折れは、`KinkDetector` で再結合後の形状に
+    対して再計算する。断片の連結により新たな折れ点が生じ、旧断片端点はもはや真の
+    繊維端ではないためである。切断のそばにあった折れは、切断が橋渡しされれば判定
+    される。再結合した 1 次元パスの真の端点は、トラックの先頭点と末尾点。規則は
+    バンドルを判定した規則と同じもの（中心線上では `KinkDetector.kinks_on_line`、
+    形式 1.1 より古いバンドルのスケルトントラック上では折れ線規則）を使い、1 枚の
+    画像に 2 つの規則のキンクが混在しないようにする。
 
-    x, y = int(np.min(xtrack_prcimg)), int(np.min(ytrack_prcimg))
-    w = int(np.max(xtrack_prcimg) - x + 1)
-    h = int(np.max(ytrack_prcimg) - y + 1)
+    ``current_x`` / ``current_y`` are the line the fibril is drawn and
+    measured along, and ``pixel_x`` / ``pixel_y`` the skeleton pixels it was
+    docked from, index-aligned with it; ``None`` means the line is those
+    pixels, as for a bundle older than format 1.1. The bounding box is taken
+    from the pixels, so a fibril's frame does not depend on where the line
+    was placed.
+    ``current_x`` / ``current_y`` はフィブリルを描画・計測する線で、
+    ``pixel_x`` / ``pixel_y`` はそれと添字の揃った、繋ぐ元になったスケルトン画素で
+    ある。``None`` は線がその画素そのものであること（形式 1.1 より古いバンドル）を
+    意味する。外接矩形は画素から取り、フィブリルの枠が線の置き方に依存しない
+    ようにする。
+    """
+    line_x = np.array(current_x)
+    line_y = np.array(current_y)
+    if pixel_x is None or pixel_y is None:
+        pix_x, pix_y = line_x, line_y
+    else:
+        pix_x = np.asarray(pixel_x)
+        pix_y = np.asarray(pixel_y)
+
+    x, y = int(np.min(pix_x)), int(np.min(pix_y))
+    w = int(np.max(pix_x) - x + 1)
+    h = int(np.max(pix_y) - y + 1)
     # OpenCV-style stats tuple (x, y, width, height, area); GUI04 unpacks all
     # five, so keep the shape even though area is not otherwise used here.
     # OpenCV 形式の統計タプル (x, y, 幅, 高さ, 面積)。GUI04 は 5 要素で
     # アンパックするため、面積を他で使わなくても形を保つ。
-    data = (x, y, w, h, int(len(xtrack_prcimg)))
+    data = (x, y, w, h, int(len(pix_x)))
 
-    xtrack = xtrack_prcimg - x
-    ytrack = ytrack_prcimg - y
-    horizon = imp_tools.convert_track_to_distance(
-        xtrack, ytrack, size_per_pixel, y_size_per_pixel,
-    )
+    xtrack = line_x - x
+    ytrack = line_y - y
+    kind = getattr(image, "centerline", SKELETON_TRACK)
+    if kind == HALF_MAX_CENTERLINE:
+        horizon = polyline_distance(
+            xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+        )
+        skeleton_xtrack = pix_x.astype(int) - x
+        skeleton_ytrack = pix_y.astype(int) - y
+    else:
+        horizon = imp_tools.convert_track_to_distance(
+            xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+        )
+        skeleton_xtrack = skeleton_ytrack = None
     height = np.array(current_h)
     fiber_image = image.calibrated_image[y: y + h, x: x + w].copy()
 
-    kink_indices, kink_angles, decomposed_point_indices = \
-        detector.kinks_and_decomposed_from_track(xtrack_prcimg, ytrack_prcimg)
+    if kind == HALF_MAX_CENTERLINE:
+        # The rule is scaled by the fibril's own apparent width, read on the
+        # skeleton pixels it was docked from, as each fragment's was.
+        # 規則はフィブリル自身の見かけ幅で尺度付けする。各断片と同じく、繋ぐ元に
+        # なったスケルトン画素の上で読む。
+        width = measure_apparent_width(image.calibrated_image, pix_x, pix_y)
+        kink_indices, kink_angles, unjudged_indices = \
+            detector.kinks_on_line(line_x, line_y, width)
+        decomposed_point_indices = np.zeros(0, dtype=np.intp)
+    else:
+        kink_indices, kink_angles, decomposed_point_indices = \
+            detector.kinks_and_decomposed_from_track(line_x, line_y)
+        unjudged_indices = np.zeros(0, dtype=np.intp)
     # The reconnected path is a single ordered polyline, so its only true
     # endpoints are the first and last points.
     # 再結合したパスは単一の順序付き折れ線なので、真の端点は先頭点と末尾点のみ。
-    ep_indices = np.array([0, len(xtrack_prcimg) - 1])
+    ep_indices = np.array([0, len(line_x) - 1])
 
     return Fiber(
         fiber_image, data, xtrack, ytrack, horizon, height,
         np.asarray(kink_indices), ep_indices,
         np.asarray(kink_angles), np.asarray(decomposed_point_indices),
+        skeleton_xtrack=skeleton_xtrack, skeleton_ytrack=skeleton_ytrack,
+        centerline=kind,
+        unjudged_indices=np.asarray(unjudged_indices, dtype=np.intp),
     )
 
 
@@ -1450,6 +1566,14 @@ def filter_fibers_by_height(
         # 共有の補正画像座標に合わせる。
         abs_x = np.asarray(fib.xtrack) + fib.data[0]
         abs_y = np.asarray(fib.ytrack) + fib.data[1]
+        # A sub-fiber is a piece of its parent's line, cut together with the
+        # parent's skeleton pixels, so the band shows exactly the line that
+        # was drawn before filtering.
+        # サブファイバーは親の線の一部であり、親のスケルトン画素と一緒に切り出す。
+        # そのため帯域は、フィルター前に描かれていた線そのものを示す。
+        sx, sy = skeleton_track(fib)
+        pix_x = sx + fib.data[0]
+        pix_y = sy + fib.data[1]
 
         for start, stop in _contiguous_runs(in_band):
             # A rebuilt fiber needs two real endpoints to form a path; drop
@@ -1463,7 +1587,11 @@ def filter_fibers_by_height(
             hs = list(h[start:stop])
             try:
                 result.append(
-                    _rebuild_connected_fiber(image, detector, xs, ys, hs, spp, spp_y)
+                    _rebuild_connected_fiber(
+                        image, detector, xs, ys, hs, spp, spp_y,
+                        pixel_x=list(pix_x[start:stop]),
+                        pixel_y=list(pix_y[start:stop]),
+                    )
                 )
             except Exception:
                 # A degenerate run (e.g. collinear duplicates) can fail feature

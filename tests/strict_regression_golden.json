@@ -26,10 +26,10 @@
     },
     "spline1d::dp": {
       "dtype": "int64",
-      "sha256": "a5cd00e90cdc131907e1bd830203615dbb3f34024f05d0f2158e8fdc68c53523",
+      "sha256": "a0e41e557fa90e628027ef1ee42078d179789c1209d9e23cac0332cbddffb71f",
       "shape": [
         2,
-        48
+        0
       ]
     },
     "spline1d::ep": {
@@ -42,17 +42,17 @@
     },
     "spline1d::ka": {
       "dtype": "float64",
-      "sha256": "93ad41cd62535be366f92fe80f7b4c940dba104bafb9d6aa3d054c37062e1f50",
+      "sha256": "33f75768923fc3b2ef4b8a52880e6d1254aee4a6ab58ac1d5ee242409279ef49",
       "shape": [
-        9
+        5
       ]
     },
     "spline1d::kp": {
       "dtype": "int64",
-      "sha256": "61328ae58116ee7573f51c731443b7e4e519ab5097d21a182c0020a1d6e397fb",
+      "sha256": "035ecc1a4808a1a469d4599cb6ab8fb300dc2c8a935318f356367ede3a699690",
       "shape": [
         2,
-        9
+        5
       ]
     },
     "spline1d::skeletonized": {
@@ -61,6 +61,14 @@
       "shape": [
         1023,
         1023
+      ]
+    },
+    "spline1d::up": {
+      "dtype": "int64",
+      "sha256": "26d6fdc4b8fbfb76db612f04b8b56f5885bb706c804ee5a0b5b6a1d626c525f1",
+      "shape": [
+        2,
+        4
       ]
     },
     "tophat::binarized": {
@@ -89,10 +97,10 @@
     },
     "tophat::dp": {
       "dtype": "int64",
-      "sha256": "7a570a9ab291b48da684df4929f836eb8205825defd1b5ef9b71517d4869faad",
+      "sha256": "a0e41e557fa90e628027ef1ee42078d179789c1209d9e23cac0332cbddffb71f",
       "shape": [
         2,
-        60
+        0
       ]
     },
     "tophat::ep": {
@@ -105,14 +113,14 @@
     },
     "tophat::ka": {
       "dtype": "float64",
-      "sha256": "737c609ee91bb30c4021055f0def43d59b8a8a54067d990ab2c6b328771a689e",
+      "sha256": "88732854dd5bb7931dde704387f0bbf4b67617eeeb6c94c051161d3ec713fc9d",
       "shape": [
         7
       ]
     },
     "tophat::kp": {
       "dtype": "int64",
-      "sha256": "3cbef19bf5ba4f383559f0888a602d688d7b654a1a79b9e086582e852da708fc",
+      "sha256": "4e43281160b164ea5b59c098e7f600178830b14d21e3b2ae9156d1f275fd5213",
       "shape": [
         2,
         7
@@ -124,6 +132,14 @@
       "shape": [
         1023,
         1023
+      ]
+    },
+    "tophat::up": {
+      "dtype": "int64",
+      "sha256": "81337e50bf1da256c73dd09642403aadbcb714dfb17245aecc1e219db4df11dd",
+      "shape": [
+        2,
+        5
       ]
     },
     "trendfill::binarized": {
@@ -152,10 +168,10 @@
     },
     "trendfill::dp": {
       "dtype": "int64",
-      "sha256": "1c580794270cb5e0feeb1f92478932c90210f2f61161a3320a95bf9d9799096b",
+      "sha256": "a0e41e557fa90e628027ef1ee42078d179789c1209d9e23cac0332cbddffb71f",
       "shape": [
         2,
-        52
+        0
       ]
     },
     "trendfill::ep": {
@@ -168,14 +184,14 @@
     },
     "trendfill::ka": {
       "dtype": "float64",
-      "sha256": "7a42446feb794366daa02e39796b66355dc966d57320f788353345f75bd58c28",
+      "sha256": "8783807d5da55fe1ea6b79eb98f1f6153fdccb92c1dda2820962caaf22b08168",
       "shape": [
         5
       ]
     },
     "trendfill::kp": {
       "dtype": "int64",
-      "sha256": "ada0458bb6d7dfea863966834f78bc98674276502c81db0f8e40c1839f17f541",
+      "sha256": "98a9c9a3adb0aa9564fc04d79b0901d65a5c0261323a3c01f879947d2cb147e4",
       "shape": [
         2,
         5
@@ -187,6 +203,14 @@
       "shape": [
         1023,
         1023
+      ]
+    },
+    "trendfill::up": {
+      "dtype": "int64",
+      "sha256": "af74f73dec7253ad89f1a4b947f3b918ae547a51e2a68b8566d737710175dce6",
+      "shape": [
+        2,
+        5
       ]
     }
   },
@@ -217,10 +241,10 @@
     },
     "spline1d::dp": {
       "dtype": "int64",
-      "sha256": "957fe8adae9338b0d9678082a76edbdb961ee65830ed5efe14c665d075061523",
+      "sha256": "a0e41e557fa90e628027ef1ee42078d179789c1209d9e23cac0332cbddffb71f",
       "shape": [
         2,
-        236
+        0
       ]
     },
     "spline1d::ep": {
@@ -233,17 +257,17 @@
     },
     "spline1d::ka": {
       "dtype": "float64",
-      "sha256": "df19935a482749c36252d33331262e08fc275f17367c85e0c4c4086112251710",
+      "sha256": "c571c5b0172063da61b9b449f1466ba913e5a770e7fbc1b1a5271b584d91b1d2",
       "shape": [
-        72
+        75
       ]
     },
     "spline1d::kp": {
       "dtype": "int64",
-      "sha256": "027eb640739de382855c8aba9ac9dcb83923ed2cb61f79af8b815da0c591a6e3",
+      "sha256": "006a067a3bb8fac0fbdc1dc1b26b5b5ca120d2df7cd283fb04ceee2369e45e38",
       "shape": [
         2,
-        72
+        75
       ]
     },
     "spline1d::skeletonized": {
@@ -252,6 +276,14 @@
       "shape": [
         1023,
         1023
+      ]
+    },
+    "spline1d::up": {
+      "dtype": "int64",
+      "sha256": "2e28a7046ff9c2a4038dec0d47933f4ac53246386cff794998770b0f5b5760a9",
+      "shape": [
+        2,
+        8
       ]
     },
     "tophat::binarized": {
@@ -280,10 +312,10 @@
     },
     "tophat::dp": {
       "dtype": "int64",
-      "sha256": "e4321296bed4e51e6148aa3ec4e8e5cb855bdce3a5fb4d47e590382937e00855",
+      "sha256": "a0e41e557fa90e628027ef1ee42078d179789c1209d9e23cac0332cbddffb71f",
       "shape": [
         2,
-        239
+        0
       ]
     },
     "tophat::ep": {
@@ -296,17 +328,17 @@
     },
     "tophat::ka": {
       "dtype": "float64",
-      "sha256": "b6e90dc084916dbaf4ae1ba1076a9b6038fc0526d3d571981c3c792d6facddf9",
+      "sha256": "6d1e7b9910a4bf03ac9a9783088acd0f1d3271815691899662fdef3142256b13",
       "shape": [
-        75
+        73
       ]
     },
     "tophat::kp": {
       "dtype": "int64",
-      "sha256": "ee4fd7b32b23f61080fff07373689571e1ffe028a6fea1cf343f8d12dc55ca38",
+      "sha256": "7842ac2a69a8054ed9e251f15bbb5b4aee40e228811e0270c4d24df5eb59c966",
       "shape": [
         2,
-        75
+        73
       ]
     },
     "tophat::skeletonized": {
@@ -315,6 +347,14 @@
       "shape": [
         1023,
         1023
+      ]
+    },
+    "tophat::up": {
+      "dtype": "int64",
+      "sha256": "dffbfa983995eb85a6bc9a6e9213a249a8fb485c3a4e7505fc039b4b34696fc3",
+      "shape": [
+        2,
+        9
       ]
     },
     "trendfill::binarized": {
@@ -343,10 +383,10 @@
     },
     "trendfill::dp": {
       "dtype": "int64",
-      "sha256": "55b60abc5eec1c9ec8b3b70042a990bd87fad2e81b120e6f3a492f83725ede59",
+      "sha256": "a0e41e557fa90e628027ef1ee42078d179789c1209d9e23cac0332cbddffb71f",
       "shape": [
         2,
-        249
+        0
       ]
     },
     "trendfill::ep": {
@@ -359,17 +399,17 @@
     },
     "trendfill::ka": {
       "dtype": "float64",
-      "sha256": "dafc77efa2ea7d2b155278e47baf687b88d8bedb1bc2fa093a4de4fbf4d78586",
+      "sha256": "4a86707924d672e7cb8fae091abf388fc7e3a6ad721fe8415a7780dc574d5e5b",
       "shape": [
-        69
+        72
       ]
     },
     "trendfill::kp": {
       "dtype": "int64",
-      "sha256": "98c33507e9cb070d5a0902aeb184219d3696669d25dd14214e84c8818a7fa140",
+      "sha256": "df854f0f792332d51a7f56e0a2a793cf538fcc4c8a64bc468dabdf5022ef892d",
       "shape": [
         2,
-        69
+        72
       ]
     },
     "trendfill::skeletonized": {
@@ -378,6 +418,14 @@
       "shape": [
         1023,
         1023
+      ]
+    },
+    "trendfill::up": {
+      "dtype": "int64",
+      "sha256": "dbb83298f4bd5ae4c7419957bc6545394fb52acef31be15f5f3e3ab59a1ce762",
+      "shape": [
+        2,
+        12
       ]
     }
   }

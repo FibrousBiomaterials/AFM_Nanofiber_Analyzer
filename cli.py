@@ -59,8 +59,10 @@ if BASE_DIR not in sys.path:
 # ===== Project libraries =====
 from lib.blosc2_io import BUNDLE_EXT, load_bundle, load_bundle_meta
 from lib.bundle_schema import REQUIRED_BUNDLE_KEYS, validate_bundle
+from lib.centerline import HALF_MAX_CENTERLINE
 from lib.measure import (
     measure_bundle,
+    read_centerline_from_bundle,
     skeleton_height_values,
     write_fiber_csv,
     write_heights_csv,
@@ -485,6 +487,13 @@ def cmd_measure(args: argparse.Namespace) -> int:
             failures.append(name)
             continue
         print(f"{len(result.stats)} fibers -> {os.path.basename(csv_path)}")
+        if result.image.centerline != HALF_MAX_CENTERLINE:
+            print(
+                "    note: analyzed before bundle format 1.1, so fibers are "
+                "measured along the skeleton track; re-analyze to measure "
+                "along the centerline",
+                file=sys.stderr,
+            )
 
     if failures:
         print("failed bundles: " + ", ".join(failures), file=sys.stderr)
@@ -544,6 +553,13 @@ def cmd_heights(args: argparse.Namespace) -> int:
             f"[{i}/{len(inputs)}] {name}: {heights.size} skeleton px, "
             f"mean {np.mean(heights):.3f} nm, std {np.std(heights):.3f} nm"
         )
+        if read_centerline_from_bundle(bundle_path) != HALF_MAX_CENTERLINE:
+            print(
+                "    note: analyzed before bundle format 1.1, so heights are "
+                "read along the skeleton track; re-analyze to read them along "
+                "the centerline",
+                file=sys.stderr,
+            )
 
     if args.output and per_bundle:
         write_heights_csv(args.output, per_bundle)

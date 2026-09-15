@@ -28,7 +28,12 @@ from tests.conftest import REAL_DATA
 # （bg_method=trendfill）を適用して記録した基準統計値。
 GOLDEN_SKELETON_PX = 7975
 GOLDEN_BINARIZED_PX = 80615
-GOLDEN_N_KINKS = 69
+# Kinks judged by the excess-turning rule on the half-maximum centerline
+# (bundle format 1.1); the same scan gave 69 with the polyline rule on the
+# skeleton track.
+# 半値中点線上で超過回転規則により判定したキンク数（バンドル形式 1.1）。同じ
+# 走査で、スケルトントラック上の折れ線規則では 69 だった。
+GOLDEN_N_KINKS = 72
 RELATIVE_TOLERANCE = 0.05
 
 pytestmark = [

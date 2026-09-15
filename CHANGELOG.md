@@ -8,6 +8,65 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Kinks are judged by a new rule on a new line. **Kink counts, kink angles,
+  contour lengths, heights, straightness and curvature change from this
+  version**, so results are not bit-identical to earlier releases.
+
+  Fibers are drawn and measured along a **half-maximum centerline** placed on
+  the height image (`lib/centerline.py`) instead of along the skeleton pixel
+  chain. Each skeleton point is moved, along the normal of the track smoothed
+  over a quarter of the fiber's apparent width W, to the midpoint of the two
+  positions where the height cross-section falls to half its maximum. GUI04's
+  display, contour length, curvature, straightness, the height profile and kink
+  detection all use this one line. The skeleton still decides which pixels form
+  one fiber and where fibers are cut, and its pixels remain the key that the
+  exclusion and connection sidecars refer to, so existing sidecars keep
+  working. The skeleton is the medial axis of the binarized mask and swings
+  with the mask boundaries instead of following the fiber: below a Y junction
+  on the bundled higher-plant TOC scan it put a 118° kink on a straight fiber,
+  which is gone. The half-maximum midpoint was chosen over the crest because a
+  twisted fibril with an anisotropic cross-section swings its crest from side
+  to side.
+
+  A kink is now a bend whose **excess turning** — the turning within ±0.75 W
+  less what the fiber's own curvature on the flanks beside it accounts for —
+  reaches 180° minus `kinkangle_deg` (30° at the default 150°). Every length in
+  the rule is a multiple of W. A bend within 1.5 W of a fiber end is not
+  judged: it is stored separately, and GUI04 draws it as a grey hollow circle
+  but never counts it. The polyline decomposition is gone, so
+  `kink_decompose_px` is no longer read; the field stays so parameter files
+  still load. A kink's angle is 180° minus its excess turning, which reads low
+  on sharp corners: isolated synthetic corners of 40°, 90° and 120° read
+  37–38°, 83–84° and 101–110°.
+
+  Against a reference marked by eye on the height images of the bundled scans
+  (64 clear kinks over five scans), the previous rule found 53, displaced 5,
+  missed 6 and reported 79 bends matching no mark; the new one finds 60,
+  displaces 1, misses 3 and reports 60. On synthetic scans with known geometry
+  (2 nm pixels), zigzags are found 34 of 40 (previously 33), same-sense corner
+  pairs 16 of 16 (15), false bends on arcs and meanders fall from 31 to 12, and
+  on twisted ribbons from 2 to 0. On the bundled scans the total contour length
+  falls by 0.7–2.2 % per scan, because the line no longer carries the
+  skeleton's staircase and is measured as a Euclidean polyline; the median
+  change in per-fiber median height is −0.2 to +0.8 % per scan; the tunicate
+  scan reports 72 kinks where it reported 69. Straightness is now the Euclidean
+  chord over that length (0.9994 on a synthetic straight fiber).
+
+  The bundle format version is now **1.1**: `kp` and `ka` keep their shape but
+  are judged by the new rule on the new line, `dp` is written empty, and the
+  optional key `up` holds the bends not judged next to an end. A bundle written
+  by an earlier version is still read, and is drawn and measured along its
+  skeleton track as before; a fibril reconnected in it is judged by the earlier
+  rule, so one image never carries two rules. GUI04, GUI03 and `cli.py` say
+  so, and re-analyzing the bundle in GUI01 moves it to the new line and rule.
+  An earlier release refuses a 1.1 bundle instead of misreading it.
+
+- GUI04's overview draws the kinks of the fibers on screen at their points on
+  each fiber's line, reconnected fibrils included, instead of the bundle's
+  copy at skeleton-pixel corners.
+
 ### Fixed
 
 - `Segmenter._remove_nonlinear_objects` now judges each component on its own

@@ -57,6 +57,7 @@ ALGORITHM_PATHS = (
     "lib/segmenter.py",
     "lib/skeletonizer.py",
     "lib/kink_detector.py",
+    "lib/centerline.py",
 )
 
 DOC_PATHS = (

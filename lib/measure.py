@@ -52,17 +52,19 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 # ===== Project libraries =====
-from .blosc2_io import load_bundle, load_bundle_meta
+from .blosc2_io import bundle_keys, load_bundle, load_bundle_meta
 # The key contract and validation are owned by bundle_schema; TRACKING_BUNDLE_KEYS
 # is re-imported here so existing `measure.TRACKING_BUNDLE_KEYS` users keep working.
 # キー契約と検証は bundle_schema が管理する。既存の
 # `measure.TRACKING_BUNDLE_KEYS` 利用側が動き続けるよう、ここで再インポートする。
 from .bundle_schema import (
     TRACKING_BUNDLE_KEYS,
+    centerline_from_meta,
     kink_params_from_meta,
     scan_size_um_from_meta,
     validate_bundle,
 )
+from .centerline import HALF_MAX_CENTERLINE, SKELETON_TRACK
 from .connect_selection import (
     ConnectionPlan,
     connect_path_for,
@@ -70,7 +72,7 @@ from .connect_selection import (
     resolve_plan_chains,
     skeleton_digest,
 )
-from .fiber import Fiber
+from .fiber import Fiber, skeleton_track
 from .fiber_connector import (
     ConnectParams,
     build_connected_fibers,
@@ -82,11 +84,21 @@ from .fiber_selection import (
     load_exclusions,
 )
 from .fiber_tracking_image import FiberTrackingImage
-# Straightness measures a straight reference line with the same corrected
-# chain-code metric the fiber's own length uses, so the two are comparable.
-# 直線度は、ファイバー自身の長さが使うのと同じ補正済みチェーンコード尺度で
-# 基準となる直線を測るため、両者が比較可能になる。
+# On the skeleton track of a bundle older than format 1.1, straightness
+# measures a straight reference line with the same corrected chain-code metric
+# the fiber's own length uses, so the two are comparable.
+# 形式 1.1 より古いバンドルのスケルトントラックでは、直線度はファイバー自身の
+# 長さが使うのと同じ補正済みチェーンコード尺度で基準となる直線を測るため、
+# 両者が比較可能になる。
 from . import imp_tools
+
+# Optional bundle keys a tracking load reads when present
+# (`bundle_schema.OPTIONAL_BUNDLE_KEYS`): the bends not judged next to a track
+# end, which bundles older than format 1.1 lack.
+# 追跡用の読み込みで、存在すれば読む任意バンドルキー
+# （`bundle_schema.OPTIONAL_BUNDLE_KEYS`）。トラック端のそばで判定しなかった
+# 折れで、形式 1.1 より古いバンドルには無い。
+_TRACKING_OPTIONAL_KEYS = ("up",)
 
 # Chebyshev distance in pixels within which a track pixel counts as touching a
 # branch point. `imp_tools.remove_bp` clears a 3x3 neighborhood around each
@@ -145,6 +157,15 @@ HEIGHT_ONLY_SCALE_UM = 1.0
 # 試料ではファイバー長の中央値が 200 nm 前後であるため、200 nm を既定にすると
 # 母集団の約半数が黙って落ちる。100 nm はノイズに支配されない最小の窓であり、
 # 測定可能なファイバーを最も多く残す。
+#
+# The figures above were taken on the skeleton track, which a bundle older
+# than format 1.1 still uses. On the half-maximum centerline the same kind of
+# arcs read within 2 % of 1/R at 100 nm and within 3 % at 50 nm, while 20 nm
+# still over-read a 400 nm arc 1.9 times, so the default stands.
+# 上記の数値はスケルトントラック（形式 1.1 より古いバンドルは今もこれを使う）で
+# 測ったものである。半値中点線では同種の円弧が 100 nm で 1/R の 2 % 以内、50 nm で
+# 3 % 以内となる一方、20 nm では 400 nm の円弧をなお 1.9 倍に読むため、既定値は
+# 変えない。
 DEFAULT_CURVATURE_WINDOW_NM = 100.0
 
 # Column order of the per-fiber statistics CSV. This is the single source of
@@ -179,16 +200,17 @@ class FiberStats:
         Zero-based fiber index within the source list.
         元リスト内での 0 始まりのファイバー番号。
     length_nm
-        Total fiber length along the skeleton path in nanometers.
-        骨格線に沿ったファイバー全長 (nm)。
+        Total fiber length along the fiber's line in nanometers (see
+        `Fiber.xtrack` for which line that is).
+        ファイバーの線に沿った全長 (nm)。どの線かは `Fiber.xtrack` を参照。
     height_median_nm
-        Median height over the skeleton path in nanometers. 0.0 when the
+        Median height along the fiber's line in nanometers. 0.0 when the
         fiber has no height samples.
-        骨格線上の高さ中央値 (nm)。高さサンプルが無い場合は 0.0。
+        ファイバーの線上の高さ中央値 (nm)。高さサンプルが無い場合は 0.0。
     height_max_nm
-        Maximum height over the skeleton path in nanometers. 0.0 when the
+        Maximum height along the fiber's line in nanometers. 0.0 when the
         fiber has no height samples.
-        骨格線上の高さ最大値 (nm)。高さサンプルが無い場合は 0.0。
+        ファイバーの線上の高さ最大値 (nm)。高さサンプルが無い場合は 0.0。
     ep_count
         Number of endpoints detected on this fiber.
         このファイバーで検出された端点の数。
@@ -338,8 +360,15 @@ def _reaches_frame(
     if frame is None:
         return False
     height, width = frame
-    gx = np.asarray(fiber.xtrack) + fiber.data[0]
-    gy = np.asarray(fiber.ytrack) + fiber.data[1]
+    # The skeleton pixels, not the drawn line: the no-margin frame test was
+    # measured on them, and a line placed on the height can sit a fraction of a
+    # pixel inside the edge the fiber actually crosses.
+    # 描画される線ではなくスケルトン画素で判定する。余白 0 の枠判定はその上で
+    # 測って決めたもので、高さの上に置いた線は、繊維が実際に横切る縁より画素の
+    # 端数ぶん内側に来ることがある。
+    sx, sy = skeleton_track(fiber)
+    gx = sx + fiber.data[0]
+    gy = sy + fiber.data[1]
     if gx.size == 0:
         return False
     return bool(
@@ -484,12 +513,15 @@ def isolated_fiber_flags(
     r = BRANCH_TOUCH_RADIUS_PX
     flags: List[bool] = []
     for f, candidate in zip(fibers, has_candidate):
-        # Track arrays are bbox-local; shift by the bbox origin to compare
+        # Skeleton pixels, as for the frame test: the touch radius is defined
+        # on them. They are bbox-local; shift by the bbox origin to compare
         # against the whole-image branch-point coordinates.
-        # トラック配列は BBox ローカル座標なので、BBox 原点を加えて全体画像上の
+        # 枠の判定と同じくスケルトン画素で判定する。接触半径はその上で定義した
+        # ものである。BBox ローカル座標なので、BBox 原点を加えて全体画像上の
         # 分岐点座標と比較する。
-        gx = np.asarray(f.xtrack) + f.data[0]
-        gy = np.asarray(f.ytrack) + f.data[1]
+        sx, sy = skeleton_track(f)
+        gx = sx + f.data[0]
+        gy = sy + f.data[1]
         # A fiber the connector can extend, or one leaving the scan, is
         # disqualified whatever the crossings say. Both tests are already
         # computed or cheap, so they run before the branch-point search.
@@ -597,12 +629,31 @@ def fiber_straightness(
     端点は追跡された最初と最後の点であり、交差で切断されたファイバーは実際に
     追跡された部分について記述される。外接矩形のオフセットは差分で相殺される
     ため不要である。
+
+    Everything above describes the skeleton track of a bundle older than
+    format 1.1. A fiber on the half-maximum centerline (`lib.centerline`) is
+    a sub-pixel line whose length is the plain Euclidean polyline length, so
+    there is no chain-code bias to cancel and the ratio is the Euclidean chord
+    over that length. The small lateral noise of the line is all that keeps a
+    straight fiber below 1.0: 0.9994 on a synthetic straight fiber with 2 nm
+    pixels.
+    以上は形式 1.1 より古いバンドルのスケルトントラックについての記述である。
+    半値中点線（`lib.centerline`）上のファイバーは小数座標の線で、長さは単純な
+    ユークリッド折れ線長なので、打ち消すべきチェーンコードの偏りが無く、比は
+    ユークリッド弦をその長さで割ったものになる。直線状のファイバーを 1.0 より
+    下げるのは線のわずかな横方向ノイズだけであり、画素 2 nm の合成直線では
+    0.9994 であった。
     """
     length = float(fiber.length)
     if not (length > 0.0):
         return float("nan")
     if y_size_per_pixel is None:
         y_size_per_pixel = x_size_per_pixel
+
+    if getattr(fiber, "centerline", SKELETON_TRACK) == HALF_MAX_CENTERLINE:
+        dx = (float(fiber.xtrack[-1]) - float(fiber.xtrack[0])) * x_size_per_pixel
+        dy = (float(fiber.ytrack[-1]) - float(fiber.ytrack[0])) * y_size_per_pixel
+        return float(np.hypot(dx, dy) / length)
 
     x0, x1 = int(fiber.xtrack[0]), int(fiber.xtrack[-1])
     y0, y1 = int(fiber.ytrack[0]), int(fiber.ytrack[-1])
@@ -680,6 +731,19 @@ def fiber_curvature_profile(
     means the same physical smoothing on scans of different sizes.
     窓幅は画素ではなく nm で指定する。走査範囲の異なる画像でも、同じ設定が同じ
     物理的な平滑化を意味するようにするためである。
+
+    On the half-maximum centerline (bundle format 1.1) a step is no longer
+    orthogonal or diagonal, but the window is still needed: over a few pixels
+    the turning angle is set by the line's own lateral noise. Against
+    synthetic arcs of 80-400 nm radius (2 nm pixels) the centerline read
+    within 2 % of 1/R with a 100 nm window and within 3 % at 50 nm, while a
+    20 nm window read the 400 nm arc as 1.9 times too curved; the skeleton
+    track was off by 1.3-5.3 times at 20 nm.
+    半値中点線（バンドル形式 1.1）ではステップは直交・斜めに限られないが、窓は
+    依然として必要である。数画素の範囲では回転角は線自身の横方向ノイズで決まる
+    ためである。半径 80〜400 nm の合成円弧（画素 2 nm）に対し、中心線は 100 nm の
+    窓で 1/R の 2 % 以内、50 nm で 3 % 以内だったが、20 nm の窓は 400 nm の円弧を
+    1.9 倍曲がっていると読んだ。スケルトントラックは 20 nm で 1.3〜5.3 倍ずれた。
     """
     if y_size_per_pixel is None:
         y_size_per_pixel = x_size_per_pixel
@@ -916,7 +980,7 @@ def fiber_kink_density(stat: FiberStats) -> float:
 
 
 def _load_validated_arrays(
-    bundle_path: str, keys: List[str],
+    bundle_path: str, keys: List[str], optional: Sequence[str] = (),
 ) -> Tuple[Dict[str, np.ndarray], Dict]:
     """
     Load bundle keys and enforce the ``.b2z`` contract before use.
@@ -948,7 +1012,14 @@ def _load_validated_arrays(
         If the loaded arrays or the recorded format version violate the
         bundle contract, or if the bundle metadata cannot be read.
     """
-    arrays = load_bundle(bundle_path, keys=keys)
+    requested = list(keys)
+    if optional:
+        # An optional key is loaded only when the bundle has it: a bundle from
+        # an older format legitimately lacks it.
+        # 任意キーはバンドルにある場合だけ読む。古い形式のバンドルには正当に無い。
+        present = {k.lstrip("/") for k in bundle_keys(bundle_path)}
+        requested += [k for k in optional if k in present]
+    arrays = load_bundle(bundle_path, keys=requested)
     # A bundle without metadata legitimately yields an empty dict (bundles
     # from old releases lack vlmeta). A read failure here means corruption,
     # so it becomes a loud contract error instead of silently skipping the
@@ -1009,6 +1080,9 @@ def _tracking_image_from_arrays(
     kp = data["kp"]   # shape (2, N)
     dp = data["dp"]   # shape (2, N)
     ka = data["ka"]   # shape (N,), radians
+    # Bends not judged next to a track end; absent before format 1.1.
+    # トラック端のそばで判定しなかった折れ。形式 1.1 より前には無い。
+    up = data.get("up", np.zeros((2, 0), dtype=np.int64))
 
     image = FiberTrackingImage(
         original_AFM=cal,
@@ -1024,8 +1098,16 @@ def _tracking_image_from_arrays(
     image.ep = ep
     image.all_kink_coordinates = (kp[0], kp[1])
     image.decomposed_point_coordinates = dp
+    image.unjudged_point_coordinates = up
     image.all_kink_angles = ka
     image.kink_angle_deg, image.kink_decompose_px = kink_params_from_meta(meta)
+    # The line fibers are built on follows the rule the stored kinks were
+    # judged by, so an older bundle keeps its skeleton track until it is
+    # re-analyzed (see `bundle_schema.centerline_from_meta`).
+    # 繊維を組み立てる線は、保存済みキンクを判定した規則に従う。そのため古い
+    # バンドルは再解析されるまでスケルトントラックを使い続ける
+    # （`bundle_schema.centerline_from_meta` 参照）。
+    image.centerline = centerline_from_meta(meta)
     return image
 
 
@@ -1067,7 +1149,9 @@ def load_tracking_image(
     """
     # Load all required bundle keys in one call so the dataset is reconstructed atomically.
     # データセットを一貫して再構築できるよう、必要キーを 1 回でまとめて読み込む。
-    data, meta = _load_validated_arrays(bundle_path, TRACKING_BUNDLE_KEYS)
+    data, meta = _load_validated_arrays(
+        bundle_path, TRACKING_BUNDLE_KEYS, optional=_TRACKING_OPTIONAL_KEYS,
+    )
     name = os.path.splitext(os.path.basename(bundle_path))[0]
     return _tracking_image_from_arrays(
         name, data, size_per_pixel, y_size_per_pixel, meta=meta,
@@ -1097,6 +1181,36 @@ def read_scan_size_from_bundle(
         契約へ追加される前に書かれたバンドル等）。
     """
     return scan_size_um_from_meta(load_bundle_meta(bundle_path))
+
+
+def read_centerline_from_bundle(bundle_path: str) -> str:
+    """
+    Report which line a bundle's fibers are drawn and measured along.
+    バンドルの繊維を描画・計測する線の種類を返す。
+
+    Parameters
+    ----------
+    bundle_path
+        Path to the ``.b2z`` bundle file.
+        ``.b2z`` バンドルファイルのパス。
+
+    Returns
+    -------
+    str
+        `centerline.HALF_MAX_CENTERLINE`, or `centerline.SKELETON_TRACK` for a
+        bundle analyzed before format 1.1, which keeps that line until it is
+        re-analyzed.
+        `centerline.HALF_MAX_CENTERLINE`。形式 1.1 より前に解析したバンドルでは
+        `centerline.SKELETON_TRACK` で、再解析されるまでその線を使い続ける。
+
+    Notes
+    -----
+    Reads only the metadata, so a caller can tell the user which bundles are
+    measured along the older line before tracing anything.
+    メタデータだけを読むため、呼び出し側は追跡を始める前に、どのバンドルが古い
+    線で計測されるかを利用者に伝えられる。
+    """
+    return centerline_from_meta(load_bundle_meta(bundle_path))
 
 
 def curate_fibers(
@@ -1324,7 +1438,9 @@ def measure_bundle(
             f"scale_y_um must be a positive number, got {scale_y_um!r}"
         )
 
-    data, meta = _load_validated_arrays(bundle_path, TRACKING_BUNDLE_KEYS)
+    data, meta = _load_validated_arrays(
+        bundle_path, TRACKING_BUNDLE_KEYS, optional=_TRACKING_OPTIONAL_KEYS,
+    )
     height_px, width_px = data["calibrated"].shape
     # Per-axis pixel size: X spans the columns (width), Y spans the rows
     # (height), matching the bundle coordinate convention (x=column, y=row).

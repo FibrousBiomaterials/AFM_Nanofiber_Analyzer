@@ -21,8 +21,18 @@ Contract summary / 契約の要約
   only values 0 and 1.
   画像系キーは同一形状の 2 次元配列。二値キーの値は 0 と 1 のみ。
 - ``kp``, ``dp``: integer coordinate arrays of shape ``(2, N)`` where row 0 is
-  the x (column) index and row 1 is the y (row) index.
+  the x (column) index and row 1 is the y (row) index. From format 1.1
+  ``dp`` is written empty: the kink rule no longer decomposes the line, and
+  the key stays so every bundle carries the same required keys.
   ``kp``/``dp`` は形状 ``(2, N)`` の座標配列。行 0 が x（列）、行 1 が y（行）。
+  形式 1.1 以降、``dp`` は空で書く。キンク規則はもう線を分解しないが、どの
+  バンドルも同じ必須キーを持つようにキーは残す。
+- ``up`` (optional, from format 1.1): the bends the kink rule measured within
+  1.5 apparent widths of a track end, where it does not judge them, in the
+  layout of ``kp``. Readers show them but never count them as kinks.
+  ``up``（任意キー、形式 1.1 から）は、トラック端から見かけ幅 1.5 本分以内に
+  あるためキンク規則が判定しなかった折れで、``kp`` と同じ形式で持つ。読み取り
+  側は表示するが、キンクとしては数えない。
 - ``ka``: shape ``(N,)`` kink interior angles in **radians**, strictly inside
   ``(0, pi)``; ``N`` equals ``kp.shape[1]``. Degrees appear only in user-facing
   output (see `lib.measure.FiberStats.kink_angles_deg`).
@@ -51,10 +61,12 @@ format 2.0.
 形式 1.0 では維持し、フルサイズ出力への復元（トリム端のパディング等）を
 バンドル形式 2.0 の変更候補の筆頭とする。
 
-This module depends only on NumPy so GUI plugins and `lib.measure` can import
-it without pulling in the heavy preprocessing stack.
-本モジュールの依存は NumPy のみとし、GUI プラグインや `lib.measure` が重い
-前処理スタックを読み込まずに import できるようにする。
+This module depends only on NumPy and on `lib.centerline`, which is itself
+NumPy-only, so GUI plugins and `lib.measure` can import it without pulling in
+the heavy preprocessing stack.
+本モジュールの依存は NumPy と、それ自体 NumPy のみに依存する `lib.centerline`
+だけとし、GUI プラグインや `lib.measure` が重い前処理スタックを読み込まずに
+import できるようにする。
 """
 
 # ===== Standard library =====
@@ -63,17 +75,48 @@ from typing import Dict, List, Optional, Sequence, Tuple
 # ===== Numerical / scientific libraries =====
 import numpy as np
 
+# ===== Project libraries =====
+from .centerline import HALF_MAX_CENTERLINE, SKELETON_TRACK
+
 # Version of the bundle layout itself, distinct from the application release
-# recorded as "software_version". Bump only when keys, shapes, or units change.
+# recorded as "software_version". Bump when keys, shapes, or units change, and
+# also when a stored array keeps its shape but changes meaning: an old release
+# would otherwise misread it without noticing, and only an unknown version
+# makes it refuse the bundle.
 # バンドル形式自体のバージョン。アプリのリリース ("software_version") とは
-# 別物。キー・形状・単位が変わるときのみ繰り上げる。
-BUNDLE_FORMAT_VERSION = "1.0"
+# 別物。キー・形状・単位が変わるとき、および保存配列の形状が同じまま意味が
+# 変わるときに繰り上げる。後者で上げないと旧リリースは気付かないまま誤読する。
+# 旧リリースにバンドルを拒否させられるのは未知のバージョンだけである。
+#
+# 1.1: `kp` and `ka` are judged on the half-maximum centerline of
+#      `lib.centerline` by the excess-turning rule of `lib.kink_detector`,
+#      instead of on the skeleton track by a polyline decomposition, and a
+#      reader draws and measures fibers along that line
+#      (`centerline_from_meta`). `dp` keeps its shape but is written empty,
+#      since nothing is decomposed, and the optional `up` holds the bends not
+#      judged next to a track end. The line has one point per skeleton point,
+#      so kinks are still stored at skeleton pixels.
+# 1.1: `kp`・`ka` は、スケルトントラック上の折れ線分解ではなく、
+#      `lib.centerline` の半値中点線上で `lib.kink_detector` の超過回転規則に
+#      より判定したものであり、読み取り側はその線に沿って繊維を描画・計測する
+#      （`centerline_from_meta`）。`dp` は形状を保つが、何も分解しないため空で
+#      書く。任意キー `up` はトラック端のそばで判定しなかった折れを持つ。線は
+#      スケルトン点ごとに 1 点を持つため、キンクは引き続きスケルトン画素に保存する。
+BUNDLE_FORMAT_VERSION = "1.1"
 
 # Versions this code base can read. Readers reject unknown versions loudly so
 # a future format change cannot be silently misinterpreted by old releases.
 # 本コードベースが読める形式バージョン。未知のバージョンは明示的に拒否し、
 # 将来の形式変更を旧リリースが黙って誤解釈しないようにする。
-SUPPORTED_BUNDLE_VERSIONS = ("1.0",)
+SUPPORTED_BUNDLE_VERSIONS = ("1.0", "1.1")
+
+# Format versions whose kinks were judged on, and whose fibers are drawn and
+# measured along, the half-maximum centerline. A 1.0 bundle, or one recording
+# no version at all, keeps the skeleton track until it is re-analyzed.
+# キンクを半値中点線上で判定し、繊維をその線に沿って描画・計測する形式
+# バージョン。1.0 のバンドル、およびバージョンを記録していないバンドルは、
+# 再解析されるまでスケルトントラックを使い続ける。
+HALF_MAX_CENTERLINE_VERSIONS = ("1.1",)
 
 # Bundle keys required to treat a file as analyzed.
 # One .b2z bundle is written per analyzed file; all keys below must exist.
@@ -84,7 +127,8 @@ SUPPORTED_BUNDLE_VERSIONS = ("1.0",)
 #   /bp           : Branch-point mask.
 #   /ep           : End-point mask.
 #   /kp           : Kink coordinates, shape (2, N), [0]=x, [1]=y.
-#   /dp           : Decomposed points used for kink detection, shape (2, N).
+#   /dp           : Polyline vertices kinks were judged at, shape (2, N);
+#                   empty from format 1.1, whose rule does not decompose.
 #   /ka           : Kink angles in radians, shape (N,).
 REQUIRED_BUNDLE_KEYS = [
     "calibrated", "binarized", "skeletonized",
@@ -94,7 +138,10 @@ REQUIRED_BUNDLE_KEYS = [
 
 # Optional keys must not affect the analyzed/not-analyzed decision for backward compatibility.
 # 後方互換のため、任意キーは解析済み判定に使わない。
-OPTIONAL_BUNDLE_KEYS = ["original"]
+#   /original     : Raw height image before the calibrator's one-pixel trim.
+#   /up           : Bends not judged next to a track end, shape (2, N);
+#                   written from format 1.1, so an older bundle lacks it.
+OPTIONAL_BUNDLE_KEYS = ["original", "up"]
 
 # vlmeta key holding the physical spatial calibration (scan size). It is
 # optional provenance metadata, like "input_format": bundles written before
@@ -183,7 +230,7 @@ _BINARY_KEYS = ("binarized", "skeletonized", "bp", "ep")
 
 # Point-set keys stored as (2, N) coordinate arrays.
 # (2, N) 座標配列として格納される点群キー。
-_POINT_KEYS = ("kp", "dp")
+_POINT_KEYS = ("kp", "dp", "up")
 
 
 def _is_finite_array(a: np.ndarray) -> bool:
@@ -249,7 +296,7 @@ def validate_bundle(
 
     # Reject non-array values early so the shape checks below cannot crash.
     # 後続の形状チェックが落ちないよう、配列でない値を先に弾く。
-    known = set(_IMAGE_KEYS) | set(_POINT_KEYS) | {"ka", "original"}
+    known = set(_IMAGE_KEYS) | set(_POINT_KEYS) | {"ka"} | set(OPTIONAL_BUNDLE_KEYS)
     bad_type = [
         k for k in arrays
         if k in known and not isinstance(arrays[k], np.ndarray)
@@ -524,3 +571,43 @@ def kink_params_from_meta(
         _valid("kinkangle_deg", 0.0, 180.0),
         _valid("kink_decompose_px", 0.0, None, strict_lo=True),
     )
+
+
+def centerline_from_meta(meta: Optional[Dict]) -> str:
+    """
+    Return which line a bundle's kinks were judged on and its fibers are measured along.
+    バンドルのキンクを判定した線、すなわち繊維を計測する線の種類を返す。
+
+    Parameters
+    ----------
+    meta
+        Bundle vlmeta dictionary, or ``None``.
+        バンドルの vlmeta 辞書、または ``None``。
+
+    Returns
+    -------
+    str
+        `centerline.HALF_MAX_CENTERLINE` for a format listed in
+        `HALF_MAX_CENTERLINE_VERSIONS`, otherwise `centerline.SKELETON_TRACK`.
+        `HALF_MAX_CENTERLINE_VERSIONS` に含まれる形式なら
+        `centerline.HALF_MAX_CENTERLINE`、それ以外は `centerline.SKELETON_TRACK`。
+
+    Notes
+    -----
+    The stored kinks and the line they are drawn on have to come from one
+    definition. Rebuilding a 1.0 bundle on the centerline would put kinks
+    judged on the skeleton onto a line that no longer has the bends they
+    marked, and would change its lengths and heights without a re-analysis.
+    An older bundle therefore keeps the skeleton track, and the caller tells
+    the user it can be re-analyzed. A missing version means an older release,
+    not an error.
+    保存済みのキンクと、それを描く線は 1 つの定義から来なければならない。1.0 の
+    バンドルを半値中点線で組み立て直すと、スケルトン上で判定したキンクを、それが
+    示した折れをもう持たない線の上に載せることになり、再解析なしに長さと高さも
+    変わってしまう。そのため古いバンドルはスケルトントラックを使い続け、呼び出し側が
+    再解析できることを利用者に伝える。バージョンの欠落は旧リリース製であることを
+    意味し、エラーではない。
+    """
+    if meta and meta.get("version") in HALF_MAX_CENTERLINE_VERSIONS:
+        return HALF_MAX_CENTERLINE
+    return SKELETON_TRACK

@@ -25,6 +25,13 @@ import cv2
 import numpy as np
 
 from . import imp_tools
+from .centerline import (
+    HALF_MAX_CENTERLINE,
+    SKELETON_TRACK,
+    half_max_centerline,
+    polyline_distance,
+    sample_height,
+)
 from .fiber import Fiber
 
 
@@ -39,6 +46,9 @@ def _build_fiber(
     ep_set: set,
     kink_angle_map: dict,
     y_size_per_pixel: Optional[float] = None,
+    branch_points: Optional[np.ndarray] = None,
+    centerline: str = SKELETON_TRACK,
+    unjudged_set: Optional[set] = None,
 ) -> Fiber:
     """
     Build one Fiber from a labeled skeleton component and feature lookups.
@@ -86,6 +96,24 @@ def _build_fiber(
         Y（行）軸の物理ピクセルサイズ (nm/px)。``None`` のときは
         ``size_per_pixel`` を流用し等方（正方ピクセル）スケールとする。
 
+    branch_points
+        Branch-point mask of the whole image. The centerline is not measured
+        next to a junction, where the height belongs to more than one fiber.
+        Read only when building on the centerline.
+        画像全体の分岐点マスク。高さが複数の繊維に属する分岐のそばでは、中心線の
+        位置を測らない。中心線で組み立てる場合にのみ読む。
+    centerline
+        Which line to build the fiber on: `HALF_MAX_CENTERLINE` for a bundle
+        whose kinks were judged on it, `SKELETON_TRACK` for an older one.
+        繊維を組み立てる線。キンクをその線上で判定したバンドルなら
+        `HALF_MAX_CENTERLINE`、それより古いバンドルなら `SKELETON_TRACK`。
+    unjudged_set
+        ``(x, y)`` coordinate set of the bends the kink rule did not judge
+        because they lie next to a track end; ``None`` or empty for a bundle
+        older than format 1.1.
+        トラック端のそばにあるためキンク規則が判定しなかった折れの ``(x, y)``
+        座標集合。形式 1.1 より古いバンドルでは ``None`` または空。
+
     Returns
     -------
     Fiber
@@ -98,19 +126,41 @@ def _build_fiber(
     # Track skeleton pixels in order so we can treat the fiber as a 1D sequence.
     # 骨格ピクセルを順序付きで追跡し、ファイバーを1次元列として扱えるようにする。
     xtrack_prcimg, ytrack_prcimg = imp_tools.tracking(target_image)
-    xtrack = xtrack_prcimg - x
-    ytrack = ytrack_prcimg - y
-    horizon = imp_tools.convert_track_to_distance(
-        xtrack, ytrack, size_per_pixel, y_size_per_pixel,
-    )
-    height = cal[ytrack_prcimg, xtrack_prcimg]
     fiber_image = cal[y: y + h, x: x + w].copy()
+    if centerline == HALF_MAX_CENTERLINE:
+        # The skeleton fixes which pixels are this fiber and their order; the
+        # line itself is placed on the height, one point per skeleton pixel,
+        # so the feature lookup below still matches skeleton coordinates.
+        # スケルトンはどの画素がこの繊維か・その順序を決め、線そのものは高さの
+        # 上に置く。線はスケルトン画素ごとに 1 点なので、下の特徴点照合は
+        # 引き続きスケルトン座標で一致する。
+        line_x, line_y = half_max_centerline(
+            cal, xtrack_prcimg, ytrack_prcimg, branch_points,
+        )
+        xtrack = line_x - x
+        ytrack = line_y - y
+        horizon = polyline_distance(
+            xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+        )
+        height = sample_height(cal, line_x, line_y)
+        skeleton_xtrack = xtrack_prcimg - x
+        skeleton_ytrack = ytrack_prcimg - y
+    else:
+        xtrack = xtrack_prcimg - x
+        ytrack = ytrack_prcimg - y
+        horizon = imp_tools.convert_track_to_distance(
+            xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+        )
+        height = cal[ytrack_prcimg, xtrack_prcimg]
+        skeleton_xtrack = skeleton_ytrack = None
 
     # Linear scan keeps index alignment with the xtrack/ytrack arrays, so all
     # feature indices come out in track order for downstream consistency.
     # 線形走査により xtrack/ytrack 配列とのインデックス対応を保つ。特徴点の
     # インデックスは後段処理の一貫性のため追跡順になる。
+    unjudged = unjudged_set if unjudged_set is not None else set()
     kink_indices, decomposed_point_indices, ep_indices = [], [], []
+    unjudged_indices = []
     for i, (px, py) in enumerate(zip(xtrack_prcimg.tolist(), ytrack_prcimg.tolist())):
         if (px, py) in kink_set:
             kink_indices.append(i)
@@ -118,6 +168,8 @@ def _build_fiber(
             decomposed_point_indices.append(i)
         if (px, py) in ep_set:
             ep_indices.append(i)
+        if (px, py) in unjudged:
+            unjudged_indices.append(i)
 
     # Translate each kink index back into a coordinate key to read its angle.
     # 各 kink インデックスを座標キーに変換し、辞書から角度を取得する。
@@ -131,6 +183,9 @@ def _build_fiber(
         fiber_image, tuple(data_row), xtrack, ytrack, horizon, height,
         np.array(kink_indices), np.array(ep_indices),
         kink_angles, np.array(decomposed_point_indices),
+        skeleton_xtrack=skeleton_xtrack, skeleton_ytrack=skeleton_ytrack,
+        centerline=centerline,
+        unjudged_indices=np.array(unjudged_indices, dtype=np.intp),
     )
 
 
@@ -178,8 +233,17 @@ class FiberTrackingImage:
         Global kink coordinates as x-array and y-array tuple.
         グローバルな kink 座標を x 配列・y 配列で保持するタプル。
     decomposed_point_coordinates
-        Coordinates of decomposition points.
-        分解点の座標配列。
+        Coordinates of the polyline vertices a bundle of format 1.0 judged
+        kinks at; empty from format 1.1.
+        形式 1.0 のバンドルがキンクを判定した折れ線頂点の座標配列。形式 1.1
+        以降は空。
+    unjudged_point_coordinates
+        ``(2, N)`` coordinates of the bends the kink rule did not judge
+        because they lie within 1.5 apparent widths of a track end (bundle
+        key ``up``); empty for a bundle older than format 1.1.
+        トラック端から見かけ幅 1.5 本分以内にあるためキンク規則が判定しなかった
+        折れの ``(2, N)`` 座標（バンドルキー ``up``）。形式 1.1 より古い
+        バンドルでは空。
     all_kink_angles
         Angle values corresponding to kink points.
         kink 点に対応する角度配列。
@@ -193,9 +257,20 @@ class FiberTrackingImage:
         無ければ None。
     kink_decompose_px
         Perpendicular tolerance (px) of the polyline decomposition those kink
-        points were judged at; None when the bundle does not record it.
+        points were judged at; None when the bundle does not record it. Only a
+        bundle of format 1.0 was judged that way; the current rule ignores it.
         それらのキンク点を判定した折れ線分解の垂直許容量 (px)。バンドルに記録が
-        無ければ None。
+        無ければ None。そのように判定されたのは形式 1.0 のバンドルだけで、現行の
+        規則はこれを使わない。
+    centerline
+        Which line fibers are built on: `centerline.HALF_MAX_CENTERLINE` when
+        the bundle's kinks were judged on it (format 1.1), otherwise
+        `centerline.SKELETON_TRACK`, which is also the default for a container
+        not loaded from a bundle. Set by `lib.measure` from the bundle.
+        繊維を組み立てる線。バンドルのキンクがその線上で判定されていれば
+        （形式 1.1）`centerline.HALF_MAX_CENTERLINE`、それ以外は
+        `centerline.SKELETON_TRACK`。バンドルから読み込まないコンテナの既定値も
+        後者である。`lib.measure` がバンドルから設定する。
     """
 
     def __init__(
@@ -258,6 +333,7 @@ class FiberTrackingImage:
             tuple[np.ndarray, np.ndarray]] = None
         self.all_kink_angles: Optional[np.ndarray] = None
         self.decomposed_point_coordinates: Optional[np.ndarray] = None
+        self.unjudged_point_coordinates: np.ndarray = np.zeros((2, 0), dtype=np.int64)
         self.skipped_fiber_labels: tuple[tuple[int, str], ...] = ()
 
         # The kink thresholds that produced the arrays above, read from the
@@ -279,6 +355,10 @@ class FiberTrackingImage:
         # 使う。それがそのような実行で実際に使われた値である。
         self.kink_angle_deg: Optional[float] = None
         self.kink_decompose_px: Optional[float] = None
+        # Which line fibers are built on; `lib.measure` sets it from the
+        # bundle's format version.
+        # 繊維を組み立てる線。`lib.measure` がバンドルの形式バージョンから設定する。
+        self.centerline: str = SKELETON_TRACK
 
     def fibers_in_image_parallel(
         self,
@@ -422,6 +502,7 @@ class FiberTrackingImage:
         """
         nLabels, label_image, data = self._labeled_components(skeleton_image)
         kink_set, dp_set, ep_set, kink_angle_map = self._feature_lookups()
+        unjudged_set = self._unjudged_lookup()
         total = nLabels - 1
         skipped: list[tuple[int, str]] = []
 
@@ -436,10 +517,14 @@ class FiberTrackingImage:
         # 分からない場合は等方挙動を保つ。
         spp_y = self.y_size_per_pixel if self.y_size_per_pixel is not None else spp
 
+        bp = self.bp
+        kind = self.centerline
+
         def build(label: int) -> Fiber:
             return _build_fiber(
                 label_image, label, data[label], cal, spp,
                 kink_set, dp_set, ep_set, kink_angle_map, spp_y,
+                branch_points=bp, centerline=kind, unjudged_set=unjudged_set,
             )
 
         if not parallel:
@@ -575,3 +660,25 @@ class FiberTrackingImage:
         ep_y, ep_x = np.where(self.ep)
         ep_set: set[tuple] = set(zip(ep_x.tolist(), ep_y.tolist()))
         return kink_set, dp_set, ep_set, kink_angle_map
+
+    def _unjudged_lookup(self) -> set:
+        """
+        Build the coordinate lookup of the bends the kink rule did not judge.
+        キンク規則が判定しなかった折れの座標検索テーブルを構築する。
+
+        Kept apart from `_feature_lookups` because the bundle key it reads,
+        ``up``, is optional: a bundle older than format 1.1 has none, and the
+        set is then empty.
+        `_feature_lookups` と分けるのは、読むバンドルキー ``up`` が任意キーで
+        あるためである。形式 1.1 より古いバンドルには無く、そのとき集合は空になる。
+
+        Returns
+        -------
+        set
+            ``(x, y)`` pixel coordinates consumed by `_build_fiber`.
+            `_build_fiber` が使用する ``(x, y)`` 画素座標の集合。
+        """
+        points = self.unjudged_point_coordinates
+        if points is None or len(points[0]) == 0:
+            return set()
+        return set(zip(np.asarray(points[0]).tolist(), np.asarray(points[1]).tolist()))

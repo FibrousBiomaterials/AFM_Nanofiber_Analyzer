@@ -64,6 +64,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # ===== Project libraries =====
 from lib.blosc2_io import BUNDLE_EXT
+from lib.centerline import HALF_MAX_CENTERLINE
 from lib.connect_selection import (
     CONNECT_SUFFIX, connect_path_for, load_connect_plan,
 )
@@ -72,7 +73,7 @@ from lib.measure import (
     DEFAULT_CURVATURE_WINDOW_NM,
     collect_fiber_curvature, collect_fiber_stats, collect_fiber_stats_from_csv,
     collect_skeleton_height_profiles, fiber_kink_angle, fiber_kink_density,
-    skeleton_height_values,
+    read_centerline_from_bundle, skeleton_height_values,
 )
 from lib.translator import _
 from lib.ui_tools import (
@@ -2646,6 +2647,41 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 count += 1
         return count
 
+    def _count_skeleton_track_bundles(self, bundle_paths) -> int:
+        """
+        Count the bundles analyzed before format 1.1, measured along the skeleton.
+        形式 1.1 より前に解析され、スケルトンに沿って計測されるバンドル数を数える。
+
+        Parameters
+        ----------
+        bundle_paths
+            ``.b2z`` bundles about to be measured.
+            これから計測する ``.b2z`` バンドル。
+
+        Returns
+        -------
+        int
+            Bundles measured along the skeleton track rather than the
+            centerline until they are re-analyzed.
+            再解析されるまで、中心線ではなくスケルトントラックに沿って計測される
+            バンドル数。
+
+        Notes
+        -----
+        Only the metadata is read. An unreadable bundle is passed over here,
+        because the collector reports it once as a per-bundle load error.
+        メタデータだけを読む。読めないバンドルはここでは読み飛ばす。コレクタが
+        バンドル単位の読込エラーとして一度だけ報告するためである。
+        """
+        count = 0
+        for path in bundle_paths:
+            try:
+                if read_centerline_from_bundle(path) != HALF_MAX_CENTERLINE:
+                    count += 1
+            except Exception:
+                continue
+        return count
+
     def _log_curvature_caveats(self, per_fiber, curvature_window: float) -> None:
         """
         Report how many fibers the curvature window excluded.
@@ -2893,6 +2929,24 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         n=n_conn, total=len(bundle_paths),
                     )))
 
+                # Say how many bundles were analyzed before format 1.1. They
+                # are measured along the skeleton track rather than the
+                # centerline, and a folder mixing the two is otherwise
+                # invisible in the result.
+                # 形式 1.1 より前に解析したバンドルが何個あるかを報告する。それらは
+                # 中心線ではなくスケルトントラックに沿って計測され、両者が混ざった
+                # フォルダは結果からは見分けがつかないためである。
+                if input_mode != INPUT_FIBER_CSV:
+                    n_old = self._count_skeleton_track_bundles(bundle_paths)
+                    if n_old:
+                        self.ui_queue.put(("log", _(
+                            "[{grp}/{folder}] {n}/{total} バンドルは旧版で解析されたため、"
+                            "スケルトンに沿って計測します（GUI01 で再解析すると中心線に"
+                            "沿って計測されます）"
+                        ).format(
+                            grp=grp_name, folder=folder_name,
+                            n=n_old, total=len(bundle_paths),
+                        )))
 
                 try:
                     (values, weights, n_fibers, n_images,
