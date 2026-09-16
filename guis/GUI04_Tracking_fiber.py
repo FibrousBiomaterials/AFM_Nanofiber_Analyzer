@@ -68,7 +68,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # ===== Project libraries =====
 # Import the lib modules that provide the AFM image-processing core.
 # lib/ フォルダ内の各モジュールをインポートする。これらが AFM 画像処理の本体。
-from lib.centerline import HALF_MAX_CENTERLINE
+from lib.centerline import FALLBACK_WIDTH_PX, HALF_MAX_CENTERLINE
 from lib.fiber_tracking_image import FiberTrackingImage
 from lib.fiber import Fiber
 from lib.fiber_connector import (
@@ -89,7 +89,7 @@ from lib.fiber_selection import (
 from lib.measure import (
     DEFAULT_CURVATURE_WINDOW_NM, TRACKING_BUNDLE_KEYS, compute_fiber_stats,
     curate_fibers, fiber_kink_density, fiber_mean_curvature,
-    isolated_fiber_flags, measure_bundle,
+    height_sample_mask, isolated_fiber_flags, measure_bundle,
     read_scan_size_from_bundle, write_fiber_csv,
 )
 from lib.translator import _
@@ -284,28 +284,44 @@ def table_row_values(result) -> List[tuple]:
     Returns
     -------
     list of tuple
-        ``(median_nm, max_nm, straightness, curvature, kink_density)`` per
-        fiber, aligned with ``result.fibers`` by index.
+        ``(median_nm, max_nm, straightness, curvature, kink_density, p90_nm,
+        width_nm, width_measured, reliable_fraction, unjudged_count)`` per
+        fiber, aligned with ``result.fibers`` by index. The first five keep
+        their positions because `_on_file_loaded` reads the curvature by
+        index.
         ファイバーごとの ``(median_nm, max_nm, straightness, curvature,
-        kink_density)``。``result.fibers`` とインデックスで対応する。
+        kink_density, p90_nm, width_nm, width_measured, reliable_fraction,
+        unjudged_count)``。``result.fibers`` とインデックスで対応する。
+        `_on_file_loaded` が曲率をインデックスで読むため、先頭 5 つの位置は
+        変えない。
 
     Notes
     -----
     Called off the Tk main thread so a table rebuild never has to measure.
-    Straightness comes from `result.stats`, which the measurement already
-    computed with the pixel size.
+    Everything but the curvature comes from `result.stats`, which the
+    measurement already computed with the pixel size.
     Tk メインスレッド外から呼び、テーブル再構築時に計測が走らないようにする。
-    直線度は、計測時にピクセルサイズ付きで算出済みの `result.stats` から取る。
+    曲率以外は、計測時にピクセルサイズ付きで算出済みの `result.stats` から取る。
     """
-    x_spp = result.image.size_per_pixel
-    y_spp = result.image.y_size_per_pixel
+    return _table_values(result.stats, result.fibers,
+                         result.image.size_per_pixel,
+                         result.image.y_size_per_pixel)
+
+
+def _table_values(stats, fibers, x_spp, y_spp) -> List[tuple]:
+    """
+    Pair each fiber's statistics row with its curvature, in table order.
+    各ファイバーの統計行に曲率を添えて、表の順に並べる。
+    """
     return [
         (s.height_median_nm, s.height_max_nm, s.straightness,
          fiber_mean_curvature(
              f, x_spp, y_spp, window_nm=DEFAULT_CURVATURE_WINDOW_NM,
          ),
-         fiber_kink_density(s))
-        for s, f in zip(result.stats, result.fibers)
+         fiber_kink_density(s),
+         s.height_p90_nm, s.width_nm, s.width_measured,
+         s.line_reliable_fraction, s.unjudged_count)
+        for s, f in zip(stats, fibers)
     ]
 
 
@@ -1359,10 +1375,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 直線度と曲率は、対象のファイバーの隣に並べて表示する。描画されたファイバー
         # と照合して確認できるようにするためである。GUI03 はこれらを集約した分布と
         # してしか示さないため、値が誤っていても気付けない。
-        cols = ("#", "length (nm)", "median (nm)", "max (nm)",
+        # W, the reliable fraction and the unjudged count say how much each
+        # number can be trusted: at what scale the kink rule ran, how much of
+        # the line was actually located on the fiber, and how many bends were
+        # measured but not judged. p90 is the upper height summary one spike
+        # cannot set.
+        # W・信頼割合・未判定数は各数値がどれだけ信用できるかを示す。キンク規則が
+        # どの尺度で走ったか、線のどれだけを実際に繊維上で位置決めできたか、測った
+        # が判定しなかった折れがいくつあるか。p90 は尖塔 1 つでは決まらない高さの
+        # 上側要約である。
+        cols = ("#", "length (nm)", "median (nm)", "max (nm)", "p90 (nm)",
                 "straightness", "curvature (rad/" + UNIT_MICROMETER + ")",
                 "EP count", "Kink count",
-                "kink density (1/" + UNIT_MICROMETER + ")")
+                "kink density (1/" + UNIT_MICROMETER + ")",
+                "unjudged", "W (nm)", "reliable")
         # "extended" gives the Explorer selection the user already knows: drag
         # or shift-click for a range, ctrl-click to add or remove one row. It is
         # what makes "選択を除外" usable on a scan whose debris comes in groups.
@@ -1375,6 +1401,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
         col_widths = {
             "#": 30, "length (nm)": 65, "median (nm)": 70, "max (nm)": 70,
+            "p90 (nm)": 65,
             # Wide enough for the whole heading: a clipped "curvature (rad/µ"
             # reads as a broken widget rather than as a unit.
             # 見出し全体が収まる幅にする。"curvature (rad/µ" と切れると、単位では
@@ -1382,6 +1409,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "straightness": 75, "curvature (rad/" + UNIT_MICROMETER + ")": 118,
             "EP count": 55, "Kink count": 65,
             "kink density (1/" + UNIT_MICROMETER + ")": 118,
+            "unjudged": 60, "W (nm)": 60, "reliable": 60,
         }
         for col in cols:
             self.fiber_tree.heading(col, text=col)
@@ -2240,6 +2268,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             ).format(
                 w=self._fmt_num(DEFAULT_CURVATURE_WINDOW_NM), n=unmeasurable,
             ))
+        self._log_apparent_width(fibers)
         # The manual connection button has to be right the moment the user
         # clicks a row, so the candidates are ready before the table is filled.
         # 手動連結ボタンは、ユーザーが行をクリックした瞬間に正しくなければならな
@@ -2268,6 +2297,66 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 高さフィルター ON のまま新ファイルに切り替わった場合、自動で適用する。
         if self.filter_enabled_var.get():
             self._apply_filter()
+
+    def _log_apparent_width(self, fibers: List[Fiber]) -> None:
+        """
+        Log the scale the kink rule ran at: the median apparent width W.
+        キンク規則が走った尺度、すなわち見かけ幅 W の中央値をログに出す。
+
+        Parameters
+        ----------
+        fibers
+            Measured population; fibers on the skeleton track carry no width
+            and are skipped.
+            計測対象の母集団。スケルトントラック上のファイバーは幅を持たず、
+            飛ばす。
+
+        Notes
+        -----
+        Every length of the kink rule is a multiple of W, and W is the probe's
+        broadening as much as the fiber's, so two datasets scanned with
+        different tips were judged at different physical scales even when
+        their pixel sizes agree. The log is where that becomes visible. Fibers
+        whose sections gave no width were placed with the fallback, a pixel
+        count, and their count is reported so a blank W cell in the table is
+        read as "not measured" rather than as a fault.
+        キンク規則の長さはすべて W の倍数であり、W は繊維の幅であると同時に
+        探針による広がりでもある。そのため探針の異なる 2 つのデータセットは、
+        ピクセルサイズが同じでも異なる物理尺度で判定されている。それが見える
+        場所がこのログである。断面から幅が得られなかったファイバーは画素数である
+        代替値で線を置いており、その本数を報告することで、表の空欄の W が不具合
+        ではなく「未計測」と読めるようにする。
+        """
+        widths = [
+            float(f.width_px) for f in fibers
+            if np.isfinite(getattr(f, "width_px", float("nan")))
+            and getattr(f, "width_measured", False)
+        ]
+        fallback = sum(
+            1 for f in fibers
+            if np.isfinite(getattr(f, "width_px", float("nan")))
+            and not getattr(f, "width_measured", False)
+        )
+        if not widths and not fallback:
+            return
+        spp = self.current_image.size_per_pixel if self.current_image else None
+        if widths:
+            median_px = float(np.median(widths))
+            if spp:
+                self._log(_(
+                    "見かけ幅 W の中央値: {w_nm} nm ({w_px} px)。"
+                    "キンク規則の長さはこの W の倍数です。"
+                ).format(w_nm=f"{median_px * spp:.1f}", w_px=f"{median_px:.1f}"))
+            else:
+                self._log(_(
+                    "見かけ幅 W の中央値: {w_px} px。"
+                    "キンク規則の長さはこの W の倍数です。"
+                ).format(w_px=f"{median_px:.1f}"))
+        if fallback:
+            self._log(_(
+                "幅を測れず既定の {fallback_px} px を使ったファイバー: {n} 本"
+                "（表の W 欄は空欄）"
+            ).format(fallback_px=self._fmt_num(FALLBACK_WIDTH_PX), n=fallback))
 
     def _set_ui_enabled(self, enabled: bool) -> None:
         """
@@ -2306,17 +2395,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # lib.measure 経由で再計算する。
             x_spp = self.current_image.size_per_pixel
             y_spp = self.current_image.y_size_per_pixel
-            fresh = [
-                (s.height_median_nm, s.height_max_nm, s.straightness,
-                 fiber_mean_curvature(
-                     f, x_spp, y_spp, window_nm=DEFAULT_CURVATURE_WINDOW_NM,
-                 ),
-                 fiber_kink_density(s))
-                for s, f in zip(compute_fiber_stats(fibers, x_spp, y_spp), fibers)
-            ]
+            fresh = _table_values(
+                compute_fiber_stats(fibers, x_spp, y_spp), fibers, x_spp, y_spp,
+            )
 
         for i, f in enumerate(fibers):
-            med, mx, straight, curv, kink_dens = (
+            (med, mx, straight, curv, kink_dens,
+             p90, width_nm, width_measured, reliable, unjudged) = (
                 self._fiber_stats[i] if use_cache else fresh[i]
             )
             self.fiber_tree.insert("", "end", iid=str(i), values=(
@@ -2324,15 +2409,27 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 f"{f.length:.0f}",
                 f"{med:.2f}",
                 f"{mx:.2f}",
+                blank_if_nan(p90, "{0:.2f}"),
                 blank_if_nan(straight, "{0:.3f}"),
                 blank_if_nan(curv, "{0:.2f}"),
                 len(f.ep_indices),
                 len(f.kink_indices),
-                # Zero kinks over a measured length is a real density, so a
-                # kinkless fiber shows 0.00 here rather than a blank cell.
-                # 計測済み長さに対するキンク 0 本は実在の密度であるため、キンクの
-                # 無いファイバーはここでは空欄ではなく 0.00 を表示する。
+                # Zero kinks over a judged length is a real density, so a
+                # kinkless fiber shows 0.00 here rather than a blank cell; a
+                # fiber too short for the rule to judge anything is blank.
+                # 判定済み長さに対するキンク 0 本は実在の密度であるため、キンクの
+                # 無いファイバーはここでは空欄ではなく 0.00 を表示する。規則が
+                # 何も判定できない短さのファイバーは空欄になる。
                 blank_if_nan(kink_dens, "{0:.2f}"),
+                int(unjudged),
+                # A width the fiber's own sections could not give is the
+                # fallback, shown blank so it is not read as a measurement;
+                # the load log says how many fibers used it.
+                # 繊維自身の断面から得られなかった幅は代替値であり、測定値と
+                # 読まれないよう空欄にする。使った本数は読み込みログに出る。
+                blank_if_nan(width_nm if width_measured else float("nan"),
+                             "{0:.1f}"),
+                blank_if_nan(reliable, "{0:.2f}"),
             ))
 
     # =========================================================================
@@ -5832,13 +5929,35 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         ax = self._prof_ax
         ax.clear()
         ax.axis("on")
-        ax.plot(fiber.horizon, fiber.height, color="dimgray", lw=1.5)
+        # The samples the height statistics use are drawn solid; the ones
+        # they leave out -- the last width at a cut end, the connector's
+        # interpolated bridges -- are drawn dashed and lighter, so the guide
+        # lines below visibly come from the solid part only. Each run is
+        # extended by one sample so the two styles meet instead of leaving
+        # a gap.
+        # 高さ統計が使う標本は実線で、外す標本（切断端の最後の 1 幅、連結器が
+        # 補間した橋渡し）は薄い破線で描く。下の補助線が実線部分だけから来ている
+        # ことが見て分かるようにするためである。各区間は 1 標本ずつ延ばし、2 つの
+        # 線種が途切れずに接するようにする。
+        horizon = np.asarray(fiber.horizon, dtype=float)
+        height = np.asarray(fiber.height, dtype=float)
+        used = height_sample_mask(fiber)
+        if used.all():
+            ax.plot(horizon, height, color="dimgray", lw=1.5)
+        else:
+            grown = used | np.roll(used, 1) | np.roll(used, -1)
+            ax.plot(horizon, np.where(grown, height, np.nan),
+                    color="dimgray", lw=1.5)
+            ax.plot(horizon, np.where(~used, height, np.nan),
+                    color="silver", lw=1.2, linestyle="--")
 
-        # Median and maximum guide lines follow the main-window checkbox.
-        # 中央値・最大値の水平線（メイン側のチェック状態を参照）。
+        # Median and maximum guide lines follow the main-window checkbox and
+        # read the same samples as the fiber table, so the two agree.
+        # 中央値・最大値の水平線（メイン側のチェック状態を参照）。一覧テーブルと
+        # 同じ標本を読むため、両者は一致する。
         if app.show_medmax_var.get():
-            med = float(np.median(fiber.height))
-            mx  = float(np.max(fiber.height))
+            med = float(np.median(height[used]))
+            mx  = float(np.max(height[used]))
             ax.axhline(y=med, color="blue",      linestyle="--", lw=1.5, alpha=0.85,
                        label=f"Median {med:.2f} nm")
             ax.axhline(y=mx,  color="red", linestyle="--", lw=1.5, alpha=0.85,

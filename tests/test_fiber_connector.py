@@ -651,3 +651,58 @@ def test_measure_bundle_applies_a_connection_plan(tmp_path):
     assert len(connected.fibers) == len(connected.stats)
     for stat in connected.stats:
         assert stat.length_nm > 0
+
+
+def _fragment_with_ends(x0, x1, y, ends):
+    """
+    Horizontal skeleton-track fragment whose real ends are the given indices.
+    与えたインデックスを本物の端とする、水平なスケルトントラック断片。
+    """
+    n = x1 - x0 + 1
+    return Fiber(
+        fiber_image=np.zeros((1, n)), data=(x0, y, n, 1, n),
+        xtrack=np.arange(n), ytrack=np.zeros(n, dtype=int),
+        horizon=np.arange(n, dtype=float), height=np.zeros(n),
+        kink_indices=np.array([], dtype=int),
+        ep_indices=np.array(ends, dtype=int),
+        kink_angles=np.array([]), decomposed_point_indices=np.array([0, n - 1]),
+    )
+
+
+def test_a_bridge_is_not_a_measurement_and_a_cut_end_stays_a_cut():
+    """
+    A reconnected fibril marks its bridge heights as interpolated and keeps
+    an outer end that was a cut as a cut.
+    再結合したフィブリルは橋渡しの高さを補間値として印を付け、切断だった外側の
+    端を切断のまま保つ。
+
+    Before this, every rebuilt fibril reported two endpoints, so a fibril
+    whose outer fragment ended at a crossing looked complete, and its bridge
+    heights entered the median and maximum as if they had been measured.
+    以前は再構築したフィブリルはすべて端点を 2 つ報告したため、外側の断片が交差で
+    終わっていたフィブリルは完結して見え、橋渡しの高さは測定されたかのように
+    中央値と最大値に入っていた。
+    """
+    image = _flat_image()
+    # Fragment a is cut at its tail (joins b); b is cut at its head.
+    # 断片 a は末尾で切断（b と繋がる）、b は先頭で切断。
+    a = _fragment_with_ends(10, 30, 40, ends=(0,))
+    b = _fragment_with_ends(36, 60, 40, ends=(24,))
+    fibril, = connect_fiber_fragments(image, [a, b])
+
+    measured = fibril.height_measured
+    assert measured is not None
+    trim = ConnectParams().trim_points
+    bridge_points = len(fibril.xtrack) - (21 - trim) - (25 - trim)
+    assert bridge_points > 0
+    assert int((~measured).sum()) == bridge_points
+    assert measured[0] and measured[-1]
+    # Both outer ends are real, so the fibril has two endpoints.
+    # 外側の端はどちらも本物なので、フィブリルの端点は 2 つ。
+    assert list(fibril.ep_indices) == [0, len(fibril.xtrack) - 1]
+
+    # A fibril whose first fragment was itself cut at its head keeps that cut.
+    # 先頭の断片が自身の先頭で切断されていたフィブリルは、その切断を保つ。
+    a_cut = _fragment_with_ends(10, 30, 40, ends=())
+    fibril, = connect_fiber_fragments(image, [a_cut, b])
+    assert list(fibril.ep_indices) == [len(fibril.xtrack) - 1]

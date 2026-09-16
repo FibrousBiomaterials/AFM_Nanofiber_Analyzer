@@ -64,7 +64,7 @@ from .bundle_schema import (
     scan_size_um_from_meta,
     validate_bundle,
 )
-from .centerline import HALF_MAX_CENTERLINE, SKELETON_TRACK
+from .centerline import HALF_MAX_CENTERLINE, SKELETON_TRACK, polyline_distance
 from .connect_selection import (
     ConnectionPlan,
     connect_path_for,
@@ -84,6 +84,7 @@ from .fiber_selection import (
     load_exclusions,
 )
 from .fiber_tracking_image import FiberTrackingImage
+from .kink_detector import END_MARGIN_WIDTHS
 # On the skeleton track of a bundle older than format 1.1, straightness
 # measures a straight reference line with the same corrected chain-code metric
 # the fiber's own length uses, so the two are comparable.
@@ -168,24 +169,60 @@ HEIGHT_ONLY_SCALE_UM = 1.0
 # 変えない。
 DEFAULT_CURVATURE_WINDOW_NM = 100.0
 
+# Length, in apparent widths, left out of the height statistics at an end of
+# the line that is a cut rather than a fiber end. `imp_tools.remove_bp` clears
+# only a 3x3 neighbourhood around a branch point, while the other fiber's
+# skirt at a crossing extends about half a width to a width beyond it, so the
+# last width of a cut fragment samples a height that is not this fiber's. The
+# median barely notices; the maximum, an extreme value, reads the crossing.
+# 線の端が繊維端ではなく切断である場合に、高さ統計から外す長さ（見かけ幅単位）。
+# `imp_tools.remove_bp` が消すのは分岐点周りの 3×3 だけだが、交差での相手繊維の
+# 裾はその先 半幅〜1 幅ほど広がるため、切断された断片の最後の 1 幅はこの繊維の
+# ものでない高さを標本化している。中央値はほとんど気付かないが、極値である最大値
+# は交差を読んでしまう。
+CUT_END_EXCLUSION_WIDTHS = 1.0
+
+# Fewest samples the height statistics are taken over. A fragment shorter than
+# the excluded zones would otherwise report no height at all, so below this
+# count the exclusion is dropped and every measured sample is used.
+# 高さ統計を取る最少標本数。除外域より短い断片は高さを一切報告できなくなるため、
+# この数を下回るときは除外をやめ、測定済みの全標本を使う。
+MIN_HEIGHT_SAMPLES = 3
+
+# Upper percentile reported beside the maximum. The maximum is an extreme
+# value and moves with one noise spike or one contamination particle; the
+# percentile summarises the fiber's tall end without depending on one sample.
+# 最大値の隣に報告する上側パーセンタイル。最大値は極値であり、ノイズの尖塔 1 つや
+# 汚染粒子 1 つで動く。パーセンタイルは 1 標本に依存せずに繊維の高い側を要約する。
+HEIGHT_UPPER_PERCENTILE = 90.0
+
 # Column order of the per-fiber statistics CSV. This is the single source of
-# truth shared by the GUI04 export and the `cli.py measure` subcommand.
+# truth shared by the GUI04 export and the `cli.py measure` subcommand. New
+# columns are appended, never inserted, so every earlier column set is a
+# prefix of this one and an older file is recognised by its header.
 # ファイバー統計 CSV の列順。GUI04 のエクスポートと `cli.py measure` が共有する
-# 唯一の定義源。
+# 唯一の定義源。新しい列は挿入ではなく末尾に追加し、以前の列構成がすべてこの
+# 接頭辞になるようにして、古いファイルをヘッダで識別できるようにする。
 FIBER_CSV_COLUMNS = (
     "index", "length_nm", "height_median_nm", "height_max_nm",
     "ep_count", "kink_count", "kink_angles_deg", "straightness",
+    "height_p90_nm", "apparent_width_nm", "width_measured",
+    "line_reliable_fraction", "unjudged_count",
 )
 
-# The column set shipped in 1.0.0, before straightness was added. Kept so a
-# CSV written by that version still reads: the file is how a curated fiber
-# population travels between GUI04 and GUI03, and rejecting an older export
-# would strand work that is still perfectly valid for every other column.
-# 1.0.0 で出荷した列構成（straightness 追加前）。そのバージョンが書き出した CSV
-# を今も読めるように残す。このファイルはキュレーション済みのファイバー母集団が
-# GUI04 から GUI03 へ渡る経路であり、古い出力を拒否すると、他の全列については
-# 依然として有効な作業を無駄にしてしまう。
-FIBER_CSV_COLUMNS_V1 = FIBER_CSV_COLUMNS[:-1]
+# The column set of the development version that added straightness, and the
+# set shipped in 1.0.0 before it. Kept so a CSV written by either still reads:
+# the file is how a curated fiber population travels between GUI04 and GUI03,
+# and rejecting an older export would strand work that is still perfectly
+# valid for every column it has. `read_fiber_csv` accepts any of the three
+# and leaves the missing fields undefined.
+# straightness を追加した開発版の列構成と、その前の 1.0.0 で出荷した列構成。
+# どちらが書き出した CSV も今も読めるように残す。このファイルはキュレーション
+# 済みのファイバー母集団が GUI04 から GUI03 へ渡る経路であり、古い出力を拒否
+# すると、持っている全列については依然として有効な作業を無駄にしてしまう。
+# `read_fiber_csv` は 3 つのいずれも受け付け、無い項目は未定義のままにする。
+FIBER_CSV_COLUMNS_V2 = FIBER_CSV_COLUMNS[:8]
+FIBER_CSV_COLUMNS_V1 = FIBER_CSV_COLUMNS[:7]
 
 
 @dataclass(frozen=True)
@@ -204,13 +241,17 @@ class FiberStats:
         `Fiber.xtrack` for which line that is).
         ファイバーの線に沿った全長 (nm)。どの線かは `Fiber.xtrack` を参照。
     height_median_nm
-        Median height along the fiber's line in nanometers. 0.0 when the
-        fiber has no height samples.
-        ファイバーの線上の高さ中央値 (nm)。高さサンプルが無い場合は 0.0。
+        Median height along the fiber's line in nanometers, over the samples
+        `height_sample_mask` keeps: the crest of each cross-section
+        (`Fiber.height`), less the last width at a cut end and the connector's
+        interpolated bridges. 0.0 when the fiber has no height samples.
+        ファイバーの線上の高さ中央値 (nm)。`height_sample_mask` が残す標本、
+        すなわち各断面の頂点（`Fiber.height`）から、切断端の最後の 1 幅と連結器が
+        補間した橋渡しを除いたものについて取る。高さサンプルが無い場合は 0.0。
     height_max_nm
-        Maximum height along the fiber's line in nanometers. 0.0 when the
+        Maximum height over the same samples in nanometers. 0.0 when the
         fiber has no height samples.
-        ファイバーの線上の高さ最大値 (nm)。高さサンプルが無い場合は 0.0。
+        同じ標本についての高さ最大値 (nm)。高さサンプルが無い場合は 0.0。
     ep_count
         Number of endpoints detected on this fiber.
         このファイバーで検出された端点の数。
@@ -231,6 +272,34 @@ class FiberStats:
         端点間距離を輪郭長で割った値（(0, 1]）。1.0 は直線状のファイバーで、
         巻き込んだものほど 0 に近づく。ピクセルサイズが与えられなかった場合、
         または輪郭長が 0 の場合は NaN。
+    height_p90_nm
+        `HEIGHT_UPPER_PERCENTILE` of the same height samples in nanometers,
+        an upper summary that one spike cannot set. NaN when there are none.
+        同じ高さ標本の `HEIGHT_UPPER_PERCENTILE` 値 (nm)。尖塔 1 つでは決まらない
+        上側の要約。標本が無ければ NaN。
+    width_nm
+        Apparent width W the fiber's line was placed with and its kink rule
+        scaled by, in nanometers (`Fiber.width_px` times the X pixel size).
+        NaN on the skeleton track or without a pixel size.
+        ファイバーの線を置き、キンク規則を尺度付けした見かけ幅 W (nm)
+        （`Fiber.width_px` × X ピクセルサイズ）。スケルトントラック上、または
+        ピクセルサイズが無い場合は NaN。
+    width_measured
+        Whether `width_nm` was read from the fiber's own cross-sections;
+        ``False`` means the fallback width was substituted (`Fiber.width_measured`).
+        `width_nm` がファイバー自身の断面から読めたかどうか。``False`` は代替幅を
+        代用したことを意味する（`Fiber.width_measured`）。
+    line_reliable_fraction
+        Fraction of the line's points whose position was measured on this
+        fiber's own cross-section rather than interpolated
+        (`Fiber.line_reliable`). NaN on the skeleton track.
+        線の点のうち、位置を補間ではなくこのファイバー自身の断面で測った割合
+        （`Fiber.line_reliable`）。スケルトントラック上では NaN。
+    unjudged_count
+        Bends the kink rule measured within `END_MARGIN_WIDTHS` of an end and
+        did not judge (`Fiber.unjudged_indices`); never counted as kinks.
+        キンク規則が端から `END_MARGIN_WIDTHS` 以内で測り、判定しなかった折れの数
+        （`Fiber.unjudged_indices`）。キンクには数えない。
     """
 
     index: int
@@ -241,6 +310,11 @@ class FiberStats:
     kink_count: int
     kink_angles_deg: Tuple[float, ...]
     straightness: float = float("nan")
+    height_p90_nm: float = float("nan")
+    width_nm: float = float("nan")
+    width_measured: bool = False
+    line_reliable_fraction: float = float("nan")
+    unjudged_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -888,12 +962,28 @@ def compute_fiber_stats(
     """
     stats = []
     for i, f in enumerate(fibers):
-        med = float(np.median(f.height)) if len(f.height) > 0 else 0.0
-        mx = float(np.max(f.height)) if len(f.height) > 0 else 0.0
+        samples = np.asarray(f.height, dtype=float)
+        if samples.size:
+            samples = samples[height_sample_mask(f)]
+        med = float(np.median(samples)) if samples.size else 0.0
+        mx = float(np.max(samples)) if samples.size else 0.0
+        p90 = (float(np.percentile(samples, HEIGHT_UPPER_PERCENTILE))
+               if samples.size else float("nan"))
         angles = tuple(float(np.degrees(a)) for a in f.kink_angles)
         straightness = (
             float("nan") if x_size_per_pixel is None
             else fiber_straightness(f, x_size_per_pixel, y_size_per_pixel)
+        )
+        width_px = float(getattr(f, "width_px", float("nan")))
+        width_nm = (
+            width_px * x_size_per_pixel
+            if x_size_per_pixel is not None and np.isfinite(width_px)
+            else float("nan")
+        )
+        reliable = getattr(f, "line_reliable", None)
+        reliable_fraction = (
+            float("nan") if reliable is None or len(reliable) == 0
+            else float(np.mean(np.asarray(reliable, dtype=bool)))
         )
         stats.append(FiberStats(
             index=i,
@@ -904,8 +994,90 @@ def compute_fiber_stats(
             kink_count=len(f.kink_indices),
             kink_angles_deg=angles,
             straightness=straightness,
+            height_p90_nm=p90,
+            width_nm=width_nm,
+            width_measured=bool(getattr(f, "width_measured", False)),
+            line_reliable_fraction=reliable_fraction,
+            unjudged_count=len(getattr(f, "unjudged_indices", ())),
         ))
     return stats
+
+
+def height_sample_mask(fiber: Fiber) -> np.ndarray:
+    """
+    Mark the height samples of one fiber that its height statistics use.
+    1 本のファイバーの高さ統計が使う高さ標本を示す。
+
+    Parameters
+    ----------
+    fiber
+        Traced fiber whose `height`, `ep_indices`, `width_px` and
+        `height_measured` are read.
+        `height`・`ep_indices`・`width_px`・`height_measured` を読む追跡済み
+        ファイバー。
+
+    Returns
+    -------
+    ndarray
+        Boolean mask over `Fiber.height`, ``True`` where the sample counts.
+        `Fiber.height` に対する真偽マスク。数える標本が ``True``。
+
+    Notes
+    -----
+    Two kinds of sample are left out. A value the fiber connector interpolated
+    across a bridge (`Fiber.height_measured` is ``False``) is not a
+    measurement of the image at all. And within `CUT_END_EXCLUSION_WIDTHS` of
+    an end that is a cut -- an end whose point is not in `ep_indices`, so the
+    skeleton continued into a crossing there -- the height belongs partly to
+    the other fiber, because `imp_tools.remove_bp` clears only a 3x3
+    neighbourhood while the crossing's skirt extends about a width. A real
+    fiber end keeps its samples: the fiber genuinely ends there. The zone is
+    measured in pixel arc length along the line, so no pixel size is needed.
+    2 種類の標本を外す。連結器が橋渡しで補間した値（`Fiber.height_measured` が
+    ``False``）は、そもそも画像の測定値ではない。また、切断である端（その点が
+    `ep_indices` に無い端。スケルトンがそこで交差へ続いていた）から
+    `CUT_END_EXCLUSION_WIDTHS` 以内では、高さの一部は相手の繊維のものである。
+    `imp_tools.remove_bp` が消すのは 3×3 近傍だけで、交差の裾は 1 幅ほど広がる
+    ためである。本物の繊維端はその標本を残す。繊維は実際にそこで終わっている。
+    範囲は線に沿った画素単位の弧長で測るため、ピクセルサイズは要らない。
+
+    When fewer than `MIN_HEIGHT_SAMPLES` samples would remain, the cut-end
+    exclusion is dropped so a short fragment still reports a height; the
+    bridge exclusion stays, and only when nothing is measured at all does the
+    mask fall back to every sample.
+    残る標本が `MIN_HEIGHT_SAMPLES` を下回るときは、短い断片も高さを報告できる
+    よう切断端の除外をやめる。橋渡しの除外は残し、測定済みの標本が 1 つも無い
+    ときだけ全標本に戻す。
+
+    GUI04's height profile draws the excluded samples dashed and reads its
+    median and maximum guide lines from this mask, so the numbers in the table
+    are the numbers the plot shows.
+    GUI04 の高さプロファイルは除外した標本を破線で描き、中央値・最大値の補助線を
+    このマスクで読むため、表の数値はプロットが示す数値と一致する。
+    """
+    n = len(fiber.height)
+    if n == 0:
+        return np.zeros(0, dtype=bool)
+    measured = getattr(fiber, "height_measured", None)
+    measured = (np.ones(n, dtype=bool) if measured is None
+                else np.asarray(measured, dtype=bool))
+    mask = measured.copy()
+
+    width = float(getattr(fiber, "width_px", float("nan")))
+    if np.isfinite(width) and width > 0.0 and n > 1:
+        ends = set(int(i) for i in np.asarray(fiber.ep_indices).tolist())
+        arc = polyline_distance(fiber.xtrack, fiber.ytrack, 1.0)
+        zone = CUT_END_EXCLUSION_WIDTHS * width
+        if 0 not in ends:
+            mask &= ~(arc < zone)
+        if n - 1 not in ends:
+            mask &= ~(arc > arc[-1] - zone)
+
+    if mask.sum() < MIN_HEIGHT_SAMPLES:
+        mask = measured
+        if not mask.any():
+            mask = np.ones(n, dtype=bool)
+    return mask
 
 
 def fiber_kink_angle(stat: FiberStats) -> float:
@@ -958,8 +1130,9 @@ def fiber_kink_density(stat: FiberStats) -> float:
     Returns
     -------
     float
-        Kinks per micrometer, or NaN when the contour length is unusable.
-        1 µm あたりのキンク数。輪郭長が使えない場合は NaN。
+        Kinks per micrometer of judged contour, or NaN when no length was
+        judged.
+        判定した輪郭 1 µm あたりのキンク数。判定した長さが無ければ NaN。
 
     Notes
     -----
@@ -968,12 +1141,34 @@ def fiber_kink_density(stat: FiberStats) -> float:
     長さで正規化することが、長さの異なるファイバーを比較可能にする。素のキンク数
     は長さだけでも増えてしまう。
 
+    The length is the **judged** length, not the contour length: the kink
+    rule does not judge a bend within `END_MARGIN_WIDTHS` of either end of the
+    line (`KinkDetector.kinks_on_line`), so the contour less that margin at
+    each end is the length a kink could have been counted on. Dividing by the
+    whole contour instead biased the density low, and more so on a dense
+    specimen, where most ends are cuts at crossings and the fragments are
+    short. A fiber shorter than twice the margin had nothing judged, so its
+    density is NaN rather than zero. A fiber without a width -- one on the
+    skeleton track, or read from a CSV that predates the column -- keeps the
+    whole contour, which is all its rule left unjudged.
+    分母は輪郭長ではなく**判定した**長さである。キンク規則は線の両端から
+    `END_MARGIN_WIDTHS` 以内の折れを判定しない（`KinkDetector.kinks_on_line`）
+    ため、輪郭から両端のその余白を引いたものが、キンクを数え得た長さである。
+    輪郭全体で割ると密度は低く偏り、端の大半が交差での切断で断片が短い密な
+    試料ほどその偏りは大きかった。余白の 2 倍より短いファイバーは何も判定して
+    いないため、密度は 0 ではなく NaN である。幅を持たないファイバー（スケルトン
+    トラック上のもの、この列より前の CSV から読んだもの）は輪郭全体を使う。その
+    規則が判定しなかった長さは無いからである。
+
     Unlike `fiber_kink_angle`, a fiber with no kink is a valid zero here: zero
-    kinks over a measured length is a real density, not a missing measurement.
+    kinks over a judged length is a real density, not a missing measurement.
     `fiber_kink_angle` と異なり、ここではキンクの無いファイバーは有効な 0 である。
-    計測済みの長さに対してキンク 0 本というのは実在の密度であり、欠測ではない。
+    判定した長さに対してキンク 0 本というのは実在の密度であり、欠測ではない。
     """
     length_um = float(stat.length_nm) / 1000.0
+    width_nm = float(getattr(stat, "width_nm", float("nan")))
+    if np.isfinite(width_nm) and width_nm > 0.0:
+        length_um -= 2.0 * END_MARGIN_WIDTHS * width_nm / 1000.0
     if length_um <= 0.0:
         return float("nan")
     return float(stat.kink_count) / length_um
@@ -1978,20 +2173,31 @@ def read_fiber_csv(path: str) -> List[FiberStats]:
             raise ValueError(f"{path} is empty") from None
 
         columns = [h.strip() for h in header]
-        if columns == list(FIBER_CSV_COLUMNS):
-            expected = FIBER_CSV_COLUMNS
-        elif columns == list(FIBER_CSV_COLUMNS_V1):
-            # A file written before straightness existed; every other column
-            # is unchanged, so it is read with that one field left undefined.
-            # straightness が存在する前に書かれたファイル。他の列は変わって
-            # いないため、その 1 項目だけ未定義として読む。
-            expected = FIBER_CSV_COLUMNS_V1
-        else:
+        # Every earlier column set is a prefix of the current one, so a file
+        # from any release reads with its missing fields left undefined.
+        # 以前の列構成はすべて現在の接頭辞なので、どのリリースのファイルも、無い
+        # 項目を未定義のままにして読める。
+        known = (FIBER_CSV_COLUMNS, FIBER_CSV_COLUMNS_V2, FIBER_CSV_COLUMNS_V1)
+        expected = next((c for c in known if columns == list(c)), None)
+        if expected is None:
             raise ValueError(
                 f"{path} is not a fiber statistics CSV; expected columns "
-                f"{list(FIBER_CSV_COLUMNS)} or {list(FIBER_CSV_COLUMNS_V1)}, "
+                f"{list(FIBER_CSV_COLUMNS)} or an earlier prefix of them, "
                 f"found {header}"
             )
+        col = {name: i for i, name in enumerate(expected)}
+
+        def optional_float(row: List[str], name: str) -> float:
+            i = col.get(name)
+            if i is None or not row[i].strip():
+                return float("nan")
+            return float(row[i])
+
+        def optional_int(row: List[str], name: str, default: int) -> int:
+            i = col.get(name)
+            if i is None or not row[i].strip():
+                return default
+            return int(row[i])
 
         stats: List[FiberStats] = []
         for row_number, row in enumerate(reader, start=2):
@@ -2004,20 +2210,24 @@ def read_fiber_csv(path: str) -> List[FiberStats]:
                 )
             try:
                 angles = tuple(
-                    float(a) for a in row[6].split(";") if a.strip()
+                    float(a) for a in row[col["kink_angles_deg"]].split(";")
+                    if a.strip()
                 )
-                straightness = float("nan")
-                if len(expected) > 7 and row[7].strip():
-                    straightness = float(row[7])
                 stats.append(FiberStats(
-                    index=int(row[0]),
-                    length_nm=float(row[1]),
-                    height_median_nm=float(row[2]),
-                    height_max_nm=float(row[3]),
-                    ep_count=int(row[4]),
-                    kink_count=int(row[5]),
+                    index=int(row[col["index"]]),
+                    length_nm=float(row[col["length_nm"]]),
+                    height_median_nm=float(row[col["height_median_nm"]]),
+                    height_max_nm=float(row[col["height_max_nm"]]),
+                    ep_count=int(row[col["ep_count"]]),
+                    kink_count=int(row[col["kink_count"]]),
                     kink_angles_deg=angles,
-                    straightness=straightness,
+                    straightness=optional_float(row, "straightness"),
+                    height_p90_nm=optional_float(row, "height_p90_nm"),
+                    width_nm=optional_float(row, "apparent_width_nm"),
+                    width_measured=bool(optional_int(row, "width_measured", 0)),
+                    line_reliable_fraction=optional_float(
+                        row, "line_reliable_fraction"),
+                    unjudged_count=optional_int(row, "unjudged_count", 0),
                 ))
             except ValueError as e:
                 raise ValueError(f"{path} line {row_number}: {e}") from e
@@ -2077,6 +2287,13 @@ def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
     エンコーディングは BOM 付き UTF-8（`utf-8-sig`）とし、日本語 Windows の
     Excel で文字化けせずに開けるようにする。
     """
+    def blank_or(value: float, fmt: str) -> str:
+        # An undefined value is an empty cell, never "nan", so a spreadsheet
+        # reads it as missing rather than as a string.
+        # 未定義の値は "nan" ではなく空セルにし、表計算ソフトが文字列ではなく
+        # 欠測として読むようにする。
+        return "" if not np.isfinite(value) else fmt.format(value)
+
     with open(path, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.writer(f)
         writer.writerow(list(FIBER_CSV_COLUMNS))
@@ -2089,7 +2306,12 @@ def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
                 s.ep_count,
                 s.kink_count,
                 ";".join(f"{a:.1f}" for a in s.kink_angles_deg),
-                "" if not np.isfinite(s.straightness) else f"{s.straightness:.4f}",
+                blank_or(s.straightness, "{0:.4f}"),
+                blank_or(s.height_p90_nm, "{0:.3f}"),
+                blank_or(s.width_nm, "{0:.2f}"),
+                int(bool(s.width_measured)),
+                blank_or(s.line_reliable_fraction, "{0:.3f}"),
+                int(s.unjudged_count),
             ])
 
 

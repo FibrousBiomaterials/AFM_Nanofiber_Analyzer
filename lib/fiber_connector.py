@@ -914,20 +914,44 @@ def _build_chain_fiber(
     lxs: List[float] = []
     lys: List[float] = []
     hs: List[float] = []
+    # Per point: whether the line was located on the fragment's own section,
+    # and whether the height is a sample of the image. Bridge points are
+    # neither, so the fibril's height statistics can leave them out.
+    # 点ごとに、線を断片自身の断面で位置決めしたか、高さが画像の標本か。橋渡しの
+    # 点はどちらでもないため、フィブリルの高さ統計はそれを除外できる。
+    rel: List[bool] = []
+    meas: List[bool] = []
     last = len(chain) - 1
+    head_real = tail_real = True
 
     for k, (idx, flip) in enumerate(chain):
         frag = fragments[idx]
         sx, sy = skeleton_track(frag)
+        n_frag = len(sx)
         fx = list(sx + frag.data[0])
         fy = list(sy + frag.data[1])
         flx = list(np.asarray(frag.xtrack) + frag.data[0])
         fly = list(np.asarray(frag.ytrack) + frag.data[1])
+        fr = frag.line_reliable
+        fr = list(np.ones(n_frag, dtype=bool) if fr is None else np.asarray(fr, dtype=bool))
+        fm = frag.height_measured
+        fm = list(np.ones(n_frag, dtype=bool) if fm is None else np.asarray(fm, dtype=bool))
+        ends = set(int(i) for i in np.asarray(frag.ep_indices).tolist())
         if flip:
             fx.reverse()
             fy.reverse()
             flx.reverse()
             fly.reverse()
+            fr.reverse()
+            fm.reverse()
+        # The fibril's outer ends are real fiber ends only where the fragments
+        # they come from ended at a skeleton endpoint rather than at a cut.
+        # フィブリルの外側の端が本物の繊維端なのは、元になった断片が切断ではなく
+        # スケルトンの端点で終わっていた場合だけである。
+        if k == 0:
+            head_real = (n_frag - 1 if flip else 0) in ends
+        if k == last:
+            tail_real = (0 if flip else n_frag - 1) in ends
         if on_centerline:
             # Heights along the fragment's own line, as it was measured alone.
             # 断片単独で計測したときと同じ、その断片自身の線に沿った高さ。
@@ -954,9 +978,11 @@ def _build_chain_fiber(
         if head_trim:
             fx, fy, fh = fx[head_trim:], fy[head_trim:], fh[head_trim:]
             flx, fly = flx[head_trim:], fly[head_trim:]
+            fr, fm = fr[head_trim:], fm[head_trim:]
         if tail_trim:
             fx, fy, fh = fx[:-tail_trim], fy[:-tail_trim], fh[:-tail_trim]
             flx, fly = flx[:-tail_trim], fly[:-tail_trim]
+            fr, fm = fr[:-tail_trim], fm[:-tail_trim]
 
         if xs:
             # Average endpoint heights to bridge smoothly across the gap, then
@@ -984,17 +1010,24 @@ def _build_chain_fiber(
                 else:
                     lys.extend(bridge_y)
                     lxs.extend(bridge_x)
-                hs.extend(np.linspace(tail_avg, head_avg, num=num_points).tolist()[1:-1])
+                bridge_h = np.linspace(tail_avg, head_avg, num=num_points).tolist()[1:-1]
+                hs.extend(bridge_h)
+                rel.extend([False] * len(bridge_h))
+                meas.extend([False] * len(bridge_h))
 
         xs.extend(fx)
         ys.extend(fy)
         lxs.extend(flx)
         lys.extend(fly)
         hs.extend(fh)
+        rel.extend(fr)
+        meas.extend(fm)
 
     return _rebuild_connected_fiber(
         image, detector, lxs, lys, hs, size_per_pixel, y_size_per_pixel,
         pixel_x=xs, pixel_y=ys,
+        line_reliable=rel, height_measured=meas,
+        end_is_real=(head_real, tail_real),
     )
 
 
@@ -1383,6 +1416,9 @@ def _rebuild_connected_fiber(
     y_size_per_pixel: Optional[float],
     pixel_x: Optional[List] = None,
     pixel_y: Optional[List] = None,
+    line_reliable: Optional[Sequence[bool]] = None,
+    height_measured: Optional[Sequence[bool]] = None,
+    end_is_real: Tuple[bool, bool] = (True, True),
 ) -> Fiber:
     """
     Rebuild one `Fiber` from a reconnected track and recompute its features.
@@ -1416,6 +1452,20 @@ def _rebuild_connected_fiber(
     ある。``None`` は線がその画素そのものであること（形式 1.1 より古いバンドル）を
     意味する。外接矩形は画素から取り、フィブリルの枠が線の置き方に依存しない
     ようにする。
+
+    ``line_reliable`` and ``height_measured`` are the per-point flags of
+    `Fiber`, index-aligned with the line; ``None`` leaves the field unset.
+    ``end_is_real`` says whether the first and the last point are real fiber
+    ends (skeleton endpoints) rather than cuts, which is what `ep_indices`
+    records: a fibril whose outer fragment ended at a crossing is still cut
+    there, and the height statistics leave the cut zone out
+    (`measure.height_sample_mask`).
+    ``line_reliable`` と ``height_measured`` は `Fiber` の点ごとのフラグで、線と
+    添字が揃っている。``None`` はそのフィールドを未設定のままにする。
+    ``end_is_real`` は先頭点と末尾点が切断ではなく本物の繊維端（スケルトンの
+    端点）かどうかを示し、`ep_indices` はこれを記録する。外側の断片が交差で終わって
+    いたフィブリルは依然としてそこで切断されており、高さ統計はその切断域を除く
+    （`measure.height_sample_mask`）。
     """
     line_x = np.array(current_x)
     line_y = np.array(current_y)
@@ -1456,18 +1506,31 @@ def _rebuild_connected_fiber(
         # skeleton pixels it was docked from, as each fragment's was.
         # 規則はフィブリル自身の見かけ幅で尺度付けする。各断片と同じく、繋ぐ元に
         # なったスケルトン画素の上で読む。
-        width = measure_apparent_width(image.calibrated_image, pix_x, pix_y)
+        width, width_measured = measure_apparent_width(
+            image.calibrated_image, pix_x, pix_y, return_measured=True,
+        )
         kink_indices, kink_angles, unjudged_indices = \
             detector.kinks_on_line(line_x, line_y, width)
         decomposed_point_indices = np.zeros(0, dtype=np.intp)
+        reliable = (None if line_reliable is None
+                    else np.asarray(line_reliable, dtype=bool))
     else:
         kink_indices, kink_angles, decomposed_point_indices = \
             detector.kinks_and_decomposed_from_track(line_x, line_y)
         unjudged_indices = np.zeros(0, dtype=np.intp)
-    # The reconnected path is a single ordered polyline, so its only true
-    # endpoints are the first and last points.
-    # 再結合したパスは単一の順序付き折れ線なので、真の端点は先頭点と末尾点のみ。
-    ep_indices = np.array([0, len(line_x) - 1])
+        width, width_measured = float("nan"), False
+        reliable = None
+    # The reconnected path is a single ordered polyline, so only its first and
+    # last points can be endpoints, and each is one only where the fragment it
+    # came from ended at a skeleton endpoint rather than at a cut.
+    # 再結合したパスは単一の順序付き折れ線なので、端点になり得るのは先頭点と末尾点
+    # だけであり、それぞれ元の断片が切断ではなくスケルトンの端点で終わっていた
+    # 場合に限り端点である。
+    ep_indices = np.array([
+        i for i, real in zip((0, len(line_x) - 1), end_is_real) if real
+    ], dtype=int)
+    measured = (None if height_measured is None
+                else np.asarray(height_measured, dtype=bool))
 
     return Fiber(
         fiber_image, data, xtrack, ytrack, horizon, height,
@@ -1476,6 +1539,8 @@ def _rebuild_connected_fiber(
         skeleton_xtrack=skeleton_xtrack, skeleton_ytrack=skeleton_ytrack,
         centerline=kind,
         unjudged_indices=np.asarray(unjudged_indices, dtype=np.intp),
+        width_px=float(width), width_measured=bool(width_measured),
+        line_reliable=reliable, height_measured=measured,
     )
 
 
@@ -1574,6 +1639,10 @@ def filter_fibers_by_height(
         sx, sy = skeleton_track(fib)
         pix_x = sx + fib.data[0]
         pix_y = sy + fib.data[1]
+        n_points = len(h)
+        ends = set(int(i) for i in np.asarray(fib.ep_indices).tolist())
+        rel = fib.line_reliable
+        meas = fib.height_measured
 
         for start, stop in _contiguous_runs(in_band):
             # A rebuilt fiber needs two real endpoints to form a path; drop
@@ -1591,6 +1660,18 @@ def filter_fibers_by_height(
                         image, detector, xs, ys, hs, spp, spp_y,
                         pixel_x=list(pix_x[start:stop]),
                         pixel_y=list(pix_y[start:stop]),
+                        line_reliable=(None if rel is None
+                                       else list(np.asarray(rel)[start:stop])),
+                        height_measured=(None if meas is None
+                                         else list(np.asarray(meas)[start:stop])),
+                        # A sub-fiber's end is a real fiber end only where it
+                        # is the parent's own real end; a cut the filter made
+                        # is a cut.
+                        # サブファイバーの端が本物の繊維端なのは、それが親自身の
+                        # 本物の端である場合だけである。フィルターが作った切断は
+                        # 切断である。
+                        end_is_real=(start == 0 and 0 in ends,
+                                     stop == n_points and n_points - 1 in ends),
                     )
                 )
             except Exception:

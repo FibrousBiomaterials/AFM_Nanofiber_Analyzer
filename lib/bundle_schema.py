@@ -186,6 +186,48 @@ SCAN_SIZE_SOURCES = ("input_header", "manifest", "manual")
 # 表しているためである。
 SOURCE_REGION_KEY = "source_region"
 
+# vlmeta key holding the apparent widths the kink rule scaled its lengths by
+# (`centerline.measure_apparent_width`): `median_px`, the median over the
+# traced components; `component_count`; `fallback_count`, how many components
+# gave no usable width and were placed with `fallback_px`
+# (`centerline.FALLBACK_WIDTH_PX`) instead. The kink rule is expressed in
+# multiples of the width, so this entry is what says at which physical scale
+# a bundle's kinks were judged -- the width is the probe's broadening as much
+# as the fiber's, and changes with the tip. Optional provenance, like the
+# other keys above: older bundles lack it, and adding it does not bump
+# `BUNDLE_FORMAT_VERSION`, because a reader recomputes the per-fiber widths
+# from the arrays when it traces them.
+# キンク規則が長さを尺度付けした見かけ幅（`centerline.measure_apparent_width`）
+# を保持する vlmeta キー。`median_px` は追跡した成分にわたる中央値、
+# `component_count` は成分数、`fallback_count` は使える幅が得られず代わりに
+# `fallback_px`（`centerline.FALLBACK_WIDTH_PX`）で線を置いた成分数。キンク規則は
+# 幅の倍数で表されるため、この項目がバンドルのキンクをどの物理尺度で判定したかを
+# 示す。幅は繊維の幅であると同時に探針による広がりでもあり、探針が変われば
+# 変わる。上の各キーと同様の任意の来歴情報であり、旧バンドルには無い。追加しても
+# `BUNDLE_FORMAT_VERSION` は上げない。読み取り側は繊維を追跡するときに配列から
+# 繊維ごとの幅を再計算するためである。
+APPARENT_WIDTH_KEY = "apparent_width"
+
+# vlmeta key holding what the pixel-unit settings of the stages amount to in
+# nanometres on this scan (`pipeline.pixel_lengths_nm`): the pixel size per
+# axis, and every `ProcParams` length or area given in pixels, plus the
+# skeleton cleanup's fixed pixel constants, converted with it. The stages are
+# deliberately pixel-based, so the same `_param.json` prunes a 12 px spur on a
+# 2 µm scan (about 23 nm) and on a 10 µm scan (about 117 nm); this entry is
+# what makes that difference visible when two bundles are compared. Derived
+# entirely from `params` and `spatial_calibration`, so it is a convenience
+# record, not a second source of truth. Optional: absent when the scan size
+# was unknown, and older bundles lack it.
+# 各段の画素単位の設定がこの走査で何 nm にあたるかを保持する vlmeta キー
+# （`pipeline.pixel_lengths_nm`）。軸ごとのピクセルサイズと、画素で与える
+# `ProcParams` の長さ・面積のすべて、および骨格クリーニングの固定画素定数を、
+# それで換算したもの。各段は意図的に画素基準なので、同じ `_param.json` でも
+# 12 px のスパーは 2 µm 走査では約 23 nm、10 µm 走査では約 117 nm を刈る。この
+# 項目は、2 つのバンドルを比べるときにその違いを見えるようにする。`params` と
+# `spatial_calibration` から完全に導けるため、便宜的な記録であって第 2 の
+# 真実の源ではない。任意項目で、走査範囲が不明なら無く、旧バンドルにも無い。
+PIXEL_LENGTHS_KEY = "pixel_lengths_nm"
+
 # vlmeta key holding the `ProcParams` dictionary the analysis ran with, the
 # same content as the `<input_stem>_param.json` sidecar. It is provenance for
 # every field but two: a reader that recomputes kink points on a track the

@@ -398,3 +398,62 @@ def test_prebuilt_stages_match_fresh_stages(synthetic_fiber_txt, tmp_path):
     np.testing.assert_allclose(
         fresh.image.calibrated_image, reused.image.calibrated_image
     )
+
+
+def test_vlmeta_records_the_apparent_width(pipeline_result):
+    """
+    Bundle metadata records the scale the kinks were judged at.
+    バンドルのメタデータは、キンクを判定した尺度を記録する。
+
+    Every length of the kink rule is a multiple of the apparent width, so a
+    bundle that did not record it could not say at which physical scale its
+    kinks mean anything.
+    キンク規則の長さはすべて見かけ幅の倍数なので、それを記録しないバンドルは、
+    自身のキンクがどの物理尺度で意味を持つのかを言えない。
+    """
+    from lib.bundle_schema import APPARENT_WIDTH_KEY
+
+    result, _events = pipeline_result
+    summary = load_bundle_meta(result.bundle_path)[APPARENT_WIDTH_KEY]
+    assert summary["component_count"] >= 1
+    assert summary["median_px"] > 0.0
+    assert 0 <= summary["fallback_count"] <= summary["component_count"]
+    assert summary["fallback_px"] > 0.0
+
+
+def test_vlmeta_records_what_the_pixel_settings_amount_to(tmp_path):
+    """
+    With a known scan size the bundle says what each pixel setting is in nm.
+    走査範囲が既知なら、バンドルは各画素設定が何 nm にあたるかを記す。
+
+    The stages are pixel-based on purpose, so the same parameter file prunes
+    a different physical length on every scan size; the record is what makes
+    two bundles comparable on that point.
+    各段は意図的に画素基準なので、同じパラメータファイルでも走査サイズごとに
+    異なる物理長を刈る。この記録が、その点で 2 つのバンドルを比較可能にする。
+    """
+    from lib.bundle_schema import PIXEL_LENGTHS_KEY
+    from lib.pipeline import pixel_lengths_nm
+
+    out_dir = os.path.join(tmp_path, "px")
+    os.makedirs(out_dir)
+    txt = _write_shimadzu_fiber_txt(out_dir, size_x="2.0000um", size_y="2.0000um")
+    result = process_file(txt, FAST_PARAMS, output_dir=out_dir)
+    stored = load_bundle_meta(result.bundle_path)[PIXEL_LENGTHS_KEY]
+    assert stored == result.pixel_lengths_nm
+    rows, cols = result.image.calibrated_image.shape
+    expected = pixel_lengths_nm(FAST_PARAMS, 2000.0 / (cols + 1), 2000.0 / (rows + 1))
+    assert stored == expected
+    assert stored["spur_length_nm"] == pytest.approx(
+        FAST_PARAMS.spur_length * 2000.0 / (cols + 1))
+    assert stored["area_min_nm2"] == pytest.approx(
+        FAST_PARAMS.area_min * (2000.0 / (cols + 1)) * (2000.0 / (rows + 1)))
+
+
+def test_no_pixel_lengths_without_a_scan_size(pipeline_result):
+    """A bundle whose scan size is unknown records no nm equivalents."""
+    from lib.bundle_schema import PIXEL_LENGTHS_KEY
+
+    result, _events = pipeline_result
+    assert result.pixel_lengths_nm is None
+    assert PIXEL_LENGTHS_KEY not in load_bundle_meta(result.bundle_path)

@@ -3361,6 +3361,25 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Report timing only after all outputs and sidecar metadata are written.
         dt_s = f"{result.elapsed_s:.2f}"
         self.ui_queue.put(("log", _("解析完了: %s (%ss)") % (fname, dt_s)))
+        # The stages are pixel-based, so the same settings act at a different
+        # physical scale on every scan size; say what they amounted to here.
+        # 各段は画素基準なので、同じ設定でも走査サイズごとに異なる物理尺度で
+        # 働く。この走査では何 nm にあたったかを知らせる。
+        lengths = getattr(result, "pixel_lengths_nm", None)
+        if lengths:
+            self.ui_queue.put(("log", _(
+                "画素単位の設定の実効値 ({px} nm/px): branch_length {bl} nm, "
+                "spur_length {sl} nm, h_length {hl} nm, area_min {am} nm², "
+                "min_area {ma} nm², max_loop_area {la} nm²"
+            ).format(
+                px=f"{lengths['pixel_size_x_nm']:.2f}",
+                bl=f"{lengths['branch_length_nm']:.0f}",
+                sl=f"{lengths['spur_length_nm']:.0f}",
+                hl=f"{lengths['h_length_nm']:.0f}",
+                am=f"{lengths['area_min_nm2']:.0f}",
+                ma=f"{lengths['min_area_nm2']:.0f}",
+                la=f"{lengths['max_loop_area_nm2']:.0f}",
+            )))
         if iid is not None:
             self.ui_queue.put(("status", (iid, STATUS_ANALYZED, dt_s)))
         self.ui_queue.put(("progress", 1))

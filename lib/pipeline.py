@@ -50,6 +50,7 @@ from .blosc2_io import save_bundle, bundle_has_keys, BUNDLE_EXT
 # バンドルのキー契約と形式バージョンは bundle_schema が管理する。既存の
 # `pipeline.REQUIRED_BUNDLE_KEYS` 利用側が動き続けるよう、ここで再インポートする。
 from .bundle_schema import (
+    APPARENT_WIDTH_KEY, PIXEL_LENGTHS_KEY,
     BUNDLE_FORMAT_VERSION, OPTIONAL_BUNDLE_KEYS, REQUIRED_BUNDLE_KEYS,  # noqa: F401
     SOURCE_REGION_KEY, SPATIAL_CALIBRATION_KEY, make_spatial_calibration,
     validate_bundle,
@@ -57,7 +58,10 @@ from .bundle_schema import (
 from .kink_detector import KinkDetector
 from .processed_image import ProcessedImage
 from .segmenter import Segmenter
-from .skeletonizer import DEFAULT_MAX_LOOP_AREA, DEFAULT_SPUR_LENGTH, Skeletonizer
+from .skeletonizer import (
+    DEFAULT_BORDER_PAD, DEFAULT_HOOK_LENGTH, DEFAULT_MAX_LOOP_AREA,
+    DEFAULT_SPUR_LENGTH, Skeletonizer,
+)
 
 
 @dataclass
@@ -670,12 +674,18 @@ class PipelineResult:
     elapsed_s
         Wall-clock processing time in seconds.
         処理に要した実時間 (秒)。
+    pixel_lengths_nm
+        What the pixel-unit settings amount to in nanometres on this scan
+        (`pixel_lengths_nm`), or ``None`` when the scan size was unknown.
+        画素単位の設定がこの走査で何 nm にあたるか（`pixel_lengths_nm`）。走査
+        範囲が不明なら ``None``。
     """
 
     image: ProcessedImage
     bundle_path: str
     param_path: str
     elapsed_s: float
+    pixel_lengths_nm: Optional[Dict[str, float]] = None
 
 
 def process_file(
@@ -1059,6 +1069,32 @@ def process_file(
             resolved_scan_size[0], resolved_scan_size[1], resolved_scan_source
         )
 
+    # The apparent widths the kink rule scaled its lengths by, so the scale
+    # the stored kinks were judged at is auditable from the bundle (optional
+    # provenance — see APPARENT_WIDTH_KEY in bundle_schema).
+    # キンク規則が長さを尺度付けした見かけ幅。保存されたキンクをどの尺度で判定
+    # したかをバンドルから監査できるようにする（任意の来歴情報。bundle_schema の
+    # APPARENT_WIDTH_KEY を参照）。
+    width_summary = getattr(image, "apparent_width_summary", None)
+    if width_summary is not None:
+        vlmeta[APPARENT_WIDTH_KEY] = dict(width_summary)
+
+    # What the pixel-unit settings amount to in nanometres on this scan. The
+    # pixel size follows `lib.measure`: the recorded scan size over the stored
+    # shape plus the one row and column the calibrator cropped.
+    # 画素単位の設定がこの走査で何 nm にあたるか。ピクセルサイズは `lib.measure`
+    # と同じく、記録した走査範囲を、保存形状に補正器が切り落とした 1 行 1 列を
+    # 足したもので割る。
+    pixel_lengths = None
+    if resolved_scan_size is not None:
+        rows_px, cols_px = np.asarray(image.calibrated_image).shape[:2]
+        pixel_lengths = pixel_lengths_nm(
+            params,
+            resolved_scan_size[0] * 1000.0 / (cols_px + 1),
+            resolved_scan_size[1] * 1000.0 / (rows_px + 1),
+        )
+        vlmeta[PIXEL_LENGTHS_KEY] = pixel_lengths
+
     param_path = param_path_for(stem)
     bundle_path = bundle_path_for(stem)
     bundle_tmp = _temp_sibling_path(bundle_path, suffix=".tmp.b2z")
@@ -1086,4 +1122,73 @@ def process_file(
         bundle_path=bundle_path,
         param_path=param_path,
         elapsed_s=time.time() - t0,
+        pixel_lengths_nm=pixel_lengths,
     )
+
+
+def pixel_lengths_nm(
+    params: ProcParams,
+    x_nm_per_px: float,
+    y_nm_per_px: Optional[float] = None,
+) -> Dict[str, float]:
+    """
+    Convert the pixel-unit stage settings to nanometres for one scan.
+    画素単位の各段の設定を、1 つの走査についてナノメートルへ換算する。
+
+    Parameters
+    ----------
+    params
+        Parameters the analysis ran with.
+        解析に使ったパラメータ。
+    x_nm_per_px
+        Pixel size along X (columns) in nanometres.
+        X（列）方向のピクセルサイズ (nm)。
+    y_nm_per_px
+        Pixel size along Y (rows) in nanometres; ``None`` reuses X.
+        Y（行）方向のピクセルサイズ (nm)。``None`` なら X を流用する。
+
+    Returns
+    -------
+    dict
+        The pixel size per axis, every `ProcParams` length given in pixels
+        as ``<field>_nm`` (measured along X), every area given in pixels as
+        ``<field>_nm2``, and the skeleton cleanup's fixed pixel constants
+        (`skeletonizer.DEFAULT_BORDER_PAD`, `skeletonizer.DEFAULT_HOOK_LENGTH`)
+        the same way.
+        軸ごとのピクセルサイズ、画素で与える `ProcParams` の長さのすべてを
+        ``<field>_nm``（X 方向で換算）として、面積のすべてを ``<field>_nm2``
+        として、および骨格クリーニングの固定画素定数
+        （`skeletonizer.DEFAULT_BORDER_PAD`、`skeletonizer.DEFAULT_HOOK_LENGTH`）
+        を同様に換算したもの。
+
+    Notes
+    -----
+    The stages are deliberately pixel-based (a setting means the same thing
+    whether or not the scan size was recorded), which also means a 12 px spur
+    limit prunes about 23 nm on a 2 µm scan and about 117 nm on a 10 µm one.
+    This record is what lets that be seen: GUI01 logs it and the bundle stores
+    it under `bundle_schema.PIXEL_LENGTHS_KEY`.
+    各段は意図的に画素基準であり（走査範囲の記録の有無によらず設定は同じ意味を
+    持つ）、それは同時に、12 px のスパー上限が 2 µm 走査では約 23 nm、10 µm
+    走査では約 117 nm を刈ることでもある。この記録はそれを見えるようにする。
+    GUI01 がログに出し、バンドルは `bundle_schema.PIXEL_LENGTHS_KEY` に保存する。
+    """
+    x = float(x_nm_per_px)
+    y = x if y_nm_per_px is None else float(y_nm_per_px)
+    area = x * y
+    return {
+        "pixel_size_x_nm": x,
+        "pixel_size_y_nm": y,
+        "savgol_window_nm": float(params.savgol_window) * x,
+        "mask_dilation_nm": float(params.mask_dilation) * x,
+        "tophat_se_size_nm": float(params.tophat_se_size) * x,
+        "wsize_localbin_nm": float(params.wsize_localbin) * x,
+        "area_min_nm2": float(params.area_min) * area,
+        "h_length_nm": float(params.h_length) * x,
+        "branch_length_nm": float(params.branch_length) * x,
+        "min_area_nm2": float(params.min_area) * area,
+        "max_loop_area_nm2": float(params.max_loop_area) * area,
+        "spur_length_nm": float(params.spur_length) * x,
+        "border_pad_nm": float(DEFAULT_BORDER_PAD) * x,
+        "hook_length_nm": float(DEFAULT_HOOK_LENGTH) * x,
+    }

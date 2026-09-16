@@ -974,3 +974,41 @@ def test_gui04_fiber_table_covers_every_gui03_quantity(tk_app):
         assert param not in columns, (
             f"{param} is recorded as deliberately absent but has a column"
         )
+
+
+def test_gui04_fiber_table_reports_width_reliability_and_unjudged(tk_app, tmp_path):
+    """
+    The table says at what scale each fiber was judged and how much of it was
+    located, so a number can be doubted for the right reason.
+    一覧は各ファイバーをどの尺度で判定し、どれだけを位置決めできたかを示し、
+    数値を正しい理由で疑えるようにする。
+    """
+    from lib.measure import measure_bundle
+    from lib.pipeline import ProcParams, process_file
+    from conftest import write_synthetic_fiber_txt
+
+    txt = write_synthetic_fiber_txt(tmp_path)
+    out_dir = os.path.join(tmp_path, "out")
+    os.makedirs(out_dir)
+    bundle = process_file(txt, ProcParams(bg_method="tophat"),
+                          output_dir=out_dir).bundle_path
+    result = measure_bundle(bundle, scale_um=1.92)
+
+    app = tk_app(gui04.App)
+    cols = list(app.fiber_tree.cget("columns"))
+    for heading in ("p90 (nm)", "unjudged", "W (nm)", "reliable"):
+        assert heading in cols, f"the table must carry a {heading!r} column"
+
+    app.current_image = result.image
+    app.current_fibers = result.fibers
+    app._fiber_stats = []
+    app._populate_fiber_table(result.fibers)
+    values = app.fiber_tree.item(app.fiber_tree.get_children("")[0])["values"]
+    stat = result.stats[0]
+    assert stat.width_measured
+    assert float(values[cols.index("W (nm)")]) == pytest.approx(stat.width_nm, abs=0.06)
+    assert float(values[cols.index("reliable")]) == pytest.approx(
+        stat.line_reliable_fraction, abs=0.006)
+    assert float(values[cols.index("p90 (nm)")]) == pytest.approx(
+        stat.height_p90_nm, abs=0.006)
+    assert int(values[cols.index("unjudged")]) == stat.unjudged_count

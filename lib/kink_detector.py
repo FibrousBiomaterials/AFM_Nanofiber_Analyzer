@@ -35,7 +35,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from . import imp_tools
-from .centerline import _smooth_extrapolated, half_max_centerline
+from .centerline import FALLBACK_WIDTH_PX, _smooth_extrapolated, place_centerline
 from .processed_image import ProcessedImage
 
 logger = logging.getLogger(__name__)
@@ -108,7 +108,11 @@ _HEADING_SIGMA_WIDTHS = 0.25
 # かったものとして示せるよう別に返す。代替値は 1.0 W（明瞭なキンクを 1 件も
 # 増やさずに誤検出を 60 件から 75 件に増やした）と 2.0 W（誤検出を 47 件に減らした
 # が、端から 1.5〜2 W の合成コーナーを判定しなくなった）。
-_END_WIDTHS = 1.5
+# Public because `measure.fiber_kink_density` divides by the length that was
+# actually judged, which is the line less this margin at each end.
+# `measure.fiber_kink_density` が実際に判定した長さ（線から両端のこの余白を
+# 引いたもの）で割るため、公開している。
+END_MARGIN_WIDTHS = 1.5
 
 # Two bends closer than this are one bend, and the stronger is kept.
 # Alternatives 0.5 and 1.0 W.
@@ -306,6 +310,12 @@ class KinkDetector:
             all_kink_angles: List[float] = []
             unjudged_point_x: List[int] = []
             unjudged_point_y: List[int] = []
+            # The apparent width of every traced component, so the bundle can
+            # record the scale its kinks were judged at.
+            # 追跡した各成分の見かけ幅。バンドルがキンクを判定した尺度を記録
+            # できるようにする。
+            widths: List[float] = []
+            fallback_count = 0
             for label in range(1, nLabels):
                 x, y, w, h, area = data[label]
                 sub_label = label_image[y:y+h, x:x+w]
@@ -332,12 +342,14 @@ class KinkDetector:
                 # 折れはスケルトン画素ではなく繊維の中心線上で判定する。線は
                 # スケルトン画素ごとに 1 点なので、線上で得たインデックスは下で
                 # スケルトン座標として保存され、読み取り側の特徴点照合と一致する。
-                line_x, line_y, width = half_max_centerline(
+                placed = place_centerline(
                     image.calibrated_image, _xtrack, _ytrack, branch_points,
-                    return_width=True,
                 )
+                widths.append(placed.width_px)
+                if not placed.width_measured:
+                    fallback_count += 1
                 kink_indices, kink_angles, unjudged_indices = self.kinks_on_line(
-                    line_x, line_y, width,
+                    placed.x, placed.y, placed.width_px,
                 )
 
                 # Store per-label arrays for fiber-instance generation.
@@ -362,6 +374,12 @@ class KinkDetector:
             image.decomposed_point_coordinates = (
                 np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.int64),
             )
+            image.apparent_width_summary = {
+                "median_px": float(np.median(widths)) if widths else None,
+                "component_count": len(widths),
+                "fallback_count": fallback_count,
+                "fallback_px": float(FALLBACK_WIDTH_PX),
+            }
 
         except Exception:
             # Log the full traceback before re-raising the original exception
@@ -463,10 +481,10 @@ class KinkDetector:
         大きい方を残す。
 
         A bend whose centre lies within 1.5 W of an end is returned in
-        ``unjudged_indices`` instead of being judged (see `_END_WIDTHS`), and
-        nothing is measured where the window does not fit on the line.
+        ``unjudged_indices`` instead of being judged (see `END_MARGIN_WIDTHS`),
+        and nothing is measured where the window does not fit on the line.
         端から 1.5 W 以内に中心がある折れは、判定せずに ``unjudged_indices`` で
-        返す（`_END_WIDTHS` 参照）。窓が線に収まらない位置では何も測らない。
+        返す（`END_MARGIN_WIDTHS` 参照）。窓が線に収まらない位置では何も測らない。
 
         The value reported is the excess, not the whole turning, because it is
         the part of the bend the fiber's curvature does not account for; on a
@@ -559,7 +577,7 @@ class KinkDetector:
             if all(abs(p - q) > radius for _, q in kept):
                 kept.append((excess, p))
 
-        margin = _END_WIDTHS * width
+        margin = END_MARGIN_WIDTHS * width
         kinks: List[Tuple[int, float]] = []
         unjudged: List[int] = []
         taken = set()

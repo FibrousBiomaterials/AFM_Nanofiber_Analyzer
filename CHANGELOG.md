@@ -67,6 +67,49 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   each fiber's line, reconnected fibrils included, instead of the bundle's
   copy at skeleton-pixel corners.
 
+- A fiber's height is the crest of its cross-section, and height statistics
+  and kink density are taken over what was actually measured and judged.
+  **Median and maximum heights, kink densities and endpoint counts change
+  from this version**; contour lengths, kinks and their angles do not.
+
+  `Fiber.height` is now the maximum of each height cross-section
+  (`centerline.CenterlineResult.crest`) instead of the image interpolated at
+  the line: the line sits at the half-maximum midpoint, which on an asymmetric
+  section lies beside the top, and bilinear interpolation cannot reach a peak
+  between pixel centres, so heights read low. The median, maximum and new 90th
+  percentile (`height_p90_nm`) leave out the last width at an end that is a
+  cut at a crossing rather than a fiber end — `remove_bp` clears only a 3×3
+  neighbourhood, while the other fiber's skirt extends about a width — and
+  the bridges the fiber connector interpolates (`measure.height_sample_mask`);
+  GUI04's height profile draws the excluded samples dashed and reads its
+  median and maximum guide lines from the same samples as the table. Kink
+  density divides by the judged length, the contour less 1.5 W at each end,
+  because the rule judges nothing closer to an end; a fiber shorter than 3 W
+  now shows a blank density instead of 0. A reconnected fibril's endpoint
+  count reports its real fiber ends: an outer fragment that ended at a
+  crossing is still a cut there, where it was always counted as an end.
+
+  Each fiber now carries the apparent width W its kink rule was scaled by
+  and whether that width was measured or the 8 px fallback was substituted
+  (`Fiber.width_px`, `Fiber.width_measured`), the per-point reliability of
+  its line (`Fiber.line_reliable`), and which height samples are measured
+  rather than interpolated (`Fiber.height_measured`). The fiber table gains
+  `p90 (nm)`, `unjudged`, `W (nm)` (blank when the fallback was used) and
+  `reliable` columns; the fiber CSV appends `height_p90_nm`,
+  `apparent_width_nm`, `width_measured`, `line_reliable_fraction` and
+  `unjudged_count`, and still reads the two earlier column sets. GUI04 logs the
+  image's median W and how many fibers used the fallback, and the bundle
+  records the same summary under the optional vlmeta key `apparent_width`
+  (`bundle_schema.APPARENT_WIDTH_KEY`; the format version is unchanged).
+
+  When the scan size is known, the bundle also records what every pixel-unit
+  setting amounted to in nanometres on that scan, under the optional vlmeta
+  key `pixel_lengths_nm` (`pipeline.pixel_lengths_nm`), and GUI01 logs the
+  main ones after each file. The stages are pixel-based on purpose, so the
+  same parameter file prunes a 12 px spur of about 23 nm on a 2 µm scan and
+  about 117 nm on a 10 µm one; the record makes that visible when bundles of
+  different scan sizes are compared. No analysis result changes.
+
 ### Fixed
 
 - `Segmenter._remove_nonlinear_objects` now judges each component on its own

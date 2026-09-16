@@ -389,13 +389,23 @@ CSV 経路があるのは、自動フィルターでは密なネットワーク�
 `.b2z` バンドルを読み込み、追跡済み `Fiber` オブジェクトを再構築し、個別
 ファイバーの確認、図の出力、ファイバー統計量の CSV 出力を行います。
 
-ファイバー一覧には、各ファイバーの長さ、高さの中央値・最大値、`straightness`、
-`curvature`、端点数・キンク数、`kink density` が並びます。これらは GUI03 が
-ヒストグラム化するのと同じ値で、同じ `lib.measure` の関数で計算し、対象の
+ファイバー一覧には、各ファイバーの長さ、高さの中央値・最大値・90 パーセンタイル、
+`straightness`、`curvature`、端点数・キンク数、`kink density`、測ったが判定しな
+かった折れの数（`unjudged`）、キンク規則を尺度付けした見かけ幅 `W`、ファイバーの
+線のうち実際に繊維上で位置決めできた割合（`reliable`）が並びます。これらは GUI03
+がヒストグラム化するのと同じ値で、同じ `lib.measure` の関数で計算し、対象の
 ファイバーの隣に表示します。集約された分布からは個々の値が正しいかを判断できない
 ためです。行を選ぶと全体像でそのファイバーが強調されるので、数値を実際の形状と
 照合できます。一覧は横スクロールするため、全体像を圧迫せずに全ての列へ到達
 できます。
+
+高さは線の位置で読んだ画像値ではなく各高さ断面の頂点であり、中央値・最大値・
+90 パーセンタイルは、繊維端ではなく交差での切断である端の最後の 1 幅と、連結器が
+補間した橋渡しを除いて取ります。高さプロファイルはそれらの標本を破線で描きます。
+`kink density` は判定した長さ、すなわち輪郭から両端の 1.5 幅（キンク規則が何も
+判定しない範囲）を引いた長さで割るため、判定できないほど短いファイバーは 0 では
+なく空欄になります。`W` が空欄のファイバーは、断面から使える幅が得られず固定の
+代替値を使ったもので、その本数はログに出ます。
 
 図示できる計測量のうち `kink angle` だけは列を持ちません。セルが持てる数値は
 1 つですが、1 本のファイバー上の複数のキンクは、高さ画素のように 1 つのファイバー
@@ -406,7 +416,7 @@ CSV 経路があるのは、自動フィルターでは密なネットワーク�
 
 曲率のセルは空欄になることがあります。曲率窓より短いファイバーには曲率が無く、
 0 と表示すると完全な直線と読まれてしまうためです。一方でキンク密度の 0 は空欄に
-しません。計測済みの輪郭長に対するキンク 0 本は実在の計測値だからです。曲率窓が
+しません。判定済みの輪郭長に対するキンク 0 本は実在の計測値だからです。曲率窓が
 除外した本数はログに出ます。窓の値は `lib.measure` の既定値であり、GUI03 の
 既定値と同一です。
 
@@ -661,7 +671,10 @@ python cli.py heights results --output heights.csv
 
 `measure` はバンドル 1 件につき `<stem>_fibers.csv` を 1 つ書き出します。列は
 `index`、`length_nm`、`height_median_nm`、`height_max_nm`、`ep_count`、
-`kink_count`、`kink_angles_deg`（セミコロン区切りの度数値）です。`heights` は
+`kink_count`、`kink_angles_deg`（セミコロン区切りの度数値）、`straightness`、
+`height_p90_nm`、`apparent_width_nm`、`width_measured`（幅を繊維から読めたとき
+1、代替値を使ったとき 0）、`line_reliable_fraction`、`unjudged_count` です。
+以前の列構成も読み戻せます。`heights` は
 バンドルごとの要約を表示し、`--output` を付けると縦持ち形式の CSV
 （`bundle`、`height_nm`）を書き出して、外部ツールでの再グループ化・再ビニング
 に利用できます。フォルダを引数に渡すと、フォルダ直下の全バンドルに展開され
@@ -767,9 +780,12 @@ GUI01 は次の配列キーを書き込みます。
 | `created_utc` | 処理日時（ISO 8601、UTC）。 |
 | `input_format` | 入力の解釈方法。テキスト入力は `kind`、`skiprows`、`n_cols`、`encoding`、ネイティブ `.gwy` は `kind="gwy"` と選択チャンネルの id、タイトル、値軸単位を記録。 |
 | `spatial_calibration` | 物理スキャンサイズ。`scan_size_x_um`、`scan_size_y_um`、`source`（`input_header` / `manifest` / `manual`）。スキャンサイズが判明している場合のみ存在します。 |
+| `apparent_width` | キンク規則が長さを尺度付けした見かけ幅 W。追跡した成分にわたる `median_px`、`component_count`、および成分の断面から幅が得られず固定値を代用した `fallback_count` と `fallback_px`。バンドルのキンクを判定した物理尺度です。 |
+| `pixel_lengths_nm` | 画素単位の各設定がこの走査で何 nm にあたるか（`pixel_size_x_nm`、`pixel_size_y_nm`、`spur_length_nm`、`area_min_nm2` など）。`params` と `spatial_calibration` から導出され、スキャンサイズが判明している場合のみ存在します。 |
 
 来歴キー（`software_version`、`input_file`、`input_sha256`、`created_utc`、
-`input_format`、`spatial_calibration`）は任意です。旧リリースが書いたバンドル
+`input_format`、`spatial_calibration`、`apparent_width`、`pixel_lengths_nm`）は
+任意です。旧リリースが書いたバンドル
 には存在しないため、読み取り側は必須として扱わないでください。
 `spatial_calibration` が存在する場合、`measure` と GUI04 はスケールの既定値を
 その記録値とするため、ファイバー長がバンドル単体で再現できます。

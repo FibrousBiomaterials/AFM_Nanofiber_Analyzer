@@ -28,9 +28,8 @@ from . import imp_tools
 from .centerline import (
     HALF_MAX_CENTERLINE,
     SKELETON_TRACK,
-    half_max_centerline,
+    place_centerline,
     polyline_distance,
-    sample_height,
 )
 from .fiber import Fiber
 
@@ -134,17 +133,25 @@ def _build_fiber(
         # スケルトンはどの画素がこの繊維か・その順序を決め、線そのものは高さの
         # 上に置く。線はスケルトン画素ごとに 1 点なので、下の特徴点照合は
         # 引き続きスケルトン座標で一致する。
-        line_x, line_y = half_max_centerline(
+        placed = place_centerline(
             cal, xtrack_prcimg, ytrack_prcimg, branch_points,
         )
-        xtrack = line_x - x
-        ytrack = line_y - y
+        xtrack = placed.x - x
+        ytrack = placed.y - y
         horizon = polyline_distance(
             xtrack, ytrack, size_per_pixel, y_size_per_pixel,
         )
-        height = sample_height(cal, line_x, line_y)
+        # The fiber's height is the crest of each cross-section, not the
+        # image interpolated at the line: the line sits at the half-maximum
+        # midpoint, which on an asymmetric section lies beside the top.
+        # 繊維の高さは各断面の頂点であり、線の位置で補間した画像値ではない。
+        # 線は半値中点にあり、非対称な断面では頂部の脇に来る。
+        height = placed.crest
         skeleton_xtrack = xtrack_prcimg - x
         skeleton_ytrack = ytrack_prcimg - y
+        width_px = placed.width_px
+        width_measured = placed.width_measured
+        line_reliable = placed.reliable
     else:
         xtrack = xtrack_prcimg - x
         ytrack = ytrack_prcimg - y
@@ -153,6 +160,9 @@ def _build_fiber(
         )
         height = cal[ytrack_prcimg, xtrack_prcimg]
         skeleton_xtrack = skeleton_ytrack = None
+        width_px = float("nan")
+        width_measured = False
+        line_reliable = None
 
     # Linear scan keeps index alignment with the xtrack/ytrack arrays, so all
     # feature indices come out in track order for downstream consistency.
@@ -186,6 +196,8 @@ def _build_fiber(
         skeleton_xtrack=skeleton_xtrack, skeleton_ytrack=skeleton_ytrack,
         centerline=centerline,
         unjudged_indices=np.array(unjudged_indices, dtype=np.intp),
+        width_px=width_px, width_measured=width_measured,
+        line_reliable=line_reliable,
     )
 
 

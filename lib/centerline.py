@@ -74,6 +74,7 @@ This module depends only on NumPy, because `lib.fiber_connector`,
 """
 
 # ===== Standard library =====
+from dataclasses import dataclass
 from typing import Optional, Tuple, Union
 
 # ===== Numerical / scientific libraries =====
@@ -110,11 +111,26 @@ _WIDTH_TANGENT_HALF = 3
 # Fallback apparent width, in pixels, when the height profile gives no usable
 # half-maximum run (a flat or saturated neighbourhood). The bundled scans
 # measure 7.5 to 10 px across, so this is their middle rather than an invented
-# number.
+# number. It is a pixel count, so a fiber placed with it is not scaled by its
+# own width the way every other fiber is; `place_centerline` reports the
+# substitution (`CenterlineResult.width_measured`) so the fiber can be flagged
+# rather than measured as if its width were known.
 # 高さプロファイルから使える半値区間が得られない場合（平坦または飽和した近傍）の
 # 見かけ幅の代替値（画素）。同梱スキャンの実測幅は 7.5〜10 px であり、この値は
-# 恣意的な数ではなくその中央にあたる。
-_FALLBACK_WIDTH_PX = 8.0
+# 恣意的な数ではなくその中央にあたる。画素数なので、この値で線を置いた繊維は他の
+# 繊維のように自身の幅で尺度付けされていない。`place_centerline` はその代用を
+# 報告し（`CenterlineResult.width_measured`）、幅が既知であるかのように計測する
+# のではなく、繊維に印を付けられるようにする。
+FALLBACK_WIDTH_PX = 8.0
+
+# Half-window, in apparent widths, on either side of a line point within which
+# the crest height is read where the cross-section could not be resolved. A
+# resolved section reports the maximum it climbed to; an interpolated point has
+# no section of its own, so the height nearest its line is the best available.
+# 断面を決められなかった点で頂点高さを読む、線の点の両側の片側窓幅（見かけ幅
+# 単位）。決められた断面は登り着いた最大値を報告する。補間された点は自身の断面を
+# 持たないため、その線に最も近い高さが得られる最善である。
+_CREST_WINDOW_WIDTHS = 0.25
 
 # Smoothing scale of the frame, in apparent widths: a smoothed copy of the
 # track that supplies only the direction each point may move in and the base
@@ -300,7 +316,8 @@ def measure_apparent_width(
     height: NDArray,
     xtrack: NDArray,
     ytrack: NDArray,
-) -> float:
+    return_measured: bool = False,
+) -> Union[float, Tuple[float, bool]]:
     """
     Apparent full width at half maximum of the fiber under a track, in pixels.
     トラック下の繊維の見かけ半値全幅（画素）。
@@ -313,12 +330,20 @@ def measure_apparent_width(
     xtrack, ytrack
         Ordered track coordinates in image pixels.
         画像座標系での順序付きトラック座標。
+    return_measured
+        Also return whether the width was read from the profiles, or is the
+        `FALLBACK_WIDTH_PX` substituted when too few sections gave a usable
+        half-maximum run.
+        幅がプロファイルから読めたか、使える半値区間を持つ断面が少なすぎて
+        `FALLBACK_WIDTH_PX` を代用したかも返す。
 
     Returns
     -------
-    float
-        Median apparent width in pixels, never below 2.
-        見かけ幅の中央値（画素）。2 を下回ることはない。
+    float or tuple
+        Median apparent width in pixels, never below 2; with
+        `return_measured`, ``(width, measured)``.
+        見かけ幅の中央値（画素）。2 を下回ることはない。`return_measured` を
+        指定すると ``(width, measured)``。
 
     Notes
     -----
@@ -344,7 +369,7 @@ def measure_apparent_width(
     x = np.asarray(xtrack, dtype=np.float64)
     y = np.asarray(ytrack, dtype=np.float64)
     if x.size < 2 or height is None:
-        return _FALLBACK_WIDTH_PX
+        return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
 
     tx, ty = _unit_tangents(x, y, _WIDTH_TANGENT_HALF)
     nx, ny = -ty, tx
@@ -383,11 +408,11 @@ def measure_apparent_width(
         usable[i] = lo > 0 and hi < offsets.size - 1
 
     if usable.sum() < max(1, x.size // 2):
-        return _FALLBACK_WIDTH_PX
+        return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
     width = float(np.median(widths[usable]))
     if not np.isfinite(width) or width < 2.0:
-        return _FALLBACK_WIDTH_PX
-    return width
+        return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
+    return (width, True) if return_measured else width
 
 
 def _smooth_extrapolated(values: NDArray, sigma: float) -> NDArray:
@@ -542,11 +567,43 @@ def refine_centerline(
     ため、欠落区間は線形に橋渡しされ、信頼できない端は隣の信頼できる部分の
     オフセットを保つ。
     """
+    lx, ly, reliable, _crest = _refine(height, xtrack, ytrack, width_px, branch_points)
+    return lx, ly, reliable
+
+
+def _refine(
+    height: Optional[NDArray],
+    xtrack: NDArray,
+    ytrack: NDArray,
+    width_px: float,
+    branch_points: Optional[NDArray],
+) -> Tuple[NDArray, NDArray, NDArray, NDArray]:
+    """
+    Place the line and read the crest height at each of its points.
+    線を置き、その各点で頂点高さを読む。
+
+    Returns ``(x, y, reliable, crest)``: the three values of
+    `refine_centerline` and, per point, the **crest height** -- the maximum of
+    the cross-section the point was resolved on, or, where the section could
+    not locate this fiber and the point was interpolated, the maximum within
+    `_CREST_WINDOW_WIDTHS` of the line point along its normal. The crest is
+    what a fiber's height means: the line itself sits at the half-maximum
+    midpoint, which on an asymmetric section is beside the top rather than on
+    it, so a height read at the line by interpolation is biased low.
+    ``(x, y, reliable, crest)`` を返す。`refine_centerline` の 3 つの値と、点ごとの
+    **頂点高さ**である。頂点高さは、その点を決めた断面の最大値、または断面がこの
+    繊維の位置を決められず点が補間された場合は、線の点から法線に沿って
+    `_CREST_WINDOW_WIDTHS` 以内の最大値である。繊維の高さが意味するのは頂点高さで
+    ある。線そのものは半値中点にあり、非対称な断面では頂部の上ではなく脇に来る
+    ため、線の位置で補間して読んだ高さは低く偏る。
+    """
     x = np.asarray(xtrack, dtype=np.float64)
     y = np.asarray(ytrack, dtype=np.float64)
     n = x.size
     if n < 3 or height is None:
-        return x.copy(), y.copy(), np.zeros(n, dtype=bool)
+        crest = (np.full(n, np.nan) if height is None
+                 else sample_height(height, x, y))
+        return x.copy(), y.copy(), np.zeros(n, dtype=bool), crest
     img = np.asarray(height, dtype=np.float64)
     width = float(width_px)
     mean_step = max(float(np.hypot(np.diff(x), np.diff(y)).mean()), 1e-9)
@@ -640,7 +697,136 @@ def refine_centerline(
 
     lam = (_OFFSET_SMOOTH_WIDTHS * width / mean_step) ** 2
     lateral = np.clip(_whittaker_first_order(offset, weight, lam), -reach, reach)
-    return fx + nx * lateral, fy + ny * lateral, weight > 0.0
+    reliable = weight > 0.0
+
+    # Crest height: the maximum of the section a reliable point was resolved
+    # on; for an interpolated point, the maximum within a quarter width of the
+    # line point. The sampled span always covers that window, because the
+    # lateral offset is clipped to the crest reach inside it.
+    # 頂点高さ。信頼できる点はそれを決めた断面の最大値、補間された点は線の点から
+    # 1/4 幅以内の最大値。横方向オフセットはこの範囲内の頂点到達距離にクリップ
+    # されるため、サンプリング範囲は常にその窓を覆う。
+    near = np.abs(s[None, :] - lateral[:, None]) <= _CREST_WINDOW_WIDTHS * width
+    crest_near = np.where(near, prof, -np.inf).max(1)
+    line_x = fx + nx * lateral
+    line_y = fy + ny * lateral
+    # The profile is sampled every quarter pixel, so the height at the line
+    # point itself can exceed the sampled maximum by a sliver; taking the
+    # larger keeps "never below the height at the line" exact.
+    # プロファイルは 1/4 画素ごとの標本なので、線の点そのものの高さが標本の
+    # 最大値をわずかに上回ることがある。大きい方を取り、「線の位置の高さを
+    # 下回らない」を厳密に保つ。
+    at_line = _bilinear(img, line_y, line_x)
+    crest_near = np.where(np.isfinite(crest_near), crest_near, at_line)
+    crest = np.maximum(np.where(reliable, peak, crest_near), at_line)
+    return line_x, line_y, reliable, crest.astype(np.float64)
+
+
+@dataclass(frozen=True)
+class CenterlineResult:
+    """
+    The line placed on one traced skeleton track, with what placing it found.
+    追跡済みスケルトントラック 1 本の上に置いた線と、置く過程でわかったこと。
+
+    Attributes
+    ----------
+    x, y
+        Line coordinates in image pixels, one per track point, in track order.
+        画像座標系での線の座標。トラック点ごとに 1 点、トラック順。
+    width_px
+        Apparent width W in pixels the line was placed with, which the kink
+        rule of `lib.kink_detector` scales every length by.
+        線を置くのに使った見かけ幅 W（画素）。`lib.kink_detector` のキンク規則は
+        すべての長さをこれで尺度付けする。
+    width_measured
+        Whether `width_px` was read from the fiber's own cross-sections.
+        ``False`` means `FALLBACK_WIDTH_PX` was substituted, so the fiber's
+        rule lengths are a pixel count rather than multiples of its width.
+        `width_px` が繊維自身の断面から読めたかどうか。``False`` は
+        `FALLBACK_WIDTH_PX` を代用したことを意味し、その繊維の規則の長さは幅の
+        倍数ではなく画素数になっている。
+    reliable
+        Per point, whether the position was measured on this fiber's own
+        cross-section (``True``) or interpolated from the reliable points
+        around it. An interpolated run is straight, so no kink and no
+        curvature can be found on it; the fraction of reliable points is how
+        much of the fiber was actually located.
+        点ごとに、位置をこの繊維自身の断面で測ったか（``True``）、周囲の信頼
+        できる点から補間したか。補間区間は直線なので、そこにキンクも曲率も見つ
+        からない。信頼できる点の割合が、繊維のどれだけを実際に位置決めできたかを
+        表す。
+    crest
+        Crest height per point in the units of the height image: the maximum
+        of the resolved cross-section, or the maximum within a quarter width
+        of an interpolated point. This is the fiber's height; the line itself
+        sits at the half-maximum midpoint, beside the top on an asymmetric
+        section.
+        点ごとの頂点高さ（高さ画像の単位）。決められた断面の最大値、または補間
+        された点から 1/4 幅以内の最大値。これが繊維の高さである。線そのものは
+        半値中点にあり、非対称な断面では頂部の脇に来る。
+    """
+
+    x: NDArray
+    y: NDArray
+    width_px: float
+    width_measured: bool
+    reliable: NDArray
+    crest: NDArray
+
+
+def place_centerline(
+    height: Optional[NDArray],
+    xtrack: NDArray,
+    ytrack: NDArray,
+    branch_points: Optional[NDArray] = None,
+) -> CenterlineResult:
+    """
+    Place the half-maximum centerline of one traced skeleton track.
+    追跡済みスケルトントラック 1 本の半値中点線を置く。
+
+    Parameters
+    ----------
+    height
+        Background-corrected height image in the frame of the track.
+        ``None`` returns the track itself as floats, with the fallback width,
+        no reliable point and no crest.
+        トラックと同じ座標系の背景補正済み高さ画像。``None`` ならトラック自体を
+        浮動小数で返し、幅は代替値、信頼できる点は無し、頂点高さも無しとする。
+    xtrack, ytrack
+        Ordered skeleton track in image pixels.
+        画像座標系での順序付きスケルトントラック。
+    branch_points
+        Branch-point mask in the same frame, or ``None``.
+        同じ座標系の分岐点マスク。無ければ ``None``。
+
+    Returns
+    -------
+    CenterlineResult
+        The line, the width it was placed with and whether that width was
+        measured, the per-point reliability and the crest heights.
+        線、置くのに使った幅とそれが測定値かどうか、点ごとの信頼性、頂点高さ。
+
+    Notes
+    -----
+    GUI01's kink detection and the fiber tracer that rebuilds fibers when a
+    bundle is opened both call this, so the kinks stored in a bundle and the
+    line they are drawn on come from one computation on the same inputs.
+    `half_max_centerline` is the same computation returning only the line.
+    GUI01 のキンク判定と、バンドルを開いたときに繊維を組み立て直す追跡処理の
+    両方がこれを呼ぶ。そのため、バンドルに保存されたキンクと、それを描く線は、
+    同じ入力に対する 1 つの計算から来る。`half_max_centerline` は同じ計算で線だけ
+    を返すものである。
+    """
+    x = np.asarray(xtrack, dtype=np.float64)
+    y = np.asarray(ytrack, dtype=np.float64)
+    if height is None:
+        return CenterlineResult(
+            x.copy(), y.copy(), FALLBACK_WIDTH_PX, False,
+            np.zeros(x.size, dtype=bool), np.full(x.size, np.nan),
+        )
+    width, measured = measure_apparent_width(height, x, y, return_measured=True)
+    lx, ly, reliable, crest = _refine(height, x, y, width, branch_points)
+    return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 
 
 def half_max_centerline(
@@ -684,19 +870,12 @@ def half_max_centerline(
 
     Notes
     -----
-    GUI01's kink detection and the fiber tracer that rebuilds fibers when a
-    bundle is opened both call this, so the kinks stored in a bundle and the
-    line they are drawn on come from one computation on the same inputs.
-    GUI01 のキンク判定と、バンドルを開いたときに繊維を組み立て直す追跡処理の
-    両方がこれを呼ぶ。そのため、バンドルに保存されたキンクと、それを描く線は、
-    同じ入力に対する 1 つの計算から来る。
+    The line-only form of `place_centerline`, which also reports the width's
+    provenance, the per-point reliability and the crest heights.
+    `place_centerline` の線だけを返す形。`place_centerline` は幅の出所、点ごとの
+    信頼性、頂点高さも報告する。
     """
-    x = np.asarray(xtrack, dtype=np.float64)
-    y = np.asarray(ytrack, dtype=np.float64)
-    if height is None or x.size < 3:
-        width = (_FALLBACK_WIDTH_PX if height is None
-                 else measure_apparent_width(height, x, y))
-        return (x.copy(), y.copy(), width) if return_width else (x.copy(), y.copy())
-    width = measure_apparent_width(height, x, y)
-    lx, ly, _reliable = refine_centerline(height, x, y, width, branch_points)
-    return (lx, ly, width) if return_width else (lx, ly)
+    placed = place_centerline(height, xtrack, ytrack, branch_points)
+    if return_width:
+        return placed.x, placed.y, placed.width_px
+    return placed.x, placed.y

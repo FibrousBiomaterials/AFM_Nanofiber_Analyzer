@@ -1235,3 +1235,184 @@ def test_isolated_fiber_flags_match_endpoint_count_without_connection(measured):
     _bundle_path, result = measured
     flags = isolated_fiber_flags(result.image, result.fibers)
     assert flags == [s.ep_count == 2 for s in result.stats]
+
+
+def _flagged_fiber(n=40, width_px=4.0, ends=(0, 39), bridge=()):
+    """
+    Straight fiber along x with the fields `height_sample_mask` reads.
+    `height_sample_mask` が読むフィールドを持つ、x 方向の直線ファイバー。
+    """
+    measured = np.ones(n, dtype=bool)
+    for i in bridge:
+        measured[i] = False
+    return Fiber(
+        fiber_image=np.zeros((1, n)), data=(0, 0, n, 1, n),
+        xtrack=np.arange(n, dtype=float), ytrack=np.zeros(n),
+        horizon=np.arange(n, dtype=float) * 10.0,
+        height=np.linspace(1.0, 2.0, n),
+        kink_indices=np.array([], dtype=int),
+        ep_indices=np.array(ends, dtype=int),
+        kink_angles=np.array([]), decomposed_point_indices=np.array([]),
+        width_px=width_px, width_measured=True,
+        height_measured=measured,
+    )
+
+
+def test_height_sample_mask_excludes_cut_ends_and_bridges():
+    """
+    The last width at a cut end and the connector's bridges do not count.
+    切断端の最後の 1 幅と連結器の橋渡しは数えない。
+
+    A cut end is one whose point is not a skeleton endpoint: the skeleton went
+    on into a crossing there, where the height is partly the other fiber's.
+    A real end keeps its samples, because the fiber genuinely ends there.
+    切断端とは、その点がスケルトンの端点でない端である。スケルトンはそこで交差へ
+    続いており、高さは一部が相手の繊維のものである。本物の端は標本を残す。繊維は
+    実際にそこで終わっている。
+    """
+    from lib.measure import height_sample_mask
+
+    mask = height_sample_mask(_flagged_fiber(ends=(39,), bridge=(20, 21, 22)))
+    assert not mask[:4].any(), "the last width at the cut head is excluded"
+    assert mask[4:20].all()
+    assert not mask[20:23].any(), "bridge samples are not measurements"
+    assert mask[23:].all(), "a real end keeps its samples"
+
+    both_real = height_sample_mask(_flagged_fiber(ends=(0, 39)))
+    assert both_real.all()
+
+    both_cut = height_sample_mask(_flagged_fiber(ends=()))
+    assert not both_cut[:4].any() and not both_cut[36:].any()
+    assert both_cut[4:36].all()
+
+
+def test_height_sample_mask_keeps_a_short_fragment_measurable():
+    """
+    A fragment shorter than its exclusion zones still reports a height.
+    除外域より短い断片も高さを報告する。
+
+    Dropping the cut-end exclusion is the fallback; the bridge exclusion
+    stays, because a bridge is not a measurement at any length.
+    切断端の除外をやめるのが退避である。橋渡しの除外は残る。橋渡しはどの長さでも
+    測定値ではないからである。
+    """
+    from lib.measure import height_sample_mask
+
+    short = _flagged_fiber(n=6, ends=(), bridge=(2,))
+    mask = height_sample_mask(short)
+    assert mask.sum() == 5 and not mask[2]
+
+
+def test_kink_density_uses_the_judged_length():
+    """
+    Kinks are counted per micrometer of judged contour, not of contour.
+    キンク数は輪郭ではなく判定した輪郭 1 µm あたりで数える。
+
+    The rule judges nothing within 1.5 W of an end, so a 2000 nm fiber of
+    W = 100 nm was judged over 1700 nm; a fiber shorter than 3 W was judged
+    nowhere and has no density, not a density of zero.
+    規則は端から 1.5 W 以内を判定しないので、W = 100 nm の 2000 nm のファイバーは
+    1700 nm について判定されている。3 W より短いファイバーはどこも判定されて
+    おらず、密度は 0 ではなく無い。
+    """
+    judged = FiberStats(
+        index=0, length_nm=2000.0, height_median_nm=1.0, height_max_nm=2.0,
+        ep_count=2, kink_count=3, kink_angles_deg=(100.0,) * 3,
+        straightness=0.9, width_nm=100.0, width_measured=True,
+    )
+    assert fiber_kink_density(judged) == pytest.approx(3.0 / 1.7)
+
+    too_short = FiberStats(
+        index=1, length_nm=250.0, height_median_nm=1.0, height_max_nm=2.0,
+        ep_count=2, kink_count=0, kink_angles_deg=(),
+        straightness=1.0, width_nm=100.0, width_measured=True,
+    )
+    assert np.isnan(fiber_kink_density(too_short))
+
+    # Without a width -- the skeleton track, or an older CSV -- the whole
+    # contour is the judged length, as before.
+    # 幅が無ければ（スケルトントラック、古い CSV）従来どおり輪郭全体が判定長。
+    unknown = FiberStats(
+        index=2, length_nm=250.0, height_median_nm=1.0, height_max_nm=2.0,
+        ep_count=2, kink_count=1, kink_angles_deg=(100.0,), straightness=1.0,
+    )
+    assert fiber_kink_density(unknown) == pytest.approx(4.0)
+
+
+def test_stats_carry_width_reliability_and_percentile(measured):
+    """
+    A measured fiber reports its W, how much of it was located, and a p90
+    that cannot exceed its maximum.
+    計測したファイバーは、自身の W、位置決めできた割合、最大値を超えない p90 を
+    報告する。
+    """
+    _bundle_path, result = measured
+    for stat in result.stats:
+        assert stat.width_measured
+        assert stat.width_nm > 0.0
+        assert 0.0 < stat.line_reliable_fraction <= 1.0
+        assert stat.height_p90_nm <= stat.height_max_nm + 1e-9
+        assert stat.height_median_nm <= stat.height_p90_nm + 1e-9
+        assert stat.unjudged_count >= 0
+
+
+def test_fiber_height_is_the_crest_of_the_cross_section(measured):
+    """
+    A fiber's height never falls below the image interpolated at its line.
+    ファイバーの高さが、線の位置で補間した画像値を下回ることはない。
+
+    The line sits at the half-maximum midpoint, beside the top of an
+    asymmetric section; the height reported is the top.
+    線は半値中点にあり、非対称な断面では頂部の脇にある。報告する高さは頂部である。
+    """
+    from lib.centerline import sample_height
+
+    _bundle_path, result = measured
+    cal = result.image.calibrated_image
+    for fiber in result.fibers:
+        at_line = sample_height(
+            cal, fiber.xtrack + fiber.data[0], fiber.ytrack + fiber.data[1])
+        assert np.all(fiber.height >= at_line - 1e-6)
+        assert fiber.line_reliable is not None
+        assert fiber.line_reliable.shape == fiber.xtrack.shape
+
+
+def test_fiber_csv_round_trips_the_provenance_columns(measured, tmp_path):
+    """The new columns survive a write and a read."""
+    _bundle_path, result = measured
+    path = os.path.join(tmp_path, "sample_fibers.csv")
+    write_fiber_csv(path, result.stats)
+    for original, restored in zip(result.stats, read_fiber_csv(path)):
+        assert restored.height_p90_nm == pytest.approx(original.height_p90_nm, abs=0.0005)
+        assert restored.width_nm == pytest.approx(original.width_nm, abs=0.005)
+        assert restored.width_measured == original.width_measured
+        assert restored.line_reliable_fraction == pytest.approx(
+            original.line_reliable_fraction, abs=0.0005)
+        assert restored.unjudged_count == original.unjudged_count
+
+
+def test_read_fiber_csv_accepts_the_development_column_set(measured, tmp_path):
+    """
+    A CSV with the straightness column but none of the later ones still reads.
+    straightness 列はあるが後の列が無い CSV も読める。
+    """
+    from lib.measure import FIBER_CSV_COLUMNS_V2
+
+    _bundle_path, result = measured
+    path = os.path.join(tmp_path, "v2_fibers.csv")
+    with open(path, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        writer.writerow(list(FIBER_CSV_COLUMNS_V2))
+        for s in result.stats:
+            writer.writerow([
+                s.index, f"{s.length_nm:.1f}", f"{s.height_median_nm:.3f}",
+                f"{s.height_max_nm:.3f}", s.ep_count, s.kink_count,
+                ";".join(f"{a:.1f}" for a in s.kink_angles_deg),
+                f"{s.straightness:.4f}",
+            ])
+    restored = read_fiber_csv(path)
+    assert len(restored) == len(result.stats)
+    assert all(np.isfinite(s.straightness) for s in restored)
+    assert all(np.isnan(s.width_nm) and not s.width_measured for s in restored)
+    assert all(np.isnan(s.height_p90_nm) for s in restored)
+    assert all(s.unjudged_count == 0 for s in restored)

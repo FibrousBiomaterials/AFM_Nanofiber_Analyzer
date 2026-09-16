@@ -419,14 +419,26 @@ holds scans, and where the table's median and IQR are the output to read.
 Load `.b2z` bundles, rebuild tracked `Fiber` objects, inspect individual
 fibers, export plots, and export fiber statistics to CSV.
 
-The fiber table lists length, median and maximum height, `straightness`,
-`curvature`, endpoint and kink counts, and `kink density` for each fiber.
-Those values are the same ones GUI03 histograms, computed by the same
-`lib.measure` functions and shown here beside the fiber they describe, because
-a pooled distribution gives no way to tell whether an individual value is
-right. Select a row and the overview highlights that fiber, so a number can be
-read against the shape it came from. The table scrolls horizontally, which
-keeps every column reachable without squeezing the overview.
+The fiber table lists length, median, maximum and 90th-percentile height,
+`straightness`, `curvature`, endpoint and kink counts, `kink density`, the
+number of bends measured but not judged (`unjudged`), the apparent width `W`
+the kink rule was scaled by, and the fraction of the fiber's line that was
+actually located on the fiber (`reliable`), for each fiber. Those values are
+the same ones GUI03 histograms, computed by the same `lib.measure` functions
+and shown here beside the fiber they describe, because a pooled distribution
+gives no way to tell whether an individual value is right. Select a row and
+the overview highlights that fiber, so a number can be read against the shape
+it came from. The table scrolls horizontally, which keeps every column
+reachable without squeezing the overview.
+
+Heights are the crest of each height cross-section, not the image read at the
+line, and the median, maximum and 90th percentile leave out the last width of
+an end that is a cut at a crossing rather than a fiber end, and any bridge the
+fiber connector interpolated; the height profile draws those samples dashed.
+`kink density` divides by the judged length — the contour less 1.5 widths at
+each end, where the kink rule judges nothing — so a fiber too short to judge
+shows a blank cell rather than 0. A blank `W` cell means the fiber's sections
+gave no usable width and the fixed fallback was used; the log says how many.
 
 `kink angle` is the one plotted quantity with no column. A cell holds one
 number, but the kinks along a fiber are distinct defect events rather than
@@ -438,7 +450,7 @@ column.
 
 A curvature cell can be blank: a fiber shorter than the curvature window has no
 curvature, and showing 0 would read as perfectly straight. A kink density of 0
-is not blank, because zero kinks over a measured contour length is a real
+is not blank, because zero kinks over a judged contour length is a real
 measurement. The log reports how many fibers the curvature window excluded.
 That window is the `lib.measure` default, which is also GUI03's default.
 
@@ -707,7 +719,10 @@ python cli.py heights results --output heights.csv
 
 `measure` writes one `<stem>_fibers.csv` per bundle with columns `index`,
 `length_nm`, `height_median_nm`, `height_max_nm`, `ep_count`, `kink_count`,
-and `kink_angles_deg` (semicolon-separated degrees). `heights` prints a
+`kink_angles_deg` (semicolon-separated degrees), `straightness`,
+`height_p90_nm`, `apparent_width_nm`, `width_measured` (1 when the width was
+read from the fiber, 0 when the fallback was used), `line_reliable_fraction`,
+and `unjudged_count`. Earlier column sets are read back. `heights` prints a
 per-bundle summary and optionally writes a long-format CSV (`bundle`,
 `height_nm`) for regrouping and re-binning in external tools. Folder
 arguments expand to all bundles directly inside the folder.
@@ -814,9 +829,12 @@ Each bundle also stores root metadata (blosc2 `vlmeta`):
 | `created_utc` | Processing time as an ISO 8601 UTC timestamp. |
 | `input_format` | Input interpretation. Text inputs record `kind`, `skiprows`, `n_cols`, and `encoding`; native `.gwy` inputs record `kind="gwy"` plus the selected channel id, title, and value-axis unit. |
 | `spatial_calibration` | Physical scan size: `scan_size_x_um`, `scan_size_y_um`, and `source` (`input_header`, `manifest`, or `manual`). Present only when the scan size is known. |
+| `apparent_width` | The apparent width W the kink rule scaled its lengths by: `median_px` over the traced components, `component_count`, and `fallback_count` with `fallback_px`, the fixed width substituted where a component's sections gave none. This is the physical scale the bundle's kinks were judged at. |
+| `pixel_lengths_nm` | What each pixel-unit setting amounted to in nanometres on this scan (`pixel_size_x_nm`, `pixel_size_y_nm`, `spur_length_nm`, `area_min_nm2`, …). Derived from `params` and `spatial_calibration`; present only when the scan size is known. |
 
 The provenance keys (`software_version`, `input_file`, `input_sha256`,
-`created_utc`, `input_format`, `spatial_calibration`) are optional: bundles
+`created_utc`, `input_format`, `spatial_calibration`, `apparent_width`,
+`pixel_lengths_nm`) are optional: bundles
 written by older releases lack them, and readers must not require them. When
 `spatial_calibration` is present, `measure` and GUI04 default the scale to its
 recorded value, so fiber lengths are reproducible from the bundle alone.

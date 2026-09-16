@@ -74,6 +74,15 @@ class ProcessedImage:
         of a track end, where it does not judge them, keyed by label.
         連結成分ラベルごとの、トラック端から見かけ幅 1.5 本分以内にあるため
         キンク規則が判定しない折れのインデックス。
+    apparent_width_summary
+        Image-level record of the apparent widths the kink rule scaled its
+        lengths by: the median over traced components in pixels, how many
+        components there were, and how many fell back to the default width
+        (see `bundle_schema.APPARENT_WIDTH_KEY`). ``None`` until kink
+        detection has run.
+        キンク規則が長さを尺度付けした見かけ幅の画像単位の記録。追跡した成分に
+        わたる中央値（画素）、成分数、既定幅へ退避した成分数
+        （`bundle_schema.APPARENT_WIDTH_KEY` 参照）。キンク検出が走るまで ``None``。
     """
 
     def __init__(
@@ -133,3 +142,4 @@ class ProcessedImage:
         self.kink_angles_by_label:  dict[int, np.ndarray] = {}
         self.decomposed_indices_by_label: dict[int, np.ndarray] = {}
         self.unjudged_indices_by_label: dict[int, np.ndarray] = {}
+        self.apparent_width_summary: Optional[dict] = None

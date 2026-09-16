@@ -649,6 +649,32 @@ kinks judged on the line be stored at skeleton pixels in the bundle, and what
 lets exclusions and connections keep referring to skeleton pixels while
 everything drawn and measured uses the line.
 
+**What placing the line also reports.** `centerline.place_centerline` returns
+the line together with three things the numbers built on it depend on, as a
+`centerline.CenterlineResult`:
+
+- **$W$ and whether it was measured.** Every length of the kink rule is a
+  multiple of $W$, and $W$ is the probe's broadening as much as the fiber's,
+  so $W$ is the physical scale a fiber's kinks were judged at. When too few
+  sections give a usable half-maximum run, `centerline.FALLBACK_WIDTH_PX`
+  (8 px) is substituted; that is a pixel count, not a multiple of the fiber's
+  width, so the substitution is reported rather than hidden. Each fiber
+  carries its $W$ (`Fiber.width_px`, `Fiber.width_measured`) into the fiber
+  table and the CSV, and the bundle records the image's median $W$ and how
+  many components used the fallback (`bundle_schema.APPARENT_WIDTH_KEY`).
+- **Which points were located.** A point interpolated under step 4 lies on a
+  straight run, so no kink and no curvature can be found there. The per-point
+  flag (`Fiber.line_reliable`) reaches the table and the CSV as the fraction
+  of the line that was actually located on the fiber.
+- **The crest height.** The fiber's height at each point is the **maximum of
+  its cross-section** (`CenterlineResult.crest`), not the image interpolated
+  at the line: the line sits at the half-maximum midpoint, which on an
+  asymmetric section lies beside the top rather than on it, and bilinear
+  interpolation cannot reach a peak that falls between pixel centres. Where
+  the section could not be resolved, the maximum within $W/4$ of the
+  interpolated point is used instead. `Fiber.height`, the height profile, and
+  every height statistic read this crest.
+
 **Why a quarter width.** The smoothing sets how close two features may lie
 before the line averages them into one. At half a width the line rounded
 corners that lie close together: on synthetic scans with known corners (2 nm
@@ -842,14 +868,32 @@ without re-analysing an image:
   curvature, kink density — lives in `lib/measure.py`, shared by GUI03, GUI04,
   and `cli.py measure`. It reads every fiber along the line of §4.2, which
   `fiber_tracking_image.FiberTrackingImage` rebuilds from the stored skeleton
-  and heights when a bundle is opened.
+  and heights when a bundle is opened. Two of its definitions follow from the
+  stages above rather than from the line alone. Height statistics are taken
+  over the crest heights of §4.2, leaving out the last $W$ at an end that is a
+  cut rather than a fiber end (`measure.height_sample_mask`): §4.1 clears only
+  a 3×3 neighbourhood around a branch point, while the other fiber's skirt at
+  a crossing extends about a width past it, so those samples are partly the
+  other fiber's height — the median barely notices, the maximum reads the
+  crossing. Bridges the fiber connector interpolates are left out for the
+  same reason. And kink density (`measure.fiber_kink_density`) divides by the
+  **judged** length, the contour less $1.5\,W$ at each end, because §4.4
+  judges nothing closer to an end than that; dividing by the whole contour
+  read low, and more so on a dense specimen, where most ends are cuts and the
+  fragments are short.
 - **Reconnecting fragments** split at crossings lives in
   `lib/fiber_connector.py`, and only GUI04 runs the search; other readers apply
   the chains that search recorded.
 - **Manual exclusions** live in `lib/fiber_selection.py`.
 - **The pixel size** enters only at measurement time. Every stage above is
   pixel-based, which is why a stage parameter means the same thing regardless
-  of whether the scan size was recorded.
+  of whether the scan size was recorded. The other side of that choice is that
+  the same parameter file acts at a different physical scale on every scan
+  size — a 12 px spur limit prunes about 23 nm on a 2 µm scan and about
+  117 nm on a 10 µm one — so when the scan size is known the bundle records
+  what each pixel setting amounted to in nanometres
+  (`bundle_schema.PIXEL_LENGTHS_KEY`, from `pipeline.pixel_lengths_nm`) and
+  GUI01 logs it, which is what makes two bundles comparable on that point.
 
 ## 6. Reproducing a result
 

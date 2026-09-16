@@ -101,6 +101,37 @@ class Fiber:
         線の端から見かけ幅 1.5 本分以内でキンク規則が測った折れのインデックス列。
         そこでは片側の繊維が短すぎ、キンクと端そのものの形を区別できない。描画は
         するがキンクとしては数えない。形式 1.1 より古いバンドルでは空。
+    width_px
+        Apparent width W (px) the line was placed with and the kink rule was
+        scaled by (`centerline.CenterlineResult.width_px`). NaN for a fiber
+        on the skeleton track, whose rule used no width.
+        線を置きキンク規則を尺度付けした見かけ幅 W（画素）
+        （`centerline.CenterlineResult.width_px`）。規則が幅を使わないスケルトン
+        トラック上の繊維では NaN。
+    width_measured
+        Whether `width_px` was read from this fiber's own cross-sections.
+        ``False`` means the fallback width was substituted, so this fiber's
+        rule lengths are a pixel count rather than multiples of its width.
+        `width_px` がこの繊維自身の断面から読めたかどうか。``False`` は代替幅を
+        代用したことを意味し、この繊維の規則の長さは幅の倍数ではなく画素数である。
+    line_reliable
+        Per line point, whether its position was measured on this fiber's own
+        cross-section or interpolated from the reliable points around it
+        (`centerline.CenterlineResult.reliable`). An interpolated run is
+        straight, so no kink or curvature can be found on it. ``None`` on the
+        skeleton track.
+        線の点ごとに、位置をこの繊維自身の断面で測ったか、周囲の信頼できる点から
+        補間したか（`centerline.CenterlineResult.reliable`）。補間区間は直線
+        なので、そこにキンクも曲率も見つからない。スケルトントラック上では
+        ``None``。
+    height_measured
+        Per line point, whether `height` is a sample of the image (``True``)
+        or a value the fiber connector interpolated across a bridge between
+        two fragments. ``None`` means every sample was measured. Height
+        statistics exclude the interpolated samples (`measure.height_sample_mask`).
+        線の点ごとに、`height` が画像の標本か（``True``）、連結器が 2 断片の
+        橋渡し部で補間した値か。``None`` はすべての標本が測定値であることを意味
+        する。高さ統計は補間した標本を除く（`measure.height_sample_mask`）。
     """
 
     fiber_image: np.ndarray
@@ -118,6 +149,10 @@ class Fiber:
     centerline: str = SKELETON_TRACK
     unjudged_indices: np.ndarray = field(
         default_factory=lambda: np.zeros(0, dtype=np.intp))
+    width_px: float = float("nan")
+    width_measured: bool = False
+    line_reliable: Optional[np.ndarray] = None
+    height_measured: Optional[np.ndarray] = None
 
     @property
     def length(self) -> float:

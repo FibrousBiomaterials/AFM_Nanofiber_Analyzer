@@ -416,3 +416,40 @@ def test_the_synthetic_fixture_is_not_empty(synthetic_bundle):
     """The fixture scan has to yield fibers for the tests above to mean anything."""
     assert os.path.exists(synthetic_bundle)
     assert len(measure.measure_bundle(synthetic_bundle).fibers) >= 2
+
+
+def test_place_centerline_reports_width_reliability_and_crest():
+    """
+    Placing the line also reports W, whether W was measured, the reliable
+    points, and the crest height, which is the section maximum.
+    線を置くと、W、W が測定値か、信頼できる点、断面最大値である頂点高さも報告する。
+
+    The crest is what a fiber's height means; a height interpolated at the
+    line reads low wherever the line is beside the top, so the crest may never
+    fall below that sample.
+    頂点高さが繊維の高さの意味である。線の位置で補間した高さは線が頂部の脇にある
+    ところで低く読むので、頂点高さがその標本を下回ることはあってはならない。
+    """
+    from lib.centerline import FALLBACK_WIDTH_PX, place_centerline, sample_height
+
+    height = _ridge(5.0, FWHM, 0.0)
+    x, y = _track(1.5)
+    placed = place_centerline(height, x, y)
+
+    assert placed.width_measured
+    assert abs(placed.width_px - FWHM) < 1.5
+    assert placed.reliable.shape == x.shape and placed.reliable.mean() > 0.8
+    assert placed.crest.shape == x.shape
+    at_line = sample_height(height, placed.x, placed.y)
+    assert np.all(placed.crest >= at_line - 0.05)
+    # On a Gaussian ridge of amplitude 5 the crest is the ridge top itself.
+    # 振幅 5 のガウス稜線では、頂点高さは稜線の頂部そのものである。
+    assert np.all(placed.crest[placed.reliable] > 4.85)
+
+    # A flat image gives no half-maximum run, so the width is the fallback
+    # and is reported as such rather than as a measurement.
+    # 平坦な画像には半値区間が無いので、幅は代替値であり、測定値ではなくそのように
+    # 報告される。
+    flat = place_centerline(np.zeros(SHAPE), x, y)
+    assert not flat.width_measured
+    assert flat.width_px == FALLBACK_WIDTH_PX
