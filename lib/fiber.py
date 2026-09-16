@@ -132,6 +132,14 @@ class Fiber:
         線の点ごとに、`height` が画像の標本か（``True``）、連結器が 2 断片の
         橋渡し部で補間した値か。``None`` はすべての標本が測定値であることを意味
         する。高さ統計は補間した標本を除く（`measure.height_sample_mask`）。
+    kink_excess
+        Excess turning (radians) each kink was judged by, index-aligned with
+        `kink_angles` (bundle key ``ke``). `kink_angles` is the geometry, the
+        angle between the arms; this is the quantity the rule tested. Empty
+        for a bundle without the key (format 1.0).
+        各キンクを判定した超過回転（ラジアン）。`kink_angles` と添字が揃う
+        （バンドルキー ``ke``）。`kink_angles` は幾何、すなわち腕のなす角であり、
+        こちらは規則が検定した量。このキーを持たないバンドル（形式 1.0）では空。
     """
 
     fiber_image: np.ndarray
@@ -153,6 +161,8 @@ class Fiber:
     width_measured: bool = False
     line_reliable: Optional[np.ndarray] = None
     height_measured: Optional[np.ndarray] = None
+    kink_excess: np.ndarray = field(
+        default_factory=lambda: np.zeros(0, dtype=np.float64))
 
     @property
     def length(self) -> float:

@@ -994,6 +994,7 @@ def process_file(
         "dp":           np.stack([dp_x, dp_y]).astype(np.int64),  # Empty since format 1.1; shape (2, 0).
         "ka":           image.all_kink_angles,           # Kink angles in radians.
         "up":           np.stack([up_x, up_y]).astype(np.int64),  # Bends not judged next to a track end, shape (2, N).
+        "ke":           np.asarray(image.all_kink_excess, dtype=np.float64),  # Excess turning each kink was judged by, radians, shape (N,).
     }
 
     # Optionally bundle the raw original AFM height image. When included,

@@ -804,7 +804,8 @@ GUI01 writes these array keys:
 | `ep` | `(H, W)` | Endpoint mask on the skeleton (nonzero = endpoint). |
 | `kp` | `(2, N)` | Kink-point pixel coordinates; see the convention below. |
 | `dp` | `(2, M)` | Polyline vertices the kink rule of format 1.0 judged kinks at; written empty (`M` = 0) from format 1.1, whose rule does not decompose the line. |
-| `ka` | `(N,)` | Kink interior angles in radians, one per `kp` column: 180° minus the turning the bend adds to the fiber's own curvature (see `docs/algorithms.md`, §4.3). |
+| `ka` | `(N,)` | Kink interior angles in radians, one per `kp` column: the angle between the two arms read beside the bend, beyond the half width the probe rounds the apex over (see `docs/algorithms.md`, §4.3). |
+| `ke` | `(N,)` | Excess turning each kink was judged by, in radians, one per `kp` column: the turning within ±0.75 W beyond what the fiber's own curvature on the flanks accounts for. Written from format 1.1. |
 | `up` | `(2, K)` | Bends the kink rule measured within 1.5 apparent fiber widths of a fiber end, where it does not judge them; see the convention below. GUI04 draws them as grey hollow circles and never counts them. Written from format 1.1. |
 | `original` | `(H+1, W+1)` | Raw height image in nm; present only when saving the original was requested. |
 

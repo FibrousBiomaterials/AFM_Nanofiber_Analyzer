@@ -67,6 +67,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   each fiber's line, reconnected fibrils included, instead of the bundle's
   copy at skeleton-pixel corners.
 
+- A kink's angle is read from the arms beside the bend, and the excess
+  turning it was judged by is stored with it. **Kink angles change from this
+  version**; kink positions and counts do not.
+
+  `ka` holds the interior angle between the two arms beside each bend
+  (`KinkDetector.judge_line`), read from the heading one width long starting
+  half a width beyond the apex and cut short at the next bend, rather than
+  180° minus the excess turning, which reads low on sharp corners because the
+  probe rounds the apex: on synthetic corners with a 10 nm probe the median
+  angle error fell from 7.5° to 1.9° at an apparent width of 5.5 px. The
+  excess is written to the new optional key `ke`, one value per kink, so the
+  quantity the rule tested still travels with the arrays; `Fiber.kink_excess`
+  carries it and `KinkJudgement` returns it. Both belong to bundle format
+  1.1, which this release introduces.
+
+  A per-line noise floor for the excess (`kink_detector.NOISE_SIGMAS`) was
+  implemented and evaluated against the visual reference and a synthetic
+  width-by-noise sweep (`scripts/kink_reference_score.py`,
+  `scripts/kink_rule_sweep.py`), and ships off: it removed clear kinks at
+  about half the rate it removed false detections, which on the bundled scans
+  are rounded bends and tangles rather than noise. The sweep also records
+  where the rule applies: from an apparent width of about 3 px upward; a
+  fiber 2 px wide cannot have its width measured and yields no kink.
+
 - A fiber's height is the crest of its cross-section, and height statistics
   and kink density are taken over what was actually measured and judged.
   **Median and maximum heights, kink densities and endpoint counts change

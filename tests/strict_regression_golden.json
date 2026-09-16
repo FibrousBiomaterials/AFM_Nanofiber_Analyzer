@@ -42,7 +42,14 @@
     },
     "spline1d::ka": {
       "dtype": "float64",
-      "sha256": "33f75768923fc3b2ef4b8a52880e6d1254aee4a6ab58ac1d5ee242409279ef49",
+      "sha256": "cb32396ffd0b98736337b72b6ce8c89f71de836d5f7a526a5daec0ae9777c79f",
+      "shape": [
+        5
+      ]
+    },
+    "spline1d::ke": {
+      "dtype": "float64",
+      "sha256": "1acfd8ab328cf6fdbd8b5b13c827346ab9837c2529b503a74a4c26d8b96fbda0",
       "shape": [
         5
       ]
@@ -113,7 +120,14 @@
     },
     "tophat::ka": {
       "dtype": "float64",
-      "sha256": "88732854dd5bb7931dde704387f0bbf4b67617eeeb6c94c051161d3ec713fc9d",
+      "sha256": "1d613edc88137dd43b9632ad5352d4e57518b55ec1af333edaefde0f004d3fbb",
+      "shape": [
+        7
+      ]
+    },
+    "tophat::ke": {
+      "dtype": "float64",
+      "sha256": "d5a4269e6cbd21b351361b8ecd516a853b7d4934b24cd864e5e68fb37ce65f95",
       "shape": [
         7
       ]
@@ -184,7 +198,14 @@
     },
     "trendfill::ka": {
       "dtype": "float64",
-      "sha256": "8783807d5da55fe1ea6b79eb98f1f6153fdccb92c1dda2820962caaf22b08168",
+      "sha256": "7a1c732b0551d4561a5cb2885a10e19107ecda2ad5209e99815ea35f1aba3abb",
+      "shape": [
+        5
+      ]
+    },
+    "trendfill::ke": {
+      "dtype": "float64",
+      "sha256": "108afd88bb7437badcd19a2ab91dfb4737c2c184c9aada25a5dd65bd8c9f97b4",
       "shape": [
         5
       ]
@@ -257,7 +278,14 @@
     },
     "spline1d::ka": {
       "dtype": "float64",
-      "sha256": "c571c5b0172063da61b9b449f1466ba913e5a770e7fbc1b1a5271b584d91b1d2",
+      "sha256": "ec49e11b9b199c33749fe897ac40867ec37ce77fee1f020db7db8c08a7e5bff1",
+      "shape": [
+        75
+      ]
+    },
+    "spline1d::ke": {
+      "dtype": "float64",
+      "sha256": "d440a162fd8472570df5262be7cf128f68bb4f971a5abf215dee365630f51f7d",
       "shape": [
         75
       ]
@@ -328,7 +356,14 @@
     },
     "tophat::ka": {
       "dtype": "float64",
-      "sha256": "6d1e7b9910a4bf03ac9a9783088acd0f1d3271815691899662fdef3142256b13",
+      "sha256": "98fc767c1341577c3fde517a78090d17e6d0f7cd3a7071920ea0cc9824059676",
+      "shape": [
+        73
+      ]
+    },
+    "tophat::ke": {
+      "dtype": "float64",
+      "sha256": "a266fdd7ab5d69524fd08f8f0521bb26863b9d3ebe96f608c9f2b73c28977625",
       "shape": [
         73
       ]
@@ -399,7 +434,14 @@
     },
     "trendfill::ka": {
       "dtype": "float64",
-      "sha256": "4a86707924d672e7cb8fae091abf388fc7e3a6ad721fe8415a7780dc574d5e5b",
+      "sha256": "2950f876371e9a8119978569b1358294d579eb3304808683d2f062d530e84941",
+      "shape": [
+        72
+      ]
+    },
+    "trendfill::ke": {
+      "dtype": "float64",
+      "sha256": "5cf61a35004bd9633322f9372cc43c5ff0a25fdde8a168bb2ee1d8714d15a79e",
       "shape": [
         72
       ]

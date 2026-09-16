@@ -4,7 +4,7 @@
     "lib/bg_calibrator.py": "e3f0956b64ecfbca511d4d3032c48c958c76821a3f4a31d54b07dcd554bf191f",
     "lib/segmenter.py": "8ea8bf4aa11f964b5602681e2928a29014e88711e192bc1ab46e2ee42ddc2817",
     "lib/skeletonizer.py": "9be60b10b4a2916c51eb91793395dc037b36dd8c2e088a30af3571bac26073ef",
-    "lib/kink_detector.py": "f2a40e34190d74b44ebd77a250c5f621d75bb95800b83eded51e0dda1a3ccb83",
+    "lib/kink_detector.py": "c527773880388cdfe674d7ee713c422f18d8e4c084b21a1f052588c8c2539e01",
     "lib/centerline.py": "1ee0cbaeefc4bf20f33ad23110c5323fbe0bbf9ba15a1ec55d9f05f8b0c3ab00"
   }
 }

@@ -99,7 +99,7 @@ from . import imp_tools
 # 追跡用の読み込みで、存在すれば読む任意バンドルキー
 # （`bundle_schema.OPTIONAL_BUNDLE_KEYS`）。トラック端のそばで判定しなかった
 # 折れで、形式 1.1 より古いバンドルには無い。
-_TRACKING_OPTIONAL_KEYS = ("up",)
+_TRACKING_OPTIONAL_KEYS = ("up", "ke")
 
 # Chebyshev distance in pixels within which a track pixel counts as touching a
 # branch point. `imp_tools.remove_bp` clears a 3x3 neighborhood around each
@@ -1295,6 +1295,9 @@ def _tracking_image_from_arrays(
     image.decomposed_point_coordinates = dp
     image.unjudged_point_coordinates = up
     image.all_kink_angles = ka
+    # The excess turning each kink was judged by; absent from a 1.0 bundle.
+    # 各キンクを判定した超過回転。1.0 のバンドルには無い。
+    image.all_kink_excess = data.get("ke")
     image.kink_angle_deg, image.kink_decompose_px = kink_params_from_meta(meta)
     # The line fibers are built on follows the rule the stored kinks were
     # judged by, so an older bundle keeps its skeleton track until it is

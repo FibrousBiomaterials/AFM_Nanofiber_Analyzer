@@ -77,7 +77,7 @@ BG_METHODS = ("trendfill", "tophat", "spline1d")
 # 解析出力すべて）に一致する。
 ARRAY_KEYS = (
     "calibrated", "binarized", "skeletonized",
-    "bp", "ep", "kp", "dp", "ka", "up",
+    "bp", "ep", "kp", "dp", "ka", "up", "ke",
 )
 
 
@@ -150,6 +150,7 @@ def _pipeline_signatures(txt_path: str) -> dict:
                 "dp":           np.stack([np.asarray(dx), np.asarray(dy)]),
                 "ka":           np.asarray(image.all_kink_angles),
                 "up":           np.stack([np.asarray(ux), np.asarray(uy)]),
+                "ke":           np.asarray(image.all_kink_excess),
             }
             for key in ARRAY_KEYS:
                 sigs[f"{method}::{key}"] = _hash_array(arrays[key])

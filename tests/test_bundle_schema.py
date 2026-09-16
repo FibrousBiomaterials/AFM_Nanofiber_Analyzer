@@ -415,3 +415,29 @@ def test_recorded_kink_thresholds_reach_the_tracking_image(real_bundle):
     image = load_tracking_image(real_bundle, 10.0)
     assert image.kink_angle_deg == FAST_PARAMS.kinkangle_deg
     assert image.kink_decompose_px == FAST_PARAMS.kink_decompose_px
+
+
+def test_kink_excess_is_optional_and_checked_like_the_angles():
+    """
+    `ke` is optional (a 1.0 bundle lacks it) and, when present, is one
+    non-negative radian value per `kp` column.
+    `ke` は任意キーで（1.0 のバンドルには無い）、あるときは `kp` の列ごとに
+    1 つの非負のラジアン値である。
+    """
+    arrays = _valid_arrays()
+    assert "ke" not in arrays
+    assert validate_bundle(arrays, meta=_valid_meta(), require=REQUIRED_BUNDLE_KEYS) == []
+    assert "ke" not in REQUIRED_BUNDLE_KEYS
+
+    n = arrays["kp"].shape[1]
+    arrays["ke"] = np.full(n, 0.6)
+    assert validate_bundle(arrays) == []
+
+    arrays["ke"] = np.full(n + 1, 0.6)
+    assert any(p.startswith("ke:") and "kp holds" in p for p in validate_bundle(arrays))
+
+    arrays["ke"] = np.full(n, -0.1)
+    assert any(p.startswith("ke:") and "non-negative" in p for p in validate_bundle(arrays))
+
+    arrays["ke"] = np.full((n, 1), 0.6)
+    assert any(p.startswith("ke:") and "(N,)" in p for p in validate_bundle(arrays))

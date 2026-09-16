@@ -92,16 +92,27 @@ from .centerline import HALF_MAX_CENTERLINE, SKELETON_TRACK
 #      `lib.centerline` by the excess-turning rule of `lib.kink_detector`,
 #      instead of on the skeleton track by a polyline decomposition, and a
 #      reader draws and measures fibers along that line
-#      (`centerline_from_meta`). `dp` keeps its shape but is written empty,
-#      since nothing is decomposed, and the optional `up` holds the bends not
-#      judged next to a track end. The line has one point per skeleton point,
-#      so kinks are still stored at skeleton pixels.
+#      (`centerline_from_meta`). `ka` is the interior angle between the arms
+#      read beside each bend (`KinkDetector.judge_line`), and the optional
+#      `ke` holds the excess turning each kink was judged by, so the tested
+#      quantity travels with the geometry. `dp` keeps its shape but is
+#      written empty, since nothing is decomposed, and the optional `up`
+#      holds the bends not judged next to a track end. The line has one point
+#      per skeleton point, so kinks are still stored at skeleton pixels.
+#      (Bundles written by the unreleased development code before `ke`
+#      existed carry 1.1 with `ka` = pi minus the excess and no `ke`; they
+#      are told apart by the missing key and should be re-analyzed.)
 # 1.1: `kp`・`ka` は、スケルトントラック上の折れ線分解ではなく、
 #      `lib.centerline` の半値中点線上で `lib.kink_detector` の超過回転規則に
 #      より判定したものであり、読み取り側はその線に沿って繊維を描画・計測する
-#      （`centerline_from_meta`）。`dp` は形状を保つが、何も分解しないため空で
-#      書く。任意キー `up` はトラック端のそばで判定しなかった折れを持つ。線は
-#      スケルトン点ごとに 1 点を持つため、キンクは引き続きスケルトン画素に保存する。
+#      （`centerline_from_meta`）。`ka` は各折れの脇で読んだ腕のなす内角
+#      （`KinkDetector.judge_line`）で、任意キー `ke` は各キンクを判定した
+#      超過回転を持ち、検定した量が幾何と一緒に運ばれる。`dp` は形状を保つが、
+#      何も分解しないため空で書く。任意キー `up` はトラック端のそばで判定
+#      しなかった折れを持つ。線はスケルトン点ごとに 1 点を持つため、キンクは
+#      引き続きスケルトン画素に保存する。（`ke` 導入前の未公開の開発版コードが
+#      書いたバンドルは 1.1 のまま `ka` = pi − 超過回転で `ke` を持たない。
+#      キーの欠落で見分けられ、再解析すべきである。）
 BUNDLE_FORMAT_VERSION = "1.1"
 
 # Versions this code base can read. Readers reject unknown versions loudly so
@@ -141,7 +152,9 @@ REQUIRED_BUNDLE_KEYS = [
 #   /original     : Raw height image before the calibrator's one-pixel trim.
 #   /up           : Bends not judged next to a track end, shape (2, N);
 #                   written from format 1.1, so an older bundle lacks it.
-OPTIONAL_BUNDLE_KEYS = ["original", "up"]
+#   /ke           : Excess turning each kink was judged by, radians, shape
+#                   (N,) matching `kp`; written from format 1.1.
+OPTIONAL_BUNDLE_KEYS = ["original", "up", "ke"]
 
 # vlmeta key holding the physical spatial calibration (scan size). It is
 # optional provenance metadata, like "input_format": bundles written before
@@ -436,6 +449,24 @@ def validate_bundle(
                 problems.append(
                     "ka: kink angles must be radians strictly inside (0, pi)"
                 )
+
+    # --- Kink excess: (N,) radians, one per kp column ------------------------
+    if "ke" in arrays:
+        ke = arrays["ke"]
+        if ke.ndim != 1:
+            problems.append(f"ke: expected shape (N,), got {ke.shape}")
+        else:
+            if not _is_finite_array(ke):
+                problems.append("ke: kink excess turnings must be finite numbers")
+            if "kp" in arrays and arrays["kp"].ndim == 2 \
+                    and arrays["kp"].shape[0] == 2 \
+                    and ke.shape[0] != arrays["kp"].shape[1]:
+                problems.append(
+                    f"ke: {ke.shape[0]} values but kp holds "
+                    f"{arrays['kp'].shape[1]} points"
+                )
+            if ke.size > 0 and not np.all(ke >= 0):
+                problems.append("ke: kink excess turnings must be non-negative radians")
 
     # --- Format version ------------------------------------------------------
     if meta is not None and "version" in meta:

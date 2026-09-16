@@ -181,13 +181,17 @@ def _build_fiber(
         if (px, py) in unjudged:
             unjudged_indices.append(i)
 
-    # Translate each kink index back into a coordinate key to read its angle.
-    # 各 kink インデックスを座標キーに変換し、辞書から角度を取得する。
-    kink_angles = np.array([
+    # Translate each kink index back into a coordinate key to read its angle
+    # and the excess it was judged by.
+    # 各 kink インデックスを座標キーに変換し、辞書から角度と判定した超過回転を
+    # 取得する。
+    kink_values = [
         kink_angle_map[(int(xtrack_prcimg[i]), int(ytrack_prcimg[i]))]
         for i in kink_indices
         if (int(xtrack_prcimg[i]), int(ytrack_prcimg[i])) in kink_angle_map
-    ])
+    ]
+    kink_angles = np.array([v[0] for v in kink_values], dtype=np.float64)
+    kink_excess = np.array([v[1] for v in kink_values], dtype=np.float64)
 
     return Fiber(
         fiber_image, tuple(data_row), xtrack, ytrack, horizon, height,
@@ -197,7 +201,7 @@ def _build_fiber(
         centerline=centerline,
         unjudged_indices=np.array(unjudged_indices, dtype=np.intp),
         width_px=width_px, width_measured=width_measured,
-        line_reliable=line_reliable,
+        line_reliable=line_reliable, kink_excess=kink_excess,
     )
 
 
@@ -344,6 +348,11 @@ class FiberTrackingImage:
         self.all_kink_coordinates: Optional[
             tuple[np.ndarray, np.ndarray]] = None
         self.all_kink_angles: Optional[np.ndarray] = None
+        # Excess turning per stored kink (bundle key ``ke``); ``None`` for a
+        # bundle without the key, whose fibers then carry none.
+        # 保存された各キンクの超過回転（バンドルキー ``ke``）。このキーを持たない
+        # バンドルでは ``None`` で、その繊維は持たない。
+        self.all_kink_excess: Optional[np.ndarray] = None
         self.decomposed_point_coordinates: Optional[np.ndarray] = None
         self.unjudged_point_coordinates: np.ndarray = np.zeros((2, 0), dtype=np.int64)
         self.skipped_fiber_labels: tuple[tuple[int, str], ...] = ()
@@ -661,9 +670,16 @@ class FiberTrackingImage:
         """
         all_kink_x, all_kink_y = self.all_kink_coordinates
         kink_set: set[tuple] = set(zip(all_kink_x.tolist(), all_kink_y.tolist()))
-        kink_angle_map: dict[tuple, float] = {
-            (int(kx), int(ky)): float(ka)
-            for kx, ky, ka in zip(all_kink_x, all_kink_y, self.all_kink_angles)
+        # The value is (angle, excess); a bundle without ``ke`` maps every
+        # kink's excess to NaN so the fiber carries "not recorded", not 0.
+        # 値は (角度, 超過回転)。``ke`` の無いバンドルでは超過回転を NaN にし、
+        # 繊維が 0 ではなく「未記録」を持つようにする。
+        excess = self.all_kink_excess
+        if excess is None or len(excess) != len(all_kink_x):
+            excess = np.full(len(all_kink_x), np.nan)
+        kink_angle_map: dict[tuple, tuple] = {
+            (int(kx), int(ky)): (float(ka), float(ke))
+            for kx, ky, ka, ke in zip(all_kink_x, all_kink_y, self.all_kink_angles, excess)
         }
         dp_set: set[tuple] = set(zip(
             self.decomposed_point_coordinates[0].tolist(),

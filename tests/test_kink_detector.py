@@ -204,3 +204,67 @@ def test_degenerate_lines_give_nothing():
                  _walk([("L", 6)])[:2]):
         kinks, angles, unjudged = _judge(x, y)
         assert kinks.size == 0 and angles.size == 0 and unjudged.size == 0
+
+
+def test_the_angle_is_read_from_the_arms_not_from_the_excess():
+    """
+    Sharp corners read their true interior angle from the arms beside them.
+    鋭いコーナーは、その脇の腕から真の内角を読む。
+
+    Pi minus the excess turning read low on sharp corners because the window
+    spans the rounded apex; the arms beyond it do not.
+    pi から超過回転を引いた値は、窓が丸められた頂点を跨ぐため鋭いコーナーで
+    低く読んだ。その外側の腕は跨がない。
+    """
+    for turn in (40.0, 60.0, 90.0, 120.0):
+        x, y, _ = _walk([("L", 60), ("T", turn), ("L", 60)])
+        judged = KinkDetector().judge_line(x, y, W)
+        assert judged.kink_indices.size == 1
+        assert np.degrees(judged.kink_angles[0]) == pytest.approx(180.0 - turn, abs=1.5)
+        # The excess is what the rule tested and is stored beside the angle.
+        # 超過回転は規則が検定した量で、角度の隣に保存される。
+        assert judged.kink_excess.shape == (1,)
+        assert np.degrees(judged.kink_excess[0]) >= 30.0
+
+
+def test_a_jog_reads_each_corner_from_its_own_arms():
+    """
+    The arm of one corner stops at the next bend, so a jog's two angles are
+    each corner's own.
+    腕は次の折れで止まるため、段差の 2 つの角度はそれぞれのコーナー自身のもの。
+    """
+    x, y, _ = _walk([("L", 60), ("T", 50), ("L", 1.5 * W), ("T", -70), ("L", 60)])
+    judged = KinkDetector().judge_line(x, y, W)
+    assert judged.kink_indices.size == 2
+    np.testing.assert_allclose(np.degrees(judged.kink_angles), [130.0, 110.0], atol=4.0)
+
+
+def test_the_noise_floor_is_the_lines_own_and_only_raises_the_bar():
+    """
+    With the noise test on, a clean corner is still a kink, the floor of a
+    clean line is near zero, and a noisy line's floor is larger.
+    ノイズ検定を有効にしても、きれいなコーナーはキンクのままで、きれいな線の床は
+    ほぼ 0、ノイズの多い線の床はより大きい。
+    """
+    x, y, _ = _walk([("L", 120), ("T", 60), ("L", 120)])
+    clean = KinkDetector(noise_sigmas=3.0).judge_line(x, y, W)
+    assert clean.kink_indices.size == 1
+    assert np.isfinite(clean.noise_excess) and np.degrees(clean.noise_excess) < 2.0
+
+    rng = np.random.default_rng(3)
+    xn = x + rng.normal(0.0, 0.6, x.size)
+    yn = y + rng.normal(0.0, 0.6, y.size)
+    noisy = KinkDetector(noise_sigmas=3.0).judge_line(xn, yn, W)
+    assert np.isfinite(noisy.noise_excess) and noisy.noise_excess > clean.noise_excess
+    # Turning the test off can only add kinks, never remove one.
+    # 検定を無効にしてもキンクが増えることはあれ、減ることはない。
+    off = KinkDetector(noise_sigmas=0.0).judge_line(xn, yn, W)
+    assert set(noisy.kink_indices.tolist()) <= set(off.kink_indices.tolist())
+
+
+def test_a_short_line_gets_no_noise_floor():
+    """A line with too few windows is judged by the angle threshold alone."""
+    x, y, _ = _walk([("L", 20), ("T", 60), ("L", 20)])
+    judged = KinkDetector(noise_sigmas=3.0).judge_line(x, y, W)
+    assert not np.isfinite(judged.noise_excess)
+    assert judged.kink_indices.size == 1

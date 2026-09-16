@@ -23,7 +23,7 @@ import pytest
 
 import lib
 from lib.blosc2_io import load_bundle, load_bundle_meta
-from lib.bundle_schema import SPATIAL_CALIBRATION_KEY
+from lib.bundle_schema import BUNDLE_FORMAT_VERSION, SPATIAL_CALIBRATION_KEY
 from lib.measure import measure_bundle
 from lib.pipeline import (
     ProcParams, STAGE_KEYS, REQUIRED_BUNDLE_KEYS,
@@ -254,7 +254,7 @@ def test_vlmeta_records_params(pipeline_result):
     """Bundle metadata embeds the analysis parameters for provenance."""
     result, _events = pipeline_result
     meta = load_bundle_meta(result.bundle_path)
-    assert meta["version"] == "1.1"
+    assert meta["version"] == BUNDLE_FORMAT_VERSION
     assert meta["params"]["bg_method"] == "tophat"
 
 
@@ -457,3 +457,25 @@ def test_no_pixel_lengths_without_a_scan_size(pipeline_result):
     result, _events = pipeline_result
     assert result.pixel_lengths_nm is None
     assert PIXEL_LENGTHS_KEY not in load_bundle_meta(result.bundle_path)
+
+
+def test_the_bundle_records_the_excess_each_kink_was_judged_by(pipeline_result):
+    """
+    `ke` holds one excess turning per stored kink, so the tested quantity
+    travels with the angle that describes the geometry.
+    `ke` は保存したキンクごとに 1 つの超過回転を持ち、検定した量が幾何を表す角度と
+    一緒に運ばれる。
+    """
+    result, _events = pipeline_result
+    arrays = load_bundle(result.bundle_path)
+    assert "ke" in arrays
+    assert arrays["ke"].shape == (arrays["kp"].shape[1],)
+    assert arrays["ke"].shape == arrays["ka"].shape
+    # Every stored kink was judged by an excess of at least the default
+    # 30 degrees, and its interior angle is stored separately. (The tophat
+    # run of this fixture may hold no kink at all; the shapes still agree.)
+    # 保存された各キンクは既定の 30 度以上の超過回転で判定され、その内角は別に
+    # 保存される（このフィクスチャの tophat 実行はキンクを 1 つも持たないことが
+    # あるが、形状は一致する）。
+    assert np.all(arrays["ke"] >= np.radians(30.0) - 1e-9)
+    assert np.all((arrays["ka"] > 0) & (arrays["ka"] < np.pi))

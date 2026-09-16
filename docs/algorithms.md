@@ -788,11 +788,45 @@ value ($c$ = 0.6 or 0.9 $W$, $f$ = 0.75 or 1.5 $W$, the heading smoothing 0.15
 or 0.35 $W$, the end margin of §4.4 1.0 or 2.0 $W$, the suppression radius 0.5
 or 1.0 $W$) kept the clear kinks found between 59 and 62.
 
-The reported angle is the **excess**, not the whole turning, and it reads low on
-sharp corners because the probe and the line round them: isolated synthetic
-corners of 40°, 60°, 90° and 120° read 37–38°, 52–56°, 83–84° and 101–110°. A
-bend just above the threshold can therefore fall below it; the bend drawn at
-33.5° in the test suite reads 28.7°.
+**The angle it reports.** The excess is the quantity tested, and it reads low
+on sharp corners because the probe and the line round the apex: isolated
+synthetic corners turning 40°, 60°, 90° and 120° read 37–38°, 52–56°, 83–84°
+and 101–110° of excess. A bend just above the threshold can therefore fall
+below it; the bend drawn at 33.5° in the test suite reads 28.7°. The angle
+*stored* (`ka`) is therefore not 180° minus the excess but the interior angle
+between the two **arms** beside the bend
+(`KinkDetector.judge_line`): each arm's direction is the mean heading over one
+width starting half a width beyond the apex, outside the rounding, and cut
+short at the next bend so a jog's second corner does not enter the first
+corner's arm. On synthetic corners of 120°, 140° and 145° interior angle
+rendered with a 10 nm probe (`scripts/kink_rule_sweep.py`), the median error
+of the arm angle was 1.9° at an apparent width of 5.5 px and 1.1° at 11 px,
+against 7.5° and 2.5° for 180° minus the excess. The excess is stored beside
+the angle as `ke` (§4.5), so what was tested and what the geometry is both
+travel with the bundle.
+
+**Significance against the line's own noise.** A per-line noise floor is
+implemented (`NOISE_SIGMAS`, `KinkJudgement.noise_excess`): the robust scale
+of the excess along the whole line, which a bend's excess would have to exceed
+by that factor. It ships **off**, because it did not separate the false
+detections from the real kinks. Scored against the visual reference
+(`scripts/kink_reference_score.py`), a factor of 3 found 3 fewer clear kinks
+for 6 fewer false detections, and a factor of 4 found 5 fewer for 10 fewer:
+the false detections on these scans are rounded bends, tangles and bends of
+25–40°, not noise, and a heavily bent fiber's own kinks raise its floor, which
+is where the lost clear kinks lay. On the synthetic sweep the floor changed
+nothing except at the finest pixel size with the heaviest noise (11 px width,
+0.30 nm pixel noise), where it cut false positives from 3.9 to 3.1 per µm
+without recovering the recall those conditions had already lost.
+
+**Where the rule applies.** The same sweep says at what width the rule works.
+With an apparent width of 3 px or more every synthetic 120° and 145° corner
+was found (140°: 4 of 6 at 3 px, all at 5.5 px and above), with no false
+positive on straight fibers, arcs or meanders at pixel noise up to 0.15 nm and
+none on a 165° bend. On a fiber only 2 px wide the width itself could not be
+measured, the fallback applied, and nothing was found: below about 3 px the
+image no longer resolves the fiber's bends, and the answer is a finer pixel
+size, not a looser rule.
 
 ### 4.4 Bends next to an end are shown, not judged
 
@@ -832,6 +866,11 @@ bundle of format 1.0 uses it (§4.6).
 They are deliberately **not** read from the `_param.json` sidecar. That file is
 the analysis *input* and stays editable afterwards, so reading it would let an
 edit change a reconnected fiber's kinks with no re-analysis.
+
+The bundle also stores, beside each kink's angle `ka`, the excess turning it
+was judged by (`ke`, `KinkJudgement.kink_excess`). The angle is the geometry
+of the bend and the excess is the quantity the rule tested; keeping both means
+a kink can be audited against the threshold without re-running the rule.
 
 ### 4.6 Bundles judged by the earlier rule
 

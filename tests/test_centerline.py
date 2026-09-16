@@ -303,7 +303,9 @@ def test_a_format_1_1_bundle_is_built_on_the_centerline(synthetic_bundle):
     Fibers of a new bundle carry the centerline and the skeleton pixels under it.
     新しいバンドルの繊維は中心線と、その元になったスケルトン画素を持つ。
     """
-    assert blosc2_io.load_bundle_meta(synthetic_bundle)["version"] == "1.1"
+    from lib.bundle_schema import BUNDLE_FORMAT_VERSION
+
+    assert blosc2_io.load_bundle_meta(synthetic_bundle)["version"] == BUNDLE_FORMAT_VERSION
     result = measure.measure_bundle(synthetic_bundle)
     assert result.image.centerline == HALF_MAX_CENTERLINE
     assert result.fibers

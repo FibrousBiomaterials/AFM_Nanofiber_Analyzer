@@ -140,6 +140,12 @@ class ProcessedImage:
         # { label(int): ndarray of indices into that label's xtrack/ytrack }
         self.kink_indices_by_label: dict[int, np.ndarray] = {}
         self.kink_angles_by_label:  dict[int, np.ndarray] = {}
+        # The excess turning each kink was judged by (radians), index-aligned
+        # with `kink_angles_by_label`; written to the bundle as `ke`.
+        # 各キンクを判定した超過回転（ラジアン）。`kink_angles_by_label` と添字が
+        # 揃い、バンドルには `ke` として書く。
+        self.kink_excess_by_label: dict[int, np.ndarray] = {}
         self.decomposed_indices_by_label: dict[int, np.ndarray] = {}
         self.unjudged_indices_by_label: dict[int, np.ndarray] = {}
+        self.all_kink_excess: Optional[np.ndarray] = None
         self.apparent_width_summary: Optional[dict] = None

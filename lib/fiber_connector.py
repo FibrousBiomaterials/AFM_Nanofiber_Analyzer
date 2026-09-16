@@ -1509,8 +1509,9 @@ def _rebuild_connected_fiber(
         width, width_measured = measure_apparent_width(
             image.calibrated_image, pix_x, pix_y, return_measured=True,
         )
-        kink_indices, kink_angles, unjudged_indices = \
-            detector.kinks_on_line(line_x, line_y, width)
+        judged = detector.judge_line(line_x, line_y, width)
+        kink_indices, kink_angles = judged.kink_indices, judged.kink_angles
+        kink_excess, unjudged_indices = judged.kink_excess, judged.unjudged_indices
         decomposed_point_indices = np.zeros(0, dtype=np.intp)
         reliable = (None if line_reliable is None
                     else np.asarray(line_reliable, dtype=bool))
@@ -1518,6 +1519,7 @@ def _rebuild_connected_fiber(
         kink_indices, kink_angles, decomposed_point_indices = \
             detector.kinks_and_decomposed_from_track(line_x, line_y)
         unjudged_indices = np.zeros(0, dtype=np.intp)
+        kink_excess = np.zeros(0, dtype=np.float64)
         width, width_measured = float("nan"), False
         reliable = None
     # The reconnected path is a single ordered polyline, so only its first and
@@ -1541,6 +1543,7 @@ def _rebuild_connected_fiber(
         unjudged_indices=np.asarray(unjudged_indices, dtype=np.intp),
         width_px=float(width), width_measured=bool(width_measured),
         line_reliable=reliable, height_measured=measured,
+        kink_excess=np.asarray(kink_excess, dtype=np.float64),
     )
 
 
