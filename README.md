@@ -1090,7 +1090,7 @@ If you use this software in your research, please cite it as:
   author    = {Kiyoto, Shingo and Ito, Tomoki and Mayumi, Keita and Kobayashi, Kayoko},
   title     = {AFM Nanofiber Analyzer},
   year      = {2026},
-  version   = {1.0.0},
+  version   = {2.0.0},
   url       = {https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer}
 }
 ```

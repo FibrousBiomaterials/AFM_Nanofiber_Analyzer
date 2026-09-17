@@ -1038,7 +1038,7 @@ UI 側に任せます。Python ソース上で文字列リテラルを複数行�
   author    = {Kiyoto, Shingo and Ito, Tomoki and Mayumi, Keita and Kobayashi, Kayoko},
   title     = {AFM Nanofiber Analyzer},
   year      = {2026},
-  version   = {1.0.0},
+  version   = {2.0.0},
   url       = {https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer}
 }
 ```

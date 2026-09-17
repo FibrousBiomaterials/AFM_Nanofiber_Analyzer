@@ -20,7 +20,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "afm-nanofiber-analyzer"
-version = "1.0.0"
+version = "2.0.0"
 description = "GUI toolkit and CLI for preprocessing AFM height images and analyzing nanofiber morphology"
 readme = "README.md"
 requires-python = ">=3.10"

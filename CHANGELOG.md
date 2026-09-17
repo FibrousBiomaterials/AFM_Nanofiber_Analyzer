@@ -8,7 +8,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-17
+
 ### Changed
+
+- Between releases, the version string now carries a `.devN` suffix
+  (PEP 440), for example `2.0.1.dev0` after this release, and bundles written
+  by that code record it as `software_version`. Until now, code changed after
+  the 1.0.0 release still reported `1.0.0`, so **a bundle that records
+  `software_version = "1.0.0"` may come from the 1.0.0 release or from any
+  later unreleased code**, whose results can differ from 1.0.0. A bundle
+  recording `2.0.0` comes from this release.
 
 - Kinks are judged by a new rule on a new line. **Kink counts, kink angles,
   contour lengths, heights, straightness and curvature change from this
@@ -37,9 +47,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   judged: it is stored separately, and GUI04 draws it as a grey hollow circle
   but never counts it. The polyline decomposition is gone, so
   `kink_decompose_px` is no longer read; the field stays so parameter files
-  still load. A kink's angle is 180° minus its excess turning, which reads low
-  on sharp corners: isolated synthetic corners of 40°, 90° and 120° read
-  37–38°, 83–84° and 101–110°.
+  still load. How a kink's angle is read is described in the entry
+  "A kink's angle is read from the arms beside the bend" below.
 
   Against a reference marked by eye on the height images of the bundled scans
   (64 clear kinks over five scans), the previous rule found 53, displaced 5,
@@ -1225,77 +1234,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Fixing this changes every recorded coordinate and every length, so it is
   recorded here rather than changed quietly.
 
-- A bend spread along a fiber can still be reported as a kink. The angle at a
-  decomposition vertex is measured between the chords to its two neighbouring
-  vertices, and those neighbours sit wherever the piecewise-linear
-  decomposition put them, so the measurement carries no scale: a corner and an
-  arc that turns by the same amount over a much longer stretch produce the same
-  angle. On the synthetic scans of `tests/synthetic_fibers.py`, which have no
-  tangent discontinuity anywhere, a meander of 57 nm minimum radius yields
-  about four such reports per fiber.
-
-  The distinction is measurable in principle. Compare the turn between chords
-  spanning an arc length `L` either side of the point with the same at `2L`:
-  for an arc the turn is proportional to `L`, for a corner it is independent of
-  it, so `K = 2*turn(L) - turn(2L)` is zero for the first and equals the bend
-  for the second. Measured against known geometry, `K` at `L = 3.5 W` (where
-  `W` is the mask area divided by the skeleton length, 9.0 to 10.1 px on the
-  bundled scans) separates all five families cleanly against the 30 degree
-  threshold the default `kinkangle_deg` implies: 36 for a 145 degree kink, 25
-  for a 155 degree one, 14 and 21 for meanders of 91 and 57 nm minimum radius,
-  and 7 for a 90 degree arc.
-
-  What blocks it is the amount of fiber the measurement needs, not the
-  arithmetic. `turn(2L)` reaches `7 W` either side, so the point needs `14 W`
-  of track around it — and 57 %, 72 % and 88 % of the fibers on the
-  higher-plant TOC, tunicate CNF and Bruker NDTOC scans are shorter than that
-  in total. Of the kinks those scans report, only 1 of 5, 32 of 69 and 23 of
-  74 could be evaluated at all. A chord also stops describing the fiber where
-  the track folds back inside the span, which a convoluted fibril does: of 13
-  kinks the test dropped, four had a `2 L` chord that crossed a fold and two or
-  three were corners the height image shows plainly.
-
-  The scale is recorded because any future attempt needs it. The turn at a
-  corner only reaches its full value once `L` exceeds the rounding that tip
-  broadening and thinning leave: for a 145 degree kink it reads 17 degrees at
-  `L = W` and settles at 32 to 34 from `L = 3.5 W`, and for a 120 degree kink
-  45 degrees at `L = W` settling at 57 to 59 from `L = 2 W`. A baseline of one
-  line width sees less than half of a shallow corner.
-
-- One bend can still be reported at two neighbouring decomposition vertices,
-  and nothing suppresses the weaker of the two. Nothing does, because no
-  available criterion separates that case from two genuine corners that happen
-  to have no vertex between them.
-
-  It is rare now. Re-analyzed with the current detector, the three bundled
-  scans report 5, 69 and 68 kinks, of which 0, 25 and 20 are pairs sitting at
-  neighbouring vertices; only 0, 10 and 5 of those turn the same way, an S
-  being two real opposite bends that must never be merged. Inspected against
-  the calibrated height image, one pair of the 15 is unmistakably one apex
-  marked twice (tunicate CNF fiber 5, 148 and 147 degrees, the two markers
-  almost on the same pixel). The significance rule above had already removed
-  the higher-plant TOC case this was written for.
-
-  The criterion that ought to work does not. A circular arc of total turn
-  `theta` across a chord of length `A` departs from that chord by
-  `(A/2) * tan(theta/4)`, so where that is below `kink_decompose_px` the
-  decomposition could not have told an arc from a corner-straight-corner: it
-  would have placed the same two vertices either way, and reporting two kinks
-  asserts a distinction the data does not carry. Applied to the 15 same-way
-  pairs it merges 4 (3 on tunicate CNF, 1 on NDTOC, none on higher-plant TOC),
-  and against the height image the ordering it produces is not the ordering the
-  images give: it merges two pairs that sit on a faint ridge and on a crossing,
-  where the kinks are questionable for unrelated reasons, while the clearest
-  distributed bend on either scan — a smooth hairpin on tunicate CNF fiber 5,
-  104 and 148 degrees, no corner visible at either marker — is kept, missing
-  the threshold by 3 %. The decision boundary falls between 2.67 px (merged)
-  and 3.09 px (kept) while the visual verdicts interleave across it.
-
-  What is missing is the same thing the entry above records: a scale. Whether
-  a turn is one bend or two is a statement about the length over which it
-  happens, and the vertex spacing the decomposition chose is not that length —
-  it is set by the tolerance and by where the track's noise happened to peak.
-  A rule built on it correlates with the answer without measuring it.
+- A bend spread along a fiber can still be reported as a kink. The
+  excess-turning rule subtracts the curvature the fiber carries on the flanks
+  of a bend, which reduced such reports but did not remove them: on the
+  synthetic arcs and meanders built by `tests/synthetic_fibers.py` (2 nm
+  pixels), which have no tangent discontinuity anywhere, it reports 12 kinks
+  where the earlier polyline rule reported 31.
 
 ## [1.0.0] - 2026-07-08
 
@@ -1331,5 +1275,5 @@ submission to the Journal of Open Source Software (JOSS).
   `SUPPORT.md`, maintainer notes, docstring templates, and a JOSS paper
   (`paper.md`).
 
-[Unreleased]: https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/releases/tag/v1.0.0
+[Unreleased]: https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/releases/tag/v2.0.0
