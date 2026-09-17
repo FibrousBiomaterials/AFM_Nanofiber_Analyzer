@@ -13,7 +13,9 @@ graphical and command-line front ends call the same pipeline and measurement
 routines, so equivalent runs produce identical numerical results.
 
 :doc:`algorithms` explains what the four preprocessing stages do and why, with
-references into the source; :doc:`api` documents each module's contract.
+references into the source; :doc:`gui04_measurements` explains, with the code,
+how GUI04 places each fiber's centerline and computes the values it displays;
+:doc:`api` documents each module's contract.
 Installation, usage, and the ``.b2z`` bundle format are described in the
 project README.
 
@@ -22,4 +24,5 @@ project README.
    :caption: Contents
 
    algorithms
+   gui04_measurements
    api

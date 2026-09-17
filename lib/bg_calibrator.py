@@ -688,17 +688,22 @@ class BGCalibrator:
         * The image is detrended before the fill and the trend restored
           afterwards, as in ``'trendfill'``, so no filler has to reproduce
           the sample tilt.
-        * The line ends are not extrapolated at all. Beyond the first/last
+        * No shape is extrapolated past the line ends. Beyond the first/last
           valid sample of a line - a fiber touching the image edge along the
           interpolation axis - there is background data on one side only, so
-          any 1D model of that run is fitted to that single line and its
-          error is uncorrelated with the neighboring lines. The legacy
-          ``pandas`` behavior there (constant padding, the documented reason
-          the method was dropped in favour of ``'trendfill'``) is only one
-          instance of the problem: the fitted spline's own extrapolation
-          fails the same way, in smooth bands instead of thin streaks.
-          These runs are therefore filled from the nearest background pixel
-          in 2D, which draws on the neighboring lines.
+          any shape a 1D method puts there is fitted to that single line, its
+          error grows with the run length, and it is uncorrelated with the
+          neighboring lines. The legacy ``pandas`` behavior there (constant
+          padding at the last sample, the documented reason the method was
+          dropped in favour of ``'trendfill'``) is one instance of the
+          problem; the fitted spline's own extrapolation fails the same way,
+          in smooth bands instead of thin streaks. These runs instead hold
+          the mean of the line's nearest ``savgol_window`` background samples
+          (`_spline1d_fill`): on a detrended image the per-line residual is
+          essentially the scan-line offset, which is constant along the line,
+          and averaging keeps pixel noise out of that level. Only a line with
+          fewer than two valid samples is left unfilled there, and its pixels
+          are filled from the nearest background pixel in 2D.
 
         The stripe orientation is controlled by ``spline1d_axis``:
         ``'y'`` (default) interpolates each column down the image and, with
@@ -723,14 +728,20 @@ class BGCalibrator:
           プールから除外される。
         * ``'trendfill'`` と同様、充填の前にデトレンドし後でトレンドを戻す。
           どの充填器も試料傾斜を再現する必要がなくなる。
-        * ライン端は一切外挿しない。各ラインの最初/最後の有効サンプルより
-          外側 (補間軸の端にファイバーがかかる場合) は片側にしか背景データが
-          無いため、その区間を 1 次元でモデル化するとそのライン単独のフィット
-          になり、誤差は隣接ラインと無相関になる。旧 ``pandas`` の挙動である
-          定数埋め (本方式が ``'trendfill'`` へ置き換えられた既知の理由) は
-          この問題の一例にすぎず、フィットしたスプライン自身の外挿も同じ形で
-          破綻する。細いスジではなく滑らかな帯になるだけである。よってこの
-          区間は 2 次元の最近傍背景画素から埋め、隣接ラインを参照させる。
+        * ライン端より外側へ形を外挿しない。各ラインの最初/最後の有効
+          サンプルより外側 (補間軸の端にファイバーがかかる場合) は片側にしか
+          背景データが無いため、1 次元手法がそこへ置く形はそのライン単独の
+          当てはめになり、誤差は区間長とともに増え、隣接ラインと無相関になる。
+          旧 ``pandas`` の挙動である最終サンプルでの定数埋め (本方式が
+          ``'trendfill'`` へ置き換えられた既知の理由) はこの問題の一例であり、
+          フィットしたスプライン自身の外挿も同じ形で破綻する。細いスジでは
+          なく滑らかな帯になるだけである。そこでこの区間には、そのライン自身の
+          最近傍 ``savgol_window`` 個の背景サンプルの平均を保持する
+          (`_spline1d_fill`)。デトレンド後にライン固有として残る量は実質的に
+          走査ラインのオフセットであり、ライン方向に一定であるうえ、平均を
+          取ることでその水準に画素ノイズが入らない。この区間を埋めずに残すのは
+          有効サンプルが 2 点未満のラインだけで、その画素は 2 次元の最近傍
+          背景画素から埋める。
 
         除去する縞の向きは ``spline1d_axis`` で制御する。``'y'`` (デフォルト)
         は各列を画像の縦方向に補間し、Savitzky-Golay と併せて *横縞* (各走査
@@ -825,8 +836,8 @@ class BGCalibrator:
     def _spline1d_fill(bg_only: np.ndarray, axis: str = 'y', order: int = 2,
                        end_window: int = 31) -> np.ndarray:
         """
-        Interpolate the masked positions inside each line's valid span.
-        各ラインの有効範囲内にあるマスク位置を補間する。
+        Fill each line's masked positions: interpolate inside, hold a level outside.
+        各ラインのマスク位置を埋める。有効範囲内は補間し、範囲外は水準を保持する。
 
         Parameters
         ----------
@@ -852,29 +863,40 @@ class BGCalibrator:
         Returns
         -------
         np.ndarray
-            ``bg_only`` with the interior NaNs filled (float64). Positions
-            beyond the first/last valid sample of their line stay NaN.
-            内側の NaN を埋めた ``bg_only`` (float64)。各ラインの最初/最後の
-            有効サンプルより外側の位置は NaN のまま残る。
+            ``bg_only`` with its NaNs filled (float64). Positions beyond the
+            first/last valid sample of their line hold the mean of that
+            line's nearest ``end_window`` valid samples. A line with fewer
+            than two valid samples is returned unchanged, so its NaNs remain.
+            NaN を埋めた ``bg_only`` (float64)。各ラインの最初/最後の有効
+            サンプルより外側の位置には、そのラインの最近傍 ``end_window`` 個の
+            有効サンプルの平均が入る。有効サンプルが 2 点未満のラインはそのまま
+            返すため、その NaN は残る。
 
         Notes
         -----
         Per line, NaNs are filled by the pandas spline of the given order,
-        falling back to linear when there are too few valid points, and the
-        result is then restricted to the span between the first and the last
-        valid sample. Outside that span a line carries background data on one
-        side only, so anything a 1D method puts there is an extrapolation
-        fitted to that one line, and its error is uncorrelated between
-        neighboring lines. Returning NaN lets the caller fill those runs from
-        the neighboring lines instead, which is what keeps the estimate free
-        of per-line stripes; see `_call_spline1d`.
+        falling back to linear when there are too few valid points, and that
+        result is kept only between the first and the last valid sample.
+        Outside that span a line carries background data on one side only,
+        so any shape a 1D method puts there is an extrapolation fitted to
+        that one line: its error grows with the run length and is
+        uncorrelated between neighboring lines, so each line would paint its
+        own band. Those runs instead hold the mean of the line's nearest
+        ``end_window`` valid samples. On a detrended image the per-line
+        residual is essentially the scan-line offset, which is constant along
+        the line, so holding a level estimates it without extrapolating a
+        slope, and averaging keeps pixel noise out of that level; see
+        `_call_spline1d`.
         各ラインの NaN は指定 order の pandas スプライン (有効点が少ない場合は
-        線形へフォールバック) で埋め、その結果を最初と最後の有効サンプルの間に
-        限定する。この範囲の外側はラインの片側にしか背景データが無いため、
-        1 次元手法が入れる値はそのライン単独で当てた外挿であり、誤差は隣接
-        ラインと無相関になる。NaN を返すことで、その区間を隣接ラインから
-        埋める判断を呼び出し側に委ねる。これが推定値をライン単位の縞から
-        守っている (`_call_spline1d` 参照)。
+        線形へフォールバック) で埋め、その結果は最初と最後の有効サンプルの間
+        だけ採用する。この範囲の外側はラインの片側にしか背景データが無いため、
+        1 次元手法が置く形はそのライン単独で当てた外挿であり、誤差は区間長と
+        ともに増え、隣接ラインと無相関になる。結果として各ラインが自前の帯を
+        描いてしまう。そこでこの区間には、そのラインの最近傍 ``end_window``
+        個の有効サンプルの平均を保持する。デトレンド後にライン固有として残る
+        量は実質的に走査ラインのオフセットであり、ライン方向に一定なので、
+        水準を保持すれば傾きを外挿せずにこれを推定でき、平均を取ることでその
+        水準に画素ノイズが入らない (`_call_spline1d` 参照)。
 
         A line with fewer than two valid samples is returned unchanged.
         有効サンプルが 2 点未満のラインはそのまま返す。

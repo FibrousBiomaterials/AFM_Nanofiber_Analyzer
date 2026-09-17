@@ -17,7 +17,12 @@ none: it is read as authoritative.
 無いことよりも悪い。権威あるものとして読まれてしまうからである。
 
 A commit is blocked when one of the four algorithm modules changed and neither
-language version of the document is part of the same change.
+language version of the document is part of the same change, and, in
+``--staged`` mode, when a code excerpt quoted by either document no longer
+matches the staged code (`scripts/doc_excerpts.py`).
+アルゴリズムモジュールが変わったのに文書のどちらの言語版も同じ変更に含まれない
+場合、および ``--staged`` モードでは、どちらかの文書が引用したコード片が
+ステージ済みのコードと一致しない場合に、コミットを中止する。
 
 This hook is the early warning, not the enforcement. It is opt-in per clone and
 can be bypassed, so ``tests/test_algorithm_docs.py`` carries the same rule into
@@ -42,6 +47,13 @@ import argparse
 import functools
 import subprocess
 import sys
+from pathlib import Path
+
+# The excerpt contract shared with the GUI04 document lives beside this script.
+# GUI04 文書と共有する引用規約は、このスクリプトの隣にある。
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from doc_excerpts import check_pair_excerpts, read_staged  # noqa: E402
 
 # The four preprocessing stages the document explains. Changing one of these is
 # what makes the explanation potentially wrong. `lib/pipeline.py` is
@@ -150,6 +162,39 @@ def _check(diff_args: list[str], label: str) -> int:
     return 1
 
 
+def _check_staged_excerpts() -> int:
+    """
+    Return 1 when a quoted excerpt no longer matches the staged code.
+    引用したコード片がステージ済みのコードと一致しなくなっていれば 1 を返す。
+
+    The documents quote the code they explain (``# source:`` blocks). Unlike
+    the path check above, this one cannot be satisfied by touching a document:
+    the quoted lines themselves must still be what the software runs.
+    文書は説明対象のコードを引用している（``# source:`` ブロック）。上のパス検査と
+    違い、文書に触れるだけでは通らない。引用した行そのものが、ソフトウェアの実行
+    内容と一致していなければならない。
+    """
+    docs = {rel: read_staged(rel) for rel in DOC_PATHS}
+    missing = [rel for rel, text in docs.items() if text is None]
+    if missing:
+        print(f"algorithm-doc check: {', '.join(missing)} not in the index",
+              file=sys.stderr)
+        return 1
+    problems, _quoted = check_pair_excerpts(docs, read_staged)
+    if not problems:
+        return 0
+    print("algorithm-doc check (staged snapshot): quoted code is out of date:",
+          file=sys.stderr)
+    for problem in problems:
+        print(f"  - {problem}", file=sys.stderr)
+    print(
+        "\nUpdate the excerpts and the explanation around them in both\n"
+        "docs/algorithms.md and docs/algorithms.ja.md.",
+        file=sys.stderr,
+    )
+    return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     """Entry point; selects staged mode (the hook) or manual range mode.
     エントリポイント。staged モード(フック用)と range モードを選択する。
@@ -169,7 +214,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.staged:
-            return _check(["--cached"], "staged changes")
+            return max(_check(["--cached"], "staged changes"),
+                       _check_staged_excerpts())
         if args.rev_range:
             return _check([args.rev_range], f"changes in {args.rev_range}")
     except RuntimeError as exc:

@@ -781,10 +781,13 @@ def fiber_curvature_profile(
     Returns
     -------
     ndarray
-        One curvature per interior point that has a full window on both
-        sides; empty when the fiber is shorter than the window.
-        両側に完全な窓を確保できる内部点ごとに 1 つの曲率。ファイバーが窓より
-        短い場合は空。
+        One curvature per point that has a full half window of arc ahead of
+        it and at least half of a half window behind it, so points between a
+        quarter and half a window from the start use a shorter backward
+        chord; empty when the fiber is shorter than the window.
+        前方に弧長で完全な半窓があり、後方に半窓の半分以上がある点ごとに 1 つの
+        曲率。したがって先頭から窓の 1/4〜1/2 にある点は、短い後方の弦を使う。
+        ファイバーが窓より短い場合は空。
 
     Notes
     -----

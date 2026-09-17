@@ -362,6 +362,61 @@ def test_document_pair_shares_one_structure(doc_en, doc_ja):
     )
 
 
+def _doc_excerpts():
+    """Import the shared excerpt checker from `scripts/`."""
+    scripts = str(PROJECT_ROOT / "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    import doc_excerpts
+
+    return doc_excerpts
+
+
+def test_quoted_code_matches_the_source(doc_en, doc_ja):
+    """
+    Every ``# source:`` excerpt still matches the code it names, and both
+    language versions quote identical code.
+    すべての ``# source:`` コード片が名指したコードと一致し、両言語版が同一の
+    コードを引用している。
+    """
+    excerpts = _doc_excerpts()
+    docs = {"docs/algorithms.md": doc_en, "docs/algorithms.ja.md": doc_ja}
+    problems, quoted = excerpts.check_pair_excerpts(docs)
+    assert not problems, (
+        "\n".join(problems)
+        + "\nUpdate the excerpts, and the explanation around them, in both "
+        "docs/algorithms.md and docs/algorithms.ja.md."
+    )
+    # Each stage is explained with its code, so the stages' entry points must
+    # be among the quoted symbols; an empty set would make this test vacuous.
+    # 各段はコードとともに説明するため、各段の入口は引用対象に含まれていなければ
+    # ならない。空集合ではこの検査が空振りになる。
+    for key in (
+        "lib/bg_calibrator.py::BGCalibrator.__call__",
+        "lib/segmenter.py::Segmenter.__call__",
+        "lib/skeletonizer.py::Skeletonizer.__call__",
+        "lib/kink_detector.py::KinkDetector.__call__",
+        "lib/kink_detector.py::KinkDetector.judge_line",
+        "lib/kink_detector.py::_arm_interior_angle",
+    ):
+        assert key in quoted["docs/algorithms.md"], f"{key} is not quoted"
+
+
+def test_stale_excerpt_is_detected(doc_en, doc_ja):
+    """An excerpt that no longer matches the code is reported."""
+    excerpts = _doc_excerpts()
+
+    def reader(rel):
+        text = excerpts.read_worktree(rel)
+        if rel == "lib/kink_detector.py":
+            text = text.replace("_ARM_GAP_WIDTHS = 0.5", "_ARM_GAP_WIDTHS = 0.4")
+        return text
+
+    docs = {"docs/algorithms.md": doc_en, "docs/algorithms.ja.md": doc_ja}
+    problems, _quoted = excerpts.check_pair_excerpts(docs, reader)
+    assert any("_ARM_GAP_WIDTHS" in p for p in problems), problems
+
+
 def test_algorithm_code_matches_documented_fingerprint():
     """
     The four algorithm modules are unchanged since the document was reviewed.

@@ -5,7 +5,12 @@
 #   2. Changelog — a change to the strict-regression goldens (i.e. the
 #      numeric results moved) must come with a CHANGELOG.md entry.
 #   3. Algorithm docs — a change to one of the four algorithm modules must come
-#      with an update to docs/algorithms.md (or its Japanese counterpart).
+#      with an update to docs/algorithms.md (or its Japanese counterpart), and
+#      every code excerpt the document quotes must still match the code.
+#   4. GUI04 measurement docs — docs/gui04_measurements.md quotes the code that
+#      places GUI04's centerline and computes its displayed values. A change to
+#      what a quoted symbol computes, or an excerpt that no longer matches the
+#      code, blocks the commit until the document is updated.
 # A finding in any check blocks the commit.
 # The pre-push hook remains the final net for check 1: it also covers commit
 # messages and merge commits, which this hook cannot see.
@@ -14,7 +19,11 @@
 #   2. CHANGELOG — 厳密回帰テストの golden 値が変わる(= 数値結果が変わる)変更には
 #      CHANGELOG.md への追記を必須にする。
 #   3. アルゴリズム解説 — アルゴリズム 4 モジュールの変更には
-#      docs/algorithms.md(または日本語版)の更新を必須にする。
+#      docs/algorithms.md(または日本語版)の更新を必須にし、文書が引用する
+#      コード片がコードと一致していることも確認する。
+#   4. GUI04 計測解説 — docs/gui04_measurements.md は GUI04 の中心線と表示値を
+#      計算するコードを引用している。引用シンボルの計算内容が変わった場合や、
+#      引用がコードと一致しなくなった場合は、文書を更新するまでコミットを中止する。
 # いずれかで検出された場合はコミットを中止する。
 # 1 についてはコミットメッセージとマージコミットをこのフックでは検査できない
 # ため、pre-push フックが最終防衛線として引き続き検査する。
@@ -33,10 +42,11 @@ repo_root=$(git rev-parse --show-toplevel) || exit 1
 checker="$repo_root/scripts/check_sensitive.py"
 changelog_checker="$repo_root/scripts/check_changelog.py"
 algorithm_doc_checker="$repo_root/scripts/check_algorithm_docs.py"
+gui04_doc_checker="$repo_root/scripts/check_gui04_docs.py"
 
 # Fail closed: a missing checker script also blocks the commit.
 # フェイルクローズ方針: 検査スクリプトが無い場合もコミットを中止する。
-for script in "$checker" "$changelog_checker" "$algorithm_doc_checker"; do
+for script in "$checker" "$changelog_checker" "$algorithm_doc_checker" "$gui04_doc_checker"; do
     if [ ! -f "$script" ]; then
         echo "pre-commit: $script not found; blocking commit (fail-closed)." >&2
         exit 1
@@ -66,4 +76,6 @@ $py "$checker" --staged || exit $?
 
 $py "$changelog_checker" --staged || exit $?
 
-exec $py "$algorithm_doc_checker" --staged
+$py "$algorithm_doc_checker" --staged || exit $?
+
+exec $py "$gui04_doc_checker" --staged

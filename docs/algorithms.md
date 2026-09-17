@@ -18,6 +18,22 @@ named on this page is checked against the source by
 `tests/test_algorithm_docs.py` on every run of the test suite, so a rename or
 removal fails the build rather than silently leaving this page wrong.
 
+Each step is also shown **with the code that performs it**. Every code block
+starts with a header naming where it comes from:
+
+```text
+# source: lib/segmenter.py::Segmenter._binaryzation
+```
+
+That is the file and the function, method (`Class.method`), or module constant
+the code belongs to; a header may list several symbols of one file, separated by
+commas. A line holding only `...` marks omitted code, and comments, blank rows
+and the method's indentation are left out. Every excerpt is compared, line for
+line, with the symbol it names (`scripts/doc_excerpts.py`, run by
+`tests/test_algorithm_docs.py` and by the pre-commit hook), and the English and
+Japanese pages must quote identical code, so an excerpt cannot silently differ
+from what the software runs.
+
 The same test guards the reverse direction: it hashes the algorithm modules —
 the four stages and `lib/centerline.py`, which places the line kinks are
 judged on — with comments and docstrings stripped, so any change to what the
@@ -79,6 +95,18 @@ rather than failing somewhere inside OpenCV.
 `_call_trendfill`, `_call_tophat`, or `_call_spline1d`.
 **Reads:** `original_image`. **Writes:** `calibrated_image`.
 
+`BGCalibrator.__call__` only dispatches:
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator.__call__
+if self.bg_method == 'tophat':
+    self._call_tophat(image)
+elif self.bg_method == 'spline1d':
+    self._call_spline1d(image)
+else:
+    self._call_trendfill(image)
+```
+
 ### 1.1 The problem being solved
 
 A raw AFM scan is not a height map of the specimen sitting on a flat plane. It
@@ -130,6 +158,34 @@ on one row, say — `numpy.linalg.lstsq` would silently return a rank-deficient
 solution, so the rank is checked explicitly and the fit falls back from
 quadratic to plane to the mean background level.
 
+With the coordinates normalised to $x_n, y_n \in [-1, 1]$, the fitted surface
+is
+
+$$
+T(x, y) = a\,x_n^2 + b\,y_n^2 + c\,x_n y_n + d\,x_n + e\,y_n + g
+$$
+
+solved by least squares over the background pixels only (`valid_mask`):
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._fit_trend_surface
+h, w = image.shape
+y_grid, x_grid = np.mgrid[0:h, 0:w]
+x_n = x_grid / max(w - 1, 1) * 2.0 - 1.0
+y_n = y_grid / max(h - 1, 1) * 2.0 - 1.0
+ones = np.ones_like(x_n)
+z = image[valid_mask]
+for terms in (
+    (x_n * x_n, y_n * y_n, x_n * y_n, x_n, y_n, ones),
+    (x_n, y_n, ones),
+):
+    design = np.column_stack([t[valid_mask] for t in terms])
+    coef, _residuals, rank, _singular = np.linalg.lstsq(design, z, rcond=None)
+    if rank == design.shape[1]:
+        return sum(c * t for c, t in zip(coef, terms))
+return np.full(image.shape, float(np.mean(z)), dtype=np.float64)
+```
+
 ### 1.3 `trendfill` — the default method
 
 Named for what it does: subtract the trend, fill the holes. It was called
@@ -137,19 +193,68 @@ Named for what it does: subtract the trend, fill the holes. It was called
 inpainting; `bg_calibrator.BG_METHOD_ALIASES` still translates the old spelling
 so a stored parameter file keeps running.
 
+`_call_trendfill` runs the three steps below and subtracts the result:
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._call_trendfill
+self._detect_fiber_mask(image.original_image)
+self.bg_only, self.bg_sm = self._bg_generate(image.original_image, self.tri_difx_fill, self.tri_dify_fill)
+...
+calibrated_image = self._bg_calibrate(image.original_image, self.bg_sm)
+if self.apply_median:
+    calibrated_image = cv2.medianBlur(calibrated_image.astype(np.float32), ksize=3)
+image.calibrated_image = calibrated_image
+```
+
 #### Step 1 — Find the fiber pixels from gradient statistics
 
 `BGCalibrator._detect_fiber_mask` runs four helpers in sequence.
 
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._detect_fiber_mask
+self.dif_x, self.dif_y = self._difXY(original)
+self.histx, self.histy, self.outx, self.outy = self._bg_fit(self.dif_x, self.dif_y)
+self.tri_difx, self.tri_dify = self._dif_sep(self.dif_x, self.dif_y, self.outx, self.outy)
+self.tri_difx_fill, self.tri_dify_fill = self._extract_fiber(self.tri_difx, self.tri_dify)
+```
+
 `_difXY` takes first differences along each axis, $\Delta_x$ and $\Delta_y$.
 Large absolute differences mark edges, which on this specimen means fiber
 flanks.
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._difXY
+dif_x = image[:, 1:] - image[:, 0:-1]
+dif_y = image[1:, :] - image[0:-1, :]
+return dif_x, dif_y
+```
 
 `_bg_fit` histograms each difference image into 150 bins and fits a **Gaussian
 plus a linear baseline** with `lmfit`. The Gaussian is the *background*
 population: the noise of the substrate, centred near zero. The fiber flanks
 live in the tails. X and Y are fitted independently because the AFM slow-scan
 axis has different noise characteristics and typically a broader $\sigma$.
+
+The fit starts from the median of the differences and a robust width (the
+interquartile range divided by 1.349). The Y fit is the same code on `dif_y`:
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._bg_fit
+histx = np.histogram(np.ravel(dif_x), bins=bin_n)
+...
+h_arrayx = (histx[1][1:] + histx[1][:-1]) / 2
+...
+bg = PolynomialModel(prefix='bg_', degree=1)
+pV1 = GaussianModel(prefix='pv1_')
+model = pV1 + bg
+pars_x = model.make_params()
+pars_x['bg_c0'].set(0)
+pars_x['bg_c1'].set(0)
+pars_x['pv1_amplitude'].set(dif_x.size / 10)
+pars_x['pv1_center'].set(np.median(dif_x))
+pars_x['pv1_sigma'].set((np.percentile(dif_x, 75) - np.percentile(dif_x, 25)) / 1.349)
+outx = model.fit(histx[0], pars_x, x=h_arrayx)
+```
 
 `_dif_sep` converts each difference image into a **ternary map** using the
 fitted centre $\mu$ and width $\sigma$:
@@ -166,6 +271,16 @@ where $f$ is `threshold_factor` (default 2.0). So $\pm 1$ marks "this step is
 too large to be substrate noise", calibrated per image rather than by a fixed
 nm value.
 
+The Y map is built the same way from the Y fit.
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._dif_sep
+outx_min = outx.best_values['pv1_center'] - self.threshold_factor * outx.best_values['pv1_sigma']
+outx_max = outx.best_values['pv1_center'] + self.threshold_factor * outx.best_values['pv1_sigma']
+...
+tri_difx = np.where(dif_x < outx_min, -1, 0) + np.where(dif_x > outx_max, 1, 0)
+```
+
 `_extract_fiber` then scans each row (for X) and each column (for Y) and
 run-length encodes the ternary map, looking for two sign patterns that a ridge
 crossing the scan line produces:
@@ -179,6 +294,37 @@ crossing the scan line produces:
 
 Every pixel between the pattern's outer bounds is marked as fiber. The X and Y
 results are combined by union in the next step.
+
+In the code, `l_arr` holds the value of each run and `arg_arr` the index where
+it starts. Pattern 1 is accepted when the zero run is shorter than
+`fiber_detect_factor`, and pattern 2 when the distance from the start of the +1
+run to the start of the run after the −1 run exceeds `noise_detect_factor`. The
+Y pass is the same code with rows and columns swapped:
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._extract_fiber
+tri_difx_fill = np.zeros(tri_difx.shape)
+for j in range(tri_difx.shape[0] - 1):
+    row = tri_difx[j, :]
+    change_pos = np.where(np.diff(row) != 0)[0]
+    l_arr = np.empty(len(change_pos) + 1, dtype=row.dtype)
+    l_arr[0] = row[0]
+    l_arr[1:] = row[change_pos + 1]
+    arg_arr = np.empty(len(change_pos) + 1, dtype=np.intp)
+    arg_arr[0] = 0
+    arg_arr[1:] = change_pos + 1
+    n = len(l_arr)
+    if n < 4:
+        continue
+    mask1 = (l_arr[:-3] == 1) & (l_arr[1:-2] == 0) & (l_arr[2:-1] == -1)
+    gap1_ok = (arg_arr[2:-1] - arg_arr[1:-2]) < self.fiber_detect_factor
+    for vi in np.where(mask1 & gap1_ok)[0]:
+        tri_difx_fill[j, arg_arr[vi]:arg_arr[vi + 3] - 1] = 1
+    mask2 = (l_arr[:-3] == 1) & (l_arr[1:-2] == -1)
+    gap2_ok = (arg_arr[2:-1] - arg_arr[:-3]) > self.noise_detect_factor
+    for vi in np.where(mask2 & gap2_ok)[0]:
+        tri_difx_fill[j, arg_arr[vi]:arg_arr[vi + 2] - 1] = 1
+```
 
 #### Step 2 — Clean and dilate the mask
 
@@ -196,6 +342,32 @@ field, visible as a tiled or cellular artefact.
 fiber height; leaving them in the background pool biases the estimate upward
 and produces over-subtraction — a dark halo — on both sides of every fiber.
 
+`tri_difx_fill[1:, :]` and `tri_dify_fill[:, 1:]` bring the X and Y maps onto
+the grid of the cropped image before the union. The small-component removal runs
+only when dilation is on (`mask_dilation` > 0) and `min_mask_component_area` is
+above 1:
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._bg_generate
+raw_mask = (np.abs(tri_difx_fill[1:, :]) + np.abs(tri_dify_fill[:, 1:])) > 0
+if self.mask_dilation > 0 and self.min_mask_component_area > 1:
+    n_cc, cc_labels, cc_stats, _cc_centroids = cv2.connectedComponentsWithStats(
+        raw_mask.astype(np.uint8), connectivity=8,
+    )
+    keep = np.zeros(n_cc, dtype=bool)
+    if n_cc > 1:
+        keep[1:] = cc_stats[1:, cv2.CC_STAT_AREA] >= self.min_mask_component_area
+    raw_mask = keep[cc_labels]
+if self.mask_dilation > 0:
+    kernel = np.ones(
+        (self.mask_dilation * 2 + 1, self.mask_dilation * 2 + 1),
+        dtype=np.uint8,
+    )
+    fiber_mask = cv2.dilate(raw_mask.astype(np.uint8), kernel).astype(bool)
+else:
+    fiber_mask = raw_mask
+```
+
 #### Step 3 — Fill, smooth, subtract
 
 The masked pixels are filled from their **nearest background-candidate pixel**,
@@ -206,6 +378,34 @@ needs no explicit restore step.
 The filled surface is smoothed with a Savitzky–Golay filter (`savgol_window`
 default 31, `savgol_polyorder` default 1), the trend is added back, and
 `_bg_calibrate` subtracts the result from the original.
+
+`signal.savgol_filter` works along the last axis, so the smoothing runs along
+each row (X) only:
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._bg_generate
+crop = original[1:, 1:]
+bg_only = np.where(~fiber_mask, crop, float('nan'))
+valid_mask = ~fiber_mask
+if not valid_mask.any():
+    return bg_only, np.zeros_like(crop, dtype=np.float64)
+bg_trend = self._fit_trend_surface(crop, valid_mask)
+detrended = crop - bg_trend
+nearest_idx = distance_transform_edt(
+    fiber_mask, return_distances=False, return_indices=True,
+)
+bg_int = detrended[tuple(nearest_idx)]
+bg_sm = signal.savgol_filter(
+    bg_int, self.savgol_window, self.savgol_polyorder,
+) + bg_trend
+return bg_only, bg_sm
+```
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._bg_calibrate
+height_bgcalib = original[1:, 1:] - bg_sm
+return height_bgcalib
+```
 
 > **Why the fill method was changed.** Navier–Stokes inpainting is a
 > boundary-propagation method designed for thin scratches. At `inpaintRadius=3`
@@ -226,6 +426,30 @@ elliptical structuring element of diameter `tophat_se_size` (default 25 px).
 The opening removes bright structures narrower than the disk, so what survives
 is the background; the residual `original - opening` is the classic white
 top-hat transform.
+
+Here the trend surface is fitted over every pixel, fibers included, and the
+opening is taken of the detrended image and smoothed along X before the trend is
+restored:
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._call_tophat
+se = cv2.getStructuringElement(
+    cv2.MORPH_ELLIPSE,
+    (self.tophat_se_size, self.tophat_se_size),
+)
+bg_trend = self._fit_trend_surface(
+    original, np.ones(original.shape, dtype=bool),
+)
+opened_detrended = cv2.morphologyEx(
+    (original - bg_trend).astype(np.float32), cv2.MORPH_OPEN, se,
+).astype(np.float64)
+self.bg_open = opened_detrended + bg_trend
+self.bg_sm = signal.savgol_filter(
+    opened_detrended, self.savgol_window, self.savgol_polyorder,
+) + bg_trend
+calibrated_image = original[1:, 1:] - self.bg_sm[1:, 1:]
+calibrated_image -= np.median(calibrated_image)
+```
 
 Two details are not optional:
 
@@ -257,14 +481,64 @@ evens out horizontal stripes — the line-to-line offsets a drifting feedback
 loop produces; interpolating each **row** (`'x'`) targets vertical stripes
 instead.
 
-Line ends are deliberately **not extrapolated**. Beyond a line's first or last
-valid sample there is background data on one side only, so any 1-D model of
-that run is fitted to that single line and its error is uncorrelated with its
-neighbours. This is what made the historical `pandas` implementation fail
-(constant padding, visible as streaks), and a fitted spline's own extrapolation
-fails the same way, only as smooth bands instead of thin streaks. Those runs
-are filled from the nearest background pixel in 2-D instead, which draws on the
-neighbouring lines.
+The default axis is `'x'`. A line with fewer than `spline1d_degree` + 1 valid
+samples, or a degree below 2, is filled linearly instead.
+
+Line ends are deliberately **not extrapolated with a shape**. Beyond a line's
+first or last valid sample there is background data on one side only, so any
+shape a 1-D method puts there — the spline's own extrapolation, or a linear
+ramp — is fitted to that single line, its error grows with the length of the
+run, and it is uncorrelated with the neighbouring lines, so each line paints its
+own band. `_spline1d_fill` instead holds, across each end run, the **mean of
+that line's nearest `end_window` background samples**, with `end_window` set to
+`savgol_window` (default 31). On a detrended image what remains specific to one
+line is essentially its scan-line offset, which is constant along the line, so
+holding a level estimates it without extrapolating a slope, and averaging many
+samples keeps pixel noise out of that level. Only a line with fewer than two
+valid samples is left unfilled; its pixels are filled from the nearest
+background pixel in 2-D.
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._call_spline1d
+self._detect_fiber_mask(original)
+self.bg_only, _ = self._bg_generate(original, self.tri_difx_fill, self.tri_dify_fill)
+...
+bg_trend = self._fit_trend_surface(crop, valid_mask)
+detrended = np.where(valid_mask, crop - bg_trend, float('nan'))
+bg_int = self._spline1d_fill(
+    detrended, axis=self.spline1d_axis, order=self.spline1d_degree,
+    end_window=self.savgol_window,
+)
+unfilled = np.isnan(bg_int)
+if unfilled.any():
+    nearest_idx = distance_transform_edt(
+        ~valid_mask, return_distances=False, return_indices=True,
+    )
+    nearest = np.where(valid_mask, crop - bg_trend, 0.0)[tuple(nearest_idx)]
+    bg_int = np.where(unfilled, nearest, bg_int)
+bg_int = bg_int + bg_trend
+...
+self.bg_sm = signal.savgol_filter(bg_int, self.savgol_window, self.savgol_polyorder)
+calibrated_image = original[1:, 1:] - self.bg_sm
+```
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._spline1d_fill
+if n_valid < 2:
+    continue
+s = pd.Series(line)
+if n_valid >= order + 1 and order >= 2:
+    filled = s.interpolate(method='spline', order=order,
+                           limit_direction='both')
+else:
+    filled = s.interpolate(method='linear', limit_direction='both')
+filled = filled.to_numpy(copy=True)
+valid_pos = np.flatnonzero(valid)
+first, last = valid_pos[0], valid_pos[-1]
+k = max(1, min(end_window, n_valid))
+filled[:first] = np.mean(line[valid_pos[:k]])
+filled[last + 1:] = np.mean(line[valid_pos[-k:]])
+```
 
 ### 1.6 Choosing a method
 
@@ -301,6 +575,34 @@ _recover_missed_ridges (optional) -> ridge_recovered_image
 closing                  -> binarized_image
 ```
 
+`Segmenter.__call__` wires them in this order:
+
+```python
+# source: lib/segmenter.py::Segmenter.__call__
+self.binary_image = self._binaryzation(
+    image.calibrated_image, self.global_threshold, self.wsize_localbin
+)
+self.no_small_binary_image = self._remove_small_fragments(self.binary_image, self.area_min)
+self.no_linear_binary_image = self._remove_nonlinear_objects(
+    self.no_small_binary_image, self.h_length, self.h_sratio
+)
+if self.apply_no_connecting:
+    self.no_connecting_binary_image = self._remove_connecting_fragments(
+        self.no_linear_binary_image
+    )
+else:
+    self.no_connecting_binary_image = self.no_linear_binary_image
+self.no_low_binary_image = self.remove_low_component(
+    image.calibrated_image, self.no_connecting_binary_image
+)
+self.ridge_recovered_image = self._recover_missed_ridges(
+    image.calibrated_image, self.no_low_binary_image, nm_per_px,
+)
+recovered_union = self.no_low_binary_image | self.ridge_recovered_image
+no_small_binary_image4 = closing(recovered_union).astype(bool)
+image.binarized_image = no_small_binary_image4
+```
+
 ### 2.1 Two thresholds, ANDed
 
 `_binaryzation` requires a pixel to pass **both** tests:
@@ -319,11 +621,37 @@ Requiring both is deliberate: the local test alone would promote noise in an
 empty region (where it only has noise to compare against), and the global test
 alone would miss a fiber sitting in a locally depressed area.
 
+`skimage.filters.threshold_local` is called with its defaults, so the local threshold is a
+Gaussian-weighted mean over the window with no offset:
+
+```python
+# source: lib/segmenter.py::Segmenter._binaryzation
+binary_global = image > global_threshold
+local_threshold = threshold_local(image, wsize_localbin)
+binary_local = image > local_threshold
+binary_final = binary_global & binary_local
+return binary_final
+```
+
 ### 2.2 Area filter
 
 `_remove_small_fragments` drops 8-connected components with area
 $\le$ `area_min` (default 100 px²) and then applies a 3×3 median blur, which
 removes isolated single pixels and smooths ragged component edges.
+
+```python
+# source: lib/segmenter.py::Segmenter._remove_small_fragments
+out_binary_image = binary_image.copy()
+n_labels, label_image, stats, centers = cv2.connectedComponentsWithStats(
+    np.uint8(out_binary_image), 8
+)
+areas = stats[:, cv2.CC_STAT_AREA]
+small_labels = np.where(areas <= area_min)[0]
+mask_remove = np.isin(label_image, small_labels)
+out_binary_image[mask_remove] = 0
+out_binary_image = cv2.medianBlur(out_binary_image.astype(np.float32), ksize=3)
+return out_binary_image.astype(bool)
+```
 
 ### 2.3 Linearity filter
 
@@ -353,6 +681,36 @@ empty and neighbouring objects land inside it often; cropping the whole mask
 let their outlines enter both sides of the $s_{\text{ratio}}$ fraction, and a
 component's verdict could turn on what happened to lie near it.
 
+```python
+# source: lib/segmenter.py::Segmenter._remove_nonlinear_objects
+for i in range(1, n_labels):
+    left, top, width, height, area = stats[i]
+    if area >= 1000:
+        continue
+    if max(width, height) < self.h_length:
+        out_binary_image[label_image == i] = 0
+        continue
+    target = label_image[
+        top : top + height, left : left + width
+    ] == i
+    target_edge = canny(target, sigma=0, low_threshold=0, high_threshold=1)
+    h, theta, d = hough_line(target_edge)
+    accums, _, _ = hough_line_peaks(
+        h, theta, d,
+        min_distance=max(1, linegap),
+        min_angle=1,
+        threshold=h_length,
+    )
+    if len(accums) > 0:
+        total_length = float(np.sum(accums))
+    else:
+        total_length = 0.0
+    s_ratio = total_length / (np.sum(target_edge) + _DENOM_EPS)
+    self.h_sratio_list.append(s_ratio)
+    if s_ratio < h_sratio and np.sum(target) < 1000:
+        out_binary_image[label_image == i] = 0
+```
+
 > **This was changed after 1.0.0.** Measured over 22 real scans (3318
 > components, 1726 linearity-tested), 341 tested components had a neighbour
 > inside their bounding box, and on one scan one component was judged
@@ -373,6 +731,22 @@ count equals `area`, which the `area >= 1000` guard has already bounded — the
 to break fragments joined by a one-pixel-wide bridge. It runs only when
 `apply_no_connecting` is true, which is **not** the default.
 
+```python
+# source: lib/segmenter.py::Segmenter._remove_connecting_fragments
+out_binary_image = binary_image.copy()
+out_binary_image = binary_erosion(out_binary_image)
+n_labels, label_image, stats, centers = cv2.connectedComponentsWithStats(
+    np.uint8(out_binary_image), 8
+)
+for i in range(1, n_labels):
+    *_, area = stats[i]
+    if area <= self.area_min_connecting:
+        out_binary_image[label_image == i] = 0
+out_binary_image = binary_dilation(out_binary_image)
+out_binary_image = closing(out_binary_image).astype(bool)
+return out_binary_image
+```
+
 > **This was changed after 1.0.0.** The component loop read
 > `range(n_labels - 1)`, covering labels `0 .. n-2`: it entered the background
 > label 0 and never reached the highest label. Because OpenCV numbers labels in
@@ -390,6 +764,18 @@ to break fragments joined by a one-pixel-wide bridge. It runs only when
 calibrated image is below `low_threshold` (default 1.8 nm). Using the maximum
 rather than the mean is what lets a genuine thin fiber survive while a broad
 low smear is discarded.
+
+The maximum is taken per component with `scipy.ndimage.maximum`:
+
+```python
+# source: lib/segmenter.py::Segmenter.remove_low_component
+labels = np.arange(1, n_labels)
+max_heights = ndi_maximum(height_image, labels=label_image, index=labels)
+low_labels = labels[np.asarray(max_heights) < self.low_threshold]
+if low_labels.size > 0:
+    out_binary_image[np.isin(label_image, low_labels)] = 0
+return out_binary_image
+```
 
 ### 2.6 Ridge recovery (off by default)
 
@@ -419,6 +805,43 @@ when a pixel size is known, because its settings are physical lengths.
 It is off by default so a stored parameter file reproduces the numbers it was
 written with. When on, the Frangi filter dominates the cost of this stage.
 
+In the code, the smallest scale is never below 0.6 px and the largest is at
+least 1.5 times the smallest, and when the triangle level is not below the Otsu
+level the low level falls back to 0.3 of the high one:
+
+```python
+# source: lib/segmenter.py::Segmenter._recover_missed_ridges
+if not self.ridge_recovery or not nm_per_px or nm_per_px <= 0:
+    return empty
+lo = max(0.6, self.ridge_min_width_nm / nm_per_px)
+hi = max(lo * 1.5, self.ridge_max_width_nm / nm_per_px)
+sigmas = np.geomspace(lo, hi, 5)
+response = np.nan_to_num(
+    frangi(calibrated_image, sigmas=sigmas, black_ridges=False)
+)
+if not np.any(response > 0):
+    return empty
+try:
+    high = threshold_otsu(response)
+    low = threshold_triangle(response)
+except ValueError:
+    return empty
+if not low < high:
+    low = high * 0.3
+candidate = apply_hysteresis_threshold(response, low, high)
+outside = candidate & ~binary_image.astype(bool)
+if not outside.any():
+    return empty
+n_labels, labels = cv2.connectedComponents(outside.astype(np.uint8), connectivity=8)
+keep = [
+    label for label in range(1, n_labels)
+    if skeletonize(labels == label).sum() * nm_per_px >= self.ridge_min_length_nm
+]
+if not keep:
+    return empty
+return np.isin(labels, keep)
+```
+
 ### 2.7 Closing
 
 Finally a morphological closing bridges one-pixel gaps. Ridge recovery runs
@@ -443,6 +866,34 @@ would cause that split.
 
 `Skeletonizer.__call__` runs the following, in order.
 
+```python
+# source: lib/skeletonizer.py::Skeletonizer.__call__
+init_skeleton_image = thin_ignoring_image_border(image.binarized_image)
+...
+self.set_low_bp_coor(image.calibrated_image, init_skeleton_image, self.bp_height)
+self.get_close_eps()
+nobranch_image = self.prune_branches(image.calibrated_image, init_skeleton_image)
+...
+nobranch_skeleton_image = skeletonize(nobranch_image).astype(np.uint8)
+...
+cleaned_skeleton_image = collapse_skeleton_loops(
+    nobranch_skeleton_image, self.max_loop_area, image.calibrated_image
+)
+cleaned_skeleton_image = prune_short_spurs(
+    cleaned_skeleton_image, self.spur_length
+)
+cleaned_skeleton_image = prune_terminal_hooks(
+    cleaned_skeleton_image, image.calibrated_image
+)
+...
+nosmall_skeleton_image = self.remove_small_and_ring(cleaned_skeleton_image)
+...
+image.skeleton_image = nosmall_skeleton_image
+...
+image.ep = imp_tools.endPoints(nosmall_skeleton_image)
+image.bp = imp_tools.branchedPoints(nosmall_skeleton_image)
+```
+
 ### 3.1 Thin without letting the image border cut fibers
 
 `thin_ignoring_image_border` replicates the image border outward by
@@ -461,6 +912,24 @@ Replication can also inflate a blob lying *along* the border and push its axis
 out of the image, so any mask component the padded pass would leave without a
 skeleton keeps its plain thinning result. The correction never deletes a fiber.
 
+```python
+# source: lib/skeletonizer.py::thin_ignoring_image_border
+mask = (np.asarray(binary_image) > 0).astype(np.uint8)
+plain = thin(mask).astype(np.uint8)
+if pad <= 0:
+    return plain
+extended = np.pad(mask, pad, mode='edge')
+padded = thin(extended).astype(np.uint8)[pad:-pad, pad:-pad]
+n_labels, labels = cv2.connectedComponents(mask)
+plain_counts = np.bincount(labels[plain > 0], minlength=n_labels)
+padded_counts = np.bincount(labels[padded > 0], minlength=n_labels)
+lost = np.nonzero((plain_counts > 0) & (padded_counts == 0))[0]
+lost = lost[lost != 0]
+if lost.size:
+    padded = np.where(np.isin(labels, lost), plain, padded).astype(np.uint8)
+return padded
+```
+
 ### 3.2 Height-gated branch pruning
 
 This is the only cleanup step that uses height rather than geometry.
@@ -470,14 +939,80 @@ by comparing the calibrated height against `bp_height` (default 10 nm). A
 branch point sitting at fiber height is where two real fibers cross; one
 sitting near the substrate is where the mask sprouted something spurious.
 
+```python
+# source: lib/skeletonizer.py::Skeletonizer.set_low_bp_coor
+all_bps = imp_tools.branchedPoints(init_skeleton_image)
+low_bp_coor = np.where(all_bps & (calibrated_image < bp_height))
+high_bp_coor = np.where(all_bps & (calibrated_image >= bp_height))
+```
+
 `get_close_eps` then finds endpoints within `branch_length` px (default 12) of
 a low branch point — only those can plausibly be short spurious branches.
+
+The neighbourhood is a `scipy.ndimage.maximum_filter` of size $2k$ around each low branch
+point, with $k$ = `branch_length`:
+
+```python
+# source: lib/skeletonizer.py::Skeletonizer.get_close_eps
+all_eps_image = imp_tools.endPoints(self._init_skeleton_image)
+_low_bps_image = np.zeros_like(self._init_skeleton_image, dtype=np.uint8)
+_low_bps_image[self._coor_low_bps] = 1
+k = self.branch_length
+dilated_low_bps = maximum_filter(
+    _low_bps_image.astype(float), size=2 * k, mode='constant', cval=0, origin=0
+)
+close_eps = all_eps_image & (dilated_low_bps > 0).astype(np.uint8)
+self._coor_close_eps = np.where(close_eps)
+```
 
 `track_branches` walks the skeleton from each such endpoint, up to
 `branch_length` steps. The arm is **pruned** if the walk reaches a low branch
 point, or dead-ends without reaching any branch point (an isolated short
 fragment). It is **kept** if the walk touches a high branch point or exhausts
 the step budget, because neither confirms a short low branch.
+
+In the code, `x` is the row and `y` the column. At each step the dead-end test
+comes first, then the low-branch-point test and then the high one, each over the
+3×3 neighbourhood of the current pixel; the pixels walked so far are recorded as
+the branch when the arm is pruned:
+
+```python
+# source: lib/skeletonizer.py::Skeletonizer.track_branches
+def touches(mask: np.ndarray, row: int, col: int) -> bool:
+    return bool(mask[max(0, row - 1): row + 2, max(0, col - 1): col + 2].any())
+starts_x, starts_y = self._coor_close_eps
+bl = self.branch_length
+for start_x, start_y in zip(starts_x, starts_y):
+    if not (bl <= start_x <= height - bl and bl <= start_y <= width - bl):
+        continue
+    x, y = int(start_x), int(start_y)
+    xtrack = [x]
+    ytrack = [y]
+    visited = {(x, y)}
+    for _ in range(bl):
+        next_pixels = [
+            (x + dx, y + dy)
+            for dx in (-1, 0, 1) for dy in (-1, 0, 1)
+            if (dx, dy) != (0, 0)
+            and 0 <= x + dx < height and 0 <= y + dy < width
+            and skeleton[x + dx, y + dy]
+            and (x + dx, y + dy) not in visited
+        ]
+        if not next_pixels:
+            branches_coor_x += xtrack
+            branches_coor_y += ytrack
+            break
+        if touches(image_low_bps, x, y):
+            branches_coor_x += xtrack
+            branches_coor_y += ytrack
+            break
+        if touches(image_high_bps, x, y):
+            break
+        x, y = next_pixels[0]
+        visited.add((x, y))
+        xtrack.append(x)
+        ytrack.append(y)
+```
 
 Two properties of this walk are deliberate and were both fixes to real
 failures:
@@ -495,6 +1030,12 @@ Endpoints within `branch_length` of the scan border are skipped: an arm ending
 that close to the edge is a fiber leaving the field of view, not a branch tip.
 
 The pruned mask is then re-skeletonized to restore one-pixel width.
+
+```python
+# source: lib/skeletonizer.py::Skeletonizer.prune_branches
+branches_image = self.calc_branches_image(calibrated_image, init_skeleton_image)
+return init_skeleton_image - branches_image
+```
 
 ### 3.3 Collapse loop artefacts
 
@@ -520,6 +1061,43 @@ which sits between the two regimes with margin on both sides. Filling the wrong
 one would fuse two fibers and fabricate a path down the middle of the groove
 between them.
 
+The ring is the skeleton within a 5×5 dilation of the hole, and both heights are
+medians:
+
+```python
+# source: lib/skeletonizer.py::collapse_skeleton_loops
+inv = (skel == 0).astype(np.uint8)
+n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
+    inv, connectivity=4
+)
+height, width = skel.shape
+fill_labels = []
+for i in range(1, n_labels):
+    x, y, cw, ch, area = stats[i]
+    if not (area <= max_loop_area and x > 0 and y > 0
+            and x + cw < width and y + ch < height):
+        continue
+    if calibrated_image is not None:
+        x0, y0 = max(0, x - 2), max(0, y - 2)
+        x1, y1 = min(width, x + cw + 2), min(height, y + ch + 2)
+        hole_local = labels[y0:y1, x0:x1] == i
+        dilated = cv2.dilate(
+            hole_local.astype(np.uint8), np.ones((5, 5), np.uint8)
+        )
+        ring = (dilated > 0) & ~hole_local & (skel[y0:y1, x0:x1] > 0)
+        cal_local = calibrated_image[y0:y1, x0:x1]
+        if ring.any():
+            interior_h = float(np.median(cal_local[hole_local]))
+            ridge_h = float(np.median(cal_local[ring]))
+            if interior_h < min_height_ratio * ridge_h:
+                continue
+    fill_labels.append(i)
+if not fill_labels:
+    return skel
+filled = (skel > 0) | np.isin(labels, fill_labels)
+return skeletonize(filled).astype(np.uint8)
+```
+
 ### 3.4 Prune short spurs
 
 `prune_short_spurs` removes dead-end arms shorter than `spur_length`
@@ -533,6 +1111,54 @@ kept, and arms whose endpoint lies within `border_margin` = 2 px of the image
 border are never pruned, for the same reason as above: two fibers that touch
 just before exiting the scan form a genuine junction, and pruning the short arm
 would fuse them.
+
+A junction is a branch point with at least three skeleton neighbours
+(`_junction_degree`). The walk stops without pruning at a fork, and the whole
+pass repeats until no spur is removed:
+
+```python
+# source: lib/skeletonizer.py::prune_short_spurs
+while True:
+    bp = imp_tools.branchedPoints(skel).astype(bool)
+    if not bp.any():
+        return skel
+    ep_mask = imp_tools.endPoints(skel).astype(bool) & (skel > 0)
+    removed = False
+    for sy, sx in zip(*np.where(ep_mask)):
+        if (sy < border_margin or sx < border_margin
+                or sy >= height - border_margin
+                or sx >= width - border_margin):
+            continue
+        path = [(int(sy), int(sx))]
+        cy, cx = int(sy), int(sx)
+        while len(path) <= max_length:
+            candidates = []
+            hit_junction = False
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    if dy == 0 and dx == 0:
+                        continue
+                    ny, nx = cy + dy, cx + dx
+                    if not (0 <= ny < height and 0 <= nx < width):
+                        continue
+                    if not skel[ny, nx] or (ny, nx) in path:
+                        continue
+                    if bp[ny, nx] and _junction_degree(skel, ny, nx) >= 3:
+                        hit_junction = True
+                    else:
+                        candidates.append((ny, nx))
+            if hit_junction:
+                for py, px in path:
+                    skel[py, px] = 0
+                removed = True
+                break
+            if len(candidates) != 1:
+                break
+            cy, cx = candidates[0]
+            path.append((cy, cx))
+    if not removed:
+        return skel
+```
 
 ### 3.5 Trim terminal hooks
 
@@ -562,11 +1188,80 @@ literature can identify it — the missing information is the height data. The
 criterion instead follows grayscale-guided fiber tracing: a fiber centreline
 must lie on the height ridge.
 
+In the code the walk from each endpoint (`_walk_from_endpoint`) is followed for
+up to 30 px. At walk index $j \le 12$, the apex angle is the angle between the
+vector to the point 6 steps further along ($j + 6$) and the vector back to the
+endpoint; the deepest $j$ with an angle below 120° is the apex. The body height
+is the median over the 12 pixels after the apex (at least 4 are needed), and the
+leading pixels are removed while their height stays below half of it, never past
+the apex:
+
+```python
+# source: lib/skeletonizer.py::DEFAULT_HOOK_LENGTH, DEFAULT_HOOK_APEX_ANGLE_DEG, DEFAULT_HOOK_HEIGHT_RATIO, _HOOK_DIRECTION_WINDOW, _HOOK_BODY_WINDOW
+DEFAULT_HOOK_LENGTH = 12
+DEFAULT_HOOK_APEX_ANGLE_DEG = 120.0
+DEFAULT_HOOK_HEIGHT_RATIO = 0.5
+_HOOK_DIRECTION_WINDOW = 6
+_HOOK_BODY_WINDOW = 12
+```
+
+```python
+# source: lib/skeletonizer.py::prune_terminal_hooks
+path = _walk_from_endpoint(skel, int(sy), int(sx), walk_cap)
+n = len(path)
+py = np.array([p[0] for p in path], dtype=float)
+px = np.array([p[1] for p in path], dtype=float)
+apex = -1
+for j in range(1, min(max_hook_length, n - _HOOK_DIRECTION_WINDOW - 1) + 1):
+    body_y = py[j + _HOOK_DIRECTION_WINDOW] - py[j]
+    body_x = px[j + _HOOK_DIRECTION_WINDOW] - px[j]
+    end_y = py[0] - py[j]
+    end_x = px[0] - px[j]
+    norm_body = float(np.hypot(body_y, body_x))
+    norm_end = float(np.hypot(end_y, end_x))
+    if norm_body == 0.0 or norm_end == 0.0:
+        continue
+    cos_apex = (body_y * end_y + body_x * end_x) / (norm_body * norm_end)
+    angle = float(np.degrees(np.arccos(np.clip(cos_apex, -1.0, 1.0))))
+    if angle < max_apex_angle_deg:
+        apex = j
+if apex < 0:
+    continue
+body_px = path[apex + 1: apex + 1 + _HOOK_BODY_WINDOW]
+if len(body_px) < 4:
+    continue
+body_median = float(np.median(
+    [calibrated_image[p] for p in body_px]
+))
+threshold = max_height_ratio * body_median
+if threshold <= 0.0:
+    continue
+run = 0
+while run < apex and calibrated_image[path[run]] < threshold:
+    run += 1
+for i in range(run):
+    skel[path[i]] = 0
+```
+
 ### 3.6 Remove small and ring components
 
 `remove_small_and_ring` drops components below `min_area` (default 10 px) and
 components with **no endpoints at all**. An endpoint-free component is a closed
 ring, which no fiber tracing can traverse.
+
+```python
+# source: lib/skeletonizer.py::Skeletonizer.remove_small_and_ring
+returned_image = np.copy(skeleton_image)
+nLabels, label_Images, data, center = cv2.connectedComponentsWithStats(returned_image)
+ep = imp_tools.endPoints(returned_image)
+ring_frac_label = np.setdiff1d(np.arange(1, nLabels), label_Images[ep > 0])
+areas = np.array([data[i][4] for i in range(1, nLabels)])
+small_labels = np.nonzero(areas < self.min_area)[0] + 1
+remove_labels = np.union1d(small_labels, ring_frac_label)
+if remove_labels.size > 0:
+    returned_image[np.isin(label_Images, remove_labels)] = 0
+return returned_image
+```
 
 ### 3.7 Endpoints and branch points
 
@@ -575,6 +1270,22 @@ pixel by hit-or-miss matching (`cv2.MORPH_HITMISS`) against a fixed set of 3×3
 neighbourhood patterns, in the rotation order of the original lab code. The
 resulting `ep` and `bp` maps are stored in the bundle and are what downstream
 tracing and the isolation test in `measure.isolated_fiber_flags` read.
+
+The skeleton is padded by one background pixel first, so a pixel on the image
+border is classified as if the scan ended there:
+
+```python
+# source: lib/imp_tools.py::_hitmiss_union, branchedPoints, endPoints
+padded = np.pad(skel, pad_width=1, mode='constant', constant_values=0).astype(np.uint8)
+hits = np.zeros_like(padded, dtype=np.uint8)
+for p in patterns:
+    hits |= cv2.morphologyEx(padded, cv2.MORPH_HITMISS, p)
+return np.ascontiguousarray(np.where(hits > 0, 1, 0).astype(np.uint8)[1:-1, 1:-1])
+...
+return _hitmiss_union(skel, _BRANCH_PATTERNS)
+...
+return _hitmiss_union(skel, _END_PATTERNS)
+```
 
 ---
 
@@ -593,6 +1304,42 @@ centreline is followed pixel by pixel may be a gentle curve at fiber scale.
 Here the scale is the fiber's apparent width $W$ (§4.2), which is also the
 resolution the probe leaves in the image.
 
+`KinkDetector.__call__` places each traced component's centerline and judges it;
+the kinks are judged on `placed.x`, `placed.y` and stored at the skeleton pixels
+of the same indices:
+
+```python
+# source: lib/kink_detector.py::KinkDetector.__call__
+no_bp_skel = imp_tools.remove_bp(image.skeleton_image)
+no_Lcorner_skel = imp_tools.remove_Lcorner(no_bp_skel)
+nLabels, label_image, data, center = cv2.connectedComponentsWithStats(no_Lcorner_skel)
+branch_points = getattr(image, "bp", None)
+if branch_points is None:
+    branch_points = imp_tools.branchedPoints(image.skeleton_image)
+...
+for label in range(1, nLabels):
+    x, y, w, h, area = data[label]
+    sub_label = label_image[y:y+h, x:x+w]
+    target_image = (sub_label == label).astype(np.uint8)
+    try:
+        _xtrack_local, _ytrack_local = imp_tools.tracking(target_image)
+...
+    _xtrack = _xtrack_local + x
+    _ytrack = _ytrack_local + y
+    placed = place_centerline(
+        image.calibrated_image, _xtrack, _ytrack, branch_points,
+    )
+...
+    judged = self.judge_line(placed.x, placed.y, placed.width_px)
+...
+    all_kink_coordinate_x.extend(_xtrack[kink_indices])
+    all_kink_coordinate_y.extend(_ytrack[kink_indices])
+    all_kink_angles.extend(list(kink_angles))
+    all_kink_excess.extend(list(judged.kink_excess))
+    unjudged_point_x.extend(_xtrack[unjudged_indices])
+    unjudged_point_y.extend(_ytrack[unjudged_indices])
+```
+
 ### 4.1 Prepare traceable tracks
 
 `imp_tools.remove_bp` clears a $(2r+1)$-square neighbourhood ($r$ =
@@ -605,6 +1352,68 @@ Each connected component is traced end to end by `imp_tools.tracking`, which
 walks from one endpoint to the other and returns the pixel coordinates **in
 order**. A component that does not have exactly two endpoints cannot be traced;
 it is logged and skipped rather than aborting the image.
+
+In `imp_tools.remove_Lcorner` a pattern cell of 1 must be skeleton and 0 must
+be background, so the removed pixel is the corner of an L whose two arms are
+orthogonal neighbours; the L becomes a diagonal step. `imp_tools.tracking`
+starts at the endpoint that comes first in raster order and at each step moves
+to the first remaining neighbour in raster order of the 3×3 window, clearing
+the pixel it leaves:
+
+```python
+# source: lib/imp_tools.py::remove_bp
+bp = branchedPoints(imgcopy)
+bp_coor = np.where(bp)
+for bp_x, bp_y in zip(bp_coor[0], bp_coor[1]):
+    imgcopy[
+    max(int(bp_x) - remove_size, 0): bp_x + remove_size + 1,
+    max(int(bp_y) - remove_size, 0): bp_y + remove_size + 1,
+    ] = 0
+if min_area != 0:
+    tmp_nlabels, tmp_label_image = cv2.connectedComponents(np.uint8(imgcopy))
+    sizes = np.bincount(tmp_label_image.ravel())
+    small_mask = sizes < min_area
+    small_mask[0] = False
+    imgcopy[small_mask[tmp_label_image]] = 0
+```
+
+```python
+# source: lib/imp_tools.py::remove_Lcorner
+corner = np.array([[0, 1, 0],
+                   [1, 1, 0],
+                   [0, 0, 0]])
+...
+for corner_pattern in [corner, corner2, corner3, corner4]:
+    h = cv2.morphologyEx(src, cv2.MORPH_HITMISS, _to_cv2_hitmiss_kernel(corner_pattern))
+    hits += np.where(h > 0, 1, 0).astype(np.uint8)
+Lremoved_img = imgcopy - hits
+```
+
+```python
+# source: lib/imp_tools.py::tracking
+ep = endPoints(imgcopy)
+ep_y, ep_x = np.where(ep)
+if len(ep_y) != 2:
+    raise ValueError(
+        "tracking requires exactly 2 endpoints; "
+        f"detected {len(ep_y)} endpoint(s)"
+    )
+...
+for i in range(np.sum(imgcopy)):
+    imgcopy[y, x] = 0
+    window = imgcopy[y - 1: y + 2, x - 1: x + 2]
+    direction_y, direction_x = np.where(window != 0)
+    if len(direction_y) == 0:
+        break
+    dy = int(direction_y[0]) - 1
+    dx = int(direction_x[0]) - 1
+    y += dy
+    x += dx
+    xtrack.append(x)
+    ytrack.append(y)
+    if x == ep_x_end and y == ep_y_end:
+        break
+```
 
 This is why kink detection — and the height sampling that shares the same
 tracing path — excludes the branch-point neighbourhoods: at a crossing the
@@ -643,6 +1452,17 @@ Each skeleton point is therefore moved onto the fiber's height:
    $1.5\,W$ (two fibers side by side), where the maximum found does not belong
    to the section the track lies on, and where the section is too faint. The
    offsets are joined along the track by a first-order penalty over $W/4$.
+
+The computation is shown step by step, with its code, in
+[GUI04 fiber measurements](gui04_measurements.md) §2; kink detection calls the
+same function:
+
+```python
+# source: lib/centerline.py::place_centerline
+width, measured = measure_apparent_width(height, x, y, return_measured=True)
+lx, ly, reliable, crest = _refine(height, x, y, width, branch_points)
+return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
+```
 
 The result has exactly one point per skeleton point. That is what lets the
 kinks judged on the line be stored at skeleton pixels in the bundle, and what
@@ -712,7 +1532,8 @@ format 1.0 was judged on the skeleton and is rebuilt on its skeleton track
 
 ### 4.3 Judge each bend by its excess turning
 
-**Code:** `KinkDetector.kinks_on_line`.
+**Code:** `KinkDetector.judge_line` (`KinkDetector.kinks_on_line` is its tuple
+form).
 
 The rule works on the heading of the line, $\theta(s)$, resampled every 0.5 px
 of arc length $s$ and smoothed with a Gaussian of $\sigma = W/4$
@@ -741,9 +1562,80 @@ E \ge 180^\circ - \theta_{\text{max}}
 $$
 
 with $\theta_{\text{max}}$ = `kinkangle_deg`, default 150°, so the default asks
-for 30° of excess turning. The kink's angle is stored as the interior angle
-$180^\circ - E$, in radians, so `kinkangle_deg` keeps its meaning: a bend at or
-below that interior angle is a kink.
+for 30° of excess turning. The threshold is written as an interior angle so that
+`kinkangle_deg` keeps the meaning it had under the earlier rule; `pipeline.build_stages`
+converts it to radians for the detector. The angle *stored* for a kink is
+measured separately, from its arms (see *The angle it reports* below).
+
+In the code, the heading is resampled, differenced and smoothed by
+`_heading_profile`, and `excess_profile` evaluates $T$ and $E$ at any position.
+Near an end the flank interval is clipped to the line but still divided by $f$.
+A position $p$ is accepted only when it lies at least $c$ from both ends,
+$|T(p)|$ reaches the threshold, and $E(p)$ reaches both the threshold and the
+noise floor (which is 0 while `NOISE_SIGMAS` is 0). The threshold is
+$\pi - \theta_{\text{max}}$ in radians (`turn_threshold`):
+
+```python
+# source: lib/kink_detector.py::_CORE_WIDTHS, _FLANK_WIDTHS, _HEADING_SIGMA_WIDTHS
+_CORE_WIDTHS = 0.75
+_FLANK_WIDTHS = 1.0
+_HEADING_SIGMA_WIDTHS = 0.25
+```
+
+```python
+# source: lib/kink_detector.py::_heading_profile
+seg = np.hypot(np.diff(x), np.diff(y))
+keep = np.concatenate([[True], seg > 1e-9])
+orig = np.nonzero(keep)[0]
+x, y = x[keep], y[keep]
+if x.size < 2:
+    return None
+s = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
+length = float(s[-1])
+su = np.arange(0.0, length + 1e-9, _HEADING_STEP_PX)
+if su.size < 2:
+    return None
+xu = np.interp(su, s, x)
+yu = np.interp(su, s, y)
+theta = np.unwrap(np.arctan2(np.diff(yu), np.diff(xu)))
+sm = su[:-1] + 0.5 * _HEADING_STEP_PX
+heading = _smooth_extrapolated(
+    theta, _HEADING_SIGMA_WIDTHS * width / _HEADING_STEP_PX,
+)
+return orig, s, length, sm, heading
+```
+
+```python
+# source: lib/kink_detector.py::KinkDetector.judge_line
+width = float(width_px)
+c = _CORE_WIDTHS * width
+f = _FLANK_WIDTHS * width
+profile = _heading_profile(x, y, width)
+...
+turn_threshold = max(np.pi - float(self.threshold_angle_from_decomposed_indices), 0.0)
+curvature = np.abs(np.gradient(heading, _HEADING_STEP_PX))
+curvature_floor = _CURVATURE_FLOOR_FRAC * turn_threshold / (2.0 * c)
+radius = _SUPPRESS_WIDTHS * width
+def excess_profile(p: NDArray) -> Tuple[NDArray, NDArray]:
+    core = np.interp(p + c, sm, heading) - np.interp(p - c, sm, heading)
+    sense = np.sign(core)
+    left = (np.interp(p - c, sm, heading)
+            - np.interp(np.maximum(sm[0], p - c - f), sm, heading)) / f
+    right = (np.interp(np.minimum(sm[-1], p + c + f), sm, heading)
+             - np.interp(p + c, sm, heading)) / f
+    background = np.maximum(0.0, np.minimum(sense * left, sense * right))
+    return core, np.abs(core) - 2.0 * c * background
+grid = sm[(sm >= c) & (sm <= length - c)]
+...
+def excess_at(p: float) -> Optional[float]:
+    if p < c or p > length - c:
+        return None
+    core, excess = excess_profile(np.array([p]))
+    if abs(float(core[0])) < turn_threshold:
+        return None
+    excess = float(excess[0])
+    return excess if excess >= max(turn_threshold, floor) else None
+```
 
 **Why the excess and not the turning.** The window's turning alone reports
 curvature as well as kinks: an arc of radius $3\,W$ already turns 29° across
@@ -762,6 +1654,38 @@ maximum at its centre, so the maxima of $|T|$ itself are added wherever no
 curvature maximum passed within $0.75\,W$; on the bundled scans two visible
 corners were missed without them. Candidates closer than $0.75\,W$ are one
 bend, and the one with the larger excess is kept.
+
+The curvature floor is
+$0.5 \times (\pi - \theta_{\text{max}}) / (2c)$ (`_CURVATURE_FLOOR_FRAC` = 0.5),
+the $|T|$ maxima are searched on the samples at least $c$ from both ends
+(`grid`), and the suppression keeps candidates in decreasing order of excess:
+
+```python
+# source: lib/kink_detector.py::KinkDetector.judge_line
+fine: List[Tuple[float, float]] = []
+for i in range(1, curvature.size - 1):
+    if (curvature[i] >= curvature[i - 1] and curvature[i] > curvature[i + 1]
+            and curvature[i] >= curvature_floor):
+        excess = excess_at(float(sm[i]))
+        if excess is not None:
+            fine.append((excess, float(sm[i])))
+coarse: List[Tuple[float, float]] = []
+if grid.size >= 3:
+    window_turn = np.abs(np.interp(grid + c, sm, heading)
+                         - np.interp(grid - c, sm, heading))
+    for i in range(1, grid.size - 1):
+        if (window_turn[i] >= window_turn[i - 1]
+                and window_turn[i] > window_turn[i + 1]
+                and window_turn[i] >= turn_threshold):
+            p = float(grid[i])
+            excess = excess_at(p)
+            if excess is not None and all(abs(p - q) > radius for _, q in fine):
+                coarse.append((excess, p))
+kept: List[Tuple[float, float]] = []
+for excess, p in sorted(fine + coarse, key=lambda t: -t[0]):
+    if all(abs(p - q) > radius for _, q in kept):
+        kept.append((excess, p))
+```
 
 **Scale.** Every length in the rule is a multiple of $W$, which is also the
 resolution of the image: the probe spreads each fiber over about $W$, so a
@@ -804,6 +1728,111 @@ of the arm angle was 1.9° at an apparent width of 5.5 px and 1.1° at 11 px,
 against 7.5° and 2.5° for 180° minus the excess. The excess is stored beside
 the angle as `ke` (§4.5), so what was tested and what the geometry is both
 travel with the bundle.
+
+**How the arm angle is computed.** For a bend at arc position $p$ on a line of
+length $L$, with $g = 0.5\,W$ (`_ARM_GAP_WIDTHS`) and $a = 1.0\,W$
+(`_ARM_LENGTH_WIDTHS`), the two arms are the arc intervals
+
+$$
+A_{\text{L}} = \bigl[\max(s_0,\ p - g - a,\ p_{\text{prev}} + g),\ p - g\bigr],
+\qquad
+A_{\text{R}} = \bigl[p + g,\ \min(s_1,\ p + g + a,\ p_{\text{next}} - g)\bigr]
+$$
+
+where $s_0$ and $s_1$ are the positions of the first and last heading samples
+(0.25 px from the start, and 0.25–0.75 px from the end), and $p_{\text{prev}}$ and $p_{\text{next}}$ are the nearest other
+bends kept on the line — judged or not — and are left out when there is none.
+Each arm's direction $\bar\theta$ is the mean of the smoothed heading sampled at
+16 evenly spaced points of its interval, and the interior angle is
+
+$$
+\phi = \max\bigl(0,\ \pi - |\bar\theta_{\text{R}} - \bar\theta_{\text{L}}|\bigr)
+$$
+
+When either interval is shorter than $0.25\,W$ (`_ARM_MIN_WIDTHS`) — two bends
+too close together to leave an arm between them — $\phi = \pi - E$ is stored
+instead. The angle is then clipped to $[10^{-6},\ \pi - 10^{-6}]$ rad and
+written to `ka` in radians, at the line point nearest to $p$ in arc length; when
+two bends fall on the same point, the one with the larger excess is kept. The
+angle does not decide whether a bend is a kink — $E$ does — so a stored angle is
+not guaranteed to lie at or below `kinkangle_deg`.
+
+`measure.compute_fiber_stats` converts the angles to degrees
+(`FiberStats.kink_angles_deg`), which is what the fiber CSV holds, and
+`measure.fiber_kink_angle` takes their median as the one value per fiber that
+GUI03 histograms:
+
+```python
+# source: lib/kink_detector.py::_ARM_GAP_WIDTHS, _ARM_LENGTH_WIDTHS, _ARM_MIN_WIDTHS
+_ARM_GAP_WIDTHS = 0.5
+_ARM_LENGTH_WIDTHS = 1.0
+_ARM_MIN_WIDTHS = 0.25
+```
+
+```python
+# source: lib/kink_detector.py::_arm_interior_angle
+gap = _ARM_GAP_WIDTHS * width
+arm = _ARM_LENGTH_WIDTHS * width
+left_lo = max(float(sm[0]), p - gap - arm)
+if prev_bend is not None:
+    left_lo = max(left_lo, prev_bend + gap)
+left_hi = p - gap
+right_lo = p + gap
+right_hi = min(float(sm[-1]), p + gap + arm)
+if next_bend is not None:
+    right_hi = min(right_hi, next_bend - gap)
+shortest = _ARM_MIN_WIDTHS * width
+if left_hi - left_lo < shortest or right_hi - right_lo < shortest:
+    return float("nan")
+def mean_heading(lo: float, hi: float) -> float:
+    return float(np.mean(np.interp(np.linspace(lo, hi, 16), sm, heading)))
+turn = abs(mean_heading(right_lo, right_hi) - mean_heading(left_lo, left_hi))
+return max(np.pi - turn, 0.0)
+```
+
+```python
+# source: lib/kink_detector.py::KinkDetector.judge_line
+margin = END_MARGIN_WIDTHS * width
+positions = sorted(q for _, q in kept)
+...
+for excess, p in kept:
+    index = int(orig[int(np.argmin(np.abs(s - p)))])
+    if index in taken:
+        continue
+    taken.add(index)
+    if margin <= p <= length - margin:
+        before = [q for q in positions if q < p]
+        after = [q for q in positions if q > p]
+        angle = _arm_interior_angle(
+            sm, heading, p, width,
+            max(before) if before else None,
+            min(after) if after else None,
+        )
+        if not np.isfinite(angle):
+            angle = np.pi - excess
+        kinks.append((index, angle, excess))
+    else:
+        unjudged.append(index)
+kinks.sort()
+kink_indices = np.array([k for k, _, _ in kinks], dtype=np.intp)
+kink_angles = np.clip(
+    np.array([a for _, a, _ in kinks], dtype=np.float64),
+    _MIN_INTERIOR_ANGLE, np.pi - _MIN_INTERIOR_ANGLE,
+)
+kink_excess = np.array([e for _, _, e in kinks], dtype=np.float64)
+```
+
+```python
+# source: lib/measure.py::compute_fiber_stats
+angles = tuple(float(np.degrees(a)) for a in f.kink_angles)
+```
+
+```python
+# source: lib/measure.py::fiber_kink_angle
+if not stat.kink_angles_deg:
+    return float("nan")
+return float(np.median(stat.kink_angles_deg))
+```
 
 **Significance against the line's own noise.** A per-line noise floor is
 implemented (`NOISE_SIGMAS`, `KinkJudgement.noise_excess`): the robust scale
@@ -894,6 +1923,61 @@ bundle keeps its skeleton track and stored kinks until it is re-analyzed
 (`bundle_schema.centerline_from_meta`), and a fibril reconnected in it is judged
 by that rule (`KinkDetector.kinks_and_decomposed_from_track`), so one image
 never carries kinks from two rules.
+
+In the code, the polyline starts as the two end points and repeatedly gains
+the track point farthest from one of its chords until every point lies within
+`threshold_distance` (`kink_decompose_px`); the angle at each interior vertex is
+then tested:
+
+```python
+# source: lib/kink_detector.py::KinkDetector._binary_decompose_simple
+decomposed_indices = [0, n_pts - 1]
+updated = True
+while updated:
+    updated = False
+    for n, (i, j) in enumerate(zip(decomposed_indices[:-1], decomposed_indices[1:])):
+        if j - i < 2:
+            continue
+        ax = cx[i]; ay = cy[i]
+        bx = cx[j]; by = cy[j]
+        abx = bx - ax
+        aby = by - ay
+        length_ab = (abx * abx + aby * aby) ** 0.5
+        if length_ab == 0.0:
+            continue
+        xs = cx[i + 1:j]
+        ys = cy[i + 1:j]
+        dist = np.abs(abx * (ys - ay) - aby * (xs - ax)) / length_ab
+        k = int(dist.argmax())
+        farthest_distance = dist[k]
+        if farthest_distance == 0:
+            continue
+        elif farthest_distance >= threshold_distance:
+            added_indices = [k + i + 1]
+            decomposed_indices = decomposed_indices[:n + 1] + added_indices + decomposed_indices[n + 1:]
+            updated = True
+            break
+```
+
+```python
+# source: lib/kink_detector.py::KinkDetector._detect_kink_from_decomposed_indices
+v1x = cx[prev_idx] - cx[mid_idx]
+v1y = cy[prev_idx] - cy[mid_idx]
+v2x = cx[next_idx] - cx[mid_idx]
+v2y = cy[next_idx] - cy[mid_idx]
+dot = v1x * v2x + v1y * v2y
+norm1 = np.sqrt(v1x ** 2 + v1y ** 2)
+norm2 = np.sqrt(v2x ** 2 + v2y ** 2)
+angles = np.arccos(dot / (norm1 * norm2))
+mask = angles <= threshold_angle
+arm = np.minimum(norm1, norm2)
+with np.errstate(divide="ignore", invalid="ignore"):
+    angular_error = np.where(arm > 0.0,
+                             2.0 * self.threshold_distance / arm,
+                             np.inf)
+mask &= (np.pi - angles) > angular_error
+return mid_idx[mask], angles[mask]
+```
 
 ---
 

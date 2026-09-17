@@ -1016,12 +1016,96 @@ explanation no longer matches.
 
 Reference code from these documents **by symbol name, never by line number**.
 Line numbers rot on the first unrelated edit and cannot be checked; symbol
-names are verified on every test run. Pasted code excerpts are avoided for the
-same reason.
+names are verified on every test run.
+
+**Explain each step with the code that performs it.** The reader of these
+documents has to be able to check a number against the computation, so every
+stage, every rule, and every stored quantity (for example the kink angle) is
+shown with its code and, where there is one, its formula. Quote code only as a
+verified excerpt: a fenced block whose first line is
+`# source: <path>::<symbol>` (several symbols of one file may be listed,
+comma-separated), with `...` on its own line for omitted code, quoting code
+only — no comments, docstrings, or method indentation. `scripts/doc_excerpts.py`
+compares every excerpt with the code it names, and requires the English and
+Japanese versions to quote identical code. When a change alters a quoted line,
+update the excerpt and the prose around it in both documents. Never paste code
+any other way: an unverified excerpt is exactly the stale explanation this rule
+exists to prevent.
+
+The excerpts are checked in three places: `tests/test_algorithm_docs.py` (CI),
+`scripts/check_algorithm_docs.py --staged` (pre-commit, against the staged
+code), and the Claude Code hook `.claude/hooks/doc_code_reminder.py`, which
+reports a stale excerpt or a changed algorithm module right after the edit.
+Third-party functions are named in prose with their package prefix
+(`skimage.filters.threshold_local`), because a bare snake_case name is checked
+as a project symbol.
 
 The two documents are a synchronized pair on the same terms as the README pair
 (see Editing Rules): an edit to either one requires the corresponding edit,
 including translation, in the other.
+
+### 8.14 GUI04 measurement changes and `docs/gui04_measurements.md`
+
+`docs/gui04_measurements.md` and its Japanese counterpart
+`docs/gui04_measurements.ja.md` explain how GUI04 places each fiber's
+centerline and computes every value it displays — the fiber-table columns, the
+detail window's height profile, and the fiber-connection candidates — quoting
+the code that does it. They exist for the same reason as the algorithm
+documents (§8.13): the people who cite GUI04's numbers must be able to check
+them against the computation. When a change alters what one of the quoted
+symbols computes, updating both language versions — prose **and** the quoted
+excerpts — is **part of that change**, not a follow-up task.
+
+The trigger is a change to any symbol listed in `WATCHED_SYMBOLS` in
+`scripts/check_gui04_docs.py`, which is the authoritative list (functions in
+`lib/centerline.py`, `lib/measure.py`, `lib/fiber_tracking_image.py`,
+`lib/fiber.py`, `lib/fiber_connector.py`, `lib/kink_detector.py`, and
+`guis/GUI04_Tracking_fiber.py`). **Every column of GUI04's fiber table must be
+explained**: adding a column requires a subsection of §3 in both documents
+whose heading names the column in backticks — how the value is computed, its
+unit, and when the cell is blank. A mention in the §3 overview table alone does
+not count.
+
+The documents distinguish two coordinate sequences along a fiber, defined in
+their *Conventions* section: the **centerline** (the half-maximum centerline in
+`Fiber.xtrack` / `Fiber.ytrack`) and the **skeleton track** (the ordered pixels
+of the skeletonized image, `Fiber.skeleton_xtrack` / `Fiber.skeleton_ytrack`).
+Always write which one is meant — 「中心線」 or 「スケルトントラック」, "centerline"
+or "skeleton track" — and never a bare 「線」 / "line" for either. The check
+rejects a bare one outside code; compounds that mean neither sequence (直線,
+破線, "straight line", "guide lines", ...) are allowed through
+`ALLOWED_LINE_JA` / `ALLOWED_LINE_EN` in `scripts/check_gui04_docs.py`.
+
+As in §8.13, these documents **quote code**, because the reader is meant to see
+the computation itself, and they follow the same verified-excerpt contract
+(`scripts/doc_excerpts.py`): each code block starts with
+`# source: <path>::<symbol>` and must still match that symbol line for line.
+Do not paste code into these documents in any other form. Unlike §8.13, the
+fingerprint is per symbol rather than per module, so add a symbol to
+`WATCHED_SYMBOLS` before quoting it (the check refuses unwatched excerpts).
+
+Three mechanisms enforce the rule:
+
+- `scripts/check_gui04_docs.py`, run from `.githooks/pre-commit` on the staged
+  snapshot, blocks a commit when a quoted symbol's fingerprint (comments and
+  docstrings removed) no longer matches `tests/gui04_doc_manifest.json`, when
+  an excerpt no longer matches its symbol, when a fiber-table column has no
+  §3 subsection naming it (or the columns can no longer be read), when the
+  prose says a bare 「線」 / "line" instead of the centerline or the skeleton
+  track, when the two language versions differ in heading structure or
+  excerpts, or when the manifest is refreshed without touching either
+  document.
+- `tests/test_gui04_docs.py` runs the same checks in CI, where they cannot be
+  skipped.
+- The Claude Code hook `.claude/hooks/doc_code_reminder.py` (`PostToolUse`)
+  tells the agent, right after an edit, which quoted symbols drifted and which
+  sections quote them. Act on it within the same change.
+
+As with §8.13, the fingerprint is a tripwire, not a proof. Refresh it with
+`.venv\Scripts\python.exe scripts\check_gui04_docs.py --update` only after
+rereading and updating the affected sections of both documents.
+
+The two documents are a synchronized pair on the same terms as the README pair.
 
 ## 9. Summary
 
@@ -1062,6 +1146,7 @@ including translation, in the other.
 | Translation catalogs | Refresh with `.venv\Scripts\python.exe prepare_translate_catalogs.py` (keeps `PLUGIN_INFO` descriptions; a bare `pybabel extract/update` drops them and obsoletes the entries); never edit `.mo` files directly (§8.8). |
 | README pair | `README.md` ↔ `README.ja.md` stay synchronized in both directions, including translation of the edited passage. |
 | Result-changing fixes | If `tests/strict_regression_golden.json` changes, add a `CHANGELOG.md` `[Unreleased]` entry stating that results change from this version; enforced by `.githooks/pre-commit` (§8.11). |
-| Algorithm changes | A change to `bg_calibrator.py`, `segmenter.py`, `skeletonizer.py`, `kink_detector.py`, or `centerline.py` includes updating `docs/algorithms.md` **and** `docs/algorithms.ja.md`; refresh `tests/algorithm_doc_manifest.json` only after rereading the affected sections. Reference code by symbol name, never by line number. Enforced by `.githooks/pre-commit` and `tests/test_algorithm_docs.py` (§8.13). |
+| Algorithm changes | A change to `bg_calibrator.py`, `segmenter.py`, `skeletonizer.py`, `kink_detector.py`, or `centerline.py` includes updating `docs/algorithms.md` **and** `docs/algorithms.ja.md`; refresh `tests/algorithm_doc_manifest.json` only after rereading the affected sections. Explain each step with its code and formula, quoting code only as verified `# source: <path>::<symbol>` excerpts (identical in both languages); reference code by symbol name, never by line number. Enforced by `.githooks/pre-commit`, `tests/test_algorithm_docs.py`, and the `PostToolUse` hook `.claude/hooks/doc_code_reminder.py` (§8.13). |
+| GUI04 measurement changes | A change to a symbol in `WATCHED_SYMBOLS` (`scripts/check_gui04_docs.py`), or a new GUI04 fiber-table column (which needs its own §3 subsection naming it), includes updating `docs/gui04_measurements.md` **and** `docs/gui04_measurements.ja.md`, prose and quoted excerpts alike; refresh `tests/gui04_doc_manifest.json` with `scripts/check_gui04_docs.py --update` only after rereading. Quote code only in `# source: <path>::<symbol>` blocks. Say 「中心線」/「スケルトントラック」 ("centerline"/"skeleton track"), never a bare 「線」/"line". Enforced by `.githooks/pre-commit`, `tests/test_gui04_docs.py`, and the `PostToolUse` hook `.claude/hooks/doc_code_reminder.py` (§8.14). |
 | Destructive Git operations | Forbidden unless explicitly requested; `git restore` of files corrupted by your own edit is allowed. |
 | Multi-line commit messages | Write to a file and pass with `git commit -F .tmp/commit_msg.txt`; never hand-quote inline (PowerShell `@'`…`'@` vs. `sh` `<<'EOF'`…`EOF` are not interchangeable, and the wrong one silently leaves the delimiter as the subject line). Enforced by `.githooks/commit-msg`. |

@@ -85,6 +85,9 @@ testdata_Bruker_txt/*
 # tests/test_algorithm_docs.py cannot tell whether the algorithms changed since
 # docs/algorithms.md was last reviewed, and CI would fail on a missing file.
 !tests/algorithm_doc_manifest.json
+# GUI04-measurement-document fingerprints, for the same reason
+# (tests/test_gui04_docs.py and scripts/check_gui04_docs.py).
+!tests/gui04_doc_manifest.json
 # Zenodo deposition metadata must be version-controlled so the Zenodo GitHub
 # integration reads it from the archived release; otherwise *.json above hides it.
 !.zenodo.json
