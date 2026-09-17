@@ -1,7 +1,7 @@
 # AFM Nanofiber Analyzer
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
 [![tests](https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/actions/workflows/test.yml/badge.svg)](https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/actions/workflows/test.yml)
 
 ![AFM Nanofiber Analyzer overview](assets/afm_symbol.png)
@@ -44,7 +44,7 @@ that gap with a documented, reproducible pipeline and a stable data format.
 Before running the helper scripts, install one of the following Python
 distributions:
 
-- Python 3.10 or later from <https://www.python.org/>
+- Python 3.11 or later from <https://www.python.org/>
 - Anaconda or Miniconda from <https://www.anaconda.com/download> or
   <https://docs.conda.io/en/latest/miniconda.html>
 
@@ -239,7 +239,7 @@ the plugin/resource folders needed by the launcher. Distribute the entire
 
 ## Dependencies
 
-- Python 3.10 or later
+- Python 3.11 or later
 - Windows is the primary target platform
 
 Runtime dependencies are declared in `pyproject.toml`, the single source of
@@ -1090,7 +1090,7 @@ If you use this software in your research, please cite it as:
   author    = {Kiyoto, Shingo and Ito, Tomoki and Mayumi, Keita and Kobayashi, Kayoko},
   title     = {AFM Nanofiber Analyzer},
   year      = {2026},
-  version   = {2.0.0},
+  version   = {2.0.1},
   url       = {https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer}
 }
 ```

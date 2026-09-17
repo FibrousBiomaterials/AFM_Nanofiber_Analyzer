@@ -315,3 +315,58 @@ def test_load_blosc2_rejects_pickled_payload(tmp_path):
 
     with pytest.raises(ValueError, match="[Oo]bject arrays"):
         load_blosc2(path)
+
+
+def test_bundle_with_every_point_array_empty_round_trips(tmp_path):
+    """A bundle whose kink arrays are all empty reads back.
+
+    Regression test: blosc2 4.3.3 wrote an unreadable `up` node for exactly
+    this set of arrays, which is why the project requires blosc2 >= 4.4.1.
+    """
+    empty_points = np.zeros((2, 0), dtype=np.int64)
+    empty_values = np.zeros((0,), dtype=np.float64)
+    arrays = {
+        "kp": empty_points, "dp": empty_points, "ka": empty_values,
+        "up": empty_points, "ke": empty_values,
+    }
+    path = os.path.join(tmp_path, "empty_points.b2z")
+    save_bundle(path, arrays)
+    loaded = load_bundle(path)
+    for key, arr in arrays.items():
+        assert loaded[key].shape == arr.shape
+        assert loaded[key].dtype == arr.dtype
+
+
+def test_save_bundle_refuses_a_bundle_that_does_not_read_back(
+        tmp_path, monkeypatch):
+    """An unreadable node aborts the save and leaves nothing behind."""
+    real_getitem = blosc2_io.blosc2.TreeStore.__getitem__
+
+    def failing_getitem(self, key):
+        if key == "/up":
+            raise RuntimeError("Could not get the schunk from the cframe")
+        return real_getitem(self, key)
+
+    monkeypatch.setattr(
+        blosc2_io.blosc2.TreeStore, "__getitem__", failing_getitem)
+    path = os.path.join(tmp_path, "broken.b2z")
+    with pytest.raises(OSError, match="unreadable array 'up'"):
+        save_bundle(path, {"kp": np.zeros((2, 0), np.int64),
+                           "up": np.zeros((2, 0), np.int64)})
+    assert os.listdir(tmp_path) == []
+
+
+def test_save_bundle_refuses_a_bundle_that_reads_back_different(
+        tmp_path, monkeypatch):
+    """A node that reads back with other content aborts the save."""
+    real_verify = blosc2_io._verify_written_bundle
+
+    def verify_against_other_content(tmp, arrays, dest):
+        real_verify(tmp, {"a": np.arange(3) + 1}, dest)
+
+    monkeypatch.setattr(
+        blosc2_io, "_verify_written_bundle", verify_against_other_content)
+    path = os.path.join(tmp_path, "changed.b2z")
+    with pytest.raises(OSError, match="did not store array 'a'"):
+        save_bundle(path, {"a": np.arange(3)})
+    assert os.listdir(tmp_path) == []

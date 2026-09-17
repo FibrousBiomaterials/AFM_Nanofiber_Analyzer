@@ -8,6 +8,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-09-17
+
+### Fixed
+
+- 2.0.0 could save a bundle that cannot be opened. With blosc2 4.3.3 or
+  earlier, a bundle in which `kp`, `dp`, `ka`, `up` and `ke` are all empty
+  (an image with no kink and no bend left unjudged next to a fiber end) was
+  written without error, but its `up` array could not be read back by any
+  blosc2 version, so everything that reads the kink arrays — GUI03, GUI04,
+  and `cli.py measure`, `heights` and `validate` — stopped with
+  `RuntimeError: Could not get the schunk from the cframe`. The fault is in blosc2's writer; 4.4.1 is the oldest release verified
+  to write such a bundle correctly, and **blosc2 4.4.1 or later is now
+  required**. A bundle written this way is not recoverable: analyze the
+  input again with this version. Bundles that could be opened are
+  unaffected, and **analysis results do not change**.
+
+- `save_bundle` now reads every array back before it replaces the
+  destination, and raises `OSError` if one cannot be read or differs from
+  what was written. A blosc2 fault of this kind now stops the analysis when
+  the bundle is saved, instead of leaving a broken file to be found later.
+
+### Removed
+
+- Support for Python 3.10. The last blosc2 release for Python 3.10 is 4.3.3,
+  which has the fault above, so 2.0.0 never worked reliably on it. Python
+  3.11 or later is now required (`requires-python`, the `run_venv` launchers,
+  and the README), and the CI tests run on 3.11 and 3.13.
+
 ## [2.0.0] - 2026-09-17
 
 ### Changed
@@ -1275,6 +1303,7 @@ submission to the Journal of Open Source Software (JOSS).
   `SUPPORT.md`, maintainer notes, docstring templates, and a JOSS paper
   (`paper.md`).
 
-[Unreleased]: https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/releases/tag/v1.0.0

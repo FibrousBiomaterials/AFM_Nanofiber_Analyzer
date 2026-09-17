@@ -22,7 +22,7 @@ abstract: >
   versioned bundle files, and the application can be packaged as a standalone
   Windows bundle.
 
-version: "2.0.0"          # リリース時にバージョンを更新する
+version: "2.0.1"          # リリース時にバージョンを更新する
 
 date-released: "2026-09-17"   # Release date of this version / この版の公開日
 

@@ -20,10 +20,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "afm-nanofiber-analyzer"
-version = "2.0.0"
+version = "2.0.1"
 description = "GUI toolkit and CLI for preprocessing AFM height images and analyzing nanofiber morphology"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 authors = [
     { name = "Shingo Kiyoto" },
@@ -45,8 +45,12 @@ classifiers = [
 ]
 # Loose runtime requirements; the verified snapshot is requirements.lock.txt.
 # 実行時依存の緩い指定。検証済みスナップショットは requirements.lock.txt。
+# blosc2 >= 4.4.1: 4.3.3 and earlier write an unreadable node when a bundle's
+# point arrays (kp, dp, ka, up, ke) are all empty; see check.py.
+# blosc2 4.3.3 以前は点配列 (kp, dp, ka, up, ke) がすべて空のバンドルで読めない
+# ノードを書き込むため 4.4.1 以上を要求する（check.py 参照）。
 dependencies = [
-    "blosc2",
+    "blosc2>=4.4.1",
     "gwyfile",
     "lmfit",
     "matplotlib>=3.10",
@@ -99,7 +103,7 @@ markers = [
 # Skip the local conda environment checked out beside the source tree; .venv
 # and other VCS-ignored paths are excluded by Ruff's defaults.
 extend-exclude = [".conda-env", ".tmp"]
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 # Conservative, high-signal rule set: pyflakes (F) catches dead code, unused

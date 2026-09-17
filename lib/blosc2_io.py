@@ -421,6 +421,52 @@ def _ascii_write_kwargs(path: str) -> Iterator[dict]:
         shutil.rmtree(workdir, ignore_errors=True)
 
 
+def _verify_written_bundle(tmp_path: str, arrays: dict, path: str) -> None:
+    """
+    Read a freshly written bundle back and check it holds the arrays given.
+    書き込んだ直後のバンドルを読み直し、渡した配列が保存されているか確かめる。
+
+    blosc2 4.3.3 and earlier close such a write without error yet leave a node
+    that no blosc2 version can read (seen when kp, dp, ka, up and ke are all
+    empty). Checking here refuses the bundle at save time, so a broken file
+    never replaces the destination and the failure is not deferred to the
+    next analysis step that opens it.
+    blosc2 4.3.3 以前はエラーなく close できるのに、どの版でも読めないノードを
+    残すことがある（kp, dp, ka, up, ke がすべて空のときに確認）。ここで検査
+    すれば保存時点で拒否でき、壊れたファイルが保存先を置き換えることも、
+    後でそれを開く解析段階まで失敗が持ち越されることもない。
+
+    Raises
+    ------
+    OSError
+        If a key cannot be read back, or reads back with a different shape,
+        dtype, or content.
+    """
+    with (
+        _ascii_read_path(tmp_path) as open_path,
+        blosc2.TreeStore(open_path, mode="r") as ts,
+    ):
+        for key, arr in arrays.items():
+            k = key if key.startswith("/") else "/" + key
+            expected = np.asarray(arr)
+            try:
+                stored = ts[k][:]
+            except Exception as exc:
+                raise OSError(
+                    f"blosc2 {blosc2.__version__} wrote an unreadable array "
+                    f"{key!r}; the bundle was not saved: {path}"
+                ) from exc
+            if (stored.shape != expected.shape
+                    or stored.dtype != expected.dtype
+                    or not np.array_equal(
+                        stored, expected,
+                        equal_nan=expected.dtype.kind in "fc")):
+                raise OSError(
+                    f"blosc2 {blosc2.__version__} did not store array "
+                    f"{key!r} as given; the bundle was not saved: {path}"
+                )
+
+
 def save_bundle(path: str, arrays: dict, vlmeta: dict | None = None) -> None:
     """
     Save multiple named NumPy arrays into a single bundle file.
@@ -446,6 +492,12 @@ def save_bundle(path: str, arrays: dict, vlmeta: dict | None = None) -> None:
     -------
     This function writes the bundle to disk and returns nothing.
     この関数はバンドルをディスクに書き込み、戻り値は持たない。
+
+    Raises
+    ------
+    OSError
+        If the written bundle does not read back as the arrays given. The
+        destination is then left untouched.
     """
     directory = os.path.dirname(os.path.abspath(path))
     basename = os.path.basename(path)
@@ -473,6 +525,7 @@ def save_bundle(path: str, arrays: dict, vlmeta: dict | None = None) -> None:
             if vlmeta:
                 for k, v in vlmeta.items():
                     ts.vlmeta[k] = v
+        _verify_written_bundle(tmp_path, arrays, path)
         os.replace(tmp_path, path)
     except Exception:
         try:

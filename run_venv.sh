@@ -134,9 +134,9 @@ print_python_install_help() {
         echo "  Fedora / RHEL   : sudo dnf install python3 python3-tkinter"
         echo "  Arch            : sudo pacman -S python tk"
         echo
-        echo "If your distribution does not provide Python 3.10 or later, download it from:"
+        echo "If your distribution does not provide Python 3.11 or later, download it from:"
     else
-        echo "Download and install Python 3.10 or later from the official site:"
+        echo "Download and install Python 3.11 or later from the official site:"
     fi
     echo "  https://www.python.org/downloads/"
     echo
@@ -168,7 +168,7 @@ run_full_setup() {
     # この下限は pyproject.toml の requires-python と一致させる。
     for candidate in python3 python; do
         if command -v "$candidate" >/dev/null 2>&1; then
-            if "$candidate" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1; then
+            if "$candidate" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)' >/dev/null 2>&1; then
                 PYTHON_CMD="$candidate"
                 break
             fi
@@ -181,9 +181,9 @@ run_full_setup() {
     if [ -z "$PYTHON_CMD" ]; then
         echo
         if [ -n "$FOUND_VERSION" ]; then
-            echo "Found $FOUND_VERSION, but Python 3.10 or later is required."
+            echo "Found $FOUND_VERSION, but Python 3.11 or later is required."
         else
-            echo "Python 3.10 or later was not found."
+            echo "Python 3.11 or later was not found."
         fi
         print_python_install_help
         return 1

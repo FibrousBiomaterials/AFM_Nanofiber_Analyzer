@@ -13,4 +13,4 @@ AFM Nanofiber Analyzer の再利用可能な解析・入出力モジュール群
 # by unreleased code is never labelled as the last release (see RELEASING.md).
 # リリース間は ".devN" 付きの開発版表記とし、未リリースのコードが書いた
 # バンドルが直前のリリース製と記録されないようにする（RELEASING.md 参照）。
-__version__ = "2.0.0"
+__version__ = "2.0.1"

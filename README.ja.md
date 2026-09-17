@@ -1,7 +1,7 @@
 # AFM Nanofiber Analyzer
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
 [![tests](https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/actions/workflows/test.yml/badge.svg)](https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer/actions/workflows/test.yml)
 
 ![AFM Nanofiber Analyzer の概要図](assets/afm_symbol.png)
@@ -39,7 +39,7 @@ AFM Nanofiber Analyzer は、原子間力顕微鏡 (AFM) の高さ画像を前�
 
 補助スクリプトを実行する前に、次のいずれかの Python 環境をインストールしてください。
 
-- Python 3.10 以降: <https://www.python.org/>
+- Python 3.11 以降: <https://www.python.org/>
 - Anaconda または Miniconda:
   <https://www.anaconda.com/download> または
   <https://docs.conda.io/en/latest/miniconda.html>
@@ -229,7 +229,7 @@ python build.py
 
 ## 依存関係
 
-- Python 3.10 以降
+- Python 3.11 以降
 - Windows を主な対象環境としています
 
 実行時の依存関係は、単一の真実の源である `pyproject.toml` に宣言されています。
@@ -1038,7 +1038,7 @@ UI 側に任せます。Python ソース上で文字列リテラルを複数行�
   author    = {Kiyoto, Shingo and Ito, Tomoki and Mayumi, Keita and Kobayashi, Kayoko},
   title     = {AFM Nanofiber Analyzer},
   year      = {2026},
-  version   = {2.0.0},
+  version   = {2.0.1},
   url       = {https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer}
 }
 ```

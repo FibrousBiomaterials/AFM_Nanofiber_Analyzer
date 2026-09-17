@@ -16,7 +16,7 @@ goto run
 
 :rebuild
 echo Checking Python...
-REM Accept the first interpreter that meets the ">=3.10" floor declared in
+REM Accept the first interpreter that meets the ">=3.11" floor declared in
 REM pyproject.toml. Checking the version here (not just that a launcher exists)
 REM turns an unsupported Python into an actionable message, instead of letting
 REM setup fail later inside pip's resolver with an unrelated-looking error.
@@ -100,7 +100,7 @@ REM ===== Subroutines =====
 :check_python
 REM Set PY_CMD to the given command when it runs and meets the version floor.
 REM The argument is used as-is, so a quoted full path with spaces also works.
-%* -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
+%* -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
 if not errorlevel 1 set "PY_CMD=%*"
 goto :eof
 
@@ -130,12 +130,12 @@ if not defined PY_FOUND if defined PY_EXE (
 )
 echo.
 if defined PY_FOUND (
-    echo Found %PY_FOUND%, but Python 3.10 or later is required.
+    echo Found %PY_FOUND%, but Python 3.11 or later is required.
 ) else (
-    echo Python 3.10 or later was not found.
+    echo Python 3.11 or later was not found.
 )
 echo.
-echo Download and install Python 3.10 or later from the official site:
+echo Download and install Python 3.11 or later from the official site:
 echo     https://www.python.org/downloads/
 echo In the installer, keep "Add python.exe to PATH" checked.
 echo Then run this file again.

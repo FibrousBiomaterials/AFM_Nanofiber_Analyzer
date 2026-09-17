@@ -1,4 +1,4 @@
-blosc2
+blosc2>=4.4.1
 gwyfile
 lmfit
 matplotlib>=3.10

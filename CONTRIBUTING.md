@@ -40,7 +40,7 @@ us design it so it fits the existing pipeline and data contract.
 
 ## Development setup
 
-The project targets Python 3.10 or later. Install it as an editable package
+The project targets Python 3.11 or later. Install it as an editable package
 with the development dependencies:
 
 ```bash

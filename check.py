@@ -97,11 +97,21 @@ BUNDLED_WITH_PARENT = {
 # requirements.lock.txt が担い、`--pin` がテスト合格時のみ再生成する。
 PACKAGE_CONSTRAINTS = {
     # Lower bound documents the oldest matplotlib series exercised by the test
-    # suite (the lock lineage was 3.10.9) and pairs with requires-python>=3.10.
-    # It guards fresh installs from resolving an unexpectedly old matplotlib
-    # while staying loose enough not to obstruct JOSS reviewers; the exact
-    # verified pin lives in requirements.lock.txt.
+    # suite (the lock lineage was 3.10.9); it is available for every Python
+    # that requires-python admits. It guards fresh installs from resolving an
+    # unexpectedly old matplotlib while staying loose enough not to obstruct
+    # JOSS reviewers; the exact verified pin lives in requirements.lock.txt.
     "matplotlib": "matplotlib>=3.10",
+    # blosc2 4.3.3 and earlier write a bundle node that no blosc2 version can
+    # read back when kp, dp, ka, up and ke are all empty (an image with no
+    # kink and no unjudged bend). 4.4.1 is the oldest release verified to
+    # write it correctly. 4.3.3 is the last release for Python 3.10, which is
+    # why requires-python is >=3.11.
+    # blosc2 4.3.3 以前は kp, dp, ka, up, ke がすべて空（キンクも未判定の
+    # 曲がりもない画像）のとき、どの版でも読めないノードを書き込む。正しく
+    # 書けることを確認した最古の版が 4.4.1。Python 3.10 向けの最終版が 4.3.3
+    # のため、requires-python を >=3.11 とした。
+    "blosc2": "blosc2>=4.4.1",
 }
 
 # Distribution name of this project itself; excluded from the lock file
