@@ -37,12 +37,9 @@ Regenerate the fingerprints after reviewing the document:
 
 import ast
 import dataclasses
-import hashlib
-import io
 import json
 import re
 import sys
-import tokenize
 from pathlib import Path
 
 import pytest
@@ -209,54 +206,13 @@ def _unresolved_symbols(text: str) -> list[str]:
     return sorted(set(missing))
 
 
-def _code_digest(path: Path) -> str:
-    """
-    Fingerprint one module's code, ignoring comments, docstrings, and layout.
-    コメント・docstring・体裁を無視して 1 モジュールのコードを指紋化する。
-
-    Notes
-    -----
-    Comments are removed through `tokenize` rather than a regular expression,
-    so a ``#`` inside a string literal is left alone. Docstrings are located by
-    line number through `ast`. Both are stable across Python versions, unlike
-    `ast.dump`, whose node fields change between releases and would make the
-    fingerprint disagree between the two interpreters in the CI matrix.
-    コメントの除去は正規表現ではなく `tokenize` を使うため、文字列リテラル内の
-    ``#`` は影響を受けない。docstring は `ast` で行番号から特定する。どちらも
-    Python バージョン間で安定している。一方 `ast.dump` はリリース間でノード
-    フィールドが変わり、CI マトリクスの 2 つの処理系で指紋が食い違ってしまう。
-    """
-    source = path.read_text(encoding="utf-8")
-    lines = source.splitlines()
-
-    # Truncate each line at the start of its comment, in place.
-    for token in tokenize.generate_tokens(io.StringIO(source).readline):
-        if token.type == tokenize.COMMENT:
-            row, col = token.start
-            lines[row - 1] = lines[row - 1][:col]
-
-    docstring_lines: set[int] = set()
-    for node in ast.walk(ast.parse(source)):
-        if not isinstance(
-            node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
-        ):
-            continue
-        body = node.body
-        if (body and isinstance(body[0], ast.Expr)
-                and isinstance(body[0].value, ast.Constant)
-                and isinstance(body[0].value.value, str)):
-            docstring_lines.update(range(body[0].lineno, body[0].end_lineno + 1))
-
-    kept = [
-        line.rstrip()
-        for number, line in enumerate(lines, start=1)
-        if number not in docstring_lines and line.strip()
-    ]
-    return hashlib.sha256("\n".join(kept).encode("utf-8")).hexdigest()
-
-
-def _current_digests() -> dict[str, str]:
-    return {rel: _code_digest(PROJECT_ROOT / rel) for rel in ALGORITHM_MODULES}
+def _current_digests() -> dict[str, dict[str, str]]:
+    """Per-definition fingerprints of each algorithm module (`doc_excerpts`)."""
+    excerpts = _doc_excerpts()
+    return {
+        rel: excerpts.code_symbol_digests((PROJECT_ROOT / rel).read_text(encoding="utf-8"))
+        for rel in ALGORITHM_MODULES
+    }
 
 
 def _headings(text: str) -> list[str]:
@@ -419,16 +375,33 @@ def test_stale_excerpt_is_detected(doc_en, doc_ja):
 
 def test_algorithm_code_matches_documented_fingerprint():
     """
-    The four algorithm modules are unchanged since the document was reviewed.
-    4 つのアルゴリズムモジュールが、文書の最終確認時から変わっていない。
-    """
-    recorded = json.loads(MANIFEST.read_text(encoding="utf-8"))["modules"]
-    current = _current_digests()
+    What the algorithm modules compute is unchanged since the document was reviewed.
+    アルゴリズムモジュールの計算が、文書の最終確認時から変わっていない。
 
-    moved = sorted(name for name in current if recorded.get(name) != current[name])
+    Notes
+    -----
+    Compared definition by definition (`doc_excerpts.computation_changes`), the
+    same rule the pre-commit hook applies: comments, docstrings, and new
+    definitions that no existing code uses do not count.
+    pre-commit フックと同じ規則で定義ごとに比較する
+    （`doc_excerpts.computation_changes`）。コメント・docstring・既存のコードが
+    使わない新しい定義は数えない。
+    """
+    excerpts = _doc_excerpts()
+    recorded = json.loads(MANIFEST.read_text(encoding="utf-8"))["modules"]
+    moved = {}
+    for rel in ALGORITHM_MODULES:
+        source = (PROJECT_ROOT / rel).read_text(encoding="utf-8")
+        others = [(PROJECT_ROOT / p).read_text(encoding="utf-8")
+                  for p in excerpts.project_code_paths(PROJECT_ROOT) if p != rel]
+        found = (excerpts.computation_changes(recorded[rel], source,
+                                              excerpts.names_used_in(others))
+                 if isinstance(recorded.get(rel), dict) else ["not recorded"])
+        if found:
+            moved[rel] = found
     assert not moved, (
-        "the code of "
-        + ", ".join(moved)
+        "the computation of "
+        + "; ".join(f"{rel} ({', '.join(v[:5])})" for rel, v in sorted(moved.items()))
         + " changed since docs/algorithms.md was last reviewed.\n"
         "Review the affected sections of docs/algorithms.md and "
         "docs/algorithms.ja.md, update them if the explanation no longer "
@@ -441,8 +414,9 @@ def _update_manifest() -> None:
     """Rewrite the fingerprint manifest from the current sources."""
     payload = {
         "_comment": (
-            "SHA-256 of each algorithm module with comments and docstrings "
-            "removed. Refresh with "
+            "SHA-256 of each definition of each algorithm module, with comments "
+            "and docstrings removed (scripts/doc_excerpts.code_symbol_digests). "
+            "Refresh with "
             "`python tests/test_algorithm_docs.py --update` only after "
             "reviewing docs/algorithms.md against the change."
         ),

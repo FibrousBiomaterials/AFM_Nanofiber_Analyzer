@@ -38,7 +38,9 @@ After an Edit / Write / MultiEdit / NotebookEdit of a project file:
   fingerprints (comments and docstrings ignored) with
   `tests/gui04_doc_manifest.json`.
 - Algorithm document: if the file is one of the fingerprinted algorithm modules,
-  its module fingerprint is compared with `tests/algorithm_doc_manifest.json`;
+  `scripts/doc_excerpts.computation_changes` compares each of its definitions
+  with `tests/algorithm_doc_manifest.json`, the rule the pre-commit hook and
+  CI apply (new definitions no existing code uses are not reported);
   and if the algorithm document quotes code from the file, every such excerpt is
   compared with the code (`scripts/doc_excerpts.check_pair_excerpts`).
 
@@ -50,7 +52,9 @@ A comment-only edit reports nothing. Each finding is reported once per session.
   `scripts/check_gui04_docs.drifted_symbols` が引用シンボルの指紋（コメントと
   docstring を無視）を `tests/gui04_doc_manifest.json` と比べる。
 - アルゴリズム文書：そのファイルが指紋化対象のアルゴリズムモジュールなら、
-  モジュールの指紋を `tests/algorithm_doc_manifest.json` と比べる。さらに文書が
+  `scripts/doc_excerpts.computation_changes` が各定義を
+  `tests/algorithm_doc_manifest.json` と比べる。pre-commit フックと CI と同じ
+  規則であり、既存のコードが使わない新しい定義は報告しない。さらに文書が
   そのファイルのコードを引用していれば、各コード片をコードと照合する
   （`scripts/doc_excerpts.check_pair_excerpts`）。
 
@@ -163,13 +167,27 @@ def _algorithm_findings(root, rel):
     recorded = json.loads(manifest_text).get("modules", {}) if manifest_text else {}
     if rel in recorded:
         source = excerpts.read_worktree(rel)
-        digest = excerpts.module_digest(source) if source is not None else None
-        if digest != recorded[rel]:
+        # The same definition-by-definition rule as the pre-commit hook and CI,
+        # so an edit that only adds unused code or comments is not reported.
+        # pre-commit フックと CI と同じ定義単位の規則。未使用のコードやコメントを
+        # 足すだけの編集は報告しない。
+        if source is None:
+            changes = ["module removed"]
+        elif isinstance(recorded[rel], dict):
+            others = [text for text in (excerpts.read_worktree(p)
+                                        for p in excerpts.project_code_paths()
+                                        if p != rel) if text is not None]
+            changes = excerpts.computation_changes(
+                recorded[rel], source, excerpts.names_used_in(others))
+        else:
+            changes = ["not recorded per definition"]
+        if changes:
             out.append((
-                f"algorithms-module:{rel}:{digest}",
-                f"- docs/algorithms.md: {rel} changed what it computes. Reread "
-                "the sections explaining it in both language versions, update "
-                "them (prose and excerpts), then run "
+                f"algorithms-module:{rel}:{'|'.join(changes)}",
+                f"- docs/algorithms.md: {rel} changed what it computes ("
+                + ", ".join(changes[:5]) + ("" if len(changes) <= 5 else ", ...")
+                + "). Reread the sections explaining it in both language "
+                "versions, update them (prose and excerpts), then run "
                 "`.venv/Scripts/python.exe tests/test_algorithm_docs.py --update`.",
             ))
 

@@ -16,22 +16,31 @@ none: it is read as authoritative.
 する。これはコードに追随している間だけ成り立つ。黙って陳腐化した説明は、説明が
 無いことよりも悪い。権威あるものとして読まれてしまうからである。
 
-A commit is blocked when one of the four algorithm modules changed and neither
-language version of the document is part of the same change, and, in
-``--staged`` mode, when a code excerpt quoted by either document no longer
-matches the staged code (`scripts/doc_excerpts.py`).
-アルゴリズムモジュールが変わったのに文書のどちらの言語版も同じ変更に含まれない
+A commit is blocked when it changes what one of the algorithm modules computes
+and neither language version of the document is part of the same change, and,
+in ``--staged`` mode, when a code excerpt quoted by either document no longer
+matches the staged code (`scripts/doc_excerpts.py`). "Changes what it
+computes" is decided definition by definition
+(`doc_excerpts.computation_changes`): comments, docstrings, and new
+definitions that no existing code uses do not count, so a deprecated alias or
+a comment fix commits without touching the document and without
+``--no-verify``, which would skip every other check as well.
+アルゴリズムモジュールの計算を変えたのに文書のどちらの言語版も同じ変更に含まれない
 場合、および ``--staged`` モードでは、どちらかの文書が引用したコード片が
-ステージ済みのコードと一致しない場合に、コミットを中止する。
+ステージ済みのコードと一致しない場合に、コミットを中止する。「計算を変えた」は
+定義ごとに判定する（`doc_excerpts.computation_changes`）。コメント・docstring・
+既存のコードが使わない新しい定義は数えないため、非推奨の別名やコメントの修正は、
+文書に触れず、他の検査まで飛ばしてしまう ``--no-verify`` も使わずにコミットできる。
 
 This hook is the early warning, not the enforcement. It is opt-in per clone and
 can be bypassed, so ``tests/test_algorithm_docs.py`` carries the same rule into
-CI, where it cannot be skipped: it fingerprints the same four modules with
-comments and docstrings removed and fails until the fingerprint is refreshed.
+CI, where it cannot be skipped: it fingerprints each definition of the same
+modules with comments and docstrings removed and fails, by the same rule, until
+the fingerprints are refreshed.
 このフックは早期警告であって強制ではない。クローンごとの opt-in であり迂回も
 できるため、同じ規則を ``tests/test_algorithm_docs.py`` が CI へ持ち込む。そちら
-は省略できず、同じ 4 モジュールをコメントと docstring を除いて指紋化し、指紋が
-更新されるまで失敗する。
+は省略できず、同じモジュールの各定義をコメントと docstring を除いて指紋化し、
+同じ規則で、指紋が更新されるまで失敗する。
 
 Manual scans without committing:
     python scripts/check_algorithm_docs.py --staged
@@ -53,7 +62,14 @@ from pathlib import Path
 # GUI04 文書と共有する引用規約は、このスクリプトの隣にある。
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from doc_excerpts import check_pair_excerpts, read_staged  # noqa: E402
+from doc_excerpts import (  # noqa: E402
+    check_pair_excerpts,
+    code_symbol_digests,
+    computation_changes,
+    is_project_code,
+    names_used_in,
+    read_staged,
+)
 
 # The four preprocessing stages the document explains. Changing one of these is
 # what makes the explanation potentially wrong. `lib/pipeline.py` is
@@ -125,40 +141,91 @@ def _changed_files(diff_args: list[str]) -> set[str]:
     return {path for path in out.split("\0") if path}
 
 
-def _report(changed_modules: list[str], label: str) -> None:
+def _report(changes: dict[str, list[str]], label: str) -> None:
     """Print the finding and how to resolve it."""
     print(
-        f"algorithm-doc check: {label} modify "
-        + ", ".join(changed_modules)
-        + " but neither docs/algorithms.md nor docs/algorithms.ja.md.",
+        f"algorithm-doc check: {label} change what "
+        + ", ".join(sorted(changes))
+        + " computes, but neither docs/algorithms.md nor docs/algorithms.ja.md.",
         file=sys.stderr,
     )
+    for path in sorted(changes):
+        for line in changes[path][:8]:
+            print(f"  - {path}: {line}", file=sys.stderr)
+        if len(changes[path]) > 8:
+            print(f"  - {path}: ... {len(changes[path]) - 8} more", file=sys.stderr)
     print(
         "\n"
         "docs/algorithms.md explains these stages to the people who cite the\n"
-        "numbers this software produces. If the change alters what a stage\n"
-        "computes, update the affected sections of both language versions and\n"
-        "refresh the fingerprints:\n"
+        "numbers this software produces. Update the affected sections of both\n"
+        "language versions and refresh the fingerprints:\n"
         "\n"
         "    .venv\\Scripts\\python.exe tests\\test_algorithm_docs.py --update\n"
         "\n"
-        "If the change genuinely does not affect the explanation (a comment, a\n"
-        "type hint, a refactor with identical behavior), commit with\n"
-        "--no-verify. The CI test still fingerprints the code, so a behavioral\n"
-        "change cannot slip past that way.",
+        "Comments, docstrings, and definitions no existing code uses (a new\n"
+        "helper, constant, or deprecated alias) are not counted, so a change\n"
+        "listed above is one to what the reviewed code runs.",
         file=sys.stderr,
     )
 
 
-def _check(diff_args: list[str], label: str) -> int:
-    """Return 1 when the change needs a doc update it does not carry."""
+def _module_changes(before: str | None, after: str | None,
+                    external: set | None = None) -> list[str]:
+    """What in `after` can change the computation of `before` (both sources)."""
+    if before is None and after is None:
+        return []
+    if before is None:
+        return ["module added"]
+    if after is None:
+        return ["module removed"]
+    return computation_changes(code_symbol_digests(before), after, external)
+
+
+def _external_names(rev: str, module: str) -> set:
+    """Names the project code other than `module` mentions at `rev` ("" = index)."""
+    if rev == "":
+        listing = _git("ls-files", "--", "*.py")
+    else:
+        listing = _git("ls-tree", "-r", "--name-only", rev)
+    paths = [p for p in listing.split() if is_project_code(p) and p != module]
+    return names_used_in(text for text in (_read_rev(rev, p) for p in paths) if text)
+
+
+def _read_rev(rev: str, path: str) -> str | None:
+    """Read `path` at `rev` ("" = the index), or None when it is absent there."""
+    proc = subprocess.run(["git", "-C", _repo_root(), "show", f"{rev}:{path}"],
+                          capture_output=True)
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.decode("utf-8", "replace")
+
+
+def _check(diff_args: list[str], label: str, before_rev: str, after_rev: str) -> int:
+    """Return 1 when the change alters a stage's computation without a doc update.
+    段の計算を変える変更が文書の更新を伴わないとき 1 を返す。
+
+    A module that was touched is compared definition by definition
+    (`doc_excerpts.computation_changes`), so comments, docstrings, and additions
+    no existing code uses do not require the document to change.
+    触れたモジュールは定義ごとに比較する（`doc_excerpts.computation_changes`）。
+    コメント・docstring・既存のコードが使わない追加では、文書の変更を求めない。
+    """
     changed = _changed_files(diff_args)
-    changed_modules = sorted(path for path in ALGORITHM_PATHS if path in changed)
-    if not changed_modules:
+    touched = sorted(path for path in ALGORITHM_PATHS if path in changed)
+    if not touched or any(doc in changed for doc in DOC_PATHS):
         return 0
-    if any(doc in changed for doc in DOC_PATHS):
+    changes = {}
+    for path in touched:
+        found = _module_changes(_read_rev(before_rev, path), _read_rev(after_rev, path),
+                                _external_names(after_rev, path))
+        if found:
+            changes[path] = found
+    if not changes:
+        print(f"algorithm-doc check: OK ({label}; "
+              + ", ".join(touched)
+              + " touched without changing what they compute).", file=sys.stderr)
         return 0
-    _report(changed_modules, label)
+    _report(changes, label)
     return 1
 
 
@@ -214,10 +281,12 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.staged:
-            return max(_check(["--cached"], "staged changes"),
+            return max(_check(["--cached"], "staged changes", "HEAD", ""),
                        _check_staged_excerpts())
         if args.rev_range:
-            return _check([args.rev_range], f"changes in {args.rev_range}")
+            start, _, end = args.rev_range.partition("..")
+            return _check([args.rev_range], f"changes in {args.rev_range}",
+                          start, end or "HEAD")
     except RuntimeError as exc:
         print(f"algorithm-doc check: {exc}", file=sys.stderr)
         return 2

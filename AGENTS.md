@@ -1028,17 +1028,27 @@ document scale.
 Two mechanisms enforce it, and neither is sufficient alone:
 
 - `scripts/check_algorithm_docs.py`, run from `.githooks/pre-commit`, blocks a
-  commit that touches one of these modules without touching either document.
-  It is the early warning, and it is bypassable (`--no-verify`) and opt-in per
-  clone, which is legitimate for a change that genuinely cannot affect the
-  explanation — a comment, a type hint, a behavior-preserving refactor.
+  commit that changes what one of these modules computes without touching
+  either document. It is the early warning, and it is opt-in per clone.
 - `tests/test_algorithm_docs.py` runs in CI, where it cannot be skipped. It
   checks that every project symbol the documents name still exists, that every
   `ProcParams` field and every `bg_method` value is documented, that the two
-  language versions share one heading skeleton, and it fingerprints these
-  modules with comments and docstrings removed. A behavioral change fails the
-  fingerprint test until `tests/algorithm_doc_manifest.json` is refreshed with
+  language versions share one heading skeleton, and it fingerprints each
+  definition of these modules with comments and docstrings removed. A
+  behavioral change fails the fingerprint test until
+  `tests/algorithm_doc_manifest.json` is refreshed with
   `.venv\Scripts\python.exe tests\test_algorithm_docs.py --update`.
+
+Both, and the `PostToolUse` hook below, decide "changes what it computes" by one
+rule, `scripts/doc_excerpts.computation_changes`, applied definition by
+definition: a changed or removed function, method, constant or import, or a
+new definition that existing code refers to by name (which includes shadowing a
+builtin). Comments, docstrings, and new definitions that no existing code uses
+— a deprecated alias, a helper only new code calls — do not count, so such a
+commit needs neither a document edit nor `--no-verify`. Do not use
+`--no-verify` to get past this check: it skips the sensitive-information and
+version checks too. If it reports a change you believe cannot affect the
+explanation, the rule is wrong and should be fixed instead.
 
 The fingerprint is a tripwire, not a proof: nothing forces the person
 refreshing it to have reread the document. That is what this rule is for. Do

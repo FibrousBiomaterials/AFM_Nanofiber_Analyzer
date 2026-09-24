@@ -219,32 +219,286 @@ def symbol_digest(source: str, qualname: str) -> Optional[str]:
     return hashlib.sha256("\n".join(kept).encode("utf-8")).hexdigest()
 
 
-def module_digest(source: str) -> str:
-    """
-    Fingerprint a whole module, ignoring comments, docstrings and blank lines.
-    コメント・docstring・空行を無視してモジュール全体を指紋化する。
+# Key of the module-level statements that define no name (``if`` blocks,
+# expression statements, ``try``), fingerprinted together.
+# 名前を定義しないモジュール直下の文（``if``・式文・``try``）をまとめて指紋化する
+# ときのキー。
+MODULE_STATEMENTS = "<module statements>"
 
-    The same definition as `tests/test_algorithm_docs.py` records in
-    `tests/algorithm_doc_manifest.json`, so the Claude Code hook can tell that
-    an algorithm module changed without running the test suite.
-    `tests/test_algorithm_docs.py` が `tests/algorithm_doc_manifest.json` に
-    記録するものと同じ定義。Claude Code フックがテストを走らせずにアルゴリズム
-    モジュールの変更を判定できるようにする。
+
+def _node_digest(lines: List[str], node: ast.AST, skip: set) -> str:
+    """Fingerprint one node's lines, less comments, docstrings and blank lines."""
+    start, end = _span(node)
+    kept = [
+        lines[number - 1].rstrip()
+        for number in range(start, end + 1)
+        if number not in skip and lines[number - 1].strip()
+    ]
+    return hashlib.sha256("\n".join(kept).encode("utf-8")).hexdigest()
+
+
+def _bound_names(stmt: ast.stmt) -> List[str]:
+    """Names a module- or class-level assignment binds, in order."""
+    targets = stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target]
+    names: List[str] = []
+    for target in targets:
+        for sub in ast.walk(target):
+            if isinstance(sub, ast.Name):
+                names.append(sub.id)
+    return names
+
+
+def code_symbol_digests(source: str) -> Dict[str, str]:
     """
-    lines = _code_lines(source)
+    Fingerprint every definition of a module separately.
+    モジュールの各定義を個別に指紋化する。
+
+    Keys are top-level functions and constants (``name``), class methods and
+    constants (``Class.name``), a class's remaining body (``Class.<body>``),
+    imported names (``import:name``), and `MODULE_STATEMENTS`. Comments,
+    docstrings and blank lines are ignored, as in `symbol_digest`.
+    キーは、トップレベルの関数と定数（``name``）、クラスのメソッドと定数
+    （``Class.name``）、クラス本体の残り（``Class.<body>``）、import した名前
+    （``import:name``）、および `MODULE_STATEMENTS` である。`symbol_digest` と
+    同じくコメント・docstring・空行は無視する。
+
+    Notes
+    -----
+    Per-definition fingerprints are what let `computation_changes` tell a
+    change to the existing computation from an addition nothing uses: a single
+    module fingerprint moves for both, which blocked comment-free but
+    behaviour-preserving edits such as a deprecated alias.
+    定義ごとの指紋によって、`computation_changes` は既存の計算への変更と、何も
+    使わない追加とを見分けられる。モジュール全体の指紋では両方で動いてしまい、
+    非推奨の別名のように挙動を変えない編集まで止めていた。
+    """
     tree = ast.parse(source)
+    lines = _code_lines(source)
     skip = _docstring_lines(tree)
     body = tree.body
     if (body and isinstance(body[0], ast.Expr)
             and isinstance(body[0].value, ast.Constant)
             and isinstance(body[0].value.value, str)):
         skip.update(range(body[0].lineno, body[0].end_lineno + 1))
-    kept = [
-        line.rstrip()
-        for number, line in enumerate(lines, start=1)
-        if number not in skip and line.strip()
-    ]
-    return hashlib.sha256("\n".join(kept).encode("utf-8")).hexdigest()
+        body = body[1:]
+
+    out: Dict[str, str] = {}
+    loose: List[str] = []
+
+    def put(key: str, digest: str) -> None:
+        # A name defined twice keeps both definitions, in order.
+        # 2 回定義された名前は、両方の定義を順に保つ。
+        n, k = 1, key
+        while k in out:
+            n += 1
+            k = f"{key}#{n}"
+        out[k] = digest
+
+    for stmt in body:
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            put(stmt.name, _node_digest(lines, stmt, skip))
+        elif isinstance(stmt, ast.ClassDef):
+            rest: List[str] = []
+            for member in stmt.body:
+                if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    put(f"{stmt.name}.{member.name}", _node_digest(lines, member, skip))
+                elif isinstance(member, (ast.Assign, ast.AnnAssign)):
+                    for name in _bound_names(member):
+                        put(f"{stmt.name}.{name}", _node_digest(lines, member, skip))
+                else:
+                    rest.append(_node_digest(lines, member, skip))
+            # The class line itself (bases, decorators) and anything left in
+            # its body belong to the class.
+            # クラス行（基底クラス・デコレータ）と本体の残りはクラスに属する。
+            header = [lines[n - 1].rstrip() for n in range(_span(stmt)[0], stmt.body[0].lineno)
+                      if n not in skip and lines[n - 1].strip()]
+            put(f"{stmt.name}.<body>", hashlib.sha256(
+                "\n".join(header + rest).encode("utf-8")).hexdigest())
+        elif isinstance(stmt, (ast.Assign, ast.AnnAssign)):
+            for name in _bound_names(stmt):
+                put(name, _node_digest(lines, stmt, skip))
+        elif isinstance(stmt, (ast.Import, ast.ImportFrom)):
+            module = "." * getattr(stmt, "level", 0) + (getattr(stmt, "module", None) or "")
+            for alias in stmt.names:
+                bound = alias.asname or alias.name.split(".")[0]
+                spec = f"{module}:{alias.name}" if isinstance(stmt, ast.ImportFrom) else alias.name
+                put(f"import:{bound}",
+                    hashlib.sha256(spec.encode("utf-8")).hexdigest())
+        else:
+            loose.append(_node_digest(lines, stmt, skip))
+    out[MODULE_STATEMENTS] = hashlib.sha256("\n".join(loose).encode("utf-8")).hexdigest()
+    return out
+
+
+def _referenced_names(source: str, keys: Iterable[str]) -> set:
+    """Every bare name and attribute the given definitions mention."""
+    tree = ast.parse(source)
+    wanted = set(keys)
+    found: set = set()
+
+    def visit(node: ast.AST) -> None:
+        for sub in ast.walk(node):
+            if isinstance(sub, ast.Name):
+                found.add(sub.id)
+            elif isinstance(sub, ast.Attribute):
+                found.add(sub.attr)
+
+    for stmt in tree.body:
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if stmt.name in wanted:
+                visit(stmt)
+        elif isinstance(stmt, ast.ClassDef):
+            for member in stmt.body:
+                names = ([member.name] if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
+                         else _bound_names(member) if isinstance(member, (ast.Assign, ast.AnnAssign))
+                         else [])
+                if (any(f"{stmt.name}.{n}" in wanted for n in names)
+                        or (not names and f"{stmt.name}.<body>" in wanted)):
+                    visit(member)
+            if f"{stmt.name}.<body>" in wanted:
+                for base in stmt.bases + stmt.decorator_list:
+                    visit(base)
+        elif isinstance(stmt, (ast.Assign, ast.AnnAssign)):
+            if any(n in wanted for n in _bound_names(stmt)):
+                visit(stmt)
+        elif not isinstance(stmt, (ast.Import, ast.ImportFrom)):
+            if MODULE_STATEMENTS in wanted:
+                visit(stmt)
+    return found
+
+
+def computation_changes(
+    recorded: Dict[str, str],
+    source: str,
+    external: Optional[set] = None,
+) -> List[str]:
+    """
+    Describe what in `source` can change the computation `recorded` fingerprinted.
+    `recorded` が指紋化した計算を変えうる `source` 内の変更を記述する。
+
+    Parameters
+    ----------
+    recorded
+        `code_symbol_digests` of the reviewed version of the module.
+        確認済みの版のモジュールの `code_symbol_digests`。
+    source
+        The module's current source.
+        モジュールの現在のソース。
+    external
+        Names the rest of the project code mentions (`names_used_in` over the
+        files `is_project_code` accepts, less this module). A new public
+        definition that other code calls is part of the analysis even though
+        nothing in its own module uses it, as a detector method called by the
+        fiber connector is. ``None`` skips this test.
+        プロジェクトコードの残りが言及する名前（`is_project_code` が認める
+        ファイルからこのモジュールを除いたものに対する `names_used_in`）。
+        他のコードが呼ぶ新しい公開定義は、自モジュールで誰も使わなくても解析の
+        一部である（繊維コネクタが呼ぶ検出器のメソッドなど）。``None`` なら
+        この判定を行わない。
+
+    Returns
+    -------
+    list of str
+        One line per definition that was changed or removed, and per new
+        definition that code already present refers to by name; empty when
+        the change cannot alter what the reviewed code computes.
+        変更・削除された定義ごと、および既存のコードが名前で参照する新しい定義
+        ごとに 1 行。確認済みのコードの計算を変えられない変更なら空。
+
+    Notes
+    -----
+    A new definition that no existing definition names, and that (with
+    `external`) no other project code names, cannot change what the analysis
+    computes, so it is not reported: a deprecated alias, a helper only new code
+    in the module will call, a new constant. Once existing code
+    starts using it, that code's own fingerprint moves and the change is
+    reported. A new top-level name that existing code already mentions is
+    reported even when that code is unchanged, because it shadows whatever
+    the name resolved to before (a builtin, or an imported name).
+    既存のどの定義も名指さず、（`external` を与えた場合）他のプロジェクトコードも
+    名指さない新しい定義は、解析の計算を変えられないため報告しない（非推奨の別名、
+    モジュール内の新しいコードだけが呼ぶ補助関数、新しい定数）。
+    既存のコードがそれを使い始めれば、そのコード自身の指紋が動いて報告される。
+    既存のコードが既に言及している名前を新たにトップレベルに定義した場合は、
+    そのコードが無変更でも報告する。その名前が以前指していたもの（組み込み関数や
+    import した名前）を覆い隠すためである。
+    """
+    current = code_symbol_digests(source)
+    out = [f"changed {key}" for key in recorded
+           if key in current and current[key] != recorded[key]]
+    out += [f"removed {key}" for key in recorded if key not in current]
+    added = [key for key in current if key not in recorded]
+    if added:
+        existing = [key for key in current if key in recorded]
+        used = _referenced_names(source, existing)
+        for key in added:
+            name = key.split(":", 1)[-1].split("#")[0]
+            # A new class is keyed by its body; existing code names the class.
+            # 新しいクラスは本体のキーで記録され、既存のコードはクラス名で参照する。
+            simple = (name[:-len(".<body>")] if name.endswith(".<body>")
+                      else name.split(".")[-1])
+            if simple in used:
+                out.append(f"added {key}, which existing code refers to")
+            elif external is not None and not simple.startswith("_") and simple in external:
+                out.append(f"added {key}, which other project code refers to")
+    return out
+
+
+# Project code outside a module that can put a new definition of it to use.
+# Tests and scripts are left out: they exercise the analysis, they are not it.
+# あるモジュールの新しい定義を使いうる、そのモジュール以外のプロジェクトコード。
+# テストとスクリプトは除く。解析を試すものであって、解析そのものではない。
+PROJECT_CODE_PREFIXES = ("lib/", "guis/")
+PROJECT_CODE_FILES = ("cli.py", "Main.py")
+
+
+def is_project_code(rel: str) -> bool:
+    """Whether a repository path is analysis or GUI code (see `PROJECT_CODE_PREFIXES`)."""
+    return rel.endswith(".py") and (rel.startswith(PROJECT_CODE_PREFIXES)
+                                    or rel in PROJECT_CODE_FILES)
+
+
+def project_code_paths(root: Path = ROOT) -> List[str]:
+    """
+    Repository-relative paths of the project code in the working tree.
+    作業ツリー内のプロジェクトコードのリポジトリ相対パス。
+
+    Walks only `PROJECT_CODE_PREFIXES` and `PROJECT_CODE_FILES`, so a virtual
+    environment or scratch directory under the root is never read.
+    `PROJECT_CODE_PREFIXES` と `PROJECT_CODE_FILES` だけをたどるため、ルート下の
+    仮想環境や作業用ディレクトリは読まない。
+    """
+    root = Path(root)
+    out = [name for name in PROJECT_CODE_FILES if (root / name).is_file()]
+    for prefix in PROJECT_CODE_PREFIXES:
+        base = root / prefix
+        if base.is_dir():
+            out += [p.relative_to(root).as_posix() for p in base.rglob("*.py")]
+    return sorted(out)
+
+
+def names_used_in(sources: Iterable[str]) -> set:
+    """
+    Every bare name and attribute mentioned anywhere in the given sources.
+    与えたソースのどこかで言及される、すべての名前と属性名。
+
+    Unparsable sources are skipped: a syntax error is reported by the tests,
+    and a reminder must not fail because of it.
+    構文解析できないソースは飛ばす。構文エラーはテストが報告し、通知がそれで
+    失敗してはならない。
+    """
+    found: set = set()
+    for source in sources:
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            continue
+        for sub in ast.walk(tree):
+            if isinstance(sub, ast.Name):
+                found.add(sub.id)
+            elif isinstance(sub, ast.Attribute):
+                found.add(sub.attr)
+    return found
 
 
 # ----------------------------------------------------------------------------
