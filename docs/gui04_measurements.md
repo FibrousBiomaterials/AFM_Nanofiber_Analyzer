@@ -52,10 +52,12 @@ sequences along a fiber by these names, and always names the one it means.
   end to the other. They are held in `Fiber.skeleton_xtrack` /
   `Fiber.skeleton_ytrack` and returned by `fiber.skeleton_track`. They identify
   the fiber and are never drawn or measured (§1.3).
-- **Centerline**: each skeleton-track point moved to the half-maximum midpoint
-  of the height cross-section, as fractional coordinates (§2). It is held in
-  `Fiber.xtrack` / `Fiber.ytrack`, and the fiber is drawn and every value is
-  measured along it.
+- **Centerline**: one point per skeleton-track point, placed by the method the
+  analysis chose (`ProcParams.centerline_method`, recorded in the bundle). The
+  default moves each skeleton-track point to the half-maximum midpoint of the
+  height cross-section, as fractional coordinates (§2); the other methods are
+  in §2.8. It is held in `Fiber.xtrack` / `Fiber.ytrack`, and the fiber is
+  drawn and every value is measured along it.
 
 A bundle of format 1.0 has no centerline: `Fiber.xtrack` / `Fiber.ytrack` hold
 the skeleton track itself (§1.2). For such a bundle, read "centerline" on this
@@ -109,26 +111,36 @@ Each component is then passed to `_build_fiber`.
 
 ### 1.2 Whether a fiber is built on the centerline or the skeleton track
 
-A bundle of format 1.1 had its kinks judged on the half-maximum centerline, so
-GUI04 builds its fibers on the centerline. An older bundle had its kinks judged on
-the skeleton pixels, so GUI04 keeps the skeleton track for it until the image is
+A bundle of format 1.2 records which centerline its kinks were judged on
+(`bundle_schema.CENTERLINE_KEY`), and GUI04 builds its fibers on that
+centerline. A bundle of format 1.1 was judged on the half-maximum centerline,
+which it therefore uses. A bundle of format 1.0 had its kinks judged on the
+skeleton pixels, so GUI04 keeps the skeleton track for it until the image is
 re-analyzed. `bundle_schema.centerline_from_meta` makes this choice from the
-bundle's format version, so the kinks and the coordinates they are drawn on
-(centerline or skeleton track) always come from one definition.
+bundle's metadata, so the kinks and the coordinates they are drawn on
+(centerline or skeleton track) always come from one definition. When the
+bundle's centerline is not the default, GUI04 names it in the log, because
+nothing else on screen shows which centerline the numbers were measured along.
 
 ```python
 # source: lib/fiber_tracking_image.py::_build_fiber
 xtrack_prcimg, ytrack_prcimg = imp_tools.tracking(target_image)
 fiber_image = cal[y: y + h, x: x + w].copy()
-if centerline == HALF_MAX_CENTERLINE:
+if is_placed_line(centerline):
     placed = place_centerline(
         cal, xtrack_prcimg, ytrack_prcimg, branch_points,
+        method=centerline,
     )
     xtrack = placed.x - x
     ytrack = placed.y - y
-    horizon = polyline_distance(
-        xtrack, ytrack, size_per_pixel, y_size_per_pixel,
-    )
+    if is_pixel_chain_line(centerline):
+        horizon = imp_tools.convert_track_to_distance(
+            xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+        )
+    else:
+        horizon = polyline_distance(
+            xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+        )
     height = placed.crest
     skeleton_xtrack = xtrack_prcimg - x
     skeleton_ytrack = ytrack_prcimg - y
@@ -188,9 +200,12 @@ follows the code.
 ```python
 # source: lib/centerline.py::place_centerline
 width, measured = measure_apparent_width(height, x, y, return_measured=True)
-lx, ly, reliable, crest = _refine(height, x, y, width, branch_points)
+lx, ly, reliable, crest = _refine(height, x, y, width, branch_points, method)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 ```
+
+§2.1–§2.7 follow the default method, `half_max_025w`. The other methods share
+everything but the position estimator and are described in §2.8.
 
 Every length used to place the centerline is a multiple of the apparent width W, so
 the procedure means the same thing at any pixel size:
@@ -286,7 +301,10 @@ position, which would round off real corners.
 # source: lib/centerline.py::_refine
 width = float(width_px)
 mean_step = max(float(np.hypot(np.diff(x), np.diff(y)).mean()), 1e-9)
-sigma = _FRAME_SIGMA_WIDTHS * width / mean_step
+wide = method == HALF_MAX_05W_CENTERLINE
+frame_widths = _WIDE_SMOOTH_WIDTHS if wide else _FRAME_SIGMA_WIDTHS
+offset_widths = _WIDE_SMOOTH_WIDTHS if wide else _OFFSET_SMOOTH_WIDTHS
+sigma = frame_widths * width / mean_step
 fx = _smooth_extrapolated(x, sigma)
 fy = _smooth_extrapolated(y, sigma)
 tx = np.gradient(fx)
@@ -401,12 +419,13 @@ point:
 # source: lib/centerline.py::_refine
 typical = float(np.median(amplitude[resolved])) if resolved.any() else float(np.median(amplitude))
 weight = (resolved & (amplitude >= _MIN_CREST_AMPLITUDE_FRAC * typical)).astype(np.float64)
+...
 if branch_points is not None:
     mask = np.asarray(branch_points)
     radius = _JUNCTION_WIDTHS * width
 ...
     weight[d2 < radius * radius] = 0.0
-lam = (_OFFSET_SMOOTH_WIDTHS * width / mean_step) ** 2
+lam = (offset_widths * width / mean_step) ** 2
 lateral = np.clip(_whittaker_first_order(offset, weight, lam), -reach, reach)
 reliable = weight > 0.0
 ```
@@ -448,6 +467,7 @@ near = np.abs(s[None, :] - lateral[:, None]) <= _CREST_WINDOW_WIDTHS * width
 crest_near = np.where(near, prof, -np.inf).max(1)
 line_x = fx + nx * lateral
 line_y = fy + ny * lateral
+...
 at_line = _bilinear(img, line_y, line_x)
 crest_near = np.where(np.isfinite(crest_near), crest_near, at_line)
 crest = np.maximum(np.where(reliable, peak, crest_near), at_line)
@@ -496,9 +516,148 @@ def length(self) -> float:
     return self.horizon[-1]
 ```
 
-On the skeleton track of an older bundle, `imp_tools.convert_track_to_distance`
-is used instead. Its corrected chain-code weights remove the length overestimate
-of an 8-connected pixel chain, which the sub-pixel centerline does not have.
+On the skeleton track of an older bundle, and on the `skeleton_pixels`
+centerline (§2.8), which is the same pixel chain,
+`imp_tools.convert_track_to_distance` is used instead. Its corrected chain-code
+weights remove the length overestimate of an 8-connected pixel chain, which a
+sub-pixel centerline does not have.
+
+### 2.8 Other centerlines an analysis can be run on
+
+The centerline is chosen per analysis, in GUI01 (`centerline_method` in the
+Kinkdetector group) or with `cli.py process --centerline`. All eight methods
+keep the skeleton track's decision of which pixels form the fiber and in which
+order, and return one point per skeleton-track point, so everything in §1 holds
+for each of them. They also share the frame, the climb (§2.3), the reliability
+tests, which are taken at the half-maximum level whatever the method
+(§2.4–§2.5), the Whittaker join, and the crest height (§2.6). Only where each
+point is placed differs:
+
+| `centerline_method` | Label in the comparison | Where each point is placed |
+|---|---|---|
+| `half_max_025w` (default) | C | Midpoint of the half-maximum crossings; frame and offsets over W/4 (§2.2–§2.5) |
+| `half_max_05w` | C at 0.5 W | The same, with frame and offsets over 0.5 W |
+| `skeleton_pixels` | A | The skeleton-track pixel itself |
+| `smoothed_skeleton_05w` | B | The skeleton track Gaussian-smoothed along its length over 0.5 W |
+| `smoothed_skeleton_1w` | B' | The same over 1 W |
+| `quarter_max` | D | Midpoint of the crossings at a quarter of the amplitude |
+| `centroid` | E | Centroid of the section's height above its base, over the run above 10 % |
+| `crest` | F | The section's maximum, refined by a parabola |
+
+The smoothing widths and levels are:
+
+```python
+# source: lib/centerline.py::_SKELETON_SMOOTH_WIDTHS, _WIDE_SMOOTH_WIDTHS, _QUARTER_LEVEL, _CENTROID_LEVEL
+_SKELETON_SMOOTH_WIDTHS = {
+    SMOOTHED_SKELETON_05W: 0.5,
+    SMOOTHED_SKELETON_1W: 1.0,
+}
+_WIDE_SMOOTH_WIDTHS = 0.5
+_QUARTER_LEVEL = 0.25
+_CENTROID_LEVEL = 0.10
+```
+
+`half_max_05w` differs from the default only in the smoothing of the frame and
+of the offsets (the excerpts of §2.2 and §2.5). Methods D, E and F replace the
+offset of §2.4 after the reliability tests have been taken:
+
+```python
+# source: lib/centerline.py::_refine
+if method == QUARTER_MAX_CENTERLINE:
+    ql, qr, qok = _level_crossings(
+        prof, s, left, right, base + _QUARTER_LEVEL * amplitude)
+    offset = np.where(qok, 0.5 * (ql + qr), s[k])
+    weight = weight * qok
+elif method == CENTROID_CENTERLINE:
+    cl, cr, cok = _level_crossings(
+        prof, s, left, right, base + _CENTROID_LEVEL * amplitude)
+    run = window & (s[None, :] >= cl[:, None]) & (s[None, :] <= cr[:, None])
+    mass = np.where(run, np.clip(prof - base[:, None], 0.0, None), 0.0)
+    total = mass.sum(1)
+    has_mass = cok & (total > 0)
+    offset = np.where(
+        has_mass,
+        (mass * s[None, :]).sum(1) / np.where(total > 0, total, 1.0),
+        s[k],
+    )
+    weight = weight * has_mass
+elif method == CREST_CENTERLINE:
+    d = int(round(1.0 / _WIDTH_STEP_PX))
+    pl = prof[rows, np.clip(k - d, 0, ns - 1)]
+    pr = prof[rows, np.clip(k + d, 0, ns - 1)]
+    curv = pl - 2.0 * peak + pr
+    delta = np.where(
+        curv < 0, 0.5 * (pl - pr) / np.where(curv != 0, curv, -1.0), 0.0)
+    offset = s[k] + np.clip(delta, -1.0, 1.0) * d * _WIDTH_STEP_PX
+```
+
+`_level_crossings` finds the two crossings of a level on either side of the
+maximum, as §2.4 does at half the amplitude:
+
+```python
+# source: lib/centerline.py::_level_crossings
+n, ns = prof.shape
+rows = np.arange(n)
+col = np.arange(ns)[None, :]
+below = prof < level[:, None]
+li = np.where(left & below, col, -1).max(1)
+ri = np.where(right & below, col, ns).min(1)
+ok = (li >= 0) & (ri < ns)
+jl = np.clip(li, 0, ns - 2)
+jr = np.clip(ri, 1, ns - 1)
+pl0 = prof[rows, jl]
+pl1 = prof[rows, jl + 1]
+xl = s[jl] + (level - pl0) / np.where(pl1 != pl0, pl1 - pl0, 1.0) * _WIDTH_STEP_PX
+pr0 = prof[rows, jr - 1]
+pr1 = prof[rows, jr]
+xr = s[jr - 1] + (pr0 - level) / np.where(pr0 != pr1, pr0 - pr1, 1.0) * _WIDTH_STEP_PX
+return xl, xr, ok
+```
+
+With $b$ the base and $a$ the amplitude of §2.4:
+
+- **D** places the point at $\tfrac12 (x_\text{L} + x_\text{R})$ of the
+  crossings at $b + a/4$.
+- **E** places it at $\sum_j m_j s_j / \sum_j m_j$, with
+  $m_j = \max(p_j - b, 0)$, over the samples between the crossings at
+  $b + a/10$, so the tail of a neighbouring fiber does not enter the sum.
+- **F** fits a parabola through the maximum $p_0$ and the samples $p_\pm$ 1 px
+  on either side, $\delta = \tfrac12 (p_- - p_+) / (p_- - 2p_0 + p_+)$, and
+  places the point at $s_k + \delta \cdot 1\,\text{px}$ with $\delta$ clipped to
+  ±1. A section that is not concave there keeps the sampled maximum.
+
+For D and E, a section whose lower level does not close within 1.5 W of the
+maximum cannot give a position, so it is marked unreliable and interpolated like
+any other (§2.5).
+
+Methods A, B and B' do not move the points onto the height at all. The sections
+still supply their reliability and crest height, and the centerline is then
+replaced by the skeleton track, raw or smoothed along its length:
+
+```python
+# source: lib/centerline.py::_refine
+if method == SKELETON_PIXEL_LINE:
+    line_x, line_y = x.copy(), y.copy()
+elif method in _SKELETON_SMOOTH_WIDTHS:
+    chain_sigma = _SKELETON_SMOOTH_WIDTHS[method] * width / mean_step
+    line_x = _smooth_extrapolated(x, chain_sigma)
+    line_y = _smooth_extrapolated(y, chain_sigma)
+```
+
+For these three methods the `reliable` column (§3.11) therefore reports the
+fraction of the fiber whose cross-section located it, not whether the
+centerline point was placed on that section. The `skeleton_pixels` centerline is
+a pixel chain, so its length (§2.7) and straightness (§3.5) are measured the way
+the skeleton track of a format 1.0 bundle is. Kinks are judged by the same rule
+on every centerline, at the fiber's own W ([Analysis algorithms](algorithms.md)
+§4.3).
+
+Why `half_max_025w` is the default, and what each alternative does worse on
+synthetic and real scans, is in [Analysis algorithms](algorithms.md) §4.2.
+Re-analyzing the same images with another centerline compares the centerlines,
+not the specimens: every length, height and kink changes with it. GUI03
+therefore names the centerlines of each folder whenever one of them is not the
+default.
 
 ## 3. The fiber table
 
@@ -673,7 +832,7 @@ if not (length > 0.0):
     return float("nan")
 if y_size_per_pixel is None:
     y_size_per_pixel = x_size_per_pixel
-if getattr(fiber, "centerline", SKELETON_TRACK) == HALF_MAX_CENTERLINE:
+if not is_pixel_chain_line(getattr(fiber, "centerline", SKELETON_TRACK)):
     dx = (float(fiber.xtrack[-1]) - float(fiber.xtrack[0])) * x_size_per_pixel
     dy = (float(fiber.ytrack[-1]) - float(fiber.ytrack[0])) * y_size_per_pixel
     return float(np.hypot(dx, dy) / length)
@@ -703,8 +862,8 @@ reads 0.9994: only the centerline's own small sideways noise keeps it below 1. T
 endpoints are the ends of the traced part, so a fiber cut at a crossing is
 described over the part that was traced.
 
-For the skeleton track of an older bundle, the numerator is not the Euclidean
-chord. It is a digitised straight line between the same two pixels, measured
+For the skeleton track of an older bundle, and for the `skeleton_pixels`
+centerline (§2.8), the numerator is not the Euclidean chord. It is a digitised straight line between the same two pixels, measured
 with the same chain-code metric as the contour. That metric reports a straight
 pixel chain about 5 % shorter than its Euclidean chord, and measuring both
 lengths the same way cancels that bias for a straight fiber.
@@ -1084,7 +1243,7 @@ if xs:
         bridge_x = np.linspace(b_x, c_x, num=num_points).round().astype(int).tolist()[1:-1]
         ys.extend(bridge_y)
         xs.extend(bridge_x)
-        if on_centerline:
+        if on_centerline and not pixel_line:
             lys.extend(np.linspace(lys[-1], fly[0], num=num_points).tolist()[1:-1])
             lxs.extend(np.linspace(lxs[-1], flx[0], num=num_points).tolist()[1:-1])
         else:
@@ -1104,7 +1263,9 @@ if xs:
 2. **Bridge.** The gap between the two trimmed ends is filled with
    $\max(\lvert\Delta\text{row}\rvert, \lvert\Delta\text{col}\rvert) - 2$ points
    on a straight segment. This is done on the skeleton track and on the centerline
-   together, so the two stay index-aligned. Each fragment keeps the centerline
+   together, so the two stay index-aligned. On the `skeleton_pixels` centerline
+   the centerline's bridge is the bridge pixels themselves, so the fibril stays a
+   pixel chain. Each fragment keeps the centerline
    it was displayed with. Joining does not move it.
 3. **Bridge heights.** The bridge heights run linearly from the mean of the last
    `num_avg_points` = 5 heights before the gap to the mean of the first 5 after
@@ -1116,12 +1277,17 @@ The joined centerline then becomes a `Fiber`:
 
 ```python
 # source: lib/fiber_connector.py::_rebuild_connected_fiber
-if kind == HALF_MAX_CENTERLINE:
-    horizon = polyline_distance(
-        xtrack, ytrack, size_per_pixel, y_size_per_pixel,
-    )
+if is_placed_line(kind):
+    if is_pixel_chain_line(kind):
+        horizon = imp_tools.convert_track_to_distance(
+            xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+        )
+    else:
+        horizon = polyline_distance(
+            xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+        )
 ...
-if kind == HALF_MAX_CENTERLINE:
+if is_placed_line(kind):
     width, width_measured = measure_apparent_width(
         image.calibrated_image, pix_x, pix_y, return_measured=True,
     )
@@ -1134,7 +1300,8 @@ ep_indices = np.array([
 ], dtype=int)
 ```
 
-- The fibril's length is the polyline length of the joined centerline (§2.7).
+- The fibril's length is the length of the joined centerline, measured as in
+  §2.7.
 - Its W is measured again (§2.1) over the joined skeleton pixels, bridges
   included.
 - Its kinks and unjudged bends are judged again on the joined centerline at that W,

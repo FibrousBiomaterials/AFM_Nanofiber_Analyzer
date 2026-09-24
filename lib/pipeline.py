@@ -50,11 +50,12 @@ from .blosc2_io import save_bundle, bundle_has_keys, BUNDLE_EXT
 # バンドルのキー契約と形式バージョンは bundle_schema が管理する。既存の
 # `pipeline.REQUIRED_BUNDLE_KEYS` 利用側が動き続けるよう、ここで再インポートする。
 from .bundle_schema import (
-    APPARENT_WIDTH_KEY, PIXEL_LENGTHS_KEY,
+    APPARENT_WIDTH_KEY, CENTERLINE_KEY, PIXEL_LENGTHS_KEY,
     BUNDLE_FORMAT_VERSION, OPTIONAL_BUNDLE_KEYS, REQUIRED_BUNDLE_KEYS,  # noqa: F401
     SOURCE_REGION_KEY, SPATIAL_CALIBRATION_KEY, make_spatial_calibration,
     validate_bundle,
 )
+from .centerline import CENTERLINE_METHODS, DEFAULT_CENTERLINE_METHOD
 from .kink_detector import KinkDetector
 from .processed_image import ProcessedImage
 from .segmenter import Segmenter
@@ -191,6 +192,24 @@ class ProcParams:
         バンドルでは、GUI04 が再結合・高さ絞り込みしたファイバーを組み立て直す
         ときに記録された値を今も適用し、その画像は再解析されるまで 1 つの規則を
         保つ。
+    centerline_method
+        Which line each fiber is placed on, one of
+        `centerline.CENTERLINE_METHODS`: kinks are judged on it and every
+        measurement reads it, so it is the only line of the analysis. The
+        default, ``"half_max_025w"``, is the half-maximum midpoint line at a quarter
+        width; the others are the half-maximum line at half a width
+        (``"half_max_05w"``), the skeleton chain raw (``"skeleton_pixels"``)
+        or smoothed over 0.5 W / 1 W (``"smoothed_skeleton_05w"``,
+        ``"smoothed_skeleton_1w"``), the quarter-maximum midpoint (``"quarter_max"``),
+        the height-weighted centroid (``"centroid"``) and the section crest
+        (``"crest"``).
+        各繊維を置く線。`centerline.CENTERLINE_METHODS` のいずれか。キンクはその
+        上で判定され、すべての計測がそれを読むため、解析の唯一の線となる。既定の
+        ``"half_max_025w"`` は 1/4 幅の半値中点線。他は、半幅の半値中点線
+        （``"half_max_05w"``）、スケルトンの鎖そのもの（``"skeleton_pixels"``）、
+        それを 0.5 W / 1 W で平滑化したもの（``"smoothed_skeleton_05w"``・
+        ``"smoothed_skeleton_1w"``）、1/4 高さの中点（``"quarter_max"``）、高さで
+        重み付けした重心（``"centroid"``）、断面の頂点（``"crest"``）。
 
     Notes
     -----
@@ -245,6 +264,7 @@ class ProcParams:
     # Kink-detection parameters.
     kinkangle_deg: float = 150.0          # Bends at or below this interior angle are detected as kinks.
     kink_decompose_px: float = 3.0        # Not read by the current rule; polyline tolerance of the format 1.0 rule, in pixels.
+    centerline_method: str = DEFAULT_CENTERLINE_METHOD  # Line kinks are judged on and fibers are measured along (centerline.CENTERLINE_METHODS).
 
 
 # Fixed English stage keys reported through the `on_stage` callback, in order.
@@ -545,6 +565,9 @@ def validate_params(p: ProcParams) -> List[str]:
     require(_num(p.kink_decompose_px) and p.kink_decompose_px > 0,
             f"kink_decompose_px must be a positive number (px), "
             f"got {p.kink_decompose_px!r}")
+    require(p.centerline_method in CENTERLINE_METHODS,
+            f"centerline_method must be one of {CENTERLINE_METHODS}, "
+            f"got {p.centerline_method!r}")
 
     return problems
 
@@ -645,6 +668,7 @@ def build_stages(p: ProcParams) -> PipelineStages:
         # KinkDetector expects radians, while ProcParams stores degrees.
         # KinkDetector はラジアンを受け取るが、ProcParams は度で保持する。
         threshold_angle_from_decomposed_indices=p.kinkangle_deg * np.pi / 180.0,
+        centerline_method=p.centerline_method,
     )
     return PipelineStages(
         bg_calibrator=bg_calibrator,
@@ -1042,6 +1066,12 @@ def process_file(
         # 種別・スキップ行数・列数・エンコーディング、.gwy では kind="gwy" と
         # 使用したチャンネルの id/タイトル/z 単位を記録する。
         "input_format":     input_format_meta,
+        # Which line the kinks were judged on and the fibers are measured
+        # along; a reader builds fibers on exactly this line
+        # (`bundle_schema.centerline_from_meta`).
+        # キンクを判定し、繊維を計測する線。読み取り側は必ずこの線で繊維を組み
+        # 立てる（`bundle_schema.centerline_from_meta`）。
+        CENTERLINE_KEY:     stages.kink_detector.centerline_method,
     }
 
     # Which part of the input was analyzed. Without this the bundle cannot be

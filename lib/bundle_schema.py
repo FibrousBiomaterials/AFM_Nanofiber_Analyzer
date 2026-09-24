@@ -76,7 +76,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 # ===== Project libraries =====
-from .centerline import HALF_MAX_CENTERLINE, SKELETON_TRACK
+from .centerline import CENTERLINE_METHODS, HALF_MAX_025W_CENTERLINE, SKELETON_TRACK
 
 # Version of the bundle layout itself, distinct from the application release
 # recorded as "software_version". Bump when keys, shapes, or units change, and
@@ -113,13 +113,24 @@ from .centerline import HALF_MAX_CENTERLINE, SKELETON_TRACK
 #      引き続きスケルトン画素に保存する。（`ke` 導入前の未公開の開発版コードが
 #      書いたバンドルは 1.1 のまま `ka` = pi − 超過回転で `ke` を持たない。
 #      キーの欠落で見分けられ、再解析すべきである。）
-BUNDLE_FORMAT_VERSION = "1.1"
+# 1.2: the line is chosen per analysis (`ProcParams.centerline_method`) and
+#      recorded in the required vlmeta entry `CENTERLINE_KEY`; `kp`, `ka`,
+#      `ke` and `up` were judged on that line, and a reader builds fibers on
+#      it. No array key or shape changes, but a 1.1 reader would build every
+#      bundle on the half-maximum line, so kinks judged on another line would
+#      be drawn and counted on a line that does not have them.
+# 1.2: 線は解析ごとに選ばれ（`ProcParams.centerline_method`）、必須の vlmeta
+#      エントリ `CENTERLINE_KEY` に記録される。`kp`・`ka`・`ke`・`up` はその線の
+#      上で判定されており、読み取り側はその線で繊維を組み立てる。配列のキーも
+#      形状も変わらないが、1.1 の読み取り側はどのバンドルも半値中点線で組み立てる
+#      ため、別の線で判定したキンクを、それを持たない線の上に描き数えてしまう。
+BUNDLE_FORMAT_VERSION = "1.2"
 
 # Versions this code base can read. Readers reject unknown versions loudly so
 # a future format change cannot be silently misinterpreted by old releases.
 # 本コードベースが読める形式バージョン。未知のバージョンは明示的に拒否し、
 # 将来の形式変更を旧リリースが黙って誤解釈しないようにする。
-SUPPORTED_BUNDLE_VERSIONS = ("1.0", "1.1")
+SUPPORTED_BUNDLE_VERSIONS = ("1.0", "1.1", "1.2")
 
 # Format versions whose kinks were judged on, and whose fibers are drawn and
 # measured along, the half-maximum centerline. A 1.0 bundle, or one recording
@@ -128,6 +139,21 @@ SUPPORTED_BUNDLE_VERSIONS = ("1.0", "1.1")
 # バージョン。1.0 のバンドル、およびバージョンを記録していないバンドルは、
 # 再解析されるまでスケルトントラックを使い続ける。
 HALF_MAX_CENTERLINE_VERSIONS = ("1.1",)
+
+# Format versions that record their line in `CENTERLINE_KEY`.
+# 線を `CENTERLINE_KEY` に記録する形式バージョン。
+CENTERLINE_KEY_VERSIONS = ("1.2",)
+
+# vlmeta key naming the line a bundle's kinks were judged on and its fibers
+# are measured along: one of `centerline.CENTERLINE_METHODS`. Required from
+# format 1.2, because nothing else in the bundle says which line it is; the
+# same value is also in the recorded `params` (`centerline_method`), which is
+# provenance and is not read for this.
+# バンドルのキンクを判定し、繊維を計測する線を示す vlmeta キー。
+# `centerline.CENTERLINE_METHODS` のいずれか。形式 1.2 からは必須とする。バンドルの
+# 他のどこにも、どの線かが書かれていないためである。同じ値は記録された `params`
+# （`centerline_method`）にもあるが、それは来歴情報であり、この目的では読まない。
+CENTERLINE_KEY = "centerline"
 
 # Bundle keys required to treat a file as analyzed.
 # One .b2z bundle is written per analyzed file; all keys below must exist.
@@ -476,6 +502,13 @@ def validate_bundle(
                 f"unsupported bundle format version {version!r} "
                 f"(supported: {', '.join(SUPPORTED_BUNDLE_VERSIONS)})"
             )
+        elif version in CENTERLINE_KEY_VERSIONS:
+            line = meta.get(CENTERLINE_KEY)
+            if line not in CENTERLINE_METHODS:
+                problems.append(
+                    f"{CENTERLINE_KEY}: format {version} must record one of "
+                    f"{', '.join(CENTERLINE_METHODS)}, got {line!r}"
+                )
 
     return problems
 
@@ -660,10 +693,20 @@ def centerline_from_meta(meta: Optional[Dict]) -> str:
     Returns
     -------
     str
-        `centerline.HALF_MAX_CENTERLINE` for a format listed in
-        `HALF_MAX_CENTERLINE_VERSIONS`, otherwise `centerline.SKELETON_TRACK`.
+        The recorded `CENTERLINE_KEY` for a format listed in
+        `CENTERLINE_KEY_VERSIONS`; `centerline.HALF_MAX_025W_CENTERLINE` for a
+        format listed in `HALF_MAX_CENTERLINE_VERSIONS`; otherwise
+        `centerline.SKELETON_TRACK`.
+        `CENTERLINE_KEY_VERSIONS` に含まれる形式なら記録された `CENTERLINE_KEY`、
         `HALF_MAX_CENTERLINE_VERSIONS` に含まれる形式なら
-        `centerline.HALF_MAX_CENTERLINE`、それ以外は `centerline.SKELETON_TRACK`。
+        `centerline.HALF_MAX_025W_CENTERLINE`、それ以外は `centerline.SKELETON_TRACK`。
+
+    Raises
+    ------
+    ValueError
+        If a format that records its line records none, or one this release
+        does not know: building the fibers on a guessed line would show kinks
+        on a line they were not judged on.
 
     Notes
     -----
@@ -681,6 +724,15 @@ def centerline_from_meta(meta: Optional[Dict]) -> str:
     再解析できることを利用者に伝える。バージョンの欠落は旧リリース製であることを
     意味し、エラーではない。
     """
-    if meta and meta.get("version") in HALF_MAX_CENTERLINE_VERSIONS:
-        return HALF_MAX_CENTERLINE
+    version = meta.get("version") if meta else None
+    if version in CENTERLINE_KEY_VERSIONS:
+        line = meta.get(CENTERLINE_KEY)
+        if line not in CENTERLINE_METHODS:
+            raise ValueError(
+                f"bundle format {version} must record its line in "
+                f"{CENTERLINE_KEY!r} as one of {CENTERLINE_METHODS}, got {line!r}"
+            )
+        return line
+    if version in HALF_MAX_CENTERLINE_VERSIONS:
+        return HALF_MAX_025W_CENTERLINE
     return SKELETON_TRACK

@@ -1328,6 +1328,7 @@ for label in range(1, nLabels):
     _ytrack = _ytrack_local + y
     placed = place_centerline(
         image.calibrated_image, _xtrack, _ytrack, branch_points,
+        method=self.centerline_method,
     )
 ...
     judged = self.judge_line(placed.x, placed.y, placed.width_px)
@@ -1460,7 +1461,7 @@ same function:
 ```python
 # source: lib/centerline.py::place_centerline
 width, measured = measure_apparent_width(height, x, y, return_measured=True)
-lx, ly, reliable, crest = _refine(height, x, y, width, branch_points)
+lx, ly, reliable, crest = _refine(height, x, y, width, branch_points, method)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 ```
 
@@ -1524,11 +1525,42 @@ percentile 0.35 px and 0.90 px. Contour length measured along the line lies
 within −1.5 to +0.5 % of the true length in every group of those scans,
 against −1.4 to +2.5 % for the skeleton's corrected chain-code length.
 
+**Choosing another line.** The half-maximum midpoint at a quarter width is the
+default, not the only line. `centerline_method` (GUI01's Kinkdetector group,
+`cli.py process --centerline`) selects one of eight, `centerline.CENTERLINE_METHODS`,
+so the choice can be checked on the user's own images. Every one keeps the
+skeleton's decision of which pixels form a fiber and returns one point per
+skeleton point; they share the frame, the reliability tests and the crest
+height, and differ only in where each point is placed. The code of each is
+quoted in [GUI04 fiber measurements](gui04_measurements.md) §2.8.
+
+| `centerline_method` | Where each point is placed | What the comparisons found |
+|---|---|---|
+| `"half_max_025w"` (C, default) | half-maximum midpoint, frame and offsets over W/4 | Median distance 0.21–0.30 nm, the closest of all. Real scans: 60 found, 3 missed, 60 false. |
+| `"half_max_05w"` (C at 0.5 W) | the same over 0.5 W | Real scans: 58 found, 4 missed, 38 false — the fewest false detections, but it merged two same-sense corners in 2 of 16 synthetic pairs, and slightly stronger smoothing raised the misses to 10–13. |
+| `"skeleton_pixels"` (A) | the skeleton pixel itself | Real scans: 61 of 64 clear kinks found, none missed, but 124 false detections — the staircase and the swing at junctions read as bends. Median distance to the true centerline 0.51–1.00 nm. |
+| `"smoothed_skeleton_05w"` (B), `"smoothed_skeleton_1w"` (B') | the skeleton smoothed along its length over 0.5 W / 1 W | B: median distance 0.37–0.71 nm (B' was not measured separately). Smoothing removes the staircase but not the skeleton's offset from the fiber, and, because the points themselves move, it rounds real corners. |
+| `"quarter_max"` (D) | midpoint of the quarter-maximum crossings | Median distance 0.24–0.37 nm; closest to the axis on twisted ribbons, but pulled up to 3.8 nm off a thin, low fiber by background bumps. |
+| `centroid` (E) | height-weighted centroid above the base | Median distance 0.25–0.47 nm. |
+| `crest` (F) | the section's maximum | Median distance 0.27–0.49 nm; the estimator a twisted fibril displaces most (1.2–1.8 times as far as C). |
+
+The distances are medians over 18 synthetic configurations with 2 nm pixels and
+were measured with the frame and offsets at half a width, before they were
+lowered to a quarter; the kink counts are the visual reference of 64 clear kinks
+on the bundled real scans, scored with the excess-turning rule of §4.3. B, B', D,
+E and F were not scored against that reference. The kink rule is the same on
+every line, and so are its lengths in multiples of W, so a line that carries
+more lateral noise than C reports more bends for that reason alone. Every
+length, height and kink changes with the line, so results obtained on different
+lines are not comparable with each other.
+
 The same function builds the line in GUI01, where kinks are judged, and again
 when a bundle is opened (`fiber_tracking_image.FiberTrackingImage`), so the
 kinks shown and the line they sit on come from one computation. A bundle of
-format 1.0 was judged on the skeleton and is rebuilt on its skeleton track
-(`bundle_schema.centerline_from_meta`) until it is re-analyzed.
+format 1.2 records its line (`bundle_schema.CENTERLINE_KEY`) and is rebuilt on
+it; a bundle of format 1.1 was judged on the half-maximum line and is rebuilt on
+that. A bundle of format 1.0 was judged on the skeleton and is rebuilt on its
+skeleton track (`bundle_schema.centerline_from_meta`) until it is re-analyzed.
 
 ### 4.3 Judge each bend by its excess turning
 
@@ -2025,7 +2057,7 @@ Three artefacts together pin down any number this software reports:
 | Artefact | Records |
 |---|---|
 | `<stem>_param.json` | Every `ProcParams` field the analysis ran with. Field names are frozen, so an old file still loads. |
-| `<stem>.b2z` | The stage output arrays, the bundle format version, the scan size and its source, which scan lines were analysed, and the parameters as provenance. |
+| `<stem>.b2z` | The stage output arrays, the bundle format version, the centerline the kinks were judged on (from format 1.2), the scan size and its source, which scan lines were analysed, and the parameters as provenance. |
 | The software version | Recorded in the bundle. `CHANGELOG.md` states explicitly whenever a change moves the numbers. |
 
 A change that alters analysis output is treated as a reproducibility break and

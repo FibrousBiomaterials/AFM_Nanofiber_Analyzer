@@ -1282,6 +1282,7 @@ for label in range(1, nLabels):
     _ytrack = _ytrack_local + y
     placed = place_centerline(
         image.calibrated_image, _xtrack, _ytrack, branch_points,
+        method=self.centerline_method,
     )
 ...
     judged = self.judge_line(placed.x, placed.y, placed.width_px)
@@ -1406,7 +1407,7 @@ medial axis であり、2 本のマスク境界の中間を通る。近傍物・
 ```python
 # source: lib/centerline.py::place_centerline
 width, measured = measure_apparent_width(height, x, y, return_measured=True)
-lx, ly, reliable, crest = _refine(height, x, y, width, branch_points)
+lx, ly, reliable, crest = _refine(height, x, y, width, branch_points, method)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 ```
 
@@ -1459,10 +1460,37 @@ return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 のスキャンのどの群でも真の長さの −1.5〜+0.5 % に収まり、スケルトンの補正済み
 チェーンコード長では −1.4〜+2.5 % であった。
 
+**別の線を選ぶ。** 1/4 幅の半値中点線は既定であって、唯一の線ではない。
+`centerline_method`（GUI01 の Kinkdetector 群、`cli.py process --centerline`）で
+8 つの線（`centerline.CENTERLINE_METHODS`）から 1 つを選べる。利用者自身の画像で
+この選択を確かめられるようにするためである。どの線も、どの画素が 1 本の繊維を
+なすかというスケルトンの決定をそのまま使い、スケルトン点ごとに 1 点を返す。枠、
+信頼性の判定、頂点高さを共有し、違うのは各点を置く位置だけである。それぞれの
+コードは [GUI04 の計測値](gui04_measurements.ja.md) §2.8 に引用してある。
+
+| `centerline_method` | 各点を置く位置 | 比較でわかったこと |
+|---|---|---|
+| `"half_max_025w"`（C、既定） | 半値中点。枠と横ずれを W/4 で平滑化 | 距離の中央値 0.21〜0.30 nm で、すべての中で最も近い。実スキャン：検出 60、見落とし 3、誤検出 60。 |
+| `"half_max_05w"`（C、0.5 W） | 同じく 0.5 W で平滑化 | 実スキャン：検出 58、見落とし 4、誤検出 38。誤検出は最も少ないが、合成の同じ向きのコーナー対 16 組中 2 組を 1 つにまとめ、平滑化をわずかに強めると見落としが 10〜13 件に増えた。 |
+| `"skeleton_pixels"`（A） | スケルトン画素そのもの | 実スキャン：明瞭キンク 64 件中 61 件を検出し見落としは 0 件だが、誤検出は 124 件。階段と分岐部の振れを折れとして読む。真の中心線までの距離の中央値 0.51〜1.00 nm。 |
+| `"smoothed_skeleton_05w"`（B）、`"smoothed_skeleton_1w"`（B'） | スケルトンを長さ方向に 0.5 W / 1 W で平滑化したもの | B：距離の中央値 0.37〜0.71 nm（B' は別に測っていない）。平滑化は階段を除くが、スケルトンが繊維からずれている分は除かず、点そのものを動かすので本物のコーナーを丸める。 |
+| `"quarter_max"`（D） | 1/4 高さの交点の中点 | 距離の中央値 0.24〜0.37 nm。ねじれリボンでは軸に最も近いが、細く低い繊維では背景の凹凸に最大 3.8 nm 引かれた。 |
+| `centroid`（E） | 基底より上の高さで重み付けした重心 | 距離の中央値 0.25〜0.47 nm。 |
+| `crest`（F） | 断面の最大値 | 距離の中央値 0.27〜0.49 nm。ねじれたフィブリルで最も大きくずれる推定量（C の 1.2〜1.8 倍）。 |
+
+距離は画素 2 nm の合成 18 構成での中央値で、枠と横ずれを 1/4 幅に下げる前の、
+半幅の状態で測ったものである。キンクの件数は、同梱の実スキャン上の明瞭キンク
+64 件からなる目視基準を、§4.3 の超過回転規則で採点したものである。B・B'・D・E・F
+はこの基準では採点していない。キンク規則とその W 単位の長さはどの線でも同じなので、
+C より横方向のノイズが大きい線は、それだけで多くの折れを報告する。長さ・高さ・
+キンクはすべて線とともに変わるため、異なる線で得た結果どうしは比較できない。
+
 GUI01 がキンクを判定するときと、バンドルを開くとき
 （`fiber_tracking_image.FiberTrackingImage`）とで同じ関数が線を作るため、表示される
-キンクとそれが載る線は 1 つの計算から来る。形式 1.0 のバンドルはスケルトン上で
-判定されており、再解析されるまでスケルトントラック上に組み立てる
+キンクとそれが載る線は 1 つの計算から来る。形式 1.2 のバンドルは線を記録しており
+（`bundle_schema.CENTERLINE_KEY`）、その線で組み立て直す。形式 1.1 のバンドルは
+半値中点線で判定されており、その線で組み立て直す。形式 1.0 のバンドルはスケルトン
+上で判定されており、再解析されるまでスケルトントラック上に組み立てる
 （`bundle_schema.centerline_from_meta`）。
 
 ### 4.3 各折れを超過回転で判定する
@@ -1933,7 +1961,7 @@ return mid_idx[mask], angles[mask]
 | 成果物 | 記録する内容 |
 |---|---|
 | `<stem>_param.json` | 解析が使用した全 `ProcParams` フィールド。フィールド名は凍結されているため、古いファイルも読み込める。 |
-| `<stem>.b2z` | 各段の出力配列、バンドル形式バージョン、走査サイズとその出所、解析した走査線範囲、および来歴としてのパラメータ。 |
+| `<stem>.b2z` | 各段の出力配列、バンドル形式バージョン、キンクを判定した中心線（形式 1.2 から）、走査サイズとその出所、解析した走査線範囲、および来歴としてのパラメータ。 |
 | ソフトウェアのバージョン | バンドルに記録される。`CHANGELOG.md` は数値が変わる変更を明示的に記載する。 |
 
 解析出力を変える変更は再現性の破壊として扱われ、API の変更を伴うかどうかに

@@ -64,7 +64,7 @@ from .bundle_schema import (
     scan_size_um_from_meta,
     validate_bundle,
 )
-from .centerline import HALF_MAX_CENTERLINE, SKELETON_TRACK, polyline_distance
+from .centerline import SKELETON_TRACK, is_pixel_chain_line, polyline_distance
 from .connect_selection import (
     ConnectionPlan,
     connect_path_for,
@@ -704,15 +704,19 @@ def fiber_straightness(
     追跡された部分について記述される。外接矩形のオフセットは差分で相殺される
     ため不要である。
 
-    Everything above describes the skeleton track of a bundle older than
-    format 1.1. A fiber on the half-maximum centerline (`lib.centerline`) is
-    a sub-pixel line whose length is the plain Euclidean polyline length, so
+    Everything above describes a pixel-chain line: the skeleton track of a
+    bundle older than format 1.1, or the skeleton pixel line chosen for an
+    analysis (`centerline.SKELETON_PIXEL_LINE`). A fiber on any other line,
+    such as the half-maximum centerline (`lib.centerline`), is a sub-pixel
+    line whose length is the plain Euclidean polyline length, so
     there is no chain-code bias to cancel and the ratio is the Euclidean chord
     over that length. The small lateral noise of the line is all that keeps a
     straight fiber below 1.0: 0.9994 on a synthetic straight fiber with 2 nm
     pixels.
-    以上は形式 1.1 より古いバンドルのスケルトントラックについての記述である。
-    半値中点線（`lib.centerline`）上のファイバーは小数座標の線で、長さは単純な
+    以上は画素鎖の線、すなわち形式 1.1 より古いバンドルのスケルトントラック、
+    または解析に選んだスケルトン画素の線（`centerline.SKELETON_PIXEL_LINE`）に
+    ついての記述である。それ以外の線、たとえば半値中点線（`lib.centerline`）上の
+    ファイバーは小数座標の線で、長さは単純な
     ユークリッド折れ線長なので、打ち消すべきチェーンコードの偏りが無く、比は
     ユークリッド弦をその長さで割ったものになる。直線状のファイバーを 1.0 より
     下げるのは線のわずかな横方向ノイズだけであり、画素 2 nm の合成直線では
@@ -724,7 +728,7 @@ def fiber_straightness(
     if y_size_per_pixel is None:
         y_size_per_pixel = x_size_per_pixel
 
-    if getattr(fiber, "centerline", SKELETON_TRACK) == HALF_MAX_CENTERLINE:
+    if not is_pixel_chain_line(getattr(fiber, "centerline", SKELETON_TRACK)):
         dx = (float(fiber.xtrack[-1]) - float(fiber.xtrack[0])) * x_size_per_pixel
         dy = (float(fiber.ytrack[-1]) - float(fiber.ytrack[0])) * y_size_per_pixel
         return float(np.hypot(dx, dy) / length)
@@ -1398,11 +1402,12 @@ def read_centerline_from_bundle(bundle_path: str) -> str:
     Returns
     -------
     str
-        `centerline.HALF_MAX_CENTERLINE`, or `centerline.SKELETON_TRACK` for a
-        bundle analyzed before format 1.1, which keeps that line until it is
-        re-analyzed.
-        `centerline.HALF_MAX_CENTERLINE`。形式 1.1 より前に解析したバンドルでは
-        `centerline.SKELETON_TRACK` で、再解析されるまでその線を使い続ける。
+        The value of `centerline.CENTERLINE_METHODS` the bundle was analyzed
+        on, or `centerline.SKELETON_TRACK` for a bundle analyzed before format
+        1.1, which keeps that line until it is re-analyzed.
+        バンドルを解析した `centerline.CENTERLINE_METHODS` の値。形式 1.1 より
+        前に解析したバンドルでは `centerline.SKELETON_TRACK` で、再解析される
+        までその線を使い続ける。
 
     Notes
     -----

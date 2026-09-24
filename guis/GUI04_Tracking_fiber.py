@@ -68,7 +68,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # ===== Project libraries =====
 # Import the lib modules that provide the AFM image-processing core.
 # lib/ フォルダ内の各モジュールをインポートする。これらが AFM 画像処理の本体。
-from lib.centerline import FALLBACK_WIDTH_PX, HALF_MAX_CENTERLINE
+from lib.centerline import DEFAULT_CENTERLINE_METHOD, FALLBACK_WIDTH_PX, SKELETON_TRACK
 from lib.fiber_tracking_image import FiberTrackingImage
 from lib.fiber import Fiber
 from lib.fiber_connector import (
@@ -2082,7 +2082,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     plan=plan,
                     exclude_anchors=exclude_anchors,
                 )
-                if result.image.centerline != HALF_MAX_CENTERLINE:
+                if result.image.centerline == SKELETON_TRACK:
                     # A bundle analyzed before format 1.1 keeps its skeleton
                     # track, so say why its fibers look and measure as they
                     # did before, and what changes that.
@@ -2094,6 +2094,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         "沿って描画・計測しています。GUI01 で再解析すると中心線に沿って"
                         "計測されます。"
                     )))
+                elif result.image.centerline != DEFAULT_CENTERLINE_METHOD:
+                    # The line was chosen at analysis time; name it, because
+                    # every value in the table and every kink on screen
+                    # depends on it and nothing else on screen says so.
+                    # 線は解析時に選ばれている。表のすべての値と画面上のすべての
+                    # キンクがそれに依存し、画面の他のどこにもそれが示されないため、
+                    # 線の名前を伝える。
+                    self.ui_queue.put(("log", _(
+                        "このバンドルは既定以外の中心線 {line} で解析されています。"
+                        "ファイバーはこの線に沿って描画・計測され、キンクもこの線上で"
+                        "判定されています。"
+                    ).format(line=result.image.centerline)))
                 stats = table_row_values(result)
                 # The skeleton is fingerprinted here, on the worker, so a plan
                 # this window saves later records the skeleton it was actually

@@ -36,7 +36,13 @@ import numpy as np
 from numpy.typing import NDArray
 
 from . import imp_tools
-from .centerline import FALLBACK_WIDTH_PX, _smooth_extrapolated, place_centerline
+from .centerline import (
+    CENTERLINE_METHODS,
+    DEFAULT_CENTERLINE_METHOD,
+    FALLBACK_WIDTH_PX,
+    _smooth_extrapolated,
+    place_centerline,
+)
 from .processed_image import ProcessedImage
 
 logger = logging.getLogger(__name__)
@@ -334,7 +340,8 @@ class KinkDetector:
                  threshold_angle_corner: float = 5 * np.pi / 6,
                  k: int = 10,
                  noise_sigmas: Optional[float] = None,
-                 noise_min_windows: Optional[float] = None) -> None:
+                 noise_min_windows: Optional[float] = None,
+                 centerline_method: str = DEFAULT_CENTERLINE_METHOD) -> None:
         """
         Initialize detector thresholds and angle settings.
         検出に使うしきい値と角度設定を初期化する。
@@ -367,7 +374,23 @@ class KinkDetector:
             floor is estimated; ``None`` takes the module default.
             線自身のノイズ床を推定するのに要する独立な窓の最少数。``None`` は
             モジュールの既定値。
+        centerline_method
+            Which line kinks are judged on, one of
+            `centerline.CENTERLINE_METHODS`; the default is the half-maximum
+            midpoint line at a quarter width.
+            キンクを判定する線。`centerline.CENTERLINE_METHODS` のいずれか。既定は
+            1/4 幅の半値中点線。
+
+        Raises
+        ------
+        ValueError
+            If `centerline_method` is not one of `centerline.CENTERLINE_METHODS`.
         """
+        if centerline_method not in CENTERLINE_METHODS:
+            raise ValueError(
+                f"centerline_method must be one of {CENTERLINE_METHODS}, "
+                f"got {centerline_method!r}")
+        self.centerline_method = centerline_method
         self.threshold_distance = threshold_distance
         self.noise_sigmas = float(NOISE_SIGMAS if noise_sigmas is None else noise_sigmas)
         self.noise_min_windows = float(
@@ -481,6 +504,7 @@ class KinkDetector:
                 # スケルトン座標として保存され、読み取り側の特徴点照合と一致する。
                 placed = place_centerline(
                     image.calibrated_image, _xtrack, _ytrack, branch_points,
+                    method=self.centerline_method,
                 )
                 widths.append(placed.width_px)
                 if not placed.width_measured:

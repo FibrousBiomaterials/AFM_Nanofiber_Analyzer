@@ -8,6 +8,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- The centerline each fiber is placed on is now an analysis parameter,
+  `centerline_method` (GUI01's Kinkdetector group, `cli.py process
+  --centerline`). The default, `half_max_025w`, is the half-maximum midpoint line
+  of 2.0.0, so **results with the default settings do not change**. The seven
+  lines compared while choosing it can be selected to check that choice on
+  one's own images: `half_max_05w`, `skeleton_pixels`,
+  `smoothed_skeleton_05w`, `smoothed_skeleton_1w`, `quarter_max`, `centroid` and
+  `crest`. Kinks are judged on the chosen line and every length, height,
+  curvature and kink is measured along it, so results from different lines
+  are not comparable. GUI04 names a non-default line when it opens a bundle,
+  and GUI03 names the lines of each folder whenever one is not the default.
+
+### Changed
+
+- Bundle format **1.2**: the vlmeta entry `centerline` records the line a
+  bundle was analyzed on, and every reader builds the fibers on exactly that
+  line. No array changes, but 2.0.x reads every bundle as judged on the
+  half-maximum line, so it refuses a 1.2 bundle rather than drawing kinks on
+  a line they were not judged on. Bundles of format 1.1 and 1.0 read as
+  before.
+
 ## [2.0.1] - 2026-09-17
 
 ### Fixed

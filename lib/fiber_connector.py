@@ -67,8 +67,9 @@ import numpy as np
 # ===== Project libraries =====
 from . import imp_tools
 from .centerline import (
-    HALF_MAX_CENTERLINE,
     SKELETON_TRACK,
+    is_pixel_chain_line,
+    is_placed_line,
     measure_apparent_width,
     polyline_distance,
 )
@@ -896,9 +897,13 @@ def _build_chain_fiber(
     cal = image.calibrated_image
     trim = int(params.trim_points)
     n_avg = int(params.num_avg_points)
-    on_centerline = (
-        getattr(image, "centerline", SKELETON_TRACK) == HALF_MAX_CENTERLINE
-    )
+    kind = getattr(image, "centerline", SKELETON_TRACK)
+    on_centerline = is_placed_line(kind)
+    # A pixel-chain line (line A) bridges with the bridge pixels themselves, so
+    # the fibril stays a chain the chain-code metric can measure.
+    # 画素鎖の線（線 A）は橋渡しの画素そのもので橋渡しし、フィブリルがチェーン
+    # コード尺度で測れる鎖のままになるようにする。
+    pixel_line = is_pixel_chain_line(kind)
 
     # Two index-aligned tracks are docked together. The skeleton pixels carry
     # the fibril's identity and set the bridge lengths exactly as before; the
@@ -999,7 +1004,7 @@ def _build_chain_fiber(
                 bridge_x = np.linspace(b_x, c_x, num=num_points).round().astype(int).tolist()[1:-1]
                 ys.extend(bridge_y)
                 xs.extend(bridge_x)
-                if on_centerline:
+                if on_centerline and not pixel_line:
                     # The line bridges straight between the two fragments'
                     # lines, with as many points as the pixel bridge so the
                     # two tracks stay index-aligned.
@@ -1487,10 +1492,15 @@ def _rebuild_connected_fiber(
     xtrack = line_x - x
     ytrack = line_y - y
     kind = getattr(image, "centerline", SKELETON_TRACK)
-    if kind == HALF_MAX_CENTERLINE:
-        horizon = polyline_distance(
-            xtrack, ytrack, size_per_pixel, y_size_per_pixel,
-        )
+    if is_placed_line(kind):
+        if is_pixel_chain_line(kind):
+            horizon = imp_tools.convert_track_to_distance(
+                xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+            )
+        else:
+            horizon = polyline_distance(
+                xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+            )
         skeleton_xtrack = pix_x.astype(int) - x
         skeleton_ytrack = pix_y.astype(int) - y
     else:
@@ -1501,7 +1511,7 @@ def _rebuild_connected_fiber(
     height = np.array(current_h)
     fiber_image = image.calibrated_image[y: y + h, x: x + w].copy()
 
-    if kind == HALF_MAX_CENTERLINE:
+    if is_placed_line(kind):
         # The rule is scaled by the fibril's own apparent width, read on the
         # skeleton pixels it was docked from, as each fragment's was.
         # 規則はフィブリル自身の見かけ幅で尺度付けする。各断片と同じく、繋ぐ元に

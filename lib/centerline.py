@@ -92,7 +92,143 @@ from numpy.typing import NDArray
 # キンクとそれが載る線が異なる定義から来ることはない
 # （`bundle_schema.centerline_from_meta` 参照）。
 SKELETON_TRACK = "skeleton"
-HALF_MAX_CENTERLINE = "half_max"
+HALF_MAX_025W_CENTERLINE = "half_max_025w"
+
+# The lines an analysis can be run on (`ProcParams.centerline_method`). Every
+# one keeps the skeleton's decision of which pixels form one fiber and in
+# which order, and returns one point per skeleton point; they differ only in
+# where each point is placed. The chosen line is the only line of that
+# analysis: kinks are judged on it and every measurement reads it, so a
+# bundle records which one it is (`bundle_schema.CENTERLINE_KEY`).
+#   half_max_025w          C   midpoint of the two half-maximum crossings, frame and offsets over W/4 (default)
+#   half_max_05w           C   the same with frame and offsets over 0.5 W
+#   skeleton_pixels        A   the traced skeleton pixel chain itself
+#   smoothed_skeleton_05w  B   the chain Gaussian-smoothed along its length over 0.5 W
+#   smoothed_skeleton_1w   B'  the same over 1 W
+#   quarter_max            D   midpoint of the two quarter-maximum crossings
+#   centroid               E   height-weighted centroid of the section above its base
+#   crest                  F   the section's maximum, refined by a parabola
+# The comparison that chose C at W/4 as the default is in `docs/algorithms.md`
+# §4.2; the others are kept selectable so that choice can be checked on the
+# user's own images.
+# 解析に使える線（`ProcParams.centerline_method`）。どれも、どの画素が 1 本の繊維を
+# なし、どの順に並ぶかというスケルトンの決定をそのまま使い、スケルトン点ごとに
+# 1 点を返す。違うのは各点を置く位置だけである。選んだ線がその解析の唯一の線で
+# あり、キンクはその上で判定され、すべての計測がそれを読む。そのためバンドルは
+# どの線かを記録する（`bundle_schema.CENTERLINE_KEY`）。
+#   half_max_025w          C   2 つの半値交点の中点。枠と横ずれを W/4 で平滑化（既定）
+#   half_max_05w           C   同じく枠と横ずれを 0.5 W で平滑化
+#   skeleton_pixels        A   追跡したスケルトン画素の鎖そのもの
+#   smoothed_skeleton_05w  B   画素の鎖を長さ方向に 0.5 W でガウス平滑化したもの
+#   smoothed_skeleton_1w   B'  同じく 1 W で平滑化したもの
+#   quarter_max            D   2 つの 1/4 高さ交点の中点
+#   centroid               E   断面の基底より上の高さで重み付けした重心
+#   crest                  F   断面の最大値を放物線で精密化したもの
+# 既定を W/4 の C に選んだ比較は `docs/algorithms.md` §4.2 にある。それ以外も
+# 選べるようにしてあるのは、その選択を利用者自身の画像で確かめられるようにする
+# ためである。
+# The order is the one GUI01 and `cli.py process --centerline` offer them in:
+# the default first, then the line that differs from it only in smoothing,
+# then the alternatives it was chosen against.
+# 並び順は GUI01 と `cli.py process --centerline` が提示する順である。既定を先頭に、
+# 次に平滑化だけが異なる線、その後に既定と比べた代替案を置く。
+SKELETON_PIXEL_LINE = "skeleton_pixels"
+SMOOTHED_SKELETON_05W = "smoothed_skeleton_05w"
+SMOOTHED_SKELETON_1W = "smoothed_skeleton_1w"
+HALF_MAX_05W_CENTERLINE = "half_max_05w"
+QUARTER_MAX_CENTERLINE = "quarter_max"
+CENTROID_CENTERLINE = "centroid"
+CREST_CENTERLINE = "crest"
+CENTERLINE_METHODS = (
+    HALF_MAX_025W_CENTERLINE,
+    HALF_MAX_05W_CENTERLINE,
+    SKELETON_PIXEL_LINE,
+    SMOOTHED_SKELETON_05W,
+    SMOOTHED_SKELETON_1W,
+    QUARTER_MAX_CENTERLINE,
+    CENTROID_CENTERLINE,
+    CREST_CENTERLINE,
+)
+DEFAULT_CENTERLINE_METHOD = HALF_MAX_025W_CENTERLINE
+
+# Lines that are 8-connected pixel chains rather than sub-pixel polylines, so
+# length is measured with the corrected chain-code metric and straightness
+# against a digitised straight line (`measure.fiber_straightness`): a Euclidean
+# polyline length over a staircase reads long by up to 8 %.
+# 小数座標の折れ線ではなく 8 連結の画素鎖である線。長さは補正済みチェーンコード
+# 尺度で、直線度はデジタル化した直線と比べて測る（`measure.fiber_straightness`）。
+# 階段状の鎖をユークリッド折れ線長で測ると最大 8 % 長く出るためである。
+PIXEL_CHAIN_LINES = (SKELETON_TRACK, SKELETON_PIXEL_LINE)
+
+# Smoothing of the skeleton chain along its length for lines B and B', in
+# apparent widths.
+# 線 B・B' でスケルトンの鎖を長さ方向に平滑化する尺度（見かけ幅単位）。
+_SKELETON_SMOOTH_WIDTHS = {
+    SMOOTHED_SKELETON_05W: 0.5,
+    SMOOTHED_SKELETON_1W: 1.0,
+}
+
+# Frame and offset smoothing of `half_max_05w`, in apparent widths: the value
+# the half-maximum line was first built with, before `_FRAME_SIGMA_WIDTHS` and
+# `_OFFSET_SMOOTH_WIDTHS` were lowered to a quarter width.
+# `half_max_05w` の枠と横ずれの平滑化尺度（見かけ幅単位）。`_FRAME_SIGMA_WIDTHS`
+# と `_OFFSET_SMOOTH_WIDTHS` を 1/4 幅に下げる前に、半値中点線を最初に作った値。
+_WIDE_SMOOTH_WIDTHS = 0.5
+
+# Section levels, as fractions of the section's amplitude above its base, that
+# lines D and E read: D places the point midway between the two crossings of
+# the lower level; E weights the section by its height above the base over the
+# run above the lowest level, so the tail of a neighbour does not enter it.
+# 線 D・E が読む断面のレベル（基底より上の振幅に対する割合）。D は低いレベルの
+# 2 交点の中点に点を置く。E は最も低いレベルより上の区間で、基底からの高さで
+# 断面を重み付けする。隣の繊維の裾が入らないようにするためである。
+_QUARTER_LEVEL = 0.25
+_CENTROID_LEVEL = 0.10
+
+
+def is_pixel_chain_line(kind: str) -> bool:
+    """
+    Return whether a line kind is an 8-connected pixel chain.
+    線の種類が 8 連結の画素鎖かどうかを返す。
+
+    Parameters
+    ----------
+    kind
+        A value of `Fiber.centerline`.
+        `Fiber.centerline` の値。
+
+    Returns
+    -------
+    bool
+        ``True`` for the skeleton track of a format 1.0 bundle and for line A.
+        形式 1.0 のバンドルのスケルトントラックと線 A なら ``True``。
+    """
+    return kind in PIXEL_CHAIN_LINES
+
+
+def is_placed_line(kind: str) -> bool:
+    """
+    Return whether fibers of this line kind were analyzed with a chosen line.
+    この種類の線の繊維が、選択した線で解析されたものかどうかを返す。
+
+    Parameters
+    ----------
+    kind
+        A value of `Fiber.centerline`.
+        `Fiber.centerline` の値。
+
+    Returns
+    -------
+    bool
+        ``True`` for every value of `CENTERLINE_METHODS`, whose kinks were
+        judged by the excess-turning rule and whose heights are the section
+        crests; ``False`` for `SKELETON_TRACK`, the line of a format 1.0
+        bundle.
+        `CENTERLINE_METHODS` のどの値でも ``True``。それらのキンクは超過回転規則で
+        判定され、高さは断面の頂点である。形式 1.0 のバンドルの線である
+        `SKELETON_TRACK` なら ``False``。
+    """
+    return kind in CENTERLINE_METHODS
 
 # Lateral half-range searched when measuring the apparent width, and the step
 # the height profile is sampled at, both in pixels.
@@ -571,12 +707,50 @@ def refine_centerline(
     return lx, ly, reliable
 
 
+def _level_crossings(
+    prof: NDArray,
+    s: NDArray,
+    left: NDArray,
+    right: NDArray,
+    level: NDArray,
+) -> Tuple[NDArray, NDArray, NDArray]:
+    """
+    Locate, per section, the crossings of a level nearest the section's maximum.
+    断面ごとに、断面の最大値に最も近いレベル交点を求める。
+
+    Returns ``(xl, xr, ok)``: the left and right crossing positions along the
+    normal, linearly interpolated between samples, and whether both exist
+    inside the search window (`left` / `right`). Positions are meaningful only
+    where ``ok``.
+    ``(xl, xr, ok)`` を返す。法線方向の左右の交点位置（標本間を線形補間）と、
+    探索窓（`left` / `right`）内に両方があるかどうか。位置は ``ok`` の断面でのみ
+    意味を持つ。
+    """
+    n, ns = prof.shape
+    rows = np.arange(n)
+    col = np.arange(ns)[None, :]
+    below = prof < level[:, None]
+    li = np.where(left & below, col, -1).max(1)
+    ri = np.where(right & below, col, ns).min(1)
+    ok = (li >= 0) & (ri < ns)
+    jl = np.clip(li, 0, ns - 2)
+    jr = np.clip(ri, 1, ns - 1)
+    pl0 = prof[rows, jl]
+    pl1 = prof[rows, jl + 1]
+    xl = s[jl] + (level - pl0) / np.where(pl1 != pl0, pl1 - pl0, 1.0) * _WIDTH_STEP_PX
+    pr0 = prof[rows, jr - 1]
+    pr1 = prof[rows, jr]
+    xr = s[jr - 1] + (pr0 - level) / np.where(pr0 != pr1, pr0 - pr1, 1.0) * _WIDTH_STEP_PX
+    return xl, xr, ok
+
+
 def _refine(
     height: Optional[NDArray],
     xtrack: NDArray,
     ytrack: NDArray,
     width_px: float,
     branch_points: Optional[NDArray],
+    method: str = HALF_MAX_025W_CENTERLINE,
 ) -> Tuple[NDArray, NDArray, NDArray, NDArray]:
     """
     Place the line and read the crest height at each of its points.
@@ -596,6 +770,21 @@ def _refine(
     `_CREST_WINDOW_WIDTHS` 以内の最大値である。繊維の高さが意味するのは頂点高さで
     ある。線そのものは半値中点にあり、非対称な断面では頂部の上ではなく脇に来る
     ため、線の位置で補間して読んだ高さは低く偏る。
+
+    `method` names the line (`CENTERLINE_METHODS`). Every method shares the
+    frame, the climb to the nearest maximum and the reliability tests, which
+    are taken at the half-maximum level whatever the line, so the points
+    marked reliable and the crest heights are those of one section analysis;
+    only the lateral position estimator, and for `half_max_05w` the smoothing,
+    differs. Lines A, B and B' do not move the points onto the height at all:
+    they are the skeleton chain, raw or smoothed along its length, and the
+    section analysis supplies only their reliability and crest.
+    `method` は線を指定する（`CENTERLINE_METHODS`）。どの方式も、枠、最寄りの
+    極大への登攀、信頼性の判定を共有する。信頼性は線によらず半値のレベルで判定する
+    ため、信頼できるとされる点と頂点高さは 1 つの断面解析のものである。違うのは
+    横方向の位置の推定量と、`half_max_05w` では平滑化だけである。線 A・B・B' は
+    点を高さの上へまったく動かさない。スケルトンの鎖そのもの、またはそれを長さ
+    方向に平滑化したものであり、断面解析はその信頼性と頂点高さだけを与える。
     """
     x = np.asarray(xtrack, dtype=np.float64)
     y = np.asarray(ytrack, dtype=np.float64)
@@ -607,8 +796,11 @@ def _refine(
     img = np.asarray(height, dtype=np.float64)
     width = float(width_px)
     mean_step = max(float(np.hypot(np.diff(x), np.diff(y)).mean()), 1e-9)
+    wide = method == HALF_MAX_05W_CENTERLINE
+    frame_widths = _WIDE_SMOOTH_WIDTHS if wide else _FRAME_SIGMA_WIDTHS
+    offset_widths = _WIDE_SMOOTH_WIDTHS if wide else _OFFSET_SMOOTH_WIDTHS
 
-    sigma = _FRAME_SIGMA_WIDTHS * width / mean_step
+    sigma = frame_widths * width / mean_step
     fx = _smooth_extrapolated(x, sigma)
     fy = _smooth_extrapolated(y, sigma)
     tx = np.gradient(fx)
@@ -682,6 +874,43 @@ def _refine(
     typical = float(np.median(amplitude[resolved])) if resolved.any() else float(np.median(amplitude))
     weight = (resolved & (amplitude >= _MIN_CREST_AMPLITUDE_FRAC * typical)).astype(np.float64)
 
+    # Lines D, E and F read another position off the same sections. A section
+    # whose lower level does not close inside the window cannot give D or E a
+    # position, so it is interpolated like any other unlocated section.
+    # 線 D・E・F は同じ断面から別の位置を読む。低いレベルが窓の中で閉じない断面は
+    # D・E に位置を与えられないため、他の位置決めできない断面と同じく補間する。
+    if method == QUARTER_MAX_CENTERLINE:
+        ql, qr, qok = _level_crossings(
+            prof, s, left, right, base + _QUARTER_LEVEL * amplitude)
+        offset = np.where(qok, 0.5 * (ql + qr), s[k])
+        weight = weight * qok
+    elif method == CENTROID_CENTERLINE:
+        cl, cr, cok = _level_crossings(
+            prof, s, left, right, base + _CENTROID_LEVEL * amplitude)
+        run = window & (s[None, :] >= cl[:, None]) & (s[None, :] <= cr[:, None])
+        mass = np.where(run, np.clip(prof - base[:, None], 0.0, None), 0.0)
+        total = mass.sum(1)
+        has_mass = cok & (total > 0)
+        offset = np.where(
+            has_mass,
+            (mass * s[None, :]).sum(1) / np.where(total > 0, total, 1.0),
+            s[k],
+        )
+        weight = weight * has_mass
+    elif method == CREST_CENTERLINE:
+        # A parabola through the maximum and the samples one pixel either side
+        # places the crest between samples; a section that is not concave
+        # there keeps the sampled maximum.
+        # 最大値とその両側 1 画素の標本を通る放物線で、頂点を標本間に置く。そこで
+        # 上に凸でない断面は、標本の最大値のままとする。
+        d = int(round(1.0 / _WIDTH_STEP_PX))
+        pl = prof[rows, np.clip(k - d, 0, ns - 1)]
+        pr = prof[rows, np.clip(k + d, 0, ns - 1)]
+        curv = pl - 2.0 * peak + pr
+        delta = np.where(
+            curv < 0, 0.5 * (pl - pr) / np.where(curv != 0, curv, -1.0), 0.0)
+        offset = s[k] + np.clip(delta, -1.0, 1.0) * d * _WIDTH_STEP_PX
+
     if branch_points is not None:
         mask = np.asarray(branch_points)
         radius = _JUNCTION_WIDTHS * width
@@ -695,7 +924,7 @@ def _refine(
                   + (y[:, None] - (by + y0)[None, :]) ** 2).min(1)
             weight[d2 < radius * radius] = 0.0
 
-    lam = (_OFFSET_SMOOTH_WIDTHS * width / mean_step) ** 2
+    lam = (offset_widths * width / mean_step) ** 2
     lateral = np.clip(_whittaker_first_order(offset, weight, lam), -reach, reach)
     reliable = weight > 0.0
 
@@ -710,6 +939,16 @@ def _refine(
     crest_near = np.where(near, prof, -np.inf).max(1)
     line_x = fx + nx * lateral
     line_y = fy + ny * lateral
+    # Lines A, B and B' keep the skeleton chain, raw or smoothed along its
+    # length; the sections above only supplied their reliability and crest.
+    # 線 A・B・B' はスケルトンの鎖を、そのまま、または長さ方向に平滑化して使う。
+    # 上の断面は、その信頼性と頂点高さを与えただけである。
+    if method == SKELETON_PIXEL_LINE:
+        line_x, line_y = x.copy(), y.copy()
+    elif method in _SKELETON_SMOOTH_WIDTHS:
+        chain_sigma = _SKELETON_SMOOTH_WIDTHS[method] * width / mean_step
+        line_x = _smooth_extrapolated(x, chain_sigma)
+        line_y = _smooth_extrapolated(y, chain_sigma)
     # The profile is sampled every quarter pixel, so the height at the line
     # point itself can exceed the sampled maximum by a sliver; taking the
     # larger keeps "never below the height at the line" exact.
@@ -779,10 +1018,11 @@ def place_centerline(
     xtrack: NDArray,
     ytrack: NDArray,
     branch_points: Optional[NDArray] = None,
+    method: str = HALF_MAX_025W_CENTERLINE,
 ) -> CenterlineResult:
     """
-    Place the half-maximum centerline of one traced skeleton track.
-    追跡済みスケルトントラック 1 本の半値中点線を置く。
+    Place the chosen centerline of one traced skeleton track.
+    追跡済みスケルトントラック 1 本の上に、選択した中心線を置く。
 
     Parameters
     ----------
@@ -798,6 +1038,10 @@ def place_centerline(
     branch_points
         Branch-point mask in the same frame, or ``None``.
         同じ座標系の分岐点マスク。無ければ ``None``。
+    method
+        Which line to place, one of `CENTERLINE_METHODS`; the default is the
+        half-maximum midpoint line at a quarter width.
+        置く線。`CENTERLINE_METHODS` のいずれか。既定は 1/4 幅の半値中点線。
 
     Returns
     -------
@@ -816,7 +1060,15 @@ def place_centerline(
     両方がこれを呼ぶ。そのため、バンドルに保存されたキンクと、それを描く線は、
     同じ入力に対する 1 つの計算から来る。`half_max_centerline` は同じ計算で線だけ
     を返すものである。
+
+    Raises
+    ------
+    ValueError
+        If `method` is not one of `CENTERLINE_METHODS`.
     """
+    if method not in CENTERLINE_METHODS:
+        raise ValueError(
+            f"centerline method must be one of {CENTERLINE_METHODS}, got {method!r}")
     x = np.asarray(xtrack, dtype=np.float64)
     y = np.asarray(ytrack, dtype=np.float64)
     if height is None:
@@ -825,7 +1077,7 @@ def place_centerline(
             np.zeros(x.size, dtype=bool), np.full(x.size, np.nan),
         )
     width, measured = measure_apparent_width(height, x, y, return_measured=True)
-    lx, ly, reliable, crest = _refine(height, x, y, width, branch_points)
+    lx, ly, reliable, crest = _refine(height, x, y, width, branch_points, method)
     return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 
 

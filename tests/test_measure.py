@@ -28,7 +28,8 @@ import pytest
 import cli
 from lib import imp_tools
 from lib.blosc2_io import load_bundle, save_bundle
-from lib.bundle_schema import BUNDLE_FORMAT_VERSION
+from lib.bundle_schema import BUNDLE_FORMAT_VERSION, CENTERLINE_KEY
+from lib.centerline import DEFAULT_CENTERLINE_METHOD
 from lib.fiber import Fiber
 from lib.fiber_tracking_image import FiberTrackingImage
 from lib.connect_selection import (
@@ -349,7 +350,9 @@ def _write_straight_line_bundle(path, shape, orientation):
         "dp":           np.zeros((2, 0), np.int64),
         "ka":           np.zeros((0,), np.float64),
     }
-    save_bundle(path, arrays, vlmeta={"version": BUNDLE_FORMAT_VERSION})
+    save_bundle(path, arrays, vlmeta={
+        "version": BUNDLE_FORMAT_VERSION, CENTERLINE_KEY: DEFAULT_CENTERLINE_METHOD,
+    })
 
 
 def test_measure_bundle_non_square_horizontal_uses_width_scale(tmp_path):
@@ -514,7 +517,8 @@ def test_skeleton_height_values_needs_no_recorded_scan_size(measured, tmp_path):
     stripped = os.path.join(tmp_path, "no_scan_size.b2z")
     save_bundle(
         stripped, load_bundle(bundle_path),
-        vlmeta={"version": BUNDLE_FORMAT_VERSION},
+        vlmeta={"version": BUNDLE_FORMAT_VERSION,
+                CENTERLINE_KEY: DEFAULT_CENTERLINE_METHOD},
     )
     assert read_scan_size_from_bundle(stripped) is None
 

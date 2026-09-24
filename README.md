@@ -349,6 +349,21 @@ the fiber's height cross-section at half its maximum (see
 line, and the heights are read along it. A bundle analyzed before format 1.1 is
 measured along its skeleton track until it is re-analyzed, and the log says so.
 
+The centerline is an analysis parameter, `centerline_method` (GUI01's
+Kinkdetector group, or `cli.py process --centerline`). The default, `half_max_025w`,
+is the line described above. Seven alternatives compared while choosing it can
+be selected to check that choice on your own images: the half-maximum line
+smoothed over half a width (`half_max_05w`), the skeleton pixels themselves
+(`skeleton_pixels`), the skeleton smoothed over 0.5 or 1 apparent width
+(`smoothed_skeleton_05w`, `smoothed_skeleton_1w`), the quarter-maximum midpoint
+(`quarter_max`), the height-weighted centroid (`centroid`), and the section
+crest (`crest`). Kinks are judged on the chosen line and every measurement reads
+it, so results from different lines are not comparable; the bundle records the
+line, GUI04 names a non-default one when it opens the bundle, and GUI03 names
+the lines of each folder whenever one is not the default. How each line is
+placed, and what it did worse than the default in the comparison, is in
+`docs/algorithms.md` §4.2 and `docs/gui04_measurements.md` §2.8.
+
 `straightness` divides the Euclidean distance between a fiber's two ends by its
 contour length. A straight fiber reads 1.0 up to the small lateral noise of the
 line (0.9994 on a synthetic straight fiber). On a bundle older than format 1.1
@@ -823,7 +838,8 @@ Each bundle also stores root metadata (blosc2 `vlmeta`):
 | Key | Content |
 |---|---|
 | `params` | Analysis-parameter dictionary, identical to `<input_stem>_param.json`. Read back for `kinkangle_deg` (see below), and for `kink_decompose_px` on a bundle of format 1.0; the remaining fields are provenance. |
-| `version` | Bundle format version (currently `"1.1"`; a `"1.0"` bundle is measured along its skeleton track until it is re-analyzed). |
+| `version` | Bundle format version (currently `"1.2"`; a `"1.1"` bundle is measured along the half-maximum centerline, and a `"1.0"` bundle along its skeleton track until it is re-analyzed). |
+| `centerline` | The centerline the kinks were judged on and the fibers are measured along, one of the `centerline_method` values. Required from format 1.2; a reader builds the fibers on exactly this line and refuses a 1.2 bundle that does not name a known one. |
 | `software_version` | Application release that wrote the bundle. |
 | `input_file` | Base name of the processed input file. |
 | `input_sha256` | SHA-256 digest of the input file contents. |

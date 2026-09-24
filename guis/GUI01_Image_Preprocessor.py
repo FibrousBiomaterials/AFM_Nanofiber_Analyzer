@@ -84,6 +84,7 @@ from lib.bundle_schema import (
     SCAN_SIZE_SOURCES, SPATIAL_CALIBRATION_KEY, scan_size_um_from_meta,
 )
 from lib.afm_io import load_afm_image, read_scan_size
+from lib.centerline import CENTERLINE_METHODS
 from lib.stripe_noise import (
     DEFAULT_STEP_THRESHOLD_NM, StripeNoise, evaluate_scan_lines,
     propose_clean_ranges,
@@ -4395,6 +4396,26 @@ class SettingsDialog(tk.Toplevel):
             ]),
             (_("Kinkdetector"), [
                 ("field", "kinkangle_deg", "kinkangle_deg", _("折れ線近似の3点のなす角がこの値以下ならkink判定") + " (degree)", {}),
+                # The line is the only line of the analysis: kinks are judged
+                # on it and every measurement reads it, so it belongs with the
+                # kink settings and is saved in _param.json and the bundle.
+                # 線は解析の唯一の線であり、キンクはその上で判定され、すべての計測が
+                # それを読む。そのためキンク設定の並びに置き、_param.json と
+                # バンドルに保存する。
+                ("choice", "centerline_method", "centerline_method",
+                 # One option per line: the breaks separate list items, so a
+                 # translation keeps them rather than wrapping them away.
+                 # 選択肢ごとに 1 行とする。改行は項目の区切りなので、翻訳でも
+                 # 折り返しで消さずに保つ。
+                 _("キンク判定と、長さ・高さ・曲率などすべての計測に使う中心線（W は繊維の見かけ幅）\n"
+                   "half_max_025w：高さ断面の半値中点、W/4 で平滑化（既定）\n"
+                   "half_max_05w：半値中点、0.5W で平滑化\n"
+                   "skeleton_pixels：スケルトン画素そのもの\n"
+                   "smoothed_skeleton_05w / 1w：スケルトンを 0.5W / 1W で平滑化\n"
+                   "quarter_max：1/4 高さの中点\n"
+                   "centroid：高さの重心\n"
+                   "crest：断面の頂点（ねじれた繊維では軸から最も外れる）"),
+                 {"choices": list(CENTERLINE_METHODS), "width": 22}),
             ]),
         ]
         for title, specs in sections:

@@ -111,6 +111,11 @@ WATCHED_SYMBOLS: Tuple[str, ...] = (
     "lib/centerline.py::_JUNCTION_WIDTHS",
     "lib/centerline.py::_MIN_CREST_AMPLITUDE_FRAC",
     "lib/centerline.py::_CREST_WINDOW_WIDTHS",
+    "lib/centerline.py::_SKELETON_SMOOTH_WIDTHS",
+    "lib/centerline.py::_WIDE_SMOOTH_WIDTHS",
+    "lib/centerline.py::_QUARTER_LEVEL",
+    "lib/centerline.py::_CENTROID_LEVEL",
+    "lib/centerline.py::_level_crossings",
     "lib/centerline.py::place_centerline",
     "lib/centerline.py::measure_apparent_width",
     "lib/centerline.py::_refine",
@@ -182,7 +187,7 @@ ALLOWED_LINE_EN = re.compile(
 BARE_LINE_JA = re.compile("線")
 ALLOWED_LINE_JA = re.compile(
     "中心線|半値中点線|直線|曲線|破線|実線|補助線|縦線|折れ線|等高線|法線|接線"
-    "|線形|細線化|稜線"
+    "|線形|細線化|稜線|放物線"
 )
 
 

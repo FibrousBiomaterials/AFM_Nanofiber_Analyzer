@@ -23,6 +23,7 @@ import cli
 from lib.blosc2_io import load_bundle, load_bundle_meta, save_bundle
 from lib.bundle_schema import (
     BUNDLE_FORMAT_VERSION,
+    CENTERLINE_KEY,
     PARAMS_KEY,
     REQUIRED_BUNDLE_KEYS,
     SCAN_SIZE_SOURCES,
@@ -33,6 +34,13 @@ from lib.bundle_schema import (
     make_spatial_calibration,
     scan_size_um_from_meta,
     validate_bundle,
+    centerline_from_meta,
+)
+from lib.centerline import (
+    CENTERLINE_METHODS,
+    DEFAULT_CENTERLINE_METHOD,
+    HALF_MAX_025W_CENTERLINE,
+    SKELETON_TRACK,
 )
 from lib.measure import load_tracking_image, skeleton_height_values
 from lib.pipeline import ProcParams, process_file
@@ -64,7 +72,7 @@ def _valid_arrays(shape=(8, 8)):
 
 
 def _valid_meta():
-    return {"version": BUNDLE_FORMAT_VERSION}
+    return {"version": BUNDLE_FORMAT_VERSION, CENTERLINE_KEY: DEFAULT_CENTERLINE_METHOD}
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +90,39 @@ def test_valid_bundle_passes():
 def test_current_version_is_supported():
     """The version the writer records must be readable by this release."""
     assert BUNDLE_FORMAT_VERSION in SUPPORTED_BUNDLE_VERSIONS
+
+
+@pytest.mark.parametrize("line", CENTERLINE_METHODS)
+def test_recorded_line_is_the_line_fibers_are_built_on(line):
+    """Format 1.2 names its line; every selectable line validates and reads back."""
+    meta = {"version": "1.2", CENTERLINE_KEY: line}
+    assert validate_bundle(_valid_arrays(), meta=meta) == []
+    assert centerline_from_meta(meta) == line
+
+
+@pytest.mark.parametrize("recorded", [None, "", "ridge", SKELETON_TRACK])
+def test_format_1_2_without_a_known_line_is_refused(recorded):
+    """A 1.2 bundle with no, or an unknown, line is refused rather than guessed.
+
+    Building it on a guessed line would draw kinks on a line they were not
+    judged on.
+    """
+    meta = {"version": "1.2"}
+    if recorded is not None:
+        meta[CENTERLINE_KEY] = recorded
+    assert any(p.startswith(CENTERLINE_KEY) for p in validate_bundle(_valid_arrays(), meta=meta))
+    with pytest.raises(ValueError):
+        centerline_from_meta(meta)
+
+
+def test_older_formats_keep_their_implicit_line():
+    """1.1 was judged on the half-maximum line, 1.0 and unversioned on the skeleton track."""
+    assert centerline_from_meta({"version": "1.1"}) == HALF_MAX_025W_CENTERLINE
+    # A stray key in an older bundle does not override what its version means.
+    assert centerline_from_meta({"version": "1.1", CENTERLINE_KEY: "crest"}) == HALF_MAX_025W_CENTERLINE
+    assert centerline_from_meta({"version": "1.0"}) == SKELETON_TRACK
+    assert centerline_from_meta({}) == SKELETON_TRACK
+    assert centerline_from_meta(None) == SKELETON_TRACK
 
 
 def test_missing_required_key_reported():
@@ -315,6 +356,24 @@ def test_cli_process_strict_rejects_unknown_param_key(tmp_path):
     assert rc == 2
     # Without --strict the same file is accepted (unknown key ignored).
     assert cli._load_params(params_path).bg_method == "tophat"
+
+
+def test_cli_process_centerline_overrides_the_parameter_file(tmp_path):
+    """--centerline wins over the file's centerline_method and is recorded."""
+    txt = write_synthetic_fiber_txt(tmp_path)
+    params_path = os.path.join(tmp_path, "params.json")
+    with open(params_path, "w", encoding="utf-8") as f:
+        json.dump({"centerline_method": "crest"}, f)
+    out = os.path.join(tmp_path, "out")
+    rc = cli.main([
+        "process", txt, "--params", params_path, "--output-dir", out,
+        "--centerline", "skeleton_pixels",
+    ])
+    assert rc == 0
+    bundle = os.path.join(out, os.path.splitext(os.path.basename(txt))[0] + ".b2z")
+    meta = load_bundle_meta(bundle)
+    assert meta[CENTERLINE_KEY] == "skeleton_pixels"
+    assert meta[PARAMS_KEY]["centerline_method"] == "skeleton_pixels"
 
 
 def test_tracking_keys_subset_of_required():

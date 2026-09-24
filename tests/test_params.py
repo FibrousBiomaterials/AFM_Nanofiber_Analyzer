@@ -37,6 +37,7 @@ EXPECTED_FIELDS = {
     "bp_height", "branch_length", "min_area", "max_loop_area", "spur_length",
     # Kink detection.
     "kinkangle_deg", "kink_decompose_px",
+    "centerline_method",
 }
 
 
@@ -91,6 +92,23 @@ def test_default_params_are_valid():
     assert validate_params(ProcParams()) == []
     for method in ("trendfill", "tophat", "spline1d"):
         assert validate_params(ProcParams(bg_method=method)) == []
+
+
+def test_every_centerline_method_is_valid_and_reaches_the_detector():
+    """Each selectable line validates and is the line the kink stage places."""
+    from lib.centerline import CENTERLINE_METHODS, DEFAULT_CENTERLINE_METHOD
+    from lib.pipeline import build_stages
+    assert ProcParams().centerline_method == DEFAULT_CENTERLINE_METHOD
+    for method in CENTERLINE_METHODS:
+        p = ProcParams(centerline_method=method)
+        assert validate_params(p) == []
+        assert build_stages(p).kink_detector.centerline_method == method
+
+
+def test_unknown_centerline_method_is_reported():
+    """A misspelled line is rejected instead of silently analyzing another one."""
+    problems = validate_params(ProcParams(centerline_method="halfmax"))
+    assert any("centerline_method" in p for p in problems)
 
 
 def test_unknown_bg_method_is_reported():

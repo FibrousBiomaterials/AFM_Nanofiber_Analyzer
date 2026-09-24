@@ -40,12 +40,14 @@ class Fiber:
     xtrack
         X-coordinate sequence of the line the fiber is drawn and measured
         along (px, relative to the bounding-box origin in ``data``). For a
-        bundle of format 1.1 this is the half-maximum centerline of
-        `lib.centerline`, with sub-pixel values; for an older bundle it is
-        the skeleton pixel chain (see `centerline`).
+        bundle of format 1.1 or later this is the line the analysis chose from
+        `lib.centerline` (by default the half-maximum centerline, with
+        sub-pixel values); for an older bundle it is the skeleton pixel chain
+        (see `centerline`).
         繊維を描画し計測する線の x 座標列（px、``data`` の外接矩形原点基準）。
-        形式 1.1 のバンドルでは `lib.centerline` の半値中点線で小数値を持ち、
-        それより古いバンドルではスケルトンの画素鎖である（`centerline` 参照）。
+        形式 1.1 以降のバンドルでは解析が `lib.centerline` から選んだ線（既定は
+        小数値を持つ半値中点線）、それより古いバンドルではスケルトンの画素鎖で
+        ある（`centerline` 参照）。
     ytrack
         Y-coordinate sequence of the same line (px).
         同じ線の y 座標列 (px)。
@@ -89,10 +91,11 @@ class Fiber:
         Y coordinates of the same skeleton pixels.
         同じスケルトン画素の y 座標。
     centerline
-        Which line `xtrack` / `ytrack` hold: `centerline.HALF_MAX_CENTERLINE`
-        or `centerline.SKELETON_TRACK`.
-        `xtrack` / `ytrack` がどの線か。`centerline.HALF_MAX_CENTERLINE` または
-        `centerline.SKELETON_TRACK`。
+        Which line `xtrack` / `ytrack` hold: a value of
+        `centerline.CENTERLINE_METHODS`, or `centerline.SKELETON_TRACK` for a
+        bundle older than format 1.1.
+        `xtrack` / `ytrack` がどの線か。`centerline.CENTERLINE_METHODS` の値、
+        または形式 1.1 より古いバンドルなら `centerline.SKELETON_TRACK`。
     unjudged_indices
         Indices of the bends the kink rule measured within 1.5 apparent widths
         of an end of the line, where too little fiber lies on one side to tell

@@ -22,8 +22,11 @@ import pytest
 
 from lib import blosc2_io, measure
 from lib.centerline import (
-    HALF_MAX_CENTERLINE,
+    CENTERLINE_METHODS,
+    HALF_MAX_025W_CENTERLINE,
+    SKELETON_PIXEL_LINE,
     SKELETON_TRACK,
+    place_centerline,
     half_max_centerline,
     measure_apparent_width,
     polyline_distance,
@@ -307,12 +310,12 @@ def test_a_format_1_1_bundle_is_built_on_the_centerline(synthetic_bundle):
 
     assert blosc2_io.load_bundle_meta(synthetic_bundle)["version"] == BUNDLE_FORMAT_VERSION
     result = measure.measure_bundle(synthetic_bundle)
-    assert result.image.centerline == HALF_MAX_CENTERLINE
+    assert result.image.centerline == HALF_MAX_025W_CENTERLINE
     assert result.fibers
     sx_ = result.image.size_per_pixel
     sy_ = result.image.y_size_per_pixel
     for fiber in result.fibers:
-        assert fiber.centerline == HALF_MAX_CENTERLINE
+        assert fiber.centerline == HALF_MAX_025W_CENTERLINE
         px, py = skeleton_track(fiber)
         assert px.shape == np.asarray(fiber.xtrack).shape
         # The line stays on the fiber the skeleton pixel under it belongs to.
@@ -455,3 +458,112 @@ def test_place_centerline_reports_width_reliability_and_crest():
     flat = place_centerline(np.zeros(SHAPE), x, y)
     assert not flat.width_measured
     assert flat.width_px == FALLBACK_WIDTH_PX
+
+
+# ----- Every selectable line, end to end -----
+
+@pytest.fixture(scope="module", params=CENTERLINE_METHODS)
+def bundle_per_line(request, tmp_path_factory):
+    """
+    Analyze the corner scan once per selectable line.
+    コーナーのスキャンを、選択できる線ごとに 1 回解析する。
+    """
+    shape, nm_per_px = (256, 256), 2.0
+    lines = [
+        sf.straight_centerline(360.0, shape=shape, nm_per_px=nm_per_px,
+                               center_px=(128.0, 70.0)),
+        sf.kinked_centerline(360.0, 120.0, shape=shape, nm_per_px=nm_per_px,
+                             center_px=(128.0, 170.0)),
+    ]
+    scan = sf.render_scan(lines, shape=shape, nm_per_px=nm_per_px,
+                          noise_nm=0.05, roughness_nm=0.2, seed=3)
+    out = tmp_path_factory.mktemp("line_" + request.param)
+    txt = sf.write_afm_text(scan, str(out / "scan.txt"))
+    result = process_file(txt, ProcParams(centerline_method=request.param),
+                          scan_size_um=scan.scan_size_um, scan_size_source="manual")
+    return request.param, result.bundle_path
+
+
+def test_each_line_is_recorded_and_is_the_line_fibers_are_built_on(bundle_per_line):
+    """
+    The chosen line is written to the bundle, and a reader builds on it.
+    選んだ線がバンドルに書かれ、読み取り側はその線で組み立てる。
+
+    The line a fiber carries has to be exactly the one `place_centerline`
+    places for that method on the fiber's skeleton pixels, which is the line
+    GUI01 judged the kinks on; otherwise the kinks would be drawn on a line
+    they were not judged on.
+    繊維が持つ線は、その方式で繊維のスケルトン画素上に `place_centerline` が
+    置く線、すなわち GUI01 がキンクを判定した線と厳密に一致しなければならない。
+    そうでなければ、判定に使っていない線の上にキンクが描かれる。
+    """
+    from lib.bundle_schema import CENTERLINE_KEY
+
+    method, bundle = bundle_per_line
+    meta = blosc2_io.load_bundle_meta(bundle)
+    assert meta[CENTERLINE_KEY] == method
+    assert meta["params"]["centerline_method"] == method
+    assert measure.read_centerline_from_bundle(bundle) == method
+    result = measure.measure_bundle(bundle)
+    assert result.image.centerline == method
+    assert result.fibers
+    cal = result.image.calibrated_image
+    spp, spp_y = result.image.size_per_pixel, result.image.y_size_per_pixel
+    for fiber in result.fibers:
+        assert fiber.centerline == method
+        x0, y0 = int(fiber.data[0]), int(fiber.data[1])
+        px, py = skeleton_track(fiber)
+        placed = place_centerline(cal, px + x0, py + y0, result.image.bp, method=method)
+        np.testing.assert_allclose(fiber.xtrack, placed.x - x0)
+        np.testing.assert_allclose(fiber.ytrack, placed.y - y0)
+        if method == SKELETON_PIXEL_LINE:
+            # Line A is the skeleton pixel chain, measured like one.
+            # 線 A はスケルトンの画素鎖そのもので、画素鎖として測る。
+            np.testing.assert_array_equal(fiber.xtrack, px)
+            np.testing.assert_allclose(
+                fiber.horizon,
+                convert_track_to_distance(fiber.xtrack, fiber.ytrack, spp, spp_y))
+        else:
+            np.testing.assert_allclose(
+                fiber.horizon, polyline_distance(fiber.xtrack, fiber.ytrack, spp, spp_y))
+
+
+def test_each_line_stores_the_kinks_judged_on_it(bundle_per_line):
+    """
+    On every line, the stored kinks are the ones recomputed on the displayed line.
+    どの線でも、保存したキンクは表示する線の上で再計算したキンクと一致する。
+    """
+    method, bundle = bundle_per_line
+    result = measure.measure_bundle(bundle)
+    stored = blosc2_io.load_bundle(bundle)["kp"]
+    stored_set = set(zip(stored[0].tolist(), stored[1].tolist()))
+    cal = result.image.calibrated_image
+    detector = KinkDetector()
+    recomputed = set()
+    for fiber in result.fibers:
+        x0, y0 = int(fiber.data[0]), int(fiber.data[1])
+        px, py = skeleton_track(fiber)
+        width = measure_apparent_width(cal, px + x0, py + y0)
+        ki, _, _ = detector.kinks_on_line(
+            np.asarray(fiber.xtrack) + x0, np.asarray(fiber.ytrack) + y0, width)
+        recomputed |= {(int(px[i]) + x0, int(py[i]) + y0) for i in ki}
+    assert recomputed == stored_set
+
+
+def test_each_line_reconnects_and_filters_on_its_own_line(bundle_per_line):
+    """
+    Fibrils rebuilt by connection or the height filter keep the analysis's line.
+    連結や高さ絞り込みで組み立て直したフィブリルは、解析の線を保つ。
+    """
+    from lib.fiber_connector import connect_fiber_fragments, filter_fibers_by_height
+
+    method, bundle = bundle_per_line
+    result = measure.measure_bundle(bundle)
+    rebuilt = connect_fiber_fragments(result.image, list(result.fibers))
+    heights = np.concatenate([np.asarray(f.height) for f in result.fibers])
+    banded = filter_fibers_by_height(
+        result.image, list(result.fibers),
+        float(np.min(heights)) - 1.0, float(np.max(heights)) + 1.0)
+    for fiber in list(rebuilt) + list(banded):
+        assert fiber.centerline == method
+        assert len(fiber.xtrack) == len(skeleton_track(fiber)[0])

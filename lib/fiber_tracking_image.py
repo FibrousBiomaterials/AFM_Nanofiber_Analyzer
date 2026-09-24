@@ -26,8 +26,9 @@ import numpy as np
 
 from . import imp_tools
 from .centerline import (
-    HALF_MAX_CENTERLINE,
     SKELETON_TRACK,
+    is_pixel_chain_line,
+    is_placed_line,
     place_centerline,
     polyline_distance,
 )
@@ -102,10 +103,12 @@ def _build_fiber(
         画像全体の分岐点マスク。高さが複数の繊維に属する分岐のそばでは、中心線の
         位置を測らない。中心線で組み立てる場合にのみ読む。
     centerline
-        Which line to build the fiber on: `HALF_MAX_CENTERLINE` for a bundle
-        whose kinks were judged on it, `SKELETON_TRACK` for an older one.
-        繊維を組み立てる線。キンクをその線上で判定したバンドルなら
-        `HALF_MAX_CENTERLINE`、それより古いバンドルなら `SKELETON_TRACK`。
+        Which line to build the fiber on: the value of
+        `centerline.CENTERLINE_METHODS` the bundle's kinks were judged on, or
+        `SKELETON_TRACK` for a bundle older than format 1.1.
+        繊維を組み立てる線。バンドルのキンクを判定した
+        `centerline.CENTERLINE_METHODS` の値、または形式 1.1 より古いバンドルなら
+        `SKELETON_TRACK`。
     unjudged_set
         ``(x, y)`` coordinate set of the bends the kink rule did not judge
         because they lie next to a track end; ``None`` or empty for a bundle
@@ -126,7 +129,7 @@ def _build_fiber(
     # 骨格ピクセルを順序付きで追跡し、ファイバーを1次元列として扱えるようにする。
     xtrack_prcimg, ytrack_prcimg = imp_tools.tracking(target_image)
     fiber_image = cal[y: y + h, x: x + w].copy()
-    if centerline == HALF_MAX_CENTERLINE:
+    if is_placed_line(centerline):
         # The skeleton fixes which pixels are this fiber and their order; the
         # line itself is placed on the height, one point per skeleton pixel,
         # so the feature lookup below still matches skeleton coordinates.
@@ -135,12 +138,23 @@ def _build_fiber(
         # 引き続きスケルトン座標で一致する。
         placed = place_centerline(
             cal, xtrack_prcimg, ytrack_prcimg, branch_points,
+            method=centerline,
         )
         xtrack = placed.x - x
         ytrack = placed.y - y
-        horizon = polyline_distance(
-            xtrack, ytrack, size_per_pixel, y_size_per_pixel,
-        )
+        # The skeleton pixel chain (line A) is measured with the chain-code
+        # metric, as the skeleton track of a 1.0 bundle is; every other line
+        # is a sub-pixel polyline.
+        # スケルトンの画素鎖（線 A）は、1.0 のバンドルのスケルトントラックと同じく
+        # チェーンコード尺度で測る。他の線はすべて小数座標の折れ線である。
+        if is_pixel_chain_line(centerline):
+            horizon = imp_tools.convert_track_to_distance(
+                xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+            )
+        else:
+            horizon = polyline_distance(
+                xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+            )
         # The fiber's height is the crest of each cross-section, not the
         # image interpolated at the line: the line sits at the half-maximum
         # midpoint, which on an asymmetric section lies beside the top.
@@ -279,14 +293,16 @@ class FiberTrackingImage:
         無ければ None。そのように判定されたのは形式 1.0 のバンドルだけで、現行の
         規則はこれを使わない。
     centerline
-        Which line fibers are built on: `centerline.HALF_MAX_CENTERLINE` when
-        the bundle's kinks were judged on it (format 1.1), otherwise
-        `centerline.SKELETON_TRACK`, which is also the default for a container
-        not loaded from a bundle. Set by `lib.measure` from the bundle.
-        繊維を組み立てる線。バンドルのキンクがその線上で判定されていれば
-        （形式 1.1）`centerline.HALF_MAX_CENTERLINE`、それ以外は
+        Which line fibers are built on: the value of
+        `centerline.CENTERLINE_METHODS` the bundle's kinks were judged on
+        (format 1.1 and later), otherwise `centerline.SKELETON_TRACK`, which
+        is also the default for a container not loaded from a bundle. Set by
+        `lib.measure` from the bundle (`bundle_schema.centerline_from_meta`).
+        繊維を組み立てる線。バンドルのキンクを判定した
+        `centerline.CENTERLINE_METHODS` の値（形式 1.1 以降）、それ以外は
         `centerline.SKELETON_TRACK`。バンドルから読み込まないコンテナの既定値も
-        後者である。`lib.measure` がバンドルから設定する。
+        後者である。`lib.measure` がバンドルから設定する
+        （`bundle_schema.centerline_from_meta`）。
     """
 
     def __init__(
@@ -377,8 +393,9 @@ class FiberTrackingImage:
         self.kink_angle_deg: Optional[float] = None
         self.kink_decompose_px: Optional[float] = None
         # Which line fibers are built on; `lib.measure` sets it from the
-        # bundle's format version.
-        # 繊維を組み立てる線。`lib.measure` がバンドルの形式バージョンから設定する。
+        # bundle (`bundle_schema.centerline_from_meta`).
+        # 繊維を組み立てる線。`lib.measure` がバンドルから設定する
+        # （`bundle_schema.centerline_from_meta`）。
         self.centerline: str = SKELETON_TRACK
 
     def fibers_in_image_parallel(

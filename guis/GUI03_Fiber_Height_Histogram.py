@@ -64,7 +64,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # ===== Project libraries =====
 from lib.blosc2_io import BUNDLE_EXT
-from lib.centerline import HALF_MAX_CENTERLINE
+from lib.centerline import DEFAULT_CENTERLINE_METHOD, SKELETON_TRACK
 from lib.connect_selection import (
     CONNECT_SUFFIX, connect_path_for, load_connect_plan,
 )
@@ -2647,10 +2647,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 count += 1
         return count
 
-    def _count_skeleton_track_bundles(self, bundle_paths) -> int:
+    def _count_bundles_by_line(self, bundle_paths) -> dict:
         """
-        Count the bundles analyzed before format 1.1, measured along the skeleton.
-        形式 1.1 より前に解析され、スケルトンに沿って計測されるバンドル数を数える。
+        Count the bundles by the line they are measured along.
+        計測に使う線ごとにバンドル数を数える。
 
         Parameters
         ----------
@@ -2660,11 +2660,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         Returns
         -------
-        int
-            Bundles measured along the skeleton track rather than the
-            centerline until they are re-analyzed.
-            再解析されるまで、中心線ではなくスケルトントラックに沿って計測される
-            バンドル数。
+        dict
+            Bundle count per line (`bundle_schema.centerline_from_meta`):
+            `centerline.SKELETON_TRACK` for a bundle analyzed before format
+            1.1, otherwise the line chosen for the analysis.
+            線ごとのバンドル数（`bundle_schema.centerline_from_meta`）。形式 1.1
+            より前に解析したバンドルは `centerline.SKELETON_TRACK`、それ以外は
+            解析に選んだ線。
 
         Notes
         -----
@@ -2673,14 +2675,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         メタデータだけを読む。読めないバンドルはここでは読み飛ばす。コレクタが
         バンドル単位の読込エラーとして一度だけ報告するためである。
         """
-        count = 0
+        counts: dict = {}
         for path in bundle_paths:
             try:
-                if read_centerline_from_bundle(path) != HALF_MAX_CENTERLINE:
-                    count += 1
+                line = read_centerline_from_bundle(path)
             except Exception:
                 continue
-        return count
+            counts[line] = counts.get(line, 0) + 1
+        return counts
 
     def _log_curvature_caveats(self, per_fiber, curvature_window: float) -> None:
         """
@@ -2937,7 +2939,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # 中心線ではなくスケルトントラックに沿って計測され、両者が混ざった
                 # フォルダは結果からは見分けがつかないためである。
                 if input_mode != INPUT_FIBER_CSV:
-                    n_old = self._count_skeleton_track_bundles(bundle_paths)
+                    by_line = self._count_bundles_by_line(bundle_paths)
+                    n_old = by_line.get(SKELETON_TRACK, 0)
                     if n_old:
                         self.ui_queue.put(("log", _(
                             "[{grp}/{folder}] {n}/{total} バンドルは旧版で解析されたため、"
@@ -2946,6 +2949,22 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         ).format(
                             grp=grp_name, folder=folder_name,
                             n=n_old, total=len(bundle_paths),
+                        )))
+                    # Name the lines whenever one is not the default: every
+                    # length, height and kink depends on the line, so groups
+                    # analyzed on different lines differ for that reason alone.
+                    # 既定以外の線が 1 つでもあれば線の名前を示す。長さ・高さ・
+                    # キンクはすべて線に依存するため、別の線で解析した群どうしは
+                    # それだけで違いが出る。
+                    chosen = {k: v for k, v in by_line.items() if k != SKELETON_TRACK}
+                    if set(chosen) - {DEFAULT_CENTERLINE_METHOD}:
+                        self.ui_queue.put(("log", _(
+                            "[{grp}/{folder}] 中心線: {lines}"
+                        ).format(
+                            grp=grp_name, folder=folder_name,
+                            lines=", ".join(
+                                f"{k} {v}/{len(bundle_paths)}"
+                                for k, v in sorted(chosen.items())),
                         )))
 
                 try:

@@ -59,7 +59,7 @@ if BASE_DIR not in sys.path:
 # ===== Project libraries =====
 from lib.blosc2_io import BUNDLE_EXT, load_bundle, load_bundle_meta
 from lib.bundle_schema import REQUIRED_BUNDLE_KEYS, validate_bundle
-from lib.centerline import HALF_MAX_CENTERLINE
+from lib.centerline import CENTERLINE_METHODS, SKELETON_TRACK
 from lib.measure import (
     measure_bundle,
     read_centerline_from_bundle,
@@ -238,6 +238,14 @@ def cmd_process(args: argparse.Namespace) -> int:
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
+    # --centerline overrides the parameter file, the way --format and
+    # --channel override the input handling, so one parameter file can be
+    # run on several lines for comparison.
+    # --centerline はパラメータファイルより優先する。--format や --channel が
+    # 入力の扱いを上書きするのと同じで、1 つのパラメータファイルを複数の線で
+    # 走らせて比べられるようにする。
+    if getattr(args, "centerline", None):
+        params.centerline_method = args.centerline
 
     # Validate once before the batch so every problem is reported together,
     # instead of the same failure repeating per input file.
@@ -487,7 +495,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
             failures.append(name)
             continue
         print(f"{len(result.stats)} fibers -> {os.path.basename(csv_path)}")
-        if result.image.centerline != HALF_MAX_CENTERLINE:
+        if result.image.centerline == SKELETON_TRACK:
             print(
                 "    note: analyzed before bundle format 1.1, so fibers are "
                 "measured along the skeleton track; re-analyze to measure "
@@ -553,7 +561,7 @@ def cmd_heights(args: argparse.Namespace) -> int:
             f"[{i}/{len(inputs)}] {name}: {heights.size} skeleton px, "
             f"mean {np.mean(heights):.3f} nm, std {np.std(heights):.3f} nm"
         )
-        if read_centerline_from_bundle(bundle_path) != HALF_MAX_CENTERLINE:
+        if read_centerline_from_bundle(bundle_path) == SKELETON_TRACK:
             print(
                 "    note: analyzed before bundle format 1.1, so heights are "
                 "read along the skeleton track; re-analyze to read them along "
@@ -719,6 +727,14 @@ def build_parser() -> argparse.ArgumentParser:
              "stages take a threshold from a statistic over the whole image, "
              "so leaving them in changes what the rest is compared against. "
              "Default: analyze the whole image.",
+    )
+    p_proc.add_argument(
+        "--centerline", choices=CENTERLINE_METHODS, default=None,
+        help="line kinks are judged on and fibers are measured along; "
+             "overrides centerline_method in --params. Default: the parameter "
+             "file's value, otherwise half_max_025w (the half-maximum midpoint "
+             "line smoothed over a quarter of the apparent width). The line "
+             "is recorded in the bundle and every reader measures along it",
     )
     p_proc.add_argument(
         "--strict", action="store_true",

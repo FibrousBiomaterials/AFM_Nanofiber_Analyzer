@@ -49,9 +49,11 @@
   なす画素を、端から端へ順に並べた整数座標列。`Fiber.skeleton_xtrack` /
   `Fiber.skeleton_ytrack` に入っており、`fiber.skeleton_track` で取り出す。
   繊維の識別に使い、描画にも計測にも使わない（§1.3）。
-- **中心線**：スケルトントラックの各点を、高さ断面の半値中点へ移した小数座標列
-  （§2）。`Fiber.xtrack` / `Fiber.ytrack` に入っており、描画とすべての計測は
-  この上で行う。
+- **中心線**：スケルトントラックの 1 点につき 1 点を、解析で選んだ方式
+  （`ProcParams.centerline_method`。バンドルに記録される）で置いた座標列。既定の
+  方式は、スケルトントラックの各点を高さ断面の半値中点へ移した小数座標列である
+  （§2）。他の方式は §2.8 にある。`Fiber.xtrack` / `Fiber.ytrack` に入っており、
+  描画とすべての計測はこの上で行う。
 
 形式 1.0 のバンドルでは中心線を置かず、`Fiber.xtrack` / `Fiber.ytrack` に
 スケルトントラックそのものが入る（§1.2）。そのため形式 1.0 のバンドルでは、この
@@ -103,26 +105,35 @@ return curate_fibers(
 
 ### 1.2 ファイバーを中心線とスケルトントラックのどちらの上に組み立てるか
 
-形式 1.1 のバンドルは半値中点線の上でキンクを判定しているので、GUI04 は中心線の
-上にファイバーを組み立てる。それより古いバンドルはスケルトン画素の上で判定して
-いるので、再解析されるまではスケルトントラックのまま扱う。この選択は
-`bundle_schema.centerline_from_meta` がバンドルの形式バージョンから行う。その
-ため、キンクと、それを描く座標列（中心線またはスケルトントラック）は常に同じ定義から
-来る。
+形式 1.2 のバンドルは、キンクをどの中心線の上で判定したかを記録している
+（`bundle_schema.CENTERLINE_KEY`）。GUI04 はその中心線の上にファイバーを組み
+立てる。形式 1.1 のバンドルは半値中点線の上で判定しているので、それを使う。形式
+1.0 のバンドルはスケルトン画素の上で判定しているので、再解析されるまでは
+スケルトントラックのまま扱う。この選択は `bundle_schema.centerline_from_meta` が
+バンドルのメタデータから行う。そのため、キンクと、それを描く座標列（中心線または
+スケルトントラック）は常に同じ定義から来る。バンドルの中心線が既定でない場合、
+GUI04 はその名前をログに出す。数値がどの中心線に沿って測られたかは、画面の他の
+どこにも示されないためである。
 
 ```python
 # source: lib/fiber_tracking_image.py::_build_fiber
 xtrack_prcimg, ytrack_prcimg = imp_tools.tracking(target_image)
 fiber_image = cal[y: y + h, x: x + w].copy()
-if centerline == HALF_MAX_CENTERLINE:
+if is_placed_line(centerline):
     placed = place_centerline(
         cal, xtrack_prcimg, ytrack_prcimg, branch_points,
+        method=centerline,
     )
     xtrack = placed.x - x
     ytrack = placed.y - y
-    horizon = polyline_distance(
-        xtrack, ytrack, size_per_pixel, y_size_per_pixel,
-    )
+    if is_pixel_chain_line(centerline):
+        horizon = imp_tools.convert_track_to_distance(
+            xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+        )
+    else:
+        horizon = polyline_distance(
+            xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+        )
     height = placed.crest
     skeleton_xtrack = xtrack_prcimg - x
     skeleton_ytrack = ytrack_prcimg - y
@@ -178,9 +189,12 @@ for i, (px, py) in enumerate(zip(xtrack_prcimg.tolist(), ytrack_prcimg.tolist())
 ```python
 # source: lib/centerline.py::place_centerline
 width, measured = measure_apparent_width(height, x, y, return_measured=True)
-lx, ly, reliable, crest = _refine(height, x, y, width, branch_points)
+lx, ly, reliable, crest = _refine(height, x, y, width, branch_points, method)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 ```
+
+§2.1〜§2.7 は既定の方式 `half_max_025w` に沿って説明する。他の方式は位置の推定量
+以外をすべて共有しており、§2.8 で説明する。
 
 中心線を置くときの長さはすべて見かけ幅 W の倍数である。したがって、この手順は
 どの画素サイズでも同じ意味を持つ。
@@ -273,7 +287,10 @@ return (width, True) if return_measured else width
 # source: lib/centerline.py::_refine
 width = float(width_px)
 mean_step = max(float(np.hypot(np.diff(x), np.diff(y)).mean()), 1e-9)
-sigma = _FRAME_SIGMA_WIDTHS * width / mean_step
+wide = method == HALF_MAX_05W_CENTERLINE
+frame_widths = _WIDE_SMOOTH_WIDTHS if wide else _FRAME_SIGMA_WIDTHS
+offset_widths = _WIDE_SMOOTH_WIDTHS if wide else _OFFSET_SMOOTH_WIDTHS
+sigma = frame_widths * width / mean_step
 fx = _smooth_extrapolated(x, sigma)
 fy = _smooth_extrapolated(y, sigma)
 tx = np.gradient(fx)
@@ -383,12 +400,13 @@ $$
 # source: lib/centerline.py::_refine
 typical = float(np.median(amplitude[resolved])) if resolved.any() else float(np.median(amplitude))
 weight = (resolved & (amplitude >= _MIN_CREST_AMPLITUDE_FRAC * typical)).astype(np.float64)
+...
 if branch_points is not None:
     mask = np.asarray(branch_points)
     radius = _JUNCTION_WIDTHS * width
 ...
     weight[d2 < radius * radius] = 0.0
-lam = (_OFFSET_SMOOTH_WIDTHS * width / mean_step) ** 2
+lam = (offset_widths * width / mean_step) ** 2
 lateral = np.clip(_whittaker_first_order(offset, weight, lam), -reach, reach)
 reliable = weight > 0.0
 ```
@@ -427,6 +445,7 @@ near = np.abs(s[None, :] - lateral[:, None]) <= _CREST_WINDOW_WIDTHS * width
 crest_near = np.where(near, prof, -np.inf).max(1)
 line_x = fx + nx * lateral
 line_y = fy + ny * lateral
+...
 at_line = _bilinear(img, line_y, line_x)
 crest_near = np.where(np.isfinite(crest_near), crest_near, at_line)
 crest = np.maximum(np.where(reliable, peak, crest_near), at_line)
@@ -474,9 +493,140 @@ def length(self) -> float:
     return self.horizon[-1]
 ```
 
-古いバンドルのスケルトントラックでは、代わりに
-`imp_tools.convert_track_to_distance` を使う。その補正済みチェーンコード重みは、
-8 連結画素鎖の長さの過大評価を取り除く。小数座標の中心線にはこの過大評価は無い。
+古いバンドルのスケルトントラックと、同じ画素鎖である `skeleton_pixels` の中心線
+（§2.8）では、代わりに `imp_tools.convert_track_to_distance` を使う。その補正済み
+チェーンコード重みは、8 連結画素鎖の長さの過大評価を取り除く。小数座標の中心線に
+はこの過大評価は無い。
+
+### 2.8 解析に選べる他の中心線
+
+中心線は解析ごとに選ぶ。GUI01 では Kinkdetector 群の `centerline_method`、
+`cli.py process` では `--centerline` で指定する。8 つの方式はどれも、どの画素が
+繊維をなし、どの順に並ぶかというスケルトントラックの決定をそのまま使い、
+スケルトントラックの 1 点につき 1 点を返す。そのため §1 の内容はどの方式にも
+当てはまる。枠、登攀（§2.3）、信頼性の判定（方式によらず半値のレベルで行う。
+§2.4〜§2.5）、Whittaker による連結、頂点高さ（§2.6）も共有する。違うのは各点を
+置く位置だけである。
+
+| `centerline_method` | 比較での記号 | 各点を置く位置 |
+|---|---|---|
+| `half_max_025w`（既定） | C | 半値交点の中点。枠と横ずれを W/4 で平滑化（§2.2〜§2.5） |
+| `half_max_05w` | C（0.5 W） | 同じく、枠と横ずれを 0.5 W で平滑化 |
+| `skeleton_pixels` | A | スケルトントラックの画素そのもの |
+| `smoothed_skeleton_05w` | B | スケルトントラックを長さ方向に 0.5 W でガウス平滑化したもの |
+| `smoothed_skeleton_1w` | B' | 同じく 1 W で平滑化したもの |
+| `quarter_max` | D | 振幅の 1/4 の交点の中点 |
+| `centroid` | E | 10 % より上の区間での、断面の基底からの高さの重心 |
+| `crest` | F | 断面の最大値を放物線で精密化した位置 |
+
+平滑化の幅とレベルは次のとおりである。
+
+```python
+# source: lib/centerline.py::_SKELETON_SMOOTH_WIDTHS, _WIDE_SMOOTH_WIDTHS, _QUARTER_LEVEL, _CENTROID_LEVEL
+_SKELETON_SMOOTH_WIDTHS = {
+    SMOOTHED_SKELETON_05W: 0.5,
+    SMOOTHED_SKELETON_1W: 1.0,
+}
+_WIDE_SMOOTH_WIDTHS = 0.5
+_QUARTER_LEVEL = 0.25
+_CENTROID_LEVEL = 0.10
+```
+
+`half_max_05w` が既定と違うのは、枠と横ずれの平滑化だけである（§2.2 と §2.5 の
+抜粋）。方式 D・E・F は、信頼性の判定を済ませた後で §2.4 のオフセットを置き換える。
+
+```python
+# source: lib/centerline.py::_refine
+if method == QUARTER_MAX_CENTERLINE:
+    ql, qr, qok = _level_crossings(
+        prof, s, left, right, base + _QUARTER_LEVEL * amplitude)
+    offset = np.where(qok, 0.5 * (ql + qr), s[k])
+    weight = weight * qok
+elif method == CENTROID_CENTERLINE:
+    cl, cr, cok = _level_crossings(
+        prof, s, left, right, base + _CENTROID_LEVEL * amplitude)
+    run = window & (s[None, :] >= cl[:, None]) & (s[None, :] <= cr[:, None])
+    mass = np.where(run, np.clip(prof - base[:, None], 0.0, None), 0.0)
+    total = mass.sum(1)
+    has_mass = cok & (total > 0)
+    offset = np.where(
+        has_mass,
+        (mass * s[None, :]).sum(1) / np.where(total > 0, total, 1.0),
+        s[k],
+    )
+    weight = weight * has_mass
+elif method == CREST_CENTERLINE:
+    d = int(round(1.0 / _WIDTH_STEP_PX))
+    pl = prof[rows, np.clip(k - d, 0, ns - 1)]
+    pr = prof[rows, np.clip(k + d, 0, ns - 1)]
+    curv = pl - 2.0 * peak + pr
+    delta = np.where(
+        curv < 0, 0.5 * (pl - pr) / np.where(curv != 0, curv, -1.0), 0.0)
+    offset = s[k] + np.clip(delta, -1.0, 1.0) * d * _WIDTH_STEP_PX
+```
+
+`_level_crossings` は、§2.4 が振幅の半分で行うのと同じく、最大値の両側で
+あるレベルの 2 つの交点を求める。
+
+```python
+# source: lib/centerline.py::_level_crossings
+n, ns = prof.shape
+rows = np.arange(n)
+col = np.arange(ns)[None, :]
+below = prof < level[:, None]
+li = np.where(left & below, col, -1).max(1)
+ri = np.where(right & below, col, ns).min(1)
+ok = (li >= 0) & (ri < ns)
+jl = np.clip(li, 0, ns - 2)
+jr = np.clip(ri, 1, ns - 1)
+pl0 = prof[rows, jl]
+pl1 = prof[rows, jl + 1]
+xl = s[jl] + (level - pl0) / np.where(pl1 != pl0, pl1 - pl0, 1.0) * _WIDTH_STEP_PX
+pr0 = prof[rows, jr - 1]
+pr1 = prof[rows, jr]
+xr = s[jr - 1] + (pr0 - level) / np.where(pr0 != pr1, pr0 - pr1, 1.0) * _WIDTH_STEP_PX
+return xl, xr, ok
+```
+
+$b$ を §2.4 の基底、$a$ を振幅として、
+
+- **D** は $b + a/4$ の交点の $\tfrac12 (x_\text{L} + x_\text{R})$ に点を置く。
+- **E** は $b + a/10$ の交点の間の標本について $m_j = \max(p_j - b, 0)$ として、
+  $\sum_j m_j s_j / \sum_j m_j$ に点を置く。隣の繊維の裾が和に入らないように
+  するためである。
+- **F** は最大値 $p_0$ とその両側 1 px の標本 $p_\pm$ を通る放物線を当て、
+  $\delta = \tfrac12 (p_- - p_+) / (p_- - 2p_0 + p_+)$ として、±1 にクリップした
+  $\delta$ で $s_k + \delta \cdot 1\,\text{px}$ に点を置く。そこで上に凸でない断面は
+  標本の最大値のままとする。
+
+D と E では、低いレベルが最大値から 1.5 W 以内で閉じない断面は位置を与えられない
+ため、信頼できない点として他と同じく補間する（§2.5）。
+
+方式 A・B・B' は、点を高さの上へまったく動かさない。断面は引き続き信頼性と頂点
+高さを与え、中心線はその後、スケルトントラックそのもの、または長さ方向に平滑化
+したもので置き換えられる。
+
+```python
+# source: lib/centerline.py::_refine
+if method == SKELETON_PIXEL_LINE:
+    line_x, line_y = x.copy(), y.copy()
+elif method in _SKELETON_SMOOTH_WIDTHS:
+    chain_sigma = _SKELETON_SMOOTH_WIDTHS[method] * width / mean_step
+    line_x = _smooth_extrapolated(x, chain_sigma)
+    line_y = _smooth_extrapolated(y, chain_sigma)
+```
+
+したがってこの 3 つの方式では、`reliable` 列（§3.11）は、断面が繊維の位置を
+決められた割合を表し、中心線の点をその断面の上に置いたかどうかは表さない。
+`skeleton_pixels` の中心線は画素鎖なので、長さ（§2.7）と直線度（§3.5）は形式 1.0
+のバンドルのスケルトントラックと同じ方法で測る。キンクはどの中心線でも、繊維
+自身の W で同じ規則により判定する（[解析アルゴリズム](algorithms.ja.md) §4.3）。
+
+`half_max_025w` を既定とする理由と、各代替案が合成スキャンと実スキャンで何が劣るかは
+[解析アルゴリズム](algorithms.ja.md) §4.2 にある。同じ画像を別の中心線で再解析
+して比べることは、試料ではなく中心線を比べることになる。長さ・高さ・キンクは
+すべて中心線と一緒に変わる。そのため GUI03 は、フォルダのバンドルに既定以外の
+中心線が 1 つでもあれば、その中心線の名前を示す。
 
 ## 3. ファイバー一覧
 
@@ -646,7 +796,7 @@ if not (length > 0.0):
     return float("nan")
 if y_size_per_pixel is None:
     y_size_per_pixel = x_size_per_pixel
-if getattr(fiber, "centerline", SKELETON_TRACK) == HALF_MAX_CENTERLINE:
+if not is_pixel_chain_line(getattr(fiber, "centerline", SKELETON_TRACK)):
     dx = (float(fiber.xtrack[-1]) - float(fiber.xtrack[0])) * x_size_per_pixel
     dy = (float(fiber.ytrack[-1]) - float(fiber.ytrack[0])) * y_size_per_pixel
     return float(np.hypot(dx, dy) / length)
@@ -676,7 +826,8 @@ $$
 端点は追跡した部分の端なので、交差で切断されたファイバーは、追跡した部分について
 記述される。
 
-古いバンドルのスケルトントラックでは、分子はユークリッド弦ではない。同じ 2 画素を
+古いバンドルのスケルトントラックと `skeleton_pixels` の中心線（§2.8）では、分子は
+ユークリッド弦ではない。同じ 2 画素を
 結ぶ離散化した直線を、輪郭と同じチェーンコード尺度で測った長さである。この尺度は
 まっすぐな画素鎖をユークリッド弦より約 5 % 短く報告するが、2 つの長さを同じ方法で
 測ることで、直線状のファイバーではこの偏りが打ち消される。
@@ -1046,7 +1197,7 @@ if xs:
         bridge_x = np.linspace(b_x, c_x, num=num_points).round().astype(int).tolist()[1:-1]
         ys.extend(bridge_y)
         xs.extend(bridge_x)
-        if on_centerline:
+        if on_centerline and not pixel_line:
             lys.extend(np.linspace(lys[-1], fly[0], num=num_points).tolist()[1:-1])
             lxs.extend(np.linspace(lxs[-1], flx[0], num=num_points).tolist()[1:-1])
         else:
@@ -1067,7 +1218,8 @@ if xs:
    $\max(\lvert\Delta\text{row}\rvert, \lvert\Delta\text{col}\rvert) - 2$ 点で
    埋める。これはスケルトントラックと中心線の両方で同時に行い、両者の添字を揃えた
    ままにする。各断片は表示されていた中心線をそのまま保ち、連結によって中心線は
-   動かない。
+   動かない。`skeleton_pixels` の中心線では、中心線の橋渡しは橋渡しの画素そのもの
+   であり、フィブリルは画素鎖のままになる。
 3. **橋渡しの高さ。** 隙間の手前の最後の `num_avg_points` = 5 個の高さの平均から、
    隙間の先の最初の 5 個の平均まで、線形に変化させる。橋渡しの点は、信頼できる点
    とも測定値とも扱わない。そのため `reliable` の割合を下げ、高さ統計からは外れる
@@ -1077,12 +1229,17 @@ if xs:
 
 ```python
 # source: lib/fiber_connector.py::_rebuild_connected_fiber
-if kind == HALF_MAX_CENTERLINE:
-    horizon = polyline_distance(
-        xtrack, ytrack, size_per_pixel, y_size_per_pixel,
-    )
+if is_placed_line(kind):
+    if is_pixel_chain_line(kind):
+        horizon = imp_tools.convert_track_to_distance(
+            xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+        )
+    else:
+        horizon = polyline_distance(
+            xtrack, ytrack, size_per_pixel, y_size_per_pixel,
+        )
 ...
-if kind == HALF_MAX_CENTERLINE:
+if is_placed_line(kind):
     width, width_measured = measure_apparent_width(
         image.calibrated_image, pix_x, pix_y, return_measured=True,
     )
@@ -1095,7 +1252,7 @@ ep_indices = np.array([
 ], dtype=int)
 ```
 
-- フィブリルの長さは、つないだ中心線の折れ線長である（§2.7）。
+- フィブリルの長さは、つないだ中心線の長さを §2.7 と同じ方法で測ったものである。
 - W は、つないだスケルトン画素（橋渡しを含む）の上で測り直す（§2.1）。
 - キンクと未判定の折れは、つないだ中心線の上でその W を使い、バンドル自身の
   `kinkangle_deg` で判定し直す。断片の切断端のそばにあった折れは、もう端のそばに
