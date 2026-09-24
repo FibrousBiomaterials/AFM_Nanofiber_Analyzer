@@ -151,6 +151,41 @@ CENTERLINE_METHODS = (
 )
 DEFAULT_CENTERLINE_METHOD = HALF_MAX_025W_CENTERLINE
 
+# Names kept importable after a rename, mapped to (current name, release that
+# removes them). `HALF_MAX_CENTERLINE` was the public name of the default line
+# through 2.0.1 (AGENTS.md §8.7); code written against 2.0.1 keeps working and
+# is warned. `scripts/release.py prepare` refuses a release at or above the
+# version in each `remove-in` marker until the entry is deleted.
+# 改名後も import できるように残す名前と、(現在の名前, 削除するリリース) の対応。
+# `HALF_MAX_CENTERLINE` は 2.0.1 まで既定の線の公開名であった（AGENTS.md §8.7）。
+# 2.0.1 向けに書かれたコードは動き続け、警告を受ける。`scripts/release.py
+# prepare` は、各 `remove-in` 印の版以上のリリースを、項目が消されるまで拒む。
+_DEPRECATED_ALIASES = {
+    "HALF_MAX_CENTERLINE": ("HALF_MAX_025W_CENTERLINE", "3.0.0"),  # remove-in: 3.0.0
+}
+
+
+def __getattr__(name: str):
+    """
+    Resolve a deprecated alias with a `DeprecationWarning` (PEP 562).
+    非推奨の別名を `DeprecationWarning` 付きで解決する（PEP 562）。
+
+    Raises
+    ------
+    AttributeError
+        If `name` is neither defined nor a deprecated alias.
+    """
+    if name in _DEPRECATED_ALIASES:
+        import warnings
+        current, removed_in = _DEPRECATED_ALIASES[name]
+        warnings.warn(
+            f"lib.centerline.{name} is deprecated and will be removed in "
+            f"{removed_in}; use {current}",
+            DeprecationWarning, stacklevel=2,
+        )
+        return globals()[current]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 # Lines that are 8-connected pixel chains rather than sub-pixel polylines, so
 # length is measured with the corrected chain-code metric and straightness
 # against a digitised straight line (`measure.fiber_straightness`): a Euclidean

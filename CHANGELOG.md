@@ -31,6 +31,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a line they were not judged on. Bundles of format 1.1 and 1.0 read as
   before.
 
+### Deprecated
+
+- `lib.centerline.HALF_MAX_CENTERLINE` is now `HALF_MAX_025W_CENTERLINE`, so
+  that every line's name states its smoothing. The old name still works and
+  issues a `DeprecationWarning`; it will be removed in 3.0.0.
+
 ## [2.0.1] - 2026-09-17
 
 ### Fixed

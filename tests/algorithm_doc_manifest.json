@@ -5,6 +5,6 @@
     "lib/segmenter.py": "8ea8bf4aa11f964b5602681e2928a29014e88711e192bc1ab46e2ee42ddc2817",
     "lib/skeletonizer.py": "9be60b10b4a2916c51eb91793395dc037b36dd8c2e088a30af3571bac26073ef",
     "lib/kink_detector.py": "b38edbabb7b8840b149b528ed312f1405e0cdce50aa6d838bca945fe2408913f",
-    "lib/centerline.py": "801e39931b6b53ddbf11e29144ee46193b0738490ad484ee546170236c683be2"
+    "lib/centerline.py": "e2ea4f22737fa7b073f90130e39e247da3f7b57476752cd1f6449944f70184f6"
   }
 }

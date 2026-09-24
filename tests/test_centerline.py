@@ -567,3 +567,12 @@ def test_each_line_reconnects_and_filters_on_its_own_line(bundle_per_line):
     for fiber in list(rebuilt) + list(banded):
         assert fiber.centerline == method
         assert len(fiber.xtrack) == len(skeleton_track(fiber)[0])
+
+
+def test_the_name_used_up_to_2_0_1_still_resolves_and_warns():
+    """`HALF_MAX_CENTERLINE` stays importable until 3.0.0 (AGENTS.md §8.7)."""
+    import lib.centerline as cl
+    with pytest.warns(DeprecationWarning, match="removed in 3.0.0"):
+        assert cl.HALF_MAX_CENTERLINE == cl.HALF_MAX_025W_CENTERLINE
+    with pytest.raises(AttributeError):
+        cl.NOT_A_NAME  # noqa: B018
