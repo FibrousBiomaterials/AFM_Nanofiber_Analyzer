@@ -31,6 +31,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a line they were not judged on. Bundles of format 1.1 and 1.0 read as
   before.
 
+### Fixed
+
+- A fiber's centerline no longer extends past the edge of the scan. At a fiber
+  that runs off the scan, the last points could be placed up to 1.6 px beyond
+  the outermost pixel centre, where no height was measured: they added contour
+  length and widened GUI04's individual view past the image. Every point is
+  now kept on the image. **Kink results change from this version** for fibers
+  that reach the scan edge: moving an end shifts the arc-length sampling the
+  kink rule reads along the whole fiber, so bends at the threshold can be
+  judged differently. On the bundled scans one clear kink of the visual
+  reference that was previously merged with its neighbour is now found (60 of
+  64 against 58), false detections are unchanged, and lengths change only at
+  such fibers' ends.
+
 ### Deprecated
 
 - `lib.centerline.HALF_MAX_CENTERLINE` is now `HALF_MAX_025W_CENTERLINE`, so

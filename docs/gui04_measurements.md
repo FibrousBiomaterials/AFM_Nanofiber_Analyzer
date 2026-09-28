@@ -486,6 +486,23 @@ page reads it.
 
 ### 2.7 Contour length
 
+Before its length is measured, the centerline is kept on the image. At a fiber
+that runs off the scan, the frame and the lateral offset can carry the last
+points past the outermost pixel centre, where no height was measured, so every
+point is clamped to the range of pixel centres:
+
+```python
+# source: lib/centerline.py::_refine
+line_x = np.clip(line_x, 0.0, img.shape[1] - 1.0)
+line_y = np.clip(line_y, 0.0, img.shape[0] - 1.0)
+```
+
+The points are clamped rather than dropped so that the centerline keeps one
+point per skeleton-track point. On the bundled Tunicate scan this moved the
+ends of fibers leaving the scan by up to 1.6 px. Before it, those points added
+contour length that was never measured and widened the individual view's zoomed
+image past the edge of the scan.
+
 On the centerline, distance along the fiber is the plain Euclidean length of
 the polyline. Each axis is scaled by its own pixel size:
 

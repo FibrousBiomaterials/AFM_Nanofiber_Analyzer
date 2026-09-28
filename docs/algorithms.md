@@ -1568,6 +1568,9 @@ in four steps:
    not belong to the section the track lies on, and where the section is too
    faint. The offsets are joined along the track by a first-order penalty over
    $W/4$.
+5. Every point is kept between the outermost pixel centres of the image. At a
+   fiber that runs off the scan, steps 2–4 can otherwise carry the last points
+   past the edge, where no height was measured.
 
 The computation is shown step by step, with its code, in
 [GUI04 fiber measurements](gui04_measurements.md) §2; kink detection calls the

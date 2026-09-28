@@ -576,3 +576,31 @@ def test_the_name_used_up_to_2_0_1_still_resolves_and_warns():
         assert cl.HALF_MAX_CENTERLINE == cl.HALF_MAX_025W_CENTERLINE
     with pytest.raises(AttributeError):
         cl.NOT_A_NAME  # noqa: B018
+
+
+@pytest.mark.parametrize("method", CENTERLINE_METHODS)
+def test_a_fiber_running_off_the_scan_keeps_its_line_on_the_image(method):
+    """
+    No centerline point lies beyond the outermost pixel centres.
+    中心線のどの点も、最外の画素中心より外に出ない。
+
+    At a fiber that leaves the scan the frame and the lateral offset could
+    carry the last points past the edge, where no height was measured; those
+    points added contour length and widened GUI04's zoomed view past the
+    image.
+    走査範囲の外へ続く繊維では、枠と横方向オフセットが最後の点を縁の外へ運び
+    得た。そこは高さを測っていない位置で、その点は輪郭長を増やし、GUI04 の
+    拡大像を画像の外まで広げていた。
+    """
+    shape = (64, 96)
+    yy, xx = np.mgrid[0:shape[0], 0:shape[1]].astype(float)
+    # A fiber tilted towards the right edge, which it reaches at row ~40.
+    # 右端へ向かって傾き、40 行付近で右端に達する繊維。
+    centre = 20.0 + 0.2 * xx
+    img = 5.0 * np.exp(-0.5 * ((yy - centre) / 2.5) ** 2)
+    xt = np.arange(40, shape[1])
+    yt = np.rint(20.0 + 0.2 * xt).astype(int)
+    placed = place_centerline(img, xt, yt, None, method=method)
+    assert placed.x.min() >= 0.0 and placed.x.max() <= shape[1] - 1.0
+    assert placed.y.min() >= 0.0 and placed.y.max() <= shape[0] - 1.0
+    assert placed.x.size == xt.size

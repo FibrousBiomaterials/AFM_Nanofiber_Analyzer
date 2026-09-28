@@ -984,6 +984,19 @@ def _refine(
         chain_sigma = _SKELETON_SMOOTH_WIDTHS[method] * width / mean_step
         line_x = _smooth_extrapolated(x, chain_sigma)
         line_y = _smooth_extrapolated(y, chain_sigma)
+    # Keep the line on the image. At a fiber that runs off the scan the frame
+    # and the lateral offset can carry the last points past the outermost
+    # pixel centre (up to 1.6 px on the bundled Tunicate scan), where no height
+    # was measured: `_bilinear` only repeats the edge there, yet the points
+    # added contour length and widened GUI04's zoomed view past the image.
+    # Clamping, not dropping, keeps one line point per skeleton point.
+    # 線を画像内に保つ。走査範囲の外へ続く繊維では、枠と横方向オフセットが最後の点を
+    # 最外の画素中心より外へ運ぶことがある（同梱の Tunicate スキャンで最大 1.6 px）。
+    # そこは高さを測っていない位置で、`_bilinear` は縁の値を繰り返すだけだが、その点は
+    # 輪郭長を増やし、GUI04 の拡大像を画像の外まで広げていた。点を捨てずにクリップ
+    # するのは、スケルトン点ごとに 1 点という対応を保つためである。
+    line_x = np.clip(line_x, 0.0, img.shape[1] - 1.0)
+    line_y = np.clip(line_y, 0.0, img.shape[0] - 1.0)
     # The profile is sampled every quarter pixel, so the height at the line
     # point itself can exceed the sampled maximum by a sliver; taking the
     # larger keeps "never below the height at the line" exact.
