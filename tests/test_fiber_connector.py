@@ -706,3 +706,37 @@ def test_a_bridge_is_not_a_measurement_and_a_cut_end_stays_a_cut():
     a_cut = _fragment_with_ends(10, 30, 40, ends=())
     fibril, = connect_fiber_fragments(image, [a_cut, b])
     assert list(fibril.ep_indices) == [len(fibril.xtrack) - 1]
+
+
+def test_a_partner_is_offered_once_even_when_both_its_ends_are_near():
+    """
+    A short partner appears once, with the pair of ends that ranks first.
+    短い相手は 1 回だけ、順位が最上位の端の組で提示される。
+
+    Both ends of a short fragment lie within the manual reach of both ends of
+    its neighbour. Listing every pair put the same fiber number in GUI04's
+    dialog four times with four different distances and angles; the user
+    chooses a partner, so the list has one row per partner, and the row is the
+    pair a sort by the automatic gates and then distance puts first.
+    短い断片の両端は、隣のファイバーの両端から手動の探索範囲内にある。組ごとに
+    列挙すると GUI04 のダイアログに同じファイバー番号が距離・角度の異なる 4 行で
+    現れた。ユーザーが選ぶのは相手なので一覧は相手ごとに 1 行とし、その行は
+    自動連結の条件、次いで距離で並べたときに先頭に来る組とする。
+    """
+    image = _flat_image()
+    fibers = [
+        _horizontal_fragment(5, 20, y=25),
+        _horizontal_fragment(24, 30, y=25),
+    ]
+
+    candidates = connection_candidates(image, fibers, 0)
+    assert [c["index"] for c in candidates] == [1]
+    best = candidates[0]
+    # The facing ends: fiber 0's tail meets fiber 1's head, 4 px apart.
+    # 向かい合う端。ファイバー 0 の末尾とファイバー 1 の先頭が 4 px 離れている。
+    assert (best["self_end"], best["other_end"]) == (1, 0)
+    assert best["distance"] == 4.0
+
+    batch = connection_candidates_by_index(image, fibers)
+    assert batch == {0: candidates, 1: connection_candidates(image, fibers, 1)}
+    assert [c["index"] for c in batch[1]] == [0]

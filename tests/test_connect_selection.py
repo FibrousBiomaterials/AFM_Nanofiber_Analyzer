@@ -34,6 +34,7 @@ from lib.connect_selection import (
     connect_path_for,
     load_connect_plan,
     plan_state_key,
+    plan_without_junctions,
     resolve_plan_chains,
     save_connect_plan,
     skeleton_digest,
@@ -326,3 +327,46 @@ def test_skeleton_digest_changes_when_the_skeleton_does():
     # Shape is part of it, so a crop is not mistaken for the same skeleton.
     # 形状も含めるため、切り出した配列が同じ骨格と誤認されることはない。
     assert skeleton_digest(a) != skeleton_digest(a[:6, :6])
+
+
+def test_cutting_a_junction_keeps_the_joins_on_either_side():
+    """
+    Cutting one junction splits the chain there and nowhere else.
+    連結部を 1 つ切ると、連鎖はそこでだけ分かれる。
+
+    A four-member chain cut between its second and third members leaves two
+    two-member fibrils, while a cut next to an end leaves that end as a bare
+    fragment, which a plan does not store. The pair may be named in either
+    order, because the list window names a junction, not a direction.
+    4 メンバーの連鎖を 2 番目と 3 番目の間で切ると 2 メンバーのフィブリルが 2 本
+    残り、端の隣で切るとその端は素の断片になり、プランには保存されない。一覧
+    ウインドウが指すのは向きではなく連結部なので、組はどちらの順で指定してもよい。
+    """
+    a, b, c, d = (1, 0), (2, 0), (3, 0), (4, 0)
+    other = ((10, 5), False), ((11, 5), True)
+    plan = _plan(
+        [(a, False), (b, True), (c, False), (d, False)], list(other),
+        digest="sha256:x", count=9,
+    )
+
+    middle = plan_without_junctions(plan, [(c, b)])
+    assert middle.chains == (
+        (ChainMember(a, False), ChainMember(b, True)),
+        (ChainMember(c, False), ChainMember(d, False)),
+        tuple(ChainMember(p, f) for p, f in other),
+    )
+    assert (middle.skeleton_digest, middle.fragment_count) == ("sha256:x", 9)
+
+    end = plan_without_junctions(plan, [(a, b)])
+    assert end.chains[0] == (
+        ChainMember(b, True), ChainMember(c, False), ChainMember(d, False),
+    )
+
+    # Cutting every junction of a chain dissolves it and leaves the other.
+    # 連鎖の連結部をすべて切るとその連鎖は消え、他の連鎖は残る。
+    gone = plan_without_junctions(plan, [(a, b), (b, c), (c, d)])
+    assert gone.chains == (tuple(ChainMember(p, f) for p, f in other),)
+
+    # A pair that is not adjacent in any chain names no junction.
+    # どの連鎖でも隣接していない組は、どの連結部も指さない。
+    assert plan_without_junctions(plan, [(a, c)]).chains == plan.chains

@@ -480,9 +480,11 @@ whole fibrils before measurement. "自動連結" searches for continuations and
 adopts what it finds; "手動で連結…" offers, for one selected fiber, the
 candidates near its ends — with the distance, the angle, and whether the
 automatic search's gates accept each one — so a continuation the automatic
-gates declined can still be joined by eye. "連結を解除" takes a fibril back
-apart and "連結を取消" walks back one connection decision, including a whole
-automatic run. These are buttons rather than a mode switch because what they
+gates declined can still be joined by eye; each partner fiber is listed once.
+"連結を解除…" lists every junction in the image and cuts the chosen ones, or
+all of them. "元に戻す" walks back one connection operation (an automatic run,
+a manual join, or a disconnection), so undoing a disconnection joins the
+fibril again. These are buttons rather than a mode switch because what they
 produce is a result that is kept: pressing "自動連結" again discards the
 current connection (it asks first), and editing a threshold changes nothing
 until the next press. Connection and the height filter compose in "connect,

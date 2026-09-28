@@ -44,6 +44,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reference that was previously merged with its neighbour is now found (60 of
   64 against 58), false detections are unchanged, and lengths change only at
   such fibers' ends.
+- GUI04's manual-connection dialog lists each partner fiber once. It listed
+  every pair of ends, so a short partner appeared up to four times with
+  different distances and angles; the row kept is the pair that sorts first
+  (automatic gates, then distance), which is the pair that is joined.
+  `connection_candidates` and `connection_candidates_by_index` return one
+  entry per partner accordingly. No measured quantity changes.
+- GUI04's "連結を解除…" opens a list of every junction in the image, so one
+  wrong join inside a fibril can be cut without taking the whole fibril apart,
+  and every connection can be removed at once (`plan_without_junctions` in
+  `lib.connect_selection`). The undo button is renamed from "連結を取消" to
+  "元に戻す" and the log names the operation it took back: beside "連結を解除"
+  the old name read as a second way to disconnect, so undoing a disconnection,
+  which joins the fibril again, looked like the opposite of what was asked.
 
 ### Deprecated
 

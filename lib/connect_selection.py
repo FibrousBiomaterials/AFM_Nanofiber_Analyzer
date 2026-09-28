@@ -555,6 +555,71 @@ def plan_without_anchors(
     )
 
 
+def plan_without_junctions(
+    plan: ConnectionPlan,
+    junctions: Sequence[Tuple[Tuple[int, int], Tuple[int, int]]],
+) -> ConnectionPlan:
+    """
+    Return the plan with the named junctions cut and the rest kept joined.
+    指定した接合部だけを切り、他の連結を保ったプランを返す。
+
+    Parameters
+    ----------
+    plan
+        Plan to amend.
+        修正対象のプラン。
+    junctions
+        ``(anchor_a, anchor_b)`` pairs naming two members that are adjacent in
+        a chain; the order within a pair does not matter.
+        連鎖内で隣接する 2 メンバーを指す ``(anchor_a, anchor_b)`` の組。組内の
+        順序は問わない。
+
+    Returns
+    -------
+    ConnectionPlan
+        Plan in which each chain is split at every named junction. A piece
+        left with a single member is dropped, because a fragment in no chain is
+        measured on its own.
+        各連鎖を指定の接合部すべてで分割したプラン。メンバーが 1 つだけになった
+        片は取り除く。どの連鎖にも属さない断片は単独で計測されるためである。
+
+    Notes
+    -----
+    Unlike `plan_without_anchors`, which dissolves a whole fibril, this acts
+    on a junction, so the user can undo one wrong join inside a long fibril
+    without taking apart the joins they agreed with. Cutting a junction only
+    ever separates the two members on either side of it; nothing is joined
+    across the cut, which is why the pieces are exactly the runs between cuts.
+    フィブリル全体を解体する `plan_without_anchors` と異なり、こちらは接合部に
+    作用する。長いフィブリル内の誤った連結を 1 つだけ外し、納得している連結は
+    残せるようにするためである。接合部を切っても分かれるのはその両側の 2 メンバー
+    だけであり、切断をまたいで何かが繋がることはない。したがって各片は切断と切断の
+    間の連続部分そのものになる。
+    """
+    def key(anchor) -> Tuple[int, int]:
+        """Return an anchor as a hashable pixel."""
+        return (int(anchor[0]), int(anchor[1]))
+
+    cuts = {frozenset((key(a), key(b))) for a, b in junctions}
+    kept: List[Tuple[ChainMember, ...]] = []
+    for chain in plan.chains:
+        run: List[ChainMember] = [chain[0]] if chain else []
+        for prev, member in zip(chain, chain[1:]):
+            if frozenset((key(prev.anchor), key(member.anchor))) in cuts:
+                if len(run) >= 2:
+                    kept.append(tuple(run))
+                run = []
+            run.append(member)
+        if len(run) >= 2:
+            kept.append(tuple(run))
+    return ConnectionPlan(
+        chains=tuple(kept),
+        params=plan.params,
+        skeleton_digest=plan.skeleton_digest,
+        fragment_count=plan.fragment_count,
+    )
+
+
 def plan_state_key(plan: Optional[ConnectionPlan]) -> str:
     """
     Return a comparable key for one connection state.

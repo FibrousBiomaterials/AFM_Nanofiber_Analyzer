@@ -49,7 +49,7 @@ import math
 import traceback
 import queue
 import threading
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 # ===== Numerical / scientific libraries =====
 import numpy as np
@@ -70,7 +70,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # lib/ フォルダ内の各モジュールをインポートする。これらが AFM 画像処理の本体。
 from lib.centerline import DEFAULT_CENTERLINE_METHOD, FALLBACK_WIDTH_PX, SKELETON_TRACK
 from lib.fiber_tracking_image import FiberTrackingImage
-from lib.fiber import Fiber
+from lib.fiber import Fiber, skeleton_track
 from lib.fiber_connector import (
     ConnectParams, chain_for_manual_join, connection_candidates_by_index,
     filter_fibers_by_height, plan_from_auto_connect,
@@ -79,7 +79,7 @@ from lib.blosc2_io import bundle_has_keys, load_bundle, BUNDLE_EXT
 from lib.connect_selection import (
     CONNECT_SUFFIX, ChainMember, ConnectionPlan, connect_path_for,
     load_connect_plan, plan_from_chains, plan_state_key, plan_with_chain,
-    plan_without_anchors, resolve_plan_chains, save_connect_plan,
+    plan_without_junctions, resolve_plan_chains, save_connect_plan,
     skeleton_digest,
 )
 from lib.fiber_selection import (
@@ -621,12 +621,23 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 連結の判断を 1 つ戻すためである。自動ボタンはプラン全体を置き換えるが、
         # それも 1 ステップとして数える。ユーザーから見れば 1 回の操作であり、
         # 1 回で戻せなければならない。
-        self._connect_history: List[ConnectionPlan] = []
+        # Each entry also names the act that replaced the plan, so the log can
+        # say what an undo took back rather than only that one happened.
+        # 各要素にはプランを置き換えた操作名も持たせ、何を元に戻したかをログに
+        # 示せるようにする。
+        self._connect_history: List[Tuple[ConnectionPlan, str]] = []
 
         # 連結設定ウインドウは非モーダルで 1 つだけ保持する。
         self._connect_window: Optional["ConnectSettingsWindow"] = None
         # 連結候補ウインドウも同様に 1 つだけ保持する。
         self._candidate_window: Optional["ConnectCandidateWindow"] = None
+        # The connection-list window is kept the same way, and the junctions it
+        # has selected are marked on the overview so the user sees which join
+        # a row names before cutting it.
+        # 連結一覧ウインドウも同様に 1 つだけ保持する。そこで選択中の連結部は全体像
+        # に印を付け、切る前にどの連結を指す行なのかを確認できるようにする。
+        self._connection_list_window: Optional["ConnectionListWindow"] = None
+        self._junction_marks: List[Tuple[float, float]] = []
 
         # Connection candidates for the displayed population, computed once
         # when it changes and read on every selection. The manual connection
@@ -910,23 +921,34 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ))
 
         self._btn_disconnect = ttk.Button(
-            bar, text=_("連結を解除"), command=self._on_disconnect_selected,
+            bar, text=_("連結を解除…"), command=self._on_open_connection_list,
             state=tk.DISABLED,
         )
         self._btn_disconnect.pack(side="left", padx=(0, 2))
         ToolTip(self._btn_disconnect, _(
-            "選択中のフィブリルを構成断片へ戻します。\n"
-            "接合部を 1 つだけ外すのではなく全体を解体します。画面で指すのは"
-            "フィブリルであって内部の接合部ではないためです。"
+            "この画像の連結部を一覧するウインドウを開きます。\n"
+            "行を選ぶと全体像で連結部を示し、選んだ連結部だけを解除するか、"
+            "すべての連結を解除できます。\n"
+            "連結が 1 つも無いときは押せません。"
         ))
 
+        # "元に戻す" rather than "連結を取消": beside "連結を解除" the old label
+        # read as a second way to disconnect, so undoing a disconnect -- which
+        # joins the fibril again -- looked like the button doing the opposite
+        # of its name.
+        # 「連結を取消」ではなく「元に戻す」とする。「連結を解除」の隣では旧名が
+        # 解除のもう 1 つの手段に読め、解除を元に戻す（フィブリルが再び繋がる）
+        # 動作が、名前と逆のことをしているように見えていた。
         self._btn_undo_connect = ttk.Button(
-            bar, text=_("連結を取消"), command=self._on_undo_connect,
+            bar, text=_("元に戻す"), command=self._on_undo_connect,
             state=tk.DISABLED,
         )
         self._btn_undo_connect.pack(side="left", padx=(0, 4))
         ToolTip(self._btn_undo_connect, _(
-            "直前の連結操作を取り消します。自動連結 1 回分も 1 操作として戻せます。"
+            "直前の連結操作（自動連結・手動連結・連結の解除）を 1 つ元に戻します。"
+            "自動連結 1 回分も 1 操作として戻せます。\n"
+            "連結の解除を元に戻すと、その連結は復活します。"
+            "何を元に戻したかはログに表示されます。"
         ))
 
         ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=6, pady=2)
@@ -1074,7 +1096,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "ファイバーが実際に存在しないという結果であり、不具合ではありません。\n"
             "除外は「選択を除外」と同じ扱いで、「直前を取消」の 1 回で全部が"
             "戻ります。判定は連結前の断片に対して定義されるため、連結済みの"
-            "フィブリルがあるときは先に「連結を解除」してください。"
+            "フィブリルがあるときは先に「連結を解除…」ですべての連結を解除して"
+            "ください。"
         ))
 
         self._btn_undo_exclusion = ttk.Button(
@@ -2649,11 +2672,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._btn_manual_connect.configure(
             state=tk.NORMAL if self._candidate_cache.get(index) else tk.DISABLED
         )
-        chains = self._display_chains()
-        connected = any(
-            i < len(chains) and len(chains[i]) > 1
-            for i in self._selected_display_indices()
-        )
+        # The list window covers every junction in the image, so it opens
+        # whenever anything is connected, whatever row is selected.
+        # 一覧ウインドウは画像内のすべての連結部を扱うため、選択行にかかわらず
+        # 何かが連結されていれば開ける。
+        connected = any(len(c) > 1 for c in self._display_chains())
         self._btn_disconnect.configure(
             state=tk.NORMAL if connected else tk.DISABLED
         )
@@ -2800,11 +2823,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         it is re-applied rather than reused; it refreshes the views itself.
         高さフィルターは差し替え前の母集団から導かれたリストを保持しているため、
         再利用せず適用し直す。表示の更新はフィルター側が行う。
+
+        An open connection list is refilled last, because its rows name the
+        fibrils of the population just installed.
+        連結一覧ウインドウが開いていれば最後に作り直す。その行は、いま反映した
+        母集団のフィブリルを指すためである。
         """
         if self._filter_active:
             self._apply_filter()
-            return
-        self._refresh_population_views()
+        else:
+            self._refresh_population_views()
+        self._refresh_connection_list()
 
     def _commit_exclusions(self) -> None:
         """
@@ -3146,13 +3175,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Nothing may be connected yet. Isolation is defined on the fragments as
         traced, and reconnection joins a fiber across a crossing into the
         network so that it stops being isolated. So a plan holding any chain
-        makes this refuse and point at 「連結を解除」, rather than taking the
+        makes this refuse and point at 「連結を解除…」, rather than taking the
         connection apart and re-analyzing behind the user's back: the chains
         are a decision they made, and only they can say it should go.
         連結が 1 件も無い状態でなければならない。孤立は追跡された状態の断片に対
         して定義され、再結合は交差を越えてファイバーをネットワークへつなぐため、
         そのファイバーは孤立でなくなる。したがって連鎖を 1 本でも持つプランがある
-        ときは実行を拒否し、「連結を解除」を案内する。ユーザーの知らないところで
+        ときは実行を拒否し、「連結を解除…」を案内する。ユーザーの知らないところで
         連結を解いて再解析することはしない。連鎖はユーザーが下した決定であり、
         それを取り消してよいと言えるのは本人だけだからである。
         """
@@ -3163,7 +3192,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if self.connect_plan.chains:
             messagebox.showinfo(
                 _("情報"),
-                _("「連結を解除」で連結を解いてから実行してください。\n"
+                _("「連結を解除…」ですべての連結を解除してから実行してください。\n"
                   "孤立かどうかは連結前の断片に対して定義されます。連結は交差を"
                   "越えてファイバーをつなぐため、孤立ファイバーがネットワークへ"
                   "取り込まれ、孤立と判定されなくなります。\n"
@@ -4092,6 +4121,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._afm_ax.add_patch(patch)
             self._highlight_patches.append(patch)
 
+        # Junctions picked in the connection list; +0.5 puts the mark on the
+        # pixel center, which is where imshow's extent draws that pixel.
+        # 連結一覧で選んだ連結部。+0.5 で、imshow の extent がその画素を描く
+        # 画素中心に印を置く。
+        for jx, jy in self._junction_marks:
+            (mark,) = self._afm_ax.plot(
+                (jx + 0.5) * x_spp, (jy + 0.5) * y_spp,
+                marker="o", markersize=14, markerfacecolor="none",
+                markeredgecolor="cyan", markeredgewidth=2.0, linestyle="none",
+            )
+            self._highlight_patches.append(mark)
+
         # Panning to the selection belongs to _on_fiber_select, not here: this
         # method also runs for vmin/vmax, filter, and mode changes, and moving
         # the view on those would yank a zoomed-in comparison off its region.
@@ -4416,7 +4457,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 out.append([(i, False)])
         return out
 
-    def _set_connect_plan(self, plan: ConnectionPlan, message: str) -> None:
+    def _set_connect_plan(
+        self, plan: ConnectionPlan, message: str, action: str,
+    ) -> None:
         """
         Adopt a new connection result and rebuild everything that reads it.
         新しい連結結果を採用し、それを参照する表示を組み立て直す。
@@ -4429,6 +4472,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         message
             Log line describing the act, already localized.
             操作を説明するログ行。翻訳済みのものを渡す。
+        action
+            Short localized name of the act, recorded with the undo step so
+            the undo can say what it took back.
+            操作の短い名前（翻訳済み）。取り消し履歴に記録し、元に戻したときに
+            何を戻したかを示すために使う。
 
         Notes
         -----
@@ -4439,7 +4487,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         連結を変更するすべての経路が 1 回の押下で戻せるようになり、呼び出し側が
         記録を忘れる余地が無くなる。
         """
-        self._connect_history.append(self.connect_plan)
+        self._connect_history.append((self.connect_plan, action))
         self.connect_plan = plan
         self._log(message)
         self._commit_connection()
@@ -4568,7 +4616,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return
         self._set_connect_plan(plan, _(
             "自動連結を実行しました: フィブリル {n} 本（断片 {m} 本を連結）"
-        ).format(n=len(plan.chains), m=plan.joined_fragment_count()))
+        ).format(n=len(plan.chains), m=plan.joined_fragment_count()),
+            _("自動連結"))
 
     def _on_manual_connect(self) -> None:
         """
@@ -4637,50 +4686,184 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 n=len(members), d=candidate["distance"], a=candidate["angle"],
                 auto="" if candidate["auto"] else _(" / 自動連結の条件外"),
             ),
+            _("手動連結"),
         )
 
-    def _on_disconnect_selected(self) -> None:
+    def _junction_rows(self) -> List[dict]:
         """
-        Take the selected fibril apart into the fragments it was built from.
-        選択中のフィブリルを、その構成断片へ戻す。
+        List every junction of the displayed fibrils.
+        表示中のフィブリルのすべての連結部を列挙する。
+
+        Returns
+        -------
+        list of dict
+            One entry per pair of adjacent chain members, with ``fiber`` (the
+            fibril's position in the displayed population), ``anchors`` (the
+            two members' anchor pixels, as `plan_without_junctions` takes
+            them), ``x`` / ``y`` (the midpoint of the two docked ends, in whole
+            image pixels) and ``gap`` (the distance between those ends, px).
+            隣接する連鎖メンバーの組ごとに 1 エントリ。``fiber``（表示中の母集団
+            でのフィブリルの位置）、``anchors``（2 メンバーのアンカー画素。
+            `plan_without_junctions` が受け取る形）、``x`` / ``y``（繋がれた
+            2 端の中点。全体像の画素座標）、``gap``（その 2 端の距離、px）を持つ。
+
+        Notes
+        -----
+        The position is taken from the skeleton pixels the chain docks, which
+        are what the connector joined, not from the drawn centerline.
+        位置は描画される中心線ではなく、連鎖が繋ぐスケルトン画素から取る。
+        連結器が繋いだのはそちらだからである。
+        """
+        def end_pixel(frag: Fiber, last: bool) -> Tuple[float, float]:
+            """Return one end of a fragment's skeleton track in image pixels."""
+            sx, sy = skeleton_track(frag)
+            k = -1 if last else 0
+            return float(sx[k] + frag.data[0]), float(sy[k] + frag.data[1])
+
+        fragments = self._surviving_fragments()
+        rows: List[dict] = []
+        for d, chain in enumerate(self._display_chains()):
+            for (a, flip_a), (b, flip_b) in zip(chain, chain[1:]):
+                # A member runs forward unless flipped, so the end that meets
+                # the next member is its last pixel, or its first if flipped.
+                # メンバーは反転していなければ順方向に進むため、次のメンバーと
+                # 接する端は最後の画素、反転していれば最初の画素である。
+                ax, ay = end_pixel(fragments[a], last=not flip_a)
+                bx, by = end_pixel(fragments[b], last=flip_b)
+                rows.append({
+                    "fiber": d,
+                    "anchors": (
+                        fiber_anchor(fragments[a]), fiber_anchor(fragments[b]),
+                    ),
+                    "x": (ax + bx) / 2.0,
+                    "y": (ay + by) / 2.0,
+                    "gap": float(np.hypot(ax - bx, ay - by)),
+                })
+        return rows
+
+    def _on_open_connection_list(self) -> None:
+        """
+        Open the non-modal connection list, reusing one instance.
+        非モーダルの連結一覧ウインドウを開く（インスタンスは 1 つを再利用）。
         """
         if self.current_image is None:
             messagebox.showinfo(_("情報"), _("データセットを選択してください。"))
             return
-        fragments = self._surviving_fragments()
-        chains = self._display_chains()
-        targets = [
-            i for i in self._selected_display_indices()
-            if i < len(chains) and len(chains[i]) > 1
-        ]
-        if not targets:
-            messagebox.showinfo(
-                _("情報"), _("連結されたファイバーを選択してください。"),
-            )
+        window = self._connection_list_window
+        if window is not None and window.winfo_exists():
+            window.reload()
+            window.deiconify()
+            window.lift()
             return
+        self._connection_list_window = ConnectionListWindow(self)
 
-        anchors = [
-            fiber_anchor(fragments[i])
-            for t in targets for i, _flip in chains[t]
-        ]
+    def _on_connection_list_closed(self) -> None:
+        """
+        Forget the connection list and remove its marks from the overview.
+        連結一覧ウインドウへの参照を捨て、全体像からその印を消す。
+        """
+        self._connection_list_window = None
+        self.set_junction_marks([])
+
+    def set_junction_marks(self, marks: Sequence[Tuple[float, float]]) -> None:
+        """
+        Mark junctions on the overview and redraw its highlight.
+        全体像に連結部の印を付け、ハイライトを描き直す。
+
+        Parameters
+        ----------
+        marks
+            ``(x, y)`` junction positions in whole-image pixels.
+            全体像の画素座標での連結部の位置 ``(x, y)``。
+        """
+        self._junction_marks = [(float(x), float(y)) for x, y in marks]
+        if self.current_image is None:
+            return
+        fiber = self._current_fiber()
+        others = [f for f in self._selected_fibers() if f is not fiber]
+        self._draw_overview(selected_fiber=fiber, also_selected=others)
+
+    def _refresh_connection_list(self) -> None:
+        """
+        Refill the connection list, if open, after the population changed.
+        母集団が変化した後、連結一覧ウインドウが開いていれば内容を作り直す。
+        """
+        window = self._connection_list_window
+        if window is not None and window.winfo_exists():
+            window.reload()
+
+    def disconnect_junctions(self, rows: Sequence[dict]) -> None:
+        """
+        Cut the given junctions and keep every other join.
+        指定した連結部を切り、他の連結はすべて保つ。
+
+        Parameters
+        ----------
+        rows
+            Entries from `_junction_rows`.
+            `_junction_rows` の要素。
+        """
+        if not rows:
+            return
+        fibrils = len({r["fiber"] for r in rows})
         self._set_connect_plan(
-            plan_without_anchors(self.connect_plan, anchors),
-            _("連結を解除しました: {n} 本のフィブリルを断片へ戻しました。").format(
-                n=len(targets),
+            plan_without_junctions(
+                self.connect_plan, [r["anchors"] for r in rows],
             ),
+            _("連結を解除しました: {n} 箇所（フィブリル {m} 本）").format(
+                n=len(rows), m=fibrils,
+            ),
+            _("連結の解除"),
+        )
+
+    def disconnect_all(self) -> None:
+        """
+        Remove every connection of the current dataset.
+        現在のデータセットのすべての連結を解除する。
+
+        Notes
+        -----
+        The thresholds and the skeleton fingerprint are kept: this clears the
+        decision, not the settings it was searched with, and saving it records
+        that nothing is connected rather than deleting the file.
+        しきい値と骨格の指紋は保つ。消すのは決定であって、探索に使った設定では
+        ない。保存するとファイルは削除されず、「何も連結しない」ことが記録される。
+        """
+        plan = self.connect_plan
+        if not plan.chains:
+            return
+        self._set_connect_plan(
+            ConnectionPlan(
+                chains=(),
+                params=plan.params,
+                skeleton_digest=plan.skeleton_digest,
+                fragment_count=plan.fragment_count,
+            ),
+            _("すべての連結を解除しました: フィブリル {n} 本を断片へ戻しました。"
+              ).format(n=len(plan.chains)),
+            _("すべての連結の解除"),
         )
 
     def _on_undo_connect(self) -> None:
         """
         Undo the most recent connection change for the current dataset.
-        現在のデータセットで最後に行った連結の変更を取り消す。
+        現在のデータセットで最後に行った連結の変更を元に戻す。
+
+        Notes
+        -----
+        Every change is undoable, a disconnection included, so undoing one
+        joins the fibril again. The log names the act that was taken back, so
+        a join reappearing is visibly the undo of a disconnection.
+        解除を含むすべての変更を元に戻せるため、解除を元に戻すとフィブリルは再び
+        繋がる。ログには元に戻した操作の名前を出し、再び繋がったのが解除の取り消し
+        によるものだと分かるようにする。
         """
         if not self._connect_history:
-            messagebox.showinfo(_("情報"), _("取り消せる連結操作がありません。"))
+            messagebox.showinfo(_("情報"), _("元に戻せる連結操作がありません。"))
             return
-        previous = self._connect_history.pop()
+        previous, action = self._connect_history.pop()
         self.connect_plan = previous
-        self._log(_("直前の連結操作を取り消しました。"))
+        self._log(_("「{action}」を元に戻しました。").format(action=action))
         self._commit_connection()
 
     def _open_connect_settings(self) -> None:
@@ -6396,6 +6579,180 @@ class ConnectCandidateWindow(tk.Toplevel):
         アプリ側の参照をクリアしてウインドウを閉じる。
         """
         self._app._candidate_window = None
+        self.destroy()
+
+
+class ConnectionListWindow(tk.Toplevel):
+    """
+    Non-modal window listing every junction and taking chosen ones apart.
+    すべての連結部を一覧し、選んだものを解除する非モーダルウインドウ。
+
+    Attributes
+    ----------
+    _app
+        Main application window that owns the connection plan.
+        連結プランを保持するメインアプリケーションウインドウ。
+    _rows
+        Junction entries from `App._junction_rows`, one per list row.
+        `App._junction_rows` の連結部エントリ。一覧の 1 行に 1 つ。
+
+    Notes
+    -----
+    A row is a junction, not a fibril, so one wrong join inside a long fibril
+    can be cut while the joins the user agreed with stay. Selecting a row
+    frames its fibril and circles the junction on the overview, because which
+    join a row names is a question about the image, not about coordinates.
+    行はフィブリルではなく連結部である。長いフィブリル内の誤った連結を 1 つだけ
+    切り、納得している連結は残せるようにするためである。行を選ぶと全体像で
+    そのフィブリルを枠で示し、連結部を丸で囲む。行がどの連結を指すかは座標では
+    なく画像についての問いだからである。
+    """
+
+    def __init__(self, parent: "App") -> None:
+        """
+        Build the junction list for the app's current dataset.
+        アプリの現在のデータセットについて連結部一覧を構築する。
+        """
+        super().__init__(parent)
+        self._app: "App" = parent
+        self._rows: List[dict] = []
+        self.title(_("連結の一覧"))
+        setup_ttk_theme(self)
+        apply_window_size(self, 460, 340, min_w=380, min_h=240)
+
+        ttk.Label(self, text=_(
+            "連結部の一覧です。行を選ぶと全体像で連結部を丸で示します。"
+            "位置は全体像の画素座標、gap は繋いだ 2 端の画素距離です。"
+            "複数行を選んでまとめて解除できます。"
+        ), wraplength=430).pack(anchor="w", padx=8, pady=(8, 4))
+
+        # The buttons are packed before the list so the list, not the buttons,
+        # gives up height when the user makes the window short.
+        # ボタンを一覧より先に配置し、ウインドウを低くしたときに高さを譲るのを
+        # ボタンではなく一覧にする。
+        btn_row = ttk.Frame(self)
+        btn_row.pack(side="bottom", fill="x", padx=8, pady=(0, 8))
+        ttk.Button(btn_row, text=_("選択した連結を解除"),
+                   command=self._on_disconnect_selected).pack(side="left")
+        ttk.Button(btn_row, text=_("すべての連結を解除"),
+                   command=self._on_disconnect_all).pack(side="left", padx=(6, 0))
+        ttk.Button(btn_row, text=_("閉じる"),
+                   command=self._on_close).pack(side="right")
+
+        list_frame = ttk.Frame(self)
+        list_frame.pack(fill="both", expand=True, padx=8, pady=(0, 4))
+        # Column headings name coordinates and units, so they stay fixed
+        # English like every other scientific label in this project.
+        # 見出しは座標・単位名のため、本プロジェクトの他の科学ラベルと同様に
+        # 固定英語とする。
+        self._tree, _vsb = create_scrolled_treeview(
+            list_frame,
+            columns=("fiber", "x", "y", "gap"),
+            show="headings",
+            selectmode="extended",
+            headings={
+                "fiber": "fiber #", "x": "x (px)", "y": "y (px)",
+                "gap": "gap (px)",
+            },
+            column_options={
+                "fiber": {"width": 70, "anchor": "e", "stretch": False},
+                "x": {"width": 80, "anchor": "e", "stretch": False},
+                "y": {"width": 80, "anchor": "e", "stretch": False},
+                "gap": {"width": 80, "anchor": "e", "stretch": False},
+            },
+        )
+        self._tree.bind("<<TreeviewSelect>>", self._on_highlight)
+
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.reload()
+
+    def reload(self) -> None:
+        """
+        Refill the list from the app's current connection.
+        アプリの現在の連結から一覧を作り直す。
+
+        Notes
+        -----
+        The selection is dropped rather than carried over: after a cut the
+        remaining rows name different chains, and a selection kept by row
+        position would point at junctions the user never picked.
+        選択は引き継がずに捨てる。切断後に残る行は別の連鎖を指しており、行位置で
+        選択を保つと、ユーザーが選んでいない連結部を指すことになる。
+        """
+        self._rows = self._app._junction_rows()
+        for iid in self._tree.get_children():
+            self._tree.delete(iid)
+        for i, row in enumerate(self._rows):
+            self._tree.insert("", "end", iid=str(i), values=(
+                row["fiber"], f"{row['x']:.0f}", f"{row['y']:.0f}",
+                f"{row['gap']:.1f}",
+            ))
+        self._app.set_junction_marks([])
+
+    def _selected_rows(self) -> List[dict]:
+        """
+        Return the junction entries of the selected list rows.
+        一覧で選択中の行の連結部エントリを返す。
+        """
+        return [self._rows[int(iid)] for iid in self._tree.selection()]
+
+    def _on_highlight(self, _event=None) -> None:
+        """
+        Frame the selected junctions' fibrils and circle the junctions.
+        選択中の連結部のフィブリルを枠で示し、連結部を丸で囲む。
+        """
+        rows = self._selected_rows()
+        if not rows:
+            self._app.set_junction_marks([])
+            return
+        tree = self._app.fiber_tree
+        existing = set(tree.get_children())
+        fibers = []
+        for r in rows:
+            iid = str(r["fiber"])
+            if iid in existing and iid not in fibers:
+                fibers.append(iid)
+        # The marks are set before the table selection so the redraw that
+        # selection triggers already carries them.
+        # 一覧の選択が引き起こす再描画に印が載るよう、選択より先に印を設定する。
+        self._app.set_junction_marks([(r["x"], r["y"]) for r in rows])
+        if fibers:
+            tree.selection_set(fibers)
+            tree.focus(fibers[0])
+            tree.see(fibers[0])
+
+    def _on_disconnect_selected(self) -> None:
+        """
+        Cut the selected junctions.
+        選択中の連結部を解除する。
+        """
+        rows = self._selected_rows()
+        if not rows:
+            messagebox.showinfo(_("情報"), _("解除する連結を選択してください。"),
+                                parent=self)
+            return
+        self._app.disconnect_junctions(rows)
+
+    def _on_disconnect_all(self) -> None:
+        """
+        Remove every connection after confirmation.
+        確認のうえ、すべての連結を解除する。
+        """
+        if not self._rows:
+            return
+        if not messagebox.askyesno(_("確認"), _(
+            "すべての連結（{n} 箇所）を解除します。\n"
+            "「元に戻す」で 1 回で元に戻せます。よろしいですか？"
+        ).format(n=len(self._rows)), parent=self):
+            return
+        self._app.disconnect_all()
+
+    def _on_close(self) -> None:
+        """
+        Clear the app's reference and marks, then close.
+        アプリ側の参照と印をクリアしてウインドウを閉じる。
+        """
+        self._app._on_connection_list_closed()
         self.destroy()
 
 

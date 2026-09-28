@@ -1204,7 +1204,19 @@ out.append({
     "height_ratio": float(ratio),
     "auto": bool(auto),
 })
+out.sort(key=lambda c: (not c["auto"], c["distance"]))
+best: Dict[int, Dict] = {}
+for cand in out:
+    best.setdefault(cand["index"], cand)
+return list(best.values())
 ```
+
+Every pair of ends within the radius is scored, but the dialog shows **one row
+per partner fiber**: the pair that sorts first, with the ones that pass all
+gates first and then by distance. A short partner has both of its ends near the
+selected fiber, and listing every pair showed the same fiber number up to four
+times with different distances and angles. The row's `self_end` and
+`other_end` are the ends the manual connection then joins.
 
 ```python
 # source: lib/fiber_connector.py::angle_between_three_points
@@ -1225,17 +1237,16 @@ return float(np.degrees(np.arccos(np.clip(cosine_angle, -1.0, 1.0))))
 | 自動 | Whether all four gates pass: distance ≤ `clusters_range`, both angles > `angle_threshold`, height diff ≤ `height_diff_ratio`. |
 
 The gates are **reported, not applied**, so a continuation the angle gate
-rejects can still be chosen by hand. Candidates are listed with the ones that
-pass all gates first, then by distance:
+rejects can still be chosen by hand. The list comes back in the order
+`_candidates_for` sorted it, the ones that pass all gates first and then by
+distance:
 
 ```python
 # source: lib/fiber_connector.py::connection_candidates
 ends, backs = _fragment_end_geometry(fibers, params.lookback_length)
 medians = _fragment_median_heights(image.calibrated_image, fibers)
 reach = _manual_reach(params, radius)
-out = _candidates_for(index, ends, backs, medians, params, reach)
-out.sort(key=lambda c: (not c["auto"], c["distance"]))
-return out
+return _candidates_for(index, ends, backs, medians, params, reach)
 ```
 
 ### 5.2 Building a fibril from a chain

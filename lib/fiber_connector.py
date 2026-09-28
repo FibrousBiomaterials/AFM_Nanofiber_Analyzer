@@ -1094,8 +1094,10 @@ def _candidates_for(
     Returns
     -------
     list of dict
-        Unsorted candidate records, as documented on `connection_candidates`.
-        並べ替え前の候補レコード。項目は `connection_candidates` の記述どおり。
+        One candidate record per partner fiber, ordered and documented as on
+        `connection_candidates`.
+        相手ファイバーごとに 1 つの候補レコード。並び順と項目は
+        `connection_candidates` の記述どおり。
 
     Notes
     -----
@@ -1103,6 +1105,16 @@ def _candidates_for(
     drift apart in what they report or in which gates they apply.
     単一ファイバー版と母集団一括版とで、報告内容や適用するゲートがずれないよう
     切り出してある。
+
+    Every pair of ends within `reach` is scored, but only the pair that ranks
+    first for each partner is kept. A short partner has both of its ends near
+    this fiber, and listing each pair put the same fiber number in the dialog
+    twice with two different distances and angles, which reads as a defect
+    rather than as a choice of ends.
+    `reach` 内の端の組はすべて評価するが、相手ごとに順位が最上位の組だけを残す。
+    短い相手は両端ともこのファイバーの近くにあり、組ごとに列挙するとダイアログに
+    同じファイバー番号が距離・角度の異なる 2 行で現れ、端の選択肢ではなく不具合に
+    見えていた。
     """
     n = len(medians)
     out: List[Dict] = []
@@ -1137,7 +1149,11 @@ def _candidates_for(
                     "height_ratio": float(ratio),
                     "auto": bool(auto),
                 })
-    return out
+    out.sort(key=lambda c: (not c["auto"], c["distance"]))
+    best: Dict[int, Dict] = {}
+    for cand in out:
+        best.setdefault(cand["index"], cand)
+    return list(best.values())
 
 
 def connection_candidates(
@@ -1177,17 +1193,20 @@ def connection_candidates(
     Returns
     -------
     list of dict
-        One entry per joinable pair of ends, with ``index`` (the other fiber),
-        ``self_end`` / ``other_end`` (0 for the track head, 1 for its tail),
-        ``distance`` in pixels, ``angle`` (the smaller of the two straightness
-        angles, in degrees), ``height_ratio`` (relative median height
-        difference), and ``auto`` (whether the automatic search's gates all
-        pass). Ordered with the automatic candidates first, then by distance.
-        連結し得る端の組ごとに 1 エントリ。``index``（相手のファイバー）、
-        ``self_end`` / ``other_end``（0 がトラック先頭、1 が末尾）、``distance``
-        （画素）、``angle``（2 つの直線性角度のうち小さい方、度）、
-        ``height_ratio``（高さ中央値の相対差）、``auto``（自動探索の全ゲートを
-        満たすか）を持つ。自動候補を先に、その後は距離順で並べる。
+        One entry per partner fiber, describing the pair of ends that ranks
+        first for it, with ``index`` (the other fiber), ``self_end`` /
+        ``other_end`` (0 for the track head, 1 for its tail), ``distance`` in
+        pixels, ``angle`` (the smaller of the two straightness angles, in
+        degrees), ``height_ratio`` (relative median height difference), and
+        ``auto`` (whether the automatic search's gates all pass). Ordered with
+        the automatic candidates first, then by distance; the same order picks
+        the pair of ends kept for each partner.
+        相手ファイバーごとに 1 エントリで、その相手について順位が最上位の端の組を
+        表す。``index``（相手のファイバー）、``self_end`` / ``other_end``（0 が
+        トラック先頭、1 が末尾）、``distance``（画素）、``angle``（2 つの直線性
+        角度のうち小さい方、度）、``height_ratio``（高さ中央値の相対差）、
+        ``auto``（自動探索の全ゲートを満たすか）を持つ。自動候補を先に、その後は
+        距離順で並べる。相手ごとに残す端の組も同じ順序で選ぶ。
 
     Notes
     -----
@@ -1214,10 +1233,7 @@ def connection_candidates(
     ends, backs = _fragment_end_geometry(fibers, params.lookback_length)
     medians = _fragment_median_heights(image.calibrated_image, fibers)
     reach = _manual_reach(params, radius)
-    out = _candidates_for(index, ends, backs, medians, params, reach)
-
-    out.sort(key=lambda c: (not c["auto"], c["distance"]))
-    return out
+    return _candidates_for(index, ends, backs, medians, params, reach)
 
 
 def connection_candidates_by_index(
@@ -1285,7 +1301,6 @@ def connection_candidates_by_index(
     for index in range(n):
         found = _candidates_for(index, ends, backs, medians, params, reach)
         if found:
-            found.sort(key=lambda c: (not c["auto"], c["distance"]))
             out[index] = found
     return out
 

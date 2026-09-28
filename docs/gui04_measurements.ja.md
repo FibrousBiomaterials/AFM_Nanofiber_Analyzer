@@ -1157,7 +1157,18 @@ out.append({
     "height_ratio": float(ratio),
     "auto": bool(auto),
 })
+out.sort(key=lambda c: (not c["auto"], c["distance"]))
+best: Dict[int, Dict] = {}
+for cand in out:
+    best.setdefault(cand["index"], cand)
+return list(best.values())
 ```
+
+半径内の端の組はすべて評価するが、ダイアログには**相手ファイバーごとに 1 行**だけを
+示す。すべてのゲートを満たすものを先に、次に距離の順に並べたときに先頭に来る組で
+ある。短い相手は両端とも選択中のファイバーの近くにあり、組ごとに並べると同じ
+ファイバー番号が距離・角度の異なる行として最大 4 回現れていた。行の `self_end` と
+`other_end` が、手動連結で実際に繋ぐ端になる。
 
 ```python
 # source: lib/fiber_connector.py::angle_between_three_points
@@ -1178,16 +1189,15 @@ return float(np.degrees(np.arccos(np.clip(cosine_angle, -1.0, 1.0))))
 | 自動 | 4 つのゲート（距離 ≤ `clusters_range`、2 つの角度がともに > `angle_threshold`、高さ差 ≤ `height_diff_ratio`）をすべて満たすかどうか。 |
 
 ゲートは**報告するだけで適用しない**。そのため、角度ゲートが退ける続きも手で
-選べる。候補はすべてのゲートを満たすものを先に、次に距離の順に並べる。
+選べる。一覧は `_candidates_for` が並べた順、すなわちすべてのゲートを満たすものを
+先に、次に距離の順で返る。
 
 ```python
 # source: lib/fiber_connector.py::connection_candidates
 ends, backs = _fragment_end_geometry(fibers, params.lookback_length)
 medians = _fragment_median_heights(image.calibrated_image, fibers)
 reach = _manual_reach(params, radius)
-out = _candidates_for(index, ends, backs, medians, params, reach)
-out.sort(key=lambda c: (not c["auto"], c["distance"]))
-return out
+return _candidates_for(index, ends, backs, medians, params, reach)
 ```
 
 ### 5.2 連鎖からフィブリルを組み立てる
