@@ -4002,17 +4002,27 @@ class SettingsDialog(tk.Toplevel):
         解析パラメータ名をキーにした tkinter 変数。
     """
 
+    # Default and minimum dialog size (px); the width grows to fit the rows.
+    _DEFAULT_SIZE = (860, 720)
+    _MIN_SIZE = (700, 600)
+    # Padding around the scroll area inside the dialog (px).
+    _SCROLL_PAD = 10
+
     def __init__(self, parent: App, params: ProcParams) -> None:
         """
         Initialize the modal settings dialog and populate controls.
         モーダル設定ダイアログを初期化し、操作部に値を反映する。
         """
         super().__init__(parent)
+        # Built withdrawn so it can be sized to its rows before it first shows;
+        # see `_fit_width_to_rows`.
+        self.withdraw()
         self.parent = parent
         self.params_ref = params   # Reference to params_pending edited by this dialog.
 
         self.title(_("設定"))
-        apply_window_size(self, 860, 720, min_w=700, min_h=600)
+        apply_window_size(self, *self._DEFAULT_SIZE,
+                          min_w=self._MIN_SIZE[0], min_h=self._MIN_SIZE[1])
 
         # Match the parent clam theme background for a consistent dialog surface.
         try:
@@ -4043,6 +4053,70 @@ class SettingsDialog(tk.Toplevel):
         self._build_ui()
         self._populate_from_refs()
         self._on_bg_method_changed()
+        self._fit_width_to_rows()
+        self.deiconify()
+
+    def _fit_width_to_rows(self) -> None:
+        """
+        Widen the dialog, within the screen, so no row needs horizontal scrolling.
+        横スクロールが要らないよう、画面の範囲内でダイアログを広げる。
+
+        Notes
+        -----
+        The parameter descriptions are not wrapped. They used to wrap to the
+        width their row grants, which is known only after a layout pass, and
+        on this Tk each re-wrap of a long description costs 10-25 ms of text
+        measurement: the rows were laid out at their unwrapped width, then
+        shrank to the canvas one nesting level per pass after the dialog
+        appeared, re-wrapping and moving the descriptions for about four
+        seconds. Unwrapped, a row's width is fixed by its text, so the dialog
+        is given that width before it is first shown and the rows are laid
+        out once. Sizing to the rows rather than to the main window matters:
+        a canvas wider than the rows stretches them after the dialog appears,
+        which cost 0.35 s more with the Japanese catalog (2.11 s against
+        1.75 s until the dialog was complete). Where the screen is too narrow
+        (the English descriptions need about 1.5 times the Japanese width),
+        `_on_canvas_resize` shows a horizontal scrollbar instead.
+        パラメータの説明文は折り返さない。以前は行が割り当てた幅で折り返して
+        いたが、その幅はレイアウトを 1 回経るまで分からず、この Tk では長い
+        説明文を 1 回折り返し直すたびに文字列の計測に 10〜25 ms かかる。その
+        ため行は折り返し前の幅でレイアウトされ、ダイアログの表示後に入れ子
+        1 段ずつ Canvas 幅へ縮みながら、約 4 秒間説明文の折り返しと位置が変わり
+        続けていた。折り返さなければ行の幅は文字列で決まるので、最初の表示前
+        にダイアログをその幅にし、行のレイアウトを 1 回で済ませる。メイン画面
+        の幅ではなく行の幅に合わせるのは、行より広い Canvas は表示後に行を
+        引き伸ばすためで、日本語カタログでは表示完了まで 0.35 秒遅かった
+        （2.11 秒対 1.75 秒）。画面が狭くて収まらない場合（英語の説明文は日本語
+        の約 1.5 倍の幅を要する）は、`_on_canvas_resize` が横スクロールバーを
+        表示する。
+        """
+        # A withdrawn dialog still lays its rows out at their requested width.
+        # withdraw 中のダイアログでも行は要求幅でレイアウトされる。
+        self.update_idletasks()
+        rows_w = (self.inner.winfo_reqwidth() + 2 * self._SCROLL_PAD
+                  + self._vsb.winfo_reqwidth())
+        apply_window_size(self, max(self._DEFAULT_SIZE[0], rows_w), self._DEFAULT_SIZE[1],
+                          min_w=self._MIN_SIZE[0], min_h=self._MIN_SIZE[1])
+
+    def _on_canvas_resize(self, event) -> None:
+        """
+        Keep the rows at least as wide as the canvas, and scroll them when wider.
+        行を Canvas 幅以上に保ち、Canvas より広いときは横スクロールさせる。
+        """
+        canvas = self._scroll_canvas
+        rows_w = self.inner.winfo_reqwidth()
+        # Stretch the rows to a wider canvas so widening the dialog does not
+        # expose blank canvas on the right.
+        # Canvas が広いときは行を引き伸ばし、横拡大時に右側へ空の Canvas が
+        # 露出しないようにする。
+        canvas.itemconfigure(self._inner_window, width=max(event.width, rows_w))
+        needs_scroll = rows_w > event.width
+        shown = self._hsb.winfo_manager() == "pack"
+        if needs_scroll and not shown:
+            self._hsb.pack(side="bottom", fill="x", before=canvas)
+        elif not needs_scroll and shown:
+            self._hsb.pack_forget()
+            canvas.xview_moveto(0)
 
     def _build_ui(self) -> None:
         """
@@ -4066,7 +4140,8 @@ class SettingsDialog(tk.Toplevel):
         スクロール可能な canvas 領域を構築し、解析条件フレームを返す。
         """
         container = ttk.Frame(self)
-        container.pack(fill="both", expand=True, padx=10, pady=10)
+        container.pack(fill="both", expand=True,
+                       padx=self._SCROLL_PAD, pady=self._SCROLL_PAD)
 
         # Use a Canvas-backed frame so the parameter list can scroll.
         # tk.Canvas is a non-ttk widget whose default background is white, which
@@ -4082,6 +4157,8 @@ class SettingsDialog(tk.Toplevel):
             canvas_kwargs["bg"] = canvas_bg
         canvas = tk.Canvas(container, **canvas_kwargs)
         vsb = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        # Packed by `_on_canvas_resize` only while the rows are wider than the canvas.
+        hsb = ttk.Scrollbar(container, orient="horizontal", command=canvas.xview)
         self.inner = ttk.Frame(canvas)
 
         self.inner.bind(
@@ -4089,23 +4166,18 @@ class SettingsDialog(tk.Toplevel):
             # Recompute the scrollable region whenever child widgets resize.
             lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
-        inner_window = canvas.create_window((0, 0), window=self.inner, anchor="nw")
-        canvas.configure(yscrollcommand=vsb.set)
-
-        # Stretch the inner window to the canvas width so widening the dialog does
-        # not expose blank canvas on the right; the content tracks the canvas size.
-        # Canvas 幅に内部ウィンドウを追従させ、横拡大時に右側へ空の Canvas が
-        # 露出しないようにする。
-        canvas.bind(
-            "<Configure>",
-            lambda e: canvas.itemconfigure(inner_window, width=e.width),
-        )
+        self._inner_window = canvas.create_window((0, 0), window=self.inner, anchor="nw")
+        canvas.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        canvas.bind("<Configure>", self._on_canvas_resize)
 
         canvas.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
 
-        # Kept so `_build_ui` can bind wheel scrolling once the subtree is built.
+        # Kept so `_build_ui` can bind wheel scrolling once the subtree is built,
+        # and for `_fit_width_to_rows` / `_on_canvas_resize`.
         self._scroll_canvas = canvas
+        self._vsb = vsb
+        self._hsb = hsb
 
         # Parameters staged here apply only to the next analysis run.
         plf = ttk.LabelFrame(self.inner, text=_("解析条件（次回解析時にのみ反映）"))
@@ -4133,40 +4205,10 @@ class SettingsDialog(tk.Toplevel):
         Attach the trailing description label and register the row widgets.
         末尾の説明ラベルを付けて、行のウィジェットを登録する。
         """
+        # Not wrapped; the dialog is sized to fit it (see `_fit_width_to_rows`).
         dsc = ttk.Label(frm, text=desc, foreground="#444", justify="left")
         dsc.pack(side="left", padx=8, fill="x", expand=True)
-        # Same clipping problem as the background-method descriptions: with no
-        # wrap length the tail of the sentence is cut at the row edge and there
-        # is no tooltip to recover it from. The row leaves the label about
-        # 540 px, which the translations exceed - 13 of the 28 English rows
-        # overflow - so wrap to the width the row actually grants.
-        # 背景推定方式の説明と同じ切り落とし問題が起きる。折り返し幅を指定
-        # しないと文末が行の右端で切れ、しかもツールチップが無いので復元でき
-        # ない。行がラベルに与える幅は約 540 px で、翻訳はこれを超える（英語は
-        # 28 行中 13 行が超過）。よって行が実際に割り当てた幅で折り返す。
-        dsc._wrap_at = 0
-        dsc.bind("<Configure>", self._on_row_desc_resize)
         self._param_rows[key] = {"label": lbl, "input": input_widget, "desc": dsc}
-
-    def _on_row_desc_resize(self, event) -> None:
-        """
-        Re-wrap one parameter row's description to the width the row grants it.
-        パラメータ行の説明を、行が割り当てた幅に合わせて折り返し直す。
-
-        Notes
-        -----
-        Guarded on an actual width change for the same reason as
-        `_on_bg_desc_resize`: setting `wraplength` changes the label's height,
-        which relays out the row and re-fires `<Configure>`.
-        `_on_bg_desc_resize` と同じ理由で、幅が実際に変化したときだけ再設定
-        する。`wraplength` を変えるとラベルの高さが変わって行が再配置され、
-        `<Configure>` が再発火するためである。
-        """
-        label = event.widget
-        if event.width <= 1 or getattr(label, "_wrap_at", 0) == event.width:
-            return
-        label._wrap_at = event.width
-        label.configure(wraplength=event.width)
 
     def _add_field(self, parent_lf: ttk.LabelFrame, key: str, label: str,
                    desc: str, width: int = 12) -> None:
@@ -4277,24 +4319,10 @@ class SettingsDialog(tk.Toplevel):
         }
         bg_desc_frame = ttk.Frame(lf_bg)
         bg_desc_frame.pack(fill="x", padx=6, pady=(0, 6))
-        # A ttk.Label without `wraplength` is clipped at the frame edge and the
-        # tail of the sentence is lost with no indication. These descriptions
-        # are long, and the translations are longer still - the English ones
-        # need up to twice the width of the Japanese source - so the wrap
-        # length has to follow the frame rather than be a fixed constant.
-        # `wraplength` を指定しない ttk.Label は枠の右端で切り落とされ、文の
-        # 末尾が何の表示もなく失われる。この説明文は長いうえ、翻訳はさらに
-        # 長い（英語は日本語原文の最大 2 倍の幅を要する）。したがって折り返し
-        # 幅は固定値ではなく枠幅に追随させる。
-        self._bg_desc_labels = [
+        # Not wrapped; the dialog is sized to fit them (see `_fit_width_to_rows`).
+        for _m in ["trendfill", "tophat", "spline1d"]:
             ttk.Label(bg_desc_frame, text=self._bg_method_descs[_m],
-                      foreground="#555", justify="left")
-            for _m in ["trendfill", "tophat", "spline1d"]
-        ]
-        for _lb in self._bg_desc_labels:
-            _lb.pack(anchor="w", fill="x")
-        self._bg_desc_wrap = 0
-        bg_desc_frame.bind("<Configure>", self._on_bg_desc_resize)
+                      foreground="#555", justify="left").pack(anchor="w", fill="x")
 
         # --- Parameters are ordered by method: trendfill, tophat, spline1d. ---
         self._add_fields(lf_bg, [
@@ -4330,27 +4358,6 @@ class SettingsDialog(tk.Toplevel):
              _("[trendfill, spline1d時] dilation前にマスクから除外する連結成分の最小面積") + " (px^2)。"
              + _("1でフィルタ無効"), {"width": 10}),
         ])
-
-    def _on_bg_desc_resize(self, event) -> None:
-        """
-        Re-wrap the background-method descriptions to the frame width.
-        背景推定方式の説明文を枠幅に合わせて折り返し直す。
-
-        Notes
-        -----
-        Only an actual width change triggers a reconfigure. Setting
-        `wraplength` changes each label's height, which resizes the frame and
-        fires `<Configure>` again; without the guard that feedback keeps the
-        dialog busy re-laying out at a constant width.
-        幅が実際に変化したときだけ再設定する。`wraplength` を変えると各ラベル
-        の高さが変わって枠が再配置され、`<Configure>` が再発火する。ガードが
-        ないと、幅が変わっていないのにこの連鎖が続いてしまう。
-        """
-        if event.width == self._bg_desc_wrap or event.width <= 1:
-            return
-        self._bg_desc_wrap = event.width
-        for label in self._bg_desc_labels:
-            label.configure(wraplength=event.width)
 
     def _build_param_sections(self, plf: ttk.LabelFrame) -> None:
         """
@@ -4446,39 +4453,20 @@ class SettingsDialog(tk.Toplevel):
         ttk.Entry(frm_sq, textvariable=self.stripe_step_var, width=8).pack(
             side="left", padx=6,
         )
-        # The description goes on its own full-width row with a wraplength that
-        # follows the frame. Packed beside the entry it is clipped at the frame
-        # edge and the tail of the sentence is lost with no indication, and the
-        # English translation of this sentence is about twice the width of the
-        # Japanese source, so a fixed wrap width would not hold either.
-        # 説明文は枠幅に追随する wraplength を与えて全幅の別行に置く。入力欄の
-        # 横に並べると枠の右端で切り落とされ、文末が何の表示もなく失われる。
-        # またこの文の英訳は日本語原文の約 2 倍の幅を要するため、固定の折り返し
-        # 幅でも収まらない。
-        self._stripe_desc = ttk.Label(
+        # The description goes on its own row below the entry, so this long
+        # sentence does not set the width of the entry's row; like the other
+        # descriptions it is not wrapped (see `_fit_width_to_rows`).
+        # 説明文は入力欄の下の別行に置き、この長い文が入力欄の行の幅を決め
+        # ないようにする。ほかの説明文と同様に折り返さない
+        # （`_fit_width_to_rows` 参照）。
+        stripe_desc = ttk.Label(
             lf_sq,
             text=_("隣接走査線間の高さ段差がこの値を超える箇所を走査の乱れとして数え、"
                    "影響を受けた走査線の割合を一覧の「縞ノイズ率」列に表示します"
                    "（解析条件には含まれません）"),
             foreground="#444", justify="left",
         )
-        self._stripe_desc.pack(fill="x", padx=12, pady=(0, 6))
-        self._stripe_desc_wrap = 0
-        lf_sq.bind("<Configure>", self._on_stripe_desc_resize)
-
-    def _on_stripe_desc_resize(self, event) -> None:
-        """
-        Keep the stripe-noise description wrapped to the current frame width.
-        縞ノイズの説明文を現在の枠幅に合わせて折り返し続ける。
-        """
-        wrap = max(int(event.width) - 30, 120)
-        # Reconfiguring on every pixel of a drag would re-layout the dialog
-        # continuously, so only act on a change worth re-wrapping for.
-        # ドラッグ中に 1 画素ごと再設定するとダイアログの再レイアウトが続くため、
-        # 折り返し直しに値する変化のときだけ反映する。
-        if abs(wrap - self._stripe_desc_wrap) > 8:
-            self._stripe_desc_wrap = wrap
-            self._stripe_desc.configure(wraplength=wrap)
+        stripe_desc.pack(fill="x", padx=12, pady=(0, 6))
 
     def _build_save_options(self) -> None:
         """
