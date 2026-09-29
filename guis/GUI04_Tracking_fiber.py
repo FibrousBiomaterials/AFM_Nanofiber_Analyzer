@@ -1444,7 +1444,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._btn_save_curation.pack(side="left", padx=(0, 4))
         ToolTip(self._btn_save_curation, _(
             "現在の除外と連結を、バンドル横の {excluded} と {connect} へ"
-            "まとめて書き出します。Height Histogram の「除外を適用」「連結を適用」"
+            "まとめて書き出します。Fiber Morphology Statistics の「除外を適用」「連結を適用」"
             "がこの 2 ファイルを読み、この画面と同じ母集団を集計します。連結は"
             "どの断片が繋がっているかを書き出し、自動か手動かは区別しません。"
             "除外が 1 件も無い状態で保存すると除外ファイルは削除されます。"

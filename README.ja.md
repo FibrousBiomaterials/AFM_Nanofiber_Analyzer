@@ -21,17 +21,18 @@ AFM Nanofiber Analyzer は、原子間力顕微鏡 (AFM) の高さ画像を前�
 
 ## デモ
 
-![4 つの GUI プラグイン: (a) Image Preprocessor、(b) Plot Profiler、(c) Fiber Height Histogram、(d) Fiber Tracker。](figures/guis.png)
+![4 つの GUI プラグイン: (a) Image Preprocessor、(b) Plot Profiler、(c) Fiber Morphology Statistics、(d) Fiber Tracker。](figures/guis.png)
 
 - **(a) Image Preprocessor** は AFM 高さ画像に背景補正、二値化、細線化を適用し、
   元画像・補正後・二値化・細線化の各段階と、検出されたキンク点の重ね描きを
   表示します。
 - **(b) Plot Profiler** は高さマップ上に対話的に配置した線分に沿って高さ
   プロファイルを抽出します。
-- **(c) Fiber Height Histogram** はユーザー定義の試料グループ間で、高さ・輪郭長・
-  キンク角・キンク密度の分布を、骨格画素単位・輪郭長単位・ファイバー単位・
-  画像単位で比較し、グループごとの統計量を表示します。
-- **(d) Fiber Tracker** は Fiber Height Histogram で図示できるファイバー単位の
+- **(c) Fiber Morphology Statistics** は高さ・輪郭長・直線度・曲率・キンク角・
+  キンク密度の分布を、1 つの試料グループについて示すか、ユーザー定義の試料
+  グループ間で比較します。集計は骨格画素単位・輪郭長単位・ファイバー単位・
+  画像単位で行い、グループごとの統計量を表示します。
+- **(d) Fiber Tracker** は Fiber Morphology Statistics で図示できるファイバー単位の
   計測量——長さ、高さの中央値・最大値、直線度、曲率、キンク密度——を端点数・
   キンク数と併せて一覧し、各ファイバーの位置を全体像上で示します。
 
@@ -291,9 +292,9 @@ JSON を保存します。各ファイルは固有の物理走査範囲を持ち
 再現可能にするため、スケールは記録値（`.b2z`）、ヘッダ（テキスト/CSV）、または
 チャンネル範囲（`.gwy`）の走査範囲で既定化します。
 
-### Fiber Height Histogram — `guis/GUI03_Fiber_Height_Histogram.py`
+### Fiber Morphology Statistics — `guis/GUI03_Fiber_Morphology_Statistics.py`
 
-![Fiber Height Histogram のウインドウ: 2 つの試料グループの高さ分布と、グループごとの統計量テーブル。](figures/gui03.png)
+![Fiber Morphology Statistics のウインドウ: 2 つの試料グループの高さ分布と、グループごとの統計量テーブル。](figures/gui03.png)
 
 ユーザー定義グループごとに、入力群から 1 つの形態パラメータの分布を比較します。
 入力セレクタでは `bundle`（GUI01 が出力する `.b2z`。全ての集計単位が使えます）
@@ -472,7 +473,7 @@ w × h 画素の骨格外接矩形に対し、重みは (W − 2)(H − 2) / ((W
 
 「除外・連結を保存」は、除外集合と現在の連結状態を、バンドル横の
 `<stem>_excluded.json` と `<stem>_connect.json` へまとめて書き出します。これに
-より Fiber Height Histogram が、このウインドウで表示しているのと同じ母集団を
+より Fiber Morphology Statistics が、このウインドウで表示しているのと同じ母集団を
 集計できます。1 回の押下で両方を書き、片方だけを書く手段はありません。別々の
 ボタンだった頃は、連結を保存し、OFF にして断片としてキュレーションし、除外を
 保存すると、ディスク上の 2 ファイルが画面に一度も存在しなかった状態を記述し、
@@ -621,7 +622,7 @@ SPM-9600 のスキャンを対象に開発され、歴史的に `BG_Calibrator_s
 コードパスである `lib.pipeline.process_file` に渡され、`BGCalibrator`、`Segmenter`、
 `Skeletonizer`、`KinkDetector` をこの順に適用したうえで、入力 1 件につき圧縮
 TreeStore バンドル `<input_stem>.b2z` と `<input_stem>_param.json` を 1 つずつ
-書き出します。Plot Profiler（GUI02）、Fiber Height Histogram（GUI03）、
+書き出します。Plot Profiler（GUI02）、Fiber Morphology Statistics（GUI03）、
 Fiber Tracker（GUI04）はこれらのバンドルを読み込みます。
 
 前処理パラメータは生成される `<input_stem>_param.json` に保存されます。
@@ -885,7 +886,7 @@ AFM_Nanofiber_Analyzer/
 |-- guis/
 |   |-- GUI01_Image_Preprocessor.py
 |   |-- GUI02_PlotProfiler.py
-|   |-- GUI03_Fiber_Height_Histogram.py
+|   |-- GUI03_Fiber_Morphology_Statistics.py
 |   |-- GUI04_Tracking_fiber.py
 |   `-- __init__.py
 |-- lib/

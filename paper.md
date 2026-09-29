@@ -144,9 +144,9 @@ Shimadzu, Bruker or Gwyddion text exports, or native Gwyddion `.gwy` files, ente
 *Image Preprocessor* (GUI01),
 which produces calibrated, binarized, and skeletonized/kink-detected images and
 writes them to one `.b2z` bundle per input. The resulting bundles are consumed by
-the *Plot Profiler* (GUI02), the *Fiber Height Histogram* (GUI03), and the *Fiber
-Tracker* (GUI04) for line-profile extraction, grouped height-distribution
-comparison, and per-fiber tracking and measurement, respectively. A tkinter
+the *Plot Profiler* (GUI02), the *Fiber Morphology Statistics* (GUI03), and the
+*Fiber Tracker* (GUI04) for line-profile extraction, grouped morphology
+statistics, and per-fiber tracking and measurement, respectively. A tkinter
 launcher discovers these four tools in `guis/`.
 
 Modules in `lib/` implement the input handling, background calibration,

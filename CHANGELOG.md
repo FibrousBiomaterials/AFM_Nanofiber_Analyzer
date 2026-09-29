@@ -45,6 +45,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   half-maximum line, so it refuses a 1.2 bundle rather than drawing kinks on
   a line they were not judged on. Bundles of format 1.1 and 1.0 read as
   before.
+- GUI03 is renamed from Fiber Height Histogram to **Fiber Morphology
+  Statistics**, and its file from `guis/GUI03_Fiber_Height_Histogram.py` to
+  `guis/GUI03_Fiber_Morphology_Statistics.py`; a shortcut or script that runs
+  `Main.py --run-plugin guis.GUI03_Fiber_Height_Histogram` must use the new
+  module name. It has measured six quantities with three plot types, for one
+  group as well as between groups, so the old name described only part of it.
+  The quantity, aggregation-unit and plot-type selectors move to the input row
+  and the "apply exclusions/connection" switches to the row below it, so both
+  rows fit the default window in every UI language; the "1 sample = …" hint,
+  which that row could not display at the default width, is removed (the
+  aggregation-unit tooltip and the result caption say the same). The
+  figure-size fields, which were labelled as orientations
+  ("Landscape"/"Portrait" in the English UI), are now the figure's width and
+  height in inches. Results do not change.
 
 ### Fixed
 

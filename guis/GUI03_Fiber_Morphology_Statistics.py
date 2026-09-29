@@ -1,13 +1,15 @@
 """
-Interactive morphology histogram GUI for AFM nanofiber analysis.
-AFM ナノファイバー解析用の形態パラメータヒストグラム GUI。
+Interactive fiber morphology statistics GUI for AFM nanofiber analysis.
+AFM ナノファイバー解析用の形態パラメータ統計 GUI。
 
-Loads ``.b2z`` bundles produced by the image preprocessor and compares the
-distribution of one morphological quantity — height, contour length, kink
-angle, or kink density — across user-defined groups.
-画像前処理 GUI が出力した ``.b2z`` バンドルを読み込み、形態パラメータ
-（高さ・輪郭長・キンク角・キンク密度）のいずれか 1 つの分布を、ユーザー定義
-グループ間で比較する。
+Loads ``.b2z`` bundles produced by the image preprocessor, or per-fiber CSVs
+exported by the fiber tracker, and summarizes the distribution of one
+morphological quantity — height, contour length, straightness, curvature, kink
+angle, or kink density — for one group or across user-defined groups.
+画像前処理 GUI が出力した ``.b2z`` バンドル、またはファイバートラッカーが出力
+したファイバー単位の CSV を読み込み、形態パラメータ（高さ・輪郭長・直線度・
+曲率・キンク角・キンク密度）のいずれか 1 つの分布を、1 つのグループについて、
+またはユーザー定義グループ間で要約する。
 
 The aggregation unit selects what counts as one sample: a skeleton pixel, a
 fiber, one kink, or a whole image. This matters for reporting because pooled
@@ -28,13 +30,13 @@ image.
 # Values must remain plain string literals because they are passed to literal_eval.
 # 値は literal_eval 対象のため文字列リテラルのまま（gettext の _() は付けない）。
 PLUGIN_INFO = {
-    "name": "Fiber Height Histogram",
+    "name": "Fiber Morphology Statistics",
     "description": (
-        "AFMで撮影したナノファイバーの形態パラメータのヒストグラムをGUIで作成するプログラムです。\n"
-        "入力データには、Image Preprocessor が出力する .b2z バンドルファイルが必要です。\n"
-        "計測量は height（高さ）、contour length（輪郭長）、kink angle（キンク角）、kink density（キンク密度）から選べます。高さはバンドル内の calibrated（BG補正済み画像）と skeletonized（細線化画像）から収集し、輪郭長・キンク量はファイバー追跡結果から算出します。\n"
-        "集計単位（骨格画素・ファイバー・キンク・画像）を切り替えられるため、画素をまとめた分布だけでなく、ファイバー単位・画像単位の分布としても比較できます。\n"
-        "複数のデータ群（グループ）を登録すると、グループごとに別々のヒストグラムを作成し、縦並び・重ね表示で比較表示できます。中央値・四分位範囲・平均・標準偏差・最頻値と、標本数の内訳を併記します。"
+        "AFMで撮影したナノファイバーの形態パラメータの分布と統計量をGUIで求めるプログラムです。\n"
+        "入力データには、Image Preprocessor が出力する .b2z バンドルファイル、または Fiber Tracker が出力するファイバー単位の CSV を使います。\n"
+        "計測量は height（高さ）、contour length（輪郭長）、straightness（直線度）、curvature（曲率）、kink angle（キンク角）、kink density（キンク密度）から選べ、いずれもファイバー追跡結果から算出します。\n"
+        "集計単位（骨格画素・輪郭長重み付け・ファイバー・キンク・画像）を切り替えられるため、画素をまとめた分布だけでなく、ファイバー単位・画像単位の分布としても確認できます。\n"
+        "図はヒストグラム・ECDF・箱ひげ図から選べ、中央値・四分位範囲・平均・標準偏差・最頻値と、標本数の内訳を併記します。複数のデータ群（グループ）を登録すると、縦並び・重ね表示で比較でき、ファイバー単位・画像単位では群間検定の結果も表示します。"
     )
 }
 
@@ -1189,8 +1191,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _build_quantity_controls(self, parent: ttk.Frame) -> None:
         """
-        Build the measured-quantity and aggregation-unit selectors.
-        計測量セレクタと集計単位セレクタを構築する。
+        Build the input, measured-quantity, aggregation-unit, and plot-type
+        selectors.
+        入力・計測量・集計単位・図の種類のセレクタを構築する。
 
         Notes
         -----
@@ -1202,8 +1205,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         計算時の計測量・集計単位に紐づいており、新しい軸ラベルで再描画すると
         古い数値を別の量として提示してしまうため。
         """
+        # The first row holds the selectors that define what is computed; the
+        # curation switches and per-quantity settings go on the second row so
+        # both rows fit the default window width in every UI language.
+        # 1 段目には何を計算するかを決めるセレクタを置き、キュレーションの切替と
+        # 計測量ごとの設定は 2 段目に置く。どの UI 言語でも既定のウィンドウ幅に
+        # 両方の段が収まるようにするため。
         inputbar = ttk.Frame(parent)
         inputbar.pack(fill=tk.X, padx=6, pady=(6, 0))
+        parambar = ttk.Frame(parent)
+        parambar.pack(fill=tk.X, padx=6, pady=(4, 0))
 
         ttk.Label(inputbar, text=_("入力")).pack(side=tk.LEFT)
         self.input_var = tk.StringVar(value=self.input_mode)
@@ -1228,7 +1239,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         self.apply_exclusions_var = tk.BooleanVar(value=True)
         self.chk_exclusions = ttk.Checkbutton(
-            inputbar, text=_("除外を適用"),
+            parambar, text=_("除外を適用"),
             variable=self.apply_exclusions_var,
             command=self._on_curation_toggle,
         )
@@ -1241,7 +1252,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         self.apply_connection_var = tk.BooleanVar(value=True)
         self.chk_connection = ttk.Checkbutton(
-            inputbar, text=_("連結を適用"),
+            parambar, text=_("連結を適用"),
             variable=self.apply_connection_var,
             command=self._on_curation_toggle,
         )
@@ -1256,9 +1267,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "枚数はログに出ます。"
         ).format(suffix=CONNECT_SUFFIX))
 
-        parambar = ttk.Frame(parent)
-        parambar.pack(fill=tk.X, padx=6, pady=(4, 0))
-
         # Quantity and unit keys are fixed English identifiers that also appear
         # on axes and in exports, so they are shown verbatim; only the field
         # labels and the hint text are localized. This matches the existing
@@ -1266,10 +1274,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 計測量・集計単位のキーは軸や出力にも現れる固定英語識別子のため、その
         # まま表示し、ラベルとヒント文のみ翻訳対象とする。"density"/"percent"
         # をそのまま表示する既存の縦軸セレクタと同じ方針。
-        ttk.Label(parambar, text=_("計測量")).pack(side=tk.LEFT)
+        ttk.Label(inputbar, text=_("計測量")).pack(side=tk.LEFT)
         self.param_var = tk.StringVar(value=self.param)
         self.cmb_param = ttk.Combobox(
-            parambar, textvariable=self.param_var,
+            inputbar, textvariable=self.param_var,
             values=self._available_params(), width=17, state="readonly",
         )
         self.cmb_param.pack(side=tk.LEFT, padx=(4, 12))
@@ -1284,10 +1292,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             angle=PARAM_KINK_ANGLE, density=PARAM_KINK_DENSITY,
         ))
 
-        ttk.Label(parambar, text=_("集計単位")).pack(side=tk.LEFT)
+        ttk.Label(inputbar, text=_("集計単位")).pack(side=tk.LEFT)
         self.unit_var = tk.StringVar(value=self.unit)
         self.cmb_unit = ttk.Combobox(
-            parambar, textvariable=self.unit_var,
+            inputbar, textvariable=self.unit_var,
             values=self._available_units(self.param),
             width=8, state="readonly",
         )
@@ -1309,7 +1317,24 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             fiber=UNIT_FIBER, image=UNIT_IMAGE,
         ))
 
-        ttk.Label(parambar, text=_("曲率窓") + " (nm)").pack(side=tk.LEFT)
+        self.plot_type_var = tk.StringVar(value=PLOT_HISTOGRAM)
+        ttk.Label(inputbar, text=_("図")).pack(side=tk.LEFT)
+        self.cmb_plot_type = ttk.Combobox(
+            inputbar, textvariable=self.plot_type_var,
+            values=list(PLOT_TYPES), width=10, state="readonly",
+        )
+        self.cmb_plot_type.pack(side=tk.LEFT, padx=(4, 12))
+        self.cmb_plot_type.bind(
+            "<<ComboboxSelected>>", lambda _e: self._on_plot_type_change()
+        )
+        ToolTip(self.cmb_plot_type, _(
+            "{histogram} は 1 群の分布の形を示します。{ecdf} は累積分布を重ねて"
+            "描くため、ビン幅に依存せずに群を比較できます。{box} は各群の中央値と"
+            "四分位数を並べて要約します。{ecdf} と {box} は常に重ね／並置表示に"
+            "なるため、縦並び・重ね表示の選択は使われません。"
+        ).format(histogram=PLOT_HISTOGRAM, ecdf=PLOT_ECDF, box=PLOT_BOX))
+
+        ttk.Label(parambar, text=_("曲率窓") + " (nm)").pack(side=tk.LEFT, padx=(16, 0))
         self.curvature_window_var = tk.StringVar(
             value=self._fmt_num(self.curvature_window)
         )
@@ -1355,10 +1380,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             exclude=FRAME_EXCLUDE, ml=FRAME_MILES_LANTUEJOUL,
         ))
         self._update_frame_mode_state()
-
-        self.sample_hint_var = tk.StringVar()
-        ttk.Label(parambar, textvariable=self.sample_hint_var).pack(side=tk.LEFT)
-        self._update_sample_hint()
 
     def _available_params(self) -> list:
         """
@@ -1425,7 +1446,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if self.unit not in units:
             self.unit = units[0]
             self.unit_var.set(self.unit)
-            self._update_sample_hint()
             self._update_result_caption()
 
         # Exclusions live beside a bundle; a fiber CSV already has them baked
@@ -1494,20 +1514,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # この扱いはどのファイバーをどう数えるかを変えるため、キャッシュ済み
         # 結果は別の母集団を記述している。
         self._reset_result_state()
-
-    def _update_sample_hint(self) -> None:
-        """
-        Refresh the label describing what one sample is.
-        1 標本が何を指すかを説明するラベルを更新する。
-        """
-        hints = {
-            UNIT_PIXEL: _("1 標本 = 骨格画素 1 点"),
-            UNIT_LENGTH: _("1 標本 = 骨格画素 1 点（輪郭長で重み付け）"),
-            UNIT_KINK: _("1 標本 = キンク 1 点"),
-            UNIT_FIBER: _("1 標本 = ファイバー 1 本"),
-            UNIT_IMAGE: _("1 標本 = 画像 1 枚"),
-        }
-        self.sample_hint_var.set(hints.get(self.unit, ""))
 
     def _apply_default_range(self, param: str) -> None:
         """
@@ -1584,7 +1590,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._apply_default_range(param)
         for col, text in self._result_headings(param).items():
             self.result_tree.heading(col, text=text)
-        self._update_sample_hint()
         self._update_result_caption()
         self._update_frame_mode_state()
         self._reset_result_state()
@@ -1612,7 +1617,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return
 
         self.unit = unit
-        self._update_sample_hint()
         self._update_result_caption()
         self._reset_result_state()
 
@@ -1707,24 +1711,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.tick_fs_var = tk.StringVar(value=self._fmt_num(self.tick_fs))
         self.ann_fs_var = tk.StringVar(value=self._fmt_num(self.ann_fs))
 
-        self.plot_type_var = tk.StringVar(value=PLOT_HISTOGRAM)
-        ttk.Label(optbar, text=_("図")).pack(side=tk.LEFT)
-        self.cmb_plot_type = ttk.Combobox(
-            optbar, textvariable=self.plot_type_var,
-            values=list(PLOT_TYPES), width=10, state="readonly",
-        )
-        self.cmb_plot_type.pack(side=tk.LEFT, padx=(4, 12))
-        self.cmb_plot_type.bind(
-            "<<ComboboxSelected>>", lambda _e: self._on_plot_type_change()
-        )
-        ToolTip(self.cmb_plot_type, _(
-            "{histogram} は 1 群の分布の形を示します。{ecdf} は累積分布を重ねて"
-            "描くため、ビン幅に依存せずに群を比較できます。{box} は各群の中央値と"
-            "四分位数を並べて要約します。{ecdf} と {box} は常に重ね／並置表示に"
-            "なるため、縦並び・重ね表示の選択は使われません。"
-        ).format(histogram=PLOT_HISTOGRAM, ecdf=PLOT_ECDF, box=PLOT_BOX))
-
-        ttk.Label(optbar, text=_("横長")).pack(side=tk.LEFT)
+        # Matplotlib figure sizes are in inches; the unit is fixed English.
+        # Matplotlib の図サイズはインチ単位。単位表記は固定英語とする。
+        ttk.Label(optbar, text=_("図の幅") + " (in)").pack(side=tk.LEFT)
         self.ent_fig_w = ttk.Entry(optbar, textvariable=self.fig_w_var, width=4)
         self.ent_fig_w.pack(side=tk.LEFT, padx=(4, 10))
         self._register_unconfirmed_entry(
@@ -1735,7 +1724,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         # Stacked mode treats this height as per subplot; other modes use it as figure height.
         # 縦並び時は 1 サブプロット分、重ね表示や単一グループでは Figure 全体の高さとして扱う。
-        ttk.Label(optbar, text=_("縦長")).pack(side=tk.LEFT)
+        ttk.Label(optbar, text=_("図の高さ") + " (in)").pack(side=tk.LEFT)
         self.ent_fig_h = ttk.Entry(optbar, textvariable=self.fig_h_var, width=4)
         self.ent_fig_h.pack(side=tk.LEFT, padx=(4, 10))
         self._register_unconfirmed_entry(
@@ -1743,6 +1732,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             lambda: self._fmt_num(self.fig_h),
             self._commit_plot_params,
         )
+        ToolTip(self.ent_fig_h, _(
+            "{histogram} を縦並びで表示するときは 1 グループ分の高さで、図全体の"
+            "高さはグループ数倍になります。それ以外では図全体の高さです。"
+        ).format(histogram=PLOT_HISTOGRAM))
 
         ttk.Label(optbar, text=_("フォントサイズ：グループ名")).pack(side=tk.LEFT)
         self.ent_group_name_fs = ttk.Entry(optbar, textvariable=self.group_name_fs_var, width=4)
@@ -4247,8 +4240,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
 def main() -> None:
     """
-    Launch the fiber height histogram GUI.
-    繊維高さヒストグラム GUI を起動する。
+    Launch the fiber morphology statistics GUI.
+    繊維形態統計 GUI を起動する。
     """
     app = App()
     app.mainloop()

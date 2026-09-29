@@ -22,7 +22,7 @@ that gap with a documented, reproducible pipeline and a stable data format.
 
 ## Demo
 
-![The four GUI plugins: (a) Image Preprocessor, (b) Plot Profiler, (c) Fiber Height Histogram, and (d) Fiber Tracker.](figures/guis.png)
+![The four GUI plugins: (a) Image Preprocessor, (b) Plot Profiler, (c) Fiber Morphology Statistics, and (d) Fiber Tracker.](figures/guis.png)
 
 - **(a) Image Preprocessor** runs an AFM height image through background
   calibration, segmentation, and skeletonization, showing the original,
@@ -30,12 +30,13 @@ that gap with a documented, reproducible pipeline and a stable data format.
   overlaid.
 - **(b) Plot Profiler** extracts a height profile along a line placed
   interactively on the height map.
-- **(c) Fiber Height Histogram** compares the distribution of height, contour
-  length, kink angle, or kink density between user-defined sample groups, per
-  skeleton pixel, per unit of contour length, per fiber, or per image, and
-  reports per-group statistics.
-- **(d) Fiber Tracker** lists the per-fiber quantities the Fiber Height
-  Histogram can plot — length, median and maximum height, straightness,
+- **(c) Fiber Morphology Statistics** shows the distribution of height, contour
+  length, straightness, curvature, kink angle, or kink density for one sample
+  group or compares it between user-defined groups, per skeleton pixel, per
+  unit of contour length, per fiber, or per image, and reports per-group
+  statistics.
+- **(d) Fiber Tracker** lists the per-fiber quantities the Fiber Morphology
+  Statistics can plot — length, median and maximum height, straightness,
   curvature and kink density — plus endpoint and kink counts, and locates each
   fiber in the full scan.
 
@@ -306,9 +307,9 @@ height profiles along selected line segments. The scale defaults to the
 recorded (`.b2z`), header (text/CSV), or channel-extent (`.gwy`) scan size so
 profile distances are reproducible.
 
-### Fiber Height Histogram — `guis/GUI03_Fiber_Height_Histogram.py`
+### Fiber Morphology Statistics — `guis/GUI03_Fiber_Morphology_Statistics.py`
 
-![Fiber Height Histogram window: two sample groups with their height distributions and a per-group statistics table.](figures/gui03.png)
+![Fiber Morphology Statistics window: two sample groups with their height distributions and a per-group statistics table.](figures/gui03.png)
 
 Compare the distribution of one morphological quantity across user-defined
 groups of inputs. The input selector takes either `bundle` — GUI01's `.b2z`
@@ -514,7 +515,7 @@ two are not mutually exclusive.
 
 "除外・連結を保存" writes the exclusion set and the connection result together,
 to `<stem>_excluded.json` and `<stem>_connect.json` beside the bundle, so the
-Fiber Height Histogram can aggregate the same population this window is
+Fiber Morphology Statistics can aggregate the same population this window is
 showing. One press writes both and there is no way to write only one: while
 they had separate buttons, saving the connection, turning it off, curating as
 fragments and saving the exclusions left the pair on disk describing a state
@@ -673,8 +674,8 @@ by `gwy_io.load_gwy_image()`. Both feed `lib.pipeline.process_file` — the code
 path shared by GUI01 and `cli.py` — which applies `BGCalibrator`, `Segmenter`,
 `Skeletonizer`, and `KinkDetector` in that order and writes one
 `<input_stem>.b2z` compressed TreeStore bundle and one
-`<input_stem>_param.json` per input. The Plot Profiler (GUI02), Fiber Height
-Histogram (GUI03), and Fiber Tracker (GUI04) then read those bundles.
+`<input_stem>_param.json` per input. The Plot Profiler (GUI02), Fiber Morphology
+Statistics (GUI03), and Fiber Tracker (GUI04) then read those bundles.
 
 The preprocessing parameters are stored in the generated
 `<input_stem>_param.json` file. They cover background calibration, segmentation,
@@ -941,7 +942,7 @@ AFM_Nanofiber_Analyzer/
 |-- guis/
 |   |-- GUI01_Image_Preprocessor.py
 |   |-- GUI02_PlotProfiler.py
-|   |-- GUI03_Fiber_Height_Histogram.py
+|   |-- GUI03_Fiber_Morphology_Statistics.py
 |   |-- GUI04_Tracking_fiber.py
 |   `-- __init__.py
 |-- lib/

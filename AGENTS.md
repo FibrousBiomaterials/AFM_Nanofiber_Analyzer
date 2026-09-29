@@ -759,7 +759,7 @@ additional files and keep at least these files consistent:
 - `lib/measure.py`
 - `guis/GUI01_Image_Preprocessor.py`
 - `guis/GUI02_PlotProfiler.py`
-- `guis/GUI03_Fiber_Height_Histogram.py`
+- `guis/GUI03_Fiber_Morphology_Statistics.py`
 - `guis/GUI04_Tracking_fiber.py`
 - `lib/blosc2_io.py`
 - `README.md` / `README.ja.md`

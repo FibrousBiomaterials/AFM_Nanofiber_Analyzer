@@ -32,7 +32,7 @@ from lib.fiber_selection import exclusion_path_for, load_exclusions
 
 import guis.GUI01_Image_Preprocessor as gui01
 import guis.GUI02_PlotProfiler as gui02
-import guis.GUI03_Fiber_Height_Histogram as gui03
+import guis.GUI03_Fiber_Morphology_Statistics as gui03
 import guis.GUI04_Tracking_fiber as gui04
 
 pytestmark = requires_tk
