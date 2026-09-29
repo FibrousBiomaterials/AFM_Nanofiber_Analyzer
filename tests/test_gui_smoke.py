@@ -976,6 +976,70 @@ def test_gui04_fiber_table_covers_every_gui03_quantity(tk_app):
         )
 
 
+def test_gui04_every_fiber_table_column_is_explained(tk_app):
+    """
+    Every fiber-table column has an in-GUI explanation, and nothing else does.
+    ファイバー一覧のすべての列に GUI 内の説明があり、存在しない列の説明は無い。
+
+    A column added without an explanation would leave the user guessing what
+    the number is; a stale entry would explain a column that no longer exists.
+    説明の無い列を追加すると利用者は値の意味を推測するしかなくなり、古い項目は
+    もう存在しない列を説明してしまう。
+    """
+    app = tk_app(gui04.App)
+    columns = tuple(app.fiber_tree.cget("columns"))
+    help_entries = gui04.fiber_column_help()
+
+    assert set(help_entries) == set(columns)
+    for column, entry in help_entries.items():
+        assert entry.meaning.strip(), f"{column} has no explanation"
+        assert entry.section.startswith("3."), (
+            f"{column} must point at its docs/gui04_measurements.md §3 subsection"
+        )
+        # A computation is given exactly for the values a formula produces;
+        # a count or a statistic is explained by its meaning alone.
+        # 計算方法は計算式で求める値にだけ付け、数や統計量は意味の説明だけにする。
+        assert bool(entry.method.strip()) == bool(entry.formula.strip()), column
+    for column in ("#", "EP count", "Kink count", "unjudged"):
+        assert not help_entries[column].method, f"{column} is a count, not a formula"
+    for column in ("length (nm)", "straightness", "reliable"):
+        assert help_entries[column].method, f"{column} lost its computation"
+
+    window = gui04.ColumnHelpWindow(app, columns)
+    try:
+        body = window._text.get("1.0", "end")
+        for column in columns:
+            assert column in body, f"{column} is missing from the help window"
+    finally:
+        window.destroy()
+
+
+def test_gui04_fiber_table_headings_fit_their_columns(tk_app):
+    """
+    No fiber-table heading is wider than its column.
+    ファイバー一覧のどの見出しも、その列の幅に収まる。
+
+    A clipped "median (n" reads as a broken widget, and fixed pixel widths
+    clip as soon as display scaling enlarges the heading font.
+    "median (n" のように切れた見出しはウィジェットの不具合に見え、固定の画素幅は
+    表示倍率で見出しのフォントが大きくなるとすぐに切れる。
+    """
+    from tkinter import font as tkfont
+
+    app = tk_app(gui04.App)
+    tree = app.fiber_tree
+    font_name = gui04.ttk.Style(tree).lookup("Treeview.Heading", "font")
+    heading_font = tkfont.nametofont(font_name or "TkHeadingFont")
+    # On Windows at 133 % scaling a heading was visibly clipped with 8 px to
+    # spare and drawn whole with 12 px (the 3 px padding on each side plus
+    # the border and separator).
+    # Windows の 133 % 表示では、余り 8 px の見出しは目に見えて切れ、12 px（左右
+    # 3 px のパディングと枠・区切り線）なら全体が描かれた。
+    for column in tree.cget("columns"):
+        text_width = heading_font.measure(str(tree.heading(column, "text")))
+        assert tree.column(column, "width") >= text_width + 12, column
+
+
 def test_gui04_fiber_table_reports_width_reliability_and_unjudged(tk_app, tmp_path):
     """
     The table says at what scale each fiber was judged and how much of it was

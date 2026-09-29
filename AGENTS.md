@@ -486,7 +486,8 @@ GUI plugins, such as:
 - ttk theme setup via `setup_ttk_theme`
 - Matplotlib defaults via `setup_matplotlib_style` and `PLOT_FS_DEFAULTS`
 - plot export via `save_figure_with_dialog`
-- tooltip behavior via `ToolTip`
+- tooltip behavior via `ToolTip`, and per-column tooltips on Treeview headings
+  via `HeadingToolTip`
 - log saving via `save_text_widget_log`
 - mouse-wheel scrolling of a canvas via `bind_mousewheel_scroll`
 - an embedded Matplotlib pan/zoom toolbar via `build_pan_zoom_toolbar`

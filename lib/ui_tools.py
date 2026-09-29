@@ -1353,6 +1353,110 @@ class ToolTip:
             self.tooltip = None  # 変数をリセットして「非表示状態」に戻す
 
 
+class HeadingToolTip(ToolTip):
+    """
+    Show a per-column tooltip while the mouse is over a Treeview heading.
+    Treeview の列見出しにマウスを乗せている間、列ごとの説明をポップアップ表示する。
+
+    Attributes
+    ----------
+    texts
+        Tooltip text per column identifier; a column without an entry shows
+        nothing.
+        列識別子ごとの説明文。登録の無い列では何も表示しない。
+
+    Notes
+    -----
+    Treeview headings are not widgets, so `ToolTip`'s ``<Enter>`` binding
+    cannot tell one heading from another. This class follows ``<Motion>``
+    instead and asks the tree which heading is under the pointer; placement
+    and screen-edge handling are inherited from `ToolTip`. Bindings are added
+    with ``add="+"`` so the tree's existing handlers keep running.
+    Treeview の見出しはウィジェットではないため、`ToolTip` の ``<Enter>`` では
+    見出しを区別できない。本クラスは ``<Motion>`` を追い、ポインタ下の見出しを
+    Treeview に問い合わせる。配置と画面端の処理は `ToolTip` から継承する。既存の
+    ハンドラを残すため、バインドは ``add="+"`` で追加する。
+
+    Examples
+    --------
+        HeadingToolTip(tree, {"length (nm)": "輪郭長"})
+    """
+
+    def __init__(self, tree: ttk.Treeview, texts: dict) -> None:
+        """
+        Attach heading tooltips to a Treeview.
+        Treeview に見出し用ツールチップを付与する。
+
+        Parameters
+        ----------
+        tree
+            Treeview whose headings receive tooltips.
+            見出しにツールチップを付ける Treeview。
+        texts
+            Mapping from column identifier to tooltip text.
+            列識別子から説明文への対応。
+        """
+        # ToolTip.__init__ is not called: its <Enter>/<Leave> bindings would
+        # show one text for the whole tree.
+        self.widget = tree
+        self.text = ""
+        self.tooltip = None
+        self.texts = dict(texts)
+        self._column = None
+        tree.bind("<Motion>", self._on_motion, add="+")
+        tree.bind("<Leave>", self._on_leave, add="+")
+
+    def _heading_column(self, event):
+        """
+        Return the column identifier of the heading under the pointer.
+        ポインタ下にある見出しの列識別子を返す。
+
+        Returns ``None`` when the pointer is not on a heading.
+        ポインタが見出し上に無ければ ``None`` を返す。
+        """
+        tree = self.widget
+        if tree.identify_region(event.x, event.y) != "heading":
+            return None
+        # identify_column returns "#N" counted over the displayed columns,
+        # 1-based, with "#0" being the tree column.
+        position = tree.identify_column(event.x)
+        try:
+            index = int(position.lstrip("#")) - 1
+        except ValueError:
+            return None
+        displayed = tuple(tree.cget("displaycolumns"))
+        if not displayed or displayed[0] == "#all":
+            displayed = tuple(tree.cget("columns"))
+        if 0 <= index < len(displayed):
+            return displayed[index]
+        return None
+
+    def _on_motion(self, event) -> None:
+        """
+        Show, switch, or hide the tooltip as the pointer moves.
+        ポインタの移動に応じてツールチップを表示・切替・非表示にする。
+        """
+        column = self._heading_column(event)
+        # Staying on one heading keeps the popup where it is; re-creating it on
+        # every motion event would make it chase the pointer and flicker.
+        if column == self._column:
+            return
+        self.hide_tooltip(event)
+        self._column = column
+        text = self.texts.get(column) if column is not None else None
+        if text:
+            self.text = text
+            self.show_tooltip(event)
+
+    def _on_leave(self, event) -> None:
+        """
+        Hide the tooltip when the pointer leaves the tree.
+        ポインタが Treeview から出たらツールチップを隠す。
+        """
+        self._column = None
+        self.hide_tooltip(event)
+
+
 def center_window(win, w, h, taskbar_offset=40):
     """
     Center a window on screen with a small upward taskbar offset.

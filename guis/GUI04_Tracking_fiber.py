@@ -49,7 +49,7 @@ import math
 import traceback
 import queue
 import threading
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 # ===== Numerical / scientific libraries =====
 import numpy as np
@@ -58,6 +58,7 @@ import numpy as np
 # ===== GUI libraries =====
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
+from tkinter import font as tkfont
 
 # ===== Plotting libraries =====
 import matplotlib
@@ -69,7 +70,19 @@ from matplotlib.widgets import RectangleSelector
 # ===== Project libraries =====
 # Import the lib modules that provide the AFM image-processing core.
 # lib/ フォルダ内の各モジュールをインポートする。これらが AFM 画像処理の本体。
-from lib.centerline import DEFAULT_CENTERLINE_METHOD, FALLBACK_WIDTH_PX, SKELETON_TRACK
+from lib.centerline import (
+    DEFAULT_CENTERLINE_METHOD, FALLBACK_WIDTH_PX, SKELETON_PIXEL_LINE,
+    SKELETON_TRACK,
+)
+# The column explanations (`fiber_column_help`) quote these private constants
+# so the numbers they state are the ones the computation uses.
+# 列の説明（`fiber_column_help`）はこれらの非公開定数を引用し、述べる数値が計算で
+# 使われる値と一致するようにする。
+from lib.centerline import (
+    _JUNCTION_WIDTHS as _CENTERLINE_JUNCTION_WIDTHS,
+    _MIN_CREST_AMPLITUDE_FRAC as _CENTERLINE_MIN_AMPLITUDE_FRAC,
+)
+from lib.imp_tools import _CHAIN_STEP_DIAGONAL, _CHAIN_STEP_ORTHOGONAL
 from lib.fiber_tracking_image import FiberTrackingImage
 from lib.fiber import Fiber, skeleton_track
 from lib.fiber_connector import (
@@ -87,15 +100,18 @@ from lib.fiber_selection import (
     EXCLUSION_SUFFIX, constituent_anchors, exclusion_path_for, excluded_flags,
     fiber_anchor, load_exclusions, save_exclusions,
 )
+from lib.kink_detector import END_MARGIN_WIDTHS
 from lib.measure import (
+    CUT_END_EXCLUSION_WIDTHS,
     DEFAULT_CURVATURE_WINDOW_NM, TRACKING_BUNDLE_KEYS, compute_fiber_stats,
     curate_fibers, fiber_kink_density, fiber_mean_curvature,
     height_sample_mask, isolated_fiber_flags, measure_bundle,
     read_scan_size_from_bundle, write_fiber_csv,
 )
-from lib.translator import _
+from lib.translator import _, current_language
 from lib.ui_tools import (
     apply_window_size, setup_matplotlib_style, save_figure_with_dialog, ToolTip,
+    HeadingToolTip,
     setup_ttk_theme, rewrite_entries, mark_entry_state, replace_log_tail,
     save_text_widget_log, create_scrolled_text, create_scrolled_treeview,
     drain_ui_queue, extent_scales_xy_and_unit,
@@ -362,6 +378,289 @@ def exclusion_state_key(records: Sequence[dict]) -> tuple:
         (int(r["x"]), int(r["y"]), str(r.get("note", "")))
         for r in records
     ))
+
+
+class ColumnHelp(NamedTuple):
+    """
+    Explanation of one fiber-table column shown inside GUI04.
+    GUI04 内に表示する、ファイバー一覧の 1 列の説明。
+
+    Attributes
+    ----------
+    meaning
+        What the value is, with its unit.
+        値が何を表すか（単位を含む）。
+    method
+        How the value is computed, or an empty string for a column that has
+        no formula (a row position, a count, or a summary statistic).
+        値の計算方法。計算式を持たない列（行位置・数・要約統計量）では空文字列。
+    formula
+        The computation as a formula, or an empty string. Fixed notation,
+        not translated.
+        計算を式で表したもの。無ければ空文字列。表記は固定で翻訳しない。
+    blank
+        When the cell is left blank, or an empty string if it never is.
+        セルが空欄になる条件。空欄にならない列では空文字列。
+    section
+        Subsection of ``docs/gui04_measurements.md`` that explains the
+        computation with its code.
+        計算方法をコード付きで説明している ``docs/gui04_measurements.md`` の小節。
+    """
+
+    meaning: str
+    method: str
+    formula: str
+    blank: str
+    section: str
+
+
+def fiber_column_help() -> Dict[str, ColumnHelp]:
+    """
+    Return the in-GUI explanation of every fiber-table column.
+    ファイバー一覧の各列について、GUI 内に表示する説明を返す。
+
+    Returns
+    -------
+    dict of str to ColumnHelp
+        Explanation keyed by the column identifier `App._build_fiber_table`
+        uses; the heading tooltips and `ColumnHelpWindow` both read it.
+        `App._build_fiber_table` の列識別子をキーとする説明。見出しのツール
+        チップと `ColumnHelpWindow` の両方がこれを読む。
+
+    Notes
+    -----
+    Each entry says what a value is and when the cell is blank, in plain
+    words. Only a value computed by a formula also carries its computation;
+    a count, a row position, or a summary statistic is described in its
+    meaning alone. ``docs/gui04_measurements.md`` §3 carries the full
+    derivation with the code it quotes. Every number in the text is read from
+    the constant the computation uses, so changing a constant changes the
+    explanation with it. Built on call rather than at import so every string
+    goes through the active translation.
+    各項目は、値が何か・いつ空欄になるかを平易に述べる。計算式で求める値だけに
+    計算方法を添え、数・行位置・要約統計量は意味の説明だけにする。導出の全体は
+    コードを引用した ``docs/gui04_measurements.md`` §3 にある。本文中の数値は
+    すべて計算が使う定数から読むため、定数を変えれば説明も一緒に変わる。すべての
+    文字列が有効な翻訳を通るよう、import 時ではなく呼び出し時に組み立てる。
+    """
+    um = UNIT_MICROMETER
+    window = f"{DEFAULT_CURVATURE_WINDOW_NM:g}"
+    half_window = f"{DEFAULT_CURVATURE_WINDOW_NM / 2:g}"
+    quarter_window = f"{DEFAULT_CURVATURE_WINDOW_NM / 4:g}"
+    margin = f"{END_MARGIN_WIDTHS:g}"
+    # Symbols shared by the formulas: L contour length, p_x / p_y pixel sizes.
+    # 式で共通の記号: L は輪郭長、p_x / p_y は画素サイズ。
+    return {
+        "#": ColumnHelp(
+            _("いま表示している一覧での行番号です。連結を切り替えたり高さフィルターを"
+              "掛けたりすると振り直されるので、ファイバーを固定で指す番号ではありません。"),
+            "", "", "", "3.1"),
+        "length (nm)": ColumnHelp(
+            _("ファイバーに沿って測った長さ（輪郭長, nm）です。連結したファイバーでは、"
+              "すき間をつなぐ直線部分も長さに含めます。"),
+            _("中心線の隣り合う点どうしの距離を、X・Y それぞれの画素サイズで nm に直して"
+              "足し合わせます（下の式）。ただし、中心線が画素を 1 つずつたどった列の場合"
+              "（形式 1.0 のバンドルのスケルトントラックと {pixels} 方式）は、式の値を"
+              "そのまま使わず、縦・横の 1 歩を {orthogonal:g} 画素、斜めの 1 歩を "
+              "{diagonal:g} 画素として数えます。画素の列は本来のなめらかな線のまわりを"
+              "階段状にたどるので、1 歩ごとの距離（縦・横は 1 画素、斜めは √2 画素）を"
+              "そのまま足すと、長さが最大で約 8 %、向きをならしても約 5.5 % 長く出て"
+              "しまうためです。この重みはその伸びを平均的に打ち消します。小数の座標で"
+              "置いた中心線には階段が無いので、式の値をそのまま使います。").format(
+                  pixels=SKELETON_PIXEL_LINE,
+                  orthogonal=_CHAIN_STEP_ORTHOGONAL,
+                  diagonal=_CHAIN_STEP_DIAGONAL),
+            "L = Σ √((Δx·p_x)² + (Δy·p_y)²)",
+            "", "3.2"),
+        "median (nm)": ColumnHelp(
+            _("ファイバーの高さの中央値 (nm) です。高さには、中心線の各点で断面の"
+              "いちばん高い所（頂点）の値を使います。連結でつないだ部分（測った値ではなく"
+              "補間した値）と、交差で切れた端から {w:g} W 以内（交差した相手のファイバー"
+              "のすそが重なる範囲）は除きます。").format(w=CUT_END_EXCLUSION_WIDTHS),
+            "", "", "", "3.3, 3.4"),
+        "max (nm)": ColumnHelp(
+            _("ファイバーの高さの最大値 (nm) です。{median} と同じ高さの値から求めます。"
+              "ノイズや付着したごみが 1 点あるだけでも、大きく変わることがあります。").format(
+                  median="median"),
+            "", "", "", "3.3, 3.4"),
+        "p90 (nm)": ColumnHelp(
+            _("ファイバーの高い部分の目安になる高さ (nm) です。{median} と同じ高さの値を"
+              "低い順に並べたとき、下から 90 % の位置にある値で、いちばん高い 1 割を除いた"
+              "残りの最大値にあたります。{max} と違って、ノイズが 1 点あっても大きくは"
+              "変わりません。").format(median="median", max="max"),
+            "", "", _("高さの値が 1 つも無いとき。"), "3.3, 3.4"),
+        "straightness": ColumnHelp(
+            _("ファイバーのまっすぐさです。1.0 なら直線で、曲がっているほど 0 に近づきます。"
+              "交差で切れたファイバーでは、追跡できた部分についての値です。"),
+            _("中心線の始点から終点までの直線距離を、輪郭長 L で割ります。中心線が画素の列"
+              "の場合（形式 1.0 のバンドルのスケルトントラックと {pixels} 方式）は、両端を"
+              "結ぶ直線も画素の列に置き換え、輪郭長と同じ重みで長さを測ってから割ります。"
+              "分子と分母を同じ方法で測ることで、まっすぐなファイバーがちょうど 1.0 に"
+              "なります。").format(pixels=SKELETON_PIXEL_LINE),
+            "straightness = √((Δx·p_x)² + (Δy·p_y)²) / L",
+            _("輪郭長が 0 のとき。"), "3.5"),
+        "curvature (rad/" + um + ")": ColumnHelp(
+            _("ファイバーの曲がり具合を、ファイバー全体で平均した値 ({unit}) です。値が"
+              "大きいほど強く曲がっています。").format(unit="rad/" + um),
+            _("中心線の各点 i について、中心線に沿って {half} nm 手前の点 j と {half} nm "
+              "先の点 k を取り、線分 j→i と線分 i→k の向きの差（角度の大きさ）を求めます。"
+              "この角度を、2 本の線分にまたがる長さの半分で割ったものが点 i の曲率です。"
+              "半分で割るのは、線分の向きはその線分の中点での向きに等しく、2 本の線分の"
+              "中点どうしは全体の半分しか離れていないためです。これを全部の点で平均します。"
+              "始点から {half} nm 以内の点は、手前側に {quarter} nm 以上あれば、短い線分で"
+              "測ります。").format(half=half_window, quarter=quarter_window),
+            "κ_i = |φ(i→k) − φ(j→i)| / ((s_k − s_j) / 2) × 1000   [rad/µm]",
+            _("ファイバーが {window} nm より短いとき。曲率 0（まっすぐ）と誤解されない"
+              "よう、0 ではなく空欄にします。").format(window=window),
+            "3.6"),
+        "EP count": ColumnHelp(
+            _("ファイバーの端のうち、交差で切れたのではなくファイバー自体がそこで終わって"
+              "いる端（スケルトンの端点）の数です。"
+              "両端とも自由なら 2、片方の端が他のファイバーとの交差で切れていれば 1、両端"
+              "とも交差で切れた断片なら 0 になります。画像の縁で終わる端も数えます。"),
+            "", "", "", "3.7"),
+        "Kink count": ColumnHelp(
+            _("キンク（鋭い折れ曲がり）と判定した箇所の数です。中心線の端から {margin} W "
+              "以内の折れは判定しないので、ここには数えず {unjudged} 列に数えます。判定の"
+              "仕組みは {doc} の §4.3 で説明しています。").format(
+                  margin=margin, unjudged="unjudged",
+                  doc=localized_doc_path("algorithms")),
+            "", "", "", "3.8"),
+        "kink density (1/" + um + ")": ColumnHelp(
+            _("長さ 1 µm あたりのキンクの数 ({unit}) です。キンクが 1 つも無いファイバー"
+              "は 0 になります。これは判定したうえで見つからなかったという意味の 0 です。").format(
+                  unit="1/" + um),
+            _("キンク数を、判定の対象になった長さで割ります。キンクは中心線の両端 {margin} W "
+              "ずつでは判定しないので、輪郭長からその分を除いた長さを使います。輪郭長全体で"
+              "割ると、短いファイバーほど密度が低めに出てしまうためです。形式 1.0 のバンドル"
+              "（W が無い）では、輪郭長全体で割ります。").format(margin=margin),
+            "density = N_kink / ((L − 2 × " + margin + " W) / 1000)",
+            _("ファイバーが {length} W より短く、判定の対象になる長さが残らないとき。").format(
+                length=f"{2 * END_MARGIN_WIDTHS:g}"),
+            "3.9"),
+        "unjudged": ColumnHelp(
+            _("中心線の端から {margin} W 以内にあるため、キンクかどうかを判定しなかった折れ"
+              "の数です。端の近くでは片側の腕が短く、また端の多くは交差で切れた所なので、"
+              "判定しません。灰色の白抜きの円で表示し、{kinks} にもキンク密度にも数え"
+              "ません。").format(margin=margin, kinks="Kink count"),
+            "", "", "", "3.8"),
+        "W (nm)": ColumnHelp(
+            _("ファイバーの見かけの幅 W (nm) です。高さの断面で、まわりの基準面と頂点の"
+              "ちょうど中間の高さでの幅（半値全幅）を測り、ファイバー全体での中央値を"
+              "取ったものです。キンクの判定などで、長さの物差しとして使います。探針の太さに"
+              "よる広がりを含むので、ファイバーの実際の太さではありません。X の画素サイズで"
+              "nm に直しているため、X と Y の画素サイズが違う画像では、Y 方向に伸びる"
+              "ファイバーでだけ正確です。"),
+            "", "",
+            _("幅を測れずに代わりの値を使ったとき、または形式 1.0 のバンドルのとき。"),
+            "3.10"),
+        "reliable": ColumnHelp(
+            _("中心線のうち、このファイバー自身の高さの断面から位置を決められた点の割合"
+              "（0〜1）です。値が低いほど、中心線の多くが前後の点を直線でつないだだけの"
+              "部分で、そこではキンクも曲率も検出できません。"),
+            _("中心線の各点のうち、次の条件をすべて満たす点を数え、全体の点の数で割ります。"
+              "高さの断面からこのファイバー 1 本の位置を決められること、断面の高さの振れ幅が"
+              "典型的な値の {amp:g} 倍以上あること、分岐点から {junction:g} W より離れて"
+              "いること。連結でつないだ部分の点は、条件を満たす点に含めません。").format(
+                  amp=_CENTERLINE_MIN_AMPLITUDE_FRAC,
+                  junction=_CENTERLINE_JUNCTION_WIDTHS),
+            "reliable = N_reliable / N_points",
+            _("形式 1.0 のバンドルのとき。"), "3.11"),
+    }
+
+
+def localized_doc_path(stem: str) -> str:
+    """
+    Return the repository path of a document in the UI language.
+    UI の言語に合った文書のリポジトリ内パスを返す。
+
+    Parameters
+    ----------
+    stem
+        Document name under ``docs/`` without the language suffix, such as
+        ``"algorithms"``.
+        言語接尾辞を除いた ``docs/`` 以下の文書名（例: ``"algorithms"``）。
+
+    Returns
+    -------
+    str
+        ``docs/<stem>.ja.md`` for the Japanese UI, ``docs/<stem>.md``
+        otherwise; both versions share one section numbering.
+        日本語 UI では ``docs/<stem>.ja.md``、それ以外では ``docs/<stem>.md``。
+        両版は節番号を共有する。
+    """
+    if current_language() == "Japanese":
+        return f"docs/{stem}.ja.md"
+    return f"docs/{stem}.md"
+
+
+def fit_columns_to_headings(tree: ttk.Treeview, margin_px: int = 8) -> None:
+    """
+    Widen each Treeview column so its whole heading text fits.
+    各 Treeview 列を、見出しの文字列全体が収まる幅まで広げる。
+
+    Parameters
+    ----------
+    tree
+        Treeview whose columns are widened; a column already wide enough is
+        left unchanged.
+        列を広げる Treeview。すでに十分な幅の列は変更しない。
+    margin_px
+        Extra pixels beyond the heading's own padding, for its border and
+        separator.
+        見出し自身のパディングに加える余白 (px)。枠と区切り線の分。
+
+    Notes
+    -----
+    Fixed pixel widths clip a heading once the display scaling enlarges the
+    heading font (at 133 % "median (nm)" needs 67 px of text in a 70 px
+    column), so the width is measured in the font the heading is drawn with.
+    The width is also set as the column's minimum so the user cannot drag a
+    heading narrower than its text.
+    固定の画素幅は、表示倍率で見出しのフォントが大きくなると見出しを切り詰める
+    （133 % では "median (nm)" の文字列が 70 px の列に 67 px を要する）。そのため、
+    見出しを描くフォントで幅を測る。その幅を列の最小幅にも設定し、ドラッグで見出し
+    より狭くできないようにする。
+    """
+    style = ttk.Style(tree)
+    font_name = style.lookup("Treeview.Heading", "font") or "TkHeadingFont"
+    try:
+        heading_font = tkfont.nametofont(font_name)
+    except tk.TclError:
+        heading_font = tkfont.Font(root=tree, font=font_name)
+    # ttk reports the padding as a tuple such as (3,) or as a space-separated
+    # string, depending on the theme.
+    padding = style.lookup("Treeview.Heading", "padding")
+    items = (padding if isinstance(padding, (tuple, list))
+             else str(padding).split())
+    try:
+        pads = [int(float(str(p))) for p in items] or [0]
+    except ValueError:
+        pads = [0]
+    # Tk padding lists read left, top, right, bottom, with missing sides
+    # repeating the ones given; only the horizontal pair matters here.
+    horizontal = pads[0] + (pads[2] if len(pads) > 2 else pads[0])
+    for column in tree.cget("columns"):
+        text = str(tree.heading(column, "text"))
+        needed = heading_font.measure(text) + horizontal + margin_px
+        if tree.column(column, "width") < needed:
+            tree.column(column, width=needed)
+        tree.column(column, minwidth=needed)
+
+
+def column_help_tooltip(help_entry: ColumnHelp) -> str:
+    """
+    Format one column's explanation for its heading tooltip.
+    1 列の説明を、見出しのツールチップ用に整形する。
+    """
+    parts = [help_entry.meaning]
+    if help_entry.method:
+        parts.append(_("計算方法: {method}").format(method=help_entry.method))
+    if help_entry.formula:
+        parts.append(help_entry.formula)
+    if help_entry.blank:
+        parts.append(_("空欄になる場合: {reason}").format(reason=help_entry.blank))
+    return "\n".join(parts)
 
 
 # ===== Main window =====
@@ -1184,6 +1483,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         tbl_header.pack(side="top", fill="x", padx=2, pady=(2, 0))
         ttk.Label(tbl_header, text=_("ファイバー一覧"), font=("", 9, "bold")).pack(side="left", padx=4)
         ttk.Button(tbl_header, text=_("CSVで保存"), command=self._export_csv).pack(side="left", padx=4)
+        btn_column_help = ttk.Button(tbl_header, text=_("計測値の説明"),
+                                     command=self._show_column_help)
+        btn_column_help.pack(side="left", padx=4)
+        ToolTip(btn_column_help, _(
+            "ファイバー一覧の各計測値が何を表すか、どう計算するか、空欄になるのはどんな"
+            "ときかを一覧で表示します。列見出しにマウスを乗せても、その値の説明が表示"
+            "されます。"
+        ))
 
         # Stop the table's own width request from reaching the paned window.
         # A Treeview asks for the sum of its column widths, which for this many
@@ -1200,6 +1507,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         tbl_frame.pack(fill="both", expand=True, padx=2, pady=2)
         tbl_frame.pack_propagate(False)
         self._build_fiber_table(tbl_frame)
+        fit_columns_to_headings(self.fiber_tree)
+        HeadingToolTip(self.fiber_tree, {
+            column: column_help_tooltip(entry)
+            for column, entry in fiber_column_help().items()
+        })
 
         # -- Right side: AFM overview above log --
         right_outer = ttk.Frame(horiz)
@@ -3334,6 +3646,21 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             messagebox.showinfo(_("情報"), _("除外されたファイバーはありません。"))
             return
         ExclusionWindow(self)
+
+    def _show_column_help(self) -> None:
+        """
+        Open the fiber-table column explanations, or raise them if open.
+        ファイバー一覧の計測値の説明を開く。開いていれば前面に出す。
+        """
+        window = getattr(self, "_column_help_window", None)
+        if window is not None and window.winfo_exists():
+            window.deiconify()
+            window.lift()
+            window.focus_set()
+            return
+        self._column_help_window = ColumnHelpWindow(
+            self, tuple(self.fiber_tree.cget("columns")),
+        )
 
     def _on_region_select(self) -> None:
         """
@@ -7171,6 +7498,99 @@ class ExclusionWindow(tk.Toplevel):
         self._app._log(_("除外をすべて解除しました: {n} 件").format(n=count))
         self._app._commit_exclusions()
         self._reload()
+
+
+# ===== Dialog: fiber-table column explanations =====
+
+class ColumnHelpWindow(tk.Toplevel):
+    """
+    Non-modal window explaining every column of the fiber table.
+    ファイバー一覧の全列を説明する非モーダルウインドウ。
+
+    Notes
+    -----
+    The text comes from `fiber_column_help`, the same source as the heading
+    tooltips, so the two cannot disagree. Columns are listed in the order the
+    table shows them.
+    本文は見出しのツールチップと同じ `fiber_column_help` から取るため、両者が
+    食い違うことはない。列は一覧の表示順に並べる。
+    """
+
+    def __init__(self, parent: "App", columns: Sequence[str]) -> None:
+        """
+        Build the explanation window for the given table columns.
+        指定した一覧の列について説明ウインドウを構築する。
+
+        Parameters
+        ----------
+        parent
+            Main application window.
+            メインアプリケーションウインドウ。
+        columns
+            Column identifiers of the fiber table, in display order.
+            ファイバー一覧の列識別子（表示順）。
+        """
+        super().__init__(parent)
+        self.title(_("ファイバー一覧の計測値の説明"))
+        setup_ttk_theme(self)
+        apply_window_size(self, 640, 620, min_w=420, min_h=320)
+
+        ttk.Label(self, text=_(
+            "列見出しにマウスを乗せても、その値の説明が表示されます。"
+        ), wraplength=600).pack(anchor="w", padx=8, pady=(8, 4))
+
+        doc = localized_doc_path("gui04_measurements")
+        btn_row = ttk.Frame(self)
+        btn_row.pack(side="bottom", fill="x", padx=8, pady=(0, 8))
+        ttk.Label(btn_row, text=_(
+            "計算方法とそのコードは、リポジトリの {doc} の各節（§）で説明しています。"
+        ).format(doc=doc), wraplength=520).pack(side="left", anchor="w")
+        ttk.Button(btn_row, text=_("閉じる"),
+                   command=self.destroy).pack(side="right")
+
+        text_frame = ttk.Frame(self)
+        text_frame.pack(fill="both", expand=True, padx=8, pady=(0, 6))
+        # Japanese and Chinese have no spaces between words, so "word"
+        # wrapping would push a whole sentence to the next line before
+        # breaking it.
+        wrap = "word" if current_language() == "English" else "char"
+        text, _vsb = create_scrolled_text(
+            text_frame, wrap=wrap, font=("", 10), padx=8, pady=6,
+            relief="flat", borderwidth=0,
+        )
+        text.tag_configure("name", font=("", 10, "bold"),
+                           spacing1=8, spacing3=2)
+        text.tag_configure("section", foreground="#666666")
+        # The computation is indented by one character so it reads as part
+        # of the column above it rather than as the next column.
+        indent = tkfont.Font(root=self, font=("", 10)).measure(
+            "M" if current_language() == "English" else "あ")
+        text.tag_configure("label", font=("", 10, "bold"), spacing1=3,
+                           lmargin1=indent, lmargin2=indent)
+        text.tag_configure("method", lmargin1=indent, lmargin2=indent)
+        text.tag_configure("formula", font=("Consolas", 10),
+                           lmargin1=2 * indent, lmargin2=2 * indent,
+                           spacing1=2, spacing3=2)
+        text.tag_configure("blank", foreground="#555555", spacing1=3)
+
+        help_entries = fiber_column_help()
+        for column in columns:
+            entry = help_entries.get(column)
+            if entry is None:
+                continue
+            text.insert("end", column, "name")
+            text.insert("end", f"    §{entry.section}\n", ("name", "section"))
+            text.insert("end", entry.meaning + "\n")
+            if entry.method:
+                text.insert("end", _("計算方法") + "\n", "label")
+                text.insert("end", entry.method + "\n", "method")
+            if entry.formula:
+                text.insert("end", entry.formula + "\n", "formula")
+            if entry.blank:
+                text.insert("end", _("空欄になる場合: {reason}").format(
+                    reason=entry.blank) + "\n", "blank")
+        text.configure(state="disabled")
+        self._text = text
 
 
 # ===== Entry point =====
