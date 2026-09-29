@@ -696,7 +696,7 @@ by `cli.py measure`, so a value checked here is the value those report.
 | Column | Source | Blank when |
 |---|---|---|
 | `#` | Row position in the displayed list | — |
-| `length (nm)` | `Fiber.length` | — |
+| `length (nm)` | `Fiber.length`, prefixed `≥` when it is a lower bound (§3.2) | — |
 | `median (nm)` | `FiberStats.height_median_nm` | — |
 | `max (nm)` | `FiberStats.height_max_nm` | — |
 | `p90 (nm)` | `FiberStats.height_p90_nm` | no height samples |
@@ -716,12 +716,16 @@ The table is filled like this:
 x_spp = self.current_image.size_per_pixel
 y_spp = self.current_image.y_size_per_pixel
 fresh = _table_values(
-    compute_fiber_stats(fibers, x_spp, y_spp), fibers, x_spp, y_spp,
+    compute_fiber_stats(
+        fibers, x_spp, y_spp,
+        frame_shape=np.shape(self.current_image.calibrated_image),
+    ),
+    fibers, x_spp, y_spp,
 )
 ...
 self.fiber_tree.insert("", "end", iid=str(i), values=(
     i,
-    f"{f.length:.0f}",
+    ("≥ " if lower_bound else "") + f"{f.length:.0f}",
     f"{med:.2f}",
     f"{mx:.2f}",
     blank_if_nan(p90, "{0:.2f}"),
@@ -746,7 +750,8 @@ return [
      ),
      fiber_kink_density(s),
      s.height_p90_nm, s.width_nm, s.width_measured,
-     s.line_reliable_fraction, s.unjudged_count)
+     s.line_reliable_fraction, s.unjudged_count,
+     length_is_lower_bound(s))
     for s, f in zip(stats, fibers)
 ]
 ```
@@ -767,6 +772,66 @@ stable identity: exclusions and connections are stored as skeleton pixels
 `Fiber.length`, the contour length along the fiber's centerline (§2.7), rounded to
 the nanometer. For a connected fibril it includes the straight bridges across
 each gap (§5.2).
+
+A `≥` in front of the value marks a length that is only a lower bound, because
+the fiber continues past what was measured:
+
+```python
+# source: guis/GUI04_Tracking_fiber.py::length_is_lower_bound
+return bool(stat.touches_frame) or bool(stat.cut_end_count)
+```
+
+The two conditions are recorded by `compute_fiber_stats` from the image shape
+and the fiber's endpoints:
+
+```python
+# source: lib/measure.py::compute_fiber_stats
+touches_frame=(None if frame_shape is None
+               else _reaches_frame(f, frame_shape)),
+cut_end_count=_cut_end_count(f),
+```
+
+- **The frame.** The fiber's skeleton track reaches the outermost row or column
+  of the analysis array, so the fiber runs on outside the scan. The test has no
+  margin: on two real scans the number of fibers it caught was the same for
+  margins of 0 to 5 px.
+
+  ```python
+  # source: lib/measure.py::_reaches_frame
+  if frame is None:
+      return False
+  height, width = frame
+  sx, sy = skeleton_track(fiber)
+  gx = sx + fiber.data[0]
+  gy = sy + fiber.data[1]
+  if gx.size == 0:
+      return False
+  return bool(
+      gx.min() <= 0 or gy.min() <= 0
+      or gx.max() >= width - 1 or gy.max() >= height - 1
+  )
+  ```
+
+- **A cut end.** An end of the centerline whose point is not in `ep_indices`,
+  the same definition the height statistics use for a cut end (§3.3): the
+  skeleton continued into a crossing there, or the height filter cut the fiber
+  (§5.3). A fiber that reaches the frame ends at a skeleton endpoint there, so
+  the frame is not counted twice.
+
+  ```python
+  # source: lib/measure.py::_cut_end_count
+  n = len(fiber.xtrack)
+  if n == 0:
+      return 0
+  ends = set(int(i) for i in np.asarray(fiber.ep_indices).tolist())
+  return len({0, n - 1} - ends)
+  ```
+
+A connected fibril carries a cut end only where its outer fragment ended at a
+crossing (§5.2). The CSV export writes both conditions (`touches_frame`,
+`cut_end_count`), and GUI03 can leave the fibers that reach the frame out of its
+length statistics, optionally weighting the rest by the Miles-Lantuéjoul
+correction (`FiberStats.frame_weight`).
 
 ### 3.3 Which height samples count
 

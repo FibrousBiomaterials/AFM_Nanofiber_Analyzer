@@ -861,6 +861,12 @@ def test_gui04_fiber_table_shows_straightness_and_curvature(tk_app, tmp_path):
     assert 0.5 < straight <= 1.0
     assert straight == pytest.approx(result.stats[0].straightness, abs=5e-4)
 
+    # The recomputed row marks a lower-bound length exactly as the stats do.
+    # 再計算した行は、統計値と同じ基準で下限値の長さに印を付ける。
+    prefix = "≥ " if gui04.length_is_lower_bound(result.stats[0]) else ""
+    assert str(values[cols.index("length (nm)")]) == (
+        prefix + f"{result.fibers[0].length:.0f}")
+
     curvature = values[cols.index(curvature_col[0])]
     assert str(curvature).strip(), "a fiber longer than the window is measurable"
     assert float(curvature) > 0.0
@@ -1076,3 +1082,139 @@ def test_gui04_fiber_table_reports_width_reliability_and_unjudged(tk_app, tmp_pa
     assert float(values[cols.index("p90 (nm)")]) == pytest.approx(
         stat.height_p90_nm, abs=0.006)
     assert int(values[cols.index("unjudged")]) == stat.unjudged_count
+
+
+def _frame_stat(length_nm, touches_frame, cut_end_count, frame_weight):
+    """
+    Build a per-fiber row carrying only what the frame mode reads.
+    枠の扱いが読む項目だけを持つファイバー単位の行を作る。
+    """
+    from lib.measure import FiberStats
+
+    return FiberStats(
+        index=0, length_nm=length_nm, height_median_nm=1.0,
+        height_max_nm=2.0, ep_count=2, kink_count=0, kink_angles_deg=(),
+        touches_frame=touches_frame, cut_end_count=cut_end_count,
+        frame_weight=frame_weight,
+    )
+
+
+def test_gui03_frame_mode_filters_and_weights_contour_length():
+    """
+    The frame mode drops frame-touching fibers and weights the rest.
+    枠の扱いは枠に達したファイバーを外し、残りを重み付けする。
+
+    A source that does not record the frame test is left out whole, because
+    mixing judged and unjudged fibers biases the distribution in a direction
+    nobody can state; a fiber with a cut end is kept and counted.
+    枠の判定を記録していないソースは丸ごと外す。判定済みと未判定のファイバーを
+    混ぜると、向きを誰も言えない偏りが分布に入るためである。切断端を持つ
+    ファイバーは残して本数を数える。
+    """
+    judged = [
+        _frame_stat(100.0, False, 0, 1.0),
+        _frame_stat(500.0, True, 0, float("nan")),
+        _frame_stat(300.0, False, 1, 2.0),
+    ]
+    unrecorded = [_frame_stat(200.0, None, None, float("nan"))]
+    per_source = [("a.b2z", judged), ("old_fibers.csv", unrecorded)]
+
+    kept, report = gui03._apply_frame_mode(per_source, gui03.FRAME_INCLUDE)
+    assert kept is per_source and report is None
+
+    kept, report = gui03._apply_frame_mode(per_source, gui03.FRAME_EXCLUDE)
+    assert [[s.length_nm for s in stats] for _p, stats in kept] == [[100.0, 300.0]]
+    assert report == {"total": 3, "frame": 1, "lower_bound": 1,
+                      "unrecorded": ["old_fibers.csv"]}
+
+    values, weights, n_fibers, n_images = gui03.App._values_from_fiber_stats(
+        kept, gui03.PARAM_LENGTH, gui03.UNIT_FIBER, frame_weighted=True,
+    )
+    assert values == [100.0, 300.0]
+    assert weights == [1.0, 2.0]
+    assert (n_fibers, n_images) == (2, 1)
+
+    # The image unit takes each image's weighted median and stays unweighted.
+    # image 単位は画像ごとの重み付き中央値を取り、重みなしのままにする。
+    values, weights, _n, _m = gui03.App._values_from_fiber_stats(
+        kept, gui03.PARAM_LENGTH, gui03.UNIT_IMAGE, frame_weighted=True,
+    )
+    assert weights is None
+    assert values == [pytest.approx(gui03._summary_stats(
+        np.array([100.0, 300.0]), np.array([1.0, 2.0]))["median"])]
+
+
+def test_gui03_frame_weighted_run_reports_fibers_and_skips_tests(
+        tk_app, tmp_path, monkeypatch):
+    """
+    A Miles-Lantuejoul run counts fibers, not weights, and runs no test.
+    Miles-Lantuejoul の実行は重みではなく本数を数え、検定を行わない。
+
+    The total weight is an estimated fiber count rather than what was
+    observed, and Mann-Whitney U and KS take no weights.
+    重みの合計は観測した本数ではなく推定本数であり、Mann-Whitney U と KS は
+    重みを受け付けない。
+    """
+    app = tk_app(gui03.App)
+    folders = []
+    for name in ("A", "B"):
+        folder = tmp_path / name
+        folder.mkdir()
+        (folder / ("sample" + gui03.BUNDLE_EXT)).write_bytes(b"")
+        folders.append(str(folder))
+
+    seen = {}
+
+    def _collect(paths, param, unit, **kwargs):
+        seen["frame_mode"] = kwargs.get("frame_mode")
+        return [100.0, 200.0, 300.0], [1.0, 1.5, 2.0], 3, 1, []
+
+    monkeypatch.setattr(app, "_collect_bundle_values", _collect)
+    app._worker_run({
+        "groups": [
+            {"id": n, "name": n, "color": "#1f77b4", "folders": [f]}
+            for n, f in zip(("A", "B"), folders)
+        ],
+        "param": gui03.PARAM_LENGTH,
+        "unit": gui03.UNIT_FIBER,
+        "input_mode": gui03.INPUT_BUNDLE,
+        "apply_exclusions": False,
+        "apply_connection": False,
+        "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
+        "frame_mode": gui03.FRAME_MILES_LANTUEJOUL,
+        "plot_type": gui03.PLOT_HISTOGRAM,
+        "min_h": 0.0, "max_h": 3000.0, "step": 100.0,
+        "yaxis_mode": "density", "display_mode": gui03.App.MODE_STACK,
+        "show_height_text": True,
+        "fig_w": 6.0, "fig_h": 3.0,
+        "label_fs": 15.0, "tick_fs": 15.0, "ann_fs": 15.0,
+        "group_name_fs": 15.0,
+    })
+
+    done = None
+    while not app.ui_queue.empty():
+        kind, payload = app.ui_queue.get_nowait()
+        if kind == "done":
+            done = payload
+    assert done is not None
+    assert seen["frame_mode"] == gui03.FRAME_MILES_LANTUEJOUL
+    assert done["comparisons"] == []
+    assert gui03.FRAME_MILES_LANTUEJOUL in done["comparison_note"]
+    r = done["results"][0]
+    assert r["n_samples"] == 3.0
+    assert r["weight_total"] == pytest.approx(4.5)
+    assert r["n_in_range"] == 3.0
+
+
+def test_gui04_marks_a_length_that_is_a_lower_bound():
+    """
+    A length cut by the frame or at a cut end is shown as a lower bound.
+    枠または切断端で切れた長さは下限値として表示される。
+    """
+    assert gui04.length_is_lower_bound(_frame_stat(1.0, True, 0, float("nan")))
+    assert gui04.length_is_lower_bound(_frame_stat(1.0, False, 1, 1.0))
+    assert not gui04.length_is_lower_bound(_frame_stat(1.0, False, 0, 1.0))
+    # Nothing recorded is not evidence of a cut.
+    # 何も記録されていないことは切断の証拠ではない。
+    assert not gui04.length_is_lower_bound(
+        _frame_stat(1.0, None, None, float("nan")))

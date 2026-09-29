@@ -381,6 +381,24 @@ the skeleton track, whose steps are orthogonal or diagonal only, a 20 nm window
 was off by 1.3–5.3 times. Raising the window smooths the estimate but drops
 every fiber shorter than it, so the log reports how many fibers that excluded.
 
+`contour length` has one more setting, "枠のファイバー" (fibers at the frame). A
+fiber that reaches the edge of the scan continues outside it, so its measured
+length is only a lower bound, while its height, curvature and kinks remain valid
+for the part inside; the setting therefore applies to length only. `include`
+(the default) aggregates every fiber; `exclude` leaves out the fibers whose
+skeleton reaches the outermost row or column. Excluding them alone biases the
+distribution toward short fibers, because a long fiber is more likely to reach
+the frame, so `Miles-Lantuejoul` also weights each remaining fiber by the
+inverse of its chance of fitting inside the frame —
+(W − 2)(H − 2) / ((W − 1 − w)(H − 1 − h)) for a W × H pixel image and a w × h
+skeleton bounding box. Weighted samples are not tested between groups, because
+Mann-Whitney U and KS take no weights. The correction covers the frame only: a
+fragment cut at a crossing is still counted as a whole fiber, and the log
+reports how many of the remaining lengths are such lower bounds. A fiber CSV
+exported before the frame columns existed records no frame test, so it is left
+out of the length aggregation under `exclude` and `Miles-Lantuejoul`, and the
+log names it.
+
 A separate aggregation-unit selector decides what counts as one sample:
 `pixel` (one skeleton pixel), `length` (one skeleton pixel weighted by the
 contour length it represents), `kink` (one kink), `fiber` (one fiber, using
@@ -444,7 +462,9 @@ and shown here beside the fiber they describe, because a pooled distribution
 gives no way to tell whether an individual value is right. Select a row and
 the overview highlights that fiber, so a number can be read against the shape
 it came from. The table scrolls horizontally, which keeps every column
-reachable without squeezing the overview.
+reachable without squeezing the overview. A `≥` in front of a length marks a
+lower bound: the fiber reaches the frame, or has an end cut at a crossing or by
+the height filter, so it continues past what was measured.
 
 Heights are the crest of each height cross-section, not the image read at the
 line, and the median, maximum and 90th percentile leave out the last width of

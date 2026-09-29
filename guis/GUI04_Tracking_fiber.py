@@ -302,15 +302,15 @@ def table_row_values(result) -> List[tuple]:
     -------
     list of tuple
         ``(median_nm, max_nm, straightness, curvature, kink_density, p90_nm,
-        width_nm, width_measured, reliable_fraction, unjudged_count)`` per
-        fiber, aligned with ``result.fibers`` by index. The first five keep
-        their positions because `_on_file_loaded` reads the curvature by
-        index.
+        width_nm, width_measured, reliable_fraction, unjudged_count,
+        length_is_lower_bound)`` per fiber, aligned with ``result.fibers`` by
+        index. The first five keep their positions because `_on_file_loaded`
+        reads the curvature by index.
         ファイバーごとの ``(median_nm, max_nm, straightness, curvature,
         kink_density, p90_nm, width_nm, width_measured, reliable_fraction,
-        unjudged_count)``。``result.fibers`` とインデックスで対応する。
-        `_on_file_loaded` が曲率をインデックスで読むため、先頭 5 つの位置は
-        変えない。
+        unjudged_count, length_is_lower_bound)``。``result.fibers`` と
+        インデックスで対応する。`_on_file_loaded` が曲率をインデックスで読むため、
+        先頭 5 つの位置は変えない。
 
     Notes
     -----
@@ -325,6 +325,29 @@ def table_row_values(result) -> List[tuple]:
                          result.image.y_size_per_pixel)
 
 
+def length_is_lower_bound(stat) -> bool:
+    """
+    Report whether a fiber's measured length is only a lower bound.
+    ファイバーの計測長が下限値にすぎないかを返す。
+
+    Parameters
+    ----------
+    stat
+        Per-fiber statistics row from `lib.measure.compute_fiber_stats`.
+        `lib.measure.compute_fiber_stats` が返すファイバー単位の統計行。
+
+    Returns
+    -------
+    bool
+        True when the fiber reaches the frame or has an end that is a cut
+        (a crossing, or a height-filter cut), so it continues past what was
+        measured.
+        枠に達している、または切断である端（交差、または高さフィルターによる
+        切断）を持ち、計測した範囲の先へ続いている場合に True。
+    """
+    return bool(stat.touches_frame) or bool(stat.cut_end_count)
+
+
 def _table_values(stats, fibers, x_spp, y_spp) -> List[tuple]:
     """
     Pair each fiber's statistics row with its curvature, in table order.
@@ -337,7 +360,8 @@ def _table_values(stats, fibers, x_spp, y_spp) -> List[tuple]:
          ),
          fiber_kink_density(s),
          s.height_p90_nm, s.width_nm, s.width_measured,
-         s.line_reliable_fraction, s.unjudged_count)
+         s.line_reliable_fraction, s.unjudged_count,
+         length_is_lower_bound(s))
         for s, f in zip(stats, fibers)
     ]
 
@@ -457,7 +481,9 @@ def fiber_column_help() -> Dict[str, ColumnHelp]:
             "", "", "", "3.1"),
         "length (nm)": ColumnHelp(
             _("ファイバーに沿って測った長さ（輪郭長, nm）です。連結したファイバーでは、"
-              "すき間をつなぐ直線部分も長さに含めます。"),
+              "すき間をつなぐ直線部分も長さに含めます。値の前に「≥」が付いている"
+              "ファイバーは、画像の枠に達しているか、交差や高さフィルターで切れた端を"
+              "持っていて、測った範囲の先へ続いています。その値は本当の長さの下限です。"),
             _("中心線の隣り合う点どうしの距離を、X・Y それぞれの画素サイズで nm に直して"
               "足し合わせます（下の式）。ただし、中心線が画素を 1 つずつたどった列の場合"
               "（形式 1.0 のバンドルのスケルトントラックと {pixels} 方式）は、式の値を"
@@ -2803,17 +2829,26 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             x_spp = self.current_image.size_per_pixel
             y_spp = self.current_image.y_size_per_pixel
             fresh = _table_values(
-                compute_fiber_stats(fibers, x_spp, y_spp), fibers, x_spp, y_spp,
+                compute_fiber_stats(
+                    fibers, x_spp, y_spp,
+                    frame_shape=np.shape(self.current_image.calibrated_image),
+                ),
+                fibers, x_spp, y_spp,
             )
 
         for i, f in enumerate(fibers):
             (med, mx, straight, curv, kink_dens,
-             p90, width_nm, width_measured, reliable, unjudged) = (
+             p90, width_nm, width_measured, reliable, unjudged,
+             lower_bound) = (
                 self._fiber_stats[i] if use_cache else fresh[i]
             )
             self.fiber_tree.insert("", "end", iid=str(i), values=(
                 i,
-                f"{f.length:.0f}",
+                # "≥" marks a length cut short by the frame or at a cut end:
+                # the fiber continues past what was measured.
+                # 「≥」は枠または切断端で切り詰められた長さを示す。ファイバーは
+                # 計測した範囲の先へ続いている。
+                ("≥ " if lower_bound else "") + f"{f.length:.0f}",
                 f"{med:.2f}",
                 f"{mx:.2f}",
                 blank_if_nan(p90, "{0:.2f}"),
@@ -5777,10 +5812,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # 軸別ピクセルサイズを渡し、出力される straightness を埋める。渡さ
             # ないとその列は空になり、キュレーション済み出力から GUI03 が直線度
             # のヒストグラムを作れなくなる。
+            # The image shape fills the frame columns in the same way, which
+            # GUI03 needs to exclude or weight lengths cut by the frame.
+            # 画像形状も同様に枠の列を埋める。GUI03 が枠で切れた長さを除外・
+            # 重み付けするのに必要である。
             write_fiber_csv(path, compute_fiber_stats(
                 fibers,
                 self.current_image.size_per_pixel,
                 self.current_image.y_size_per_pixel,
+                frame_shape=np.shape(self.current_image.calibrated_image),
             ))
 
         save_csv_with_dialog(

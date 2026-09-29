@@ -285,6 +285,85 @@ PARAM_ORDER = (
     PARAM_KINK_ANGLE, PARAM_KINK_DENSITY,
 )
 
+# How contour length treats fibers that reach the image frame. A fiber cut by
+# the frame is measured short, while its height, curvature and kinks are still
+# valid measurements of the part inside, so this applies to length only.
+# Excluding them removes the truncated lengths but, since a long fiber is more
+# likely to reach the frame, under-represents long fibers; the
+# Miles-Lantuejoul weight (`FiberStats.frame_weight`) corrects that. Internal
+# state keys shown verbatim, like the quantity and unit keys.
+# 画像の枠に達したファイバーを輪郭長でどう扱うか。枠で切れたファイバーの長さは
+# 短く測られるが、高さ・曲率・キンクは枠内の部分の測定として有効なままなので、
+# これは長さにだけ適用する。除外すれば切り詰められた長さは消えるが、長いファイ
+# バーほど枠に達しやすいため長いファイバーが過小になる。Miles-Lantuejoul 重み
+# （`FiberStats.frame_weight`）がそれを補正する。計測量・集計単位のキーと同じく、
+# そのまま表示する内部状態キー。
+FRAME_INCLUDE = "include"
+FRAME_EXCLUDE = "exclude"
+FRAME_MILES_LANTUEJOUL = "Miles-Lantuejoul"
+
+FRAME_MODES = (FRAME_INCLUDE, FRAME_EXCLUDE, FRAME_MILES_LANTUEJOUL)
+
+
+def _apply_frame_mode(per_source, frame_mode: str) -> tuple:
+    """
+    Drop the fibers that reach the frame, as the frame mode asks.
+    枠の扱いの指定に従い、枠に達したファイバーを外す。
+
+    Parameters
+    ----------
+    per_source
+        ``(source_path, stats)`` pairs, one per bundle or per CSV file.
+        ``(ソースパス, 統計値リスト)`` のペア。バンドルまたは CSV 1 件ごと。
+    frame_mode
+        One of `FRAME_MODES`.
+        `FRAME_MODES` のいずれか。
+
+    Returns
+    -------
+    tuple
+        ``(kept, report)``. `kept` has the same shape as `per_source`, less
+        the fibers that reach the frame and less every source that does not
+        record the frame test. `report` is None for `FRAME_INCLUDE`, otherwise
+        a dict with ``total`` and ``frame`` (fibers judged and excluded),
+        ``lower_bound`` (kept fibers with a cut end) and ``unrecorded`` (the
+        sources left out).
+        ``(kept, report)``。`kept` は `per_source` と同じ形で、枠に達した
+        ファイバーと、枠の判定を記録していないソースを除いたもの。`report` は
+        `FRAME_INCLUDE` では None、それ以外では ``total``・``frame``（判定した
+        本数と除外した本数）、``lower_bound``（残ったうち切断端を持つ本数）、
+        ``unrecorded``（外したソース）を持つ dict。
+
+    Notes
+    -----
+    A source that does not record the test (a fiber CSV exported before the
+    column existed) is left out whole rather than kept unfiltered: mixing
+    fibers that were judged with fibers that could not be would bias the
+    distribution in a direction nobody can state. A fiber with a cut end is
+    kept: its length is a lower bound too, but that is a property of the
+    segmentation, which the frame correction does not model, and the report
+    says how many there are.
+    判定を記録していないソース（列の追加前に出力されたファイバー CSV）は、
+    絞り込まずに残すのではなく丸ごと外す。判定できたファイバーとできなかった
+    ファイバーを混ぜると、向きを誰も言えない偏りが分布に入るためである。切断端を
+    持つファイバーは残す。その長さも下限値だが、それはセグメンテーションの性質で
+    あり枠の補正はそれを扱わない。本数は報告に出す。
+    """
+    if frame_mode == FRAME_INCLUDE:
+        return per_source, None
+    kept = []
+    report = {"total": 0, "frame": 0, "lower_bound": 0, "unrecorded": []}
+    for path, stats in per_source:
+        if any(s.touches_frame is None for s in stats):
+            report["unrecorded"].append(path)
+            continue
+        survivors = [s for s in stats if not s.touches_frame]
+        report["total"] += len(stats)
+        report["frame"] += len(stats) - len(survivors)
+        report["lower_bound"] += sum(1 for s in survivors if s.cut_end_count)
+        kept.append((path, survivors))
+    return kept, report
+
 
 def _fiber_value(stat, param: str):
     """
@@ -385,9 +464,12 @@ def _summary_stats(values: np.ndarray, weights=None) -> dict:
     weights
         Per-value weights, or None for an unweighted sample. Used by the
         length-weighted aggregation, where a weight is the contour length in
-        nanometers that its value represents.
+        nanometers that its value represents, and by the Miles-Lantuejoul
+        frame correction of contour lengths, where it is the dimensionless
+        `FiberStats.frame_weight`.
         値ごとの重み。重みなしの標本では None。長さ重み付け集計で使い、その
-        場合の重みは各値が代表する輪郭長 (nm)。
+        場合の重みは各値が代表する輪郭長 (nm)。輪郭長の Miles-Lantuejoul 枠補正
+        でも使い、その場合は無次元の `FiberStats.frame_weight`。
 
     Returns
     -------
@@ -709,6 +791,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 曲率推定が回転角を測る弧長。ヒストグラム範囲と同様に確定値として保持し、
         # 未確定の編集が実行へ届かないようにする。
         self.curvature_window = DEFAULT_CURVATURE_WINDOW_NM
+
+        # How contour length treats fibers reaching the image frame. Including
+        # them is the default because it is what every earlier run did.
+        # 輪郭長で画像の枠に達したファイバーをどう扱うか。以前のすべての実行と
+        # 同じ結果になるよう、含めることを既定とする。
+        self.frame_mode = FRAME_INCLUDE
 
         # Keep committed values separate from Entry text so edits can be confirmed with Enter.
         # Entry の textvariable とは別に確定済みの値を保持し、Enter 確定で反映する。
@@ -1242,6 +1330,32 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "短いファイバーは測定対象から外れます。"
         ).format(curvature=PARAM_CURVATURE, um=UNIT_MICROMETER))
 
+        ttk.Label(parambar, text=_("枠のファイバー")).pack(side=tk.LEFT)
+        self.frame_mode_var = tk.StringVar(value=self.frame_mode)
+        self.cmb_frame_mode = ttk.Combobox(
+            parambar, textvariable=self.frame_mode_var,
+            values=list(FRAME_MODES), width=16, state="readonly",
+        )
+        self.cmb_frame_mode.pack(side=tk.LEFT, padx=(4, 8))
+        self.cmb_frame_mode.bind(
+            "<<ComboboxSelected>>", lambda _e: self._on_frame_mode_change()
+        )
+        ToolTip(self.cmb_frame_mode, _(
+            "{length} だけに効く設定です。画像の枠に達したファイバーは走査範囲の外へ"
+            "続いているため、長さが短く測られます。{include} はそのまま集計し、"
+            "{exclude} は長さの集計から外します。ただし長いファイバーほど枠に"
+            "達しやすいため、外すだけでは長いファイバーが過小になります。{ml} は"
+            "外したうえで、残った各ファイバーを枠内に収まる確率の逆数で重み付けし"
+            "（Miles-Lantuejoul 補正）、その偏りを補正します。重み付きの標本には"
+            "群間検定を行いません。交差で切れた断片は補正されず、その本数はログに"
+            "出ます。高さ・曲率・キンクは枠内の部分の測定として有効なため、この設定"
+            "の影響を受けません。"
+        ).format(
+            length=PARAM_LENGTH, include=FRAME_INCLUDE,
+            exclude=FRAME_EXCLUDE, ml=FRAME_MILES_LANTUEJOUL,
+        ))
+        self._update_frame_mode_state()
+
         self.sample_hint_var = tk.StringVar()
         ttk.Label(parambar, textvariable=self.sample_hint_var).pack(side=tk.LEFT)
         self._update_sample_hint()
@@ -1345,6 +1459,42 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         self._reset_result_state()
 
+    def _update_frame_mode_state(self) -> None:
+        """
+        Enable the frame-mode selector only where it has an effect.
+        枠の扱いのセレクタを、効果がある場合だけ有効にする。
+
+        Notes
+        -----
+        It applies to contour length only, so it is disabled for every other
+        quantity and while a run is in progress; the selected mode is kept so
+        switching back to length restores it.
+        輪郭長にだけ適用されるため、他の計測量と実行中は無効にする。選択中の
+        扱いは保持し、長さに戻したときに復元する。
+        """
+        enabled = self.param == PARAM_LENGTH and not self.is_running
+        self.cmb_frame_mode.configure(
+            state="readonly" if enabled else tk.DISABLED
+        )
+
+    def _on_frame_mode_change(self) -> None:
+        """
+        Apply a frame-mode change and invalidate cached results.
+        枠の扱いの変更を反映し、キャッシュ済み結果を破棄する。
+        """
+        mode = self.frame_mode_var.get()
+        if mode not in FRAME_MODES:
+            self.frame_mode_var.set(self.frame_mode)
+            return
+        if mode == self.frame_mode:
+            return
+        self.frame_mode = mode
+        # The mode changes which fibers are measured and how they count, so a
+        # cached result describes a different population.
+        # この扱いはどのファイバーをどう数えるかを変えるため、キャッシュ済み
+        # 結果は別の母集団を記述している。
+        self._reset_result_state()
+
     def _update_sample_hint(self) -> None:
         """
         Refresh the label describing what one sample is.
@@ -1436,6 +1586,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self.result_tree.heading(col, text=text)
         self._update_sample_hint()
         self._update_result_caption()
+        self._update_frame_mode_state()
         self._reset_result_state()
 
         self._log(
@@ -2413,6 +2564,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "apply_exclusions": bool(self.apply_exclusions_var.get()),
             "apply_connection": bool(self.apply_connection_var.get()),
             "curvature_window": self.curvature_window,
+            "frame_mode": self.frame_mode,
             "plot_type": self.plot_type_var.get(),
             "min_h": min_h,
             "max_h": max_h,
@@ -2453,6 +2605,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         combo_state = tk.DISABLED if running else "readonly"
         for c in (self.cmb_param, self.cmb_unit, self.cmb_input):
             c.configure(state=combo_state)
+        self._update_frame_mode_state()
         for chk in (self.chk_exclusions, self.chk_connection):
             chk.configure(
                 state=tk.DISABLED
@@ -2497,7 +2650,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                                apply_exclusions: bool = False,
                                curvature_window: float =
                                DEFAULT_CURVATURE_WINDOW_NM,
-                               apply_connection: bool = False) -> tuple:
+                               apply_connection: bool = False,
+                               frame_mode: str = FRAME_INCLUDE,
+                               frame_report=None) -> tuple:
         """
         Collect one folder's samples for a quantity and aggregation unit.
         1 フォルダ分の標本を、計測量と集計単位に従って収集する。
@@ -2513,6 +2668,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         unit
             Aggregation-unit key deciding what one sample counts as.
             1 標本を何と数えるかを決める集計単位キー。
+        frame_mode
+            One of `FRAME_MODES`; applied only to `PARAM_LENGTH`.
+            `FRAME_MODES` のいずれか。`PARAM_LENGTH` にだけ適用する。
+        frame_report
+            Dict filled with the `_apply_frame_mode` report when a frame mode
+            other than `FRAME_INCLUDE` was applied, so the caller can log it
+            with the group and folder names.
+            `FRAME_INCLUDE` 以外の扱いを適用したとき、`_apply_frame_mode` の報告で
+            埋める dict。呼び出し側がグループ名・フォルダ名を付けてログに出せる
+            ようにするため。
 
         Returns
         -------
@@ -2553,7 +2718,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # `_display_fibers` が表示していたものを出力するため、フィルター・
             # ファイバー連結・手動除外は反映済みで、ここで再適用はしない。
             per_file, load_errors = collect_fiber_stats_from_csv(bundle_paths)
-            return self._values_from_fiber_stats(per_file, param, unit) + (load_errors,)
+            return self._values_from_fiber_stats(
+                self._frame_filtered(per_file, param, frame_mode, frame_report),
+                param, unit,
+                frame_weighted=self._frame_weighted(param, frame_mode),
+            ) + (load_errors,)
 
         if param == PARAM_HEIGHT and unit == UNIT_PIXEL:
             heights, load_errors = skeleton_height_values(
@@ -2607,7 +2776,39 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             apply_exclusions=apply_exclusions,
             apply_connection=apply_connection,
         )
-        return self._values_from_fiber_stats(per_bundle, param, unit) + (load_errors,)
+        return self._values_from_fiber_stats(
+            self._frame_filtered(per_bundle, param, frame_mode, frame_report),
+            param, unit,
+            frame_weighted=self._frame_weighted(param, frame_mode),
+        ) + (load_errors,)
+
+    @staticmethod
+    def _frame_weighted(param: str, frame_mode: str) -> bool:
+        """
+        Return whether samples carry the Miles-Lantuejoul frame weight.
+        標本が Miles-Lantuejoul の枠重みを持つかを返す。
+        """
+        return param == PARAM_LENGTH and frame_mode == FRAME_MILES_LANTUEJOUL
+
+    @staticmethod
+    def _frame_filtered(per_source, param: str, frame_mode: str,
+                        frame_report) -> list:
+        """
+        Apply the frame mode to contour length and pass anything else through.
+        輪郭長には枠の扱いを適用し、それ以外はそのまま通す。
+
+        Returns
+        -------
+        list
+            ``(source_path, stats)`` pairs in the shape of `per_source`.
+            `per_source` と同じ形の ``(ソースパス, 統計値リスト)`` の列。
+        """
+        if param != PARAM_LENGTH:
+            return per_source
+        kept, report = _apply_frame_mode(per_source, frame_mode)
+        if report is not None and frame_report is not None:
+            frame_report.update(report)
+        return kept
 
     def _count_connected_bundles(self, bundle_paths) -> int:
         """
@@ -2764,7 +2965,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         return values, None, n_fibers, n_images
 
     @staticmethod
-    def _values_from_fiber_stats(per_source, param: str, unit: str) -> tuple:
+    def _values_from_fiber_stats(per_source, param: str, unit: str,
+                                 frame_weighted: bool = False) -> tuple:
         """
         Turn per-source fiber statistics into samples for one quantity/unit.
         ソースごとのファイバー統計を、計測量と集計単位に応じた標本へ変換する。
@@ -2780,14 +2982,23 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         unit
             Aggregation-unit key.
             集計単位キー。
+        frame_weighted
+            Weight each fiber by `FiberStats.frame_weight` (the
+            Miles-Lantuejoul frame correction). The caller has already removed
+            the fibers that reach the frame, which carry no weight.
+            各ファイバーを `FiberStats.frame_weight`（Miles-Lantuejoul の枠補正）
+            で重み付けする。重みを持たない、枠に達したファイバーは呼び出し側が
+            除いてある。
 
         Returns
         -------
         tuple
-            ``(values, weights, n_fibers, n_images)``; `weights` is always
-            None because these units count objects rather than length.
-            ``(値リスト, 重み, ファイバー数, 画像数)``。これらの単位は長さでは
-            なく個数を数えるため、`weights` は常に None。
+            ``(values, weights, n_fibers, n_images)``. `weights` is None except
+            for `frame_weighted` fiber samples; the image unit takes each
+            image's weighted median instead and stays unweighted.
+            ``(値リスト, 重み, ファイバー数, 画像数)``。`weights` は
+            `frame_weighted` のファイバー単位標本以外では None。image 単位では
+            代わりに画像ごとの重み付き中央値を取り、重みなしのままにする。
 
         Notes
         -----
@@ -2799,16 +3010,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ではなく「比較可能」になる。
         """
         values = []
+        weights = [] if frame_weighted and unit != UNIT_IMAGE else None
         n_fibers = 0
         n_images = 0
         for _path, stats in per_source:
             source_values = []
+            source_weights = []
             for stat in stats:
                 samples = _fiber_samples(stat, param, unit)
                 if not samples:
                     continue
                 n_fibers += 1
                 source_values.extend(samples)
+                if frame_weighted:
+                    source_weights.extend([stat.frame_weight] * len(samples))
 
             if not source_values:
                 continue
@@ -2818,11 +3033,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # outweigh a sparse scan of the same specimen.
                 # 1 画像 1 標本とし、ファイバーの多い画像が同じ試料の疎な画像を
                 # 押しのけないようにする。
-                values.append(float(np.median(source_values)))
+                if frame_weighted:
+                    values.append(_summary_stats(
+                        np.asarray(source_values, dtype=float),
+                        np.asarray(source_weights, dtype=float),
+                    )["median"])
+                else:
+                    values.append(float(np.median(source_values)))
             else:
                 values.extend(source_values)
+                if weights is not None:
+                    weights.extend(source_weights)
 
-        return values, None, n_fibers, n_images
+        return values, weights, n_fibers, n_images
 
     def _worker_run(self, args: dict) -> None:
         """
@@ -2854,6 +3077,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             args["apply_connection"] and input_mode == INPUT_BUNDLE
         )
         curvature_window = args["curvature_window"]
+        # The frame mode applies to contour length only; for any other
+        # quantity the run is exactly what it was before the mode existed.
+        # 枠の扱いは輪郭長にだけ適用する。他の計測量では、この設定が存在する
+        # 前とまったく同じ実行になる。
+        frame_mode = (
+            args.get("frame_mode", FRAME_INCLUDE)
+            if param == PARAM_LENGTH else FRAME_INCLUDE
+        )
+        frame_weighted = self._frame_weighted(param, frame_mode)
 
         # The pixel combination pools every tracked point without individuating
         # fibers, so it cannot count "N fibers"; it is also the only
@@ -2873,7 +3105,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         counts_fibers = not (pixel_mode or (
             input_mode == INPUT_BUNDLE and unit == UNIT_LENGTH
         ))
-        weighted = unit in LENGTH_WEIGHTED_UNITS
+        weighted = unit in LENGTH_WEIGHTED_UNITS or (
+            frame_weighted and unit == UNIT_FIBER
+        )
 
         results = []
         errors = []
@@ -2967,6 +3201,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                                 for k, v in sorted(chosen.items())),
                         )))
 
+                frame_report = {}
                 try:
                     (values, weights, n_fibers, n_images,
                      load_errors) = self._collect_bundle_values(
@@ -2975,6 +3210,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         apply_exclusions=apply_exclusions,
                         apply_connection=apply_connection,
                         curvature_window=curvature_window,
+                        frame_mode=frame_mode,
+                        frame_report=frame_report,
                     )
                 except Exception as e:
                     errors.append(
@@ -2983,6 +3220,31 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         )
                     )
                     continue
+
+                # Say what the frame mode removed, and how many of the lengths
+                # that remain are still lower bounds because a crossing cut
+                # them: the frame correction does not model those.
+                # 枠の扱いが何を外したか、また残った長さのうち交差で切れて依然
+                # 下限値であるものが何本あるかを示す。枠の補正はそれらを扱わない。
+                if frame_report:
+                    for skipped in frame_report["unrecorded"]:
+                        self.ui_queue.put(("log", _(
+                            "[{grp}/{folder}] {name}: 枠の判定が記録されていない"
+                            "ため、長さの集計から外しました（現行の Fiber Tracker で"
+                            "出力し直すと記録されます）"
+                        ).format(
+                            grp=grp_name, folder=folder_name,
+                            name=os.path.basename(skipped),
+                        )))
+                    self.ui_queue.put(("log", _(
+                        "[{grp}/{folder}] 長さ: 枠に達したファイバー {n}/{total} 本を"
+                        "除外しました。残りのうち {k} 本は交差などで切れた端を持ち、"
+                        "長さは下限値です"
+                    ).format(
+                        grp=grp_name, folder=folder_name,
+                        n=frame_report["frame"], total=frame_report["total"],
+                        k=frame_report["lower_bound"],
+                    )))
 
                 for failed_path, msg in load_errors:
                     suffix = INPUT_SUFFIXES[input_mode]
@@ -3028,10 +3290,26 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "q3": stats["q3"],
                 # The reported sample size is the total weight, which is a
                 # count when the weights are implicit ones and a contour
-                # length in nanometers under length weighting.
+                # length in nanometers under length weighting. The
+                # Miles-Lantuejoul weight is an exception: its total is an
+                # estimated fiber count, not what was observed, so the number
+                # of fibers measured is reported instead.
                 # 報告する標本量は重みの合計。重みが暗黙の 1 なら件数、長さ
-                # 重み付けなら輪郭長 (nm) になる。
-                "n_samples": float(arr.size) if wts is None else float(wts.sum()),
+                # 重み付けなら輪郭長 (nm) になる。Miles-Lantuejoul 重みは例外で、
+                # その合計は観測した本数ではなく推定本数であるため、計測した
+                # 本数を報告する。
+                "n_samples": (
+                    float(arr.size) if wts is None or frame_weighted
+                    else float(wts.sum())
+                ),
+                # Total weight, which is what the histogram bars sum to and so
+                # what the out-of-range share is taken against.
+                # 重みの合計。ヒストグラムの棒の総和であり、範囲外の割合はこれに
+                # 対して取る。
+                "weight_total": (
+                    float(arr.size) if wts is None else float(wts.sum())
+                ),
+                "frame_mode": frame_mode,
                 # The raw point count drives the "too few samples to read the
                 # shape" notice, which is about the histogram, not the weight.
                 # 「形状が読めるほど標本が無い」通知は生の点数で判断する。これは
@@ -3082,6 +3360,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             total = float(counts.sum())
             r["counts"] = counts
             r["total"] = total
+            # How many samples the drawn range holds. Under the
+            # Miles-Lantuejoul weight the bars sum weights, so the count is
+            # taken separately to stay comparable with the reported fibers.
+            # 描画範囲に入る標本の量。Miles-Lantuejoul 重みでは棒が重みを合計
+            # するため、報告する本数と比べられるよう件数を別に数える。
+            r["n_in_range"] = (
+                float(np.histogram(r["values"], bins=edges)[0].sum())
+                if frame_weighted else total
+            )
             if total > 0:
                 k = int(np.argmax(counts))
                 r["mode"] = float((edges[k] + edges[k + 1]) / 2.0)
@@ -3098,13 +3385,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # 黙って図から落とすと分布を誤って伝えるため、除外された割合を示す。
             # 件数ではなく割合にするのは、長さ重み付けでは標本量が件数ではなく
             # 長さになるため。
-            outside = r["n_samples"] - total
-            if outside > 0 and r["n_samples"] > 0:
+            outside = r["weight_total"] - total
+            # Fractional weights sum in a different order in the bins than in
+            # the total, so a relative tolerance keeps rounding from reporting
+            # "0.0% outside".
+            # 小数の重みはビンと合計で加算順が異なるため、相対許容誤差を設け、
+            # 丸め誤差で「0.0% が範囲外」と報告しないようにする。
+            if outside > 1e-9 * r["weight_total"] and r["weight_total"] > 0:
                 errors.append(
                     _("[{grp}] 標本の {pct}% がヒストグラム範囲外です"
                       "（統計値は範囲外を含む全標本から計算しています）").format(
                         grp=r["name"],
-                        pct="{0:.1f}".format(100.0 * outside / r["n_samples"]),
+                        pct="{0:.1f}".format(100.0 * outside / r["weight_total"]),
                     )
                 )
 
@@ -3139,6 +3431,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "{unit} 集計の標本は独立観測ではないため検定しません。"
                 "{fiber} または {image} 集計に切り替えてください。"
             ).format(unit=unit, fiber=UNIT_FIBER, image=UNIT_IMAGE)
+        elif frame_weighted:
+            # Mann-Whitney U and KS take no weights, and a weighted
+            # Mann-Whitney has no standard form, so a corrected sample is
+            # described but not tested.
+            # Mann-Whitney U と KS は重みを受け付けず、重み付き Mann-Whitney
+            # には標準的な形が無い。そのため補正した標本は記述するが検定しない。
+            comparison_note = _(
+                "{ml} 補正の標本は重み付きのため検定しません。検定するには "
+                "{exclude} に切り替えてください。"
+            ).format(ml=FRAME_MILES_LANTUEJOUL, exclude=FRAME_EXCLUDE)
         else:
             try:
                 comparisons = compare_groups(
@@ -3568,6 +3870,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             if unit != UNIT_IMAGE:
                 n_parts.append("{n:,} images".format(n=r["n_images"]))
             lines.append("N = " + ", ".join(n_parts))
+            # A published length distribution has to say whether fibers cut
+            # by the frame were in it, because that changes the numbers.
+            # 論文に載る長さ分布は、枠で切れたファイバーを含むかを明示しなければ
+            # ならない。それによって数値が変わるためである。
+            frame_mode = r.get("frame_mode", FRAME_INCLUDE)
+            if frame_mode == FRAME_EXCLUDE:
+                lines.append("frame-touching fibers excluded")
+            elif frame_mode == FRAME_MILES_LANTUEJOUL:
+                # Two lines: as one, it is wider than the axes and is clipped.
+                # 2 行にする。1 行では軸より広く、切れてしまう。
+                lines.append("frame-touching fibers excluded")
+                lines.append("Miles-Lantuejoul weighted")
 
             # Anchored to the right edge so the box grows leftwards. Left
             # anchoring clipped the longer lines this annotation now carries
@@ -3757,7 +4071,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         # 長さ重み付けの標本は重みも併せて出力する必要がある。重み
                         # が無いと、そのファイルからは重みなしの分布が再計算され、
                         # 元の図や統計値と黙って食い違ってしまう。
-                        w.writerow(["value_nm", "weight_nm"])
+                        # The Miles-Lantuejoul weight is dimensionless.
+                        # Miles-Lantuejoul 重みは無次元である。
+                        frame_weighted = (r.get("frame_mode")
+                                          == FRAME_MILES_LANTUEJOUL)
+                        w.writerow(["value_nm",
+                                    "weight" if frame_weighted else "weight_nm"])
                         for v, wt in zip(r["values"], r["weights"]):
                             w.writerow([float(v), float(wt)])
                 saved_paths.append(path)
@@ -3888,6 +4207,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     "N in range",
                     "N fibers",
                     "N images",
+                    # How contour length treated fibers reaching the frame;
+                    # blank for the other quantities, which it never affects.
+                    # 輪郭長で枠に達したファイバーをどう扱ったか。影響しない他の
+                    # 計測量では空欄。
+                    "frame-touching fibers",
                 ])
                 for r in self._last_results:
                     mode_val = "" if np.isnan(r["mode"]) else f"{r['mode']:.3f}"
@@ -3902,9 +4226,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         f"{r['std']:.3f}",
                         mode_val,
                         _sample_size_csv_value(r["n_samples"], self._last_unit),
-                        _sample_size_csv_value(r["total"], self._last_unit),
+                        _sample_size_csv_value(
+                            r.get("n_in_range", r["total"]), self._last_unit),
                         "" if r["n_fibers"] is None else int(r["n_fibers"]),
                         int(r["n_images"]),
+                        (r.get("frame_mode", FRAME_INCLUDE)
+                         if self._last_param == PARAM_LENGTH else ""),
                     ])
 
         save_csv_with_dialog(

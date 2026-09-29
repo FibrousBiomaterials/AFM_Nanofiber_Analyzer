@@ -172,13 +172,17 @@ def test_stats_match_recomputation_from_fibers(measured):
     """compute_fiber_stats on the returned fibers reproduces result.stats."""
     _bundle_path, result = measured
     # The pixel size is passed because straightness needs it; measure_bundle
-    # supplies the same values, so the recomputation must too.
+    # supplies the same values, so the recomputation must too. The same holds
+    # for the image shape, which the frame test and the Miles-Lantuejoul weight
+    # need.
     # 直線度がピクセルサイズを必要とするため引き渡す。measure_bundle も同じ値を
-    # 与えているので、再計算側も渡さなければ一致しない。
+    # 与えているので、再計算側も渡さなければ一致しない。画像形状も同様で、枠の
+    # 判定と Miles-Lantuejoul 重みがそれを必要とする。
     assert compute_fiber_stats(
         result.fibers,
         result.image.size_per_pixel,
         result.image.y_size_per_pixel,
+        frame_shape=result.image.calibrated_image.shape,
     ) == result.stats
 
 
@@ -1420,3 +1424,144 @@ def test_read_fiber_csv_accepts_the_development_column_set(measured, tmp_path):
     assert all(np.isnan(s.width_nm) and not s.width_measured for s in restored)
     assert all(np.isnan(s.height_p90_nm) for s in restored)
     assert all(s.unjudged_count == 0 for s in restored)
+
+
+def test_frame_columns_mark_the_frame_and_cut_ends():
+    """
+    The frame test, the cut-end count and the frame weight, per fiber.
+    ファイバーごとの枠の判定・切断端の数・枠の重み。
+
+    A fiber reaching the frame gets no weight; one that stays inside is
+    weighted by (W - 2)(H - 2) / ((W - 1 - w)(H - 1 - h)); a fiber whose end is
+    not a skeleton endpoint has a cut end, which the frame test does not see.
+    枠に達するファイバーは重みを持たず、内側に収まるものは
+    (W - 2)(H - 2) / ((W - 1 - w)(H - 1 - h)) で重み付けされる。端がスケルトンの
+    端点でないファイバーは切断端を持ち、それは枠の判定には現れない。
+    """
+    import dataclasses
+
+    inside = _straight_fiber(x0=5, x1=15, y=5)
+    at_edge = _straight_fiber(x0=20, x1=39, y=10)
+    cut = dataclasses.replace(
+        _straight_fiber(x0=5, x1=15, y=20), ep_indices=np.array([0]),
+    )
+    stats = compute_fiber_stats([inside, at_edge, cut], 10.0,
+                                frame_shape=(40, 40))
+
+    assert [s.touches_frame for s in stats] == [False, True, False]
+    assert [s.cut_end_count for s in stats] == [0, 0, 1]
+    # An 11 x 1 box in a 40 x 40 frame.
+    # 40 x 40 の枠の中の 11 x 1 の矩形。
+    assert stats[0].frame_weight == pytest.approx(38 * 38 / (28 * 38))
+    assert np.isnan(stats[1].frame_weight)
+    assert stats[2].frame_weight == pytest.approx(stats[0].frame_weight)
+
+
+def test_frame_columns_are_unrecorded_without_an_image_shape():
+    """
+    Without the image shape the frame test reads as "not recorded", not False.
+    画像形状が無ければ枠の判定は False ではなく「記録なし」になる。
+    """
+    stats = compute_fiber_stats([_straight_fiber(x0=5, x1=15, y=5)], 10.0)
+    assert stats[0].touches_frame is None
+    assert np.isnan(stats[0].frame_weight)
+    # The cut-end count needs no frame, so it is still recorded.
+    # 切断端の数は枠を必要としないため、引き続き記録される。
+    assert stats[0].cut_end_count == 0
+
+
+def test_frame_weight_recovers_the_length_distribution():
+    """
+    Weighting the fibers inside the frame undoes the bias against long ones.
+    枠内のファイバーを重み付けすると、長いファイバーに対する偏りが解消される。
+
+    Horizontal fibers of 10 and 60 px are laid down at the same density over a
+    region larger than a 100 x 100 frame, and each is clipped to the frame.
+    Of the fibers that do not touch the frame, only about 30 % are the long
+    ones, because a long fiber is less likely to fit; the Miles-Lantuejoul
+    weight has to bring that back to the true 50 %.
+    10 px と 60 px の水平なファイバーを、100 x 100 の枠より広い領域に同じ密度で
+    置き、それぞれを枠で切り取る。枠に触れないファイバーのうち長いものは約 30 %
+    しかない。長いファイバーほど収まりにくいためである。Miles-Lantuejoul 重みは
+    それを真の 50 % へ戻さなければならない。
+    """
+    from lib.measure import _frame_weight, _reaches_frame
+
+    rng = np.random.default_rng(0)
+    size = 100
+    frame = (size, size)
+    per_length = {}
+    for length in (10, 60):
+        # Equal density: the count is proportional to the area the left ends
+        # can occupy while the fiber still overlaps the frame.
+        # 同じ密度にするため、ファイバーが枠に重なり得る左端の範囲の面積に比例
+        # した本数を置く。
+        n = (size - 1 + length) * size // 2
+        x0 = rng.integers(-(length - 1), size, n)
+        y = rng.integers(0, size, n)
+        kept = []
+        for a, row in zip(x0.tolist(), y.tolist()):
+            fiber = _straight_fiber(max(a, 0), min(a + length - 1, size - 1), row)
+            if not _reaches_frame(fiber, frame):
+                kept.append(_frame_weight(fiber, frame))
+        per_length[length] = np.asarray(kept)
+
+    counts = {k: v.size for k, v in per_length.items()}
+    weights = {k: float(v.sum()) for k, v in per_length.items()}
+    unweighted = counts[60] / (counts[10] + counts[60])
+    weighted = weights[60] / (weights[10] + weights[60])
+    assert unweighted == pytest.approx(0.30, abs=0.03)
+    assert weighted == pytest.approx(0.50, abs=0.03)
+
+
+def test_fiber_csv_round_trips_the_frame_columns(tmp_path):
+    """The frame and cut-end columns survive a write and a read."""
+    import dataclasses
+
+    fibers = [
+        _straight_fiber(x0=5, x1=15, y=5),
+        _straight_fiber(x0=20, x1=39, y=10),
+        dataclasses.replace(_straight_fiber(x0=5, x1=15, y=20),
+                            ep_indices=np.array([], dtype=int)),
+    ]
+    stats = compute_fiber_stats(fibers, 10.0, frame_shape=(40, 40))
+    path = os.path.join(tmp_path, "frame_fibers.csv")
+    write_fiber_csv(path, stats)
+    back = read_fiber_csv(path)
+
+    assert [s.touches_frame for s in back] == [False, True, False]
+    assert [s.cut_end_count for s in back] == [0, 0, 2]
+    assert back[0].frame_weight == pytest.approx(stats[0].frame_weight, rel=1e-5)
+    assert np.isnan(back[1].frame_weight)
+
+
+def test_read_fiber_csv_leaves_the_frame_unrecorded_in_an_older_csv(
+        measured, tmp_path):
+    """
+    A CSV written before the frame columns reads them as not recorded.
+    枠の列の追加前に書かれた CSV では、それらは「記録なし」として読まれる。
+
+    "Not recorded" must stay distinguishable from "does not touch the frame",
+    or GUI03 would keep every fiber of an old export as if it had been judged.
+    「記録なし」は「枠に触れない」と区別できなければならない。さもないと GUI03
+    は古い出力の全ファイバーを、判定済みであるかのように残してしまう。
+    """
+    from lib.measure import FIBER_CSV_COLUMNS_V3
+
+    _bundle_path, result = measured
+    full = os.path.join(tmp_path, "full_fibers.csv")
+    write_fiber_csv(full, result.stats)
+    with open(full, newline="", encoding="utf-8-sig") as f:
+        rows = list(csv.reader(f))
+    old = os.path.join(tmp_path, "v3_fibers.csv")
+    with open(old, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        writer.writerow(list(FIBER_CSV_COLUMNS_V3))
+        for row in rows[1:]:
+            writer.writerow(row[:len(FIBER_CSV_COLUMNS_V3)])
+
+    restored = read_fiber_csv(old)
+    assert len(restored) == len(result.stats)
+    assert all(s.touches_frame is None for s in restored)
+    assert all(s.cut_end_count is None for s in restored)
+    assert all(np.isnan(s.frame_weight) for s in restored)

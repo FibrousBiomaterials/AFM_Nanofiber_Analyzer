@@ -663,7 +663,7 @@ cols = ("#", "length (nm)", "median (nm)", "max (nm)", "p90 (nm)",
 | 列 | 出所 | 空欄になる場合 |
 |---|---|---|
 | `#` | 表示中の一覧での行位置 | — |
-| `length (nm)` | `Fiber.length` | — |
+| `length (nm)` | `Fiber.length`。下限値のときは前に `≥` を付ける（§3.2） | — |
 | `median (nm)` | `FiberStats.height_median_nm` | — |
 | `max (nm)` | `FiberStats.height_max_nm` | — |
 | `p90 (nm)` | `FiberStats.height_p90_nm` | 高さ標本が無い |
@@ -683,12 +683,16 @@ cols = ("#", "length (nm)", "median (nm)", "max (nm)", "p90 (nm)",
 x_spp = self.current_image.size_per_pixel
 y_spp = self.current_image.y_size_per_pixel
 fresh = _table_values(
-    compute_fiber_stats(fibers, x_spp, y_spp), fibers, x_spp, y_spp,
+    compute_fiber_stats(
+        fibers, x_spp, y_spp,
+        frame_shape=np.shape(self.current_image.calibrated_image),
+    ),
+    fibers, x_spp, y_spp,
 )
 ...
 self.fiber_tree.insert("", "end", iid=str(i), values=(
     i,
-    f"{f.length:.0f}",
+    ("≥ " if lower_bound else "") + f"{f.length:.0f}",
     f"{med:.2f}",
     f"{mx:.2f}",
     blank_if_nan(p90, "{0:.2f}"),
@@ -713,7 +717,8 @@ return [
      ),
      fiber_kink_density(s),
      s.height_p90_nm, s.width_nm, s.width_measured,
-     s.line_reliable_fraction, s.unjudged_count)
+     s.line_reliable_fraction, s.unjudged_count,
+     length_is_lower_bound(s))
     for s, f in zip(stats, fibers)
 ]
 ```
@@ -732,6 +737,62 @@ return [
 
 `Fiber.length`、すなわちファイバーの中心線に沿った輪郭長（§2.7）を nm 単位に丸めた
 ものである。連結したフィブリルでは、各隙間を埋める直線の橋渡しも含む（§5.2）。
+
+値の前の `≥` は、その長さが下限値にすぎないことを示す。ファイバーが計測した範囲の
+先へ続いているためである。
+
+```python
+# source: guis/GUI04_Tracking_fiber.py::length_is_lower_bound
+return bool(stat.touches_frame) or bool(stat.cut_end_count)
+```
+
+2 つの条件は、`compute_fiber_stats` が画像の形状とファイバーの端点から記録する。
+
+```python
+# source: lib/measure.py::compute_fiber_stats
+touches_frame=(None if frame_shape is None
+               else _reaches_frame(f, frame_shape)),
+cut_end_count=_cut_end_count(f),
+```
+
+- **枠。** ファイバーのスケルトントラックが解析配列の最外周の行または列に達して
+  おり、ファイバーは走査範囲の外へ続いている。判定に余白は取らない。実測した 2 枚の
+  走査像では、捉えたファイバーの本数が余白 0〜5 px で同じだった。
+
+  ```python
+  # source: lib/measure.py::_reaches_frame
+  if frame is None:
+      return False
+  height, width = frame
+  sx, sy = skeleton_track(fiber)
+  gx = sx + fiber.data[0]
+  gy = sy + fiber.data[1]
+  if gx.size == 0:
+      return False
+  return bool(
+      gx.min() <= 0 or gy.min() <= 0
+      or gx.max() >= width - 1 or gy.max() >= height - 1
+  )
+  ```
+
+- **切断端。** 中心線の端のうち、その点が `ep_indices` に無い端である。高さ統計が
+  切断端に使うのと同じ定義で（§3.3）、スケルトンがそこで交差へ続いていたか、高さ
+  フィルターがファイバーを切った（§5.3）ことを示す。枠に達したファイバーはそこで
+  スケルトンの端点で終わるため、枠が二重に数えられることはない。
+
+  ```python
+  # source: lib/measure.py::_cut_end_count
+  n = len(fiber.xtrack)
+  if n == 0:
+      return 0
+  ends = set(int(i) for i in np.asarray(fiber.ep_indices).tolist())
+  return len({0, n - 1} - ends)
+  ```
+
+連結したフィブリルが切断端を持つのは、外側の断片が交差で終わっていた場合だけである
+（§5.2）。CSV 出力は 2 つの条件を書き出し（`touches_frame`・`cut_end_count`）、
+GUI03 は枠に達したファイバーを長さの統計から外し、必要なら残りを
+Miles-Lantuéjoul 補正（`FiberStats.frame_weight`）で重み付けできる。
 
 ### 3.3 どの高さ標本を数えるか
 

@@ -208,21 +208,30 @@ FIBER_CSV_COLUMNS = (
     "ep_count", "kink_count", "kink_angles_deg", "straightness",
     "height_p90_nm", "apparent_width_nm", "width_measured",
     "line_reliable_fraction", "unjudged_count",
+    "touches_frame", "cut_end_count", "frame_weight",
 )
 
 # The column set of the development version that added straightness, and the
 # set shipped in 1.0.0 before it. Kept so a CSV written by either still reads:
 # the file is how a curated fiber population travels between GUI04 and GUI03,
 # and rejecting an older export would strand work that is still perfectly
-# valid for every column it has. `read_fiber_csv` accepts any of the three
-# and leaves the missing fields undefined.
+# valid for every column it has. `read_fiber_csv` accepts any earlier column
+# set and leaves the missing fields undefined.
 # straightness を追加した開発版の列構成と、その前の 1.0.0 で出荷した列構成。
 # どちらが書き出した CSV も今も読めるように残す。このファイルはキュレーション
 # 済みのファイバー母集団が GUI04 から GUI03 へ渡る経路であり、古い出力を拒否
 # すると、持っている全列については依然として有効な作業を無駄にしてしまう。
-# `read_fiber_csv` は 3 つのいずれも受け付け、無い項目は未定義のままにする。
+# `read_fiber_csv` は以前のどの列構成も受け付け、無い項目は未定義のままにする。
 FIBER_CSV_COLUMNS_V2 = FIBER_CSV_COLUMNS[:8]
 FIBER_CSV_COLUMNS_V1 = FIBER_CSV_COLUMNS[:7]
+
+# The column set before the frame and cut-end columns. A CSV with it reads
+# with those fields unrecorded, so GUI03 can tell "not recorded" from "does
+# not touch the frame" and refuses to filter or weight lengths it cannot judge.
+# 枠・切断端の列を追加する前の列構成。これで書かれた CSV はそれらの項目を
+# 未記録として読むため、GUI03 は「記録なし」と「枠に触れない」を区別でき、判定
+# できない長さを除外・重み付けに使わない。
+FIBER_CSV_COLUMNS_V3 = FIBER_CSV_COLUMNS[:13]
 
 
 @dataclass(frozen=True)
@@ -300,6 +309,32 @@ class FiberStats:
         did not judge (`Fiber.unjudged_indices`); never counted as kinks.
         キンク規則が端から `END_MARGIN_WIDTHS` 以内で測り、判定しなかった折れの数
         （`Fiber.unjudged_indices`）。キンクには数えない。
+    touches_frame
+        Whether the fiber's skeleton track reaches the outermost row or column
+        of the analyzed image, so the fiber continues outside the scan and
+        `length_nm` is only a lower bound. ``None`` when not recorded (no image
+        shape was given, or a CSV written before the column existed).
+        ファイバーのスケルトントラックが解析画像の最外周の行・列に達しているか。
+        達していれば走査範囲の外へ続いており、`length_nm` は下限値にすぎない。
+        記録が無い場合（画像形状が与えられなかった、または列の追加前に書かれた
+        CSV）は ``None``。
+    cut_end_count
+        How many of the fiber's two ends are cuts rather than fiber ends: the
+        end point is not in `Fiber.ep_indices`, because the skeleton continued
+        into a crossing there (or the height filter cut it). Each one also
+        makes `length_nm` a lower bound. ``None`` when not recorded.
+        ファイバーの 2 つの端のうち、繊維端ではなく切断である端の数。端点が
+        `Fiber.ep_indices` に無い端であり、スケルトンがそこで交差へ続いていた
+        （または高さフィルターが切った）ことを示す。これも `length_nm` を下限値に
+        する。記録が無い場合は ``None``。
+    frame_weight
+        Miles-Lantuejoul weight of a fiber that does not touch the frame: the
+        number of positions a point fits inside the frame without touching it,
+        over the number its skeleton bounding box fits (`_frame_weight`). NaN
+        for a fiber that touches the frame, or when not recorded.
+        枠に触れないファイバーの Miles-Lantuejoul 重み。1 点が枠に触れずに収まる
+        位置の数を、スケルトンの外接矩形が収まる位置の数で割った値
+        （`_frame_weight`）。枠に触れるファイバー、または記録が無い場合は NaN。
     """
 
     index: int
@@ -315,6 +350,9 @@ class FiberStats:
     width_measured: bool = False
     line_reliable_fraction: float = float("nan")
     unjudged_count: int = 0
+    touches_frame: Optional[bool] = None
+    cut_end_count: Optional[int] = None
+    frame_weight: float = float("nan")
 
 
 @dataclass(frozen=True)
@@ -449,6 +487,102 @@ def _reaches_frame(
         gx.min() <= 0 or gy.min() <= 0
         or gx.max() >= width - 1 or gy.max() >= height - 1
     )
+
+
+def _frame_weight(
+    fiber: Fiber,
+    frame: Optional[Tuple[int, int]],
+) -> float:
+    """
+    Return the Miles-Lantuejoul weight of a fiber that stays inside the frame.
+    枠の内側に収まったファイバーの Miles-Lantuejoul 重みを返す。
+
+    Parameters
+    ----------
+    fiber
+        Traced fiber whose skeleton track gives the bounding box.
+        スケルトントラックが外接矩形を与える追跡済みファイバー。
+    frame
+        Image shape from `_image_frame_shape`; ``None`` gives NaN.
+        `_image_frame_shape` が返した画像形状。``None`` なら NaN。
+
+    Returns
+    -------
+    float
+        ``(W - 2)(H - 2) / ((W - 1 - w)(H - 1 - h))`` for an image of
+        ``W x H`` pixels and a skeleton bounding box of ``w x h`` pixels; NaN
+        for a fiber that reaches the frame (`_reaches_frame`).
+        ``W x H`` 画素の画像と ``w x h`` 画素のスケルトン外接矩形に対する
+        ``(W - 2)(H - 2) / ((W - 1 - w)(H - 1 - h))``。枠に達するファイバー
+        （`_reaches_frame`）では NaN。
+
+    Notes
+    -----
+    Excluding the fibers that reach the frame keeps only those whose whole
+    length was inside the scan, and a long fiber is less likely to fit, so the
+    survivors under-represent long fibers. The Miles-Lantuejoul correction
+    weights each survivor by the inverse of its chance of fitting: a box
+    ``w x h`` avoids the outermost row and column at ``(W - 1 - w)(H - 1 - h)``
+    positions, and the weight is normalized so a single pixel weighs 1. The
+    ratio is dimensionless, so pixel size, rectangular pixels and differing
+    scan sizes cancel, and weighted samples from several images pool without
+    bias. It corrects the frame only: a fragment cut at a crossing is still
+    counted as if it were the whole fiber.
+    枠に達するファイバーを外すと、全長が走査範囲内にあったものだけが残るが、長い
+    ファイバーほど収まりにくいため、残った標本では長いファイバーが過小になる。
+    Miles-Lantuejoul 補正は、残った各ファイバーを収まる確率の逆数で重み付けする。
+    ``w x h`` の矩形が最外周の行・列を避けて置ける位置は
+    ``(W - 1 - w)(H - 1 - h)`` 通りであり、1 画素の重みが 1 になるよう正規化する。
+    無次元の比なので、ピクセルサイズ・長方形画素・走査範囲の違いは打ち消し合い、
+    複数画像の重み付き標本を偏りなくまとめられる。補正するのは枠だけであり、交差で
+    切れた断片は依然としてファイバー全体であるかのように数えられる。
+    """
+    if frame is None or _reaches_frame(fiber, frame):
+        return float("nan")
+    height, width = frame
+    sx, sy = skeleton_track(fiber)
+    if len(sx) == 0:
+        return float("nan")
+    box_w = int(np.max(sx) - np.min(sx)) + 1
+    box_h = int(np.max(sy) - np.min(sy)) + 1
+    free_x = width - 1 - box_w
+    free_y = height - 1 - box_h
+    if free_x <= 0 or free_y <= 0:
+        return float("nan")
+    return float((width - 2) * (height - 2)) / float(free_x * free_y)
+
+
+def _cut_end_count(fiber: Fiber) -> int:
+    """
+    Count how many of a fiber's two ends are cuts rather than fiber ends.
+    ファイバーの 2 つの端のうち、繊維端ではなく切断である端の数を数える。
+
+    Parameters
+    ----------
+    fiber
+        Traced fiber whose `ep_indices` record its real ends.
+        本物の端を `ep_indices` に記録している追跡済みファイバー。
+
+    Returns
+    -------
+    int
+        0, 1 or 2.
+        0、1、2 のいずれか。
+
+    Notes
+    -----
+    The same definition `height_sample_mask` uses for a cut end: an end whose
+    point is not in `ep_indices`. A fiber reaching the frame ends at a skeleton
+    endpoint there, so the frame is reported by `_reaches_frame`, not here.
+    `height_sample_mask` が切断端に使うのと同じ定義で、その点が `ep_indices` に
+    無い端を指す。枠に達したファイバーはそこでスケルトンの端点で終わるため、枠は
+    ここではなく `_reaches_frame` が報告する。
+    """
+    n = len(fiber.xtrack)
+    if n == 0:
+        return 0
+    ends = set(int(i) for i in np.asarray(fiber.ep_indices).tolist())
+    return len({0, n - 1} - ends)
 
 
 def isolated_fiber_flags(
@@ -940,6 +1074,7 @@ def compute_fiber_stats(
     fibers: Sequence[Fiber],
     x_size_per_pixel: Optional[float] = None,
     y_size_per_pixel: Optional[float] = None,
+    frame_shape: Optional[Tuple[int, int]] = None,
 ) -> List[FiberStats]:
     """
     Compute summary statistics for each fiber.
@@ -960,6 +1095,13 @@ def compute_fiber_stats(
     y_size_per_pixel
         Physical Y pixel size in nanometers; ``None`` reuses the X size.
         Y 方向の物理ピクセルサイズ (nm)。``None`` のときは X の値を流用する。
+    frame_shape
+        ``(height, width)`` in pixels of the image the fibers were traced on,
+        which the frame test and the Miles-Lantuejoul weight need; ``None``
+        leaves `touches_frame` and `frame_weight` unrecorded.
+        ファイバーを追跡した画像の画素単位の ``(高さ, 幅)``。枠の判定と
+        Miles-Lantuejoul 重みに必要。``None`` なら `touches_frame` と
+        `frame_weight` は未記録になる。
 
     Returns
     -------
@@ -1006,6 +1148,10 @@ def compute_fiber_stats(
             width_measured=bool(getattr(f, "width_measured", False)),
             line_reliable_fraction=reliable_fraction,
             unjudged_count=len(getattr(f, "unjudged_indices", ())),
+            touches_frame=(None if frame_shape is None
+                           else _reaches_frame(f, frame_shape)),
+            cut_end_count=_cut_end_count(f),
+            frame_weight=_frame_weight(f, frame_shape),
         ))
     return stats
 
@@ -1514,6 +1660,7 @@ def curate_fibers(
         fibers=fibers,
         stats=compute_fiber_stats(
             fibers, image.size_per_pixel, image.y_size_per_pixel,
+            frame_shape=_image_frame_shape(image),
         ),
         fragments=list(fragments),
         curated_count=curated_count,
@@ -2188,7 +2335,8 @@ def read_fiber_csv(path: str) -> List[FiberStats]:
         # from any release reads with its missing fields left undefined.
         # 以前の列構成はすべて現在の接頭辞なので、どのリリースのファイルも、無い
         # 項目を未定義のままにして読める。
-        known = (FIBER_CSV_COLUMNS, FIBER_CSV_COLUMNS_V2, FIBER_CSV_COLUMNS_V1)
+        known = (FIBER_CSV_COLUMNS, FIBER_CSV_COLUMNS_V3,
+                 FIBER_CSV_COLUMNS_V2, FIBER_CSV_COLUMNS_V1)
         expected = next((c for c in known if columns == list(c)), None)
         if expected is None:
             raise ValueError(
@@ -2208,6 +2356,16 @@ def read_fiber_csv(path: str) -> List[FiberStats]:
             i = col.get(name)
             if i is None or not row[i].strip():
                 return default
+            return int(row[i])
+
+        def recorded_int(row: List[str], name: str) -> Optional[int]:
+            # An absent column or a blank cell is "not recorded", which is not
+            # the same as zero for the frame and cut-end fields.
+            # 列が無い、または空セルは「記録なし」であり、枠・切断端の項目では
+            # 0 と同じではない。
+            i = col.get(name)
+            if i is None or not row[i].strip():
+                return None
             return int(row[i])
 
         stats: List[FiberStats] = []
@@ -2239,6 +2397,12 @@ def read_fiber_csv(path: str) -> List[FiberStats]:
                     line_reliable_fraction=optional_float(
                         row, "line_reliable_fraction"),
                     unjudged_count=optional_int(row, "unjudged_count", 0),
+                    touches_frame=(
+                        None if recorded_int(row, "touches_frame") is None
+                        else bool(recorded_int(row, "touches_frame"))
+                    ),
+                    cut_end_count=recorded_int(row, "cut_end_count"),
+                    frame_weight=optional_float(row, "frame_weight"),
                 ))
             except ValueError as e:
                 raise ValueError(f"{path} line {row_number}: {e}") from e
@@ -2323,6 +2487,9 @@ def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
                 int(bool(s.width_measured)),
                 blank_or(s.line_reliable_fraction, "{0:.3f}"),
                 int(s.unjudged_count),
+                "" if s.touches_frame is None else int(bool(s.touches_frame)),
+                "" if s.cut_end_count is None else int(s.cut_end_count),
+                blank_or(s.frame_weight, "{0:.6g}"),
             ])
 
 

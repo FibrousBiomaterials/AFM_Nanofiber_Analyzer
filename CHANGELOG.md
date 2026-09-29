@@ -21,6 +21,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   curvature and kink is measured along it, so results from different lines
   are not comparable. GUI04 names a non-default line when it opens a bundle,
   and GUI03 names the lines of each folder whenever one is not the default.
+- GUI03 can leave fibers that reach the edge of the scan out of its
+  `contour length` statistics ("枠のファイバー": `include`, `exclude`,
+  `Miles-Lantuejoul`). Such a fiber continues outside the scan, so its length is
+  only a lower bound; its height, curvature and kinks are unaffected by the
+  setting. Because a long fiber is more likely to reach the edge, `exclude`
+  alone favours short fibers, and `Miles-Lantuejoul` weights each remaining
+  fiber by the inverse of its chance of fitting inside the frame; weighted
+  samples are not tested between groups. The default, `include`, gives the same
+  results as before.
+- GUI04's fiber table marks a length that is only a lower bound with `≥`: the
+  fiber reaches the frame, or has an end cut at a crossing or by the height
+  filter.
+- The per-fiber CSV (`cli.py measure`, GUI04's export) gains the columns
+  `touches_frame`, `cut_end_count` and `frame_weight`, appended after the
+  existing ones; CSVs without them still read.
 
 ### Changed
 
