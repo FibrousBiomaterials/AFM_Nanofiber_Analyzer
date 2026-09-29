@@ -477,11 +477,11 @@ counted in any kink number (see `docs/algorithms.md`, §4.4).
 
 Skeleton fragments split at crossings and branches can be reconnected into
 whole fibrils before measurement. "自動連結" searches for continuations and
-adopts what it finds; "手動で連結…" offers, for one selected fiber, the
+adopts what it finds; "手動で連結" offers, for one selected fiber, the
 candidates near its ends — with the distance, the angle, and whether the
 automatic search's gates accept each one — so a continuation the automatic
 gates declined can still be joined by eye; each partner fiber is listed once.
-"連結を解除…" lists every junction in the image and cuts the chosen ones, or
+"連結を解除" lists every junction in the image and cuts the chosen ones, or
 all of them. "元に戻す" walks back one connection operation (an automatic run,
 a manual join, or a disconnection), so undoing a disconnection joins the
 fibril again. These are buttons rather than a mode switch because what they
@@ -529,7 +529,7 @@ from real fibrils. Exclusions are written to `<stem>_excluded.json` beside the
 bundle, so they survive the session, travel with the data, and can be audited or
 edited outside the app. Each exclusion records an anchor pixel on the excluded
 fiber's track rather than its row number, because turning fiber connection on or
-off renumbers the list while the pixel keeps its meaning. "除外設定..." opens a
+off renumbers the list while the pixel keeps its meaning. "除外設定" opens a
 window listing them, where any one or all of them can be restored.
 
 "非孤立を除外" is the bulk counterpart of "選択を除外": it excludes, in one
@@ -540,7 +540,7 @@ can see a continuation past. A fiber cut where it crosses another one has a
 truncated length rather than a short one, so leaving those fragments in the
 population biases length statistics low. The excluded fibers are recorded like
 any hand-picked exclusion, with the note `not isolated`, so one press of
-"直前を取消" takes them all back and "除外設定..." shows why each one went.
+"直前を取消" takes them all back and "除外設定" shows why each one went.
 
 Because this is an exclusion rather than a view filter, the verdict is taken
 once, on the fibers as they were traced, and the height filter can then be

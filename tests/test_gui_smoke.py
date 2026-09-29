@@ -219,10 +219,10 @@ def test_gui04_non_isolated_exclusion_is_an_ordinary_exclusion(tk_app, monkeypat
 
     Making it an exclusion rather than a view filter is the whole point of the
     feature: the judgement then survives the session in the sidecar, is listed
-    with its reason in 「除外設定...」, and comes back in one undo press. The
+    with its reason in 「除外設定」, and comes back in one undo press. The
     note is what separates these from fibers rejected by eye.
     表示フィルターではなく除外にしたことが本機能の要点である。これにより判断は
-    サイドカーとしてセッションを越えて残り、「除外設定...」に理由付きで一覧され、
+    サイドカーとしてセッションを越えて残り、「除外設定」に理由付きで一覧され、
     取り消し 1 回で戻る。メモは目視で棄却したファイバーとの区別を与える。
     """
     app = tk_app(gui04.App)

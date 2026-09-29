@@ -64,6 +64,7 @@ import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.widgets import RectangleSelector
 
 # ===== Project libraries =====
 # Import the lib modules that provide the AFM image-processing core.
@@ -597,6 +598,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 反射的に閉じる癖をユーザーに付けてしまう。
         self._exclusions_saved_key: tuple = ()
 
+        # The rectangle selector while "範囲で選択" waits for a drag, else None.
+        # It lives only until one rectangle is drawn, so a left drag on the
+        # overview means something other than pan or zoom for one gesture only.
+        # 「範囲で選択」がドラッグを待っている間の矩形セレクタ。それ以外は None。
+        # 矩形を 1 つ描くまでしか存在しないため、全体像の左ドラッグがパン・ズーム
+        # 以外の意味を持つのは 1 回の操作の間だけである。
+        self._region_selector: Optional[RectangleSelector] = None
+        # Set while the table selection is being replaced by a region, so the
+        # overview does not pan away from the region the user just drew.
+        # 範囲選択で一覧の選択を置き換えている間だけ立てる。描いた直後の範囲から
+        # 全体像がパンして離れないようにするため。
+        self._keep_view_on_select = False
+
         # -- Fiber-connection (whole-fibril) toggle and its parameters --
         # -- Fiber connection --
         # ── ファイバー連結 ──
@@ -859,20 +873,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._commit_filter_range,
         )
 
-        # The connection controls get their own row. Six buttons do not fit
-        # beside the scale, unit, and filter controls in every language:
-        # measured in a real English run they overflowed the window and clipped
-        # the save button's label to "Save ". A second row costs one row of
-        # height and cannot clip as the labels grow.
-        # 連結の操作部は独立した行に置く。ボタン 6 個は、全ての言語でスケール・
+        # The connection and exclusion controls get their own row. Six buttons
+        # do not fit beside the scale, unit, and filter controls in every
+        # language: measured in a real English run they overflowed the window
+        # and clipped the save button's label to "Save ". A second row costs
+        # one row of height.
+        # 連結・除外の操作部は独立した行に置く。ボタン 6 個は、全ての言語でスケール・
         # 単位・フィルターの各操作と同じ行に収まらない。実際に英語で起動して計測
         # したところ、ウインドウ幅を超えて保存ボタンのラベルが "Save " まで切れて
-        # いた。行を 1 つ増やす代償は高さ 1 行分だけで、ラベルが長くなっても切れる
-        # ことがない。
+        # いた。行を 1 つ増やす代償は高さ 1 行分だけである。
         bar = ttk.Frame(self)
         bar.pack(side="top", fill="x", padx=8, pady=(0, 5))
 
-        ttk.Label(bar, text=_("ファイバー連結")).pack(side="left", padx=(4, 6))
+        ttk.Label(bar, text=_("連結")).pack(side="left", padx=(4, 6))
 
         # -- Fiber connection: actions, not a mode --
         # ── ファイバー連結 ── モードではなく操作。
@@ -902,12 +915,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "既に連結がある場合は、破棄してよいか確認します。"
         ))
         ttk.Button(
-            bar, text=_("自動連結の設定…"),
+            bar, text=_("自動連結の設定"),
             command=self._open_connect_settings,
         ).pack(side="left", padx=(0, 4))
 
         self._btn_manual_connect = ttk.Button(
-            bar, text=_("手動で連結…"), command=self._on_manual_connect,
+            bar, text=_("手動で連結"), command=self._on_manual_connect,
             state=tk.DISABLED,
         )
         self._btn_manual_connect.pack(side="left", padx=(0, 2))
@@ -921,7 +934,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ))
 
         self._btn_disconnect = ttk.Button(
-            bar, text=_("連結を解除…"), command=self._on_open_connection_list,
+            bar, text=_("連結を解除"), command=self._on_open_connection_list,
             state=tk.DISABLED,
         )
         self._btn_disconnect.pack(side="left", padx=(0, 2))
@@ -953,6 +966,133 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=6, pady=2)
 
+        # -- Fiber exclusion --
+        # ── ファイバー除外 ──
+        # The exclusion controls share this row with the connection controls
+        # and with the save button that writes both, so the whole curation
+        # workflow sits in one place, in the order it is saved. They used to
+        # sit in the fiber-table header, apart from the save button.
+        # 除外の操作部は、連結の操作部および両方を書き出す保存ボタンと同じ行に
+        # 置き、キュレーションの操作全体を 1 か所に保存の順序どおり並べる。以前は
+        # ファイバー一覧のヘッダ行にあり、保存ボタンと離れていた。
+        ttk.Label(bar, text=_("除外")).pack(side="left", padx=(4, 6))
+
+        btn_exclude = ttk.Button(
+            bar, text=_("選択を除外"), command=self._on_exclude_selected,
+        )
+        btn_exclude.pack(side="left", padx=(2, 2))
+        ToolTip(btn_exclude, _(
+            "選択中のファイバーを計測・CSV 出力の対象から外します。\n"
+            "Shift クリックで範囲、Ctrl クリックで 1 本ずつ、複数のファイバーを"
+            "選べます。「範囲で選択」を使うと、全体像上で囲んだファイバーを"
+            "まとめて選べます。選択中のファイバーは全体像に枠で示されるので、"
+            "押す前に対象を確認できます。\n"
+            "複数選択したまま押した場合、「直前を取消」の 1 回で全部が戻ります。\n"
+            "バンドル横の {suffix} への書き出しは「除外・連結を保存」を押したとき"
+            "だけ行われます。自動フィルターでは落とせないゴミや走査線アーティファクト"
+            "を、全体像で確認しながら除くための機能です。"
+        ).format(suffix=EXCLUSION_SUFFIX))
+
+        # Bulk counterpart of "選択を除外", and deliberately a button rather
+        # than a view filter. Isolation is a verdict about whether a fiber's
+        # whole length was measured, so it has to be decided on the fibers as
+        # traced. Re-evaluated at display time it was instead applied to
+        # whatever list the views held, including the sub-segments the height
+        # filter cuts out of a fibril, whose ends are cuts made by that filter
+        # rather than the fiber's own ends. Deciding it once, here, also lets
+        # the height filter run on the isolated population afterwards, which a
+        # mutually exclusive pair of filters would have made impossible.
+        # 「選択を除外」の一括版であり、表示フィルターではなくボタンとしたのは
+        # 意図的である。孤立とは「そのファイバーの全長を計測できたか」という判定
+        # であり、追跡された状態のファイバーに対して下さなければならない。表示
+        # のたびに再評価する方式では、各表示が保持する任意のリスト（高さフィルター
+        # がフィブリルから切り出した部分区間を含む）に適用されてしまう。その区間の
+        # 端はファイバー本来の端ではなくフィルターが入れた切断面である。ここで
+        # 一度だけ判定することにより、孤立ファイバーの母集団に対して高さフィルター
+        # を後からかけることもできる。排他の 2 フィルターでは不可能な操作である。
+        btn_non_isolated = ttk.Button(
+            bar, text=_("非孤立を除外"),
+            command=self._on_exclude_non_isolated,
+        )
+        btn_non_isolated.pack(side="left", padx=(0, 2))
+        ToolTip(btn_non_isolated, _(
+            "全長を計測できなかったファイバーをまとめて除外し、孤立ファイバー"
+            "だけを残します。\n"
+            "他のファイバーと交差・接触しているファイバーは、そこで切断されて"
+            "全長が不明なため除外されます。\n"
+            "画像の端に達しているファイバーも、枠の外へ続いており全長が不明な"
+            "ため除外されます。\n"
+            "連結器が連結相手を見つけるファイバーも、その先に続きがあるため"
+            "除外されます。判定には「自動連結の設定」の値を使います。\n"
+            "密な試料では残る本数が 0 に近くなることがあります。全長を計測できた"
+            "ファイバーが実際に存在しないという結果であり、不具合ではありません。\n"
+            "除外は「選択を除外」と同じ扱いで、「直前を取消」の 1 回で全部が"
+            "戻ります。判定は連結前の断片に対して定義されるため、連結済みの"
+            "フィブリルがあるときは先に「連結を解除」ですべての連結を解除して"
+            "ください。"
+        ))
+
+        self._btn_undo_exclusion = ttk.Button(
+            bar, text=_("直前を取消"),
+            command=self._on_undo_last_exclusion,
+        )
+        self._btn_undo_exclusion.pack(side="left", padx=(0, 2))
+        ToolTip(self._btn_undo_exclusion, _(
+            "最後に行った除外を取り消します。繰り返し押すと、追加した逆順に"
+            "さかのぼって取り消せます。"
+        ))
+
+        # Selects by region rather than excluding by region: the drag only
+        # fills the table selection, so the fibers it caught are framed in the
+        # overview and can be checked -- and trimmed with ctrl-click -- before
+        # "選択を除外" acts on them. Excluding on release would remove fibers
+        # nobody had looked at, including a long fibril that merely clips a
+        # corner of the rectangle.
+        # 範囲で除外するのではなく範囲で選択する。ドラッグは一覧の選択を埋める
+        # だけなので、捉えたファイバーは全体像に枠で示され、「選択を除外」が作用
+        # する前に確認でき、Ctrl クリックで外すこともできる。離した時点で除外する
+        # と、矩形の角をかすめただけの長いフィブリルを含め、誰も確認していない
+        # ファイバーまで取り除いてしまう。
+        self._btn_region_select = ttk.Button(
+            bar, text=_("範囲で選択"), command=self._on_region_select,
+        )
+        self._btn_region_select.pack(side="left", padx=(0, 2))
+        ToolTip(self._btn_region_select, _(
+            "押した後、AFM 全体像の上をドラッグして矩形を描くと、その矩形に一部"
+            "でもかかったファイバーを一覧で選択します。\n"
+            "Ctrl を押しながらドラッグすると、今の選択に追加します。\n"
+            "選択されたファイバーは全体像に枠で示されます。確認してから"
+            "「選択を除外」を押してください。\n"
+            "矩形を 1 つ描くと終わります。取りやめるには Esc キーを押すか、"
+            "このボタンをもう一度押してください。"
+        ))
+        # Esc is bound on the toplevel so it cancels wherever the focus is; the
+        # handler does nothing unless a region is being drawn.
+        # Esc はトップレベルに束縛し、フォーカスの位置によらず取りやめられるように
+        # する。範囲の指定中でなければハンドラは何もしない。
+        self.bind("<Escape>", self._on_region_escape, add="+")
+
+        # Named like the neighbouring "自動連結の設定" because it does the same
+        # kind of thing: open a window holding this feature's settings and
+        # actions. Its earlier name showed the exclusion count, which read as a
+        # status label and left users looking elsewhere for the controls it
+        # actually holds.
+        # 近くの「自動連結の設定」と同じ命名にする。この機能の設定と操作をまとめた
+        # ウインドウを開くという点で同種のボタンだからである。以前の名前は除外
+        # 件数を表示しており、状態表示のラベルに見えるため、実際にはこのボタンが
+        # 持っている操作をユーザーが別の場所に探しに行くことになっていた。
+        self._btn_manage_exclusions = ttk.Button(
+            bar, text=_("除外設定"),
+            command=self._on_manage_exclusions,
+        )
+        self._btn_manage_exclusions.pack(side="left", padx=(0, 4))
+        ToolTip(self._btn_manage_exclusions, _(
+            "このデータセットの除外を一覧し、任意の 1 件または全件を解除します。"
+            "解除もファイルへ書き出すには、「除外・連結を保存」が必要です。"
+        ))
+
+        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=6, pady=2)
+
         # One button writes both sidecars, and there is deliberately no way to
         # write only one. Saving them separately let the pair on disk record a
         # combination that was never on screen -- save the connection, turn it
@@ -966,17 +1106,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # いるのに GUI03 は 29 本のフィブリルを集計し、それを知らせるものが何も
         # 無かった。
         #
-        # It sits here rather than beside the exclusion buttons because it
-        # writes both kinds of curation, and because the fiber-table header
-        # cannot fit a label that names both: measured in a real run it had
-        # 91 px free against the 103 px the name needs, so the label would be
-        # clipped. This row has the space and already holds the connection
-        # controls.
-        # 除外ボタンの隣ではなくここに置くのは、両方のキュレーションを書き出す
-        # ボタンであること、そしてファイバー一覧のヘッダ行では両方を名前に含む
-        # ラベルが収まらないためである。実行時の実測で空きは 91 px、必要幅は
-        # 103 px であり、ラベルが切れる。この行には余裕があり、連結の操作部も
-        # 既にここにある。
+        # It closes the row, after both groups, because it writes both kinds of
+        # curation; beside either group alone it would read as saving only
+        # that one.
+        # 両方のキュレーションを書き出すボタンであるため、2 つのグループの後ろ、
+        # 行の末尾に置く。どちらか一方のグループの隣では、その片方だけを保存する
+        # ボタンに読めてしまう。
         self._btn_save_curation = ttk.Button(
             bar, text=_("除外・連結を保存"),
             command=self._on_save_curation,
@@ -990,6 +1125,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "除外が 1 件も無い状態で保存すると除外ファイルは削除されます。"
             "未保存の変更があるときだけ押せます。"
         ).format(excluded=EXCLUSION_SUFFIX, connect=CONNECT_SUFFIX))
+
+        # Every button this refresh configures now exists.
+        # この更新が設定するボタンはここで全て生成済みである。
+        self._refresh_curation_button()
 
     def _build_main(self) -> None:
         """
@@ -1045,95 +1184,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         tbl_header.pack(side="top", fill="x", padx=2, pady=(2, 0))
         ttk.Label(tbl_header, text=_("ファイバー一覧"), font=("", 9, "bold")).pack(side="left", padx=4)
         ttk.Button(tbl_header, text=_("CSVで保存"), command=self._export_csv).pack(side="left", padx=4)
-
-        btn_exclude = ttk.Button(
-            tbl_header, text=_("選択を除外"), command=self._on_exclude_selected,
-        )
-        btn_exclude.pack(side="left", padx=4)
-        ToolTip(btn_exclude, _(
-            "選択中のファイバーを計測・CSV 出力の対象から外します。\n"
-            "Shift クリックで範囲、Ctrl クリックで 1 本ずつ、複数のファイバーを"
-            "選べます。選択中のファイバーは全体像に枠で示されるので、押す前に"
-            "対象を確認できます。\n"
-            "複数選択したまま押した場合、「直前を取消」の 1 回で全部が戻ります。\n"
-            "バンドル横の {suffix} への書き出しは「除外を保存」を押したときだけ"
-            "行われます。自動フィルターでは落とせないゴミや走査線アーティファクト"
-            "を、全体像で確認しながら除くための機能です。"
-        ).format(suffix=EXCLUSION_SUFFIX))
-
-        # Bulk counterpart of "選択を除外", and deliberately a button rather
-        # than a view filter. Isolation is a verdict about whether a fiber's
-        # whole length was measured, so it has to be decided on the fibers as
-        # traced. Re-evaluated at display time it was instead applied to
-        # whatever list the views held, including the sub-segments the height
-        # filter cuts out of a fibril, whose ends are cuts made by that filter
-        # rather than the fiber's own ends. Deciding it once, here, also lets
-        # the height filter run on the isolated population afterwards, which a
-        # mutually exclusive pair of filters would have made impossible.
-        # 「選択を除外」の一括版であり、表示フィルターではなくボタンとしたのは
-        # 意図的である。孤立とは「そのファイバーの全長を計測できたか」という判定
-        # であり、追跡された状態のファイバーに対して下さなければならない。表示
-        # のたびに再評価する方式では、各表示が保持する任意のリスト（高さフィルター
-        # がフィブリルから切り出した部分区間を含む）に適用されてしまう。その区間の
-        # 端はファイバー本来の端ではなくフィルターが入れた切断面である。ここで
-        # 一度だけ判定することにより、孤立ファイバーの母集団に対して高さフィルター
-        # を後からかけることもできる。排他の 2 フィルターでは不可能な操作である。
-        btn_non_isolated = ttk.Button(
-            tbl_header, text=_("非孤立を除外"),
-            command=self._on_exclude_non_isolated,
-        )
-        btn_non_isolated.pack(side="left", padx=4)
-        ToolTip(btn_non_isolated, _(
-            "全長を計測できなかったファイバーをまとめて除外し、孤立ファイバー"
-            "だけを残します。\n"
-            "他のファイバーと交差・接触しているファイバーは、そこで切断されて"
-            "全長が不明なため除外されます。\n"
-            "画像の端に達しているファイバーも、枠の外へ続いており全長が不明な"
-            "ため除外されます。\n"
-            "連結器が連結相手を見つけるファイバーも、その先に続きがあるため"
-            "除外されます。判定には「自動連結の設定…」の値を使います。\n"
-            "密な試料では残る本数が 0 に近くなることがあります。全長を計測できた"
-            "ファイバーが実際に存在しないという結果であり、不具合ではありません。\n"
-            "除外は「選択を除外」と同じ扱いで、「直前を取消」の 1 回で全部が"
-            "戻ります。判定は連結前の断片に対して定義されるため、連結済みの"
-            "フィブリルがあるときは先に「連結を解除…」ですべての連結を解除して"
-            "ください。"
-        ))
-
-        self._btn_undo_exclusion = ttk.Button(
-            tbl_header, text=_("直前を取消"),
-            command=self._on_undo_last_exclusion,
-        )
-        self._btn_undo_exclusion.pack(side="left", padx=4)
-        ToolTip(self._btn_undo_exclusion, _(
-            "最後に行った除外を取り消します。繰り返し押すと、追加した逆順に"
-            "さかのぼって取り消せます。"
-        ))
-
-        # Named like the neighbouring "自動連結の設定…" because it does the same
-        # kind of thing: open a window holding this feature's settings and
-        # actions. Its earlier name showed the exclusion count, which read as a
-        # status label and left users looking elsewhere for the controls it
-        # actually holds.
-        # 近くの「自動連結の設定…」と同じ命名にする。この機能の設定と操作をまとめた
-        # ウインドウを開くという点で同種のボタンだからである。以前の名前は除外
-        # 件数を表示しており、状態表示のラベルに見えるため、実際にはこのボタンが
-        # 持っている操作をユーザーが別の場所に探しに行くことになっていた。
-        self._btn_manage_exclusions = ttk.Button(
-            tbl_header, text=_("除外設定..."),
-            command=self._on_manage_exclusions,
-        )
-        self._btn_manage_exclusions.pack(side="left", padx=4)
-        ToolTip(self._btn_manage_exclusions, _(
-            "このデータセットの除外を一覧し、任意の 1 件または全件を解除します。"
-            "解除もファイルへ書き出すには、上部の「除外・連結を保存」が必要です。"
-        ))
-
-        # The save button lives in the toolbar and the other two here, so the
-        # first refresh has to wait until all three exist.
-        # 保存ボタンはツールバー、他の 2 つはここにあるため、最初の更新は 3 つとも
-        # 生成された後で行う。
-        self._refresh_curation_button()
 
         # Stop the table's own width request from reaching the paned window.
         # A Treeview asks for the sum of its column widths, which for this many
@@ -1225,16 +1275,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # its own width and leaves the rest of the row to the controls above.
         # ツールバーは最後に左寄せで配置し、自分の幅だけ占有して残りを上の
         # コントロールへ渡す。
-        toolbar_frame, _toolbar = build_pan_zoom_toolbar(
+        # Kept so "範囲で選択" can switch pan/zoom off: both claim a left drag.
+        # 「範囲で選択」がパン・ズームを解除できるよう保持する（どちらも左
+        # ドラッグを使うため）。
+        toolbar_frame, self._afm_toolbar = build_pan_zoom_toolbar(
             row, self._afm_canvas, clam_bg=self._clam_bg)
         toolbar_frame.pack(side="left")
 
     def _build_afm_controls(self, afm_outer: ttk.Frame) -> None:
         """
-        Build AFM overview row 1: title, auto mode, vmin/vmax, and action buttons.
-        AFM 全体像 行1（タイトル・自動・vmin/vmax・操作ボタン）を構築する。
+        Build AFM overview row 1: title, display mode, and action buttons.
+        AFM 全体像 行1（タイトル・表示モード・操作ボタン）を構築する。
         """
-        # Row 1: title, vmin/vmax, auto mode, and action buttons.
+        # Row 1: title, display mode, and action buttons.
         afm_header1 = ttk.Frame(afm_outer)
         afm_header1.pack(side="top", fill="x", padx=2, pady=(2, 0))
         ttk.Label(afm_header1, text=_("AFM 全体像"), font=("", 9, "bold")).pack(side="left", padx=4)
@@ -1260,39 +1313,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "どの骨格がひとつのフィブリルに繋がったかを一目で確認でき、\n"
             "ファイバー連結の結果検証に有効です。"
         ))
-        ttk.Separator(afm_header1, orient="vertical").pack(side="left", fill="y", padx=6, pady=2)
-
-        # Auto checkbox to the left of vmin.
-        chk_auto = ttk.Checkbutton(
-            afm_header1, text=_("自動"),
-            variable=self.auto_vrange_var,
-            command=self._on_auto_vrange_toggle,
-        )
-        chk_auto.pack(side="left", padx=(6, 2))
-        ToolTip(chk_auto, _(
-            "ON時: 画像ごとに vmin/vmax を自動計算。\n"
-            "  vmin = 画像最小値 を切り下げ\n"
-            "  vmax = 画像最大値 + 1 を切り上げ\n"
-            "OFF時: 入力欄の vmin / vmax を固定使用。"
-        ))
-
-        # vmin / vmax use Enter-to-commit entries.
-        ttk.Label(afm_header1, text=_("vmin")).pack(side="left", padx=(6, 1))
-        self.ent_vmin = ttk.Entry(afm_header1, width=6, textvariable=self.vmin_var)
-        self.ent_vmin.pack(side="left", padx=2)
-        self._register_unconfirmed_entry(
-            self.ent_vmin,
-            lambda: self._fmt_num(self.vmin),
-            self._commit_vrange,
-        )
-        ttk.Label(afm_header1, text=_("vmax")).pack(side="left", padx=(4, 1))
-        self.ent_vmax = ttk.Entry(afm_header1, width=6, textvariable=self.vmax_var)
-        self.ent_vmax.pack(side="left", padx=2)
-        self._register_unconfirmed_entry(
-            self.ent_vmax,
-            lambda: self._fmt_num(self.vmax),
-            self._commit_vrange,
-        )
 
         # Action buttons.
         ttk.Button(afm_header1, text=_("画像を保存"),
@@ -1304,10 +1324,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _build_afm_font_row(self, afm_outer: ttk.Frame) -> None:
         """
-        Build AFM overview row 2: title, axis-label, tick, and colorbar font sizes.
-        AFM 全体像 行2（タイトル/軸ラベル/軸目盛/カラーバーのフォントサイズ）を構築する。
+        Build AFM overview row 2: font sizes, then the height color range.
+        AFM 全体像 行2（フォントサイズと、高さのカラー範囲）を構築する。
         """
-        # Row 2: four font sizes for title, axis label, ticks, and colorbar.
+        # Row 2: four font sizes for title, axis label, ticks, and colorbar,
+        # then auto mode and vmin/vmax.
         afm_header2 = ttk.Frame(afm_outer)
         afm_header2.pack(side="top", fill="x", padx=2, pady=(0, 2))
 
@@ -1345,6 +1366,40 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self.ent_fs_cbar,
             lambda: self._fmt_num(self.fs_cbar),
             self._commit_afm_font_sizes,
+        )
+
+        ttk.Separator(afm_header2, orient="vertical").pack(side="left", fill="y", padx=6, pady=2)
+
+        # Auto checkbox to the left of vmin.
+        chk_auto = ttk.Checkbutton(
+            afm_header2, text=_("自動"),
+            variable=self.auto_vrange_var,
+            command=self._on_auto_vrange_toggle,
+        )
+        chk_auto.pack(side="left", padx=(6, 2))
+        ToolTip(chk_auto, _(
+            "ON時: 画像ごとに vmin/vmax を自動計算。\n"
+            "  vmin = 画像最小値 を切り下げ\n"
+            "  vmax = 画像最大値 + 1 を切り上げ\n"
+            "OFF時: 入力欄の vmin / vmax を固定使用。"
+        ))
+
+        # vmin / vmax use Enter-to-commit entries.
+        ttk.Label(afm_header2, text=_("vmin")).pack(side="left", padx=(6, 1))
+        self.ent_vmin = ttk.Entry(afm_header2, width=6, textvariable=self.vmin_var)
+        self.ent_vmin.pack(side="left", padx=2)
+        self._register_unconfirmed_entry(
+            self.ent_vmin,
+            lambda: self._fmt_num(self.vmin),
+            self._commit_vrange,
+        )
+        ttk.Label(afm_header2, text=_("vmax")).pack(side="left", padx=(4, 1))
+        self.ent_vmax = ttk.Entry(afm_header2, width=6, textvariable=self.vmax_var)
+        self.ent_vmax.pack(side="left", padx=2)
+        self._register_unconfirmed_entry(
+            self.ent_vmax,
+            lambda: self._fmt_num(self.vmax),
+            self._commit_vrange,
         )
 
     def _build_log_panel(self, parent: ttk.Frame) -> None:
@@ -1827,6 +1882,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         folder = filedialog.askdirectory(title=_("GUI01 の出力フォルダを選択"))
         if not folder:
             return
+        self._end_region_select()
         self.folder_path = folder
         self._log(_("フォルダ: {folder}").format(folder=folder))
 
@@ -1917,6 +1973,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 self.file_tree.focus(self.current_stem)
             return
 
+        # A region drawn for the dataset being left would select in the next.
+        # 離れるデータセットのために始めた範囲指定が次のデータセットで選択しない
+        # ようにする。
+        self._end_region_select()
         self._start_analysis(stem, reuse_exclusions=False)
 
     def _start_analysis(self, stem: str, reuse_exclusions: bool = False) -> None:
@@ -2538,7 +2598,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 視野を動かしてよいのはユーザーによる選択だけである。ズーム中に表示
         # 範囲外へハイライトを置いても画面は変わらず、操作が効いていないように
         # 見える。2 つの呼び出しは同じアイドル描画にまとめられる。
-        if follow_view:
+        # A region selection is also a user selection, but its fibers were
+        # picked from what is on screen, so moving the view would only pull
+        # the region the user just drew out of sight.
+        # 範囲選択もユーザーによる選択だが、そのファイバーは画面上から選ばれて
+        # いるため、視野を動かすと描いたばかりの範囲が見えなくなるだけである。
+        if follow_view and not self._keep_view_on_select:
             self._ensure_fiber_visible(fiber)
             self._afm_canvas.draw_idle()
 
@@ -3151,13 +3216,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         one, a fiber running off the scan, or one the connector can see a
         continuation past has a truncated length rather than a short one.
         Recording it as an exclusion is what makes the judgement auditable in
-        「除外設定...」, undoable in one press, and persistent in the sidecar,
+        「除外設定」, undoable in one press, and persistent in the sidecar,
         exactly like a hand-picked one.
         「選択を除外」と同じ操作であり、対象を行で指す代わりに
         `lib.measure.isolated_fiber_flags` が判定する。他のファイバーとの交差部で
         切断されたファイバー、走査範囲の外へ出ていくファイバー、連結器から見て
         続きのあるファイバーは、長さが「短い」のではなく「切り詰められている」。
-        これを除外として記録することで、手で選んだ除外と同じように「除外設定...」
+        これを除外として記録することで、手で選んだ除外と同じように「除外設定」
         で監査でき、1 回の取消で戻せ、サイドカーに残る。
 
         The verdict is taken on `current_fibers`, never on `_display_fibers`.
@@ -3175,13 +3240,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Nothing may be connected yet. Isolation is defined on the fragments as
         traced, and reconnection joins a fiber across a crossing into the
         network so that it stops being isolated. So a plan holding any chain
-        makes this refuse and point at 「連結を解除…」, rather than taking the
+        makes this refuse and point at 「連結を解除」, rather than taking the
         connection apart and re-analyzing behind the user's back: the chains
         are a decision they made, and only they can say it should go.
         連結が 1 件も無い状態でなければならない。孤立は追跡された状態の断片に対
         して定義され、再結合は交差を越えてファイバーをネットワークへつなぐため、
         そのファイバーは孤立でなくなる。したがって連鎖を 1 本でも持つプランがある
-        ときは実行を拒否し、「連結を解除…」を案内する。ユーザーの知らないところで
+        ときは実行を拒否し、「連結を解除」を案内する。ユーザーの知らないところで
         連結を解いて再解析することはしない。連鎖はユーザーが下した決定であり、
         それを取り消してよいと言えるのは本人だけだからである。
         """
@@ -3192,7 +3257,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if self.connect_plan.chains:
             messagebox.showinfo(
                 _("情報"),
-                _("「連結を解除…」ですべての連結を解除してから実行してください。\n"
+                _("「連結を解除」ですべての連結を解除してから実行してください。\n"
                   "孤立かどうかは連結前の断片に対して定義されます。連結は交差を"
                   "越えてファイバーをつなぐため、孤立ファイバーがネットワークへ"
                   "取り込まれ、孤立と判定されなくなります。\n"
@@ -3269,6 +3334,217 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             messagebox.showinfo(_("情報"), _("除外されたファイバーはありません。"))
             return
         ExclusionWindow(self)
+
+    def _on_region_select(self) -> None:
+        """
+        Start, or cancel, selecting fibers by dragging a rectangle on the overview.
+        全体像上の矩形ドラッグによるファイバー選択を開始、または取りやめる。
+
+        Notes
+        -----
+        The mode ends after one rectangle, so a left drag on the overview goes
+        back to meaning pan or zoom without the user having to remember to
+        switch it off. Pan and zoom are switched off here because they take the
+        same drag: while either holds the canvas, the selector never sees it.
+        矩形を 1 つ描くとモードは終わる。ユーザーが解除を覚えておかなくても、
+        全体像の左ドラッグはパン・ズームの意味に戻る。パン・ズームをここで解除
+        するのは同じドラッグを使うためであり、どちらかがキャンバスを占有して
+        いる間はセレクタにドラッグが届かない。
+        """
+        if self._region_selector is not None:
+            self._end_region_select()
+            self._log(_("範囲選択を取りやめました。"))
+            return
+        if self.current_image is None or not self._display_fibers():
+            messagebox.showinfo(_("情報"), _("データセットを選択してください。"))
+            return
+        toolbar = self._afm_toolbar
+        if toolbar.mode == "pan/zoom":
+            toolbar.pan()
+        elif toolbar.mode == "zoom rect":
+            toolbar.zoom()
+        self._arm_region_selector()
+        self._log(_(
+            "AFM 全体像の上をドラッグして範囲を指定してください。"
+            "Esc キーで取りやめます。"
+        ))
+
+    def _arm_region_selector(self) -> None:
+        """
+        Attach a fresh rectangle selector to the overview axes.
+        全体像の軸に新しい矩形セレクタを取り付ける。
+
+        Notes
+        -----
+        Also called after every background rebuild while the mode is active:
+        the rebuild clears the axes, which removes the selector's rectangle
+        from them, so the old selector would draw nothing.
+        モード中は背景の再構築のたびにも呼ぶ。再構築は軸をクリアし、セレクタの
+        矩形も軸から取り除かれるため、古いセレクタでは何も描かれない。
+
+        The modifier keys the selector would otherwise interpret are disabled:
+        by default ctrl draws the rectangle centered on the press point, while
+        here ctrl means "add to the selection".
+        セレクタが本来解釈する修飾キーは無効にする。既定では Ctrl で押下点を
+        中心とする矩形になるが、ここでの Ctrl は「選択に追加」を意味する。
+        """
+        self._disconnect_region_selector()
+        self._region_selector = RectangleSelector(
+            self._afm_ax, self._on_region_selected,
+            useblit=True, button=[1], interactive=False,
+            minspanx=3, minspany=3, spancoords="pixels",
+            # "disabled" is a name no key event carries; an empty string would
+            # match an event whose key is unknown.
+            # "disabled" はどのキーイベントも持たない名前である。空文字列だと
+            # キー名不明のイベントに一致してしまう。
+            state_modifier_keys={state: "disabled" for state in
+                                 ("move", "clear", "square", "center", "rotate")},
+            props={"edgecolor": "cyan", "facecolor": "cyan", "alpha": 0.25,
+                   "fill": True, "linewidth": 1.5},
+        )
+        self._afm_canvas.get_tk_widget().configure(cursor="crosshair")
+
+    def _disconnect_region_selector(self) -> None:
+        """
+        Detach the current rectangle selector, if any, from the overview.
+        現在の矩形セレクタがあれば全体像から切り離す。
+        """
+        selector = self._region_selector
+        self._region_selector = None
+        if selector is None:
+            return
+        selector.set_active(False)
+        selector.disconnect_events()
+        for artist in selector.artists:
+            try:
+                artist.remove()
+            except (ValueError, NotImplementedError):
+                # Already gone with a cleared axes.
+                # 軸のクリアで既に取り除かれている。
+                pass
+
+    def _end_region_select(self) -> None:
+        """
+        Leave region-selection mode and restore the overview cursor.
+        範囲選択モードを抜け、全体像のカーソルを元に戻す。
+        """
+        was_active = self._region_selector is not None
+        self._disconnect_region_selector()
+        self._afm_canvas.get_tk_widget().configure(cursor="")
+        if was_active:
+            self._afm_canvas.draw_idle()
+
+    def _on_region_escape(self, _event=None) -> None:
+        """
+        Cancel region selection when Esc is pressed during it.
+        範囲の指定中に Esc が押されたら範囲選択を取りやめる。
+        """
+        if self._region_selector is None:
+            return
+        self._end_region_select()
+        self._log(_("範囲選択を取りやめました。"))
+
+    def _on_region_selected(self, press, release) -> None:
+        """
+        Select every displayed fiber that the drawn rectangle touches.
+        描いた矩形にかかる表示中の全ファイバーを選択する。
+
+        Parameters
+        ----------
+        press, release
+            Matplotlib mouse events at the two corners of the rectangle, in
+            the overview's display units.
+            矩形の 2 隅での matplotlib マウスイベント。座標は全体像の表示単位。
+        """
+        # Tear the selector down after it has finished handling this release;
+        # removing its artists from inside its own callback would leave it
+        # drawing artists that are no longer on the axes.
+        # セレクタがこの離上イベントの処理を終えてから取り外す。自身の
+        # コールバック内で矩形を取り除くと、軸に無い図形を描こうとしてしまう。
+        self.after_idle(self._end_region_select)
+        if None in (press.xdata, press.ydata, release.xdata, release.ydata):
+            return
+        x0, x1 = sorted((press.xdata, release.xdata))
+        y0, y1 = sorted((press.ydata, release.ydata))
+        gui_event = getattr(release, "guiEvent", None)
+        # Tk sets bit 0x0004 of the event state while ctrl is held.
+        # Tk は Ctrl 押下中にイベント状態のビット 0x0004 を立てる。
+        additive = bool(gui_event is not None and int(gui_event.state) & 0x0004)
+
+        hits = self._fibers_in_region(x0, x1, y0, y1)
+        if not hits:
+            self._log(_("範囲内にファイバーがありません。"))
+            return
+        iids = [str(i) for i in hits]
+        # The virtual select event is queued and handled before idle
+        # callbacks, so the flag covers exactly the one it causes.
+        # 選択の仮想イベントはキューに入り、アイドル処理より先に処理されるため、
+        # フラグが及ぶのはこの操作が起こすイベントだけである。
+        self._keep_view_on_select = True
+        self.after_idle(self._clear_keep_view_on_select)
+        if additive:
+            self.fiber_tree.selection_add(iids)
+        else:
+            self.fiber_tree.selection_set(iids)
+        self.fiber_tree.focus(iids[0])
+        self.fiber_tree.see(iids[0])
+        total = len(self.fiber_tree.selection())
+        self._log(_(
+            "範囲にかかるファイバー {n} 本を選択しました（選択中 {total} 本）。"
+            "全体像の枠で確認してから「選択を除外」を押してください。"
+        ).format(n=len(hits), total=total))
+
+    def _clear_keep_view_on_select(self) -> None:
+        """
+        Let the next fiber selection pan the overview again.
+        次のファイバー選択で全体像が再びパンできるようにする。
+        """
+        self._keep_view_on_select = False
+
+    def _fibers_in_region(
+        self, x0: float, x1: float, y0: float, y1: float,
+    ) -> List[int]:
+        """
+        Return the displayed fibers with any centerline point inside a rectangle.
+        矩形内に中心線の点が 1 つでもある表示中のファイバーを返す。
+
+        Parameters
+        ----------
+        x0, x1, y0, y1
+            Rectangle bounds in the overview's display units, ``x0 <= x1`` and
+            ``y0 <= y1``.
+            全体像の表示単位での矩形の範囲。``x0 <= x1``、``y0 <= y1``。
+
+        Returns
+        -------
+        list of int
+            Positions in `_display_fibers`, which are the fiber-table row ids.
+            `_display_fibers` 内の位置。ファイバー一覧の行 ID と同じである。
+
+        Notes
+        -----
+        The test is on the centerline the overview draws, with the same
+        pixel-center offset, because the user aims at what is on screen. It
+        only chooses rows: what gets recorded on exclusion is still the
+        skeleton-pixel anchors `constituent_anchors` derives.
+        判定には全体像が描く中心線を、同じ画素中心の補正付きで使う。ユーザーは
+        画面上に見えているものを狙うためである。ここで決まるのは行の選択だけで
+        あり、除外時に記録されるのは従来どおり `constituent_anchors` が導く
+        スケルトン画素のアンカーである。
+        """
+        x_scale, y_scale, _unit = self._get_extent_scale_xy_and_unit()
+        h_px, w_px = self.current_image.calibrated_image.shape[:2]
+        x_spp = x_scale / w_px
+        y_spp = y_scale / h_px
+        hits = []
+        for i, fiber in enumerate(self._display_fibers()):
+            x, y, _h, _w, _unused = fiber.data
+            fx = (np.asarray(fiber.xtrack, dtype=float) + x + 0.5) * x_spp
+            fy = (np.asarray(fiber.ytrack, dtype=float) + y + 0.5) * y_spp
+            inside = (fx >= x0) & (fx <= x1) & (fy >= y0) & (fy <= y1)
+            if np.any(inside):
+                hits.append(i)
+        return hits
 
     def _current_fiber(self) -> Optional[Fiber]:
         """
@@ -3591,6 +3867,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ax.callbacks.connect("xlim_changed", self._on_overview_lims_changed)
         ax.callbacks.connect("ylim_changed", self._on_overview_lims_changed)
         self._cull_overview_labels()
+        # The clear above also took the waiting selector's rectangle off the
+        # axes, so a region selection in progress needs a fresh one.
+        # 上のクリアは待機中のセレクタの矩形も軸から外したため、範囲選択の
+        # 途中であれば新しいセレクタを付け直す。
+        if self._region_selector is not None:
+            self._arm_region_selector()
 
     def _overview_extent_key(self) -> Optional[tuple]:
         """
@@ -4610,7 +4892,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 _("情報"),
                 _("連結できる断片がありませんでした。\n"
                   "この画像では、交差や隙間で分断された断片が見つからないという"
-                  "ことです。条件を変えたい場合は「自動連結の設定…」のしきい値を"
+                  "ことです。条件を変えたい場合は「自動連結の設定」のしきい値を"
                   "変更してから、もう一度実行してください。"),
             )
             return
