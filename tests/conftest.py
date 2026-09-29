@@ -12,6 +12,7 @@ one kink at the drawn bend) without depending on large real scans.
 """
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -202,10 +203,24 @@ def synthetic_fiber_gwy(tmp_path):
 # （4 つの xdist worker が同一 Tcl ツリーを同時に読む一方でランナーのウイルス
 # 対策がスキャンしている）であるため、スキップして GUI の検証を失うのではなく
 # 再試行で回復させる。
+# The same failure also hits the Tcl library itself, locally as well as on CI,
+# and then reads differently: 'couldn't read file ".../tcl8.6/auto.tcl"', or
+# 'invalid command name "tcl_findLibrary"' when init.tcl, which defines that
+# command, could not be sourced.
+# 同じ失敗は Tcl ライブラリ自体でも CI・ローカルの双方で起き、そのときは文言が
+# 異なる。'couldn't read file ".../tcl8.6/auto.tcl"'、あるいは、そのコマンドを
+# 定義する init.tcl を source できなかった場合の
+# 'invalid command name "tcl_findLibrary"' である。
 TK_STARTUP_ATTEMPTS = 3
 TK_STARTUP_RETRY_DELAY = 0.5
 
-_TK_STARTUP_GLITCH_MARKERS = ("usable tk.tcl", "tk wasn't installed properly")
+_TK_STARTUP_GLITCH_MARKERS = (
+    "usable tk.tcl", "tk wasn't installed properly",
+    'invalid command name "tcl_findlibrary"',
+)
+# Only a .tcl library script, so a missing image or data file still fails at once.
+# 対象は .tcl のライブラリスクリプトに限り、画像やデータファイルの欠落は初回で失敗させる。
+_TK_STARTUP_UNREADABLE_SCRIPT = re.compile(r"couldn't read file \"[^\"]*\.tcl\"")
 
 
 def _is_tk_startup_glitch(exc: BaseException) -> bool:
@@ -223,7 +238,8 @@ def _is_tk_startup_glitch(exc: BaseException) -> bool:
     初回で失敗させる必要がある。
     """
     message = str(exc).lower()
-    return any(marker in message for marker in _TK_STARTUP_GLITCH_MARKERS)
+    return (any(marker in message for marker in _TK_STARTUP_GLITCH_MARKERS)
+            or _TK_STARTUP_UNREADABLE_SCRIPT.search(message) is not None)
 
 
 def _build_tk_object(factory):
