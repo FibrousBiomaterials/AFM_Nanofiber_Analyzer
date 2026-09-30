@@ -3,11 +3,11 @@
 GUI-independent driver for the AFM nanofiber preprocessing pipeline.
 GUI に依存しない AFM ナノファイバー前処理パイプラインの駆動モジュール。
 
-This module owns the analysis-side responsibilities that were previously
-embedded in GUI01: the `ProcParams` parameter schema, stage construction, and
+This module owns the analysis-side responsibilities shared by GUI01 and the
+CLI: the `ProcParams` parameter schema, stage construction, and
 single-file processing with output saving. The executable `.b2z` contract is
 owned by `lib.bundle_schema` and enforced here before saving.
-GUI01 に埋め込まれていた解析側の責務（`ProcParams` スキーマ、ステージ構築、
+GUI01 と CLI が共有する解析側の責務（`ProcParams` スキーマ、ステージ構築、
 1 ファイル処理と出力保存）をこのモジュールが持つ。実行可能な `.b2z` 契約は
 `lib.bundle_schema` が管理し、本モジュールは保存前にそれを適用する。
 

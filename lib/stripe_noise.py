@@ -27,16 +27,16 @@ analysis everywhere. The starkest case measured on a bundled scan: the ridge
 recovery stage takes its hysteresis seed from `threshold_otsu` over the Frangi
 response, and with the glitch bands present that seed landed above the maximum
 response of every genuine fiber in the clean part of the image, so not one
-clean-region pixel could seed the hysteresis and the stage recovered nothing
-there. Cropping the analysis to a glitch-free band of the *same* scan raised
-the recovered skeleton in those lines from 1.6 um to 50.2 um.
+clean-region pixel could seed the hysteresis and the stage recovered almost
+nothing there. Cropping the analysis to a glitch-free band of the *same* scan
+recovered many times more skeleton in those lines.
 影響は帯の内部にとどまらない。解析の複数の段が *画像全体* の統計からしきい値を
 決めるため、グリッチ帯 1 つが解析全体のスケールを狂わせる。実測で最も極端
 だった例: リッジ回収段はヒステリシスの種を Frangi 応答に対する
 `threshold_otsu` から取るが、グリッチ帯があるとその種が清浄部の本物の繊維の
 応答の最大値をも上回り、清浄部からは種が 1 画素も立たず、その領域では何も
-回収されなかった。同一走査のグリッチのない帯だけに解析を絞ると、同じ走査線
-での回収スケルトンは 1.6 um から 50.2 um に増えた。
+ほとんど回収されなかった。同一走査のグリッチのない帯だけに解析を絞ると、
+同じ走査線での回収スケルトンは何倍にも増えた。
 
 This module only measures and reports; it never modifies an image and nothing
 it computes is written into the `.b2z` bundle. The metrics are exactly
@@ -58,14 +58,15 @@ import numpy as np
 # Height step between neighboring scan lines, in nanometres, above which the
 # boundary is treated as a feedback glitch rather than sample topography.
 # Chosen to sit well above the line-to-line variation of a healthy scan and
-# well below a real glitch: on the bundled scans the median step is 0.4-1.0 nm
-# while glitch steps reach 74-128 nm. It is a screening heuristic, not a
+# well below a real glitch: on the bundled scans the typical step between
+# healthy lines lies well below it and a glitch step far above it. It is a
+# screening heuristic, not a
 # physical constant, so it is exposed as a setting rather than hard-coded at
 # the call sites.
 # 隣接走査線間の高さ段差（nm）。これを超える境界は試料形状ではなくフィード
 # バック不良とみなす。健全な走査の線間変動より十分大きく、実際のグリッチより
-# 十分小さい値を選んだ。同梱走査では段差の中央値が 0.4〜1.0 nm であるのに対し、
-# グリッチの段差は 74〜128 nm に達する。これは物理定数ではなく検査用の経験則
+# 十分小さい値を選んだ。同梱走査では、健全な走査線間の典型的な段差はこれより
+# 十分小さく、グリッチの段差ははるかに大きい。これは物理定数ではなく検査用の経験則
 # なので、呼び出し側に直書きせず設定として露出する。
 DEFAULT_STEP_THRESHOLD_NM = 3.0
 

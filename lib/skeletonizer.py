@@ -20,11 +20,9 @@ from . import imp_tools
 from .processed_image import ProcessedImage
 
 
-# Endpoint / branch-point detection lives in imp_tools, which now uses the same
-# OpenCV MORPH_HITMISS path that was previously duplicated here. Skeletonizer
-# calls imp_tools.endPoints / imp_tools.branchedPoints directly.
-# 端点・分岐点検出は imp_tools 側にあり、以前ここに重複していた OpenCV
-# MORPH_HITMISS と同じ処理を使う。Skeletonizer は imp_tools.endPoints /
+# Endpoint / branch-point detection lives in imp_tools; Skeletonizer calls
+# imp_tools.endPoints / imp_tools.branchedPoints directly.
+# 端点・分岐点検出は imp_tools 側にあり、Skeletonizer は imp_tools.endPoints /
 # imp_tools.branchedPoints を直接呼ぶ。
 
 
@@ -46,24 +44,25 @@ DEFAULT_SPUR_LENGTH = 12
 # treats everything outside the array as background, so a fiber leaving the
 # field of view is a shape cut flat by the array edge, and the medial axis of
 # such a truncated end turns toward the nearer corner of the cut. 12 px is
-# about 1.3x the mean fiber width of the bundled scans (7.8-9.7 px), and the
-# bend reaches roughly half a fiber width inward, so this covers it with margin.
+# somewhat wider than the fibers of the bundled scans, and the bend reaches
+# roughly half a fiber width inward, so this covers it with margin.
 # 細線化の前に画像端を外側へ複製する幅。`skimage.thin` は配列外をすべて背景と
 # して扱うため、視野外へ抜けるファイバーは配列端で平らに切断された形状になり、
 # その切断端の medial axis は切り口の近い側の角へ向かって折れる。12 px は同梱
-# スキャンの平均ファイバー幅 (7.8〜9.7 px) の約 1.3 倍であり、折れの及ぶ範囲
-# (おおよそファイバー幅の半分) を余裕をもって覆う。
+# スキャンのファイバー幅よりやや広く、折れの及ぶ範囲 (おおよそファイバー幅の
+# 半分) を余裕をもって覆う。
 DEFAULT_BORDER_PAD = 12
 
 # Height-ratio guard for loop filling. A loop artifact encloses pixels of the
-# fiber body itself (just below the binarization threshold, e.g. 40-90% of the
-# surrounding ridge height on the bundled scans), while the enclosure formed
-# by two real fibers touching twice contains background-level pixels (~10% of
-# ridge height). 0.3 sits between the two regimes with margin on both sides.
+# fiber body itself, so its interior stays close to the surrounding ridge
+# height, while an enclosure formed by two real fibers touching twice would
+# contain background-level pixels (docs/validation.md §3.3). No such enclosure
+# occurs on the bundled scans, so the margin 0.3 leaves on that side has not
+# been measured.
 # ループ充填の高さ比ガード。ループアーティファクトが囲むのはファイバー本体の
-# 画素（二値化しきい値をわずかに下回るだけで、同梱スキャンでは周囲リッジ高の
-# 40〜90%）だが、実ファイバー 2 本が 2 点で接触してできる囲みは背景レベル
-# （リッジ高の約 10%）の画素を含む。0.3 は両者の間に双方向の余裕を持って位置する。
+# 画素なので内部は周囲リッジの高さに近いが、実ファイバー 2 本が 2 点で接触して
+# できる囲みは背景レベルの画素を含むはずである（docs/validation.ja.md §3.3）。
+# 同梱スキャンにはそうした囲みが無いため、0.3 がその側に持つ余裕は測っていない。
 DEFAULT_LOOP_HEIGHT_RATIO = 0.3
 
 # Terminal-hook pruning defaults. When segmentation admits a low, widened
@@ -130,18 +129,16 @@ def thin_ignoring_image_border(
     -----
     A fiber leaving the field of view is cut flat by the array edge, and the
     medial axis of such a truncated end turns toward the nearer corner of the
-    cut, so the traced line drifts off the fiber crest over its last pixels
-    (measured at about 2 px on the bundled scans, against about 0.5 px along
-    the rest of the fiber). Replicating the border extends those fibers
-    outward instead of capping them, which removes the bend. Pixels away from
-    the border are unaffected: on all bundled scans the skeleton outside a
-    12 px border band is identical with and without this correction.
+    cut, so the traced line drifts off the fiber crest over its last pixels.
+    Replicating the border extends those fibers outward instead of capping
+    them, which removes the bend. Pixels away from the border were unaffected
+    on the bundled scans: the skeleton outside a 12 px border band was
+    identical with and without this correction (docs/validation.md §3.1).
     視野外へ抜けるファイバーは配列端で平らに切断され、その切断端の medial axis
-    は切り口の近い側の角へ折れるため、追跡線が末端の数画素で稜線から外れる
-    (同梱スキャンでの実測は約 2 px。ファイバー中央部は約 0.5 px)。端を複製すると
-    ファイバーは打ち切られず外側へ延長されるため、この折れが消える。端から離れた
-    画素は影響を受けず、同梱スキャンでは 12 px の縁帯より内側のスケルトンは本補正
-    の有無で完全に一致する。
+    は切り口の近い側の角へ折れるため、追跡線が末端の数画素で稜線から外れる。
+    端を複製するとファイバーは打ち切られず外側へ延長されるため、この折れが消える。
+    同梱スキャンでは端から離れた画素は影響を受けず、12 px の縁帯より内側の
+    スケルトンは本補正の有無で完全に一致した (docs/validation.ja.md §3.1)。
 
     The replication also inflates a blob that lies *along* the border instead
     of crossing it, and its axis can be pushed outside the image. Any mask
@@ -223,14 +220,14 @@ def collapse_skeleton_loops(
     Notes
     -----
     Interior holes in the binarized fiber mask survive topology-preserving
-    thinning as a double path around each hole, and each such loop yields two
-    or three branch points on one continuous fiber. Filling the enclosed
+    thinning as a double path around each hole, and each such loop puts branch
+    points on one continuous fiber. Filling the enclosed
     region and re-skeletonizing merges the double path back into one line.
     Re-skeletonization is a fixed point on the already-thin line, so pixels
     far from the filled loops stay in place and coordinate-keyed feature
     lookups (kinks, endpoints) remain valid there.
     二値マスク内部の穴はトポロジー保存細線化で穴を囲む二重経路として残り、
-    ループ 1 つが連続ファイバー上に分岐点を 2〜3 個作る。囲まれた領域を充填して
+    ループが連続ファイバー上に分岐点を作る。囲まれた領域を充填して
     再細線化すると二重経路は 1 本の線に戻る。再細線化は既に細い線に対して
     不動点なので、充填箇所から離れた画素は動かず、座標キーによる特徴点照合
     （kink・端点）はそのまま有効に保たれる。
@@ -921,24 +918,18 @@ class Skeletonizer:
         設定された枝長を使い切った場合は、短い低分岐であることが確認できないため
         保持する。
 
-        The walk covers the whole image with explicit bounds checks. Tracing
-        inside a local crop instead made the neighborhood read as empty as soon
-        as the walk reached the crop edge, so the dead-end rule deleted up to
-        `branch_length` pixels from the tip of a fiber that merely continued
-        past the crop — regardless of its height, and therefore even for
-        fibers far above `bp_height`.
-        探索は画像全体を明示的な境界判定で辿る。従来の局所切り出し内での探索では、
-        探索が切り出しの端に達した時点で近傍が空と読めてしまい、行き止まり規則が、
-        単に切り出しの外へ続いていただけのファイバー先端を最大 `branch_length`
-        画素削除していた。高さを問わないため `bp_height` を大きく上回るファイバー
-        でも起きる。
+        The walk covers the whole image with explicit bounds checks, so a
+        fiber that continues beyond the neighbourhood of its endpoint is never
+        read as a dead end. Each walk carries its own visited set, so the
+        result does not depend on the order the endpoints are processed in.
+        探索は画像全体を明示的な境界判定で辿るため、端点の近傍の外へ続く
+        ファイバーが行き止まりと読まれることはない。各探索は自前の訪問済み集合を
+        持つため、結果は端点の処理順に依存しない。
         """
         branches_coor_x = []
         branches_coor_y = []
-        # Read-only: the walk no longer blanks pixels as it advances, so the
-        # working copy the previous implementation needed is gone.
-        # 読み取り専用。探索が進行中に画素を消さなくなったため、従来必要だった
-        # 作業用コピーは不要になった。
+        # Read-only: the walk never blanks pixels as it advances.
+        # 読み取り専用。探索は進行中に画素を消さない。
         skeleton = self._init_skeleton_image
         height, width = skeleton.shape
 
@@ -965,29 +956,24 @@ class Skeletonizer:
             # close to the edge is a fiber leaving the field of view rather
             # than a branch tip, so pruning it would cut a real fiber short —
             # the same reason `prune_short_spurs` keeps its `border_margin`
-            # arms. The margin reproduces the one the previous local-crop
-            # implementation imposed.
+            # arms.
             # スキャン端に近い端点は対象外とする。端の近くで終わる腕は枝の先端では
             # なく視野外へ抜けるファイバーであり、刈ると実ファイバーを切り詰めて
             # しまう（`prune_short_spurs` が `border_margin` の腕を残すのと同じ
-            # 理由）。余白は従来の局所切り出し実装が課していたものと同一。
+            # 理由）。
             if not (bl <= start_x <= height - bl and bl <= start_y <= width - bl):
                 continue
             x, y = int(start_x), int(start_y)
             xtrack = [x]
             ytrack = [y]
-            # Each walk carries its own visited set. Blanking pixels in one
-            # shared working image, as before, let an earlier endpoint's walk
-            # hide skeleton from a later one, making the pruning result depend
-            # on the order endpoints happened to be processed in.
-            # 各探索は自前の訪問済み集合を持つ。従来のように共有の作業画像を
-            # 消し込むと、先に処理した端点の探索が後続の探索から骨格を隠すため、
-            # 枝刈り結果が端点の処理順に依存していた。
+            # Each walk carries its own visited set, so an earlier endpoint's
+            # walk cannot hide skeleton from a later one.
+            # 各探索は自前の訪問済み集合を持つため、先に処理した端点の探索が
+            # 後続の探索から骨格を隠すことはない。
             visited = {(x, y)}
 
             for _ in range(bl):
-                # Raster order (row-major) reproduces the candidate preference
-                # of the legacy 3x3 `np.where` lookup.
+                # Candidates are taken in raster order (row-major).
                 next_pixels = [
                     (x + dx, y + dy)
                     for dx in (-1, 0, 1) for dy in (-1, 0, 1)

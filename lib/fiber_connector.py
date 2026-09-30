@@ -188,19 +188,16 @@ def _detector_for(image: FiberTrackingImage) -> KinkDetector:
     This exists because a fiber the connector builds is displayed and measured
     beside fibers it did not touch. Both construction sites used
     ``KinkDetector()`` with its hard-coded defaults, so a scan analyzed at any
-    other angle put two rules in one image: measured on the tunicate test scan
-    re-analyzed at 130 degrees, the 15 reconnected fibrils carried 52 kinks
-    against the 22 the user's own threshold gives, while the 30 fragments no
-    chain claimed carried 9 kinks judged at 130. The extra ones were bends of
-    136 to 149 degrees on fibrils that curve smoothly in the height image.
+    other angle put two rules in one image: on a scan re-analyzed at a
+    threshold other than the default, the reconnected fibrils carried kinks the
+    user's own threshold would not have reported, on fibrils that curve
+    smoothly in the height image.
     本関数が存在するのは、連結器が組み立てたファイバーが、連結器の触れていない
     ファイバーと並べて表示・計測されるためである。2 か所の生成箇所はどちらも
     ハードコード既定値の ``KinkDetector()`` を使っており、既定以外の角度で解析
-    したスキャンでは 1 枚の画像に 2 つの規則が同居していた。tunicate テスト
-    スキャンを 130 度で再解析して実測すると、再結合フィブリル 15 本のキンクは
-    52 個で、ユーザー自身のしきい値なら 22 個、どの連鎖にも属さない断片 30 本は
-    130 度判定の 9 個であった。余分な分は、高さ画像では滑らかに湾曲している
-    フィブリル上の 136〜149 度の曲がりであった。
+    したスキャンでは 1 枚の画像に 2 つの規則が同居していた。既定以外のしきい値で
+    再解析したスキャンでは、再結合フィブリルが、ユーザー自身のしきい値なら報告
+    されないキンクを、高さ画像では滑らかに湾曲しているフィブリル上に持っていた。
 
     A `Fiber` the connector passes through untouched is unaffected either way:
     its features come from the bundle, not from a detector.
@@ -906,12 +903,12 @@ def _build_chain_fiber(
     pixel_line = is_pixel_chain_line(kind)
 
     # Two index-aligned tracks are docked together. The skeleton pixels carry
-    # the fibril's identity and set the bridge lengths exactly as before; the
+    # the fibril's identity and set the bridge lengths; the
     # line is what the fibril is drawn and measured along, and each fragment
     # keeps the line it was displayed with, so a join does not move it. For a
     # bundle older than format 1.1 the two tracks are the same pixels.
     # 添字の揃った 2 本のトラックを一緒に繋ぐ。スケルトン画素はフィブリルの識別を
-    # 担い、橋渡しの長さを従来どおりに決める。線はフィブリルを描画・計測する線で
+    # 担い、橋渡しの長さを決める。線はフィブリルを描画・計測する線で
     # あり、各断片は表示されていた線をそのまま保つため、連結によって線は動かない。
     # 形式 1.1 より古いバンドルでは 2 本は同じ画素である。
     xs: List[int] = []
@@ -1277,16 +1274,15 @@ def connection_candidates_by_index(
     -----
     The end geometry and the per-fiber median heights describe the whole
     population, so calling `connection_candidates` once per fiber rebuilds
-    them ``n`` times over: measured on the tunicate test scan (60 fibers) that
-    was 0.55 s against 0.015 s for the equivalent whole-population pass in
-    `connection_candidate_flags`, and it grows as ``n^2``. GUI04 needs the
+    them ``n`` times over, so the cost grows as ``n^2`` where the equivalent
+    whole-population pass in `connection_candidate_flags` builds them once.
+    GUI04 needs the
     candidates for every fiber before the table is filled, so it takes them
     from here.
     端の幾何とファイバーごとの高さ中央値はいずれも母集団全体を記述するため、
     `connection_candidates` をファイバーごとに呼ぶとそれらを ``n`` 回作り直す
-    ことになる。ホヤ CNF のテスト走査（60 本）で実測 0.55 秒であり、同等の母集団
-    一括処理である `connection_candidate_flags` の 0.015 秒に対して ``n^2`` で
-    増える。GUI04 は表を埋める前に全ファイバーの候補を必要とするため、ここから
+    ことになり、それらを一度だけ作る同等の母集団一括処理
+    （`connection_candidate_flags`）と違って、コストが ``n^2`` で増える。GUI04 は表を埋める前に全ファイバーの候補を必要とするため、ここから
     受け取る。
     """
     n = len(fibers)

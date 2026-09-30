@@ -2,13 +2,16 @@
 """Check that every number in the algorithm documents says where it comes from.
 アルゴリズム解説文書のすべての数値が、出典を示していることを確認する。
 
-`docs/algorithms.md` and `docs/algorithms.ja.md` state results: how often a
-rule found the marked kinks, how far a centerline lies from the true one, how
-large a background residual was. A number with no source cannot be checked, and
+`docs/algorithms.md` and `docs/algorithms.ja.md` explain the algorithms with
+the constants of the code, and `docs/validation.md` and `docs/validation.ja.md`
+state results on particular data: how often a rule found the marked kinks, how
+far a centerline lies from the true one, how large a background residual was. A number with no source cannot be checked, and
 one measured on code that has since changed reads as authoritative while it is
 wrong. Every number in the prose therefore carries a hidden source marker
 directly after it, and this script checks each one:
-`docs/algorithms.md` と `docs/algorithms.ja.md` は結果を述べる。規則が印の付いた
+`docs/algorithms.md` と `docs/algorithms.ja.md` はコードの定数を用いてアルゴリズムを
+解説し、`docs/validation.md` と `docs/validation.ja.md` は個別データでの結果を
+述べる。規則が印の付いた
 キンクをどれだけ見つけたか、中心線が真の中心線からどれだけ離れているか、背景の
 残差がどれだけあったか。出典の無い数値は確かめられず、その後に変わったコードで
 測った数値は、誤っていても信頼できるものとして読まれる。そこで本文のすべての数値の
@@ -90,7 +93,16 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import doc_excerpts  # noqa: E402
 
-DOCS = ("docs/algorithms.md", "docs/algorithms.ja.md")
+# Each pair is an English document and its Japanese counterpart, which must
+# cite the same sources. The algorithm explanation holds no measured value; the
+# measurements on particular data live in the evaluation pair.
+# 各組は英語版とその日本語版であり、同じ出典を引用しなければならない。アルゴリズム
+# 解説は実測値を持たず、個別データでの実測値は評価文書の組が持つ。
+DOC_PAIRS = (
+    ("docs/algorithms.md", "docs/algorithms.ja.md"),
+    ("docs/validation.md", "docs/validation.ja.md"),
+)
+DOCS = tuple(doc for pair in DOC_PAIRS for doc in pair)
 MEASUREMENTS = "tests/doc_measurements.json"
 PENDING = "tests/doc_numbers_pending.json"
 
@@ -506,12 +518,14 @@ def check(read: Callable[[str], Optional[str]], list_unmarked: bool = False) -> 
                     ZeroDivisionError) as exc:
                 problems.append(f"{where}: cannot resolve {f.kind}:{f.ref} ({exc})")
         per_doc_markers[doc] = markers
-    if len(per_doc_markers) == 2:
-        en, ja = (sorted(per_doc_markers[d]) for d in DOCS)
+    for pair in DOC_PAIRS:
+        if not all(d in per_doc_markers for d in pair):
+            continue
+        en, ja = (sorted(per_doc_markers[d]) for d in pair)
         if en != ja:
             only_en = sorted(set(en) - set(ja))[:8]
             only_ja = sorted(set(ja) - set(en))[:8]
-            problems.append("the English and Japanese documents cite different sources: "
+            problems.append(f"{pair[0]} and {pair[1]} cite different sources: "
                             f"only in English {only_en}, only in Japanese {only_ja}")
     for name, why in stale_experiments(measurements, used_experiments, read).items():
         problems.append(f"measurement {name!r} is stale ({'; '.join(why[:3])}); re-run "

@@ -11,8 +11,8 @@
 #      places GUI04's centerline and computes its displayed values. A change to
 #      what a quoted symbol computes, or an excerpt that no longer matches the
 #      code, blocks the commit until the document is updated.
-#   5. Numbers in the algorithm docs — every number in docs/algorithms*.md
-#      must carry a source marker that still matches what it cites, and the
+#   5. Numbers in the algorithm and evaluation docs — every number in
+#      docs/algorithms*.md and docs/validation*.md must carry a source marker that still matches what it cites, and the
 #      pending list of unverified lines may only shrink
 #      (scripts/check_doc_numbers.py).
 #   6. Versions — the package version must be later than the last release tag
@@ -33,7 +33,8 @@
 #   4. GUI04 計測解説 — docs/gui04_measurements.md は GUI04 の中心線と表示値を
 #      計算するコードを引用している。引用シンボルの計算内容が変わった場合や、
 #      引用がコードと一致しなくなった場合は、文書を更新するまでコミットを中止する。
-#   5. アルゴリズム解説の数値 — docs/algorithms*.md のすべての数値に、今も引用先と
+#   5. アルゴリズム解説と評価文書の数値 — docs/algorithms*.md と docs/validation*.md の
+#      すべての数値に、今も引用先と
 #      一致する出典の印が要る。未検証の行の一覧は減る方向にしか変えられない
 #      (scripts/check_doc_numbers.py)。
 #   6. バージョン — パッケージの版は最新のリリースタグより後で、pyproject.toml と

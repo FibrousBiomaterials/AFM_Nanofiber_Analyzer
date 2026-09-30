@@ -24,42 +24,31 @@ Why not the skeleton itself. The skeleton is the medial axis of a thresholded
 mask, so it runs midway between two mask boundaries rather than along the
 fiber: where a neighbour, a junction skirt or background roughness widens the
 mask on one side, the axis follows it, and the 8-connected pixel chain adds a
-staircase on top. Below a Y junction on the bundled higher-plant TOC scan the
-skeleton swung around a straight fiber and produced a 118 degree "kink" there.
-On 60 synthetic scans with a known centerline (2 nm pixels, apparent width
-8 px; corners, zigzags, corner pairs, arcs, meanders, crossings and
-junctions) the median distance to the true centerline was 0.11 px for this
-line against 0.29 px for the skeleton, and the 95th percentile 0.35 px
-against 0.90 px.
+staircase on top, so a straight fiber whose mask happens to widen reads as
+bent. On synthetic scans with a known centerline this line lies closer to the
+true centerline than the skeleton does (docs/validation.md §4.1-§4.2).
 なぜスケルトンそのものではないか。スケルトンはしきい値マスクの medial axis で
 あり、繊維に沿うのではなく 2 本のマスク境界の中間を通る。近傍物・分岐部の裾・
 背景の凹凸がマスクを片側に広げると軸はそれに従い、さらに 8 連結の画素鎖が
-階段を上乗せする。同梱の高等植物 TOC スキャンの Y 字の下では、スケルトンが
-まっすぐな繊維のまわりで振れ、そこに 118 度の「キンク」を生んだ。中心線が既知の
-合成スキャン 60 枚（画素 2 nm、見かけ幅 8 px。コーナー・ジグザグ・コーナーの
-2 連・円弧・蛇行・交差・分岐）では、真の中心線までの距離の中央値はこの線で
-0.11 px、スケルトンで 0.29 px、95 パーセンタイルはそれぞれ 0.35 px と 0.90 px
-であった。
+階段を上乗せする。そのため、マスクがたまたま広がっただけのまっすぐな繊維が
+折れて読まれる。中心線が既知の合成スキャンでは、この線はスケルトンより真の中心線に
+近い（docs/validation.ja.md §4.1〜§4.2）。
 
 Why the half-maximum midpoint and not the crest. The crest -- the highest
 point of each cross-section -- is the estimator a twisted fiber displaces
 most: a fibril with an anisotropic cross-section turns its tallest edge to
 alternating sides as it twists, so the crest swings from one side of the axis
-to the other. On synthetic twisted ribbons (rectangular sections of 4x2 to
-16x3 nm on a straight axis) the crest left the axis 1.2-1.8 times as far as
-the half-maximum midpoint (RMS). Lower levels sit closer to the axis still,
-but on a thin, low fiber a quarter-height midpoint was pulled up to 3.8 nm
-off by background bumps that the half-maximum level stays above. The
-half-maximum is also the definition of the apparent width
-(`measure_apparent_width`) every length in this module is scaled by.
+to the other. A lower level sat closer to the axis on most of the synthetic
+twisted ribbons, but on a thin, low fiber it was pulled off by background
+bumps that the half-maximum level stays above (docs/validation.md §4.2). The half-maximum is also the
+definition of the apparent width (`measure_apparent_width`) every length in
+this module is scaled by.
 なぜ頂点ではなく半値中点か。頂点（各断面の最高点）は、ねじれた繊維で最も大きく
 ずれる推定量である。断面が異方性のフィブリルはねじれに伴って最も高い縁を交互の
-側に向けるため、頂点は軸の片側から反対側へ振れる。合成のねじれリボン（直線軸上の
-4×2〜16×3 nm の長方形断面）では、頂点は半値中点の 1.2〜1.8 倍（RMS）軸から
-離れた。それより低いレベルはさらに軸に近いが、細く低い繊維では 1/4 高さの中点が
-背景の凹凸に最大 3.8 nm 引かれた。半値のレベルはその凹凸より上にある。半値は、
-本モジュールのすべての長さの尺度となる見かけ幅（`measure_apparent_width`）の
-定義でもある。
+側に向けるため、頂点は軸の片側から反対側へ振れる。それより低いレベルは合成の
+ねじれリボンの多くでさらに軸に近かったが、細く低い繊維では背景の凹凸に引かれた。半値のレベルは
+その凹凸より上にある（docs/validation.ja.md §4.2）。半値は、本モジュールのすべての
+長さの尺度となる見かけ幅（`measure_apparent_width`）の定義でもある。
 
 With a blunt probe the displacement of a twisted fiber is in the image itself,
 and every estimator moves with it; no line read from the height can recover
@@ -108,8 +97,8 @@ HALF_MAX_025W_CENTERLINE = "half_max_025w"
 #   quarter_max            D   midpoint of the two quarter-maximum crossings
 #   centroid               E   height-weighted centroid of the section above its base
 #   crest                  F   the section's maximum, refined by a parabola
-# The comparison that chose C at W/4 as the default is in `docs/algorithms.md`
-# §4.2; the others are kept selectable so that choice can be checked on the
+# The comparison that chose C at W/4 as the default is in `docs/validation.md`
+# §4.2-§4.3; the others are kept selectable so that choice can be checked on the
 # user's own images.
 # 解析に使える線（`ProcParams.centerline_method`）。どれも、どの画素が 1 本の繊維を
 # なし、どの順に並ぶかというスケルトンの決定をそのまま使い、スケルトン点ごとに
@@ -124,7 +113,7 @@ HALF_MAX_025W_CENTERLINE = "half_max_025w"
 #   quarter_max            D   2 つの 1/4 高さ交点の中点
 #   centroid               E   断面の基底より上の高さで重み付けした重心
 #   crest                  F   断面の最大値を放物線で精密化したもの
-# 既定を W/4 の C に選んだ比較は `docs/algorithms.md` §4.2 にある。それ以外も
+# 既定を W/4 の C に選んだ比較は `docs/validation.ja.md` §4.2〜§4.3 にある。それ以外も
 # 選べるようにしてあるのは、その選択を利用者自身の画像で確かめられるようにする
 # ためである。
 # The order is the one GUI01 and `cli.py process --centerline` offer them in:
@@ -280,15 +269,15 @@ _WIDTH_STEP_PX = 0.25
 _WIDTH_TANGENT_HALF = 3
 
 # Fallback apparent width, in pixels, when the height profile gives no usable
-# half-maximum run (a flat or saturated neighbourhood). The bundled scans
-# measure 7.5 to 10 px across, so this is their middle rather than an invented
-# number. It is a pixel count, so a fiber placed with it is not scaled by its
-# own width the way every other fiber is; `place_centerline` reports the
+# half-maximum run (a flat or saturated neighbourhood). It was taken from the
+# widths the bundled scans measure rather than invented. It is a pixel count,
+# so a fiber placed with it is not scaled by its own width the way every other
+# fiber is; `place_centerline` reports the
 # substitution (`CenterlineResult.width_measured`) so the fiber can be flagged
 # rather than measured as if its width were known.
 # 高さプロファイルから使える半値区間が得られない場合（平坦または飽和した近傍）の
-# 見かけ幅の代替値（画素）。同梱スキャンの実測幅は 7.5〜10 px であり、この値は
-# 恣意的な数ではなくその中央にあたる。画素数なので、この値で線を置いた繊維は他の
+# 見かけ幅の代替値（画素）。恣意的な数ではなく、同梱スキャンで測れる幅から
+# 取った値である。画素数なので、この値で線を置いた繊維は他の
 # 繊維のように自身の幅で尺度付けされていない。`place_centerline` はその代用を
 # 報告し（`CenterlineResult.width_measured`）、幅が既知であるかのように計測する
 # のではなく、繊維に印を付けられるようにする。
@@ -306,14 +295,14 @@ _CREST_WINDOW_WIDTHS = 0.25
 # Smoothing scale of the frame, in apparent widths: a smoothed copy of the
 # track that supplies only the direction each point may move in and the base
 # its lateral offset is measured from. No point is ever moved to the smoothed
-# position itself, which is what rounded a real corner in the first prototype.
+# position itself, because that would round real corners.
 # A quarter width keeps two features one width apart from being averaged into
 # one. The probe broadens every fiber to about a width, so that is roughly the
 # closest two bends can be told apart at all; see `_OFFSET_SMOOTH_WIDTHS` for
 # what half a width did.
 # 枠の平滑化尺度（見かけ幅単位）。枠はトラックの平滑化コピーで、各点が動ける
 # 方向と横方向オフセットの基準だけを与える。点そのものを平滑化位置へ動かすことは
-# 決してない。最初の試作ではそれが本物のコーナーを丸めていた。1/4 幅にするのは、
+# 決してない。そうすると本物のコーナーが丸まるためである。1/4 幅にするのは、
 # 1 幅離れた 2 つの特徴を 1 つに平均しないためである。探針はどの繊維も約 1 幅に
 # 広げるため、2 つの折れを見分けられるのはおおよそその間隔までである。半幅で何が
 # 起きたかは `_OFFSET_SMOOTH_WIDTHS` を参照。
@@ -324,18 +313,16 @@ _FRAME_SIGMA_WIDTHS = 0.25
 # cross-section still taken as one fiber, all in apparent widths. The width
 # limit applies to the full width at half maximum, not to each half: AFM
 # profiles are often asymmetric, one flank falling more slowly than the other,
-# and requiring each half to stay within 0.75 widths marked most of one arm of a
-# clean 114 degree corner on the tunicate scan unreliable, although that arm is
-# a single fiber whose sections measured 1.0-1.3 widths across. Two fibers
+# and requiring each half to stay within 0.75 widths marked much of a clean
+# single fiber unreliable on a bundled scan. Two fibers
 # lying side by side below a junction are wider than 1.5 widths and are marked
 # unreliable rather than split down the middle the way a medial axis splits
 # them.
 # 断面の最大値が枠からどこまで離れてよいか、その最大値から各半値交点をどこまで
 # 探すか、および 1 本の繊維とみなす最大の断面幅（いずれも見かけ幅単位）。幅の
 # 上限は各半分ではなく半値全幅に課す。AFM の断面はしばしば非対称で片側の斜面が
-# ゆっくり下がり、各半分を 0.75 幅以内に要求すると、tunicate スキャンの明瞭な
-# 114 度コーナーの片腕の大半が信頼できないとされた。その腕は 1 本の繊維で、断面は
-# 1.0〜1.3 幅であった。分岐の下で並んで走る 2 本の繊維は 1.5 幅より広く、medial
+# ゆっくり下がり、各半分を 0.75 幅以内に要求すると、同梱スキャンのきれいな 1 本の
+# 繊維の多くが信頼できないとされた。分岐の下で並んで走る 2 本の繊維は 1.5 幅より広く、medial
 # axis のように真ん中で分けられるのではなく、信頼できない区間として扱われる。
 _CREST_REACH_WIDTHS = 0.75
 _HALF_MAX_REACH_WIDTHS = 1.5
@@ -344,19 +331,15 @@ _MAX_SECTION_WIDTHS = 1.5
 # Correlation length, in apparent widths, of the first-order penalty that joins
 # the per-point offsets into one lateral offset along the track. With this and
 # the frame at half a width, the line rounded corners that lie close together:
-# on synthetic scans with known corners (2 nm pixels, W = 8 px), two
-# same-sense 60 degree corners a few widths apart were judged as one bend by
-# the kink rule in 2 of 16 cases, and the median distance from a corner vertex
-# to the line was 1.10-1.51 px; at a quarter width no pair was merged and the
-# distance fell to 0.77-1.21 px, while the median distance to the true
-# centerline stayed at 0.11 px.
+# on synthetic scans with known corners, two same-sense corners a few widths
+# apart were sometimes judged as one bend, which no longer happened at a
+# quarter width, while the distance to the true centerline stayed about the
+# same (docs/validation.md §4.2).
 # 各点のオフセットを、トラックに沿った 1 本の横方向オフセットにつなぐ一次罰則の
 # 相関長（見かけ幅単位）。これと枠を半幅にすると、線は近接したコーナーを丸めた。
-# コーナー位置が既知の合成スキャン（画素 2 nm、W = 8 px）では、数幅離れた同じ
-# 向きの 60 度コーナー 2 つを、キンク規則が 16 例中 2 例で 1 つの折れと判定し、
-# コーナー頂点から線までの距離の中央値は 1.10〜1.51 px であった。1/4 幅では
-# まとめられた組は無く、距離は 0.77〜1.21 px に下がった。真の中心線までの距離の
-# 中央値は 0.11 px のままであった。
+# コーナー位置が既知の合成スキャンでは、数幅離れた同じ向きのコーナー 2 つが 1 つの
+# 折れと判定されることがあり、1/4 幅ではそれが起きなくなった。真の中心線までの
+# 距離はほぼ変わらなかった（docs/validation.ja.md §4.2）。
 _OFFSET_SMOOTH_WIDTHS = 0.25
 
 # Radius around a branch point, in apparent widths, inside which the height
@@ -593,9 +576,9 @@ def _smooth_extrapolated(values: NDArray, sigma: float) -> NDArray:
 
     Padding by linear extrapolation reproduces a straight end exactly.
     Repeating the end value instead pulls the ends inward along the track,
-    which shortened fragments under two widths by up to 35 % in a prototype.
+    which shortens short fragments noticeably.
     線形外挿による延長は直線の端を厳密に再現する。端の値を繰り返すと端がトラック
-    に沿って内側へ引き込まれ、試作では 2 幅未満の断片が最大 35 % 短くなった。
+    に沿って内側へ引き込まれ、短い断片が目に見えて短くなる。
     """
     v = np.asarray(values, dtype=np.float64)
     if sigma <= 0.0 or v.size < 3:
@@ -705,21 +688,18 @@ def refine_centerline(
     -----
     Each point moves only along the normal of a smoothed copy of the track.
     Confining the motion to the normal is what keeps the result stable: a
-    point cannot slide along the curve or fold back, which is how a prototype
-    that let points move freely ran a 59 px fragment at a crossing out to
-    536 px. Before the half-maximum crossings are read, the section is climbed
-    uphill from the frame to the nearest local maximum, not to the brightest
-    point in reach, so a brighter neighbour cannot capture the track; before
-    that rule, two real tracks were pulled 0.6-0.7 widths off their own fiber.
-    The maximum only anchors the search -- the position reported is the
+    point cannot slide along the curve or fold back, which would let a short
+    fragment at a crossing grow far beyond its own length. Before the
+    half-maximum crossings are read, the section is climbed uphill from the
+    frame to the nearest local maximum, not to the brightest point in reach,
+    so a brighter neighbour cannot capture the track. The maximum only anchors the search -- the position reported is the
     midpoint of the two crossings, which is read off the steep flanks where
     noise moves a crossing least, not off the flat top.
     各点はトラックの平滑化コピーの法線方向にだけ動く。運動を法線に限ることが結果を
-    安定させる。点は曲線に沿って滑ることも折り返すこともできない。点を自由に動かした
-    試作では、交差部の 59 px の断片が 536 px まで伸びた。半値交点を読む前に、断面を
-    枠から坂に沿って最寄りの極大へ上る。射程内で最も明るい点へではない。これにより、
-    より明るい隣の繊維にトラックを奪われない。この規則の前は、実トラック 2 本が自分の
-    繊維から 0.6〜0.7 幅引き離されていた。極大は探索の足場にすぎず、返す位置は
+    安定させる。点は曲線に沿って滑ることも折り返すこともできないため、交差部の
+    短い断片が元の長さをはるかに超えて伸びることはない。半値交点を読む前に、断面を枠から
+    坂に沿って最寄りの極大へ上る。射程内で最も明るい点へではない。これにより、
+    より明るい隣の繊維にトラックを奪われない。極大は探索の足場にすぎず、返す位置は
     2 つの交点の中点である。これはノイズが交点を最も動かさない急な斜面から読むもので
     あり、平らな頂部から読むのではない。
 
@@ -990,12 +970,12 @@ def _refine(
         line_y = _smooth_extrapolated(y, chain_sigma)
     # Keep the line on the image. At a fiber that runs off the scan the frame
     # and the lateral offset can carry the last points past the outermost
-    # pixel centre (up to 1.6 px on the bundled Tunicate scan), where no height
+    # pixel centre, where no height
     # was measured: `_bilinear` only repeats the edge there, yet the points
     # added contour length and widened GUI04's zoomed view past the image.
     # Clamping, not dropping, keeps one line point per skeleton point.
     # 線を画像内に保つ。走査範囲の外へ続く繊維では、枠と横方向オフセットが最後の点を
-    # 最外の画素中心より外へ運ぶことがある（同梱の Tunicate スキャンで最大 1.6 px）。
+    # 最外の画素中心より外へ運ぶことがある。
     # そこは高さを測っていない位置で、`_bilinear` は縁の値を繰り返すだけだが、その点は
     # 輪郭長を増やし、GUI04 の拡大像を画像の外まで広げていた。点を捨てずにクリップ
     # するのは、スケルトン点ごとに 1 点という対応を保つためである。

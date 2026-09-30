@@ -20,14 +20,11 @@ from numpy.typing import NDArray
 # Hit-or-miss pattern matching (OpenCV MORPH_HITMISS).
 # ヒットオアミス・パターンマッチング（OpenCV MORPH_HITMISS）。
 #
-# Patterns are written with 0 = background, 1 = foreground, 2 = wildcard (the
-# encoding of the original lab code) and converted once to the OpenCV
-# convention (-1 = background, 1 = foreground, 0 = wildcard). The patterns and
-# their rotation order are preserved so each kernel matches the intended
-# skeleton neighborhood.
-# パターンは 0=背景, 1=前景, 2=ワイルドカード（元のラボコードの符号化）で記述し、
-# OpenCV 表記（-1=背景, 1=前景, 0=ワイルドカード）へ一度だけ変換する。パターン
-# と回転順は保持し、各カーネルが意図したスケルトン近傍に一致するようにする。
+# Patterns are written with 0 = background, 1 = foreground, 2 = wildcard and
+# converted once to the OpenCV convention (-1 = background, 1 = foreground,
+# 0 = wildcard).
+# パターンは 0=背景, 1=前景, 2=ワイルドカードで記述し、OpenCV 表記
+# （-1=背景, 1=前景, 0=ワイルドカード）へ一度だけ変換する。
 # ---------------------------------------------------------------------------
 
 def _to_cv2_hitmiss_kernel(arr: np.ndarray) -> np.ndarray:
@@ -39,19 +36,19 @@ def _to_cv2_hitmiss_kernel(arr: np.ndarray) -> np.ndarray:
 
 
 def _build_branch_patterns() -> list:
-    """Branch-point kernels, in the rotation order of the legacy code."""
+    """Branch-point kernels: four rotations of the Y- and T-shaped patterns, plus the X-shaped and square ones."""
     vh_xbranch = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
     diagonal_xbranch = np.array([[1, 0, 1], [0, 1, 0], [1, 0, 1]])
     vh_ybranch = np.array([[1, 0, 1], [0, 1, 0], [2, 1, 2]])
     # diagonal_ybranch is intentionally permissive (4 wildcard cells) so it
     # catches diagonally oriented Y-junctions the axis-aligned kernels miss;
-    # it supplies ~half of all detected branch points on the bundled test
-    # scans. Verified that every pixel it uniquely flags is a genuine local
+    # it supplies a large share of the detected branch points on the bundled
+    # test scans. Verified that every pixel it uniquely flags is a genuine local
     # junction (skeleton-neighbor degree >= 3, never a straight-path pixel),
     # so the wildcards do not create spurious branch points.
     # diagonal_ybranch はワイルドカード 4 セルで意図的に緩く、軸平行カーネルが
-    # 取りこぼす斜め方向の Y 分岐を拾う（同梱テストスキャンで全分岐点の約半数を
-    # 供給）。このカーネル固有の検出画素はすべて近傍次数 >= 3 の真の局所分岐で
+    # 取りこぼす斜め方向の Y 分岐を拾う（同梱テストスキャンでは検出される分岐点の
+    # 大きな割合を供給する）。このカーネル固有の検出画素はすべて近傍次数 >= 3 の真の局所分岐で
     # あり（直線パス上では発火しない）、緩さが偽分岐を生まないことを確認済み。
     diagonal_ybranch = np.array([[0, 1, 2], [1, 1, 2], [2, 2, 1]])
     vh_tbranch = np.array([[0, 0, 0], [1, 1, 1], [0, 1, 0]])
@@ -67,7 +64,7 @@ def _build_branch_patterns() -> list:
 
 
 def _build_end_patterns() -> list:
-    """Endpoint kernels, in the rotation order of the legacy code."""
+    """Endpoint kernels: four rotations of each end pattern, plus the isolated pixel."""
     endpoint1 = np.array([[0, 0, 0], [0, 1, 0], [2, 1, 2]])
     endpoint2 = np.array([[0, 0, 0], [0, 1, 0], [0, 0, 1]])
     endpoint_single = np.array([[0, 0, 0], [0, 1, 0], [0, 0, 0]])

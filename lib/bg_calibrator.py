@@ -8,17 +8,13 @@ subtracts it from the original image.
 このモジュールは、ライン間の高さ差を推定し、繊維候補領域を背景から分離し、
 平滑な背景面を再構成して元画像から減算する処理を提供する。
 
-The methods were developed on Shimadzu SPM-9600 scans, and the module was
-historically named ``bg_calibrator_shimadzu``. The algorithms are general
-line-scan AFM background corrections and are also used on data from other
-instruments (e.g. Bruker NanoScope text exports), so the module and class
-were renamed to instrument-neutral names. The historical import path and
-class name remain available through the ``bg_calibrator_shimadzu`` shim.
-本手法は島津 SPM-9600 のスキャンを対象に開発され、モジュール名も歴史的に
-``bg_calibrator_shimadzu`` だった。アルゴリズム自体はラインスキャン AFM
-一般の背景補正であり、他装置（例: Bruker NanoScope のテキストエクスポート）
-のデータにも使用されるため、モジュール名・クラス名を装置非依存の名称へ
-改めた。従来の import パスとクラス名は ``bg_calibrator_shimadzu`` シム
+The algorithms are general line-scan AFM background corrections, used on
+data from several instruments (e.g. Shimadzu SPM-9600 and Bruker NanoScope
+text exports). The import path ``bg_calibrator_shimadzu`` and the class name
+``BG_Calibrator_shimadzu`` remain available through a compatibility shim.
+アルゴリズムはラインスキャン AFM 一般の背景補正であり、複数の装置（例: 島津
+SPM-9600、Bruker NanoScope のテキストエクスポート）のデータに使う。import パス
+``bg_calibrator_shimadzu`` とクラス名 ``BG_Calibrator_shimadzu`` は、互換シム
 経由で引き続き利用できる。
 """
 
@@ -33,23 +29,20 @@ from .processed_image import ProcessedImage
 # 背景推定方式の一覧。`_param.json` へ書き出される綴りで保持する。
 BG_METHOD_NAMES = ("trendfill", "tophat", "spline1d")
 
-# Retired spellings mapped to their current name. Parameter files written
-# before the rename record ``"inpaint"``, and re-running an old analysis must
-# keep working, so the value is translated on load rather than rejected. The
-# method was renamed because it no longer inpaints: the mask is filled by a
-# second-order trend subtraction plus nearest-background propagation.
-# 廃止された綴りから現行名への対応表。改名前に書かれたパラメータファイルは
-# ``"inpaint"`` を記録しており、過去の解析を再実行できる必要があるため、値は
-# 拒否せず読み込み時に変換する。改名の理由は、この方式がもはや inpaint を
-# 行わないためである（実体は 2 次トレンド減算＋最近傍背景の伝播）。
+# Retired spellings mapped to their current name. A parameter file can record
+# the retired spelling ``"inpaint"``, and re-running an old analysis must keep
+# working, so the value is translated on load rather than rejected.
+# 廃止された綴りから現行名への対応表。パラメータファイルは廃止された綴り
+# ``"inpaint"`` を記録していることがあり、過去の解析を再実行できる必要があるため、
+# 値は拒否せず読み込み時に変換する。
 BG_METHOD_ALIASES = {"inpaint": "trendfill"}
 
-# Methods removed after 1.0.0, mapped to the guidance shown when a stored
-# parameter file still selects one. Unlike `BG_METHOD_ALIASES` these are *not*
+# Methods that are no longer available, mapped to the guidance shown when a
+# stored parameter file still selects one. Unlike `BG_METHOD_ALIASES` these are *not*
 # translated to a surviving method: substituting one silently would change the
 # numbers a saved `_param.json` reproduces, which is a reproducibility break in
 # research software. The run stops instead and the user re-selects a method.
-# 1.0.0 以降に削除された方式と、保存済みパラメータファイルがそれを指していた
+# 利用できなくなった方式と、保存済みパラメータファイルがそれを指していた
 # ときに示す案内の対応表。`BG_METHOD_ALIASES` と違い、生き残った方式へ読み
 # 替えることはしない。黙って置換すると保存済み `_param.json` が再現する数値が
 # 変わり、研究ソフトウェアとしての再現性を損なうためである。実行を止めて
@@ -186,7 +179,7 @@ class BGCalibrator:
             background interpolation (visible as a tiled / cellular pattern
             in the calibrated image at `mask_dilation >= 3`). Real fibers
             form much larger connected components and are kept. Set to 1
-            to disable filtering (reproduces the previous behavior).
+            to disable filtering.
             Applied when `mask_dilation > 0` and ``bg_method`` is
             ``'trendfill'`` or ``'spline1d'``.
             Default is 10.
@@ -197,8 +190,8 @@ class BGCalibrator:
             `(2 * mask_dilation + 1)^2` ピクセルに膨張し、bg_only にゴマ塩状の
             穴を作って背景補間を不安定化させる（`mask_dilation >= 3` で補正
             画像にタイル状・細胞状パターンとして現れる）。本物のファイバーは
-            十分大きな連結成分を形成するため残る。1 を指定するとフィルタなし
-            （従来動作と一致）。`mask_dilation > 0` かつ ``bg_method`` が
+            十分大きな連結成分を形成するため残る。1 を指定するとフィルタなし。
+            `mask_dilation > 0` かつ ``bg_method`` が
             ``'trendfill'`` または ``'spline1d'`` のときに適用される。
             デフォルトは 10。
         bg_method : {'trendfill', 'tophat', 'spline1d'}, optional
@@ -213,11 +206,7 @@ class BGCalibrator:
             ``noise_detect_factor``, ``mask_dilation``,
             ``min_mask_component_area``. Sensitive to ridge-detection
             failures (fiber shoulders leaking through the mask bias the
-            background upward). The name is historical: the mask used to be
-            filled by OpenCV Navier-Stokes inpainting, which could not
-            reproduce the background slope across a hole (see
-            ``_bg_generate``). It is kept because ``bg_method`` values are
-            serialized verbatim into ``<input_stem>_param.json``.
+            background upward).
 
             ``'tophat'``: morphological opening with a circular structuring
             element of diameter ``tophat_se_size``. Background equals the
@@ -234,8 +223,7 @@ class BGCalibrator:
             AFM images.
 
             ``'spline1d'``: per-line 1D spline interpolation of the
-            background-candidate pixels along a single axis, the direct
-            revival of the legacy ``pandas`` row/column spline. The
+            background-candidate pixels along a single axis. The
             ``spline1d_axis`` option selects which way the stripe noise
             runs. With ``spline1d_axis='y'`` (default) each column is
             interpolated independently down the image; combined with the
@@ -254,15 +242,13 @@ class BGCalibrator:
             interpolate between, so those runs hold the mean of that line's
             nearest ``savgol_window`` background samples rather than an
             extrapolated shape; a single-line extrapolation there stripes the
-            image edge, whether it degenerates to the constant padding that
-            originally motivated replacing this method with ``'trendfill'``
-            or follows the fitted spline. Only a line with fewer than two
+            image edge, whether it holds the last sample constant or follows
+            the fitted spline. Only a line with fewer than two
             background samples is filled from the nearest background pixel
             in 2D.
             The background is then Savitzky-Golay smoothed and subtracted in
-            full (no exact restore of background-candidate pixels),
-            reproducing the legacy behavior that performs well on
-            line-noise-dominated scans. Configurable via ``spline1d_axis``
+            full (no exact restore of background-candidate pixels), which
+            performs well on line-noise-dominated scans. Configurable via ``spline1d_axis``
             and ``spline1d_degree``.
 
             背景推定方式の選択。
@@ -275,11 +261,7 @@ class BGCalibrator:
             ``noise_detect_factor``, ``mask_dilation``,
             ``min_mask_component_area`` で挙動を制御する。リッジ検出の
             取りこぼし（ファイバーの肩がマスクを抜けて境界画素として残る現象）
-            に弱く、背景推定値が上方にバイアスする傾向がある。名称は歴史的な
-            もので、以前はマスク領域を OpenCV の Navier-Stokes 法 inpaint で
-            埋めていたが、この方式は穴を跨ぐ背景の傾斜を再現できなかった
-            (``_bg_generate`` 参照)。``bg_method`` の値は
-            ``<input_stem>_param.json`` へそのまま保存されるため名称は維持する。
+            に弱く、背景推定値が上方にバイアスする傾向がある。
 
             ``'tophat'``: 直径 ``tophat_se_size`` の円形構造要素を用いる
             形態学的 opening。背景は opening 後の画像（収縮→膨張）そのもの。
@@ -294,7 +276,7 @@ class BGCalibrator:
             実証ベンチマーク結果である。
 
             ``'spline1d'``: 背景候補画素を1軸に沿って行/列ごとに 1D スプライン
-            補間する方式で、従来 ``pandas`` の行/列スプラインの正統な復活版。
+            補間する方式。
             ``spline1d_axis`` で除去対象の縞の向きを選ぶ。``'y'`` (デフォルト)
             は各列を画像の縦方向に独立補間し、後段の Savitzky-Golay と併せて
             *横縞* (各走査ラインが上下にずれるライン間オフセット。画像の行方向
@@ -307,13 +289,13 @@ class BGCalibrator:
             ``pandas`` スプラインを適用する。各ラインの最初/最後の背景画素
             より外側は補間する材料が無いため、形を外挿するのではなく、その
             ライン自身の最近傍 ``savgol_window`` 個の背景サンプルの平均を保持
-            する。ここでライン単独の外挿を行うと画像端に縞が出る。本方式が当初
-            ``'trendfill'`` へ置き換えられた理由である定数埋めに縮退した場合
-            でも、フィットしたスプラインに従った場合でも同様である。背景
+            する。ここでライン単独の外挿を行うと、最終サンプルの値を一定に
+            保つ場合でも、フィットしたスプラインに従う場合でも、画像端に縞が
+            出る。背景
             サンプルが 2 点未満のラインだけは 2 次元の最近傍背景画素から埋める。
             その後 Savitzky-Golay で
-            平滑化し、背景候補画素を厳密復元せずそのまま全面減算する (従来
-            挙動の再現)。ラインノイズ主体のスキャンで良好な結果を出す。
+            平滑化し、背景候補画素を厳密復元せずそのまま全面減算する。ライン
+            ノイズ主体のスキャンで良好な結果を出す。
             ``spline1d_axis`` と ``spline1d_degree`` で挙動を制御する。
 
         tophat_se_size : int, optional
@@ -346,13 +328,12 @@ class BGCalibrator:
             対象とする。デフォルトは ``'y'``。
         spline1d_degree : int, optional
             Polynomial order of the per-line ``pandas`` spline used when
-            ``bg_method='spline1d'``. Matches the legacy implementation's
-            ``order=2`` by default. Practical range is 1-3; must be a
+            ``bg_method='spline1d'``. Practical range is 1-3; must be a
             positive integer. Lines with fewer valid points than the spline
             order fall back to linear (or nearest) interpolation
             automatically. Default is 2.
             ``bg_method='spline1d'`` のときの行/列ごと ``pandas`` スプライン
-            の多項式 order。デフォルトは従来実装の ``order=2`` に一致。実用
+            の多項式 order。実用
             範囲は 1〜3 で正の整数のみ。スプライン order に満たない有効点数
             のラインは自動的に線形 (または最近傍) 補間にフォールバックする。
             デフォルトは 2。
@@ -377,8 +358,8 @@ class BGCalibrator:
         Only parameters are stored here. Actual calibration runs in __call__.
         ここではパラメータのみ保持し、実際の補正処理は __call__ で実行する。
         """
-        # Accept the retired spelling so a pre-rename `_param.json` still runs.
-        # 改名前の `_param.json` がそのまま動くよう、旧綴りも受け付ける。
+        # Accept the retired spelling so a `_param.json` recording it still runs.
+        # 旧綴りを記録した `_param.json` がそのまま動くよう、旧綴りも受け付ける。
         bg_method = canonical_bg_method(bg_method)
         # Report a removed method by name, before the generic "unknown value"
         # error, so a stored parameter file explains itself instead of looking
@@ -516,14 +497,14 @@ class BGCalibrator:
 
         Shared prelude of `_call_trendfill` and `_call_spline1d`: both need
         the same gradient-histogram fiber mask before they diverge on how
-        they fill the background. The
-        intermediates ``dif_x`` ... ``tri_difx_fill``/``tri_dify_fill`` are
-        stored on ``self`` exactly as before, so the three paths cannot drift
-        apart and every consumed ``bg_only`` is identical to the legacy code.
+        they fill the background. The intermediates ``dif_x`` ...
+        ``tri_difx_fill``/``tri_dify_fill`` are stored on ``self``, so the
+        paths that use the mask cannot drift apart.
         `_call_trendfill` / `_call_spline1d` で共通の前段。
         両方式とも背景の埋め方が分かれる前に同じ勾配ヒストグラム由来の
         ファイバーマスクを必要とする。中間配列 ``dif_x`` 〜
-        ``tri_difx_fill``/``tri_dify_fill`` は従来どおり ``self`` に保持する。
+        ``tri_difx_fill``/``tri_dify_fill`` は ``self`` に保持するため、マスクを使う
+        経路どうしが食い違うことはない。
         """
         self.dif_x, self.dif_y = self._difXY(original)
         # Fit histogram models to estimate background-difference distribution.
@@ -559,12 +540,12 @@ class BGCalibrator:
 
         Notes
         -----
-        Output shape matches the legacy `_bg_calibrate` convention
+        Output shape matches the `_bg_calibrate` convention
         (`original.shape - (1, 1)`) so that downstream stages (Segmenter
         etc.) see the same array shape regardless of `bg_method`.
         Ridge-detection intermediates (``dif_x`` etc.) are set to ``None``
         because they are not computed by this method.
-        出力形状はレガシー `_bg_calibrate` と同じく ``original.shape - (1, 1)``
+        出力形状は `_bg_calibrate` と同じく ``original.shape - (1, 1)``
         になるよう揃え、下流ステージ (Segmenter 等) が ``bg_method`` の
         違いを意識せず同じ配列形状を受け取れるようにする。リッジ検出系
         中間配列 (``dif_x`` 等) は計算しないため ``None`` を設定する。
@@ -610,21 +591,17 @@ class BGCalibrator:
         # the trendfill path detrends: a raw scan carries a large sample tilt.
         # Opening reproduces a plane in the image interior, but not within one
         # structuring-element radius of the border, because erosion there takes
-        # its minimum from a clipped neighborhood that dilation cannot restore.
-        # On a 0.24 nm/px ramp (the steepest plane of the bundled scans) a
-        # 25-px element leaves a band 3.1 nm high within 12 px of the uphill
-        # edge, far above the 0.3 nm binarization threshold, and 0.29 nm once
-        # the ramp is detrended (scripts/measure_docs.py, tophat_border).
-        # Detrending first removes the slope the border effect feeds on.
+        # its minimum from a clipped neighborhood that dilation cannot restore,
+        # so on a tilted scan a band is left along the uphill edge
+        # (docs/validation.md §1.4). Detrending first removes the slope the
+        # border effect feeds on.
         # トレンドを除いた写しに opening をかけ、後でトレンドを戻す。理由は
         # trendfill 経路と同じで、生の走査は大きな試料傾斜を伴うためである。
         # opening は画像内部では平面を再現するが、構造要素の半径以内の境界域
         # では再現しない。そこでは収縮が切り詰められた近傍から最小値を取り、
-        # 膨張が復元できないからである。0.24 nm/px の傾斜（同梱スキャンで最も
-        # 急な平面）と直径 25 px の要素では、上り側の端から 12 px 以内に高さ
-        # 3.1 nm の帯が残り、二値化しきい値 0.3 nm を大きく超える。デトレンド
-        # すると 0.29 nm になる（scripts/measure_docs.py の tophat_border）。
-        # 先にデトレンドすることで、この境界効果が餌にする傾斜そのものを取り除く。
+        # 膨張が復元できないからである。そのため傾いた走査では上り側の縁に帯が
+        # 残る（docs/validation.ja.md §1.4）。先にデトレンドすることで、この
+        # 境界効果が餌にする傾斜そのものを取り除く。
         # The trend is fitted over every pixel because this method computes no
         # fiber mask. Fibers bias the surface upward, but only their spatial
         # variation survives: a uniform offset passes unchanged through both
@@ -649,7 +626,7 @@ class BGCalibrator:
         # `savgol_polyorder <= 1`, which does not reproduce a quadratic, so
         # smoothing the trend-restored surface would fold the trend's curvature
         # into the background estimate. Then crop by [1:, 1:] to match the
-        # legacy output shape produced by `_bg_calibrate`.
+        # output shape produced by `_bg_calibrate`.
         # trendfill パスと同じ Savitzky-Golay 平滑化をかけ、両方式の下流の
         # ノイズ特性をそろえる。平滑化はデトレンド後の opening に対して行い、
         # トレンドは後から戻す。`savgol_polyorder <= 1` のときこのフィルタは
@@ -689,33 +666,27 @@ class BGCalibrator:
 
         Notes
         -----
-        This is the direct revival of the legacy ``pandas`` row/column
-        spline background (see ``BG_Calibrator_shimadzuOld``), modernised
-        in two ways:
+        The fiber mask is the one `_call_trendfill` uses, including
+        ``mask_dilation`` and ``min_mask_component_area``, so fiber-edge
+        shoulders are excluded from the background pool exactly as in
+        ``'trendfill'``. The image is detrended before the fill and the trend
+        restored afterwards, as in ``'trendfill'``, so no filler has to
+        reproduce the sample tilt.
 
-        * The fiber mask reuses the trendfill pipeline's ridge detection
-          *together with* ``mask_dilation`` and ``min_mask_component_area``
-          (the legacy version had neither), so fiber-edge shoulders are
-          excluded from the background pool exactly as in ``'trendfill'``.
-        * The image is detrended before the fill and the trend restored
-          afterwards, as in ``'trendfill'``, so no filler has to reproduce
-          the sample tilt.
-        * No shape is extrapolated past the line ends. Beyond the first/last
-          valid sample of a line - a fiber touching the image edge along the
-          interpolation axis - there is background data on one side only, so
-          any shape a 1D method puts there is fitted to that single line, its
-          error grows with the run length, and it is uncorrelated with the
-          neighboring lines. The legacy ``pandas`` behavior there (constant
-          padding at the last sample, the documented reason the method was
-          dropped in favour of ``'trendfill'``) is one instance of the
-          problem; the fitted spline's own extrapolation fails the same way,
-          in smooth bands instead of thin streaks. These runs instead hold
-          the mean of the line's nearest ``savgol_window`` background samples
-          (`_spline1d_fill`): on a detrended image the per-line residual is
-          essentially the scan-line offset, which is constant along the line,
-          and averaging keeps pixel noise out of that level. Only a line with
-          fewer than two valid samples is left unfilled there, and its pixels
-          are filled from the nearest background pixel in 2D.
+        No shape is extrapolated past the line ends. Beyond the first/last
+        valid sample of a line - a fiber touching the image edge along the
+        interpolation axis - there is background data on one side only, so
+        any shape a 1D method puts there is fitted to that single line, its
+        error grows with the run length, and it is uncorrelated with the
+        neighboring lines: holding the last sample constant streaks the image
+        edge, and the fitted spline's own extrapolation paints smooth bands.
+        These runs instead hold the mean of the line's nearest
+        ``savgol_window`` background samples (`_spline1d_fill`): on a
+        detrended image the per-line residual is essentially the scan-line
+        offset, which is constant along the line, and averaging keeps pixel
+        noise out of that level. Only a line with fewer than two valid samples
+        is left unfilled there, and its pixels are filled from the nearest
+        background pixel in 2D.
 
         The stripe orientation is controlled by ``spline1d_axis``:
         ``'y'`` (default) interpolates each column down the image and, with
@@ -724,47 +695,38 @@ class BGCalibrator:
         image and targets *vertical* stripes instead.
 
         Like every background method, the estimated background is
-        subtracted *in full*, and this path follows the legacy behavior of
-        Savitzky-Golay smoothing the interpolated background first: the
-        per-line interpolation is not smooth by construction. On
-        line-noise-dominated scans this per-line approach is empirically
-        the better-behaved choice; see the class docstring.
+        subtracted *in full*. The interpolated background is Savitzky-Golay
+        smoothed first, because the per-line interpolation is not smooth by
+        construction. On line-noise-dominated scans this per-line approach is
+        empirically the better-behaved choice; see the class docstring.
 
-        これは従来 ``pandas`` の行/列スプライン背景
-        (``BG_Calibrator_shimadzuOld`` 参照) の正統な復活版で、2 点を
-        現代化している:
+        ファイバーマスクは `_call_trendfill` と同じもので、``mask_dilation`` と
+        ``min_mask_component_area`` も含む。これにより ``'trendfill'`` と同様、
+        ファイバー端の肩部が背景プールから除外される。``'trendfill'`` と同様、
+        充填の前にデトレンドし後でトレンドを戻すため、どの充填器も試料傾斜を
+        再現する必要がない。
 
-        * ファイバーマスクは trendfill のリッジ検出に加えて ``mask_dilation``
-          と ``min_mask_component_area`` を併用する (旧版は両方なし)。
-          これにより ``'trendfill'`` と同様、ファイバー端の肩部が背景
-          プールから除外される。
-        * ``'trendfill'`` と同様、充填の前にデトレンドし後でトレンドを戻す。
-          どの充填器も試料傾斜を再現する必要がなくなる。
-        * ライン端より外側へ形を外挿しない。各ラインの最初/最後の有効
-          サンプルより外側 (補間軸の端にファイバーがかかる場合) は片側にしか
-          背景データが無いため、1 次元手法がそこへ置く形はそのライン単独の
-          当てはめになり、誤差は区間長とともに増え、隣接ラインと無相関になる。
-          旧 ``pandas`` の挙動である最終サンプルでの定数埋め (本方式が
-          ``'trendfill'`` へ置き換えられた既知の理由) はこの問題の一例であり、
-          フィットしたスプライン自身の外挿も同じ形で破綻する。細いスジでは
-          なく滑らかな帯になるだけである。そこでこの区間には、そのライン自身の
-          最近傍 ``savgol_window`` 個の背景サンプルの平均を保持する
-          (`_spline1d_fill`)。デトレンド後にライン固有として残る量は実質的に
-          走査ラインのオフセットであり、ライン方向に一定であるうえ、平均を
-          取ることでその水準に画素ノイズが入らない。この区間を埋めずに残すのは
-          有効サンプルが 2 点未満のラインだけで、その画素は 2 次元の最近傍
-          背景画素から埋める。
+        ライン端より外側へ形を外挿しない。各ラインの最初/最後の有効サンプルより
+        外側 (補間軸の端にファイバーがかかる場合) は片側にしか背景データが無い
+        ため、1 次元手法がそこへ置く形はそのライン単独の当てはめになり、誤差は
+        区間長とともに増え、隣接ラインと無相関になる。最終サンプルの値を一定に
+        保てば画像端に細いスジが出て、フィットしたスプライン自身の外挿では
+        滑らかな帯が出る。そこでこの区間には、そのライン自身の最近傍
+        ``savgol_window`` 個の背景サンプルの平均を保持する (`_spline1d_fill`)。
+        デトレンド後にライン固有として残る量は実質的に走査ラインのオフセットで
+        あり、ライン方向に一定であるうえ、平均を取ることでその水準に画素ノイズが
+        入らない。この区間を埋めずに残すのは有効サンプルが 2 点未満のラインだけで、
+        その画素は 2 次元の最近傍背景画素から埋める。
 
         除去する縞の向きは ``spline1d_axis`` で制御する。``'y'`` (デフォルト)
         は各列を画像の縦方向に補間し、Savitzky-Golay と併せて *横縞* (各走査
         ラインが上下にずれるオフセット) を均す。``'x'`` は代わりに各行を横方向
         に補間し *縦縞* を対象とする。
 
-        他の背景方式と同様、推定した背景は *そのまま全面* 減算する。加えて
-        旧来挙動に従い、補間した背景を先に Savitzky-Golay 平滑化する（行/列
-        ごとの補間は構成上滑らかにはならないため）。ラインノイズ主体の
-        スキャンでは経験的にこの行/列方式の方が振る舞いが良い
-        (クラス docstring 参照)。
+        他の背景方式と同様、推定した背景は *そのまま全面* 減算する。行/列ごとの
+        補間は構成上滑らかにはならないため、補間した背景を先に Savitzky-Golay
+        平滑化する。ラインノイズ主体のスキャンでは経験的にこの行/列方式の方が
+        振る舞いが良い (クラス docstring 参照)。
         """
         original = image.original_image
 
@@ -788,10 +750,9 @@ class BGCalibrator:
 
         # Detrend before filling and restore the trend afterwards, exactly as
         # `_bg_generate` does, so that neither filler has to reproduce the
-        # sample tilt (up to 0.24 nm/px on the bundled scans).
+        # sample tilt.
         # `_bg_generate` と同じく、充填の前にデトレンドし後でトレンドを戻す。
-        # どちらの充填器も試料傾斜（同梱スキャンで最大 0.24 nm/px）を
-        # 再現しなくてよくなる。
+        # どちらの充填器も試料傾斜を再現しなくてよくなる。
         if not valid_mask.any():
             # Pathological input: every pixel was classified as fiber. Fall
             # back to a flat zero background, as the other paths do.
@@ -832,10 +793,10 @@ class BGCalibrator:
 
         self.bg_spline1d = bg_int
 
-        # Savitzky-Golay smoothing then full-frame subtraction, matching the
-        # legacy pipeline (no exact restore of background-candidate pixels).
-        # Savitzky-Golay 平滑化のあと全面減算する。旧パイプラインと同じく
-        # 背景候補画素の厳密復元は行わない。
+        # Savitzky-Golay smoothing then full-frame subtraction (no exact
+        # restore of background-candidate pixels).
+        # Savitzky-Golay 平滑化のあと全面減算する。背景候補画素の厳密復元は
+        # 行わない。
         self.bg_sm = signal.savgol_filter(bg_int, self.savgol_window, self.savgol_polyorder)
         calibrated_image = original[1:, 1:] - self.bg_sm
 
@@ -1303,57 +1264,27 @@ class BGCalibrator:
         subtracted, the holes are filled by nearest-valid propagation, the
         result is Savitzky-Golay smoothed, and the surface is added back. The
         detrending step is what makes the fill accurate, and it matters because
-        raw AFM scans can carry a large sample tilt: on the bundled tunicate
-        scan the least-squares plane drops 0.23 nm per pixel, so the background
-        falls 4.6 nm across one dilated fiber hole while the fiber's median
-        height is 7.9 nm (docs/algorithms.md section 1.1). Any fill that cannot
-        reproduce that ramp leaves an error comparable to the signal.
+        raw AFM scans can carry a sample tilt large enough that the background
+        falls by a sizeable fraction of a fiber's height across one dilated
+        fiber hole (docs/validation.md section 1.1). Any fill that cannot
+        reproduce that ramp leaves an error of that size in the background.
         穴の充填は画像を *デトレンド* した写しの上で行う。背景候補画素に 2 次
         曲面を最小二乗フィットして減算し、最近傍の有効画素を伝播させて穴を
         埋め、Savitzky-Golay で平滑化してから曲面を足し戻す。精度の鍵はこの
-        デトレンドにある。生の AFM 走査は大きな試料傾斜を伴うことがあり、同梱の
-        チュニケートの走査では最小二乗平面が 1 画素あたり 0.23 nm 下がる。つまり
-        膨張後の繊維 1 本分の穴を横切る間に背景が 4.6 nm 落ちる一方、繊維の高さの
-        中央値は 7.9 nm である（docs/algorithms.ja.md の 1.1 節）。この傾斜を
-        再現できない充填法は、信号と同程度の誤差を残すことになる。
-
-        This replaces the previous OpenCV Navier-Stokes inpainting. That
-        scheme is a boundary-propagation method intended for thin scratches:
-        with `inpaintRadius=3` it extended each side of a hole inward as a
-        flat plateau, so on raw, tilted heights the fill departed from the true
-        background (1.7 nm on 21-px holes in the tunicate background). Because
-        `savgol_polyorder <= 1` makes the Savitzky-Golay pass a plain moving
-        average along X, that error was averaged into the background estimate
-        of every genuine background pixel within half a window of the hole.
-        The 1.0.0 calibrator left the background beside an 8 nm synthetic
-        fiber on a 0.24 nm/px plane at -0.76 to +0.77 nm, beyond the default
-        `Segmenter.global_threshold` of 0.3 nm; this code leaves -0.21 to
-        +0.18 nm (scripts/measure_docs.py, bg_fill and bg_legacy_halo).
-        これは従来の OpenCV Navier-Stokes inpainting を置き換えるものである。
-        あの方式は細い傷の修復を想定した境界伝播法で、`inpaintRadius=3` では
-        穴の左右それぞれの境界値を平坦に内側へ伸ばすため、傾いた生の高さでは
-        充填値が本当の背景から外れた（チュニケートの背景の 21 px の穴で 1.7 nm）。
-        `savgol_polyorder <= 1` のとき Savitzky-Golay は X 方向の単純移動平均
-        そのものになるため、この誤差が、穴から窓半分以内にある本物の背景画素の
-        推定値へ平均化されて漏れ出した。1.0.0 の背景補正は、0.24 nm/px の平面
-        上の高さ 8 nm の合成繊維の脇の背景を -0.76〜+0.77 nm とし、
-        `Segmenter.global_threshold` の既定値 0.3 nm を超えた。このコードでは
-        -0.21〜+0.18 nm である（scripts/measure_docs.py の bg_fill と
-        bg_legacy_halo）。
+        デトレンドにある。生の AFM 走査は、膨張後の繊維 1 本分の穴を横切る間に
+        背景が繊維の高さのかなりの割合だけ落ちるほどの試料傾斜を伴うことがある
+        （docs/validation.ja.md の 1.1 節）。この傾斜を再現できない充填法は、
+        その大きさの誤差を背景に残すことになる。
 
         Nearest-valid propagation is enough once the image is detrended: with
         the trend removed the height difference across a hole is close to
-        zero, so the choice of filler barely matters (on 21-px holes in the
-        tunicate background the fill departs from the measured heights by
-        0.30 nm for nearest versus 0.27 nm for inpainting, against 2.5 nm and
-        1.7 nm without detrending; scripts/measure_docs.py, bg_fill).
+        zero, so the choice of filler barely matters (docs/validation.md
+        section 1.2).
         Nearest-valid propagation also preserves the background-candidate
         pixels exactly, so no explicit restore step is needed.
         デトレンド後であれば最近傍伝播で十分である。トレンドを除くと穴を跨ぐ
-        高さ差がほぼゼロになるため、充填法の選択はほとんど効かない（チュニケートの
-        背景の 21 px の穴で、実測の高さからの外れは最近傍 0.30 nm、inpainting
-        0.27 nm。デトレンドしないとそれぞれ 2.5 nm と 1.7 nm。scripts/measure_docs.py
-        の bg_fill）。また最近傍伝播は背景候補画素をそのまま保存するので、
+        高さ差がほぼゼロになるため、充填法の選択はほとんど効かない
+        （docs/validation.ja.md の 1.2 節）。また最近傍伝播は背景候補画素をそのまま保存するので、
         明示的な復元処理を必要としない。
 
         The smoothed background is then obtained by Savitzky-Golay filtering.
@@ -1368,8 +1299,7 @@ class BGCalibrator:
         # field across `bg_only` that destabilises the background fill
         # (visible as a tiled / cellular artefact at mask_dilation >= 3).
         # Real fibers form much larger 8-connected components and survive.
-        # Skipped when `mask_dilation == 0` so the original behavior is
-        # preserved bit-identically.
+        # The filter runs only together with the dilation it guards against.
         # 理由: `_extract_fiber` の Pattern 2 (`[1, -1]`) は 2〜10 px 程度の
         # 偽検出を拾い、ノイズの多い画像や広視野画像では画面全体に密に
         # 散らばる。フィルタなしで dilation すると 1 つの偽検出が
@@ -1377,7 +1307,7 @@ class BGCalibrator:
         # ゴマ塩状の欠損を作って背景の充填を不安定化させる
         # （mask_dilation >= 3 でタイル状・細胞状パターンとして見える）。
         # 本物のファイバーは十分大きな 8 連結成分を形成するため残る。
-        # `mask_dilation == 0` の場合は従来動作と完全一致させるためスキップ。
+        # このフィルタは、それが防ごうとする膨張と一緒にだけ実行する。
         if self.mask_dilation > 0 and self.min_mask_component_area > 1:
             n_cc, cc_labels, cc_stats, _cc_centroids = cv2.connectedComponentsWithStats(
                 raw_mask.astype(np.uint8), connectivity=8,
@@ -1411,11 +1341,9 @@ class BGCalibrator:
         if not valid_mask.any():
             # Pathological input: every pixel was classified as fiber, so there
             # is no background information to fit or to propagate. Fall back to
-            # a flat zero background, which is what the previous inpainting path
-            # also produced for a fully masked image.
+            # a flat zero background.
             # 病的な入力: 全画素が繊維と判定され、フィットにも伝播にも使える
-            # 背景情報が無い。平坦なゼロ背景へフォールバックする。従来の
-            # inpainting 経路も全面マスク時は同じ結果を返していた。
+            # 背景情報が無い。平坦なゼロ背景へフォールバックする。
             return bg_only, np.zeros_like(crop, dtype=np.float64)
 
         # Remove the sample tilt/bowl before filling, then add it back after
@@ -1468,23 +1396,18 @@ class BGCalibrator:
         Notes
         -----
         Second order rather than a plane because real scans can be bowl-shaped
-        as well as tilted: on the bundled Bruker scan the quadratic part left
-        after the best-fit plane spans 21.9 nm peak to peak
-        (scripts/measure_docs.py, bg_stats).
+        as well as tilted (docs/validation.md section 1.1).
         平面ではなく 2 次にするのは、実際の走査が傾いているだけでなく皿状に
-        歪んでいることがあるためである。同梱の Bruker 走査では、最適平面を除いた
-        後に残る 2 次の成分の山谷が 21.9 nm ある（scripts/measure_docs.py の
-        bg_stats）。
+        歪んでいることがあるためである（docs/validation.ja.md の 1.1 節）。
 
         Coordinates are normalised to [-1, 1] before the quadratic terms are
         formed. On a 1024-px axis the raw-pixel design matrix has a condition
-        number near 3.6e6 against about 4 after normalisation; float64 SVD
-        solves either (the two fitted surfaces agreed to 1.8e-10 nm), but the
-        normalised form keeps headroom for larger scans.
+        number of about 3.4e6 over the full grid against about 4 after
+        normalisation; float64 SVD
+        solves either, but the normalised form keeps headroom for larger scans.
         2 次項を作る前に座標を [-1, 1] へ正規化する。1024 px 軸では生ピクセル
-        座標の設計行列の条件数が約 3.6e6、正規化後は約 4 になる。float64 の
-        SVD はどちらでも解ける（両者のフィット曲面の差は 1.8e-10 nm）が、
-        正規化しておく方が大きな走査に対して余裕がある。
+        座標の設計行列の条件数が全格子で約 3.4e6、正規化後は約 4 になる。float64 の
+        SVD はどちらでも解けるが、正規化しておく方が大きな走査に対して余裕がある。
 
         The fit degrades gracefully when the background pixels are degenerate,
         for example when they all lie on one row and leave the surface

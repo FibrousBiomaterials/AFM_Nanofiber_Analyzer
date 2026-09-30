@@ -15,13 +15,14 @@ same thing at any scan size.
 あり、マスクが繊維に対して非対称なためだけにスケルトンが作る折れは報告されない。
 規則が使う長さはすべて W の倍数であり、どの走査サイズでも同じ意味を持つ。
 
-Bundles of format 1.0 were judged by an earlier rule, which decomposed the
-skeleton track into a polyline and tested the angle at each vertex. It is kept
-as `KinkDetector.kinks_and_decomposed_from_track` only so that a fibril
+The kinks stored in a bundle of format 1.0 were judged by a polyline rule,
+which decomposes the skeleton track into a polyline and tests the angle at each
+vertex. It is available as `KinkDetector.kinks_and_decomposed_from_track` only
+so that a fibril
 reconnected in such a bundle is judged by the rule that produced the rest of
 its image (see `bundle_schema.centerline_from_meta`).
-形式 1.0 のバンドルは以前の規則で判定されている。スケルトントラックを折れ線に
-分解し、各頂点の角度を検定する規則である。これを
+形式 1.0 のバンドルが保存するキンクは折れ線規則で判定されている。スケルトン
+トラックを折れ線に分解し、各頂点の角度を検定する規則である。これを
 `KinkDetector.kinks_and_decomposed_from_track` として残すのは、そのような
 バンドルで再結合したフィブリルを、画像の他の部分を生んだのと同じ規則で判定する
 ためだけである（`bundle_schema.centerline_from_meta` 参照）。
@@ -61,13 +62,11 @@ logger = logging.getLogger(__name__)
 #
 # The values follow from W being the resolution; they were checked, not
 # fitted, against a visual reference marked by eye on the height images of the
-# bundled scans. Changing any one of them to the alternative named in its
-# comment moved the clear reference kinks found from 60 of 64 to between 56
-# and 62, and the false detections from 64 to between 48 and 80.
+# bundled scans; the effect of changing any one of them to the alternative
+# named in its comment is in docs/validation.md §4.4.
 # 値は W が分解能であることから決まるもので、同梱スキャンの高さ画像に目視で印を
 # 付けた基準に対して確認はしたが、合わせ込んではいない。どれか 1 つをコメントに
-# 挙げた代替値に変えても、見つかる明瞭な基準キンクは 64 件中 60 件から 56〜62 件の
-# 間で動くだけで、誤検出は 64 件から 48〜80 件の間で動いた。
+# 挙げた代替値に変えたときの影響は docs/validation.ja.md §4.4 にある。
 
 # Half-length c of the window a bend's turning is summed over. The probe
 # spreads a corner's turning over about one W of line, so +-0.75 W holds it
@@ -102,21 +101,17 @@ _HEADING_SIGMA_WIDTHS = 0.25
 # A bend whose centre lies closer than this to an end of the line is not
 # judged. One of its arms is then shorter than the visual reference required
 # before it called a bend clear, and many track ends are not fiber ends but
-# cuts at a crossing (46-68 % lie within 3 px of a branch point on the bundled
-# scans), where the line bends with the junction's skirt. Such bends are
-# returned separately so they can be shown as not judged, rather than hidden.
-# Alternatives 1.0 W, which raised the false detections from 64 to 80 without
-# finding another clear kink, and 2.0 W, which lowered them to 49 but no
-# longer judged the synthetic corners 2 W from an end (scripts/measure_docs.py,
-# synthetic_kinks).
+# cuts at a crossing, where the line bends with the junction's skirt. Such
+# bends are returned separately so they can be shown as not judged, rather
+# than hidden. Alternatives 1.0 W, which added false detections without finding
+# another clear kink, and 2.0 W, which removed some but no longer judged the
+# synthetic corners 2 W from an end (docs/validation.md §4.9).
 # 線の端からこれより近くに中心がある折れは判定しない。そのとき片方の腕は、目視
 # 基準が折れを明瞭と呼ぶのに要した長さに満たない。またトラック端の多くは繊維の
-# 終端ではなく交差での切断であり（同梱スキャンでは 46〜68 % が分岐点から 3 px
-# 以内）、そこでは線が分岐部の裾とともに曲がる。こうした折れは隠さず、判定しな
-# かったものとして示せるよう別に返す。代替値は 1.0 W（明瞭なキンクを 1 件も
-# 増やさずに誤検出を 64 件から 80 件に増やした）と 2.0 W（誤検出を 49 件に減らした
-# が、端から 2 W の合成コーナーを判定しなくなった。scripts/measure_docs.py の
-# synthetic_kinks）。
+# 終端ではなく交差での切断であり、そこでは線が分岐部の裾とともに曲がる。こうした
+# 折れは隠さず、判定しなかったものとして示せるよう別に返す。代替値は 1.0 W（明瞭な
+# キンクを 1 件も増やさずに誤検出を増やした）と 2.0 W（誤検出を減らしたが、端から
+# 2 W の合成コーナーを判定しなくなった）。docs/validation.ja.md §4.9 を参照。
 # Public because `measure.fiber_kink_density` divides by the length that was
 # actually judged, which is the line less this margin at each end.
 # `measure.fiber_kink_density` が実際に判定した長さ（線から両端のこの余白を
@@ -157,15 +152,15 @@ _MIN_INTERIOR_ANGLE = 1e-6
 # clean one, which a fixed 30 degrees alone does not ask. The floor is
 # estimated on the fiber itself, so it needs enough windows to be a scale of
 # anything: below `_NOISE_MIN_WINDOWS` independent windows of 2c the floor is
-# not estimated and the angle threshold alone applies, as before.
+# not estimated and the angle threshold alone applies.
 # 超過回転は候補点だけでなく線全体で測り、そのロバストな尺度（中央絶対偏差の
 # 1.4826 倍。ガウス分布の標準偏差に相当）をその繊維のノイズ床とする。滑らかな
 # 区間の向きが、曲率を超えて、線の揺れだけで回る量である。折れは、超過回転がこの
 # 床の `NOISE_SIGMAS` 倍も超えて初めてキンクとなる。淡くノイズの多い繊維は、
 # きれいな繊維より大きな超過を要求される。固定の 30 度だけではそれを求めない。
 # 床は繊維自身の上で推定するため、何かの尺度と呼べるだけの窓数が要る。2c の
-# 独立な窓が `_NOISE_MIN_WINDOWS` 未満なら床は推定せず、従来どおり角度しきい値
-# だけを適用する。
+# 独立な窓が `_NOISE_MIN_WINDOWS` 未満なら床は推定せず、角度しきい値だけを
+# 適用する。
 NOISE_SIGMAS = 0.0
 _NOISE_MIN_WINDOWS = 6.0
 
@@ -534,10 +529,10 @@ class KinkDetector:
             image.all_kink_angles = np.array(all_kink_angles)
             image.all_kink_excess = np.array(all_kink_excess)
             image.unjudged_point_coordinates = (np.array(unjudged_point_x), np.array(unjudged_point_y))
-            # Nothing is decomposed any more; the bundle's `dp` key is kept
-            # empty so every bundle carries the same required keys.
-            # もう何も分解しない。どのバンドルも同じ必須キーを持つよう、バンドルの
-            # `dp` キーは空のまま残す。
+            # Nothing is decomposed; the bundle's `dp` key is written empty so
+            # every bundle carries the same required keys.
+            # 分解は行わない。どのバンドルも同じ必須キーを持つよう、バンドルの
+            # `dp` キーは空で書く。
             image.decomposed_point_coordinates = (
                 np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.int64),
             )
@@ -649,28 +644,29 @@ class KinkDetector:
         1.5 W. The flanks are what separate the two. An arc turns at the same
         rate inside the window and beside it, so its excess is near zero,
         while a corner between straight arms keeps all of its turning. On
-        synthetic arcs and meanders (2 nm pixels, W = 8 px) the rule
-        reported 12 bends where the polyline rule it replaces reported 31.
+        synthetic arcs and meanders the rule reported far fewer bends than the
+        polyline rule of bundle format 1.0 (docs/validation.md §4.6).
         窓の回転だけを検定にしないのは、それがキンクだけでなく曲率も報告するため
         である。半径 3 W の円弧は 1.5 W で既に 29 度回る。両者を分けるのが脇である。
         円弧は窓の中でも脇でも同じ率で回るため超過はほぼ 0 になり、まっすぐな腕に
-        挟まれたコーナーは回転をすべて残す。合成の円弧と蛇行（画素 2 nm、W = 8 px）
-        では、この規則が報告した折れは 12 件で、置き換えた折れ線規則は 31 件で
-        あった。
+        挟まれたコーナーは回転をすべて残す。合成の円弧と蛇行では、この規則が報告した
+        折れは、形式 1.0 の折れ線規則よりずっと少なかった（docs/validation.ja.md
+        §4.6）。
 
         Candidate positions are the maxima of the curvature, and, where no
         such maximum passes within 0.75 W, the maxima of the window turning
         itself: a corner whose curvature peak noise splits in two, or whose
         turning runs straight into a curve, has no single curvature maximum
-        at its centre, and on the bundled scans two visible corners were
-        missed without this second kind of candidate. Candidates closer than
-        0.75 W are one bend, and the one with the larger excess is kept.
+        at its centre; without this second kind of candidate the rule found
+        fewer of the clear reference kinks on the bundled scans
+        (docs/validation.md §4.4). Candidates closer than 0.75 W are one bend,
+        and the one with the larger excess is kept.
         候補位置は曲率の極大とし、0.75 W 以内にそうした極大が通過していない場所
         では、窓の回転そのものの極大も加える。ノイズで曲率のピークが 2 つに割れた
         コーナーや、回転がそのまま曲線へ続くコーナーは、中心に曲率の極大を 1 つも
-        持たないためである。同梱スキャンでは、この 2 種目の候補が無いと、目に見える
-        コーナーを 2 件見落とした。0.75 W より近い候補は 1 つの折れとし、超過回転の
-        大きい方を残す。
+        持たないためである。この 2 種目の候補が無いと、同梱スキャンの明瞭な基準
+        キンクの検出が減った（docs/validation.ja.md §4.4）。0.75 W より近い候補は
+        1 つの折れとし、超過回転の大きい方を残す。
 
         A bend whose centre lies within 1.5 W of an end is returned in
         ``unjudged_indices`` instead of being judged (see `END_MARGIN_WIDTHS`),
@@ -1032,17 +1028,15 @@ class KinkDetector:
         を満たすものだけを残す。つまり、報告しようとしている折れが、それを測る
         誤差棒と同じかそれ以上の大きさを持つ場合に限る。
 
-        This replaces a fixed minimum arm length, and it behaves better for the
-        reason the fixed rule was wrong: how much support an angle needs is not
-        a constant, it depends on how sharp the angle is. A 120 degree bend is
+        No fixed minimum arm length is used, because how much support an angle
+        needs is not a constant: it depends on how sharp the angle is. A 120 degree bend is
         60 degrees clear of straight and survives on a short arm; a 149 degree
         bend is 31 degrees clear and needs three times as much before it can be
         told from the vertex jitter. The rule is also free of any length scale
         — `threshold_distance` and the arm are both in pixels and cancel — so
         it means the same thing at any scan size, which a pixel count does not.
-        これは固定の最小腕長を置き換えるもので、固定規則が誤っていたのと同じ
-        理由でより良く振る舞う。角度が必要とする支持量は定数ではなく、角度の
-        鋭さに依存する。120 度の折れは直線から 60 度離れているので短い腕でも
+        固定の最小腕長は使わない。角度が必要とする支持量は定数ではなく、角度の
+        鋭さに依存するためである。120 度の折れは直線から 60 度離れているので短い腕でも
         残るが、149 度の折れは 31 度しか離れておらず、頂点の揺らぎと区別する
         には 3 倍の腕を要する。また `threshold_distance` と腕はどちらも画素
         単位で相殺するため長さスケールを含まず、画素数指定と違ってどの走査
@@ -1050,15 +1044,13 @@ class KinkDetector:
 
         The terminal arms are what this mainly removes. A track endpoint is a
         decomposition vertex by construction, so a terminal arm can be as
-        short as one pixel, and after `imp_tools.remove_bp` most endpoints are
+        short as one pixel, and after `imp_tools.remove_bp` many endpoints are
         not fiber ends at all but cuts at a crossing, where the mask is at its
-        least symmetric about the ridge. Measured on the three bundled scans,
-        46 to 68 % of track ends lie within 3 px of a branch point.
+        least symmetric about the ridge (docs/validation.md §4.9).
         主に除かれるのは末端の腕である。トラックの端点は構成上必ず分解頂点に
         なるため末端の腕は 1 画素まで短くなり得るうえ、`imp_tools.remove_bp`
         の後では端点の多くが繊維の終端ではなく交差での切断であり、そこはマスク
-        が稜線に対して最も非対称になる場所である。同梱の実スキャン 3 種で実測
-        すると、トラック端の 46〜68 % が分岐点から 3 px 以内にある。
+        が稜線に対して最も非対称になる場所である（docs/validation.ja.md §4.9）。
         """
         # Compute angles at decomposition midpoints and keep sharp bends.
         kink_indices = []

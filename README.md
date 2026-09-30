@@ -362,8 +362,9 @@ crest (`crest`). Kinks are judged on the chosen line and every measurement reads
 it, so results from different lines are not comparable; the bundle records the
 line, GUI04 names a non-default one when it opens the bundle, and GUI03 names
 the lines of each folder whenever one is not the default. How each line is
-placed, and what it did worse than the default in the comparison, is in
-`docs/algorithms.md` §4.2 and `docs/gui04_measurements.md` §2.8.
+placed is in `docs/algorithms.md` §4.2 and `docs/gui04_measurements.md` §2.8,
+and what it did worse than the default in the comparison is in
+`docs/validation.md` §4.3.
 
 `straightness` divides the Euclidean distance between a fiber's two ends by its
 contour length. A straight fiber reads 1.0 up to the small lateral noise of the
@@ -796,6 +797,12 @@ detection — actually do, what each parameter changes, and why each decision wa
 made, with references into the source. Read it when you need to justify a
 number this software reports rather than only reproduce it.
 [`docs/algorithms.ja.md`](docs/algorithms.ja.md) is the Japanese counterpart.
+
+[`docs/validation.md`](docs/validation.md) collects what the stages did on the
+bundled scans and on synthetic data, and which of those results several
+defaults were chosen by. Every number there describes the data it was measured
+on, not the algorithm. [`docs/validation.ja.md`](docs/validation.ja.md) is the
+Japanese counterpart.
 
 The document is kept in step with the code mechanically:
 `tests/test_algorithm_docs.py` verifies that every symbol it names still

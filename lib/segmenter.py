@@ -273,14 +273,11 @@ class Segmenter:
         connected-component pass, not after. Taking whole candidate components
         that merely fail to touch the existing mask discards a long fiber the
         moment it brushes the detected network anywhere, and long fibers touch
-        it most often — measured on one 10 um scan, 56 candidate components
-        held at least 100 nm of fiber outside the mask, one of them 1476 nm,
-        and all were dropped by that rule.
+        it most often.
         候補マスクは連結成分処理の *前* に `binary_image` を差し引く。既存
         マスクに一切触れない成分だけを採る方式では、長い繊維が検出済みの網目
         にどこか一点でも接した瞬間に丸ごと捨てられ、しかも長い繊維ほど接触
-        しやすい。ある 10 um 走査での実測では、マスク外に 100 nm 以上の実体を
-        持つ候補成分が 56 個あり（最大 1476 nm）、その全てが捨てられていた。
+        しやすい。
 
         Hysteresis on the ridge response works where the same scheme on raw
         amplitude does not: the response falls to near zero between fibers, so
@@ -382,20 +379,15 @@ class Segmenter:
             if max(width, height) < self.h_length:
                 out_binary_image[label_image == i] = 0
                 continue
-            # Judge this component on its own pixels. The crop was previously
-            # taken from the whole mask (`out_binary_image[top:top + height,
-            # left:left + width]`), so any other component overlapping the same
-            # axis-aligned bounding box added its outline to the edge map, and
-            # therefore to both sides of the `s_ratio` fraction below. A
-            # diagonal fiber's bounding box is large and mostly empty, so
-            # neighbours land inside it often, and a component's verdict could
-            # depend on what happened to lie near it rather than on its own
-            # shape.
-            # 対象成分自身の画素だけで判定する。以前はマスク全体から切り出して
-            # いたため、同じ外接矩形に重なる別成分の輪郭がエッジマップに入り、
-            # 下の `s_ratio` の分子・分母の双方に影響していた。斜めに走る繊維の
-            # 外接矩形は大きくスカスカで隣接物が入り込みやすく、判定が自身の
-            # 形状ではなく「たまたま近くに何があったか」に左右されていた。
+            # Judge this component on its own pixels, not on the whole mask
+            # inside its bounding box: a diagonal fiber's axis-aligned box is
+            # large and mostly empty, so other components often lie inside it,
+            # and their outlines would enter both sides of the `s_ratio`
+            # fraction below.
+            # 外接矩形内のマスク全体ではなく、対象成分自身の画素だけで判定する。
+            # 斜めに走る繊維の軸平行な外接矩形は大きくスカスカで、別成分が入り
+            # 込みやすく、その輪郭が下の `s_ratio` の分子・分母の双方に入ってしまう
+            # ためである。
             target = label_image[
                 top : top + height, left : left + width
             ] == i
@@ -422,12 +414,12 @@ class Segmenter:
             s_ratio = total_length / (np.sum(target_edge) + _DENOM_EPS)
             self.h_sratio_list.append(s_ratio)
 
-            # `np.sum(target)` is now the component's own area, which the
+            # `np.sum(target)` is the component's own area, which the
             # `area >= 1000` guard above has already bounded, so this second
-            # term no longer decides anything. It is kept because it states the
-            # rule the filter is applying — only small components are dropped
-            # for being nonlinear — and removing it would silently widen the
-            # filter if that guard is ever changed.
+            # term decides nothing. It is kept because it states the rule the
+            # filter is applying — only small components are dropped for being
+            # nonlinear — and removing it would silently widen the filter if
+            # that guard is ever changed.
             if s_ratio < h_sratio and np.sum(target) < 1000:
                 out_binary_image[label_image == i] = 0
 
@@ -444,19 +436,9 @@ class Segmenter:
             np.uint8(out_binary_image), 8
         )
         # `connectedComponentsWithStats` numbers labels 0..n_labels-1 with 0 as
-        # the background, so the real components are 1..n_labels-1. The loop
-        # previously read `range(n_labels - 1)`, which entered the background
-        # label (harmless: its area never meets the threshold, and clearing
-        # background pixels is a no-op) and never reached the highest label.
-        # OpenCV assigns labels in raster order, so the highest label is the
-        # component whose first pixel comes last, and exactly one component per
-        # image escaped this cleanup for a reason unrelated to its size.
+        # the background, so the real components are 1..n_labels-1.
         # ラベルは 0..n_labels-1 で 0 が背景のため、実成分は 1..n_labels-1 で
-        # ある。以前は `range(n_labels - 1)` だったので背景ラベルに入り(面積が
-        # しきい値を満たさないうえ背景画素の消去は無操作なので無害)、最大
-        # ラベルには到達しなかった。OpenCV はラスタ順にラベルを振るため最大
-        # ラベルは最初の画素が最も後にある成分であり、画像ごとにちょうど 1 個の
-        # 成分が、その大きさとは無関係な理由でこの整理を免れていた。
+        # ある。
         for i in range(1, n_labels):
             *_, area = stats[i]
             if area <= self.area_min_connecting:

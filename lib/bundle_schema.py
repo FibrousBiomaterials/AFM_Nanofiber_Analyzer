@@ -22,10 +22,10 @@ Contract summary / 契約の要約
   画像系キーは同一形状の 2 次元配列。二値キーの値は 0 と 1 のみ。
 - ``kp``, ``dp``: integer coordinate arrays of shape ``(2, N)`` where row 0 is
   the x (column) index and row 1 is the y (row) index. From format 1.1
-  ``dp`` is written empty: the kink rule no longer decomposes the line, and
+  ``dp`` is written empty: the kink rule does not decompose the line, and
   the key stays so every bundle carries the same required keys.
   ``kp``/``dp`` は形状 ``(2, N)`` の座標配列。行 0 が x（列）、行 1 が y（行）。
-  形式 1.1 以降、``dp`` は空で書く。キンク規則はもう線を分解しないが、どの
+  形式 1.1 以降、``dp`` は空で書く。キンク規則は線を分解しないが、どの
   バンドルも同じ必須キーを持つようにキーは残す。
 - ``up`` (optional, from format 1.1): the bends the kink rule measured within
   1.5 apparent widths of a track end, where it does not judge them, in the
@@ -46,7 +46,7 @@ Contract summary / 契約の要約
 
 Known accepted limitation / 既知の許容済み制限
 ----------------------------------------------
-The one-pixel trim is a legacy artifact of the gradient-based background
+The one-pixel trim is an artifact of the gradient-based background
 mask (a row/column difference shrinks the array by one), not a scientific
 requirement. It shifts the coordinate frame of every processed key by one
 pixel relative to ``original``, so raw and processed data cannot be compared
@@ -55,7 +55,7 @@ shape contract of every existing bundle; restoring full-size output (e.g.
 by padding the trimmed edge) is the leading candidate change for bundle
 format 2.0.
 1 画素トリミングは勾配ベースの背景マスク（行・列差分で配列が 1 つ縮む）に
-由来する歴史的産物であり、科学的な必然ではない。処理済みキーの座標系が
+由来する産物であり、科学的な必然ではない。処理済みキーの座標系が
 ``original`` に対して 1 画素ずれるため、生データと処理結果を画素単位で
 整合比較できない。トリミングの廃止は既存全バンドルの形状契約を変えるため
 形式 1.0 では維持し、フルサイズ出力への復元（トリム端のパディング等）を

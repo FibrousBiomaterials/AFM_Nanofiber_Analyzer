@@ -78,9 +78,9 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 
 # Format kinds accepted by `detect_afm_format` and `load_afm_text`.
-# "auto" tries multi-column first, then single-column (the historical order).
+# "auto" tries multi-column first, then single-column.
 # `detect_afm_format` と `load_afm_text` が受け付ける形式種別。
-# "auto" は多列形式 → 1 列形式の順に試す（従来どおりの順序）。
+# "auto" は多列形式 → 1 列形式の順に試す。
 FORMAT_KINDS = ("auto", "multi-column", "single-column")
 
 
@@ -242,8 +242,8 @@ def check_input_file_size(path: str) -> None:
     try:
         size = os.path.getsize(path)
     except OSError:
-        # Let the actual read report missing/unreadable files as before.
-        # 欠損・読込不能ファイルは従来どおり実際の読み込み側に報告させる。
+        # Let the actual read report missing/unreadable files.
+        # 欠損・読込不能ファイルは実際の読み込み側に報告させる。
         return
     if size > limit:
         raise ValueError(

@@ -786,17 +786,14 @@ def save_csv_with_dialog(
 #   - The mixins intentionally avoid __init__ so they do not disrupt tk.Tk MRO.
 #     Call _init_unconfirmed_registry() explicitly once instead.
 #   - LogMixin._log depends on self.log_text; do not call it before log_text exists.
-#   - UnconfirmedEntryMixin owns the unconfirmed-Entry mechanism. Earlier
-#     duplicate top-level helpers were removed, so classes using that mechanism
-#     should inherit this mixin.
+#   - UnconfirmedEntryMixin owns the unconfirmed-Entry mechanism; classes
+#     using that mechanism should inherit this mixin.
 # 注意
 #   - Mixin の __init__ は意図的に作らない（tk.Tk 系の MRO を壊さないため）。
 #     代わりに明示メソッド _init_unconfirmed_registry() を一度だけ呼ぶ運用にする。
 #   - LogMixin._log は self.log_text の存在に依存する。log_text を作る前には呼ばない。
-#   - UnconfirmedEntryMixin のメソッドは「未確定 Entry 機構」の実体であり、
-#     かつてあったトップレベル関数（register_unconfirmed_entry など）は
-#     Mixin と二重化していたため削除した。Entry 機構を使うクラスは
-#     必ずこの Mixin を継承する。
+#   - UnconfirmedEntryMixin のメソッドは「未確定 Entry 機構」の実体である。
+#     Entry 機構を使うクラスは必ずこの Mixin を継承する。
 # =============================================================================
 
 
@@ -1596,11 +1593,6 @@ PLOT_FS_DEFAULTS = {
 # live in ``figure_save_filetypes()``.
 # 図保存の DPI は ``FIGURE_SAVE_DPI``（モジュール冒頭）を、
 # 拡張子は ``figure_save_filetypes()`` を参照する。
-# The old ``PLOT_SAVE_DEFAULTS`` dict was removed because it was unused and
-# disagreed with ``figure_save_filetypes()`` on .tif/.tiff spelling.
-# （かつてここに ``PLOT_SAVE_DEFAULTS`` 辞書を置いていたが、参照箇所がなく、
-#  かつ ``figure_save_filetypes()`` と拡張子（.tif vs .tiff）で食い違いが
-#  発生していたため削除した。一元管理は上記2つに集約する。）
 
 # --- Unit strings -------------------------------------------------------------
 # Standardize µm on MICRO SIGN (U+00B5).
@@ -1713,11 +1705,11 @@ def _background_level(values: np.ndarray) -> tuple:
     The estimate assumes features protrude upward. On an image dominated by
     pits or holes below the substrate the lower half is no longer pure noise
     and sigma is overestimated; the caller clamps the bound to the data
-    minimum, so the result degrades to the old behavior instead of failing.
+    minimum, so the result degrades to that minimum instead of failing.
     この推定は構造物が上向きに突出することを前提とする。基板より低い穴・
     ピットが支配的な画像では下半分がノイズだけではなくなり σ を過大評価
     するが、呼び出し側が下端をデータ最小値で頭打ちにするため、破綻せず
-    従来挙動相当に劣化するだけで済む。
+    データ最小値を下端とする結果に劣化するだけで済む。
     """
     # Build the histogram over the central range so a far-out spike cannot
     # widen every bin and smear the background peak.
@@ -1769,14 +1761,14 @@ def compute_auto_vrange(
         vmax = ceil (percentile of the fiber pixels)
 
     Both bounds are statistics of a chosen population, never a single
-    extreme pixel. The previous rule used ``nanmin``/``nanmax`` directly, so
-    one contamination spike set ``vmax`` far above the fibers and left the
-    whole heatmap dark, and a few negative noise pixels dragged ``vmin``
-    tens of sigma below the substrate and washed the image out.
-    両端とも選んだ母集団の統計量で決め、単一の極値では決めない。従来規則は
-    ``nanmin``/``nanmax`` を直接使っていたため、コンタミ 1 点で ``vmax`` が
-    ファイバーより遥かに上へ張り付いて画像全体が暗くなり、負のノイズ数画素で
-    ``vmin`` が基板より数十 σ 下がって画像が白っぽく飛んだ。
+    extreme pixel. With ``nanmin``/``nanmax``, one contamination spike would
+    set ``vmax`` far above the fibers and leave the whole heatmap dark, and a
+    few negative noise pixels would drag ``vmin`` far below the substrate and
+    wash the image out.
+    両端とも選んだ母集団の統計量で決め、単一の極値では決めない。
+    ``nanmin``/``nanmax`` を使うと、コンタミ 1 点で ``vmax`` がファイバーより
+    遥かに上へ張り付いて画像全体が暗くなり、負のノイズ数画素で ``vmin`` が
+    基板より大きく下がって画像が白っぽく飛ぶ。
 
     The upper population is chosen in this order:
 
@@ -1789,14 +1781,13 @@ def compute_auto_vrange(
     ``level + 5σ``（構造の無い画像）の順に選ぶ。
 
     Restricting the percentile to fiber pixels is what makes it safe here.
-    A percentile over *all* pixels was tried before and withdrawn because it
-    depends on fiber coverage: at the 0.2-0.9 % skeleton coverage of this
-    project's test images, even the 99th percentile of the whole image still
-    lands in the background, so the fibers saturate.
-    パーセンタイルをファイバー画素に限定する点が要である。かつて全画素の
-    パーセンタイルを試して撤回したのは、その値がファイバー被覆率に依存する
-    ためで、本プロジェクトの試験画像のスケルトン被覆率 0.2〜0.9 % では全画素の
-    99 パーセンタイルすら背景に落ち、ファイバーが飽和してしまう。
+    A percentile over *all* pixels depends on fiber coverage: fibers cover so
+    little of a typical image that even the 99th percentile of the whole image
+    can land in the background, and the fibers then saturate.
+    パーセンタイルをファイバー画素に限定する点が要である。全画素の
+    パーセンタイルはファイバー被覆率に依存する。典型的な画像ではファイバーの
+    占める割合が小さく、全画素の 99 パーセンタイルですら背景に落ちることがあり、
+    そうなるとファイバーが飽和する。
 
     Parameters
     ----------

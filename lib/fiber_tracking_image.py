@@ -334,10 +334,10 @@ class FiberTrackingImage:
             失敗する。ファイバー追跡を行う呼び出し側は必ず明示値を渡すこと。
         y_size_per_pixel
             Physical Y (row) pixel size (nm/px). None reuses ``size_per_pixel``
-            so a single value keeps the historical isotropic behavior; pass a
-            distinct value for rectangular scans or non-square pixel grids.
+            so a single value treats the pixels as square; pass a distinct
+            value for rectangular scans or non-square pixel grids.
             Y（行）軸の物理ピクセルサイズ (nm/px)。None のときは
-            ``size_per_pixel`` を流用し、単一値で従来の等方挙動を保つ。矩形
+            ``size_per_pixel`` を流用し、単一値では画素を正方として扱う。矩形
             スキャンや非正方ピクセル格子では別の値を渡す。
         """
         self.name: str = name
@@ -377,17 +377,13 @@ class FiberTrackingImage:
         # bundle by `lib.measure`. They are carried on the container rather
         # than passed per call because every consumer that recomputes kinks
         # already holds the image, and one that had to be told separately is
-        # one that can be told wrong: `lib.fiber_connector` recomputed a
-        # reconnected fibril's kinks at the hard-coded defaults until this
-        # existed, so a scan analyzed at any other angle showed two rules at
-        # once. None means the bundle recorded no usable value, and the
+        # one that can be told wrong, which would put two rules in one image.
+        # None means the bundle recorded no usable value, and the
         # detector's own default applies — which is what such a run used.
         # 上記の配列を生んだキンクしきい値。`lib.measure` がバンドルから読み取る。
         # 呼び出しごとに渡すのではなくコンテナに載せるのは、キンクを再計算する
         # 側は必ず image を持っており、別途伝える方式では伝え間違いが起きうる
-        # ためである。実際 `lib.fiber_connector` は本フィールド導入まで再結合
-        # フィブリルのキンクをハードコード既定値で再計算しており、既定以外の角度で
-        # 解析したスキャンでは 1 枚の画像に 2 つの規則が混在していた。None は
+        # ためであり、伝え間違えると 1 枚の画像に 2 つの規則が混在する。None は
         # 使用可能な値がバンドルに記録されていないことを表し、検出器自身の既定値を
         # 使う。それがそのような実行で実際に使われた値である。
         self.kink_angle_deg: Optional[float] = None

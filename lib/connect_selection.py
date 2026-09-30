@@ -715,13 +715,12 @@ def load_connect_plan(path: str) -> Optional[ConnectionPlan]:
         )
 
     if "chains" not in payload:
-        # The development format stored a decision and its thresholds, and
-        # re-ran the search at measurement time. There is no way to recover
-        # which fragments it would have joined without running that search,
-        # which is exactly what this format exists to stop doing.
-        # 開発版の形式は決定としきい値を保存し、計測時に探索を再実行していた。
-        # どの断片が連結されたはずかは、その探索を実行しない限り復元できない。
-        # そして探索の再実行こそ、本形式がやめるために存在するものである。
+        # A file without ``chains`` records connection settings rather than a
+        # result. Which fragments they would join can be recovered only by
+        # running the search, which this format exists to avoid.
+        # ``chains`` を持たないファイルは連結の結果ではなく設定を記録している。
+        # どの断片が連結されるかは探索を実行しない限り復元できず、探索の再実行を
+        # 避けるために本形式は存在する。
         raise ValueError(
             f"{path} records connection settings rather than a connection "
             f"result; open the bundle in the fiber tracker, connect it, and "

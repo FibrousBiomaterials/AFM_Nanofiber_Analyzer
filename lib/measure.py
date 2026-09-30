@@ -3,11 +3,11 @@
 GUI-independent fiber measurement on GUI01 ``.b2z`` bundles.
 GUI01 の ``.b2z`` バンドルに対する GUI 非依存のファイバー計測モジュール。
 
-This module owns the measurement-side responsibilities that were previously
-embedded in GUI03 and GUI04: rebuilding `FiberTrackingImage` objects from a
+This module owns the measurement-side responsibilities shared by GUI03,
+GUI04 and the CLI: rebuilding `FiberTrackingImage` objects from a
 bundle, computing per-fiber summary statistics, collecting tracked fiber
 heights, and writing the result CSV files.
-GUI03 と GUI04 に埋め込まれていた計測側の責務（バンドルからの
+GUI03・GUI04・CLI が共有する計測側の責務（バンドルからの
 `FiberTrackingImage` 再構築、ファイバーごとの要約統計、追跡済みファイバーの
 高さ収集、結果 CSV の書き出し）をこのモジュールが持つ。
 
@@ -133,40 +133,36 @@ HEIGHT_ONLY_SCALE_UM = 1.0
 # measuring digitised circles of known radius and by rendering real fibers
 # coloured by curvature across a range of windows.
 #
-# Against arcs of known radius, a 20 nm window returned 19.4 rad/um whatever
-# the true curvature was -- the direction-quantisation floor, not a
-# measurement -- and 50 nm was erratic (-30%, -19%, +46% across three radii).
-# From 100 nm upwards the estimate settled to a consistent -13% to -19%. On a
+# Against arcs of known radius, windows well below 100 nm returned the
+# direction-quantisation floor or erratic values rather than a measurement,
+# while from 100 nm upwards the estimate settled to a consistent value. On a
 # real hooked fibril, 100 nm was the first window whose map separated the
-# straight runs from the corners; 400 nm smeared the corners into them.
+# straight runs from the corners, and much larger windows smeared the corners
+# into them.
 #
 # Larger is not simply better: a fiber shorter than the window yields no
-# curvature at all, and with median fiber lengths near 200 nm in these
-# samples, a 200 nm default would silently drop about half the population.
-# 100 nm is the smallest window that is not noise-dominated, which keeps the
-# most fibers measurable.
+# curvature at all, so a larger default would silently drop the short fibers
+# of these samples. 100 nm is the smallest window that is not noise-dominated,
+# which keeps the most fibers measurable.
 # 局所曲率が回転角を測る弧長。既知半径の離散化円での測定と、窓幅を振って実際の
 # ファイバーを曲率で色分け描画した結果から選定した。
 #
-# 既知半径の円弧に対し、20 nm の窓は真の曲率によらず 19.4 rad/um を返した。これは
-# 計測ではなく方向量子化の下限である。50 nm は 3 つの半径で -30%, -19%, +46% と
-# 不安定だった。100 nm 以上では -13%〜-19% の一貫した値に落ち着く。実際の鉤状
-# フィブリルでは、直線部と角を区別できた最小の窓が 100 nm であり、400 nm では角が
-# 周囲へにじんだ。
+# 既知半径の円弧に対し、100 nm を大きく下回る窓は計測ではなく方向量子化の下限や
+# 不安定な値を返し、100 nm 以上では一貫した値に落ち着いた。実際の鉤状フィブリル
+# では、直線部と角を区別できた最小の窓が 100 nm であり、それよりずっと大きい窓
+# では角が周囲へにじんだ。
 #
-# 大きければよいわけではない。窓より短いファイバーは曲率を一切返さず、これらの
-# 試料ではファイバー長の中央値が 200 nm 前後であるため、200 nm を既定にすると
-# 母集団の約半数が黙って落ちる。100 nm はノイズに支配されない最小の窓であり、
-# 測定可能なファイバーを最も多く残す。
+# 大きければよいわけではない。窓より短いファイバーは曲率を一切返さないため、
+# 既定を大きくするとこれらの試料の短いファイバーが黙って落ちる。100 nm はノイズに
+# 支配されない最小の窓であり、測定可能なファイバーを最も多く残す。
 #
-# The figures above were taken on the skeleton track, which a bundle older
-# than format 1.1 still uses. On the half-maximum centerline the same kind of
-# arcs read within 2 % of 1/R at 100 nm and within 3 % at 50 nm, while 20 nm
-# still over-read a 400 nm arc 1.9 times, so the default stands.
-# 上記の数値はスケルトントラック（形式 1.1 より古いバンドルは今もこれを使う）で
-# 測ったものである。半値中点線では同種の円弧が 100 nm で 1/R の 2 % 以内、50 nm で
-# 3 % 以内となる一方、20 nm では 400 nm の円弧をなお 1.9 倍に読むため、既定値は
-# 変えない。
+# The comparison above was made on the skeleton track, which a bundle older
+# than format 1.1 still uses. On the half-maximum centerline, arcs of known
+# radius read close to 1/R at 100 nm while much shorter windows still over-read
+# them, so the default stands.
+# 上記の比較はスケルトントラック（形式 1.1 より古いバンドルは今もこれを使う）で
+# 行った。半値中点線では、既知半径の円弧は 100 nm で 1/R に近い値を読む一方、
+# それよりずっと短い窓はなお過大に読むため、既定値は変えない。
 DEFAULT_CURVATURE_WINDOW_NM = 100.0
 
 # Length, in apparent widths, left out of the height statistics at an end of
@@ -664,43 +660,36 @@ def isolated_fiber_flags(
     バーを除外せず、黙って全件を落とすことを避ける。枠の判定は画像の形状だけを
     必要とするため、この場合も引き続き適用する。
 
-    The frame is the outermost row and column, with no margin. Measured on two
-    real scans, the count of fibers reaching the frame was identical for
-    margins of 0 through 5 pixels: a fiber that leaves the scan reaches the
-    very edge, so a wider margin would only start excluding fibers that merely
-    come close.
-    枠とは最外周の行と列そのものであり、余白は取らない。実測した 2 枚の走査像で
-    は、枠に達するファイバーの本数が余白 0〜5 画素で同一だった。走査範囲から出て
-    いくファイバーは最外周まで到達するため、余白を広げても、近づいただけの
-    ファイバーを除外し始めるだけである。
+    The frame is the outermost row and column, with no margin. A fiber that
+    leaves the scan reaches the very edge, so a wider margin would only start
+    excluding fibers that merely come close; on the scans it was checked on, a
+    margin of a few pixels did not change which fibers reach the frame.
+    枠とは最外周の行と列そのものであり、余白は取らない。走査範囲から出ていく
+    ファイバーは最外周まで到達するため、余白を広げても、近づいただけのファイバーを
+    除外し始めるだけである。確認した走査像では、数画素の余白を取っても枠に達する
+    ファイバーは変わらなかった。
 
     The connection-candidate test is used **only in conjunction with the other
-    two, never alone**. On its own it is far looser: on two real scans it
-    admitted 51 of 61 and 110 of 136 fibers, against 3 and 13 for the
-    branch-point test, because "no candidate found" conflates "this fiber is
+    two, never alone**. On its own it is far looser than the branch-point
+    test, because "no candidate found" conflates "this fiber is
     complete" with "the connector could not tell what the continuation was",
     and the second case is common in a dense tangle. What it adds to the
     conjunction is the case the branch-point test misses: an end whose nearest
     branch point sits just outside the touch radius while the connector can
     plainly see the fiber continue past it.
     連結候補の判定は**他の 2 条件と併用する場合に限り**用い、単独では使わない。
-    単独ではるかに緩いためである。実測した 2 枚の走査像では、分岐点判定が 3 本・
-    13 本を通すのに対し、61 本中 51 本・136 本中 110 本を通した。「候補が見つから
-    ない」は「このファイバーは完結している」と「連結器には続きが判断できなかった」
+    単独では分岐点判定よりはるかに緩いためである。「候補が見つからない」は「このファイバーは完結している」と「連結器には続きが判断できなかった」
     を混同しており、後者は密に絡んだ領域で頻繁に起こる。この条件が組み合わせに
     加えるのは、分岐点判定が取り逃がす場合である。すなわち、最も近い分岐点が接触
     半径のわずかに外側にありながら、連結器からは続きが明らかに見えている端である。
 
-    Against what the connector actually joined on those two scans, the
-    candidate test agreed on 145 of the 146 fragments it extended. The one
-    disagreement had no other fragment end within `clusters_range` — its
-    nearest was 21.4 px against a 20 px range — so the connector reached it
-    from a position that exists only after growth, which an order-independent
-    predicate deliberately does not model.
-    この 2 枚について、連結器が実際に延長した 146 断片のうち 145 断片で候補判定は
-    一致した。唯一相違した 1 件は、`clusters_range` 内に他の断片の端点を持たず
-    （最近傍は 20 px の範囲に対して 21.4 px）、連結器は成長後にのみ存在する位置から
-    そこへ到達している。順序に依存しない述語は、その状態を意図的に扱わない。
+    The candidate test can disagree with what the connector actually joins
+    for a fragment with no other fragment end within `clusters_range`: the
+    connector can reach it from a position that exists only after growth,
+    which an order-independent predicate deliberately does not model.
+    候補判定は、`clusters_range` 内に他の断片の端点を持たない断片について、連結器が
+    実際に行う連結と食い違うことがある。連結器は成長後にのみ存在する位置からそこへ
+    到達できるが、順序に依存しない述語はその状態を意図的に扱わない。
     """
     frame = _image_frame_shape(image)
     # A fiber the connector could extend is not one whose whole length was
@@ -804,15 +793,16 @@ def fiber_straightness(
     orthogonal step 0.948 and a diagonal one 1.340 to remove the length
     overestimate digitisation produces on generic curves, and it therefore
     reports a perfectly straight track as about 5% shorter than its Euclidean
-    chord: measured directly, chord over contour comes to 1.0549 for a
-    horizontal or vertical line and 1.0554 for a 45-degree one. Measuring the
+    chord: chord over contour comes to 1/0.948 = 1.0549 for a horizontal or
+    vertical line and sqrt(2)/1.340 = 1.0554 for a 45-degree one. Measuring the
     reference line the same way puts a straight fiber at exactly 1.0, which is
     what "straightness" has to mean to be readable.
 
     The cancellation is exact only when the fiber and its reference line are
     made of the same mix of orthogonal and diagonal steps, which holds for a
     straight fiber and approximately otherwise: a digitised semicircle reads
-    0.586 here against 0.637 for the Euclidean chord-over-arc definition. The
+    lower here than the 2/pi = 0.637 of the Euclidean chord-over-arc
+    definition. The
     value is a dimensionless shape descriptor for comparing fibers measured
     the same way, not a quantity to compare against a Euclidean ratio computed
     elsewhere.
@@ -820,14 +810,15 @@ def fiber_straightness(
     ファイバー自身と同じ補正済みチェーンコード尺度で測る。この尺度は直交ステップ
     に 0.948、斜めステップに 1.340 の重みを与え、一般の曲線で離散化が生む長さの
     過大評価を取り除くため、完全な直線経路をユークリッド弦より約 5% 短く報告
-    する。実測では chord / contour が水平・垂直で 1.0549、45 度で 1.0554 になる。
+    する。chord / contour は水平・垂直で 1/0.948 = 1.0549、45 度で
+    sqrt(2)/1.340 = 1.0554 になる。
     基準線を同じ方法で測ることで直線状のファイバーがちょうど 1.0 になり、
     「直線度」として読める値になる。
 
     偏りが完全に相殺されるのは、ファイバーと基準線の直交・斜めステップの構成が
     一致する場合、すなわち直線状のファイバーに限られ、それ以外では近似である。
-    離散化した半円はここでは 0.586 となり、ユークリッドの弦/弧による定義の
-    0.637 とは異なる。この値は同じ方法で計測したファイバー同士を比較するための
+    離散化した半円はここでは、ユークリッドの弦/弧による定義の 2/pi = 0.637 より
+    低くなる。この値は同じ方法で計測したファイバー同士を比較するための
     無次元の形状記述子であり、他所で計算されたユークリッド比と突き合わせる量では
     ない。
 
@@ -845,16 +836,14 @@ def fiber_straightness(
     line whose length is the plain Euclidean polyline length, so
     there is no chain-code bias to cancel and the ratio is the Euclidean chord
     over that length. The small lateral noise of the line is all that keeps a
-    straight fiber below 1.0: 0.9994 on a synthetic straight fiber with 2 nm
-    pixels.
+    straight fiber just below 1.0.
     以上は画素鎖の線、すなわち形式 1.1 より古いバンドルのスケルトントラック、
     または解析に選んだスケルトン画素の線（`centerline.SKELETON_PIXEL_LINE`）に
     ついての記述である。それ以外の線、たとえば半値中点線（`lib.centerline`）上の
     ファイバーは小数座標の線で、長さは単純な
     ユークリッド折れ線長なので、打ち消すべきチェーンコードの偏りが無く、比は
-    ユークリッド弦をその長さで割ったものになる。直線状のファイバーを 1.0 より
-    下げるのは線のわずかな横方向ノイズだけであり、画素 2 nm の合成直線では
-    0.9994 であった。
+    ユークリッド弦をその長さで割ったものになる。直線状のファイバーを 1.0 のわずか
+    下に留めるのは、線のわずかな横方向ノイズだけである。
     """
     length = float(fiber.length)
     if not (length > 0.0):
@@ -947,18 +936,17 @@ def fiber_curvature_profile(
     窓幅は画素ではなく nm で指定する。走査範囲の異なる画像でも、同じ設定が同じ
     物理的な平滑化を意味するようにするためである。
 
-    On the half-maximum centerline (bundle format 1.1) a step is no longer
-    orthogonal or diagonal, but the window is still needed: over a few pixels
+    On the half-maximum centerline (bundle format 1.1) a step is not limited
+    to orthogonal or diagonal, but the window is still needed: over a few pixels
     the turning angle is set by the line's own lateral noise. Against
-    synthetic arcs of 80-400 nm radius (2 nm pixels) the centerline read
-    within 2 % of 1/R with a 100 nm window and within 3 % at 50 nm, while a
-    20 nm window read the 400 nm arc as 1.9 times too curved; the skeleton
-    track was off by 1.3-5.3 times at 20 nm.
+    synthetic arcs of known radius, the centerline read close to 1/R with the
+    default window, while a much shorter window read the arcs as too curved,
+    and the skeleton track more so.
     半値中点線（バンドル形式 1.1）ではステップは直交・斜めに限られないが、窓は
     依然として必要である。数画素の範囲では回転角は線自身の横方向ノイズで決まる
-    ためである。半径 80〜400 nm の合成円弧（画素 2 nm）に対し、中心線は 100 nm の
-    窓で 1/R の 2 % 以内、50 nm で 3 % 以内だったが、20 nm の窓は 400 nm の円弧を
-    1.9 倍曲がっていると読んだ。スケルトントラックは 20 nm で 1.3〜5.3 倍ずれた。
+    ためである。既知半径の合成円弧に対し、中心線は既定の窓で 1/R に近い値を
+    読んだが、それよりずっと短い窓は円弧を実際より曲がっていると読み、
+    スケルトントラックではそのずれがさらに大きかった。
     """
     if y_size_per_pixel is None:
         y_size_per_pixel = x_size_per_pixel
@@ -982,17 +970,15 @@ def fiber_curvature_profile(
     valid &= (horizon - horizon[np.clip(before, 0, horizon.size - 1)] >= half * 0.5)
     if not valid.any():
         return np.empty(0, dtype=float)
-    # The turning angle itself is exact on a digitised arc (measured: 0.0%
-    # error), so the residual bias of this estimator lives entirely in the
-    # denominator: the corrected chain-code metric over-measures a strongly
-    # curved digitised path, by 15-21% at 1.5 rad of total turn and 0.8% at
-    # 0.15 rad. Curvature therefore reads low in proportion to how tightly the
+    # The turning angle itself was exact on digitised arcs, so the residual
+    # bias of this estimator lives in the denominator: the corrected chain-code
+    # metric over-measures a strongly curved digitised path, and the more so
+    # the more it turns. Curvature therefore reads low in proportion to how tightly the
     # fiber bends, consistently enough for comparison but not as an absolute.
-    # 回転角そのものは離散化された円弧に対して厳密である（実測誤差 0.0%）。
-    # したがってこの推定量に残る偏りは全て分母にある。補正済みチェーンコード尺度
-    # は強く曲がった離散化経路を過大に測り、総回転角 1.5 rad で +15〜21%、
-    # 0.15 rad で +0.8% になる。よって曲率はファイバーの曲がりが急なほど低く出る。
-    # 比較には十分一貫しているが、絶対値としては扱えない。
+    # 回転角そのものは離散化された円弧に対して厳密であった。したがってこの推定量に
+    # 残る偏りは分母にある。補正済みチェーンコード尺度は強く曲がった離散化経路を
+    # 過大に測り、その過大さは回転が大きいほど大きい。よって曲率はファイバーの
+    # 曲がりが急なほど低く出る。比較には十分一貫しているが、絶対値としては扱えない。
 
     i = np.nonzero(valid)[0]
     j = before[i]
@@ -1007,12 +993,10 @@ def fiber_curvature_profile(
     # The direction of a chord over a sub-arc is the tangent direction at that
     # sub-arc's midpoint, so the two chord directions are separated by half the
     # window, not the whole of it. Dividing by the full arc would report half
-    # the true curvature: measured against digitised circles of known radius,
-    # the uncorrected form came out 57% low at every radius and window.
+    # the true curvature.
     # 部分弧に張る弦の方向は、その部分弧の中点における接線方向に等しい。したがって
     # 2 つの弦方向の間隔は窓全体ではなくその半分である。弧全体で割ると真の曲率の
-    # 半分を報告してしまう。既知半径の離散化円で測ったところ、未補正の式は
-    # あらゆる半径・窓幅で 57% 低い値を返した。
+    # 半分を報告してしまう。
     arc = (horizon[k] - horizon[j]) / 2.0
     good = arc > 0.0
     return (turn[good] / arc[good]) * 1000.0
@@ -1610,15 +1594,14 @@ def curate_fibers(
     not a fiber at all — debris, a scan-line artifact — so the connector must
     never see it. Applied the other way round, a fibril is discarded whenever
     it happens to have absorbed an excluded fragment, taking the real fiber
-    that fragment was joined to with it: on a test scan, excluding five
-    debris fragments discarded close to four times their total contour length
-    in fibrils.
+    that fragment was joined to with it, so excluding a few debris fragments
+    can discard several times their own length in real fibrils.
     除外は再結合の**前**に適用し、その順序を決めるのは本関数だけである。除外
     とは「この対象はそもそもファイバーではない（ゴミ、走査線アーティファクト）」
     という表明であり、連結器がそれを見てはならない。逆順で適用すると、除外され
     た断片を取り込んだフィブリルが丸ごと捨てられ、その断片が繋がっていた実在の
-    ファイバーまで巻き添えで失われる。あるテスト画像では、ゴミ断片 5 本の除外に
-    より、その輪郭長合計の 4 倍近い長さのフィブリルが失われた。
+    ファイバーまで巻き添えで失われる。そのため、少数のゴミ断片を除外しただけで、
+    その何倍もの長さの実在のフィブリルが失われうる。
 
     The height filter deliberately keeps the opposite order — connect, then
     filter, see `lib.fiber_connector.filter_fibers_by_height` — because it
@@ -1714,34 +1697,32 @@ def measure_bundle(
         ``scale_y_um * 1000 / (height_px + 1)``, mirroring the one-row crop
         of the analysis arrays. When ``None`` it defaults to the recorded Y
         scan size (if ``scale_um`` is also ``None``) or to ``scale_um``
-        otherwise, keeping the historical single-value (square-scan)
-        behavior. Pass a distinct value for rectangular scans.
+        otherwise, which treats the scan as square. Pass a distinct value for
+        rectangular scans.
         Y（行）軸方向の生スキャン全体の物理高さ (µm)。解析配列の 1 行クロップに
         対応して、Y のピクセルサイズは ``scale_y_um * 1000 / (縦px + 1)``。
         ``None`` のときは（``scale_um`` も
         ``None`` なら）記録された Y 走査範囲、そうでなければ ``scale_um`` を
-        既定値とし、従来の単一値（正方スキャン）挙動を保つ。矩形スキャンでは
-        別の値を渡す。
+        既定値とし、走査を正方として扱う。矩形スキャンでは別の値を渡す。
     plan
         Recorded connection result saying which traced fragments form one
         fibril, as written beside the bundle by the fiber tracker. Fragments
         that GUI01 split at crossings and branches are then measured as single
-        fibers. Defaults to ``None`` (each skeleton fragment is one fiber, the
-        historical behavior). When the plan carries a skeleton fingerprint that
+        fibers. Defaults to ``None`` (each skeleton fragment is one fiber).
+        When the plan carries a skeleton fingerprint that
         does not match this bundle, the measurement is refused.
         どの追跡済み断片が 1 本のフィブリルを成すかを記録した連結結果。ファイバー
         トラッカーがバンドルの横に書き出したもの。GUI01 が交差・分岐で分断した
         断片が 1 本の繊維として計測される。既定は ``None``（各骨格断片が 1 本の
-        繊維、従来挙動）。プランが持つ骨格の指紋がこのバンドルと一致しない場合、
+        繊維）。プランが持つ骨格の指紋がこのバンドルと一致しない場合、
         計測は拒否される。
     exclude_anchors
         Anchor pixels of manually excluded fibers, applied to the traced
         fragments **before** reconnection (see `curate_fibers`). Defaults to
-        empty, so a bundle measures exactly as it did before unless the
-        caller asks for curation.
+        empty, so nothing is excluded unless the caller asks for curation.
         手動除外ファイバーのアンカー画素。再結合の**前**に、追跡済み断片へ
         適用する（`curate_fibers` 参照）。既定は空で、呼び出し側がキュレーション
-        を要求しない限り、従来と全く同じ計測結果になる。
+        を要求しない限り何も除外しない。
 
     Returns
     -------
@@ -2539,23 +2520,19 @@ def skeleton_height_values(
     skeleton mask. Only a traced fiber can be excluded or reconnected -- an
     exclusion names an object, and reconnection adds interpolated bridge
     pixels that exist in no mask -- so a curated population is reachable only
-    through tracing. Up to 1.0.0 this read ``calibrated`` at every nonzero
-    ``skeletonized`` pixel, which ignored both sidecars.
+    through tracing.
     高さは骨格マスクを読むのではなく、追跡済みファイバーをたどって採取する。
     除外や再結合の対象になり得るのは追跡済みファイバーだけである。除外は対象
     そのものを指し、再結合はどのマスクにも存在しない補間された橋渡し画素を
     追加するためで、キュレーション済みの母集団へは追跡を通じてしか到達できない。
-    1.0.0 まではこの関数が ``skeletonized`` の非ゼロ画素すべてで ``calibrated``
-    を読んでおり、両方のサイドカーを無視していた。
 
-    The population therefore changed with this switch even when nothing is
-    excluded: tracing removes the branch-point neighborhoods that
-    `imp_tools.remove_bp` clears, which the mask still contained. This makes
-    the result the unweighted counterpart of
+    The population is therefore not every skeleton pixel even when nothing is
+    excluded: tracing leaves out the branch-point neighborhoods that
+    `imp_tools.remove_bp` clears. This makes the result the unweighted
+    counterpart of
     `collect_skeleton_height_profiles`, over the same fibers.
-    そのため、除外が 1 つも無い場合でも母集団はこの変更で変わった。追跡は
-    `imp_tools.remove_bp` が消去する分岐点近傍を除くが、マスクにはそれが残って
-    いたためである。この結果、本関数は同じファイバー群に対する
+    そのため、除外が 1 つも無い場合でも母集団は骨格の全画素ではない。追跡は
+    `imp_tools.remove_bp` が消去する分岐点近傍を除くためである。この結果、本関数は同じファイバー群に対する
     `collect_skeleton_height_profiles` の重み無し版になる。
 
     A load failure in one bundle does not abort the collection; remaining

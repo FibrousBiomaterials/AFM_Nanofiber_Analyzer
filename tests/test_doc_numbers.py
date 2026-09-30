@@ -50,7 +50,9 @@ def _reader(files):
 
 
 def _with(checker, en: str, ja: str, measurements: str = "", pending: str = ""):
-    files = {checker.DOCS[0]: en, checker.DOCS[1]: ja}
+    # Only the first pair is under test; the other documents are present and empty.
+    files = {doc: "" for doc in checker.DOCS}
+    files.update({checker.DOCS[0]: en, checker.DOCS[1]: ja})
     if measurements:
         files[checker.MEASUREMENTS] = measurements
     if pending:
@@ -79,7 +81,9 @@ def test_a_code_constant_is_read_from_the_code(checker):
     """``c:`` resolves a dataclass field default and a transform of it."""
     ok = ("3<!--c:lib/pipeline.py::ProcParams.mask_dilation--> "
           "30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->\n")
-    files = {checker.DOCS[0]: ok, checker.DOCS[1]: ok}
+    # Only the first pair is under test; the other documents are present and empty.
+    others = {doc: "" for doc in checker.DOCS[2:]}
+    files = {checker.DOCS[0]: ok, checker.DOCS[1]: ok, **others}
 
     def read(rel):
         if rel in files:
@@ -90,7 +94,7 @@ def test_a_code_constant_is_read_from_the_code(checker):
 
     assert checker.check(read) == []
     wrong = "4<!--c:lib/pipeline.py::ProcParams.mask_dilation-->\n"
-    files = {checker.DOCS[0]: wrong, checker.DOCS[1]: wrong}
+    files = {checker.DOCS[0]: wrong, checker.DOCS[1]: wrong, **others}
     assert sum("does not match" in p for p in checker.check(read)) == 2
 
 

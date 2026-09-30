@@ -8,6 +8,10 @@
 API リファレンスが個々の関数の仕様を記述するのに対し、このページは関数どうし
 をつなぐ考え方を記述する。
 
+このページは個別のデータでの結果を載せない。同梱スキャンと合成データで各段が
+何をしたか、いくつかの既定値をどの結果を見て選んだかは、
+[個別データでの評価](validation.ja.md) にまとめてある。
+
 ## コード参照の読み方
 
 コードは**シンボル名**で参照し、行番号では参照しない。行番号は無関係な編集が
@@ -44,8 +48,8 @@ API リファレンスが個々の関数の仕様を記述するのに対し、�
 | 量 | 単位 | 備考 |
 |---|---|---|
 | 高さ | ナノメートル (nm) | ローダが nm へ変換する。以下の高さしきい値はすべて**背景補正後**の画像における絶対 nm 値であり、基板が 0<!--n:definition--> nm に位置する前提である。 |
-| 面内距離 | 各段では画素 (px)、結果では µm | 各段は意図的に画素基準であり、画素サイズは計測時にのみ関与する。例外は既定で無効のリッジ回収（§2.6）で、その設定値は nm である。 |
-| 角度 | 内部ではラジアン、パラメータファイルでは度 | `pipeline.build_stages` が `KinkDetector` 構築時に `kinkangle_deg` をラジアンへ変換する。 |
+| 面内距離 | 各段では画素 (px)、結果では物理長（nm または µm） | 各段は意図的に画素基準であり、画素サイズは計測時にのみ関与する。例外は既定で無効のリッジ回収（§2.6）で、その設定値は nm である。 |
+| 角度 | キンク判定の内部ではラジアン、パラメータファイルでは度 | `pipeline.build_stages` が `KinkDetector` 構築時に `kinkangle_deg` をラジアンへ変換する。 |
 | 配列添字 | `image[row, column]` すなわち `[y, x]` | いくつかのヘルパーは `np.where` の出力を返し、最初の配列が行添字になる。 |
 
 **1<!--n:definition--> 画素の切り詰め。** 背景補正は隣接画素間の 1<!--n:definition--> 次差分の上に構築されている
@@ -112,35 +116,18 @@ else:
 ### 1.1 解こうとしている問題
 
 生の AFM スキャンは、平坦な面の上に載った試料の高さマップではない。試料の
-傾きとスキャナの皿状歪みを伴うことがあり、本プロジェクトの同梱スキャンの
-一部では、それらが繊維と同じくらい大きい。
-
-| スキャン | 平面の傾き（nm/px） | マスクした繊維 1<!--n:count--> 本分の落差（nm） | 皿状成分の山谷（nm） | スケルトン下の高さの中央値（nm） |
-|---|---|---|---|---|
-| チュニケート CNF | 0.23<!--m:bg_stats.tunicate.plane_slope_nm_per_px--> | 4.6<!--m:bg_stats.tunicate.drop_across_hole_nm--> | 15.2<!--m:bg_stats.tunicate.quadratic_p2p_nm--> | 7.9<!--m:bg_stats.tunicate.skeleton_height_median_nm--> |
-| 人工データ（等方） | 0.24<!--m:bg_stats.art_iso.plane_slope_nm_per_px--> | 2.4<!--m:bg_stats.art_iso.drop_across_hole_nm--> | 3.5<!--m:bg_stats.art_iso.quadratic_p2p_nm--> | 7.5<!--m:bg_stats.art_iso.skeleton_height_median_nm--> |
-| 人工データ（異方） | 0.24<!--m:bg_stats.art_aniso.plane_slope_nm_per_px--> | 2.4<!--m:bg_stats.art_aniso.drop_across_hole_nm--> | 7.5<!--m:bg_stats.art_aniso.quadratic_p2p_nm--> | 7.2<!--m:bg_stats.art_aniso.skeleton_height_median_nm--> |
-| 高等植物 TOC | 0.001<!--m:bg_stats.hplantTOC.plane_slope_nm_per_px--> | 0.01<!--m:bg_stats.hplantTOC.drop_across_hole_nm--> | 1.7<!--m:bg_stats.hplantTOC.quadratic_p2p_nm--> | 1.7<!--m:bg_stats.hplantTOC.skeleton_height_median_nm--> |
-| Bruker NDTOC | 0.003<!--m:bg_stats.NDTOC.plane_slope_nm_per_px--> | 0.04<!--m:bg_stats.NDTOC.drop_across_hole_nm--> | 21.9<!--m:bg_stats.NDTOC.quadratic_p2p_nm--> | 2.1<!--m:bg_stats.NDTOC.skeleton_height_median_nm--> |
-
-平面の傾きは生の高さに当てた最小二乗平面の傾き、落差はその傾きに膨張後の繊維
-マスクの幅の中央値（§1.3 手順 2<!--n:label-->）を掛けたもの、皿状成分は平面を除いた後に
-当てた 2<!--n:definition--> 次曲面の 2<!--n:definition--> 次の項の山谷、高さは既定のスケルトンの下にある補正後の
-高さの中央値である（`scripts/measure_docs.py` の実験 bg_stats）。チュニケートの
-スキャンでは、中央値 7.9<!--m:bg_stats.tunicate.skeleton_height_median_nm--> nm の高さしかない繊維 1<!--n:count--> 本分のマスクを横切る間に、
-背景が 4.6<!--m:bg_stats.tunicate.drop_across_hole_nm--> nm 落ちる。高等植物と Bruker のスキャンは平面としては水平だが、
-Bruker のスキャンは皿状成分だけで 21.9<!--m:bg_stats.NDTOC.quadratic_p2p_nm--> nm に及ぶ。
+傾きとスキャナの皿状歪みを伴うことがある。
 
 ここから 2<!--n:count--> つの帰結が導かれ、それがこの段全体の設計を決めている。
 
 1. 後段のしきい値はすべて**nm の絶対高さ**である。基板が全域で 0<!--n:definition--> nm へ
    揃えられて初めて意味を持つ。
-2. この傾斜を再現できない背景推定は、*明らかにしようとしている信号と同程度
-   の大きさの誤差*を残す。
+2. この傾きや歪みを再現できない背景推定の誤差は、そのまま補正後の高さの誤差と
+   なり、後段のしきい値判定に入る。
 
 ### 1.2 3 方式に共通する処理の流れ
 
-3<!--n:count--> 方式はいずれも次の骨格をたどる。以下の流れは `trendfill` そのものである。
+3<!--n:count--> 方式はいずれもおおむね次の骨格に沿う。以下の流れは `trendfill` そのものである。
 
 ```text
 繊維画素を同定して背景プールから除外
@@ -164,20 +151,11 @@ Bruker のスキャンは皿状成分だけで 21.9<!--m:bg_stats.NDTOC.quadrati
 （既定は無効）で有効化でき、インパルス状の残留ノイズを抑える代わりに、最も
 鋭い高さ特徴を鈍らせる。
 
-このデトレンド／リトレンドの挟み込みが最も効く部分である。トレンドを除くと
-マスクされた穴を跨ぐ高さ差がほぼゼロになるため、充填法の選択はほとんど効か
-なくなる。チュニケートのスキャンの繊維の無い背景に、21<!--m:bg_fill.hole_size_px--> px 四方の穴を
-20<!--m:bg_fill.holes--> 個開けて調べると（実験 bg_fill）、充填値がそこで実際に測られた高さから
-外れる量は、デトレンドしない場合は最近傍伝播で 2.5<!--m:bg_fill.none.nearest.fill_error_median_nm--> nm、inpainting で 1.7<!--m:bg_fill.none.inpaint.fill_error_median_nm--> nm、
-2<!--n:definition--> 次のトレンドを除いた後はそれぞれ 0.30<!--m:bg_fill.quadratic.nearest.fill_error_median_nm--> nm と 0.27<!--m:bg_fill.quadratic.inpaint.fill_error_median_nm--> nm であった（各穴での最大の
-外れの、穴全体での中央値）。精度を決めているのは充填法ではなくデトレンドで
-ある（1.0.0 までの inpainting が失敗していた理由は §1.3 末尾）。フィットは
-`BGCalibrator._fit_trend_surface` が行う。
+充填の前にトレンドを除くのは、どの充填法にも試料の傾きや歪みを再現させずに
+済ませるためである。フィットは `BGCalibrator._fit_trend_surface` が行う。
 
 `_fit_trend_surface` は平面ではなく**2<!--n:definition--> 次曲面**をフィットする。実際の走査は
-傾いているだけでなく皿状に歪んでいることがあるためである（§1.1 の表）。上の
-背景の穴では、平面でもほぼ同じ結果であった（最近傍の充填で 0.34<!--m:bg_fill.plane.nearest.fill_error_median_nm--> nm と
-0.30<!--m:bg_fill.quadratic.nearest.fill_error_median_nm--> nm）。2<!--n:definition--> 次項を作る前に座標を
+傾いているだけでなく皿状に歪んでいることがあるためである（§1.1）。2<!--n:definition--> 次項を作る前に座標を
 $[-1, 1]$ へ正規化し、設計行列の条件数を良好に保つ。背景画素の配置が退化して
 いる場合（たとえば全点が 1<!--n:count--> 行に載る場合）、`numpy.linalg.lstsq` はランク落ち
 でも黙って解を返してしまうため、ランクを明示的に検査し、2<!--n:definition--> 次 → 平面 → 背景の
@@ -212,12 +190,11 @@ return np.full(image.shape, float(np.mean(z)), dtype=np.float64)
 
 ### 1.3 `trendfill` — 既定の方式
 
-名前は動作そのものを表す。トレンドを引き、穴を埋める。バージョン 1.0.0 まで
-は `inpaint` と呼ばれており、当時の充填は OpenCV の Navier–Stokes inpainting
-だった。`bg_calibrator.BG_METHOD_ALIASES` が旧綴りを現在名へ変換するので、
-保存済みパラメータファイルは今も動作する。
+名前は動作そのものを表す。トレンドを引き、穴を埋める。旧綴り `inpaint` を記録
+したパラメータファイルは、`bg_calibrator.BG_METHOD_ALIASES` が現在名へ変換する
+ので、そのまま動作する。
 
-`_call_trendfill` は以下の 3<!--n:count--> 手順を実行し、結果を減算する。
+`_call_trendfill` は以下の 3<!--n:count--> 手順を順に実行する。
 
 ```python
 # source: lib/bg_calibrator.py::BGCalibrator._call_trendfill
@@ -258,7 +235,7 @@ return dif_x, dif_y
 フィットするのは、AFM の低速走査軸がノイズ特性を異にし、$\sigma$ が広がり
 やすいためである。
 
-フィットの初期値は、差分の中央値と頑健な幅（四分位範囲を 1.349<!--n:literal in the quoted code--> で割った値）
+ガウス成分の中心と幅の初期値は、差分の中央値と頑健な幅（四分位範囲を 1.349<!--n:literal in the quoted code--> で割った値）
 である。Y のフィットは `dif_y` に対する同じコードである。
 
 ```python
@@ -357,7 +334,7 @@ for j in range(tri_difx.shape[0] - 1):
 ノイズの多い画像や広視野画像では画面全体に密に散らばる。1<!--n:count--> 行の中で塗られる
 長さは、パターン 1<!--n:label--> では最短 2<!--x:1 + 1 + 1 - 1--> 画素、パターン 2<!--n:label--> では `noise_detect_factor` 画素
 以上である。したがって既定の `noise_detect_factor` = 10<!--c:lib/pipeline.py::ProcParams.noise_detect_factor--> では、10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area--> 画素未満の
-小成分を生むのは主にパターン 1<!--n:label--> であり、パターン 2<!--n:label--> が小成分を生むのは
+小成分を生むのはパターン 1<!--n:label--> だけであり、パターン 2<!--n:label--> が小成分を生むのは
 `noise_detect_factor` を小さくした場合（ステージクラスのコンストラクタ既定は
 2<!--c:lib/bg_calibrator.py::BGCalibrator.__init__(noise_detect_factor)-->）である。8<!--n:literal in the quoted code--> 連結成分のうち
 `min_mask_component_area`（既定 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area-->）未満のものを除去する。これが無いと、
@@ -433,22 +410,11 @@ height_bgcalib = original[1:, 1:] - bg_sm
 return height_bgcalib
 ```
 
-> **1.0.0 までの inpainting が失敗していた理由。** 1.0.0 までは、デトレンドを
-> せずに穴を Navier–Stokes inpainting で埋めていた。これは細い傷の修復を想定
-> した境界伝播法である。デトレンドしないと、傾いた走査では充填値が本当の背景
-> から外れる（上のチュニケートの穴で 1.7<!--m:bg_fill.none.inpaint.fill_error_median_nm--> nm）。`savgol_polyorder <= 1` のとき
-> Savitzky–Golay は X 方向の単純移動平均そのものになるため、この誤差が、穴から
-> 窓半分以内にある本物の背景画素の推定値へ漏れ出す。1.0.0 のリリースの背景補正
-> （タグ `v1.0.0` から実行）を、0.24<!--m:bg_legacy_halo.slope_nm_per_px--> nm/px の平面の上に高さ 8<!--m:bg_legacy_halo.fiber_height_nm--> nm の繊維を
-> 1<!--n:count--> 本置いた合成走査にかけると（実験 bg_legacy_halo）、繊維の脇の補正後の背景は
-> −0.76<!--m:bg_legacy_halo.v1_0_0.beside_min_nm-->〜+0.77<!--m:bg_legacy_halo.v1_0_0.beside_max_nm--> nm となり、二値化しきい値の既定 0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm を超えた。現在の
-> コードではそこは −0.21<!--m:bg_legacy_halo.current.beside_min_nm-->〜+0.18<!--m:bg_legacy_halo.current.beside_max_nm--> nm である。
-
 ### 1.4 `tophat` — 高速・マスク不要
 
-`_call_tophat` は背景を、直径 `tophat_se_size`（既定 25<!--c:lib/pipeline.py::ProcParams.tophat_se_size--> px）の楕円構造要素
-による形態学的 **opening** として推定する。opening は円盤より細い明るい構造
-を除去するので、残るものが背景である。残差 `original - opening` が典型的な
+`_call_tophat` は背景を、直径 `tophat_se_size`（既定 25<!--c:lib/pipeline.py::ProcParams.tophat_se_size--> px）の円盤状の
+構造要素（縦横同寸の `cv2.MORPH_ELLIPSE`）による形態学的 **opening** として
+推定する。opening は円盤より細い明るい構造を除去するので、残るものが背景である。残差 `original - opening` が典型的な
 white top-hat 変換にあたる。
 
 ここではトレンド曲面を繊維も含む全画素でフィットし、デトレンドした画像に
@@ -478,11 +444,8 @@ calibrated_image -= np.median(calibrated_image)
 
 **デトレンドした写しに opening をかける。** opening は画像内部では平面を
 再現するが、構造要素の半径以内の境界域では再現しない。そこでは収縮が切り
-詰められた近傍から最小値を取り、膨張が復元できないからである。同梱スキャンで
-最も急な平面の傾き（§1.1）である 0.24<!--m:tophat_border.slope_nm_per_px--> nm/px の斜面に、直径 25<!--c:lib/pipeline.py::ProcParams.tophat_se_size--> px の要素で
-生の高さに opening をかけると、上り側の端から 12<!--n:definition--> px 以内に高さ**3.1<!--m:tophat_border.raw.uphill_band_max_nm--> nm** の帯
-が残る。二値化しきい値 0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm を大きく超える値である。デトレンドした高さに
-opening をかけると 0.29<!--m:tophat_border.detrended.uphill_band_max_nm--> nm になる（実験 tophat_border）。
+詰められた近傍から最小値を取り、膨張が復元できないからである。先にデトレンド
+するのは、この境界効果のもとになる傾きを除くためである。
 
 **その後に中央値で再センタリングする。** opening は*下側包絡線*の推定量で
 あり、ノイズのある基板では局所極小に張り付く。そのため減算後の基板レベルは
@@ -566,22 +529,16 @@ filled[last + 1:] = np.mean(line[valid_pos[-k:]])
 
 ### 1.6 方式の選び方
 
-| `bg_method` | 使う場面 | コスト |
+| `bg_method` | 使う場面 | 行う処理 |
 |---|---|---|
-| `trendfill`（既定） | 一般用途。繊維を背景プールから除外するため、繊維自体を削り込まない。 | 中程度。最も時間がかかるのは充填と平滑化（`_bg_generate`）で、`lmfit` のヒストグラムフィットはその半分ほどである。 |
-| `tophat` | 手早い確認。あるいは特殊な試料でリッジ検出が期待どおり働かない場合。 | 低い。 |
-| `spline1d` | ラインノイズ（フィードバック不良、走査線オフセット）が支配的な走査。 | 最も高い。`trendfill` のマスク検出と `_bg_generate` をすべて実行したうえで、ラインごとの 1<!--n:definition--> 次元スプラインを加える。 |
+| `trendfill`（既定） | 一般用途。繊維を背景プールから除外するため、繊維自体を削り込まない。 | 勾配ヒストグラムのフィット（`lmfit`）による繊維マスクの検出、トレンドのフィット、充填、平滑化。 |
+| `tophat` | 特殊な試料でリッジ検出が期待どおり働かない場合。 | 繊維マスクを検出せず、トレンドのフィット、opening、平滑化だけを行う。 |
+| `spline1d` | ラインノイズ（フィードバック不良、走査線オフセット）が支配的な走査。 | `trendfill` のマスク検出と `_bg_generate` をすべて実行したうえで、ラインごとの 1<!--n:definition--> 次元スプラインを加える。 |
 
-同梱の 1024<!--m:bg_timing.image_rows-->×1024<!--m:bg_timing.image_cols--> の Bruker スキャンでの実測は、`tophat` 約 0.5<!--m:bg_timing.tophat.seconds--> 秒、
-`trendfill` 約 1.1<!--m:bg_timing.trendfill.seconds--> 秒、`spline1d` 約 2.2<!--m:bg_timing.spline1d.seconds--> 秒であった（いずれも 2<!--n:count--> 回実行したうちの
-2<!--n:count--> 回目）。1<!--n:count--> 台の計算機での経過時間であり、計算機とその負荷によって変わる。
-
-`spline2d`（テンソル積 B スプライン曲面）は 1.0.0 以降で**削除**された。
-全テスト画像において全方式中で最大の背景残差を残し、それを改善しうる平滑化
-係数が GUI から設定できなかったためである。削除した方式は
-`bg_calibrator.BG_METHOD_REMOVED` に名前で記録しており、残っている方式へ
-読み替えることはしない。別の方式に置き換えると、保存済みの `_param.json` が
-再現するはずの数値が変わってしまうためである。
+利用できなくなった方式（`spline2d`）を選んだ保存済みパラメータファイルは、
+`bg_calibrator.BG_METHOD_REMOVED` が方式名を挙げて報告し、実行を止める。残って
+いる方式へ読み替えることはしない。別の方式に置き換えると、保存済みの
+`_param.json` が再現するはずの数値が変わってしまうためである。
 
 ---
 
@@ -645,8 +602,11 @@ $$
 適用したもので、残存する緩やかな変動に追随する。
 
 両方を要求するのは意図的である。局所検定だけでは何もない領域（ノイズ同士
-しか比較対象が無い）でノイズを持ち上げてしまい、大域検定だけでは局所的に
-沈んだ領域にある繊維を取りこぼす。
+しか比較対象が無い）でノイズを持ち上げてしまうので、大域検定がそれを除く。
+一方、論理積なので、局所検定は大域検定を通った画素を減らすことしかできない。
+残るのは、基板からの高さが大域しきい値を超え、しかも周囲の加重平均より高い
+画素である。
+<!-- TODO(review): 以前ここにあった「大域検定だけでは局所的に沈んだ領域にある繊維を取りこぼす」は、論理積では局所検定がそうした繊維を拾えないため、局所検定を加える理由として成り立たない。局所検定を加えた意図を作者に確認すること。 -->
 
 `skimage.filters.threshold_local` は既定の引数で呼ぶため、局所しきい値は窓内のガウス重み付き
 平均（オフセット 0<!--n:library default (skimage.filters.threshold_local offset)-->）である。
@@ -736,10 +696,6 @@ for i in range(1, n_labels):
         out_binary_image[label_image == i] = 0
 ```
 
-> **1.0.0 以降の変更（結果は不変）。** 1.0.0 までは、外接矩形内のマスク全体から
-> エッジマップを作っていた。同梱スキャン 5<!--m:hough_edge_map.identical--> 枚すべてで、最終的な二値化マスクは
-> どちらでもビット単位で一致する（実験 hough_edge_map）。
-
 もう 1<!--n:count--> 点。`h_length` はこの関数の中で 2<!--n:count--> つの役割を持つ。上の外接矩形の検定
 では画素単位の長さだが、Hough ピークの `threshold` 引数にも渡しているため、
 そこでは最小投票数（線長の代理指標）として働く。
@@ -771,11 +727,6 @@ out_binary_image = closing(out_binary_image).astype(bool)
 return out_binary_image
 ```
 
-> **1.0.0 以降の修正。** 1.0.0 までのループは `range(n_labels - 1)` で、最大の
-> ラベルに到達しなかった。そのため画像ごとに 1<!--n:count--> 個の成分が、大きさに関係なく
-> この整理を免れていた。この経路は既定で無効なので、記録済みの解析では一度も
-> 実行されていない。詳細は `CHANGELOG.md` にある。
-
 ### 2.5 高さフィルタ
 
 `remove_low_component` は、較正済み画像上での**最大**高さが `low_threshold`
@@ -804,23 +755,12 @@ return out_binary_image
    `ridge_max_width_nm` を画素へ換算した範囲の等比 5<!--n:literal in the quoted code--> スケールで実行する。
    物理単位で扱うため、1<!--n:count--> つの設定値がどの走査解像度でも同じ構造を意味する。
 2. 応答を**ヒステリシス**で二値化する。高い側は大津法、低い側は三角法で
-   決める。リッジ応答に対するヒステリシスは、生の振幅に対する同じ方式と違い
-   機能する。応答は繊維間でほぼ 0<!--n:definition--> まで落ちるため、領域が画像全体へ浸透せず
-   境界で止まるからである。チュニケートの走査では、二値化マスクから 10<!--n:value tried--> px 以上離れた
-   画素の 99.8<!--m:ridge_hysteresis.ridge.far_below_low_percent--> % が低い側のレベルを下回る（実験 ridge_hysteresis）。
-   <!-- TODO(review): 生の振幅との対比は再現していない。チュニケートの走査では、補正後の高さへのヒステリシスは画像の 11.6 % を覆い、リッジ応答は 7.7 % で、画像全体へは浸透しなかった（実験 ridge_hysteresis）。 -->
+   決める。
 3. 採用済みマスクは連結成分処理の**前**に差し引く。既存マスクに一切触れない
    候補成分だけを採る方式では、長い繊維が検出済みの網目にどこか一点でも接した
    瞬間に丸ごと捨てられ、しかも長い繊維ほど接しやすい。
-   <!-- TODO(review): ここにあった実測例（ある 10 µm 走査、候補成分 56 個、最長
-   1476 nm）は、リポジトリに無い走査のものであったため削除した。同梱スキャンで
-   ridge_min_length_nm に達する候補は、水平な走査線のアーティファクト（高等植物の
-   スキャン）と、端や交差での短い断片（チュニケートのスキャン）であって繊維では
-   ない（実験 ridge_recovery_bundled、描画して確認）ため、この説明の例にならない。 -->
-4. 残った成分は、そのスケルトン長が `ridge_min_length_nm`（既定 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm）に
-   達するものだけ採用する。100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm を下回るあたりから、候補を粒子の裾や探針
-   アーティファクトと目視で区別できなくなる。
-   <!-- TODO(review): リッジフィルタを評価したときの目視の判断であり、scripts/measure_docs.py のどの実験も再現しない。 -->
+4. 残った成分は、そのスケルトンの画素数に画素サイズを掛けた長さが
+   `ridge_min_length_nm`（既定 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm）に達するものだけ採用する。
 
 既定で無効なのは、保存済みパラメータファイルが書かれた当時の数値を再現でき
 るようにするためである。有効時は Frangi フィルタが本段の処理時間を占める。
@@ -865,9 +805,7 @@ return np.isin(labels, keep)
 ### 2.7 Closing
 
 最後に形態学的 closing（既定の十字形の構造要素による `skimage.morphology.closing`）を
-かける。これは、厚さ 3<!--n:value tried--> px 以上のマスク成分どうしを 2<!--m:closing_gaps.thick3.largest_gap_joined_px--> px までの隙間越しにつなぐが、
-厚さ 1<!--n:value tried--> px の線どうしはつながない（試した 3<!--n:count--> 通りの隙間で 0<!--m:closing_gaps.thick1.gaps_joined--> 件。実験 closing_gaps）。リッジ回収をその*前*に
-実行するのは意図的で、既存成分の隣で終わる回収セグメントが独立した短繊維と
+かける。リッジ回収をその*前*に実行するのは意図的で、既存成分の隣で終わる回収セグメントが独立した短繊維と
 して残らず、closing で取り込まれるようにするためである。
 
 ---
@@ -964,8 +902,8 @@ $$
 
 線の端点は隣接画素が 1<!--n:count--> つだけなので $\min(N_1, N_2) = 1$ となり、消されない。
 すでに幅 1<!--n:definition--> 画素になった線がそれ以上短くならないのはこのためである。上限は、
-背景の隣接画素が 4<!--n:definition--> 近傍の 1<!--n:count--> つだけである画素（たとえば幅 1<!--n:definition--> 画素の切り込みの
-底の画素）を残す。
+8<!--n:definition--> 近傍のうち背景が上下左右の 1<!--n:count--> 画素だけである画素（たとえば幅 1<!--n:definition--> 画素の
+切り込みの底の画素）を残す。
 
 **G3 — $P$ が、剥がしている側にある。** 1<!--n:label--> つ目のサブ反復では
 $(x_2 \lor x_3 \lor \lnot x_8) \land x_1 = 0$ を、2<!--n:label--> つ目では
@@ -978,7 +916,7 @@ $(x_6 \lor x_7 \lor \lnot x_4) \land x_5 = 0$ を要求する。塗りつぶし�
 引くだけである。配列の外側は背景として扱うので、走査範囲の外へ続く繊維は、
 画像端で終わっているものとして剥がされる（§3.2）。
 
-幅 5<!--m:thinning_example.band_width_px--> 画素の帯に、1<!--n:example--> 画素の穴と、上辺から 2<!--m:thinning_example.bump_height_px--> 画素突き出た突起を付けたマスク（左。
+幅 5<!--n:example--> 画素の帯に、1<!--n:example--> 画素の穴と、上辺から 2<!--n:example--> 画素突き出た突起を付けたマスク（左。
 `#` が繊維）に `skimage.morphology.thin` をかけると、右のスケルトンになる。
 
 ```text
@@ -997,24 +935,24 @@ mask                        thin
 これらへの対処である。
 
 - **線は中間を通る。** 両側から 1<!--n:definition--> 層ずつ剥がすので、線は両側のマスク境界の
-  中間、つまり幅 5<!--m:thinning_example.band_width_px--> 画素の帯の中央の行に残る。厳密な中軸変換
+  中間、つまり幅 5<!--n:example--> 画素の帯の中央の行に残る。厳密な中軸変換
   （`skimage.morphology.medial_axis`。ここでは使っていない）と同じではないが、
   このページで「スケルトンはマスクの medial axis を通る」と書くのはこの性質の
   ことである。
 - **位相は厳密に保たれる。** マスクの各成分は 1<!--n:count--> つの成分のまま残り、各穴は
   それを囲む閉じた輪になる（穴の周りのひし形）。§3.4 がこの輪を潰す。
 - **突起はすべて枝になる。** 突起も両側から剥がされて中央で止まるので、繊維
-  本体と同じように線が残る。高さ 2<!--m:thinning_example.bump_height_px--> 画素の突起から長さ 4<!--m:thinning_example.branch_length_px--> 画素の枝が出ている。
-  §3.3 と §3.5 がこれを刈る。
-- **太い端は縮むが、線の端は縮まない。** 帯は、先端が幅 1<!--n:definition--> 画素になるまでに
-  両端で 2<!--m:thinning_example.shortening_per_end_px--> 画素ずつ短くなり、そこから先は G2 によって残る。先端に低く広い裾が
+  本体と同じように線が残る。上辺の突起から枝が出ている。§3.3 と §3.5 がこれを
+  刈る。
+- **太い端は縮むが、線の端は縮まない。** 帯は、先端が幅 1<!--n:definition--> 画素になるまで
+  両端で短くなり、そこから先は G2 によって残る。先端に低く広い裾が
   あると、線はその裾の中へ細線化される（§3.6）。
 
 高さを使う処理はすべて細線化の後に加えている。§3.3 の枝刈り、§3.4 のループの
 高さガード、§3.6 のフック切除、そして §4.2 の中心線である。
 
 `skimage.morphology.skeletonize`（2<!--n:definition--> 次元画像では既定で Zhang と Suen の細線化。
-1984<!--n:citation-->、*Comm. ACM* 27<!--n:citation-->(3<!--n:citation-->), 236–239<!--n:citation-->）は、別の 2<!--n:count--> サブ反復の細線化である。使うのは、
+1984<!--n:citation-->、*Comm. ACM* 27<!--n:citation-->(3<!--n:citation-->), 236–239<!--n:citation-->）は、別の 2<!--n:count--> サブ反復の細線化である。この段で使うのは、
 §3.3 と §3.4 が手を加えたマスクを細線化し直すときだけで、そのマスクは手を
 加えた箇所を除けばすでに幅 1<!--n:definition--> 画素である。上の例の `skimage.morphology.thin` の
 出力にかけても何も変わらない。ただし太いマスクでは 2<!--n:count--> つの結果が異なることが
@@ -1028,16 +966,13 @@ mask                        thin
 
 `skimage.morphology.thin` は配列外をすべて背景として扱うため、視野外へ抜ける
 繊維は配列端で平らに切断された形状となり、その切断端の medial axis は切り口
-の近い側の角へ向かって折れる。追跡線は末端の数画素で稜線から外れる。同梱
-スキャンでは、画像の外へ抜けるトラックの最後の 5<!--n:definition--> 点が、法線方向に測って高さの
-稜線から中央値で 3.9<!--m:border_drift.plain.end_median_px--> px 離れており、繊維の中ほどの 0.9<!--m:border_drift.plain.middle_median_px--> px と対比される
-（実験 border_drift）。端を複製すると繊維は打ち切られず外側へ延長されるため、端の点も稜線から 1.0<!--m:border_drift.padded.end_median_px--> px に戻る。12<!--c:lib/skeletonizer.py::DEFAULT_BORDER_PAD--> px の
-縁帯より内側のスケルトンは、同梱スキャン 5<!--m:border_padding.identical_inside_band--> 枚すべてで本補正の有無によらず
-完全に一致した。ただしこれは保証ではない。
+の近い側の角へ向かって折れ、追跡線は末端で稜線から外れる。端を複製すると、
+繊維は打ち切られずに外側へ延長されるので、この折れが生じない。
 
 複製は、端を横切らず端に*沿って*延びる塊を太らせ、その軸を動かすことがある。
-塊の幅によっては縁帯の内側でも軸が動き、画像外へ押し出されることさえある。そこで、パディング版でスケルトンが空になる連結成分は素の
-細線化結果を採用する。本補正で繊維が失われることはない。
+幅の広い塊では縁帯より内側（画像の中央寄り）にある軸も動き、幅の狭い塊では軸が
+画像外へ押し出されることさえある。そこで、パディング版でスケルトンが空になる
+連結成分は素の細線化結果を採用する。本補正で繊維が失われることはない。
 
 ```python
 # source: lib/skeletonizer.py::thin_ignoring_image_border
@@ -1066,11 +1001,8 @@ return padded
 `set_low_bp_coor` は、較正済み高さを `bp_height`（既定 10<!--c:lib/pipeline.py::ProcParams.bp_height--> nm）と比較して、
 スケルトンの分岐点を**低い**ものと**高い**ものに分ける。以下で腕が刈られるのは、
 探索が低い分岐点に達したか行き止まりになった場合だけで、高い分岐点に接した腕は
-残る。既定値は、どの同梱スキャンでもスケルトン下の高さの中央値
-（1.7<!--m:bg_stats.hplantTOC.skeleton_height_median_nm-->〜7.9<!--m:bg_stats.tunicate.skeleton_height_median_nm--> nm、§1.1）より高い。
-<!-- TODO(review): ここに以前あった根拠（繊維の高さにある分岐点は実在の交差、
-基板付近にある分岐点は偽の突起）は、繊維の高さが 1.7〜7.9 nm のときの 10 nm の
-しきい値と合わない。bp_height が何を分けるためのものか、作者の確認が要る。 -->
+残る。
+<!-- TODO(review): bp_height が何を分けるためのものか、作者の確認が要る。 -->
 
 ```python
 # source: lib/skeletonizer.py::Skeletonizer.set_low_bp_coor
@@ -1146,15 +1078,12 @@ for start_x, start_y in zip(starts_x, starts_y):
         ytrack.append(y)
 ```
 
-この探索には意図的な性質が 2<!--n:count--> つあり、どちらも実際の不具合への修正である。
+この探索には意図的な性質が 2<!--n:count--> つある。
 
-- 探索は画像全体を明示的な境界判定で辿る。従来の局所切り出し内での探索では、
-  探索が切り出しの端に達した時点で近傍が空と読めてしまい、行き止まり規則が、
-  単に切り出しの外へ続いていただけの繊維先端を最大 `branch_length` 画素削除
-  していた。高さを問わないため、`bp_height` を大きく上回る繊維でも起きた。
-- 各探索は自前の訪問済み集合を持つ。共有の作業画像を消し込む方式では、先に
-  処理した端点の探索が後続の探索からスケルトンを隠すため、結果が端点の処理順
-  に依存していた。
+- 探索は画像全体を明示的な境界判定で辿る。そのため、端点の近傍の外へ続く繊維が
+  行き止まりと読まれることはない。
+- 各探索は自前の訪問済み集合を持つ。そのため、先に処理した端点の探索が後続の
+  探索からスケルトンを隠すことはなく、結果は端点の処理順に依存しない。
 
 走査端から `branch_length` 以内の端点は対象外である。端の近くで終わる腕は
 枝の先端ではなく、視野外へ抜ける繊維だからである。
@@ -1175,23 +1104,18 @@ return init_skeleton_image - branches_image
 （既定 100<!--c:lib/pipeline.py::ProcParams.max_loop_area--> px²）以下の穴を充填し、再細線化することで二重経路を 1<!--n:count--> 本の線へ
 戻す。
 
-二値マスク内部の穴はトポロジー保存細線化で二重経路として残り、ループ 1<!--n:count--> つが
-同梱スキャンではその輪の上に分岐点を 1<!--m:loop_candidates.all.branch_points_range[0]-->〜4<!--m:loop_candidates.all.branch_points_range[1]--> 個作る（実験 loop_candidates）。再細線化は既に細い線を変えないので、充填
+二値マスク内部の穴はトポロジー保存細線化で二重経路として残り、その輪の上に
+分岐点を作る。再細線化は既に細い線を変えないので、充填
 箇所から離れたスケルトン画素は同じ座標に残る。そのため、キンクや端点のように
 画素座標で引く特徴点は、そうした場所では変わらない。
 
 これが 2<!--n:count--> 本の実在の繊維を融合させないよう、**高さガード**を設けている。
 ループアーティファクトは繊維本体の内側か交差にあるため、内部は高いままである。
-同梱スキャンで大きさの条件を満たす 18<!--m:loop_candidates.candidates--> 個の囲みは、高さ画像の目視ですべて
-繊維の内側（10<!--m:loop_candidates.fiber.count--> 個）か交差（8<!--m:loop_candidates.crossing.count--> 個）にあり、内部の高さの中央値は周囲リッジの
-中央値の 78<!--m:loop_candidates.all.ratio_percent_range[0]-->〜105<!--m:loop_candidates.all.ratio_percent_range[1]--> % であった（実験 loop_candidates）。別々の 2<!--n:count--> 本が 2<!--n:count--> 点で
-接触して囲む細長い隙間なら、背景レベルの画素を含むはずだが、同梱スキャンには
-条件を満たすものが無い。囲みを充填するのは、内部の中央値高さが周囲リッジの
+別々の 2<!--n:count--> 本が 2<!--n:count--> 点で接触して囲む細長い隙間なら、背景レベルの画素を含むはず
+である。囲みを充填するのは、内部の中央値高さが周囲リッジの
 中央値の `DEFAULT_LOOP_HEIGHT_RATIO` = 0.3<!--c:lib/skeletonizer.py::DEFAULT_LOOP_HEIGHT_RATIO--> 以上のときだけである。誤って
 充填すると 2<!--n:count--> 本が融合し、その間の溝の中央に経路が捏造される。
-<!-- TODO(review): 以前ここにあった、そうした隙間の値（リッジ高の約 10 %）と、
-0.3 がその側にも余裕を持つという記述は、リポジトリに無いデータによるもので
-あった。同梱スキャンにはそうした隙間が無い。 -->
+<!-- TODO(review): 0.3 がループと隙間を分けられるかは確かめていない。 -->
 
 リングは穴の 5<!--n:literal in the quoted code-->×5<!--n:literal in the quoted code--> 膨張の内側にあるスケルトン画素であり、2<!--n:count--> つの高さはいずれも
 中央値である。
@@ -1393,7 +1317,7 @@ return returned_image
 
 `imp_tools.endPoints` と `imp_tools.branchedPoints` は、各スケルトン画素を
 3<!--n:definition-->×3<!--n:definition--> 近傍パターン集合との hit-or-miss マッチング（`cv2.MORPH_HITMISS`）で
-分類する。パターンと回転順は元のラボコードのものを保持している。得られた
+分類する。得られた
 `ep` / `bp` マップはバンドルに保存され、下流の追跡と
 `measure.isolated_fiber_flags` の孤立判定が参照する。
 
@@ -1553,10 +1477,7 @@ for i in range(np.sum(imgcopy)):
 二値化マスクの medial axis なので、マスクの両側の境界のちょうど中間を通る。
 隣の繊維、分岐部の裾、背景の凹凸のどれかがマスクを片側だけ広げると、軸も
 それにつられて動き、さらに 8<!--n:definition--> 連結の画素鎖による階段状のギザつきが加わる。
-その結果、マスクがたまたま広がっただけのまっすぐな繊維に折れが現れる。同梱の
-高等植物 TOC スキャンでは、Y 字分岐の下で、実際には折れていない繊維のスケルトンを
-以前の折れ線規則（§4.6）が 118<!--m:y_branch_kink.old_rule_angle_deg--> 度の「キンク」と読んでいた。現在の規則がその
-1<!--n:count--> 幅以内に報告するキンクは 0<!--m:y_branch_kink.current_kinks_within_one_width--> 件である（実験 y_branch_kink）。
+その結果、マスクがたまたま広がっただけのまっすぐな繊維に折れが現れる。
 
 そこでキンクはスケルトン画素ではなく、繊維の高さの上に置いた**中心線**で判定
 する。どの画素が 1<!--n:count--> 本の繊維をなすかは引き続きスケルトンが決め、中心線は
@@ -1568,8 +1489,8 @@ for i in range(np.sum(imgcopy)):
 
 1. `centerline.measure_apparent_width` が繊維の見かけ幅 $W$ を測る。トラックに
    沿った各高さ断面の半値全幅を求め、トラック全体での中央値を取ったものである。
-   以下の長さはすべて $W$ の倍数で決めるため、この手順は走査サイズによらず同じ
-   意味を持つ。
+   以降の手順の長さはすべて $W$ の倍数で決めるため、それらの手順は走査サイズに
+   よらず同じ意味を持つ。
 2. トラックを $W/4$ で平滑化し、これを**枠**とする。枠の各点が、その点の横方向
    の位置を測る原点となり、枠の向きが測る方向（繊維の法線方向）を与える。
    平滑化した位置をそのまま中心線にはしない。そうすると本物のコーナーまで
@@ -1577,8 +1498,8 @@ for i in range(np.sum(imgcopy)):
    オフセットで決まる。
 3. `centerline.refine_centerline` が、その法線に沿って枠の点から坂を上り、
    最寄りの高さの極大を見つける。届く範囲で最も高い点を選ぶわけではないので、
-   より高い隣の繊維に中心線を奪われることはない。そのうえで点を、**断面が最大値
-   の半分まで下がる 2<!--n:count--> つの位置の中点**に置く。
+   より高い隣の繊維に中心線を奪われることはない。そのうえで点を、**断面が基底と
+   最大値の中間の高さ（半値）まで下がる 2<!--n:count--> つの位置の中点**に置く。
 4. この 1<!--n:count--> 本の繊維の位置を決められない断面は「信頼できない」と印を付け、その
    オフセットは測らずに、周囲の信頼できる点から補間する。該当するのは、分岐点
    から $W$ 以内の断面、幅が $1.5\,W$ を超える断面（2<!--n:count--> 本が並んでいる）、見つけた
@@ -1606,7 +1527,8 @@ return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 計測はすべて中心線を使いながら、除外と連結は引き続きスケルトン画素で対象を
 指定できる。
 
-GUI01 はキンクを判定するときにこの関数で中心線を作り、
+前処理パイプライン（GUI01 と `cli.py process`）はキンクを判定するときにこの関数で
+中心線を作り、
 `fiber_tracking_image.FiberTrackingImage` はバンドルを開くときに同じ関数で
 作り直す。そのため、画面に表示されるキンクと、それが載る中心線は同じ 1<!--n:count--> つの
 計算から来る。バンドルをどの中心線で組み立て直すかは、バンドルの形式で決まる
@@ -1638,47 +1560,17 @@ GUI01 はキンクを判定するときにこの関数で中心線を作り、
 - **頂点高さ。** 各点での繊維の高さは、中心線の位置で画像を補間した値ではなく、
   **断面の最大値**（`CenterlineResult.crest`）である。中心線は半値中点にある
   ため、非対称な断面では頂部の真上ではなく脇に来る。また双線形補間では、画素
-  中心の間にある頂点の高さに届かない。断面を決められなかった点では、補間した
+  中心の間にある頂点の高さに届かない。
+  <!-- TODO(review): 頂点高さも断面を双線形補間した標本の最大値なので（centerline._refine）、画素中心の間にある頂点に届かない点は頂点高さも同じであり、この文は頂点高さを選ぶ理由として区別になっていない。意図を作者に確認すること。 -->
+  断面を決められなかった点では、補間した
   点から $W/4$ 以内の最大値を使う。`Fiber.height`、高さプロファイル、すべての
   高さ統計はこの頂点高さを使う。
 
-#### 半値中点と 1/4 幅を選んだ理由
-
-**なぜ半値中点か。** すぐ思いつく代替案は各断面の頂点（最大値の位置）だが、
-ねじれたフィブリルで最も大きくずれるのがこの頂点である。断面が異方的な
-フィブリルは、ねじれに伴って最も高い縁を左右交互に向けるためである。合成データ
-一式のねじれリボン 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> 本（直線の軸に沿った 4<!--n:value tried-->×2<!--n:value tried-->〜16<!--n:value tried-->×3<!--n:value tried--> nm の長方形断面、
-探針 10<!--c:scripts/synthetic_suite.py::RIBBON_TIP_NM--> nm で描画）では、測った 3<!--n:count--> 本の線のうち頂点が 5<!--m:synthetic_centerline.ribbons.crest_farthest_of_three--> 本すべてで軸から
-最も離れ、既定の線の 1.1<!--m:synthetic_centerline.ribbons.crest_over_default_range[0]-->〜1.4<!--m:synthetic_centerline.ribbons.crest_over_default_range[1]--> 倍であった（横方向のずれの二乗平均平方根）。
-また §4.3 のキンク規則は、円形の対照繊維を含むリボンの走査 6<!--m:synthetic_centerline.ribbons.count--> 枚で
-0<!--m:synthetic_centerline.ribbons.kinks_reported--> 件のキンクしか報告しなかった（実験 synthetic_centerline）。半値より低い
-レベルが一様に良いわけではない。1/4 高さの中点はリボン 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> 本中 4<!--m:synthetic_centerline.ribbons.quarter_closer_than_default--> 本で既定の線
-より軸に近かったが、細い円形の対照繊維では背景の凹凸に最大
-3.5<!--m:synthetic_centerline.G_circle_d3.max_nm.quarter_max--> nm 引き寄せられた。なお探針が太い場合、ねじれたフィブリルのずれは
-画像そのものに含まれており、高さから読み取るどの中心線でも取り除けない。
-
-**なぜ 1/4 幅か。** 平滑化の幅は、2<!--n:count--> つの特徴がどこまで近づくと中心線がそれらを
-1<!--n:count--> つに均してしまうかを決める。合成データ一式の同じ向きのコーナー対（画素
-2<!--c:scripts/synthetic_suite.py::NMPX--> nm、$W$ = 8<!--c:scripts/synthetic_suite.py::W--> px）で調べた。8<!--m:synthetic_centerline.pairs--> 枚の走査のそれぞれに、1〜3<!--n:value tried--> $W$ 離れた
-60<!--n:value tried--> 度のコーナーが 2<!--n:count--> つある。
-
-| 枠とオフセットの平滑化 | 1<!--n:count--> つの折れと判定された組（§4.3） | コーナー頂点から中心線までの距離（中央値。間隔ごとの範囲） | 真の中心線までの距離（中央値） |
-|---|---|---|---|
-| $W/2$ | 8<!--m:synthetic_centerline.pairs--> 組中 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> 組 | 0.97<!--m:synthetic_centerline.pairs_w2.vertex_median_px_range[0]-->〜1.17<!--m:synthetic_centerline.pairs_w2.vertex_median_px_range[1]--> px | 0.12<!--m:synthetic_centerline.pairs_w2.centerline_median_px--> px |
-| $W/4$（既定） | 8<!--m:synthetic_centerline.pairs--> 組中 0<!--m:synthetic_centerline.pairs_w4.merged_pairs--> 組 | 0.63<!--m:synthetic_centerline.pairs_w4.vertex_median_px_range[0]-->〜0.84<!--m:synthetic_centerline.pairs_w4.vertex_median_px_range[1]--> px | 0.10<!--m:synthetic_centerline.pairs_w4.centerline_median_px--> px |
-
-**既知の中心線に対する精度。** 合成データ一式の A〜F 群の走査 60<!--m:synthetic_centerline.scans_af--> 枚（球状の探針で
-描画、画素 2<!--c:scripts/synthetic_suite.py::NMPX--> nm、$W$ = 8<!--c:scripts/synthetic_suite.py::W--> px。コーナー、ジグザグ、コーナー対、端に近いコーナー、直線、
-円弧、蛇行、交差、分岐）で比べた結果は次のとおりである。
-
-| | 真の中心線までの距離（中央値） | 同 95<!--n:definition--> パーセンタイル | 輪郭長の誤差（スキャン群ごとの範囲） |
-|---|---|---|---|
-| 半値中点の中心線 | 0.11<!--m:synthetic_centerline.half_max_025w.median_px--> px | 0.35<!--m:synthetic_centerline.half_max_025w.p95_px--> px | −1.5<!--m:synthetic_centerline.half_max_025w.length_error_percent_range[0]-->〜+0.5<!--m:synthetic_centerline.half_max_025w.length_error_percent_range[1]--> % |
-| スケルトントラック（補正済みチェーンコード長） | 0.29<!--m:synthetic_centerline.skeleton_track.median_px--> px | 0.90<!--m:synthetic_centerline.skeleton_track.p95_px--> px | −1.4<!--m:synthetic_centerline.skeleton_track.length_error_percent_range[0]-->〜+2.2<!--m:synthetic_centerline.skeleton_track.length_error_percent_range[1]--> % |
-
 #### 別の中心線を選ぶ
 
-1/4 幅の半値中点は既定であって、唯一の選択肢ではない。`centerline_method`
+1/4 幅の半値中点は既定であって、唯一の選択肢ではない。既定は合成データと同梱
+スキャンでの比較を見て選んだ経験的な選択である（[個別データでの評価](validation.ja.md)
+§4.2、§4.3）。`centerline_method`
 （GUI01 の Kinkdetector グループ、`cli.py process --centerline`）で、
 `centerline.CENTERLINE_METHODS` にある 8<!--c:lib/centerline.py::len(CENTERLINE_METHODS)--> 種類の中心線から 1<!--n:count--> つを選べる。
 利用者が自分の画像でこの選択を確かめられるようにするためである。どの中心線も、
@@ -1691,28 +1583,21 @@ GUI01 はキンクを判定するときにこの関数で中心線を作り、
 最大値を使う）が既定と異なりうる。それぞれのコードは
 [GUI04 のファイバー計測](gui04_measurements.ja.md) §2.8 に引用している。
 
-次の表は、既定を選ぶときに行った比較をまとめたものである。読むときは 2<!--n:count--> 点に
-注意してほしい。
+次の表は、各中心線が点を置く位置である。
 
-- **距離の中央値**は、合成データ一式の A〜F 群（走査 60<!--m:synthetic_centerline.scans_af--> 枚、画素 2<!--c:scripts/synthetic_suite.py::NMPX--> nm）の群ごとに求めた、
-  真の中心線までの距離の中央値（nm）であり、欄には群全体での範囲を示す（実験
-  synthetic_centerline）。
-- **実スキャン**は、同梱スキャン上の明瞭なキンク 64<!--m:kink_reference.clear_marks--> 件からなる目視基準（§4.3）
-  に対し、超過回転規則で採点した結果で、「検出 / 見落とし / どの印とも一致
-  しない折れ」の件数である。印から 1〜2<!--n:definition--> 幅ずれた検出（§4.3 の表の「印から
-  1〜2<!--n:definition--> 幅ずれて検出」）と、1<!--n:count--> つの検出が 2<!--n:count--> つの印にまたがった「統合」はこの表に
-  含めていないので、検出と見落としの和は 64<!--m:kink_reference.clear_marks--> にならない。採点したのは 3<!--n:count--> 種類
-  だけである。
+| `centerline_method` | 各点を置く位置 |
+|---|---|
+| `"half_max_025w"`（既定） | 半値中点。枠とオフセットを W/4 で平滑化 |
+| `"half_max_05w"` | 同じく 0.5<!--c:lib/centerline.py::_WIDE_SMOOTH_WIDTHS--> W で平滑化 |
+| `"skeleton_pixels"` | スケルトン画素そのもの |
+| `"smoothed_skeleton_05w"`、`"smoothed_skeleton_1w"` | スケルトンを長さ方向に 0.5<!--n:definition--> W / 1<!--n:definition--> W で平滑化したもの |
+| `"quarter_max"` | 1/4 高さの交点の中点 |
+| `"centroid"` | 基底より上の高さで重み付けした重心 |
+| `"crest"` | 断面の最大値（放物線で標本間に補間） |
 
-| `centerline_method` | 各点を置く位置 | 距離の中央値（nm） | 実スキャン | 備考 |
-|---|---|---|---|---|
-| `"half_max_025w"`（既定） | 半値中点。枠とオフセットを W/4 で平滑化 | 0.21<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->〜0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 60<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 64<!--m:kink_reference.default.false--> | |
-| `"half_max_05w"` | 同じく 0.5<!--c:lib/centerline.py::_WIDE_SMOOTH_WIDTHS--> W で平滑化 | 0.20<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[0]-->〜0.25<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[1]--> | 56<!--m:kink_reference.hm05.found--> / 4<!--m:kink_reference.hm05.missed--> / 43<!--m:kink_reference.hm05.false--> | 採点した 3<!--n:count--> 種類の中で一致しない折れが最も少ない。ただし合成の同じ向きのコーナー対 8<!--m:synthetic_centerline.pairs--> 組中 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> 組で 2<!--n:count--> つのコーナーを 1<!--n:count--> つにまとめ、平滑化をわずかに強めると見落としが 10〜13<!--m:kink_reference.hm05_stronger.missed_range--> 件に増えた。 |
-| `"skeleton_pixels"` | スケルトン画素そのもの | 0.54<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[0]-->〜0.62<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[1]--> | 62<!--m:kink_reference.skeleton_pixels.found--> / 0<!--m:kink_reference.skeleton_pixels.missed--> / 135<!--m:kink_reference.skeleton_pixels.false--> | 階段状のギザつきと分岐部での振れを折れとして読んでしまう。 |
-| `"smoothed_skeleton_05w"`、`"smoothed_skeleton_1w"` | スケルトンを長さ方向に 0.5<!--n:definition--> W / 1<!--n:definition--> W で平滑化したもの | 0.33<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[0]-->〜0.56<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[1]--> / 0.39<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[0]-->〜0.95<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[1]--> | 採点なし | 平滑化で階段は消えるが、スケルトンが繊維からずれている分は残る。点そのものを動かすので本物のコーナーも丸まる。 |
-| `"quarter_max"` | 1/4 高さの交点の中点 | 0.20<!--m:synthetic_centerline.quarter_max.group_median_nm_range[0]-->〜0.24<!--m:synthetic_centerline.quarter_max.group_median_nm_range[1]--> | 採点なし | ねじれリボン 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> 本中 4<!--m:synthetic_centerline.ribbons.quarter_closer_than_default--> 本で既定より軸に近いが、細い円形の対照繊維では背景の凹凸に最大 3.5<!--m:synthetic_centerline.G_circle_d3.max_nm.quarter_max--> nm 引き寄せられた。 |
-| `"centroid"` | 基底より上の高さで重み付けした重心 | 0.32<!--m:synthetic_centerline.centroid.group_median_nm_range[0]-->〜0.38<!--m:synthetic_centerline.centroid.group_median_nm_range[1]--> | 採点なし | |
-| `"crest"` | 断面の最大値 | 0.42<!--m:synthetic_centerline.crest.group_median_nm_range[0]-->〜0.48<!--m:synthetic_centerline.crest.group_median_nm_range[1]--> | 採点なし | ねじれリボン 5<!--m:synthetic_centerline.ribbons.crest_farthest_of_three--> 本すべてで軸から最も離れた（既定の 1.1<!--m:synthetic_centerline.ribbons.crest_over_default_range[0]-->〜1.4<!--m:synthetic_centerline.ribbons.crest_over_default_range[1]--> 倍）。 |
+なお、断面が異方的なフィブリルは、ねじれに伴って最も高い縁を左右交互に向ける。
+探針が太い場合、この偏りは画像そのものに含まれており、高さから読み取るどの
+中心線でも取り除けない。
 
 キンク規則とその長さ（W の倍数）はどの中心線でも同じである。そのため、既定より
 横方向のノイズが大きい中心線は、それだけで多くの折れを報告する。長さ・高さ・
@@ -1755,7 +1640,8 @@ $$
 
 のときキンクと判定する。$\theta_{\text{max}}$ は `kinkangle_deg`（既定
 150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg--> 度）なので、既定では 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度以上の超過回転が必要である。しきい値を内角で
-表すのは、以前の規則（§4.6）での `kinkangle_deg` の意味を変えないためである。
+表すのは、形式 1.0<!--n:bundle format version--> のバンドルに使う折れ線規則（§4.6）も同じ `kinkangle_deg` を
+内角のしきい値として読むためである。
 `pipeline.build_stages` が検出器に渡す前にラジアンへ変換する。キンクとして
 *保存する*角度は、これとは別に腕の向きから測る（後述の「報告する角度」を参照）。
 
@@ -1764,8 +1650,8 @@ $$
 すでに 29<!--x:degrees(2 * 0.75 / 3)--> 度回る。円弧は窓の中でも両脇でも同じ割合で回るので超過回転はほぼ 0<!--n:analytic (an arc turns at one rate)-->
 になり、まっすぐな腕に挟まれたコーナーは回転がそのまま残る。両脇の回転率の
 *小さい方*を使うのは、曲線が終わる所にあるコーナーでは、片方の脇が曲がって
-いてもう片方がまっすぐであり、それでもコーナーには違いないからである。逆向き
-に回る脇（段差をなす 2<!--n:label--> つ目の折れ）は差し引く分に含めない。
+いてもう片方がまっすぐであり、それでもコーナーには違いないからである。どちらか
+の脇が逆向きに回る場合（段差をなす 2<!--n:label--> つ目の折れ）は、何も差し引かない。
 
 コードでは、`_heading_profile` が向きの再サンプリング・差分・平滑化を行い、
 `excess_profile` が任意の位置で $T$ と $E$ を計算する。端の近くでは脇の区間が
@@ -1852,10 +1738,8 @@ $E$ は候補の位置でだけ計算する。候補には 2<!--n:count--> 種�
 - **$|T|$ そのものの極大。** $0.75\,W$ 以内に、上の曲率の極大から採用した
   候補が無い場所に限って加える。
   ノイズで曲率のピークが 2<!--n:count--> つに割れたコーナーや、回転がそのまま曲線へ続く
-  コーナーは、中心に曲率の極大を 1<!--n:count--> つも持たないためである。同梱スキャンでは、
-  この候補を除くと、明瞭な基準キンクの検出は 60<!--m:turn_maxima.with.found--> 件から 56<!--m:turn_maxima.without.found--> 件に減り、一致しない
-  折れは 64<!--m:turn_maxima.with.false--> 件から 47<!--m:turn_maxima.without.false--> 件に減った（実験 turn_maxima）。両端から $c$ 以上離れた
-  サンプル（`grid`）の上で探す。
+  コーナーは、中心に曲率の極大を 1<!--n:count--> つも持たないためである。両端から $c$ 以上
+  離れたサンプル（`grid`）の上で探す。
 
 $0.75\,W$ より近い候補どうしは 1<!--n:count--> つの折れとみなす。候補を超過回転の大きい順に
 処理するので、そうした組では超過回転の最も大きいものが残る。
@@ -1889,33 +1773,11 @@ for excess, p in sorted(fine + coarse, key=lambda t: -t[0]):
 
 #### 報告する角度
 
-判定に使う量は超過回転だが、探針と中心線が頂点を丸めるため、鋭いコーナーでは
-実際より小さく読まれる。孤立した合成コーナーでの読みは次のとおりである。
-
-| コーナーの回転角 | 読まれた超過回転 |
-|---|---|
-| 40<!--n:value tried--> 度 | 37〜38<!--m:synthetic_kinks.corner40.excess_read_range_deg--> 度 |
-| 60<!--n:value tried--> 度 | 52〜56<!--m:synthetic_kinks.corner60.excess_read_range_deg--> 度 |
-| 90<!--n:value tried--> 度 | 83〜85<!--m:synthetic_kinks.corner90.excess_read_range_deg--> 度 |
-| 120<!--n:value tried--> 度 | 101〜110<!--m:synthetic_kinks.corner120.excess_read_range_deg--> 度 |
-
-このため、しきい値をわずかに上回る折れが下回って読まれることがある。テスト
-スイートで 33.5<!--m:test_suite_bend.drawn_turn_deg--> 度に描いた折れは 26.5<!--m:test_suite_bend.read_excess_deg--> 度と読まれる（実験 test_suite_bend）。
-
-そこでキンクとして*保存する*角度（`ka`）は、180<!--n:definition--> 度から超過回転を引いた値では
+キンクとして*保存する*角度（`ka`）は、180<!--n:definition--> 度から超過回転を引いた値では
 なく、折れの両脇にある 2<!--n:count--> 本の**腕**のなす内角とする
-（`KinkDetector.judge_line`）。各腕の向きは、頂点から半幅離れた位置（丸めの
-外側）から 1<!--c:lib/kink_detector.py::_ARM_LENGTH_WIDTHS--> 幅の区間で平均した向きである。区間は次の折れの手前で打ち切り、
-段差の 2<!--n:label--> つ目のコーナーが 1<!--n:label--> つ目の腕に入らないようにする。10<!--c:scripts/kink_rule_sweep.py::TIP_RADIUS_NM--> nm の探針で描画
-した内角 120<!--n:example-->・140<!--n:example-->・145<!--n:example--> 度の合成コーナー（`scripts/kink_rule_sweep.py`）では、
-見つかったコーナーについて、3<!--c:scripts/kink_rule_sweep.py::len(NOISES_NM)--> つのノイズ水準をまとめた角度の誤差の中央値は次の
-とおりであった。
-
-| 見かけ幅 | 腕のなす角 | 180<!--n:definition--> 度 − 超過回転 |
-|---|---|---|
-| 3<!--m:kink_rule_sweep.W5.measured_width_px--> px | 4.2<!--m:kink_rule_sweep.W5.arm_error_deg--> 度 | 4.6<!--m:kink_rule_sweep.W5.excess_error_deg--> 度 |
-| 5.5<!--m:kink_rule_sweep.W8.measured_width_px--> px | 1.7<!--m:kink_rule_sweep.W8.arm_error_deg--> 度 | 7.9<!--m:kink_rule_sweep.W8.excess_error_deg--> 度 |
-| 11<!--m:kink_rule_sweep.W16.measured_width_px--> px | 1.7<!--m:kink_rule_sweep.W16.arm_error_deg--> 度 | 3.4<!--m:kink_rule_sweep.W16.excess_error_deg--> 度 |
+（`KinkDetector.judge_line`）。各腕の向きは、頂点から半幅離れた位置（探針が頂点を
+丸める範囲の外側）から 1<!--c:lib/kink_detector.py::_ARM_LENGTH_WIDTHS--> 幅の区間で平均した向きである。区間は次の折れの手前で
+打ち切り、段差の 2<!--n:label--> つ目のコーナーが 1<!--n:label--> つ目の腕に入らないようにする。
 
 超過回転も角度の隣に `ke` として保存する（§4.5）。判定に使った量と折れの
 幾何の両方が、バンドルと一緒に残る。
@@ -1946,9 +1808,10 @@ $$
 
 である。どちらかの区間が $0.25\,W$（`_ARM_MIN_WIDTHS`）より短い場合、つまり
 2<!--n:count--> つの折れが近すぎて間に腕が取れない場合は、代わりに $\phi = \pi - E$ を保存
-する。角度は最後に $[10^{-6},\ \pi - 10^{-6}]$ rad に収め、弧長で $p$ に最も
-近い中心線上の点に、ラジアンのまま `ka` として書き込む。2<!--n:count--> つの折れが同じ点に
-落ちた場合は、超過回転の大きい方を残す。キンクかどうかを決めるのは角度では
+する。角度は最後に $[10^{-6},\ \pi - 10^{-6}]$ rad に収め、ラジアンのまま `ka` に
+書き込む。折れの位置は弧長で $p$ に最も近い中心線の点とし、`kp` にはその添字の
+スケルトン画素を書く。2<!--n:count--> つの折れが同じ点に落ちた場合は、超過回転の大きい方を
+残す。キンクかどうかを決めるのは角度では
 なく $E$ なので、保存された角度が `kinkangle_deg` 以下になるとは限らない。
 
 `measure.compute_fiber_stats` は角度を度に変換し（`FiberStats.kink_angles_deg`）、
@@ -2027,116 +1890,32 @@ if not stat.kink_angles_deg:
 return float(np.median(stat.kink_angles_deg))
 ```
 
-#### 尺度・精度・適用範囲
+#### 尺度とノイズ床
 
 **尺度。** 規則の長さはすべて $W$ の倍数であり、$W$ は画像の分解能でもある。
 探針はどの繊維も約 $W$ の幅に広げるので、繊維自体がどれほど鋭く曲がっていても、
 コーナーは中心線上で約 $W$ の長さを占める。それよりずっと近い 2<!--n:count--> つの折れは
-見分けられない。合成ジグザグ（画素 2<!--c:scripts/synthetic_suite.py::NMPX--> nm、$W$ = 8<!--c:scripts/synthetic_suite.py::W--> px）では、1.5〜3<!--n:value tried--> $W$ 離れた
-コーナーはすべて見つかった（30<!--m:synthetic_kinks.zigzag_1.5W_up.clear--> 件中 30<!--m:synthetic_kinks.zigzag_1.5W_up.found--> 件）が、1<!--n:value tried--> $W$ 離れたコーナーは 10<!--m:synthetic_kinks.zigzag1W.clear--> 件中
-4<!--m:synthetic_kinks.zigzag1W.found--> 件にとどまった。規則の長さはすべて $W$ の倍数なので、$W$ が十分に分解されて
-いる限り（下の「規則が使える範囲」によれば約 3<!--m:kink_rule_sweep.W5.measured_width_px--> px 以上）、同じ繊維を別の画素
-サイズで走査しても同じ尺度で判定する。画素数で決まる量は、$W$ を測れなかった
-ときの代替値 `centerline.FALLBACK_WIDTH_PX`（8<!--c:lib/centerline.py::FALLBACK_WIDTH_PX--> px）、幅を測るときに断面を読む
-範囲（トラックから ±12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px）、向きを再標本化する間隔（0.5<!--c:lib/kink_detector.py::_HEADING_STEP_PX--> px）だけである。
+見分けられない。規則の長さはすべて $W$ の倍数なので、$W$ が十分に分解されて
+いる限り、同じ繊維を別の画素サイズで走査しても同じ尺度で判定する。ただし、
+それぞれの長さが $W$ の何倍かは理論から一意に決まるものではなく、同梱スキャンの
+目視基準で確かめた経験的な値である（[個別データでの評価](validation.ja.md) §4.4）。画素数で
+決まるのは、$W$ を測る手順の中の長さ（幅を測るときに断面を読む範囲はトラックから
+±12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px、$W$ を測れなかったときの代替値 `centerline.FALLBACK_WIDTH_PX` の
+8<!--c:lib/centerline.py::FALLBACK_WIDTH_PX--> px など）と、標本化の間隔（断面は 0.25<!--c:lib/centerline.py::_WIDTH_STEP_PX--> px、向きは 0.5<!--c:lib/kink_detector.py::_HEADING_STEP_PX--> px）である。
 `kink_decompose_px` はもう使わない（§4.6）。
-
-**目視基準との比較。** 同梱スキャンの高さ画像に、検出器の出力を一切表示せずに
-目視で印を付けた（5<!--m:kink_reference.scans--> スキャンで明瞭なキンク 64<!--m:kink_reference.clear_marks--> 件）。「一致なし」は、どの印とも
-一致しない報告された折れの件数で、以下で誤検出と呼ぶのはこれである。
-
-| 規則 | 検出 | 印から 1〜2<!--n:definition--> 幅ずれて検出 | 見落とし | 一致なし |
-|---|---|---|---|---|
-| 超過回転規則（中心線上） | 60<!--m:kink_reference.default.found--> | 1<!--m:kink_reference.default.displaced--> | 3<!--m:kink_reference.default.missed--> | 64<!--m:kink_reference.default.false--> |
-| 以前の折れ線規則（§4.6、スケルトントラック上） | 52<!--m:kink_reference.old_rule.found--> | 4<!--m:kink_reference.old_rule.displaced--> | 8<!--m:kink_reference.old_rule.missed--> | 76<!--m:kink_reference.old_rule.false--> |
-
-以前の規則の行は、同じ画像の追跡済みスケルトントラックに、形式 1.0<!--n:bundle format version--> の
-バンドルのために残してある `KinkDetector.kinks_and_decomposed_from_track`
-（`kink_decompose_px` = 3<!--c:lib/pipeline.py::ProcParams.kink_decompose_px--> px、`kinkangle_deg` = 150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg--> 度）を適用して採点した。
-
-規則の長さのどれか 1<!--n:count--> つを隣の値に変えると、検出できた明瞭なキンクは 56〜62<!--m:kink_reference.sens_all.found_range--> 件、
-一致なしは 48〜80<!--m:kink_reference.sens_all.false_range--> 件の範囲で動いた（既定はそれぞれ 60<!--m:kink_reference.default.found--> 件と 64<!--m:kink_reference.default.false--> 件）。検出が最も
-減ったのは平滑化を強める側で、向きの平滑化 0.35<!--n:value tried--> W で 56<!--m:kink_reference.sens_heading_0.35.found--> 件、中心線の平滑化
-×1.4<!--n:value tried--> で 57<!--m:kink_reference.sens_line_x1.4.found--> 件であった。
-
-| 長さ | 既定値 | 試した隣の値 |
-|---|---|---|
-| 中心線の平滑化（§4.2） | W/4 | ×0.6<!--n:value tried-->、×1.4<!--n:value tried--> |
-| 窓の半長 $c$ | 0.75<!--c:lib/kink_detector.py::_CORE_WIDTHS--> W | 0.6<!--n:value tried--> W、0.9<!--n:value tried--> W |
-| 脇の長さ $f$ | 1.0<!--c:lib/kink_detector.py::_FLANK_WIDTHS--> W | 0.75<!--n:value tried--> W、1.5<!--n:value tried--> W |
-| 向きの平滑化 $\sigma$ | 0.25<!--c:lib/kink_detector.py::_HEADING_SIGMA_WIDTHS--> W | 0.15<!--n:value tried--> W、0.35<!--n:value tried--> W |
-| 端の範囲（§4.4） | 1.5<!--c:lib/kink_detector.py::END_MARGIN_WIDTHS--> W | 1.0<!--n:value tried--> W、2.0<!--n:value tried--> W |
-| 抑制半径 | 0.75<!--c:lib/kink_detector.py::_SUPPRESS_WIDTHS--> W | 0.5<!--n:value tried--> W、1.0<!--n:value tried--> W |
-
-**合成形状での結果。**
-
-- 直線の繊維（2<!--m:synthetic_kinks.straight.scans--> 枚で 0<!--m:synthetic_kinks.straight.reported--> 件）、半径 3〜10<!--n:value tried--> $W$ の円弧（6<!--m:synthetic_kinks.arcs.scans--> 枚で 0<!--m:synthetic_kinks.arcs.reported--> 件）、
-  交差と分岐（10<!--m:synthetic_kinks.crossings_branches.scans--> 枚で 0<!--m:synthetic_kinks.crossings_branches.reported--> 件）、ねじれリボン（6<!--m:synthetic_centerline.ribbons.count--> 枚で 0<!--m:synthetic_centerline.ribbons.kinks_reported--> 件）では、折れを
-  報告しなかった。
-- 40<!--n:value tried--> 度以上の孤立したコーナーはすべて見つけた（8<!--m:synthetic_kinks.corners_40_up.clear--> 件中 8<!--m:synthetic_kinks.corners_40_up.found--> 件）。
-- 最小曲率半径が 1.6〜1.8<!--m:synthetic_kinks.sines.tightest_radius_w_range--> $W$ の正弦波状の蛇行 4<!--m:synthetic_kinks.sines.scans--> 枚では、12<!--m:synthetic_kinks.sines.reported--> 件の折れを
-  報告した。
-  半径が約 $2.9\,W$ を下回ると窓の中だけで 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度を超えて回り、曲率が急に変わる
-  場所では脇の回転でそれを打ち消しきれないためである。
-- 以前の折れ線規則は、同じ円弧と蛇行で 31<!--m:synthetic_kinks.old_rule.arcs_sines_reported--> 件を報告した（実験 synthetic_kinks）。
 
 **中心線ごとのノイズ床（既定は無効）。** 中心線ごとのノイズ床を実装している
 （`NOISE_SIGMAS`、`KinkJudgement.noise_excess`）。中心線全体での超過回転の
 ロバストなばらつきを求め、折れの超過回転がその何倍かを超えることを要求する
-ものである。既定では**無効**にしている。誤検出と本物のキンクを分けられな
-かったためである。目視基準で採点した結果（`scripts/kink_reference_score.py`）
-は次のとおりである。
-
-| ノイズ床の倍数 | 失った明瞭なキンク | 減った誤検出 |
-|---|---|---|
-| 3<!--n:value tried--> | 3<!--m:kink_reference.noise3.lost--> | 6<!--m:kink_reference.noise3.fewer_false--> |
-| 4<!--n:value tried--> | 5<!--m:kink_reference.noise4.lost--> | 10<!--m:kink_reference.noise4.fewer_false--> |
-
-これらのスキャンの誤検出は、丸みのある曲がり、絡まり、交差の近くの折れ、
-それに超過回転がしきい値をわずかに上回るだけの浅い折れであって、ノイズでは
-ない。64<!--m:kink_reference.default.false--> 件のうち 28<!--m:kink_reference.default.false_excess_30_40--> 件は超過回転が 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->〜40<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|190 - v--> 度である。そのうち 11<!--m:kink_reference.default.false_arm_turn_below_threshold--> 件は、
-腕から読んだ回転（180<!--n:definition--> 度 − `ka`）が 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度を下回る。腕の角度は判定に使う
-超過回転とは別に測るためである。また強く折れ曲がった繊維では、その繊維自身のキンクがノイズ床を
-押し上げる。失われた明瞭なキンクはそうした繊維にあった。合成データの掃引では、
-ノイズ床はどの条件でも見つかるコーナーを変えず、偽陽性を変えたのは最も細かい
-画素サイズと最も強いノイズの条件（幅 11<!--m:kink_rule_sweep.W16.measured_width_px--> px、画素ノイズ 0.30<!--n:value tried--> nm）だけであった。
-その条件でも 1<!--n:definition--> µm あたりの偽陽性を 3.9<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> から 3.7<!--m:kink_rule_sweep.W16.n0.30.k3.fp_per_um--> に減らしただけで、その条件で
-すでに見落としていたコーナーは戻らなかった。
-
-**規則が使える範囲。** 同じ掃引から、規則が働く見かけ幅がわかる。ここでの
-見かけ幅は、合成画像の設計値ではなく、各設定の直線の繊維でパイプラインが実際に
-測った $W$ である。各コーナーは 3<!--c:scripts/kink_rule_sweep.py::len(NOISES_NM)--> つのノイズ水準と 2<!--c:scripts/kink_rule_sweep.py::len(SEEDS)--> つのシードで描き、角度と幅
-ごとに 6<!--m:kink_rule_sweep.W5.kink120.cases--> 枚である。
-
-- 3<!--m:kink_rule_sweep.W5.measured_width_px--> px では、内角 120<!--n:example--> 度と 145<!--n:example--> 度のコーナーはすべて見つかり（6<!--m:kink_rule_sweep.W5.kink145.cases--> 枚中
-  6<!--m:kink_rule_sweep.W5.kink120.found--> 枚と 6<!--m:kink_rule_sweep.W5.kink145.found--> 枚）、140<!--n:example--> 度は 6<!--m:kink_rule_sweep.W5.kink140.cases--> 枚中 4<!--m:kink_rule_sweep.W5.kink140.found--> 枚であった。見落とした 140<!--n:example--> 度の例
-  でもコーナーを含む繊維は途切れずに追跡されていたので、見落としは追跡ではなく
-  規則の側で起きている。140<!--n:example--> 度が 145<!--n:example--> 度より見つかりにくかった原因は特定して
-  いない。
-- 5.5<!--m:kink_rule_sweep.W8.measured_width_px--> px では、すべてのコーナーが見つかった（6<!--m:kink_rule_sweep.W8.kink140.cases--> 枚中 6<!--m:kink_rule_sweep.W8.kink120.found-->・6<!--m:kink_rule_sweep.W8.kink140.found-->・6<!--m:kink_rule_sweep.W8.kink145.found--> 枚）。
-- 11<!--m:kink_rule_sweep.W16.measured_width_px--> px では、各角度とも 6<!--m:kink_rule_sweep.W16.kink140.cases--> 枚中 5<!--m:kink_rule_sweep.W16.kink120.found-->・5<!--m:kink_rule_sweep.W16.kink140.found-->・5<!--m:kink_rule_sweep.W16.kink145.found--> 枚であった。画素ノイズ 0.15<!--n:value tried--> nm
-  まではすべて見つかり、0.30<!--n:value tried--> nm では 2<!--c:scripts/kink_rule_sweep.py::len(SEEDS)--> 枚中 1<!--m:kink_rule_sweep.W16.n0.30.kink120.found--> 枚であった。このノイズでは、ほぼ
-  水平な腕が高さ画像そのものの中で途切れて描かれ、追跡は繊維を多数の断片に
-  分け、偽の折れがその腕に集まった。同じ設定の直線・円弧・正弦波の繊維では、
-  規則は 1<!--n:definition--> µm あたり 3.9<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> 件の偽の折れを報告した。
-- 画素ノイズ 0.15<!--n:value tried--> nm までの直線・円弧・蛇行では、どの幅でも偽陽性は無く、
-  165<!--n:example--> 度の曲がりでも無かった。
-- 掃引で最も粗い画素サイズ（5.2<!--c:scripts/kink_rule_sweep.py::APPARENT_WIDTH_NM|v / 3--> nm。繊維が占める画素は 3<!--m:kink_rule_sweep.W5.measured_width_px--> px の設定より
-  少ない）では、繊維の追跡そのものがほとんど途切れ、幅は測れずに代替値が
-  使われ、何も見つからなかった。
-
-最も粗い設定では、規則は判定すべき追跡済みの繊維を一度も受け取っていない。その
-ため規則を緩めても役に立たず、こうした走査にはより細かい画素サイズが要る。
+ものである。既定では**無効**である（`NOISE_SIGMAS` = 0<!--c:lib/kink_detector.py::NOISE_SIGMAS-->）。無効にした経緯は
+[個別データでの評価](validation.ja.md) §4.7 にある。
 
 ### 4.4 端のそばの折れは判定せずに示す
 
-中心線の端から $1.5\,W$ 以内に中心がある折れは**判定しない**。理由は 2<!--n:count--> つある。
-
-- 片方の腕が、目視基準で折れを「明瞭」とみなすのに必要だった長さに満たない。
-- トラックの端の多くは繊維の本当の終端ではなく、交差での切断である（実データの
-  同梱スキャン 3<!--n:count--> 枚の実測では、トラック端の 46<!--m:track_ends.hplantTOC.near_branch_percent-->〜68<!--m:track_ends.tunicate.near_branch_percent--> % が分岐点から 3<!--n:definition--> px
-  以内にある。実験 track_ends）。
-  そこでは中心線が分岐部の裾につられて曲がる。
+中心線の端から $1.5\,W$ 以内に中心がある折れは**判定しない**。トラックの端には、
+繊維の本当の終端のほかに、§4.1 の `imp_tools.remove_bp` が交差で切った切断が
+あり、そこでは中心線が分岐部の裾につられて曲がりうるためである。範囲の
+$1.5\,W$ は経験的に選んだ値である（[個別データでの評価](validation.ja.md) §4.9）。
 
 こうした折れも捨てずに残す。`KinkDetector.kinks_on_line` はこれを別に返し、
 バンドルは任意キー `up` に保存し、各繊維には `Fiber.unjudged_indices` として
@@ -2148,17 +1927,11 @@ return float(np.median(stat.kink_angles_deg))
 そばにないので判定される。逆に高さの絞り込みは繊維を切るので、新しくできた
 端のそばの折れは判定されなくなる。
 
-端の範囲を $1.0\,W$ にすると、同梱スキャンの誤検出は 64<!--m:kink_reference.default.false--> 件から 80<!--m:kink_reference.sens_end_1.false--> 件に増え、
-明瞭なキンクの検出は 1<!--n:count--> 件も増えなかった。$2.0\,W$ にすると誤検出は 49<!--m:kink_reference.sens_end_2.false--> 件に
-減ったが、既定では判定していた端から 2<!--n:value tried--> $W$ の合成コーナー（2<!--m:synthetic_kinks.end_cases_per_distance--> 件中 2<!--m:synthetic_kinks.margin_default.end2W.corners_judged--> 件）を
-判定しなくなった（0<!--m:synthetic_kinks.margin_2W.end2W.corners_judged--> 件）。同梱スキャン
-で判定しなかった 48<!--m:kink_reference.default.unjudged--> 件の折れには、明瞭な基準キンクに当たるものは無かった。
-
 ### 4.5 しきい値は結果と一緒に持ち運ばれる
 
 キンクのパラメータはバンドルの `params` メタデータに書き込まれ、
 `bundle_schema.kink_params_from_meta` が読み戻す。読み手が実際に使うのは
-`kinkangle_deg` であり、使わなければならない。バンドルに含まれないトラック
+`kinkangle_deg` であり、これは省くことができない。バンドルに含まれないトラック
 （交差をまたいで連結した繊維や、高さ帯で切り出した部分繊維）でキンクを計算し
 直すときは、保存済みのキンク点を生んだのと同じ規則を適用する必要がある。その
 規則を、それが説明する配列と一緒に持ち運べる場所はバンドルしかない。
@@ -2174,30 +1947,30 @@ return float(np.median(stat.kink_angles_deg))
 規則が検定した量を表す。両方があれば、規則を実行し直さなくても、各キンクが
 しきい値をどれだけ超えていたかを確認できる。
 
-### 4.6 以前の規則で判定されたバンドル
+### 4.6 形式 1.0 のバンドルの折れ線規則
 
-形式 1.0<!--n:bundle format version--> のバンドルは、スケルトントラック上で以前の規則により判定されている。
-`KinkDetector._binary_decompose_simple` が **Douglas–Peucker** 法の考え方で
+形式 1.0<!--n:bundle format version--> のバンドルのキンクは、スケルトントラック上で折れ線規則により判定されて
+いる。`KinkDetector._binary_decompose_simple` が **Douglas–Peucker** 法の考え方で
 トラックを折れ線に縮約し、弦から `kink_decompose_px`（既定 3.0<!--c:lib/pipeline.py::ProcParams.kink_decompose_px--> px）以上離れた
-トラック点に頂点を挿入した。`KinkDetector._detect_kink_from_decomposed_indices`
+トラック点に頂点を挿入する。`KinkDetector._detect_kink_from_decomposed_indices`
 は、内角 $\theta$ が `kinkangle_deg` 以下で、直線からの不足が、頂点の許容量 $d$
-が長さ $A$ の腕に与える誤差棒を上回る頂点を残した。
+が長さ $A$ の腕に与える誤差棒を上回る頂点を残す。
 
 $$
 \pi - \theta > \frac{2d}{\min(A_{\text{prev}},\, A_{\text{next}})}
 $$
 
-その規則は画素の許容量のほかに尺度を持たなかったため、滑らかな円弧を頂点に分割
-してキンクとして報告し、またスケルトンを判定していたため、階段状の画素鎖や幅の
-広い箇所での振れという、繊維自体には無い折れを報告した。1.0<!--n:bundle format version--> のバンドルは再解析
+その規則は画素の許容量のほかに尺度を持たないため、滑らかな円弧も頂点に分割して
+キンクとして報告しうる。またスケルトンを判定するため、階段状の画素鎖や幅の広い
+箇所での振れという、繊維自体には無い折れも報告しうる。1.0<!--n:bundle format version--> のバンドルは再解析
 されるまでスケルトントラックと保存済みキンクを保ち
 （`bundle_schema.centerline_from_meta`）、その中で再結合したフィブリルはその規則で
 判定する（`KinkDetector.kinks_and_decomposed_from_track`）。これにより、1<!--n:count--> 枚の画像
 に 2<!--n:count--> つの規則のキンクが混在することはない。
 
 コードでは、折れ線は両端の 2<!--n:literal in the quoted code--> 点から始まり、いずれかの弦から最も遠いトラック点を
-繰り返し加えて、すべての点が `threshold_distance`（`kink_decompose_px`）以内に
-収まるまで続ける。その後、各内部頂点の角度を検定する。
+繰り返し加えて、すべての点が弦から `threshold_distance`（`kink_decompose_px`）
+未満に収まるまで続ける。その後、各内部頂点の角度を検定する。
 
 ```python
 # source: lib/kink_detector.py::KinkDetector._binary_decompose_simple
@@ -2266,11 +2039,11 @@ return mid_idx[mask], angles[mask]
   交差での相手繊維の裾はその先 1 幅ほど広がるため、それらの標本は一部が相手の
   繊維の高さである。中央値はその影響をほとんど受けないが、最大値は交差の高さを
   拾ってしまう。<!-- TODO(review): 「1 幅ほど」は scripts/measure_docs.py のどの実験も測っていない。CUT_END_EXCLUSION_WIDTHS の根拠として書かれたものである。 -->
-  連結器が補間する橋渡しも同じ理由で外す。またキンク密度
+  連結器が橋渡しで補間した高さも、画像を測った値ではないので外す。またキンク密度
   （`measure.fiber_kink_density`）は**判定した**長さ、すなわち輪郭から両端の
   $1.5\,W$ を引いたもので割る。§4.4 はそれより端に近い折れを判定しないためで
-  ある。輪郭全体で割ると低く読み、端の大半が切断で断片が短い密な試料ほど
-  その偏りは大きかった。
+  ある。輪郭全体で割ると、判定していない両端の分だけ低く読み、繊維が短いほど
+  その偏りは大きい。
 - 交差で分割された**断片の再連結**は `lib/fiber_connector.py` にあり、探索を
   実行するのは GUI04 だけである。他の読み手は、その探索が記録した連結情報を
   適用する。
@@ -2279,8 +2052,8 @@ return mid_idx[mask], angles[mask]
   （§2.6。設定値が nm で、画素サイズが無ければ実行しない）を除いて画素基準で
   あり、だからこそ走査サイズが記録されているかどうかに関わらず、段の
   パラメータは同じ意味を持つ。この選択の裏面として、同じパラメータファイルは走査サイズごと
-  に異なる物理尺度で働く。12<!--c:lib/pipeline.py::ProcParams.spur_length--> px のスパー上限は 2<!--n:example--> µm 走査では約 23<!--x:12 * 2000 / 1024--> nm、10<!--n:example--> µm
-  走査では約 117<!--x:12 * 10000 / 1024--> nm を刈る（いずれも 1024<!--n:example--> 画素の走査の場合）。そのため走査
+  に異なる物理尺度で働く。12<!--c:lib/pipeline.py::ProcParams.spur_length--> px のスパー上限は、1024<!--n:example--> 画素の走査なら、2<!--n:example--> µm
+  走査では約 23<!--x:12 * 2000 / 1024--> nm、10<!--n:example--> µm 走査では約 117<!--x:12 * 10000 / 1024--> nm にあたる。そのため走査
   サイズが既知なら、バンドルは各画素設定が何 nm にあたったかを記録し
   （`bundle_schema.PIXEL_LENGTHS_KEY`、`pipeline.pixel_lengths_nm` による）、
   GUI01 はそれをログに出す。この記録があれば、2<!--n:count--> つのバンドルの段の設定が物理的に

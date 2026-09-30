@@ -177,15 +177,13 @@ def constituent_anchors(fiber, fragments: Sequence = ()) -> List[Tuple[int, int]
     only one of the fragments it was built from, so recording that single
     anchor would remove one fragment and let the others reconnect into a
     shorter fibril — the object the user rejected would partly come back, and
-    the anchor would no longer match it. On a test scan, rejecting the longest
-    fibril that way brought about a quarter of it back as a separate fiber.
+    the anchor would no longer match it.
     表示中のファイバーに 1 つではなく、構成断片ごとに 1 つのアンカーを記録する。
     除外は再結合より前に断片へ適用されるためである（`lib.measure.curate_fibers`
     参照）。連結済みフィブリルの中点は構成断片のうち 1 本の上にしか無いため、その
     1 つだけを記録すると断片 1 本が消えるだけで、残りが再結合してより短い
     フィブリルとして復活する。ユーザーが却下した対象が部分的に戻り、しかも
-    アンカーはもうそれに一致しない。あるテスト画像では、最長のフィブリルをこの
-    方法で却下したところ、その約 4 分の 1 が別のファイバーとして戻った。
+    アンカーはもうそれに一致しない。
 
     A fragment counts as constituent when more than half of its track lies on
     the displayed fiber. A bare intersection test would also catch a fragment

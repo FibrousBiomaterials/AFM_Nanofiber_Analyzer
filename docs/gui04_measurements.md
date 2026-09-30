@@ -191,9 +191,10 @@ A skeleton is the medial axis of the binarized mask. The mask boundary is a
 threshold contour, so it shifts with the background residual and with nearby
 objects, and the 8-connected pixel chain adds a staircase on top of that. The
 half-maximum centerline instead places each skeleton point on the fiber's own
-height cross-section. The reasoning behind this definition, and its accuracy on
-synthetic scans, is in [Analysis algorithms](algorithms.md) §4.2. This section
-follows the code.
+height cross-section. The reasoning behind this definition is in
+[Analysis algorithms](algorithms.md) §4.2, and why it was chosen and its
+accuracy on synthetic scans are in [Evaluation on particular data](validation.md)
+§4.2. This section follows the code.
 
 `centerline.place_centerline` measures the width, then places the centerline:
 
@@ -498,10 +499,10 @@ line_y = np.clip(line_y, 0.0, img.shape[0] - 1.0)
 ```
 
 The points are clamped rather than dropped so that the centerline keeps one
-point per skeleton-track point. On the bundled Tunicate scan this moved the
-ends of fibers leaving the scan by up to 1.6 px. Before it, those points added
-contour length that was never measured and widened the individual view's zoomed
-image past the edge of the scan.
+point per skeleton-track point. Without the clamp, the last points of a fiber
+leaving the scan could lie outside the image, where no height was measured,
+adding contour length that was never measured and widening the individual
+view's zoomed image past the edge of the scan.
 
 On the centerline, distance along the fiber is the plain Euclidean length of
 the polyline. Each axis is scaled by its own pixel size:
@@ -670,7 +671,8 @@ on every centerline, at the fiber's own W ([Analysis algorithms](algorithms.md)
 §4.3).
 
 Why `half_max_025w` is the default, and what each alternative does worse on
-synthetic and real scans, is in [Analysis algorithms](algorithms.md) §4.2.
+synthetic and real scans, is in [Evaluation on particular data](validation.md)
+§4.2–§4.3.
 Re-analyzing the same images with another centerline compares the centerlines,
 not the specimens: every length, height and kink changes with it. GUI03
 therefore names the centerlines of each folder whenever one of them is not the
