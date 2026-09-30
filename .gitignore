@@ -88,6 +88,10 @@ testdata_Bruker_txt/*
 # GUI04-measurement-document fingerprints, for the same reason
 # (tests/test_gui04_docs.py and scripts/check_gui04_docs.py).
 !tests/gui04_doc_manifest.json
+# Measured values the algorithm documents cite, and the lines still awaiting
+# verification (scripts/check_doc_numbers.py, tests/test_doc_numbers.py).
+!tests/doc_measurements.json
+!tests/doc_numbers_pending.json
 # Zenodo deposition metadata must be version-controlled so the Zenodo GitHub
 # integration reads it from the archived release; otherwise *.json above hides it.
 !.zenodo.json

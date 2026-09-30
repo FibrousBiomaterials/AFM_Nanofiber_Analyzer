@@ -62,12 +62,12 @@ logger = logging.getLogger(__name__)
 # The values follow from W being the resolution; they were checked, not
 # fitted, against a visual reference marked by eye on the height images of the
 # bundled scans. Changing any one of them to the alternative named in its
-# comment moved the clear reference kinks found from 60 of 64 to between 59
-# and 62, and the false detections from 60 to between 45 and 81.
+# comment moved the clear reference kinks found from 60 of 64 to between 56
+# and 62, and the false detections from 64 to between 48 and 80.
 # 値は W が分解能であることから決まるもので、同梱スキャンの高さ画像に目視で印を
 # 付けた基準に対して確認はしたが、合わせ込んではいない。どれか 1 つをコメントに
-# 挙げた代替値に変えても、見つかる明瞭な基準キンクは 64 件中 60 件から 59〜62 件の
-# 間で動くだけで、誤検出は 60 件から 45〜81 件の間で動いた。
+# 挙げた代替値に変えても、見つかる明瞭な基準キンクは 64 件中 60 件から 56〜62 件の
+# 間で動くだけで、誤検出は 64 件から 48〜80 件の間で動いた。
 
 # Half-length c of the window a bend's turning is summed over. The probe
 # spreads a corner's turning over about one W of line, so +-0.75 W holds it
@@ -105,15 +105,15 @@ _HEADING_SIGMA_WIDTHS = 0.25
 # cuts at a crossing (46-68 % lie within 3 px of a branch point on the bundled
 # scans), where the line bends with the junction's skirt. Such bends are
 # returned separately so they can be shown as not judged, rather than hidden.
-# Alternatives 1.0 W, which raised the false detections from 60 to 75 without
-# finding another clear kink, and 2.0 W, which lowered them to 47 but no
+# Alternatives 1.0 W, which raised the false detections from 64 to 80 without
+# finding another clear kink, and 2.0 W, which lowered them to 49 but no
 # longer judged synthetic corners 1.5-2 W from an end.
 # 線の端からこれより近くに中心がある折れは判定しない。そのとき片方の腕は、目視
 # 基準が折れを明瞭と呼ぶのに要した長さに満たない。またトラック端の多くは繊維の
 # 終端ではなく交差での切断であり（同梱スキャンでは 46〜68 % が分岐点から 3 px
 # 以内）、そこでは線が分岐部の裾とともに曲がる。こうした折れは隠さず、判定しな
 # かったものとして示せるよう別に返す。代替値は 1.0 W（明瞭なキンクを 1 件も
-# 増やさずに誤検出を 60 件から 75 件に増やした）と 2.0 W（誤検出を 47 件に減らした
+# 増やさずに誤検出を 64 件から 80 件に増やした）と 2.0 W（誤検出を 49 件に減らした
 # が、端から 1.5〜2 W の合成コーナーを判定しなくなった）。
 # Public because `measure.fiber_kink_density` divides by the length that was
 # actually judged, which is the line less this margin at each end.

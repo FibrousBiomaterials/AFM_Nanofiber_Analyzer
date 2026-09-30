@@ -807,17 +807,21 @@ def _refine(
     ため、線の位置で補間して読んだ高さは低く偏る。
 
     `method` names the line (`CENTERLINE_METHODS`). Every method shares the
-    frame, the climb to the nearest maximum and the reliability tests, which
-    are taken at the half-maximum level whatever the line, so the points
-    marked reliable and the crest heights are those of one section analysis;
-    only the lateral position estimator, and for `half_max_05w` the smoothing,
-    differs. Lines A, B and B' do not move the points onto the height at all:
+    climb to the nearest maximum and the reliability tests, which are taken at
+    the half-maximum level whatever the line; what differs is the lateral
+    position estimator, the frame and offset smoothing for `half_max_05w`, and
+    for lines D and E one more reliability test: a section whose lower level
+    does not close inside the window is interpolated, so those two lines can
+    mark fewer points reliable and, through that, read different crest
+    heights. Lines A, B and B' do not move the points onto the height at all:
     they are the skeleton chain, raw or smoothed along its length, and the
     section analysis supplies only their reliability and crest.
-    `method` は線を指定する（`CENTERLINE_METHODS`）。どの方式も、枠、最寄りの
-    極大への登攀、信頼性の判定を共有する。信頼性は線によらず半値のレベルで判定する
-    ため、信頼できるとされる点と頂点高さは 1 つの断面解析のものである。違うのは
-    横方向の位置の推定量と、`half_max_05w` では平滑化だけである。線 A・B・B' は
+    `method` は線を指定する（`CENTERLINE_METHODS`）。どの方式も、最寄りの極大への
+    登攀と、線によらず半値のレベルで行う信頼性の判定を共有する。違うのは横方向の
+    位置の推定量、`half_max_05w` では枠と横ずれの平滑化、線 D・E ではもう 1 つの
+    信頼性の判定である。低いレベルが窓の中で閉じない断面は補間されるため、この
+    2 つの線では信頼できるとされる点が少なくなりえ、それを通じて頂点高さも
+    変わりうる。線 A・B・B' は
     点を高さの上へまったく動かさない。スケルトンの鎖そのもの、またはそれを長さ
     方向に平滑化したものであり、断面解析はその信頼性と頂点高さだけを与える。
     """

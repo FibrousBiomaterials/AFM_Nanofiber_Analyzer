@@ -251,12 +251,14 @@ class BGCalibrator:
             pixels, and the same ``pandas`` spline of order
             ``spline1d_degree``, applied to a detrended copy. Beyond the
             first/last background pixel of a line there is nothing to
-            interpolate between, so those runs are filled from the nearest
-            background pixel in 2D rather than extrapolated line by line;
-            a single-line extrapolation there stripes the image edge,
-            whether it degenerates to the constant padding that originally
-            motivated replacing this method with ``'trendfill'`` or follows
-            the fitted spline.
+            interpolate between, so those runs hold the mean of that line's
+            nearest ``savgol_window`` background samples rather than an
+            extrapolated shape; a single-line extrapolation there stripes the
+            image edge, whether it degenerates to the constant padding that
+            originally motivated replacing this method with ``'trendfill'``
+            or follows the fitted spline. Only a line with fewer than two
+            background samples is filled from the nearest background pixel
+            in 2D.
             The background is then Savitzky-Golay smoothed and subtracted in
             full (no exact restore of background-candidate pixels),
             reproducing the legacy behavior that performs well on
@@ -303,11 +305,13 @@ class BGCalibrator:
             (``mask_dilation``, ``min_mask_component_area`` 込み) を使い、
             補間にはデトレンドした写しへ order ``spline1d_degree`` の
             ``pandas`` スプラインを適用する。各ラインの最初/最後の背景画素
-            より外側は補間する材料が無いため、ライン単位で外挿するのではなく
-            2 次元の最近傍背景画素から埋める。ここでライン単独の外挿を行うと
-            画像端に縞が出る。本方式が当初 ``'trendfill'`` へ置き換えられた
-            理由である定数埋めに縮退した場合でも、フィットしたスプラインに
-            従った場合でも同様である。その後 Savitzky-Golay で
+            より外側は補間する材料が無いため、形を外挿するのではなく、その
+            ライン自身の最近傍 ``savgol_window`` 個の背景サンプルの平均を保持
+            する。ここでライン単独の外挿を行うと画像端に縞が出る。本方式が当初
+            ``'trendfill'`` へ置き換えられた理由である定数埋めに縮退した場合
+            でも、フィットしたスプラインに従った場合でも同様である。背景
+            サンプルが 2 点未満のラインだけは 2 次元の最近傍背景画素から埋める。
+            その後 Savitzky-Golay で
             平滑化し、背景候補画素を厳密復元せずそのまま全面減算する (従来
             挙動の再現)。ラインノイズ主体のスキャンで良好な結果を出す。
             ``spline1d_axis`` と ``spline1d_degree`` で挙動を制御する。
@@ -422,6 +426,12 @@ class BGCalibrator:
         # 構造要素は奇数サイズである必要があるため、偶数なら +1 する。
         self.tophat_se_size = int(tophat_se_size) | 1
 
+        # TODO(review): the docstrings say 'y' (per column) evens out horizontal
+        # stripes and 'x' (per row) targets vertical ones, but each line's fill
+        # uses only that line's samples, so 'x' is the axis that keeps a row's
+        # own scan-line offset, and `_spline1d_fill` justifies its end-run
+        # level by that offset. Author to confirm which axis removes which
+        # stripe before these docstrings are rewritten.
         self.spline1d_axis = spline1d_axis
         self.spline1d_degree = int(spline1d_degree)
 

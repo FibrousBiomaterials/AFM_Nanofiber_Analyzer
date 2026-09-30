@@ -164,9 +164,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   "A kink's angle is read from the arms beside the bend" below.
 
   Against a reference marked by eye on the height images of the bundled scans
-  (64 clear kinks over five scans), the previous rule found 53, displaced 5,
-  missed 6 and reported 79 bends matching no mark; the new one finds 60,
-  displaces 1, misses 3 and reports 60. On synthetic scans with known geometry
+  (64 clear kinks over five scans), the previous rule found 52, displaced 4,
+  missed 8 and reported 76 bends matching no mark; the new one finds 58,
+  merges 1 with a neighbour, displaces 2, misses 3 and reports 64 (the entry
+  on keeping a fiber's centerline on the image raises the found kinks to 60).
+  On synthetic scans with known geometry
   (2 nm pixels), zigzags are found 34 of 40 (previously 33), same-sense corner
   pairs 16 of 16 (15), false bends on arcs and meanders fall from 31 to 12, and
   on twisted ribbons from 2 to 0. On the bundled scans the total contour length
