@@ -116,13 +116,25 @@ else:
 ### 1.1 The problem being solved
 
 A raw AFM scan is not a height map of the specimen sitting on a flat plane. It
-carries the sample tilt and the scanner's bowl distortion, and on this
-project's bundled scans those dominate the signal: the least-squares plane
-drops **0.23–0.34 nm per pixel**, so the background falls 7–9 nm across the
-masked hole of a single fiber (after dilation, §1.3 step 2<!--n:label-->), while the fiber
-itself is only about 10 nm tall. After
-the best-fit plane is removed from the bundled Bruker scan, **32 nm of
-curvature** still remains.
+can carry the sample tilt and the scanner's bowl distortion, and on some of
+this project's bundled scans these are as large as the fibers:
+
+| Scan | Plane slope (nm/px) | Fall across a masked fiber (nm) | Bowl, peak to peak (nm) | Median height under the skeleton (nm) |
+|---|---|---|---|---|
+| tunicate CNF | 0.23<!--m:bg_stats.tunicate.plane_slope_nm_per_px--> | 4.6<!--m:bg_stats.tunicate.drop_across_hole_nm--> | 15.2<!--m:bg_stats.tunicate.quadratic_p2p_nm--> | 7.9<!--m:bg_stats.tunicate.skeleton_height_median_nm--> |
+| artificial, isotropic | 0.24<!--m:bg_stats.art_iso.plane_slope_nm_per_px--> | 2.4<!--m:bg_stats.art_iso.drop_across_hole_nm--> | 3.5<!--m:bg_stats.art_iso.quadratic_p2p_nm--> | 7.5<!--m:bg_stats.art_iso.skeleton_height_median_nm--> |
+| artificial, anisotropic | 0.24<!--m:bg_stats.art_aniso.plane_slope_nm_per_px--> | 2.4<!--m:bg_stats.art_aniso.drop_across_hole_nm--> | 7.5<!--m:bg_stats.art_aniso.quadratic_p2p_nm--> | 7.2<!--m:bg_stats.art_aniso.skeleton_height_median_nm--> |
+| higher-plant TOC | 0.001<!--m:bg_stats.hplantTOC.plane_slope_nm_per_px--> | 0.01<!--m:bg_stats.hplantTOC.drop_across_hole_nm--> | 1.7<!--m:bg_stats.hplantTOC.quadratic_p2p_nm--> | 1.7<!--m:bg_stats.hplantTOC.skeleton_height_median_nm--> |
+| Bruker NDTOC | 0.003<!--m:bg_stats.NDTOC.plane_slope_nm_per_px--> | 0.04<!--m:bg_stats.NDTOC.drop_across_hole_nm--> | 21.9<!--m:bg_stats.NDTOC.quadratic_p2p_nm--> | 2.1<!--m:bg_stats.NDTOC.skeleton_height_median_nm--> |
+
+The plane slope is that of the least-squares plane through the raw heights;
+the fall is that slope times the median width of the dilated fiber mask (§1.3
+step 2<!--n:label-->); the bowl is the peak-to-peak of the quadratic terms of a
+second-order surface fitted after the plane; the height is the median
+calibrated height under the default skeleton (experiment bg_stats of
+`scripts/measure_docs.py`). On the tunicate scan the background falls 4.6<!--m:bg_stats.tunicate.drop_across_hole_nm--> nm
+across one masked fiber whose median height is 7.9<!--m:bg_stats.tunicate.skeleton_height_median_nm--> nm. The higher-plant and
+Bruker scans are level as planes, but the Bruker scan's bowl alone spans 21.9<!--m:bg_stats.NDTOC.quadratic_p2p_nm--> nm.
 
 Two consequences follow, and they set the design of this whole stage:
 
@@ -159,17 +171,20 @@ the cost of blunting the sharpest height features.
 
 The detrend/retrend sandwich is the part that matters most. With the trend
 removed, the height difference across a masked hole is close to zero, so the
-choice of filler barely matters: measured across a 21-px hole, the maximum
-deviation from the chord after detrending was 0.24 nm for nearest-neighbour
-propagation against 0.20 nm for inpainting, a small difference, and
-**3.93 nm** before detrending. What sets the accuracy is the detrending, not
-the filler (why the inpainting used up to 1.0.0 failed is explained at the end
-of §1.3). The fitting is done
-by `BGCalibrator._fit_trend_surface`.
+choice of filler barely matters. On 20<!--m:bg_fill.holes--> square holes of 21<!--m:bg_fill.hole_size_px--> px cut into
+fiber-free background of the tunicate scan (experiment bg_fill), the filled
+values departed from the heights actually measured there by 2.5<!--m:bg_fill.none.nearest.fill_error_median_nm--> nm with
+nearest-neighbour propagation and 1.7<!--m:bg_fill.none.inpaint.fill_error_median_nm--> nm with inpainting when nothing was
+detrended, and by 0.30<!--m:bg_fill.quadratic.nearest.fill_error_median_nm--> nm and 0.27<!--m:bg_fill.quadratic.inpaint.fill_error_median_nm--> nm after the quadratic trend was
+removed (the median over the holes of the largest departure in each). What
+sets the accuracy is the detrending, not the filler (why the inpainting used
+up to 1.0.0 failed is explained at the end of §1.3). The fitting is done by
+`BGCalibrator._fit_trend_surface`.
 
 `_fit_trend_surface` fits a **second-order** surface, not a plane, because real
-scans are bowl-shaped as well as tilted; the quadratic reduced the residual
-fill error across a fiber hole from 0.68 nm (plane) to 0.24 nm. Coordinates are
+scans can be bowl-shaped as well as tilted (the table in §1.1). On the
+background holes above, a plane did almost as well (0.34<!--m:bg_fill.plane.nearest.fill_error_median_nm--> nm against
+0.30<!--m:bg_fill.quadratic.nearest.fill_error_median_nm--> nm with nearest-neighbour fill). Coordinates are
 normalised to $[-1, 1]$ before the quadratic terms are formed, which keeps the
 design matrix well-conditioned. If the background pixels are degenerate — all
 on one row, say — `numpy.linalg.lstsq` would silently return a rank-deficient
@@ -435,16 +450,16 @@ return height_bgcalib
 
 > **Why the inpainting used up to 1.0.0 failed.** Up to 1.0.0 the holes were
 > filled, without detrending, by Navier–Stokes inpainting, a
-> boundary-propagation method designed for thin scratches. At `inpaintRadius=3`
-> it extended each side of a hole inward as a flat plateau, meeting in a step
-> discontinuity in the middle — measured at up to ±4 nm across a 21-px hole.
-> Because `savgol_polyorder <= 1` makes the Savitzky–Golay pass a plain moving
-> average along X, that step then leaked into the background estimate of every
-> genuine background pixel within half a window of the hole, producing an
-> antisymmetric halo: a trough on the uphill side, a ridge on the downhill
-> side. The ridge reached **+0.76 nm**, above the default binarization
-> threshold of 0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm, so it was segmented as a second fiber running parallel
-> to the real one.
+> boundary-propagation method designed for thin scratches. Without
+> detrending the fill departs from the true background on a tilted scan
+> (1.7<!--m:bg_fill.none.inpaint.fill_error_median_nm--> nm on the tunicate holes above). Because `savgol_polyorder <= 1`
+> makes the Savitzky–Golay pass a plain moving average along X, that error
+> leaks into the background estimate of every genuine background pixel within
+> half a window of the hole. Running the calibrator of release 1.0.0 (from tag
+> `v1.0.0`) on a synthetic scan with one 8<!--m:bg_legacy_halo.fiber_height_nm--> nm fiber across a 0.24<!--m:bg_legacy_halo.slope_nm_per_px--> nm/px
+> plane (experiment bg_legacy_halo), the calibrated background beside the
+> fiber ranged from −0.76<!--m:bg_legacy_halo.v1_0_0.beside_min_nm--> to +0.77<!--m:bg_legacy_halo.v1_0_0.beside_max_nm--> nm, beyond the default binarization
+> threshold of 0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm; the current code leaves −0.21<!--m:bg_legacy_halo.current.beside_min_nm--> to +0.18<!--m:bg_legacy_halo.current.beside_max_nm--> nm there.
 
 ### 1.4 `tophat` — fast, mask-free
 
@@ -483,9 +498,11 @@ Two details are not optional:
 **It opens a detrended copy.** Opening reproduces a plane in the image
 interior, but not within one structuring-element radius of the border, because
 erosion there takes its minimum from a clipped neighbourhood that dilation
-cannot restore. On a 0.34 nm/px ramp with a 25<!--c:lib/pipeline.py::ProcParams.tophat_se_size-->-px element that leaves a band
-about **4 nm** high down the uphill edge — far above the 0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm binarization
-threshold, so the scan border itself was being segmented as a fiber.
+cannot restore. On a ramp of 0.24<!--m:tophat_border.slope_nm_per_px--> nm/px, the steepest plane of the bundled scans
+(§1.1), opening the raw heights with the 25<!--c:lib/pipeline.py::ProcParams.tophat_se_size-->-px element leaves a band
+**3.1<!--m:tophat_border.raw.uphill_band_max_nm--> nm** high within 12<!--n:definition--> px of the uphill edge, far above the
+0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm binarization threshold; opening the detrended heights leaves
+0.29<!--m:tophat_border.detrended.uphill_band_max_nm--> nm (experiment tophat_border).
 
 **It re-centres by the median afterwards.** An opening is a *lower-envelope*
 estimator: over a noisy substrate it tracks the local noise minima, so after
@@ -748,9 +765,9 @@ for i in range(1, n_labels):
 ```
 
 > **Changed after 1.0.0; results unchanged.** Up to 1.0.0 the edge map was
-> built from the whole mask inside the bounding box. On 22 real scans the final
-> binarized mask is bit-identical either way; `CHANGELOG.md` has the
-> measurement.
+> built from the whole mask inside the bounding box. On all 5<!--m:hough_edge_map.identical--> bundled scans
+> the final binarized mask is bit-identical either way (experiment
+> hough_edge_map).
 
 One further detail: `h_length` plays two roles in this function. In the
 bounding-box test above it is a length in pixels, but it is also passed as the
@@ -820,16 +837,25 @@ when a pixel size is known, because its settings are physical lengths.
    Otsu and the low level from the triangle method. Hysteresis on the ridge
    response works where the same scheme on raw amplitude does not: the response
    falls to near zero between fibers, so a region grows to a boundary instead
-   of percolating across the image.
+   of percolating across the image. On the tunicate scan 99.8<!--m:ridge_hysteresis.ridge.far_below_low_percent--> % of the
+   pixels at least 10<!--n:value tried--> px from the binarized mask lie below the low level
+   (experiment ridge_hysteresis).
+   <!-- TODO(review): the contrast with raw amplitude is not reproduced: on the tunicate scan hysteresis on the calibrated heights covered 11.6 % of the image against 7.7 % for the ridge response (experiment ridge_hysteresis), with no spreading across it. -->
 3. The already-accepted mask is subtracted **before** the connected-component
    pass, not after. Taking only whole candidate components that fail to touch
    the existing mask would discard a long fiber the moment it brushes the
-   detected network anywhere — and long fibers touch it most often. Measured on
-   one 10 µm scan, 56 candidate components held at least 100 nm of fiber
-   outside the mask, one of them 1476 nm, and that rule dropped all of them.
+   detected network anywhere — and long fibers touch it most often.
+   <!-- TODO(review): the measured example that stood here (one 10 µm scan, 56
+   candidate components, the longest 1476 nm) came from a scan that is not in
+   the repository and was removed. On the bundled scans the candidates that
+   reach ridge_min_length_nm are a horizontal scan-line artefact (higher-plant
+   scan) and short pieces at the border and at crossings (tunicate scan), not
+   fibers (experiment ridge_recovery_bundled, rendered), so they cannot
+   illustrate this. -->
 4. Surviving components are kept when their skeleton length reaches
-   `ridge_min_length_nm` (default 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm). Below about 100 nm the candidates
+   `ridge_min_length_nm` (default 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm). Below about 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm the candidates
    stop being distinguishable from particle skirts and tip artefacts by eye.
+   <!-- TODO(review): a visual judgment made while evaluating the ridge filter; no experiment in scripts/measure_docs.py reproduces it. -->
 
 It is off by default so a stored parameter file reproduces the numbers it was
 written with. When on, the Frangi filter dominates the cost of this stage.
@@ -873,7 +899,10 @@ return np.isin(labels, keep)
 
 ### 2.7 Closing
 
-Finally a morphological closing bridges one-pixel gaps. Ridge recovery runs
+Finally a morphological closing (`skimage.morphology.closing` with its default
+cross-shaped footprint) joins mask components across gaps of up to
+2<!--m:closing_gaps.thick3.largest_gap_joined_px--> px when they are at least 3<!--n:value tried--> px thick; it joins no gap between
+lines 1<!--n:value tried--> px thick (0<!--m:closing_gaps.thick1.gaps_joined--> of 3<!--n:count--> gaps tried; experiment closing_gaps). Ridge recovery runs
 *before* it deliberately, so a recovered segment ending next to an existing
 component is bridged into it rather than left as a separate short fiber.
 
@@ -1045,10 +1074,11 @@ at the right end of the line), and the initial skeleton always comes from
 `skimage.morphology.thin` treats everything outside the array as background, so
 a fiber leaving the field of view is a shape cut flat by the array edge, and
 the medial axis of such a truncated end turns toward the nearer corner of the
-cut. The traced line drifts off the fiber crest over its last pixels —
-about 2 px on the bundled scans, against about 0.5 px along the rest of the
-fiber. Replicating the border extends those fibers outward instead of capping
-them, which removes the bend. On all 5<!--m:border_padding.identical_inside_band--> bundled scans the skeleton outside a
+cut. The traced line drifts off the fiber crest over its last pixels: on
+the bundled scans, the last 5<!--n:definition--> points of tracks that run off the image lie a
+median 3.9<!--m:border_drift.plain.end_median_px--> px from the height crest along their normal, against 0.9<!--m:border_drift.plain.middle_median_px--> px in the
+middle of fibers (experiment border_drift). Replicating the border extends those fibers outward instead of capping
+them, which brings the ends back to 1.0<!--m:border_drift.padded.end_median_px--> px from the crest. On all 5<!--m:border_padding.identical_inside_band--> bundled scans the skeleton outside a
 12<!--c:lib/skeletonizer.py::DEFAULT_BORDER_PAD--> px border band was identical with and without the correction, but that is
 not a guarantee.
 
@@ -1082,12 +1112,14 @@ Height is also used by the loop height guard of §3.4 and the hook pruning of
 §3.6, but this is the only step that classifies branch points by height.
 
 `set_low_bp_coor` splits the skeleton's branch points into **low** and **high**
-by comparing the calibrated height against `bp_height` (default 10<!--c:lib/pipeline.py::ProcParams.bp_height--> nm). Where
-two fibers cross, one lies on the other and the height exceeds that of a single
-fiber, so a high branch point is kept as a real crossing. A low branch point is
-treated as a candidate for a place where the mask sprouted something spurious.
-The default 10<!--c:lib/pipeline.py::ProcParams.bp_height--> nm is about the height of a single fiber on the bundled scans
-(§1.1).
+by comparing the calibrated height against `bp_height` (default 10<!--c:lib/pipeline.py::ProcParams.bp_height--> nm). An arm
+is pruned below only when its walk reaches a low branch point or dead-ends;
+meeting a high branch point keeps it. The default lies above the median height
+under the skeleton on every bundled scan (1.7<!--m:bg_stats.hplantTOC.skeleton_height_median_nm--> to 7.9<!--m:bg_stats.tunicate.skeleton_height_median_nm--> nm, §1.1).
+<!-- TODO(review): the rationale previously given here (a branch point at fiber
+height is a real crossing, one near the substrate a spurious sprout) does not
+fit a 10 nm threshold when the fibers are 1.7-7.9 nm high; author to confirm
+what bp_height is meant to separate. -->
 
 ```python
 # source: lib/skeletonizer.py::Skeletonizer.set_low_bp_coor
@@ -1196,21 +1228,26 @@ is a true hole. A hole of area up to `max_loop_area` (default 100<!--c:lib/pipel
 and the result re-skeletonized, merging the double path back into one line.
 
 Interior holes in the binary mask survive topology-preserving thinning as a
-double path, and each such loop puts two or three branch points on one
-continuous fiber. Re-skeletonization leaves an already-thin line unchanged, so
+double path, and on the bundled scans each such loop puts 1<!--m:loop_candidates.all.branch_points_range[0]--> to 4<!--m:loop_candidates.all.branch_points_range[1]--> branch
+points on its ring (experiment loop_candidates). Re-skeletonization leaves an already-thin line unchanged, so
 skeleton pixels far from the filled loops keep their coordinates, and features
 looked up by pixel coordinate, such as kinks and endpoints, do not change
 there.
 
 A **height guard** prevents this from fusing two real fibers. A loop artefact
-lies inside the fiber body, so its interior stays elevated — 40–90 % of the
-surrounding ridge height on the bundled scans. A sliver enclosed by two
-distinct fibers touching twice contains background-level pixels (~10 % of ridge
-height). The enclosure is filled only when its median interior height is at
-least `DEFAULT_LOOP_HEIGHT_RATIO` = 0.3<!--c:lib/skeletonizer.py::DEFAULT_LOOP_HEIGHT_RATIO--> of the surrounding ridge's median,
-which sits between the two regimes with margin on both sides. Filling the wrong
-one would fuse two fibers and fabricate a path down the middle of the groove
-between them.
+lies inside the fiber body or at a crossing, so its interior stays elevated:
+on the bundled scans all 18<!--m:loop_candidates.candidates--> enclosures small enough to qualify lie in a
+fiber (10<!--m:loop_candidates.fiber.count-->) or at a crossing (8<!--m:loop_candidates.crossing.count-->), judged by eye on the height image,
+and their median interior height is 78<!--m:loop_candidates.all.ratio_percent_range[0]-->–105<!--m:loop_candidates.all.ratio_percent_range[1]--> % of the surrounding ridge's
+median (experiment loop_candidates). A sliver enclosed by two distinct fibers
+touching twice would contain background-level pixels instead; none qualifies
+on the bundled scans. The enclosure is filled only when its median interior
+height is at least `DEFAULT_LOOP_HEIGHT_RATIO` = 0.3<!--c:lib/skeletonizer.py::DEFAULT_LOOP_HEIGHT_RATIO--> of the surrounding
+ridge's median. Filling the wrong one would fuse two fibers and fabricate a
+path down the middle of the groove between them.
+<!-- TODO(review): the figure previously given for such a sliver (about 10 % of
+ridge height), and the claim that 0.3 leaves margin on that side, came from
+data that is not in the repository; no bundled scan has such a sliver. -->
 
 The ring is the skeleton within a 5<!--n:literal in the quoted code-->×5<!--n:literal in the quoted code--> dilation of the hole, and both heights are
 medians:
@@ -1325,10 +1362,8 @@ A hook is recognised by a direction reversal near an endpoint: an interior apex
 angle below `DEFAULT_HOOK_APEX_ANGLE_DEG` = 120<!--c:lib/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG-->° within
 `DEFAULT_HOOK_LENGTH` = 12<!--c:lib/skeletonizer.py::DEFAULT_HOOK_LENGTH--> px of the end. It is trimmed only where the
 calibrated height has fallen below `DEFAULT_HOOK_HEIGHT_RATIO` = 0.5<!--c:lib/skeletonizer.py::DEFAULT_HOOK_HEIGHT_RATIO--> of the
-adjacent fiber body's median height. On the bundled scans hook pixels sit at
-19–42 % of body height while real bent ends and junction wiggles sit at
-55–113 %, so 0.5<!--c:lib/skeletonizer.py::DEFAULT_HOOK_HEIGHT_RATIO--> separates the regimes. A genuinely bent fiber end stays at
-fiber height and is therefore never cut.
+adjacent fiber body's median height, so a bent end whose height stays at or
+above that fraction of the body is not cut.
 
 The 120<!--c:lib/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG-->° apex threshold is far sharper than the 150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg-->° kink threshold, so kink
 detection is unaffected. The trim is capped at the deepest reversal apex found,
@@ -1584,8 +1619,10 @@ axis of the binarized mask, so it lies midway between the two mask boundaries.
 Where a neighbour, a junction skirt or background roughness widens the mask on
 one side, the axis moves with it, and the 8<!--n:definition-->-connected pixel chain adds a
 staircase on top. A straight fiber whose mask happens to widen then reports a
-bend: below a Y junction on the bundled higher-plant TOC scan, the skeleton
-produced a 118° "kink" on a fiber that does not bend there.
+bend: below a Y junction on the bundled higher-plant TOC scan, the earlier
+polyline rule (§4.6) reads the skeleton as a 118<!--m:y_branch_kink.old_rule_angle_deg-->° "kink" on a fiber that does
+not bend there; the current rule reports 0<!--m:y_branch_kink.current_kinks_within_one_width--> kinks within one width of it
+(experiment y_branch_kink).
 
 Kinks are therefore judged on a **centerline** placed on the fiber's height,
 not on the skeleton pixels. The skeleton still decides which pixels form the
@@ -1685,33 +1722,37 @@ the numbers built on it depend on, as a `centerline.CenterlineResult`:
 **Why the half-maximum midpoint.** The obvious alternative is the crest of each
 cross-section, but the crest is the estimator a twisted fibril displaces most:
 a fibril with an anisotropic cross-section turns its tallest edge to
-alternating sides as it twists. On synthetic twisted ribbons (rectangular
-sections of 4×2 to 16×3 nm on a straight axis), the crest left the axis 1.2–1.8
-times as far as the half-maximum midpoint did, and the kink rule of §4.3
-reported no kink on any of six such ribbons. A lower level is no better: the
-quarter-height midpoint sat closer to the axis on the ribbons, but background
-bumps pulled it up to 3.8 nm off a thin, low fiber, where the half-maximum
-level stays above them. With a blunt probe the displacement of a twisted fibril
-is in the image itself, and no centerline read from the height can remove it.
+alternating sides as it twists. On the 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> twisted ribbons of the synthetic suite
+(rectangular sections of 4<!--n:value tried-->×2<!--n:value tried--> to 16<!--n:value tried-->×3<!--n:value tried--> nm on a straight axis, drawn with a
+10<!--c:scripts/synthetic_suite.py::RIBBON_TIP_NM--> nm probe), the crest strayed farthest from the axis of the three lines
+measured on all 5<!--m:synthetic_centerline.ribbons.crest_farthest_of_three--> of them, 1.1<!--m:synthetic_centerline.ribbons.crest_over_default_range[0]-->–1.4<!--m:synthetic_centerline.ribbons.crest_over_default_range[1]--> times as far as the default line
+(root-mean-square lateral offset), and the kink rule of §4.3 reported
+0<!--m:synthetic_centerline.ribbons.kinks_reported--> kinks on the 6<!--m:synthetic_centerline.ribbons.count--> ribbon scans, which include a round control fiber
+(experiment synthetic_centerline). A lower level is not uniformly better: the
+quarter-height midpoint sat closer to the axis than the default line on 4<!--m:synthetic_centerline.ribbons.quarter_closer_than_default--> of
+the 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> ribbons, but background bumps pulled it up to 3.5<!--m:synthetic_centerline.G_circle_d3.max_nm.quarter_max--> nm off the thin, round
+control fiber. With a blunt probe the displacement of a twisted fibril is in
+the image itself, and no centerline read from the height can remove it.
 
 **Why a quarter width.** The smoothing width sets how close two features may lie
-before the centerline averages them into one. The test used synthetic scans
-with known corners (2 nm pixels, $W$ = 8 px), each holding two same-sense 60°
-corners 1–3 $W$ apart:
+before the centerline averages them into one. The test used the same-sense
+corner pairs of the synthetic suite (2<!--c:scripts/synthetic_suite.py::NMPX--> nm pixels, $W$ = 8<!--c:scripts/synthetic_suite.py::W--> px): 8<!--m:synthetic_centerline.pairs--> scans, each
+holding two 60<!--n:value tried-->° corners 1–3<!--n:value tried--> $W$ apart:
 
-| Smoothing of the frame and offsets | Corner pairs judged as one bend (§4.3) | Median distance, corner vertex to centerline | Median distance to the true centerline |
+| Smoothing of the frame and offsets | Corner pairs judged as one bend (§4.3) | Median distance, corner vertex to centerline (range over the spacings) | Median distance to the true centerline |
 |---|---|---|---|
-| $W/2$ | 2 of 16 | 1.10–1.51 px | 0.11 px |
-| $W/4$ (default) | 0 of 16 | 0.77–1.21 px | 0.11 px |
+| $W/2$ | 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> of 8<!--m:synthetic_centerline.pairs--> | 0.97<!--m:synthetic_centerline.pairs_w2.vertex_median_px_range[0]-->–1.17<!--m:synthetic_centerline.pairs_w2.vertex_median_px_range[1]--> px | 0.12<!--m:synthetic_centerline.pairs_w2.centerline_median_px--> px |
+| $W/4$ (default) | 0<!--m:synthetic_centerline.pairs_w4.merged_pairs--> of 8<!--m:synthetic_centerline.pairs--> | 0.63<!--m:synthetic_centerline.pairs_w4.vertex_median_px_range[0]-->–0.84<!--m:synthetic_centerline.pairs_w4.vertex_median_px_range[1]--> px | 0.10<!--m:synthetic_centerline.pairs_w4.centerline_median_px--> px |
 
-**Accuracy against known centerlines.** On 60 synthetic scans rendered with a
-spherical probe (2 nm pixels, $W$ = 8 px; corners, zigzags, corner pairs, arcs,
-meanders, crossings and junctions):
+**Accuracy against known centerlines.** On the 60<!--m:synthetic_centerline.scans_af--> scans of groups A–F of the
+synthetic suite, rendered with a spherical probe (2<!--c:scripts/synthetic_suite.py::NMPX--> nm pixels, $W$ = 8<!--c:scripts/synthetic_suite.py::W--> px; corners,
+zigzags, corner pairs, corners near an end, straight fibers, arcs, meanders,
+crossings and junctions):
 
 | | Median distance to the true centerline | 95<!--n:definition-->th percentile | Contour length error (range over groups of scans) |
 |---|---|---|---|
-| Half-maximum centerline | 0.11 px | 0.35 px | −1.5 to +0.5 % |
-| Skeleton track (corrected chain-code length) | 0.29 px | 0.90 px | −1.4 to +2.5 % |
+| Half-maximum centerline | 0.11<!--m:synthetic_centerline.half_max_025w.median_px--> px | 0.35<!--m:synthetic_centerline.half_max_025w.p95_px--> px | −1.5<!--m:synthetic_centerline.half_max_025w.length_error_percent_range[0]--> to +0.5<!--m:synthetic_centerline.half_max_025w.length_error_percent_range[1]--> % |
+| Skeleton track (corrected chain-code length) | 0.29<!--m:synthetic_centerline.skeleton_track.median_px--> px | 0.90<!--m:synthetic_centerline.skeleton_track.p95_px--> px | −1.4<!--m:synthetic_centerline.skeleton_track.length_error_percent_range[0]--> to +2.2<!--m:synthetic_centerline.skeleton_track.length_error_percent_range[1]--> % |
 
 #### Choosing another centerline
 
@@ -1733,13 +1774,9 @@ differ from the default's. The code of each is quoted in
 The table summarizes the comparisons the default was chosen by. Two caveats
 apply:
 
-- **Median distance** is the median distance to the true centerline over 18
-  synthetic configurations with 2 nm pixels, in nm. It was measured with the
-  frame and offsets smoothed over half a width, before the default was lowered
-  to a quarter, so the half-maximum value belongs to `"half_max_05w"`. The
-  default was not measured on these configurations; on the synthetic set of the
-  accuracy table above, a quarter width and half a width gave the same median
-  distance, 0.11 px.
+- **Median distance** is, for each of the groups A–F of the synthetic suite
+  (60<!--m:synthetic_centerline.scans_af--> scans, 2<!--c:scripts/synthetic_suite.py::NMPX--> nm pixels), the median distance to the true centerline in nm;
+  the column gives the range over the groups (experiment synthetic_centerline).
 - **Real scans** scores a centerline against the visual reference of 64<!--m:kink_reference.clear_marks--> clear
   kinks on the bundled scans (§4.3), with the excess-turning rule, as clear
   kinks found / missed / reported bends that match no marked kink. Detections
@@ -1750,13 +1787,13 @@ apply:
 
 | `centerline_method` | Where each point is placed | Median distance (nm) | Real scans | Notes |
 |---|---|---|---|---|
-| `"half_max_025w"` (default) | half-maximum midpoint; frame and offsets smoothed over W/4 | — | 60<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 64<!--m:kink_reference.default.false--> | |
-| `"half_max_05w"` | the same, smoothed over 0.5<!--c:lib/centerline.py::_WIDE_SMOOTH_WIDTHS--> W | 0.21–0.30 | 56<!--m:kink_reference.hm05.found--> / 4<!--m:kink_reference.hm05.missed--> / 43<!--m:kink_reference.hm05.false--> | The closest of all. The fewest unmatched bends, but it merged two same-sense corners in 2 of 16 synthetic pairs, and slightly stronger smoothing raised the misses to 10–13<!--m:kink_reference.hm05_stronger.missed_range-->. |
-| `"skeleton_pixels"` | the skeleton pixel itself | 0.51–1.00 | 62<!--m:kink_reference.skeleton_pixels.found--> / 0<!--m:kink_reference.skeleton_pixels.missed--> / 135<!--m:kink_reference.skeleton_pixels.false--> | The staircase and the swing at junctions read as bends. |
-| `"smoothed_skeleton_05w"`, `"smoothed_skeleton_1w"` | the skeleton smoothed along its length over 0.5<!--n:definition--> W / 1<!--n:definition--> W | 0.37–0.71 (0.5<!--n:label--> W only) | not scored | Smoothing removes the staircase but not the skeleton's offset from the fiber, and because the points themselves move, it rounds real corners. |
-| `"quarter_max"` | midpoint of the quarter-maximum crossings | 0.24–0.37 | not scored | Closest to the axis on twisted ribbons, but pulled up to 3.8 nm off a thin, low fiber by background bumps. |
-| `"centroid"` | height-weighted centroid above the base | 0.25–0.47 | not scored | |
-| `"crest"` | the section's maximum | 0.27–0.49 | not scored | Displaced most by a twisted fibril (1.2–1.8 times as far as the default). |
+| `"half_max_025w"` (default) | half-maximum midpoint; frame and offsets smoothed over W/4 | 0.21<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->–0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 60<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 64<!--m:kink_reference.default.false--> | |
+| `"half_max_05w"` | the same, smoothed over 0.5<!--c:lib/centerline.py::_WIDE_SMOOTH_WIDTHS--> W | 0.20<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[0]-->–0.25<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[1]--> | 56<!--m:kink_reference.hm05.found--> / 4<!--m:kink_reference.hm05.missed--> / 43<!--m:kink_reference.hm05.false--> | The fewest unmatched bends of the three scored, but it merged the two corners of 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> of the 8<!--m:synthetic_centerline.pairs--> synthetic same-sense pairs, and slightly stronger smoothing raised the misses to 10–13<!--m:kink_reference.hm05_stronger.missed_range-->. |
+| `"skeleton_pixels"` | the skeleton pixel itself | 0.54<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[0]-->–0.62<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[1]--> | 62<!--m:kink_reference.skeleton_pixels.found--> / 0<!--m:kink_reference.skeleton_pixels.missed--> / 135<!--m:kink_reference.skeleton_pixels.false--> | The staircase and the swing at junctions read as bends. |
+| `"smoothed_skeleton_05w"`, `"smoothed_skeleton_1w"` | the skeleton smoothed along its length over 0.5<!--n:definition--> W / 1<!--n:definition--> W | 0.33<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[0]-->–0.56<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[1]--> / 0.39<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[0]-->–0.95<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[1]--> | not scored | Smoothing removes the staircase but not the skeleton's offset from the fiber, and because the points themselves move, it rounds real corners. |
+| `"quarter_max"` | midpoint of the quarter-maximum crossings | 0.20<!--m:synthetic_centerline.quarter_max.group_median_nm_range[0]-->–0.24<!--m:synthetic_centerline.quarter_max.group_median_nm_range[1]--> | not scored | Closer to the axis than the default on 4<!--m:synthetic_centerline.ribbons.quarter_closer_than_default--> of the 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> twisted ribbons, but pulled up to 3.5<!--m:synthetic_centerline.G_circle_d3.max_nm.quarter_max--> nm off the thin, round control fiber. |
+| `"centroid"` | height-weighted centroid above the base | 0.32<!--m:synthetic_centerline.centroid.group_median_nm_range[0]-->–0.38<!--m:synthetic_centerline.centroid.group_median_nm_range[1]--> | not scored | |
+| `"crest"` | the section's maximum | 0.42<!--m:synthetic_centerline.crest.group_median_nm_range[0]-->–0.48<!--m:synthetic_centerline.crest.group_median_nm_range[1]--> | not scored | The farthest from the axis on all 5<!--m:synthetic_centerline.ribbons.crest_farthest_of_three--> twisted ribbons (1.1<!--m:synthetic_centerline.ribbons.crest_over_default_range[0]-->–1.4<!--m:synthetic_centerline.ribbons.crest_over_default_range[1]--> times as far as the default). |
 
 The kink rule is the same on every centerline, and so are its lengths in
 multiples of W, so a centerline that carries more lateral noise than the
@@ -1900,7 +1937,9 @@ $E$ is evaluated only at candidate positions, which are of two kinds:
 - **Maxima of $|T|$ itself**, added wherever no candidate accepted from the
   curvature maxima above lies within $0.75\,W$. A corner whose curvature peak is split in two by noise, or whose
   turning runs straight into a curve, has no single curvature maximum at its
-  centre; on the bundled scans two visible corners were missed without these.
+  centre. Without these candidates the rule found 56<!--m:turn_maxima.without.found--> instead of 60<!--m:turn_maxima.with.found--> of the clear
+  reference kinks, and reported 47<!--m:turn_maxima.without.false--> instead of 64<!--m:turn_maxima.with.false--> unmatched bends (experiment
+  turn_maxima).
   They are searched on the samples at least $c$ from both ends (`grid`).
 
 Candidates closer than $0.75\,W$ are one bend. Candidates are taken in
@@ -1942,13 +1981,13 @@ follows:
 
 | Corner turning | Excess turning read |
 |---|---|
-| 40° | 37–38° |
-| 60° | 52–56° |
-| 90° | 83–84° |
-| 120° | 101–110° |
+| 40<!--n:value tried-->° | 37–38<!--m:synthetic_kinks.corner40.excess_read_range_deg-->° |
+| 60<!--n:value tried-->° | 52–56<!--m:synthetic_kinks.corner60.excess_read_range_deg-->° |
+| 90<!--n:value tried-->° | 83–85<!--m:synthetic_kinks.corner90.excess_read_range_deg-->° |
+| 120<!--n:value tried-->° | 101–110<!--m:synthetic_kinks.corner120.excess_read_range_deg-->° |
 
 A bend just above the threshold can therefore read below it; the bend drawn at
-33.5° in the test suite reads 28.7°.
+33.5<!--m:test_suite_bend.drawn_turn_deg-->° in the test suite reads 26.5<!--m:test_suite_bend.read_excess_deg-->° (experiment test_suite_bend).
 
 The angle *stored* for a kink (`ka`) is therefore not 180<!--n:definition-->° minus the excess but
 the interior angle between the two **arms** beside the bend
@@ -2083,8 +2122,8 @@ return float(np.median(stat.kink_angles_deg))
 resolution of the image. The probe spreads each fiber over about $W$, so a
 corner occupies about $W$ of the centerline however sharply the fiber turned,
 and two bends much closer than that cannot be told apart. On synthetic zigzags
-(2 nm pixels, $W$ = 8 px), corners 1.5–3 $W$ apart were all found (30 of 30),
-but corners 1 $W$ apart only 4 of 10. Every length of the rule is a multiple of
+(2<!--c:scripts/synthetic_suite.py::NMPX--> nm pixels, $W$ = 8<!--c:scripts/synthetic_suite.py::W--> px), corners 1.5–3<!--n:value tried--> $W$ apart were all found
+(30<!--m:synthetic_kinks.zigzag_1.5W_up.found--> of 30<!--m:synthetic_kinks.zigzag_1.5W_up.clear-->), but corners 1<!--n:value tried--> $W$ apart only 4<!--m:synthetic_kinks.zigzag1W.found--> of 10<!--m:synthetic_kinks.zigzag1W.clear-->. Every length of the rule is a multiple of
 $W$, so as long as $W$ is resolved (about 3<!--m:kink_rule_sweep.W5.measured_width_px--> px or more, by "Where the rule
 applies" below) the same fibers scanned at another pixel size are judged at the
 same scale. The only pixel quantities are the fallback used when $W$ cannot be
@@ -2123,13 +2162,16 @@ with the heading smoothed over 0.35<!--n:value tried--> W, 57<!--m:kink_referenc
 
 **On synthetic shapes.**
 
-- No bend was reported on straight fibers, arcs of radius 3–10 $W$, crossings,
-  junctions or twisted ribbons.
-- Every isolated corner of 40° or more was found.
-- 12 bends were reported on sine meanders whose tightest radius is 1.6–1.8 $W$.
+- No bend was reported on straight fibers (0<!--m:synthetic_kinks.straight.reported--> on 2<!--m:synthetic_kinks.straight.scans--> scans), arcs of radius
+  3–10<!--n:value tried--> $W$ (0<!--m:synthetic_kinks.arcs.reported--> on 6<!--m:synthetic_kinks.arcs.scans-->), crossings and junctions (0<!--m:synthetic_kinks.crossings_branches.reported--> on 10<!--m:synthetic_kinks.crossings_branches.scans-->) or twisted
+  ribbons (0<!--m:synthetic_centerline.ribbons.kinks_reported--> on 6<!--m:synthetic_centerline.ribbons.count-->).
+- Every isolated corner of 40<!--n:value tried-->° or more was found (8<!--m:synthetic_kinks.corners_40_up.found--> of 8<!--m:synthetic_kinks.corners_40_up.clear-->).
+- 12<!--m:synthetic_kinks.sines.reported--> bends were reported on 4<!--m:synthetic_kinks.sines.scans--> sine meanders whose tightest radius is
+  1.6–1.8<!--m:synthetic_kinks.sines.tightest_radius_w_range--> $W$.
   Below a radius of about $2.9\,W$ the window alone turns more than 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->°, and
   where the curvature changes quickly the flanks do not account for it.
-- The earlier polyline rule reported 31 bends on the same arcs and meanders.
+- The earlier polyline rule reported 31<!--m:synthetic_kinks.old_rule.arcs_sines_reported--> bends on the same arcs and meanders
+  (experiment synthetic_kinks).
 
 **A per-centerline noise floor, shipped off.** A noise floor is implemented
 (`NOISE_SIGMAS`, `KinkJudgement.noise_excess`): the robust scale of the excess
@@ -2145,9 +2187,10 @@ the real kinks. Scored against the visual reference
 
 The false detections on these scans are rounded bends, tangles, bends next to
 crossings, and shallow bends whose excess turning only just clears the
-threshold (30–40°), not noise. On a shallow bend the turning read from the arms
-(180<!--n:definition-->° − `ka`) can fall below 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->°, because the arm angle is measured apart from
-the excess turning the rule tests. And a heavily bent fiber's own kinks raise
+threshold, not noise: 28<!--m:kink_reference.default.false_excess_30_40--> of the 64<!--m:kink_reference.default.false--> have an excess of 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->–40<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|190 - v-->°. For
+11<!--m:kink_reference.default.false_arm_turn_below_threshold--> of them the turning read from the arms (180<!--n:definition-->° − `ka`) falls below
+30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->°, because the arm angle is measured apart from the excess turning the rule
+tests. And a heavily bent fiber's own kinks raise
 its floor, which is where the lost clear kinks lay. On the synthetic sweep the floor changed
 no corner found anywhere, and changed the false positives only at the finest
 pixel size with the heaviest noise (11<!--m:kink_rule_sweep.W16.measured_width_px--> px width, 0.30<!--n:value tried--> nm pixel noise), where it
@@ -2189,9 +2232,10 @@ judged**, for two reasons:
 
 - One of its arms is then shorter than the visual reference required before it
   called a bend clear.
-- Many track ends are not fiber ends at all but cuts at a crossing — measured
-  on the bundled scans, 46–68 % of track ends lie within 3 px of a branch
-  point — where the centerline bends with the junction's skirt.
+- Many track ends are not fiber ends at all but cuts at a crossing — on the
+  3<!--n:count--> real bundled scans, 46<!--m:track_ends.hplantTOC.near_branch_percent-->–68<!--m:track_ends.tunicate.near_branch_percent--> % of track ends lie within 3<!--n:definition--> px of a
+  branch point (experiment track_ends) — where the centerline bends with the
+  junction's skirt.
 
 Such a bend is not dropped silently. `KinkDetector.kinks_on_line` returns it
 separately, the bundle stores it in the optional key `up`, it reaches each
@@ -2206,7 +2250,8 @@ stops being judged.
 
 At a margin of $1.0\,W$ the false detections on the bundled scans rose from 64<!--m:kink_reference.default.false-->
 to 80<!--m:kink_reference.sens_end_1.false--> without a further clear kink being found; at $2.0\,W$ they fell to 49<!--m:kink_reference.sens_end_2.false-->,
-but synthetic corners 1.5–2 $W$ from an end were no longer judged. None of the
+but the synthetic corners 2<!--n:value tried--> $W$ from an end, judged at the default
+(2<!--m:synthetic_kinks.margin_default.end2W.corners_judged--> of 2<!--m:synthetic_kinks.end_cases_per_distance-->), were no longer judged (0<!--m:synthetic_kinks.margin_2W.end2W.corners_judged-->). None of the
 48<!--m:kink_reference.default.unjudged--> bends left unjudged on the bundled scans lay on a clear reference kink.
 
 ### 4.5 The threshold is carried with the results
@@ -2326,7 +2371,7 @@ without re-analysing an image:
   a 3<!--c:lib/imp_tools.py::remove_bp(remove_size)|2 * v + 1-->×3<!--c:lib/imp_tools.py::remove_bp(remove_size)|2 * v + 1--> neighbourhood around a branch point, while the other fiber's skirt at
   a crossing extends about a width past it, so those samples are partly the
   other fiber's height — the median is barely affected, but the maximum picks
-  up the height of the crossing. Bridges the fiber connector interpolates are left out for the
+  up the height of the crossing. <!-- TODO(review): 'about a width' is not measured by any experiment in scripts/measure_docs.py; it is the reason given for CUT_END_EXCLUSION_WIDTHS. --> Bridges the fiber connector interpolates are left out for the
   same reason. And kink density (`measure.fiber_kink_density`) divides by the
   **judged** length, the contour less $1.5\,W$ at each end, because §4.4
   judges nothing closer to an end than that; dividing by the whole contour

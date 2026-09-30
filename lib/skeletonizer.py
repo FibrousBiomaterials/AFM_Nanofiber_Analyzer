@@ -75,21 +75,18 @@ DEFAULT_LOOP_HEIGHT_RATIO = 0.3
 # reversal near an endpoint (interior apex angle below
 # DEFAULT_HOOK_APEX_ANGLE_DEG within DEFAULT_HOOK_LENGTH px of the end) and
 # trimmed only where the calibrated height has fallen below
-# DEFAULT_HOOK_HEIGHT_RATIO of the adjacent fiber body, so a genuinely bent
-# fiber end — which stays at fiber height — is never cut. On the bundled
-# scans hook pixels sit at 19-42% of body height while real bent ends and
-# junction wiggles sit at 55-113%, so 0.5 separates the regimes; 120 deg is
-# far sharper than the 150 deg kink threshold, keeping kink detection intact.
+# DEFAULT_HOOK_HEIGHT_RATIO of the adjacent fiber body, so a bent end whose
+# height stays at or above that fraction is not cut; 120 deg is far sharper
+# than the 150 deg kink threshold, keeping kink detection intact.
 # 末端フック除去の既定値。セグメンテーションがファイバー先端の低い「裾」を
 # マスクに含めると、細線化はその medial axis を裾へ辿って周縁を回り込み、
 # 直線的な中心線の末端に分岐点を持たないフックを残す。枝刈り（分岐点が必要）
 # もスパー除去（合流点が必要）もループ潰し（閉じた穴が必要）もこれを検出
 # できない。フックは端点近傍の方向反転（端から DEFAULT_HOOK_LENGTH px 以内で
 # 頂点内角が DEFAULT_HOOK_APEX_ANGLE_DEG 未満）で認識し、較正高さが隣接する
-# 本体の DEFAULT_HOOK_HEIGHT_RATIO 未満に落ちた画素だけを切除する。本当に
-# 折れ曲がった末端は繊維の高さを保つため決して切られない。同梱スキャンでは
-# フック画素は本体高の 19〜42%、実在の折れ末端・合流部の蛇行は 55〜113% で、
-# 0.5 が両者を分離する。120 度はキンク判定しきい値 150 度よりはるかに鋭く、
+# 本体の DEFAULT_HOOK_HEIGHT_RATIO 未満に落ちた画素だけを切除するため、高さが
+# 本体のこの割合以上にとどまる折れた端は切られない。120 度はキンク判定しきい値
+# 150 度よりはるかに鋭く、
 # キンク検出には干渉しない。
 DEFAULT_HOOK_LENGTH = 12
 DEFAULT_HOOK_APEX_ANGLE_DEG = 120.0

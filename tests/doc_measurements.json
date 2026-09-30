@@ -1,6 +1,95 @@
 {
  "_comment": "Values the algorithm documents cite with <!--m:experiment.key-->, written by scripts/measure_docs.py and checked by scripts/check_doc_numbers.py. Each experiment names the snapshot of the analysis code it ran on; a change to what that code computes marks it stale. Do not edit by hand.",
  "experiments": {
+  "bg_fill": {
+   "description": "Square holes of 21 px cut into fiber-free background of the tunicate scan: how far the smoothed background estimate inside each hole, and on the genuine background beside it, moves from the estimate made with those pixels known, for each combination of detrending (none, plane, quadratic) and filler (nearest background pixel, OpenCV Navier-Stokes inpainting with radius 3).",
+   "snapshot": "4cbe31238b0dba97",
+   "values": {
+    "hole_size_px": 21,
+    "holes": 20,
+    "none.inpaint.beside_max_nm": 0.442052,
+    "none.inpaint.beside_median_nm": 0.396302,
+    "none.inpaint.fill_error_max_nm": 1.95423,
+    "none.inpaint.fill_error_median_nm": 1.706489,
+    "none.inpaint.inside_max_nm": 0.391189,
+    "none.inpaint.inside_median_nm": 0.297155,
+    "none.nearest.beside_max_nm": 0.533058,
+    "none.nearest.beside_median_nm": 0.482747,
+    "none.nearest.fill_error_max_nm": 2.7888,
+    "none.nearest.fill_error_median_nm": 2.47075,
+    "none.nearest.inside_max_nm": 0.239868,
+    "none.nearest.inside_median_nm": 0.205963,
+    "plane.inpaint.beside_max_nm": 0.114887,
+    "plane.inpaint.beside_median_nm": 0.079745,
+    "plane.inpaint.fill_error_max_nm": 0.460725,
+    "plane.inpaint.fill_error_median_nm": 0.306456,
+    "plane.inpaint.inside_max_nm": 0.115626,
+    "plane.inpaint.inside_median_nm": 0.093567,
+    "plane.nearest.beside_max_nm": 0.103884,
+    "plane.nearest.beside_median_nm": 0.076026,
+    "plane.nearest.fill_error_max_nm": 0.522317,
+    "plane.nearest.fill_error_median_nm": 0.341682,
+    "plane.nearest.inside_max_nm": 0.106924,
+    "plane.nearest.inside_median_nm": 0.080248,
+    "quadratic.inpaint.beside_max_nm": 0.118684,
+    "quadratic.inpaint.beside_median_nm": 0.071617,
+    "quadratic.inpaint.fill_error_max_nm": 0.454714,
+    "quadratic.inpaint.fill_error_median_nm": 0.268611,
+    "quadratic.inpaint.inside_max_nm": 0.13539,
+    "quadratic.inpaint.inside_median_nm": 0.081824,
+    "quadratic.nearest.beside_max_nm": 0.107305,
+    "quadratic.nearest.beside_median_nm": 0.067028,
+    "quadratic.nearest.fill_error_max_nm": 0.447739,
+    "quadratic.nearest.fill_error_median_nm": 0.298561,
+    "quadratic.nearest.inside_max_nm": 0.110384,
+    "quadratic.nearest.inside_median_nm": 0.072877
+   }
+  },
+  "bg_legacy_halo": {
+   "description": "A synthetic 512 x 512 scan: a plane rising along X at the steepest slope of the bundled scans (0.24 nm/px), one straight fiber across it (Gaussian section, 8 nm high, sigma 3 px) and 0.05 nm noise, calibrated by the default background method of release 1.0.0 (run from a worktree of tag v1.0.0) and of the current code: the highest and lowest calibrated background beside the fiber.",
+   "snapshot": "db7be0837c127601",
+   "values": {
+    "current.beside_max_nm": 0.18304,
+    "current.beside_min_nm": -0.20525,
+    "current.beside_row_median_max_nm": 0.002788,
+    "fiber_height_nm": 8.0,
+    "slope_nm_per_px": 0.24,
+    "v1_0_0.beside_max_nm": 0.767632,
+    "v1_0_0.beside_min_nm": -0.763907,
+    "v1_0_0.beside_row_median_max_nm": 0.522143
+   }
+  },
+  "bg_stats": {
+   "description": "Per bundled scan: the slope of the least-squares plane through the raw heights, the median width of the dilated trendfill fiber mask (twice the distance to its edge along its medial axis), the height the plane falls across that width, the peak-to-peak of the quadratic part left after the plane, and the median calibrated height under the default skeleton.",
+   "snapshot": "db7be0837c127601",
+   "values": {
+    "NDTOC.drop_across_hole_nm": 0.038692,
+    "NDTOC.hole_width_px": 12.165525,
+    "NDTOC.plane_slope_nm_per_px": 0.00318,
+    "NDTOC.quadratic_p2p_nm": 21.887329,
+    "NDTOC.skeleton_height_median_nm": 2.111625,
+    "art_aniso.drop_across_hole_nm": 2.397729,
+    "art_aniso.hole_width_px": 10.0,
+    "art_aniso.plane_slope_nm_per_px": 0.239773,
+    "art_aniso.quadratic_p2p_nm": 7.48943,
+    "art_aniso.skeleton_height_median_nm": 7.17639,
+    "art_iso.drop_across_hole_nm": 2.386758,
+    "art_iso.hole_width_px": 10.0,
+    "art_iso.plane_slope_nm_per_px": 0.238676,
+    "art_iso.quadratic_p2p_nm": 3.503707,
+    "art_iso.skeleton_height_median_nm": 7.54393,
+    "hplantTOC.drop_across_hole_nm": 0.013356,
+    "hplantTOC.hole_width_px": 8.944272,
+    "hplantTOC.plane_slope_nm_per_px": 0.001493,
+    "hplantTOC.quadratic_p2p_nm": 1.691496,
+    "hplantTOC.skeleton_height_median_nm": 1.739946,
+    "tunicate.drop_across_hole_nm": 4.593971,
+    "tunicate.hole_width_px": 19.697716,
+    "tunicate.plane_slope_nm_per_px": 0.233224,
+    "tunicate.quadratic_p2p_nm": 15.213464,
+    "tunicate.skeleton_height_median_nm": 7.909135
+   }
+  },
   "bg_timing": {
    "description": "Wall time of the three background methods on the bundled 1024 x 1024 Bruker scan, second of two runs, on the machine that ran this script.",
    "snapshot": "db7be0837c127601",
@@ -15,12 +104,55 @@
     "trendfill.seconds": 1.117817
    }
   },
+  "border_drift": {
+   "description": "Per bundled scan, thinned without and with the replicated border: the lateral distance from each skeleton point to the height crest along the point's normal (within half the fiber's apparent width), for the last 5 points of tracks that end within 2 px of the image edge and for points more than 10 px from either end.",
+   "snapshot": "80a919185904cdef",
+   "values": {
+    "padded.end_median_px": 1.03125,
+    "padded.end_points": 210,
+    "padded.middle_median_px": 0.875,
+    "plain.end_median_px": 3.875,
+    "plain.end_points": 170,
+    "plain.middle_median_px": 0.875
+   }
+  },
   "border_padding": {
    "description": "Thinning with and without the replicated border, compared outside the border band, on the binarized masks of the five bundled scans.",
    "snapshot": "db7be0837c127601",
    "values": {
     "identical_inside_band": 5,
     "scans": 5
+   }
+  },
+  "closing_gaps": {
+   "description": "skimage.morphology.closing with its default footprint on two straight bands of equal thickness separated by a gap: whether it joins them into one component, for thicknesses 1, 3 and 5 px and gaps 1, 2 and 3 px.",
+   "snapshot": "44136fa355b3678a",
+   "values": {
+    "thick1.gap1.joined": 0,
+    "thick1.gap2.joined": 0,
+    "thick1.gap3.joined": 0,
+    "thick1.gaps_joined": 0,
+    "thick3.gap1.joined": 1,
+    "thick3.gap2.joined": 1,
+    "thick3.gap3.joined": 0,
+    "thick3.largest_gap_joined_px": 2,
+    "thick5.gap1.joined": 1,
+    "thick5.gap2.joined": 1,
+    "thick5.gap3.joined": 0,
+    "thick5.largest_gap_joined_px": 2
+   }
+  },
+  "hough_edge_map": {
+   "description": "Per bundled scan: whether the final binarized mask is identical when the linearity filter builds each component's edge map from the component alone (the current code) or, as up to release 1.0.0, from the whole working mask inside the component's bounding box.",
+   "snapshot": "db7be0837c127601",
+   "values": {
+    "NDTOC.identical": 1,
+    "art_aniso.identical": 1,
+    "art_iso.identical": 1,
+    "hplantTOC.identical": 1,
+    "identical": 5,
+    "scans": 5,
+    "tunicate.identical": 1
    }
   },
   "kink_reference": {
@@ -30,6 +162,8 @@
     "clear_marks": 64,
     "default.displaced": 1,
     "default.false": 64,
+    "default.false_arm_turn_below_threshold": 11,
+    "default.false_excess_30_40": 28,
     "default.found": 60,
     "default.merged": 0,
     "default.missed": 3,
@@ -395,6 +529,280 @@
     "W8.n0.30.kink145.found": 2
    }
   },
+  "loop_candidates": {
+   "description": "Every region enclosed by the skeleton that collapse_skeleton_loops considers on the bundled scans (at most max_loop_area, clear of the border): the median height inside over the median height of the skeleton ring around it, the branch points on that ring, and the visual label in LOOP_LABELS.",
+   "snapshot": "db7be0837c127601",
+   "values": {
+    "all.branch_points_range": [
+     1,
+     4
+    ],
+    "all.ratio_percent_range": [
+     78.322595,
+     105.267737
+    ],
+    "candidates": 18,
+    "crossing.count": 8,
+    "crossing.ratio_percent_range": [
+     84.246252,
+     105.267737
+    ],
+    "fiber.count": 10,
+    "fiber.ratio_percent_range": [
+     78.322595,
+     104.987315
+    ],
+    "gap.count": 0
+   }
+  },
+  "ridge_hysteresis": {
+   "description": "On the bundled tunicate scan (5 um): the ridge filter of _recover_missed_ridges and the calibrated heights themselves, each thresholded by hysteresis with the Otsu high and triangle low levels; the fraction of the image each covers, and the fraction of the ridge response below its low level on pixels at least 10 px from the default binarized mask.",
+   "snapshot": "db7be0837c127601",
+   "values": {
+    "height.cover_percent": 11.619936,
+    "ridge.cover_percent": 7.704134,
+    "ridge.far_below_low_percent": 99.782407
+   }
+  },
+  "ridge_recovery_bundled": {
+   "description": "Ridge recovery switched on for each bundled scan at its recorded scan size: the candidate components outside the thresholded mask whose skeleton reaches ridge_min_length_nm, how many of them touch that mask (the earlier rule dropped those), and the longest.",
+   "snapshot": "db7be0837c127601",
+   "values": {
+    "NDTOC.kept": 0,
+    "NDTOC.longest_nm": 0.0,
+    "NDTOC.scan_um": 2.0,
+    "NDTOC.touching_mask": 0,
+    "art_aniso.kept": 1,
+    "art_aniso.longest_nm": 278.683181,
+    "art_aniso.scan_um": 3.75,
+    "art_aniso.touching_mask": 0,
+    "art_iso.kept": 0,
+    "art_iso.longest_nm": 0.0,
+    "art_iso.scan_um": 1.25,
+    "art_iso.touching_mask": 0,
+    "hplantTOC.kept": 5,
+    "hplantTOC.longest_nm": 1786.901271,
+    "hplantTOC.scan_um": 2.0,
+    "hplantTOC.touching_mask": 2,
+    "tunicate.kept": 5,
+    "tunicate.longest_nm": 303.030303,
+    "tunicate.scan_um": 5.0,
+    "tunicate.touching_mask": 2
+   }
+  },
+  "synthetic_centerline": {
+   "description": "On the synthetic suite of scripts/synthetic_suite.py (groups A-F: 60 scans, 2 nm pixels, W = 8 px; group G: twisted ribbons): the distance of each centerline method from the true centerline, the contour-length error, the same-sense corner pairs, and the lateral offset on the ribbons.",
+   "snapshot": "80a919185904cdef",
+   "values": {
+    "G_circle_d3.max_nm.quarter_max": 3.49811,
+    "G_circle_d3.rms_px.crest": 0.22843,
+    "G_circle_d3.rms_px.default": 0.122255,
+    "G_circle_d3.rms_px.quarter_max": 0.308818,
+    "G_ribbon10x3_p150.max_nm.quarter_max": 2.260589,
+    "G_ribbon10x3_p150.rms_px.crest": 0.94288,
+    "G_ribbon10x3_p150.rms_px.default": 0.843813,
+    "G_ribbon10x3_p150.rms_px.quarter_max": 0.678131,
+    "G_ribbon10x3_p300.max_nm.quarter_max": 2.396357,
+    "G_ribbon10x3_p300.rms_px.crest": 1.104948,
+    "G_ribbon10x3_p300.rms_px.default": 0.873923,
+    "G_ribbon10x3_p300.rms_px.quarter_max": 0.704734,
+    "G_ribbon16x3_p300.max_nm.quarter_max": 9.584229,
+    "G_ribbon16x3_p300.rms_px.crest": 2.320987,
+    "G_ribbon16x3_p300.rms_px.default": 1.866643,
+    "G_ribbon16x3_p300.rms_px.quarter_max": 1.396396,
+    "G_ribbon4x2_p300.max_nm.quarter_max": 3.673921,
+    "G_ribbon4x2_p300.rms_px.crest": 0.43854,
+    "G_ribbon4x2_p300.rms_px.default": 0.317815,
+    "G_ribbon4x2_p300.rms_px.quarter_max": 0.419775,
+    "G_ribbon6x2_p300.max_nm.quarter_max": 1.801955,
+    "G_ribbon6x2_p300.rms_px.crest": 0.691771,
+    "G_ribbon6x2_p300.rms_px.default": 0.552823,
+    "G_ribbon6x2_p300.rms_px.quarter_max": 0.505296,
+    "centroid.group_median_nm_range": [
+     0.315495,
+     0.37753
+    ],
+    "centroid.length_error_percent_range": [
+     -1.461044,
+     0.747978
+    ],
+    "centroid.median_px": 0.174051,
+    "centroid.p95_px": 0.6863,
+    "crest.group_median_nm_range": [
+     0.416118,
+     0.482618
+    ],
+    "crest.length_error_percent_range": [
+     -1.323927,
+     0.934706
+    ],
+    "crest.median_px": 0.231185,
+    "crest.p95_px": 0.699508,
+    "half_max_025w.group_median_nm_range": [
+     0.209953,
+     0.242478
+    ],
+    "half_max_025w.length_error_percent_range": [
+     -1.543,
+     0.487526
+    ],
+    "half_max_025w.median_px": 0.112986,
+    "half_max_025w.p95_px": 0.354608,
+    "half_max_05w.group_median_nm_range": [
+     0.199528,
+     0.248833
+    ],
+    "half_max_05w.length_error_percent_range": [
+     -2.595712,
+     0.336048
+    ],
+    "half_max_05w.median_px": 0.106124,
+    "half_max_05w.p95_px": 0.385938,
+    "pairs": 8,
+    "pairs_w2.centerline_median_px": 0.11791,
+    "pairs_w2.merged_pairs": 2,
+    "pairs_w2.vertex_median_px_range": [
+     0.965733,
+     1.1703
+    ],
+    "pairs_w4.centerline_median_px": 0.104976,
+    "pairs_w4.merged_pairs": 0,
+    "pairs_w4.vertex_median_px_range": [
+     0.626456,
+     0.843324
+    ],
+    "quarter_max.group_median_nm_range": [
+     0.197501,
+     0.237312
+    ],
+    "quarter_max.length_error_percent_range": [
+     -1.684428,
+     0.618361
+    ],
+    "quarter_max.median_px": 0.11097,
+    "quarter_max.p95_px": 0.411551,
+    "ribbons.anisotropic_count": 5,
+    "ribbons.count": 6,
+    "ribbons.crest_farthest_of_three": 5,
+    "ribbons.crest_over_default_range": [
+     1.117404,
+     1.379861
+    ],
+    "ribbons.kinks_reported": 0,
+    "ribbons.quarter_closer_than_default": 4,
+    "scans_af": 60,
+    "scans_g": 6,
+    "skeleton_pixels.group_median_nm_range": [
+     0.537194,
+     0.624248
+    ],
+    "skeleton_pixels.length_error_percent_range": [
+     4.036544,
+     7.817318
+    ],
+    "skeleton_pixels.median_px": 0.29436,
+    "skeleton_pixels.p95_px": 0.900814,
+    "skeleton_track.length_error_percent_range": [
+     -1.396312,
+     2.177389
+    ],
+    "skeleton_track.median_px": 0.29436,
+    "skeleton_track.p95_px": 0.900814,
+    "smoothed_skeleton_05w.group_median_nm_range": [
+     0.328933,
+     0.557674
+    ],
+    "smoothed_skeleton_05w.length_error_percent_range": [
+     -3.994421,
+     0.33437
+    ],
+    "smoothed_skeleton_05w.median_px": 0.218591,
+    "smoothed_skeleton_05w.p95_px": 0.841508,
+    "smoothed_skeleton_1w.group_median_nm_range": [
+     0.394549,
+     0.945252
+    ],
+    "smoothed_skeleton_1w.length_error_percent_range": [
+     -5.808497,
+     0.21424
+    ],
+    "smoothed_skeleton_1w.median_px": 0.275891,
+    "smoothed_skeleton_1w.p95_px": 1.737968
+   }
+  },
+  "synthetic_kinks": {
+   "description": "The kink rule on the synthetic suite of scripts/synthetic_suite.py (default centerline): the excess read at isolated corners, corners found in zigzags, bends reported on straight fibers, arcs, meanders, crossings and branches, the earlier polyline rule on the arcs and meanders, and corners near an end judged at an end margin of 1.5 W and 2.0 W.",
+   "snapshot": "80a919185904cdef",
+   "values": {
+    "arcs.reported": 0,
+    "arcs.scans": 6,
+    "corner120.clear": 2,
+    "corner120.excess_read_range_deg": [
+     101.020848,
+     109.978248
+    ],
+    "corner120.found": 2,
+    "corner20.clear": 0,
+    "corner20.found": 0,
+    "corner30.clear": 0,
+    "corner30.found": 0,
+    "corner40.clear": 2,
+    "corner40.excess_read_range_deg": [
+     37.354966,
+     37.990685
+    ],
+    "corner40.found": 2,
+    "corner60.clear": 2,
+    "corner60.excess_read_range_deg": [
+     52.144287,
+     55.809128
+    ],
+    "corner60.found": 2,
+    "corner90.clear": 2,
+    "corner90.excess_read_range_deg": [
+     83.440632,
+     84.511095
+    ],
+    "corner90.found": 2,
+    "corners_40_up.clear": 8,
+    "corners_40_up.found": 8,
+    "crossings_branches.reported": 0,
+    "crossings_branches.scans": 10,
+    "end_cases_per_distance": 2,
+    "margin_2W.end1.5W.corners_judged": 0,
+    "margin_2W.end2W.corners_judged": 0,
+    "margin_default.end1.5W.corners_judged": 0,
+    "margin_default.end2W.corners_judged": 2,
+    "old_rule.arcs_sines_reported": 31,
+    "sines.reported": 12,
+    "sines.scans": 4,
+    "sines.tightest_radius_w_range": [
+     1.621139,
+     1.823781
+    ],
+    "straight.reported": 0,
+    "straight.scans": 2,
+    "zigzag1.5W.clear": 10,
+    "zigzag1.5W.found": 10,
+    "zigzag1W.clear": 10,
+    "zigzag1W.found": 4,
+    "zigzag2W.clear": 10,
+    "zigzag2W.found": 10,
+    "zigzag3W.clear": 10,
+    "zigzag3W.found": 10,
+    "zigzag_1.5W_up.clear": 30,
+    "zigzag_1.5W_up.found": 30
+   }
+  },
+  "test_suite_bend": {
+   "description": "The bent fiber of tests/conftest.write_synthetic_fiber_txt (two segments meeting at a 146.5 degree interior angle, a 33.5 degree turn), analyzed as tests/test_pipeline.test_detects_the_drawn_kink does (tophat, kinkangle_deg 155): the excess turning the rule reads at the bend.",
+   "snapshot": "db7be0837c127601",
+   "values": {
+    "drawn_turn_deg": 33.453309,
+    "read_excess_deg": 26.516606,
+    "read_interior_deg": 153.483394
+   }
+  },
   "thinning_example": {
    "description": "The five-pixel band with a one-pixel hole and a two-pixel bump drawn in section 3.1, thinned by skimage.morphology.thin.",
    "snapshot": "6d4484263c1cc414",
@@ -406,9 +814,92 @@
     "skeletonize_of_thin_unchanged": 1,
     "thin_and_skeletonize_differ": 1
    }
+  },
+  "tophat_border": {
+   "description": "A 256 x 256 plane rising along X at the steepest slope found on the bundled scans (0.24 nm/px), opened with the default 25-px ellipse: the largest residual within 12 px of the uphill edge, opening the raw ramp (before the fix) and the detrended ramp (the current code).",
+   "snapshot": "4cbe31238b0dba97",
+   "values": {
+    "detrended.uphill_band_max_nm": 0.293485,
+    "element_px": 25,
+    "raw.interior_median_nm": 0.037456,
+    "raw.uphill_band_max_nm": 3.074216,
+    "slope_nm_per_px": 0.24
+   }
+  },
+  "track_ends": {
+   "description": "Per bundled scan: the fraction of traced track ends that lie within 3 px of a branch point of the skeleton.",
+   "snapshot": "80a919185904cdef",
+   "values": {
+    "NDTOC.ends": 278,
+    "NDTOC.near_branch_percent": 66.18705,
+    "art_aniso.ends": 8,
+    "art_aniso.near_branch_percent": 0.0,
+    "art_iso.ends": 6,
+    "art_iso.near_branch_percent": 0.0,
+    "hplantTOC.ends": 28,
+    "hplantTOC.near_branch_percent": 46.428571,
+    "tunicate.ends": 120,
+    "tunicate.near_branch_percent": 67.5
+   }
+  },
+  "turn_maxima": {
+   "description": "The visual reference of kink_reference scored with the rule as it is and with its second kind of candidate (maxima of |T| away from any accepted curvature maximum) disabled: the clear kinks found and the unmatched bends of each.",
+   "snapshot": "80a919185904cdef",
+   "values": {
+    "clear_kinks_lost_without": 4,
+    "with.false": 64,
+    "with.found": 60,
+    "without.false": 47,
+    "without.found": 56
+   }
+  },
+  "y_branch_kink": {
+   "description": "On the bundled higher-plant TOC scan, the bend the earlier polyline rule reports on the skeleton track below the Y-branch near pixel (288, 695) (viewed on the height image, 2026-09-30: two fibers join and the trunk below does not bend), and the kinks the current rule reports within one apparent width of it.",
+   "snapshot": "80a919185904cdef",
+   "values": {
+    "current_kinks_within_one_width": 0,
+    "old_rule_angle_deg": 118.393019
+   }
   }
  },
  "snapshots": {
+  "44136fa355b3678a": {},
+  "4cbe31238b0dba97": {
+   "lib/bg_calibrator.py": {
+    "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "BGCalibrator.<body>": "546aa2e3d9295dbb84bcd66d00dba7b34b92301e4bf2a307a5edebbf5c31e867",
+    "BGCalibrator.__call__": "acebf9a432fc6eb97a79bd8fba17c531ced9466a5770a9eaa31e212928e459d8",
+    "BGCalibrator.__init__": "baaf2c1ed88e897ab2a8072167a2d3c448b00ef22c37d1c5abe24394fec1814e",
+    "BGCalibrator._bg_calibrate": "81bca6d68616ec9632f6001868df178db8f63a6c97ea72ca7dc9d9c18e8597da",
+    "BGCalibrator._bg_fit": "d4a8e7bf07a1e4f40ee26802bf7851a2a543546203aafea21cb5983c2a935e5b",
+    "BGCalibrator._bg_generate": "f9c9af3d0e69793af75bce8f6f141469f9705dd597656da3e54c88bffcd85c4c",
+    "BGCalibrator._call_spline1d": "2b82f6cc0b57face4e7419fcce3a962172896287747a1d8c118fcf579f8f9011",
+    "BGCalibrator._call_tophat": "ac6a4b92145150af5ee00415ba5224aaf6169634351a0b4d519077af97873cbb",
+    "BGCalibrator._call_trendfill": "fabac71f388c1e6dee9c467b201c3028b7572055078c45878d60773b4317ce2b",
+    "BGCalibrator._detect_fiber_mask": "28918684c695629f052679335fbb83bde593fc3bf5fe8eb7be654041df4579ca",
+    "BGCalibrator._difXY": "30e9a4a79ac2a3d6ba40314305cb42871420ccfb56456b761fd1972618d59349",
+    "BGCalibrator._dif_sep": "bc7d12bd95996231a00864b985105ca2136406e635545e0ace5e86ddc79f9c89",
+    "BGCalibrator._extract_fiber": "291994fe21f80c567224b86e367ee5f0e55d4ed452f7594cc9fbafb7ac37ab61",
+    "BGCalibrator._fit_trend_surface": "e35b8137d0a76c2aa948197c6d37377a710f7b3cdf57f46b8ee86c41be4fc080",
+    "BGCalibrator._spline1d_fill": "12be6cbf619a2d54e694672dc4e985600e8a8328d6f4304ee99b43a4c5fd50b7",
+    "BG_METHOD_ALIASES": "8559595f96a1e1077d92de7b5edf663fdefedd2c0acd02198e2413e4e80a97e8",
+    "BG_METHOD_NAMES": "0b6170cb2f1d9d02b5ab0f7ea136f043fe02b48b54ec90a1387684779fd0d3dc",
+    "BG_METHOD_REMOVED": "e4a0ad6189ad387354651896007c85b78691efc3159ea35bd155324d4fb66303",
+    "canonical_bg_method": "36686dc6841c9d5dc3402e202f3eceda6939b325aa7ab5e480edcc3c03e07bc3",
+    "import:ProcessedImage": "c5dbcccb799f4692b332c9b571f0e364ee5354a825aba2fc458d34dd8b67ef25",
+    "import:cv2": "b4caacfd8630519788f04f84f209c314ba6dedf55dda5d373ea59274d0328800",
+    "import:distance_transform_edt": "2508ec4ebc8a2e54f5d27638e4c30f24016a48814524d98bac3708910c3ea1de",
+    "import:np": "73dd0baf8e5438da8816254a073ee43b61f8b2cdef6f393e0059cdbc55cb8d9c",
+    "import:signal": "c534dce9a7c0150ee289ec5b384e2c4b38dac7efaf8f189d75662c1a427c2f02"
+   },
+   "lib/processed_image.py": {
+    "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ProcessedImage.<body>": "04a7a5dcd43f4858162dbb4c5eb9dea455f48a4a5b29dcaf15cd657cd634eaa5",
+    "ProcessedImage.__init__": "8c96d00eb560db6ae8438ce1b43515451604cb7e4a99613bddef7798f8053e06",
+    "import:Optional": "21a5abaaaba25fbb00f8728d6f0d5907b4cb88821d6348308d353bfb3b8e5511",
+    "import:np": "73dd0baf8e5438da8816254a073ee43b61f8b2cdef6f393e0059cdbc55cb8d9c"
+   }
+  },
   "6d4484263c1cc414": {
    "lib/imp_tools.py": {
     "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",

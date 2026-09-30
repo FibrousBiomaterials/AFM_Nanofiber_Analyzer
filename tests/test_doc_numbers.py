@@ -104,5 +104,7 @@ def test_exempt_positions_are_not_numbers(checker):
     """Code, math, headings, section references and versions are not checked."""
     text = ("# Heading 4\n"
             "1. Item `x = 5` in §4.2 of 1.0.0, see $W/4$ and [a](b3.md).\n"
-            "```\n7\n```\n$$\n8\n$$\n")
+            "```\n7\n```\n$$\n8\n$$\n"
+            "A note <!-- TODO(review): 9 on one line --> and\n"
+            "<!-- TODO(review): a note over\ntwo lines with 10 -->\n")
     assert _with(checker, text, text) == []

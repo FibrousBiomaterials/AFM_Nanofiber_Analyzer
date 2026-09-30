@@ -205,16 +205,17 @@ def test_detects_the_drawn_kink(pipeline_result, synthetic_fiber_txt, tmp_path):
     The fiber is drawn as two segments meeting at an interior angle of 146.5
     degrees, a 33.5 degree turn. The rule reports the turn a bend adds to the
     fiber's own curvature within about one width, and the probe and the
-    centerline round a sharp corner, so it reads this bend as a 29 degree
-    turn: 151 degrees interior, just outside the default 150, where it is not
-    reported. Synthetic corners of 40-120 degrees read low in the same way
+    centerline round a sharp corner, so it reads this bend as a 26.5 degree
+    turn: 153.5 degrees interior, outside the default 150, where it is not
+    reported (scripts/measure_docs.py, test_suite_bend). Synthetic corners of 40-120 degrees read low in the same way
     (docs/algorithms.md, section 4.3). With the threshold at 155 degrees the
     bend is one kink at the drawn vertex, and its angle lies within the
     8 degree tolerance this test has always allowed.
     繊維は内角 146.5 度（回転 33.5 度）で交わる 2 線分として描く。規則は、幅 1 本分
     程度の範囲で折れが繊維自身の曲率に加える回転を報告し、探針と中心線は鋭い
-    コーナーを丸めるため、この折れを 29 度の回転、すなわち内角 151 度と読む。
-    既定の 150 度のすぐ外側であり、報告されない。40〜120 度の合成コーナーも同じく
+    コーナーを丸めるため、この折れを 26.5 度の回転、すなわち内角 153.5 度と読む。
+    既定の 150 度の外側であり、報告されない（scripts/measure_docs.py の
+    test_suite_bend）。40〜120 度の合成コーナーも同じく
     低めに読まれる（docs/algorithms.ja.md の 4.3 節）。しきい値を 155 度にすると、
     折れは描いた頂点でキンク 1 つとなり、その角度はこのテストが従来から許してきた
     8 度の許容幅に収まる。

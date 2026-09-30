@@ -611,18 +611,20 @@ class BGCalibrator:
         # Opening reproduces a plane in the image interior, but not within one
         # structuring-element radius of the border, because erosion there takes
         # its minimum from a clipped neighborhood that dilation cannot restore.
-        # On a 0.34 nm/px ramp with a 25-px element that leaves a band about
-        # 4 nm high down the uphill edge - far above the 0.3 nm binarization
-        # threshold, so the scan border was segmented as a fiber. Detrending
-        # first removes the slope the border effect feeds on.
+        # On a 0.24 nm/px ramp (the steepest plane of the bundled scans) a
+        # 25-px element leaves a band 3.1 nm high within 12 px of the uphill
+        # edge, far above the 0.3 nm binarization threshold, and 0.29 nm once
+        # the ramp is detrended (scripts/measure_docs.py, tophat_border).
+        # Detrending first removes the slope the border effect feeds on.
         # トレンドを除いた写しに opening をかけ、後でトレンドを戻す。理由は
         # trendfill 経路と同じで、生の走査は大きな試料傾斜を伴うためである。
         # opening は画像内部では平面を再現するが、構造要素の半径以内の境界域
         # では再現しない。そこでは収縮が切り詰められた近傍から最小値を取り、
-        # 膨張が復元できないからである。0.34 nm/px の傾斜と直径 25 px の要素
-        # では、上り側の端に高さ約 4 nm の帯が残る。二値化しきい値 0.3 nm を
-        # 大きく超えるため、走査端が繊維として抽出されていた。先にデトレンド
-        # することで、この境界効果が餌にする傾斜そのものを取り除く。
+        # 膨張が復元できないからである。0.24 nm/px の傾斜（同梱スキャンで最も
+        # 急な平面）と直径 25 px の要素では、上り側の端から 12 px 以内に高さ
+        # 3.1 nm の帯が残り、二値化しきい値 0.3 nm を大きく超える。デトレンド
+        # すると 0.29 nm になる（scripts/measure_docs.py の tophat_border）。
+        # 先にデトレンドすることで、この境界効果が餌にする傾斜そのものを取り除く。
         # The trend is fitted over every pixel because this method computes no
         # fiber mask. Fibers bias the surface upward, but only their spatial
         # variation survives: a uniform offset passes unchanged through both
@@ -786,9 +788,9 @@ class BGCalibrator:
 
         # Detrend before filling and restore the trend afterwards, exactly as
         # `_bg_generate` does, so that neither filler has to reproduce the
-        # sample tilt (0.23-0.34 nm/px on the bundled scans).
+        # sample tilt (up to 0.24 nm/px on the bundled scans).
         # `_bg_generate` と同じく、充填の前にデトレンドし後でトレンドを戻す。
-        # どちらの充填器も試料傾斜（同梱スキャンで 0.23〜0.34 nm/px）を
+        # どちらの充填器も試料傾斜（同梱スキャンで最大 0.24 nm/px）を
         # 再現しなくてよくなる。
         if not valid_mask.any():
             # Pathological input: every pixel was classified as fiber. Fall
@@ -1301,53 +1303,57 @@ class BGCalibrator:
         subtracted, the holes are filled by nearest-valid propagation, the
         result is Savitzky-Golay smoothed, and the surface is added back. The
         detrending step is what makes the fill accurate, and it matters because
-        raw AFM scans routinely carry a large sample tilt: on the bundled scans
-        the least-squares plane drops 0.23-0.34 nm per pixel, so the background
-        falls 7-9 nm across a single fiber hole while the fiber itself is only
-        about 10 nm tall. Any fill that cannot reproduce that ramp leaves an
-        error comparable to the signal.
+        raw AFM scans can carry a large sample tilt: on the bundled tunicate
+        scan the least-squares plane drops 0.23 nm per pixel, so the background
+        falls 4.6 nm across one dilated fiber hole while the fiber's median
+        height is 7.9 nm (docs/algorithms.md section 1.1). Any fill that cannot
+        reproduce that ramp leaves an error comparable to the signal.
         穴の充填は画像を *デトレンド* した写しの上で行う。背景候補画素に 2 次
         曲面を最小二乗フィットして減算し、最近傍の有効画素を伝播させて穴を
         埋め、Savitzky-Golay で平滑化してから曲面を足し戻す。精度の鍵はこの
-        デトレンドにある。生の AFM 走査は大きな試料傾斜を伴うのが普通で、
-        同梱スキャンでは最小二乗平面が 1 画素あたり 0.23〜0.34 nm 下がる。
-        つまり繊維 1 本分の穴を横切る間に背景が 7〜9 nm 落ちる一方、繊維自身の
-        高さは約 10 nm しかない。この傾斜を再現できない充填法は、信号と同程度
-        の誤差を残すことになる。
+        デトレンドにある。生の AFM 走査は大きな試料傾斜を伴うことがあり、同梱の
+        チュニケートの走査では最小二乗平面が 1 画素あたり 0.23 nm 下がる。つまり
+        膨張後の繊維 1 本分の穴を横切る間に背景が 4.6 nm 落ちる一方、繊維の高さの
+        中央値は 7.9 nm である（docs/algorithms.ja.md の 1.1 節）。この傾斜を
+        再現できない充填法は、信号と同程度の誤差を残すことになる。
 
         This replaces the previous OpenCV Navier-Stokes inpainting. That
         scheme is a boundary-propagation method intended for thin scratches:
         with `inpaintRadius=3` it extended each side of a hole inward as a
-        flat plateau and met in a step discontinuity at the middle, measured
-        at up to +/-4 nm across a 21-px hole. Because `savgol_polyorder <= 1`
-        makes the Savitzky-Golay pass a plain moving average along X, that
-        step was then averaged into the background estimate of every genuine
-        background pixel within half a window of the hole, producing an
-        antisymmetric halo (a trough on the uphill side, a ridge on the
-        downhill side) that reached +0.76 nm - above the default
-        `Segmenter.global_threshold` of 0.3 nm, so it binarized as a second
-        fiber running parallel to the real one.
+        flat plateau, so on raw, tilted heights the fill departed from the true
+        background (1.7 nm on 21-px holes in the tunicate background). Because
+        `savgol_polyorder <= 1` makes the Savitzky-Golay pass a plain moving
+        average along X, that error was averaged into the background estimate
+        of every genuine background pixel within half a window of the hole.
+        The 1.0.0 calibrator left the background beside an 8 nm synthetic
+        fiber on a 0.24 nm/px plane at -0.76 to +0.77 nm, beyond the default
+        `Segmenter.global_threshold` of 0.3 nm; this code leaves -0.21 to
+        +0.18 nm (scripts/measure_docs.py, bg_fill and bg_legacy_halo).
         これは従来の OpenCV Navier-Stokes inpainting を置き換えるものである。
         あの方式は細い傷の修復を想定した境界伝播法で、`inpaintRadius=3` では
-        穴の左右それぞれの境界値を平坦に内側へ伸ばし、中央で段差になっていた
-        （幅 21 px の穴で実測 ±4 nm）。`savgol_polyorder <= 1` のとき
-        Savitzky-Golay は X 方向の単純移動平均そのものになるため、この段差が
-        穴から窓半分以内にある本物の背景画素の推定値へ平均化されて漏れ出し、
-        反対称のハロー（上り側に溝、下り側に尾根）を生んでいた。尾根は
-        +0.76 nm に達し、`Segmenter.global_threshold` の既定値 0.3 nm を
-        超えるため、実際の繊維に並走する 2 本目の繊維として二値化されていた。
+        穴の左右それぞれの境界値を平坦に内側へ伸ばすため、傾いた生の高さでは
+        充填値が本当の背景から外れた（チュニケートの背景の 21 px の穴で 1.7 nm）。
+        `savgol_polyorder <= 1` のとき Savitzky-Golay は X 方向の単純移動平均
+        そのものになるため、この誤差が、穴から窓半分以内にある本物の背景画素の
+        推定値へ平均化されて漏れ出した。1.0.0 の背景補正は、0.24 nm/px の平面
+        上の高さ 8 nm の合成繊維の脇の背景を -0.76〜+0.77 nm とし、
+        `Segmenter.global_threshold` の既定値 0.3 nm を超えた。このコードでは
+        -0.21〜+0.18 nm である（scripts/measure_docs.py の bg_fill と
+        bg_legacy_halo）。
 
         Nearest-valid propagation is enough once the image is detrended: with
         the trend removed the height difference across a hole is close to
-        zero, so the choice of filler barely matters (measured maximum
-        deviation from the chord across a 21-px hole: 0.24 nm for nearest
-        versus 0.20 nm for inpainting, against 3.93 nm before detrending).
+        zero, so the choice of filler barely matters (on 21-px holes in the
+        tunicate background the fill departs from the measured heights by
+        0.30 nm for nearest versus 0.27 nm for inpainting, against 2.5 nm and
+        1.7 nm without detrending; scripts/measure_docs.py, bg_fill).
         Nearest-valid propagation also preserves the background-candidate
         pixels exactly, so no explicit restore step is needed.
         デトレンド後であれば最近傍伝播で十分である。トレンドを除くと穴を跨ぐ
-        高さ差がほぼゼロになるため、充填法の選択はほとんど効かない（幅 21 px
-        の穴で弦からの最大偏差は最近傍 0.24 nm、inpainting 0.20 nm。デトレンド
-        前は 3.93 nm）。また最近傍伝播は背景候補画素をそのまま保存するので、
+        高さ差がほぼゼロになるため、充填法の選択はほとんど効かない（チュニケートの
+        背景の 21 px の穴で、実測の高さからの外れは最近傍 0.30 nm、inpainting
+        0.27 nm。デトレンドしないとそれぞれ 2.5 nm と 1.7 nm。scripts/measure_docs.py
+        の bg_fill）。また最近傍伝播は背景候補画素をそのまま保存するので、
         明示的な復元処理を必要としない。
 
         The smoothed background is then obtained by Savitzky-Golay filtering.
@@ -1461,14 +1467,14 @@ class BGCalibrator:
 
         Notes
         -----
-        Second order rather than a plane because real scans are bowl-shaped as
-        well as tilted: on the bundled Bruker scan 32 nm of curvature remains
-        after the best-fit plane is removed. Fitting the quadratic reduced the
-        residual fill error across a fiber hole from 0.68 nm (plane) to 0.24 nm.
+        Second order rather than a plane because real scans can be bowl-shaped
+        as well as tilted: on the bundled Bruker scan the quadratic part left
+        after the best-fit plane spans 21.9 nm peak to peak
+        (scripts/measure_docs.py, bg_stats).
         平面ではなく 2 次にするのは、実際の走査が傾いているだけでなく皿状に
-        歪んでいるためである。同梱の Bruker 走査では最適平面を除去した後も
-        32 nm のうねりが残る。2 次でフィットすると、繊維の穴を跨ぐ充填残差が
-        0.68 nm（平面）から 0.24 nm へ減少した。
+        歪んでいることがあるためである。同梱の Bruker 走査では、最適平面を除いた
+        後に残る 2 次の成分の山谷が 21.9 nm ある（scripts/measure_docs.py の
+        bg_stats）。
 
         Coordinates are normalised to [-1, 1] before the quadratic terms are
         formed. On a 1024-px axis the raw-pixel design matrix has a condition

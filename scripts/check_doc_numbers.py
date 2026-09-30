@@ -107,6 +107,9 @@ _LIST_MARKER = re.compile(r"^(\s*(?:>\s*)?)\d+\.(?=\s)")
 _INLINE_CODE = re.compile(r"`[^`]*`")
 _INLINE_MATH = re.compile(r"\$[^$]+\$")
 _LINK_TARGET = re.compile(r"\]\([^)]*\)")
+# Any other HTML comment, such as a TODO(review) note: not rendered, not prose.
+# 印以外の HTML コメント（TODO(review) の注記など）。表示されず、本文ではない。
+_HTML_COMMENT = re.compile(r"<!--(?![mcxn]:).*?-->")
 # A written fraction such as 1/4: a definition ("a quarter"), not a result.
 # 1/4 のような分数。定義（「4 分の 1」）であって結果ではない。
 _FRACTION = re.compile(r"(?<![\w.])\d+/\d+(?![\w.])")
@@ -147,7 +150,8 @@ def prose_mask(line: str) -> str:
     列位置を保つため、印をその直前の数値と対応付けられる。
     """
     masked = _MARKER.sub(lambda m: "\0" * len(m.group(0)), line)
-    for pattern in (_INLINE_CODE, _INLINE_MATH, _LINK_TARGET, _VERSION, _SECTION, _FRACTION):
+    for pattern in (_HTML_COMMENT, _INLINE_CODE, _INLINE_MATH, _LINK_TARGET, _VERSION,
+                    _SECTION, _FRACTION):
         masked = pattern.sub(_blank, masked)
     return _LIST_MARKER.sub(
         lambda m: m.group(1) + " " * (len(m.group(0)) - len(m.group(1))), masked)
@@ -161,8 +165,22 @@ def scan(doc: str, text: str) -> List[Found]:
     found: List[Found] = []
     fence = False
     display_math = False
+    comment = False
     for line_no, line in enumerate(text.splitlines(), 1):
         stripped = line.strip()
+        # A plain HTML comment (not a source marker) may span lines; nothing in it is
+        # prose. Only what precedes its opening on the first line is scanned.
+        # 印ではない HTML コメントは複数行にわたることがあり、その中は本文ではない。
+        # 最初の行では、コメントが始まる前の部分だけを走査する。
+        if comment:
+            if "-->" in line:
+                comment = False
+            continue
+        opening = re.search(r"<!--(?![mcxn]:)", line)
+        if opening and "-->" not in line[opening.end():]:
+            comment = True
+            line = line[:opening.start()]
+            stripped = line.strip()
         if stripped.startswith("```"):
             fence = not fence
             continue
@@ -230,6 +248,12 @@ def _module_bindings(tree: ast.Module) -> Dict[str, ast.AST]:
             for target in stmt.targets:
                 if isinstance(target, ast.Name):
                     out[target.id] = stmt.value
+                elif isinstance(target, ast.Tuple) and isinstance(stmt.value, ast.Tuple) \
+                        and len(target.elts) == len(stmt.value.elts):
+                    # ``A, B = 1.0, 2.0`` binds each name to its own element.
+                    for name, value in zip(target.elts, stmt.value.elts):
+                        if isinstance(name, ast.Name):
+                            out[name.id] = value
         elif isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name) and stmt.value:
             out[stmt.target.id] = stmt.value
     return out
@@ -364,21 +388,36 @@ def stale_experiments(measurements: dict, used: set,
     out: Dict[str, List[str]] = {}
     snapshots = measurements.get("snapshots", {})
     paths = doc_excerpts.project_code_paths(ROOT)
+    # Every file is read and parsed once, and each (snapshot, module) pair is compared
+    # once: experiments share snapshots, and re-parsing the project per module made
+    # the check take minutes.
+    # 各ファイルは 1 回だけ読んで解析し、(スナップショット, モジュール) の組は 1 回だけ
+    # 比較する。実験はスナップショットを共有し、モジュールごとにプロジェクトを
+    # 解析し直すと検査に数分かかっていた。
+    sources = {p: read(p) for p in paths}
+    names = {p: doc_excerpts.names_used_in([s or ""]) for p, s in sources.items()}
+    compared: Dict[Tuple[str, str], List[str]] = {}
+
+    def changes_of(snap_id: str, rel: str, digests: Dict[str, str]) -> List[str]:
+        key = (snap_id, rel)
+        if key not in compared:
+            source = sources[rel] if rel in sources else read(rel)
+            if source is None:
+                compared[key] = [f"{rel} removed"]
+            else:
+                external = set().union(*(n for p, n in names.items() if p != rel))
+                found = doc_excerpts.computation_changes(digests, source, external)
+                compared[key] = [f"{rel}: {c}" for c in found[:3]]
+        return compared[key]
+
     for name in sorted(used):
         exp = measurements["experiments"].get(name)
         if exp is None or exp.get("historical"):
             continue
-        recorded = snapshots.get(exp.get("snapshot", ""), {})
+        snap_id = exp.get("snapshot", "")
         problems: List[str] = []
-        for rel, digests in sorted(recorded.items()):
-            source = read(rel)
-            if source is None:
-                problems.append(f"{rel} removed")
-                continue
-            others = [read(p) or "" for p in paths if p != rel]
-            changes = doc_excerpts.computation_changes(digests, source,
-                                                       doc_excerpts.names_used_in(others))
-            problems += [f"{rel}: {c}" for c in changes[:3]]
+        for rel, digests in sorted(snapshots.get(snap_id, {}).items()):
+            problems += changes_of(snap_id, rel, digests)
         if problems:
             out[name] = problems
     return out

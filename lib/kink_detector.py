@@ -107,14 +107,16 @@ _HEADING_SIGMA_WIDTHS = 0.25
 # returned separately so they can be shown as not judged, rather than hidden.
 # Alternatives 1.0 W, which raised the false detections from 64 to 80 without
 # finding another clear kink, and 2.0 W, which lowered them to 49 but no
-# longer judged synthetic corners 1.5-2 W from an end.
+# longer judged the synthetic corners 2 W from an end (scripts/measure_docs.py,
+# synthetic_kinks).
 # 線の端からこれより近くに中心がある折れは判定しない。そのとき片方の腕は、目視
 # 基準が折れを明瞭と呼ぶのに要した長さに満たない。またトラック端の多くは繊維の
 # 終端ではなく交差での切断であり（同梱スキャンでは 46〜68 % が分岐点から 3 px
 # 以内）、そこでは線が分岐部の裾とともに曲がる。こうした折れは隠さず、判定しな
 # かったものとして示せるよう別に返す。代替値は 1.0 W（明瞭なキンクを 1 件も
 # 増やさずに誤検出を 64 件から 80 件に増やした）と 2.0 W（誤検出を 49 件に減らした
-# が、端から 1.5〜2 W の合成コーナーを判定しなくなった）。
+# が、端から 2 W の合成コーナーを判定しなくなった。scripts/measure_docs.py の
+# synthetic_kinks）。
 # Public because `measure.fiber_kink_density` divides by the length that was
 # actually judged, which is the line less this margin at each end.
 # `measure.fiber_kink_density` が実際に判定した長さ（線から両端のこの余白を
