@@ -130,35 +130,85 @@ Two consequences follow, and they set the design of this whole stage:
    distortion becomes an error of the calibrated height itself and enters the
    later threshold tests.
 
-### 1.2 The shape shared by all three methods
+### 1.2 The flow of each method
 
-All three methods broadly follow the outline below, which is `trendfill` exactly:
+The three methods estimate the background in different ways. Their flows are
+drawn below; the name in parentheses on the right is the function that performs
+the step, and §1.3–§1.5 explain each step in detail.
+
+The **trend** is a smooth surface describing the slow tilt and bowing of the
+whole image. The **Savitzky–Golay filter** smooths data by fitting a polynomial
+within a small window slid along it.
+
+**`trendfill` (default, §1.3)** — excludes the fiber pixels from the background
+pool and builds the background by filling the holes from the nearest background
+pixel.
 
 ```text
-identify fiber pixels and exclude them from the background pool
-    -> fit and subtract a smooth trend surface        (detrend)
-    -> fill the excluded pixels
-    -> Savitzky-Golay smoothing
-    -> add the trend surface back                     (retrend)
-    -> subtract the result from the original
+original image
+ -> difference between neighbouring pixels                   (_difXY)
+ -> fit the difference histogram; mark steps too large for noise
+                                                             (_bg_fit, _dif_sep)
+ -> find fiber pixels from the pattern of marks              (_extract_fiber)
+ -> drop small components, dilate the mask                   (_bg_generate)
+ -> fit the trend surface to the background pixels of the cropped image
+ -> subtract the trend
+ -> fill fiber pixels from the nearest background pixel
+ -> Savitzky-Golay smoothing along X
+ -> add the trend back  => background bg_sm
+ -> subtract bg_sm from original[1:, 1:]                     (_bg_calibrate)
+ -> (3x3 median filter if apply_median)
 ```
 
-The other two depart from it as follows.
+**`tophat` (§1.4)** — identifies no fiber pixels; instead of filling, it removes
+the fibers with a morphological opening.
 
-- `tophat` (§1.4) identifies no fiber pixels. It fits the trend over every
-  pixel, opens the detrended image instead of filling it, and finally
-  re-centres the result on its median.
-- `spline1d` (§1.5) uses the same mask as `trendfill` and fills it with a
-  one-dimensional spline per line. It also changes the order: the trend is
-  added back **before** the Savitzky–Golay smoothing.
+```text
+original image
+ -> fit the trend surface to every pixel, fibers included
+ -> subtract the trend
+ -> opening with a disk, removing fibers narrower than the disk
+ -> Savitzky-Golay smoothing along X
+ -> add the trend back  => background bg_sm
+ -> subtract bg_sm[1:, 1:] from original[1:, 1:]
+ -> subtract the image median, returning the substrate to 0 nm
+ -> (3x3 median filter if apply_median)
+```
 
-All three then end with an optional 3<!--n:literal in the quoted code-->×3<!--n:literal in the quoted code--> median filter, enabled by
-`apply_median` (default off), which suppresses impulse-like residual noise at
-the cost of blunting the sharpest height features.
+**`spline1d` (§1.5)** — uses the same fiber mask as `trendfill` and fills the
+holes with a one-dimensional spline per scan line. The smoothing comes **after**
+the trend is added back.
 
-The trend is removed before the fill so that no filler has to reproduce the
-sample's tilt or distortion. The fitting is done by
-`BGCalibrator._fit_trend_surface`.
+```text
+original image
+ -> build the fiber mask exactly as trendfill does
+                                   (_detect_fiber_mask, _bg_generate)
+ -> fit the trend surface to the background pixels of the cropped image
+ -> subtract the trend
+ -> fill fiber pixels per line (rows by default) with a spline   (_spline1d_fill)
+      beyond a line's ends, hold the mean of its nearest background values
+ -> fill anything still empty from the nearest background pixel
+ -> add the trend back
+ -> Savitzky-Golay smoothing along X  => background bg_sm
+ -> subtract bg_sm from original[1:, 1:]
+ -> (3x3 median filter if apply_median)
+```
+
+What the three methods share is only this:
+
+- All fit the trend with `BGCalibrator._fit_trend_surface` (explained below)
+  and estimate the background on the detrended image.
+- All smooth along X (along the rows) only.
+- All subtract the background from the cropped `original[1:, 1:]` (see
+  "Conventions used throughout" above).
+- All can end with a 3<!--n:literal in the quoted code-->×3<!--n:literal in the quoted code--> median filter, enabled by `apply_median`
+  (default off), which suppresses impulse-like residual noise at the cost of
+  blunting the sharpest height features.
+
+`trendfill` and `spline1d` remove the trend before the fill so that neither
+filler has to reproduce the sample's tilt or distortion. `tophat` removes it
+first for a different reason: the opening cannot reproduce a tilt at the image
+border (§1.4).
 
 `_fit_trend_surface` fits a **second-order** surface, not a plane, because real
 scans can be bowl-shaped as well as tilted (§1.1). Coordinates are
@@ -1563,10 +1613,11 @@ in five steps:
    half-way between its base and its maximum** (the half maximum).
 4. A cross-section that cannot locate this one fiber is marked unreliable, and
    its offset is interpolated from the reliable points around it instead of
-   measured. That happens within $W$ of a branch point, where the section is
-   wider than $1.5\,W$ (two fibers side by side), where the maximum found does
-   not belong to the section the track lies on, and where the section is too
-   faint. The offsets are joined along the track by a smoother that penalizes
+   measured. That happens, for example, within $W$ of a branch point, where the
+   section is wider than $1.5\,W$ (two fibers side by side), where the maximum
+   found does not belong to the section the track lies on, where no
+   half-maximum crossing is found within the search window, and where the
+   section is too faint. The offsets are joined along the track by a smoother that penalizes
    the difference between neighbouring points (first differences; a Whittaker
    smoother), with the penalty set so that the smoothing scale is $W/4$.
 5. Each centerline point is placed at its frame point moved along the normal by
@@ -1981,7 +2032,8 @@ the lengths inside the procedure that measures $W$ — among them the range over
 which a cross-section is read (±12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px from the track) and the fallback
 used when $W$ cannot be measured, `centerline.FALLBACK_WIDTH_PX` (8<!--c:lib/centerline.py::FALLBACK_WIDTH_PX--> px) — and
 the sampling steps (0.25<!--c:lib/centerline.py::_WIDTH_STEP_PX--> px across a cross-section, 0.5<!--c:lib/kink_detector.py::_HEADING_STEP_PX--> px along the
-heading). `kink_decompose_px` is no longer used (§4.6).
+heading). `kink_decompose_px` is not used by this rule; only the polyline rule
+for format 1.0<!--n:bundle format version--> bundles uses it (§4.6).
 
 **A per-centerline noise floor (off by default).** A per-centerline noise
 floor is implemented (`NOISE_SIGMAS`, `KinkJudgement.noise_excess`): the robust
@@ -2117,7 +2169,8 @@ without re-analysing an image:
 
 - **Per-fiber measurement** — contour length, height statistics, straightness,
   curvature, kink density — lives in `lib/measure.py`, shared by GUI03, GUI04,
-  and `cli.py measure`. It reads every fiber along the centerline of §4.2,
+  and `cli.py measure`. It reads every fiber along the centerline of §4.2 (along
+  the skeleton track for a format 1.0<!--n:bundle format version--> bundle, as the table in §4.2 shows),
   which `fiber_tracking_image.FiberTrackingImage` rebuilds from the stored
   skeleton and heights when a bundle is opened. Two of its definitions follow
   from the stages above rather than from the centerline alone. Height statistics are taken
