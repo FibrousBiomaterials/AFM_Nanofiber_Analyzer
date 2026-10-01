@@ -239,10 +239,16 @@ dif_y = image[1:, :] - image[0:-1, :]
 return dif_x, dif_y
 ```
 
-`_bg_fit` histograms each difference image into 150<!--c:lib/bg_calibrator.py::BGCalibrator._bg_fit(bin_n)--> bins and fits a **Gaussian
-plus a linear baseline** with `lmfit`. The Gaussian is the *background*
-population: the noise of the substrate, centred near zero. The fiber flanks
-live in the tails. X and Y are fitted independently because the noise differs
+`_bg_fit` histograms each difference image into 150<!--c:lib/bg_calibrator.py::BGCalibrator._bg_fit(bin_n)--> bins, counting how often
+each difference value occurs. Most of the image is flat substrate, so most
+neighbouring-pixel differences are small, noise-sized values that pile up into a
+tall peak near zero. Where a step crosses a fiber flank the difference is large,
+so those values appear, sparsely, in the tails on either side of the peak. A
+**Gaussian plus a linear baseline** is fitted to this peak with `lmfit` to find
+its centre and width. Knowing the shape of the peak gives a yardstick for
+telling a difference too large for substrate noise (the next step, `_dif_sep`).
+
+X and Y are fitted independently because the noise differs
 between the two directions. An AFM measures one row at a time by moving the tip
 back and forth along a scan line (the fast-scan axis), and builds the image by
 advancing the scan line one at a time (the slow-scan axis). In the image the row
@@ -846,7 +852,11 @@ when a pixel size is known, because its settings are physical lengths.
    pixels. Working in physical units means one setting describes the same
    structure at any scan resolution.
 2. The response is thresholded by **hysteresis**, with the high level from
-   Otsu and the low level from the triangle method.
+   Otsu's method (the level at which the histogram splits into the two most
+   clearly separated groups) and the low level from the triangle method (draw
+   a line from the histogram's peak to the end of the distribution and take
+   the level where the histogram lies farthest from that line). The code uses
+   `skimage.filters.threshold_otsu` and `skimage.filters.threshold_triangle`.
 3. The already-accepted mask is subtracted **before** the connected-component
    pass, not after. Taking only whole candidate components that fail to touch
    the existing mask would discard a long fiber the moment it brushes the
@@ -953,11 +963,104 @@ image.ep = imp_tools.endPoints(nosmall_skeleton_image)
 image.bp = imp_tools.branchedPoints(nosmall_skeleton_image)
 ```
 
-### 3.1 How thinning works
+The sections below follow this code in order. Where each line is explained:
 
-**Code:** `skimage.morphology.thin`, called by `thin_ignoring_image_border`
-(§3.2); `skimage.morphology.skeletonize` re-thins the masks that §3.3 and §3.4
-edit.
+| Line | Explained in |
+|---|---|
+| `thin_ignoring_image_border(...)` | §3.1 (the thinning it calls is explained in §3.2) |
+| `set_low_bp_coor(...)`, `get_close_eps()`, `prune_branches(...)` | §3.3 |
+| `skeletonize(nobranch_image)` | The end of §3.3 (re-thinning after pruning) |
+| `collapse_skeleton_loops(...)` | §3.4 |
+| `prune_short_spurs(...)` | §3.5 |
+| `prune_terminal_hooks(...)` | §3.6 |
+| `remove_small_and_ring(...)` | §3.7 |
+| `imp_tools.endPoints(...)`, `imp_tools.branchedPoints(...)` | §3.8 |
+| `...` (omitted lines) | Keep the intermediate images as attributes (for inspection while tuning; `get_close_eps` reads the initial skeleton from there), and label the final skeleton's connected components into `label_image`, `nLabels` and `data` |
+
+### 3.1 The initial thinning — without letting the image border cut fibers
+
+The initial skeleton comes from `thin_ignoring_image_border`. The code runs in
+this order:
+
+1. Thin the mask as it is, and call the result `plain`.
+2. If the pad width `pad` (by default `DEFAULT_BORDER_PAD` = 12<!--c:lib/skeletonizer.py::DEFAULT_BORDER_PAD--> px) is 0<!--n:literal in the quoted code--> or
+   less, return `plain`.
+3. Pad the image by repeating its outermost pixel values `pad` pixels outward
+   (`np.pad` with `mode='edge'`), thin it, crop the padding off again, and call
+   the result `padded`.
+4. Find each connected component that has a skeleton in `plain` but none in
+   `padded`, and give only that component its `plain` result back. Everything
+   else keeps the `padded` result.
+
+**Why pad the image.** `skimage.morphology.thin` treats everything outside the
+image as background (§3.2), so it thins a fiber cut off by the image edge as a
+fiber that ends there. The thinned line runs through the middle of the shape,
+so at an end it bends to follow the shape of the end: at an obliquely cut end it
+bends toward a corner (`plain` in Figure 1<!--n:label-->). The fiber actually continues outside
+the image, so this bend is not a real kink. Repeating the edge pixel values
+outward makes the fiber continue past the edge, and the line then reaches the
+edge without bending (`padded` in Figure 1<!--n:label-->).
+
+![Thinning a fiber that crosses the image at an angle](images/thin_border_oblique.png)
+
+Figure 1<!--n:label-->: a synthetic height image of a fiber that crosses the whole image at an
+angle and leaves through the top and the bottom edge (the whole image is shown;
+the blue line is the image edge). Yellow is the mask edge (where the height falls
+to half), red the skeleton. In `plain` both ends of the line bend toward a corner
+of the cut (the left corner at the top, the right corner at the bottom); in
+`padded` both run straight along the crest to the edge. Drawn by
+`scripts/make_doc_figures.py` with the same computation as
+`thin_ignoring_image_border`.
+
+**The side effect of padding.** A narrow fiber lying along the image edge
+(left in panel 1<!--n:label--> of Figure 2<!--n:label-->) gets thicker outward when the edge pixels are
+repeated. The thinned line runs through the middle of the thickened blob, so it
+lands outside the original image, in the padding (panel 2<!--n:label-->). Cropping the
+padding off removes that line (panel 3<!--n:label-->).
+
+**What the restoring step does.** The last step returns only a component whose line disappeared like
+this to the result thinned without padding (`plain`) (panel 4<!--n:label-->). It restores
+per component rather than the whole image so that a fiber crossing the edge
+keeps the padded result (`padded`). This way the line of a fiber crossing the
+edge does not bend, and the line of a fiber along the edge does not disappear.
+
+**When it does not restore.** A thick blob along the edge keeps a line after
+padding, so it is not restored. Its line then differs in shape from the
+unpadded one, and the difference can reach farther from the edge than the
+padding width.
+
+![Thinning a fiber along the image edge and a fiber crossing it](images/thin_border_along_edge.png)
+
+Figure 2<!--n:label-->: a synthetic height image of a narrow fiber lying along the top edge
+(left) and a fiber crossing it (right); only the top of the image is shown, and
+the image edge (blue) is at the same height in all four panels. Panel 1<!--n:label--> is the
+image before padding. Panel 2<!--n:label--> is the padded image, with its top padding,
+thinned before the padding is cropped off; the dashed line is the original image
+edge, and the line of the fiber along the edge lies in the padding. Panel 3<!--n:label--> is
+the result with the padding cropped off (`padded`): that line is gone. Panel 4<!--n:label-->
+is what `thin_ignoring_image_border` returns: only the fiber along the edge is
+back to `plain`, and the crossing fiber keeps the straight `padded` line.
+Yellow is the mask edge, red the skeleton.
+
+```python
+# source: lib/skeletonizer.py::thin_ignoring_image_border
+mask = (np.asarray(binary_image) > 0).astype(np.uint8)
+plain = thin(mask).astype(np.uint8)
+if pad <= 0:
+    return plain
+extended = np.pad(mask, pad, mode='edge')
+padded = thin(extended).astype(np.uint8)[pad:-pad, pad:-pad]
+n_labels, labels = cv2.connectedComponents(mask)
+plain_counts = np.bincount(labels[plain > 0], minlength=n_labels)
+padded_counts = np.bincount(labels[padded > 0], minlength=n_labels)
+lost = np.nonzero((plain_counts > 0) & (padded_counts == 0))[0]
+lost = lost[lost != 0]
+if lost.size:
+    padded = np.where(np.isin(labels, lost), plain, padded).astype(np.uint8)
+return padded
+```
+
+### 3.2 How thinning works
 
 Thinning turns the binarized mask into a line one pixel wide by **peeling the
 mask from its boundary, one layer of pixels at a time**, until nothing more can
@@ -1018,7 +1121,7 @@ of that sub-iteration, so its deletions happen in parallel. The two
 sub-iterations alternate until a full iteration removes nothing. The judgement
 is a lookup in a 256<!--x:2 ** 8-->-entry table, one entry per neighbourhood, and the array is
 padded with background, so a fiber that leaves the scan is peeled at the
-border as if it ended there (§3.2).
+border as if it ended there (§3.1 pads the image to avoid this).
 
 On a 5<!--n:example-->-pixel-wide band with a one-pixel hole and a 2<!--n:example-->-pixel bump on its upper
 edge (left, `#` is fiber), `skimage.morphology.thin` returns the skeleton on the
@@ -1057,51 +1160,6 @@ deals with:
 Everything that uses height is added after thinning: the branch pruning of
 §3.3, the loop guard of §3.4, the hook trimming of §3.6, and the centerline of
 §4.2.
-
-`skimage.morphology.skeletonize` (by default for a 2<!--n:definition-->-D image, the thinning of
-Zhang and Suen, 1984<!--n:citation-->, *Comm. ACM* 27<!--n:citation-->(3<!--n:citation-->), 236–239<!--n:citation-->) is a different
-two-sub-iteration thinning. In this stage it is used only to re-thin a mask that §3.3 or §3.4
-has edited, which is one pixel wide except where it was edited: applied to the
-output of `skimage.morphology.thin` in the example above, it changes nothing.
-On a thick mask the two algorithms can differ (on the example mask they differ
-at the right end of the line), and the initial skeleton always comes from
-`skimage.morphology.thin`.
-
-### 3.2 Thin without letting the image border cut fibers
-
-`thin_ignoring_image_border` replicates the image border outward by
-`DEFAULT_BORDER_PAD` = 12<!--c:lib/skeletonizer.py::DEFAULT_BORDER_PAD--> px, thins, then crops back.
-
-`skimage.morphology.thin` treats everything outside the array as background, so
-a fiber leaving the field of view is a shape cut flat by the array edge, and
-the medial axis of such a truncated end turns toward the nearer corner of the
-cut, so the traced line drifts off the fiber crest at its end. Replicating the
-border extends those fibers outward instead of capping them, so the bend does
-not form.
-
-Replication can also inflate a blob lying *along* the border and move its axis:
-on a wide blob the axis moves even where it lies farther into the image than the
-border band, and on a narrow one it can be pushed out of the image. Any mask component the padded pass
-would leave without a skeleton keeps its plain thinning result. The correction
-never deletes a fiber.
-
-```python
-# source: lib/skeletonizer.py::thin_ignoring_image_border
-mask = (np.asarray(binary_image) > 0).astype(np.uint8)
-plain = thin(mask).astype(np.uint8)
-if pad <= 0:
-    return plain
-extended = np.pad(mask, pad, mode='edge')
-padded = thin(extended).astype(np.uint8)[pad:-pad, pad:-pad]
-n_labels, labels = cv2.connectedComponents(mask)
-plain_counts = np.bincount(labels[plain > 0], minlength=n_labels)
-padded_counts = np.bincount(labels[padded > 0], minlength=n_labels)
-lost = np.nonzero((plain_counts > 0) & (padded_counts == 0))[0]
-lost = lost[lost != 0]
-if lost.size:
-    padded = np.where(np.isin(labels, lost), plain, padded).astype(np.uint8)
-return padded
-```
 
 ### 3.3 Height-gated branch pruning
 
@@ -1202,13 +1260,26 @@ Two properties of this walk are deliberate:
 Endpoints within `branch_length` of the scan border are skipped: an arm ending
 that close to the edge is a fiber leaving the field of view, not a branch tip.
 
-The pruned mask is then re-skeletonized to restore one-pixel width.
+`prune_branches` subtracts the pixels of the branches chosen for pruning from
+the skeleton:
 
 ```python
 # source: lib/skeletonizer.py::Skeletonizer.prune_branches
 branches_image = self.calc_branches_image(calibrated_image, init_skeleton_image)
 return init_skeleton_image - branches_image
 ```
+
+`Skeletonizer.__call__` then re-thins the pruned mask with
+`skimage.morphology.skeletonize` to restore one-pixel width.
+`skimage.morphology.skeletonize` (by default for a 2<!--n:definition-->-D image, the thinning of
+Zhang and Suen, 1984<!--n:citation-->, *Comm. ACM* 27<!--n:citation-->(3<!--n:citation-->), 236–239<!--n:citation-->) is a different
+two-sub-iteration thinning from `skimage.morphology.thin`. In this stage it is
+used only here and in §3.4, to re-thin a mask that has been edited, which is one
+pixel wide except where it was edited: applied to the output of
+`skimage.morphology.thin` in the example of §3.2, it changes nothing. On a thick
+mask the two algorithms can differ (on the example mask of §3.2 they differ at
+the right end of the line), and the initial skeleton always comes from
+`skimage.morphology.thin` (§3.1).
 
 ### 3.4 Collapse loop artefacts
 

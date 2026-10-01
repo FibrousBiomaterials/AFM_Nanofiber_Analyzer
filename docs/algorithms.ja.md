@@ -58,7 +58,7 @@ docstring を除いたうえでハッシュ化して記録している。その�
 
 **解析結果の画素の位置は、元のスキャンから 1<!--n:definition--> 画素ずれる。** 背景補正（§1）は、
 元のスキャンの最初の行と最初の列を切り落とした画像 `original[1:, 1:]` から背景を
-引く。`trendfill` と `spline1d` は隣り合う画素の差をもとに背景を作るので、縦横とも
+引く。`trendfill` と `spline1d` は隣り合う画素の高さの差をもとに背景を作るので、縦横とも
 1<!--n:definition--> 画素小さくなる。`tophat` も、後の段階が同じ大きさの配列を受け取れるように、同じ
 形に切りそろえる。後の段階はすべてこの画像を使うので、解析結果の画素 $(r, c)$ は、
 元のスキャンの画素 $(r+1, c+1)$ にあたる。
@@ -245,17 +245,22 @@ dif_y = image[1:, :] - image[0:-1, :]
 return dif_x, dif_y
 ```
 
-`_bg_fit` は、差分画像ごとに差の値の分布を 150<!--c:lib/bg_calibrator.py::BGCalibrator._bg_fit(bin_n)--> 区間のヒストグラムにし、
-`lmfit` で**ガウス関数＋直線のベースライン**を当てはめる。ガウス関数の山が
-*背景*、つまりゼロ付近に集まる基板のノイズを表す。繊維の側面の差は、山から外れた
-裾のほうに出てくる。X と Y を別々に当てはめるのは、2<!--n:count--> つの方向でノイズの性質が違うからである。
+`_bg_fit` は、差分画像ごとに、高さの差の値がどのくらいの頻度で現れるかを 150<!--c:lib/bg_calibrator.py::BGCalibrator._bg_fit(bin_n)--> 区間の
+ヒストグラムにする。画像の大部分は平らな基板なので、隣り合う画素の差はほとんどが
+ノイズ程度の小さな値になり、ゼロ付近に高い山を作る。一方、繊維の斜面をまたぐ
+ところでは差が大きくなるので、山から離れた両側の裾に少しだけ現れる。この山に
+`lmfit` で**ガウス関数＋直線のベースライン**を当てはめ、山の中心と幅を求める。山の
+形が分かれば、それを基準に「基板のノイズにしては大きすぎる差」を見分けられる
+（次の `_dif_sep`）。
+
+X と Y を別々に当てはめるのは、2<!--n:count--> つの方向でノイズの性質が違うからである。
 AFM は、探針を 1<!--n:count--> 本の走査ラインに沿って往復させて（高速走査軸）1<!--n:count--> 行ずつ測り、
 その走査ラインを 1<!--n:count--> 本ずつ送って（低速走査軸）画像を作る。画像では通常、行の
 方向（X）が高速走査軸、列の方向（Y）が低速走査軸である。Y 方向に隣り合う画素は
-走査ライン 1<!--n:count--> 本分の時間をおいて測られるので、その差には、走査中のドリフトに
+走査ライン 1<!--n:count--> 本分の時間をおいて測られるので、その高さの差には、走査中のドリフトに
 よる走査ラインごとの高さのずれが加わる。
 
-ガウス関数の中心と幅の初期値には、差の中央値と、外れ値に強い幅の目安
+ガウス関数の中心と幅の初期値には、高さの差の中央値と、外れ値に強い幅の目安
 （四分位範囲を 1.349<!--n:literal in the quoted code--> で割った値）を使う。Y の当てはめは、同じコードを `dif_y`
 に対して実行する。
 
@@ -618,7 +623,7 @@ filled[last + 1:] = np.mean(line[valid_pos[-k:]])
 
 | `bg_method` | 使う場面 | 行う処理 |
 |---|---|---|
-| `trendfill`（既定） | ふつうはこれを使う。繊維を背景の候補から外すので、繊維そのものを削ってしまわない。 | 差の分布への当てはめ（`lmfit`）で繊維のマスクを作り、トレンドの当てはめ、穴埋め、平滑化を行う。 |
+| `trendfill`（既定） | ふつうはこれを使う。繊維を背景の候補から外すので、繊維そのものを削ってしまわない。 | 高さの差の分布への当てはめ（`lmfit`）で繊維のマスクを作り、トレンドの当てはめ、穴埋め、平滑化を行う。 |
 | `tophat` | 特殊な試料で、繊維のマスク作りが思いどおりに働かないとき。 | 繊維のマスクは作らず、トレンドの当てはめ、opening、平滑化だけを行う。 |
 | `spline1d` | ラインノイズ（フィードバックの不調、走査ラインごとの高さのずれ）が目立つスキャン。 | `trendfill` のマスク作りと `_bg_generate` をすべて実行したうえで、ラインごとの 1<!--n:definition--> 次元スプラインによる穴埋めを加える。 |
 
@@ -801,7 +806,7 @@ for i in range(1, n_labels):
 `_remove_connecting_fragments` は、マスクを一回り縮め（収縮）、面積が
 `area_min_connecting` px²（既定 3<!--c:lib/pipeline.py::ProcParams.area_min_connecting-->）以下のかたまりを消し、膨張で元の太さに
 戻してから closing をかける。ねらいは、幅 1<!--n:intent--> 画素の細い橋でつながった破片を
-切り離すことである。これが実行されるのは `apply_no_connecting` が真のときだけで、
+切り離すことである。これが実行されるのは `apply_no_connecting` が有効なときだけで、
 既定では**無効**である。
 
 ```python
@@ -842,7 +847,7 @@ return out_binary_image
 ### 2.6 リッジ回収（既定では無効）
 
 `_recover_missed_ridges` は、ここまでのしきい値処理が*丸ごと*見落とした繊維を
-拾うための、2<!--n:count--> 回目の探索である。`ridge_recovery` が真で、しかも画素の大きさが
+拾うための、2<!--n:count--> 回目の探索である。`ridge_recovery` が有効（既定では無効）で、しかも画素の大きさが
 分かっているときだけ実行する。設定値が実際の長さ（nm）で書かれているからで
 ある。
 
@@ -853,7 +858,11 @@ return out_binary_image
    同じ大きさの構造を指す。
 2. フィルタの出力を**ヒステリシス**（高いしきい値を超えた部分と、そこから
    低いしきい値の上でつながった部分を残す方法）で二値化する。高いしきい値は
-   大津法、低いしきい値は三角法で決める。
+   大津法（ヒストグラムを 2<!--n:count--> つのグループに分けたとき、2<!--n:count--> つが最もはっきり分かれる
+   位置をしきい値にする方法）、低いしきい値は三角法（ヒストグラムの山の頂点と
+   分布の端を直線で結び、その直線からヒストグラムがいちばん離れる位置をしきい値に
+   する方法）で決める。コードでは `skimage.filters.threshold_otsu` と
+   `skimage.filters.threshold_triangle` を使う。
 3. すでに繊維とされたマスクは、つながったかたまりに分ける**前に**差し引く。
    すでにあるマスクにまったく触れていないかたまりだけを拾うやり方だと、長い
    繊維は見つかっている網目に一点でも触れた途端に丸ごと捨てられる。しかも長い
@@ -865,9 +874,10 @@ return out_binary_image
 当時の数値を再現できるようにするためである。有効にすると、この段階の処理時間の
 大半を Frangi フィルタが占める。
 
-コードでは、いちばん小さいスケールは 0.6<!--n:literal in the quoted code--> px より小さくならず、いちばん大きい
-スケールはいちばん小さいスケールの 1.5<!--n:literal in the quoted code--> 倍以上になる。三角法で決めた値が大津法で決めた値
-より小さくならないときは、低いしきい値を高いしきい値の 0.3<!--n:literal in the quoted code--> 倍に置き換える。
+コードでは、スケールの範囲に次の制限を設けている。最小のスケールは 0.6<!--n:literal in the quoted code--> px 以上、
+最大のスケールは最小のスケールの 1.5<!--n:literal in the quoted code--> 倍以上にする。また、三角法で決めた低いしきい値が、
+大津法で決めた高いしきい値と同じか、それより大きくなったときは、低いしきい値を
+高いしきい値の 0.3<!--n:literal in the quoted code--> 倍に置き換える。
 
 ```python
 # source: lib/segmenter.py::Segmenter._recover_missed_ridges
@@ -924,10 +934,11 @@ closing で隣のかたまりとつながるようにするためである。
 
 この段階の目標は、繊維 1<!--n:count--> 本につき幅 1<!--n:definition--> 画素の線（スケルトン）を得ることである。
 難しいのは、細線化は*マスク*の形に忠実に従うのに、そのマスクには欠陥がある
-ことである。中の穴、幅のばらつき、繊維の先端の低い裾などである。こうした欠陥は
-どれも、スケルトンの上では枝分かれや輪になって現れる。後の段階の追跡は分岐点の
-たびに繊維を切るので、欠陥から生まれた分岐点は、単にノイズを増やすだけでは
-すまない。**本物の繊維をいくつもの断片に切ってしまう**。この段階の処理の大半は、
+ことである。中の穴、幅のばらつき、繊維の先端の低い裾などである。こうした欠陥は、
+どれもスケルトンの上では枝分かれや輪になって現れる。キンク検出の段階（§4.1）では、
+スケルトンを分岐点のところで切ってから、線を 1<!--n:count--> 本ずつたどる。そのため、欠陥から
+生まれた分岐点があると、単にノイズが増えるだけではすまず、**本物の繊維が
+いくつもの断片に切られてしまう**。この段階の処理の大半は、
 そうした切断を引き起こす欠陥を取り除くためのものである。
 
 `Skeletonizer.__call__` は次の処理を順に実行する。
@@ -960,11 +971,94 @@ image.ep = imp_tools.endPoints(nosmall_skeleton_image)
 image.bp = imp_tools.branchedPoints(nosmall_skeleton_image)
 ```
 
-### 3.1 細線化の仕組み
+以下の節は、このコードの順番に沿って説明する。各行と節の対応は次のとおりである。
 
-**コード:** `skimage.morphology.thin`（`thin_ignoring_image_border` が呼ぶ。
-§3.2）。§3.3 と §3.4 で手を加えたマスクは、`skimage.morphology.skeletonize` で
-もう一度細線化する。
+| コードの行 | 説明している節 |
+|---|---|
+| `thin_ignoring_image_border(...)` | §3.1（中で使う細線化の仕組みは §3.2） |
+| `set_low_bp_coor(...)`、`get_close_eps()`、`prune_branches(...)` | §3.3 |
+| `skeletonize(nobranch_image)` | §3.3 の最後（枝を刈った後にもう一度細線化する） |
+| `collapse_skeleton_loops(...)` | §3.4 |
+| `prune_short_spurs(...)` | §3.5 |
+| `prune_terminal_hooks(...)` | §3.6 |
+| `remove_small_and_ring(...)` | §3.7 |
+| `imp_tools.endPoints(...)`、`imp_tools.branchedPoints(...)` | §3.8 |
+| `...`（省略した行） | 途中の画像を属性に残す行（調整のときに確かめるためのもの。`get_close_eps` は最初のスケルトンをここから読む）と、最後のスケルトンをつながったかたまりに分けて `label_image`・`nLabels`・`data` に書く行 |
+
+### 3.1 最初の細線化 — 画像の端で繊維を切らない
+
+最初のスケルトンは `thin_ignoring_image_border` が作る。処理の順番は次のとおりである。
+
+1. マスクをそのまま細線化し、その結果を `plain` とする。
+2. 拡張する幅 `pad`（既定は `DEFAULT_BORDER_PAD` = 12<!--c:lib/skeletonizer.py::DEFAULT_BORDER_PAD--> px）が 0<!--n:literal in the quoted code--> 以下なら、`plain` を返して
+   終わる。
+3. 画像のいちばん外側の画素の値を、外へ `pad` 画素分くり返して並べて画像を拡張する
+   （`np.pad` の `mode='edge'`）。これを細線化してから拡張した部分を切り落とし、
+   その結果を `padded` とする。
+4. `plain` にはスケルトンがあるのに `padded` ではスケルトンが消えたかたまりを探し、
+   そのかたまりだけ `plain` の結果に戻す。それ以外は `padded` の結果を使う。
+
+**なぜ画像を拡張するのか。** `skimage.morphology.thin` は画像の外を背景とみなす
+（§3.2）。そのため、画像の端で切れている繊維を「そこで終わっている繊維」として
+細線化する。細線化の線はかたまりの真ん中を通るので、終わっている先端では、線は
+先端の形に合わせて曲がる。斜めに切られた先端なら、線は角のほうへ曲がる（図 1<!--n:label--> の
+`plain`）。実際には繊維は画像の外へ続いているので、この曲がりは本物の折れでは
+ない。画像の外側に端の画素の値をくり返して並べ、繊維が外へ続いているように
+すれば、線は曲がらずに画像の端まで届く（図 1<!--n:label--> の `padded`）。
+
+![画像を斜めに横切る繊維の細線化](images/thin_border_oblique.png)
+
+図 1<!--n:label-->: 画像全体を斜めに横切り、上端と下端から外へ出る繊維の合成高さ画像（画像
+全体を表示。青線が画像の端）。黄線はマスクの縁（高さが半分になる位置）、赤は
+スケルトン。`plain` では線の両端が切り口の角へ曲がる（上端では左の角、下端では
+右の角）。`padded` では、どちらの端でも尾根の上をまっすぐ画像の端まで届く。
+`scripts/make_doc_figures.py` が、実際の `thin_ignoring_image_border` と同じ計算で
+描く。
+
+**拡張すると起きる副作用。** 画像の端に沿って横たわる細い繊維（図 2<!--n:label--> の 1<!--n:label--> 枚目の左）は、
+拡張すると端の画素がくり返されて、外側へ太くなる。細線化の線は太くなったかたまりの
+真ん中を通るので、元の画像の外（拡張した部分）に出てしまう（2<!--n:label--> 枚目）。拡張した
+部分を切り落とすと、この線は消える（3<!--n:label--> 枚目）。
+
+**元に戻す処理の役目。** 最後の処理は、このように線が消えたかたまりだけを、拡張せずに
+細線化した結果（`plain`）に戻す（4<!--n:label--> 枚目）。画像全体を戻さずかたまりごとに戻すのは、
+端を横切る繊維では拡張した結果（`padded`）を使い続けるためである。こうして、端を
+横切る繊維の線は曲がらず、端に沿った繊維の線も消えない。
+
+**戻さない場合。** 端に沿ったかたまりでも、太いものは拡張しても線が残るので、
+元には戻さない。このとき線の形は拡張しなかった場合と変わり、その違いは
+画像の端から拡張した幅より奥まで及ぶことがある。
+
+![画像の端に沿った繊維と端を横切る繊維の細線化](images/thin_border_along_edge.png)
+
+図 2<!--n:label-->: 画像の上端に沿って横たわる細い繊維（左）と、上端を横切る繊維（右）の合成高さ
+画像。上端付近だけを表示している。4<!--n:count--> 枚とも画像の端（青線）の高さをそろえてある。
+1<!--n:label--> 枚目は拡張する前の画像。2<!--n:label--> 枚目は、拡張した画像を、拡張した上の部分ごと、切り落とす
+前の状態で細線化したもので、破線が元の画像の端である。沿った繊維の線は拡張した
+部分の中に出ている。3<!--n:label--> 枚目は拡張した部分を切り落とした結果（`padded`）で、沿った繊維の線が
+消えている。4<!--n:label--> 枚目は `thin_ignoring_image_border` が返す結果で、沿った繊維だけが
+`plain` に戻り、横切る繊維は `padded` の曲がらない線のままである。黄線はマスクの縁、
+赤はスケルトン。
+
+```python
+# source: lib/skeletonizer.py::thin_ignoring_image_border
+mask = (np.asarray(binary_image) > 0).astype(np.uint8)
+plain = thin(mask).astype(np.uint8)
+if pad <= 0:
+    return plain
+extended = np.pad(mask, pad, mode='edge')
+padded = thin(extended).astype(np.uint8)[pad:-pad, pad:-pad]
+n_labels, labels = cv2.connectedComponents(mask)
+plain_counts = np.bincount(labels[plain > 0], minlength=n_labels)
+padded_counts = np.bincount(labels[padded > 0], minlength=n_labels)
+lost = np.nonzero((plain_counts > 0) & (padded_counts == 0))[0]
+lost = lost[lost != 0]
+if lost.size:
+    padded = np.where(np.isin(labels, lost), plain, padded).astype(np.uint8)
+return padded
+```
+
+### 3.2 細線化の仕組み
 
 細線化は、二値化したマスクを**外側から 1<!--n:definition--> 画素分の皮を順にはがしていき**、
 それ以上はがせなくなったところで止める。こうして幅 1<!--n:definition--> 画素の線ができる。
@@ -1024,7 +1118,8 @@ $(x_6 \lor x_7 \lor \lnot x_4) \land x_5 = 0$ を求める。塗りつぶした�
 交互に繰り返し、1<!--n:count--> 回の反復で何も消えなくなったら終わる。判定は、周りの画素の
 並び方 256<!--x:2 ** 8--> 通りのそれぞれについて「消す／消さない」を書いた表を引くだけで
 ある。配列の外側は背景として扱う。そのため、スキャンの範囲の外へ続いている
-繊維も、画像の端で終わっているものとしてはがされる（§3.2）。
+繊維も、画像の端で終わっているものとしてはがされる（§3.1 はこれを避けるために
+画像を拡張する）。
 
 幅 5<!--n:example--> 画素の帯に、1<!--n:example--> 画素の穴と、上の辺から 2<!--n:example--> 画素突き出た出っ張りを付けたマスク
 （左。`#` が繊維）に `skimage.morphology.thin` をかけると、右のスケルトンになる。
@@ -1061,51 +1156,6 @@ mask                        thin
 
 高さを使う処理は、すべて細線化の後に加えている。§3.3 の枝刈り、§3.4 のループの
 高さチェック、§3.6 のフック切除、そして §4.2 の中心線である。
-
-`skimage.morphology.skeletonize`（2<!--n:definition--> 次元の画像では、既定で Zhang と Suen の細線化。
-1984<!--n:citation-->、*Comm. ACM* 27<!--n:citation-->(3<!--n:citation-->), 236–239<!--n:citation-->）は、やはり 2<!--n:count--> つのサブ反復からなる、別の
-細線化である。この段階でこれを使うのは、§3.3 と §3.4 が手を加えたマスクを
-もう一度細線化するときだけである。そのマスクは、手を加えた場所以外はすでに
-幅 1<!--n:definition--> 画素になっている。上の例の `skimage.morphology.thin` の結果にかけても、
-何も変わらない。ただし太いマスクでは 2<!--n:count--> つの結果が違うことがある（上の例のマスク
-では線の右端が違う）。そのため、最初のスケルトンは必ず
-`skimage.morphology.thin` で作る。
-
-### 3.2 画像端で繊維を切らずに細線化する
-
-`thin_ignoring_image_border` は、画像の端の画素を `DEFAULT_BORDER_PAD` = 12<!--c:lib/skeletonizer.py::DEFAULT_BORDER_PAD--> px 分
-外側へ書き写して画像を広げ、細線化してから、広げた分を切り落とす。
-
-`skimage.morphology.thin` は配列の外側をすべて背景として扱う。そのため、画像の
-外へ抜けていく繊維は、画像の端でスパッと切られた形になる。すると、その切り口の
-中心軸は、切り口の近いほうの角へ向かって曲がり、線は繊維の端で尾根から外れて
-しまう。端の画素を外側へ書き写せば、繊維は端で切られずに外側へ延びるので、
-この曲がりは起きない。
-
-ただし書き写すと、端を横切らずに端に*沿って*延びているかたまりが太くなり、
-その中心軸が動くことがある。幅の広いかたまりでは、書き写した帯より内側（画像の
-中央寄り）にある軸まで動く。幅の狭いかたまりでは、軸が画像の外に押し出されて
-しまうことさえある。そこで、広げた版で細線化するとスケルトンが消えてしまう
-かたまりについては、広げずに細線化した結果を使う。この手直しで繊維が
-失われることはない。
-
-```python
-# source: lib/skeletonizer.py::thin_ignoring_image_border
-mask = (np.asarray(binary_image) > 0).astype(np.uint8)
-plain = thin(mask).astype(np.uint8)
-if pad <= 0:
-    return plain
-extended = np.pad(mask, pad, mode='edge')
-padded = thin(extended).astype(np.uint8)[pad:-pad, pad:-pad]
-n_labels, labels = cv2.connectedComponents(mask)
-plain_counts = np.bincount(labels[plain > 0], minlength=n_labels)
-padded_counts = np.bincount(labels[padded > 0], minlength=n_labels)
-lost = np.nonzero((plain_counts > 0) & (padded_counts == 0))[0]
-lost = lost[lost != 0]
-if lost.size:
-    padded = np.where(np.isin(labels, lost), plain, padded).astype(np.uint8)
-return padded
-```
 
 ### 3.3 高さゲート付きの枝刈り
 
@@ -1205,13 +1255,23 @@ for start_x, start_y in zip(starts_x, starts_y):
 画像の端から `branch_length` 以内にある端点は調べない。端の近くで終わる腕は、枝の
 先ではなく、画像の外へ抜けていく繊維だからである。
 
-枝を刈った後のマスクは、もう一度細線化して幅 1<!--n:definition--> 画素に戻す。
+`prune_branches` は、刈ると決めた枝の画素をスケルトンから引く。
 
 ```python
 # source: lib/skeletonizer.py::Skeletonizer.prune_branches
 branches_image = self.calc_branches_image(calibrated_image, init_skeleton_image)
 return init_skeleton_image - branches_image
 ```
+
+枝を刈った後のマスクは、`Skeletonizer.__call__` が `skimage.morphology.skeletonize` で
+もう一度細線化して、幅 1<!--n:definition--> 画素に戻す。`skimage.morphology.skeletonize`（2<!--n:definition--> 次元の画像では、
+既定で Zhang と Suen の細線化。1984<!--n:citation-->、*Comm. ACM* 27<!--n:citation-->(3<!--n:citation-->), 236–239<!--n:citation-->）は、
+`skimage.morphology.thin` と同じく 2<!--n:count--> つのサブ反復からなる、別の細線化である。この
+段階でこれを使うのは、ここと §3.4 の、手を加えたマスクをもう一度細線化するところ
+だけである。そのマスクは、手を加えた場所以外はすでに幅 1<!--n:definition--> 画素になっている。
+§3.2 の例の `skimage.morphology.thin` の結果にかけても、何も変わらない。ただし太い
+マスクでは 2<!--n:count--> つの結果が違うことがある（§3.2 の例のマスクでは線の右端が違う）。
+そのため、最初のスケルトンは必ず `skimage.morphology.thin` で作る（§3.1）。
 
 ### 3.4 ループアーティファクトを潰す
 
