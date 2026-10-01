@@ -22,8 +22,8 @@ named on this page is checked against the source by
 `tests/test_algorithm_docs.py` on every run of the test suite, so a rename or
 removal fails the build rather than silently leaving this page wrong.
 
-Each step is also shown **with the code that performs it**. The one exception
-is the centerline steps of §4.2: the same code is quoted in
+Each computation is also shown **with the code that performs it**. The one exception
+is the centerline placement of §4.2: the same code is quoted in
 [GUI04 fiber measurements](gui04_measurements.md) §2, so only the entry
 function is quoted here. Every code block starts with a header naming where it
 comes from:
@@ -56,11 +56,13 @@ quietly drift away from the code it describes.
 | Angles | radians inside kink detection, degrees in the parameter file | `pipeline.build_stages` converts `kinkangle_deg` to radians when it constructs `KinkDetector`. |
 | Array indexing | `image[row, column]`, i.e. `[y, x]` | Several helpers return `np.where` output, where the first array is the row index. |
 
-**The one-pixel crop.** Background correction is built on first differences
-between neighbouring pixels, so its output is one pixel smaller on each axis
-than the input: `BGCalibrator._bg_calibrate` returns `original[1:, 1:] - bg_sm`.
-Every later stage works on that cropped array. A feature reported at pixel
-$(r, c)$ of the analysis therefore sits at pixel $(r+1, c+1)$ of the raw scan.
+**Analysis pixels are offset by one pixel from the raw scan.** Background
+correction (§1) subtracts the background from `original[1:, 1:]`, the raw scan
+with its first row and first column cut off. `trendfill` and `spline1d` build
+the background from differences between neighbouring pixels, which makes it one
+pixel smaller on each axis; `tophat` crops to the same shape so that the later
+stages receive the same array size. Every later stage works on that cropped
+array, so pixel $(r, c)$ of the analysis is pixel $(r+1, c+1)$ of the raw scan.
 
 **Parameters.** Every user-settable value below is a field of
 `pipeline.ProcParams`, saved beside each bundle as `<input_stem>_param.json`.
@@ -130,85 +132,24 @@ Two consequences follow, and they set the design of this whole stage:
    distortion becomes an error of the calibrated height itself and enters the
    later threshold tests.
 
-### 1.2 The flow of each method
+### 1.2 Processing shared by the three methods
 
-The three methods estimate the background in different ways. Their flows are
-drawn below; the name in parentheses on the right is the function that performs
-the step, and §1.3–§1.5 explain each step in detail.
+The methods estimate the background in different ways, which §1.3–§1.5 explain
+one method at a time. This section covers only what every method uses.
 
-The **trend** is a smooth surface describing the slow tilt and bowing of the
-whole image. The **Savitzky–Golay filter** smooths data by fitting a polynomial
-within a small window slid along it.
+**Savitzky–Golay smoothing.** The Savitzky–Golay filter smooths data by fitting
+a polynomial within a small window slid along it. Every method smooths its
+estimated background with this filter, along X (along the rows) only.
 
-**`trendfill` (default, §1.3)** — excludes the fiber pixels from the background
-pool and builds the background by filling the holes from the nearest background
-pixel.
+**The final median filter (optional).** Every method can apply a 3<!--n:literal in the quoted code-->×3<!--n:literal in the quoted code--> median
+filter to the background-subtracted image, enabled by `apply_median` (default
+off). It suppresses impulse-like residual noise at the cost of blunting the
+sharpest height features.
 
-```text
-original image
- -> difference between neighbouring pixels                   (_difXY)
- -> fit the difference histogram; mark steps too large for noise
-                                                             (_bg_fit, _dif_sep)
- -> find fiber pixels from the pattern of marks              (_extract_fiber)
- -> drop small components, dilate the mask                   (_bg_generate)
- -> fit the trend surface to the background pixels of the cropped image
- -> subtract the trend
- -> fill fiber pixels from the nearest background pixel
- -> Savitzky-Golay smoothing along X
- -> add the trend back  => background bg_sm
- -> subtract bg_sm from original[1:, 1:]                     (_bg_calibrate)
- -> (3x3 median filter if apply_median)
-```
-
-**`tophat` (§1.4)** — identifies no fiber pixels; instead of filling, it removes
-the fibers with a morphological opening.
-
-```text
-original image
- -> fit the trend surface to every pixel, fibers included
- -> subtract the trend
- -> opening with a disk, removing fibers narrower than the disk
- -> Savitzky-Golay smoothing along X
- -> add the trend back  => background bg_sm
- -> subtract bg_sm[1:, 1:] from original[1:, 1:]
- -> subtract the image median, returning the substrate to 0 nm
- -> (3x3 median filter if apply_median)
-```
-
-**`spline1d` (§1.5)** — uses the same fiber mask as `trendfill` and fills the
-holes with a one-dimensional spline per scan line. The smoothing comes **after**
-the trend is added back.
-
-```text
-original image
- -> build the fiber mask exactly as trendfill does
-                                   (_detect_fiber_mask, _bg_generate)
- -> fit the trend surface to the background pixels of the cropped image
- -> subtract the trend
- -> fill fiber pixels per line (rows by default) with a spline   (_spline1d_fill)
-      beyond a line's ends, hold the mean of its nearest background values
- -> fill anything still empty from the nearest background pixel
- -> add the trend back
- -> Savitzky-Golay smoothing along X  => background bg_sm
- -> subtract bg_sm from original[1:, 1:]
- -> (3x3 median filter if apply_median)
-```
-
-What the three methods share is only this:
-
-- All fit the trend with `BGCalibrator._fit_trend_surface` (explained below)
-  and estimate the background on the detrended image.
-- All smooth along X (along the rows) only.
-- All subtract the background from the cropped `original[1:, 1:]` (see
-  "Conventions used throughout" above).
-- All can end with a 3<!--n:literal in the quoted code-->×3<!--n:literal in the quoted code--> median filter, enabled by `apply_median`
-  (default off), which suppresses impulse-like residual noise at the cost of
-  blunting the sharpest height features.
-
-`trendfill` and `spline1d` remove the trend before the fill so that neither
-filler has to reproduce the sample's tilt or distortion. `tophat` removes it
-first for a different reason: the opening cannot reproduce a tilt at the image
-border (§1.4).
+**Fitting the trend.** The trend is a smooth surface describing the slow tilt
+and bowing of the whole image. Every method subtracts it from the image before
+estimating the background and adds it back afterwards. The fitting is done by
+`BGCalibrator._fit_trend_surface`.
 
 `_fit_trend_surface` fits a **second-order** surface, not a plane, because real
 scans can be bowl-shaped as well as tilted (§1.1). Coordinates are
@@ -252,7 +193,7 @@ Named for what it does: subtract the trend, fill the holes. A parameter file
 that records the retired spelling `inpaint` keeps running, because
 `bg_calibrator.BG_METHOD_ALIASES` translates it to the current name.
 
-`_call_trendfill` runs the three steps below in order:
+`_call_trendfill` makes these calls:
 
 ```python
 # source: lib/bg_calibrator.py::BGCalibrator._call_trendfill
@@ -264,6 +205,16 @@ if self.apply_median:
     calibrated_image = cv2.medianBlur(calibrated_image.astype(np.float32), ksize=3)
 image.calibrated_image = calibrated_image
 ```
+
+Where each line is explained:
+
+| Line | Explained in |
+|---|---|
+| `_detect_fiber_mask(...)` | Step 1<!--n:label--> (finding the fiber pixels) |
+| `_bg_generate(...)` | Step 2<!--n:label--> (cleaning and dilating the mask) and the part of Step 3<!--n:label--> that builds the background (detrend, fill, smooth, retrend) |
+| `...` (omitted lines) | Sets the other methods' intermediates `bg_open` and `bg_spline1d` to `None`, so values left by an earlier run of another method cannot be read by mistake (the same reason as at the end of §1.4) |
+| `_bg_calibrate(...)` | The end of Step 3<!--n:label--> (subtracting the background from the original) |
+| `if self.apply_median:` onward | "The final median filter (optional)" in §1.2 |
 
 #### Step 1 — Find the fiber pixels from gradient statistics
 
@@ -291,8 +242,14 @@ return dif_x, dif_y
 `_bg_fit` histograms each difference image into 150<!--c:lib/bg_calibrator.py::BGCalibrator._bg_fit(bin_n)--> bins and fits a **Gaussian
 plus a linear baseline** with `lmfit`. The Gaussian is the *background*
 population: the noise of the substrate, centred near zero. The fiber flanks
-live in the tails. X and Y are fitted independently because the AFM slow-scan
-axis has different noise characteristics and typically a broader $\sigma$.
+live in the tails. X and Y are fitted independently because the noise differs
+between the two directions. An AFM measures one row at a time by moving the tip
+back and forth along a scan line (the fast-scan axis), and builds the image by
+advancing the scan line one at a time (the slow-scan axis). In the image the row
+direction (X) is usually the fast-scan axis and the column direction (Y) the
+slow-scan axis. Pixels adjacent in Y are measured one scan-line time apart, so
+their difference also carries the line-to-line height offsets that drift during
+the scan produces.
 
 The Gaussian's centre and width start from the median of the differences and
 a robust width (the interquartile range divided by 1.349<!--n:literal in the quoted code-->). The Y fit is the
@@ -438,6 +395,10 @@ else:
 
 #### Step 3 — Fill, smooth, subtract
 
+Before the fill, the trend fitted to the background pixels only (§1.2) is
+subtracted from the image, so that the fill does not have to reproduce the
+sample's tilt or distortion.
+
 The masked pixels are filled from their **nearest background-candidate pixel**,
 found with `scipy.ndimage.distance_transform_edt`. Because a background pixel's
 nearest background pixel is itself, this preserves the real data exactly and
@@ -480,9 +441,30 @@ return height_bgcalib
 `_call_tophat` estimates the background as a morphological **opening** with a
 disk-shaped structuring element (a `cv2.MORPH_ELLIPSE` with equal axes) of
 diameter `tophat_se_size` (default 25<!--c:lib/pipeline.py::ProcParams.tophat_se_size--> px).
-The opening removes bright structures narrower than the disk, so what survives
-is the background; the residual `original - opening` is the classic white
-top-hat transform.
+
+An opening is two steps run one after the other. It removes narrow bumps and
+leaves everything else as it was.
+
+1. **Minimum filter (erosion).** Each pixel is replaced by the lowest value
+   inside the disk around it. A peak narrower than the disk is replaced by the
+   low values beside it and disappears; a wider peak only loses its rim.
+2. **Maximum filter (dilation).** Each pixel is replaced by the highest value
+   inside the disk around it. The rim of the wide peak comes back; the narrow
+   peak removed in step 1<!--n:label--> is gone and does not.
+
+An example on one row of values, with a window 3<!--n:example--> pixels wide:
+
+```text
+                       narrow peak (width 2)   wide peak (width 4)
+original values        0 0 5 5 0 0             0 5 5 5 5 0
+after minimum filter   0 0 0 0 0 0             0 0 5 5 0 0
+after maximum filter   0 0 0 0 0 0             0 5 5 5 5 0
+                       removed                 restored
+```
+
+Here the fibers are the peaks narrower than the disk: the opening removes them
+and leaves the substrate, which is taken as the background. The residual
+`original - opening` is the classic white top-hat transform.
 
 Here the trend surface is fitted over every pixel, fibers included, and the
 opening is taken of the detrended image and smoothed along X before the trend is
@@ -508,13 +490,24 @@ calibrated_image = original[1:, 1:] - self.bg_sm[1:, 1:]
 calibrated_image -= np.median(calibrated_image)
 ```
 
+Where each line is explained:
+
+| Line | Explained in |
+|---|---|
+| `se = ...` | Builds the disk of diameter `tophat_se_size` (the start of this section) |
+| `bg_trend = ...` | Fits the trend to every pixel, fibers included ("Fitting the trend" in §1.2) |
+| `opened_detrended = ...` | Opens the detrended image ("It removes the tilt (the trend) before opening" below) |
+| `self.bg_open = ...` | The opening with the trend restored. Kept only so the intermediate result can be inspected while tuning; nothing after it uses it |
+| `self.bg_sm = ...` | Smooths along X with the Savitzky–Golay filter and restores the trend, giving the background (§1.2) |
+| `calibrated_image = ...` | Subtracts the background from the original; why the first row and column are cut off is under "Conventions used throughout" |
+| `calibrated_image -= ...` | Subtracts the image median ("It re-centres by the median afterwards" below) |
+
 Two details are not optional:
 
-**It opens a detrended copy.** Opening reproduces a plane in the image
-interior, but not within one structuring-element radius of the border, because
-erosion there takes its minimum from a clipped neighbourhood that dilation
-cannot restore. It detrends first to remove the tilt this border effect feeds
-on.
+**It removes the tilt (the trend) before opening.** Opening an image that is
+still tilted shifts the values within one disk radius of the border: there the
+disk sticks out of the image, the minimum filter takes its minimum from the
+part that remains inside, and the maximum filter cannot restore the result.
 
 **It re-centres by the median afterwards.** An opening is a *lower-envelope*
 estimator: over a noisy substrate it tracks the local noise minima, so after
@@ -538,8 +531,13 @@ along the axis named by `spline1d_axis`. With `'x'` a line is one image
 samples only, so the filled background keeps the level specific to that line.
 In the usual geometry, where the rows are the fast-scan axis, an `'x'` line is
 a scan line itself, and the level it keeps is the scan-line offset (the
-horizontal stripes a drifting feedback loop produces). On either axis, the
+horizontal stripes that drift during the scan produces). On either axis, the
 Savitzky–Golay smoothing that follows acts along X (along the rows) only.
+
+As in `trendfill`, the trend fitted to the background pixels is subtracted
+before the fill, so that the filler does not have to reproduce the sample's
+tilt or distortion. The order differs from `trendfill`, though: the trend is
+added back **before** the Savitzky–Golay smoothing.
 
 The default axis is `'x'`. A line with fewer than `spline1d_degree` + 1<!--n:literal in the quoted code--> valid
 samples, or a degree below 2<!--n:literal in the quoted code-->, is filled linearly instead.
@@ -582,6 +580,20 @@ bg_int = bg_int + bg_trend
 self.bg_sm = signal.savgol_filter(bg_int, self.savgol_window, self.savgol_polyorder)
 calibrated_image = original[1:, 1:] - self.bg_sm
 ```
+
+Where each line is explained:
+
+| Line | Explained in |
+|---|---|
+| `_detect_fiber_mask(...)`, `_bg_generate(...)` | Build the same fiber mask as `trendfill` (§1.3, Steps 1<!--n:label--> and 2<!--n:label-->). The background `_bg_generate` builds is discarded; only which pixels are background (`bg_only`) is used |
+| the first `...` (omitted lines) | Sets the other method's intermediate `bg_open` to `None`, and prepares `crop`, the image with its first row and column cut off, and `valid_mask`, which marks the background pixels. With no background pixel at all, the trend and the background are both zero everywhere |
+| `bg_trend = ...`, `detrended = ...` | Fits the trend to the background pixels only and subtracts it, leaving the fiber pixels empty (NaN) (the paragraph of this section on removing the trend first) |
+| `bg_int = self._spline1d_fill(...)` | Fills each line with a spline and holds a constant level at its ends (the first paragraph of this section and the paragraph on line ends; the `_spline1d_fill` code below) |
+| `unfilled = ...` through the end of `if unfilled.any():` | Fills anything still empty from the nearest background pixel in 2<!--n:definition-->-D (the end of the paragraph on line ends) |
+| `bg_int = bg_int + bg_trend` | Adds the trend back **before** the smoothing (the paragraph on removing the trend first) |
+| the second `...` (omitted line) | Keeps the background before smoothing as the intermediate `bg_spline1d` |
+| `self.bg_sm = ...` | Smooths along X with the Savitzky–Golay filter (§1.2) |
+| `calibrated_image = ...` | Subtracts the background from the original ("Conventions used throughout") |
 
 ```python
 # source: lib/bg_calibrator.py::BGCalibrator._spline1d_fill
@@ -884,10 +896,16 @@ return np.isin(labels, keep)
 
 ### 2.7 Closing
 
-Finally a morphological closing (`skimage.morphology.closing` with its default
-cross-shaped footprint) is applied. Ridge recovery runs *before* it
-deliberately, so a recovered segment ending next to an existing component is
-bridged into it rather than left as a separate short fiber.
+Finally a closing is applied to the mask. A closing is the opening of §1.4 in
+the opposite order: the maximum filter (dilation) first, then the minimum
+filter (erosion). The mask is thickened and then thinned by the same amount, so
+only the small gaps and notches that closed up while it was thick stay filled.
+It is `skimage.morphology.closing` with its default cross-shaped footprint.
+
+Ridge recovery (§2.6) runs *before* the closing deliberately. A recovered
+segment can end right next to an existing component; this way the closing
+bridges it into that component rather than leaving it as a separate short
+fiber.
 
 ---
 
