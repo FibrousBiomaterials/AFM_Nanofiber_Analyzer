@@ -238,7 +238,7 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 60<!--m:turn_maxima.with.found--> 件から 56<!--m:turn_maxima.without.found--> 件に減り、一致しない折れは 64<!--m:turn_maxima.with.false--> 件から 47<!--m:turn_maxima.without.false--> 件に減った（実験
 turn_maxima）。
 
-### 4.5 報告する角度
+### 4.5 キンクとして保存する角度
 
 鋭い合成コーナーでは、探針と中心線が頂点を丸めるため、超過回転は実際より
 小さく読まれた。

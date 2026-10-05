@@ -803,11 +803,11 @@ class KinkDetector:
                 continue
             taken.add(index)
             if margin <= p <= length - margin:
-                # The angle reported is the one between the arms beside the
-                # window, not pi minus the excess: the excess is what was
-                # tested, the arm angle is what the fiber's geometry is.
-                # 報告する角度は窓の脇の腕のなす角であり、pi から超過を引いた
-                # ものではない。超過は検定した量、腕の角は繊維の幾何である。
+                # The angle stored for the kink is the one between the arms
+                # beside the window, not pi minus the excess: the excess is what
+                # was tested, the arm angle is what the fiber's geometry is.
+                # キンクとして保存する角度は窓の脇の腕のなす角であり、pi から
+                # 超過を引いたものではない。超過は検定した量、腕の角は繊維の幾何である。
                 before = [q for q in positions if q < p]
                 after = [q for q in positions if q > p]
                 angle = _arm_interior_angle(

@@ -251,7 +251,7 @@ Without the candidates taken from the maxima of the window turning itself, the
 rule found 56<!--m:turn_maxima.without.found--> instead of 60<!--m:turn_maxima.with.found--> of the clear reference kinks, and reported
 47<!--m:turn_maxima.without.false--> instead of 64<!--m:turn_maxima.with.false--> unmatched bends (experiment turn_maxima).
 
-### 4.5 The reported angle
+### 4.5 The angle stored for a kink
 
 The excess turning read low on sharp synthetic corners, where the probe and the
 centerline round the apex:
