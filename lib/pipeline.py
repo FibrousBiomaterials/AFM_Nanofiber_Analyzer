@@ -50,7 +50,7 @@ from .blosc2_io import save_bundle, bundle_has_keys, BUNDLE_EXT
 # バンドルのキー契約と形式バージョンは bundle_schema が管理する。既存の
 # `pipeline.REQUIRED_BUNDLE_KEYS` 利用側が動き続けるよう、ここで再インポートする。
 from .bundle_schema import (
-    APPARENT_WIDTH_KEY, CENTERLINE_KEY, PIXEL_LENGTHS_KEY,
+    APPARENT_WIDTH_KEY, CENTERLINE_KEY,
     BUNDLE_FORMAT_VERSION, OPTIONAL_BUNDLE_KEYS, REQUIRED_BUNDLE_KEYS,  # noqa: F401
     SOURCE_REGION_KEY, SPATIAL_CALIBRATION_KEY, make_spatial_calibration,
     validate_bundle,
@@ -720,17 +720,18 @@ class PipelineResult:
         Wall-clock processing time in seconds.
         処理に要した実時間 (秒)。
     pixel_lengths_nm
-        What the pixel-unit settings amount to in nanometres on this scan
-        (`pixel_lengths_nm`), or ``None`` when the scan size was unknown.
-        画素単位の設定がこの走査で何 nm にあたるか（`pixel_lengths_nm`）。走査
-        範囲が不明なら ``None``。
+        Deprecated and always ``None``; removed in 3.0.0. What a pixel-unit
+        setting amounts to in nanometres follows from the bundle's ``params``
+        and ``spatial_calibration``.
+        非推奨で、常に ``None``。3.0.0 で削除する。画素単位の設定が何 nm に
+        あたるかは、バンドルの ``params`` と ``spatial_calibration`` から求まる。
     """
 
     image: ProcessedImage
     bundle_path: str
     param_path: str
     elapsed_s: float
-    pixel_lengths_nm: Optional[Dict[str, float]] = None
+    pixel_lengths_nm: Optional[Dict[str, float]] = None  # remove-in: 3.0.0
 
 
 def process_file(
@@ -1145,22 +1146,6 @@ def process_file(
     if width_summary is not None:
         vlmeta[APPARENT_WIDTH_KEY] = dict(width_summary)
 
-    # What the pixel-unit settings amount to in nanometres on this scan. The
-    # pixel size follows `lib.measure`: the recorded scan size over the stored
-    # shape plus the one row and column the calibrator cropped.
-    # 画素単位の設定がこの走査で何 nm にあたるか。ピクセルサイズは `lib.measure`
-    # と同じく、記録した走査範囲を、保存形状に補正器が切り落とした 1 行 1 列を
-    # 足したもので割る。
-    pixel_lengths = None
-    if resolved_scan_size is not None:
-        rows_px, cols_px = np.asarray(image.calibrated_image).shape[:2]
-        pixel_lengths = pixel_lengths_nm(
-            params,
-            resolved_scan_size[0] * 1000.0 / (cols_px + 1),
-            resolved_scan_size[1] * 1000.0 / (rows_px + 1),
-        )
-        vlmeta[PIXEL_LENGTHS_KEY] = pixel_lengths
-
     param_path = param_path_for(stem)
     bundle_path = bundle_path_for(stem)
     bundle_tmp = _temp_sibling_path(bundle_path, suffix=".tmp.b2z")
@@ -1188,11 +1173,10 @@ def process_file(
         bundle_path=bundle_path,
         param_path=param_path,
         elapsed_s=time.time() - t0,
-        pixel_lengths_nm=pixel_lengths,
     )
 
 
-def pixel_lengths_nm(
+def _pixel_lengths_nm(
     params: ProcParams,
     x_nm_per_px: float,
     y_nm_per_px: Optional[float] = None,
@@ -1229,15 +1213,12 @@ def pixel_lengths_nm(
 
     Notes
     -----
-    The stages are deliberately pixel-based (a setting means the same thing
-    whether or not the scan size was recorded), which also means a 12 px spur
-    limit prunes about 23 nm on a 2 µm scan and about 117 nm on a 10 µm one.
-    This record is what lets that be seen: GUI01 logs it and the bundle stores
-    it under `bundle_schema.PIXEL_LENGTHS_KEY`.
-    各段は意図的に画素基準であり（走査範囲の記録の有無によらず設定は同じ意味を
-    持つ）、それは同時に、12 px のスパー上限が 2 µm 走査では約 23 nm、10 µm
-    走査では約 117 nm を刈ることでもある。この記録はそれを見えるようにする。
-    GUI01 がログに出し、バンドルは `bundle_schema.PIXEL_LENGTHS_KEY` に保存する。
+    Kept only behind the deprecated public name `pixel_lengths_nm`, which is
+    removed in 3.0.0. Nothing in the analysis calls it: the bundle records
+    ``params`` and ``spatial_calibration``, from which these values follow.
+    非推奨の公開名 `pixel_lengths_nm`（3.0.0 で削除）の実体としてだけ残す。
+    解析からは呼ばない。バンドルには ``params`` と ``spatial_calibration`` が
+    記録され、これらの値はそこから求まる。
     """
     x = float(x_nm_per_px)
     y = x if y_nm_per_px is None else float(y_nm_per_px)
@@ -1258,3 +1239,42 @@ def pixel_lengths_nm(
         "border_pad_nm": float(DEFAULT_BORDER_PAD) * x,
         "hook_length_nm": float(DEFAULT_HOOK_LENGTH) * x,
     }
+
+
+# Deprecated public names that stay importable, mapped to (the object they
+# resolve to, the release that removes them). `pixel_lengths_nm` converts the
+# pixel-unit settings to nanometres; nothing in the analysis calls it, because a
+# bundle's ``params`` and ``spatial_calibration`` determine those values.
+# `scripts/release.py prepare` refuses a release at or above each `remove-in`
+# version until the entry is deleted.
+# import できるように残す非推奨の公開名と、(解決先, 削除するリリース) の対応。
+# `pixel_lengths_nm` は画素単位の設定を nm に換算する。解析からは呼ばない。
+# バンドルの ``params`` と ``spatial_calibration`` から値が決まるためである。
+# `scripts/release.py prepare` は、各 `remove-in` 印の版以上のリリースを、
+# 項目が消されるまで拒む。
+_DEPRECATED_ALIASES = {
+    "pixel_lengths_nm": ("_pixel_lengths_nm", "3.0.0"),  # remove-in: 3.0.0
+}
+
+
+def __getattr__(name: str):
+    """
+    Resolve a deprecated name with a `DeprecationWarning` (PEP 562).
+    非推奨の名前を `DeprecationWarning` 付きで解決する（PEP 562）。
+
+    Raises
+    ------
+    AttributeError
+        If `name` is neither defined nor a deprecated name.
+    """
+    if name in _DEPRECATED_ALIASES:
+        import warnings
+        current, removed_in = _DEPRECATED_ALIASES[name]
+        warnings.warn(
+            f"lib.pipeline.{name} is deprecated and will be removed in "
+            f"{removed_in}; the values follow from a bundle's params and "
+            f"spatial_calibration",
+            DeprecationWarning, stacklevel=2,
+        )
+        return globals()[current]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

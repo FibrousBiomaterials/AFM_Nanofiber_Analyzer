@@ -247,25 +247,51 @@ SOURCE_REGION_KEY = "source_region"
 # 繊維ごとの幅を再計算するためである。
 APPARENT_WIDTH_KEY = "apparent_width"
 
-# vlmeta key holding what the pixel-unit settings of the stages amount to in
-# nanometres on this scan (`pipeline.pixel_lengths_nm`): the pixel size per
-# axis, and every `ProcParams` length or area given in pixels, plus the
-# skeleton cleanup's fixed pixel constants, converted with it. The stages are
-# deliberately pixel-based, so the same `_param.json` prunes a 12 px spur on a
-# 2 µm scan (about 23 nm) and on a 10 µm scan (about 117 nm); this entry is
-# what makes that difference visible when two bundles are compared. Derived
-# entirely from `params` and `spatial_calibration`, so it is a convenience
-# record, not a second source of truth. Optional: absent when the scan size
-# was unknown, and older bundles lack it.
-# 各段の画素単位の設定がこの走査で何 nm にあたるかを保持する vlmeta キー
-# （`pipeline.pixel_lengths_nm`）。軸ごとのピクセルサイズと、画素で与える
-# `ProcParams` の長さ・面積のすべて、および骨格クリーニングの固定画素定数を、
-# それで換算したもの。各段は意図的に画素基準なので、同じ `_param.json` でも
-# 12 px のスパーは 2 µm 走査では約 23 nm、10 µm 走査では約 117 nm を刈る。この
-# 項目は、2 つのバンドルを比べるときにその違いを見えるようにする。`params` と
-# `spatial_calibration` から完全に導けるため、便宜的な記録であって第 2 の
-# 真実の源ではない。任意項目で、走査範囲が不明なら無く、旧バンドルにも無い。
-PIXEL_LENGTHS_KEY = "pixel_lengths_nm"
+# vlmeta key under which bundles written by 2.0.x record what the pixel-unit
+# settings amounted to in nanometres on that scan. The pipeline does not write
+# it: the values follow from `params` and `spatial_calibration`, and
+# nothing reads it. A bundle that has it still validates and loads; the entry
+# is ignored. The public name `PIXEL_LENGTHS_KEY` is deprecated (see
+# `_DEPRECATED_ALIASES` below).
+# 2.0.x が書いたバンドルが、画素単位の設定がその走査で何 nm にあたったかを
+# 記録している vlmeta キー。パイプラインはこれを書かない。値は `params` と
+# `spatial_calibration` から求まり、読む側も無いからである。この項目を持つ
+# バンドルも検証を通って読み込まれ、項目は無視される。公開名
+# `PIXEL_LENGTHS_KEY` は非推奨である（下の `_DEPRECATED_ALIASES`）。
+_PIXEL_LENGTHS_KEY = "pixel_lengths_nm"
+
+# Deprecated public names that stay importable, mapped to (the object they
+# resolve to, the release that removes them). `scripts/release.py prepare`
+# refuses a release at or above each `remove-in` version until the entry is
+# deleted.
+# import できるように残す非推奨の公開名と、(解決先, 削除するリリース) の対応。
+# `scripts/release.py prepare` は、各 `remove-in` 印の版以上のリリースを、
+# 項目が消されるまで拒む。
+_DEPRECATED_ALIASES = {
+    "PIXEL_LENGTHS_KEY": ("_PIXEL_LENGTHS_KEY", "3.0.0"),  # remove-in: 3.0.0
+}
+
+
+def __getattr__(name: str):
+    """
+    Resolve a deprecated name with a `DeprecationWarning` (PEP 562).
+    非推奨の名前を `DeprecationWarning` 付きで解決する（PEP 562）。
+
+    Raises
+    ------
+    AttributeError
+        If `name` is neither defined nor a deprecated name.
+    """
+    if name in _DEPRECATED_ALIASES:
+        import warnings
+        current, removed_in = _DEPRECATED_ALIASES[name]
+        warnings.warn(
+            f"lib.bundle_schema.{name} is deprecated and will be removed in "
+            f"{removed_in}; new bundles no longer record this entry",
+            DeprecationWarning, stacklevel=2,
+        )
+        return globals()[current]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 # vlmeta key holding the `ProcParams` dictionary the analysis ran with, the
 # same content as the `<input_stem>_param.json` sidecar. It is provenance for

@@ -74,9 +74,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `'x'` first in that drop-down. The
   internal helper `BGCalibrator._spline1d_fill` defaults to `'x'` as well; its
   only caller always passes the axis, so this changes no result.
+- GUI01 no longer logs, after each file, what the pixel-unit settings amounted
+  to in nanometres ("画素単位の設定の実効値 …"), and new bundles no longer carry
+  the optional vlmeta entry `pixel_lengths_nm`. The bundle already records
+  `params` and `spatial_calibration`, from which those values follow, and
+  nothing read the entry. `PipelineResult.pixel_lengths_nm` is now always
+  `None`. Bundles written by 2.0.x that carry the entry still load; the entry
+  is ignored. The bundle format version is unchanged, and analysis results do
+  not change.
 
 ### Fixed
 
+- The fiber mask of `trendfill` and `spline1d` now scans the last row of the X
+  difference map and the last column of the Y difference map, which
+  `BGCalibrator._extract_fiber` left unscanned. A fiber crossing the last row or
+  column of the analysis image went unmarked there, so the background under it
+  was raised and its calibrated height near that edge came out low (by up to
+  0.8 nm on the Bruker test scan, where the skeleton also gained a small loop at
+  the edge). **Background-corrected heights, and the masks, skeletons and
+  measurements built on them, change near the last row and column from this
+  version**; elsewhere results are unchanged.
 - A fiber's centerline no longer extends past the edge of the scan. At a fiber
   that runs off the scan, the last points could be placed up to 1.6 px beyond
   the outermost pixel centre, where no height was measured: they added contour
@@ -107,6 +124,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `lib.centerline.HALF_MAX_CENTERLINE` is now `HALF_MAX_025W_CENTERLINE`, so
   that every line's name states its smoothing. The old name still works and
   issues a `DeprecationWarning`; it will be removed in 3.0.0.
+- `lib.bundle_schema.PIXEL_LENGTHS_KEY`, `lib.pipeline.pixel_lengths_nm` and
+  the `PipelineResult.pixel_lengths_nm` field are deprecated, because the
+  pipeline no longer writes or reports those values (see Changed). The two
+  names still work and issue a `DeprecationWarning`, and the field stays as
+  `None`; all three will be removed in 3.0.0.
 
 ## [2.0.1] - 2026-09-17
 

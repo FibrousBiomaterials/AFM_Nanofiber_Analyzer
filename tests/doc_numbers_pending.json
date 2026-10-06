@@ -1,8 +1,4 @@
 {
  "_comment": "Lines of docs/algorithms*.md whose numbers were written before scripts/check_doc_numbers.py existed and are not yet verified. This list may only shrink: mark a line's numbers (m:, c:, x:, n:) and run `python scripts/check_doc_numbers.py --prune-pending`. The staged check refuses a commit that adds an entry.",
- "lines": {
-  "docs/algorithms.ja.md": [
-   "交差での相手繊維の裾はその先 1 幅ほど広がるため、それらの標本は一部が相手の"
-  ]
- }
+ "lines": {}
 }

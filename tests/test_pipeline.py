@@ -422,42 +422,43 @@ def test_vlmeta_records_the_apparent_width(pipeline_result):
     assert summary["fallback_px"] > 0.0
 
 
-def test_vlmeta_records_what_the_pixel_settings_amount_to(tmp_path):
+def test_vlmeta_does_not_record_pixel_lengths(tmp_path):
     """
-    With a known scan size the bundle says what each pixel setting is in nm.
-    走査範囲が既知なら、バンドルは各画素設定が何 nm にあたるかを記す。
+    A bundle does not record what the pixel settings amount to in nm.
+    バンドルは、画素設定が何 nm にあたるかを記録しない。
 
-    The stages are pixel-based on purpose, so the same parameter file prunes
-    a different physical length on every scan size; the record is what makes
-    two bundles comparable on that point.
-    各段は意図的に画素基準なので、同じパラメータファイルでも走査サイズごとに
-    異なる物理長を刈る。この記録が、その点で 2 つのバンドルを比較可能にする。
+    Those values follow from the recorded ``params`` and
+    ``spatial_calibration``, so even with a known scan size no separate entry
+    is written and the result carries none.
+    それらの値は記録された ``params`` と ``spatial_calibration`` から求まるので、
+    走査範囲が既知でも別の項目は書かれず、結果にも入らない。
     """
-    from lib.bundle_schema import PIXEL_LENGTHS_KEY
-    from lib.pipeline import pixel_lengths_nm
-
     out_dir = os.path.join(tmp_path, "px")
     os.makedirs(out_dir)
     txt = _write_shimadzu_fiber_txt(out_dir, size_x="2.0000um", size_y="2.0000um")
     result = process_file(txt, FAST_PARAMS, output_dir=out_dir)
-    stored = load_bundle_meta(result.bundle_path)[PIXEL_LENGTHS_KEY]
-    assert stored == result.pixel_lengths_nm
-    rows, cols = result.image.calibrated_image.shape
-    expected = pixel_lengths_nm(FAST_PARAMS, 2000.0 / (cols + 1), 2000.0 / (rows + 1))
-    assert stored == expected
-    assert stored["spur_length_nm"] == pytest.approx(
-        FAST_PARAMS.spur_length * 2000.0 / (cols + 1))
-    assert stored["area_min_nm2"] == pytest.approx(
-        FAST_PARAMS.area_min * (2000.0 / (cols + 1)) * (2000.0 / (rows + 1)))
-
-
-def test_no_pixel_lengths_without_a_scan_size(pipeline_result):
-    """A bundle whose scan size is unknown records no nm equivalents."""
-    from lib.bundle_schema import PIXEL_LENGTHS_KEY
-
-    result, _events = pipeline_result
+    meta = load_bundle_meta(result.bundle_path)
+    assert "spatial_calibration" in meta
+    assert "pixel_lengths_nm" not in meta
     assert result.pixel_lengths_nm is None
-    assert PIXEL_LENGTHS_KEY not in load_bundle_meta(result.bundle_path)
+
+
+def test_pixel_length_names_are_deprecated():
+    """
+    The public pixel-length names still resolve, with a DeprecationWarning.
+    画素長の公開名は、DeprecationWarning 付きで引き続き解決する。
+    """
+    import lib.bundle_schema as bundle_schema
+    import lib.pipeline as pipeline
+
+    with pytest.warns(DeprecationWarning, match="3.0.0"):
+        key = bundle_schema.PIXEL_LENGTHS_KEY
+    assert key == "pixel_lengths_nm"
+    with pytest.warns(DeprecationWarning, match="3.0.0"):
+        convert = pipeline.pixel_lengths_nm
+    lengths = convert(FAST_PARAMS, 2.0, 3.0)
+    assert lengths["spur_length_nm"] == pytest.approx(FAST_PARAMS.spur_length * 2.0)
+    assert lengths["area_min_nm2"] == pytest.approx(FAST_PARAMS.area_min * 6.0)
 
 
 def test_the_bundle_records_the_excess_each_kink_was_judged_by(pipeline_result):

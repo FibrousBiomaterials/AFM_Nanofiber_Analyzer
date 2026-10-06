@@ -821,7 +821,7 @@ GUI01 は次の配列キーを書き込みます。
 | `input_format` | 入力の解釈方法。テキスト入力は `kind`、`skiprows`、`n_cols`、`encoding`、ネイティブ `.gwy` は `kind="gwy"` と選択チャンネルの id、タイトル、値軸単位を記録。 |
 | `spatial_calibration` | 物理スキャンサイズ。`scan_size_x_um`、`scan_size_y_um`、`source`（`input_header` / `manifest` / `manual`）。スキャンサイズが判明している場合のみ存在します。 |
 | `apparent_width` | キンク規則が長さを尺度付けした見かけ幅 W。追跡した成分にわたる `median_px`、`component_count`、および成分の断面から幅が得られず固定値を代用した `fallback_count` と `fallback_px`。バンドルのキンクを判定した物理尺度です。 |
-| `pixel_lengths_nm` | 画素単位の各設定がこの走査で何 nm にあたるか（`pixel_size_x_nm`、`pixel_size_y_nm`、`spur_length_nm`、`area_min_nm2` など）。`params` と `spatial_calibration` から導出され、スキャンサイズが判明している場合のみ存在します。 |
+| `pixel_lengths_nm` | 2.0.x がスキャンサイズの判明している走査について書いたバンドルにだけあります。画素単位の各設定がその走査で何 nm にあたったかの記録です。このリリースは書かず、読み取り側も使いません。同じ値は `params` と `spatial_calibration` から求まります。 |
 
 来歴キー（`software_version`、`input_file`、`input_sha256`、`created_utc`、
 `input_format`、`spatial_calibration`、`apparent_width`、`pixel_lengths_nm`）は

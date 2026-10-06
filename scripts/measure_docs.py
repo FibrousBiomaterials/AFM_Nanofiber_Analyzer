@@ -862,19 +862,16 @@ def branch_pruning() -> dict:
     return values
 
 
-# Every test input of the repository: the bundled scans plus the two Gwyddion
-# exports of the higher-plant scan, whose heights differ from its text export.
-# testdata_Gwyddion_txt/..._T.ssp2.txt holds the same heights as ..._T.ssp.txt
-# and is left out.
-# リポジトリのすべてのテスト入力。同梱スキャンに、高等植物のスキャンを Gwyddion で
-# 書き出した 2 つ（高さがテキスト書き出しと異なる）を加える。
-# testdata_Gwyddion_txt/..._T.ssp2.txt は ..._T.ssp.txt と同じ高さなので除く。
+# The distinct test inputs of the repository: the bundled scans. The files in
+# testdata_Gwyddion_gwy and testdata_Gwyddion_txt are Gwyddion exports of the
+# higher-plant scan; after background correction they give the same image, so
+# they are left out rather than counted as further specimens.
+# リポジトリの互いに異なるテスト入力、すなわち同梱スキャン。testdata_Gwyddion_gwy と
+# testdata_Gwyddion_txt のファイルは高等植物のスキャンを Gwyddion で書き出したもので、
+# 背景補正の後は同じ画像になるため、別の試料として数えずに除く。
 def _all_test_inputs() -> Dict[str, str]:
     import kink_reference_score as krs
-    inputs = dict(krs.SCANS)
-    inputs["gwy"] = "testdata_Gwyddion_gwy/_20250318-164122_T.ssp.gwy"
-    inputs["gwy_txt"] = "testdata_Gwyddion_txt/_20250318-164122_T.ssp.txt"
-    return inputs
+    return dict(krs.SCANS)
 
 
 # Components the linearity filter removes whose bounding box reaches h_length,
@@ -894,12 +891,10 @@ def _all_test_inputs() -> Dict[str, str]:
 # 見直しが強制される。
 LINEARITY_REMOVED_INSPECTED = {
     "hplantTOC": 12, "tunicate": 4, "NDTOC": 234, "art_iso": 0, "art_aniso": 1,
-    "gwy": 12, "gwy_txt": 10,
 }
 LINEARITY_FIBER_PIECES = {
     ("tunicate", 17, 688), ("tunicate", 10, 843), ("tunicate", 613, 922),
     ("tunicate", 557, 934), ("art_aniso", 739, 246), ("hplantTOC", 106, 1012),
-    ("gwy", 106, 1012), ("gwy_txt", 106, 1012), ("gwy_txt", 839, 797),
     ("NDTOC", 591, 1010),
 }
 
@@ -1017,6 +1012,395 @@ def spline1d_axis() -> dict:
             values[f"{name}.{tag}.row_median_std_nm"] = float(np.std(rows))
             values[f"{name}.{tag}.column_median_std_nm"] = float(np.std(cols))
             values[f"{name}.{tag}.background_std_nm"] = float(np.std(cal[background]))
+    return values
+
+
+def _background_spread(cal, background) -> tuple:
+    """Spread (std) of the per-row and per-column medians, and of the pixels, on the background."""
+    import numpy as np
+    masked = np.where(background, cal, np.nan)
+    rows = np.nanmedian(masked[background.sum(axis=1) > 50], axis=1)
+    cols = np.nanmedian(masked[:, background.sum(axis=0) > 50], axis=0)
+    return float(np.std(rows)), float(np.std(cols)), float(np.std(cal[background]))
+
+
+@experiment(
+    "savgol_axis",
+    ["lib/pipeline.py", "lib/bg_calibrator.py", "lib/segmenter.py"],
+    "Every test input calibrated by the default trendfill with the Savitzky-Golay "
+    "smoothing of the background along X only (the code) and along X and then Y: on the "
+    "background (pixels more than 5 px from the union of the two binarized masks), the "
+    "spread of the per-row and per-column medians and of the background pixels.",
+)
+def savgol_axis() -> dict:
+    import types
+    import numpy as np
+    from scipy import ndimage as ndi
+    from scipy import signal as scipy_signal
+    from lib import bg_calibrator as bg_module
+    from lib.afm_io import load_afm_image
+    from lib.pipeline import ProcParams, build_stages
+    from lib.processed_image import ProcessedImage
+
+    both_axes = types.SimpleNamespace(savgol_filter=lambda a, w, o, **k: scipy_signal.savgol_filter(
+        scipy_signal.savgol_filter(a, w, o, **k), w, o, axis=0))
+    params = ProcParams()
+    values: dict = {}
+    for name, rel in _all_test_inputs().items():
+        arr = np.asarray(load_afm_image(str(ROOT / rel)), float)
+        cals, fiber = {}, None
+        for tag, sig in (("x_only", scipy_signal), ("x_and_y", both_axes)):
+            with patched(bg_module, signal=sig):
+                stages = build_stages(params)
+                image = ProcessedImage(arr.copy(), name)
+                stages.bg_calibrator(image)
+                stages.segmenter(image)
+            cals[tag] = np.asarray(image.calibrated_image, float)
+            mask = np.asarray(image.binarized_image, bool)
+            fiber = mask if fiber is None else fiber | mask
+        background = ~ndi.binary_dilation(fiber, iterations=5)
+        for tag, cal in cals.items():
+            rows, cols, pixels = _background_spread(cal, background)
+            values[f"{name}.{tag}.row_median_std_nm"] = rows
+            values[f"{name}.{tag}.column_median_std_nm"] = cols
+            values[f"{name}.{tag}.background_std_nm"] = pixels
+    return values
+
+
+@experiment(
+    "spline1d_trend_order",
+    ["lib/pipeline.py", "lib/bg_calibrator.py"],
+    "Every test input calibrated by spline1d as in the code (the trend added back before "
+    "the Savitzky-Golay smoothing) and with the trend added back after it, as trendfill "
+    "does: the largest difference in calibrated height.",
+)
+def spline1d_trend_order() -> dict:
+    import inspect
+    import textwrap
+    import numpy as np
+    from dataclasses import replace
+    from lib import bg_calibrator as bg_module
+    from lib.afm_io import load_afm_image
+    from lib.pipeline import ProcParams, build_stages
+    from lib.processed_image import ProcessedImage
+
+    src = textwrap.dedent(inspect.getsource(bg_module.BGCalibrator._call_spline1d))
+    add_back = "        bg_int = bg_int + bg_trend\n"
+    smooth = "    self.bg_sm = signal.savgol_filter(bg_int, self.savgol_window, self.savgol_polyorder)\n"
+    if add_back not in src or smooth not in src:
+        raise SystemExit("_call_spline1d no longer has the lines this experiment reorders")
+    after_src = src.replace(add_back, "").replace(smooth, smooth.rstrip("\n") + " + bg_trend\n")
+    namespace: dict = {}
+    exec(compile(after_src, "_call_spline1d_trend_after", "exec"), dict(vars(bg_module)), namespace)
+    params = replace(ProcParams(), bg_method="spline1d")
+    values: dict = {}
+    for name, rel in _all_test_inputs().items():
+        arr = np.asarray(load_afm_image(str(ROOT / rel)), float)
+        cals = []
+        for method in (bg_module.BGCalibrator._call_spline1d, namespace["_call_spline1d"]):
+            with patched(bg_module.BGCalibrator, _call_spline1d=method):
+                image = ProcessedImage(arr.copy(), name)
+                build_stages(params).bg_calibrator(image)
+            cals.append(np.asarray(image.calibrated_image, float))
+        values[f"{name}.max_difference_nm"] = float(np.abs(cals[0] - cals[1]).max())
+    return values
+
+
+@experiment(
+    "linearity_large_exemption",
+    ["lib/pipeline.py", "lib/segmenter.py"],
+    "The linearity filter of every test input as in the code (components of 1000 px or "
+    "more are kept untested) and with every component tested: how many components reach "
+    "1000 px, how many of them testing would remove, and the wall time of the filter each "
+    "way (mean of two runs after a warm-up, on the machine that ran this script).",
+)
+def linearity_large_exemption() -> dict:
+    import inspect
+    import textwrap
+    import time
+    import numpy as np
+    from scipy import ndimage as ndi
+    from lib import segmenter as seg_module
+    from lib.afm_io import load_afm_image
+    from lib.pipeline import ProcParams, build_stages
+    from lib.processed_image import ProcessedImage
+
+    src = textwrap.dedent(inspect.getsource(seg_module.Segmenter._remove_nonlinear_objects))
+    skip = "        if area >= 1000:\n            continue\n"
+    guard = " and np.sum(target) < 1000"
+    if skip not in src or guard not in src:
+        raise SystemExit("_remove_nonlinear_objects no longer has the exemption this experiment removes")
+    namespace: dict = {}
+    exec(compile(src.replace(skip, "").replace(guard, ""), "_remove_nonlinear_objects_all",
+                 "exec"), dict(vars(seg_module)), namespace)
+    variants = {"code": seg_module.Segmenter._remove_nonlinear_objects,
+                "all": namespace["_remove_nonlinear_objects"]}
+    params = ProcParams()
+    values: dict = {}
+    for name, rel in _all_test_inputs().items():
+        stages = build_stages(params)
+        image = ProcessedImage(np.asarray(load_afm_image(str(ROOT / rel)), float), name)
+        stages.bg_calibrator(image)
+        stages.segmenter(image)
+        before = stages.segmenter.no_small_binary_image.astype(bool)
+        labels, n = ndi.label(before, structure=np.ones((3, 3)))
+        sizes = ndi.sum(before, labels, range(1, n + 1)) if n else np.zeros(0)
+        kept = {}
+        for tag, method in variants.items():
+            seg = build_stages(params).segmenter
+            seg.h_sratio_list = []
+            kept[tag] = method(seg, before, params.h_length, params.h_sratio).astype(bool)
+            start = time.perf_counter()
+            for _ in range(2):
+                method(seg, before, params.h_length, params.h_sratio)
+            values[f"{name}.{tag}.seconds"] = (time.perf_counter() - start) / 2
+        removed = kept["code"] & ~kept["all"]
+        values[f"{name}.large_components"] = int((sizes >= 1000).sum())
+        values[f"{name}.large_removed_if_tested"] = int(ndi.label(removed, structure=np.ones((3, 3)))[1])
+    return values
+
+
+LOOP_SLIVER_SIGMAS = (1.5, 2.0, 3.0)
+LOOP_SLIVER_GAPS = (4, 5, 6, 7, 8, 9, 10, 12)
+
+
+@experiment(
+    "loop_sliver",
+    ["lib/pipeline.py", "lib/skeletonizer.py"],
+    "Synthetic 200 x 200 scans of two straight fibers (Gaussian section, 4 nm high, sigma "
+    "1.5, 2 or 3 px) that part over 30 px into a lens-shaped gap of 4-12 px and rejoin, "
+    "with 0.05 nm noise and a slight slope, run through the default pipeline: the "
+    "enclosures collapse_skeleton_loops considers (at most max_loop_area), the median "
+    "height inside over that of the skeleton ring around them, and how many are filled.",
+)
+def loop_sliver() -> dict:
+    import cv2
+    import numpy as np
+    from lib import skeletonizer as sk
+    from lib.pipeline import ProcParams, build_stages
+    from lib.processed_image import ProcessedImage
+
+    n = 200
+    yy, xx = np.mgrid[0:n, 0:n].astype(float)
+    rng = np.random.default_rng(0)
+    found: list = []
+    original = sk.collapse_skeleton_loops
+
+    def spy(skel, max_loop_area=sk.DEFAULT_MAX_LOOP_AREA, calibrated_image=None,
+            min_height_ratio=sk.DEFAULT_LOOP_HEIGHT_RATIO):
+        s = (np.asarray(skel) > 0).astype(np.uint8)
+        nl, labels, stats, _ = cv2.connectedComponentsWithStats((s == 0).astype(np.uint8),
+                                                                connectivity=4)
+        h, w = s.shape
+        for i in range(1, nl):
+            x, y, cw, ch, area = stats[i]
+            if not (area <= max_loop_area and x > 0 and y > 0 and x + cw < w and y + ch < h):
+                continue
+            x0, y0 = max(0, x - 2), max(0, y - 2)
+            x1, y1 = min(w, x + cw + 2), min(h, y + ch + 2)
+            hole = labels[y0:y1, x0:x1] == i
+            ring = (cv2.dilate(hole.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0) \
+                & ~hole & (s[y0:y1, x0:x1] > 0)
+            cal = calibrated_image[y0:y1, x0:x1]
+            ratio = float(np.median(cal[hole])) / float(np.median(cal[ring]))
+            found.append((ratio, ratio >= min_height_ratio))
+        return original(skel, max_loop_area, calibrated_image, min_height_ratio)
+
+    with patched(sk, collapse_skeleton_loops=spy):
+        for sigma in LOOP_SLIVER_SIGMAS:
+            for gap in LOOP_SLIVER_GAPS:
+                bulge = np.where((xx > 80) & (xx < 110), gap / 2 * np.sin(np.pi * (xx - 80) / 30), 0.0)
+                img = (np.maximum(4.0 * np.exp(-0.5 * ((yy - (100 - bulge)) / sigma) ** 2),
+                                  4.0 * np.exp(-0.5 * ((yy - (100 + bulge)) / sigma) ** 2))
+                       + 0.05 * rng.normal(size=(n, n)) + 0.002 * xx)
+                image = ProcessedImage(img, f"s{sigma}g{gap}")
+                stages = build_stages(ProcParams())
+                stages.bg_calibrator(image)
+                stages.segmenter(image)
+                stages.skeletonizer(image)
+    ratios = [r for r, _ in found]
+    return {"scans": len(LOOP_SLIVER_SIGMAS) * len(LOOP_SLIVER_GAPS),
+            "candidates": len(found),
+            "filled": int(sum(1 for _, f in found if f)),
+            "ratio_percent_range": [100 * min(ratios), 100 * max(ratios)] if ratios else None}
+
+
+@experiment(
+    "border_margins",
+    ["lib/pipeline.py", "lib/skeletonizer.py"],
+    "The skeleton of every test input with the two border margins of the skeletonizer "
+    "swapped one at a time: the branch pruning skipping endpoints within 2 px of the "
+    "border instead of branch_length, and the spur pruning sparing arms within "
+    "branch_length of the border instead of 2 px. The skeleton pixels that change and how "
+    "far from the border the farthest one lies.",
+)
+def border_margins() -> dict:
+    import functools
+    import inspect
+    import textwrap
+    import numpy as np
+    from lib import skeletonizer as sk
+    from lib.afm_io import load_afm_image
+    from lib.pipeline import ProcParams, build_stages
+    from lib.processed_image import ProcessedImage
+
+    params = ProcParams()
+    src = textwrap.dedent(inspect.getsource(sk.Skeletonizer.track_branches))
+    guard = "if not (bl <= start_x <= height - bl and bl <= start_y <= width - bl):"
+    if guard not in src:
+        raise SystemExit("track_branches no longer has the border guard this experiment edits")
+    namespace: dict = {}
+    exec(compile(src.replace(guard, "if not (2 <= start_x <= height - 2 and 2 <= start_y <= width - 2):"),
+                 "track_branches_margin_2", "exec"), dict(vars(sk)), namespace)
+    variants = {
+        "branch_margin_2": dict(track=namespace["track_branches"], spurs=sk.prune_short_spurs),
+        "spur_margin_wide": dict(track=sk.Skeletonizer.track_branches,
+                                 spurs=functools.partial(sk.prune_short_spurs,
+                                                         border_margin=params.branch_length)),
+    }
+    values: dict = {}
+    for name, rel in _all_test_inputs().items():
+        stages = build_stages(params)
+        image = ProcessedImage(np.asarray(load_afm_image(str(ROOT / rel)), float), name)
+        stages.bg_calibrator(image)
+        stages.segmenter(image)
+        stages.skeletonizer(image)
+        base = np.asarray(image.skeleton_image) > 0
+        for tag, v in variants.items():
+            run = ProcessedImage(image.original_image, name)
+            run.calibrated_image = image.calibrated_image
+            run.binarized_image = image.binarized_image
+            with patched(sk.Skeletonizer, track_branches=v["track"]), \
+                    patched(sk, prune_short_spurs=v["spurs"]):
+                build_stages(params).skeletonizer(run)
+            diff = base ^ (np.asarray(run.skeleton_image) > 0)
+            rows, cols = np.nonzero(diff)
+            h, w = diff.shape
+            values[f"{name}.{tag}.changed_px"] = int(diff.sum())
+            values[f"{name}.{tag}.farthest_from_border_px"] = (
+                int(np.minimum.reduce([rows, cols, h - 1 - rows, w - 1 - cols]).max())
+                if rows.size else 0)
+    return values
+
+
+@experiment(
+    "crest_height",
+    ["lib/pipeline.py", "lib/centerline.py", "lib/imp_tools.py"],
+    "Every traceable skeleton component of every test input, its default centerline "
+    "placed as KinkDetector places it: at the reliable points, the crest height "
+    "(CenterlineResult.crest) minus the calibrated height read at the centerline, in nm "
+    "and as a share of the crest height (median and 90th percentile), and the smallest "
+    "difference.",
+)
+def crest_height() -> dict:
+    import cv2
+    import numpy as np
+    from lib import imp_tools
+    from lib.afm_io import load_afm_image
+    from lib.centerline import place_centerline, sample_height
+    from lib.pipeline import ProcParams, build_stages
+    from lib.processed_image import ProcessedImage
+
+    params = ProcParams()
+    values: dict = {}
+    for name, rel in _all_test_inputs().items():
+        stages = build_stages(params)
+        image = ProcessedImage(np.asarray(load_afm_image(str(ROOT / rel)), float), name)
+        stages.bg_calibrator(image)
+        stages.segmenter(image)
+        stages.skeletonizer(image)
+        cal = np.asarray(image.calibrated_image, float)
+        skel = imp_tools.remove_Lcorner(imp_tools.remove_bp(image.skeleton_image))
+        n, labels, stats, _ = cv2.connectedComponentsWithStats(skel)
+        diff, share = [], []
+        for k in range(1, n):
+            x, y, w, h, _area = stats[k]
+            try:
+                xt, yt = imp_tools.tracking((labels[y:y + h, x:x + w] == k).astype(np.uint8))
+            except ValueError:
+                continue
+            placed = place_centerline(cal, np.asarray(xt) + x, np.asarray(yt) + y, image.bp,
+                                      method=params.centerline_method)
+            reliable = np.asarray(placed.reliable, bool)
+            crest = np.asarray(placed.crest, float)[reliable]
+            d = crest - sample_height(cal, placed.x, placed.y)[reliable]
+            diff += list(d)
+            share += list(d / np.maximum(crest, 1e-9))
+        diff, share = np.asarray(diff), np.asarray(share)
+        values[f"{name}.points"] = int(diff.size)
+        values[f"{name}.median_nm"] = float(np.median(diff))
+        values[f"{name}.p90_nm"] = float(np.percentile(diff, 90))
+        values[f"{name}.median_percent"] = 100 * float(np.median(share))
+        values[f"{name}.p90_percent"] = 100 * float(np.percentile(share, 90))
+        values[f"{name}.min_nm"] = float(diff.min())
+    return values
+
+
+@experiment(
+    "cut_end_skirt",
+    ["lib/pipeline.py", "lib/centerline.py", "lib/imp_tools.py", "lib/skeletonizer.py"],
+    "On every test input, the tracks at least 5 W long of the default centerline: the "
+    "crest height near each end, in steps of W/4, over the track's median crest height "
+    "(away from 2 W at each end), pooled by median over the ends cut at a crossing (within "
+    "3 px of a branch point) and over the free ends; the ratio at the end and the first "
+    "distance (in W) where the cut-end ratio is 1.05 or less.",
+)
+def cut_end_skirt() -> dict:
+    import cv2
+    import numpy as np
+    from scipy import ndimage as ndi
+    from lib import imp_tools
+    from lib.afm_io import load_afm_image
+    from lib.centerline import place_centerline
+    from lib.pipeline import ProcParams, build_stages
+    from lib.processed_image import ProcessedImage
+
+    params = ProcParams()
+    steps = np.arange(0.0, 3.0001, 0.25)
+    values: dict = {}
+    for name, rel in _all_test_inputs().items():
+        stages = build_stages(params)
+        image = ProcessedImage(np.asarray(load_afm_image(str(ROOT / rel)), float), name)
+        stages.bg_calibrator(image)
+        stages.segmenter(image)
+        stages.skeletonizer(image)
+        cal = np.asarray(image.calibrated_image, float)
+        near_bp = ndi.binary_dilation(np.asarray(image.bp) > 0, iterations=3)
+        skel = imp_tools.remove_Lcorner(imp_tools.remove_bp(image.skeleton_image))
+        n, labels, stats, _ = cv2.connectedComponentsWithStats(skel)
+        ratios = {"cut": {b: [] for b in steps}, "free": {b: [] for b in steps}}
+        for k in range(1, n):
+            x, y, w, h, _area = stats[k]
+            try:
+                xt, yt = imp_tools.tracking((labels[y:y + h, x:x + w] == k).astype(np.uint8))
+            except ValueError:
+                continue
+            xt, yt = np.asarray(xt) + x, np.asarray(yt) + y
+            placed = place_centerline(cal, xt, yt, image.bp, method=params.centerline_method)
+            width = placed.width_px
+            s = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(placed.x), np.diff(placed.y)))])
+            length = s[-1]
+            if length < 5 * width:
+                continue
+            crest = np.asarray(placed.crest, float)
+            median = np.median(crest[(s > 2 * width) & (s < length - 2 * width)])
+            if median <= 0:
+                continue
+            for end in (0, -1):
+                kind = "cut" if near_bp[int(yt[end]), int(xt[end])] else "free"
+                dist = (s if end == 0 else length - s) / width
+                for b in steps:
+                    sel = np.abs(dist - b) <= 0.125
+                    if sel.any():
+                        ratios[kind][b].append(float(np.median(crest[sel])) / median)
+        cut = {b: float(np.median(v)) for b, v in ratios["cut"].items() if v}
+        free = {b: float(np.median(v)) for b, v in ratios["free"].items() if v}
+        values[f"{name}.cut_ends"] = len(ratios["cut"][0.0])
+        values[f"{name}.free_ends"] = len(ratios["free"][0.0])
+        values[f"{name}.free.ratio_at_end"] = free.get(0.0)
+        if cut:
+            values[f"{name}.cut.ratio_at_end"] = cut[0.0]
+            values[f"{name}.cut.back_within_widths"] = min(b for b, r in cut.items() if r <= 1.05)
     return values
 
 

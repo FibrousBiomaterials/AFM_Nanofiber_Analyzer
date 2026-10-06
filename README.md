@@ -877,7 +877,7 @@ Each bundle also stores root metadata (blosc2 `vlmeta`):
 | `input_format` | Input interpretation. Text inputs record `kind`, `skiprows`, `n_cols`, and `encoding`; native `.gwy` inputs record `kind="gwy"` plus the selected channel id, title, and value-axis unit. |
 | `spatial_calibration` | Physical scan size: `scan_size_x_um`, `scan_size_y_um`, and `source` (`input_header`, `manifest`, or `manual`). Present only when the scan size is known. |
 | `apparent_width` | The apparent width W the kink rule scaled its lengths by: `median_px` over the traced components, `component_count`, and `fallback_count` with `fallback_px`, the fixed width substituted where a component's sections gave none. This is the physical scale the bundle's kinks were judged at. |
-| `pixel_lengths_nm` | What each pixel-unit setting amounted to in nanometres on this scan (`pixel_size_x_nm`, `pixel_size_y_nm`, `spur_length_nm`, `area_min_nm2`, …). Derived from `params` and `spatial_calibration`; present only when the scan size is known. |
+| `pixel_lengths_nm` | Present only in bundles written by 2.0.x when the scan size was known: what each pixel-unit setting amounted to in nanometres on that scan. Not written by this release and ignored by readers; the same values follow from `params` and `spatial_calibration`. |
 
 The provenance keys (`software_version`, `input_file`, `input_sha256`,
 `created_utc`, `input_format`, `spatial_calibration`, `apparent_width`,

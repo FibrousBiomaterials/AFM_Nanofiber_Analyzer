@@ -1140,7 +1140,7 @@ class BGCalibrator:
         # Process X-direction ridge patterns row by row.
         # X方向のリッジパターンを行ごとに処理する。
         tri_difx_fill = np.zeros(tri_difx.shape)
-        for j in range(tri_difx.shape[0] - 1):
+        for j in range(tri_difx.shape[0]):
             row = tri_difx[j, :]
             # Run-length encoding exposes gradient sign transitions used for ridge detection.
             # ランレングス符号化により、リッジ検出に使う勾配符号の遷移を取り出す。
@@ -1177,7 +1177,7 @@ class BGCalibrator:
         # Process Y-direction ridge patterns column by column.
         # Y方向のリッジパターンを列ごとに処理する。
         tri_dify_fill = np.zeros(tri_dify.shape)
-        for j in range(tri_dify.shape[1] - 1):
+        for j in range(tri_dify.shape[1]):
             col = tri_dify[:, j]
             # Apply the same sign-transition logic symmetrically in Y-direction.
             # X方向と同じ符号遷移判定を Y方向へ対称的に適用する。
