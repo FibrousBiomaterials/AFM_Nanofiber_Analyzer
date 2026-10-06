@@ -184,15 +184,23 @@ time.
 # AI usage disclosure
 
 During software development and preparation of the JOSS submission, the authors
-used Codex with ChatGPT 5.5 (OpenAI), Claude Opus 4.8 (Anthropic), and Claude
-Fable 5 (Anthropic). These tools assisted with drafting and refactoring code;
-writing and translating docstrings and comments between English and Japanese;
-and drafting and revising documentation and the JOSS manuscript. The tools were
-used under author supervision; they did not design the analysis methods or
-determine scientific results. All AI-assisted output was reviewed, edited, and
-verified by the authors against the source code and their domain knowledge. The
-authors made the core design and scientific decisions and take full
-responsibility for the software, documentation, and manuscript.
+used the following generative AI tools:
+
+- Claude Code (Anthropic) with the models Claude Opus 4.8, Claude Opus 5,
+  Claude Opus 5.5, Claude Fable 5, and Claude Fable 5.1, for drafting and
+  refactoring code; writing tests, validation scripts, and repository checks;
+  writing and translating docstrings, comments, and the user-interface
+  translation catalogs between English and Japanese; and drafting and revising
+  the documentation and the JOSS manuscript.
+- Claude Opus 4.5 (Anthropic) in a chat interface, for discussing
+  implementation approaches.
+- Codex with ChatGPT 5.5 (OpenAI), for drafting and refactoring code.
+
+The tools were used under author supervision; they did not design the analysis
+methods or determine scientific results. All AI-assisted output was reviewed,
+edited, and verified by the authors against the source code and their domain
+knowledge. The authors made the core design and scientific decisions and take
+full responsibility for the software, documentation, and manuscript.
 
 # Acknowledgements
 
