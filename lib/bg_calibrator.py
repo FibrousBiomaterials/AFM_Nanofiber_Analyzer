@@ -116,7 +116,7 @@ class BGCalibrator:
                  savgol_window=51, savgol_polyorder=2, apply_median=True,
                  mask_dilation=3,
                  min_mask_component_area=10, bg_method='trendfill', tophat_se_size=25,
-                 spline1d_axis='y', spline1d_degree=2) -> None:
+                 spline1d_axis='x', spline1d_degree=2) -> None:
         """
         Initialize background calibration parameters.
         背景補正の各種パラメータを初期化する。
@@ -223,17 +223,16 @@ class BGCalibrator:
             AFM images.
 
             ``'spline1d'``: per-line 1D spline interpolation of the
-            background-candidate pixels along a single axis. The
-            ``spline1d_axis`` option selects which way the stripe noise
-            runs. With ``spline1d_axis='y'`` (default) each column is
-            interpolated independently down the image; combined with the
-            Savitzky-Golay step this evens out *horizontal* stripes, i.e.
-            line-to-line offsets where each scan line is shifted up or down
-            (the common AFM geometry when the fast-scan axis lies along the
-            image rows). ``spline1d_axis='x'`` interpolates each row across
-            the image instead and targets *vertical* stripes. For such
-            stripe/line noise this per-line approach is effective because
-            each scan line keeps its own degree of freedom. Uses the same
+            background-candidate pixels along a single axis, chosen by
+            ``spline1d_axis``. With ``spline1d_axis='x'`` (default) each row
+            is filled from its own values, which is each scan line when the
+            fast-scan axis lies along the image rows (the usual AFM
+            geometry); each line keeps its own level in the background, so
+            subtracting the background removes *horizontal* stripes, i.e.
+            line-to-line offsets where each scan line is shifted up or down.
+            With ``spline1d_axis='y'`` each column is filled from its own
+            values instead; a hole is then filled from the rows above and
+            below it, so horizontal stripes are not removed there. Uses the same
             trendfill-style fiber mask (with ``mask_dilation`` and
             ``min_mask_component_area``) to choose background-candidate
             pixels, and the same ``pandas`` spline of order
@@ -277,13 +276,13 @@ class BGCalibrator:
 
             ``'spline1d'``: 背景候補画素を1軸に沿って行/列ごとに 1D スプライン
             補間する方式。
-            ``spline1d_axis`` で除去対象の縞の向きを選ぶ。``'y'`` (デフォルト)
-            は各列を画像の縦方向に独立補間し、後段の Savitzky-Golay と併せて
-            *横縞* (各走査ラインが上下にずれるライン間オフセット。画像の行方向
-            が高速走査軸のときに生じる一般的な AFM 形状) を均す。``'x'`` は
-            代わりに各行を横方向に補間し *縦縞* を対象とする。こうした縞/ライン
-            ノイズに対しては、走査ラインごとに独立した自由度を残せる本方式が
-            有効である。背景候補画素の選択には trendfill と同じファイバーマスク
+            補間の向きは ``spline1d_axis`` で選ぶ。``'x'`` (デフォルト) は各行を
+            その行自身の値から埋める。画像の行方向が高速走査軸である一般的な
+            AFM の撮り方では、各行は走査ライン 1 本にあたる。各ラインが背景に
+            自身の水準を保つので、背景を引くと *横縞* (各走査ラインが上下に
+            ずれるライン間オフセット) も消える。``'y'`` は代わりに各列をその列
+            自身の値から埋める。このとき穴は上下の行の値から埋まるので、横縞は
+            そこでは消えない。背景候補画素の選択には trendfill と同じファイバーマスク
             (``mask_dilation``, ``min_mask_component_area`` 込み) を使い、
             補間にはデトレンドした写しへ order ``spline1d_degree`` の
             ``pandas`` スプラインを適用する。各ラインの最初/最後の背景画素
@@ -311,21 +310,24 @@ class BGCalibrator:
             2〜3 倍)。小さすぎるとファイバーが背景に残り、大きすぎると本来
             背景として残すべき基板の局所構造も削られる。奇数のみ有効で、
             偶数を渡した場合は黙って +1 される。デフォルトは 25。
-        spline1d_axis : {'y', 'x'}, optional
-            Stripe orientation to remove when ``bg_method='spline1d'``,
-            expressed as the interpolation axis. ``'y'`` (default)
-            interpolates each column down the image and, with the
-            subsequent Savitzky-Golay step, evens out *horizontal* stripes
-            -- line-to-line offsets where each scan line is shifted up or
-            down (the usual AFM geometry when the image rows are the
-            fast-scan axis). ``'x'`` interpolates each row across the image
-            instead and targets *vertical* stripes. Default ``'y'``.
-            ``bg_method='spline1d'`` のとき除去する縞の向き (補間軸で表現)。
-            ``'y'`` (デフォルト) は各列を画像の縦方向に補間し、後段の
-            Savitzky-Golay と併せて *横縞* (各走査ラインが上下にずれる
-            ライン間オフセット。画像の行方向が高速走査軸のときの一般的な AFM
-            形状) を均す。``'x'`` は代わりに各行を横方向に補間し *縦縞* を
-            対象とする。デフォルトは ``'y'``。
+        spline1d_axis : {'x', 'y'}, optional
+            Interpolation axis when ``bg_method='spline1d'``. ``'x'``
+            (default) fills each row from its own values; when the image rows
+            are the fast-scan axis (the usual AFM geometry) each row is one
+            scan line, so its own level stays in the background and
+            subtracting the background removes *horizontal* stripes --
+            line-to-line offsets where each scan line is shifted up or down.
+            ``'y'`` fills each column from its own values instead, so a hole
+            is filled from the rows above and below and horizontal stripes
+            are not removed there. Default ``'x'``, as in
+            ``pipeline.ProcParams``.
+            ``bg_method='spline1d'`` のときの補間の向き。``'x'`` (デフォルト) は
+            各行をその行自身の値から埋める。画像の行方向が高速走査軸である
+            一般的な AFM の撮り方では各行が走査ライン 1 本にあたり、その水準が
+            背景に残るので、背景を引くと *横縞* (各走査ラインが上下にずれる
+            ライン間オフセット) も消える。``'y'`` は代わりに各列をその列自身の
+            値から埋めるので、穴は上下の行の値から埋まり、横縞はそこでは
+            消えない。デフォルトは ``pipeline.ProcParams`` と同じ ``'x'``。
         spline1d_degree : int, optional
             Polynomial order of the per-line ``pandas`` spline used when
             ``bg_method='spline1d'``. Practical range is 1-3; must be a
@@ -688,11 +690,12 @@ class BGCalibrator:
         is left unfilled there, and its pixels are filled from the nearest
         background pixel in 2D.
 
-        The stripe orientation is controlled by ``spline1d_axis``:
-        ``'y'`` (default) interpolates each column down the image and, with
-        the Savitzky-Golay step, evens out *horizontal* stripes (line-to-
-        line up/down offsets); ``'x'`` interpolates each row across the
-        image and targets *vertical* stripes instead.
+        The interpolation axis is ``spline1d_axis``: ``'x'`` (default)
+        fills each row from its own values, so on the usual geometry (image
+        rows are scan lines) each scan line's offset stays in the background
+        and *horizontal* stripes are subtracted with it; ``'y'`` fills each
+        column instead, which fills a hole from the rows above and below and
+        does not remove horizontal stripes there.
 
         Like every background method, the estimated background is
         subtracted *in full*. The interpolated background is Savitzky-Golay
@@ -718,10 +721,11 @@ class BGCalibrator:
         入らない。この区間を埋めずに残すのは有効サンプルが 2 点未満のラインだけで、
         その画素は 2 次元の最近傍背景画素から埋める。
 
-        除去する縞の向きは ``spline1d_axis`` で制御する。``'y'`` (デフォルト)
-        は各列を画像の縦方向に補間し、Savitzky-Golay と併せて *横縞* (各走査
-        ラインが上下にずれるオフセット) を均す。``'x'`` は代わりに各行を横方向
-        に補間し *縦縞* を対象とする。
+        補間の向きは ``spline1d_axis`` で決まる。``'x'`` (デフォルト) は各行を
+        その行自身の値から埋めるので、一般的な撮り方 (画像の行が走査ライン)
+        では各走査ラインのずれが背景に残り、*横縞* も一緒に引かれる。``'y'``
+        は各列を埋めるので、穴は上下の行の値から埋まり、横縞はそこでは
+        消えない。
 
         他の背景方式と同様、推定した背景は *そのまま全面* 減算する。行/列ごとの
         補間は構成上滑らかにはならないため、補間した背景を先に Savitzky-Golay
@@ -806,7 +810,7 @@ class BGCalibrator:
         image.calibrated_image = calibrated_image
 
     @staticmethod
-    def _spline1d_fill(bg_only: np.ndarray, axis: str = 'y', order: int = 2,
+    def _spline1d_fill(bg_only: np.ndarray, axis: str = 'x', order: int = 2,
                        end_window: int = 31) -> np.ndarray:
         """
         Fill each line's masked positions: interpolate inside, hold a level outside.

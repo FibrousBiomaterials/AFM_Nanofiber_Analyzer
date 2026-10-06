@@ -3,7 +3,7 @@
  "experiments": {
   "bg_fill": {
    "description": "Square holes of 21 px cut into fiber-free background of the tunicate scan: how far the smoothed background estimate inside each hole, and on the genuine background beside it, moves from the estimate made with those pixels known, for each combination of detrending (none, plane, quadratic) and filler (nearest background pixel, OpenCV Navier-Stokes inpainting with radius 3).",
-   "snapshot": "4cbe31238b0dba97",
+   "snapshot": "12a61642f7f0b8ad",
    "values": {
     "hole_size_px": 21,
     "holes": 20,
@@ -47,7 +47,7 @@
   },
   "bg_legacy_halo": {
    "description": "A synthetic 512 x 512 scan: a plane rising along X at the steepest slope of the bundled scans (0.24 nm/px), one straight fiber across it (Gaussian section, 8 nm high, sigma 3 px) and 0.05 nm noise, calibrated by the default background method of release 1.0.0 (run from a worktree of tag v1.0.0) and of the current code: the highest and lowest calibrated background beside the fiber.",
-   "snapshot": "db7be0837c127601",
+   "snapshot": "7aadbdde6d969e50",
    "values": {
     "current.beside_max_nm": 0.18304,
     "current.beside_min_nm": -0.20525,
@@ -61,7 +61,7 @@
   },
   "bg_stats": {
    "description": "Per bundled scan: the slope of the least-squares plane through the raw heights, the median width of the dilated trendfill fiber mask (twice the distance to its edge along its medial axis), the height the plane falls across that width, the peak-to-peak of the quadratic part left after the plane, and the median calibrated height under the default skeleton.",
-   "snapshot": "db7be0837c127601",
+   "snapshot": "7aadbdde6d969e50",
    "values": {
     "NDTOC.drop_across_hole_nm": 0.038692,
     "NDTOC.hole_width_px": 12.165525,
@@ -92,21 +92,21 @@
   },
   "bg_timing": {
    "description": "Wall time of the three background methods on the bundled 1024 x 1024 Bruker scan, second of two runs, on the machine that ran this script.",
-   "snapshot": "db7be0837c127601",
+   "snapshot": "7aadbdde6d969e50",
    "values": {
     "image_cols": 1024,
     "image_rows": 1024,
-    "spline1d.seconds": 2.164437,
-    "tophat.seconds": 0.523176,
-    "trendfill.bg_fit_over_bg_generate": 0.462115,
-    "trendfill.bg_fit_seconds": 0.219264,
-    "trendfill.bg_generate_seconds": 0.47448,
-    "trendfill.seconds": 1.117817
+    "spline1d.seconds": 3.088117,
+    "tophat.seconds": 0.738599,
+    "trendfill.bg_fit_over_bg_generate": 0.458596,
+    "trendfill.bg_fit_seconds": 0.286592,
+    "trendfill.bg_generate_seconds": 0.624933,
+    "trendfill.seconds": 1.585694
    }
   },
   "border_drift": {
    "description": "Per bundled scan, thinned without and with the replicated border: the lateral distance from each skeleton point to the height crest along the point's normal (within half the fiber's apparent width), for the last 5 points of tracks that end within 2 px of the image edge and for points more than 10 px from either end.",
-   "snapshot": "80a919185904cdef",
+   "snapshot": "599d73367fc9ef07",
    "values": {
     "padded.end_median_px": 1.03125,
     "padded.end_points": 210,
@@ -118,10 +118,62 @@
   },
   "border_padding": {
    "description": "Thinning with and without the replicated border, compared outside the border band, on the binarized masks of the five bundled scans.",
-   "snapshot": "db7be0837c127601",
+   "snapshot": "7aadbdde6d969e50",
    "values": {
     "identical_inside_band": 5,
     "scans": 5
+   }
+  },
+  "branch_pruning": {
+   "description": "The height-gated pruning of Skeletonizer (set_low_bp_coor to prune_branches) on the default binarized mask of each bundled scan: the calibrated height at the branch points of the first skeleton and the share at or above bp_height, the pixels the pruning removes at the default bp_height and with every branch point treated as low, and how many pixels of the final skeleton change when the pruning is skipped or every branch point is treated as low, and when it is skipped with prune_short_spurs also switched off.",
+   "snapshot": "7aadbdde6d969e50",
+   "values": {
+    "NDTOC.all_low.final_changed_pixels": 0,
+    "NDTOC.all_low.pruned_pixels": 870,
+    "NDTOC.bp_at_or_above_percent": 0.0,
+    "NDTOC.bp_height_median_nm": 2.074139,
+    "NDTOC.branch_points": 249,
+    "NDTOC.default.pruned_pixels": 870,
+    "NDTOC.final_pixels": 9032,
+    "NDTOC.skipped.final_changed_pixels": 161,
+    "NDTOC.spurs_off.skipped.final_changed_pixels": 899,
+    "art_aniso.all_low.final_changed_pixels": 0,
+    "art_aniso.all_low.pruned_pixels": 3,
+    "art_aniso.bp_at_or_above_percent": 0.0,
+    "art_aniso.bp_height_median_nm": 7.647495,
+    "art_aniso.branch_points": 3,
+    "art_aniso.default.pruned_pixels": 3,
+    "art_aniso.final_pixels": 963,
+    "art_aniso.skipped.final_changed_pixels": 0,
+    "art_aniso.spurs_off.skipped.final_changed_pixels": 3,
+    "art_iso.all_low.final_changed_pixels": 0,
+    "art_iso.all_low.pruned_pixels": 2,
+    "art_iso.bp_at_or_above_percent": 0.0,
+    "art_iso.bp_height_median_nm": 7.924745,
+    "art_iso.branch_points": 2,
+    "art_iso.default.pruned_pixels": 2,
+    "art_iso.final_pixels": 437,
+    "art_iso.skipped.final_changed_pixels": 0,
+    "art_iso.spurs_off.skipped.final_changed_pixels": 2,
+    "bp_height_nm": 10.0,
+    "hplantTOC.all_low.final_changed_pixels": 0,
+    "hplantTOC.all_low.pruned_pixels": 118,
+    "hplantTOC.bp_at_or_above_percent": 0.0,
+    "hplantTOC.bp_height_median_nm": 1.898822,
+    "hplantTOC.branch_points": 25,
+    "hplantTOC.default.pruned_pixels": 118,
+    "hplantTOC.final_pixels": 1789,
+    "hplantTOC.skipped.final_changed_pixels": 24,
+    "hplantTOC.spurs_off.skipped.final_changed_pixels": 161,
+    "tunicate.all_low.final_changed_pixels": 0,
+    "tunicate.all_low.pruned_pixels": 65,
+    "tunicate.bp_at_or_above_percent": 41.37931,
+    "tunicate.bp_height_median_nm": 9.295011,
+    "tunicate.branch_points": 58,
+    "tunicate.default.pruned_pixels": 57,
+    "tunicate.final_pixels": 7975,
+    "tunicate.skipped.final_changed_pixels": 1,
+    "tunicate.spurs_off.skipped.final_changed_pixels": 139
    }
   },
   "closing_gaps": {
@@ -144,7 +196,7 @@
   },
   "hough_edge_map": {
    "description": "Per bundled scan: whether the final binarized mask is identical when the linearity filter builds each component's edge map from the component alone (the current code) or, as up to release 1.0.0, from the whole working mask inside the component's bounding box.",
-   "snapshot": "db7be0837c127601",
+   "snapshot": "7aadbdde6d969e50",
    "values": {
     "NDTOC.identical": 1,
     "art_aniso.identical": 1,
@@ -157,7 +209,7 @@
   },
   "kink_reference": {
    "description": "Score the kink rule, its variants and the earlier polyline rule against the visual reference of 64 clear kinks on the five bundled scans (scripts/kink_reference_score.py procedure).",
-   "snapshot": "80a919185904cdef",
+   "snapshot": "599d73367fc9ef07",
    "values": {
     "clear_marks": 64,
     "default.displaced": 1,
@@ -359,7 +411,7 @@
   },
   "kink_rule_sweep": {
    "description": "Synthetic kinked, straight, arc and sine fibers over apparent width and pixel noise, scored against the analytic centerline (scripts/kink_rule_sweep.py with the base rule and a 3-sigma noise floor).",
-   "snapshot": "80a919185904cdef",
+   "snapshot": "599d73367fc9ef07",
    "values": {
     "W16.arm_error_deg": 1.72,
     "W16.excess_error_deg": 3.36,
@@ -529,9 +581,74 @@
     "W8.n0.30.kink145.found": 2
    }
   },
+  "linearity_filter": {
+   "description": "The linearity filter of Segmenter (_remove_nonlinear_objects) at the defaults: on every test input, the largest s_ratio and how many components score above 1, and the components it removes whose bounding box reaches h_length, against the visual labels in LINEARITY_REMOVED_INSPECTED and LINEARITY_FIBER_PIECES; on synthetic bands (a line about 120 px long, horizontal or at 45 degrees, dilated three times with the 4-connected element), the Canny edge pixels found in the bounding-box crop, the s_ratio and whether the band is kept.",
+   "snapshot": "7aadbdde6d969e50",
+   "values": {
+    "band.diagonal.area": 620,
+    "band.diagonal.edge_pixels": 356,
+    "band.diagonal.kept": 1,
+    "band.diagonal.s_ratio": 1.353933,
+    "band.horizontal.area": 865,
+    "band.horizontal.edge_pixels": 14,
+    "band.horizontal.kept": 0,
+    "band.horizontal.s_ratio": 0.0,
+    "inputs": 7,
+    "removed_fiber_pieces": 10,
+    "removed_reaching_h_length": 273,
+    "s_ratio_above_one": 61,
+    "s_ratio_max": 3.360248
+   }
+  },
+  "local_threshold": {
+   "description": "Binarization with the global threshold alone against the default global AND local threshold, everything else at the defaults, on each bundled scan: the height of the pixels the local threshold removes and keeps relative to the highest height within 3 px, the mean mask width (final mask area over final skeleton length), the 8-connected components of the final mask, and the branch points of the final skeleton.",
+   "snapshot": "7aadbdde6d969e50",
+   "values": {
+    "NDTOC.both.branch_points": 77,
+    "NDTOC.both.mask_components": 20,
+    "NDTOC.both.mask_width_px": 9.560895,
+    "NDTOC.global.branch_points": 160,
+    "NDTOC.global.mask_components": 16,
+    "NDTOC.global.mask_width_px": 12.91453,
+    "NDTOC.kept_percent_of_crest": 71.500573,
+    "NDTOC.removed_percent_of_crest": 35.309301,
+    "art_aniso.both.branch_points": 0,
+    "art_aniso.both.mask_components": 3,
+    "art_aniso.both.mask_width_px": 9.991693,
+    "art_aniso.global.branch_points": 0,
+    "art_aniso.global.mask_components": 4,
+    "art_aniso.global.mask_width_px": 15.379132,
+    "art_aniso.kept_percent_of_crest": 83.580344,
+    "art_aniso.removed_percent_of_crest": 22.028729,
+    "art_iso.both.branch_points": 0,
+    "art_iso.both.mask_components": 2,
+    "art_iso.both.mask_width_px": 11.240275,
+    "art_iso.global.branch_points": 0,
+    "art_iso.global.mask_components": 2,
+    "art_iso.global.mask_width_px": 17.373522,
+    "art_iso.kept_percent_of_crest": 84.62771,
+    "art_iso.removed_percent_of_crest": 21.832531,
+    "hplantTOC.both.branch_points": 5,
+    "hplantTOC.both.mask_components": 7,
+    "hplantTOC.both.mask_width_px": 8.970375,
+    "hplantTOC.global.branch_points": 6,
+    "hplantTOC.global.mask_components": 10,
+    "hplantTOC.global.mask_width_px": 12.19667,
+    "hplantTOC.kept_percent_of_crest": 75.28151,
+    "hplantTOC.removed_percent_of_crest": 34.095647,
+    "tunicate.both.branch_points": 33,
+    "tunicate.both.mask_components": 9,
+    "tunicate.both.mask_width_px": 10.108464,
+    "tunicate.global.branch_points": 68,
+    "tunicate.global.mask_components": 1,
+    "tunicate.global.mask_width_px": 15.6237,
+    "tunicate.kept_percent_of_crest": 83.377251,
+    "tunicate.removed_percent_of_crest": 24.611786
+   }
+  },
   "loop_candidates": {
    "description": "Every region enclosed by the skeleton that collapse_skeleton_loops considers on the bundled scans (at most max_loop_area, clear of the border): the median height inside over the median height of the skeleton ring around it, the branch points on that ring, and the visual label in LOOP_LABELS.",
-   "snapshot": "db7be0837c127601",
+   "snapshot": "7aadbdde6d969e50",
    "values": {
     "all.branch_points_range": [
      1,
@@ -557,7 +674,7 @@
   },
   "ridge_hysteresis": {
    "description": "On the bundled tunicate scan (5 um): the ridge filter of _recover_missed_ridges and the calibrated heights themselves, each thresholded by hysteresis with the Otsu high and triangle low levels; the fraction of the image each covers, and the fraction of the ridge response below its low level on pixels at least 10 px from the default binarized mask.",
-   "snapshot": "db7be0837c127601",
+   "snapshot": "7aadbdde6d969e50",
    "values": {
     "height.cover_percent": 11.619936,
     "ridge.cover_percent": 7.704134,
@@ -566,7 +683,7 @@
   },
   "ridge_recovery_bundled": {
    "description": "Ridge recovery switched on for each bundled scan at its recorded scan size: the candidate components outside the thresholded mask whose skeleton reaches ridge_min_length_nm, how many of them touch that mask (the earlier rule dropped those), and the longest.",
-   "snapshot": "db7be0837c127601",
+   "snapshot": "7aadbdde6d969e50",
    "values": {
     "NDTOC.kept": 0,
     "NDTOC.longest_nm": 0.0,
@@ -590,9 +707,78 @@
     "tunicate.touching_mask": 2
    }
   },
+  "spline1d_axis": {
+   "description": "Every test input calibrated by trendfill and by spline1d along 'x' and along 'y', everything else at the defaults: on the background (pixels more than 5 px from the union of the three binarized masks), the spread (standard deviation) of the per-row and per-column medians of the calibrated height, and of the background pixels themselves.",
+   "snapshot": "7aadbdde6d969e50",
+   "values": {
+    "NDTOC.trendfill.background_std_nm": 0.482086,
+    "NDTOC.trendfill.column_median_std_nm": 0.014851,
+    "NDTOC.trendfill.row_median_std_nm": 0.018551,
+    "NDTOC.x.background_std_nm": 0.490196,
+    "NDTOC.x.column_median_std_nm": 0.014843,
+    "NDTOC.x.row_median_std_nm": 0.019415,
+    "NDTOC.y.background_std_nm": 0.667621,
+    "NDTOC.y.column_median_std_nm": 0.036331,
+    "NDTOC.y.row_median_std_nm": 0.306859,
+    "art_aniso.trendfill.background_std_nm": 0.169607,
+    "art_aniso.trendfill.column_median_std_nm": 0.010789,
+    "art_aniso.trendfill.row_median_std_nm": 0.004877,
+    "art_aniso.x.background_std_nm": 0.177583,
+    "art_aniso.x.column_median_std_nm": 0.022018,
+    "art_aniso.x.row_median_std_nm": 0.006272,
+    "art_aniso.y.background_std_nm": 0.18266,
+    "art_aniso.y.column_median_std_nm": 0.013506,
+    "art_aniso.y.row_median_std_nm": 0.016126,
+    "art_iso.trendfill.background_std_nm": 0.080603,
+    "art_iso.trendfill.column_median_std_nm": 0.011563,
+    "art_iso.trendfill.row_median_std_nm": 0.010866,
+    "art_iso.x.background_std_nm": 0.105503,
+    "art_iso.x.column_median_std_nm": 0.026348,
+    "art_iso.x.row_median_std_nm": 0.013192,
+    "art_iso.y.background_std_nm": 0.118649,
+    "art_iso.y.column_median_std_nm": 0.019126,
+    "art_iso.y.row_median_std_nm": 0.039083,
+    "gwy.trendfill.background_std_nm": 0.261559,
+    "gwy.trendfill.column_median_std_nm": 0.005441,
+    "gwy.trendfill.row_median_std_nm": 0.224319,
+    "gwy.x.background_std_nm": 0.123824,
+    "gwy.x.column_median_std_nm": 0.005926,
+    "gwy.x.row_median_std_nm": 0.006228,
+    "gwy.y.background_std_nm": 0.320239,
+    "gwy.y.column_median_std_nm": 0.010851,
+    "gwy.y.row_median_std_nm": 0.28555,
+    "gwy_txt.trendfill.background_std_nm": 0.257623,
+    "gwy_txt.trendfill.column_median_std_nm": 0.005349,
+    "gwy_txt.trendfill.row_median_std_nm": 0.220585,
+    "gwy_txt.x.background_std_nm": 0.122837,
+    "gwy_txt.x.column_median_std_nm": 0.005592,
+    "gwy_txt.x.row_median_std_nm": 0.005329,
+    "gwy_txt.y.background_std_nm": 0.314449,
+    "gwy_txt.y.column_median_std_nm": 0.008994,
+    "gwy_txt.y.row_median_std_nm": 0.275821,
+    "hplantTOC.trendfill.background_std_nm": 0.261596,
+    "hplantTOC.trendfill.column_median_std_nm": 0.005442,
+    "hplantTOC.trendfill.row_median_std_nm": 0.22435,
+    "hplantTOC.x.background_std_nm": 0.123841,
+    "hplantTOC.x.column_median_std_nm": 0.005927,
+    "hplantTOC.x.row_median_std_nm": 0.006227,
+    "hplantTOC.y.background_std_nm": 0.320285,
+    "hplantTOC.y.column_median_std_nm": 0.010852,
+    "hplantTOC.y.row_median_std_nm": 0.285589,
+    "tunicate.trendfill.background_std_nm": 0.123227,
+    "tunicate.trendfill.column_median_std_nm": 0.011452,
+    "tunicate.trendfill.row_median_std_nm": 0.009393,
+    "tunicate.x.background_std_nm": 0.15819,
+    "tunicate.x.column_median_std_nm": 0.014961,
+    "tunicate.x.row_median_std_nm": 0.006744,
+    "tunicate.y.background_std_nm": 0.278394,
+    "tunicate.y.column_median_std_nm": 0.014471,
+    "tunicate.y.row_median_std_nm": 0.061848
+   }
+  },
   "synthetic_centerline": {
    "description": "On the synthetic suite of scripts/synthetic_suite.py (groups A-F: 60 scans, 2 nm pixels, W = 8 px; group G: twisted ribbons): the distance of each centerline method from the true centerline, the contour-length error, the same-sense corner pairs, and the lateral offset on the ribbons.",
-   "snapshot": "80a919185904cdef",
+   "snapshot": "599d73367fc9ef07",
    "values": {
     "G_circle_d3.max_nm.quarter_max": 3.49811,
     "G_circle_d3.rms_px.crest": 0.22843,
@@ -732,7 +918,7 @@
   },
   "synthetic_kinks": {
    "description": "The kink rule on the synthetic suite of scripts/synthetic_suite.py (default centerline): the excess read at isolated corners, corners found in zigzags, bends reported on straight fibers, arcs, meanders, crossings and branches, the earlier polyline rule on the arcs and meanders, and corners near an end judged at an end margin of 1.5 W and 2.0 W.",
-   "snapshot": "80a919185904cdef",
+   "snapshot": "599d73367fc9ef07",
    "values": {
     "arcs.reported": 0,
     "arcs.scans": 6,
@@ -796,7 +982,7 @@
   },
   "test_suite_bend": {
    "description": "The bent fiber of tests/conftest.write_synthetic_fiber_txt (two segments meeting at a 146.5 degree interior angle, a 33.5 degree turn), analyzed as tests/test_pipeline.test_detects_the_drawn_kink does (tophat, kinkangle_deg 155): the excess turning the rule reads at the bend.",
-   "snapshot": "db7be0837c127601",
+   "snapshot": "7aadbdde6d969e50",
    "values": {
     "drawn_turn_deg": 33.453309,
     "read_excess_deg": 26.516606,
@@ -817,7 +1003,7 @@
   },
   "tophat_border": {
    "description": "A 256 x 256 plane rising along X at the steepest slope found on the bundled scans (0.24 nm/px), opened with the default 25-px ellipse: the largest residual within 12 px of the uphill edge, opening the raw ramp (before the fix) and the detrended ramp (the current code).",
-   "snapshot": "4cbe31238b0dba97",
+   "snapshot": "12a61642f7f0b8ad",
    "values": {
     "detrended.uphill_band_max_nm": 0.293485,
     "element_px": 25,
@@ -828,7 +1014,7 @@
   },
   "track_ends": {
    "description": "Per bundled scan: the fraction of traced track ends that lie within 3 px of a branch point of the skeleton.",
-   "snapshot": "80a919185904cdef",
+   "snapshot": "599d73367fc9ef07",
    "values": {
     "NDTOC.ends": 278,
     "NDTOC.near_branch_percent": 66.18705,
@@ -844,7 +1030,7 @@
   },
   "turn_maxima": {
    "description": "The visual reference of kink_reference scored with the rule as it is and with its second kind of candidate (maxima of |T| away from any accepted curvature maximum) disabled: the clear kinks found and the unmatched bends of each.",
-   "snapshot": "80a919185904cdef",
+   "snapshot": "599d73367fc9ef07",
    "values": {
     "clear_kinks_lost_without": 4,
     "with.false": 64,
@@ -855,7 +1041,7 @@
   },
   "y_branch_kink": {
    "description": "On the bundled higher-plant TOC scan, the bend the earlier polyline rule reports on the skeleton track below the Y-branch near pixel (288, 695) (viewed on the height image, 2026-09-30: two fibers join and the trunk below does not bend), and the kinks the current rule reports within one apparent width of it.",
-   "snapshot": "80a919185904cdef",
+   "snapshot": "599d73367fc9ef07",
    "values": {
     "current_kinks_within_one_width": 0,
     "old_rule_angle_deg": 118.393019
@@ -863,13 +1049,12 @@
   }
  },
  "snapshots": {
-  "44136fa355b3678a": {},
-  "4cbe31238b0dba97": {
+  "12a61642f7f0b8ad": {
    "lib/bg_calibrator.py": {
     "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "BGCalibrator.<body>": "546aa2e3d9295dbb84bcd66d00dba7b34b92301e4bf2a307a5edebbf5c31e867",
     "BGCalibrator.__call__": "acebf9a432fc6eb97a79bd8fba17c531ced9466a5770a9eaa31e212928e459d8",
-    "BGCalibrator.__init__": "baaf2c1ed88e897ab2a8072167a2d3c448b00ef22c37d1c5abe24394fec1814e",
+    "BGCalibrator.__init__": "542ab7a9fe044da0600108a9c666c2fcf1baf0de033d0ac80e34a5a57ea6f632",
     "BGCalibrator._bg_calibrate": "81bca6d68616ec9632f6001868df178db8f63a6c97ea72ca7dc9d9c18e8597da",
     "BGCalibrator._bg_fit": "d4a8e7bf07a1e4f40ee26802bf7851a2a543546203aafea21cb5983c2a935e5b",
     "BGCalibrator._bg_generate": "f9c9af3d0e69793af75bce8f6f141469f9705dd597656da3e54c88bffcd85c4c",
@@ -881,7 +1066,7 @@
     "BGCalibrator._dif_sep": "bc7d12bd95996231a00864b985105ca2136406e635545e0ace5e86ddc79f9c89",
     "BGCalibrator._extract_fiber": "291994fe21f80c567224b86e367ee5f0e55d4ed452f7594cc9fbafb7ac37ab61",
     "BGCalibrator._fit_trend_surface": "e35b8137d0a76c2aa948197c6d37377a710f7b3cdf57f46b8ee86c41be4fc080",
-    "BGCalibrator._spline1d_fill": "12be6cbf619a2d54e694672dc4e985600e8a8328d6f4304ee99b43a4c5fd50b7",
+    "BGCalibrator._spline1d_fill": "10a69123213a676356526241593aab91feacc9a45dd73c5e062a33d9bd48786d",
     "BG_METHOD_ALIASES": "8559595f96a1e1077d92de7b5edf663fdefedd2c0acd02198e2413e4e80a97e8",
     "BG_METHOD_NAMES": "0b6170cb2f1d9d02b5ab0f7ea136f043fe02b48b54ec90a1387684779fd0d3dc",
     "BG_METHOD_REMOVED": "e4a0ad6189ad387354651896007c85b78691efc3159ea35bd155324d4fb66303",
@@ -900,74 +1085,8 @@
     "import:np": "73dd0baf8e5438da8816254a073ee43b61f8b2cdef6f393e0059cdbc55cb8d9c"
    }
   },
-  "6d4484263c1cc414": {
-   "lib/imp_tools.py": {
-    "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "_BRANCH_PATTERNS": "a9c0c4becadac97d765c58949ca6aebe1cb1021d9a862606ac3bec5c2afd0078",
-    "_CHAIN_STEP_DIAGONAL": "c84b5758d9cf3db3611630b7e998af8aae6d000cce6390f919820f0f0f14aa07",
-    "_CHAIN_STEP_ORTHOGONAL": "873e434a309f2a2dd63ee8bf88aa5e94a8875ca8367fc31c95a5eb0e9fd114e8",
-    "_END_PATTERNS": "832e475bbcd7a5f909d802cef41a5f23d68cfd8b6fc23632c07c126123457736",
-    "_build_branch_patterns": "b4138252fe7bd58c53903127a3cfc94a27bbf4797580a67836a38df1161b17fe",
-    "_build_end_patterns": "b246934cc43f6696c55b6a2584d46e056d760da0fab304685da2bdb219a794b7",
-    "_hitmiss_union": "76b98fd13e5ce781e0803de37f58ab0242a7bce5a60cd21ba097d2046ee30e36",
-    "_to_cv2_hitmiss_kernel": "48a82b2abffbe3da3a787d2ef95dc431a0e813ecec0681c0c8b7328fa87ada35",
-    "branchedPoints": "454f0886912ca34e30f5a2cdb057f55fcf98bc0b8d37faf8aac526391e9c0f88",
-    "convert_track_to_distance": "855dbabd2aad34e2c4a390ac6690d40e9ab854ee822304320dd267b9fa3563bd",
-    "endPoints": "64a56f89cae34b1c337d29eabb682e4f5e595f5def65d8b6b2236e8ca1ebb827",
-    "import:NDArray": "f2d4b5a36f5341358909a2779e4ed221803a131a3b88d2f1aa43f8406fb43f07",
-    "import:Optional": "21a5abaaaba25fbb00f8728d6f0d5907b4cb88821d6348308d353bfb3b8e5511",
-    "import:Union": "0f69f8231ff1117905d41e04c8c9016bb278961e2a3db6491609d09349d8a8eb",
-    "import:cv2": "b4caacfd8630519788f04f84f209c314ba6dedf55dda5d373ea59274d0328800",
-    "import:np": "73dd0baf8e5438da8816254a073ee43b61f8b2cdef6f393e0059cdbc55cb8d9c",
-    "remove_Lcorner": "7f3bb7b964f4cae53c8a4e0b9c09a6d6041ee64f09744a4712de9d5178da4c8f",
-    "remove_bp": "75a1c5b1a6f0bdac4a72c48b628aae58c113bb7ee5aeb2f153bda870f32aface",
-    "tracking": "5feb3943b97a6c91a615ced14d49d80955a8b6d03458f463d40ed29cbefcd005"
-   },
-   "lib/processed_image.py": {
-    "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "ProcessedImage.<body>": "04a7a5dcd43f4858162dbb4c5eb9dea455f48a4a5b29dcaf15cd657cd634eaa5",
-    "ProcessedImage.__init__": "8c96d00eb560db6ae8438ce1b43515451604cb7e4a99613bddef7798f8053e06",
-    "import:Optional": "21a5abaaaba25fbb00f8728d6f0d5907b4cb88821d6348308d353bfb3b8e5511",
-    "import:np": "73dd0baf8e5438da8816254a073ee43b61f8b2cdef6f393e0059cdbc55cb8d9c"
-   },
-   "lib/skeletonizer.py": {
-    "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "DEFAULT_BORDER_PAD": "d41a656a5bb3981c459a7c8c36fae1f02a6d6897975c41b71d405afb417fedb1",
-    "DEFAULT_HOOK_APEX_ANGLE_DEG": "f4b707871b0de69bbe6c52a79cdc79652f569e6fef437a0cc9dce88789064cf6",
-    "DEFAULT_HOOK_HEIGHT_RATIO": "48b2d3a787599c9ccd8fe74aec4a09975cb60383130ad49ff514772668774a88",
-    "DEFAULT_HOOK_LENGTH": "699a433f37568e50826f9cd607ca894a0c2b6c6e184302f9b1fcb096393b74a3",
-    "DEFAULT_LOOP_HEIGHT_RATIO": "440fa3909ecdad2469b5674506cd6bf95331804d6bb04195f950d6796e974cba",
-    "DEFAULT_MAX_LOOP_AREA": "4f81475dd5fb532bb6278a7d821603f7c95830b0bf483fa40346a3f9e68c6b3c",
-    "DEFAULT_SPUR_LENGTH": "af8c9a8e7acb307f9e698c34986bc723784605d14c5aa4a85342f684a8db64bb",
-    "Skeletonizer.<body>": "97e0f4f802323a5116e43e4168ac0da676686fbf1e394d6ba9c2db40f7235055",
-    "Skeletonizer.__call__": "afcc1bf341b2380f7db88ba642f2dd2c6c3ebff326520d665badbbc62d018010",
-    "Skeletonizer.__init__": "6131278fb8cba8deefa28dfc789c8b3a83e60e98e31811eb787b6cafd070ec99",
-    "Skeletonizer.calc_branches_image": "64e049b1cde6a49c5c59155e5044662b72a04e0102d54372015c8ba15b4db760",
-    "Skeletonizer.get_close_eps": "0b59241e2624b62a0112f4caf43b4f915038deee17df5a699b5f0c8aa9289094",
-    "Skeletonizer.prune_branches": "f6748291bc76b12b4bcf23293c0a40ef7e98c1aa57ba49dcc486865a47f6554d",
-    "Skeletonizer.remove_small_and_ring": "309043de38c12beb74efd7b4c0c9d7a01b50d7da04519bf315e8e84dce387814",
-    "Skeletonizer.set_low_bp_coor": "0f718f80992f9bc05a2ab3705b62940ae7d30afa690f8f51e530b75a0be688f3",
-    "Skeletonizer.track_branches": "c22e3ce3b6b4a3da90259b02cecde90c2b541fc69bf8497f18701e4a31dd365f",
-    "_HOOK_BODY_WINDOW": "bd2dc0dc0e5c5ca5d29c2773ac3aae689f6a8e76cd84bbf6609b80081b28689a",
-    "_HOOK_DIRECTION_WINDOW": "c97de246efdf21700d80a42647d56c56e05a293a765e88cacf7e9868a4b0773e",
-    "_junction_degree": "29684ab6ec4ae970328e0d475bc41e6ebe149e8d30881559013db7c1341c638a",
-    "_walk_from_endpoint": "03695269a578741cb0abc51597ff2d783e3bb6d9d8c7ae3063991399b4468fb9",
-    "collapse_skeleton_loops": "0ad02c569cbd8ecf48b1e292fffd9bf15407e1474cffd069dcea8663b46ef9ad",
-    "import:NDArray": "f2d4b5a36f5341358909a2779e4ed221803a131a3b88d2f1aa43f8406fb43f07",
-    "import:Optional": "21a5abaaaba25fbb00f8728d6f0d5907b4cb88821d6348308d353bfb3b8e5511",
-    "import:ProcessedImage": "c5dbcccb799f4692b332c9b571f0e364ee5354a825aba2fc458d34dd8b67ef25",
-    "import:cv2": "b4caacfd8630519788f04f84f209c314ba6dedf55dda5d373ea59274d0328800",
-    "import:imp_tools": "b20c7e78f55474d0ca76fa46346ab4c1c7e13738a2f2e57b7b6a0ded0914e6ef",
-    "import:maximum_filter": "e70aea88c9ecaa9ee9bb2d420265054f1f05e06b468a41b717b4113735328f41",
-    "import:np": "73dd0baf8e5438da8816254a073ee43b61f8b2cdef6f393e0059cdbc55cb8d9c",
-    "import:skeletonize": "dedbcbf91817c6470a1b656831a906939e32d8ac8a0d6d4dca5df8c7fbbb4fe9",
-    "import:thin": "dc82dcff2226b794daff9264cb8d13d73aa0bbfc9fd1f393469c7902921a83a0",
-    "prune_short_spurs": "453f9f49060f49fce46f675250c0bac6c2dea1a250a71dd87888a7000995e683",
-    "prune_terminal_hooks": "94c7bd4c779d73695ea0d651b3b0a288be0fb6c5c6f15346539f3f4a673e932e",
-    "thin_ignoring_image_border": "57c5d33abe1848ecf1b7f59ca186ed111006629230a67c2d53c606dca43a57fb"
-   }
-  },
-  "80a919185904cdef": {
+  "44136fa355b3678a": {},
+  "599d73367fc9ef07": {
    "lib/afm_io.py": {
     "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "AfmTextFormat.<body>": "2d461862c1b945b22cb7704bb49b4b349f8efeaa8dbd4923bd2af71f857353b1",
@@ -1014,7 +1133,7 @@
     "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "BGCalibrator.<body>": "546aa2e3d9295dbb84bcd66d00dba7b34b92301e4bf2a307a5edebbf5c31e867",
     "BGCalibrator.__call__": "acebf9a432fc6eb97a79bd8fba17c531ced9466a5770a9eaa31e212928e459d8",
-    "BGCalibrator.__init__": "baaf2c1ed88e897ab2a8072167a2d3c448b00ef22c37d1c5abe24394fec1814e",
+    "BGCalibrator.__init__": "542ab7a9fe044da0600108a9c666c2fcf1baf0de033d0ac80e34a5a57ea6f632",
     "BGCalibrator._bg_calibrate": "81bca6d68616ec9632f6001868df178db8f63a6c97ea72ca7dc9d9c18e8597da",
     "BGCalibrator._bg_fit": "d4a8e7bf07a1e4f40ee26802bf7851a2a543546203aafea21cb5983c2a935e5b",
     "BGCalibrator._bg_generate": "f9c9af3d0e69793af75bce8f6f141469f9705dd597656da3e54c88bffcd85c4c",
@@ -1026,7 +1145,7 @@
     "BGCalibrator._dif_sep": "bc7d12bd95996231a00864b985105ca2136406e635545e0ace5e86ddc79f9c89",
     "BGCalibrator._extract_fiber": "291994fe21f80c567224b86e367ee5f0e55d4ed452f7594cc9fbafb7ac37ab61",
     "BGCalibrator._fit_trend_surface": "e35b8137d0a76c2aa948197c6d37377a710f7b3cdf57f46b8ee86c41be4fc080",
-    "BGCalibrator._spline1d_fill": "12be6cbf619a2d54e694672dc4e985600e8a8328d6f4304ee99b43a4c5fd50b7",
+    "BGCalibrator._spline1d_fill": "10a69123213a676356526241593aab91feacc9a45dd73c5e062a33d9bd48786d",
     "BG_METHOD_ALIASES": "8559595f96a1e1077d92de7b5edf663fdefedd2c0acd02198e2413e4e80a97e8",
     "BG_METHOD_NAMES": "0b6170cb2f1d9d02b5ab0f7ea136f043fe02b48b54ec90a1387684779fd0d3dc",
     "BG_METHOD_REMOVED": "e4a0ad6189ad387354651896007c85b78691efc3159ea35bd155324d4fb66303",
@@ -1730,7 +1849,74 @@
     "thin_ignoring_image_border": "57c5d33abe1848ecf1b7f59ca186ed111006629230a67c2d53c606dca43a57fb"
    }
   },
-  "db7be0837c127601": {
+  "6d4484263c1cc414": {
+   "lib/imp_tools.py": {
+    "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "_BRANCH_PATTERNS": "a9c0c4becadac97d765c58949ca6aebe1cb1021d9a862606ac3bec5c2afd0078",
+    "_CHAIN_STEP_DIAGONAL": "c84b5758d9cf3db3611630b7e998af8aae6d000cce6390f919820f0f0f14aa07",
+    "_CHAIN_STEP_ORTHOGONAL": "873e434a309f2a2dd63ee8bf88aa5e94a8875ca8367fc31c95a5eb0e9fd114e8",
+    "_END_PATTERNS": "832e475bbcd7a5f909d802cef41a5f23d68cfd8b6fc23632c07c126123457736",
+    "_build_branch_patterns": "b4138252fe7bd58c53903127a3cfc94a27bbf4797580a67836a38df1161b17fe",
+    "_build_end_patterns": "b246934cc43f6696c55b6a2584d46e056d760da0fab304685da2bdb219a794b7",
+    "_hitmiss_union": "76b98fd13e5ce781e0803de37f58ab0242a7bce5a60cd21ba097d2046ee30e36",
+    "_to_cv2_hitmiss_kernel": "48a82b2abffbe3da3a787d2ef95dc431a0e813ecec0681c0c8b7328fa87ada35",
+    "branchedPoints": "454f0886912ca34e30f5a2cdb057f55fcf98bc0b8d37faf8aac526391e9c0f88",
+    "convert_track_to_distance": "855dbabd2aad34e2c4a390ac6690d40e9ab854ee822304320dd267b9fa3563bd",
+    "endPoints": "64a56f89cae34b1c337d29eabb682e4f5e595f5def65d8b6b2236e8ca1ebb827",
+    "import:NDArray": "f2d4b5a36f5341358909a2779e4ed221803a131a3b88d2f1aa43f8406fb43f07",
+    "import:Optional": "21a5abaaaba25fbb00f8728d6f0d5907b4cb88821d6348308d353bfb3b8e5511",
+    "import:Union": "0f69f8231ff1117905d41e04c8c9016bb278961e2a3db6491609d09349d8a8eb",
+    "import:cv2": "b4caacfd8630519788f04f84f209c314ba6dedf55dda5d373ea59274d0328800",
+    "import:np": "73dd0baf8e5438da8816254a073ee43b61f8b2cdef6f393e0059cdbc55cb8d9c",
+    "remove_Lcorner": "7f3bb7b964f4cae53c8a4e0b9c09a6d6041ee64f09744a4712de9d5178da4c8f",
+    "remove_bp": "75a1c5b1a6f0bdac4a72c48b628aae58c113bb7ee5aeb2f153bda870f32aface",
+    "tracking": "5feb3943b97a6c91a615ced14d49d80955a8b6d03458f463d40ed29cbefcd005"
+   },
+   "lib/processed_image.py": {
+    "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ProcessedImage.<body>": "04a7a5dcd43f4858162dbb4c5eb9dea455f48a4a5b29dcaf15cd657cd634eaa5",
+    "ProcessedImage.__init__": "8c96d00eb560db6ae8438ce1b43515451604cb7e4a99613bddef7798f8053e06",
+    "import:Optional": "21a5abaaaba25fbb00f8728d6f0d5907b4cb88821d6348308d353bfb3b8e5511",
+    "import:np": "73dd0baf8e5438da8816254a073ee43b61f8b2cdef6f393e0059cdbc55cb8d9c"
+   },
+   "lib/skeletonizer.py": {
+    "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "DEFAULT_BORDER_PAD": "d41a656a5bb3981c459a7c8c36fae1f02a6d6897975c41b71d405afb417fedb1",
+    "DEFAULT_HOOK_APEX_ANGLE_DEG": "f4b707871b0de69bbe6c52a79cdc79652f569e6fef437a0cc9dce88789064cf6",
+    "DEFAULT_HOOK_HEIGHT_RATIO": "48b2d3a787599c9ccd8fe74aec4a09975cb60383130ad49ff514772668774a88",
+    "DEFAULT_HOOK_LENGTH": "699a433f37568e50826f9cd607ca894a0c2b6c6e184302f9b1fcb096393b74a3",
+    "DEFAULT_LOOP_HEIGHT_RATIO": "440fa3909ecdad2469b5674506cd6bf95331804d6bb04195f950d6796e974cba",
+    "DEFAULT_MAX_LOOP_AREA": "4f81475dd5fb532bb6278a7d821603f7c95830b0bf483fa40346a3f9e68c6b3c",
+    "DEFAULT_SPUR_LENGTH": "af8c9a8e7acb307f9e698c34986bc723784605d14c5aa4a85342f684a8db64bb",
+    "Skeletonizer.<body>": "97e0f4f802323a5116e43e4168ac0da676686fbf1e394d6ba9c2db40f7235055",
+    "Skeletonizer.__call__": "afcc1bf341b2380f7db88ba642f2dd2c6c3ebff326520d665badbbc62d018010",
+    "Skeletonizer.__init__": "6131278fb8cba8deefa28dfc789c8b3a83e60e98e31811eb787b6cafd070ec99",
+    "Skeletonizer.calc_branches_image": "64e049b1cde6a49c5c59155e5044662b72a04e0102d54372015c8ba15b4db760",
+    "Skeletonizer.get_close_eps": "0b59241e2624b62a0112f4caf43b4f915038deee17df5a699b5f0c8aa9289094",
+    "Skeletonizer.prune_branches": "f6748291bc76b12b4bcf23293c0a40ef7e98c1aa57ba49dcc486865a47f6554d",
+    "Skeletonizer.remove_small_and_ring": "309043de38c12beb74efd7b4c0c9d7a01b50d7da04519bf315e8e84dce387814",
+    "Skeletonizer.set_low_bp_coor": "0f718f80992f9bc05a2ab3705b62940ae7d30afa690f8f51e530b75a0be688f3",
+    "Skeletonizer.track_branches": "c22e3ce3b6b4a3da90259b02cecde90c2b541fc69bf8497f18701e4a31dd365f",
+    "_HOOK_BODY_WINDOW": "bd2dc0dc0e5c5ca5d29c2773ac3aae689f6a8e76cd84bbf6609b80081b28689a",
+    "_HOOK_DIRECTION_WINDOW": "c97de246efdf21700d80a42647d56c56e05a293a765e88cacf7e9868a4b0773e",
+    "_junction_degree": "29684ab6ec4ae970328e0d475bc41e6ebe149e8d30881559013db7c1341c638a",
+    "_walk_from_endpoint": "03695269a578741cb0abc51597ff2d783e3bb6d9d8c7ae3063991399b4468fb9",
+    "collapse_skeleton_loops": "0ad02c569cbd8ecf48b1e292fffd9bf15407e1474cffd069dcea8663b46ef9ad",
+    "import:NDArray": "f2d4b5a36f5341358909a2779e4ed221803a131a3b88d2f1aa43f8406fb43f07",
+    "import:Optional": "21a5abaaaba25fbb00f8728d6f0d5907b4cb88821d6348308d353bfb3b8e5511",
+    "import:ProcessedImage": "c5dbcccb799f4692b332c9b571f0e364ee5354a825aba2fc458d34dd8b67ef25",
+    "import:cv2": "b4caacfd8630519788f04f84f209c314ba6dedf55dda5d373ea59274d0328800",
+    "import:imp_tools": "b20c7e78f55474d0ca76fa46346ab4c1c7e13738a2f2e57b7b6a0ded0914e6ef",
+    "import:maximum_filter": "e70aea88c9ecaa9ee9bb2d420265054f1f05e06b468a41b717b4113735328f41",
+    "import:np": "73dd0baf8e5438da8816254a073ee43b61f8b2cdef6f393e0059cdbc55cb8d9c",
+    "import:skeletonize": "dedbcbf91817c6470a1b656831a906939e32d8ac8a0d6d4dca5df8c7fbbb4fe9",
+    "import:thin": "dc82dcff2226b794daff9264cb8d13d73aa0bbfc9fd1f393469c7902921a83a0",
+    "prune_short_spurs": "453f9f49060f49fce46f675250c0bac6c2dea1a250a71dd87888a7000995e683",
+    "prune_terminal_hooks": "94c7bd4c779d73695ea0d651b3b0a288be0fb6c5c6f15346539f3f4a673e932e",
+    "thin_ignoring_image_border": "57c5d33abe1848ecf1b7f59ca186ed111006629230a67c2d53c606dca43a57fb"
+   }
+  },
+  "7aadbdde6d969e50": {
    "lib/afm_io.py": {
     "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "AfmTextFormat.<body>": "2d461862c1b945b22cb7704bb49b4b349f8efeaa8dbd4923bd2af71f857353b1",
@@ -1777,7 +1963,7 @@
     "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "BGCalibrator.<body>": "546aa2e3d9295dbb84bcd66d00dba7b34b92301e4bf2a307a5edebbf5c31e867",
     "BGCalibrator.__call__": "acebf9a432fc6eb97a79bd8fba17c531ced9466a5770a9eaa31e212928e459d8",
-    "BGCalibrator.__init__": "baaf2c1ed88e897ab2a8072167a2d3c448b00ef22c37d1c5abe24394fec1814e",
+    "BGCalibrator.__init__": "542ab7a9fe044da0600108a9c666c2fcf1baf0de033d0ac80e34a5a57ea6f632",
     "BGCalibrator._bg_calibrate": "81bca6d68616ec9632f6001868df178db8f63a6c97ea72ca7dc9d9c18e8597da",
     "BGCalibrator._bg_fit": "d4a8e7bf07a1e4f40ee26802bf7851a2a543546203aafea21cb5983c2a935e5b",
     "BGCalibrator._bg_generate": "f9c9af3d0e69793af75bce8f6f141469f9705dd597656da3e54c88bffcd85c4c",
@@ -1789,7 +1975,7 @@
     "BGCalibrator._dif_sep": "bc7d12bd95996231a00864b985105ca2136406e635545e0ace5e86ddc79f9c89",
     "BGCalibrator._extract_fiber": "291994fe21f80c567224b86e367ee5f0e55d4ed452f7594cc9fbafb7ac37ab61",
     "BGCalibrator._fit_trend_surface": "e35b8137d0a76c2aa948197c6d37377a710f7b3cdf57f46b8ee86c41be4fc080",
-    "BGCalibrator._spline1d_fill": "12be6cbf619a2d54e694672dc4e985600e8a8328d6f4304ee99b43a4c5fd50b7",
+    "BGCalibrator._spline1d_fill": "10a69123213a676356526241593aab91feacc9a45dd73c5e062a33d9bd48786d",
     "BG_METHOD_ALIASES": "8559595f96a1e1077d92de7b5edf663fdefedd2c0acd02198e2413e4e80a97e8",
     "BG_METHOD_NAMES": "0b6170cb2f1d9d02b5ab0f7ea136f043fe02b48b54ec90a1387684779fd0d3dc",
     "BG_METHOD_REMOVED": "e4a0ad6189ad387354651896007c85b78691efc3159ea35bd155324d4fb66303",

@@ -78,11 +78,37 @@
 
 ### 1.5 処理時間
 
-同梱の 1024<!--m:bg_timing.image_rows-->×1024<!--m:bg_timing.image_cols--> の Bruker スキャンでの実測は、`tophat` 約 0.5<!--m:bg_timing.tophat.seconds--> 秒、
-`trendfill` 約 1.1<!--m:bg_timing.trendfill.seconds--> 秒、`spline1d` 約 2.2<!--m:bg_timing.spline1d.seconds--> 秒であった（いずれも 2<!--n:count--> 回実行した
+同梱の 1024<!--m:bg_timing.image_rows-->×1024<!--m:bg_timing.image_cols--> の Bruker スキャンでの実測は、`tophat` 約 0.7<!--m:bg_timing.tophat.seconds--> 秒、
+`trendfill` 約 1.6<!--m:bg_timing.trendfill.seconds--> 秒、`spline1d` 約 3.1<!--m:bg_timing.spline1d.seconds--> 秒であった（いずれも 2<!--n:count--> 回実行した
 うちの 2<!--n:count--> 回目）。`trendfill` の中では、`lmfit` のヒストグラムフィットに
 `_bg_generate` の半分ほどの時間がかかった（実験 bg_timing）。1<!--n:count--> 台の計算機での
 経過時間であり、計算機とその負荷によって変わる。
+
+### 1.6 `spline1d` の向き
+
+各テスト入力を、`trendfill` と、`'x'` と `'y'` の 2<!--n:count--> つの向きの `spline1d` で補正した。
+ほかはすべて既定値である（実験 spline1d_axis）。背景（3<!--n:count--> つの二値化マスクを合わせた
+範囲から 5<!--n:definition--> px より離れた画素）で、行ごとの中央値のばらつき（標準偏差、nm）と、
+列ごとの中央値のばらつきを表に示す。前者は横縞があると大きくなり、後者は縦縞が
+あると大きくなる。
+
+| 入力 | 行、`trendfill` | 行、`'x'` | 行、`'y'` | 列、`trendfill` | 列、`'x'` | 列、`'y'` |
+|---|---|---|---|---|---|---|
+| チュニケート CNF | 0.009<!--m:spline1d_axis.tunicate.trendfill.row_median_std_nm--> | 0.007<!--m:spline1d_axis.tunicate.x.row_median_std_nm--> | 0.062<!--m:spline1d_axis.tunicate.y.row_median_std_nm--> | 0.011<!--m:spline1d_axis.tunicate.trendfill.column_median_std_nm--> | 0.015<!--m:spline1d_axis.tunicate.x.column_median_std_nm--> | 0.014<!--m:spline1d_axis.tunicate.y.column_median_std_nm--> |
+| 人工、等方 | 0.011<!--m:spline1d_axis.art_iso.trendfill.row_median_std_nm--> | 0.013<!--m:spline1d_axis.art_iso.x.row_median_std_nm--> | 0.039<!--m:spline1d_axis.art_iso.y.row_median_std_nm--> | 0.012<!--m:spline1d_axis.art_iso.trendfill.column_median_std_nm--> | 0.026<!--m:spline1d_axis.art_iso.x.column_median_std_nm--> | 0.019<!--m:spline1d_axis.art_iso.y.column_median_std_nm--> |
+| 人工、異方 | 0.005<!--m:spline1d_axis.art_aniso.trendfill.row_median_std_nm--> | 0.006<!--m:spline1d_axis.art_aniso.x.row_median_std_nm--> | 0.016<!--m:spline1d_axis.art_aniso.y.row_median_std_nm--> | 0.011<!--m:spline1d_axis.art_aniso.trendfill.column_median_std_nm--> | 0.022<!--m:spline1d_axis.art_aniso.x.column_median_std_nm--> | 0.014<!--m:spline1d_axis.art_aniso.y.column_median_std_nm--> |
+| 高等植物 TOC | 0.224<!--m:spline1d_axis.hplantTOC.trendfill.row_median_std_nm--> | 0.006<!--m:spline1d_axis.hplantTOC.x.row_median_std_nm--> | 0.286<!--m:spline1d_axis.hplantTOC.y.row_median_std_nm--> | 0.005<!--m:spline1d_axis.hplantTOC.trendfill.column_median_std_nm--> | 0.006<!--m:spline1d_axis.hplantTOC.x.column_median_std_nm--> | 0.011<!--m:spline1d_axis.hplantTOC.y.column_median_std_nm--> |
+| 高等植物 TOC、Gwyddion `.gwy` | 0.224<!--m:spline1d_axis.gwy.trendfill.row_median_std_nm--> | 0.006<!--m:spline1d_axis.gwy.x.row_median_std_nm--> | 0.286<!--m:spline1d_axis.gwy.y.row_median_std_nm--> | 0.005<!--m:spline1d_axis.gwy.trendfill.column_median_std_nm--> | 0.006<!--m:spline1d_axis.gwy.x.column_median_std_nm--> | 0.011<!--m:spline1d_axis.gwy.y.column_median_std_nm--> |
+| 高等植物 TOC、Gwyddion テキスト | 0.221<!--m:spline1d_axis.gwy_txt.trendfill.row_median_std_nm--> | 0.005<!--m:spline1d_axis.gwy_txt.x.row_median_std_nm--> | 0.276<!--m:spline1d_axis.gwy_txt.y.row_median_std_nm--> | 0.005<!--m:spline1d_axis.gwy_txt.trendfill.column_median_std_nm--> | 0.006<!--m:spline1d_axis.gwy_txt.x.column_median_std_nm--> | 0.009<!--m:spline1d_axis.gwy_txt.y.column_median_std_nm--> |
+| Bruker NDTOC | 0.019<!--m:spline1d_axis.NDTOC.trendfill.row_median_std_nm--> | 0.019<!--m:spline1d_axis.NDTOC.x.row_median_std_nm--> | 0.307<!--m:spline1d_axis.NDTOC.y.row_median_std_nm--> | 0.015<!--m:spline1d_axis.NDTOC.trendfill.column_median_std_nm--> | 0.015<!--m:spline1d_axis.NDTOC.x.column_median_std_nm--> | 0.036<!--m:spline1d_axis.NDTOC.y.column_median_std_nm--> |
+
+`'y'` では、行ごとのばらつきがどの入力でも `trendfill` より大きかった。補正後の画像を
+描くと、`'y'` では、チュニケート、Bruker、高等植物の入力で、画像全体に明るい横帯と
+暗い横帯ができ、高等植物のスキャンの走査線のグリッチも残る。`'x'` では、高等植物の
+3<!--n:count--> つの入力すべてでそのグリッチが消え、チュニケートのスキャンで `trendfill` が残す横の
+筋も消える。ただし、チュニケートと人工の 2<!--n:count--> つのスキャンでは、縦に近い向きに走る
+繊維の右側に、`trendfill` より目に見えて深い暗い縁ができる。`'x'` で列ごとの
+ばらつきが `trendfill` より大きくなった入力は、この縁が見えた入力と同じである。
 
 ## 2. 二値化
 
@@ -109,6 +135,48 @@ closing は、厚さ 3<!--n:value tried--> px 以上のマスク成分どうし�
 つなぐが、厚さ 1<!--n:value tried--> px の線どうしはつながない（試した 3<!--n:count--> 通りの隙間で
 0<!--m:closing_gaps.thick1.gaps_joined--> 件。実験 closing_gaps）。
 
+### 2.4 局所しきい値
+
+ほかはすべて既定値のまま、全体のしきい値だけで二値化すると、マスクは次のように
+変わる（実験 local_threshold）。マスクの平均の幅は、最終的なマスクの面積を最終的な
+スケルトンの長さで割ったものである。2<!--n:count--> つの高さは中央値で、3<!--n:definition--> px 以内でいちばん
+高い高さに対する百分率である。
+
+| スキャン | マスクの平均の幅、全体のみ → 両方 (px) | マスクのかたまりの数 | 最終スケルトンの分岐点 | 局所しきい値が落とす画素 / 残す画素の高さ (%) |
+|---|---|---|---|---|
+| チュニケート CNF | 15.6<!--m:local_threshold.tunicate.global.mask_width_px--> → 10.1<!--m:local_threshold.tunicate.both.mask_width_px--> | 1<!--m:local_threshold.tunicate.global.mask_components--> → 9<!--m:local_threshold.tunicate.both.mask_components--> | 68<!--m:local_threshold.tunicate.global.branch_points--> → 33<!--m:local_threshold.tunicate.both.branch_points--> | 25<!--m:local_threshold.tunicate.removed_percent_of_crest--> / 83<!--m:local_threshold.tunicate.kept_percent_of_crest--> |
+| 人工、等方 | 17.4<!--m:local_threshold.art_iso.global.mask_width_px--> → 11.2<!--m:local_threshold.art_iso.both.mask_width_px--> | 2<!--m:local_threshold.art_iso.global.mask_components--> → 2<!--m:local_threshold.art_iso.both.mask_components--> | 0<!--m:local_threshold.art_iso.global.branch_points--> → 0<!--m:local_threshold.art_iso.both.branch_points--> | 22<!--m:local_threshold.art_iso.removed_percent_of_crest--> / 85<!--m:local_threshold.art_iso.kept_percent_of_crest--> |
+| 人工、異方 | 15.4<!--m:local_threshold.art_aniso.global.mask_width_px--> → 10.0<!--m:local_threshold.art_aniso.both.mask_width_px--> | 4<!--m:local_threshold.art_aniso.global.mask_components--> → 3<!--m:local_threshold.art_aniso.both.mask_components--> | 0<!--m:local_threshold.art_aniso.global.branch_points--> → 0<!--m:local_threshold.art_aniso.both.branch_points--> | 22<!--m:local_threshold.art_aniso.removed_percent_of_crest--> / 84<!--m:local_threshold.art_aniso.kept_percent_of_crest--> |
+| 高等植物 TOC | 12.2<!--m:local_threshold.hplantTOC.global.mask_width_px--> → 9.0<!--m:local_threshold.hplantTOC.both.mask_width_px--> | 10<!--m:local_threshold.hplantTOC.global.mask_components--> → 7<!--m:local_threshold.hplantTOC.both.mask_components--> | 6<!--m:local_threshold.hplantTOC.global.branch_points--> → 5<!--m:local_threshold.hplantTOC.both.branch_points--> | 34<!--m:local_threshold.hplantTOC.removed_percent_of_crest--> / 75<!--m:local_threshold.hplantTOC.kept_percent_of_crest--> |
+| Bruker NDTOC | 12.9<!--m:local_threshold.NDTOC.global.mask_width_px--> → 9.6<!--m:local_threshold.NDTOC.both.mask_width_px--> | 16<!--m:local_threshold.NDTOC.global.mask_components--> → 20<!--m:local_threshold.NDTOC.both.mask_components--> | 160<!--m:local_threshold.NDTOC.global.branch_points--> → 77<!--m:local_threshold.NDTOC.both.branch_points--> | 35<!--m:local_threshold.NDTOC.removed_percent_of_crest--> / 72<!--m:local_threshold.NDTOC.kept_percent_of_crest--> |
+
+すべてのテスト入力（同梱スキャン 5<!--m:kink_reference.scans--> 枚と、高等植物のスキャンを Gwyddion で書き出した
+`testdata_Gwyddion_gwy` と `testdata_Gwyddion_txt`）の高さ画像に重ねて描くと、局所しきい値が
+落とす画素は、繊維の斜面の下のほうである。繊維が 1<!--n:count--> 本だけで離れている場所では、
+マスクが細くなるだけである。次に書くつながりが見られたのは、繊維が近くを並んで
+走るか、背景に凹凸のある、チュニケートと Bruker のスキャンである。全体のしきい値だけでは、近くを並んで走る
+2<!--n:count--> 本の繊維が斜面どうしでつながって 1<!--n:count--> つのかたまりになり、スケルトンがその間を
+通った。チュニケートのスキャンでは、網目全体がひとつのかたまりになった。Bruker の
+スキャンでは、背景のミミズ状の凹凸が繊維の斜面に触れて繊維のマスクとつながり、
+スケルトンに横枝を残した。局所しきい値を加えると、そうした凹凸は繊維から離れ、
+二値化の後段のフィルタで取り除かれた。
+
+### 2.5 直線性フィルタ
+
+7<!--m:linearity_filter.inputs--> 個のテスト入力（実験 linearity_filter）で、$s_{\text{ratio}}$ は最大 3.36<!--m:linearity_filter.s_ratio_max--> に
+なり、$s_{\text{ratio}} > 1$ となったかたまりは 61<!--m:linearity_filter.s_ratio_above_one--> 個あった。フィルタが消したかたまりのうち、
+囲む長方形が `h_length` に届くものは 273<!--m:linearity_filter.removed_reaching_h_length--> 個で、すべてを補正後の高さ画像に
+重ねて描き、目で判断した。ほとんどは背景の凹凸、粒子、高等植物のスキャンの
+走査線のグリッチであったが、10<!--m:linearity_filter.removed_fiber_pieces--> 個は本物の繊維の片であった。曲がった、
+または折れた短い繊維片（チュニケートのスキャンと、Gwyddion のテキスト書き出し）と、
+画像の端で切れた繊維の端（人工の異方、高等植物、Gwyddion の 2<!--n:count--> 種類の書き出し、
+Bruker の各入力）である。
+
+行の向きに走る合成の帯（面積 865<!--m:linearity_filter.band.horizontal.area--> 画素）では、囲む長方形で切り出した画像の
+中に Canny が見つけた輪郭は 14<!--m:linearity_filter.band.horizontal.edge_pixels--> 画素で、すべて丸い両端にあった。点数は
+0<!--m:linearity_filter.band.horizontal.s_ratio--> で、帯は消された。同じ帯を 45<!--n:definition--> 度に傾けると（面積 620<!--m:linearity_filter.band.diagonal.area--> 画素）、輪郭は
+356<!--m:linearity_filter.band.diagonal.edge_pixels--> 画素、点数は 1.35<!--m:linearity_filter.band.diagonal.s_ratio--> で、帯は残った。
+
 ## 3. 細線化
 
 [解析アルゴリズム](algorithms.ja.md) §3 を参照。
@@ -125,8 +193,26 @@ closing は、厚さ 3<!--n:value tried--> px 以上のマスク成分どうし�
 ### 3.2 `bp_height` と繊維の高さ
 
 既定の `bp_height` 10<!--c:lib/pipeline.py::ProcParams.bp_height--> nm は、どの同梱スキャンでもスケルトン下の高さの
-中央値（1.7<!--m:bg_stats.hplantTOC.skeleton_height_median_nm-->〜7.9<!--m:bg_stats.tunicate.skeleton_height_median_nm--> nm、§1.1）より高い。
-<!-- TODO(review): かつてこのしきい値の根拠として書かれていたこと（繊維の高さにある分岐点は実在の交差、基板付近にある分岐点は偽の突起）は、繊維の高さが 1.7〜7.9 nm のときの 10 nm のしきい値と合わない。bp_height が何を分けるためのものか、作者の確認が要る。 -->
+中央値（1.7<!--m:bg_stats.hplantTOC.skeleton_height_median_nm-->〜7.9<!--m:bg_stats.tunicate.skeleton_height_median_nm--> nm、§1.1）より高い。最初のスケルトンの分岐点の高さ
+（実験 branch_pruning）は、チュニケートのスキャンでは中央値 9.3<!--m:branch_pruning.tunicate.bp_height_median_nm--> nm で、分岐点の
+41<!--m:branch_pruning.tunicate.bp_at_or_above_percent--> % が `bp_height` に届く。ほかのスキャンではひとつも届かない（中央値は高等植物の
+スキャンで 1.9<!--m:branch_pruning.hplantTOC.bp_height_median_nm--> nm、Bruker のスキャンで 2.1<!--m:branch_pruning.NDTOC.bp_height_median_nm--> nm、人工のスキャンで 7.9<!--m:branch_pruning.art_iso.bp_height_median_nm--> nm と
+7.6<!--m:branch_pruning.art_aniso.bp_height_median_nm--> nm）。そこではすべての分岐点が「低い」になり、高さによる区別は何もしない。
+
+チュニケートの高さ画像に重ねて描くと、`bp_height` 以上の分岐点は、2<!--n:count--> 本の繊維が
+交差する場所か、1<!--n:count--> 本がもう 1<!--n:count--> 本に合流する場所にある。重なった 2<!--n:count--> 本の繊維の高さが
+足し合わされる場所である。それより低い分岐点にも、交差や合流が含まれる。たとえば
+スキャンの下部の絡まりにある、細い繊維どうしの交差である。そのため、このスキャン
+では、分岐点が低いことは偽の枝であることの印にならない。
+
+高さで決める枝刈りは、最終的なスケルトンをほとんど変えない。この処理を外すと、
+変わるスケルトンの画素は、チュニケートのスキャンで 7975<!--m:branch_pruning.tunicate.final_pixels--> 画素のうち 1<!--m:branch_pruning.tunicate.skipped.final_changed_pixels--> 画素、
+高等植物のスキャンで 1789<!--m:branch_pruning.hplantTOC.final_pixels--> 画素のうち 24<!--m:branch_pruning.hplantTOC.skipped.final_changed_pixels--> 画素、Bruker のスキャンで 9032<!--m:branch_pruning.NDTOC.final_pixels--> 画素のうち
+161<!--m:branch_pruning.NDTOC.skipped.final_changed_pixels--> 画素、人工のスキャンで 0<!--m:branch_pruning.art_iso.skipped.final_changed_pixels--> 画素である。すべての分岐点を「低い」として扱っても、
+チュニケートのスキャンで変わる画素は 0<!--m:branch_pruning.tunicate.all_low.final_changed_pixels--> である。この処理が刈る短い腕は、
+[解析アルゴリズム](algorithms.ja.md) §3.5 のとげ刈りが、長さだけで判断してもう一度
+刈るからである。とげ刈りを止めると、この処理を外したときに変わる画素は、同じ 3<!--n:count--> 枚の
+スキャンでそれぞれ 139<!--m:branch_pruning.tunicate.spurs_off.skipped.final_changed_pixels-->、161<!--m:branch_pruning.hplantTOC.spurs_off.skipped.final_changed_pixels-->、899<!--m:branch_pruning.NDTOC.spurs_off.skipped.final_changed_pixels--> 画素になる。
 
 ### 3.3 ループの囲み
 

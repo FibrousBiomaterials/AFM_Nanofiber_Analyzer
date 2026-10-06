@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-29 16:52+0900\n"
+"POT-Creation-Date: 2026-10-06 12:27+0900\n"
 "PO-Revision-Date: 2026-04-27 14:35+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -397,12 +397,12 @@ msgstr "must be a positive number"
 #: guis/GUI04_Tracking_fiber.py:1950 guis/GUI04_Tracking_fiber.py:6495
 #: guis/GUI04_Tracking_fiber.py:6498 guis/GUI04_Tracking_fiber.py:6502
 #: guis/GUI04_Tracking_fiber.py:6537 guis/GUI04_Tracking_fiber.py:6540
-#: lib/ui_tools.py:1045 lib/ui_tools.py:1055
+#: lib/ui_tools.py:1042 lib/ui_tools.py:1052
 msgid "エラー"
 msgstr "Error"
 
 #: guis/GUI01_Image_Preprocessor.py:2192 guis/GUI02_PlotProfiler.py:1120
-#: guis/GUI04_Tracking_fiber.py:1946 lib/ui_tools.py:1045
+#: guis/GUI04_Tracking_fiber.py:1946 lib/ui_tools.py:1042
 msgid "数値を入力してください"
 msgstr "Please enter a number"
 
@@ -752,12 +752,14 @@ msgstr ""
 #: guis/GUI01_Image_Preprocessor.py:4318
 msgid ""
 "spline1d : 2次トレンド除去 + 行/列ごとの1D "
-"B-スプライン補間。縞ノイズに有効。ライン端は外挿せず自ラインの水準を保持。spline1d_axis で縞の向きを選択"
+"B-スプライン補間。ライン端は外挿せず自ラインの水準を保持。spline1d_axis "
+"で補間の向きを選択。'x'(既定)では、画像の行が走査ラインのとき走査ラインごとの上下のずれ(横縞)も除去"
 msgstr ""
 "spline1d: second-order trend removal + 1D B-spline interpolation by "
-"row/column. Effective for stripe noise. The line ends hold that line's "
-"own level instead of extrapolating. Select the stripe direction with "
-"spline1d_axis."
+"row/column. The line ends hold that line's own level instead of "
+"extrapolating. spline1d_axis selects the interpolation direction; with "
+"'x' (default), when the image rows are the scan lines, the up/down offset "
+"of each scan line (horizontal stripes) is removed as well."
 
 #: guis/GUI01_Image_Preprocessor.py:4331
 msgid "[tophat時のみ] 構造要素直径"
@@ -772,12 +774,13 @@ msgstr ""
 #: guis/GUI01_Image_Preprocessor.py:4335
 msgid ""
 "[spline1d時のみ] "
-"除去する縞の向き。'y'=横縞(各走査ラインが上下にずれるノイズ)を除去/各列を縦に補間。'x'=縦縞を除去/各行を横に補間(良好な結果が多い)"
+"補間の向き。'x'=各行を横に補間し、画像の行が走査ラインのときは走査ラインごとの上下のずれ(横縞)も除去。'y'=各列を縦に補間し、横縞は除去しない"
 msgstr ""
-"[spline1d only] Direction of stripes to remove. 'y' removes horizontal "
-"stripes (noise where scan lines shift up/down) and interpolates each "
-"column vertically. 'x' removes vertical stripes and interpolates each row"
-" horizontally (often gives good results)."
+"[spline1d only] Interpolation direction. 'x' interpolates each row "
+"horizontally and, when the image rows are the scan lines, also removes "
+"the up/down offset of each scan line (horizontal stripes). 'y' "
+"interpolates each column vertically and does not remove horizontal "
+"stripes."
 
 #: guis/GUI01_Image_Preprocessor.py:4338
 msgid "[spline1d時のみ] 行/列スプライン order。実用範囲1〜3 (2=旧pandas互換)。点数不足の行は線形に自動フォールバック"
@@ -3564,7 +3567,7 @@ msgstr "CSV"
 msgid "All files"
 msgstr "All files"
 
-#: lib/ui_tools.py:756 lib/ui_tools.py:2102
+#: lib/ui_tools.py:756 lib/ui_tools.py:2093
 msgid "保存エラー"
 msgstr "Save Error"
 
@@ -3573,20 +3576,20 @@ msgstr "Save Error"
 msgid "CSV 保存完了: {path}"
 msgstr "CSV save complete: {path}"
 
-#: lib/ui_tools.py:867
+#: lib/ui_tools.py:864
 msgid "パラメータを変更しました。Enter キーで確定するとグラフに反映されます。"
 msgstr "Parameters have been changed. Press Enter to apply them to the graph."
 
-#: lib/ui_tools.py:900
+#: lib/ui_tools.py:897
 msgid "Enter キーで確定します"
 msgstr "Press Enter to confirm"
 
-#: lib/ui_tools.py:1126
+#: lib/ui_tools.py:1123
 #, python-brace-format
 msgid "vmin/vmax を自動設定: {lo} / {hi}"
 msgstr "Auto-set vmin/vmax: {lo} / {hi}"
 
-#: lib/ui_tools.py:1161
+#: lib/ui_tools.py:1158
 #, python-brace-format
 msgid ""
 "{0}: {1}\n"
@@ -3595,11 +3598,11 @@ msgstr ""
 "{0}: {1}\n"
 "{2}"
 
-#: lib/ui_tools.py:2091
+#: lib/ui_tools.py:2082
 msgid "図を保存"
 msgstr "Save Figure"
 
-#: lib/ui_tools.py:2103
+#: lib/ui_tools.py:2094
 #, python-brace-format
 msgid ""
 "保存に失敗しました:\n"
@@ -3608,12 +3611,12 @@ msgstr ""
 "Failed to save figure:\n"
 "{e}"
 
-#: lib/ui_tools.py:2106
+#: lib/ui_tools.py:2097
 #, python-brace-format
 msgid "保存: {path}"
 msgstr "Saved: {path}"
 
-#: lib/ui_tools.py:2110
+#: lib/ui_tools.py:2101
 msgid "保存完了"
 msgstr "Save Complete"
 
@@ -3726,3 +3729,4 @@ msgstr ""
 "- CSV export of statistics for all fibers\n"
 "\n"
 "Specify the GUI01 output folder as the input folder.\n"
+

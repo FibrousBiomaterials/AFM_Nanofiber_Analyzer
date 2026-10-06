@@ -59,6 +59,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   figure-size fields, which were labelled as orientations
   ("Landscape"/"Portrait" in the English UI), are now the figure's width and
   height in inches. Results do not change.
+- `BGCalibrator` built directly in a script now defaults to
+  `spline1d_axis='x'`, the same as `ProcParams`; it defaulted to `'y'`.
+  **A script that constructs `BGCalibrator` with `bg_method='spline1d'` and no
+  `spline1d_axis` gets different backgrounds from this version.** GUI01 and
+  `cli.py process` analyse through `ProcParams`, which already used `'x'`, so
+  their results do not change. On every test input, `'y'` left the per-row spread of
+  the background larger than `trendfill` did, and on the higher-plant scan
+  only `'x'` removed its scan-line glitch (`docs/validation.md` §1.6). The
+  docstrings, and GUI01's descriptions of `spline1d` and `spline1d_axis` in
+  the settings dialog, that said `'y'` removes horizontal stripes and `'x'`
+  vertical ones (or that the axis selects the stripe direction) are corrected,
+  and GUI01 lists
+  `'x'` first in that drop-down. The
+  internal helper `BGCalibrator._spline1d_fill` defaults to `'x'` as well; its
+  only caller always passes the axis, so this changes no result.
 
 ### Fixed
 

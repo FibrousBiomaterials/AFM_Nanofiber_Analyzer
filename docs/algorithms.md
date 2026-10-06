@@ -53,8 +53,10 @@ from what the software runs.
 The same test guards the reverse direction: it hashes the algorithm modules —
 the four stages and `lib/centerline.py`, which places the centerline kinks are
 judged on — with comments and docstrings stripped, so any change to what the
-code computes fails until this page has been reviewed. The document cannot
-quietly drift away from the code it describes.
+code computes fails until the recorded hashes are refreshed. The test checks
+only that the code matches the record; it cannot tell whether this page was
+reread. Rereading and correcting the affected sections before refreshing the
+record is required by the project's development rules (`AGENTS.md`).
 
 ## Conventions used throughout
 
@@ -65,14 +67,21 @@ quietly drift away from the code it describes.
 | Angles | radians inside kink detection, degrees in the parameter file | `pipeline.build_stages` converts `kinkangle_deg` to radians when it constructs `KinkDetector`. |
 | Array indexing (for code readers) | `image[row, column]`, i.e. `[y, x]` | Several helpers return `np.where` output, where the first array is the row index. |
 
-**Analysis pixels are offset by one pixel from the raw scan.** Background
-correction (§1) has three methods (`trendfill`, `tophat`, `spline1d`), and each
-subtracts the background from `original[1:, 1:]`, the raw scan with its first
-row and first column cut off. `trendfill` and `spline1d` build
-the background from differences between neighbouring pixels, which makes it one
-pixel smaller on each axis; `tophat` crops to the same shape so that the later
-stages receive the same array size. Every later stage works on that cropped
-array, so pixel $(r, c)$ of the analysis is pixel $(r+1, c+1)$ of the raw scan.
+**The analysis image is one pixel smaller than the raw scan on each axis, and
+its pixel indices are shifted by one.** Background correction (§1) has three
+methods (`trendfill`, `tophat`, `spline1d`), and each subtracts the background
+from `original[1:, 1:]`, the raw scan with its first row and first column cut
+off. `trendfill` and `spline1d` build the background from differences between
+neighbouring pixels. `_difXY` takes each difference as "right (lower) pixel
+minus left (upper) pixel" and places it at the right (lower) pixel, so only the
+first row and column have no difference. `tophat` crops to the same shape so
+that the later stages receive the same array size. Every later stage works on
+that cropped array, so pixel $(r, c)$ of the analysis is pixel $(r+1, c+1)$ of
+the raw scan. Point coordinates stored in the bundle (kink positions and the
+like) are coordinates of this cropped array. The per-fiber measurement CSV holds
+no pixel coordinates, and lengths take the pixel size from the raw scan's pixel
+count (the bundle image size plus 1<!--n:definition-->), so the crop does not enter a length
+(`measure.measure_bundle`).
 
 **Parameters.** Every user-settable value below is a field of
 `pipeline.ProcParams`, saved beside each bundle (the `.b2z` file holding the
@@ -113,8 +122,12 @@ Gwyddion .gwy       ->  gwy_io.load_gwy_image()     /  -> height array (nm)
                         .b2z bundle + _param.json
 ```
 
-In the diagram, `ep` is the map of endpoints (where a line ends) and `bp` the map
-of branch points (where a line forks); see §3.8.
+The names on the right of the diagram are the attributes of `ProcessedImage`
+that each stage writes: `original_image` is the loaded height image,
+`calibrated_image` the background-corrected height image, `binarized_image` the
+mask and `skeleton_image` the skeleton. The "input" and "output" lines of the
+sections below use these names. `ep` is the map of endpoints (where a line ends)
+and `bp` the map of branch points (where a line forks); see §3.8.
 
 `pipeline.process_file` runs exactly this sequence, and both GUI01 (the
 preprocessing window) and `cli.py process` (the command-line preprocessing
@@ -173,10 +186,12 @@ one method at a time. This section covers only what every method uses.
 **Savitzky–Golay smoothing.** The Savitzky–Golay filter smooths data by fitting
 a polynomial within a small window slid along it. Every method smooths its
 estimated background with this filter. The window is `savgol_window` pixels
-wide (default 31<!--c:lib/pipeline.py::ProcParams.savgol_window-->), and the polynomial fitted in the window has degree
-`savgol_polyorder` (default 1<!--c:lib/pipeline.py::ProcParams.savgol_polyorder-->, a straight line). It runs along X (along the
-rows) only, because `signal.savgol_filter` is called with its default axis, the
-image's last axis, which runs along the rows.
+wide (default 31<!--c:lib/pipeline.py::ProcParams.savgol_window-->; on an image 1024<!--n:example--> pixels square, about 3<!--x:31 / 1024 * 100--> % of its
+width), and the polynomial fitted in the window has degree `savgol_polyorder`
+(default 1<!--c:lib/pipeline.py::ProcParams.savgol_polyorder-->, a straight line). It runs along X (along the rows) only and does
+not smooth between rows (along Y). In the code, `signal.savgol_filter` is called
+with its default axis, the image's last axis, which runs along the rows.
+<!-- TODO(review): neither the code nor its comments say whether leaving Y unsmoothed is an intended design; author to confirm. -->
 
 **The final median filter (optional).** Every method can apply a 3<!--n:literal in the quoted code-->×3<!--n:literal in the quoted code--> median
 filter to the background-subtracted image, enabled by `apply_median` (default
@@ -188,8 +203,13 @@ and bowing of the whole image. Every method subtracts it from the image before
 estimating the background and adds it back afterwards. The restored background
 (trend included) is finally subtracted from the original image, so the tilt and
 bowing are removed in the end as well. The trend is taken out first so that the
-background estimate (the fill or the opening) is not disturbed by the tilt
-(§1.3–§1.5 give the details). The fitting is done by
+background estimate is not disturbed by the tilt. Each method estimates the
+background differently: `trendfill` fills the fiber pixels with the values of
+the surrounding background (the fill, §1.3), `tophat` traces the image from
+below with a disk larger than the fibers (the opening, §1.4), and `spline1d`
+joins the background points of each row or column with a smooth curve (§1.5).
+Why the tilt gets in the way is explained in each of those sections. The
+fitting is done by
 `BGCalibrator._fit_trend_surface`.
 
 `_fit_trend_surface` fits a **second-order** surface, not a plane, because real
@@ -341,7 +361,9 @@ $$
 
 where $\kappa$ is `threshold_factor` (default 2.0<!--c:lib/pipeline.py::ProcParams.threshold_factor-->). So $\pm 1$ marks "this step is
 too large to be substrate noise", calibrated per image rather than by a fixed
-nm value.
+nm value. $\Delta$ is the height of the right (lower) pixel minus that of the
+left (upper) one, so $+1$ is a step that rises when read from left to right (top
+to bottom) and $-1$ one that falls; they are called a rise and a fall below.
 
 The Y map is built the same way from the Y fit.
 
@@ -358,7 +380,10 @@ run-length encodes the ternary map, looking for two sign patterns that a ridge
 crossing the scan line produces. Both are peaks starting with a rise (+1<!--n:label-->); a
 valley (−1<!--n:label--> followed by +1<!--n:label-->) is not searched for. The loop runs over
 `range(shape[0] - 1)`, so the last row of the X map and the last column of the
-Y map are never scanned and carry no fiber marks.
+Y map are never scanned and carry no fiber marks. The last row of the analysis
+image is therefore marked only from the Y map, and its last column only from
+the X map.
+<!-- TODO(review): neither the code nor its comments say whether leaving the last row and column unscanned is intended; author to confirm. -->
 
 - **Pattern 1<!--n:label--> — `[+1, 0, -1]`**: up the flank, flat over the crest, down the
   far flank. Accepted when the flat run is shorter than `fiber_detect_factor`
@@ -368,8 +393,20 @@ Y map are never scanned and carry no fiber marks.
   condition rejects short steps, spans of 10<!--c:lib/pipeline.py::ProcParams.noise_detect_factor--> pixels or less by default, as
   noise.
 
-Every pixel between the pattern's outer bounds is marked as fiber. The X and Y
-results are combined by union in the next step.
+Pattern 1<!--n:label--> has no lower bound on length like that of pattern 2<!--n:label-->, so it also fires
+on small noise steps; the small marks it leaves are removed in Step 2<!--n:label--> as
+components of small area. Conversely, an object whose flat crest is
+`fiber_detect_factor` pixels or longer (a thick fiber with a wide crest, or a
+large flat-topped particle) matches neither pattern, receives no mark and stays
+among the background candidates. Despite "factor" in their names,
+`fiber_detect_factor` and `noise_detect_factor` are both lengths counted in
+pixels.
+
+The pixels from the start of the rising run to the end of the falling run are
+marked as fiber, except the last pixel of the falling run (the marked range
+stops before `arg_arr[vi + 3] - 1` for pattern 1<!--n:label--> and before
+`arg_arr[vi + 2] - 1` for pattern 2<!--n:label-->).
+The X and Y results are combined by union in the next step.
 
 In the code, `l_arr` holds the value of each run and `arg_arr` the index where
 it starts. Pattern 1<!--n:label--> is accepted when the zero run is shorter than
@@ -412,10 +449,13 @@ pixels in size, which scatter densely across noisy or wide-field images. Most of
 these small marks come from pattern 1<!--n:label-->. Within one row, pattern 1<!--n:label--> marks at least
 2<!--x:1 + 1 + 1 - 1--> pixels (rise, flat and fall one pixel each, the last pixel left unmarked)
 and pattern 2<!--n:label--> at least
-`noise_detect_factor` pixels, so at the default `noise_detect_factor` = 10<!--c:lib/pipeline.py::ProcParams.noise_detect_factor--> the
-components below 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area--> pixels come only from pattern 1<!--n:label-->; pattern 2<!--n:label--> produces them
-only when `noise_detect_factor` is lowered (the stage-class constructor default
-is 2<!--c:lib/bg_calibrator.py::BGCalibrator.__init__(noise_detect_factor)-->). Components
+`noise_detect_factor` pixels. A pattern-2<!--n:label--> mark therefore runs for at least
+`noise_detect_factor` (default 10<!--c:lib/pipeline.py::ProcParams.noise_detect_factor-->) pixels within a single row, which already
+gives it an area of at least `min_mask_component_area` (default 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area--> pixels,
+explained next). With the two defaults, only pattern 1<!--n:label--> makes components smaller
+than that; the two defaults are both 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area-->, but they are separate parameters.
+Pattern 2<!--n:label--> makes them too when `noise_detect_factor` is lowered (the stage-class
+constructor default is 2<!--c:lib/bg_calibrator.py::BGCalibrator.__init__(noise_detect_factor)-->). Components
 smaller than `min_mask_component_area` (default 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area-->, 8<!--n:literal in the quoted code-->-connected) are dropped.
 Without this, the dilation below expands each false positive into a square
 $2d+1$ pixels on a side ($d$ is the dilation width `mask_dilation`, explained
@@ -570,10 +610,14 @@ Where each line is explained:
 
 Two details are not optional:
 
-**It removes the tilt (the trend) before opening.** Opening an image that is
-still tilted shifts the values within one disk radius of the border: there the
-disk sticks out of the image, the minimum filter takes its minimum from the
-part that remains inside, and the maximum filter cannot restore the result.
+**It removes the tilt (the trend) before opening.** Within one disk radius of
+the border the disk sticks out of the image and the values outside cannot be
+used: the minimum filter takes its minimum from the part that remains inside,
+and the maximum filter cannot restore the result. On a flat image the values
+outside would equal those inside, so losing them changes nothing. On a tilted
+image they differ, so the opening departs from the plane and a band is left
+along the uphill edge ([Evaluation on particular data](validation.md) §1.4).
+Removing the tilt first removes what this departure comes from.
 
 **It re-centres by the median afterwards.** An opening is a *lower-envelope*
 estimator: over a noisy substrate it tracks the local noise minima, so after
@@ -600,7 +644,9 @@ a scan line itself, and the level it keeps is the scan-line offset (the
 horizontal stripes that drift and the like produce during the scan). The offset
 is part of the background, so subtracting the background removes the stripes
 as well. On either axis, the
-Savitzky–Golay smoothing that follows acts along X (along the rows) only.
+Savitzky–Golay smoothing that follows acts along X (along the rows) only, so
+with `'y'` the level kept for each column is then averaged with the columns
+within `savgol_window` pixels beside it.
 
 As in `trendfill`, the trend fitted to the background pixels is subtracted
 before the fill, so that the filler does not have to reproduce the sample's
@@ -608,7 +654,8 @@ tilt or distortion. The order differs from `trendfill`, though: the trend is
 added back **before** the Savitzky–Golay smoothing.
 <!-- TODO(review): neither the code nor its comments say why spline1d alone restores the trend before smoothing; author to confirm. -->
 
-The default axis is `'x'`. A line with fewer than `spline1d_degree` + 1<!--n:literal in the quoted code--> valid
+The default axis is `'x'` (the two axes are compared on the test inputs in
+[Evaluation on particular data](validation.md) §1.6). A line with fewer than `spline1d_degree` + 1<!--n:literal in the quoted code--> valid
 samples (values not hidden by fibers), or a degree below 2<!--n:literal in the quoted code-->, is filled
 linearly instead.
 
@@ -688,7 +735,7 @@ filled[last + 1:] = np.mean(line[valid_pos[-k:]])
 | `bg_method` | Use when | What it computes |
 |---|---|---|
 | `trendfill` (default) | General use. Excludes fibers from the background pool, so it does not eat into them. | The fiber mask from a histogram fit of the gradients (`lmfit`), the trend fit, the fill, and the smoothing. |
-| `tophat` | When building the fiber mask does not work as intended on an unusual specimen. | No fiber mask: only the trend fit, the opening, and the smoothing. |
+| `tophat` | When the fiber mask of `trendfill` does not work: for instance, when the corrected image shows dark rims along both sides of the fibers (the mask misses the fiber shoulders, §1.3 Step 2<!--n:label-->) or a tiled, cell-like mottling of the background (false detections from noise remain, §1.3 Step 2<!--n:label-->). | No fiber mask: only the trend fit, the opening, and the smoothing. |
 | `spline1d` | Scans with prominent line noise (height offsets between scan lines, produced by drift during the scan or by feedback trouble). | All of `trendfill`'s mask detection and `_bg_generate`, then a one-dimensional spline per line. |
 
 A stored parameter file that selects a method no longer available
@@ -771,7 +818,16 @@ test removes. Because the two are ANDed, the local test can only remove pixels
 that passed the global test, never add one: what survives is higher than the
 global threshold above the substrate and higher than the weighted mean of its
 surroundings.
-<!-- TODO(review): the reason that stood here, "the global test alone would miss a fiber sitting in a locally depressed area", cannot hold for an AND: the local test cannot recover such a fiber. Author to confirm why the local test was added. -->
+
+The local test is there to narrow the mask to the upper part of each fiber's
+cross-section. A fiber's cross-section is a hill, so a pixel low on its flank lies
+below the weighted mean of a window that also covers the crest, and is dropped.
+With the global test alone the mask reaches down the flanks. Two fibers running
+close together then join through their flanks into one component, and the
+skeleton runs between them; background texture that touches a flank joins the
+fiber's mask and leaves a side branch on the skeleton. Trimming the flanks
+separates both. How much this changes the masks of the bundled scans is shown in
+[Evaluation on particular data](validation.md) §2.4.
 
 `skimage.filters.threshold_local` is called with its defaults, so the local threshold is a
 Gaussian-weighted mean over the window, and a pixel is compared with that mean
@@ -828,8 +884,10 @@ Fibers do; contamination particles and tip artefacts do not.
   s_{\text{ratio}} = \frac{\sum \text{Hough peak accumulator votes}}{\sum \text{edge pixels}}
   $$
 
-  which reads as "what fraction of this object's outline is explained by
-  straight lines". A component is removed when $s_{\text{ratio}} <$ `h_sratio`
+  which grows the more the outline follows long straight lines. It is not a
+  fraction: one outline point votes for many lines at slightly different angles
+  and offsets, so the summed votes can exceed the number of outline pixels and
+  $s_{\text{ratio}} > 1$ can occur. A component is removed when $s_{\text{ratio}} <$ `h_sratio`
   (default 0.5<!--c:lib/pipeline.py::ProcParams.h_sratio-->). (The code also requires a pixel count below 1000<!--n:literal in the quoted code-->,
   but the first item has already set aside components of 1000<!--n:literal in the quoted code--> pixels or more,
   so this does not change the result.)
@@ -840,6 +898,17 @@ bounding box is axis-aligned, so a diagonal fiber's box is large and mostly
 empty and neighbouring objects land inside it often; cropping the whole mask
 let their outlines enter both sides of the $s_{\text{ratio}}$ fraction, and a
 component's verdict could turn on what happened to lie near it.
+
+The crop is the bounding box itself, with no margin around it.
+`skimage.feature.canny` does not mark the outermost pixels of an image as edges,
+so the parts of a component's border that lie on the sides of its bounding box
+are not counted as outline. A band running straight along the rows or columns
+has both of its long borders on the sides of the box; no long line is then
+found, $s_{\text{ratio}} = 0$, and the band is removed although it is
+straight, if its area is below 1000<!--n:literal in the quoted code--> pixels. Bent or kinked fiber pieces, whose
+outline does not follow long straight lines, also score low and can be removed
+when their area is below 1000<!--n:literal in the quoted code--> pixels. What the filter removed on the test inputs
+is shown in [Evaluation on particular data](validation.md) §2.5.
 
 ```python
 # source: lib/segmenter.py::Segmenter._remove_nonlinear_objects
@@ -875,6 +944,14 @@ One further detail: `h_length` plays two roles in this function. In the
 bounding-box test above it is a length in pixels, but it is also passed as the
 Hough peak `threshold` argument, where it acts as a minimum vote count (a proxy
 for line length).
+
+`linegap` in the code is an argument of this function with a default of 1<!--c:lib/segmenter.py::Segmenter._remove_nonlinear_objects(linegap)-->
+(`Segmenter.__call__` does not pass it, so the default always applies). In
+`skimage.transform.hough_line_peaks`, the argument min_distance is how far
+apart, in steps of the distance from the origin, two picked lines must be, and
+min_angle how far apart in steps of the angle. Both are one step, so lines
+differing only slightly in position or tilt are picked as separate peaks; this
+is also why $s_{\text{ratio}} > 1$ can occur.
 
 ### 2.4 Weak-connection cleanup (off by default)
 
@@ -946,8 +1023,15 @@ when the scan size is recorded, for example in the input file.
 4. Surviving components are kept when their skeleton's pixel count times the
    pixel size reaches `ridge_min_length_nm` (default 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm).
 
-It is off by default so a stored parameter file reproduces the numbers it was
-written with. When on, the Frangi filter dominates the cost of this stage.
+The scale range of the Frangi filter defaults to `ridge_min_width_nm` = 3.0<!--c:lib/pipeline.py::ProcParams.ridge_min_width_nm--> nm
+and `ridge_max_width_nm` = 20.0<!--c:lib/pipeline.py::ProcParams.ridge_max_width_nm--> nm.
+
+It is off by default so that re-analysing with an older parameter file does not
+change the numbers. A field missing from a parameter file is filled with the
+`ProcParams` default when the file is loaded (`pipeline.merge_params_dict`). A
+file written before this feature existed has no `ridge_recovery` field, so an
+enabled default would add a step that did not exist when the file was written.
+When on, the Frangi filter dominates the cost of this stage.
 
 In the code, the smallest scale is never below 0.6<!--n:literal in the quoted code--> px and the largest is at
 least 1.5<!--n:literal in the quoted code--> times the smallest, and when the triangle level is not below the Otsu
@@ -1269,7 +1353,16 @@ by comparing the calibrated height against `bp_height` (default 10<!--c:lib/pipe
 for pruning is a **branch**). An arm is pruned below only when its walk reaches a
 low branch point or dead-ends;
 meeting a high branch point keeps it.
-<!-- TODO(review): author to confirm what bp_height is meant to separate. -->
+
+The split is meant to keep the arms that meet a crossing. Where two fibers cross,
+one lies on the other and their heights add up, so the branch point there stands
+higher than either fiber. Whether the split works therefore depends on how high
+the fibers are: when they are well below `bp_height`, every branch point,
+crossings included, is low, and the split does nothing. Also, at the default
+lengths the arms this step looks at are no longer than the spurs that the spur
+pruning of §3.5 removes whatever their height. On the bundled scans the final skeleton changes little
+whether this step runs or not ([Evaluation on particular data](validation.md)
+§3.2).
 
 ```python
 # source: lib/skeletonizer.py::Skeletonizer.set_low_bp_coor
@@ -1549,10 +1642,19 @@ calibrated height has fallen below `DEFAULT_HOOK_HEIGHT_RATIO` = 0.5<!--c:lib/sk
 adjacent fiber body's median height, so a bent end whose height stays at or
 above that fraction of the body is not cut.
 
-A kink is accepted when the interior angle of the bend is 150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg-->° or less (§4.3;
-the smaller the interior angle, the sharper the bend). The 120<!--c:lib/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG-->° apex threshold
-is far sharper than that, so kink detection is unaffected. The trim is capped at
-the deepest reversal apex found, so a straight faded end is never shortened.
+A bend with an interior angle below 120<!--c:lib/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG-->° is, by the kink criterion (an
+interior angle of 150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg-->° or less, §4.3), sharp enough to be a kink. This step
+still does not remove real kinks, because how far it cuts is decided by height,
+not by angle: it removes only the pixels that run on from the endpoint below half
+the body height, and stops at the first pixel at or above half. A sharp bend near
+an end therefore keeps its arm as long as the arm stays at the height of the
+fiber body. Note also that the angle here is the angle between vectors joining
+pixel points (explained below), measured differently from the kink judgement of
+§4.3 (excess turning on the centerline); the two values cannot be compared
+directly by size.
+
+An end where no reversal apex is found is inspected and left uncut, and the trim
+is capped at the deepest apex found, so a straight faded end is never shortened.
 
 Given a mask that includes the skirt, the hook is a correct medial axis of that
 mask and cannot be told apart from the binary shape alone; the information
@@ -1732,9 +1834,12 @@ the parameter `min_area` of §3.7).
 
 `imp_tools.remove_Lcorner` then removes the corner pixel of each L (a pixel
 whose line continues only to two neighbours at a right angle, such as the one
-above and the one to the left), turning the L into a diagonal step. An L corner
-would otherwise register as a spurious bend (in the patterns below, a cell of
-1<!--n:definition--> must be skeleton and a cell of 0<!--n:definition--> must be background).
+above and the one to the left), turning the L into a diagonal step (in the
+patterns below, a cell of 1<!--n:definition--> must be skeleton and a cell of 0<!--n:definition--> must be background).
+The two pixels on either side of an L corner touch each other diagonally without
+it, so the corner pixel is not needed to follow the line. Removing it lets the
+tracking that follows step along one line one pixel at a time (the code's
+comment describes the step as cleaning the skeleton for line tracking).
 
 Each connected component is traced end to end by `imp_tools.tracking`, which
 walks from one endpoint to the other and returns the pixel coordinates **in
@@ -2543,13 +2648,18 @@ measurement be redone without re-analysing an image:
 
 ## 6. Reproducing a result
 
-Three records together pin down any number this software reports:
+Reproducing a number this software reports takes the original measurement
+file and three records:
 
 | Record | What it holds |
 |---|---|
 | `<input_stem>_param.json` | Every `ProcParams` field the analysis ran with. Field names are frozen, so an old file still loads. |
-| `<input_stem>.b2z` | The stage outputs (images and point lists), the bundle format version, the centerline the kinks were judged on (from format 1.2<!--n:bundle format version-->), the scan size and its source, the range of scan lines when only some were analysed, and the parameters the analysis ran with. |
+| `<input_stem>.b2z` | The stage outputs (images and point lists), the bundle format version, the centerline the kinks were judged on (from format 1.2<!--n:bundle format version-->), the scan size and its source, the range of scan lines when only some were analysed (set by GUI01's scan-line range or `cli.py process --rows`), and the parameters the analysis ran with. It also records the original file's name, its SHA-256 hash and how it was read, so a file used for re-analysis can be checked to be the same one. |
 | The software version | Recorded in the bundle. `CHANGELOG.md` states explicitly whenever a change moves the numbers. |
+
+The versions of Python and of the libraries the analysis depends on are not
+recorded in the bundle. A combination on which the tests pass is pinned in
+`requirements.lock.txt`.
 
 A change that alters analysis output is treated as a reproducibility break and
 is called out in `CHANGELOG.md` under the version that introduced it, whether

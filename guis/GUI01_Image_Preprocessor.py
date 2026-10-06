@@ -4315,7 +4315,7 @@ class SettingsDialog(tk.Toplevel):
         self._bg_method_descs = {
             "trendfill": _("trendfill : 勾配リッジ検出 + 2次トレンド除去 + 最近傍充填。勾配で繊維マスクを作り、試料傾斜を2次曲面で除いてから穴を埋める。汎用だがリッジ検出パラメータの調整が必要（1.0.0 では 'inpaint' という名前）"),
             "tophat":   _("tophat : 形態学的opening。tophat_se_size より細い明るい構造を前景として除去。マスク不要・高速・一様性に優れる"),
-            "spline1d": _("spline1d : 2次トレンド除去 + 行/列ごとの1D B-スプライン補間。縞ノイズに有効。ライン端は外挿せず自ラインの水準を保持。spline1d_axis で縞の向きを選択"),
+            "spline1d": _("spline1d : 2次トレンド除去 + 行/列ごとの1D B-スプライン補間。ライン端は外挿せず自ラインの水準を保持。spline1d_axis で補間の向きを選択。'x'(既定)では、画像の行が走査ラインのとき走査ラインごとの上下のずれ(横縞)も除去"),
         }
         bg_desc_frame = ttk.Frame(lf_bg)
         bg_desc_frame.pack(fill="x", padx=6, pady=(0, 6))
@@ -4332,8 +4332,8 @@ class SettingsDialog(tk.Toplevel):
              + _("最大ファイバー幅の2〜3倍。奇数(偶数は+1)"), {"width": 10}),
             # spline1d-specific.
             ("choice", "spline1d_axis", "spline1d_axis",
-             _("[spline1d時のみ] 除去する縞の向き。'y'=横縞(各走査ラインが上下にずれるノイズ)を除去/各列を縦に補間。'x'=縦縞を除去/各行を横に補間(良好な結果が多い)"),
-             {"choices": ["y", "x"]}),
+             _("[spline1d時のみ] 補間の向き。'x'=各行を横に補間し、画像の行が走査ラインのときは走査ラインごとの上下のずれ(横縞)も除去。'y'=各列を縦に補間し、横縞は除去しない"),
+             {"choices": ["x", "y"]}),
             ("field", "spline1d_degree", "spline1d_degree",
              _("[spline1d時のみ] 行/列スプライン order。実用範囲1〜3 (2=旧pandas互換)。点数不足の行は線形に自動フォールバック"), {"width": 10}),
             # Mask and threshold parameters shared by trendfill and spline1d.

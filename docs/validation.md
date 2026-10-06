@@ -84,10 +84,39 @@ opening the raw heights with the 25<!--c:lib/pipeline.py::ProcParams.tophat_se_s
 ### 1.5 Run time
 
 Measured on the bundled 1024<!--m:bg_timing.image_rows-->×1024<!--m:bg_timing.image_cols--> Bruker scan (second of two runs each),
-`tophat` took about 0.5<!--m:bg_timing.tophat.seconds--> s, `trendfill` about 1.1<!--m:bg_timing.trendfill.seconds--> s, and `spline1d` about
-2.2<!--m:bg_timing.spline1d.seconds--> s; in `trendfill`, the `lmfit` histogram fit took about half as long as
+`tophat` took about 0.7<!--m:bg_timing.tophat.seconds--> s, `trendfill` about 1.6<!--m:bg_timing.trendfill.seconds--> s, and `spline1d` about
+3.1<!--m:bg_timing.spline1d.seconds--> s; in `trendfill`, the `lmfit` histogram fit took about half as long as
 `_bg_generate` (experiment bg_timing). These are wall times on one machine
 and vary with the machine and its load.
+
+### 1.6 The axis of `spline1d`
+
+Each test input was calibrated by `trendfill` and by `spline1d` along `'x'` and
+along `'y'`, everything else at the defaults (experiment spline1d_axis). On the
+background (pixels more than 5<!--n:definition--> px from the union of the three binarized
+masks), the table gives the spread (standard deviation, nm) of the per-row
+medians, which grows with horizontal stripes, and of the per-column medians,
+which grows with vertical ones.
+
+| Input | Rows, `trendfill` | Rows, `'x'` | Rows, `'y'` | Columns, `trendfill` | Columns, `'x'` | Columns, `'y'` |
+|---|---|---|---|---|---|---|
+| tunicate CNF | 0.009<!--m:spline1d_axis.tunicate.trendfill.row_median_std_nm--> | 0.007<!--m:spline1d_axis.tunicate.x.row_median_std_nm--> | 0.062<!--m:spline1d_axis.tunicate.y.row_median_std_nm--> | 0.011<!--m:spline1d_axis.tunicate.trendfill.column_median_std_nm--> | 0.015<!--m:spline1d_axis.tunicate.x.column_median_std_nm--> | 0.014<!--m:spline1d_axis.tunicate.y.column_median_std_nm--> |
+| artificial, isotropic | 0.011<!--m:spline1d_axis.art_iso.trendfill.row_median_std_nm--> | 0.013<!--m:spline1d_axis.art_iso.x.row_median_std_nm--> | 0.039<!--m:spline1d_axis.art_iso.y.row_median_std_nm--> | 0.012<!--m:spline1d_axis.art_iso.trendfill.column_median_std_nm--> | 0.026<!--m:spline1d_axis.art_iso.x.column_median_std_nm--> | 0.019<!--m:spline1d_axis.art_iso.y.column_median_std_nm--> |
+| artificial, anisotropic | 0.005<!--m:spline1d_axis.art_aniso.trendfill.row_median_std_nm--> | 0.006<!--m:spline1d_axis.art_aniso.x.row_median_std_nm--> | 0.016<!--m:spline1d_axis.art_aniso.y.row_median_std_nm--> | 0.011<!--m:spline1d_axis.art_aniso.trendfill.column_median_std_nm--> | 0.022<!--m:spline1d_axis.art_aniso.x.column_median_std_nm--> | 0.014<!--m:spline1d_axis.art_aniso.y.column_median_std_nm--> |
+| higher-plant TOC | 0.224<!--m:spline1d_axis.hplantTOC.trendfill.row_median_std_nm--> | 0.006<!--m:spline1d_axis.hplantTOC.x.row_median_std_nm--> | 0.286<!--m:spline1d_axis.hplantTOC.y.row_median_std_nm--> | 0.005<!--m:spline1d_axis.hplantTOC.trendfill.column_median_std_nm--> | 0.006<!--m:spline1d_axis.hplantTOC.x.column_median_std_nm--> | 0.011<!--m:spline1d_axis.hplantTOC.y.column_median_std_nm--> |
+| higher-plant TOC, Gwyddion `.gwy` | 0.224<!--m:spline1d_axis.gwy.trendfill.row_median_std_nm--> | 0.006<!--m:spline1d_axis.gwy.x.row_median_std_nm--> | 0.286<!--m:spline1d_axis.gwy.y.row_median_std_nm--> | 0.005<!--m:spline1d_axis.gwy.trendfill.column_median_std_nm--> | 0.006<!--m:spline1d_axis.gwy.x.column_median_std_nm--> | 0.011<!--m:spline1d_axis.gwy.y.column_median_std_nm--> |
+| higher-plant TOC, Gwyddion text | 0.221<!--m:spline1d_axis.gwy_txt.trendfill.row_median_std_nm--> | 0.005<!--m:spline1d_axis.gwy_txt.x.row_median_std_nm--> | 0.276<!--m:spline1d_axis.gwy_txt.y.row_median_std_nm--> | 0.005<!--m:spline1d_axis.gwy_txt.trendfill.column_median_std_nm--> | 0.006<!--m:spline1d_axis.gwy_txt.x.column_median_std_nm--> | 0.009<!--m:spline1d_axis.gwy_txt.y.column_median_std_nm--> |
+| Bruker NDTOC | 0.019<!--m:spline1d_axis.NDTOC.trendfill.row_median_std_nm--> | 0.019<!--m:spline1d_axis.NDTOC.x.row_median_std_nm--> | 0.307<!--m:spline1d_axis.NDTOC.y.row_median_std_nm--> | 0.015<!--m:spline1d_axis.NDTOC.trendfill.column_median_std_nm--> | 0.015<!--m:spline1d_axis.NDTOC.x.column_median_std_nm--> | 0.036<!--m:spline1d_axis.NDTOC.y.column_median_std_nm--> |
+
+Along `'y'`, the per-row spread was larger than with `trendfill` on every
+input. Rendered, the calibrated images along `'y'` carry bright and dark
+horizontal bands across the whole image on the tunicate, Bruker and higher-plant
+inputs, and the scan-line glitch of the higher-plant scan stays. Along `'x'`,
+that glitch is removed on all three higher-plant inputs, and a horizontal streak
+that `trendfill` leaves on the tunicate scan is gone; but a dark rim, visibly
+deeper than with `trendfill`, forms along the right side of fibers running
+close to vertical on the tunicate and both artificial scans; the inputs whose
+per-column spread along `'x'` exceeds that of `trendfill` are the same ones.
 
 ## 2. Binarization
 
@@ -114,6 +143,50 @@ The closing joins mask components across gaps of up to
 2<!--m:closing_gaps.thick3.largest_gap_joined_px--> px when they are at least 3<!--n:value tried--> px thick; it joins no gap between lines 1<!--n:value tried--> px
 thick (0<!--m:closing_gaps.thick1.gaps_joined--> of 3<!--n:count--> gaps tried; experiment closing_gaps).
 
+### 2.4 The local threshold
+
+Binarizing with the global threshold alone, everything else at the defaults,
+changes the masks as follows (experiment local_threshold). The mean mask width
+is the area of the final mask over the length of the final skeleton; the two
+heights are medians, as a percentage of the highest height within 3<!--n:definition--> px.
+
+| Scan | Mean mask width, global alone → both (px) | Mask components | Branch points of the final skeleton | Height of the pixels the local threshold removes / keeps (%) |
+|---|---|---|---|---|
+| tunicate CNF | 15.6<!--m:local_threshold.tunicate.global.mask_width_px--> → 10.1<!--m:local_threshold.tunicate.both.mask_width_px--> | 1<!--m:local_threshold.tunicate.global.mask_components--> → 9<!--m:local_threshold.tunicate.both.mask_components--> | 68<!--m:local_threshold.tunicate.global.branch_points--> → 33<!--m:local_threshold.tunicate.both.branch_points--> | 25<!--m:local_threshold.tunicate.removed_percent_of_crest--> / 83<!--m:local_threshold.tunicate.kept_percent_of_crest--> |
+| artificial, isotropic | 17.4<!--m:local_threshold.art_iso.global.mask_width_px--> → 11.2<!--m:local_threshold.art_iso.both.mask_width_px--> | 2<!--m:local_threshold.art_iso.global.mask_components--> → 2<!--m:local_threshold.art_iso.both.mask_components--> | 0<!--m:local_threshold.art_iso.global.branch_points--> → 0<!--m:local_threshold.art_iso.both.branch_points--> | 22<!--m:local_threshold.art_iso.removed_percent_of_crest--> / 85<!--m:local_threshold.art_iso.kept_percent_of_crest--> |
+| artificial, anisotropic | 15.4<!--m:local_threshold.art_aniso.global.mask_width_px--> → 10.0<!--m:local_threshold.art_aniso.both.mask_width_px--> | 4<!--m:local_threshold.art_aniso.global.mask_components--> → 3<!--m:local_threshold.art_aniso.both.mask_components--> | 0<!--m:local_threshold.art_aniso.global.branch_points--> → 0<!--m:local_threshold.art_aniso.both.branch_points--> | 22<!--m:local_threshold.art_aniso.removed_percent_of_crest--> / 84<!--m:local_threshold.art_aniso.kept_percent_of_crest--> |
+| higher-plant TOC | 12.2<!--m:local_threshold.hplantTOC.global.mask_width_px--> → 9.0<!--m:local_threshold.hplantTOC.both.mask_width_px--> | 10<!--m:local_threshold.hplantTOC.global.mask_components--> → 7<!--m:local_threshold.hplantTOC.both.mask_components--> | 6<!--m:local_threshold.hplantTOC.global.branch_points--> → 5<!--m:local_threshold.hplantTOC.both.branch_points--> | 34<!--m:local_threshold.hplantTOC.removed_percent_of_crest--> / 75<!--m:local_threshold.hplantTOC.kept_percent_of_crest--> |
+| Bruker NDTOC | 12.9<!--m:local_threshold.NDTOC.global.mask_width_px--> → 9.6<!--m:local_threshold.NDTOC.both.mask_width_px--> | 16<!--m:local_threshold.NDTOC.global.mask_components--> → 20<!--m:local_threshold.NDTOC.both.mask_components--> | 160<!--m:local_threshold.NDTOC.global.branch_points--> → 77<!--m:local_threshold.NDTOC.both.branch_points--> | 35<!--m:local_threshold.NDTOC.removed_percent_of_crest--> / 72<!--m:local_threshold.NDTOC.kept_percent_of_crest--> |
+
+Rendered over the height images of every test input (the 5<!--m:kink_reference.scans--> bundled scans
+and the two Gwyddion exports of the higher-plant scan in `testdata_Gwyddion_gwy`
+and `testdata_Gwyddion_txt`), the pixels the local threshold removes are the
+lower flanks of the fibers; where a fiber lies alone, the only effect is a
+narrower mask. The joining described next was seen on the tunicate and Bruker
+scans, where fibers run close together or over a textured background. With the global
+threshold alone, two fibers running close together joined through their flanks
+into one component and the skeleton ran between them; on the tunicate scan the
+whole network formed a single component. On the Bruker scan, the worm-like
+texture of the background touched the fibers' flanks, joined their masks, and
+left side branches on the skeleton; with the local threshold those patches came
+apart from the fibers and the later filters of the binarization removed them.
+
+### 2.5 The linearity filter
+
+On the 7<!--m:linearity_filter.inputs--> test inputs (experiment linearity_filter), $s_{\text{ratio}}$ reached
+3.36<!--m:linearity_filter.s_ratio_max-->, and 61<!--m:linearity_filter.s_ratio_above_one--> components scored $s_{\text{ratio}} > 1$. The filter removed
+273<!--m:linearity_filter.removed_reaching_h_length--> components whose bounding box reaches `h_length`; each was rendered over the
+calibrated height image and judged by eye. Most were background texture,
+particles and the scan-line glitches of the higher-plant scan, but 10<!--m:linearity_filter.removed_fiber_pieces-->
+were pieces of real fibers: short bent or kinked pieces (on the tunicate scan
+and the Gwyddion text export) and fiber ends cut by the image border (on the
+artificial anisotropic, higher-plant, both Gwyddion and Bruker inputs).
+
+On a synthetic band along the rows (area 865<!--m:linearity_filter.band.horizontal.area--> pixels), Canny found
+14<!--m:linearity_filter.band.horizontal.edge_pixels--> edge pixels in the bounding-box crop, all at the rounded ends, the score was
+0<!--m:linearity_filter.band.horizontal.s_ratio-->, and the band was removed; the same band at 45<!--n:definition-->° (area 620<!--m:linearity_filter.band.diagonal.area--> pixels)
+gave 356<!--m:linearity_filter.band.diagonal.edge_pixels--> edge pixels and a score of 1.35<!--m:linearity_filter.band.diagonal.s_ratio--> and was kept.
+
 ## 3. Skeletonization
 
 See [Analysis algorithms](algorithms.md) §3.
@@ -130,8 +203,28 @@ correction (experiment border_padding), but that is not a guarantee.
 ### 3.2 `bp_height` against the fiber heights
 
 The default `bp_height` of 10<!--c:lib/pipeline.py::ProcParams.bp_height--> nm lies above the median height under the
-skeleton on every bundled scan (1.7<!--m:bg_stats.hplantTOC.skeleton_height_median_nm--> to 7.9<!--m:bg_stats.tunicate.skeleton_height_median_nm--> nm, §1.1).
-<!-- TODO(review): the rationale once given for the threshold (a branch point at fiber height is a real crossing, one near the substrate a spurious sprout) does not fit a 10 nm threshold when the fibers are 1.7-7.9 nm high; author to confirm what bp_height is meant to separate. -->
+skeleton on every bundled scan (1.7<!--m:bg_stats.hplantTOC.skeleton_height_median_nm--> to 7.9<!--m:bg_stats.tunicate.skeleton_height_median_nm--> nm, §1.1). At the branch points of
+the first skeleton (experiment branch_pruning) the median height is 9.3<!--m:branch_pruning.tunicate.bp_height_median_nm--> nm on
+the tunicate scan, where 41<!--m:branch_pruning.tunicate.bp_at_or_above_percent--> % of the branch points reach `bp_height`. On the other
+scans none does (median 1.9<!--m:branch_pruning.hplantTOC.bp_height_median_nm--> nm on the higher-plant scan, 2.1<!--m:branch_pruning.NDTOC.bp_height_median_nm--> nm on the Bruker
+scan, 7.9<!--m:branch_pruning.art_iso.bp_height_median_nm--> and 7.6<!--m:branch_pruning.art_aniso.bp_height_median_nm--> nm on the artificial scans): every branch point is low, and
+the split by height does nothing there.
+
+Rendered on the tunicate height image, the branch points at or above `bp_height`
+lie where two fibers cross or one joins another, where the heights of two
+overlapping fibers add up. The branch points below it include crossings and
+junctions as well, for instance of the thinner fibers in the tangle at the
+bottom of the scan, so on this scan a low branch point is not a sign of a
+spurious branch.
+
+The height-gated pruning changes little in the final skeleton. Skipping it
+changes 1<!--m:branch_pruning.tunicate.skipped.final_changed_pixels--> of 7975<!--m:branch_pruning.tunicate.final_pixels--> skeleton pixels on the tunicate scan,
+24<!--m:branch_pruning.hplantTOC.skipped.final_changed_pixels--> of 1789<!--m:branch_pruning.hplantTOC.final_pixels--> on the higher-plant scan, 161<!--m:branch_pruning.NDTOC.skipped.final_changed_pixels--> of 9032<!--m:branch_pruning.NDTOC.final_pixels--> on the Bruker scan and
+0<!--m:branch_pruning.art_iso.skipped.final_changed_pixels--> on the artificial scans; treating every branch point as low changes
+0<!--m:branch_pruning.tunicate.all_low.final_changed_pixels--> pixels on the tunicate scan. The short arms it removes are removed again
+by the spur pruning of [Analysis algorithms](algorithms.md) §3.5, which judges by
+length alone: with the spur pruning switched off, skipping the height-gated
+pruning changes 139<!--m:branch_pruning.tunicate.spurs_off.skipped.final_changed_pixels-->, 161<!--m:branch_pruning.hplantTOC.spurs_off.skipped.final_changed_pixels--> and 899<!--m:branch_pruning.NDTOC.spurs_off.skipped.final_changed_pixels--> pixels on the same three scans.
 
 ### 3.3 Loop enclosures
 

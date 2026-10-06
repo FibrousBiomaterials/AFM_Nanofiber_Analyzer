@@ -731,6 +731,295 @@ def loop_candidates() -> dict:
     return values
 
 
+def _skeleton_counts(skel) -> dict:
+    import numpy as np
+    from lib import imp_tools
+    s = (np.asarray(skel) > 0).astype(np.uint8)
+    return {"pixels": int(s.sum()), "branch_points": int(imp_tools.branchedPoints(s).sum())}
+
+
+@experiment(
+    "local_threshold",
+    ["lib/pipeline.py", "lib/segmenter.py", "lib/skeletonizer.py"],
+    "Binarization with the global threshold alone against the default global AND local "
+    "threshold, everything else at the defaults, on each bundled scan: the height of the "
+    "pixels the local threshold removes and keeps relative to the highest height within "
+    "3 px, the mean mask width (final mask area over final skeleton length), the 8-connected "
+    "components of the final mask, and the branch points of the final skeleton.",
+)
+def local_threshold() -> dict:
+    import numpy as np
+    import kink_reference_score as krs
+    from scipy import ndimage as ndi
+    from lib.pipeline import ProcParams, build_stages
+    from lib.processed_image import ProcessedImage
+    from lib.segmenter import Segmenter
+
+    class GlobalOnly(Segmenter):
+        @staticmethod
+        def _binaryzation(image, global_threshold, wsize_localbin):
+            return image > global_threshold
+
+    params = ProcParams()
+    values: dict = {}
+    for name, rel in krs.SCANS.items():
+        raw = _raw_scan(rel)
+        stages = build_stages(params)
+        base = ProcessedImage(raw.copy(), name)
+        stages.bg_calibrator(base)
+        cal = np.asarray(base.calibrated_image, float)
+        seg = stages.segmenter
+        variants = {"both": seg,
+                    "global": GlobalOnly(**{k: getattr(seg, k) for k in (
+                        "wsize_localbin", "global_threshold", "area_min",
+                        "area_min_connecting", "apply_no_connecting", "h_length",
+                        "h_sratio", "low_threshold", "ridge_recovery",
+                        "ridge_min_length_nm", "ridge_min_width_nm",
+                        "ridge_max_width_nm")})}
+        thresholded = {}
+        for tag, segmenter in variants.items():
+            image = ProcessedImage(raw.copy(), name)
+            image.calibrated_image = cal.copy()
+            segmenter(image)
+            thresholded[tag] = segmenter.binary_image.astype(bool)
+            mask = np.asarray(image.binarized_image, bool)
+            stages.skeletonizer(image)
+            skel = _skeleton_counts(image.skeleton_image)
+            values[f"{name}.{tag}.mask_width_px"] = mask.sum() / skel["pixels"]
+            values[f"{name}.{tag}.mask_components"] = int(
+                ndi.label(mask, structure=np.ones((3, 3)))[1])
+            values[f"{name}.{tag}.branch_points"] = skel["branch_points"]
+        crest = ndi.maximum_filter(cal, size=7)
+        removed = thresholded["global"] & ~thresholded["both"]
+        kept = thresholded["both"]
+        values[f"{name}.removed_percent_of_crest"] = 100 * float(np.median(cal[removed] / crest[removed]))
+        values[f"{name}.kept_percent_of_crest"] = 100 * float(np.median(cal[kept] / crest[kept]))
+    return values
+
+
+@experiment(
+    "branch_pruning",
+    ["lib/pipeline.py", "lib/skeletonizer.py"],
+    "The height-gated pruning of Skeletonizer (set_low_bp_coor to prune_branches) on the "
+    "default binarized mask of each bundled scan: the calibrated height at the branch "
+    "points of the first skeleton and the share at or above bp_height, the pixels the "
+    "pruning removes at the default bp_height and with every branch point treated as low, "
+    "and how many pixels of the final skeleton change when the pruning is skipped or every "
+    "branch point is treated as low, and when it is skipped with prune_short_spurs also "
+    "switched off.",
+)
+def branch_pruning() -> dict:
+    import numpy as np
+    import kink_reference_score as krs
+    from lib import imp_tools
+    from lib import skeletonizer as sk_module
+    from lib.pipeline import ProcParams, build_stages
+    from lib.processed_image import ProcessedImage
+    from lib.skeletonizer import Skeletonizer, thin_ignoring_image_border
+
+    params = ProcParams()
+    values: dict = {"bp_height_nm": params.bp_height}
+    for name, rel in krs.SCANS.items():
+        stages = build_stages(params)
+        image = ProcessedImage(_raw_scan(rel), name)
+        stages.bg_calibrator(image)
+        stages.segmenter(image)
+        cal = np.asarray(image.calibrated_image, float)
+        mask = np.asarray(image.binarized_image, bool)
+        first = thin_ignoring_image_border(mask).astype(bool)
+        bp_h = cal[imp_tools.branchedPoints(first.astype(np.uint8)).astype(bool)]
+        values[f"{name}.branch_points"] = int(bp_h.size)
+        values[f"{name}.bp_height_median_nm"] = float(np.median(bp_h))
+        values[f"{name}.bp_at_or_above_percent"] = 100 * float((bp_h >= params.bp_height).mean())
+        finals = {}
+        for tag, bp_height, spurs in (("default", params.bp_height, True),
+                                      ("all_low", np.inf, True),
+                                      ("skipped", None, True),
+                                      ("spurs_off", params.bp_height, False),
+                                      ("spurs_off_skipped", None, False)):
+            sk = Skeletonizer(bp_height=params.bp_height if bp_height is None else bp_height,
+                              branch_length=params.branch_length, min_area=params.min_area,
+                              max_loop_area=params.max_loop_area, spur_length=params.spur_length)
+            if bp_height is None:
+                sk.prune_branches = lambda calibrated, skeleton: skeleton
+            run = ProcessedImage(_raw_scan(rel), name)
+            run.calibrated_image = cal.copy()
+            run.binarized_image = mask.copy()
+            if spurs:
+                sk(run)
+            else:
+                with patched(sk_module, prune_short_spurs=lambda skel, max_length: skel):
+                    sk(run)
+            finals[tag] = np.asarray(run.skeleton_image) > 0
+            if tag in ("default", "all_low"):
+                values[f"{name}.{tag}.pruned_pixels"] = int(
+                    (first & ~(np.asarray(sk._nobranch_image) > 0)).sum())
+        values[f"{name}.final_pixels"] = int(finals["default"].sum())
+        values[f"{name}.skipped.final_changed_pixels"] = int((finals["default"] ^ finals["skipped"]).sum())
+        values[f"{name}.all_low.final_changed_pixels"] = int((finals["default"] ^ finals["all_low"]).sum())
+        values[f"{name}.spurs_off.skipped.final_changed_pixels"] = int(
+            (finals["spurs_off"] ^ finals["spurs_off_skipped"]).sum())
+    return values
+
+
+# Every test input of the repository: the bundled scans plus the two Gwyddion
+# exports of the higher-plant scan, whose heights differ from its text export.
+# testdata_Gwyddion_txt/..._T.ssp2.txt holds the same heights as ..._T.ssp.txt
+# and is left out.
+# リポジトリのすべてのテスト入力。同梱スキャンに、高等植物のスキャンを Gwyddion で
+# 書き出した 2 つ（高さがテキスト書き出しと異なる）を加える。
+# testdata_Gwyddion_txt/..._T.ssp2.txt は ..._T.ssp.txt と同じ高さなので除く。
+def _all_test_inputs() -> Dict[str, str]:
+    import kink_reference_score as krs
+    inputs = dict(krs.SCANS)
+    inputs["gwy"] = "testdata_Gwyddion_gwy/_20250318-164122_T.ssp.gwy"
+    inputs["gwy_txt"] = "testdata_Gwyddion_txt/_20250318-164122_T.ssp.txt"
+    return inputs
+
+
+# Components the linearity filter removes whose bounding box reaches h_length,
+# per test input, as counted when every one of them was rendered over the
+# calibrated height image and judged by eye (2026-10-06). LINEARITY_FIBER_PIECES
+# lists, by the centre of the bounding box, the ones judged to be pieces of real
+# fibers (bent fiber pieces and fiber ends cut by the image border); the others
+# were background texture, particles and scan-line glitches, or could not be
+# told apart. A different count fails the experiment, so a change in what the
+# filter removes forces a new look.
+# 直線性フィルタが消すかたまりのうち、囲む長方形が h_length に届くものの数
+# （テスト入力ごと）。すべてを補正後の高さ画像に重ねて描き、目視で判断したときの
+# 数である（2026-10-06）。LINEARITY_FIBER_PIECES は、そのうち本物の繊維の片
+# （曲がった繊維片と、画像の端で切れた繊維の端）と判断したものを、囲む長方形の
+# 中心で並べる。ほかは背景の凹凸、粒子、走査線のグリッチ、または見分けられない
+# ものであった。数が変わると実験は失敗するので、フィルタが消すものが変われば
+# 見直しが強制される。
+LINEARITY_REMOVED_INSPECTED = {
+    "hplantTOC": 12, "tunicate": 4, "NDTOC": 234, "art_iso": 0, "art_aniso": 1,
+    "gwy": 12, "gwy_txt": 10,
+}
+LINEARITY_FIBER_PIECES = {
+    ("tunicate", 17, 688), ("tunicate", 10, 843), ("tunicate", 613, 922),
+    ("tunicate", 557, 934), ("art_aniso", 739, 246), ("hplantTOC", 106, 1012),
+    ("gwy", 106, 1012), ("gwy_txt", 106, 1012), ("gwy_txt", 839, 797),
+    ("NDTOC", 591, 1010),
+}
+
+
+@experiment(
+    "linearity_filter",
+    ["lib/pipeline.py", "lib/segmenter.py"],
+    "The linearity filter of Segmenter (_remove_nonlinear_objects) at the defaults: on "
+    "every test input, the largest s_ratio and how many components score above 1, and "
+    "the components it removes whose bounding box reaches h_length, against the visual "
+    "labels in LINEARITY_REMOVED_INSPECTED and LINEARITY_FIBER_PIECES; on synthetic bands "
+    "(a line about 120 px long, horizontal or at 45 degrees, dilated three times with the "
+    "4-connected element), the Canny edge pixels found "
+    "in the bounding-box crop, the s_ratio and whether the band is kept.",
+)
+def linearity_filter() -> dict:
+    import numpy as np
+    from scipy import ndimage as ndi
+    from skimage.feature import canny
+    from lib.afm_io import load_afm_image
+    from lib.pipeline import ProcParams, build_stages
+    from lib.processed_image import ProcessedImage
+
+    params = ProcParams()
+    values: dict = {}
+    total_removed = fibers = above_one = 0
+    largest = 0.0
+    for name, rel in _all_test_inputs().items():
+        stages = build_stages(params)
+        image = ProcessedImage(np.asarray(load_afm_image(str(ROOT / rel)), float), name)
+        stages.bg_calibrator(image)
+        stages.segmenter(image)
+        seg = stages.segmenter
+        scores = np.asarray(seg.h_sratio_list, float)
+        largest = max(largest, float(scores.max()) if scores.size else 0.0)
+        above_one += int((scores > 1).sum())
+        removed = seg.no_small_binary_image.astype(bool) & ~seg.no_linear_binary_image.astype(bool)
+        lab, _ = ndi.label(removed, structure=np.ones((3, 3)))
+        centres = []
+        for sl in ndi.find_objects(lab):
+            if max(sl[0].stop - sl[0].start, sl[1].stop - sl[1].start) >= params.h_length:
+                centres.append(((sl[1].start + sl[1].stop) // 2, (sl[0].start + sl[0].stop) // 2))
+        if len(centres) != LINEARITY_REMOVED_INSPECTED[name]:
+            raise SystemExit(f"{name}: the linearity filter removes {len(centres)} components "
+                             f"reaching h_length, {LINEARITY_REMOVED_INSPECTED[name]} were "
+                             "inspected; render and judge them again")
+        for scan, x, y in LINEARITY_FIBER_PIECES:
+            if scan == name and not any(abs(cx - x) <= 3 and abs(cy - y) <= 3 for cx, cy in centres):
+                raise SystemExit(f"{name}: the fiber piece at ({x}, {y}) is no longer removed")
+        total_removed += len(centres)
+        fibers += sum(1 for scan, _, _ in LINEARITY_FIBER_PIECES if scan == name)
+    values["inputs"] = len(_all_test_inputs())
+    values["s_ratio_max"] = largest
+    values["s_ratio_above_one"] = above_one
+    values["removed_reaching_h_length"] = total_removed
+    values["removed_fiber_pieces"] = fibers
+
+    seg = build_stages(params).segmenter
+    for tag, (r0, c0, r1, c1) in (("horizontal", (100, 30, 100, 150)),
+                                  ("diagonal", (40, 40, 125, 125))):
+        mask = np.zeros((200, 200), bool)
+        n = max(abs(r1 - r0), abs(c1 - c0)) + 1
+        mask[np.linspace(r0, r1, n).round().astype(int), np.linspace(c0, c1, n).round().astype(int)] = True
+        mask = ndi.binary_dilation(mask, iterations=3)
+        rows, cols = np.where(mask)
+        crop = mask[rows.min():rows.max() + 1, cols.min():cols.max() + 1]
+        seg.h_sratio_list = []
+        kept = seg._remove_nonlinear_objects(mask, params.h_length, params.h_sratio)
+        values[f"band.{tag}.area"] = int(mask.sum())
+        values[f"band.{tag}.edge_pixels"] = int(canny(crop, sigma=0, low_threshold=0,
+                                                      high_threshold=1).sum())
+        values[f"band.{tag}.s_ratio"] = float(seg.h_sratio_list[-1])
+        values[f"band.{tag}.kept"] = int(bool(np.asarray(kept).any()))
+    return values
+
+
+@experiment(
+    "spline1d_axis",
+    ["lib/pipeline.py", "lib/bg_calibrator.py", "lib/segmenter.py"],
+    "Every test input calibrated by trendfill and by spline1d along 'x' and along 'y', "
+    "everything else at the defaults: on the background (pixels more than 5 px from the "
+    "union of the three binarized masks), the spread (standard deviation) of the per-row "
+    "and per-column medians of the calibrated height, and of the background pixels "
+    "themselves.",
+)
+def spline1d_axis() -> dict:
+    import numpy as np
+    from dataclasses import replace
+    from scipy import ndimage as ndi
+    from lib.afm_io import load_afm_image
+    from lib.pipeline import ProcParams, build_stages
+    from lib.processed_image import ProcessedImage
+
+    base = ProcParams()
+    variants = {"trendfill": base,
+                "x": replace(base, bg_method="spline1d", spline1d_axis="x"),
+                "y": replace(base, bg_method="spline1d", spline1d_axis="y")}
+    values: dict = {}
+    for name, rel in _all_test_inputs().items():
+        arr = np.asarray(load_afm_image(str(ROOT / rel)), float)
+        cals, fiber = {}, None
+        for tag, params in variants.items():
+            stages = build_stages(params)
+            image = ProcessedImage(arr.copy(), name)
+            stages.bg_calibrator(image)
+            stages.segmenter(image)
+            cals[tag] = np.asarray(image.calibrated_image, float)
+            mask = np.asarray(image.binarized_image, bool)
+            fiber = mask if fiber is None else fiber | mask
+        background = ~ndi.binary_dilation(fiber, iterations=5)
+        for tag, cal in cals.items():
+            masked = np.where(background, cal, np.nan)
+            rows = np.nanmedian(masked[background.sum(axis=1) > 50], axis=1)
+            cols = np.nanmedian(masked[:, background.sum(axis=0) > 50], axis=0)
+            values[f"{name}.{tag}.row_median_std_nm"] = float(np.std(rows))
+            values[f"{name}.{tag}.column_median_std_nm"] = float(np.std(cols))
+            values[f"{name}.{tag}.background_std_nm"] = float(np.std(cal[background]))
+    return values
+
+
 SYNTH_DIR = WORK / "synthetic"
 
 

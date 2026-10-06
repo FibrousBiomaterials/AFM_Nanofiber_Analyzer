@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-29 16:52+0900\n"
+"POT-Creation-Date: 2026-10-06 12:27+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -388,12 +388,12 @@ msgstr ""
 #: guis/GUI04_Tracking_fiber.py:1950 guis/GUI04_Tracking_fiber.py:6495
 #: guis/GUI04_Tracking_fiber.py:6498 guis/GUI04_Tracking_fiber.py:6502
 #: guis/GUI04_Tracking_fiber.py:6537 guis/GUI04_Tracking_fiber.py:6540
-#: lib/ui_tools.py:1045 lib/ui_tools.py:1055
+#: lib/ui_tools.py:1042 lib/ui_tools.py:1052
 msgid "エラー"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:2192 guis/GUI02_PlotProfiler.py:1120
-#: guis/GUI04_Tracking_fiber.py:1946 lib/ui_tools.py:1045
+#: guis/GUI04_Tracking_fiber.py:1946 lib/ui_tools.py:1042
 msgid "数値を入力してください"
 msgstr ""
 
@@ -712,7 +712,8 @@ msgstr ""
 #: guis/GUI01_Image_Preprocessor.py:4318
 msgid ""
 "spline1d : 2次トレンド除去 + 行/列ごとの1D "
-"B-スプライン補間。縞ノイズに有効。ライン端は外挿せず自ラインの水準を保持。spline1d_axis で縞の向きを選択"
+"B-スプライン補間。ライン端は外挿せず自ラインの水準を保持。spline1d_axis "
+"で補間の向きを選択。'x'(既定)では、画像の行が走査ラインのとき走査ラインごとの上下のずれ(横縞)も除去"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:4331
@@ -726,7 +727,7 @@ msgstr ""
 #: guis/GUI01_Image_Preprocessor.py:4335
 msgid ""
 "[spline1d時のみ] "
-"除去する縞の向き。'y'=横縞(各走査ラインが上下にずれるノイズ)を除去/各列を縦に補間。'x'=縦縞を除去/各行を横に補間(良好な結果が多い)"
+"補間の向き。'x'=各行を横に補間し、画像の行が走査ラインのときは走査ラインごとの上下のずれ(横縞)も除去。'y'=各列を縦に補間し、横縞は除去しない"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:4338
@@ -3073,7 +3074,7 @@ msgstr ""
 msgid "All files"
 msgstr ""
 
-#: lib/ui_tools.py:756 lib/ui_tools.py:2102
+#: lib/ui_tools.py:756 lib/ui_tools.py:2093
 msgid "保存エラー"
 msgstr ""
 
@@ -3082,43 +3083,43 @@ msgstr ""
 msgid "CSV 保存完了: {path}"
 msgstr ""
 
-#: lib/ui_tools.py:867
+#: lib/ui_tools.py:864
 msgid "パラメータを変更しました。Enter キーで確定するとグラフに反映されます。"
 msgstr ""
 
-#: lib/ui_tools.py:900
+#: lib/ui_tools.py:897
 msgid "Enter キーで確定します"
 msgstr ""
 
-#: lib/ui_tools.py:1126
+#: lib/ui_tools.py:1123
 #, python-brace-format
 msgid "vmin/vmax を自動設定: {lo} / {hi}"
 msgstr ""
 
-#: lib/ui_tools.py:1161
+#: lib/ui_tools.py:1158
 #, python-brace-format
 msgid ""
 "{0}: {1}\n"
 "{2}"
 msgstr ""
 
-#: lib/ui_tools.py:2091
+#: lib/ui_tools.py:2082
 msgid "図を保存"
 msgstr ""
 
-#: lib/ui_tools.py:2103
+#: lib/ui_tools.py:2094
 #, python-brace-format
 msgid ""
 "保存に失敗しました:\n"
 "{e}"
 msgstr ""
 
-#: lib/ui_tools.py:2106
+#: lib/ui_tools.py:2097
 #, python-brace-format
 msgid "保存: {path}"
 msgstr ""
 
-#: lib/ui_tools.py:2110
+#: lib/ui_tools.py:2101
 msgid "保存完了"
 msgstr ""
 
