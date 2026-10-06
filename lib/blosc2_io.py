@@ -498,6 +498,18 @@ def save_bundle(path: str, arrays: dict, vlmeta: dict | None = None) -> None:
     OSError
         If the written bundle does not read back as the arrays given. The
         destination is then left untouched.
+
+    Examples
+    --------
+    >>> import os, tempfile
+    >>> from lib.blosc2_io import save_bundle, load_bundle
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     path = os.path.join(folder, "demo.b2z")
+    ...     save_bundle(path, {"calibrated": np.arange(6.0).reshape(2, 3)})
+    ...     loaded = load_bundle(path)
+    >>> loaded["calibrated"]
+    array([[0., 1., 2.],
+           [3., 4., 5.]])
     """
     directory = os.path.dirname(os.path.abspath(path))
     basename = os.path.basename(path)
@@ -576,6 +588,20 @@ def load_bundle(
         If the bundle declares more keys or a larger decompressed size than
         the limits allow. Raised before any oversized array is materialized,
         so a crafted (or corrupted) bundle cannot exhaust memory during load.
+
+    Examples
+    --------
+    Loading only the keys a caller needs:
+
+    >>> import os, tempfile
+    >>> from lib.blosc2_io import save_bundle, load_bundle
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     path = os.path.join(folder, "demo.b2z")
+    ...     save_bundle(path, {"calibrated": np.zeros((2, 2)),
+    ...                        "skeletonized": np.zeros((2, 2), dtype=bool)})
+    ...     loaded = load_bundle(path, keys=["calibrated"])
+    >>> sorted(loaded)
+    ['calibrated']
     """
     out: dict = {}
     with (

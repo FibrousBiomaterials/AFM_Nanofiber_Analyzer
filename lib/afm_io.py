@@ -629,6 +629,17 @@ def read_scan_size(path: str) -> Optional[ScanSize]:
     ``xreal`` / ``yreal`` extents instead of a text header (see `lib.gwy_io`).
     Gwyddion ネイティブの ``.gwy`` ファイルではテキストヘッダではなくチャンネルの
     ``xreal`` / ``yreal`` 範囲から読み取る（`lib.gwy_io` を参照）。
+
+    Examples
+    --------
+    A Gwyddion text export records its size; the Bruker single-column export
+    does not. The paths are relative to the repository root:
+
+    >>> from lib.afm_io import read_scan_size
+    >>> read_scan_size("testdata_Gwyddion_txt/_20250318-164122_T.ssp.txt")
+    ScanSize(x_um=2.0, y_um=2.0)
+    >>> read_scan_size("testdata_Bruker_txt/NDTOC250306.000.txt") is None
+    True
     """
     # Dispatch binary .gwy to the Gwyddion reader; the gwyfile dependency is
     # imported only inside lib.gwy_io, so text-only callers never need it.
@@ -715,6 +726,16 @@ def load_afm_text(
         ファイルが `MAX_INPUT_FILE_BYTES` を超える場合、数値データ領域を
         検出できない場合、多列領域の列数が一致しない場合、1 列形式の要素数が
         平方数にならない場合、または読み込んだデータに非有限値が含まれる場合。
+
+    Examples
+    --------
+    The path is relative to the repository root, where the test scans are
+    stored:
+
+    >>> from lib.afm_io import load_afm_text
+    >>> image = load_afm_text("testdata_artificial/sample_isotropic.txt")
+    >>> image.shape, image.dtype
+    ((256, 256), dtype('float64'))
     """
     # Check here as well as in _read_text_lines: a pre-detected AfmTextFormat
     # skips detection, and np.loadtxt below reads the whole file regardless.
@@ -816,6 +837,17 @@ def load_afm_image(
     np.ndarray
         2-D height array in nanometers.
         nm 単位の 2 次元高さ配列。
+
+    Examples
+    --------
+    A Gwyddion text export and a native ``.gwy`` file; the paths are relative
+    to the repository root, where the test scans are stored:
+
+    >>> from lib.afm_io import load_afm_image
+    >>> load_afm_image("testdata_Gwyddion_txt/_20250318-164122_T.ssp.txt").shape
+    (1024, 1024)
+    >>> load_afm_image("testdata_Gwyddion_gwy/_20250318-164122_T.ssp.gwy").shape
+    (1024, 1024)
     """
     if os.path.splitext(path)[1].lower() == ".gwy":
         from . import gwy_io

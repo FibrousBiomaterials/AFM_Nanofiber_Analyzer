@@ -184,6 +184,19 @@ def evaluate_scan_lines(
     走査線は空の走査線より平均が高くなるため、平均に基づく段差は密な領域を
     グリッチと誤検出する。中央値は基板レベルに追随し、その走査線が横切る実体の
     量に左右されない。
+
+    Examples
+    --------
+    Ten scan lines raised by 10 nm, as when the feedback loop is lost:
+
+    >>> from lib.stripe_noise import evaluate_scan_lines
+    >>> image = np.zeros((40, 32))
+    >>> image[20:30] += 10.0
+    >>> quality = evaluate_scan_lines(image)
+    >>> quality.worst_step_nm, quality.bad_fraction
+    (10.0, 0.6)
+    >>> np.flatnonzero(quality.bad_lines)[[0, -1]]
+    array([13, 36])
     """
     arr = np.asarray(image, dtype=float)
     if arr.ndim != 2:
@@ -275,6 +288,16 @@ def propose_clean_ranges(
     区間は長さ順ではなく画像の並び順で返す。ユーザーに提示する呼び出し側では、
     ユーザーが見ている画像と並びが一致している必要があるためである。最長ブロック
     が必要な場合は呼び出し側で ``stop - start`` により整列する。
+
+    Examples
+    --------
+    >>> from lib.stripe_noise import evaluate_scan_lines, propose_clean_ranges
+    >>> image = np.zeros((40, 32))
+    >>> image[20:30] += 10.0
+    >>> propose_clean_ranges(evaluate_scan_lines(image))
+    [(0, 13), (37, 40)]
+    >>> propose_clean_ranges(evaluate_scan_lines(image), min_lines=10)
+    [(0, 13)]
     """
     good = ~np.asarray(quality.bad_lines, dtype=bool)
     ranges: List[Tuple[int, int]] = []

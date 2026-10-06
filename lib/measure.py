@@ -1747,6 +1747,24 @@ def measure_bundle(
     ピクセルサイズは軸ごと（X は画像の幅、Y は画像の高さ）に解決するため、
     矩形視野や非正方ピクセル格子も正しく測れる。正方ピクセル格子の正方スキャンの
     結果は変わらない。
+
+    Examples
+    --------
+    The synthetic test scan records no scan size, so the 1.25 µm listed for
+    it in ``testdata_artificial/scale_table_sample.csv`` is passed. The path
+    is relative to the repository root:
+
+    >>> import tempfile
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import measure_bundle
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...                           ProcParams(), output_dir=folder).bundle_path
+    ...     result = measure_bundle(bundle, scale_um=1.25)
+    >>> len(result.stats) == len(result.fibers)
+    True
+    >>> type(result.stats[0]).__name__
+    'FiberStats'
     """
     if scale_um is None:
         recorded = read_scan_size_from_bundle(bundle_path)
@@ -1979,6 +1997,23 @@ def collect_fiber_stats(
     耐えられる。結果をバンドルごとに分けたまま返すのは、1 標本をファイバー
     1 本とするか画像 1 枚とするかを呼び出し側が決めるためで、ここで併合すると
     その区別が失われる。
+
+    Examples
+    --------
+    A bundle that cannot be read becomes an error entry; the others are still
+    measured. The input path is relative to the repository root:
+
+    >>> import os, tempfile
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import collect_fiber_stats
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...                           ProcParams(), output_dir=folder).bundle_path
+    ...     missing = os.path.join(folder, "missing.b2z")
+    ...     per_bundle, errors = collect_fiber_stats([bundle, missing],
+    ...                                              scale_um=1.25)
+    >>> len(per_bundle), len(errors)
+    (1, 1)
     """
     per_bundle: List[Tuple[str, List[FiberStats]]] = []
     errors: List[Tuple[str, str]] = []
@@ -2051,6 +2086,12 @@ def contour_length_weights(horizon: np.ndarray) -> np.ndarray:
     集約分布を支配してしまう。長さ重み付けは両方の偏りを取り除き、分布を
     スケール不変にする。すなわち「サンプル点のうちの割合」ではなく「観測した
     輪郭長のうちの割合」を表すようになる。
+
+    Examples
+    --------
+    >>> from lib.measure import contour_length_weights
+    >>> contour_length_weights(np.array([0.0, 2.0, 3.0]))
+    array([1. , 1.5, 0.5])
     """
     horizon = np.asarray(horizon, dtype=float)
     if horizon.size < 2:
@@ -2303,6 +2344,24 @@ def read_fiber_csv(path: str) -> List[FiberStats]:
     全ての対象ではなく、まさにその母集団に対して分布を作れる。`index` 列は
     出力ファイル内での位置であり、バンドルの全ファイバーリスト内での位置では
     ない。出力時に採番し直されるためである。
+
+    Examples
+    --------
+    A round trip through `write_fiber_csv`. The input path is relative to the
+    repository root:
+
+    >>> import os, tempfile
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import measure_bundle, read_fiber_csv, write_fiber_csv
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...                           ProcParams(), output_dir=folder).bundle_path
+    ...     stats = measure_bundle(bundle, scale_um=1.25).stats
+    ...     csv_path = os.path.join(folder, "fibers.csv")
+    ...     write_fiber_csv(csv_path, stats)
+    ...     rows = read_fiber_csv(csv_path)
+    >>> len(rows) == len(stats)
+    True
     """
     with open(path, "r", newline="", encoding="utf-8-sig") as f:
         reader = csv.reader(f)
@@ -2435,6 +2494,10 @@ def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
     stats
         Statistics rows, typically from `compute_fiber_stats`.
         統計値の行。通常は `compute_fiber_stats` の戻り値。
+
+    See Also
+    --------
+    read_fiber_csv : Reads the file back; its example writes one first.
 
     Notes
     -----

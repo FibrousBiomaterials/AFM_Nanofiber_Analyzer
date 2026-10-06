@@ -367,6 +367,20 @@ def validate_bundle(
         Callers translate or wrap as needed, matching `validate_params`.
         固定英語の問題記述リスト。契約に適合していれば空。`validate_params`
         と同様、翻訳や文脈付けは呼び出し側で行う。
+
+    Examples
+    --------
+    >>> from lib.bundle_schema import validate_bundle
+    >>> calibrated = np.zeros((4, 4))
+    >>> validate_bundle({"calibrated": calibrated,
+    ...                  "skeletonized": np.zeros((4, 4), dtype=bool)})
+    []
+    >>> validate_bundle({"calibrated": calibrated,
+    ...                  "skeletonized": np.zeros((3, 3), dtype=bool)})
+    ['skeletonized: shape (3, 3) differs from calibrated shape (4, 4)']
+    >>> validate_bundle({"calibrated": calibrated},
+    ...                 require=["calibrated", "skeletonized"])
+    ['missing required keys: skeletonized']
     """
     problems: List[str] = []
 
@@ -723,6 +737,16 @@ def centerline_from_meta(meta: Optional[Dict]) -> str:
     変わってしまう。そのため古いバンドルはスケルトントラックを使い続け、呼び出し側が
     再解析できることを利用者に伝える。バージョンの欠落は旧リリース製であることを
     意味し、エラーではない。
+
+    Examples
+    --------
+    >>> from lib.bundle_schema import centerline_from_meta
+    >>> centerline_from_meta({"version": "1.2", "centerline": "crest"})
+    'crest'
+    >>> centerline_from_meta({"version": "1.1"})
+    'half_max_025w'
+    >>> centerline_from_meta(None)
+    'skeleton'
     """
     version = meta.get("version") if meta else None
     if version in CENTERLINE_KEY_VERSIONS:

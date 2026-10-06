@@ -338,8 +338,25 @@ must be verified by the author. Do not accept AI-generated wording for
 instrument behavior, physical interpretation, or algorithm rationale until it
 has been checked against the code and the author's domain knowledge.
 
-If AI is used in preparing the JOSS submission, disclose that use in the JOSS
-paper or submission materials per current JOSS guidelines.
+If AI is used in preparing the JOSS submission, `paper.md` must carry an
+`AI usage disclosure` section; it is an item of the JOSS review checklist, and
+the JOSS AI usage policy
+(<https://joss.readthedocs.io/en/latest/policies.html>) requires it to state:
+
+1. **Tools and where they were applied** — each AI system with its version,
+   and which parts of the submission it was used on (code, documentation,
+   manuscript).
+2. **Scope of assistance** — what kind of help it gave, for example code
+   generation, refactoring, test scaffolding, translation, editorial review,
+   or manuscript drafting.
+3. **Human verification** — that the authors reviewed, modified, and
+   validated all AI-generated content and made the primary architectural and
+   design decisions.
+
+If no AI was used, the section says so explicitly. JOSS treats an incomplete
+disclosure as an ethics issue, not a formatting one. An agent working with a
+tool or model version the section does not yet name reports that to the user
+rather than editing `paper.md` unasked.
 
 ---
 

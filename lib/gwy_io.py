@@ -450,6 +450,18 @@ def load_gwy_image(
     ValueError
         When the file has no channel, the selector matches none, or the loaded
         channel contains non-finite values.
+
+    Examples
+    --------
+    The path is relative to the repository root, where the test scans are
+    stored:
+
+    >>> from lib.gwy_io import load_gwy_image
+    >>> gwy = load_gwy_image("testdata_Gwyddion_gwy/_20250318-164122_T.ssp.gwy")
+    >>> gwy.channel.title, gwy.data.shape
+    ('Topography', (1024, 1024))
+    >>> round(gwy.scan_size.x_um, 6), round(gwy.scan_size.y_um, 6)
+    (2.0, 2.0)
     """
     pairs = _channels_from_container(_load_container(path))
     if not pairs:

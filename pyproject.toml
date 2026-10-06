@@ -87,14 +87,17 @@ packages = ["lib", "guis"]
 py-modules = ["Main", "cli"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# `lib` is collected for the `Examples` sections of its docstrings, which
+# --doctest-modules (in addopts) runs, so an example whose output the code no
+# longer produces fails here rather than reaching the API reference.
+testpaths = ["tests", "lib"]
 # Run tests in parallel across CPU cores via pytest-xdist. This roughly halves
 # the wall time of the full suite, whose cost is dominated by the slow
 # full-size regression tests (test_integration.py, test_strict_regression.py).
 # All tests are isolated (per-test tmp_path / tempdir), so parallel execution
 # is output-equivalent to serial. Override with `-n0` for serial runs, e.g.
 # when debugging a single test and you want live, ordered output.
-addopts = ["-n", "auto"]
+addopts = ["-n", "auto", "--doctest-modules"]
 markers = [
     "slow: tests that run the whole pipeline, over a full-size real scan or a generated one",
 ]

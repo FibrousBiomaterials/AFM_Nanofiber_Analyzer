@@ -224,6 +224,13 @@ class ProcParams:
     画像の実寸は意図的に除外している。実寸は解析結果に影響しない表示用
     メタ情報であり、同一フォルダ内に異なるスキャンサイズの画像が混在する
     可能性があるため。
+
+    Examples
+    --------
+    >>> from lib.pipeline import ProcParams
+    >>> params = ProcParams(bg_method="tophat")
+    >>> params.bg_method, params.kinkangle_deg
+    ('tophat', 150.0)
     """
 
     # BGCalibrator parameters.
@@ -332,6 +339,14 @@ def row_range_suffix(row_range: Optional[Tuple[int, int]]) -> str:
     あるため、出力名を区別する必要がある。接尾辞には連番ではなく範囲そのものを
     含める。こうすれば兄弟バンドルを削除・再切り出ししてもバンドル単体で識別でき、
     バンドル内に記録される ``source_region`` とも一致する。
+
+    Examples
+    --------
+    >>> from lib.pipeline import row_range_suffix
+    >>> row_range_suffix((0, 256))
+    '_r0-256'
+    >>> row_range_suffix(None)
+    ''
     """
     if row_range is None:
         return ""
@@ -342,6 +357,12 @@ def bundle_path_for(stem: str) -> str:
     """
     Return the bundle path for an extensionless input path.
     拡張子を除いた入力パスに対応するバンドルパスを返す。
+
+    Examples
+    --------
+    >>> from lib.pipeline import bundle_path_for
+    >>> bundle_path_for("scans/sample01")
+    'scans/sample01.b2z'
     """
     return stem + BUNDLE_EXT
 
@@ -837,6 +858,20 @@ def process_file(
         whether to continue with remaining files.
         ステージ・入出力の失敗はそのまま送出する。バッチ続行の判断は
         呼び出し側が行う。
+
+    Examples
+    --------
+    The input path is relative to the repository root, where the test scans
+    are stored:
+
+    >>> import os, tempfile
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     result = process_file("testdata_artificial/sample_isotropic.txt",
+    ...                           ProcParams(), output_dir=folder)
+    ...     written = sorted(os.listdir(folder))
+    >>> written
+    ['sample_isotropic.b2z', 'sample_isotropic_param.json']
     """
     t0 = time.time()
 

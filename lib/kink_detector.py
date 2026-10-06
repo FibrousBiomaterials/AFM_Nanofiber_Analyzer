@@ -680,6 +680,20 @@ class KinkDetector:
         報告する値は回転全体ではなく超過回転である。それが、繊維の曲率では説明
         できない部分だからである。曲線の中にあるコーナーでは、その場所の回転全体
         より小さくなる。
+
+        Examples
+        --------
+        A line with one right-angle corner, sampled every 0.5 px, on a fiber
+        4 px wide:
+
+        >>> from lib.kink_detector import KinkDetector
+        >>> x = np.r_[np.arange(0, 40, 0.5), np.full(80, 40.0)]
+        >>> y = np.r_[np.zeros(80), np.arange(0, 40, 0.5)]
+        >>> judgement = KinkDetector().judge_line(x, y, width_px=4.0)
+        >>> judgement.kink_indices
+        array([80])
+        >>> np.degrees(judgement.kink_angles).round(1)
+        array([90.6])
         """
         empty = np.zeros(0, dtype=np.intp)
         nothing = KinkJudgement(

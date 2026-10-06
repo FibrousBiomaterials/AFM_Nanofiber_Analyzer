@@ -187,6 +187,14 @@ def cliffs_delta(a: np.ndarray, b: np.ndarray) -> float:
     counting pairs, which would be quadratic in the sample sizes.
     値はペアを数え上げるのではなく Mann-Whitney U 統計量から導く。数え上げは
     標本数に対して二次のコストになるためである。
+
+    Examples
+    --------
+    >>> from lib.group_compare import cliffs_delta
+    >>> cliffs_delta([1, 2, 3], [4, 5, 6])
+    -1.0
+    >>> cliffs_delta([1, 2, 3, 4], [2, 3])
+    0.0
     """
     a = np.asarray(a, dtype=float)
     b = np.asarray(b, dtype=float)
@@ -234,6 +242,12 @@ def holm_adjusted(pvalues: Sequence[float]) -> List[float]:
     k 群を比較すると k(k-1)/2 組のペアができ、それぞれを 0.05 で検定すると、
     差が無くても 4 群では約 1/4 の確率でどこかに「差」が見つかる。Holm 法は
     ファミリーワイズ誤り率を制御しつつ、Bonferroni より一様に検出力が高い。
+
+    Examples
+    --------
+    >>> from lib.group_compare import holm_adjusted
+    >>> holm_adjusted([0.01, 0.04, 0.03])
+    [0.03, 0.06, 0.06]
     """
     values = [float(p) for p in pvalues]
     finite = [(i, p) for i, p in enumerate(values) if np.isfinite(p)]

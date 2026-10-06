@@ -1,5 +1,6 @@
 """Sphinx configuration for the AFM Nanofiber Analyzer API documentation."""
 
+import re
 import sys
 from pathlib import Path
 
@@ -63,3 +64,23 @@ exclude_patterns = ["_build", "*.ja.md", "related_afm_tools.md"]
 
 html_theme = "furo"
 html_static_path = []
+
+# Napoleon writes each dataclass field's annotation into a `:type:` field, and
+# a field body is parsed as reStructuredText. Under docutils.conf's
+# character-level inline markup, a dotted type name such as
+# `lib.connect_selection.ChainMember` then reads as a hyperlink reference
+# (`lib.connect_`) and renders as an error, so the underscores of these
+# generated type names are escaped. Running after Napoleon (priority 500) is
+# what makes the lines it generated visible here.
+_TYPE_FIELD = re.compile(r"^(\s*:r?type:\s*)(.+)$")
+
+
+def _escape_type_underscores(app, what, name, obj, options, lines):
+    for index, line in enumerate(lines):
+        match = _TYPE_FIELD.match(line)
+        if match and "`" not in match.group(2):
+            lines[index] = match.group(1) + match.group(2).replace("_", r"\_")
+
+
+def setup(app):
+    app.connect("autodoc-process-docstring", _escape_type_underscores, priority=600)

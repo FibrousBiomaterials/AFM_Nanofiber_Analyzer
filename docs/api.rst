@@ -36,6 +36,10 @@ Input and output
    :members:
    :show-inheritance:
 
+.. automodule:: lib.stripe_noise
+   :members:
+   :show-inheritance:
+
 Analysis stages
 ---------------
 
@@ -48,6 +52,10 @@ Analysis stages
    :show-inheritance:
 
 .. automodule:: lib.skeletonizer
+   :members:
+   :show-inheritance:
+
+.. automodule:: lib.centerline
    :members:
    :show-inheritance:
 
@@ -71,6 +79,22 @@ Measurement
    :show-inheritance:
 
 .. automodule:: lib.fiber_tracking_image
+   :members:
+   :show-inheritance:
+
+.. automodule:: lib.fiber_connector
+   :members:
+   :show-inheritance:
+
+.. automodule:: lib.fiber_selection
+   :members:
+   :show-inheritance:
+
+.. automodule:: lib.connect_selection
+   :members:
+   :show-inheritance:
+
+.. automodule:: lib.group_compare
    :members:
    :show-inheritance:
 

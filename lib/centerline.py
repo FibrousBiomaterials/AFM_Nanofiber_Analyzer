@@ -438,6 +438,12 @@ def polyline_distance(
     `imp_tools.convert_track_to_distance` のチェーンコード重みは、直交か斜めの
     ステップしか持たない 8 連結画素鎖の長さを補正するものである。小数座標の線には
     そうしたステップが無いため、長さは単純なユークリッド和である。
+
+    Examples
+    --------
+    >>> from lib.centerline import polyline_distance
+    >>> polyline_distance(np.array([0, 3, 3]), np.array([0, 0, 4]), 10.0)
+    array([ 0., 30., 70.])
     """
     x = np.asarray(xtrack, dtype=np.float64)
     y = np.asarray(ytrack, dtype=np.float64)
@@ -1097,6 +1103,21 @@ def place_centerline(
     ------
     ValueError
         If `method` is not one of `CENTERLINE_METHODS`.
+
+    Examples
+    --------
+    A straight ridge whose crest lies 0.3 px below the skeleton row:
+
+    >>> from lib.centerline import place_centerline
+    >>> yy, xx = np.mgrid[0:21, 0:40]
+    >>> height = 5.0 * np.exp(-((yy - 10.3) ** 2) / (2 * 1.5 ** 2))
+    >>> xtrack = np.arange(5, 35)
+    >>> ytrack = np.full(xtrack.size, 10)
+    >>> result = place_centerline(height, xtrack, ytrack)
+    >>> round(float(np.median(result.y)), 2)
+    10.3
+    >>> result.width_px, result.width_measured
+    (3.5, True)
     """
     if method not in CENTERLINE_METHODS:
         raise ValueError(

@@ -401,6 +401,14 @@ def convert_track_to_distance(xtrack: np.ndarray,
     補正重みはこのバイアスを平均的に除去する
     (Kulpa 1977; Vossepoel & Smeulders 1982)。補正定数は正方格子で導出された
     ものであり、異方性格子ではステップ種別ごとの近似として適用する。
+
+    Examples
+    --------
+    One orthogonal step followed by two diagonal steps:
+
+    >>> from lib.imp_tools import convert_track_to_distance
+    >>> convert_track_to_distance(np.array([0, 1, 2, 3]), np.array([0, 0, 1, 2]), 1.0)
+    array([0.   , 0.948, 2.288, 3.628])
     """
     x_step = pixel_step_size
     y_step = pixel_step_size if y_pixel_step_size is None else y_pixel_step_size
