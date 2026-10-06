@@ -38,7 +38,6 @@ import contextlib
 import hashlib
 import json
 import math
-import os
 import sys
 import time
 from pathlib import Path
@@ -325,7 +324,7 @@ def bg_timing() -> dict:
         t0 = time.perf_counter(); dx, dy = b._difXY(arr)
         t1 = time.perf_counter(); _hx, _hy, ox, oy = b._bg_fit(dx, dy)
         t2 = time.perf_counter(); tx, ty = b._dif_sep(dx, dy, ox, oy)
-        t3 = time.perf_counter(); fx, fy = b._extract_fiber(tx, ty)
+        fx, fy = b._extract_fiber(tx, ty)
         t4 = time.perf_counter(); b._bg_generate(arr, fx, fy)
         t5 = time.perf_counter()
     values["trendfill.bg_fit_seconds"] = t2 - t1
@@ -1591,7 +1590,6 @@ def synthetic_centerline() -> dict:
 )
 def synthetic_kinks() -> dict:
     import math
-    import numpy as np
     from lib import kink_detector as kd
     from lib.kink_detector import KinkDetector
 
@@ -1767,7 +1765,6 @@ def ridge_hysteresis() -> dict:
 )
 def turn_maxima() -> dict:
     import inspect
-    import re
     import textwrap
     import kink_reference_score as krs
     from lib import kink_detector as kd
@@ -2064,13 +2061,12 @@ def ridge_recovery_bundled() -> dict:
     import cv2
     import numpy as np
     import kink_reference_score as krs
-    from dataclasses import replace
     from scipy.ndimage import binary_dilation
     from skimage.filters import apply_hysteresis_threshold, frangi, threshold_otsu, threshold_triangle
     from skimage.morphology import skeletonize
     from lib.bundle_schema import scan_size_um_from_meta
     from lib import blosc2_io
-    from lib.pipeline import ProcParams, process_file
+    from lib.pipeline import ProcParams
 
     values: dict = {}
     base = ProcParams()
