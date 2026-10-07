@@ -23,20 +23,17 @@ no threshold or ridge filter can tell apart from real material.
 
 That matters beyond the band itself. Several analysis steps derive a threshold
 from a statistic taken over the *whole* image, so one glitch band rescales the
-analysis everywhere. The starkest case measured on a bundled scan: the ridge
-recovery stage takes its hysteresis seed from `threshold_otsu` over the Frangi
-response, and with the glitch bands present that seed landed above the maximum
-response of every genuine fiber in the clean part of the image, so not one
-clean-region pixel could seed the hysteresis and the stage recovered almost
-nothing there. Cropping the analysis to a glitch-free band of the *same* scan
-recovered many times more skeleton in those lines.
+analysis everywhere. The ridge recovery stage, for example, takes its
+hysteresis seed from `threshold_otsu` over the Frangi response of the whole
+image, so glitch bands can lift that seed above the response of the genuine
+fibers in the clean part of the image, which then has nothing to seed from.
+Cropping the analysis to a glitch-free band of the scan takes the bands out of
+that statistic.
 影響は帯の内部にとどまらない。解析の複数の段が *画像全体* の統計からしきい値を
-決めるため、グリッチ帯 1 つが解析全体のスケールを狂わせる。実測で最も極端
-だった例: リッジ回収段はヒステリシスの種を Frangi 応答に対する
-`threshold_otsu` から取るが、グリッチ帯があるとその種が清浄部の本物の繊維の
-応答の最大値をも上回り、清浄部からは種が 1 画素も立たず、その領域では何も
-ほとんど回収されなかった。同一走査のグリッチのない帯だけに解析を絞ると、
-同じ走査線での回収スケルトンは何倍にも増えた。
+決めるため、グリッチ帯 1 つが解析全体のスケールを狂わせる。例えばリッジ回収段は
+ヒステリシスの種を画像全体の Frangi 応答に対する `threshold_otsu` から取るため、
+グリッチ帯があるとその種が清浄部の本物の繊維の応答を上回り、清浄部には種が
+立たなくなり得る。走査のグリッチのない帯に解析を絞ると、その統計から帯が除かれる。
 
 This module only measures and reports; it never modifies an image and nothing
 it computes is written into the `.b2z` bundle. The metrics are exactly
@@ -58,16 +55,16 @@ import numpy as np
 # Height step between neighboring scan lines, in nanometres, above which the
 # boundary is treated as a feedback glitch rather than sample topography.
 # Chosen to sit well above the line-to-line variation of a healthy scan and
-# well below a real glitch: on the bundled scans the typical step between
-# healthy lines lies well below it and a glitch step far above it. It is a
-# screening heuristic, not a
-# physical constant, so it is exposed as a setting rather than hard-coded at
-# the call sites.
+# well below a real glitch. It is a screening heuristic, not a physical
+# constant, so it is exposed as a setting rather than hard-coded at the call
+# sites.
 # 隣接走査線間の高さ段差（nm）。これを超える境界は試料形状ではなくフィード
 # バック不良とみなす。健全な走査の線間変動より十分大きく、実際のグリッチより
-# 十分小さい値を選んだ。同梱走査では、健全な走査線間の典型的な段差はこれより
-# 十分小さく、グリッチの段差ははるかに大きい。これは物理定数ではなく検査用の経験則
-# なので、呼び出し側に直書きせず設定として露出する。
+# 十分小さい値を選んだ。これは物理定数ではなく検査用の経験則なので、呼び出し側に
+# 直書きせず設定として露出する。
+# TODO(review): the steps of healthy and glitched lines on the bundled scans
+# were checked against this value, but no experiment in
+# scripts/measure_docs.py records them.
 DEFAULT_STEP_THRESHOLD_NM = 3.0
 
 # Scan lines on each side of a flagged step that are also treated as bad.

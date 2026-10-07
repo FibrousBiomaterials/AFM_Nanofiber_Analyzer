@@ -198,7 +198,7 @@ def connect_path_for(bundle_path: str) -> str:
     return os.path.splitext(bundle_path)[0] + CONNECT_SUFFIX
 
 
-def skeleton_digest(skeletonized) -> str:
+def skeleton_digest(skeletonized: np.ndarray) -> str:
     """
     Return a fingerprint of the skeleton a connection plan was built on.
     連結プランの構築元となった骨格の指紋を返す。
@@ -299,7 +299,7 @@ def plan_from_chains(
     fragments: Sequence,
     chains: Sequence[Sequence[Tuple[int, bool]]],
     params: ConnectParams,
-    skeletonized=None,
+    skeletonized: Optional[np.ndarray] = None,
     digest: str = "",
 ) -> ConnectionPlan:
     """

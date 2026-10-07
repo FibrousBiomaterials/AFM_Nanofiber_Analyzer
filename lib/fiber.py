@@ -183,7 +183,7 @@ class Fiber:
         return self.horizon[-1]
 
 
-def skeleton_track(fiber) -> Tuple[np.ndarray, np.ndarray]:
+def skeleton_track(fiber: Fiber) -> Tuple[np.ndarray, np.ndarray]:
     """
     Return the skeleton pixels a fiber was traced from, bounding-box relative.
     ファイバーの元になったスケルトン画素を、外接矩形基準で返す。
@@ -204,13 +204,13 @@ def skeleton_track(fiber) -> Tuple[np.ndarray, np.ndarray]:
     -----
     Everything that identifies a fiber reads this rather than the drawn line:
     the exclusion and connection sidecars store skeleton pixels, and the
-    branch-point and frame tests were measured on them. The drawn line moves
+    branch-point and frame tests are defined on them. The drawn line moves
     whenever the centerline estimate changes, while the skeleton moves only
     when the image is re-analyzed, which `connect_selection.skeleton_digest`
     already detects.
     繊維を識別する処理はすべて、描画される線ではなくこれを読む。除外・連結の
     サイドカーはスケルトン画素を保存しており、分岐点・画像端の判定もその上で
-    測って決めたものである。描画される線は中心線の推定が変わるたびに動くが、
+    定義している。描画される線は中心線の推定が変わるたびに動くが、
     スケルトンが動くのは画像を再解析したときだけであり、それは
     `connect_selection.skeleton_digest` が既に検出する。
     """

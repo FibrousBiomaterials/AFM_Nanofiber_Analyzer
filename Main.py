@@ -183,7 +183,7 @@ def _run_plugin_and_exit(module_import_path: str) -> None:
     # Poll state every 50ms and exit the splash loop when the import is done.
     def poll():
         if state["done"]:
-            splash.quit()  # Exit mainloop.
+            splash.quit()
         else:
             splash.after(50, poll)
 

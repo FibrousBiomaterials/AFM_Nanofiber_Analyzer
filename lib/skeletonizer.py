@@ -56,13 +56,12 @@ DEFAULT_BORDER_PAD = 12
 # Height-ratio guard for loop filling. A loop artifact encloses pixels of the
 # fiber body itself, so its interior stays close to the surrounding ridge
 # height, while an enclosure formed by two real fibers touching twice would
-# contain background-level pixels (docs/validation.md §3.3). No such enclosure
-# occurs on the bundled scans, so the margin 0.3 leaves on that side has not
-# been measured.
+# contain background-level pixels. The interiors of both kinds of enclosure
+# are evaluated in docs/validation.md §3.3-§3.4.
 # ループ充填の高さ比ガード。ループアーティファクトが囲むのはファイバー本体の
 # 画素なので内部は周囲リッジの高さに近いが、実ファイバー 2 本が 2 点で接触して
-# できる囲みは背景レベルの画素を含むはずである（docs/validation.ja.md §3.3）。
-# 同梱スキャンにはそうした囲みが無いため、0.3 がその側に持つ余裕は測っていない。
+# できる囲みは背景レベルの画素を含むはずである。両方の囲みの内部の評価は
+# docs/validation.ja.md §3.3〜§3.4 にある。
 DEFAULT_LOOP_HEIGHT_RATIO = 0.3
 
 # Terminal-hook pruning defaults. When segmentation admits a low, widened
@@ -131,14 +130,12 @@ def thin_ignoring_image_border(
     medial axis of such a truncated end turns toward the nearer corner of the
     cut, so the traced line drifts off the fiber crest over its last pixels.
     Replicating the border extends those fibers outward instead of capping
-    them, which removes the bend. Pixels away from the border were unaffected
-    on the bundled scans: the skeleton outside a 12 px border band was
-    identical with and without this correction (docs/validation.md §3.1).
+    them, which removes the bend. Its effect away from the border is in
+    docs/validation.md §3.1.
     視野外へ抜けるファイバーは配列端で平らに切断され、その切断端の medial axis
     は切り口の近い側の角へ折れるため、追跡線が末端の数画素で稜線から外れる。
     端を複製するとファイバーは打ち切られず外側へ延長されるため、この折れが消える。
-    同梱スキャンでは端から離れた画素は影響を受けず、12 px の縁帯より内側の
-    スケルトンは本補正の有無で完全に一致した (docs/validation.ja.md §3.1)。
+    端から離れた画素への影響は docs/validation.ja.md §3.1 にある。
 
     The replication also inflates a blob that lies *along* the border instead
     of crossing it, and its axis can be pushed outside the image. Any mask
@@ -863,6 +860,9 @@ class Skeletonizer:
         Split skeleton branch points into low-height and high-height coordinates.
         スケルトン分岐点を低い高さと高い高さの座標に分ける。
 
+        The coordinates are stored on the instance.
+        座標はインスタンスに保存される。
+
         Parameters
         ----------
         calibrated_image
@@ -874,12 +874,6 @@ class Skeletonizer:
         bp_height
             Height threshold separating low and high branch points.
             低い分岐点と高い分岐点を分ける高さしきい値。
-
-        Returns
-        -------
-        None
-            Coordinates are stored on the instance.
-            座標はインスタンスに保存される。
         """
         all_bps = imp_tools.branchedPoints(init_skeleton_image)
         low_bp_coor = np.where(all_bps & (calibrated_image < bp_height))
@@ -892,11 +886,8 @@ class Skeletonizer:
         Find endpoints close to low-height branch points.
         低い高さの分岐点に近い端点を検出する。
 
-        Returns
-        -------
-        None
-            Endpoint coordinates are stored on the instance.
-            端点座標はインスタンスに保存される。
+        The endpoint coordinates are stored on the instance.
+        端点座標はインスタンスに保存される。
 
         Notes
         -----

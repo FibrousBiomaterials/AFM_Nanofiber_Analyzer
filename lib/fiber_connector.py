@@ -63,6 +63,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 # ===== Numerical / scientific libraries =====
 import numpy as np
+from numpy.typing import ArrayLike
 
 # ===== Project libraries =====
 from . import imp_tools
@@ -135,7 +136,7 @@ class ConnectParams:
     trim_points: int = 5
 
 
-def angle_between_three_points(A, B, D) -> float:
+def angle_between_three_points(A: ArrayLike, B: ArrayLike, D: ArrayLike) -> float:
     """
     Return the angle ABD at vertex B in degrees.
     頂点 B における角 ABD を度で返す。
@@ -388,10 +389,10 @@ def connection_candidate_flags(
     ends, backs = _fragment_end_geometry(fragments, params.lookback_length)
     medians = _fragment_median_heights(cal, fragments)
 
-    # Shortlist by distance first: the angle test is the expensive one, and the
-    # connection range admits only a handful of end pairs on a real scan.
-    # 先に距離で候補を絞る。高価なのは角度判定であり、実際の走査像では連結範囲に
-    # 入る端点の組はごく少数に限られる。
+    # Shortlist by distance first: the angle test is the expensive one, and
+    # only end pairs within the connection range need it.
+    # 先に距離で候補を絞る。高価なのは角度判定であり、それが必要なのは連結範囲に
+    # 入る端点の組だけである。
     flat_ends = ends.reshape(n * 2, 2)
     deltas = flat_ends[:, None, :] - flat_ends[None, :, :]
     dists = np.hypot(deltas[:, :, 0], deltas[:, :, 1])

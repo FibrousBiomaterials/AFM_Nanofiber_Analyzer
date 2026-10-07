@@ -22,6 +22,13 @@ image.
 ほど多くの画素を出し、同一ファイバーの隣接画素は同じ対象の繰り返しになる）、
 群間比較ではファイバー単位・画像単位でも確認する必要があるため、報告上この
 区別が重要になる。
+
+Nothing is written automatically. Through file dialogs the user saves the
+histogram figure, the sampled values of each group (one CSV per group), the
+summary statistics (CSV), the between-group comparison (CSV), and the log.
+自動では何も書き出さない。ファイルダイアログから、ヒストグラム図、各グループの
+標本値（グループごとに 1 つの CSV）、要約統計量 (CSV)、群間比較 (CSV)、ログを
+保存する。
 """
 
 # ===== Plugin metadata =====
@@ -2661,6 +2668,23 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         unit
             Aggregation-unit key deciding what one sample counts as.
             1 標本を何と数えるかを決める集計単位キー。
+        input_mode
+            `INPUT_BUNDLE`, or `INPUT_FIBER_CSV` to read `bundle_paths` as
+            GUI04 per-fiber CSVs, whose rows are already curated, so the two
+            ``apply_*`` flags are not used then.
+            `INPUT_BUNDLE`、または `bundle_paths` を GUI04 のファイバー単位 CSV
+            として読む `INPUT_FIBER_CSV`。CSV の行はキュレーション済みのため、
+            そのとき 2 つの ``apply_*`` フラグは使わない。
+        apply_exclusions
+            Honor each bundle's manual-exclusion sidecar.
+            各バンドルの手動除外サイドカーを適用する。
+        curvature_window
+            Arc length in nanometers over which curvature is estimated; used
+            only for the curvature quantity.
+            曲率を推定する弧長 (nm)。曲率の計測量でのみ使う。
+        apply_connection
+            Honor each bundle's fiber-connection sidecar.
+            各バンドルのファイバー連結サイドカーを適用する。
         frame_mode
             One of `FRAME_MODES`; applied only to `PARAM_LENGTH`.
             `FRAME_MODES` のいずれか。`PARAM_LENGTH` にだけ適用する。

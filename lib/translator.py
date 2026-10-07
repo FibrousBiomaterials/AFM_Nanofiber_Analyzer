@@ -79,17 +79,14 @@ def set_language(lang: str) -> None:
     Switch the active translation language.
     有効な翻訳言語を切り替える。
 
+    The module-level translation state is updated in place.
+    モジュールレベルの翻訳状態をインプレースで更新する。
+
     Parameters
     ----------
     lang
         Language code to activate. Unsupported codes fall back to ``DEFAULT``.
         有効化する言語コード。未対応コードの場合は ``DEFAULT`` にフォールバックする。
-
-    Returns
-    -------
-    None
-        The module-level translation state is updated in place.
-        モジュールレベルの翻訳状態をインプレースで更新する。
     """
     global _current_translation, _current_language_code
     if lang not in SUPPORTED:

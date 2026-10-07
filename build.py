@@ -367,6 +367,9 @@ def copy_license_materials(
     Copy project and runtime dependency license materials into the bundle.
     プロジェクトと実行時依存のライセンス資料をバンドルへコピーする。
 
+    License files and a manifest are written under `dist/Main`.
+    ライセンスファイルとマニフェストを `dist/Main` 配下へ書き出す。
+
     Parameters
     ----------
     import_packages
@@ -375,12 +378,6 @@ def copy_license_materials(
     strict
         Whether missing full license texts should fail the build.
         ライセンス本文の欠落時にビルドを失敗させるか。
-
-    Returns
-    -------
-    None
-        License files and a manifest are written under `dist/Main`.
-        ライセンスファイルとマニフェストを `dist/Main` 配下へ書き出す。
 
     Raises
     ------
@@ -630,12 +627,6 @@ def ensure_project_on_syspath() -> None:
     """
     Ensure project root is on `sys.path` for dynamic imports.
     動的 import のためにプロジェクトルートを `sys.path` に追加する。
-
-    Returns
-    -------
-    None
-        `sys.path` is updated in place when needed.
-        必要に応じて `sys.path` をインプレースで更新する。
     """
     if str(PROJECT_DIR) not in sys.path:
         sys.path.insert(0, str(PROJECT_DIR))
@@ -739,6 +730,9 @@ def write_spec(hiddenimports, datas, binaries, console: bool = False) -> None:
     Generate and write PyInstaller spec file.
     PyInstaller 用の spec ファイルを生成して保存する。
 
+    The generated spec file is written to `SPEC_OUT`.
+    生成した spec ファイルを `SPEC_OUT` に書き出す。
+
     Parameters
     ----------
     hiddenimports
@@ -753,12 +747,6 @@ def write_spec(hiddenimports, datas, binaries, console: bool = False) -> None:
     console
         Whether to build console-enabled executable.
         コンソール表示付きでビルドするかどうか。
-
-    Returns
-    -------
-    None
-        The generated spec file is written to `SPEC_OUT`.
-        生成した spec ファイルを `SPEC_OUT` に書き出す。
     """
     # Bundle assets based on this project layout.
     asset_datas = []
@@ -821,11 +809,8 @@ def run_pyinstaller() -> None:
     Execute PyInstaller with generated spec.
     生成した spec を使って PyInstaller を実行する。
 
-    Returns
-    -------
-    None
-        PyInstaller is executed as a subprocess.
-        PyInstaller をサブプロセスとして実行する。
+    PyInstaller is executed as a subprocess.
+    PyInstaller をサブプロセスとして実行する。
     """
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", str(SPEC_OUT)]
     print("[RUN]", " ".join(cmd))
@@ -866,11 +851,8 @@ def main() -> None:
     Run full build workflow from import scanning to final copy.
     import 走査から最終コピーまでのビルド処理全体を実行する。
 
-    Returns
-    -------
-    None
-        Build artifacts are written under the project `build` and `dist` paths.
-        ビルド成果物をプロジェクト内の `build` と `dist` に出力する。
+    Build artifacts are written under the project `build` and `dist` paths.
+    ビルド成果物をプロジェクト内の `build` と `dist` に出力する。
     """
     if not MAIN_PY.exists():
         raise FileNotFoundError("Main.py not found")

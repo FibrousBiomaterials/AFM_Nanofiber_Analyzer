@@ -34,7 +34,7 @@ import os
 from typing import Dict, Iterable, List, Sequence, Set, Tuple
 
 # ===== Project libraries =====
-from .fiber import skeleton_track
+from .fiber import Fiber, skeleton_track
 
 # Sidecar file naming, matching `lib.pipeline.param_path_for`'s convention of
 # a suffix on the bundle stem.
@@ -72,7 +72,7 @@ def exclusion_path_for(bundle_path: str) -> str:
     return os.path.splitext(bundle_path)[0] + EXCLUSION_SUFFIX
 
 
-def fiber_anchor(fiber) -> Tuple[int, int]:
+def fiber_anchor(fiber: Fiber) -> Tuple[int, int]:
     """
     Return the global pixel that identifies one fiber.
     1 本のファイバーを識別する全体像上の画素を返す。
@@ -112,7 +112,7 @@ def fiber_anchor(fiber) -> Tuple[int, int]:
     return (int(xs[mid]) + x0, int(ys[mid]) + y0)
 
 
-def fiber_track_pixels(fiber) -> Set[Tuple[int, int]]:
+def fiber_track_pixels(fiber: Fiber) -> Set[Tuple[int, int]]:
     """
     Return every whole-image skeleton pixel a fiber was traced from.
     ファイバーの元になった全体像上の全スケルトン画素を返す。
@@ -143,7 +143,7 @@ def fiber_track_pixels(fiber) -> Set[Tuple[int, int]]:
     return set(zip(xs.tolist(), ys.tolist()))
 
 
-def constituent_anchors(fiber, fragments: Sequence = ()) -> List[Tuple[int, int]]:
+def constituent_anchors(fiber: Fiber, fragments: Sequence = ()) -> List[Tuple[int, int]]:
     """
     Return the anchors that record one displayed fiber as excluded.
     表示中のファイバー 1 本を除外として記録するためのアンカー列を返す。

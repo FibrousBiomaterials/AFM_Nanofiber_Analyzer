@@ -231,6 +231,14 @@ def check_input_file_size(path: str) -> None:
     ため、正当に大きなファイルを扱う場合は本モジュールの
     `MAX_INPUT_FILE_BYTES` を引き上げるか ``None`` にできる。
 
+    Parameters
+    ----------
+    path
+        Input file to check. A file whose size cannot be read passes, so the
+        read itself reports it as missing or unreadable.
+        検査する入力ファイル。サイズを読めないファイルは通過させ、欠損・読込不能は
+        実際の読み込み側が報告する。
+
     Raises
     ------
     ValueError
@@ -343,8 +351,8 @@ def _find_multi_column_start(lines: List[str]) -> Optional[Tuple[int, int]]:
         try:
             ncols = len(stripped)
             if ncols <= _MIN_COLS:
-                raise ValueError  # 列数不足はメタデータ行とみなす
-            _ = [float(v) for v in stripped]   # 全フィールドが数値か検証
+                raise ValueError  # too few columns: a metadata row / 列数不足はメタデータ行とみなす
+            _ = [float(v) for v in stripped]   # every field must be numeric / 全フィールドが数値か検証
         except ValueError:
             prev_ncols = -1
             prev_index = -1

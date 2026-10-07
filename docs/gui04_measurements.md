@@ -1285,6 +1285,13 @@ selected fiber, and listing every pair showed the same fiber number up to four
 times with different distances and angles. The row's `self_end` and
 `other_end` are the ends the manual connection then joins.
 
+Both angles come from `angle_between_three_points`. Its parameters `A`, `B`
+and `D` are `(row, col)` points, and it returns the interior angle at the
+middle one, `B`, in degrees,
+$\theta = \arccos\dfrac{(A-B)\cdot(D-B)}{\lVert A-B\rVert\,\lVert D-B\rVert}$,
+with the cosine clipped to $[-1, 1]$; when either side has zero length it
+returns 0. The second call passes $C$ as the middle point.
+
 ```python
 # source: lib/fiber_connector.py::angle_between_three_points
 ba = np.array(A) - np.array(B)

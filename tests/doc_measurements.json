@@ -106,7 +106,7 @@
   },
   "border_drift": {
    "description": "Per bundled scan, thinned without and with the replicated border: the lateral distance from each skeleton point to the height crest along the point's normal (within half the fiber's apparent width), for the last 5 points of tracks that end within 2 px of the image edge and for points more than 10 px from either end.",
-   "snapshot": "e7c71591699a955e",
+   "snapshot": "e01eb41285299b2c",
    "values": {
     "padded.end_median_px": 1.03125,
     "padded.end_points": 210,
@@ -298,7 +298,7 @@
   },
   "kink_reference": {
    "description": "Score the kink rule, its variants and the earlier polyline rule against the visual reference of 64 clear kinks on the five bundled scans (scripts/kink_reference_score.py procedure).",
-   "snapshot": "e7c71591699a955e",
+   "snapshot": "e01eb41285299b2c",
    "values": {
     "clear_marks": 64,
     "default.displaced": 1,
@@ -500,7 +500,7 @@
   },
   "kink_rule_sweep": {
    "description": "Synthetic kinked, straight, arc and sine fibers over apparent width and pixel noise, scored against the analytic centerline (scripts/kink_rule_sweep.py with the base rule and a 3-sigma noise floor).",
-   "snapshot": "e7c71591699a955e",
+   "snapshot": "e01eb41285299b2c",
    "values": {
     "W16.arm_error_deg": 1.72,
     "W16.excess_error_deg": 3.36,
@@ -935,7 +935,7 @@
   },
   "synthetic_centerline": {
    "description": "On the synthetic suite of scripts/synthetic_suite.py (groups A-F: 60 scans, 2 nm pixels, W = 8 px; group G: twisted ribbons): the distance of each centerline method from the true centerline, the contour-length error, the same-sense corner pairs, and the lateral offset on the ribbons.",
-   "snapshot": "e7c71591699a955e",
+   "snapshot": "e01eb41285299b2c",
    "values": {
     "G_circle_d3.max_nm.quarter_max": 3.49811,
     "G_circle_d3.rms_px.crest": 0.22843,
@@ -1075,7 +1075,7 @@
   },
   "synthetic_kinks": {
    "description": "The kink rule on the synthetic suite of scripts/synthetic_suite.py (default centerline): the excess read at isolated corners, corners found in zigzags, bends reported on straight fibers, arcs, meanders, crossings and branches, the earlier polyline rule on the arcs and meanders, and corners near an end judged at an end margin of 1.5 W and 2.0 W.",
-   "snapshot": "e7c71591699a955e",
+   "snapshot": "e01eb41285299b2c",
    "values": {
     "arcs.reported": 0,
     "arcs.scans": 6,
@@ -1171,7 +1171,7 @@
   },
   "track_ends": {
    "description": "Per bundled scan: the fraction of traced track ends that lie within 3 px of a branch point of the skeleton.",
-   "snapshot": "e7c71591699a955e",
+   "snapshot": "e01eb41285299b2c",
    "values": {
     "NDTOC.ends": 278,
     "NDTOC.near_branch_percent": 66.18705,
@@ -1187,7 +1187,7 @@
   },
   "turn_maxima": {
    "description": "The visual reference of kink_reference scored with the rule as it is and with its second kind of candidate (maxima of |T| away from any accepted curvature maximum) disabled: the clear kinks found and the unmatched bends of each.",
-   "snapshot": "e7c71591699a955e",
+   "snapshot": "e01eb41285299b2c",
    "values": {
     "clear_kinks_lost_without": 4,
     "with.false": 64,
@@ -1198,7 +1198,7 @@
   },
   "y_branch_kink": {
    "description": "On the bundled higher-plant TOC scan, the bend the earlier polyline rule reports on the skeleton track below the Y-branch near pixel (288, 695) (viewed on the height image, 2026-09-30: two fibers join and the trunk below does not bend), and the kinks the current rule reports within one apparent width of it.",
-   "snapshot": "e7c71591699a955e",
+   "snapshot": "e01eb41285299b2c",
    "values": {
     "current_kinks_within_one_width": 0,
     "old_rule_angle_deg": 118.393019
@@ -1766,43 +1766,7 @@
     "thin_ignoring_image_border": "57c5d33abe1848ecf1b7f59ca186ed111006629230a67c2d53c606dca43a57fb"
    }
   },
-  "e2112b113818ba68": {
-   "lib/bg_calibrator.py": {
-    "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "BGCalibrator.<body>": "546aa2e3d9295dbb84bcd66d00dba7b34b92301e4bf2a307a5edebbf5c31e867",
-    "BGCalibrator.__call__": "acebf9a432fc6eb97a79bd8fba17c531ced9466a5770a9eaa31e212928e459d8",
-    "BGCalibrator.__init__": "542ab7a9fe044da0600108a9c666c2fcf1baf0de033d0ac80e34a5a57ea6f632",
-    "BGCalibrator._bg_calibrate": "81bca6d68616ec9632f6001868df178db8f63a6c97ea72ca7dc9d9c18e8597da",
-    "BGCalibrator._bg_fit": "d4a8e7bf07a1e4f40ee26802bf7851a2a543546203aafea21cb5983c2a935e5b",
-    "BGCalibrator._bg_generate": "f9c9af3d0e69793af75bce8f6f141469f9705dd597656da3e54c88bffcd85c4c",
-    "BGCalibrator._call_spline1d": "2b82f6cc0b57face4e7419fcce3a962172896287747a1d8c118fcf579f8f9011",
-    "BGCalibrator._call_tophat": "ac6a4b92145150af5ee00415ba5224aaf6169634351a0b4d519077af97873cbb",
-    "BGCalibrator._call_trendfill": "fabac71f388c1e6dee9c467b201c3028b7572055078c45878d60773b4317ce2b",
-    "BGCalibrator._detect_fiber_mask": "28918684c695629f052679335fbb83bde593fc3bf5fe8eb7be654041df4579ca",
-    "BGCalibrator._difXY": "30e9a4a79ac2a3d6ba40314305cb42871420ccfb56456b761fd1972618d59349",
-    "BGCalibrator._dif_sep": "bc7d12bd95996231a00864b985105ca2136406e635545e0ace5e86ddc79f9c89",
-    "BGCalibrator._extract_fiber": "6b75035d269fcf48cfa750c3a662c329cc2a4716c67c598074584ef39763bc27",
-    "BGCalibrator._fit_trend_surface": "e35b8137d0a76c2aa948197c6d37377a710f7b3cdf57f46b8ee86c41be4fc080",
-    "BGCalibrator._spline1d_fill": "10a69123213a676356526241593aab91feacc9a45dd73c5e062a33d9bd48786d",
-    "BG_METHOD_ALIASES": "8559595f96a1e1077d92de7b5edf663fdefedd2c0acd02198e2413e4e80a97e8",
-    "BG_METHOD_NAMES": "0b6170cb2f1d9d02b5ab0f7ea136f043fe02b48b54ec90a1387684779fd0d3dc",
-    "BG_METHOD_REMOVED": "e4a0ad6189ad387354651896007c85b78691efc3159ea35bd155324d4fb66303",
-    "canonical_bg_method": "36686dc6841c9d5dc3402e202f3eceda6939b325aa7ab5e480edcc3c03e07bc3",
-    "import:ProcessedImage": "c5dbcccb799f4692b332c9b571f0e364ee5354a825aba2fc458d34dd8b67ef25",
-    "import:cv2": "b4caacfd8630519788f04f84f209c314ba6dedf55dda5d373ea59274d0328800",
-    "import:distance_transform_edt": "2508ec4ebc8a2e54f5d27638e4c30f24016a48814524d98bac3708910c3ea1de",
-    "import:np": "73dd0baf8e5438da8816254a073ee43b61f8b2cdef6f393e0059cdbc55cb8d9c",
-    "import:signal": "c534dce9a7c0150ee289ec5b384e2c4b38dac7efaf8f189d75662c1a427c2f02"
-   },
-   "lib/processed_image.py": {
-    "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "ProcessedImage.<body>": "04a7a5dcd43f4858162dbb4c5eb9dea455f48a4a5b29dcaf15cd657cd634eaa5",
-    "ProcessedImage.__init__": "8c96d00eb560db6ae8438ce1b43515451604cb7e4a99613bddef7798f8053e06",
-    "import:Optional": "21a5abaaaba25fbb00f8728d6f0d5907b4cb88821d6348308d353bfb3b8e5511",
-    "import:np": "73dd0baf8e5438da8816254a073ee43b61f8b2cdef6f393e0059cdbc55cb8d9c"
-   }
-  },
-  "e7c71591699a955e": {
+  "e01eb41285299b2c": {
    "lib/afm_io.py": {
     "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "AfmTextFormat.<body>": "2d461862c1b945b22cb7704bb49b4b349f8efeaa8dbd4923bd2af71f857353b1",
@@ -2036,14 +2000,14 @@
     "load_connect_plan": "6410539bf60dbc174dc2739d7540c336633df220279d736dadfcec5926db8f95",
     "params_from_dict": "133058de795f300756bdd9847f461c2ee16f31b7961383ecc095eb40f8563786",
     "params_to_dict": "c6cedb5911a78b9f5177bfadf0fc7ab1b07a1f4fc733166edd8c86f7b39eac2c",
-    "plan_from_chains": "d47991425ee709401f80feb387d7dd0cc61fca64576d7e6c88762283b9e68425",
+    "plan_from_chains": "de90d64ce21a5f6220184dbf3d8f82466c0ce7a592d3cae931d56d6a6d3a0585",
     "plan_state_key": "c4d32dcafab5307394865f3cde3044ec7d3329f8a5fcf840a09474590a26ea3e",
     "plan_with_chain": "9bccbb0bfa91618e1eec6b7bac347e25bdb83881a51038c3c8db612d4dfbb499",
     "plan_without_anchors": "9d3802f30565d7701e71db1c8b5223714513ad9e4de41ad22ea98038095055a2",
     "plan_without_junctions": "059dcfcde7ac07219290bf4a34ab3a58edd9854424ba6af26a44db52fbb5cab6",
     "resolve_plan_chains": "46dd2c8ce94cbad6abd7ba105a69edb9f88b4b11729e777aaa07a1909b963b14",
     "save_connect_plan": "0f75f1bbcc4766cfe94219c25ba0aeff20e92fe83e0786909a4c037fc59d0da5",
-    "skeleton_digest": "da2ede03c7072d179fb0db2e6767a846871c7b64d16c3d2064f2db4a0ac1e5eb"
+    "skeleton_digest": "bd073e491b2a985e8acfe66c530ea6c9d73686b9379d00eb18a0efdee53fbeb5"
    },
    "lib/fiber.py": {
     "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -2074,7 +2038,7 @@
     "import:dataclass": "686681ef23de32a10c533bbf238394c112abd31fcf7aa9b1fd3a765df37a8e99",
     "import:field": "2399ebd299f1256472edf2091a562de21945b969a8bfcfaf57c417725256759a",
     "import:np": "73dd0baf8e5438da8816254a073ee43b61f8b2cdef6f393e0059cdbc55cb8d9c",
-    "skeleton_track": "5d6210ede064a169dddd58909ac557fe725239d82579c05ab4e893ce5073bb60"
+    "skeleton_track": "991bdd363772cb2b968ae81e4742b59da2e9bf579fb18472676d156d645adecd"
    },
    "lib/fiber_connector.py": {
     "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -2094,7 +2058,7 @@
     "_fragment_median_heights": "6468ee0e0b4be9c4a696a52ff4293439e1d2d8ec99524bfbfea4d789b56c2451",
     "_manual_reach": "d9a5d24a10aed8ddcb90bfe48fe0b5ddc23cbfc8b141dc3481d662018458db69",
     "_rebuild_connected_fiber": "e5f71dfcef450ec8e70e9c7736f431bb985dcbc707d3a464c92782b7a996c1d4",
-    "angle_between_three_points": "eb332e57737cba6ea9c2c2bc71eff6d21d2a706d314706450a9489214ad71b27",
+    "angle_between_three_points": "4ce48d9cf1ce310ad60f29b12fd4ad39871d7b1d65466f402d7322cdcfba6d83",
     "build_connected_fibers": "4149f095db06c2d55d408cc504e0c52be9ffb3a8618d77394c67a13e78dff267",
     "chain_for_manual_join": "f39253702e955453ca002ee1e23336a36927dbd813c9474e80c89fddcd4a6806",
     "connect_fiber_fragments": "477f9da7a8e0094cb169a65ec23d14d27c8fbe15e96c0570cbc4756f4564af25",
@@ -2102,6 +2066,7 @@
     "connection_candidates": "29d36453a94ae642924b62deafbb91d8421b91e44eee9b231ed3946fcb8aaa66",
     "connection_candidates_by_index": "d725f9173f49bdfc040e256eabf6bc8707b08605de6ab68c16af7aa19084125a",
     "filter_fibers_by_height": "55b5a91e00fa8dc5b110857227f38e1a25a9a46a0e5835a9bbae9ed81a62133e",
+    "import:ArrayLike": "b23324eb195bfada89b308d86224e9cfeed7fb990418680222da23583dfcd33a",
     "import:Callable": "bf4ae60825725ac59951d64b056db75eea4e04f291a066071bbab48c7847367d",
     "import:Dict": "0a752d53498d36d968c8864029ba5d3602bbfac43372de37f5c8b922d7e3fdfc",
     "import:Fiber": "4da382f21707ea14562919e0387eac3b8f21c3f1c09bac5eb7707b364543cb4d",
@@ -2127,12 +2092,13 @@
     "EXCLUSION_FORMAT": "ff777b9cb63d5ee0659c123e0f77eb147d91a7d71c91dfd977e8ea371102b819",
     "EXCLUSION_SUFFIX": "6a7d80a13ac664fc9e1b560436b695bf7401bb4d8e276d2f6dc6d29fa615f7fd",
     "EXCLUSION_VERSION": "054b611e871bafb8fdcc52146fd43242648295a4dbb1d7fe9bd020818702d0fd",
-    "constituent_anchors": "89d1e3abe5fe6ab59cd00d0219cc50609e826c6bc9f11475a2802ecae4eb098c",
+    "constituent_anchors": "eb09b2c1a01303f68cda208c5468dd62192aac0663b534f8e63772cd8d029c78",
     "excluded_flags": "700456678d994877324ac0fa1d763782330c7df28838c0b34b3c83f51ca2eece",
     "exclusion_path_for": "5a804b176a1cb72c94f1c0db1910ec6710f7b600cb50d064fa5125f09cd3668f",
-    "fiber_anchor": "4cb69592cc5633d4f09235e1b4fa28dbe745af8faf8bdbf29de3158ba25f1bfa",
-    "fiber_track_pixels": "b722be8764e3603ae9684297ec9821987eea4e9685717d2c6e68b7d1c0265bf2",
+    "fiber_anchor": "05235cf35c74f6377d5b68f155664c791437cd6c3b19b2d2cbef978538fbd395",
+    "fiber_track_pixels": "c8395a8b21983de737672dc4b9d3265179c2ebbe1080cac663bccccaaab6511c",
     "import:Dict": "0a752d53498d36d968c8864029ba5d3602bbfac43372de37f5c8b922d7e3fdfc",
+    "import:Fiber": "4da382f21707ea14562919e0387eac3b8f21c3f1c09bac5eb7707b364543cb4d",
     "import:Iterable": "340072263e3b5056934b45ec9ebf44cd1d4340b5cafe31197cd2aecba528e1fa",
     "import:List": "5e7b2f54fd4c437120141c62c35bef412adee145c8fb081198e4f4dd706df69a",
     "import:Sequence": "4a7d80d3c7af77a9a668863d6b6bc82e9083fad26a89cebce4c9c4e4fd196398",
@@ -2566,6 +2532,42 @@
     "prune_short_spurs": "453f9f49060f49fce46f675250c0bac6c2dea1a250a71dd87888a7000995e683",
     "prune_terminal_hooks": "94c7bd4c779d73695ea0d651b3b0a288be0fb6c5c6f15346539f3f4a673e932e",
     "thin_ignoring_image_border": "57c5d33abe1848ecf1b7f59ca186ed111006629230a67c2d53c606dca43a57fb"
+   }
+  },
+  "e2112b113818ba68": {
+   "lib/bg_calibrator.py": {
+    "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "BGCalibrator.<body>": "546aa2e3d9295dbb84bcd66d00dba7b34b92301e4bf2a307a5edebbf5c31e867",
+    "BGCalibrator.__call__": "acebf9a432fc6eb97a79bd8fba17c531ced9466a5770a9eaa31e212928e459d8",
+    "BGCalibrator.__init__": "542ab7a9fe044da0600108a9c666c2fcf1baf0de033d0ac80e34a5a57ea6f632",
+    "BGCalibrator._bg_calibrate": "81bca6d68616ec9632f6001868df178db8f63a6c97ea72ca7dc9d9c18e8597da",
+    "BGCalibrator._bg_fit": "d4a8e7bf07a1e4f40ee26802bf7851a2a543546203aafea21cb5983c2a935e5b",
+    "BGCalibrator._bg_generate": "f9c9af3d0e69793af75bce8f6f141469f9705dd597656da3e54c88bffcd85c4c",
+    "BGCalibrator._call_spline1d": "2b82f6cc0b57face4e7419fcce3a962172896287747a1d8c118fcf579f8f9011",
+    "BGCalibrator._call_tophat": "ac6a4b92145150af5ee00415ba5224aaf6169634351a0b4d519077af97873cbb",
+    "BGCalibrator._call_trendfill": "fabac71f388c1e6dee9c467b201c3028b7572055078c45878d60773b4317ce2b",
+    "BGCalibrator._detect_fiber_mask": "28918684c695629f052679335fbb83bde593fc3bf5fe8eb7be654041df4579ca",
+    "BGCalibrator._difXY": "30e9a4a79ac2a3d6ba40314305cb42871420ccfb56456b761fd1972618d59349",
+    "BGCalibrator._dif_sep": "bc7d12bd95996231a00864b985105ca2136406e635545e0ace5e86ddc79f9c89",
+    "BGCalibrator._extract_fiber": "6b75035d269fcf48cfa750c3a662c329cc2a4716c67c598074584ef39763bc27",
+    "BGCalibrator._fit_trend_surface": "e35b8137d0a76c2aa948197c6d37377a710f7b3cdf57f46b8ee86c41be4fc080",
+    "BGCalibrator._spline1d_fill": "10a69123213a676356526241593aab91feacc9a45dd73c5e062a33d9bd48786d",
+    "BG_METHOD_ALIASES": "8559595f96a1e1077d92de7b5edf663fdefedd2c0acd02198e2413e4e80a97e8",
+    "BG_METHOD_NAMES": "0b6170cb2f1d9d02b5ab0f7ea136f043fe02b48b54ec90a1387684779fd0d3dc",
+    "BG_METHOD_REMOVED": "e4a0ad6189ad387354651896007c85b78691efc3159ea35bd155324d4fb66303",
+    "canonical_bg_method": "36686dc6841c9d5dc3402e202f3eceda6939b325aa7ab5e480edcc3c03e07bc3",
+    "import:ProcessedImage": "c5dbcccb799f4692b332c9b571f0e364ee5354a825aba2fc458d34dd8b67ef25",
+    "import:cv2": "b4caacfd8630519788f04f84f209c314ba6dedf55dda5d373ea59274d0328800",
+    "import:distance_transform_edt": "2508ec4ebc8a2e54f5d27638e4c30f24016a48814524d98bac3708910c3ea1de",
+    "import:np": "73dd0baf8e5438da8816254a073ee43b61f8b2cdef6f393e0059cdbc55cb8d9c",
+    "import:signal": "c534dce9a7c0150ee289ec5b384e2c4b38dac7efaf8f189d75662c1a427c2f02"
+   },
+   "lib/processed_image.py": {
+    "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ProcessedImage.<body>": "04a7a5dcd43f4858162dbb4c5eb9dea455f48a4a5b29dcaf15cd657cd634eaa5",
+    "ProcessedImage.__init__": "8c96d00eb560db6ae8438ce1b43515451604cb7e4a99613bddef7798f8053e06",
+    "import:Optional": "21a5abaaaba25fbb00f8728d6f0d5907b4cb88821d6348308d353bfb3b8e5511",
+    "import:np": "73dd0baf8e5438da8816254a073ee43b61f8b2cdef6f393e0059cdbc55cb8d9c"
    }
   }
  }

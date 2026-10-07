@@ -1232,6 +1232,12 @@ return list(best.values())
 ファイバー番号が距離・角度の異なる行として最大 4 回現れていた。行の `self_end` と
 `other_end` が、手動連結で実際に繋ぐ端になる。
 
+2 つの角度はどちらも `angle_between_three_points` が計算する。引数 `A`・`B`・`D`
+は `(row, col)` の点で、中央の点 `B` における内角を度で返す。
+$\theta = \arccos\dfrac{(A-B)\cdot(D-B)}{\lVert A-B\rVert\,\lVert D-B\rVert}$
+であり、余弦は $[-1, 1]$ に切り詰める。どちらかの辺の長さが 0 のときは 0 を返す。
+2 回目の呼び出しでは $C$ を中央の点として渡す。
+
 ```python
 # source: lib/fiber_connector.py::angle_between_three_points
 ba = np.array(A) - np.array(B)

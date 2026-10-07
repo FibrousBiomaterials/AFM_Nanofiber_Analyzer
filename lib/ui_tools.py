@@ -17,11 +17,18 @@ import time
 import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import filedialog, messagebox, ttk
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy.typing import ArrayLike
 
 from lib.translator import _
+
+if TYPE_CHECKING:
+    # Annotation only: the Tk backend is imported at run time inside
+    # `build_pan_zoom_toolbar`, which is the only function that needs it.
+    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # Resolution used when saving publication-ready PNG figures.
 # 論文用 PNG 保存時の解像度。
@@ -32,9 +39,31 @@ def setup_ttk_theme(root: tk.Misc, *, theme: str = "clam",
                     unconfirmed_bg: str = "#cfe6ff") -> str:
     """
     Apply the shared ttk theme and styles used by the GUI windows.
+    GUI ウィンドウ共通の ttk テーマとスタイルを適用する。
 
-    Returns the theme background color so callers can also apply it to
-    non-ttk widgets such as tk.Tk, tk.Frame, or matplotlib toolbars.
+    Parameters
+    ----------
+    root
+        Window or widget whose ``ttk.Style`` is configured. Its background is
+        also set to the theme background when it accepts one.
+        ``ttk.Style`` を設定するウィンドウまたはウィジェット。背景色を受け付ける
+        場合は、その背景もテーマの背景色にする。
+    theme
+        Name of the ttk theme to use. A name Tk does not know leaves the
+        current theme in place.
+        使用する ttk テーマ名。Tk が知らない名前なら現在のテーマのままにする。
+    unconfirmed_bg
+        Field background of the ``Unconfirmed.TEntry`` style, which marks an
+        entry whose text has not been committed yet.
+        未確定の入力欄を示す ``Unconfirmed.TEntry`` スタイルの入力欄背景色。
+
+    Returns
+    -------
+    str
+        Theme background color, so callers can also apply it to non-ttk
+        widgets such as ``tk.Tk``, ``tk.Frame``, or Matplotlib toolbars.
+        テーマの背景色。``tk.Tk``・``tk.Frame``・Matplotlib のツールバーなど、
+        ttk 以外のウィジェットにも適用できるように返す。
     """
     style = ttk.Style(root)
     try:
@@ -68,10 +97,32 @@ def setup_ttk_theme(root: tk.Misc, *, theme: str = "clam",
     return bg
 
 
-def localized_combobox_width(values, min_width=4, max_width=16):
+def localized_combobox_width(values: Sequence[Any], min_width: int = 4,
+                             max_width: int = 16) -> int:
     """
     Return a bounded Combobox width for translated labels.
     翻訳後ラベルに合わせた上限付き Combobox 幅を返す。
+
+    Parameters
+    ----------
+    values
+        Labels the combobox offers, already translated.
+        Combobox が表示する翻訳済みの選択肢。
+    min_width, max_width
+        Bounds of the returned width, in characters.
+        返す幅の下限と上限（文字数）。
+
+    Returns
+    -------
+    int
+        Width for ``ttk.Combobox(width=...)``: the widest label measured in
+        the default font, in widths of ``"0"``, plus 4, or the longest label
+        length plus 2 when the font cannot be measured, clipped to
+        ``[min_width, max_width]``. An empty `values` gives `min_width`.
+        ``ttk.Combobox(width=...)`` に渡す幅。既定フォントで測った最も広い
+        ラベルの幅を ``"0"`` の幅単位で表した値に 4 を足したもの（フォントを
+        測れないときは最長ラベルの文字数に 2 を足したもの）を
+        ``[min_width, max_width]`` に収める。`values` が空なら `min_width`。
     """
     if not values:
         return min_width
@@ -85,11 +136,20 @@ def localized_combobox_width(values, min_width=4, max_width=16):
     return max(min_width, min(max_width, width))
 
 
-def rewrite_entries(pairs, *, formatter=str) -> None:
-    """Rewrite Entry widgets with committed values, ignoring destroyed widgets.
+def rewrite_entries(pairs: Iterable[tuple[ttk.Entry, Any]], *,
+                    formatter: Callable[[Any], str] = str) -> None:
+    """
+    Rewrite Entry widgets with committed values, ignoring destroyed widgets.
+    Entry に確定済みの値を書き戻す。破棄済みのウィジェットは無視する。
 
-    Entry に確定済み値を再書き込みする。``formatter`` は値を文字列に変換する
-    呼び出し可能オブジェクト（既定は ``str``）。
+    Parameters
+    ----------
+    pairs
+        ``(entry, value)`` pairs. Each entry's text is replaced by its value.
+        ``(entry, value)`` の組。各 entry の文字列を value で置き換える。
+    formatter
+        Callable that turns a value into the text written to the entry.
+        値を entry に書き込む文字列へ変換する呼び出し可能オブジェクト。
     """
     for entry, value in pairs:
         try:
@@ -99,8 +159,24 @@ def rewrite_entries(pairs, *, formatter=str) -> None:
             pass
 
 
-def mark_entry_state(entry, committed_str) -> None:
-    """Mark an Entry as normal or unconfirmed by comparing it with committed text."""
+def mark_entry_state(entry: ttk.Entry, committed_str: str) -> None:
+    """
+    Mark an Entry as normal or unconfirmed by comparing it with committed text.
+    入力欄の文字列を確定済みの文字列と比べ、通常表示か未確定表示にする。
+
+    Parameters
+    ----------
+    entry
+        Entry whose style is set: ``TEntry`` when its text equals
+        `committed_str`, ``Unconfirmed.TEntry`` otherwise. A destroyed entry
+        is left alone.
+        スタイルを設定する入力欄。文字列が `committed_str` と等しければ
+        ``TEntry``、異なれば ``Unconfirmed.TEntry`` にする。破棄済みの入力欄は
+        何もしない。
+    committed_str
+        Text of the value currently committed for this entry.
+        この入力欄で現在確定している値の文字列。
+    """
     try:
         current = entry.get()
     except tk.TclError:
@@ -112,7 +188,8 @@ def mark_entry_state(entry, committed_str) -> None:
         pass
 
 
-def refresh_entry_placeholder(entry, ghost, *, x: int = 4) -> None:
+def refresh_entry_placeholder(entry: ttk.Entry, ghost: tk.Widget, *,
+                              x: int = 4) -> None:
     """
     Show or hide a placeholder ghost over an Entry.
     入力欄に重ねたプレースホルダのゴーストを表示/非表示する。
@@ -161,9 +238,30 @@ def _set_text_state(text_widget, state: str) -> None:
         pass
 
 
-def append_log(text_widget, msg, *, timestamp: bool = True,
+def append_log(text_widget: tk.Text, msg: object, *, timestamp: bool = True,
                readonly: bool = True) -> None:
-    """Append one log message to a Text widget and keep the newest line visible."""
+    """
+    Append one log message to a Text widget and keep the newest line visible.
+    Text ウィジェットにログを 1 件追記し、最新行が見えるようにする。
+
+    Parameters
+    ----------
+    text_widget
+        Log widget. A destroyed widget is left alone.
+        ログ表示用のウィジェット。破棄済みなら何もしない。
+    msg
+        Message, written as ``str(msg)`` with trailing whitespace removed.
+        メッセージ。``str(msg)`` から末尾の空白を除いて書き込む。
+    timestamp
+        When ``True``, prefix the line with the current time as
+        ``[HH:MM:SS]``.
+        ``True`` のとき、行頭に現在時刻を ``[HH:MM:SS]`` の形で付ける。
+    readonly
+        When ``True``, the widget is kept ``disabled`` and enabled only while
+        the line is written, so the user cannot type into the log.
+        ``True`` のとき、ウィジェットを ``disabled`` に保ち、書き込む間だけ
+        有効にする。ユーザーがログに入力できないようにするため。
+    """
     line = str(msg).rstrip()
     if timestamp:
         line = "[{ts}] {line}".format(ts=time.strftime("%H:%M:%S"), line=line)
@@ -180,8 +278,28 @@ def append_log(text_widget, msg, *, timestamp: bool = True,
             _set_text_state(text_widget, "disabled")
 
 
-def replace_log_tail(text_widget, msg, *, readonly: bool = True) -> None:
-    """Replace the previous log line with text, used for progress updates."""
+def replace_log_tail(text_widget: tk.Text, msg: object, *,
+                     readonly: bool = True) -> None:
+    """
+    Replace the previous log line with text, used for progress updates.
+    直前のログ行を置き換える。進捗表示の更新に使う。
+
+    Parameters
+    ----------
+    text_widget
+        Log widget. A destroyed widget is left alone.
+        ログ表示用のウィジェット。破棄済みなら何もしない。
+    msg
+        Replacement text, written as ``str(msg)`` with trailing whitespace
+        removed and no timestamp.
+        置き換える文字列。``str(msg)`` から末尾の空白を除き、時刻を付けずに
+        書き込む。
+    readonly
+        When ``True``, the widget is kept ``disabled`` and enabled only while
+        the line is replaced.
+        ``True`` のとき、ウィジェットを ``disabled`` に保ち、置き換える間だけ
+        有効にする。
+    """
     if readonly:
         _set_text_state(text_widget, "normal")
     try:
@@ -195,8 +313,23 @@ def replace_log_tail(text_widget, msg, *, readonly: bool = True) -> None:
             _set_text_state(text_widget, "disabled")
 
 
-def clear_text_widget_log(text_widget, *, readonly: bool = True) -> None:
-    """Remove all text from a log Text widget, toggling readonly state as needed."""
+def clear_text_widget_log(text_widget: tk.Text, *,
+                          readonly: bool = True) -> None:
+    """
+    Remove all text from a log Text widget, toggling readonly state as needed.
+    ログ用 Text ウィジェットの文字列をすべて消す。必要に応じて読み取り専用状態を切り替える。
+
+    Parameters
+    ----------
+    text_widget
+        Log widget. A destroyed widget is left alone.
+        ログ表示用のウィジェット。破棄済みなら何もしない。
+    readonly
+        When ``True``, the widget is kept ``disabled`` and enabled only while
+        it is cleared.
+        ``True`` のとき、ウィジェットを ``disabled`` に保ち、消去する間だけ
+        有効にする。
+    """
     if readonly:
         _set_text_state(text_widget, "normal")
     try:
@@ -208,12 +341,61 @@ def clear_text_widget_log(text_widget, *, readonly: bool = True) -> None:
             _set_text_state(text_widget, "disabled")
 
 
-def save_text_widget_log(parent, text_widget, *, initial_dir=None,
+def save_text_widget_log(parent: tk.Misc, text_widget: tk.Text, *,
+                         initial_dir: str | None = None,
                          initialfile: str = "log.txt",
-                         title=None, empty_warning: bool = False,
-                         log_cb=None, success_message=None,
-                         error_title=None, failure_message=None):
-    """Save a Text widget's content as UTF-8 text through a file dialog."""
+                         title: str | None = None,
+                         empty_warning: bool = False,
+                         log_cb: Callable[[str], None] | None = None,
+                         success_message: str | None = None,
+                         error_title: str | None = None,
+                         failure_message: str | None = None) -> str | None:
+    """
+    Save a Text widget's content as UTF-8 text through a file dialog.
+    Text ウィジェットの内容をファイルダイアログ経由で UTF-8 テキストとして保存する。
+
+    Parameters
+    ----------
+    parent
+        Parent for the file, warning, and error dialogs.
+        ファイル・警告・エラーの各ダイアログの親。
+    text_widget
+        Widget whose whole content is saved.
+        内容全体を保存するウィジェット。
+    initial_dir
+        Folder the dialog opens in; ``None`` leaves it to Tk.
+        ダイアログを開くフォルダ。``None`` なら Tk に任せる。
+    initialfile
+        File name the dialog proposes.
+        ダイアログが提示するファイル名。
+    title
+        Dialog title; ``None`` uses the translated "save log" title.
+        ダイアログのタイトル。``None`` なら翻訳済みの「ログを保存」を使う。
+    empty_warning
+        When ``True``, an empty log shows a warning instead of the dialog.
+        ``True`` のとき、ログが空ならダイアログの代わりに警告を表示する。
+    log_cb
+        Called with the success message after the file is written.
+        ファイルを書き込んだ後に成功メッセージを渡して呼ぶコールバック。
+    success_message
+        Success message format with a ``{path}`` field; ``None`` uses the
+        translated default.
+        ``{path}`` を含む成功メッセージの書式。``None`` なら翻訳済みの既定文。
+    error_title
+        Title of the error dialog shown when writing fails.
+        書き込みに失敗したときのエラーダイアログのタイトル。
+    failure_message
+        Error message format with an ``{e}`` field for the exception.
+        例外を入れる ``{e}`` を含むエラーメッセージの書式。
+
+    Returns
+    -------
+    str or None
+        Saved file path, or ``None`` when the log was empty and
+        `empty_warning` is set, the dialog was cancelled, or writing failed.
+        保存先のパス。ログが空で `empty_warning` が有効な場合、ダイアログが
+        キャンセルされた場合、書き込みに失敗した場合は ``None``。
+    """
     try:
         content = text_widget.get("1.0", "end-1c")
     except (tk.TclError, AttributeError):
@@ -257,8 +439,9 @@ def save_text_widget_log(parent, text_widget, *, initial_dir=None,
     return path
 
 
-def create_scrolled_text(parent, *, scrollbar_side="right",
-                         text_side="left", **text_kwargs):
+def create_scrolled_text(parent: tk.Misc, *, scrollbar_side: str = "right",
+                         text_side: str = "left",
+                         **text_kwargs: Any) -> tuple[tk.Text, ttk.Scrollbar]:
     """
     Create a Text widget with a vertical scrollbar packed beside it.
     縦スクロールバー付きの Text ウィジェットを作成する。
@@ -293,14 +476,20 @@ def create_scrolled_text(parent, *, scrollbar_side="right",
     return text_widget, scrollbar
 
 
-def create_scrolled_treeview(parent, *, columns=(), show="headings",
-                             selectmode=None, height=None,
-                             headings=None, column_options=None,
-                             scrollbar_side="right", tree_side="left",
-                             tree_pack_kwargs=None,
-                             scrollbar_pack_kwargs=None,
-                             hscroll=False,
-                             **tree_kwargs):
+def create_scrolled_treeview(
+        parent: tk.Misc, *,
+        columns: Sequence[str] = (),
+        show: str = "headings",
+        selectmode: str | None = None,
+        height: int | None = None,
+        headings: Mapping[str, str] | None = None,
+        column_options: Mapping[str, Mapping[str, Any]] | None = None,
+        scrollbar_side: str = "right",
+        tree_side: str = "left",
+        tree_pack_kwargs: Mapping[str, Any] | None = None,
+        scrollbar_pack_kwargs: Mapping[str, Any] | None = None,
+        hscroll: bool = False,
+        **tree_kwargs: Any) -> tuple[ttk.Treeview, ttk.Scrollbar]:
     """
     Create a Treeview with scrollbars and optional column metadata.
     スクロールバー付き Treeview を作成し、任意の列メタデータを設定する。
@@ -328,6 +517,12 @@ def create_scrolled_treeview(parent, *, columns=(), show="headings",
     column_options
         Mapping from column key to ``tree.column`` keyword arguments.
         列キーから ``tree.column`` キーワード引数への対応。
+    scrollbar_side
+        Pack side for the vertical scrollbar.
+        縦スクロールバーを pack する側。
+    tree_side
+        Pack side for the Treeview.
+        Treeview を pack する側。
     tree_pack_kwargs
         Optional keyword arguments merged into the Treeview ``pack`` call.
         Treeview の ``pack`` 呼び出しに追加する任意のキーワード引数。
@@ -337,6 +532,9 @@ def create_scrolled_treeview(parent, *, columns=(), show="headings",
     hscroll
         When ``True``, also add a horizontal scrollbar along the bottom.
         ``True`` のとき、下端に横スクロールバーも追加する。
+    **tree_kwargs
+        Further keyword arguments passed to ``ttk.Treeview``.
+        ``ttk.Treeview`` に渡すその他のキーワード引数。
 
     Returns
     -------
@@ -440,7 +638,8 @@ def _wheel_scroll_steps(event) -> int:
     return -1 if delta > 0 else 1
 
 
-def bind_mousewheel_scroll(canvas, scope=None) -> None:
+def bind_mousewheel_scroll(canvas: tk.Canvas,
+                           scope: tk.Misc | None = None) -> None:
     """
     Scroll a canvas with the wheel anywhere inside a window, not only on its scrollbar.
     スクロールバー上だけでなく、ウィンドウ内のどこでもホイールで canvas をスクロールさせる。
@@ -575,7 +774,7 @@ def extent_scale_and_unit(scale_um: float, unit: str) -> tuple:
     return scale_um, UNIT_MICROMETER
 
 
-def scale_xy_um(scale_um, scale_y_um) -> tuple:
+def scale_xy_um(scale_um: float, scale_y_um: float | None) -> tuple:
     """
     Return the (X, Y) scan size in micrometers, a blank Y following X.
     走査範囲 (X, Y) を µm で返す。Y が空の場合は X に従う。
@@ -647,7 +846,8 @@ def extent_scales_xy_and_unit(x_um: float, y_um: float, unit: str) -> tuple:
     return x_scale, y_scale, unit_label
 
 
-def drain_ui_queue(ui_queue, handlers) -> bool:
+def drain_ui_queue(ui_queue: queue.Queue,
+                   handlers: Mapping[str, Callable[[Any], Any]]) -> bool:
     """
     Drain queued worker messages and dispatch each payload to a handler.
     ワーカーメッセージキューを空にし、各 payload を handler に渡す。
@@ -697,16 +897,16 @@ def csv_save_filetypes() -> list[tuple[str, str]]:
 
 
 def save_csv_with_dialog(
-    parent,
-    writer_cb,
+    parent: tk.Misc,
+    writer_cb: Callable[[str], None],
     *,
     initial_name: str,
     initial_dir: str | None = None,
     title: str | None = None,
-    log_cb=None,
-    success_message=None,
-    error_title=None,
-    failure_message=None,
+    log_cb: Callable[[str], None] | None = None,
+    success_message: str | None = None,
+    error_title: str | None = None,
+    failure_message: str | None = None,
 ) -> str | None:
     """
     Show a CSV save dialog and run a caller-provided writer callback.
@@ -732,6 +932,20 @@ def save_csv_with_dialog(
     log_cb
         Optional log callback receiving a formatted success message.
         成功メッセージを受け取る任意のログコールバック。
+    success_message
+        Success message format with a ``{path}`` field; ``None`` uses the
+        translated default.
+        ``{path}`` を含む成功メッセージの書式。``None`` なら翻訳済みの既定文。
+    error_title
+        Title of the error dialog shown when `writer_cb` raises; ``None``
+        uses the translated default.
+        `writer_cb` が例外を送出したときのエラーダイアログのタイトル。
+        ``None`` なら翻訳済みの既定文。
+    failure_message
+        Error message format with an ``{e}`` field for the exception;
+        ``None`` uses the translated default.
+        例外を入れる ``{e}`` を含むエラーメッセージの書式。``None`` なら
+        翻訳済みの既定文。
 
     Returns
     -------
@@ -769,18 +983,13 @@ def save_csv_with_dialog(
 # GUI 共通の振る舞いを継承で配るための Mixin 群。
 # -----------------------------------------------------------------------------
 # Purpose
-#   Centralize the unconfirmed-Entry mechanism and logging behavior that GUI01-04
-#   and their sub-dialogs otherwise had to duplicate.
+#   Keep the unconfirmed-Entry mechanism and the logging behavior shared by
+#   GUI01-04 and their sub-dialogs in one place. Usage is shown in the
+#   docstrings of `UnconfirmedEntryMixin` and `LogMixin`.
 # 目的
-#   GUI01〜04 の App / サブダイアログに同じ「未確定 Entry 機構」「ログ機構」を
-#   コピペで持たせるのをやめ、Mixin として一箇所に集約する。
-#
-# Usage
-#   class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
-#       def __init__(self):
-#           super().__init__()
-#           self._init_unconfirmed_registry()  # 未確定 Entry を使うなら必須
-#           ...                                 # log_text を作ったあと、_log() がそのまま使える
+#   GUI01〜04 の App とサブダイアログが共有する「未確定 Entry 機構」「ログ機構」を
+#   Mixin として一箇所にまとめる。使い方は `UnconfirmedEntryMixin` と `LogMixin`
+#   の docstring にある。
 #
 # Notes
 #   - The mixins intentionally avoid __init__ so they do not disrupt tk.Tk MRO.
@@ -807,7 +1016,8 @@ class UnconfirmedEntryMixin:
     own independent registry can hold a separate list and pass it via the
     ``registry`` keyword argument of ``_register_unconfirmed_entry``.
 
-    使い方:
+    Usage::
+
         class App(tk.Tk, UnconfirmedEntryMixin):
             def __init__(self):
                 super().__init__()
@@ -873,6 +1083,9 @@ class UnconfirmedEntryMixin:
         Register one Entry widget with the Enter-to-commit mechanism.
         1つの Entry を Enter 確定機構に登録する。
 
+        When ``registry`` is omitted, ``self._unconfirmed_entries`` is used. A
+        sub-dialog that keeps its own registry, so as not to mix its entries
+        with the main window's, passes ``registry`` explicitly.
         ``registry`` を省略すると ``self._unconfirmed_entries`` を使う。
         サブダイアログが独自の登録簿を使うとき（メインウィンドウと混ぜたくない
         とき）は、明示的に ``registry`` を渡すこと。
@@ -928,6 +1141,10 @@ class UnconfirmedEntryMixin:
         Commit all changed Entry widgets in a registry.
         登録簿中の全 Entry を Enter 確定として一括反映する。
 
+        Each registry item is ``(entry, committed_text_getter,
+        commit_callback)``. When several changed entries share one
+        commit_cb, it is called only once (vmin and vmax, for example, are
+        validated together by one function).
         各登録簿項目は ``(entry, committed_text_getter, commit_callback)``。
         複数 Entry が同じ commit_cb を共有している場合、commit_cb は 1 回しか
         呼ばない（例: vmin / vmax がまとめて 1 関数で検証される設計）。
@@ -976,14 +1193,28 @@ class UnconfirmedEntryMixin:
         Validate and commit multiple Entry values as one operation.
         複数の Entry 値をまとめて検証・確定する共通ヘルパー。
 
-        ``validate_vrange`` / ``_commit_filter_range`` のような関数は、
-        「全 Entry を ``float`` に変換 → 制約検証 → 失敗時はエラーダイアログ →
-        成功時は self.<attr> に代入し rewrite_entries で書き戻して再描画」という
-        定型コードを書いていた。本ヘルパーはその定型部分をまとめる。
+        Each value is cast from its entry, the new values are checked together
+        by `validator`, and only when every check passes are they assigned to
+        ``self.<attr_name>``, written back to the entries, and followed by
+        `on_success`. The first failure shows an error dialog and commits
+        nothing.
+        各値を Entry から変換し、新しい値をまとめて `validator` で検証する。
+        すべて通ったときだけ ``self.<attr_name>`` に代入して Entry に書き戻し、
+        `on_success` を呼ぶ。最初の失敗でエラーダイアログを表示し、何も確定しない。
 
         Parameters
         ----------
         fields : list[tuple]
+            Tuples ``(entry, attr_name, label)``,
+            ``(entry, attr_name, label, cast)``, or the legacy
+            ``(var, entry, attr_name, label)``:
+              - entry: ttk.Entry that is read and written back
+              - attr_name: attribute ``self.<attr_name>`` that receives the
+                new value
+              - label: field name used in the error message (may be ``None``)
+              - cast: conversion used for this field only (the `cast`
+                argument when omitted)
+            The value is always read from ``entry.get().strip()``.
             ``(entry, attr_name, label)``、``(entry, attr_name, label, cast)``、
             または旧形式 ``(var, entry, attr_name, label)`` のタプル列。
               - entry: ttk.Entry（書き戻し対象）
@@ -991,22 +1222,34 @@ class UnconfirmedEntryMixin:
               - label: エラーメッセージに使うフィールド名（``None`` 可）
               - cast: そのフィールドのみに使う変換関数（省略時は引数 ``cast``）
             数値の取得は常に ``entry.get().strip()`` から行う。
+            TODO(review): the docstring says ``label`` is used in the error
+            message, but the code unpacks it as ``_label`` and shows a fixed
+            message; author to confirm which is intended.
         cast : callable
+            Default conversion; a per-field cast in `fields` takes precedence.
             既定の変換関数（既定: ``float``）。フィールド側で個別指定があれば
             そちらが優先される。
         validator : callable[[dict[str, Any]], str | None] | None
+            Receives the new values as ``{attr_name: value, ...}`` and returns
+            ``None`` to accept them or an error message to show. ``None``
+            checks only that every cast succeeds.
             検証関数。新しい値を ``{attr_name: value, ...}`` の dict で受け取り、
             合格なら ``None``、不合格なら表示用エラーメッセージを返す。
             ``None`` の場合は cast 成功のみを検証とする。
         on_success : callable[[], None] | None
+            Called after the values are assigned and written back; redrawing
+            or recalculation goes here.
             検証通過後、内部状態に代入し書き戻した後に呼ばれるコールバック。
             描画や再計算をここで行う。
         parent : tk widget | None
+            Parent of the error dialogs; ``None`` uses ``self``.
             messagebox の親（既定: self）。
 
         Returns
         -------
         bool
+            ``True`` when the values were committed, ``False`` when one was
+            invalid.
             確定成功なら True、失敗（不正値）なら False。
         """
         parent = parent or self
@@ -1079,11 +1322,18 @@ class UnconfirmedEntryMixin:
         Compute vmin/vmax from an image array and commit them to state and Entries.
         画像配列から vmin/vmax を自動計算し、内部状態と Entry へ反映する。
 
+        The range comes from `compute_auto_vrange`. It is assigned to
+        ``self.vmin`` / ``self.vmax`` and written back to ``self.ent_vmin`` /
+        ``self.ent_vmax``, and the unconfirmed styles are re-evaluated.
+        Redrawing is left to the caller.
         ``compute_auto_vrange`` で範囲を求め、``self.vmin`` / ``self.vmax`` に
         代入し、``self.ent_vmin`` / ``self.ent_vmax`` へ書き戻したうえで未確定
         スタイルを再評価する（共通化対象のステップ 1〜4）。再描画は呼び出し側の
         責務とし、本メソッドでは行わない。
 
+        It works both in GUI02 (plain entries) and in GUI04 (entries bound to
+        a textvariable): `rewrite_entries` writes through the entry's
+        delete/insert, so a bound StringVar follows automatically.
         GUI02（素の Entry）と GUI04（textvariable 紐づけ Entry）の双方で動作する。
         ``rewrite_entries`` は Entry の delete/insert で書き込むため、
         textvariable が紐づいていれば StringVar 側にも自動的に反映される。
@@ -1091,16 +1341,25 @@ class UnconfirmedEntryMixin:
         Parameters
         ----------
         image_array : array-like
+            Height image (2D array), passed to ``compute_auto_vrange``.
             高さ画像（2D 配列）。``compute_auto_vrange`` に渡す。
         mask : array-like or None
+            Optional fiber mask (the bundle's ``skeletonized``) used for the
+            upper bound; without it the estimate falls back to one that does
+            not use a mask.
             任意のファイバーマスク（バンドルの ``skeletonized``）。上端の推定に
             使い、無い場合はマスク非依存の推定にフォールバックする。
-        log : bool
+        log
+            When ``True`` and ``self._log`` is available, log the committed
+            values.
             True かつ ``self._log`` が利用可能なら、確定値をログに出力する。
 
         Returns
         -------
         (v_lo, v_hi) : tuple of int | None
+            Computed range. The values are returned even when they cannot be
+            written back, for example when the window has no ``ent_vmin`` /
+            ``ent_vmax``.
             計算した範囲。``ent_vmin`` / ``ent_vmax`` を持たない等で書き戻せない
             場合でも値自体は返す。
         """
@@ -1130,29 +1389,40 @@ class LogMixin:
     Provide a uniform ``_log`` / ``_log_exception`` API for GUI windows that
     own a ``self.log_text`` Text widget.
 
+    Do not call them before ``log_text`` has been created.
     ``self.log_text`` を持つ GUI に対して、共通の ``_log`` /
     ``_log_exception`` を提供する Mixin。``log_text`` を生成する前に
     呼んではいけない。
 
-    使い方:
+    Usage::
+
         class App(tk.Tk, LogMixin):
             def __init__(self):
                 super().__init__()
                 ...
-                self.log_text = tk.Text(...)  # 先に生成しておく
-                self._log("起動しました")
+                self.log_text = tk.Text(...)  # create it before the first _log
+                self._log("Ready.")
     """
 
     def _log(self, msg) -> None:
-        """ログテキストウィジェットに1行追加する。"""
+        """
+        Append one line to the log Text widget.
+        ログテキストウィジェットに1行追加する。
+        """
         append_log(self.log_text, msg)
 
     def _clear_log(self) -> None:
-        """ログテキストウィジェットの内容を全消去する。"""
+        """
+        Remove everything from the log Text widget.
+        ログテキストウィジェットの内容を全消去する。
+        """
         clear_text_widget_log(self.log_text)
 
     def _log_exception(self, prefix: str, exc: BaseException) -> None:
-        """例外をスタックトレース付きでログに出す。"""
+        """
+        Log an exception with the stack trace of the exception being handled.
+        例外をスタックトレース付きでログに出す。
+        """
         import traceback
         tb = traceback.format_exc()
         self._log(_("{0}: {1}\n{2}").format(prefix, exc, tb))
@@ -1226,7 +1496,7 @@ class ToolTip:
         # マウスがウィジェット上から出たとき hide_tooltip を呼ぶ
         self.widget.bind("<Leave>", self.hide_tooltip)
 
-    def show_tooltip(self, event):
+    def show_tooltip(self, event: tk.Event) -> None:
         """
         Create and show the tooltip popup near the mouse cursor.
         マウスカーソル付近にツールチップのポップアップを作成して表示する。
@@ -1236,12 +1506,6 @@ class ToolTip:
         event
             Tkinter event object for mouse-enter action.
             マウス進入時の tkinter イベントオブジェクト。
-
-        Returns
-        -------
-        None
-            This method updates UI state and does not return a value.
-            UI 状態を更新するだけで戻り値はない。
 
         Notes
         -----
@@ -1324,7 +1588,7 @@ class ToolTip:
         self.tooltip.wm_geometry(f"+{x}+{y}")
         self.tooltip.wm_deiconify()
 
-    def hide_tooltip(self, event):
+    def hide_tooltip(self, event: tk.Event | None) -> None:
         """
         Hide and destroy the tooltip popup if it is visible.
         ツールチップが表示中であれば非表示にして破棄する。
@@ -1334,12 +1598,6 @@ class ToolTip:
         event
             Tkinter event object for mouse-leave action.
             マウス離脱時の tkinter イベントオブジェクト。
-
-        Returns
-        -------
-        None
-            This method updates UI state and does not return a value.
-            UI 状態を更新するだけで戻り値はない。
         """
         # Destroy popup window only when it exists.
         # ツールチップが表示中であれば破棄する
@@ -1454,7 +1712,8 @@ class HeadingToolTip(ToolTip):
         self.hide_tooltip(event)
 
 
-def center_window(win, w, h, taskbar_offset=40):
+def center_window(win: tk.Tk | tk.Toplevel, w: int, h: int,
+                  taskbar_offset: int = 40) -> None:
     """
     Center a window on screen with a small upward taskbar offset.
     指定サイズのウィンドウを画面中央に配置し、タスクバー分だけ少し上にずらす。
@@ -1486,8 +1745,10 @@ def center_window(win, w, h, taskbar_offset=40):
     win.geometry(f"{w}x{h}+{x}+{y}")
 
 
-def apply_window_size(win, default_w, default_h, min_w=None, min_h=None,
-                     margin=100, center=True):
+def apply_window_size(win: tk.Tk | tk.Toplevel, default_w: int,
+                      default_h: int, min_w: int | None = None,
+                      min_h: int | None = None, margin: int = 100,
+                      center: bool = True) -> None:
     """
     Apply initial size, minimum size, and optional centered placement.
     ウィンドウに初期サイズ・最小サイズ・配置を設定する。
@@ -1551,15 +1812,9 @@ def apply_window_size(win, default_w, default_h, min_w=None, min_h=None,
 #   spelling of µm. GUIs should reference these constants for initial values,
 #   while keeping GUI-specific plotting functions local.
 # 目的
-#   各 GUI で個別に定義されていた「軸ラベル・目盛りのフォントサイズ」
-#   「保存 DPI / 対応形式」「µm の Unicode 表記」をプロジェクト全体で
-#   1 箇所に集約する。各 GUI は「初期値を決める箇所でこれらを参照する」
-#   という運用にとどめ、関数の共通化は意図的に行わない。
-#
-# Usage
-#   from lib.ui_tools import PLOT_FS_DEFAULTS, UNIT_MICROMETER
-#   self.label_fs_var = tk.StringVar(value=str(PLOT_FS_DEFAULTS["label_fs"]))
-#   self.unit_var     = tk.StringVar(value=UNIT_MICROMETER)
+#   「軸ラベル・目盛りのフォントサイズ」「保存 DPI / 対応形式」「µm の Unicode
+#   表記」をプロジェクト全体で 1 箇所にまとめる。各 GUI は「初期値を決める箇所で
+#   これらを参照する」という運用にとどめ、関数の共通化は意図的に行わない。
 #
 # Notes
 #   - These are defaults, not hard constraints. Individual GUIs may choose
@@ -1575,17 +1830,16 @@ def apply_window_size(win, default_w, default_h, min_w=None, min_h=None,
 # --- Default font sizes -------------------------------------------------------
 # Values use Matplotlib fontsize units (roughly points).
 # 単位は matplotlib の fontsize（ポイント相当）。
-# Existing GUI defaults ranged from 12 to 15; these middle values work for
-# both publication figures and on-screen review.
-# 既存 GUI の値が 12〜15 でばらついていたものを、論文掲載・スクリーン確認の
-# どちらでも破綻しない中間値に揃える。
+# The sizes are chosen to work both in publication figures and in on-screen
+# review.
+# 論文掲載とスクリーン確認のどちらでも破綻しない値にしている。
 PLOT_FS_DEFAULTS = {
-    "label_fs":  14,   # 軸ラベル（"Length (nm)" 等）
-    "tick_fs":   13,   # 軸目盛りの数値
-    "title_fs":  16,   # グラフタイトル
-    "cbar_fs":   13,   # カラーバーのラベル・目盛り
-    "annot_fs":  13,   # グラフ内の注釈テキスト
-    "legend_fs": 12,   # 凡例（legend）のテキスト
+    "label_fs":  14,   # axis labels / 軸ラベル（"Length (nm)" 等）
+    "tick_fs":   13,   # tick values / 軸目盛りの数値
+    "title_fs":  16,   # plot title / グラフタイトル
+    "cbar_fs":   13,   # colorbar label and ticks / カラーバーのラベル・目盛り
+    "annot_fs":  13,   # annotations in the plot / グラフ内の注釈テキスト
+    "legend_fs": 12,   # legend text / 凡例（legend）のテキスト
 }
 
 # --- Save defaults ------------------------------------------------------------
@@ -1742,8 +1996,8 @@ def _background_level(values: np.ndarray) -> tuple:
 
 
 def compute_auto_vrange(
-    image_array,
-    mask=None,
+    image_array: ArrayLike,
+    mask: ArrayLike | None = None,
     *,
     k_low: float = AUTO_VRANGE_K_LOW,
     fiber_pct: float = AUTO_VRANGE_FIBER_PCT,
@@ -1755,7 +2009,8 @@ def compute_auto_vrange(
     Compute outlier-resistant vmin/vmax from a 2D image array.
     画像配列から外れ値に強い vmin/vmax を返す。
 
-    Rule / 計算規則
+    Rule / 計算規則::
+
         vmin = floor(min(background_level - k_low * background_sigma,
                          percentile(image, low_clip_pct)))
         vmax = ceil (percentile of the fiber pixels)
@@ -1829,11 +2084,9 @@ def compute_auto_vrange(
     -----
     The bounds are clamped to the data range, so the result never widens the
     display beyond what the image contains. Because the upper bound is a
-    percentile, a small fraction of pixels is expected to saturate — on this
-    project's test bundles under 0.12 %.
+    percentile, a small fraction of pixels is expected to saturate.
     両端はデータ範囲で頭打ちにするため、画像に含まれる以上に表示範囲が広がる
-    ことはない。上端はパーセンタイルなので、わずかな画素は飽和する前提である
-    （本プロジェクトの試験バンドルでは 0.12 % 未満）。
+    ことはない。上端はパーセンタイルなので、わずかな画素は飽和する前提である。
 
     NaN-tolerant. Empty arrays or unexpected types fall back to the
     project-wide defaults ``DEFAULT_VMIN`` / ``DEFAULT_VMAX``.
@@ -1903,6 +2156,13 @@ def setup_matplotlib_style(font_size: int = 12) -> None:
 
     Call this once from each GUI's __init__ before creating any Figure.
     各 GUI の __init__ で Figure を作る前に一度だけ呼ぶこと。
+
+    Parameters
+    ----------
+    font_size
+        Base font size (``rcParams["font.size"]``), in Matplotlib fontsize
+        units.
+        基準フォントサイズ（``rcParams["font.size"]``、matplotlib の fontsize 単位）。
     """
     # Prefer sans-serif fonts suitable for publication figures.
     # フォント：論文体裁に合わせて sans-serif 系の Arial / Helvetica を優先。
@@ -1926,8 +2186,9 @@ def setup_matplotlib_style(font_size: int = 12) -> None:
     plt.rcParams["svg.fonttype"] = "none"
 
 
-def build_pan_zoom_toolbar(parent, canvas, *, clam_bg=None,
-                           keep=("Pan", "Zoom")) -> tuple:
+def build_pan_zoom_toolbar(parent: tk.Misc, canvas: "FigureCanvasTkAgg", *,
+                           clam_bg: str | None = None,
+                           keep: Iterable[str] = ("Pan", "Zoom")) -> tuple:
     """
     Build a matplotlib navigation toolbar stripped to its Pan/Zoom buttons.
     matplotlib のナビゲーションツールバーを Pan/Zoom だけに絞って構築する。
@@ -1971,6 +2232,7 @@ def build_pan_zoom_toolbar(parent, canvas, *, clam_bg=None,
        Back/Forward in ``NavigationToolbar2Tk._buttons`` and configures their
        state from ``set_history_buttons()`` during Pan/Zoom, which raises
        ``TclError`` once the widgets are gone.
+
     3 点目は特に重要である。不要ボタンを破棄すると、matplotlib が Pan/Zoom
     操作中に呼ぶ ``set_history_buttons()`` が TclError になるため、レイアウト
     から外すだけにとどめる。
@@ -2028,7 +2290,17 @@ def figure_save_filetypes() -> list[tuple[str, str]]:
     順序は意図的：PNG（最頻用）を先頭、PDF/SVG を論文投稿用に、
     TIFF を要求するジャーナル向けにも対応。
 
-    Note: ラベル "PNG" "PDF" 等は技術用語のため _() 翻訳は不要。
+    Returns
+    -------
+    list of tuple
+        ``(label, pattern)`` pairs in that order, ending with all files.
+        上記の順に並べた ``(ラベル, パターン)`` の組。最後は全ファイル。
+
+    Notes
+    -----
+    The labels "PNG", "PDF" and so on are technical terms, so they are not
+    translated with ``_()``.
+    ラベル "PNG" "PDF" 等は技術用語のため _() 翻訳は不要。
     """
     return [
         ("PNG", "*.png"),
@@ -2038,14 +2310,14 @@ def figure_save_filetypes() -> list[tuple[str, str]]:
         ("All files", "*.*"),
     ]
 def save_figure_with_dialog(
-    parent,
-    fig,
+    parent: tk.Misc,
+    fig: plt.Figure,
     *,
     initial_name: str,
     initial_dir: str | None = None,
     title: str | None = None,
     dpi: int | None = None,
-    log_cb=None,
+    log_cb: Callable[[str], None] | None = None,
     notify_on_success: bool = False,
 ) -> str | None:
     """
@@ -2055,27 +2327,37 @@ def save_figure_with_dialog(
 
     Parameters
     ----------
-    parent : tk widget
+    parent
         Parent for dialogs (required for modal correctness).
-    fig : matplotlib.figure.Figure
+        ダイアログの親（モーダル動作を正しくするために必要）。
+    fig
         Figure to save.
-    initial_name : str
+        保存する Figure。
+    initial_name
         Default file name shown in the dialog.
-    initial_dir : str | None
+        ダイアログに表示する既定のファイル名。
+    initial_dir
         Initial directory; defaults to os.getcwd() when None.
-    title : str | None
-        Dialog title; defaults to _("図を保存") when None.
-    dpi : int | None
+        初期フォルダ。None なら os.getcwd()。
+    title
+        Dialog title; defaults to the translated "save figure" title when
+        None.
+        ダイアログのタイトル。None なら翻訳済みの「図を保存」。
+    dpi
         Save DPI; defaults to FIGURE_SAVE_DPI when None.
-    log_cb : callable | None
+        保存時の DPI。None なら FIGURE_SAVE_DPI。
+    log_cb
         Optional log callback receiving a translated success message.
-    notify_on_success : bool
+        翻訳済みの成功メッセージを受け取る任意のログコールバック。
+    notify_on_success
         If True, also show a messagebox.showinfo on success.
+        True のとき、成功時に messagebox.showinfo も表示する。
 
     Returns
     -------
-    str | None
+    str or None
         Saved file path, or None if cancelled or failed.
+        保存先のパス。キャンセルまたは失敗時は None。
     """
     path = filedialog.asksaveasfilename(
         parent=parent,

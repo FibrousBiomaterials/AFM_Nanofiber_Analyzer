@@ -290,6 +290,20 @@ def select_default_channel(channels: List[GwyChannel]) -> GwyChannel:
     4. The lowest-id channel (stable fallback).
        最小 id のチャンネル（安定なフォールバック）。
 
+    Parameters
+    ----------
+    channels
+        Channels in ascending id order, as `list_gwy_channels` returns them.
+        Within each step the first channel in this order wins.
+        `list_gwy_channels` が返すとおり id 昇順に並んだチャンネル。各段階では
+        この順で最初のチャンネルを選ぶ。
+
+    Returns
+    -------
+    GwyChannel
+        The selected channel.
+        選択したチャンネル。
+
     Raises
     ------
     ValueError
@@ -533,6 +547,12 @@ def read_gwy_scan_size(path: str) -> Optional[ScanSize]:
     走査範囲は画像の属性で全チャンネル共通のため、自動選択（地形）チャンネルを
     用いる。`afm_io.read_scan_size` と同形であり、パイプライン・GUI が
     テキストヘッダと同様に ``.gwy`` ヘッダからスケールを既定化できる。
+
+    Parameters
+    ----------
+    path
+        Path to the ``.gwy`` file.
+        ``.gwy`` ファイルのパス。
 
     Returns
     -------

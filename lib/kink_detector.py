@@ -103,15 +103,13 @@ _HEADING_SIGMA_WIDTHS = 0.25
 # before it called a bend clear, and many track ends are not fiber ends but
 # cuts at a crossing, where the line bends with the junction's skirt. Such
 # bends are returned separately so they can be shown as not judged, rather
-# than hidden. Alternatives 1.0 W, which added false detections without finding
-# another clear kink, and 2.0 W, which removed some but no longer judged the
-# synthetic corners 2 W from an end (docs/validation.md §4.9).
+# than hidden. The alternatives 1.0 W and 2.0 W are compared in
+# docs/validation.md §4.9.
 # 線の端からこれより近くに中心がある折れは判定しない。そのとき片方の腕は、目視
 # 基準が折れを明瞭と呼ぶのに要した長さに満たない。またトラック端の多くは繊維の
 # 終端ではなく交差での切断であり、そこでは線が分岐部の裾とともに曲がる。こうした
-# 折れは隠さず、判定しなかったものとして示せるよう別に返す。代替値は 1.0 W（明瞭な
-# キンクを 1 件も増やさずに誤検出を増やした）と 2.0 W（誤検出を減らしたが、端から
-# 2 W の合成コーナーを判定しなくなった）。docs/validation.ja.md §4.9 を参照。
+# 折れは隠さず、判定しなかったものとして示せるよう別に返す。代替値 1.0 W と 2.0 W
+# との比較は docs/validation.ja.md §4.9 にある。
 # Public because `measure.fiber_kink_density` divides by the length that was
 # actually judged, which is the line less this margin at each end.
 # `measure.fiber_kink_density` が実際に判定した長さ（線から両端のこの余白を
@@ -583,6 +581,12 @@ class KinkDetector:
         Judge the bends of one line; the tuple form of `judge_line`.
         1 本の線の折れを判定する。`judge_line` のタプル形。
 
+        Parameters
+        ----------
+        xline, yline, width_px
+            As for `judge_line`.
+            `judge_line` と同じ。
+
         Returns
         -------
         tuple of ndarray
@@ -681,16 +685,15 @@ class KinkDetector:
         such maximum passes within 0.75 W, the maxima of the window turning
         itself: a corner whose curvature peak noise splits in two, or whose
         turning runs straight into a curve, has no single curvature maximum
-        at its centre; without this second kind of candidate the rule found
-        fewer of the clear reference kinks on the bundled scans
-        (docs/validation.md §4.4). Candidates closer than 0.75 W are one bend,
-        and the one with the larger excess is kept.
+        at its centre. The effect of this second kind of candidate on the
+        visual reference is in docs/validation.md §4.4. Candidates closer than
+        0.75 W are one bend, and the one with the larger excess is kept.
         候補位置は曲率の極大とし、0.75 W 以内にそうした極大が通過していない場所
         では、窓の回転そのものの極大も加える。ノイズで曲率のピークが 2 つに割れた
         コーナーや、回転がそのまま曲線へ続くコーナーは、中心に曲率の極大を 1 つも
-        持たないためである。この 2 種目の候補が無いと、同梱スキャンの明瞭な基準
-        キンクの検出が減った（docs/validation.ja.md §4.4）。0.75 W より近い候補は
-        1 つの折れとし、超過回転の大きい方を残す。
+        持たないためである。この 2 種目の候補が目視基準に与える効果は
+        docs/validation.ja.md §4.4 にある。0.75 W より近い候補は 1 つの折れとし、
+        超過回転の大きい方を残す。
 
         A bend whose centre lies within 1.5 W of an end is returned in
         ``unjudged_indices`` instead of being judged (see `END_MARGIN_WIDTHS`),

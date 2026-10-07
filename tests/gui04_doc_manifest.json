@@ -50,7 +50,7 @@
     "lib/fiber_connector.py::_manual_reach": "d9a5d24a10aed8ddcb90bfe48fe0b5ddc23cbfc8b141dc3481d662018458db69",
     "lib/fiber_connector.py::connection_candidates": "29d36453a94ae642924b62deafbb91d8421b91e44eee9b231ed3946fcb8aaa66",
     "lib/fiber_connector.py::_fragment_end_geometry": "86ec677cbbab423c2a63074d8f454252dc0a7bab359644ee93051472ad3792d2",
-    "lib/fiber_connector.py::angle_between_three_points": "eb332e57737cba6ea9c2c2bc71eff6d21d2a706d314706450a9489214ad71b27",
+    "lib/fiber_connector.py::angle_between_three_points": "4ce48d9cf1ce310ad60f29b12fd4ad39871d7b1d65466f402d7322cdcfba6d83",
     "lib/fiber_connector.py::_fragment_median_heights": "6468ee0e0b4be9c4a696a52ff4293439e1d2d8ec99524bfbfea4d789b56c2451",
     "lib/fiber_connector.py::_candidates_for": "ab952312b25d5cbf2ca99fb068c2f30dea1f97e780056ca13ebc903605f3f2bf",
     "lib/fiber_connector.py::_build_chain_fiber": "13c335b7be0f1809e5c0621e669f603e9aa5515e635b2bd1eec7e71b65ddaab9",

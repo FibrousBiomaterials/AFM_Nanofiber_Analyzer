@@ -8,6 +8,23 @@ kink-related feature extraction, then saves the analysis outputs as a single
 Blosc2 TreeStore bundle per input file.
 バックグラウンド補正、二値化、細線化、キンク関連特徴抽出を実行し、
 入力ファイルごとに解析結果を 1 つの Blosc2 TreeStore バンドルへ保存する。
+
+The input is a folder of AFM scans: text/CSV exports (``.txt``) and native
+Gwyddion files (``.gwy``). Each file's scan size is read from its header or
+set in the window, also from a scale-table CSV.
+入力は AFM スキャンのフォルダで、テキスト/CSV エクスポート（``.txt``）と
+Gwyddion ネイティブファイル（``.gwy``）を扱う。各ファイルの走査範囲は
+ヘッダから読むか、画面で（スケール表 CSV からも）設定する。
+
+For each analyzed input, the bundle ``<stem>.b2z`` and the parameters it was
+analyzed with, ``<stem>_param.json``, are written next to the input. An
+analysis restricted to a scan-line range adds the range to both names
+(``<stem>_r<start>-<stop>.b2z``). The preview figure, the log, and the
+analysis settings (JSON) can also be saved through file dialogs.
+解析した入力ごとに、バンドル ``<stem>.b2z`` と、解析に使ったパラメータ
+``<stem>_param.json`` を入力の隣に書き出す。走査線範囲を限定した解析では
+両方の名前に範囲が付く（``<stem>_r<start>-<stop>.b2z``）。プレビュー図・ログ・
+解析設定 (JSON) もファイルダイアログから保存できる。
 """
 
 # ===== Plugin metadata =====
@@ -29,7 +46,7 @@ PLUGIN_INFO = {
         "\n"
         "Image Preprocessor では背景補正方式を 3 種類から選べます:\n"
         "  - 'trendfill'   : 勾配リッジ検出 + 2次トレンド除去 + 最近傍充填\n"
-        "  - 'tophat'      : 形態学的 opening (マスク不要、高速、一様性◎)\n"
+        "  - 'tophat'      : 形態学的 opening (マスク不要、高速)\n"
         "  - 'spline1d'    : 行/列ごとの 1D B-スプライン補間 (端はそのラインの水準を保持)。\n"
     )
 }
@@ -830,22 +847,19 @@ def feature_overlay_xy(
     last column on the right edge. With ``extent = [0, x_scale, 0, y_scale]``
     the y axis also runs upward while row indices run downward, so row 0 is
     drawn at ``y_scale``. Scaling row indices directly by ``y_scale / (h - 1)``
-    therefore mirrored every overlay vertically. Measured by rendering the
-    pre-change module on the bundled tunicate scan, none of the drawn endpoint
-    markers landed on a skeleton pixel; with this conversion all of them do.
-    That mirroring only appeared with the scale display enabled — with it off
-    ``extent`` is ``None``, panels are drawn in pixel coordinates, and the old
-    mapping was already correct.
+    would therefore mirror every overlay vertically, so rows are measured down
+    from the top edge of the extent. With the scale display off, ``extent`` is
+    ``None``, the panel is drawn in pixel coordinates, and the indices are
+    returned as they are.
     `imshow` は ``w`` 列の画像を extent の幅全体へ広げるため、列 ``c`` の中心は
     ``(c + 0.5) * x_scale / w`` になる（``c * x_scale / (w - 1)`` ではない。
     こちらは列 0 を左端、最終列を右端に置いてしまう）。さらに
     ``extent = [0, x_scale, 0, y_scale]`` では y 軸が上向きなのに対し行
     インデックスは下向きに増えるため、行 0 は ``y_scale`` の位置に描かれる。
     行インデックスを ``y_scale / (h - 1)`` でそのまま拡大すると重ね表示が上下
-    反転していた。変更前モジュールを同梱の tunicate スキャンで実描画して計測した
-    ところ、骨格画素に載った端点マーカーは皆無で、本変換では全点が載る。
-    ただしこの反転はスケール表示が有効なときにのみ現れる。無効時は ``extent``
-    が ``None`` となり画素座標で描画されるため、変更前の変換でも正しかった。
+    反転するため、行は extent の上端から下向きに測る。スケール表示が無効の
+    ときは ``extent`` が ``None`` となり画素座標で描画されるため、インデックスを
+    そのまま返す。
     """
     if extent is None:
         # Pixel coordinates: imshow indexes columns as x and rows as y, with
@@ -2268,12 +2282,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Show or hide the "= X" ghost on the Y (height) scale field.
         Y（高さ）スケール欄の "= X" ゴーストの表示/非表示を切り替える。
 
-        The ghost is shown only while the Y field is empty and unfocused, so it
-        reads as placeholder text hinting that a blank Y follows X (square
-        scan) without ever contributing to ``Entry.get()``.
-        ゴーストは Y 欄が空かつ非フォーカスのときだけ表示し、空の Y が X に従う
-        （正方スキャン）ことを示すプレースホルダとして読ませる。Entry.get() には
-        一切影響しない。
+        The ghost tells the user that a blank Y follows X (square scan, see
+        `lib.ui_tools.scale_xy_um`); when it is shown is decided by
+        `lib.ui_tools.refresh_entry_placeholder`.
+        ゴーストは、空の Y が X に従う（正方スキャン、`lib.ui_tools.scale_xy_um`
+        参照）ことを示す。表示する条件は `lib.ui_tools.refresh_entry_placeholder`
+        が決める。
         """
         refresh_entry_placeholder(self.ent_scale_y_um, self._scale_y_ph)
 
@@ -3149,6 +3163,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         Parameters
         ----------
+        targets
+            Files selected for the run.
+            実行対象として選ばれたファイル。
         overwrite
             Whether existing outputs are reprocessed; when False, files with
             existing outputs are skipped and excluded from the scale check.
@@ -3528,13 +3545,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return
 
         # One collection rather than an `axhspan` per band. Each `axhspan` call
-        # requests an autoscale pass, which measured at +21 ms per preview
-        # redraw for the 11 bands of a typical flagged scan (88 -> 110 ms);
-        # a single collection added with `autolim=False` costs +0.6 ms.
+        # requests an autoscale pass, so the preview redraw would slow down
+        # with every band; one collection added with `autolim=False` replaces
+        # those calls.
         # 帯ごとに `axhspan` を呼ばず 1 つのコレクションにまとめる。`axhspan` は
-        # 呼び出しごとにオートスケールを要求し、警告付き走査で典型的な 11 帯では
-        # プレビュー再描画あたり +21 ms（88→110 ms）を実測した。`autolim=False`
-        # で追加する単一コレクションなら +0.6 ms で済む。
+        # 呼び出しごとにオートスケールを要求するため、帯の数だけプレビュー再描画が
+        # 遅くなる。`autolim=False` で追加する 1 つのコレクションでそれらを置き換える。
         ax.add_collection(
             PolyCollection(
                 verts,
@@ -4044,32 +4060,26 @@ class SettingsDialog(tk.Toplevel):
 
         Notes
         -----
-        The parameter descriptions are not wrapped. They used to wrap to the
-        width their row grants, which is known only after a layout pass, and
-        on this Tk each re-wrap of a long description costs 10-25 ms of text
-        measurement: the rows were laid out at their unwrapped width, then
-        shrank to the canvas one nesting level per pass after the dialog
-        appeared, re-wrapping and moving the descriptions for about four
-        seconds. Unwrapped, a row's width is fixed by its text, so the dialog
-        is given that width before it is first shown and the rows are laid
-        out once. Sizing to the rows rather than to the main window matters:
+        The parameter descriptions are not wrapped. Wrapping them to the width
+        their row grants would need a layout pass to learn that width, and
+        each re-wrap of a long description costs Tk text measurement, so the
+        rows would shrink to the canvas one nesting level per pass after the
+        dialog appeared, re-wrapping and moving the descriptions as they go.
+        Unwrapped, a row's width is fixed by its text, so the dialog is given
+        that width before it is first shown and the rows are laid out once.
+        The dialog is sized to the rows rather than to the main window because
         a canvas wider than the rows stretches them after the dialog appears,
-        which cost 0.35 s more with the Japanese catalog (2.11 s against
-        1.75 s until the dialog was complete). Where the screen is too narrow
-        (the English descriptions need about 1.5 times the Japanese width),
-        `_on_canvas_resize` shows a horizontal scrollbar instead.
-        パラメータの説明文は折り返さない。以前は行が割り当てた幅で折り返して
-        いたが、その幅はレイアウトを 1 回経るまで分からず、この Tk では長い
-        説明文を 1 回折り返し直すたびに文字列の計測に 10〜25 ms かかる。その
-        ため行は折り返し前の幅でレイアウトされ、ダイアログの表示後に入れ子
-        1 段ずつ Canvas 幅へ縮みながら、約 4 秒間説明文の折り返しと位置が変わり
-        続けていた。折り返さなければ行の幅は文字列で決まるので、最初の表示前
+        which delays the dialog's completion. Where the screen is too narrow
+        for the rows, `_on_canvas_resize` shows a horizontal scrollbar instead.
+        パラメータの説明文は折り返さない。行が割り当てた幅で折り返すには、
+        その幅を知るためにレイアウトを 1 回経る必要があり、長い説明文を折り返し
+        直すたびに Tk の文字列計測の負荷がかかる。そのため行はダイアログの表示後に
+        入れ子 1 段ずつ Canvas 幅へ縮み、そのたびに説明文の折り返しと位置が
+        変わってしまう。折り返さなければ行の幅は文字列で決まるので、最初の表示前
         にダイアログをその幅にし、行のレイアウトを 1 回で済ませる。メイン画面
         の幅ではなく行の幅に合わせるのは、行より広い Canvas は表示後に行を
-        引き伸ばすためで、日本語カタログでは表示完了まで 0.35 秒遅かった
-        （2.11 秒対 1.75 秒）。画面が狭くて収まらない場合（英語の説明文は日本語
-        の約 1.5 倍の幅を要する）は、`_on_canvas_resize` が横スクロールバーを
-        表示する。
+        引き伸ばし、ダイアログの表示完了を遅らせるためである。画面が狭くて行が
+        収まらない場合は、`_on_canvas_resize` が横スクロールバーを表示する。
         """
         # A withdrawn dialog still lays its rows out at their requested width.
         # withdraw 中のダイアログでも行は要求幅でレイアウトされる。
@@ -4277,8 +4287,8 @@ class SettingsDialog(tk.Toplevel):
         # Dim parameters that do not apply to the selected background method.
         #   trendfill   : gradient-ridge detection, trend removal, nearest-background fill.
         #   trendfill   : 勾配リッジ検出 + 2次トレンド除去 + 最近傍充填
-        #   tophat      : morphological opening; no mask, fast, and spatially uniform.
-        #   tophat      : 形態学的opening (マスク不要、高速、一様性◎)
+        #   tophat      : morphological opening; no mask, fast.
+        #   tophat      : 形態学的opening (マスク不要、高速)
         #   spline1d    : row/column 1D B-spline; the ends hold that line's level.
         #   spline1d    : 行/列ごとの 1D B-スプライン (端はそのラインの水準を保持)
         # "trendfill" was named "inpaint" up to 1.0.0. Parameter files still
@@ -4295,7 +4305,7 @@ class SettingsDialog(tk.Toplevel):
         # Method descriptions are keyed by bg_method and displayed in menu order.
         self._bg_method_descs = {
             "trendfill": _("trendfill : 勾配リッジ検出 + 2次トレンド除去 + 最近傍充填。勾配で繊維マスクを作り、試料傾斜を2次曲面で除いてから穴を埋める。汎用だがリッジ検出パラメータの調整が必要（1.0.0 では 'inpaint' という名前）"),
-            "tophat":   _("tophat : 形態学的opening。tophat_se_size より細い明るい構造を前景として除去。マスク不要・高速・一様性に優れる"),
+            "tophat":   _("tophat : 形態学的opening。tophat_se_size より細い明るい構造を前景として除去。マスク不要・高速"),
             "spline1d": _("spline1d : 2次トレンド除去 + 行/列ごとの1D B-スプライン補間。ライン端は外挿せず自ラインの水準を保持。spline1d_axis で補間の向きを選択。'x'(既定)では、画像の行が走査ラインのとき走査ラインごとの上下のずれ(横縞)も除去"),
         }
         bg_desc_frame = ttk.Frame(lf_bg)

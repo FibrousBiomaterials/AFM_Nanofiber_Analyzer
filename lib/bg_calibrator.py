@@ -176,15 +176,14 @@ class BGCalibrator:
             `_extract_fiber` would otherwise leak into the background pool
             and bias interpolation/smoothing, causing over-subtraction around
             fibers. Larger values exclude more neighboring pixels from the
-            background pool. Default is 3. Set to 0 to disable dilation
-            (reproduces the original behavior). Used when ``bg_method``
-            is ``'trendfill'`` or ``'spline1d'``.
+            background pool. Set to 0 to disable dilation. Used when
+            ``bg_method`` is ``'trendfill'`` or ``'spline1d'``.
             ファイバーマスクを膨張させるピクセル数。
             `_extract_fiber` で検出しきれないファイバー端ピクセルが背景推定に
             混入すると、補間・平滑化でファイバー周辺の背景推定値が過大になり、
             減算後に過剰減算（ファイバー両脇のえぐれ）が生じる。
             値を大きくするほど周辺の背景点も除外される。
-            デフォルトは 3。0 を指定するとdilationなし（元の動作）。
+            0 を指定するとdilationなし。
             ``bg_method`` が ``'trendfill'`` または ``'spline1d'`` のときに
             使用される。
         min_mask_component_area : int, optional
@@ -200,7 +199,6 @@ class BGCalibrator:
             to disable filtering.
             Applied when `mask_dilation > 0` and ``bg_method`` is
             ``'trendfill'`` or ``'spline1d'``.
-            Default is 10.
             dilation 前の生ファイバーマスクから残す 8 連結成分の最小面積
             （ピクセル単位）。`_extract_fiber` の `[1, -1]` リッジパターンが
             拾う 2〜10 px 程度の偽検出が、ノイズの多い画像や広視野画像で
@@ -211,7 +209,6 @@ class BGCalibrator:
             十分大きな連結成分を形成するため残る。1 を指定するとフィルタなし。
             `mask_dilation > 0` かつ ``bg_method`` が
             ``'trendfill'`` または ``'spline1d'`` のときに適用される。
-            デフォルトは 10。
         bg_method : {'trendfill', 'tophat', 'spline1d'}, optional
             Background estimation strategy.
 
@@ -236,9 +233,8 @@ class BGCalibrator:
             the substrate level sits at 0 nm and calibrated heights stay
             comparable with the interpolating methods. No fiber mask is
             computed, so ridge-detection parameters (``threshold_factor``
-            etc.) are ignored. Empirically faster and produces more uniform
-            background subtraction than ``'trendfill'`` for fiber-on-substrate
-            AFM images.
+            etc.) are ignored. Its run time against the other methods is in
+            docs/validation.md section 1.5.
 
             ``'spline1d'``: per-line 1D spline interpolation of the
             background-candidate pixels along a single axis, chosen by
@@ -264,9 +260,9 @@ class BGCalibrator:
             background samples is filled from the nearest background pixel
             in 2D.
             The background is then Savitzky-Golay smoothed and subtracted in
-            full (no exact restore of background-candidate pixels), which
-            performs well on line-noise-dominated scans. Configurable via ``spline1d_axis``
-            and ``spline1d_degree``.
+            full (no exact restore of background-candidate pixels); its effect
+            on scan-line offsets is in docs/validation.md section 1.6.
+            Configurable via ``spline1d_axis`` and ``spline1d_degree``.
 
             背景推定方式の選択。
 
@@ -288,9 +284,8 @@ class BGCalibrator:
             基板レベルを 0 nm に揃え、補正後の高さが補間系方式と比較可能に
             なるようにする。ファイバーマスクを一切
             使わないため、リッジ検出系パラメータ (``threshold_factor`` 等)
-            は無視される。ファイバー/基板型の AFM 画像では ``'trendfill'``
-            より高速かつ背景補正の一様性が高い、というのが本リポジトリの
-            実証ベンチマーク結果である。
+            は無視される。他方式との実行時間の比較は docs/validation.ja.md の
+            1.5 節にある。
 
             ``'spline1d'``: 背景候補画素を1軸に沿って行/列ごとに 1D スプライン
             補間する方式。
@@ -311,8 +306,8 @@ class BGCalibrator:
             出る。背景
             サンプルが 2 点未満のラインだけは 2 次元の最近傍背景画素から埋める。
             その後 Savitzky-Golay で
-            平滑化し、背景候補画素を厳密復元せずそのまま全面減算する。ライン
-            ノイズ主体のスキャンで良好な結果を出す。
+            平滑化し、背景候補画素を厳密復元せずそのまま全面減算する。走査ラインの
+            オフセットへの効果は docs/validation.ja.md の 1.6 節にある。
             ``spline1d_axis`` と ``spline1d_degree`` で挙動を制御する。
 
         tophat_se_size : int, optional
@@ -322,12 +317,12 @@ class BGCalibrator:
             width). Too small leaves fibers in the background; too large
             also flattens the broader substrate features the background
             should preserve. Must be odd; even values are silently
-            incremented by 1. Default is 25.
+            incremented by 1.
             ``bg_method='tophat'`` のときに使う円形構造要素の直径 (px)。
             画像中の最も太いファイバーより大きく取る (目安: 典型ファイバー幅の
             2〜3 倍)。小さすぎるとファイバーが背景に残り、大きすぎると本来
             背景として残すべき基板の局所構造も削られる。奇数のみ有効で、
-            偶数を渡した場合は黙って +1 される。デフォルトは 25。
+            偶数を渡した場合は黙って +1 される。
         spline1d_axis : {'x', 'y'}, optional
             Interpolation axis when ``bg_method='spline1d'``. ``'x'``
             (default) fills each row from its own values; when the image rows
@@ -351,12 +346,11 @@ class BGCalibrator:
             ``bg_method='spline1d'``. Practical range is 1-3; must be a
             positive integer. Lines with fewer valid points than the spline
             order fall back to linear (or nearest) interpolation
-            automatically. Default is 2.
+            automatically.
             ``bg_method='spline1d'`` のときの行/列ごと ``pandas`` スプライン
             の多項式 order。実用
             範囲は 1〜3 で正の整数のみ。スプライン order に満たない有効点数
             のラインは自動的に線形 (または最近傍) 補間にフォールバックする。
-            デフォルトは 2。
 
         Raises
         ------
@@ -718,8 +712,8 @@ class BGCalibrator:
         Like every background method, the estimated background is
         subtracted *in full*. The interpolated background is Savitzky-Golay
         smoothed first, because the per-line interpolation is not smooth by
-        construction. On line-noise-dominated scans this per-line approach is
-        empirically the better-behaved choice; see the class docstring.
+        construction. Its effect on scan-line offsets, against ``'trendfill'``,
+        is in docs/validation.md section 1.6.
 
         ファイバーマスクは `_call_trendfill` と同じもので、``mask_dilation`` と
         ``min_mask_component_area`` も含む。これにより ``'trendfill'`` と同様、
@@ -747,8 +741,8 @@ class BGCalibrator:
 
         他の背景方式と同様、推定した背景は *そのまま全面* 減算する。行/列ごとの
         補間は構成上滑らかにはならないため、補間した背景を先に Savitzky-Golay
-        平滑化する。ラインノイズ主体のスキャンでは経験的にこの行/列方式の方が
-        振る舞いが良い (クラス docstring 参照)。
+        平滑化する。走査ラインのオフセットへの効果を ``'trendfill'`` と比べた
+        結果は docs/validation.ja.md の 1.6 節にある。
         """
         original = image.original_image
 
@@ -836,7 +830,7 @@ class BGCalibrator:
 
         Parameters
         ----------
-        bg_only : np.ndarray
+        bg_only
             2D array with NaN at masked (fiber) positions. Pass a detrended
             image: the per-line fit then models only the residual.
             マスク (ファイバー) 位置が NaN の 2D 配列。デトレンド済み画像を
@@ -846,10 +840,10 @@ class BGCalibrator:
             ``'x'`` interpolates each row along columns (axis 1).
             ``'y'`` は各列を行方向 (axis 0) に、``'x'`` は各行を列方向
             (axis 1) に補間する。
-        order : int
+        order
             Spline order passed to ``pandas.Series.interpolate``.
             ``pandas.Series.interpolate`` に渡すスプライン order。
-        end_window : int
+        end_window
             Number of a line's nearest valid samples averaged to set the level
             held across its end runs.
             ライン端の区間に保持する水準を決めるために平均する、そのラインの
@@ -1015,13 +1009,13 @@ class BGCalibrator:
 
         Parameters
         ----------
-        dif_x : np.ndarray
+        dif_x
             Horizontal difference image.
             水平方向の差分画像。
-        dif_y : np.ndarray
+        dif_y
             Vertical difference image.
             垂直方向の差分画像。
-        bin_n : int, optional
+        bin_n
             Number of histogram bins used for fitting.
             フィットに使うヒストグラムのビン数。
 
@@ -1088,10 +1082,10 @@ class BGCalibrator:
 
         Parameters
         ----------
-        dif_x : np.ndarray
+        dif_x
             Horizontal difference image.
             水平方向の差分画像。
-        dif_y : np.ndarray
+        dif_y
             Vertical difference image.
             垂直方向の差分画像。
         outx : lmfit.model.ModelResult
@@ -1100,6 +1094,9 @@ class BGCalibrator:
         outy : lmfit.model.ModelResult
             Fit result for `dif_y` histogram.
             `dif_y` ヒストグラムのフィット結果。
+            TODO(review): the signature annotates `outx` and `outy` as
+            ``float``, while this docstring calls them fit results; author to
+            confirm which is intended.
 
         Returns
         -------
@@ -1133,10 +1130,10 @@ class BGCalibrator:
 
         Parameters
         ----------
-        tri_difx : np.ndarray
+        tri_difx
             Ternary difference map along row direction.
             行方向の3値差分マップ。
-        tri_dify : np.ndarray
+        tri_dify
             Ternary difference map along column direction.
             列方向の3値差分マップ。
 
@@ -1239,13 +1236,13 @@ class BGCalibrator:
 
         Parameters
         ----------
-        original : np.ndarray
+        original
             Original AFM image.
             元の AFM 画像。
-        tri_difx_fill : np.ndarray
+        tri_difx_fill
             Filled mask obtained from X-direction pattern detection.
             X方向パターン検出で得られた塗りつぶしマスク。
-        tri_dify_fill : np.ndarray
+        tri_dify_fill
             Filled mask obtained from Y-direction pattern detection.
             Y方向パターン検出で得られた塗りつぶしマスク。
 
@@ -1468,10 +1465,10 @@ class BGCalibrator:
 
         Parameters
         ----------
-        original : np.ndarray
+        original
             Original AFM image.
             元の AFM 画像。
-        bg_sm : np.ndarray
+        bg_sm
             Smoothed background estimated by `_bg_generate`.
             `_bg_generate` で推定した平滑背景。
 

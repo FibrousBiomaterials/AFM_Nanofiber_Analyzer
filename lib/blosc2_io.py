@@ -76,11 +76,6 @@ def save_blosc2(path: str, x: np.ndarray) -> None:
     x
         NumPy array to be saved.
         保存対象の NumPy 配列。
-
-    Returns
-    -------
-    This function writes data to disk and returns nothing.
-    この関数はディスクに書き込みを行い、戻り値は持たない。
     """
     # Empty arrays must bypass blosc2 packer due to known crash behavior.
     # 既知のクラッシュ挙動があるため、空配列は blosc2 圧縮を回避する。
@@ -487,11 +482,6 @@ def save_bundle(path: str, arrays: dict, vlmeta: dict | None = None) -> None:
         Stored on the root of the TreeStore.
         任意のメタデータ辞書（msgpack でシリアライズ可能な値）。
         TreeStore のルートに保存される。
-
-    Returns
-    -------
-    This function writes the bundle to disk and returns nothing.
-    この関数はバンドルをディスクに書き込み、戻り値は持たない。
 
     Raises
     ------

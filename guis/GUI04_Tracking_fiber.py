@@ -10,14 +10,25 @@ GUI01 が生成した ``.b2z`` バンドルファイルを読み込み、``Fiber
 を再構築して、ナノファイバーの個別追跡・高さプロファイル・統計情報を
 対話的に確認する。
 
+The curation is saved beside the bundle by the save button, which writes
+``<stem>_excluded.json`` (manual exclusions) and ``<stem>_connect.json``
+(fiber connections) together. Through file dialogs the user also saves the
+per-fiber table as CSV, which GUI03 can read, the overview, detail, and
+profile figures, and the log.
+キュレーションは保存ボタンでバンドルの隣に保存し、``<stem>_excluded.json``
+（手動除外）と ``<stem>_connect.json``（ファイバー連結）を同時に書き出す。
+ファイルダイアログからは、GUI03 が読めるファイバー単位の表 (CSV)、全体像・
+個別表示・プロファイルの図、ログも保存できる。
+
 Notes
 -----
 Each analyzed dataset is represented by one ``*.b2z`` file in the GUI01 output
-folder. The bundle must contain ``calibrated``, ``skeletonized``, ``bp``,
-``ep``, ``kp``, ``dp``, and ``ka`` keys.
+folder. The bundle must contain the keys in
+`lib.bundle_schema.TRACKING_BUNDLE_KEYS`; the optional ``up`` and ``ke``
+are read when present.
 GUI01 の出力フォルダ内では、1 解析対象につき 1 つの ``*.b2z`` ファイルを
-使用する。バンドルには ``calibrated``、``skeletonized``、``bp``、``ep``、
-``kp``、``dp``、``ka`` キーが必要である。
+使用する。バンドルには `lib.bundle_schema.TRACKING_BUNDLE_KEYS` のキーが必要で、
+任意キー ``up``・``ke`` があれば読む。
 """
 
 # ===== Plugin metadata =====
@@ -966,8 +977,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 示せるようにする。
         self._connect_history: List[Tuple[ConnectionPlan, str]] = []
 
+        # The connection-settings window is modeless, and only one is kept.
         # 連結設定ウインドウは非モーダルで 1 つだけ保持する。
         self._connect_window: Optional["ConnectSettingsWindow"] = None
+        # The connection-candidate window is likewise kept as a single one.
         # 連結候補ウインドウも同様に 1 つだけ保持する。
         self._candidate_window: Optional["ConnectCandidateWindow"] = None
         # The connection-list window is kept the same way, and the junctions it
@@ -1295,11 +1308,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # ── ファイバー除外 ──
         # The exclusion controls share this row with the connection controls
         # and with the save button that writes both, so the whole curation
-        # workflow sits in one place, in the order it is saved. They used to
-        # sit in the fiber-table header, apart from the save button.
+        # workflow sits in one place, in the order it is saved.
         # 除外の操作部は、連結の操作部および両方を書き出す保存ボタンと同じ行に
-        # 置き、キュレーションの操作全体を 1 か所に保存の順序どおり並べる。以前は
-        # ファイバー一覧のヘッダ行にあり、保存ボタンと離れていた。
+        # 置き、キュレーションの操作全体を 1 か所に保存の順序どおり並べる。
         ttk.Label(bar, text=_("除外")).pack(side="left", padx=(4, 6))
 
         btn_exclude = ttk.Button(
@@ -1975,12 +1986,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Show or hide the "= X" ghost on the Y (height) scale field.
         Y（高さ）スケール欄の "= X" ゴーストの表示/非表示を切り替える。
 
-        The ghost is shown only while the Y field is empty and unfocused, so it
-        reads as placeholder text hinting that a blank Y follows X (square
-        scan) without ever contributing to ``Entry.get()``.
-        ゴーストは Y 欄が空かつ非フォーカスのときだけ表示し、空の Y が X に従う
-        （正方スキャン）ことを示すプレースホルダとして読ませる。Entry.get() には
-        一切影響しない。
+        The ghost tells the user that a blank Y follows X (square scan, see
+        `lib.ui_tools.scale_xy_um`); when it is shown is decided by
+        `lib.ui_tools.refresh_entry_placeholder`.
+        ゴーストは、空の Y が X に従う（正方スキャン、`lib.ui_tools.scale_xy_um`
+        参照）ことを示す。表示する条件は `lib.ui_tools.refresh_entry_placeholder`
+        が決める。
         """
         refresh_entry_placeholder(self.ent_scale_y_um, self._scale_y_ph)
 
@@ -2590,6 +2601,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             既に読み込まれているデータセットの再解析かどうか。その場合、除外集合は
             手を触れずに引き継ぐ。グループ情報も未保存フラグも、進行中の作業に
             属するものだからである。
+        digest
+            `skeleton_digest` of the bundle's skeleton, computed by the worker
+            and kept so a connection plan built later records the skeleton it
+            describes without hashing it again.
+            ワーカーが計算したバンドル骨格の `skeleton_digest`。後で作る連結
+            プランが、骨格を再びハッシュせずに自身が記述する骨格を記録できるよう
+            保持する。
         """
         self.current_image     = image
         self.current_stem      = stem
@@ -2615,7 +2633,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # フィルターはチェックボックスの状態を参照する（チェックONなら後で適用）。
         self._filter_active  = False
         self._filtered_fibers = []
-        self._overview_bg_drawn = False   # 背景キャッシュを無効化
+        self._overview_bg_drawn = False   # invalidate the background cache / 背景キャッシュを無効化
         self._highlight_patches = []
         # Start every dataset at full view. Datasets in one folder usually share
         # a scan size and pixel count, so the extent signature would match and
@@ -2885,6 +2903,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         Parameters
         ----------
+        _event
+            Tk event when called as a binding; not used.
+            バインドから呼ばれたときの Tk イベント。使わない。
         follow_view
             Whether a zoomed-in overview may pan to the selected fiber. Callers
             that re-select row 0 after repopulating the table pass ``False``.
@@ -3177,15 +3198,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         `current_fragments` から組み立て直す。追跡はやり直さない（断片を保持して
         いるのはそのためである）。
 
-        This runs inline even with a connection applied. It used to need a
-        worker thread and a progress bar because it re-ran the search over
-        every fragment; a recorded plan only has to dock the chains it names,
-        which costs what the kink detection over those tracks costs and is
-        over before the window could repaint.
-        連結が適用されている場合でも、この処理はその場で実行する。以前は全断片に
-        対して探索をやり直していたためワーカースレッドと進捗バーが必要だったが、
-        記録済みプランは指定された連鎖を繋ぐだけでよく、その費用はそれらのトラック
-        に対する kink 検出と同程度で、ウインドウが再描画するより早く終わる。
+        This runs inline even with a connection applied, with no worker thread
+        or progress bar: no search is run here, and a recorded plan only has
+        to dock the chains it names, which costs what the kink detection over
+        those tracks costs.
+        連結が適用されている場合でも、この処理はワーカースレッドや進捗バーを使わず
+        その場で実行する。ここでは探索を行わず、記録済みプランは指定された連鎖を
+        繋ぐだけでよく、その費用はそれらのトラックに対する kink 検出と同程度で
+        ある。
 
         A split is reported, because a chain that came apart is a fibril the
         user connected and is no longer seeing.
@@ -3417,12 +3437,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         そのため、データセットから出る全ての経路（別データセットの選択、フォルダ
         変更、ウインドウ終了）はここを通す。
 
-        The connection state is covered as well as the exclusion set. It used
-        to be left out, so a dataset switch could drop an unsaved connection
-        change without a word while asking carefully about the exclusions.
-        除外集合だけでなく連結状態も対象とする。以前は連結が対象外だったため、
-        除外については丁寧に尋ねる一方で、未保存の連結変更はデータセット切替で
-        黙って失われ得た。
+        The connection state is covered as well as the exclusion set, so a
+        dataset switch cannot drop an unsaved connection change without a word.
+        除外集合だけでなく連結状態も対象とする。未保存の連結変更が
+        データセット切替で黙って失われないようにするためである。
 
         Nothing is asked when both match the sidecars, which is what an
         exclusion followed by its undo leaves behind: there would be no
@@ -5537,13 +5555,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         -----
         Nothing is re-analyzed and no fiber changes. The thresholds are inputs
         to the automatic search, and the search is an action the user takes;
-        they are not a mode the measured population is derived through. Editing
-        one used to re-run the whole analysis behind the user, which is the
-        behavior a button replaces.
+        they are not a mode the measured population is derived through, so
+        editing one never re-runs the analysis behind the user; the search runs
+        only when its button is pressed.
         再解析は行わず、ファイバーも変化しない。しきい値は自動探索への入力であり、
         探索はユーザーが起こす操作である。計測対象の母集団がそこを経由して導出
-        されるようなモードではない。以前は 1 つ編集するたびにユーザーの背後で解析
-        全体が走り直しており、ボタン化が置き換えるのはその挙動である。
+        されるようなモードではないため、編集してもユーザーの背後で解析が走り直す
+        ことはなく、探索はそのボタンを押したときだけ実行する。
         """
         self.connect_params = params
         self._log(_(
@@ -6022,8 +6040,8 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         ]
         self._tick_dir_label_to_key = {label: key for key, label in self._tick_dir_choices}
         self._grid_label_to_key = {label: key for key, label in self._grid_choices}
-        self._tick_dir_var.set(self._tick_dir_choices[0][1])  # default: 外向き
-        self._grid_var.set(self._grid_choices[-1][1])         # default: 無し
+        self._tick_dir_var.set(self._tick_dir_choices[0][1])  # default: outward / 外向き
+        self._grid_var.set(self._grid_choices[-1][1])         # default: none / 無し
 
         # -- Legend location choices --
         # Use nine matplotlib loc strings, best, outside-right, and off.
@@ -6059,7 +6077,6 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         # -- Build UI --
         self._build_canvases_and_controls()
 
-        # Initial draw.
         self._redraw_fiber_image()
         self._redraw_profile()
 
@@ -6840,7 +6857,6 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
             else:
                 ax.legend(fontsize=legend_fs, loc=legend_loc)
 
-        # Grid lines.
         ax.grid(False)
         if grid_mode == "x":
             ax.grid(True, axis="x")

@@ -25,14 +25,14 @@ mask, so it runs midway between two mask boundaries rather than along the
 fiber: where a neighbour, a junction skirt or background roughness widens the
 mask on one side, the axis follows it, and the 8-connected pixel chain adds a
 staircase on top, so a straight fiber whose mask happens to widen reads as
-bent. On synthetic scans with a known centerline this line lies closer to the
-true centerline than the skeleton does (docs/validation.md §4.1-§4.2).
+bent. How far this line and the skeleton lie from a known centerline is
+compared in docs/validation.md §4.1-§4.2.
 なぜスケルトンそのものではないか。スケルトンはしきい値マスクの medial axis で
 あり、繊維に沿うのではなく 2 本のマスク境界の中間を通る。近傍物・分岐部の裾・
 背景の凹凸がマスクを片側に広げると軸はそれに従い、さらに 8 連結の画素鎖が
 階段を上乗せする。そのため、マスクがたまたま広がっただけのまっすぐな繊維が
-折れて読まれる。中心線が既知の合成スキャンでは、この線はスケルトンより真の中心線に
-近い（docs/validation.ja.md §4.1〜§4.2）。
+折れて読まれる。この線とスケルトンが既知の中心線からどれだけ離れるかの比較は
+docs/validation.ja.md §4.1〜§4.2 にある。
 
 Why the half-maximum midpoint and not the crest. The crest -- the highest
 point of each cross-section -- is the estimator a twisted fiber displaces
@@ -311,35 +311,34 @@ _FRAME_SIGMA_WIDTHS = 0.25
 # How far the section's maximum may lie from the frame, how far from that
 # maximum each half-maximum crossing is searched for, and the widest
 # cross-section still taken as one fiber, all in apparent widths. The width
-# limit applies to the full width at half maximum, not to each half: AFM
-# profiles are often asymmetric, one flank falling more slowly than the other,
-# and requiring each half to stay within 0.75 widths marked much of a clean
-# single fiber unreliable on a bundled scan. Two fibers
-# lying side by side below a junction are wider than 1.5 widths and are marked
-# unreliable rather than split down the middle the way a medial axis splits
-# them.
+# limit applies to the full width at half maximum, not to each half, because
+# AFM profiles are often asymmetric, one flank falling more slowly than the
+# other. Two fibers lying side by side below a junction are wider than 1.5
+# widths and are marked unreliable rather than split down the middle the way a
+# medial axis splits them.
 # 断面の最大値が枠からどこまで離れてよいか、その最大値から各半値交点をどこまで
 # 探すか、および 1 本の繊維とみなす最大の断面幅（いずれも見かけ幅単位）。幅の
-# 上限は各半分ではなく半値全幅に課す。AFM の断面はしばしば非対称で片側の斜面が
-# ゆっくり下がり、各半分を 0.75 幅以内に要求すると、同梱スキャンのきれいな 1 本の
-# 繊維の多くが信頼できないとされた。分岐の下で並んで走る 2 本の繊維は 1.5 幅より広く、medial
-# axis のように真ん中で分けられるのではなく、信頼できない区間として扱われる。
+# 上限は各半分ではなく半値全幅に課す。AFM の断面はしばしば非対称で、片側の斜面が
+# ゆっくり下がるためである。分岐の下で並んで走る 2 本の繊維は 1.5 幅より広く、
+# medial axis のように真ん中で分けられるのではなく、信頼できない区間として扱われる。
+# TODO(review): that requiring each half to stay within 0.75 widths marked much
+# of a clean single fiber unreliable was observed on a bundled scan, but no
+# experiment in scripts/measure_docs.py records it, so it is not stated here
+# until one does.
 _CREST_REACH_WIDTHS = 0.75
 _HALF_MAX_REACH_WIDTHS = 1.5
 _MAX_SECTION_WIDTHS = 1.5
 
 # Correlation length, in apparent widths, of the first-order penalty that joins
-# the per-point offsets into one lateral offset along the track. With this and
-# the frame at half a width, the line rounded corners that lie close together:
-# on synthetic scans with known corners, two same-sense corners a few widths
-# apart were sometimes judged as one bend, which no longer happened at a
-# quarter width, while the distance to the true centerline stayed about the
-# same (docs/validation.md §4.2).
+# the per-point offsets into one lateral offset along the track. A longer
+# length rounds corners that lie close together, so two same-sense corners a
+# few widths apart can merge into one bend; the quarter width was chosen
+# empirically against half a width on synthetic scans with known corners
+# (docs/validation.md §4.2).
 # 各点のオフセットを、トラックに沿った 1 本の横方向オフセットにつなぐ一次罰則の
-# 相関長（見かけ幅単位）。これと枠を半幅にすると、線は近接したコーナーを丸めた。
-# コーナー位置が既知の合成スキャンでは、数幅離れた同じ向きのコーナー 2 つが 1 つの
-# 折れと判定されることがあり、1/4 幅ではそれが起きなくなった。真の中心線までの
-# 距離はほぼ変わらなかった（docs/validation.ja.md §4.2）。
+# 相関長（見かけ幅単位）。長くすると近接したコーナーが丸められ、数幅離れた同じ
+# 向きのコーナー 2 つが 1 つの折れにまとまり得る。1/4 幅は、コーナー位置が既知の
+# 合成スキャンで半幅と比べて経験的に選んだ（docs/validation.ja.md §4.2）。
 _OFFSET_SMOOTH_WIDTHS = 0.25
 
 # Radius around a branch point, in apparent widths, inside which the height

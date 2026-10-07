@@ -358,6 +358,18 @@ def bundle_path_for(stem: str) -> str:
     Return the bundle path for an extensionless input path.
     拡張子を除いた入力パスに対応するバンドルパスを返す。
 
+    Parameters
+    ----------
+    stem
+        Input path without its extension.
+        拡張子を除いた入力パス。
+
+    Returns
+    -------
+    str
+        `stem` followed by ``BUNDLE_EXT``.
+        `stem` の後に ``BUNDLE_EXT`` を付けたパス。
+
     Examples
     --------
     >>> from lib.pipeline import bundle_path_for
@@ -371,6 +383,18 @@ def param_path_for(stem: str) -> str:
     """
     Return the sidecar parameter JSON path for an extensionless input path.
     拡張子を除いた入力パスに対応するパラメータ JSON のパスを返す。
+
+    Parameters
+    ----------
+    stem
+        Input path without its extension.
+        拡張子を除いた入力パス。
+
+    Returns
+    -------
+    str
+        `stem` followed by ``_param.json``.
+        `stem` の後に ``_param.json`` を付けたパス。
     """
     return stem + "_param.json"
 
@@ -379,6 +403,24 @@ def existing_min_set(stem: str) -> Tuple[bool, List[str]]:
     """
     Check whether all required bundle keys exist for an input stem.
     入力 stem に対応するバンドルへ必須キーが揃っているか確認する。
+
+    Parameters
+    ----------
+    stem
+        Input path without its extension; the bundle checked is
+        `bundle_path_for` of it.
+        拡張子を除いた入力パス。検査するのはその `bundle_path_for` のバンドル。
+
+    Returns
+    -------
+    tuple
+        ``(complete, missing)``: whether every key in
+        ``REQUIRED_BUNDLE_KEYS`` is present, and the missing keys with a
+        leading slash. A missing or unreadable bundle reports every key as
+        missing.
+        ``(complete, missing)``。``REQUIRED_BUNDLE_KEYS`` の全キーが揃って
+        いるかと、欠けているキー（先頭にスラッシュ付き）。バンドルが無いか
+        読めなければ全キーを欠落として返す。
 
     Examples
     --------
@@ -483,6 +525,19 @@ def validate_params(p: ProcParams) -> List[str]:
     パイプラインが確実に壊れる制約、または構造的に無意味な値のみを検査する。
     負の `low_threshold`（低成分除去の実質無効化）のような使い方は意図的に
     許容したままにする。
+
+    Parameters
+    ----------
+    p
+        Analysis parameters to check.
+        検査する解析パラメータ。
+
+    Returns
+    -------
+    list of str
+        One fixed-English message per violation, in the order the checks
+        run; empty when the parameters are valid.
+        違反ごとに 1 件の固定英語メッセージ（検査の実行順）。問題がなければ空。
 
     Notes
     -----

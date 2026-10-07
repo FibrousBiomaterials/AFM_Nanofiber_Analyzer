@@ -488,12 +488,16 @@ def _reaches_frame(
     if frame is None:
         return False
     height, width = frame
-    # The skeleton pixels, not the drawn line: the no-margin frame test was
-    # measured on them, and a line placed on the height can sit a fraction of a
+    # The skeleton pixels, not the drawn line: the no-margin frame test is
+    # defined on them, and a line placed on the height can sit a fraction of a
     # pixel inside the edge the fiber actually crosses.
     # 描画される線ではなくスケルトン画素で判定する。余白 0 の枠判定はその上で
-    # 測って決めたもので、高さの上に置いた線は、繊維が実際に横切る縁より画素の
+    # 定義しており、高さの上に置いた線は、繊維が実際に横切る縁より画素の
     # 端数ぶん内側に来ることがある。
+    # TODO(review): that a margin of a few pixels does not change which fibers
+    # reach the frame was checked on real scans, but no experiment in
+    # scripts/measure_docs.py records it, so it is not stated in the docstring
+    # until one does.
     sx, sy = skeleton_track(fiber)
     gx = sx + fiber.data[0]
     gy = sy + fiber.data[1]
@@ -682,12 +686,10 @@ def isolated_fiber_flags(
 
     The frame is the outermost row and column, with no margin. A fiber that
     leaves the scan reaches the very edge, so a wider margin would only start
-    excluding fibers that merely come close; on the scans it was checked on, a
-    margin of a few pixels did not change which fibers reach the frame.
+    excluding fibers that merely come close.
     枠とは最外周の行と列そのものであり、余白は取らない。走査範囲から出ていく
     ファイバーは最外周まで到達するため、余白を広げても、近づいただけのファイバーを
-    除外し始めるだけである。確認した走査像では、数画素の余白を取っても枠に達する
-    ファイバーは変わらなかった。
+    除外し始めるだけである。
 
     The connection-candidate test is used **only in conjunction with the other
     two, never alone**. On its own it is far looser than the branch-point

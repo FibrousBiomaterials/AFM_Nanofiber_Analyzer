@@ -9,6 +9,15 @@ segments using `skimage.measure.profile_line`.
 バンドル、NumPy ファイル、テキスト/CSV エクスポート、または Gwyddion
 ネイティブファイルから 2 次元 AFM 配列を読み込み、ヒートマップ上で 2 点以上を
 指定して `skimage.measure.profile_line` により各線分のプロファイルを連結計算する。
+
+Accepted inputs are ``.b2z`` (its ``calibrated`` array), ``.npy``, ``.csv``,
+``.txt``, and ``.gwy``. Nothing is written automatically: the heatmap and
+profile figures, and the profile itself as CSV (``Length`` in the displayed
+unit, ``Height (nm)``), are saved through file dialogs.
+受け付ける入力は ``.b2z``（その ``calibrated`` 配列）、``.npy``、``.csv``、
+``.txt``、``.gwy``。自動では何も書き出さない。ヒートマップ図・プロファイル図と、
+プロファイル自体の CSV（``Length`` は表示単位、``Height (nm)``）をファイル
+ダイアログから保存する。
 """
 
 # ===== Plugin metadata =====
@@ -1143,12 +1152,12 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         Show or hide the "= X" ghost on the Y (height) scale field.
         Y（高さ）スケール欄の "= X" ゴーストの表示/非表示を切り替える。
 
-        The ghost is shown only while the Y field is empty and unfocused, so it
-        reads as placeholder text hinting that a blank Y follows X (square
-        scan) without ever contributing to ``Entry.get()``.
-        ゴーストは Y 欄が空かつ非フォーカスのときだけ表示し、空の Y が X に従う
-        （正方スキャン）ことを示すプレースホルダとして読ませる。Entry.get() には
-        一切影響しない。
+        The ghost tells the user that a blank Y follows X (square scan, see
+        `lib.ui_tools.scale_xy_um`); when it is shown is decided by
+        `lib.ui_tools.refresh_entry_placeholder`.
+        ゴーストは、空の Y が X に従う（正方スキャン、`lib.ui_tools.scale_xy_um`
+        参照）ことを示す。表示する条件は `lib.ui_tools.refresh_entry_placeholder`
+        が決める。
         """
         refresh_entry_placeholder(self.entry_scale_y, self._scale_y_ph)
 
