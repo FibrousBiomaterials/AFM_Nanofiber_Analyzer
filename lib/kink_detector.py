@@ -330,6 +330,30 @@ class KinkDetector:
     k
         Point offset used when computing local corner angles.
         局所角度を計算する際の前後点オフセット。
+
+    Examples
+    --------
+    The stage reads the skeleton and the calibrated image, so the three
+    stages before it run first. Kink angles are stored in radians, one per
+    kink coordinate. The input path is relative to the repository root:
+
+    >>> import numpy as np
+    >>> from lib.afm_io import load_afm_text
+    >>> from lib.pipeline import ProcParams, build_stages
+    >>> from lib.processed_image import ProcessedImage
+    >>> heights = load_afm_text("testdata_artificial/sample_isotropic.txt")
+    >>> image = ProcessedImage(original_AFM=heights, name="sample_isotropic")
+    >>> stages = build_stages(ProcParams())
+    >>> for stage in (stages.bg_calibrator, stages.segmenter,
+    ...               stages.skeletonizer, stages.kink_detector):
+    ...     stage(image)
+    >>> stages.kink_detector.centerline_method
+    'half_max_025w'
+    >>> angles = image.all_kink_angles
+    >>> len(angles) == len(image.all_kink_coordinates[0])
+    True
+    >>> bool(((angles > 0) & (angles < np.pi)).all())
+    True
     """
     def __init__(self,
                  threshold_distance: float = 3,

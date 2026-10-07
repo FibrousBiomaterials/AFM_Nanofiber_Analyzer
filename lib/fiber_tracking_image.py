@@ -303,6 +303,26 @@ class FiberTrackingImage:
         `centerline.SKELETON_TRACK`。バンドルから読み込まないコンテナの既定値も
         後者である。`lib.measure` がバンドルから設定する
         （`bundle_schema.centerline_from_meta`）。
+
+    Examples
+    --------
+    `lib.measure.measure_bundle` rebuilds the container from a bundle and
+    records the line its fibers are built on. The synthetic test scan records
+    no scan size, so the 1.25 µm listed for it in
+    ``testdata_artificial/scale_table_sample.csv`` is passed. The input path
+    is relative to the repository root:
+
+    >>> import tempfile
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import measure_bundle
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...                           ProcParams(), output_dir=folder).bundle_path
+    ...     image = measure_bundle(bundle, scale_um=1.25).image
+    >>> image.centerline
+    'half_max_025w'
+    >>> image.calibrated_image.shape == image.skeleton_image.shape
+    True
     """
 
     def __init__(

@@ -63,6 +63,23 @@ class Segmenter:
     h_sratio
         Minimum linearity score required to retain small components.
         小さい成分を保持するために必要な最小線形性スコア。
+
+    Examples
+    --------
+    The stage reads the calibrated image, so background calibration runs
+    first. Without `nm_per_px` the ridge-recovery step is skipped. The input
+    path is relative to the repository root:
+
+    >>> from lib.afm_io import load_afm_text
+    >>> from lib.pipeline import ProcParams, build_stages
+    >>> from lib.processed_image import ProcessedImage
+    >>> heights = load_afm_text("testdata_artificial/sample_isotropic.txt")
+    >>> image = ProcessedImage(original_AFM=heights, name="sample_isotropic")
+    >>> stages = build_stages(ProcParams())
+    >>> stages.bg_calibrator(image)
+    >>> stages.segmenter(image)
+    >>> image.binarized_image.dtype, image.binarized_image.shape
+    (dtype('bool'), (255, 255))
     """
 
     def __init__(

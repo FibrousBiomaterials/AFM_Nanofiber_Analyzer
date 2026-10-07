@@ -83,6 +83,19 @@ class ProcessedImage:
         キンク規則が長さを尺度付けした見かけ幅の画像単位の記録。追跡した成分に
         わたる中央値（画素）、成分数、既定幅へ退避した成分数
         （`bundle_schema.APPARENT_WIDTH_KEY` 参照）。キンク検出が走るまで ``None``。
+
+    Examples
+    --------
+    A container starts with only the raw heights; each pipeline stage fills
+    in its own field:
+
+    >>> import numpy as np
+    >>> from lib.processed_image import ProcessedImage
+    >>> image = ProcessedImage(original_AFM=np.zeros((64, 64)), name="scan")
+    >>> image.original_image.shape
+    (64, 64)
+    >>> image.calibrated_image is None
+    True
     """
 
     def __init__(

@@ -331,6 +331,26 @@ class FiberStats:
         枠に触れないファイバーの Miles-Lantuejoul 重み。1 点が枠に触れずに収まる
         位置の数を、スケルトンの外接矩形が収まる位置の数で割った値
         （`_frame_weight`）。枠に触れるファイバー、または記録が無い場合は NaN。
+
+    Examples
+    --------
+    One `FiberStats` per measured fiber, from `measure_bundle`. The synthetic
+    test scan records no scan size, so the 1.25 µm listed for it in
+    ``testdata_artificial/scale_table_sample.csv`` is passed. The input path
+    is relative to the repository root:
+
+    >>> import tempfile
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import measure_bundle
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...                           ProcParams(), output_dir=folder).bundle_path
+    ...     stats = measure_bundle(bundle, scale_um=1.25).stats
+    >>> first = stats[0]
+    >>> first.kink_count == len(first.kink_angles_deg)
+    True
+    >>> 0.0 < first.straightness <= 1.0
+    True
     """
 
     index: int
@@ -690,6 +710,24 @@ def isolated_fiber_flags(
     候補判定は、`clusters_range` 内に他の断片の端点を持たない断片について、連結器が
     実際に行う連結と食い違うことがある。連結器は成長後にのみ存在する位置からそこへ
     到達できるが、順序に依存しない述語はその状態を意図的に扱わない。
+
+    Examples
+    --------
+    One flag per fiber, from the container and fibers `measure_bundle`
+    returns. The synthetic test scan records no scan size, so the 1.25 µm
+    listed for it in ``testdata_artificial/scale_table_sample.csv`` is
+    passed. The input path is relative to the repository root:
+
+    >>> import tempfile
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import isolated_fiber_flags, measure_bundle
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...                           ProcParams(), output_dir=folder).bundle_path
+    ...     result = measure_bundle(bundle, scale_um=1.25)
+    >>> flags = isolated_fiber_flags(result.image, result.fibers)
+    >>> len(flags) == len(result.fibers)
+    True
     """
     frame = _image_frame_shape(image)
     # A fiber the connector could extend is not one whose whole length was
@@ -1545,6 +1583,22 @@ def read_centerline_from_bundle(bundle_path: str) -> str:
     measured along the older line before tracing anything.
     メタデータだけを読むため、呼び出し側は追跡を始める前に、どのバンドルが古い
     線で計測されるかを利用者に伝えられる。
+
+    Examples
+    --------
+    A bundle written by `pipeline.process_file` records the line chosen in
+    `ProcParams.centerline_method`. The input path is relative to the
+    repository root:
+
+    >>> import tempfile
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import read_centerline_from_bundle
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...                           ProcParams(), output_dir=folder).bundle_path
+    ...     line = read_centerline_from_bundle(bundle)
+    >>> line == ProcParams().centerline_method
+    True
     """
     return centerline_from_meta(load_bundle_meta(bundle_path))
 
@@ -2155,15 +2209,44 @@ def collect_skeleton_height_profiles(
 
     Notes
     -----
-    This is the length-weighted counterpart of `skeleton_height_values`, and
-    shares the same per-bundle failure contract. The two do not sample the
-    same population: `skeleton_height_values` reads every pixel of the
-    skeleton mask, while this walks the traced fibers, which exclude the
-    branch-point neighborhoods removed before tracing.
-    本関数は `skeleton_height_values` の長さ重み付け版で、バンドル単位の失敗
-    契約も共通である。ただし両者の母集団は同一ではない。
-    `skeleton_height_values` は骨格マスクの全画素を読むのに対し、本関数は追跡
-    済みファイバーをたどるため、追跡前に除去される分岐点近傍を含まない。
+    This is the length-weighted counterpart of `skeleton_height_values`. Both
+    walk the same traced fibers, which exclude the branch-point neighborhoods
+    `imp_tools.remove_bp` clears before tracing, and read the same heights;
+    this one adds the contour length each height represents. They share the
+    per-bundle failure contract, with one difference: when `scale_um` is
+    omitted, a bundle that records no scan size becomes an error entry here,
+    because the weights are lengths in nanometers, whereas
+    `skeleton_height_values` still collects its heights.
+    本関数は `skeleton_height_values` の長さ重み付け版である。両者は同じ追跡
+    済みファイバー（追跡前に `imp_tools.remove_bp` が消去する分岐点近傍を含ま
+    ない）をたどって同じ高さを読み、本関数はさらに各高さが表す輪郭長を加える。
+    バンドル単位の失敗契約も共通だが、1 点だけ異なる。`scale_um` を省略した
+    とき、走査範囲を記録していないバンドルは、重みが nm 単位の長さであるため
+    本関数ではエラー項目になる。一方 `skeleton_height_values` はその場合も高さを
+    収集する。
+
+    Examples
+    --------
+    The weights of one bundle sum to the contour length of its fibers. The
+    synthetic test scan records no scan size, so the 1.25 µm listed for it in
+    ``testdata_artificial/scale_table_sample.csv`` is passed. The input path
+    is relative to the repository root:
+
+    >>> import tempfile
+    >>> import numpy as np
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import collect_skeleton_height_profiles, measure_bundle
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...                           ProcParams(), output_dir=folder).bundle_path
+    ...     per_bundle, errors = collect_skeleton_height_profiles(
+    ...         [bundle], scale_um=1.25)
+    ...     stats = measure_bundle(bundle, scale_um=1.25).stats
+    >>> path, heights_nm, weights_nm = per_bundle[0]
+    >>> heights_nm.shape == weights_nm.shape, errors
+    (True, [])
+    >>> bool(np.isclose(weights_nm.sum(), sum(s.length_nm for s in stats)))
+    True
     """
     per_bundle: List[Tuple[str, np.ndarray, np.ndarray]] = []
     errors: List[Tuple[str, str]] = []
@@ -2505,6 +2588,26 @@ def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
     opens the file without mojibake.
     エンコーディングは BOM 付き UTF-8（`utf-8-sig`）とし、日本語 Windows の
     Excel で文字化けせずに開けるようにする。
+
+    Examples
+    --------
+    The first row holds `FIBER_CSV_COLUMNS`; an undefined value is written
+    as an empty cell:
+
+    >>> import os, tempfile
+    >>> from lib.measure import FIBER_CSV_COLUMNS, FiberStats, write_fiber_csv
+    >>> row = FiberStats(index=0, length_nm=812.34, height_median_nm=2.5,
+    ...                  height_max_nm=3.1, ep_count=2, kink_count=1,
+    ...                  kink_angles_deg=(121.0,))
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     path = os.path.join(folder, "fibers.csv")
+    ...     write_fiber_csv(path, [row])
+    ...     with open(path, encoding="utf-8-sig") as f:
+    ...         header, line = f.read().splitlines()
+    >>> header.split(",") == list(FIBER_CSV_COLUMNS)
+    True
+    >>> line
+    '0,812.3,2.500,3.100,2,1,121.0,,,,0,,0,,,'
     """
     def blank_or(value: float, fmt: str) -> str:
         # An undefined value is an empty cell, never "nan", so a spreadsheet
@@ -2602,6 +2705,28 @@ def skeleton_height_values(
     bundles are still processed so grouped GUI runs degrade gracefully.
     1 つのバンドルの読み込み失敗で収集全体は中断しない。残りのバンドルは
     処理を続け、グループ実行が部分的な失敗に耐えられるようにする。
+
+    Examples
+    --------
+    The heights are the samples `collect_skeleton_height_profiles` weights,
+    and no scan size is needed for them. The input path is relative to the
+    repository root:
+
+    >>> import tempfile
+    >>> import numpy as np
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import (collect_skeleton_height_profiles,
+    ...                          skeleton_height_values)
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...                           ProcParams(), output_dir=folder).bundle_path
+    ...     heights_nm, errors = skeleton_height_values([bundle])
+    ...     profiles, _ = collect_skeleton_height_profiles([bundle],
+    ...                                                    scale_um=1.25)
+    >>> heights_nm.ndim, errors
+    (1, [])
+    >>> bool(np.array_equal(np.sort(heights_nm), np.sort(profiles[0][1])))
+    True
     """
     heights: List[np.ndarray] = []
     errors: List[Tuple[str, str]] = []
@@ -2655,6 +2780,22 @@ def write_heights_csv(
         height value so external tools can regroup and re-bin freely.
         ``(バンドル名, 高さ配列)`` のペア列。高さ値 1 つにつき 1 行を書き出し、
         外部ツールで自由に再グループ化・再ビニングできるようにする。
+
+    Examples
+    --------
+    One row per height value:
+
+    >>> import os, tempfile
+    >>> import numpy as np
+    >>> from lib.measure import write_heights_csv
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     path = os.path.join(folder, "heights.csv")
+    ...     write_heights_csv(path, [("scan_a", np.array([1.2, 3.4]))])
+    ...     with open(path, encoding="utf-8-sig") as f:
+    ...         print(f.read(), end="")
+    bundle,height_nm
+    scan_a,1.2
+    scan_a,3.4
     """
     with open(path, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.writer(f)

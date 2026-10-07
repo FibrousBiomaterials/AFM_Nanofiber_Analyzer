@@ -503,6 +503,29 @@ def plan_from_auto_connect(
     ものにすぎず、意図的に捨てる。フィブリルは `build_connected_fibers` が連鎖
     から作り直すため、連結ファイバーの形状の定義は 1 つだけになり、保存された
     連鎖が計測される対象と違うものを記述することはあり得ない。
+
+    Examples
+    --------
+    The synthetic test scans contain no fragments to join, so a strip of 64
+    scan lines of the tunicate CNF scan is analyzed, where the search joins
+    fragments. Its scan size, 5 µm, is listed in
+    ``testdata_tunicateCNF/scale_table_sample.csv``. The input path is
+    relative to the repository root:
+
+    >>> import tempfile
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import measure_bundle
+    >>> from lib.fiber_connector import plan_from_auto_connect
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
+    ...                           ProcParams(), output_dir=folder,
+    ...                           scan_size_um=(5.0, 5.0),
+    ...                           row_range=(0, 64)).bundle_path
+    ...     result = measure_bundle(bundle)
+    >>> chains = plan_from_auto_connect(result.image, result.fragments)
+    >>> fragment_index, flip = chains[0][0]
+    >>> type(fragment_index).__name__, type(flip).__name__
+    ('int', 'bool')
     """
     if not fragments:
         return []
@@ -801,6 +824,31 @@ def build_connected_fibers(
     なファイバーの値まで動いてしまう。連鎖の影響をその連鎖の中に閉じ込めることが、
     連結の判断を監査可能にする。値が変わったファイバーは、ユーザーが連結したもの
     だけになる。
+
+    Examples
+    --------
+    Each chain of ``n`` fragments becomes one fiber, so the count drops by
+    ``n - 1`` per chain. The strip of the tunicate CNF scan is the one used
+    in the `plan_from_auto_connect` example. The input path is relative to
+    the repository root:
+
+    >>> import tempfile
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import measure_bundle
+    >>> from lib.fiber_connector import (build_connected_fibers,
+    ...                                  plan_from_auto_connect)
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
+    ...                           ProcParams(), output_dir=folder,
+    ...                           scan_size_um=(5.0, 5.0),
+    ...                           row_range=(0, 64)).bundle_path
+    ...     result = measure_bundle(bundle)
+    >>> chains = plan_from_auto_connect(result.image, result.fragments)
+    >>> fibers = build_connected_fibers(result.image, result.fragments, chains)
+    >>> len(chains) > 0
+    True
+    >>> len(fibers) == len(result.fragments) - sum(len(c) - 1 for c in chains)
+    True
     """
     if not fragments:
         return []
@@ -1222,6 +1270,28 @@ def connection_candidates(
     弾く「続き」— はしきい値を編集しない限り到達できなくなるが、それは連結ごとの
     判断が置き換えるべきモード的な操作そのものである。ユーザーは描画されたファイバー
     を見て選ぶのだから、ゲートはフィルターではなく情報として一覧に載せる。
+
+    Examples
+    --------
+    The strip of the tunicate CNF scan is the one used in the
+    `plan_from_auto_connect` example. The input path is relative to the
+    repository root:
+
+    >>> import tempfile
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import measure_bundle
+    >>> from lib.fiber_connector import connection_candidates
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
+    ...                           ProcParams(), output_dir=folder,
+    ...                           scan_size_um=(5.0, 5.0),
+    ...                           row_range=(0, 64)).bundle_path
+    ...     result = measure_bundle(bundle)
+    >>> lists = [connection_candidates(result.image, result.fragments, i)
+    ...          for i in range(len(result.fragments))]
+    >>> first = next(found for found in lists if found)[0]
+    >>> print(*sorted(first))
+    angle auto distance height_ratio index other_end self_end
     """
     n = len(fibers)
     if n < 2 or index < 0 or index >= n or image.calibrated_image is None:

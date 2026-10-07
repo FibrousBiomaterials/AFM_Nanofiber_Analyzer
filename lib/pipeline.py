@@ -379,6 +379,22 @@ def existing_min_set(stem: str) -> Tuple[bool, List[str]]:
     """
     Check whether all required bundle keys exist for an input stem.
     入力 stem に対応するバンドルへ必須キーが揃っているか確認する。
+
+    Examples
+    --------
+    The stem is the input path without its extension. The input path is
+    relative to the repository root:
+
+    >>> import os, tempfile
+    >>> from lib.pipeline import ProcParams, existing_min_set, process_file
+    >>> existing_min_set("no/such/scan")[0]
+    False
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     _ = process_file("testdata_artificial/sample_isotropic.txt",
+    ...                      ProcParams(), output_dir=folder)
+    ...     found = existing_min_set(os.path.join(folder, "sample_isotropic"))
+    >>> found
+    (True, [])
     """
     return bundle_has_keys(bundle_path_for(stem), REQUIRED_BUNDLE_KEYS)
 
@@ -413,6 +429,21 @@ def merge_params_dict(d: Dict) -> Tuple[ProcParams, List[str], List[str]]:
     ------
     TypeError
         If a known key holds a value `ProcParams` cannot accept.
+
+    Examples
+    --------
+    A retired `bg_method` spelling is translated, a key the schema does not
+    know is reported, and every absent field takes its default:
+
+    >>> from lib.pipeline import merge_params_dict
+    >>> params, missing, unknown = merge_params_dict(
+    ...     {"bg_method": "inpaint", "old_key": 1})
+    >>> params.bg_method
+    'trendfill'
+    >>> unknown
+    ['old_key']
+    >>> "area_min" in missing
+    True
     """
     defaults_dict = asdict(ProcParams())
     missing = [k for k in defaults_dict if k not in d]
@@ -463,6 +494,15 @@ def validate_params(p: ProcParams) -> List[str]:
     - `wsize_localbin` odd: required by `skimage.filters.threshold_local`.
     - `spline1d_degree` 1-5: pandas spline interpolation delegates to
       `scipy.interpolate.UnivariateSpline` (k must be 1-5).
+
+    Examples
+    --------
+    >>> from lib.pipeline import ProcParams, validate_params
+    >>> validate_params(ProcParams())
+    []
+    >>> problems = validate_params(ProcParams(wsize_localbin=50))
+    >>> print(problems[0])
+    wsize_localbin must be a positive odd int (local-threshold block size), got 50
     """
     problems: List[str] = []
 
@@ -648,6 +688,13 @@ def build_stages(p: ProcParams) -> PipelineStages:
     PipelineStages
         Ready-to-call stage objects.
         呼び出し可能な状態のステージオブジェクト群。
+
+    Examples
+    --------
+    >>> from lib.pipeline import ProcParams, build_stages
+    >>> stages = build_stages(ProcParams(bg_method="tophat"))
+    >>> type(stages.bg_calibrator).__name__, stages.bg_calibrator.bg_method
+    ('BGCalibrator', 'tophat')
     """
     bg_calibrator = BGCalibrator(
         bg_method=p.bg_method,

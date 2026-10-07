@@ -669,6 +669,25 @@ def load_bundle_meta(path: str) -> dict:
         バンドルはエラーではなく（blosc2 自体が空辞書を返す）、ここでの例外は
         本物の破損を意味する。握りつぶすと形式バージョン検査が黙って
         スキップされてしまう。
+
+    Examples
+    --------
+    The metadata records the bundle format and, when a scan size was given,
+    the spatial calibration. The input path is relative to the repository
+    root:
+
+    >>> import tempfile
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.blosc2_io import load_bundle_meta
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...                           ProcParams(), output_dir=folder,
+    ...                           scan_size_um=(1.25, 1.25)).bundle_path
+    ...     meta = load_bundle_meta(bundle)
+    >>> meta["version"]
+    '1.2'
+    >>> meta["spatial_calibration"]
+    {'scan_size_x_um': 1.25, 'scan_size_y_um': 1.25, 'source': 'manual'}
     """
     with (
         _ascii_read_path(path) as open_path,

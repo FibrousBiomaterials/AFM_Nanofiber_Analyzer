@@ -623,6 +623,27 @@ class Skeletonizer:
     image_shape
         Shape of the working image as ``(height, width)``.
         作業画像の形状 ``(高さ, 幅)``。
+
+    Examples
+    --------
+    The stage reads the binary mask and the calibrated image, so the two
+    stages before it run first. The input path is relative to the repository
+    root:
+
+    >>> import numpy as np
+    >>> from lib.afm_io import load_afm_text
+    >>> from lib.pipeline import ProcParams, build_stages
+    >>> from lib.processed_image import ProcessedImage
+    >>> heights = load_afm_text("testdata_artificial/sample_isotropic.txt")
+    >>> image = ProcessedImage(original_AFM=heights, name="sample_isotropic")
+    >>> stages = build_stages(ProcParams())
+    >>> stages.bg_calibrator(image)
+    >>> stages.segmenter(image)
+    >>> stages.skeletonizer(image)
+    >>> np.unique(image.skeleton_image)
+    array([0, 1], dtype=uint8)
+    >>> image.label_image.shape == image.skeleton_image.shape
+    True
     """
 
     def __init__(

@@ -110,6 +110,24 @@ class BGCalibrator:
     オブ・トゥルースとなる。以下のコンストラクタ既定値は直接単体構築した
     ときにのみ効き、一部は `ProcParams` の既定値と意図的に異なる。両者の
     既定値が一致する前提で扱わないこと。
+
+    Examples
+    --------
+    In the pipeline the stage is built from `ProcParams` by
+    `pipeline.build_stages`. The input path is relative to the repository
+    root:
+
+    >>> from lib.afm_io import load_afm_text
+    >>> from lib.pipeline import ProcParams, build_stages
+    >>> from lib.processed_image import ProcessedImage
+    >>> heights = load_afm_text("testdata_artificial/sample_isotropic.txt")
+    >>> image = ProcessedImage(original_AFM=heights, name="sample_isotropic")
+    >>> calibrator = build_stages(ProcParams()).bg_calibrator
+    >>> calibrator.bg_method
+    'trendfill'
+    >>> calibrator(image)
+    >>> heights.shape, image.calibrated_image.shape
+    ((256, 256), (255, 255))
     """
 
     def __init__(self, threshold_factor=3, fiber_detect_factor=10, noise_detect_factor=2,
