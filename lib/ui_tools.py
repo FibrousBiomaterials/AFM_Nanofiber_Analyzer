@@ -1211,7 +1211,8 @@ class UnconfirmedEntryMixin:
               - entry: ttk.Entry that is read and written back
               - attr_name: attribute ``self.<attr_name>`` that receives the
                 new value
-              - label: field name used in the error message (may be ``None``)
+              - label: not used; it names the field so the call site reads
+                clearly (may be ``None``)
               - cast: conversion used for this field only (the `cast`
                 argument when omitted)
             The value is always read from ``entry.get().strip()``.
@@ -1219,12 +1220,10 @@ class UnconfirmedEntryMixin:
             または旧形式 ``(var, entry, attr_name, label)`` のタプル列。
               - entry: ttk.Entry（書き戻し対象）
               - attr_name: ``self.<attr_name>`` に新値を代入する属性名
-              - label: エラーメッセージに使うフィールド名（``None`` 可）
+              - label: 使われない。呼び出し側でフィールドを読みやすくするための値
+                （``None`` 可）
               - cast: そのフィールドのみに使う変換関数（省略時は引数 ``cast``）
             数値の取得は常に ``entry.get().strip()`` から行う。
-            TODO(review): the docstring says ``label`` is used in the error
-            message, but the code unpacks it as ``_label`` and shows a fixed
-            message; author to confirm which is intended.
         cast : callable
             Default conversion; a per-field cast in `fields` takes precedence.
             既定の変換関数（既定: ``float``）。フィールド側で個別指定があれば

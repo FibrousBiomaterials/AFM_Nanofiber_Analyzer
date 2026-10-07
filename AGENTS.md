@@ -1091,9 +1091,12 @@ Both, and the `PostToolUse` hook below, decide "changes what it computes" by one
 rule, `scripts/doc_excerpts.computation_changes`, applied definition by
 definition: a changed or removed function, method, constant or import, or a
 new definition that existing code refers to by name (which includes shadowing a
-builtin). Comments, docstrings, and new definitions that no existing code uses
-— a deprecated alias, a helper only new code calls — do not count, so such a
-commit needs neither a document edit nor `--no-verify`. Do not use
+builtin). Comments, docstrings, function annotations, `if TYPE_CHECKING:`
+blocks, and new definitions that no existing code uses — a deprecated alias, a
+helper only new code calls, an import needed only by a type hint — do not
+count, so such a commit needs neither a document edit nor `--no-verify`.
+Removing an import still counts, because the recorded fingerprint cannot tell
+what the name was used for. Do not use
 `--no-verify` to get past this check: it skips the sensitive-information and
 version checks too. If it reports a change you believe cannot affect the
 explanation, the rule is wrong and should be fixed instead.

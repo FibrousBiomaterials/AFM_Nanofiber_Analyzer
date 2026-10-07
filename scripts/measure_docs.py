@@ -2119,6 +2119,221 @@ def ridge_recovery_bundled() -> dict:
     return values
 
 
+@experiment(
+    "diagonal_ybranch",
+    ["lib/pipeline.py", "lib/imp_tools.py"],
+    "On the default skeleton of each test input: the branch points imp_tools.branchedPoints "
+    "finds, those only the four rotations of the diagonal Y kernel find, and the number of "
+    "8-connected skeleton neighbours of each of the latter.",
+)
+def diagonal_ybranch() -> dict:
+    import numpy as np
+    from scipy import ndimage as ndi
+    from lib import imp_tools
+
+    kernel = np.array([[0, 1, 2], [1, 1, 2], [2, 2, 1]])
+    rotations = [imp_tools._to_cv2_hitmiss_kernel(np.rot90(kernel, k=r)) for r in range(4)]
+    others = [p for p in imp_tools._BRANCH_PATTERNS
+              if not any(p.shape == q.shape and (p == q).all() for q in rotations)]
+    assert len(others) == len(imp_tools._BRANCH_PATTERNS) - 4, "the diagonal Y kernel was not found"
+    values: dict = {}
+    total = only_total = below = 0
+    for name, rel in _all_test_inputs().items():
+        skel = (np.asarray(_default_bundle(rel)["skeletonized"]) > 0).astype(np.uint8)
+        found = imp_tools.branchedPoints(skel).astype(bool)
+        only = found & ~imp_tools._hitmiss_union(skel, others).astype(bool)
+        degree = ndi.convolve(skel.astype(int), np.ones((3, 3), int), mode="constant") - skel
+        values[f"{name}.branch_points"] = int(found.sum())
+        values[f"{name}.only_diagonal_y"] = int(only.sum())
+        total += int(found.sum())
+        only_total += int(only.sum())
+        below += int((degree[only] < 3).sum())
+    values["all.branch_points"] = total
+    values["all.only_diagonal_y"] = only_total
+    values["all.only_diagonal_y_below_3_neighbours"] = below
+    return values
+
+
+# The fiber a frame margin of 3 to 5 px adds on the Bruker scan, by its anchor
+# (`lib.fiber_selection.fiber_anchor`), as judged when rendered over the
+# calibrated height image (2026-10-07): a 13-pixel fragment between crossings
+# that runs along the left border 3-8 px from it rather than out of the scan.
+# A different set fails the experiment, so a change in which fibers a margin
+# adds forces a new look.
+# 余白 3〜5 px で Bruker スキャンに加わる繊維（アンカーで示す）。補正後の高さ画像に
+# 重ねて描いて判断したもの（2026-10-07）。交差の間にある 13 画素の断片で、走査範囲の
+# 外へ出るのではなく、左端から 3〜8 px のところを端に沿って走る。集合が変わると実験は
+# 失敗するので、余白が加える繊維が変われば見直しが強制される。
+FRAME_MARGIN_ADDED_INSPECTED = {("NDTOC", (5, 173))}
+
+
+@experiment(
+    "frame_margin",
+    ["lib/pipeline.py", "lib/measure.py"],
+    "The frame test of measure.isolated_fiber_flags on the traced fibers of each test "
+    "input, with the frame widened to a margin of 0 to 5 px: how many fibers reach it, and "
+    "how many verdicts differ from the margin of 0 px the code uses; the fibers a margin "
+    "adds are checked against FRAME_MARGIN_ADDED_INSPECTED.",
+)
+def frame_margin() -> dict:
+    import numpy as np
+    import kink_reference_score as krs
+    from lib import measure
+    from lib.fiber import skeleton_track
+    from lib.fiber_selection import fiber_anchor
+    from lib.pipeline import ProcParams
+
+    values: dict = {}
+    added = set()
+    cache = str(WORK / "kink_reference_half_max_025w")
+    for name in krs.SCANS:
+        image, fibers = krs.prepare_scan(name, cache, ProcParams())
+        height, width = measure._image_frame_shape(image)
+        base = np.array([measure._reaches_frame(f, (height, width)) for f in fibers])
+        values[f"{name}.fibers"] = len(fibers)
+        for margin in range(6):
+            flags = []
+            for f in fibers:
+                sx, sy = skeleton_track(f)
+                gx, gy = sx + f.data[0], sy + f.data[1]
+                flags.append(bool(gx.size) and bool(
+                    gx.min() <= margin or gy.min() <= margin
+                    or gx.max() >= width - 1 - margin or gy.max() >= height - 1 - margin))
+            flags = np.array(flags)
+            if margin == 0:
+                assert (flags == base).all(), "the margin-0 test differs from _reaches_frame"
+            values[f"{name}.margin_{margin}.reaching"] = int(flags.sum())
+            values[f"{name}.margin_{margin}.changed"] = int((flags != base).sum())
+            added |= {(name, fiber_anchor(fibers[i])) for i in np.flatnonzero(flags & ~base)}
+    assert added == FRAME_MARGIN_ADDED_INSPECTED, (
+        f"a frame margin adds {sorted(added)}; render them over the height image and "
+        "update FRAME_MARGIN_ADDED_INSPECTED")
+    values["all.changed_up_to_2"] = sum(
+        values[f"{n}.margin_{m}.changed"] for n in krs.SCANS for m in (1, 2))
+    values["all.changed_at_5"] = sum(values[f"{n}.margin_5.changed"] for n in krs.SCANS)
+    return values
+
+
+# The line boundaries the stripe-noise screening flags on each test input, as
+# judged when every input's raw heights and step profile were rendered
+# (2026-10-07), with the flagged rows of the higher-plant scan and the largest
+# unflagged step (tunicate scan, rows 959-970) examined close up. The two
+# flagged boundaries enclose rows displaced by about 5.5 nm across the whole
+# width, a feedback glitch; the tunicate step comes from material that shifts
+# the median of a steeply tilted raw line, with no band in the heights once a
+# plane is removed. A different set fails the experiment.
+# 縞ノイズ検査が各テスト入力で検出する走査線境界。全入力の生の高さと段差の推移を
+# 描き、高等植物スキャンの検出行と、検出されない最大の段差（tunicate スキャン、
+# 959〜970 行）を拡大して判断したもの（2026-10-07）。検出される 2 つの境界は、
+# 全幅にわたり約 5.5 nm ずれた行を挟んでおり、フィードバックのグリッチである。
+# tunicate の段差は、強く傾いた生の行の中央値を物質がずらすことによるもので、
+# 平面を引いた高さに帯は無い。集合が変わると実験は失敗する。
+STRIPE_GLITCH_BOUNDARIES_INSPECTED = {
+    "hplantTOC": (823, 826), "tunicate": (), "NDTOC": (), "art_iso": (), "art_aniso": (),
+}
+
+
+@experiment(
+    "stripe_threshold",
+    ["lib/stripe_noise.py", "lib/afm_io.py"],
+    "stripe_noise.evaluate_scan_lines at the default threshold on the raw heights of each "
+    "test input, as GUI01 screens them: the flagged line boundaries (checked against "
+    "STRIPE_GLITCH_BOUNDARIES_INSPECTED), the smallest flagged step, and the largest and "
+    "99th-percentile step among the boundaries that are not flagged.",
+)
+def stripe_threshold() -> dict:
+    import numpy as np
+    from lib.afm_io import load_afm_image
+    from lib.stripe_noise import evaluate_scan_lines
+
+    values: dict = {}
+    for name, rel in _all_test_inputs().items():
+        quality = evaluate_scan_lines(load_afm_image(str(ROOT / rel)))
+        steps = quality.step_nm
+        flagged = steps > quality.threshold_nm
+        assert tuple(np.flatnonzero(flagged)) == STRIPE_GLITCH_BOUNDARIES_INSPECTED[name], (
+            f"{name}: flagged boundaries changed; render them and update "
+            "STRIPE_GLITCH_BOUNDARIES_INSPECTED")
+        values[f"{name}.flagged"] = int(flagged.sum())
+        values[f"{name}.flagged_min_step_nm"] = float(steps[flagged].min()) if flagged.any() else None
+        values[f"{name}.unflagged_max_step_nm"] = float(steps[~flagged].max())
+        values[f"{name}.unflagged_p99_step_nm"] = float(np.percentile(steps[~flagged], 99))
+    values["threshold_nm"] = float(quality.threshold_nm)
+    return values
+
+
+# The fiber on the tunicate scan that loses the most reliable points when the
+# cross-section width limit is applied to each half instead of the full width,
+# by its anchor, as judged when rendered over the calibrated height image with
+# its cross-sections (2026-10-07): the lost points are the straight stretch from
+# its corner to the right border, a single fiber crossed once, whose sections
+# are single-peaked with the crest about 0.15 widths off the middle.
+# 断面幅の上限を全幅ではなく各半分に課したときに、tunicate スキャンで信頼できる点を
+# 最も多く失う繊維（アンカーで示す）。補正後の高さ画像と断面を描いて判断したもの
+# （2026-10-07）。失われる点は角から右端までの直線区間で、1 回交差されるだけの
+# 1 本の繊維であり、その断面は単峰で頂点が中央から約 0.15 幅ずれている。
+SECTION_MOST_LOST_INSPECTED = ("tunicate", (567, 375))
+
+
+@experiment(
+    "section_width_limit",
+    ["lib/pipeline.py", "lib/measure.py", "lib/centerline.py"],
+    "The share of centerline points located on their own cross-section (Fiber.line_reliable) "
+    "on each test input, with the width limit of centerline._refine applied to the full "
+    "width at half maximum, as the code does, and to each half (0.75 widths from the "
+    "crest); the fiber of the tunicate scan that loses the most points is checked against "
+    "SECTION_MOST_LOST_INSPECTED.",
+)
+def section_width_limit() -> dict:
+    import inspect
+    import textwrap
+    import numpy as np
+    import kink_reference_score as krs
+    from lib import centerline as cl
+    from lib.fiber_selection import fiber_anchor
+    from lib.pipeline import ProcParams
+
+    source = textwrap.dedent(inspect.getsource(cl._refine))
+    full = "narrow = (xr - xl) <= _MAX_SECTION_WIDTHS * width"
+    assert source.count(full) == 1, "the width limit was not found"
+    per_half = ("narrow = ((s[k[r]] - xl) <= 0.5 * _MAX_SECTION_WIDTHS * width) & "
+                "((xr - s[k[r]]) <= 0.5 * _MAX_SECTION_WIDTHS * width)")
+    namespace = dict(vars(cl))
+    exec(compile(source.replace(full, per_half), "<per-half limit>", "exec"), namespace)
+
+    cache = str(WORK / "kink_reference_half_max_025w")
+    traced = {}
+    original = cl._refine
+    for mode in ("full", "half"):
+        cl._refine = original if mode == "full" else namespace["_refine"]
+        try:
+            for name in krs.SCANS:
+                _image, fibers = krs.prepare_scan(name, cache, ProcParams())
+                traced[mode, name] = fibers
+        finally:
+            cl._refine = original
+
+    values: dict = {}
+    for name in krs.SCANS:
+        full_rel = [np.asarray(f.line_reliable, bool) for f in traced["full", name]]
+        half_rel = [np.asarray(f.line_reliable, bool) for f in traced["half", name]]
+        a, b = np.concatenate(full_rel), np.concatenate(half_rel)
+        values[f"{name}.points"] = int(a.size)
+        values[f"{name}.reliable_full_percent"] = 100.0 * float(a.mean())
+        values[f"{name}.reliable_half_percent"] = 100.0 * float(b.mean())
+        values[f"{name}.lost"] = int((a & ~b).sum())
+        values[f"{name}.gained"] = int((b & ~a).sum())
+        if name == SECTION_MOST_LOST_INSPECTED[0]:
+            lost = [int((x & ~y).sum()) for x, y in zip(full_rel, half_rel)]
+            worst = int(np.argmax(lost))
+            assert fiber_anchor(traced["full", name][worst]) == SECTION_MOST_LOST_INSPECTED[1], (
+                "the fiber losing the most points changed; render it and update "
+                "SECTION_MOST_LOST_INSPECTED")
+            values[f"{name}.most_lost.points"] = int(full_rel[worst].size)
+            values[f"{name}.most_lost.lost"] = lost[worst]
+    return values
+
+
 # ----------------------------------------------------------------------------
 # Recording
 # ----------------------------------------------------------------------------

@@ -248,6 +248,136 @@ def _bound_names(stmt: ast.stmt) -> List[str]:
     return names
 
 
+def _is_type_checking_block(node: ast.AST) -> bool:
+    """
+    Whether a statement is an ``if TYPE_CHECKING:`` block with no ``else``.
+    文が ``else`` を持たない ``if TYPE_CHECKING:`` ブロックかどうか。
+
+    Its body never runs, so what it imports exists only for annotations.
+    その本体は実行されないため、そこで import するものは注釈のためにしか存在しない。
+    """
+    if not isinstance(node, ast.If) or node.orelse:
+        return False
+    test = node.test
+    return ((isinstance(test, ast.Name) and test.id == "TYPE_CHECKING")
+            or (isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"))
+
+
+def _runtime_names(node: ast.AST) -> set:
+    """
+    Every bare name and attribute a node mentions outside annotations.
+    注釈の外でノードが言及する、すべての名前と属性名。
+
+    Argument and return annotations, and ``if TYPE_CHECKING:`` blocks, are
+    skipped: a name mentioned only there takes no part in the computation, so
+    adding the import that provides it cannot change what the code computes.
+    引数と戻り値の注釈、および ``if TYPE_CHECKING:`` ブロックは飛ばす。そこでしか
+    言及されない名前は計算に関与しないため、それを提供する import を加えても
+    コードの計算は変わらない。
+    """
+    found: set = set()
+    stack = [node]
+    while stack:
+        sub = stack.pop()
+        if isinstance(sub, ast.Name):
+            found.add(sub.id)
+        elif isinstance(sub, ast.Attribute):
+            found.add(sub.attr)
+        if _is_type_checking_block(sub):
+            continue
+        for field, value in ast.iter_fields(sub):
+            if (field == "annotation" and isinstance(sub, ast.arg)) or (
+                    field == "returns"
+                    and isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef))):
+                continue
+            if isinstance(value, ast.AST):
+                stack.append(value)
+            elif isinstance(value, list):
+                stack.extend(v for v in value if isinstance(v, ast.AST))
+    return found
+
+
+def _char_offset(line: str, byte_col: int) -> int:
+    """Convert an `ast` column (UTF-8 bytes) into a character index of `line`."""
+    return len(line.encode("utf-8")[:byte_col].decode("utf-8", errors="ignore"))
+
+
+def _signatures_without_annotations(source: str, tree: ast.Module,
+                                    lines: List[str]) -> List[str]:
+    """
+    Return `lines` with each function signature reduced to an annotation-free form.
+    各関数シグネチャを注釈なしの形に縮めた `lines` を返す。
+
+    Argument and return annotations are removed, and so is the whitespace of
+    the signature and a trailing comma before its closing parenthesis, because
+    adding an annotation typically rewraps the signature and respaces its
+    defaults (``x=3`` becomes ``x: int = 3``). The reduced signature replaces
+    the ``def`` line and the signature's continuation lines become blank, so
+    every other line keeps its number. Decorators and the body are untouched.
+    引数と戻り値の注釈を除き、シグネチャ内の空白と閉じ括弧直前の末尾カンマも
+    除く。注釈を付けるとシグネチャの折り返しや既定値まわりの空白（``x=3`` が
+    ``x: int = 3`` になる）も変わるのが普通だからである。縮めたシグネチャで
+    ``def`` 行を置き換え、続きの行は空にするので、他の行の行番号は変わらない。
+    デコレータと本体には触れない。
+
+    Notes
+    -----
+    Annotations take no part in what this project computes: nothing reads
+    them at run time (no ``functools.singledispatch``, no
+    ``typing.get_type_hints``). Annotations of assignments are kept, because a
+    dataclass field exists only through its annotation.
+    このプロジェクトの計算に注釈は関与しない。実行時に注釈を読むもの
+    （``functools.singledispatch``、``typing.get_type_hints``）は使っていない。
+    代入の注釈は残す。dataclass のフィールドは注釈によってのみ存在するためである。
+    """
+    original = source.splitlines()
+    out = list(lines)
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        first, last = node.lineno, node.body[0].lineno - 1
+        if last < first:
+            # A one-line definition (``def f(): pass``) has no header of its own.
+            # 1 行の定義（``def f(): pass``）には独立したヘッダ行が無い。
+            continue
+        starts = []
+        pos = 0
+        for number in range(first, last + 1):
+            starts.append(pos)
+            pos += len(out[number - 1]) + 1
+        header = "\n".join(out[number - 1] for number in range(first, last + 1))
+
+        def offset(lineno: int, byte_col: int) -> int:
+            return (starts[lineno - first]
+                    + _char_offset(original[lineno - 1], byte_col))
+
+        spans = []
+        args = node.args
+        for arg in (args.posonlyargs + args.args + args.kwonlyargs
+                    + [a for a in (args.vararg, args.kwarg) if a is not None]):
+            if arg.annotation is not None:
+                name_end = arg.col_offset + len(arg.arg.encode("utf-8"))
+                spans.append((offset(arg.lineno, name_end),
+                              offset(arg.annotation.end_lineno,
+                                     arg.annotation.end_col_offset)))
+        if node.returns is not None:
+            end = offset(node.returns.end_lineno, node.returns.end_col_offset)
+            arrow = header.rfind("->", 0, offset(node.returns.lineno,
+                                                 node.returns.col_offset))
+            if arrow >= 0:
+                spans.append((arrow, end))
+        for start, end in sorted(spans, reverse=True):
+            header = header[:start] + header[end:]
+        header = re.sub(r"\s+", "", header)
+        close = header.rfind(")")
+        if close > 0 and header[close - 1] == ",":
+            header = header[:close - 1] + header[close:]
+        out[first - 1] = header
+        for number in range(first + 1, last + 1):
+            out[number - 1] = ""
+    return out
+
+
 def code_symbol_digests(source: str) -> Dict[str, str]:
     """
     Fingerprint every definition of a module separately.
@@ -256,24 +386,29 @@ def code_symbol_digests(source: str) -> Dict[str, str]:
     Keys are top-level functions and constants (``name``), class methods and
     constants (``Class.name``), a class's remaining body (``Class.<body>``),
     imported names (``import:name``), and `MODULE_STATEMENTS`. Comments,
-    docstrings and blank lines are ignored, as in `symbol_digest`.
+    docstrings and blank lines are ignored, as in `symbol_digest`; unlike it,
+    so are function annotations (`_signatures_without_annotations`) and
+    ``if TYPE_CHECKING:`` blocks.
     キーは、トップレベルの関数と定数（``name``）、クラスのメソッドと定数
     （``Class.name``）、クラス本体の残り（``Class.<body>``）、import した名前
     （``import:name``）、および `MODULE_STATEMENTS` である。`symbol_digest` と
-    同じくコメント・docstring・空行は無視する。
+    同じくコメント・docstring・空行は無視し、それと違って関数の注釈
+    （`_signatures_without_annotations`）と ``if TYPE_CHECKING:`` ブロックも無視する。
 
     Notes
     -----
     Per-definition fingerprints are what let `computation_changes` tell a
     change to the existing computation from an addition nothing uses: a single
     module fingerprint moves for both, which blocked comment-free but
-    behaviour-preserving edits such as a deprecated alias.
+    behaviour-preserving edits such as a deprecated alias. Annotations are left
+    out for the same reason: correcting a type hint cannot change a number.
     定義ごとの指紋によって、`computation_changes` は既存の計算への変更と、何も
     使わない追加とを見分けられる。モジュール全体の指紋では両方で動いてしまい、
-    非推奨の別名のように挙動を変えない編集まで止めていた。
+    非推奨の別名のように挙動を変えない編集まで止めていた。注釈を除くのも同じ
+    理由で、型ヒントを直しても数値は変わらないためである。
     """
     tree = ast.parse(source)
-    lines = _code_lines(source)
+    lines = _signatures_without_annotations(source, tree, _code_lines(source))
     skip = _docstring_lines(tree)
     body = tree.body
     if (body and isinstance(body[0], ast.Expr)
@@ -324,6 +459,8 @@ def code_symbol_digests(source: str) -> Dict[str, str]:
                 spec = f"{module}:{alias.name}" if isinstance(stmt, ast.ImportFrom) else alias.name
                 put(f"import:{bound}",
                     hashlib.sha256(spec.encode("utf-8")).hexdigest())
+        elif _is_type_checking_block(stmt):
+            continue
         else:
             loose.append(_node_digest(lines, stmt, skip))
     out[MODULE_STATEMENTS] = hashlib.sha256("\n".join(loose).encode("utf-8")).hexdigest()
@@ -331,17 +468,13 @@ def code_symbol_digests(source: str) -> Dict[str, str]:
 
 
 def _referenced_names(source: str, keys: Iterable[str]) -> set:
-    """Every bare name and attribute the given definitions mention."""
+    """Every bare name and attribute the given definitions mention outside annotations."""
     tree = ast.parse(source)
     wanted = set(keys)
     found: set = set()
 
     def visit(node: ast.AST) -> None:
-        for sub in ast.walk(node):
-            if isinstance(sub, ast.Name):
-                found.add(sub.id)
-            elif isinstance(sub, ast.Attribute):
-                found.add(sub.attr)
+        found.update(_runtime_names(node))
 
     for stmt in tree.body:
         if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -422,6 +555,17 @@ def computation_changes(
     既存のコードが既に言及している名前を新たにトップレベルに定義した場合は、
     そのコードが無変更でも報告する。その名前が以前指していたもの（組み込み関数や
     import した名前）を覆い隠すためである。
+
+    Function annotations and ``if TYPE_CHECKING:`` blocks are not part of the
+    fingerprint (`code_symbol_digests`), and a name mentioned only in them does
+    not count as used, so adding or correcting a type hint, with the import it
+    needs, is not reported. Removing an import is still reported, because the
+    recorded fingerprint cannot tell what the name was used for.
+    関数の注釈と ``if TYPE_CHECKING:`` ブロックは指紋に含めず
+    （`code_symbol_digests`）、そこでしか言及されない名前は使われたとみなさない。
+    そのため、型ヒントの追加や修正は、それに必要な import を含めて報告しない。
+    import の削除は引き続き報告する。記録された指紋からは、その名前が何に
+    使われていたかが分からないためである。
     """
     current = code_symbol_digests(source)
     out = [f"changed {key}" for key in recorded
@@ -479,13 +623,14 @@ def project_code_paths(root: Path = ROOT) -> List[str]:
 
 def names_used_in(sources: Iterable[str]) -> set:
     """
-    Every bare name and attribute mentioned anywhere in the given sources.
-    与えたソースのどこかで言及される、すべての名前と属性名。
+    Every bare name and attribute mentioned in the given sources outside annotations.
+    与えたソースで注釈の外に言及される、すべての名前と属性名。
 
     Unparsable sources are skipped: a syntax error is reported by the tests,
-    and a reminder must not fail because of it.
+    and a reminder must not fail because of it. Annotations are skipped as in
+    `_runtime_names`.
     構文解析できないソースは飛ばす。構文エラーはテストが報告し、通知がそれで
-    失敗してはならない。
+    失敗してはならない。注釈は `_runtime_names` と同じく飛ばす。
     """
     found: set = set()
     for source in sources:
@@ -493,11 +638,7 @@ def names_used_in(sources: Iterable[str]) -> set:
             tree = ast.parse(source)
         except SyntaxError:
             continue
-        for sub in ast.walk(tree):
-            if isinstance(sub, ast.Name):
-                found.add(sub.id)
-            elif isinstance(sub, ast.Attribute):
-                found.add(sub.attr)
+        found.update(_runtime_names(tree))
     return found
 
 

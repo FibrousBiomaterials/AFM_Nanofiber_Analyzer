@@ -321,10 +321,10 @@ _FRAME_SIGMA_WIDTHS = 0.25
 # 上限は各半分ではなく半値全幅に課す。AFM の断面はしばしば非対称で、片側の斜面が
 # ゆっくり下がるためである。分岐の下で並んで走る 2 本の繊維は 1.5 幅より広く、
 # medial axis のように真ん中で分けられるのではなく、信頼できない区間として扱われる。
-# TODO(review): that requiring each half to stay within 0.75 widths marked much
-# of a clean single fiber unreliable was observed on a bundled scan, but no
-# experiment in scripts/measure_docs.py records it, so it is not stated here
-# until one does.
+# A limit on each half is compared on the bundled scans in docs/validation.md
+# §4.12.
+# 各半分に上限を課した場合との比較は、同梱スキャンで docs/validation.ja.md §4.12
+# にある。
 _CREST_REACH_WIDTHS = 0.75
 _HALF_MAX_REACH_WIDTHS = 1.5
 _MAX_SECTION_WIDTHS = 1.5

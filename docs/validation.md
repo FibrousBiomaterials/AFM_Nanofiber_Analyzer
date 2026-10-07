@@ -84,8 +84,8 @@ opening the raw heights with the 25<!--c:lib/pipeline.py::ProcParams.tophat_se_s
 ### 1.5 Run time
 
 Measured on the bundled 1024<!--m:bg_timing.image_rows-->×1024<!--m:bg_timing.image_cols--> Bruker scan (second of two runs each),
-`tophat` took about 0.5<!--m:bg_timing.tophat.seconds--> s, `trendfill` about 1.2<!--m:bg_timing.trendfill.seconds--> s, and `spline1d` about
-2.6<!--m:bg_timing.spline1d.seconds--> s; in `trendfill`, the `lmfit` histogram fit took about half as long as
+`tophat` took about 0.5<!--m:bg_timing.tophat.seconds--> s, `trendfill` about 1.0<!--m:bg_timing.trendfill.seconds--> s, and `spline1d` about
+2.3<!--m:bg_timing.spline1d.seconds--> s; in `trendfill`, the `lmfit` histogram fit took about half as long as
 `_bg_generate` (experiment bg_timing). These are wall times on one machine
 and vary with the machine and its load.
 
@@ -231,11 +231,11 @@ on one machine and vary with the machine and its load.
 
 | Input | Components of 1000<!--n:literal in the quoted code--> px or more | Of those, removed if tested | Time as in the code (s) | Time testing all (s) |
 |---|---|---|---|---|
-| tunicate CNF | 9<!--m:linearity_large_exemption.tunicate.large_components--> | 0<!--m:linearity_large_exemption.tunicate.large_removed_if_tested--> | 0.081<!--m:linearity_large_exemption.tunicate.code.seconds--> | 1.678<!--m:linearity_large_exemption.tunicate.all.seconds--> |
-| artificial, isotropic | 1<!--m:linearity_large_exemption.art_iso.large_components--> | 0<!--m:linearity_large_exemption.art_iso.large_removed_if_tested--> | 0.013<!--m:linearity_large_exemption.art_iso.code.seconds--> | 0.061<!--m:linearity_large_exemption.art_iso.all.seconds--> |
-| artificial, anisotropic | 3<!--m:linearity_large_exemption.art_aniso.large_components--> | 0<!--m:linearity_large_exemption.art_aniso.large_removed_if_tested--> | 0.013<!--m:linearity_large_exemption.art_aniso.code.seconds--> | 0.116<!--m:linearity_large_exemption.art_aniso.all.seconds--> |
-| higher-plant TOC | 4<!--m:linearity_large_exemption.hplantTOC.large_components--> | 0<!--m:linearity_large_exemption.hplantTOC.large_removed_if_tested--> | 0.116<!--m:linearity_large_exemption.hplantTOC.code.seconds--> | 0.353<!--m:linearity_large_exemption.hplantTOC.all.seconds--> |
-| Bruker NDTOC | 15<!--m:linearity_large_exemption.NDTOC.large_components--> | 0<!--m:linearity_large_exemption.NDTOC.large_removed_if_tested--> | 1.622<!--m:linearity_large_exemption.NDTOC.code.seconds--> | 3.794<!--m:linearity_large_exemption.NDTOC.all.seconds--> |
+| tunicate CNF | 9<!--m:linearity_large_exemption.tunicate.large_components--> | 0<!--m:linearity_large_exemption.tunicate.large_removed_if_tested--> | 0.071<!--m:linearity_large_exemption.tunicate.code.seconds--> | 1.386<!--m:linearity_large_exemption.tunicate.all.seconds--> |
+| artificial, isotropic | 1<!--m:linearity_large_exemption.art_iso.large_components--> | 0<!--m:linearity_large_exemption.art_iso.large_removed_if_tested--> | 0.011<!--m:linearity_large_exemption.art_iso.code.seconds--> | 0.053<!--m:linearity_large_exemption.art_iso.all.seconds--> |
+| artificial, anisotropic | 3<!--m:linearity_large_exemption.art_aniso.large_components--> | 0<!--m:linearity_large_exemption.art_aniso.large_removed_if_tested--> | 0.011<!--m:linearity_large_exemption.art_aniso.code.seconds--> | 0.093<!--m:linearity_large_exemption.art_aniso.all.seconds--> |
+| higher-plant TOC | 4<!--m:linearity_large_exemption.hplantTOC.large_components--> | 0<!--m:linearity_large_exemption.hplantTOC.large_removed_if_tested--> | 0.097<!--m:linearity_large_exemption.hplantTOC.code.seconds--> | 0.278<!--m:linearity_large_exemption.hplantTOC.all.seconds--> |
+| Bruker NDTOC | 15<!--m:linearity_large_exemption.NDTOC.large_components--> | 0<!--m:linearity_large_exemption.NDTOC.large_removed_if_tested--> | 1.363<!--m:linearity_large_exemption.NDTOC.code.seconds--> | 3.123<!--m:linearity_large_exemption.NDTOC.all.seconds--> |
 On no input would testing the large components have removed any of them, while
 testing them made the filter take several times longer, and over ten times
 longer on the tunicate scan, because the Hough transform of a large crop is slow. A large
@@ -320,6 +320,18 @@ Rendered, the narrower branch-pruning margin removed short arms running into the
 border, and the wider spur-pruning margin kept short spurs next to the border
 that the code removes. Either way the change stays within a band along the
 border; no reason for the two margins to differ was found.
+
+### 3.6 The diagonal Y kernel of the branch-point search
+
+`imp_tools.branchedPoints` matches the skeleton against hit-or-miss kernels. One
+of them, the diagonal Y kernel, leaves 4<!--n:definition--> of its 9<!--n:definition--> cells free so that it catches Y
+junctions at angles the axis-aligned kernels miss. On the default skeleton of
+each test input (experiment diagonal_ybranch) it was the only kernel to find
+58<!--m:diagonal_ybranch.all.only_diagonal_y--> of the 115<!--m:diagonal_ybranch.all.branch_points--> branch points: 16<!--m:diagonal_ybranch.tunicate.only_diagonal_y--> of 33<!--m:diagonal_ybranch.tunicate.branch_points--> on the tunicate scan, 3<!--m:diagonal_ybranch.hplantTOC.only_diagonal_y--> of 5<!--m:diagonal_ybranch.hplantTOC.branch_points--> on the
+higher-plant TOC scan and 39<!--m:diagonal_ybranch.NDTOC.only_diagonal_y--> of 77<!--m:diagonal_ybranch.NDTOC.branch_points--> on the Bruker scan; the artificial scans have
+no branch point. Each pixel only this kernel finds has at least three
+8<!--n:definition-->-connected skeleton neighbours (pixels with fewer: 0<!--m:diagonal_ybranch.all.only_diagonal_y_below_3_neighbours-->), so none of them lies on a
+plain stretch of the skeleton, where a pixel has two.
 
 ## 4. Centerline and kinks
 
@@ -567,3 +579,73 @@ Rendered as profiles, the height at a cut end is raised above the fiber's own
 height and falls back within about one width, while free ends show no such rise:
 the skirt of the other fiber at the crossing reaches past the pixels cleared at
 the branch point.
+
+### 4.12 The width limit of a cross-section
+
+`centerline._refine` takes a cross-section as this fiber's only when its full
+width at half maximum is at most 1.5<!--c:lib/centerline.py::_MAX_SECTION_WIDTHS--> W; the limit is not applied to each half
+of it. With each half limited instead to 0.75<!--c:lib/centerline.py::_MAX_SECTION_WIDTHS|v / 2--> W from the crest (experiment
+section_width_limit), the share of centerline points located on their own
+section fell on every test input and rose on none:
+
+| Input | Points | Located, full width (%) | Located, each half (%) |
+|---|---|---|---|
+| tunicate CNF | 7814<!--m:section_width_limit.tunicate.points--> | 87.3<!--m:section_width_limit.tunicate.reliable_full_percent--> | 82.4<!--m:section_width_limit.tunicate.reliable_half_percent--> |
+| artificial, isotropic | 436<!--m:section_width_limit.art_iso.points--> | 97.9<!--m:section_width_limit.art_iso.reliable_full_percent--> | 95.9<!--m:section_width_limit.art_iso.reliable_half_percent--> |
+| artificial, anisotropic | 963<!--m:section_width_limit.art_aniso.points--> | 98.4<!--m:section_width_limit.art_aniso.reliable_full_percent--> | 96.7<!--m:section_width_limit.art_aniso.reliable_half_percent--> |
+| higher-plant TOC | 1764<!--m:section_width_limit.hplantTOC.points--> | 91.4<!--m:section_width_limit.hplantTOC.reliable_full_percent--> | 88.3<!--m:section_width_limit.hplantTOC.reliable_half_percent--> |
+| Bruker NDTOC | 8601<!--m:section_width_limit.NDTOC.points--> | 81.4<!--m:section_width_limit.NDTOC.reliable_full_percent--> | 74.9<!--m:section_width_limit.NDTOC.reliable_half_percent--> |
+
+The fiber of the tunicate scan that loses the most points, 146<!--m:section_width_limit.tunicate.most_lost.lost--> of its 919<!--m:section_width_limit.tunicate.most_lost.points-->,
+was rendered over the calibrated height image with its cross-sections. The
+points it loses are the straight stretch from its corner to the right border: a
+single fiber, crossed once by another, whose sections are single-peaked with the
+crest a little off the middle, so that one half is wider than 0.75<!--c:lib/centerline.py::_MAX_SECTION_WIDTHS|v / 2--> W while the
+full width stays within 1.5<!--c:lib/centerline.py::_MAX_SECTION_WIDTHS--> W.
+
+## 5. Stripe-noise screening
+
+### 5.1 The step threshold
+
+`stripe_noise.evaluate_scan_lines` flags the boundary between two scan lines
+whose median heights differ by more than 3<!--c:lib/stripe_noise.py::DEFAULT_STEP_THRESHOLD_NM--> nm. On the raw heights of each test
+input, as GUI01 screens them (experiment stripe_threshold):
+
+| Input | Flagged boundaries | Smallest flagged step (nm) | Largest unflagged step (nm) | Unflagged steps, percentile 99<!--n:definition--> (nm) |
+|---|---|---|---|---|
+| tunicate CNF | 0<!--m:stripe_threshold.tunicate.flagged--> | — | 2.71<!--m:stripe_threshold.tunicate.unflagged_max_step_nm--> | 1.24<!--m:stripe_threshold.tunicate.unflagged_p99_step_nm--> |
+| artificial, isotropic | 0<!--m:stripe_threshold.art_iso.flagged--> | — | 1.59<!--m:stripe_threshold.art_iso.unflagged_max_step_nm--> | 1.03<!--m:stripe_threshold.art_iso.unflagged_p99_step_nm--> |
+| artificial, anisotropic | 0<!--m:stripe_threshold.art_aniso.flagged--> | — | 1.59<!--m:stripe_threshold.art_aniso.unflagged_max_step_nm--> | 1.03<!--m:stripe_threshold.art_aniso.unflagged_p99_step_nm--> |
+| higher-plant TOC | 2<!--m:stripe_threshold.hplantTOC.flagged--> | 5.53<!--m:stripe_threshold.hplantTOC.flagged_min_step_nm--> | 0.21<!--m:stripe_threshold.hplantTOC.unflagged_max_step_nm--> | 0.13<!--m:stripe_threshold.hplantTOC.unflagged_p99_step_nm--> |
+| Bruker NDTOC | 0<!--m:stripe_threshold.NDTOC.flagged--> | — | 0.23<!--m:stripe_threshold.NDTOC.unflagged_max_step_nm--> | 0.18<!--m:stripe_threshold.NDTOC.unflagged_p99_step_nm--> |
+
+Rendered, the two flagged boundaries of the higher-plant scan enclose rows
+displaced across the whole width, a feedback glitch. The largest unflagged
+step, on the tunicate scan, is not a glitch. That raw scan is steeply tilted
+along each line, so a line's median is the height at whichever column holds the
+middle-ranked value, and material crossing a few lines moves that column; with a
+plane removed, the heights show no band there. On that scan the threshold sits
+only 0.29<!--x:3 - 2.70925--> nm above a step that is not a glitch.
+
+## 6. The isolation test of GUI04
+
+### 6.1 The frame
+
+`measure.isolated_fiber_flags` takes a fiber whose skeleton pixels reach the
+outermost row or column as continuing outside the scan, with no margin. The
+frame was widened to a margin of 1<!--n:value tried--> to 5<!--n:value tried--> px on the traced fibers of each test
+input (experiment frame_margin):
+
+| Input | Fibers | Reaching the frame, no margin | 2<!--n:value tried--> px margin | 5<!--n:value tried--> px margin |
+|---|---|---|---|---|
+| tunicate CNF | 60<!--m:frame_margin.tunicate.fibers--> | 16<!--m:frame_margin.tunicate.margin_0.reaching--> | 16<!--m:frame_margin.tunicate.margin_2.reaching--> | 16<!--m:frame_margin.tunicate.margin_5.reaching--> |
+| artificial, isotropic | 3<!--m:frame_margin.art_iso.fibers--> | 3<!--m:frame_margin.art_iso.margin_0.reaching--> | 3<!--m:frame_margin.art_iso.margin_2.reaching--> | 3<!--m:frame_margin.art_iso.margin_5.reaching--> |
+| artificial, anisotropic | 4<!--m:frame_margin.art_aniso.fibers--> | 4<!--m:frame_margin.art_aniso.margin_0.reaching--> | 4<!--m:frame_margin.art_aniso.margin_2.reaching--> | 4<!--m:frame_margin.art_aniso.margin_5.reaching--> |
+| higher-plant TOC | 14<!--m:frame_margin.hplantTOC.fibers--> | 2<!--m:frame_margin.hplantTOC.margin_0.reaching--> | 2<!--m:frame_margin.hplantTOC.margin_2.reaching--> | 2<!--m:frame_margin.hplantTOC.margin_5.reaching--> |
+| Bruker NDTOC | 139<!--m:frame_margin.NDTOC.fibers--> | 17<!--m:frame_margin.NDTOC.margin_0.reaching--> | 17<!--m:frame_margin.NDTOC.margin_2.reaching--> | 18<!--m:frame_margin.NDTOC.margin_5.reaching--> |
+
+Margins of 1<!--n:value tried--> and 2<!--n:value tried--> px changed no verdict (changes: 0<!--m:frame_margin.all.changed_up_to_2-->). From 3<!--n:value tried--> px on,
+1<!--m:frame_margin.all.changed_at_5--> fiber of the Bruker scan joins. Rendered over the calibrated height
+image, it is a short fragment between crossings that runs along the left border
+a few pixels from it rather than out of the scan, so a margin would count it as
+continuing outside the scan when it does not.

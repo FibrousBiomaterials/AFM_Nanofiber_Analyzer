@@ -18,12 +18,19 @@ SPM-9600、Bruker NanoScope のテキストエクスポート）のデータに�
 経由で引き続き利用できる。
 """
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import cv2
 from scipy import signal
 from scipy.ndimage import distance_transform_edt
 
 from .processed_image import ProcessedImage
+
+if TYPE_CHECKING:
+    # Annotation only: lmfit is imported inside `BGCalibrator._bg_fit`, the one
+    # place that needs it at run time, because importing it is slow.
+    from lmfit.model import ModelResult
 
 # Background-estimation methods, in the spelling written to `_param.json`.
 # 背景推定方式の一覧。`_param.json` へ書き出される綴りで保持する。
@@ -1073,9 +1080,9 @@ class BGCalibrator:
         self,
         dif_x: np.ndarray,
         dif_y: np.ndarray,
-        outx: float,
-        outy: float,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        outx: "ModelResult",
+        outy: "ModelResult",
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Separate differences into ternary categories using fitted thresholds.
         フィット結果のしきい値で差分を3値に分類する。
@@ -1088,15 +1095,12 @@ class BGCalibrator:
         dif_y
             Vertical difference image.
             垂直方向の差分画像。
-        outx : lmfit.model.ModelResult
+        outx
             Fit result for `dif_x` histogram.
             `dif_x` ヒストグラムのフィット結果。
-        outy : lmfit.model.ModelResult
+        outy
             Fit result for `dif_y` histogram.
             `dif_y` ヒストグラムのフィット結果。
-            TODO(review): the signature annotates `outx` and `outy` as
-            ``float``, while this docstring calls them fit results; author to
-            confirm which is intended.
 
         Returns
         -------

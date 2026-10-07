@@ -89,6 +89,60 @@ def test_a_new_public_definition_other_project_code_calls_is_reported():
     assert d.computation_changes(RECORDED, private, external={"_private"}) == []
 
 
+TYPED_BASE = (
+    "import numpy as np\n\n"
+    "def g(x, scale=2, *rest, **opts):\n"
+    "    return np.abs(x) * scale\n"
+)
+TYPED_RECORDED = d.code_symbol_digests(TYPED_BASE)
+
+
+@pytest.mark.parametrize("name, source", [
+    ("argument annotations", TYPED_BASE.replace(
+        "def g(x, scale=2, *rest, **opts):",
+        "def g(x: np.ndarray, scale: float = 2, *rest: int, **opts: str):")),
+    ("return annotation", TYPED_BASE.replace(
+        "**opts):", "**opts) -> np.ndarray:")),
+    ("annotations that rewrap the signature", TYPED_BASE.replace(
+        "def g(x, scale=2, *rest, **opts):",
+        "def g(\n    x: 'np.ndarray',\n    scale: float = 2,\n    *rest: int,\n"
+        "    **opts: str,\n) -> 'np.ndarray':")),
+    ("import used only in an annotation", TYPED_BASE.replace(
+        "import numpy as np\n", "import numpy as np\nfrom numpy.typing import ArrayLike\n").replace(
+        "def g(x,", "def g(x: ArrayLike,")),
+    ("TYPE_CHECKING block", TYPED_BASE.replace(
+        "import numpy as np\n", "import numpy as np\nfrom typing import TYPE_CHECKING\n"
+        "if TYPE_CHECKING:\n    from lmfit.model import ModelResult\n").replace(
+        "def g(x,", "def g(x: 'ModelResult',")),
+])
+def test_annotation_only_changes_pass(name, source):
+    """Correcting a type hint cannot change a number."""
+    assert d.computation_changes(TYPED_RECORDED, source) == [], name
+
+
+@pytest.mark.parametrize("source, expected", [
+    (TYPED_BASE.replace("scale=2", "scale: float = 3"), "changed g"),
+    (TYPED_BASE.replace("*rest,", ""), "changed g"),
+    (TYPED_BASE.replace("np.abs(x) * scale", "np.abs(x) + scale"), "changed g"),
+])
+def test_signature_changes_beside_annotations_are_reported(source, expected):
+    assert expected in d.computation_changes(TYPED_RECORDED, source)
+
+
+def test_a_one_element_tuple_default_is_not_taken_for_a_trailing_comma():
+    """Only the comma before the closing parenthesis of the signature is dropped."""
+    base = "def f(x, keep=('Pan',)):\n    return x\n"
+    assert d.computation_changes(d.code_symbol_digests(base),
+                                 base.replace("('Pan',)", "('Pan')")) == ["changed f"]
+
+
+def test_a_dataclass_field_annotation_still_counts():
+    """A dataclass field exists only through its annotation."""
+    base = "class P:\n    x: int = 3\n"
+    assert d.computation_changes(d.code_symbol_digests(base),
+                                 base.replace("x: int = 3", "x = 3")) == ["changed P.x"]
+
+
 def test_the_project_code_scan_stays_out_of_environments():
     paths = d.project_code_paths()
     assert "lib/centerline.py" in paths and "cli.py" in paths

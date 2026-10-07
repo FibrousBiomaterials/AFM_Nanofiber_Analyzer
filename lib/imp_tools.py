@@ -42,13 +42,11 @@ def _build_branch_patterns() -> list:
     vh_ybranch = np.array([[1, 0, 1], [0, 1, 0], [2, 1, 2]])
     # diagonal_ybranch is intentionally permissive (4 wildcard cells) so it
     # catches diagonally oriented Y-junctions the axis-aligned kernels miss.
+    # Whether the wildcards flag pixels that are not junctions is checked on the
+    # bundled scans in docs/validation.md §3.6.
     # diagonal_ybranch はワイルドカード 4 セルで意図的に緩く、軸平行カーネルが
-    # 取りこぼす斜め方向の Y 分岐を拾う。
-    # TODO(review): that every pixel only this kernel flags is a genuine local
-    # junction (skeleton-neighbor degree >= 3), so the wildcards create no
-    # spurious branch point, was checked on the bundled test scans; no
-    # experiment in scripts/measure_docs.py records it, so it is not stated
-    # here until one does.
+    # 取りこぼす斜め方向の Y 分岐を拾う。ワイルドカードが分岐でない画素を拾うか
+    # どうかは、同梱スキャンで docs/validation.ja.md §3.6 に確かめてある。
     diagonal_ybranch = np.array([[0, 1, 2], [1, 1, 2], [2, 2, 1]])
     vh_tbranch = np.array([[0, 0, 0], [1, 1, 1], [0, 1, 0]])
     diagonal_tbranch = np.array([[1, 0, 1], [0, 1, 0], [1, 0, 0]])

@@ -54,17 +54,16 @@ import numpy as np
 
 # Height step between neighboring scan lines, in nanometres, above which the
 # boundary is treated as a feedback glitch rather than sample topography.
-# Chosen to sit well above the line-to-line variation of a healthy scan and
-# well below a real glitch. It is a screening heuristic, not a physical
+# Chosen to sit between the line-to-line variation of a healthy scan and the
+# step of a real glitch; how far apart those are on the bundled scans is in
+# docs/validation.md §5.1. It is a screening heuristic, not a physical
 # constant, so it is exposed as a setting rather than hard-coded at the call
 # sites.
 # 隣接走査線間の高さ段差（nm）。これを超える境界は試料形状ではなくフィード
-# バック不良とみなす。健全な走査の線間変動より十分大きく、実際のグリッチより
-# 十分小さい値を選んだ。これは物理定数ではなく検査用の経験則なので、呼び出し側に
-# 直書きせず設定として露出する。
-# TODO(review): the steps of healthy and glitched lines on the bundled scans
-# were checked against this value, but no experiment in
-# scripts/measure_docs.py records them.
+# バック不良とみなす。健全な走査の線間変動と実際のグリッチの段差の間に来る値を
+# 選んだ。同梱スキャンで両者がどれだけ離れているかは docs/validation.ja.md §5.1
+# にある。これは物理定数ではなく検査用の経験則なので、呼び出し側に直書きせず設定と
+# して露出する。
 DEFAULT_STEP_THRESHOLD_NM = 3.0
 
 # Scan lines on each side of a flagged step that are also treated as bad.
