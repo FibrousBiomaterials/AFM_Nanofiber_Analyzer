@@ -115,6 +115,7 @@ from lib.kink_detector import END_MARGIN_WIDTHS
 from lib.measure import (
     CUT_END_EXCLUSION_WIDTHS,
     DEFAULT_CURVATURE_WINDOW_NM, TRACKING_BUNDLE_KEYS, compute_fiber_stats,
+    FiberStats, MeasureResult,
     curate_fibers, fiber_kink_density, fiber_mean_curvature,
     height_sample_mask, isolated_fiber_flags, measure_bundle,
     read_scan_size_from_bundle, write_fiber_csv,
@@ -298,7 +299,7 @@ def blank_if_nan(value: float, fmt: str = "{0:.6g}") -> str:
     return "" if not np.isfinite(value) else fmt.format(value)
 
 
-def table_row_values(result) -> List[tuple]:
+def table_row_values(result: MeasureResult) -> List[tuple]:
     """
     Precompute the per-fiber values the fiber table displays.
     ファイバー一覧が表示する、ファイバーごとの値を事前計算する。
@@ -336,7 +337,7 @@ def table_row_values(result) -> List[tuple]:
                          result.image.y_size_per_pixel)
 
 
-def length_is_lower_bound(stat) -> bool:
+def length_is_lower_bound(stat: FiberStats) -> bool:
     """
     Report whether a fiber's measured length is only a lower bound.
     ファイバーの計測長が下限値にすぎないかを返す。
@@ -689,6 +690,19 @@ def column_help_tooltip(help_entry: ColumnHelp) -> str:
     """
     Format one column's explanation for its heading tooltip.
     1 列の説明を、見出しのツールチップ用に整形する。
+
+    Parameters
+    ----------
+    help_entry
+        Explanation of the column.
+        列の説明。
+
+    Returns
+    -------
+    str
+        The meaning, then the method, formula and blank-cell reason that the
+        entry has, one per line.
+        意味の後に、説明が持つ計算方法・式・空欄になる理由を 1 行ずつ並べた文字列。
     """
     parts = [help_entry.meaning]
     if help_entry.method:
@@ -6094,6 +6108,13 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         """
         Update this window to display a newly selected fiber.
         新しく選択されたファイバーを表示するように本ウインドウを更新する。
+
+        Parameters
+        ----------
+        fiber
+            Fiber to show. The profile's y-axis limit is recomputed for it.
+            表示するファイバー。プロファイルの y 軸上限はこのファイバーに合わせて
+            計算し直す。
         """
         self._fiber = fiber
         self._update_title()

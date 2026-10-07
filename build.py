@@ -725,7 +725,8 @@ def collect_pyinstaller_materials(
     return unique_hidden, datas, binaries
 
 
-def write_spec(hiddenimports, datas, binaries, console: bool = False) -> None:
+def write_spec(hiddenimports: list[str], datas: list, binaries: list,
+               console: bool = False) -> None:
     """
     Generate and write PyInstaller spec file.
     PyInstaller 用の spec ファイルを生成して保存する。

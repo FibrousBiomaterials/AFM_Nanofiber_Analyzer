@@ -795,8 +795,10 @@ cut_end_count=_cut_end_count(f),
 
 - **The frame.** The fiber's skeleton track reaches the outermost row or column
   of the analysis array, so the fiber runs on outside the scan. The test has no
-  margin: on two real scans the number of fibers it caught was the same for
-  margins of 0 to 5 px.
+  margin: a fiber that leaves the scan reaches the very edge, so a margin would
+  only add fibers that come close to the edge without leaving the scan. The
+  effect of a margin on the bundled scans is in
+  [Evaluation on particular data](validation.md) §6.1.
 
   ```python
   # source: lib/measure.py::_reaches_frame

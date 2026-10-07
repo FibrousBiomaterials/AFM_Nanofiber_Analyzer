@@ -348,6 +348,25 @@ class Segmenter:
         """
         Combine global and local threshold masks.
         大域しきい値マスクと局所しきい値マスクを組み合わせる。
+
+        Parameters
+        ----------
+        image
+            Calibrated height image.
+            補正後の高さ画像。
+        global_threshold
+            Height a pixel must exceed everywhere.
+            画素がどこでも超えなければならない高さ。
+        wsize_localbin
+            Block size of the local threshold
+            (`skimage.filters.threshold_local`).
+            局所しきい値のブロックサイズ（`skimage.filters.threshold_local`）。
+
+        Returns
+        -------
+        ndarray
+            Boolean mask of the pixels above both thresholds.
+            両方のしきい値を超える画素の真偽値マスク。
         """
         binary_global = image > global_threshold
         local_threshold = threshold_local(image, wsize_localbin)
@@ -360,6 +379,21 @@ class Segmenter:
         """
         Remove connected components whose area is below the first threshold.
         最初の面積しきい値を下回る連結成分を除去する。
+
+        Parameters
+        ----------
+        binary_image
+            Mask to clean.
+            整理するマスク。
+        area_min
+            Components of this many pixels or fewer (8-connected) are removed.
+            これ以下の画素数の成分（8 連結）を除去する。
+
+        Returns
+        -------
+        ndarray
+            Boolean mask after the removal and a 3x3 median filter.
+            除去と 3x3 メディアンフィルタの後の真偽値マスク。
         """
         out_binary_image = binary_image.copy()
         n_labels, label_image, stats, centers = cv2.connectedComponentsWithStats(
@@ -382,6 +416,33 @@ class Segmenter:
         """
         Remove small components whose Hough-line score is below the threshold.
         Hough 直線スコアがしきい値を下回る小さい成分を除去する。
+
+        Parameters
+        ----------
+        binary_image
+            Mask to filter.
+            ふるいにかけるマスク。
+        h_length
+            Vote threshold of the Hough line peaks, in pixels. A component
+            whose bounding box is shorter than ``self.h_length`` is removed
+            without the test.
+            Hough 直線のピークの得票しきい値（画素）。外接矩形が
+            ``self.h_length`` より短い成分は検査せずに除去する。
+        h_sratio
+            Smallest score (line votes over edge pixels) a component under
+            1000 px needs to be kept.
+            1000 px 未満の成分が残るのに必要な最小スコア（直線の得票 / エッジ画素数）。
+        linegap
+            Minimum distance between Hough peaks.
+            Hough のピーク同士の最小距離。
+
+        Returns
+        -------
+        ndarray
+            Mask with the non-linear small components removed; each score is
+            appended to ``self.h_sratio_list``.
+            線状でない小さい成分を除いたマスク。各スコアは ``self.h_sratio_list``
+            に追加する。
         """
         out_binary_image = binary_image.copy()
         n_labels, label_image, stats, centers = cv2.connectedComponentsWithStats(
@@ -446,6 +507,20 @@ class Segmenter:
         """
         Remove small fragments after erosion separates weak connections.
         収縮で弱い接続を分離した後、小さい断片を除去する。
+
+        Parameters
+        ----------
+        binary_image
+            Mask to clean.
+            整理するマスク。
+
+        Returns
+        -------
+        ndarray
+            Boolean mask after erosion, removal of components of
+            ``self.area_min_connecting`` pixels or fewer, dilation and closing.
+            収縮、``self.area_min_connecting`` 画素以下の成分の除去、膨張、
+            クロージングの後の真偽値マスク。
         """
         out_binary_image = binary_image.copy()
         out_binary_image = binary_erosion(out_binary_image)

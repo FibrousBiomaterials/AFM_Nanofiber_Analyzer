@@ -266,6 +266,12 @@ def _read_text_lines(path: str) -> Tuple[List[str], str]:
     Read all lines of the file, auto-detecting the text encoding.
     テキストエンコーディングを自動判定しながらファイル全行を読み込む。
 
+    Parameters
+    ----------
+    path
+        Text file to read.
+        読み込むテキストファイル。
+
     Returns
     -------
     tuple
@@ -318,6 +324,19 @@ def _split_data_fields(line: str) -> List[str]:
     カンマ区切りは島津 SPM-9600 の出力、空白/タブ区切りの行列は Gwyddion の
     「Export Text」（ネイティブ対応の無い機種向けの推奨経路）や他の多くの
     ツールが出力する。行ごとに区切りを選ぶことで、手動切替なしに両方を読む。
+
+    Parameters
+    ----------
+    line
+        One line of the file. It is split on commas when it contains one,
+        otherwise on whitespace.
+        ファイルの 1 行。カンマを含めばカンマで、含まなければ空白で分割する。
+
+    Returns
+    -------
+    list of str
+        The non-empty fields, stripped.
+        前後の空白を除いた、空でないフィールド。
     """
     s = line.strip()
     parts = s.split(",") if "," in s else s.split()
@@ -335,6 +354,12 @@ def _find_multi_column_start(lines: List[str]) -> Optional[Tuple[int, int]]:
     判定規則: 全フィールド（カンマまたは空白で分割）が float かつ列数が
     ``_MIN_COLS`` を超える行を「数値行」とみなし、同じ列数の数値行が 2 行
     連続した時点でデータ先頭と確定する。
+
+    Parameters
+    ----------
+    lines
+        Lines of the file, as `_read_text_lines` returns them.
+        `_read_text_lines` が返すファイルの行。
 
     Returns
     -------
@@ -376,6 +401,12 @@ def _find_single_column_start(lines: List[str]) -> Optional[int]:
     判定規則: float に変換できる行が 2 行連続した最初の位置をデータ先頭と
     確定する。
 
+    Parameters
+    ----------
+    lines
+        Lines of the file, as `_read_text_lines` returns them.
+        `_read_text_lines` が返すファイルの行。
+
     Returns
     -------
     int or None
@@ -416,6 +447,21 @@ def _verify_multi_column_consistency(
     切り捨てる。そのため判定が列数の少ない数値メタデータブロックに固定
     されると、エラーなしにデータが破損してしまう。この検証でレイアウト
     不一致を明示的な失敗に変える。
+
+    Parameters
+    ----------
+    lines
+        Lines of the file.
+        ファイルの行。
+    skiprows
+        Index of the first data row.
+        最初のデータ行の位置。
+    n_cols
+        Column count detected for the data.
+        データについて検出した列数。
+    path
+        The file, named in the error message.
+        エラーメッセージに示すファイル。
 
     Raises
     ------
@@ -515,6 +561,24 @@ def _read_header_lines(path: str, encoding: str, limit: int) -> List[str]:
     Used to recover the delimiter and the height value unit without re-reading
     a multi-megabyte data body.
     数 MB のデータ本体を読み直さずに区切りと高さの値単位を得るために使う。
+
+    Parameters
+    ----------
+    path
+        Text file to read.
+        読み込むテキストファイル。
+    encoding
+        Codec that already decoded the file (`_read_text_lines`).
+        既にこのファイルを読めたコーデック（`_read_text_lines`）。
+    limit
+        Largest number of lines to read.
+        読み込む行数の上限。
+
+    Returns
+    -------
+    list of str
+        The first lines of the file, at most `limit` of them.
+        ファイル先頭の行（最大 `limit` 行）。
     """
     out: List[str] = []
     with open(path, encoding=encoding) as f:
@@ -532,6 +596,12 @@ def _shimadzu_scan_size(
     """
     Parse Shimadzu ``SizeX`` / ``SizeY`` keys into micrometers.
     島津の ``SizeX`` / ``SizeY`` キーを µm として読み取る。
+
+    Parameters
+    ----------
+    header_lines
+        Leading lines of the file (`_read_header_lines`).
+        ファイル先頭の行（`_read_header_lines`）。
 
     Returns
     -------
@@ -568,6 +638,19 @@ def _gwyddion_scan_size(
     最初の 2 つの ``# <キー>: <数値> <長さ単位>`` コメントを、（ローカライズ
     された）キー語に依存せず読み取る。日本語・英語どちらのロケール出力も同様に
     扱える。Gwyddion の出力では Width が Height より先に並ぶ。
+
+    Parameters
+    ----------
+    header_lines
+        Leading lines of the file (`_read_header_lines`).
+        ファイル先頭の行（`_read_header_lines`）。
+
+    Returns
+    -------
+    tuple
+        ``(x_um, y_um)``, or ``(None, None)`` unless two size entries were
+        found.
+        ``(x_um, y_um)``。サイズの記載が 2 つ見つからなければ ``(None, None)``。
     """
     sizes: List[float] = []
     for line in header_lines:
@@ -595,6 +678,20 @@ def _gwyddion_height_unit_to_nm(header_lines: List[str]) -> float:
     Gwyddion は高さを SI 単位（行列は通常メートル）で出力し、``# Value units: m``
     のような単位のみのコメントで記録する。そのコメントが無い場合（島津/Bruker の
     出力）は ``1.0`` を返し、データを既に nm とみなす。
+
+    Parameters
+    ----------
+    header_lines
+        Leading lines of the file (`_read_header_lines`).
+        ファイル先頭の行（`_read_header_lines`）。
+
+    Returns
+    -------
+    float
+        Nanometres per unit of the stored heights; ``1.0`` when no value-unit
+        comment is found or its unit is not recognized.
+        保存された高さ 1 単位あたりの nm。値単位のコメントが無いか単位を
+        認識できなければ ``1.0``。
     """
     for line in header_lines:
         m = _GWY_COMMENT_RE.match(line)

@@ -136,8 +136,9 @@ def top_level(name: str) -> str:
 
     Returns
     -------
-    Top-level part such as `numpy`.
-    `numpy` のような先頭要素。
+    str
+        Top-level part such as `numpy`.
+        `numpy` のような先頭要素。
     """
     return name.split(".", 1)[0]
 
@@ -160,8 +161,9 @@ def is_stdlib(name: str) -> bool:
 
     Returns
     -------
-    `True` for stdlib/built-in, `False` otherwise.
-    標準/組み込みなら `True`、それ以外は `False`。
+    bool
+        `True` for stdlib/built-in, `False` otherwise.
+        標準/組み込みなら `True`、それ以外は `False`。
     """
     if not name:
         return True
@@ -210,8 +212,9 @@ def iter_py_files(
 
     Returns
     -------
-    Unique and stably sorted file paths (excluding `__init__.py`).
-    `__init__.py` を除く、重複排除済みで順序安定なファイル一覧。
+    list of Path
+        Unique and stably sorted file paths (excluding `__init__.py`).
+        `__init__.py` を除く、重複排除済みで順序安定なファイル一覧。
     """
     if dirs is None:
         dirs = TARGET_DIRS
@@ -246,8 +249,9 @@ def extract_imports(pyfile: Path) -> set[str]:
 
     Returns
     -------
-    Set of unique top-level import names.
-    重複を除いたトップレベル import 名の集合。
+    set of str
+        Set of unique top-level import names.
+        重複を除いたトップレベル import 名の集合。
     """
     # Read as UTF-8; ignore decode errors to continue scanning.
     src = pyfile.read_text(encoding="utf-8", errors="ignore")
@@ -282,8 +286,9 @@ def normalize_pip_name(import_name: str) -> str:
 
     Returns
     -------
-    Normalized package name for `requirements.txt`.
-    `requirements.txt` 用に正規化したパッケージ名。
+    str
+        Normalized package name for `requirements.txt`.
+        `requirements.txt` 用に正規化したパッケージ名。
     """
     # Resolve known import-name/package-name mismatches first. Version
     # constraints are applied later by `write_requirements`, so this function
@@ -308,8 +313,10 @@ def collect_external_imports(files: list[Path] | None = None) -> set[str]:
 
     Returns
     -------
-    External top-level import names (as they appear in `import` statements).
-    外部トップレベル import 名（ソース上の import 名のまま）。
+    set of str
+        External top-level import names (as they appear in `import`
+        statements).
+        外部トップレベル import 名（ソース上の import 名のまま）。
     """
     if files is None:
         files = iter_py_files()
@@ -330,6 +337,19 @@ def canonical_name(name: str) -> str:
     """
     Normalize a distribution name for comparison (PEP 503 style).
     比較用にディストリビューション名を正規化する（PEP 503 準拠）。
+
+    Parameters
+    ----------
+    name
+        Distribution name as written anywhere.
+        どこかに書かれたとおりのディストリビューション名。
+
+    Returns
+    -------
+    str
+        `name` lower-cased, with each run of ``-``, ``_`` and ``.`` replaced
+        by one ``-``.
+        `name` を小文字にし、``-``・``_``・``.`` の連続を 1 つの ``-`` にしたもの。
     """
     return re.sub(r"[-_.]+", "-", name).lower()
 
@@ -338,6 +358,18 @@ def installed_version(pip_name: str) -> str | None:
     """
     Return the installed version of a distribution, or None if absent.
     ディストリビューションの導入済みバージョンを返す。未導入なら None。
+
+    Parameters
+    ----------
+    pip_name
+        Distribution name as pip knows it.
+        pip が認識するディストリビューション名。
+
+    Returns
+    -------
+    str or None
+        Installed version, or ``None`` when the distribution is not installed.
+        導入済みのバージョン。未導入なら ``None``。
     """
     try:
         return importlib.metadata.version(pip_name)
@@ -389,8 +421,9 @@ def pip_names_from_externals(externals: Iterable[str]) -> list[str]:
 
     Returns
     -------
-    Deduplicated pip names sorted case-insensitively.
-    重複排除し大文字小文字を無視して整列した pip 名。
+    list of str
+        Deduplicated pip names sorted case-insensitively.
+        重複排除し大文字小文字を無視して整列した pip 名。
     """
     return sorted({normalize_pip_name(m) for m in externals}, key=str.lower)
 
@@ -399,6 +432,12 @@ def scan_pip_names() -> list[str]:
     """
     Return sorted pip names of all scanned direct dependencies.
     走査で得た直接依存の pip 名を整列したリストで返す。
+
+    Returns
+    -------
+    list of str
+        pip names of the external packages the project code imports.
+        プロジェクトのコードが import する外部パッケージの pip 名。
     """
     return pip_names_from_externals(collect_external_imports())
 
@@ -471,6 +510,12 @@ def run_pip_check() -> bool:
     """
     Run `pip check` to detect version conflicts among installed packages.
     `pip check` を実行し、導入済みパッケージ間のバージョン矛盾を検出する。
+
+    Returns
+    -------
+    bool
+        True when `pip check` exits with 0.
+        `pip check` の終了コードが 0 なら True。
     """
     proc = subprocess.run(
         [sys.executable, "-m", "pip", "check"],
@@ -487,6 +532,12 @@ def run_pytest() -> bool:
     """
     Run the project test suite; pinning requires a green run.
     プロジェクトのテストスイートを実行する。固定にはグリーンが必須。
+
+    Returns
+    -------
+    bool
+        True when the test run exits with 0.
+        テスト実行の終了コードが 0 なら True。
     """
     print("=== Running test suite (required before pinning) ===")
     proc = subprocess.run([sys.executable, "-m", "pytest", "-q"], cwd=ROOT)
@@ -506,8 +557,9 @@ def collect_consistency_problems(pip_names: list[str]) -> list[str]:
 
     Returns
     -------
-    Human-readable problem descriptions; empty when fully consistent.
-    問題の説明文のリスト。完全に整合していれば空。
+    list of str
+        Human-readable problem descriptions; empty when fully consistent.
+        問題の説明文のリスト。完全に整合していれば空。
     """
     problems = report_consistency(pip_names)
     if not run_pip_check():
@@ -545,6 +597,12 @@ def write_lock_file() -> Path:
     本プロジェクト自身の editable インストールは除外する。それ以外（pytest
     などの開発ツールを含む）はすべて記録し、検証済み環境を正確に再現できる
     スナップショットとする。
+
+    Returns
+    -------
+    Path
+        The lock file written.
+        書き出したロックファイル。
     """
     proc = subprocess.run(
         [sys.executable, "-m", "pip", "freeze"],
@@ -577,6 +635,19 @@ def write_requirements(pip_names: list[str]) -> Path:
     """
     Write the loose `requirements.txt` from scanned dependencies.
     走査した依存から緩い `requirements.txt` を書き出す。
+
+    Parameters
+    ----------
+    pip_names
+        pip names to list, one per line, each with its entry from
+        `PACKAGE_CONSTRAINTS` when it has one.
+        1 行に 1 つ並べる pip 名。`PACKAGE_CONSTRAINTS` に項目があればそれを使う。
+
+    Returns
+    -------
+    Path
+        The `requirements.txt` written at the repository root.
+        リポジトリ直下に書き出した `requirements.txt`。
     """
     reqs = [PACKAGE_CONSTRAINTS.get(n, n) for n in pip_names]
     req_path = ROOT / "requirements.txt"
@@ -588,6 +659,22 @@ def main(argv: list[str] | None = None) -> int:
     """
     Dispatch scan / verify / pin modes and return a process exit code.
     scan / verify / pin の各モードへ振り分け、終了コードを返す。
+
+    Parameters
+    ----------
+    argv
+        Arguments without the program name; ``None`` reads them from
+        ``sys.argv``.
+        プログラム名を除いた引数。``None`` なら ``sys.argv`` から読む。
+
+    Returns
+    -------
+    int
+        0 on success. 1 when ``--verify`` or ``--pin`` finds a consistency
+        problem or ``--pin``'s test run fails; the default mode always
+        returns 0.
+        成功で 0。``--verify`` または ``--pin`` が整合性の問題を見つけたか、
+        ``--pin`` のテスト実行が失敗したら 1。既定モードは常に 0 を返す。
 
     Notes
     -----

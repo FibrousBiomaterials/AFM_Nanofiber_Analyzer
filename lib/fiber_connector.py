@@ -1528,31 +1528,54 @@ def _rebuild_connected_fiber(
     形式 1.1 より古いバンドルのスケルトントラック上では折れ線規則）を使い、1 枚の
     画像に 2 つの規則のキンクが混在しないようにする。
 
-    ``current_x`` / ``current_y`` are the line the fibril is drawn and
-    measured along, and ``pixel_x`` / ``pixel_y`` the skeleton pixels it was
-    docked from, index-aligned with it; ``None`` means the line is those
-    pixels, as for a bundle older than format 1.1. The bounding box is taken
-    from the pixels, so a fibril's frame does not depend on where the line
-    was placed.
-    ``current_x`` / ``current_y`` はフィブリルを描画・計測する線で、
-    ``pixel_x`` / ``pixel_y`` はそれと添字の揃った、繋ぐ元になったスケルトン画素で
-    ある。``None`` は線がその画素そのものであること（形式 1.1 より古いバンドル）を
-    意味する。外接矩形は画素から取り、フィブリルの枠が線の置き方に依存しない
-    ようにする。
+    Parameters
+    ----------
+    image
+        Tracking container the fragments came from: its `calibrated_image`
+        and the line it names (`centerline`) are read.
+        断片の元になった追跡コンテナ。`calibrated_image` と、それが指定する線
+        （`centerline`）を読む。
+    detector
+        Kink detector configured as the bundle was analyzed.
+        バンドルの解析時と同じ設定のキンク検出器。
+    current_x, current_y
+        The line the fibril is drawn and measured along, in image pixels.
+        フィブリルを描画・計測する線（画像座標の画素）。
+    current_h
+        Height at each line point.
+        線の各点での高さ。
+    size_per_pixel, y_size_per_pixel
+        Pixel size along X and Y; ``None`` for Y means square pixels.
+        X 方向と Y 方向の画素サイズ。Y が ``None`` なら正方画素。
+    pixel_x, pixel_y
+        Skeleton pixels the fibril was docked from, index-aligned with the
+        line; ``None`` means the line is those pixels, as for a bundle older
+        than format 1.1. The bounding box is taken from the pixels, so a
+        fibril's frame does not depend on where the line was placed.
+        線と添字の揃った、繋ぐ元になったスケルトン画素。``None`` は線がその画素
+        そのものであること（形式 1.1 より古いバンドル）を意味する。外接矩形は
+        画素から取り、フィブリルの枠が線の置き方に依存しないようにする。
+    line_reliable, height_measured
+        Per-point flags of `Fiber`, index-aligned with the line; ``None``
+        leaves the field unset.
+        `Fiber` の点ごとのフラグで、線と添字が揃っている。``None`` はその
+        フィールドを未設定のままにする。
+    end_is_real
+        Whether the first and the last point are real fiber ends (skeleton
+        endpoints) rather than cuts, which is what `ep_indices` records: a
+        fibril whose outer fragment ended at a crossing is still cut there,
+        and the height statistics leave the cut zone out
+        (`measure.height_sample_mask`).
+        先頭点と末尾点が切断ではなく本物の繊維端（スケルトンの端点）かどうか。
+        `ep_indices` はこれを記録する。外側の断片が交差で終わっていたフィブリルは
+        依然としてそこで切断されており、高さ統計はその切断域を除く
+        （`measure.height_sample_mask`）。
 
-    ``line_reliable`` and ``height_measured`` are the per-point flags of
-    `Fiber`, index-aligned with the line; ``None`` leaves the field unset.
-    ``end_is_real`` says whether the first and the last point are real fiber
-    ends (skeleton endpoints) rather than cuts, which is what `ep_indices`
-    records: a fibril whose outer fragment ended at a crossing is still cut
-    there, and the height statistics leave the cut zone out
-    (`measure.height_sample_mask`).
-    ``line_reliable`` と ``height_measured`` は `Fiber` の点ごとのフラグで、線と
-    添字が揃っている。``None`` はそのフィールドを未設定のままにする。
-    ``end_is_real`` は先頭点と末尾点が切断ではなく本物の繊維端（スケルトンの
-    端点）かどうかを示し、`ep_indices` はこれを記録する。外側の断片が交差で終わって
-    いたフィブリルは依然としてそこで切断されており、高さ統計はその切断域を除く
-    （`measure.height_sample_mask`）。
+    Returns
+    -------
+    Fiber
+        The rebuilt fibril.
+        再構築したフィブリル。
     """
     line_x = np.array(current_x)
     line_y = np.array(current_y)
@@ -1788,6 +1811,18 @@ def _contiguous_runs(mask: np.ndarray) -> List[tuple]:
     ordered track, so each slice is one physically contiguous sub-path.
     ``stop`` は排他的で ``mask[start:stop]`` が区間になる。区間は順序付きトラックに
     沿うため、各スライスは物理的に連続した 1 つの部分経路となる。
+
+    Parameters
+    ----------
+    mask
+        1D boolean array along the track.
+        トラックに沿った 1 次元の真偽値配列。
+
+    Returns
+    -------
+    list of tuple
+        ``(start, stop)`` per run, in track order.
+        区間ごとの ``(start, stop)``（トラックの順）。
     """
     runs: List[tuple] = []
     n = len(mask)

@@ -278,7 +278,26 @@ def collapse_skeleton_loops(
 
 
 def _junction_degree(skel: NDArray[np.uint8], y: int, x: int) -> int:
-    """Count live skeleton neighbors of (y, x) in the 8-neighborhood."""
+    """
+    Count live skeleton neighbors of (y, x) in the 8-neighborhood.
+    (y, x) の 8 近傍にある骨格画素を数える。
+
+    Parameters
+    ----------
+    skel
+        Binary skeleton image.
+        2 値の骨格画像。
+    y, x
+        Pixel whose neighbours are counted.
+        近傍を数える画素。
+
+    Returns
+    -------
+    int
+        Number of skeleton pixels among the 8 neighbours; the image border
+        clips the neighbourhood.
+        8 近傍のうち骨格画素の数。画像の端では近傍を切り詰める。
+    """
     y0, y1 = max(0, y - 1), min(skel.shape[0], y + 2)
     x0, x1 = max(0, x - 1), min(skel.shape[1], x + 2)
     return int(skel[y0:y1, x0:x1].sum()) - int(skel[y, x])
@@ -412,6 +431,24 @@ def _walk_from_endpoint(
     pixels, so it never wanders into ambiguous topology.
     各ステップで唯一の未訪問隣接画素を辿り、行き止まり・合流点（続きが複数）・
     `max_steps` 画素到達で停止する。曖昧なトポロジーへは踏み込まない。
+
+    Parameters
+    ----------
+    skel
+        Binary skeleton image.
+        2 値の骨格画像。
+    sy, sx
+        Endpoint the walk starts from.
+        たどり始める端点。
+    max_steps
+        Most pixels the walk collects, the start included.
+        たどって集める画素数の上限（始点を含む）。
+
+    Returns
+    -------
+    list of tuple
+        ``(y, x)`` of the pixels walked, starting with the endpoint.
+        たどった画素の ``(y, x)``。端点から始まる。
     """
     height, width = skel.shape
     path = [(sy, sx)]

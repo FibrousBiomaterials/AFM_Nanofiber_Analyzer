@@ -217,66 +217,36 @@ class BGCalibrator:
             `mask_dilation > 0` かつ ``bg_method`` が
             ``'trendfill'`` または ``'spline1d'`` のときに適用される。
         bg_method : {'trendfill', 'tophat', 'spline1d'}, optional
-            Background estimation strategy.
+            Background estimation strategy. Each is explained in
+            docs/algorithms.md section 1.3-1.5 and in the docstrings of
+            `_call_trendfill`, `_call_tophat` and `_call_spline1d`.
 
-            ``'trendfill'`` (default): the two-stage approach. Detect
-            fiber-like ridges via gradient histogram thresholds and pattern
-            matching, mask them out, then fit and subtract a second-order
-            trend surface, fill the mask from the nearest background pixel,
-            smooth, and restore the trend. Configurable via
-            ``threshold_factor``, ``fiber_detect_factor``,
-            ``noise_detect_factor``, ``mask_dilation``,
-            ``min_mask_component_area``. Sensitive to ridge-detection
-            failures (fiber shoulders leaking through the mask bias the
-            background upward).
+            ``'trendfill'`` (default): mask fiber-like ridges found from the
+            gradient histogram, fit and subtract a second-order trend surface,
+            fill the mask from the nearest background pixel, smooth, and
+            restore the trend. Configurable via ``threshold_factor``,
+            ``fiber_detect_factor``, ``noise_detect_factor``,
+            ``mask_dilation``, ``min_mask_component_area``. Sensitive to
+            ridge-detection failures (fiber shoulders leaking through the mask
+            bias the background upward).
 
             ``'tophat'``: morphological opening with a circular structuring
-            element of diameter ``tophat_se_size``. Background equals the
-            opened image, i.e. the result of erosion followed by dilation.
-            Bright structures narrower than ``tophat_se_size`` are removed
-            and treated as foreground; broader features remain in the
-            background model. Because the opening is a lower-envelope
-            estimator, the subtracted image is re-centered by its median so
-            the substrate level sits at 0 nm and calibrated heights stay
-            comparable with the interpolating methods. No fiber mask is
-            computed, so ridge-detection parameters (``threshold_factor``
-            etc.) are ignored. Its run time against the other methods is in
-            docs/validation.md section 1.5.
+            element of diameter ``tophat_se_size``. No fiber mask is computed,
+            so the ridge-detection parameters are ignored. Its run time
+            against the other methods is in docs/validation.md section 1.5.
 
             ``'spline1d'``: per-line 1D spline interpolation of the
-            background-candidate pixels along a single axis, chosen by
-            ``spline1d_axis``. With ``spline1d_axis='x'`` (default) each row
-            is filled from its own values, which is each scan line when the
-            fast-scan axis lies along the image rows (the usual AFM
-            geometry); each line keeps its own level in the background, so
-            subtracting the background removes *horizontal* stripes, i.e.
-            line-to-line offsets where each scan line is shifted up or down.
-            With ``spline1d_axis='y'`` each column is filled from its own
-            values instead; a hole is then filled from the rows above and
-            below it, so horizontal stripes are not removed there. Uses the same
-            trendfill-style fiber mask (with ``mask_dilation`` and
-            ``min_mask_component_area``) to choose background-candidate
-            pixels, and the same ``pandas`` spline of order
-            ``spline1d_degree``, applied to a detrended copy. Beyond the
-            first/last background pixel of a line there is nothing to
-            interpolate between, so those runs hold the mean of that line's
-            nearest ``savgol_window`` background samples rather than an
-            extrapolated shape; a single-line extrapolation there stripes the
-            image edge, whether it holds the last sample constant or follows
-            the fitted spline. Only a line with fewer than two
-            background samples is filled from the nearest background pixel
-            in 2D.
-            The background is then Savitzky-Golay smoothed and subtracted in
-            full (no exact restore of background-candidate pixels); its effect
-            on scan-line offsets is in docs/validation.md section 1.6.
-            Configurable via ``spline1d_axis`` and ``spline1d_degree``.
+            background-candidate pixels left by the trendfill fiber mask,
+            along the axis ``spline1d_axis`` chooses and with spline order
+            ``spline1d_degree``. Its effect on scan-line offsets is in
+            docs/validation.md section 1.6.
 
-            背景推定方式の選択。
+            背景推定方式の選択。各方式の説明は docs/algorithms.ja.md の 1.3〜1.5 節と、
+            `_call_trendfill`・`_call_tophat`・`_call_spline1d` の docstring にある。
 
-            ``'trendfill'`` (デフォルト): 2段構えの方式。勾配ヒストグラムの
-            閾値とパターンマッチでファイバー状リッジを検出してマスクし、
-            2 次のトレンド曲面をフィットして減算し、マスク領域を最近傍の
-            背景画素の値で埋め、平滑化してからトレンドを復元する。
+            ``'trendfill'`` (デフォルト): 勾配ヒストグラムから見つけたファイバー状
+            リッジをマスクし、2 次のトレンド曲面をフィットして減算し、マスク領域を
+            最近傍の背景画素の値で埋め、平滑化してからトレンドを復元する。
             ``threshold_factor``, ``fiber_detect_factor``,
             ``noise_detect_factor``, ``mask_dilation``,
             ``min_mask_component_area`` で挙動を制御する。リッジ検出の
@@ -284,38 +254,14 @@ class BGCalibrator:
             に弱く、背景推定値が上方にバイアスする傾向がある。
 
             ``'tophat'``: 直径 ``tophat_se_size`` の円形構造要素を用いる
-            形態学的 opening。背景は opening 後の画像（収縮→膨張）そのもの。
-            ``tophat_se_size`` より細い明るい構造は除去されて前景扱いに、
-            それより太い構造は背景モデルに残る。opening は下側包絡線の
-            推定量であるため、減算後の画像は中央値で再センタリングして
-            基板レベルを 0 nm に揃え、補正後の高さが補間系方式と比較可能に
-            なるようにする。ファイバーマスクを一切
-            使わないため、リッジ検出系パラメータ (``threshold_factor`` 等)
-            は無視される。他方式との実行時間の比較は docs/validation.ja.md の
-            1.5 節にある。
+            形態学的 opening。ファイバーマスクを使わないため、リッジ検出系
+            パラメータは無視される。他方式との実行時間の比較は
+            docs/validation.ja.md の 1.5 節にある。
 
-            ``'spline1d'``: 背景候補画素を1軸に沿って行/列ごとに 1D スプライン
-            補間する方式。
-            補間の向きは ``spline1d_axis`` で選ぶ。``'x'`` (デフォルト) は各行を
-            その行自身の値から埋める。画像の行方向が高速走査軸である一般的な
-            AFM の撮り方では、各行は走査ライン 1 本にあたる。各ラインが背景に
-            自身の水準を保つので、背景を引くと *横縞* (各走査ラインが上下に
-            ずれるライン間オフセット) も消える。``'y'`` は代わりに各列をその列
-            自身の値から埋める。このとき穴は上下の行の値から埋まるので、横縞は
-            そこでは消えない。背景候補画素の選択には trendfill と同じファイバーマスク
-            (``mask_dilation``, ``min_mask_component_area`` 込み) を使い、
-            補間にはデトレンドした写しへ order ``spline1d_degree`` の
-            ``pandas`` スプラインを適用する。各ラインの最初/最後の背景画素
-            より外側は補間する材料が無いため、形を外挿するのではなく、その
-            ライン自身の最近傍 ``savgol_window`` 個の背景サンプルの平均を保持
-            する。ここでライン単独の外挿を行うと、最終サンプルの値を一定に
-            保つ場合でも、フィットしたスプラインに従う場合でも、画像端に縞が
-            出る。背景
-            サンプルが 2 点未満のラインだけは 2 次元の最近傍背景画素から埋める。
-            その後 Savitzky-Golay で
-            平滑化し、背景候補画素を厳密復元せずそのまま全面減算する。走査ラインの
+            ``'spline1d'``: trendfill のファイバーマスクが残した背景候補画素を、
+            ``spline1d_axis`` が選ぶ向きに沿って行/列ごとに次数
+            ``spline1d_degree`` の 1D スプラインで補間する。走査ラインの
             オフセットへの効果は docs/validation.ja.md の 1.6 節にある。
-            ``spline1d_axis`` と ``spline1d_degree`` で挙動を制御する。
 
         tophat_se_size : int, optional
             Diameter (in pixels) of the circular structuring element used
@@ -428,12 +374,6 @@ class BGCalibrator:
         # 構造要素は奇数サイズである必要があるため、偶数なら +1 する。
         self.tophat_se_size = int(tophat_se_size) | 1
 
-        # TODO(review): the docstrings say 'y' (per column) evens out horizontal
-        # stripes and 'x' (per row) targets vertical ones, but each line's fill
-        # uses only that line's samples, so 'x' is the axis that keeps a row's
-        # own scan-line offset, and `_spline1d_fill` justifies its end-run
-        # level by that offset. Author to confirm which axis removes which
-        # stripe before these docstrings are rewritten.
         self.spline1d_axis = spline1d_axis
         self.spline1d_degree = int(spline1d_degree)
 
@@ -526,6 +466,12 @@ class BGCalibrator:
         ファイバーマスクを必要とする。中間配列 ``dif_x`` 〜
         ``tri_difx_fill``/``tri_dify_fill`` は ``self`` に保持するため、マスクを使う
         経路どうしが食い違うことはない。
+
+        Parameters
+        ----------
+        original
+            Raw height image.
+            生の高さ画像。
         """
         self.dif_x, self.dif_y = self._difXY(original)
         # Fit histogram models to estimate background-difference distribution.
@@ -538,6 +484,13 @@ class BGCalibrator:
         """
         Run the ridge-mask, trend-subtraction and nearest-fill pipeline.
         リッジマスク・トレンド減算・最近傍充填によるパイプラインを実行する。
+
+        Parameters
+        ----------
+        image
+            Container whose `original_image` is read and whose
+            `calibrated_image` is set.
+            `original_image` を読み、`calibrated_image` を設定するコンテナ。
         """
         self._detect_fiber_mask(image.original_image)
         self.bg_only, self.bg_sm = self._bg_generate(image.original_image, self.tri_difx_fill, self.tri_dify_fill)
@@ -558,6 +511,13 @@ class BGCalibrator:
         """
         Run the morphological top-hat pipeline.
         形態学的トップハット方式のパイプラインを実行する。
+
+        Parameters
+        ----------
+        image
+            Container whose `original_image` is read and whose
+            `calibrated_image` is set.
+            `original_image` を読み、`calibrated_image` を設定するコンテナ。
 
         Notes
         -----
@@ -685,6 +645,13 @@ class BGCalibrator:
         Run the per-line 1D spline background interpolation.
         行/列ごとの 1D スプライン背景補間を実行する。
 
+        Parameters
+        ----------
+        image
+            Container whose `original_image` is read and whose
+            `calibrated_image` is set.
+            `original_image` を読み、`calibrated_image` を設定するコンテナ。
+
         Notes
         -----
         The fiber mask is the one `_call_trendfill` uses, including
@@ -709,12 +676,8 @@ class BGCalibrator:
         is left unfilled there, and its pixels are filled from the nearest
         background pixel in 2D.
 
-        The interpolation axis is ``spline1d_axis``: ``'x'`` (default)
-        fills each row from its own values, so on the usual geometry (image
-        rows are scan lines) each scan line's offset stays in the background
-        and *horizontal* stripes are subtracted with it; ``'y'`` fills each
-        column instead, which fills a hole from the rows above and below and
-        does not remove horizontal stripes there.
+        The interpolation axis is ``spline1d_axis``; which stripes each axis
+        removes is described with that parameter in `__init__`.
 
         Like every background method, the estimated background is
         subtracted *in full*. The interpolated background is Savitzky-Golay
@@ -740,11 +703,8 @@ class BGCalibrator:
         入らない。この区間を埋めずに残すのは有効サンプルが 2 点未満のラインだけで、
         その画素は 2 次元の最近傍背景画素から埋める。
 
-        補間の向きは ``spline1d_axis`` で決まる。``'x'`` (デフォルト) は各行を
-        その行自身の値から埋めるので、一般的な撮り方 (画像の行が走査ライン)
-        では各走査ラインのずれが背景に残り、*横縞* も一緒に引かれる。``'y'``
-        は各列を埋めるので、穴は上下の行の値から埋まり、横縞はそこでは
-        消えない。
+        補間の向きは ``spline1d_axis`` で決まる。それぞれの向きがどの縞を消すかは、
+        `__init__` のそのパラメータの説明にある。
 
         他の背景方式と同様、推定した背景は *そのまま全面* 減算する。行/列ごとの
         補間は構成上滑らかにはならないため、補間した背景を先に Savitzky-Golay

@@ -344,6 +344,19 @@ def _is_finite_array(a: np.ndarray) -> bool:
     """
     Return whether all array values are finite numeric values.
     配列の全値が有限の数値かどうかを返す。
+
+    Parameters
+    ----------
+    a
+        Array to check.
+        調べる配列。
+
+    Returns
+    -------
+    bool
+        True when every value is finite; False when one is not, or when the
+        array is not numeric.
+        全値が有限なら True。有限でない値があるか、数値の配列でなければ False。
     """
     try:
         return bool(np.isfinite(a).all())
@@ -575,6 +588,11 @@ def make_spatial_calibration(
         msgpack-serializable mapping to store under `SPATIAL_CALIBRATION_KEY`.
         `SPATIAL_CALIBRATION_KEY` 配下に保存する msgpack 直列化可能な辞書。
 
+    Raises
+    ------
+    ValueError
+        If a size is not positive or `source` is not a known source.
+
     Notes
     -----
     Pixel size is intentionally not stored: it is a derived quantity
@@ -586,11 +604,6 @@ def make_spatial_calibration(
     ``走査範囲_um * 1000 / 画素数`` から導出される量で、計測層が保存済み画像形状
     から再計算する。保存すると実配列（およびモジュール冒頭に記載の 1 画素
     トリミング）と不整合になる恐れがあるため。
-
-    Raises
-    ------
-    ValueError
-        If a size is not positive or `source` is not a known source.
     """
     if not (x_um > 0 and y_um > 0):
         raise ValueError(

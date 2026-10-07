@@ -422,6 +422,7 @@ class FiberTrackingImage:
         """
         Process fibers in parallel with ThreadPoolExecutor.
         ThreadPoolExecutor でファイバーを並列処理して返す。
+
         If provided, `progress_cb(done, total)` is called on each completion.
         progress_cb(done, total) が指定されていれば1本完了するごとに呼ぶ。
 
@@ -436,8 +437,9 @@ class FiberTrackingImage:
 
         Returns
         -------
-        Fiber list extracted in parallel.
-        並列処理で抽出された Fiber のリスト。
+        list of Fiber
+            Fiber list extracted in parallel.
+            並列処理で抽出された Fiber のリスト。
         """
         return self._generate_fiber_instances(
             self.skeleton_image, parallel=True,
@@ -490,8 +492,9 @@ class FiberTrackingImage:
 
         Returns
         -------
-        Fiber list that satisfies the height condition.
-        高さ条件を満たす Fiber のリスト。
+        list of Fiber
+            Fiber list that satisfies the height condition.
+            高さ条件を満たす Fiber のリスト。
         """
         lower_cond = (self.calibrated_image >= lower_height) if include_lower_limit else (self.calibrated_image > lower_height)
         upper_cond = (self.calibrated_image <= upper_height) if include_upper_limit else (self.calibrated_image < upper_height)
@@ -551,8 +554,9 @@ class FiberTrackingImage:
 
         Returns
         -------
-        Constructed fibers for each connected component, in label order.
-        各連結成分に対して構築された Fiber のリスト（ラベル順）。
+        list of Fiber
+            Constructed fibers for each connected component, in label order.
+            各連結成分に対して構築された Fiber のリスト（ラベル順）。
         """
         nLabels, label_image, data = self._labeled_components(skeleton_image)
         kink_set, dp_set, ep_set, kink_angle_map = self._feature_lookups()
@@ -656,6 +660,12 @@ class FiberTrackingImage:
         保存された特徴点座標（kink・端点・分解点）は変更のない画素上では
         そのまま一致する。修復された画素上の特徴点は失われるが、それらは
         ループ／スパー由来のアーティファクトなので意図した挙動である。
+
+        Parameters
+        ----------
+        skeleton_image
+            The bundle's skeleton.
+            バンドルの骨格。
 
         Returns
         -------

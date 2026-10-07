@@ -97,6 +97,23 @@ def _check_size_limit(declared_bytes: int, limit: int | None, path: str) -> None
     """
     Raise when an array's declared size exceeds `limit`.
     配列の宣言サイズが `limit` を超える場合に例外を送出する。
+
+    Parameters
+    ----------
+    declared_bytes
+        Decompressed size the array declares, in bytes.
+        配列が宣言する展開後のサイズ（バイト）。
+    limit
+        Largest size allowed, in bytes; ``None`` disables the check.
+        許容する最大サイズ（バイト）。``None`` なら検査しない。
+    path
+        File the array is read from, named in the error message.
+        配列を読むファイル。エラーメッセージに示す。
+
+    Raises
+    ------
+    ValueError
+        If `declared_bytes` exceeds `limit`.
     """
     if limit is not None and declared_bytes > limit:
         raise ValueError(
@@ -112,12 +129,20 @@ def _npy_declared_bytes(path: str) -> int | None:
     Read a `.npy` header's declared array size in bytes, without loading it.
     `.npy` ヘッダが宣言する配列サイズ（バイト）を、読み込まずに取得する。
 
+    Parameters
+    ----------
+    path
+        `.npy` file to inspect.
+        調べる `.npy` ファイル。
+
     Returns
     -------
-    Declared byte count, or None when the header format version is one this
-    function cannot parse (the caller then lets `np.load` report the problem).
-    宣言バイト数。ヘッダの形式バージョンを解釈できない場合は None（呼び出し側は
-    `np.load` に問題を報告させる）。
+    int or None
+        Declared byte count, or None when the header format version is one
+        this function cannot parse (the caller then lets `np.load` report the
+        problem).
+        宣言バイト数。ヘッダの形式バージョンを解釈できない場合は None（呼び出し側は
+        `np.load` に問題を報告させる）。
 
     Notes
     -----
@@ -171,8 +196,9 @@ def load_blosc2(
 
     Returns
     -------
-    Loaded NumPy array.
-    読み込まれた NumPy 配列。
+    ndarray
+        Loaded NumPy array.
+        読み込まれた NumPy 配列。
 
     Raises
     ------
@@ -270,6 +296,18 @@ def _needs_ascii_path(path: str) -> bool:
     Report whether blosc2 needs an ASCII stand-in path for `path`.
     `path` に対して blosc2 用の ASCII 代替パスが必要かを判定する。
 
+    Parameters
+    ----------
+    path
+        Bundle path to read or write.
+        読み書きするバンドルのパス。
+
+    Returns
+    -------
+    bool
+        True on Windows when `path` holds a non-ASCII character.
+        Windows で `path` が ASCII 以外の文字を含むとき True。
+
     Notes
     -----
     blosc2 encodes the path to UTF-8 and hands the bytes to the C-Blosc2
@@ -292,9 +330,17 @@ def _needs_ascii_path(path: str) -> bool:
 
 
 def _ascii_scratch_root() -> str:
-    """
+    r"""
     Return a writable directory whose absolute path is pure ASCII.
     絶対パスが ASCII のみで構成された、書き込み可能なディレクトリを返す。
+
+    Returns
+    -------
+    str
+        A project subdirectory of the first ASCII, writable candidate,
+        created if needed and remembered for later calls.
+        ASCII かつ書き込み可能な最初の候補の下にある本プロジェクト用の
+        サブディレクトリ。必要なら作成し、以後の呼び出しのために記憶する。
 
     Raises
     ------
@@ -306,11 +352,11 @@ def _ascii_scratch_root() -> str:
     The candidates are tried in order of locality to the user, but the usual
     first choice can itself be unusable: `%TEMP%` sits under the user profile,
     so an account named in Japanese makes it non-ASCII. `%PUBLIC%`,
-    `%SystemRoot%\\Temp`, and `%ProgramData%` are fixed ASCII paths on a
+    `%SystemRoot%\Temp`, and `%ProgramData%` are fixed ASCII paths on a
     standard Windows install and serve as fallbacks.
     候補はユーザーに近い順に試すが、通常の第一候補自体が使えないことがある。
     `%TEMP%` はユーザープロファイル配下にあるため、日本語のアカウント名では
-    非 ASCII になる。`%PUBLIC%`・`%SystemRoot%\\Temp`・`%ProgramData%` は
+    非 ASCII になる。`%PUBLIC%`・`%SystemRoot%\Temp`・`%ProgramData%` は
     標準的な Windows では ASCII 固定のパスであり、代替として使える。
     """
     global _ascii_scratch_root_cache
@@ -355,6 +401,22 @@ def _ascii_read_path(path: str) -> Iterator[str]:
     Yield a path blosc2 can open in read mode for the bundle at `path`.
     `path` のバンドルを blosc2 が読み取りモードで開けるパスを提供する。
 
+    Parameters
+    ----------
+    path
+        Bundle to read.
+        読み込むバンドル。
+
+    Yields
+    ------
+    str
+        `path` itself when blosc2 can open it as it is (`_needs_ascii_path`
+        is false); otherwise an ASCII-named hard link or copy of it, removed
+        when the context exits.
+        blosc2 がそのまま開ける場合（`_needs_ascii_path` が偽）は `path`
+        そのもの。それ以外は ASCII 名のハードリンクまたはコピーで、コンテキストを
+        抜けると削除される。
+
     Notes
     -----
     Read mode gives the C layer the `.b2z` itself (it opens the embedded
@@ -389,6 +451,22 @@ def _ascii_write_kwargs(path: str) -> Iterator[dict]:
     """
     Yield extra `TreeStore` keyword arguments for writing a bundle to `path`.
     `path` へバンドルを書き込む `TreeStore` に渡す追加キーワード引数を提供する。
+
+    Parameters
+    ----------
+    path
+        Destination of the bundle.
+        バンドルの保存先。
+
+    Yields
+    ------
+    dict
+        ``{}`` when the destination needs no workaround (`_needs_ascii_path`
+        is false); otherwise ``{"tmpdir": ...}`` naming an ASCII working
+        directory, removed when the context exits.
+        回避が要らない保存先（`_needs_ascii_path` が偽）では ``{}``。それ以外は
+        ASCII の作業ディレクトリを指す ``{"tmpdir": ...}`` で、コンテキストを
+        抜けると削除される。
 
     Notes
     -----
@@ -430,6 +508,18 @@ def _verify_written_bundle(tmp_path: str, arrays: dict, path: str) -> None:
     残すことがある（kp, dp, ka, up, ke がすべて空のときに確認）。ここで検査
     すれば保存時点で拒否でき、壊れたファイルが保存先を置き換えることも、
     後でそれを開く解析段階まで失敗が持ち越されることもない。
+
+    Parameters
+    ----------
+    tmp_path
+        Bundle just written, before it replaces the destination.
+        保存先を置き換える前の、書き込んだ直後のバンドル。
+    arrays
+        Arrays that were written, by key.
+        書き込んだ配列（キーごと）。
+    path
+        Destination, named in the error message.
+        保存先。エラーメッセージに示す。
 
     Raises
     ------
@@ -569,8 +659,9 @@ def load_bundle(
 
     Returns
     -------
-    Mapping from key name (without leading "/") to loaded NumPy array.
-    キー名（先頭の "/" は除去）から NumPy 配列への辞書。
+    dict
+        Mapping from key name (without leading "/") to loaded NumPy array.
+        キー名（先頭の "/" は除去）から NumPy 配列への辞書。
 
     Raises
     ------
@@ -645,8 +736,9 @@ def load_bundle_meta(path: str) -> dict:
 
     Returns
     -------
-    Decoded vlmeta dictionary. Empty dict if no metadata.
-    デコード済み vlmeta 辞書。メタデータがなければ空辞書。
+    dict
+        Decoded vlmeta dictionary. Empty dict if no metadata.
+        デコード済み vlmeta 辞書。メタデータがなければ空辞書。
 
     Raises
     ------
@@ -700,8 +792,9 @@ def bundle_keys(path: str) -> list[str]:
 
     Returns
     -------
-    Leaf keys with leading "/" (e.g. ["/calibrated", "/binarized", ...]).
-    先頭の "/" を含むリーフキー一覧（例: ["/calibrated", "/binarized", ...]）。
+    list of str
+        Leaf keys with leading "/" (e.g. ["/calibrated", "/binarized", ...]).
+        先頭の "/" を含むリーフキー一覧（例: ["/calibrated", "/binarized", ...]）。
     """
     keys: list[str] = []
     with (
@@ -732,9 +825,10 @@ def bundle_has_keys(path: str, required: list[str]) -> tuple[bool, list[str]]:
 
     Returns
     -------
-    Whether all keys are present and the missing keys normalized with a
-    leading slash.
-    全て存在するか、および存在しないキー一覧（先頭の "/" 付き）。
+    tuple
+        Whether all keys are present, and the missing keys normalized with a
+        leading slash.
+        全て存在するか、および存在しないキー一覧（先頭の "/" 付き）。
     """
     if not os.path.isfile(path):
         return False, [k if k.startswith("/") else "/" + k for k in required]

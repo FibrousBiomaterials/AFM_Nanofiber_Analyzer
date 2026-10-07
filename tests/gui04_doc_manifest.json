@@ -39,7 +39,7 @@
     "lib/kink_detector.py::END_MARGIN_WIDTHS": "840f6d96c4ed28eb659902ba8cb4d37bb43b50263b4d1c4332c7d6eba78c179e",
     "guis/GUI04_Tracking_fiber.py::App._build_fiber_table": "319e8b54c20ba4030c64750a0a75149179250a0f84cc8cde6f51734cb5cc5068",
     "guis/GUI04_Tracking_fiber.py::_table_values": "9be6cd867a4eeeefe5b13a5357f4459097a156cdaec90091083f636b2bfd0fdd",
-    "guis/GUI04_Tracking_fiber.py::length_is_lower_bound": "fd17a02a3fde32c05337fcf80873790bf7dfb7527c94d286bf828be9497b6e41",
+    "guis/GUI04_Tracking_fiber.py::length_is_lower_bound": "408cb3d8828927ca827ec7d93d99a458589a1c19a10e5bbab38f4f572bb2083c",
     "lib/measure.py::_reaches_frame": "3be55a66d35fe6da43722dd9b070e19ab5ef19a9cb6c843d8ad711555ba612d8",
     "lib/measure.py::_cut_end_count": "48125b6fcd612f01ff49a9e16c47e406a9b1b6a56e0563107736e4103e2d4d92",
     "guis/GUI04_Tracking_fiber.py::App._populate_fiber_table": "28e736067cba9d2e05a1934b1f8d3c7c82595946a4ce7524a3542d43d76eb334",

@@ -361,6 +361,21 @@ def _bilinear(image: NDArray, y: NDArray, x: NDArray) -> NDArray:
 
     Coordinates outside the image are clipped onto its edge.
     画像外の座標は画像の縁へクリップする。
+
+    Parameters
+    ----------
+    image
+        2D image to sample.
+        値を取る 2 次元画像。
+    y, x
+        Row and column coordinates, in pixels; any matching shape.
+        行と列の座標（画素）。互いに同じ形であればよい。
+
+    Returns
+    -------
+    ndarray
+        Interpolated values, shaped like `y` and `x`.
+        補間した値。`y`・`x` と同じ形。
     """
     rows, cols = image.shape
     y = np.clip(y, 0.0, rows - 1.001)
@@ -457,8 +472,25 @@ def polyline_distance(
 
 def _unit_tangents(x: NDArray, y: NDArray, half: int) -> Tuple[NDArray, NDArray]:
     """
-    Unit tangent at each track point from a centered finite difference.
-    中心差分により各トラック点の単位接線を求める。
+    Return the unit tangent at each track point from a centered finite difference.
+    中心差分により各トラック点の単位接線を求めて返す。
+
+    Parameters
+    ----------
+    x, y
+        Track coordinates, in pixels.
+        トラックの座標（画素）。
+    half
+        Points on each side of a point that the difference spans; near an
+        end the span is clipped to the track.
+        差分が各点の両側にまたがる点数。端の近くではトラックの範囲に切り詰める。
+
+    Returns
+    -------
+    tuple of ndarray
+        ``(tx, ty)``, the components of a unit vector per point; a point whose
+        span has zero length gets a zero vector.
+        点ごとの単位ベクトルの成分 ``(tx, ty)``。差分の長さが 0 の点はゼロベクトル。
     """
     n = x.size
     i = np.arange(n)
@@ -601,6 +633,23 @@ def _smooth_extrapolated(values: NDArray, sigma: float) -> NDArray:
     which shortens short fragments noticeably.
     線形外挿による延長は直線の端を厳密に再現する。端の値を繰り返すと端がトラック
     に沿って内側へ引き込まれ、短い断片が目に見えて短くなる。
+
+    Parameters
+    ----------
+    values
+        Sequence to smooth.
+        平滑化する列。
+    sigma
+        Standard deviation of the Gaussian, in samples. A non-positive value,
+        or fewer than three values, returns a copy unchanged.
+        ガウス関数の標準偏差（標本数）。0 以下、または値が 3 つ未満なら、そのまま
+        コピーを返す。
+
+    Returns
+    -------
+    ndarray
+        Smoothed sequence, as long as `values`.
+        平滑化した列。長さは `values` と同じ。
     """
     v = np.asarray(values, dtype=np.float64)
     if sigma <= 0.0 or v.size < 3:
@@ -626,6 +675,22 @@ def _solve_tridiagonal(
     Written out rather than taken from SciPy so that this module needs nothing
     beyond NumPy.
     本モジュールが NumPy 以外を必要としないよう、SciPy から取らずに書き下す。
+
+    Parameters
+    ----------
+    sub, main, sup
+        Sub-diagonal (length n-1), main diagonal (length n) and
+        super-diagonal (length n-1) of the matrix.
+        行列の下対角（長さ n-1）、主対角（長さ n）、上対角（長さ n-1）。
+    rhs
+        Right-hand side, length n.
+        右辺（長さ n）。
+
+    Returns
+    -------
+    ndarray
+        Solution, length n.
+        解（長さ n）。
     """
     n = main.size
     if n == 1:
@@ -660,6 +725,24 @@ def _whittaker_first_order(
     ``sum(w (z - t)^2) + lam * sum(diff(z)^2)`` を最小化する。一次罰則は欠落区間を
     線形に補間し、最後の重み付き点より先は定数で外挿する。そのため信頼できない
     トラック端は、隣接する信頼できる部分のオフセットを保ち、漂流しない。
+
+    Parameters
+    ----------
+    target
+        Values ``t`` to fit.
+        当てはめる値 ``t``。
+    weight
+        Weight ``w`` of each value; 0 leaves it to the penalty.
+        各値の重み ``w``。0 の値は罰則に任せる。
+    lam
+        Penalty weight ``lam`` on the first differences.
+        一次差分にかける罰則の重み ``lam``。
+
+    Returns
+    -------
+    ndarray
+        Smoothed values ``z``, as long as `target`.
+        平滑化した値 ``z``。長さは `target` と同じ。
     """
     n = target.size
     if n == 1:
@@ -755,13 +838,31 @@ def _level_crossings(
     Locate, per section, the crossings of a level nearest the section's maximum.
     断面ごとに、断面の最大値に最も近いレベル交点を求める。
 
-    Returns ``(xl, xr, ok)``: the left and right crossing positions along the
-    normal, linearly interpolated between samples, and whether both exist
-    inside the search window (`left` / `right`). Positions are meaningful only
-    where ``ok``.
-    ``(xl, xr, ok)`` を返す。法線方向の左右の交点位置（標本間を線形補間）と、
-    探索窓（`left` / `right`）内に両方があるかどうか。位置は ``ok`` の断面でのみ
-    意味を持つ。
+    Parameters
+    ----------
+    prof
+        Cross-sections, one row per track point, sampled along the normal.
+        断面。トラックの点ごとに 1 行で、法線に沿って標本化したもの。
+    s
+        Offset along the normal of each sample column, in pixels.
+        各標本列の法線方向のオフセット（画素）。
+    left, right
+        Per section, the columns searched on each side of the maximum.
+        断面ごとに、最大値の左右で探索する列。
+    level
+        Height of the level, one per section.
+        レベルの高さ（断面ごとに 1 つ）。
+
+    Returns
+    -------
+    tuple of ndarray
+        ``(xl, xr, ok)``: the left and right crossing positions along the
+        normal, linearly interpolated between samples, and whether both exist
+        inside the search window (`left` / `right`). Positions are meaningful
+        only where ``ok``.
+        ``(xl, xr, ok)``。法線方向の左右の交点位置（標本間を線形補間）と、
+        探索窓（`left` / `right`）内に両方があるかどうか。位置は ``ok`` の断面
+        でのみ意味を持つ。
     """
     n, ns = prof.shape
     rows = np.arange(n)
@@ -793,20 +894,48 @@ def _refine(
     Place the line and read the crest height at each of its points.
     線を置き、その各点で頂点高さを読む。
 
-    Returns ``(x, y, reliable, crest)``: the three values of
-    `refine_centerline` and, per point, the **crest height** -- the maximum of
-    the cross-section the point was resolved on, or, where the section could
-    not locate this fiber and the point was interpolated, the maximum within
-    `_CREST_WINDOW_WIDTHS` of the line point along its normal. The crest is
-    what a fiber's height means: the line itself sits at the half-maximum
-    midpoint, which on an asymmetric section is beside the top rather than on
-    it, so a height read at the line by interpolation is biased low.
-    ``(x, y, reliable, crest)`` を返す。`refine_centerline` の 3 つの値と、点ごとの
-    **頂点高さ**である。頂点高さは、その点を決めた断面の最大値、または断面がこの
-    繊維の位置を決められず点が補間された場合は、線の点から法線に沿って
-    `_CREST_WINDOW_WIDTHS` 以内の最大値である。繊維の高さが意味するのは頂点高さで
-    ある。線そのものは半値中点にあり、非対称な断面では頂部の上ではなく脇に来る
-    ため、線の位置で補間して読んだ高さは低く偏る。
+    Parameters
+    ----------
+    height
+        Background-corrected height image in the frame of the track. ``None``
+        returns the track itself, no reliable point and no crest.
+        トラックと同じ座標系の背景補正済み高さ画像。``None`` ならトラック自体を
+        返し、信頼できる点も頂点高さも無しとする。
+    xtrack, ytrack
+        Ordered skeleton track in image pixels.
+        画像座標系での順序付きスケルトントラック。
+    width_px
+        Apparent width W of the fiber, in pixels; every length here is a
+        multiple of it.
+        繊維の見かけ幅 W（画素）。ここでの長さはすべてその倍数である。
+    branch_points
+        Branch-point mask in the same frame, or ``None``.
+        同じ座標系の分岐点マスク。無ければ ``None``。
+    method
+        Which line to place, one of `CENTERLINE_METHODS`.
+        置く線。`CENTERLINE_METHODS` のいずれか。
+
+    Returns
+    -------
+    tuple of ndarray
+        ``(x, y, reliable, crest)``: the three values of `refine_centerline`
+        and, per point, the **crest height** -- the maximum of the
+        cross-section the point was resolved on, or, where the section could
+        not locate this fiber and the point was interpolated, the maximum
+        within `_CREST_WINDOW_WIDTHS` of the line point along its normal.
+        ``(x, y, reliable, crest)``。`refine_centerline` の 3 つの値と、点ごとの
+        **頂点高さ**である。頂点高さは、その点を決めた断面の最大値、または断面が
+        この繊維の位置を決められず点が補間された場合は、線の点から法線に沿って
+        `_CREST_WINDOW_WIDTHS` 以内の最大値である。
+
+    Notes
+    -----
+    The crest is what a fiber's height means: the line itself sits at the
+    half-maximum midpoint, which on an asymmetric section is beside the top
+    rather than on it, so a height read at the line by interpolation is biased
+    low.
+    繊維の高さが意味するのは頂点高さである。線そのものは半値中点にあり、非対称な
+    断面では頂部の上ではなく脇に来るため、線の位置で補間して読んだ高さは低く偏る。
 
     `method` names the line (`CENTERLINE_METHODS`). Every method shares the
     climb to the nearest maximum and the reliability tests, which are taken at
@@ -1104,6 +1233,11 @@ def place_centerline(
         measured, the per-point reliability and the crest heights.
         線、置くのに使った幅とそれが測定値かどうか、点ごとの信頼性、頂点高さ。
 
+    Raises
+    ------
+    ValueError
+        If `method` is not one of `CENTERLINE_METHODS`.
+
     Notes
     -----
     GUI01's kink detection and the fiber tracer that rebuilds fibers when a
@@ -1114,11 +1248,6 @@ def place_centerline(
     両方がこれを呼ぶ。そのため、バンドルに保存されたキンクと、それを描く線は、
     同じ入力に対する 1 つの計算から来る。`half_max_centerline` は同じ計算で線だけ
     を返すものである。
-
-    Raises
-    ------
-    ValueError
-        If `method` is not one of `CENTERLINE_METHODS`.
 
     Examples
     --------

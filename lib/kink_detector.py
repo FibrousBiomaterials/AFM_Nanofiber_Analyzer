@@ -238,6 +238,30 @@ def _arm_interior_angle(
     各腕の向きはその区間にわたる平滑化済みの向きの平均（`_ARM_GAP_WIDTHS`
     参照）で、内角は ``pi`` から両腕の間の回転を引いたもの。隣の折れや線の端で
     打ち切られた区間が `_ARM_MIN_WIDTHS` より短ければ NaN。
+
+    Parameters
+    ----------
+    sm
+        Arc lengths the heading is sampled at (`_heading_profile`).
+        向きを標本化した弧長（`_heading_profile`）。
+    heading
+        Smoothed, unwrapped heading at `sm`, in radians.
+        `sm` での平滑化・アンラップ済みの向き（ラジアン）。
+    p
+        Arc length of the bend.
+        折れの位置の弧長。
+    width
+        Apparent width W, in pixels.
+        見かけ幅 W（画素）。
+    prev_bend, next_bend
+        Arc lengths of the neighbouring bends, or ``None`` where there is none.
+        隣の折れの弧長。無ければ ``None``。
+
+    Returns
+    -------
+    float
+        Interior angle in radians, or NaN as described above.
+        内角（ラジアン）。上に述べた場合は NaN。
     """
     gap = _ARM_GAP_WIDTHS * width
     arm = _ARM_LENGTH_WIDTHS * width
@@ -267,14 +291,30 @@ def _heading_profile(
     Heading of a line, resampled at a fixed arc-length step and smoothed.
     一定の弧長間隔で再サンプリングし、平滑化した線の向き。
 
-    Returns ``(orig, s, length, sm, heading)``: the indices of the line points
-    kept after dropping repeated points, their arc lengths, the total length,
-    the arc lengths the heading is sampled at, and the smoothed, unwrapped
-    heading in radians. ``None`` when the line has no length to sample.
-    ``(orig, s, length, sm, heading)`` を返す。重複点を除いた後に残る線の点の
-    インデックス、その弧長、全長、向きをサンプリングした弧長、平滑化してアンラップ
-    した向き（ラジアン）である。サンプリングする長さが無ければ ``None``。
+    Parameters
+    ----------
+    x, y
+        Line coordinates, in pixels.
+        線の座標（画素）。
+    width
+        Apparent width W, in pixels; the smoothing scales with it.
+        見かけ幅 W（画素）。平滑化はこれに比例する。
 
+    Returns
+    -------
+    tuple or None
+        ``(orig, s, length, sm, heading)``: the indices of the line points
+        kept after dropping repeated points, their arc lengths, the total
+        length, the arc lengths the heading is sampled at, and the smoothed,
+        unwrapped heading in radians. ``None`` when the line has no length to
+        sample.
+        ``(orig, s, length, sm, heading)``。重複点を除いた後に残る線の点の
+        インデックス、その弧長、全長、向きをサンプリングした弧長、平滑化して
+        アンラップした向き（ラジアン）である。サンプリングする長さが無ければ
+        ``None``。
+
+    Notes
+    -----
     The heading is padded by linear extrapolation before smoothing
     (`centerline._smooth_extrapolated`), so a straight end does not read as
     turning toward its last sample.

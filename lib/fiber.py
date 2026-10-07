@@ -175,8 +175,9 @@ class Fiber:
 
         Returns
         -------
-        Last value of `horizon`, interpreted as full path length.
-        `horizon` の末尾値（全経路長として解釈される）。
+        float
+            Last value of `horizon`, interpreted as full path length.
+            `horizon` の末尾値（全経路長として解釈される）。
         """
         # `horizon` is cumulative distance, so the final element is total length.
         # `horizon` は累積距離のため、末尾要素が全長に対応する。

@@ -616,6 +616,20 @@ def _wheel_scroll_steps(event) -> int:
     Convert a wheel event into signed scroll units, or 0 when it carries none.
     ホイールイベントを符号付きスクロール単位へ変換する（無ければ 0）。
 
+    Parameters
+    ----------
+    event
+        Tk ``<MouseWheel>``, ``<Button-4>`` or ``<Button-5>`` event.
+        Tk の ``<MouseWheel>``・``<Button-4>``・``<Button-5>`` イベント。
+
+    Returns
+    -------
+    int
+        Scroll units, negative to scroll up: one per Windows notch of 120,
+        and one for a smaller delta or an X11 button.
+        スクロール単位。負なら上へ。Windows では 120 ごとに 1、それより小さい
+        delta や X11 のボタンでは 1。
+
     Notes
     -----
     Windows and macOS deliver ``<MouseWheel>`` with ``event.delta`` (Windows
@@ -1046,11 +1060,25 @@ class UnconfirmedEntryMixin:
         """
         Format a value before writing it back to an Entry widget.
         Entry に書き込む際の文字列フォーマッタを返す。
+
+        Parameters
+        ----------
+        v
+            Committed value.
+            確定済みの値。
+
+        Returns
+        -------
+        str
+            ``str(v)``.
+            ``str(v)``。
         """
         return str(v)
 
     def _maybe_show_enter_hint(self) -> None:
-        """First-time hint emitter for the Enter-to-commit mechanism.
+        """
+        Log the Enter-to-commit hint the first time an entry is left unconfirmed.
+        入力欄が初めて未確定になったときに、Enter で確定する旨をログに 1 回だけ出す。
 
         Called from ``on_key_release`` when an Entry becomes unconfirmed.
         Emits a one-shot message to ``self.log_text`` (via ``LogMixin._log``)
@@ -1098,6 +1126,27 @@ class UnconfirmedEntryMixin:
         併せて Entry 本体に「Enter キーで確定」ツールチップを付与する。
         青色背景の意味を伝える主たる手がかりであり、ホバーしないユーザー向けには
         ``_maybe_show_enter_hint`` で初回ログ案内を出す。
+
+        Parameters
+        ----------
+        entry
+            Entry widget to register.
+            登録する入力欄。
+        get_committed_str
+            Returns the text of the value currently committed for the entry.
+            その入力欄で現在確定している値の文字列を返す関数。
+        commit_cb
+            Validates and commits the entry's value; returns True on success.
+            入力欄の値を検証・確定し、成功すれば True を返す関数。
+        registry
+            Registry list to add the entry to, as described above.
+            入力欄を加える登録簿（上記参照）。
+
+        Returns
+        -------
+        Entry
+            `entry` itself.
+            `entry` そのもの。
         """
         if registry is None:
             registry = self._unconfirmed_entries
@@ -1148,6 +1197,12 @@ class UnconfirmedEntryMixin:
         各登録簿項目は ``(entry, committed_text_getter, commit_callback)``。
         複数 Entry が同じ commit_cb を共有している場合、commit_cb は 1 回しか
         呼ばない（例: vmin / vmax がまとめて 1 関数で検証される設計）。
+
+        Parameters
+        ----------
+        registry
+            Registry list to commit.
+            確定する登録簿。
         """
         called_cbs = set()
         items = list(registry)
@@ -1176,6 +1231,12 @@ class UnconfirmedEntryMixin:
         """
         Refresh confirmed/unconfirmed styles for all registered Entry widgets.
         登録簿中の全 Entry の確定/未確定スタイルを再評価する。
+
+        Parameters
+        ----------
+        registry
+            Registry list to refresh; ``None`` uses ``self._unconfirmed_entries``.
+            再評価する登録簿。``None`` なら ``self._unconfirmed_entries``。
         """
         if registry is None:
             registry = self._unconfirmed_entries
@@ -1385,10 +1446,11 @@ class UnconfirmedEntryMixin:
 
 class LogMixin:
     """
-    Provide a uniform ``_log`` / ``_log_exception`` API for GUI windows that
-    own a ``self.log_text`` Text widget.
+    Provide ``_log`` and ``_log_exception`` to GUI windows with a log widget.
+    ログ用ウィジェットを持つ GUI ウィンドウに ``_log`` と ``_log_exception`` を提供する。
 
-    Do not call them before ``log_text`` has been created.
+    The window must own a ``self.log_text`` Text widget, and the methods must
+    not be called before it has been created.
     ``self.log_text`` を持つ GUI に対して、共通の ``_log`` /
     ``_log_exception`` を提供する Mixin。``log_text`` を生成する前に
     呼んではいけない。
@@ -1407,6 +1469,12 @@ class LogMixin:
         """
         Append one line to the log Text widget.
         ログテキストウィジェットに1行追加する。
+
+        Parameters
+        ----------
+        msg
+            Message, written with a timestamp (`append_log`).
+            時刻付きで書き込むメッセージ（`append_log`）。
         """
         append_log(self.log_text, msg)
 
@@ -1421,6 +1489,17 @@ class LogMixin:
         """
         Log an exception with the stack trace of the exception being handled.
         例外をスタックトレース付きでログに出す。
+
+        Parameters
+        ----------
+        prefix
+            Text written before the exception.
+            例外の前に書く文字列。
+        exc
+            The exception; call this inside the ``except`` block that caught
+            it, so the trace is the one being handled.
+            例外。それを捕まえた ``except`` ブロックの中で呼ぶこと。そうすれば
+            トレースは処理中の例外のものになる。
         """
         import traceback
         tb = traceback.format_exc()
@@ -1665,8 +1744,19 @@ class HeadingToolTip(ToolTip):
         Return the column identifier of the heading under the pointer.
         ポインタ下にある見出しの列識別子を返す。
 
-        Returns ``None`` when the pointer is not on a heading.
-        ポインタが見出し上に無ければ ``None`` を返す。
+        Parameters
+        ----------
+        event
+            Tk pointer event on the tree.
+            Treeview 上の Tk ポインタイベント。
+
+        Returns
+        -------
+        str or None
+            Identifier of the displayed column whose heading is under the
+            pointer, or ``None`` when the pointer is not on a heading.
+            ポインタ下に見出しがある表示列の識別子。ポインタが見出し上に無ければ
+            ``None``。
         """
         tree = self.widget
         if tree.identify_region(event.x, event.y) != "heading":
@@ -1689,6 +1779,12 @@ class HeadingToolTip(ToolTip):
         """
         Show, switch, or hide the tooltip as the pointer moves.
         ポインタの移動に応じてツールチップを表示・切替・非表示にする。
+
+        Parameters
+        ----------
+        event
+            Tk ``<Motion>`` event on the tree.
+            Treeview 上の Tk ``<Motion>`` イベント。
         """
         column = self._heading_column(event)
         # Staying on one heading keeps the popup where it is; re-creating it on
@@ -1706,6 +1802,12 @@ class HeadingToolTip(ToolTip):
         """
         Hide the tooltip when the pointer leaves the tree.
         ポインタが Treeview から出たらツールチップを隠す。
+
+        Parameters
+        ----------
+        event
+            Tk ``<Leave>`` event on the tree.
+            Treeview 上の Tk ``<Leave>`` イベント。
         """
         self._column = None
         self.hide_tooltip(event)
@@ -2078,6 +2180,7 @@ def compute_auto_vrange(
     -------
     (vmin, vmax) : tuple of int
         Integer-valued bounds suitable for direct use as ``imshow(vmin=, vmax=)``.
+        ``imshow(vmin=, vmax=)`` にそのまま使える整数値の上下限。
 
     Notes
     -----
@@ -2320,9 +2423,11 @@ def save_figure_with_dialog(
     notify_on_success: bool = False,
 ) -> str | None:
     """
-    Show a 'Save as' dialog and save a matplotlib Figure with the project's
-    standard filetypes / DPI / error handling.
-    matplotlib Figure を共通の filetypes / DPI / エラー処理で保存する。
+    Save a matplotlib Figure through a 'Save as' dialog.
+    「名前を付けて保存」ダイアログから matplotlib の Figure を保存する。
+
+    The project's standard file types, DPI and error handling are applied.
+    プロジェクト共通の filetypes・DPI・エラー処理を適用する。
 
     Parameters
     ----------

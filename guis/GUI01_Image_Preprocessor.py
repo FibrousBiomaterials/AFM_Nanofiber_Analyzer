@@ -62,6 +62,7 @@ import threading
 import queue
 import subprocess
 from dataclasses import dataclass, asdict, fields
+from types import TracebackType
 from typing import Optional, Dict, Any, List, Tuple
 
 # ===== Numerical / scientific libraries =====
@@ -373,6 +374,14 @@ def load_ui_settings() -> Dict[str, Any]:
     Load UI-only settings from the settings file, falling back to defaults.
     設定ファイルから UI 専用設定を読み込み、無ければ既定値にフォールバックする。
 
+    Returns
+    -------
+    dict
+        Every key of `UI_DEFAULTS`, with the value stored in the file's `_ui`
+        section where it has one and the default otherwise.
+        `UI_DEFAULTS` の全キー。ファイルの `_ui` セクションに値があればその値、
+        無ければ既定値。
+
     Notes
     -----
     Read failures and missing sections are non-fatal: the function returns a
@@ -403,6 +412,14 @@ def save_ui_settings(ui: Dict[str, Any]) -> None:
     """
     Persist UI-only settings into the `_ui` section without touching parameters.
     パラメータ部に触れず、UI 専用設定を `_ui` セクションへ保存する。
+
+    Parameters
+    ----------
+    ui
+        UI settings to store. Only the keys of `UI_DEFAULTS` are written; a
+        missing one is written with its default.
+        保存する UI 設定。`UI_DEFAULTS` のキーだけを書き、欠けているキーは
+        既定値で書く。
 
     Notes
     -----
@@ -793,6 +810,13 @@ def open_folder_in_os(path: str) -> None:
     """
     Open a folder with the platform's file manager.
     OS 標準のファイルマネージャーでフォルダを開く。
+
+    Parameters
+    ----------
+    path
+        Folder to open. An empty path does nothing, and a file-manager failure
+        is ignored.
+        開くフォルダ。空のパスでは何もせず、ファイルマネージャーの失敗は無視する。
     """
     if not path:
         return
@@ -2111,7 +2135,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
     # then all unconfirmed values in the same registry are committed together on Enter.
     # Shared behavior lives in ui_tools.UnconfirmedEntryMixin.
 
-    def validate_vrange(self):
+    def validate_vrange(self) -> bool:
         """
         Validate and commit the main preview vmin/vmax fields together.
         メインプレビューの vmin/vmax 入力欄をまとめて検証・確定する。
@@ -2132,7 +2156,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             on_success=self.on_redraw_preview,
         )
 
-    def validate_main_font_sizes(self):
+    def validate_main_font_sizes(self) -> bool:
         """
         Validate and commit the main preview font-size fields together.
         メインプレビューのフォントサイズ入力欄をまとめて検証・確定する。
@@ -2156,7 +2180,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             on_success=self.on_redraw_preview,
         )
 
-    def validate_scale_um(self):
+    def validate_scale_um(self) -> bool:
         """
         Validate and commit the physical image scale in micrometers.
         画像実寸スケール (µm) の入力欄を検証・確定する。
@@ -2316,6 +2340,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         Return whether this GUI has an output folder available.
         この GUI で出力先フォルダが利用可能かを返す。
+
+        Returns
+        -------
+        bool
+            True once an input folder is selected; this GUI writes its
+            outputs there.
+            入力フォルダが選択済みなら True。この GUI は出力をそこへ書く。
         """
         # A selected input folder is also the output location for this GUI.
         return bool(self.folder_path)
@@ -2970,6 +3001,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         Apply the scale entry value to selected or all files (manual source).
         スケール入力欄の値を選択ファイルまたは全ファイルへ適用する（手動ソース）。
+
+        Parameters
+        ----------
+        selected_only
+            Apply to the selected rows only; otherwise to every file.
+            選択中の行だけに適用する。偽ならすべてのファイルに適用する。
         """
         if self.is_running:
             return
@@ -4785,10 +4822,18 @@ class SettingsDialog(tk.Toplevel):
         except Exception as e:
             messagebox.showerror(_("エラー"), _("読み込みに失敗しました。\n%s") % e)
             
-    def report_callback_exception(self, exc, val, tb):
+    def report_callback_exception(self, exc: type[BaseException],
+                                  val: BaseException,
+                                  tb: Optional[TracebackType]) -> None:
         """
         Show and log tkinter callback exceptions raised by this dialog.
         本ダイアログの tkinter コールバック例外を表示し、ログへ記録する。
+
+        Parameters
+        ----------
+        exc, val, tb
+            Exception type, instance and traceback, as Tk passes them.
+            Tk が渡すとおりの例外の型・インスタンス・トレースバック。
         """
         msg = "".join(traceback.format_exception(exc, val, tb))
         try:
@@ -5054,7 +5099,7 @@ class SingleViewDialog(tk.Toplevel, UnconfirmedEntryMixin):
 
         ttk.Button(bottom, text=_("画像を保存"), command=self._export).pack(side="left", padx=(16, 4))
 
-    def validate_dialog_font_sizes(self):
+    def validate_dialog_font_sizes(self) -> bool:
         """
         Validate and commit all single-view font-size fields together.
         個別表示ダイアログのフォントサイズ入力欄をまとめて検証・確定する。
@@ -5079,7 +5124,7 @@ class SingleViewDialog(tk.Toplevel, UnconfirmedEntryMixin):
             on_success=self._draw,
         )
 
-    def validate_dialog_vrange(self):
+    def validate_dialog_vrange(self) -> bool:
         """
         Validate and commit the single-view vmin/vmax fields together.
         個別表示ダイアログの vmin/vmax 入力欄をまとめて検証・確定する。

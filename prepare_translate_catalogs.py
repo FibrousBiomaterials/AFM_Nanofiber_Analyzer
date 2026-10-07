@@ -1,5 +1,6 @@
 """
 Prepare gettext catalogs without machine translation.
+機械翻訳を使わずに gettext カタログを準備する。
 
 This script runs the Babel extract/update flow, injects
 ``PLUGIN_INFO["description"]`` entries into ``locale/messages.pot``, and

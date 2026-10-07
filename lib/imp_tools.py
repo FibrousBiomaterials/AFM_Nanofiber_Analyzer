@@ -31,12 +31,40 @@ def _to_cv2_hitmiss_kernel(arr: np.ndarray) -> np.ndarray:
     """
     Convert a 0/1/2-encoded hit-or-miss kernel to the OpenCV convention.
     0/1/2 符号化の hit-or-miss カーネルを OpenCV 表記へ変換する。
+
+    Parameters
+    ----------
+    arr
+        Kernel with 1 = skeleton pixel, 0 = background, 2 = either.
+        1 = 骨格画素、0 = 背景、2 = どちらでもよい、で書いたカーネル。
+
+    Returns
+    -------
+    ndarray
+        int8 kernel with 1 = foreground, -1 = background, 0 = either, as
+        ``cv2.MORPH_HITMISS`` expects.
+        ``cv2.MORPH_HITMISS`` が受け取る形（1 = 前景、-1 = 背景、0 = どちらでも
+        よい）の int8 カーネル。
     """
     return np.where(arr == 2, 0, np.where(arr == 0, -1, 1)).astype(np.int8)
 
 
 def _build_branch_patterns() -> list:
-    """Branch-point kernels: four rotations of the Y- and T-shaped patterns, plus the X-shaped and square ones."""
+    """
+    Build the branch-point kernels.
+    分岐点のカーネルを作る。
+
+    They are four rotations of the Y- and T-shaped patterns, plus the X-shaped
+    and square ones.
+    Y 字形と T 字形のパターンをそれぞれ 4 方向に回したものと、X 字形と正方形の
+    パターンである。
+
+    Returns
+    -------
+    list of ndarray
+        OpenCV hit-or-miss kernels (`_to_cv2_hitmiss_kernel`).
+        OpenCV の hit-or-miss カーネル（`_to_cv2_hitmiss_kernel`）。
+    """
     vh_xbranch = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
     diagonal_xbranch = np.array([[1, 0, 1], [0, 1, 0], [1, 0, 1]])
     vh_ybranch = np.array([[1, 0, 1], [0, 1, 0], [2, 1, 2]])
@@ -61,7 +89,19 @@ def _build_branch_patterns() -> list:
 
 
 def _build_end_patterns() -> list:
-    """Endpoint kernels: four rotations of each end pattern, plus the isolated pixel."""
+    """
+    Build the endpoint kernels.
+    端点のカーネルを作る。
+
+    They are four rotations of each end pattern, plus the isolated pixel.
+    各端点パターンを 4 方向に回したものと、孤立画素のパターンである。
+
+    Returns
+    -------
+    list of ndarray
+        OpenCV hit-or-miss kernels (`_to_cv2_hitmiss_kernel`).
+        OpenCV の hit-or-miss カーネル（`_to_cv2_hitmiss_kernel`）。
+    """
     endpoint1 = np.array([[0, 0, 0], [0, 1, 0], [2, 1, 2]])
     endpoint2 = np.array([[0, 0, 0], [0, 1, 0], [0, 0, 1]])
     endpoint_single = np.array([[0, 0, 0], [0, 1, 0], [0, 0, 0]])
@@ -89,6 +129,21 @@ def _hitmiss_union(skel: NDArray[np.uint8], patterns: list) -> NDArray[np.uint8]
     values 0 and 1.
     1 画素ゼロパディングで境界画素にも 3x3 カーネルを適用し、対応するクロップで
     元の形状へ戻す。戻り値の値は 0 と 1 のみ。
+
+    Parameters
+    ----------
+    skel
+        Binary skeleton image.
+        2 値の骨格画像。
+    patterns
+        OpenCV hit-or-miss kernels.
+        OpenCV の hit-or-miss カーネル。
+
+    Returns
+    -------
+    ndarray
+        uint8 image, 1 where any kernel matches, shaped like `skel`.
+        いずれかのカーネルが一致した画素を 1 とする uint8 画像（`skel` と同じ形）。
     """
     padded = np.pad(skel, pad_width=1, mode='constant', constant_values=0).astype(np.uint8)
     hits = np.zeros_like(padded, dtype=np.uint8)

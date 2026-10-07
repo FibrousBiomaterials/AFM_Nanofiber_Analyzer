@@ -156,6 +156,18 @@ def _is_length_unit(unit: Optional[str]) -> bool:
     """
     Return whether an SI unit string denotes a length.
     SI 単位文字列が長さを表すかどうかを返す。
+
+    Parameters
+    ----------
+    unit
+        Unit string as gwyfile reports it, or ``None``.
+        gwyfile が返す単位文字列、または ``None``。
+
+    Returns
+    -------
+    bool
+        True for metres and their prefixed forms (mm, µm, nm, pm).
+        メートルと接頭辞付きの形（mm・µm・nm・pm）なら True。
     """
     if not unit:
         return False
@@ -179,6 +191,18 @@ def _z_to_nm_factor(z_unit: Optional[str]) -> float:
     する。長さ以外のチャンネル（位相 ``rad``・電流 ``A`` 等）はそのまま通す。
     これらは高さではないため、地形以外を上書き指定した場合の解釈は呼び出し側の
     責任となる。
+
+    Parameters
+    ----------
+    z_unit
+        The channel's value-axis unit string, or ``None``.
+        チャンネルの値軸の単位文字列、または ``None``。
+
+    Returns
+    -------
+    float
+        Nanometres per stored unit for a length unit; ``1.0`` otherwise.
+        長さの単位なら保存単位あたりの nm、それ以外は ``1.0``。
     """
     factors = {
         "m": 1.0e9, "mm": 1.0e6, "um": 1.0e3, "µm": 1.0e3, "μm": 1.0e3,
@@ -193,6 +217,18 @@ def _z_unit_of(datafield) -> Optional[str]:
     """
     Return a GwyDataField's value-axis unit string, or ``None`` when absent.
     GwyDataField の値軸単位文字列を返す。無ければ ``None``。
+
+    Parameters
+    ----------
+    datafield
+        GwyDataField of one channel.
+        1 チャンネルの GwyDataField。
+
+    Returns
+    -------
+    str or None
+        The unit string, or ``None`` when the field records none.
+        単位文字列。記録されていなければ ``None``。
     """
     si = getattr(datafield, "si_unit_z", None)
     if si is None:
@@ -212,6 +248,18 @@ def _load_container(path: str):
     ``gwyfile`` 依存はモジュール冒頭ではなくここで import する。テキスト専用の
     ワークフローでは、本モジュール（および `afm_io` の振り分け）の import が
     このパッケージを必要としないようにするためである。
+
+    Parameters
+    ----------
+    path
+        ``.gwy`` file to open.
+        開く ``.gwy`` ファイル。
+
+    Returns
+    -------
+    GwyContainer
+        The file's top-level container.
+        ファイルの最上位コンテナ。
 
     Raises
     ------
@@ -240,8 +288,14 @@ def _load_container(path: str):
 
 def _channels_from_container(container) -> List[Tuple[GwyChannel, object]]:
     """
-    Enumerate channels in container order, pairing metadata with its datafield.
+    Enumerate channels in channel-id order, pairing metadata with its datafield.
     コンテナ内のチャンネルを id 順に列挙し、メタデータとデータフィールドを組にする。
+
+    Parameters
+    ----------
+    container
+        GwyContainer of an opened file (`_load_container`).
+        開いたファイルの GwyContainer（`_load_container`）。
 
     Returns
     -------
@@ -355,6 +409,21 @@ def _resolve_channel(
     （大文字小文字無視で完全一致を優先し、無ければ部分一致）を取りうる。数字のみの
     文字列はチャンネル id として扱い、CLI の ``--channel 2`` が動くようにする。
 
+    Parameters
+    ----------
+    channels
+        Channels of the file, in channel-id order.
+        ファイルのチャンネル（id 順）。
+    selector
+        ``None``, a channel id, or a title, as described above.
+        上に述べた ``None``・チャンネル id・タイトルのいずれか。
+
+    Returns
+    -------
+    int
+        Index of the selected channel in `channels`.
+        選んだチャンネルの `channels` 内での位置。
+
     Raises
     ------
     ValueError
@@ -402,6 +471,18 @@ def _scan_size_from_datafield(datafield) -> Optional[ScanSize]:
     Gwyddion は高速走査軸 (X) の範囲を ``xreal``、低速走査軸 (Y) の範囲を
     ``yreal`` に、いずれもメートルで保存する。範囲が非正または欠損のときは
     ``None`` を返し、呼び出し側が計測時の走査範囲へフォールバックできるようにする。
+
+    Parameters
+    ----------
+    datafield
+        GwyDataField of one channel.
+        1 チャンネルの GwyDataField。
+
+    Returns
+    -------
+    ScanSize or None
+        Scan size in micrometres, or ``None`` as described above.
+        µm 単位の走査範囲。上に述べた場合は ``None``。
     """
     xreal = getattr(datafield, "xreal", None)
     yreal = getattr(datafield, "yreal", None)
@@ -416,7 +497,7 @@ def _scan_size_from_datafield(datafield) -> Optional[ScanSize]:
 
 def list_gwy_channels(path: str) -> List[GwyChannel]:
     """
-    List the data channels in a ``.gwy`` file in container order.
+    List the data channels in a ``.gwy`` file in channel-id order.
     ``.gwy`` ファイルのデータチャンネルを id 順に列挙する。
 
     Parameters

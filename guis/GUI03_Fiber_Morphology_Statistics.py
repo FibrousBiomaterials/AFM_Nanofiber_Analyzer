@@ -695,6 +695,12 @@ class Group:
         """
         Return the total candidate bundle count for this group.
         このグループが持つ候補バンドル総数を返す。
+
+        Returns
+        -------
+        int
+            Sum of the ``pairs`` counts recorded for the group's folders.
+            グループの各フォルダについて記録した ``pairs`` の件数の合計。
         """
         return sum(self.folder_pairinfo.get(p, {}).get("pairs", 0) for p in self.folder_paths)
 
@@ -702,6 +708,12 @@ class Group:
         """
         Return the total warning or missing-item count for this group.
         このグループが持つ警告または欠損メッセージの総数を返す。
+
+        Returns
+        -------
+        int
+            Number of ``missing`` messages recorded for the group's folders.
+            グループの各フォルダについて記録した ``missing`` メッセージの数。
         """
         return sum(len(self.folder_pairinfo.get(p, {}).get("missing", [])) for p in self.folder_paths)
 
@@ -1166,10 +1178,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _build_right_pane(self, parent: ttk.Frame) -> None:
         """
-        Build the right pane: action bar, histogram controls, plot options,
-        and the scrollable plot canvas.
-        右ペイン（操作バー・ヒストグラム設定・図オプション・スクロール可能な
-        描画キャンバス）を構築する。
+        Build the right pane.
+        右ペインを構築する。
+
+        It holds the action bar, histogram controls, plot options, and the
+        scrollable plot canvas.
+        操作バー・ヒストグラム設定・図オプション・スクロール可能な描画キャンバスを
+        並べる。
         """
         frm_plot = ttk.Frame(parent)
         frm_plot.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
@@ -1198,9 +1213,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _build_quantity_controls(self, parent: ttk.Frame) -> None:
         """
-        Build the input, measured-quantity, aggregation-unit, and plot-type
-        selectors.
-        入力・計測量・集計単位・図の種類のセレクタを構築する。
+        Build the selectors that choose what is plotted.
+        描画する内容を選ぶセレクタを構築する。
+
+        They choose the input, the measured quantity, the aggregation unit, and
+        the plot type.
+        入力・計測量・集計単位・図の種類を選ぶ。
 
         Notes
         -----
@@ -2240,6 +2258,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         Move the selected group up or down in plotting order.
         選択中のグループを描画順序の中で上下に移動する。
+
+        Parameters
+        ----------
+        delta
+            Positions to move by: negative moves up, positive moves down. A
+            move past either end does nothing.
+            移動する位置の数。負なら上へ、正なら下へ。端を越える移動では何もしない。
         """
         g, _folder = self._selected_group()
         if g is None:

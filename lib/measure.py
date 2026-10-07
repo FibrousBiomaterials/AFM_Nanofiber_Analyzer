@@ -1522,6 +1522,18 @@ def _load_validated_arrays(
     記録された形式バージョンも照合し、非互換な将来リリースが書いたバンドルを
     明示的に拒否する。
 
+    Parameters
+    ----------
+    bundle_path
+        Bundle to read.
+        読み込むバンドル。
+    keys
+        Keys that must be present.
+        必ず存在すべきキー。
+    optional
+        Keys loaded only when the bundle has them.
+        バンドルにある場合だけ読み込むキー。
+
     Returns
     -------
     tuple
@@ -1582,23 +1594,43 @@ def _tracking_image_from_arrays(
     読み込み済みのバンドル配列から `FiberTrackingImage` を組み立てる。
 
     Used by both `load_tracking_image` and `measure_bundle` so the bundle is
-    read from disk only once per call path. ``size_per_pixel`` is the X (column)
-    pixel size; ``y_size_per_pixel`` is the Y (row) pixel size and defaults to
-    the X value for an isotropic (square-pixel) scale.
+    read from disk only once per call path.
     `load_tracking_image` と `measure_bundle` の両方から使い、各呼び出し経路で
-    バンドルのディスク読み込みを 1 回に抑える。``size_per_pixel`` は X（列）軸、
-    ``y_size_per_pixel`` は Y（行）軸のピクセルサイズで、省略時は X 値を流用して
-    等方（正方ピクセル）スケールとする。
+    バンドルのディスク読み込みを 1 回に抑える。
 
-    ``meta`` supplies the bundle's vlmeta so the kink thresholds the stored
-    kink points were detected with travel with the image. Anything that later
-    recomputes kinks on a track the bundle does not contain — a reconnected
-    fibril, a height-band sub-fiber — then judges it by the rule that produced
-    the rest of the image instead of a hard-coded default.
-    ``meta`` はバンドルの vlmeta を渡すもので、保存済みキンク点の検出に使われた
-    しきい値を画像と一緒に運ぶ。これにより、バンドルに含まれないトラック上で
-    後からキンクを再計算する処理（再結合フィブリル、高さ帯サブファイバー）が、
-    ハードコード既定値ではなく画像の他の部分を生んだ規則で判定するようになる。
+    Parameters
+    ----------
+    name
+        Dataset name given to the container.
+        コンテナに付けるデータセット名。
+    data
+        Bundle arrays by key, as `_load_validated_arrays` returns them.
+        `_load_validated_arrays` が返すキーごとのバンドル配列。
+    size_per_pixel
+        X (column) pixel size.
+        X（列）軸のピクセルサイズ。
+    y_size_per_pixel
+        Y (row) pixel size; ``None`` uses the X value, an isotropic
+        (square-pixel) scale.
+        Y（行）軸のピクセルサイズ。``None`` なら X 値を流用し、等方（正方
+        ピクセル）スケールとする。
+    meta
+        The bundle's vlmeta, so the kink thresholds the stored kink points
+        were detected with travel with the image. Anything that later
+        recomputes kinks on a track the bundle does not contain — a
+        reconnected fibril, a height-band sub-fiber — then judges it by the
+        rule that produced the rest of the image instead of a hard-coded
+        default.
+        バンドルの vlmeta。保存済みキンク点の検出に使われたしきい値を画像と一緒に
+        運ぶ。これにより、バンドルに含まれないトラック上で後からキンクを再計算する
+        処理（再結合フィブリル、高さ帯サブファイバー）が、ハードコード既定値では
+        なく画像の他の部分を生んだ規則で判定するようになる。
+
+    Returns
+    -------
+    FiberTrackingImage
+        Container holding the arrays, the pixel sizes and the kink settings.
+        配列・ピクセルサイズ・キンクの設定を持つコンテナ。
     """
     cal = data["calibrated"]
     skl = data["skeletonized"].astype(np.uint8)

@@ -200,6 +200,12 @@ def cmd_process(args: argparse.Namespace) -> int:
     Run the preprocessing pipeline over all requested input files.
     要求された全入力ファイルに対して前処理パイプラインを実行する。
 
+    Parameters
+    ----------
+    args
+        Parsed arguments of the subcommand (see `build_parser`).
+        サブコマンドの解析済み引数（`build_parser` 参照）。
+
     Returns
     -------
     int
@@ -335,6 +341,18 @@ def cmd_show_params(args: argparse.Namespace) -> int:
     The output can be redirected to a file, edited, and passed back through
     `process --params`.
     出力をファイルへリダイレクトして編集し、`process --params` に渡せる。
+
+    Parameters
+    ----------
+    args
+        Parsed arguments of the subcommand; nothing is read from them.
+        サブコマンドの解析済み引数。何も読まない。
+
+    Returns
+    -------
+    int
+        Always 0.
+        常に 0。
     """
     from dataclasses import asdict
     print(json.dumps(asdict(ProcParams()), ensure_ascii=False, indent=2))
@@ -352,6 +370,12 @@ def cmd_export(args: argparse.Namespace) -> int:
     `npz` はバンドルごとに 1 つの圧縮 NumPy アーカイブを、`csv` は配列キー
     ごとに 1 つのテキストファイルを書き出す。バンドルのメタデータ（解析
     パラメータと来歴）は常に `<stem>_meta.json` として併記出力される。
+
+    Parameters
+    ----------
+    args
+        Parsed arguments of the subcommand (see `build_parser`).
+        サブコマンドの解析済み引数（`build_parser` 参照）。
 
     Returns
     -------
@@ -446,6 +470,12 @@ def cmd_measure(args: argparse.Namespace) -> int:
     各バンドルにつき `<stem>_fibers.csv` を 1 つ、GUI04 のエクスポートと同じ
     `lib.measure.write_fiber_csv` 経由で出力する。
 
+    Parameters
+    ----------
+    args
+        Parsed arguments of the subcommand (see `build_parser`).
+        サブコマンドの解析済み引数（`build_parser` 参照）。
+
     Returns
     -------
     int
@@ -518,6 +548,12 @@ def cmd_heights(args: argparse.Namespace) -> int:
     long-format CSV lets external tools regroup and re-bin the values freely.
     GUI03 の高さヒストグラムの元データに相当する。任意出力の縦持ち CSV に
     より、外部ツールで自由に再グループ化・再ビニングできる。
+
+    Parameters
+    ----------
+    args
+        Parsed arguments of the subcommand (see `build_parser`).
+        サブコマンドの解析済み引数（`build_parser` 参照）。
 
     Returns
     -------
@@ -594,6 +630,12 @@ def cmd_validate(args: argparse.Namespace) -> int:
     情報として表示するだけで失敗にはしない。旧リリースのバンドルには来歴が
     無いのが正常なためである。
 
+    Parameters
+    ----------
+    args
+        Parsed arguments of the subcommand (see `build_parser`).
+        サブコマンドの解析済み引数（`build_parser` 参照）。
+
     Returns
     -------
     int
@@ -649,6 +691,13 @@ def build_parser() -> argparse.ArgumentParser:
     """
     Build the argument parser for the CLI entry point.
     CLI エントリポイント用の引数パーサーを構築する。
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        Parser whose subcommands each set ``func`` to the ``cmd_*`` function
+        that runs them.
+        各サブコマンドが ``func`` に実行用の ``cmd_*`` 関数を設定するパーサー。
     """
     parser = argparse.ArgumentParser(
         prog="cli.py",
@@ -830,10 +879,23 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     """
     Parse arguments and dispatch to the selected subcommand.
     引数を解析し、選択されたサブコマンドへ振り分ける。
+
+    Parameters
+    ----------
+    argv
+        Arguments without the program name; ``None`` reads them from
+        ``sys.argv``.
+        プログラム名を除いた引数。``None`` なら ``sys.argv`` から読む。
+
+    Returns
+    -------
+    int
+        Exit code of the subcommand.
+        サブコマンドの終了コード。
     """
     parser = build_parser()
     args = parser.parse_args(argv)

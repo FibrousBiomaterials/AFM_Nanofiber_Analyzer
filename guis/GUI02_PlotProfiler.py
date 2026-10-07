@@ -38,6 +38,7 @@ PLUGIN_INFO = {
 
 # ===== Standard library =====
 import os
+from typing import Iterator
 
 # ===== Numerical / scientific libraries =====
 import numpy as np
@@ -51,6 +52,7 @@ from tkinter import filedialog, messagebox, ttk
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
+from matplotlib.backend_bases import MouseEvent
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # FigureCanvasTkAgg embeds matplotlib figures in tkinter windows.
 # The pan/zoom toolbar itself comes from lib.ui_tools.build_pan_zoom_toolbar.
@@ -424,10 +426,22 @@ class ModalWindow(UnconfirmedEntryMixin):
             title=_("プロファイル画像を保存"),
         )
             
-    def _walk_widgets(self, root) -> list:
+    def _walk_widgets(self, root: tk.Misc) -> Iterator[tk.Misc]:
         """
         Recursively yield widgets under `root`.
         `root` 配下のウィジェットを再帰的に列挙する。
+
+        Parameters
+        ----------
+        root
+            Widget whose descendants are walked.
+            子孫をたどるウィジェット。
+
+        Yields
+        ------
+        tk.Misc
+            Every descendant of `root`, each child before its own children.
+            `root` のすべての子孫。各子をその子より先に返す。
         """
         for child in root.winfo_children():
             yield child
@@ -656,10 +670,12 @@ class App(tk.Tk, UnconfirmedEntryMixin):
 
     def _build_param_row(self) -> None:
         """
-        Build the parameter row (Row 1): scale, height range, line width,
-        aggregation method, and font sizes.
-        パラメータ行（Row 1）: スケール・高さ範囲・線幅・計算方法・
-        フォントサイズを構築する。
+        Build the parameter row (Row 1).
+        パラメータ行（Row 1）を構築する。
+
+        It holds the scale, height range, line width, aggregation method, and
+        font sizes.
+        スケール・高さ範囲・線幅・計算方法・フォントサイズを並べる。
         """
         # Numeric Entry values are committed only by Enter; unit radios apply immediately.
         # 数値 Entry は Enter でのみ確定し、単位ラジオは選択時に即時反映する。
@@ -1116,6 +1132,14 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         change in the effective Y scale.
         空欄は ``None`` を確定し（Y は X に従う＝正方スキャン）、非空欄は正の数で
         あること。実効 Y スケールの変化分だけ打点を Y 方向に再変換する。
+
+        Returns
+        -------
+        bool
+            True when the field was committed; False after an error dialog for
+            a non-numeric or non-positive value.
+            確定できたら True。数値でないか正でない値なら、エラーダイアログを出して
+            False。
         """
         old_x, old_y = self._scale_xy_um()
         raw = self.entry_scale_y.get().strip()
@@ -1338,7 +1362,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             on_success=_on_success,
         )
 
-    def rf_selected(self, event) -> None:
+    def rf_selected(self, event: tk.Event) -> None:
         """
         Update the profile aggregation function from the combobox selection.
         Combobox の選択からプロファイル集計関数を更新する。
@@ -1359,7 +1383,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         if self.flag2:
             self.make_profile()
 
-    def load_array_file(self, path) -> np.ndarray | None:
+    def load_array_file(self, path: str) -> np.ndarray | None:
         """
         Load a 2D AFM height array from bundle, NumPy, text, CSV, or .gwy input.
         バンドル、NumPy、テキスト、CSV、.gwy 入力から 2D AFM 高さ配列を読み込む。
@@ -1739,7 +1763,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # により、flag1 は前回の状態のまま維持される。
         self.flag1 = True
 
-    def file_select(self, path) -> None:
+    def file_select(self, path: str) -> None:
         """
         Handle a selected file path and refresh the heatmap workflow.
         選択されたファイルパスを処理し、ヒートマップ操作を更新する。
@@ -1814,7 +1838,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             self._click_cid = self.fig.canvas.mpl_connect(
                 "button_press_event", self.click1)
 
-    def click1(self, event) -> None:
+    def click1(self, event: MouseEvent) -> None:
         """
         Add a right-clicked point on the heatmap and update the profile.
         ヒートマップ上の右クリック点を追加し、プロファイルを更新する。
@@ -2079,7 +2103,8 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         else:
             messagebox.showerror(_("エラー"), _("画像を開いてください"))
 
-    def profile_between_points(self, x1, x2, y1, y2) -> tuple[np.ndarray, np.ndarray]:
+    def profile_between_points(self, x1: float, x2: float, y1: float,
+                               y2: float) -> tuple[np.ndarray, np.ndarray]:
         """
         Compute a height profile between two points stored in micrometers.
         µm 単位で保持された 2 点間の高さプロファイルを計算する。

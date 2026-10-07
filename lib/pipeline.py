@@ -289,6 +289,18 @@ def _sha256_of_file(path: str) -> str:
     Recorded in bundle provenance metadata so the exact input of an analysis
     can be verified afterwards.
     解析の入力を事後検証できるよう、バンドルの来歴メタデータに記録される。
+
+    Parameters
+    ----------
+    path
+        File to hash.
+        ハッシュを取るファイル。
+
+    Returns
+    -------
+    str
+        Hexadecimal SHA-256 digest.
+        16 進表記の SHA-256 ダイジェスト。
     """
     digest = hashlib.sha256()
     with open(path, "rb") as f:
@@ -301,6 +313,23 @@ def _temp_sibling_path(path: str, suffix: str = ".tmp") -> str:
     """
     Create and return a temporary sibling path for atomic output replacement.
     原子的な出力置換に使う同一ディレクトリ内の一時パスを作成して返す。
+
+    Parameters
+    ----------
+    path
+        Output that the temporary file will replace.
+        一時ファイルで置き換える出力。
+    suffix
+        Suffix of the temporary file name.
+        一時ファイル名の接尾辞。
+
+    Returns
+    -------
+    str
+        Path of a new, empty file in the same directory as `path`, named
+        ``.<basename>.<random><suffix>``.
+        `path` と同じディレクトリに作った空のファイルのパス。名前は
+        ``.<basename>.<random><suffix>``。
     """
     directory = os.path.dirname(os.path.abspath(path))
     basename = os.path.basename(path)
