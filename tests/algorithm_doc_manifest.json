@@ -53,7 +53,7 @@
       "Segmenter._recover_missed_ridges": "02e44e92e1c6234ed397d79da2e614c9256b1ae7469b5807462be88482468eb8",
       "Segmenter._binaryzation": "b823c78f28773b249a2d194e1a73e7f3eab302b3749d24170dfff053204a4056",
       "Segmenter._remove_small_fragments": "e2eb8376b33faa8a94d297c2d4f70a8bd9bea20d2bf20641085779be55b70c54",
-      "Segmenter._remove_nonlinear_objects": "c917a1a0577299259998bb4f7bfa59426a6bbc0b58a57b38dfe5e09a1d4fd861",
+      "Segmenter._remove_nonlinear_objects": "a4ebd62a743067f323d9758177bf07edd8b3daafb496ffb9ca49ca2957204499",
       "Segmenter._remove_connecting_fragments": "5f1bab1c7f095a3daf51e2e7ae2bf07b695f65fea198ac728e190463e1fb031c",
       "Segmenter.remove_low_component": "f55b488dbea20ac03263f9301e37e1b63fb7f685e93743f0c271278a6579f116",
       "Segmenter.<body>": "225bc29ad0d31da37d7ee6a332e12b61c912686f883b47acca719dd52930a151",

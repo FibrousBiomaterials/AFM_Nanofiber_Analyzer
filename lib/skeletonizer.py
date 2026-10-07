@@ -53,15 +53,20 @@ DEFAULT_SPUR_LENGTH = 12
 # 半分) を余裕をもって覆う。
 DEFAULT_BORDER_PAD = 12
 
-# Height-ratio guard for loop filling. A loop artifact encloses pixels of the
-# fiber body itself, so its interior stays close to the surrounding ridge
-# height, while an enclosure formed by two real fibers touching twice would
-# contain background-level pixels. The interiors of both kinds of enclosure
-# are evaluated in docs/validation.md §3.3-§3.4.
-# ループ充填の高さ比ガード。ループアーティファクトが囲むのはファイバー本体の
-# 画素なので内部は周囲リッジの高さに近いが、実ファイバー 2 本が 2 点で接触して
-# できる囲みは背景レベルの画素を含むはずである。両方の囲みの内部の評価は
-# docs/validation.ja.md §3.3〜§3.4 にある。
+# Height-ratio guard for loop filling: an enclosure is filled only when its
+# median interior height is at least this fraction of the median height of the
+# skeleton ring around it. A loop artifact encloses pixels of the fiber body
+# itself, so its interior stays close to the ring height and passes. The guard
+# refuses only enclosures whose interior lies near the background; a narrow
+# gap between two fibers that touch twice keeps an elevated interior and passes
+# as well, so the guard does not tell such a gap from a loop artifact
+# (docs/validation.md §3.3-§3.4).
+# ループ充填の高さ比ガード。囲みの内部の高さの中央値が、周りのスケルトンの輪の
+# 高さの中央値のこの割合以上のときだけ塗りつぶす。ループアーティファクトが囲むのは
+# ファイバー本体の画素なので、内部は輪の高さに近く、ガードを通る。ガードが止める
+# のは内部が背景に近い囲みだけであり、2 点で接する 2 本の繊維の間の狭い隙間は
+# 内部が高いままなので同じく通る。そのため、このガードはそうした隙間をループ
+# アーティファクトと区別しない（docs/validation.ja.md §3.3〜§3.4）。
 DEFAULT_LOOP_HEIGHT_RATIO = 0.3
 
 # Terminal-hook pruning defaults. When segmentation admits a low, widened
@@ -184,11 +189,14 @@ def collapse_skeleton_loops(
         二値スケルトン画像。非ゼロ画素をスケルトン画素として扱う。
     max_loop_area
         Maximum enclosed background area in px treated as a loop artifact and
-        filled. ``0`` disables loop collapsing. Two genuinely crossing fibers
-        enclose far larger regions, so keep this value small.
+        filled. ``0`` disables loop collapsing. Keep it small: the larger it
+        is, the more regions enclosed by separate fibers the fill reaches, and
+        a gap between two fibers that touch twice can be as small as a loop
+        artifact (docs/validation.md §3.3).
         ループアーティファクトとして充填する、囲まれた背景領域の最大面積 (px)。
-        ``0`` で無効化。実ファイバー 2 本の交差が囲む領域ははるかに大きいため、
-        小さい値を保つこと。
+        ``0`` で無効化。小さい値を保つこと。大きいほど、別々の繊維が囲む領域まで
+        充填が及ぶ。2 点で接する 2 本の繊維の間の隙間は、ループアーティファクトと
+        同じくらい小さいこともある（docs/validation.ja.md §3.3）。
     calibrated_image
         Height-calibrated image used to reject enclosures whose interior is at
         background level. ``None`` skips this guard and fills by area alone.
@@ -198,15 +206,19 @@ def collapse_skeleton_loops(
         Minimum ratio of the enclosed region's median height to the
         surrounding skeleton ridge's median height for the enclosure to count
         as a loop artifact. A loop artifact lies inside the fiber body, so its
-        interior stays elevated; a sliver enclosed by two distinct fibers
-        touching twice contains background-level pixels and must not be
-        filled, because filling would fuse the two fibers and fabricate a
-        mid-groove path.
+        interior stays elevated. An enclosure whose interior lies near the
+        background is a region between fibers, not a hole in a fiber body, and
+        is not filled, because filling it would fuse the fibers and draw a path
+        down the groove between them. A narrow gap between two fibers that
+        touch twice keeps an elevated interior, so this ratio does not refuse
+        it (docs/validation.md §3.3-§3.4).
         囲み領域をループアーティファクトとみなすための、内部の中央値高さと
         周囲骨格リッジの中央値高さの最小比。ループアーティファクトは
-        ファイバー本体の内側にあるため内部は高いままだが、別々の 2 本が
-        2 点で接触して囲む細長い隙間は背景レベルの画素を含む。これを充填
-        すると 2 本が融合し、溝の中間に経路が捏造されるため充填してはならない。
+        ファイバー本体の内側にあるため内部は高いままである。内部が背景に近い
+        囲みは繊維の本体の穴ではなく繊維の間の領域であり、充填すると繊維が
+        融合して溝の中に経路が引かれるため充填しない。2 点で接する 2 本の繊維の
+        間の狭い隙間は内部が高いままなので、この比では拒否されない
+        （docs/validation.ja.md §3.3〜§3.4）。
 
     Returns
     -------
@@ -252,11 +264,14 @@ def collapse_skeleton_loops(
             continue
         if calibrated_image is not None:
             # Compare the enclosed interior against the surrounding ridge in a
-            # 2 px ring; background-level interiors mark a gap between two
-            # real fibers, not a loop artifact, and are left untouched.
+            # 2 px ring; a background-level interior marks a gap between
+            # fibers, not a loop artifact, and is left untouched. A narrow gap
+            # between two fibers that touch twice keeps an elevated interior
+            # and is not caught here.
             # 囲み内部と周囲 2 px リング上のリッジ高を比較する。内部が背景
-            # レベルなら実ファイバー 2 本の間の隙間でありループではないため
-            # 充填しない。
+            # レベルなら繊維の間の隙間でありループではないため充填しない。
+            # 2 点で接する 2 本の繊維の間の狭い隙間は内部が高いままなので、
+            # ここでは見分けられない。
             x0, y0 = max(0, x - 2), max(0, y - 2)
             x1, y1 = min(width, x + cw + 2), min(height, y + ch + 2)
             hole_local = labels[y0:y1, x0:x1] == i

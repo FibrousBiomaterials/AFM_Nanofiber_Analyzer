@@ -911,7 +911,7 @@ for i in range(1, n_labels):
     left, top, width, height, area = stats[i]
     if area >= 1000:
         continue
-    if max(width, height) < self.h_length:
+    if max(width, height) < h_length:
         out_binary_image[label_image == i] = 0
         continue
     target = label_image[
@@ -1490,7 +1490,7 @@ return init_skeleton_image - branches_image
 隙間では、2<!--n:count--> 本の斜面が重なるので内側も高く、このチェックでは止まらない。合成画像で
 そうした隙間を作ると、対象になった隙間はすべて塗りつぶされ、2<!--n:count--> 本は 1<!--n:count--> 本の線に
 まとめられた。隙間がもっと広いと囲みが `max_loop_area` を超え、2<!--n:count--> 本のまま残った
-（[個別データでの評価](validation.ja.md) §3.4）。同梱のスキャンには、そうした隙間は無かった（同 §3.3）。
+（[個別データでの評価](validation.ja.md) §3.4）。同梱のスキャンにそうした隙間があるかどうかは、同 §3.3 に記した。
 
 コードでは、周りの尾根（`ring`）を、穴を 5<!--n:literal in the quoted code-->×5<!--n:literal in the quoted code--> で膨らませた範囲に入るスケルトンの
 画素とする。比べる 2<!--n:count--> つの高さは、どちらも中央値である。

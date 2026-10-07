@@ -79,7 +79,7 @@
 ### 1.5 処理時間
 
 同梱の 1024<!--m:bg_timing.image_rows-->×1024<!--m:bg_timing.image_cols--> の Bruker スキャンでの実測は、`tophat` 約 0.5<!--m:bg_timing.tophat.seconds--> 秒、
-`trendfill` 約 1.0<!--m:bg_timing.trendfill.seconds--> 秒、`spline1d` 約 2.3<!--m:bg_timing.spline1d.seconds--> 秒であった（いずれも 2<!--n:count--> 回実行した
+`trendfill` 約 1.0<!--m:bg_timing.trendfill.seconds--> 秒、`spline1d` 約 2.7<!--m:bg_timing.spline1d.seconds--> 秒であった（いずれも 2<!--n:count--> 回実行した
 うちの 2<!--n:count--> 回目）。`trendfill` の中では、`lmfit` のヒストグラムフィットに
 `_bg_generate` の半分ほどの時間がかかった（実験 bg_timing）。1<!--n:count--> 台の計算機での
 経過時間であり、計算機とその負荷によって変わる。
@@ -217,11 +217,11 @@ linearity_large_exemption）。時間は 1<!--n:count--> 台の計算機での�
 
 | 入力 | 1000<!--n:literal in the quoted code--> px 以上のかたまり | そのうち検査すると消えるもの | コードのとおりの時間 (s) | すべて検査したときの時間 (s) |
 |---|---|---|---|---|
-| チュニケート CNF | 9<!--m:linearity_large_exemption.tunicate.large_components--> | 0<!--m:linearity_large_exemption.tunicate.large_removed_if_tested--> | 0.071<!--m:linearity_large_exemption.tunicate.code.seconds--> | 1.386<!--m:linearity_large_exemption.tunicate.all.seconds--> |
-| 人工、等方 | 1<!--m:linearity_large_exemption.art_iso.large_components--> | 0<!--m:linearity_large_exemption.art_iso.large_removed_if_tested--> | 0.011<!--m:linearity_large_exemption.art_iso.code.seconds--> | 0.053<!--m:linearity_large_exemption.art_iso.all.seconds--> |
-| 人工、異方 | 3<!--m:linearity_large_exemption.art_aniso.large_components--> | 0<!--m:linearity_large_exemption.art_aniso.large_removed_if_tested--> | 0.011<!--m:linearity_large_exemption.art_aniso.code.seconds--> | 0.093<!--m:linearity_large_exemption.art_aniso.all.seconds--> |
-| 高等植物 TOC | 4<!--m:linearity_large_exemption.hplantTOC.large_components--> | 0<!--m:linearity_large_exemption.hplantTOC.large_removed_if_tested--> | 0.097<!--m:linearity_large_exemption.hplantTOC.code.seconds--> | 0.278<!--m:linearity_large_exemption.hplantTOC.all.seconds--> |
-| Bruker NDTOC | 15<!--m:linearity_large_exemption.NDTOC.large_components--> | 0<!--m:linearity_large_exemption.NDTOC.large_removed_if_tested--> | 1.363<!--m:linearity_large_exemption.NDTOC.code.seconds--> | 3.123<!--m:linearity_large_exemption.NDTOC.all.seconds--> |
+| チュニケート CNF | 9<!--m:linearity_large_exemption.tunicate.large_components--> | 0<!--m:linearity_large_exemption.tunicate.large_removed_if_tested--> | 0.079<!--m:linearity_large_exemption.tunicate.code.seconds--> | 1.540<!--m:linearity_large_exemption.tunicate.all.seconds--> |
+| 人工、等方 | 1<!--m:linearity_large_exemption.art_iso.large_components--> | 0<!--m:linearity_large_exemption.art_iso.large_removed_if_tested--> | 0.012<!--m:linearity_large_exemption.art_iso.code.seconds--> | 0.049<!--m:linearity_large_exemption.art_iso.all.seconds--> |
+| 人工、異方 | 3<!--m:linearity_large_exemption.art_aniso.large_components--> | 0<!--m:linearity_large_exemption.art_aniso.large_removed_if_tested--> | 0.011<!--m:linearity_large_exemption.art_aniso.code.seconds--> | 0.092<!--m:linearity_large_exemption.art_aniso.all.seconds--> |
+| 高等植物 TOC | 4<!--m:linearity_large_exemption.hplantTOC.large_components--> | 0<!--m:linearity_large_exemption.hplantTOC.large_removed_if_tested--> | 0.128<!--m:linearity_large_exemption.hplantTOC.code.seconds--> | 0.314<!--m:linearity_large_exemption.hplantTOC.all.seconds--> |
+| Bruker NDTOC | 15<!--m:linearity_large_exemption.NDTOC.large_components--> | 0<!--m:linearity_large_exemption.NDTOC.large_removed_if_tested--> | 1.519<!--m:linearity_large_exemption.NDTOC.code.seconds--> | 3.454<!--m:linearity_large_exemption.NDTOC.all.seconds--> |
 どの入力でも、大きなかたまりを検査して消えるものは無かった。一方、検査すると
 フィルタの時間は数倍になり、チュニケートのスキャンでは十倍を超えた。大きな
 切り出しの Hough 変換は時間がかかるからである。ただし、大きな汚れのかたまりのような、
@@ -267,12 +267,14 @@ linearity_large_exemption）。時間は 1<!--n:count--> 台の計算機での�
 ### 3.3 ループの囲み
 
 同梱スキャンでは、マスク内部の穴が残すループ 1<!--n:count--> つが、その輪の上に分岐点を
-1<!--m:loop_candidates.all.branch_points_range[0]-->〜4<!--m:loop_candidates.all.branch_points_range[1]--> 個作る。充填の大きさの条件を満たす 18<!--m:loop_candidates.candidates--> 個の囲みは、高さ画像の
-目視ですべて繊維の内側（10<!--m:loop_candidates.fiber.count--> 個）か交差（8<!--m:loop_candidates.crossing.count--> 個）にあり、内部の高さの
-中央値は周囲リッジの中央値の 78<!--m:loop_candidates.all.ratio_percent_range[0]-->〜105<!--m:loop_candidates.all.ratio_percent_range[1]--> % であった（実験 loop_candidates）。
-別々の 2<!--n:count--> 本が 2<!--n:count--> 点で接触して囲む細長い隙間で、条件を満たすものは同梱スキャンには
-無い。
-そうした隙間は、代わりに合成画像で作った（§3.4）。
+1<!--m:loop_candidates.all.branch_points_range[0]-->〜4<!--m:loop_candidates.all.branch_points_range[1]--> 個作る。充填の大きさの条件を満たす 18<!--m:loop_candidates.candidates--> 個の囲みを高さ画像で
+目視すると、10<!--m:loop_candidates.fiber.count--> 個は繊維の内側に、7<!--m:loop_candidates.crossing.count--> 個は交差にあり、tunicate のスキャンの
+1<!--m:loop_candidates.gap.count--> 個は、別々の 2<!--n:count--> 本の繊維が囲む細長い隙間であった。2<!--n:count--> 本は溝をはさんで並び、
+両端で接している。内部の高さの中央値は、どの囲みでも周囲リッジの中央値の
+78<!--m:loop_candidates.all.ratio_percent_range[0]-->〜105<!--m:loop_candidates.all.ratio_percent_range[1]--> % であり、隙間の 84<!--m:loop_candidates.gap.ratio_percent_range[0]--> % もこの範囲に入る（実験 loop_candidates）。そのため、この比の
+しきい値では、ループのアーティファクトをすべて塗りつぶしつつ隙間だけを残すことは
+できない。実際に隙間も塗りつぶされ、描いてみると、2<!--n:count--> 本の繊維は溝の中を通る
+1<!--n:count--> 本の線にまとめられていた。そうした隙間は、合成画像でも作った（§3.4）。
 
 ### 3.4 2 本の繊維が囲む細長い隙間
 

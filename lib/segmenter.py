@@ -423,11 +423,11 @@ class Segmenter:
             Mask to filter.
             ふるいにかけるマスク。
         h_length
-            Vote threshold of the Hough line peaks, in pixels. A component
-            whose bounding box is shorter than ``self.h_length`` is removed
-            without the test.
-            Hough 直線のピークの得票しきい値（画素）。外接矩形が
-            ``self.h_length`` より短い成分は検査せずに除去する。
+            Shortest line kept, in pixels: a component whose bounding box is
+            shorter is removed without the test, and it is the vote threshold
+            of the Hough line peaks.
+            残す線の最短の長さ（画素）。外接矩形がこれより短い成分は検査せずに
+            除去し、Hough 直線のピークの得票しきい値にも使う。
         h_sratio
             Smallest score (line votes over edge pixels) a component under
             1000 px needs to be kept.
@@ -454,7 +454,7 @@ class Segmenter:
             if area >= 1000:
                 continue
             # Components shorter than the Hough threshold cannot form a retained line.
-            if max(width, height) < self.h_length:
+            if max(width, height) < h_length:
                 out_binary_image[label_image == i] = 0
                 continue
             # Judge this component on its own pixels, not on the whole mask

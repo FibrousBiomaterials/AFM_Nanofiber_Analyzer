@@ -85,7 +85,7 @@ opening the raw heights with the 25<!--c:lib/pipeline.py::ProcParams.tophat_se_s
 
 Measured on the bundled 1024<!--m:bg_timing.image_rows-->×1024<!--m:bg_timing.image_cols--> Bruker scan (second of two runs each),
 `tophat` took about 0.5<!--m:bg_timing.tophat.seconds--> s, `trendfill` about 1.0<!--m:bg_timing.trendfill.seconds--> s, and `spline1d` about
-2.3<!--m:bg_timing.spline1d.seconds--> s; in `trendfill`, the `lmfit` histogram fit took about half as long as
+2.7<!--m:bg_timing.spline1d.seconds--> s; in `trendfill`, the `lmfit` histogram fit took about half as long as
 `_bg_generate` (experiment bg_timing). These are wall times on one machine
 and vary with the machine and its load.
 
@@ -231,11 +231,11 @@ on one machine and vary with the machine and its load.
 
 | Input | Components of 1000<!--n:literal in the quoted code--> px or more | Of those, removed if tested | Time as in the code (s) | Time testing all (s) |
 |---|---|---|---|---|
-| tunicate CNF | 9<!--m:linearity_large_exemption.tunicate.large_components--> | 0<!--m:linearity_large_exemption.tunicate.large_removed_if_tested--> | 0.071<!--m:linearity_large_exemption.tunicate.code.seconds--> | 1.386<!--m:linearity_large_exemption.tunicate.all.seconds--> |
-| artificial, isotropic | 1<!--m:linearity_large_exemption.art_iso.large_components--> | 0<!--m:linearity_large_exemption.art_iso.large_removed_if_tested--> | 0.011<!--m:linearity_large_exemption.art_iso.code.seconds--> | 0.053<!--m:linearity_large_exemption.art_iso.all.seconds--> |
-| artificial, anisotropic | 3<!--m:linearity_large_exemption.art_aniso.large_components--> | 0<!--m:linearity_large_exemption.art_aniso.large_removed_if_tested--> | 0.011<!--m:linearity_large_exemption.art_aniso.code.seconds--> | 0.093<!--m:linearity_large_exemption.art_aniso.all.seconds--> |
-| higher-plant TOC | 4<!--m:linearity_large_exemption.hplantTOC.large_components--> | 0<!--m:linearity_large_exemption.hplantTOC.large_removed_if_tested--> | 0.097<!--m:linearity_large_exemption.hplantTOC.code.seconds--> | 0.278<!--m:linearity_large_exemption.hplantTOC.all.seconds--> |
-| Bruker NDTOC | 15<!--m:linearity_large_exemption.NDTOC.large_components--> | 0<!--m:linearity_large_exemption.NDTOC.large_removed_if_tested--> | 1.363<!--m:linearity_large_exemption.NDTOC.code.seconds--> | 3.123<!--m:linearity_large_exemption.NDTOC.all.seconds--> |
+| tunicate CNF | 9<!--m:linearity_large_exemption.tunicate.large_components--> | 0<!--m:linearity_large_exemption.tunicate.large_removed_if_tested--> | 0.079<!--m:linearity_large_exemption.tunicate.code.seconds--> | 1.540<!--m:linearity_large_exemption.tunicate.all.seconds--> |
+| artificial, isotropic | 1<!--m:linearity_large_exemption.art_iso.large_components--> | 0<!--m:linearity_large_exemption.art_iso.large_removed_if_tested--> | 0.012<!--m:linearity_large_exemption.art_iso.code.seconds--> | 0.049<!--m:linearity_large_exemption.art_iso.all.seconds--> |
+| artificial, anisotropic | 3<!--m:linearity_large_exemption.art_aniso.large_components--> | 0<!--m:linearity_large_exemption.art_aniso.large_removed_if_tested--> | 0.011<!--m:linearity_large_exemption.art_aniso.code.seconds--> | 0.092<!--m:linearity_large_exemption.art_aniso.all.seconds--> |
+| higher-plant TOC | 4<!--m:linearity_large_exemption.hplantTOC.large_components--> | 0<!--m:linearity_large_exemption.hplantTOC.large_removed_if_tested--> | 0.128<!--m:linearity_large_exemption.hplantTOC.code.seconds--> | 0.314<!--m:linearity_large_exemption.hplantTOC.all.seconds--> |
+| Bruker NDTOC | 15<!--m:linearity_large_exemption.NDTOC.large_components--> | 0<!--m:linearity_large_exemption.NDTOC.large_removed_if_tested--> | 1.519<!--m:linearity_large_exemption.NDTOC.code.seconds--> | 3.454<!--m:linearity_large_exemption.NDTOC.all.seconds--> |
 On no input would testing the large components have removed any of them, while
 testing them made the filter take several times longer, and over ten times
 longer on the tunicate scan, because the Hough transform of a large crop is slow. A large
@@ -283,12 +283,15 @@ pruning changes 139<!--m:branch_pruning.tunicate.spurs_off.skipped.final_changed
 ### 3.3 Loop enclosures
 
 On the bundled scans each loop left by an interior hole of the mask puts 1<!--m:loop_candidates.all.branch_points_range[0]--> to
-4<!--m:loop_candidates.all.branch_points_range[1]--> branch points on its ring. All 18<!--m:loop_candidates.candidates--> enclosures small enough to qualify
-for filling lie in a fiber (10<!--m:loop_candidates.fiber.count-->) or at a crossing (8<!--m:loop_candidates.crossing.count-->), judged by eye on the
-height image, and their median interior height is 78<!--m:loop_candidates.all.ratio_percent_range[0]-->–105<!--m:loop_candidates.all.ratio_percent_range[1]--> % of the
-surrounding ridge's median (experiment loop_candidates). No sliver enclosed by
-two distinct fibers touching twice qualifies on the bundled scans.
-Such slivers were built synthetically instead (§3.4).
+4<!--m:loop_candidates.all.branch_points_range[1]--> branch points on its ring. Of the 18<!--m:loop_candidates.candidates--> enclosures small enough to qualify
+for filling, judged by eye on the height image, 10<!--m:loop_candidates.fiber.count--> lie in a fiber, 7<!--m:loop_candidates.crossing.count--> at a crossing,
+and 1<!--m:loop_candidates.gap.count--> on the tunicate scan is a sliver enclosed by two distinct fibers, which run
+side by side with a groove between them and touch at both ends. The median
+interior height is 78<!--m:loop_candidates.all.ratio_percent_range[0]-->–105<!--m:loop_candidates.all.ratio_percent_range[1]--> % of the surrounding ridge's median for every one of
+them, and the sliver's 84<!--m:loop_candidates.gap.ratio_percent_range[0]--> % lies inside that range (experiment loop_candidates), so no
+threshold on this ratio fills every loop artefact and keeps the sliver. The sliver
+is filled too, and, rendered, the two fibers are joined into one line running down
+the groove. More such slivers were built synthetically (§3.4).
 
 ### 3.4 Two fibers enclosing a sliver
 

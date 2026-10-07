@@ -635,19 +635,26 @@ def bg_legacy_halo() -> dict:
 
 # Visual labels of the loop candidates, keyed by (scan, x, y) of the enclosed
 # region's bounding-box centre. Every candidate was rendered over the calibrated
-# height image and judged by eye (2026-09-30): "fiber" when the loop lies inside one
-# fiber body, "crossing" when it lies where fibers cross or branch, "gap" when two
-# separate fibers enclose background between them. A candidate without a label fails
-# the experiment, so a change in what the skeletonizer produces forces a new look.
+# height image and judged by eye (2026-09-30, 2026-10-07): "fiber" when the loop lies
+# inside one fiber body, "crossing" when it lies where fibers cross or branch, "gap"
+# when two separate fibers enclose the region between them, whether or not its floor
+# reaches the background. A candidate without a label fails the experiment, so a
+# change in what the skeletonizer produces forces a new look.
 # ループ候補の目視ラベル。囲まれた領域の外接矩形の中心 (scan, x, y) をキーとする。
-# 各候補を較正済み高さ画像に重ねて描画し、目視で判断した（2026-09-30）。1 本の繊維
-# 本体の内側なら "fiber"、繊維の交差・分岐の場所なら "crossing"、別々の繊維が背景を
-# 囲んでいるなら "gap"。ラベルの無い候補があると実験は失敗するため、細線化の結果が
-# 変われば見直しが強制される。
+# 各候補を較正済み高さ画像に重ねて描画し、目視で判断した（2026-09-30、2026-10-07）。
+# 1 本の繊維本体の内側なら "fiber"、繊維の交差・分岐の場所なら "crossing"、別々の
+# 繊維がその間の領域を囲んでいるなら、その底が背景まで下がるかどうかによらず
+# "gap"。ラベルの無い候補があると実験は失敗するため、細線化の結果が変われば
+# 見直しが強制される。
 LOOP_LABELS = {
     ("hplantTOC", 923, 554): "fiber", ("tunicate", 1001, 367): "fiber",
     ("tunicate", 986, 441): "fiber", ("tunicate", 775, 890): "fiber",
-    ("tunicate", 633, 1010): "crossing", ("NDTOC", 641, 219): "crossing",
+    # Two fibers run side by side with a groove between them and touch at both
+    # ends; filling the enclosure draws one line down the groove.
+    # 2 本の繊維が溝をはさんで並び、両端で接している。囲みを塗りつぶすと、溝の中に
+    # 1 本の線が引かれる。
+    ("tunicate", 633, 1010): "gap",
+    ("NDTOC", 641, 219): "crossing",
     ("NDTOC", 812, 232): "fiber", ("NDTOC", 761, 356): "fiber",
     ("NDTOC", 981, 393): "crossing", ("NDTOC", 531, 397): "fiber",
     ("NDTOC", 371, 482): "crossing", ("NDTOC", 953, 500): "crossing",

@@ -946,7 +946,7 @@ for i in range(1, n_labels):
     left, top, width, height, area = stats[i]
     if area >= 1000:
         continue
-    if max(width, height) < self.h_length:
+    if max(width, height) < h_length:
         out_binary_image[label_image == i] = 0
         continue
     target = label_image[
@@ -1551,8 +1551,8 @@ small enough to be filled has an elevated interior, because the flanks of the
 two fibers overlap, and the guard does not stop it. On synthetic scans of such
 slivers every one that qualified was filled and the two fibers were joined into
 one line; wider gaps enclosed more than `max_loop_area` and kept both fibers
-([Evaluation on particular data](validation.md) §3.4). The bundled scans contain
-no such sliver (§3.3 there).
+([Evaluation on particular data](validation.md) §3.4). Whether the bundled scans
+contain such slivers is reported in §3.3 there.
 
 The ring is the skeleton within a 5<!--n:literal in the quoted code-->×5<!--n:literal in the quoted code--> dilation of the hole, and both heights are
 medians:
