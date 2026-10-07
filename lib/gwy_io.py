@@ -294,6 +294,19 @@ def select_default_channel(channels: List[GwyChannel]) -> GwyChannel:
     ------
     ValueError
         When `channels` is empty.
+
+    Examples
+    --------
+    A length-unit channel titled like a height wins over a phase channel
+    listed before it:
+
+    >>> from lib.gwy_io import GwyChannel, select_default_channel
+    >>> channels = [GwyChannel(channel_id=0, title="Phase", n_rows=256,
+    ...                        n_cols=256, z_unit="deg"),
+    ...             GwyChannel(channel_id=1, title="Height", n_rows=256,
+    ...                        n_cols=256, z_unit="m")]
+    >>> select_default_channel(channels).title
+    'Height'
     """
     if not channels:
         raise ValueError("no data channels found in the .gwy file")
@@ -410,6 +423,15 @@ def list_gwy_channels(path: str) -> List[GwyChannel]:
         When the ``gwyfile`` package required for `.gwy` input is not installed.
     ValueError
         When the file contains no data channel.
+
+    Examples
+    --------
+    The bundled Gwyddion file holds one channel. The path is relative to the
+    repository root:
+
+    >>> from lib.gwy_io import list_gwy_channels
+    >>> list_gwy_channels("testdata_Gwyddion_gwy/_20250318-164122_T.ssp.gwy")
+    [GwyChannel(channel_id=0, title='Topography', n_rows=1024, n_cols=1024, z_unit='m')]
     """
     pairs = _channels_from_container(_load_container(path))
     if not pairs:

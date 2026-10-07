@@ -462,6 +462,18 @@ def detect_afm_format(path: str, fmt: str = "auto") -> AfmTextFormat:
         If `fmt` is unknown, the file exceeds `MAX_INPUT_FILE_BYTES`, no
         numeric data region matching the requested layout can be found, or
         the multi-column region has an inconsistent column count.
+
+    Examples
+    --------
+    The synthetic scan is a header-less grid of 256 columns; the Bruker
+    export is one column of values after one header line. The paths are
+    relative to the repository root:
+
+    >>> from lib.afm_io import detect_afm_format
+    >>> detect_afm_format("testdata_artificial/sample_isotropic.txt")
+    AfmTextFormat(kind='multi-column', skiprows=0, n_cols=256, encoding='utf-8-sig')
+    >>> detect_afm_format("testdata_Bruker_txt/NDTOC250306.000.txt")
+    AfmTextFormat(kind='single-column', skiprows=1, n_cols=1, encoding='utf-8-sig')
     """
     if fmt not in FORMAT_KINDS:
         raise ValueError(

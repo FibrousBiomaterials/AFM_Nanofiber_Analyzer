@@ -627,6 +627,18 @@ def scan_size_um_from_meta(
         Per-axis scan size in micrometers, or ``None`` when the bundle does
         not record a valid spatial calibration.
         軸ごとの走査範囲 (µm)。有効な空間較正が記録されていなければ ``None``。
+
+    Examples
+    --------
+    >>> from lib.bundle_schema import (SPATIAL_CALIBRATION_KEY,
+    ...                                make_spatial_calibration,
+    ...                                scan_size_um_from_meta)
+    >>> meta = {SPATIAL_CALIBRATION_KEY:
+    ...         make_spatial_calibration(3.75, 1.25, "manual")}
+    >>> scan_size_um_from_meta(meta)
+    (3.75, 1.25)
+    >>> scan_size_um_from_meta({}) is None
+    True
     """
     if not meta:
         return None

@@ -525,6 +525,23 @@ def measure_apparent_width(
     derived from it fluctuate along one fiber.
     点ごとの幅ではなくトラック全体の中央値を使う。幅は繊維の性質であり、点ごとの
     値ではそこから導く長さがすべて 1 本の繊維の中で揺らいでしまう。
+
+    Examples
+    --------
+    The width is the span of the profile samples at or above half maximum,
+    taken every quarter pixel, so on a Gaussian ridge of sigma 2 px it reads
+    slightly under the 4.71 px full width at half maximum:
+
+    >>> import numpy as np
+    >>> from lib.centerline import measure_apparent_width
+    >>> rows, cols = np.mgrid[0:40, 0:60]
+    >>> ridge = 3.0 * np.exp(-((rows - 20.0) ** 2) / (2 * 2.0 ** 2))
+    >>> xtrack = np.arange(5, 55)
+    >>> ytrack = np.full(xtrack.size, 21)
+    >>> measure_apparent_width(ridge, xtrack, ytrack, return_measured=True)
+    (4.5, True)
+    >>> round(float(2 * np.sqrt(2 * np.log(2)) * 2.0), 2)
+    4.71
     """
     x = np.asarray(xtrack, dtype=np.float64)
     y = np.asarray(ytrack, dtype=np.float64)
@@ -1179,6 +1196,21 @@ def half_max_centerline(
     provenance, the per-point reliability and the crest heights.
     `place_centerline` の線だけを返す形。`place_centerline` は幅の出所、点ごとの
     信頼性、頂点高さも報告する。
+
+    Examples
+    --------
+    A skeleton track one pixel off the crest of a symmetric ridge is moved
+    onto the crest at row 20:
+
+    >>> import numpy as np
+    >>> from lib.centerline import half_max_centerline
+    >>> rows, cols = np.mgrid[0:40, 0:60]
+    >>> ridge = 3.0 * np.exp(-((rows - 20.0) ** 2) / (2 * 2.0 ** 2))
+    >>> xtrack = np.arange(5, 55)
+    >>> ytrack = np.full(xtrack.size, 21)
+    >>> x, y = half_max_centerline(ridge, xtrack, ytrack)
+    >>> bool(np.allclose(x, xtrack)), round(float(np.median(y)), 3)
+    (True, 20.0)
     """
     placed = place_centerline(height, xtrack, ytrack, branch_points)
     if return_width:

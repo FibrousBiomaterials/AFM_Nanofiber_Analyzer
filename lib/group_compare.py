@@ -138,6 +138,14 @@ def delta_magnitude(delta: float) -> str:
         empty string for a NaN input.
         `MAGNITUDE_THRESHOLDS` または `MAGNITUDE_LARGE` のいずれかのラベル。
         入力が NaN の場合は空文字列。
+
+    Examples
+    --------
+    >>> from lib.group_compare import delta_magnitude
+    >>> [delta_magnitude(d) for d in (0.1, -0.2, 0.4, 0.9)]
+    ['negligible', 'small', 'medium', 'large']
+    >>> delta_magnitude(float("nan"))
+    ''
     """
     if not np.isfinite(delta):
         return ""
@@ -298,6 +306,24 @@ def compare_groups(
     検定するには小さすぎるグループのペアも、NaN の p 値を持つ項目として結果に
     残す。表を描く呼び出し側が全ペアを表示し、検定できなかったものを落とさずに
     報告できるようにするためである。
+
+    Examples
+    --------
+    Three groups make three pairs. Group ``C`` has fewer than
+    `MIN_SAMPLES_FOR_TEST` samples, so its pairs are listed untested:
+
+    >>> import numpy as np
+    >>> from lib.group_compare import compare_groups
+    >>> pairs = compare_groups([("A", np.array([1.0, 2, 3, 4, 5])),
+    ...                         ("B", np.array([6.0, 7, 8, 9, 10])),
+    ...                         ("C", np.array([1.0, 2]))])
+    >>> [(p.group_a, p.group_b) for p in pairs]
+    [('A', 'B'), ('A', 'C'), ('B', 'C')]
+    >>> first = pairs[0]
+    >>> first.cliffs_delta, first.magnitude, round(first.mannwhitney_p, 4)
+    (-1.0, 'large', 0.0079)
+    >>> bool(np.isnan(pairs[1].mannwhitney_p))
+    True
     """
     if len(groups) < 2:
         return []

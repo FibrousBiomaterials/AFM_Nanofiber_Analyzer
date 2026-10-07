@@ -882,6 +882,33 @@ def fiber_straightness(
     ユークリッド折れ線長なので、打ち消すべきチェーンコードの偏りが無く、比は
     ユークリッド弦をその長さで割ったものになる。直線状のファイバーを 1.0 のわずか
     下に留めるのは、線のわずかな横方向ノイズだけである。
+
+    Examples
+    --------
+    A straight fiber gives 1.0, and a semicircle the 2/pi of its chord over
+    its arc. The fibers are built by hand on a 5 nm pixel grid:
+
+    >>> import numpy as np
+    >>> from lib.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
+    >>> from lib.fiber import Fiber
+    >>> from lib.measure import fiber_straightness
+    >>> def fiber_on(x, y):
+    ...     none = np.zeros(0, dtype=int)
+    ...     return Fiber(fiber_image=np.zeros((1, 1)), data=(0, 0),
+    ...                  xtrack=x, ytrack=y,
+    ...                  horizon=polyline_distance(x, y, 5.0),
+    ...                  height=np.full(x.size, 2.0), kink_indices=none,
+    ...                  ep_indices=np.array([0, x.size - 1]),
+    ...                  kink_angles=np.zeros(0),
+    ...                  decomposed_point_indices=none,
+    ...                  centerline=HALF_MAX_025W_CENTERLINE)
+    >>> x = np.arange(201, dtype=float)
+    >>> fiber_straightness(fiber_on(x, np.zeros_like(x)), 5.0)
+    1.0
+    >>> t = np.linspace(0.0, np.pi, 315)
+    >>> semicircle = fiber_on(100 * np.cos(t), 100 * np.sin(t))
+    >>> round(fiber_straightness(semicircle, 5.0), 3), round(2 / np.pi, 3)
+    (0.637, 0.637)
     """
     length = float(fiber.length)
     if not (length > 0.0):
@@ -985,6 +1012,30 @@ def fiber_curvature_profile(
     ためである。既知半径の合成円弧に対し、中心線は既定の窓で 1/R に近い値を
     読んだが、それよりずっと短い窓は円弧を実際より曲がっていると読み、
     スケルトントラックではそのずれがさらに大きかった。
+
+    Examples
+    --------
+    An arc of radius 500 nm (100 px at 5 nm per pixel) reads 1/R = 2 rad/µm
+    at every point the window fits around:
+
+    >>> import numpy as np
+    >>> from lib.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
+    >>> from lib.fiber import Fiber
+    >>> from lib.measure import fiber_curvature_profile
+    >>> theta = np.arange(150) / 100.0
+    >>> x, y = 100 * np.cos(theta), 100 * np.sin(theta)
+    >>> none = np.zeros(0, dtype=int)
+    >>> arc = Fiber(fiber_image=np.zeros((1, 1)), data=(0, 0),
+    ...             xtrack=x, ytrack=y, horizon=polyline_distance(x, y, 5.0),
+    ...             height=np.full(x.size, 2.0), kink_indices=none,
+    ...             ep_indices=np.array([0, x.size - 1]),
+    ...             kink_angles=np.zeros(0), decomposed_point_indices=none,
+    ...             centerline=HALF_MAX_025W_CENTERLINE)
+    >>> profile = fiber_curvature_profile(arc, 5.0)
+    >>> profile.size < x.size
+    True
+    >>> round(float(profile.min()), 3), round(float(profile.max()), 3)
+    (2.0, 2.0)
     """
     if y_size_per_pixel is None:
         y_size_per_pixel = x_size_per_pixel
@@ -1085,6 +1136,32 @@ def fiber_mean_curvature(
     これが「ファイバーの曲率」の唯一の定義である。GUI04 の一覧テーブルと
     `collect_fiber_curvature` の双方がこれを呼ぶため、ファイバー画像の横で確認した
     値は GUI03 がヒストグラム化する値と同一になる。
+
+    Examples
+    --------
+    A straight fiber reads 0.0, and one shorter than the 100 nm default
+    window reads NaN. The fibers are built by hand on a 5 nm pixel grid:
+
+    >>> import numpy as np
+    >>> from lib.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
+    >>> from lib.fiber import Fiber
+    >>> from lib.measure import fiber_mean_curvature
+    >>> def straight_fiber(points):
+    ...     x = np.arange(points, dtype=float)
+    ...     y = np.zeros_like(x)
+    ...     none = np.zeros(0, dtype=int)
+    ...     return Fiber(fiber_image=np.zeros((1, 1)), data=(0, 0),
+    ...                  xtrack=x, ytrack=y,
+    ...                  horizon=polyline_distance(x, y, 5.0),
+    ...                  height=np.full(points, 2.0), kink_indices=none,
+    ...                  ep_indices=np.array([0, points - 1]),
+    ...                  kink_angles=np.zeros(0),
+    ...                  decomposed_point_indices=none,
+    ...                  centerline=HALF_MAX_025W_CENTERLINE)
+    >>> fiber_mean_curvature(straight_fiber(201), 5.0)
+    0.0
+    >>> fiber_mean_curvature(straight_fiber(5), 5.0)
+    nan
     """
     profile = fiber_curvature_profile(
         fiber, x_size_per_pixel, y_size_per_pixel, window_nm=window_nm,
@@ -1130,6 +1207,30 @@ def compute_fiber_stats(
     list of FiberStats
         One entry per input fiber, in the same order.
         入力ファイバーと同順の統計値リスト。
+
+    Examples
+    --------
+    A straight fiber of 200 steps of 5 nm, 2 nm high, built by hand.
+    Straightness needs the pixel size:
+
+    >>> import numpy as np
+    >>> from lib.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
+    >>> from lib.fiber import Fiber
+    >>> from lib.measure import compute_fiber_stats
+    >>> x = np.arange(201, dtype=float)
+    >>> y = np.zeros_like(x)
+    >>> none = np.zeros(0, dtype=int)
+    >>> fiber = Fiber(fiber_image=np.zeros((1, 1)), data=(0, 0),
+    ...               xtrack=x, ytrack=y, horizon=polyline_distance(x, y, 5.0),
+    ...               height=np.full(x.size, 2.0), kink_indices=none,
+    ...               ep_indices=np.array([0, x.size - 1]),
+    ...               kink_angles=np.zeros(0), decomposed_point_indices=none,
+    ...               centerline=HALF_MAX_025W_CENTERLINE)
+    >>> stats = compute_fiber_stats([fiber], x_size_per_pixel=5.0)[0]
+    >>> stats.length_nm, stats.height_median_nm, stats.straightness
+    (1000.0, 2.0, 1.0)
+    >>> compute_fiber_stats([fiber])[0].straightness
+    nan
     """
     stats = []
     for i, f in enumerate(fibers):
@@ -1229,6 +1330,31 @@ def height_sample_mask(fiber: Fiber) -> np.ndarray:
     are the numbers the plot shows.
     GUI04 の高さプロファイルは除外した標本を破線で描き、中央値・最大値の補助線を
     このマスクで読むため、表の数値はプロットが示す数値と一致する。
+
+    Examples
+    --------
+    A fiber 4 px wide whose first end is a cut (it is not in `ep_indices`)
+    and whose points 20-22 are a bridge the connector interpolated loses
+    the first width and the bridge:
+
+    >>> import numpy as np
+    >>> from lib.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
+    >>> from lib.fiber import Fiber
+    >>> from lib.measure import height_sample_mask
+    >>> x = np.arange(41, dtype=float)
+    >>> y = np.zeros_like(x)
+    >>> measured = np.ones(x.size, dtype=bool)
+    >>> measured[20:23] = False
+    >>> none = np.zeros(0, dtype=int)
+    >>> fiber = Fiber(fiber_image=np.zeros((1, 1)), data=(0, 0),
+    ...               xtrack=x, ytrack=y, horizon=polyline_distance(x, y, 5.0),
+    ...               height=np.full(x.size, 2.0), kink_indices=none,
+    ...               ep_indices=np.array([40]), kink_angles=np.zeros(0),
+    ...               decomposed_point_indices=none,
+    ...               centerline=HALF_MAX_025W_CENTERLINE, width_px=4.0,
+    ...               height_measured=measured)
+    >>> np.flatnonzero(~height_sample_mask(fiber))
+    array([ 0,  1,  2,  3, 20, 21, 22])
     """
     n = len(fiber.height)
     if n == 0:
@@ -1285,6 +1411,18 @@ def fiber_kink_angle(stat: FiberStats) -> float:
     キンクの無いファイバーは 0 ではなく NaN とする。キンクが検出されなかったこと
     は「0 度のキンクを計測した」ことではなく、平均に混ぜるとどのファイバーも
     持たない値へ母集団を引っ張ってしまう。
+
+    Examples
+    --------
+    >>> from lib.measure import FiberStats, fiber_kink_angle
+    >>> def row(angles):
+    ...     return FiberStats(index=0, length_nm=2000.0, height_median_nm=2.0,
+    ...                       height_max_nm=3.0, ep_count=2,
+    ...                       kink_count=len(angles), kink_angles_deg=angles)
+    >>> fiber_kink_angle(row((120.0, 150.0, 140.0)))
+    140.0
+    >>> fiber_kink_angle(row(()))
+    nan
     """
     if not stat.kink_angles_deg:
         return float("nan")
@@ -1339,6 +1477,25 @@ def fiber_kink_density(stat: FiberStats) -> float:
     kinks over a judged length is a real density, not a missing measurement.
     `fiber_kink_angle` と異なり、ここではキンクの無いファイバーは有効な 0 である。
     判定した長さに対してキンク 0 本というのは実在の密度であり、欠測ではない。
+
+    Examples
+    --------
+    Two kinks on a 2 µm fiber 50 nm wide: 1.5 widths at each end are not
+    judged, so the judged length is 2 - 2 * 1.5 * 0.05 = 1.85 µm. Without a
+    width the whole contour is used:
+
+    >>> from lib.measure import FiberStats, fiber_kink_density
+    >>> def row(kinks, width_nm=float("nan")):
+    ...     return FiberStats(index=0, length_nm=2000.0, height_median_nm=2.0,
+    ...                       height_max_nm=3.0, ep_count=2, kink_count=kinks,
+    ...                       kink_angles_deg=(150.0,) * kinks,
+    ...                       width_nm=width_nm)
+    >>> round(fiber_kink_density(row(2, width_nm=50.0)), 4), round(2 / 1.85, 4)
+    (1.0811, 1.0811)
+    >>> fiber_kink_density(row(2))
+    1.0
+    >>> fiber_kink_density(row(0, width_nm=50.0))
+    0.0
     """
     length_um = float(stat.length_nm) / 1000.0
     width_nm = float(getattr(stat, "width_nm", float("nan")))
@@ -2353,6 +2510,26 @@ def collect_fiber_curvature(
     窓より短いファイバーは 0.0 ではなく NaN のままとする。呼び出し側が、それらを
     完全な直線と取り違えることなく、窓によって除外された本数を報告できるように
     するためである。
+
+    Examples
+    --------
+    One mean curvature per fiber `measure_bundle` returns. The synthetic test
+    scan records no scan size, so the 1.25 µm listed for it in
+    ``testdata_artificial/scale_table_sample.csv`` is passed. The input path
+    is relative to the repository root:
+
+    >>> import tempfile
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import collect_fiber_curvature, measure_bundle
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...                           ProcParams(), output_dir=folder).bundle_path
+    ...     per_bundle, errors = collect_fiber_curvature([bundle],
+    ...                                                  scale_um=1.25)
+    ...     fibers = measure_bundle(bundle, scale_um=1.25).fibers
+    >>> path, curvature = per_bundle[0]
+    >>> curvature.size == len(fibers), errors
+    (True, [])
     """
     per_bundle: List[Tuple[str, np.ndarray]] = []
     errors: List[Tuple[str, str]] = []
