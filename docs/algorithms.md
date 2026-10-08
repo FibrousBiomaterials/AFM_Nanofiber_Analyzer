@@ -1514,8 +1514,11 @@ return init_skeleton_image - branches_image
 `Skeletonizer.__call__` then re-thins the pruned skeleton with
 `skimage.morphology.skeletonize` (by default for a 2<!--n:definition-->-D image, the thinning of
 Zhang and Suen, 1984<!--n:citation-->, *Comm. ACM* 27<!--n:citation-->(3<!--n:citation-->), 236–239<!--n:citation-->) to tidy the pruned
-places back to one pixel wide. Everywhere else it is already one pixel wide, so
-nothing changes there. §3.4 uses it the same way. On a thick mask, though, it can
+places back to one pixel wide. Everywhere else the skeleton is already one pixel
+wide, but it is not guaranteed to stay unchanged: `skimage.morphology.skeletonize`
+can delete a pixel that `skimage.morphology.thin` left on a corner of the line
+and whose removal does not change how the line is connected. Such pixels can
+therefore disappear away from the pruned places too. §3.4 uses it the same way. On a thick mask, though, it can
 give a different result from `skimage.morphology.thin`, so the initial skeleton
 always comes from `skimage.morphology.thin` (§3.1).
 
@@ -1533,9 +1536,10 @@ takes a diagonal step the background inside and outside the line would touch at
 a corner and join, and the inside of a loop could not be told from the outside.
 Of the components so found, one whose bounding box avoids the image border is a
 true hole. A hole of area up to `max_loop_area` (default 100<!--c:lib/pipeline.py::ProcParams.max_loop_area--> pixels) is filled
-and the result re-thinned, merging the double path back into one line. Re-thinning
-leaves a line that is already one pixel wide unchanged, so skeleton pixels far
-from the filled loops keep their coordinates, and features looked up by pixel
+and the result re-thinned, merging the double path back into one line. The line
+re-thinned here has already been through `skimage.morphology.skeletonize` at the
+end of §3.3, so no pixel is left that this thinning can delete, and skeleton
+pixels far from the filled loops keep their coordinates, and features looked up by pixel
 coordinate, such as kinks and endpoints, do not change there.
 
 A **height guard** prevents this from fusing two real fibers. A hole in the mask
@@ -2085,6 +2089,9 @@ in five steps:
    - sections whose reference point lies outside the half-maximum run of the
      hill found (the hill belongs to another fiber, not this one);
    - sections with no half-maximum crossing within the search window;
+   - sections whose crest, found by climbing, does not lie within $0.75\,W$ of
+     the reference point (`_CREST_REACH_WIDTHS`; a distant crest belongs to
+     another object; the limit is taken half a sampling step inside);
    - sections whose hill height (crest minus base) is below
      0.25<!--c:lib/centerline.py::_MIN_CREST_AMPLITUDE_FRAC--> of the median over this fiber's sections (too faint).
 
@@ -2105,7 +2112,8 @@ in five steps:
    distance between neighbouring track points, so this is $W/4$ counted in
    points, squared).
 5. Each centerline point is placed at its reference point moved along the normal by
-   its offset, and kept between the outermost pixel centres of the image. At a
+   its offset, which is clipped to the crest search range of $\pm 0.75\,W$, and
+   kept between the outermost pixel centres of the image. At a
    fiber that runs off the scan, steps 2–4<!--n:label--> can otherwise carry the last points
    past the edge, where no height was measured.
 
@@ -2156,7 +2164,8 @@ the numbers built on it depend on, as a `centerline.CenterlineResult`:
   multiple of $W$, so $W$ itself is the yardstick a fiber's kinks were judged
   with. $W$ includes the probe's broadening as well as the fiber's own width.
   When too
-  few cross-sections give a usable half-maximum run,
+  few cross-sections give a usable half-maximum run, or the measured $W$ is
+  below 2<!--n:literal in centerline.measure_apparent_width--> px (or not finite),
   `centerline.FALLBACK_WIDTH_PX` (8<!--c:lib/centerline.py::FALLBACK_WIDTH_PX--> px) is substituted. That is a pixel count,
   not a multiple of the fiber's width, so the substitution is reported rather
   than hidden: each fiber carries its $W$ (`Fiber.width_px`,
@@ -2173,12 +2182,12 @@ the numbers built on it depend on, as a `centerline.CenterlineResult`:
   asymmetric section lies beside the crest rather than on it, where the height
   is lower than the crest. The crest height is the maximum of the section read at
   fine steps (by bilinear interpolation, filling a value between pixel centres by
-  straight lines along the rows and columns of the 4<!--n:count--> surrounding pixels). On the
-  test inputs it was never below the height read at the centerline, so reading at
-  the centerline would always have made the fiber lower
-  ([Evaluation on particular data](validation.md) §4.10). Where the
+  straight lines along the rows and columns of the 4<!--n:count--> surrounding pixels). Where the
   section could not be resolved, the maximum within $W/4$ of the interpolated
-  point is used instead. `Fiber.height`, the height profile, and every height
+  point is used instead. At either kind of point, the height read at the
+  centerline is used when it is the higher of the two, so the crest height is
+  never below the height at the centerline. How much lower a fiber reads at the
+  centerline is in [Evaluation on particular data](validation.md) §4.10. `Fiber.height`, the height profile, and every height
   statistic read this crest height.
 
 #### Choosing another centerline
@@ -2318,12 +2327,16 @@ output of `KinkDetector.judge_line`.
 
 In the code, `_heading_profile` resamples, differences and smooths the heading,
 and `excess_profile` evaluates $T$ and $E$ at any position. Near an end the
-flank interval is clipped to the centerline but still divided by $f$, so the
-flank rate reads low there and less is subtracted. The distance from the
+flank interval is cut short but still divided by $f$, so the
+flank rate reads low there and less is subtracted. The flank is cut not at the
+end of the centerline itself but at the first and last points where the heading
+was computed ($s_0$ and $s_1$ in "How the arm angle is computed" below), which
+lie $\delta$ inside the ends ($0.25 \le \delta < 0.75$ px). The distance from the
 bend's centre to the outer end of a flank is $c + f = 1.75\,W$, and bends within $1.5\,W$ of an end are not judged
-(§4.4), so of the judged bends only those $1.5\,W$ to $1.75\,W$ from an end are
-affected. A flank is cut by at most $0.25\,W$, i.e. $1/4$ of $f$, so what is
-subtracted is at most $1/4$ smaller. A position $p$ is accepted only when all
+(§4.4), so of the judged bends only those $1.5\,W$ to $1.75\,W + \delta$ from an end are
+affected. A flank is cut by at most $0.25\,W + \delta$, and what is subtracted is
+smaller by that length's fraction of $f$ ($= W$); when $W$ is much larger than
+$\delta$, the fraction is about $1/4$. A position $p$ is accepted only when all
 of the following hold:
 
 - it lies at least $c$ from both ends. Closer to an end the window runs off the
@@ -2521,8 +2534,10 @@ the larger excess is kept.
 `measure.compute_fiber_stats` converts the angles to degrees
 (`FiberStats.kink_angles_deg`), which is what the fiber CSV holds, and
 `measure.fiber_kink_angle` takes their median as the representative value per
-fiber, which GUI03 (the window that pools fiber values from many images and
-compares groups) histograms:
+fiber. GUI03 (the window that pools fiber values from many images and compares
+groups) histograms, by aggregation unit, every kink's angle as it is (kink),
+this per-fiber median (fiber), or the median of the per-fiber medians in each
+image (image):
 
 ```python
 # source: lib/kink_detector.py::_ARM_GAP_WIDTHS, _ARM_LENGTH_WIDTHS, _ARM_MIN_WIDTHS
@@ -2647,8 +2662,10 @@ Such a bend is not dropped silently. `KinkDetector.kinks_on_line` returns it
 separately, the bundle stores it separately too (`up`), it reaches each
 fiber as `Fiber.unjudged_indices`, and GUI04 draws it as a grey hollow circle,
 so "not judged" stays distinguishable from "measured and below the threshold".
-It is never counted: kink counts, densities, angles and the CSV hold judged
-kinks only.
+Kink counts, densities and angles, in GUI04's fiber table and in the CSV alike,
+are computed from judged kinks only and never include such a bend. The number of
+bends not judged is reported separately from the kinks, in the `unjudged`
+column of GUI04's fiber table and the `unjudged_count` column of the CSV.
 
 In GUI04, when fibers are connected and when the height filter is applied, the
 rebuilt fibers go through the same rule again. The height filter is GUI04's
