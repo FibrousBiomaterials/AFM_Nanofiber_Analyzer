@@ -474,21 +474,20 @@ def test_gui04_one_save_keeps_both_sidecars_describing_one_screen(
     tk_app, tmp_path
 ):
     """
-    The sequence that used to desynchronise the two sidecars no longer can.
-    2 つのサイドカーを非同期化させていた操作手順が、もはや起こり得ないこと。
+    A save-toggle-curate-save sequence leaves the two sidecars in agreement.
+    保存・切替・キュレーション・保存の操作手順の後も、2 つのサイドカーが一致すること。
 
     Save with connection on, turn it off, curate as fragments, save again.
-    While the two had their own save buttons, only the exclusion file advanced
-    and the connection file still said "connected": GUI03 then aggregated 29
-    whole fibrils where the window was showing 56 fragments, with nothing to
-    say so. One press writes both, so whatever is on disk after any save is a
-    state that was on screen.
+    With a save button of its own for each, only the exclusion file would
+    advance and the connection file would still say "connected", so GUI03
+    would aggregate whole fibrils where the window shows fragments, with
+    nothing to say so. One press writes both, so whatever is on disk after any
+    save is a state that was on screen.
     連結 ON で保存し、OFF にして断片としてキュレーションし、再び保存する。両者に
-    別々の保存ボタンがあった頃は除外ファイルだけが進み、連結ファイルは「連結
-    する」と言ったままだった。その結果、ウインドウが 56 本の断片を表示している
-    のに GUI03 は 29 本のフィブリルを集計し、それを知らせるものが無かった。1 回の
-    押下で両方を書くため、任意の保存の後にディスク上にあるのは画面に存在した
-    状態である。
+    別々の保存ボタンがあると除外ファイルだけが進み、連結ファイルは「連結する」と
+    言ったままになる。その結果、ウインドウが断片を表示しているのに GUI03 は
+    フィブリルを集計し、それを知らせるものが無い。1 回の押下で両方を書くため、
+    任意の保存の後にディスク上にあるのは画面に存在した状態である。
     """
     app = tk_app(gui04.App)
     app.current_image = _StubImage()

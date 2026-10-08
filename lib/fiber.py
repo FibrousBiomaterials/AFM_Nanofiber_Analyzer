@@ -143,6 +143,27 @@ class Fiber:
         各キンクを判定した超過回転（ラジアン）。`kink_angles` と添字が揃う
         （バンドルキー ``ke``）。`kink_angles` は幾何、すなわち腕のなす角であり、
         こちらは規則が検定した量。このキーを持たないバンドル（形式 1.0）では空。
+
+    Examples
+    --------
+    `lib.measure` builds fibers from a bundle; one built by hand needs the
+    track, its cumulative length and the per-point heights. A straight
+    11-point fiber on a 5 nm pixel grid:
+
+    >>> import numpy as np
+    >>> from lib.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
+    >>> from lib.fiber import Fiber
+    >>> x = np.arange(11, dtype=float)
+    >>> y = np.zeros_like(x)
+    >>> none = np.zeros(0, dtype=int)
+    >>> fiber = Fiber(fiber_image=np.zeros((1, 11)), data=(0, 0),
+    ...               xtrack=x, ytrack=y, horizon=polyline_distance(x, y, 5.0),
+    ...               height=np.full(11, 2.0), kink_indices=none,
+    ...               ep_indices=np.array([0, 10]), kink_angles=np.zeros(0),
+    ...               decomposed_point_indices=none,
+    ...               centerline=HALF_MAX_025W_CENTERLINE)
+    >>> float(fiber.length)
+    50.0
     """
 
     fiber_image: np.ndarray
@@ -178,6 +199,10 @@ class Fiber:
         float
             Last value of `horizon`, interpreted as full path length.
             `horizon` の末尾値（全経路長として解釈される）。
+
+        See Also
+        --------
+        Fiber : its example reads this property.
         """
         # `horizon` is cumulative distance, so the final element is total length.
         # `horizon` は累積距離のため、末尾要素が全長に対応する。
@@ -214,6 +239,25 @@ def skeleton_track(fiber: Fiber) -> Tuple[np.ndarray, np.ndarray]:
     定義している。描画される線は中心線の推定が変わるたびに動くが、
     スケルトンが動くのは画像を再解析したときだけであり、それは
     `connect_selection.skeleton_digest` が既に検出する。
+
+    Examples
+    --------
+    The skeleton pixels are returned when the fiber carries them, and the
+    line itself (as integers) otherwise:
+
+    >>> from types import SimpleNamespace
+    >>> import numpy as np
+    >>> from lib.fiber import skeleton_track
+    >>> placed = SimpleNamespace(xtrack=np.array([0.4, 1.3]),
+    ...                          ytrack=np.array([2.2, 2.6]),
+    ...                          skeleton_xtrack=np.array([0, 1]),
+    ...                          skeleton_ytrack=np.array([2, 3]))
+    >>> [a.tolist() for a in skeleton_track(placed)]
+    [[0, 1], [2, 3]]
+    >>> pixel_line = SimpleNamespace(xtrack=np.array([4, 5]),
+    ...                              ytrack=np.array([7, 7]))
+    >>> [a.tolist() for a in skeleton_track(pixel_line)]
+    [[4, 5], [7, 7]]
     """
     sx = getattr(fiber, "skeleton_xtrack", None)
     sy = getattr(fiber, "skeleton_ytrack", None)

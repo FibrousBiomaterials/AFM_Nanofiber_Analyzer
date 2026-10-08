@@ -74,8 +74,15 @@ class ProcParams:
     Attributes
     ----------
     bg_method
-        Background-estimation method.
-        背景推定方式。
+        Background-estimation method, one of `BG_METHOD_NAMES`
+        (``"trendfill"``, ``"tophat"``, ``"spline1d"``). The retired spelling
+        ``"inpaint"`` is read as ``"trendfill"`` (`canonical_bg_method`); a
+        removed method such as ``"spline2d"`` is refused with the message in
+        `BG_METHOD_REMOVED`.
+        背景推定方式。`BG_METHOD_NAMES` のいずれか（``"trendfill"``・
+        ``"tophat"``・``"spline1d"``）。廃止済みの綴り ``"inpaint"`` は
+        ``"trendfill"`` として読まれ（`canonical_bg_method`）、``"spline2d"`` の
+        ような削除済み方式は `BG_METHOD_REMOVED` のメッセージで拒否される。
     tophat_se_size
         Diameter of the structuring element in pixels for `tophat`.
         `tophat` 用の構造要素直径 (px)。
@@ -83,8 +90,8 @@ class ProcParams:
         Direction used by the one-dimensional spline background model.
         1D スプライン背景モデルで補間する方向。
     spline1d_degree
-        Spline degree used by `spline1d`.
-        `spline1d` で用いるスプライン次数。
+        Spline degree used by `spline1d`; the practical range is 1 to 3.
+        `spline1d` で用いるスプライン次数。実用範囲は 1〜3。
     threshold_factor
         Sigma multiplier used to define the background range.
         背景範囲を定める sigma 係数。
@@ -95,20 +102,23 @@ class ProcParams:
         Threshold for distinguishing structural changes from noise.
         構造変化とノイズを区別するしきい値。
     savgol_window
-        Window length for the Savitzky-Golay smoothing filter.
-        Savitzky-Golay 平滑化フィルタの窓幅。
+        Window length for the Savitzky-Golay filter that smooths the
+        background estimate of every `bg_method`.
+        すべての `bg_method` で背景推定値を平滑化する Savitzky-Golay フィルタの
+        窓幅。
     savgol_polyorder
-        Polynomial order for the Savitzky-Golay filter.
-        Savitzky-Golay フィルタの多項式次数。
+        Polynomial order for the same Savitzky-Golay filter.
+        同じ Savitzky-Golay フィルタの多項式次数。
     apply_median
         Whether to apply a final median filter.
         最後に中央値フィルタを適用するか。
     mask_dilation
-        Pixel radius used to dilate the fiber mask.
-        繊維マスクを膨張させる画素数。
+        Pixel radius used to dilate the fiber mask; 0 disables dilation.
+        繊維マスクを膨張させる画素数。0 で膨張しない。
     min_mask_component_area
-        Minimum connected-component area retained in the mask.
-        マスク内に保持する連結成分の最小面積。
+        Minimum connected-component area, in pixels, retained in the fiber
+        mask before dilation; 1 disables the filter.
+        膨張前の繊維マスクに保持する連結成分の最小面積 (px)。1 でフィルタなし。
     wsize_localbin
         Window size for local thresholding.
         局所しきい値計算のウィンドウサイズ。
@@ -116,8 +126,8 @@ class ProcParams:
         Global binarization threshold.
         全体一律の二値化しきい値。
     area_min
-        Minimum component area retained after binarization.
-        二値化後に保持する連結成分の最小面積。
+        Minimum component area, in pixels, retained after binarization.
+        二値化後に保持する連結成分の最小面積 (px)。
     area_min_connecting
         Area threshold used by the disconnected-component cleanup.
         つながり除去で用いる面積しきい値。
@@ -155,8 +165,8 @@ class ProcParams:
         Height threshold for branch-point filtering.
         分岐点を判定する高さしきい値。
     branch_length
-        Maximum branch length traced during skeleton cleanup.
-        スケルトン整理時に枝として追跡する最大長。
+        Maximum branch length, in pixels, traced during skeleton cleanup.
+        スケルトン整理時に枝として追跡する最大長 (px)。
     min_area
         Minimum area retained after skeletonization.
         細線化後に保持する最小面積。
@@ -180,17 +190,17 @@ class ProcParams:
         回る折れをキンクとする。
     kink_decompose_px
         Not read by the current kink rule; the field stays because field names
-        are frozen and parameter files carrying it must keep loading. It was
+        are frozen and parameter files carrying it must keep loading. It is
         the perpendicular tolerance, in pixels, of the polyline decomposition
-        the kink rule of bundle format 1.0 measured angles on. A 1.0 bundle
-        still applies the value it recorded when GUI04 rebuilds a reconnected
+        on which the kink rule of bundle format 1.0 measures angles. A 1.0
+        bundle applies the value it recorded when GUI04 rebuilds a reconnected
         or height-filtered fiber in it, so that image keeps one rule until it
         is re-analyzed.
         現行のキンク規則は読まない。フィールド名は凍結されており、これを含む
         パラメータファイルを読み込み続けられるよう残している。バンドル形式 1.0 の
-        キンク規則が角度を測った折れ線分解の垂直許容量（画素）であった。1.0 の
+        キンク規則が角度を測る折れ線分解の垂直許容量（画素）である。1.0 の
         バンドルでは、GUI04 が再結合・高さ絞り込みしたファイバーを組み立て直す
-        ときに記録された値を今も適用し、その画像は再解析されるまで 1 つの規則を
+        ときに記録された値を適用し、その画像は再解析されるまで 1 つの規則を
         保つ。
     centerline_method
         Which line each fiber is placed on, one of
@@ -234,44 +244,44 @@ class ProcParams:
     """
 
     # BGCalibrator parameters.
-    bg_method: str = "trendfill"           # Background method: trendfill, tophat, or spline1d ("inpaint" is the retired name for trendfill; "spline2d" was removed after 1.0.0).
-    tophat_se_size: int = 25               # Structuring-element diameter for tophat, in pixels.
-    spline1d_axis: str = "x"               # Axis used for the one-dimensional spline interpolation.
-    spline1d_degree: int = 2               # Spline degree for spline1d; practical range is 1 to 3.
-    threshold_factor: float = 2.0          # Sigma multiplier for the background range.
-    fiber_detect_factor: float = 10.0      # Threshold for treating abrupt height changes as fibers.
-    noise_detect_factor: float = 10.0      # Threshold for separating structural change from noise.
-    savgol_window: int = 31                # Savitzky-Golay smoothing window for trendfill, tophat, and spline1d.
-    savgol_polyorder: int = 1              # Savitzky-Golay polynomial order for trendfill, tophat, and spline1d.
-    apply_median: bool = False             # Whether to apply the final median filter.
-    mask_dilation: int = 3                 # Fiber-mask dilation radius in pixels; 0 disables dilation.
-    min_mask_component_area: int = 10      # Minimum mask component area retained before dilation; 1 disables filtering.
+    bg_method: str = "trendfill"
+    tophat_se_size: int = 25
+    spline1d_axis: str = "x"
+    spline1d_degree: int = 2
+    threshold_factor: float = 2.0
+    fiber_detect_factor: float = 10.0
+    noise_detect_factor: float = 10.0
+    savgol_window: int = 31
+    savgol_polyorder: int = 1
+    apply_median: bool = False
+    mask_dilation: int = 3
+    min_mask_component_area: int = 10
 
     # Segmenter parameters.
-    wsize_localbin: int = 17               # Window size for local thresholding.
-    global_threshold: float = 0.3         # Global binarization threshold.
-    area_min: int = 100                    # Minimum component area retained, in px^2.
-    area_min_connecting: int = 3           # Area threshold for disconnected-component cleanup.
-    apply_no_connecting: bool = False      # Whether to run disconnected-component cleanup.
-    h_length: int = 20                     # Minimum Hough line length.
-    h_sratio: float = 0.5                  # Line-likeness threshold.
-    low_threshold: float = 1.8             # Low-height removal threshold, in nanometers.
-    ridge_recovery: bool = False           # Recover thresholding misses with a ridge filter; off keeps 1.0.0 results.
-    ridge_min_length_nm: float = 100.0     # Shortest recovered segment kept, in nm.
-    ridge_min_width_nm: float = 3.0        # Ridge-filter fiber half-width lower bound, in nm.
-    ridge_max_width_nm: float = 20.0       # Ridge-filter fiber half-width upper bound, in nm.
+    wsize_localbin: int = 17
+    global_threshold: float = 0.3
+    area_min: int = 100
+    area_min_connecting: int = 3
+    apply_no_connecting: bool = False
+    h_length: int = 20
+    h_sratio: float = 0.5
+    low_threshold: float = 1.8
+    ridge_recovery: bool = False
+    ridge_min_length_nm: float = 100.0
+    ridge_min_width_nm: float = 3.0
+    ridge_max_width_nm: float = 20.0
 
     # Skeletonizer parameters.
-    bp_height: float = 10.0               # Height threshold for branch-point filtering.
-    branch_length: int = 12               # Maximum branch length traced during skeleton cleanup, in pixels.
-    min_area: int = 10                    # Minimum area retained after skeletonization.
-    max_loop_area: int = DEFAULT_MAX_LOOP_AREA  # Maximum enclosed area of loop artifacts to collapse, in px; 0 disables.
-    spur_length: int = DEFAULT_SPUR_LENGTH      # Maximum dead-end spur length pruned regardless of height, in pixels; 0 disables.
+    bp_height: float = 10.0
+    branch_length: int = 12
+    min_area: int = 10
+    max_loop_area: int = DEFAULT_MAX_LOOP_AREA
+    spur_length: int = DEFAULT_SPUR_LENGTH
 
     # Kink-detection parameters.
-    kinkangle_deg: float = 150.0          # Bends at or below this interior angle are detected as kinks.
-    kink_decompose_px: float = 3.0        # Not read by the current rule; polyline tolerance of the format 1.0 rule, in pixels.
-    centerline_method: str = DEFAULT_CENTERLINE_METHOD  # Line kinks are judged on and fibers are measured along (centerline.CENTERLINE_METHODS).
+    kinkangle_deg: float = 150.0
+    kink_decompose_px: float = 3.0
+    centerline_method: str = DEFAULT_CENTERLINE_METHOD
 
 
 # Fixed English stage keys reported through the `on_stage` callback, in order.

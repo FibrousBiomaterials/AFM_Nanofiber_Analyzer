@@ -4,13 +4,12 @@
 
 `scripts/measure_docs.py` measures the synthetic results the algorithm
 documents quote on these scans. The scenes are those the centerline and kink
-rule were chosen on (2026-09-15, first written as a scratch probe); the
-geometry, rendering settings and seeds are kept unchanged so a result here can
-be compared with the one that chose the rule.
+rule were chosen on; their geometry, rendering settings and seeds are fixed so
+a result here can be compared with the one that chose the rule.
 `scripts/measure_docs.py` は、アルゴリズム解説文書が引用する合成データの結果を
-これらの走査で測る。場面は中心線とキンク規則を選んだときのもの（2026-09-15、
-当初は作業用の試作として書いた）であり、形状・描画設定・シードは変えていない。
-そのため、ここでの結果を規則を選んだときの結果と比べられる。
+これらの走査で測る。場面は中心線とキンク規則を選んだときのものであり、形状・
+描画設定・シードは固定している。そのため、ここでの結果を規則を選んだときの
+結果と比べられる。
 
 Groups
   A  isolated corners turning 20/30/40/60/90/120 degrees

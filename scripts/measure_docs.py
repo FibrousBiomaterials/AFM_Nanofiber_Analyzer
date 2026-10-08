@@ -844,7 +844,7 @@ def branch_pruning() -> dict:
                               branch_length=params.branch_length, min_area=params.min_area,
                               max_loop_area=params.max_loop_area, spur_length=params.spur_length)
             if bp_height is None:
-                sk.prune_branches = lambda calibrated, skeleton: skeleton
+                sk.prune_branches = lambda skeleton: skeleton
             run = ProcessedImage(_raw_scan(rel), name)
             run.calibrated_image = cal.copy()
             run.binarized_image = mask.copy()

@@ -1558,20 +1558,10 @@ class ToolTip:
             Description text shown in the popup.
             ポップアップに表示する説明文。
         """
-        # Store target widget for event binding.
-        # widget: target tkinter widget for the tooltip.
-        # Store tooltip text to display.
-        # text: description text shown in the popup.
         self.widget = widget
         self.text = text
-        # Keep popup window reference; starts as not shown.
-        # ポップアップウィンドウを保持する変数（初期はなし）
-        self.tooltip = None  # ポップアップウィンドウを保持する変数（初期はなし）
-        # Call show_tooltip when pointer enters the widget area.
-        # マウスがウィジェット上に入ったとき show_tooltip を呼ぶ
+        self.tooltip = None
         self.widget.bind("<Enter>", self.show_tooltip)
-        # Call hide_tooltip when pointer leaves the widget area.
-        # マウスがウィジェット上から出たとき hide_tooltip を呼ぶ
         self.widget.bind("<Leave>", self.hide_tooltip)
 
     def show_tooltip(self, event: tk.Event) -> None:
@@ -1610,12 +1600,9 @@ class ToolTip:
         if self.tooltip is not None:
             self.tooltip.destroy()
             self.tooltip = None
-        # Create a small top-level popup window.
-        # tk.Toplevel creates a small child window for the tooltip.
         self.tooltip = tk.Toplevel(self.widget)
-        # Remove window decorations for tooltip-like appearance.
-        # 枠なし（タイトルバーを消してポップアップ風にする）
-        self.tooltip.wm_overrideredirect(True)  # 枠なし（タイトルバーを消してポップアップ風にする）
+        # Remove the title bar and borders so the window reads as a popup.
+        self.tooltip.wm_overrideredirect(True)
         # Placement needs the rendered size, which is only known once the label
         # exists, so keep the popup hidden until the geometry is decided instead
         # of letting it flash at the default position.
@@ -1632,8 +1619,6 @@ class ToolTip:
         screen_w = self.widget.winfo_screenwidth()
         screen_h = self.widget.winfo_screenheight()
         wrap = min(TOOLTIP_MAX_WRAP, max(TOOLTIP_MIN_WRAP, screen_w // 3))
-        # Render tooltip text with simple bordered white label.
-        # ポップアップの中身: 白背景・枠付きのラベル
         label = tk.Label(self.tooltip, text=self.text, background="white",
                          relief="solid", borderwidth=1,
                          wraplength=wrap, justify=tk.LEFT)
@@ -1677,13 +1662,9 @@ class ToolTip:
             Tkinter event object for mouse-leave action.
             マウス離脱時の tkinter イベントオブジェクト。
         """
-        # Destroy popup window only when it exists.
-        # ツールチップが表示中であれば破棄する
         if self.tooltip:
             self.tooltip.destroy()
-            # Reset reference to indicate hidden state.
-            # 変数をリセットして「非表示状態」に戻す
-            self.tooltip = None  # 変数をリセットして「非表示状態」に戻す
+            self.tooltip = None
 
 
 class HeadingToolTip(ToolTip):

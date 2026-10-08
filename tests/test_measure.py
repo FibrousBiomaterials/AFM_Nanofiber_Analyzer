@@ -1428,8 +1428,8 @@ def test_kink_density_uses_the_judged_length():
     assert np.isnan(fiber_kink_density(too_short))
 
     # Without a width -- the skeleton track, or an older CSV -- the whole
-    # contour is the judged length, as before.
-    # 幅が無ければ（スケルトントラック、古い CSV）従来どおり輪郭全体が判定長。
+    # contour is the judged length.
+    # 幅が無ければ（スケルトントラック、古い CSV）輪郭全体が判定長。
     unknown = FiberStats(
         index=2, length_nm=250.0, height_median_nm=1.0, height_max_nm=2.0,
         ep_count=2, kink_count=1, kink_angles_deg=(100.0,), straightness=1.0,

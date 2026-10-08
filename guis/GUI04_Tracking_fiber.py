@@ -1024,12 +1024,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         #
         # This key and `_exclusions_saved_key` are one pending state, because
         # one press writes both sidecars and `_confirm_unsaved_curation`
-        # guards both. Tracking them separately let the pair on disk record a
+        # guards both. Tracked separately, the pair on disk could record a
         # combination that was never on screen.
         # このキーと `_exclusions_saved_key` は 1 つの保留状態を成す。1 回の押下で
         # 両サイドカーを書き、`_confirm_unsaved_curation` が両方を守るためである。
-        # 別々に追跡していたことが、ディスク上の 2 ファイルが画面に一度も存在しな
-        # かった組み合わせを記録する原因だった。
+        # 別々に追跡すると、ディスク上の 2 ファイルが画面に一度も存在しなかった
+        # 組み合わせを記録し得る。
         self._connect_saved_key: Optional[str] = None
 
         # -- Profile element checkboxes --
@@ -1297,13 +1297,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "連結が 1 つも無いときは押せません。"
         ))
 
-        # "元に戻す" rather than "連結を取消": beside "連結を解除" the old label
-        # read as a second way to disconnect, so undoing a disconnect -- which
-        # joins the fibril again -- looked like the button doing the opposite
-        # of its name.
-        # 「連結を取消」ではなく「元に戻す」とする。「連結を解除」の隣では旧名が
-        # 解除のもう 1 つの手段に読め、解除を元に戻す（フィブリルが再び繋がる）
-        # 動作が、名前と逆のことをしているように見えていた。
+        # "元に戻す" rather than "連結を取消": beside "連結を解除" a label naming
+        # cancellation of a connection reads as a second way to disconnect, so
+        # undoing a disconnect -- which joins the fibril again -- would look
+        # like the button doing the opposite of its name.
+        # 「連結を取消」ではなく「元に戻す」とする。「連結を解除」の隣で連結の
+        # 取り消しを名乗るラベルは解除のもう 1 つの手段に読め、解除を元に戻す
+        # （フィブリルが再び繋がる）動作が、名前と逆のことをしているように見える。
         self._btn_undo_connect = ttk.Button(
             bar, text=_("元に戻す"), command=self._on_undo_connect,
             state=tk.DISABLED,
@@ -3057,11 +3057,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Notes
         -----
         The two are one pending state because they are saved by one press.
-        Tracking them separately is what let the pair on disk describe a
-        combination that was never on screen.
+        Tracked separately, the pair on disk could describe a combination that
+        was never on screen.
         両者は 1 回の押下で保存されるため、保留状態も 1 つとして扱う。別々に
-        追跡していたことが、ディスク上の 2 ファイルが画面に一度も存在しなかった
-        組み合わせを記述する原因だった。
+        追跡すると、ディスク上の 2 ファイルが画面に一度も存在しなかった組み合わせを
+        記述し得る。
 
         A dataset that is not loaded has nothing to compare, and reports clean.
         読み込まれていないデータセットは比較対象を持たないため、未保存なしと
@@ -5046,11 +5046,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         Notes
         -----
-        Without this the feature was silent: the log said connection was
-        enabled and nothing more, so a run that joined nothing looked exactly
-        like a run that joined everything.
-        これが無い状態では機能が無言だった。ログは連結が有効であることしか伝えず、
-        1 件も連結しなかった実行と、すべて連結した実行が見分けられなかった。
+        A log line saying only that connection is enabled cannot tell a run
+        that joined nothing from a run that joined everything, so the counts
+        are reported.
+        連結が有効であることだけを伝えるログでは、1 件も連結しなかった実行と
+        すべて連結した実行を見分けられないため、件数を報告する。
 
         Joining nothing is a legitimate result, not an error — a well dispersed
         specimen has no fragments to rejoin — so it is reported rather than
@@ -5996,9 +5996,9 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         self._prof_h:     int   = 600
 
         # Display-only margin around the tracked bounding box (see
-        # DEFAULT_FIBER_PAD_PX). Setting it to 0 restores the tight crop.
+        # DEFAULT_FIBER_PAD_PX). Setting it to 0 crops tightly to the box.
         # 追跡した外接矩形の周囲に付ける表示専用の余白（DEFAULT_FIBER_PAD_PX
-        # 参照）。0 にすると従来どおり外接矩形ぴったりの切り出しになる。
+        # 参照）。0 にすると外接矩形ぴったりの切り出しになる。
         self._fiber_pad:  int   = int(DEFAULT_FIBER_PAD_PX)
 
         # Use shared ui_tools font defaults.

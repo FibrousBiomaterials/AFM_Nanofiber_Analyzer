@@ -5,11 +5,11 @@ Scan project imports, check dependency consistency, and pin versions.
 Modes
 -----
 ``python check.py``
-    Scan imports and regenerate the loose `requirements.txt` (historical
-    behavior, kept compatible with the setup scripts that run before any
+    Scan imports and regenerate the loose `requirements.txt` (the default
+    mode, kept compatible with the setup scripts that run before any
     dependency is installed). When packages are already installed, a
     consistency report is printed as warnings only.
-    import を走査して緩い `requirements.txt` を再生成する（従来動作。依存
+    import を走査して緩い `requirements.txt` を再生成する（既定のモード。依存
     インストール前に実行されるセットアップスクリプトとの互換を維持）。
     パッケージ導入済みの環境では整合性レポートを警告として表示する。
 ``python check.py --verify``

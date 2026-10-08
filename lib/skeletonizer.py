@@ -153,6 +153,21 @@ def thin_ignoring_image_border(
     一方で複製は、端を横切らず端に沿って延びる塊を太らせ、その軸を画像外へ
     押し出すことがある。パディング版でスケルトンが空になる連結成分は素の細線化
     結果を採用するため、本補正でファイバーが失われることはない。
+
+    Examples
+    --------
+    A five-pixel-thick bar that leaves the image on the left. Plain thinning
+    stops the line two pixels short of the border; the replicated border
+    carries it to the edge:
+
+    >>> import numpy as np
+    >>> from lib.skeletonizer import thin_ignoring_image_border
+    >>> mask = np.zeros((9, 14), dtype=np.uint8)
+    >>> mask[2:7, 0:10] = 1
+    >>> thin_ignoring_image_border(mask, pad=0)[4].tolist()
+    [0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+    >>> thin_ignoring_image_border(mask)[4].tolist()
+    [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
     """
     mask = (np.asarray(binary_image) > 0).astype(np.uint8)
     plain = thin(mask).astype(np.uint8)
@@ -244,6 +259,25 @@ def collapse_skeleton_loops(
     再細線化すると二重経路は 1 本の線に戻る。再細線化は既に細い線に対して
     不動点なので、充填箇所から離れた画素は動かず、座標キーによる特徴点照合
     （kink・端点）はそのまま有効に保たれる。
+
+    Examples
+    --------
+    A line that splits around a three-pixel hole carries two branch points;
+    collapsing the loop leaves one straight line without any:
+
+    >>> import numpy as np
+    >>> from lib.imp_tools import branchedPoints
+    >>> from lib.skeletonizer import collapse_skeleton_loops
+    >>> skel = np.zeros((7, 11), dtype=np.uint8)
+    >>> skel[3, 0:4] = skel[3, 7:11] = 1
+    >>> skel[2, 4:7] = skel[4, 4:7] = 1
+    >>> np.argwhere(branchedPoints(skel)).tolist()
+    [[3, 3], [3, 7]]
+    >>> collapsed = collapse_skeleton_loops(skel, max_loop_area=4)
+    >>> collapsed[3].tolist()
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    >>> int(branchedPoints(collapsed).sum())
+    0
     """
     skel = (np.asarray(skeleton_image) > 0).astype(np.uint8)
     if max_loop_area <= 0:
@@ -380,6 +414,19 @@ def prune_short_spurs(
     掃引は除去が発生しなくなるまで繰り返すため、入れ子のスパー群も完全に潰れる。
     同一掃引内でスパーが削除済みの分岐点は現時点の近傍数で再判定するので、
     古い分岐点マスク経由で本線の先端が誤って切り詰められることはない。
+
+    Examples
+    --------
+    A two-pixel spur on a straight line is removed; the line is kept whole:
+
+    >>> import numpy as np
+    >>> from lib.skeletonizer import prune_short_spurs
+    >>> skel = np.zeros((9, 15), dtype=np.uint8)
+    >>> skel[5, 1:14] = 1
+    >>> skel[3:5, 7] = 1
+    >>> pruned = prune_short_spurs(skel, max_length=3)
+    >>> int(skel.sum()), int(pruned.sum()), int(pruned[5].sum())
+    (15, 13, 13)
     """
     skel = (np.asarray(skeleton_image) > 0).astype(np.uint8)
     if max_length <= 0:
@@ -579,6 +626,26 @@ def prune_terminal_hooks(
     切除は検出された最も深い反転頂点までに制限されるため、（低い高さでも）
     まっすぐ薄れていく末端が短縮されることはない。折り返している尾の画素
     だけが候補になる。
+
+    Examples
+    --------
+    A fiber along row 10 whose left end curls back along row 8. Over a
+    calibrated image where only the fiber body is raised, the five tail
+    pixels lie at background level and are trimmed; where the tail is as
+    high as the body, it is kept as a real bent end:
+
+    >>> import numpy as np
+    >>> from lib.skeletonizer import prune_terminal_hooks
+    >>> skel = np.zeros((14, 44), dtype=np.uint8)
+    >>> skel[10, 10:41] = 1
+    >>> skel[9, 9] = 1
+    >>> skel[8, 10:14] = 1
+    >>> body_only = np.zeros(skel.shape)
+    >>> body_only[10, :] = 5.0
+    >>> int(skel.sum() - prune_terminal_hooks(skel, body_only).sum())
+    5
+    >>> int(skel.sum() - prune_terminal_hooks(skel, np.full(skel.shape, 5.0)).sum())
+    0
     """
     skel = (np.asarray(skeleton_image) > 0).astype(np.uint8)
     if max_hook_length <= 0 or calibrated_image is None:
@@ -808,7 +875,7 @@ class Skeletonizer:
         self._init_skeleton_image = init_skeleton_image
         self.set_low_bp_coor(image.calibrated_image, init_skeleton_image, self.bp_height)
         self.get_close_eps()
-        nobranch_image = self.prune_branches(image.calibrated_image, init_skeleton_image)
+        nobranch_image = self.prune_branches(init_skeleton_image)
         self._nobranch_image = nobranch_image
         nobranch_skeleton_image = skeletonize(nobranch_image).astype(np.uint8)
         self._nobranch_skeleton_image = nobranch_skeleton_image
@@ -859,7 +926,6 @@ class Skeletonizer:
 
     def prune_branches(
         self,
-        calibrated_image: np.ndarray,
         init_skeleton_image: NDArray[np.uint8],
     ) -> NDArray[np.uint8]:
         """
@@ -868,9 +934,6 @@ class Skeletonizer:
 
         Parameters
         ----------
-        calibrated_image
-            Height-calibrated image used to classify branch-point height.
-            分岐点の高さ分類に使う較正済み高さ画像。
         init_skeleton_image
             Initial skeleton image before branch pruning.
             枝刈り前の初期スケルトン画像。
@@ -880,13 +943,19 @@ class Skeletonizer:
         numpy.ndarray
             Skeleton image with tracked branch pixels removed.
             追跡された枝画素を除去したスケルトン画像。
+
+        Notes
+        -----
+        The branch-point heights were classified by `set_low_bp_coor`, which
+        must run first, together with `get_close_eps`.
+        分岐点の高さは先に実行する `set_low_bp_coor` が分類済みであり、
+        `get_close_eps` とともに事前に実行しておく必要がある。
         """
-        branches_image = self.calc_branches_image(calibrated_image, init_skeleton_image)
+        branches_image = self.calc_branches_image(init_skeleton_image)
         return init_skeleton_image - branches_image
 
     def calc_branches_image(
         self,
-        calibrated_image: np.ndarray,
         init_skeleton_image: NDArray[np.uint8],
     ) -> NDArray[np.uint8]:
         """
@@ -895,12 +964,12 @@ class Skeletonizer:
 
         Parameters
         ----------
-        calibrated_image
-            Height-calibrated image used to classify branch-point height.
-            分岐点の高さ分類に使う較正済み高さ画像。
         init_skeleton_image
-            Initial skeleton image before branch pruning.
-            枝刈り前の初期スケルトン画像。
+            Initial skeleton image before branch pruning; only its shape is
+            read, because `track_branches` walks the skeleton stored by
+            `__call__`.
+            枝刈り前の初期スケルトン画像。読むのは形状だけであり、
+            `track_branches` は `__call__` が保存したスケルトンをたどる。
 
         Returns
         -------
@@ -1094,6 +1163,22 @@ class Skeletonizer:
         numpy.ndarray
             Skeleton image with small components and endpoint-free rings removed.
             微小成分と端点を持たないリング状成分を除去したスケルトン画像。
+
+        Examples
+        --------
+        Of an 8-pixel line, a 3-pixel segment and a closed 8-pixel ring, only
+        the line is kept at ``min_area=5``:
+
+        >>> import numpy as np
+        >>> from lib.skeletonizer import Skeletonizer
+        >>> skel = np.zeros((10, 12), dtype=np.uint8)
+        >>> skel[1, 1:9] = 1
+        >>> skel[4, 1:4] = 1
+        >>> skel[6:9, 6:9] = 1
+        >>> skel[7, 7] = 0
+        >>> kept = Skeletonizer(min_area=5).remove_small_and_ring(skel)
+        >>> int(kept.sum()), int(kept[1].sum())
+        (8, 8)
         """
         returned_image = np.copy(skeleton_image)
         nLabels, label_Images, data, center = cv2.connectedComponentsWithStats(returned_image)

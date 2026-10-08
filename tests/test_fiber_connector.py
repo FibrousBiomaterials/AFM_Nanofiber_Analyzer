@@ -179,15 +179,13 @@ def test_curate_fibers_reports_how_many_joins_were_made():
     `curated_count` minus the fiber count is the number of joins.
     `curated_count` とファイバー数の差が、連結の件数になる。
 
-    Reconnection used to be silent about its result, so a run that joined
-    nothing looked exactly like a run that joined everything. Joining nothing
-    is a legitimate outcome — a well dispersed specimen has no fragments to
-    rejoin — which is why it has to be reported rather than treated as an
-    error.
-    再結合はこれまで結果について無言だったため、1 件も連結しなかった実行と、
-    すべて連結した実行が見分けられなかった。1 件も連結しないことは正当な結果で
-    あり（よく分散した試料には再結合すべき断片が無い）、だからこそエラーとして
-    扱うのではなく報告する必要がある。
+    Without the count, a run that joined nothing looks exactly like a run that
+    joined everything. Joining nothing is a legitimate outcome — a well
+    dispersed specimen has no fragments to rejoin — which is why it has to be
+    reported rather than treated as an error.
+    件数が無いと、1 件も連結しなかった実行と、すべて連結した実行が見分けられ
+    ない。1 件も連結しないことは正当な結果であり（よく分散した試料には再結合
+    すべき断片が無い）、だからこそエラーとして扱うのではなく報告する必要がある。
     """
     image = _flat_image()
     near_a = _horizontal_fragment(5, 20, y=25)
@@ -676,12 +674,12 @@ def test_a_bridge_is_not_a_measurement_and_a_cut_end_stays_a_cut():
     再結合したフィブリルは橋渡しの高さを補間値として印を付け、切断だった外側の
     端を切断のまま保つ。
 
-    Before this, every rebuilt fibril reported two endpoints, so a fibril
-    whose outer fragment ended at a crossing looked complete, and its bridge
-    heights entered the median and maximum as if they had been measured.
-    以前は再構築したフィブリルはすべて端点を 2 つ報告したため、外側の断片が交差で
-    終わっていたフィブリルは完結して見え、橋渡しの高さは測定されたかのように
-    中央値と最大値に入っていた。
+    A rebuilt fibril that always reported two endpoints would look complete
+    even when its outer fragment ends at a crossing, and unmarked bridge
+    heights would enter the median and maximum as if they had been measured.
+    再構築したフィブリルが常に端点を 2 つ報告すると、外側の断片が交差で終わって
+    いても完結して見え、印の無い橋渡しの高さは測定されたかのように中央値と
+    最大値に入ってしまう。
     """
     image = _flat_image()
     # Fragment a is cut at its tail (joins b); b is cut at its head.

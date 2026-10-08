@@ -29,9 +29,9 @@ def test_save_load_blosc2_roundtrip(tmp_path):
 def test_save_load_blosc2_empty_array_fallback(tmp_path):
     """The empty-array .npy fallback round-trips for any target extension.
 
-    Regression test: np.save(path, ...) used to append '.npy' to non-.npy
-    paths, desynchronizing the saved filename from the one load_blosc2 reads;
-    save_blosc2 now writes through an open file handle.
+    Regression test: np.save(path, ...) appends '.npy' to a non-.npy path,
+    which would desynchronize the saved filename from the one load_blosc2
+    reads, so save_blosc2 writes through an open file handle.
     """
     x = np.empty((2, 0), dtype=np.float64)
     path = os.path.join(tmp_path, "empty.bl2")
@@ -100,11 +100,11 @@ def test_bundle_entry_points_work_under_non_ascii_path(tmp_path, name):
     """Every bundle entry point works when the path holds non-ASCII text.
 
     Regression test: blosc2 encodes the path to UTF-8 and hands the bytes to
-    the C layer, which on Windows decodes them with the ANSI code page. A
-    non-ASCII folder or file name therefore used to make writing raise
+    the C layer, which on Windows decodes them with the ANSI code page. Passed
+    through as is, a non-ASCII folder or file name makes writing raise
     "Could not create the Schunk" and every read raise
-    "blosc2_schunk_open_offset(...) returned NULL", which surfaced in the GUIs
-    as bundles that could not be opened or were silently treated as missing.
+    "blosc2_schunk_open_offset(...) returned NULL", which the GUIs would show
+    as bundles that cannot be opened or are silently treated as missing.
     """
     folder = tmp_path / name
     folder.mkdir()

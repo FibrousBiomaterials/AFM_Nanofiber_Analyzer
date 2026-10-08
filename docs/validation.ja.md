@@ -79,7 +79,7 @@
 ### 1.5 処理時間
 
 同梱の 1024<!--m:bg_timing.image_rows-->×1024<!--m:bg_timing.image_cols--> の Bruker スキャンでの実測は、`tophat` 約 0.5<!--m:bg_timing.tophat.seconds--> 秒、
-`trendfill` 約 1.0<!--m:bg_timing.trendfill.seconds--> 秒、`spline1d` 約 2.3<!--m:bg_timing.spline1d.seconds--> 秒であった（いずれも 2<!--n:count--> 回実行した
+`trendfill` 約 1.2<!--m:bg_timing.trendfill.seconds--> 秒、`spline1d` 約 3.3<!--m:bg_timing.spline1d.seconds--> 秒であった（いずれも 2<!--n:count--> 回実行した
 うちの 2<!--n:count--> 回目）。`trendfill` の中では、`lmfit` のヒストグラムフィットに
 `_bg_generate` の半分ほどの時間がかかった（実験 bg_timing）。1<!--n:count--> 台の計算機での
 経過時間であり、計算機とその負荷によって変わる。
@@ -217,11 +217,11 @@ linearity_large_exemption）。時間は 1<!--n:count--> 台の計算機での�
 
 | 入力 | 1000<!--n:literal in the quoted code--> px 以上のかたまり | そのうち検査すると消えるもの | コードのとおりの時間 (s) | すべて検査したときの時間 (s) |
 |---|---|---|---|---|
-| チュニケート CNF | 9<!--m:linearity_large_exemption.tunicate.large_components--> | 0<!--m:linearity_large_exemption.tunicate.large_removed_if_tested--> | 0.072<!--m:linearity_large_exemption.tunicate.code.seconds--> | 1.407<!--m:linearity_large_exemption.tunicate.all.seconds--> |
-| 人工、等方 | 1<!--m:linearity_large_exemption.art_iso.large_components--> | 0<!--m:linearity_large_exemption.art_iso.large_removed_if_tested--> | 0.011<!--m:linearity_large_exemption.art_iso.code.seconds--> | 0.053<!--m:linearity_large_exemption.art_iso.all.seconds--> |
-| 人工、異方 | 3<!--m:linearity_large_exemption.art_aniso.large_components--> | 0<!--m:linearity_large_exemption.art_aniso.large_removed_if_tested--> | 0.010<!--m:linearity_large_exemption.art_aniso.code.seconds--> | 0.101<!--m:linearity_large_exemption.art_aniso.all.seconds--> |
-| 高等植物 TOC | 4<!--m:linearity_large_exemption.hplantTOC.large_components--> | 0<!--m:linearity_large_exemption.hplantTOC.large_removed_if_tested--> | 0.106<!--m:linearity_large_exemption.hplantTOC.code.seconds--> | 0.385<!--m:linearity_large_exemption.hplantTOC.all.seconds--> |
-| Bruker NDTOC | 15<!--m:linearity_large_exemption.NDTOC.large_components--> | 0<!--m:linearity_large_exemption.NDTOC.large_removed_if_tested--> | 1.437<!--m:linearity_large_exemption.NDTOC.code.seconds--> | 3.328<!--m:linearity_large_exemption.NDTOC.all.seconds--> |
+| チュニケート CNF | 9<!--m:linearity_large_exemption.tunicate.large_components--> | 0<!--m:linearity_large_exemption.tunicate.large_removed_if_tested--> | 0.093<!--m:linearity_large_exemption.tunicate.code.seconds--> | 1.968<!--m:linearity_large_exemption.tunicate.all.seconds--> |
+| 人工、等方 | 1<!--m:linearity_large_exemption.art_iso.large_components--> | 0<!--m:linearity_large_exemption.art_iso.large_removed_if_tested--> | 0.014<!--m:linearity_large_exemption.art_iso.code.seconds--> | 0.078<!--m:linearity_large_exemption.art_iso.all.seconds--> |
+| 人工、異方 | 3<!--m:linearity_large_exemption.art_aniso.large_components--> | 0<!--m:linearity_large_exemption.art_aniso.large_removed_if_tested--> | 0.014<!--m:linearity_large_exemption.art_aniso.code.seconds--> | 0.140<!--m:linearity_large_exemption.art_aniso.all.seconds--> |
+| 高等植物 TOC | 4<!--m:linearity_large_exemption.hplantTOC.large_components--> | 0<!--m:linearity_large_exemption.hplantTOC.large_removed_if_tested--> | 0.114<!--m:linearity_large_exemption.hplantTOC.code.seconds--> | 0.362<!--m:linearity_large_exemption.hplantTOC.all.seconds--> |
+| Bruker NDTOC | 15<!--m:linearity_large_exemption.NDTOC.large_components--> | 0<!--m:linearity_large_exemption.NDTOC.large_removed_if_tested--> | 1.633<!--m:linearity_large_exemption.NDTOC.code.seconds--> | 3.926<!--m:linearity_large_exemption.NDTOC.all.seconds--> |
 どの入力でも、大きなかたまりを検査して消えるものは無かった。一方、検査すると
 フィルタの時間は数倍になり、チュニケートのスキャンでは十倍を超えた。大きな
 切り出しの Hough 変換は時間がかかるからである。ただし、大きな汚れのかたまりのような、

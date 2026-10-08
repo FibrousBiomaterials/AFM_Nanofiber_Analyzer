@@ -126,6 +126,13 @@ class ConnectParams:
         drop crossing-point noise where fragments were cut.
         橋渡し前に交差点付近から切り落とす骨格点数。断片が切断された交差点の
         ノイズを除去する。
+
+    Examples
+    --------
+    >>> from lib.fiber_connector import ConnectParams
+    >>> params = ConnectParams(clusters_range=12)
+    >>> params.clusters_range, params.angle_threshold
+    (12, 110.0)
     """
 
     clusters_range: float = 20.0
@@ -153,6 +160,14 @@ def angle_between_three_points(A: ArrayLike, B: ArrayLike, D: ArrayLike) -> floa
         Interior angle at ``B`` in degrees, or ``0.0`` when a side has zero
         length.
         ``B`` における内角（度）。辺の長さが 0 のときは ``0.0``。
+
+    Examples
+    --------
+    >>> from lib.fiber_connector import angle_between_three_points
+    >>> angle_between_three_points((0, 0), (0, 1), (0, 2))
+    180.0
+    >>> angle_between_three_points((0, 0), (0, 1), (1, 1))
+    90.0
     """
     ba = np.array(A) - np.array(B)
     bd = np.array(D) - np.array(B)
@@ -187,18 +202,15 @@ def _detector_for(image: FiberTrackingImage) -> KinkDetector:
     Notes
     -----
     This exists because a fiber the connector builds is displayed and measured
-    beside fibers it did not touch. Both construction sites used
-    ``KinkDetector()`` with its hard-coded defaults, so a scan analyzed at any
-    other angle put two rules in one image: on a scan re-analyzed at a
-    threshold other than the default, the reconnected fibrils carried kinks the
-    user's own threshold would not have reported, on fibrils that curve
-    smoothly in the height image.
+    beside fibers it did not touch. A detector at its hard-coded defaults
+    (``KinkDetector()``) would put two rules in one image whenever the scan was
+    analyzed at a threshold other than the default: the reconnected fibrils
+    would carry kinks the user's own threshold does not report.
     本関数が存在するのは、連結器が組み立てたファイバーが、連結器の触れていない
-    ファイバーと並べて表示・計測されるためである。2 か所の生成箇所はどちらも
-    ハードコード既定値の ``KinkDetector()`` を使っており、既定以外の角度で解析
-    したスキャンでは 1 枚の画像に 2 つの規則が同居していた。既定以外のしきい値で
-    再解析したスキャンでは、再結合フィブリルが、ユーザー自身のしきい値なら報告
-    されないキンクを、高さ画像では滑らかに湾曲しているフィブリル上に持っていた。
+    ファイバーと並べて表示・計測されるためである。ハードコード既定値の検出器
+    （``KinkDetector()``）を使うと、既定以外のしきい値で解析したスキャンでは
+    1 枚の画像に 2 つの規則が同居し、再結合フィブリルが、ユーザー自身の
+    しきい値では報告されないキンクを持つことになる。
 
     A `Fiber` the connector passes through untouched is unaffected either way:
     its features come from the bundle, not from a detector.
@@ -380,6 +392,26 @@ def connection_candidate_flags(
     連結器は候補を見つけられないため、「候補なし」は「完結している」と「諦めた」
     を混同する。`lib.measure.isolated_fiber_flags` がこれを分岐点・枠の判定と
     併用し、単独では使わないのはそのためである。
+
+    Examples
+    --------
+    The strip of the tunicate CNF scan is the one used in the
+    `plan_from_auto_connect` example. The input path is relative to the
+    repository root:
+
+    >>> import tempfile
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import measure_bundle
+    >>> from lib.fiber_connector import connection_candidate_flags
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
+    ...                           ProcParams(), output_dir=folder,
+    ...                           scan_size_um=(5.0, 5.0),
+    ...                           row_range=(0, 64)).bundle_path
+    ...     result = measure_bundle(bundle)
+    >>> flags = connection_candidate_flags(result.image, result.fragments)
+    >>> len(flags) == len(result.fragments), any(flags)
+    (True, True)
     """
     n = len(fragments)
     if n < 2 or image.calibrated_image is None:
@@ -419,12 +451,12 @@ def connection_candidate_flags(
             # A joinable pair of ends disqualifies both fragments, not only the
             # one taken as the growing side. The connector's gate is written
             # from the growing fibril's point of view and is not symmetric, so
-            # testing one orientation alone missed fragments the connector had
-            # in fact absorbed from the other side.
+            # testing one orientation alone would miss fragments the connector
+            # absorbs from the other side.
             # 連結可能な端点の組は、成長側として扱った断片だけでなく両方の断片を
             # 対象外とする。連結器の判定は成長中のフィブリル側から書かれており
-            # 対称ではないため、片方の向きだけを試すと、実際には反対側から取り込
-            # まれていた断片を取り逃がしていた。
+            # 対称ではないため、片方の向きだけを試すと、連結器が反対側から取り込む
+            # 断片を取り逃がす。
             flags[i] = True
             flags[j] = True
     return flags
@@ -1355,6 +1387,30 @@ def connection_candidates_by_index(
     ことになり、それらを一度だけ作る同等の母集団一括処理
     （`connection_candidate_flags`）と違って、コストが ``n^2`` で増える。GUI04 は表を埋める前に全ファイバーの候補を必要とするため、ここから
     受け取る。
+
+    Examples
+    --------
+    Each entry is what `connection_candidates` returns for that fiber. The
+    strip of the tunicate CNF scan is the one used in the
+    `plan_from_auto_connect` example; the input path is relative to the
+    repository root:
+
+    >>> import tempfile
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import measure_bundle
+    >>> from lib.fiber_connector import (connection_candidates,
+    ...                                  connection_candidates_by_index)
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
+    ...                           ProcParams(), output_dir=folder,
+    ...                           scan_size_um=(5.0, 5.0),
+    ...                           row_range=(0, 64)).bundle_path
+    ...     result = measure_bundle(bundle)
+    >>> fragments = result.fragments
+    >>> by_index = connection_candidates_by_index(result.image, fragments)
+    >>> all(by_index.get(i, []) == connection_candidates(result.image, fragments, i)
+    ...     for i in range(len(fragments)))
+    True
     """
     n = len(fibers)
     if n < 2 or image.calibrated_image is None:
@@ -1421,6 +1477,22 @@ def chain_for_manual_join(
     連結をペアとして記録して後で解決するのではなく、この方法で新しい連鎖を作る
     ことで連鎖は単なる順序付きリストのままとなり、断片どうし・フィブリルの延長・
     フィブリルどうしの統合のいずれも同じ構成で扱える。
+
+    Examples
+    --------
+    Joining the tail of fiber 0 to the head of fiber 2 among three bare
+    fragments:
+
+    >>> from lib.fiber_connector import chain_for_manual_join
+    >>> chains = [[(0, False)], [(1, False)], [(2, False)]]
+    >>> chain_for_manual_join(chains, 0, 1, 2, 0)
+    [[(0, False), (2, False)], [(1, False)]]
+
+    Joining at the head of fiber 0 instead walks it backwards, so its flip
+    is reversed:
+
+    >>> chain_for_manual_join(chains, 0, 0, 2, 0)
+    [[(0, True), (2, False)], [(1, False)]]
     """
     def oriented(chain, end):
         """Return the chain running so that `end` is at its tail."""
@@ -1484,6 +1556,26 @@ def connect_fiber_fragments(
     2 つの半分を繋いだ簡便版であり、連結結果をその場で得たいだけで保存するものが
     ない呼び出し側のためにある。GUI04 は連鎖の側を保持する。後から行う計測が、
     探索をやり直さずに同じフィブリルを再構築しなければならないためである。
+
+    Examples
+    --------
+    On the strip of the tunicate CNF scan used in the `plan_from_auto_connect`
+    example, joining fragments leaves fewer fibers than there were fragments.
+    The input path is relative to the repository root:
+
+    >>> import tempfile
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import measure_bundle
+    >>> from lib.fiber_connector import connect_fiber_fragments
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
+    ...                           ProcParams(), output_dir=folder,
+    ...                           scan_size_um=(5.0, 5.0),
+    ...                           row_range=(0, 64)).bundle_path
+    ...     result = measure_bundle(bundle)
+    >>> fibers = connect_fiber_fragments(result.image, result.fragments)
+    >>> len(fibers) < len(result.fragments)
+    True
     """
     return build_connected_fibers(
         image,
@@ -1718,6 +1810,31 @@ def filter_fibers_by_height(
     list of Fiber
         Rebuilt sub-fibers for every contiguous in-band run, in input order.
         帯域内の連続区間ごとに再構築したサブファイバー（入力順）。
+
+    Examples
+    --------
+    Keep the parts of the connected fibrils at or above their median height,
+    on the strip of the tunicate CNF scan used in the
+    `plan_from_auto_connect` example. Every height of every piece lies in
+    the band. The input path is relative to the repository root:
+
+    >>> import tempfile
+    >>> import numpy as np
+    >>> from lib.pipeline import ProcParams, process_file
+    >>> from lib.measure import measure_bundle
+    >>> from lib.fiber_connector import (connect_fiber_fragments,
+    ...                                  filter_fibers_by_height)
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
+    ...                           ProcParams(), output_dir=folder,
+    ...                           scan_size_um=(5.0, 5.0),
+    ...                           row_range=(0, 64)).bundle_path
+    ...     result = measure_bundle(bundle)
+    >>> fibrils = connect_fiber_fragments(result.image, result.fragments)
+    >>> low = float(np.median(np.concatenate([f.height for f in fibrils])))
+    >>> pieces = filter_fibers_by_height(result.image, fibrils, low, np.inf)
+    >>> len(pieces) > 0, all(np.all(p.height >= low) for p in pieces)
+    (True, True)
     """
     if not fibers:
         return []

@@ -8,16 +8,14 @@ tolerance, this test pins every output array of the preprocessing pipeline
 (`calibrated`, `binarized`, `skeletonized`, `bp`, `ep`, `kp`, `dp`, `ka`, `up`) to a
 recorded SHA-256 baseline, for every bundled sample file in
 ``testdata_tunicateCNF`` and ``testdata_higherplantTOC`` and for all four
-``bg_method`` values. It is the permanent form of the by-hand before/after
-array comparison used to verify the lib refactor: any code change that alters
-a single output value — including ``calibrated`` heights that the tolerant
-golden test could mask — makes this test fail.
+``bg_method`` values. Any code change that alters a single output value —
+including ``calibrated`` heights that the tolerant golden test could mask —
+makes this test fail.
 `test_integration.py` が要約統計を 5% 許容で照合するのに対し、本テストは
 前処理パイプラインの全出力配列（``calibrated``・``binarized``・
 ``skeletonized``・``bp``・``ep``・``kp``・``dp``・``ka``・``up``）を記録済みの
 SHA-256 ベースラインに固定する。対象は ``testdata_tunicateCNF`` と
 ``testdata_higherplantTOC`` の同梱サンプル全ファイル × 全 4 ``bg_method``。
-lib リファクタリング検証で手作業で行った前後の配列比較を恒久化したもので、
 ``calibrated`` の高さ 1 要素の変化（許容付きゴールデンテストでは見逃しうる）
 を含め、出力を変える変更があれば必ず失敗する。
 

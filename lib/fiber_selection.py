@@ -68,6 +68,12 @@ def exclusion_path_for(bundle_path: str) -> str:
     str
         Sidecar path, whether or not the file exists.
         サイドカーのパス。ファイルの存在有無にかかわらず返す。
+
+    Examples
+    --------
+    >>> from lib.fiber_selection import exclusion_path_for
+    >>> exclusion_path_for("scan_001.b2z")
+    'scan_001_excluded.json'
     """
     return os.path.splitext(bundle_path)[0] + EXCLUSION_SUFFIX
 
@@ -105,6 +111,20 @@ def fiber_anchor(fiber: Fiber) -> Tuple[int, int]:
     アンカーは描画される線の点ではなくスケルトン画素（`fiber.skeleton_track`）
     とする。線の置き方が変わっても記録が一致し続け、中心線より前に書かれた既存の
     サイドカーもそのまま適用されるようにするためである。
+
+    Examples
+    --------
+    Only the bounding-box origin (`data`) and the track are read, so a
+    stand-in object is enough here. A five-pixel horizontal track whose box
+    starts at column 100, row 50 is anchored at its middle pixel:
+
+    >>> from types import SimpleNamespace
+    >>> import numpy as np
+    >>> from lib.fiber_selection import fiber_anchor
+    >>> fiber = SimpleNamespace(data=(100, 50), xtrack=np.arange(5),
+    ...                         ytrack=np.zeros(5, dtype=int))
+    >>> fiber_anchor(fiber)
+    (102, 50)
     """
     x0, y0 = int(fiber.data[0]), int(fiber.data[1])
     xs, ys = skeleton_track(fiber)
@@ -135,6 +155,16 @@ def fiber_track_pixels(fiber: Fiber) -> Set[Tuple[int, int]]:
     the fiber, not the pixels under its drawn line; see `fiber_anchor`.
     これは繊維を識別するスケルトン画素（`fiber.skeleton_track`）であり、描画
     される線の下の画素ではない。`fiber_anchor` を参照。
+
+    Examples
+    --------
+    >>> from types import SimpleNamespace
+    >>> import numpy as np
+    >>> from lib.fiber_selection import fiber_track_pixels
+    >>> fiber = SimpleNamespace(data=(10, 20), xtrack=np.array([0, 1, 2]),
+    ...                         ytrack=np.array([0, 0, 1]))
+    >>> sorted(fiber_track_pixels(fiber))
+    [(10, 20), (11, 20), (12, 21)]
     """
     x0, y0 = int(fiber.data[0]), int(fiber.data[1])
     sx, sy = skeleton_track(fiber)
@@ -191,6 +221,27 @@ def constituent_anchors(fiber: Fiber, fragments: Sequence = ()) -> List[Tuple[in
     断片の判定は、そのトラックの半数を超える画素が表示中のファイバー上にある
     ことを条件とする。単なる共通部分の有無で判定すると、密な領域でフィブリルが
     横切っただけの断片まで拾ってしまう。
+
+    Examples
+    --------
+    A fibril built from fragments ``a`` and ``b`` is recorded with one anchor
+    per fragment; ``c`` merely crosses it and is left out. Stand-in objects
+    carry the bounding-box origin (`data`) and the track:
+
+    >>> from types import SimpleNamespace
+    >>> import numpy as np
+    >>> from lib.fiber_selection import constituent_anchors
+    >>> def track(x0, y0, xs, ys):
+    ...     return SimpleNamespace(data=(x0, y0), xtrack=np.asarray(xs),
+    ...                            ytrack=np.asarray(ys))
+    >>> a = track(0, 0, range(10), [0] * 10)
+    >>> b = track(10, 0, range(10), [0] * 10)
+    >>> c = track(5, 0, [0] * 10, range(10))
+    >>> fibril = track(0, 0, range(20), [0] * 20)
+    >>> constituent_anchors(fibril, [a, b, c])
+    [(5, 0), (15, 0)]
+    >>> constituent_anchors(fibril)
+    [(10, 0)]
     """
     pixels = fiber_track_pixels(fiber)
     anchors = []
@@ -239,6 +290,23 @@ def excluded_flags(
     同じ物理的対象があるモードでは断片、別のモードではより長いフィブリルの一部に
     なるが、その下にある画素はどちらでも同じである。高さフィルターで画素が
     取り除かれるなどしてどのトラック上にも無くなったアンカーは、単に何も選ばない。
+
+    Examples
+    --------
+    An anchor selects the fragment whose track passes through it, and also a
+    fibril that contains that fragment:
+
+    >>> from types import SimpleNamespace
+    >>> import numpy as np
+    >>> from lib.fiber_selection import excluded_flags
+    >>> def track(x0, y0, xs, ys):
+    ...     return SimpleNamespace(data=(x0, y0), xtrack=np.asarray(xs),
+    ...                            ytrack=np.asarray(ys))
+    >>> a = track(0, 0, range(10), [0] * 10)
+    >>> b = track(10, 0, range(10), [0] * 10)
+    >>> fibril = track(0, 0, range(20), [0] * 20)
+    >>> excluded_flags([a, b, fibril], [(15, 0)])
+    [False, True, True]
     """
     anchor_set = {(int(x), int(y)) for x, y in anchors}
     if not anchor_set:
@@ -277,6 +345,17 @@ def load_exclusions(path: str) -> List[Dict]:
         for the same reason, since reading it by this version's rules could
         apply a decision the user never made. A file with no ``version`` key
         is read as the current version, so a hand-written sidecar still loads.
+
+    Examples
+    --------
+    A bundle that was never curated has no sidecar, which reads as nothing
+    excluded:
+
+    >>> import os, tempfile
+    >>> from lib.fiber_selection import load_exclusions
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     load_exclusions(os.path.join(folder, "scan_excluded.json"))
+    []
     """
     if not os.path.isfile(path):
         return []
@@ -352,6 +431,21 @@ def save_exclusions(path: str, bundle_name: str, records: Sequence[Dict]) -> Non
     全ての除外を解除した場合は空リストを書かずファイルを削除する。これにより
     「サイドカーが無い」は常に「除外なし」を意味し、記録した内容より古い
     ファイルが残り続けることがない。
+
+    Examples
+    --------
+    >>> import os, tempfile
+    >>> from lib.fiber_selection import load_exclusions, save_exclusions
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     path = os.path.join(folder, "scan_excluded.json")
+    ...     save_exclusions(path, "scan.b2z", [{"x": 15, "y": 0, "note": "debris"}])
+    ...     records = load_exclusions(path)
+    ...     save_exclusions(path, "scan.b2z", [])
+    ...     kept = os.path.isfile(path)
+    >>> records
+    [{'x': 15, 'y': 0, 'note': 'debris'}]
+    >>> kept
+    False
     """
     if not records:
         if os.path.isfile(path):

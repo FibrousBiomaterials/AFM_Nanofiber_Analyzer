@@ -119,15 +119,15 @@ def test_unknown_bg_method_is_reported():
 
 def test_retired_bg_method_alias_still_loads():
     """
-    A `_param.json` written before the rename keeps working.
-    改名前に書かれた `_param.json` が引き続き動作する。
+    A `_param.json` carrying the retired spelling keeps working.
+    廃止済みの綴りを持つ `_param.json` が引き続き動作する。
 
-    `"inpaint"` was the name of `"trendfill"` up to 1.0.0. Re-running an old
-    analysis must not fail on the stored value, so `merge_params_dict`
+    `"inpaint"` is the retired spelling of `"trendfill"`. Re-running an
+    analysis must not fail on that stored value, so `merge_params_dict`
     translates it, `validate_params` accepts it, and `BGCalibrator` normalizes
     it to the current name.
-    `"inpaint"` は 1.0.0 までの `"trendfill"` の名称である。過去の解析を再実行
-    したときに保存値で失敗してはならないため、`merge_params_dict` が変換し、
+    `"inpaint"` は `"trendfill"` の廃止済みの綴りである。解析を再実行したときに
+    その保存値で失敗してはならないため、`merge_params_dict` が変換し、
     `validate_params` が受理し、`BGCalibrator` が現行名へ正規化する。
     """
     assert canonical_bg_method("inpaint") == "trendfill"
@@ -150,11 +150,11 @@ def test_removed_bg_method_is_rejected_not_substituted():
     A `_param.json` selecting the removed `spline2d` stops with an explanation.
     削除済みの `spline2d` を指す `_param.json` は、説明付きで停止する。
 
-    `"spline2d"` was removed after 1.0.0. Unlike the retired `"inpaint"`
+    `"spline2d"` is a removed method. Unlike the retired `"inpaint"`
     spelling it is *not* aliased to a surviving method: silently substituting
     one would change the numbers the stored parameter file reproduces, so the
     run must stop and let the user choose a method explicitly.
-    `"spline2d"` は 1.0.0 以降に削除された。廃止綴り `"inpaint"` と違い、
+    `"spline2d"` は削除済みの方式である。廃止綴り `"inpaint"` と違い、
     生き残った方式へのエイリアスにはしない。黙って置換すると保存済み
     パラメータファイルが再現する数値が変わるため、実行を止めて利用者に
     方式を選ばせる必要がある。

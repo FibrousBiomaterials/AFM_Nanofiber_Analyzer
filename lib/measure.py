@@ -118,15 +118,13 @@ BRANCH_TOUCH_RADIUS_PX = 2
 # reads pixel coordinates only. The pixel size therefore reaches nothing but
 # `Fiber.horizon`, the contour length, which that collector never reads. This
 # keeps skeleton heights measurable on bundles written before the scan size
-# joined the contract, as they were when the heights came straight from the
-# skeleton mask.
+# joined the contract.
 # 走査範囲を記録していないバンドルのために `skeleton_height_values` が使う
 # 代替走査範囲。高さは補正済み画像から採り、連結の判定は全て画素・度・相対高さ
 # の空間で行われ（`fiber_connector.connect_fiber_fragments`）、キンク検出も
 # 画素座標しか見ない。したがってピクセルサイズが影響するのは輪郭長である
 # `Fiber.horizon` だけであり、当該コレクタはそれを一切読まない。これにより、
-# 走査範囲が契約へ加わる前に書かれたバンドルでも、骨格マスクから直接高さを
-# 読んでいた頃と同様に高さを計測できる。
+# 走査範囲が契約へ加わる前に書かれたバンドルでも高さを計測できる。
 HEIGHT_ONLY_SCALE_UM = 1.0
 
 # Arc length over which local curvature measures its turning angle, chosen by

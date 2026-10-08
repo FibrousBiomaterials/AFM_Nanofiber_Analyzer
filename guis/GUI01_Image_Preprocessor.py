@@ -156,12 +156,12 @@ STRIPE_WARN_FG = "#7a4a00"
 # Overlay marking glitch-affected scan lines on the Original preview panel.
 # Cyan is the complement of the afmhot colormap the panel uses, so the bands
 # read as an annotation over the data instead of as part of it. A red overlay
-# was tried first and was invisible: at 22% alpha over afmhot's orange the
-# bands could not be picked out from the scan's own banding at all.
+# at 22% alpha cannot be picked out from the scan's own banding over afmhot's
+# orange.
 # Original プレビューでグリッチの影響を受けた走査線を示す重ね色。パネルが使う
 # afmhot カラーマップの補色であるシアンを用い、帯がデータの一部ではなく注記と
-# して読めるようにする。最初に試した赤は不可視だった。afmhot のオレンジに
-# 透明度 22% では、走査自体の縞と帯をまったく区別できなかった。
+# して読めるようにする。透明度 22% の赤では、afmhot のオレンジの上で走査自体の
+# 縞と帯を区別できない。
 STRIPE_BAND_COLOR = "#00c8d7"
 STRIPE_BAND_ALPHA = 0.35
 
@@ -1246,12 +1246,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Manual column-width resizing is intentionally NOT enabled. The
         # numeric columns have fixed semantic widths and the file-name column
         # auto-fills the remaining table width (see _fit_name_column), so a
-        # user drag has nothing useful to do and only fought the auto-fill
-        # (dragging one separator appeared to move the other columns).
+        # user drag has nothing useful to do and would fight the auto-fill
+        # (dragging one separator would appear to move the other columns).
         # 手動の列幅リサイズは意図的に有効化しない。数値系の列は意味的に固定幅で、
         # ファイル名列がテーブルの残り幅を自動で埋める（_fit_name_column を参照）
         # ため、ユーザーのドラッグに有用な役割はなく、自動フィットと競合する
-        # だけだった（ある境界をドラッグすると他の列が動いて見えた）。
+        # だけである（ある境界をドラッグすると他の列が動いて見える）。
         self.sheet.enable_bindings(
             "single_select", "row_select", "ctrl_select", "drag_select",
             "arrowkeys", "edit_cell", "copy", "paste", "delete", "undo",
@@ -4328,12 +4328,12 @@ class SettingsDialog(tk.Toplevel):
         #   tophat      : 形態学的opening (マスク不要、高速)
         #   spline1d    : row/column 1D B-spline; the ends hold that line's level.
         #   spline1d    : 行/列ごとの 1D B-スプライン (端はそのラインの水準を保持)
-        # "trendfill" was named "inpaint" up to 1.0.0. Parameter files still
-        # holding the old value are translated on load by
-        # `lib.pipeline.canonical_bg_method`, so only the current name is offered here.
-        # "trendfill" は 1.0.0 までは "inpaint" という名前だった。旧値を持つ
-        # パラメータファイルは読み込み時に `lib.pipeline.canonical_bg_method` が
-        # 変換するため、ここでは現行名のみを提示する。
+        # A parameter file holding the retired spelling "inpaint" is translated
+        # to "trendfill" on load by `lib.pipeline.canonical_bg_method`, so only
+        # the canonical names are offered here.
+        # 廃止済みの綴り "inpaint" を持つパラメータファイルは、読み込み時に
+        # `lib.pipeline.canonical_bg_method` が "trendfill" へ変換するため、
+        # ここでは正規の名前のみを提示する。
         self._add_choice(lf_bg, "bg_method", _("bg_method"),
                          _("背景推定方式（下の説明参照）。選択に応じて使うパラメータのみ有効化されます"),
                          choices=["trendfill", "tophat", "spline1d"],
@@ -5302,8 +5302,8 @@ class SingleViewDialog(tk.Toplevel, UnconfirmedEntryMixin):
         if mode in ("original", "calibrated"):
             self._cbar = self.fig.colorbar(im, ax=self.ax, fraction=0.046, pad=0.04)
             self._cbar.ax.tick_params(labelsize=cfs)
-            # Keep the historical colorbar unit label for compatibility.
-            self._cbar.set_label("(µm)", fontsize=cfs)
+            # Heights are stored in nanometers (`lib.afm_io.load_afm_text`).
+            self._cbar.set_label("(nm)", fontsize=cfs)
 
         if self.show_title_var.get():
             self.ax.set_title(f"{self.item.basename_stem}_{mode}", fontsize=tfs)

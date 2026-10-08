@@ -121,6 +121,12 @@ class ChainMember:
         direction and must be reversed before docking.
         断片のトラックが連鎖の向きに対して逆順であり、連結前に反転が必要か
         どうか。
+
+    Examples
+    --------
+    >>> from lib.connect_selection import ChainMember
+    >>> ChainMember(anchor=(5, 0), flip=False)
+    ChainMember(anchor=(5, 0), flip=False)
     """
 
     anchor: Tuple[int, int]
@@ -157,6 +163,17 @@ class ConnectionPlan:
         cheap secondary check. Zero means unrecorded.
         結果を作った時点でバンドルが追跡した断片数。簡便な補助検査であり、0 は
         未記録を意味する。
+
+    Examples
+    --------
+    One fibril built from the two fragments anchored at ``(5, 0)`` and
+    ``(15, 0)``:
+
+    >>> from lib.connect_selection import ChainMember, ConnectionPlan
+    >>> plan = ConnectionPlan(chains=((ChainMember((5, 0), False),
+    ...                                ChainMember((15, 0), False)),))
+    >>> plan.joined_fragment_count()
+    2
     """
 
     chains: Tuple[Tuple[ChainMember, ...], ...] = ()
@@ -174,6 +191,12 @@ class ConnectionPlan:
         int
             Total members across every chain.
             全連鎖のメンバー数の合計。
+
+        Examples
+        --------
+        >>> from lib.connect_selection import ConnectionPlan
+        >>> ConnectionPlan().joined_fragment_count()
+        0
         """
         return sum(len(chain) for chain in self.chains)
 
@@ -194,6 +217,12 @@ def connect_path_for(bundle_path: str) -> str:
     str
         Sidecar path, whether or not the file exists.
         サイドカーのパス。ファイルの存在有無にかかわらず返す。
+
+    Examples
+    --------
+    >>> from lib.connect_selection import connect_path_for
+    >>> connect_path_for("scan_001.b2z")
+    'scan_001_connect.json'
     """
     return os.path.splitext(bundle_path)[0] + CONNECT_SUFFIX
 
@@ -226,6 +255,22 @@ def skeleton_digest(skeletonized: np.ndarray) -> str:
     が導かれる唯一の配列であり、保存済みプランがバンドルを記述しなくなるのと
     ちょうど同じタイミングで変化する。補正画像まで含めてハッシュすると、断片を
     1 つも動かさずに高さが丸め幅だけ動いた再実行に対してもプランを拒否してしまう。
+
+    Examples
+    --------
+    The same skeleton gives the same digest; moving one line of it does not:
+
+    >>> import numpy as np
+    >>> from lib.connect_selection import skeleton_digest
+    >>> skeleton = np.zeros((4, 4), dtype=bool)
+    >>> skeleton[1, :] = True
+    >>> digest = skeleton_digest(skeleton)
+    >>> digest.startswith("sha256:")
+    True
+    >>> skeleton_digest(skeleton.copy()) == digest
+    True
+    >>> skeleton_digest(np.roll(skeleton, 1, axis=0)) == digest
+    False
     """
     arr = np.ascontiguousarray(skeletonized)
     h = hashlib.sha256()
@@ -250,6 +295,14 @@ def params_to_dict(params: ConnectParams) -> Dict:
     dict
         One entry per `CONNECT_PARAM_FIELDS` name.
         `CONNECT_PARAM_FIELDS` の各名前に対して 1 エントリ。
+
+    Examples
+    --------
+    >>> from lib.connect_selection import params_to_dict
+    >>> from lib.fiber_connector import ConnectParams
+    >>> stored = params_to_dict(ConnectParams(clusters_range=12))
+    >>> stored["clusters_range"], stored["trim_points"]
+    (12.0, 5)
     """
     out: Dict = {}
     for name in CONNECT_PARAM_FIELDS:
@@ -279,6 +332,15 @@ def params_from_dict(raw: Dict) -> ConnectParams:
     ------
     ValueError
         If a present field cannot be read as a number.
+
+    Examples
+    --------
+    A field the file does not carry keeps its default:
+
+    >>> from lib.connect_selection import params_from_dict
+    >>> params = params_from_dict({"clusters_range": 12})
+    >>> params.clusters_range, params.trim_points
+    (12.0, 5)
     """
     kwargs = {}
     for name in CONNECT_PARAM_FIELDS:
@@ -335,6 +397,32 @@ def plan_from_chains(
     ConnectionPlan
         Plan naming each member by its anchor pixel.
         各メンバーをアンカー画素で指すプラン。
+
+    Examples
+    --------
+    Three ten-pixel fragments in a row, joined into one fibril. Only the
+    bounding-box origin (`data`) and the track are read, so stand-in objects
+    are enough:
+
+    >>> from types import SimpleNamespace
+    >>> import numpy as np
+    >>> from lib.connect_selection import plan_from_chains
+    >>> from lib.fiber_connector import ConnectParams
+    >>> def fragment(x0):
+    ...     return SimpleNamespace(data=(x0, 0), xtrack=np.arange(10),
+    ...                            ytrack=np.zeros(10, dtype=int))
+    >>> fragments = [fragment(0), fragment(10), fragment(20)]
+    >>> plan = plan_from_chains(fragments, [[(0, False), (1, False), (2, False)]],
+    ...                         ConnectParams())
+    >>> [member.anchor for member in plan.chains[0]]
+    [(5, 0), (15, 0), (25, 0)]
+    >>> plan.fragment_count
+    3
+
+    A chain of one fragment joins nothing and is not stored:
+
+    >>> plan_from_chains(fragments, [[(0, False)]], ConnectParams()).chains
+    ()
     """
     stored = []
     for chain in chains:
@@ -404,6 +492,27 @@ def resolve_plan_chains(
     連結を保つ。したがって除外は連結を削ることはできても作ることはできない。
     ``A-B-C`` の中央を取り除くと ``A`` と ``C`` は別々に残り、繋がることはない。
     誰もそれを 1 本だと決めていないからである。
+
+    Examples
+    --------
+    A plan joining fragments ``A-B-C`` resolves whole while all three are
+    present. With ``B`` excluded, ``A`` and ``C`` are each left on their own:
+    one member is missing and the stored chain came apart.
+
+    >>> from types import SimpleNamespace
+    >>> import numpy as np
+    >>> from lib.connect_selection import plan_from_chains, resolve_plan_chains
+    >>> from lib.fiber_connector import ConnectParams
+    >>> def fragment(x0):
+    ...     return SimpleNamespace(data=(x0, 0), xtrack=np.arange(10),
+    ...                            ytrack=np.zeros(10, dtype=int))
+    >>> a, b, c = fragment(0), fragment(10), fragment(20)
+    >>> plan = plan_from_chains([a, b, c], [[(0, False), (1, False), (2, False)]],
+    ...                         ConnectParams())
+    >>> resolve_plan_chains([a, b, c], plan)
+    ([[(0, False), (1, False), (2, False)]], 0, 0)
+    >>> resolve_plan_chains([a, c], plan)
+    ([], 1, 1)
     """
     owner: Dict[Tuple[int, int], int] = {}
     for i, frag in enumerate(fragments):
@@ -481,6 +590,17 @@ def plan_with_chain(
     割れることがあるが、その各片は繋がったまま残す。ユーザーがこの断片を別の場所
     へ繋いだことは、その両隣にあった断片について何も述べておらず、それらの連結を
     黙って解くことは、ユーザーが見直してもいない決定を捨てることになる。
+
+    Examples
+    --------
+    Joining ``C`` to ``D`` takes it out of ``A-B-C``; ``A-B`` stays joined:
+
+    >>> from lib.connect_selection import (ChainMember, ConnectionPlan,
+    ...                                    plan_with_chain)
+    >>> A, B, C, D = (ChainMember((x, 0), False) for x in (5, 15, 25, 35))
+    >>> plan = plan_with_chain(ConnectionPlan(chains=((A, B, C),)), (C, D))
+    >>> [[member.anchor for member in chain] for chain in plan.chains]
+    [[(5, 0), (15, 0)], [(25, 0), (35, 0)]]
     """
     taken = {(int(m.anchor[0]), int(m.anchor[1])) for m in members}
 
@@ -539,6 +659,18 @@ def plan_without_anchors(
     ユーザーが指すのは画面上のフィブリルであって、その内部の接合部ではないため
     である。途中のメンバーを抜くと、空いた隙間をまたいで両側が繋がったままになり、
     それはユーザーが見たことのないフィブリルである。
+
+    Examples
+    --------
+    Pointing at ``B`` dissolves the whole fibril ``A-B``; ``C-D`` is kept:
+
+    >>> from lib.connect_selection import (ChainMember, ConnectionPlan,
+    ...                                    plan_without_anchors)
+    >>> A, B, C, D = (ChainMember((x, 0), False) for x in (5, 15, 25, 35))
+    >>> plan = plan_without_anchors(ConnectionPlan(chains=((A, B), (C, D))),
+    ...                             [(15, 0)])
+    >>> [[member.anchor for member in chain] for chain in plan.chains]
+    [[(25, 0), (35, 0)]]
     """
     drop = {(int(x), int(y)) for x, y in anchors}
     kept = tuple(
@@ -595,6 +727,19 @@ def plan_without_junctions(
     残せるようにするためである。接合部を切っても分かれるのはその両側の 2 メンバー
     だけであり、切断をまたいで何かが繋がることはない。したがって各片は切断と切断の
     間の連続部分そのものになる。
+
+    Examples
+    --------
+    Cutting the junction between ``B`` and ``C`` in ``A-B-C-D`` leaves the
+    two runs on either side joined:
+
+    >>> from lib.connect_selection import (ChainMember, ConnectionPlan,
+    ...                                    plan_without_junctions)
+    >>> A, B, C, D = (ChainMember((x, 0), False) for x in (5, 15, 25, 35))
+    >>> plan = plan_without_junctions(ConnectionPlan(chains=((A, B, C, D),)),
+    ...                               [((25, 0), (15, 0))])
+    >>> [[member.anchor for member in chain] for chain in plan.chains]
+    [[(5, 0), (15, 0)], [(25, 0), (35, 0)]]
     """
     def key(anchor) -> Tuple[int, int]:
         """Return an anchor as a hashable pixel."""
@@ -650,6 +795,16 @@ def plan_state_key(plan: Optional[ConnectionPlan]) -> str:
     あり、どちらも「まだ書き出すものがある」と報告してはならないからである。しきい値
     は意図的にキーへ含めない。連鎖が確定した後は計測されるファイバーを変えないため、
     何も連結していない状態でしきい値を変えても保存すべきものは生じない。
+
+    Examples
+    --------
+    >>> from lib.connect_selection import (ChainMember, ConnectionPlan,
+    ...                                    plan_state_key)
+    >>> plan_state_key(None) == plan_state_key(ConnectionPlan())
+    True
+    >>> pair = (ChainMember((5, 0), False), ChainMember((15, 0), False))
+    >>> plan_state_key(ConnectionPlan(chains=(pair,)))
+    '[[[5, 0, false], [15, 0, false]]]'
     """
     if plan is None or not plan.chains:
         return "()"
@@ -691,6 +846,16 @@ def load_connect_plan(path: str) -> Optional[ConnectionPlan]:
         too-new sidecar is reported rather than ignored, because silently
         falling back to "not connected" would measure fragments while the user
         believes whole fibrils were measured.
+
+    Examples
+    --------
+    A bundle nobody has connected has no sidecar:
+
+    >>> import os, tempfile
+    >>> from lib.connect_selection import load_connect_plan
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     print(load_connect_plan(os.path.join(folder, "scan_connect.json")))
+    None
     """
     if not os.path.isfile(path):
         return None
@@ -818,6 +983,25 @@ def save_connect_plan(path: str, bundle_name: str, plan: ConnectionPlan) -> None
     ファイバーを復活させるからである。ここでは両者の計測結果は同じであり、ファイルを
     残すことでユーザーが調整したしきい値と、「このバンドルでは何も繋がらない」が
     省略ではなく決定であったことの両方を保てる。
+
+    Examples
+    --------
+    A saved plan reads back unchanged, and a plan with no chains is still
+    written:
+
+    >>> import os, tempfile
+    >>> from lib.connect_selection import (ChainMember, ConnectionPlan,
+    ...                                    load_connect_plan, save_connect_plan)
+    >>> pair = (ChainMember((5, 0), False), ChainMember((15, 0), True))
+    >>> plan = ConnectionPlan(chains=(pair,))
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     path = os.path.join(folder, "scan_connect.json")
+    ...     save_connect_plan(path, "scan.b2z", plan)
+    ...     same = load_connect_plan(path) == plan
+    ...     save_connect_plan(path, "scan.b2z", ConnectionPlan())
+    ...     kept = os.path.isfile(path)
+    >>> same, kept
+    (True, True)
     """
     payload = {
         "format": CONNECT_FORMAT,

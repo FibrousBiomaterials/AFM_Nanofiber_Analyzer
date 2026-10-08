@@ -178,6 +178,18 @@ def branchedPoints(skel: NDArray[np.uint8]) -> NDArray[np.uint8]:
     テンプレートは ``2`` をワイルドカード値として記述し、`_build_branch_patterns`
     で OpenCV の hit-or-miss カーネルへ一度だけ変換する。複数テンプレートに一致
     した画素も、応答を論理和で結合するため 1 として返る。
+
+    Examples
+    --------
+    Two lines crossing at row 3, column 3 meet at one branch point:
+
+    >>> import numpy as np
+    >>> from lib.imp_tools import branchedPoints
+    >>> skel = np.zeros((7, 7), dtype=np.uint8)
+    >>> skel[3, :] = 1
+    >>> skel[:, 3] = 1
+    >>> np.argwhere(branchedPoints(skel)).tolist()
+    [[3, 3]]
     """
     return _hitmiss_union(skel, _BRANCH_PATTERNS)
 
@@ -198,6 +210,18 @@ def endPoints(skel: NDArray[np.uint8]) -> NDArray[np.uint8]:
     ndarray
         Binary image whose nonzero pixels mark detected end points.
         検出された端点を非ゼロ画素で示す二値画像。
+
+    Examples
+    --------
+    The same crossing has four ends, one per arm (``(row, column)``):
+
+    >>> import numpy as np
+    >>> from lib.imp_tools import endPoints
+    >>> skel = np.zeros((7, 7), dtype=np.uint8)
+    >>> skel[3, :] = 1
+    >>> skel[:, 3] = 1
+    >>> np.argwhere(endPoints(skel)).tolist()
+    [[0, 3], [3, 0], [3, 6], [6, 3]]
     """
     return _hitmiss_union(skel, _END_PATTERNS)
 
@@ -229,6 +253,27 @@ def remove_bp(
     ndarray
         Skeleton image after branch-neighborhood and small-component removal.
         分岐点周辺と小成分を除去した後のスケルトン画像。
+
+    Examples
+    --------
+    Clearing the 3x3 neighbourhood of the crossing leaves four separate
+    two-pixel arms, which an area filter of 3 then removes:
+
+    >>> import numpy as np
+    >>> from lib.imp_tools import remove_bp
+    >>> skel = np.zeros((7, 7), dtype=np.uint8)
+    >>> skel[3, :] = 1
+    >>> skel[:, 3] = 1
+    >>> remove_bp(skel, remove_size=1, min_area=0)
+    array([[0, 0, 0, 1, 0, 0, 0],
+           [0, 0, 0, 1, 0, 0, 0],
+           [0, 0, 0, 0, 0, 0, 0],
+           [1, 1, 0, 0, 0, 1, 1],
+           [0, 0, 0, 0, 0, 0, 0],
+           [0, 0, 0, 1, 0, 0, 0],
+           [0, 0, 0, 1, 0, 0, 0]], dtype=uint8)
+    >>> int(remove_bp(skel, remove_size=1, min_area=3).sum())
+    0
     """
     imgcopy = img.copy()
     bp = branchedPoints(imgcopy)
@@ -273,6 +318,22 @@ def remove_Lcorner(skeleton_image: NDArray[np.uint8]) -> NDArray[np.uint8]:
     ndarray
         Skeleton image with detected L-corner pixels removed.
         検出された L 字コーナー画素を除去したスケルトン画像。
+
+    Examples
+    --------
+    The corner pixel of a right-angle step is removed, leaving a diagonal
+    step in its place:
+
+    >>> import numpy as np
+    >>> from lib.imp_tools import remove_Lcorner
+    >>> skel = np.zeros((5, 5), dtype=np.uint8)
+    >>> skel[1, 1] = skel[1, 2] = skel[2, 2] = skel[3, 2] = 1
+    >>> remove_Lcorner(skel)
+    array([[0, 0, 0, 0, 0],
+           [0, 1, 0, 0, 0],
+           [0, 0, 1, 0, 0],
+           [0, 0, 1, 0, 0],
+           [0, 0, 0, 0, 0]], dtype=uint8)
     """
     imgcopy = skeleton_image.copy()
     imgcopy = np.pad(imgcopy, pad_width=1, mode='constant', constant_values=0)
@@ -328,6 +389,12 @@ def tracking(skeleton_image: NDArray[np.uint8]) -> tuple[NDArray, NDArray]:
         ``(xtrack, ytrack)`` coordinate arrays in tracing order.
         追跡順の ``(xtrack, ytrack)`` 座標配列。
 
+    Raises
+    ------
+    ValueError
+        If the skeleton does not have exactly two end points, as a branched or
+        closed component does.
+
     Notes
     -----
     If multiple next pixels are available, the first candidate returned by
@@ -335,6 +402,17 @@ def tracking(skeleton_image: NDArray[np.uint8]) -> tuple[NDArray, NDArray]:
     before tracing.
     複数の次候補画素がある場合は ``np.where`` が返す最初の候補を使う。
     この関数は追跡前に分岐点が除去されていることを前提とする。
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from lib.imp_tools import tracking
+    >>> skel = np.zeros((4, 6), dtype=np.uint8)
+    >>> skel[1, 1:5] = 1
+    >>> skel[2, 5] = 1
+    >>> xtrack, ytrack = tracking(skel)
+    >>> xtrack.tolist(), ytrack.tolist()
+    ([1, 2, 3, 4, 5], [1, 1, 1, 1, 2])
     """
     if np.array_equal(skeleton_image, np.array([[1]])):
         return (np.array([0]), np.array([0]))

@@ -82,6 +82,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `None`. Bundles written by 2.0.x that carry the entry still load; the entry
   is ignored. The bundle format version is unchanged, and analysis results do
   not change.
+- `Skeletonizer.prune_branches` and `Skeletonizer.calc_branches_image` no
+  longer take a `calibrated_image` argument, which neither read: the
+  branch-point heights are classified beforehand by `set_low_bp_coor`. A
+  script calling either method must drop that first argument. Analysis
+  results do not change.
+- The published API reference is English only: the Japanese lines of the
+  bilingual docstrings are left out when Sphinx builds it (`docs/conf.py`).
+  The docstrings in the source, and so IDE hovers and `help()`, keep both
+  languages.
 
 ### Fixed
 
@@ -152,6 +161,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is traced as one piece (138 fibers instead of 140), and one more kink is
   stored on it (63 instead of 62), at a bend the visual kink reference does
   not mark.
+- GUI01's separate preview window of one analyzed file labels the colorbar of the original and calibrated
+  height images "(nm)"; it read "(µm)", although the heights are in
+  nanometres. Results do not change.
 
 ### Deprecated
 

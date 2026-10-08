@@ -84,8 +84,8 @@ opening the raw heights with the 25<!--c:lib/pipeline.py::ProcParams.tophat_se_s
 ### 1.5 Run time
 
 Measured on the bundled 1024<!--m:bg_timing.image_rows-->×1024<!--m:bg_timing.image_cols--> Bruker scan (second of two runs each),
-`tophat` took about 0.5<!--m:bg_timing.tophat.seconds--> s, `trendfill` about 1.0<!--m:bg_timing.trendfill.seconds--> s, and `spline1d` about
-2.3<!--m:bg_timing.spline1d.seconds--> s; in `trendfill`, the `lmfit` histogram fit took about half as long as
+`tophat` took about 0.5<!--m:bg_timing.tophat.seconds--> s, `trendfill` about 1.2<!--m:bg_timing.trendfill.seconds--> s, and `spline1d` about
+3.3<!--m:bg_timing.spline1d.seconds--> s; in `trendfill`, the `lmfit` histogram fit took about half as long as
 `_bg_generate` (experiment bg_timing). These are wall times on one machine
 and vary with the machine and its load.
 
@@ -231,11 +231,11 @@ on one machine and vary with the machine and its load.
 
 | Input | Components of 1000<!--n:literal in the quoted code--> px or more | Of those, removed if tested | Time as in the code (s) | Time testing all (s) |
 |---|---|---|---|---|
-| tunicate CNF | 9<!--m:linearity_large_exemption.tunicate.large_components--> | 0<!--m:linearity_large_exemption.tunicate.large_removed_if_tested--> | 0.072<!--m:linearity_large_exemption.tunicate.code.seconds--> | 1.407<!--m:linearity_large_exemption.tunicate.all.seconds--> |
-| artificial, isotropic | 1<!--m:linearity_large_exemption.art_iso.large_components--> | 0<!--m:linearity_large_exemption.art_iso.large_removed_if_tested--> | 0.011<!--m:linearity_large_exemption.art_iso.code.seconds--> | 0.053<!--m:linearity_large_exemption.art_iso.all.seconds--> |
-| artificial, anisotropic | 3<!--m:linearity_large_exemption.art_aniso.large_components--> | 0<!--m:linearity_large_exemption.art_aniso.large_removed_if_tested--> | 0.010<!--m:linearity_large_exemption.art_aniso.code.seconds--> | 0.101<!--m:linearity_large_exemption.art_aniso.all.seconds--> |
-| higher-plant TOC | 4<!--m:linearity_large_exemption.hplantTOC.large_components--> | 0<!--m:linearity_large_exemption.hplantTOC.large_removed_if_tested--> | 0.106<!--m:linearity_large_exemption.hplantTOC.code.seconds--> | 0.385<!--m:linearity_large_exemption.hplantTOC.all.seconds--> |
-| Bruker NDTOC | 15<!--m:linearity_large_exemption.NDTOC.large_components--> | 0<!--m:linearity_large_exemption.NDTOC.large_removed_if_tested--> | 1.437<!--m:linearity_large_exemption.NDTOC.code.seconds--> | 3.328<!--m:linearity_large_exemption.NDTOC.all.seconds--> |
+| tunicate CNF | 9<!--m:linearity_large_exemption.tunicate.large_components--> | 0<!--m:linearity_large_exemption.tunicate.large_removed_if_tested--> | 0.093<!--m:linearity_large_exemption.tunicate.code.seconds--> | 1.968<!--m:linearity_large_exemption.tunicate.all.seconds--> |
+| artificial, isotropic | 1<!--m:linearity_large_exemption.art_iso.large_components--> | 0<!--m:linearity_large_exemption.art_iso.large_removed_if_tested--> | 0.014<!--m:linearity_large_exemption.art_iso.code.seconds--> | 0.078<!--m:linearity_large_exemption.art_iso.all.seconds--> |
+| artificial, anisotropic | 3<!--m:linearity_large_exemption.art_aniso.large_components--> | 0<!--m:linearity_large_exemption.art_aniso.large_removed_if_tested--> | 0.014<!--m:linearity_large_exemption.art_aniso.code.seconds--> | 0.140<!--m:linearity_large_exemption.art_aniso.all.seconds--> |
+| higher-plant TOC | 4<!--m:linearity_large_exemption.hplantTOC.large_components--> | 0<!--m:linearity_large_exemption.hplantTOC.large_removed_if_tested--> | 0.114<!--m:linearity_large_exemption.hplantTOC.code.seconds--> | 0.362<!--m:linearity_large_exemption.hplantTOC.all.seconds--> |
+| Bruker NDTOC | 15<!--m:linearity_large_exemption.NDTOC.large_components--> | 0<!--m:linearity_large_exemption.NDTOC.large_removed_if_tested--> | 1.633<!--m:linearity_large_exemption.NDTOC.code.seconds--> | 3.926<!--m:linearity_large_exemption.NDTOC.all.seconds--> |
 On no input would testing the large components have removed any of them, while
 testing them made the filter take several times longer, and over ten times
 longer on the tunicate scan, because the Hough transform of a large crop is slow. A large

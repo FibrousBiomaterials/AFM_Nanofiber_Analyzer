@@ -139,6 +139,17 @@ def delta_magnitude(delta: float) -> str:
         `MAGNITUDE_THRESHOLDS` または `MAGNITUDE_LARGE` のいずれかのラベル。
         入力が NaN の場合は空文字列。
 
+    Notes
+    -----
+    The thresholds are those of [Romano2006]_.
+    しきい値は [Romano2006]_ による。
+
+    References
+    ----------
+    .. [Romano2006] J. Romano, J. D. Kromrey, J. Coraggio and J. Skowronek,
+       "Appropriate statistics for ordinal level data," Annual meeting of the
+       Florida Association of Institutional Research, 2006.
+
     Examples
     --------
     >>> from lib.group_compare import delta_magnitude
@@ -196,6 +207,15 @@ def cliffs_delta(a: np.ndarray, b: np.ndarray) -> float:
     値はペアを数え上げるのではなく Mann-Whitney U 統計量から導く。数え上げは
     標本数に対して二次のコストになるためである。
 
+    The statistic is defined in [Cliff1993]_.
+    この統計量の定義は [Cliff1993]_ による。
+
+    References
+    ----------
+    .. [Cliff1993] N. Cliff, "Dominance statistics: Ordinal analyses to answer
+       ordinal questions," Psychological Bulletin, vol. 114, pp. 494-509,
+       1993.
+
     Examples
     --------
     >>> from lib.group_compare import cliffs_delta
@@ -245,11 +265,19 @@ def holm_adjusted(pvalues: Sequence[float]) -> List[float]:
     -----
     Comparing k groups makes k(k-1)/2 pairs, and testing all of them at 0.05
     each would find a "difference" among four groups about a quarter of the
-    time with no difference present. Holm controls the family-wise error rate
-    while staying uniformly more powerful than Bonferroni.
+    time with no difference present. Holm's step-down procedure [Holm1979]_
+    controls the family-wise error rate while staying uniformly more powerful
+    than Bonferroni.
     k 群を比較すると k(k-1)/2 組のペアができ、それぞれを 0.05 で検定すると、
-    差が無くても 4 群では約 1/4 の確率でどこかに「差」が見つかる。Holm 法は
-    ファミリーワイズ誤り率を制御しつつ、Bonferroni より一様に検出力が高い。
+    差が無くても 4 群では約 1/4 の確率でどこかに「差」が見つかる。Holm の
+    段階的手順 [Holm1979]_ はファミリーワイズ誤り率を制御しつつ、Bonferroni より
+    一様に検出力が高い。
+
+    References
+    ----------
+    .. [Holm1979] S. Holm, "A simple sequentially rejective multiple test
+       procedure," Scandinavian Journal of Statistics, vol. 6, no. 2,
+       pp. 65-70, 1979.
 
     Examples
     --------
@@ -306,6 +334,23 @@ def compare_groups(
     検定するには小さすぎるグループのペアも、NaN の p 値を持つ項目として結果に
     残す。表を描く呼び出し側が全ペアを表示し、検定できなかったものを落とさずに
     報告できるようにするためである。
+
+    The tests are the two-sided Mann-Whitney U test [MannWhitney1947]_ and the
+    two-sample Kolmogorov-Smirnov test [Smirnov1948]_, computed by
+    `scipy.stats.mannwhitneyu` and `scipy.stats.ks_2samp`.
+    検定は両側 Mann-Whitney U 検定 [MannWhitney1947]_ と 2 標本
+    Kolmogorov-Smirnov 検定 [Smirnov1948]_ であり、`scipy.stats.mannwhitneyu` と
+    `scipy.stats.ks_2samp` で計算する。
+
+    References
+    ----------
+    .. [MannWhitney1947] H. B. Mann and D. R. Whitney, "On a test of whether
+       one of two random variables is stochastically larger than the other,"
+       The Annals of Mathematical Statistics, vol. 18, pp. 50-60, 1947.
+       doi:10.1214/aoms/1177730491
+    .. [Smirnov1948] N. Smirnov, "Table for estimating the goodness of fit of
+       empirical distributions," The Annals of Mathematical Statistics,
+       vol. 19, no. 2, pp. 279-281, 1948. doi:10.1214/aoms/1177730256
 
     Examples
     --------

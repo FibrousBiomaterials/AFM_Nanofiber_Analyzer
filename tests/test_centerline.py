@@ -142,9 +142,9 @@ def test_the_line_keeps_one_point_per_input_point_and_the_length():
 
     One point per input point is what lets kinks found on the line be stored
     at skeleton pixels; the length check guards against the ends being pulled
-    inward, which shortened short fragments in a prototype.
+    inward, which would shorten short fragments.
     入力点ごとに 1 点であることが、線上で見つけたキンクをスケルトン画素に保存できる
-    理由である。長さの検査は、試作で短い断片を縮めた端の引き込みを防ぐ。
+    理由である。長さの検査は、短い断片を縮めてしまう端の引き込みを防ぐ。
     """
     height = _ridge(3.0, FWHM, 0.0)
     x, y = _track(1.0)
@@ -381,8 +381,8 @@ def test_a_straight_fiber_on_the_centerline_reads_straight(synthetic_bundle):
 
 def test_a_format_1_0_bundle_keeps_its_skeleton_track(synthetic_bundle, tmp_path):
     """
-    An older bundle is measured along the skeleton, exactly as before 1.1.
-    古いバンドルは、1.1 より前と全く同じくスケルトンに沿って計測される。
+    A format 1.0 bundle is measured along its skeleton track.
+    形式 1.0 のバンドルは、そのスケルトントラックに沿って計測される。
     """
     old = _as_format_1_0(synthetic_bundle, str(tmp_path / "old.b2z"))
     result = measure.measure_bundle(old)

@@ -1106,7 +1106,7 @@ init_skeleton_image = thin_ignoring_image_border(image.binarized_image)
 ...
 self.set_low_bp_coor(image.calibrated_image, init_skeleton_image, self.bp_height)
 self.get_close_eps()
-nobranch_image = self.prune_branches(image.calibrated_image, init_skeleton_image)
+nobranch_image = self.prune_branches(init_skeleton_image)
 ...
 nobranch_skeleton_image = skeletonize(nobranch_image).astype(np.uint8)
 ...
@@ -1451,7 +1451,7 @@ for start_x, start_y in zip(starts_x, starts_y):
 
 ```python
 # source: lib/skeletonizer.py::Skeletonizer.prune_branches
-branches_image = self.calc_branches_image(calibrated_image, init_skeleton_image)
+branches_image = self.calc_branches_image(init_skeleton_image)
 return init_skeleton_image - branches_image
 ```
 

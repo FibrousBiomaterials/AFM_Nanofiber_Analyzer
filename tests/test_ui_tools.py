@@ -91,11 +91,12 @@ def test_sparse_fibers_are_not_clipped_away():
     Fibers stay unsaturated at low coverage, where a whole-image percentile fails.
     低被覆率でもファイバーが飽和しないこと（全画素パーセンタイルが破綻する条件）。
 
-    This is the property that withdrew the earlier percentile-based attempt:
-    at 0.2-0.9 % coverage the 99th percentile of *all* pixels is still
+    This is why the range is not a percentile of the whole image: at
+    0.2-0.9 % coverage the 99th percentile of *all* pixels is still
     background, so the fibers would be crushed into the top of the range.
-    かつてのパーセンタイル方式を撤回させた性質。被覆率 0.2〜0.9 % では全画素の
-    99 パーセンタイルがまだ背景であり、ファイバーが表示範囲の上端に潰れる。
+    表示範囲を全画素のパーセンタイルで決めない理由となる性質。被覆率 0.2〜0.9 %
+    では全画素の 99 パーセンタイルがまだ背景であり、ファイバーが表示範囲の上端に
+    潰れる。
     """
     image, mask = _synthetic_image(coverage=0.004)
 
@@ -233,12 +234,12 @@ def test_real_bundles_put_the_fibers_in_the_bright_half():
     Every bundled sample renders its fibers in the upper half of the colormap.
     同梱の全試料で、ファイバーがカラーマップの上半分に載ること。
 
-    This is the readability property the auto range exists for: the previous
-    min/max rule left the Bruker sample's fibers at 22 % of the range, which
-    is the dark image this test guards against.
-    自動レンジが存在する理由である可読性の性質。従来の min/max 規則では
+    This is the readability property the auto range exists for: a plain
+    min/max range leaves the Bruker sample's fibers at 22 % of the range,
+    which is the dark image this test guards against.
+    自動レンジが存在する理由である可読性の性質。単純な min/max の範囲では
     Bruker 試料のファイバーが範囲の 22 % に留まり、本テストはその「暗い画像」を
-    再発させないための番人となる。
+    防ぐ。
     """
     bundles = sorted(glob.glob(os.path.join(str(PROJECT_ROOT), "testdata_*", "*.b2z")))
     if not bundles:
