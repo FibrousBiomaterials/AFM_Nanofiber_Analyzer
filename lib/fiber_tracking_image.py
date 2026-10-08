@@ -627,39 +627,41 @@ class FiberTrackingImage:
         skeleton_image: np.ndarray,
     ) -> tuple[int, np.ndarray, np.ndarray]:
         """
-        Label line-like skeleton components after artifact and branch cleanup.
-        アーティファクト除去と分岐除去後の線状骨格成分をラベリングする。
+        Label the line-like components of the stored skeleton.
+        保存された骨格の線状成分をラベリングする。
 
-        Collapse small loop artifacts and prune short spurs first: bundles
-        saved before the pipeline performed this cleanup carry spurious branch
-        points on continuous fibers, and cutting at those would split one
-        fiber into many fragments. Then remove branch points and L-corners so
-        each connected component becomes a line-like shape that
-        `imp_tools.tracking` can follow as a single path. Shared by the
-        sequential and parallel tracing paths. Terminal-hook trimming
-        (`skeletonizer.prune_terminal_hooks`) is deliberately *not* applied
-        here: it changes measured values, so it runs only in the pipeline, and
-        a bundle that predates it must be reprocessed to receive the fix —
-        loading must not silently reinterpret the stored record.
-        まず小ループの潰しと短いスパーの除去を行う。パイプラインがこの
-        クリーニングを行う前に保存されたバンドルは連続ファイバー上に偽の
-        分岐点を持ち、そこで切断すると 1 本のファイバーが多数の断片に分断
-        されるためである。その後、分岐点とL字角を除去し、各連結成分を
-        `imp_tools.tracking` が単一の経路として追跡できる線状の形へ単純化
-        する。逐次・並列の両経路で共有する。末端フック切除
-        （`skeletonizer.prune_terminal_hooks`）は意図的にここでは適用しない。
-        測定値を変える処理のためパイプラインでのみ実行し、それ以前の
-        バンドルは再処理によって修正を受け取る。読み込みが保存済みの記録を
-        黙って再解釈してはならない。
+        Remove branch points and L-corners so each connected component becomes
+        a line-like shape that `imp_tools.tracking` can follow as a single
+        path. Shared by the sequential and parallel tracing paths.
+        分岐点とL字角を除去し、各連結成分を `imp_tools.tracking` が単一の経路
+        として追跡できる線状の形へ単純化する。逐次・並列の両経路で共有する。
 
-        Cleanup only removes or locally re-thins pixels, so bundle-stored
-        feature coordinates (kinks, endpoints, decomposition points) keep
-        matching on all untouched pixels; features on repaired pixels are
-        dropped, which is intended — they were artifacts of the loops/spurs.
-        クリーニングは画素の除去と局所的な再細線化のみを行うため、バンドルに
-        保存された特徴点座標（kink・端点・分解点）は変更のない画素上では
-        そのまま一致する。修復された画素上の特徴点は失われるが、それらは
-        ループ／スパー由来のアーティファクトなので意図した挙動である。
+        The skeleton is traced as the bundle stores it. Loop collapsing, spur
+        pruning and terminal-hook trimming
+        (`skeletonizer.collapse_skeleton_loops`,
+        `skeletonizer.prune_short_spurs`, `skeletonizer.prune_terminal_hooks`)
+        run only in the pipeline, the first two with the analysis settings
+        `ProcParams.max_loop_area` and `ProcParams.spur_length`. Running any of
+        them again here would override those settings and can trace pixels the
+        stored skeleton does not contain, so the fibers measured would no
+        longer be the ones the bundle's branch points and kinks were stored
+        with: loading must not silently reinterpret the stored record. A
+        skeleton stored without this cleanup keeps its loops and spurs, and
+        their branch points split a continuous fiber into fragments; such a
+        bundle receives the cleanup by being re-analyzed, and GUI03, GUI04 and
+        `cli.py` ask for a format 1.0 bundle to be re-analyzed.
+        骨格はバンドルに保存されたとおりに追跡する。ループの潰し、スパーの除去、
+        末端フックの切除（`skeletonizer.collapse_skeleton_loops`、
+        `skeletonizer.prune_short_spurs`、`skeletonizer.prune_terminal_hooks`）は
+        パイプラインでのみ実行し、前の 2 つは解析の設定
+        `ProcParams.max_loop_area` と `ProcParams.spur_length` に従う。ここで
+        いずれかを再び実行すると、その設定を上書きし、保存された骨格に無い画素を
+        追跡しうる。そうなると計測するファイバーは、バンドルの分岐点やキンクが
+        保存されたときのファイバーではなくなる。読み込みが保存済みの記録を
+        黙って再解釈してはならない。このクリーニングなしで保存された骨格は
+        ループとスパーを残しており、その分岐点で連続したファイバーが断片に
+        分断される。そうしたバンドルは再解析によってクリーニングを受け取る。
+        GUI03・GUI04・`cli.py` は形式 1.0 のバンドルに再解析を求める。
 
         Parameters
         ----------
@@ -675,17 +677,7 @@ class FiberTrackingImage:
             ``cv2.connectedComponentsWithStats`` の
             ``(nLabels, label_image, data)``。
         """
-        # Local import: lib.skeletonizer pulls skimage/scipy, so defer the
-        # cost to the first tracing call and keep GUI04 plugin startup fast.
-        # ローカル import。lib.skeletonizer は skimage/scipy を読み込むため、
-        # 初回追跡時までコストを遅延させ GUI04 プラグインの起動を速く保つ。
-        from .skeletonizer import collapse_skeleton_loops, prune_short_spurs
-
-        cleaned_skel = collapse_skeleton_loops(
-            skeleton_image, calibrated_image=self.calibrated_image
-        )
-        cleaned_skel = prune_short_spurs(cleaned_skel)
-        no_bp_skel = imp_tools.remove_bp(cleaned_skel)
+        no_bp_skel = imp_tools.remove_bp(skeleton_image)
         no_Lcorner_skel = imp_tools.remove_Lcorner(no_bp_skel)
         nLabels, label_image, data, _center = \
             cv2.connectedComponentsWithStats(no_Lcorner_skel)

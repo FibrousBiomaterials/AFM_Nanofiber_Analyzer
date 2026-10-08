@@ -79,7 +79,7 @@
 ### 1.5 処理時間
 
 同梱の 1024<!--m:bg_timing.image_rows-->×1024<!--m:bg_timing.image_cols--> の Bruker スキャンでの実測は、`tophat` 約 0.5<!--m:bg_timing.tophat.seconds--> 秒、
-`trendfill` 約 1.0<!--m:bg_timing.trendfill.seconds--> 秒、`spline1d` 約 2.7<!--m:bg_timing.spline1d.seconds--> 秒であった（いずれも 2<!--n:count--> 回実行した
+`trendfill` 約 1.0<!--m:bg_timing.trendfill.seconds--> 秒、`spline1d` 約 2.3<!--m:bg_timing.spline1d.seconds--> 秒であった（いずれも 2<!--n:count--> 回実行した
 うちの 2<!--n:count--> 回目）。`trendfill` の中では、`lmfit` のヒストグラムフィットに
 `_bg_generate` の半分ほどの時間がかかった（実験 bg_timing）。1<!--n:count--> 台の計算機での
 経過時間であり、計算機とその負荷によって変わる。
@@ -182,7 +182,7 @@ closing は、厚さ 3<!--n:value tried--> px 以上のマスク成分どうし�
 | 人工、等方 | 17.4<!--m:local_threshold.art_iso.global.mask_width_px--> → 11.2<!--m:local_threshold.art_iso.both.mask_width_px--> | 2<!--m:local_threshold.art_iso.global.mask_components--> → 2<!--m:local_threshold.art_iso.both.mask_components--> | 0<!--m:local_threshold.art_iso.global.branch_points--> → 0<!--m:local_threshold.art_iso.both.branch_points--> | 22<!--m:local_threshold.art_iso.removed_percent_of_crest--> / 85<!--m:local_threshold.art_iso.kept_percent_of_crest--> |
 | 人工、異方 | 15.4<!--m:local_threshold.art_aniso.global.mask_width_px--> → 10.0<!--m:local_threshold.art_aniso.both.mask_width_px--> | 4<!--m:local_threshold.art_aniso.global.mask_components--> → 3<!--m:local_threshold.art_aniso.both.mask_components--> | 0<!--m:local_threshold.art_aniso.global.branch_points--> → 0<!--m:local_threshold.art_aniso.both.branch_points--> | 22<!--m:local_threshold.art_aniso.removed_percent_of_crest--> / 84<!--m:local_threshold.art_aniso.kept_percent_of_crest--> |
 | 高等植物 TOC | 12.2<!--m:local_threshold.hplantTOC.global.mask_width_px--> → 9.0<!--m:local_threshold.hplantTOC.both.mask_width_px--> | 10<!--m:local_threshold.hplantTOC.global.mask_components--> → 7<!--m:local_threshold.hplantTOC.both.mask_components--> | 6<!--m:local_threshold.hplantTOC.global.branch_points--> → 5<!--m:local_threshold.hplantTOC.both.branch_points--> | 34<!--m:local_threshold.hplantTOC.removed_percent_of_crest--> / 75<!--m:local_threshold.hplantTOC.kept_percent_of_crest--> |
-| Bruker NDTOC | 12.9<!--m:local_threshold.NDTOC.global.mask_width_px--> → 9.6<!--m:local_threshold.NDTOC.both.mask_width_px--> | 16<!--m:local_threshold.NDTOC.global.mask_components--> → 20<!--m:local_threshold.NDTOC.both.mask_components--> | 160<!--m:local_threshold.NDTOC.global.branch_points--> → 77<!--m:local_threshold.NDTOC.both.branch_points--> | 35<!--m:local_threshold.NDTOC.removed_percent_of_crest--> / 72<!--m:local_threshold.NDTOC.kept_percent_of_crest--> |
+| Bruker NDTOC | 12.9<!--m:local_threshold.NDTOC.global.mask_width_px--> → 9.6<!--m:local_threshold.NDTOC.both.mask_width_px--> | 16<!--m:local_threshold.NDTOC.global.mask_components--> → 20<!--m:local_threshold.NDTOC.both.mask_components--> | 159<!--m:local_threshold.NDTOC.global.branch_points--> → 76<!--m:local_threshold.NDTOC.both.branch_points--> | 35<!--m:local_threshold.NDTOC.removed_percent_of_crest--> / 72<!--m:local_threshold.NDTOC.kept_percent_of_crest--> |
 
 同梱スキャン 5<!--m:kink_reference.scans--> 枚すべての高さ画像に重ねて描くと、局所しきい値が落とす画素は、繊維の斜面の下のほうである。繊維が 1<!--n:count--> 本だけで離れている場所では、
 マスクが細くなるだけである。次に書くつながりが見られたのは、繊維が近くを並んで
@@ -217,11 +217,11 @@ linearity_large_exemption）。時間は 1<!--n:count--> 台の計算機での�
 
 | 入力 | 1000<!--n:literal in the quoted code--> px 以上のかたまり | そのうち検査すると消えるもの | コードのとおりの時間 (s) | すべて検査したときの時間 (s) |
 |---|---|---|---|---|
-| チュニケート CNF | 9<!--m:linearity_large_exemption.tunicate.large_components--> | 0<!--m:linearity_large_exemption.tunicate.large_removed_if_tested--> | 0.079<!--m:linearity_large_exemption.tunicate.code.seconds--> | 1.540<!--m:linearity_large_exemption.tunicate.all.seconds--> |
-| 人工、等方 | 1<!--m:linearity_large_exemption.art_iso.large_components--> | 0<!--m:linearity_large_exemption.art_iso.large_removed_if_tested--> | 0.012<!--m:linearity_large_exemption.art_iso.code.seconds--> | 0.049<!--m:linearity_large_exemption.art_iso.all.seconds--> |
-| 人工、異方 | 3<!--m:linearity_large_exemption.art_aniso.large_components--> | 0<!--m:linearity_large_exemption.art_aniso.large_removed_if_tested--> | 0.011<!--m:linearity_large_exemption.art_aniso.code.seconds--> | 0.092<!--m:linearity_large_exemption.art_aniso.all.seconds--> |
-| 高等植物 TOC | 4<!--m:linearity_large_exemption.hplantTOC.large_components--> | 0<!--m:linearity_large_exemption.hplantTOC.large_removed_if_tested--> | 0.128<!--m:linearity_large_exemption.hplantTOC.code.seconds--> | 0.314<!--m:linearity_large_exemption.hplantTOC.all.seconds--> |
-| Bruker NDTOC | 15<!--m:linearity_large_exemption.NDTOC.large_components--> | 0<!--m:linearity_large_exemption.NDTOC.large_removed_if_tested--> | 1.519<!--m:linearity_large_exemption.NDTOC.code.seconds--> | 3.454<!--m:linearity_large_exemption.NDTOC.all.seconds--> |
+| チュニケート CNF | 9<!--m:linearity_large_exemption.tunicate.large_components--> | 0<!--m:linearity_large_exemption.tunicate.large_removed_if_tested--> | 0.072<!--m:linearity_large_exemption.tunicate.code.seconds--> | 1.407<!--m:linearity_large_exemption.tunicate.all.seconds--> |
+| 人工、等方 | 1<!--m:linearity_large_exemption.art_iso.large_components--> | 0<!--m:linearity_large_exemption.art_iso.large_removed_if_tested--> | 0.011<!--m:linearity_large_exemption.art_iso.code.seconds--> | 0.053<!--m:linearity_large_exemption.art_iso.all.seconds--> |
+| 人工、異方 | 3<!--m:linearity_large_exemption.art_aniso.large_components--> | 0<!--m:linearity_large_exemption.art_aniso.large_removed_if_tested--> | 0.010<!--m:linearity_large_exemption.art_aniso.code.seconds--> | 0.101<!--m:linearity_large_exemption.art_aniso.all.seconds--> |
+| 高等植物 TOC | 4<!--m:linearity_large_exemption.hplantTOC.large_components--> | 0<!--m:linearity_large_exemption.hplantTOC.large_removed_if_tested--> | 0.106<!--m:linearity_large_exemption.hplantTOC.code.seconds--> | 0.385<!--m:linearity_large_exemption.hplantTOC.all.seconds--> |
+| Bruker NDTOC | 15<!--m:linearity_large_exemption.NDTOC.large_components--> | 0<!--m:linearity_large_exemption.NDTOC.large_removed_if_tested--> | 1.437<!--m:linearity_large_exemption.NDTOC.code.seconds--> | 3.328<!--m:linearity_large_exemption.NDTOC.all.seconds--> |
 どの入力でも、大きなかたまりを検査して消えるものは無かった。一方、検査すると
 フィルタの時間は数倍になり、チュニケートのスキャンでは十倍を超えた。大きな
 切り出しの Hough 変換は時間がかかるからである。ただし、大きな汚れのかたまりのような、
@@ -257,8 +257,8 @@ linearity_large_exemption）。時間は 1<!--n:count--> 台の計算機での�
 
 高さで決める枝刈りは、最終的なスケルトンをほとんど変えない。この処理を外すと、
 変わるスケルトンの画素は、チュニケートのスキャンで 7975<!--m:branch_pruning.tunicate.final_pixels--> 画素のうち 1<!--m:branch_pruning.tunicate.skipped.final_changed_pixels--> 画素、
-高等植物のスキャンで 1789<!--m:branch_pruning.hplantTOC.final_pixels--> 画素のうち 24<!--m:branch_pruning.hplantTOC.skipped.final_changed_pixels--> 画素、Bruker のスキャンで 9030<!--m:branch_pruning.NDTOC.final_pixels--> 画素のうち
-161<!--m:branch_pruning.NDTOC.skipped.final_changed_pixels--> 画素、人工のスキャンで 0<!--m:branch_pruning.art_iso.skipped.final_changed_pixels--> 画素である。すべての分岐点を「低い」として扱っても、
+高等植物のスキャンで 1789<!--m:branch_pruning.hplantTOC.final_pixels--> 画素のうち 14<!--m:branch_pruning.hplantTOC.skipped.final_changed_pixels--> 画素、Bruker のスキャンで 9019<!--m:branch_pruning.NDTOC.final_pixels--> 画素のうち
+152<!--m:branch_pruning.NDTOC.skipped.final_changed_pixels--> 画素、人工のスキャンで 0<!--m:branch_pruning.art_iso.skipped.final_changed_pixels--> 画素である。すべての分岐点を「低い」として扱っても、
 チュニケートのスキャンで変わる画素は 0<!--m:branch_pruning.tunicate.all_low.final_changed_pixels--> である。この処理が刈る短い腕は、
 [解析アルゴリズム](algorithms.ja.md) §3.5 のとげ刈りが、長さだけで判断してもう一度
 刈るからである。とげ刈りを止めると、この処理を外したときに変わる画素は、同じ 3<!--n:count--> 枚の
@@ -309,8 +309,8 @@ linearity_large_exemption）。時間は 1<!--n:count--> 台の計算機での�
 `imp_tools.branchedPoints` は骨格をヒットオアミスのカーネルと照合する。その
 1<!--n:count--> つである斜め Y カーネルは、9<!--n:definition--> マスのうち 4<!--n:definition--> マスを任意として、軸に沿ったカーネルが
 取りこぼす角度の Y 分岐を拾う。各テスト入力の既定の骨格で（実験 diagonal_ybranch）、
-115<!--m:diagonal_ybranch.all.branch_points--> 個の分岐点のうち 58<!--m:diagonal_ybranch.all.only_diagonal_y--> 個はこのカーネルだけが見つけた。チュニケートのスキャンでは
-33<!--m:diagonal_ybranch.tunicate.branch_points--> 個中 16<!--m:diagonal_ybranch.tunicate.only_diagonal_y--> 個、高等植物 TOC のスキャンでは 5<!--m:diagonal_ybranch.hplantTOC.branch_points--> 個中 3<!--m:diagonal_ybranch.hplantTOC.only_diagonal_y--> 個、Bruker のスキャンでは 77<!--m:diagonal_ybranch.NDTOC.branch_points--> 個中 39<!--m:diagonal_ybranch.NDTOC.only_diagonal_y--> 個
+114<!--m:diagonal_ybranch.all.branch_points--> 個の分岐点のうち 57<!--m:diagonal_ybranch.all.only_diagonal_y--> 個はこのカーネルだけが見つけた。チュニケートのスキャンでは
+33<!--m:diagonal_ybranch.tunicate.branch_points--> 個中 16<!--m:diagonal_ybranch.tunicate.only_diagonal_y--> 個、高等植物 TOC のスキャンでは 5<!--m:diagonal_ybranch.hplantTOC.branch_points--> 個中 3<!--m:diagonal_ybranch.hplantTOC.only_diagonal_y--> 個、Bruker のスキャンでは 76<!--m:diagonal_ybranch.NDTOC.branch_points--> 個中 38<!--m:diagonal_ybranch.NDTOC.only_diagonal_y--> 個
 であり、人工スキャンには分岐点が無い。このカーネルだけが見つけた画素は、どれも
 8<!--n:definition--> 連結の骨格近傍を 3<!--n:definition--> つ以上持ち（それより少ない画素: 0<!--m:diagonal_ybranch.all.only_diagonal_y_below_3_neighbours--> 個）、近傍が 2<!--n:definition--> つである
 骨格の素直な区間には 1<!--n:count--> つも無い。
@@ -374,7 +374,7 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 
 | `centerline_method` | 距離の中央値（nm） | 実スキャン | 備考 |
 |---|---|---|---|
-| `"half_max_025w"`（既定） | 0.21<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->〜0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 60<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 64<!--m:kink_reference.default.false--> | |
+| `"half_max_025w"`（既定） | 0.21<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->〜0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 60<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 65<!--m:kink_reference.default.false--> | |
 | `"half_max_05w"` | 0.20<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[0]-->〜0.25<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[1]--> | 56<!--m:kink_reference.hm05.found--> / 4<!--m:kink_reference.hm05.missed--> / 43<!--m:kink_reference.hm05.false--> | 採点した 3<!--n:count--> 種類の中で一致しない折れが最も少ない。ただし合成の同じ向きのコーナー対 8<!--m:synthetic_centerline.pairs--> 組中 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> 組で 2<!--n:count--> つのコーナーを 1<!--n:count--> つにまとめ、平滑化をわずかに強めると見落としが 10〜13<!--m:kink_reference.hm05_stronger.missed_range--> 件に増えた。 |
 | `"skeleton_pixels"` | 0.54<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[0]-->〜0.62<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[1]--> | 62<!--m:kink_reference.skeleton_pixels.found--> / 0<!--m:kink_reference.skeleton_pixels.missed--> / 135<!--m:kink_reference.skeleton_pixels.false--> | 階段状のギザつきと分岐部での振れを折れとして読んでしまう。 |
 | `"smoothed_skeleton_05w"`、`"smoothed_skeleton_1w"` | 0.33<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[0]-->〜0.56<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[1]--> / 0.39<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[0]-->〜0.95<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[1]--> | 採点なし | |
@@ -389,7 +389,7 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 
 | 規則 | 検出 | 印から 1〜2<!--n:definition--> 幅ずれて検出 | 見落とし | 一致なし |
 |---|---|---|---|---|
-| 超過回転規則（中心線上） | 60<!--m:kink_reference.default.found--> | 1<!--m:kink_reference.default.displaced--> | 3<!--m:kink_reference.default.missed--> | 64<!--m:kink_reference.default.false--> |
+| 超過回転規則（中心線上） | 60<!--m:kink_reference.default.found--> | 1<!--m:kink_reference.default.displaced--> | 3<!--m:kink_reference.default.missed--> | 65<!--m:kink_reference.default.false--> |
 | 以前の折れ線規則（スケルトントラック上） | 52<!--m:kink_reference.old_rule.found--> | 4<!--m:kink_reference.old_rule.displaced--> | 8<!--m:kink_reference.old_rule.missed--> | 76<!--m:kink_reference.old_rule.false--> |
 
 以前の規則の行は、同じ画像の追跡済みスケルトントラックに、形式 1.0<!--n:bundle format version--> の
@@ -398,8 +398,8 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 
 規則の長さは、$W$ が画像の分解能であることから決めた $W$ の倍数であり、この基準で
 確かめはしたが、合わせ込んではいない。どれか 1<!--n:count--> つを隣の値に変えると、検出
-できた明瞭なキンクは 56〜62<!--m:kink_reference.sens_all.found_range--> 件、一致なしは 48〜80<!--m:kink_reference.sens_all.false_range--> 件の範囲で動いた（既定は
-それぞれ 60<!--m:kink_reference.default.found--> 件と 64<!--m:kink_reference.default.false--> 件）。検出が最も減ったのは平滑化を強める側で、向きの
+できた明瞭なキンクは 56〜62<!--m:kink_reference.sens_all.found_range--> 件、一致なしは 48〜81<!--m:kink_reference.sens_all.false_range--> 件の範囲で動いた（既定は
+それぞれ 60<!--m:kink_reference.default.found--> 件と 65<!--m:kink_reference.default.false--> 件）。検出が最も減ったのは平滑化を強める側で、向きの
 平滑化 0.35<!--n:value tried--> W で 56<!--m:kink_reference.sens_heading_0.35.found--> 件、中心線の平滑化 ×1.4<!--n:value tried--> で 57<!--m:kink_reference.sens_line_x1.4.found--> 件であった。
 
 | 長さ | 既定値 | 試した隣の値 |
@@ -412,7 +412,7 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 | 抑制半径 | 0.75<!--c:lib/kink_detector.py::_SUPPRESS_WIDTHS--> W | 0.5<!--n:value tried--> W、1.0<!--n:value tried--> W |
 
 窓の回転そのものの極大から取る候補を除くと、明瞭な基準キンクの検出は
-60<!--m:turn_maxima.with.found--> 件から 56<!--m:turn_maxima.without.found--> 件に減り、一致しない折れは 64<!--m:turn_maxima.with.false--> 件から 47<!--m:turn_maxima.without.false--> 件に減った（実験
+60<!--m:turn_maxima.with.found--> 件から 56<!--m:turn_maxima.without.found--> 件に減り、一致しない折れは 65<!--m:turn_maxima.with.false--> 件から 47<!--m:turn_maxima.without.false--> 件に減った（実験
 turn_maxima）。
 
 ### 4.5 キンクとして保存する角度
@@ -467,7 +467,7 @@ turn_maxima）。
 
 これらのスキャンの誤検出は、丸みのある曲がり、絡まり、交差の近くの折れ、
 それに超過回転がしきい値をわずかに上回るだけの浅い折れであって、ノイズでは
-ない。64<!--m:kink_reference.default.false--> 件のうち 28<!--m:kink_reference.default.false_excess_30_40--> 件は超過回転が 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->〜40<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|190 - v--> 度である。そのうち
+ない。65<!--m:kink_reference.default.false--> 件のうち 29<!--m:kink_reference.default.false_excess_30_40--> 件は超過回転が 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->〜40<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|190 - v--> 度である。そのうち
 11<!--m:kink_reference.default.false_arm_turn_below_threshold--> 件は、腕から読んだ回転（180<!--n:definition--> 度 − `ka`）が 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度を下回る。腕の角度は
 判定に使う超過回転とは別に測るためである。また強く折れ曲がった繊維では、その
 繊維自身のキンクがノイズ床を押し上げる。失われた明瞭なキンクはそうした繊維に
@@ -507,11 +507,11 @@ turn_maxima）。
 3<!--n:definition--> px 以内にある（実験 track_ends）。トラックの端の多くは繊維の本当の終端では
 なく、交差での切断である。
 
-端の範囲を $1.0\,W$ にすると、同梱スキャンの誤検出は 64<!--m:kink_reference.default.false--> 件から 80<!--m:kink_reference.sens_end_1.false--> 件に
+端の範囲を $1.0\,W$ にすると、同梱スキャンの誤検出は 65<!--m:kink_reference.default.false--> 件から 80<!--m:kink_reference.sens_end_1.false--> 件に
 増え、明瞭なキンクの検出は 1<!--n:count--> 件も増えなかった。$2.0\,W$ にすると誤検出は
 49<!--m:kink_reference.sens_end_2.false--> 件に減ったが、既定では判定していた端から 2<!--n:value tried--> $W$ の合成コーナー
 （2<!--m:synthetic_kinks.end_cases_per_distance--> 件中 2<!--m:synthetic_kinks.margin_default.end2W.corners_judged--> 件）を判定しなくなった（0<!--m:synthetic_kinks.margin_2W.end2W.corners_judged--> 件）。同梱スキャンで判定しな
-かった 48<!--m:kink_reference.default.unjudged--> 件の折れには、明瞭な基準キンクに当たるものは無かった。
+かった 47<!--m:kink_reference.default.unjudged--> 件の折れには、明瞭な基準キンクに当たるものは無かった。
 
 ### 4.10 頂点高さと中心線上の高さ
 
@@ -525,7 +525,7 @@ turn_maxima）。
 | 人工、等方 | 0.108<!--m:crest_height.art_iso.median_nm--> | 0.234<!--m:crest_height.art_iso.p90_nm--> | 1.322<!--m:crest_height.art_iso.median_percent--> | 2.829<!--m:crest_height.art_iso.p90_percent--> |
 | 人工、異方 | 0.075<!--m:crest_height.art_aniso.median_nm--> | 0.210<!--m:crest_height.art_aniso.p90_nm--> | 1.031<!--m:crest_height.art_aniso.median_percent--> | 2.975<!--m:crest_height.art_aniso.p90_percent--> |
 | 高等植物 TOC | 0.012<!--m:crest_height.hplantTOC.median_nm--> | 0.064<!--m:crest_height.hplantTOC.p90_nm--> | 0.712<!--m:crest_height.hplantTOC.median_percent--> | 3.573<!--m:crest_height.hplantTOC.p90_percent--> |
-| Bruker NDTOC | 0.024<!--m:crest_height.NDTOC.median_nm--> | 0.128<!--m:crest_height.NDTOC.p90_nm--> | 1.227<!--m:crest_height.NDTOC.median_percent--> | 6.996<!--m:crest_height.NDTOC.p90_percent--> |
+| Bruker NDTOC | 0.024<!--m:crest_height.NDTOC.median_nm--> | 0.128<!--m:crest_height.NDTOC.p90_nm--> | 1.230<!--m:crest_height.NDTOC.median_percent--> | 6.997<!--m:crest_height.NDTOC.p90_percent--> |
 頂点高さが中心線上の高さより低いことは、1<!--n:count--> 度も無かった。したがって、中心線の
 位置で高さを読むと、繊維は低く出る。差は表のとおり小さいが、いつも低く出る向きで
 ある。左右が非対称な断面では、半値の中点が頂点の横にずれるからである。
@@ -560,7 +560,7 @@ turn_maxima）。
 | 人工、等方 | 436<!--m:section_width_limit.art_iso.points--> | 97.9<!--m:section_width_limit.art_iso.reliable_full_percent--> | 95.9<!--m:section_width_limit.art_iso.reliable_half_percent--> |
 | 人工、異方 | 963<!--m:section_width_limit.art_aniso.points--> | 98.4<!--m:section_width_limit.art_aniso.reliable_full_percent--> | 96.7<!--m:section_width_limit.art_aniso.reliable_half_percent--> |
 | 高等植物 TOC | 1764<!--m:section_width_limit.hplantTOC.points--> | 91.4<!--m:section_width_limit.hplantTOC.reliable_full_percent--> | 88.3<!--m:section_width_limit.hplantTOC.reliable_half_percent--> |
-| Bruker NDTOC | 8601<!--m:section_width_limit.NDTOC.points--> | 81.4<!--m:section_width_limit.NDTOC.reliable_full_percent--> | 74.9<!--m:section_width_limit.NDTOC.reliable_half_percent--> |
+| Bruker NDTOC | 8591<!--m:section_width_limit.NDTOC.points--> | 81.7<!--m:section_width_limit.NDTOC.reliable_full_percent--> | 75.2<!--m:section_width_limit.NDTOC.reliable_half_percent--> |
 
 チュニケートのスキャンで最も多くの点を失う繊維（919<!--m:section_width_limit.tunicate.most_lost.points--> 点中 146<!--m:section_width_limit.tunicate.most_lost.lost--> 点）を、補正後の
 高さ画像に断面とともに描いた。失う点は、角から右端までの直線区間である。この
@@ -604,7 +604,7 @@ turn_maxima）。
 | 人工、等方 | 3<!--m:frame_margin.art_iso.fibers--> | 3<!--m:frame_margin.art_iso.margin_0.reaching--> | 3<!--m:frame_margin.art_iso.margin_2.reaching--> | 3<!--m:frame_margin.art_iso.margin_5.reaching--> |
 | 人工、異方 | 4<!--m:frame_margin.art_aniso.fibers--> | 4<!--m:frame_margin.art_aniso.margin_0.reaching--> | 4<!--m:frame_margin.art_aniso.margin_2.reaching--> | 4<!--m:frame_margin.art_aniso.margin_5.reaching--> |
 | 高等植物 TOC | 14<!--m:frame_margin.hplantTOC.fibers--> | 2<!--m:frame_margin.hplantTOC.margin_0.reaching--> | 2<!--m:frame_margin.hplantTOC.margin_2.reaching--> | 2<!--m:frame_margin.hplantTOC.margin_5.reaching--> |
-| Bruker NDTOC | 139<!--m:frame_margin.NDTOC.fibers--> | 17<!--m:frame_margin.NDTOC.margin_0.reaching--> | 17<!--m:frame_margin.NDTOC.margin_2.reaching--> | 18<!--m:frame_margin.NDTOC.margin_5.reaching--> |
+| Bruker NDTOC | 138<!--m:frame_margin.NDTOC.fibers--> | 16<!--m:frame_margin.NDTOC.margin_0.reaching--> | 16<!--m:frame_margin.NDTOC.margin_2.reaching--> | 17<!--m:frame_margin.NDTOC.margin_5.reaching--> |
 
 余白 1<!--n:value tried--> px と 2<!--n:value tried--> px では判定は 1<!--n:count--> つも変わらなかった（変化: 0<!--m:frame_margin.all.changed_up_to_2-->）。3<!--n:value tried--> px 以上では、
 Bruker のスキャンの繊維が 1<!--m:frame_margin.all.changed_at_5--> 本加わる。補正後の高さ画像に重ねて描くと、それは

@@ -3209,19 +3209,25 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
                 # Say how many bundles were analyzed before format 1.1. They
                 # are measured along the skeleton track rather than the
-                # centerline, and a folder mixing the two is otherwise
+                # centerline, on a skeleton traced as stored that can still
+                # hold the loops and spurs the current analysis removes, and a
+                # folder mixing them with current bundles is otherwise
                 # invisible in the result.
                 # 形式 1.1 より前に解析したバンドルが何個あるかを報告する。それらは
-                # 中心線ではなくスケルトントラックに沿って計測され、両者が混ざった
+                # 中心線ではなくスケルトントラックに沿って、保存されたとおりに追跡
+                # したスケルトンで計測され、そのスケルトンには現在の解析が取り除く
+                # 小ループや短い枝が残っていることがある。現在のバンドルと混ざった
                 # フォルダは結果からは見分けがつかないためである。
                 if input_mode != INPUT_FIBER_CSV:
                     by_line = self._count_bundles_by_line(bundle_paths)
                     n_old = by_line.get(SKELETON_TRACK, 0)
                     if n_old:
                         self.ui_queue.put(("log", _(
-                            "[{grp}/{folder}] {n}/{total} バンドルは旧版で解析されたため、"
-                            "スケルトンに沿って計測します（GUI01 で再解析すると中心線に"
-                            "沿って計測されます）"
+                            "[{grp}/{folder}] {n}/{total} バンドルは旧版（形式 1.0）で"
+                            "解析されています。保存されたスケルトンをそのまま追跡して"
+                            "スケルトンに沿って計測するため、現在の解析が取り除く小ループや"
+                            "行き止まりの短い枝でファイバーが分断されていることがあります。"
+                            "GUI01 で再解析してください"
                         ).format(
                             grp=grp_name, folder=folder_name,
                             n=n_old, total=len(bundle_paths),

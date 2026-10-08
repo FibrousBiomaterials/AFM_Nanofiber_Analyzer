@@ -1119,6 +1119,9 @@ cleaned_skeleton_image = prune_short_spurs(
 cleaned_skeleton_image = prune_terminal_hooks(
     cleaned_skeleton_image, image.calibrated_image
 )
+cleaned_skeleton_image = prune_short_spurs(
+    cleaned_skeleton_image, self.spur_length
+)
 ...
 nosmall_skeleton_image = self.remove_small_and_ring(cleaned_skeleton_image)
 ...
@@ -1136,7 +1139,7 @@ image.bp = imp_tools.branchedPoints(nosmall_skeleton_image)
 | `set_low_bp_coor(...)`、`get_close_eps()`、`prune_branches(...)` | §3.3 |
 | `skeletonize(nobranch_image)` | §3.3 の最後（枝を刈った後にもう一度細線化する） |
 | `collapse_skeleton_loops(...)` | §3.4 |
-| `prune_short_spurs(...)` | §3.5 |
+| `prune_short_spurs(...)` | §3.5。`prune_terminal_hooks` の後にもう一度実行する（§3.6 の最後） |
 | `prune_terminal_hooks(...)` | §3.6 |
 | `remove_small_and_ring(...)` | §3.7 |
 | `imp_tools.endPoints(...)`、`imp_tools.branchedPoints(...)` | §3.8 |
@@ -1715,6 +1718,11 @@ while run < apex and calibrated_image[path[run]] < threshold:
 for i in range(run):
     skel[path[i]] = 0
 ```
+
+フックを切り取ると、そのフックで終わる腕が短くなる。その腕が合流点に届いていて、
+長さが `spur_length` 以下になった場合、それは §3.5 の時点でその長さだったなら
+§3.5 が刈っていたとげである。そこで `Skeletonizer.__call__` は、この処理の後に
+`prune_short_spurs` をもう一度実行する。
 
 ### 3.7 小さなかたまりと輪を取り除く
 

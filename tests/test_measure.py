@@ -39,7 +39,9 @@ from lib.connect_selection import (
     save_connect_plan,
 )
 from lib.fiber_connector import ConnectParams
-from lib.fiber_selection import exclusion_path_for, fiber_anchor, save_exclusions
+from lib.fiber_selection import (
+    exclusion_path_for, fiber_anchor, fiber_track_pixels, save_exclusions,
+)
 from lib.measure import (
     FIBER_CSV_COLUMNS,
     FiberStats,
@@ -212,12 +214,9 @@ def test_tracking_image_skips_untraceable_components():
     """One untraceable component does not discard traceable fibers."""
     skeleton = np.zeros((24, 24), dtype=np.uint8)
     skeleton[2, 2:16] = 1
-    # The ring must enclose more than DEFAULT_MAX_LOOP_AREA (100 px) so the
-    # load-time loop collapsing keeps it intact and it still reaches tracking
-    # as an endpoint-free, untraceable component.
-    # リングの囲み面積は DEFAULT_MAX_LOOP_AREA (100 px) を超える必要がある。
-    # 読み込み時のループ潰しで温存され、端点なしの追跡不能成分のまま
-    # tracking に到達させるためである。
+    # A closed ring has no endpoints, so it reaches tracking as an
+    # untraceable component.
+    # 閉じたリングには端点が無いため、追跡不能な成分として tracking に届く。
     skeleton[5, 5:20] = 1
     skeleton[19, 5:20] = 1
     skeleton[5:20, 5] = 1
@@ -242,6 +241,97 @@ def test_tracking_image_skips_untraceable_components():
     assert len(fibers) == 1
     assert len(image.skipped_fiber_labels) == 1
     assert "exactly 2 endpoints" in image.skipped_fiber_labels[0][1]
+
+
+def _spur_and_loop_skeleton():
+    """
+    Draw a fiber with a short spur and a fiber split around a small enclosure.
+    短いスパーを持つ繊維と、小さな囲みの周りで二股に分かれる繊維を描く。
+
+    Both lie inside the pipeline's cleanup defaults: the spur (11 px) is
+    shorter than `skeletonizer.DEFAULT_SPUR_LENGTH` and the enclosure (45 px)
+    smaller than `skeletonizer.DEFAULT_MAX_LOOP_AREA`, so cleaning the skeleton
+    again would remove both. The spur keeps 10 px once `imp_tools.remove_bp`
+    has cleared its junction, enough to stay a component of its own.
+    どちらもパイプラインのクリーニングの既定値の内側にある。スパー（11 px）は
+    `skeletonizer.DEFAULT_SPUR_LENGTH` より短く、囲み（45 px）は
+    `skeletonizer.DEFAULT_MAX_LOOP_AREA` より小さいので、骨格をもう一度
+    クリーニングすると両方とも消える。スパーは `imp_tools.remove_bp` が分岐点を
+    除いた後も 10 px 残り、単独の成分として残るのに足りる。
+    """
+    skel = np.zeros((50, 60), np.uint8)
+    skel[10, 5:25] = 1
+    skel[10, 36:55] = 1
+    skel[7, 25:36] = 1
+    skel[13, 25:36] = 1
+    skel[7:14, 25] = 1
+    skel[7:14, 35] = 1
+    skel[28, 5:55] = 1
+    skel[29:40, 30] = 1
+    return skel
+
+
+def _write_skeleton_bundle(path, skel, version=BUNDLE_FORMAT_VERSION):
+    """
+    Save a minimal valid bundle around a hand-drawn skeleton.
+    手で描いた骨格を持つ最小の有効バンドルを保存する。
+    """
+    arrays = {
+        "calibrated":   np.ones(skel.shape, np.float64),
+        "binarized":    skel.astype(bool),
+        "skeletonized": skel,
+        "bp":           (imp_tools.branchedPoints(skel) > 0).astype(np.uint8),
+        "ep":           (imp_tools.endPoints(skel) > 0).astype(np.uint8),
+        "kp":           np.zeros((2, 0), np.int64),
+        "dp":           np.zeros((2, 0), np.int64),
+        "ka":           np.zeros((0,), np.float64),
+    }
+    meta = {"version": version}
+    if version == BUNDLE_FORMAT_VERSION:
+        meta[CENTERLINE_KEY] = DEFAULT_CENTERLINE_METHOD
+    save_bundle(path, arrays, vlmeta=meta)
+
+
+def test_measurement_traces_the_stored_skeleton(tmp_path):
+    """
+    Measuring a bundle traces its skeleton as stored, loops and spurs included.
+    バンドルの計測は、ループやスパーも含めて骨格を保存されたとおりに追跡する。
+
+    Loop collapsing and spur pruning belong to the analysis, which applies the
+    settings it ran with (``ProcParams.max_loop_area`` and
+    ``ProcParams.spur_length``, where 0 disables each). Repeating them when a
+    bundle is measured would override those settings and trace pixels the
+    stored skeleton does not hold.
+    ループの潰しとスパーの除去は解析の側にあり、解析時の設定
+    （``ProcParams.max_loop_area`` と ``ProcParams.spur_length``、0 でそれぞれ
+    無効）に従う。計測時に繰り返すと、その設定を上書きし、保存された骨格に
+    無い画素を追跡してしまう。
+    """
+    skel = _spur_and_loop_skeleton()
+    bundle = os.path.join(tmp_path, "stored.b2z")
+    _write_skeleton_bundle(bundle, skel)
+
+    result = measure_bundle(bundle, scale_um=0.61)
+    traced = set().union(*(fiber_track_pixels(f) for f in result.fibers))
+    stored = {(int(x), int(y)) for y, x in zip(*np.nonzero(skel))}
+    assert traced <= stored
+    # The spur's tip and both sides of the enclosure are measured.
+    # スパーの先端と、囲みの両側が計測される。
+    assert {(30, 39), (30, 7), (30, 13)} <= traced
+
+
+def test_cli_measure_asks_to_reanalyze_a_format_1_0_bundle(tmp_path, capsys):
+    """
+    `cli.py measure` asks for a format 1.0 bundle to be re-analyzed.
+    `cli.py measure` は形式 1.0 のバンドルに再解析を求める。
+    """
+    bundle = os.path.join(tmp_path, "old.b2z")
+    _write_skeleton_bundle(bundle, _spur_and_loop_skeleton(), version="1.0")
+    rc = cli.main([
+        "measure", bundle, "--scale-um", "0.61", "--output-dir", str(tmp_path),
+    ])
+    assert rc == 0
+    assert "re-analyze" in capsys.readouterr().err
 
 
 def test_measure_bundle_rejects_invalid_scale(measured):

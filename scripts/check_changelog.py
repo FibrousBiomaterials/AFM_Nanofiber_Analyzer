@@ -4,9 +4,11 @@
 
 Invoked by ``.githooks/pre-commit`` (enable it once per clone with
 ``git config core.hooksPath .githooks``). The check is deliberately narrow:
-it fires only when ``tests/strict_regression_golden.json`` is part of the
-change. That file records the hashes the pipeline is expected to produce, so
-a change to it means the numbers this software reports have moved. Such a
+it fires only when ``tests/strict_regression_golden.json`` or
+``tests/measurement_regression_golden.json`` is part of the change. They record
+the hashes the pipeline is expected to store and the values the measurement
+layer is expected to report from it, so a change to either means the numbers
+this software reports have moved. Such a
 change breaks reproducibility of earlier results even when no API breaks, so
 RELEASING.md requires it to be visible in the changelog rather than only in
 the commit log.
@@ -34,14 +36,22 @@ import subprocess
 import sys
 
 # Strict-regression goldens: the recorded hashes are this project's definition
-# of "the numbers the pipeline produces", so a change here is the one reliable,
-# low-false-positive signal that analysis results moved. Editing an analysis
-# module without touching this file leaves every golden intact, which means the
-# results did not change.
-# 厳密回帰テストの golden 値。記録されたハッシュが「パイプラインが出す数値」
-# そのものなので、このファイルの変更が「結果が変わった」ことの確実なシグナル
-# になる(解析モジュールを触っても golden が動かなければ結果は変わっていない)。
-GOLDEN_PATH = "tests/strict_regression_golden.json"
+# of "the numbers the software produces" — the arrays the pipeline stores, and
+# the values the measurement layer reports from a bundle — so a change to
+# either is the one reliable, low-false-positive signal that results moved. The
+# measurement goldens are separate because a change made only when a bundle is
+# read leaves every pipeline golden intact. Editing an analysis module without
+# touching these files means the results did not change.
+# 厳密回帰テストの golden 値。記録されたハッシュが「このソフトが出す数値」
+# (パイプラインが保存する配列と、計測層がバンドルから報告する値)そのもの
+# なので、どちらかの変更が「結果が変わった」ことの確実なシグナルになる。計測の
+# golden を分けるのは、バンドルを読むときだけに起きる変化ではパイプラインの
+# golden が動かないためである(解析モジュールを触ってもこれらが動かなければ
+# 結果は変わっていない)。
+GOLDEN_PATHS = (
+    "tests/strict_regression_golden.json",
+    "tests/measurement_regression_golden.json",
+)
 CHANGELOG_PATH = "CHANGELOG.md"
 
 # Keep a Changelog structure: "## [Unreleased]" opens the section that collects
@@ -156,15 +166,15 @@ def _added_line_numbers(diff_args: list[str], path: str) -> set[int]:
     return added
 
 
-def _report(reason: str, action: str, bypass: str) -> None:
+def _report(reason: str, goldens: list[str], action: str, bypass: str) -> None:
     """Print the block message explaining why and how to resolve it.
     ブロック理由と解決方法を標準エラーに出力する。
     """
     print(
         f"changelog check: BLOCKED ({action}).\n"
         f"  {reason}\n\n"
-        f"  {GOLDEN_PATH} is part of this change, so the numbers this software\n"
-        "  produces differ from the previous release. Users reproducing earlier\n"
+        f"  {', '.join(goldens)} is part of this change, so the numbers this\n"
+        "  software produces differ from the previous release. Users reproducing earlier\n"
         "  results must be able to see that from the changelog alone.\n\n"
         "  How to resolve:\n"
         f'  - Add one line under "## [Unreleased]" in {CHANGELOG_PATH} (normally\n'
@@ -188,9 +198,10 @@ def _check(
     1 つの差分について検査し、結果を報告する。
     """
     changed = _changed_files(diff_args)
-    if GOLDEN_PATH not in changed:
+    goldens = [path for path in GOLDEN_PATHS if path in changed]
+    if not goldens:
         print(
-            f"changelog check: OK ({label}; {GOLDEN_PATH} unchanged).",
+            f"changelog check: OK ({label}; regression goldens unchanged).",
             file=sys.stderr,
         )
         return 0
@@ -198,6 +209,7 @@ def _check(
     if CHANGELOG_PATH not in changed:
         _report(
             f"The regression goldens changed but {CHANGELOG_PATH} did not.",
+            goldens=goldens,
             action=action,
             bypass=bypass,
         )
@@ -214,6 +226,7 @@ def _check(
         _report(
             f"{CHANGELOG_PATH} changed, but nothing was added under "
             "'## [Unreleased]'.",
+            goldens=goldens,
             action=action,
             bypass=bypass,
         )

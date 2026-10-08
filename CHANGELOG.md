@@ -118,6 +118,40 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   "元に戻す" and the log names the operation it took back: beside "連結を解除"
   the old name read as a second way to disconnect, so undoing a disconnection,
   which joins the fibril again, looked like the opposite of what was asked.
+- Measuring a bundle no longer cleans its skeleton a second time.
+  `FiberTrackingImage` ran loop collapsing and spur pruning again, at their
+  default sizes, on every stored skeleton before tracing it, so GUI03, GUI04
+  and `cli.py measure` / `heights` measured a skeleton other than the stored
+  one: a `max_loop_area` or `spur_length` set below its default (0 disables
+  each) was in effect raised back to the default, and fibers could run along
+  pixels the stored skeleton does not contain. With `max_loop_area` = 0, the
+  two fibers enclosing the narrow gap on the tunicate scan
+  (`docs/validation.md` §3.3) were still joined down the gap when measured.
+  The skeleton is now traced as stored, as it already was for terminal-hook
+  trimming. **Measured fibers change from this version** for:
+  - bundles analysed with `max_loop_area` or `spur_length` below its default.
+    With `max_loop_area` = 0, the higher-plant, tunicate and Bruker test scans
+    now trace 14, 63 and 148 fibers instead of 12, 60 and 138;
+  - bundles analysed before the next entry whose stored skeleton keeps a spur
+    that terminal-hook trimming shortened to `spur_length` or less after spur
+    pruning had run. The fiber it branches from is now cut at the branch
+    point the bundle records: of the five bundled scans analysed with the
+    default settings before that change, only the Bruker test scan changes
+    (140 fibers instead of 138). Re-analysing removes the spur;
+  - bundles of format 1.0. Those written by 1.0.0 were skeletonized without
+    loop collapsing and spur pruning, so their fibers are now split wherever a
+    loop or a spur leaves a branch point, as in 1.0.0. GUI03, GUI04 and
+    `cli.py measure` / `heights` ask for such a bundle to be re-analyzed.
+- Skeletonization prunes short spurs again after trimming terminal hooks.
+  Spur pruning ran before hook trimming, so an arm longer than `spur_length`
+  whose hooked tip was then trimmed could be stored as a spur no longer than
+  `spur_length`, with a branch point that splits the fiber it grows from.
+  **Analysis results change from this version** wherever that happened. Of the
+  five bundled scans analysed with the default settings, only the Bruker test
+  scan changes: one 11-pixel spur is no longer stored, the fiber it grew from
+  is traced as one piece (138 fibers instead of 140), and one more kink is
+  stored on it (63 instead of 62), at a bend the visual kink reference does
+  not mark.
 
 ### Deprecated
 

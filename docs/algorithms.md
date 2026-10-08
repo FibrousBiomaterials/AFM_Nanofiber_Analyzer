@@ -1157,6 +1157,9 @@ cleaned_skeleton_image = prune_short_spurs(
 cleaned_skeleton_image = prune_terminal_hooks(
     cleaned_skeleton_image, image.calibrated_image
 )
+cleaned_skeleton_image = prune_short_spurs(
+    cleaned_skeleton_image, self.spur_length
+)
 ...
 nosmall_skeleton_image = self.remove_small_and_ring(cleaned_skeleton_image)
 ...
@@ -1174,7 +1177,7 @@ The sections below follow this code in order. Where each line is explained:
 | `set_low_bp_coor(...)`, `get_close_eps()`, `prune_branches(...)` | §3.3 |
 | `skeletonize(nobranch_image)` | The end of §3.3 (re-thinning after pruning) |
 | `collapse_skeleton_loops(...)` | §3.4 |
-| `prune_short_spurs(...)` | §3.5 |
+| `prune_short_spurs(...)` | §3.5; run again after `prune_terminal_hooks`, end of §3.6 |
 | `prune_terminal_hooks(...)` | §3.6 |
 | `remove_small_and_ring(...)` | §3.7 |
 | `imp_tools.endPoints(...)`, `imp_tools.branchedPoints(...)` | §3.8 |
@@ -1789,6 +1792,11 @@ while run < apex and calibrated_image[path[run]] < threshold:
 for i in range(run):
     skel[path[i]] = 0
 ```
+
+Trimming a hook shortens the arm it ends. When that arm reaches a junction and
+is now no longer than `spur_length`, it is a spur that §3.5 would have pruned
+had it been that short when §3.5 ran, so `Skeletonizer.__call__` runs
+`prune_short_spurs` once more after this step.
 
 ### 3.7 Remove small and ring components
 

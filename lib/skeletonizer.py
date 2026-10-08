@@ -26,17 +26,21 @@ from .processed_image import ProcessedImage
 # imp_tools.branchedPoints を直接呼ぶ。
 
 
-# Default geometric-cleanup limits shared by the pipeline (Skeletonizer) and
-# the load-time defensive cleanup in FiberTrackingImage. Loops and spurs are
-# skeletonization artifacts: interior holes in the binary mask survive
-# topology-preserving thinning as small double-path loops, and fiber-width
-# bumps leave short dead-end side branches. Both put branch points on a single
-# continuous fiber, and tracking later cuts the fiber at every branch point.
-# パイプライン（Skeletonizer）と FiberTrackingImage の読み込み時防御クリーニング
-# が共有する幾何クリーニングの既定値。ループとスパーは細線化アーティファクト
-# であり、二値マスク内部の穴はトポロジー保存細線化で二重経路の小ループとして
-# 残り、ファイバー幅の揺らぎは短い行き止まりの側枝を残す。どちらも 1 本の
-# 連続ファイバー上に分岐点を作り、追跡時にその分岐点ごとに分断が起きる。
+# Default geometric-cleanup limits of the pipeline (Skeletonizer), used as the
+# defaults of `ProcParams.max_loop_area` and `ProcParams.spur_length`. The
+# cleanup runs only in the pipeline; a bundle's skeleton is traced as stored.
+# Loops and spurs are skeletonization artifacts: interior holes in the binary
+# mask survive topology-preserving thinning as small double-path loops, and
+# fiber-width bumps leave short dead-end side branches. Both put branch points
+# on a single continuous fiber, and tracking later cuts the fiber at every
+# branch point.
+# パイプライン（Skeletonizer）の幾何クリーニングの既定値で、
+# `ProcParams.max_loop_area` と `ProcParams.spur_length` の既定値として使う。
+# クリーニングはパイプラインでのみ行い、バンドルの骨格は保存されたとおりに
+# 追跡する。ループとスパーは細線化アーティファクトであり、二値マスク内部の穴は
+# トポロジー保存細線化で二重経路の小ループとして残り、ファイバー幅の揺らぎは
+# 短い行き止まりの側枝を残す。どちらも 1 本の連続ファイバー上に分岐点を作り、
+# 追跡時にその分岐点ごとに分断が起きる。
 DEFAULT_MAX_LOOP_AREA = 100
 DEFAULT_SPUR_LENGTH = 12
 
@@ -779,13 +783,13 @@ class Skeletonizer:
         branches derived from low-height branch points, collapses small loop
         artifacts and prunes short spurs geometrically, trims background-level
         terminal hooks against the calibrated heights
-        (`prune_terminal_hooks`), and then removes tiny or ring-shaped
-        connected components.
+        (`prune_terminal_hooks`), prunes the short spurs that trimming leaves,
+        and then removes tiny or ring-shaped connected components.
         まず画像端でファイバーを切断しない形で二値マスクを細線化し
         (`thin_ignoring_image_border`)、低い高さの分岐点から伸びる短い枝を除去し、
         小ループの潰しと短いスパーの幾何的除去を行い、較正高さに基づいて背景
-        レベルの末端フックを切除した後 (`prune_terminal_hooks`)、微小成分や
-        リング状成分を除去する。
+        レベルの末端フックを切除し (`prune_terminal_hooks`)、その切除で残った
+        短いスパーを刈った後、微小成分やリング状成分を除去する。
         """
         # Fail loudly at the stage boundary instead of deep inside skimage/cv2.
         if image.binarized_image is None:
@@ -827,6 +831,14 @@ class Skeletonizer:
         # 回り込んだもの）は上の 2 パスでは残るため、高さデータで切除する。
         cleaned_skeleton_image = prune_terminal_hooks(
             cleaned_skeleton_image, image.calibrated_image
+        )
+        # Trimming a hook shortens the arm it ends; an arm that reaches a
+        # junction and is now no longer than spur_length is a spur, so prune
+        # spurs once more rather than store it.
+        # フックの切除はそれが終端する腕を短くする。分岐に届き、長さが
+        # spur_length 以下になった腕はスパーなので、保存せずにもう一度刈る。
+        cleaned_skeleton_image = prune_short_spurs(
+            cleaned_skeleton_image, self.spur_length
         )
         self._cleaned_skeleton_image = cleaned_skeleton_image
         nosmall_skeleton_image = self.remove_small_and_ring(cleaned_skeleton_image)

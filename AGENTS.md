@@ -986,10 +986,15 @@ When a change makes the analysis produce different numbers, updating
 research software: users cite a version and reproduce results from it, so a
 silent change in output is a reproducibility break even when no API breaks.
 
-The trigger is `tests/strict_regression_golden.json`. If a change updates the
-recorded golden values, the pipeline's output moved and the changelog entry is
-mandatory. If the goldens are untouched, the results did not change and no
-entry is required on this ground.
+The triggers are two golden files: `tests/strict_regression_golden.json`, the
+arrays the pipeline stores, and `tests/measurement_regression_golden.json`, the
+values `lib/measure.py` reports from them
+(`tests/test_measurement_regression.py`; the five bundled scans, analyzed with
+the defaults and with each skeleton cleanup turned off). The second exists
+because a change made only when a bundle is read leaves every pipeline golden
+intact. If a change updates either, the output moved and the changelog entry is
+mandatory. If both are untouched, the results did not change and no entry is
+required on this ground.
 
 Add the entry under `## [Unreleased]`, normally under `### Fixed`, and state
 explicitly that results change from this version — the wording matters more
@@ -1249,6 +1254,44 @@ The two languages must cite the same `m:`, `c:` and `x:` sources.
 Enforced by `.githooks/pre-commit` (`--staged`) and `tests/test_doc_numbers.py`
 (CI). Do not bypass either with `--no-verify`.
 
+### 8.16 Readers measure the stored record
+
+A bundle is the record of one analysis, made with the settings it ran with.
+Code that reads bundles — `lib/measure.py`, `lib/fiber_tracking_image.py`,
+`lib/fiber_connector.py`, `lib/connect_selection.py`, `lib/fiber_selection.py`,
+GUI02–GUI04, and the bundle-reading commands of `cli.py` — measures that record
+as stored. It never runs a stage that produces or rewrites the stored arrays:
+background calibration, segmentation, skeletonization or any of its cleanup
+passes, `pipeline.process_file`, `pipeline.build_stages`.
+
+The reason is what happened without the rule. A loop-collapse and spur-prune
+pass was added to `FiberTrackingImage` so that bundles written before the
+pipeline did that cleanup would "benefit without re-analysis". It ran at its own
+defaults on every bundle, new ones included, so a `max_loop_area` or
+`spur_length` below its default never reached a measurement — two fibers the
+user had kept apart with `max_loop_area` = 0 were still joined when measured —
+and fibers were traced along pixels the stored skeleton does not contain. The
+principle "loading must not reinterpret the stored record" had already been
+written for terminal-hook trimming, in the docstring of that same function,
+without anyone checking the repair beside it.
+
+- **Recomputing what the recorded settings determine is measurement, not a
+  stage**, and is allowed: placing the centerline with the bundle's
+  `centerline_method`, judging kinks on a reconnected fibril with
+  `kink_params_from_meta`. Such a computation reads its settings from the
+  bundle, never from a hard-coded default.
+- **An older bundle is handled by its format version, not repaired.** The reader
+  measures it as stored and tells the user to re-analyze it, as GUI03, GUI04 and
+  `cli.py` do for format 1.0. When a new analysis step changes what the pipeline
+  stores, bundles written before it are re-analyzed to receive it.
+- **When a rule like this is introduced or tightened, search the existing code
+  for violations in the same change.**
+
+Enforced by `tests/test_reader_purity.py` (CI), which fails when a reader module
+imports a stage module or a stage driver, and by
+`tests/test_measurement_regression.py` (local), whose golden moves — and so
+requires a changelog entry under §8.11 — whenever a measured value changes.
+
 ## 9. Summary
 
 | Item | Rule |
@@ -1290,7 +1333,8 @@ Enforced by `.githooks/pre-commit` (`--staged`) and `tests/test_doc_numbers.py`
 | Scratch / temporary files | Write to `.tmp/` at the repository root, not to a harness-assigned scratch directory under the user profile (§8.10). |
 | Translation catalogs | Refresh with `.venv\Scripts\python.exe prepare_translate_catalogs.py` (keeps `PLUGIN_INFO` descriptions; a bare `pybabel extract/update` drops them and obsoletes the entries); never edit `.mo` files directly (§8.8). |
 | README pair | `README.md` ↔ `README.ja.md` stay synchronized in both directions, including translation of the edited passage. |
-| Result-changing fixes | If `tests/strict_regression_golden.json` changes, add a `CHANGELOG.md` `[Unreleased]` entry stating that results change from this version; enforced by `.githooks/pre-commit` (§8.11). |
+| Result-changing fixes | If `tests/strict_regression_golden.json` or `tests/measurement_regression_golden.json` changes, add a `CHANGELOG.md` `[Unreleased]` entry stating that results change from this version; enforced by `.githooks/pre-commit` (§8.11). |
+| Readers of bundles | Measure the stored record as stored; never run background calibration, segmentation, skeletonization or its cleanup passes, `process_file` or `build_stages` when reading a bundle; recompute only what the recorded settings determine; handle an older format by asking for re-analysis, never by repairing it on load; enforced by `tests/test_reader_purity.py` and `tests/test_measurement_regression.py` (§8.16). |
 | Algorithm changes | A change to `bg_calibrator.py`, `segmenter.py`, `skeletonizer.py`, `kink_detector.py`, or `centerline.py` includes updating `docs/algorithms.md` **and** `docs/algorithms.ja.md`; refresh `tests/algorithm_doc_manifest.json` only after rereading the affected sections. Explain each step with its code and formula, quoting code only as verified `# source: <path>::<symbol>` excerpts (identical in both languages); reference code by symbol name, never by line number. Enforced by `.githooks/pre-commit`, `tests/test_algorithm_docs.py`, and the `PostToolUse` hook `.claude/hooks/doc_code_reminder.py` (§8.13). |
 | GUI04 measurement changes | A change to a symbol in `WATCHED_SYMBOLS` (`scripts/check_gui04_docs.py`), or a new GUI04 fiber-table column (which needs its own §3 subsection naming it), includes updating `docs/gui04_measurements.md` **and** `docs/gui04_measurements.ja.md`, prose and quoted excerpts alike; refresh `tests/gui04_doc_manifest.json` with `scripts/check_gui04_docs.py --update` only after rereading. Quote code only in `# source: <path>::<symbol>` blocks. Say 「中心線」/「スケルトントラック」 ("centerline"/"skeleton track"), never a bare 「線」/"line". Enforced by `.githooks/pre-commit`, `tests/test_gui04_docs.py`, and the `PostToolUse` hook `.claude/hooks/doc_code_reminder.py` (§8.14). |
 | Version bookkeeping | Package version later than the last `vX.Y.Z` tag and equal in `pyproject.toml` / `lib/__init__.py`; a bundle-format bump listed in `SUPPORTED_BUNDLE_VERSIONS`, CHANGELOG `[Unreleased]` and both READMEs with at least a MINOR step; a removed `ProcParams` field only with a MAJOR step. Enforced by `scripts/check_versions.py` in `.githooks/pre-commit` (§8.2). |

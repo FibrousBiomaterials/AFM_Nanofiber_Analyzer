@@ -528,8 +528,9 @@ def cmd_measure(args: argparse.Namespace) -> int:
         if result.image.centerline == SKELETON_TRACK:
             print(
                 "    note: analyzed before bundle format 1.1, so fibers are "
-                "measured along the skeleton track; re-analyze to measure "
-                "along the centerline",
+                "measured along the skeleton track, and the stored skeleton, "
+                "traced as it is, can still hold loops and spurs the current "
+                "analysis removes, splitting fibers there; re-analyze the input",
                 file=sys.stderr,
             )
 
@@ -600,8 +601,9 @@ def cmd_heights(args: argparse.Namespace) -> int:
         if read_centerline_from_bundle(bundle_path) == SKELETON_TRACK:
             print(
                 "    note: analyzed before bundle format 1.1, so heights are "
-                "read along the skeleton track; re-analyze to read them along "
-                "the centerline",
+                "read along the skeleton track, and the stored skeleton, "
+                "traced as it is, can still hold loops and spurs the current "
+                "analysis removes; re-analyze the input",
                 file=sys.stderr,
             )
 

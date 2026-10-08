@@ -2530,15 +2530,21 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 )
                 if result.image.centerline == SKELETON_TRACK:
                     # A bundle analyzed before format 1.1 keeps its skeleton
-                    # track, so say why its fibers look and measure as they
-                    # did before, and what changes that.
+                    # track, and its skeleton is traced as stored, so it can
+                    # still hold the loops and spurs the current analysis
+                    # removes. Say why its fibers look and measure as they
+                    # do, and that re-analysis is what changes that.
                     # 形式 1.1 より前に解析したバンドルはスケルトントラックを
-                    # 使い続けるため、繊維の見え方と計測値が以前のままである
-                    # 理由と、それを変える方法を伝える。
+                    # 使い続け、スケルトンも保存されたとおりに追跡するため、
+                    # 現在の解析が取り除く小ループや短い枝が残っていることが
+                    # ある。繊維の見え方と計測値がそうなる理由と、それを変える
+                    # には再解析が必要なことを伝える。
                     self.ui_queue.put(("log", _(
-                        "このバンドルは旧版で解析されたため、ファイバーをスケルトンに"
-                        "沿って描画・計測しています。GUI01 で再解析すると中心線に沿って"
-                        "計測されます。"
+                        "このバンドルは旧版（形式 1.0）で解析されています。保存された"
+                        "スケルトンをそのまま追跡し、ファイバーをスケルトンに沿って"
+                        "描画・計測しています。旧版のスケルトンには、現在の解析が"
+                        "取り除く小ループや行き止まりの短い枝が残っていることがあり、"
+                        "そこでファイバーが分断されます。GUI01 で再解析してください。"
                     )))
                 elif result.image.centerline != DEFAULT_CENTERLINE_METHOD:
                     # The line was chosen at analysis time; name it, because

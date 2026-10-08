@@ -85,7 +85,7 @@
       "_walk_from_endpoint": "5e5f6289d2be244283226275834ac2e9c81eec50be26126be1be447e31bbf265",
       "prune_terminal_hooks": "cb9fa1a9d5a0e8207e6d8123681879cb41d0f37e8ee99aa93316146cf510c7e7",
       "Skeletonizer.__init__": "92f81a9a7963e71737b4428b9d7b1d52ae8bab2d894dbc545be29238d54d04ad",
-      "Skeletonizer.__call__": "6b4380dbc10494da32eb3ab15d2a6fb5f32c0ea591932995a1f134f95d297f19",
+      "Skeletonizer.__call__": "cec7068ab2d9908e1d4e86cf668ce589cf625589579952969314934628ee5102",
       "Skeletonizer.prune_branches": "7782835d2559fa7baee5dae570bc81c78093eeee0b330a11a166b3ba3c0cb252",
       "Skeletonizer.calc_branches_image": "60969feba8a07c4485bb3abd4f4b471079b81f59f0408d877b50ada1f3739bc3",
       "Skeletonizer.set_low_bp_coor": "f23761086345bba74e40194c0a4fa9e8b1b2622c30d6bc82e5bbccc0085f411f",
