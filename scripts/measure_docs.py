@@ -26,13 +26,13 @@ Intermediate files go under ``.tmp/measure_docs``. Bundles that experiments
 reuse go under ``.tmp/measure_docs/cache/<fingerprint>``, named by the code and
 libraries that made them (`bundle_cache`), so a change to the analysis code is
 analyzed afresh rather than measured on bundles the old code made; folders of
-other fingerprints are removed when a run starts. The visual reference of
+other fingerprints go to the recycle bin when a run starts. The visual reference of
 ``kink_reference`` lives in ``private_docs/`` and is not part of the public
 repository; without it that experiment cannot run.
 中間ファイルは ``.tmp/measure_docs`` に置く。実験が使い回すバンドルは、それを作った
 コードとライブラリの指紋の名前を付けた ``.tmp/measure_docs/cache/<指紋>`` に置く
 （`bundle_cache`）。解析コードが変われば、古いコードが作ったバンドルで測るのでは
-なく解析し直す。実行を始めると、他の指紋のフォルダは消す。``kink_reference`` の目視基準は
+なく解析し直す。実行を始めると、他の指紋のフォルダはごみ箱へ送る。``kink_reference`` の目視基準は
 ``private_docs/`` にあり公開リポジトリには含まれないため、それが無い環境ではその
 実験は実行できない。
 """

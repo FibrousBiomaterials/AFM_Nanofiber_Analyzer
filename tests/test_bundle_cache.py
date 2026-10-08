@@ -61,21 +61,26 @@ def test_the_pipeline_fingerprint_covers_every_stage():
         assert rel in reached
 
 
+def _recorder(removed):
+    """Stand-in for the recycle bin that records the folders it is given."""
+    return lambda paths: removed.extend(paths)
+
+
 def test_switching_folders_removes_only_other_fingerprints(tmp_path):
     """Other fingerprints' folders go; unrelated files and folders stay."""
-    old = tmp_path / "0123456789ab"
+    base = tmp_path / "cache"
+    old = base / "0123456789ab"
     (old / "scan").mkdir(parents=True)
-    (old / "scan" / "x.b2z").write_bytes(b"old")
-    keep_dir = tmp_path / "worktree_v1.0.0"
+    keep_dir = base / "worktree_v1.0.0"
     keep_dir.mkdir()
-    keep_file = tmp_path / "notes.txt"
+    keep_file = base / "notes.txt"
     keep_file.write_text("keep", encoding="utf-8")
 
-    folder = bundle_cache.cache_root(tmp_path, current="fedcba987654")
+    removed = []
+    folder = bundle_cache.cache_root(base, current="fedcba987654", remove=_recorder(removed))
 
-    assert folder == tmp_path / "fedcba987654" and folder.is_dir()
-    assert not old.exists()
-    assert keep_dir.is_dir() and keep_file.is_file()
+    assert folder == base / "fedcba987654" and folder.is_dir()
+    assert removed == [old]
 
 
 def test_the_current_folder_is_kept(tmp_path):
@@ -83,5 +88,20 @@ def test_the_current_folder_is_kept(tmp_path):
     current = tmp_path / "fedcba987654"
     current.mkdir()
     (current / "x.b2z").write_bytes(b"cached")
-    bundle_cache.cache_root(tmp_path, current="fedcba987654")
-    assert (current / "x.b2z").read_bytes() == b"cached"
+    removed = []
+    bundle_cache.cache_root(tmp_path, current="fedcba987654", remove=_recorder(removed))
+    assert removed == [] and (current / "x.b2z").read_bytes() == b"cached"
+
+
+def test_the_trash_refuses_paths_outside_the_repository(tmp_path):
+    """Nothing outside the repository can be sent to the recycle bin."""
+    import pytest
+    import trash
+
+    outside = tmp_path / "data.txt"
+    outside.write_text("keep", encoding="utf-8")
+    with pytest.raises(ValueError):
+        trash.send_to_trash([outside])
+    with pytest.raises(ValueError):
+        trash.send_to_trash([PROJECT_ROOT])
+    assert outside.read_text(encoding="utf-8") == "keep"

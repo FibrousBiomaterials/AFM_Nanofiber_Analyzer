@@ -61,6 +61,15 @@ and never let the two files diverge.
   deletion, history filtering) unless the user explicitly requests that
   specific operation. Exception: restoring files corrupted by your own edit
   (e.g., `git restore <file>`) under the mojibake rule above is allowed.
+- Delete files and folders only by sending them to the recycle bin with
+  `.venv\Scripts\python.exe scripts\trash.py PATH ...` (`scripts/trash.py`;
+  it refuses paths outside the repository), so every deletion can be undone.
+  Commands that delete irreversibly — `rm`, `rmdir`, `find -delete`,
+  `Remove-Item`, `del`, `rd` — are denied in `.claude/settings.json`. When a
+  deletion is denied, do not reach the same result another way (Python's
+  `shutil.rmtree` or `os.remove`, a different shell): use `scripts/trash.py`,
+  or ask. Code that prunes its own files does the same through
+  `trash.send_to_trash`, as `scripts/bundle_cache.py` does.
 - Write a multi-line commit message to a file under `.tmp/` and pass it with
   `git commit -F .tmp/commit_msg.txt`. Never hand-quote one inline: PowerShell
   needs a here-string (`@'` … `'@`) and POSIX `sh` needs a here-document
@@ -1249,8 +1258,8 @@ The two languages must cite the same `m:`, `c:` and `x:` sources.
   were still being measured on 2026-10-07, after background calibration had
   changed every calibrated pixel. `scripts/bundle_cache.py` therefore names
   each cache folder by a fingerprint of the analysis modules, the code that
-  writes synthetic inputs, and the numerical libraries' versions, and removes
-  the folders of other fingerprints. Any new cache an experiment or scoring
+  writes synthetic inputs, and the numerical libraries' versions, and sends
+  the folders of other fingerprints to the recycle bin. Any new cache an experiment or scoring
   script keeps goes through `measure_docs.cache_dir` or
   `bundle_cache.cache_root`, never a fixed path under `.tmp/`.
   `tests/test_bundle_cache.py` checks that the fingerprint follows a change to
@@ -1351,4 +1360,5 @@ requires a changelog entry under §8.11 — whenever a measured value changes.
 | GUI04 measurement changes | A change to a symbol in `WATCHED_SYMBOLS` (`scripts/check_gui04_docs.py`), or a new GUI04 fiber-table column (which needs its own §3 subsection naming it), includes updating `docs/gui04_measurements.md` **and** `docs/gui04_measurements.ja.md`, prose and quoted excerpts alike; refresh `tests/gui04_doc_manifest.json` with `scripts/check_gui04_docs.py --update` only after rereading. Quote code only in `# source: <path>::<symbol>` blocks. Say 「中心線」/「スケルトントラック」 ("centerline"/"skeleton track"), never a bare 「線」/"line". Enforced by `.githooks/pre-commit`, `tests/test_gui04_docs.py`, and the `PostToolUse` hook `.claude/hooks/doc_code_reminder.py` (§8.14). |
 | Version bookkeeping | Package version later than the last `vX.Y.Z` tag and equal in `pyproject.toml` / `lib/__init__.py`; a bundle-format bump listed in `SUPPORTED_BUNDLE_VERSIONS`, CHANGELOG `[Unreleased]` and both READMEs with at least a MINOR step; a removed `ProcParams` field only with a MAJOR step. Enforced by `scripts/check_versions.py` in `.githooks/pre-commit` (§8.2). |
 | Destructive Git operations | Forbidden unless explicitly requested; `git restore` of files corrupted by your own edit is allowed. |
+| Deleting files | Only to the recycle bin with `scripts/trash.py` (or `trash.send_to_trash` in code); irreversible delete commands are denied in `.claude/settings.json`, and a denial is not worked around another way. |
 | Multi-line commit messages | Write to a file and pass with `git commit -F .tmp/commit_msg.txt`; never hand-quote inline (PowerShell `@'`…`'@` vs. `sh` `<<'EOF'`…`EOF` are not interchangeable, and the wrong one silently leaves the delimiter as the subject line). Enforced by `.githooks/commit-msg`. |

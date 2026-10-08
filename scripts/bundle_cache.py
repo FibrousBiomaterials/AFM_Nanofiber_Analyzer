@@ -9,15 +9,15 @@ analysis code changed reports what the old code computed while the recording
 names the new code, so every cache lives in a folder named by `fingerprint`:
 a change to what the analysis computes, to the code that generates the
 synthetic inputs, or to a numerical library selects a new, empty folder, and
-the bundles are made again. `cache_root` removes the folders of every other
-fingerprint, which no run can use any more.
+the bundles are made again. `cache_root` sends the folders of every other
+fingerprint, which no run can use any more, to the recycle bin.
 文書用の実験（`scripts/measure_docs.py`）とキンクの基準照合
 （`scripts/kink_reference_score.py`）は、同梱スキャンと合成入力を一度だけ解析して
 バンドルを使い回す。解析コードが変わった後に使い回したバンドルは、記録上は新しい
 コードを名乗りながら古いコードの計算結果を報告する。そこでキャッシュはすべて
 `fingerprint` の名前のフォルダに置く。解析の計算、合成入力を作るコード、数値計算
 ライブラリのどれかが変わると新しい空のフォルダが選ばれ、バンドルは作り直される。
-`cache_root` は、どの実行からももう使われない他の指紋のフォルダを消す。
+`cache_root` は、どの実行からももう使われない他の指紋のフォルダをごみ箱へ送る。
 """
 
 # ===== Standard library =====
@@ -25,10 +25,9 @@ import ast
 import hashlib
 import json
 import re
-import shutil
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Callable, Dict, List, Optional, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 for extra in (ROOT, ROOT / "scripts"):
@@ -152,14 +151,17 @@ def fingerprint() -> str:
     return fingerprint_of(code, library_versions())
 
 
-def cache_root(base: Path, current: Optional[str] = None) -> Path:
+def cache_root(base: Path, current: Optional[str] = None,
+               remove: Optional[Callable[[List[Path]], None]] = None) -> Path:
     """
     Return the cache folder of the current fingerprint under `base`.
     `base` の下にある、今の指紋のキャッシュフォルダを返す。
 
-    Folders under `base` named by any other fingerprint are removed; other
+    Folders under `base` named by any other fingerprint are sent to the
+    recycle bin (`trash.send_to_trash`), so a removal can be undone; other
     files and folders there are left alone.
-    `base` の下の、他の指紋の名前のフォルダは消す。それ以外のファイルや
+    `base` の下の、他の指紋の名前のフォルダはごみ箱へ送る
+    （`trash.send_to_trash`）ので、取り除いても元に戻せる。それ以外のファイルや
     フォルダには触れない。
 
     Parameters
@@ -170,6 +172,10 @@ def cache_root(base: Path, current: Optional[str] = None) -> Path:
     current
         Fingerprint to use; ``None`` computes it with `fingerprint`.
         使う指紋。``None`` なら `fingerprint` で計算する。
+    remove
+        Called with the folders to remove; ``None`` uses
+        `trash.send_to_trash`.
+        取り除くフォルダを渡して呼ぶ関数。``None`` なら `trash.send_to_trash`。
 
     Returns
     -------
@@ -180,9 +186,13 @@ def cache_root(base: Path, current: Optional[str] = None) -> Path:
     current = current or fingerprint()
     base = Path(base)
     if base.is_dir():
-        for child in base.iterdir():
-            if child.is_dir() and _FOLDER_RE.fullmatch(child.name) and child.name != current:
-                shutil.rmtree(child)
+        stale = [child for child in base.iterdir()
+                 if child.is_dir() and _FOLDER_RE.fullmatch(child.name) and child.name != current]
+        if stale:
+            if remove is None:
+                import trash
+                remove = trash.send_to_trash
+            remove(stale)
     folder = base / current
     folder.mkdir(parents=True, exist_ok=True)
     return folder
