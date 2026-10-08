@@ -116,6 +116,30 @@ deeper than with `trendfill`, forms along the right side of fibers running
 close to vertical on the tunicate and both artificial scans; the inputs whose
 per-column spread along `'x'` exceeds that of `trendfill` are the same ones.
 
+To check vertical stripes, each test input was rotated by 90<!--n:definition-->° (`np.rot90`), so
+that its scan lines become columns and its line offsets vertical stripes, and
+the same comparison was repeated (experiment spline1d_axis_rotated). The table
+gives the per-column spread on the rotated inputs.
+
+| Input (rotated) | Columns, `trendfill` | Columns, `'x'` | Columns, `'y'` |
+|---|---|---|---|
+| tunicate CNF | 0.069<!--m:spline1d_axis_rotated.tunicate.trendfill.column_median_std_nm--> | 0.097<!--m:spline1d_axis_rotated.tunicate.x.column_median_std_nm--> | 0.072<!--m:spline1d_axis_rotated.tunicate.y.column_median_std_nm--> |
+| artificial, isotropic | 0.074<!--m:spline1d_axis_rotated.art_iso.trendfill.column_median_std_nm--> | 0.084<!--m:spline1d_axis_rotated.art_iso.x.column_median_std_nm--> | 0.075<!--m:spline1d_axis_rotated.art_iso.y.column_median_std_nm--> |
+| artificial, anisotropic | 0.070<!--m:spline1d_axis_rotated.art_aniso.trendfill.column_median_std_nm--> | 0.072<!--m:spline1d_axis_rotated.art_aniso.x.column_median_std_nm--> | 0.069<!--m:spline1d_axis_rotated.art_aniso.y.column_median_std_nm--> |
+| higher-plant TOC | 0.040<!--m:spline1d_axis_rotated.hplantTOC.trendfill.column_median_std_nm--> | 0.085<!--m:spline1d_axis_rotated.hplantTOC.x.column_median_std_nm--> | 0.040<!--m:spline1d_axis_rotated.hplantTOC.y.column_median_std_nm--> |
+| Bruker NDTOC | 0.046<!--m:spline1d_axis_rotated.NDTOC.trendfill.column_median_std_nm--> | 0.267<!--m:spline1d_axis_rotated.NDTOC.x.column_median_std_nm--> | 0.047<!--m:spline1d_axis_rotated.NDTOC.y.column_median_std_nm--> |
+
+On the four inputs other than the higher-plant scan, rotating made the spread
+larger for every method, `trendfill` included (compare the first table), so
+these numbers do not isolate what `'y'` does. Rendered, the scan-line glitch of
+the higher-plant scan stays along `'y'` on the rotated image, as a bright
+vertical band, whereas `'x'` removes it from the unrotated image. That band is
+binarized as fiber on the rotated image, so it lies outside the background the
+spread is taken over and is not in the table. On the rotated tunicate scan,
+`trendfill` and `'y'` both leave fine vertical stripes across the whole image.
+On these rotated test inputs, `'y'` did not remove the glitch that `'x'`
+removes from the unrotated scan.
+
 ### 1.7 Smoothing along X only
 
 Each test input was calibrated by the default `trendfill` with the
@@ -365,6 +389,32 @@ synthetic_centerline). A lower level was not uniformly better: the
 quarter-height midpoint sat closer to the axis than the default line on 4<!--m:synthetic_centerline.ribbons.quarter_closer_than_default--> of
 the 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> ribbons, but background bumps pulled it up to 3.5<!--m:synthetic_centerline.G_circle_d3.max_nm.quarter_max--> nm off the thin, round
 control fiber.
+
+**The probe apex.** How the swing depends on the probe was checked as follows.
+Three of the ribbons (16<!--n:value tried-->×3<!--n:value tried-->, 10<!--n:value tried-->×3<!--n:value tried--> and 6<!--n:value tried-->×2<!--n:value tried--> nm, twist period
+300<!--n:value tried--> nm) were drawn without noise, tilt or roughness and dilated by a spherical
+apex of radius 0<!--n:value tried--> (no dilation), 10<!--n:value tried--> and 40<!--n:value tried--> nm, and each line was placed on the
+pixel track of the true axis (experiment ribbon_tip_swing). The table gives the
+root-mean-square lateral offset from the axis (nm) over the middle of the track.
+
+| Ribbon (nm) | Apex radius (nm) | default line | quarter-height midpoint | centroid | crest |
+|---|---|---|---|---|---|
+| 16<!--n:value tried-->×3<!--n:value tried--> | 0<!--n:value tried--> | 1.48<!--m:ribbon_tip_swing.16x3.R0.half_max_025w.rms_nm--> | 0.69<!--m:ribbon_tip_swing.16x3.R0.quarter_max.rms_nm--> | 1.11<!--m:ribbon_tip_swing.16x3.R0.centroid.rms_nm--> | 2.99<!--m:ribbon_tip_swing.16x3.R0.crest.rms_nm--> |
+| 16<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 3.23<!--m:ribbon_tip_swing.16x3.R10.half_max_025w.rms_nm--> | 2.23<!--m:ribbon_tip_swing.16x3.R10.quarter_max.rms_nm--> | 2.78<!--m:ribbon_tip_swing.16x3.R10.centroid.rms_nm--> | 4.37<!--m:ribbon_tip_swing.16x3.R10.crest.rms_nm--> |
+| 16<!--n:value tried-->×3<!--n:value tried--> | 40<!--n:value tried--> | 3.72<!--m:ribbon_tip_swing.16x3.R40.half_max_025w.rms_nm--> | 3.57<!--m:ribbon_tip_swing.16x3.R40.quarter_max.rms_nm--> | 3.60<!--m:ribbon_tip_swing.16x3.R40.centroid.rms_nm--> | 3.73<!--m:ribbon_tip_swing.16x3.R40.crest.rms_nm--> |
+| 10<!--n:value tried-->×3<!--n:value tried--> | 0<!--n:value tried--> | 0.74<!--m:ribbon_tip_swing.10x3.R0.half_max_025w.rms_nm--> | 0.45<!--m:ribbon_tip_swing.10x3.R0.quarter_max.rms_nm--> | 0.66<!--m:ribbon_tip_swing.10x3.R0.centroid.rms_nm--> | 1.82<!--m:ribbon_tip_swing.10x3.R0.crest.rms_nm--> |
+| 10<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 1.86<!--m:ribbon_tip_swing.10x3.R10.half_max_025w.rms_nm--> | 1.44<!--m:ribbon_tip_swing.10x3.R10.quarter_max.rms_nm--> | 1.67<!--m:ribbon_tip_swing.10x3.R10.centroid.rms_nm--> | 2.53<!--m:ribbon_tip_swing.10x3.R10.crest.rms_nm--> |
+| 10<!--n:value tried-->×3<!--n:value tried--> | 40<!--n:value tried--> | 2.13<!--m:ribbon_tip_swing.10x3.R40.half_max_025w.rms_nm--> | 2.03<!--m:ribbon_tip_swing.10x3.R40.quarter_max.rms_nm--> | 2.07<!--m:ribbon_tip_swing.10x3.R40.centroid.rms_nm--> | 2.17<!--m:ribbon_tip_swing.10x3.R40.crest.rms_nm--> |
+| 6<!--n:value tried-->×2<!--n:value tried--> | 0<!--n:value tried--> | 0.48<!--m:ribbon_tip_swing.6x2.R0.half_max_025w.rms_nm--> | 0.37<!--m:ribbon_tip_swing.6x2.R0.quarter_max.rms_nm--> | 0.43<!--m:ribbon_tip_swing.6x2.R0.centroid.rms_nm--> | 0.83<!--m:ribbon_tip_swing.6x2.R0.crest.rms_nm--> |
+| 6<!--n:value tried-->×2<!--n:value tried--> | 10<!--n:value tried--> | 1.14<!--m:ribbon_tip_swing.6x2.R10.half_max_025w.rms_nm--> | 0.98<!--m:ribbon_tip_swing.6x2.R10.quarter_max.rms_nm--> | 1.08<!--m:ribbon_tip_swing.6x2.R10.centroid.rms_nm--> | 1.39<!--m:ribbon_tip_swing.6x2.R10.crest.rms_nm--> |
+| 6<!--n:value tried-->×2<!--n:value tried--> | 40<!--n:value tried--> | 1.25<!--m:ribbon_tip_swing.6x2.R40.half_max_025w.rms_nm--> | 1.21<!--m:ribbon_tip_swing.6x2.R40.quarter_max.rms_nm--> | 1.23<!--m:ribbon_tip_swing.6x2.R40.centroid.rms_nm--> | 1.33<!--m:ribbon_tip_swing.6x2.R40.crest.rms_nm--> |
+
+Relative to the crest, the default line strayed 0.41<!--m:ribbon_tip_swing.R0.default_over_crest_range[0]-->–0.58<!--m:ribbon_tip_swing.R0.default_over_crest_range[1]--> times as far without
+dilation, 0.74<!--m:ribbon_tip_swing.R10.default_over_crest_range[0]-->–0.82<!--m:ribbon_tip_swing.R10.default_over_crest_range[1]--> times at a 10<!--n:value tried--> nm apex and 0.94<!--m:ribbon_tip_swing.R40.default_over_crest_range[0]-->–1.00<!--m:ribbon_tip_swing.R40.default_over_crest_range[1]--> times at 40<!--n:value tried--> nm; at
+40<!--n:value tried--> nm the default line, the quarter-height midpoint and the centroid all strayed
+0.91<!--m:ribbon_tip_swing.R40.height_lines_over_crest_range[0]-->–1.00<!--m:ribbon_tip_swing.R40.height_lines_over_crest_range[1]--> times as far as the crest. On these three ribbons and three apex radii, the
+blunter the apex, the closer the swing of each of these three lines came to
+that of the crest.
 
 **Why a quarter width.** The smoothing width sets how close two features may
 lie before the centerline averages them into one. The test used the same-sense

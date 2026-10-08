@@ -896,6 +896,72 @@
     "scans": 24
    }
   },
+  "ribbon_tip_swing": {
+   "description": "Twisted ribbons of scripts/synthetic_suite.py (rectangular sections 16 x 3, 10 x 3 and 6 x 2 nm, twist period 300 nm, 2 nm pixels) drawn without noise, tilt or roughness and dilated by a spherical apex of radius 0, 10 and 40 nm (0: no dilation). Each centerline method is placed on the pixel track of the true axis; reported is the RMS lateral distance from the true axis over the middle 80 % of the track, in nm, and the ratio of each height-reading line to the crest.",
+   "snapshot": "c6284f570bacfb4e",
+   "values": {
+    "10x3.R0.centroid.rms_nm": 0.661363,
+    "10x3.R0.crest.rms_nm": 1.819824,
+    "10x3.R0.half_max_025w.rms_nm": 0.744671,
+    "10x3.R0.quarter_max.rms_nm": 0.454266,
+    "10x3.R10.centroid.rms_nm": 1.667795,
+    "10x3.R10.crest.rms_nm": 2.529587,
+    "10x3.R10.half_max_025w.rms_nm": 1.862099,
+    "10x3.R10.quarter_max.rms_nm": 1.43903,
+    "10x3.R40.centroid.rms_nm": 2.067889,
+    "10x3.R40.crest.rms_nm": 2.173779,
+    "10x3.R40.half_max_025w.rms_nm": 2.128279,
+    "10x3.R40.quarter_max.rms_nm": 2.028677,
+    "16x3.R0.centroid.rms_nm": 1.107484,
+    "16x3.R0.crest.rms_nm": 2.994482,
+    "16x3.R0.half_max_025w.rms_nm": 1.484871,
+    "16x3.R0.quarter_max.rms_nm": 0.693521,
+    "16x3.R10.centroid.rms_nm": 2.775658,
+    "16x3.R10.crest.rms_nm": 4.369211,
+    "16x3.R10.half_max_025w.rms_nm": 3.23425,
+    "16x3.R10.quarter_max.rms_nm": 2.232323,
+    "16x3.R40.centroid.rms_nm": 3.602691,
+    "16x3.R40.crest.rms_nm": 3.732821,
+    "16x3.R40.half_max_025w.rms_nm": 3.715739,
+    "16x3.R40.quarter_max.rms_nm": 3.568804,
+    "6x2.R0.centroid.rms_nm": 0.432824,
+    "6x2.R0.crest.rms_nm": 0.825597,
+    "6x2.R0.half_max_025w.rms_nm": 0.481795,
+    "6x2.R0.quarter_max.rms_nm": 0.371836,
+    "6x2.R10.centroid.rms_nm": 1.075007,
+    "6x2.R10.crest.rms_nm": 1.394982,
+    "6x2.R10.half_max_025w.rms_nm": 1.142879,
+    "6x2.R10.quarter_max.rms_nm": 0.980109,
+    "6x2.R40.centroid.rms_nm": 1.229115,
+    "6x2.R40.crest.rms_nm": 1.327409,
+    "6x2.R40.half_max_025w.rms_nm": 1.250455,
+    "6x2.R40.quarter_max.rms_nm": 1.20909,
+    "R0.default_over_crest_range": [
+     0.409199,
+     0.583572
+    ],
+    "R0.height_lines_over_crest_range": [
+     0.2316,
+     0.583572
+    ],
+    "R10.default_over_crest_range": [
+     0.736128,
+     0.819279
+    ],
+    "R10.height_lines_over_crest_range": [
+     0.510921,
+     0.819279
+    ],
+    "R40.default_over_crest_range": [
+     0.942027,
+     0.995424
+    ],
+    "R40.height_lines_over_crest_range": [
+     0.910865,
+     0.995424
+    ]
+   }
+  },
   "ridge_hysteresis": {
    "description": "On the bundled tunicate scan (5 um): the ridge filter of _recover_missed_ridges and the calibrated heights themselves, each thresholded by hysteresis with the Otsu high and triangle low levels; the fraction of the image each covers, and the fraction of the ridge response below its low level on pixels at least 10 px from the default binarized mask.",
    "snapshot": "74f19827f45a9330",
@@ -1049,6 +1115,42 @@
     "tunicate.y.background_std_nm": 0.278508,
     "tunicate.y.column_median_std_nm": 0.014511,
     "tunicate.y.row_median_std_nm": 0.062226
+   }
+  },
+  "spline1d_axis_rotated": {
+   "description": "Every test input rotated by 90 degrees (np.rot90, so its scan lines become columns and its line offsets vertical stripes) and calibrated by trendfill and by spline1d along 'x' and along 'y', everything else at the defaults: on the background (pixels more than 5 px from the union of the three binarized masks), the spread of the per-row and per-column medians, as in spline1d_axis.",
+   "snapshot": "74f19827f45a9330",
+   "values": {
+    "NDTOC.trendfill.column_median_std_nm": 0.046063,
+    "NDTOC.trendfill.row_median_std_nm": 0.013777,
+    "NDTOC.x.column_median_std_nm": 0.266993,
+    "NDTOC.x.row_median_std_nm": 0.048013,
+    "NDTOC.y.column_median_std_nm": 0.047153,
+    "NDTOC.y.row_median_std_nm": 0.015085,
+    "art_aniso.trendfill.column_median_std_nm": 0.069742,
+    "art_aniso.trendfill.row_median_std_nm": 0.00866,
+    "art_aniso.x.column_median_std_nm": 0.072446,
+    "art_aniso.x.row_median_std_nm": 0.013503,
+    "art_aniso.y.column_median_std_nm": 0.068972,
+    "art_aniso.y.row_median_std_nm": 0.019753,
+    "art_iso.trendfill.column_median_std_nm": 0.073536,
+    "art_iso.trendfill.row_median_std_nm": 0.009686,
+    "art_iso.x.column_median_std_nm": 0.083873,
+    "art_iso.x.row_median_std_nm": 0.018509,
+    "art_iso.y.column_median_std_nm": 0.074663,
+    "art_iso.y.row_median_std_nm": 0.02408,
+    "hplantTOC.trendfill.column_median_std_nm": 0.039528,
+    "hplantTOC.trendfill.row_median_std_nm": 0.004898,
+    "hplantTOC.x.column_median_std_nm": 0.085203,
+    "hplantTOC.x.row_median_std_nm": 0.017262,
+    "hplantTOC.y.column_median_std_nm": 0.039983,
+    "hplantTOC.y.row_median_std_nm": 0.006128,
+    "tunicate.trendfill.column_median_std_nm": 0.068836,
+    "tunicate.trendfill.row_median_std_nm": 0.004314,
+    "tunicate.x.column_median_std_nm": 0.09747,
+    "tunicate.x.row_median_std_nm": 0.012552,
+    "tunicate.y.column_median_std_nm": 0.072089,
+    "tunicate.y.row_median_std_nm": 0.013594
    }
   },
   "spline1d_trend_order": {
@@ -3321,6 +3423,69 @@
     "prune_short_spurs": "80115ef09102bd1876742a4369fdb8b6011b97446f67fe4b52cffd72fcbd2b5e",
     "prune_terminal_hooks": "cb9fa1a9d5a0e8207e6d8123681879cb41d0f37e8ee99aa93316146cf510c7e7",
     "thin_ignoring_image_border": "27fa8b50f6cbc81871b273c8ac82f72d64ff7ca0b51caf917cfaf893ce5b665f"
+   }
+  },
+  "c6284f570bacfb4e": {
+   "lib/centerline.py": {
+    "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "CENTERLINE_METHODS": "40105a75cae5dcdb35a9d35d5060ed633822670f7a45139e9c559fd185186482",
+    "CENTROID_CENTERLINE": "3f9266bd0ba74fdd00622ac2efc5be3bddca6de3213b80f170ef210d64609b52",
+    "CREST_CENTERLINE": "795dd122d6b4759ec88bc7025ffc149d73aa4dfa8d28764e51202130eb0128f1",
+    "CenterlineResult.<body>": "9ff0d3c08f1c3889772b7344faf00c5ece17831e8d36a8c3f28860f7c505d64a",
+    "CenterlineResult.crest": "1e2fd7ad4255321873ca8783a654a61c0d4bb58907b9804d706443833c51b95d",
+    "CenterlineResult.reliable": "76ebd47ec378a51e6a6489ab7f3bbdbe16e6a8a0c78df90526dc315b88374065",
+    "CenterlineResult.width_measured": "051a20bd12fe48f3ddee9cffc96551f8ed4aee05b70bc1c3d5b65f5f0c448489",
+    "CenterlineResult.width_px": "e365bde45d7f9d23ff481dd2257ea164f3126ac029beb1be7005261bb71110e3",
+    "CenterlineResult.x": "e440191a12895073ee9461bf7791c8d55da3284d3ae9f6cf11eb62af2c3c9921",
+    "CenterlineResult.y": "81ba61676804e8da842b33374ca4f3e55aa9321d6f4dc7721d740abae24973e3",
+    "DEFAULT_CENTERLINE_METHOD": "475bbbe5fb8f4dae0638e3f88660560120bdf9e4e2dd411b49094957c89db6b4",
+    "FALLBACK_WIDTH_PX": "75f66b8f976749badd89c9550024e563348d3993677e626fe787f4b71b3b5737",
+    "HALF_MAX_025W_CENTERLINE": "ffdeef304cd2a1283dccebf297c23ff82435e429eedf12c483d9ce3ed55d3556",
+    "HALF_MAX_05W_CENTERLINE": "d4e5dac5030045c949b9dd40113c4bf0001746b0eac6656a8a232d6cbc499779",
+    "PIXEL_CHAIN_LINES": "d961be48254028c538b8977c9d7a88f19024c7125f2677f78c0395b3f5d7f79f",
+    "QUARTER_MAX_CENTERLINE": "73411a2305d5b9672212e6a52295e33c8bfe5b590655795d08108d423e25ea1f",
+    "SKELETON_PIXEL_LINE": "bcbdb208e5e387868b55cb185ceca6cfcfd26a40283ad40a77f261234733cdd9",
+    "SKELETON_TRACK": "bc3d64fac5ad87688d715b440161318f81cceed5baff77e08c3d316dea144379",
+    "SMOOTHED_SKELETON_05W": "fd472ecbc801ec9d66c6454764d3f56040290c0370b76e073358e78b4d7eeb6b",
+    "SMOOTHED_SKELETON_1W": "3b49df20c8ee258c7d102fb656604000508b9ccd0d0bf31a47ef1cea550d411d",
+    "_CENTROID_LEVEL": "fc15fe2c7e95a2f821fe68bcda8a6f473a9394cc4f797edb93f2ef902db7ce2b",
+    "_CREST_REACH_WIDTHS": "eae5aa178515d068dd84dfe60649bb859a942e157cb83f008f8c87138d977766",
+    "_CREST_WINDOW_WIDTHS": "b0c9799d4e4a1b0192ce2724cd829ce34e9f63eeea8565a2f4ec2c9b5afc9000",
+    "_DEPRECATED_ALIASES": "f668e06e3c4ccc952598c1b0b2f49a015cc44d9e00ad4d3801b4e962ed68d3b6",
+    "_FRAME_SIGMA_WIDTHS": "b60065330dcbf3e23a8d9f427d43a0e0edb8b3e4ed8ecbe746d0e261f00bfe16",
+    "_HALF_MAX_REACH_WIDTHS": "abaec8b67434e2bbabfa8fa8edbf4ea00047f8d0ed190c6c388ad376e594e0d8",
+    "_JUNCTION_WIDTHS": "af59978481a816d85c95f04ab3bec3a5ea4e5662289a1413f6021c3eb27bc892",
+    "_MAX_SECTION_WIDTHS": "de994224b83ce1398784f4be569686a501f65f3a87770a413985ea8ddae4c742",
+    "_MIN_CREST_AMPLITUDE_FRAC": "5539e46da7c81861e01a0ca55f65ed4d41ec3df340309e86fd0dde63e2cd21cb",
+    "_OFFSET_SMOOTH_WIDTHS": "c4dfa32fb55e81a813b813f49d70b569ccd1b7831dba4042af740e92799af210",
+    "_QUARTER_LEVEL": "46b6ee0160e64e365453ca7453135373fae034acd07c200223280897d893f9d4",
+    "_SKELETON_SMOOTH_WIDTHS": "4a8dba2b308953dd250ba44ab9773c27aef410a05b91ef3d0c01b418f18cc3f3",
+    "_WIDE_SMOOTH_WIDTHS": "119254672146f6cbe5a27affb47fd00c96824fb782507944927c7e5b5e60321c",
+    "_WIDTH_SEARCH_PX": "a80f543b2328dc3b83a7033d7c16385a72ce99878c698740c0ed856919138629",
+    "_WIDTH_STEP_PX": "63ce0419343d51976112a87e127ec441adcb885295184bfd1d258828cd195184",
+    "_WIDTH_TANGENT_HALF": "f221e1f81f5c3767f4be760bfe2178a2fc7c314878ab7d6d9eba5b4db5a540b7",
+    "__getattr__": "57ca3343518013ea890444a1dfc46903a3fac867f8c5693e41c961edf1a8bcb7",
+    "_bilinear": "8fdc00634fe9396c3f98db35648e023947700c3b3ed4d81355bf6ead7fe2339f",
+    "_level_crossings": "80aae312ab6299c66216382a4e3f26b430065f11d4ad187bc128771804e18b30",
+    "_refine": "dd21ed65df2199a64e939f0fba66217f852e2fb0c93df2fb362406267201d5f7",
+    "_smooth_extrapolated": "254284baedcc1cc7109d0cbd458c39c1d98a6738760caae0227e4115f811117e",
+    "_solve_tridiagonal": "a1c4d0be49d042f8186477537318285f65b6d28f10386739a2cb93be2e54afd4",
+    "_unit_tangents": "27381ce7e74e723bde8bb1202136f044b86f9cc0653e73049cf48301a8583de1",
+    "_whittaker_first_order": "060f5a407678eeb1cfa12ff965633a14e0d067ef3b599fe033eae88678909e57",
+    "half_max_centerline": "b0ed535054f3166ba14861e6420c92812ae4ed498494ffccddad2ad55098a6de",
+    "import:NDArray": "f2d4b5a36f5341358909a2779e4ed221803a131a3b88d2f1aa43f8406fb43f07",
+    "import:Optional": "21a5abaaaba25fbb00f8728d6f0d5907b4cb88821d6348308d353bfb3b8e5511",
+    "import:Tuple": "89fd5e70faac9af55b736c676d7f782a64fd7a7209953eba73f9f82e3c69f4e9",
+    "import:Union": "0f69f8231ff1117905d41e04c8c9016bb278961e2a3db6491609d09349d8a8eb",
+    "import:dataclass": "686681ef23de32a10c533bbf238394c112abd31fcf7aa9b1fd3a765df37a8e99",
+    "import:np": "73dd0baf8e5438da8816254a073ee43b61f8b2cdef6f393e0059cdbc55cb8d9c",
+    "is_pixel_chain_line": "09ed8c5a849b18e0d979b1e790005b3c9b08025a1702a1c7e09c3ffaca861f91",
+    "is_placed_line": "4a38e1bed5016f3f9254f828e399e27f826e054df63b1e93ef882e46c0a747af",
+    "measure_apparent_width": "1894ace7c569330753cab4c7f52698e7848fcf473a023b3969bb0562f76b1146",
+    "place_centerline": "bcc15ad0bc32e665a7e40b49b73992f702b7d36091fcdb220a631a85d14b12e9",
+    "polyline_distance": "678faefb0a5494c2d47ccbf64c8a90649cc80aeadd20ad8f707cdf4cb0156067",
+    "refine_centerline": "5860647e3170b6a74e5e44f1326015fa686e3335adc09a7d884a7f3c7c93ed22",
+    "sample_height": "e0794d75bbf18367c954da3ffd8789b90eff7fbf7413e7d75860ad7997d890e1"
    }
   }
  }

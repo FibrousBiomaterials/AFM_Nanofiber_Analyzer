@@ -108,6 +108,27 @@
 繊維の右側に、`trendfill` より目に見えて深い暗い縁ができる。`'x'` で列ごとの
 ばらつきが `trendfill` より大きくなった入力は、この縁が見えた入力と同じである。
 
+縦縞で確かめるため、各テスト入力を 90<!--n:definition--> 度回して（`np.rot90`。走査ラインが列になり、
+走査ラインごとのずれが縦縞になる）、同じ比較をした（実験 spline1d_axis_rotated）。
+表は、回した入力での列ごとの中央値のばらつきである。
+
+| 入力（回したもの） | 列、`trendfill` | 列、`'x'` | 列、`'y'` |
+|---|---|---|---|
+| チュニケート CNF | 0.069<!--m:spline1d_axis_rotated.tunicate.trendfill.column_median_std_nm--> | 0.097<!--m:spline1d_axis_rotated.tunicate.x.column_median_std_nm--> | 0.072<!--m:spline1d_axis_rotated.tunicate.y.column_median_std_nm--> |
+| 人工、等方 | 0.074<!--m:spline1d_axis_rotated.art_iso.trendfill.column_median_std_nm--> | 0.084<!--m:spline1d_axis_rotated.art_iso.x.column_median_std_nm--> | 0.075<!--m:spline1d_axis_rotated.art_iso.y.column_median_std_nm--> |
+| 人工、異方 | 0.070<!--m:spline1d_axis_rotated.art_aniso.trendfill.column_median_std_nm--> | 0.072<!--m:spline1d_axis_rotated.art_aniso.x.column_median_std_nm--> | 0.069<!--m:spline1d_axis_rotated.art_aniso.y.column_median_std_nm--> |
+| 高等植物 TOC | 0.040<!--m:spline1d_axis_rotated.hplantTOC.trendfill.column_median_std_nm--> | 0.085<!--m:spline1d_axis_rotated.hplantTOC.x.column_median_std_nm--> | 0.040<!--m:spline1d_axis_rotated.hplantTOC.y.column_median_std_nm--> |
+| Bruker NDTOC | 0.046<!--m:spline1d_axis_rotated.NDTOC.trendfill.column_median_std_nm--> | 0.267<!--m:spline1d_axis_rotated.NDTOC.x.column_median_std_nm--> | 0.047<!--m:spline1d_axis_rotated.NDTOC.y.column_median_std_nm--> |
+
+高等植物のスキャンを除く 4<!--n:count--> つの入力では、回すと、`trendfill` も含めてどの方式でも
+ばらつきが大きくなった（最初の表と比べる）。そのため、この表の数値からは `'y'` の
+効き目を切り分けられない。描くと、高等植物のスキャンの走査線のグリッチは、回した画像に
+`'y'` を使っても明るい縦の帯として残り、回さない画像に `'x'` を使ったときのようには
+消えない。この帯は、回した画像では二値化で繊維と判定されるので、ばらつきを測る背景から
+外れ、表の値には入っていない。回したチュニケートのスキャンでは、`trendfill` でも `'y'` でも、
+画像全体に細い縦縞が残る。回したこれらのテスト入力では、`'y'` は、回さない画像で `'x'` が
+消すグリッチを消さなかった。
+
 ### 1.7 X 方向だけのならし
 
 各テスト入力を既定の `trendfill` で補正し、背景の Savitzky–Golay 平滑化を、コードの
@@ -340,6 +361,29 @@ y_branch_kink）。
 synthetic_centerline）。半値より低いレベルが一様に良かったわけではない。1/4 高さの
 中点はリボン 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> 本中 4<!--m:synthetic_centerline.ribbons.quarter_closer_than_default--> 本で既定の線より軸に近かったが、細い円形の対照繊維
 では背景の凹凸に最大 3.5<!--m:synthetic_centerline.G_circle_d3.max_nm.quarter_max--> nm 引き寄せられた。
+
+**探針の先端。** 揺れが探針によってどう変わるかを、次のように確かめた。
+リボンのうち 3<!--n:count--> 本（16<!--n:value tried-->×3<!--n:value tried-->、10<!--n:value tried-->×3<!--n:value tried-->、6<!--n:value tried-->×2<!--n:value tried--> nm、ねじれの周期 300<!--n:value tried--> nm）を、雑音・傾き・
+凹凸なしで描き、先端半径 0<!--n:value tried-->（膨張なし）、10<!--n:value tried-->、40<!--n:value tried--> nm の球状の探針で膨張させて、
+真の軸の画素トラックの上に各中心線を置いた（実験 ribbon_tip_swing）。表は、トラックの
+中ほどでの軸からの横方向のずれの二乗平均平方根（nm）である。
+
+| リボン (nm) | 先端半径 (nm) | 既定の線 | 1/4 高さの中点 | 重心 | 頂点 |
+|---|---|---|---|---|---|
+| 16<!--n:value tried-->×3<!--n:value tried--> | 0<!--n:value tried--> | 1.48<!--m:ribbon_tip_swing.16x3.R0.half_max_025w.rms_nm--> | 0.69<!--m:ribbon_tip_swing.16x3.R0.quarter_max.rms_nm--> | 1.11<!--m:ribbon_tip_swing.16x3.R0.centroid.rms_nm--> | 2.99<!--m:ribbon_tip_swing.16x3.R0.crest.rms_nm--> |
+| 16<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 3.23<!--m:ribbon_tip_swing.16x3.R10.half_max_025w.rms_nm--> | 2.23<!--m:ribbon_tip_swing.16x3.R10.quarter_max.rms_nm--> | 2.78<!--m:ribbon_tip_swing.16x3.R10.centroid.rms_nm--> | 4.37<!--m:ribbon_tip_swing.16x3.R10.crest.rms_nm--> |
+| 16<!--n:value tried-->×3<!--n:value tried--> | 40<!--n:value tried--> | 3.72<!--m:ribbon_tip_swing.16x3.R40.half_max_025w.rms_nm--> | 3.57<!--m:ribbon_tip_swing.16x3.R40.quarter_max.rms_nm--> | 3.60<!--m:ribbon_tip_swing.16x3.R40.centroid.rms_nm--> | 3.73<!--m:ribbon_tip_swing.16x3.R40.crest.rms_nm--> |
+| 10<!--n:value tried-->×3<!--n:value tried--> | 0<!--n:value tried--> | 0.74<!--m:ribbon_tip_swing.10x3.R0.half_max_025w.rms_nm--> | 0.45<!--m:ribbon_tip_swing.10x3.R0.quarter_max.rms_nm--> | 0.66<!--m:ribbon_tip_swing.10x3.R0.centroid.rms_nm--> | 1.82<!--m:ribbon_tip_swing.10x3.R0.crest.rms_nm--> |
+| 10<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 1.86<!--m:ribbon_tip_swing.10x3.R10.half_max_025w.rms_nm--> | 1.44<!--m:ribbon_tip_swing.10x3.R10.quarter_max.rms_nm--> | 1.67<!--m:ribbon_tip_swing.10x3.R10.centroid.rms_nm--> | 2.53<!--m:ribbon_tip_swing.10x3.R10.crest.rms_nm--> |
+| 10<!--n:value tried-->×3<!--n:value tried--> | 40<!--n:value tried--> | 2.13<!--m:ribbon_tip_swing.10x3.R40.half_max_025w.rms_nm--> | 2.03<!--m:ribbon_tip_swing.10x3.R40.quarter_max.rms_nm--> | 2.07<!--m:ribbon_tip_swing.10x3.R40.centroid.rms_nm--> | 2.17<!--m:ribbon_tip_swing.10x3.R40.crest.rms_nm--> |
+| 6<!--n:value tried-->×2<!--n:value tried--> | 0<!--n:value tried--> | 0.48<!--m:ribbon_tip_swing.6x2.R0.half_max_025w.rms_nm--> | 0.37<!--m:ribbon_tip_swing.6x2.R0.quarter_max.rms_nm--> | 0.43<!--m:ribbon_tip_swing.6x2.R0.centroid.rms_nm--> | 0.83<!--m:ribbon_tip_swing.6x2.R0.crest.rms_nm--> |
+| 6<!--n:value tried-->×2<!--n:value tried--> | 10<!--n:value tried--> | 1.14<!--m:ribbon_tip_swing.6x2.R10.half_max_025w.rms_nm--> | 0.98<!--m:ribbon_tip_swing.6x2.R10.quarter_max.rms_nm--> | 1.08<!--m:ribbon_tip_swing.6x2.R10.centroid.rms_nm--> | 1.39<!--m:ribbon_tip_swing.6x2.R10.crest.rms_nm--> |
+| 6<!--n:value tried-->×2<!--n:value tried--> | 40<!--n:value tried--> | 1.25<!--m:ribbon_tip_swing.6x2.R40.half_max_025w.rms_nm--> | 1.21<!--m:ribbon_tip_swing.6x2.R40.quarter_max.rms_nm--> | 1.23<!--m:ribbon_tip_swing.6x2.R40.centroid.rms_nm--> | 1.33<!--m:ribbon_tip_swing.6x2.R40.crest.rms_nm--> |
+
+頂点に比べると、既定の線のずれは、膨張なしで 0.41<!--m:ribbon_tip_swing.R0.default_over_crest_range[0]-->〜0.58<!--m:ribbon_tip_swing.R0.default_over_crest_range[1]--> 倍、先端半径 10<!--n:value tried--> nm で
+0.74<!--m:ribbon_tip_swing.R10.default_over_crest_range[0]-->〜0.82<!--m:ribbon_tip_swing.R10.default_over_crest_range[1]--> 倍、40<!--n:value tried--> nm で 0.94<!--m:ribbon_tip_swing.R40.default_over_crest_range[0]-->〜1.00<!--m:ribbon_tip_swing.R40.default_over_crest_range[1]--> 倍であった。40<!--n:value tried--> nm では、既定の線、1/4 高さの
+中点、重心のずれは、どれも頂点の 0.91<!--m:ribbon_tip_swing.R40.height_lines_over_crest_range[0]-->〜1.00<!--m:ribbon_tip_swing.R40.height_lines_over_crest_range[1]--> 倍になった。試したこの 3<!--n:count--> 本のリボンと 3<!--n:count--> つの先端半径では、探針の先端が
+太いほど、この 3<!--n:count--> つの線の揺れは頂点の揺れに近づいた。
 
 **なぜ 1/4 幅か。** 平滑化の幅は、2<!--n:count--> つの特徴がどこまで近づくと中心線がそれらを
 1<!--n:count--> つに均してしまうかを決める。合成データ一式の同じ向きのコーナー対で調べた。

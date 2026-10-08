@@ -72,7 +72,7 @@ record is required by the project's development rules (`AGENTS.md`).
 its pixel indices are shifted by one.** Background correction (§1) has three
 methods (`trendfill`, `tophat`, `spline1d`), and each subtracts the background
 from `original[1:, 1:]`, the raw scan with its first row and first column cut
-off. `trendfill` and `spline1d` build the background from differences between
+off. `trendfill` and `spline1d` find the fiber pixels from differences between
 neighbouring pixels (§1.3). Each difference is taken as "right (lower) pixel
 minus left (upper) pixel" and placed at the right (lower) pixel, so only the
 first row and column have no difference. `tophat` crops to the same shape so
@@ -414,8 +414,25 @@ pixels.
 The pixels from the start of the rising run to the end of the falling run are
 marked as fiber, except the last pixel of the falling run (the marked range
 stops before `arg_arr[vi + 3] - 1` for pattern 1<!--n:label--> and before
-`arg_arr[vi + 2] - 1` for pattern 2<!--n:label-->).
+`arg_arr[vi + 2] - 1` for pattern 2<!--n:label-->). Each difference is placed at the right
+(lower) pixel, so the last pixel of the falling run is the one after the
+descent, already outside the fiber.
 The X and Y results are combined by union in the next step.
+
+An example along one row (every nonzero difference is taken to exceed the noise
+width):
+
+```text
+pixel    0  1  2  3  4  5  6  7
+height   0  0  3  6  6  3  0  0
+diff        0 +3 +3  0 -3 -3  0
+ternary     0 +1 +1  0 -1 -1  0
+mark           #  #  #  #
+```
+
+The rise (pixels 2–3<!--n:example-->), flat (pixel 4<!--n:example-->) and fall (pixels 5–6<!--n:example-->) match pattern 1<!--n:label-->, and
+pixels 2–5<!--n:example--> are marked. The last pixel of the fall, pixel 6<!--n:example-->, has height 0<!--n:example--> and is
+left unmarked.
 
 In the code, `l_arr` holds the value of each run and `arg_arr` the index where
 it starts. Pattern 1<!--n:label--> is accepted when the zero run is shorter than
@@ -661,8 +678,9 @@ Savitzky–Golay smoothing that follows acts along X (along the rows) only, so
 with `'y'` the level kept for each column is then averaged with the columns
 within `savgol_window` pixels beside it. On the test inputs, `'y'` did not
 remove horizontal stripes and instead left horizontal bands across the whole
-image ([Evaluation on particular data](validation.md) §1.6); it has not been
-checked on an image with vertical stripes.
+image ([Evaluation on particular data](validation.md) §1.6). On images with
+vertical stripes, made by rotating those inputs by 90<!--n:definition-->°, `'y'` did not remove
+the scan-line offsets either (§1.6 there).
 
 As in `trendfill`, the trend fitted to the background pixels is subtracted
 before the fill, so that the filler does not have to reproduce the sample's
@@ -1603,10 +1621,13 @@ return skeletonize(filled).astype(np.uint8)
 `prune_short_spurs` removes dead-end arms at most `spur_length` long
 (default 12<!--c:lib/pipeline.py::ProcParams.spur_length--> px) that start at an endpoint and reach a branch point.
 
-Unlike §3.3 this is **purely geometric**, and that is the point: a spur growing
-from the fiber body sits at fiber height, so a height threshold cannot separate
-it from a genuine crossing, while a length limit can — a real fiber arm is
-rarely that short (though what 12<!--c:lib/pipeline.py::ProcParams.spur_length--> px amounts to in nm depends on the pixel
+Unlike §3.3 this is **purely geometric**, and that is the point. The branch
+point at the root of a spur growing from the fiber body lies on the fiber, so it
+sits at about fiber height. As §3.3 explains, whether a branch point's height
+tells a crossing apart depends on the fiber heights, so a single height
+threshold does not necessarily separate spurs from crossings on every image.
+A length limit does, whatever the fiber height — a real fiber arm is rarely that
+short (though what 12<!--c:lib/pipeline.py::ProcParams.spur_length--> px amounts to in nm depends on the pixel
 size, §5).
 
 Isolated short segments with no branch point in reach are not handled here.
@@ -2075,12 +2096,14 @@ in five steps:
    position is not used as the centerline itself, because that would round real
    corners; the centerline's position is set by the lateral offset measured from
    the height in the next step.
-3. Along that normal, `centerline.refine_centerline` climbs from the reference
-   point to the nearest crest — not the highest point in reach, so a higher
+3. `centerline.refine_centerline` reads the cross-section along that normal
+   ($2.25\,W$ to either side of the reference point), climbs from the reference
+   point to the nearest crest — not the highest point read, so a higher
    neighbour cannot capture the centerline — and places the point at the
    **midpoint of the two positions where the cross-section falls to half-way
    between its base and its crest** (the half maximum). The base here is the
-   lower of the minima on the two sides of the crest.
+   lower of the minima within $1.5\,W$ on each side of the crest, and the
+   half-maximum positions are searched for within the same range.
 4. A cross-section that cannot locate this one fiber is marked unreliable, and
    its offset is interpolated from the reliable points around it instead of
    measured. These are:
@@ -2088,10 +2111,12 @@ in five steps:
    - sections whose half-maximum width exceeds $1.5\,W$ (two fibers side by side);
    - sections whose reference point lies outside the half-maximum run of the
      hill found (the hill belongs to another fiber, not this one);
-   - sections with no half-maximum crossing within the search window;
+   - sections where, within $1.5\,W$ of the crest, the half-maximum crossing is
+     missing on at least one side;
    - sections whose crest, found by climbing, does not lie within $0.75\,W$ of
      the reference point (`_CREST_REACH_WIDTHS`; a distant crest belongs to
-     another object; the limit is taken half a sampling step inside);
+     another object; the limit is taken inside $0.75\,W$ by half the step at
+     which the section is read, a step of 0.25<!--c:lib/centerline.py::_WIDTH_STEP_PX--> px);
    - sections whose hill height (crest minus base) is below
      0.25<!--c:lib/centerline.py::_MIN_CREST_AMPLITUDE_FRAC--> of the median over this fiber's sections (too faint).
 
@@ -2112,7 +2137,7 @@ in five steps:
    distance between neighbouring track points, so this is $W/4$ counted in
    points, squared).
 5. Each centerline point is placed at its reference point moved along the normal by
-   its offset, which is clipped to the crest search range of $\pm 0.75\,W$, and
+   its offset, which is clipped to $\pm 0.75\,W$, and
    kept between the outermost pixel centres of the image. At a
    fiber that runs off the scan, steps 2–4<!--n:label--> can otherwise carry the last points
    past the edge, where no height was measured.
@@ -2163,8 +2188,8 @@ the numbers built on it depend on, as a `centerline.CenterlineResult`:
 - **$W$ and whether it was measured.** Every length of the kink rule is a
   multiple of $W$, so $W$ itself is the yardstick a fiber's kinks were judged
   with. $W$ includes the probe's broadening as well as the fiber's own width.
-  When too
-  few cross-sections give a usable half-maximum run, or the measured $W$ is
+  When fewer than half of the track points have a cross-section whose
+  half-maximum run could be measured, or the measured $W$ is
   below 2<!--n:literal in centerline.measure_apparent_width--> px (or not finite),
   `centerline.FALLBACK_WIDTH_PX` (8<!--c:lib/centerline.py::FALLBACK_WIDTH_PX--> px) is substituted. That is a pixel count,
   not a multiple of the fiber's width, so the substitution is reported rather
@@ -2202,8 +2227,9 @@ selectable so the choice can be checked on the user's own images.
 
 Every one of them keeps the skeleton's decision of which pixels form a fiber and
 returns one point per skeleton point. They share the way a cross-section is read
-(the climb to the crest and the reliability tests at the half-maximum level) and
-differ mainly in where each point is placed.
+(the climb to the crest and the reliability tests at the half-maximum level;
+`"quarter_max"` and `"centroid"` add one more test, see below) and differ mainly
+in where each point is placed.
 
 The code of each is quoted in [GUI04 fiber measurements](gui04_measurements.md)
 §2.8. The table gives where each centerline places its points ("smoothed over"
@@ -2224,7 +2250,8 @@ Besides where the point is placed, they differ as follows:
 
 - `"half_max_05w"` smooths the reference line and the offsets over $W/2$.
 - `"quarter_max"` and `"centroid"` interpolate, as unreliable, a section where
-  the level they read is not reached on either side within the search window, so
+  the level they read is not reached within $1.5\,W$ of the crest on at least one
+  side, so
   the points marked reliable, and with them the crest heights (an unreliable
   point takes the nearby maximum), can differ from the default's.
 
@@ -2644,8 +2671,9 @@ have to exceed `NOISE_SIGMAS` times over. It is **off** by default
 
 ### 4.4 Bends next to an end are shown, not judged
 
-A bend whose centre lies within $1.5\,W$ of an end of the centerline is **not
-judged**, for two reasons:
+Even when its excess turning reaches the threshold, a bend whose centre lies
+within $1.5\,W$ of an end of the centerline is **not judged** (not counted as a
+kink), for two reasons:
 
 - Near an end, the arm on the end's side is short: shorter than the length the
   visual reference (clear kinks marked by eye on the height images of the
@@ -2661,7 +2689,8 @@ The margin of $1.5\,W$ is an empirical choice
 Such a bend is not dropped silently. `KinkDetector.kinks_on_line` returns it
 separately, the bundle stores it separately too (`up`), it reaches each
 fiber as `Fiber.unjudged_indices`, and GUI04 draws it as a grey hollow circle,
-so "not judged" stays distinguishable from "measured and below the threshold".
+so "reached the threshold but not judged because it lies next to an end" stays
+distinguishable from "below the threshold" (which is not recorded anywhere).
 Kink counts, densities and angles, in GUI04's fiber table and in the CSV alike,
 are computed from judged kinks only and never include such a bend. The number of
 bends not judged is reported separately from the kinks, in the `unjudged`
@@ -2841,7 +2870,7 @@ file and three records:
 
 | Record | What it holds |
 |---|---|
-| `<input_stem>_param.json` | Every `ProcParams` field the analysis ran with. Field names are frozen, so an old file still loads. |
+| `<input_stem>_param.json` | Every `ProcParams` field the analysis ran with. It is the input read when the analysis is run again; field names are frozen, so an old file still loads. It can be edited after the analysis, so the record of the values the analysis used is the copy inside the bundle (§4.5). |
 | `<input_stem>.b2z` | The stage outputs (images and point lists), the bundle format version, the centerline the kinks were judged on (from format 1.2<!--n:bundle format version-->), the scan size and its source, the range of scan lines when only some were analysed (set by GUI01's scan-line range or `cli.py process --rows`), and the parameters the analysis ran with. It also records the original file's name, its SHA-256 hash and how it was read, so a file used for re-analysis can be checked to be the same one. |
 | The software version | Recorded in the bundle. `CHANGELOG.md` states explicitly whenever a change moves the numbers. |
 

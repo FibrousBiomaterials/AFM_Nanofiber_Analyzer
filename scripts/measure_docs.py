@@ -1018,6 +1018,47 @@ def spline1d_axis() -> dict:
     return values
 
 
+@experiment(
+    "spline1d_axis_rotated",
+    ["lib/pipeline.py", "lib/bg_calibrator.py", "lib/segmenter.py"],
+    "Every test input rotated by 90 degrees (np.rot90, so its scan lines become "
+    "columns and its line offsets vertical stripes) and calibrated by trendfill and by "
+    "spline1d along 'x' and along 'y', everything else at the defaults: on the "
+    "background (pixels more than 5 px from the union of the three binarized masks), "
+    "the spread of the per-row and per-column medians, as in spline1d_axis.",
+)
+def spline1d_axis_rotated() -> dict:
+    import numpy as np
+    from dataclasses import replace
+    from scipy import ndimage as ndi
+    from lib.afm_io import load_afm_image
+    from lib.pipeline import ProcParams, build_stages
+    from lib.processed_image import ProcessedImage
+
+    base = ProcParams()
+    variants = {"trendfill": base,
+                "x": replace(base, bg_method="spline1d", spline1d_axis="x"),
+                "y": replace(base, bg_method="spline1d", spline1d_axis="y")}
+    values: dict = {}
+    for name, rel in _all_test_inputs().items():
+        arr = np.rot90(np.asarray(load_afm_image(str(ROOT / rel)), float)).copy()
+        cals, fiber = {}, None
+        for tag, params in variants.items():
+            stages = build_stages(params)
+            image = ProcessedImage(arr.copy(), name)
+            stages.bg_calibrator(image)
+            stages.segmenter(image)
+            cals[tag] = np.asarray(image.calibrated_image, float)
+            mask = np.asarray(image.binarized_image, bool)
+            fiber = mask if fiber is None else fiber | mask
+        background = ~ndi.binary_dilation(fiber, iterations=5)
+        for tag, cal in cals.items():
+            rows, cols, _pixels = _background_spread(cal, background)
+            values[f"{name}.{tag}.row_median_std_nm"] = rows
+            values[f"{name}.{tag}.column_median_std_nm"] = cols
+    return values
+
+
 def _background_spread(cal, background) -> tuple:
     """Spread (std) of the per-row and per-column medians, and of the pixels, on the background."""
     import numpy as np
@@ -1585,6 +1626,71 @@ def synthetic_centerline() -> dict:
     values["ribbons.anisotropic_count"] = len(ratios)
     values["ribbons.count"] = len(ribbons)
     values["ribbons.kinks_reported"] = kinks_on_ribbons
+    return values
+
+
+@experiment(
+    "ribbon_tip_swing",
+    ["lib/centerline.py"],
+    "Twisted ribbons of scripts/synthetic_suite.py (rectangular sections 16 x 3, 10 x 3 "
+    "and 6 x 2 nm, twist period 300 nm, 2 nm pixels) drawn without noise, tilt or "
+    "roughness and dilated by a spherical apex of radius 0, 10 and 40 nm (0: no "
+    "dilation). Each centerline method is placed on the pixel track of the true axis; "
+    "reported is the RMS lateral distance from the true axis over the middle 80 % of "
+    "the track, in nm, and the ratio of each height-reading line to the crest.",
+)
+def ribbon_tip_swing() -> dict:
+    import math
+    import numpy as np
+    from scipy.ndimage import grey_dilation
+    import synthetic_fibers as sf
+    import synthetic_suite as ss
+    from lib import centerline as cl
+
+    shape, length = (384, 384), 600.0
+    line = sf.straight_centerline(length, angle_deg=20.0, shape=shape, nm_per_px=ss.NMPX)
+    x0, y0 = line.x[0], line.y[0]
+    th = math.atan2(line.y[-1] - y0, line.x[-1] - x0)
+    gy, gx = np.mgrid[0:shape[0], 0:shape[1]].astype(float)
+    dx, dy = gx + 0.5 - x0, gy + 0.5 - y0
+    s = (dx * math.cos(th) + dy * math.sin(th)) * ss.NMPX
+    u = (-dx * math.sin(th) + dy * math.cos(th)) * ss.NMPX
+    # Pixel track of the true axis, which lies at line coordinate - 0.5 in pixels.
+    # 真の軸の画素トラック。軸は画素座標で、線の座標 - 0.5 にある。
+    t = np.arange(60.0, length - 60.0, 0.5) / ss.NMPX
+    px = np.round(x0 - 0.5 + t * math.cos(th)).astype(int)
+    py = np.round(y0 - 0.5 + t * math.sin(th)).astype(int)
+    keep = np.r_[True, (np.diff(px) != 0) | (np.diff(py) != 0)]
+    px, py = px[keep].astype(float), py[keep].astype(float)
+
+    height_lines = (cl.HALF_MAX_025W_CENTERLINE, cl.QUARTER_MAX_CENTERLINE,
+                    cl.CENTROID_CENTERLINE)
+    values: dict = {}
+    ratios: dict = {}
+    for a, b in ((16, 3), (10, 3), (6, 2)):
+        surf = ss._ribbon_height(u, 2 * np.pi * s / 300.0 + 0.3, a, b)
+        surf[(s < 0) | (s > length)] = 0.0
+        for radius in (0, 10, 40):
+            img = surf if radius == 0 else grey_dilation(
+                surf, structure=sf.spherical_tip_structure(float(radius), ss.NMPX,
+                                                           float(surf.max())),
+                mode="nearest")
+            rms = {}
+            for method in height_lines + (cl.CREST_CENTERLINE,):
+                res = cl.place_centerline(img, px, py, None, method=method)
+                d = (-(res.x - (x0 - 0.5)) * math.sin(th)
+                     + (res.y - (y0 - 0.5)) * math.cos(th)) * ss.NMPX
+                mid = slice(d.size // 10, d.size - d.size // 10)
+                rms[method] = float(np.sqrt(np.mean(d[mid] ** 2)))
+                values[f"{a}x{b}.R{radius}.{method}.rms_nm"] = rms[method]
+            for method in height_lines:
+                ratios.setdefault((radius, method), []).append(
+                    rms[method] / rms[cl.CREST_CENTERLINE])
+    for radius in (0, 10, 40):
+        default = ratios[(radius, cl.HALF_MAX_025W_CENTERLINE)]
+        values[f"R{radius}.default_over_crest_range"] = [min(default), max(default)]
+        every = [r for m in height_lines for r in ratios[(radius, m)]]
+        values[f"R{radius}.height_lines_over_crest_range"] = [min(every), max(every)]
     return values
 
 
