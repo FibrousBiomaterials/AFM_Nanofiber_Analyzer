@@ -22,10 +22,17 @@ Usage
 ``.venv\\Scripts\\python.exe scripts/measure_docs.py --only kink_reference``
 ``.venv\\Scripts\\python.exe scripts/measure_docs.py``        (every experiment; slow)
 
-Intermediate files go under ``.tmp/measure_docs``. The visual reference of
+Intermediate files go under ``.tmp/measure_docs``. Bundles that experiments
+reuse go under ``.tmp/measure_docs/cache/<fingerprint>``, named by the code and
+libraries that made them (`bundle_cache`), so a change to the analysis code is
+analyzed afresh rather than measured on bundles the old code made; folders of
+other fingerprints are removed when a run starts. The visual reference of
 ``kink_reference`` lives in ``private_docs/`` and is not part of the public
 repository; without it that experiment cannot run.
-中間ファイルは ``.tmp/measure_docs`` に置く。``kink_reference`` の目視基準は
+中間ファイルは ``.tmp/measure_docs`` に置く。実験が使い回すバンドルは、それを作った
+コードとライブラリの指紋の名前を付けた ``.tmp/measure_docs/cache/<指紋>`` に置く
+（`bundle_cache`）。解析コードが変われば、古いコードが作ったバンドルで測るのでは
+なく解析し直す。実行を始めると、他の指紋のフォルダは消す。``kink_reference`` の目視基準は
 ``private_docs/`` にあり公開リポジトリには含まれないため、それが無い環境ではその
 実験は実行できない。
 """
@@ -33,65 +40,55 @@ repository; without it that experiment cannot run.
 from __future__ import annotations
 
 import argparse
-import ast
 import contextlib
+import functools
 import hashlib
 import json
 import math
 import sys
 import time
 from pathlib import Path
-from typing import Callable, Dict, List, Sequence
+from typing import Callable, Dict, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 for extra in (ROOT, ROOT / "scripts", ROOT / "tests"):
     if str(extra) not in sys.path:
         sys.path.insert(0, str(extra))
 
+import bundle_cache  # noqa: E402
 import doc_excerpts  # noqa: E402
+from bundle_cache import closure  # noqa: E402
 
 MEASUREMENTS = ROOT / "tests" / "doc_measurements.json"
 WORK = ROOT / ".tmp" / "measure_docs"
 
 
+@functools.lru_cache(maxsize=1)
+def _cache_base() -> Path:
+    """
+    Return this run's bundle cache folder, made once per process.
+    この実行のバンドルキャッシュフォルダを返す（プロセスごとに一度だけ作る）。
+
+    Bundles an experiment reuses are analysis output, so they are kept under the
+    fingerprint of the code and libraries that made them (`bundle_cache`); a
+    change to either starts from an empty folder.
+    実験が使い回すバンドルは解析の出力なので、それを作ったコードとライブラリの指紋の
+    下に置く（`bundle_cache`）。どちらかが変われば空のフォルダから始める。
+    """
+    return bundle_cache.cache_root(WORK / "cache")
+
+
+def cache_dir(name: str) -> Path:
+    """
+    Return a named bundle cache folder under this run's fingerprint.
+    この実行の指紋の下にある、名前付きのバンドルキャッシュフォルダを返す。
+    """
+    return _cache_base() / name
+
+
 # ----------------------------------------------------------------------------
 # Code snapshots
 # ----------------------------------------------------------------------------
-
-def _lib_imports(rel: str) -> List[str]:
-    """The lib modules one lib module imports, as repository paths."""
-    tree = ast.parse((ROOT / rel).read_text(encoding="utf-8"))
-    out = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom):
-            if node.level == 1:
-                if node.module:
-                    out.append(f"lib/{node.module.replace('.', '/')}.py")
-                else:
-                    out += [f"lib/{a.name}.py" for a in node.names]
-            elif node.module and node.module.startswith("lib"):
-                if node.module == "lib":
-                    out += [f"lib/{a.name}.py" for a in node.names]
-                else:
-                    out.append(node.module.replace(".", "/") + ".py")
-        elif isinstance(node, ast.Import):
-            out += [a.name.replace(".", "/") + ".py" for a in node.names
-                    if a.name.startswith("lib.")]
-    return [p for p in out if (ROOT / p).is_file()]
-
-
-def closure(roots: Sequence[str]) -> List[str]:
-    """Every lib module the given lib modules reach through their imports."""
-    seen: set = set()
-    todo = list(roots)
-    while todo:
-        rel = todo.pop()
-        if rel in seen or not (ROOT / rel).is_file():
-            continue
-        seen.add(rel)
-        todo += _lib_imports(rel)
-    return sorted(seen)
-
 
 def snapshot(modules: Sequence[str]) -> Dict[str, Dict[str, str]]:
     """Per-definition fingerprints of the given modules (`doc_excerpts`)."""
@@ -147,7 +144,7 @@ def kink_reference() -> dict:
             "unjudged_on_clear")
 
     def load(method):
-        cache = str(WORK / ("kink_reference_" + method))
+        cache = str(cache_dir("kink_reference_" + method))
         params = ProcParams(centerline_method=method)
         return {name: krs.prepare_scan(name, cache, params) for name in krs.SCANS}
 
@@ -386,7 +383,7 @@ def border_padding() -> dict:
     from lib.skeletonizer import DEFAULT_BORDER_PAD as pad, thin_ignoring_image_border
 
     identical = 0
-    cache = WORK / "kink_reference_half_max_025w"
+    cache = cache_dir("kink_reference_half_max_025w")
     for rel in krs.SCANS.values():
         stem = Path(rel).stem
         bundle = cache / (stem + ".b2z")
@@ -423,7 +420,7 @@ def _default_bundle(rel: str):
     """The default-parameter bundle of a bundled scan (shared with kink_reference)."""
     from lib.blosc2_io import load_bundle
     from lib.pipeline import ProcParams, process_file
-    cache = WORK / "kink_reference_half_max_025w"
+    cache = cache_dir("kink_reference_half_max_025w")
     bundle = cache / (Path(rel).stem + ".b2z")
     if not bundle.is_file():
         cache.mkdir(parents=True, exist_ok=True)
@@ -1410,14 +1407,19 @@ def cut_end_skirt() -> dict:
     return values
 
 
-SYNTH_DIR = WORK / "synthetic"
+def _synth_dir() -> Path:
+    """
+    Return the cache folder of the synthetic suite's inputs and bundles.
+    合成スイートの入力とバンドルのキャッシュフォルダを返す。
+    """
+    return cache_dir("synthetic")
 
 
 def _synthetic():
     import synthetic_suite as ss
-    entries = ss.build(SYNTH_DIR)
+    entries = ss.build(_synth_dir())
     for e in entries:
-        ss.analyze(e, SYNTH_DIR)
+        ss.analyze(e, _synth_dir())
     return ss, entries
 
 
@@ -1453,7 +1455,7 @@ def synthetic_centerline() -> dict:
         lengths: dict = {}
         for e in af:
             trees = ss.truth_trees(e)
-            _img, fibers = ss.fibers_of(str(SYNTH_DIR / f"{e['tag']}.b2z"), method)
+            _img, fibers = ss.fibers_of(str(_synth_dir() / f"{e['tag']}.b2z"), method)
             for f in fibers:
                 sx, sy = ss.track(f, line=False)
                 ci = ss.nearest_truth(trees, sx, sy)
@@ -1484,7 +1486,7 @@ def synthetic_centerline() -> dict:
     by_group, lengths = {}, {}
     for e in af:
         trees = ss.truth_trees(e)
-        _img, fibers = ss.fibers_of(str(SYNTH_DIR / f"{e['tag']}.b2z"))
+        _img, fibers = ss.fibers_of(str(_synth_dir() / f"{e['tag']}.b2z"))
         for f in fibers:
             sx, sy = ss.track(f, line=False)
             ci = ss.nearest_truth(trees, sx, sy)
@@ -1519,7 +1521,7 @@ def synthetic_centerline() -> dict:
         dist = []
         for e in pairs:
             trees = ss.truth_trees(e)
-            _img, fibers = ss.fibers_of(str(SYNTH_DIR / f"{e['tag']}.b2z"), method)
+            _img, fibers = ss.fibers_of(str(_synth_dir() / f"{e['tag']}.b2z"), method)
             tracks = [ss.track(f, line=False) for f in fibers]
             refs = ss.truth_refs(e, tracks)
             merged = 0
@@ -1555,7 +1557,7 @@ def synthetic_centerline() -> dict:
         rms = {}
         maxdev = {}
         for method in (cl.HALF_MAX_025W_CENTERLINE, cl.CREST_CENTERLINE, cl.QUARTER_MAX_CENTERLINE):
-            _img, fibers = ss.fibers_of(str(SYNTH_DIR / f"{e['tag']}.b2z"), method)
+            _img, fibers = ss.fibers_of(str(_synth_dir() / f"{e['tag']}.b2z"), method)
             d_all = []
             for f in fibers:
                 x, y = ss.track(f)
@@ -1607,7 +1609,7 @@ def synthetic_kinks() -> dict:
     values: dict = {}
 
     def judge(e, margin=None):
-        _img, fibers = ss.fibers_of(str(SYNTH_DIR / f"{e['tag']}.b2z"))
+        _img, fibers = ss.fibers_of(str(_synth_dir() / f"{e['tag']}.b2z"))
         tracks = [ss.track(f, line=False) for f in fibers]
         refs = ss.truth_refs(e, tracks)
         total = dict.fromkeys(ss.KEYS, 0)
@@ -1678,7 +1680,7 @@ def synthetic_kinks() -> dict:
     values["sines.tightest_radius_w_range"] = [min(tightest), max(tightest)]
     old_reported = 0
     for e in families["arcs"] + families["sines"]:
-        _img, fibers = ss.fibers_of(str(SYNTH_DIR / f"{e['tag']}.b2z"))
+        _img, fibers = ss.fibers_of(str(_synth_dir() / f"{e['tag']}.b2z"))
         for f in fibers:
             sx, sy = ss.track(f, line=False)
             old_reported += len(old.kinks_and_decomposed_from_track(sx, sy)[0])
@@ -1779,7 +1781,7 @@ def turn_maxima() -> dict:
     from lib.pipeline import ProcParams
 
     refs = krs.load_reference()
-    cache = str(WORK / "kink_reference_half_max_025w")
+    cache = str(cache_dir("kink_reference_half_max_025w"))
     scans = {name: krs.prepare_scan(name, cache, ProcParams()) for name in krs.SCANS}
 
     def score():
@@ -1825,7 +1827,7 @@ def y_branch_kink() -> dict:
     from lib.pipeline import ProcParams
 
     target = (288.0, 695.0)
-    _image, fibers = krs.prepare_scan("hplantTOC", str(WORK / "kink_reference_half_max_025w"),
+    _image, fibers = krs.prepare_scan("hplantTOC", str(cache_dir("kink_reference_half_max_025w")),
                                       ProcParams())
     old = KinkDetector(threshold_distance=3.0,
                        threshold_angle_from_decomposed_indices=math.radians(150.0))
@@ -1861,7 +1863,7 @@ def test_suite_bend() -> dict:
     import numpy as np
     from lib.pipeline import ProcParams, process_file
 
-    out = WORK / "test_suite_bend"
+    out = cache_dir("test_suite_bend")
     out.mkdir(parents=True, exist_ok=True)
     txt = conftest.write_synthetic_fiber_txt(str(out))
     image = process_file(txt, ProcParams(bg_method="tophat", kinkangle_deg=155.0),
@@ -1930,7 +1932,7 @@ def border_drift() -> dict:
         try:
             ends, mids = [], []
             for name in krs.SCANS:
-                cache = str(WORK / f"border_drift_{mode}")
+                cache = str(cache_dir(f"border_drift_{mode}"))
                 image, fibers = krs.prepare_scan(name, cache, ProcParams())
                 e, m = offsets(image, fibers)
                 ends += e
@@ -2041,7 +2043,7 @@ def track_ends() -> dict:
     from lib.pipeline import ProcParams
 
     values: dict = {}
-    cache = str(WORK / "kink_reference_half_max_025w")
+    cache = str(cache_dir("kink_reference_half_max_025w"))
     for name in krs.SCANS:
         image, fibers = krs.prepare_scan(name, cache, ProcParams())
         dist = distance_transform_edt(~(np.asarray(image.bp) > 0))
@@ -2192,7 +2194,7 @@ def frame_margin() -> dict:
 
     values: dict = {}
     added = set()
-    cache = str(WORK / "kink_reference_half_max_025w")
+    cache = str(cache_dir("kink_reference_half_max_025w"))
     for name in krs.SCANS:
         image, fibers = krs.prepare_scan(name, cache, ProcParams())
         height, width = measure._image_frame_shape(image)
@@ -2308,7 +2310,7 @@ def section_width_limit() -> dict:
     namespace = dict(vars(cl))
     exec(compile(source.replace(full, per_half), "<per-half limit>", "exec"), namespace)
 
-    cache = str(WORK / "kink_reference_half_max_025w")
+    cache = str(cache_dir("kink_reference_half_max_025w"))
     traced = {}
     original = cl._refine
     for mode in ("full", "half"):
@@ -2415,6 +2417,8 @@ def main(argv=None) -> int:
     if unknown:
         parser.error(f"unknown experiment(s): {unknown}")
     WORK.mkdir(parents=True, exist_ok=True)
+    print(f"[measure_docs] bundle cache: {_cache_base().relative_to(ROOT).as_posix()}",
+          flush=True)
     record(names)
     return 0
 

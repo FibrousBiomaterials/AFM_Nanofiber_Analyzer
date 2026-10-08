@@ -1243,6 +1243,18 @@ The two languages must cite the same `m:`, `c:` and `x:` sources.
   check fails until the experiment is run again with
   `.venv\Scripts\python.exe scripts\measure_docs.py --only <name>` and the
   documents are updated to the new values.
+- **Cached bundles are keyed by the code that made them.** The experiments
+  reuse analyzed bundles, and a bundle made by older code still yields numbers
+  while the recording names the current code — bundles cached on 2026-09-30
+  were still being measured on 2026-10-07, after background calibration had
+  changed every calibrated pixel. `scripts/bundle_cache.py` therefore names
+  each cache folder by a fingerprint of the analysis modules, the code that
+  writes synthetic inputs, and the numerical libraries' versions, and removes
+  the folders of other fingerprints. Any new cache an experiment or scoring
+  script keeps goes through `measure_docs.cache_dir` or
+  `bundle_cache.cache_root`, never a fixed path under `.tmp/`.
+  `tests/test_bundle_cache.py` checks that the fingerprint follows a change to
+  the computation or a library and ignores a comment.
 - **`n:` is not an escape hatch.** Use it only for numbers that are not results.
   A result you cannot yet measure is not written at all (Editing Rules).
 - **The pending list only shrinks.** `tests/doc_numbers_pending.json` lists the
@@ -1313,7 +1325,7 @@ requires a changelog entry under §8.11 — whenever a measured value changes.
 | Unclear comments | Flag with `TODO(review)`; never guess |
 | Unverified statements in documentation | Never write one: verify by reading the code or running the computation, otherwise keep the existing text with `TODO(review)` or ask; report each statement as measured / read in code / unverified |
 | Past methods and change history | Comments, docstrings and explanatory docs describe the current code only; history goes to `CHANGELOG.md` and Git; compatibility behaviour still executed is described as current behaviour; results on particular data go to `docs/validation*.md` |
-| Numbers in the algorithm and evaluation docs | Results on particular data go in `docs/validation*.md`, never in `docs/algorithms*.md`. Every number carries a source marker (`m:` measured by `scripts/measure_docs.py`, `c:` code constant, `x:` arithmetic, `n:` not a result); checked by `scripts/check_doc_numbers.py` in pre-commit and `tests/test_doc_numbers.py`; a recording goes stale when its code changes; the pending list only shrinks (§8.15) |
+| Numbers in the algorithm and evaluation docs | Results on particular data go in `docs/validation*.md`, never in `docs/algorithms*.md`. Every number carries a source marker (`m:` measured by `scripts/measure_docs.py`, `c:` code constant, `x:` arithmetic, `n:` not a result); checked by `scripts/check_doc_numbers.py` in pre-commit and `tests/test_doc_numbers.py`; a recording goes stale when its code changes; bundles the experiments reuse are cached under a fingerprint of the code and libraries that made them (`scripts/bundle_cache.py`); the pending list only shrinks (§8.15) |
 | Comment incomplete vs. code (code does more than comment says) | Extend the comment under §4.2; preserve original wording's intent |
 | Comment contradicts code (says different thing than code does) | Flag with `TODO(review)` under §4.4; do not rewrite to match code unless user explicitly says the code is authoritative |
 | `PLUGIN_INFO` | Plain English string literals; never wrap with `_()`; do not add `\n` to `description` only for launcher wrapping |

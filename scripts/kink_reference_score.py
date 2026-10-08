@@ -33,10 +33,13 @@ Usage
 ``.venv\\Scripts\\python.exe scripts/kink_reference_score.py --gallery k3 --out .tmp/kink_ref``
 
 The bundles are produced once with the default `ProcParams` and cached under
-``--cache`` (default ``.tmp/kink_reference_cache``); every variant re-judges
-the same traced lines, so a difference between variants is the rule alone.
+``--cache`` (default ``.tmp/kink_reference_cache``), in a subfolder named by
+the fingerprint of the code and libraries that made them (`bundle_cache`);
+every variant re-judges the same traced lines, so a difference between
+variants is the rule alone.
 バンドルは既定の `ProcParams` で一度だけ作り ``--cache``（既定
-``.tmp/kink_reference_cache``）に置く。すべての変種が同じ追跡済みの線を判定し直す
+``.tmp/kink_reference_cache``）の下の、それを作ったコードとライブラリの指紋の名前の
+サブフォルダに置く（`bundle_cache`）。すべての変種が同じ追跡済みの線を判定し直す
 ため、変種間の差は規則だけによる。
 """
 
@@ -347,6 +350,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         else:
             variants[spec] = DEFAULT_VARIANTS[spec]
 
+    # Bundles are kept under the fingerprint of the code and libraries that
+    # made them, so a change to the analysis is scored on fresh bundles.
+    # バンドルはそれを作ったコードとライブラリの指紋の下に置き、解析が変われば
+    # 新しいバンドルで採点する。
+    import bundle_cache
+    cache = str(bundle_cache.cache_root(args.cache))
+
     refs = load_reference()
     params = ProcParams()
     totals: Dict[str, dict] = {v: dict(ref=0, found=0, merged=0, displaced=0, missed=0,
@@ -355,7 +365,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     per_scan: Dict[str, Dict[str, dict]] = {}
     scans = {}
     for name in SCANS:
-        image, fibers = prepare_scan(name, args.cache, params)
+        image, fibers = prepare_scan(name, cache, params)
         scans[name] = (image, fibers)
         per_scan[name] = {}
         for vname, kwargs in variants.items():
