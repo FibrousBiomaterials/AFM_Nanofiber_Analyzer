@@ -1845,12 +1845,13 @@ def ridge_hysteresis() -> dict:
     import kink_reference_score as krs
     from scipy.ndimage import distance_transform_edt
     from skimage.filters import apply_hysteresis_threshold, frangi, threshold_otsu, threshold_triangle
+    from lib.bundle_schema import pixel_size_nm
     from lib.pipeline import ProcParams
 
     base = ProcParams()
     data = _default_bundle(krs.SCANS["tunicate"])
     cal = np.asarray(data["calibrated"], float)
-    nm_per_px = 5.0 * 1000.0 / cal.shape[1]
+    nm_per_px = pixel_size_nm(5.0, cal.shape[1])
     lo = max(0.6, base.ridge_min_width_nm / nm_per_px)
     hi = max(lo * 1.5, base.ridge_max_width_nm / nm_per_px)
     response = np.nan_to_num(frangi(cal, sigmas=np.geomspace(lo, hi, 5), black_ridges=False))
@@ -2179,7 +2180,7 @@ def ridge_recovery_bundled() -> dict:
     from scipy.ndimage import binary_dilation
     from skimage.filters import apply_hysteresis_threshold, frangi, threshold_otsu, threshold_triangle
     from skimage.morphology import skeletonize
-    from lib.bundle_schema import scan_size_um_from_meta
+    from lib.bundle_schema import pixel_size_nm, scan_size_um_from_meta
     from lib import blosc2_io
     from lib.pipeline import ProcParams
 
@@ -2198,7 +2199,7 @@ def ridge_recovery_bundled() -> dict:
         if not size:
             continue
         sx = float(size[0])
-        nm_per_px = sx * 1000.0 / cal.shape[1]
+        nm_per_px = pixel_size_nm(sx, cal.shape[1])
         # The thresholded mask the recovery runs against: re-run segmentation with
         # recovery off up to the low-height filter (the default bundle's binarized
         # image is exactly that mask closed).

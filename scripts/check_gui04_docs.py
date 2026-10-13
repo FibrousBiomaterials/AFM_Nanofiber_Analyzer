@@ -97,6 +97,7 @@ MANIFEST = "tests/gui04_doc_manifest.json"
 # 監視外のシンボルの引用は検査が拒否するため、引用したコードは常に守られる。
 WATCHED_SYMBOLS: Tuple[str, ...] = (
     "lib/measure.py::measure_bundle",
+    "lib/bundle_schema.py::pixel_size_nm",
     "lib/fiber_tracking_image.py::_build_fiber",
     "lib/fiber.py::Fiber.length",
     "lib/centerline.py::_WIDTH_SEARCH_PX",

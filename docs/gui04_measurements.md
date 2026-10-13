@@ -70,7 +70,15 @@ size is the one recorded in the bundle (`spatial_calibration`). GUI04 passes the
 X and Y scan sizes from its scale fields instead, and a blank Y reuses X. The
 analysis arrays are one pixel smaller than the raw scan on each axis (see
 [Analysis algorithms](algorithms.md), *Conventions*), so the divisor is the
-array size plus one:
+array size plus one. That division is `bundle_schema.pixel_size_nm`, which the
+analysis pipeline also uses when it records the scan size of an analysis of
+part of the scan's rows, so such a crop and the whole image measure with the
+same pixel size:
+
+```python
+# source: lib/bundle_schema.py::pixel_size_nm
+return float(scan_size_um) * 1000.0 / (int(stored_pixels) + 1)
+```
 
 ```python
 # source: lib/measure.py::measure_bundle
@@ -78,8 +86,8 @@ data, meta = _load_validated_arrays(
     bundle_path, TRACKING_BUNDLE_KEYS, optional=_TRACKING_OPTIONAL_KEYS,
 )
 height_px, width_px = data["calibrated"].shape
-x_size_per_pixel = scale_um * 1000.0 / (width_px + 1)
-y_size_per_pixel = scale_y_um * 1000.0 / (height_px + 1)
+x_size_per_pixel = pixel_size_nm(scale_um, width_px)
+y_size_per_pixel = pixel_size_nm(scale_y_um, height_px)
 ...
 fragments = image.fibers_in_image_parallel(
     max_workers=max_workers,

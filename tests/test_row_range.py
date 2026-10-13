@@ -22,7 +22,8 @@ import numpy as np
 import pytest
 
 from lib.blosc2_io import load_bundle, load_bundle_meta
-from lib.bundle_schema import SOURCE_REGION_KEY, SPATIAL_CALIBRATION_KEY
+from lib.bundle_schema import SOURCE_REGION_KEY
+from lib.measure import measure_bundle
 from lib.pipeline import ProcParams, process_file, row_range_suffix
 from tests.conftest import write_synthetic_fiber_txt
 
@@ -42,19 +43,20 @@ def scan(tmp_path):
     return str(path), str(out)
 
 
-def _pixel_size_um(bundle_path):
+def _pixel_size_nm(bundle_path):
     """
-    Return the (x, y) pixel size a measurement would derive from a bundle.
+    Return the (x, y) pixel size a measurement derives from a bundle.
     バンドルから計測時に導かれる (x, y) 画素サイズを返す。
+
+    Read from `lib.measure.measure_bundle` itself rather than recomputed here:
+    a test that writes out its own division checks the pipeline against the
+    test's assumption about the convention, not against what measurement does.
+    ここで計算し直さず `lib.measure.measure_bundle` そのものから読む。テストが
+    自前の割り算を書くと、計測が実際に行うことではなく、約束事についてのテスト
+    自身の想定とパイプラインを照合することになるためである。
     """
-    arrays = load_bundle(bundle_path, keys=["calibrated"])
-    meta = load_bundle_meta(bundle_path)
-    cal = arrays["calibrated"]
-    cal_um = meta[SPATIAL_CALIBRATION_KEY]
-    return (
-        cal_um["scan_size_x_um"] / cal.shape[1],
-        cal_um["scan_size_y_um"] / cal.shape[0],
-    )
+    image = measure_bundle(bundle_path).image
+    return image.size_per_pixel, image.y_size_per_pixel
 
 
 def test_suffix_formatting():
@@ -97,15 +99,25 @@ def test_pixel_size_is_unchanged_by_cropping(scan):
     """
     path, out = scan
     whole = process_file(path, FAST_PARAMS, output_dir=out, scan_size_um=(2.0, 2.0))
-    part = process_file(path, FAST_PARAMS, output_dir=out, scan_size_um=(2.0, 2.0),
-                        row_range=(40, 130))
+    wx, wy = _pixel_size_nm(whole.bundle_path)
+    # The scan size spans the input pixels, so the synthetic 2 um scan of 192
+    # lines has a 2000 / 192 nm pixel on both axes.
+    # 走査範囲は入力画素にまたがるため、192 行の合成 2 um 走査の画素は両軸とも
+    # 2000 / 192 nm である。
+    assert wx == pytest.approx(2000.0 / 192, rel=1e-9)
+    assert wy == pytest.approx(2000.0 / 192, rel=1e-9)
 
-    wx, wy = _pixel_size_um(whole.bundle_path)
-    px, py = _pixel_size_um(part.bundle_path)
-    assert px == pytest.approx(wx, rel=1e-9)
-    assert py == pytest.approx(wy, rel=1e-9)
-    # And the crop's own grid stays square, as the scan's was.
-    assert px == pytest.approx(py, rel=1e-9)
+    # A short crop is included because the error of a wrong convention grows
+    # as the crop shrinks.
+    # 約束事を誤ったときの誤差は切り出しが短いほど大きくなるため、短い切り出しも含める。
+    for row_range in ((40, 130), (0, 32)):
+        part = process_file(path, FAST_PARAMS, output_dir=out,
+                            scan_size_um=(2.0, 2.0), row_range=row_range)
+        px, py = _pixel_size_nm(part.bundle_path)
+        assert px == pytest.approx(wx, rel=1e-9)
+        assert py == pytest.approx(wy, rel=1e-9)
+        # And the crop's own grid stays square, as the scan's was.
+        assert px == pytest.approx(py, rel=1e-9)
 
 
 def test_source_region_is_recorded_only_for_a_crop(scan):
@@ -167,8 +179,8 @@ def test_full_range_matches_the_uncropped_run(scan):
     b = load_bundle(explicit.bundle_path, keys=["calibrated"])["calibrated"]
     assert a.shape == b.shape
     assert np.array_equal(a, b)
-    assert _pixel_size_um(whole.bundle_path) == pytest.approx(
-        _pixel_size_um(explicit.bundle_path), rel=1e-9
+    assert _pixel_size_nm(whole.bundle_path) == pytest.approx(
+        _pixel_size_nm(explicit.bundle_path), rel=1e-9
     )
 
 

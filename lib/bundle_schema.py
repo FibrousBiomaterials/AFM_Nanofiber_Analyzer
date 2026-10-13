@@ -668,6 +668,54 @@ def scan_size_um_from_meta(
     return x_um, y_um
 
 
+def pixel_size_nm(scan_size_um: float, stored_pixels: int) -> float:
+    """
+    Return the pixel size along one axis of a bundle's stored arrays, in nm.
+    バンドルの保存配列の 1 軸方向の画素サイズ (nm) を返す。
+
+    Parameters
+    ----------
+    scan_size_um
+        Scan size recorded for that axis (`scan_size_um_from_meta`), in
+        micrometers.
+        その軸について記録された走査範囲 (µm)（`scan_size_um_from_meta`）。
+    stored_pixels
+        Number of pixels of the stored arrays along that axis (columns for X,
+        rows for Y).
+        その軸方向の保存配列の画素数（X なら列数、Y なら行数）。
+
+    Returns
+    -------
+    float
+        Physical size of one pixel along that axis, in nanometers.
+        その軸方向の 1 画素の物理サイズ (nm)。
+
+    Notes
+    -----
+    The recorded scan size spans the analyzed image before the background
+    calibrator's one-pixel trim, so the number of pixels it spans is the
+    stored count plus one. Every caller that converts between the recorded
+    scan size and a pixel size goes through this function, so the convention
+    exists in one place: when it was written out at each call site, code
+    added later copied the stored count without the trim and measured lengths
+    differently from `lib.measure`.
+    記録された走査範囲は、背景補正器が 1 画素削る前の解析画像の寸法であるため、
+    それがまたがる画素数は保存画素数に 1 を足したものになる。記録された走査範囲と
+    画素サイズを相互に換算する呼び出し側はすべてこの関数を通し、この約束事を
+    1 か所に置く。呼び出し側ごとに書き下していたときは、後から加えたコードが
+    トリミングを考えずに保存画素数で割り、`lib.measure` と異なる長さを測った。
+
+    Examples
+    --------
+    A 2 um scan of 256 lines is stored as 255 rows:
+
+    >>> from lib.bundle_schema import pixel_size_nm
+    >>> pixel_size_nm(2.0, 255)
+    7.8125
+    """
+    return float(scan_size_um) * 1000.0 / (int(stored_pixels) + 1)
+
+
 def kink_params_from_meta(
     meta: Optional[Dict],
 ) -> Tuple[Optional[float], Optional[float]]:

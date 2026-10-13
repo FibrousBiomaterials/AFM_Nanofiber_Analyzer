@@ -61,6 +61,7 @@ from .bundle_schema import (
     TRACKING_BUNDLE_KEYS,
     centerline_from_meta,
     kink_params_from_meta,
+    pixel_size_nm,
     scan_size_um_from_meta,
     validate_bundle,
 )
@@ -2041,13 +2042,15 @@ def measure_bundle(
     # analysis array by one row and one column (``original[1:, 1:]``), so the
     # raw pixel count is the bundle shape plus one. Dividing by the cropped
     # shape would inflate every length by width/(width-1) (~0.2% at 512 px).
+    # `bundle_schema.pixel_size_nm` holds that convention for every caller.
     # 軸別ピクセルサイズ：X は列（幅）、Y は行（高さ）に対応し、バンドルの
     # 座標規約（x=列, y=行）に一致する。走査範囲は生スキャン全体の寸法だが、
     # BGCalibrator は解析配列を 1 行・1 列クロップする（``original[1:, 1:]``）
     # ため、生スキャンの画素数はバンドル形状 +1 になる。クロップ後の形状で
     # 割ると全長さが width/(width-1) 倍（512 px で約 +0.2%）に膨らむ。
-    x_size_per_pixel = scale_um * 1000.0 / (width_px + 1)
-    y_size_per_pixel = scale_y_um * 1000.0 / (height_px + 1)
+    # この約束事は `bundle_schema.pixel_size_nm` が全呼び出し側のために持つ。
+    x_size_per_pixel = pixel_size_nm(scale_um, width_px)
+    y_size_per_pixel = pixel_size_nm(scale_y_um, height_px)
 
     name = os.path.splitext(os.path.basename(bundle_path))[0]
     image = _tracking_image_from_arrays(

@@ -94,6 +94,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Analyzing part of a scan's rows (GUI01's scan-line range, `cli.py process
+  --rows`) no longer records a Y scan size that makes the pixels shorter in Y
+  than in X. The scan size was scaled for a measurement that divides by the
+  stored row count, while `lib.measure` divides by that count plus one, so a
+  crop's Y pixel size came out low by the factor N(k-1)/((N-1)k) for k kept rows
+  out of N: on a 256-line scan, 0.7% for a 90-line crop and 2.7% for a 32-line
+  one. The pixel size is now computed in one place,
+  `lib.bundle_schema.pixel_size_nm`, which the pipeline and `lib.measure` both
+  use. **Lengths, curvatures and kink densities of fibers in a cropped analysis
+  change from this version**, and a cropped analysis now measures with the same
+  pixel size as the whole image; bundles written by a cropped analysis must be
+  re-analyzed to receive the corrected scan size. Ridge recovery
+  (`ridge_recovery`) converted its nanometre settings with a pixel size divided
+  by the stored column count, 1/(W-1) too large for a W-pixel-wide scan (0.4%
+  at 256 px, 0.1% at 1024 px); **masks with ridge recovery switched on can change
+  from this version**. Whole-image analyses with the default settings are
+  unchanged.
 - The fiber mask of `trendfill` and `spline1d` now scans the last row of the X
   difference map and the last column of the Y difference map, which
   `BGCalibrator._extract_fiber` left unscanned. A fiber crossing the last row or

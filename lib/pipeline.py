@@ -53,7 +53,7 @@ from .bundle_schema import (
     APPARENT_WIDTH_KEY, CENTERLINE_KEY,
     BUNDLE_FORMAT_VERSION, OPTIONAL_BUNDLE_KEYS, REQUIRED_BUNDLE_KEYS,  # noqa: F401
     SOURCE_REGION_KEY, SPATIAL_CALIBRATION_KEY, make_spatial_calibration,
-    validate_bundle,
+    pixel_size_nm, validate_bundle,
 )
 from .centerline import CENTERLINE_METHODS, DEFAULT_CENTERLINE_METHOD
 from .kink_detector import KinkDetector
@@ -1125,7 +1125,7 @@ def process_file(
     if resolved_scan_size is not None:
         width_px = np.asarray(image.calibrated_image).shape[1]
         if width_px > 0:
-            nm_per_px = resolved_scan_size[0] * 1000.0 / width_px
+            nm_per_px = pixel_size_nm(resolved_scan_size[0], width_px)
     stages.segmenter(image, nm_per_px=nm_per_px)
 
     report("skeletonize")
@@ -1137,28 +1137,25 @@ def process_file(
     report("save")
     # Scale the recorded Y extent to the cropped image. Both sources above
     # describe the *whole* scan, while the stored arrays cover the kept lines,
-    # and `lib.measure` derives the pixel size by dividing the recorded scan
-    # size by the stored shape.
+    # and `lib.measure` derives the pixel size from the recorded scan size and
+    # the stored shape through `bundle_schema.pixel_size_nm`.
     #
-    # The factor is stored-rows over what the stored rows would have been for
-    # the whole image, not kept-input-rows over total-input-rows. The stages
-    # drop a row (the difference-based background stage crops by [1:, 1:]), so
-    # the ratio of *input* rows would leave the Y pixel size larger than X by
-    # 1/(kept - 1) — 0.4% on a 256-line crop but 3% on a 32-line one — and a
-    # fiber would then measure differently depending on whether the scan was
-    # cropped. Deriving the trim from this run keeps the whole-image path
-    # bit-identical (the factor is exactly 1) without assuming its size.
+    # The Y extent recorded for the crop is the one for which that function
+    # gives the crop's stored rows the pixel size the whole image's stored
+    # rows would have had. Deriving it through the function, rather than
+    # writing out a ratio of row counts here, keeps the crop in step with the
+    # convention `lib.measure` applies; the whole-image path is untouched.
+    # Rows dropped by the stages are taken from this run, not assumed.
     # 記録する Y 方向の実寸を切り出し後の画像へ合わせる。上記のどちらの取得元も
     # 走査 *全体* を表す一方、保存される配列は残した走査線分しかなく、
-    # `lib.measure` は記録された走査範囲を保存形状で割って画素サイズを求める。
+    # `lib.measure` は記録された走査範囲と保存形状から
+    # `bundle_schema.pixel_size_nm` を通して画素サイズを求める。
     #
-    # 係数には「入力の残存行数 / 入力の全行数」ではなく「保存行数 / 画像全体
-    # だった場合の保存行数」を使う。各段は 1 行を落とすため（差分ベースの背景段が
-    # [1:, 1:] で切り出す）、入力行数の比では Y の画素サイズが X より
-    # 1/(残存行数 - 1) だけ大きくなる。256 行の切り出しで 0.4%、32 行なら 3% で
-    # あり、切り出しの有無で同じ繊維の計測長が変わってしまう。落ちた行数をこの
-    # 実行から求めることで、全体解析の経路は係数がちょうど 1 となりビット単位で
-    # 不変に保たれ、しかも落ちる行数を決め打ちせずに済む。
+    # 切り出しに記録する Y 方向の実寸は、その関数が切り出しの保存行数に対して、
+    # 画像全体の保存行数が持つはずだった画素サイズを返すような値とする。ここで
+    # 行数の比を書き下さず関数を通して求めることで、切り出しは `lib.measure` が
+    # 適用する約束事と常にそろう。全体解析の経路には手を加えない。各段が落とす
+    # 行数は決め打ちせず、この実行から求める。
     if row_range is not None and resolved_scan_size is not None:
         kept_rows = int(row_range[1]) - int(row_range[0])
         stored_rows = int(np.asarray(image.calibrated_image).shape[0])
@@ -1166,7 +1163,9 @@ def process_file(
         if full_stored_rows > 0:
             resolved_scan_size = (
                 resolved_scan_size[0],
-                resolved_scan_size[1] * stored_rows / full_stored_rows,
+                resolved_scan_size[1]
+                * pixel_size_nm(1.0, full_stored_rows)
+                / pixel_size_nm(1.0, stored_rows),
             )
 
     # `name` already carries the scan-line-range suffix; add it to the
