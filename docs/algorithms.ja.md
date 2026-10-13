@@ -195,14 +195,28 @@ X 方向だけにかけるのは、走査ライン（行）ごとの高さの水
 別々に当てはめる」理由を参照）。行の中だけでならせば、そのずれは行ごとの背景の
 水準としてそのまま残り、背景を引くときに一緒に消える。行と行の間までならすと、
 隣の行の水準が混ざってずれが背景に残らず、補正後の画像に横縞として出てしまう
-（両方向にならした場合との比較は [個別データでの評価](validation.ja.md) §1.7）。
+（両方向にならした場合との比較は [個別データでの評価](validation.ja.md) §1.6）。
 
 **最後の中央値フィルタ（任意）**
 
 どの方式でも、背景を引いた後の画像に
 3<!--n:literal in the quoted code-->×3<!--n:literal in the quoted code--> の中央値フィルタをかけることができる。`apply_median`（既定は無効）で有効に
-する。有効にすると、点状に残ったノイズは減るが、そのぶんいちばん鋭い高さの
-特徴が少し鈍る。
+する。有効にすると、点状に残ったノイズは減るが、いちばん鋭い高さの特徴も鈍る。
+行または列に沿って走る尾根では、頂点を中心とする 3<!--n:literal in the quoted code-->×3<!--n:literal in the quoted code--> の窓の中央値は 1<!--n:count--> 画素脇の
+高さになる（9<!--n:count--> 個の標本のうち頂点上にあるのは 3<!--n:count--> 個だけである）。そのため細い繊維の
+頂点は低く出て、その量は繊維の向きによって変わる。そこで、フィルタをかけた画像は
+二値化（§2）と細線化（§3）が読む `detection_image` だけにし、中心線とすべての
+高さを読む、保存用の `calibrated_image` には決してかけない。どの方式も最後に
+`BGCalibrator._store` を呼ぶ。
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._store
+image.calibrated_image = calibrated_image
+image.detection_image = (
+    cv2.medianBlur(np.asarray(calibrated_image, dtype=np.float32), ksize=3)
+    if self.apply_median else calibrated_image
+)
+```
 
 **トレンドの当てはめ**
 
@@ -271,9 +285,7 @@ self._detect_fiber_mask(image.original_image)
 self.bg_only, self.bg_sm = self._bg_generate(image.original_image, self.tri_difx_fill, self.tri_dify_fill)
 ...
 calibrated_image = self._bg_calibrate(image.original_image, self.bg_sm)
-if self.apply_median:
-    calibrated_image = cv2.medianBlur(calibrated_image.astype(np.float32), ksize=3)
-image.calibrated_image = calibrated_image
+self._store(image, calibrated_image)
 ```
 
 各行と、この後の手順 1<!--n:label-->〜3<!--n:label--> などとの対応は次のとおりである。
@@ -284,7 +296,7 @@ image.calibrated_image = calibrated_image
 | `_bg_generate(...)` | 手順 2<!--n:label-->（マスクの掃除と膨張）と、手順 3<!--n:label--> のうち背景を作るところ（トレンドを引く・穴埋め・平滑化・トレンドを戻す） |
 | `...`（省略した行） | 他の方式の途中結果を消しておく（理由は §1.4 の最後） |
 | `_bg_calibrate(...)` | 手順 3<!--n:label--> の最後（元の画像から背景を引く） |
-| `if self.apply_median:` 以下 | §1.2 の「最後の中央値フィルタ（任意）」 |
+| `_store(...)` | §1.2 の「最後の中央値フィルタ（任意）」 |
 
 #### 手順 1 — 高さの差の分布から繊維の画素を見つける
 
@@ -330,9 +342,30 @@ AFM は、探針を 1<!--n:count--> 本の走査ラインに沿って往復さ�
 1.349<!--n:literal in the quoted code--> 倍になるので、こう割ると標準偏差の目安になる。Y の当てはめは、同じコードを `dif_y`
 に対して実行する。
 
+ヒストグラムは、高さの差の全範囲にはわたらせない。全範囲にすると区間の幅がノイズ
+ではなく画像中の最大の段差（粒子の縁やフィードバックの乱れ）で決まり、山が
+わずかな区間に収まってしまう。そうなると当てはめた幅と、そこから取るすべての
+しきい値が、最も極端な画素の組に左右される。そこで `BGCalibrator._noise_range` は、
+中央値 ± 8<!--c:lib/bg_calibrator.py::_NOISE_RANGE_SIGMAS--> 個分の頑健な標準偏差（中央絶対偏差の 1.4826<!--n:literal in the quoted code--> 倍。段差にも繊維にも
+動かされない）の範囲を取る。これで 150<!--c:lib/bg_calibrator.py::BGCalibrator._bg_fit(bin_n)--> 区間のそれぞれの幅は標準偏差の約 0.11<!--x:2 * 8 / 150--> 倍になり、
+山全体が範囲に収まる。範囲外の差は当てはめから外れるだけで、次の手順は引き続き
+すべての画素を分類する。
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._noise_range
+values = np.ravel(dif)
+center = float(np.median(values))
+scale = 1.4826 * float(np.median(np.abs(values - center)))
+if not np.isfinite(scale) or scale <= 0.0:
+    return None
+half = _NOISE_RANGE_SIGMAS * scale
+return center - half, center + half
+```
+
 ```python
 # source: lib/bg_calibrator.py::BGCalibrator._bg_fit
-histx = np.histogram(np.ravel(dif_x), bins=bin_n)
+histx = np.histogram(np.ravel(dif_x), bins=bin_n,
+                     range=BGCalibrator._noise_range(dif_x))
 ...
 h_arrayx = (histx[1][1:] + histx[1][:-1]) / 2
 ...
@@ -654,18 +687,18 @@ calibrated_image -= np.median(calibrated_image)
 平滑化は X 方向（行に沿った方向）にしかかからない。そのため `'y'` を選ぶと、列ごとに
 保った高さの水準は、この平滑化で、横に `savgol_window` 画素の範囲にある列どうしで
 ならされる。テスト入力では、`'y'` は横縞を消さず、かえって画像全体に横帯を作った
-（[個別データでの評価](validation.ja.md) §1.6）。横縞のある入力を 90<!--n:definition--> 度回して縦縞にした画像でも、
-`'y'` は走査線のずれを消さなかった（同 §1.6）。
+（[個別データでの評価](validation.ja.md) §1.5）。横縞のある入力を 90<!--n:definition--> 度回して縦縞にした画像でも、
+`'y'` は走査線のずれを消さなかった（同 §1.5）。
 
 `trendfill` と同じく、穴を埋める前に、背景の画素だけに当てはめたトレンドを画像
 から引いておく。穴埋めが試料の傾きやたわみを再現しなくて済むようにするためで
 ある。ただし順番が `trendfill` と違い、トレンドを**先に**足し戻してから
 Savitzky–Golay フィルタをかける。この順番の違いに、結果を左右する役割は無い。
 平滑化は線形なので、2<!--n:count--> つの順番の違いは、トレンドそのものとそれをならしたものの差
-だけで、テスト入力では二値化のしきい値よりずっと小さかった（[個別データでの評価](validation.ja.md) §1.8）。
+だけで、テスト入力では二値化のしきい値よりずっと小さかった（[個別データでの評価](validation.ja.md) §1.7）。
 
 既定の向きは `'x'` である（2<!--n:count--> つの向きをテスト入力で比べた結果は、
-[個別データでの評価](validation.ja.md) §1.6 にある）。ラインの中の、繊維で隠れていない値（有効サンプル）が
+[個別データでの評価](validation.ja.md) §1.5 にある）。ラインの中の、繊維で隠れていない値（有効サンプル）が
 `spline1d_degree` + 1<!--n:literal in the quoted code--> 個より少ないとき、または次数が 2<!--n:literal in the quoted code--> より小さいときは、
 スプラインの代わりに直線で埋める。
 
@@ -779,12 +812,16 @@ filled[last + 1:] = np.mean(line[valid_pos[-k:]])
 | 6<!--n:label--> | 見落とした繊維を拾い直す（任意） | `_recover_missed_ridges` | §2.6 |
 | 7<!--n:label--> | 小さな隙間を埋める | `skimage.morphology.closing` | §2.7 |
 
-`Segmenter.__call__` は、これらを次の順につないでいる。
+`Segmenter.__call__` は、これらを次の順につないでいる。読む高さはすべて
+`detection_image`（任意の中央値フィルタをかけた後の補正済み高さ、§1.2）から取る。
 
 ```python
 # source: lib/segmenter.py::Segmenter.__call__
+heights = getattr(image, "detection_image", None)
+if heights is None:
+    heights = image.calibrated_image
 self.binary_image = self._binaryzation(
-    image.calibrated_image, self.global_threshold, self.wsize_localbin
+    heights, self.global_threshold, self.wsize_localbin
 )
 self.no_small_binary_image = self._remove_small_fragments(self.binary_image, self.area_min)
 self.no_linear_binary_image = self._remove_nonlinear_objects(
@@ -797,10 +834,10 @@ if self.apply_no_connecting:
 else:
     self.no_connecting_binary_image = self.no_linear_binary_image
 self.no_low_binary_image = self.remove_low_component(
-    image.calibrated_image, self.no_connecting_binary_image
+    heights, self.no_connecting_binary_image
 )
 self.ridge_recovered_image = self._recover_missed_ridges(
-    image.calibrated_image, self.no_low_binary_image, nm_per_px,
+    heights, self.no_low_binary_image, nm_per_px, pixel_aspect,
 )
 recovered_union = self.no_low_binary_image | self.ridge_recovered_image
 no_small_binary_image4 = closing(recovered_union).astype(bool)
@@ -1032,6 +1069,15 @@ return out_binary_image
 4. 残ったかたまりのうち、細線化した画素の数に画素の大きさを掛けた長さが
    `ridge_min_length_nm`（既定 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm）以上のものだけを採る。
 
+Frangi フィルタは等方的で、1<!--n:count--> つのスケールはどの向きでも同じ画素数の幅である。その
+ため X と Y の画素サイズが違う走査では、X に沿う繊維と Y に沿う繊維とで探す実寸の幅が
+変わり、スケルトンの画素数も長さにならない。そこで画素の縦横比（Y 画素サイズ ÷ X
+画素サイズ、`bundle_schema.pixel_aspect`）が 1<!--n:definition--> でないときは、まず高さと採用済みの
+マスクを Y 方向に描き直して、X 画素と同じ大きさの正方画素に載せる
+（`segmenter._to_square_pixels`。高さは線形補間、マスクは最も近い行）。上の 4<!--n:count--> つの
+手順はすべてそこで行い、回収したマスクを走査の行へ戻してから
+（`segmenter._from_square_pixels`）、採用済みの画素を除く。正方画素では何も描き直さない。
+
 Frangi フィルタのスケールの範囲の既定は、`ridge_min_width_nm` = 3.0<!--c:lib/pipeline.py::ProcParams.ridge_min_width_nm--> nm、
 `ridge_max_width_nm` = 20.0<!--c:lib/pipeline.py::ProcParams.ridge_max_width_nm--> nm である。
 
@@ -1051,6 +1097,13 @@ Frangi フィルタのスケールの範囲の既定は、`ridge_min_width_nm` =
 # source: lib/segmenter.py::Segmenter._recover_missed_ridges
 if not self.ridge_recovery or not nm_per_px or nm_per_px <= 0:
     return empty
+rows = np.asarray(binary_image).shape[0]
+original_binary = np.asarray(binary_image, dtype=bool)
+resampled = float(pixel_aspect) != 1.0
+if resampled:
+    calibrated_image = _to_square_pixels(
+        np.asarray(calibrated_image, dtype=np.float64), pixel_aspect, 1)
+    binary_image = _to_square_pixels(original_binary, pixel_aspect, 0)
 lo = max(0.6, self.ridge_min_width_nm / nm_per_px)
 hi = max(lo * 1.5, self.ridge_max_width_nm / nm_per_px)
 sigmas = np.geomspace(lo, hi, 5)
@@ -1077,7 +1130,10 @@ keep = [
 ]
 if not keep:
     return empty
-return np.isin(labels, keep)
+recovered = np.isin(labels, keep)
+if resampled:
+    recovered = _from_square_pixels(recovered, rows, pixel_aspect) & ~original_binary
+return recovered
 ```
 
 ### 2.7 クロージングで隙間を埋める
@@ -1114,26 +1170,30 @@ return np.isin(labels, keep)
 いくつもの断片に切られてしまう**。この段階の処理の大半は、
 そうした切断を引き起こす欠陥を取り除くためのものである。
 
-`Skeletonizer.__call__` は次の処理を順に実行する。
+`Skeletonizer.__call__` は次の処理を順に実行する。二値化と同じく、高さは
+`detection_image` から読む（§1.2）。
 
 ```python
 # source: lib/skeletonizer.py::Skeletonizer.__call__
+heights = getattr(image, "detection_image", None)
+if heights is None:
+    heights = image.calibrated_image
 init_skeleton_image = thin_ignoring_image_border(image.binarized_image)
 ...
-self.set_low_bp_coor(image.calibrated_image, init_skeleton_image, self.bp_height)
+self.set_low_bp_coor(heights, init_skeleton_image, self.bp_height)
 self.get_close_eps()
 nobranch_image = self.prune_branches(init_skeleton_image)
 ...
 nobranch_skeleton_image = skeletonize(nobranch_image).astype(np.uint8)
 ...
 cleaned_skeleton_image = collapse_skeleton_loops(
-    nobranch_skeleton_image, self.max_loop_area, image.calibrated_image
+    nobranch_skeleton_image, self.max_loop_area, heights
 )
 cleaned_skeleton_image = prune_short_spurs(
     cleaned_skeleton_image, self.spur_length
 )
 cleaned_skeleton_image = prune_terminal_hooks(
-    cleaned_skeleton_image, image.calibrated_image
+    cleaned_skeleton_image, heights
 )
 cleaned_skeleton_image = prune_short_spurs(
     cleaned_skeleton_image, self.spur_length
@@ -1873,10 +1933,11 @@ for label in range(1, nLabels):
     _ytrack = _ytrack_local + y
     placed = place_centerline(
         image.calibrated_image, _xtrack, _ytrack, branch_points,
-        method=self.centerline_method,
+        method=self.centerline_method, aspect=pixel_aspect,
     )
 ...
-    judged = self.judge_line(placed.x, placed.y, placed.width_px)
+    judged = self.judge_line(
+        placed.x, placed.y, placed.width_px, pixel_aspect)
 ...
     all_kink_coordinate_x.extend(_xtrack[kink_indices])
     all_kink_coordinate_y.extend(_ytrack[kink_indices])
@@ -2048,9 +2109,28 @@ for i in range(np.sum(imgcopy)):
 
 ```python
 # source: lib/centerline.py::place_centerline
-width, measured = measure_apparent_width(height, x, y, return_measured=True)
-lx, ly, reliable, crest = _refine(height, x, y, width, branch_points, method)
+width, measured = measure_apparent_width(
+    height, x, y, return_measured=True, aspect=aspect)
+lx, ly, reliable, crest = _refine(
+    height, x, y, width, branch_points, method, aspect)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
+```
+
+**実空間の幾何。** 上の手順と §4.3 のキンク規則は、向き・法線・距離を計算する。
+X と Y の画素サイズが違う走査でこれを画素座標のまま行うと、試料ではなく画素の
+格子の角度が出てしまう。そこで、Y 画素サイズ ÷ X 画素サイズである `aspect`
+（`bundle_schema.pixel_aspect`。記録された走査範囲と保存配列の形状から求める）で
+すべての Y 座標を拡大してから幾何を計算し、高さ画像は画素の行に戻して読む。
+このとき長さは $W$ も含めて X 画素単位になり、中心線は画素座標で返す。走査範囲が
+記録されていない走査は正方画素として扱う。
+
+```python
+# source: lib/bundle_schema.py::pixel_aspect
+if not scan_size_um:
+    return 1.0
+rows, cols = int(stored_shape[0]), int(stored_shape[1])
+return (pixel_size_nm(scan_size_um[1], rows)
+        / pixel_size_nm(scan_size_um[0], cols))
 ```
 
 できあがった中心線は、スケルトンの点 1<!--n:count--> つにつき、ちょうど 1<!--n:count--> つの点を持つ。
@@ -2068,12 +2148,17 @@ return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 線が違う。バンドルを開くときにどの線の上に繊維を組み立て直すかは、この
 形式で決まる（`bundle_schema.centerline_from_meta`）。どのリリースがどの形式でバンドルを
 書くかは、`CHANGELOG.md` にある。下の表の「スケルトントラック」は、§4.1 で追跡した
-スケルトンの画素の列のことである。形式 1.2<!--n:bundle format version--> では、解析に
+スケルトンの画素の列のことである。形式 1.2<!--n:bundle format version--> 以降では、解析に
 使った中心線の種類がバンドルに記録されている（`bundle_schema.CENTERLINE_KEY`）。
+形式 1.3<!--n:bundle format version--> からは中心線とキンクを実空間の幾何で計算し、読み取り側は
+記録された走査範囲の縦横比で中心線を組み立て直す
+（`bundle_schema.pixel_aspect_from_meta`）。それより古いバンドルは、判定されたときの
+画素座標の幾何で組み立て直す。
 
 | バンドルの形式 | キンクを判定した線 | 組み立て直すときに使う線 |
 |---|---|---|
-| 1.2<!--n:bundle format version--> | 記録された種類の中心線 | 同じ中心線 |
+| 1.3<!--n:bundle format version--> | 記録された種類の中心線（実空間の幾何） | 同じ中心線（実空間の幾何） |
+| 1.2<!--n:bundle format version--> | 記録された種類の中心線（画素座標の幾何） | 同じ中心線（画素座標の幾何） |
 | 1.1<!--n:bundle format version--> | 既定の中心線（半値の中点） | 既定の中心線 |
 | 1.0<!--n:bundle format version--> | スケルトントラック | 再解析されるまでスケルトントラック |
 
@@ -2086,8 +2171,12 @@ return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
   $W$ の何倍かで決まるので、$W$ がそのまま、その繊維のキンクを判定したときの
   物差しになる。$W$ には繊維そのものの幅だけでなく、探針による広がりも含まれる。
   半値まで下がる区間を測れた断面が、トラックの点の半分に満たないとき、または測った $W$ が
-  2<!--n:literal in centerline.measure_apparent_width--> px 未満のとき（有限の値でないときも）は、代わりに
-  `centerline.FALLBACK_WIDTH_PX`（8<!--c:lib/centerline.py::FALLBACK_WIDTH_PX--> px）を使う。これは繊維の幅をもとにした値では
+  ゼロか有限の値でないときは、代わりに
+  `centerline.FALLBACK_WIDTH_PX`（8<!--c:lib/centerline.py::FALLBACK_WIDTH_PX--> px）を使う。2<!--c:lib/centerline.py::_MIN_WIDTH_PX--> px
+  （`centerline._MIN_WIDTH_PX`）より細く測られた繊維には、代わりに 2<!--c:lib/centerline.py::_MIN_WIDTH_PX--> px を与える。
+  代わりの値では自身の幅の数倍の尺度でキンクを判定してしまい、測った $W$ のままでは
+  規則の窓が画素の階段の一段ほどの大きさまで縮み、階段や画素のノイズが折れとして読まれる
+  からである。代わりの値は繊維の幅をもとにした値では
   なく、ただの画素数なので、代わりの値を使ったことを隠さずに知らせる。各繊維は
   自分の $W$（`Fiber.width_px`、`Fiber.width_measured`）を GUI04 の繊維の一覧と CSV に
   渡す。バンドルには、画像全体での $W$ の中央値と、代わりの値を使ったかたまりの数を

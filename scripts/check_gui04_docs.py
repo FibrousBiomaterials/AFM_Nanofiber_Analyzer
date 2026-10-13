@@ -104,6 +104,7 @@ WATCHED_SYMBOLS: Tuple[str, ...] = (
     "lib/centerline.py::_WIDTH_STEP_PX",
     "lib/centerline.py::_WIDTH_TANGENT_HALF",
     "lib/centerline.py::FALLBACK_WIDTH_PX",
+    "lib/centerline.py::_MIN_WIDTH_PX",
     "lib/centerline.py::_FRAME_SIGMA_WIDTHS",
     "lib/centerline.py::_CREST_REACH_WIDTHS",
     "lib/centerline.py::_HALF_MAX_REACH_WIDTHS",

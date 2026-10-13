@@ -481,3 +481,30 @@ def test_the_bundle_records_the_excess_each_kink_was_judged_by(pipeline_result):
     # あるが、形状は一致する）。
     assert np.all(arrays["ke"] >= np.radians(30.0) - 1e-9)
     assert np.all((arrays["ka"] > 0) & (arrays["ka"] < np.pi))
+
+
+def test_the_median_filter_reaches_detection_but_never_the_heights(tmp_path):
+    """
+    `apply_median` filters the image detection reads, not the stored heights.
+    `apply_median` は検出が読む画像にかかり、保存される高さにはかからないこと。
+
+    A 3x3 median flattens a ridge's crest to the height of its neighbours one
+    pixel to the side, so heights read from a filtered image come out low.
+    3x3 メディアンは尾根の頂点を 1 画素脇の隣接画素の高さまで平らにするため、
+    フィルタ後の画像から読んだ高さは低く出る。
+    """
+    from lib.afm_io import load_afm_image
+    from lib.processed_image import ProcessedImage
+
+    raw = np.asarray(load_afm_image(write_synthetic_fiber_txt(tmp_path)), dtype=float)
+    images = {}
+    for apply_median in (False, True):
+        stages = build_stages(ProcParams(bg_method="tophat", apply_median=apply_median))
+        image = ProcessedImage(original_AFM=raw.copy(), name="median")
+        stages.bg_calibrator(image)
+        images[apply_median] = image
+
+    plain, filtered = images[False], images[True]
+    assert np.array_equal(filtered.calibrated_image, plain.calibrated_image)
+    assert plain.detection_image is plain.calibrated_image
+    assert not np.array_equal(filtered.detection_image, filtered.calibrated_image)

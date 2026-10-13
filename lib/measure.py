@@ -61,6 +61,7 @@ from .bundle_schema import (
     TRACKING_BUNDLE_KEYS,
     centerline_from_meta,
     kink_params_from_meta,
+    pixel_aspect_from_meta,
     pixel_size_nm,
     scan_size_um_from_meta,
     validate_bundle,
@@ -1366,7 +1367,8 @@ def height_sample_mask(fiber: Fiber) -> np.ndarray:
     width = float(getattr(fiber, "width_px", float("nan")))
     if np.isfinite(width) and width > 0.0 and n > 1:
         ends = set(int(i) for i in np.asarray(fiber.ep_indices).tolist())
-        arc = polyline_distance(fiber.xtrack, fiber.ytrack, 1.0)
+        arc = polyline_distance(
+            fiber.xtrack, fiber.ytrack, 1.0, getattr(fiber, "pixel_aspect", 1.0))
         zone = CUT_END_EXCLUSION_WIDTHS * width
         if 0 not in ends:
             mask &= ~(arc < zone)
@@ -1669,6 +1671,12 @@ def _tracking_image_from_arrays(
     # バンドルは再解析されるまでスケルトントラックを使い続ける
     # （`bundle_schema.centerline_from_meta` 参照）。
     image.centerline = centerline_from_meta(meta)
+    # The line is placed in the geometry its stored kinks were judged in,
+    # taken from the recorded scan size rather than from `size_per_pixel`,
+    # which a caller may have entered differently at measurement time.
+    # 線は保存済みキンクを判定したのと同じ幾何で置く。計測時に呼び出し側が異なる
+    # 値を入力しうる `size_per_pixel` ではなく、記録された走査範囲から求める。
+    image.pixel_aspect = pixel_aspect_from_meta(meta, cal.shape)
     return image
 
 

@@ -45,6 +45,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   half-maximum line, so it refuses a 1.2 bundle rather than drawing kinks on
   a line they were not judged on. Bundles of format 1.1 and 1.0 read as
   before.
+- Bundle format **1.3**: the centerline, the apparent width and the kink rule
+  work in the scan's physical geometry, with Y scaled by the pixel aspect
+  (`lib.bundle_schema.pixel_aspect`) taken from the recorded scan size. On a
+  scan whose X and Y pixel sizes differ they worked in pixel geometry, so kink
+  angles and widths were those of the pixel grid rather than of the specimen:
+  a 120° corner on pixels half as tall as they are wide read as 109°. **Kink
+  angles, kink counts, widths and the centerline change from this version for
+  scans with non-square pixels**; scans with square pixels, or with no
+  recorded scan size, are unchanged. A 1.2 or older bundle was computed in
+  pixel geometry and is still read in it, so its line and its stored kinks
+  agree; re-analyze it to obtain the physical geometry.
 - GUI03 is renamed from Fiber Height Histogram to **Fiber Morphology
   Statistics**, and its file from `guis/GUI03_Fiber_Height_Histogram.py` to
   `guis/GUI03_Fiber_Morphology_Statistics.py`; a shortcut or script that runs
@@ -94,6 +105,41 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The difference histograms the `trendfill` and `spline1d` background methods
+  fit their noise Gaussian to now span the median plus and minus 8 robust
+  standard deviations of the differences (`BGCalibrator._noise_range`)
+  instead of their full range. Over the full range the bin width was set by
+  the largest step in the image rather than by the noise: on the five bundled
+  scans the fitted noise width was 0.8 to 2.0 bin widths, so the thresholds
+  taken from it depended on the most extreme pixel pair; it is now 7.5 to 10.7
+  bin widths, and the fitted width moved by -13 % to +8 %. **Background-corrected
+  heights, masks, skeletons and measurements change from this version** for
+  those two methods. On the bundled higher-plant scan a fiber the binarization
+  had missed is now detected (total contour length 3791 to 4064 nm); on the
+  other scans the changes are local and small.
+- With `apply_median` set, the 3x3 median filter now reaches only the image
+  segmentation and skeletonization read (`ProcessedImage.detection_image`);
+  the stored calibrated heights, and every height measured from them, are
+  unfiltered. On a ridge running along a row or column the filter replaced the
+  crest with the height one pixel to the side, which on synthetic ridges
+  lowered the crest by 26.5 % at a 3 px full width at half maximum, 10.5 % at
+  5 px and 1.9 % at 12 px, and by about half that on diagonal ridges.
+  **Heights change from this version for analyses with `apply_median` on**;
+  the default (off) is unchanged.
+- Ridge recovery (`ridge_recovery`) now works on scans whose X and Y pixel
+  sizes differ: the heights are resampled along Y onto square pixels before
+  its isotropic Frangi filter runs, so one scale is one physical width in
+  every direction and a skeleton's pixel count is a length. Taken as square,
+  a 150 nm synthetic ridge running along Y on pixels twice as tall as they are
+  wide was measured as 75 nm and dropped by the 100 nm length test.
+  **Masks with ridge recovery switched on change from this version for scans
+  with non-square pixels**; square pixels are unchanged.
+- A fiber whose apparent width measures below 2 px is now scaled by 2 px
+  (`centerline._MIN_WIDTH_PX`) instead of the 8 px fallback, which scaled its
+  kink rule by several times its own width; the fallback is used only when no
+  width could be measured. **Kinks of such narrow fibers change from this
+  version**; no traced component of the bundled scans is that narrow, so
+  their results are unchanged.
 - Analyzing part of a scan's rows (GUI01's scan-line range, `cli.py process
   --rows`) no longer records a Y scan size that makes the pixels shorter in Y
   than in X. The scan size was scaled for a measurement that divides by the

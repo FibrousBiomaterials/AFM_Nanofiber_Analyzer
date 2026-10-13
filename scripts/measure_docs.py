@@ -528,6 +528,11 @@ def bg_fill() -> dict:
     free = ~binary_dilation(fiber, iterations=half + params.savgol_window)
     centres = [(y, x) for y in range(pad, h - pad, 37) for x in range(pad, w - pad, 37)
                if free[y, x]]
+    # Use every fiber-free centre when there are fewer than `n_holes`; the
+    # count actually used is what the record states.
+    # 繊維の無い中心が `n_holes` に満たなければ、あるだけ使う。記録するのは
+    # 実際に使った数である。
+    n_holes = min(n_holes, len(centres))
     rng = np.random.default_rng(0)
     centres = [centres[i] for i in sorted(rng.choice(len(centres), n_holes, replace=False))]
     values: dict = {"holes": n_holes, "hole_size_px": 2 * half + 1}
@@ -632,13 +637,13 @@ def bg_legacy_halo() -> dict:
 
 # Visual labels of the loop candidates, keyed by (scan, x, y) of the enclosed
 # region's bounding-box centre. Every candidate was rendered over the calibrated
-# height image and judged by eye (2026-09-30, 2026-10-07): "fiber" when the loop lies
+# height image and judged by eye (2026-09-30, 2026-10-07, 2026-10-13): "fiber" when the loop lies
 # inside one fiber body, "crossing" when it lies where fibers cross or branch, "gap"
 # when two separate fibers enclose the region between them, whether or not its floor
 # reaches the background. A candidate without a label fails the experiment, so a
 # change in what the skeletonizer produces forces a new look.
 # ループ候補の目視ラベル。囲まれた領域の外接矩形の中心 (scan, x, y) をキーとする。
-# 各候補を較正済み高さ画像に重ねて描画し、目視で判断した（2026-09-30、2026-10-07）。
+# 各候補を較正済み高さ画像に重ねて描画し、目視で判断した（2026-09-30、2026-10-07、2026-10-13）。
 # 1 本の繊維本体の内側なら "fiber"、繊維の交差・分岐の場所なら "crossing"、別々の
 # 繊維がその間の領域を囲んでいるなら、その底が背景まで下がるかどうかによらず
 # "gap"。ラベルの無い候補があると実験は失敗するため、細線化の結果が変われば
@@ -657,6 +662,7 @@ LOOP_LABELS = {
     ("NDTOC", 371, 482): "crossing", ("NDTOC", 953, 500): "crossing",
     ("NDTOC", 912, 505): "crossing", ("NDTOC", 645, 595): "crossing",
     ("NDTOC", 816, 684): "fiber", ("NDTOC", 810, 906): "crossing",
+    ("NDTOC", 888, 347): "crossing",
     ("NDTOC", 262, 915): "fiber", ("NDTOC", 151, 947): "fiber",
 }
 
@@ -884,21 +890,28 @@ def _all_test_inputs() -> Dict[str, str]:
 # fibers (bent fiber pieces and fiber ends cut by the image border); the others
 # were background texture, particles and scan-line glitches, or could not be
 # told apart. A different count fails the experiment, so a change in what the
-# filter removes forces a new look.
+# filter removes forces a new look. The counts were taken again on 2026-10-13,
+# after the background stage's noise histogram changed, by rendering and
+# judging every component not removed before: one is a low fiber piece cut by
+# the glitch band of the higher-plant scan, the others particles, background
+# texture and a scan-line glitch.
 # 直線性フィルタが消すかたまりのうち、囲む長方形が h_length に届くものの数
 # （テスト入力ごと）。すべてを補正後の高さ画像に重ねて描き、目視で判断したときの
 # 数である（2026-10-06）。LINEARITY_FIBER_PIECES は、そのうち本物の繊維の片
 # （曲がった繊維片と、画像の端で切れた繊維の端）と判断したものを、囲む長方形の
 # 中心で並べる。ほかは背景の凹凸、粒子、走査線のグリッチ、または見分けられない
 # ものであった。数が変わると実験は失敗するので、フィルタが消すものが変われば
-# 見直しが強制される。
+# 見直しが強制される。背景段のノイズのヒストグラムが変わった後の 2026-10-13 に、
+# 以前は消されていなかったかたまりをすべて描いて判断し、数を取り直した。1 つは
+# 高等植物スキャンのグリッチの帯で切れた低い繊維の片で、ほかは粒子、背景の凹凸、
+# 走査線のグリッチであった。
 LINEARITY_REMOVED_INSPECTED = {
-    "hplantTOC": 12, "tunicate": 4, "NDTOC": 234, "art_iso": 0, "art_aniso": 1,
+    "hplantTOC": 9, "tunicate": 5, "NDTOC": 237, "art_iso": 0, "art_aniso": 1,
 }
 LINEARITY_FIBER_PIECES = {
     ("tunicate", 17, 688), ("tunicate", 10, 843), ("tunicate", 613, 922),
     ("tunicate", 557, 934), ("art_aniso", 739, 246), ("hplantTOC", 106, 1012),
-    ("NDTOC", 591, 1010),
+    ("hplantTOC", 839, 797), ("NDTOC", 591, 1010),
 }
 
 
@@ -2272,15 +2285,15 @@ def diagonal_ybranch() -> dict:
 
 # The fiber a frame margin of 3 to 5 px adds on the Bruker scan, by its anchor
 # (`lib.fiber_selection.fiber_anchor`), as judged when rendered over the
-# calibrated height image (2026-10-07): a 13-pixel fragment between crossings
+# calibrated height image (2026-10-13): a 14-pixel fragment between crossings
 # that runs along the left border 3-8 px from it rather than out of the scan.
 # A different set fails the experiment, so a change in which fibers a margin
 # adds forces a new look.
 # 余白 3〜5 px で Bruker スキャンに加わる繊維（アンカーで示す）。補正後の高さ画像に
-# 重ねて描いて判断したもの（2026-10-07）。交差の間にある 13 画素の断片で、走査範囲の
+# 重ねて描いて判断したもの（2026-10-13）。交差の間にある 14 画素の断片で、走査範囲の
 # 外へ出るのではなく、左端から 3〜8 px のところを端に沿って走る。集合が変わると実験は
 # 失敗するので、余白が加える繊維が変われば見直しが強制される。
-FRAME_MARGIN_ADDED_INSPECTED = {("NDTOC", (5, 173))}
+FRAME_MARGIN_ADDED_INSPECTED = {("NDTOC", (4, 174))}
 
 
 @experiment(

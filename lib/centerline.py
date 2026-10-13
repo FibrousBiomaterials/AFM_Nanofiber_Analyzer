@@ -283,6 +283,17 @@ _WIDTH_TANGENT_HALF = 3
 # のではなく、繊維に印を付けられるようにする。
 FALLBACK_WIDTH_PX = 8.0
 
+# Smallest apparent width the rule lengths are scaled by, in pixels. Below it
+# the kink rule's window (+-0.75 W) and suppression radius shrink to the size
+# of one step of the pixel staircase, so pixel noise and the staircase itself
+# can read as bends (docs/validation.md §4.8). A narrower measured width is
+# raised to this value rather than replaced by the fallback.
+# 規則の長さを尺度付けする見かけ幅の最小値（画素）。これを下回るとキンク規則の窓
+# （±0.75 W）と抑制半径が画素の階段 1 段の大きさまで縮み、画素ノイズや階段そのものが
+# 折れとして読まれうる（docs/validation.ja.md §4.8）。これより細く測られた幅は、
+# 代替値に置き換えるのではなく、この値まで引き上げる。
+_MIN_WIDTH_PX = 2.0
+
 # Half-window, in apparent widths, on either side of a line point within which
 # the crest height is read where the cross-section could not be resolved. A
 # resolved section reports the maximum it climbed to; an interpolated point has
@@ -508,6 +519,7 @@ def measure_apparent_width(
     xtrack: NDArray,
     ytrack: NDArray,
     return_measured: bool = False,
+    aspect: float = 1.0,
 ) -> Union[float, Tuple[float, bool]]:
     """
     Apparent full width at half maximum of the fiber under a track, in pixels.
@@ -527,14 +539,20 @@ def measure_apparent_width(
         half-maximum run.
         幅がプロファイルから読めたか、使える半値区間を持つ断面が少なすぎて
         `FALLBACK_WIDTH_PX` を代用したかも返す。
+    aspect
+        Y pixel size over X pixel size (`bundle_schema.pixel_aspect`). The
+        profiles are taken perpendicular to the fiber in physical space, and
+        the width is returned in X pixels.
+        Y 画素サイズ ÷ X 画素サイズ（`bundle_schema.pixel_aspect`）。プロファイル
+        は実空間で繊維に垂直に取り、幅は X 画素単位で返す。
 
     Returns
     -------
     float or tuple
-        Median apparent width in pixels, never below 2; with
+        Median apparent width in X pixels, never below `_MIN_WIDTH_PX`; with
         `return_measured`, ``(width, measured)``.
-        見かけ幅の中央値（画素）。2 を下回ることはない。`return_measured` を
-        指定すると ``(width, measured)``。
+        見かけ幅の中央値（X 画素単位）。`_MIN_WIDTH_PX` を下回ることはない。
+        `return_measured` を指定すると ``(width, measured)``。
 
     Notes
     -----
@@ -575,7 +593,11 @@ def measure_apparent_width(
     4.71
     """
     x = np.asarray(xtrack, dtype=np.float64)
-    y = np.asarray(ytrack, dtype=np.float64)
+    # Work in X-pixel units on both axes, so the normal is perpendicular to the
+    # fiber on the specimen; the image is read back at pixel rows.
+    # 両軸とも X 画素単位で扱い、法線が試料上で繊維に垂直になるようにする。画像は
+    # 画素の行に戻して読む。
+    y = np.asarray(ytrack, dtype=np.float64) * float(aspect)
     if x.size < 2 or height is None:
         return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
 
@@ -584,7 +606,7 @@ def measure_apparent_width(
     offsets = np.arange(-_WIDTH_SEARCH_PX, _WIDTH_SEARCH_PX + 1e-9, _WIDTH_STEP_PX)
     profiles = _bilinear(
         np.asarray(height, dtype=np.float64),
-        y[:, None] + ny[:, None] * offsets[None, :],
+        (y[:, None] + ny[:, None] * offsets[None, :]) / float(aspect),
         x[:, None] + nx[:, None] * offsets[None, :],
     )
 
@@ -618,8 +640,18 @@ def measure_apparent_width(
     if usable.sum() < max(1, x.size // 2):
         return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
     width = float(np.median(widths[usable]))
-    if not np.isfinite(width) or width < 2.0:
+    # Only a width that is not a width at all -- zero, the run never left the
+    # centre sample -- is replaced by the fallback. A narrow fiber is raised to
+    # `_MIN_WIDTH_PX` instead: the fallback would scale its kink rule by
+    # several times its own width, while the measured value would shrink the
+    # rule's windows below the pixel staircase.
+    # 代替値に置き換えるのは、幅とは言えない値（0、すなわち区間が中央の標本から
+    # 出なかった場合）だけである。細い繊維は代わりに `_MIN_WIDTH_PX` まで引き上げる。
+    # 代替値ではキンク規則が自身の幅の数倍で尺度付けされ、測った値のままでは規則の
+    # 窓が画素の階段より小さくなるためである。
+    if not np.isfinite(width) or width <= 0.0:
         return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
+    width = max(width, _MIN_WIDTH_PX)
     return (width, True) if return_measured else width
 
 
@@ -758,6 +790,7 @@ def refine_centerline(
     ytrack: NDArray,
     width_px: float,
     branch_points: Optional[NDArray] = None,
+    aspect: float = 1.0,
 ) -> Tuple[NDArray, NDArray, NDArray]:
     """
     Move each skeleton point to the half-maximum midpoint of its cross-section.
@@ -779,6 +812,9 @@ def refine_centerline(
     branch_points
         Branch-point mask in the frame of `height`, or ``None``.
         `height` と同じ座標系の分岐点マスク。無ければ ``None``。
+    aspect
+        Y pixel size over X pixel size, as in `place_centerline`.
+        Y 画素サイズ ÷ X 画素サイズ。`place_centerline` と同じ。
 
     Returns
     -------
@@ -823,7 +859,8 @@ def refine_centerline(
     ため、欠落区間は線形に橋渡しされ、信頼できない端は隣の信頼できる部分の
     オフセットを保つ。
     """
-    lx, ly, reliable, _crest = _refine(height, xtrack, ytrack, width_px, branch_points)
+    lx, ly, reliable, _crest = _refine(
+        height, xtrack, ytrack, width_px, branch_points, aspect=aspect)
     return lx, ly, reliable
 
 
@@ -889,6 +926,7 @@ def _refine(
     width_px: float,
     branch_points: Optional[NDArray],
     method: str = HALF_MAX_025W_CENTERLINE,
+    aspect: float = 1.0,
 ) -> Tuple[NDArray, NDArray, NDArray, NDArray]:
     """
     Place the line and read the crest height at each of its points.
@@ -905,15 +943,21 @@ def _refine(
         Ordered skeleton track in image pixels.
         画像座標系での順序付きスケルトントラック。
     width_px
-        Apparent width W of the fiber, in pixels; every length here is a
+        Apparent width W of the fiber, in X pixels; every length here is a
         multiple of it.
-        繊維の見かけ幅 W（画素）。ここでの長さはすべてその倍数である。
+        繊維の見かけ幅 W（X 画素単位）。ここでの長さはすべてその倍数である。
     branch_points
         Branch-point mask in the same frame, or ``None``.
         同じ座標系の分岐点マスク。無ければ ``None``。
     method
         Which line to place, one of `CENTERLINE_METHODS`.
         置く線。`CENTERLINE_METHODS` のいずれか。
+    aspect
+        Y pixel size over X pixel size. The geometry -- frame, normals,
+        distances, the branch-point radius -- is computed with Y scaled by it,
+        in X pixels, and the line is returned in image pixels.
+        Y 画素サイズ ÷ X 画素サイズ。枠・法線・距離・分岐点の半径といった幾何は Y を
+        これで拡大した X 画素単位で計算し、線は画像の画素座標で返す。
 
     Returns
     -------
@@ -964,6 +1008,8 @@ def _refine(
                  else sample_height(height, x, y))
         return x.copy(), y.copy(), np.zeros(n, dtype=bool), crest
     img = np.asarray(height, dtype=np.float64)
+    a = float(aspect)
+    y = y * a
     width = float(width_px)
     mean_step = max(float(np.hypot(np.diff(x), np.diff(y)).mean()), 1e-9)
     wide = method == HALF_MAX_05W_CENTERLINE
@@ -983,7 +1029,7 @@ def _refine(
     half_reach = _HALF_MAX_REACH_WIDTHS * width
     s = np.arange(-(reach + half_reach), reach + half_reach + 1e-9, _WIDTH_STEP_PX)
     ns = s.size
-    prof = _bilinear(img, fy[:, None] + ny[:, None] * s[None, :],
+    prof = _bilinear(img, (fy[:, None] + ny[:, None] * s[None, :]) / a,
                      fx[:, None] + nx[:, None] * s[None, :])
     rows = np.arange(n)
     col = np.arange(ns)[None, :]
@@ -1086,12 +1132,12 @@ def _refine(
         radius = _JUNCTION_WIDTHS * width
         x0 = max(int(np.floor(x.min() - radius)), 0)
         x1 = min(int(np.ceil(x.max() + radius)) + 1, mask.shape[1])
-        y0 = max(int(np.floor(y.min() - radius)), 0)
-        y1 = min(int(np.ceil(y.max() + radius)) + 1, mask.shape[0])
+        y0 = max(int(np.floor((y.min() - radius) / a)), 0)
+        y1 = min(int(np.ceil((y.max() + radius) / a)) + 1, mask.shape[0])
         by, bx = np.nonzero(mask[y0:y1, x0:x1])
         if bx.size:
             d2 = ((x[:, None] - (bx + x0)[None, :]) ** 2
-                  + (y[:, None] - (by + y0)[None, :]) ** 2).min(1)
+                  + (y[:, None] - (by + y0)[None, :] * a) ** 2).min(1)
             weight[d2 < radius * radius] = 0.0
 
     lam = (offset_widths * width / mean_step) ** 2
@@ -1131,7 +1177,7 @@ def _refine(
     # 輪郭長を増やし、GUI04 の拡大像を画像の外まで広げていた。点を捨てずにクリップ
     # するのは、スケルトン点ごとに 1 点という対応を保つためである。
     line_x = np.clip(line_x, 0.0, img.shape[1] - 1.0)
-    line_y = np.clip(line_y, 0.0, img.shape[0] - 1.0)
+    line_y = np.clip(line_y / a, 0.0, img.shape[0] - 1.0)
     # The profile is sampled every quarter pixel, so the height at the line
     # point itself can exceed the sampled maximum by a sliver; taking the
     # larger keeps "never below the height at the line" exact.
@@ -1202,6 +1248,7 @@ def place_centerline(
     ytrack: NDArray,
     branch_points: Optional[NDArray] = None,
     method: str = HALF_MAX_025W_CENTERLINE,
+    aspect: float = 1.0,
 ) -> CenterlineResult:
     """
     Place the chosen centerline of one traced skeleton track.
@@ -1225,6 +1272,12 @@ def place_centerline(
         Which line to place, one of `CENTERLINE_METHODS`; the default is the
         half-maximum midpoint line at a quarter width.
         置く線。`CENTERLINE_METHODS` のいずれか。既定は 1/4 幅の半値中点線。
+    aspect
+        Y pixel size over X pixel size (`bundle_schema.pixel_aspect`); 1 for
+        square pixels. The line is placed in physical geometry and returned
+        in image pixels, and the width is in X pixels.
+        Y 画素サイズ ÷ X 画素サイズ（`bundle_schema.pixel_aspect`）。正方画素なら
+        1。線は実空間の幾何で置いて画像の画素座標で返し、幅は X 画素単位である。
 
     Returns
     -------
@@ -1274,8 +1327,10 @@ def place_centerline(
             x.copy(), y.copy(), FALLBACK_WIDTH_PX, False,
             np.zeros(x.size, dtype=bool), np.full(x.size, np.nan),
         )
-    width, measured = measure_apparent_width(height, x, y, return_measured=True)
-    lx, ly, reliable, crest = _refine(height, x, y, width, branch_points, method)
+    width, measured = measure_apparent_width(
+        height, x, y, return_measured=True, aspect=aspect)
+    lx, ly, reliable, crest = _refine(
+        height, x, y, width, branch_points, method, aspect)
     return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 
 
@@ -1285,6 +1340,7 @@ def half_max_centerline(
     ytrack: NDArray,
     branch_points: Optional[NDArray] = None,
     return_width: bool = False,
+    aspect: float = 1.0,
 ) -> Union[Tuple[NDArray, NDArray], Tuple[NDArray, NDArray, float]]:
     """
     Return the half-maximum centerline of one traced skeleton track.
@@ -1308,6 +1364,9 @@ def half_max_centerline(
         kink rule of `lib.kink_detector` scales every length by.
         線を置くのに使った見かけ幅も返す。`lib.kink_detector` のキンク規則は
         すべての長さをこれで尺度付けする。
+    aspect
+        Y pixel size over X pixel size, as in `place_centerline`.
+        Y 画素サイズ ÷ X 画素サイズ。`place_centerline` と同じ。
 
     Returns
     -------
@@ -1340,7 +1399,7 @@ def half_max_centerline(
     >>> bool(np.allclose(x, xtrack)), round(float(np.median(y)), 3)
     (True, 20.0)
     """
-    placed = place_centerline(height, xtrack, ytrack, branch_points)
+    placed = place_centerline(height, xtrack, ytrack, branch_points, aspect=aspect)
     if return_width:
         return placed.x, placed.y, placed.width_px
     return placed.x, placed.y

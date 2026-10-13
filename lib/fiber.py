@@ -105,10 +105,10 @@ class Fiber:
         そこでは片側の繊維が短すぎ、キンクと端そのものの形を区別できない。描画は
         するがキンクとしては数えない。形式 1.1 より古いバンドルでは空。
     width_px
-        Apparent width W (px) the line was placed with and the kink rule was
-        scaled by (`centerline.CenterlineResult.width_px`). NaN for a fiber
+        Apparent width W (X pixels) the line was placed with and the kink rule
+        was scaled by (`centerline.CenterlineResult.width_px`). NaN for a fiber
         on the skeleton track, whose rule used no width.
-        線を置きキンク規則を尺度付けした見かけ幅 W（画素）
+        線を置きキンク規則を尺度付けした見かけ幅 W（X 画素単位）
         （`centerline.CenterlineResult.width_px`）。規則が幅を使わないスケルトン
         トラック上の繊維では NaN。
     width_measured
@@ -143,6 +143,13 @@ class Fiber:
         各キンクを判定した超過回転（ラジアン）。`kink_angles` と添字が揃う
         （バンドルキー ``ke``）。`kink_angles` は幾何、すなわち腕のなす角であり、
         こちらは規則が検定した量。このキーを持たないバンドル（形式 1.0）では空。
+    pixel_aspect
+        Y pixel size over X pixel size of the geometry the line was placed
+        and the kinks were judged in (`bundle_schema.pixel_aspect_from_meta`).
+        A distance along the line in units of `width_px` scales Y by it.
+        線を置きキンクを判定した幾何の Y 画素サイズ ÷ X 画素サイズ
+        （`bundle_schema.pixel_aspect_from_meta`）。線に沿った距離を `width_px`
+        の単位で測るときは Y をこれで拡大する。
 
     Examples
     --------
@@ -187,6 +194,7 @@ class Fiber:
     height_measured: Optional[np.ndarray] = None
     kink_excess: np.ndarray = field(
         default_factory=lambda: np.zeros(0, dtype=np.float64))
+    pixel_aspect: float = 1.0
 
     @property
     def length(self) -> float:

@@ -34,8 +34,19 @@ class ProcessedImage:
         scale is unknown.
         1 ピクセルが表す実空間サイズ (nm/px)。スキャンスケール未知の場合は None。
     calibrated_image
-        Background-corrected AFM height image set by the calibrator.
-        キャリブレーション処理で設定される背景補正済み AFM 高さ画像。
+        Background-corrected AFM height image set by the calibrator. It is
+        never median filtered: the centerline and every height are read from
+        it, and it is the image the bundle stores.
+        キャリブレーション処理で設定される背景補正済み AFM 高さ画像。メディアン
+        フィルタは決してかけない。中心線とすべての高さはこれから読み、バンドルが
+        保存するのもこの画像である。
+    detection_image
+        The image segmentation and skeletonization read: `calibrated_image`
+        median filtered when `BGCalibrator.apply_median` is set, otherwise
+        `calibrated_image` itself. ``None`` until the calibrator has run.
+        セグメンテーションと細線化が読む画像。`BGCalibrator.apply_median` が
+        有効なら `calibrated_image` にメディアンフィルタをかけたもの、そうでなければ
+        `calibrated_image` そのもの。キャリブレーション処理が走るまで ``None``。
     binarized_image
         Binary fiber mask set by the segmenter.
         セグメンテーション処理で設定される繊維の二値マスク。
@@ -133,6 +144,7 @@ class ProcessedImage:
         # Store images produced by later pipeline stages.
         # 後続のパイプライン段階で生成される画像を保持する。
         self.calibrated_image: Optional[np.ndarray] = None
+        self.detection_image: Optional[np.ndarray] = None
         self.binarized_image: Optional[np.ndarray] = None
         self.skeleton_image: Optional[np.ndarray] = None
 

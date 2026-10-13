@@ -460,7 +460,7 @@ class KinkDetector:
         # Set point offset used by corner-angle computation.
         self.k = k
 
-    def __call__(self, image: ProcessedImage) -> None:
+    def __call__(self, image: ProcessedImage, pixel_aspect: float = 1.0) -> None:
         """
         Run kink detection and store results into the ProcessedImage object.
         kink 検出を実行し、結果を ProcessedImage オブジェクトへ保存する。
@@ -470,6 +470,13 @@ class KinkDetector:
         image
             Input image object containing a skeleton image and result fields.
             骨格画像と結果保存先フィールドを持つ入力画像オブジェクト。
+        pixel_aspect
+            Y pixel size over X pixel size of `image`
+            (`bundle_schema.pixel_aspect`); 1 when the scan size is unknown.
+            The centerline is placed and the kinks are judged in the geometry
+            it gives.
+            `image` の Y 画素サイズ ÷ X 画素サイズ（`bundle_schema.pixel_aspect`）。
+            走査範囲が不明なら 1。中心線の配置とキンクの判定はこれが与える幾何で行う。
 
         Returns
         -------
@@ -563,12 +570,13 @@ class KinkDetector:
                 # スケルトン座標として保存され、読み取り側の特徴点照合と一致する。
                 placed = place_centerline(
                     image.calibrated_image, _xtrack, _ytrack, branch_points,
-                    method=self.centerline_method,
+                    method=self.centerline_method, aspect=pixel_aspect,
                 )
                 widths.append(placed.width_px)
                 if not placed.width_measured:
                     fallback_count += 1
-                judged = self.judge_line(placed.x, placed.y, placed.width_px)
+                judged = self.judge_line(
+                    placed.x, placed.y, placed.width_px, pixel_aspect)
                 kink_indices = judged.kink_indices
                 kink_angles = judged.kink_angles
                 unjudged_indices = judged.unjudged_indices
@@ -616,6 +624,7 @@ class KinkDetector:
         xline: NDArray,
         yline: NDArray,
         width_px: float,
+        aspect: float = 1.0,
     ) -> tuple[NDArray, NDArray, NDArray]:
         """
         Judge the bends of one line; the tuple form of `judge_line`.
@@ -623,7 +632,7 @@ class KinkDetector:
 
         Parameters
         ----------
-        xline, yline, width_px
+        xline, yline, width_px, aspect
             As for `judge_line`.
             `judge_line` と同じ。
 
@@ -634,7 +643,7 @@ class KinkDetector:
             `KinkJudgement`.
             `KinkJudgement` の ``(kink_indices, kink_angles, unjudged_indices)``。
         """
-        judged = self.judge_line(xline, yline, width_px)
+        judged = self.judge_line(xline, yline, width_px, aspect)
         return judged.kink_indices, judged.kink_angles, judged.unjudged_indices
 
     def judge_line(
@@ -642,6 +651,7 @@ class KinkDetector:
         xline: NDArray,
         yline: NDArray,
         width_px: float,
+        aspect: float = 1.0,
     ) -> KinkJudgement:
         """
         Judge the kinks on one fiber's line by the excess-turning rule.
@@ -665,9 +675,15 @@ class KinkDetector:
             Y coordinates of the same line.
             同じ線の y 座標。
         width_px
-            The fiber's apparent width W in pixels, which every length of the
-            rule is a multiple of.
-            繊維の見かけ幅 W（画素）。規則の長さはすべてその倍数である。
+            The fiber's apparent width W in X pixels, which every length of
+            the rule is a multiple of.
+            繊維の見かけ幅 W（X 画素単位）。規則の長さはすべてその倍数である。
+        aspect
+            Y pixel size over X pixel size (`bundle_schema.pixel_aspect`). The
+            line's Y coordinates are scaled by it, so headings, turning and
+            arm angles are those on the specimen.
+            Y 画素サイズ ÷ X 画素サイズ（`bundle_schema.pixel_aspect`）。線の Y 座標を
+            これで拡大するため、向き・回転・腕の角度は試料上のものになる。
 
         Returns
         -------
@@ -768,7 +784,7 @@ class KinkDetector:
             empty, float("nan"),
         )
         x = np.asarray(xline, dtype=np.float64)
-        y = np.asarray(yline, dtype=np.float64)
+        y = np.asarray(yline, dtype=np.float64) * float(aspect)
         if x.size < 3:
             return nothing
         width = float(width_px)

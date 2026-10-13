@@ -124,13 +124,30 @@ from .centerline import CENTERLINE_METHODS, HALF_MAX_025W_CENTERLINE, SKELETON_T
 #      上で判定されており、読み取り側はその線で繊維を組み立てる。配列のキーも
 #      形状も変わらないが、1.1 の読み取り側はどのバンドルも半値中点線で組み立てる
 #      ため、別の線で判定したキンクを、それを持たない線の上に描き数えてしまう。
-BUNDLE_FORMAT_VERSION = "1.2"
+# 1.3: the line is placed, and `kp`, `ka`, `ke` and `up` are judged, in the
+#      physical geometry of the scan: Y is scaled by the pixel aspect
+#      (`pixel_aspect_from_meta`) taken from the recorded scan size, so on a
+#      scan whose X and Y pixel sizes differ the angles are the specimen's.
+#      Nothing changes for square pixels, but a 1.2 reader would place the
+#      line of a non-square scan in pixel geometry, beside kinks judged in
+#      physical geometry. `calibrated` is also never median filtered: with
+#      `apply_median` set, the filter reaches only the image segmentation and
+#      skeletonization read, so the stored heights are the unfiltered ones.
+# 1.3: 線を置き、`kp`・`ka`・`ke`・`up` を判定するのは走査の実空間の幾何である。
+#      Y は記録された走査範囲から求めた画素の縦横比（`pixel_aspect_from_meta`）で
+#      拡大するため、X と Y の画素サイズが違う走査でも角度は試料上のものになる。
+#      正方画素では何も変わらないが、1.2 の読み取り側は非正方画素の走査の線を画素
+#      座標の幾何で置き、実空間の幾何で判定したキンクの脇に描いてしまう。また
+#      `calibrated` には決してメディアンフィルタをかけない。`apply_median` を有効に
+#      してもフィルタはセグメンテーションと細線化が読む画像にしか届かず、保存される
+#      高さはフィルタ前のものである。
+BUNDLE_FORMAT_VERSION = "1.3"
 
 # Versions this code base can read. Readers reject unknown versions loudly so
 # a future format change cannot be silently misinterpreted by old releases.
 # 本コードベースが読める形式バージョン。未知のバージョンは明示的に拒否し、
 # 将来の形式変更を旧リリースが黙って誤解釈しないようにする。
-SUPPORTED_BUNDLE_VERSIONS = ("1.0", "1.1", "1.2")
+SUPPORTED_BUNDLE_VERSIONS = ("1.0", "1.1", "1.2", "1.3")
 
 # Format versions whose kinks were judged on, and whose fibers are drawn and
 # measured along, the half-maximum centerline. A 1.0 bundle, or one recording
@@ -142,7 +159,15 @@ HALF_MAX_CENTERLINE_VERSIONS = ("1.1",)
 
 # Format versions that record their line in `CENTERLINE_KEY`.
 # 線を `CENTERLINE_KEY` に記録する形式バージョン。
-CENTERLINE_KEY_VERSIONS = ("1.2",)
+CENTERLINE_KEY_VERSIONS = ("1.2", "1.3")
+
+# Format versions whose line and kinks were computed in physical geometry,
+# with Y scaled by the pixel aspect. Older bundles were computed in pixel
+# geometry and are read in it, so their stored kinks and their line agree.
+# 線とキンクを、Y を画素の縦横比で拡大した実空間の幾何で計算した形式バージョン。
+# それより古いバンドルは画素座標の幾何で計算されており、そのまま画素座標で読む。
+# こうして保存済みのキンクと線が食い違わないようにする。
+PHYSICAL_GEOMETRY_VERSIONS = ("1.3",)
 
 # vlmeta key naming the line a bundle's kinks were judged on and its fibers
 # are measured along: one of `centerline.CENTERLINE_METHODS`. Required from
@@ -714,6 +739,96 @@ def pixel_size_nm(scan_size_um: float, stored_pixels: int) -> float:
     7.8125
     """
     return float(scan_size_um) * 1000.0 / (int(stored_pixels) + 1)
+
+
+def pixel_aspect(
+    scan_size_um: Optional[Tuple[float, float]],
+    stored_shape: Tuple[int, int],
+) -> float:
+    """
+    Return the Y pixel size over the X pixel size of a bundle's stored arrays.
+    バンドルの保存配列の Y 画素サイズ ÷ X 画素サイズを返す。
+
+    Parameters
+    ----------
+    scan_size_um
+        Recorded ``(x_um, y_um)`` scan size, or ``None`` when none is known.
+        記録された走査範囲 ``(x_um, y_um)``。不明なら ``None``。
+    stored_shape
+        ``(rows, columns)`` of the stored arrays.
+        保存配列の ``(行数, 列数)``。
+
+    Returns
+    -------
+    float
+        The aspect, or 1.0 when the scan size is unknown, so that a scan with
+        no size is treated as having square pixels.
+        縦横比。走査範囲が不明なら 1.0 を返し、寸法の無い走査は正方画素として扱う。
+
+    Notes
+    -----
+    The centerline and the kink rule compute their geometry with Y scaled by
+    this value, so angles and widths are those on the specimen even when the
+    X and Y pixel sizes differ.
+    中心線とキンク規則は Y をこの値で拡大した幾何で計算するため、X と Y の画素
+    サイズが違っても、角度と幅は試料上のものになる。
+
+    Examples
+    --------
+    A 2 x 1 um scan stored as 255 x 255 pixels has pixels half as tall as
+    they are wide:
+
+    >>> from lib.bundle_schema import pixel_aspect
+    >>> pixel_aspect((2.0, 1.0), (255, 255))
+    0.5
+    >>> pixel_aspect(None, (255, 255))
+    1.0
+    """
+    if not scan_size_um:
+        return 1.0
+    rows, cols = int(stored_shape[0]), int(stored_shape[1])
+    return (pixel_size_nm(scan_size_um[1], rows)
+            / pixel_size_nm(scan_size_um[0], cols))
+
+
+def pixel_aspect_from_meta(
+    meta: Optional[Dict],
+    stored_shape: Tuple[int, int],
+) -> float:
+    """
+    Return the pixel aspect a bundle's line and kinks were computed with.
+    バンドルの線とキンクの計算に使われた画素の縦横比を返す。
+
+    Parameters
+    ----------
+    meta
+        Bundle vlmeta dictionary, or ``None``.
+        バンドルの vlmeta 辞書、または ``None``。
+    stored_shape
+        ``(rows, columns)`` of the stored arrays.
+        保存配列の ``(行数, 列数)``。
+
+    Returns
+    -------
+    float
+        `pixel_aspect` of the recorded scan size for a format listed in
+        `PHYSICAL_GEOMETRY_VERSIONS`; 1.0 for an older format, which was
+        computed in pixel geometry.
+        `PHYSICAL_GEOMETRY_VERSIONS` に含まれる形式なら記録された走査範囲の
+        `pixel_aspect`。それより古い形式は画素座標の幾何で計算されたため 1.0。
+
+    Notes
+    -----
+    The recorded scan size is read, not a size entered when the bundle is
+    measured: the line has to be placed in the geometry its stored kinks were
+    judged in.
+    計測時に入力された寸法ではなく、記録された走査範囲を読む。線は、保存済みの
+    キンクを判定したのと同じ幾何で置かなければならないためである。
+    """
+    version = (meta or {}).get("version")
+    if version not in PHYSICAL_GEOMETRY_VERSIONS:
+        return 1.0
+    return pixel_aspect(scan_size_um_from_meta(meta), stored_shape)
 
 
 def kink_params_from_meta(

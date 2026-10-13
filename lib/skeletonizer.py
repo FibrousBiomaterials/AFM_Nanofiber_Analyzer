@@ -841,9 +841,12 @@ class Skeletonizer:
 
         Notes
         -----
-        Reads `image.binarized_image` and `image.calibrated_image`; writes
-        `image.skeleton_image`, `image.label_image`, `image.nLabels`,
-        `image.data`, `image.ep`, and `image.bp`.
+        Reads `image.binarized_image` and the heights of
+        `image.detection_image` (the calibrated heights, median filtered when
+        `BGCalibrator.apply_median` is set), or `image.calibrated_image` when
+        no detection image was stored; writes `image.skeleton_image`,
+        `image.label_image`, `image.nLabels`, `image.data`, `image.ep`, and
+        `image.bp`.
 
         The workflow first thins the binary mask without letting the image
         border cut fibers short (`thin_ignoring_image_border`), removes short
@@ -869,11 +872,14 @@ class Skeletonizer:
                 "Skeletonizer requires image.calibrated_image; "
                 "run BGCalibrator on the image first."
             )
+        heights = getattr(image, "detection_image", None)
+        if heights is None:
+            heights = image.calibrated_image
 
         init_skeleton_image = thin_ignoring_image_border(image.binarized_image)
         self.image_shape = image.binarized_image.shape
         self._init_skeleton_image = init_skeleton_image
-        self.set_low_bp_coor(image.calibrated_image, init_skeleton_image, self.bp_height)
+        self.set_low_bp_coor(heights, init_skeleton_image, self.bp_height)
         self.get_close_eps()
         nobranch_image = self.prune_branches(init_skeleton_image)
         self._nobranch_image = nobranch_image
@@ -887,7 +893,7 @@ class Skeletonizer:
         # 拾えない短いスパーを除去する。これを行わないと各アーティファクトが
         # 連続ファイバー上に分岐点を作り、追跡時にそこで分断される。
         cleaned_skeleton_image = collapse_skeleton_loops(
-            nobranch_skeleton_image, self.max_loop_area, image.calibrated_image
+            nobranch_skeleton_image, self.max_loop_area, heights
         )
         cleaned_skeleton_image = prune_short_spurs(
             cleaned_skeleton_image, self.spur_length
@@ -897,7 +903,7 @@ class Skeletonizer:
         # ファイバー先端の分岐点を持たないフック（細線化が低いマスクの裾へ
         # 回り込んだもの）は上の 2 パスでは残るため、高さデータで切除する。
         cleaned_skeleton_image = prune_terminal_hooks(
-            cleaned_skeleton_image, image.calibrated_image
+            cleaned_skeleton_image, heights
         )
         # Trimming a hook shortens the arm it ends; an arm that reaches a
         # junction and is now no longer than spur_length is a spur, so prune

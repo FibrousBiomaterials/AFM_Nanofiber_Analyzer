@@ -1713,10 +1713,12 @@ def _rebuild_connected_fiber(
         # skeleton pixels it was docked from, as each fragment's was.
         # 規則はフィブリル自身の見かけ幅で尺度付けする。各断片と同じく、繋ぐ元に
         # なったスケルトン画素の上で読む。
+        aspect = float(getattr(image, "pixel_aspect", 1.0))
         width, width_measured = measure_apparent_width(
             image.calibrated_image, pix_x, pix_y, return_measured=True,
+            aspect=aspect,
         )
-        judged = detector.judge_line(line_x, line_y, width)
+        judged = detector.judge_line(line_x, line_y, width, aspect)
         kink_indices, kink_angles = judged.kink_indices, judged.kink_angles
         kink_excess, unjudged_indices = judged.kink_excess, judged.unjudged_indices
         decomposed_point_indices = np.zeros(0, dtype=np.intp)
@@ -1751,6 +1753,7 @@ def _rebuild_connected_fiber(
         width_px=float(width), width_measured=bool(width_measured),
         line_reliable=reliable, height_measured=measured,
         kink_excess=np.asarray(kink_excess, dtype=np.float64),
+        pixel_aspect=float(getattr(image, "pixel_aspect", 1.0)),
     )
 
 

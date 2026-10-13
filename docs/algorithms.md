@@ -201,12 +201,27 @@ Smoothing within each row leaves that offset in the row's background level, so
 it is subtracted with the background. Smoothing across rows would mix in the
 neighbouring rows' levels, leave the offset out of the background, and show it
 as horizontal stripes in the corrected image (compared with smoothing along
-both axes in [Evaluation on particular data](validation.md) §1.7).
+both axes in [Evaluation on particular data](validation.md) §1.6).
 
 **The final median filter (optional).** Every method can apply a 3<!--n:literal in the quoted code-->×3<!--n:literal in the quoted code--> median
 filter to the background-subtracted image, enabled by `apply_median` (default
-off). It suppresses impulse-like residual noise at the cost of blunting the
-sharpest height features.
+off). It suppresses impulse-like residual noise, but it also blunts the
+sharpest height features: on a ridge running along a row or a column, the
+median of a 3<!--n:literal in the quoted code-->×3<!--n:literal in the quoted code--> window centred on the crest is the height one pixel to
+the side (three of its nine samples are on the crest), so a narrow fiber's
+crest comes out low, by an amount that depends on the fiber's direction. The filtered image is therefore only the one segmentation (§2) and
+skeletonization (§3) read, `detection_image`; the stored `calibrated_image`,
+from which the centerline and every height are read, is never filtered.
+`BGCalibrator._store` is the last step of every method:
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._store
+image.calibrated_image = calibrated_image
+image.detection_image = (
+    cv2.medianBlur(np.asarray(calibrated_image, dtype=np.float32), ksize=3)
+    if self.apply_median else calibrated_image
+)
+```
 
 **Fitting the trend.** The trend is a smooth surface describing the slow tilt
 and bowing of the whole image. Every method subtracts it from the image before
@@ -278,9 +293,7 @@ self._detect_fiber_mask(image.original_image)
 self.bg_only, self.bg_sm = self._bg_generate(image.original_image, self.tri_difx_fill, self.tri_dify_fill)
 ...
 calibrated_image = self._bg_calibrate(image.original_image, self.bg_sm)
-if self.apply_median:
-    calibrated_image = cv2.medianBlur(calibrated_image.astype(np.float32), ksize=3)
-image.calibrated_image = calibrated_image
+self._store(image, calibrated_image)
 ```
 
 Where each line is explained:
@@ -291,7 +304,7 @@ Where each line is explained:
 | `_bg_generate(...)` | Step 2<!--n:label--> (cleaning and dilating the mask) and the part of Step 3<!--n:label--> that builds the background (detrend, fill, smooth, retrend) |
 | `...` (omitted lines) | Sets the other methods' intermediates `bg_open` and `bg_spline1d` to `None`, so values left by an earlier run of another method cannot be read by mistake (the same reason as at the end of §1.4) |
 | `_bg_calibrate(...)` | The end of Step 3<!--n:label--> (subtracting the background from the original) |
-| `if self.apply_median:` onward | "The final median filter (optional)" in §1.2 |
+| `_store(...)` | "The final median filter (optional)" in §1.2 |
 
 #### Step 1 — Find the fiber pixels from gradient statistics
 
@@ -340,9 +353,32 @@ distribution the interquartile range is 1.349<!--n:literal in the quoted code-->
 quotient estimates the standard deviation. The Y fit is the same code on
 `dif_y`:
 
+The histogram does not span the full range of the differences. Its bin width
+would then be set by the largest step in the image, a particle edge or a
+feedback glitch, rather than by the noise, and the peak would fall into a few
+bins, so the fitted width, and every threshold taken from it, would depend on
+the most extreme pixel pair. `BGCalibrator._noise_range` instead spans the
+median plus and minus 8<!--c:lib/bg_calibrator.py::_NOISE_RANGE_SIGMAS--> robust standard deviations (the median absolute
+deviation times 1.4826<!--n:literal in the quoted code-->, which neither the steps nor the fibers move), so
+each of the 150<!--c:lib/bg_calibrator.py::BGCalibrator._bg_fit(bin_n)--> bins is about 0.11<!--x:2 * 8 / 150--> of a deviation wide and the whole peak
+lies inside. The differences outside the range only leave the fit: the next
+step still classifies every pixel.
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._noise_range
+values = np.ravel(dif)
+center = float(np.median(values))
+scale = 1.4826 * float(np.median(np.abs(values - center)))
+if not np.isfinite(scale) or scale <= 0.0:
+    return None
+half = _NOISE_RANGE_SIGMAS * scale
+return center - half, center + half
+```
+
 ```python
 # source: lib/bg_calibrator.py::BGCalibrator._bg_fit
-histx = np.histogram(np.ravel(dif_x), bins=bin_n)
+histx = np.histogram(np.ravel(dif_x), bins=bin_n,
+                     range=BGCalibrator._noise_range(dif_x))
 ...
 h_arrayx = (histx[1][1:] + histx[1][:-1]) / 2
 ...
@@ -678,9 +714,9 @@ Savitzky–Golay smoothing that follows acts along X (along the rows) only, so
 with `'y'` the level kept for each column is then averaged with the columns
 within `savgol_window` pixels beside it. On the test inputs, `'y'` did not
 remove horizontal stripes and instead left horizontal bands across the whole
-image ([Evaluation on particular data](validation.md) §1.6). On images with
+image ([Evaluation on particular data](validation.md) §1.5). On images with
 vertical stripes, made by rotating those inputs by 90<!--n:definition-->°, `'y'` did not remove
-the scan-line offsets either (§1.6 there).
+the scan-line offsets either (§1.5 there).
 
 As in `trendfill`, the trend fitted to the background pixels is subtracted
 before the fill, so that the filler does not have to reproduce the sample's
@@ -688,10 +724,10 @@ tilt or distortion. The order differs from `trendfill`, though: the trend is
 added back **before** the Savitzky–Golay smoothing. The difference in order has
 no role in the result: the smoothing is linear, so the two orders differ only by
 the trend minus its smoothed self, which on the test inputs stayed far below the
-binarization threshold ([Evaluation on particular data](validation.md) §1.8).
+binarization threshold ([Evaluation on particular data](validation.md) §1.7).
 
 The default axis is `'x'` (the two axes are compared on the test inputs in
-[Evaluation on particular data](validation.md) §1.6). A line with fewer than `spline1d_degree` + 1<!--n:literal in the quoted code--> valid
+[Evaluation on particular data](validation.md) §1.5). A line with fewer than `spline1d_degree` + 1<!--n:literal in the quoted code--> valid
 samples (values not hidden by fibers), or a degree below 2<!--n:literal in the quoted code-->, is filled
 linearly instead.
 
@@ -805,12 +841,17 @@ can be inspected while tuning:
 | 6<!--n:label--> | Recover missed fibers (optional) | `_recover_missed_ridges` | §2.6 |
 | 7<!--n:label--> | Fill small gaps | `skimage.morphology.closing` | §2.7 |
 
-`Segmenter.__call__` wires them in this order:
+`Segmenter.__call__` wires them in this order. Every height it reads is from
+`detection_image`, the calibrated heights after the optional median filter
+(§1.2):
 
 ```python
 # source: lib/segmenter.py::Segmenter.__call__
+heights = getattr(image, "detection_image", None)
+if heights is None:
+    heights = image.calibrated_image
 self.binary_image = self._binaryzation(
-    image.calibrated_image, self.global_threshold, self.wsize_localbin
+    heights, self.global_threshold, self.wsize_localbin
 )
 self.no_small_binary_image = self._remove_small_fragments(self.binary_image, self.area_min)
 self.no_linear_binary_image = self._remove_nonlinear_objects(
@@ -823,10 +864,10 @@ if self.apply_no_connecting:
 else:
     self.no_connecting_binary_image = self.no_linear_binary_image
 self.no_low_binary_image = self.remove_low_component(
-    image.calibrated_image, self.no_connecting_binary_image
+    heights, self.no_connecting_binary_image
 )
 self.ridge_recovered_image = self._recover_missed_ridges(
-    image.calibrated_image, self.no_low_binary_image, nm_per_px,
+    heights, self.no_low_binary_image, nm_per_px, pixel_aspect,
 )
 recovered_union = self.no_low_binary_image | self.ridge_recovered_image
 no_small_binary_image4 = closing(recovered_union).astype(bool)
@@ -1072,6 +1113,17 @@ when the scan size is recorded, for example in the input file.
 4. Surviving components are kept when their skeleton's pixel count times the
    pixel size reaches `ridge_min_length_nm` (default 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm).
 
+The Frangi filter is isotropic: one scale is one width in pixels in every
+direction. On a scan whose X and Y pixel sizes differ, it would therefore look
+for a different physical width across a fiber running along X than along Y, and
+a skeleton's pixel count would not be a length. So when the pixel aspect (the Y
+pixel size over the X pixel size, `bundle_schema.pixel_aspect`) is not 1<!--n:definition-->, the
+heights and the accepted mask are first resampled along Y onto square pixels as
+wide as an X pixel (`segmenter._to_square_pixels`; heights linearly, the mask
+by the nearest row), all four steps run there, and the recovered mask is mapped
+back onto the scan's rows (`segmenter._from_square_pixels`), less the pixels
+already accepted. On square pixels nothing is resampled.
+
 The scale range of the Frangi filter defaults to `ridge_min_width_nm` = 3.0<!--c:lib/pipeline.py::ProcParams.ridge_min_width_nm--> nm
 and `ridge_max_width_nm` = 20.0<!--c:lib/pipeline.py::ProcParams.ridge_max_width_nm--> nm.
 
@@ -1090,6 +1142,13 @@ level the low level falls back to 0.3<!--n:literal in the quoted code--> of the 
 # source: lib/segmenter.py::Segmenter._recover_missed_ridges
 if not self.ridge_recovery or not nm_per_px or nm_per_px <= 0:
     return empty
+rows = np.asarray(binary_image).shape[0]
+original_binary = np.asarray(binary_image, dtype=bool)
+resampled = float(pixel_aspect) != 1.0
+if resampled:
+    calibrated_image = _to_square_pixels(
+        np.asarray(calibrated_image, dtype=np.float64), pixel_aspect, 1)
+    binary_image = _to_square_pixels(original_binary, pixel_aspect, 0)
 lo = max(0.6, self.ridge_min_width_nm / nm_per_px)
 hi = max(lo * 1.5, self.ridge_max_width_nm / nm_per_px)
 sigmas = np.geomspace(lo, hi, 5)
@@ -1116,7 +1175,10 @@ keep = [
 ]
 if not keep:
     return empty
-return np.isin(labels, keep)
+recovered = np.isin(labels, keep)
+if resampled:
+    recovered = _from_square_pixels(recovered, rows, pixel_aspect) & ~original_binary
+return recovered
 ```
 
 ### 2.7 Fill gaps with a closing
@@ -1154,26 +1216,30 @@ line, an artefact branch point does not merely add noise: it **splits a
 real fiber into fragments**. Most of this stage exists to remove artefacts that
 would cause that split.
 
-`Skeletonizer.__call__` runs the following, in order.
+`Skeletonizer.__call__` runs the following, in order. Like segmentation, it
+reads its heights from `detection_image` (§1.2).
 
 ```python
 # source: lib/skeletonizer.py::Skeletonizer.__call__
+heights = getattr(image, "detection_image", None)
+if heights is None:
+    heights = image.calibrated_image
 init_skeleton_image = thin_ignoring_image_border(image.binarized_image)
 ...
-self.set_low_bp_coor(image.calibrated_image, init_skeleton_image, self.bp_height)
+self.set_low_bp_coor(heights, init_skeleton_image, self.bp_height)
 self.get_close_eps()
 nobranch_image = self.prune_branches(init_skeleton_image)
 ...
 nobranch_skeleton_image = skeletonize(nobranch_image).astype(np.uint8)
 ...
 cleaned_skeleton_image = collapse_skeleton_loops(
-    nobranch_skeleton_image, self.max_loop_area, image.calibrated_image
+    nobranch_skeleton_image, self.max_loop_area, heights
 )
 cleaned_skeleton_image = prune_short_spurs(
     cleaned_skeleton_image, self.spur_length
 )
 cleaned_skeleton_image = prune_terminal_hooks(
-    cleaned_skeleton_image, image.calibrated_image
+    cleaned_skeleton_image, heights
 )
 cleaned_skeleton_image = prune_short_spurs(
     cleaned_skeleton_image, self.spur_length
@@ -1956,10 +2022,11 @@ for label in range(1, nLabels):
     _ytrack = _ytrack_local + y
     placed = place_centerline(
         image.calibrated_image, _xtrack, _ytrack, branch_points,
-        method=self.centerline_method,
+        method=self.centerline_method, aspect=pixel_aspect,
     )
 ...
-    judged = self.judge_line(placed.x, placed.y, placed.width_px)
+    judged = self.judge_line(
+        placed.x, placed.y, placed.width_px, pixel_aspect)
 ...
     all_kink_coordinate_x.extend(_xtrack[kink_indices])
     all_kink_coordinate_y.extend(_ytrack[kink_indices])
@@ -2148,9 +2215,30 @@ same function:
 
 ```python
 # source: lib/centerline.py::place_centerline
-width, measured = measure_apparent_width(height, x, y, return_measured=True)
-lx, ly, reliable, crest = _refine(height, x, y, width, branch_points, method)
+width, measured = measure_apparent_width(
+    height, x, y, return_measured=True, aspect=aspect)
+lx, ly, reliable, crest = _refine(
+    height, x, y, width, branch_points, method, aspect)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
+```
+
+**Physical geometry.** The steps above, and the kink rule of §4.3, compute
+directions, normals and distances. On a scan whose X and Y pixel sizes differ,
+doing that in pixel coordinates would give the angles of the pixel grid rather
+than of the specimen. So `aspect`, the Y pixel size over the X pixel size
+(`bundle_schema.pixel_aspect`, from the recorded scan size and the stored
+array shape), scales every Y coordinate before the geometry is computed, and
+the height image is read back at pixel rows. Lengths are then in X pixels,
+including $W$, and the centerline is returned in pixel coordinates. A scan
+with no recorded scan size is treated as having square pixels:
+
+```python
+# source: lib/bundle_schema.py::pixel_aspect
+if not scan_size_um:
+    return 1.0
+rows, cols = int(stored_shape[0]), int(stored_shape[1])
+return (pixel_size_nm(scan_size_um[1], rows)
+        / pixel_size_nm(scan_size_um[0], cols))
 ```
 
 The result has exactly one point per skeleton point. That is what lets a kink
@@ -2170,13 +2258,18 @@ A bundle records a format version, and the line kinks were judged on differs by
 format. Which line a bundle's fibers are rebuilt on when it is opened is decided
 by that format (`bundle_schema.centerline_from_meta`). Which release writes which
 format is recorded in `CHANGELOG.md`. The "skeleton track" in the table is the
-ordered skeleton pixels traced in §4.1. A format 1.2<!--n:bundle format version--> bundle
+ordered skeleton pixels traced in §4.1. A bundle of format 1.2<!--n:bundle format version--> or later
 records which kind of centerline the analysis used
-(`bundle_schema.CENTERLINE_KEY`).
+(`bundle_schema.CENTERLINE_KEY`). From format 1.3<!--n:bundle format version--> the centerline and
+the kinks are computed in physical geometry, and a reader rebuilds the
+centerline with the aspect of the recorded scan size
+(`bundle_schema.pixel_aspect_from_meta`); an older bundle is rebuilt in the
+pixel geometry it was judged in.
 
 | Bundle format | Kinks were judged on | Rebuilt on |
 |---|---|---|
-| 1.2<!--n:bundle format version--> | the recorded kind of centerline | the same centerline |
+| 1.3<!--n:bundle format version--> | the recorded kind of centerline, in physical geometry | the same centerline, in physical geometry |
+| 1.2<!--n:bundle format version--> | the recorded kind of centerline, in pixel geometry | the same centerline, in pixel geometry |
 | 1.1<!--n:bundle format version--> | the default centerline (half-maximum midpoint) | the default centerline |
 | 1.0<!--n:bundle format version--> | the skeleton track | the skeleton track, until the bundle is re-analyzed |
 
@@ -2189,9 +2282,12 @@ the numbers built on it depend on, as a `centerline.CenterlineResult`:
   multiple of $W$, so $W$ itself is the yardstick a fiber's kinks were judged
   with. $W$ includes the probe's broadening as well as the fiber's own width.
   When fewer than half of the track points have a cross-section whose
-  half-maximum run could be measured, or the measured $W$ is
-  below 2<!--n:literal in centerline.measure_apparent_width--> px (or not finite),
-  `centerline.FALLBACK_WIDTH_PX` (8<!--c:lib/centerline.py::FALLBACK_WIDTH_PX--> px) is substituted. That is a pixel count,
+  half-maximum run could be measured, or the measured $W$ is zero or not
+  finite, `centerline.FALLBACK_WIDTH_PX` (8<!--c:lib/centerline.py::FALLBACK_WIDTH_PX--> px) is substituted. A fiber
+  measured narrower than 2<!--c:lib/centerline.py::_MIN_WIDTH_PX--> px (`centerline._MIN_WIDTH_PX`) is instead given
+  2<!--c:lib/centerline.py::_MIN_WIDTH_PX--> px: the fallback would judge its kinks at several times its own width,
+  and its measured $W$ would shrink the rule's window to one step of the pixel
+  staircase, where the staircase and pixel noise read as bends. The fallback is a pixel count,
   not a multiple of the fiber's width, so the substitution is reported rather
   than hidden: each fiber carries its $W$ (`Fiber.width_px`,
   `Fiber.width_measured`) into GUI04's fiber table and the CSV, and the bundle

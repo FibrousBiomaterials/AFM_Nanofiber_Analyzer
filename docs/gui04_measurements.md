@@ -129,6 +129,11 @@ bundle's metadata, so the kinks and the coordinates they are drawn on
 (centerline or skeleton track) always come from one definition. When the
 bundle's centerline is not the default, GUI04 names it in the log, because
 nothing else on screen shows which centerline the numbers were measured along.
+A bundle of format 1.3 also had its centerline placed in physical geometry
+(§2), so GUI04 places it again with the pixel aspect of the bundle's recorded
+scan size (`bundle_schema.pixel_aspect_from_meta`), not with the scale entered
+in its scale fields; an older bundle is placed in pixel geometry, as it was
+judged.
 
 ```python
 # source: lib/fiber_tracking_image.py::_build_fiber
@@ -137,7 +142,7 @@ fiber_image = cal[y: y + h, x: x + w].copy()
 if is_placed_line(centerline):
     placed = place_centerline(
         cal, xtrack_prcimg, ytrack_prcimg, branch_points,
-        method=centerline,
+        method=centerline, aspect=pixel_aspect,
     )
     xtrack = placed.x - x
     ytrack = placed.y - y
@@ -208,10 +213,20 @@ accuracy on synthetic scans are in [Evaluation on particular data](validation.md
 
 ```python
 # source: lib/centerline.py::place_centerline
-width, measured = measure_apparent_width(height, x, y, return_measured=True)
-lx, ly, reliable, crest = _refine(height, x, y, width, branch_points, method)
+width, measured = measure_apparent_width(
+    height, x, y, return_measured=True, aspect=aspect)
+lx, ly, reliable, crest = _refine(
+    height, x, y, width, branch_points, method, aspect)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 ```
+
+`aspect` is the Y pixel size over the X pixel size
+(`bundle_schema.pixel_aspect`). Both functions multiply every Y coordinate by it
+before computing a direction or a distance, and divide by it again where they
+read the height image at a pixel row, so on a scan whose X and Y pixel sizes
+differ the normals are perpendicular to the fiber on the specimen. All lengths
+below, W included, are therefore in X pixels; with square pixels `aspect` is 1
+and nothing changes.
 
 §2.1–§2.7 follow the default method, `half_max_025w`. The other methods share
 everything but the position estimator and are described in §2.8.
@@ -220,11 +235,12 @@ Every length used to place the centerline is a multiple of the apparent width W,
 the procedure means the same thing at any pixel size:
 
 ```python
-# source: lib/centerline.py::_WIDTH_SEARCH_PX, _WIDTH_STEP_PX, _WIDTH_TANGENT_HALF, FALLBACK_WIDTH_PX, _CREST_WINDOW_WIDTHS, _FRAME_SIGMA_WIDTHS, _CREST_REACH_WIDTHS, _HALF_MAX_REACH_WIDTHS, _MAX_SECTION_WIDTHS, _OFFSET_SMOOTH_WIDTHS, _JUNCTION_WIDTHS, _MIN_CREST_AMPLITUDE_FRAC
+# source: lib/centerline.py::_WIDTH_SEARCH_PX, _WIDTH_STEP_PX, _WIDTH_TANGENT_HALF, FALLBACK_WIDTH_PX, _MIN_WIDTH_PX, _CREST_WINDOW_WIDTHS, _FRAME_SIGMA_WIDTHS, _CREST_REACH_WIDTHS, _HALF_MAX_REACH_WIDTHS, _MAX_SECTION_WIDTHS, _OFFSET_SMOOTH_WIDTHS, _JUNCTION_WIDTHS, _MIN_CREST_AMPLITUDE_FRAC
 _WIDTH_SEARCH_PX = 12.0
 _WIDTH_STEP_PX = 0.25
 _WIDTH_TANGENT_HALF = 3
 FALLBACK_WIDTH_PX = 8.0
+_MIN_WIDTH_PX = 2.0
 _CREST_WINDOW_WIDTHS = 0.25
 _FRAME_SIGMA_WIDTHS = 0.25
 _CREST_REACH_WIDTHS = 0.75
@@ -235,8 +251,10 @@ _JUNCTION_WIDTHS = 1.0
 _MIN_CREST_AMPLITUDE_FRAC = 0.25
 ```
 
-Only the first three are in pixels: they set how finely the width profile is
-sampled, not a property of the fiber.
+The first three are in pixels: they set how finely the width profile is
+sampled, not a property of the fiber. `FALLBACK_WIDTH_PX` and `_MIN_WIDTH_PX`
+are pixel counts as well, the width used when none can be measured and the
+smallest width used (§2.1).
 
 ### 2.1 Apparent width W
 
@@ -250,7 +268,7 @@ nx, ny = -ty, tx
 offsets = np.arange(-_WIDTH_SEARCH_PX, _WIDTH_SEARCH_PX + 1e-9, _WIDTH_STEP_PX)
 profiles = _bilinear(
     np.asarray(height, dtype=np.float64),
-    y[:, None] + ny[:, None] * offsets[None, :],
+    (y[:, None] + ny[:, None] * offsets[None, :]) / float(aspect),
     x[:, None] + nx[:, None] * offsets[None, :],
 )
 peak = profiles.max(axis=1)
@@ -272,8 +290,9 @@ for i in range(x.size):
 if usable.sum() < max(1, x.size // 2):
     return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
 width = float(np.median(widths[usable]))
-if not np.isfinite(width) or width < 2.0:
+if not np.isfinite(width) or width <= 0.0:
     return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
+width = max(width, _MIN_WIDTH_PX)
 return (width, True) if return_measured else width
 ```
 
@@ -292,8 +311,11 @@ Step by step:
 4. W is the **median** over the usable points. A width is a property of the
    fiber, so one value is used along the whole fiber.
 
-If fewer than half the points are usable, or the median is below 2 px,
-`FALLBACK_WIDTH_PX` (8 px) is used instead. The substitution is reported:
+If fewer than half the points are usable, or the median is zero or not finite,
+`FALLBACK_WIDTH_PX` (8 px) is used instead. A fiber measured narrower than
+`_MIN_WIDTH_PX` (2 px) is given 2 px: the fallback would scale its kink rule
+by several times its own width, and the measured value would shrink the rule's
+window to one step of the pixel staircase. The substitution is reported:
 `CenterlineResult.width_measured` is `False`, and GUI04 leaves the fiber's
 `W (nm)` cell blank (§3.10).
 
@@ -308,6 +330,8 @@ position, which would round off real corners.
 
 ```python
 # source: lib/centerline.py::_refine
+a = float(aspect)
+y = y * a
 width = float(width_px)
 mean_step = max(float(np.hypot(np.diff(x), np.diff(y)).mean()), 1e-9)
 wide = method == HALF_MAX_05W_CENTERLINE
@@ -325,7 +349,7 @@ reach = _CREST_REACH_WIDTHS * width
 half_reach = _HALF_MAX_REACH_WIDTHS * width
 s = np.arange(-(reach + half_reach), reach + half_reach + 1e-9, _WIDTH_STEP_PX)
 ns = s.size
-prof = _bilinear(img, fy[:, None] + ny[:, None] * s[None, :],
+prof = _bilinear(img, (fy[:, None] + ny[:, None] * s[None, :]) / a,
                  fx[:, None] + nx[:, None] * s[None, :])
 ```
 
@@ -498,12 +522,13 @@ page reads it.
 Before its length is measured, the centerline is kept on the image. At a fiber
 that runs off the scan, the frame and the lateral offset can carry the last
 points past the outermost pixel centre, where no height was measured, so every
-point is clamped to the range of pixel centres:
+point is clamped to the range of pixel centres. Here the centerline also
+returns from X-pixel units to pixel coordinates (`line_y / a`):
 
 ```python
 # source: lib/centerline.py::_refine
 line_x = np.clip(line_x, 0.0, img.shape[1] - 1.0)
-line_y = np.clip(line_y, 0.0, img.shape[0] - 1.0)
+line_y = np.clip(line_y / a, 0.0, img.shape[0] - 1.0)
 ```
 
 The points are clamped rather than dropped so that the centerline keeps one
@@ -869,7 +894,8 @@ mask = measured.copy()
 width = float(getattr(fiber, "width_px", float("nan")))
 if np.isfinite(width) and width > 0.0 and n > 1:
     ends = set(int(i) for i in np.asarray(fiber.ep_indices).tolist())
-    arc = polyline_distance(fiber.xtrack, fiber.ytrack, 1.0)
+    arc = polyline_distance(
+        fiber.xtrack, fiber.ytrack, 1.0, getattr(fiber, "pixel_aspect", 1.0))
     zone = CUT_END_EXCLUSION_WIDTHS * width
     if 0 not in ends:
         mask &= ~(arc < zone)
@@ -889,8 +915,9 @@ return mask
    a cut: the skeleton continued into a crossing there. `imp_tools.remove_bp`
    clears only a 3×3 neighbourhood around the branch point, while the other
    fiber's skirt reaches about one width further. The samples within 1 W of such
-   an end, measured in pixel arc length along the centerline, therefore partly belong
-   to the other fiber. A real fiber end keeps its samples.
+   an end, measured in arc length along the centerline in X pixels (Y scaled by
+   `Fiber.pixel_aspect`, the unit W is in), therefore partly belong to the
+   other fiber. A real fiber end keeps its samples.
 
 If fewer than 3 samples would remain, the cut-end exclusion is dropped so that a
 short fragment still reports a height. If nothing measured remains at all, every
@@ -1400,10 +1427,12 @@ if is_placed_line(kind):
         )
 ...
 if is_placed_line(kind):
+    aspect = float(getattr(image, "pixel_aspect", 1.0))
     width, width_measured = measure_apparent_width(
         image.calibrated_image, pix_x, pix_y, return_measured=True,
+        aspect=aspect,
     )
-    judged = detector.judge_line(line_x, line_y, width)
+    judged = detector.judge_line(line_x, line_y, width, aspect)
     kink_indices, kink_angles = judged.kink_indices, judged.kink_angles
     kink_excess, unjudged_indices = judged.kink_excess, judged.unjudged_indices
 ...
@@ -1417,8 +1446,9 @@ ep_indices = np.array([
 - Its W is measured again (§2.1) over the joined skeleton pixels, bridges
   included.
 - Its kinks and unjudged bends are judged again on the joined centerline at that W,
-  using the bundle's own `kinkangle_deg`. A bend that sat next to a cut end of a
-  fragment is no longer next to an end, so it can now be judged.
+  using the bundle's own `kinkangle_deg` and the pixel aspect its fragments were
+  placed with (§1.2). A bend that sat next to a cut end of a fragment is no
+  longer next to an end, so it can now be judged.
 - Its endpoints are the first and last point, each counted only if the outer
   fragment ended at a skeleton endpoint (§3.7).
 

@@ -122,3 +122,58 @@ def test_validate_params_rejects_bad_ridge_settings(field, value):
 
 def test_validate_params_accepts_the_defaults():
     assert validate_params(ProcParams()) == []
+
+
+def _scene_on_grid(y_nm_per_px, x_nm_per_px=2.0, size_nm=400.0):
+    """
+    One physical scene sampled on a grid of the given pixel sizes.
+    1 つの実空間の場面を、指定した画素サイズの格子で標本化する。
+
+    A long faint ridge runs along X; a 150 nm one runs along Y, which the
+    100 nm length test keeps only when its length is measured physically.
+    長く淡い尾根が X に沿って走り、150 nm の尾根が Y に沿って走る。後者は、長さを
+    実寸で測ったときにだけ 100 nm の長さの判定を通る。
+    """
+    rows, cols = int(size_nm / y_nm_per_px), int(size_nm / x_nm_per_px)
+    yy, xx = np.mgrid[0:rows, 0:cols]
+    y, x = yy * y_nm_per_px, xx * x_nm_per_px
+    sigma = 6.0
+    along_x = np.exp(-((y - 100) ** 2) / (2 * sigma ** 2)) * ((x > 40) & (x < 360))
+    along_y = np.exp(-((x - 200) ** 2) / (2 * sigma ** 2)) * ((y > 200) & (y < 350))
+    noise = np.random.default_rng(0).normal(0.0, 0.05, along_x.shape)
+    short_zone = (y > 190) & (y < 360) & (np.abs(x - 200) < 20)
+    return 1.5 * (along_x + along_y) + noise, short_zone
+
+
+def test_recovery_measures_non_square_pixels_physically():
+    """
+    On pixels twice as tall as wide, a ridge along Y is judged by its real length.
+    幅の 2 倍の高さの画素でも、Y に沿う尾根は実際の長さで判定されること。
+
+    Taken as square, the 150 nm ridge counts as 75 nm and is dropped.
+    正方画素とみなすと、150 nm の尾根は 75 nm と数えられて落とされる。
+    """
+    seg = Segmenter(ridge_recovery=True, ridge_min_length_nm=100.0)
+    square, square_zone = _scene_on_grid(2.0)
+    tall, tall_zone = _scene_on_grid(4.0)
+    on_square = seg._recover_missed_ridges(square, np.zeros(square.shape, bool), 2.0)
+    on_tall = seg._recover_missed_ridges(tall, np.zeros(tall.shape, bool), 2.0, 2.0)
+    as_square = seg._recover_missed_ridges(tall, np.zeros(tall.shape, bool), 2.0, 1.0)
+
+    square_area = (on_square & square_zone).sum() * 2.0 * 2.0
+    tall_area = (on_tall & tall_zone).sum() * 2.0 * 4.0
+    assert square_area > 0
+    assert tall_area == pytest.approx(square_area, rel=0.2)
+    assert not (as_square & tall_zone).any()
+
+
+def test_recovery_on_square_pixels_ignores_the_resampling():
+    """
+    An aspect of 1 leaves the square-pixel computation exactly as it was.
+    縦横比 1 では、正方画素の計算がそのまま変わらないこと。
+    """
+    arr = _two_fiber_image()
+    seg = Segmenter(ridge_recovery=True, ridge_min_length_nm=100.0)
+    base = seg._recover_missed_ridges(arr, np.zeros(arr.shape, bool), 10.0)
+    explicit = seg._recover_missed_ridges(arr, np.zeros(arr.shape, bool), 10.0, 1.0)
+    assert np.array_equal(base, explicit)

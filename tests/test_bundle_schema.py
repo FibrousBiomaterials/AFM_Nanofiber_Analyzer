@@ -500,3 +500,25 @@ def test_kink_excess_is_optional_and_checked_like_the_angles():
 
     arrays["ke"] = np.full((n, 1), 0.6)
     assert any(p.startswith("ke:") and "(N,)" in p for p in validate_bundle(arrays))
+
+
+def test_pixel_aspect_is_physical_only_from_format_1_3():
+    """
+    Only a bundle computed in physical geometry is read in it.
+    実空間の幾何で計算したバンドルだけを、その幾何で読むこと。
+
+    An older bundle's line and kinks were computed in pixel geometry, so it is
+    read with an aspect of 1 whatever its recorded scan size.
+    古いバンドルの線とキンクは画素座標の幾何で計算されているため、記録された
+    走査範囲によらず縦横比 1 で読む。
+    """
+    from lib.bundle_schema import pixel_aspect, pixel_aspect_from_meta
+
+    calibration = {SPATIAL_CALIBRATION_KEY: make_spatial_calibration(2.0, 1.0, "manual")}
+    shape = (255, 255)
+    assert pixel_aspect((2.0, 1.0), shape) == pytest.approx(0.5)
+    assert pixel_aspect_from_meta({"version": "1.3", **calibration}, shape) \
+        == pytest.approx(0.5)
+    assert pixel_aspect_from_meta({"version": "1.2", **calibration}, shape) == 1.0
+    assert pixel_aspect_from_meta({"version": "1.3"}, shape) == 1.0
+    assert pixel_aspect_from_meta(None, shape) == 1.0

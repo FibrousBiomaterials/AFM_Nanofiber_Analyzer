@@ -604,3 +604,81 @@ def test_a_fiber_running_off_the_scan_keeps_its_line_on_the_image(method):
     assert placed.x.min() >= 0.0 and placed.x.max() <= shape[1] - 1.0
     assert placed.y.min() >= 0.0 and placed.y.max() <= shape[0] - 1.0
     assert placed.x.size == xt.size
+
+
+def _corner_on_non_square_pixels(aspect):
+    """
+    Render a 120-degree corner on pixels `aspect` times as tall as they are wide.
+    幅に対して高さが `aspect` 倍の画素の上に、内角 120 度のコーナーを描く。
+
+    The corner and the fiber width are defined on the specimen, in X-pixel
+    units, so the correct answer does not depend on the pixel grid.
+    コーナーと繊維幅は試料上で X 画素単位で定義するため、正しい答えは画素格子に
+    よらない。
+    """
+    width = 4.0
+    sigma = width / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+    p0, p1 = np.array([10.0, 30.0]), np.array([60.0, 30.0])
+    p2 = p1 + 50.0 * np.array([np.cos(np.radians(60.0)), np.sin(np.radians(60.0))])
+    xx, yy = np.meshgrid(np.arange(110), np.arange(int(round(100 / aspect))) * aspect)
+
+    def distance(a, b):
+        ab = b - a
+        t = np.clip(((xx - a[0]) * ab[0] + (yy - a[1]) * ab[1]) / ab.dot(ab), 0.0, 1.0)
+        return np.hypot(xx - (a[0] + t * ab[0]), yy - (a[1] + t * ab[1]))
+
+    img = 3.0 * np.exp(-np.minimum(distance(p0, p1), distance(p1, p2)) ** 2
+                       / (2.0 * sigma ** 2))
+    path = np.concatenate([
+        p0 + np.linspace(0.0, 1.0, 400)[:, None] * (p1 - p0),
+        p1 + np.linspace(0.0, 1.0, 400)[1:, None] * (p2 - p1),
+    ])
+    px = np.rint(path[:, 0]).astype(int)
+    py = np.rint(path[:, 1] / aspect).astype(int)
+    keep = np.r_[True, (np.diff(px) != 0) | (np.diff(py) != 0)]
+    return img, px[keep], py[keep], width
+
+
+def test_non_square_pixels_give_the_specimens_angle_and_width():
+    """
+    With the pixel aspect passed, a corner reads its angle on the specimen.
+    画素の縦横比を渡すと、コーナーは試料上の角度で読まれること。
+
+    Read in pixel geometry the same corner, on pixels half as tall as they
+    are wide, comes out about 11 degrees sharper and the width too large.
+    同じコーナーを、幅の半分の高さの画素上で画素座標の幾何のまま読むと、約 11 度
+    鋭く、幅も大きく出る。
+    """
+    aspect = 0.5
+    img, xt, yt, width = _corner_on_non_square_pixels(aspect)
+    detector = KinkDetector()
+
+    placed = place_centerline(img, xt, yt, aspect=aspect)
+    judged = detector.judge_line(placed.x, placed.y, placed.width_px, aspect)
+    assert placed.width_px == pytest.approx(width, abs=0.25)
+    assert judged.kink_indices.size == 1
+    assert np.degrees(judged.kink_angles[0]) == pytest.approx(120.0, abs=2.0)
+
+    pixel = place_centerline(img, xt, yt)
+    pixel_judged = detector.judge_line(pixel.x, pixel.y, pixel.width_px)
+    assert np.degrees(pixel_judged.kink_angles[0]) < 112.0
+
+
+def test_a_narrow_fiber_is_raised_to_the_minimum_width():
+    """
+    A fiber narrower than 2 px is scaled by 2 px, not by the fallback.
+    幅 2 px 未満の繊維は、代替値ではなく 2 px で尺度付けされること。
+
+    The fallback is several times such a fiber's width, and the measured
+    width would shrink the kink rule's windows below the pixel staircase.
+    代替値はそうした繊維の幅の数倍であり、測った幅のままではキンク規則の窓が画素の
+    階段より小さくなる。
+    """
+    fwhm = 1.5
+    rows, cols = np.mgrid[0:40, 0:60]
+    ridge = 3.0 * np.exp(-((rows - 20.0) ** 2) / (2.0 * (fwhm / 2.3548) ** 2))
+    xtrack = np.arange(5, 55)
+    ytrack = np.full(xtrack.size, 20)
+    width, measured = measure_apparent_width(ridge, xtrack, ytrack, return_measured=True)
+    assert measured
+    assert width == 2.0

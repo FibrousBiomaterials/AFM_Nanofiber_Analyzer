@@ -53,7 +53,7 @@ from .bundle_schema import (
     APPARENT_WIDTH_KEY, CENTERLINE_KEY,
     BUNDLE_FORMAT_VERSION, OPTIONAL_BUNDLE_KEYS, REQUIRED_BUNDLE_KEYS,  # noqa: F401
     SOURCE_REGION_KEY, SPATIAL_CALIBRATION_KEY, make_spatial_calibration,
-    pixel_size_nm, validate_bundle,
+    pixel_aspect, pixel_size_nm, validate_bundle,
 )
 from .centerline import CENTERLINE_METHODS, DEFAULT_CENTERLINE_METHOD
 from .kink_detector import KinkDetector
@@ -1111,34 +1111,12 @@ def process_file(
     report("bg")
     stages.bg_calibrator(image)
 
-    report("binarize")
-    # Ridge recovery states its length and width settings physically, so it
-    # needs the pixel size. X is used because the ridge filter is isotropic;
-    # a scan with very different X and Y pixel sizes would need a per-axis
-    # filter rather than a per-axis scale here. Without a resolved scan size
-    # the segmenter skips recovery rather than guessing.
-    # リッジ回収は長さ・幅設定を物理量で持つため画素サイズを必要とする。リッジ
-    # フィルタは等方的なので X を使う。X と Y の画素サイズが大きく異なる走査は、
-    # ここで軸別スケールを渡すのではなく軸別フィルタが必要になる。走査範囲が
-    # 未解決なら、推測せずに回収段を飛ばす。
-    nm_per_px = None
-    if resolved_scan_size is not None:
-        width_px = np.asarray(image.calibrated_image).shape[1]
-        if width_px > 0:
-            nm_per_px = pixel_size_nm(resolved_scan_size[0], width_px)
-    stages.segmenter(image, nm_per_px=nm_per_px)
-
-    report("skeletonize")
-    stages.skeletonizer(image)
-
-    report("kink")
-    stages.kink_detector(image)
-
-    report("save")
     # Scale the recorded Y extent to the cropped image. Both sources above
     # describe the *whole* scan, while the stored arrays cover the kept lines,
     # and `lib.measure` derives the pixel size from the recorded scan size and
-    # the stored shape through `bundle_schema.pixel_size_nm`.
+    # the stored shape through `bundle_schema.pixel_size_nm`. It is done as
+    # soon as the stored shape is known, so the kink stage's pixel aspect is
+    # taken from the value the bundle records.
     #
     # The Y extent recorded for the crop is the one for which that function
     # gives the crop's stored rows the pixel size the whole image's stored
@@ -1149,7 +1127,9 @@ def process_file(
     # 記録する Y 方向の実寸を切り出し後の画像へ合わせる。上記のどちらの取得元も
     # 走査 *全体* を表す一方、保存される配列は残した走査線分しかなく、
     # `lib.measure` は記録された走査範囲と保存形状から
-    # `bundle_schema.pixel_size_nm` を通して画素サイズを求める。
+    # `bundle_schema.pixel_size_nm` を通して画素サイズを求める。保存形状が分かった
+    # 時点で行い、キンク段の画素の縦横比がバンドルに記録される値から取られるように
+    # する。
     #
     # 切り出しに記録する Y 方向の実寸は、その関数が切り出しの保存行数に対して、
     # 画像全体の保存行数が持つはずだった画素サイズを返すような値とする。ここで
@@ -1167,6 +1147,39 @@ def process_file(
                 * pixel_size_nm(1.0, full_stored_rows)
                 / pixel_size_nm(1.0, stored_rows),
             )
+
+    report("binarize")
+    # Ridge recovery states its length and width settings physically, so it
+    # needs the pixel size. It takes the X pixel size together with the pixel
+    # aspect, and resamples a scan whose X and Y pixel sizes differ onto square
+    # pixels before its isotropic filter runs. Without a resolved scan size the
+    # segmenter skips recovery rather than guessing.
+    # リッジ回収は長さ・幅設定を物理量で持つため画素サイズを必要とする。X 画素
+    # サイズと画素の縦横比を受け取り、X と Y の画素サイズが違う走査は、等方的な
+    # フィルタをかける前に正方画素へ描き直す。走査範囲が未解決なら、推測せずに
+    # 回収段を飛ばす。
+    nm_per_px = None
+    if resolved_scan_size is not None:
+        width_px = np.asarray(image.calibrated_image).shape[1]
+        if width_px > 0:
+            nm_per_px = pixel_size_nm(resolved_scan_size[0], width_px)
+    aspect = pixel_aspect(resolved_scan_size, np.asarray(image.calibrated_image).shape)
+    stages.segmenter(image, nm_per_px=nm_per_px, pixel_aspect=aspect)
+
+    report("skeletonize")
+    stages.skeletonizer(image)
+
+    report("kink")
+    # The centerline is placed and kinks are judged in physical geometry, with
+    # Y scaled by the pixel aspect of the stored arrays; the recorded scan size
+    # gives it, so a reader rebuilding the line from the bundle uses the same
+    # value (`bundle_schema.pixel_aspect_from_meta`).
+    # 中心線の配置とキンクの判定は、保存配列の画素の縦横比で Y を拡大した実空間の
+    # 幾何で行う。縦横比は記録する走査範囲から求めるため、バンドルから線を組み立て
+    # 直す読み取り側も同じ値を使う（`bundle_schema.pixel_aspect_from_meta`）。
+    stages.kink_detector(image, pixel_aspect=aspect)
+
+    report("save")
 
     # `name` already carries the scan-line-range suffix; add it to the
     # alongside-the-input path too, so several ranges of one input file do not

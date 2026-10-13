@@ -120,7 +120,10 @@ return curate_fibers(
 バンドルのメタデータから行う。そのため、キンクと、それを描く座標列（中心線または
 スケルトントラック）は常に同じ定義から来る。バンドルの中心線が既定でない場合、
 GUI04 はその名前をログに出す。数値がどの中心線に沿って測られたかは、画面の他の
-どこにも示されないためである。
+どこにも示されないためである。形式 1.3 のバンドルは中心線も実空間の幾何で置かれて
+いる（§2）。そのため GUI04 は、スケール欄に入力された値ではなく、バンドルに記録
+された走査範囲の画素の縦横比（`bundle_schema.pixel_aspect_from_meta`）で置き直す。
+それより古いバンドルは、判定されたときと同じ画素座標の幾何で置く。
 
 ```python
 # source: lib/fiber_tracking_image.py::_build_fiber
@@ -129,7 +132,7 @@ fiber_image = cal[y: y + h, x: x + w].copy()
 if is_placed_line(centerline):
     placed = place_centerline(
         cal, xtrack_prcimg, ytrack_prcimg, branch_points,
-        method=centerline,
+        method=centerline, aspect=pixel_aspect,
     )
     xtrack = placed.x - x
     ytrack = placed.y - y
@@ -196,10 +199,18 @@ for i, (px, py) in enumerate(zip(xtrack_prcimg.tolist(), ytrack_prcimg.tolist())
 
 ```python
 # source: lib/centerline.py::place_centerline
-width, measured = measure_apparent_width(height, x, y, return_measured=True)
-lx, ly, reliable, crest = _refine(height, x, y, width, branch_points, method)
+width, measured = measure_apparent_width(
+    height, x, y, return_measured=True, aspect=aspect)
+lx, ly, reliable, crest = _refine(
+    height, x, y, width, branch_points, method, aspect)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 ```
+
+`aspect` は Y 画素サイズ ÷ X 画素サイズ（`bundle_schema.pixel_aspect`）である。
+どちらの関数も、向きや距離を計算する前にすべての Y 座標にこれを掛け、高さ画像を
+画素の行で読むところではまた割り戻す。そのため X と Y の画素サイズが違う走査でも、
+法線は試料上で繊維に垂直になる。以下の長さは W も含めてすべて X 画素単位である。
+正方画素では `aspect` は 1 で、何も変わらない。
 
 §2.1〜§2.7 は既定の方式 `half_max_025w` に沿って説明する。他の方式は位置の推定量
 以外をすべて共有しており、§2.8 で説明する。
@@ -208,11 +219,12 @@ return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 どの画素サイズでも同じ意味を持つ。
 
 ```python
-# source: lib/centerline.py::_WIDTH_SEARCH_PX, _WIDTH_STEP_PX, _WIDTH_TANGENT_HALF, FALLBACK_WIDTH_PX, _CREST_WINDOW_WIDTHS, _FRAME_SIGMA_WIDTHS, _CREST_REACH_WIDTHS, _HALF_MAX_REACH_WIDTHS, _MAX_SECTION_WIDTHS, _OFFSET_SMOOTH_WIDTHS, _JUNCTION_WIDTHS, _MIN_CREST_AMPLITUDE_FRAC
+# source: lib/centerline.py::_WIDTH_SEARCH_PX, _WIDTH_STEP_PX, _WIDTH_TANGENT_HALF, FALLBACK_WIDTH_PX, _MIN_WIDTH_PX, _CREST_WINDOW_WIDTHS, _FRAME_SIGMA_WIDTHS, _CREST_REACH_WIDTHS, _HALF_MAX_REACH_WIDTHS, _MAX_SECTION_WIDTHS, _OFFSET_SMOOTH_WIDTHS, _JUNCTION_WIDTHS, _MIN_CREST_AMPLITUDE_FRAC
 _WIDTH_SEARCH_PX = 12.0
 _WIDTH_STEP_PX = 0.25
 _WIDTH_TANGENT_HALF = 3
 FALLBACK_WIDTH_PX = 8.0
+_MIN_WIDTH_PX = 2.0
 _CREST_WINDOW_WIDTHS = 0.25
 _FRAME_SIGMA_WIDTHS = 0.25
 _CREST_REACH_WIDTHS = 0.75
@@ -223,8 +235,10 @@ _JUNCTION_WIDTHS = 1.0
 _MIN_CREST_AMPLITUDE_FRAC = 0.25
 ```
 
-画素単位なのは最初の 3 つだけである。これらは幅のプロファイルをどれだけ細かく
-標本化するかを決めるもので、繊維の性質ではない。
+最初の 3 つは画素単位である。これらは幅のプロファイルをどれだけ細かく
+標本化するかを決めるもので、繊維の性質ではない。`FALLBACK_WIDTH_PX` と
+`_MIN_WIDTH_PX` も画素数であり、幅が測れないときに使う幅と、使う幅の最小値である
+（§2.1）。
 
 ### 2.1 見かけ幅 W
 
@@ -238,7 +252,7 @@ nx, ny = -ty, tx
 offsets = np.arange(-_WIDTH_SEARCH_PX, _WIDTH_SEARCH_PX + 1e-9, _WIDTH_STEP_PX)
 profiles = _bilinear(
     np.asarray(height, dtype=np.float64),
-    y[:, None] + ny[:, None] * offsets[None, :],
+    (y[:, None] + ny[:, None] * offsets[None, :]) / float(aspect),
     x[:, None] + nx[:, None] * offsets[None, :],
 )
 peak = profiles.max(axis=1)
@@ -260,8 +274,9 @@ for i in range(x.size):
 if usable.sum() < max(1, x.size // 2):
     return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
 width = float(np.median(widths[usable]))
-if not np.isfinite(width) or width < 2.0:
+if not np.isfinite(width) or width <= 0.0:
     return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
+width = max(width, _MIN_WIDTH_PX)
 return (width, True) if return_measured else width
 ```
 
@@ -279,8 +294,10 @@ return (width, True) if return_measured else width
 4. W は使える点での**中央値**である。幅は繊維の性質なので、1 本の繊維全体で 1 つの
    値を使う。
 
-使える点が半数未満の場合、または中央値が 2 px 未満の場合は、`FALLBACK_WIDTH_PX`
-（8 px）で代用する。代用したことは報告される。`CenterlineResult.width_measured`
+使える点が半数未満の場合、または中央値がゼロか有限でない場合は、`FALLBACK_WIDTH_PX`
+（8 px）で代用する。`_MIN_WIDTH_PX`（2 px）より細く測られた繊維には 2 px を与える。
+代用値では自身の幅の数倍の尺度でキンク規則を当てることになり、測った値のままでは規則の
+窓が画素の階段 1 段の大きさまで縮むためである。代用したことは報告される。`CenterlineResult.width_measured`
 が `False` になり、GUI04 はそのファイバーの `W (nm)` 欄を空欄にする（§3.10）。
 
 ### 2.2 枠：方向だけを与える平滑化コピー
@@ -293,6 +310,8 @@ return (width, True) if return_measured else width
 
 ```python
 # source: lib/centerline.py::_refine
+a = float(aspect)
+y = y * a
 width = float(width_px)
 mean_step = max(float(np.hypot(np.diff(x), np.diff(y)).mean()), 1e-9)
 wide = method == HALF_MAX_05W_CENTERLINE
@@ -310,7 +329,7 @@ reach = _CREST_REACH_WIDTHS * width
 half_reach = _HALF_MAX_REACH_WIDTHS * width
 s = np.arange(-(reach + half_reach), reach + half_reach + 1e-9, _WIDTH_STEP_PX)
 ns = s.size
-prof = _bilinear(img, fy[:, None] + ny[:, None] * s[None, :],
+prof = _bilinear(img, (fy[:, None] + ny[:, None] * s[None, :]) / a,
                  fx[:, None] + nx[:, None] * s[None, :])
 ```
 
@@ -473,12 +492,13 @@ return line_x, line_y, reliable, crest.astype(np.float64)
 
 長さを測る前に、中心線を画像内に収める。走査範囲の外へ続く繊維では、枠と横方向
 オフセットが最後の点を最外の画素中心より外（高さを測っていない位置）へ運ぶことが
-あるため、すべての点を画素中心の範囲にクリップする。
+あるため、すべての点を画素中心の範囲にクリップする。ここで中心線は X 画素単位から
+画素座標へ戻る（`line_y / a`）。
 
 ```python
 # source: lib/centerline.py::_refine
 line_x = np.clip(line_x, 0.0, img.shape[1] - 1.0)
-line_y = np.clip(line_y, 0.0, img.shape[0] - 1.0)
+line_y = np.clip(line_y / a, 0.0, img.shape[0] - 1.0)
 ```
 
 点を捨てずにクリップするのは、中心線がスケルトントラックの 1 点につき 1 点を保つ
@@ -828,7 +848,8 @@ mask = measured.copy()
 width = float(getattr(fiber, "width_px", float("nan")))
 if np.isfinite(width) and width > 0.0 and n > 1:
     ends = set(int(i) for i in np.asarray(fiber.ep_indices).tolist())
-    arc = polyline_distance(fiber.xtrack, fiber.ytrack, 1.0)
+    arc = polyline_distance(
+        fiber.xtrack, fiber.ytrack, 1.0, getattr(fiber, "pixel_aspect", 1.0))
     zone = CUT_END_EXCLUSION_WIDTHS * width
     if 0 not in ends:
         mask &= ~(arc < zone)
@@ -847,7 +868,8 @@ return mask
 2. **切断端の最後の 1 幅。** 点が `ep_indices` に含まれない端は切断である。つまり
    スケルトンはそこで交差へ続いていた。`imp_tools.remove_bp` が消すのは分岐点の
    周りの 3×3 だけだが、相手の繊維の裾はその先さらに約 1 幅広がる。そのため、
-   こうした端から 1 W 以内（中心線に沿った画素単位の弧長で測る）の標本は、一部が相手の
+   こうした端から 1 W 以内（中心線に沿った X 画素単位の弧長で測る。Y は W と同じ単位にするため
+   `Fiber.pixel_aspect` で拡大する）の標本は、一部が相手の
    繊維のものになっている。本物の繊維端の標本は残す。
 
 残る標本が 3 未満になる場合は、短い断片でも高さを報告できるよう切断端の除外を
@@ -1342,10 +1364,12 @@ if is_placed_line(kind):
         )
 ...
 if is_placed_line(kind):
+    aspect = float(getattr(image, "pixel_aspect", 1.0))
     width, width_measured = measure_apparent_width(
         image.calibrated_image, pix_x, pix_y, return_measured=True,
+        aspect=aspect,
     )
-    judged = detector.judge_line(line_x, line_y, width)
+    judged = detector.judge_line(line_x, line_y, width, aspect)
     kink_indices, kink_angles = judged.kink_indices, judged.kink_angles
     kink_excess, unjudged_indices = judged.kink_excess, judged.unjudged_indices
 ...
@@ -1357,7 +1381,7 @@ ep_indices = np.array([
 - フィブリルの長さは、つないだ中心線の長さを §2.7 と同じ方法で測ったものである。
 - W は、つないだスケルトン画素（橋渡しを含む）の上で測り直す（§2.1）。
 - キンクと未判定の折れは、つないだ中心線の上でその W を使い、バンドル自身の
-  `kinkangle_deg` で判定し直す。断片の切断端のそばにあった折れは、もう端のそばに
+  `kinkangle_deg` と、断片を置いたときの画素の縦横比（§1.2）で判定し直す。断片の切断端のそばにあった折れは、もう端のそばに
   ないので、判定されるようになる。
 - 端点は最初と最後の点で、それぞれ外側の断片がスケルトン端点で終わっていた場合
   だけ数える（§3.7）。

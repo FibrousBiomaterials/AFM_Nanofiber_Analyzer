@@ -32,6 +32,77 @@ if TYPE_CHECKING:
 _DENOM_EPS = 1e-21
 
 
+def _to_square_pixels(image: np.ndarray, aspect: float, order: int) -> np.ndarray:
+    """
+    Resample an image along Y onto a grid of square pixels, X pixels wide.
+    画像を Y 方向に描き直し、X 画素の大きさの正方画素の格子に載せる。
+
+    Parameters
+    ----------
+    image
+        2D array on the scan's grid.
+        走査の格子上の 2 次元配列。
+    aspect
+        Y pixel size over X pixel size (`bundle_schema.pixel_aspect`).
+        Y 画素サイズ ÷ X 画素サイズ（`bundle_schema.pixel_aspect`）。
+    order
+        1 interpolates heights linearly between rows; 0 takes the nearest row,
+        for a mask.
+        1 なら行の間で高さを線形補間し、0 なら最も近い行を取る（マスク用）。
+
+    Returns
+    -------
+    np.ndarray
+        The resampled array; row ``j`` lies at original row ``j / aspect``.
+        描き直した配列。行 ``j`` は元の行 ``j / aspect`` の位置にある。
+    """
+    rows = image.shape[0]
+    n = int(round((rows - 1) * aspect)) + 1
+    y = np.clip(np.arange(n) / aspect, 0.0, rows - 1.0)
+    if order == 0:
+        return image[np.rint(y).astype(np.intp)]
+    y0 = np.minimum(np.floor(y).astype(np.intp), rows - 2) if rows > 1 else np.zeros(n, np.intp)
+    frac = (y - y0)[:, None]
+    upper = image[np.minimum(y0 + 1, rows - 1)]
+    return image[y0] * (1.0 - frac) + upper * frac
+
+
+def _from_square_pixels(mask: np.ndarray, rows: int, aspect: float) -> np.ndarray:
+    """
+    Map a mask on the square-pixel grid back onto the scan's rows.
+    正方画素の格子上のマスクを、走査の行へ戻す。
+
+    Parameters
+    ----------
+    mask
+        Boolean mask from `_to_square_pixels`'s grid.
+        `_to_square_pixels` の格子上の真偽値マスク。
+    rows
+        Number of rows of the scan's grid.
+        走査の格子の行数。
+    aspect
+        Y pixel size over X pixel size.
+        Y 画素サイズ ÷ X 画素サイズ。
+
+    Returns
+    -------
+    np.ndarray
+        A scan row is set wherever any square-pixel row it covers is set, so a
+        thin line is not broken where the square grid holds more rows.
+        走査の行は、それが覆う正方画素の行のどれかが立っていれば立てる。正方画素の
+        格子の行が多い場合にも、細い線が途切れないようにするためである。
+    """
+    n = mask.shape[0]
+    r = np.arange(rows)
+    centre = np.clip(np.rint(r * aspect).astype(np.intp), 0, n - 1)
+    lo = np.minimum(np.clip(np.ceil((r - 0.5) * aspect).astype(np.intp), 0, n - 1), centre)
+    hi = np.maximum(np.clip(np.floor((r + 0.5) * aspect).astype(np.intp), 0, n - 1), centre)
+    out = np.zeros((rows, mask.shape[1]), dtype=bool)
+    for i in range(rows):
+        out[i] = mask[lo[i]:hi[i] + 1].any(axis=0)
+    return out
+
+
 class Segmenter:
     """
     Create binary nanofiber masks from calibrated AFM height images.
@@ -180,6 +251,7 @@ class Segmenter:
 
     def __call__(
         self, image: "ProcessedImage", nm_per_px: Optional[float] = None,
+        pixel_aspect: float = 1.0,
     ) -> None:
         """
         Segment a calibrated AFM image and store the binary mask on it.
@@ -191,11 +263,16 @@ class Segmenter:
             Processed image object with a `calibrated_image` height map.
             `calibrated_image` 高さマップを持つ処理済み画像オブジェクト。
         nm_per_px
-            Pixel size in nanometres, required only by ridge recovery. When
+            X pixel size in nanometres, required only by ridge recovery. When
             omitted the recovery step is skipped, because its length and width
             settings are physical and cannot be converted without it.
-            画素サイズ (nm)。リッジ回収でのみ必要。省略時は回収段を行わない。
+            X 画素サイズ (nm)。リッジ回収でのみ必要。省略時は回収段を行わない。
             回収段の長さ・幅設定は物理量であり、これなしでは換算できないため。
+        pixel_aspect
+            Y pixel size over X pixel size (`bundle_schema.pixel_aspect`),
+            read only by ridge recovery.
+            Y 画素サイズ ÷ X 画素サイズ（`bundle_schema.pixel_aspect`）。リッジ
+            回収だけが読む。
 
         Raises
         ------
@@ -205,7 +282,9 @@ class Segmenter:
 
         Notes
         -----
-        Reads `image.calibrated_image`; writes `image.binarized_image`.
+        Reads `image.detection_image` (the calibrated heights, median filtered
+        when `BGCalibrator.apply_median` is set), or `image.calibrated_image`
+        when no detection image was stored; writes `image.binarized_image`.
 
         The pipeline combines global and local threshold masks, removes small
         components, filters nonlinear components with a Hough-line score,
@@ -222,9 +301,12 @@ class Segmenter:
                 "Segmenter requires image.calibrated_image; "
                 "run BGCalibrator on the image first."
             )
+        heights = getattr(image, "detection_image", None)
+        if heights is None:
+            heights = image.calibrated_image
 
         self.binary_image = self._binaryzation(
-            image.calibrated_image, self.global_threshold, self.wsize_localbin
+            heights, self.global_threshold, self.wsize_localbin
         )
 
         self.no_small_binary_image = self._remove_small_fragments(self.binary_image, self.area_min)
@@ -240,7 +322,7 @@ class Segmenter:
             self.no_connecting_binary_image = self.no_linear_binary_image
 
         self.no_low_binary_image = self.remove_low_component(
-            image.calibrated_image, self.no_connecting_binary_image
+            heights, self.no_connecting_binary_image
         )
 
         # Ridge recovery runs before the closing so a recovered segment that
@@ -249,7 +331,7 @@ class Segmenter:
         # リッジ回収は closing の前に行う。既存成分の隣で終わる回収セグメントが
         # 独立した短繊維として残らず、closing で橋渡しされるようにするため。
         self.ridge_recovered_image = self._recover_missed_ridges(
-            image.calibrated_image, self.no_low_binary_image, nm_per_px,
+            heights, self.no_low_binary_image, nm_per_px, pixel_aspect,
         )
         recovered_union = self.no_low_binary_image | self.ridge_recovered_image
 
@@ -261,6 +343,7 @@ class Segmenter:
         calibrated_image: np.ndarray,
         binary_image: np.ndarray,
         nm_per_px: Optional[float],
+        pixel_aspect: float = 1.0,
     ) -> np.ndarray:
         """
         Find fibers the thresholding pipeline missed entirely.
@@ -275,8 +358,18 @@ class Segmenter:
             Mask accepted so far; only material outside it can be recovered.
             ここまでに採用されたマスク。この外側の実体だけが回収対象となる。
         nm_per_px
-            Pixel size in nanometres, or None to skip recovery.
-            画素サイズ (nm)。None なら回収を行わない。
+            X pixel size in nanometres, or None to skip recovery.
+            X 画素サイズ (nm)。None なら回収を行わない。
+        pixel_aspect
+            Y pixel size over X pixel size. When it is not 1, the heights and
+            the mask are resampled along Y onto square pixels X pixels wide
+            (`_to_square_pixels`), the filter, the thresholds and the length
+            test run there, and the recovered mask is mapped back
+            (`_from_square_pixels`).
+            Y 画素サイズ ÷ X 画素サイズ。1 でなければ、高さとマスクを Y 方向に
+            描き直して X 画素の大きさの正方画素に載せ（`_to_square_pixels`）、
+            フィルタ・しきい値・長さの判定をそこで行い、回収したマスクを元の格子へ
+            戻す（`_from_square_pixels`）。
 
         Returns
         -------
@@ -302,10 +395,27 @@ class Segmenter:
         リッジ応答に対するヒステリシスは、生の振幅に対する同じ方式と違って
         機能する。応答は繊維間でほぼ 0 まで落ちるため、領域は画像全体へ
         浸透せず境界で止まる。
+
+        The Frangi filter's scales are isotropic, so on a scan whose X and Y
+        pixel sizes differ it would look for a different width across a
+        fiber running along X than along Y; resampling onto square pixels
+        makes one scale one physical width in every direction, and makes the
+        skeleton's pixel count a length in X pixels.
+        Frangi フィルタのスケールは等方的なので、X と Y の画素サイズが違う走査では、
+        X に沿う繊維と Y に沿う繊維とで探す幅が変わってしまう。正方画素に描き直すと、
+        1 つのスケールがどの向きでも同じ実寸の幅になり、スケルトンの画素数も X 画素
+        単位の長さになる。
         """
         empty = np.zeros_like(binary_image, dtype=bool)
         if not self.ridge_recovery or not nm_per_px or nm_per_px <= 0:
             return empty
+        rows = np.asarray(binary_image).shape[0]
+        original_binary = np.asarray(binary_image, dtype=bool)
+        resampled = float(pixel_aspect) != 1.0
+        if resampled:
+            calibrated_image = _to_square_pixels(
+                np.asarray(calibrated_image, dtype=np.float64), pixel_aspect, 1)
+            binary_image = _to_square_pixels(original_binary, pixel_aspect, 0)
 
         # Physical half-widths become pixel scales here, so one setting means
         # the same structure whatever the scan resolution.
@@ -337,7 +447,14 @@ class Segmenter:
         ]
         if not keep:
             return empty
-        return np.isin(labels, keep)
+        recovered = np.isin(labels, keep)
+        if resampled:
+            # Mapping back can widen a segment by a row into the accepted
+            # mask; recovery only ever adds outside it.
+            # 元の格子へ戻すと、セグメントが 1 行ぶん採用済みのマスクに食い込みうる。
+            # 回収はその外側にだけ追加する。
+            recovered = _from_square_pixels(recovered, rows, pixel_aspect) & ~original_binary
+        return recovered
 
     @staticmethod
     def _binaryzation(

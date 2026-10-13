@@ -49,6 +49,7 @@ def _build_fiber(
     branch_points: Optional[np.ndarray] = None,
     centerline: str = SKELETON_TRACK,
     unjudged_set: Optional[set] = None,
+    pixel_aspect: float = 1.0,
 ) -> Fiber:
     """
     Build one Fiber from a labeled skeleton component and feature lookups.
@@ -115,6 +116,11 @@ def _build_fiber(
         older than format 1.1.
         トラック端のそばにあるためキンク規則が判定しなかった折れの ``(x, y)``
         座標集合。形式 1.1 より古いバンドルでは ``None`` または空。
+    pixel_aspect
+        Y pixel size over X pixel size of the geometry the bundle's line and
+        kinks were computed in (`bundle_schema.pixel_aspect_from_meta`).
+        バンドルの線とキンクを計算した幾何の Y 画素サイズ ÷ X 画素サイズ
+        （`bundle_schema.pixel_aspect_from_meta`）。
 
     Returns
     -------
@@ -138,7 +144,7 @@ def _build_fiber(
         # 引き続きスケルトン座標で一致する。
         placed = place_centerline(
             cal, xtrack_prcimg, ytrack_prcimg, branch_points,
-            method=centerline,
+            method=centerline, aspect=pixel_aspect,
         )
         xtrack = placed.x - x
         ytrack = placed.y - y
@@ -216,6 +222,7 @@ def _build_fiber(
         unjudged_indices=np.array(unjudged_indices, dtype=np.intp),
         width_px=width_px, width_measured=width_measured,
         line_reliable=line_reliable, kink_excess=kink_excess,
+        pixel_aspect=float(pixel_aspect),
     )
 
 
@@ -303,6 +310,16 @@ class FiberTrackingImage:
         `centerline.SKELETON_TRACK`。バンドルから読み込まないコンテナの既定値も
         後者である。`lib.measure` がバンドルから設定する
         （`bundle_schema.centerline_from_meta`）。
+    pixel_aspect
+        Y pixel size over X pixel size of the geometry the bundle's line and
+        kinks were computed in; 1.0 for square pixels, for a format older than
+        1.3 and for a container not loaded from a bundle. Set by `lib.measure`
+        from the bundle (`bundle_schema.pixel_aspect_from_meta`), never from a
+        scale entered at measurement time.
+        バンドルの線とキンクを計算した幾何の Y 画素サイズ ÷ X 画素サイズ。正方
+        画素、形式 1.3 より古いバンドル、バンドルから読み込まないコンテナでは 1.0。
+        `lib.measure` がバンドルから設定し（`bundle_schema.pixel_aspect_from_meta`）、
+        計測時に入力された寸法からは決して設定しない。
 
     Examples
     --------
@@ -413,6 +430,11 @@ class FiberTrackingImage:
         # 繊維を組み立てる線。`lib.measure` がバンドルから設定する
         # （`bundle_schema.centerline_from_meta`）。
         self.centerline: str = SKELETON_TRACK
+        # The pixel aspect the line and kinks were computed with; `lib.measure`
+        # sets it from the bundle (`bundle_schema.pixel_aspect_from_meta`).
+        # 線とキンクの計算に使われた画素の縦横比。`lib.measure` がバンドルから
+        # 設定する（`bundle_schema.pixel_aspect_from_meta`）。
+        self.pixel_aspect: float = 1.0
 
     def fibers_in_image_parallel(
         self,
@@ -577,12 +599,14 @@ class FiberTrackingImage:
 
         bp = self.bp
         kind = self.centerline
+        aspect = self.pixel_aspect
 
         def build(label: int) -> Fiber:
             return _build_fiber(
                 label_image, label, data[label], cal, spp,
                 kink_set, dp_set, ep_set, kink_angle_map, spp_y,
                 branch_points=bp, centerline=kind, unjudged_set=unjudged_set,
+                pixel_aspect=aspect,
             )
 
         if not parallel:

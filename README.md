@@ -868,8 +868,8 @@ Each bundle also stores root metadata (blosc2 `vlmeta`):
 | Key | Content |
 |---|---|
 | `params` | Analysis-parameter dictionary, identical to `<input_stem>_param.json`. Read back for `kinkangle_deg` (see below), and for `kink_decompose_px` on a bundle of format 1.0; the remaining fields are provenance. |
-| `version` | Bundle format version (currently `"1.2"`; a `"1.1"` bundle is measured along the half-maximum centerline, and a `"1.0"` bundle along its skeleton track until it is re-analyzed). |
-| `centerline` | The centerline the kinks were judged on and the fibers are measured along, one of the `centerline_method` values. Required from format 1.2; a reader builds the fibers on exactly this line and refuses a 1.2 bundle that does not name a known one. |
+| `version` | Bundle format version (currently `"1.3"`, whose centerline and kinks are computed in the scan's physical geometry, so the angles on a scan with different X and Y pixel sizes are the specimen's; a `"1.2"` bundle was computed in pixel geometry and is read in it, a `"1.1"` bundle is measured along the half-maximum centerline, and a `"1.0"` bundle along its skeleton track until it is re-analyzed). |
+| `centerline` | The centerline the kinks were judged on and the fibers are measured along, one of the `centerline_method` values. Required from format 1.2; a reader builds the fibers on exactly this line and refuses a 1.2 or later bundle that does not name a known one. |
 | `software_version` | Application release that wrote the bundle. |
 | `input_file` | Base name of the processed input file. |
 | `input_sha256` | SHA-256 digest of the input file contents. |

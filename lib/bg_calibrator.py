@@ -18,7 +18,7 @@ SPM-9600、Bruker NanoScope のテキストエクスポート）のデータに�
 経由で引き続き利用できる。
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Tuple
 
 import numpy as np
 import cv2
@@ -54,6 +54,15 @@ BG_METHOD_ALIASES = {"inpaint": "trendfill"}
 # 替えることはしない。黙って置換すると保存済み `_param.json` が再現する数値が
 # 変わり、研究ソフトウェアとしての再現性を損なうためである。実行を止めて
 # 利用者に方式を選び直させる。
+# Half-width, in robust standard deviations, of the range the difference
+# histograms are built over (`BGCalibrator._noise_range`). It holds the noise
+# peak several times over, so the Gaussian and its linear baseline are both
+# fitted inside it, while the bins stay narrow enough to resolve the peak.
+# 差分ヒストグラムを作る範囲の片側幅（頑健な標準偏差の単位）
+# （`BGCalibrator._noise_range`）。ノイズのピークを何倍も含むため、ガウスと線形の
+# ベースラインはどちらもその中で当てはめられ、ビンはピークを分解できる細かさを保つ。
+_NOISE_RANGE_SIGMAS = 8.0
+
 BG_METHOD_REMOVED = {
     "spline2d": (
         "bg_method 'spline2d' was removed after 1.0.0. Its tensor-product "
@@ -175,8 +184,13 @@ class BGCalibrator:
             Polynomial order used by the Savitzky-Golay filter.
             Savitzky-Golay フィルタで使う多項式次数。
         apply_median : bool
-            If True, apply a 3x3 median blur after background subtraction.
-            True の場合、背景減算後に 3x3 のメディアンぼかしを適用する。
+            If True, apply a 3x3 median blur after background subtraction to
+            the image segmentation and skeletonization read
+            (`ProcessedImage.detection_image`); the calibrated heights are
+            never filtered (see `_store`).
+            True の場合、背景減算後に、セグメンテーションと細線化が読む画像
+            （`ProcessedImage.detection_image`）へ 3x3 のメディアンぼかしを適用する。
+            補正済みの高さには決してかけない（`_store` 参照）。
         mask_dilation : int, optional
             Number of pixels used to dilate the detected fiber mask before
             background estimation. Fiber-edge pixels that escape detection in
@@ -232,14 +246,13 @@ class BGCalibrator:
 
             ``'tophat'``: morphological opening with a circular structuring
             element of diameter ``tophat_se_size``. No fiber mask is computed,
-            so the ridge-detection parameters are ignored. Its run time
-            against the other methods is in docs/validation.md section 1.5.
+            so the ridge-detection parameters are ignored.
 
             ``'spline1d'``: per-line 1D spline interpolation of the
             background-candidate pixels left by the trendfill fiber mask,
             along the axis ``spline1d_axis`` chooses and with spline order
             ``spline1d_degree``. Its effect on scan-line offsets is in
-            docs/validation.md section 1.6.
+            docs/validation.md section 1.5.
 
             背景推定方式の選択。各方式の説明は docs/algorithms.ja.md の 1.3〜1.5 節と、
             `_call_trendfill`・`_call_tophat`・`_call_spline1d` の docstring にある。
@@ -255,13 +268,12 @@ class BGCalibrator:
 
             ``'tophat'``: 直径 ``tophat_se_size`` の円形構造要素を用いる
             形態学的 opening。ファイバーマスクを使わないため、リッジ検出系
-            パラメータは無視される。他方式との実行時間の比較は
-            docs/validation.ja.md の 1.5 節にある。
+            パラメータは無視される。
 
             ``'spline1d'``: trendfill のファイバーマスクが残した背景候補画素を、
             ``spline1d_axis`` が選ぶ向きに沿って行/列ごとに次数
             ``spline1d_degree`` の 1D スプラインで補間する。走査ラインの
-            オフセットへの効果は docs/validation.ja.md の 1.6 節にある。
+            オフセットへの効果は docs/validation.ja.md の 1.5 節にある。
 
         tophat_se_size : int, optional
             Diameter (in pixels) of the circular structuring element used
@@ -500,12 +512,43 @@ class BGCalibrator:
         self.bg_open = None
         self.bg_spline1d = None
         calibrated_image = self._bg_calibrate(image.original_image, self.bg_sm)
+        self._store(image, calibrated_image)
 
-        if self.apply_median:
-            # Optionally suppress impulse-like residual noise.
-            calibrated_image = cv2.medianBlur(calibrated_image.astype(np.float32), ksize=3)
+    def _store(self, image: ProcessedImage, calibrated_image: np.ndarray) -> None:
+        """
+        Store the corrected heights, and the image detection reads, on `image`.
+        補正済みの高さと、検出が読む画像を `image` に格納する。
 
+        Parameters
+        ----------
+        image
+            Container whose `calibrated_image` and `detection_image` are set.
+            `calibrated_image` と `detection_image` を設定するコンテナ。
+        calibrated_image
+            Background-subtracted heights.
+            背景を差し引いた高さ。
+
+        Notes
+        -----
+        The optional 3x3 median filter (`apply_median`) suppresses
+        impulse-like residual noise, but it also flattens the crest of a
+        ridge to the height of its neighbours one pixel to the side, by a
+        fraction that grows as the fiber narrows and that depends on the
+        fiber's direction. It is therefore applied only to `detection_image`,
+        which segmentation and skeletonization read; `calibrated_image`, from
+        which the centerline and every height are read and which the bundle
+        stores, is left unfiltered.
+        任意の 3x3 メディアンフィルタ（`apply_median`）はインパルス状の残留ノイズを
+        抑えるが、尾根の頂点も 1 画素脇の隣接画素の高さまで平らにしてしまう。その
+        割合は繊維が細いほど大きく、繊維の向きにも依存する。そのため、フィルタは
+        セグメンテーションと細線化が読む `detection_image` にだけかけ、中心線と
+        すべての高さを読み、バンドルが保存する `calibrated_image` にはかけない。
+        """
         image.calibrated_image = calibrated_image
+        image.detection_image = (
+            cv2.medianBlur(np.asarray(calibrated_image, dtype=np.float32), ksize=3)
+            if self.apply_median else calibrated_image
+        )
 
     def _call_tophat(self, image: ProcessedImage) -> None:
         """
@@ -634,11 +677,7 @@ class BGCalibrator:
         # (global_threshold, low_threshold, bp_height) が、ノイズの中央を通る
         # 補間系の背景方式と同じ意味を持つようにする。
         calibrated_image -= np.median(calibrated_image)
-
-        if self.apply_median:
-            calibrated_image = cv2.medianBlur(calibrated_image.astype(np.float32), ksize=3)
-
-        image.calibrated_image = calibrated_image
+        self._store(image, calibrated_image)
 
     def _call_spline1d(self, image: ProcessedImage) -> None:
         """
@@ -683,7 +722,7 @@ class BGCalibrator:
         subtracted *in full*. The interpolated background is Savitzky-Golay
         smoothed first, because the per-line interpolation is not smooth by
         construction. Its effect on scan-line offsets, against ``'trendfill'``,
-        is in docs/validation.md section 1.6.
+        is in docs/validation.md section 1.5.
 
         ファイバーマスクは `_call_trendfill` と同じもので、``mask_dilation`` と
         ``min_mask_component_area`` も含む。これにより ``'trendfill'`` と同様、
@@ -709,7 +748,7 @@ class BGCalibrator:
         他の背景方式と同様、推定した背景は *そのまま全面* 減算する。行/列ごとの
         補間は構成上滑らかにはならないため、補間した背景を先に Savitzky-Golay
         平滑化する。走査ラインのオフセットへの効果を ``'trendfill'`` と比べた
-        結果は docs/validation.ja.md の 1.6 節にある。
+        結果は docs/validation.ja.md の 1.5 節にある。
         """
         original = image.original_image
 
@@ -782,11 +821,7 @@ class BGCalibrator:
         # 行わない。
         self.bg_sm = signal.savgol_filter(bg_int, self.savgol_window, self.savgol_polyorder)
         calibrated_image = original[1:, 1:] - self.bg_sm
-
-        if self.apply_median:
-            calibrated_image = cv2.medianBlur(calibrated_image.astype(np.float32), ksize=3)
-
-        image.calibrated_image = calibrated_image
+        self._store(image, calibrated_image)
 
     @staticmethod
     def _spline1d_fill(bg_only: np.ndarray, axis: str = 'x', order: int = 2,
@@ -996,6 +1031,13 @@ class BGCalibrator:
         -----
         The Gaussian center/sigma are later used as robust thresholds in `_dif_sep`.
         ここで得たガウス中心値とシグマは、後段 `_dif_sep` のしきい値に使われる。
+
+        Each histogram spans `_noise_range` of its differences, not their
+        full range, so the bins resolve the noise peak the Gaussian is fitted
+        to; see `_noise_range`.
+        各ヒストグラムは差分の全範囲ではなく `_noise_range` の範囲にわたる。
+        こうしてビンが、ガウスを当てはめるノイズのピークを分解できるようにする。
+        `_noise_range` を参照。
         """
         # Local import: lmfit takes ~3 s to import and is used only by this
         # histogram fit, so loading it here keeps GUI and CLI startup fast.
@@ -1003,8 +1045,10 @@ class BGCalibrator:
         # 使わないため、ここで読み込んで GUI / CLI の起動を速く保つ。
         from lmfit.models import GaussianModel, PolynomialModel
 
-        histx = np.histogram(np.ravel(dif_x), bins=bin_n)
-        histy = np.histogram(np.ravel(dif_y), bins=bin_n)
+        histx = np.histogram(np.ravel(dif_x), bins=bin_n,
+                             range=BGCalibrator._noise_range(dif_x))
+        histy = np.histogram(np.ravel(dif_y), bins=bin_n,
+                             range=BGCalibrator._noise_range(dif_y))
         h_arrayx = (histx[1][1:] + histx[1][:-1]) / 2
         h_arrayy = (histy[1][1:] + histy[1][:-1]) / 2
 
@@ -1035,6 +1079,57 @@ class BGCalibrator:
         outy = model.fit(histy[0], pars_y, x=h_arrayy)
     
         return histx, histy, outx, outy
+
+    @staticmethod
+    def _noise_range(dif: np.ndarray) -> Optional[Tuple[float, float]]:
+        """
+        Return the histogram range that resolves the noise of a difference map.
+        差分マップのノイズを分解できるヒストグラムの範囲を返す。
+
+        Parameters
+        ----------
+        dif
+            Difference image (`_difXY`).
+            差分画像（`_difXY`）。
+
+        Returns
+        -------
+        tuple of float or None
+            The median plus and minus `_NOISE_RANGE_SIGMAS` robust standard
+            deviations (1.4826 times the median absolute deviation), or
+            ``None`` -- the full range -- when that deviation is zero or not
+            finite.
+            中央値 ± `_NOISE_RANGE_SIGMAS` × 頑健な標準偏差（中央絶対偏差の
+            1.4826 倍）。その偏差が 0 か有限でなければ ``None``（全範囲）。
+
+        Notes
+        -----
+        Over the full range of the differences the bin width is set by the
+        largest step in the image -- a particle edge, a feedback glitch --
+        rather than by the noise, so a sigma of about one bin width is fitted
+        to a peak only a few bins wide, and the fitted sigma, and with it every
+        threshold `_dif_sep` takes from it, depends on the most extreme pixel
+        pair. The median and the median absolute deviation are unaffected by
+        those outliers, and a range of `_NOISE_RANGE_SIGMAS` of their
+        deviations holds the whole peak with 150 bins about a tenth of a
+        deviation wide. The differences outside the range only leave the fit:
+        `_dif_sep` still classifies every pixel by the thresholds it gives.
+        差分の全範囲にわたると、ビン幅はノイズではなく画像中の最大の段差（粒子の縁、
+        フィードバックの乱れ）で決まる。そのため数ビン幅しかないピークに約 1 ビン幅の
+        sigma を当てはめることになり、当てはめた sigma と、それから `_dif_sep` が取る
+        すべてのしきい値が、最も極端な画素対に左右される。中央値と中央絶対偏差は
+        こうした外れ値に影響されず、その偏差の `_NOISE_RANGE_SIGMAS` 倍の範囲なら
+        ピーク全体が収まり、150 ビンの幅は偏差の約 1/10 になる。範囲外の差分は
+        当てはめから外れるだけであり、`_dif_sep` は引き続き、当てはめが与える
+        しきい値ですべての画素を分類する。
+        """
+        values = np.ravel(dif)
+        center = float(np.median(values))
+        scale = 1.4826 * float(np.median(np.abs(values - center)))
+        if not np.isfinite(scale) or scale <= 0.0:
+            return None
+        half = _NOISE_RANGE_SIGMAS * scale
+        return center - half, center + half
 
     def _dif_sep(
         self,
