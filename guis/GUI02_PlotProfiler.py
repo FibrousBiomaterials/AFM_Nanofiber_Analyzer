@@ -64,6 +64,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 # これらのモジュールは本プロジェクト共通の読み込み、描画既定値、UI 補助機能を提供する。
 from lib.blosc2_io import load_blosc2, load_bundle, BUNDLE_EXT
 from lib.afm_io import load_afm_text, read_scan_size
+from lib.bundle_schema import pixel_size_nm
 from lib.gwy_io import GWY_EXT, list_gwy_channels, load_gwy_image, select_default_channel
 from lib.measure import read_scan_size_from_bundle
 from lib.translator import _
@@ -582,6 +583,15 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # 自動 vmin/vmax の推定精度を上げる。生のテキスト/CSV/.npy/.gwy では
         # None のままとし、マスク非依存の規則にフォールバックする。
         self._fiber_mask = None
+        # True while the displayed array is a bundle's `calibrated`, which the
+        # background calibrator stored one row and one column smaller than the
+        # scan the recorded scan size describes (see `_image_extent_um`).
+        # 表示中の配列がバンドルの `calibrated` のとき True。背景補正器は、記録
+        # された走査範囲が表す画像より 1 行 1 列小さく保存する（`_image_extent_um` 参照）。
+        self._bundle_trimmed = False
+        # Path of the last file whose array loaded successfully.
+        # 配列の読み込みに最後に成功したファイルのパス。
+        self._loaded_path = None
         self.linewidth = 3
         self.reduce_func = np.max
         # Band patches visualizing the profile_line sampling width on the heatmap.
@@ -1192,6 +1202,32 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         """
         return scale_xy_um(self.scale_um, self.scale_y_um)
 
+    def _image_extent_um(self) -> tuple:
+        """
+        Return the (X, Y) physical extent of the displayed array in micrometers.
+        表示中の配列が占める物理範囲 (X, Y) を µm で返す。
+
+        For a GUI01 bundle the scale entries hold the recorded scan size, which
+        spans one pixel more per axis than the stored ``calibrated`` array,
+        because the background calibrator trims the first row and column.
+        `lib.bundle_schema.pixel_size_nm` converts it, as `lib.measure` does, so
+        a profile measures distances with the same pixel size as GUI03 and
+        GUI04. Other inputs are not trimmed, and their scan size is the extent
+        of the array itself.
+        GUI01 バンドルでは、スケール欄は記録された走査範囲を保持する。背景補正器が
+        先頭の 1 行 1 列を削るため、走査範囲は保存された ``calibrated`` 配列より
+        各軸 1 画素分広い。`lib.measure` と同じく `lib.bundle_schema.pixel_size_nm`
+        で換算し、プロファイルの距離を GUI03・GUI04 と同じ画素サイズで測る。
+        その他の入力は削られていないため、走査範囲がそのまま配列の範囲になる。
+        """
+        x_um, y_um = self._scale_xy_um()
+        if not self._bundle_trimmed:
+            return x_um, y_um
+        return (
+            pixel_size_nm(x_um, self.image_w) * self.image_w / 1000.0,
+            pixel_size_nm(y_um, self.image_h) * self.image_h / 1000.0,
+        )
+
     def _rescale_points(self, old_x: float, new_x: float,
                         old_y: float, new_y: float) -> None:
         """
@@ -1216,11 +1252,13 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         軸別の extent スケールと共通の単位ラベルを返す。
 
         X uses the width scale and Y the height scale, so rectangular scans draw
-        with the correct physical aspect. Nanometer display multiplies by 1000.
+        with the correct physical aspect. Both come from `_image_extent_um`, the
+        extent of the displayed array. Nanometer display multiplies by 1000.
         X は幅スケール、Y は高さスケールを使い、矩形スキャンを正しい物理アスペクト
-        で描画する。nm 表示では 1000 倍する。
+        で描画する。どちらも表示中の配列の範囲（`_image_extent_um`）から取る。
+        nm 表示では 1000 倍する。
         """
-        return extent_scales_xy_and_unit(*self._scale_xy_um(), self.unit_var.get())
+        return extent_scales_xy_and_unit(*self._image_extent_um(), self.unit_var.get())
 
     def _default_save_dir(self) -> str:
         """
@@ -1480,6 +1518,8 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # Pixel-grid extents: image_h rows (Y), image_w columns (X).
         # 画素格子の大きさ：image_h 行（Y）、image_w 列（X）。
         self.image_h, self.image_w = data.shape[:2]
+        self._bundle_trimmed = path.endswith(BUNDLE_EXT)
+        self._loaded_path = path
         return data
 
     def _apply_loaded_scan_size(self, path: str) -> bool:
@@ -1818,11 +1858,31 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             # プロファイル距離を再現可能にするため、スケールをこのファイルの記録/
             # ヘッダ走査範囲で既定化する（ユーザーは上書き可能）。初回描画前に
             # 行い、軸 extent に新スケールを反映する。
-            self._apply_loaded_scan_size(path)
+            found_scan_size = self._apply_loaded_scan_size(path)
 
             # New file selected — force a fresh load.
             # 新しいファイルが選ばれたので必ずディスクから読み込む。
+            self._loaded_path = None
             self.image_showing(reload=True)
+
+            # Without a recorded scan size the scale entries keep whatever the
+            # previous file (or the default) set, and every profile distance is
+            # computed from it, so say so. Only after a successful load, so a
+            # file that cannot be read gets its own error and not this warning.
+            # 走査範囲の記録が無いとスケール欄は前のファイル（または既定値）の値の
+            # ままで、プロファイルの距離はすべてそれから計算されるため、その旨を
+            # 知らせる。読めないファイルには別のエラーが出るので、読み込みに成功
+            # した場合に限る。
+            if not found_scan_size and self._loaded_path == path:
+                x_um, y_um = self._scale_xy_um()
+                messagebox.showwarning(
+                    _("注意"),
+                    _("このファイルには走査範囲が記録されていません。\n"
+                      "現在のスケール（X {x} µm、Y {y} µm）をそのまま使います。"
+                      "距離を測る前にスケールを確認してください。").format(
+                        x=self._fmt_num(x_um), y=self._fmt_num(y_um),
+                    ),
+                )
 
             # Update the operation guide after a valid file is selected.
             self.guide_label.config(
@@ -1954,7 +2014,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # 配置を打ち消す -0.5 も含む（列 c は (c + 0.5) * x_um / image_w を中心に
         # 描かれる）。同一の変換式を使うことで、帯が profile_line の実サンプリング
         # 画素を示すようになる。
-        x_um, y_um = self._scale_xy_um()
+        x_um, y_um = self._image_extent_um()
         c1 = x1 * self.image_w / x_um - 0.5
         c2 = x2 * self.image_w / x_um - 0.5
         r1 = self.image_h - y1 * self.image_h / y_um - 0.5
@@ -2138,11 +2198,13 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # µm 座標を軸別に画素座標へ変換する（X は幅スケール、Y は高さスケール）。
         # これで矩形スキャンも正しく対応づく。imshow は表示上は左下原点、ndarray は
         # 左上原点なので y 方向を反転する。
-        x_um, y_um = self._scale_xy_um()
+        x_um, y_um = self._image_extent_um()
         # Columns map X via image_w, rows map Y via image_h, so non-square pixel
-        # grids convert correctly.
+        # grids convert correctly. The extent is that of the displayed array,
+        # which for a bundle is one trimmed pixel smaller than the scan size.
         # 列は image_w で X、行は image_h で Y に対応づけ、非正方形の画素格子も
-        # 正しく変換する。
+        # 正しく変換する。範囲は表示中の配列のもので、バンドルでは削られた
+        # 1 画素分だけ走査範囲より小さい。
         # The -0.5 inverts imshow's pixel-center placement: column c is drawn
         # centered at (c + 0.5) * x_um / image_w, so a clicked coordinate maps
         # back to index x * image_w / x_um - 0.5. Without it the profile was

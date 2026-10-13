@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-07 16:27+0900\n"
+"POT-Creation-Date: 2026-10-13 15:28+0900\n"
 "PO-Revision-Date: 2026-04-27 14:35+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -167,7 +167,7 @@ msgstr "Delete"
 msgid "元に戻す"
 msgstr "Undo"
 
-#: guis/GUI01_Image_Preprocessor.py:1367 guis/GUI02_PlotProfiler.py:704
+#: guis/GUI01_Image_Preprocessor.py:1367 guis/GUI02_PlotProfiler.py:714
 #: guis/GUI04_Tracking_fiber.py:1135
 msgid "AFM 画像の X（幅）方向の実寸"
 msgstr "Actual X (width) size of the AFM image"
@@ -178,12 +178,12 @@ msgstr ""
 "Used for the preview axis ticks and, once applied to files, as the basis "
 "for length measurements."
 
-#: guis/GUI01_Image_Preprocessor.py:1390 guis/GUI02_PlotProfiler.py:726
+#: guis/GUI01_Image_Preprocessor.py:1390 guis/GUI02_PlotProfiler.py:736
 #: guis/GUI04_Tracking_fiber.py:1157
 msgid "AFM 画像の Y（高さ）方向の実寸"
 msgstr "Actual Y (height) size of the AFM image"
 
-#: guis/GUI01_Image_Preprocessor.py:1391 guis/GUI02_PlotProfiler.py:727
+#: guis/GUI01_Image_Preprocessor.py:1391 guis/GUI02_PlotProfiler.py:737
 #: guis/GUI04_Tracking_fiber.py:1158
 msgid "空欄なら X（幅）と同じ（正方スキャン）。"
 msgstr "Leave empty to use the same value as X (width) — a square scan."
@@ -323,19 +323,19 @@ msgid "ファイバーの分解点（オレンジ）"
 msgstr "Fiber decomposition points (orange)"
 
 #: guis/GUI01_Image_Preprocessor.py:2088 guis/GUI01_Image_Preprocessor.py:5050
-#: guis/GUI02_PlotProfiler.py:857 guis/GUI04_Tracking_fiber.py:1698
+#: guis/GUI02_PlotProfiler.py:867 guis/GUI04_Tracking_fiber.py:1698
 msgid "フォントサイズ：タイトル"
 msgstr "Font Size: Title"
 
 #: guis/GUI01_Image_Preprocessor.py:2097 guis/GUI01_Image_Preprocessor.py:5070
-#: guis/GUI02_PlotProfiler.py:870
+#: guis/GUI02_PlotProfiler.py:880
 #: guis/GUI03_Fiber_Morphology_Statistics.py:1774
 #: guis/GUI04_Tracking_fiber.py:1707
 msgid "軸ラベル"
 msgstr "Axis Label"
 
 #: guis/GUI01_Image_Preprocessor.py:2106 guis/GUI01_Image_Preprocessor.py:5080
-#: guis/GUI02_PlotProfiler.py:882
+#: guis/GUI02_PlotProfiler.py:892
 #: guis/GUI03_Fiber_Morphology_Statistics.py:1783
 #: guis/GUI04_Tracking_fiber.py:1716 guis/GUI04_Tracking_fiber.py:6292
 #: guis/GUI04_Tracking_fiber.py:6425
@@ -348,8 +348,8 @@ msgid "凡例"
 msgstr "Legend"
 
 #: guis/GUI01_Image_Preprocessor.py:2126 guis/GUI01_Image_Preprocessor.py:5100
-#: guis/GUI02_PlotProfiler.py:268 guis/GUI02_PlotProfiler.py:987
-#: guis/GUI02_PlotProfiler.py:2253
+#: guis/GUI02_PlotProfiler.py:269 guis/GUI02_PlotProfiler.py:997
+#: guis/GUI02_PlotProfiler.py:2315
 #: guis/GUI03_Fiber_Morphology_Statistics.py:1208
 #: guis/GUI03_Fiber_Morphology_Statistics.py:4063
 #: guis/GUI04_Tracking_fiber.py:1681 guis/GUI04_Tracking_fiber.py:5816
@@ -367,19 +367,19 @@ msgid "vmin は vmax 以下にしてください"
 msgstr "vmin must be less than or equal to vmax"
 
 #: guis/GUI01_Image_Preprocessor.py:2179 guis/GUI01_Image_Preprocessor.py:5123
-#: guis/GUI02_PlotProfiler.py:1086
+#: guis/GUI02_PlotProfiler.py:1096
 msgid "フォントサイズは 1〜60 の範囲で入力してください"
 msgstr "Enter a font size in the range 1-60."
 
 #: guis/GUI01_Image_Preprocessor.py:2197 guis/GUI01_Image_Preprocessor.py:2235
-#: guis/GUI02_PlotProfiler.py:688 guis/GUI02_PlotProfiler.py:1121
-#: guis/GUI02_PlotProfiler.py:1158 guis/GUI04_Tracking_fiber.py:1120
+#: guis/GUI02_PlotProfiler.py:698 guis/GUI02_PlotProfiler.py:1131
+#: guis/GUI02_PlotProfiler.py:1168 guis/GUI04_Tracking_fiber.py:1120
 #: guis/GUI04_Tracking_fiber.py:1944 guis/GUI04_Tracking_fiber.py:1976
 msgid "スケール"
 msgstr "Scale"
 
 #: guis/GUI01_Image_Preprocessor.py:2197 guis/GUI01_Image_Preprocessor.py:2235
-#: guis/GUI02_PlotProfiler.py:1121 guis/GUI02_PlotProfiler.py:1158
+#: guis/GUI02_PlotProfiler.py:1131 guis/GUI02_PlotProfiler.py:1168
 msgid "は正の数を入力してください"
 msgstr "must be a positive number"
 
@@ -388,12 +388,12 @@ msgstr "must be a positive number"
 #: guis/GUI01_Image_Preprocessor.py:3250 guis/GUI01_Image_Preprocessor.py:3267
 #: guis/GUI01_Image_Preprocessor.py:4645 guis/GUI01_Image_Preprocessor.py:4650
 #: guis/GUI01_Image_Preprocessor.py:4754 guis/GUI01_Image_Preprocessor.py:4803
-#: guis/GUI01_Image_Preprocessor.py:4823 guis/GUI02_PlotProfiler.py:1153
-#: guis/GUI02_PlotProfiler.py:1157 guis/GUI02_PlotProfiler.py:1461
-#: guis/GUI02_PlotProfiler.py:1475 guis/GUI02_PlotProfiler.py:1644
-#: guis/GUI02_PlotProfiler.py:2066 guis/GUI02_PlotProfiler.py:2085
-#: guis/GUI02_PlotProfiler.py:2096 guis/GUI02_PlotProfiler.py:2104
-#: guis/GUI02_PlotProfiler.py:2231 guis/GUI04_Tracking_fiber.py:1971
+#: guis/GUI01_Image_Preprocessor.py:4823 guis/GUI02_PlotProfiler.py:1163
+#: guis/GUI02_PlotProfiler.py:1167 guis/GUI02_PlotProfiler.py:1499
+#: guis/GUI02_PlotProfiler.py:1513 guis/GUI02_PlotProfiler.py:1684
+#: guis/GUI02_PlotProfiler.py:2126 guis/GUI02_PlotProfiler.py:2145
+#: guis/GUI02_PlotProfiler.py:2156 guis/GUI02_PlotProfiler.py:2164
+#: guis/GUI02_PlotProfiler.py:2293 guis/GUI04_Tracking_fiber.py:1971
 #: guis/GUI04_Tracking_fiber.py:1975 guis/GUI04_Tracking_fiber.py:6539
 #: guis/GUI04_Tracking_fiber.py:6542 guis/GUI04_Tracking_fiber.py:6546
 #: guis/GUI04_Tracking_fiber.py:6581 guis/GUI04_Tracking_fiber.py:6584
@@ -401,7 +401,7 @@ msgstr "must be a positive number"
 msgid "エラー"
 msgstr "Error"
 
-#: guis/GUI01_Image_Preprocessor.py:2230 guis/GUI02_PlotProfiler.py:1153
+#: guis/GUI01_Image_Preprocessor.py:2230 guis/GUI02_PlotProfiler.py:1163
 #: guis/GUI04_Tracking_fiber.py:1971 lib/ui_tools.py:1345
 msgid "数値を入力してください"
 msgstr "Please enter a number"
@@ -554,7 +554,7 @@ msgstr ""
 "image)."
 
 #: guis/GUI01_Image_Preprocessor.py:3022 guis/GUI01_Image_Preprocessor.py:3073
-#: guis/GUI01_Image_Preprocessor.py:3150
+#: guis/GUI01_Image_Preprocessor.py:3150 guis/GUI02_PlotProfiler.py:1879
 msgid "注意"
 msgstr "Warning"
 
@@ -668,7 +668,7 @@ msgid "プレビュー読み込み失敗"
 msgstr "Failed to load preview"
 
 #: guis/GUI01_Image_Preprocessor.py:3951 guis/GUI01_Image_Preprocessor.py:3979
-#: guis/GUI02_PlotProfiler.py:1252 guis/GUI02_PlotProfiler.py:1267
+#: guis/GUI02_PlotProfiler.py:1290 guis/GUI02_PlotProfiler.py:1305
 #: guis/GUI04_Tracking_fiber.py:3374 guis/GUI04_Tracking_fiber.py:3530
 #: guis/GUI04_Tracking_fiber.py:3572 guis/GUI04_Tracking_fiber.py:3639
 #: guis/GUI04_Tracking_fiber.py:3644 guis/GUI04_Tracking_fiber.py:3663
@@ -1125,7 +1125,7 @@ msgstr "Display"
 msgid "重ね描きしません"
 msgstr "Do not overlay"
 
-#: guis/GUI01_Image_Preprocessor.py:5060 guis/GUI02_PlotProfiler.py:894
+#: guis/GUI01_Image_Preprocessor.py:5060 guis/GUI02_PlotProfiler.py:904
 #: guis/GUI04_Tracking_fiber.py:1725 guis/GUI04_Tracking_fiber.py:6302
 msgid "カラーバー"
 msgstr "Colorbar"
@@ -1134,89 +1134,89 @@ msgstr "Colorbar"
 msgid "個別表示画像を保存"
 msgstr "Save Individual View Image"
 
-#: guis/GUI02_PlotProfiler.py:141
+#: guis/GUI02_PlotProfiler.py:142
 msgid "Designed graph"
 msgstr "Designed graph"
 
-#: guis/GUI02_PlotProfiler.py:190 guis/GUI04_Tracking_fiber.py:6243
+#: guis/GUI02_PlotProfiler.py:191 guis/GUI04_Tracking_fiber.py:6243
 #: guis/GUI04_Tracking_fiber.py:6383
 msgid "幅"
 msgstr "Width"
 
-#: guis/GUI02_PlotProfiler.py:202 guis/GUI04_Tracking_fiber.py:1663
+#: guis/GUI02_PlotProfiler.py:203 guis/GUI04_Tracking_fiber.py:1663
 #: guis/GUI04_Tracking_fiber.py:6252 guis/GUI04_Tracking_fiber.py:6392
 msgid "高さ"
 msgstr "Height"
 
-#: guis/GUI02_PlotProfiler.py:214
+#: guis/GUI02_PlotProfiler.py:215
 msgid "軸ラベルサイズ"
 msgstr "Axis Label Size"
 
-#: guis/GUI02_PlotProfiler.py:226
+#: guis/GUI02_PlotProfiler.py:227
 msgid "目盛りサイズ"
 msgstr "Tick Size"
 
-#: guis/GUI02_PlotProfiler.py:238 guis/GUI04_Tracking_fiber.py:6452
+#: guis/GUI02_PlotProfiler.py:239 guis/GUI04_Tracking_fiber.py:6452
 msgid "目盛りの向き"
 msgstr "Tick Direction"
 
-#: guis/GUI02_PlotProfiler.py:241 guis/GUI02_PlotProfiler.py:360
+#: guis/GUI02_PlotProfiler.py:242 guis/GUI02_PlotProfiler.py:361
 #: guis/GUI04_Tracking_fiber.py:6051
 msgid "外向き"
 msgstr "Outward"
 
-#: guis/GUI02_PlotProfiler.py:241 guis/GUI02_PlotProfiler.py:362
+#: guis/GUI02_PlotProfiler.py:242 guis/GUI02_PlotProfiler.py:363
 #: guis/GUI04_Tracking_fiber.py:6052
 msgid "内向き"
 msgstr "Inward"
 
-#: guis/GUI02_PlotProfiler.py:241 guis/GUI02_PlotProfiler.py:254
-#: guis/GUI02_PlotProfiler.py:364 guis/GUI02_PlotProfiler.py:378
+#: guis/GUI02_PlotProfiler.py:242 guis/GUI02_PlotProfiler.py:255
+#: guis/GUI02_PlotProfiler.py:365 guis/GUI02_PlotProfiler.py:379
 #: guis/GUI04_Tracking_fiber.py:6053 guis/GUI04_Tracking_fiber.py:6058
 msgid "両方"
 msgstr "Both"
 
-#: guis/GUI02_PlotProfiler.py:252
+#: guis/GUI02_PlotProfiler.py:253
 msgid "グリッド"
 msgstr "Grid"
 
-#: guis/GUI02_PlotProfiler.py:254 guis/GUI02_PlotProfiler.py:369
+#: guis/GUI02_PlotProfiler.py:255 guis/GUI02_PlotProfiler.py:370
 #: guis/GUI04_Tracking_fiber.py:6059
 msgid "無し"
 msgstr "None"
 
-#: guis/GUI02_PlotProfiler.py:254 guis/GUI02_PlotProfiler.py:372
+#: guis/GUI02_PlotProfiler.py:255 guis/GUI02_PlotProfiler.py:373
 #: guis/GUI04_Tracking_fiber.py:6056
 msgid "x軸"
 msgstr "X-axis"
 
-#: guis/GUI02_PlotProfiler.py:254 guis/GUI02_PlotProfiler.py:375
+#: guis/GUI02_PlotProfiler.py:255 guis/GUI02_PlotProfiler.py:376
 #: guis/GUI04_Tracking_fiber.py:6057
 msgid "y軸"
 msgstr "Y-axis"
 
-#: guis/GUI02_PlotProfiler.py:426 guis/GUI02_PlotProfiler.py:1277
+#: guis/GUI02_PlotProfiler.py:427 guis/GUI02_PlotProfiler.py:1315
 msgid "プロファイル画像を保存"
 msgstr "Save Profile Image"
 
-#: guis/GUI02_PlotProfiler.py:640
+#: guis/GUI02_PlotProfiler.py:650
 msgid "参照"
 msgstr "Browse"
 
-#: guis/GUI02_PlotProfiler.py:645
+#: guis/GUI02_PlotProfiler.py:655
 msgid "←このボタンを押してファイルを選んで下さい"
 msgstr "← Click this button to select a file"
 
-#: guis/GUI02_PlotProfiler.py:657
+#: guis/GUI02_PlotProfiler.py:667
 msgid "チャンネル"
 msgstr "Channel"
 
-#: guis/GUI02_PlotProfiler.py:775 guis/GUI04_Tracking_fiber.py:1738
+#: guis/GUI02_PlotProfiler.py:785 guis/GUI04_Tracking_fiber.py:1738
 #: guis/GUI04_Tracking_fiber.py:7183
 msgid "自動"
 msgstr "Auto"
 
-#: guis/GUI02_PlotProfiler.py:781 guis/GUI04_Tracking_fiber.py:1744
+#: guis/GUI02_PlotProfiler.py:791 guis/GUI04_Tracking_fiber.py:1744
 msgid ""
 "ON時: 画像ごとに vmin/vmax を自動計算。\n"
 "  vmin = 画像最小値 を切り下げ\n"
@@ -1228,11 +1228,11 @@ msgstr ""
 "  vmax = round up the image maximum + 1\n"
 "When OFF: use the fixed vmin / vmax values from the input fields."
 
-#: guis/GUI02_PlotProfiler.py:812
+#: guis/GUI02_PlotProfiler.py:822
 msgid "線幅（ピクセル）:"
 msgstr "Line Width (pixels):"
 
-#: guis/GUI02_PlotProfiler.py:815
+#: guis/GUI02_PlotProfiler.py:825
 msgid ""
 "高さプロファイルを取得する線分の垂直方向の幅（ピクセル数）。\n"
 "1 にすると線分の真上のみ、3 以上にすると周囲数ピクセルも含めて\n"
@@ -1251,11 +1251,11 @@ msgstr ""
 "The chosen width is shown as a blue band on the left heatmap and rescales"
 " with the pixel size when you zoom."
 
-#: guis/GUI02_PlotProfiler.py:835 guis/GUI04_Tracking_fiber.py:7668
+#: guis/GUI02_PlotProfiler.py:845 guis/GUI04_Tracking_fiber.py:7668
 msgid "計算方法"
 msgstr "Calculation Method"
 
-#: guis/GUI02_PlotProfiler.py:838
+#: guis/GUI02_PlotProfiler.py:848
 msgid ""
 "上の「線幅」が 2 以上のとき、線分垂直方向の複数ピクセルから\n"
 "1 つの高さ値を決める集計方法。\n"
@@ -1272,33 +1272,33 @@ msgstr ""
 "level)\n"
 "\"Average\": use the mean value (when you want to smooth noise)"
 
-#: guis/GUI02_PlotProfiler.py:845 guis/GUI02_PlotProfiler.py:1377
+#: guis/GUI02_PlotProfiler.py:855 guis/GUI02_PlotProfiler.py:1415
 #: guis/GUI04_Tracking_fiber.py:1219
 msgid "最大"
 msgstr "Maximum"
 
-#: guis/GUI02_PlotProfiler.py:845 guis/GUI02_PlotProfiler.py:1379
+#: guis/GUI02_PlotProfiler.py:855 guis/GUI02_PlotProfiler.py:1417
 #: guis/GUI04_Tracking_fiber.py:1211
 msgid "最小"
 msgstr "Minimum"
 
-#: guis/GUI02_PlotProfiler.py:845 guis/GUI02_PlotProfiler.py:1381
+#: guis/GUI02_PlotProfiler.py:855 guis/GUI02_PlotProfiler.py:1419
 msgid "平均"
 msgstr "Average"
 
-#: guis/GUI02_PlotProfiler.py:917
+#: guis/GUI02_PlotProfiler.py:927
 msgid "一点取り消し"
 msgstr "Undo Last Point"
 
-#: guis/GUI02_PlotProfiler.py:922
+#: guis/GUI02_PlotProfiler.py:932
 msgid "全点取り消し"
 msgstr "Clear All Points"
 
-#: guis/GUI02_PlotProfiler.py:982 guis/GUI04_Tracking_fiber.py:1614
+#: guis/GUI02_PlotProfiler.py:992 guis/GUI04_Tracking_fiber.py:1614
 msgid "リセット"
 msgstr "Reset"
 
-#: guis/GUI02_PlotProfiler.py:1029
+#: guis/GUI02_PlotProfiler.py:1039
 msgid ""
 "左クリックでパン、右クリックで打点。\n"
 "最低2点で高さプロファイルが表示されます。"
@@ -1306,23 +1306,23 @@ msgstr ""
 "Left-click to pan, right-click to place points.\n"
 "A height profile is displayed once at least two points are placed."
 
-#: guis/GUI02_PlotProfiler.py:1252
+#: guis/GUI02_PlotProfiler.py:1290
 msgid "先にファイルを読み込んでください。"
 msgstr "Please load a file first."
 
-#: guis/GUI02_PlotProfiler.py:1258
+#: guis/GUI02_PlotProfiler.py:1296
 msgid "ヒートマップを保存"
 msgstr "Save Heatmap"
 
-#: guis/GUI02_PlotProfiler.py:1267
+#: guis/GUI02_PlotProfiler.py:1305
 msgid "先に高さプロファイルを描画してください。"
 msgstr "Please draw the height profile first."
 
-#: guis/GUI02_PlotProfiler.py:1319
+#: guis/GUI02_PlotProfiler.py:1357
 msgid "左側に最小値を入力してください"
 msgstr "Please enter the minimum value on the left"
 
-#: guis/GUI02_PlotProfiler.py:1462
+#: guis/GUI02_PlotProfiler.py:1500
 #, python-brace-format
 msgid ""
 "ファイルを読み込めませんでした。\n"
@@ -1333,77 +1333,86 @@ msgstr ""
 "The format may be unsupported or the file may be corrupted.\n"
 "Details: {0}"
 
-#: guis/GUI02_PlotProfiler.py:1464
+#: guis/GUI02_PlotProfiler.py:1502
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2655
 msgid "不明なエラー"
 msgstr "Unknown Error"
 
-#: guis/GUI02_PlotProfiler.py:1476
+#: guis/GUI02_PlotProfiler.py:1514
 #, python-brace-format
 msgid "2 次元配列ではありません (shape={0})。"
 msgstr "Data is not a 2D array (shape={0})."
 
-#: guis/GUI02_PlotProfiler.py:1629
+#: guis/GUI02_PlotProfiler.py:1669
 msgid "AFMデータ"
 msgstr "AFM Data"
 
-#: guis/GUI02_PlotProfiler.py:1630
+#: guis/GUI02_PlotProfiler.py:1670
 msgid "バンドル"
 msgstr "Bundle"
 
-#: guis/GUI02_PlotProfiler.py:1631
+#: guis/GUI02_PlotProfiler.py:1671
 msgid ".npy"
 msgstr ".npy"
 
-#: guis/GUI02_PlotProfiler.py:1632
+#: guis/GUI02_PlotProfiler.py:1672
 msgid "テキスト/CSV"
 msgstr "Text/CSV"
 
-#: guis/GUI02_PlotProfiler.py:1633
+#: guis/GUI02_PlotProfiler.py:1673
 msgid "Gwyddion"
 msgstr "Gwyddion"
 
-#: guis/GUI02_PlotProfiler.py:1634
+#: guis/GUI02_PlotProfiler.py:1674
 msgid "すべて"
 msgstr "All"
 
-#: guis/GUI02_PlotProfiler.py:1645
+#: guis/GUI02_PlotProfiler.py:1685
 #, python-brace-format
 msgid "ファイルが見つかりません: {0}"
 msgstr "File not found: {0}"
 
-#: guis/GUI02_PlotProfiler.py:1803
+#: guis/GUI02_PlotProfiler.py:1843
 #, python-brace-format
 msgid "ファイルパス：{}"
 msgstr "File path: {}"
 
-#: guis/GUI02_PlotProfiler.py:1829
+#: guis/GUI02_PlotProfiler.py:1880
+#, python-brace-format
+msgid ""
+"このファイルには走査範囲が記録されていません。\n"
+"現在のスケール（X {x} µm、Y {y} µm）をそのまま使います。距離を測る前にスケールを確認してください。"
+msgstr ""
+"This file records no scan size.\n"
+"The current scale (X {x} µm, Y {y} µm) is kept. Check the scale before measuring distances."
+
+#: guis/GUI02_PlotProfiler.py:1889
 msgid "ヒートマップ上を右クリックで打点して下さい。各点を結ぶ線分の高さプロファイルが計算されます。"
 msgstr ""
 "Right-click on the heatmap to place points. The height profile of the "
 "line connecting the points will be calculated."
 
-#: guis/GUI02_PlotProfiler.py:2066 guis/GUI02_PlotProfiler.py:2096
+#: guis/GUI02_PlotProfiler.py:2126 guis/GUI02_PlotProfiler.py:2156
 msgid "打点されていません"
 msgstr "No points placed"
 
-#: guis/GUI02_PlotProfiler.py:2085 guis/GUI02_PlotProfiler.py:2104
+#: guis/GUI02_PlotProfiler.py:2145 guis/GUI02_PlotProfiler.py:2164
 msgid "画像を開いてください"
 msgstr "Please open an image"
 
-#: guis/GUI02_PlotProfiler.py:2231
+#: guis/GUI02_PlotProfiler.py:2293
 msgid "線を引いてください"
 msgstr "Please draw a line"
 
-#: guis/GUI02_PlotProfiler.py:2247
+#: guis/GUI02_PlotProfiler.py:2309
 msgid "csvで保存"
 msgstr "Save as CSV"
 
-#: guis/GUI02_PlotProfiler.py:2259
+#: guis/GUI02_PlotProfiler.py:2321
 msgid "レイアウト調整してグラフ作成"
 msgstr "Create Graph with Layout Adjustment"
 
-#: guis/GUI02_PlotProfiler.py:2390
+#: guis/GUI02_PlotProfiler.py:2452
 msgid "保存先を選んで下さい"
 msgstr "Choose save destination"
 
@@ -2022,9 +2031,8 @@ msgid ""
 msgstr ""
 "[{grp}/{folder}] {n}/{total} bundles were analyzed by an earlier version "
 "(format 1.0). Their stored skeletons are traced as they are and measured "
-"along the skeleton, so fibers may be split at small loops and short "
-"dead-end branches that the current analysis removes. Re-analyze them in "
-"GUI01"
+"along the skeleton, so fibers may be split at small loops and short dead-"
+"end branches that the current analysis removes. Re-analyze them in GUI01"
 
 #: guis/GUI03_Fiber_Morphology_Statistics.py:3244
 #, python-brace-format
@@ -3563,7 +3571,7 @@ msgstr "CSV"
 msgid "All files"
 msgstr "All files"
 
-#: lib/ui_tools.py:984 lib/ui_tools.py:2479
+#: lib/ui_tools.py:984 lib/ui_tools.py:2460
 msgid "保存エラー"
 msgstr "Save Error"
 
@@ -3594,11 +3602,11 @@ msgstr ""
 "{0}: {1}\n"
 "{2}"
 
-#: lib/ui_tools.py:2468
+#: lib/ui_tools.py:2449
 msgid "図を保存"
 msgstr "Save Figure"
 
-#: lib/ui_tools.py:2480
+#: lib/ui_tools.py:2461
 #, python-brace-format
 msgid ""
 "保存に失敗しました:\n"
@@ -3607,12 +3615,12 @@ msgstr ""
 "Failed to save figure:\n"
 "{e}"
 
-#: lib/ui_tools.py:2483
+#: lib/ui_tools.py:2464
 #, python-brace-format
 msgid "保存: {path}"
 msgstr "Saved: {path}"
 
-#: lib/ui_tools.py:2487
+#: lib/ui_tools.py:2468
 msgid "保存完了"
 msgstr "Save Complete"
 
@@ -3724,3 +3732,4 @@ msgstr ""
 "- CSV export of statistics for all fibers\n"
 "\n"
 "Specify the GUI01 output folder as the input folder.\n"
+

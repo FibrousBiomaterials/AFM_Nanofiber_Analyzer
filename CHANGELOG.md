@@ -102,6 +102,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bilingual docstrings are left out when Sphinx builds it (`docs/conf.py`).
   The docstrings in the source, and so IDE hovers and `help()`, keep both
   languages.
+- GUI02 warns when an opened file records no scan size (a `.npy` file, a text
+  export without a size header, or a bundle written before the scan size was
+  recorded) and names the scale it keeps. That scale, set by the previous file
+  or the default, otherwise carried over silently into the profile distances.
 
 ### Fixed
 
@@ -157,6 +161,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   at 256 px, 0.1% at 1024 px); **masks with ridge recovery switched on can change
   from this version**. Whole-image analyses with the default settings are
   unchanged.
+- GUI02 measures a bundle's height profiles with the pixel size `lib.measure`
+  uses (`lib.bundle_schema.pixel_size_nm`). It divided the recorded scan size by
+  the stored pixel count, not that count plus one, so every distance along a
+  bundle's profile was (N+1)/N times too long for N stored pixels on that axis,
+  and the heatmap was drawn that much too wide. On the bundled tunicate and
+  higher-plant scans, analyzed at 2 µm, a whole-image bundle's distances were
+  0.1% long and a 40-line crop's Y distances 2.6% long. **Profile distances
+  measured in GUI02 from a `.b2z` bundle change from this version**; text,
+  CSV, `.npy` and `.gwy` inputs, which are not trimmed, are unchanged.
 - The fiber mask of `trendfill` and `spline1d` now scans the last row of the X
   difference map and the last column of the Y difference map, which
   `BGCalibrator._extract_fiber` left unscanned. A fiber crossing the last row or
