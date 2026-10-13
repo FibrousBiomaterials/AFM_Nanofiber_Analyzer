@@ -289,8 +289,8 @@ ranges, and those lines are shaded on the Original preview panel. The screening
 is a diagnostic only — it changes nothing the pipeline computes.
 
 When a scan is only partly usable, the scan-line-range column analyzes just the
-ranges you enter (`473-696,709-842`); "縞ノイズで分割" fills it from the
-screening and "分割を解除" collapses the entries back.
+ranges you enter (`473-696,709-842`); "Split by stripe noise" fills it from the
+screening and "Undo split" collapses the entries back.
 Each range becomes its own entry and its own `.b2z`, and is analyzed as its own
 image, which is the point: the stages take thresholds from statistics over the
 whole array, so excluding the disturbed lines changes what the rest is compared
@@ -320,7 +320,7 @@ fiber there touches a crossing, so the Fiber Tracker's visual exclusion is the
 only way to drop debris and scan-line artifacts, and its export is exactly the
 population that survived that review. For bundle input, the same exclusions are
 applied from each bundle's `_excluded.json` sidecar unless the checkbox is
-cleared, and the log reports how many fibers each folder lost. "連結を適用"
+cleared, and the log reports how many fibers each folder lost. "Apply connection"
 does the same for fiber connection: a bundle whose `_connect.json` sidecar was
 written by the Fiber Tracker is measured as the whole fibrils shown there
 rather than as skeleton fragments, and the log reports how many bundles in
@@ -374,7 +374,7 @@ contour length, both measured with the same corrected chain-code metric, which
 puts a straight skeleton track at exactly 1.0.
 
 `curvature` is the mean turning rate along a fiber, measured over an arc window
-set by the "曲率窓" entry. The window is not optional: over a few pixels the
+set by the "Curvature window" entry. The window is not optional: over a few pixels the
 turning angle is set by the line's own lateral noise rather than by the fiber's
 shape. Against synthetic arcs of 80–400 nm radius (2 nm pixels), the
 centerline's estimate was within 2% of 1/R with a 100 nm window and within 3%
@@ -383,7 +383,7 @@ the skeleton track, whose steps are orthogonal or diagonal only, a 20 nm window
 was off by 1.3–5.3 times. Raising the window smooths the estimate but drops
 every fiber shorter than it, so the log reports how many fibers that excluded.
 
-`contour length` has one more setting, "枠のファイバー" (fibers at the frame). A
+`contour length` has one more setting, "Fibers at frame". A
 fiber that reaches the edge of the scan continues outside it, so its measured
 length is only a lower bound, while its height, curvature and kinks remain valid
 for the part inside; the setting therefore applies to length only. `include`
@@ -498,23 +498,23 @@ does not judge it, because too little fiber lies on one side, and it is not
 counted in any kink number (see `docs/algorithms.md`, §4.4).
 
 Skeleton fragments split at crossings and branches can be reconnected into
-whole fibrils before measurement. "自動連結" searches for continuations and
-adopts what it finds; "手動で連結" offers, for one selected fiber, the
+whole fibrils before measurement. "Auto Connect" searches for continuations and
+adopts what it finds; "Connect Manually" offers, for one selected fiber, the
 candidates near its ends — with the distance, the angle, and whether the
 automatic search's gates accept each one — so a continuation the automatic
 gates declined can still be joined by eye; each partner fiber is listed once.
-"連結を解除" lists every junction in the image and cuts the chosen ones, or
-all of them. "元に戻す" walks back one connection operation (an automatic run,
+"Disconnect" lists every junction in the image and cuts the chosen ones, or
+all of them. "Undo" walks back one connection operation (an automatic run,
 a manual join, or a disconnection), so undoing a disconnection joins the
 fibril again. These are buttons rather than a mode switch because what they
-produce is a result that is kept: pressing "自動連結" again discards the
+produce is a result that is kept: pressing "Auto Connect" again discards the
 current connection (it asks first), and editing a threshold changes nothing
 until the next press. Connection and the height filter compose in "connect,
 then filter" order: with both in effect the height filter slices each
 connected fibril by its own height profile (including bridge heights), so the
 two are not mutually exclusive.
 
-"除外・連結を保存" writes the exclusion set and the connection result together,
+"Save Curation" writes the exclusion set and the connection result together,
 to `<stem>_excluded.json` and `<stem>_connect.json` beside the bundle, so the
 Fiber Morphology Statistics can aggregate the same population this window is
 showing. One press writes both and there is no way to write only one: while
@@ -537,10 +537,10 @@ the exclusion sidecar, saving with nothing connected records an empty result
 rather than deleting the file, which keeps the thresholds that were tuned.
 
 Fibers can also be excluded by hand: select one, check it in the overview, and
-"選択を除外" drops it from the table, the overview, and the CSV export.
-"直前を取消" undoes the last exclusion, and pressing it repeatedly walks back
+"Exclude selected" drops it from the table, the overview, and the CSV export.
+"Undo last" undoes the last exclusion, and pressing it repeatedly walks back
 through them in reverse order. Changes take effect in the views at once but
-reach the sidecars only when "除外・連結を保存" is pressed, because those files are an
+reach the sidecars only when "Save Curation" is pressed, because those files are an
 analysis input — GUI03 aggregates over what it says — and a mis-click should
 not rewrite it on its own. Leaving a dataset with unsaved changes (selecting
 another dataset, changing folders, or closing the window) offers to save,
@@ -551,10 +551,10 @@ from real fibrils. Exclusions are written to `<stem>_excluded.json` beside the
 bundle, so they survive the session, travel with the data, and can be audited or
 edited outside the app. Each exclusion records an anchor pixel on the excluded
 fiber's track rather than its row number, because turning fiber connection on or
-off renumbers the list while the pixel keeps its meaning. "除外設定" opens a
+off renumbers the list while the pixel keeps its meaning. "Exclusion settings" opens a
 window listing them, where any one or all of them can be restored.
 
-"非孤立を除外" is the bulk counterpart of "選択を除外": it excludes, in one
+"Exclude non-isolated" is the bulk counterpart of "Exclude selected": it excludes, in one
 press, every fiber whose whole length could not be measured
 (`lib.measure.isolated_fiber_flags`) — one that touches another fiber somewhere
 along its path, one that runs off the edge of the scan, or one the connector
@@ -562,7 +562,7 @@ can see a continuation past. A fiber cut where it crosses another one has a
 truncated length rather than a short one, so leaving those fragments in the
 population biases length statistics low. The excluded fibers are recorded like
 any hand-picked exclusion, with the note `not isolated`, so one press of
-"直前を取消" takes them all back and "除外設定" shows why each one went.
+"Undo last" takes them all back and "Exclusion settings" shows why each one went.
 
 Because this is an exclusion rather than a view filter, the verdict is taken
 once, on the fibers as they were traced, and the height filter can then be
@@ -654,7 +654,7 @@ which this loader reads as `.txt`. Gwyddion writes the matrix in SI units
 (meters) with a small comment header recording the scan size and value unit;
 both are normalized automatically (heights to nm, sizes to µm). The header keys
 are written in Gwyddion's UI language — English (`# Width`/`# Height`/`# Value
-units`) and Japanese (`# 幅`/`# 高さ`/`# 値の単位`) are both recognized, because
+units`) and their Japanese-localized equivalents are both recognized, because
 keys are parsed from the value structure rather than the translated words. Keep the
 informational header enabled on export so the scan size is preserved; otherwise
 set it in the GUI/CLI. Bruker `.spm` binaries can likewise be exported to text
