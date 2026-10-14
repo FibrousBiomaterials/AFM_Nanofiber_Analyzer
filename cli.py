@@ -34,6 +34,14 @@ Usage examples
     python cli.py measure out/*.b2z --scale-um 2.0
     python cli.py heights out/ --output heights.csv
     python cli.py validate out/*.b2z
+    python cli.py convert raw_data/
+
+``convert`` turns vendor files this software cannot read into ``.gwy`` files
+through Gwyddion's file modules (`lib.gwy_convert`, the same code GUI00 runs);
+it needs the optional ``convert`` dependency.
+``convert`` は、本ソフトが読めない各社のファイルを Gwyddion のファイル
+モジュールで ``.gwy`` へ変換する（GUI00 と同じ `lib.gwy_convert` を使う）。
+任意依存の ``convert`` が必要。
 
 Output messages are fixed English strings; this interface is intended for
 scripting and JOSS-reviewer use, so it does not load gettext catalogs.
@@ -60,6 +68,7 @@ if BASE_DIR not in sys.path:
 from lib.blosc2_io import BUNDLE_EXT, load_bundle, load_bundle_meta
 from lib.bundle_schema import REQUIRED_BUNDLE_KEYS, validate_bundle
 from lib.centerline import CENTERLINE_METHODS, SKELETON_TRACK
+from lib import gwy_convert
 from lib.measure import (
     measure_bundle,
     read_centerline_from_bundle,
@@ -689,6 +698,81 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 1 if n_invalid else 0
 
 
+def cmd_convert(args: argparse.Namespace) -> int:
+    """
+    Convert files this software cannot read into ``.gwy`` files beside them.
+    本ソフトが読めないファイルを、同じフォルダの ``.gwy`` ファイルへ変換する。
+
+    A folder argument takes every conversion candidate directly inside it
+    (`lib.gwy_convert.list_conversion_candidates`); a file argument whose
+    extension the software already reads, or writes, is reported and skipped.
+    An input whose ``.gwy`` already exists is skipped, so a folder can be
+    converted again after new files are added.
+    フォルダ引数は直下の変換対象をすべて取る
+    （`lib.gwy_convert.list_conversion_candidates`）。本ソフトが既に読める、
+    または書き出す拡張子のファイル引数は報告して飛ばす。``.gwy`` が既にある
+    入力は飛ばすため、新しいファイルを追加した後に同じフォルダを再変換できる。
+
+    Parameters
+    ----------
+    args
+        Parsed arguments of the subcommand (see `build_parser`).
+        サブコマンドの解析済み引数（`build_parser` 参照）。
+
+    Returns
+    -------
+    int
+        0 when no conversion failed, 1 when any did, 2 when no input file was
+        found or the converter is not installed.
+        変換の失敗がなければ 0、1 件でもあれば 1、入力ファイルが無いか変換
+        プログラムが入っていなければ 2。
+    """
+    inputs = []
+    for p in _expand_inputs(args.inputs):
+        if os.path.isdir(p):
+            inputs.extend(gwy_convert.list_conversion_candidates(p))
+        elif not os.path.isfile(p):
+            print(f"warning: no such file: {p}", file=sys.stderr)
+        elif not gwy_convert.is_conversion_candidate(p):
+            print(f"skipped (readable directly or written by this software): "
+                  f"{os.path.basename(p)}")
+        else:
+            inputs.append(p)
+    inputs = list(dict.fromkeys(inputs))
+    if not inputs:
+        print("error: no input files to convert", file=sys.stderr)
+        return 2
+    try:
+        converter = gwy_convert.find_converter()
+    except gwy_convert.ConverterNotFoundError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+
+    counts = {gwy_convert.STATUS_CONVERTED: 0, gwy_convert.STATUS_EXISTS: 0,
+              gwy_convert.STATUS_FAILED: 0}
+    for i, path in enumerate(inputs, 1):
+        name = os.path.basename(path)
+        result = gwy_convert.convert_file(path, converter=converter,
+                                          timeout=args.timeout)
+        counts[result.status] += 1
+        if result.status == gwy_convert.STATUS_CONVERTED:
+            print(f"[{i}/{len(inputs)}] {name}: converted "
+                  f"(Gwyddion module {result.module or 'unknown'}) -> "
+                  f"{os.path.basename(result.output)}")
+        elif result.status == gwy_convert.STATUS_EXISTS:
+            print(f"[{i}/{len(inputs)}] {name}: skipped "
+                  f"({os.path.basename(result.output)} already exists)")
+        else:
+            read_by = f" (read by Gwyddion module {result.module})" if result.module else ""
+            print(f"[{i}/{len(inputs)}] {name}: FAILED{read_by}")
+            print(f"    {result.message}", file=sys.stderr)
+
+    print(f"finished: {counts[gwy_convert.STATUS_CONVERTED]} converted, "
+          f"{counts[gwy_convert.STATUS_EXISTS]} skipped (already converted), "
+          f"{counts[gwy_convert.STATUS_FAILED]} failed")
+    return 1 if counts[gwy_convert.STATUS_FAILED] else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """
     Build the argument parser for the CLI entry point.
@@ -877,6 +961,24 @@ def build_parser() -> argparse.ArgumentParser:
              "(glob patterns are expanded; folders take all bundles inside)",
     )
     p_validate.set_defaults(func=cmd_validate)
+
+    p_convert = sub.add_parser(
+        "convert",
+        help="convert AFM files this software cannot read into .gwy files "
+             "through Gwyddion (needs the optional 'convert' dependency)",
+    )
+    p_convert.add_argument(
+        "inputs", nargs="+",
+        help="input files or folders (glob patterns are expanded; folders "
+             "take every file inside except .txt/.csv/.gwy/.b2z/.json/.npy)",
+    )
+    p_convert.add_argument(
+        "--timeout", type=float, metavar="SECONDS",
+        default=gwy_convert.DEFAULT_TIMEOUT_S,
+        help="stop a single conversion after this many seconds "
+             f"(default: {gwy_convert.DEFAULT_TIMEOUT_S:g})",
+    )
+    p_convert.set_defaults(func=cmd_convert)
 
     return parser
 

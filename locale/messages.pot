@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-13 15:28+0900\n"
+"POT-Creation-Date: 2026-10-14 13:49+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,6 +16,119 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
+
+#: guis/GUI00_Format_Converter.py:119
+msgid "フォルダを選択してください。"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:130
+msgid "入力フォルダ"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:133
+msgid "フォルダを選択"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:136
+msgid "変換開始"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:143
+#, python-brace-format
+msgid "変換対象: {skipped} 以外の拡張子のファイル。出力: 同じフォルダの <元のファイル名>{suffix}.gwy（既にあれば変換しない）。"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:156
+msgid "ファイル"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:157 guis/GUI01_Image_Preprocessor.py:1203
+msgid "状態"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:158
+msgid "読み込んだ Gwyddion モジュール"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:159
+msgid "詳細"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:174
+msgid "ログ"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:178 guis/GUI01_Image_Preprocessor.py:1481
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1162
+#: guis/GUI04_Tracking_fiber.py:1790 lib/ui_tools.py:414
+msgid "ログを保存"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:192
+msgid "未変換"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:193
+msgid "変換しました"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:194
+msgid "変換済み（.gwy あり）"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:195
+msgid "変換できませんでした"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:216
+msgid "変換するファイルを含むフォルダを選択"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:222
+#, python-brace-format
+msgid "フォルダを読み込めませんでした: {error}"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:239
+#, python-brace-format
+msgid "フォルダ選択: {folder}"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:240
+#, python-brace-format
+msgid "変換対象 {n} 件（うち .gwy が既にあるもの {n_exists} 件）"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:256
+msgid "変換プログラムが見つかりません"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:258
+#, python-brace-format
+msgid ""
+"Gwyddion の変換プログラム gwyconvert が見つかりません。\n"
+"次のコマンドでインストールしてから、もう一度実行してください。\n"
+"{command}"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:267
+#, python-brace-format
+msgid "変換を開始します（{n} 件）。"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:305
+#, python-brace-format
+msgid "{name}: 変換できませんでした ({reason})"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:311
+#, python-brace-format
+msgid "完了: 変換 {converted} 件、変換済みのため省略 {exists} 件、変換できず {failed} 件"
+msgstr ""
+
+#: guis/GUI00_Format_Converter.py:318
+msgid "Image Preprocessor でこのフォルダを選ぶと、変換した .gwy ファイルを解析できます。"
+msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:302
 msgid "未解析"
@@ -138,10 +251,6 @@ msgstr ""
 msgid "走査線範囲"
 msgstr ""
 
-#: guis/GUI01_Image_Preprocessor.py:1203
-msgid "状態"
-msgstr ""
-
 #: guis/GUI01_Image_Preprocessor.py:1204
 msgid "処理時間"
 msgstr ""
@@ -235,12 +344,6 @@ msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:1471
 msgid "列: filename, scale_um もしくは scale_x_um, scale_y_um。"
-msgstr ""
-
-#: guis/GUI01_Image_Preprocessor.py:1481
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1162
-#: guis/GUI04_Tracking_fiber.py:1790 lib/ui_tools.py:414
-msgid "ログを保存"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:1483
@@ -3126,6 +3229,13 @@ msgstr ""
 msgid "保存完了"
 msgstr ""
 
+
+#: guis/GUI00_Format_Converter.py:39
+msgid ""
+"Image Preprocessor で読めない形式の AFM 測定ファイルを、Gwyddion のファイル読み込み機能で .gwy ファイルへ一括変換します。\n"
+"選んだフォルダ直下の .txt / .csv / .gwy / .b2z / .json / .npy 以外のファイルを、同じフォルダの <元のファイル名>_converted.gwy に変換します（例: scan.ssp は scan.ssp_converted.gwy）。同じ名前の .gwy が既にあるファイルは変換しません。\n"
+"変換プログラム（gwyddionpy-converter）は run_venv / run_conda の起動スクリプトがインストールします。"
+msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:38
 msgid ""

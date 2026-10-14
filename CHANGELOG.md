@@ -36,6 +36,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The per-fiber CSV (`cli.py measure`, GUI04's export) gains the columns
   `touches_frame`, `cut_end_count` and `frame_weight`, appended after the
   existing ones; CSVs without them still read.
+- GUI00 (Format Converter) and `cli.py convert` convert AFM files this software
+  cannot read into `.gwy` files through Gwyddion's own file readers, without
+  opening Gwyddion, so files from other instruments reach GUI01 through the
+  existing `.gwy` input. Every file in the selected folder except `.txt`,
+  `.csv`, `.gwy`, `.b2z`, `.json` and `.npy` is converted into
+  `<original file name>_converted.gwy` beside it (the suffix keeps it from
+  sharing a bundle name with a text export of the same scan, such as
+  `scan.ssp.txt`); inputs whose `.gwy` already exists are skipped, and a result without a length-unit channel (an ordinary image, for
+  instance) is not kept. The converter is the new optional dependency
+  `convert` (`gwyddionpy-converter`, GPL-2.0-or-later), which the `run_venv` /
+  `run_conda` launchers install and which is not part of the standalone build.
+  Environments set up by an earlier launcher install it on their next start.
+  Analysis results do not change.
 
 ### Changed
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Construction smoke tests for the four GUI plugins.
-4 つの GUI プラグインの構築スモークテスト。
+Construction smoke tests for the GUI plugins.
+GUI プラグインの構築スモークテスト。
 
 Each test builds the plugin's window, lets Tk lay the widgets out, and destroys
 it. That is deliberately all it asserts: the widget tree, its labels, and its
@@ -22,14 +22,16 @@ import os
 import numpy as np
 import pytest
 
-from conftest import requires_tk
+from conftest import pump_until, requires_tk
 
+from lib import gwy_convert
 from lib.connect_selection import (
     ChainMember, ConnectionPlan, connect_path_for, load_connect_plan,
     save_connect_plan,
 )
 from lib.fiber_selection import exclusion_path_for, load_exclusions
 
+import guis.GUI00_Format_Converter as gui00
 import guis.GUI01_Image_Preprocessor as gui01
 import guis.GUI02_PlotProfiler as gui02
 import guis.GUI03_Fiber_Morphology_Statistics as gui03
@@ -61,6 +63,71 @@ def _assert_window_built(app) -> None:
     assert app.winfo_exists()
     assert app.title()
     assert app.winfo_children(), "the window built no widgets"
+
+
+def test_gui00_window_builds(tk_app):
+    _assert_window_built(tk_app(gui00.App))
+
+
+def test_gui00_lists_the_folder_and_shows_each_outcome(tk_app, tmp_path, monkeypatch):
+    """
+    GUI00 lists only conversion candidates and fills each row from its result.
+    GUI00 は変換対象だけを一覧にし、各行を変換結果で埋める。
+
+    The converter is replaced by a stub, so this checks the window's handling
+    of `lib.gwy_convert` results, not Gwyddion (tests/test_gwy_convert.py).
+    変換プログラムは代替に置き換えるため、ここで確かめるのは結果の扱いで、
+    Gwyddion の変換ではない（tests/test_gwy_convert.py が担う）。
+    """
+    for name in ("a.000", "b.spm", "c.txt", "d.000"):
+        (tmp_path / name).write_bytes(b"x")
+    (tmp_path / "d.000_converted.gwy").write_bytes(b"earlier conversion")
+
+    def fake_convert(path, converter=None, timeout=None):
+        output = gwy_convert.converted_path_for(path)
+        if os.path.exists(output):
+            return gwy_convert.ConversionResult(path, output, gwy_convert.STATUS_EXISTS)
+        if path.endswith(".spm"):
+            return gwy_convert.ConversionResult(
+                path, output, gwy_convert.STATUS_FAILED, message="unreadable")
+        return gwy_convert.ConversionResult(
+            path, output, gwy_convert.STATUS_CONVERTED, module="shimadzu")
+
+    monkeypatch.setattr(gui00.filedialog, "askdirectory", lambda **kw: str(tmp_path))
+    monkeypatch.setattr(gwy_convert, "find_converter", lambda explicit=None: "gwyconvert")
+    monkeypatch.setattr(gwy_convert, "convert_file", fake_convert)
+
+    app = tk_app(gui00.App)
+    app.on_choose_folder()
+    names = [app.tree.item(i, "values")[0] for i in app.tree.get_children()]
+    assert names == ["a.000", "b.spm", "d.000"]
+    assert app.tree.item("2", "tags") == (gwy_convert.STATUS_EXISTS,)
+
+    app.on_convert()
+    pump_until(app, lambda: not app._running, timeout=30)
+    tags = [app.tree.item(i, "tags")[0] for i in app.tree.get_children()]
+    assert tags == [gwy_convert.STATUS_CONVERTED, gwy_convert.STATUS_FAILED,
+                    gwy_convert.STATUS_EXISTS]
+    assert app.tree.item("1", "values")[3] == "unreadable"
+
+
+def test_gui00_reports_a_missing_converter(tk_app, tmp_path, monkeypatch, silence_dialogs):
+    """Without the converter, pressing convert opens an error and converts nothing."""
+    (tmp_path / "a.000").write_bytes(b"x")
+
+    def missing(explicit=None):
+        raise gwy_convert.ConverterNotFoundError("gwyconvert not found")
+
+    monkeypatch.setattr(gui00.filedialog, "askdirectory", lambda **kw: str(tmp_path))
+    monkeypatch.setattr(gwy_convert, "find_converter", missing)
+    dialogs = silence_dialogs(gui00)
+
+    app = tk_app(gui00.App)
+    app.on_choose_folder()
+    app.on_convert()
+    assert [kind for kind, _title, _msg in dialogs] == ["showerror"]
+    assert gwy_convert.INSTALL_COMMAND in dialogs[0][2]
+    assert not app._running
 
 
 def test_gui01_window_builds(tk_app, isolated_gui01_settings):

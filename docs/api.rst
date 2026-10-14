@@ -28,6 +28,10 @@ Input and output
    :members:
    :show-inheritance:
 
+.. automodule:: lib.gwy_convert
+   :members:
+   :show-inheritance:
+
 .. automodule:: lib.blosc2_io
    :members:
    :show-inheritance:

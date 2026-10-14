@@ -67,8 +67,10 @@ REM   - env interpreter missing -> clean rebuild of the prefix
 REM   - setup marker missing     -> reinstall into the existing env
 REM   - both present             -> run straight away
 REM The marker lives inside the env, so deleting the whole folder forces a rebuild.
+REM Its name carries a setup revision (v2: the optional converter step), so an
+REM env set up without a later step is set up again once.
 if not exist "%ENV_DIR%\python.exe" goto rebuild
-if not exist "%ENV_DIR%\.afm_setup_done" goto reinstall
+if not exist "%ENV_DIR%\.afm_setup_done_v2" goto reinstall
 goto run
 
 :rebuild
@@ -116,8 +118,19 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo.
+echo Installing the optional file-format converter for GUI00...
+REM A separate step because the converter is prebuilt only for some platforms
+REM (Windows x86_64, Linux x86_64, macOS); where it cannot be installed, only
+REM GUI00 is unavailable and setup still completes.
+call "%CONDA_CMD%" run -p "%ENV_DIR%" python -m pip install -e ".[convert]"
+if errorlevel 1 (
+    echo The optional converter could not be installed.
+    echo GUI00 Format Converter will not work; everything else is installed.
+)
+
 REM Record a successful setup so later launches skip straight to running.
-> "%ENV_DIR%\.afm_setup_done" echo ok
+> "%ENV_DIR%\.afm_setup_done_v2" echo ok
 echo.
 echo Setup completed.
 echo Conda environment:

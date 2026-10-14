@@ -72,6 +72,20 @@ LICENSE_FILE_PREFIXES = (
 EXTRA_HIDDENIMPORTS = {
     "tkinter.colorchooser",
 }
+# Optional packages the project imports but the frozen build must not contain.
+# gwyddionpy_converter carries gwyconvert, a GPL program with about fifty
+# third-party DLLs; shipping it would make each release a GPL redistribution
+# (license texts and matching source for all of them). lib/gwy_convert.py
+# imports it only to locate the program, so the frozen GUI00 reports the
+# converter as missing unless GWYDDIONPY_CONVERT names one.
+# プロジェクトが import するが、凍結ビルドに含めてはならない任意パッケージ。
+# gwyddionpy_converter は GPL のプログラム gwyconvert と約 50 個の第三者 DLL を
+# 含み、同梱すると毎リリースが GPL の再配布になる（全部のライセンス本文と対応
+# するソースが必要）。lib/gwy_convert.py は場所を調べるためにだけ import するので、
+# 凍結版の GUI00 は GWYDDIONPY_CONVERT で指定しない限り変換プログラムなしと報告する。
+OPTIONAL_EXCLUDED_PACKAGES = {
+    "gwyddionpy_converter",
+}
 
 
 def _canonical_distribution_name(name: str) -> str:
@@ -561,15 +575,20 @@ def collect_project_imports() -> set[str]:
     Returns
     -------
     set of str
-        Full module names discovered from static import statements.
-        静的 import 文から見つかった完全なモジュール名の集合。
+        Full module names discovered from static import statements, less
+        those of `OPTIONAL_EXCLUDED_PACKAGES`.
+        静的 import 文から見つかった完全なモジュール名の集合
+        （`OPTIONAL_EXCLUDED_PACKAGES` のものを除く）。
     """
     imports: set[str] = set(EXTRA_HIDDENIMPORTS)
     for path in _iter_project_python_files():
         tree = ast.parse(_read_python_source(path), filename=str(path))
         for node in ast.walk(tree):
             imports.update(_module_names_from_import(node))
-    return imports
+    return {
+        name for name in imports
+        if name.split(".", 1)[0] not in OPTIONAL_EXCLUDED_PACKAGES
+    }
 
 
 def _stdlib_module_names() -> set[str]:
@@ -769,7 +788,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={{}},
     runtime_hooks=[],
-    excludes=[],
+    excludes={sorted(OPTIONAL_EXCLUDED_PACKAGES)!r},
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,

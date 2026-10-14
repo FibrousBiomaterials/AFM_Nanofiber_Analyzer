@@ -84,6 +84,13 @@ chmod +x run_venv.sh
 固定したい場合は、代わりに `requirements.lock.txt` をインストールしてください
 (後述の「依存関係」を参照)。
 
+ランチャーは、GUI00（Format Converter）と `cli.py convert` が使う任意のファイル
+形式変換プログラムもインストールします（`pip install -e ".[convert]"`。
+`gwyddionpy-converter` パッケージが追加されます）。ビルド済みの変換プログラムは
+Windows x86_64、Linux x86_64、macOS 向けにしかなく、それ以外の環境ではこの手順の
+失敗を表示したうえで、GUI00 なしでセットアップを完了します。この手順が加わる前の
+ランチャーでセットアップした `.venv` では、次回起動時に 1 回だけこの手順を実行します。
+
 ### Anaconda または Miniconda
 
 既存の Anaconda `base` 環境から直接起動する方法は推奨しません。
@@ -97,7 +104,8 @@ Anaconda または Miniconda を使う場合は、conda ランチャーを使っ
 以降は `base` を変更せずにその環境からアプリケーションを起動します。`run_venv`
 と同様に自動修復し、環境のインタプリタが失われていれば `.conda-env` をクリーン
 再構築、セットアップマーカーだけが失われていれば再インストールします。フル再構築
-したい場合は `.conda-env` フォルダを削除してから再実行してください。
+したい場合は `.conda-env` フォルダを削除してから再実行してください。GUI00 用の任意の
+変換プログラムも `run_venv` と同じようにインストールします。
 
 Windows:
 
@@ -228,6 +236,12 @@ python build.py
 必要なプラグインとリソースフォルダをコピーします。配布時は `Main.exe` だけでなく、
 `dist/Main/` フォルダ全体を配布してください。
 
+バンドルには GUI00 の変換プログラムを含めません。変換プログラムは GPL ライセンスの
+プログラムで、独自の第三者ライブラリ一式を伴うため、代わりに pip でインストール
+します（「依存関係」を参照）。バンドルでは、環境変数 `GWYDDIONPY_CONVERT` で
+`gwyconvert` の実行ファイルを指定しない限り、GUI00 は変換プログラムが見つからないと
+表示します。
+
 ## 依存関係
 
 - Python 3.11 以降
@@ -239,6 +253,12 @@ python build.py
 `requirements.txt` は手動セットアップ用に生成された補助的なコピーであり、
 `check.py` で再生成できます。PyInstaller はスタンドアロンビルド専用のツールで
 あり、配布物をビルドする場合に別途インストールします。
+
+任意依存の `convert`（`gwyddionpy-converter`）は、GUI00 と `cli.py convert` で
+Gwyddion のファイル読み込み機能を実行するプログラム `gwyconvert` を提供します。
+GPL-2.0-or-later のプログラムで、別プロセスとして実行し、スタンドアロンビルドには
+同梱しません。ランチャーがインストールします。それ以外の場合は、ソースを取得した
+フォルダで `python -m pip install -e ".[convert]"` を実行してインストールします。
 
 環境を厳密に再現したい場合は、テストで検証済みの全パッケージバージョンを
 記録した `requirements.lock.txt` を使用してください:
@@ -256,6 +276,26 @@ OS が記録されています。同じ環境で使用してください。ほ�
 `--verify` と `--pin` については「開発用ユーティリティ」を参照してください。
 
 ## GUI ツール
+
+### Format Converter — `guis/GUI00_Format_Converter.py`
+
+本ソフトが読めない形式の AFM ファイルを Gwyddion の `.gwy` ファイルへ変換し、
+GUI01 で解析できるようにします。フォルダを選ぶと、その直下のファイルのうち、本ソフトが
+既に読める拡張子（`.txt`、`.csv`、`.gwy`）でも書き出す拡張子（`.b2z`、`.json`、
+`.npy`）でもないものを、Gwyddion 自身のファイル読み込み機能で同じフォルダの
+`<元のファイル名>_converted.gwy` へ変換します（`scan.ssp` は
+`scan.ssp_converted.gwy` になります）。接尾辞を付けるのは、同じフォルダにある同じ
+スキャンのテキスト出力と区別するためです。装置はテキスト出力にも元ファイルの名前を
+付け（`scan.ssp.txt`）、GUI01 はバンドル名を入力のファイル名から最後の拡張子だけを
+外して作るため、単に `scan.ssp.gwy` とすると同じ `scan.ssp.b2z` に解析されてしまい
+ます。`.gwy` が既にあるファイルは飛ばすため、新しいスキャンを追加した後に同じフォルダを
+もう一度変換できます。表には、ファイルごとの結果と、読み込んだ Gwyddion モジュールを
+表示します。
+
+変換結果は、長さの単位を持つチャンネルがあるときだけ残します。Gwyddion は PNG の
+スクリーンショットのような通常の画像も開けるため、検査しなければ高さ像として解析されて
+しまいます。変換プログラムは任意依存の `convert` です（「依存関係」を参照）。
+`cli.py convert` も同じ変換を行います。
 
 ### Image Preprocessor — `guis/GUI01_Image_Preprocessor.py`
 
@@ -582,7 +622,7 @@ AFM 全体像には Plot Profiler と同じパン/ズームのツールバーに
 
 上記レイアウトに該当しない機種（Asylum Research、JPK、Park Systems、Nanonis、
 Olympus など）のファイルは、100 以上のネイティブ形式を読める無償の SPM ツール
-[Gwyddion](http://gwyddion.net/) を介して対応します。方法は 2 通りあります。
+[Gwyddion](http://gwyddion.net/) を介して対応します。方法は 3 通りあります。
 
 **ネイティブ `.gwy` ファイル（推奨）。** Gwyddion 自身の `.gwy` ファイルは、手動の
 変換工程なしに直接読み込めます。GUI01（フォルダ一括）、GUI02（Plot Profiler）、
@@ -595,6 +635,22 @@ Olympus など）のファイルは、100 以上のネイティブ形式を読�
 高さ nm を前提とするワークフローや表示には適しません。`.gwy` の読み込みには軽量で
 純 Python の `gwyfile` パッケージ（宣言済み依存）が必要ですが、遅延 import のため
 テキスト専用のワークフローでは読み込まれません。
+
+**`.gwy` への一括変換（GUI00 または `cli.py convert`）。** 各社のファイルは、Gwyddion
+を開かずに `.gwy` へ変換できます。GUI00（Format Converter）と `cli.py convert` は、
+任意依存 `convert` の `gwyconvert` プログラムを通じて Gwyddion のファイル読み込み機能を
+実行します。このパッケージには必要な Gwyddion のライブラリが含まれています。変換した
+`.gwy` は上記のとおり読み込めます。
+
+```powershell
+python cli.py convert raw_scans\
+```
+
+`convert` はフォルダまたはファイルを受け取り、`.txt`、`.csv`、`.gwy`、`.b2z`、
+`.json`、`.npy` 以外のファイルを同じ場所の `<元のファイル名>_converted.gwy` へ
+変換します。
+`.gwy` が既にある入力は飛ばし、変換できなかったファイルが 1 件でもあれば 0 以外の
+終了コードを返します。
 
 **Export Text（`.txt`）。** あるいは Gwyddion でファイルを開き、**File > Save As** で
 **「Export Text」**（プレーンテキストのデータ行列）を選ぶと、本ローダーはその `.txt`
@@ -889,6 +945,7 @@ AFM_Nanofiber_Analyzer/
 |-- run_venv.sh
 |-- run_conda.sh
 |-- guis/
+|   |-- GUI00_Format_Converter.py
 |   |-- GUI01_Image_Preprocessor.py
 |   |-- GUI02_PlotProfiler.py
 |   |-- GUI03_Fiber_Morphology_Statistics.py
@@ -902,6 +959,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- bundle_schema.py
 |   |-- fiber.py
 |   |-- fiber_tracking_image.py
+|   |-- gwy_convert.py
 |   |-- gwy_io.py
 |   |-- imp_tools.py
 |   |-- kink_detector.py
@@ -954,6 +1012,7 @@ Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにして
 | `lib/group_compare.py` | GUI03 用の群間比較。全ペアに Holm 補正を適用した Mann-Whitney U 検定と 2 標本 KS 検定、および標本数とともに増大しない効果量として Cliff's delta を提供する。 |
 | `lib/fiber_selection.py` | バンドル横の `<stem>_excluded.json` に保存する手動ファイバー除外。GUI04 が書き出し、`lib/measure.py` が適用する。除外はリストのインデックスではなく除外対象のトラック上のアンカー画素であり、ファイバー連結による採番変更後も意味を保つ。 |
 | `lib/fiber_tracking_image.py` | GUI04 が GUI01 のバンドル出力からファイバーを再構築・追跡するための `FiberTrackingImage`。 |
+| `lib/gwy_convert.py` | 本ソフトが読めないファイルを Gwyddion の `gwyconvert`（任意依存 `convert`）で `.gwy` へ変換する処理。GUI00 と `cli.py convert` が共有する。拡張子による対象の選択、`<元のファイル名>_converted.gwy` への出力、既存の出力の省略、長さ単位のチャンネルを持たない結果の除外を行う。 |
 | `lib/gwy_io.py` | ネイティブな複数チャンネル Gwyddion `.gwy` を遅延読み込みし、チャンネル選択、長さチャンネルの nm 換算、走査範囲抽出を行うローダー。 |
 | `lib/imp_tools.py` | スケルトン形態処理、端点・分岐点検出、線追跡、経路距離変換のヘルパー。 |
 | `lib/kink_detector.py` | 追跡されたスケルトン成分からキンク点を検出する `KinkDetector`。 |

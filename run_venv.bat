@@ -10,8 +10,10 @@ REM   - interpreter missing -> clean rebuild
 REM   - setup marker missing -> reinstall into the existing .venv
 REM   - both present         -> run straight away
 REM The marker lives inside .venv, so deleting the whole folder forces a rebuild.
+REM Its name carries a setup revision (v2: the optional converter step), so a
+REM .venv set up without a later step is set up again once.
 if not exist ".venv\Scripts\python.exe" goto rebuild
-if not exist ".venv\.afm_setup_done" goto reinstall
+if not exist ".venv\.afm_setup_done_v2" goto reinstall
 goto run
 
 :rebuild
@@ -72,8 +74,19 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo.
+echo Installing the optional file-format converter for GUI00...
+REM A separate step because the converter is prebuilt only for some platforms
+REM (Windows x86_64, Linux x86_64, macOS); where it cannot be installed, only
+REM GUI00 is unavailable and setup still completes.
+call ".venv\Scripts\python.exe" -m pip install -e ".[convert]"
+if errorlevel 1 (
+    echo The optional converter could not be installed.
+    echo GUI00 Format Converter will not work; everything else is installed.
+)
+
 REM Record a successful setup so later launches skip straight to running.
-> ".venv\.afm_setup_done" echo ok
+> ".venv\.afm_setup_done_v2" echo ok
 echo.
 echo Setup completed.
 

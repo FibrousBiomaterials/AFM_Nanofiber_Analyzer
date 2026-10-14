@@ -90,6 +90,13 @@ the same setup without the launcher using the editable-install commands below;
 for an exact, pinned version set, install `requirements.lock.txt` instead (see
 Dependencies below).
 
+The launcher also installs the optional file-format converter used by GUI00
+(Format Converter) and `cli.py convert` (`pip install -e ".[convert]"`, which
+adds the `gwyddionpy-converter` package). Prebuilt converters exist only for
+Windows x86_64, Linux x86_64 and macOS; elsewhere that step reports the failure
+and setup completes without GUI00. A `.venv` set up before the launcher had
+this step runs it once on its next start.
+
 ### Anaconda or Miniconda
 
 Starting the application directly from an existing Anaconda `base` environment
@@ -104,7 +111,8 @@ installs the package into it, and every later run launches the application from
 that environment instead of modifying `base`. It self-repairs the same way as
 `run_venv`: a missing env interpreter triggers a clean rebuild of `.conda-env`,
 and a missing setup marker triggers a reinstall; delete the `.conda-env` folder
-and rerun to force a full rebuild.
+and rerun to force a full rebuild. It installs the optional GUI00 converter the
+same way as `run_venv`.
 
 Windows:
 
@@ -238,6 +246,12 @@ The build script generates a PyInstaller bundle under `dist/Main/` and copies
 the plugin/resource folders needed by the launcher. Distribute the entire
 `dist/Main/` folder, not only `Main.exe`.
 
+The bundle does not contain the GUI00 converter: it is a GPL-licensed program
+that carries its own set of third-party libraries, so it is installed with pip
+instead (see Dependencies). In the bundle, GUI00 reports the converter as
+missing unless the `GWYDDIONPY_CONVERT` environment variable names a
+`gwyconvert` executable.
+
 ## Dependencies
 
 - Python 3.11 or later
@@ -250,6 +264,12 @@ necessary. `requirements.txt` is a generated convenience copy used by the
 manual setup path and can be refreshed with `check.py`. PyInstaller is used
 only for standalone builds and is installed separately when building a
 distribution.
+
+The optional `convert` dependency (`gwyddionpy-converter`) supplies
+`gwyconvert`, the program that runs Gwyddion's file readers for GUI00 and
+`cli.py convert`. It is GPL-2.0-or-later, runs as a separate process, and is
+never bundled into the standalone build. The launchers install it; otherwise
+install it with `python -m pip install -e ".[convert]"` from a source checkout.
 
 For an exact, reproducible environment, `requirements.lock.txt` records a
 test-verified snapshot of all package versions:
@@ -267,6 +287,27 @@ loose `requirements.txt` so pip can select compatible wheels.
 the Development Utilities section for its `--verify` and `--pin` modes.
 
 ## GUI Tools
+
+### Format Converter — `guis/GUI00_Format_Converter.py`
+
+Convert AFM files in formats this software cannot read into Gwyddion `.gwy`
+files, which GUI01 then analyzes. Select a folder: every file directly inside
+it whose extension is not one the software already reads (`.txt`, `.csv`,
+`.gwy`) or writes (`.b2z`, `.json`, `.npy`) is converted, through Gwyddion's
+own file readers, into `<original file name>_converted.gwy` in the same
+folder, so `scan.ssp` becomes `scan.ssp_converted.gwy`. The suffix keeps the
+converted file apart from a text export of the same scan kept in the same
+folder: instruments name those after the raw file (`scan.ssp.txt`), and GUI01
+names a bundle after its input less only the last extension, so a plain
+`scan.ssp.gwy` would be analyzed into the same `scan.ssp.b2z`. Files whose
+`.gwy` already exists are skipped, so a folder can be converted again after new
+scans are added. The table shows each file's outcome and the Gwyddion module
+that read it.
+
+A converted file is kept only when it contains a channel with a length unit:
+Gwyddion also opens ordinary images such as PNG screenshots, which would
+otherwise be analyzed as height maps. The converter is the optional `convert`
+dependency (see Dependencies); `cli.py convert` runs the same conversion.
 
 ### Image Preprocessor — `guis/GUI01_Image_Preprocessor.py`
 
@@ -632,7 +673,7 @@ have permission to redistribute these datasets.
 Files from instruments without a layout above (Asylum Research, JPK, Park
 Systems, Nanonis, Olympus, …) are supported through
 [Gwyddion](http://gwyddion.net/), the free SPM toolkit that reads 100+ native
-formats. There are two routes:
+formats. There are three routes:
 
 **Native `.gwy` files (recommended).** Gwyddion's own `.gwy` files are read
 directly, with no manual export step: select a `.gwy` in GUI01 (batch folder),
@@ -647,6 +688,23 @@ values; it is not suitable for workflows or labels that assume height in nm.
 Reading `.gwy` requires the lightweight, pure-Python `gwyfile` package (a
 declared dependency); it is imported lazily, so text-only workflows never
 load it.
+
+**Batch conversion to `.gwy` (GUI00 or `cli.py convert`).** Vendor files can be
+converted into `.gwy` files without opening Gwyddion: GUI00 (Format Converter)
+and `cli.py convert` run Gwyddion's file readers through the `gwyconvert`
+program of the optional `convert` dependency, whose package contains the
+Gwyddion libraries it needs. The resulting `.gwy` files are then read as
+above.
+
+```powershell
+python cli.py convert raw_scans\
+```
+
+`convert` takes folders or files, converts every file except `.txt`, `.csv`,
+`.gwy`, `.b2z`, `.json` and `.npy` into `<original file name>_converted.gwy`
+beside it,
+skips inputs whose `.gwy` already exists, and exits with a non-zero code when
+any file could not be converted.
 
 **Export Text (`.txt`).** Alternatively, in Gwyddion open the file, then
 **File > Save As** and choose **"Export Text"** (a plain-text data matrix),
@@ -947,6 +1005,7 @@ AFM_Nanofiber_Analyzer/
 |-- run_venv.sh
 |-- run_conda.sh
 |-- guis/
+|   |-- GUI00_Format_Converter.py
 |   |-- GUI01_Image_Preprocessor.py
 |   |-- GUI02_PlotProfiler.py
 |   |-- GUI03_Fiber_Morphology_Statistics.py
@@ -960,6 +1019,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- bundle_schema.py
 |   |-- fiber.py
 |   |-- fiber_tracking_image.py
+|   |-- gwy_convert.py
 |   |-- gwy_io.py
 |   |-- imp_tools.py
 |   |-- kink_detector.py
@@ -1012,6 +1072,7 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | `lib/group_compare.py` | Between-group comparison for GUI03: Mann-Whitney U and two-sample KS with Holm correction over all pairs, plus Cliff's delta as an effect size that does not grow with sample size. |
 | `lib/fiber_selection.py` | Manual fiber exclusions stored in `<stem>_excluded.json` beside the bundle: written by GUI04, applied by `lib/measure.py`. An exclusion is an anchor pixel on the excluded fiber's track rather than a list index, so it keeps its meaning when fiber connection renumbers the list. |
 | `lib/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |
+| `lib/gwy_convert.py` | Conversion of files this software cannot read into `.gwy` through Gwyddion's `gwyconvert` (optional `convert` dependency), shared by GUI00 and `cli.py convert`: extension-based selection, `<original file name>_converted.gwy` output, skipping of existing outputs, and rejection of results without a length-unit channel. |
 | `lib/gwy_io.py` | Lazy-loading reader for native, multi-channel Gwyddion `.gwy` files, including channel selection, length-channel conversion to nm, and scan-size extraction. |
 | `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
 | `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |

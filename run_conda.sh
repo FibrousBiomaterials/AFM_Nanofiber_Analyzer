@@ -20,7 +20,11 @@ CONDA_CMD="${CONDA_EXE:-}"
 # the environment also clears it and forces a clean re-setup on the next run.
 # インストール成功時に書き込むマーカー。環境内に置くため、環境を削除すると
 # マーカーも消え、次回起動時にセットアップが再実行される。
-MARKER="$ENV_DIR/.afm_setup_done"
+# Its name carries a setup revision (v2: the optional converter step), so an
+# env set up without a later step is set up again once.
+# 名前にセットアップの版（v2: 任意の変換プログラムの手順）を含めるため、
+# 後から加わった手順を経ていない環境は 1 回だけセットアップし直される。
+MARKER="$ENV_DIR/.afm_setup_done_v2"
 ENV_PY="$ENV_DIR/bin/python"
 
 # ---- Locate conda (needed both to create the env and to run from it) ----
@@ -82,6 +86,19 @@ run_install() {
     if [ $? -ne 0 ]; then
         echo "Failed to install the package."
         return 1
+    fi
+
+    echo
+    echo "Installing the optional file-format converter for GUI00..."
+    # A separate step because the converter is prebuilt only for some platforms
+    # (Windows x86_64, Linux x86_64, macOS); where it cannot be installed, only
+    # GUI00 is unavailable and setup still completes.
+    # 変換プログラムは一部の環境（Windows x86_64・Linux x86_64・macOS）向けにしか
+    # ビルドされていないため別の手順にする。入れられない環境では GUI00 だけが使えず、
+    # セットアップ自体は完了する。
+    if ! "$CONDA_CMD" run -p "$ENV_DIR" python -m pip install -e ".[convert]"; then
+        echo "The optional converter could not be installed."
+        echo "GUI00 Format Converter will not work; everything else is installed."
     fi
 
     # Record a successful setup so later launches skip straight to running.

@@ -15,7 +15,11 @@ cd "$SCRIPT_DIR" || exit 1
 # the environment also clears it and forces a clean re-setup on the next run.
 # インストール成功時に書き込むマーカー。.venv 内に置くため、環境を削除すると
 # マーカーも消え、次回起動時にセットアップが再実行される。
-MARKER=".venv/.afm_setup_done"
+# Its name carries a setup revision (v2: the optional converter step), so a
+# .venv set up without a later step is set up again once.
+# 名前にセットアップの版（v2: 任意の変換プログラムの手順）を含めるため、
+# 後から加わった手順を経ていない .venv は 1 回だけセットアップし直される。
+MARKER=".venv/.afm_setup_done_v2"
 VENV_PY=".venv/bin/python"
 
 install_tkinter_package() {
@@ -110,6 +114,19 @@ run_install() {
     if [ $? -ne 0 ]; then
         echo "Failed to install the package."
         return 1
+    fi
+
+    echo
+    echo "Installing the optional file-format converter for GUI00..."
+    # A separate step because the converter is prebuilt only for some platforms
+    # (Windows x86_64, Linux x86_64, macOS); where it cannot be installed, only
+    # GUI00 is unavailable and setup still completes.
+    # 変換プログラムは一部の環境（Windows x86_64・Linux x86_64・macOS）向けにしか
+    # ビルドされていないため別の手順にする。入れられない環境では GUI00 だけが使えず、
+    # セットアップ自体は完了する。
+    if ! "$VENV_PY" -m pip install -e ".[convert]"; then
+        echo "The optional converter could not be installed."
+        echo "GUI00 Format Converter will not work; everything else is installed."
     fi
 
     # Record a successful setup so later launches skip straight to running.

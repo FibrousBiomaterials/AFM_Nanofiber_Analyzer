@@ -60,6 +60,17 @@ TARGET_DIRS = [ROOT / "guis", ROOT / "lib"]
 # Ignore local project packages from external dependency list.
 IGNORE_TOPLEVEL = {"guis", "lib"}
 
+# Imports of optional dependencies, declared under
+# `[project.optional-dependencies]` rather than `[project] dependencies`, so
+# they are kept out of `requirements.txt` and the pyproject consistency check.
+# The code importing them catches the ImportError.
+# 任意依存の import。`[project] dependencies` ではなく
+# `[project.optional-dependencies]` に宣言するため、`requirements.txt` と
+# pyproject 整合性検査の対象から外す。import する側が ImportError を処理する。
+OPTIONAL_TOPLEVEL = {
+    "gwyddionpy_converter",  # extra "convert"; lib/gwy_convert.py
+}
+
 # Map common import-name/package-name mismatches with a minimal explicit list.
 # import名 -> pip名（代表的なズレだけ最小限で吸収）
 IMPORT_TO_PIP = {
@@ -325,9 +336,11 @@ def collect_external_imports(files: list[Path] | None = None) -> set[str]:
     for f in files:
         all_imports |= extract_imports(f)
 
-    # Remove local project packages and bundled submodules.
+    # Remove local project packages, bundled submodules, and optional
+    # dependencies.
     all_imports -= IGNORE_TOPLEVEL
     all_imports -= BUNDLED_WITH_PARENT
+    all_imports -= OPTIONAL_TOPLEVEL
 
     # Keep only non-stdlib modules as external dependencies.
     return {m for m in all_imports if not is_stdlib(m)}
