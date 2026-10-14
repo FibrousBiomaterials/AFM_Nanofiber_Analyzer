@@ -96,7 +96,7 @@ HALF_MAX_025W_CENTERLINE = "half_max_025w"
 #   smoothed_skeleton_1w   B'  the same over 1 W
 #   quarter_max            D   midpoint of the two quarter-maximum crossings
 #   centroid               E   height-weighted centroid of the section above its base
-#   crest                  F   the section's maximum, refined by a parabola
+#   crest                  F   the crest the climb reaches, refined by a parabola
 # The comparison that chose C at W/4 as the default is in `docs/validation.md`
 # §4.2-§4.3; the others are kept selectable so that choice can be checked on the
 # user's own images.
@@ -112,7 +112,7 @@ HALF_MAX_025W_CENTERLINE = "half_max_025w"
 #   smoothed_skeleton_1w   B'  同じく 1 W で平滑化したもの
 #   quarter_max            D   2 つの 1/4 高さ交点の中点
 #   centroid               E   断面の基底より上の高さで重み付けした重心
-#   crest                  F   断面の最大値を放物線で精密化したもの
+#   crest                  F   坂を上って着いた頂点を放物線で精密化したもの
 # 既定を W/4 の C に選んだ比較は `docs/validation.ja.md` §4.2〜§4.3 にある。それ以外も
 # 選べるようにしてあるのは、その選択を利用者自身の画像で確かめられるようにする
 # ためである。
@@ -319,18 +319,19 @@ _CREST_WINDOW_WIDTHS = 0.25
 # 起きたかは `_OFFSET_SMOOTH_WIDTHS` を参照。
 _FRAME_SIGMA_WIDTHS = 0.25
 
-# How far the section's maximum may lie from the frame, how far from that
-# maximum each half-maximum crossing is searched for, and the widest
+# How far the section's crest (the local maximum the climb from the frame
+# reaches) may lie from the frame, how far from that crest each half-maximum
+# crossing is searched for, and the widest
 # cross-section still taken as one fiber, all in apparent widths. The width
 # limit applies to the full width at half maximum, not to each half, because
 # AFM profiles are often asymmetric, one flank falling more slowly than the
 # other. Two fibers lying side by side below a junction are wider than 1.5
 # widths and are marked unreliable rather than split down the middle the way a
 # medial axis splits them.
-# 断面の最大値が枠からどこまで離れてよいか、その最大値から各半値交点をどこまで
-# 探すか、および 1 本の繊維とみなす最大の断面幅（いずれも見かけ幅単位）。幅の
-# 上限は各半分ではなく半値全幅に課す。AFM の断面はしばしば非対称で、片側の斜面が
-# ゆっくり下がるためである。分岐の下で並んで走る 2 本の繊維は 1.5 幅より広く、
+# 断面の頂点（枠から坂を上って着く極大）が枠からどこまで離れてよいか、その頂点
+# から各半値交点をどこまで探すか、および 1 本の繊維とみなす最大の断面幅（いずれも
+# 見かけ幅単位）。幅の上限は各半分ではなく半値全幅に課す。AFM の断面はしばしば
+# 非対称で、片側の斜面がゆっくり下がるためである。分岐の下で並んで走る 2 本の繊維は 1.5 幅より広く、
 # medial axis のように真ん中で分けられるのではなく、信頼できない区間として扱われる。
 # A limit on each half is compared on the bundled scans in docs/validation.md
 # §4.12.
@@ -872,8 +873,8 @@ def _level_crossings(
     level: NDArray,
 ) -> Tuple[NDArray, NDArray, NDArray]:
     """
-    Locate, per section, the crossings of a level nearest the section's maximum.
-    断面ごとに、断面の最大値に最も近いレベル交点を求める。
+    Locate, per section, the crossings of a level nearest the section's crest.
+    断面ごとに、断面の頂点に最も近いレベル交点を求める。
 
     Parameters
     ----------
@@ -884,8 +885,9 @@ def _level_crossings(
         Offset along the normal of each sample column, in pixels.
         各標本列の法線方向のオフセット（画素）。
     left, right
-        Per section, the columns searched on each side of the maximum.
-        断面ごとに、最大値の左右で探索する列。
+        Per section, the columns searched on each side of the crest (the
+        local maximum the caller climbed to).
+        断面ごとに、頂点（呼び出し側が坂を上って着いた極大）の左右で探索する列。
     level
         Height of the level, one per section.
         レベルの高さ（断面ごとに 1 つ）。
@@ -963,14 +965,20 @@ def _refine(
     -------
     tuple of ndarray
         ``(x, y, reliable, crest)``: the three values of `refine_centerline`
-        and, per point, the **crest height** -- the maximum of the
-        cross-section the point was resolved on, or, where the section could
+        and, per point, the **crest height** -- the value at the crest of the
+        cross-section the point was resolved on (the first local maximum
+        reached by climbing uphill from the frame point, not necessarily the
+        maximum of the whole section), or, where the section could
         not locate this fiber and the point was interpolated, the maximum
-        within `_CREST_WINDOW_WIDTHS` of the line point along its normal.
+        within `_CREST_WINDOW_WIDTHS` of the line point along its normal. In
+        either case the height read at the line point is used instead when it
+        is higher.
         ``(x, y, reliable, crest)``。`refine_centerline` の 3 つの値と、点ごとの
-        **頂点高さ**である。頂点高さは、その点を決めた断面の最大値、または断面が
+        **頂点高さ**である。頂点高さは、その点を決めた断面の頂点（枠の点から坂を
+        上って最初に着く極大で、断面全体の最大値とは限らない）の値、または断面が
         この繊維の位置を決められず点が補間された場合は、線の点から法線に沿って
-        `_CREST_WINDOW_WIDTHS` 以内の最大値である。
+        `_CREST_WINDOW_WIDTHS` 以内の最大値である。どちらの場合も、線の点で読んだ
+        高さのほうが高ければ、そちらを使う。
 
     Notes
     -----
@@ -1144,13 +1152,17 @@ def _refine(
     lateral = np.clip(_whittaker_first_order(offset, weight, lam), -reach, reach)
     reliable = weight > 0.0
 
-    # Crest height: the maximum of the section a reliable point was resolved
-    # on; for an interpolated point, the maximum within a quarter width of the
-    # line point. The sampled span always covers that window, because the
-    # lateral offset is clipped to the crest reach inside it.
-    # 頂点高さ。信頼できる点はそれを決めた断面の最大値、補間された点は線の点から
-    # 1/4 幅以内の最大値。横方向オフセットはこの範囲内の頂点到達距離にクリップ
-    # されるため、サンプリング範囲は常にその窓を覆う。
+    # Crest height: for a reliable point, the local maximum of its section
+    # reached by the climb above (`peak`), not necessarily the maximum of the
+    # whole section; for an interpolated point, the maximum within a quarter
+    # width of the line point. The sampled span always covers that window,
+    # because the lateral offset is clipped to the crest reach inside it. Either
+    # value is raised to the height at the line point below when that is higher.
+    # 頂点高さ。信頼できる点は、上で坂を上って着いた断面の極大（`peak`）で、断面
+    # 全体の最大値とは限らない。補間された点は線の点から 1/4 幅以内の最大値。
+    # 横方向オフセットはこの範囲内の頂点到達距離にクリップされるため、サンプリング
+    # 範囲は常にその窓を覆う。どちらの値も、下で読む線の点の高さのほうが高ければ、
+    # そちらに置き換える。
     near = np.abs(s[None, :] - lateral[:, None]) <= _CREST_WINDOW_WIDTHS * width
     crest_near = np.where(near, prof, -np.inf).max(1)
     line_x = fx + nx * lateral
@@ -1178,12 +1190,20 @@ def _refine(
     # するのは、スケルトン点ごとに 1 点という対応を保つためである。
     line_x = np.clip(line_x, 0.0, img.shape[1] - 1.0)
     line_y = np.clip(line_y / a, 0.0, img.shape[0] - 1.0)
-    # The profile is sampled every quarter pixel, so the height at the line
-    # point itself can exceed the sampled maximum by a sliver; taking the
-    # larger keeps "never below the height at the line" exact.
-    # プロファイルは 1/4 画素ごとの標本なので、線の点そのものの高さが標本の
-    # 最大値をわずかに上回ることがある。大きい方を取り、「線の位置の高さを
-    # 下回らない」を厳密に保つ。
+    # The crest is never reported below the height at the line point, and
+    # taking the larger is what makes that exact. The line point can read
+    # higher than `peak` for three reasons: the profile is sampled every
+    # quarter pixel; the climb stops at the first local maximum, which on a
+    # section with a small shoulder on its flank is the shoulder rather than
+    # the top, while the half-maximum midpoint lies nearer the top; and where a
+    # taller fiber lies close enough that the half-maximum run spans both, the
+    # line point can sit on that fiber, and the crest then reads its height.
+    # 頂点高さは線の点の高さを下回らない。大きい方を取ることで、それが厳密に
+    # 成り立つ。線の点が `peak` より高く読まれる理由は 3 つある。プロファイルが
+    # 1/4 画素ごとの標本であること。坂上りは最初の極大で止まるため、斜面に小さな
+    # 肩のある断面では頂上ではなく肩で止まり、半値中点のほうが頂上に近いこと。
+    # そして、半値区間が両方にかかるほど近くにもっと高い繊維があると、線の点が
+    # その繊維の上に来て、頂点高さがその高さを読むことである。
     at_line = _bilinear(img, line_y, line_x)
     crest_near = np.where(np.isfinite(crest_near), crest_near, at_line)
     crest = np.maximum(np.where(reliable, peak, crest_near), at_line)
@@ -1224,13 +1244,18 @@ class CenterlineResult:
         からない。信頼できる点の割合が、繊維のどれだけを実際に位置決めできたかを
         表す。
     crest
-        Crest height per point in the units of the height image: the maximum
-        of the resolved cross-section, or the maximum within a quarter width
-        of an interpolated point. This is the fiber's height; the line itself
+        Crest height per point in the units of the height image: the value at
+        the crest of the resolved cross-section (the first local maximum
+        reached by climbing uphill from the frame point, not necessarily the
+        maximum of the whole section), or the maximum within a quarter width of an
+        interpolated point, replaced by the height read at the line point when
+        that is higher. This is the fiber's height; the line itself
         sits at the half-maximum midpoint, beside the top on an asymmetric
         section.
-        点ごとの頂点高さ（高さ画像の単位）。決められた断面の最大値、または補間
-        された点から 1/4 幅以内の最大値。これが繊維の高さである。線そのものは
+        点ごとの頂点高さ（高さ画像の単位）。決められた断面の頂点（枠の点から坂を
+        上って最初に着く極大で、断面全体の最大値とは限らない）の値、または補間
+        された点から 1/4 幅以内の最大値。線の点で読んだ高さのほうが高ければ、
+        そちらを使う。これが繊維の高さである。線そのものは
         半値中点にあり、非対称な断面では頂部の脇に来る。
     """
 

@@ -211,7 +211,13 @@ class BGCalibrator:
             Minimum 8-connected component area (in pixels) kept in the raw
             fiber mask before dilation. Spurious 2- to 10-pixel detections
             from the `[1, -1]` ridge pattern in `_extract_fiber` scatter
-            across noisy or wide-field images. Without filtering, each one
+            across noisy or wide-field images. The `[1, 0, -1]` pattern
+            produces such detections too: its marks can be as short as 2
+            pixels whatever `noise_detect_factor` is. At the pipeline default
+            (`ProcParams.noise_detect_factor` = 10) a `[1, -1]` mark is
+            already at least 10 pixels along one line, so there every
+            component smaller than 10 pixels consists of `[1, 0, -1]` marks
+            only. Without filtering, each one
             is expanded to `(2 * mask_dilation + 1)^2` pixels by dilation
             and creates a salt-and-pepper field of holes that destabilises
             background interpolation (visible as a tiled / cellular pattern
@@ -223,8 +229,13 @@ class BGCalibrator:
             dilation 前の生ファイバーマスクから残す 8 連結成分の最小面積
             （ピクセル単位）。`_extract_fiber` の `[1, -1]` リッジパターンが
             拾う 2〜10 px 程度の偽検出が、ノイズの多い画像や広視野画像で
-            画面全体に散らばる。フィルタを掛けないと、これらは dilation で
-            `(2 * mask_dilation + 1)^2` ピクセルに膨張し、bg_only にゴマ塩状の
+            画面全体に散らばる。`[1, 0, -1]` パターンも同じような偽検出を
+            作る。その印は `noise_detect_factor` によらず最短 2 px だからである。
+            パイプラインの既定値（`ProcParams.noise_detect_factor` = 10）では
+            `[1, -1]` の印は 1 ラインで 10 px 以上になるので、10 px より小さい
+            成分はすべて `[1, 0, -1]` の印だけでできている。フィルタを掛けないと、
+            これらは dilation で `(2 * mask_dilation + 1)^2` ピクセルに膨張し、
+            bg_only にゴマ塩状の
             穴を作って背景補間を不安定化させる（`mask_dilation >= 3` で補正
             画像にタイル状・細胞状パターンとして現れる）。本物のファイバーは
             十分大きな連結成分を形成するため残る。1 を指定するとフィルタなし。
@@ -1328,7 +1339,11 @@ class BGCalibrator:
         Before dilation, 8-connected components smaller than
         `min_mask_component_area` are dropped from the raw mask to avoid
         amplifying spurious tiny detections from the `[1, -1]` ridge pattern
-        in `_extract_fiber`. Without this step, each false positive is
+        in `_extract_fiber`, and from its `[1, 0, -1]` pattern, whose marks
+        can be as short as 2 pixels whatever `noise_detect_factor` is (at the
+        pipeline default of 10 a `[1, -1]` mark is at least 10 pixels long, so
+        there the tiny detections are all `[1, 0, -1]` marks). Without this
+        step, each false positive is
         expanded by dilation into a `(2 * mask_dilation + 1)^2` hole,
         producing salt-and-pepper noise across the reconstructed background.
         dilation の前段で、生マスクから 8 連結成分の面積が
@@ -1336,6 +1351,9 @@ class BGCalibrator:
         これは `_extract_fiber` の `[1, -1]` リッジパターンが拾う微小な
         偽検出が dilation で `(2 * mask_dilation + 1)^2` ピクセルの穴に
         増幅され、再構成背景にゴマ塩状ノイズを生むのを防ぐためである。
+        `[1, 0, -1]` パターンの印も `noise_detect_factor` によらず最短 2 px なので、
+        同じように微小な偽検出を作る（パイプラインの既定値 10 では `[1, -1]` の印は
+        10 px 以上になるので、微小な偽検出はすべて `[1, 0, -1]` の印である）。
 
         The holes are filled on a *detrended* copy of the image: a second-order
         surface is least-squares fitted to the background-candidate pixels and
@@ -1372,7 +1390,12 @@ class BGCalibrator:
 
         # Rationale: `_extract_fiber`'s Pattern 2 (`[1, -1]`) catches 2- to
         # 10-pixel false positives that scatter densely across noisy / wide-
-        # field images. Without this filter, dilation expands each one into
+        # field images. Pattern 1 (`[1, 0, -1]`) produces them too: its marks
+        # can be as short as 2 pixels whatever `noise_detect_factor` is. At the
+        # pipeline default (`ProcParams.noise_detect_factor` = 10) a Pattern 2
+        # mark is already at least 10 pixels along one line, so there the small
+        # false positives are all Pattern 1 marks.
+        # Without this filter, dilation expands each one into
         # a `(2 * mask_dilation + 1)^2` hole, producing a salt-and-pepper
         # field across `bg_only` that destabilises the background fill
         # (visible as a tiled / cellular artefact at mask_dilation >= 3).
@@ -1380,8 +1403,13 @@ class BGCalibrator:
         # The filter runs only together with the dilation it guards against.
         # 理由: `_extract_fiber` の Pattern 2 (`[1, -1]`) は 2〜10 px 程度の
         # 偽検出を拾い、ノイズの多い画像や広視野画像では画面全体に密に
-        # 散らばる。フィルタなしで dilation すると 1 つの偽検出が
-        # `(2 * mask_dilation + 1)^2` ピクセルの穴に膨張し、bg_only に
+        # 散らばる。Pattern 1 (`[1, 0, -1]`) も同じ偽検出を作る。その印は
+        # `noise_detect_factor` によらず最短 2 px だからである。パイプラインの既定値
+        # （`ProcParams.noise_detect_factor` = 10）では Pattern 2 の印は 1 ラインで
+        # 10 px 以上になるので、小さな偽検出はすべて Pattern 1 の印である。
+        # フィルタなしで dilation すると 1 つの偽検出が
+        # `(2 * mask_dilation + 1)^2` ピクセルの穴に
+        # 膨張し、bg_only に
         # ゴマ塩状の欠損を作って背景の充填を不安定化させる
         # （mask_dilation >= 3 でタイル状・細胞状パターンとして見える）。
         # 本物のファイバーは十分大きな 8 連結成分を形成するため残る。

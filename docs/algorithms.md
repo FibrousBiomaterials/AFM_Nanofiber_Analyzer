@@ -63,8 +63,8 @@ record is required by the project's development rules (`AGENTS.md`).
 
 | Quantity | Unit | Notes |
 |---|---|---|
-| Height | nanometres (nm) | The loader converts to nm; every height threshold below is an absolute nm value on the **background-corrected** image, where the substrate sits at 0<!--n:definition--> nm. |
-| In-plane distance | pixels (px) in the stages, physical lengths (nm or µm) in the results | The stages are deliberately pixel-based, and the pixel size enters only at measurement time. The exception is ridge recovery (recovering missed fibers, §2.6, off by default), whose settings are in nm. The same pixel setting is a different physical length at a different scan size (worked example in §5). |
+| Height | nanometres (nm) | The loader converts to nm; every height threshold below that is set in nm (`global_threshold`, `low_threshold`, `bp_height` and others) is an absolute nm value on the **background-corrected** image, where the substrate sits at 0<!--n:definition--> nm. The height conditions of loop collapse (§3.4) and terminal-hook trimming (§3.6) are not nm values but ratios to a fiber height (that of the ridge around the loop, or of the fiber body beyond the hook). |
+| In-plane distance | pixels (px) in the stages, physical lengths (nm or µm) in the results | The stages are deliberately pixel-based, and the pixel size enters only at measurement time. The exception is ridge recovery (recovering missed fibers, §2.6, off by default), whose settings are in nm. Centerline placement and kink judgement (§4.2, §4.3) also use the ratio of the Y to the X pixel size, derived from the recorded scan range ("Physical geometry" in §4.2); they use only the ratio, and measure lengths in X pixels. The same pixel setting is a different physical length at a different scan size (worked example in §5). |
 | Angles | radians inside kink detection, degrees in the parameter file | `pipeline.build_stages` converts `kinkangle_deg` to radians when it constructs `KinkDetector`. |
 | Array indexing (for code readers) | `image[row, column]`, i.e. `[y, x]` | Several helpers return `np.where` output, where the first array is the row index. |
 
@@ -232,7 +232,8 @@ background estimate is not disturbed by the tilt. Each method estimates the
 background differently: `trendfill` fills the fiber pixels with the values of
 the surrounding background (the fill, §1.3), `tophat` traces the image from
 below with a disk larger than the fibers (the opening, §1.4), and `spline1d`
-joins the background points of each row or column with a smooth curve (§1.5).
+fills the fiber pixels of each row or column from that line's background points
+(§1.5).
 Why the tilt gets in the way is explained in each of those sections. The
 fitting is done by
 `BGCalibrator._fit_trend_surface`.
@@ -505,8 +506,8 @@ for j in range(tri_difx.shape[0]):
 
 In `_bg_generate`, two corrections are applied before the mask is used:
 
-**Removing false detections from noise.** Both patterns of Step 1<!--n:label-->
-(+1<!--n:label--> → 0<!--n:label--> → −1<!--n:label--> and +1<!--n:label--> → −1<!--n:label-->) also fire on noise features a few
+**Removing false detections from noise.** The patterns of Step 1<!--n:label-->
+(+1<!--n:label--> → 0<!--n:label--> → −1<!--n:label--> and +1<!--n:label--> → −1<!--n:label-->) can also fire on noise features a few
 pixels in size, which scatter densely across noisy or wide-field images. Most of
 these small marks come from pattern 1<!--n:label-->. Within one row, pattern 1<!--n:label--> marks at least
 2<!--x:1 + 1 + 1 - 1--> pixels (rise, flat and fall one pixel each, the last pixel left unmarked)
@@ -701,8 +702,15 @@ instead of returning the wrong image.
 ### 1.5 `spline1d` — for line-noise-dominated scans
 
 `_call_spline1d` reuses `trendfill`'s fiber mask, then fills each line
-independently with a 1<!--n:definition-->-D B-spline (a smooth curve through the points) of degree `spline1d_degree` (default 2<!--c:lib/pipeline.py::ProcParams.spline1d_degree-->),
-along the axis named by `spline1d_axis`. With `'x'` a line is one image
+independently with a 1<!--n:definition-->-D B-spline of degree `spline1d_degree` (default 2<!--c:lib/pipeline.py::ProcParams.spline1d_degree-->),
+along the axis named by `spline1d_axis` (the cases filled with straight lines
+instead are given below). Where the spline is used, it is not a curve forced
+through the points but a smooth curve passing near them (a smoothing spline):
+the code calls pandas' `interpolate(method='spline')`, which hands the line to
+`scipy.interpolate.UnivariateSpline` without a smoothing factor `s`, so scipy's
+default (the number of points) applies and the curve can deviate from the
+points. Only the hole pixels are filled; at this step the background pixels
+keep their values. With `'x'` a line is one image
 **row**; with `'y'` it is one **column**. Each line is filled from its own
 samples only, so the filled background keeps the level specific to that line.
 In the usual geometry, where the rows are the fast-scan axis, an `'x'` line is
@@ -960,8 +968,9 @@ Fibers do; contamination particles and tip artefacts do not.
   distance from the origin and the angle of its tilt, and counts, for every
   candidate straight line, the
   edge points lying on it; that count is the line's "votes", and a line with
-  many votes (a Hough peak) has many of the outline's points on it. Every line
-  with at least `h_length` votes is taken, and their votes are summed. The
+  many votes (a Hough peak) has many of the outline's points on it. Lines with
+  more than `h_length` votes are taken (how lines too close to each other are
+  handled is explained at the end of this section), and their votes are summed. The
   score is
 
   $$
@@ -1031,16 +1040,24 @@ for i in range(1, n_labels):
 
 One further detail: `h_length` plays two roles in this function. In the
 bounding-box test above it is a length in pixels, but it is also passed as the
-Hough peak `threshold` argument, where it acts as a minimum vote count (a proxy
-for line length).
+Hough peak `threshold` argument, where it is the vote threshold (a proxy for line
+length): `skimage.transform.hough_line_peaks` takes lines whose votes exceed
+it, not lines whose votes equal it.
 
 `linegap` in the code is an argument of this function with a default of 1<!--c:lib/segmenter.py::Segmenter._remove_nonlinear_objects(linegap)-->
 (`Segmenter.__call__` does not pass it, so the default always applies). In
-`skimage.transform.hough_line_peaks`, the argument min_distance is how far
-apart, in steps of the distance from the origin, two picked lines must be, and
-min_angle how far apart in steps of the angle. Both are one step, so lines
-differing only slightly in position or tilt are picked as separate peaks; this
-is also why $s_{\text{ratio}} > 1$ can occur.
+`skimage.transform.hough_line_peaks`, the arguments min_distance and min_angle
+give how close two lines may be and still count as separate peaks, in steps of
+the distance from the origin and in steps of the angle. First, only a line with
+the most votes within ±min_distance distance steps and ±min_angle angle steps
+of itself becomes a candidate. Candidates are then picked in order of their
+votes, and once one is picked, no candidate within the same range of it is
+picked. Both are 1<!--n:literal in the quoted code--> step here, so of lines lying within
+1<!--n:literal in the quoted code--> step of one another in both distance and angle, at most
+1<!--n:count--> is picked, while a line 2<!--x:1 + 1--> or more steps away in either one can be
+picked as a separate peak even when it differs only slightly in position or
+tilt; this is also why
+$s_{\text{ratio}} > 1$ can occur.
 
 ### 2.4 Weak-connection cleanup (off by default)
 
@@ -1582,7 +1599,11 @@ as a dead end.
 Each endpoint's walk also keeps its own record of visited pixels, so the result
 is the same whichever endpoint is processed first.
 
-Endpoints within `branch_length` of the scan border are skipped: an arm ending
+Endpoints near the scan border are skipped: those in the outermost
+`branch_length` rows or columns at the top and left, and in the outermost
+`branch_length` − 1<!--n:offset in a count derived from the condition--> at the bottom and right (the code's condition
+for rows is `bl <= start_x <= height - bl`; columns follow a condition of the
+same form). An arm ending
 that close to the edge can be a fiber leaving the field of view, and skipping it
 keeps such a fiber from being taken for a short branch and pruned.
 
@@ -2297,13 +2318,15 @@ the numbers built on it depend on, as a `centerline.CenterlineResult`:
   straight run, so no kink and no curvature can be found there. Each point
   carries a flag saying whether it was reliable (`Fiber.line_reliable`), and the
   fraction of reliable points appears in the table and the CSV.
-- **The crest height.** The fiber's height at each point is the **maximum of
-  its cross-section** (`CenterlineResult.crest`), not the image interpolated at
+- **The crest height.** The fiber's height at each point is the **height of
+  the crest of its cross-section** (`CenterlineResult.crest`), not the image interpolated at
   the centerline. The centerline sits at the half-maximum midpoint, which on an
   asymmetric section lies beside the crest rather than on it, where the height
-  is lower than the crest. The crest height is the maximum of the section read at
+  is lower than the crest. The crest height is read on the section sampled at
   fine steps (by bilinear interpolation, filling a value between pixel centres by
-  straight lines along the rows and columns of the 4<!--n:count--> surrounding pixels). Where the
+  straight lines along the rows and columns of the 4<!--n:count--> surrounding pixels), at
+  the crest of step 3<!--n:label-->: the first local maximum reached by climbing uphill from
+  the reference-line point. It is not necessarily the maximum over the whole section read. Where the
   section could not be resolved, the maximum within $W/4$ of the interpolated
   point is used instead. At either kind of point, the height read at the
   centerline is used when it is the higher of the two, so the crest height is
@@ -2467,7 +2490,11 @@ of the following hold:
   among the bends that can be computed, that is judged);
 - $|T(p)|$ reaches the threshold. $E$ never exceeds $|T|$, so this condition
   follows automatically from the next one; it is listed because the code
-  (`excess_at`) checks this cheaper condition first to narrow the candidates;
+  checks it too. `excess_at` computes $T$ and $E$ together and then compares
+  $|T|$ with the threshold before $E$, and the maxima of $|T|$ itself (described in
+  "Finding candidates" below) are taken as candidates only when they reach
+  the threshold, so there the condition narrows the candidates before $E$ is
+  computed;
 - $E(p)$ reaches both the threshold and the noise floor (described in "Scale and
   the noise floor" below). By default no noise floor is used (it is 0<!--c:lib/kink_detector.py::NOISE_SIGMAS-->).
 
@@ -2958,6 +2985,11 @@ measurement be redone without re-analysing an image:
   setting amounted to in nanometres can be computed from it. When images of
   different scan ranges are compared, this is how two bundles can be checked
   for whether their stage settings meant the same physical length.
+  Note also that centerline placement and kink judgement use the ratio of the Y to
+  the X pixel size derived from the recorded scan range ("Physical geometry" in
+  §4.2). Without a recorded scan range the ratio is taken as 1<!--n:definition-->, so on a
+  scan whose X and Y pixel sizes differ, the centerline and the kinks can
+  change with whether the scan range was recorded.
 
 ## 6. Reproducing a result
 

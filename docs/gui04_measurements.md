@@ -355,7 +355,7 @@ prof = _bilinear(img, (fy[:, None] + ny[:, None] * s[None, :]) / a,
 
 `prof[i, :]` is the cross-section at point $i$, sampled every 0.25 px along the
 normal. It extends $\pm(0.75 + 1.5)\,W$ from the frame: 0.75 W in which to find
-the section's maximum, plus 1.5 W beyond it in which to find the half-maximum
+the section's crest (§2.3), plus 1.5 W beyond it in which to find the half-maximum
 crossings.
 
 ### 2.3 Climbing to the nearest maximum
@@ -593,7 +593,7 @@ point is placed differs:
 | `smoothed_skeleton_1w` | B' | The same over 1 W |
 | `quarter_max` | D | Midpoint of the crossings at a quarter of the amplitude |
 | `centroid` | E | Centroid of the section's height above its base, over the run above 10 % |
-| `crest` | F | The section's maximum, refined by a parabola |
+| `crest` | F | The crest reached by the climb of §2.3, refined by a parabola |
 
 The smoothing widths and levels are:
 
@@ -672,10 +672,10 @@ With $b$ the base and $a$ the amplitude of §2.4:
 - **E** places it at $\sum_j m_j s_j / \sum_j m_j$, with
   $m_j = \max(p_j - b, 0)$, over the samples between the crossings at
   $b + a/10$, so the tail of a neighbouring fiber does not enter the sum.
-- **F** fits a parabola through the maximum $p_0$ and the samples $p_\pm$ 1 px
+- **F** fits a parabola through the crest $p_0$ and the samples $p_\pm$ 1 px
   on either side, $\delta = \tfrac12 (p_- - p_+) / (p_- - 2p_0 + p_+)$, and
   places the point at $s_k + \delta \cdot 1\,\text{px}$ with $\delta$ clipped to
-  ±1. A section that is not concave there keeps the sampled maximum.
+  ±1. A section that is not concave there keeps the crest's sample position $s_k$.
 
 For D and E, a section whose lower level does not close within 1.5 W of the
 maximum cannot give a position, so it is marked unreliable and interpolated like
