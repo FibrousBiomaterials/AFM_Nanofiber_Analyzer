@@ -97,13 +97,26 @@ class Fiber:
         `xtrack` / `ytrack` がどの線か。`centerline.CENTERLINE_METHODS` の値、
         または形式 1.1 より古いバンドルなら `centerline.SKELETON_TRACK`。
     unjudged_indices
-        Indices of the bends the kink rule measured within 1.5 apparent widths
-        of an end of the line, where too little fiber lies on one side to tell
-        a kink from the shape of the end itself. They are drawn but never
-        counted as kinks. Empty for a bundle older than format 1.1.
-        線の端から見かけ幅 1.5 本分以内でキンク規則が測った折れのインデックス列。
-        そこでは片側の繊維が短すぎ、キンクと端そのものの形を区別できない。描画は
-        するがキンクとしては数えない。形式 1.1 より古いバンドルでは空。
+        Indices of the bends the kink rule measured and did not judge: within
+        1.5 apparent widths of an end of the line, where too little fiber lies
+        on one side to tell a kink from the shape of the end itself, and, on a
+        connected fibril whose connection plan does not judge bridge kinks,
+        where its window reaches a connector bridge. They are drawn
+        but never counted as kinks. Empty for a bundle older than format 1.1.
+        キンク規則が測ったが判定しなかった折れのインデックス列。線の端から見かけ幅
+        1.5 本分以内（そこでは片側の繊維が短すぎ、キンクと端そのものの形を区別
+        できない）と、継ぎ目の折れを判定しない連結プランの連結フィブリルで、窓が
+        連結器の橋渡し部にかかるもの。描画はするがキンクとしては数えない。形式 1.1
+        より古いバンドルでは空。
+    unjudged_reasons
+        Why each bend of `unjudged_indices` was not judged, index-aligned with
+        it: `kink_detector.UNJUDGED_NEAR_END` or
+        `kink_detector.UNJUDGED_AT_BRIDGE`. ``None`` means every one lies next
+        to an end, which is the only reason a bundle records.
+        `unjudged_indices` の各折れを判定しなかった理由で、添字が揃う。
+        `kink_detector.UNJUDGED_NEAR_END` か `kink_detector.UNJUDGED_AT_BRIDGE`。
+        ``None`` はすべてが端のそばであることを意味し、バンドルが記録する理由は
+        これだけである。
     width_px
         Apparent width W (X pixels) the line was placed with and the kink rule
         was scaled by (`centerline.CenterlineResult.width_px`). NaN for a fiber
@@ -120,13 +133,18 @@ class Fiber:
     line_reliable
         Per line point, whether its position was measured on this fiber's own
         cross-section or interpolated from the reliable points around it
-        (`centerline.CenterlineResult.reliable`). An interpolated run is
-        straight, so no kink or curvature can be found on it. ``None`` on the
-        skeleton track.
+        (`centerline.CenterlineResult.reliable`). On a line placed on the
+        cross-sections (the default, and every line but the skeleton-based
+        ones), an interpolated point lies on the smoothed skeleton track
+        shifted by an offset interpolated from its neighbours, so a bend or
+        curvature found there has the shape of the skeleton, not of the
+        height. ``None`` on the skeleton track.
         線の点ごとに、位置をこの繊維自身の断面で測ったか、周囲の信頼できる点から
-        補間したか（`centerline.CenterlineResult.reliable`）。補間区間は直線
-        なので、そこにキンクも曲率も見つからない。スケルトントラック上では
-        ``None``。
+        補間したか（`centerline.CenterlineResult.reliable`）。断面の上に置く線
+        （既定の線、およびスケルトン系以外のすべての線）では、補間された点は、
+        平滑化したスケルトントラックを、前後から補間したずれ量だけ動かした位置に
+        あるため、そこで見つかる折れや曲率は高さではなくスケルトンの形を表す。
+        スケルトントラック上では ``None``。
     height_measured
         Per line point, whether `height` is a sample of the image (``True``)
         or a value the fiber connector interpolated across a bridge between
@@ -150,6 +168,14 @@ class Fiber:
         線を置きキンクを判定した幾何の Y 画素サイズ ÷ X 画素サイズ
         （`bundle_schema.pixel_aspect_from_meta`）。線に沿った距離を `width_px`
         の単位で測るときは Y をこれで拡大する。
+    bridge_excluded_px
+        Length along the line, in X pixels, that the connector's bridges take
+        out of the span kinks are counted over
+        (`kink_detector.KinkJudgement.bridge_excluded_px`); 0 for a fiber with
+        no bridge. `measure.fiber_kink_density` leaves it out of the divisor.
+        連結器の橋渡し部が、キンクを数える範囲から除く線に沿った長さ（X 画素単位、
+        `kink_detector.KinkJudgement.bridge_excluded_px`）。橋渡し部の無い繊維では
+        0。`measure.fiber_kink_density` はこれを分母から除く。
 
     Examples
     --------
@@ -195,6 +221,8 @@ class Fiber:
     kink_excess: np.ndarray = field(
         default_factory=lambda: np.zeros(0, dtype=np.float64))
     pixel_aspect: float = 1.0
+    unjudged_reasons: Optional[np.ndarray] = None
+    bridge_excluded_px: float = 0.0
 
     @property
     def length(self) -> float:

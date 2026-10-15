@@ -120,10 +120,14 @@ return curate_fibers(
 バンドルのメタデータから行う。そのため、キンクと、それを描く座標列（中心線または
 スケルトントラック）は常に同じ定義から来る。バンドルの中心線が既定でない場合、
 GUI04 はその名前をログに出す。数値がどの中心線に沿って測られたかは、画面の他の
-どこにも示されないためである。形式 1.3 のバンドルは中心線も実空間の幾何で置かれて
+どこにも示されないためである。形式 1.3 以降のバンドルは中心線も実空間の幾何で置かれて
 いる（§2）。そのため GUI04 は、スケール欄に入力された値ではなく、バンドルに記録
 された走査範囲の画素の縦横比（`bundle_schema.pixel_aspect_from_meta`）で置き直す。
-それより古いバンドルは、判定されたときと同じ画素座標の幾何で置く。
+それより古いバンドルは、判定されたときと同じ画素座標の幾何で置く。同様に、形式 1.4
+のバンドルは見かけ幅 W（§2.1）を、各断面の基準と、スケルトン点から坂を上って最初に
+着く極大との中間のレベルで読み、
+形式 1.1〜1.3 のバンドルは断面全体の最大値との中間で読んでいる。GUI04 は、バンドルの
+形式が幅を読む極大（`bundle_schema.width_peak_from_meta`）で中心線を置く。
 
 ```python
 # source: lib/fiber_tracking_image.py::_build_fiber
@@ -132,7 +136,7 @@ fiber_image = cal[y: y + h, x: x + w].copy()
 if is_placed_line(centerline):
     placed = place_centerline(
         cal, xtrack_prcimg, ytrack_prcimg, branch_points,
-        method=centerline, aspect=pixel_aspect,
+        method=centerline, aspect=pixel_aspect, width_peak=width_peak,
     )
     xtrack = placed.x - x
     ytrack = placed.y - y
@@ -200,7 +204,7 @@ for i, (px, py) in enumerate(zip(xtrack_prcimg.tolist(), ytrack_prcimg.tolist())
 ```python
 # source: lib/centerline.py::place_centerline
 width, measured = measure_apparent_width(
-    height, x, y, return_measured=True, aspect=aspect)
+    height, x, y, return_measured=True, aspect=aspect, peak=width_peak)
 lx, ly, reliable, crest = _refine(
     height, x, y, width, branch_points, method, aspect)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
@@ -255,11 +259,14 @@ profiles = _bilinear(
     (y[:, None] + ny[:, None] * offsets[None, :]) / float(aspect),
     x[:, None] + nx[:, None] * offsets[None, :],
 )
-peak = profiles.max(axis=1)
-base = np.percentile(profiles, 10.0, axis=1)
-level = base + 0.5 * (peak - base)
-above = profiles >= level[:, None]
 centre = offsets.size // 2
+if peak == WIDTH_PEAK_NEAREST:
+    top = profiles[np.arange(x.size), _climb_to_maximum(profiles, centre)]
+else:
+    top = profiles.max(axis=1)
+base = np.percentile(profiles, 10.0, axis=1)
+level = base + 0.5 * (top - base)
+above = profiles >= level[:, None]
 widths = np.empty(x.size, dtype=np.float64)
 usable = np.zeros(x.size, dtype=bool)
 for i in range(x.size):
@@ -271,6 +278,8 @@ for i in range(x.size):
         hi += 1
     widths[i] = offsets[hi] - offsets[lo]
     usable[i] = lo > 0 and hi < offsets.size - 1
+if peak == WIDTH_PEAK_NEAREST:
+    usable &= above[:, centre]
 if usable.sum() < max(1, x.size // 2):
     return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
 width = float(np.median(widths[usable]))
@@ -286,11 +295,20 @@ return (width, True) if return_measured else width
    沿って、±12 px の範囲の高さプロファイルを 0.25 px ごとに双線形補間で標本化する。
 2. 各プロファイルは、自身の標本の 10 パーセンタイルを基準にする。そのため、背景に
    傾斜が残っていても、繊維はその場の基準に対して測られる。レベルは、その基準と
-   プロファイルの最大値の中間である。
+   繊維自身の頂点の中間である。頂点は、プロファイルのいちばん高い標本ではなく、
+   スケルトン点から坂を上って最初に着いた極大である
+   （`_climb_to_maximum`、§2.3）。そのため、繊維が自身の極大を持つ限り、±12 px の中の
+   別の場所にある高い繊維がレベルを決めることはない。高い繊維の斜面の肩にすぎない
+   淡い繊維は、高い繊維の極大まで上る。形式 1.1〜1.3 のバンドルは、その形式が幅を
+   読む極大、すなわちプロファイルのいちばん高い標本（`centerline.WIDTH_PEAK_GLOBAL`）で
+   読む（§1.2）。
 3. レベルを上回る区間を、スケルトン点から外側へ広げていく。プロファイルが最初に
-   レベルを下回った所で止めるので、法線上のさらに先にある別の繊維が区間を広げる
-   ことはない。探索範囲の端まで達した区間は、レベルまで下がらなかったということ
-   なので使わない。
+   レベルを下回った所で止めるので、間のプロファイルがレベルを下回る限り、法線上の
+   さらに先にある別の繊維が区間を広げることはない。間がレベルを下回らないほど近い
+   繊維は区間に含まれる。探索範囲の端まで達した区間は、レベルまで下がらなかったということ
+   なので使わない。形式 1.4 のバンドルでは、スケルトン点そのものがレベルより低い
+   場合も使わない。その点は繊維の上ではなく斜面にある。区間は点の両隣から広げるので、
+   その区間はこの繊維の幅にならず、空（幅 0 で、中央値を下げる）になることもある。
 4. W は使える点での**中央値**である。幅は繊維の性質なので、1 本の繊維全体で 1 つの
    値を使う。
 
@@ -337,14 +355,23 @@ prof = _bilinear(img, (fy[:, None] + ny[:, None] * s[None, :]) / a,
 範囲は枠から $\pm(0.75 + 1.5)\,W$ で、内訳は断面の頂点（§2.3）を探す 0.75 W と、その先で
 半値交点を探す 1.5 W である。
 
-### 2.3 最寄りの極大へ上る
+### 2.3 坂を上って最初の極大へ
 
-各断面では、枠の点から坂を上って**最寄りの**極大へ向かう。射程内で最も高い点へは
-向かわない。これにより、より明るい隣の繊維に中心線を奪われない。
+各断面では、枠の点から坂を上って**最初に着く**極大へ向かう。射程内で最も高い点へは
+向かわない。これにより、より明るい隣の繊維に中心線を奪われない。上り方は
+`_climb_to_maximum` で、形式 1.4 のバンドルの幅の測定（§2.1）と同じである。
 
 ```python
 # source: lib/centerline.py::_refine
 c = int(np.argmin(np.abs(s)))
+k = _climb_to_maximum(prof, c)
+peak = prof[rows, k]
+within_reach = np.abs(s[k]) < reach - 0.5 * _WIDTH_STEP_PX
+```
+
+```python
+# source: lib/centerline.py::_climb_to_maximum
+n, ns = prof.shape
 dif = np.diff(prof, axis=1)
 k = np.full(n, c)
 go_right = dif[:, c] > 0
@@ -354,9 +381,7 @@ right_end = np.where(stop_right.any(1), stop_right.argmax(1), stop_right.shape[1
 k = np.where(go_right, np.minimum(right_end, ns - 1), k)
 stop_left = dif[:, :c][:, ::-1] >= 0
 left_steps = np.where(stop_left.any(1), stop_left.argmax(1), c)
-k = np.where(go_left, c - left_steps, k)
-peak = prof[rows, k]
-within_reach = np.abs(s[k]) < reach - 0.5 * _WIDTH_STEP_PX
+return np.where(go_left, c - left_steps, k)
 ```
 
 `k[i]` はその極大の標本位置、`peak[i]` はその高さである。枠から 0.75 W 以上
@@ -458,8 +483,11 @@ return _solve_tridiagonal(off, main, off, weight * target)
 
 一次罰則は、信頼できない点が続く区間を線形に補間する。最後の信頼できる点より先
 ではオフセットを一定に保つので、信頼できない端は漂流せず、隣の信頼できる部分の
-オフセットを保つ。結果は ±0.75 W にクリップする。補間区間は直線なので、そこでは
-キンクも曲率も見つからない。これを示すのが `reliable` 列である（§3.11）。
+オフセットを保つ。結果は ±0.75 W にクリップする。補間するのはオフセットだけで
+ある。点そのものは、枠（スケルトントラックを W/4 で平滑化したもの、§2.2）を
+そのオフセットだけ動かした位置にある。枠はスケルトントラックの折れを残しているので、
+補間区間で見つかるキンクや曲率は、高さではなくスケルトントラックの形を表す。これを
+示すのが `reliable` 列である（§3.11）。
 
 ### 2.6 頂点高さ
 
@@ -1005,6 +1033,12 @@ horizon.size`）。**後方**は半窓の半分（25 nm）あれば足りる。�
 弦を使う。100 nm より短いファイバーは曲率を持たず、欄は 0 ではなく空欄になる。
 完全な直線と読まれないようにするためである。
 
+回転角は符号なしなので、まっすぐなファイバーでも 0 にはならない。中心線自身の横方向の
+揺れが平均を 0 より上に保ち、画像のノイズがそれを変える（測った場合のうち 1 つを除いて
+平均を上げた）。どちらも画素サイズに依存する。合成の直線
+ファイバーでの大きさは [個別データでの評価](validation.ja.md) §4.13 にある。GUI03 は、
+曲率で比べるバンドルの画素サイズが違うときに警告する。
+
 ### 3.7 `EP count`
 
 `len(Fiber.ep_indices)`。ファイバーの端のうち、バンドルの `ep` 配列にある
@@ -1022,11 +1056,19 @@ horizon.size`）。**後方**は半窓の半分（25 nm）あれば足りる。�
 （§1.2）。これらを生んだ規則は [解析アルゴリズム](algorithms.ja.md) §4.3〜§4.4 に
 ある。
 
+折れを判定しない理由は 2 つあり、折れごとに `Fiber.unjudged_reasons` に記録する
+（追跡した断片では `None` で、その判定しなかった折れはすべて端のそばにある）。
+端から 1.5 W 以内にある場合（`kink_detector.UNJUDGED_NEAR_END`）と、継ぎ目の折れを
+判定しない設定で連結したフィブリル上にあり、窓が橋渡し部にかかる場合
+（`kink_detector.UNJUDGED_AT_BRIDGE`、§5.2）である。`unjudged` 列は両方を数える。
+CSV には、そのうち橋渡し部にかかった数（`unjudged_bridge_count`）も書く。
+
 連結したフィブリルや高さ帯のサブファイバーは、バンドルに含まれない中心線である。GUI04
 はこれらを、バンドルに記録された `kinkangle_deg` を使って
 `KinkDetector.judge_line` で判定し直す。これにより、1 枚の画像に 2 つの規則の
-キンクが混在することはない（§5.2）。未判定の折れは灰色の中空の円で描く。
-`Kink count`・キンク密度・CSV のキンク角のどれにも数えない。
+キンクが混在することはない（§5.2）。未判定の折れは中空で描き、端のそばのものは
+灰色の円、橋渡し部のものはマゼンタの菱形である（§4.1）。`Kink count`・キンク密度・CSV の
+キンク角のどれにも数えない。
 
 ### 3.9 `kink density (1/µm)`
 
@@ -1041,13 +1083,16 @@ length_um = float(stat.length_nm) / 1000.0
 width_nm = float(getattr(stat, "width_nm", float("nan")))
 if np.isfinite(width_nm) and width_nm > 0.0:
     length_um -= 2.0 * END_MARGIN_WIDTHS * width_nm / 1000.0
-if length_um <= 0.0:
+bridge_nm = float(getattr(stat, "bridge_excluded_nm", 0.0))
+if np.isfinite(bridge_nm):
+    length_um -= bridge_nm / 1000.0
+if length_um <= 1e-9:
     return float("nan")
 return float(stat.kink_count) / length_um
 ```
 
 $$
-\text{kink density} = \frac{N_\text{kink}}{(L - 2 \times 1.5\,W)/1000}
+\text{kink density} = \frac{N_\text{kink}}{(L - 2 \times 1.5\,W - L_\text{bridge})/1000}
 $$
 
 分母は**判定した**長さである。キンク規則は両端から 1.5 W 以内の折れを判定しない
@@ -1057,6 +1102,18 @@ $$
 `FiberStats.width_nm` で、代替幅であってもそのまま使う（`W (nm)` 列では空欄になる
 値である）。幅を持たないファイバー（形式 1.0 のバンドルで、スケルトントラック上のもの）は
 輪郭全体で割る。
+
+$L_\text{bridge}$ は `FiberStats.bridge_excluded_nm` で、橋渡し部の無いファイバーでは
+0 である。形式 1.1 以降のバンドルの連結したフィブリルでは、判定範囲の内側にある
+橋渡し部の長さである。
+橋渡し部は繊維を観測していない隙間に引いた直線なので、折れがあるのは断片とつながる
+両端の角だけである。継ぎ目の折れを判定する設定では、そうした角のキンクは数えるが、
+橋渡し部の長さは分母から除く。継ぎ目の折れを判定しない設定では、$L_\text{bridge}$
+は窓（±0.75 W）が橋渡し部にかかるすべての位置も含む。そこの折れは判定していない
+ためである。この長さはキンク規則が求め
+（`KinkJudgement.bridge_excluded_px`、§5.2）、`compute_fiber_stats` が X の画素
+サイズで nm に換算する。`bridge_excluded_nm` 列ができる前に書かれた CSV は 0 として
+読む。書き出したときの分母がそれだからである。
 
 ### 3.10 `W (nm)`
 
@@ -1070,9 +1127,13 @@ width_nm = (
 )
 ```
 
-§2.1 の見かけ幅 W を、**X** の画素サイズで nm に換算したものである。W は繊維の
-向きによらず法線方向に画素単位で測るので、X と Y の画素サイズが異なる走査では、
-正確なのは Y 方向に走る繊維の場合だけである。代替幅を代用した場合
+§2.1 の見かけ幅 W を、**X** の画素サイズで nm に換算したものである。W は、Y を
+画素の縦横比で拡大したうえで法線方向に X 画素単位で測る（§2）ので、走査範囲が記録
+された形式 1.3 以降のバンドルでは繊維の向きによらず正確である。それより古いバンドルは画素座標の幾何で
+測っている（§1.2）。X と Y の画素サイズが異なる走査では、その W が正確なのは Y 方向に
+走る繊維の場合だけである。画素の縦横比はバンドルに記録された走査範囲から、X の画素
+サイズは GUI04 のスケール欄から取るので、両者が一致するのはスケール欄が記録された
+走査範囲のときである。代替幅を代用した場合
 （`Fiber.width_measured` が `False`）は空欄になり、読み込みログにその本数が出る。
 W はそのファイバーのキンクを判定した尺度であり、探針による広がりを含む。繊維の
 物理的な直径ではない。
@@ -1089,7 +1150,10 @@ reliable_fraction = (
 ```
 
 中心線の点のうち、補間ではなくこのファイバー自身の断面で位置を測った点（§2.5）の割合で
-ある。値が低いほど中心線の多くが直線補間で、そこではキンクも曲率も見つからない。連結
+ある。断面の上に置く中心線（スケルトン系以外のすべての方法、§2.8）では、値が低いほど
+中心線の多くが高さではなく平滑化したスケルトントラックに従っており、そこで見つかる
+キンクや曲率はスケルトントラックの形を表す。スケルトン系の中心線では、値によらず
+どの点もスケルトントラックに従う。連結
 したフィブリルでは、橋渡しの点を信頼できない点として数える（§5.2）。
 
 ## 4. ファイバー詳細ウィンドウ
@@ -1104,26 +1168,57 @@ if app.current_image is not None:
     x_spp = x_scale / full_w
     y_spp = y_scale / full_h
 ...
+legend: List = []
 if app.show_fiber_track_var.get() and len(fiber.xtrack) > 0:
-    ax.plot((fiber.xtrack + off_x + 0.5) * x_spp,
-            (fiber.ytrack + off_y + 0.5) * y_spp,
+    tx = (fiber.xtrack + off_x + 0.5) * x_spp
+    ty = (fiber.ytrack + off_y + 0.5) * y_spp
+    bridge = bridge_point_mask(fiber)
+    measured = getattr(fiber, "height_measured", None)
+    unobserved = (np.zeros(len(tx), dtype=bool) if measured is None
+                  else ~np.asarray(measured, dtype=bool))
+    ax.plot(np.where(unobserved, np.nan, tx), np.where(unobserved, np.nan, ty),
             color="lime", lw=1.0, alpha=0.75, zorder=4)
+    if bridge.any():
+        ax.plot(np.where(bridge, tx, np.nan), np.where(bridge, ty, np.nan),
+                color="lime", lw=1.0, alpha=0.9, linestyle=(0, (2, 2)),
+                zorder=4, label="Bridge (not observed)")
+        legend.append("bridge")
 if app.show_fiber_kink_var.get() and len(fiber.kink_indices) > 0:
     kx = (fiber.xtrack[fiber.kink_indices] + off_x + 0.5) * x_spp
     ky = (fiber.ytrack[fiber.kink_indices] + off_y + 0.5) * y_spp
-    ax.scatter(kx, ky, c="cyan", s=20, zorder=5)
-unjudged = getattr(fiber, "unjudged_indices", None)
-if app.show_fiber_kink_var.get() and unjudged is not None and len(unjudged) > 0:
-    ux = (fiber.xtrack[unjudged] + off_x + 0.5) * x_spp
-    uy = (fiber.ytrack[unjudged] + off_y + 0.5) * y_spp
-    ax.scatter(ux, uy, s=20, facecolors="none", edgecolors="0.6",
-               linewidths=1.0, zorder=5)
+    ax.scatter(kx, ky, c="cyan", s=20, zorder=5, label="Kink")
+    legend.append("kink")
+near_end, at_bridge = unjudged_split(fiber)
+if app.show_fiber_kink_var.get():
+    for idx, style, label in (
+            (near_end, dict(marker="o", edgecolors="0.6"),
+             "Not judged (near end)"),
+            (at_bridge, dict(marker="D", edgecolors="magenta"),
+             "Not judged (bridge)")):
+        if len(idx) == 0:
+            continue
+        ax.scatter((fiber.xtrack[idx] + off_x + 0.5) * x_spp,
+                   (fiber.ytrack[idx] + off_y + 0.5) * y_spp,
+                   s=20, facecolors="none", linewidths=1.0, zorder=5,
+                   label=label, **style)
+        legend.append(label)
+if any(item != "kink" for item in legend):
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.01),
+              ncol=len(legend), fontsize=max(fs_tick - 2, 6),
+              frameon=False, handletextpad=0.4, columnspacing=1.0)
 ```
 
 緑色で描かれるのは中心線（`Fiber.xtrack` / `Fiber.ytrack`）で、一覧のすべての
-数値はこの中心線に沿って測っている。シアンの点はキンク、灰色の中空の円は未判定の折れで、どちらも中心線上の
-添字の位置に描く。0.5 のずれは各座標を画素の中心へ置くためのもので、これにより中心線が
-稜線の上に載る。
+数値はこの中心線に沿って測っている。連結したフィブリルでは、各橋渡し部（§5.2）を
+またぐ部分の中心線を破線で描く。繊維を観測していない所に引いた直線だからである。
+`bridge_point_mask` は橋渡し部の点と、その両側の断片の点に印を付けるので、破線は
+一方の断片から次の断片までつながる。シアンの点はキンクである。判定しなかった折れは
+中空で描く。端のそばのものは灰色の円、連結が継ぎ目の折れを判定しない設定のときに
+橋渡し部にかかるものはマゼンタの菱形である（`unjudged_split` が
+`Fiber.unjudged_reasons` で両者を分ける。§3.8）。どれも中心線上の添字の位置に描く。
+表示中の像に橋渡し部か判定しなかった折れが描かれているときは、画像の上に凡例を出す。0.5 のずれは各座標を画素の
+中心へ置くためのもので、これにより中心線が稜線の上に載る。全体像も、2 種類の
+判定しなかった折れを同じ記号で描く。
 
 このビューは、表示範囲を配列サイズで割って軸を換算する（`x_scale / full_w`）。
 一方、計測用の画素サイズは配列サイズに 1 を足した数で割る（「表記規則」参照）。
@@ -1179,11 +1274,16 @@ lookback_length: int = 15
 num_avg_points: int = 5
 height_diff_ratio: float = 1.0
 trim_points: int = 5
+judge_bridge_kinks: bool = True
 ```
 
 探索と候補一覧は**スケルトン画素**（§1.3）を `(row, col)` の順で読む。どの断片が
 互いに続いているかはトポロジーの問題であり、しきい値もスケルトンの上で調整した
-ためである。断片の各端 $B$ について、振り返り点 $A$ は端から
+ためである。ゲートが比べる点は、まず `_physical` で試料上の幾何に直す。行に画素の
+縦横比（`FiberTrackingImage.pixel_aspect`、§1.2）を掛けるので、走査範囲が記録された
+形式 1.3 以降のバンドルでは、X と Y の画素サイズが違う走査でも、距離（X 画素単位）と
+角度は中心線と同じく試料上のものになる。正方画素、および古いバンドルや走査範囲の
+記録が無いバンドル（縦横比 1）では何も変わらない。断片の各端 $B$ について、振り返り点 $A$ は端から
 スケルトントラック上で `lookback_length` − 1 = 14 点だけ内側にある。15 点より短い断片では、
 断片のもう一方の端になる。
 
@@ -1193,10 +1293,15 @@ sx, sy = skeleton_track(frag)
 xs = sx + frag.data[0]
 ys = sy + frag.data[1]
 step = min(lookback_length, len(xs))
-ends[i, 0] = (ys[0], xs[0])
-backs[i, 0] = (ys[step - 1], xs[step - 1])
-ends[i, 1] = (ys[-1], xs[-1])
-backs[i, 1] = (ys[-step], xs[-step])
+ends[i, 0] = _physical((ys[0], xs[0]), aspect)
+backs[i, 0] = _physical((ys[step - 1], xs[step - 1]), aspect)
+ends[i, 1] = _physical((ys[-1], xs[-1]), aspect)
+backs[i, 1] = _physical((ys[-step], xs[-step]), aspect)
+```
+
+```python
+# source: lib/fiber_connector.py::_physical
+return (float(point[0]) * float(aspect), float(point[1]))
 ```
 
 高さゲートで使う各断片の高さは、スケルトン画素上の補正済み画像の中央値である。
@@ -1282,7 +1387,7 @@ return float(np.degrees(np.arccos(np.clip(cosine_angle, -1.0, 1.0))))
 
 | ダイアログの列 | 値 |
 |---|---|
-| distance (px) | 画素添字での $\lVert B - C \rVert$。画素サイズでは換算しない。 |
+| distance (px) | 行を画素の縦横比で拡大した、X 画素単位の $\lVert B - C \rVert$。nm には換算しない。 |
 | angle (degree) | $\min(\angle ABD,\ \angle ACD)$。一直線に続く 2 断片では約 180°、U ターンでは約 0° になる。 |
 | height diff | 2 つの高さ中央値について $\lvert m_1 - m_2 \rvert / \min(m_1, m_2)$。低い方の中央値が正でなければ 0。 |
 | 自動 | 4 つのゲート（距離 ≤ `clusters_range`、2 つの角度がともに > `angle_threshold`、高さ差 ≤ `height_diff_ratio`）をすべて満たすかどうか。 |
@@ -1293,7 +1398,8 @@ return float(np.degrees(np.arccos(np.clip(cosine_angle, -1.0, 1.0))))
 
 ```python
 # source: lib/fiber_connector.py::connection_candidates
-ends, backs = _fragment_end_geometry(fibers, params.lookback_length)
+ends, backs = _fragment_end_geometry(
+    fibers, params.lookback_length, _aspect_of(image))
 medians = _fragment_median_heights(image.calibrated_image, fibers)
 reach = _manual_reach(params, radius)
 return _candidates_for(index, ends, backs, medians, params, reach)
@@ -1368,10 +1474,16 @@ if is_placed_line(kind):
     width, width_measured = measure_apparent_width(
         image.calibrated_image, pix_x, pix_y, return_measured=True,
         aspect=aspect,
+        peak=getattr(image, "width_peak", WIDTH_PEAK_NEAREST),
     )
-    judged = detector.judge_line(line_x, line_y, width, aspect)
+    judged = detector.judge_line(
+        line_x, line_y, width, aspect,
+        observed=height_measured, judge_bridges=judge_bridges,
+    )
     kink_indices, kink_angles = judged.kink_indices, judged.kink_angles
     kink_excess, unjudged_indices = judged.kink_excess, judged.unjudged_indices
+    unjudged_reasons = judged.unjudged_reasons
+    bridge_excluded_px = judged.bridge_excluded_px
 ...
 ep_indices = np.array([
     i for i, real in zip((0, len(line_x) - 1), end_is_real) if real
@@ -1383,6 +1495,49 @@ ep_indices = np.array([
 - キンクと未判定の折れは、つないだ中心線の上でその W を使い、バンドル自身の
   `kinkangle_deg` と、断片を置いたときの画素の縦横比（§1.2）で判定し直す。断片の切断端のそばにあった折れは、もう端のそばに
   ないので、判定されるようになる。
+- 橋渡し部は、高さを測っていない点（`observed=height_measured`）としてキンク規則に
+  渡す。窓が橋渡し部にかかる折れを判定するかどうかはユーザーが選ぶ
+  （`ConnectParams.judge_bridge_kinks`。GUI04 の「自動連結の設定」ボタンで開くウインドウ
+  「ファイバー連結の設定」のチェックボックス
+  「継ぎ目の折れもキンクとして判定する」で、既定はオン）。橋渡し部の角は画像で
+  見えたものではなく、連結によって生じるためである。この選択は連結のサイドカーに
+  保存する。オフのとき、そうした折れは理由 `UNJUDGED_AT_BRIDGE` の未判定の折れと
+  して返る（§3.8）。ただし端から 1.5 W 以内の折れは理由 `UNJUDGED_NEAR_END` に
+  なる。形式 1.0 のバンドルのスケルトントラックでは、フィブリルを折れ線規則で判定し、
+  この設定は効かない。どちらの場合も、規則は橋渡し部がキンクを数える範囲から除く長さ
+  （`bridge_excluded_px`）を報告し、キンク密度はそれを分母から除く（§3.9）。
+
+```python
+# source: lib/kink_detector.py::_bridge_intervals
+if observed is None:
+    return []
+unobserved = ~np.asarray(observed, dtype=bool)
+if unobserved.size != arc.size or not unobserved.any():
+    return []
+edges = np.diff(np.concatenate([[0], unobserved.astype(np.int8), [0]]))
+starts = np.nonzero(edges == 1)[0]
+stops = np.nonzero(edges == -1)[0] - 1
+last = arc.size - 1
+return [(float(arc[max(a - 1, 0)]), float(arc[min(b + 1, last)]))
+        for a, b in zip(starts, stops)]
+```
+
+```python
+# source: lib/kink_detector.py::KinkDetector.judge_line
+...
+point_arc = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
+bridges = _bridge_intervals(observed, point_arc)
+...
+    if not margin <= p <= length - margin:
+        unjudged.append((index, UNJUDGED_NEAR_END))
+    elif not judge_bridges and any(
+            a <= p + c and b >= p - c for a, b in bridges):
+        unjudged.append((index, UNJUDGED_AT_BRIDGE))
+...
+reach = 0.0 if judge_bridges else c
+bridge_excluded = _covered_length(
+    [(a - reach, b + reach) for a, b in bridges], margin, length - margin)
+```
 - 端点は最初と最後の点で、それぞれ外側の断片がスケルトン端点で終わっていた場合
   だけ数える（§3.7）。
 
@@ -1407,7 +1562,9 @@ for start, stop in _contiguous_runs(in_band):
 ```
 
 サブファイバーは親の中心線の一部である。その上で W を測り直し、キンクも判定し直すので、
-`Kink count`・`unjudged`・`W (nm)`・キンク密度は親と異なることがある。サブ
+`Kink count`・`unjudged`・`W (nm)`・キンク密度は親と異なることがある。保持する
+橋渡し部は親と同じく判定する。GUI04 は連結の `ConnectParams.judge_bridge_kinks` を
+`filter_fibers_by_height` に渡す。サブ
 ファイバーの端が本物の端なのは、それが親自身の本物の端である場合だけである。
 フィルターの切断で生じた端は切断であり、高さ統計でもそのように扱う（§3.3）。
 

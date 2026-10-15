@@ -29,7 +29,7 @@ its image (see `bundle_schema.centerline_from_meta`).
 """
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 import cv2
@@ -116,6 +116,20 @@ _HEADING_SIGMA_WIDTHS = 0.25
 # 引いたもの）で割るため、公開している。
 END_MARGIN_WIDTHS = 1.5
 
+# Why a measured bend was not judged (`KinkJudgement.unjudged_reasons`): it
+# lies within `END_MARGIN_WIDTHS` of an end, or, when the caller asks for bridge
+# bends not to be judged, its window reaches a connector bridge -- the straight
+# segment the fiber connector draws across a gap where no fiber was observed.
+# A bridge's own corners are made by the connection, so whether they count is
+# left to the user (`fiber_connector.ConnectParams.judge_bridge_kinks`).
+# 測った折れを判定しなかった理由（`KinkJudgement.unjudged_reasons`）。端から
+# `END_MARGIN_WIDTHS` 以内にあるか、呼び出し側が橋渡し部の折れを判定しないよう
+# 求めたときに、その窓が連結器の橋渡し部（繊維を観測していない隙間に連結器が
+# 引く直線）にかかるか。橋渡し部の角は連結によって生じるため、それを数えるかは
+# ユーザーに委ねる（`fiber_connector.ConnectParams.judge_bridge_kinks`）。
+UNJUDGED_NEAR_END = "end"
+UNJUDGED_AT_BRIDGE = "bridge"
+
 # Two bends closer than this are one bend, and the stronger is kept.
 # Alternatives 0.5 and 1.0 W.
 # これより近い 2 つの折れは 1 つの折れとし、強い方を残す。代替値は 0.5 W と 1.0 W。
@@ -189,13 +203,33 @@ class KinkJudgement:
         各キンクの超過回転（ラジアン）。規則が検定した量であり、窓の中の回転の
         うち、脇での繊維自身の曲率で説明できない分。
     unjudged_indices
-        Bends measured within `END_MARGIN_WIDTHS` of an end and not judged.
-        端から `END_MARGIN_WIDTHS` 以内で測り、判定しなかった折れ。
+        Bends measured and not judged, ascending: those within
+        `END_MARGIN_WIDTHS` of an end, and those whose window reaches a bridge
+        when bridge bends are not judged.
+        測ったが判定しなかった折れ（昇順）。端から `END_MARGIN_WIDTHS` 以内の
+        もの、および橋渡し部の折れを判定しないときに窓が橋渡し部にかかるもの。
     noise_excess
         Noise floor of the excess on this line in radians (see
         `NOISE_SIGMAS`), or NaN where the line was too short to estimate it.
         この線の超過回転のノイズ床（ラジアン。`NOISE_SIGMAS` 参照）。線が短すぎて
         推定できなければ NaN。
+    unjudged_reasons
+        Why each bend of `unjudged_indices` was not judged, index-aligned:
+        `UNJUDGED_NEAR_END` or `UNJUDGED_AT_BRIDGE`.
+        `unjudged_indices` の各折れを判定しなかった理由で、添字が揃う。
+        `UNJUDGED_NEAR_END` か `UNJUDGED_AT_BRIDGE`。
+    bridge_excluded_px
+        Arc length, in X pixels, that the bridges take out of the span kinks
+        are counted over (the line less `END_MARGIN_WIDTHS` × W at each end):
+        each bridge itself, where nothing was observed, and, when bridge bends
+        are not judged, every position whose window reaches one. With bridge
+        bends judged, a kink at a bridge's corner is still counted; only the
+        bridge's length leaves the span. 0 on a line without bridges.
+        橋渡し部が、キンクを数える範囲（線から両端の `END_MARGIN_WIDTHS` × W を
+        除いたもの）から除く弧長（X 画素単位）。何も観測していない橋渡し部
+        そのものと、橋渡し部の折れを判定しないときは窓が橋渡し部にかかるすべての
+        位置。橋渡し部の折れを判定するときも、橋渡し部の角のキンクは数え、範囲から
+        除くのは橋渡し部の長さだけである。橋渡し部の無い線では 0。
     """
 
     kink_indices: NDArray
@@ -203,6 +237,9 @@ class KinkJudgement:
     kink_excess: NDArray
     unjudged_indices: NDArray
     noise_excess: float
+    unjudged_reasons: NDArray = field(
+        default_factory=lambda: np.zeros(0, dtype="<U6"))
+    bridge_excluded_px: float = 0.0
 
 
 # The arms a kink's angle is read from: each is the mean heading over a
@@ -340,6 +377,71 @@ def _heading_profile(
         theta, _HEADING_SIGMA_WIDTHS * width / _HEADING_STEP_PX,
     )
     return orig, s, length, sm, heading
+
+
+def _bridge_intervals(observed: Optional[NDArray], arc: NDArray) -> List[Tuple[float, float]]:
+    """
+    Arc-length intervals of the connector bridges on a line.
+    線上の連結器の橋渡し部の弧長区間。
+
+    A bridge is a run of points whose height was not observed
+    (`Fiber.height_measured` is ``False``), together with the segments joining
+    it to the fragment points on either side: the straight gap the connector
+    drew, end to end.
+    橋渡し部とは高さを観測していない点（`Fiber.height_measured` が ``False``）の
+    連続と、それを両側の断片の点へつなぐ線分を合わせたもの、すなわち連結器が
+    引いた直線の隙間全体である。
+
+    Parameters
+    ----------
+    observed
+        Per line point, whether its height was observed; ``None`` for a line
+        without bridges.
+        線の点ごとに、高さを観測したかどうか。橋渡し部の無い線なら ``None``。
+    arc
+        Arc length of each line point.
+        線の各点の弧長。
+
+    Returns
+    -------
+    list of tuple
+        ``(start, stop)`` arc lengths, one per bridge.
+        橋渡し部ごとの ``(start, stop)`` 弧長。
+    """
+    if observed is None:
+        return []
+    unobserved = ~np.asarray(observed, dtype=bool)
+    if unobserved.size != arc.size or not unobserved.any():
+        return []
+    edges = np.diff(np.concatenate([[0], unobserved.astype(np.int8), [0]]))
+    starts = np.nonzero(edges == 1)[0]
+    stops = np.nonzero(edges == -1)[0] - 1
+    last = arc.size - 1
+    return [(float(arc[max(a - 1, 0)]), float(arc[min(b + 1, last)]))
+            for a, b in zip(starts, stops)]
+
+
+def _covered_length(
+    intervals: List[Tuple[float, float]], lo: float, hi: float,
+) -> float:
+    """
+    Length of ``[lo, hi]`` covered by the union of `intervals`.
+    `intervals` の和集合が ``[lo, hi]`` を覆う長さ。
+    """
+    clipped = sorted((max(a, lo), min(b, hi)) for a, b in intervals
+                     if min(b, hi) > max(a, lo))
+    total = 0.0
+    run_lo = run_hi = None
+    for a, b in clipped:
+        if run_hi is None or a > run_hi:
+            if run_hi is not None:
+                total += run_hi - run_lo
+            run_lo, run_hi = a, b
+        else:
+            run_hi = max(run_hi, b)
+    if run_hi is not None:
+        total += run_hi - run_lo
+    return total
 
 
 class KinkDetector:
@@ -652,6 +754,8 @@ class KinkDetector:
         yline: NDArray,
         width_px: float,
         aspect: float = 1.0,
+        observed: Optional[NDArray] = None,
+        judge_bridges: bool = True,
     ) -> KinkJudgement:
         """
         Judge the kinks on one fiber's line by the excess-turning rule.
@@ -684,6 +788,22 @@ class KinkDetector:
             arm angles are those on the specimen.
             Y 画素サイズ ÷ X 画素サイズ（`bundle_schema.pixel_aspect`）。線の Y 座標を
             これで拡大するため、向き・回転・腕の角度は試料上のものになる。
+        observed
+            Per line point, whether its height was observed
+            (`Fiber.height_measured`); ``False`` marks a connector bridge.
+            ``None`` for a line without bridges.
+            線の点ごとに、高さを観測したかどうか（`Fiber.height_measured`）。
+            ``False`` は連結器の橋渡し部を示す。橋渡し部の無い線なら ``None``。
+        judge_bridges
+            Whether a bend whose window reaches a bridge is judged like any
+            other (the default) or returned as not judged
+            (`UNJUDGED_AT_BRIDGE`). A bridge's corners are made by the
+            connection rather than observed, so the choice is the user's
+            (`fiber_connector.ConnectParams.judge_bridge_kinks`).
+            窓が橋渡し部にかかる折れを、他と同じく判定するか（既定）、判定しない
+            ものとして返すか（`UNJUDGED_AT_BRIDGE`）。橋渡し部の角は観測した
+            ものではなく連結によって生じるため、選択はユーザーに委ねる
+            （`fiber_connector.ConnectParams.judge_bridge_kinks`）。
 
         Returns
         -------
@@ -693,15 +813,21 @@ class KinkDetector:
             the arms fitted beside each bend's window (`_arm_interior_angle`),
             and ``kink_excess`` the excess turning defined in the Notes that
             each was judged by. ``unjudged_indices`` are the bends that
-            reached the threshold within 1.5 W of an end of the line, where
-            the rule does not judge, and ``noise_excess`` the noise floor of
-            the excess on this line (`NOISE_SIGMAS`).
+            reached the threshold where the rule does not judge -- within
+            1.5 W of an end of the line, or with a window reaching a bridge
+            when `judge_bridges` is off -- with the reason for each in
+            ``unjudged_reasons``; ``bridge_excluded_px`` is the length the
+            bridges removed from the judged span, and ``noise_excess`` the
+            noise floor of the excess on this line (`NOISE_SIGMAS`).
             ``kink_indices`` は線の点を指すインデックスで、線の順に並ぶ。
             ``kink_angles`` はラジアンの内角で、各折れの窓の脇に当てはめた腕の
             なす角（`_arm_interior_angle`）。``kink_excess`` は各キンクを判定した、
-            Notes で定義する超過回転。``unjudged_indices`` は線の端から 1.5 W
-            以内でしきい値に達した、規則が判定しない折れ。``noise_excess`` は
-            この線の超過回転のノイズ床（`NOISE_SIGMAS`）。
+            Notes で定義する超過回転。``unjudged_indices`` は、規則が判定しない
+            場所（線の端から 1.5 W 以内、または `judge_bridges` が偽のときに窓が
+            橋渡し部にかかる場所）でしきい値に達した折れで、それぞれの理由は
+            ``unjudged_reasons`` にある。``bridge_excluded_px`` は橋渡し部が判定
+            範囲から除いた長さ、``noise_excess`` はこの線の超過回転のノイズ床
+            （`NOISE_SIGMAS`）。
 
         Notes
         -----
@@ -796,6 +922,10 @@ class KinkDetector:
         orig, s, length, sm, heading = profile
         if length < 2.0 * c + _HEADING_STEP_PX or sm.size < 3:
             return nothing
+        # Bridges, as arc intervals on the same line the heading was read on.
+        # 向きを読んだのと同じ線上の弧長区間としての橋渡し部。
+        point_arc = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
+        bridges = _bridge_intervals(observed, point_arc)
 
         turn_threshold = max(np.pi - float(self.threshold_angle_from_decomposed_indices), 0.0)
         curvature = np.abs(np.gradient(heading, _HEADING_STEP_PX))
@@ -887,7 +1017,7 @@ class KinkDetector:
         # 残したすべての折れが、判定の有無によらず、隣の折れの腕を区切る。
         positions = sorted(q for _, q in kept)
         kinks: List[Tuple[int, float, float]] = []
-        unjudged: List[int] = []
+        unjudged: List[Tuple[int, str]] = []
         taken = set()
         for excess, p in kept:
             index = int(orig[int(np.argmin(np.abs(s - p)))])
@@ -899,7 +1029,12 @@ class KinkDetector:
             if index in taken:
                 continue
             taken.add(index)
-            if margin <= p <= length - margin:
+            if not margin <= p <= length - margin:
+                unjudged.append((index, UNJUDGED_NEAR_END))
+            elif not judge_bridges and any(
+                    a <= p + c and b >= p - c for a, b in bridges):
+                unjudged.append((index, UNJUDGED_AT_BRIDGE))
+            else:
                 # The angle stored for the kink is the one between the arms
                 # beside the window, not pi minus the excess: the excess is what
                 # was tested, the arm angle is what the fiber's geometry is.
@@ -915,18 +1050,27 @@ class KinkDetector:
                 if not np.isfinite(angle):
                     angle = np.pi - excess
                 kinks.append((index, angle, excess))
-            else:
-                unjudged.append(index)
         kinks.sort()
+        unjudged.sort()
         kink_indices = np.array([k for k, _, _ in kinks], dtype=np.intp)
         kink_angles = np.clip(
             np.array([a for _, a, _ in kinks], dtype=np.float64),
             _MIN_INTERIOR_ANGLE, np.pi - _MIN_INTERIOR_ANGLE,
         )
         kink_excess = np.array([e for _, _, e in kinks], dtype=np.float64)
+        # A bridge was not observed, so it is never part of the length kinks
+        # are counted over; when its bends are not judged, neither is any
+        # position whose window reaches it.
+        # 橋渡し部は観測していないため、キンクを数える長さには決して含めない。
+        # その折れを判定しないときは、窓が橋渡し部にかかる位置も含めない。
+        reach = 0.0 if judge_bridges else c
+        bridge_excluded = _covered_length(
+            [(a - reach, b + reach) for a, b in bridges], margin, length - margin)
         return KinkJudgement(
             kink_indices, kink_angles, kink_excess,
-            np.array(sorted(unjudged), dtype=np.intp), noise_excess,
+            np.array([i for i, _ in unjudged], dtype=np.intp), noise_excess,
+            np.array([r for _, r in unjudged], dtype="<U6"),
+            float(bridge_excluded),
         )
 
     def kinks_and_decomposed_from_track(

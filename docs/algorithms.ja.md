@@ -2059,8 +2059,8 @@ for i in range(np.sum(imgcopy)):
 
 既定の方式では、スケルトンの各点を、次の 5<!--n:count--> つの手順で繊維の高さの上へ動かす。
 
-この節では、繊維を横切る向きにとった高さの断面を山の形とみて、そのいちばん高い
-点を**頂点**、山の両側の低いところを**ふもと**と呼ぶ。ふもとの高さの取り方は、
+この節では、繊維を横切る向きにとった高さの断面を山の形とみて、その頂上を**頂点**、
+山の両側の低いところを**ふもと**と呼ぶ。どの極大を頂点とするかと、ふもとの高さの取り方は、
 幅を測る手順 1<!--n:label--> と、位置を決める手順 3<!--n:label--> とで違う（それぞれの手順で説明する）。
 
 1. `centerline.measure_apparent_width` が、繊維の見かけの幅 $W$ を測る。トラックの
@@ -2069,8 +2069,15 @@ for i in range(np.sum(imgcopy)):
    （`_unit_tangents`）。この向きはスケルトントラックだけから決まり、$W$ を使わない
    ので、$W$ を使う手順 2<!--n:label--> より先に求められる。各断面で半値全幅（ふもとから
    測って、頂点までの高さの半分以上ある部分の幅）を求める。ここでのふもとの高さには、
-   断面の値を低い順に並べて下から 10<!--n:literal percentile in centerline.measure_apparent_width--> % の位置にある値を使う。$W$ は、トラック全体でのこの幅の中央値で、繊維
-   ごとに 1<!--n:count--> つの値である。この後の手順の長さはすべて $W$ の何倍かで決めるので、
+   断面の値を低い順に並べて下から 10<!--n:literal percentile in centerline.measure_apparent_width--> % の位置にある値を使う。頂点は、
+   断面のいちばん高い値ではなく、トラックの点から坂を上って最初に着く極大
+   （`_climb_to_maximum`。手順 3<!--n:label--> と同じ上り方）である。そのため、左右
+   12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px の中の別の場所にある高い繊維が、繊維が自身の極大を持つ限り、半値を決める
+   ことはない（高い繊維の斜面の肩にすぎない淡い繊維は、高い繊維の頂点まで上る）。間の
+   断面が半値より下がらないほど近い高い繊維があると、幅は両方にまたがって広がる。
+   トラックの点がその半値より低ければ、その点は繊維の上ではなく斜面にあり、その断面は
+   使わない。$W$ は、
+   トラック全体でのこの幅の中央値で、繊維ごとに 1<!--n:count--> つの値である。この後の手順の長さはすべて $W$ の何倍かで決めるので、
    スキャンの大きさが違っても同じ意味になる。
 2. トラックを、標準偏差 $W/4$ のガウス関数でなめらかにし、これを**基準線**とする。
    基準線の各点は、その点の横方向の位置を測るときの原点になる。基準線の向きから
@@ -2078,7 +2085,7 @@ for i in range(np.sum(imgcopy)):
    そのまま中心線にはしない。そうすると本物の角まで丸まってしまうからである。
    中心線の位置は、次の手順で高さから測った横方向のずれ（オフセット）で決まる。
 3. `centerline.refine_centerline` が、その法線に沿って断面を読み（基準線の点から両側に
-   $2.25\,W$）、基準線の点から坂を上って、いちばん近い頂点を見つける。読んだ範囲で
+   $2.25\,W$）、基準線の点から坂を上って、最初に着く頂点を見つける。読んだ範囲で
    いちばん高い点を選ぶわけではないので、もっと高い隣の繊維に中心線を横取りされる
    ことはない。そのうえで点を、**断面の高さが、ふもとと頂点のちょうど中間の高さ
    （半値）まで下がる 2<!--n:count--> つの位置の真ん中**に置く。ここでのふもとは、頂点から左右
@@ -2122,7 +2129,7 @@ for i in range(np.sum(imgcopy)):
 ```python
 # source: lib/centerline.py::place_centerline
 width, measured = measure_apparent_width(
-    height, x, y, return_measured=True, aspect=aspect)
+    height, x, y, return_measured=True, aspect=aspect, peak=width_peak)
 lx, ly, reliable, crest = _refine(
     height, x, y, width, branch_points, method, aspect)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
@@ -2165,11 +2172,15 @@ return (pixel_size_nm(scan_size_um[1], rows)
 形式 1.3<!--n:bundle format version--> からは中心線とキンクを実空間の幾何で計算し、読み取り側は
 記録された走査範囲の縦横比で中心線を組み立て直す
 （`bundle_schema.pixel_aspect_from_meta`）。それより古いバンドルは、判定されたときの
-画素座標の幾何で組み立て直す。
+画素座標の幾何で組み立て直す。形式 1.4<!--n:bundle format version--> からは、手順 1<!--n:label--> の見かけの幅 $W$ を
+各断面で坂を上って最初に着く頂点から読む。読み取り側は、形式 1.1<!--n:bundle format version-->〜1.3<!--n:bundle format version--> のバンドルを、
+判定したときと同じく各断面のいちばん高い値との中間で読んだ $W$ で組み立て直す
+（`bundle_schema.width_peak_from_meta`）。
 
 | バンドルの形式 | キンクを判定した線 | 組み立て直すときに使う線 |
 |---|---|---|
-| 1.3<!--n:bundle format version--> | 記録された種類の中心線（実空間の幾何） | 同じ中心線（実空間の幾何） |
+| 1.4<!--n:bundle format version--> | 記録された種類の中心線（実空間の幾何、$W$ は坂を上って最初に着く頂点から） | 同じ中心線、同じ $W$ |
+| 1.3<!--n:bundle format version--> | 記録された種類の中心線（実空間の幾何、$W$ は各断面のいちばん高い値から） | 同じ中心線、同じ $W$ |
 | 1.2<!--n:bundle format version--> | 記録された種類の中心線（画素座標の幾何） | 同じ中心線（画素座標の幾何） |
 | 1.1<!--n:bundle format version--> | 既定の中心線（半値の中点） | 既定の中心線 |
 | 1.0<!--n:bundle format version--> | スケルトントラック | 再解析されるまでスケルトントラック |
@@ -2193,9 +2204,13 @@ return (pixel_size_nm(scan_size_um[1], rows)
   自分の $W$（`Fiber.width_px`、`Fiber.width_measured`）を GUI04 の繊維の一覧と CSV に
   渡す。バンドルには、画像全体での $W$ の中央値と、代わりの値を使ったかたまりの数を
   記録する（`bundle_schema.APPARENT_WIDTH_KEY`）。
-- **どの点の位置を実際に決められたか**: 手順 4<!--n:label--> で補間した点は、まっすぐな
-  区間の上に並ぶので、そこではキンクも曲率も見つけられない。各点が信頼できたか
-  どうかの印（`Fiber.line_reliable`）を持ち、信頼できた点の割合が、一覧と CSV に出る。
+- **どの点の位置を実際に決められたか**: 手順 4<!--n:label--> で補間した点は、基準線を、
+  両側の信頼できる点から補間したオフセットだけ動かした位置にある（トラックの端で最後の
+  信頼できる点より先は、その点のオフセットを保つ）。補間するのは
+  オフセットだけで、基準線はスケルトントラックを $W/4$ でなめらかにしたものなので
+  トラックの折れを残している。そのため、補間した区間で見つかるキンクや曲率は、
+  高さではなくスケルトンの形を表す。各点が信頼できたかどうかの印
+  （`Fiber.line_reliable`）を持ち、信頼できた点の割合が、一覧と CSV に出る。
 - **頂点高さ**: 各点での繊維の高さには、中心線の位置で画像から補間した値では
   なく、**断面の頂点の高さ**（`CenterlineResult.crest`）を使う。中心線は半値の
   真ん中にあるので、左右が非対称な断面では、頂点の真上ではなく横にずれ、そこで
@@ -2585,7 +2600,12 @@ for excess, p in kept:
     if index in taken:
         continue
     taken.add(index)
-    if margin <= p <= length - margin:
+    if not margin <= p <= length - margin:
+        unjudged.append((index, UNJUDGED_NEAR_END))
+    elif not judge_bridges and any(
+            a <= p + c and b >= p - c for a, b in bridges):
+        unjudged.append((index, UNJUDGED_AT_BRIDGE))
+    else:
         before = [q for q in positions if q < p]
         after = [q for q in positions if q > p]
         angle = _arm_interior_angle(
@@ -2596,9 +2616,8 @@ for excess, p in kept:
         if not np.isfinite(angle):
             angle = np.pi - excess
         kinks.append((index, angle, excess))
-    else:
-        unjudged.append(index)
 kinks.sort()
+unjudged.sort()
 kink_indices = np.array([k for k, _, _ in kinks], dtype=np.intp)
 kink_angles = np.clip(
     np.array([a for _, a, _ in kinks], dtype=np.float64),
@@ -2680,6 +2699,17 @@ GUI04 では、繊維を連結したときと、高さによる絞り込みを�
 （`fiber_connector.filter_fibers_by_height`）。連結した繊維が切り口をつなげば、その
 折れはもう端のそばではなくなり、判定される。反対に、高さによる絞り込みは繊維を
 切るので、新しくできた端のそばの折れは判定されなくなる。
+
+連結した繊維には橋渡し部もある。連結処理が断片の間の隙間に引く直線で、そこでは
+繊維を観測していない（`lib/fiber_connector.py`）。その角は画像で見えたものではなく連結に
+よって生じるので、窓が橋渡し部にかかる折れを判定するかはユーザーが選び、連結と一緒に
+保存する（`ConnectParams.judge_bridge_kinks`。既定はオン）。オフのとき、そうした
+折れは理由 `UNJUDGED_AT_BRIDGE` の判定しない折れとして返る。判定しなかった各折れの理由は
+`KinkJudgement.unjudged_reasons` にある。橋渡し部で判定しなかった折れ（上のコード片の `bridges` の判定）は、GUI04 がマゼンタの中が空いた菱形で描く。バンドルを書く
+解析は断片を連結しないので、バンドルがこうした折れを持つことはない。橋渡し部が
+あるのは、連結プランから組み立てるフィブリルだけで、それを組み立てるのは GUI04、
+GUI03、およびプランを渡された `lib/measure.py` である。どちらの場合も、橋渡し部は
+キンク密度の分母の長さから除く（[GUI04 のファイバー計測](gui04_measurements.ja.md) §3.9）。
 
 ### 4.5 キンクのしきい値も結果と一緒にバンドルに保存する
 
@@ -2815,7 +2845,8 @@ return mid_idx[mask], angles[mask]
   - **キンクの密度**（`measure.fiber_kink_density`）: **判定した**長さ、つまり繊維に
     沿った長さから両端の $1.5\,W$ ずつを引いた長さで割る。§4.4 のとおり、それより
     端に近い折れは判定しないからである。繊維全体の長さで割ると、判定していない
-    両端の分だけ値が小さく出て、繊維が短いほどそのずれは大きくなる。
+    両端の分だけ値が小さく出て、繊維が短いほどそのずれは大きくなる。連結した
+    繊維の橋渡し部も、繊維を観測していないので、この長さから除く（§4.4）。
 - 交差で切れた**断片をつなぎ直す処理**は `lib/fiber_connector.py` にある。つなぐ
   相手を探すのは GUI04 だけで、ほかのところは、その探索で記録した連結の情報を
   そのまま使う。

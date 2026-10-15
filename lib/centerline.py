@@ -268,6 +268,33 @@ _WIDTH_STEP_PX = 0.25
 # がスケルトンの階段 1 段ではなく繊維に対して垂直になるようにする。
 _WIDTH_TANGENT_HALF = 3
 
+# Which maximum of a width profile the half-maximum level is taken from.
+# `WIDTH_PEAK_NEAREST` climbs uphill from the track point to the first local
+# maximum, the fiber's own crest whenever the fiber has a maximum of its own,
+# so a taller fiber elsewhere in the +-12 px profile does not set the level.
+# Taken from the profile's overall maximum, the level of a faint fiber beside a
+# taller one is raised toward the faint fiber's own crest, and above it when
+# the neighbour is about twice as tall or more, which measures it too narrow
+# or zero wide. Two limits remain: a faint fiber that is only a shoulder on a
+# taller one's flank has no maximum of its own and climbs to the taller one's,
+# and a taller fiber so close that the profile between them stays above the
+# faint fiber's level widens the run across both.
+# `WIDTH_PEAK_GLOBAL` is that overall maximum, the definition bundles of
+# format 1.1 to 1.3 were judged with (`bundle_schema.width_peak_from_meta`).
+# 幅プロファイルのどの極大から半値レベルを取るか。`WIDTH_PEAK_NEAREST` は
+# トラック点から坂を上って最初に着く極大、すなわち繊維が自身の極大を持つ限りその
+# 頂点を使うため、±12 px のプロファイルの別の場所にある高い繊維がレベルを決める
+# ことはない。プロファイル全体の最大値から取ると、高い繊維の脇の淡い繊維ではレベルが
+# その淡い繊維自身の頂点の方へ上がり、隣が約 2 倍以上高いとそれより上に来て、幅が
+# 細く、あるいは 0 と測られる。限界が 2 つ残る。高い繊維の斜面の肩にすぎない淡い
+# 繊維は自身の極大を持たず、高い繊維の極大まで上る。また、間のプロファイルが淡い
+# 繊維のレベルより下がらないほど近い高い繊維があると、区間が両方にまたがって広がる。
+# `WIDTH_PEAK_GLOBAL` はその全体の最大値で、形式 1.1〜1.3 のバンドルはこの定義で
+# 判定された（`bundle_schema.width_peak_from_meta`）。
+WIDTH_PEAK_NEAREST = "nearest"
+WIDTH_PEAK_GLOBAL = "global"
+WIDTH_PEAKS = (WIDTH_PEAK_NEAREST, WIDTH_PEAK_GLOBAL)
+
 # Fallback apparent width, in pixels, when the height profile gives no usable
 # half-maximum run (a flat or saturated neighbourhood). It was taken from the
 # widths the bundled scans measure rather than invented. It is a pixel count,
@@ -515,12 +542,60 @@ def _unit_tangents(x: NDArray, y: NDArray, half: int) -> Tuple[NDArray, NDArray]
     return tx / norm, ty / norm
 
 
+def _climb_to_maximum(prof: NDArray, c: int) -> NDArray:
+    """
+    Sample index of the local maximum reached by climbing uphill from `c`.
+    `c` から坂を上って着く極大の標本インデックス。
+
+    Each row of `prof` is climbed from column `c` in the direction it rises
+    (toward higher columns when it rises on both sides), and stops at the
+    first sample the next one does not exceed. A row that falls on both sides
+    of `c` stays at `c`. This is the **first** maximum reached, not the
+    highest in the row, so a taller neighbouring fiber further along
+    the profile does not take the place of the fiber under `c` as long as
+    that fiber has a maximum of its own; one that is only a shoulder on the
+    taller fiber's flank climbs to the taller fiber's maximum.
+    `prof` の各行を、列 `c` から上る向き（両側に上るときは列の大きい側）へ上り、
+    次の標本が上回らない最初の標本で止まる。`c` の両側で下がる行は `c` に留まる。
+    これは行の最大値ではなく **最初に着く** 極大なので、`c` の下にある繊維が自身の極大を持つ限り、
+    プロファイルのさらに先にある高い隣の繊維がそれに取って代わることはない。高い
+    繊維の斜面の肩にすぎない繊維は、高い繊維の極大まで上る。
+
+    Parameters
+    ----------
+    prof
+        Profiles, one per row, shape ``(n, ns)``.
+        行ごとのプロファイル。形状 ``(n, ns)``。
+    c
+        Column the climb starts from, ``0 < c < ns - 1``.
+        上り始める列。``0 < c < ns - 1``。
+
+    Returns
+    -------
+    ndarray
+        Column of the maximum reached, one per row.
+        行ごとの、着いた極大の列。
+    """
+    n, ns = prof.shape
+    dif = np.diff(prof, axis=1)
+    k = np.full(n, c)
+    go_right = dif[:, c] > 0
+    go_left = ~go_right & (dif[:, c - 1] < 0)
+    stop_right = dif[:, c:] <= 0
+    right_end = np.where(stop_right.any(1), stop_right.argmax(1), stop_right.shape[1]) + c
+    k = np.where(go_right, np.minimum(right_end, ns - 1), k)
+    stop_left = dif[:, :c][:, ::-1] >= 0
+    left_steps = np.where(stop_left.any(1), stop_left.argmax(1), c)
+    return np.where(go_left, c - left_steps, k)
+
+
 def measure_apparent_width(
     height: NDArray,
     xtrack: NDArray,
     ytrack: NDArray,
     return_measured: bool = False,
     aspect: float = 1.0,
+    peak: str = WIDTH_PEAK_NEAREST,
 ) -> Union[float, Tuple[float, bool]]:
     """
     Apparent full width at half maximum of the fiber under a track, in pixels.
@@ -546,6 +621,16 @@ def measure_apparent_width(
         the width is returned in X pixels.
         Y 画素サイズ ÷ X 画素サイズ（`bundle_schema.pixel_aspect`）。プロファイル
         は実空間で繊維に垂直に取り、幅は X 画素単位で返す。
+    peak
+        Which maximum of each profile the half-maximum level is taken from,
+        one of `WIDTH_PEAKS`: the first local maximum climbed to from the
+        track point (`WIDTH_PEAK_NEAREST`, the default), or the profile's
+        overall maximum (`WIDTH_PEAK_GLOBAL`), which only a reader of a
+        format 1.3 or older bundle passes.
+        各プロファイルのどの極大から半値レベルを取るか。`WIDTH_PEAKS` のいずれか。
+        トラック点から上って最初に着く極大（`WIDTH_PEAK_NEAREST`、既定）か、
+        プロファイル全体の最大値（`WIDTH_PEAK_GLOBAL`）。後者を渡すのは形式 1.3
+        以前のバンドルの読み取り側だけである。
 
     Returns
     -------
@@ -555,20 +640,37 @@ def measure_apparent_width(
         見かけ幅の中央値（X 画素単位）。`_MIN_WIDTH_PX` を下回ることはない。
         `return_measured` を指定すると ``(width, measured)``。
 
+    Raises
+    ------
+    ValueError
+        If `peak` is not one of `WIDTH_PEAKS`.
+
     Notes
     -----
     The width is read from the **height** image, not from the binarized mask,
     even though the skeleton came from the mask. A mask boundary is a threshold
     contour, so its position moves with the fiber's own height, with the
     background residual and with neighbouring objects. The half-maximum level
-    is taken per profile against that profile's own 10th percentile, so a
-    fiber sitting on a residual background slope is still measured against its
-    local base.
+    is taken per profile halfway between that profile's own 10th percentile
+    and, with the default `peak`, the fiber's own crest, so a fiber sitting on
+    a residual background slope is still measured against its local base, and
+    a taller fiber elsewhere in the profile does not set the level as long as
+    the fiber has a maximum of its own (`_climb_to_maximum`); a track point
+    below that level lies on the flank and is not used. A taller fiber so
+    close that the profile between them stays above the level still widens
+    the run across both. With
+    `WIDTH_PEAK_GLOBAL` the level is taken from the profile's overall maximum
+    and every track point whose run closes inside the search range is used.
     幅は二値化マスクではなく **高さ** 画像から読む。スケルトンはマスク由来だが、
     マスク境界はしきい値等高線であり、その位置は繊維自身の高さ・背景残差・近傍物体
-    によって動く。半値の基準はプロファイルごとにそのプロファイル自身の
-    10 パーセンタイルへ取るため、背景の残留傾斜の上に載った繊維でも局所的な基準に
-    対して測られる。
+    によって動く。半値のレベルはプロファイルごとに、そのプロファイル自身の
+    10 パーセンタイルと、既定の `peak` では繊維自身の頂点との中間に取るため、背景の
+    残留傾斜の上に載った繊維でも局所的な基準に対して測られ、繊維が自身の極大を持つ
+    限り（`_climb_to_maximum`）、プロファイルの別の場所にある高い繊維がレベルを
+    決めることもない。そのレベルより低いトラック点は斜面上にあり、使わない。間の
+    プロファイルがレベルより下がらないほど近い高い繊維があると、区間は依然として
+    両方にまたがって広がる。`WIDTH_PEAK_GLOBAL` ではレベルをプロファイル全体の最大値から
+    取り、区間が探索範囲の内側で閉じるトラック点はすべて使う。
 
     The median over the track is used rather than a per-point width. A width
     is a property of the fiber, and a per-point value would make every length
@@ -593,6 +695,8 @@ def measure_apparent_width(
     >>> round(float(2 * np.sqrt(2 * np.log(2)) * 2.0), 2)
     4.71
     """
+    if peak not in WIDTH_PEAKS:
+        raise ValueError(f"peak must be one of {WIDTH_PEAKS}, got {peak!r}")
     x = np.asarray(xtrack, dtype=np.float64)
     # Work in X-pixel units on both axes, so the normal is perpendicular to the
     # fiber on the specimen; the image is read back at pixel rows.
@@ -611,16 +715,19 @@ def measure_apparent_width(
         x[:, None] + nx[:, None] * offsets[None, :],
     )
 
-    peak = profiles.max(axis=1)
+    centre = offsets.size // 2
+    if peak == WIDTH_PEAK_NEAREST:
+        top = profiles[np.arange(x.size), _climb_to_maximum(profiles, centre)]
+    else:
+        top = profiles.max(axis=1)
     base = np.percentile(profiles, 10.0, axis=1)
-    level = base + 0.5 * (peak - base)
+    level = base + 0.5 * (top - base)
     above = profiles >= level[:, None]
 
     # Walk outward from the track point until the profile drops below the half
     # maximum, so a second fiber further along the normal cannot widen the run.
     # トラック点から外側へ歩き、プロファイルが半値を下回った時点で止める。
     # これにより法線上のさらに先にある別の繊維が幅を広げることはない。
-    centre = offsets.size // 2
     widths = np.empty(x.size, dtype=np.float64)
     usable = np.zeros(x.size, dtype=bool)
     for i in range(x.size):
@@ -637,6 +744,14 @@ def measure_apparent_width(
         # 探索範囲の端まで届いた区間は半値まで下がらなかったということであり、
         # 返すのは幅ではなく探索範囲そのものなので、平均に混ぜず除外する。
         usable[i] = lo > 0 and hi < offsets.size - 1
+    if peak == WIDTH_PEAK_NEAREST:
+        # A track point below its own half maximum is on the flank, not on the
+        # fiber. The run is grown from its neighbours, so it would not be this
+        # fiber's width; it can be empty, a zero width that pulls the median down.
+        # 自身の半値より低いトラック点は繊維の上ではなく斜面にある。区間はその両隣
+        # から広げるため、この繊維の幅にならず、空（幅 0 で、中央値を下げる）になる
+        # こともある。
+        usable &= above[:, centre]
 
     if usable.sum() < max(1, x.size // 2):
         return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
@@ -833,14 +948,14 @@ def refine_centerline(
     point cannot slide along the curve or fold back, which would let a short
     fragment at a crossing grow far beyond its own length. Before the
     half-maximum crossings are read, the section is climbed uphill from the
-    frame to the nearest local maximum, not to the brightest point in reach,
+    frame to the first local maximum, not to the brightest point in reach,
     so a brighter neighbour cannot capture the track. The maximum only anchors the search -- the position reported is the
     midpoint of the two crossings, which is read off the steep flanks where
     noise moves a crossing least, not off the flat top.
     各点はトラックの平滑化コピーの法線方向にだけ動く。運動を法線に限ることが結果を
     安定させる。点は曲線に沿って滑ることも折り返すこともできないため、交差部の
     短い断片が元の長さをはるかに超えて伸びることはない。半値交点を読む前に、断面を枠から
-    坂に沿って最寄りの極大へ上る。射程内で最も明るい点へではない。これにより、
+    坂に沿って最初に着く極大へ上る。射程内で最も明るい点へではない。これにより、
     より明るい隣の繊維にトラックを奪われない。極大は探索の足場にすぎず、返す位置は
     2 つの交点の中点である。これはノイズが交点を最も動かさない急な斜面から読むもので
     あり、平らな頂部から読むのではない。
@@ -990,7 +1105,7 @@ def _refine(
     断面では頂部の上ではなく脇に来るため、線の位置で補間して読んだ高さは低く偏る。
 
     `method` names the line (`CENTERLINE_METHODS`). Every method shares the
-    climb to the nearest maximum and the reliability tests, which are taken at
+    climb to the first maximum uphill and the reliability tests, which are taken at
     the half-maximum level whatever the line; what differs is the lateral
     position estimator, the frame and offset smoothing for `half_max_05w`, and
     for lines D and E one more reliability test: a section whose lower level
@@ -999,7 +1114,7 @@ def _refine(
     heights. Lines A, B and B' do not move the points onto the height at all:
     they are the skeleton chain, raw or smoothed along its length, and the
     section analysis supplies only their reliability and crest.
-    `method` は線を指定する（`CENTERLINE_METHODS`）。どの方式も、最寄りの極大への
+    `method` は線を指定する（`CENTERLINE_METHODS`）。どの方式も、最初に着く極大への
     登攀と、線によらず半値のレベルで行う信頼性の判定を共有する。違うのは横方向の
     位置の推定量、`half_max_05w` では枠と横ずれの平滑化、線 D・E ではもう 1 つの
     信頼性の判定である。低いレベルが窓の中で閉じない断面は補間されるため、この
@@ -1042,19 +1157,10 @@ def _refine(
     rows = np.arange(n)
     col = np.arange(ns)[None, :]
 
-    # Climb uphill from the frame point to the nearest local maximum.
-    # 枠の点から坂を上り、最寄りの極大へ達する。
+    # Climb uphill from the frame point to the first local maximum.
+    # 枠の点から坂を上り、最初に着く極大へ達する。
     c = int(np.argmin(np.abs(s)))
-    dif = np.diff(prof, axis=1)
-    k = np.full(n, c)
-    go_right = dif[:, c] > 0
-    go_left = ~go_right & (dif[:, c - 1] < 0)
-    stop_right = dif[:, c:] <= 0
-    right_end = np.where(stop_right.any(1), stop_right.argmax(1), stop_right.shape[1]) + c
-    k = np.where(go_right, np.minimum(right_end, ns - 1), k)
-    stop_left = dif[:, :c][:, ::-1] >= 0
-    left_steps = np.where(stop_left.any(1), stop_left.argmax(1), c)
-    k = np.where(go_left, c - left_steps, k)
+    k = _climb_to_maximum(prof, c)
     peak = prof[rows, k]
     within_reach = np.abs(s[k]) < reach - 0.5 * _WIDTH_STEP_PX
 
@@ -1236,13 +1342,20 @@ class CenterlineResult:
     reliable
         Per point, whether the position was measured on this fiber's own
         cross-section (``True``) or interpolated from the reliable points
-        around it. An interpolated run is straight, so no kink and no
-        curvature can be found on it; the fraction of reliable points is how
-        much of the fiber was actually located.
+        around it. On a line placed on the cross-sections, an interpolated
+        point lies on the frame (the track smoothed over W/4, W/2 for
+        `HALF_MAX_05W_CENTERLINE`) shifted by an interpolated offset, so a kink
+        or curvature found there has the shape of the skeleton, not of the
+        height; the skeleton-based lines are the skeleton pixels, or the
+        skeleton smoothed along its length, at every point. The fraction of reliable points is how much
+        of the fiber was actually located.
         点ごとに、位置をこの繊維自身の断面で測ったか（``True``）、周囲の信頼
-        できる点から補間したか。補間区間は直線なので、そこにキンクも曲率も見つ
-        からない。信頼できる点の割合が、繊維のどれだけを実際に位置決めできたかを
-        表す。
+        できる点から補間したか。断面の上に置く線では、補間された点は枠（W/4、
+        `HALF_MAX_05W_CENTERLINE` では W/2 で平滑化したトラック）を補間した
+        オフセットだけ動かした位置にあるため、そこで見つかるキンクや曲率は高さでは
+        なくスケルトンの形を表す。スケルトン系の線は、どの点でもスケルトンの画素
+        そのもの、または長さ方向に平滑化したスケルトンである。信頼できる点の割合が、繊維のどれだけを
+        実際に位置決めできたかを表す。
     crest
         Crest height per point in the units of the height image: the value at
         the crest of the resolved cross-section (the first local maximum
@@ -1274,6 +1387,7 @@ def place_centerline(
     branch_points: Optional[NDArray] = None,
     method: str = HALF_MAX_025W_CENTERLINE,
     aspect: float = 1.0,
+    width_peak: str = WIDTH_PEAK_NEAREST,
 ) -> CenterlineResult:
     """
     Place the chosen centerline of one traced skeleton track.
@@ -1303,6 +1417,13 @@ def place_centerline(
         in image pixels, and the width is in X pixels.
         Y 画素サイズ ÷ X 画素サイズ（`bundle_schema.pixel_aspect`）。正方画素なら
         1。線は実空間の幾何で置いて画像の画素座標で返し、幅は X 画素単位である。
+    width_peak
+        Which maximum the apparent width's half-maximum level is taken from
+        (`measure_apparent_width`'s `peak`); a reader passes the one its
+        bundle's kinks were judged with (`bundle_schema.width_peak_from_meta`).
+        見かけ幅の半値レベルをどの極大から取るか（`measure_apparent_width` の
+        `peak`）。読み取り側は、バンドルのキンクを判定したときのもの
+        （`bundle_schema.width_peak_from_meta`）を渡す。
 
     Returns
     -------
@@ -1353,7 +1474,7 @@ def place_centerline(
             np.zeros(x.size, dtype=bool), np.full(x.size, np.nan),
         )
     width, measured = measure_apparent_width(
-        height, x, y, return_measured=True, aspect=aspect)
+        height, x, y, return_measured=True, aspect=aspect, peak=width_peak)
     lx, ly, reliable, crest = _refine(
         height, x, y, width, branch_points, method, aspect)
     return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)

@@ -268,3 +268,49 @@ def test_a_short_line_gets_no_noise_floor():
     judged = KinkDetector(noise_sigmas=3.0).judge_line(x, y, W)
     assert not np.isfinite(judged.noise_excess)
     assert judged.kink_indices.size == 1
+
+
+def _bridge_mask(n, start, stop):
+    """Height-observed flags with points ``start:stop`` marked as a connector bridge."""
+    observed = np.ones(n, dtype=bool)
+    observed[start:stop] = False
+    return observed
+
+
+def test_a_corner_at_a_bridge_is_judged_unless_the_user_turns_it_off():
+    """
+    A corner at a bridge is a kink by default and is returned unjudged, with its reason, when bridge bends are not judged.
+    橋渡し部の角は既定ではキンクであり、継ぎ目の折れを判定しない設定では理由付きで判定しない折れとして返る。
+    """
+    x, y, corners = _walk([("L", 60), ("T", 60), ("L", 60)])
+    vertex = corners[0]
+    observed = _bridge_mask(x.size, vertex + 1, vertex + 6)
+    judged = KinkDetector().judge_line(x, y, W, observed=observed)
+    assert judged.kink_indices.size == 1 and judged.unjudged_indices.size == 0
+    off = KinkDetector().judge_line(x, y, W, observed=observed, judge_bridges=False)
+    assert off.kink_indices.size == 0
+    assert off.unjudged_indices.size == 1
+    assert list(off.unjudged_reasons) == ["bridge"]
+
+
+def test_the_bridge_is_taken_out_of_the_judged_length():
+    """
+    The bridge's own arc leaves the judged span; with bridge bends off, so does every window reaching it.
+    橋渡し部そのものの弧長は判定範囲から外れ、継ぎ目の折れを判定しないときは窓が届く範囲も外れる。
+    """
+    x, y, _ = _walk([("L", 120)])
+    observed = _bridge_mask(x.size, 50, 59)
+    bridge_arc = float(np.hypot(x[59] - x[49], y[59] - y[49]))
+    on = KinkDetector().judge_line(x, y, W, observed=observed)
+    assert on.bridge_excluded_px == pytest.approx(bridge_arc, abs=1e-6)
+    off = KinkDetector().judge_line(x, y, W, observed=observed, judge_bridges=False)
+    assert off.bridge_excluded_px == pytest.approx(bridge_arc + 2 * 0.75 * W, abs=1e-6)
+    plain = KinkDetector().judge_line(x, y, W)
+    assert plain.bridge_excluded_px == 0.0
+
+
+def test_an_unjudged_bend_near_an_end_says_so():
+    """A bend next to an end carries the near-end reason."""
+    x, y, _ = _walk([("L", 80), ("T", 60), ("L", 1.0 * W)])
+    judged = KinkDetector().judge_line(x, y, W)
+    assert list(judged.unjudged_reasons) == ["end"]

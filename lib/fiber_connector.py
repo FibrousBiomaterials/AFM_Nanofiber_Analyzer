@@ -69,6 +69,7 @@ from numpy.typing import ArrayLike
 from . import imp_tools
 from .centerline import (
     SKELETON_TRACK,
+    WIDTH_PEAK_NEAREST,
     is_pixel_chain_line,
     is_placed_line,
     measure_apparent_width,
@@ -98,9 +99,14 @@ class ConnectParams:
     Attributes
     ----------
     clusters_range
-        Maximum pixel distance between the growing endpoint and a candidate
-        fragment endpoint for the two to be considered connectable.
-        成長中の端点と候補断片の端点が連結可能とみなされる最大画素距離。
+        Maximum distance, in X pixels, between the growing endpoint and a
+        candidate fragment endpoint for the two to be considered connectable.
+        Y is scaled by the pixel aspect (`FiberTrackingImage.pixel_aspect`),
+        so on a scan whose X and Y pixel sizes differ the distance, like the
+        angles, is the one on the specimen.
+        成長中の端点と候補断片の端点が連結可能とみなされる最大距離（X 画素単位）。
+        Y は画素の縦横比（`FiberTrackingImage.pixel_aspect`）で拡大するため、X と Y
+        の画素サイズが違う走査でも、距離は角度と同じく試料上のものになる。
     angle_threshold
         Minimum straightness angle in degrees. Both the angle at the current
         endpoint and at the candidate endpoint must exceed this, so only
@@ -126,6 +132,24 @@ class ConnectParams:
         drop crossing-point noise where fragments were cut.
         橋渡し前に交差点付近から切り落とす骨格点数。断片が切断された交差点の
         ノイズを除去する。
+    judge_bridge_kinks
+        Whether the kink rule judges a bend whose window reaches a bridge, the
+        straight segment drawn across a gap where no fiber was observed. Its
+        corners are made by the connection, not seen in the image, so the
+        choice is left to the user: ``True`` (the default) counts them like
+        any other bend, ``False`` returns them as not judged
+        (`kink_detector.UNJUDGED_AT_BRIDGE`) and leaves the positions whose
+        window reaches a bridge out of the kink density's divisor. Either
+        way the bridge itself is left out of that divisor, because nothing
+        was observed there. On the skeleton track of a format 1.0 bundle the
+        polyline rule judges the fibril and this setting has no effect.
+        窓が橋渡し部（繊維を観測していない隙間に引く直線）にかかる折れを、キンク
+        規則が判定するかどうか。その角は画像で見えたものではなく連結によって生じる
+        ため、選択はユーザーに委ねる。``True``（既定）は他の折れと同じく数え、
+        ``False`` は判定しないもの（`kink_detector.UNJUDGED_AT_BRIDGE`）として返し、
+        窓が橋渡し部にかかる位置をキンク密度の分母から除く。どちらの場合も、
+        何も観測していない橋渡し部そのものは分母から除く。形式 1.0 のバンドルの
+        スケルトントラックでは折れ線規則でフィブリルを判定し、この設定は効かない。
 
     Examples
     --------
@@ -141,6 +165,7 @@ class ConnectParams:
     num_avg_points: int = 5
     height_diff_ratio: float = 1.0
     trim_points: int = 5
+    judge_bridge_kinks: bool = True
 
 
 def angle_between_three_points(A: ArrayLike, B: ArrayLike, D: ArrayLike) -> float:
@@ -176,6 +201,34 @@ def angle_between_three_points(A: ArrayLike, B: ArrayLike, D: ArrayLike) -> floa
         return 0.0
     cosine_angle = np.dot(ba, bd) / denom
     return float(np.degrees(np.arccos(np.clip(cosine_angle, -1.0, 1.0))))
+
+
+def _physical(point: ArrayLike, aspect: float) -> Tuple[float, float]:
+    """
+    Return a ``(row, col)`` pixel point in specimen geometry, in X pixels.
+    ``(row, col)`` の画素点を、試料上の幾何（X 画素単位）で返す。
+
+    The connection gates compare distances and angles between fragment ends.
+    Scaling the row by the pixel aspect makes them the specimen's on a scan
+    whose X and Y pixel sizes differ, as the centerline and the kink rule are.
+    連結のゲートは断片端の間の距離と角度を比べる。行を画素の縦横比で拡大すると、
+    中心線やキンク規則と同じく、X と Y の画素サイズが違う走査でもそれらが試料上の
+    ものになる。
+    """
+    return (float(point[0]) * float(aspect), float(point[1]))
+
+
+def _aspect_of(image: FiberTrackingImage) -> float:
+    """
+    Pixel aspect the connection gates are evaluated in.
+    連結のゲートを評価する画素の縦横比。
+
+    `FiberTrackingImage.pixel_aspect`, which `lib.measure` sets from the
+    bundle; 1 for a container without it.
+    `lib.measure` がバンドルから設定する `FiberTrackingImage.pixel_aspect`。
+    それを持たないコンテナでは 1。
+    """
+    return float(getattr(image, "pixel_aspect", 1.0))
 
 
 def _detector_for(image: FiberTrackingImage) -> KinkDetector:
@@ -232,6 +285,7 @@ def _detector_for(image: FiberTrackingImage) -> KinkDetector:
 def _fragment_end_geometry(
     fragments: Sequence[Fiber],
     lookback_length: int,
+    aspect: float = 1.0,
 ) -> tuple:
     """
     Return each fragment's two ends with their look-back reference points.
@@ -246,15 +300,21 @@ def _fragment_end_geometry(
         Number of track points back from an end used to estimate its local
         direction.
         端から局所方向を推定するために遡るトラック点数。
+    aspect
+        Y pixel size over X pixel size (`FiberTrackingImage.pixel_aspect`);
+        each row is multiplied by it (`_physical`).
+        Y 画素サイズ ÷ X 画素サイズ（`FiberTrackingImage.pixel_aspect`）。各行に
+        これを掛ける（`_physical`）。
 
     Returns
     -------
     tuple of ndarray
         ``(ends, backs)``, both shaped ``(n_fragments, 2, 2)``: for each
         fragment, the head and tail ``(row, col)`` endpoint and the look-back
-        point behind it.
+        point behind it, in specimen geometry (X pixels).
         ``(ends, backs)``。いずれも形状 ``(断片数, 2, 2)`` で、断片ごとに
-        先頭側・末尾側の ``(row, col)`` 端点と、その内側の振り返り点を持つ。
+        先頭側・末尾側の ``(row, col)`` 端点と、その内側の振り返り点を、試料上の
+        幾何（X 画素単位）で持つ。
 
     Notes
     -----
@@ -279,12 +339,12 @@ def _fragment_end_geometry(
         step = min(lookback_length, len(xs))
         # Head end and the point `step - 1` further in.
         # 先頭側の端点と、そこから内側へ `step - 1` 進んだ点。
-        ends[i, 0] = (ys[0], xs[0])
-        backs[i, 0] = (ys[step - 1], xs[step - 1])
+        ends[i, 0] = _physical((ys[0], xs[0]), aspect)
+        backs[i, 0] = _physical((ys[step - 1], xs[step - 1]), aspect)
         # Tail end and the point `step` back from it.
         # 末尾側の端点と、そこから `step` 戻った点。
-        ends[i, 1] = (ys[-1], xs[-1])
-        backs[i, 1] = (ys[-step], xs[-step])
+        ends[i, 1] = _physical((ys[-1], xs[-1]), aspect)
+        backs[i, 1] = _physical((ys[-step], xs[-step]), aspect)
     return ends, backs
 
 
@@ -418,7 +478,8 @@ def connection_candidate_flags(
         return [False] * n
 
     cal = image.calibrated_image
-    ends, backs = _fragment_end_geometry(fragments, params.lookback_length)
+    ends, backs = _fragment_end_geometry(
+        fragments, params.lookback_length, _aspect_of(image))
     medians = _fragment_median_heights(cal, fragments)
 
     # Shortlist by distance first: the angle test is the expensive one, and
@@ -575,6 +636,7 @@ def plan_from_auto_connect(
     n_frag = len(fragments)
     used = np.zeros(n_frag, dtype=bool)
     chains: List[List[Tuple[int, bool]]] = []
+    aspect = _aspect_of(image)
 
     for i in range(n_frag):
         if progress_cb is not None:
@@ -673,12 +735,14 @@ def plan_from_auto_connect(
                     ]
 
                     for cand in candidates:
-                        C, D = cand["C"], cand["D"]
-                        dist = np.hypot(B[0] - C[0], B[1] - C[1])
+                        pA, pB = _physical(A, aspect), _physical(B, aspect)
+                        pC = _physical(cand["C"], aspect)
+                        pD = _physical(cand["D"], aspect)
+                        dist = np.hypot(pB[0] - pC[0], pB[1] - pC[1])
 
                         if dist <= clusters_range:
-                            angle_ABD = angle_between_three_points(A, B, D)
-                            angle_ACD = angle_between_three_points(A, C, D)
+                            angle_ABD = angle_between_three_points(pA, pB, pD)
+                            angle_ACD = angle_between_three_points(pA, pC, pD)
 
                             # Require both endpoints to bend little (near 180 deg)
                             # and keep the straightest pair overall.
@@ -828,12 +892,14 @@ def build_connected_fibers(
         1 度だけ現れてよい。
     params
         Thresholds; only `ConnectParams.trim_points` and
-        `ConnectParams.num_avg_points` affect the geometry built here. The
-        other four gate the search and cannot change a fiber once the chains
-        are fixed.
+        `ConnectParams.num_avg_points` affect the geometry built here, and
+        `ConnectParams.judge_bridge_kinks` which bends at the bridges are
+        judged. The other four gate the search and cannot change a fiber once
+        the chains are fixed.
         しきい値。ここで組み立てる形状に影響するのは
         `ConnectParams.trim_points` と `ConnectParams.num_avg_points` だけで
-        ある。残る 4 つは探索を制御するもので、連鎖が確定した後のファイバーを
+        あり、`ConnectParams.judge_bridge_kinks` は橋渡し部のどの折れを判定するか
+        を決める。残る 4 つは探索を制御するもので、連鎖が確定した後のファイバーを
         変えることはできない。
 
     Returns
@@ -1111,6 +1177,7 @@ def _build_chain_fiber(
         pixel_x=xs, pixel_y=ys,
         line_reliable=rel, height_measured=meas,
         end_is_real=(head_real, tail_real),
+        judge_bridges=bool(params.judge_bridge_kinks),
     )
 
 
@@ -1330,7 +1397,8 @@ def connection_candidates(
     if n < 2 or index < 0 or index >= n or image.calibrated_image is None:
         return []
 
-    ends, backs = _fragment_end_geometry(fibers, params.lookback_length)
+    ends, backs = _fragment_end_geometry(
+        fibers, params.lookback_length, _aspect_of(image))
     medians = _fragment_median_heights(image.calibrated_image, fibers)
     reach = _manual_reach(params, radius)
     return _candidates_for(index, ends, backs, medians, params, reach)
@@ -1416,7 +1484,8 @@ def connection_candidates_by_index(
     if n < 2 or image.calibrated_image is None:
         return {}
 
-    ends, backs = _fragment_end_geometry(fibers, params.lookback_length)
+    ends, backs = _fragment_end_geometry(
+        fibers, params.lookback_length, _aspect_of(image))
     medians = _fragment_median_heights(image.calibrated_image, fibers)
     reach = _manual_reach(params, radius)
 
@@ -1598,6 +1667,7 @@ def _rebuild_connected_fiber(
     line_reliable: Optional[Sequence[bool]] = None,
     height_measured: Optional[Sequence[bool]] = None,
     end_is_real: Tuple[bool, bool] = (True, True),
+    judge_bridges: bool = True,
 ) -> Fiber:
     """
     Rebuild one `Fiber` from a reconnected track and recompute its features.
@@ -1662,6 +1732,12 @@ def _rebuild_connected_fiber(
         `ep_indices` はこれを記録する。外側の断片が交差で終わっていたフィブリルは
         依然としてそこで切断されており、高さ統計はその切断域を除く
         （`measure.height_sample_mask`）。
+    judge_bridges
+        Whether a bend whose window reaches a bridge (a run of points
+        `height_measured` marks ``False``) is judged
+        (`ConnectParams.judge_bridge_kinks`).
+        窓が橋渡し部（`height_measured` が ``False`` の点の連続）にかかる折れを
+        判定するか（`ConnectParams.judge_bridge_kinks`）。
 
     Returns
     -------
@@ -1717,10 +1793,16 @@ def _rebuild_connected_fiber(
         width, width_measured = measure_apparent_width(
             image.calibrated_image, pix_x, pix_y, return_measured=True,
             aspect=aspect,
+            peak=getattr(image, "width_peak", WIDTH_PEAK_NEAREST),
         )
-        judged = detector.judge_line(line_x, line_y, width, aspect)
+        judged = detector.judge_line(
+            line_x, line_y, width, aspect,
+            observed=height_measured, judge_bridges=judge_bridges,
+        )
         kink_indices, kink_angles = judged.kink_indices, judged.kink_angles
         kink_excess, unjudged_indices = judged.kink_excess, judged.unjudged_indices
+        unjudged_reasons = judged.unjudged_reasons
+        bridge_excluded_px = judged.bridge_excluded_px
         decomposed_point_indices = np.zeros(0, dtype=np.intp)
         reliable = (None if line_reliable is None
                     else np.asarray(line_reliable, dtype=bool))
@@ -1728,6 +1810,8 @@ def _rebuild_connected_fiber(
         kink_indices, kink_angles, decomposed_point_indices = \
             detector.kinks_and_decomposed_from_track(line_x, line_y)
         unjudged_indices = np.zeros(0, dtype=np.intp)
+        unjudged_reasons = None
+        bridge_excluded_px = 0.0
         kink_excess = np.zeros(0, dtype=np.float64)
         width, width_measured = float("nan"), False
         reliable = None
@@ -1754,6 +1838,8 @@ def _rebuild_connected_fiber(
         line_reliable=reliable, height_measured=measured,
         kink_excess=np.asarray(kink_excess, dtype=np.float64),
         pixel_aspect=float(getattr(image, "pixel_aspect", 1.0)),
+        unjudged_reasons=unjudged_reasons,
+        bridge_excluded_px=float(bridge_excluded_px),
     )
 
 
@@ -1765,6 +1851,7 @@ def filter_fibers_by_height(
     include_lower_limit: bool = True,
     include_upper_limit: bool = True,
     progress_cb: Optional[Callable[[int, int], None]] = None,
+    judge_bridge_kinks: bool = True,
 ) -> List[Fiber]:
     """
     Extract the height-band portions of already-built fibers, one fiber at a time.
@@ -1807,6 +1894,13 @@ def filter_fibers_by_height(
     progress_cb
         Optional callback receiving ``(done, total)`` once per input fiber.
         入力ファイバー 1 本ごとに ``(done, total)`` を受け取る任意のコールバック。
+    judge_bridge_kinks
+        Whether a sub-fiber's bends at the bridges it keeps are judged; the
+        caller passes the connection's `ConnectParams.judge_bridge_kinks`, so
+        a piece is judged as the fibril it was cut from.
+        サブファイバーが保持する橋渡し部の折れを判定するか。呼び出し側は連結の
+        `ConnectParams.judge_bridge_kinks` を渡し、切り出し元のフィブリルと同じく
+        判定されるようにする。
 
     Returns
     -------
@@ -1910,6 +2004,7 @@ def filter_fibers_by_height(
                         # 切断である。
                         end_is_real=(start == 0 and 0 in ends,
                                      stop == n_points and n_points - 1 in ends),
+                        judge_bridges=judge_bridge_kinks,
                     )
                 )
             except Exception:

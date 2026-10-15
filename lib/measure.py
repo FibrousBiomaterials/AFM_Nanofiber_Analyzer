@@ -65,6 +65,7 @@ from .bundle_schema import (
     pixel_size_nm,
     scan_size_um_from_meta,
     validate_bundle,
+    width_peak_from_meta,
 )
 from .centerline import SKELETON_TRACK, is_pixel_chain_line, polyline_distance
 from .connect_selection import (
@@ -86,7 +87,7 @@ from .fiber_selection import (
     load_exclusions,
 )
 from .fiber_tracking_image import FiberTrackingImage
-from .kink_detector import END_MARGIN_WIDTHS
+from .kink_detector import END_MARGIN_WIDTHS, UNJUDGED_AT_BRIDGE
 # On the skeleton track of a bundle older than format 1.1, straightness
 # measures a straight reference line with the same corrected chain-code metric
 # the fiber's own length uses, so the two are comparable.
@@ -205,6 +206,7 @@ FIBER_CSV_COLUMNS = (
     "height_p90_nm", "apparent_width_nm", "width_measured",
     "line_reliable_fraction", "unjudged_count",
     "touches_frame", "cut_end_count", "frame_weight",
+    "unjudged_bridge_count", "bridge_excluded_nm",
 )
 
 # The column set of the development version that added straightness, and the
@@ -228,6 +230,14 @@ FIBER_CSV_COLUMNS_V1 = FIBER_CSV_COLUMNS[:7]
 # 未記録として読むため、GUI03 は「記録なし」と「枠に触れない」を区別でき、判定
 # できない長さを除外・重み付けに使わない。
 FIBER_CSV_COLUMNS_V3 = FIBER_CSV_COLUMNS[:13]
+
+# The column set before the connector-bridge columns. A CSV with it reads with
+# no bridge recorded, which is what every fiber of it was measured with: the
+# kink density's divisor then keeps the bridges, as it did when it was written.
+# 連結器の橋渡し部の列を追加する前の列構成。これで書かれた CSV は橋渡し部の
+# 記録が無いものとして読む。その CSV のどのファイバーもそのように計測されており、
+# キンク密度の分母は書き出したときと同じく橋渡し部を含んだままになる。
+FIBER_CSV_COLUMNS_V4 = FIBER_CSV_COLUMNS[:16]
 
 
 @dataclass(frozen=True)
@@ -301,10 +311,10 @@ class FiberStats:
         線の点のうち、位置を補間ではなくこのファイバー自身の断面で測った割合
         （`Fiber.line_reliable`）。スケルトントラック上では NaN。
     unjudged_count
-        Bends the kink rule measured within `END_MARGIN_WIDTHS` of an end and
-        did not judge (`Fiber.unjudged_indices`); never counted as kinks.
-        キンク規則が端から `END_MARGIN_WIDTHS` 以内で測り、判定しなかった折れの数
-        （`Fiber.unjudged_indices`）。キンクには数えない。
+        Bends the kink rule measured and did not judge
+        (`Fiber.unjudged_indices`), for either reason; never counted as kinks.
+        キンク規則が測ったが判定しなかった折れの数（`Fiber.unjudged_indices`）。
+        理由は問わない。キンクには数えない。
     touches_frame
         Whether the fiber's skeleton track reaches the outermost row or column
         of the analyzed image, so the fiber continues outside the scan and
@@ -331,6 +341,23 @@ class FiberStats:
         枠に触れないファイバーの Miles-Lantuejoul 重み。1 点が枠に触れずに収まる
         位置の数を、スケルトンの外接矩形が収まる位置の数で割った値
         （`_frame_weight`）。枠に触れるファイバー、または記録が無い場合は NaN。
+    unjudged_bridge_count
+        How many of the `unjudged_count` bends were not judged because their
+        window reaches a connector bridge
+        (`kink_detector.UNJUDGED_AT_BRIDGE`); the rest lie next to an end.
+        `unjudged_count` の折れのうち、窓が連結器の橋渡し部にかかるため判定
+        しなかったものの数（`kink_detector.UNJUDGED_AT_BRIDGE`）。残りは端のそば
+        にある。
+    bridge_excluded_nm
+        Length the connector's bridges take out of the span kinks are counted
+        over, in nanometers (`Fiber.bridge_excluded_px` times the X pixel
+        size); 0 for a fiber without a bridge, NaN for a fiber with one when
+        no pixel size was given. `fiber_kink_density` leaves it out of the
+        divisor.
+        連結器の橋渡し部が、キンクを数える範囲から除く長さ (nm)
+        （`Fiber.bridge_excluded_px` × X ピクセルサイズ）。橋渡し部の無い
+        ファイバーでは 0、ピクセルサイズが与えられず橋渡し部を持つファイバーでは
+        NaN。`fiber_kink_density` はこれを分母から除く。
 
     Examples
     --------
@@ -369,6 +396,8 @@ class FiberStats:
     touches_frame: Optional[bool] = None
     cut_end_count: Optional[int] = None
     frame_weight: float = float("nan")
+    unjudged_bridge_count: int = 0
+    bridge_excluded_nm: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -1257,6 +1286,8 @@ def compute_fiber_stats(
             float("nan") if reliable is None or len(reliable) == 0
             else float(np.mean(np.asarray(reliable, dtype=bool)))
         )
+        reasons = getattr(f, "unjudged_reasons", None)
+        bridge_px = float(getattr(f, "bridge_excluded_px", 0.0))
         stats.append(FiberStats(
             index=i,
             length_nm=float(f.length),
@@ -1275,6 +1306,14 @@ def compute_fiber_stats(
                            else _reaches_frame(f, frame_shape)),
             cut_end_count=_cut_end_count(f),
             frame_weight=_frame_weight(f, frame_shape),
+            unjudged_bridge_count=(
+                0 if reasons is None
+                else int(np.count_nonzero(np.asarray(reasons) == UNJUDGED_AT_BRIDGE))
+            ),
+            bridge_excluded_nm=(
+                bridge_px * x_size_per_pixel if x_size_per_pixel is not None
+                else (0.0 if bridge_px == 0.0 else float("nan"))
+            ),
         ))
     return stats
 
@@ -1474,6 +1513,20 @@ def fiber_kink_density(stat: FiberStats) -> float:
     トラック上のもの、この列より前の CSV から読んだもの）は輪郭全体を使う。その
     規則が判定しなかった長さは無いからである。
 
+    On a centerline (format 1.1 or later), a connected fibril's bridges are
+    also left out of the divisor (`FiberStats.bridge_excluded_nm`): a bridge is a straight segment across a
+    gap where no fiber was observed, so its only bends are its two corners,
+    and when the connection plan does not judge bridge kinks, no position
+    whose window reaches a bridge is judged either. With bridge kinks judged,
+    a kink at a bridge's corner is counted; only the bridge's length leaves
+    the divisor.
+    中心線の上（形式 1.1 以降）では、連結フィブリルの橋渡し部も分母から除く
+    （`FiberStats.bridge_excluded_nm`）。
+    橋渡し部は繊維を観測していない隙間に引いた直線であり、折れがあるのは両端の
+    角だけである。また、継ぎ目の折れを判定しない連結プランでは、窓が橋渡し部に
+    かかる位置も判定していない。継ぎ目の折れを判定するときは、橋渡し部の角の
+    キンクは数え、分母から除くのは橋渡し部の長さだけである。
+
     Unlike `fiber_kink_angle`, a fiber with no kink is a valid zero here: zero
     kinks over a judged length is a real density, not a missing measurement.
     `fiber_kink_angle` と異なり、ここではキンクの無いファイバーは有効な 0 である。
@@ -1502,7 +1555,16 @@ def fiber_kink_density(stat: FiberStats) -> float:
     width_nm = float(getattr(stat, "width_nm", float("nan")))
     if np.isfinite(width_nm) and width_nm > 0.0:
         length_um -= 2.0 * END_MARGIN_WIDTHS * width_nm / 1000.0
-    if length_um <= 0.0:
+    bridge_nm = float(getattr(stat, "bridge_excluded_nm", 0.0))
+    if np.isfinite(bridge_nm):
+        length_um -= bridge_nm / 1000.0
+    # Bridges that cover the whole judged span leave a rounding residue rather
+    # than an exact 0, so a remainder below a micrometre's billionth counts as
+    # nothing judged; no real fiber comes near that length.
+    # 判定範囲全体を覆う橋渡し部は、ちょうど 0 ではなく丸め誤差を残すので、1 µm の
+    # 10 億分の 1 未満の残りは何も判定していないとみなす。実在の繊維がその長さに
+    # 近づくことはない。
+    if length_um <= 1e-9:
         return float("nan")
     return float(stat.kink_count) / length_um
 
@@ -1677,6 +1739,11 @@ def _tracking_image_from_arrays(
     # 線は保存済みキンクを判定したのと同じ幾何で置く。計測時に呼び出し側が異なる
     # 値を入力しうる `size_per_pixel` ではなく、記録された走査範囲から求める。
     image.pixel_aspect = pixel_aspect_from_meta(meta, cal.shape)
+    # The apparent width, which places the line and scales the kink rule, is
+    # read by the definition the stored kinks were judged with.
+    # 線を置きキンク規則を尺度付けする見かけ幅は、保存済みキンクを判定したときの
+    # 定義で読む。
+    image.width_peak = width_peak_from_meta(meta)
     return image
 
 
@@ -2676,7 +2743,7 @@ def read_fiber_csv(path: str) -> List[FiberStats]:
         # from any release reads with its missing fields left undefined.
         # 以前の列構成はすべて現在の接頭辞なので、どのリリースのファイルも、無い
         # 項目を未定義のままにして読める。
-        known = (FIBER_CSV_COLUMNS, FIBER_CSV_COLUMNS_V3,
+        known = (FIBER_CSV_COLUMNS, FIBER_CSV_COLUMNS_V4, FIBER_CSV_COLUMNS_V3,
                  FIBER_CSV_COLUMNS_V2, FIBER_CSV_COLUMNS_V1)
         expected = next((c for c in known if columns == list(c)), None)
         if expected is None:
@@ -2744,6 +2811,16 @@ def read_fiber_csv(path: str) -> List[FiberStats]:
                     ),
                     cut_end_count=recorded_int(row, "cut_end_count"),
                     frame_weight=optional_float(row, "frame_weight"),
+                    unjudged_bridge_count=optional_int(
+                        row, "unjudged_bridge_count", 0),
+                    # An older file recorded no bridge, and its densities were
+                    # computed with none removed.
+                    # 古いファイルは橋渡し部を記録しておらず、その密度は何も除かずに
+                    # 計算されていた。
+                    bridge_excluded_nm=(
+                        0.0 if col.get("bridge_excluded_nm") is None
+                        else optional_float(row, "bridge_excluded_nm")
+                    ),
                 ))
             except ValueError as e:
                 raise ValueError(f"{path} line {row_number}: {e}") from e
@@ -2825,7 +2902,7 @@ def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
     >>> header.split(",") == list(FIBER_CSV_COLUMNS)
     True
     >>> line
-    '0,812.3,2.500,3.100,2,1,121.0,,,,0,,0,,,'
+    '0,812.3,2.500,3.100,2,1,121.0,,,,0,,0,,,,0,0.00'
     """
     def blank_or(value: float, fmt: str) -> str:
         # An undefined value is an empty cell, never "nan", so a spreadsheet
@@ -2855,6 +2932,8 @@ def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
                 "" if s.touches_frame is None else int(bool(s.touches_frame)),
                 "" if s.cut_end_count is None else int(s.cut_end_count),
                 blank_or(s.frame_weight, "{0:.6g}"),
+                int(s.unjudged_bridge_count),
+                blank_or(s.bridge_excluded_nm, "{0:.2f}"),
             ])
 
 

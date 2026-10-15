@@ -522,3 +522,17 @@ def test_pixel_aspect_is_physical_only_from_format_1_3():
     assert pixel_aspect_from_meta({"version": "1.2", **calibration}, shape) == 1.0
     assert pixel_aspect_from_meta({"version": "1.3"}, shape) == 1.0
     assert pixel_aspect_from_meta(None, shape) == 1.0
+
+
+
+def test_the_width_definition_follows_the_format_version():
+    """
+    A 1.4 bundle was judged at the width read from the first crest uphill, an older one at the overall maximum, and each is read as judged.
+    1.4 のバンドルは坂を上って最初に着く頂点の幅で、それより古いものは全体の最大値で判定されており、それぞれ判定どおりに読む。
+    """
+    from lib.bundle_schema import width_peak_from_meta
+    from lib.centerline import WIDTH_PEAK_GLOBAL, WIDTH_PEAK_NEAREST
+    assert width_peak_from_meta({"version": "1.4"}) == WIDTH_PEAK_NEAREST
+    for older in ("1.0", "1.1", "1.2", "1.3"):
+        assert width_peak_from_meta({"version": older}) == WIDTH_PEAK_GLOBAL
+    assert width_peak_from_meta(None) == WIDTH_PEAK_GLOBAL

@@ -1655,3 +1655,55 @@ def test_read_fiber_csv_leaves_the_frame_unrecorded_in_an_older_csv(
     assert all(s.touches_frame is None for s in restored)
     assert all(s.cut_end_count is None for s in restored)
     assert all(np.isnan(s.frame_weight) for s in restored)
+
+
+def test_kink_density_leaves_the_bridges_out_of_its_divisor():
+    """
+    A connected fibril's bridges were not observed, so the kink density divides by the length without them.
+    連結フィブリルの橋渡し部は観測していないため、キンク密度はそれを除いた長さで割る。
+    """
+    from lib.measure import FiberStats, fiber_kink_density
+    row = dict(index=0, length_nm=2000.0, height_median_nm=2.0, height_max_nm=3.0,
+               ep_count=2, kink_count=2, kink_angles_deg=(150.0, 150.0), width_nm=50.0)
+    plain = fiber_kink_density(FiberStats(**row))
+    bridged = fiber_kink_density(FiberStats(**row, bridge_excluded_nm=150.0))
+    assert plain == pytest.approx(2 / 1.85)
+    assert bridged == pytest.approx(2 / 1.70)
+
+
+def test_kink_density_is_blank_when_bridges_take_the_whole_judged_span():
+    """
+    Bridges covering the whole judged span leave only a rounding residue, which reads as nothing judged.
+    判定範囲全体を覆う橋渡し部は丸め誤差しか残さないため、何も判定していないとして空欄にする。
+    """
+    from lib.measure import FiberStats, fiber_kink_density
+    # 200 nm less 2 x 1.5 x 50 nm leaves 50 nm judged; 50 nm of bridges take all of
+    # it, and 0.2 - 0.15 - 0.05 is not exactly 0 in floating point.
+    row = dict(index=0, length_nm=200.0, height_median_nm=2.0, height_max_nm=3.0,
+               ep_count=2, kink_count=0, kink_angles_deg=(), width_nm=50.0,
+               bridge_excluded_nm=50.0)
+    assert np.isnan(fiber_kink_density(FiberStats(**row)))
+
+
+def test_the_bridge_columns_round_trip_through_the_csv(tmp_path):
+    """The bridge columns are written and read back, and an older CSV reads as having no bridge."""
+    from lib.measure import (FIBER_CSV_COLUMNS, FIBER_CSV_COLUMNS_V4, FiberStats,
+                             read_fiber_csv, write_fiber_csv)
+    row = FiberStats(index=0, length_nm=812.3, height_median_nm=2.5, height_max_nm=3.1,
+                     ep_count=2, kink_count=1, kink_angles_deg=(121.0,),
+                     unjudged_count=2, unjudged_bridge_count=1, bridge_excluded_nm=37.25)
+    path = str(tmp_path / "fibers.csv")
+    write_fiber_csv(path, [row])
+    back = read_fiber_csv(path)[0]
+    assert back.unjudged_bridge_count == 1
+    assert back.bridge_excluded_nm == pytest.approx(37.25)
+    with open(path, encoding="utf-8-sig", newline="") as handle:
+        rows = list(csv.reader(handle))
+    width = len(FIBER_CSV_COLUMNS_V4)
+    assert rows[0] == list(FIBER_CSV_COLUMNS)
+    with open(path, "w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.writer(handle)
+        for r in rows:
+            writer.writerow(r[:width])
+    older = read_fiber_csv(path)[0]
+    assert older.unjudged_bridge_count == 0 and older.bridge_excluded_nm == 0.0

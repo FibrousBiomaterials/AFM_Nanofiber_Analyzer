@@ -738,3 +738,33 @@ def test_a_partner_is_offered_once_even_when_both_its_ends_are_near():
     batch = connection_candidates_by_index(image, fibers)
     assert batch == {0: candidates, 1: connection_candidates(image, fibers, 1)}
     assert [c["index"] for c in batch[1]] == [0]
+
+
+def test_connection_distances_follow_the_pixel_aspect():
+    """
+    On a scan whose Y pixels are twice as tall, a vertical gap is twice as long on the specimen.
+    Y の画素が 2 倍の高さの走査では、縦方向の隙間は試料上で 2 倍の長さになる。
+    """
+    image = _flat_image()
+    upper = Fiber(
+        fiber_image=np.zeros((16, 1)), data=(30, 5, 1, 16, 16),
+        xtrack=np.zeros(16, dtype=int), ytrack=np.arange(16),
+        horizon=np.arange(16, dtype=float), height=np.zeros(16),
+        kink_indices=np.array([], dtype=int), ep_indices=np.array([0, 15]),
+        kink_angles=np.array([]), decomposed_point_indices=np.array([0, 15]),
+    )
+    lower = Fiber(
+        fiber_image=np.zeros((16, 1)), data=(30, 32, 1, 16, 16),
+        xtrack=np.zeros(16, dtype=int), ytrack=np.arange(16),
+        horizon=np.arange(16, dtype=float), height=np.zeros(16),
+        kink_indices=np.array([], dtype=int), ep_indices=np.array([0, 15]),
+        kink_angles=np.array([]), decomposed_point_indices=np.array([0, 15]),
+    )
+    square = connection_candidates(image, [upper, lower], 0)
+    assert square and square[0]["distance"] == 12.0
+    image.pixel_aspect = 2.0
+    tall = connection_candidates(image, [upper, lower], 0)
+    assert tall and tall[0]["distance"] == 24.0
+    # 24 X pixels is beyond the default reach of the automatic search.
+    # 24 X 画素は自動探索の既定の届く範囲を超える。
+    assert not tall[0]["auto"]

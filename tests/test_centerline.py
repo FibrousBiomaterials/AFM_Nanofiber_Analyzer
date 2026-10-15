@@ -23,9 +23,11 @@ import pytest
 from lib import blosc2_io, measure
 from lib.centerline import (
     CENTERLINE_METHODS,
+    FALLBACK_WIDTH_PX,
     HALF_MAX_025W_CENTERLINE,
     SKELETON_PIXEL_LINE,
     SKELETON_TRACK,
+    WIDTH_PEAK_GLOBAL,
     place_centerline,
     half_max_centerline,
     measure_apparent_width,
@@ -682,3 +684,37 @@ def test_a_narrow_fiber_is_raised_to_the_minimum_width():
     width, measured = measure_apparent_width(ridge, xtrack, ytrack, return_measured=True)
     assert measured
     assert width == 2.0
+
+
+def _horizontal_ridge(rows, centre_row, sigma, amplitude):
+    """A straight horizontal Gaussian ridge."""
+    return amplitude * np.exp(-((rows - centre_row) ** 2) / (2.0 * sigma ** 2))
+
+
+def test_a_faint_fiber_beside_a_taller_one_is_measured_at_its_own_width():
+    """
+    The half maximum is taken from the fiber's own crest, so a taller neighbour within the search range does not shrink it.
+    半値は繊維自身の頂点から取るため、探索範囲内の高い隣の繊維が幅を縮めることはない。
+    """
+    rows, _cols = np.mgrid[0:60, 0:120].astype(float)
+    faint = _horizontal_ridge(rows, 30.0, 1.5, 1.0)
+    xtrack = np.arange(10, 110)
+    ytrack = np.full(xtrack.size, 30)
+    alone = measure_apparent_width(faint, xtrack, ytrack, return_measured=True)
+    beside = faint + _horizontal_ridge(rows, 38.0, 1.5, 5.0)
+    nearest = measure_apparent_width(beside, xtrack, ytrack, return_measured=True)
+    assert nearest == alone
+    # Read from the profile's overall maximum, the level lies above the faint
+    # crest and the width is no longer measured.
+    # プロファイル全体の最大値から読むと、レベルは淡い頂点より上に来て、幅は測れない。
+    overall = measure_apparent_width(beside, xtrack, ytrack, return_measured=True,
+                                     peak=WIDTH_PEAK_GLOBAL)
+    assert overall == (FALLBACK_WIDTH_PX, False)
+
+
+def test_an_unknown_width_peak_is_refused():
+    """A misspelt width definition raises instead of silently picking one."""
+    rows, _cols = np.mgrid[0:20, 0:40].astype(float)
+    with pytest.raises(ValueError):
+        measure_apparent_width(_horizontal_ridge(rows, 10.0, 1.5, 1.0), np.arange(5, 35),
+                               np.full(30, 10), peak="highest")

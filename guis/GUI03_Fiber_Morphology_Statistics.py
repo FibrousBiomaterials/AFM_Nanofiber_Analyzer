@@ -72,7 +72,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # ===== Project libraries =====
-from lib.blosc2_io import BUNDLE_EXT
+from lib.blosc2_io import BUNDLE_EXT, load_bundle
+from lib.bundle_schema import pixel_size_nm
 from lib.centerline import DEFAULT_CENTERLINE_METHOD, SKELETON_TRACK
 from lib.connect_selection import (
     CONNECT_SUFFIX, connect_path_for, load_connect_plan,
@@ -82,7 +83,8 @@ from lib.measure import (
     DEFAULT_CURVATURE_WINDOW_NM,
     collect_fiber_curvature, collect_fiber_stats, collect_fiber_stats_from_csv,
     collect_skeleton_height_profiles, fiber_kink_angle, fiber_kink_density,
-    read_centerline_from_bundle, skeleton_height_values,
+    read_centerline_from_bundle, read_scan_size_from_bundle,
+    skeleton_height_values,
 )
 from lib.translator import _
 from lib.ui_tools import (
@@ -2927,6 +2929,82 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             counts[line] = counts.get(line, 0) + 1
         return counts
 
+    @staticmethod
+    def _bundle_pixel_sizes(bundle_paths) -> list:
+        """
+        Read the X pixel size each bundle is measured with, in nanometers.
+        各バンドルを計測する X 画素サイズ (nm) を読む。
+
+        Parameters
+        ----------
+        bundle_paths
+            ``.b2z`` bundles about to be measured.
+            これから計測する ``.b2z`` バンドル。
+
+        Returns
+        -------
+        list of float
+            One pixel size per bundle with a recorded scan size
+            (`bundle_schema.pixel_size_nm`); a bundle without one, or one that
+            cannot be read, is passed over, because the collector reports it.
+            走査範囲を記録したバンドルごとの画素サイズ
+            （`bundle_schema.pixel_size_nm`）。記録の無いバンドルや読めない
+            バンドルは読み飛ばす。コレクタがそれを報告するためである。
+        """
+        sizes = []
+        for path in bundle_paths:
+            try:
+                scan = read_scan_size_from_bundle(path)
+                if scan is None:
+                    continue
+                width = load_bundle(path, keys=["calibrated"])["calibrated"].shape[1]
+                sizes.append(pixel_size_nm(scan[0], width))
+            except Exception:
+                continue
+        return sizes
+
+    def _log_pixel_size_spread(self, pixel_sizes: list) -> None:
+        """
+        Warn when the bundles measured for curvature differ in pixel size.
+        曲率を計測したバンドルの画素サイズが違うときに警告する。
+
+        Parameters
+        ----------
+        pixel_sizes
+            X pixel size of every bundle measured, in nanometers.
+            計測した全バンドルの X 画素サイズ (nm)。
+
+        Notes
+        -----
+        Curvature is averaged unsigned, so the jitter of the centerline adds
+        to it even on a straight fiber, and how much it adds depends on the
+        pixel size and the image noise. Bundles imaged at different pixel
+        sizes then differ partly because of how they were imaged. The spread is
+        taken over every bundle of the run, whichever group it belongs to, so
+        the warning says that such bundles were compared, not that the groups
+        differ in pixel size. The comparison is still made; the user is told.
+        曲率は符号なしで平均するため、まっすぐな繊維でも中心線の揺れが上乗せされ、
+        その量は画素サイズと画像のノイズで変わる。そのため、異なる画素サイズで撮像
+        したバンドルどうしは、撮像条件の違いによっても差が出る。ばらつきはグループを
+        問わず実行内の全バンドルで取るので、警告が示すのはそうしたバンドルを比べた
+        ことであり、グループ間で画素サイズが違うことではない。比較はそのまま行い、
+        ユーザーに知らせる。
+        """
+        if len(pixel_sizes) < 2:
+            return
+        low, high = min(pixel_sizes), max(pixel_sizes)
+        # A spread under one percent, such as the rounding of a scan size
+        # written in an instrument header, does not raise the warning.
+        # 装置ヘッダに書かれた走査範囲の丸めのような 1 % 未満の違いでは警告しない。
+        if high <= low * 1.01:
+            return
+        self.ui_queue.put(("log", _(
+            "注意: 比較したバンドルの画素サイズが {low}〜{high} nm/px と異なります。"
+            "曲率は中心線の揺れにより、まっすぐな繊維でも 0 より大きく出ます。"
+            "その上乗せは画素サイズとノイズで変わるため、画素サイズの違うバンドルの間の"
+            "曲率の差には、撮像条件の違いも含まれます。"
+        ).format(low=f"{low:.2f}", high=f"{high:.2f}")))
+
     def _log_curvature_caveats(self, per_fiber, curvature_window: float) -> None:
         """
         Report how many fibers the curvature window excluded.
@@ -3153,6 +3231,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         results = []
         errors = []
+        # X pixel size of every bundle measured for curvature, to warn when the
+        # compared bundles differ in it (`_log_pixel_size_spread`).
+        # 曲率を計測した全バンドルの X 画素サイズ。比較するバンドルで違うときに
+        # 警告するために集める（`_log_pixel_size_spread`）。
+        curvature_pixel_sizes: list = []
 
         for grp in groups:
             grp_name = grp["name"]
@@ -3248,6 +3331,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                                 f"{k} {v}/{len(bundle_paths)}"
                                 for k, v in sorted(chosen.items())),
                         )))
+
+                if param == PARAM_CURVATURE and input_mode == INPUT_BUNDLE:
+                    curvature_pixel_sizes.extend(
+                        self._bundle_pixel_sizes(bundle_paths))
 
                 frame_report = {}
                 try:
@@ -3366,6 +3453,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "n_fibers": grp_fibers,
                 "n_images": grp_images,
             })
+
+        self._log_pixel_size_spread(curvature_pixel_sizes)
 
         if not results:
             self.ui_queue.put(("fatal", {

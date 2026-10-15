@@ -76,7 +76,13 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 # ===== Project libraries =====
-from .centerline import CENTERLINE_METHODS, HALF_MAX_025W_CENTERLINE, SKELETON_TRACK
+from .centerline import (
+    CENTERLINE_METHODS,
+    HALF_MAX_025W_CENTERLINE,
+    SKELETON_TRACK,
+    WIDTH_PEAK_GLOBAL,
+    WIDTH_PEAK_NEAREST,
+)
 
 # Version of the bundle layout itself, distinct from the application release
 # recorded as "software_version". Bump when keys, shapes, or units change, and
@@ -141,13 +147,34 @@ from .centerline import CENTERLINE_METHODS, HALF_MAX_025W_CENTERLINE, SKELETON_T
 #      `calibrated` には決してメディアンフィルタをかけない。`apply_median` を有効に
 #      してもフィルタはセグメンテーションと細線化が読む画像にしか届かず、保存される
 #      高さはフィルタ前のものである。
-BUNDLE_FORMAT_VERSION = "1.3"
+# 1.4: the apparent width W every kink-rule length is a multiple of is read
+#      at the level halfway between each profile's base and the first maximum
+#      reached climbing uphill from the track point, the fiber's own crest
+#      (`centerline.WIDTH_PEAK_NEAREST`),
+#      instead of halfway to the profile's overall maximum, which a taller
+#      neighbouring fiber could set; a track point below that level is not
+#      used for the width. No array
+#      changes, but `kp`, `ka`, `ke` and `up` were judged at the new W and the
+#      line is placed with it, so a 1.3 reader would place the line of a
+#      fiber beside a brighter one with another W than its kinks were judged
+#      at. A reader places the line of a bundle of format 1.1 to 1.3 with the
+#      overall maximum (`width_peak_from_meta`).
+# 1.4: キンク規則のすべての長さの基準となる見かけ幅 W を、プロファイル全体の
+#      最大値（隣の高い繊維が決めうる）との中間ではなく、各プロファイルの基準と
+#      坂を上って最初に着く極大、すなわち繊維自身の頂点との中間のレベルで読む
+#      （`centerline.WIDTH_PEAK_NEAREST`）。そのレベルより低いトラック点は幅に
+#      使わない。配列は
+#      変わらないが、`kp`・`ka`・`ke`・`up` は新しい W で判定され、線もそれで
+#      置かれるため、1.3 の読み取り側は、明るい繊維の脇にある繊維の線を、キンクを
+#      判定したのとは別の W で置いてしまう。読み取り側は形式 1.1〜1.3 のバンドルの
+#      線を全体の最大値で置く（`width_peak_from_meta`）。
+BUNDLE_FORMAT_VERSION = "1.4"
 
 # Versions this code base can read. Readers reject unknown versions loudly so
 # a future format change cannot be silently misinterpreted by old releases.
 # 本コードベースが読める形式バージョン。未知のバージョンは明示的に拒否し、
 # 将来の形式変更を旧リリースが黙って誤解釈しないようにする。
-SUPPORTED_BUNDLE_VERSIONS = ("1.0", "1.1", "1.2", "1.3")
+SUPPORTED_BUNDLE_VERSIONS = ("1.0", "1.1", "1.2", "1.3", "1.4")
 
 # Format versions whose kinks were judged on, and whose fibers are drawn and
 # measured along, the half-maximum centerline. A 1.0 bundle, or one recording
@@ -159,7 +186,7 @@ HALF_MAX_CENTERLINE_VERSIONS = ("1.1",)
 
 # Format versions that record their line in `CENTERLINE_KEY`.
 # 線を `CENTERLINE_KEY` に記録する形式バージョン。
-CENTERLINE_KEY_VERSIONS = ("1.2", "1.3")
+CENTERLINE_KEY_VERSIONS = ("1.2", "1.3", "1.4")
 
 # Format versions whose line and kinks were computed in physical geometry,
 # with Y scaled by the pixel aspect. Older bundles were computed in pixel
@@ -167,7 +194,18 @@ CENTERLINE_KEY_VERSIONS = ("1.2", "1.3")
 # 線とキンクを、Y を画素の縦横比で拡大した実空間の幾何で計算した形式バージョン。
 # それより古いバンドルは画素座標の幾何で計算されており、そのまま画素座標で読む。
 # こうして保存済みのキンクと線が食い違わないようにする。
-PHYSICAL_GEOMETRY_VERSIONS = ("1.3",)
+PHYSICAL_GEOMETRY_VERSIONS = ("1.3", "1.4")
+
+# Format versions whose apparent width was read halfway between each
+# profile's base and the first maximum uphill from the track point
+# (`centerline.WIDTH_PEAK_NEAREST`).
+# Bundles of format 1.1 to 1.3 were judged with the profile's overall maximum
+# and are read with it.
+# 見かけ幅を各プロファイルの基準と、トラック点から坂を上って最初に着く極大との中間で
+# 読んだ形式バージョン
+# （`centerline.WIDTH_PEAK_NEAREST`）。形式 1.1〜1.3 のバンドルはプロファイル全体の
+# 最大値で判定されており、そのまま全体の最大値で読む。
+NEAREST_PEAK_WIDTH_VERSIONS = ("1.4",)
 
 # vlmeta key naming the line a bundle's kinks were judged on and its fibers
 # are measured along: one of `centerline.CENTERLINE_METHODS`. Required from
@@ -829,6 +867,44 @@ def pixel_aspect_from_meta(
     if version not in PHYSICAL_GEOMETRY_VERSIONS:
         return 1.0
     return pixel_aspect(scan_size_um_from_meta(meta), stored_shape)
+
+
+def width_peak_from_meta(meta: Optional[Dict]) -> str:
+    """
+    Return which maximum a bundle's apparent widths were read from.
+    バンドルの見かけ幅をどの極大から読んだかを返す。
+
+    Parameters
+    ----------
+    meta
+        Bundle vlmeta dictionary, or ``None``.
+        バンドルの vlmeta 辞書、または ``None``。
+
+    Returns
+    -------
+    str
+        `centerline.WIDTH_PEAK_NEAREST` for a format listed in
+        `NEAREST_PEAK_WIDTH_VERSIONS`; `centerline.WIDTH_PEAK_GLOBAL` for an
+        older format: formats 1.1 to 1.3 read the width from the overall
+        maximum, and a format 1.0 bundle uses no width.
+        `NEAREST_PEAK_WIDTH_VERSIONS` に含まれる形式なら
+        `centerline.WIDTH_PEAK_NEAREST`。それより古い形式では
+        `centerline.WIDTH_PEAK_GLOBAL`。形式 1.1〜1.3 は全体の最大値から幅を読み、
+        形式 1.0 のバンドルは幅を使わない。
+
+    Notes
+    -----
+    A reader places a fiber's line, and judges a reconnected fibril, at the
+    width the stored kinks were judged at, so the line drawn and the kinks on
+    it come from one definition of W.
+    読み取り側は、保存済みキンクを判定したのと同じ幅で繊維の線を置き、再結合した
+    フィブリルを判定する。これにより、描く線とその上のキンクが同じ W の定義から
+    来る。
+    """
+    version = (meta or {}).get("version")
+    if version in NEAREST_PEAK_WIDTH_VERSIONS:
+        return WIDTH_PEAK_NEAREST
+    return WIDTH_PEAK_GLOBAL
 
 
 def kink_params_from_meta(

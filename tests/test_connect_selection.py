@@ -370,3 +370,58 @@ def test_cutting_a_junction_keeps_the_joins_on_either_side():
     # A pair that is not adjacent in any chain names no junction.
     # どの連鎖でも隣接していない組は、どの連結部も指さない。
     assert plan_without_junctions(plan, [(a, c)]).chains == plan.chains
+
+
+def test_the_bridge_kink_choice_is_saved_and_read_back(tmp_path):
+    """
+    Whether bridge bends are judged is stored with the connection, so every reader judges them as GUI04 did.
+    継ぎ目の折れを判定するかは連結と一緒に保存され、どの読み取り側も GUI04 と同じく判定する。
+    """
+    plan = _plan((((1, 1), False), ((2, 2), False)),
+                 params=ConnectParams(judge_bridge_kinks=False))
+    path = str(tmp_path / ("scan" + CONNECT_SUFFIX))
+    save_connect_plan(path, "scan.b2z", plan)
+    with open(path, encoding="utf-8") as handle:
+        stored = json.load(handle)
+    assert stored["params"]["judge_bridge_kinks"] is False
+    assert load_connect_plan(path).params.judge_bridge_kinks is False
+
+
+def test_a_file_without_the_bridge_choice_judges_bridge_bends(tmp_path):
+    """A connection file written before the setting existed keeps the default: bridge bends are judged."""
+    plan = _plan((((1, 1), False), ((2, 2), False)))
+    path = str(tmp_path / ("scan" + CONNECT_SUFFIX))
+    save_connect_plan(path, "scan.b2z", plan)
+    with open(path, encoding="utf-8") as handle:
+        stored = json.load(handle)
+    del stored["params"]["judge_bridge_kinks"]
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(stored, handle)
+    assert load_connect_plan(path).params.judge_bridge_kinks is True
+
+
+def test_a_bridge_choice_that_is_not_a_boolean_is_refused(tmp_path):
+    """A number or a string is not read as a guess at true or false."""
+    plan = _plan((((1, 1), False), ((2, 2), False)))
+    path = str(tmp_path / ("scan" + CONNECT_SUFFIX))
+    save_connect_plan(path, "scan.b2z", plan)
+    with open(path, encoding="utf-8") as handle:
+        stored = json.load(handle)
+    stored["params"]["judge_bridge_kinks"] = "no"
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(stored, handle)
+    with pytest.raises(ValueError):
+        load_connect_plan(path)
+
+
+def test_the_bridge_choice_is_a_change_to_save_when_something_is_connected():
+    """
+    Turning bridge judgement off changes kink counts, so it is pending work; with nothing connected it changes nothing.
+    継ぎ目の判定を切るとキンク数が変わるため保存すべき変更になる。何も連結していなければ何も変わらない。
+    """
+    chain = (((1, 1), False), ((2, 2), False))
+    on = _plan(chain)
+    off = _plan(chain, params=ConnectParams(judge_bridge_kinks=False))
+    assert plan_state_key(on) != plan_state_key(off)
+    assert plan_state_key(ConnectionPlan()) == plan_state_key(
+        ConnectionPlan(params=ConnectParams(judge_bridge_kinks=False)))

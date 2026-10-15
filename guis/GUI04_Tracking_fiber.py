@@ -60,6 +60,7 @@ import math
 import traceback
 import queue
 import threading
+from dataclasses import replace
 from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 # ===== Numerical / scientific libraries =====
@@ -111,7 +112,7 @@ from lib.fiber_selection import (
     EXCLUSION_SUFFIX, constituent_anchors, exclusion_path_for, excluded_flags,
     fiber_anchor, load_exclusions, save_exclusions,
 )
-from lib.kink_detector import END_MARGIN_WIDTHS
+from lib.kink_detector import END_MARGIN_WIDTHS, UNJUDGED_AT_BRIDGE
 from lib.measure import (
     CUT_END_EXCLUSION_WIDTHS,
     DEFAULT_CURVATURE_WINDOW_NM, TRACKING_BUNDLE_KEYS, compute_fiber_stats,
@@ -360,6 +361,67 @@ def length_is_lower_bound(stat: FiberStats) -> bool:
     return bool(stat.touches_frame) or bool(stat.cut_end_count)
 
 
+def unjudged_split(fiber: Fiber) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Split a fiber's unjudged bends by why they were not judged.
+    ファイバーの判定しなかった折れを、判定しなかった理由で分ける。
+
+    Parameters
+    ----------
+    fiber
+        A traced fragment or a connected fibril.
+        追跡した断片、または連結したフィブリル。
+
+    Returns
+    -------
+    tuple of ndarray
+        ``(near_end, at_bridge)`` line indices: bends within
+        `END_MARGIN_WIDTHS` of an end, and bends whose window reaches a
+        connector bridge when bridge bends are not judged.
+        線の点のインデックス ``(near_end, at_bridge)``。端から
+        `END_MARGIN_WIDTHS` 以内の折れと、継ぎ目の折れを判定しない設定で窓が
+        連結器の橋渡し部にかかる折れ。
+    """
+    indices = np.asarray(getattr(fiber, "unjudged_indices", ()), dtype=np.intp)
+    reasons = getattr(fiber, "unjudged_reasons", None)
+    if reasons is None or len(reasons) != len(indices):
+        return indices, np.zeros(0, dtype=np.intp)
+    at_bridge = np.asarray(reasons) == UNJUDGED_AT_BRIDGE
+    return indices[~at_bridge], indices[at_bridge]
+
+
+def bridge_point_mask(fiber: Fiber) -> np.ndarray:
+    """
+    Mark the line points on or bounding a connector bridge.
+    連結器の橋渡し部の点と、その両端の点に印を付ける。
+
+    Parameters
+    ----------
+    fiber
+        A traced fragment or a connected fibril.
+        追跡した断片、または連結したフィブリル。
+
+    Returns
+    -------
+    ndarray of bool
+        One flag per line point: the points whose height the connector
+        interpolated (`Fiber.height_measured` is ``False``) and the fragment
+        point on either side, so the straight segment drawn across the gap is
+        covered end to end. All ``False`` for a fiber with no bridge.
+        線の点ごとのフラグ。連結器が高さを補間した点（`Fiber.height_measured` が
+        ``False``）と、その両側の断片の点。これにより隙間に引いた直線の全体を
+        覆う。橋渡し部の無いファイバーではすべて ``False``。
+    """
+    n = len(fiber.xtrack)
+    measured = getattr(fiber, "height_measured", None)
+    if measured is None or len(measured) != n:
+        return np.zeros(n, dtype=bool)
+    bridge = ~np.asarray(measured, dtype=bool)
+    return (bridge
+            | np.roll(bridge, 1) & (np.arange(n) > 0)
+            | np.roll(bridge, -1) & (np.arange(n) < n - 1))
+
+
 def _table_values(stats, fibers, x_spp, y_spp) -> List[tuple]:
     """
     Pair each fiber's statistics row with its curvature, in table order.
@@ -570,32 +632,41 @@ def fiber_column_help() -> Dict[str, ColumnHelp]:
                   unit="1/" + um),
             _("キンク数を、判定の対象になった長さで割ります。キンクは中心線の両端 {margin} W "
               "ずつでは判定しないので、輪郭長からその分を除いた長さを使います。輪郭長全体で"
-              "割ると、短いファイバーほど密度が低めに出てしまうためです。形式 1.0 のバンドル"
-              "（W が無い）では、輪郭長全体で割ります。").format(margin=margin),
-            "density = N_kink / ((L − 2 × " + margin + " W) / 1000)",
+              "割ると、短いファイバーほど密度が低めに出てしまうためです。連結したフィブリル"
+              "では、継ぎ目（繊維が見えていない隙間を直線でつないだ部分）の長さも除きます。"
+              "継ぎ目の折れを判定しない設定では、判定しなかった範囲も除きます。形式 1.0 の"
+              "バンドル（W が無い）では、輪郭長全体で割ります。").format(margin=margin),
+            "density = N_kink / ((L − 2 × " + margin + " W − L_bridge) / 1000)",
             _("ファイバーが {length} W より短く、判定の対象になる長さが残らないとき。").format(
                 length=f"{2 * END_MARGIN_WIDTHS:g}"),
             "3.9"),
         "unjudged": ColumnHelp(
-            _("中心線の端から {margin} W 以内にあるため、キンクかどうかを判定しなかった折れ"
-              "の数です。端の近くでは片側の腕が短く、また端の多くは交差で切れた所なので、"
-              "判定しません。灰色の白抜きの円で表示し、{kinks} にもキンク密度にも数え"
-              "ません。").format(margin=margin, kinks="Kink count"),
+            _("キンクかどうかを判定しなかった折れの数です。理由は 2 つあります。中心線の"
+              "端から {margin} W 以内の折れは判定しません。端の近くでは片側の腕が短く、"
+              "また端の多くは交差で切れた所だからです。灰色の白抜きの円で表示します。"
+              "「自動連結の設定」で「継ぎ目の折れもキンクとして判定する」を外した場合、窓が継ぎ目にかかる"
+              "折れも判定しません。マゼンタの白抜きの菱形で表示します。どちらも {kinks} にも"
+              "キンク密度にも数えません。").format(margin=margin, kinks="Kink count"),
             "", "", "", "3.8"),
         "W (nm)": ColumnHelp(
             _("ファイバーの見かけの幅 W (nm) です。高さの断面で、まわりの基準面と頂点の"
               "ちょうど中間の高さでの幅（半値全幅）を測り、ファイバー全体での中央値を"
               "取ったものです。キンクの判定などで、長さの物差しとして使います。探針の太さに"
-              "よる広がりを含むので、ファイバーの実際の太さではありません。X の画素サイズで"
-              "nm に直しているため、X と Y の画素サイズが違う画像では、Y 方向に伸びる"
-              "ファイバーでだけ正確です。"),
+              "よる広がりを含むので、ファイバーの実際の太さではありません。幅は X の画素"
+              "単位で測り、X の画素サイズで nm に直します。形式 1.3 以降のバンドルでは Y を"
+              "画素の縦横比で拡大して測るので、どの向きのファイバーでも正確です。形式 1.2 "
+              "以前のバンドルで X と Y の画素サイズが違う画像では、Y 方向に伸びるファイバー"
+              "でだけ正確です。"),
             "", "",
             _("幅を測れずに代わりの値を使ったとき、または形式 1.0 のバンドルのとき。"),
             "3.10"),
         "reliable": ColumnHelp(
             _("中心線のうち、このファイバー自身の高さの断面から位置を決められた点の割合"
-              "（0〜1）です。値が低いほど、中心線の多くが前後の点を直線でつないだだけの"
-              "部分で、そこではキンクも曲率も検出できません。"),
+              "（0〜1）です。断面の上に置く中心線（既定の中心線を含む）では、決められなかった"
+              "点は、平滑化したスケルトンを前後から補間したずれ量だけ動かした位置に置きます。"
+              "値が低いほど、中心線の多くがスケルトンの形に従っており、そこで見つかるキンクや"
+              "曲率は高さではなくスケルトンの形を表します。スケルトン系の中心線では、どの点も"
+              "スケルトンの画素そのもの、または長さ方向に平滑化したスケルトンの上にあります。"),
             _("中心線の各点のうち、次の条件をすべて満たす点を数え、全体の点の数で割ります。"
               "高さの断面からこのファイバー 1 本の位置を決められること、断面の高さの振れ幅が"
               "典型的な値の {amp:g} 倍以上あること、分岐点から {junction:g} W より離れて"
@@ -4149,30 +4220,33 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # centered in their pixels as in the fiber view. The bundle's own copy
         # sits at skeleton pixels and cannot show a reconnected fibril's
         # kinks, so the overview would disagree with the fiber it frames.
-        # Bends not judged next to an end are hollow grey, as in the fiber view.
+        # Bends not judged are hollow, as in the fiber view: grey circles next
+        # to an end, magenta diamonds at a bridge whose bends are not judged.
         # 描画するファイバーのキンクを、各ファイバーの線上の点に、ファイバー表示と
         # 同じ画素中心補正を掛けて描く。バンドル自身の写しはスケルトン画素にあり、
         # 再結合フィブリルのキンクも示せないため、全体像が枠で囲んだファイバーと
-        # 食い違ってしまう。端のそばで判定しなかった折れは、ファイバー表示と同じく
-        # 灰色の中空で描く。
-        kink_points, unjudged_points = [], []
+        # 食い違ってしまう。判定しなかった折れは、ファイバー表示と同じく中空で描く。
+        # 端のそばは灰色の円、継ぎ目の折れを判定しない橋渡し部ではマゼンタの菱形。
+        kink_points, near_end_points, bridge_points = [], [], []
         for _disp_i, f in labeled_fibers:
             ox, oy = f.data[0] + 0.5, f.data[1] + 0.5
             if len(f.kink_indices) > 0:
                 kink_points.append(np.column_stack([
                     f.xtrack[f.kink_indices] + ox, f.ytrack[f.kink_indices] + oy]))
-            unjudged = getattr(f, "unjudged_indices", None)
-            if unjudged is not None and len(unjudged) > 0:
-                unjudged_points.append(np.column_stack([
-                    f.xtrack[unjudged] + ox, f.ytrack[unjudged] + oy]))
+            near_end, at_bridge = unjudged_split(f)
+            for idx, out in ((near_end, near_end_points), (at_bridge, bridge_points)):
+                if len(idx) > 0:
+                    out.append(np.column_stack([f.xtrack[idx] + ox, f.ytrack[idx] + oy]))
         if kink_points:
             pts = np.vstack(kink_points)
             ax.scatter(pts[:, 0] * x_spp, pts[:, 1] * y_spp,
                        c="cyan", s=4, alpha=0.7, linewidths=0)
-        if unjudged_points:
-            pts = np.vstack(unjudged_points)
-            ax.scatter(pts[:, 0] * x_spp, pts[:, 1] * y_spp,
-                       s=6, facecolors="none", edgecolors="0.6", linewidths=0.6)
+        for points, marker, color in ((near_end_points, "o", "0.6"),
+                                      (bridge_points, "D", "magenta")):
+            if points:
+                pts = np.vstack(points)
+                ax.scatter(pts[:, 0] * x_spp, pts[:, 1] * y_spp, s=6, marker=marker,
+                           facecolors="none", edgecolors=color, linewidths=0.6)
 
         # Use the four committed font-size settings.
         fs_title = self.fs_title
@@ -4940,6 +5014,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 埋め戻すことはない。
         connect_fibers = bool(self.connect_plan.chains)
         connected_fibers = self.current_fibers
+        # A piece of a fibril is judged at its bridges as the fibril was.
+        # フィブリルの一部は、橋渡し部でフィブリルと同じく判定する。
+        judge_bridge_kinks = bool(self.connect_plan.params.judge_bridge_kinks)
 
         def _worker():
             """
@@ -4968,6 +5045,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     # 切り出す。帯域内の橋渡しはフィブリルを連結したまま保つ。
                     result = filter_fibers_by_height(
                         image, connected_fibers, lo, hi, progress_cb=_progress,
+                        judge_bridge_kinks=judge_bridge_kinks,
                     )
                 else:
                     # Pixel-level extraction on the raw skeleton: keep only
@@ -5568,22 +5646,62 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _apply_connect_params(self, params: ConnectParams) -> None:
         """
-        Store the thresholds the next automatic search will use.
-        次回の自動連結が使うしきい値を保存する。
+        Store the connection settings: the thresholds the next automatic search
+        will use, and whether bends at the bridges are judged.
+        連結の設定を保存する。次回の自動連結が使うしきい値と、橋渡し部の折れを
+        判定するかどうか。
 
         Notes
         -----
-        Nothing is re-analyzed and no fiber changes. The thresholds are inputs
-        to the automatic search, and the search is an action the user takes;
-        they are not a mode the measured population is derived through, so
-        editing one never re-runs the analysis behind the user; the search runs
-        only when its button is pressed.
-        再解析は行わず、ファイバーも変化しない。しきい値は自動探索への入力であり、
-        探索はユーザーが起こす操作である。計測対象の母集団がそこを経由して導出
-        されるようなモードではないため、編集してもユーザーの背後で解析が走り直す
-        ことはなく、探索はそのボタンを押したときだけ実行する。
+        A threshold change re-analyzes nothing and changes no fiber. The
+        thresholds are inputs to the automatic search, and the search is an
+        action the user takes; they are not a mode the measured population is
+        derived through, so editing one never re-runs the analysis behind the
+        user; the search runs only when its button is pressed.
+        しきい値の変更では再解析は行わず、ファイバーも変化しない。しきい値は
+        自動探索への入力であり、探索はユーザーが起こす操作である。計測対象の母集団が
+        そこを経由して導出されるようなモードではないため、編集してもユーザーの背後で
+        解析が走り直すことはなく、探索はそのボタンを押したときだけ実行する。
+
+        `ConnectParams.judge_bridge_kinks` is the exception: it decides which
+        bends of the fibrils already built are judged, so a change to it is
+        applied to the current connection at once and the connected fibrils'
+        kinks are judged again.
+        `ConnectParams.judge_bridge_kinks` は例外である。組み立て済みのフィブリルの
+        どの折れを判定するかを決めるため、変更は現在の連結に直ちに反映し、連結した
+        フィブリルのキンクを判定し直す。
         """
+        bridge_changed = (
+            params.judge_bridge_kinks != self.connect_plan.params.judge_bridge_kinks)
+        thresholds_changed = replace(
+            params, judge_bridge_kinks=self.connect_params.judge_bridge_kinks,
+        ) != self.connect_params
         self.connect_params = params
+        if bridge_changed:
+            # This setting decides which bends of the fibrils already built
+            # are judged, so it takes effect on the current connection at
+            # once, unlike the search thresholds.
+            # この設定は組み立て済みのフィブリルのどの折れを判定するかを決めるため、
+            # 探索のしきい値と違い、現在の連結に直ちに反映する。
+            self.connect_plan = replace(
+                self.connect_plan,
+                params=replace(self.connect_plan.params,
+                               judge_bridge_kinks=params.judge_bridge_kinks),
+            )
+            self._commit_connection()
+            at_bridge = sum(len(unjudged_split(f)[1]) for f in self.current_fibers)
+            if params.judge_bridge_kinks:
+                self._log(_(
+                    "継ぎ目の折れもキンクとして判定します。連結したフィブリルのキンクを"
+                    "判定し直しました。"
+                ))
+            else:
+                self._log(_(
+                    "継ぎ目の折れは判定しません。連結したフィブリルのキンクを判定し直し、"
+                    "継ぎ目にかかる折れ {n} 箇所を判定しない折れ（マゼンタの菱形）にしました。"
+                ).format(n=at_bridge))
+            if not thresholds_changed:
+                return
         self._log(_(
             "自動連結のしきい値を更新しました。"
             "「自動連結」を実行すると反映されます。"
@@ -6746,10 +6864,26 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         # so the line sits on the ridge instead of half a pixel up and left.
         # 0.5 は各追跡点を画素中心へ置く補正。これを入れないと線が稜線から
         # 左上へ半画素ずれる。
+        # A connector bridge is drawn dashed: it is a straight segment across a
+        # gap where no fiber was observed, and the user has to be able to tell
+        # it from the centerline placed on the image.
+        # 連結器の橋渡し部は破線で描く。繊維を観測していない隙間に引いた直線で
+        # あり、画像上に置いた中心線と見分けられる必要があるためである。
+        legend: List = []
         if app.show_fiber_track_var.get() and len(fiber.xtrack) > 0:
-            ax.plot((fiber.xtrack + off_x + 0.5) * x_spp,
-                    (fiber.ytrack + off_y + 0.5) * y_spp,
+            tx = (fiber.xtrack + off_x + 0.5) * x_spp
+            ty = (fiber.ytrack + off_y + 0.5) * y_spp
+            bridge = bridge_point_mask(fiber)
+            measured = getattr(fiber, "height_measured", None)
+            unobserved = (np.zeros(len(tx), dtype=bool) if measured is None
+                          else ~np.asarray(measured, dtype=bool))
+            ax.plot(np.where(unobserved, np.nan, tx), np.where(unobserved, np.nan, ty),
                     color="lime", lw=1.0, alpha=0.75, zorder=4)
+            if bridge.any():
+                ax.plot(np.where(bridge, tx, np.nan), np.where(bridge, ty, np.nan),
+                        color="lime", lw=1.0, alpha=0.9, linestyle=(0, (2, 2)),
+                        zorder=4, label="Bridge (not observed)")
+                legend.append("bridge")
 
         # Kink points, centered in their pixels like the track line above so
         # the markers stay on it.
@@ -6757,19 +6891,39 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         if app.show_fiber_kink_var.get() and len(fiber.kink_indices) > 0:
             kx = (fiber.xtrack[fiber.kink_indices] + off_x + 0.5) * x_spp
             ky = (fiber.ytrack[fiber.kink_indices] + off_y + 0.5) * y_spp
-            ax.scatter(kx, ky, c="cyan", s=20, zorder=5)
+            ax.scatter(kx, ky, c="cyan", s=20, zorder=5, label="Kink")
+            legend.append("kink")
 
-        # Bends the kink rule measured too close to an end of the fiber to
-        # judge. Hollow grey, so they read as "not judged" rather than as a
-        # kink or as nothing, and they are never counted.
-        # 繊維の端に近すぎてキンク規則が判定しなかった折れ。灰色の中空で描き、
-        # キンクとも「何もない」とも読めない「判定なし」として示す。数には入れない。
-        unjudged = getattr(fiber, "unjudged_indices", None)
-        if app.show_fiber_kink_var.get() and unjudged is not None and len(unjudged) > 0:
-            ux = (fiber.xtrack[unjudged] + off_x + 0.5) * x_spp
-            uy = (fiber.ytrack[unjudged] + off_y + 0.5) * y_spp
-            ax.scatter(ux, uy, s=20, facecolors="none", edgecolors="0.6",
-                       linewidths=1.0, zorder=5)
+        # Bends the kink rule measured and did not judge, drawn hollow so they
+        # read as "not judged" rather than as a kink or as nothing, and never
+        # counted: grey circles next to an end, magenta diamonds where the
+        # window reaches a bridge and bridge bends are not judged.
+        # キンク規則が測ったが判定しなかった折れ。中空で描き、キンクとも「何も
+        # ない」とも読めない「判定なし」として示す。数には入れない。端のそばは灰色の
+        # 円、継ぎ目の折れを判定しない設定で窓が橋渡し部にかかるものはマゼンタの菱形。
+        near_end, at_bridge = unjudged_split(fiber)
+        if app.show_fiber_kink_var.get():
+            for idx, style, label in (
+                    (near_end, dict(marker="o", edgecolors="0.6"),
+                     "Not judged (near end)"),
+                    (at_bridge, dict(marker="D", edgecolors="magenta"),
+                     "Not judged (bridge)")):
+                if len(idx) == 0:
+                    continue
+                ax.scatter((fiber.xtrack[idx] + off_x + 0.5) * x_spp,
+                           (fiber.ytrack[idx] + off_y + 0.5) * y_spp,
+                           s=20, facecolors="none", linewidths=1.0, zorder=5,
+                           label=label, **style)
+                legend.append(label)
+        # The legend appears only when the figure shows something beyond the
+        # kinks, so an ordinary fragment's view is not cluttered, and it sits
+        # above the image so it covers neither the fiber nor the axis labels.
+        # 凡例は、キンク以外のものが図にあるときだけ出し、通常の断片の表示を
+        # 煩雑にしない。繊維も軸ラベルも隠さないよう、画像の上に置く。
+        if any(item != "kink" for item in legend):
+            ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.01),
+                      ncol=len(legend), fontsize=max(fs_tick - 2, 6),
+                      frameon=False, handletextpad=0.4, columnspacing=1.0)
 
         ax.set_xlabel("({0})".format(unit_label), fontsize=fs_label)
         ax.set_ylabel("({0})".format(unit_label), fontsize=fs_label)
@@ -6985,12 +7139,16 @@ class ConnectSettingsWindow(tk.Toplevel):
 
     Notes
     -----
-    Fields map one-to-one onto `lib.fiber_connector.ConnectParams`. Applying
-    validates all six values, stores a new immutable `ConnectParams` on the main
-    window, and re-analyzes the current dataset when connection is enabled.
-    各入力欄は `lib.fiber_connector.ConnectParams` と 1 対 1 に対応する。適用時に
-    6 値を検証し、新しい不変 `ConnectParams` をメインウインドウへ保存し、連結が
-    有効なら現在のデータセットを再解析する。
+    Fields map one-to-one onto `lib.fiber_connector.ConnectParams`: six entries
+    (the four that gate the automatic search and the two that shape a bridge,
+    its trim and its height averaging) and one checkbox for
+    `ConnectParams.judge_bridge_kinks`. Applying validates every value and
+    stores a new immutable `ConnectParams` on the main window
+    (`App._apply_connect_params`).
+    各入力欄は `lib.fiber_connector.ConnectParams` と 1 対 1 に対応する。6 つの
+    入力欄（自動探索の 4 つのゲートと、橋渡しの形を決める 2 つ、すなわち切り落としと
+    高さの平均）と、`ConnectParams.judge_bridge_kinks` の 1 つのチェックボックスがある。適用時にすべての値を検証し、新しい不変
+    `ConnectParams` をメインウインドウへ保存する（`App._apply_connect_params`）。
     """
 
     def __init__(self, parent: "App") -> None:
@@ -7002,7 +7160,7 @@ class ConnectSettingsWindow(tk.Toplevel):
         self._app: "App" = parent
         self.title(_("ファイバー連結の設定"))
         setup_ttk_theme(self)
-        apply_window_size(self, 460, 340, min_w=420, min_h=300)
+        apply_window_size(self, 460, 380, min_w=420, min_h=340)
 
         p = parent.connect_params
         # Row spec: (attr, label text, kind, help text). The label keeps fixed
@@ -7035,6 +7193,24 @@ class ConnectSettingsWindow(tk.Toplevel):
             ent.grid(row=r, column=1, sticky="w", pady=3)
             self._vars[attr] = var
             ToolTip(ent, hint)
+        # Whether bends at the connector's bridges count as kinks. A bridge is
+        # drawn across a gap where no fiber was seen, so its corners come from
+        # the connection rather than from the image; the user decides.
+        # 連結器の橋渡し部の折れをキンクに数えるか。橋渡し部は繊維が見えていない
+        # 隙間に引くため、その角は画像ではなく連結から生じる。判断はユーザーに委ねる。
+        self._judge_bridge_var = tk.BooleanVar(value=bool(p.judge_bridge_kinks))
+        chk = ttk.Checkbutton(
+            body, text=_("継ぎ目の折れもキンクとして判定する"),
+            variable=self._judge_bridge_var,
+        )
+        chk.grid(row=len(self._rows), column=0, columnspan=2, sticky="w", pady=(8, 3))
+        ToolTip(chk, _(
+            "連結した継ぎ目（繊維が見えていない隙間を直線でつないだ部分）にかかる折れを、"
+            "キンクとして判定するかどうか。外すと、それらの折れは判定せず、個別表示のウインドウ"
+            "と AFM 全体像にマゼンタの白抜きの菱形で表示し、キンク数にもキンク密度にも数えません。どちらの"
+            "場合も、継ぎ目そのものの長さはキンク密度の分母に含めません。形式 1.0 の"
+            "バンドルでは、この設定は効きません。"
+        ))
         body.columnconfigure(0, weight=1)
 
         btns = ttk.Frame(self)
@@ -7097,6 +7273,7 @@ class ConnectSettingsWindow(tk.Toplevel):
                     parent=self,
                 )
                 return
+        values["judge_bridge_kinks"] = bool(self._judge_bridge_var.get())
         self._app._apply_connect_params(ConnectParams(**values))
 
     def _on_reset(self) -> None:
@@ -7107,6 +7284,7 @@ class ConnectSettingsWindow(tk.Toplevel):
         defaults = ConnectParams()
         for attr, _label, _kind, _hint in self._rows:
             self._vars[attr].set(self._fmt_value(getattr(defaults, attr)))
+        self._judge_bridge_var.set(bool(defaults.judge_bridge_kinks))
 
     def _on_close(self) -> None:
         """

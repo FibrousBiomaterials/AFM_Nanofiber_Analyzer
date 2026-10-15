@@ -50,6 +50,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Environments set up by an earlier launcher install it on their next start.
   Analysis results do not change.
 
+- GUI04's connection settings gain the checkbox 「継ぎ目の折れもキンクとして判定する」
+  (`ConnectParams.judge_bridge_kinks`, on by default), saved in the
+  `_connect.json` sidecar and applied by GUI03 like the rest of the
+  connection. A bridge is the straight segment the connector draws across
+  a gap where no fiber was observed, so its corners come from the connection
+  rather than from the image. When the box is cleared, a bend whose window
+  reaches a bridge is not judged: GUI04 draws it as a hollow magenta diamond
+  beside the hollow grey circle of a bend next to an end, and it is counted in
+  `unjudged` but not in the kinks. With the default, kinks do not change.
+- GUI04's fiber view draws the centerline across a bridge dashed and shows a
+  legend when the view holds a bridge or an unjudged bend.
+- The per-fiber CSV gains `unjudged_bridge_count` and `bridge_excluded_nm`,
+  appended after the existing columns; CSVs without them still read, as having
+  no bridge.
+- GUI03 warns when the bundles it compares for curvature differ in pixel size:
+  curvature is averaged unsigned, so a straight fiber reads above zero by an
+  amount that depends on the pixel size and the noise.
+
 ### Changed
 
 - Bundle format **1.2**: the vlmeta entry `centerline` records the line a
@@ -119,6 +137,37 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   export without a size header, or a bundle written before the scan size was
   recorded) and names the scale it keeps. That scale, set by the previous file
   or the default, otherwise carried over silently into the profile distances.
+
+- Bundle format **1.4**: the apparent width W, which every length of the
+  centerline placement and the kink rule is a multiple of, is read at the
+  level halfway between each cross-section's base and the first maximum
+  uphill from the track point, the fiber's own crest, instead of halfway to
+  the cross-section's overall maximum. A taller fiber within the ±12 px
+  searched raised the level of a faint fiber beside it toward the faint
+  fiber's own crest, and above it when the taller fiber was about twice as
+  high or more, so the faint fiber was measured too narrow, or zero wide, and
+  zero widths were counted in the median. A skeleton point below its own half maximum is no longer
+  counted. Two limits remain: a faint fiber that is only a shoulder on a
+  taller fiber's flank still climbs to the taller fiber's crest, and a taller
+  fiber so close that the profile between them stays above the faint fiber's
+  half maximum widens the measured width across both. **Widths, centerlines, kinks, lengths and heights change from this
+  version** for the fibers whose width changes: on the five bundled
+  scans W changed for 51 of 221 fibers (14 of 60 on the tunicate scan, 35 of
+  139 on the Bruker scan, 2 of 15 on the higher-plant scan, none on the
+  synthetic scans), and the kinks stored fell from 161 to 156, on five
+  fibers. Against the visual kink reference the clear kinks found stay at 58
+  of 64, and the reported bends that match no marked kink fall from 65 to 60. A reader places the line of a bundle of format 1.1 to 1.3 with the
+  width definition its kinks were judged with.
+- The kink density of a connected fibril leaves its bridges out of the length
+  it divides by, because no fiber was observed there; with bridge kinks not
+  judged, also every position whose window reaches a bridge. **Kink densities
+  of connected fibrils change from this version**; fibers without a bridge are
+  unchanged.
+- The connection search, GUI04's connection candidates and the candidate test
+  of GUI04's 「非孤立を除外」 compare distances and angles in specimen geometry,
+  with the row scaled by the pixel aspect, as the centerline and the kink rule
+  do. Nothing changes for square pixels or for a stored connection, which is
+  not searched again.
 
 ### Fixed
 
@@ -253,6 +302,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - GUI01's separate preview window of one analyzed file labels the colorbar of the original and calibrated
   height images "(nm)"; it read "(µm)", although the heights are in
   nanometres. Results do not change.
+
+- The documentation said that an interpolated stretch of the centerline is
+  straight, so that no kink or curvature can be found on it. Only the offset
+  is interpolated; the point lies on the skeleton track smoothed over W/4,
+  which keeps the skeleton's bends, so a kink or curvature found there has the
+  shape of the skeleton. The algorithm and GUI04 documents, the `reliable`
+  column's help and the docstrings now say so. Results do not change.
+- GUI04's help for the `W (nm)` column and the GUI04 document said W is exact
+  only for a fiber running along Y on a scan with different X and Y pixel
+  sizes; that holds only for bundles of format 1.2 or older, which were
+  measured in pixel geometry. Results do not change.
 
 ### Deprecated
 

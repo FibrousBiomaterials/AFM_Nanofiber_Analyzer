@@ -95,13 +95,16 @@ CONNECT_PARAM_FIELDS: Tuple[str, ...] = (
     "num_avg_points",
     "height_diff_ratio",
     "trim_points",
+    "judge_bridge_kinks",
 )
 
-# Fields stored as integers; the rest are stored as floats.
-# 整数として保存するフィールド。残りは浮動小数点として保存する。
+# Fields stored as integers and as booleans; the rest are stored as floats.
+# 整数として保存するフィールドと真偽値として保存するフィールド。残りは浮動小数点
+# として保存する。
 _INT_PARAM_FIELDS = frozenset(
     {"lookback_length", "num_avg_points", "trim_points"}
 )
+_BOOL_PARAM_FIELDS = frozenset({"judge_bridge_kinks"})
 
 
 @dataclass(frozen=True)
@@ -307,7 +310,12 @@ def params_to_dict(params: ConnectParams) -> Dict:
     out: Dict = {}
     for name in CONNECT_PARAM_FIELDS:
         value = getattr(params, name)
-        out[name] = int(value) if name in _INT_PARAM_FIELDS else float(value)
+        if name in _BOOL_PARAM_FIELDS:
+            out[name] = bool(value)
+        elif name in _INT_PARAM_FIELDS:
+            out[name] = int(value)
+        else:
+            out[name] = float(value)
     return out
 
 
@@ -331,7 +339,8 @@ def params_from_dict(raw: Dict) -> ConnectParams:
     Raises
     ------
     ValueError
-        If a present field cannot be read as a number.
+        If a present field cannot be read as a number, or a boolean field is
+        not ``true`` or ``false``.
 
     Examples
     --------
@@ -345,6 +354,17 @@ def params_from_dict(raw: Dict) -> ConnectParams:
     kwargs = {}
     for name in CONNECT_PARAM_FIELDS:
         if name not in raw:
+            continue
+        if name in _BOOL_PARAM_FIELDS:
+            # Only a JSON boolean: a number or a string would be a guess at
+            # what the writer meant, and this setting changes kink counts.
+            # JSON の真偽値だけを受け付ける。数値や文字列は書き手の意図の推測に
+            # なり、この設定はキンク数を変えるためである。
+            if not isinstance(raw[name], bool):
+                raise ValueError(
+                    f"connection parameter {name!r} is not true or false: {raw[name]!r}"
+                )
+            kwargs[name] = raw[name]
             continue
         try:
             kwargs[name] = (
@@ -791,10 +811,17 @@ def plan_state_key(plan: Optional[ConnectionPlan]) -> str:
     write. The thresholds are deliberately **not** part of the key: they no
     longer change any measured fiber once the chains are fixed, so a threshold
     edited while nothing is connected leaves nothing to save.
+    `ConnectParams.judge_bridge_kinks` is part of it whenever a chain exists,
+    because it changes the kinks counted on the connected fibrils; it is added
+    only when it is off, so a plan at the default keys the same as one that
+    does not record the setting.
     連鎖を持たないプランは、プランが無い場合と同じキーになる。両者は計測上等価で
     あり、どちらも「まだ書き出すものがある」と報告してはならないからである。しきい値
     は意図的にキーへ含めない。連鎖が確定した後は計測されるファイバーを変えないため、
     何も連結していない状態でしきい値を変えても保存すべきものは生じない。
+    `ConnectParams.judge_bridge_kinks` は、連鎖があるときはキーに含める。連結した
+    フィブリルで数えるキンクを変えるためである。含めるのはオフのときだけなので、
+    既定のプランは、この設定を記録していないプランと同じキーになる。
 
     Examples
     --------
@@ -812,6 +839,9 @@ def plan_state_key(plan: Optional[ConnectionPlan]) -> str:
         [[int(m.anchor[0]), int(m.anchor[1]), bool(m.flip)] for m in chain]
         for chain in plan.chains
     ]
+    if not plan.params.judge_bridge_kinks:
+        return json.dumps({"chains": body, "judge_bridge_kinks": False},
+                          sort_keys=True)
     return json.dumps(body, sort_keys=True)
 
 

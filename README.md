@@ -819,7 +819,11 @@ python cli.py heights results --output heights.csv
 `kink_angles_deg` (semicolon-separated degrees), `straightness`,
 `height_p90_nm`, `apparent_width_nm`, `width_measured` (1 when the width was
 read from the fiber, 0 when the fallback was used), `line_reliable_fraction`,
-and `unjudged_count`. Earlier column sets are read back. `heights` prints a
+`unjudged_count`, `touches_frame`, `cut_end_count`, `frame_weight`,
+`unjudged_bridge_count` (bends not judged because their window reaches a
+connection bridge), and `bridge_excluded_nm` (the length the bridges took out of the kink
+density's divisor). `measure` applies no connection, so it writes these two as 0;
+they are filled for connected fibrils in GUI04's export. Earlier column sets are read back. `heights` prints a
 per-bundle summary and optionally writes a long-format CSV (`bundle`,
 `height_nm`) for regrouping and re-binning in external tools. Folder
 arguments expand to all bundles directly inside the folder.
@@ -926,7 +930,7 @@ Each bundle also stores root metadata (blosc2 `vlmeta`):
 | Key | Content |
 |---|---|
 | `params` | Analysis-parameter dictionary, identical to `<input_stem>_param.json`. Read back for `kinkangle_deg` (see below), and for `kink_decompose_px` on a bundle of format 1.0; the remaining fields are provenance. |
-| `version` | Bundle format version (currently `"1.3"`, whose centerline and kinks are computed in the scan's physical geometry, so the angles on a scan with different X and Y pixel sizes are the specimen's; a `"1.2"` bundle was computed in pixel geometry and is read in it, a `"1.1"` bundle is measured along the half-maximum centerline, and a `"1.0"` bundle along its skeleton track until it is re-analyzed). |
+| `version` | Bundle format version (currently `"1.4"`, whose apparent width W is read at the level halfway between each cross-section's base and the first maximum uphill from the track point, the fiber's own crest, so a taller neighbouring fiber does not set the level it is read at as long as the fiber has a maximum of its own; a `"1.1"` to `"1.3"` bundle was judged halfway to the cross-section's overall maximum and is read that way. From `"1.3"` the centerline and kinks are computed in the scan's physical geometry, so the angles on a scan with different X and Y pixel sizes are the specimen's; a `"1.2"` bundle was computed in pixel geometry and is read in it, a `"1.1"` bundle is measured along the half-maximum centerline, and a `"1.0"` bundle along its skeleton track until it is re-analyzed). |
 | `centerline` | The centerline the kinks were judged on and the fibers are measured along, one of the `centerline_method` values. Required from format 1.2; a reader builds the fibers on exactly this line and refuses a 1.2 or later bundle that does not name a known one. |
 | `software_version` | Application release that wrote the bundle. |
 | `input_file` | Base name of the processed input file. |

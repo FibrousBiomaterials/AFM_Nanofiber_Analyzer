@@ -27,6 +27,7 @@ import numpy as np
 from . import imp_tools
 from .centerline import (
     SKELETON_TRACK,
+    WIDTH_PEAK_NEAREST,
     is_pixel_chain_line,
     is_placed_line,
     place_centerline,
@@ -50,6 +51,7 @@ def _build_fiber(
     centerline: str = SKELETON_TRACK,
     unjudged_set: Optional[set] = None,
     pixel_aspect: float = 1.0,
+    width_peak: str = WIDTH_PEAK_NEAREST,
 ) -> Fiber:
     """
     Build one Fiber from a labeled skeleton component and feature lookups.
@@ -121,6 +123,11 @@ def _build_fiber(
         kinks were computed in (`bundle_schema.pixel_aspect_from_meta`).
         バンドルの線とキンクを計算した幾何の Y 画素サイズ ÷ X 画素サイズ
         （`bundle_schema.pixel_aspect_from_meta`）。
+    width_peak
+        Which maximum the apparent width is read from, the one the bundle's
+        kinks were judged with (`bundle_schema.width_peak_from_meta`).
+        見かけ幅をどの極大から読むか。バンドルのキンクを判定したときのもの
+        （`bundle_schema.width_peak_from_meta`）。
 
     Returns
     -------
@@ -144,7 +151,7 @@ def _build_fiber(
         # 引き続きスケルトン座標で一致する。
         placed = place_centerline(
             cal, xtrack_prcimg, ytrack_prcimg, branch_points,
-            method=centerline, aspect=pixel_aspect,
+            method=centerline, aspect=pixel_aspect, width_peak=width_peak,
         )
         xtrack = placed.x - x
         ytrack = placed.y - y
@@ -320,6 +327,15 @@ class FiberTrackingImage:
         画素、形式 1.3 より古いバンドル、バンドルから読み込まないコンテナでは 1.0。
         `lib.measure` がバンドルから設定し（`bundle_schema.pixel_aspect_from_meta`）、
         計測時に入力された寸法からは決して設定しない。
+    width_peak
+        Which maximum the apparent width is read from: the one the bundle's
+        kinks were judged with, set by `lib.measure` from the bundle
+        (`bundle_schema.width_peak_from_meta`);
+        `centerline.WIDTH_PEAK_NEAREST` for a container not loaded from a
+        bundle.
+        見かけ幅をどの極大から読むか。バンドルのキンクを判定したときのもので、
+        `lib.measure` がバンドルから設定する（`bundle_schema.width_peak_from_meta`）。
+        バンドルから読み込まないコンテナでは `centerline.WIDTH_PEAK_NEAREST`。
 
     Examples
     --------
@@ -435,6 +451,11 @@ class FiberTrackingImage:
         # 線とキンクの計算に使われた画素の縦横比。`lib.measure` がバンドルから
         # 設定する（`bundle_schema.pixel_aspect_from_meta`）。
         self.pixel_aspect: float = 1.0
+        # Which maximum the apparent width is read from; `lib.measure` sets it
+        # from the bundle (`bundle_schema.width_peak_from_meta`).
+        # 見かけ幅をどの極大から読むか。`lib.measure` がバンドルから設定する
+        # （`bundle_schema.width_peak_from_meta`）。
+        self.width_peak: str = WIDTH_PEAK_NEAREST
 
     def fibers_in_image_parallel(
         self,
@@ -600,13 +621,14 @@ class FiberTrackingImage:
         bp = self.bp
         kind = self.centerline
         aspect = self.pixel_aspect
+        width_peak = self.width_peak
 
         def build(label: int) -> Fiber:
             return _build_fiber(
                 label_image, label, data[label], cal, spp,
                 kink_set, dp_set, ep_set, kink_angle_map, spp_y,
                 branch_points=bp, centerline=kind, unjudged_set=unjudged_set,
-                pixel_aspect=aspect,
+                pixel_aspect=aspect, width_peak=width_peak,
             )
 
         if not parallel:

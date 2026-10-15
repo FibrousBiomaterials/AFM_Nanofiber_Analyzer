@@ -129,11 +129,16 @@ bundle's metadata, so the kinks and the coordinates they are drawn on
 (centerline or skeleton track) always come from one definition. When the
 bundle's centerline is not the default, GUI04 names it in the log, because
 nothing else on screen shows which centerline the numbers were measured along.
-A bundle of format 1.3 also had its centerline placed in physical geometry
+A bundle of format 1.3 or later also had its centerline placed in physical geometry
 (§2), so GUI04 places it again with the pixel aspect of the bundle's recorded
 scan size (`bundle_schema.pixel_aspect_from_meta`), not with the scale entered
 in its scale fields; an older bundle is placed in pixel geometry, as it was
-judged.
+judged. Likewise a bundle of format 1.4 had its apparent width W (§2.1) read at
+the level halfway between each cross-section's base and the first maximum
+uphill from the skeleton point,
+and a bundle of format 1.1 to 1.3 halfway to the cross-section's overall
+maximum; GUI04 places the centerline with the maximum the bundle's format
+reads the width from (`bundle_schema.width_peak_from_meta`).
 
 ```python
 # source: lib/fiber_tracking_image.py::_build_fiber
@@ -142,7 +147,7 @@ fiber_image = cal[y: y + h, x: x + w].copy()
 if is_placed_line(centerline):
     placed = place_centerline(
         cal, xtrack_prcimg, ytrack_prcimg, branch_points,
-        method=centerline, aspect=pixel_aspect,
+        method=centerline, aspect=pixel_aspect, width_peak=width_peak,
     )
     xtrack = placed.x - x
     ytrack = placed.y - y
@@ -214,7 +219,7 @@ accuracy on synthetic scans are in [Evaluation on particular data](validation.md
 ```python
 # source: lib/centerline.py::place_centerline
 width, measured = measure_apparent_width(
-    height, x, y, return_measured=True, aspect=aspect)
+    height, x, y, return_measured=True, aspect=aspect, peak=width_peak)
 lx, ly, reliable, crest = _refine(
     height, x, y, width, branch_points, method, aspect)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
@@ -271,11 +276,14 @@ profiles = _bilinear(
     (y[:, None] + ny[:, None] * offsets[None, :]) / float(aspect),
     x[:, None] + nx[:, None] * offsets[None, :],
 )
-peak = profiles.max(axis=1)
-base = np.percentile(profiles, 10.0, axis=1)
-level = base + 0.5 * (peak - base)
-above = profiles >= level[:, None]
 centre = offsets.size // 2
+if peak == WIDTH_PEAK_NEAREST:
+    top = profiles[np.arange(x.size), _climb_to_maximum(profiles, centre)]
+else:
+    top = profiles.max(axis=1)
+base = np.percentile(profiles, 10.0, axis=1)
+level = base + 0.5 * (top - base)
+above = profiles >= level[:, None]
 widths = np.empty(x.size, dtype=np.float64)
 usable = np.zeros(x.size, dtype=bool)
 for i in range(x.size):
@@ -287,6 +295,8 @@ for i in range(x.size):
         hi += 1
     widths[i] = offsets[hi] - offsets[lo]
     usable[i] = lo > 0 and hi < offsets.size - 1
+if peak == WIDTH_PEAK_NEAREST:
+    usable &= above[:, centre]
 if usable.sum() < max(1, x.size // 2):
     return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
 width = float(np.median(widths[usable]))
@@ -303,11 +313,24 @@ Step by step:
    ±12 px, by bilinear interpolation.
 2. Each profile has its own base, the 10th percentile of its samples, so a fiber
    on a residual background slope is measured against its local base. The level
-   is halfway between that base and the profile's maximum.
+   is halfway between that base and the fiber's own crest: the maximum reached
+   by climbing uphill from the skeleton point to the first maximum
+   (`_climb_to_maximum`, §2.3), not the highest sample of the profile, so a
+   taller fiber elsewhere within the ±12 px does not set the level as long as
+   the fiber has a maximum of its own. A faint fiber that is only a shoulder on
+   a taller fiber's flank climbs to the taller fiber's maximum. A bundle of
+   format 1.1 to 1.3 is read with the profile's highest sample
+   (`centerline.WIDTH_PEAK_GLOBAL`), the maximum its format reads the width
+   from (§1.2).
 3. The run above that level is grown outward from the skeleton point. It stops
    where the profile first drops below the level, so a second fiber further
-   along the normal cannot widen it. A run that reaches the end of the search
-   range never came back down and is not used.
+   along the normal cannot widen it, provided the profile between them falls
+   below the level; a fiber so close that it does not is included in the run.
+   A run that reaches the end of the search range never came back down and is
+   not used. For a bundle of format 1.4, a skeleton point that lies below the
+   level itself is not used either: it is on the flank, not on the fiber. The
+   run is grown from the point's neighbours, so it would not be this fiber's
+   width; it can be empty, a width of 0 that pulls the median down.
 4. W is the **median** over the usable points. A width is a property of the
    fiber, so one value is used along the whole fiber.
 
@@ -358,15 +381,24 @@ normal. It extends $\pm(0.75 + 1.5)\,W$ from the frame: 0.75 W in which to find
 the section's crest (§2.3), plus 1.5 W beyond it in which to find the half-maximum
 crossings.
 
-### 2.3 Climbing to the nearest maximum
+### 2.3 Climbing to the first maximum uphill
 
-From the frame point each section is climbed uphill to the **nearest** local
-maximum, not to the highest point in reach. This keeps a brighter neighbouring
-fiber from capturing the centerline.
+From the frame point each section is climbed uphill to the **first** local
+maximum it reaches, not to the highest point in reach. This keeps a brighter neighbouring
+fiber from capturing the centerline. The climb is `_climb_to_maximum`, the same
+one the width measurement of a format 1.4 bundle uses (§2.1).
 
 ```python
 # source: lib/centerline.py::_refine
 c = int(np.argmin(np.abs(s)))
+k = _climb_to_maximum(prof, c)
+peak = prof[rows, k]
+within_reach = np.abs(s[k]) < reach - 0.5 * _WIDTH_STEP_PX
+```
+
+```python
+# source: lib/centerline.py::_climb_to_maximum
+n, ns = prof.shape
 dif = np.diff(prof, axis=1)
 k = np.full(n, c)
 go_right = dif[:, c] > 0
@@ -376,9 +408,7 @@ right_end = np.where(stop_right.any(1), stop_right.argmax(1), stop_right.shape[1
 k = np.where(go_right, np.minimum(right_end, ns - 1), k)
 stop_left = dif[:, :c][:, ::-1] >= 0
 left_steps = np.where(stop_left.any(1), stop_left.argmax(1), c)
-k = np.where(go_left, c - left_steps, k)
-peak = prof[rows, k]
-within_reach = np.abs(s[k]) < reach - 0.5 * _WIDTH_STEP_PX
+return np.where(go_left, c - left_steps, k)
 ```
 
 `k[i]` is the sample index of that maximum and `peak[i]` its height. A maximum
@@ -484,8 +514,11 @@ return _solve_tridiagonal(off, main, off, weight * target)
 A first-order penalty interpolates linearly across a run of unreliable points.
 Past the last reliable point it holds the offset constant, so an unreliable end
 keeps the offset of the reliable part next to it instead of drifting. The result
-is clipped to ±0.75 W. An interpolated run is straight, so no kink or curvature
-can be found on it. That is what the `reliable` column reports (§3.11).
+is clipped to ±0.75 W. Only the offset is interpolated: the point itself lies on
+the frame, the skeleton track smoothed over W/4 (§2.2), shifted by that offset.
+The frame keeps the skeleton track's bends, so a kink or a curvature found on an
+interpolated run has the shape of the skeleton track, not of the height. That is
+what the `reliable` column reports (§3.11).
 
 ### 2.6 Crest height
 
@@ -1057,6 +1090,13 @@ start use a shorter backward chord. A fiber shorter than 100 nm has no
 curvature, and its cell is blank rather than 0, so it is not read as perfectly
 straight.
 
+The turning angle is unsigned, so a straight fiber does not read 0: the
+centerline's own sideways ripple keeps the mean above zero, and image noise
+changes it (it raised the mean in all but one of the cases measured); both
+depend on the pixel size. How much, on a synthetic straight fiber, is in
+[Evaluation on particular data](validation.md) §4.13. GUI03 warns when the
+bundles it compares for curvature differ in pixel size.
+
 ### 3.7 `EP count`
 
 `len(Fiber.ep_indices)`: the number of the fiber's end points that are
@@ -1075,11 +1115,20 @@ the bends measured within 1.5 W of a centerline end and left unjudged. Both are
 matched to the fiber by skeleton pixel (§1.2). The rule that produced them is
 [Analysis algorithms](algorithms.md) §4.3–§4.4.
 
+A bend is left unjudged for one of two reasons, recorded per bend in
+`Fiber.unjudged_reasons` (`None` for a traced fragment, whose unjudged bends
+all lie next to an end): it lies within 1.5 W of an end
+(`kink_detector.UNJUDGED_NEAR_END`), or it lies on a connected fibril whose
+connection does not judge bridge bends and its window reaches a bridge
+(`kink_detector.UNJUDGED_AT_BRIDGE`, §5.2). The `unjudged` column counts both;
+the CSV also writes how many were at a bridge (`unjudged_bridge_count`).
+
 A connected fibril or a height-band sub-fiber is a centerline the bundle does
 not contain. GUI04 judges it again with `KinkDetector.judge_line`, using the
 `kinkangle_deg` recorded in the bundle, so that one image never shows kinks from
-two rules (§5.2). An unjudged bend is drawn as a hollow grey circle. It is never
-counted in `Kink count`, the kink density, or the CSV kink angles.
+two rules (§5.2). An unjudged bend is drawn hollow, as a grey circle next to an
+end or a magenta diamond at a bridge (§4.1). It is never counted in
+`Kink count`, the kink density, or the CSV kink angles.
 
 ### 3.9 `kink density (1/µm)`
 
@@ -1094,13 +1143,16 @@ length_um = float(stat.length_nm) / 1000.0
 width_nm = float(getattr(stat, "width_nm", float("nan")))
 if np.isfinite(width_nm) and width_nm > 0.0:
     length_um -= 2.0 * END_MARGIN_WIDTHS * width_nm / 1000.0
-if length_um <= 0.0:
+bridge_nm = float(getattr(stat, "bridge_excluded_nm", 0.0))
+if np.isfinite(bridge_nm):
+    length_um -= bridge_nm / 1000.0
+if length_um <= 1e-9:
     return float("nan")
 return float(stat.kink_count) / length_um
 ```
 
 $$
-\text{kink density} = \frac{N_\text{kink}}{(L - 2 \times 1.5\,W)/1000}
+\text{kink density} = \frac{N_\text{kink}}{(L - 2 \times 1.5\,W - L_\text{bridge})/1000}
 $$
 
 The divisor is the **judged** length. The kink rule does not judge a bend within
@@ -1110,6 +1162,18 @@ than 3 W had nothing judged and is blank. A fiber with no kink over a judged
 length is a real 0.00. The W used here is `FiberStats.width_nm` even when it is
 the fallback width, which the `W (nm)` column leaves blank. A fiber without a
 width (format 1.0, on the skeleton track) is divided by its whole contour.
+
+$L_\text{bridge}$ is `FiberStats.bridge_excluded_nm`, 0 for a fiber without a
+bridge. On a connected fibril of a bundle of format 1.1 or later it is the
+length of the bridges inside the judged span: a bridge is a straight segment across a gap where no fiber was observed,
+so its only bends are its two corners, where it meets the fragments. With
+bridge bends judged, a kink at such a corner is counted while the bridge's
+length is still left out. When the connection does not judge bridge bends,
+$L_\text{bridge}$ also covers every position whose window (±0.75 W) reaches a
+bridge, because no bend there was judged. The kink rule computes it
+(`KinkJudgement.bridge_excluded_px`, §5.2) and `compute_fiber_stats` converts
+it to nm with the X pixel size. A CSV written before the `bridge_excluded_nm` column existed reads as 0, the
+divisor it was written with.
 
 ### 3.10 `W (nm)`
 
@@ -1124,9 +1188,13 @@ width_nm = (
 ```
 
 The apparent width W of §2.1, converted to nanometers with the **X** pixel size.
-W is measured along the normal in pixel units, whatever the fiber's direction,
-so on a scan whose X and Y pixel sizes differ it is exact only for a fiber
-running along Y. The cell is blank when the fallback width was substituted
+W is measured along the normal in X pixels with Y scaled by the pixel aspect
+(§2), so for a bundle of format 1.3 or later with a recorded scan size it is
+exact whatever the fiber's direction. An older bundle was measured in pixel geometry (§1.2): on a scan
+whose X and Y pixel sizes differ its W is exact only for a fiber running along
+Y. The pixel aspect comes from the bundle's recorded scan size and the X pixel
+size from GUI04's scale field, so the two agree when the scale field holds the
+recorded scan size. The cell is blank when the fallback width was substituted
 (`Fiber.width_measured` is `False`); the load log reports how many fibers used
 it. W is the scale at which the fiber's kinks were judged, and it includes the
 probe's broadening. It is not the fiber's physical diameter.
@@ -1143,8 +1211,12 @@ reliable_fraction = (
 ```
 
 The fraction of centerline points whose position was measured on this fiber's own
-cross-section (§2.5) rather than interpolated. A low value means much of the
-centerline is a straight interpolation, where kinks and curvature cannot be found.
+cross-section (§2.5) rather than interpolated. On a centerline placed on the
+cross-sections (every method but the skeleton-based ones, §2.8), a low value
+means much of the centerline follows the smoothed skeleton track rather than
+the height, so the kinks and curvature found there have the shape of the
+skeleton track. On a skeleton-based centerline every point follows the
+skeleton track whatever the value.
 A connected fibril counts its bridge points as not reliable (§5.2).
 
 ## 4. The fiber detail window
@@ -1159,26 +1231,59 @@ if app.current_image is not None:
     x_spp = x_scale / full_w
     y_spp = y_scale / full_h
 ...
+legend: List = []
 if app.show_fiber_track_var.get() and len(fiber.xtrack) > 0:
-    ax.plot((fiber.xtrack + off_x + 0.5) * x_spp,
-            (fiber.ytrack + off_y + 0.5) * y_spp,
+    tx = (fiber.xtrack + off_x + 0.5) * x_spp
+    ty = (fiber.ytrack + off_y + 0.5) * y_spp
+    bridge = bridge_point_mask(fiber)
+    measured = getattr(fiber, "height_measured", None)
+    unobserved = (np.zeros(len(tx), dtype=bool) if measured is None
+                  else ~np.asarray(measured, dtype=bool))
+    ax.plot(np.where(unobserved, np.nan, tx), np.where(unobserved, np.nan, ty),
             color="lime", lw=1.0, alpha=0.75, zorder=4)
+    if bridge.any():
+        ax.plot(np.where(bridge, tx, np.nan), np.where(bridge, ty, np.nan),
+                color="lime", lw=1.0, alpha=0.9, linestyle=(0, (2, 2)),
+                zorder=4, label="Bridge (not observed)")
+        legend.append("bridge")
 if app.show_fiber_kink_var.get() and len(fiber.kink_indices) > 0:
     kx = (fiber.xtrack[fiber.kink_indices] + off_x + 0.5) * x_spp
     ky = (fiber.ytrack[fiber.kink_indices] + off_y + 0.5) * y_spp
-    ax.scatter(kx, ky, c="cyan", s=20, zorder=5)
-unjudged = getattr(fiber, "unjudged_indices", None)
-if app.show_fiber_kink_var.get() and unjudged is not None and len(unjudged) > 0:
-    ux = (fiber.xtrack[unjudged] + off_x + 0.5) * x_spp
-    uy = (fiber.ytrack[unjudged] + off_y + 0.5) * y_spp
-    ax.scatter(ux, uy, s=20, facecolors="none", edgecolors="0.6",
-               linewidths=1.0, zorder=5)
+    ax.scatter(kx, ky, c="cyan", s=20, zorder=5, label="Kink")
+    legend.append("kink")
+near_end, at_bridge = unjudged_split(fiber)
+if app.show_fiber_kink_var.get():
+    for idx, style, label in (
+            (near_end, dict(marker="o", edgecolors="0.6"),
+             "Not judged (near end)"),
+            (at_bridge, dict(marker="D", edgecolors="magenta"),
+             "Not judged (bridge)")):
+        if len(idx) == 0:
+            continue
+        ax.scatter((fiber.xtrack[idx] + off_x + 0.5) * x_spp,
+                   (fiber.ytrack[idx] + off_y + 0.5) * y_spp,
+                   s=20, facecolors="none", linewidths=1.0, zorder=5,
+                   label=label, **style)
+        legend.append(label)
+if any(item != "kink" for item in legend):
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.01),
+              ncol=len(legend), fontsize=max(fs_tick - 2, 6),
+              frameon=False, handletextpad=0.4, columnspacing=1.0)
 ```
 
 The green curve is the centerline (`Fiber.xtrack` / `Fiber.ytrack`), along
-which every number in the table is measured. Cyan dots are kinks and hollow grey circles are
-unjudged bends, both drawn at their index on the centerline. The 0.5 offset puts
-each coordinate at the center of its pixel, so the centerline sits on the ridge.
+which every number in the table is measured. On a connected fibril, the part of
+the centerline across each bridge (§5.2) is drawn dashed: it is a straight
+segment where no fiber was observed. `bridge_point_mask` marks the bridge
+points and the fragment point on either side, so the dashed segment runs from
+one fragment to the next. Cyan dots are kinks. Unjudged bends are hollow:
+grey circles for those next to an end, magenta diamonds for those at a bridge
+when the connection does not judge bridge bends (`unjudged_split` separates
+the two by `Fiber.unjudged_reasons`, §3.8). All are drawn at their index on the
+centerline. A legend appears above the image when the view shows a bridge or an unjudged bend.
+The 0.5 offset puts each coordinate at the center of its pixel, so the
+centerline sits on the ridge. The overview draws the same two kinds of
+unjudged bend with the same markers.
 
 This view scales the axes by the displayed extent divided by the array size
 (`x_scale / full_w`). The measurement pixel size divides by the array size plus
@@ -1236,11 +1341,18 @@ lookback_length: int = 15
 num_avg_points: int = 5
 height_diff_ratio: float = 1.0
 trim_points: int = 5
+judge_bridge_kinks: bool = True
 ```
 
 The search and the candidate list read the **skeleton pixels** (§1.3), in
 `(row, col)` order. Which fragments continue each other is a question of
-topology, and the thresholds were tuned on the skeleton. For each end $B$ of a
+topology, and the thresholds were tuned on the skeleton. Every point the gates
+compare is first put into specimen geometry by `_physical`, which multiplies
+the row by the pixel aspect (`FiberTrackingImage.pixel_aspect`, §1.2): for a
+bundle of format 1.3 or later with a recorded scan size, on a scan whose X and
+Y pixel sizes differ, distances (in X pixels) and angles are then the
+specimen's, as on the centerline. With square pixels, and for an older bundle
+or one without a recorded scan size (aspect 1), nothing changes. For each end $B$ of a
 fragment, the look-back point $A$ lies `lookback_length` − 1 = 14 skeleton-track
 points inside it. For a fragment shorter than 15 points, it is the fragment's other
 end:
@@ -1251,10 +1363,15 @@ sx, sy = skeleton_track(frag)
 xs = sx + frag.data[0]
 ys = sy + frag.data[1]
 step = min(lookback_length, len(xs))
-ends[i, 0] = (ys[0], xs[0])
-backs[i, 0] = (ys[step - 1], xs[step - 1])
-ends[i, 1] = (ys[-1], xs[-1])
-backs[i, 1] = (ys[-step], xs[-step])
+ends[i, 0] = _physical((ys[0], xs[0]), aspect)
+backs[i, 0] = _physical((ys[step - 1], xs[step - 1]), aspect)
+ends[i, 1] = _physical((ys[-1], xs[-1]), aspect)
+backs[i, 1] = _physical((ys[-step], xs[-step]), aspect)
+```
+
+```python
+# source: lib/fiber_connector.py::_physical
+return (float(point[0]) * float(aspect), float(point[1]))
 ```
 
 Each fragment's height for the height gate is the median of the calibrated
@@ -1342,7 +1459,7 @@ return float(np.degrees(np.arccos(np.clip(cosine_angle, -1.0, 1.0))))
 
 | Dialog column | Value |
 |---|---|
-| distance (px) | $\lVert B - C \rVert$ in pixel indices. It is not scaled by the pixel size. |
+| distance (px) | $\lVert B - C \rVert$ in X pixels, with the row scaled by the pixel aspect. It is not converted to nm. |
 | angle (degree) | $\min(\angle ABD,\ \angle ACD)$. Two fragments that continue in a straight line give about 180°, and a U-turn gives about 0°. |
 | height diff | $\lvert m_1 - m_2 \rvert / \min(m_1, m_2)$ for the two median heights; 0 when the lower median is not positive. |
 | 自動 | Whether all four gates pass: distance ≤ `clusters_range`, both angles > `angle_threshold`, height diff ≤ `height_diff_ratio`. |
@@ -1354,7 +1471,8 @@ distance:
 
 ```python
 # source: lib/fiber_connector.py::connection_candidates
-ends, backs = _fragment_end_geometry(fibers, params.lookback_length)
+ends, backs = _fragment_end_geometry(
+    fibers, params.lookback_length, _aspect_of(image))
 medians = _fragment_median_heights(image.calibrated_image, fibers)
 reach = _manual_reach(params, radius)
 return _candidates_for(index, ends, backs, medians, params, reach)
@@ -1431,10 +1549,16 @@ if is_placed_line(kind):
     width, width_measured = measure_apparent_width(
         image.calibrated_image, pix_x, pix_y, return_measured=True,
         aspect=aspect,
+        peak=getattr(image, "width_peak", WIDTH_PEAK_NEAREST),
     )
-    judged = detector.judge_line(line_x, line_y, width, aspect)
+    judged = detector.judge_line(
+        line_x, line_y, width, aspect,
+        observed=height_measured, judge_bridges=judge_bridges,
+    )
     kink_indices, kink_angles = judged.kink_indices, judged.kink_angles
     kink_excess, unjudged_indices = judged.kink_excess, judged.unjudged_indices
+    unjudged_reasons = judged.unjudged_reasons
+    bridge_excluded_px = judged.bridge_excluded_px
 ...
 ep_indices = np.array([
     i for i, real in zip((0, len(line_x) - 1), end_is_real) if real
@@ -1449,6 +1573,52 @@ ep_indices = np.array([
   using the bundle's own `kinkangle_deg` and the pixel aspect its fragments were
   placed with (§1.2). A bend that sat next to a cut end of a fragment is no
   longer next to an end, so it can now be judged.
+- The bridges are passed to the kink rule as the points whose height was not
+  measured (`observed=height_measured`). Whether a bend whose window reaches a
+  bridge is judged is the user's choice, `ConnectParams.judge_bridge_kinks`
+  (the checkbox 「継ぎ目の折れもキンクとして判定する」 in the window
+  「ファイバー連結の設定」 that GUI04's 「自動連結の設定」 button opens, on by
+  default), because a bridge's corners are made by the
+  connection, not seen in the image. The setting is saved in the connection
+  sidecar. When it is off, such a bend is returned as unjudged with the reason
+  `UNJUDGED_AT_BRIDGE` (§3.8), unless it lies within 1.5 W of an end, which
+  takes the reason `UNJUDGED_NEAR_END`. On the skeleton track of a format 1.0
+  bundle the fibril is judged by the polyline rule and the setting has no
+  effect. Either way the rule reports the length the
+  bridges take out of the span kinks are counted over (`bridge_excluded_px`),
+  which the kink density leaves out of its divisor (§3.9).
+
+```python
+# source: lib/kink_detector.py::_bridge_intervals
+if observed is None:
+    return []
+unobserved = ~np.asarray(observed, dtype=bool)
+if unobserved.size != arc.size or not unobserved.any():
+    return []
+edges = np.diff(np.concatenate([[0], unobserved.astype(np.int8), [0]]))
+starts = np.nonzero(edges == 1)[0]
+stops = np.nonzero(edges == -1)[0] - 1
+last = arc.size - 1
+return [(float(arc[max(a - 1, 0)]), float(arc[min(b + 1, last)]))
+        for a, b in zip(starts, stops)]
+```
+
+```python
+# source: lib/kink_detector.py::KinkDetector.judge_line
+...
+point_arc = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
+bridges = _bridge_intervals(observed, point_arc)
+...
+    if not margin <= p <= length - margin:
+        unjudged.append((index, UNJUDGED_NEAR_END))
+    elif not judge_bridges and any(
+            a <= p + c and b >= p - c for a, b in bridges):
+        unjudged.append((index, UNJUDGED_AT_BRIDGE))
+...
+reach = 0.0 if judge_bridges else c
+bridge_excluded = _covered_length(
+    [(a - reach, b + reach) for a, b in bridges], margin, length - margin)
+```
 - Its endpoints are the first and last point, each counted only if the outer
   fragment ended at a skeleton endpoint (§3.7).
 
@@ -1474,7 +1644,9 @@ for start, stop in _contiguous_runs(in_band):
 
 A sub-fiber is a piece of its parent's centerline. Its W is re-measured and its kinks
 are re-judged on that piece, so its `Kink count`, `unjudged`, `W (nm)`, and
-kink density can differ from the parent's. Its end is a real end only where it
+kink density can differ from the parent's. The bridges it keeps are judged as
+the parent's were: GUI04 passes the connection's
+`ConnectParams.judge_bridge_kinks` to `filter_fibers_by_height`. Its end is a real end only where it
 is the parent's own real end. An end made by the filter's cut is a cut, and the
 height statistics treat it as one (§3.3).
 

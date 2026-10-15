@@ -2463,6 +2463,61 @@ def section_width_limit() -> dict:
     return values
 
 
+@experiment(
+    "curvature_noise_floor",
+    ["lib/centerline.py", "lib/measure.py"],
+    "A straight synthetic fiber 2 nm high with a Gaussian cross-section 20 nm wide at "
+    "half maximum, 1200 nm long at 20 degrees to the rows, imaged at 2, 5 and 10 nm "
+    "pixels with Gaussian height noise of 0, 0.05 and 0.15 nm (5 noise draws each, "
+    "seeded). The default centerline is placed on the pixel track of the true axis, and "
+    "reported is the mean curvature of measure.fiber_mean_curvature (100 nm window) in "
+    "rad/um, averaged over the draws, with the smallest and largest draw, and the "
+    "apparent width W of the noise-free image at each pixel size.",
+)
+def curvature_noise_floor() -> dict:
+    import math
+    from types import SimpleNamespace
+    import numpy as np
+    from lib import centerline as cl
+    from lib.measure import DEFAULT_CURVATURE_WINDOW_NM, fiber_mean_curvature
+
+    height_nm, fwhm_nm, length_nm, angle = 2.0, 20.0, 1200.0, math.radians(20.0)
+    sigma_nm = fwhm_nm / (2.0 * math.sqrt(2.0 * math.log(2.0)))
+    values: dict = {}
+    for nmpx in (2.0, 5.0, 10.0):
+        side = int(math.ceil((length_nm + 200.0) / nmpx))
+        gy, gx = np.mgrid[0:side, 0:side].astype(float)
+        cx = cy = side / 2.0
+        # Distance across and along the axis through the image centre, in nm.
+        # 画像中心を通る軸に対する横方向と軸方向の距離（nm）。
+        along = ((gx - cx) * math.cos(angle) + (gy - cy) * math.sin(angle)) * nmpx
+        across = (-(gx - cx) * math.sin(angle) + (gy - cy) * math.cos(angle)) * nmpx
+        ridge = height_nm * np.exp(-across ** 2 / (2.0 * sigma_nm ** 2))
+        ridge[np.abs(along) > length_nm / 2.0] = 0.0
+        t = np.arange(-length_nm / 2.0 + 50.0, length_nm / 2.0 - 50.0, 0.5 * nmpx) / nmpx
+        px = np.round(cx + t * math.cos(angle)).astype(int)
+        py = np.round(cy + t * math.sin(angle)).astype(int)
+        keep = np.r_[True, (np.diff(px) != 0) | (np.diff(py) != 0)]
+        px, py = px[keep].astype(float), py[keep].astype(float)
+        for noise in (0.0, 0.05, 0.15):
+            draws = []
+            for seed in range(5):
+                rng = np.random.default_rng(seed)
+                img = ridge + noise * rng.standard_normal(ridge.shape)
+                res = cl.place_centerline(img, px, py, None)
+                if noise == 0.0 and seed == 0:
+                    values[f"px{nmpx:g}.width_px"] = float(res.width_px)
+                fiber = SimpleNamespace(
+                    xtrack=res.x, ytrack=res.y,
+                    horizon=cl.polyline_distance(res.x, res.y, nmpx, nmpx))
+                draws.append(fiber_mean_curvature(
+                    fiber, nmpx, nmpx, window_nm=DEFAULT_CURVATURE_WINDOW_NM))
+            key = f"px{nmpx:g}.noise{noise:g}"
+            values[f"{key}.mean"] = float(np.mean(draws))
+            values[f"{key}.range"] = [float(min(draws)), float(max(draws))]
+    return values
+
+
 # ----------------------------------------------------------------------------
 # Recording
 # ----------------------------------------------------------------------------

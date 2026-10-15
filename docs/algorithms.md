@@ -2160,9 +2160,9 @@ fiber; the centerline decides only where each of its points lies.
 #### How the centerline is placed
 
 In this section a height cross-section taken across the fiber is read as a
-hill: its highest point is the **crest** and the low ground on either side the
-**base**. The base height is taken differently in step 1<!--n:label-->, which measures the
-width, and in step 3<!--n:label-->, which places the point; each step says how.
+hill: its top is the **crest** and the low ground on either side the
+**base**. Which maximum is the crest, and how the base height is taken, differ between step 1<!--n:label-->, which measures the
+width, and step 3<!--n:label-->, which places the point; each step says how.
 
 With the default method, each skeleton point is moved onto the fiber's height
 in five steps:
@@ -2174,8 +2174,17 @@ in five steps:
    skeleton track alone and does not use $W$, so it is available before step 2<!--n:label-->,
    which does. Each section gives its full width at half maximum (the width of
    the part at least half-way from the base to the crest). The base height here is
-   the value 10<!--n:literal percentile in centerline.measure_apparent_width--> % of the way up the section's values sorted from lowest. $W$ is the median of this width over the track, one
-   value per fiber. Every length in the steps that follow is a multiple of $W$,
+   the value 10<!--n:literal percentile in centerline.measure_apparent_width--> % of the way up the section's values sorted from lowest. The crest
+   is the first maximum reached by climbing uphill from the track point
+   (`_climb_to_maximum`, the same climb as step 3<!--n:label-->), not the highest value of
+   the section, so a taller fiber elsewhere within 12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px on either side does not set the
+   half maximum as long as the fiber has a maximum of its own (a faint fiber
+   that is only a shoulder on a taller one's flank climbs to the taller one's
+   crest). A taller fiber so close that the section between them stays above
+   the half maximum still widens the width across both. A track point that
+   lies below that half maximum is on the flank rather than on the fiber, and
+   its section is not used. $W$ is the
+   median of this width over the track, one value per fiber. Every length in the steps that follow is a multiple of $W$,
    so those steps mean the same thing at any scan size.
 2. The track smoothed by a Gaussian of standard deviation $W/4$ is the
    **reference line**. Each reference point is the origin from which that
@@ -2186,7 +2195,7 @@ in five steps:
    the height in the next step.
 3. `centerline.refine_centerline` reads the cross-section along that normal
    ($2.25\,W$ to either side of the reference point), climbs from the reference
-   point to the nearest crest — not the highest point read, so a higher
+   point to the first crest uphill — not the highest point read, so a higher
    neighbour cannot capture the centerline — and places the point at the
    **midpoint of the two positions where the cross-section falls to half-way
    between its base and its crest** (the half maximum). The base here is the
@@ -2237,7 +2246,7 @@ same function:
 ```python
 # source: lib/centerline.py::place_centerline
 width, measured = measure_apparent_width(
-    height, x, y, return_measured=True, aspect=aspect)
+    height, x, y, return_measured=True, aspect=aspect, peak=width_peak)
 lx, ly, reliable, crest = _refine(
     height, x, y, width, branch_points, method, aspect)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
@@ -2285,11 +2294,15 @@ records which kind of centerline the analysis used
 the kinks are computed in physical geometry, and a reader rebuilds the
 centerline with the aspect of the recorded scan size
 (`bundle_schema.pixel_aspect_from_meta`); an older bundle is rebuilt in the
-pixel geometry it was judged in.
+pixel geometry it was judged in. From format 1.4<!--n:bundle format version--> the apparent width $W$ of
+step 1<!--n:label--> is read from each section's first crest uphill; a reader rebuilds a bundle
+of format 1.1<!--n:bundle format version--> to 1.3<!--n:bundle format version--> with $W$ read halfway to each section's highest value, as
+it was judged (`bundle_schema.width_peak_from_meta`).
 
 | Bundle format | Kinks were judged on | Rebuilt on |
 |---|---|---|
-| 1.3<!--n:bundle format version--> | the recorded kind of centerline, in physical geometry | the same centerline, in physical geometry |
+| 1.4<!--n:bundle format version--> | the recorded kind of centerline, in physical geometry, with $W$ from the first crest uphill | the same centerline, the same $W$ |
+| 1.3<!--n:bundle format version--> | the recorded kind of centerline, in physical geometry, with $W$ from the highest value of each section | the same centerline, the same $W$ |
 | 1.2<!--n:bundle format version--> | the recorded kind of centerline, in pixel geometry | the same centerline, in pixel geometry |
 | 1.1<!--n:bundle format version--> | the default centerline (half-maximum midpoint) | the default centerline |
 | 1.0<!--n:bundle format version--> | the skeleton track | the skeleton track, until the bundle is re-analyzed |
@@ -2314,10 +2327,15 @@ the numbers built on it depend on, as a `centerline.CenterlineResult`:
   `Fiber.width_measured`) into GUI04's fiber table and the CSV, and the bundle
   records the image's median $W$ and how many components used the fallback
   (`bundle_schema.APPARENT_WIDTH_KEY`).
-- **Which points were located.** A point interpolated in step 4<!--n:label--> lies on a
-  straight run, so no kink and no curvature can be found there. Each point
-  carries a flag saying whether it was reliable (`Fiber.line_reliable`), and the
-  fraction of reliable points appears in the table and the CSV.
+- **Which points were located.** A point interpolated in step 4<!--n:label--> lies on the
+  reference line, moved by an offset interpolated from the reliable points on
+  either side (beyond the last reliable point at a track end, that point's
+  offset is kept). Only the offset is interpolated; the reference line is the
+  skeleton track smoothed over $W/4$, which keeps the track's bends, so a kink
+  or a curvature found on an interpolated run has the shape of the skeleton,
+  not of the height. Each point carries a flag saying whether it was reliable
+  (`Fiber.line_reliable`), and the fraction of reliable points appears in the
+  table and the CSV.
 - **The crest height.** The fiber's height at each point is the **height of
   the crest of its cross-section** (`CenterlineResult.crest`), not the image interpolated at
   the centerline. The centerline sits at the half-maximum midpoint, which on an
@@ -2727,7 +2745,12 @@ for excess, p in kept:
     if index in taken:
         continue
     taken.add(index)
-    if margin <= p <= length - margin:
+    if not margin <= p <= length - margin:
+        unjudged.append((index, UNJUDGED_NEAR_END))
+    elif not judge_bridges and any(
+            a <= p + c and b >= p - c for a, b in bridges):
+        unjudged.append((index, UNJUDGED_AT_BRIDGE))
+    else:
         before = [q for q in positions if q < p]
         after = [q for q in positions if q > p]
         angle = _arm_interior_angle(
@@ -2738,9 +2761,8 @@ for excess, p in kept:
         if not np.isfinite(angle):
             angle = np.pi - excess
         kinks.append((index, angle, excess))
-    else:
-        unjudged.append(index)
 kinks.sort()
+unjudged.sort()
 kink_indices = np.array([k for k, _, _ in kinks], dtype=np.intp)
 kink_angles = np.clip(
     np.array([a for _, a, _ in kinks], dtype=np.float64),
@@ -2826,6 +2848,21 @@ range (`fiber_connector.filter_fibers_by_height`). Once a reconnected fibril
 bridges the cut, the bend is no longer next to an end and it is judged;
 conversely the height filter cuts fibers, so a bend next to one of its new ends
 stops being judged.
+
+A reconnected fibril also has bridges: the straight segments the connector
+draws across the gaps between its fragments, where no fiber was observed
+(`lib/fiber_connector.py`). Their corners are made by the connection rather than seen
+in the image, so whether a bend whose window reaches a bridge is judged is the
+user's choice, saved with the connection (`ConnectParams.judge_bridge_kinks`,
+on by default). When it is off, such a bend is returned unjudged with the
+reason `UNJUDGED_AT_BRIDGE`; the reason of each unjudged bend is in
+`KinkJudgement.unjudged_reasons`. GUI04 draws a bend left unjudged at a bridge
+(the `bridges` test in the excerpt above) as a magenta hollow diamond. A bundle never
+holds such a bend, because the analysis that writes it does not connect
+fragments; bridges exist only in fibrils built from a connection plan, which
+GUI04, GUI03 and `lib/measure.py` given a plan do. Either way the
+bridges are left out of the length a kink density divides by
+([GUI04 fiber measurements](gui04_measurements.md) §3.9).
 
 ### 4.5 The threshold is carried with the results
 
@@ -2968,6 +3005,8 @@ measurement be redone without re-analysing an image:
     length, the contour less $1.5\,W$ at each end, because §4.4 judges nothing
     closer to an end than that; dividing by the whole contour would read low by
     the unjudged length at both ends, and the more so the shorter the fiber.
+    A connected fibril's bridges, where no fiber was observed, are left out of
+    that length too (§4.4).
 - **Reconnecting fragments** split at crossings lives in
   `lib/fiber_connector.py`, and only GUI04 runs the search; other readers apply
   the chains that search recorded.
