@@ -60,12 +60,15 @@ logger = logging.getLogger(__name__)
 # 約 W に広げるため、繊維自体がどれほど鋭く曲がっても折れは線の上で約 W を占め、
 # W よりずっと近い 2 つの折れは見分けられない。
 #
-# The values follow from W being the resolution; they were checked, not
-# fitted, against a visual reference marked by eye on the height images of the
-# bundled scans; the effect of changing any one of them to the alternative
-# named in its comment is in docs/validation.md §4.4.
-# 値は W が分解能であることから決まるもので、同梱スキャンの高さ画像に目視で印を
-# 付けた基準に対して確認はしたが、合わせ込んではいない。どれか 1 つをコメントに
+# The values follow from W being the resolution and were not optimized
+# against the visual reference that an AI coding agent marked on the height
+# images of the bundled scans, but the rule and its centerline were chosen
+# among candidates by their scores on that reference; the effect of changing
+# any one of them to the alternative named in its comment is in
+# docs/validation.md §4.4.
+# 値は W が分解能であることから決まるもので、同梱スキャンの高さ画像に AI コーディング
+# エージェントが印を付けた基準に対して最適化はしていない。ただし規則と中心線は、
+# 候補の中からその基準での成績によって選んだ。どれか 1 つをコメントに
 # 挙げた代替値に変えたときの影響は docs/validation.ja.md §4.4 にある。
 
 # Half-length c of the window a bend's turning is summed over. The probe

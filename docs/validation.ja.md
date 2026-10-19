@@ -17,7 +17,7 @@
 | データ | 内容 | コード |
 |---|---|---|
 | 同梱スキャン | チュニケート CNF（`testdata_tunicateCNF`）、高等植物 TOC（`testdata_higherplantTOC`）、Bruker NDTOC（`testdata_Bruker_txt`）の各スキャンと、等方・異方の人工スキャン（`testdata_artificial`） | `scripts/kink_reference_score.py` の `SCANS` |
-| 目視基準 | 同梱スキャンの高さ画像に、検出器の出力を一切表示せずに目視で付けたキンクの印。明瞭なキンク 64<!--m:kink_reference.clear_marks--> 件 | `scripts/kink_reference_score.py` |
+| 目視基準 | 同梱スキャンの高さ画像に、AI コーディングエージェント（Claude Code）が付けたキンクの印。繊維ごとに高さ画像を拡大した切り出しを見て付けており、画像には検出器の出力を描いていない。ただし一部の繊維については、当時の検出器がどこにキンクを置くかを事前に知っていた。明瞭なキンク 64<!--m:kink_reference.clear_marks--> 件 | `scripts/kink_reference_score.py` |
 | 合成データ一式 | 中心線とコーナーの位置が既知の合成スキャン。画素 2<!--c:scripts/synthetic_suite.py::NMPX--> nm、見かけ幅 $W$ = 8<!--c:scripts/synthetic_suite.py::W--> px | `scripts/synthetic_suite.py` |
 | キンク規則の掃引 | 見かけ幅と画素ノイズを変えて描いた、折れ・直線・円弧・正弦波の合成繊維 | `scripts/kink_rule_sweep.py` |
 
@@ -434,8 +434,10 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 バンドルのために残してある `KinkDetector.kinks_and_decomposed_from_track`
 （`kink_decompose_px` = 3<!--c:lib/pipeline.py::ProcParams.kink_decompose_px--> px、`kinkangle_deg` = 150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg--> 度）を適用して採点した。
 
-規則の長さは、$W$ が画像の分解能であることから決めた $W$ の倍数であり、この基準で
-確かめはしたが、合わせ込んではいない。どれか 1<!--n:count--> つを隣の値に変えると、検出
+規則の長さは、$W$ が画像の分解能であることから決めた $W$ の倍数であり、この基準に
+対して最適化はしていない。ただし規則と中心線は、候補の中からこの基準での成績によって
+選んだ。したがってこの基準は独立した検証ではなく開発用のデータであり、評価用に
+取り分けたスキャンでの採点は行っていない。どれか 1<!--n:count--> つを隣の値に変えると、検出
 できた明瞭なキンクは 56〜62<!--m:kink_reference.sens_all.found_range--> 件、一致なしは 45〜77<!--m:kink_reference.sens_all.false_range--> 件の範囲で動いた（既定は
 それぞれ 58<!--m:kink_reference.default.found--> 件と 60<!--m:kink_reference.default.false--> 件）。検出が最も減ったのは平滑化を強める側で、向きの
 平滑化 0.35<!--n:value tried--> W で 56<!--m:kink_reference.sens_heading_0.35.found--> 件、中心線の平滑化 ×1.4<!--n:value tried--> で 57<!--m:kink_reference.sens_line_x1.4.found--> 件であった。

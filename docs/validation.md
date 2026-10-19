@@ -19,7 +19,7 @@ images.
 | Data | What it is | Code |
 |---|---|---|
 | Bundled scans | a tunicate CNF scan (`testdata_tunicateCNF`), a higher-plant TOC scan (`testdata_higherplantTOC`), a Bruker NDTOC scan (`testdata_Bruker_txt`), and two artificial scans, isotropic and anisotropic (`testdata_artificial`) | `SCANS` in `scripts/kink_reference_score.py` |
-| Visual reference | kinks marked by eye on the height images of the bundled scans, with no detector output on screen: 64<!--m:kink_reference.clear_marks--> clear kinks | `scripts/kink_reference_score.py` |
+| Visual reference | kinks marked on the height images of the bundled scans by an AI coding agent (Claude Code), which viewed each fiber on an enlarged crop of the height image with no detector output drawn on it, although for some fibers it already knew where the detector then in use placed kinks: 64<!--m:kink_reference.clear_marks--> clear kinks | `scripts/kink_reference_score.py` |
 | Synthetic suite | scans drawn with a known centerline and known corners: 2<!--c:scripts/synthetic_suite.py::NMPX--> nm pixels, apparent width $W$ = 8<!--c:scripts/synthetic_suite.py::W--> px | `scripts/synthetic_suite.py` |
 | Kink-rule sweep | synthetic kinked, straight, arc and sine fibers over apparent width and pixel noise | `scripts/kink_rule_sweep.py` |
 
@@ -469,7 +469,10 @@ kept for bundles of format 1.0<!--n:bundle format version--> (`kink_decompose_px
 150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg-->°), to the traced skeleton tracks of the same images.
 
 The lengths of the rule are multiples of $W$ set from $W$ being the resolution
-of the image; they were checked against this reference, not fitted to it.
+of the image and were not optimized against this reference, but the rule and
+its centerline were chosen among candidates by their scores on it, so the
+reference served as a development set rather than an independent test; no
+held-out scans were scored.
 Changing any one of them to a neighbouring value moved the clear kinks found
 within 56–62<!--m:kink_reference.sens_all.found_range--> and the unmatched bends within 45–77<!--m:kink_reference.sens_all.false_range--> (58<!--m:kink_reference.default.found--> and 60<!--m:kink_reference.default.false--> at
 the defaults). The largest drops came from stronger smoothing: 56<!--m:kink_reference.sens_heading_0.35.found--> with the

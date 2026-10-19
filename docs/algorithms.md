@@ -2821,8 +2821,8 @@ within $1.5\,W$ of an end of the centerline is **not judged** (not counted as a
 kink), for two reasons:
 
 - Near an end, the arm on the end's side is short: shorter than the length the
-  visual reference (clear kinks marked by eye on the height images of the
-  bundled scans, [Evaluation on particular data](validation.md) §4.4) needed
+  visual reference (clear kinks marked by an AI coding agent on the height
+  images of the bundled scans, [Evaluation on particular data](validation.md) §4.4) needed
   before it called a bend a clear kink.
 - A track end is either a real fiber end or a cut that `imp_tools.remove_bp`
   made at a crossing (§4.1), and at a cut the centerline can bend with the
