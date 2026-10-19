@@ -263,15 +263,15 @@ def holm_adjusted(pvalues: Sequence[float]) -> List[float]:
 
     Notes
     -----
-    Comparing k groups makes k(k-1)/2 pairs, and testing all of them at 0.05
-    each would find a "difference" among four groups about a quarter of the
-    time with no difference present. Holm's step-down procedure [Holm1979]_
+    Comparing k groups makes k(k-1)/2 pairs, and testing each of them at 0.05
+    on its own finds a "difference" somewhere more often than 5% of the time
+    when no difference is present. Holm's step-down procedure [Holm1979]_
     controls the family-wise error rate while staying uniformly more powerful
     than Bonferroni.
-    k 群を比較すると k(k-1)/2 組のペアができ、それぞれを 0.05 で検定すると、
-    差が無くても 4 群では約 1/4 の確率でどこかに「差」が見つかる。Holm の
-    段階的手順 [Holm1979]_ はファミリーワイズ誤り率を制御しつつ、Bonferroni より
-    一様に検出力が高い。
+    k 群を比較すると k(k-1)/2 組のペアができ、それぞれを単独に 0.05 で検定すると、
+    差が無くてもどこかに「差」が見つかる確率は 5% を超える。Holm の段階的手順
+    [Holm1979]_ はファミリーワイズ誤り率を制御しつつ、Bonferroni より一様に
+    検出力が高い。
 
     References
     ----------
@@ -341,6 +341,18 @@ def compare_groups(
     検定は両側 Mann-Whitney U 検定 [MannWhitney1947]_ と 2 標本
     Kolmogorov-Smirnov 検定 [Smirnov1948]_ であり、`scipy.stats.mannwhitneyu` と
     `scipy.stats.ks_2samp` で計算する。
+
+    The Kolmogorov-Smirnov p-value assumes continuous distributions. Tied
+    values -- for example the zeros of a per-fiber kink density, where a
+    fiber without a kink reads 0 -- make it conservative: with no difference
+    present it rejects less often than its nominal level, so a small KS
+    p-value still stands while a large one may miss a real difference. The
+    Mann-Whitney p-value is computed with a tie correction.
+    Kolmogorov-Smirnov の p 値は連続分布を仮定している。同順位（例えば
+    ファイバー単位のキンク密度で、キンクの無いファイバーが 0 となるもの）があると
+    保守的になり、差が無いときに名目の水準より少なくしか棄却しない。したがって
+    小さい KS の p 値はそのまま有効だが、大きい値は実在の差を見逃していることが
+    ある。Mann-Whitney の p 値は同順位の補正を入れて計算する。
 
     References
     ----------

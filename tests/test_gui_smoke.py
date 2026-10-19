@@ -959,25 +959,29 @@ def test_gui03_and_gui04_agree_on_the_kink_quantities(tk_app):
     GUI03 のファイバー単位のキンク値は、GUI04 が表示するのと同じ `lib.measure` の
     関数から得る。ファイバーの横で確認した値が、そのままヒストグラム化される。
 
-    Two separate implementations of "the kink angle of a fiber" would let the
-    two windows disagree, which is exactly what the GUI04 columns exist to
-    rule out.
-    「ファイバーのキンク角」の実装が 2 つあると 2 つのウインドウが食い違いうる。
-    それを排除することこそが GUI04 の列の存在理由である。
+    Two separate implementations of "the kink density of a fiber" would let
+    the two windows disagree, which is exactly what the GUI04 columns exist to
+    rule out. Kink angle has no per-fiber value in either window: every unit
+    receives the kinks themselves.
+    「ファイバーのキンク密度」の実装が 2 つあると 2 つのウインドウが食い違いうる。
+    それを排除することこそが GUI04 の列の存在理由である。キンク角はどちらの
+    ウインドウでもファイバー単位の値を持たず、どの単位にもキンクそのものが渡る。
     """
-    from lib.measure import FiberStats, fiber_kink_angle, fiber_kink_density
+    from lib.measure import FiberStats, fiber_kink_density
 
     stat = FiberStats(
         index=0, length_nm=2000.0, height_median_nm=1.0, height_max_nm=2.0,
         ep_count=2, kink_count=3, kink_angles_deg=(100.0, 120.0, 170.0),
         straightness=0.8,
     )
-    assert gui03._fiber_value(stat, gui03.PARAM_KINK_ANGLE) == pytest.approx(
-        fiber_kink_angle(stat)
-    )
     assert gui03._fiber_value(stat, gui03.PARAM_KINK_DENSITY) == pytest.approx(
         fiber_kink_density(stat)
     )
+    assert gui03._fiber_value(stat, gui03.PARAM_KINK_ANGLE) is None
+    for unit in (gui03.UNIT_KINK, gui03.UNIT_IMAGE, gui03.UNIT_FOLDER):
+        assert gui03._fiber_samples(stat, gui03.PARAM_KINK_ANGLE, unit) == [
+            100.0, 120.0, 170.0]
+    assert gui03.UNIT_FIBER not in gui03.PARAM_SPECS[gui03.PARAM_KINK_ANGLE]["units"]
 
     # A kinkless fiber has no angle to contribute, but its density is a real
     # zero, so GUI03 must drop the first and keep the second.
@@ -987,8 +991,103 @@ def test_gui03_and_gui04_agree_on_the_kink_quantities(tk_app):
         index=1, length_nm=1000.0, height_median_nm=1.0, height_max_nm=2.0,
         ep_count=2, kink_count=0, kink_angles_deg=(), straightness=1.0,
     )
-    assert gui03._fiber_value(kinkless, gui03.PARAM_KINK_ANGLE) is None
+    assert gui03._fiber_samples(
+        kinkless, gui03.PARAM_KINK_ANGLE, gui03.UNIT_IMAGE) == []
     assert gui03._fiber_value(kinkless, gui03.PARAM_KINK_DENSITY) == 0.0
+
+
+def _kink_stat(length_nm, angles):
+    """Return a fiber row with the given contour length and kink angles."""
+    from lib.measure import FiberStats
+
+    return FiberStats(
+        index=0, length_nm=length_nm, height_median_nm=1.0, height_max_nm=2.0,
+        ep_count=2, kink_count=len(angles), kink_angles_deg=tuple(angles),
+        straightness=1.0,
+    )
+
+
+def test_gui03_pools_kinks_per_image_and_folder():
+    """
+    Image and folder units pool kinks rather than summarizing per fiber.
+    画像・フォルダ単位はファイバーごとに要約せず、キンクをまとめる。
+
+    Kink density divides the pooled count by the pooled judged length, so an
+    image whose kinkless fibers outnumber the kinked ones still reads the kinks
+    it holds; a median of per-fiber densities would read 0 there. Kink angle is
+    the median of every kink, so a fiber with three kinks weighs three times one
+    with a single kink.
+    キンク密度はまとめたキンク数をまとめた判定長で割る。キンクの無いファイバーが
+    キンクのあるファイバーより多い画像でも、含まれるキンクが読める。ファイバーごとの
+    密度の中央値ならそこは 0 になる。キンク角は全キンクの中央値であり、キンク 3 個の
+    ファイバーはキンク 1 個のファイバーの 3 倍の重みを持つ。
+    """
+    image_a = [_kink_stat(1000.0, (150.0, 160.0, 170.0)),
+               _kink_stat(1000.0, ()), _kink_stat(1000.0, ())]
+    image_b = [_kink_stat(2000.0, (90.0,)), _kink_stat(2000.0, ())]
+    per_source = [("a.b2z", image_a), ("b.b2z", image_b)]
+
+    values, weights, n_fibers, n_images = gui03.App._values_from_fiber_stats(
+        per_source, gui03.PARAM_KINK_DENSITY, gui03.UNIT_IMAGE)
+    # 3 kinks over 3 um and 1 kink over 4 um; the per-fiber medians are 0.
+    # 3 µm に 3 個、4 µm に 1 個。ファイバーごとの中央値ならどちらも 0。
+    assert values == [pytest.approx(1.0), pytest.approx(0.25)]
+    assert weights is None and (n_fibers, n_images) == (5, 2)
+
+    values, _w, n_fibers, n_images = gui03.App._values_from_fiber_stats(
+        per_source, gui03.PARAM_KINK_DENSITY, gui03.UNIT_FOLDER)
+    assert values == [pytest.approx(4 / 7)]
+    assert (n_fibers, n_images) == (5, 2)
+
+    values, _w, n_fibers, _m = gui03.App._values_from_fiber_stats(
+        per_source, gui03.PARAM_KINK_ANGLE, gui03.UNIT_IMAGE)
+    assert values == [160.0, 90.0]
+    assert n_fibers == 2
+    values, _w, _n, _m = gui03.App._values_from_fiber_stats(
+        per_source, gui03.PARAM_KINK_ANGLE, gui03.UNIT_FOLDER)
+    assert values == [pytest.approx(155.0)]
+
+    # A folder value pools every fiber of the folder, not the image medians.
+    # フォルダの値は画像の中央値ではなく、フォルダの全ファイバーをまとめる。
+    lengths = [("a.b2z", [_kink_stat(v, ()) for v in (100.0, 200.0, 900.0)]),
+               ("b.b2z", [_kink_stat(v, ()) for v in (300.0, 400.0)])]
+    values, _w, n_fibers, n_images = gui03.App._values_from_fiber_stats(
+        lengths, gui03.PARAM_LENGTH, gui03.UNIT_FOLDER)
+    assert values == [300.0] and (n_fibers, n_images) == (5, 2)
+    values, _w, n_fibers, n_images = gui03.App._curvature_values(
+        [("a.b2z", np.array([1.0, 2.0, np.nan])), ("b.b2z", np.array([9.0]))],
+        gui03.UNIT_FOLDER)
+    assert values == [2.0] and (n_fibers, n_images) == (3, 2)
+
+
+def test_gui03_standard_deviation_is_the_sample_one():
+    """
+    An unweighted SD divides by n - 1; one sample has none.
+    重みなしの標準偏差は n - 1 で割る。標本 1 個には標準偏差が無い。
+    """
+    stats = gui03._summary_stats(np.array([1.0, 2.0, 3.0, 6.0]))
+    assert stats["std"] == pytest.approx(np.std([1.0, 2.0, 3.0, 6.0], ddof=1))
+    assert stats["std_definition"] == gui03.STD_SAMPLE
+    assert np.isnan(gui03._summary_stats(np.array([4.0]))["std"])
+
+    weighted = gui03._summary_stats(np.array([1.0, 3.0]), np.array([1.0, 3.0]))
+    # Weighted mean 2.5; variance (1 * 2.25 + 3 * 0.25) / 4.
+    # 重み付き平均 2.5、分散 (1 * 2.25 + 3 * 0.25) / 4。
+    assert weighted["std"] == pytest.approx(np.sqrt(0.75))
+    assert weighted["std_definition"] == gui03.STD_WEIGHTED
+
+
+def test_gui03_tests_folders_and_warns_at_fiber_and_image():
+    """
+    Folder samples are testable, and the other two testable units carry a note.
+    フォルダの標本は検定でき、他の検定可能な 2 単位には注意書きが付く。
+    """
+    assert gui03.UNIT_FOLDER in gui03.TESTABLE_UNITS
+    for spec in gui03.PARAM_SPECS.values():
+        assert gui03.UNIT_FOLDER in spec["units"]
+    assert gui03._comparison_caveat(gui03.UNIT_FOLDER) == ""
+    for unit in (gui03.UNIT_FIBER, gui03.UNIT_IMAGE):
+        assert gui03.UNIT_FOLDER in gui03._comparison_caveat(unit)
 
 
 def test_gui04_fiber_table_covers_every_gui03_quantity(tk_app):

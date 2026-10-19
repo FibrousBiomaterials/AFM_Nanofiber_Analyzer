@@ -1138,7 +1138,7 @@ END_MARGIN_WIDTHS = 1.5
 ```
 
 ```python
-# source: lib/measure.py::fiber_kink_density
+# source: lib/measure.py::fiber_judged_length_um
 length_um = float(stat.length_nm) / 1000.0
 width_nm = float(getattr(stat, "width_nm", float("nan")))
 if np.isfinite(width_nm) and width_nm > 0.0:
@@ -1148,6 +1148,14 @@ if np.isfinite(bridge_nm):
     length_um -= bridge_nm / 1000.0
 if length_um <= 1e-9:
     return float("nan")
+return length_um
+```
+
+```python
+# source: lib/measure.py::fiber_kink_density
+length_um = fiber_judged_length_um(stat)
+if not np.isfinite(length_um):
+    return float("nan")
 return float(stat.kink_count) / length_um
 ```
 
@@ -1155,7 +1163,9 @@ $$
 \text{kink density} = \frac{N_\text{kink}}{(L - 2 \times 1.5\,W - L_\text{bridge})/1000}
 $$
 
-The divisor is the **judged** length. The kink rule does not judge a bend within
+The divisor is the **judged** length, computed by
+`measure.fiber_judged_length_um`; GUI03 sums the same length when it pools the
+kinks of an image or a folder. The kink rule does not judge a bend within
 1.5 W of either end, so dividing by the whole contour would bias the density
 low, most of all on dense specimens with many short fragments. A fiber shorter
 than 3 W had nothing judged and is blank. A fiber with no kink over a judged

@@ -2556,11 +2556,11 @@ $$
 重なったときは、超過回転の大きいほうを残す。
 
 `measure.compute_fiber_stats` は角度を度に直し（`FiberStats.kink_angles_deg`）、
-繊維ごとの値を書き出す CSV にはこの値が入る。`measure.fiber_kink_angle` はその
-中央値を繊維ごとの代表値とする。GUI03（多くの画像の繊維の値を集めて、グループ
-どうしで比べる画面）は、集計単位が kink のときは各キンクの角度をそのまま、fiber の
-ときはこの繊維ごとの中央値を、image のときは繊維ごとの中央値を画像ごとにさらに
-中央値にした値を、ヒストグラムにする。
+繊維ごとの値を書き出す CSV にはこの値が入る。1<!--n:count--> 本の繊維に沿ったキンクはそれぞれ
+別の欠陥であり、1<!--n:count--> つの性質を繰り返し測ったものではないので、その角度から繊維ごとの
+値は作らない。GUI03（多くの画像の繊維の値を集めて、グループどうしで比べる画面）は、
+集計単位が kink のときは各キンクの角度をそのまま、image のときは画像ごとの、folder の
+ときは登録フォルダごとの全キンクの角度の中央値を、ヒストグラムにする。
 
 ```python
 # source: lib/kink_detector.py::_ARM_GAP_WIDTHS, _ARM_LENGTH_WIDTHS, _ARM_MIN_WIDTHS
@@ -2629,13 +2629,6 @@ kink_excess = np.array([e for _, _, e in kinks], dtype=np.float64)
 ```python
 # source: lib/measure.py::compute_fiber_stats
 angles = tuple(float(np.degrees(a)) for a in f.kink_angles)
-```
-
-```python
-# source: lib/measure.py::fiber_kink_angle
-if not stat.kink_angles_deg:
-    return float("nan")
-return float(np.median(stat.kink_angles_deg))
 ```
 
 #### 尺度とノイズ床

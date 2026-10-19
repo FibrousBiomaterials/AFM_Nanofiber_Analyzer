@@ -67,8 +67,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - GUI03 warns when the bundles it compares for curvature differ in pixel size:
   curvature is averaged unsigned, so a straight fiber reads above zero by an
   amount that depends on the pixel size and the noise.
+- GUI03 gains the aggregation unit `folder`: one sample per registered folder,
+  pooling the fibers of all its scans, and between-group tests are offered for
+  it. Fibers of one image and scans of one folder share a preparation, so the
+  `fiber` and `image` units count as independent what may not be; when each
+  folder holds one specimen, `folder` is the unit that tests a difference
+  between specimens. A note under the comparison table now says this whenever
+  `fiber` or `image` is tested.
 
 ### Changed
+
+- GUI03 no longer offers `kink angle` per `fiber`, and its `image` value is the
+  median of every kink angle in the scan instead of the median of the
+  per-fiber medians. The kinks along a fiber are distinct defect events rather
+  than repeated measurements of one fiber property, so a per-fiber median of
+  their angles describes nothing about the fiber, and a fiber with several
+  kinks counted as much as one with a single kink. **GUI03's `image` kink
+  angles change from this version.**
 
 - Bundle format **1.2**: the vlmeta entry `centerline` records the line a
   bundle was analyzed on, and every reader builds the fibers on exactly that
@@ -313,6 +328,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   only for a fiber running along Y on a scan with different X and Y pixel
   sizes; that holds only for bundles of format 1.2 or older, which were
   measured in pixel geometry. Results do not change.
+- GUI03's `image` kink density is the scan's total kink count divided by the
+  total judged length of its fibers (`lib.measure.fiber_judged_length_um`, the
+  divisor of `fiber_kink_density`). It was the median of the per-fiber
+  densities, which is 0 whenever more than half of a scan's fibers carry no
+  kink, however many kinks the others carry. **GUI03's `image` kink densities
+  change from this version.**
+- GUI03's standard deviation of an unweighted sample divides by n − 1 (the
+  sample standard deviation) instead of by n, and is left blank for a single
+  sample instead of reading 0. Weighted samples (`length`, and
+  `Miles-Lantuejoul` per fiber) still divide by the total weight. The results
+  table heading says which (`SD (n-1)` or `weighted SD`), and the statistics
+  CSV gains a `std definition` column after the existing ones. **Standard
+  deviations of unweighted samples reported by GUI03 change from this version**
+  by a factor of sqrt(n / (n − 1)); no other statistic changes.
+- The docstrings of `lib.group_compare` stated that testing four groups pairwise
+  without correction finds a false difference "about a quarter of the time",
+  a figure that assumes the six tests are independent; they now say only that
+  the rate exceeds the nominal 5%. They also now note that the KS p-value is
+  conservative on tied samples. Results do not change.
 
 ### Deprecated
 
@@ -324,6 +358,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   pipeline no longer writes or reports those values (see Changed). The two
   names still work and issue a `DeprecationWarning`, and the field stays as
   `None`; all three will be removed in 3.0.0.
+- `lib.measure.fiber_kink_angle` is deprecated: a per-fiber median of kink
+  angles describes no property of the fiber, and nothing in the analysis calls
+  it any more (see Changed). The name still works and issues a
+  `DeprecationWarning`; it will be removed in 3.0.0.
 
 ## [2.0.1] - 2026-09-17
 

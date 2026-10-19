@@ -53,7 +53,8 @@ from lib.measure import (
     compute_fiber_stats,
     contour_length_weights,
     fiber_curvature_profile,
-    fiber_kink_angle,
+    _fiber_kink_angle,
+    fiber_judged_length_um,
     fiber_kink_density,
     fiber_mean_curvature,
     fiber_straightness,
@@ -990,7 +991,7 @@ def test_kink_angle_and_density_handle_a_kinkless_fiber_differently():
         index=0, length_nm=1000.0, height_median_nm=1.0, height_max_nm=2.0,
         ep_count=2, kink_count=0, kink_angles_deg=(), straightness=1.0,
     )
-    assert np.isnan(fiber_kink_angle(kinkless))
+    assert np.isnan(_fiber_kink_angle(kinkless))
     assert fiber_kink_density(kinkless) == 0.0
 
     kinked = FiberStats(
@@ -998,10 +999,59 @@ def test_kink_angle_and_density_handle_a_kinkless_fiber_differently():
         ep_count=2, kink_count=3, kink_angles_deg=(100.0, 120.0, 170.0),
         straightness=0.8,
     )
-    # The median, not the mean, so one extreme kink does not represent the fiber.
-    # 平均ではなく中央値。極端なキンク 1 つがファイバーを代表しないようにする。
-    assert fiber_kink_angle(kinked) == pytest.approx(120.0)
+    assert _fiber_kink_angle(kinked) == pytest.approx(120.0)
     assert fiber_kink_density(kinked) == pytest.approx(3.0 / 2.0)
+
+
+def test_fiber_kink_angle_is_a_deprecated_alias():
+    """
+    The public name still resolves, with a warning, to the private function.
+    公開名は警告付きで非公開の関数に解決される。
+
+    A per-fiber median of kink angles describes no property of the fiber, so
+    nothing in the analysis calls it; the name stays importable until 3.0.0
+    so that a script written against 2.x keeps running.
+    ファイバーごとのキンク角の中央値はファイバーの性質を表さないため、解析からは
+    呼ばない。2.x 向けに書かれたスクリプトが動き続けるよう、3.0.0 まで名前は
+    import できる。
+    """
+    import lib.measure as measure
+
+    with pytest.warns(DeprecationWarning, match="removed in 3.0.0"):
+        alias = measure.fiber_kink_angle
+    assert alias is _fiber_kink_angle
+    with pytest.raises(AttributeError):
+        measure.no_such_name  # noqa: B018
+
+
+def test_kink_density_divides_by_the_judged_length():
+    """
+    `fiber_kink_density` and the length GUI03 pools are one definition.
+    `fiber_kink_density` と GUI03 がまとめる長さは 1 つの定義である。
+
+    GUI03 divides an image's total kink count by the summed judged length, so
+    the per-fiber density must be the kink count over exactly that length, or
+    a one-fiber image would read a different density in the two windows.
+    GUI03 は画像の総キンク数を判定長の合計で割る。ファイバー単位の密度もちょうど
+    その長さで割っていなければ、ファイバー 1 本の画像が 2 つのウインドウで異なる
+    密度を示してしまう。
+    """
+    stat = FiberStats(
+        index=0, length_nm=2000.0, height_median_nm=1.0, height_max_nm=2.0,
+        ep_count=2, kink_count=2, kink_angles_deg=(150.0, 150.0),
+        width_nm=50.0, bridge_excluded_nm=100.0,
+    )
+    # 2 um less 1.5 widths at each end (0.15 um) and the 0.1 um of bridges.
+    # 2 µm から両端の 1.5 幅 (0.15 µm) と橋渡し部 0.1 µm を引く。
+    assert fiber_judged_length_um(stat) == pytest.approx(1.75)
+    assert fiber_kink_density(stat) == pytest.approx(
+        2 / fiber_judged_length_um(stat))
+    too_short = FiberStats(
+        index=1, length_nm=100.0, height_median_nm=1.0, height_max_nm=2.0,
+        ep_count=2, kink_count=0, kink_angles_deg=(), width_nm=50.0,
+    )
+    assert np.isnan(fiber_judged_length_um(too_short))
+    assert np.isnan(fiber_kink_density(too_short))
 
 
 def test_kink_density_normalises_by_length():

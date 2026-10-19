@@ -33,8 +33,8 @@ that gap with a documented, reproducible pipeline and a stable data format.
 - **(c) Fiber Morphology Statistics** shows the distribution of height, contour
   length, straightness, curvature, kink angle, or kink density for one sample
   group or compares it between user-defined groups, per skeleton pixel, per
-  unit of contour length, per fiber, or per image, and reports per-group
-  statistics.
+  unit of contour length, per fiber, per image, or per registered folder, and
+  reports per-group statistics.
 - **(d) Fiber Tracker** lists the per-fiber quantities the Fiber Morphology
   Statistics can plot — length, median and maximum height, straightness,
   curvature and kink density — plus endpoint and kink counts, and locates each
@@ -445,9 +445,17 @@ log names it.
 A separate aggregation-unit selector decides what counts as one sample:
 `pixel` (one skeleton pixel), `length` (one skeleton pixel weighted by the
 contour length it represents), `kink` (one kink), `fiber` (one fiber, using
-the median within that fiber for height and kink angle), or `image` (one
-scan, using the median of that image's fiber values). This distinction is
-reported, not just applied: pooled skeleton pixels are not independent
+the median within that fiber for height), `image` (one scan), or `folder` (one
+registered folder, all of its scans together). An `image` or `folder` sample
+pools the fibers it holds: the median of their values, the median of all its
+kink angles for `kink angle`, and its total kink count divided by the total
+judged length for `kink density`. Kink angle has no `fiber` unit, because the
+kinks along a fiber are distinct defect events rather than repeated
+measurements of one fiber property, so a per-fiber median of their angles
+describes nothing about the fiber. Kink density is pooled rather than taken as
+a median of per-fiber densities, because when more than half of an image's
+fibers carry no kink that median is 0 whatever the others do. This distinction
+is reported, not just applied: pooled skeleton pixels are not independent
 observations — a long fiber contributes more pixels than a short one — so
 the statistics table and the figure annotation give the sample count broken
 down into samples, fibers, and images.
@@ -473,20 +481,31 @@ boxplot cannot compute.
 Below the statistics table, a comparison table tests every pair of groups with
 a two-sided Mann-Whitney U and a two-sample Kolmogorov-Smirnov test, Holm-
 corrected across all pairs, and reports Cliff's delta as an effect size that
-does not grow with sample size. The tests are offered only for the `fiber` and
-`image` units: skeleton pixels, length-weighted points, and several kinks from
-one fiber are not independent observations, so a p-value over them would
-measure how finely the images were sampled rather than whether the specimens
-differ.
+does not grow with sample size. The tests are offered only for the `fiber`,
+`image`, and `folder` units: skeleton pixels, length-weighted points, and
+several kinks from one fiber are not independent observations, so a p-value
+over them would measure how finely the images were sampled rather than whether
+the specimens differ. The three testable units differ in what they count as
+independent. Fibers of one image, and scans of one folder, share a
+preparation, so at `fiber` and `image` a p-value shrinks with the number of
+fibers or scans rather than the number of specimens, and a note under the table
+says so. When each folder holds one specimen, `folder` is the unit that tests a
+difference between specimens; a group then needs at least three folders to be
+tested.
 
 Each group reports median and interquartile range alongside mean, standard
 deviation, and mode, because fiber morphology distributions are right-skewed
-and the mode moves with the histogram bin width. Samples outside the plotted
+and the mode moves with the histogram bin width. The standard deviation of an
+unweighted sample is the sample standard deviation (divided by n − 1, blank for
+a single sample); a weighted one (`length`, or `Miles-Lantuejoul` per fiber)
+is divided by the total weight. The table heading and the `std definition`
+column of the statistics CSV say which. Samples outside the plotted
 range are reported in the log as a percentage rather than dropped silently;
 the summary statistics always describe the whole sample. A group with fewer
 than eight samples is flagged as one whose histogram shape cannot be read —
-the normal situation for `image`, where a group holds as many samples as it
-holds scans, and where the table's median and IQR are the output to read.
+the normal situation for `image` and `folder`, where a group holds as many
+samples as it holds scans or folders, and where the table's median and IQR are
+the output to read.
 
 ### Fiber Tracker — `guis/GUI04_Tracking_fiber.py`
 

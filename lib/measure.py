@@ -1421,10 +1421,10 @@ def height_sample_mask(fiber: Fiber) -> np.ndarray:
     return mask
 
 
-def fiber_kink_angle(stat: FiberStats) -> float:
+def _fiber_kink_angle(stat: FiberStats) -> float:
     """
-    Return one fiber's representative kink angle, in degrees.
-    1 本のファイバーを代表するキンク角 (degree) を返す。
+    Return the median of one fiber's kink angles, in degrees.
+    1 本のファイバーのキンク角の中央値 (degree) を返す。
 
     Parameters
     ----------
@@ -1440,33 +1440,132 @@ def fiber_kink_angle(stat: FiberStats) -> float:
 
     Notes
     -----
-    The median makes one fiber contribute exactly one value however many kinks
-    it carries, so a heavily kinked fiber does not outweigh the rest.
-    中央値を使うことで、キンクの本数によらず 1 本のファイバーが 1 つの値を出す。
-    キンクの多いファイバーが他を圧倒しないようにするためである。
-
-    A fiber with no kink is NaN rather than 0: an undetected kink is not a
-    measured angle of zero, and averaging it in would pull the population
-    toward a value no fiber has.
-    キンクの無いファイバーは 0 ではなく NaN とする。キンクが検出されなかったこと
-    は「0 度のキンクを計測した」ことではなく、平均に混ぜるとどのファイバーも
-    持たない値へ母集団を引っ張ってしまう。
+    Reached only through the deprecated public name `fiber_kink_angle`
+    (`_DEPRECATED_ALIASES`). Nothing in the analysis calls it: the kinks along
+    a fiber are distinct defect events, not repeated measurements of one fiber
+    property, so a per-fiber median of their angles describes no property of
+    the fiber. GUI03 summarizes kink angles per kink, per image or per folder
+    instead.
+    非推奨の公開名 `fiber_kink_angle`（`_DEPRECATED_ALIASES`）からのみ到達する。
+    解析からは呼ばない。1 本のファイバーに沿ったキンクはそれぞれ別の欠陥であり、
+    1 つの性質を繰り返し測ったものではないため、その角度のファイバーごとの中央値は
+    ファイバーの性質を表さない。GUI03 はキンク角をキンク・画像・フォルダ単位で
+    要約する。
 
     Examples
     --------
-    >>> from lib.measure import FiberStats, fiber_kink_angle
+    >>> from lib.measure import FiberStats, _fiber_kink_angle
     >>> def row(angles):
     ...     return FiberStats(index=0, length_nm=2000.0, height_median_nm=2.0,
     ...                       height_max_nm=3.0, ep_count=2,
     ...                       kink_count=len(angles), kink_angles_deg=angles)
-    >>> fiber_kink_angle(row((120.0, 150.0, 140.0)))
+    >>> _fiber_kink_angle(row((120.0, 150.0, 140.0)))
     140.0
-    >>> fiber_kink_angle(row(()))
+    >>> _fiber_kink_angle(row(()))
     nan
     """
     if not stat.kink_angles_deg:
         return float("nan")
     return float(np.median(stat.kink_angles_deg))
+
+
+# Deprecated public names that stay importable, mapped to (the object they
+# resolve to, the release that removes them). `fiber_kink_angle` summarized a
+# fiber's kinks by their median angle, which describes no property of the
+# fiber (`_fiber_kink_angle`). `scripts/release.py prepare` refuses a release
+# at or above each `remove-in` version until the entry is deleted.
+# import できるように残す非推奨の公開名と、(解決先, 削除するリリース) の対応。
+# `fiber_kink_angle` はファイバーのキンクを角度の中央値で要約していたが、それは
+# ファイバーの性質を表さない（`_fiber_kink_angle`）。`scripts/release.py prepare`
+# は、各 `remove-in` 印の版以上のリリースを、項目が消されるまで拒む。
+_DEPRECATED_ALIASES = {
+    "fiber_kink_angle": ("_fiber_kink_angle", "3.0.0"),  # remove-in: 3.0.0
+}
+
+
+def __getattr__(name: str):
+    """
+    Resolve a deprecated name with a `DeprecationWarning` (PEP 562).
+    非推奨の名前を `DeprecationWarning` 付きで解決する（PEP 562）。
+
+    Raises
+    ------
+    AttributeError
+        If `name` is neither defined nor a deprecated name.
+    """
+    if name in _DEPRECATED_ALIASES:
+        import warnings
+        current, removed_in = _DEPRECATED_ALIASES[name]
+        warnings.warn(
+            f"lib.measure.{name} is deprecated and will be removed in "
+            f"{removed_in}; a per-fiber median of kink angles describes no "
+            f"property of the fiber, so summarize the kinks themselves",
+            DeprecationWarning, stacklevel=2,
+        )
+        return globals()[current]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def fiber_judged_length_um(stat: FiberStats) -> float:
+    """
+    Return the length of one fiber the kink rule judged, in micrometers.
+    1 本のファイバーのうちキンク規則が判定した長さ (µm) を返す。
+
+    Parameters
+    ----------
+    stat
+        Per-fiber statistics row.
+        ファイバー単位の統計行。
+
+    Returns
+    -------
+    float
+        Contour length less `END_MARGIN_WIDTHS` widths at each end and less
+        `FiberStats.bridge_excluded_nm`, or NaN when nothing was judged. A
+        fiber without a width keeps its whole contour.
+        輪郭長から両端の `END_MARGIN_WIDTHS` 幅と
+        `FiberStats.bridge_excluded_nm` を引いた長さ。何も判定していなければ
+        NaN。幅を持たないファイバーは輪郭全体。
+
+    Notes
+    -----
+    The single definition of the length a kink could have been counted on:
+    `fiber_kink_density` divides one fiber's kinks by it, and GUI03 divides an
+    image's or a folder's total kink count by the sum of it, so the two
+    densities differ only in how they are pooled. Why each part is left out is
+    explained in `fiber_kink_density`.
+    キンクを数え得た長さの唯一の定義。`fiber_kink_density` は 1 本のキンク数を
+    これで割り、GUI03 は画像またはフォルダの総キンク数をこの合計で割る。2 つの
+    密度の違いはまとめ方だけになる。各部分を除く理由は `fiber_kink_density` に
+    書いてある。
+
+    Examples
+    --------
+    A 2 µm fiber 50 nm wide loses 1.5 widths at each end:
+
+    >>> from lib.measure import FiberStats, fiber_judged_length_um
+    >>> row = FiberStats(index=0, length_nm=2000.0, height_median_nm=2.0,
+    ...                  height_max_nm=3.0, ep_count=2, kink_count=0,
+    ...                  kink_angles_deg=(), width_nm=50.0)
+    >>> round(fiber_judged_length_um(row), 4)
+    1.85
+    """
+    length_um = float(stat.length_nm) / 1000.0
+    width_nm = float(getattr(stat, "width_nm", float("nan")))
+    if np.isfinite(width_nm) and width_nm > 0.0:
+        length_um -= 2.0 * END_MARGIN_WIDTHS * width_nm / 1000.0
+    bridge_nm = float(getattr(stat, "bridge_excluded_nm", 0.0))
+    if np.isfinite(bridge_nm):
+        length_um -= bridge_nm / 1000.0
+    # Bridges that cover the whole judged span leave a rounding residue rather
+    # than an exact 0, so a remainder below a micrometre's billionth counts as
+    # nothing judged; no real fiber comes near that length.
+    # 判定範囲全体を覆う橋渡し部は、ちょうど 0 ではなく丸め誤差を残すので、1 µm の
+    # 10 億分の 1 未満の残りは何も判定していないとみなす。実在の繊維がその長さに
+    # 近づくことはない。
+    if length_um <= 1e-9:
+        return float("nan")
+    return length_um
 
 
 def fiber_kink_density(stat: FiberStats) -> float:
@@ -1527,10 +1626,17 @@ def fiber_kink_density(stat: FiberStats) -> float:
     かかる位置も判定していない。継ぎ目の折れを判定するときは、橋渡し部の角の
     キンクは数え、分母から除くのは橋渡し部の長さだけである。
 
-    Unlike `fiber_kink_angle`, a fiber with no kink is a valid zero here: zero
-    kinks over a judged length is a real density, not a missing measurement.
-    `fiber_kink_angle` と異なり、ここではキンクの無いファイバーは有効な 0 である。
-    判定した長さに対してキンク 0 本というのは実在の密度であり、欠測ではない。
+    The divisor is `fiber_judged_length_um`, which GUI03 also sums when it
+    pools the kinks of an image or a folder.
+    分母は `fiber_judged_length_um` であり、GUI03 が画像やフォルダのキンクを
+    まとめるときもこれを合計する。
+
+    A fiber with no kink is a valid zero: zero kinks over a judged length is a
+    real density, not a missing measurement, whereas such a fiber has no kink
+    angle at all.
+    キンクの無いファイバーは有効な 0 である。判定した長さに対してキンク 0 本と
+    いうのは実在の密度であり、欠測ではない。一方、そのファイバーにはキンク角が
+    そもそも無い。
 
     Examples
     --------
@@ -1551,20 +1657,8 @@ def fiber_kink_density(stat: FiberStats) -> float:
     >>> fiber_kink_density(row(0, width_nm=50.0))
     0.0
     """
-    length_um = float(stat.length_nm) / 1000.0
-    width_nm = float(getattr(stat, "width_nm", float("nan")))
-    if np.isfinite(width_nm) and width_nm > 0.0:
-        length_um -= 2.0 * END_MARGIN_WIDTHS * width_nm / 1000.0
-    bridge_nm = float(getattr(stat, "bridge_excluded_nm", 0.0))
-    if np.isfinite(bridge_nm):
-        length_um -= bridge_nm / 1000.0
-    # Bridges that cover the whole judged span leave a rounding residue rather
-    # than an exact 0, so a remainder below a micrometre's billionth counts as
-    # nothing judged; no real fiber comes near that length.
-    # 判定範囲全体を覆う橋渡し部は、ちょうど 0 ではなく丸め誤差を残すので、1 µm の
-    # 10 億分の 1 未満の残りは何も判定していないとみなす。実在の繊維がその長さに
-    # 近づくことはない。
-    if length_um <= 1e-9:
+    length_um = fiber_judged_length_um(stat)
+    if not np.isfinite(length_um):
         return float("nan")
     return float(stat.kink_count) / length_um
 

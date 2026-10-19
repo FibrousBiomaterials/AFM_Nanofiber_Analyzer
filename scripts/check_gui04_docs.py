@@ -134,6 +134,7 @@ WATCHED_SYMBOLS: Tuple[str, ...] = (
     "lib/measure.py::fiber_curvature_profile",
     "lib/measure.py::fiber_mean_curvature",
     "lib/measure.py::fiber_kink_density",
+    "lib/measure.py::fiber_judged_length_um",
     "lib/kink_detector.py::END_MARGIN_WIDTHS",
     "lib/kink_detector.py::_bridge_intervals",
     "lib/kink_detector.py::KinkDetector.judge_line",

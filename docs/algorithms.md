@@ -2700,12 +2700,13 @@ corresponding to that point; when two bends fall on the same point, the one with
 the larger excess is kept.
 
 `measure.compute_fiber_stats` converts the angles to degrees
-(`FiberStats.kink_angles_deg`), which is what the fiber CSV holds, and
-`measure.fiber_kink_angle` takes their median as the representative value per
-fiber. GUI03 (the window that pools fiber values from many images and compares
-groups) histograms, by aggregation unit, every kink's angle as it is (kink),
-this per-fiber median (fiber), or the median of the per-fiber medians in each
-image (image):
+(`FiberStats.kink_angles_deg`), which is what the fiber CSV holds. The kinks
+along a fiber are distinct defect events, not repeated measurements of one
+fiber property, so no per-fiber value is formed from their angles. GUI03 (the
+window that pools fiber values from many images and compares groups)
+histograms, by aggregation unit, every kink's angle as it is (kink), or the
+median of all kink angles in each image (image) or in each registered folder
+(folder):
 
 ```python
 # source: lib/kink_detector.py::_ARM_GAP_WIDTHS, _ARM_LENGTH_WIDTHS, _ARM_MIN_WIDTHS
@@ -2774,13 +2775,6 @@ kink_excess = np.array([e for _, _, e in kinks], dtype=np.float64)
 ```python
 # source: lib/measure.py::compute_fiber_stats
 angles = tuple(float(np.degrees(a)) for a in f.kink_angles)
-```
-
-```python
-# source: lib/measure.py::fiber_kink_angle
-if not stat.kink_angles_deg:
-    return float("nan")
-return float(np.median(stat.kink_angles_deg))
 ```
 
 #### Scale and the noise floor

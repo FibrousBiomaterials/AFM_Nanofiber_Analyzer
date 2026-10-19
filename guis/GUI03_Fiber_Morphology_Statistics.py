@@ -12,16 +12,20 @@ angle, or kink density — for one group or across user-defined groups.
 またはユーザー定義グループ間で要約する。
 
 The aggregation unit selects what counts as one sample: a skeleton pixel, a
-fiber, one kink, or a whole image. This matters for reporting because pooled
-skeleton pixels are not independent observations — a long fiber contributes
-more pixels than a short one, and neighboring pixels of one fiber repeat the
-same object — so group comparisons should also be inspected per fiber or per
-image.
+fiber, one kink, a whole image, or a whole registered folder. This matters for
+reporting because pooled skeleton pixels are not independent observations — a
+long fiber contributes more pixels than a short one, and neighboring pixels of
+one fiber repeat the same object — so group comparisons should also be
+inspected per fiber, per image, or per folder. Fibers of one image, and images
+of one folder, share a preparation as well, so when a folder holds one
+specimen, the folder is the unit a difference between specimens is tested on.
 集計単位は「1 標本」を何と数えるかを選ぶ（骨格画素・ファイバー 1 本・キンク
-1 点・画像 1 枚）。骨格画素をまとめた分布は独立観測ではなく（長いファイバー
-ほど多くの画素を出し、同一ファイバーの隣接画素は同じ対象の繰り返しになる）、
-群間比較ではファイバー単位・画像単位でも確認する必要があるため、報告上この
-区別が重要になる。
+1 点・画像 1 枚・登録フォルダ 1 つ）。骨格画素をまとめた分布は独立観測ではなく
+（長いファイバーほど多くの画素を出し、同一ファイバーの隣接画素は同じ対象の繰り
+返しになる）、群間比較ではファイバー単位・画像単位・フォルダ単位でも確認する
+必要があるため、報告上この区別が重要になる。同じ画像のファイバー、同じフォルダの
+画像も試料作製を共有するため、1 フォルダが 1 試料であれば、試料間の差を検定する
+単位はフォルダである。
 
 Nothing is written automatically. Through file dialogs the user saves the
 histogram figure, the sampled values of each group (one CSV per group), the
@@ -42,8 +46,8 @@ PLUGIN_INFO = {
         "AFMで撮影したナノファイバーの形態パラメータの分布と統計量をGUIで求めるプログラムです。\n"
         "入力データには、Image Preprocessor が出力する .b2z バンドルファイル、または Fiber Tracker が出力するファイバー単位の CSV を使います。\n"
         "計測量は height（高さ）、contour length（輪郭長）、straightness（直線度）、curvature（曲率）、kink angle（キンク角）、kink density（キンク密度）から選べ、いずれもファイバー追跡結果から算出します。\n"
-        "集計単位（骨格画素・輪郭長重み付け・ファイバー・キンク・画像）を切り替えられるため、画素をまとめた分布だけでなく、ファイバー単位・画像単位の分布としても確認できます。\n"
-        "図はヒストグラム・ECDF・箱ひげ図から選べ、中央値・四分位範囲・平均・標準偏差・最頻値と、標本数の内訳を併記します。複数のデータ群（グループ）を登録すると、縦並び・重ね表示で比較でき、ファイバー単位・画像単位では群間検定の結果も表示します。"
+        "集計単位（骨格画素・輪郭長重み付け・ファイバー・キンク・画像・フォルダ）を切り替えられるため、画素をまとめた分布だけでなく、ファイバー単位・画像単位・フォルダ単位の分布としても確認できます。\n"
+        "図はヒストグラム・ECDF・箱ひげ図から選べ、中央値・四分位範囲・平均・標準偏差・最頻値と、標本数の内訳を併記します。複数のデータ群（グループ）を登録すると、縦並び・重ね表示で比較でき、ファイバー単位・画像単位・フォルダ単位では群間検定の結果も表示します。"
     )
 }
 
@@ -82,7 +86,7 @@ from lib.group_compare import compare_groups
 from lib.measure import (
     DEFAULT_CURVATURE_WINDOW_NM,
     collect_fiber_curvature, collect_fiber_stats, collect_fiber_stats_from_csv,
-    collect_skeleton_height_profiles, fiber_kink_angle, fiber_kink_density,
+    collect_skeleton_height_profiles, fiber_judged_length_um, fiber_kink_density,
     read_centerline_from_bundle, read_scan_size_from_bundle,
     skeleton_height_values,
 )
@@ -114,6 +118,12 @@ UNIT_LENGTH = "length"
 UNIT_KINK = "kink"
 UNIT_FIBER = "fiber"
 UNIT_IMAGE = "image"
+UNIT_FOLDER = "folder"
+
+# Units that summarize a whole source — an image, or every image of a
+# registered folder — into one sample.
+# ソース全体（画像 1 枚、または登録フォルダの全画像）を 1 標本に要約する単位。
+SUMMARY_UNITS = (UNIT_IMAGE, UNIT_FOLDER)
 
 # Input types. Bundles carry the images, so they support every aggregation
 # unit and can have manual exclusions applied from their sidecars. A folder of
@@ -169,7 +179,27 @@ PLOT_TYPES = (PLOT_HISTOGRAM, PLOT_ECDF, PLOT_BOX)
 # 長さ重み付けの点は試料の独立観測ではなく、複数のキンクは 1 本のファイバーから
 # 来る。それらに対する p 値は、試料が異なるかどうかではなく、画像をどれだけ
 # 細かくサンプリングしたかを測ってしまう。
-TESTABLE_UNITS = (UNIT_FIBER, UNIT_IMAGE)
+# The three testable units differ in what they treat as independent: fibers
+# of one image and images of one folder share a preparation, so only the
+# folder unit tests a difference between specimens when a folder holds one
+# specimen, and the comparison note says so for the other two
+# (`_comparison_caveat`).
+# 検定できる 3 単位は何を独立とみなすかが違う。同じ画像のファイバーと同じ
+# フォルダの画像は試料作製を共有するため、1 フォルダが 1 試料なら、試料間の差を
+# 検定するのはフォルダ単位だけであり、他の 2 単位では比較の注記がその旨を述べる
+# （`_comparison_caveat`）。
+TESTABLE_UNITS = (UNIT_FIBER, UNIT_IMAGE, UNIT_FOLDER)
+
+# How the standard deviation was computed, named in the results table heading
+# and the summary CSV. An unweighted sample divides by n - 1, the sample
+# standard deviation papers report; a weighted one divides by the total
+# weight, because what n - 1 corrects for depends on what the weights mean.
+# 標準偏差の計算法。結果テーブルの見出しと要約 CSV に示す。重みなしの標本は
+# 論文で報告される標本標準偏差として n - 1 で割る。重み付きの標本は重みの合計で
+# 割る。n - 1 が何を補正するかが重みの意味によって変わるためである。
+STD_SAMPLE = "sample (n-1)"
+STD_WEIGHTED = "weighted (population)"
+STD_HEADINGS = {STD_SAMPLE: "SD (n-1)", STD_WEIGHTED: "weighted SD"}
 
 # Inverse micrometer in two spellings, because no single one renders in both
 # places it is needed. "1/µm" written straight after a number reads as part of
@@ -199,6 +229,7 @@ UNIT_NOUNS = {
     UNIT_KINK: "kinks",
     UNIT_FIBER: "fibers",
     UNIT_IMAGE: "images",
+    UNIT_FOLDER: "folders",
 }
 
 # Aggregation units whose sample size is a physical length, not a count.
@@ -236,21 +267,21 @@ PARAM_SPECS = {
         "slug": "height",
         "value_unit": "nm",
         "axis_label": "height (nm)",
-        "units": (UNIT_PIXEL, UNIT_LENGTH, UNIT_FIBER, UNIT_IMAGE),
+        "units": (UNIT_PIXEL, UNIT_LENGTH, UNIT_FIBER, UNIT_IMAGE, UNIT_FOLDER),
         "default_range": (0.0, 10.0, 0.2),
     },
     PARAM_LENGTH: {
         "slug": "contour_length",
         "value_unit": "nm",
         "axis_label": "contour length (nm)",
-        "units": (UNIT_FIBER, UNIT_IMAGE),
+        "units": (UNIT_FIBER, UNIT_IMAGE, UNIT_FOLDER),
         "default_range": (0.0, 3000.0, 100.0),
     },
     PARAM_KINK_ANGLE: {
         "slug": "kink_angle",
         "value_unit": "degree",
         "axis_label": "kink angle (degree)",
-        "units": (UNIT_KINK, UNIT_FIBER, UNIT_IMAGE),
+        "units": (UNIT_KINK, UNIT_IMAGE, UNIT_FOLDER),
         "default_range": (0.0, 180.0, 5.0),
     },
     PARAM_STRAIGHTNESS: {
@@ -262,14 +293,14 @@ PARAM_SPECS = {
         # 無次元量のためラベルに単位は付けない。定義を書き下すと箱ひげの軸から
         # はみ出したうえ、その説明は毎回の図ではなくドキュメントに属する。
         "axis_label": "straightness",
-        "units": (UNIT_FIBER, UNIT_IMAGE),
+        "units": (UNIT_FIBER, UNIT_IMAGE, UNIT_FOLDER),
         "default_range": (0.0, 1.02, 0.02),
     },
     PARAM_CURVATURE: {
         "slug": "curvature",
         "value_unit": "rad/" + UNIT_MICROMETER,
         "axis_label": "curvature (rad/" + UNIT_MICROMETER + ")",
-        "units": (UNIT_FIBER, UNIT_IMAGE),
+        "units": (UNIT_FIBER, UNIT_IMAGE, UNIT_FOLDER),
         "default_range": (0.0, 20.0, 0.5),
     },
     PARAM_KINK_DENSITY: {
@@ -277,7 +308,7 @@ PARAM_SPECS = {
         "value_unit": UNIT_PER_MICROMETER,
         "value_unit_plot": UNIT_PER_MICROMETER_PLOT,
         "axis_label": "kink density (" + UNIT_PER_MICROMETER_PLOT + ")",
-        "units": (UNIT_FIBER, UNIT_IMAGE),
+        "units": (UNIT_FIBER, UNIT_IMAGE, UNIT_FOLDER),
         "default_range": (0.0, 20.0, 0.5),
     },
 }
@@ -393,33 +424,32 @@ def _fiber_value(stat, param: str):
     Returns
     -------
     float or None
-        Fiber-level value, or None when the fiber carries no such value.
-        ファイバー単位の値。その値を持たないファイバーでは None。
+        Fiber-level value, or None when the fiber carries no such value. Kink
+        angle has no fiber-level value and always returns None
+        (`_fiber_samples`).
+        ファイバー単位の値。その値を持たないファイバーでは None。キンク角には
+        ファイバー単位の値が無く、常に None を返す（`_fiber_samples`）。
 
     Notes
     -----
-    A fiber represents its height and kink angle by the median of the values
-    sampled along it, so one fiber contributes exactly one sample regardless
-    of how long it is. Kink density is kinks per micrometer of contour, which
-    is the length-normalized form used to compare fibers of different length;
-    a fiber with no detected kink is a valid zero, not a missing value.
-    ファイバーの高さとキンク角は、そのファイバー上でサンプリングした値の
-    中央値で代表させる。これにより、長さにかかわらず 1 本が 1 標本になる。
-    キンク密度は輪郭長 1 µm あたりのキンク数で、長さの異なるファイバーを
-    比較するための長さ正規化形である。キンクが検出されなかったファイバーは
-    欠測ではなく 0 という有効な値として扱う。
+    A fiber represents its height by the median of the values sampled along
+    it, so one fiber contributes exactly one sample regardless of how long it
+    is. Kink density is kinks per micrometer of contour, which is the
+    length-normalized form used to compare fibers of different length; a
+    fiber with no detected kink is a valid zero, not a missing value.
+    ファイバーの高さは、そのファイバー上でサンプリングした値の中央値で代表させる。
+    これにより、長さにかかわらず 1 本が 1 標本になる。キンク密度は輪郭長 1 µm
+    あたりのキンク数で、長さの異なるファイバーを比較するための長さ正規化形である。
+    キンクが検出されなかったファイバーは欠測ではなく 0 という有効な値として扱う。
     """
     if param == PARAM_HEIGHT:
         return float(stat.height_median_nm)
     if param == PARAM_LENGTH:
         return float(stat.length_nm)
-    # Both come from lib.measure so the value GUI04 shows beside a fiber is
-    # the value histogrammed here; an undefined one contributes nothing.
-    # どちらも lib.measure から得る。GUI04 がファイバーの横に表示する値と、ここで
+    # From lib.measure, so the value GUI04 shows beside a fiber is the value
+    # histogrammed here; an undefined one contributes nothing.
+    # lib.measure から得る。GUI04 がファイバーの横に表示する値と、ここで
     # ヒストグラム化する値を一致させるため。未定義の値は寄与しない。
-    if param == PARAM_KINK_ANGLE:
-        value = fiber_kink_angle(stat)
-        return None if not np.isfinite(value) else value
     if param == PARAM_KINK_DENSITY:
         value = fiber_kink_density(stat)
         return None if not np.isfinite(value) else value
@@ -447,16 +477,30 @@ def _fiber_samples(stat, param: str, unit: str) -> list:
         Measured-quantity key from `PARAM_SPECS`.
         `PARAM_SPECS` の計測量キー。
     unit
-        Aggregation-unit key; ``UNIT_KINK`` yields every kink of the fiber.
-        集計単位キー。``UNIT_KINK`` ではファイバー内の全キンクを返す。
+        Aggregation-unit key. Kink angle yields every kink of the fiber at
+        any unit, because the image and folder units summarize the kinks
+        themselves.
+        集計単位キー。キンク角はどの単位でもファイバー内の全キンクを返す。
+        画像・フォルダ単位はキンクそのものを要約するためである。
 
     Returns
     -------
     list of float
         Zero or more samples, in track order for kink-level samples.
         0 個以上の標本。キンク単位では追跡順に並ぶ。
+
+    Notes
+    -----
+    The kinks along a fiber are distinct defect events, not repeated
+    measurements of one fiber property the way height samples are, so they
+    are never reduced to a per-fiber value first: an image's kink angle is the
+    median of all its kinks, not of its fibers' medians.
+    1 本のファイバーに沿ったキンクはそれぞれ別の欠陥であり、高さの標本のように
+    1 つの性質を繰り返し測ったものではない。そのため先にファイバー単位の値へ
+    まとめることはしない。画像のキンク角は、ファイバーごとの中央値の中央値では
+    なく、その画像の全キンクの中央値である。
     """
-    if unit == UNIT_KINK:
+    if unit == UNIT_KINK or param == PARAM_KINK_ANGLE:
         return [float(a) for a in stat.kink_angles_deg]
     value = _fiber_value(stat, param)
     return [] if value is None else [value]
@@ -485,8 +529,12 @@ def _summary_stats(values: np.ndarray, weights=None) -> dict:
     Returns
     -------
     dict
-        Keys ``mean``, ``std``, ``q1``, ``median``, ``q3``.
-        キーは ``mean``, ``std``, ``q1``, ``median``, ``q3``。
+        Keys ``mean``, ``std``, ``q1``, ``median``, ``q3``, and
+        ``std_definition`` (`STD_SAMPLE` or `STD_WEIGHTED`). ``std`` is NaN
+        for an unweighted sample of one value.
+        キーは ``mean``, ``std``, ``q1``, ``median``, ``q3`` と
+        ``std_definition``（`STD_SAMPLE` または `STD_WEIGHTED`）。重みなしで
+        値が 1 個の標本では ``std`` は NaN。
 
     Notes
     -----
@@ -497,6 +545,16 @@ def _summary_stats(values: np.ndarray, weights=None) -> dict:
     重みなしの分岐では、1 の重みを weighted 側へ渡すのではなく NumPy を直接
     呼ぶ。両者の分位数の定義は厳密には一致しないため、すべてを weighted 経路に
     通すと既存の重みなしモードの数値が黙って変わってしまう。
+
+    The unweighted standard deviation divides by n - 1, the sample standard
+    deviation; dividing by n reads low by a factor of sqrt((n - 1) / n),
+    which matters most for the image and folder units, where a group holds
+    only a few samples. One value has no spread to estimate, so it is NaN
+    rather than 0.
+    重みなしの標準偏差は n - 1 で割る標本標準偏差である。n で割ると
+    sqrt((n - 1) / n) 倍だけ小さく出る。これは群が少数の標本しか持たない画像・
+    フォルダ単位で最も効く。値が 1 個ではばらつきを推定できないため、0 ではなく
+    NaN とする。
     """
     if weights is None:
         q1, median, q3 = (
@@ -504,8 +562,10 @@ def _summary_stats(values: np.ndarray, weights=None) -> dict:
         )
         return {
             "mean": float(np.mean(values)),
-            "std": float(np.std(values)),
+            "std": (float(np.std(values, ddof=1)) if np.size(values) > 1
+                    else float("nan")),
             "q1": q1, "median": median, "q3": q3,
+            "std_definition": STD_SAMPLE,
         }
 
     total = float(weights.sum())
@@ -527,7 +587,109 @@ def _summary_stats(values: np.ndarray, weights=None) -> dict:
         "mean": mean,
         "std": float(np.sqrt(variance)),
         "q1": q1, "median": median, "q3": q3,
+        "std_definition": STD_WEIGHTED,
     }
+
+
+def _kink_totals(stats) -> tuple:
+    """
+    Return the kink count and judged length pooled over a set of fibers.
+    ファイバーの集合についてまとめたキンク数と判定長を返す。
+
+    Parameters
+    ----------
+    stats
+        Per-fiber statistics rows.
+        ファイバー単位の統計行。
+
+    Returns
+    -------
+    tuple
+        ``(kinks, judged_um, n_fibers)``: the kinks on the fibers that had a
+        judged length, the sum of those lengths in micrometers
+        (`lib.measure.fiber_judged_length_um`), and how many fibers they are.
+        ``(キンク数, 判定長 µm, ファイバー数)``。判定長を持つファイバー上の
+        キンク数、その長さの合計（`lib.measure.fiber_judged_length_um`）、
+        その本数。
+
+    Notes
+    -----
+    The image and folder units divide the pooled count by the pooled length
+    instead of taking the median of per-fiber densities. When more than half
+    of an image's fibers carry no kink, the median of their densities is 0
+    whatever the kinked fibers do, so a per-image median would compare zeros
+    with zeros; a short fragment's density also swings with one kink more or
+    less. The pooled ratio is kinks per micrometer of judged contour over the
+    whole image, which every fiber enters in proportion to the length it was
+    judged over.
+    画像・フォルダ単位では、ファイバーごとの密度の中央値ではなく、まとめた
+    キンク数をまとめた長さで割る。画像のファイバーの半数以上がキンクを持たない
+    とき、その密度の中央値はキンクを持つファイバーがどうであれ 0 になるため、
+    画像ごとの中央値では 0 と 0 を比べることになる。また短い断片の密度はキンクが
+    1 個増減するだけで大きく振れる。まとめた比は画像全体での判定した輪郭 1 µm
+    あたりのキンク数であり、各ファイバーは判定された長さに比例して寄与する。
+    """
+    kinks = 0
+    judged_um = 0.0
+    n_fibers = 0
+    for stat in stats:
+        length_um = fiber_judged_length_um(stat)
+        if not np.isfinite(length_um):
+            continue
+        kinks += int(stat.kink_count)
+        judged_um += length_um
+        n_fibers += 1
+    return kinks, judged_um, n_fibers
+
+
+def _comparison_caveat(unit: str) -> str:
+    """
+    Return what a between-group test at this unit treats as independent.
+    この集計単位での群間検定が何を独立とみなしているかを返す。
+
+    Parameters
+    ----------
+    unit
+        Aggregation unit the samples were tested at.
+        検定した標本の集計単位。
+
+    Returns
+    -------
+    str
+        Translated caveat for the fiber and image units; an empty string for
+        the folder unit, whose samples are the registered folders.
+        fiber・image 単位では翻訳済みの注意書き。folder 単位では空文字列
+        （標本が登録フォルダそのものであるため）。
+
+    Notes
+    -----
+    Fibers of one image, and images of one folder, share a preparation, a tip
+    and a background calibration, so they can resemble each other more than
+    fibers of different specimens do; a test that counts them as independent
+    assumes they do not. Its significance grows with the number of fibers or
+    images rather than the number of specimens, so with one specimen per group
+    its p-value says that these preparations differ, not that the conditions
+    do.
+    同じ画像のファイバー、同じフォルダの画像は、試料作製・探針・背景補正を共有
+    するため、別の試料のファイバーどうしよりも互いに似ることがある。それらを独立と
+    数える検定は、似ていないと仮定している。その有意性は試料の数ではなくファイバー
+    や画像の数とともに増すため、各群が 1 試料なら、p 値が示すのは「この作製ロット
+    どうしが違う」ことであって、「条件が違う」ことではない。
+    """
+    if unit == UNIT_FIBER:
+        return _(
+            "{fiber} 集計は、同じ画像・同じフォルダのファイバーを独立な標本として"
+            "検定しています。p 値は試料の数ではなくファイバー本数とともに小さく"
+            "なります。1 フォルダが 1 試料なら、試料間の差は {folder} 集計で"
+            "検定してください。"
+        ).format(fiber=UNIT_FIBER, folder=UNIT_FOLDER)
+    if unit == UNIT_IMAGE:
+        return _(
+            "{image} 集計は、同じフォルダの画像を独立な標本として検定しています。"
+            "p 値は試料の数ではなく画像枚数とともに小さくなります。1 フォルダが "
+            "1 試料なら、試料間の差は {folder} 集計で検定してください。"
+        ).format(image=UNIT_IMAGE, folder=UNIT_FOLDER)
+    return ""
 
 
 def _format_sample_size(value: float, unit: str) -> str:
@@ -997,7 +1159,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "median": {"width": 72, "anchor": "e", "stretch": False},
                 "iqr":    {"width": 116, "anchor": "e", "stretch": False},
                 "mean":   {"width": 72, "anchor": "e", "stretch": False},
-                "std":    {"width": 68, "anchor": "e", "stretch": False},
+                "std":    {"width": 84, "anchor": "e", "stretch": False},
                 "mode":   {"width": 68, "anchor": "e", "stretch": False},
                 "n":      {"width": 66, "anchor": "e", "stretch": False},
                 "nfib":   {"width": 62, "anchor": "e", "stretch": False},
@@ -1017,7 +1179,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         res_hsb.pack(fill=tk.X, padx=6, pady=(0, 6))
 
     @staticmethod
-    def _result_headings(param: str) -> dict:
+    def _result_headings(param: str, std_definition: str = STD_SAMPLE) -> dict:
         """
         Return the result-table column headings.
         結果テーブルの列見出しを返す。
@@ -1028,6 +1190,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             Measured-quantity key from `PARAM_SPECS`, reserved for headings
             that need to vary by quantity.
             `PARAM_SPECS` の計測量キー。計測量ごとに変える見出し用に受け取る。
+        std_definition
+            `STD_SAMPLE` or `STD_WEIGHTED`, naming how the standard deviation
+            column was computed.
+            `STD_SAMPLE` または `STD_WEIGHTED`。標準偏差の列の計算法を示す。
 
         Returns
         -------
@@ -1045,7 +1211,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "median": "median",
             "iqr": "IQR",
             "mean": "mean",
-            "std": "std",
+            "std": STD_HEADINGS[std_definition],
             "mode": "mode",
             "n": "N",
             "nfib": "N fibers",
@@ -1147,6 +1313,36 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
         self.comparison_tree.configure(xscrollcommand=hsb.set)
         hsb.pack(fill=tk.X, padx=6, pady=(0, 4))
+
+        # Below the table rather than beside the note, because the caveat is a
+        # paragraph and the header row would otherwise widen the whole pane;
+        # it wraps to the panel width and is packed only while it has text.
+        # 注意書きは段落なので、注記の横ではなく表の下に置く。見出し行に置くと
+        # ペイン全体が横に広がるためである。パネル幅で折り返し、文があるときだけ
+        # 配置する。
+        self.comparison_caveat_var = tk.StringVar()
+        self.lbl_comparison_caveat = ttk.Label(
+            frm, textvariable=self.comparison_caveat_var, justify=tk.LEFT,
+        )
+        frm.bind("<Configure>", lambda e: self.lbl_comparison_caveat.configure(
+            wraplength=max(e.width - 16, 100)))
+
+    def _set_comparison_caveat(self, text: str) -> None:
+        """
+        Show or hide the caveat under the comparison table.
+        比較テーブル下の注意書きを表示または非表示にする。
+
+        Parameters
+        ----------
+        text
+            Caveat to show; an empty string hides the label.
+            表示する注意書き。空文字列ならラベルを隠す。
+        """
+        self.comparison_caveat_var.set(text)
+        if text:
+            self.lbl_comparison_caveat.pack(fill=tk.X, padx=6, pady=(0, 4))
+        else:
+            self.lbl_comparison_caveat.pack_forget()
 
     def _build_log_panel(self, parent: ttk.Frame) -> None:
         """
@@ -1330,10 +1526,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.cmb_unit.bind("<<ComboboxSelected>>", lambda _e: self._on_unit_change())
         ToolTip(self.cmb_unit, _(
             "1 標本の数え方を選びます。{pixel} は骨格画素 1 点、{kink} はキンク 1 点、"
-            "{fiber} はファイバー 1 本（高さとキンク角はファイバー内の中央値）、"
-            "{image} は画像 1 枚（その画像のファイバー値の中央値）です。"
+            "{fiber} はファイバー 1 本（高さはファイバー内の中央値）、"
+            "{image} は画像 1 枚、{folder} は登録フォルダ 1 つです。{image} と "
+            "{folder} は含まれるファイバー値の中央値で、キンク角は全キンクの角度の"
+            "中央値、キンク密度は総キンク数を判定した長さの合計で割った値です。"
             "{pixel} でまとめた分布は独立観測ではなく、長いファイバーほど重みが"
-            "大きくなるため、群間比較では {fiber} または {image} でも確認してください。"
+            "大きくなるため、群間比較では {fiber}・{image}・{folder} でも確認して"
+            "ください。1 フォルダが 1 試料なら、試料間の差を検定する単位は {folder} "
+            "です。"
             "{length} は骨格画素を輪郭長で重み付けします。画素を等しく数えると、"
             "斜めの骨格ステップが約 1.41 倍長いことと、走査範囲の異なる画像で"
             "ピクセルサイズが変わることの 2 つの偏りが入ります。{length} は両方を"
@@ -1341,7 +1541,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "します。"
         ).format(
             pixel=UNIT_PIXEL, length=UNIT_LENGTH, kink=UNIT_KINK,
-            fiber=UNIT_FIBER, image=UNIT_IMAGE,
+            fiber=UNIT_FIBER, image=UNIT_IMAGE, folder=UNIT_FOLDER,
         ))
 
         self.plot_type_var = tk.StringVar(value=PLOT_HISTOGRAM)
@@ -1868,8 +2068,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             )
             + _("  - {pixel} 集計は骨格画素をまとめた分布で、長いファイバーほど重みが大きく、"
                 "同一ファイバーの隣接画素も独立ではありません。群間比較の根拠には "
-                "{fiber} または {image} 集計での N も併せて確認してください。\n").format(
-                pixel=UNIT_PIXEL, fiber=UNIT_FIBER, image=UNIT_IMAGE
+                "{fiber}・{image}・{folder} 集計での N も併せて確認してください。\n").format(
+                pixel=UNIT_PIXEL, fiber=UNIT_FIBER, image=UNIT_IMAGE,
+                folder=UNIT_FOLDER,
             )
             + _("  - どの計測量もファイバー追跡を行うため処理時間がかかります。{height} 以外は"
                 "バンドルに走査範囲が記録されている必要があります。\n").format(height=PARAM_HEIGHT)
@@ -3064,9 +3265,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         -------
         tuple
             ``(values, weights, n_fibers, n_images)``; `weights` is always
-            None because the quantity counts objects.
+            None because the quantity counts objects. Under `UNIT_FOLDER`
+            `values` holds one median over every fiber of `per_fiber`, which
+            is one registered folder.
             ``(値, 重み, ファイバー数, 画像数)``。個数を数える量であるため
-            `weights` は常に None。
+            `weights` は常に None。`UNIT_FOLDER` では `values` は `per_fiber`
+            （登録フォルダ 1 つ分）の全ファイバーにわたる中央値 1 つになる。
         """
         values = []
         n_fibers = 0
@@ -3082,6 +3286,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             else:
                 values.extend(measurable.tolist())
 
+        if unit == UNIT_FOLDER and values:
+            values = [float(np.median(values))]
         return values, None, n_fibers, n_images
 
     @staticmethod
@@ -3114,11 +3320,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         -------
         tuple
             ``(values, weights, n_fibers, n_images)``. `weights` is None except
-            for `frame_weighted` fiber samples; the image unit takes each
-            image's weighted median instead and stays unweighted.
+            for `frame_weighted` fiber samples; the image and folder units
+            take a weighted median instead and stay unweighted. Under
+            `UNIT_FOLDER` `values` holds one value for all of `per_source`,
+            which is one registered folder.
             ``(値リスト, 重み, ファイバー数, 画像数)``。`weights` は
-            `frame_weighted` のファイバー単位標本以外では None。image 単位では
-            代わりに画像ごとの重み付き中央値を取り、重みなしのままにする。
+            `frame_weighted` のファイバー単位標本以外では None。image・folder
+            単位では代わりに重み付き中央値を取り、重みなしのままにする。
+            `UNIT_FOLDER` では `values` は `per_source`（登録フォルダ 1 つ分）
+            全体の値 1 つになる。
 
         Notes
         -----
@@ -3128,12 +3338,46 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         バンドル経路と CSV 経路で共有し、キュレーション済み CSV とその元となった
         バンドルが同一に集計されるようにする。これにより 2 つの入力が「似ている」
         ではなく「比較可能」になる。
+
+        An image or folder value pools its fibers rather than summarizing the
+        image values again: the median of every fiber value it holds, the
+        median of every kink angle for kink angle, and the pooled kinks over
+        the pooled judged length for kink density (`_kink_totals`).
+        画像・フォルダの値は、画像の値をさらに要約するのではなく、含まれる
+        ファイバーをまとめて求める。すなわち全ファイバー値の中央値、キンク角では
+        全キンク角の中央値、キンク密度ではまとめたキンク数をまとめた判定長で
+        割った値（`_kink_totals`）である。
         """
+        def pooled(source_values, source_weights) -> float:
+            if frame_weighted:
+                return _summary_stats(
+                    np.asarray(source_values, dtype=float),
+                    np.asarray(source_weights, dtype=float),
+                )["median"]
+            return float(np.median(source_values))
+
         values = []
-        weights = [] if frame_weighted and unit != UNIT_IMAGE else None
+        weights = [] if frame_weighted and unit not in SUMMARY_UNITS else None
         n_fibers = 0
         n_images = 0
+        folder_values = []
+        folder_weights = []
+        folder_kinks = 0
+        folder_judged_um = 0.0
         for _path, stats in per_source:
+            if param == PARAM_KINK_DENSITY and unit in SUMMARY_UNITS:
+                kinks, judged_um, used = _kink_totals(stats)
+                if used == 0:
+                    continue
+                n_fibers += used
+                n_images += 1
+                if unit == UNIT_IMAGE:
+                    values.append(kinks / judged_um)
+                else:
+                    folder_kinks += kinks
+                    folder_judged_um += judged_um
+                continue
+
             source_values = []
             source_weights = []
             for stat in stats:
@@ -3153,18 +3397,21 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # outweigh a sparse scan of the same specimen.
                 # 1 画像 1 標本とし、ファイバーの多い画像が同じ試料の疎な画像を
                 # 押しのけないようにする。
-                if frame_weighted:
-                    values.append(_summary_stats(
-                        np.asarray(source_values, dtype=float),
-                        np.asarray(source_weights, dtype=float),
-                    )["median"])
-                else:
-                    values.append(float(np.median(source_values)))
+                values.append(pooled(source_values, source_weights))
+            elif unit == UNIT_FOLDER:
+                folder_values.extend(source_values)
+                folder_weights.extend(source_weights)
             else:
                 values.extend(source_values)
                 if weights is not None:
                     weights.extend(source_weights)
 
+        if unit == UNIT_FOLDER:
+            if param == PARAM_KINK_DENSITY:
+                if folder_judged_um > 0.0:
+                    values.append(folder_kinks / folder_judged_um)
+            elif folder_values:
+                values.append(pooled(folder_values, folder_weights))
         return values, weights, n_fibers, n_images
 
     def _worker_run(self, args: dict) -> None:
@@ -3420,6 +3667,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "weights": wts,
                 "mean": stats["mean"],
                 "std": stats["std"],
+                "std_definition": stats["std_definition"],
                 "median": stats["median"],
                 "q1": stats["q1"],
                 "q3": stats["q3"],
@@ -3566,8 +3814,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         elif unit not in TESTABLE_UNITS:
             comparison_note = _(
                 "{unit} 集計の標本は独立観測ではないため検定しません。"
-                "{fiber} または {image} 集計に切り替えてください。"
-            ).format(unit=unit, fiber=UNIT_FIBER, image=UNIT_IMAGE)
+                "{fiber}・{image}・{folder} のいずれかの集計に切り替えてください。"
+            ).format(unit=unit, fiber=UNIT_FIBER, image=UNIT_IMAGE,
+                     folder=UNIT_FOLDER)
         elif frame_weighted:
             # Mann-Whitney U and KS take no weights, and a weighted
             # Mann-Whitney has no standard form, so a corrected sample is
@@ -3627,12 +3876,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         group_name_fs = payload["group_name_fs"]
         errors = payload["errors"]
 
-        for col, text in self._result_headings(param).items():
+        # Every group of one run shares the weighting, so the first names the
+        # standard deviation the whole column holds.
+        # 1 回の実行の全グループは重み付けを共有するため、先頭の結果が列全体の
+        # 標準偏差の定義を表す。
+        std_definition = (
+            results[0].get("std_definition", STD_SAMPLE) if results
+            else STD_SAMPLE
+        )
+        for col, text in self._result_headings(param, std_definition).items():
             self.result_tree.heading(col, text=text)
         self._update_result_caption(param, unit)
         self._last_comparisons = payload["comparisons"]
         self._populate_comparison_table(
-            payload["comparisons"], payload["comparison_note"],
+            payload["comparisons"], payload["comparison_note"], unit,
         )
 
         for iid in self.result_tree.get_children(""):
@@ -3646,7 +3903,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     f"{r['median']:.3f}",
                     f"{r['q1']:.3f}–{r['q3']:.3f}",
                     f"{r['mean']:.3f}",
-                    f"{r['std']:.3f}",
+                    _blank_if_nan(r["std"], "{0:.3f}") or "-",
                     mode_str,
                     _format_sample_size(r["n_samples"], unit),
                     "-" if r["n_fibers"] is None else f"{r['n_fibers']:,}",
@@ -3733,7 +3990,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return "{0:.1e}".format(value)
         return "{0:.3f}".format(value)
 
-    def _populate_comparison_table(self, comparisons, note: str) -> None:
+    def _populate_comparison_table(self, comparisons, note: str,
+                                   unit: str = None) -> None:
         """
         Fill the between-group comparison table and its note.
         群間比較テーブルと注記を埋める。
@@ -3746,16 +4004,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         note
             Explanation shown when no comparison was run.
             比較を実行しなかった場合に表示する説明。
+        unit
+            Aggregation unit the samples were tested at, which selects the
+            caveat under the table (`_comparison_caveat`).
+            検定した標本の集計単位。表の下の注意書きを選ぶ（`_comparison_caveat`）。
 
         Notes
         -----
         The adjusted p-values are the ones shown, with the raw value beside
-        them, because every pair of k groups is tested at once and reading the
-        raw values alone would find a difference among four groups about a
-        quarter of the time with none present.
+        them, because every pair of k groups is tested at once, and testing
+        each pair at 0.05 on its own finds a difference somewhere more often
+        than 5% of the time when there is none.
         表示するのは補正後の p 値で、生の値は併記する。k 群のすべてのペアを同時に
-        検定しており、生の値だけを見ると、差が無くても 4 群では約 1/4 の確率で
-        どこかに差が見つかってしまうためである。
+        検定しており、各ペアを単独に 0.05 で検定すると、差が無くてもどこかに差が
+        見つかる確率は 5% を超えるためである。
         """
         for iid in self.comparison_tree.get_children(""):
             self.comparison_tree.delete(iid)
@@ -3765,12 +4027,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
         if not comparisons:
             self.comparison_note_var.set(note)
+            self._set_comparison_caveat("")
             return
 
         self.comparison_note_var.set(
             _("p 値は Holm 補正後（括弧内は補正前）") if len(comparisons) > 1
             else _("p 値（2 群のため補正不要）")
         )
+        self._set_comparison_caveat(_comparison_caveat(unit))
         for c in comparisons:
             if len(comparisons) > 1:
                 u_text = "{adj} ({raw})".format(
@@ -3986,10 +4250,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             表記する。これにより、骨格画素の分布とファイバーの分布を読者が
             区別できる。
             """
-            lines = [
+            # A group of one sample has no standard deviation, so its mean is
+            # written alone rather than as "± nan".
+            # 標本 1 個の群には標準偏差が無いため、"± nan" ではなく平均だけを書く。
+            mean_line = (
                 "{p} = {m} ± {s} {u}".format(
-                    p=param, m=f"{r['mean']:.2f}", s=f"{r['std']:.2f}", u=value_unit,
-                ),
+                    p=param, m=f"{r['mean']:.2f}", s=f"{r['std']:.2f}",
+                    u=value_unit,
+                ) if np.isfinite(r["std"])
+                else "{p} = {m} {u}".format(
+                    p=param, m=f"{r['mean']:.2f}", u=value_unit,
+                )
+            )
+            lines = [
+                mean_line,
                 "median = {md} {u} (IQR {q1}–{q3})".format(
                     md=f"{r['median']:.2f}", u=value_unit,
                     q1=f"{r['q1']:.2f}", q3=f"{r['q3']:.2f}",
@@ -4119,6 +4393,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         for iid in self.comparison_tree.get_children(""):
             self.comparison_tree.delete(iid)
         self.comparison_note_var.set("")
+        self._set_comparison_caveat("")
         self._last_comparisons = []
         self.btn_save_comparison.configure(state=tk.DISABLED)
 
@@ -4349,6 +4624,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     # 輪郭長で枠に達したファイバーをどう扱ったか。影響しない他の
                     # 計測量では空欄。
                     "frame-touching fibers",
+                    # Whether std divides by n - 1 or by the total weight
+                    # (`_summary_stats`), appended so earlier columns keep
+                    # their positions.
+                    # std を n - 1 で割ったか重みの合計で割ったか
+                    # （`_summary_stats`）。既存の列位置を保つため末尾に足す。
+                    "std definition",
                 ])
                 for r in self._last_results:
                     mode_val = "" if np.isnan(r["mode"]) else f"{r['mode']:.3f}"
@@ -4360,7 +4641,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         f"{r['q1']:.3f}",
                         f"{r['q3']:.3f}",
                         f"{r['mean']:.3f}",
-                        f"{r['std']:.3f}",
+                        _blank_if_nan(r["std"], "{0:.3f}"),
                         mode_val,
                         _sample_size_csv_value(r["n_samples"], self._last_unit),
                         _sample_size_csv_value(
@@ -4369,6 +4650,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         int(r["n_images"]),
                         (r.get("frame_mode", FRAME_INCLUDE)
                          if self._last_param == PARAM_LENGTH else ""),
+                        r.get("std_definition", STD_SAMPLE),
                     ])
 
         save_csv_with_dialog(
