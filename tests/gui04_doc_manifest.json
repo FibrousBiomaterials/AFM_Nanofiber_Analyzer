@@ -3,10 +3,14 @@
   "symbols": {
     "lib/measure.py::measure_bundle": "3fe99540c837c6157c9f6c5dbbdde8f0433dbcdbd28196cb1e8a808fce316c71",
     "lib/bundle_schema.py::pixel_size_nm": "62a3a2671ce2e963d46f8d6906823444aa214bd8a53c13a0140c4a6cfd734ef0",
-    "lib/fiber_tracking_image.py::_build_fiber": "4d69acf89388affec58cd8fec2ac8009264142ebf48dbf463f3009bb47aba671",
+    "lib/fiber_tracking_image.py::_build_fiber": "1b50c18339d7500d20ade59bdef9f90143f8fa886967158cb5cf2a9e1b68921c",
     "lib/fiber.py::Fiber.length": "e2a59e65c72f8c8f8e12247a4a350392327b0aa86bc836dd4960872802fc43bf",
     "lib/centerline.py::_WIDTH_SEARCH_PX": "a80f543b2328dc3b83a7033d7c16385a72ce99878c698740c0ed856919138629",
     "lib/centerline.py::_WIDTH_STEP_PX": "63ce0419343d51976112a87e127ec441adcb885295184bfd1d258828cd195184",
+    "lib/centerline.py::_WIDTH_RANGE_MIN_WIDTHS": "1adf06967992d40f0cb9d03110f77ead84d82a90a28b837edafe1fd41f811f41",
+    "lib/centerline.py::_WIDTH_RANGE_WIDTHS": "d1f37847acb71dfc2f1aefe4e29bb086d851dcc325df3d92436339bc374c61fd",
+    "lib/centerline.py::_WIDTH_SEARCH_MAX_PX": "0ff0c9a10183099a321db5f738d65a98fd7bddca45e40dc3697db38556fb0094",
+    "lib/centerline.py::_WIDTH_SECOND_CREST_FRAC": "3cb8357c791dacc0c0aea9159e2debbbc8c9efc3fc8c9c944e0fa24f9f5c88ff",
     "lib/centerline.py::_WIDTH_TANGENT_HALF": "f221e1f81f5c3767f4be760bfe2178a2fc7c314878ab7d6d9eba5b4db5a540b7",
     "lib/centerline.py::FALLBACK_WIDTH_PX": "75f66b8f976749badd89c9550024e563348d3993677e626fe787f4b71b3b5737",
     "lib/centerline.py::_MIN_WIDTH_PX": "59ce300070ab51f6502491252beeb742c2bbdc8ef8ac30d96768bd37975dd545",
@@ -23,8 +27,9 @@
     "lib/centerline.py::_QUARTER_LEVEL": "46b6ee0160e64e365453ca7453135373fae034acd07c200223280897d893f9d4",
     "lib/centerline.py::_CENTROID_LEVEL": "fc15fe2c7e95a2f821fe68bcda8a6f473a9394cc4f797edb93f2ef902db7ce2b",
     "lib/centerline.py::_level_crossings": "ed2ed6d0c8059a0415e27b75939b0fbdb16c16de4c24d8cd7d64abd2f8e59b6e",
-    "lib/centerline.py::place_centerline": "86465f55d019adee6d2f533811f3573553833d359420c74ef426e6ec78bedf3b",
-    "lib/centerline.py::measure_apparent_width": "a710c33d5e6cfe8c7d1a3ee723ca6df377ce7988aa88b74754b19fb3c9b91e05",
+    "lib/centerline.py::place_centerline": "0cd28fbdaa412ae9a6ada88adcdacb681574ccd4c12c5d9cbc8d8695ffe2b386",
+    "lib/centerline.py::measure_apparent_width": "40a0c763647d41dce3b039c052b200e0257732d3a9ba38f3ff1ad405fe0e50d2",
+    "lib/centerline.py::_width_in_range": "36d5df3357992b4c18d1e285184eced7f0f653054176bd90c47b65634ba362db",
     "lib/centerline.py::_refine": "7801110bb3724f4f707eaade5231aaaa409beddcf6a86d2beba28dbd76804500",
     "lib/centerline.py::_climb_to_maximum": "0f54a1fbcc0a8bbfabd4d5cf037a3194cd215690542414b626bcbba411b154db",
     "lib/centerline.py::_whittaker_first_order": "578b7c68249897e6dee48c3080058d9919f835348a2cff2a05732c901b72c7ce",
@@ -61,7 +66,7 @@
     "lib/fiber_connector.py::_fragment_median_heights": "6468ee0e0b4be9c4a696a52ff4293439e1d2d8ec99524bfbfea4d789b56c2451",
     "lib/fiber_connector.py::_candidates_for": "ab952312b25d5cbf2ca99fb068c2f30dea1f97e780056ca13ebc903605f3f2bf",
     "lib/fiber_connector.py::_build_chain_fiber": "fd37669a1bfe9abe93f61c406cedaff94507ed0e061de82c4f6da23a704ff1bb",
-    "lib/fiber_connector.py::_rebuild_connected_fiber": "fae8e7710a1374e04848f6eb1e92d59f1188cc1969581711c04826faf68c94e0",
+    "lib/fiber_connector.py::_rebuild_connected_fiber": "a64480eaebaa1cbdff10e2b1f0f71fb94f0a0dc83042bafb00325ca958031acf",
     "lib/fiber_connector.py::filter_fibers_by_height": "a5d12b03479beeea6fe487bdf759c4860267e9a9cd55ab8bf72391041798daab"
   }
 }

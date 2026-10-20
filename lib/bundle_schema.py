@@ -168,13 +168,31 @@ from .centerline import (
 #      置かれるため、1.3 の読み取り側は、明るい繊維の脇にある繊維の線を、キンクを
 #      判定したのとは別の W で置いてしまう。読み取り側は形式 1.1〜1.3 のバンドルの
 #      線を全体の最大値で置く（`width_peak_from_meta`）。
-BUNDLE_FORMAT_VERSION = "1.4"
+# 1.5: the apparent width W is read over a cross-section range that grows with
+#      the fiber (`centerline.measure_apparent_width`): a range shorter than
+#      1.25 W is widened to 2 W, so the base of a fiber wider than about
+#      10 px lies on the background instead of on its own skirt, and a fiber
+#      wider than the range is measured instead of given the fallback width.
+#      No array changes, but `kp`, `ka`, `ke` and `up` were judged at that W
+#      and the line is placed with it, so a 1.4 reader would place the line
+#      of a wide fiber with a narrower W than its kinks were judged at. A
+#      reader reads the width of a bundle of format 1.4 or older over the
+#      fixed +-12 px range (`width_range_adaptive_from_meta`).
+# 1.5: 見かけ幅 W を、繊維に合わせて広がる断面の範囲で読む
+#      （`centerline.measure_apparent_width`）。範囲が 1.25 W より短ければ 2 W に
+#      広げるため、幅が約 10 px を超える繊維でも基準が自身の裾ではなく背景の上に
+#      来て、範囲より太い繊維も代替値ではなく測った幅を持つ。配列は変わらないが、
+#      `kp`・`ka`・`ke`・`up` はその W で判定され、線もそれで置かれるため、1.4 の
+#      読み取り側は太い繊維の線を、キンクを判定したより細い W で置いてしまう。
+#      読み取り側は形式 1.4 以前のバンドルの幅を、固定の ±12 px の範囲で読む
+#      （`width_range_adaptive_from_meta`）。
+BUNDLE_FORMAT_VERSION = "1.5"
 
 # Versions this code base can read. Readers reject unknown versions loudly so
 # a future format change cannot be silently misinterpreted by old releases.
 # 本コードベースが読める形式バージョン。未知のバージョンは明示的に拒否し、
 # 将来の形式変更を旧リリースが黙って誤解釈しないようにする。
-SUPPORTED_BUNDLE_VERSIONS = ("1.0", "1.1", "1.2", "1.3", "1.4")
+SUPPORTED_BUNDLE_VERSIONS = ("1.0", "1.1", "1.2", "1.3", "1.4", "1.5")
 
 # Format versions whose kinks were judged on, and whose fibers are drawn and
 # measured along, the half-maximum centerline. A 1.0 bundle, or one recording
@@ -186,7 +204,7 @@ HALF_MAX_CENTERLINE_VERSIONS = ("1.1",)
 
 # Format versions that record their line in `CENTERLINE_KEY`.
 # 線を `CENTERLINE_KEY` に記録する形式バージョン。
-CENTERLINE_KEY_VERSIONS = ("1.2", "1.3", "1.4")
+CENTERLINE_KEY_VERSIONS = ("1.2", "1.3", "1.4", "1.5")
 
 # Format versions whose line and kinks were computed in physical geometry,
 # with Y scaled by the pixel aspect. Older bundles were computed in pixel
@@ -194,7 +212,7 @@ CENTERLINE_KEY_VERSIONS = ("1.2", "1.3", "1.4")
 # 線とキンクを、Y を画素の縦横比で拡大した実空間の幾何で計算した形式バージョン。
 # それより古いバンドルは画素座標の幾何で計算されており、そのまま画素座標で読む。
 # こうして保存済みのキンクと線が食い違わないようにする。
-PHYSICAL_GEOMETRY_VERSIONS = ("1.3", "1.4")
+PHYSICAL_GEOMETRY_VERSIONS = ("1.3", "1.4", "1.5")
 
 # Format versions whose apparent width was read halfway between each
 # profile's base and the first maximum uphill from the track point
@@ -205,7 +223,15 @@ PHYSICAL_GEOMETRY_VERSIONS = ("1.3", "1.4")
 # 読んだ形式バージョン
 # （`centerline.WIDTH_PEAK_NEAREST`）。形式 1.1〜1.3 のバンドルはプロファイル全体の
 # 最大値で判定されており、そのまま全体の最大値で読む。
-NEAREST_PEAK_WIDTH_VERSIONS = ("1.4",)
+NEAREST_PEAK_WIDTH_VERSIONS = ("1.4", "1.5")
+
+# Format versions whose apparent width was read over a cross-section range that
+# grows with the fiber (`centerline.measure_apparent_width`). Older bundles were
+# judged with the fixed +-12 px range and are read with it.
+# 見かけ幅を、繊維に合わせて広がる断面の範囲で読んだ形式バージョン
+# （`centerline.measure_apparent_width`）。それより古いバンドルは固定の ±12 px の
+# 範囲で判定されており、そのまま固定の範囲で読む。
+ADAPTIVE_WIDTH_RANGE_VERSIONS = ("1.5",)
 
 # vlmeta key naming the line a bundle's kinks were judged on and its fibers
 # are measured along: one of `centerline.CENTERLINE_METHODS`. Required from
@@ -905,6 +931,36 @@ def width_peak_from_meta(meta: Optional[Dict]) -> str:
     if version in NEAREST_PEAK_WIDTH_VERSIONS:
         return WIDTH_PEAK_NEAREST
     return WIDTH_PEAK_GLOBAL
+
+
+def width_range_adaptive_from_meta(meta: Optional[Dict]) -> bool:
+    """
+    Return whether a bundle's apparent widths were read over a growing range.
+    バンドルの見かけ幅を、広がる断面の範囲で読んだかを返す。
+
+    Parameters
+    ----------
+    meta
+        Bundle vlmeta dictionary, or ``None``.
+        バンドルの vlmeta 辞書、または ``None``。
+
+    Returns
+    -------
+    bool
+        ``True`` for a format listed in `ADAPTIVE_WIDTH_RANGE_VERSIONS`;
+        ``False`` for an older format, whose widths were read over the fixed
+        +-12 px range.
+        `ADAPTIVE_WIDTH_RANGE_VERSIONS` に含まれる形式なら ``True``。それより古い
+        形式では ``False``。その幅は固定の ±12 px の範囲で読まれた。
+
+    Notes
+    -----
+    As with `width_peak_from_meta`, a reader places a fiber's line at the width
+    the stored kinks were judged at.
+    `width_peak_from_meta` と同じく、読み取り側は保存済みキンクを判定したのと同じ
+    幅で繊維の線を置く。
+    """
+    return (meta or {}).get("version") in ADAPTIVE_WIDTH_RANGE_VERSIONS
 
 
 def kink_params_from_meta(

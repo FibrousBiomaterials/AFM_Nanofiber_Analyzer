@@ -77,6 +77,8 @@ from lib.measure import (
     write_heights_csv,
 )
 from lib.pipeline import (
+    BACKGROUND_CHECKED_MAX_WIDTH_PX,
+    MIN_FLANK_STEP_RATIO,
     ProcParams,
     build_stages,
     existing_min_set,
@@ -136,6 +138,30 @@ def _load_params(path: str, strict: bool = False) -> ProcParams:
     if obsolete:
         print(f"[params] unknown keys ignored: {', '.join(obsolete)}")
     return params
+
+
+def _background_warning_text(warning) -> str:
+    """
+    One line for a `lib.pipeline.BackgroundWarning`, with what to rerun with.
+    `lib.pipeline.BackgroundWarning` 1 件を、解析し直す設定とともに 1 行にする。
+    """
+    if warning.suggest_method == "tophat":
+        advice = (f'rerun with "bg_method": "tophat", "tophat_se_size": '
+                  f"{warning.suggest_tophat_se_size} in the --params file")
+    else:
+        advice = (f'rerun with "bg_method": "{warning.suggest_method}" '
+                  f"in the --params file")
+    if warning.reason == "element_small":
+        why = (f"tophat_se_size is small for the fibers' apparent width "
+               f"(median {warning.width_px:.1f} px)")
+    elif warning.reason == "flank_step_low":
+        why = (f"fiber flanks step little against the noise (flank-step ratio "
+               f"{warning.flank_step_ratio:.2f}, {warning.bg_method} needs "
+               f"{MIN_FLANK_STEP_RATIO[warning.bg_method]:g} or more)")
+    else:
+        why = (f"apparent width (median {warning.width_px:.1f} px) is above the "
+               f"{BACKGROUND_CHECKED_MAX_WIDTH_PX:g} px {warning.bg_method} was checked to")
+    return f"warning: {why}; fiber heights may read low; {advice}"
 
 
 def _output_stem(txt_path: str, output_dir: str, row_range=None) -> str:
@@ -330,6 +356,8 @@ def cmd_process(args: argparse.Namespace) -> int:
             failures.append(name)
             continue
         print(f"done ({result.elapsed_s:.2f}s) -> {result.bundle_path}")
+        for w in result.background_warnings:
+            print("    " + _background_warning_text(w), file=sys.stderr)
         n_done += 1
 
     print(

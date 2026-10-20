@@ -767,7 +767,7 @@ def load_bundle_meta(path: str) -> dict:
     ...                           scan_size_um=(1.25, 1.25)).bundle_path
     ...     meta = load_bundle_meta(bundle)
     >>> meta["version"]
-    '1.4'
+    '1.5'
     >>> meta["spatial_calibration"]
     {'scan_size_x_um': 1.25, 'scan_size_y_um': 1.25, 'source': 'manual'}
     """

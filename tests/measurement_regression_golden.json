@@ -1,61 +1,61 @@
 {
   "testdata_Bruker_txt/NDTOC250306.000.txt": {
     "default": {
-      "fiber_csv_sha256": "7c21b4b0ba701159f26c9c7c550013dedf0c101df052571366806f25187ccee6",
+      "fiber_csv_sha256": "9026e9feac94f06c50b7ce11b2a97bfcf7d64a283de764f1ab912080172ec79b",
       "fibers": 139,
-      "heights_sha256": "a51f5f2fbf276482ff76c7929035e252fd854c04b24d50b5127d15e75d28208b",
-      "total_length_nm": 9434.2
+      "heights_sha256": "5e42c9f09b74595f81df72ed3b8d95a29211f9daf066b18e565711e8abaecf99",
+      "total_length_nm": 9433.6
     },
     "max_loop_area_0": {
-      "fiber_csv_sha256": "23781e008314daf9334194d24815610850d2ddfe562cd93fe67a363f671f6018",
+      "fiber_csv_sha256": "0b0ed025e124031121ec4fb78800e90aabccd6fa071f04aa20ac164c3c48f98c",
       "fibers": 148,
-      "heights_sha256": "5142b7bff282099fbe8e8dc7c484776a846518dae978410fbfc75beb65d04ca7",
-      "total_length_nm": 9301.8
+      "heights_sha256": "4ce85d9e4d3b5fb022f410cc35410337689473f3d40daf89b93035446ebd0d9d",
+      "total_length_nm": 9300.8
     },
     "spur_length_0": {
-      "fiber_csv_sha256": "9f820948e761d3864cae6a3578aaaafac1591983dcb6cad7e4e455b98d5ac134",
+      "fiber_csv_sha256": "736a5523e12c3fd198dc72263fa47f63bae5f147122697cee973c03a3828c86b",
       "fibers": 149,
-      "heights_sha256": "45ee94d1007d2090c823109b46e6ba7e7fc1173426f5540dce5cb8ee48b5c929",
-      "total_length_nm": 9399.8
+      "heights_sha256": "669687c7a00e2c72bf66aca80caafc234369e54986719a28868d2c60e99a1a6c",
+      "total_length_nm": 9399.5
     }
   },
   "testdata_artificial/sample_anisotropic.txt": {
     "default": {
-      "fiber_csv_sha256": "4c6dfb49beb60c72b47dbe79606754d918ae8e054f6a71057720a866de3e3d38",
+      "fiber_csv_sha256": "e0e4d9ea39aa158b10ee6e4e3a63a0ab61fe460af6a8520e9a5c78ab8dd34142",
       "fibers": 4,
-      "heights_sha256": "0baab985bdad69f2c27070ffd604bdffe5dbf058c3c0a0a04bbdef45c27117c0",
+      "heights_sha256": "77bf6f453d32271b837b2b1d3451b367c57516abeb805cb85fc518f05dcc7fe6",
       "total_length_nm": 2106.5
     },
     "max_loop_area_0": {
-      "fiber_csv_sha256": "4c6dfb49beb60c72b47dbe79606754d918ae8e054f6a71057720a866de3e3d38",
+      "fiber_csv_sha256": "e0e4d9ea39aa158b10ee6e4e3a63a0ab61fe460af6a8520e9a5c78ab8dd34142",
       "fibers": 4,
-      "heights_sha256": "0baab985bdad69f2c27070ffd604bdffe5dbf058c3c0a0a04bbdef45c27117c0",
+      "heights_sha256": "77bf6f453d32271b837b2b1d3451b367c57516abeb805cb85fc518f05dcc7fe6",
       "total_length_nm": 2106.5
     },
     "spur_length_0": {
-      "fiber_csv_sha256": "4c6dfb49beb60c72b47dbe79606754d918ae8e054f6a71057720a866de3e3d38",
+      "fiber_csv_sha256": "e0e4d9ea39aa158b10ee6e4e3a63a0ab61fe460af6a8520e9a5c78ab8dd34142",
       "fibers": 4,
-      "heights_sha256": "0baab985bdad69f2c27070ffd604bdffe5dbf058c3c0a0a04bbdef45c27117c0",
+      "heights_sha256": "77bf6f453d32271b837b2b1d3451b367c57516abeb805cb85fc518f05dcc7fe6",
       "total_length_nm": 2106.5
     }
   },
   "testdata_artificial/sample_isotropic.txt": {
     "default": {
-      "fiber_csv_sha256": "872cef20b5e2600481eda9a924ab960ce3ad4f872c4aa43cf36edead29df7190",
+      "fiber_csv_sha256": "a5b2d64e022f23474c80986876e81687037e9d8aba1cc940d7444d450918bfd1",
       "fibers": 3,
-      "heights_sha256": "74e52f793778b4ba90dbed36e7af55076cf0c631a76e03e4b909d6c6d9f7fa45",
+      "heights_sha256": "1b5f5f4eb83501f2c478ae0e5bab28c3e6e6b061d33c5c0352b0a2e9b5bb150e",
       "total_length_nm": 485.2
     },
     "max_loop_area_0": {
-      "fiber_csv_sha256": "872cef20b5e2600481eda9a924ab960ce3ad4f872c4aa43cf36edead29df7190",
+      "fiber_csv_sha256": "a5b2d64e022f23474c80986876e81687037e9d8aba1cc940d7444d450918bfd1",
       "fibers": 3,
-      "heights_sha256": "74e52f793778b4ba90dbed36e7af55076cf0c631a76e03e4b909d6c6d9f7fa45",
+      "heights_sha256": "1b5f5f4eb83501f2c478ae0e5bab28c3e6e6b061d33c5c0352b0a2e9b5bb150e",
       "total_length_nm": 485.2
     },
     "spur_length_0": {
-      "fiber_csv_sha256": "8b0d334ccc200d5ae5ecfbf4d89d1b39435bbc79117530ea9e2c635a1bb184f7",
+      "fiber_csv_sha256": "ddf120a1a507bf7cbfe9bf64de8ba99d83548dae7fdd6122895e7824a605eb5b",
       "fibers": 3,
-      "heights_sha256": "b4a6eb18bcea7797f32c14c30172598f7d97567fbad5aba30ab80436b32468ef",
+      "heights_sha256": "3ec7d09f8b9b1e492503aeafbe5f4053e4926b9e37f4e108f32dd973fe7ff7ed",
       "total_length_nm": 474.5
     }
   },
@@ -67,10 +67,10 @@
       "total_length_nm": 4064.0
     },
     "max_loop_area_0": {
-      "fiber_csv_sha256": "a850bd4a591f5d3e27a52a711d35e6144a14cbd0cb27cd6ef5189585f414eb33",
+      "fiber_csv_sha256": "15f7b286c0c8f4da44d47e27b3e851cca46a958dc178305c89fedb40897ffc08",
       "fibers": 15,
-      "heights_sha256": "ff552f0a7c0c432f1e69f9eafa48c55629409740a43f697d8da22214ebe72b58",
-      "total_length_nm": 4040.1
+      "heights_sha256": "413dd0aed47c9a2c5157e7755ddc04e95933d326cbe7e16f5c00c40631e37923",
+      "total_length_nm": 4038.4
     },
     "spur_length_0": {
       "fiber_csv_sha256": "00ba457a87055ed6b5a934f66cc40ed13baef430ed6f267fc0886d3cdb779b52",
@@ -81,22 +81,22 @@
   },
   "testdata_tunicateCNF/TunicateACTOCCNF.txt": {
     "default": {
-      "fiber_csv_sha256": "afacc39caf3ea4b84f64bcd98c0dfbef77629b013b64b186139159a125f2926b",
+      "fiber_csv_sha256": "05e026a01ef3799c7d6ec80f6ec78ed1bd9c4fca6417f37106177d8cb86146ae",
       "fibers": 60,
-      "heights_sha256": "5f5a51a16c93b881fed34b5ce7277094ed9005ed4199a95776a0356c997c6f6e",
-      "total_length_nm": 8471.1
+      "heights_sha256": "9fe60c9dcd76931844f2e5634c260a8ac801e99175d9f254ca778980a47e1dd0",
+      "total_length_nm": 8469.5
     },
     "max_loop_area_0": {
-      "fiber_csv_sha256": "49cacda25b4a17445c793d5ee104538b7f3cdb2af1e79d7303bba1638afb4b92",
+      "fiber_csv_sha256": "430c1bb300f6689ab60dc29a04e4aa822fedd7b367298abe82686d13f73ef604",
       "fibers": 63,
-      "heights_sha256": "950f9cea91e128e88d4e41effa21e1cfa8e492b3b722a3d8cfea26d19ce44e51",
-      "total_length_nm": 8455.4
+      "heights_sha256": "d6e69423b20f4a8c8d05939f594e302711834be8d777a4d1966014d87bbc748f",
+      "total_length_nm": 8453.9
     },
     "spur_length_0": {
-      "fiber_csv_sha256": "37647b1cbb99b6a589fbc8067754627d8e3f5158185f71341949eb3f931bf555",
+      "fiber_csv_sha256": "ff63341a7e750ced06a30ce41e5c1a377b4b30d85612fa286a047b1a10530a47",
       "fibers": 62,
-      "heights_sha256": "5c1a289fc14a57c40d118ea48a016e7d604bb4be0889832f7d2bf88bd2744cd9",
-      "total_length_nm": 8451.8
+      "heights_sha256": "a036efde845092346debbb5c2f5220013319beb4b2366734b2ce082703f8d739",
+      "total_length_nm": 8451.0
     }
   }
 }

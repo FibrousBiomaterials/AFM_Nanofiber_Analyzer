@@ -93,6 +93,7 @@ from matplotlib.transforms import blended_transform_factory
 # lib.pipeline が CLI と共通の前処理パイプラインを駆動する。本 GUI は
 # バッチ方針（スキップ/上書き/停止）と UI 表示のみを担当する。
 from lib.pipeline import (
+    BACKGROUND_CHECKED_MAX_WIDTH_PX, MIN_FLANK_STEP_RATIO, BackgroundWarning,
     ProcParams, PipelineStages, STAGE_KEYS, build_stages, process_file,
     bundle_path_for, existing_min_set, merge_params_dict, param_path_for,
     row_range_suffix, validate_params,
@@ -330,6 +331,55 @@ def stage_label(stage: str) -> str:
         "kink":        _("kink検出"),
         "save":        _("保存"),
     }.get(stage, stage)
+
+
+def _format_background_warning(fname: str, warning: BackgroundWarning) -> str:
+    """
+    Turn a `lib.pipeline.BackgroundWarning` into a translated log line.
+    `lib.pipeline.BackgroundWarning` を翻訳済みのログ行にする。
+
+    Parameters
+    ----------
+    fname
+        Name of the analyzed file, as the log shows it.
+        ログに表示する、解析したファイルの名前。
+    warning
+        One warning from `PipelineResult.background_warnings`.
+        `PipelineResult.background_warnings` の警告 1 件。
+
+    Returns
+    -------
+    str
+        The warning and what to analyze again with.
+        警告と、解析し直すときの設定。
+    """
+    if warning.suggest_method == "tophat":
+        advice = _(
+            "bg_method を tophat、tophat_se_size を {se} にして解析し直してください。"
+        ).format(se=warning.suggest_tophat_se_size)
+    else:
+        advice = _("bg_method を {method} にして解析し直してください。").format(
+            method=warning.suggest_method)
+    if warning.reason == "element_small":
+        text = _(
+            "警告: {name}: 繊維の見かけ幅（中央値 {width:.1f} px）に対して "
+            "tophat_se_size が小さく、繊維の高さが低く出ているおそれがあります。"
+        ).format(name=fname, width=warning.width_px)
+    elif warning.reason == "flank_step_low":
+        text = _(
+            "警告: {name}: 繊維の斜面の段差がノイズに比べて小さく（斜面段差比 "
+            "{ratio:.2f}、{method} の目安は {limit:g} 以上）、{method} が繊維の一部を"
+            "背景として引いて高さが低く出ているおそれがあります。"
+        ).format(name=fname, ratio=warning.flank_step_ratio, method=warning.bg_method,
+                 limit=MIN_FLANK_STEP_RATIO[warning.bg_method])
+    else:
+        text = _(
+            "警告: {name}: 繊維の見かけ幅（中央値 {width:.1f} px）が、{method} を"
+            "確かめた範囲（{limit:g} px まで）を超えており、繊維の高さが低く出ている"
+            "おそれがあります。"
+        ).format(name=fname, width=warning.width_px, method=warning.bg_method,
+                 limit=BACKGROUND_CHECKED_MAX_WIDTH_PX)
+    return text + advice
 
 
 # ===== Settings =====
@@ -3416,6 +3466,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Report timing only after all outputs and sidecar metadata are written.
         dt_s = f"{result.elapsed_s:.2f}"
         self.ui_queue.put(("log", _("解析完了: %s (%ss)") % (fname, dt_s)))
+        for warning in result.background_warnings:
+            self.ui_queue.put(("log", _format_background_warning(fname, warning)))
         if iid is not None:
             self.ui_queue.put(("status", (iid, STATUS_ANALYZED, dt_s)))
         self.ui_queue.put(("progress", 1))
@@ -4342,7 +4394,7 @@ class SettingsDialog(tk.Toplevel):
         # Method descriptions are keyed by bg_method and displayed in menu order.
         self._bg_method_descs = {
             "trendfill": _("trendfill : 勾配リッジ検出 + 2次トレンド除去 + 最近傍充填。勾配で繊維マスクを作り、試料傾斜を2次曲面で除いてから穴を埋める。汎用だがリッジ検出パラメータの調整が必要（1.0.0 では 'inpaint' という名前）"),
-            "tophat":   _("tophat : 形態学的opening。tophat_se_size より細い明るい構造を前景として除去。マスク不要・高速"),
+            "tophat":   _("tophat : 形態学的opening。tophat_se_size より細い明るい構造を前景として除去。マスク不要・高速。拡大して撮った画像など、繊維が多くの画素にまたがる画像では他の方式より高さを保ちやすい。そのときは tophat_se_size を繊維の見かけ幅の約3倍にする（解析後、必要ならログに推奨値を表示）"),
             "spline1d": _("spline1d : 2次トレンド除去 + 行/列ごとの1D B-スプライン補間。ライン端は外挿せず自ラインの水準を保持。spline1d_axis で補間の向きを選択。'x'(既定)では、画像の行が走査ラインのとき走査ラインごとの上下のずれ(横縞)も除去"),
         }
         bg_desc_frame = ttk.Frame(lf_bg)

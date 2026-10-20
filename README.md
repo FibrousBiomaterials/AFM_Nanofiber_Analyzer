@@ -339,6 +339,19 @@ against. The recorded scan size is scaled to the range, so a fiber measures the
 same whether or not the scan was cropped. The CLI equivalent is
 `cli.py process --rows`.
 
+After each file, the log warns when the background calibration may have
+lowered fiber heights, and names the setting to analyze again with
+(`cli.py process` prints the same warning). Every length the background methods
+use is fixed in pixels, so a scan whose fibers span many pixels — a small scan
+area at a fine pixel size — can lose fiber height to the background. The
+warning compares the analysis with the limits each method was checked to:
+for `tophat`, a `tophat_se_size` below 2.5 times the fibers' apparent width; for
+`trendfill` and `spline1d`, fiber flanks that step little against the noise, or
+an apparent width above 19 px. For such scans choose `tophat` with
+`tophat_se_size` about three times the apparent width. How the limits were
+set, on zoomed copies of the bundled scans, is in
+[Evaluation on particular data](docs/validation.md) §1.8.
+
 ### Plot Profiler — `guis/GUI02_PlotProfiler.py`
 
 ![Plot Profiler window: a line placed on the AFM height map and the extracted height profile alongside it.](figures/gui02.png)
@@ -949,7 +962,7 @@ Each bundle also stores root metadata (blosc2 `vlmeta`):
 | Key | Content |
 |---|---|
 | `params` | Analysis-parameter dictionary, identical to `<input_stem>_param.json`. Read back for `kinkangle_deg` (see below), and for `kink_decompose_px` on a bundle of format 1.0; the remaining fields are provenance. |
-| `version` | Bundle format version (currently `"1.4"`, whose apparent width W is read at the level halfway between each cross-section's base and the first maximum uphill from the track point, the fiber's own crest, so a taller neighbouring fiber does not set the level it is read at as long as the fiber has a maximum of its own; a `"1.1"` to `"1.3"` bundle was judged halfway to the cross-section's overall maximum and is read that way. From `"1.3"` the centerline and kinks are computed in the scan's physical geometry, so the angles on a scan with different X and Y pixel sizes are the specimen's; a `"1.2"` bundle was computed in pixel geometry and is read in it, a `"1.1"` bundle is measured along the half-maximum centerline, and a `"1.0"` bundle along its skeleton track until it is re-analyzed). |
+| `version` | Bundle format version (currently `"1.5"`, whose apparent width W is read over a cross-section range that grows with the fiber, so a fiber spread over many pixels is not measured narrow; a `"1.4"` bundle was judged with the fixed ±12 px range and is read that way. From `"1.4"` W is read at the level halfway between each cross-section's base and the first maximum uphill from the track point, the fiber's own crest, so a taller neighbouring fiber does not set the level it is read at as long as the fiber has a maximum of its own; a `"1.1"` to `"1.3"` bundle was judged halfway to the cross-section's overall maximum and is read that way. From `"1.3"` the centerline and kinks are computed in the scan's physical geometry, so the angles on a scan with different X and Y pixel sizes are the specimen's; a `"1.2"` bundle was computed in pixel geometry and is read in it, a `"1.1"` bundle is measured along the half-maximum centerline, and a `"1.0"` bundle along its skeleton track until it is re-analyzed). |
 | `centerline` | The centerline the kinks were judged on and the fibers are measured along, one of the `centerline_method` values. Required from format 1.2; a reader builds the fibers on exactly this line and refuses a 1.2 or later bundle that does not name a known one. |
 | `software_version` | Application release that wrote the bundle. |
 | `input_file` | Base name of the processed input file. |
@@ -1196,6 +1209,12 @@ test suite instead of degrading silently in the launcher.
 - The background calibration and default parameters were developed and tuned on
   Shimadzu SPM-9600 scans. Other instruments are supported, but may need
   parameter adjustment for good segmentation and skeletonization.
+- The background methods work in fixed pixel lengths, so on a scan whose
+  fibers span many pixels they can subtract part of each fiber's height as
+  background; when fibers span about three times their usual pixel width,
+  the default settings may detect no fiber at all. GUI01 and `cli.py process`
+  warn when an analysis lies outside the limits each method was checked to
+  (see the Image Preprocessor section above).
 - The graphical tools require a working Tk installation and are primarily
   developed and tested on Windows; the CLI and library are platform-independent.
 - The `.b2z` bundle is a project-specific container. Use `cli.py export` to read

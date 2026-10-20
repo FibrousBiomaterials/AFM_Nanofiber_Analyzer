@@ -1794,6 +1794,7 @@ def _rebuild_connected_fiber(
             image.calibrated_image, pix_x, pix_y, return_measured=True,
             aspect=aspect,
             peak=getattr(image, "width_peak", WIDTH_PEAK_NEAREST),
+            adaptive_range=bool(getattr(image, "width_adaptive", True)),
         )
         judged = detector.judge_line(
             line_x, line_y, width, aspect,

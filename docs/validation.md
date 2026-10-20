@@ -172,6 +172,50 @@ Because the smoothing is linear, the two orders differ only by the trend minus
 its smoothed self, which is largest where the trend curves most along X. On
 every input the difference stays far below the 0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm binarization threshold.
 
+### 1.8 Scans whose fibers span many pixels
+
+Every length the background methods use is a number of pixels
+([Analysis algorithms](algorithms.md) §1), so a fiber spread over many pixels
+can be subtracted in part as background. The bundled scans cannot show this,
+because their fibers span few pixels, so scans of the same fibers at finer
+pixels were built from them (experiment zoomed_background). From each bundled
+scan, the default calibrated image smoothed by a Gaussian of 1<!--n:value tried--> px is the
+true height and the background the default analysis subtracted is the
+background. The two tiles of 256<!--c:scripts/measure_docs.py::ZOOM_TILE--> px holding the most skeleton pixels (the whole
+image for the artificial scans) are upsampled by each zoom factor, so the field
+stays the same and the pixels become finer; white noise at the scan's own level
+(0.027<!--m:zoomed_background.tunicate.noise_nm-->–0.064<!--m:zoomed_background.NDTOC.noise_nm--> nm) is added, and each method runs at its defaults through all four
+stages. The fibers' apparent widths at the scans' own pixel size are
+7.6<!--m:zoomed_background.hplantTOC.width_px-->–9.5<!--m:zoomed_background.art_iso.width_px--> px, so a zoom factor $k$ spreads them over about $k$ times as many
+pixels. "Kept" is the median of calibrated over true height at the default
+skeleton's points, ranged here over the tiles.
+
+| Zoom | trendfill | spline1d | tophat |
+|---|---|---|---|
+| 1<!--n:value tried--> | 0.97–1.00<!--m:zoomed_background.trendfill.x1.kept_range--> | 0.99–1.02<!--m:zoomed_background.spline1d.x1.kept_range--> | 0.92–0.98<!--m:zoomed_background.tophat.x1.kept_range--> |
+| 1.5<!--n:value tried--> | 0.61–1.00<!--m:zoomed_background.trendfill.x1.5.kept_range--> | 0.89–1.00<!--m:zoomed_background.spline1d.x1.5.kept_range--> | 0.83–0.95<!--m:zoomed_background.tophat.x1.5.kept_range--> |
+| 2<!--n:value tried--> | 0.32–1.00<!--m:zoomed_background.trendfill.x2.kept_range--> | 0.63–1.00<!--m:zoomed_background.spline1d.x2.kept_range--> | 0.64–0.83<!--m:zoomed_background.tophat.x2.kept_range--> |
+| 3<!--n:value tried--> | 0.13–0.96<!--m:zoomed_background.trendfill.x3.kept_range--> | 0.26–0.99<!--m:zoomed_background.spline1d.x3.kept_range--> | 0.29–0.49<!--m:zoomed_background.tophat.x3.kept_range--> |
+| 4<!--n:value tried--> | 0.08–0.18<!--m:zoomed_background.trendfill.x4.kept_range--> | 0.13–0.93<!--m:zoomed_background.spline1d.x4.kept_range--> | 0.15–0.28<!--m:zoomed_background.tophat.x4.kept_range--> |
+
+`background_warnings` (`lib/pipeline.py`) was checked on every run; a run it
+warned on was analyzed again as the warning suggests.
+
+| Zoom | Runs | Kept below 0.9<!--n:definition--> | of which not warned | Warned | Warned with 0.97<!--n:definition--> or more kept |
+|---|---|---|---|---|---|
+| 1<!--n:value tried--> | 24<!--m:zoomed_background.x1.runs--> | 0<!--m:zoomed_background.x1.below_90--> | 0<!--m:zoomed_background.x1.below_90_unwarned--> | 3<!--m:zoomed_background.x1.warned--> | 2<!--m:zoomed_background.x1.warned_above_97--> |
+| 1.5<!--n:value tried--> | 24<!--m:zoomed_background.x1.5.runs--> | 7<!--m:zoomed_background.x1.5.below_90--> | 1<!--m:zoomed_background.x1.5.below_90_unwarned--> | 12<!--m:zoomed_background.x1.5.warned--> | 1<!--m:zoomed_background.x1.5.warned_above_97--> |
+| 2<!--n:value tried--> | 24<!--m:zoomed_background.x2.runs--> | 14<!--m:zoomed_background.x2.below_90--> | 3<!--m:zoomed_background.x2.below_90_unwarned--> | 11<!--m:zoomed_background.x2.warned--> | 0<!--m:zoomed_background.x2.warned_above_97--> |
+| 3<!--n:value tried--> | 24<!--m:zoomed_background.x3.runs--> | 19<!--m:zoomed_background.x3.below_90--> | 18<!--m:zoomed_background.x3.below_90_unwarned--> | 1<!--m:zoomed_background.x3.warned--> | 0<!--m:zoomed_background.x3.warned_above_97--> |
+| 4<!--n:value tried--> | 24<!--m:zoomed_background.x4.runs--> | 23<!--m:zoomed_background.x4.below_90--> | 23<!--m:zoomed_background.x4.below_90_unwarned--> | 0<!--m:zoomed_background.x4.warned--> | 0<!--m:zoomed_background.x4.warned_above_97--> |
+
+Analyzed again as suggested, the warned runs kept 0.88–1.02<!--m:zoomed_background.followed.kept_range--> of their height, with
+the background error's 95<!--n:definition-->th percentile at most 0.24<!--m:zoomed_background.followed.bg95_max--> nm. From a zoom of 3<!--n:value tried--> the
+warning almost never fires: the calibration removes most of each fiber, and the
+stages after it often find no fiber whose width could be measured, so nothing
+is left to compare with the limits. Up to a zoom of 2<!--n:value tried--> the warning caught most of the
+runs that lost height (all but 1<!--m:zoomed_background.x1.5.below_90_unwarned--> at 1.5<!--n:value tried--> and 3<!--m:zoomed_background.x2.below_90_unwarned--> at 2<!--n:value tried-->); beyond it, almost none.
+
 ## 2. Binarization
 
 See [Analysis algorithms](algorithms.md) §2.
@@ -395,18 +439,18 @@ root-mean-square lateral offset from the axis (nm) over the middle of the track.
 |---|---|---|---|---|---|
 | 16<!--n:value tried-->×3<!--n:value tried--> | 0<!--n:value tried--> | 1.48<!--m:ribbon_tip_swing.16x3.R0.half_max_025w.rms_nm--> | 0.69<!--m:ribbon_tip_swing.16x3.R0.quarter_max.rms_nm--> | 1.11<!--m:ribbon_tip_swing.16x3.R0.centroid.rms_nm--> | 2.99<!--m:ribbon_tip_swing.16x3.R0.crest.rms_nm--> |
 | 16<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 3.23<!--m:ribbon_tip_swing.16x3.R10.half_max_025w.rms_nm--> | 2.23<!--m:ribbon_tip_swing.16x3.R10.quarter_max.rms_nm--> | 2.78<!--m:ribbon_tip_swing.16x3.R10.centroid.rms_nm--> | 4.37<!--m:ribbon_tip_swing.16x3.R10.crest.rms_nm--> |
-| 16<!--n:value tried-->×3<!--n:value tried--> | 40<!--n:value tried--> | 3.72<!--m:ribbon_tip_swing.16x3.R40.half_max_025w.rms_nm--> | 3.57<!--m:ribbon_tip_swing.16x3.R40.quarter_max.rms_nm--> | 3.60<!--m:ribbon_tip_swing.16x3.R40.centroid.rms_nm--> | 3.73<!--m:ribbon_tip_swing.16x3.R40.crest.rms_nm--> |
+| 16<!--n:value tried-->×3<!--n:value tried--> | 40<!--n:value tried--> | 3.30<!--m:ribbon_tip_swing.16x3.R40.half_max_025w.rms_nm--> | 3.21<!--m:ribbon_tip_swing.16x3.R40.quarter_max.rms_nm--> | 3.22<!--m:ribbon_tip_swing.16x3.R40.centroid.rms_nm--> | 3.26<!--m:ribbon_tip_swing.16x3.R40.crest.rms_nm--> |
 | 10<!--n:value tried-->×3<!--n:value tried--> | 0<!--n:value tried--> | 0.74<!--m:ribbon_tip_swing.10x3.R0.half_max_025w.rms_nm--> | 0.45<!--m:ribbon_tip_swing.10x3.R0.quarter_max.rms_nm--> | 0.66<!--m:ribbon_tip_swing.10x3.R0.centroid.rms_nm--> | 1.82<!--m:ribbon_tip_swing.10x3.R0.crest.rms_nm--> |
 | 10<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 1.86<!--m:ribbon_tip_swing.10x3.R10.half_max_025w.rms_nm--> | 1.44<!--m:ribbon_tip_swing.10x3.R10.quarter_max.rms_nm--> | 1.67<!--m:ribbon_tip_swing.10x3.R10.centroid.rms_nm--> | 2.53<!--m:ribbon_tip_swing.10x3.R10.crest.rms_nm--> |
-| 10<!--n:value tried-->×3<!--n:value tried--> | 40<!--n:value tried--> | 2.13<!--m:ribbon_tip_swing.10x3.R40.half_max_025w.rms_nm--> | 2.03<!--m:ribbon_tip_swing.10x3.R40.quarter_max.rms_nm--> | 2.07<!--m:ribbon_tip_swing.10x3.R40.centroid.rms_nm--> | 2.17<!--m:ribbon_tip_swing.10x3.R40.crest.rms_nm--> |
+| 10<!--n:value tried-->×3<!--n:value tried--> | 40<!--n:value tried--> | 2.03<!--m:ribbon_tip_swing.10x3.R40.half_max_025w.rms_nm--> | 1.94<!--m:ribbon_tip_swing.10x3.R40.quarter_max.rms_nm--> | 1.97<!--m:ribbon_tip_swing.10x3.R40.centroid.rms_nm--> | 2.06<!--m:ribbon_tip_swing.10x3.R40.crest.rms_nm--> |
 | 6<!--n:value tried-->×2<!--n:value tried--> | 0<!--n:value tried--> | 0.48<!--m:ribbon_tip_swing.6x2.R0.half_max_025w.rms_nm--> | 0.37<!--m:ribbon_tip_swing.6x2.R0.quarter_max.rms_nm--> | 0.43<!--m:ribbon_tip_swing.6x2.R0.centroid.rms_nm--> | 0.83<!--m:ribbon_tip_swing.6x2.R0.crest.rms_nm--> |
 | 6<!--n:value tried-->×2<!--n:value tried--> | 10<!--n:value tried--> | 1.14<!--m:ribbon_tip_swing.6x2.R10.half_max_025w.rms_nm--> | 0.98<!--m:ribbon_tip_swing.6x2.R10.quarter_max.rms_nm--> | 1.08<!--m:ribbon_tip_swing.6x2.R10.centroid.rms_nm--> | 1.39<!--m:ribbon_tip_swing.6x2.R10.crest.rms_nm--> |
-| 6<!--n:value tried-->×2<!--n:value tried--> | 40<!--n:value tried--> | 1.25<!--m:ribbon_tip_swing.6x2.R40.half_max_025w.rms_nm--> | 1.21<!--m:ribbon_tip_swing.6x2.R40.quarter_max.rms_nm--> | 1.23<!--m:ribbon_tip_swing.6x2.R40.centroid.rms_nm--> | 1.33<!--m:ribbon_tip_swing.6x2.R40.crest.rms_nm--> |
+| 6<!--n:value tried-->×2<!--n:value tried--> | 40<!--n:value tried--> | 1.25<!--m:ribbon_tip_swing.6x2.R40.half_max_025w.rms_nm--> | 1.20<!--m:ribbon_tip_swing.6x2.R40.quarter_max.rms_nm--> | 1.23<!--m:ribbon_tip_swing.6x2.R40.centroid.rms_nm--> | 1.33<!--m:ribbon_tip_swing.6x2.R40.crest.rms_nm--> |
 
 Relative to the crest, the default line strayed 0.41<!--m:ribbon_tip_swing.R0.default_over_crest_range[0]-->–0.58<!--m:ribbon_tip_swing.R0.default_over_crest_range[1]--> times as far without
-dilation, 0.74<!--m:ribbon_tip_swing.R10.default_over_crest_range[0]-->–0.82<!--m:ribbon_tip_swing.R10.default_over_crest_range[1]--> times at a 10<!--n:value tried--> nm apex and 0.94<!--m:ribbon_tip_swing.R40.default_over_crest_range[0]-->–1.00<!--m:ribbon_tip_swing.R40.default_over_crest_range[1]--> times at 40<!--n:value tried--> nm; at
+dilation, 0.74<!--m:ribbon_tip_swing.R10.default_over_crest_range[0]-->–0.82<!--m:ribbon_tip_swing.R10.default_over_crest_range[1]--> times at a 10<!--n:value tried--> nm apex and 0.94<!--m:ribbon_tip_swing.R40.default_over_crest_range[0]-->–1.01<!--m:ribbon_tip_swing.R40.default_over_crest_range[1]--> times at 40<!--n:value tried--> nm; at
 40<!--n:value tried--> nm the default line, the quarter-height midpoint and the centroid all strayed
-0.91<!--m:ribbon_tip_swing.R40.height_lines_over_crest_range[0]-->–1.00<!--m:ribbon_tip_swing.R40.height_lines_over_crest_range[1]--> times as far as the crest. On these three ribbons and three apex radii, the
+0.91<!--m:ribbon_tip_swing.R40.height_lines_over_crest_range[0]-->–1.01<!--m:ribbon_tip_swing.R40.height_lines_over_crest_range[1]--> times as far as the crest. On these three ribbons and three apex radii, the
 blunter the apex, the closer the swing of each of these three lines came to
 that of the crest.
 
@@ -446,7 +490,7 @@ Two caveats apply to the table:
 
 | `centerline_method` | Median distance (nm) | Real scans | Notes |
 |---|---|---|---|
-| `"half_max_025w"` (default) | 0.21<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->–0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 58<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 60<!--m:kink_reference.default.false--> | |
+| `"half_max_025w"` (default) | 0.21<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->–0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 58<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 59<!--m:kink_reference.default.false--> | |
 | `"half_max_05w"` | 0.20<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[0]-->–0.25<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[1]--> | 56<!--m:kink_reference.hm05.found--> / 4<!--m:kink_reference.hm05.missed--> / 41<!--m:kink_reference.hm05.false--> | The fewest unmatched bends of the three scored, but it merged the two corners of 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> of the 8<!--m:synthetic_centerline.pairs--> synthetic same-sense pairs, and slightly stronger smoothing raised the misses to 10–13<!--m:kink_reference.hm05_stronger.missed_range-->. |
 | `"skeleton_pixels"` | 0.54<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[0]-->–0.62<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[1]--> | 62<!--m:kink_reference.skeleton_pixels.found--> / 0<!--m:kink_reference.skeleton_pixels.missed--> / 129<!--m:kink_reference.skeleton_pixels.false--> | The staircase and the swing at junctions read as bends. |
 | `"smoothed_skeleton_05w"`, `"smoothed_skeleton_1w"` | 0.33<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[0]-->–0.56<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[1]--> / 0.39<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[0]-->–0.94<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[1]--> | not scored | |
@@ -461,7 +505,7 @@ false detections referred to below.
 
 | Rule | Found | Found 1–2<!--n:definition--> widths from the mark | Missed | Unmatched |
 |---|---|---|---|---|
-| Excess-turning rule, on the centerline | 58<!--m:kink_reference.default.found--> | 2<!--m:kink_reference.default.displaced--> | 3<!--m:kink_reference.default.missed--> | 60<!--m:kink_reference.default.false--> |
+| Excess-turning rule, on the centerline | 58<!--m:kink_reference.default.found--> | 2<!--m:kink_reference.default.displaced--> | 3<!--m:kink_reference.default.missed--> | 59<!--m:kink_reference.default.false--> |
 | Earlier polyline rule, on the skeleton track | 52<!--m:kink_reference.old_rule.found--> | 4<!--m:kink_reference.old_rule.displaced--> | 8<!--m:kink_reference.old_rule.missed--> | 74<!--m:kink_reference.old_rule.false--> |
 
 The earlier rule's row applies `KinkDetector.kinks_and_decomposed_from_track`,
@@ -474,7 +518,7 @@ its centerline were chosen among candidates by their scores on it, so the
 reference served as a development set rather than an independent test; no
 held-out scans were scored.
 Changing any one of them to a neighbouring value moved the clear kinks found
-within 56–62<!--m:kink_reference.sens_all.found_range--> and the unmatched bends within 45–77<!--m:kink_reference.sens_all.false_range--> (58<!--m:kink_reference.default.found--> and 60<!--m:kink_reference.default.false--> at
+within 56–62<!--m:kink_reference.sens_all.found_range--> and the unmatched bends within 44–77<!--m:kink_reference.sens_all.false_range--> (58<!--m:kink_reference.default.found--> and 59<!--m:kink_reference.default.false--> at
 the defaults). The largest drops came from stronger smoothing: 56<!--m:kink_reference.sens_heading_0.35.found--> with the
 heading smoothed over 0.35<!--n:value tried--> W, 57<!--m:kink_reference.sens_line_x1.4.found--> with the centerline smoothing ×1.4<!--n:value tried-->.
 
@@ -489,7 +533,7 @@ heading smoothed over 0.35<!--n:value tried--> W, 57<!--m:kink_reference.sens_li
 
 Without the candidates taken from the maxima of the window turning itself, the
 rule found 55<!--m:turn_maxima.without.found--> instead of 58<!--m:turn_maxima.with.found--> of the clear reference kinks, and reported
-43<!--m:turn_maxima.without.false--> instead of 60<!--m:turn_maxima.with.false--> unmatched bends (experiment turn_maxima).
+43<!--m:turn_maxima.without.false--> instead of 59<!--m:turn_maxima.with.false--> unmatched bends (experiment turn_maxima).
 
 ### 4.5 The angle stored for a kink
 
@@ -543,7 +587,7 @@ the real kinks. Scored against the visual reference
 
 The false detections on these scans are rounded bends, tangles, bends next to
 crossings, and shallow bends whose excess turning only just clears the
-threshold, not noise: 26<!--m:kink_reference.default.false_excess_30_40--> of the 60<!--m:kink_reference.default.false--> have an excess of 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->–40<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|190 - v-->°. For
+threshold, not noise: 25<!--m:kink_reference.default.false_excess_30_40--> of the 59<!--m:kink_reference.default.false--> have an excess of 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->–40<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|190 - v-->°. For
 11<!--m:kink_reference.default.false_arm_turn_below_threshold--> of them the turning read from the arms (180<!--n:definition-->° − `ka`) falls below
 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->°, because the arm angle is measured apart from the excess turning the rule
 tests. A heavily bent fiber's own kinks raise its floor, which is where the
@@ -598,8 +642,8 @@ branch point (experiment track_ends): many track ends are cuts at a crossing,
 not fiber ends.
 
 At a margin of $1.0\,W$ the false detections on the bundled scans rose from
-60<!--m:kink_reference.default.false--> to 77<!--m:kink_reference.sens_end_1.false--> without a further clear kink being found; at $2.0\,W$ they fell to
-45<!--m:kink_reference.sens_end_2.false-->, but the synthetic corners 2<!--n:value tried--> $W$ from an end, judged at the default
+59<!--m:kink_reference.default.false--> to 76<!--m:kink_reference.sens_end_1.false--> without a further clear kink being found; at $2.0\,W$ they fell to
+44<!--m:kink_reference.sens_end_2.false-->, but the synthetic corners 2<!--n:value tried--> $W$ from an end, judged at the default
 (2<!--m:synthetic_kinks.margin_default.end2W.corners_judged--> of 2<!--m:synthetic_kinks.end_cases_per_distance-->), were no longer judged (0<!--m:synthetic_kinks.margin_2W.end2W.corners_judged-->). None of the 48<!--m:kink_reference.default.unjudged--> bends left
 unjudged on the bundled scans lay on a clear reference kink.
 
@@ -612,11 +656,11 @@ the reliable points:
 
 | Input | Median difference (nm) | 90<!--n:definition-->th percentile (nm) | Median, % of crest | 90<!--n:definition-->th percentile, % of crest |
 |---|---|---|---|---|
-| tunicate CNF | 0.072<!--m:crest_height.tunicate.median_nm--> | 0.210<!--m:crest_height.tunicate.p90_nm--> | 0.947<!--m:crest_height.tunicate.median_percent--> | 2.636<!--m:crest_height.tunicate.p90_percent--> |
-| artificial, isotropic | 0.108<!--m:crest_height.art_iso.median_nm--> | 0.234<!--m:crest_height.art_iso.p90_nm--> | 1.316<!--m:crest_height.art_iso.median_percent--> | 2.820<!--m:crest_height.art_iso.p90_percent--> |
-| artificial, anisotropic | 0.075<!--m:crest_height.art_aniso.median_nm--> | 0.210<!--m:crest_height.art_aniso.p90_nm--> | 1.032<!--m:crest_height.art_aniso.median_percent--> | 2.975<!--m:crest_height.art_aniso.p90_percent--> |
+| tunicate CNF | 0.071<!--m:crest_height.tunicate.median_nm--> | 0.212<!--m:crest_height.tunicate.p90_nm--> | 0.941<!--m:crest_height.tunicate.median_percent--> | 2.648<!--m:crest_height.tunicate.p90_percent--> |
+| artificial, isotropic | 0.108<!--m:crest_height.art_iso.median_nm--> | 0.234<!--m:crest_height.art_iso.p90_nm--> | 1.338<!--m:crest_height.art_iso.median_percent--> | 2.824<!--m:crest_height.art_iso.p90_percent--> |
+| artificial, anisotropic | 0.074<!--m:crest_height.art_aniso.median_nm--> | 0.208<!--m:crest_height.art_aniso.p90_nm--> | 1.027<!--m:crest_height.art_aniso.median_percent--> | 2.979<!--m:crest_height.art_aniso.p90_percent--> |
 | higher-plant TOC | 0.013<!--m:crest_height.hplantTOC.median_nm--> | 0.075<!--m:crest_height.hplantTOC.p90_nm--> | 0.818<!--m:crest_height.hplantTOC.median_percent--> | 4.592<!--m:crest_height.hplantTOC.p90_percent--> |
-| Bruker NDTOC | 0.025<!--m:crest_height.NDTOC.median_nm--> | 0.128<!--m:crest_height.NDTOC.p90_nm--> | 1.247<!--m:crest_height.NDTOC.median_percent--> | 7.052<!--m:crest_height.NDTOC.p90_percent--> |
+| Bruker NDTOC | 0.025<!--m:crest_height.NDTOC.median_nm--> | 0.128<!--m:crest_height.NDTOC.p90_nm--> | 1.246<!--m:crest_height.NDTOC.median_percent--> | 7.051<!--m:crest_height.NDTOC.p90_percent--> |
 The crest height was never below the height at the centerline. Reading the
 height at the centerline would therefore make the fiber lower, by the small but
 one-sided amounts in the table, because the half-maximum midpoint lies beside the
@@ -632,7 +676,7 @@ no cut end.
 
 | Input | Cut ends | Ratio at a cut end | Back to 1.05<!--n:definition--> or less within (W) | Ratio at a free end |
 |---|---|---|---|---|
-| tunicate CNF | 45<!--m:cut_end_skirt.tunicate.cut_ends--> | 1.41<!--m:cut_end_skirt.tunicate.cut.ratio_at_end--> | 0.75<!--m:cut_end_skirt.tunicate.cut.back_within_widths--> | 1.04<!--m:cut_end_skirt.tunicate.free.ratio_at_end--> |
+| tunicate CNF | 43<!--m:cut_end_skirt.tunicate.cut_ends--> | 1.43<!--m:cut_end_skirt.tunicate.cut.ratio_at_end--> | 0.75<!--m:cut_end_skirt.tunicate.cut.back_within_widths--> | 1.04<!--m:cut_end_skirt.tunicate.free.ratio_at_end--> |
 | higher-plant TOC | 7<!--m:cut_end_skirt.hplantTOC.cut_ends--> | 1.25<!--m:cut_end_skirt.hplantTOC.cut.ratio_at_end--> | 1.00<!--m:cut_end_skirt.hplantTOC.cut.back_within_widths--> | 0.96<!--m:cut_end_skirt.hplantTOC.free.ratio_at_end--> |
 | Bruker NDTOC | 83<!--m:cut_end_skirt.NDTOC.cut_ends--> | 1.26<!--m:cut_end_skirt.NDTOC.cut.ratio_at_end--> | 0.50<!--m:cut_end_skirt.NDTOC.cut.back_within_widths--> | 0.70<!--m:cut_end_skirt.NDTOC.free.ratio_at_end--> |
 
@@ -651,11 +695,11 @@ section fell on every test input and rose on none:
 
 | Input | Points | Located, full width (%) | Located, each half (%) |
 |---|---|---|---|
-| tunicate CNF | 7815<!--m:section_width_limit.tunicate.points--> | 87.6<!--m:section_width_limit.tunicate.reliable_full_percent--> | 83.4<!--m:section_width_limit.tunicate.reliable_half_percent--> |
-| artificial, isotropic | 436<!--m:section_width_limit.art_iso.points--> | 97.9<!--m:section_width_limit.art_iso.reliable_full_percent--> | 95.6<!--m:section_width_limit.art_iso.reliable_half_percent--> |
-| artificial, anisotropic | 963<!--m:section_width_limit.art_aniso.points--> | 98.4<!--m:section_width_limit.art_aniso.reliable_full_percent--> | 96.7<!--m:section_width_limit.art_aniso.reliable_half_percent--> |
+| tunicate CNF | 7815<!--m:section_width_limit.tunicate.points--> | 88.0<!--m:section_width_limit.tunicate.reliable_full_percent--> | 83.6<!--m:section_width_limit.tunicate.reliable_half_percent--> |
+| artificial, isotropic | 436<!--m:section_width_limit.art_iso.points--> | 97.9<!--m:section_width_limit.art_iso.reliable_full_percent--> | 95.9<!--m:section_width_limit.art_iso.reliable_half_percent--> |
+| artificial, anisotropic | 963<!--m:section_width_limit.art_aniso.points--> | 98.4<!--m:section_width_limit.art_aniso.reliable_full_percent--> | 96.8<!--m:section_width_limit.art_aniso.reliable_half_percent--> |
 | higher-plant TOC | 1896<!--m:section_width_limit.hplantTOC.points--> | 92.0<!--m:section_width_limit.hplantTOC.reliable_full_percent--> | 87.4<!--m:section_width_limit.hplantTOC.reliable_half_percent--> |
-| Bruker NDTOC | 8615<!--m:section_width_limit.NDTOC.points--> | 81.8<!--m:section_width_limit.NDTOC.reliable_full_percent--> | 75.7<!--m:section_width_limit.NDTOC.reliable_half_percent--> |
+| Bruker NDTOC | 8615<!--m:section_width_limit.NDTOC.points--> | 81.6<!--m:section_width_limit.NDTOC.reliable_full_percent--> | 75.6<!--m:section_width_limit.NDTOC.reliable_half_percent--> |
 
 The fiber of the tunicate scan that loses the most points, 137<!--m:section_width_limit.tunicate.most_lost.lost--> of its 919<!--m:section_width_limit.tunicate.most_lost.points-->,
 was rendered over the calibrated height image with its cross-sections. The

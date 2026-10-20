@@ -532,7 +532,20 @@ def test_the_width_definition_follows_the_format_version():
     """
     from lib.bundle_schema import width_peak_from_meta
     from lib.centerline import WIDTH_PEAK_GLOBAL, WIDTH_PEAK_NEAREST
-    assert width_peak_from_meta({"version": "1.4"}) == WIDTH_PEAK_NEAREST
+    for newer in ("1.4", "1.5"):
+        assert width_peak_from_meta({"version": newer}) == WIDTH_PEAK_NEAREST
     for older in ("1.0", "1.1", "1.2", "1.3"):
         assert width_peak_from_meta({"version": older}) == WIDTH_PEAK_GLOBAL
     assert width_peak_from_meta(None) == WIDTH_PEAK_GLOBAL
+
+
+def test_the_width_range_follows_the_format_version():
+    """
+    A 1.5 bundle was judged with the width read over a growing range, an older one over the fixed range, and each is read as judged.
+    1.5 のバンドルは広がる範囲で読んだ幅で、それより古いものは固定の範囲で判定されており、それぞれ判定どおりに読む。
+    """
+    from lib.bundle_schema import width_range_adaptive_from_meta
+    assert width_range_adaptive_from_meta({"version": "1.5"}) is True
+    for older in ("1.0", "1.1", "1.2", "1.3", "1.4"):
+        assert width_range_adaptive_from_meta({"version": older}) is False
+    assert width_range_adaptive_from_meta(None) is False

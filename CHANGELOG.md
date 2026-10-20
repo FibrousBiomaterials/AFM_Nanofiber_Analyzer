@@ -75,6 +75,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   between specimens. A note under the comparison table now says this whenever
   `fiber` or `image` is tested.
 
+- GUI01 and `cli.py process` warn after each file when the background
+  calibration may have lowered fiber heights, and name the setting to analyze
+  again with (`pipeline.background_warnings`, `PipelineResult.background_warnings`).
+  Every length the background methods use is fixed in pixels, so on a scan
+  whose fibers span many pixels part of each fiber is subtracted as
+  background. The warning fires for `tophat` when `tophat_se_size` is below
+  2.5 times the fibers' median apparent width, and for `trendfill` and
+  `spline1d` when the fibers' flanks step little against the noise
+  (`pipeline.flank_step_ratio` below 2.5 and 1.0) or the apparent width is
+  above 19 px; it suggests `spline1d`, or `tophat` with `tophat_se_size` about
+  three times the apparent width. GUI01's description of `tophat` says the
+  same. The limits were set on zoomed copies of the bundled scans
+  (`docs/validation.md` §1.8). Analysis results do not change.
+
 ### Changed
 
 - GUI03 no longer offers `kink angle` per `fiber`, and its `image` value is the
@@ -185,6 +199,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   not searched again.
 
 ### Fixed
+
+- The apparent width W is no longer read too narrow on fibers that span many
+  pixels. Each cross-section was read over a fixed ±12 px, and its base is the
+  section's 10th percentile, so on a fiber wider than about 10 px the base lay
+  on the fiber's own skirt: a fiber 24 px wide read 14 px, and no fiber read
+  wider than about 15 px. `centerline.measure_apparent_width` now reads the
+  sections again over 2 W when the range is shorter than 1.25 W, and keeps
+  that reading only when most of its sections hold a single crest, so a
+  neighbouring fiber is not taken in. Every length of the kink rule is a
+  multiple of W, so **apparent widths, kinks and the quantities measured
+  along the centerline change from this version** on fibers wider than about
+  10 px. On the bundled scans W changed on 17 of 60 fibers of the tunicate
+  scan, 19 of 139 of the NDTOC scan and 4 of 7 of the artificial scans, and
+  the kinks found fell from 69 to 67 on the tunicate scan and from 14 to 13 on
+  the anisotropic artificial scan: a detection at a fiber junction and two
+  duplicate detections on step-shaped bends. Against the visual kink reference
+  one unmatched detection fewer remains (60 to 59); the clear kinks found are
+  unchanged. This is bundle format **1.5**; a reader reads a bundle of format
+  1.4 or older over the fixed range, as it was judged
+  (`bundle_schema.width_range_adaptive_from_meta`).
 
 - The difference histograms the `trendfill` and `spline1d` background methods
   fit their noise Gaussian to now span the median plus and minus 8 robust

@@ -261,6 +261,22 @@ def is_placed_line(kind: str) -> bool:
 _WIDTH_SEARCH_PX = 12.0
 _WIDTH_STEP_PX = 0.25
 
+# A width is read again over a longer range when the range was shorter than
+# `_WIDTH_RANGE_MIN_WIDTHS` apparent widths: the range then becomes
+# `_WIDTH_RANGE_WIDTHS` widths, never more than `_WIDTH_SEARCH_MAX_PX`
+# (`measure_apparent_width`).
+# 読んだ範囲が見かけ幅の `_WIDTH_RANGE_MIN_WIDTHS` 倍より短かったときは、範囲を
+# 見かけ幅の `_WIDTH_RANGE_WIDTHS` 倍にして幅を読み直す。上限は
+# `_WIDTH_SEARCH_MAX_PX`（`measure_apparent_width`）。
+_WIDTH_RANGE_MIN_WIDTHS = 1.25
+_WIDTH_RANGE_WIDTHS = 2.0
+_WIDTH_SEARCH_MAX_PX = 96.0
+# A run rising again by more than this fraction of its crest above the base
+# holds a second crest; a longer reading whose runs mostly do is discarded.
+# 基準からの頂点の高さのこの割合を超えて再び上がる区間は 2 つ目の頂点を含む。
+# 長い範囲での読み取りで大半の区間がそうなら、その読み取りは使わない。
+_WIDTH_SECOND_CREST_FRAC = 0.1
+
 # Half-window of track points the local tangent is taken over while measuring
 # the width, so the sampled profile is perpendicular to the fiber rather than
 # to one staircase step of the skeleton.
@@ -596,6 +612,7 @@ def measure_apparent_width(
     return_measured: bool = False,
     aspect: float = 1.0,
     peak: str = WIDTH_PEAK_NEAREST,
+    adaptive_range: bool = True,
 ) -> Union[float, Tuple[float, bool]]:
     """
     Apparent full width at half maximum of the fiber under a track, in pixels.
@@ -631,6 +648,14 @@ def measure_apparent_width(
         トラック点から上って最初に着く極大（`WIDTH_PEAK_NEAREST`、既定）か、
         プロファイル全体の最大値（`WIDTH_PEAK_GLOBAL`）。後者を渡すのは形式 1.3
         以前のバンドルの読み取り側だけである。
+    adaptive_range
+        Read the profiles again over a longer range when the width is not small
+        against the range (see Notes). ``False`` keeps the fixed
+        +-`_WIDTH_SEARCH_PX` range, which only a reader of a format 1.4 or
+        older bundle passes.
+        幅が範囲に対して小さくないとき、より長い範囲でプロファイルを読み直す
+        （Notes 参照）。``False`` は固定の ±`_WIDTH_SEARCH_PX` の範囲のままにする。
+        これを渡すのは形式 1.4 以前のバンドルの読み取り側だけである。
 
     Returns
     -------
@@ -678,6 +703,24 @@ def measure_apparent_width(
     点ごとの幅ではなくトラック全体の中央値を使う。幅は繊維の性質であり、点ごとの
     値ではそこから導く長さがすべて 1 本の繊維の中で揺らいでしまう。
 
+    The profiles are first read over +-`_WIDTH_SEARCH_PX`. The base is their
+    10th percentile, which lies on the background only while the range reaches
+    well beyond the fiber, so a fiber spread over many pixels -- one imaged at a
+    fine pixel size -- would take its base on its own skirt and read narrow.
+    When the range is shorter than `_WIDTH_RANGE_MIN_WIDTHS` times the width
+    read, the profiles are read again over
+    `_WIDTH_RANGE_WIDTHS` widths, up to `_WIDTH_SEARCH_MAX_PX`, and that
+    reading is kept only when most of its runs hold a single crest: a longer
+    range also lowers the base beside a neighbouring fiber, whose crest the
+    run would otherwise take in.
+    プロファイルはまず ±`_WIDTH_SEARCH_PX` で読む。基準はその 10 パーセンタイルで
+    あり、範囲が繊維の外まで十分に届いているときだけ背景の上に来る。そのため多くの
+    画素にまたがる繊維（細かい画素で撮った繊維）では、基準が自身の裾に来て幅が細く
+    読まれる。範囲が読んだ幅の `_WIDTH_RANGE_MIN_WIDTHS` 倍より短いときは、幅の
+    `_WIDTH_RANGE_WIDTHS` 倍の範囲（上限 `_WIDTH_SEARCH_MAX_PX`）で読み直し、
+    その読み取りは大半の区間が頂点を 1 つしか含まないときだけ使う。範囲を長くすると
+    隣の繊維の脇でもふもとが下がり、区間がその頂点まで取り込んでしまうためである。
+
     Examples
     --------
     The width is the span of the profile samples at or above half maximum,
@@ -706,9 +749,56 @@ def measure_apparent_width(
     if x.size < 2 or height is None:
         return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
 
+    search = _WIDTH_SEARCH_PX
+    width, _single = _width_in_range(height, x, y, aspect, peak, search)
+    # The base is the profile's 10th percentile, so it lies on the background
+    # only while the range reaches well past the fiber; a range shorter than
+    # `_WIDTH_RANGE_MIN_WIDTHS` widths takes the base on the fiber's skirt and
+    # reads it narrow. The profiles are then read again over
+    # `_WIDTH_RANGE_WIDTHS` widths, up to `_WIDTH_SEARCH_MAX_PX`. A longer range
+    # also lowers the base beside a neighbouring fiber, whose crest the run can
+    # then take in; a reading whose runs mostly hold a second crest is a
+    # neighbour, not a wide fiber, and the shorter reading is kept.
+    # ふもとはプロファイルの 10 パーセンタイルなので、読む範囲が繊維の外まで十分に
+    # 届いているときだけ背景の上に来る。範囲が見かけ幅の `_WIDTH_RANGE_MIN_WIDTHS`
+    # 倍より短いと、ふもとが繊維の裾に来て幅を細く読む。そのときは見かけ幅の
+    # `_WIDTH_RANGE_WIDTHS` 倍の範囲（上限 `_WIDTH_SEARCH_MAX_PX`）で読み直す。
+    # 範囲を長くすると隣の繊維の脇でもふもとが下がり、区間がその頂点まで取り込み
+    # うる。大半の区間が 2 つ目の頂点を含む読み取りは太い繊維ではなく隣の繊維なので、
+    # 短い範囲での読み取りを残す。
+    while (adaptive_range and width is not None and search < _WIDTH_SEARCH_MAX_PX
+           and search < _WIDTH_RANGE_MIN_WIDTHS * width):
+        search = min(_WIDTH_SEARCH_MAX_PX,
+                     max(_WIDTH_RANGE_WIDTHS * width, search + _WIDTH_STEP_PX))
+        wider, single = _width_in_range(height, x, y, aspect, peak, search)
+        if wider is None or single < 0.5:
+            break
+        width = wider
+    if width is None:
+        return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
+    return (width, True) if return_measured else width
+
+
+def _width_in_range(height: NDArray, x: NDArray, y: NDArray, aspect: float,
+                    peak: str, search: float) -> Tuple[Optional[float], float]:
+    """
+    Median apparent width with the profiles read over +-`search` X pixels.
+    断面を ±`search` X 画素の範囲で読んだときの見かけ幅の中央値。
+
+    Returns ``(width, single)``: the width, or ``None`` when too few sections
+    give one, and the fraction of the usable sections whose run holds a single
+    crest -- from the crest outward the profile never rises again by more than
+    `_WIDTH_SECOND_CREST_FRAC` of the crest above the base. `x` and `y` are in
+    X-pixel units, as `measure_apparent_width` prepares them.
+    ``(width, single)`` を返す。幅（読める断面が少なすぎるときは ``None``）と、使える
+    断面のうち区間が頂点を 1 つしか含まない割合である。頂点から外側へ向かって、
+    プロファイルが基準からの頂点の高さの `_WIDTH_SECOND_CREST_FRAC` 倍を超えて
+    再び上がることがなければ、頂点は 1 つとする。`x` と `y` は
+    `measure_apparent_width` が用意した X 画素単位の座標。
+    """
     tx, ty = _unit_tangents(x, y, _WIDTH_TANGENT_HALF)
     nx, ny = -ty, tx
-    offsets = np.arange(-_WIDTH_SEARCH_PX, _WIDTH_SEARCH_PX + 1e-9, _WIDTH_STEP_PX)
+    offsets = np.arange(-search, search + 1e-9, _WIDTH_STEP_PX)
     profiles = _bilinear(
         np.asarray(height, dtype=np.float64),
         (y[:, None] + ny[:, None] * offsets[None, :]) / float(aspect),
@@ -730,6 +820,8 @@ def measure_apparent_width(
     # これにより法線上のさらに先にある別の繊維が幅を広げることはない。
     widths = np.empty(x.size, dtype=np.float64)
     usable = np.zeros(x.size, dtype=bool)
+    lo_of = np.zeros(x.size, dtype=np.intp)
+    hi_of = np.zeros(x.size, dtype=np.intp)
     for i in range(x.size):
         lo = centre
         while lo > 0 and above[i, lo - 1]:
@@ -738,6 +830,7 @@ def measure_apparent_width(
         while hi < offsets.size - 1 and above[i, hi + 1]:
             hi += 1
         widths[i] = offsets[hi] - offsets[lo]
+        lo_of[i], hi_of[i] = lo, hi
         # A run that reaches the end of the search range never came back down
         # to half maximum, so it reports the search range rather than a width
         # and is excluded instead of averaged in.
@@ -754,7 +847,18 @@ def measure_apparent_width(
         usable &= above[:, centre]
 
     if usable.sum() < max(1, x.size // 2):
-        return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
+        return None, 0.0
+    single = 0
+    for i in np.flatnonzero(usable):
+        run = profiles[i, lo_of[i]:hi_of[i] + 1]
+        peak_at = int(np.argmax(run))
+        tol = _WIDTH_SECOND_CREST_FRAC * (top[i] - base[i])
+        right = run[peak_at:]
+        left = run[:peak_at + 1][::-1]
+        if (np.max(right - np.minimum.accumulate(right)) <= tol
+                and np.max(left - np.minimum.accumulate(left)) <= tol):
+            single += 1
+    single_frac = single / float(usable.sum())
     width = float(np.median(widths[usable]))
     # Only a width that is not a width at all -- zero, the run never left the
     # centre sample -- is replaced by the fallback. A narrow fiber is raised to
@@ -766,9 +870,8 @@ def measure_apparent_width(
     # 代替値ではキンク規則が自身の幅の数倍で尺度付けされ、測った値のままでは規則の
     # 窓が画素の階段より小さくなるためである。
     if not np.isfinite(width) or width <= 0.0:
-        return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
-    width = max(width, _MIN_WIDTH_PX)
-    return (width, True) if return_measured else width
+        return None, single_frac
+    return max(width, _MIN_WIDTH_PX), single_frac
 
 
 def _smooth_extrapolated(values: NDArray, sigma: float) -> NDArray:
@@ -1388,6 +1491,7 @@ def place_centerline(
     method: str = HALF_MAX_025W_CENTERLINE,
     aspect: float = 1.0,
     width_peak: str = WIDTH_PEAK_NEAREST,
+    width_adaptive: bool = True,
 ) -> CenterlineResult:
     """
     Place the chosen centerline of one traced skeleton track.
@@ -1424,6 +1528,14 @@ def place_centerline(
         見かけ幅の半値レベルをどの極大から取るか（`measure_apparent_width` の
         `peak`）。読み取り側は、バンドルのキンクを判定したときのもの
         （`bundle_schema.width_peak_from_meta`）を渡す。
+    width_adaptive
+        Whether the apparent width is read over a range that grows with the
+        fiber (`measure_apparent_width`'s `adaptive_range`); a reader passes
+        what its bundle's kinks were judged with
+        (`bundle_schema.width_range_adaptive_from_meta`).
+        見かけ幅を繊維に合わせて広がる範囲で読むか（`measure_apparent_width` の
+        `adaptive_range`）。読み取り側は、バンドルのキンクを判定したときのもの
+        （`bundle_schema.width_range_adaptive_from_meta`）を渡す。
 
     Returns
     -------
@@ -1474,7 +1586,8 @@ def place_centerline(
             np.zeros(x.size, dtype=bool), np.full(x.size, np.nan),
         )
     width, measured = measure_apparent_width(
-        height, x, y, return_measured=True, aspect=aspect, peak=width_peak)
+        height, x, y, return_measured=True, aspect=aspect, peak=width_peak,
+        adaptive_range=width_adaptive)
     lx, ly, reliable, crest = _refine(
         height, x, y, width, branch_points, method, aspect)
     return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)

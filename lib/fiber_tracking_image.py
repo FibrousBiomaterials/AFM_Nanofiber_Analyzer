@@ -52,6 +52,7 @@ def _build_fiber(
     unjudged_set: Optional[set] = None,
     pixel_aspect: float = 1.0,
     width_peak: str = WIDTH_PEAK_NEAREST,
+    width_adaptive: bool = True,
 ) -> Fiber:
     """
     Build one Fiber from a labeled skeleton component and feature lookups.
@@ -128,6 +129,12 @@ def _build_fiber(
         kinks were judged with (`bundle_schema.width_peak_from_meta`).
         見かけ幅をどの極大から読むか。バンドルのキンクを判定したときのもの
         （`bundle_schema.width_peak_from_meta`）。
+    width_adaptive
+        Whether the apparent width is read over a range that grows with the
+        fiber, as the bundle's kinks were judged
+        (`bundle_schema.width_range_adaptive_from_meta`).
+        見かけ幅を繊維に合わせて広がる範囲で読むか。バンドルのキンクを判定したときの
+        もの（`bundle_schema.width_range_adaptive_from_meta`）。
 
     Returns
     -------
@@ -152,6 +159,7 @@ def _build_fiber(
         placed = place_centerline(
             cal, xtrack_prcimg, ytrack_prcimg, branch_points,
             method=centerline, aspect=pixel_aspect, width_peak=width_peak,
+            width_adaptive=width_adaptive,
         )
         xtrack = placed.x - x
         ytrack = placed.y - y
@@ -336,6 +344,15 @@ class FiberTrackingImage:
         見かけ幅をどの極大から読むか。バンドルのキンクを判定したときのもので、
         `lib.measure` がバンドルから設定する（`bundle_schema.width_peak_from_meta`）。
         バンドルから読み込まないコンテナでは `centerline.WIDTH_PEAK_NEAREST`。
+    width_adaptive
+        Whether the apparent width is read over a range that grows with the
+        fiber, as the bundle's kinks were judged; set by `lib.measure` from the
+        bundle (`bundle_schema.width_range_adaptive_from_meta`), ``True`` for a
+        container not loaded from a bundle.
+        見かけ幅を繊維に合わせて広がる範囲で読むか。バンドルのキンクを判定したときの
+        もので、`lib.measure` がバンドルから設定する
+        （`bundle_schema.width_range_adaptive_from_meta`）。バンドルから読み込まない
+        コンテナでは ``True``。
 
     Examples
     --------
@@ -456,6 +473,12 @@ class FiberTrackingImage:
         # 見かけ幅をどの極大から読むか。`lib.measure` がバンドルから設定する
         # （`bundle_schema.width_peak_from_meta`）。
         self.width_peak: str = WIDTH_PEAK_NEAREST
+        # Whether the apparent width is read over a range that grows with the
+        # fiber; `lib.measure` sets it from the bundle
+        # (`bundle_schema.width_range_adaptive_from_meta`).
+        # 見かけ幅を繊維に合わせて広がる範囲で読むか。`lib.measure` がバンドルから
+        # 設定する（`bundle_schema.width_range_adaptive_from_meta`）。
+        self.width_adaptive: bool = True
 
     def fibers_in_image_parallel(
         self,
@@ -622,6 +645,7 @@ class FiberTrackingImage:
         kind = self.centerline
         aspect = self.pixel_aspect
         width_peak = self.width_peak
+        width_adaptive = self.width_adaptive
 
         def build(label: int) -> Fiber:
             return _build_fiber(
@@ -629,6 +653,7 @@ class FiberTrackingImage:
                 kink_set, dp_set, ep_set, kink_angle_map, spp_y,
                 branch_points=bp, centerline=kind, unjudged_set=unjudged_set,
                 pixel_aspect=aspect, width_peak=width_peak,
+                width_adaptive=width_adaptive,
             )
 
         if not parallel:

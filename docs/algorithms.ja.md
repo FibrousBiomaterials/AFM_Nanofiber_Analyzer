@@ -2077,7 +2077,15 @@ for i in range(np.sum(imgcopy)):
    断面が半値より下がらないほど近い高い繊維があると、幅は両方にまたがって広がる。
    トラックの点がその半値より低ければ、その点は繊維の上ではなく斜面にあり、その断面は
    使わない。$W$ は、
-   トラック全体でのこの幅の中央値で、繊維ごとに 1<!--n:count--> つの値である。この後の手順の長さはすべて $W$ の何倍かで決めるので、
+   トラック全体でのこの幅の中央値で、繊維ごとに 1<!--n:count--> つの値である。読んだ範囲が
+   1.25<!--c:lib/centerline.py::_WIDTH_RANGE_MIN_WIDTHS--> $W$ より短ければ、左右 2<!--c:lib/centerline.py::_WIDTH_RANGE_WIDTHS--> $W$ の範囲（最大 96<!--c:lib/centerline.py::_WIDTH_SEARCH_MAX_PX--> px）で断面を読み直して $W$ を
+   測り直す。ふもとは断面の低い方の値なので、範囲が繊維の外まで十分に届いているときだけ
+   背景の上に来る。そうしないと、細かい画素で撮った場合のように多くの画素にまたがる繊維では、
+   ふもとが自身の裾に来て幅が細く読まれる。長い範囲での読み取りは、使った断面の半数以上で、
+   半値より上の部分が頂点を 1<!--n:count--> つしか含まないときだけ使う。頂点から外側へ向かって、断面が
+   ふもとからの頂点の高さの 0.1<!--c:lib/centerline.py::_WIDTH_SECOND_CREST_FRAC--> 倍を超えて再び上がることがなければ、頂点は 1<!--n:count--> つとする。
+   範囲を長くすると隣の繊維の脇でもふもとが下がり、幅がその頂点まで取り込みうるためで、
+   そうなったときは短い範囲での読み取りを残す（`_width_in_range`）。この後の手順の長さはすべて $W$ の何倍かで決めるので、
    スキャンの大きさが違っても同じ意味になる。
 2. トラックを、標準偏差 $W/4$ のガウス関数でなめらかにし、これを**基準線**とする。
    基準線の各点は、その点の横方向の位置を測るときの原点になる。基準線の向きから
@@ -2129,7 +2137,8 @@ for i in range(np.sum(imgcopy)):
 ```python
 # source: lib/centerline.py::place_centerline
 width, measured = measure_apparent_width(
-    height, x, y, return_measured=True, aspect=aspect, peak=width_peak)
+    height, x, y, return_measured=True, aspect=aspect, peak=width_peak,
+    adaptive_range=width_adaptive)
 lx, ly, reliable, crest = _refine(
     height, x, y, width, branch_points, method, aspect)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
@@ -2644,8 +2653,8 @@ angles = tuple(float(np.degrees(a)) for a in f.kink_angles)
 
 $W$ ではなく画素の数で決まっているのは、次のものである。
 
-- $W$ を測る手順の中の長さ: 幅を測るときに断面を読む範囲（トラックから
-  ±12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px）、$W$ を測れなかったときの代わりの値 `centerline.FALLBACK_WIDTH_PX`
+- $W$ を測る手順の中の長さ: 幅を測るときに最初に断面を読む範囲（トラックから
+  ±12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px。$W$ に合わせて最大 96<!--c:lib/centerline.py::_WIDTH_SEARCH_MAX_PX--> px まで広げる）、$W$ を測れなかったときの代わりの値 `centerline.FALLBACK_WIDTH_PX`
   （8<!--c:lib/centerline.py::FALLBACK_WIDTH_PX--> px）など
 - 点を取る間隔: 断面は 0.25<!--c:lib/centerline.py::_WIDTH_STEP_PX--> px、向きは 0.5<!--c:lib/kink_detector.py::_HEADING_STEP_PX--> px
 

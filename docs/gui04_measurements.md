@@ -138,7 +138,10 @@ the level halfway between each cross-section's base and the first maximum
 uphill from the skeleton point,
 and a bundle of format 1.1 to 1.3 halfway to the cross-section's overall
 maximum; GUI04 places the centerline with the maximum the bundle's format
-reads the width from (`bundle_schema.width_peak_from_meta`).
+reads the width from (`bundle_schema.width_peak_from_meta`). A bundle of format
+1.5 had W read over a cross-section range that grows with the fiber (§2.1), and
+an older one over the fixed ±12 px; GUI04 reads it as the bundle's format did
+(`bundle_schema.width_range_adaptive_from_meta`).
 
 ```python
 # source: lib/fiber_tracking_image.py::_build_fiber
@@ -148,6 +151,7 @@ if is_placed_line(centerline):
     placed = place_centerline(
         cal, xtrack_prcimg, ytrack_prcimg, branch_points,
         method=centerline, aspect=pixel_aspect, width_peak=width_peak,
+        width_adaptive=width_adaptive,
     )
     xtrack = placed.x - x
     ytrack = placed.y - y
@@ -219,7 +223,8 @@ accuracy on synthetic scans are in [Evaluation on particular data](validation.md
 ```python
 # source: lib/centerline.py::place_centerline
 width, measured = measure_apparent_width(
-    height, x, y, return_measured=True, aspect=aspect, peak=width_peak)
+    height, x, y, return_measured=True, aspect=aspect, peak=width_peak,
+    adaptive_range=width_adaptive)
 lx, ly, reliable, crest = _refine(
     height, x, y, width, branch_points, method, aspect)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
@@ -240,9 +245,13 @@ Every length used to place the centerline is a multiple of the apparent width W,
 the procedure means the same thing at any pixel size:
 
 ```python
-# source: lib/centerline.py::_WIDTH_SEARCH_PX, _WIDTH_STEP_PX, _WIDTH_TANGENT_HALF, FALLBACK_WIDTH_PX, _MIN_WIDTH_PX, _CREST_WINDOW_WIDTHS, _FRAME_SIGMA_WIDTHS, _CREST_REACH_WIDTHS, _HALF_MAX_REACH_WIDTHS, _MAX_SECTION_WIDTHS, _OFFSET_SMOOTH_WIDTHS, _JUNCTION_WIDTHS, _MIN_CREST_AMPLITUDE_FRAC
+# source: lib/centerline.py::_WIDTH_SEARCH_PX, _WIDTH_STEP_PX, _WIDTH_RANGE_MIN_WIDTHS, _WIDTH_RANGE_WIDTHS, _WIDTH_SEARCH_MAX_PX, _WIDTH_SECOND_CREST_FRAC, _WIDTH_TANGENT_HALF, FALLBACK_WIDTH_PX, _MIN_WIDTH_PX, _CREST_WINDOW_WIDTHS, _FRAME_SIGMA_WIDTHS, _CREST_REACH_WIDTHS, _HALF_MAX_REACH_WIDTHS, _MAX_SECTION_WIDTHS, _OFFSET_SMOOTH_WIDTHS, _JUNCTION_WIDTHS, _MIN_CREST_AMPLITUDE_FRAC
 _WIDTH_SEARCH_PX = 12.0
 _WIDTH_STEP_PX = 0.25
+_WIDTH_RANGE_MIN_WIDTHS = 1.25
+_WIDTH_RANGE_WIDTHS = 2.0
+_WIDTH_SEARCH_MAX_PX = 96.0
+_WIDTH_SECOND_CREST_FRAC = 0.1
 _WIDTH_TANGENT_HALF = 3
 FALLBACK_WIDTH_PX = 8.0
 _MIN_WIDTH_PX = 2.0
@@ -256,9 +265,10 @@ _JUNCTION_WIDTHS = 1.0
 _MIN_CREST_AMPLITUDE_FRAC = 0.25
 ```
 
-The first three are in pixels: they set how finely the width profile is
-sampled, not a property of the fiber. `FALLBACK_WIDTH_PX` and `_MIN_WIDTH_PX`
-are pixel counts as well, the width used when none can be measured and the
+The first five are in pixels or plain ratios: they set how far and how
+finely the width profile is sampled, not a property of the fiber, and the sixth
+is the rise in a profile that counts as a second crest (§2.1).
+`FALLBACK_WIDTH_PX` and `_MIN_WIDTH_PX` are pixel counts as well, the width used when none can be measured and the
 smallest width used (§2.1).
 
 ### 2.1 Apparent width W
@@ -267,10 +277,30 @@ smallest width used (§2.1).
 from the **height** image. It does not use the binarized mask.
 
 ```python
-# source: lib/centerline.py::measure_apparent_width
+# source: lib/centerline.py::measure_apparent_width, _width_in_range
+if peak not in WIDTH_PEAKS:
+    raise ValueError(f"peak must be one of {WIDTH_PEAKS}, got {peak!r}")
+x = np.asarray(xtrack, dtype=np.float64)
+y = np.asarray(ytrack, dtype=np.float64) * float(aspect)
+if x.size < 2 or height is None:
+    return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
+search = _WIDTH_SEARCH_PX
+width, _single = _width_in_range(height, x, y, aspect, peak, search)
+while (adaptive_range and width is not None and search < _WIDTH_SEARCH_MAX_PX
+       and search < _WIDTH_RANGE_MIN_WIDTHS * width):
+    search = min(_WIDTH_SEARCH_MAX_PX,
+                 max(_WIDTH_RANGE_WIDTHS * width, search + _WIDTH_STEP_PX))
+    wider, single = _width_in_range(height, x, y, aspect, peak, search)
+    if wider is None or single < 0.5:
+        break
+    width = wider
+if width is None:
+    return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
+return (width, True) if return_measured else width
+...
 tx, ty = _unit_tangents(x, y, _WIDTH_TANGENT_HALF)
 nx, ny = -ty, tx
-offsets = np.arange(-_WIDTH_SEARCH_PX, _WIDTH_SEARCH_PX + 1e-9, _WIDTH_STEP_PX)
+offsets = np.arange(-search, search + 1e-9, _WIDTH_STEP_PX)
 profiles = _bilinear(
     np.asarray(height, dtype=np.float64),
     (y[:, None] + ny[:, None] * offsets[None, :]) / float(aspect),
@@ -286,6 +316,8 @@ level = base + 0.5 * (top - base)
 above = profiles >= level[:, None]
 widths = np.empty(x.size, dtype=np.float64)
 usable = np.zeros(x.size, dtype=bool)
+lo_of = np.zeros(x.size, dtype=np.intp)
+hi_of = np.zeros(x.size, dtype=np.intp)
 for i in range(x.size):
     lo = centre
     while lo > 0 and above[i, lo - 1]:
@@ -294,23 +326,34 @@ for i in range(x.size):
     while hi < offsets.size - 1 and above[i, hi + 1]:
         hi += 1
     widths[i] = offsets[hi] - offsets[lo]
+    lo_of[i], hi_of[i] = lo, hi
     usable[i] = lo > 0 and hi < offsets.size - 1
 if peak == WIDTH_PEAK_NEAREST:
     usable &= above[:, centre]
 if usable.sum() < max(1, x.size // 2):
-    return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
+    return None, 0.0
+single = 0
+for i in np.flatnonzero(usable):
+    run = profiles[i, lo_of[i]:hi_of[i] + 1]
+    peak_at = int(np.argmax(run))
+    tol = _WIDTH_SECOND_CREST_FRAC * (top[i] - base[i])
+    right = run[peak_at:]
+    left = run[:peak_at + 1][::-1]
+    if (np.max(right - np.minimum.accumulate(right)) <= tol
+            and np.max(left - np.minimum.accumulate(left)) <= tol):
+        single += 1
+single_frac = single / float(usable.sum())
 width = float(np.median(widths[usable]))
 if not np.isfinite(width) or width <= 0.0:
-    return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
-width = max(width, _MIN_WIDTH_PX)
-return (width, True) if return_measured else width
+    return None, single_frac
+return max(width, _MIN_WIDTH_PX), single_frac
 ```
 
 Step by step:
 
 1. At each skeleton point the normal comes from a centered difference over ±3
    points of the skeleton track. A height profile is sampled along it every 0.25 px, out to
-   ±12 px, by bilinear interpolation.
+   ±12 px at first (step 5), by bilinear interpolation.
 2. Each profile has its own base, the 10th percentile of its samples, so a fiber
    on a residual background slope is measured against its local base. The level
    is halfway between that base and the fiber's own crest: the maximum reached
@@ -333,6 +376,18 @@ Step by step:
    width; it can be empty, a width of 0 that pulls the median down.
 4. W is the **median** over the usable points. A width is a property of the
    fiber, so one value is used along the whole fiber.
+5. If the range read is shorter than 1.25 W, the profiles are read again over
+   2 W (at most 96 px) and steps 2–4 repeated. The base is the 10th percentile
+   of the profile, which lies on the background only while the range reaches
+   well beyond the fiber; a fiber spread over many pixels, as at a fine pixel
+   size, would otherwise take its base on its own skirt and read narrow. The
+   longer reading is kept only if, in at least half the usable sections, the
+   run holds a single crest: from the crest outward the profile never rises
+   again by more than 0.1 of the crest's height above the base. A longer range
+   also lowers the base beside a neighbouring fiber, whose crest the run could
+   then take in; when that is what happened, the reading at the shorter range
+   is kept. A bundle of format 1.4 or older is read over the fixed ±12 px, as it
+   was judged (§1.2).
 
 If fewer than half the points are usable, or the median is zero or not finite,
 `FALLBACK_WIDTH_PX` (8 px) is used instead. A fiber measured narrower than
@@ -1560,6 +1615,7 @@ if is_placed_line(kind):
         image.calibrated_image, pix_x, pix_y, return_measured=True,
         aspect=aspect,
         peak=getattr(image, "width_peak", WIDTH_PEAK_NEAREST),
+        adaptive_range=bool(getattr(image, "width_adaptive", True)),
     )
     judged = detector.judge_line(
         line_x, line_y, width, aspect,

@@ -66,6 +66,7 @@ from .bundle_schema import (
     scan_size_um_from_meta,
     validate_bundle,
     width_peak_from_meta,
+    width_range_adaptive_from_meta,
 )
 from .centerline import SKELETON_TRACK, is_pixel_chain_line, polyline_distance
 from .connect_selection import (
@@ -1838,6 +1839,7 @@ def _tracking_image_from_arrays(
     # 線を置きキンク規則を尺度付けする見かけ幅は、保存済みキンクを判定したときの
     # 定義で読む。
     image.width_peak = width_peak_from_meta(meta)
+    image.width_adaptive = width_range_adaptive_from_meta(meta)
     return image
 
 

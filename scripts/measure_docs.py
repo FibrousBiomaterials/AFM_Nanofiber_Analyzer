@@ -2518,6 +2518,175 @@ def curvature_noise_floor() -> dict:
     return values
 
 
+ZOOM_FACTORS = (1.0, 1.5, 2.0, 3.0, 4.0)
+ZOOM_TILE = 256
+ZOOM_TILES_PER_SCAN = 2
+ZOOM_MARGIN = 12
+
+
+def _zoom_tiles(skel, shape, size, count):
+    """The `count` non-overlapping `size` tiles holding the most skeleton pixels."""
+    h, w = shape
+    cand = sorted(((int(skel[r:r + size, c:c + size].sum()), r, c)
+                   for r in range(0, h - size + 1, size // 2)
+                   for c in range(0, w - size + 1, size // 2)), reverse=True)
+    chosen = []
+    for n, r, c in cand:
+        if n and all(abs(r - r2) >= size or abs(c - c2) >= size for r2, c2 in chosen):
+            chosen.append((r, c))
+        if len(chosen) == count:
+            break
+    return chosen
+
+
+def _zoom_run(img, params):
+    """Run all four stages on one synthetic scan and check it."""
+    import numpy as np
+    from lib.pipeline import background_warnings, build_stages
+    from lib.processed_image import ProcessedImage
+    st = build_stages(params)
+    im = ProcessedImage(img, "zoom")
+    st.bg_calibrator(im)
+    st.segmenter(im)
+    st.skeletonizer(im)
+    st.kink_detector(im)
+    cal = np.full(img.shape, np.nan)
+    cal[1:, 1:] = np.asarray(im.calibrated_image, float)
+    return cal, background_warnings(params, im, st.bg_calibrator)
+
+
+@experiment(
+    "zoomed_background",
+    ["lib/pipeline.py"],
+    "Synthetic zoomed scans built from the bundled scans: the default calibrated "
+    "image smoothed by a 1-px Gaussian is the true height and the subtracted "
+    "background the background; tiles are upsampled by each zoom factor (same "
+    "field, finer pixels), white noise at the scan's own level is added, and "
+    "trendfill, spline1d and tophat are run at their defaults through all four "
+    "stages. Per run: the median and 10th percentile of calibrated / true height "
+    "at the default skeleton, the 95th percentile of the background error, and "
+    "whether background_warnings fired; a warned run is analyzed again as the "
+    "warning suggests.",
+)
+def zoomed_background() -> dict:
+    import numpy as np
+    import kink_reference_score as krs
+    from scipy import ndimage as ndi
+    from lib.pipeline import ProcParams
+
+    def up(a, k, order=3):
+        return a if k == 1 else ndi.zoom(a, k, order=order, mode="nearest", grid_mode=True)
+
+    values: dict = {}
+    runs = []
+    for name, rel in krs.SCANS.items():
+        data = _default_bundle(rel)
+        cal = np.asarray(data["calibrated"], float)
+        raw = _raw_scan(rel)[1:, 1:]
+        bg = raw - cal
+        binar = np.asarray(data["binarized"]) > 0
+        skel = (np.asarray(data["skeletonized"]) > 0) & ~ndi.binary_dilation(
+            np.asarray(data["bp"]) > 0, iterations=3)
+        resid = cal - ndi.gaussian_filter(cal, 1.0)
+        far = ~ndi.binary_dilation(binar, iterations=6)
+        mad = np.median(np.abs(resid[far] - np.median(resid[far])))
+        # A 1-px Gaussian removes part of white noise from the residual:
+        # std(n - g*n) = std(n) * sqrt(1 - 2 g0 + sum g^2), g0 = 1/(2 pi), sum g^2 = 1/(4 pi).
+        noise = 1.4826 * mad / np.sqrt(1 - 1 / np.pi + 1 / (4 * np.pi))
+        truth = ndi.gaussian_filter(cal, 1.0)
+        values[f"{name}.noise_nm"] = float(noise)
+        from lib.blosc2_io import load_bundle_meta
+        from lib.bundle_schema import APPARENT_WIDTH_KEY
+        meta = load_bundle_meta(str(cache_dir("kink_reference_half_max_025w")
+                                    / (Path(rel).stem + ".b2z")))
+        values[f"{name}.width_px"] = float(meta[APPARENT_WIDTH_KEY]["median_px"])
+        size = min(ZOOM_TILE, *cal.shape)
+        for r0, c0 in _zoom_tiles(skel, cal.shape, size, ZOOM_TILES_PER_SCAN):
+            sl = (slice(r0, r0 + size), slice(c0, c0 + size))
+            t, b = truth[sl], bg[sl]
+            pts = skel[sl].copy()
+            far_t = far[sl].copy()
+            for m in (pts, far_t):
+                m[:ZOOM_MARGIN] = m[-ZOOM_MARGIN:] = False
+                m[:, :ZOOM_MARGIN] = m[:, -ZOOM_MARGIN:] = False
+            rr, cc = np.nonzero(pts & (t > 0.5))
+            for k in ZOOM_FACTORS:
+                tu, bu = up(t, k), up(b, k)
+                kk = tu.shape[0] / t.shape[0]
+                far_u = up(far_t.astype(float), k, order=0) > 0.5
+                img = tu + bu + np.random.default_rng(
+                    int(100 * k) + r0 + c0).normal(0.0, noise, tu.shape)
+                coords = [(rr + 0.5) * kk - 0.5, (cc + 0.5) * kk - 0.5]
+                true_h = ndi.map_coordinates(tu, coords, order=1)
+
+                def score(params):
+                    c, warns = _zoom_run(img, params)
+                    kept = ndi.map_coordinates(np.nan_to_num(c), coords, order=1) / true_h
+                    err = (c - tu)[far_u]
+                    err = err[np.isfinite(err)]
+                    return dict(kept=float(np.median(kept)),
+                                kept_p10=float(np.percentile(kept, 10)),
+                                bg95=float(np.percentile(np.abs(err - np.median(err)), 95)),
+                                warns=warns)
+
+                for method in ("trendfill", "spline1d", "tophat"):
+                    res = score(ProcParams(bg_method=method))
+                    entry = dict(scan=name, k=k, method=method, kept=res["kept"],
+                                 kept_p10=res["kept_p10"], bg95=res["bg95"],
+                                 warned=bool(res["warns"]))
+                    if res["warns"]:
+                        w = res["warns"][0]
+                        entry["width_px"] = w.width_px
+                        entry["suggest"] = w.suggest_method
+                        kw = dict(bg_method=w.suggest_method)
+                        if w.suggest_tophat_se_size is not None:
+                            kw["tophat_se_size"] = w.suggest_tophat_se_size
+                        follow = score(ProcParams(**kw))
+                        entry["followed_kept"] = follow["kept"]
+                        entry["followed_kept_p10"] = follow["kept_p10"]
+                        entry["followed_bg95"] = follow["bg95"]
+                        entry["followed_warned"] = bool(follow["warns"])
+                    runs.append(entry)
+                    print(f"  {name} x{k} {method}: kept {entry['kept']:.2f} "
+                          f"warned {entry['warned']} -> {entry.get('suggest')} "
+                          f"{entry.get('followed_kept')}", flush=True)
+
+    def rng(xs):
+        return [float(min(xs)), float(max(xs))] if xs else None
+
+    for method in ("trendfill", "spline1d", "tophat"):
+        for k in ZOOM_FACTORS:
+            sel = [r for r in runs if r["method"] == method and r["k"] == k]
+            values[f"{method}.x{k:g}.kept_range"] = rng([r["kept"] for r in sel])
+            values[f"{method}.x{k:g}.warned"] = sum(r["warned"] for r in sel)
+            values[f"{method}.x{k:g}.runs"] = len(sel)
+    for k in ZOOM_FACTORS:
+        sel = [r for r in runs if r["k"] == k]
+        values[f"x{k:g}.runs"] = len(sel)
+        values[f"x{k:g}.below_90"] = sum(r["kept"] < 0.9 for r in sel)
+        values[f"x{k:g}.below_90_unwarned"] = sum(r["kept"] < 0.9 and not r["warned"] for r in sel)
+        values[f"x{k:g}.warned"] = sum(r["warned"] for r in sel)
+        values[f"x{k:g}.warned_above_97"] = sum(r["warned"] and r["kept"] >= 0.97 for r in sel)
+        fol = [r["followed_kept"] for r in sel if r["warned"]]
+        values[f"x{k:g}.followed_kept_range"] = rng(fol)
+    quiet = [r for r in runs if not r["warned"]]
+    warned = [r for r in runs if r["warned"]]
+    values["runs"] = len(runs)
+    values["warned"] = len(warned)
+    values["unwarned.kept_min"] = min(r["kept"] for r in quiet) if quiet else None
+    values["unwarned.kept_p10_min"] = min(r["kept_p10"] for r in quiet) if quiet else None
+    values["missed_below_90"] = sum(r["kept"] < 0.9 for r in quiet)
+    values["warned.kept_range"] = rng([r["kept"] for r in warned])
+    values["warned_above_97"] = sum(r["kept"] >= 0.97 for r in warned)
+    values["followed.kept_range"] = rng([r["followed_kept"] for r in warned])
+    values["followed.bg95_max"] = max((r["followed_bg95"] for r in warned), default=None)
+    values["followed.still_warned"] = sum(r["followed_warned"] for r in warned)
+    values["unwarned.bg95_max"] = max((r["bg95"] for r in quiet), default=None)
+    (WORK / "zoomed_background_runs.json").write_text(
+        json.dumps(runs, indent=1), encoding="utf-8")
+    return values
+
+
 # ----------------------------------------------------------------------------
 # Recording
 # ----------------------------------------------------------------------------

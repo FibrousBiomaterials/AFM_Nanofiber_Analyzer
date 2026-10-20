@@ -31,7 +31,7 @@ import json
 import os
 import tempfile
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
@@ -840,6 +840,183 @@ def build_stages(p: ProcParams) -> PipelineStages:
     )
 
 
+# Limits under which a background method keeps fiber heights, set empirically
+# on zoomed copies of the bundled scans (docs/validation.md §1.8): every length
+# the calibrators use is fixed in pixels, so a fiber spread over many pixels
+# defeats them. `background_warnings` compares an analysis with these limits.
+# 背景補正の方式が繊維の高さを保つ範囲の限界。同梱スキャンを拡大した画像で経験的に
+# 決めた（docs/validation.ja.md §1.8）。補正が使う長さはすべて画素数で固定されて
+# いるため、繊維が多くの画素にまたがると補正が繊維を背景として引いてしまう。
+# `background_warnings` が解析をこの限界と比べる。
+#
+# Widest apparent width (px) at which trendfill and spline1d were checked.
+# trendfill と spline1d を確かめた見かけ幅（px）の上限。
+BACKGROUND_CHECKED_MAX_WIDTH_PX = 19.0
+# Smallest flank-step ratio (`flank_step_ratio`) each mask-based method needs.
+# マスクを使う各方式が必要とする斜面段差比（`flank_step_ratio`）の下限。
+MIN_FLANK_STEP_RATIO = {"trendfill": 2.5, "spline1d": 1.0}
+# Smallest tophat element diameter, in apparent widths, and the one suggested.
+# tophat の構造要素の直径の下限（見かけ幅の何倍か）と、勧める値。
+TOPHAT_MIN_ELEMENT_WIDTHS = 2.5
+TOPHAT_SUGGESTED_ELEMENT_WIDTHS = 3.0
+
+
+@dataclass(frozen=True)
+class BackgroundWarning:
+    """
+    One reason the background calibration may have lowered fiber heights.
+    背景補正が繊維の高さを低くした可能性がある理由 1 件。
+
+    Attributes
+    ----------
+    bg_method
+        The background method the analysis ran with.
+        解析に使った背景補正の方式。
+    reason
+        ``"element_small"`` (tophat element narrower than
+        `TOPHAT_MIN_ELEMENT_WIDTHS` apparent widths), ``"flank_step_low"``
+        (flank-step ratio below `MIN_FLANK_STEP_RATIO`) or ``"width_unchecked"``
+        (apparent width above `BACKGROUND_CHECKED_MAX_WIDTH_PX`).
+        ``"element_small"``（tophat の構造要素が見かけ幅の
+        `TOPHAT_MIN_ELEMENT_WIDTHS` 倍より小さい）、``"flank_step_low"``
+        （斜面段差比が `MIN_FLANK_STEP_RATIO` を下回る）、``"width_unchecked"``
+        （見かけ幅が `BACKGROUND_CHECKED_MAX_WIDTH_PX` を超える）のいずれか。
+    width_px
+        Median apparent width of the traced fibers (px).
+        追跡した繊維の見かけ幅の中央値（px）。
+    flank_step_ratio
+        The flank-step ratio, or ``None`` for tophat, which computes no marks.
+        斜面段差比。印を計算しない tophat では ``None``。
+    suggest_method
+        The background method suggested instead.
+        代わりに勧める背景補正の方式。
+    suggest_tophat_se_size
+        The suggested `tophat_se_size` when `suggest_method` is tophat, else
+        ``None``.
+        `suggest_method` が tophat のときに勧める `tophat_se_size`。それ以外は
+        ``None``。
+    """
+
+    bg_method: str
+    reason: str
+    width_px: float
+    flank_step_ratio: Optional[float]
+    suggest_method: str
+    suggest_tophat_se_size: Optional[int]
+
+
+def flank_step_ratio(height_nm: float, width_px: float, diff_sigma_nm: float,
+                     threshold_factor: float) -> float:
+    """
+    Steepest flank step of a typical fiber over the step a mark needs.
+    典型的な繊維の斜面の最大段差を、印が付くのに要る段差で割った比。
+
+    Parameters
+    ----------
+    height_nm
+        Typical fiber height (nm).
+        典型的な繊維の高さ（nm）。
+    width_px
+        Apparent width (full width at half maximum, px).
+        見かけ幅（半値全幅、px）。
+    diff_sigma_nm
+        Spread of the neighbour differences the calibrator fitted (nm).
+        補正が当てはめた、隣の画素との差のばらつき（nm）。
+    threshold_factor
+        `ProcParams.threshold_factor`: a mark needs a difference this many
+        spreads from the background's.
+        `ProcParams.threshold_factor`。印が付くには、差が背景の差から
+        ばらつきのこの倍数だけ離れている必要がある。
+
+    Returns
+    -------
+    float
+        The ratio; below about 1 the flanks barely mark, and noise breaks the
+        runs `BGCalibrator._extract_fiber` needs.
+        比。1 前後より小さいと斜面にほとんど印が付かず、
+        `BGCalibrator._extract_fiber` が必要とする印の並びがノイズで途切れる。
+
+    Notes
+    -----
+    A Gaussian cross-section of height H and full width at half maximum W
+    rises at most H / (sigma * sqrt(e)) per pixel with sigma = W / 2.355, which
+    is about 1.43 H / W.
+    高さ H、半値全幅 W のガウス断面の 1 画素あたりの最大上昇は、sigma = W / 2.355
+    として H / (sigma * sqrt(e))、すなわち約 1.43 H / W である。
+    """
+    steepest = height_nm * 2.0 * np.sqrt(2.0 * np.log(2.0)) / (width_px * np.sqrt(np.e))
+    return float(steepest / (threshold_factor * diff_sigma_nm))
+
+
+def background_warnings(params: ProcParams, image: ProcessedImage,
+                        calibrator) -> List[BackgroundWarning]:
+    """
+    Check an analysis against the limits its background method was checked to.
+    解析を、その背景補正の方式を確かめた範囲の限界と比べる。
+
+    Parameters
+    ----------
+    params
+        The analysis parameters.
+        解析パラメータ。
+    image
+        The processed image after kink detection, carrying
+        `apparent_width_summary`, `calibrated_image` and `skeleton_image`.
+        キンク検出後の処理済み画像。`apparent_width_summary`、
+        `calibrated_image`、`skeleton_image` を持つ。
+    calibrator
+        The `BGCalibrator` that ran, for the difference spread it fitted.
+        実行した `BGCalibrator`。当てはめた差のばらつきを読む。
+
+    Returns
+    -------
+    list of BackgroundWarning
+        Empty when the analysis lies inside the checked limits, or when no
+        fiber width was measured.
+        確かめた範囲の内側にあるとき、または繊維の幅を測れなかったときは空。
+    """
+    summary = getattr(image, "apparent_width_summary", None) or {}
+    width = summary.get("median_px")
+    count = summary.get("component_count") or 0
+    if width is None or count == 0 or summary.get("fallback_count", 0) * 2 >= count:
+        return []
+    width = float(width)
+    suggest_se = max(int(params.tophat_se_size),
+                     int(round(TOPHAT_SUGGESTED_ELEMENT_WIDTHS * width)) | 1)
+    method = params.bg_method
+    if method == "tophat":
+        if params.tophat_se_size < TOPHAT_MIN_ELEMENT_WIDTHS * width:
+            return [BackgroundWarning(method, "element_small", width, None,
+                                      "tophat", suggest_se)]
+        return []
+    out: List[BackgroundWarning] = []
+    ratio = None
+    outx = getattr(calibrator, "outx", None)
+    outy = getattr(calibrator, "outy", None)
+    skel = getattr(image, "skeleton_image", None)
+    if outx is not None and outy is not None and skel is not None:
+        on = np.asarray(skel) > 0
+        if on.any():
+            height = float(np.median(np.asarray(image.calibrated_image)[on]))
+            sigma = min(float(outx.best_values["pv1_sigma"]),
+                        float(outy.best_values["pv1_sigma"]))
+            if height > 0 and sigma > 0:
+                ratio = flank_step_ratio(height, width, sigma, params.threshold_factor)
+    too_wide = width > BACKGROUND_CHECKED_MAX_WIDTH_PX
+    low = ratio is not None and ratio < MIN_FLANK_STEP_RATIO.get(method, 0.0)
+    if low or too_wide:
+        if (method == "trendfill" and not too_wide and ratio is not None
+                and ratio >= MIN_FLANK_STEP_RATIO["spline1d"]):
+            suggest, se = "spline1d", None
+        else:
+            suggest, se = "tophat", suggest_se
+        if low:
+            out.append(BackgroundWarning(method, "flank_step_low", width, ratio, suggest, se))
+        if too_wide:
+            out.append(BackgroundWarning(method, "width_unchecked", width, ratio, suggest, se))
+    return out
+
+
 @dataclass
 class PipelineResult:
     """
@@ -866,6 +1043,11 @@ class PipelineResult:
         and ``spatial_calibration``.
         非推奨で、常に ``None``。3.0.0 で削除する。画素単位の設定が何 nm に
         あたるかは、バンドルの ``params`` と ``spatial_calibration`` から求まる。
+    background_warnings
+        Reasons the background calibration may have lowered fiber heights
+        (`background_warnings`); empty when none applies.
+        背景補正が繊維の高さを低くした可能性がある理由（`background_warnings`）。
+        該当しなければ空。
     """
 
     image: ProcessedImage
@@ -873,6 +1055,7 @@ class PipelineResult:
     param_path: str
     elapsed_s: float
     pixel_lengths_nm: Optional[Dict[str, float]] = None  # remove-in: 3.0.0
+    background_warnings: List[BackgroundWarning] = field(default_factory=list)
 
 
 def process_file(
@@ -1326,6 +1509,7 @@ def process_file(
         bundle_path=bundle_path,
         param_path=param_path,
         elapsed_s=time.time() - t0,
+        background_warnings=background_warnings(params, image, stages.bg_calibrator),
     )
 
 

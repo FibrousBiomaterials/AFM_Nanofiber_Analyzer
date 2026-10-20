@@ -718,3 +718,37 @@ def test_an_unknown_width_peak_is_refused():
     with pytest.raises(ValueError):
         measure_apparent_width(_horizontal_ridge(rows, 10.0, 1.5, 1.0), np.arange(5, 35),
                                np.full(30, 10), peak="highest")
+
+
+@pytest.mark.parametrize("fwhm", [12.0, 20.0, 32.0, 48.0])
+def test_a_wide_fiber_is_measured_at_its_width(fwhm):
+    """
+    A fiber wider than the first range is read again over a range that reaches past it, so its width is not capped near the range.
+    最初の範囲より太い繊維は、その外まで届く範囲で読み直すため、幅が範囲の近くで頭打ちにならない。
+    """
+    rows, _cols = np.mgrid[0:240, 0:80].astype(float)
+    ridge = _horizontal_ridge(rows, 120.3, fwhm / 2.3548, 3.0)
+    xtrack = np.arange(10, 70)
+    ytrack = np.full(xtrack.size, 120)
+    width, measured = measure_apparent_width(ridge, xtrack, ytrack, return_measured=True)
+    assert measured
+    assert width == pytest.approx(fwhm, rel=0.05)
+    # The fixed range a reader keeps for a format 1.4 bundle reads it narrow.
+    # 形式 1.4 のバンドルの読み取り側が使う固定の範囲では、細く読まれる。
+    fixed, _ = measure_apparent_width(ridge, xtrack, ytrack, return_measured=True,
+                                      adaptive_range=False)
+    assert fixed < 0.95 * fwhm
+
+
+def test_a_narrow_fiber_is_read_over_the_first_range_only():
+    """
+    A fiber well inside the first range gives the same width with and without the growing range.
+    最初の範囲に十分収まる繊維は、範囲を広げても広げなくても同じ幅になる。
+    """
+    rows, _cols = np.mgrid[0:60, 0:80].astype(float)
+    ridge = _horizontal_ridge(rows, 30.3, 8.0 / 2.3548, 3.0)
+    xtrack = np.arange(10, 70)
+    ytrack = np.full(xtrack.size, 30)
+    assert (measure_apparent_width(ridge, xtrack, ytrack, return_measured=True)
+            == measure_apparent_width(ridge, xtrack, ytrack, return_measured=True,
+                                      adaptive_range=False))

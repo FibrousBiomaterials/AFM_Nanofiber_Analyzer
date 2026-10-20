@@ -2184,7 +2184,18 @@ in five steps:
    the half maximum still widens the width across both. A track point that
    lies below that half maximum is on the flank rather than on the fiber, and
    its section is not used. $W$ is the
-   median of this width over the track, one value per fiber. Every length in the steps that follow is a multiple of $W$,
+   median of this width over the track, one value per fiber. If the range read
+   is shorter than 1.25<!--c:lib/centerline.py::_WIDTH_RANGE_MIN_WIDTHS--> $W$, the cross-sections are read again over 2<!--c:lib/centerline.py::_WIDTH_RANGE_WIDTHS--> $W$ to either side
+   (at most 96<!--c:lib/centerline.py::_WIDTH_SEARCH_MAX_PX--> px) and $W$ is measured again: the base is a low value of
+   the section, so it lies on the background only while the range reaches well
+   beyond the fiber, and a fiber spread over many pixels, as at a fine pixel
+   size, would otherwise take its base on its own skirt and read narrow. The
+   longer reading is kept only if, in at least half the sections used, the
+   part above the half maximum holds a single crest: from the crest outward the
+   section never rises again by more than 0.1<!--c:lib/centerline.py::_WIDTH_SECOND_CREST_FRAC--> of the crest's height above the
+   base. A longer range also lowers the base beside a neighbouring fiber, whose
+   crest the width could then take in; when that happens, the shorter reading is
+   kept (`_width_in_range`). Every length in the steps that follow is a multiple of $W$,
    so those steps mean the same thing at any scan size.
 2. The track smoothed by a Gaussian of standard deviation $W/4$ is the
    **reference line**. Each reference point is the origin from which that
@@ -2246,7 +2257,8 @@ same function:
 ```python
 # source: lib/centerline.py::place_centerline
 width, measured = measure_apparent_width(
-    height, x, y, return_measured=True, aspect=aspect, peak=width_peak)
+    height, x, y, return_measured=True, aspect=aspect, peak=width_peak,
+    adaptive_range=width_adaptive)
 lx, ly, reliable, crest = _refine(
     height, x, y, width, branch_points, method, aspect)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
@@ -2792,7 +2804,8 @@ empirical, checked against a visual reference on the bundled scans
 Fixed in pixels rather than in multiples of $W$ are:
 
 - lengths inside the procedure that measures $W$: the range over which a
-  cross-section is read (±12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px from the track), the fallback used when
+  cross-section is first read (±12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px from the track, widened with $W$ up to
+  96<!--c:lib/centerline.py::_WIDTH_SEARCH_MAX_PX--> px), the fallback used when
   $W$ cannot be measured, `centerline.FALLBACK_WIDTH_PX` (8<!--c:lib/centerline.py::FALLBACK_WIDTH_PX--> px), and others;
 - the sampling steps: 0.25<!--c:lib/centerline.py::_WIDTH_STEP_PX--> px across a cross-section, 0.5<!--c:lib/kink_detector.py::_HEADING_STEP_PX--> px along the heading.
 

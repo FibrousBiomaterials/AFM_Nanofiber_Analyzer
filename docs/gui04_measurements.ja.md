@@ -127,7 +127,10 @@ GUI04 はその名前をログに出す。数値がどの中心線に沿って�
 のバンドルは見かけ幅 W（§2.1）を、各断面の基準と、スケルトン点から坂を上って最初に
 着く極大との中間のレベルで読み、
 形式 1.1〜1.3 のバンドルは断面全体の最大値との中間で読んでいる。GUI04 は、バンドルの
-形式が幅を読む極大（`bundle_schema.width_peak_from_meta`）で中心線を置く。
+形式が幅を読む極大（`bundle_schema.width_peak_from_meta`）で中心線を置く。形式 1.5 の
+バンドルは W を、繊維に合わせて広がる断面の範囲で読んでおり（§2.1）、それより古い
+バンドルは固定の ±12 px で読んでいる。GUI04 はバンドルの形式と同じ読み方で読む
+（`bundle_schema.width_range_adaptive_from_meta`）。
 
 ```python
 # source: lib/fiber_tracking_image.py::_build_fiber
@@ -137,6 +140,7 @@ if is_placed_line(centerline):
     placed = place_centerline(
         cal, xtrack_prcimg, ytrack_prcimg, branch_points,
         method=centerline, aspect=pixel_aspect, width_peak=width_peak,
+        width_adaptive=width_adaptive,
     )
     xtrack = placed.x - x
     ytrack = placed.y - y
@@ -204,7 +208,8 @@ for i, (px, py) in enumerate(zip(xtrack_prcimg.tolist(), ytrack_prcimg.tolist())
 ```python
 # source: lib/centerline.py::place_centerline
 width, measured = measure_apparent_width(
-    height, x, y, return_measured=True, aspect=aspect, peak=width_peak)
+    height, x, y, return_measured=True, aspect=aspect, peak=width_peak,
+    adaptive_range=width_adaptive)
 lx, ly, reliable, crest = _refine(
     height, x, y, width, branch_points, method, aspect)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
@@ -223,9 +228,13 @@ return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 どの画素サイズでも同じ意味を持つ。
 
 ```python
-# source: lib/centerline.py::_WIDTH_SEARCH_PX, _WIDTH_STEP_PX, _WIDTH_TANGENT_HALF, FALLBACK_WIDTH_PX, _MIN_WIDTH_PX, _CREST_WINDOW_WIDTHS, _FRAME_SIGMA_WIDTHS, _CREST_REACH_WIDTHS, _HALF_MAX_REACH_WIDTHS, _MAX_SECTION_WIDTHS, _OFFSET_SMOOTH_WIDTHS, _JUNCTION_WIDTHS, _MIN_CREST_AMPLITUDE_FRAC
+# source: lib/centerline.py::_WIDTH_SEARCH_PX, _WIDTH_STEP_PX, _WIDTH_RANGE_MIN_WIDTHS, _WIDTH_RANGE_WIDTHS, _WIDTH_SEARCH_MAX_PX, _WIDTH_SECOND_CREST_FRAC, _WIDTH_TANGENT_HALF, FALLBACK_WIDTH_PX, _MIN_WIDTH_PX, _CREST_WINDOW_WIDTHS, _FRAME_SIGMA_WIDTHS, _CREST_REACH_WIDTHS, _HALF_MAX_REACH_WIDTHS, _MAX_SECTION_WIDTHS, _OFFSET_SMOOTH_WIDTHS, _JUNCTION_WIDTHS, _MIN_CREST_AMPLITUDE_FRAC
 _WIDTH_SEARCH_PX = 12.0
 _WIDTH_STEP_PX = 0.25
+_WIDTH_RANGE_MIN_WIDTHS = 1.25
+_WIDTH_RANGE_WIDTHS = 2.0
+_WIDTH_SEARCH_MAX_PX = 96.0
+_WIDTH_SECOND_CREST_FRAC = 0.1
 _WIDTH_TANGENT_HALF = 3
 FALLBACK_WIDTH_PX = 8.0
 _MIN_WIDTH_PX = 2.0
@@ -239,8 +248,9 @@ _JUNCTION_WIDTHS = 1.0
 _MIN_CREST_AMPLITUDE_FRAC = 0.25
 ```
 
-最初の 3 つは画素単位である。これらは幅のプロファイルをどれだけ細かく
-標本化するかを決めるもので、繊維の性質ではない。`FALLBACK_WIDTH_PX` と
+最初の 5 つは画素数か単なる比である。これらは幅のプロファイルをどこまで、どれだけ
+細かく標本化するかを決めるもので、繊維の性質ではない。6 つ目は、プロファイルが
+どれだけ上がり直したら 2 つ目の頂点とみなすかである（§2.1）。`FALLBACK_WIDTH_PX` と
 `_MIN_WIDTH_PX` も画素数であり、幅が測れないときに使う幅と、使う幅の最小値である
 （§2.1）。
 
@@ -250,10 +260,30 @@ _MIN_CREST_AMPLITUDE_FRAC = 0.25
 二値化マスクは使わない。
 
 ```python
-# source: lib/centerline.py::measure_apparent_width
+# source: lib/centerline.py::measure_apparent_width, _width_in_range
+if peak not in WIDTH_PEAKS:
+    raise ValueError(f"peak must be one of {WIDTH_PEAKS}, got {peak!r}")
+x = np.asarray(xtrack, dtype=np.float64)
+y = np.asarray(ytrack, dtype=np.float64) * float(aspect)
+if x.size < 2 or height is None:
+    return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
+search = _WIDTH_SEARCH_PX
+width, _single = _width_in_range(height, x, y, aspect, peak, search)
+while (adaptive_range and width is not None and search < _WIDTH_SEARCH_MAX_PX
+       and search < _WIDTH_RANGE_MIN_WIDTHS * width):
+    search = min(_WIDTH_SEARCH_MAX_PX,
+                 max(_WIDTH_RANGE_WIDTHS * width, search + _WIDTH_STEP_PX))
+    wider, single = _width_in_range(height, x, y, aspect, peak, search)
+    if wider is None or single < 0.5:
+        break
+    width = wider
+if width is None:
+    return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
+return (width, True) if return_measured else width
+...
 tx, ty = _unit_tangents(x, y, _WIDTH_TANGENT_HALF)
 nx, ny = -ty, tx
-offsets = np.arange(-_WIDTH_SEARCH_PX, _WIDTH_SEARCH_PX + 1e-9, _WIDTH_STEP_PX)
+offsets = np.arange(-search, search + 1e-9, _WIDTH_STEP_PX)
 profiles = _bilinear(
     np.asarray(height, dtype=np.float64),
     (y[:, None] + ny[:, None] * offsets[None, :]) / float(aspect),
@@ -269,6 +299,8 @@ level = base + 0.5 * (top - base)
 above = profiles >= level[:, None]
 widths = np.empty(x.size, dtype=np.float64)
 usable = np.zeros(x.size, dtype=bool)
+lo_of = np.zeros(x.size, dtype=np.intp)
+hi_of = np.zeros(x.size, dtype=np.intp)
 for i in range(x.size):
     lo = centre
     while lo > 0 and above[i, lo - 1]:
@@ -277,22 +309,34 @@ for i in range(x.size):
     while hi < offsets.size - 1 and above[i, hi + 1]:
         hi += 1
     widths[i] = offsets[hi] - offsets[lo]
+    lo_of[i], hi_of[i] = lo, hi
     usable[i] = lo > 0 and hi < offsets.size - 1
 if peak == WIDTH_PEAK_NEAREST:
     usable &= above[:, centre]
 if usable.sum() < max(1, x.size // 2):
-    return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
+    return None, 0.0
+single = 0
+for i in np.flatnonzero(usable):
+    run = profiles[i, lo_of[i]:hi_of[i] + 1]
+    peak_at = int(np.argmax(run))
+    tol = _WIDTH_SECOND_CREST_FRAC * (top[i] - base[i])
+    right = run[peak_at:]
+    left = run[:peak_at + 1][::-1]
+    if (np.max(right - np.minimum.accumulate(right)) <= tol
+            and np.max(left - np.minimum.accumulate(left)) <= tol):
+        single += 1
+single_frac = single / float(usable.sum())
 width = float(np.median(widths[usable]))
 if not np.isfinite(width) or width <= 0.0:
-    return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
-width = max(width, _MIN_WIDTH_PX)
-return (width, True) if return_measured else width
+    return None, single_frac
+return max(width, _MIN_WIDTH_PX), single_frac
 ```
 
 手順は次のとおりである。
 
 1. 各スケルトン点の法線を、スケルトントラック上の前後 ±3 点の中心差分から求める。その法線に
-   沿って、±12 px の範囲の高さプロファイルを 0.25 px ごとに双線形補間で標本化する。
+   沿って、まず ±12 px の範囲（手順 5）の高さプロファイルを 0.25 px ごとに双線形補間で
+   標本化する。
 2. 各プロファイルは、自身の標本の 10 パーセンタイルを基準にする。そのため、背景に
    傾斜が残っていても、繊維はその場の基準に対して測られる。レベルは、その基準と
    繊維自身の頂点の中間である。頂点は、プロファイルのいちばん高い標本ではなく、
@@ -311,6 +355,15 @@ return (width, True) if return_measured else width
    その区間はこの繊維の幅にならず、空（幅 0 で、中央値を下げる）になることもある。
 4. W は使える点での**中央値**である。幅は繊維の性質なので、1 本の繊維全体で 1 つの
    値を使う。
+5. 読んだ範囲が 1.25 W より短ければ、2 W（最大 96 px）の範囲でプロファイルを読み直し、
+   手順 2〜4 を繰り返す。基準はプロファイルの 10 パーセンタイルであり、範囲が繊維の
+   外まで十分に届いているときだけ背景の上に来る。そうしないと、細かい画素で撮った場合の
+   ように多くの画素にまたがる繊維では、基準が自身の裾に来て幅が細く読まれる。長い範囲での
+   読み取りは、使える断面の半数以上で区間が頂点を 1 つしか含まないときだけ使う。頂点から
+   外側へ向かって、プロファイルが基準からの頂点の高さの 0.1 倍を超えて再び上がることが
+   なければ、頂点は 1 つとする。範囲を長くすると隣の繊維の脇でもふもとが下がり、区間が
+   その頂点まで取り込みうるためで、そうなったときは短い範囲での読み取りを残す。形式 1.4
+   以前のバンドルは、判定されたときと同じく固定の ±12 px で読む（§1.2）。
 
 使える点が半数未満の場合、または中央値がゼロか有限でない場合は、`FALLBACK_WIDTH_PX`
 （8 px）で代用する。`_MIN_WIDTH_PX`（2 px）より細く測られた繊維には 2 px を与える。
@@ -1484,6 +1537,7 @@ if is_placed_line(kind):
         image.calibrated_image, pix_x, pix_y, return_measured=True,
         aspect=aspect,
         peak=getattr(image, "width_peak", WIDTH_PEAK_NEAREST),
+        adaptive_range=bool(getattr(image, "width_adaptive", True)),
     )
     judged = detector.judge_line(
         line_x, line_y, width, aspect,
