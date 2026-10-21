@@ -1128,7 +1128,8 @@ when the scan size is recorded, for example in the input file.
    components that do not touch the existing mask at all would discard such a
    fiber whole — and the longer a fiber, the more likely it touches.
 4. Surviving components are kept when their skeleton's pixel count times the
-   pixel size reaches `ridge_min_length_nm` (default 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm).
+   pixel size reaches `ridge_min_length_nm` (default 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm). The default is an
+   empirical choice that no evaluation supports.
 
 The Frangi filter is isotropic: one scale is one width in pixels in every
 direction. On a scan whose X and Y pixel sizes differ, it would therefore look

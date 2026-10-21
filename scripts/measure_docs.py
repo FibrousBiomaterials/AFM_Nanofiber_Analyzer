@@ -128,7 +128,7 @@ def patched(module, **values):
     "kink_reference",
     ["lib/pipeline.py", "lib/measure.py", "lib/kink_detector.py", "lib/centerline.py"],
     "Score the kink rule, its variants and the earlier polyline rule against the "
-    "visual reference of 64 clear kinks on the five bundled scans "
+    "visual reference of clear kinks on the three bundled scans "
     "(scripts/kink_reference_score.py procedure).",
 )
 def kink_reference() -> dict:
@@ -151,12 +151,9 @@ def kink_reference() -> dict:
     def total(scans, detector, old_rule=False):
         out = dict.fromkeys(keys, 0)
         for name, (_image, fibers) in scans.items():
-            skip = krs.EXCLUDED_FIBERS.get(name, set())
             if old_rule:
                 kinks = []
                 for i, f in enumerate(fibers):
-                    if i in skip:
-                        continue
                     x = np.asarray(f.skeleton_xtrack, float) + float(f.data[0])
                     y = np.asarray(f.skeleton_ytrack, float) + float(f.data[1])
                     idx, _a, _d = detector.kinks_and_decomposed_from_track(x, y)
@@ -164,7 +161,7 @@ def kink_reference() -> dict:
                               for k in idx]
                 res = krs.score(refs[name], kinks, [])
             else:
-                kinks, unjudged = krs.detect(fibers, detector, skip)
+                kinks, unjudged = krs.detect(fibers, detector)
                 res = krs.score(refs[name], kinks, unjudged)
             for k in keys:
                 out[k] += res[k]
@@ -213,7 +210,7 @@ def kink_reference() -> dict:
     # 読むとしきい値より浅いものの数。
     false_items = []
     for name, (_image, fibers) in default.items():
-        kinks, unjudged = krs.detect(fibers, base, krs.EXCLUDED_FIBERS.get(name, set()))
+        kinks, unjudged = krs.detect(fibers, base)
         false_items += krs.score(refs[name], kinks, unjudged)["false_list"]
     threshold = 180.0 - ProcParams().kinkangle_deg
     values["default.false_excess_30_40"] = sum(threshold <= k["excess_deg"] <= threshold + 10
@@ -372,7 +369,7 @@ def thinning_example() -> dict:
     "border_padding",
     ["lib/pipeline.py", "lib/skeletonizer.py"],
     "Thinning with and without the replicated border, compared outside the "
-    "border band, on the binarized masks of the five bundled scans.",
+    "border band, on the binarized masks of the three bundled scans.",
 )
 def border_padding() -> dict:
     import numpy as np
@@ -874,10 +871,12 @@ def branch_pruning() -> dict:
 # The distinct test inputs of the repository: the bundled scans. The files in
 # testdata_Gwyddion_gwy and testdata_Gwyddion_txt are Gwyddion exports of the
 # higher-plant scan; after background correction they give the same image, so
-# they are left out rather than counted as further specimens.
+# they are left out rather than counted as further specimens. The two samples in
+# testdata_artificial are exact crops of the tunicate scan and are left out too.
 # リポジトリの互いに異なるテスト入力、すなわち同梱スキャン。testdata_Gwyddion_gwy と
 # testdata_Gwyddion_txt のファイルは高等植物のスキャンを Gwyddion で書き出したもので、
-# 背景補正の後は同じ画像になるため、別の試料として数えずに除く。
+# 背景補正の後は同じ画像になるため、別の試料として数えずに除く。testdata_artificial の
+# 2 つの試料は tunicate スキャンをそのまま切り抜いたものなので、これも除く。
 def _all_test_inputs() -> Dict[str, str]:
     import kink_reference_score as krs
     return dict(krs.SCANS)
@@ -906,11 +905,11 @@ def _all_test_inputs() -> Dict[str, str]:
 # 高等植物スキャンのグリッチの帯で切れた低い繊維の片で、ほかは粒子、背景の凹凸、
 # 走査線のグリッチであった。
 LINEARITY_REMOVED_INSPECTED = {
-    "hplantTOC": 9, "tunicate": 5, "NDTOC": 237, "art_iso": 0, "art_aniso": 1,
+    "hplantTOC": 9, "tunicate": 5, "NDTOC": 237,
 }
 LINEARITY_FIBER_PIECES = {
     ("tunicate", 17, 688), ("tunicate", 10, 843), ("tunicate", 613, 922),
-    ("tunicate", 557, 934), ("art_aniso", 739, 246), ("hplantTOC", 106, 1012),
+    ("tunicate", 557, 934), ("hplantTOC", 106, 1012),
     ("hplantTOC", 839, 797), ("NDTOC", 591, 1010),
 }
 
@@ -1908,7 +1907,7 @@ def turn_maxima() -> dict:
         out = dict(found=0, false=0)
         detector = KinkDetector()
         for name, (_image, fibers) in scans.items():
-            kinks, unjudged = krs.detect(fibers, detector, krs.EXCLUDED_FIBERS.get(name, set()))
+            kinks, unjudged = krs.detect(fibers, detector)
             res = krs.score(refs[name], kinks, unjudged)
             out["found"] += res["found"]
             out["false"] += res["false"]
@@ -2358,7 +2357,7 @@ def frame_margin() -> dict:
 # tunicate の段差は、強く傾いた生の行の中央値を物質がずらすことによるもので、
 # 平面を引いた高さに帯は無い。集合が変わると実験は失敗する。
 STRIPE_GLITCH_BOUNDARIES_INSPECTED = {
-    "hplantTOC": (823, 826), "tunicate": (), "NDTOC": (), "art_iso": (), "art_aniso": (),
+    "hplantTOC": (823, 826), "tunicate": (), "NDTOC": (),
 }
 
 

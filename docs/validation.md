@@ -7,8 +7,9 @@ Several defaults of the code were chosen by looking at these results, and the
 page says which.
 
 **Every number on this page describes the data it was measured on, not the
-algorithm.** The bundled scans are 5<!--m:kink_reference.scans--> images: three specimens and two
-artificial samples. The synthetic scans are drawn with fixed fiber and probe
+algorithm.** The bundled scans are 3<!--m:kink_reference.scans--> images of two specimens: the higher-plant TOC and
+Bruker NDTOC scans image the same dispersion, the latter recorded to test reading
+Bruker data. The synthetic scans are drawn with fixed fiber and probe
 shapes. Neither tells how the analysis behaves on another specimen, another
 instrument or another scan size. A result here shows the kind of behaviour worth
 checking for; whether it holds on your images is decided by looking at your
@@ -18,8 +19,8 @@ images.
 
 | Data | What it is | Code |
 |---|---|---|
-| Bundled scans | a tunicate CNF scan (`testdata_tunicateCNF`), a higher-plant TOC scan (`testdata_higherplantTOC`), a Bruker NDTOC scan (`testdata_Bruker_txt`), and two artificial scans, isotropic and anisotropic (`testdata_artificial`) | `SCANS` in `scripts/kink_reference_score.py` |
-| Visual reference | kinks marked on the height images of the bundled scans by an AI coding agent (Claude Code), which viewed each fiber on an enlarged crop of the height image with no detector output drawn on it, although for some fibers it already knew where the detector then in use placed kinks: 64<!--m:kink_reference.clear_marks--> clear kinks | `scripts/kink_reference_score.py` |
+| Bundled scans | a tunicate CNF scan (`testdata_tunicateCNF`), a higher-plant TOC scan (`testdata_higherplantTOC`), and a Bruker NDTOC scan (`testdata_Bruker_txt`); the two samples in `testdata_artificial` are crops of the tunicate scan and are not used | `SCANS` in `scripts/kink_reference_score.py` |
+| Visual reference | kinks marked on the height images of the bundled scans by an AI coding agent (Claude Code), which viewed each fiber on an enlarged crop of the height image with no detector output drawn on it, although for some fibers it already knew where the detector then in use placed kinks: 53<!--m:kink_reference.clear_marks--> clear kinks | `scripts/kink_reference_score.py` |
 | Synthetic suite | scans drawn with a known centerline and known corners: 2<!--c:scripts/synthetic_suite.py::NMPX--> nm pixels, apparent width $W$ = 8<!--c:scripts/synthetic_suite.py::W--> px | `scripts/synthetic_suite.py` |
 | Kink-rule sweep | synthetic kinked, straight, arc and sine fibers over apparent width and pixel noise | `scripts/kink_rule_sweep.py` |
 
@@ -38,8 +39,6 @@ See [Analysis algorithms](algorithms.md) §1.
 | Scan | Plane slope (nm/px) | Fall across a masked fiber (nm) | Bowl, peak to peak (nm) | Median height under the skeleton (nm) |
 |---|---|---|---|---|
 | tunicate CNF | 0.23<!--m:bg_stats.tunicate.plane_slope_nm_per_px--> | 4.0<!--m:bg_stats.tunicate.drop_across_hole_nm--> | 15.2<!--m:bg_stats.tunicate.quadratic_p2p_nm--> | 7.9<!--m:bg_stats.tunicate.skeleton_height_median_nm--> |
-| artificial, isotropic | 0.24<!--m:bg_stats.art_iso.plane_slope_nm_per_px--> | 2.4<!--m:bg_stats.art_iso.drop_across_hole_nm--> | 3.5<!--m:bg_stats.art_iso.quadratic_p2p_nm--> | 7.5<!--m:bg_stats.art_iso.skeleton_height_median_nm--> |
-| artificial, anisotropic | 0.24<!--m:bg_stats.art_aniso.plane_slope_nm_per_px--> | 2.4<!--m:bg_stats.art_aniso.drop_across_hole_nm--> | 7.5<!--m:bg_stats.art_aniso.quadratic_p2p_nm--> | 7.2<!--m:bg_stats.art_aniso.skeleton_height_median_nm--> |
 | higher-plant TOC | 0.001<!--m:bg_stats.hplantTOC.plane_slope_nm_per_px--> | 0.01<!--m:bg_stats.hplantTOC.drop_across_hole_nm--> | 1.7<!--m:bg_stats.hplantTOC.quadratic_p2p_nm--> | 1.7<!--m:bg_stats.hplantTOC.skeleton_height_median_nm--> |
 | Bruker NDTOC | 0.003<!--m:bg_stats.NDTOC.plane_slope_nm_per_px--> | 0.04<!--m:bg_stats.NDTOC.drop_across_hole_nm--> | 21.9<!--m:bg_stats.NDTOC.quadratic_p2p_nm--> | 2.1<!--m:bg_stats.NDTOC.skeleton_height_median_nm--> |
 
@@ -75,7 +74,8 @@ threshold of 0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm; the cu
 
 ### 1.4 `tophat` at the border
 
-On a ramp of 0.24<!--m:tophat_border.slope_nm_per_px--> nm/px, the steepest plane of the bundled scans (§1.1),
+On a ramp of 0.24<!--m:tophat_border.slope_nm_per_px--> nm/px, a little steeper than the steepest plane of the bundled
+scans (0.23<!--m:bg_stats.tunicate.plane_slope_nm_per_px--> nm/px, §1.1),
 opening the raw heights with the 25<!--c:lib/pipeline.py::ProcParams.tophat_se_size-->-px element leaves a band
 **3.1<!--m:tophat_border.raw.uphill_band_max_nm--> nm** high within 12<!--n:definition--> px of the uphill edge, far above the
 0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm binarization threshold; opening the detrended heights leaves
@@ -93,8 +93,6 @@ which grows with vertical ones.
 | Input | Rows, `trendfill` | Rows, `'x'` | Rows, `'y'` | Columns, `trendfill` | Columns, `'x'` | Columns, `'y'` |
 |---|---|---|---|---|---|---|
 | tunicate CNF | 0.010<!--m:spline1d_axis.tunicate.trendfill.row_median_std_nm--> | 0.007<!--m:spline1d_axis.tunicate.x.row_median_std_nm--> | 0.085<!--m:spline1d_axis.tunicate.y.row_median_std_nm--> | 0.011<!--m:spline1d_axis.tunicate.trendfill.column_median_std_nm--> | 0.017<!--m:spline1d_axis.tunicate.x.column_median_std_nm--> | 0.015<!--m:spline1d_axis.tunicate.y.column_median_std_nm--> |
-| artificial, isotropic | 0.010<!--m:spline1d_axis.art_iso.trendfill.row_median_std_nm--> | 0.011<!--m:spline1d_axis.art_iso.x.row_median_std_nm--> | 0.027<!--m:spline1d_axis.art_iso.y.row_median_std_nm--> | 0.011<!--m:spline1d_axis.art_iso.trendfill.column_median_std_nm--> | 0.026<!--m:spline1d_axis.art_iso.x.column_median_std_nm--> | 0.018<!--m:spline1d_axis.art_iso.y.column_median_std_nm--> |
-| artificial, anisotropic | 0.005<!--m:spline1d_axis.art_aniso.trendfill.row_median_std_nm--> | 0.006<!--m:spline1d_axis.art_aniso.x.row_median_std_nm--> | 0.015<!--m:spline1d_axis.art_aniso.y.row_median_std_nm--> | 0.011<!--m:spline1d_axis.art_aniso.trendfill.column_median_std_nm--> | 0.022<!--m:spline1d_axis.art_aniso.x.column_median_std_nm--> | 0.014<!--m:spline1d_axis.art_aniso.y.column_median_std_nm--> |
 | higher-plant TOC | 0.222<!--m:spline1d_axis.hplantTOC.trendfill.row_median_std_nm--> | 0.006<!--m:spline1d_axis.hplantTOC.x.row_median_std_nm--> | 0.279<!--m:spline1d_axis.hplantTOC.y.row_median_std_nm--> | 0.005<!--m:spline1d_axis.hplantTOC.trendfill.column_median_std_nm--> | 0.006<!--m:spline1d_axis.hplantTOC.x.column_median_std_nm--> | 0.009<!--m:spline1d_axis.hplantTOC.y.column_median_std_nm--> |
 | Bruker NDTOC | 0.018<!--m:spline1d_axis.NDTOC.trendfill.row_median_std_nm--> | 0.019<!--m:spline1d_axis.NDTOC.x.row_median_std_nm--> | 0.308<!--m:spline1d_axis.NDTOC.y.row_median_std_nm--> | 0.015<!--m:spline1d_axis.NDTOC.trendfill.column_median_std_nm--> | 0.015<!--m:spline1d_axis.NDTOC.x.column_median_std_nm--> | 0.036<!--m:spline1d_axis.NDTOC.y.column_median_std_nm--> |
 
@@ -105,9 +103,9 @@ inputs, and the scan-line glitch of the higher-plant scan stays. Along `'x'`,
 that glitch is removed on the higher-plant scan, and a horizontal streak
 that `trendfill` leaves on the tunicate scan is gone; but a dark rim, visibly
 deeper than with `trendfill`, forms along the right side of fibers running
-close to vertical on the tunicate and both artificial scans. On those three
-inputs the per-column spread along `'x'` is clearly larger than with
-`trendfill`; on the higher-plant and Bruker scans it is nearly the same.
+close to vertical on the tunicate scan. On that input the per-column spread
+along `'x'` is clearly larger than with `trendfill`; on the higher-plant and
+Bruker scans it is nearly the same.
 
 To check vertical stripes, each test input was rotated by 90<!--n:definition-->° (`np.rot90`), so
 that its scan lines become columns and its line offsets vertical stripes, and
@@ -117,12 +115,10 @@ gives the per-column spread on the rotated inputs.
 | Input (rotated) | Columns, `trendfill` | Columns, `'x'` | Columns, `'y'` |
 |---|---|---|---|
 | tunicate CNF | 0.069<!--m:spline1d_axis_rotated.tunicate.trendfill.column_median_std_nm--> | 0.120<!--m:spline1d_axis_rotated.tunicate.x.column_median_std_nm--> | 0.072<!--m:spline1d_axis_rotated.tunicate.y.column_median_std_nm--> |
-| artificial, isotropic | 0.073<!--m:spline1d_axis_rotated.art_iso.trendfill.column_median_std_nm--> | 0.079<!--m:spline1d_axis_rotated.art_iso.x.column_median_std_nm--> | 0.073<!--m:spline1d_axis_rotated.art_iso.y.column_median_std_nm--> |
-| artificial, anisotropic | 0.070<!--m:spline1d_axis_rotated.art_aniso.trendfill.column_median_std_nm--> | 0.072<!--m:spline1d_axis_rotated.art_aniso.x.column_median_std_nm--> | 0.069<!--m:spline1d_axis_rotated.art_aniso.y.column_median_std_nm--> |
 | higher-plant TOC | 0.040<!--m:spline1d_axis_rotated.hplantTOC.trendfill.column_median_std_nm--> | 0.073<!--m:spline1d_axis_rotated.hplantTOC.x.column_median_std_nm--> | 0.040<!--m:spline1d_axis_rotated.hplantTOC.y.column_median_std_nm--> |
 | Bruker NDTOC | 0.046<!--m:spline1d_axis_rotated.NDTOC.trendfill.column_median_std_nm--> | 0.265<!--m:spline1d_axis_rotated.NDTOC.x.column_median_std_nm--> | 0.047<!--m:spline1d_axis_rotated.NDTOC.y.column_median_std_nm--> |
 
-On the four inputs other than the higher-plant scan, rotating made the spread
+On the two inputs other than the higher-plant scan, rotating made the spread
 larger for every method, `trendfill` included (compare the first table), so
 these numbers do not isolate what `'y'` does. Rendered, the scan-line glitch of
 the higher-plant scan stays along `'y'` on the rotated image, as a bright
@@ -145,13 +141,11 @@ horizontal stripes.
 | Input | Rows, X only | Rows, X and Y |
 |---|---|---|
 | tunicate CNF | 0.010<!--m:savgol_axis.tunicate.x_only.row_median_std_nm--> | 0.070<!--m:savgol_axis.tunicate.x_and_y.row_median_std_nm--> |
-| artificial, isotropic | 0.010<!--m:savgol_axis.art_iso.x_only.row_median_std_nm--> | 0.073<!--m:savgol_axis.art_iso.x_and_y.row_median_std_nm--> |
-| artificial, anisotropic | 0.005<!--m:savgol_axis.art_aniso.x_only.row_median_std_nm--> | 0.070<!--m:savgol_axis.art_aniso.x_and_y.row_median_std_nm--> |
 | higher-plant TOC | 0.222<!--m:savgol_axis.hplantTOC.x_only.row_median_std_nm--> | 0.291<!--m:savgol_axis.hplantTOC.x_and_y.row_median_std_nm--> |
 | Bruker NDTOC | 0.015<!--m:savgol_axis.NDTOC.x_only.row_median_std_nm--> | 0.046<!--m:savgol_axis.NDTOC.x_and_y.row_median_std_nm--> |
 Smoothing along Y as well made the per-row spread larger on every input.
 Rendered, the images smoothed along both axes carry horizontal streaks across
-the tunicate, artificial isotropic and higher-plant scans, which the X-only
+the tunicate and higher-plant scans, which the X-only
 smoothing does not leave; the Bruker scan looks much the same either way.
 
 ### 1.7 When `spline1d` adds the trend back
@@ -164,8 +158,6 @@ height (nm).
 | Input | Largest difference (nm) |
 |---|---|
 | tunicate CNF | 0.006<!--m:spline1d_trend_order.tunicate.max_difference_nm--> |
-| artificial, isotropic | 0.004<!--m:spline1d_trend_order.art_iso.max_difference_nm--> |
-| artificial, anisotropic | 0.005<!--m:spline1d_trend_order.art_aniso.max_difference_nm--> |
 | higher-plant TOC | 0.000<!--m:spline1d_trend_order.hplantTOC.max_difference_nm--> |
 | Bruker NDTOC | 0.000<!--m:spline1d_trend_order.NDTOC.max_difference_nm--> |
 Because the smoothing is linear, the two orders differ only by the trend minus
@@ -181,12 +173,11 @@ because their fibers span few pixels, so scans of the same fibers at finer
 pixels were built from them (experiment zoomed_background). From each bundled
 scan, the default calibrated image smoothed by a Gaussian of 1<!--n:value tried--> px is the
 true height and the background the default analysis subtracted is the
-background. The two tiles of 256<!--c:scripts/measure_docs.py::ZOOM_TILE--> px holding the most skeleton pixels (the whole
-image for the artificial scans) are upsampled by each zoom factor, so the field
+background. The two tiles of 256<!--c:scripts/measure_docs.py::ZOOM_TILE--> px holding the most skeleton pixels are upsampled by each zoom factor, so the field
 stays the same and the pixels become finer; white noise at the scan's own level
 (0.027<!--m:zoomed_background.tunicate.noise_nm-->–0.064<!--m:zoomed_background.NDTOC.noise_nm--> nm) is added, and each method runs at its defaults through all four
 stages. The fibers' apparent widths at the scans' own pixel size are
-7.6<!--m:zoomed_background.hplantTOC.width_px-->–9.5<!--m:zoomed_background.art_iso.width_px--> px, so a zoom factor $k$ spreads them over about $k$ times as many
+7.6<!--m:zoomed_background.hplantTOC.width_px-->–8.6<!--m:zoomed_background.NDTOC.width_px--> px, so a zoom factor $k$ spreads them over about $k$ times as many
 pixels. "Kept" is the median of calibrated over true height at the default
 skeleton's points, ranged here over the tiles.
 
@@ -203,18 +194,18 @@ warned on was analyzed again as the warning suggests.
 
 | Zoom | Runs | Kept below 0.9<!--n:definition--> | of which not warned | Warned | Warned with 0.97<!--n:definition--> or more kept |
 |---|---|---|---|---|---|
-| 1<!--n:value tried--> | 24<!--m:zoomed_background.x1.runs--> | 0<!--m:zoomed_background.x1.below_90--> | 0<!--m:zoomed_background.x1.below_90_unwarned--> | 3<!--m:zoomed_background.x1.warned--> | 2<!--m:zoomed_background.x1.warned_above_97--> |
-| 1.5<!--n:value tried--> | 24<!--m:zoomed_background.x1.5.runs--> | 7<!--m:zoomed_background.x1.5.below_90--> | 1<!--m:zoomed_background.x1.5.below_90_unwarned--> | 12<!--m:zoomed_background.x1.5.warned--> | 1<!--m:zoomed_background.x1.5.warned_above_97--> |
-| 2<!--n:value tried--> | 24<!--m:zoomed_background.x2.runs--> | 14<!--m:zoomed_background.x2.below_90--> | 3<!--m:zoomed_background.x2.below_90_unwarned--> | 11<!--m:zoomed_background.x2.warned--> | 0<!--m:zoomed_background.x2.warned_above_97--> |
-| 3<!--n:value tried--> | 24<!--m:zoomed_background.x3.runs--> | 19<!--m:zoomed_background.x3.below_90--> | 18<!--m:zoomed_background.x3.below_90_unwarned--> | 1<!--m:zoomed_background.x3.warned--> | 0<!--m:zoomed_background.x3.warned_above_97--> |
-| 4<!--n:value tried--> | 24<!--m:zoomed_background.x4.runs--> | 23<!--m:zoomed_background.x4.below_90--> | 23<!--m:zoomed_background.x4.below_90_unwarned--> | 0<!--m:zoomed_background.x4.warned--> | 0<!--m:zoomed_background.x4.warned_above_97--> |
+| 1<!--n:value tried--> | 18<!--m:zoomed_background.x1.runs--> | 0<!--m:zoomed_background.x1.below_90--> | 0<!--m:zoomed_background.x1.below_90_unwarned--> | 3<!--m:zoomed_background.x1.warned--> | 2<!--m:zoomed_background.x1.warned_above_97--> |
+| 1.5<!--n:value tried--> | 18<!--m:zoomed_background.x1.5.runs--> | 7<!--m:zoomed_background.x1.5.below_90--> | 1<!--m:zoomed_background.x1.5.below_90_unwarned--> | 10<!--m:zoomed_background.x1.5.warned--> | 1<!--m:zoomed_background.x1.5.warned_above_97--> |
+| 2<!--n:value tried--> | 18<!--m:zoomed_background.x2.runs--> | 12<!--m:zoomed_background.x2.below_90--> | 1<!--m:zoomed_background.x2.below_90_unwarned--> | 11<!--m:zoomed_background.x2.warned--> | 0<!--m:zoomed_background.x2.warned_above_97--> |
+| 3<!--n:value tried--> | 18<!--m:zoomed_background.x3.runs--> | 15<!--m:zoomed_background.x3.below_90--> | 14<!--m:zoomed_background.x3.below_90_unwarned--> | 1<!--m:zoomed_background.x3.warned--> | 0<!--m:zoomed_background.x3.warned_above_97--> |
+| 4<!--n:value tried--> | 18<!--m:zoomed_background.x4.runs--> | 17<!--m:zoomed_background.x4.below_90--> | 17<!--m:zoomed_background.x4.below_90_unwarned--> | 0<!--m:zoomed_background.x4.warned--> | 0<!--m:zoomed_background.x4.warned_above_97--> |
 
 Analyzed again as suggested, the warned runs kept 0.88–1.02<!--m:zoomed_background.followed.kept_range--> of their height, with
 the background error's 95<!--n:definition-->th percentile at most 0.24<!--m:zoomed_background.followed.bg95_max--> nm. From a zoom of 3<!--n:value tried--> the
 warning almost never fires: the calibration removes most of each fiber, and the
 stages after it often find no fiber whose width could be measured, so nothing
 is left to compare with the limits. Up to a zoom of 2<!--n:value tried--> the warning caught most of the
-runs that lost height (all but 1<!--m:zoomed_background.x1.5.below_90_unwarned--> at 1.5<!--n:value tried--> and 3<!--m:zoomed_background.x2.below_90_unwarned--> at 2<!--n:value tried-->); beyond it, almost none.
+runs that lost height (all but 1<!--m:zoomed_background.x1.5.below_90_unwarned--> at 1.5<!--n:value tried--> and 1<!--m:zoomed_background.x2.below_90_unwarned--> at 2<!--n:value tried-->); beyond it, almost none.
 
 ## 2. Binarization
 
@@ -223,7 +214,7 @@ See [Analysis algorithms](algorithms.md) §2.
 ### 2.1 The edge map of the linearity filter
 
 Up to 1.0.0 the edge map was built from the whole mask inside the bounding box.
-On all 5<!--m:hough_edge_map.identical--> bundled scans the final binarized mask is bit-identical either way
+On all 3<!--m:hough_edge_map.identical--> bundled scans the final binarized mask is bit-identical either way
 (experiment hough_edge_map).
 
 ### 2.2 Ridge recovery
@@ -231,9 +222,6 @@ On all 5<!--m:hough_edge_map.identical--> bundled scans the final binarized mask
 On the tunicate scan 99.8<!--m:ridge_hysteresis.ridge.far_below_low_percent--> % of the pixels at least 10<!--n:value tried--> px from the
 binarized mask lie below the low level of the hysteresis on the ridge response
 (experiment ridge_hysteresis).
-<!-- TODO(review): the contrast with raw amplitude is not reproduced: on the tunicate scan hysteresis on the calibrated heights covered 11.6 % of the image against 7.7 % for the ridge response (experiment ridge_hysteresis), with no spreading across it. -->
-<!-- TODO(review): a measured example of subtracting the accepted mask before the component pass (one 10 µm scan, 56 candidate components, the longest 1476 nm) came from a scan that is not in the repository and was removed. On the bundled scans the candidates that reach ridge_min_length_nm are a horizontal scan-line artefact (higher-plant scan) and short pieces at the border and at crossings (tunicate scan), not fibers (experiment ridge_recovery_bundled, rendered). -->
-<!-- TODO(review): that candidates below about 100 nm stop being distinguishable from particle skirts and tip artefacts by eye was a visual judgment made while evaluating the ridge filter; no experiment in scripts/measure_docs.py reproduces it. -->
 
 ### 2.3 Closing
 
@@ -251,12 +239,10 @@ heights are medians, as a percentage of the highest height within 3<!--n:definit
 | Scan | Mean mask width, global alone → both (px) | Mask components | Branch points of the final skeleton | Height of the pixels the local threshold removes / keeps (%) |
 |---|---|---|---|---|
 | tunicate CNF | 15.6<!--m:local_threshold.tunicate.global.mask_width_px--> → 10.1<!--m:local_threshold.tunicate.both.mask_width_px--> | 1<!--m:local_threshold.tunicate.global.mask_components--> → 9<!--m:local_threshold.tunicate.both.mask_components--> | 69<!--m:local_threshold.tunicate.global.branch_points--> → 32<!--m:local_threshold.tunicate.both.branch_points--> | 25<!--m:local_threshold.tunicate.removed_percent_of_crest--> / 83<!--m:local_threshold.tunicate.kept_percent_of_crest--> |
-| artificial, isotropic | 17.3<!--m:local_threshold.art_iso.global.mask_width_px--> → 11.2<!--m:local_threshold.art_iso.both.mask_width_px--> | 2<!--m:local_threshold.art_iso.global.mask_components--> → 2<!--m:local_threshold.art_iso.both.mask_components--> | 0<!--m:local_threshold.art_iso.global.branch_points--> → 0<!--m:local_threshold.art_iso.both.branch_points--> | 22<!--m:local_threshold.art_iso.removed_percent_of_crest--> / 85<!--m:local_threshold.art_iso.kept_percent_of_crest--> |
-| artificial, anisotropic | 15.4<!--m:local_threshold.art_aniso.global.mask_width_px--> → 10.0<!--m:local_threshold.art_aniso.both.mask_width_px--> | 4<!--m:local_threshold.art_aniso.global.mask_components--> → 3<!--m:local_threshold.art_aniso.both.mask_components--> | 0<!--m:local_threshold.art_aniso.global.branch_points--> → 0<!--m:local_threshold.art_aniso.both.branch_points--> | 22<!--m:local_threshold.art_aniso.removed_percent_of_crest--> / 84<!--m:local_threshold.art_aniso.kept_percent_of_crest--> |
 | higher-plant TOC | 12.1<!--m:local_threshold.hplantTOC.global.mask_width_px--> → 8.9<!--m:local_threshold.hplantTOC.both.mask_width_px--> | 10<!--m:local_threshold.hplantTOC.global.mask_components--> → 8<!--m:local_threshold.hplantTOC.both.mask_components--> | 6<!--m:local_threshold.hplantTOC.global.branch_points--> → 5<!--m:local_threshold.hplantTOC.both.branch_points--> | 34<!--m:local_threshold.hplantTOC.removed_percent_of_crest--> / 75<!--m:local_threshold.hplantTOC.kept_percent_of_crest--> |
 | Bruker NDTOC | 13.0<!--m:local_threshold.NDTOC.global.mask_width_px--> → 9.5<!--m:local_threshold.NDTOC.both.mask_width_px--> | 16<!--m:local_threshold.NDTOC.global.mask_components--> → 20<!--m:local_threshold.NDTOC.both.mask_components--> | 154<!--m:local_threshold.NDTOC.global.branch_points--> → 76<!--m:local_threshold.NDTOC.both.branch_points--> | 35<!--m:local_threshold.NDTOC.removed_percent_of_crest--> / 72<!--m:local_threshold.NDTOC.kept_percent_of_crest--> |
 
-Rendered over the height images of all 5<!--m:kink_reference.scans--> bundled scans, the pixels the local threshold removes are the
+Rendered over the height images of all 3<!--m:kink_reference.scans--> bundled scans, the pixels the local threshold removes are the
 lower flanks of the fibers; where a fiber lies alone, the only effect is a
 narrower mask. The joining described next was seen on the tunicate and Bruker
 scans, where fibers run close together or over a textured background. With the global
@@ -269,14 +255,14 @@ apart from the fibers and the later filters of the binarization removed them.
 
 ### 2.5 The linearity filter
 
-On the 5<!--m:linearity_filter.inputs--> test inputs (experiment linearity_filter), $s_{\text{ratio}}$ reached
-3.36<!--m:linearity_filter.s_ratio_max-->, and 50<!--m:linearity_filter.s_ratio_above_one--> components scored $s_{\text{ratio}} > 1$. The filter removed
-252<!--m:linearity_filter.removed_reaching_h_length--> components whose bounding box reaches `h_length`; each was rendered over the
+On the 3<!--m:linearity_filter.inputs--> test inputs (experiment linearity_filter), $s_{\text{ratio}}$ reached
+3.36<!--m:linearity_filter.s_ratio_max-->, and 49<!--m:linearity_filter.s_ratio_above_one--> components scored $s_{\text{ratio}} > 1$. The filter removed
+251<!--m:linearity_filter.removed_reaching_h_length--> components whose bounding box reaches `h_length`; each was rendered over the
 calibrated height image and judged by eye. Most were background texture,
-particles and the scan-line glitches of the higher-plant scan, but 8<!--m:linearity_filter.removed_fiber_pieces-->
+particles and the scan-line glitches of the higher-plant scan, but 7<!--m:linearity_filter.removed_fiber_pieces-->
 were pieces of real fibers: short bent or kinked pieces (on the tunicate scan),
-fiber ends cut by the image border (on the artificial anisotropic,
-higher-plant and Bruker scans), and on the higher-plant scan a low fiber piece
+fiber ends cut by the image border (on the higher-plant and Bruker scans),
+and on the higher-plant scan a low fiber piece
 cut by its scan-line glitch.
 
 On a synthetic band along the rows (area 865<!--m:linearity_filter.band.horizontal.area--> pixels), Canny found
@@ -294,8 +280,6 @@ both runs):
 | Input | Components of 1000<!--n:literal in the quoted code--> px or more | Of those, removed if tested |
 |---|---|---|
 | tunicate CNF | 9<!--m:linearity_large_exemption.tunicate.large_components--> | 0<!--m:linearity_large_exemption.tunicate.large_removed_if_tested--> |
-| artificial, isotropic | 1<!--m:linearity_large_exemption.art_iso.large_components--> | 0<!--m:linearity_large_exemption.art_iso.large_removed_if_tested--> |
-| artificial, anisotropic | 3<!--m:linearity_large_exemption.art_aniso.large_components--> | 0<!--m:linearity_large_exemption.art_aniso.large_removed_if_tested--> |
 | higher-plant TOC | 4<!--m:linearity_large_exemption.hplantTOC.large_components--> | 0<!--m:linearity_large_exemption.hplantTOC.large_removed_if_tested--> |
 | Bruker NDTOC | 15<!--m:linearity_large_exemption.NDTOC.large_components--> | 0<!--m:linearity_large_exemption.NDTOC.large_removed_if_tested--> |
 On no input would testing the large components have removed any of them, while
@@ -311,8 +295,8 @@ See [Analysis algorithms](algorithms.md) §3.
 
 On the bundled scans, without the replicated border, the last 5<!--n:definition--> points of
 tracks that run off the image lie a median 3.9<!--m:border_drift.plain.end_median_px--> px from the height crest along
-their normal, against 1.0<!--m:border_drift.plain.middle_median_px--> px in the middle of fibers; with it, the ends lie
-1.1<!--m:border_drift.padded.end_median_px--> px from the crest (experiment border_drift). On all 5<!--m:border_padding.identical_inside_band--> bundled scans the
+their normal, against 0.9<!--m:border_drift.plain.middle_median_px--> px in the middle of fibers; with it, the ends lie
+1.1<!--m:border_drift.padded.end_median_px--> px from the crest (experiment border_drift). On all 3<!--m:border_padding.identical_inside_band--> bundled scans the
 skeleton outside a 12<!--c:lib/skeletonizer.py::DEFAULT_BORDER_PAD--> px border band was identical with and without the
 correction (experiment border_padding), but that is not a guarantee.
 
@@ -323,7 +307,7 @@ skeleton on every bundled scan (1.7<!--m:bg_stats.hplantTOC.skeleton_height_medi
 the first skeleton (experiment branch_pruning) the median height is 9.2<!--m:branch_pruning.tunicate.bp_height_median_nm--> nm on
 the tunicate scan, where 41<!--m:branch_pruning.tunicate.bp_at_or_above_percent--> % of the branch points reach `bp_height`. On the other
 scans none does (median 1.8<!--m:branch_pruning.hplantTOC.bp_height_median_nm--> nm on the higher-plant scan, 2.0<!--m:branch_pruning.NDTOC.bp_height_median_nm--> nm on the Bruker
-scan, 7.9<!--m:branch_pruning.art_iso.bp_height_median_nm--> and 7.6<!--m:branch_pruning.art_aniso.bp_height_median_nm--> nm on the artificial scans): every branch point is low, and
+scan): every branch point is low, and
 the split by height does nothing there.
 
 Rendered on the tunicate height image, the branch points at or above `bp_height`
@@ -335,8 +319,7 @@ spurious branch.
 
 The height-gated pruning changes little in the final skeleton. Skipping it
 changes 1<!--m:branch_pruning.tunicate.skipped.final_changed_pixels--> of 7967<!--m:branch_pruning.tunicate.final_pixels--> skeleton pixels on the tunicate scan,
-10<!--m:branch_pruning.hplantTOC.skipped.final_changed_pixels--> of 1921<!--m:branch_pruning.hplantTOC.final_pixels--> on the higher-plant scan, 176<!--m:branch_pruning.NDTOC.skipped.final_changed_pixels--> of 9033<!--m:branch_pruning.NDTOC.final_pixels--> on the Bruker scan and
-0<!--m:branch_pruning.art_iso.skipped.final_changed_pixels--> on the artificial scans; treating every branch point as low changes
+10<!--m:branch_pruning.hplantTOC.skipped.final_changed_pixels--> of 1921<!--m:branch_pruning.hplantTOC.final_pixels--> on the higher-plant scan and 176<!--m:branch_pruning.NDTOC.skipped.final_changed_pixels--> of 9033<!--m:branch_pruning.NDTOC.final_pixels--> on the Bruker scan; treating every branch point as low changes
 0<!--m:branch_pruning.tunicate.all_low.final_changed_pixels--> pixels on the tunicate scan. The short arms it removes are removed again
 by the spur pruning of [Analysis algorithms](algorithms.md) §3.5, which judges by
 length alone: with the spur pruning switched off, skipping the height-gated
@@ -377,8 +360,6 @@ set to the other's value (experiment border_margins):
 | Input | Branch pruning at 2<!--c:lib/skeletonizer.py::prune_short_spurs(border_margin)--> px: pixels changed | farthest from the border (px) | Spur pruning at 12<!--c:lib/pipeline.py::ProcParams.branch_length--> px: pixels changed | farthest from the border (px) |
 |---|---|---|---|---|
 | tunicate CNF | 0<!--m:border_margins.tunicate.branch_margin_2.changed_px--> | 0<!--m:border_margins.tunicate.branch_margin_2.farthest_from_border_px--> | 8<!--m:border_margins.tunicate.spur_margin_wide.changed_px--> | 12<!--m:border_margins.tunicate.spur_margin_wide.farthest_from_border_px--> |
-| artificial, isotropic | 1<!--m:border_margins.art_iso.branch_margin_2.changed_px--> | 9<!--m:border_margins.art_iso.branch_margin_2.farthest_from_border_px--> | 2<!--m:border_margins.art_iso.spur_margin_wide.changed_px--> | 9<!--m:border_margins.art_iso.spur_margin_wide.farthest_from_border_px--> |
-| artificial, anisotropic | 0<!--m:border_margins.art_aniso.branch_margin_2.changed_px--> | 0<!--m:border_margins.art_aniso.branch_margin_2.farthest_from_border_px--> | 0<!--m:border_margins.art_aniso.spur_margin_wide.changed_px--> | 0<!--m:border_margins.art_aniso.spur_margin_wide.farthest_from_border_px--> |
 | higher-plant TOC | 0<!--m:border_margins.hplantTOC.branch_margin_2.changed_px--> | 0<!--m:border_margins.hplantTOC.branch_margin_2.farthest_from_border_px--> | 0<!--m:border_margins.hplantTOC.spur_margin_wide.changed_px--> | 0<!--m:border_margins.hplantTOC.spur_margin_wide.farthest_from_border_px--> |
 | Bruker NDTOC | 8<!--m:border_margins.NDTOC.branch_margin_2.changed_px--> | 7<!--m:border_margins.NDTOC.branch_margin_2.farthest_from_border_px--> | 21<!--m:border_margins.NDTOC.spur_margin_wide.changed_px--> | 13<!--m:border_margins.NDTOC.spur_margin_wide.farthest_from_border_px--> |
 Rendered, the narrower branch-pruning margin removed short arms running into the
@@ -393,8 +374,7 @@ of them, the diagonal Y kernel, leaves 4<!--n:definition--> of its 9<!--n:defini
 junctions at angles the axis-aligned kernels miss. On the default skeleton of
 each test input (experiment diagonal_ybranch) it was the only kernel to find
 53<!--m:diagonal_ybranch.all.only_diagonal_y--> of the 113<!--m:diagonal_ybranch.all.branch_points--> branch points: 15<!--m:diagonal_ybranch.tunicate.only_diagonal_y--> of 32<!--m:diagonal_ybranch.tunicate.branch_points--> on the tunicate scan, 3<!--m:diagonal_ybranch.hplantTOC.only_diagonal_y--> of 5<!--m:diagonal_ybranch.hplantTOC.branch_points--> on the
-higher-plant TOC scan and 35<!--m:diagonal_ybranch.NDTOC.only_diagonal_y--> of 76<!--m:diagonal_ybranch.NDTOC.branch_points--> on the Bruker scan; the artificial scans have
-no branch point. Each pixel only this kernel finds has at least three
+higher-plant TOC scan and 35<!--m:diagonal_ybranch.NDTOC.only_diagonal_y--> of 76<!--m:diagonal_ybranch.NDTOC.branch_points--> on the Bruker scan. Each pixel only this kernel finds has at least three
 8<!--n:definition-->-connected skeleton neighbours (pixels with fewer: 0<!--m:diagonal_ybranch.all.only_diagonal_y_below_3_neighbours-->), so none of them lies on a
 plain stretch of the skeleton, where a pixel has two.
 
@@ -485,14 +465,14 @@ Two caveats apply to the table:
   excess-turning rule, as clear kinks found / missed / reported bends that
   match no marked kink. Detections displaced 1–2<!--n:definition--> widths from a mark (the
   "Found 1–2<!--n:definition--> widths from the mark" column of §4.4) and "merged" marks, where one
-  detection spans two marks, are left out, so found and missed do not add up
-  to 64<!--m:kink_reference.clear_marks-->. Only three centerlines were scored.
+  detection spans two marks, are left out, so found and missed need not add up
+  to 53<!--m:kink_reference.clear_marks-->. Only three centerlines were scored.
 
 | `centerline_method` | Median distance (nm) | Real scans | Notes |
 |---|---|---|---|
-| `"half_max_025w"` (default) | 0.21<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->–0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 58<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 59<!--m:kink_reference.default.false--> | |
-| `"half_max_05w"` | 0.20<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[0]-->–0.25<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[1]--> | 56<!--m:kink_reference.hm05.found--> / 4<!--m:kink_reference.hm05.missed--> / 41<!--m:kink_reference.hm05.false--> | The fewest unmatched bends of the three scored, but it merged the two corners of 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> of the 8<!--m:synthetic_centerline.pairs--> synthetic same-sense pairs, and slightly stronger smoothing raised the misses to 10–13<!--m:kink_reference.hm05_stronger.missed_range-->. |
-| `"skeleton_pixels"` | 0.54<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[0]-->–0.62<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[1]--> | 62<!--m:kink_reference.skeleton_pixels.found--> / 0<!--m:kink_reference.skeleton_pixels.missed--> / 129<!--m:kink_reference.skeleton_pixels.false--> | The staircase and the swing at junctions read as bends. |
+| `"half_max_025w"` (default) | 0.21<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->–0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 50<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 59<!--m:kink_reference.default.false--> | |
+| `"half_max_05w"` | 0.20<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[0]-->–0.25<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[1]--> | 48<!--m:kink_reference.hm05.found--> / 4<!--m:kink_reference.hm05.missed--> / 41<!--m:kink_reference.hm05.false--> | The fewest unmatched bends of the three scored, but it merged the two corners of 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> of the 8<!--m:synthetic_centerline.pairs--> synthetic same-sense pairs, and slightly stronger smoothing raised the misses to 10–12<!--m:kink_reference.hm05_stronger.missed_range-->. |
+| `"skeleton_pixels"` | 0.54<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[0]-->–0.62<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[1]--> | 52<!--m:kink_reference.skeleton_pixels.found--> / 0<!--m:kink_reference.skeleton_pixels.missed--> / 126<!--m:kink_reference.skeleton_pixels.false--> | The staircase and the swing at junctions read as bends. |
 | `"smoothed_skeleton_05w"`, `"smoothed_skeleton_1w"` | 0.33<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[0]-->–0.56<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[1]--> / 0.39<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[0]-->–0.94<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[1]--> | not scored | |
 | `"quarter_max"` | 0.20<!--m:synthetic_centerline.quarter_max.group_median_nm_range[0]-->–0.24<!--m:synthetic_centerline.quarter_max.group_median_nm_range[1]--> | not scored | Closer to the axis than the default on 4<!--m:synthetic_centerline.ribbons.quarter_closer_than_default--> of the 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> twisted ribbons, but pulled up to 3.5<!--m:synthetic_centerline.G_circle_d3.max_nm.quarter_max--> nm off the thin, round control fiber. |
 | `"centroid"` | 0.31<!--m:synthetic_centerline.centroid.group_median_nm_range[0]-->–0.38<!--m:synthetic_centerline.centroid.group_median_nm_range[1]--> | not scored | |
@@ -505,8 +485,8 @@ false detections referred to below.
 
 | Rule | Found | Found 1–2<!--n:definition--> widths from the mark | Missed | Unmatched |
 |---|---|---|---|---|
-| Excess-turning rule, on the centerline | 58<!--m:kink_reference.default.found--> | 2<!--m:kink_reference.default.displaced--> | 3<!--m:kink_reference.default.missed--> | 59<!--m:kink_reference.default.false--> |
-| Earlier polyline rule, on the skeleton track | 52<!--m:kink_reference.old_rule.found--> | 4<!--m:kink_reference.old_rule.displaced--> | 8<!--m:kink_reference.old_rule.missed--> | 74<!--m:kink_reference.old_rule.false--> |
+| Excess-turning rule, on the centerline | 50<!--m:kink_reference.default.found--> | 0<!--m:kink_reference.default.displaced--> | 3<!--m:kink_reference.default.missed--> | 59<!--m:kink_reference.default.false--> |
+| Earlier polyline rule, on the skeleton track | 42<!--m:kink_reference.old_rule.found--> | 3<!--m:kink_reference.old_rule.displaced--> | 8<!--m:kink_reference.old_rule.missed--> | 70<!--m:kink_reference.old_rule.false--> |
 
 The earlier rule's row applies `KinkDetector.kinks_and_decomposed_from_track`,
 kept for bundles of format 1.0<!--n:bundle format version--> (`kink_decompose_px` = 3<!--c:lib/pipeline.py::ProcParams.kink_decompose_px--> px, `kinkangle_deg` =
@@ -518,9 +498,9 @@ its centerline were chosen among candidates by their scores on it, so the
 reference served as a development set rather than an independent test; no
 held-out scans were scored.
 Changing any one of them to a neighbouring value moved the clear kinks found
-within 56–62<!--m:kink_reference.sens_all.found_range--> and the unmatched bends within 44–77<!--m:kink_reference.sens_all.false_range--> (58<!--m:kink_reference.default.found--> and 59<!--m:kink_reference.default.false--> at
-the defaults). The largest drops came from stronger smoothing: 56<!--m:kink_reference.sens_heading_0.35.found--> with the
-heading smoothed over 0.35<!--n:value tried--> W, 57<!--m:kink_reference.sens_line_x1.4.found--> with the centerline smoothing ×1.4<!--n:value tried-->.
+within 48–52<!--m:kink_reference.sens_all.found_range--> and the unmatched bends within 44–76<!--m:kink_reference.sens_all.false_range--> (50<!--m:kink_reference.default.found--> and 59<!--m:kink_reference.default.false--> at
+the defaults). The largest drops came from stronger smoothing: 48<!--m:kink_reference.sens_heading_0.35.found--> with the
+heading smoothed over 0.35<!--n:value tried--> W, 49<!--m:kink_reference.sens_line_x1.4.found--> with the centerline smoothing ×1.4<!--n:value tried-->.
 
 | Length | Default | Neighbouring values tried |
 |---|---|---|
@@ -532,7 +512,7 @@ heading smoothed over 0.35<!--n:value tried--> W, 57<!--m:kink_reference.sens_li
 | suppression radius | 0.75<!--c:lib/kink_detector.py::_SUPPRESS_WIDTHS--> W | 0.5<!--n:value tried--> W, 1.0<!--n:value tried--> W |
 
 Without the candidates taken from the maxima of the window turning itself, the
-rule found 55<!--m:turn_maxima.without.found--> instead of 58<!--m:turn_maxima.with.found--> of the clear reference kinks, and reported
+rule found 47<!--m:turn_maxima.without.found--> instead of 50<!--m:turn_maxima.with.found--> of the clear reference kinks, and reported
 43<!--m:turn_maxima.without.false--> instead of 59<!--m:turn_maxima.with.false--> unmatched bends (experiment turn_maxima).
 
 ### 4.5 The angle stored for a kink
@@ -644,7 +624,7 @@ not fiber ends.
 At a margin of $1.0\,W$ the false detections on the bundled scans rose from
 59<!--m:kink_reference.default.false--> to 76<!--m:kink_reference.sens_end_1.false--> without a further clear kink being found; at $2.0\,W$ they fell to
 44<!--m:kink_reference.sens_end_2.false-->, but the synthetic corners 2<!--n:value tried--> $W$ from an end, judged at the default
-(2<!--m:synthetic_kinks.margin_default.end2W.corners_judged--> of 2<!--m:synthetic_kinks.end_cases_per_distance-->), were no longer judged (0<!--m:synthetic_kinks.margin_2W.end2W.corners_judged-->). None of the 48<!--m:kink_reference.default.unjudged--> bends left
+(2<!--m:synthetic_kinks.margin_default.end2W.corners_judged--> of 2<!--m:synthetic_kinks.end_cases_per_distance-->), were no longer judged (0<!--m:synthetic_kinks.margin_2W.end2W.corners_judged-->). None of the 45<!--m:kink_reference.default.unjudged--> bends left
 unjudged on the bundled scans lay on a clear reference kink.
 
 ### 4.10 Crest height against the height at the centerline
@@ -657,8 +637,6 @@ the reliable points:
 | Input | Median difference (nm) | 90<!--n:definition-->th percentile (nm) | Median, % of crest | 90<!--n:definition-->th percentile, % of crest |
 |---|---|---|---|---|
 | tunicate CNF | 0.071<!--m:crest_height.tunicate.median_nm--> | 0.212<!--m:crest_height.tunicate.p90_nm--> | 0.941<!--m:crest_height.tunicate.median_percent--> | 2.648<!--m:crest_height.tunicate.p90_percent--> |
-| artificial, isotropic | 0.108<!--m:crest_height.art_iso.median_nm--> | 0.234<!--m:crest_height.art_iso.p90_nm--> | 1.338<!--m:crest_height.art_iso.median_percent--> | 2.824<!--m:crest_height.art_iso.p90_percent--> |
-| artificial, anisotropic | 0.074<!--m:crest_height.art_aniso.median_nm--> | 0.208<!--m:crest_height.art_aniso.p90_nm--> | 1.027<!--m:crest_height.art_aniso.median_percent--> | 2.979<!--m:crest_height.art_aniso.p90_percent--> |
 | higher-plant TOC | 0.013<!--m:crest_height.hplantTOC.median_nm--> | 0.075<!--m:crest_height.hplantTOC.p90_nm--> | 0.818<!--m:crest_height.hplantTOC.median_percent--> | 4.592<!--m:crest_height.hplantTOC.p90_percent--> |
 | Bruker NDTOC | 0.025<!--m:crest_height.NDTOC.median_nm--> | 0.128<!--m:crest_height.NDTOC.p90_nm--> | 1.246<!--m:crest_height.NDTOC.median_percent--> | 7.051<!--m:crest_height.NDTOC.p90_percent--> |
 The crest height was never below the height at the centerline. Reading the
@@ -671,8 +649,7 @@ crest on an asymmetric section.
 On every test input, along the default centerline of each track at least 5<!--n:definition--> W long
 (experiment cut_end_skirt), the crest height near each end was divided by the
 track's median crest height and pooled by median, separately for ends cut at a
-crossing (within 3<!--n:definition--> px of a branch point) and free ends. The artificial scans have
-no cut end.
+crossing (within 3<!--n:definition--> px of a branch point) and free ends.
 
 | Input | Cut ends | Ratio at a cut end | Back to 1.05<!--n:definition--> or less within (W) | Ratio at a free end |
 |---|---|---|---|---|
@@ -696,8 +673,6 @@ section fell on every test input and rose on none:
 | Input | Points | Located, full width (%) | Located, each half (%) |
 |---|---|---|---|
 | tunicate CNF | 7815<!--m:section_width_limit.tunicate.points--> | 88.0<!--m:section_width_limit.tunicate.reliable_full_percent--> | 83.6<!--m:section_width_limit.tunicate.reliable_half_percent--> |
-| artificial, isotropic | 436<!--m:section_width_limit.art_iso.points--> | 97.9<!--m:section_width_limit.art_iso.reliable_full_percent--> | 95.9<!--m:section_width_limit.art_iso.reliable_half_percent--> |
-| artificial, anisotropic | 963<!--m:section_width_limit.art_aniso.points--> | 98.4<!--m:section_width_limit.art_aniso.reliable_full_percent--> | 96.8<!--m:section_width_limit.art_aniso.reliable_half_percent--> |
 | higher-plant TOC | 1896<!--m:section_width_limit.hplantTOC.points--> | 92.0<!--m:section_width_limit.hplantTOC.reliable_full_percent--> | 87.4<!--m:section_width_limit.hplantTOC.reliable_half_percent--> |
 | Bruker NDTOC | 8615<!--m:section_width_limit.NDTOC.points--> | 81.6<!--m:section_width_limit.NDTOC.reliable_full_percent--> | 75.6<!--m:section_width_limit.NDTOC.reliable_half_percent--> |
 
@@ -746,8 +721,6 @@ input, as GUI01 screens them (experiment stripe_threshold):
 | Input | Flagged boundaries | Smallest flagged step (nm) | Largest unflagged step (nm) | Unflagged steps, percentile 99<!--n:definition--> (nm) |
 |---|---|---|---|---|
 | tunicate CNF | 0<!--m:stripe_threshold.tunicate.flagged--> | — | 2.71<!--m:stripe_threshold.tunicate.unflagged_max_step_nm--> | 1.24<!--m:stripe_threshold.tunicate.unflagged_p99_step_nm--> |
-| artificial, isotropic | 0<!--m:stripe_threshold.art_iso.flagged--> | — | 1.59<!--m:stripe_threshold.art_iso.unflagged_max_step_nm--> | 1.03<!--m:stripe_threshold.art_iso.unflagged_p99_step_nm--> |
-| artificial, anisotropic | 0<!--m:stripe_threshold.art_aniso.flagged--> | — | 1.59<!--m:stripe_threshold.art_aniso.unflagged_max_step_nm--> | 1.03<!--m:stripe_threshold.art_aniso.unflagged_p99_step_nm--> |
 | higher-plant TOC | 2<!--m:stripe_threshold.hplantTOC.flagged--> | 5.53<!--m:stripe_threshold.hplantTOC.flagged_min_step_nm--> | 0.21<!--m:stripe_threshold.hplantTOC.unflagged_max_step_nm--> | 0.13<!--m:stripe_threshold.hplantTOC.unflagged_p99_step_nm--> |
 | Bruker NDTOC | 0<!--m:stripe_threshold.NDTOC.flagged--> | — | 0.23<!--m:stripe_threshold.NDTOC.unflagged_max_step_nm--> | 0.18<!--m:stripe_threshold.NDTOC.unflagged_p99_step_nm--> |
 
@@ -771,8 +744,6 @@ input (experiment frame_margin):
 | Input | Fibers | Reaching the frame, no margin | 2<!--n:value tried--> px margin | 5<!--n:value tried--> px margin |
 |---|---|---|---|---|
 | tunicate CNF | 60<!--m:frame_margin.tunicate.fibers--> | 16<!--m:frame_margin.tunicate.margin_0.reaching--> | 16<!--m:frame_margin.tunicate.margin_2.reaching--> | 16<!--m:frame_margin.tunicate.margin_5.reaching--> |
-| artificial, isotropic | 3<!--m:frame_margin.art_iso.fibers--> | 3<!--m:frame_margin.art_iso.margin_0.reaching--> | 3<!--m:frame_margin.art_iso.margin_2.reaching--> | 3<!--m:frame_margin.art_iso.margin_5.reaching--> |
-| artificial, anisotropic | 4<!--m:frame_margin.art_aniso.fibers--> | 4<!--m:frame_margin.art_aniso.margin_0.reaching--> | 4<!--m:frame_margin.art_aniso.margin_2.reaching--> | 4<!--m:frame_margin.art_aniso.margin_5.reaching--> |
 | higher-plant TOC | 15<!--m:frame_margin.hplantTOC.fibers--> | 3<!--m:frame_margin.hplantTOC.margin_0.reaching--> | 3<!--m:frame_margin.hplantTOC.margin_2.reaching--> | 3<!--m:frame_margin.hplantTOC.margin_5.reaching--> |
 | Bruker NDTOC | 139<!--m:frame_margin.NDTOC.fibers--> | 16<!--m:frame_margin.NDTOC.margin_0.reaching--> | 16<!--m:frame_margin.NDTOC.margin_2.reaching--> | 17<!--m:frame_margin.NDTOC.margin_5.reaching--> |
 

@@ -44,9 +44,7 @@ kink geometry (\autoref{fig:pipeline}).
 
 The same analysis is exposed through a tkinter launcher with five interactive
 tools and a command-line interface for batch processing, both built on one
-shared analysis library. The graphical and command-line entry points call the
-same pipeline implementation, so equivalent runs produce identical numerical
-outputs for the same input and parameters. Results are written as one compressed bundle
+shared analysis library. Results are written as one compressed bundle
 per input (`.b2z`) whose keys, shapes, units, and coordinate convention are
 governed by an executable schema validated when the bundle is written and
 before it is measured.
@@ -186,8 +184,9 @@ need parameter adjustment.
 
 # Research impact statement
 
-The precursor scripts of this package [@Ito_afm_image] produced the AFM fiber
-heights reported in three nanocellulose studies [@Ito2022; @Ito2025;
+No published study has yet used this package. Its precursor scripts
+[@Ito_afm_image], from which its analysis has since diverged, produced the AFM
+fiber heights reported in three nanocellulose studies [@Ito2022; @Ito2025;
 @Mayumi2026]. The repository ships representative AFM exports from Shimadzu and
 Bruker instruments, Gwyddion Export Text samples, and a native `.gwy` file, with
 regression tests that run the full analysis on these scans and compare the
@@ -196,6 +195,10 @@ reads real instrument exports, writes valid bundles, and keeps its numerical
 output unchanged between versions; they do not measure accuracy against an
 independent reference. Evaluations of the individual stages on these scans and
 on synthetic images of known geometry are documented in `docs/validation.md`.
+Kink detection has not been validated against kinks marked by people: the
+reference it was developed against was marked by an AI coding agent (see the AI
+usage disclosure), so its scores in `docs/validation.md` are not an independent
+estimate of accuracy.
 
 # AI usage disclosure
 

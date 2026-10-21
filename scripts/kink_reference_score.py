@@ -4,14 +4,17 @@ Score kink-rule variants against the visual reference on the bundled scans.
 同梱スキャンの目視基準に対して、キンク規則の各変種を採点する。
 
 The reference (``private_docs/kink_reference_2026-09-15/基準一覧.md``) marks,
-on the calibrated height images, every bend a person judged to be a clear
-kink, an ambiguous one, or a junction, with no detector output on screen. This
+on the calibrated height images, every bend an AI coding agent (Claude Code)
+judged to be a clear kink, an ambiguous one, or a junction, viewing enlarged
+crops with no detector output drawn on them, although for some fibers it
+already knew where the detector then in use placed kinks. This
 script re-judges every traced fiber's line with one or more `KinkDetector`
 configurations and reports, per scan and in total, how many clear kinks each
 found, displaced, merged or missed, and how many detections match nothing.
-基準（``private_docs/kink_reference_2026-09-15/基準一覧.md``）は、検出器の出力を
-一切重ねずに、較正高さ画像上で人が明瞭なキンク・曖昧な折れ・合流点と判断した
-すべての折れを記録したものである。本スクリプトは追跡した各繊維の線を 1 つ以上の
+基準（``private_docs/kink_reference_2026-09-15/基準一覧.md``）は、較正高さ画像上で
+AI コーディングエージェント（Claude Code）が明瞭なキンク・曖昧な折れ・合流点と
+判断したすべての折れを記録したものである。検出器の出力を重ねない拡大画像を見て
+判断したが、一部の繊維では、当時の検出器がどこにキンクを置くかを既に知っていた。本スクリプトは追跡した各繊維の線を 1 つ以上の
 `KinkDetector` 設定で判定し直し、スキャンごとと合計で、明瞭なキンクをいくつ
 検出・位置ずれ・統合・見落としたか、何にも対応しない検出がいくつあるかを報告する。
 
@@ -73,13 +76,11 @@ SCANS: Dict[str, str] = {
     "hplantTOC": os.path.join("testdata_higherplantTOC", "_20250318-164122_T.ssp .txt"),
     "tunicate": os.path.join("testdata_tunicateCNF", "TunicateACTOCCNF.txt"),
     "NDTOC": os.path.join("testdata_Bruker_txt", "NDTOC250306.000.txt"),
-    "art_iso": os.path.join("testdata_artificial", "sample_isotropic.txt"),
-    "art_aniso": os.path.join("testdata_artificial", "sample_anisotropic.txt"),
 }
-
-# Fibers the reference records as duplicates of another scan's fiber.
-# 基準が別スキャンの繊維の重複として記録している繊維。
-EXCLUDED_FIBERS: Dict[str, set] = {"art_aniso": {0}}
+# testdata_artificial is left out: both samples are exact crops of the tunicate
+# scan, so scoring them would count the same fibers again.
+# testdata_artificial は除く。2 つの試料はどちらも tunicate スキャンをそのまま
+# 切り抜いたもので、採点すれば同じ繊維を重ねて数えることになる。
 
 KIND = {"明瞭": "clear", "曖昧": "ambiguous", "合流": "junction"}
 
@@ -128,8 +129,6 @@ def load_reference(path: str = REFERENCE_PATH) -> Dict[str, List[dict]]:
             if kind is None:
                 continue
             fiber = int(cells[0])
-            if fiber in EXCLUDED_FIBERS.get(current, set()):
-                continue
             xy = [float(v) for v in cells[3].split(",")]
             angle = re.match(r"(\d+(?:\.\d+)?)", cells[4])
             refs[current].append(dict(
@@ -370,7 +369,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         per_scan[name] = {}
         for vname, kwargs in variants.items():
             detector = KinkDetector(**kwargs)
-            kinks, unjudged = detect(fibers, detector, EXCLUDED_FIBERS.get(name, set()))
+            kinks, unjudged = detect(fibers, detector)
             result = score(refs[name], kinks, unjudged)
             result["kinks"] = kinks
             per_scan[name][vname] = result
@@ -379,7 +378,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 totals[vname][key] += result[key]
             totals[vname]["pairs"].extend(result["pairs"])
 
-    print("== REAL, all scans (art_aniso #0 excluded) ==")
+    print("== REAL, all scans ==")
     print(HEADER)
     for vname in variants:
         print(_format_row(vname, totals[vname]))

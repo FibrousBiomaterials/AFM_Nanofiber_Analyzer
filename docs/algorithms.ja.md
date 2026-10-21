@@ -1077,7 +1077,8 @@ return out_binary_image
    すでにある繊維にまったく触れていないかたまりだけを拾うやり方では、そうした
    繊維は丸ごと捨てられてしまう。しかも長い繊維ほど触れやすい。
 4. 残ったかたまりのうち、細線化した画素の数に画素の大きさを掛けた長さが
-   `ridge_min_length_nm`（既定 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm）以上のものだけを採る。
+   `ridge_min_length_nm`（既定 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm）以上のものだけを採る。この既定値は
+   経験的に選んだもので、それを裏付ける評価はない。
 
 Frangi フィルタは等方的で、1<!--n:count--> つのスケールはどの向きでも同じ画素数の幅である。その
 ため X と Y の画素サイズが違う走査では、X に沿う繊維と Y に沿う繊維とで探す実寸の幅が
