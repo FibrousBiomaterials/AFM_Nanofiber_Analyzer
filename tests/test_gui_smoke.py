@@ -1090,6 +1090,20 @@ def test_gui03_tests_folders_and_warns_at_fiber_and_image():
         assert gui03.UNIT_FOLDER in gui03._comparison_caveat(unit)
 
 
+def test_gui03_names_pairs_too_small_to_reach_significance():
+    """
+    A pair of three folders against three is named; four against four is not.
+    3 フォルダ対 3 フォルダのペアは挙げ、4 対 4 は挙げない。
+    """
+    from lib.group_compare import compare_groups
+
+    small = compare_groups([("A", np.arange(3.0)), ("B", np.arange(3.0, 6.0))])
+    note = gui03._attainable_p_note(small)
+    assert "A vs B: 0.1" in note
+    larger = compare_groups([("A", np.arange(4.0)), ("B", np.arange(4.0, 8.0))])
+    assert gui03._attainable_p_note(larger) == ""
+
+
 def test_gui04_fiber_table_covers_every_gui03_quantity(tk_app):
     """
     Every GUI03 quantity is readable per fiber in GUI04, except kink angle.

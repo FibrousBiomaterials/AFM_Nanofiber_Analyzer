@@ -94,6 +94,17 @@ class PairComparison:
     magnitude
         Interpretation label for `cliffs_delta`.
         `cliffs_delta` の解釈ラベル。
+    min_attainable_p
+        Smallest p-value either test returns at these sample sizes, reached
+        when the two groups do not overlap at all and hold no tied values;
+        NaN when the pair was not tested. A pair whose value is above the
+        significance level cannot reject at it however far apart the groups
+        are, so a non-significant result there says nothing about whether
+        they differ.
+        この標本数でどちらかの検定が返しうる最小の p 値。2 群がまったく重ならず、
+        同じ値を含まないときに達する。未検定のペアでは NaN。この値が有意水準を
+        上回るペアは、群がどれほど離れていてもその水準で棄却できないため、そこでの
+        「有意差なし」は差の有無について何も言っていない。
 
     Notes
     -----
@@ -118,6 +129,60 @@ class PairComparison:
     ks_p_adjusted: float
     cliffs_delta: float
     magnitude: str
+    min_attainable_p: float = float("nan")
+
+
+def _min_attainable_p(n_a: int, n_b: int) -> float:
+    """
+    Return the smallest p-value either test can return at these sample sizes.
+    この標本数でどちらかの検定が返しうる最小の p 値を返す。
+
+    Parameters
+    ----------
+    n_a
+        Number of observations in the first group.
+        1 つ目のグループの観測数。
+    n_b
+        Number of observations in the second group.
+        2 つ目のグループの観測数。
+
+    Returns
+    -------
+    float
+        The smaller of the Mann-Whitney U and Kolmogorov-Smirnov p-values for
+        two samples of these sizes that do not overlap and hold no tied
+        values.
+        これらの大きさで、重ならず同じ値も含まない 2 標本に対する Mann-Whitney U
+        と Kolmogorov-Smirnov の p 値のうち小さい方。
+
+    Notes
+    -----
+    Complete separation is the most extreme arrangement both rank statistics
+    can take, so the tests are run on it rather than on a formula: the value
+    then follows whichever exact or asymptotic method scipy chooses for these
+    sizes. Tied values send scipy to the asymptotic Mann-Whitney method and
+    shrink its variance, which can bring a separated pair below this value:
+    three equal values against three other equal values give 0.047 rather
+    than 0.10.
+    完全な分離は両方の順位統計量がとりうる最も極端な並びであるため、式ではなく
+    その並びに対して検定を実行する。こうすると値は、scipy がこの標本数に選ぶ
+    厳密法・漸近法のどちらにも従う。同順位があると scipy は Mann-Whitney に漸近法
+    を使い、その分散も縮むため、分離したペアがこの値を下回ることがある。等しい 3 値
+    対 別の等しい 3 値では 0.10 ではなく 0.047 になる。
+
+    Examples
+    --------
+    >>> from lib.group_compare import _min_attainable_p
+    >>> round(_min_attainable_p(3, 3), 3), round(_min_attainable_p(4, 4), 4)
+    (0.1, 0.0286)
+    """
+    from scipy.stats import ks_2samp, mannwhitneyu
+
+    a = np.arange(n_a, dtype=float)
+    b = np.arange(n_a, n_a + n_b, dtype=float)
+    u_p = float(mannwhitneyu(a, b, alternative="two-sided").pvalue)
+    ks_p = float(ks_2samp(a, b).pvalue)
+    return min(u_p, ks_p)
 
 
 def delta_magnitude(delta: float) -> str:
@@ -424,11 +489,13 @@ def compare_groups(
             # 定義され、その場合は必ず ±1 となって、そもそも計算できなかった
             # p 値の隣に "large" と表示されてしまう。
             delta = cliffs_delta(a, b) if testable else float("nan")
+            min_p = (_min_attainable_p(int(a.size), int(b.size)) if testable
+                     else float("nan"))
             pairs.append({
                 "group_a": name_a, "group_b": name_b,
                 "n_a": int(a.size), "n_b": int(b.size),
                 "u_p": u_p, "ks_p": ks_p,
-                "delta": delta,
+                "delta": delta, "min_p": min_p,
             })
 
     # Correction spans the whole family of pairs, once per test.
@@ -448,6 +515,7 @@ def compare_groups(
             ks_p_adjusted=ka,
             cliffs_delta=p["delta"],
             magnitude=delta_magnitude(p["delta"]),
+            min_attainable_p=p["min_p"],
         )
         for p, ua, ka in zip(pairs, u_adjusted, ks_adjusted)
     ]

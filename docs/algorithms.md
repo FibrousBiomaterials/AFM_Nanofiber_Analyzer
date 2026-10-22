@@ -2797,7 +2797,11 @@ resolution of the image. The probe spreads each fiber over about $W$, so a
 corner occupies about $W$ of the centerline however sharply the fiber turned,
 and two bends much closer than that cannot be told apart. Every length of the
 rule is a multiple of $W$, so as long as $W$ is resolved the same fibers
-scanned at another pixel size are judged at the same scale. How many widths
+scanned at another pixel size are judged at the same scale. The same does not
+hold for the probe: $W$ includes the probe's broadening (§4.2), so the same
+fibers scanned with a blunter probe have a larger $W$, every length of the rule
+spans more of the fiber, and kink results from scans taken with different
+probes are not judged at the same scale even at the same pixel size. How many widths
 each length is, however, does not follow uniquely from theory; the values are
 empirical, checked against a visual reference on the bundled scans
 ([Evaluation on particular data](validation.md) §4.4).

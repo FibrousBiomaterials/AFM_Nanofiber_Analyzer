@@ -156,13 +156,16 @@ X 方向だけのときには無い横方向の筋が全体に出る。Bruker �
 繊維は少ない画素にしかまたがらないので、これは同梱スキャンでは見えない。そこで、
 同梱スキャンから、同じ繊維をより細かい画素で撮った走査を作った（実験
 zoomed_background）。各同梱スキャンについて、既定の補正後の画像を標準偏差 1<!--n:value tried--> px の
-ガウス関数でぼかしたものを真の高さとし、既定の解析が引いた背景を背景とする。
+ガウス関数でぼかしたものを基準の高さとし、既定の解析が引いた背景を背景とする。
+基準は元の画素サイズでの既定の解析そのものなので、下の「残った高さ」が測るのは、
+画素を細かくしたときにそれに比べて失われる高さであり、既定の解析自体の誤差では
+ない。この実験は高さの絶対的な精度を測っていない。
 スケルトン画素を最も多く含む 256<!--c:scripts/measure_docs.py::ZOOM_TILE--> px の切り出し 2<!--n:count--> 枚を
 各拡大率で補間して拡大する。撮る範囲は同じまま、画素だけが細かくなる。そこに元の
 スキャンと同じ大きさの白色ノイズ（0.027<!--m:zoomed_background.tunicate.noise_nm-->〜0.064<!--m:zoomed_background.NDTOC.noise_nm--> nm）を加え、各方式を既定値で
 4<!--n:count--> 段すべてに通す。元の画素サイズでの繊維の見かけ幅は 7.6<!--m:zoomed_background.hplantTOC.width_px-->〜8.6<!--m:zoomed_background.NDTOC.width_px--> px なので、
 拡大率 $k$ では約 $k$ 倍の画素にまたがる。「残った高さ」は、既定のスケルトンの点で
-補正後の高さを真の高さで割った値の中央値で、ここでは切り出しごとの範囲を示す。
+補正後の高さを基準の高さで割った値の中央値で、ここでは切り出しごとの範囲を示す。
 
 | 拡大率 | trendfill | spline1d | tophat |
 |---|---|---|---|
@@ -418,6 +421,9 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 | 半値中点の中心線 | 0.11<!--m:synthetic_centerline.half_max_025w.median_px--> px | 0.35<!--m:synthetic_centerline.half_max_025w.p95_px--> px | −1.5<!--m:synthetic_centerline.half_max_025w.length_error_percent_range[0]-->〜+0.5<!--m:synthetic_centerline.half_max_025w.length_error_percent_range[1]--> % |
 | スケルトントラック（補正済みチェーンコード長） | 0.29<!--m:synthetic_centerline.skeleton_track.median_px--> px | 0.90<!--m:synthetic_centerline.skeleton_track.p95_px--> px | −1.5<!--m:synthetic_centerline.skeleton_track.length_error_percent_range[0]-->〜+2.2<!--m:synthetic_centerline.skeleton_track.length_error_percent_range[1]--> % |
 
+これらは中心線とキンク規則を選んだときの場面である（`scripts/synthetic_suite.py`）。
+したがって §4.4 の目視基準と同じく、独立した検証ではなく開発用のデータである。
+
 ### 4.3 選べる中心線の比較
 
 表を読むときは 2<!--n:count--> 点に注意してほしい。
@@ -454,6 +460,19 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 以前の規則の行は、同じ画像の追跡済みスケルトントラックに、形式 1.0<!--n:bundle format version--> の
 バンドルのために残してある `KinkDetector.kinks_and_decomposed_from_track`
 （`kink_decompose_px` = 3<!--c:lib/pipeline.py::ProcParams.kink_decompose_px--> px、`kinkangle_deg` = 150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg--> 度）を適用して採点した。
+
+基準が曖昧な折れまたは合流点とした印から $W$ 以内の報告された折れは、検出にも
+一致なしにも数えない。超過回転規則が報告した 134<!--m:kink_reference.default.detections--> 件の折れのうち、25<!--m:kink_reference.default.exempt--> 件がこれにあたる。
+規則の行を走査ごとに分けると次のとおりである。
+
+| 走査 | 印を付けた明瞭なキンク | 報告された折れ | 検出 | 見落とし | 一致なし | 曖昧・合流の印のそば |
+|---|---|---|---|---|---|---|
+| 高等植物 TOC | 3<!--m:kink_reference.default.hplantTOC.ref--> | 6<!--m:kink_reference.default.hplantTOC.detections--> | 3<!--m:kink_reference.default.hplantTOC.found--> | 0<!--m:kink_reference.default.hplantTOC.missed--> | 3<!--m:kink_reference.default.hplantTOC.false--> | 0<!--m:kink_reference.default.hplantTOC.exempt--> |
+| ホヤ CNF | 44<!--m:kink_reference.default.tunicate.ref--> | 67<!--m:kink_reference.default.tunicate.detections--> | 42<!--m:kink_reference.default.tunicate.found--> | 2<!--m:kink_reference.default.tunicate.missed--> | 13<!--m:kink_reference.default.tunicate.false--> | 12<!--m:kink_reference.default.tunicate.exempt--> |
+| Bruker NDTOC | 6<!--m:kink_reference.default.NDTOC.ref--> | 61<!--m:kink_reference.default.NDTOC.detections--> | 5<!--m:kink_reference.default.NDTOC.found--> | 1<!--m:kink_reference.default.NDTOC.missed--> | 43<!--m:kink_reference.default.NDTOC.false--> | 13<!--m:kink_reference.default.NDTOC.exempt--> |
+
+高等植物 TOC と Bruker NDTOC の走査は同じ分散液を撮ったものである。基準が明瞭な
+キンクを 3<!--m:kink_reference.default.hplantTOC.ref--> 件と 6<!--m:kink_reference.default.NDTOC.ref--> 件印したのに対し、規則はそれぞれ 6<!--m:kink_reference.default.hplantTOC.detections--> 件と 61<!--m:kink_reference.default.NDTOC.detections--> 件の折れを報告した。
 
 規則の長さは、$W$ が画像の分解能であることから決めた $W$ の倍数であり、この基準に
 対して最適化はしていない。ただし規則と中心線は、候補の中からこの基準での成績によって

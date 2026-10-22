@@ -504,7 +504,11 @@ preparation, so at `fiber` and `image` a p-value shrinks with the number of
 fibers or scans rather than the number of specimens, and a note under the table
 says so. When each folder holds one specimen, `folder` is the unit that tests a
 difference between specimens; a group then needs at least three folders to be
-tested.
+tested. Three is the fewest at which a p-value is computed, not the fewest at
+which one can be significant: two groups of three folders that do not overlap
+at all and hold no equal values give p = 0.10, and two groups of four give
+p = 0.029. A note under the
+table names every pair too small to reach p < 0.05.
 
 Each group reports median and interquartile range alongside mean, standard
 deviation, and mode, because fiber morphology distributions are right-skewed

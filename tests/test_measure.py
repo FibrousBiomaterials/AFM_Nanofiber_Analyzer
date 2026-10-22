@@ -1188,6 +1188,53 @@ def test_collect_fiber_stats_applies_the_exclusion_sidecar(measured, tmp_path):
     assert [s.index for s in curated[0][1]] == list(range(len(curated[0][1])))
 
 
+def test_collectors_report_how_many_fibers_the_exclusions_removed(
+        measured, tmp_path):
+    """
+    Every collector reports traced, after-exclusion and measured counts.
+    どのコレクタも、追跡数・除外後の数・計測数を報告する。
+
+    The collectors return only the surviving population, so this report is
+    the only place a caller can read how much a manual curation removed.
+    コレクタは残った母集団しか返さないため、手動キュレーションが何本取り除いたか
+    を呼び出し側が読めるのはこの報告だけである。
+    """
+    bundle_path, result = measured
+    copied = os.path.join(tmp_path, "copy.b2z")
+    shutil.copyfile(bundle_path, copied)
+    anchor = fiber_anchor(result.fibers[0])
+    save_exclusions(
+        exclusion_path_for(copied), "copy.b2z",
+        [{"x": anchor[0], "y": anchor[1], "note": "debris"}],
+    )
+    traced = len(result.fragments)
+
+    calls = (
+        lambda report: collect_fiber_stats(
+            [copied], scale_um=SCALE_UM, apply_exclusions=True,
+            curation_report=report),
+        lambda report: collect_skeleton_height_profiles(
+            [copied], scale_um=SCALE_UM, apply_exclusions=True,
+            curation_report=report),
+        lambda report: collect_fiber_curvature(
+            [copied], scale_um=SCALE_UM, apply_exclusions=True,
+            curation_report=report),
+        lambda report: skeleton_height_values(
+            [copied], apply_exclusions=True, curation_report=report),
+    )
+    for call in calls:
+        report = []
+        call(report)
+        assert report == [(copied, traced, traced - 1, traced - 1)]
+
+    # Without exclusions nothing is removed, and no list means no report.
+    # 除外しなければ何も外れず、リストを渡さなければ報告もしない。
+    report = []
+    collect_fiber_stats([copied], scale_um=SCALE_UM, curation_report=report)
+    assert report == [(copied, traced, traced, traced)]
+    collect_fiber_stats([copied], scale_um=SCALE_UM)
+
+
 def test_cli_heights_writes_long_format_csv(measured, tmp_path):
     """`cli.py heights` writes one row per skeleton pixel plus a header."""
     bundle_path, _result = measured

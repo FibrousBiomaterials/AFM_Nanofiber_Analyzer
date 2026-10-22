@@ -171,14 +171,17 @@ Every length the background methods use is a number of pixels
 can be subtracted in part as background. The bundled scans cannot show this,
 because their fibers span few pixels, so scans of the same fibers at finer
 pixels were built from them (experiment zoomed_background). From each bundled
-scan, the default calibrated image smoothed by a Gaussian of 1<!--n:value tried--> px is the
-true height and the background the default analysis subtracted is the
-background. The two tiles of 256<!--c:scripts/measure_docs.py::ZOOM_TILE--> px holding the most skeleton pixels are upsampled by each zoom factor, so the field
+scan, the default calibrated image smoothed by a Gaussian of 1<!--n:value tried--> px is taken
+as the reference height and the background the default analysis subtracted is
+the background. The reference is the default analysis at the scan's own pixel
+size, so "kept" below measures what finer pixels lose relative to it, not the
+error of the default analysis itself; this experiment does not measure the
+absolute accuracy of the height. The two tiles of 256<!--c:scripts/measure_docs.py::ZOOM_TILE--> px holding the most skeleton pixels are upsampled by each zoom factor, so the field
 stays the same and the pixels become finer; white noise at the scan's own level
 (0.027<!--m:zoomed_background.tunicate.noise_nm-->–0.064<!--m:zoomed_background.NDTOC.noise_nm--> nm) is added, and each method runs at its defaults through all four
 stages. The fibers' apparent widths at the scans' own pixel size are
 7.6<!--m:zoomed_background.hplantTOC.width_px-->–8.6<!--m:zoomed_background.NDTOC.width_px--> px, so a zoom factor $k$ spreads them over about $k$ times as many
-pixels. "Kept" is the median of calibrated over true height at the default
+pixels. "Kept" is the median of calibrated over reference height at the default
 skeleton's points, ranged here over the tiles.
 
 | Zoom | trendfill | spline1d | tophat |
@@ -454,6 +457,10 @@ junctions):
 | Half-maximum centerline | 0.11<!--m:synthetic_centerline.half_max_025w.median_px--> px | 0.35<!--m:synthetic_centerline.half_max_025w.p95_px--> px | −1.5<!--m:synthetic_centerline.half_max_025w.length_error_percent_range[0]--> to +0.5<!--m:synthetic_centerline.half_max_025w.length_error_percent_range[1]--> % |
 | Skeleton track (corrected chain-code length) | 0.29<!--m:synthetic_centerline.skeleton_track.median_px--> px | 0.90<!--m:synthetic_centerline.skeleton_track.p95_px--> px | −1.5<!--m:synthetic_centerline.skeleton_track.length_error_percent_range[0]--> to +2.2<!--m:synthetic_centerline.skeleton_track.length_error_percent_range[1]--> % |
 
+These are the scenes the centerline and the kink rule were chosen on
+(`scripts/synthetic_suite.py`), so, like the visual reference of §4.4, they
+served as a development set rather than an independent test.
+
 ### 4.3 The selectable centerlines compared
 
 Two caveats apply to the table:
@@ -491,6 +498,19 @@ false detections referred to below.
 The earlier rule's row applies `KinkDetector.kinks_and_decomposed_from_track`,
 kept for bundles of format 1.0<!--n:bundle format version--> (`kink_decompose_px` = 3<!--c:lib/pipeline.py::ProcParams.kink_decompose_px--> px, `kinkangle_deg` =
 150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg-->°), to the traced skeleton tracks of the same images.
+
+A reported bend within $W$ of a mark the reference calls ambiguous or a
+junction is counted neither as found nor as unmatched. Of the 134<!--m:kink_reference.default.detections--> bends the
+excess-turning rule reported, 25<!--m:kink_reference.default.exempt--> were such. Per scan, the rule's row reads:
+
+| Scan | Clear kinks marked | Reported bends | Found | Missed | Unmatched | Near an ambiguous or junction mark |
+|---|---|---|---|---|---|---|
+| higher-plant TOC | 3<!--m:kink_reference.default.hplantTOC.ref--> | 6<!--m:kink_reference.default.hplantTOC.detections--> | 3<!--m:kink_reference.default.hplantTOC.found--> | 0<!--m:kink_reference.default.hplantTOC.missed--> | 3<!--m:kink_reference.default.hplantTOC.false--> | 0<!--m:kink_reference.default.hplantTOC.exempt--> |
+| tunicate CNF | 44<!--m:kink_reference.default.tunicate.ref--> | 67<!--m:kink_reference.default.tunicate.detections--> | 42<!--m:kink_reference.default.tunicate.found--> | 2<!--m:kink_reference.default.tunicate.missed--> | 13<!--m:kink_reference.default.tunicate.false--> | 12<!--m:kink_reference.default.tunicate.exempt--> |
+| Bruker NDTOC | 6<!--m:kink_reference.default.NDTOC.ref--> | 61<!--m:kink_reference.default.NDTOC.detections--> | 5<!--m:kink_reference.default.NDTOC.found--> | 1<!--m:kink_reference.default.NDTOC.missed--> | 43<!--m:kink_reference.default.NDTOC.false--> | 13<!--m:kink_reference.default.NDTOC.exempt--> |
+
+The higher-plant TOC and Bruker NDTOC scans image the same dispersion; on them
+the rule reported 6<!--m:kink_reference.default.hplantTOC.detections--> and 61<!--m:kink_reference.default.NDTOC.detections--> bends where the reference marks 3<!--m:kink_reference.default.hplantTOC.ref--> and 6<!--m:kink_reference.default.NDTOC.ref--> clear kinks.
 
 The lengths of the rule are multiples of $W$ set from $W$ being the resolution
 of the image and were not optimized against this reference, but the rule and

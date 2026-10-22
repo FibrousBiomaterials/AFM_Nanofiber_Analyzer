@@ -132,6 +132,44 @@ def test_compare_groups_reports_untestable_pairs_without_numbers():
     assert np.isnan(result.ks_p)
     assert np.isnan(result.cliffs_delta)
     assert result.magnitude == ""
+    assert np.isnan(result.min_attainable_p)
+
+
+@pytest.mark.parametrize("n_a, n_b", [(3, 3), (3, 4), (4, 4), (3, 5)])
+def test_min_attainable_p_matches_the_exact_rank_count(n_a, n_b):
+    """
+    At small sizes the floor is two arrangements out of all of them.
+    小さい標本数では、下限は全並びのうちの 2 通りである。
+
+    The exact two-sided Mann-Whitney test puts each completely separated
+    arrangement in its own tail, so its smallest p-value is 2 / C(n_a + n_b,
+    n_a), computed here without scipy.
+    厳密な両側 Mann-Whitney 検定では、完全に分離した並びがそれぞれの裾に
+    1 通りずつあるため、最小の p 値は 2 / C(n_a + n_b, n_a) となる。ここでは
+    scipy を使わずに計算する。
+    """
+    from math import comb
+
+    results = compare_groups([
+        ("A", np.arange(float(n_a))),
+        ("B", np.arange(float(n_a), float(n_a + n_b))),
+    ])
+    assert results[0].min_attainable_p == pytest.approx(2.0 / comb(n_a + n_b, n_a))
+
+
+def test_min_attainable_p_bounds_every_untied_sample():
+    """
+    No untied pair of these sizes gets below the reported floor.
+    この標本数の同値を含まないペアは、報告された下限を下回らない。
+    """
+    rng = np.random.default_rng(3)
+    for _ in range(200):
+        values = rng.permutation(7)
+        result = compare_groups([("A", values[:3] * 1.0),
+                                 ("B", values[3:] * 1.0)])[0]
+        floor = result.min_attainable_p
+        assert result.mannwhitney_p >= floor - 1e-12
+        assert result.ks_p >= floor - 1e-12
 
 
 def test_delta_magnitude_labels():

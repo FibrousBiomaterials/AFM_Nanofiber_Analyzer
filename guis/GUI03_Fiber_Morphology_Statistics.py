@@ -692,6 +692,61 @@ def _comparison_caveat(unit: str) -> str:
     return ""
 
 
+# The level a reader conventionally reads a p-value against. Nothing is
+# decided by it; it only selects the pairs `_attainable_p_note` names.
+# p 値を読む際に慣例的に使われる水準。これで何かを判定することはなく、
+# `_attainable_p_note` が挙げるペアを選ぶためだけに使う。
+CONVENTIONAL_ALPHA = 0.05
+
+
+def _attainable_p_note(comparisons) -> str:
+    """
+    Name the pairs too small to reach the conventional significance level.
+    慣例の有意水準に届き得ないほど小さいペアを挙げる。
+
+    Parameters
+    ----------
+    comparisons
+        `lib.group_compare.PairComparison` rows.
+        `lib.group_compare.PairComparison` の行。
+
+    Returns
+    -------
+    str
+        Translated note naming each such pair with its smallest attainable
+        p-value; an empty string when every tested pair can reach the level.
+        該当する各ペアを、到達しうる最小の p 値とともに挙げる翻訳済みの注記。
+        検定した全ペアが水準に届きうるなら空文字列。
+
+    Notes
+    -----
+    With three folders against three, two groups that do not overlap at all
+    still give p = 0.10, so a "not significant" there is a statement about
+    the sample size, not about the specimens. The Holm correction only raises
+    a p-value, so a pair named here cannot reach the level after it either.
+    3 フォルダ対 3 フォルダでは、まったく重ならない 2 群でも p = 0.10 となる。
+    そこでの「有意差なし」は試料についてではなく標本数についての言明である。
+    Holm 補正は p 値を上げるだけなので、ここで挙げたペアは補正後も水準に届かない。
+    """
+    limited = [
+        c for c in comparisons
+        if np.isfinite(c.min_attainable_p)
+        and c.min_attainable_p >= CONVENTIONAL_ALPHA
+    ]
+    if not limited:
+        return ""
+    pairs = ", ".join(
+        "{a} vs {b}: {p:.3g}".format(a=c.group_a, b=c.group_b,
+                                     p=c.min_attainable_p)
+        for c in limited
+    )
+    return _(
+        "次のペアは、同じ値が無ければ 2 群が完全に分かれても p 値が {alpha} "
+        "未満になりません（値はこの標本数で到達しうる最小の p 値）: {pairs}。"
+        "これらのペアの「有意差なし」は、差が無いことを示しません。"
+    ).format(alpha=CONVENTIONAL_ALPHA, pairs=pairs)
+
+
 def _format_sample_size(value: float, unit: str) -> str:
     """
     Format a sample size for the aggregation unit that produced it.
@@ -2880,7 +2935,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                                DEFAULT_CURVATURE_WINDOW_NM,
                                apply_connection: bool = False,
                                frame_mode: str = FRAME_INCLUDE,
-                               frame_report=None) -> tuple:
+                               frame_report=None,
+                               curation_report=None) -> tuple:
         """
         Collect one folder's samples for a quantity and aggregation unit.
         1 フォルダ分の標本を、計測量と集計単位に従って収集する。
@@ -2923,6 +2979,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             `FRAME_INCLUDE` 以外の扱いを適用したとき、`_apply_frame_mode` の報告で
             埋める dict。呼び出し側がグループ名・フォルダ名を付けてログに出せる
             ようにするため。
+        curation_report
+            List passed to the `lib.measure` collector as its
+            ``curation_report``, so the caller can log how many fibers the
+            manual exclusions removed. Not filled for fiber CSV input.
+            `lib.measure` のコレクタへ ``curation_report`` として渡すリスト。
+            手動除外で何本外れたかを呼び出し側がログに出せるようにするため。
+            ファイバー CSV 入力では埋めない。
 
         Returns
         -------
@@ -2974,6 +3037,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 bundle_paths,
                 apply_exclusions=apply_exclusions,
                 apply_connection=apply_connection,
+                curation_report=curation_report,
             )
             failed = {path for path, _msg in load_errors}
             n_images = sum(1 for path in bundle_paths if path not in failed)
@@ -2990,6 +3054,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 bundle_paths,
                 apply_exclusions=apply_exclusions,
                 apply_connection=apply_connection,
+                curation_report=curation_report,
             )
             values = []
             weights = []
@@ -3012,6 +3077,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 apply_exclusions=apply_exclusions,
                 curvature_window_nm=curvature_window,
                 apply_connection=apply_connection,
+                curation_report=curation_report,
             )
             self._log_curvature_caveats(per_fiber, curvature_window)
             return self._curvature_values(per_fiber, unit) + (load_errors,)
@@ -3020,6 +3086,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             bundle_paths,
             apply_exclusions=apply_exclusions,
             apply_connection=apply_connection,
+            curation_report=curation_report,
         )
         return self._values_from_fiber_stats(
             self._frame_filtered(per_bundle, param, frame_mode, frame_report),
@@ -3584,6 +3651,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         self._bundle_pixel_sizes(bundle_paths))
 
                 frame_report = {}
+                curation_report: list = []
                 try:
                     (values, weights, n_fibers, n_images,
                      load_errors) = self._collect_bundle_values(
@@ -3594,6 +3662,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         curvature_window=curvature_window,
                         frame_mode=frame_mode,
                         frame_report=frame_report,
+                        curation_report=curation_report,
                     )
                 except Exception as e:
                     errors.append(
@@ -3602,6 +3671,24 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         )
                     )
                     continue
+
+                # Say how many traced fibers the manual exclusions removed.
+                # The collectors return only what survived, so a population
+                # reduced by hand is otherwise indistinguishable from one the
+                # analysis produced.
+                # 手動除外で追跡済みファイバーが何本外れたかを示す。コレクタは
+                # 残ったものしか返さないため、これが無いと手で減らした母集団が
+                # 解析の出力と見分けられない。
+                if apply_exclusions and curation_report:
+                    traced = sum(row[1] for row in curation_report)
+                    kept = sum(row[2] for row in curation_report)
+                    self.ui_queue.put(("log", _(
+                        "[{grp}/{folder}] 手動除外を適用: 追跡した {total} 本の"
+                        "うち {n} 本を除外しました"
+                    ).format(
+                        grp=grp_name, folder=folder_name,
+                        total=traced, n=traced - kept,
+                    )))
 
                 # Say what the frame mode removed, and how many of the lengths
                 # that remain are still lower bounds because a crossing cut
@@ -4034,7 +4121,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             _("p 値は Holm 補正後（括弧内は補正前）") if len(comparisons) > 1
             else _("p 値（2 群のため補正不要）")
         )
-        self._set_comparison_caveat(_comparison_caveat(unit))
+        self._set_comparison_caveat("\n".join(
+            text for text in (_comparison_caveat(unit),
+                              _attainable_p_note(comparisons))
+            if text
+        ))
         for c in comparisons:
             if len(comparisons) > 1:
                 u_text = "{adj} ({raw})".format(

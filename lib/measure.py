@@ -2335,6 +2335,48 @@ def _curation_for(
     return anchors, plan
 
 
+def _report_curation(
+    report: Optional[List[Tuple[str, int, int, int]]],
+    bundle_path: str,
+    result: MeasureResult,
+) -> None:
+    """
+    Append one bundle's curation counts to a collector's report list.
+    1 バンドル分のキュレーション件数を、コレクタの報告リストへ追加する。
+
+    Parameters
+    ----------
+    report
+        List the caller passed as ``curation_report``; ``None`` records
+        nothing.
+        呼び出し側が ``curation_report`` として渡したリスト。``None`` なら何も
+        記録しない。
+    bundle_path
+        Bundle the counts belong to.
+        件数が属するバンドル。
+    result
+        Measurement of that bundle.
+        そのバンドルの計測結果。
+
+    Notes
+    -----
+    The counts are the fragments traced, those left after manual exclusions,
+    and the fibers measured after connection. A collector returns only the
+    surviving population, so without them a caller cannot say how much the
+    curation removed, and a population reduced by hand would look like one
+    the analysis produced.
+    件数は、追跡された断片数、手動除外の後に残った数、連結後に計測したファイバー
+    数である。コレクタは残った母集団しか返さないため、これが無いと呼び出し側は
+    キュレーションがどれだけ取り除いたかを示せず、手で減らした母集団が解析の
+    出力と見分けられなくなる。
+    """
+    if report is not None:
+        report.append((
+            bundle_path, len(result.fragments), int(result.curated_count),
+            len(result.fibers),
+        ))
+
+
 def collect_fiber_stats(
     bundle_paths: Sequence[str],
     scale_um: Optional[float] = None,
@@ -2342,6 +2384,7 @@ def collect_fiber_stats(
     max_workers: Optional[int] = None,
     apply_exclusions: bool = False,
     apply_connection: bool = False,
+    curation_report: Optional[List[Tuple[str, int, int, int]]] = None,
 ) -> Tuple[List[Tuple[str, List[FiberStats]]], List[Tuple[str, str]]]:
     """
     Measure several ``.b2z`` bundles and return per-fiber statistics per bundle.
@@ -2385,6 +2428,14 @@ def collect_fiber_stats(
         フィブリルへ再結合する。既定が ``False`` である理由は `apply_exclusions`
         と同じ。サイドカーの無いバンドルは断片として計測されるため、フォルダを
         1 バンドルずつキュレーションできる。
+    curation_report
+        List to which one ``(bundle_path, traced, after_exclusion, measured)``
+        tuple is appended per measured bundle: the fragments traced, those
+        left after manual exclusions, and the fibers measured after
+        connection. ``None`` records nothing.
+        計測したバンドルごとに ``(バンドルパス, 追跡数, 除外後の数, 計測数)``
+        を 1 件追加するリスト。追跡された断片数、手動除外の後に残った数、連結後に
+        計測したファイバー数である。``None`` なら何も記録しない。
 
     Returns
     -------
@@ -2454,6 +2505,7 @@ def collect_fiber_stats(
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
 
+        _report_curation(curation_report, path, result)
         per_bundle.append((path, list(result.stats)))
     return per_bundle, errors
 
@@ -2526,6 +2578,7 @@ def collect_skeleton_height_profiles(
     max_workers: Optional[int] = None,
     apply_exclusions: bool = False,
     apply_connection: bool = False,
+    curation_report: Optional[List[Tuple[str, int, int, int]]] = None,
 ) -> Tuple[List[Tuple[str, np.ndarray, np.ndarray]], List[Tuple[str, str]]]:
     """
     Collect tracked height profiles and their contour length weights.
@@ -2555,6 +2608,11 @@ def collect_skeleton_height_profiles(
         `collect_fiber_stats`.
         ``True`` のとき、`collect_fiber_stats` と同様に各バンドルの保存済み連結
         結果を尊重する。
+    curation_report
+        List receiving each bundle's curation counts, as in
+        `collect_fiber_stats`.
+        `collect_fiber_stats` と同様に、各バンドルのキュレーション件数を受け取る
+        リスト。
 
     Returns
     -------
@@ -2628,6 +2686,7 @@ def collect_skeleton_height_profiles(
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
 
+        _report_curation(curation_report, path, result)
         fibers = result.fibers
 
         heights: List[np.ndarray] = []
@@ -2658,6 +2717,7 @@ def collect_fiber_curvature(
     apply_exclusions: bool = False,
     curvature_window_nm: float = DEFAULT_CURVATURE_WINDOW_NM,
     apply_connection: bool = False,
+    curation_report: Optional[List[Tuple[str, int, int, int]]] = None,
 ) -> Tuple[List[Tuple[str, np.ndarray]], List[Tuple[str, str]]]:
     """
     Measure the per-fiber mean curvature across several bundles.
@@ -2692,6 +2752,11 @@ def collect_fiber_curvature(
         ``True`` のとき、`collect_fiber_stats` と同様に各バンドルの保存済み連結
         結果を尊重する。その場合、曲率は 1 本のフィブリル全体に沿って計測される
         が、これは構成断片の曲率の平均とは異なる。
+    curation_report
+        List receiving each bundle's curation counts, as in
+        `collect_fiber_stats`.
+        `collect_fiber_stats` と同様に、各バンドルのキュレーション件数を受け取る
+        リスト。
 
     Returns
     -------
@@ -2754,6 +2819,7 @@ def collect_fiber_curvature(
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
 
+        _report_curation(curation_report, path, result)
         fibers = result.fibers
 
         x_spp = result.image.size_per_pixel
@@ -3038,6 +3104,7 @@ def skeleton_height_values(
     apply_exclusions: bool = False,
     apply_connection: bool = False,
     max_workers: Optional[int] = None,
+    curation_report: Optional[List[Tuple[str, int, int, int]]] = None,
 ) -> Tuple[np.ndarray, List[Tuple[str, str]]]:
     """
     Collect tracked fiber heights from multiple ``.b2z`` bundles.
@@ -3061,6 +3128,11 @@ def skeleton_height_values(
     max_workers
         Maximum number of worker threads used per bundle.
         1 バンドルあたりの並列追跡ワーカースレッド数の上限。
+    curation_report
+        List receiving each bundle's curation counts, as in
+        `collect_fiber_stats`.
+        `collect_fiber_stats` と同様に、各バンドルのキュレーション件数を受け取る
+        リスト。
 
     Returns
     -------
@@ -3145,6 +3217,7 @@ def skeleton_height_values(
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
 
+        _report_curation(curation_report, path, result)
         for fiber in result.fibers:
             height = np.asarray(fiber.height, dtype=float)
             if height.size:

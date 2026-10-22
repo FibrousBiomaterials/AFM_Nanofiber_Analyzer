@@ -140,8 +140,8 @@ def kink_reference() -> dict:
     from lib.pipeline import ProcParams
 
     refs = krs.load_reference()
-    keys = ("ref", "found", "displaced", "merged", "missed", "false", "unjudged",
-            "unjudged_on_clear")
+    keys = ("ref", "found", "displaced", "merged", "missed", "false", "exempt",
+            "unjudged", "unjudged_on_clear")
 
     def load(method):
         cache = str(cache_dir("kink_reference_" + method))
@@ -211,7 +211,14 @@ def kink_reference() -> dict:
     false_items = []
     for name, (_image, fibers) in default.items():
         kinks, unjudged = krs.detect(fibers, base)
-        false_items += krs.score(refs[name], kinks, unjudged)["false_list"]
+        res = krs.score(refs[name], kinks, unjudged)
+        false_items += res["false_list"]
+        # The default rule per scan, so a total is not read as one scan's behaviour.
+        # 合計を 1 つの走査の振る舞いと読まないよう、既定の規則を走査ごとにも記録する。
+        for k in ("ref", "found", "displaced", "missed", "false", "exempt"):
+            values[f"default.{name}.{k}"] = res[k]
+        values[f"default.{name}.detections"] = len(kinks)
+    values["default.detections"] = sum(values[f"default.{name}.detections"] for name in default)
     threshold = 180.0 - ProcParams().kinkangle_deg
     values["default.false_excess_30_40"] = sum(threshold <= k["excess_deg"] <= threshold + 10
                                                for k in false_items)
