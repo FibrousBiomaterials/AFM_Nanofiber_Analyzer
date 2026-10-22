@@ -91,6 +91,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The measurement regression test (`tests/test_measurement_regression.py`) now
+  also fingerprints each fiber's mean curvature, which GUI03 and GUI04 show but
+  the per-fiber CSV does not contain, so a change to curvature alone no longer
+  passes unnoticed. Its baseline gained the curvature fingerprints and lost the
+  entries of the two cropped samples, which no test compared; the recorded
+  fiber counts, lengths, CSV and height fingerprints are unchanged, so
+  **analysis results do not change**.
 - GUI03 no longer offers `kink angle` per `fiber`, and its `image` value is the
   median of every kink angle in the scan instead of the median of the
   per-fiber medians. The kinks along a fiber are distinct defect events rather

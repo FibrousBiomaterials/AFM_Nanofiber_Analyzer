@@ -33,10 +33,9 @@ bibliography: paper.bib
 
 # Summary
 
-Atomic force microscopy (AFM) resolves the height topography of individual
-nanofibers, but turning raw height scans into quantitative, per-fiber
-measurements is laborious and difficult to reproduce by hand. `AFM Nanofiber
-Analyzer` is a Python toolkit that automates this workflow. It reads AFM height
+Atomic force microscopy (AFM) records the height topography of individual
+nanofibers [@Mayumi2026]. `AFM Nanofiber Analyzer` is a Python toolkit that
+turns such height scans into per-fiber measurements. It reads AFM height
 images exported as text/CSV or stored in native Gwyddion `.gwy` files, removes
 instrument background, segments and skeletonizes the fibers, detects sharp
 bends ("kinks"), and reports per-fiber statistics such as length, height, and
@@ -51,80 +50,77 @@ before it is measured.
 
 # Statement of need
 
-Researchers studying cellulose nanofibers and related nanomaterials routinely
-acquire large numbers of AFM scans and need fiber-level descriptors — height,
-length, curvature, and kink angle distributions — to characterize how
-processing conditions affect morphology. Kinks and related fiber-level defects
-are of particular interest in this field because they govern the structural
-quality of nanocellulose materials [@Ito2022; @Ito2025]. General-purpose
-scanning-probe software such as Gwyddion [@Necas2012] is excellent for image-level
-visualization, leveling, and grain analysis, but it is oriented towards surfaces
-and grains rather than networks of individual fibers. Dedicated fiber-tracking
-software does exist — most prominently FiberApp [@Usov2015] — but it runs on the
-proprietary MATLAB platform and is built around semi-automatic tracking in
-which the user initializes each fiber. As a result, laboratories that need to process many scans
-end up combining these tools with one-off scripts that are hard to share,
-parameterize consistently, or reproduce.
+Studies of nanocellulose compare preparations by the heights of fibers measured
+on AFM images [e.g., @Ito2025; @Mayumi2026]. Defects along the fibers matter as
+well: preparations differ in how many and how large defects their fibers carry
+[@Ito2025], and deep dents on the fiber surface induce kinking and fragmentation
+[@Ito2022]. General-purpose scanning-probe software such as Gwyddion
+[@Necas2012] provides image-level processing, including grain and particle
+analysis. Dedicated fiber-tracking software does exist — most prominently
+FiberApp [@Usov2015] — but it runs on the proprietary MATLAB platform and is
+built around semi-automatic tracking in which the user initializes each fiber.
 
-`AFM Nanofiber Analyzer` addresses this gap with a documented, reproducible
-pipeline built on the scientific Python stack — NumPy [@Harris2020],
+`AFM Nanofiber Analyzer` analyzes whole scans without per-fiber input and
+measures the height and kinks along each traced fiber segment; segments split at
+crossings and junctions can then be joined or excluded in the Fiber Tracker. It
+is built as a documented pipeline on the scientific Python stack — NumPy [@Harris2020],
 SciPy [@Virtanen2020], scikit-image [@vanderWalt2014], OpenCV [@Bradski2000],
 lmfit [@Newville2014], and Matplotlib [@Hunter2007]. It grew out of
 project-specific research scripts [@Ito_afm_image] for background calibration,
 segmentation, skeletonization, and kink detection, and turns them into a
 maintained, tested library with both interactive and batch front ends. Its
-processing has since diverged from those scripts; the changelog records each
-change that alters results. It lowers the barrier to consistent, high-throughput
-morphological analysis for materials-science and polymer researchers, and gives
-them a scriptable batch interface and a stable, documented data format that
-downstream analyses can rely on.
+processing has since diverged from those scripts, so its results can differ from
+the values published with them; the changelog marks the changes that alter
+results from version 1.0.0 on. It gives researchers a scriptable batch interface
+and a bundle format whose layout is versioned, documented, and validated when a
+bundle is written and before it is measured.
 
 # State of the field
 
-Gwyddion [@Necas2012] is the most widely used open-source scanning-probe package
-and provides extensive image-level functionality — levelling, filtering,
-statistical characterization, and grain analysis. These capabilities target
-surfaces, grains, and roughness rather than networks of individual fibers, so we
-treat Gwyddion as complementary rather than competing: this project reads its
-native `.gwy` files and text exports, and images can be inspected or pre-levelled
-there and then analyzed here.
+Gwyddion [@Necas2012] is a modular, open-source package for scanning probe
+microscopy data processing, with functions for levelling and background
+subtraction, grain and particle analysis, and other image-level operations. Its
+grain analysis reports characteristics of each marked grain as a whole, such as
+its projected area, height statistics, volume, and boundary length; this project
+instead follows each fiber along its length and reports the height and kinks
+along it. This project reads Gwyddion's native `.gwy` files and its text
+exports, so images can be levelled in Gwyddion and then analyzed here.
 
-FiberApp [@Usov2015] is the closest tool in scope and the most capable in
-single-filament statistics: it tracks fibrous objects from microscopy images and
-computes contour length, height, curvature and kink-angle distributions,
-persistence length, correlation functions, and orientational order parameters,
-several of which this project does not attempt to reproduce. The differences that
-motivate a separate tool are ones of platform, automation, and input handling
-rather than of statistical breadth. FiberApp runs on MATLAB, a proprietary
-environment that many laboratories cannot use without a license, whereas this
-project is pure Python on an openly licensed stack — installable from source,
-scriptable, and also shipped as a standalone Windows bundle for users who
-maintain no Python environment. FiberApp tracks fibers semi-automatically, one
-object at a time, with the user initializing each contour (by clicking its two
-ends when the A* path search is used). Its authors chose this deliberately over
-automatic segmentation, which they note cannot process images containing
-objects of differing height or flexibility, or strongly overlapping fibrils
-[@Usov2015]. `AFM Nanofiber Analyzer` takes the other side of that trade-off: it
+FiberApp [@Usov2015] tracks fibrous objects in microscopy images and computes
+distributions of length, height, curvature and kink angle, the persistence
+length from fits to the bond correlation function and the mean-squared
+end-to-end distance, and a two-dimensional order parameter, several of which
+this project does not compute. It differs from this project in three respects:
+the platform, how fibers are traced, and the input files it reads. FiberApp runs
+in MATLAB, a commercially licensed environment, whereas this project is written
+in Python on openly licensed dependencies, installs from source, can be
+scripted, and can be built with PyInstaller into a standalone Windows
+application that runs without a separate Python installation. FiberApp tracks
+fibers semi-automatically, one object at a time: the user clicks a sequence of
+points along each fiber, which the A* path search, when enabled, connects along
+the image. `AFM Nanofiber Analyzer` instead
 segments and skeletonizes the whole image without per-fiber interaction and
 processes folders of scans in batch, trading FiberApp's per-object control for
 throughput, and leaves crossings and overlaps to fragment reconnection and
 manual exclusion in the Fiber Tracker.
-FiberApp also reads only Bruker NanoScope files and TIFF images, and for TIFF the
-user must supply the spatial scale by hand through a scale-bar dialog; this
-project reads instrument text and CSV exports, Gwyddion Export Text, and native
-`.gwy` files, and takes the physical scan size from the file's own metadata where
-the instrument records it, so calibration travels with the data instead of being
-re-entered per image.
+FiberApp reads Bruker NanoScope and `.flt` files, taking the scan size from
+their headers, and TIFF images, for which it assumes one nanometre per pixel
+until the user draws a scale bar and enters its length; this project reads
+instrument text and CSV exports, Gwyddion Export Text, and native `.gwy` files,
+takes the physical scan size from the file where the export records it or from
+a value the user enters, and records it in the bundle.
 
-TopoStats [@Beton2021] is the closest open-source Python counterpart for batch
-work: a configuration-driven command-line pipeline that flattens AFM images,
-detects grains, and traces molecules, developed primarily for biomolecules.
-Trace_y [@Xue2025] traces individual filaments interactively and reconstructs
-the three-dimensional structure of helically symmetric ones. `AFM Nanofiber
-Analyzer` differs in its target rather than its architecture: it is built around
-nanocellulose fibrils, reports fibril-level height, length, curvature, and kink
-descriptors, and stores the user's decisions to exclude or join fragments beside
-each bundle so that a curated population can be measured again.
+TopoStats [@Beton2021] is an open-source Python program for automated
+processing of AFM images — flattening them, detecting grains and tracing
+molecules — developed for biomolecules; it runs from the command line with a
+default configuration that users can replace with their own YAML file. Trace_y
+[@Xue2025] reconstructs the three-dimensional surface envelopes of individual
+helical filaments from AFM height images. Where these two were developed for
+biomolecules and for helical filaments, `AFM Nanofiber Analyzer` was developed
+on scans of cellulose nanofibers. Alongside per-fiber height, length, and
+curvature, it detects kinks along each fiber, and it stores the user's decisions
+to exclude or join fragments beside each bundle so that a curated population can
+be measured again.
 
 Generic skeleton analysis is available in the bio-image ecosystem — the
 AnalyzeSkeleton plugin [@ArgandaCarreras2010] distributed with Fiji
@@ -137,7 +133,7 @@ interest for nanocellulose morphology. The scientific-Python ecosystem supplies
 the lower-level building blocks [@Harris2020; @vanderWalt2014; @Virtanen2020;
 @Bradski2000]; this project assembles them into a fiber-centric pipeline with
 shared GUI and CLI front ends, a recorded parameter file per run, and an explicit, versioned data contract, so the same
-analysis can be reproduced, scripted, and audited across machines.
+analysis can be scripted, audited, and rerun with the settings it recorded.
 
 # Software design
 
@@ -187,13 +183,18 @@ need parameter adjustment.
 No published study has yet used this package. Its precursor scripts
 [@Ito_afm_image], from which its analysis has since diverged, produced the AFM
 fiber heights reported in three nanocellulose studies [@Ito2022; @Ito2025;
-@Mayumi2026]. The repository ships representative AFM exports from Shimadzu and
-Bruker instruments, Gwyddion Export Text samples, and a native `.gwy` file, with
-regression tests that run the full analysis on these scans and compare the
-results with recorded baselines. These tests check that the software installs,
-reads real instrument exports, writes valid bundles, and keeps its numerical
-output unchanged between versions; they do not measure accuracy against an
-independent reference. Evaluations of the individual stages on these scans and
+@Mayumi2026]. The repository ships AFM exports of three scans, in Shimadzu and
+Bruker text formats, Gwyddion Export Text and native `.gwy` files exported from
+one of them, and regression tests that run the full analysis on these scans and
+compare the results with recorded baselines. These tests check that the
+software installs, reads real instrument exports and writes valid bundles. On
+the machine that recorded the baselines they detect any change in the arrays
+the analysis stores for two of the scans under each background method, and in
+the per-fiber CSV table, the traced heights and each fiber's mean curvature of
+all three at the default settings and with each skeleton cleanup turned off; on
+continuous integration,
+one bundled scan is analyzed and its pixel and kink counts are compared within
+5%. They do not measure accuracy against an independent reference. Evaluations of the individual stages on these scans and
 on synthetic images of known geometry are documented in `docs/validation.md`.
 Kink detection has not been validated against kinks marked by people: the
 reference it was developed against was marked by an AI coding agent (see the AI

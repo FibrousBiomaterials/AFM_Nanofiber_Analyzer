@@ -1,0 +1,1515 @@
+{
+ "_comment": "One entry per prose sentence of paper.md, recording what supports it. See scripts/check_paper_claims.py for the source kinds. A commit may not add an unverified sentence.",
+ "claims": [
+  {
+   "sentence": "Atomic force microscopy (AFM) records the height topography of individual nanofibers [@Mayumi2026].",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "Mayumi2026",
+     "locator": "abstract",
+     "quote": "The TEM-derived widths and AFM-derived heights of the CNCs and CNFs averaged approximately 10 nm"
+    },
+    {
+     "kind": "external",
+     "ref": "Mayumi2026",
+     "locator": "abstract",
+     "quote": "AFM images revealed that the representative cross-sectional geometry of the CNFs exhibits widths and thicknesses of 15.0 and 9.3 nm"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "原子間力顕微鏡（AFM）は、個々のナノファイバーの高さ形状を記録する [@Mayumi2026]。"
+  },
+  {
+   "sentence": "`AFM Nanofiber Analyzer` is a Python toolkit that turns such height scans into per-fiber measurements.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "lib/pipeline.py",
+     "symbol": "process_file"
+    },
+    {
+     "kind": "code",
+     "path": "lib/measure.py",
+     "symbol": "measure_bundle"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "`AFM Nanofiber Analyzer` は、そうした高さ像を繊維ごとの測定値に変える Python ツールキットである。"
+  },
+  {
+   "sentence": "It reads AFM height images exported as text/CSV or stored in native Gwyddion `.gwy` files, removes instrument background, segments and skeletonizes the fibers, detects sharp bends (\"kinks\"), and reports per-fiber statistics such as length, height, and kink geometry (\\autoref{fig:pipeline}).",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "lib/afm_io.py",
+     "symbol": "load_afm_image"
+    },
+    {
+     "kind": "code",
+     "path": "lib/bg_calibrator.py",
+     "symbol": "BGCalibrator"
+    },
+    {
+     "kind": "code",
+     "path": "lib/segmenter.py",
+     "symbol": "Segmenter"
+    },
+    {
+     "kind": "code",
+     "path": "lib/skeletonizer.py",
+     "symbol": "Skeletonizer"
+    },
+    {
+     "kind": "code",
+     "path": "lib/kink_detector.py",
+     "symbol": "KinkDetector"
+    },
+    {
+     "kind": "code",
+     "path": "lib/measure.py",
+     "symbol": "FiberStats"
+    }
+   ],
+   "ja": "テキスト/CSV で書き出された、または Gwyddion 形式の `.gwy` ファイルに保存された AFM 高さ像を読み込み、装置由来の背景を除去し、繊維を領域分割・細線化し、急な曲がり（「キンク」）を検出して、長さ・高さ・キンクの形状などの繊維ごとの統計量を出力する（\\autoref{fig:pipeline}）。"
+  },
+  {
+   "sentence": "The same analysis is exposed through a tkinter launcher with five interactive tools and a command-line interface for batch processing, both built on one shared analysis library.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "Main.py",
+     "symbol": "GUIS_DIR_NAME"
+    },
+    {
+     "kind": "code",
+     "path": "cli.py",
+     "symbol": "cmd_process"
+    },
+    {
+     "kind": "code",
+     "path": "guis/GUI01_Image_Preprocessor.py",
+     "quote": "process_file"
+    }
+   ],
+   "note": "Five tracked plugins: git ls-files guis lists GUI00-GUI04.",
+   "ja": "同じ解析は、5 つの対話型ツールを備えた tkinter のランチャーと一括処理用のコマンドラインインターフェースの両方から使え、両者は一つの共通の解析ライブラリの上に構築されている。"
+  },
+  {
+   "sentence": "Results are written as one compressed bundle per input (`.b2z`) whose keys, shapes, units, and coordinate convention are governed by an executable schema validated when the bundle is written and before it is measured.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "lib/pipeline.py",
+     "symbol": "process_file",
+     "quote": "problems = validate_bundle(arrays, require=REQUIRED_BUNDLE_KEYS)"
+    },
+    {
+     "kind": "code",
+     "path": "lib/measure.py",
+     "symbol": "_load_validated_arrays",
+     "quote": "problems = validate_bundle(arrays, meta=meta, require=keys)"
+    }
+   ],
+   "ja": "結果は入力 1 件につき 1 つの圧縮バンドル（`.b2z`）に書き出され、そのキー・配列形状・単位・座標の取り方は、バンドルの書き込み時と測定前に検証される実行可能なスキーマで規定されている。"
+  },
+  {
+   "sentence": "Studies of nanocellulose compare preparations by the heights of fibers measured on AFM images [e.g., @Ito2025; @Mayumi2026].",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "Ito2025",
+     "locator": "full text, PMC12007098",
+     "quote": "The modes of the height distributions for BKP-10, BKP-5, HC-10, and HC-5 were 1.95, 2.05, 1.95, and 2.15 nm, respectively."
+    },
+    {
+     "kind": "external",
+     "ref": "Mayumi2026",
+     "locator": "abstract",
+     "quote": "The TEM-derived widths and AFM-derived heights of the CNCs and CNFs averaged approximately 10 nm"
+    },
+    {
+     "kind": "external",
+     "ref": "Mayumi2026",
+     "locator": "abstract",
+     "quote": "increased in number after ultrasonication of the CNFs"
+    }
+   ],
+   "note": "Fact-checked in four independent rounds on 2026-10-21; approved by the user.",
+   "ja": "ナノセルロースの研究では、AFM 像上で測った繊維の高さによって、調製法の異なる試料を比較する [e.g., @Ito2025; @Mayumi2026]。"
+  },
+  {
+   "sentence": "Defects along the fibers matter as well: preparations differ in how many and how large defects their fibers carry [@Ito2025], and deep dents on the fiber surface induce kinking and fragmentation [@Ito2022].",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "Ito2025",
+     "locator": "full text, PMC12007098",
+     "quote": "Compared with the BKP series, the HC series had fewer and smaller defects under the same pH conditions."
+    },
+    {
+     "kind": "external",
+     "ref": "Ito2022",
+     "locator": "abstract",
+     "quote": "deep dents induced the kinking and fragmentation of nanofibers"
+    }
+   ],
+   "note": "Fact-checked in four independent rounds on 2026-10-21; approved by the user.",
+   "ja": "繊維に沿った欠陥も重要である。調製法の異なる試料の間で、繊維が持つ欠陥の数と大きさは異なり [@Ito2025]、繊維表面の深いへこみはキンクと断片化を引き起こす [@Ito2022]。"
+  },
+  {
+   "sentence": "General-purpose scanning-probe software such as Gwyddion [@Necas2012] provides image-level processing, including grain and particle analysis.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "Necas2012",
+     "locator": "abstract",
+     "quote": "Special functionalities, such as data processing from non-rectangular areas, grain and particle analysis, and metrology support are discussed as well."
+    }
+   ],
+   "note": "Fact-checked in four independent rounds on 2026-10-21; approved by the user.",
+   "ja": "Gwyddion [@Necas2012] のような汎用の走査型プローブ顕微鏡ソフトウェアは、グレインおよび粒子の解析を含む画像単位の処理を提供する。"
+  },
+  {
+   "sentence": "Dedicated fiber-tracking software does exist — most prominently FiberApp [@Usov2015] — but it runs on the proprietary MATLAB platform and is built around semi-automatic tracking in which the user initializes each fiber.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "https://github.com/ivan-usov/FiberApp",
+     "locator": "README",
+     "quote": "Execute `FiberApp.m` in matlab environment"
+    },
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/ivan-usov/FiberApp/master/+FiberAppGUI/AddFiber.m",
+     "locator": "AddFiber.m",
+     "quote": "if FA.aStar [x, y] = FA.getFiberAStar; else [x, y] = FA.getFiber;"
+    },
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/ivan-usov/FiberApp/master/@FiberAppData/getFiber.m",
+     "locator": "getFiber.m",
+     "quote": "%GETFIBER Get line coordinates from a mouse input"
+    }
+   ],
+   "ja": "繊維追跡に特化したソフトウェアも存在し、その代表は FiberApp [@Usov2015] であるが、これはプロプライエタリな MATLAB 上で動作し、ユーザーが繊維ごとに追跡を初期化する半自動追跡を中心に作られている。"
+  },
+  {
+   "sentence": "`AFM Nanofiber Analyzer` analyzes whole scans without per-fiber input and measures the height and kinks along each traced fiber segment; segments split at crossings and junctions can then be joined or excluded in the Fiber Tracker.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "lib/pipeline.py",
+     "symbol": "process_file"
+    },
+    {
+     "kind": "code",
+     "path": "lib/imp_tools.py",
+     "symbol": "remove_bp"
+    },
+    {
+     "kind": "code",
+     "path": "lib/measure.py",
+     "symbol": "FiberStats",
+     "quote": "kink_angles_deg"
+    },
+    {
+     "kind": "code",
+     "path": "lib/measure.py",
+     "symbol": "FiberStats",
+     "quote": "height_median_nm"
+    },
+    {
+     "kind": "code",
+     "path": "lib/fiber_connector.py",
+     "symbol": "plan_from_auto_connect"
+    },
+    {
+     "kind": "code",
+     "path": "lib/fiber_selection.py",
+     "symbol": "save_exclusions"
+    },
+    {
+     "kind": "code",
+     "path": "guis/GUI04_Tracking_fiber.py",
+     "quote": "\"name\": \"Fiber Tracker\""
+    }
+   ],
+   "note": "Fact-checked in four independent rounds on 2026-10-21; approved by the user.",
+   "ja": "`AFM Nanofiber Analyzer` は、繊維ごとの入力なしにスキャン全体を解析し、追跡した各繊維区間に沿って高さとキンクを測る。交差や分岐で分かれた区間は、その後 Fiber Tracker で連結または除外できる。"
+  },
+  {
+   "sentence": "It is built as a documented pipeline on the scientific Python stack — NumPy [@Harris2020], SciPy [@Virtanen2020], scikit-image [@vanderWalt2014], OpenCV [@Bradski2000], lmfit [@Newville2014], and Matplotlib [@Hunter2007].",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "lib/bg_calibrator.py",
+     "quote": "import cv2"
+    },
+    {
+     "kind": "code",
+     "path": "lib/bg_calibrator.py",
+     "quote": "lmfit"
+    },
+    {
+     "kind": "code",
+     "path": "lib/segmenter.py",
+     "quote": "skimage"
+    },
+    {
+     "kind": "code",
+     "path": "lib/bg_calibrator.py",
+     "quote": "scipy"
+    },
+    {
+     "kind": "code",
+     "path": "lib/ui_tools.py",
+     "quote": "matplotlib"
+    },
+    {
+     "kind": "doc",
+     "path": "docs/algorithms.md",
+     "quote": "Analysis algorithms"
+    }
+   ],
+   "note": "Fact-checked in four independent rounds on 2026-10-21; approved by the user.",
+   "ja": "本ツールは、科学技術計算用の Python ライブラリ群 — NumPy [@Harris2020]、SciPy [@Virtanen2020]、scikit-image [@vanderWalt2014]、OpenCV [@Bradski2000]、lmfit [@Newville2014]、Matplotlib [@Hunter2007] — の上に、文書化された処理系として構築されている。"
+  },
+  {
+   "sentence": "It grew out of project-specific research scripts [@Ito_afm_image] for background calibration, segmentation, skeletonization, and kink detection, and turns them into a maintained, tested library with both interactive and batch front ends.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "Ito_afm_image",
+     "locator": "file tree of the repository (GitHub API, branch main)",
+     "quote": "original_modules/BG_Calibrater.py; original_modules/Segmentater.py; original_modules/Skeltonizer.py; original_modules/KinkDetector.py"
+    },
+    {
+     "kind": "code",
+     "path": "lib/pipeline.py",
+     "symbol": "process_file"
+    }
+   ],
+   "ja": "本ツールは、背景補正・領域分割・細線化・キンク検出のためのプロジェクト固有の研究用スクリプト [@Ito_afm_image] から生まれ、それらを対話型と一括処理の両方のフロントエンドを持つ、保守とテストを行うライブラリにしたものである。"
+  },
+  {
+   "sentence": "Its processing has since diverged from those scripts, so its results can differ from the values published with them; the changelog marks the changes that alter results from version 1.0.0 on.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "Ito_afm_image",
+     "locator": "file tree (GitHub API, branch main)",
+     "quote": "original_modules/KinkDetector.py"
+    },
+    {
+     "kind": "doc",
+     "path": "CHANGELOG.md",
+     "quote": "## [1.0.0] - 2026-07-08"
+    },
+    {
+     "kind": "doc",
+     "path": "CHANGELOG.md",
+     "quote": "**Kink results change from this version**"
+    },
+    {
+     "kind": "code",
+     "path": "lib/kink_detector.py",
+     "symbol": "KinkDetector.judge_line"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "その後、処理はそれらのスクリプトから変わっているため、結果はそれらとともに公表された値と異なりうる。結果を変える変更は、バージョン 1.0.0 以降について変更履歴に明記している。"
+  },
+  {
+   "sentence": "It gives researchers a scriptable batch interface and a bundle format whose layout is versioned, documented, and validated when a bundle is written and before it is measured.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "cli.py",
+     "symbol": "cmd_process"
+    },
+    {
+     "kind": "code",
+     "path": "lib/bundle_schema.py",
+     "symbol": "BUNDLE_FORMAT_VERSION"
+    },
+    {
+     "kind": "doc",
+     "path": "README.md",
+     "quote": "## Data Format"
+    },
+    {
+     "kind": "code",
+     "path": "lib/pipeline.py",
+     "symbol": "process_file",
+     "quote": "problems = validate_bundle(arrays, require=REQUIRED_BUNDLE_KEYS)"
+    },
+    {
+     "kind": "code",
+     "path": "lib/measure.py",
+     "symbol": "_load_validated_arrays",
+     "quote": "problems = validate_bundle(arrays, meta=meta, require=keys)"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "本ツールは研究者に、スクリプトから使える一括処理のインターフェースと、レイアウトが版管理・文書化され、バンドルの書き込み時と測定前に検証されるバンドル形式を提供する。"
+  },
+  {
+   "sentence": "Gwyddion [@Necas2012] is a modular, open-source package for scanning probe microscopy data processing, with functions for levelling and background subtraction, grain and particle analysis, and other image-level operations.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "Necas2012",
+     "locator": "abstract",
+     "quote": "a modular, multiplatform, open-source software for scanning probe microscopy data processing"
+    },
+    {
+     "kind": "external",
+     "ref": "Necas2012",
+     "locator": "abstract",
+     "quote": "grain and particle analysis"
+    },
+    {
+     "kind": "external",
+     "ref": "https://gwyddion.net/documentation/user-guide-en/leveling-and-background.html",
+     "locator": "user guide, Leveling and Background Subtraction",
+     "quote": "Gwyddion has several special modules for background subtraction."
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "Gwyddion [@Necas2012] は、走査型プローブ顕微鏡のデータ処理のためのモジュール構造のオープンソースパッケージであり、レベリングと背景除去、グレインおよび粒子の解析、その他の画像単位の処理の機能を持つ。"
+  },
+  {
+   "sentence": "Its grain analysis reports characteristics of each marked grain as a whole, such as its projected area, height statistics, volume, and boundary length; this project instead follows each fiber along its length and reports the height and kinks along it.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "https://gwyddion.net/documentation/user-guide-en/grain-analysis.html",
+     "locator": "user guide, Grain Analysis",
+     "quote": "selected characteristics of individual grains are calculated"
+    },
+    {
+     "kind": "external",
+     "ref": "https://gwyddion.net/documentation/user-guide-en/grain-analysis.html",
+     "locator": "user guide, Grain Analysis",
+     "quote": "Projected area, the projected (flat) area of the grain."
+    },
+    {
+     "kind": "external",
+     "ref": "https://gwyddion.net/documentation/user-guide-en/grain-analysis.html",
+     "locator": "user guide, Grain Analysis",
+     "quote": "Minimum, the minimum value (height) occurring inside the grain."
+    },
+    {
+     "kind": "external",
+     "ref": "https://gwyddion.net/documentation/user-guide-en/grain-analysis.html",
+     "locator": "user guide, Grain Analysis",
+     "quote": "Zero basis, the volume between grain surface and the plane z = 0."
+    },
+    {
+     "kind": "external",
+     "ref": "https://gwyddion.net/documentation/user-guide-en/grain-analysis.html",
+     "locator": "user guide, Grain Analysis",
+     "quote": "Projected boundary length, the length of the grain boundary projected to the horizontal plane"
+    },
+    {
+     "kind": "code",
+     "path": "lib/fiber.py",
+     "symbol": "Fiber"
+    },
+    {
+     "kind": "code",
+     "path": "lib/kink_detector.py",
+     "symbol": "KinkDetector.judge_line"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "そのグレイン解析は、マークした各グレインの特性を、投影面積・高さの統計量・体積・境界長などのグレイン全体としての量で報告する。これに対し本ツールは、各繊維をその長さに沿ってたどり、それに沿った高さとキンクを報告する。"
+  },
+  {
+   "sentence": "This project reads Gwyddion's native `.gwy` files and its text exports, so images can be levelled in Gwyddion and then analyzed here.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "lib/gwy_io.py",
+     "symbol": "load_gwy_image"
+    },
+    {
+     "kind": "doc",
+     "path": "README.md",
+     "quote": "Gwyddion Export Text files that declare a supported length unit are converted to nm"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "本ツールは Gwyddion 形式の `.gwy` ファイルとそのテキスト出力を読み込めるので、画像を Gwyddion でレベリングしてから本ツールで解析できる。"
+  },
+  {
+   "sentence": "FiberApp [@Usov2015] tracks fibrous objects in microscopy images and computes distributions of length, height, curvature and kink angle, the persistence length from fits to the bond correlation function and the mean-squared end-to-end distance, and a two-dimensional order parameter, several of which this project does not compute.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/ivan-usov/FiberApp/master/README.md",
+     "locator": "README",
+     "quote": "The software operates on images from various microscope sources"
+    },
+    {
+     "kind": "external",
+     "ref": "https://api.github.com/repos/ivan-usov/FiberApp/git/trees/master?recursive=1",
+     "locator": "repository file tree",
+     "quote": "+panel/CurvatureDistribution.m"
+    },
+    {
+     "kind": "external",
+     "ref": "https://api.github.com/repos/ivan-usov/FiberApp/git/trees/master?recursive=1",
+     "locator": "repository file tree",
+     "quote": "+panel/HeightDistribution.m"
+    },
+    {
+     "kind": "external",
+     "ref": "https://api.github.com/repos/ivan-usov/FiberApp/git/trees/master?recursive=1",
+     "locator": "repository file tree",
+     "quote": "+panel/KinkAngleDistribution.m"
+    },
+    {
+     "kind": "external",
+     "ref": "https://api.github.com/repos/ivan-usov/FiberApp/git/trees/master?recursive=1",
+     "locator": "repository file tree",
+     "quote": "+panel/LengthDistribution.m"
+    },
+    {
+     "kind": "external",
+     "ref": "https://api.github.com/repos/ivan-usov/FiberApp/git/trees/master?recursive=1",
+     "locator": "repository file tree",
+     "quote": "+panel/OrderParameter2D.m"
+    },
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/ivan-usov/FiberApp/master/+panel/BondCorrelationFunction.m",
+     "locator": "BondCorrelationFunction.m",
+     "quote": "ft = fittype('exp(-x/(2*lp))');"
+    },
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/ivan-usov/FiberApp/master/+panel/MSEnd2EndDistance.m",
+     "locator": "MSEnd2EndDistance.m",
+     "quote": "ft = fittype('4*lp*(x-2*lp*(1-exp(-x/(2*lp))))');"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "FiberApp [@Usov2015] は、顕微鏡像中の繊維状物体を追跡し、長さ・高さ・曲率・キンク角の分布、結合相関関数と平均二乗末端間距離へのフィットから求める持続長、および二次元の秩序パラメータを計算する。これらのうちいくつかは本ツールでは計算しない。"
+  },
+  {
+   "sentence": "It differs from this project in three respects: the platform, how fibers are traced, and the input files it reads.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "doc",
+     "path": "paper.md",
+     "quote": "FiberApp runs in MATLAB"
+    },
+    {
+     "kind": "doc",
+     "path": "paper.md",
+     "quote": "FiberApp tracks fibers semi-automatically"
+    },
+    {
+     "kind": "doc",
+     "path": "paper.md",
+     "quote": "FiberApp reads Bruker NanoScope and `.flt` files"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "FiberApp は本ツールと、動作環境、繊維の追跡方法、読み込める入力ファイルの 3 点で異なる。"
+  },
+  {
+   "sentence": "FiberApp runs in MATLAB, a commercially licensed environment, whereas this project is written in Python on openly licensed dependencies, installs from source, can be scripted, and can be built with PyInstaller into a standalone Windows application that runs without a separate Python installation.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/ivan-usov/FiberApp/master/README.md",
+     "locator": "README",
+     "quote": "Execute `FiberApp.m` in matlab environment"
+    },
+    {
+     "kind": "external",
+     "ref": "https://en.wikipedia.org/wiki/MATLAB",
+     "locator": "Wikipedia, MATLAB, infobox",
+     "quote": "License Proprietary commercial software"
+    },
+    {
+     "kind": "external",
+     "ref": "https://pyinstaller.org/en/stable/",
+     "locator": "PyInstaller documentation",
+     "quote": "The user can run the packaged app without installing a Python interpreter or any modules."
+    },
+    {
+     "kind": "doc",
+     "path": "README.md",
+     "quote": "### Build a standalone Windows bundle"
+    },
+    {
+     "kind": "doc",
+     "path": "README.md",
+     "quote": "The build script generates a PyInstaller bundle under `dist/Main/`"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "FiberApp は商用ライセンスの環境である MATLAB 上で動作するのに対し、本ツールはオープンなライセンスの依存ライブラリを用いて Python で書かれており、ソースからインストールでき、スクリプトから使え、PyInstaller で、別途 Python をインストールしなくても動く単体の Windows アプリケーションにビルドできる。"
+  },
+  {
+   "sentence": "FiberApp tracks fibers semi-automatically, one object at a time: the user clicks a sequence of points along each fiber, which the A* path search, when enabled, connects along the image.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/ivan-usov/FiberApp/master/README.md",
+     "locator": "README",
+     "quote": "semi-automated tracking procedure based on _A* pathfinding algorithm_"
+    },
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/ivan-usov/FiberApp/master/+FiberAppGUI/AddFiber.m",
+     "locator": "AddFiber.m",
+     "quote": "if FA.aStar [x, y] = FA.getFiberAStar; else [x, y] = FA.getFiber; end"
+    },
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/ivan-usov/FiberApp/master/@FiberAppData/getFiberAStar.m",
+     "locator": "getFiberAStar.m",
+     "quote": "[xi, yi] = utility.searchPath(this.im, this.fiberIntensity*0.607, ... xdata(end), ydata(end), x, y);"
+    },
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/ivan-usov/FiberApp/master/+panel/FiberTrackingParameters.m",
+     "locator": "FiberTrackingParameters.m",
+     "quote": "'String', 'Use A* pathfinding algorithm',"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "FiberApp は繊維を半自動で 1 本ずつ追跡する。ユーザーが各繊維に沿って点を順にクリックし、A* 経路探索が有効な場合は、それらの点の間を画像に沿ってつなぐ。"
+  },
+  {
+   "sentence": "`AFM Nanofiber Analyzer` instead segments and skeletonizes the whole image without per-fiber interaction and processes folders of scans in batch, trading FiberApp's per-object control for throughput, and leaves crossings and overlaps to fragment reconnection and manual exclusion in the Fiber Tracker.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "cli.py",
+     "quote": "glob patterns are expanded"
+    },
+    {
+     "kind": "code",
+     "path": "lib/fiber_connector.py",
+     "symbol": "plan_from_auto_connect"
+    },
+    {
+     "kind": "code",
+     "path": "lib/fiber_selection.py",
+     "symbol": "save_exclusions"
+    }
+   ],
+   "ja": "これに対し `AFM Nanofiber Analyzer` は、繊維ごとの操作なしに画像全体を領域分割・細線化し、スキャンをフォルダ単位で一括処理する。FiberApp の物体ごとの制御と引き換えに処理量を得ており、交差や重なりは Fiber Tracker での断片の再連結と手動除外に委ねる。"
+  },
+  {
+   "sentence": "FiberApp reads Bruker NanoScope and `.flt` files, taking the scan size from their headers, and TIFF images, for which it assumes one nanometre per pixel until the user draws a scale bar and enters its length; this project reads instrument text and CSV exports, Gwyddion Export Text, and native `.gwy` files, takes the physical scan size from the file where the export records it or from a value the user enters, and records it in the bundle.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/ivan-usov/FiberApp/master/+FiberAppGUI/OpenImage.m",
+     "locator": "OpenImage.m",
+     "quote": "'*.flt', 'FLT image file (*.flt)'"
+    },
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/ivan-usov/FiberApp/master/+FiberAppGUI/OpenImage.m",
+     "locator": "OpenImage.m, TIFF branch",
+     "quote": "sizeX_nm = sizeX; sizeY_nm = sizeY; scaleXY = 1;"
+    },
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/ivan-usov/FiberApp/master/+utility/readNanoScopeImage.m",
+     "locator": "readNanoScopeImage.m",
+     "quote": "sizeX_nm = sscanf(sHeader{ind}, '\\\\Scan Size: %u nm');"
+    },
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/ivan-usov/FiberApp/master/+utility/readFltImage.m",
+     "locator": "readFltImage.m",
+     "quote": "sizeX_nm = sscanf(sHeader{strncmp(sHeader, 'ScanRangeX', 10)}, 'ScanRangeX=%f') * 1e3;"
+    },
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/ivan-usov/FiberApp/master/+FiberAppGUI/ScaleBarImage.m",
+     "locator": "ScaleBarImage.m",
+     "quote": "inputdlg('Scale Bar size (nm):')"
+    },
+    {
+     "kind": "doc",
+     "path": "README.md",
+     "quote": "The physical scan size is read from the input when present"
+    },
+    {
+     "kind": "code",
+     "path": "cli.py",
+     "quote": "scan_size_source=\"manual\","
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "FiberApp は Bruker NanoScope ファイルと `.flt` ファイルを読み込んでそのヘッダからスキャンサイズを取り、TIFF 画像はユーザーがスケールバーを引いてその長さを入力するまで 1 画素を 1 nm とみなす。本ツールは装置のテキスト・CSV 出力、Gwyddion Export Text、Gwyddion 形式の `.gwy` ファイルを読み込み、物理的なスキャンサイズを、出力ファイルに記録された値またはユーザーの入力値から取り、バンドルに記録する。"
+  },
+  {
+   "sentence": "TopoStats [@Beton2021] is an open-source Python program for automated processing of AFM images — flattening them, detecting grains and tracing molecules — developed for biomolecules; it runs from the command line with a default configuration that users can replace with their own YAML file.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "Beton2021",
+     "locator": "PMC8340030, highlights",
+     "quote": "TopoStats is a Python toolkit for automated AFM data processing."
+    },
+    {
+     "kind": "external",
+     "ref": "Beton2021",
+     "locator": "PMC8340030, section 2.1.3",
+     "quote": "Distortions in raw AFM images were corrected using functions from the Gwyddion Python library"
+    },
+    {
+     "kind": "external",
+     "ref": "Beton2021",
+     "locator": "PMC8340030, section 2.1.4",
+     "quote": "TopoStats uses pygwy’s automated masking functions to identify molecules"
+    },
+    {
+     "kind": "external",
+     "ref": "Beton2021",
+     "locator": "PMC8340030, section 2.1.5",
+     "quote": "generating smooth traces of each molecule identified as a Gwyddion grain"
+    },
+    {
+     "kind": "external",
+     "ref": "Beton2021",
+     "locator": "PMC8340030, section 3",
+     "quote": "We designed TopoStats for fast and automated structure analysis of biomolecules from AFM images."
+    },
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/AFM-SPM/TopoStats/main/README.md",
+     "locator": "README",
+     "quote": "A default configuration is loaded automatically that works with `.spm` files."
+    },
+    {
+     "kind": "external",
+     "ref": "https://raw.githubusercontent.com/AFM-SPM/TopoStats/main/README.md",
+     "locator": "README",
+     "quote": "If you have your own YAML configuration file"
+    },
+    {
+     "kind": "external",
+     "ref": "https://api.github.com/repos/AFM-SPM/TopoStats/license",
+     "locator": "GitHub licence record",
+     "quote": "GNU Lesser General Public License v3.0"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "TopoStats [@Beton2021] は AFM 像を自動処理するオープンソースの Python プログラムで、像の平坦化、グレインの検出、分子の追跡を行い、生体分子向けに開発された。既定の設定のままコマンドラインから実行でき、ユーザーは自分の YAML ファイルでその設定を置き換えられる。"
+  },
+  {
+   "sentence": "Trace_y [@Xue2025] reconstructs the three-dimensional surface envelopes of individual helical filaments from AFM height images.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "Xue2025",
+     "locator": "abstract",
+     "quote": "a software tool called Trace_y designed to reconstruct the three-dimensional (3D) surface envelopes of individual helical filament structures from topographical AFM height images is presented"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "Trace_y [@Xue2025] は、AFM 高さ像から個々のらせん状フィラメントの三次元の表面包絡を再構成する。"
+  },
+  {
+   "sentence": "Where these two were developed for biomolecules and for helical filaments, `AFM Nanofiber Analyzer` was developed on scans of cellulose nanofibers.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "Beton2021",
+     "locator": "PMC8340030, section 3",
+     "quote": "We designed TopoStats for fast and automated structure analysis of biomolecules from AFM images."
+    },
+    {
+     "kind": "external",
+     "ref": "Xue2025",
+     "locator": "abstract",
+     "quote": "demonstrated on the structural analysis of individual helical amyloid protein fibrils"
+    },
+    {
+     "kind": "doc",
+     "path": "docs/validation.md",
+     "quote": "Several defaults of the code were chosen by looking at these results"
+    },
+    {
+     "kind": "doc",
+     "path": "docs/validation.md",
+     "quote": "a tunicate CNF scan"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "これら二つが生体分子とらせん状フィラメントのために開発されたのに対し、`AFM Nanofiber Analyzer` はセルロースナノファイバーのスキャンをもとに開発された。"
+  },
+  {
+   "sentence": "Alongside per-fiber height, length, and curvature, it detects kinks along each fiber, and it stores the user's decisions to exclude or join fragments beside each bundle so that a curated population can be measured again.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "lib/measure.py",
+     "symbol": "FiberStats",
+     "quote": "height_median_nm"
+    },
+    {
+     "kind": "code",
+     "path": "lib/measure.py",
+     "symbol": "fiber_mean_curvature"
+    },
+    {
+     "kind": "code",
+     "path": "lib/kink_detector.py",
+     "symbol": "KinkDetector.judge_line"
+    },
+    {
+     "kind": "code",
+     "path": "lib/fiber_selection.py",
+     "symbol": "save_exclusions"
+    },
+    {
+     "kind": "code",
+     "path": "lib/connect_selection.py",
+     "symbol": "save_connect_plan"
+    },
+    {
+     "kind": "code",
+     "path": "lib/measure.py",
+     "symbol": "curate_fibers"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "本ツールは、繊維ごとの高さ・長さ・曲率に加えて、各繊維に沿ったキンクを検出し、断片を除外・連結するユーザーの判断を各バンドルと同じ場所に保存して、整理した繊維集団を再び測定できるようにする。"
+  },
+  {
+   "sentence": "Generic skeleton analysis is available in the bio-image ecosystem — the AnalyzeSkeleton plugin [@ArgandaCarreras2010] distributed with Fiji [@Schindelin2012] tags branches, junctions, and endpoints of a skeletonized image — and domain-specific tracers such as CT-FIRE [@Bredfeldt2014] extract fibers from second-harmonic-generation images of collagen.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "https://imagej.net/plugins/analyze-skeleton",
+     "locator": "AnalyzeSkeleton page",
+     "quote": "This plugin tags all pixel/voxels in a skeleton image"
+    },
+    {
+     "kind": "external",
+     "ref": "ArgandaCarreras2010",
+     "locator": "AnalyzeSkeleton page asks to cite doi:10.1002/jemt.20829",
+     "quote": "doi:10.1002/jemt.20829"
+    },
+    {
+     "kind": "external",
+     "ref": "Bredfeldt2014",
+     "locator": "PMC3886580, introduction",
+     "quote": "a process we call CT-FIRE"
+    }
+   ],
+   "ja": "汎用のスケルトン解析は生物画像の分野で利用でき — Fiji [@Schindelin2012] に同梱される AnalyzeSkeleton プラグイン [@ArgandaCarreras2010] は細線化画像の枝・分岐点・端点を識別する —、分野特化型の追跡ツールとしては CT-FIRE [@Bredfeldt2014] がコラーゲンの第二高調波発生像から繊維を抽出する。"
+  },
+  {
+   "sentence": "Each solves the extraction step for its own modality, but neither ingests calibrated AFM height data nor carries height in nanometers through to per-fiber statistics, which is the quantity of interest for nanocellulose morphology.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "external",
+     "ref": "https://imagej.net/plugins/analyze-skeleton",
+     "locator": "AnalyzeSkeleton page, measurements",
+     "quote": "The average and maximum length of branches, in the corresponding units"
+    },
+    {
+     "kind": "external",
+     "ref": "Bredfeldt2014",
+     "locator": "PMC3886580",
+     "quote": "two-dimensional (2-D) SHG images"
+    },
+    {
+     "kind": "external",
+     "ref": "Mayumi2026",
+     "locator": "abstract",
+     "quote": "AFM-derived heights"
+    }
+   ],
+   "ja": "いずれもそれぞれの撮像法に対して抽出の段階を担うが、どちらも補正済みの AFM 高さデータを取り込まず、ナノメートル単位の高さを繊維ごとの統計量まで引き継がない。その高さこそ、ナノセルロースの形態において注目される量である。"
+  },
+  {
+   "sentence": "The scientific-Python ecosystem supplies the lower-level building blocks [@Harris2020; @vanderWalt2014; @Virtanen2020; @Bradski2000]; this project assembles them into a fiber-centric pipeline with shared GUI and CLI front ends, a recorded parameter file per run, and an explicit, versioned data contract, so the same analysis can be scripted, audited, and rerun with the settings it recorded.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "lib/pipeline.py",
+     "symbol": "param_path_for"
+    },
+    {
+     "kind": "code",
+     "path": "cli.py",
+     "quote": "analysis-parameter JSON file"
+    },
+    {
+     "kind": "code",
+     "path": "lib/bundle_schema.py",
+     "symbol": "BUNDLE_FORMAT_VERSION"
+    },
+    {
+     "kind": "code",
+     "path": "guis/GUI01_Image_Preprocessor.py",
+     "quote": "process_file"
+    },
+    {
+     "kind": "code",
+     "path": "cli.py",
+     "symbol": "cmd_process"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "科学技術計算用の Python の生態系は下位の構成要素を提供しており [@Harris2020; @vanderWalt2014; @Virtanen2020; @Bradski2000]、本ツールはそれらを、GUI と CLI の共通のフロントエンド、実行ごとに記録されるパラメータファイル、明示的で版管理されたデータ契約を備えた、繊維中心のパイプラインに組み上げている。そのため同じ解析を、スクリプトで実行し、監査し、記録された設定で再実行できる。"
+  },
+  {
+   "sentence": "Shared preprocessing and analysis workflow from AFM height input to downstream GUI analyses and a compressed bundle.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "figure",
+     "path": "figures/pipeline.png",
+     "observed": "Inputs (.txt from Shimadzu, Bruker or Gwyddion, or .gwy) -> GUI01 (Calibrated, Binarized, Skeletonized + Kink-detected) -> .b2z bundle -> GUI02 Plot Profiler, GUI03 Fiber Morphology Statistics, GUI04 Fiber Tracker."
+    }
+   ],
+   "ja": "AFM 高さの入力から、下流の GUI による解析と圧縮バンドルまでの、共通の前処理・解析の流れ。"
+  },
+  {
+   "sentence": "The toolkit is organized so that both front ends share one implementation of the analysis.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "guis/GUI01_Image_Preprocessor.py",
+     "quote": "process_file"
+    },
+    {
+     "kind": "code",
+     "path": "cli.py",
+     "symbol": "cmd_process"
+    },
+    {
+     "kind": "code",
+     "path": "guis/GUI04_Tracking_fiber.py",
+     "quote": "measure_bundle"
+    },
+    {
+     "kind": "code",
+     "path": "cli.py",
+     "symbol": "cmd_measure"
+    }
+   ],
+   "ja": "本ツールキットは、両方のフロントエンドが解析の一つの実装を共有するように構成されている。"
+  },
+  {
+   "sentence": "As summarized in \\autoref{fig:pipeline}, AFM height data from Shimadzu, Bruker or Gwyddion text exports, or native Gwyddion `.gwy` files, enters the *Image Preprocessor* (GUI01), which produces calibrated, binarized, and skeletonized/kink-detected images and writes them to one `.b2z` bundle per input.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "lib/bundle_schema.py",
+     "symbol": "REQUIRED_BUNDLE_KEYS",
+     "quote": "\"calibrated\", \"binarized\", \"skeletonized\""
+    },
+    {
+     "kind": "code",
+     "path": "lib/pipeline.py",
+     "symbol": "bundle_path_for"
+    },
+    {
+     "kind": "doc",
+     "path": "README.md",
+     "quote": "Shimadzu SPM-9600"
+    }
+   ],
+   "ja": "\\autoref{fig:pipeline} にまとめたように、島津・Bruker・Gwyddion のテキスト出力、または Gwyddion 形式の `.gwy` ファイルの AFM 高さデータは *Image Preprocessor*（GUI01）に入り、補正・二値化・細線化／キンク検出の各画像が作られ、入力 1 件につき 1 つの `.b2z` バンドルに書き出される。"
+  },
+  {
+   "sentence": "The resulting bundles are consumed by the *Plot Profiler* (GUI02), the *Fiber Morphology Statistics* (GUI03), and the *Fiber Tracker* (GUI04) for line-profile extraction, grouped morphology statistics, and per-fiber tracking and measurement, respectively.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "guis/GUI02_PlotProfiler.py",
+     "quote": "skimage.measure.profile_line"
+    },
+    {
+     "kind": "code",
+     "path": "guis/GUI03_Fiber_Morphology_Statistics.py",
+     "quote": "from lib.group_compare import compare_groups"
+    },
+    {
+     "kind": "code",
+     "path": "guis/GUI04_Tracking_fiber.py",
+     "quote": "measure_bundle"
+    }
+   ],
+   "ja": "作られたバンドルは、*Plot Profiler*（GUI02）、*Fiber Morphology Statistics*（GUI03）、*Fiber Tracker*（GUI04）がそれぞれ、線プロファイルの抽出、グループ別の形態統計、繊維ごとの追跡と測定に使う。"
+  },
+  {
+   "sentence": "A tkinter launcher discovers these tools in `guis/`, together with the *Format Converter* (GUI00), which converts files GUI01 cannot read into `.gwy` by running the separately installed, optional `gwyconvert` converter.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "Main.py",
+     "symbol": "GUIS_DIR_NAME"
+    },
+    {
+     "kind": "code",
+     "path": "lib/gwy_convert.py",
+     "symbol": "find_converter"
+    },
+    {
+     "kind": "code",
+     "path": "lib/gwy_convert.py",
+     "symbol": "convert_file"
+    },
+    {
+     "kind": "code",
+     "path": "lib/gwy_convert.py",
+     "symbol": "INSTALL_COMMAND"
+    }
+   ],
+   "ja": "tkinter のランチャーは、これらのツールを *Format Converter*（GUI00）とともに `guis/` から見つけ出す。*Format Converter* は、別途インストールする任意の変換ツール `gwyconvert` を実行して、GUI01 が読めないファイルを `.gwy` に変換する。"
+  },
+  {
+   "sentence": "Modules in `lib/` implement the input handling, background calibration, segmentation, skeletonization, kink detection, and per-fiber measurement.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "lib/afm_io.py",
+     "symbol": "load_afm_image"
+    },
+    {
+     "kind": "code",
+     "path": "lib/bg_calibrator.py",
+     "symbol": "BGCalibrator"
+    },
+    {
+     "kind": "code",
+     "path": "lib/segmenter.py",
+     "symbol": "Segmenter"
+    },
+    {
+     "kind": "code",
+     "path": "lib/skeletonizer.py",
+     "symbol": "Skeletonizer"
+    },
+    {
+     "kind": "code",
+     "path": "lib/kink_detector.py",
+     "symbol": "KinkDetector"
+    },
+    {
+     "kind": "code",
+     "path": "lib/measure.py",
+     "symbol": "measure_bundle"
+    }
+   ],
+   "ja": "`lib/` のモジュールが、入力の処理、背景補正、領域分割、細線化、キンク検出、繊維ごとの測定を実装している。"
+  },
+  {
+   "sentence": "A command-line interface provides batch preprocessing, validation, measurement, skeleton-height extraction, and bundle export.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "cli.py",
+     "quote": "\"process\","
+    },
+    {
+     "kind": "code",
+     "path": "cli.py",
+     "quote": "\"validate\","
+    },
+    {
+     "kind": "code",
+     "path": "cli.py",
+     "quote": "\"measure\","
+    },
+    {
+     "kind": "code",
+     "path": "cli.py",
+     "quote": "\"heights\","
+    },
+    {
+     "kind": "code",
+     "path": "cli.py",
+     "quote": "\"export\","
+    }
+   ],
+   "ja": "コマンドラインインターフェースは、一括の前処理、検証、測定、スケルトン上の高さの抽出、バンドルの書き出しを提供する。"
+  },
+  {
+   "sentence": "The GUI preprocessor and the CLI call the same pipeline function, and the GUI measurement views and the CLI call the same measurement routines, so equivalent runs produce identical numerical results — keeping the analysis in `lib/` and the interfaces thin is a deliberate choice that prevents the front ends from drifting apart.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "tests/test_gui_cli_equivalence.py",
+     "symbol": "test_gui01_and_cli_produce_identical_bundles"
+    },
+    {
+     "kind": "code",
+     "path": "tests/test_measure.py",
+     "symbol": "test_cli_measure_writes_identical_csv"
+    }
+   ],
+   "note": "The bundle equivalence test runs on a synthetic scan.",
+   "ja": "GUI の前処理と CLI は同じパイプライン関数を呼び、GUI の測定画面と CLI は同じ測定ルーチンを呼ぶので、同等の実行は同一の数値結果を生む。解析を `lib/` に置きインターフェースを薄く保つのは、フロントエンド同士が食い違っていくのを防ぐための意図的な選択である。"
+  },
+  {
+   "sentence": "Results are persisted as one compressed bundle per input (`.b2z`, built on `blosc2`) with a JSON record of the analysis parameters.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "lib/blosc2_io.py",
+     "symbol": "save_bundle"
+    },
+    {
+     "kind": "code",
+     "path": "lib/pipeline.py",
+     "symbol": "bundle_path_for"
+    },
+    {
+     "kind": "code",
+     "path": "lib/pipeline.py",
+     "symbol": "param_path_for"
+    }
+   ],
+   "ja": "結果は入力 1 件につき 1 つの圧縮バンドル（`.b2z`、`blosc2` を基盤とする）として、解析パラメータの JSON 記録とともに保存される。"
+  },
+  {
+   "sentence": "The bundle's required keys, shapes, units, coordinate convention, and format version are defined by an executable schema validated both when the bundle is written and before it is measured, so the measurement tools fail loudly on an out-of-contract bundle instead of producing silently wrong measurements.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "lib/bundle_schema.py",
+     "symbol": "validate_bundle"
+    },
+    {
+     "kind": "code",
+     "path": "lib/pipeline.py",
+     "symbol": "process_file",
+     "quote": "raise ValueError( \"bundle contract violation before save: \""
+    },
+    {
+     "kind": "code",
+     "path": "lib/measure.py",
+     "symbol": "_load_validated_arrays",
+     "quote": "f\"bundle contract violation in"
+    }
+   ],
+   "ja": "バンドルの必須キー・配列形状・単位・座標の取り方・形式の版は、バンドルの書き込み時と測定前の両方で検証される実行可能なスキーマで定義されているため、測定ツールは契約に合わないバンドルに対して、黙って誤った測定値を出すのではなく明示的に失敗する。"
+  },
+  {
+   "sentence": "The physical scan size travels with each bundle, read from the input metadata where the instrument records it, so length measurements are reproducible from the bundle alone and a folder of differently sized scans needs no batch-wide value.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "doc",
+     "path": "README.md",
+     "quote": "The physical scan size is read from the input when present"
+    },
+    {
+     "kind": "code",
+     "path": "lib/bundle_schema.py",
+     "symbol": "scan_size_um_from_meta"
+    },
+    {
+     "kind": "code",
+     "path": "lib/measure.py",
+     "symbol": "measure_bundle"
+    }
+   ],
+   "ja": "物理的なスキャンサイズは、装置が記録している場合は入力のメタデータから読み取られて各バンドルとともに保存されるので、長さの測定はバンドルだけから再現でき、大きさの異なるスキャンを集めたフォルダにも一括で共通の値を与える必要がない。"
+  },
+  {
+   "sentence": "Bundles export to NumPy `.npz` or CSV for use outside the project.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "cli.py",
+     "symbol": "cmd_export",
+     "quote": "choices=(\"npz\", \"csv\")"
+    }
+   ],
+   "ja": "バンドルは、本プロジェクトの外で使うために NumPy の `.npz` または CSV に書き出せる。"
+  },
+  {
+   "sentence": "Background calibration offers three interchangeable methods (trend-surface removal with nearest-background hole filling, morphological top-hat, and row- or column-wise 1D splines) so line-scan artefacts of differing severity can be addressed without changing the rest of the pipeline.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "lib/bg_calibrator.py",
+     "symbol": "BG_METHOD_NAMES",
+     "quote": "(\"trendfill\", \"tophat\", \"spline1d\")"
+    }
+   ],
+   "ja": "背景補正は、互いに置き換え可能な 3 つの手法（傾向面の除去と最も近い背景による穴埋め、モルフォロジーのトップハット、行または列ごとの 1 次元スプライン）を備えているので、程度の異なる走査線のアーチファクトに、パイプラインの他の部分を変えずに対処できる。"
+  },
+  {
+   "sentence": "Its defaults were developed and tuned on Shimadzu SPM-9600 scans; other instruments are supported but may need parameter adjustment.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "author",
+     "reason": "Confirmed by the user (an author of the paper) in conversation on 2026-10-22."
+    }
+   ],
+   "ja": "その既定値は島津 SPM-9600 のスキャンで開発・調整された。他の装置にも対応しているが、パラメータの調整が必要な場合がある。"
+  },
+  {
+   "sentence": "No published study has yet used this package.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "author",
+     "reason": "Confirmed by the user (an author of the paper) in conversation on 2026-10-22."
+    }
+   ],
+   "ja": "本パッケージを使った研究はまだ出版されていない。"
+  },
+  {
+   "sentence": "Its precursor scripts [@Ito_afm_image], from which its analysis has since diverged, produced the AFM fiber heights reported in three nanocellulose studies [@Ito2022; @Ito2025; @Mayumi2026].",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "author",
+     "reason": "Confirmed by the user (an author of the paper) in conversation on 2026-10-22."
+    },
+    {
+     "kind": "external",
+     "ref": "Ito2025",
+     "locator": "full text, PMC12007098",
+     "quote": "analyzed using a modified version of the self-made software used in a previous study"
+    }
+   ],
+   "ja": "その前身のスクリプト [@Ito_afm_image] は、本パッケージの解析がそこから変わってきたものであり、3 本のナノセルロース研究で報告された AFM による繊維の高さを算出した [@Ito2022; @Ito2025; @Mayumi2026]。"
+  },
+  {
+   "sentence": "The repository ships AFM exports of three scans, in Shimadzu and Bruker text formats, Gwyddion Export Text and native `.gwy` files exported from one of them, and regression tests that run the full analysis on these scans and compare the results with recorded baselines.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "doc",
+     "path": "docs/validation.md",
+     "quote": "a Bruker NDTOC scan"
+    },
+    {
+     "kind": "doc",
+     "path": "README.md",
+     "quote": "Shimadzu SPM-9600"
+    },
+    {
+     "kind": "code",
+     "path": "tests/test_strict_regression.py",
+     "symbol": "_pipeline_signatures"
+    },
+    {
+     "kind": "code",
+     "path": "tests/test_measurement_regression.py",
+     "symbol": "_measure_signatures"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "リポジトリには、島津と Bruker のテキスト形式による 3 つのスキャンの AFM 出力、そのうちの 1 つから書き出した Gwyddion Export Text と Gwyddion 形式の `.gwy` ファイル、およびこれらのスキャンで解析全体を実行して記録済みの基準値と比べる回帰テストが含まれる。"
+  },
+  {
+   "sentence": "These tests check that the software installs, reads real instrument exports and writes valid bundles.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": ".github/workflows/test.yml",
+     "quote": "python -m pip install -e \".[dev]\""
+    },
+    {
+     "kind": "code",
+     "path": "tests/test_integration.py",
+     "symbol": "test_default_pipeline_golden_stats"
+    },
+    {
+     "kind": "code",
+     "path": "lib/pipeline.py",
+     "symbol": "process_file",
+     "quote": "problems = validate_bundle(arrays, require=REQUIRED_BUNDLE_KEYS)"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "これらのテストは、ソフトウェアがインストールでき、実際の装置の出力を読み込み、有効なバンドルを書き出すことを確かめる。"
+  },
+  {
+   "sentence": "On the machine that recorded the baselines they detect any change in the arrays the analysis stores for two of the scans under each background method, and in the per-fiber CSV table, the traced heights and each fiber's mean curvature of all three at the default settings and with each skeleton cleanup turned off; on continuous integration, one bundled scan is analyzed and its pixel and kink counts are compared within 5%.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "tests/test_strict_regression.py",
+     "symbol": "_pipeline_signatures",
+     "quote": "for method in BG_METHODS:"
+    },
+    {
+     "kind": "code",
+     "path": "tests/test_strict_regression.py",
+     "quote": "because the exact-byte baseline reproduces only on the machine that generated"
+    },
+    {
+     "kind": "code",
+     "path": "tests/test_measurement_regression.py",
+     "symbol": "SETTINGS",
+     "quote": "\"spur_length_0\": {\"spur_length\": 0},"
+    },
+    {
+     "kind": "code",
+     "path": "tests/test_measurement_regression.py",
+     "symbol": "_measure_signatures",
+     "quote": "\"fiber_csv_sha256\": _sha256(csv_bytes),"
+    },
+    {
+     "kind": "code",
+     "path": "tests/test_integration.py",
+     "symbol": "RELATIVE_TOLERANCE",
+     "quote": "RELATIVE_TOLERANCE = 0.05"
+    },
+    {
+     "kind": "code",
+     "path": "tests/test_measurement_regression.py",
+     "symbol": "_measure_signatures",
+     "quote": "\"curvature_sha256\": _sha256( np.ascontiguousarray(curvature, dtype=np.float64).tobytes()),"
+    },
+    {
+     "kind": "code",
+     "path": "tests/test_measurement_regression.py",
+     "symbol": "_measure_signatures",
+     "quote": "fiber_mean_curvature(f, result.image.size_per_pixel, result.image.y_size_per_pixel)"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "基準値を記録したマシンでは、そのうち 2 つのスキャンについて背景補正法ごとに解析が保存する配列の変化を、3 つすべてについて既定の設定とスケルトンのクリーニングを一つずつ止めた設定での繊維ごとの CSV 表・追跡した高さ・各繊維の平均曲率の変化を、すべて検出する。継続的インテグレーションでは、同梱スキャンの 1 つを解析し、その画素数とキンク数を 5% の範囲で照合する。"
+  },
+  {
+   "sentence": "They do not measure accuracy against an independent reference.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "code",
+     "path": "tests/test_integration.py",
+     "quote": "Baseline statistics recorded with the default parameters"
+    }
+   ],
+   "note": "Adopted by the user on 2026-10-22 after fact-check rounds 1-6.",
+   "ja": "独立した基準に対する精度は測っていない。"
+  },
+  {
+   "sentence": "Evaluations of the individual stages on these scans and on synthetic images of known geometry are documented in `docs/validation.md`.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "doc",
+     "path": "docs/validation.md",
+     "quote": "Synthetic suite"
+    },
+    {
+     "kind": "doc",
+     "path": "docs/validation.md",
+     "quote": "Bundled scans"
+    }
+   ],
+   "ja": "これらのスキャンと、幾何形状が既知の合成画像での各段階の評価は、`docs/validation.md` にまとめている。"
+  },
+  {
+   "sentence": "Kink detection has not been validated against kinks marked by people: the reference it was developed against was marked by an AI coding agent (see the AI usage disclosure), so its scores in `docs/validation.md` are not an independent estimate of accuracy.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "doc",
+     "path": "docs/validation.md",
+     "quote": "kinks marked on the height images of the bundled scans by an AI coding agent (Claude Code)"
+    },
+    {
+     "kind": "doc",
+     "path": "docs/validation.md",
+     "quote": "the reference served as a development set rather than an independent test"
+    }
+   ],
+   "ja": "キンク検出は人が付けたキンクに対しては検証されていない。開発に用いた基準は AI コーディングエージェントが付けたものであり（AI 利用の開示を参照）、そのため `docs/validation.md` の得点は精度の独立した推定値ではない。"
+  },
+  {
+   "sentence": "During software development and preparation of the JOSS submission, the authors used the following generative AI tools:",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "author",
+     "reason": "Confirmed by the user (an author of the paper) in conversation on 2026-10-22."
+    }
+   ],
+   "ja": "ソフトウェアの開発と JOSS 投稿の準備において、著者らは次の生成 AI ツールを使用した。"
+  },
+  {
+   "sentence": "Claude Code (Anthropic) with the models Claude Opus 4.8, Claude Opus 5, Claude Opus 5.5, Claude Fable 5, and Claude Fable 5.1, for drafting and refactoring code; writing tests, validation scripts, and repository checks; writing and translating docstrings, comments, and the user-interface translation catalogs between English and Japanese; and drafting and revising the documentation and the JOSS manuscript.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "author",
+     "reason": "Confirmed by the user (an author of the paper) in conversation on 2026-10-22."
+    }
+   ],
+   "ja": "モデル Claude Opus 4.8、Claude Opus 5、Claude Opus 5.5、Claude Fable 5、Claude Fable 5.1 を用いた Claude Code（Anthropic）：コードの起草とリファクタリング、テスト・検証スクリプト・リポジトリの検査の作成、docstring・コメント・ユーザーインターフェースの翻訳カタログの作成と英日間の翻訳、文書と JOSS 原稿の起草と改訂。"
+  },
+  {
+   "sentence": "Claude Opus 4.5 (Anthropic) in a chat interface, for discussing implementation approaches.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "author",
+     "reason": "Confirmed by the user (an author of the paper) in conversation on 2026-10-22."
+    }
+   ],
+   "ja": "チャット画面での Claude Opus 4.5（Anthropic）：実装方針の検討。"
+  },
+  {
+   "sentence": "Codex with ChatGPT 5.5 sol (OpenAI), for drafting and refactoring code.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "author",
+     "reason": "Confirmed by the user (an author of the paper) in conversation on 2026-10-22."
+    }
+   ],
+   "ja": "ChatGPT 5.5 sol を用いた Codex（OpenAI）：コードの起草とリファクタリング。"
+  },
+  {
+   "sentence": "ChatGPT (OpenAI), for generating the overview artwork in `assets/afm_symbol.png`.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "author",
+     "reason": "Confirmed by the user (an author of the paper) in conversation on 2026-10-22."
+    }
+   ],
+   "ja": "ChatGPT（OpenAI）：`assets/afm_symbol.png` の概要を表すイラストの生成。"
+  },
+  {
+   "sentence": "The tools were used under author supervision.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "author",
+     "reason": "Confirmed by the user (an author of the paper) in conversation on 2026-10-22."
+    }
+   ],
+   "ja": "これらのツールは著者の監督のもとで使用した。"
+  },
+  {
+   "sentence": "Beyond drafting code and text, Claude Code proposed candidate analysis rules, among them the kink criterion and the fiber centerline definition, designed and ran the evaluation experiments reported in `docs/validation.md`, and marked the visual kink reference used there.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "author",
+     "reason": "Confirmed by the user (an author of the paper) in conversation on 2026-10-22."
+    }
+   ],
+   "ja": "Claude Code は、コードと文章の起草に加えて、キンクの判定基準や繊維の中心線の定義を含む解析規則の候補を提案し、`docs/validation.md` に報告した評価実験を設計・実行し、そこで用いたキンクの目視基準を付けた。"
+  },
+  {
+   "sentence": "The authors chose among these proposals, reviewed the evaluations, and verified all AI-assisted output against the source code and their domain knowledge.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "author",
+     "reason": "Confirmed by the user (an author of the paper) in conversation on 2026-10-22."
+    }
+   ],
+   "ja": "著者らはこれらの提案の中から選択し、評価を確認し、AI の支援を受けたすべての出力をソースコードと自らの専門知識に照らして検証した。"
+  },
+  {
+   "sentence": "The authors made the final design and scientific decisions and take full responsibility for the software, documentation, and manuscript.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "author",
+     "reason": "Confirmed by the user (an author of the paper) in conversation on 2026-10-22."
+    }
+   ],
+   "ja": "設計と科学上の最終判断は著者らが行い、ソフトウェア・文書・原稿に全責任を負う。"
+  },
+  {
+   "sentence": "This work was supported by JST CREST, Japan (Grant Number JPMJCR22L3) and JSPS KAKENHI grants (21H04733, 26K23040).",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "author",
+     "reason": "Confirmed by the user (an author of the paper) in conversation on 2026-10-22."
+    },
+    {
+     "kind": "external",
+     "ref": "https://kaken.nii.ac.jp/en/grant/KAKENHI-PROJECT-21H04733/",
+     "locator": "KAKEN record",
+     "quote": "KAKENHI-PROJECT-21H04733"
+    },
+    {
+     "kind": "external",
+     "ref": "https://kaken.nii.ac.jp/en/grant/KAKENHI-PROJECT-26K23040/",
+     "locator": "KAKEN record",
+     "quote": "KAKENHI-PROJECT-26K23040"
+    }
+   ],
+   "ja": "本研究は、日本の JST CREST（課題番号 JPMJCR22L3）および JSPS 科研費（21H04733、26K23040）の支援を受けた。"
+  }
+ ],
+ "title_ja": "AFM Nanofiber Analyzer：AFM 高さ像からナノファイバーの形態を測る GUI・CLI ツールキット",
+ "headings_ja": {
+  "Summary": "概要",
+  "Statement of need": "必要性",
+  "State of the field": "分野の現状",
+  "Software design": "ソフトウェアの設計",
+  "Research impact statement": "研究へのインパクト",
+  "AI usage disclosure": "AI 利用の開示",
+  "Acknowledgements": "謝辞",
+  "References": "参考文献"
+ }
+}

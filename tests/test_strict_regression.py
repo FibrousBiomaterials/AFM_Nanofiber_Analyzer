@@ -5,19 +5,21 @@ Strict (exact) pipeline-output regression test on the bundled real scans.
 
 Unlike `test_integration.py`, which checks a few summary statistics with a 5%
 tolerance, this test pins every output array of the preprocessing pipeline
-(`calibrated`, `binarized`, `skeletonized`, `bp`, `ep`, `kp`, `dp`, `ka`, `up`) to a
-recorded SHA-256 baseline, for every bundled sample file in
-``testdata_tunicateCNF`` and ``testdata_higherplantTOC`` and for all four
-``bg_method`` values. Any code change that alters a single output value —
-including ``calibrated`` heights that the tolerant golden test could mask —
-makes this test fail.
+(`calibrated`, `binarized`, `skeletonized`, `bp`, `ep`, `kp`, `dp`, `ka`, `up`,
+`ke`) to a recorded SHA-256 baseline, for every bundled sample file in
+``testdata_tunicateCNF`` and ``testdata_higherplantTOC`` and for every
+``bg_method`` value, with the other parameters at their defaults. Any code
+change that alters a single output value of these runs — including
+``calibrated`` heights that the tolerant golden test could mask — makes this
+test fail; a change that only affects other parameter values is not exercised.
 `test_integration.py` が要約統計を 5% 許容で照合するのに対し、本テストは
 前処理パイプラインの全出力配列（``calibrated``・``binarized``・
-``skeletonized``・``bp``・``ep``・``kp``・``dp``・``ka``・``up``）を記録済みの
-SHA-256 ベースラインに固定する。対象は ``testdata_tunicateCNF`` と
-``testdata_higherplantTOC`` の同梱サンプル全ファイル × 全 4 ``bg_method``。
-``calibrated`` の高さ 1 要素の変化（許容付きゴールデンテストでは見逃しうる）
-を含め、出力を変える変更があれば必ず失敗する。
+``skeletonized``・``bp``・``ep``・``kp``・``dp``・``ka``・``up``・``ke``）を
+記録済みの SHA-256 ベースラインに固定する。対象は ``testdata_tunicateCNF`` と
+``testdata_higherplantTOC`` の同梱サンプル全ファイル × 全 ``bg_method`` で、
+他のパラメータは既定値とする。これらの実行の出力を 1 要素でも変える変更は、
+``calibrated`` の高さ（許容付きゴールデンテストでは見逃しうる）を含め、必ず
+失敗させる。他のパラメータ値でだけ現れる変更は試さない。
 
 This guard is local-only: it is skipped on CI (``CI`` / ``GITHUB_ACTIONS``)
 because the exact-byte baseline reproduces only on the machine that generated

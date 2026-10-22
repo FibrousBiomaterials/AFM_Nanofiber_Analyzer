@@ -95,6 +95,9 @@ testdata_Bruker_txt/*
 # verification (scripts/check_doc_numbers.py, tests/test_doc_numbers.py).
 !tests/doc_measurements.json
 !tests/doc_numbers_pending.json
+# What supports each sentence of paper.md (scripts/check_paper_claims.py,
+# tests/test_paper_claims.py); without it CI fails on a missing file.
+!tests/paper_claims.json
 # Zenodo deposition metadata must be version-controlled so the Zenodo GitHub
 # integration reads it from the archived release; otherwise *.json above hides it.
 !.zenodo.json

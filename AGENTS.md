@@ -1348,6 +1348,50 @@ imports a stage module or a stage driver, and by
 `tests/test_measurement_regression.py` (local), whose golden moves — and so
 requires a changelog entry under §8.11 — whenever a measured value changes.
 
+### 8.17 Claims in `paper.md`
+
+Every prose sentence of `paper.md` — figure captions and list items included —
+has one entry in `tests/paper_claims.json` recording what supports it, and
+`scripts/check_paper_claims.py` checks the entries. The reason is what happened
+without it: the manuscript attributed to FiberApp's authors a reason nobody
+had read in their paper, misdescribed which files FiberApp reads, and described its
+A* tracking incorrectly, all in confident prose indistinguishable from the
+sentences that had been checked.
+
+- A sentence is `verified` only with at least one source: a repository
+  document containing a quoted passage (`doc`), a definition or quoted line of
+  code (`code`), an image and what was seen in it (`figure`), a passage read
+  in published work or another project (`external`: a `paper.bib` key or URL,
+  the page or file, and the passage), or a fact only the authors know
+  (`author`, naming who confirmed it). `doc` and `code` quotes are checked
+  against the files; an `external` quote is checked by whoever writes it,
+  against the original, verbatim.
+- **`author` is set only when the user has confirmed the statement in the
+  conversation.** An agent never records its own belief about the authors,
+  their data, or their tools as an `author` source.
+- An evaluative or comparative statement ("the most widely used", "the closest
+  tool") is not verified by a source describing the tool; it stays
+  `unverified` until the authors confirm it as their assessment or remove it.
+- Anything else is `unverified`, with a `note` saying what is missing. Editing
+  a sentence detaches it from its entry, so it must be verified again; the
+  staged check refuses a commit that adds an unverified sentence, so the
+  unverified set only shrinks. `--add-missing` records new sentences as
+  unverified for filling in; `--list-unverified` prints them.
+- **`paper.ja.md` is generated, never edited.** Each entry also holds the
+  sentence's Japanese translation (`ja`), and the record holds `title_ja` and
+  `headings_ja`; `--write-ja` builds `paper.ja.md` from them in the paragraph
+  structure of `paper.md`. The check fails when a sentence, heading or the title
+  has no translation, when a translation's citations or inline code differ from
+  the English or it drops a number (an added digit is allowed only for a number
+  the English spells out), and when `paper.ja.md` differs from what `--write-ja`
+  produces. Editing an English sentence detaches its translation with its
+  sources, so the translation is redone with the verification. Whether a
+  translation says what the English says is not machine-checked: have it read
+  against the English before it is recorded.
+
+Enforced by `.githooks/pre-commit` (`--staged`) and `tests/test_paper_claims.py`
+(CI). Do not bypass either with `--no-verify`.
+
 ## 9. Summary
 
 | Item | Rule |
@@ -1393,6 +1437,7 @@ requires a changelog entry under §8.11 — whenever a measured value changes.
 | Readers of bundles | Measure the stored record as stored; never run background calibration, segmentation, skeletonization or its cleanup passes, `process_file` or `build_stages` when reading a bundle; recompute only what the recorded settings determine; handle an older format by asking for re-analysis, never by repairing it on load; enforced by `tests/test_reader_purity.py` and `tests/test_measurement_regression.py` (§8.16). |
 | Algorithm changes | A change to `bg_calibrator.py`, `segmenter.py`, `skeletonizer.py`, `kink_detector.py`, or `centerline.py` includes updating `docs/algorithms.md` **and** `docs/algorithms.ja.md`; refresh `tests/algorithm_doc_manifest.json` only after rereading the affected sections. Explain each step with its code and formula, quoting code only as verified `# source: <path>::<symbol>` excerpts (identical in both languages); reference code by symbol name, never by line number. Enforced by `.githooks/pre-commit`, `tests/test_algorithm_docs.py`, and the `PostToolUse` hook `.claude/hooks/doc_code_reminder.py` (§8.13). |
 | GUI04 measurement changes | A change to a symbol in `WATCHED_SYMBOLS` (`scripts/check_gui04_docs.py`), or a new GUI04 fiber-table column (which needs its own §3 subsection naming it), includes updating `docs/gui04_measurements.md` **and** `docs/gui04_measurements.ja.md`, prose and quoted excerpts alike; refresh `tests/gui04_doc_manifest.json` with `scripts/check_gui04_docs.py --update` only after rereading. Quote code only in `# source: <path>::<symbol>` blocks. Say 「中心線」/「スケルトントラック」 ("centerline"/"skeleton track"), never a bare 「線」/"line". Enforced by `.githooks/pre-commit`, `tests/test_gui04_docs.py`, and the `PostToolUse` hook `.claude/hooks/doc_code_reminder.py` (§8.14). |
+| Claims in `paper.md` | Every sentence has an entry in `tests/paper_claims.json`: `verified` with a checked source (`doc`, `code`, `figure`, `external` with a verbatim quote, or `author` only when the user confirmed it), or `unverified` with a note; evaluative claims stay unverified until the authors confirm them; a commit may not add an unverified sentence; each entry carries its Japanese translation and `paper.ja.md` is generated from them with `--write-ja`, never edited by hand; checked by `scripts/check_paper_claims.py` in pre-commit and `tests/test_paper_claims.py` (§8.17). |
 | Version bookkeeping | Package version later than the last `vX.Y.Z` tag and equal in `pyproject.toml` / `lib/__init__.py`; a bundle-format bump listed in `SUPPORTED_BUNDLE_VERSIONS`, CHANGELOG `[Unreleased]` and both READMEs with at least a MINOR step; a removed `ProcParams` field only with a MAJOR step. Enforced by `scripts/check_versions.py` in `.githooks/pre-commit` (§8.2). |
 | Destructive Git operations | Forbidden unless explicitly requested; `git restore` of files corrupted by your own edit is allowed. |
 | Deleting files | Only to the recycle bin with `scripts/trash.py` (or `trash.send_to_trash` in code); irreversible delete commands are denied in `.claude/settings.json`, and a denial is not worked around another way. |

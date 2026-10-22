@@ -4,28 +4,33 @@ Strict (exact) regression test of the measurement layer on the bundled scans.
 同梱スキャンに対する、計測層の厳密（完全一致）回帰テスト。
 
 `test_strict_regression.py` pins the arrays the preprocessing pipeline stores;
-this test pins what is *measured* from them. Each of the five bundled scans
-(`scripts/kink_reference_score.SCANS`) is analyzed with the default settings
+this test pins what is *measured* from them. Each bundled scan in
+`scripts/kink_reference_score.SCANS` is analyzed with the default settings
 and with each skeleton cleanup turned off (``max_loop_area=0``,
 ``spur_length=0``), and the bundle is measured as GUI03, GUI04 and ``cli.py``
-measure it (`measure.measure_bundle`, `measure.skeleton_height_values`). The
-per-fiber CSV that `measure.write_fiber_csv` writes and the traced height
-values are recorded as SHA-256 hashes, so a change to any measured value fails
-the test, including one made only when a bundle is read, which the pipeline
-goldens cannot see. The settings that turn a cleanup off are included because
-a reader that repeats a cleanup at its own defaults leaves the default
-analysis unchanged and overrides only such settings.
+measure it (`measure.measure_bundle`, `measure.skeleton_height_values`,
+`measure.fiber_mean_curvature` at its default window). The per-fiber CSV that
+`measure.write_fiber_csv` writes, the traced height values and each fiber's
+mean curvature are recorded as SHA-256 hashes, so the test fails when any of
+them changes — the CSV at the precision it is written with, the heights and
+curvatures exactly — including a change made only when a bundle is read,
+which the pipeline goldens cannot see. Settings other than these three, and
+saved exclusions or connections, are not exercised. The settings that turn a
+cleanup off are included because a reader that repeats a cleanup at its own
+defaults leaves the default analysis unchanged and overrides only such
+settings.
 `test_strict_regression.py` はパイプラインが保存する配列を固定する。本テストは
-そこから *計測される* 値を固定する。同梱の 5 スキャン
-（`scripts/kink_reference_score.SCANS`）を既定の設定と、骨格のクリーニングを
-それぞれ切った設定（``max_loop_area=0``、``spur_length=0``）で解析し、GUI03・
-GUI04・``cli.py`` と同じ方法（`measure.measure_bundle`、
-`measure.skeleton_height_values`）で計測する。`measure.write_fiber_csv` が書く
-繊維ごとの CSV と追跡した高さの値を SHA-256 ハッシュで記録するので、計測値が
-1 つでも変われば失敗する。バンドルを読むときだけに起きる変化も含み、これは
-パイプラインの golden からは見えない。クリーニングを切る設定を含めるのは、
-読み込み側が自分の既定値でクリーニングを繰り返すと、既定の解析は変わらず、
-そうした設定だけが上書きされるためである。
+そこから *計測される* 値を固定する。`scripts/kink_reference_score.SCANS` の
+同梱スキャンを既定の設定と、スケルトンのクリーニングをそれぞれ切った設定
+（``max_loop_area=0``、``spur_length=0``）で解析し、GUI03・GUI04・``cli.py`` と
+同じ方法（`measure.measure_bundle`、`measure.skeleton_height_values`、既定の窓の
+`measure.fiber_mean_curvature`）で計測する。`measure.write_fiber_csv` が書く
+繊維ごとの CSV、追跡した高さの値、各繊維の平均曲率を SHA-256 ハッシュで記録
+するので、いずれかが変われば失敗する。CSV は書き出す精度で、高さと曲率は
+厳密に比べる。バンドルを読むときだけに起きる変化も含み、これはパイプラインの
+golden からは見えない。この 3 つ以外の設定や、保存した除外・連結は試さない。
+クリーニングを切る設定を含めるのは、読み込み側が自分の既定値でクリーニングを
+繰り返すと、既定の解析は変わらず、そうした設定だけが上書きされるためである。
 
 A change to `measurement_regression_golden.json` means measured results moved,
 so `scripts/check_changelog.py` requires a ``## [Unreleased]`` entry in
@@ -60,7 +65,9 @@ import pytest
 
 from lib.blosc2_io import load_bundle, load_bundle_meta
 from lib.bundle_schema import scan_size_um_from_meta
-from lib.measure import measure_bundle, skeleton_height_values, write_fiber_csv
+from lib.measure import (
+    fiber_mean_curvature, measure_bundle, skeleton_height_values, write_fiber_csv,
+)
 from lib.pipeline import ProcParams, process_file
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -114,9 +121,10 @@ def _measure_signatures(rel: str) -> dict:
     dict
         For each setting name, the fiber count, the total contour length
         (nm, rounded to 0.1 for reading a mismatch), and the SHA-256 of the
-        fiber CSV and of the traced height values.
+        fiber CSV, of the traced height values and of each fiber's mean
+        curvature.
         設定名ごとに、繊維数、輪郭長の合計（nm。食い違いを読むため 0.1 に
-        丸める）、繊維 CSV と追跡した高さの値の SHA-256。
+        丸める）、繊維 CSV・追跡した高さの値・各繊維の平均曲率の SHA-256。
     """
     out: dict = {}
     with tempfile.TemporaryDirectory() as folder:
@@ -142,11 +150,23 @@ def _measure_signatures(rel: str) -> dict:
                 csv_bytes = f.read()
             heights, errors = skeleton_height_values([bundle])
             assert not errors, errors
+            # Curvature is not a column of the fiber CSV, but GUI03 histograms
+            # it and GUI04 shows it, so it is fingerprinted on its own, with the
+            # function and default window both of them use.
+            # 曲率は繊維 CSV の列ではないが、GUI03 が分布を描き GUI04 が表示する
+            # ので、両者と同じ関数・既定の窓で別に指紋を取る。
+            curvature = [
+                fiber_mean_curvature(f, result.image.size_per_pixel,
+                                     result.image.y_size_per_pixel)
+                for f in result.fibers
+            ]
             out[name] = {
                 "fibers": len(result.stats),
                 "total_length_nm": round(float(sum(s.length_nm for s in result.stats)), 1),
                 "fiber_csv_sha256": _sha256(csv_bytes),
                 "heights_sha256": _sha256(np.ascontiguousarray(heights, dtype=np.float64).tobytes()),
+                "curvature_sha256": _sha256(
+                    np.ascontiguousarray(curvature, dtype=np.float64).tobytes()),
             }
     return out
 
@@ -177,7 +197,7 @@ pytestmark = [
 
 @pytest.mark.parametrize("scan", sorted(SCANS))
 def test_measured_values_match_golden(scan):
-    """Every measured value of every setting matches the recorded baseline."""
+    """The recorded measurements of every setting match the baseline."""
     golden = _load_golden()
     rel = Path(SCANS[scan]).as_posix()
     assert rel in golden, (
