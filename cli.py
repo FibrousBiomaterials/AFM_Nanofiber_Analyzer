@@ -148,9 +148,19 @@ def _background_warning_text(warning) -> str:
     if warning.suggest_method == "tophat":
         advice = (f'rerun with "bg_method": "tophat", "tophat_se_size": '
                   f"{warning.suggest_tophat_se_size} in the --params file")
-    else:
+    elif warning.suggest_method:
         advice = (f'rerun with "bg_method": "{warning.suggest_method}" '
                   f"in the --params file")
+    else:
+        advice = "check on the calibrated image that the fibers are still there"
+    if warning.reason == "width_unmeasured":
+        return ("warning: no apparent width could be measured for most fibers, so the "
+                "background could not be checked; a calibration that removed the fibers "
+                f"also leaves this; {advice}")
+    if warning.reason == "relief_absorbed":
+        why = (f"{warning.absorbed_fraction:.0%} of the fibers' relief was subtracted as "
+               f"background standing above the background beside them")
+        return f"warning: {why}; fiber heights read low; {advice}"
     if warning.reason == "element_small":
         why = (f"tophat_se_size is small for the fibers' apparent width "
                f"(median {warning.width_px:.1f} px)")

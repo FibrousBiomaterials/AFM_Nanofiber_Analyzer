@@ -921,16 +921,19 @@ return out_binary_image.astype(bool)
   入力では、大きなかたまりを検査しても消えるものは無く、検査を省いても結果は
   変わらなかった（[個別データでの評価](validation.ja.md) §2.6）。ただし、大きな汚れの
   かたまりのような、線の形をしていない大きなものも、検査されずに残る。
-- かたまりを囲む長方形（バウンディングボックス）が縦も横も `h_length`
-  （既定 20<!--c:lib/pipeline.py::ProcParams.h_length--> px）より短いかたまりは消す。必要な長さの線が入りようがないから
-  である（`h_length` には、次の項目で使うもう 1<!--n:count--> つの役目がある。この節の最後で説明する）。
-- それ以外のかたまりは、囲む長方形の中で Canny 法（画像の縁を取り出す標準的な
-  方法）で輪郭を取り出し、Hough 変換で直線を探す。Hough 変換は、直線を「原点から
-  直線までの距離」と「直線の傾きの角度」の 2<!--n:count--> つの値で表し、考えられる直線
-  ごとに、その上に乗る輪郭の点の数を数える方法で、この数を「投票数」と呼ぶ。
+- 最大の差し渡しが `h_length`（既定 20<!--c:lib/pipeline.py::ProcParams.h_length--> px）より短いかたまりは消す。必要な長さの
+  線が入りようがないからである。最大の差し渡し（`_max_extent_px`、最大フェレ径）は、
+  かたまりの画素の角どうしの最長の距離である。かたまりを囲む長方形（バウンディング
+  ボックス）の辺を使わないのは、長方形が縦横の向きにそろっているためである。斜めに
+  置かれたかたまりでは、長方形の辺はかたまりより最大 $\sqrt{2}$ 倍短くなり、同じ形でも
+  角度によって通ったり落ちたりする。
+- それ以外のかたまりは、囲む長方形の周りに 1<!--n:literal in the quoted code--> 画素の余白を付けて Canny 法（画像の縁を
+  取り出す標準的な方法）で輪郭を取り出し、Hough 変換で直線を探す。Hough 変換は、直線を
+  「原点から直線までの距離」と「直線の傾きの角度」の 2<!--n:count--> つの値で表し、考えられる
+  直線ごとに、その上に乗る輪郭の点の数を数える方法で、この数を「投票数」と呼ぶ。
   投票数が多い直線（Hough ピーク）ほど、輪郭のうち多くの点がその直線に乗って
-  いる。投票数が `h_length` より多い直線を拾い（互いに近すぎる直線の扱いは、この節の最後で
-  説明する）、その投票数を合計する。直線
+  いる。`h_length` より長い直線を拾い（投票数を長さとして読む方法は下で、互いに近すぎる
+  直線の扱いはこの節の最後で説明する）、その投票数を合計する。直線
   らしさの点数は
 
   $$
@@ -951,17 +954,47 @@ return out_binary_image.astype(bool)
 分子と分母の両方に入り、そのかたまりが残るかどうかが「たまたま近くに何が
 あったか」で決まってしまう。
 
-切り出しは、囲む長方形ぴったりで、周りに余白を付けない。`skimage.feature.canny` は
-画像のいちばん外側の画素を輪郭にしないので、かたまりの縁のうち、長方形の辺に重なる
-部分は輪郭として数えられない。縦か横にまっすぐ走る帯では、両側の縁がどちらも
-長方形の辺に重なる。すると長い直線が 1<!--n:count--> 本も見つからず、$s_{\text{ratio}} = 0$ になり、面積が
-1000<!--n:literal in the quoted code--> 画素より小さければ、まっすぐなのに消される。これは、線のような形を残すという
-このフィルタの目的に反する性質である。囲む長方形の辺に沿う部分が多い、縦か横に
-近い向きの短い繊維片ほど消えやすいので、繊維の向きによって、残るものに偏りが
-出うる。また、曲がった繊維片や折れた繊維片は、輪郭が長い直線に乗らないので点数が
-下がり、面積が 1000<!--n:literal in the quoted code--> 画素より小さければ消されうる。テスト入力でこのフィルタが実際に
-消したもの（本物の繊維片を含む）は、[個別データでの評価](validation.ja.md) §2.5 にある。
-短い繊維片を数える解析では、この性質に注意してほしい。
+最大の差し渡しは、かたまりの画素の角を囲む凸包の頂点どうしの最長の距離である。
+
+```python
+# source: lib/segmenter.py::_max_extent_px
+ys, xs = np.nonzero(mask)
+corners = np.concatenate(
+    [np.column_stack((xs + dx, ys + dy)) for dx in (0, 1) for dy in (0, 1)]
+).astype(np.float32)
+hull = cv2.convexHull(corners).reshape(-1, 2).astype(float)
+gaps = hull[:, None, :] - hull[None, :, :]
+return float(np.sqrt((gaps ** 2).sum(axis=-1)).max())
+```
+
+切り出しの周りには、空の画素 1<!--n:literal in the quoted code--> 画素分の余白を付ける（`np.pad(target, 1)`）。
+`skimage.feature.canny` は画像のいちばん外側の画素を輪郭にしないので、余白が無いと、
+かたまりの縁のうち長方形の辺に重なる部分が輪郭として数えられない。縦か横にまっすぐ
+走る帯では、両側の長い縁がどちらもそこに重なる。余白が無ければ長い直線が 1<!--n:count--> 本も
+見つからず、まっすぐなのに消されてしまう。
+
+直線の投票数は、その直線に乗る輪郭の画素の数である。決まった長さの直線が何画素に
+なるかは、角度で変わる。行や列に沿うデジタル直線は、長さ 1<!--n:definition--> 画素ごとに 1<!--n:definition--> 画素を持つ。
+45<!--n:definition--> 度の直線は、長さ $\sqrt{2}$ の斜めの 1<!--n:definition--> 歩ごとに 1<!--n:definition--> 画素を持つ。一般に、角度 $\theta$、
+長さ $L$ の直線は $L \max(|\cos\theta|, |\sin\theta|)$ 画素を持つ
+（`skimage.transform.hough_line` が返す角度は直線の法線の角度だが、この係数は同じ
+になる）。そこで、
+
+$$
+\text{投票数} > h_{\text{length}} \max(|\cos\theta|, |\sin\theta|)
+$$
+
+を満たす直線を拾う。投票数を長さに直した値が、角度によらず `h_length` を超える直線
+である。`skimage.transform.hough_line_peaks` には、このしきい値のうち最も小さい
+$h_{\text{length}} / \sqrt{2}$（45<!--n:definition--> 度の直線）を渡し、返ってきたピークを 1<!--n:count--> 本ずつ、
+その角度で判定する。投票数を `h_length` そのものと比べると、斜めの直線には、軸に
+沿う直線より最大 $\sqrt{2}$ 倍の長さを求めることになる。まっすぐな棒の判定が、それでも
+角度にどれだけ左右されるかは、[個別データでの評価](validation.ja.md) §2.5 で測っている。
+
+曲がった繊維片や折れた繊維片は、輪郭が長い直線に乗らないので点数が下がり、面積が
+1000<!--n:literal in the quoted code--> 画素より小さければ消されうる。テスト入力でこのフィルタが実際に消したもの
+（本物の繊維片を含む）は、[個別データでの評価](validation.ja.md) §2.5 にある。短い繊維片を
+数える解析では、この性質に注意してほしい。
 
 ```python
 # source: lib/segmenter.py::Segmenter._remove_nonlinear_objects
@@ -969,34 +1002,35 @@ for i in range(1, n_labels):
     left, top, width, height, area = stats[i]
     if area >= 1000:
         continue
-    if max(width, height) < h_length:
-        out_binary_image[label_image == i] = 0
-        continue
     target = label_image[
         top : top + height, left : left + width
     ] == i
-    target_edge = canny(target, sigma=0, low_threshold=0, high_threshold=1)
+    if _max_extent_px(target) < h_length:
+        out_binary_image[label_image == i] = 0
+        continue
+    target_edge = canny(
+        np.pad(target, 1), sigma=0, low_threshold=0, high_threshold=1
+    )
     h, theta, d = hough_line(target_edge)
-    accums, _, _ = hough_line_peaks(
+    accums, angles, _ = hough_line_peaks(
         h, theta, d,
         min_distance=max(1, linegap),
         min_angle=1,
-        threshold=h_length,
+        threshold=h_length / np.sqrt(2),
     )
-    if len(accums) > 0:
-        total_length = float(np.sum(accums))
-    else:
-        total_length = 0.0
+    pixels_per_length = np.maximum(np.abs(np.cos(angles)), np.abs(np.sin(angles)))
+    long_enough = accums > h_length * pixels_per_length
+    total_length = float(np.sum(accums[long_enough]))
     s_ratio = total_length / (np.sum(target_edge) + _DENOM_EPS)
     self.h_sratio_list.append(s_ratio)
     if s_ratio < h_sratio and np.sum(target) < 1000:
         out_binary_image[label_image == i] = 0
 ```
 
-なお、`h_length` はこの関数の中で 2<!--n:count--> つの役目を持つ。囲む長方形の判定では画素で
-測った長さとして、Hough のピーク探しでは、投票数のしきい値（線の長さの目安）として使われる。
-`skimage.transform.hough_line_peaks` が拾うのは投票数がこの値を超える直線で、
-この値と等しい直線は拾わない。
+なお、`h_length` はこの関数の中で 2<!--n:count--> 回、どちらも画素で測った長さとして使われる。
+かたまりの最大の差し渡しの下限と、Hough の直線が超えなければならない長さである。後者の
+比較は厳密で、投票数がその角度でのしきい値と等しい直線は拾わない。
+`skimage.transform.hough_line_peaks` も、自分の `threshold` 引数を同じように扱う。
 
 コードの `linegap` は、この関数の引数で、既定は 1<!--c:lib/segmenter.py::Segmenter._remove_nonlinear_objects(linegap)--> である（`Segmenter.__call__` はこの引数を
 渡さないので、いつも既定値が使われる）。`skimage.transform.hough_line_peaks` の引数

@@ -85,9 +85,9 @@ Bruker NDTOC のスキャンは同じ分散液を測ったもので、後者は 
 
 | 入力 | 行、`trendfill` | 行、`'x'` | 行、`'y'` | 列、`trendfill` | 列、`'x'` | 列、`'y'` |
 |---|---|---|---|---|---|---|
-| チュニケート CNF | 0.010<!--m:spline1d_axis.tunicate.trendfill.row_median_std_nm--> | 0.007<!--m:spline1d_axis.tunicate.x.row_median_std_nm--> | 0.085<!--m:spline1d_axis.tunicate.y.row_median_std_nm--> | 0.011<!--m:spline1d_axis.tunicate.trendfill.column_median_std_nm--> | 0.017<!--m:spline1d_axis.tunicate.x.column_median_std_nm--> | 0.015<!--m:spline1d_axis.tunicate.y.column_median_std_nm--> |
-| 高等植物 TOC | 0.222<!--m:spline1d_axis.hplantTOC.trendfill.row_median_std_nm--> | 0.006<!--m:spline1d_axis.hplantTOC.x.row_median_std_nm--> | 0.279<!--m:spline1d_axis.hplantTOC.y.row_median_std_nm--> | 0.005<!--m:spline1d_axis.hplantTOC.trendfill.column_median_std_nm--> | 0.006<!--m:spline1d_axis.hplantTOC.x.column_median_std_nm--> | 0.009<!--m:spline1d_axis.hplantTOC.y.column_median_std_nm--> |
-| Bruker NDTOC | 0.018<!--m:spline1d_axis.NDTOC.trendfill.row_median_std_nm--> | 0.019<!--m:spline1d_axis.NDTOC.x.row_median_std_nm--> | 0.308<!--m:spline1d_axis.NDTOC.y.row_median_std_nm--> | 0.015<!--m:spline1d_axis.NDTOC.trendfill.column_median_std_nm--> | 0.015<!--m:spline1d_axis.NDTOC.x.column_median_std_nm--> | 0.036<!--m:spline1d_axis.NDTOC.y.column_median_std_nm--> |
+| チュニケート CNF | 0.010<!--m:spline1d_axis.tunicate.trendfill.row_median_std_nm--> | 0.007<!--m:spline1d_axis.tunicate.x.row_median_std_nm--> | 0.081<!--m:spline1d_axis.tunicate.y.row_median_std_nm--> | 0.011<!--m:spline1d_axis.tunicate.trendfill.column_median_std_nm--> | 0.017<!--m:spline1d_axis.tunicate.x.column_median_std_nm--> | 0.015<!--m:spline1d_axis.tunicate.y.column_median_std_nm--> |
+| 高等植物 TOC | 0.226<!--m:spline1d_axis.hplantTOC.trendfill.row_median_std_nm--> | 0.005<!--m:spline1d_axis.hplantTOC.x.row_median_std_nm--> | 0.281<!--m:spline1d_axis.hplantTOC.y.row_median_std_nm--> | 0.005<!--m:spline1d_axis.hplantTOC.trendfill.column_median_std_nm--> | 0.006<!--m:spline1d_axis.hplantTOC.x.column_median_std_nm--> | 0.009<!--m:spline1d_axis.hplantTOC.y.column_median_std_nm--> |
+| Bruker NDTOC | 0.019<!--m:spline1d_axis.NDTOC.trendfill.row_median_std_nm--> | 0.019<!--m:spline1d_axis.NDTOC.x.row_median_std_nm--> | 0.306<!--m:spline1d_axis.NDTOC.y.row_median_std_nm--> | 0.015<!--m:spline1d_axis.NDTOC.trendfill.column_median_std_nm--> | 0.015<!--m:spline1d_axis.NDTOC.x.column_median_std_nm--> | 0.036<!--m:spline1d_axis.NDTOC.y.column_median_std_nm--> |
 
 `'y'` では、行ごとのばらつきがどの入力でも `trendfill` より大きかった。補正後の画像を
 描くと、`'y'` では、チュニケート、Bruker、高等植物の入力で、画像全体に明るい横帯と
@@ -106,7 +106,7 @@ Bruker NDTOC のスキャンは同じ分散液を測ったもので、後者は 
 |---|---|---|---|
 | チュニケート CNF | 0.069<!--m:spline1d_axis_rotated.tunicate.trendfill.column_median_std_nm--> | 0.120<!--m:spline1d_axis_rotated.tunicate.x.column_median_std_nm--> | 0.072<!--m:spline1d_axis_rotated.tunicate.y.column_median_std_nm--> |
 | 高等植物 TOC | 0.040<!--m:spline1d_axis_rotated.hplantTOC.trendfill.column_median_std_nm--> | 0.073<!--m:spline1d_axis_rotated.hplantTOC.x.column_median_std_nm--> | 0.040<!--m:spline1d_axis_rotated.hplantTOC.y.column_median_std_nm--> |
-| Bruker NDTOC | 0.046<!--m:spline1d_axis_rotated.NDTOC.trendfill.column_median_std_nm--> | 0.265<!--m:spline1d_axis_rotated.NDTOC.x.column_median_std_nm--> | 0.047<!--m:spline1d_axis_rotated.NDTOC.y.column_median_std_nm--> |
+| Bruker NDTOC | 0.046<!--m:spline1d_axis_rotated.NDTOC.trendfill.column_median_std_nm--> | 0.261<!--m:spline1d_axis_rotated.NDTOC.x.column_median_std_nm--> | 0.047<!--m:spline1d_axis_rotated.NDTOC.y.column_median_std_nm--> |
 
 高等植物のスキャンを除く 2<!--n:count--> つの入力では、回すと、`trendfill` も含めてどの方式でも
 ばらつきが大きくなった（最初の表と比べる）。そのため、この表の数値からは `'y'` の
@@ -127,7 +127,7 @@ savgol_axis）。表は、背景（2<!--n:count--> つの二値化マスクを�
 | 入力 | 行、X のみ | 行、X と Y |
 |---|---|---|
 | チュニケート CNF | 0.010<!--m:savgol_axis.tunicate.x_only.row_median_std_nm--> | 0.070<!--m:savgol_axis.tunicate.x_and_y.row_median_std_nm--> |
-| 高等植物 TOC | 0.222<!--m:savgol_axis.hplantTOC.x_only.row_median_std_nm--> | 0.291<!--m:savgol_axis.hplantTOC.x_and_y.row_median_std_nm--> |
+| 高等植物 TOC | 0.226<!--m:savgol_axis.hplantTOC.x_only.row_median_std_nm--> | 0.293<!--m:savgol_axis.hplantTOC.x_and_y.row_median_std_nm--> |
 | Bruker NDTOC | 0.015<!--m:savgol_axis.NDTOC.x_only.row_median_std_nm--> | 0.046<!--m:savgol_axis.NDTOC.x_and_y.row_median_std_nm--> |
 Y 方向にもならすと、どの入力でも行ごとのばらつきが大きくなった。補正後の画像を
 描くと、両方向にならした画像では、チュニケートと高等植物のスキャンに、
@@ -159,38 +159,108 @@ zoomed_background）。各同梱スキャンについて、既定の補正後の
 ガウス関数でぼかしたものを基準の高さとし、既定の解析が引いた背景を背景とする。
 基準は元の画素サイズでの既定の解析そのものなので、下の「残った高さ」が測るのは、
 画素を細かくしたときにそれに比べて失われる高さであり、既定の解析自体の誤差では
-ない。この実験は高さの絶対的な精度を測っていない。
+ない。この実験は高さの絶対的な精度を測っていない。それは §1.9 で合成繊維について測る。
 スケルトン画素を最も多く含む 256<!--c:scripts/measure_docs.py::ZOOM_TILE--> px の切り出し 2<!--n:count--> 枚を
 各拡大率で補間して拡大する。撮る範囲は同じまま、画素だけが細かくなる。そこに元の
 スキャンと同じ大きさの白色ノイズ（0.027<!--m:zoomed_background.tunicate.noise_nm-->〜0.064<!--m:zoomed_background.NDTOC.noise_nm--> nm）を加え、各方式を既定値で
-4<!--n:count--> 段すべてに通す。元の画素サイズでの繊維の見かけ幅は 7.6<!--m:zoomed_background.hplantTOC.width_px-->〜8.6<!--m:zoomed_background.NDTOC.width_px--> px なので、
+4<!--n:count--> 段すべてに通す。元の画素サイズでの繊維の見かけ幅は 7.5<!--m:zoomed_background.hplantTOC.width_px-->〜8.6<!--m:zoomed_background.NDTOC.width_px--> px なので、
 拡大率 $k$ では約 $k$ 倍の画素にまたがる。「残った高さ」は、既定のスケルトンの点で
 補正後の高さを基準の高さで割った値の中央値で、ここでは切り出しごとの範囲を示す。
 
 | 拡大率 | trendfill | spline1d | tophat |
 |---|---|---|---|
-| 1<!--n:value tried--> | 0.97〜1.00<!--m:zoomed_background.trendfill.x1.kept_range--> | 0.99〜1.02<!--m:zoomed_background.spline1d.x1.kept_range--> | 0.92〜0.98<!--m:zoomed_background.tophat.x1.kept_range--> |
+| 1<!--n:value tried--> | 0.97〜1.00<!--m:zoomed_background.trendfill.x1.kept_range--> | 0.99〜1.01<!--m:zoomed_background.spline1d.x1.kept_range--> | 0.92〜0.98<!--m:zoomed_background.tophat.x1.kept_range--> |
 | 1.5<!--n:value tried--> | 0.61〜1.00<!--m:zoomed_background.trendfill.x1.5.kept_range--> | 0.89〜1.00<!--m:zoomed_background.spline1d.x1.5.kept_range--> | 0.83〜0.95<!--m:zoomed_background.tophat.x1.5.kept_range--> |
 | 2<!--n:value tried--> | 0.32〜1.00<!--m:zoomed_background.trendfill.x2.kept_range--> | 0.63〜1.00<!--m:zoomed_background.spline1d.x2.kept_range--> | 0.64〜0.83<!--m:zoomed_background.tophat.x2.kept_range--> |
-| 3<!--n:value tried--> | 0.13〜0.96<!--m:zoomed_background.trendfill.x3.kept_range--> | 0.26〜0.99<!--m:zoomed_background.spline1d.x3.kept_range--> | 0.29〜0.49<!--m:zoomed_background.tophat.x3.kept_range--> |
-| 4<!--n:value tried--> | 0.08〜0.18<!--m:zoomed_background.trendfill.x4.kept_range--> | 0.13〜0.93<!--m:zoomed_background.spline1d.x4.kept_range--> | 0.15〜0.28<!--m:zoomed_background.tophat.x4.kept_range--> |
+| 3<!--n:value tried--> | 0.13〜0.96<!--m:zoomed_background.trendfill.x3.kept_range--> | 0.26〜0.99<!--m:zoomed_background.spline1d.x3.kept_range--> | 0.31〜0.49<!--m:zoomed_background.tophat.x3.kept_range--> |
+| 4<!--n:value tried--> | 0.08〜0.18<!--m:zoomed_background.trendfill.x4.kept_range--> | 0.13〜0.93<!--m:zoomed_background.spline1d.x4.kept_range--> | 0.17〜0.28<!--m:zoomed_background.tophat.x4.kept_range--> |
 
-すべての実行で `background_warnings`（`lib/pipeline.py`）を確かめ、警告が出た実行は
-警告の勧めどおりに解析し直した。
+すべての実行で `background_warnings`（`lib/pipeline.py`）を確かめ、勧める設定を伴う
+警告が出た実行は、その設定で解析し直した。
 
 | 拡大率 | 実行数 | 残った高さ 0.9<!--n:definition--> 未満 | うち警告なし | 警告あり | 警告ありで 0.97<!--n:definition--> 以上残った |
 |---|---|---|---|---|---|
 | 1<!--n:value tried--> | 18<!--m:zoomed_background.x1.runs--> | 0<!--m:zoomed_background.x1.below_90--> | 0<!--m:zoomed_background.x1.below_90_unwarned--> | 3<!--m:zoomed_background.x1.warned--> | 2<!--m:zoomed_background.x1.warned_above_97--> |
 | 1.5<!--n:value tried--> | 18<!--m:zoomed_background.x1.5.runs--> | 7<!--m:zoomed_background.x1.5.below_90--> | 1<!--m:zoomed_background.x1.5.below_90_unwarned--> | 10<!--m:zoomed_background.x1.5.warned--> | 1<!--m:zoomed_background.x1.5.warned_above_97--> |
-| 2<!--n:value tried--> | 18<!--m:zoomed_background.x2.runs--> | 12<!--m:zoomed_background.x2.below_90--> | 1<!--m:zoomed_background.x2.below_90_unwarned--> | 11<!--m:zoomed_background.x2.warned--> | 0<!--m:zoomed_background.x2.warned_above_97--> |
-| 3<!--n:value tried--> | 18<!--m:zoomed_background.x3.runs--> | 15<!--m:zoomed_background.x3.below_90--> | 14<!--m:zoomed_background.x3.below_90_unwarned--> | 1<!--m:zoomed_background.x3.warned--> | 0<!--m:zoomed_background.x3.warned_above_97--> |
-| 4<!--n:value tried--> | 18<!--m:zoomed_background.x4.runs--> | 17<!--m:zoomed_background.x4.below_90--> | 17<!--m:zoomed_background.x4.below_90_unwarned--> | 0<!--m:zoomed_background.x4.warned--> | 0<!--m:zoomed_background.x4.warned_above_97--> |
+| 2<!--n:value tried--> | 18<!--m:zoomed_background.x2.runs--> | 12<!--m:zoomed_background.x2.below_90--> | 0<!--m:zoomed_background.x2.below_90_unwarned--> | 12<!--m:zoomed_background.x2.warned--> | 0<!--m:zoomed_background.x2.warned_above_97--> |
+| 3<!--n:value tried--> | 18<!--m:zoomed_background.x3.runs--> | 15<!--m:zoomed_background.x3.below_90--> | 2<!--m:zoomed_background.x3.below_90_unwarned--> | 15<!--m:zoomed_background.x3.warned--> | 1<!--m:zoomed_background.x3.warned_above_97--> |
+| 4<!--n:value tried--> | 18<!--m:zoomed_background.x4.runs--> | 17<!--m:zoomed_background.x4.below_90--> | 3<!--m:zoomed_background.x4.below_90_unwarned--> | 15<!--m:zoomed_background.x4.warned--> | 0<!--m:zoomed_background.x4.warned_above_97--> |
 
-勧めどおりに解析し直すと、警告が出た実行では高さの 0.88〜1.02<!--m:zoomed_background.followed.kept_range--> が残り、背景の誤差の
-95<!--n:definition--> パーセンタイルは最大 0.24<!--m:zoomed_background.followed.bg95_max--> nm だった。拡大率 3<!--n:value tried--> からは、警告はほとんど出ない。補正が
-各繊維の大部分を取り除き、その後の段では幅を測れる繊維が 1<!--n:count--> 本も見つからないことが
-多いため、限界と比べる対象が残らないからである。拡大率 2<!--n:value tried--> までは、高さを失った実行の
-大半で警告が出た（警告が出なかったのは、1.5<!--n:value tried--> で 1<!--m:zoomed_background.x1.5.below_90_unwarned--> 件、2<!--n:value tried--> で 1<!--m:zoomed_background.x2.below_90_unwarned--> 件）。それを超えると、ほぼ出ない。
+繊維の幅を測れなかったという警告には、従う設定が無い。警告が出た 55<!--m:zoomed_background.warned--> 回のうち 28<!--m:zoomed_background.warned_without_advice--> 回は
+その警告だけだった。それ以外の警告が出た実行を勧めどおりに解析し直すと、高さの
+0.51〜1.01<!--m:zoomed_background.followed.kept_range--> が残り、背景の誤差の 95<!--n:definition--> パーセンタイルは最大 0.24<!--m:zoomed_background.followed.bg95_max--> nm で、4<!--m:zoomed_background.followed.still_warned--> 回は再び警告が
+出た。最も低い 0.51<!--m:zoomed_background.x4.followed_kept_range[0]--> は、拡大率 4<!--n:value tried--> で勧める設定を伴った唯一の実行である。高さの 0.9<!--n:definition--> 未満
+しか残らなかった実行のうち、警告が出なかったのは、拡大率 1.5<!--n:value tried--> で 1<!--m:zoomed_background.x1.5.below_90_unwarned--> 回、3<!--n:value tried--> で 2<!--m:zoomed_background.x3.below_90_unwarned--> 回、
+4<!--n:value tried--> で 3<!--m:zoomed_background.x4.below_90_unwarned--> 回である。見かけ幅から予測する警告と、補正後の画像を測る警告を分けた結果は
+§1.10 にある。
+
+### 1.9 高さが既知の合成繊維
+
+同梱スキャンには繊維の高さが既知のものが無いので、高さが既知の直線繊維を描いて
+解析した（実験 synthetic_height）。直径 $D$ = 2<!--n:value tried-->、4<!--n:value tried-->、8<!--n:value tried--> nm の平行な円柱 3<!--n:count--> 本を、半径 15<!--c:scripts/synthetic_suite.py::TIP--> nm の
+球状の探針先端で撮ったものとし、320<!--n:value tried--> × 320<!--n:value tried--> px の走査に 1<!--n:value tried-->、2<!--n:value tried-->、5<!--n:value tried-->、10<!--n:value tried--> nm の画素で描いた。
+合成データ一式と同じ傾斜・粗さ・走査線ノイズと、0.05<!--n:value tried--> または 0.2<!--n:value tried--> nm の画素ノイズを
+加えた。各円柱を探針で撮った断面は、走査が表面を標本化するのと同じく、各画素の中心で
+評価した。各繊維の中央 80<!--n:definition--> % で次の 3<!--n:count--> つを読み、$D$ で割る。画素格子が示せる
+高さ（繊維だけの画像の、軸に最も近い画素の値）、背景補正がその画素で取り除いた
+高さ（繊維だけの画像から補正後の画像を引いた値の中央値）、報告される高さ（追跡した
+繊維の高さ標本の中央値）である。`trendfill`、ノイズ 0.05<!--n:value tried--> nm での結果は次のとおり。
+
+| 画素サイズ | $D$ | $W$ | 画素格子が示す高さ | 取り除かれた高さ | 報告される高さ |
+|---|---|---|---|---|---|
+| 1<!--n:value tried--> nm | 2<!--n:value tried--> nm | 11.1<!--m:synthetic_height.px1.d2.w_px--> px | 1.00<!--m:synthetic_height.px1.d2.n0.05.peak--> | 0.13<!--m:synthetic_height.trendfill.px1.d2.n0.05.bg_loss--> | 0.94<!--m:synthetic_height.trendfill.px1.d2.n0.05.height--> |
+| 1<!--n:value tried--> nm | 4<!--n:value tried--> nm | 16.0<!--m:synthetic_height.px1.d4.w_px--> px | 1.00<!--m:synthetic_height.px1.d4.n0.05.peak--> | 0.53<!--m:synthetic_height.trendfill.px1.d4.n0.05.bg_loss--> | – |
+| 1<!--n:value tried--> nm | 8<!--n:value tried--> nm | 23.3<!--m:synthetic_height.px1.d8.w_px--> px | 1.00<!--m:synthetic_height.px1.d8.n0.05.peak--> | 0.84<!--m:synthetic_height.trendfill.px1.d8.n0.05.bg_loss--> | – |
+| 2<!--n:value tried--> nm | 2<!--n:value tried--> nm | 5.6<!--m:synthetic_height.px2.d2.w_px--> px | 0.99<!--m:synthetic_height.px2.d2.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px2.d2.n0.05.bg_loss--> | 1.02<!--m:synthetic_height.trendfill.px2.d2.n0.05.height--> |
+| 2<!--n:value tried--> nm | 4<!--n:value tried--> nm | 8.0<!--m:synthetic_height.px2.d4.w_px--> px | 1.00<!--m:synthetic_height.px2.d4.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px2.d4.n0.05.bg_loss--> | 1.02<!--m:synthetic_height.trendfill.px2.d4.n0.05.height--> |
+| 2<!--n:value tried--> nm | 8<!--n:value tried--> nm | 11.7<!--m:synthetic_height.px2.d8.w_px--> px | 1.00<!--m:synthetic_height.px2.d8.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px2.d8.n0.05.bg_loss--> | 1.01<!--m:synthetic_height.trendfill.px2.d8.n0.05.height--> |
+| 5<!--n:value tried--> nm | 2<!--n:value tried--> nm | 2.2<!--m:synthetic_height.px5.d2.w_px--> px | 0.96<!--m:synthetic_height.px5.d2.n0.05.peak--> | 0.01<!--m:synthetic_height.trendfill.px5.d2.n0.05.bg_loss--> | 0.97<!--m:synthetic_height.trendfill.px5.d2.n0.05.height--> |
+| 5<!--n:value tried--> nm | 4<!--n:value tried--> nm | 3.2<!--m:synthetic_height.px5.d4.w_px--> px | 0.98<!--m:synthetic_height.px5.d4.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px5.d4.n0.05.bg_loss--> | 0.99<!--m:synthetic_height.trendfill.px5.d4.n0.05.height--> |
+| 5<!--n:value tried--> nm | 8<!--n:value tried--> nm | 4.7<!--m:synthetic_height.px5.d8.w_px--> px | 0.99<!--m:synthetic_height.px5.d8.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px5.d8.n0.05.bg_loss--> | 1.00<!--m:synthetic_height.trendfill.px5.d8.n0.05.height--> |
+| 10<!--n:value tried--> nm | 2<!--n:value tried--> nm | 1.1<!--m:synthetic_height.px10.d2.w_px--> px | 0.85<!--m:synthetic_height.px10.d2.n0.05.peak--> | 0.01<!--m:synthetic_height.trendfill.px10.d2.n0.05.bg_loss--> | – |
+| 10<!--n:value tried--> nm | 4<!--n:value tried--> nm | 1.6<!--m:synthetic_height.px10.d4.w_px--> px | 0.93<!--m:synthetic_height.px10.d4.n0.05.peak--> | 0.01<!--m:synthetic_height.trendfill.px10.d4.n0.05.bg_loss--> | 0.89<!--m:synthetic_height.trendfill.px10.d4.n0.05.height--> |
+| 10<!--n:value tried--> nm | 8<!--n:value tried--> nm | 2.3<!--m:synthetic_height.px10.d8.w_px--> px | 0.97<!--m:synthetic_height.px10.d8.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px10.d8.n0.05.bg_loss--> | 0.97<!--m:synthetic_height.trendfill.px10.d8.n0.05.height--> |
+
+「–」は、追跡した線が繊維に沿っておらず、その高さ標本が繊維の高さにならない実行で
+ある。画素 1<!--n:value tried--> nm で $D$ = 4<!--n:value tried--> と 8<!--n:value tried--> nm では、補正後の繊維は中がくり抜かれ、追跡した線は
+繊維の中で輪を描くか繊維を外れる。画素 10<!--n:value tried--> nm で 2<!--n:value tried--> nm の繊維は、補正後の画像には
+見えているが、長さの 0.15<!--m:synthetic_height.trendfill.px10.d2.n0.05.traced--> しか追跡されなかった（いずれも補正後の画像で確認した）。
+
+3<!--n:count--> 方式・2<!--n:count--> つのノイズ水準を通して見ると次のとおりである。画素 2<!--n:value tried--> nm では繊維が 5.6<!--m:synthetic_height.px2.d2.w_px-->〜11.7<!--m:synthetic_height.px2.d8.w_px--> px に
+またがり（同梱スキャンの繊維は 7.5<!--m:zoomed_background.hplantTOC.width_px-->〜8.6<!--m:zoomed_background.NDTOC.width_px--> px、§1.8）、補正が取り除いた高さは −0.01<!--m:synthetic_height.px2.removed_range[0]--> から
+0.03<!--m:synthetic_height.px2.removed_range[1]--> の間、報告される高さは 0.98〜1.05<!--m:synthetic_height.px2.height_range--> だった。画素 5<!--n:value tried--> nm と 10<!--n:value tried--> nm では、補正が取り除いた
+高さは最大 0.02<!--m:synthetic_height.coarse.removed_max--> である。そこで高さを制限するのは画素格子で、繊維の細い頂上が
+画素の中心のあいだに落ちるため、5<!--n:value tried--> nm では 0.96〜0.99<!--m:synthetic_height.px5.peak_range-->、10<!--n:value tried--> nm では 0.85〜0.97<!--m:synthetic_height.px10.peak_range--> しか
+示せない。画素 1<!--n:value tried--> nm では、どの方式も繊維の一部を取り除いた（$D$ にわたる範囲、ノイズ
+0.05<!--n:value tried--> nm と 0.2<!--n:value tried--> nm）。`trendfill` は 0.13〜0.84<!--m:synthetic_height.px1.trendfill.n0.05.removed_range--> と 0.70〜0.95<!--m:synthetic_height.px1.trendfill.n0.2.removed_range-->、`tophat` は 0.07〜0.53<!--m:synthetic_height.px1.tophat.n0.05.removed_range--> と
+0.10〜0.55<!--m:synthetic_height.px1.tophat.n0.2.removed_range-->、`spline1d` は 0.01〜0.46<!--m:synthetic_height.px1.spline1d.n0.05.removed_range--> と 0.38〜0.90<!--m:synthetic_height.px1.spline1d.n0.2.removed_range--> である。これらの実行での
+`background_warnings` の成績は §1.10 にある。
+
+### 1.10 予測による背景の警告と実測による背景の警告
+
+`background_warnings`（`lib/pipeline.py`）の警告には 2<!--n:count--> 種類ある。3<!--n:count--> つは見かけ幅を
+§1.8 の限界と比べ、高さの損失を予測する。`element_small`、`flank_step_low`、
+`width_unchecked` である。残る 2<!--n:count--> つは補正後の画像を測る。`relief_absorbed` は、繊維
+マスクの上で、入力が示した起伏の 0.1<!--c:lib/pipeline.py::_MAX_ABSORBED_FRACTION--> 以上が、マスクの脇（マスクから見かけ幅の 2<!--c:lib/pipeline.py::_ABSORBED_RING_WIDTHS--> 倍
+以内、幅の 3<!--c:lib/pipeline.py::_ABSORBED_SMOOTH_WIDTHS--> 倍で平均）の背景より高い背景として引かれたときに出る。
+`width_unmeasured` は、大半の成分で見かけ幅を測れず、他の検査をどれも行えなかった
+ときに出る。2<!--n:count--> つの長さと限界は下の実行を見て選んだので、これらの実行は独立した
+検証ではなく開発用のデータである。
+
+高さの 0.1<!--n:definition--> より多くを失った実行を「損失あり」、0.03<!--n:definition--> 未満しか失わなかった実行を
+「健全」と数える。
+
+| 実行 | 損失あり | 健全 | 予測: 捉えた | 予測: 健全で出た | 実測: 捉えた | 実測: 健全で出た | いずれか: 捉えた | いずれか: 健全で出た |
+|---|---|---|---|---|---|---|---|---|
+| 高さが既知の繊維、23<!--n:value tried--> 度（§1.9） | 14<!--m:synthetic_height.lossy--> | 54<!--m:synthetic_height.sound--> | 7<!--m:synthetic_height.predicted.caught--> | 13<!--m:synthetic_height.predicted.false--> | 13<!--m:synthetic_height.measured.caught--> | 0<!--m:synthetic_height.measured.false--> | 14<!--m:synthetic_height.any.caught--> | 13<!--m:synthetic_height.any.false--> |
+| 同じ繊維、ノイズ 0.05<!--n:value tried--> nm、4<!--n:count--> 方向 | 20<!--m:synthetic_height_orientation.lossy--> | 103<!--m:synthetic_height_orientation.sound--> | 7<!--m:synthetic_height_orientation.predicted.caught--> | 19<!--m:synthetic_height_orientation.predicted.false--> | 18<!--m:synthetic_height_orientation.measured.caught--> | 1<!--m:synthetic_height_orientation.measured.false--> | 19<!--m:synthetic_height_orientation.any.caught--> | 20<!--m:synthetic_height_orientation.any.false--> |
+| 同梱スキャンの拡大画像（§1.8） | 51<!--m:zoomed_background.tally.lossy--> | 27<!--m:zoomed_background.tally.sound--> | 19<!--m:zoomed_background.tally.predicted.caught--> | 3<!--m:zoomed_background.tally.predicted.false--> | 44<!--m:zoomed_background.tally.measured.caught--> | 1<!--m:zoomed_background.tally.measured.false--> | 45<!--m:zoomed_background.tally.any.caught--> | 4<!--m:zoomed_background.tally.any.false--> |
+
+4<!--n:count--> 方向は、走査線に対して 0<!--n:value tried-->、23<!--n:value tried-->、45<!--n:value tried-->、90<!--n:value tried--> 度である（実験 synthetic_height_orientation）。そこで
+実測による警告が出た健全な実行は 1<!--m:synthetic_height_orientation.measured.false_axis_parallel--> 回で、繊維は画像の軸に平行である。画素 1<!--n:value tried--> nm で
+90<!--n:value tried--> 度、`spline1d` の実行で、幅を測れなかったという警告であった。描いてみると、補正後の
+繊維は高さを保っているが、追跡した線がその中で輪や断片に崩れている。したがって、幅を
+測れなかったという警告はそこでも正しく、ただ問題は補正の後で起きている。
 
 ## 2. 二値化
 
@@ -223,9 +293,9 @@ closing は、厚さ 3<!--n:value tried--> px 以上のマスク成分どうし�
 
 | スキャン | マスクの平均の幅、全体のみ → 両方 (px) | マスクのかたまりの数 | 最終スケルトンの分岐点 | 局所しきい値が落とす画素 / 残す画素の高さ (%) |
 |---|---|---|---|---|
-| チュニケート CNF | 15.6<!--m:local_threshold.tunicate.global.mask_width_px--> → 10.1<!--m:local_threshold.tunicate.both.mask_width_px--> | 1<!--m:local_threshold.tunicate.global.mask_components--> → 9<!--m:local_threshold.tunicate.both.mask_components--> | 69<!--m:local_threshold.tunicate.global.branch_points--> → 32<!--m:local_threshold.tunicate.both.branch_points--> | 25<!--m:local_threshold.tunicate.removed_percent_of_crest--> / 83<!--m:local_threshold.tunicate.kept_percent_of_crest--> |
-| 高等植物 TOC | 12.1<!--m:local_threshold.hplantTOC.global.mask_width_px--> → 8.9<!--m:local_threshold.hplantTOC.both.mask_width_px--> | 10<!--m:local_threshold.hplantTOC.global.mask_components--> → 8<!--m:local_threshold.hplantTOC.both.mask_components--> | 6<!--m:local_threshold.hplantTOC.global.branch_points--> → 5<!--m:local_threshold.hplantTOC.both.branch_points--> | 34<!--m:local_threshold.hplantTOC.removed_percent_of_crest--> / 75<!--m:local_threshold.hplantTOC.kept_percent_of_crest--> |
-| Bruker NDTOC | 13.0<!--m:local_threshold.NDTOC.global.mask_width_px--> → 9.5<!--m:local_threshold.NDTOC.both.mask_width_px--> | 16<!--m:local_threshold.NDTOC.global.mask_components--> → 20<!--m:local_threshold.NDTOC.both.mask_components--> | 154<!--m:local_threshold.NDTOC.global.branch_points--> → 76<!--m:local_threshold.NDTOC.both.branch_points--> | 35<!--m:local_threshold.NDTOC.removed_percent_of_crest--> / 72<!--m:local_threshold.NDTOC.kept_percent_of_crest--> |
+| チュニケート CNF | 15.6<!--m:local_threshold.tunicate.global.mask_width_px--> → 10.1<!--m:local_threshold.tunicate.both.mask_width_px--> | 1<!--m:local_threshold.tunicate.global.mask_components--> → 11<!--m:local_threshold.tunicate.both.mask_components--> | 69<!--m:local_threshold.tunicate.global.branch_points--> → 33<!--m:local_threshold.tunicate.both.branch_points--> | 25<!--m:local_threshold.tunicate.removed_percent_of_crest--> / 83<!--m:local_threshold.tunicate.kept_percent_of_crest--> |
+| 高等植物 TOC | 12.0<!--m:local_threshold.hplantTOC.global.mask_width_px--> → 8.5<!--m:local_threshold.hplantTOC.both.mask_width_px--> | 12<!--m:local_threshold.hplantTOC.global.mask_components--> → 12<!--m:local_threshold.hplantTOC.both.mask_components--> | 6<!--m:local_threshold.hplantTOC.global.branch_points--> → 5<!--m:local_threshold.hplantTOC.both.branch_points--> | 34<!--m:local_threshold.hplantTOC.removed_percent_of_crest--> / 75<!--m:local_threshold.hplantTOC.kept_percent_of_crest--> |
+| Bruker NDTOC | 12.9<!--m:local_threshold.NDTOC.global.mask_width_px--> → 9.5<!--m:local_threshold.NDTOC.both.mask_width_px--> | 22<!--m:local_threshold.NDTOC.global.mask_components--> → 24<!--m:local_threshold.NDTOC.both.mask_components--> | 156<!--m:local_threshold.NDTOC.global.branch_points--> → 76<!--m:local_threshold.NDTOC.both.branch_points--> | 35<!--m:local_threshold.NDTOC.removed_percent_of_crest--> / 72<!--m:local_threshold.NDTOC.kept_percent_of_crest--> |
 
 同梱スキャン 3<!--m:kink_reference.scans--> 枚すべての高さ画像に重ねて描くと、局所しきい値が落とす画素は、繊維の斜面の下のほうである。繊維が 1<!--n:count--> 本だけで離れている場所では、
 マスクが細くなるだけである。次に書くつながりが見られたのは、繊維が近くを並んで
@@ -238,19 +308,52 @@ closing は、厚さ 3<!--n:value tried--> px 以上のマスク成分どうし�
 
 ### 2.5 直線性フィルタ
 
-3<!--m:linearity_filter.inputs--> 個のテスト入力（実験 linearity_filter）で、$s_{\text{ratio}}$ は最大 3.36<!--m:linearity_filter.s_ratio_max--> に
-なり、$s_{\text{ratio}} > 1$ となったかたまりは 49<!--m:linearity_filter.s_ratio_above_one--> 個あった。フィルタが消したかたまりのうち、
-囲む長方形が `h_length` に届くものは 251<!--m:linearity_filter.removed_reaching_h_length--> 個で、すべてを補正後の高さ画像に
+3<!--m:linearity_filter.inputs--> 個のテスト入力（実験 linearity_filter）で、$s_{	ext{ratio}}$ は最大 5.16<!--m:linearity_filter.s_ratio_max--> に
+なり、$s_{	ext{ratio}} > 1$ となったかたまりは 159<!--m:linearity_filter.s_ratio_above_one--> 個あった。フィルタが消したかたまりのうち、
+最大の差し渡しが `h_length` に届くものは 160<!--m:linearity_filter.removed_reaching_h_length--> 個で、すべてを補正後の高さ画像に
 重ねて描き、目で判断した。ほとんどは背景の凹凸、粒子、高等植物のスキャンの
-走査線のグリッチであったが、7<!--m:linearity_filter.removed_fiber_pieces--> 個は本物の繊維の片であった。曲がった、
-または折れた短い繊維片（チュニケートのスキャン）、画像の端で切れた繊維の端（高等植物と
-Bruker のスキャン）、および高等植物のスキャンで走査線のグリッチに
-切られた低い繊維の片である。
+走査線のグリッチであったが、2<!--m:linearity_filter.removed_fiber_pieces--> 個は本物の繊維の片であった。チュニケートの
+スキャンで画像の端に届く曲がった短い片と、Bruker のスキャンで画像の端に切られた繊維の
+端である。
 
 行の向きに走る合成の帯（面積 865<!--m:linearity_filter.band.horizontal.area--> 画素）では、囲む長方形で切り出した画像の
-中に Canny が見つけた輪郭は 14<!--m:linearity_filter.band.horizontal.edge_pixels--> 画素で、すべて丸い両端にあった。点数は
-0<!--m:linearity_filter.band.horizontal.s_ratio--> で、帯は消された。同じ帯を 45<!--n:definition--> 度に傾けると（面積 620<!--m:linearity_filter.band.diagonal.area--> 画素）、輪郭は
-356<!--m:linearity_filter.band.diagonal.edge_pixels--> 画素、点数は 1.35<!--m:linearity_filter.band.diagonal.s_ratio--> で、帯は残った。
+中に Canny が見つけた輪郭は、フィルタが付ける 1<!--n:literal in the quoted code--> 画素の余白ありで 264<!--m:linearity_filter.band.horizontal.edge_pixels--> 画素、
+余白なしで 14<!--m:linearity_filter.band.horizontal.edge_pixels_unpadded--> 画素（すべて丸い両端）であった。点数は 1.39<!--m:linearity_filter.band.horizontal.s_ratio--> で、帯は残った。
+同じ帯を 45<!--n:definition--> 度に傾けると（面積 620<!--m:linearity_filter.band.diagonal.area--> 画素）、輪郭は 364<!--m:linearity_filter.band.diagonal.edge_pixels--> 画素
+（余白なしで 356<!--m:linearity_filter.band.diagonal.edge_pixels_unpadded--> 画素）、点数は 1.81<!--m:linearity_filter.band.diagonal.s_ratio--> で、帯は残った。
+
+Bruker スキャン上の、1000<!--n:literal in the quoted code--> px 未満ではっきり見える繊維のうち最もまっすぐな 2<!--n:count--> 本を
+（実験 linearity_axis_fibers）、走査したままの向きと、走査全体を回して各繊維のかたまりの
+主軸が列に沿うようにした向き、さらに 90<!--n:definition--> 度回して行に沿うようにした向きで解析した。
+5<!--n:label--> 列目は、輪郭のうち囲む長方形の辺の上にある画素の数で、Canny がこれを見つけられるのは
+余白があるからである。フィルタが検査した場合は、どれも残した。
+
+| 繊維 | 向き | 面積 (px) | 輪郭の画素 | うち長方形の辺の上 | $s_{	ext{ratio}}$ |
+|---|---|---|---|---|---|
+| 1<!--n:label--> 本目 | 走査したまま、主軸 91.1<!--m:linearity_axis_fibers.a.original_axis_deg--> 度 | 871<!--m:linearity_axis_fibers.a.original.area--> | 300<!--m:linearity_axis_fibers.a.original.outline_px--> | 22<!--m:linearity_axis_fibers.a.original.outline_on_box_sides_px--> | 2.52<!--m:linearity_axis_fibers.a.original.s_ratio--> |
+| 2<!--n:label--> 本目 | 走査したまま、主軸 63.4<!--m:linearity_axis_fibers.b.original_axis_deg--> 度 | 482<!--m:linearity_axis_fibers.b.original.area--> | 177<!--m:linearity_axis_fibers.b.original.outline_px--> | 18<!--m:linearity_axis_fibers.b.original.outline_on_box_sides_px--> | 1.28<!--m:linearity_axis_fibers.b.original.s_ratio--> |
+| 2<!--n:label--> 本目 | 列に沿う向き | 574<!--m:linearity_axis_fibers.b.columns.area--> | 247<!--m:linearity_axis_fibers.b.columns.outline_px--> | 36<!--m:linearity_axis_fibers.b.columns.outline_on_box_sides_px--> | 1.83<!--m:linearity_axis_fibers.b.columns.s_ratio--> |
+| 2<!--n:label--> 本目 | 行に沿う向き | 685<!--m:linearity_axis_fibers.b.rows.area--> | 339<!--m:linearity_axis_fibers.b.rows.outline_px--> | 19<!--m:linearity_axis_fibers.b.rows.outline_on_box_sides_px--> | 3.16<!--m:linearity_axis_fibers.b.rows.s_ratio--> |
+
+1<!--n:label--> 本目は、回すと脇の背景の凹凸とつながり、かたまりは 1349<!--m:linearity_axis_fibers.a.columns.area--> px と 1367<!--m:linearity_axis_fibers.a.rows.area--> px になった。
+フィルタはこの大きさを検査しない。どちらの繊維も、どの向きでも最終の二値化マスクに
+残った（補正後の画像で確認した）。対象は 1<!--n:count--> 枚のスキャンの 2<!--n:count--> 本である。
+
+まっすぐな形の判定が、それでも角度にどれだけ左右されるかを、両端の丸い合成の棒で
+測った。0<!--n:value tried--> 度から 90<!--n:value tried--> 度まで 5<!--n:value tried--> 度ごとに、それぞれ画素以下の位置をランダムに
+3<!--n:value tried--> 通りずらして描き、1<!--n:count--> 本ずつフィルタに通した（実験 linearity_rotated_rods）。表は、各棒の
+57<!--m:linearity_rotated_rods.placements--> 通りの置き方のうち、残った数である。
+
+| 幅 (px) | 長さ 16<!--n:value tried--> px | 20<!--n:value tried--> | 22<!--n:value tried--> | 24<!--n:value tried--> | 26<!--n:value tried--> | 28<!--n:value tried--> | 32<!--n:value tried--> | 40<!--n:value tried--> |
+|---|---|---|---|---|---|---|---|---|
+| 3<!--n:value tried--> | 0<!--m:linearity_rotated_rods.w3.l16.kept--> | 20<!--m:linearity_rotated_rods.w3.l20.kept--> | 46<!--m:linearity_rotated_rods.w3.l22.kept--> | 57<!--m:linearity_rotated_rods.w3.l24.kept--> | 57<!--m:linearity_rotated_rods.w3.l26.kept--> | 57<!--m:linearity_rotated_rods.w3.l28.kept--> | 57<!--m:linearity_rotated_rods.w3.l32.kept--> | 57<!--m:linearity_rotated_rods.w3.l40.kept--> |
+| 5<!--n:value tried--> | 0<!--m:linearity_rotated_rods.w5.l16.kept--> | 12<!--m:linearity_rotated_rods.w5.l20.kept--> | 37<!--m:linearity_rotated_rods.w5.l22.kept--> | 52<!--m:linearity_rotated_rods.w5.l24.kept--> | 56<!--m:linearity_rotated_rods.w5.l26.kept--> | 57<!--m:linearity_rotated_rods.w5.l28.kept--> | 57<!--m:linearity_rotated_rods.w5.l32.kept--> | 57<!--m:linearity_rotated_rods.w5.l40.kept--> |
+| 7<!--n:value tried--> | 0<!--m:linearity_rotated_rods.w7.l16.kept--> | 8<!--m:linearity_rotated_rods.w7.l20.kept--> | 22<!--m:linearity_rotated_rods.w7.l22.kept--> | 50<!--m:linearity_rotated_rods.w7.l24.kept--> | 56<!--m:linearity_rotated_rods.w7.l26.kept--> | 57<!--m:linearity_rotated_rods.w7.l28.kept--> | 57<!--m:linearity_rotated_rods.w7.l32.kept--> | 57<!--m:linearity_rotated_rods.w7.l40.kept--> |
+| 9<!--n:value tried--> | 0<!--m:linearity_rotated_rods.w9.l16.kept--> | 5<!--m:linearity_rotated_rods.w9.l20.kept--> | 11<!--m:linearity_rotated_rods.w9.l22.kept--> | 30<!--m:linearity_rotated_rods.w9.l24.kept--> | 52<!--m:linearity_rotated_rods.w9.l26.kept--> | 57<!--m:linearity_rotated_rods.w9.l28.kept--> | 57<!--m:linearity_rotated_rods.w9.l32.kept--> | 57<!--m:linearity_rotated_rods.w9.l40.kept--> |
+
+棒は、幅 3<!--n:value tried--> px では長さ 24<!--m:linearity_rotated_rods.w3.shortest_always_kept--> px から、ほかの幅では 28<!--m:linearity_rotated_rods.w9.shortest_always_kept--> px から、どの置き方でも
+残り、長さ 16<!--m:linearity_rotated_rods.w9.longest_never_kept--> px ではどの置き方でも残らなかった。その間の長さでは、残るかどうかが
+角度と置き方で変わった。
 
 ### 2.6 直線性フィルタが検査しないかたまり
 
@@ -296,21 +399,21 @@ linearity_large_exemption。両方の実行時間も記録している）。
 では、分岐点が低いことは偽の枝であることの印にならない。
 
 高さで決める枝刈りは、最終的なスケルトンをほとんど変えない。この処理を外すと、
-変わるスケルトンの画素は、チュニケートのスキャンで 7967<!--m:branch_pruning.tunicate.final_pixels--> 画素のうち 1<!--m:branch_pruning.tunicate.skipped.final_changed_pixels--> 画素、
-高等植物のスキャンで 1921<!--m:branch_pruning.hplantTOC.final_pixels--> 画素のうち 10<!--m:branch_pruning.hplantTOC.skipped.final_changed_pixels--> 画素、Bruker のスキャンで 9033<!--m:branch_pruning.NDTOC.final_pixels--> 画素のうち
-176<!--m:branch_pruning.NDTOC.skipped.final_changed_pixels--> 画素である。すべての分岐点を「低い」として扱っても、
+変わるスケルトンの画素は、チュニケートのスキャンで 8075<!--m:branch_pruning.tunicate.final_pixels--> 画素のうち 1<!--m:branch_pruning.tunicate.skipped.final_changed_pixels--> 画素、
+高等植物のスキャンで 2076<!--m:branch_pruning.hplantTOC.final_pixels--> 画素のうち 10<!--m:branch_pruning.hplantTOC.skipped.final_changed_pixels--> 画素、Bruker のスキャンで 9183<!--m:branch_pruning.NDTOC.final_pixels--> 画素のうち
+200<!--m:branch_pruning.NDTOC.skipped.final_changed_pixels--> 画素である。すべての分岐点を「低い」として扱っても、
 チュニケートのスキャンで変わる画素は 0<!--m:branch_pruning.tunicate.all_low.final_changed_pixels--> である。この処理が刈る短い腕は、
 [解析アルゴリズム](algorithms.ja.md) §3.5 のとげ刈りが、長さだけで判断してもう一度
 刈るからである。とげ刈りを止めると、この処理を外したときに変わる画素は、同じ 3<!--n:count--> 枚の
-スキャンでそれぞれ 137<!--m:branch_pruning.tunicate.spurs_off.skipped.final_changed_pixels-->、159<!--m:branch_pruning.hplantTOC.spurs_off.skipped.final_changed_pixels-->、928<!--m:branch_pruning.NDTOC.spurs_off.skipped.final_changed_pixels--> 画素になる。
+スキャンでそれぞれ 133<!--m:branch_pruning.tunicate.spurs_off.skipped.final_changed_pixels-->、159<!--m:branch_pruning.hplantTOC.spurs_off.skipped.final_changed_pixels-->、974<!--m:branch_pruning.NDTOC.spurs_off.skipped.final_changed_pixels--> 画素になる。
 
 ### 3.3 ループの囲み
 
 同梱スキャンでは、マスク内部の穴が残すループ 1<!--n:count--> つが、その輪の上に分岐点を
-2<!--m:loop_candidates.all.branch_points_range[0]-->〜4<!--m:loop_candidates.all.branch_points_range[1]--> 個作る。充填の大きさの条件を満たす 17<!--m:loop_candidates.candidates--> 個の囲みを高さ画像で
+1<!--m:loop_candidates.all.branch_points_range[0]-->〜4<!--m:loop_candidates.all.branch_points_range[1]--> 個作る。充填の大きさの条件を満たす 18<!--m:loop_candidates.candidates--> 個の囲みを高さ画像で
 目視すると、8<!--m:loop_candidates.fiber.count--> 個は繊維の内側に、8<!--m:loop_candidates.crossing.count--> 個は交差にあり、tunicate のスキャンの
 1<!--m:loop_candidates.gap.count--> 個は、別々の 2<!--n:count--> 本の繊維が囲む細長い隙間であった。2<!--n:count--> 本は溝をはさんで並び、
-両端で接している。内部の高さの中央値は、どの囲みでも周囲リッジの中央値の
+両端で接している。残る 1<!--m:loop_candidates.particle.count--> 個は Bruker のスキャンで、淡い筋の端にある粒子の内側にある。内部の高さの中央値は、どの囲みでも周囲リッジの中央値の
 83<!--m:loop_candidates.all.ratio_percent_range[0]-->〜105<!--m:loop_candidates.all.ratio_percent_range[1]--> % であり、隙間の 83<!--m:loop_candidates.gap.ratio_percent_range[0]--> % もこの範囲に、繊維の内側にあるループのアーティファクトの
 ひとつのすぐ上に入る（実験 loop_candidates）。そのため、この比の
 しきい値では、ループのアーティファクトをすべて塗りつぶしつつ隙間だけを残すことは
@@ -321,9 +424,9 @@ linearity_large_exemption。両方の実行時間も記録している）。
 
 まっすぐな 2<!--n:count--> 本の繊維がレンズ形の隙間をはさんで分かれ、また合わさる合成画像
 24<!--m:loop_sliver.scans--> 枚（断面は高さ 4<!--n:value tried--> nm、標準偏差 1.5<!--n:value tried-->・2<!--n:value tried-->・3<!--n:value tried--> px のガウス形、隙間の幅は 4<!--n:value tried-->〜12<!--n:value tried--> px。
-実験 loop_sliver）では、`collapse_skeleton_loops` が調べる大きさの囲みが 5<!--m:loop_sliver.candidates--> 個できた。
+実験 loop_sliver）では、`collapse_skeleton_loops` が調べる大きさの囲みが 6<!--m:loop_sliver.candidates--> 個できた。
 内側の高さの中央値は、周りの尾根の 53<!--m:loop_sliver.ratio_percent_range[0]-->〜97<!--m:loop_sliver.ratio_percent_range[1]--> % であった。近い 2<!--n:count--> 本の繊維の斜面が
-重なるからである。そのため 5<!--m:loop_sliver.filled--> 個とも 0.3<!--c:lib/skeletonizer.py::DEFAULT_LOOP_HEIGHT_RATIO--> のチェックを通って塗りつぶされ、描いて
+重なるからである。そのため 6<!--m:loop_sliver.filled--> 個とも 0.3<!--c:lib/skeletonizer.py::DEFAULT_LOOP_HEIGHT_RATIO--> のチェックを通って塗りつぶされ、描いて
 みると、2<!--n:count--> 本の繊維は隙間の真ん中を通る 1<!--n:count--> 本の線にまとめられていた。隙間がもっと
 広いと、囲みが `max_loop_area` より大きくなり、2<!--n:count--> 本のまま残った。これらの画像では、
 このチェックが塗りつぶしを止めたことは 1<!--n:count--> 度も無かった。
@@ -348,8 +451,8 @@ linearity_large_exemption。両方の実行時間も記録している）。
 `imp_tools.branchedPoints` は骨格をヒットオアミスのカーネルと照合する。その
 1<!--n:count--> つである斜め Y カーネルは、9<!--n:definition--> マスのうち 4<!--n:definition--> マスを任意として、軸に沿ったカーネルが
 取りこぼす角度の Y 分岐を拾う。各テスト入力の既定の骨格で（実験 diagonal_ybranch）、
-113<!--m:diagonal_ybranch.all.branch_points--> 個の分岐点のうち 53<!--m:diagonal_ybranch.all.only_diagonal_y--> 個はこのカーネルだけが見つけた。チュニケートのスキャンでは
-32<!--m:diagonal_ybranch.tunicate.branch_points--> 個中 15<!--m:diagonal_ybranch.tunicate.only_diagonal_y--> 個、高等植物 TOC のスキャンでは 5<!--m:diagonal_ybranch.hplantTOC.branch_points--> 個中 3<!--m:diagonal_ybranch.hplantTOC.only_diagonal_y--> 個、Bruker のスキャンでは 76<!--m:diagonal_ybranch.NDTOC.branch_points--> 個中 35<!--m:diagonal_ybranch.NDTOC.only_diagonal_y--> 個
+114<!--m:diagonal_ybranch.all.branch_points--> 個の分岐点のうち 53<!--m:diagonal_ybranch.all.only_diagonal_y--> 個はこのカーネルだけが見つけた。チュニケートのスキャンでは
+33<!--m:diagonal_ybranch.tunicate.branch_points--> 個中 15<!--m:diagonal_ybranch.tunicate.only_diagonal_y--> 個、高等植物 TOC のスキャンでは 5<!--m:diagonal_ybranch.hplantTOC.branch_points--> 個中 3<!--m:diagonal_ybranch.hplantTOC.only_diagonal_y--> 個、Bruker のスキャンでは 76<!--m:diagonal_ybranch.NDTOC.branch_points--> 個中 35<!--m:diagonal_ybranch.NDTOC.only_diagonal_y--> 個
 である。このカーネルだけが見つけた画素は、どれも
 8<!--n:definition--> 連結の骨格近傍を 3<!--n:definition--> つ以上持ち（それより少ない画素: 0<!--m:diagonal_ybranch.all.only_diagonal_y_below_3_neighbours--> 個）、近傍が 2<!--n:definition--> つである
 骨格の素直な区間には 1<!--n:count--> つも無い。
@@ -439,9 +542,9 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 
 | `centerline_method` | 距離の中央値（nm） | 実スキャン | 備考 |
 |---|---|---|---|
-| `"half_max_025w"`（既定） | 0.21<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->〜0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 50<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 59<!--m:kink_reference.default.false--> | |
-| `"half_max_05w"` | 0.20<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[0]-->〜0.25<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[1]--> | 48<!--m:kink_reference.hm05.found--> / 4<!--m:kink_reference.hm05.missed--> / 41<!--m:kink_reference.hm05.false--> | 採点した 3<!--n:count--> 種類の中で一致しない折れが最も少ない。ただし合成の同じ向きのコーナー対 8<!--m:synthetic_centerline.pairs--> 組中 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> 組で 2<!--n:count--> つのコーナーを 1<!--n:count--> つにまとめ、平滑化をわずかに強めると見落としが 10〜12<!--m:kink_reference.hm05_stronger.missed_range--> 件に増えた。 |
-| `"skeleton_pixels"` | 0.54<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[0]-->〜0.62<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[1]--> | 52<!--m:kink_reference.skeleton_pixels.found--> / 0<!--m:kink_reference.skeleton_pixels.missed--> / 126<!--m:kink_reference.skeleton_pixels.false--> | 階段状のギザつきと分岐部での振れを折れとして読んでしまう。 |
+| `"half_max_025w"`（既定） | 0.21<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->〜0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 50<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 68<!--m:kink_reference.default.false--> | |
+| `"half_max_05w"` | 0.20<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[0]-->〜0.25<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[1]--> | 48<!--m:kink_reference.hm05.found--> / 4<!--m:kink_reference.hm05.missed--> / 45<!--m:kink_reference.hm05.false--> | 採点した 3<!--n:count--> 種類の中で一致しない折れが最も少ない。ただし合成の同じ向きのコーナー対 8<!--m:synthetic_centerline.pairs--> 組中 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> 組で 2<!--n:count--> つのコーナーを 1<!--n:count--> つにまとめ、平滑化をわずかに強めると見落としが 10〜12<!--m:kink_reference.hm05_stronger.missed_range--> 件に増えた。 |
+| `"skeleton_pixels"` | 0.54<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[0]-->〜0.62<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[1]--> | 52<!--m:kink_reference.skeleton_pixels.found--> / 0<!--m:kink_reference.skeleton_pixels.missed--> / 140<!--m:kink_reference.skeleton_pixels.false--> | 階段状のギザつきと分岐部での振れを折れとして読んでしまう。 |
 | `"smoothed_skeleton_05w"`、`"smoothed_skeleton_1w"` | 0.33<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[0]-->〜0.56<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[1]--> / 0.39<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[0]-->〜0.94<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[1]--> | 採点なし | |
 | `"quarter_max"` | 0.20<!--m:synthetic_centerline.quarter_max.group_median_nm_range[0]-->〜0.24<!--m:synthetic_centerline.quarter_max.group_median_nm_range[1]--> | 採点なし | ねじれリボン 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> 本中 4<!--m:synthetic_centerline.ribbons.quarter_closer_than_default--> 本で既定より軸に近いが、細い円形の対照繊維では背景の凹凸に最大 3.5<!--m:synthetic_centerline.G_circle_d3.max_nm.quarter_max--> nm 引き寄せられた。 |
 | `"centroid"` | 0.31<!--m:synthetic_centerline.centroid.group_median_nm_range[0]-->〜0.38<!--m:synthetic_centerline.centroid.group_median_nm_range[1]--> | 採点なし | |
@@ -454,32 +557,32 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 
 | 規則 | 検出 | 印から 1〜2<!--n:definition--> 幅ずれて検出 | 見落とし | 一致なし |
 |---|---|---|---|---|
-| 超過回転規則（中心線上） | 50<!--m:kink_reference.default.found--> | 0<!--m:kink_reference.default.displaced--> | 3<!--m:kink_reference.default.missed--> | 59<!--m:kink_reference.default.false--> |
-| 以前の折れ線規則（スケルトントラック上） | 42<!--m:kink_reference.old_rule.found--> | 3<!--m:kink_reference.old_rule.displaced--> | 8<!--m:kink_reference.old_rule.missed--> | 70<!--m:kink_reference.old_rule.false--> |
+| 超過回転規則（中心線上） | 50<!--m:kink_reference.default.found--> | 0<!--m:kink_reference.default.displaced--> | 3<!--m:kink_reference.default.missed--> | 68<!--m:kink_reference.default.false--> |
+| 以前の折れ線規則（スケルトントラック上） | 42<!--m:kink_reference.old_rule.found--> | 3<!--m:kink_reference.old_rule.displaced--> | 8<!--m:kink_reference.old_rule.missed--> | 77<!--m:kink_reference.old_rule.false--> |
 
 以前の規則の行は、同じ画像の追跡済みスケルトントラックに、形式 1.0<!--n:bundle format version--> の
 バンドルのために残してある `KinkDetector.kinks_and_decomposed_from_track`
 （`kink_decompose_px` = 3<!--c:lib/pipeline.py::ProcParams.kink_decompose_px--> px、`kinkangle_deg` = 150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg--> 度）を適用して採点した。
 
 基準が曖昧な折れまたは合流点とした印から $W$ 以内の報告された折れは、検出にも
-一致なしにも数えない。超過回転規則が報告した 134<!--m:kink_reference.default.detections--> 件の折れのうち、25<!--m:kink_reference.default.exempt--> 件がこれにあたる。
+一致なしにも数えない。超過回転規則が報告した 143<!--m:kink_reference.default.detections--> 件の折れのうち、25<!--m:kink_reference.default.exempt--> 件がこれにあたる。
 規則の行を走査ごとに分けると次のとおりである。
 
 | 走査 | 印を付けた明瞭なキンク | 報告された折れ | 検出 | 見落とし | 一致なし | 曖昧・合流の印のそば |
 |---|---|---|---|---|---|---|
-| 高等植物 TOC | 3<!--m:kink_reference.default.hplantTOC.ref--> | 6<!--m:kink_reference.default.hplantTOC.detections--> | 3<!--m:kink_reference.default.hplantTOC.found--> | 0<!--m:kink_reference.default.hplantTOC.missed--> | 3<!--m:kink_reference.default.hplantTOC.false--> | 0<!--m:kink_reference.default.hplantTOC.exempt--> |
-| ホヤ CNF | 44<!--m:kink_reference.default.tunicate.ref--> | 67<!--m:kink_reference.default.tunicate.detections--> | 42<!--m:kink_reference.default.tunicate.found--> | 2<!--m:kink_reference.default.tunicate.missed--> | 13<!--m:kink_reference.default.tunicate.false--> | 12<!--m:kink_reference.default.tunicate.exempt--> |
-| Bruker NDTOC | 6<!--m:kink_reference.default.NDTOC.ref--> | 61<!--m:kink_reference.default.NDTOC.detections--> | 5<!--m:kink_reference.default.NDTOC.found--> | 1<!--m:kink_reference.default.NDTOC.missed--> | 43<!--m:kink_reference.default.NDTOC.false--> | 13<!--m:kink_reference.default.NDTOC.exempt--> |
+| 高等植物 TOC | 3<!--m:kink_reference.default.hplantTOC.ref--> | 9<!--m:kink_reference.default.hplantTOC.detections--> | 3<!--m:kink_reference.default.hplantTOC.found--> | 0<!--m:kink_reference.default.hplantTOC.missed--> | 6<!--m:kink_reference.default.hplantTOC.false--> | 0<!--m:kink_reference.default.hplantTOC.exempt--> |
+| ホヤ CNF | 44<!--m:kink_reference.default.tunicate.ref--> | 69<!--m:kink_reference.default.tunicate.detections--> | 42<!--m:kink_reference.default.tunicate.found--> | 2<!--m:kink_reference.default.tunicate.missed--> | 15<!--m:kink_reference.default.tunicate.false--> | 12<!--m:kink_reference.default.tunicate.exempt--> |
+| Bruker NDTOC | 6<!--m:kink_reference.default.NDTOC.ref--> | 65<!--m:kink_reference.default.NDTOC.detections--> | 5<!--m:kink_reference.default.NDTOC.found--> | 1<!--m:kink_reference.default.NDTOC.missed--> | 47<!--m:kink_reference.default.NDTOC.false--> | 13<!--m:kink_reference.default.NDTOC.exempt--> |
 
 高等植物 TOC と Bruker NDTOC の走査は同じ分散液を撮ったものである。基準が明瞭な
-キンクを 3<!--m:kink_reference.default.hplantTOC.ref--> 件と 6<!--m:kink_reference.default.NDTOC.ref--> 件印したのに対し、規則はそれぞれ 6<!--m:kink_reference.default.hplantTOC.detections--> 件と 61<!--m:kink_reference.default.NDTOC.detections--> 件の折れを報告した。
+キンクを 3<!--m:kink_reference.default.hplantTOC.ref--> 件と 6<!--m:kink_reference.default.NDTOC.ref--> 件印したのに対し、規則はそれぞれ 9<!--m:kink_reference.default.hplantTOC.detections--> 件と 65<!--m:kink_reference.default.NDTOC.detections--> 件の折れを報告した。
 
 規則の長さは、$W$ が画像の分解能であることから決めた $W$ の倍数であり、この基準に
 対して最適化はしていない。ただし規則と中心線は、候補の中からこの基準での成績によって
 選んだ。したがってこの基準は独立した検証ではなく開発用のデータであり、評価用に
 取り分けたスキャンでの採点は行っていない。どれか 1<!--n:count--> つを隣の値に変えると、検出
-できた明瞭なキンクは 48〜52<!--m:kink_reference.sens_all.found_range--> 件、一致なしは 44〜76<!--m:kink_reference.sens_all.false_range--> 件の範囲で動いた（既定は
-それぞれ 50<!--m:kink_reference.default.found--> 件と 59<!--m:kink_reference.default.false--> 件）。検出が最も減ったのは平滑化を強める側で、向きの
+できた明瞭なキンクは 48〜52<!--m:kink_reference.sens_all.found_range--> 件、一致なしは 51〜88<!--m:kink_reference.sens_all.false_range--> 件の範囲で動いた（既定は
+それぞれ 50<!--m:kink_reference.default.found--> 件と 68<!--m:kink_reference.default.false--> 件）。検出が最も減ったのは平滑化を強める側で、向きの
 平滑化 0.35<!--n:value tried--> W で 48<!--m:kink_reference.sens_heading_0.35.found--> 件、中心線の平滑化 ×1.4<!--n:value tried--> で 49<!--m:kink_reference.sens_line_x1.4.found--> 件であった。
 
 | 長さ | 既定値 | 試した隣の値 |
@@ -492,7 +595,7 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 | 抑制半径 | 0.75<!--c:lib/kink_detector.py::_SUPPRESS_WIDTHS--> W | 0.5<!--n:value tried--> W、1.0<!--n:value tried--> W |
 
 窓の回転そのものの極大から取る候補を除くと、明瞭な基準キンクの検出は
-50<!--m:turn_maxima.with.found--> 件から 47<!--m:turn_maxima.without.found--> 件に減り、一致しない折れは 59<!--m:turn_maxima.with.false--> 件から 43<!--m:turn_maxima.without.false--> 件に減った（実験
+50<!--m:turn_maxima.with.found--> 件から 47<!--m:turn_maxima.without.found--> 件に減り、一致しない折れは 68<!--m:turn_maxima.with.false--> 件から 48<!--m:turn_maxima.without.false--> 件に減った（実験
 turn_maxima）。
 
 ### 4.5 キンクとして保存する角度
@@ -545,15 +648,17 @@ turn_maxima）。
 | 3<!--n:value tried--> | 3<!--m:kink_reference.noise3.lost--> | 6<!--m:kink_reference.noise3.fewer_false--> |
 | 4<!--n:value tried--> | 5<!--m:kink_reference.noise4.lost--> | 9<!--m:kink_reference.noise4.fewer_false--> |
 
-これらのスキャンの誤検出は、丸みのある曲がり、絡まり、交差の近くの折れ、
-それに超過回転がしきい値をわずかに上回るだけの浅い折れであって、ノイズでは
-ない。59<!--m:kink_reference.default.false--> 件のうち 25<!--m:kink_reference.default.false_excess_30_40--> 件は超過回転が 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->〜40<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|190 - v--> 度である。そのうち
-11<!--m:kink_reference.default.false_arm_turn_below_threshold--> 件は、腕から読んだ回転（180<!--n:definition--> 度 − `ka`）が 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度を下回る。腕の角度は
+これらのスキャンの誤検出は、丸みのある曲がり、絡まり、交差の近くの折れ、淡い筋や
+高等植物のスキャンの乱れた走査線上のかたまりの上の折れ、それに超過回転がしきい値を
+わずかに上回るだけの浅い折れであって、ノイズではない。68<!--m:kink_reference.default.false--> 件のうち 31<!--m:kink_reference.default.false_excess_30_40--> 件は超過回転が 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->〜40<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|190 - v--> 度である。そのうち
+16<!--m:kink_reference.default.false_arm_turn_below_threshold--> 件は、腕から読んだ回転（180<!--n:definition--> 度 − `ka`）が 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度を下回る。腕の角度は
 判定に使う超過回転とは別に測るためである。また強く折れ曲がった繊維では、その
 繊維自身のキンクがノイズ床を押し上げる。失われた明瞭なキンクはそうした繊維に
-あった。合成データの掃引では、ノイズ床は直線・円弧・正弦波の繊維の偽の折れをどの
-条件でも変えなかった。最も細かい画素サイズと最も強いノイズの条件（幅 11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px、画素
-ノイズ 0.30<!--n:value tried--> nm）でも、1<!--n:definition--> µm あたりの偽の折れはノイズ床なしで 2.3<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um-->、ありで 2.3<!--m:kink_rule_sweep.W16.n0.30.k3.fp_per_um--> で
+あった。合成データの掃引では、ノイズ床が直線・円弧・正弦波の繊維の偽の折れを変えたのは、
+最も粗い画素サイズと最も強いノイズの条件だけで、1<!--n:definition--> µm あたり 5.3<!--m:kink_rule_sweep.W3.n0.30.base.fp_per_um--> から 2.3<!--m:kink_rule_sweep.W3.n0.30.k3.fp_per_um--> に
+減らした。そこでは偽の折れの多くが、繊維につながった背景のかたまりの上にあった（§4.8）。
+最も細かい画素サイズと最も強いノイズの条件（幅 11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px、画素ノイズ 0.30<!--n:value tried--> nm）では
+変えず、1<!--n:definition--> µm あたりの偽の折れはノイズ床なしで 2.2<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um-->、ありで 2.2<!--m:kink_rule_sweep.W16.n0.30.k3.fp_per_um--> で
 ある。ただしその条件では、報告してはならない 165<!--n:example--> 度の曲がりに報告した折れを
 9<!--m:kink_rule_sweep.W16.n0.30.base.kink165_reported--> から 4<!--m:kink_rule_sweep.W16.n0.30.k3.kink165_reported--> に減らした。見つかるコーナーを変えたのは、
 最も粗い画素サイズと最も強いノイズの条件だけで、そこで対応が付いた 1<!--n:count--> つのコーナーを
@@ -575,9 +680,10 @@ turn_maxima）。
   まではすべて見つかり、0.30<!--n:value tried--> nm では 2<!--c:scripts/kink_rule_sweep.py::len(SEEDS)--> 枚中 1<!--m:kink_rule_sweep.W16.n0.30.kink120.found--> 枚であった。このノイズでは、ほぼ
   水平な腕が高さ画像そのものの中で途切れて描かれ、追跡は繊維を多数の断片に
   分け、偽の折れがその腕に集まった。同じ設定の直線・円弧・正弦波の繊維では、
-  規則は 1<!--n:definition--> µm あたり 2.3<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> 件の偽の折れを報告した。
-- 細かい方の 3<!--n:count--> つの画素サイズでは、画素ノイズ 0.15<!--n:value tried--> nm までの直線・円弧・蛇行に
-  偽陽性は無く、165<!--n:example--> 度の曲がりでも無かった。
+  規則は 1<!--n:definition--> µm あたり 2.2<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> 件の偽の折れを報告した。
+- 細かい方の 3<!--n:count--> つの画素サイズでは、画素ノイズ 0.15<!--n:value tried--> nm までの直線・円弧・蛇行の
+  偽陽性は 1<!--m:kink_rule_sweep.W5.n0.05.base.reported_on_smooth--> つだけであった（3<!--m:kink_rule_sweep.W5.measured_width_px--> px の設定、ノイズ 0.05<!--n:value tried--> nm）。描いてみると、
+  背景の小片が繊維の端につながった、円弧の端にある。165<!--n:example--> 度の曲がりには無かった。
 - 掃引で最も粗い画素サイズ（5.2<!--c:scripts/kink_rule_sweep.py::APPARENT_WIDTH_NM|v / 3--> nm。繊維が占める画素は 3<!--m:kink_rule_sweep.W5.measured_width_px--> px の設定より
   少ない）では、幅は 2<!--c:lib/centerline.py::_MIN_WIDTH_PX--> px 未満と測られて 2<!--m:kink_rule_sweep.W3.measured_width_px--> px に引き上げられた。対応が付いた
   コーナーは、画素ノイズ 0.30<!--n:value tried--> nm での 145<!--n:example--> 度のコーナー 1<!--n:count--> つだけである（6<!--m:kink_rule_sweep.W3.kink145.cases--> 枚中
@@ -586,21 +692,22 @@ turn_maxima）。
   たどったあと腕を離れてノイズの中をさまよい、腕の上と離れた後に他の折れをいくつも
   持つ。そのトラックの大部分は本物の繊維の上にあり、偽なのは末尾と、対応した折れ以外の
 すべての折れである。規則は、どのノイズの水準でも直線・円弧・正弦波の繊維に 1<!--n:definition--> µm
-  あたり 1.1<!--m:kink_rule_sweep.W3.n0.15.base.fp_per_um-->〜2.2<!--m:kink_rule_sweep.W3.n0.30.base.fp_per_um--> 件の偽の折れを報告し、165<!--n:example--> 度の曲がりにも折れを報告した。
+  あたり 1.1<!--m:kink_rule_sweep.W3.n0.15.base.fp_per_um-->〜5.3<!--m:kink_rule_sweep.W3.n0.30.base.fp_per_um--> 件の偽の折れを報告し、165<!--n:example--> 度の曲がりにも折れを報告した。0.30<!--n:value tried--> nm では、
+  描いてみると、その多くが、二値化が繊維につながったまま残した背景のかたまりの上にあった。
   直線の繊維 1<!--n:count--> 枚と 120<!--n:example--> 度のコーナー 1<!--n:count--> 枚を描いてみると、折れはまっすぐな区間の上と、
   コーナーの頂点ではなくその周りにあった。
 
 ### 4.9 端の範囲
 
-実データの同梱スキャン 3<!--n:count--> 枚では、トラック端の 43<!--m:track_ends.hplantTOC.near_branch_percent-->〜67<!--m:track_ends.tunicate.near_branch_percent--> % が分岐点から
+実データの同梱スキャン 3<!--n:count--> 枚では、トラック端の 34<!--m:track_ends.hplantTOC.near_branch_percent-->〜64<!--m:track_ends.tunicate.near_branch_percent--> % が分岐点から
 3<!--n:definition--> px 以内にある（実験 track_ends）。トラックの端の多くは繊維の本当の終端では
 なく、交差での切断である。
 
-端の範囲を $1.0\,W$ にすると、同梱スキャンの誤検出は 59<!--m:kink_reference.default.false--> 件から 76<!--m:kink_reference.sens_end_1.false--> 件に
+端の範囲を $1.0\,W$ にすると、同梱スキャンの誤検出は 68<!--m:kink_reference.default.false--> 件から 88<!--m:kink_reference.sens_end_1.false--> 件に
 増え、明瞭なキンクの検出は 1<!--n:count--> 件も増えなかった。$2.0\,W$ にすると誤検出は
-44<!--m:kink_reference.sens_end_2.false--> 件に減ったが、既定では判定していた端から 2<!--n:value tried--> $W$ の合成コーナー
+52<!--m:kink_reference.sens_end_2.false--> 件に減ったが、既定では判定していた端から 2<!--n:value tried--> $W$ の合成コーナー
 （2<!--m:synthetic_kinks.end_cases_per_distance--> 件中 2<!--m:synthetic_kinks.margin_default.end2W.corners_judged--> 件）を判定しなくなった（0<!--m:synthetic_kinks.margin_2W.end2W.corners_judged--> 件）。同梱スキャンで判定しな
-かった 45<!--m:kink_reference.default.unjudged--> 件の折れには、明瞭な基準キンクに当たるものは無かった。
+かった 49<!--m:kink_reference.default.unjudged--> 件の折れには、明瞭な基準キンクに当たるものは無かった。
 
 ### 4.10 頂点高さと中心線上の高さ
 
@@ -610,9 +717,9 @@ turn_maxima）。
 
 | 入力 | 差の中央値 (nm) | 差の 90<!--n:definition--> パーセンタイル (nm) | 中央値、頂点高さに対する % | 90<!--n:definition--> パーセンタイル、頂点高さに対する % |
 |---|---|---|---|---|
-| チュニケート CNF | 0.071<!--m:crest_height.tunicate.median_nm--> | 0.212<!--m:crest_height.tunicate.p90_nm--> | 0.941<!--m:crest_height.tunicate.median_percent--> | 2.648<!--m:crest_height.tunicate.p90_percent--> |
-| 高等植物 TOC | 0.013<!--m:crest_height.hplantTOC.median_nm--> | 0.075<!--m:crest_height.hplantTOC.p90_nm--> | 0.818<!--m:crest_height.hplantTOC.median_percent--> | 4.592<!--m:crest_height.hplantTOC.p90_percent--> |
-| Bruker NDTOC | 0.025<!--m:crest_height.NDTOC.median_nm--> | 0.128<!--m:crest_height.NDTOC.p90_nm--> | 1.246<!--m:crest_height.NDTOC.median_percent--> | 7.051<!--m:crest_height.NDTOC.p90_percent--> |
+| チュニケート CNF | 0.070<!--m:crest_height.tunicate.median_nm--> | 0.211<!--m:crest_height.tunicate.p90_nm--> | 0.937<!--m:crest_height.tunicate.median_percent--> | 2.646<!--m:crest_height.tunicate.p90_percent--> |
+| 高等植物 TOC | 0.014<!--m:crest_height.hplantTOC.median_nm--> | 0.089<!--m:crest_height.hplantTOC.p90_nm--> | 0.846<!--m:crest_height.hplantTOC.median_percent--> | 5.004<!--m:crest_height.hplantTOC.p90_percent--> |
+| Bruker NDTOC | 0.025<!--m:crest_height.NDTOC.median_nm--> | 0.129<!--m:crest_height.NDTOC.p90_nm--> | 1.269<!--m:crest_height.NDTOC.median_percent--> | 7.252<!--m:crest_height.NDTOC.p90_percent--> |
 頂点高さが中心線上の高さより低いことは、1<!--n:count--> 度も無かった。したがって、中心線の
 位置で高さを読むと、繊維は低く出る。差は表のとおり小さいが、いつも低く出る向きで
 ある。左右が非対称な断面では、半値の中点が頂点の横にずれるからである。
@@ -625,8 +732,8 @@ turn_maxima）。
 
 | 入力 | 切り口の数 | 切り口での比 | 1.05<!--n:definition--> 以下に戻るまでの距離 (W) | 自由な端での比 |
 |---|---|---|---|---|
-| チュニケート CNF | 43<!--m:cut_end_skirt.tunicate.cut_ends--> | 1.43<!--m:cut_end_skirt.tunicate.cut.ratio_at_end--> | 0.75<!--m:cut_end_skirt.tunicate.cut.back_within_widths--> | 1.04<!--m:cut_end_skirt.tunicate.free.ratio_at_end--> |
-| 高等植物 TOC | 7<!--m:cut_end_skirt.hplantTOC.cut_ends--> | 1.25<!--m:cut_end_skirt.hplantTOC.cut.ratio_at_end--> | 1.00<!--m:cut_end_skirt.hplantTOC.cut.back_within_widths--> | 0.96<!--m:cut_end_skirt.hplantTOC.free.ratio_at_end--> |
+| チュニケート CNF | 45<!--m:cut_end_skirt.tunicate.cut_ends--> | 1.43<!--m:cut_end_skirt.tunicate.cut.ratio_at_end--> | 0.75<!--m:cut_end_skirt.tunicate.cut.back_within_widths--> | 1.03<!--m:cut_end_skirt.tunicate.free.ratio_at_end--> |
+| 高等植物 TOC | 7<!--m:cut_end_skirt.hplantTOC.cut_ends--> | 1.25<!--m:cut_end_skirt.hplantTOC.cut.ratio_at_end--> | 1.00<!--m:cut_end_skirt.hplantTOC.cut.back_within_widths--> | 0.74<!--m:cut_end_skirt.hplantTOC.free.ratio_at_end--> |
 | Bruker NDTOC | 83<!--m:cut_end_skirt.NDTOC.cut_ends--> | 1.26<!--m:cut_end_skirt.NDTOC.cut.ratio_at_end--> | 0.50<!--m:cut_end_skirt.NDTOC.cut.back_within_widths--> | 0.70<!--m:cut_end_skirt.NDTOC.free.ratio_at_end--> |
 
 距離ごとの変化を描くと、切り口では高さが繊維自身の高さより持ち上がり、幅ひとつ分
@@ -642,9 +749,9 @@ turn_maxima）。
 
 | 入力 | 点 | 位置を決めた点、全幅 (%) | 位置を決めた点、各半分 (%) |
 |---|---|---|---|
-| チュニケート CNF | 7815<!--m:section_width_limit.tunicate.points--> | 88.0<!--m:section_width_limit.tunicate.reliable_full_percent--> | 83.6<!--m:section_width_limit.tunicate.reliable_half_percent--> |
-| 高等植物 TOC | 1896<!--m:section_width_limit.hplantTOC.points--> | 92.0<!--m:section_width_limit.hplantTOC.reliable_full_percent--> | 87.4<!--m:section_width_limit.hplantTOC.reliable_half_percent--> |
-| Bruker NDTOC | 8615<!--m:section_width_limit.NDTOC.points--> | 81.6<!--m:section_width_limit.NDTOC.reliable_full_percent--> | 75.6<!--m:section_width_limit.NDTOC.reliable_half_percent--> |
+| チュニケート CNF | 7917<!--m:section_width_limit.tunicate.points--> | 88.1<!--m:section_width_limit.tunicate.reliable_full_percent--> | 83.7<!--m:section_width_limit.tunicate.reliable_half_percent--> |
+| 高等植物 TOC | 2051<!--m:section_width_limit.hplantTOC.points--> | 86.7<!--m:section_width_limit.hplantTOC.reliable_full_percent--> | 80.9<!--m:section_width_limit.hplantTOC.reliable_half_percent--> |
+| Bruker NDTOC | 8765<!--m:section_width_limit.NDTOC.points--> | 81.7<!--m:section_width_limit.NDTOC.reliable_full_percent--> | 75.6<!--m:section_width_limit.NDTOC.reliable_half_percent--> |
 
 チュニケートのスキャンで最も多くの点を失う繊維（919<!--m:section_width_limit.tunicate.most_lost.points--> 点中 137<!--m:section_width_limit.tunicate.most_lost.lost--> 点）を、補正後の
 高さ画像に断面とともに描いた。失う点は、角から右端までの直線区間である。この
@@ -704,9 +811,9 @@ turn_maxima）。
 
 | 入力 | 繊維 | 枠に達する、余白なし | 余白 2<!--n:value tried--> px | 余白 5<!--n:value tried--> px |
 |---|---|---|---|---|
-| チュニケート CNF | 60<!--m:frame_margin.tunicate.fibers--> | 16<!--m:frame_margin.tunicate.margin_0.reaching--> | 16<!--m:frame_margin.tunicate.margin_2.reaching--> | 16<!--m:frame_margin.tunicate.margin_5.reaching--> |
-| 高等植物 TOC | 15<!--m:frame_margin.hplantTOC.fibers--> | 3<!--m:frame_margin.hplantTOC.margin_0.reaching--> | 3<!--m:frame_margin.hplantTOC.margin_2.reaching--> | 3<!--m:frame_margin.hplantTOC.margin_5.reaching--> |
-| Bruker NDTOC | 139<!--m:frame_margin.NDTOC.fibers--> | 16<!--m:frame_margin.NDTOC.margin_0.reaching--> | 16<!--m:frame_margin.NDTOC.margin_2.reaching--> | 17<!--m:frame_margin.NDTOC.margin_5.reaching--> |
+| チュニケート CNF | 63<!--m:frame_margin.tunicate.fibers--> | 17<!--m:frame_margin.tunicate.margin_0.reaching--> | 17<!--m:frame_margin.tunicate.margin_2.reaching--> | 17<!--m:frame_margin.tunicate.margin_5.reaching--> |
+| 高等植物 TOC | 19<!--m:frame_margin.hplantTOC.fibers--> | 3<!--m:frame_margin.hplantTOC.margin_0.reaching--> | 3<!--m:frame_margin.hplantTOC.margin_2.reaching--> | 3<!--m:frame_margin.hplantTOC.margin_5.reaching--> |
+| Bruker NDTOC | 143<!--m:frame_margin.NDTOC.fibers--> | 16<!--m:frame_margin.NDTOC.margin_0.reaching--> | 16<!--m:frame_margin.NDTOC.margin_2.reaching--> | 17<!--m:frame_margin.NDTOC.margin_5.reaching--> |
 
 余白 1<!--n:value tried--> px と 2<!--n:value tried--> px では判定は 1<!--n:count--> つも変わらなかった（変化: 0<!--m:frame_margin.all.changed_up_to_2-->）。3<!--n:value tried--> px 以上では、
 Bruker のスキャンの繊維が 1<!--m:frame_margin.all.changed_at_5--> 本加わる。補正後の高さ画像に重ねて描くと、それは

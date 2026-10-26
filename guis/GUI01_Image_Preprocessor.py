@@ -357,10 +357,22 @@ def _format_background_warning(fname: str, warning: BackgroundWarning) -> str:
         advice = _(
             "bg_method を tophat、tophat_se_size を {se} にして解析し直してください。"
         ).format(se=warning.suggest_tophat_se_size)
-    else:
+    elif warning.suggest_method:
         advice = _("bg_method を {method} にして解析し直してください。").format(
             method=warning.suggest_method)
-    if warning.reason == "element_small":
+    else:
+        advice = _("補正後の画像で、繊維が残っているか確かめてください。")
+    if warning.reason == "width_unmeasured":
+        text = _(
+            "警告: {name}: 大半の繊維で見かけ幅を測れなかったため、背景補正の検査を"
+            "行えませんでした。補正が繊維を取り除いた場合もこの状態になります。"
+        ).format(name=fname)
+    elif warning.reason == "relief_absorbed":
+        text = _(
+            "警告: {name}: 繊維の起伏の {fraction:.0%} が、すぐ脇の背景より高い背景として"
+            "引かれており、繊維の高さが低く出ています。"
+        ).format(name=fname, fraction=warning.absorbed_fraction)
+    elif warning.reason == "element_small":
         text = _(
             "警告: {name}: 繊維の見かけ幅（中央値 {width:.1f} px）に対して "
             "tophat_se_size が小さく、繊維の高さが低く出ているおそれがあります。"
@@ -4452,15 +4464,13 @@ class SettingsDialog(tk.Toplevel):
                 ("field", "area_min", "area_min", _("小さい連結成分を消す面積しきい値") + " (px^2)", {"width": 10}),
                 ("field", "area_min_connecting", "area_min_connecting", _("つながり成分を除くときの面積しきい値") + " (px^2)", {"width": 10}),
                 ("bool", "apply_no_connecting", "apply_no_connecting", _("つながり除去を実行するかどうか"), {}),
-                # h_length is shown as (px) because the filter that actually drops
-                # components compares it against the bounding-box max(width, height).
-                # The same value is also passed to `hough_line_peaks(threshold=...)`
-                # as a vote count, which is a line-length proxy rather than a length;
-                # see `Segmenter._remove_nonlinear_objects`.
-                # h_length を (px) と表示するのは、成分を実際に落とす判定が外接矩形の
-                # max(width, height) との比較だからである。同じ値は
-                # `hough_line_peaks(threshold=...)` へ投票数としても渡されるが、
-                # そちらは長さそのものではなく長さの代理指標である。
+                # h_length is shown as (px) because the filter compares it with
+                # lengths in pixels: a component's largest extent, and each Hough
+                # line's votes read as a length at the line's angle; see
+                # `Segmenter._remove_nonlinear_objects`.
+                # h_length を (px) と表示するのは、フィルタがこれを画素で測った長さと
+                # 比べるからである。成分の最大の差し渡しと、直線の角度で長さに直した
+                # Hough の得票である。
                 ("field", "h_length", "h_length", _("線分検出で線分とみなす最小長さ") + " (px)", {"width": 10}),
                 ("field", "h_sratio", "h_sratio", _("線っぽさ") + " (s_ratio) " + _("のしきい値"), {}),
                 ("field", "low_threshold", "low_threshold", _("高さが低い成分を消すしきい値") + " (nm)", {}),

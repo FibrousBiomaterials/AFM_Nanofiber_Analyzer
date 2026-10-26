@@ -860,6 +860,97 @@ MIN_FLANK_STEP_RATIO = {"trendfill": 2.5, "spline1d": 1.0}
 TOPHAT_MIN_ELEMENT_WIDTHS = 2.5
 TOPHAT_SUGGESTED_ELEMENT_WIDTHS = 3.0
 
+# The measured check of `background_warnings`: how much of the fibers' relief
+# went into the subtracted background, read on the fiber mask against the
+# background close beside it, so a background that varies over a wider scale (a
+# bowl, bands of line noise) cancels. The lengths are multiples of the apparent
+# width; they and the limit were chosen on synthetic fibers and zoomed copies of
+# the bundled scans (docs/validation.md §1.10).
+# `background_warnings` の実測による検査。繊維の起伏のうち引いた背景に入った割合を、
+# 繊維マスク上で、すぐ脇の背景と比べて読む。より広い範囲で変わる背景（お椀形、走査線
+# ノイズの帯）は打ち消し合う。長さは見かけ幅の倍数で、長さと限界は合成繊維と同梱
+# スキャンの拡大画像で選んだ（docs/validation.ja.md §1.10）。
+_ABSORBED_RING_WIDTHS = 2.0
+_ABSORBED_SMOOTH_WIDTHS = 3.0
+_ABSORBED_BORDER_PX = 4
+_ABSORBED_MIN_PIXELS = 20
+_MAX_ABSORBED_FRACTION = 0.1
+
+
+def _absorbed_fraction(raw: np.ndarray, calibrated: np.ndarray, mask: np.ndarray,
+                       width_px: float) -> Optional[float]:
+    """
+    Fraction of the fibers' relief that went into the subtracted background.
+    繊維の起伏のうち、引いた背景に入った割合。
+
+    Parameters
+    ----------
+    raw
+        Input heights on the grid of `calibrated` (nm).
+        `calibrated` と同じ格子の入力の高さ（nm）。
+    calibrated
+        Calibrated heights (nm).
+        補正後の高さ（nm）。
+    mask
+        Fiber mask of the analysis (the binarized image).
+        解析の繊維マスク（二値化画像）。
+    width_px
+        Median apparent width of the traced fibers (px).
+        追跡した繊維の見かけ幅の中央値（px）。
+
+    Returns
+    -------
+    float or None
+        ``median(dbg) / median(dbg + dcal)`` over the mask pixels, or ``None``
+        when too few mask pixels lie away from the border or the relief is not
+        positive.
+        マスク画素での ``median(dbg) / median(dbg + dcal)``。境界から離れた
+        マスク画素が少なすぎるとき、または起伏が正でないときは ``None``。
+
+    Notes
+    -----
+    The subtracted background is ``raw - calibrated``. On each mask pixel it is
+    compared with its own average over a ring beside the mask (the pixels more
+    than 1 px and at most `_ABSORBED_RING_WIDTHS` widths from it), and so is the
+    calibrated height; the averages are normalized Gaussian smoothings of scale
+    `_ABSORBED_SMOOTH_WIDTHS` widths. ``dbg`` is the background's rise under the
+    fiber, ``dcal`` the fiber's own, and their sum the relief the input showed
+    there, so the ratio is the part of that relief calibration removed. Reading
+    against the background beside the fiber rather than a global trend keeps a
+    background that varies more slowly than a few widths from counting as loss.
+    引いた背景は ``raw - calibrated`` である。各マスク画素で、背景をマスクの脇の帯
+    （マスクから 1 px を超え `_ABSORBED_RING_WIDTHS` 幅以内の画素）での平均と比べ、
+    補正後の高さも同様に比べる。平均は `_ABSORBED_SMOOTH_WIDTHS` 幅の尺度の正規化
+    ガウス平滑である。``dbg`` は繊維の下での背景の盛り上がり、``dcal`` は繊維自身の
+    高さで、両者の和はそこで入力が示した起伏である。したがって比は、その起伏のうち
+    補正が取り除いた部分である。大域的な傾向ではなく繊維の脇の背景と比べるため、
+    数幅より緩やかに変わる背景は失われた高さとして数えない。
+    """
+    from scipy import ndimage as ndi
+
+    mask = np.asarray(mask, dtype=bool)
+    calibrated = np.asarray(calibrated, dtype=float)
+    bg = np.asarray(raw, dtype=float) - calibrated
+    inner = mask.copy()
+    b = _ABSORBED_BORDER_PX
+    inner[:b] = inner[-b:] = False
+    inner[:, :b] = inner[:, -b:] = False
+    dist = ndi.distance_transform_edt(~mask)
+    ring = (dist > 1.0) & (dist <= max(2.0, _ABSORBED_RING_WIDTHS * width_px) + 1.0)
+    scale = max(1.0, _ABSORBED_SMOOTH_WIDTHS * width_px)
+    weight = ndi.gaussian_filter(ring.astype(float), scale)
+    use = inner & (weight > 1e-3)
+    if int(use.sum()) < _ABSORBED_MIN_PIXELS:
+        return None
+    bg_near = ndi.gaussian_filter(np.where(ring, bg, 0.0), scale)[use] / weight[use]
+    cal_near = ndi.gaussian_filter(np.where(ring, calibrated, 0.0), scale)[use] / weight[use]
+    dbg = bg[use] - bg_near
+    dcal = calibrated[use] - cal_near
+    relief = float(np.median(dbg + dcal))
+    if not relief > 0:
+        return None
+    return float(np.median(dbg)) / relief
+
 
 @dataclass(frozen=True)
 class BackgroundWarning:
@@ -875,34 +966,53 @@ class BackgroundWarning:
     reason
         ``"element_small"`` (tophat element narrower than
         `TOPHAT_MIN_ELEMENT_WIDTHS` apparent widths), ``"flank_step_low"``
-        (flank-step ratio below `MIN_FLANK_STEP_RATIO`) or ``"width_unchecked"``
-        (apparent width above `BACKGROUND_CHECKED_MAX_WIDTH_PX`).
+        (flank-step ratio below `MIN_FLANK_STEP_RATIO`), ``"width_unchecked"``
+        (apparent width above `BACKGROUND_CHECKED_MAX_WIDTH_PX`),
+        ``"relief_absorbed"`` (the measured share of the fibers' relief in the
+        subtracted background, `absorbed_fraction`, reaches the limit) or
+        ``"width_unmeasured"`` (no apparent width could be measured for most
+        components, so none of the other checks could run).
         ``"element_small"``（tophat の構造要素が見かけ幅の
         `TOPHAT_MIN_ELEMENT_WIDTHS` 倍より小さい）、``"flank_step_low"``
         （斜面段差比が `MIN_FLANK_STEP_RATIO` を下回る）、``"width_unchecked"``
-        （見かけ幅が `BACKGROUND_CHECKED_MAX_WIDTH_PX` を超える）のいずれか。
+        （見かけ幅が `BACKGROUND_CHECKED_MAX_WIDTH_PX` を超える）、
+        ``"relief_absorbed"``（引いた背景に入った繊維の起伏の割合の実測値
+        `absorbed_fraction` が限界に達した）、``"width_unmeasured"``（大半の成分で
+        見かけ幅を測れず、他の検査をどれも行えなかった）のいずれか。
     width_px
-        Median apparent width of the traced fibers (px).
-        追跡した繊維の見かけ幅の中央値（px）。
+        Median apparent width of the traced fibers (px), or ``None`` for
+        ``"width_unmeasured"``.
+        追跡した繊維の見かけ幅の中央値（px）。``"width_unmeasured"`` では
+        ``None``。
     flank_step_ratio
         The flank-step ratio, or ``None`` for tophat, which computes no marks.
         斜面段差比。印を計算しない tophat では ``None``。
     suggest_method
-        The background method suggested instead.
-        代わりに勧める背景補正の方式。
+        The background method suggested instead, or ``None`` when there is no
+        setting to suggest (``"width_unmeasured"``, or tophat already at the
+        suggested element).
+        代わりに勧める背景補正の方式。勧める設定が無いとき
+        （``"width_unmeasured"``、または tophat が既に勧める構造要素であるとき）は
+        ``None``。
     suggest_tophat_se_size
         The suggested `tophat_se_size` when `suggest_method` is tophat, else
         ``None``.
         `suggest_method` が tophat のときに勧める `tophat_se_size`。それ以外は
         ``None``。
+    absorbed_fraction
+        The measured share of the fibers' relief in the subtracted background
+        (`_absorbed_fraction`), or ``None`` when it could not be measured.
+        引いた背景に入った繊維の起伏の割合の実測値（`_absorbed_fraction`）。
+        測れなかったときは ``None``。
     """
 
     bg_method: str
     reason: str
-    width_px: float
+    width_px: Optional[float]
     flank_step_ratio: Optional[float]
-    suggest_method: str
+    suggest_method: Optional[str]
     suggest_tophat_se_size: Optional[int]
+    absorbed_fraction: Optional[float] = None
 
 
 def flank_step_ratio(height_nm: float, width_px: float, diff_sigma_nm: float,
@@ -971,25 +1081,51 @@ def background_warnings(params: ProcParams, image: ProcessedImage,
     Returns
     -------
     list of BackgroundWarning
-        Empty when the analysis lies inside the checked limits, or when no
-        fiber width was measured.
-        確かめた範囲の内側にあるとき、または繊維の幅を測れなかったときは空。
+        Empty when the analysis lies inside the checked limits and the measured
+        share of the fibers' relief in the subtracted background stays below
+        `_MAX_ABSORBED_FRACTION`; a single ``"width_unmeasured"`` warning when
+        no fiber width was measured.
+        確かめた範囲の内側にあり、引いた背景に入った繊維の起伏の割合の実測値が
+        `_MAX_ABSORBED_FRACTION` 未満のときは空。繊維の幅を測れなかったときは
+        ``"width_unmeasured"`` の警告 1 件。
     """
+    method = params.bg_method
     summary = getattr(image, "apparent_width_summary", None) or {}
     width = summary.get("median_px")
     count = summary.get("component_count") or 0
     if width is None or count == 0 or summary.get("fallback_count", 0) * 2 >= count:
-        return []
+        # Every other check needs the width, and a calibration that removed the
+        # fibers leaves exactly this: nothing whose width could be measured.
+        # 他の検査はどれも幅を必要とし、繊維を取り除いた補正が残すのはまさにこの
+        # 状態、つまり幅を測れるものが何も無い状態である。
+        return [BackgroundWarning(method, "width_unmeasured", None, None, None, None)]
     width = float(width)
     suggest_se = max(int(params.tophat_se_size),
                      int(round(TOPHAT_SUGGESTED_ELEMENT_WIDTHS * width)) | 1)
-    method = params.bg_method
+    absorbed = None
+    raw = getattr(image, "original_image", None)
+    cal = getattr(image, "calibrated_image", None)
+    mask = getattr(image, "binarized_image", None)
+    if raw is not None and cal is not None and mask is not None:
+        raw = np.asarray(raw, dtype=float)
+        cal = np.asarray(cal, dtype=float)
+        # The calibrators trim the first row and column (`pixel_size_nm`).
+        # 補正は先頭の行と列を 1 つずつ落とす（`pixel_size_nm`）。
+        if raw.shape == (cal.shape[0] + 1, cal.shape[1] + 1):
+            absorbed = _absorbed_fraction(raw[1:, 1:], cal, mask, width)
+    absorbed_high = absorbed is not None and absorbed >= _MAX_ABSORBED_FRACTION
     if method == "tophat":
+        out: List[BackgroundWarning] = []
         if params.tophat_se_size < TOPHAT_MIN_ELEMENT_WIDTHS * width:
-            return [BackgroundWarning(method, "element_small", width, None,
-                                      "tophat", suggest_se)]
-        return []
-    out: List[BackgroundWarning] = []
+            out.append(BackgroundWarning(method, "element_small", width, None,
+                                         "tophat", suggest_se, absorbed))
+        if absorbed_high:
+            larger = suggest_se > int(params.tophat_se_size)
+            out.append(BackgroundWarning(method, "relief_absorbed", width, None,
+                                         "tophat" if larger else None,
+                                         suggest_se if larger else None, absorbed))
+        return out
+    out = []
     ratio = None
     outx = getattr(calibrator, "outx", None)
     outy = getattr(calibrator, "outy", None)
@@ -1004,16 +1140,20 @@ def background_warnings(params: ProcParams, image: ProcessedImage,
                 ratio = flank_step_ratio(height, width, sigma, params.threshold_factor)
     too_wide = width > BACKGROUND_CHECKED_MAX_WIDTH_PX
     low = ratio is not None and ratio < MIN_FLANK_STEP_RATIO.get(method, 0.0)
-    if low or too_wide:
-        if (method == "trendfill" and not too_wide and ratio is not None
-                and ratio >= MIN_FLANK_STEP_RATIO["spline1d"]):
-            suggest, se = "spline1d", None
-        else:
-            suggest, se = "tophat", suggest_se
-        if low:
-            out.append(BackgroundWarning(method, "flank_step_low", width, ratio, suggest, se))
-        if too_wide:
-            out.append(BackgroundWarning(method, "width_unchecked", width, ratio, suggest, se))
+    if (method == "trendfill" and not too_wide and ratio is not None
+            and ratio >= MIN_FLANK_STEP_RATIO["spline1d"]):
+        suggest, se = "spline1d", None
+    else:
+        suggest, se = "tophat", suggest_se
+    if low:
+        out.append(BackgroundWarning(method, "flank_step_low", width, ratio, suggest, se,
+                                     absorbed))
+    if too_wide:
+        out.append(BackgroundWarning(method, "width_unchecked", width, ratio, suggest, se,
+                                     absorbed))
+    if absorbed_high:
+        out.append(BackgroundWarning(method, "relief_absorbed", width, ratio, suggest, se,
+                                     absorbed))
     return out
 
 

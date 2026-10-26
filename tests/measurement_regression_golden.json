@@ -1,71 +1,71 @@
 {
   "testdata_Bruker_txt/NDTOC250306.000.txt": {
     "default": {
-      "curvature_sha256": "76c4f9600a74bbec3ed669f69619f0637779884abac3541648958f07f5ab5409",
-      "fiber_csv_sha256": "9026e9feac94f06c50b7ce11b2a97bfcf7d64a283de764f1ab912080172ec79b",
-      "fibers": 139,
-      "heights_sha256": "5e42c9f09b74595f81df72ed3b8d95a29211f9daf066b18e565711e8abaecf99",
-      "total_length_nm": 9433.6
+      "curvature_sha256": "85dbe6540c7d558dbef045d6a5649b7acf3e022c3ae1fc94a903d609d41401e2",
+      "fiber_csv_sha256": "0c43dadd78790ff679418f9ea8be594f653553b8e6d1c4ebb65e15b3a8d9e1e4",
+      "fibers": 143,
+      "heights_sha256": "4b677a529efb1661dd6de63038758693147c4ab18fa7143b301c2c9f9547de3f",
+      "total_length_nm": 9595.6
     },
     "max_loop_area_0": {
-      "curvature_sha256": "fa07fe2752d0fba3be7efeda021d5683aff0898b543a1b83c96a78b29df0c9e0",
-      "fiber_csv_sha256": "0b0ed025e124031121ec4fb78800e90aabccd6fa071f04aa20ac164c3c48f98c",
-      "fibers": 148,
-      "heights_sha256": "4ce85d9e4d3b5fb022f410cc35410337689473f3d40daf89b93035446ebd0d9d",
-      "total_length_nm": 9300.8
+      "curvature_sha256": "a4191f275dc535eaf92bce6b4f1340d39c8cee80772cba50626189f227e96345",
+      "fiber_csv_sha256": "1c5a98b824c22f5af31cbef184c57f8ac1a8a61b83cccfe62f6a94afeddb7740",
+      "fibers": 151,
+      "heights_sha256": "6ca99bbe4f11490515e5def21d70b7473226a382bd259d91769db16a7cd97785",
+      "total_length_nm": 9450.1
     },
     "spur_length_0": {
-      "curvature_sha256": "050797e55a0a4b9f215814dc0d7345f31603b15a632d63e754a962d5a67be9c4",
-      "fiber_csv_sha256": "736a5523e12c3fd198dc72263fa47f63bae5f147122697cee973c03a3828c86b",
-      "fibers": 149,
-      "heights_sha256": "669687c7a00e2c72bf66aca80caafc234369e54986719a28868d2c60e99a1a6c",
-      "total_length_nm": 9399.5
+      "curvature_sha256": "b2f0dd8624e055efff49cf12f2d13994bacc0a23b575d7da48fa61620aa8c853",
+      "fiber_csv_sha256": "ccc843adc1921259443219a0c0a7de4bc173eefbec9ce5b61891b5a02b283ef8",
+      "fibers": 153,
+      "heights_sha256": "15ad548b83bd6db80b508b146058d42b8885c1301b1065199362c382163b6ea8",
+      "total_length_nm": 9561.6
     }
   },
   "testdata_higherplantTOC/_20250318-164122_T.ssp .txt": {
     "default": {
-      "curvature_sha256": "515e65c77112242682632016960bc1f158534bac4dc2c6812aa987902feb9489",
-      "fiber_csv_sha256": "7f6596cc1fc493e2377d2c6789f70335a754a7b2f65fb97cb0fa41e3685a1555",
-      "fibers": 15,
-      "heights_sha256": "ca4b1da8b843ced7d6395c36e6340854457b09149eb52c98ff60affb6162078e",
-      "total_length_nm": 4064.0
+      "curvature_sha256": "e3b5f83a8f9e2b0b5258c768ee86a988c32a8b930f321faffd0c4478fe7216f8",
+      "fiber_csv_sha256": "7281a25f72270b456e630fb16619826596c16e2dd074b6a259db1bc465703320",
+      "fibers": 19,
+      "heights_sha256": "f50d53b12ea6cf801472c83c8b3540e07957664b39af9cbdccc246a2705a0ac5",
+      "total_length_nm": 4361.8
     },
     "max_loop_area_0": {
-      "curvature_sha256": "79c0dec0bb4cbb73481c09915f5e6cb8450a5782c30621fbfdfb7adfc8b14a85",
-      "fiber_csv_sha256": "15f7b286c0c8f4da44d47e27b3e851cca46a958dc178305c89fedb40897ffc08",
-      "fibers": 15,
-      "heights_sha256": "413dd0aed47c9a2c5157e7755ddc04e95933d326cbe7e16f5c00c40631e37923",
-      "total_length_nm": 4038.4
+      "curvature_sha256": "1cdead81ac64ede69afe1f3df100a0429f9f12badd4b7c6cb91670d60fe007e5",
+      "fiber_csv_sha256": "b5e8a2090e236865db53965892a4bb77ea7cde4ae2a94953cc89f665ff108df6",
+      "fibers": 19,
+      "heights_sha256": "6d699d3b632643064091efe285bec5e074be6736985fdee5bdb3382bdbb8bd61",
+      "total_length_nm": 4336.2
     },
     "spur_length_0": {
-      "curvature_sha256": "d0ca42683372360e05ceb816b14a6b89dea825ce2b8c132257cb5cede3bd5498",
-      "fiber_csv_sha256": "00ba457a87055ed6b5a934f66cc40ed13baef430ed6f267fc0886d3cdb779b52",
-      "fibers": 17,
-      "heights_sha256": "3d7a16e0442aa6817eb895a63cf01085c58f796bced077b98486d82fbef64fb9",
-      "total_length_nm": 4047.0
+      "curvature_sha256": "1b7283253c9da1560d79d71ad7a2027ac13ece456097b9fb5de8b097f0834aba",
+      "fiber_csv_sha256": "8ba11ec817b9085ff4015772481f7bde331402b4a9b4ef7d0001054b42e90ecf",
+      "fibers": 21,
+      "heights_sha256": "17fb56d795732cfe4bec61500e79ae0103c483b90666effbbb2b44606299fc2d",
+      "total_length_nm": 4344.8
     }
   },
   "testdata_tunicateCNF/TunicateACTOCCNF.txt": {
     "default": {
-      "curvature_sha256": "aa9958ea5c4b3f3b2de753ff4f1a220397ecebba36ff34a4f923aa12ce8224e8",
-      "fiber_csv_sha256": "05e026a01ef3799c7d6ec80f6ec78ed1bd9c4fca6417f37106177d8cb86146ae",
-      "fibers": 60,
-      "heights_sha256": "9fe60c9dcd76931844f2e5634c260a8ac801e99175d9f254ca778980a47e1dd0",
-      "total_length_nm": 8469.5
+      "curvature_sha256": "a455365a591f46be5f7c9db8ffd17f4dee9c17bde834ea85ffad97663bf586b3",
+      "fiber_csv_sha256": "4ce60d19dbd0596efc4fb264442d79eed9d6f9bbab31217ec61cfa7089f7415d",
+      "fibers": 63,
+      "heights_sha256": "195e94f3e1f5d205f5b3b52749e153147103cf8a9475b69e0a4c10264dd18b8e",
+      "total_length_nm": 8577.6
     },
     "max_loop_area_0": {
-      "curvature_sha256": "e18eaed9e1b95b5abc264c4cfd42e72be15f66834123f37c74f59b35ffd8ddaa",
-      "fiber_csv_sha256": "430c1bb300f6689ab60dc29a04e4aa822fedd7b367298abe82686d13f73ef604",
-      "fibers": 63,
-      "heights_sha256": "d6e69423b20f4a8c8d05939f594e302711834be8d777a4d1966014d87bbc748f",
-      "total_length_nm": 8453.9
+      "curvature_sha256": "b03ca90a5dd00b6bbae889edd96721bd57cffcb6c2a3fa6c54062227e470726d",
+      "fiber_csv_sha256": "2533d379a1d2a492d747062f98ebebf4d7330422e193713576d18b6451a10093",
+      "fibers": 66,
+      "heights_sha256": "36a44ca91efdf7d6984666c77553590f6d99356ff482205aa511de9ff8a896db",
+      "total_length_nm": 8562.0
     },
     "spur_length_0": {
-      "curvature_sha256": "c0478c99edc10ffea8c4de163f4f6092c2e9d743827f55a589308fdcf2e7b0bd",
-      "fiber_csv_sha256": "ff63341a7e750ced06a30ce41e5c1a377b4b30d85612fa286a047b1a10530a47",
-      "fibers": 62,
-      "heights_sha256": "a036efde845092346debbb5c2f5220013319beb4b2366734b2ce082703f8d739",
-      "total_length_nm": 8451.0
+      "curvature_sha256": "b33a8330682066441623d342ae767c3f7dc5b94b2c2e2ebec0440b4e6b4e7fe8",
+      "fiber_csv_sha256": "008cd9c7ee79b1f893d66e32bb589a67597efcd70d2ff1d75d79c29c4bcd2b51",
+      "fibers": 65,
+      "heights_sha256": "21d2d06aa3775a35a6c9ab83dfd8524d07c230383f34f2aba6591576b57dac23",
+      "total_length_nm": 8559.0
     }
   }
 }

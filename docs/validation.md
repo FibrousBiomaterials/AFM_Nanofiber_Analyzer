@@ -92,9 +92,9 @@ which grows with vertical ones.
 
 | Input | Rows, `trendfill` | Rows, `'x'` | Rows, `'y'` | Columns, `trendfill` | Columns, `'x'` | Columns, `'y'` |
 |---|---|---|---|---|---|---|
-| tunicate CNF | 0.010<!--m:spline1d_axis.tunicate.trendfill.row_median_std_nm--> | 0.007<!--m:spline1d_axis.tunicate.x.row_median_std_nm--> | 0.085<!--m:spline1d_axis.tunicate.y.row_median_std_nm--> | 0.011<!--m:spline1d_axis.tunicate.trendfill.column_median_std_nm--> | 0.017<!--m:spline1d_axis.tunicate.x.column_median_std_nm--> | 0.015<!--m:spline1d_axis.tunicate.y.column_median_std_nm--> |
-| higher-plant TOC | 0.222<!--m:spline1d_axis.hplantTOC.trendfill.row_median_std_nm--> | 0.006<!--m:spline1d_axis.hplantTOC.x.row_median_std_nm--> | 0.279<!--m:spline1d_axis.hplantTOC.y.row_median_std_nm--> | 0.005<!--m:spline1d_axis.hplantTOC.trendfill.column_median_std_nm--> | 0.006<!--m:spline1d_axis.hplantTOC.x.column_median_std_nm--> | 0.009<!--m:spline1d_axis.hplantTOC.y.column_median_std_nm--> |
-| Bruker NDTOC | 0.018<!--m:spline1d_axis.NDTOC.trendfill.row_median_std_nm--> | 0.019<!--m:spline1d_axis.NDTOC.x.row_median_std_nm--> | 0.308<!--m:spline1d_axis.NDTOC.y.row_median_std_nm--> | 0.015<!--m:spline1d_axis.NDTOC.trendfill.column_median_std_nm--> | 0.015<!--m:spline1d_axis.NDTOC.x.column_median_std_nm--> | 0.036<!--m:spline1d_axis.NDTOC.y.column_median_std_nm--> |
+| tunicate CNF | 0.010<!--m:spline1d_axis.tunicate.trendfill.row_median_std_nm--> | 0.007<!--m:spline1d_axis.tunicate.x.row_median_std_nm--> | 0.081<!--m:spline1d_axis.tunicate.y.row_median_std_nm--> | 0.011<!--m:spline1d_axis.tunicate.trendfill.column_median_std_nm--> | 0.017<!--m:spline1d_axis.tunicate.x.column_median_std_nm--> | 0.015<!--m:spline1d_axis.tunicate.y.column_median_std_nm--> |
+| higher-plant TOC | 0.226<!--m:spline1d_axis.hplantTOC.trendfill.row_median_std_nm--> | 0.005<!--m:spline1d_axis.hplantTOC.x.row_median_std_nm--> | 0.281<!--m:spline1d_axis.hplantTOC.y.row_median_std_nm--> | 0.005<!--m:spline1d_axis.hplantTOC.trendfill.column_median_std_nm--> | 0.006<!--m:spline1d_axis.hplantTOC.x.column_median_std_nm--> | 0.009<!--m:spline1d_axis.hplantTOC.y.column_median_std_nm--> |
+| Bruker NDTOC | 0.019<!--m:spline1d_axis.NDTOC.trendfill.row_median_std_nm--> | 0.019<!--m:spline1d_axis.NDTOC.x.row_median_std_nm--> | 0.306<!--m:spline1d_axis.NDTOC.y.row_median_std_nm--> | 0.015<!--m:spline1d_axis.NDTOC.trendfill.column_median_std_nm--> | 0.015<!--m:spline1d_axis.NDTOC.x.column_median_std_nm--> | 0.036<!--m:spline1d_axis.NDTOC.y.column_median_std_nm--> |
 
 Along `'y'`, the per-row spread was larger than with `trendfill` on every
 input. Rendered, the calibrated images along `'y'` carry bright and dark
@@ -116,7 +116,7 @@ gives the per-column spread on the rotated inputs.
 |---|---|---|---|
 | tunicate CNF | 0.069<!--m:spline1d_axis_rotated.tunicate.trendfill.column_median_std_nm--> | 0.120<!--m:spline1d_axis_rotated.tunicate.x.column_median_std_nm--> | 0.072<!--m:spline1d_axis_rotated.tunicate.y.column_median_std_nm--> |
 | higher-plant TOC | 0.040<!--m:spline1d_axis_rotated.hplantTOC.trendfill.column_median_std_nm--> | 0.073<!--m:spline1d_axis_rotated.hplantTOC.x.column_median_std_nm--> | 0.040<!--m:spline1d_axis_rotated.hplantTOC.y.column_median_std_nm--> |
-| Bruker NDTOC | 0.046<!--m:spline1d_axis_rotated.NDTOC.trendfill.column_median_std_nm--> | 0.265<!--m:spline1d_axis_rotated.NDTOC.x.column_median_std_nm--> | 0.047<!--m:spline1d_axis_rotated.NDTOC.y.column_median_std_nm--> |
+| Bruker NDTOC | 0.046<!--m:spline1d_axis_rotated.NDTOC.trendfill.column_median_std_nm--> | 0.261<!--m:spline1d_axis_rotated.NDTOC.x.column_median_std_nm--> | 0.047<!--m:spline1d_axis_rotated.NDTOC.y.column_median_std_nm--> |
 
 On the two inputs other than the higher-plant scan, rotating made the spread
 larger for every method, `trendfill` included (compare the first table), so
@@ -141,7 +141,7 @@ horizontal stripes.
 | Input | Rows, X only | Rows, X and Y |
 |---|---|---|
 | tunicate CNF | 0.010<!--m:savgol_axis.tunicate.x_only.row_median_std_nm--> | 0.070<!--m:savgol_axis.tunicate.x_and_y.row_median_std_nm--> |
-| higher-plant TOC | 0.222<!--m:savgol_axis.hplantTOC.x_only.row_median_std_nm--> | 0.291<!--m:savgol_axis.hplantTOC.x_and_y.row_median_std_nm--> |
+| higher-plant TOC | 0.226<!--m:savgol_axis.hplantTOC.x_only.row_median_std_nm--> | 0.293<!--m:savgol_axis.hplantTOC.x_and_y.row_median_std_nm--> |
 | Bruker NDTOC | 0.015<!--m:savgol_axis.NDTOC.x_only.row_median_std_nm--> | 0.046<!--m:savgol_axis.NDTOC.x_and_y.row_median_std_nm--> |
 Smoothing along Y as well made the per-row spread larger on every input.
 Rendered, the images smoothed along both axes carry horizontal streaks across
@@ -176,39 +176,117 @@ as the reference height and the background the default analysis subtracted is
 the background. The reference is the default analysis at the scan's own pixel
 size, so "kept" below measures what finer pixels lose relative to it, not the
 error of the default analysis itself; this experiment does not measure the
-absolute accuracy of the height. The two tiles of 256<!--c:scripts/measure_docs.py::ZOOM_TILE--> px holding the most skeleton pixels are upsampled by each zoom factor, so the field
+absolute accuracy of the height, which §1.9 measures on synthetic fibers. The two tiles of 256<!--c:scripts/measure_docs.py::ZOOM_TILE--> px holding the most skeleton pixels are upsampled by each zoom factor, so the field
 stays the same and the pixels become finer; white noise at the scan's own level
 (0.027<!--m:zoomed_background.tunicate.noise_nm-->–0.064<!--m:zoomed_background.NDTOC.noise_nm--> nm) is added, and each method runs at its defaults through all four
 stages. The fibers' apparent widths at the scans' own pixel size are
-7.6<!--m:zoomed_background.hplantTOC.width_px-->–8.6<!--m:zoomed_background.NDTOC.width_px--> px, so a zoom factor $k$ spreads them over about $k$ times as many
+7.5<!--m:zoomed_background.hplantTOC.width_px-->–8.6<!--m:zoomed_background.NDTOC.width_px--> px, so a zoom factor $k$ spreads them over about $k$ times as many
 pixels. "Kept" is the median of calibrated over reference height at the default
 skeleton's points, ranged here over the tiles.
 
 | Zoom | trendfill | spline1d | tophat |
 |---|---|---|---|
-| 1<!--n:value tried--> | 0.97–1.00<!--m:zoomed_background.trendfill.x1.kept_range--> | 0.99–1.02<!--m:zoomed_background.spline1d.x1.kept_range--> | 0.92–0.98<!--m:zoomed_background.tophat.x1.kept_range--> |
+| 1<!--n:value tried--> | 0.97–1.00<!--m:zoomed_background.trendfill.x1.kept_range--> | 0.99–1.01<!--m:zoomed_background.spline1d.x1.kept_range--> | 0.92–0.98<!--m:zoomed_background.tophat.x1.kept_range--> |
 | 1.5<!--n:value tried--> | 0.61–1.00<!--m:zoomed_background.trendfill.x1.5.kept_range--> | 0.89–1.00<!--m:zoomed_background.spline1d.x1.5.kept_range--> | 0.83–0.95<!--m:zoomed_background.tophat.x1.5.kept_range--> |
 | 2<!--n:value tried--> | 0.32–1.00<!--m:zoomed_background.trendfill.x2.kept_range--> | 0.63–1.00<!--m:zoomed_background.spline1d.x2.kept_range--> | 0.64–0.83<!--m:zoomed_background.tophat.x2.kept_range--> |
-| 3<!--n:value tried--> | 0.13–0.96<!--m:zoomed_background.trendfill.x3.kept_range--> | 0.26–0.99<!--m:zoomed_background.spline1d.x3.kept_range--> | 0.29–0.49<!--m:zoomed_background.tophat.x3.kept_range--> |
-| 4<!--n:value tried--> | 0.08–0.18<!--m:zoomed_background.trendfill.x4.kept_range--> | 0.13–0.93<!--m:zoomed_background.spline1d.x4.kept_range--> | 0.15–0.28<!--m:zoomed_background.tophat.x4.kept_range--> |
+| 3<!--n:value tried--> | 0.13–0.96<!--m:zoomed_background.trendfill.x3.kept_range--> | 0.26–0.99<!--m:zoomed_background.spline1d.x3.kept_range--> | 0.31–0.49<!--m:zoomed_background.tophat.x3.kept_range--> |
+| 4<!--n:value tried--> | 0.08–0.18<!--m:zoomed_background.trendfill.x4.kept_range--> | 0.13–0.93<!--m:zoomed_background.spline1d.x4.kept_range--> | 0.17–0.28<!--m:zoomed_background.tophat.x4.kept_range--> |
 
 `background_warnings` (`lib/pipeline.py`) was checked on every run; a run it
-warned on was analyzed again as the warning suggests.
+warned on with a suggested setting was analyzed again with that setting.
 
 | Zoom | Runs | Kept below 0.9<!--n:definition--> | of which not warned | Warned | Warned with 0.97<!--n:definition--> or more kept |
 |---|---|---|---|---|---|
 | 1<!--n:value tried--> | 18<!--m:zoomed_background.x1.runs--> | 0<!--m:zoomed_background.x1.below_90--> | 0<!--m:zoomed_background.x1.below_90_unwarned--> | 3<!--m:zoomed_background.x1.warned--> | 2<!--m:zoomed_background.x1.warned_above_97--> |
 | 1.5<!--n:value tried--> | 18<!--m:zoomed_background.x1.5.runs--> | 7<!--m:zoomed_background.x1.5.below_90--> | 1<!--m:zoomed_background.x1.5.below_90_unwarned--> | 10<!--m:zoomed_background.x1.5.warned--> | 1<!--m:zoomed_background.x1.5.warned_above_97--> |
-| 2<!--n:value tried--> | 18<!--m:zoomed_background.x2.runs--> | 12<!--m:zoomed_background.x2.below_90--> | 1<!--m:zoomed_background.x2.below_90_unwarned--> | 11<!--m:zoomed_background.x2.warned--> | 0<!--m:zoomed_background.x2.warned_above_97--> |
-| 3<!--n:value tried--> | 18<!--m:zoomed_background.x3.runs--> | 15<!--m:zoomed_background.x3.below_90--> | 14<!--m:zoomed_background.x3.below_90_unwarned--> | 1<!--m:zoomed_background.x3.warned--> | 0<!--m:zoomed_background.x3.warned_above_97--> |
-| 4<!--n:value tried--> | 18<!--m:zoomed_background.x4.runs--> | 17<!--m:zoomed_background.x4.below_90--> | 17<!--m:zoomed_background.x4.below_90_unwarned--> | 0<!--m:zoomed_background.x4.warned--> | 0<!--m:zoomed_background.x4.warned_above_97--> |
+| 2<!--n:value tried--> | 18<!--m:zoomed_background.x2.runs--> | 12<!--m:zoomed_background.x2.below_90--> | 0<!--m:zoomed_background.x2.below_90_unwarned--> | 12<!--m:zoomed_background.x2.warned--> | 0<!--m:zoomed_background.x2.warned_above_97--> |
+| 3<!--n:value tried--> | 18<!--m:zoomed_background.x3.runs--> | 15<!--m:zoomed_background.x3.below_90--> | 2<!--m:zoomed_background.x3.below_90_unwarned--> | 15<!--m:zoomed_background.x3.warned--> | 1<!--m:zoomed_background.x3.warned_above_97--> |
+| 4<!--n:value tried--> | 18<!--m:zoomed_background.x4.runs--> | 17<!--m:zoomed_background.x4.below_90--> | 3<!--m:zoomed_background.x4.below_90_unwarned--> | 15<!--m:zoomed_background.x4.warned--> | 0<!--m:zoomed_background.x4.warned_above_97--> |
 
-Analyzed again as suggested, the warned runs kept 0.88–1.02<!--m:zoomed_background.followed.kept_range--> of their height, with
-the background error's 95<!--n:definition-->th percentile at most 0.24<!--m:zoomed_background.followed.bg95_max--> nm. From a zoom of 3<!--n:value tried--> the
-warning almost never fires: the calibration removes most of each fiber, and the
-stages after it often find no fiber whose width could be measured, so nothing
-is left to compare with the limits. Up to a zoom of 2<!--n:value tried--> the warning caught most of the
-runs that lost height (all but 1<!--m:zoomed_background.x1.5.below_90_unwarned--> at 1.5<!--n:value tried--> and 1<!--m:zoomed_background.x2.below_90_unwarned--> at 2<!--n:value tried-->); beyond it, almost none.
+A warning that no fiber width could be measured carries no setting to follow;
+28<!--m:zoomed_background.warned_without_advice--> of the 55<!--m:zoomed_background.warned--> warned runs had only that. Analyzed again as suggested, the other warned
+runs kept 0.51–1.01<!--m:zoomed_background.followed.kept_range--> of their height, with the background error's 95<!--n:definition-->th percentile at most
+0.24<!--m:zoomed_background.followed.bg95_max--> nm, and 4<!--m:zoomed_background.followed.still_warned--> of them were warned on again; the lowest, 0.51<!--m:zoomed_background.x4.followed_kept_range[0]-->, is the one run at a zoom
+of 4<!--n:value tried--> that carried a suggestion. Of the runs that kept less than 0.9<!--n:definition--> of their height, the
+warning missed 1<!--m:zoomed_background.x1.5.below_90_unwarned--> at a zoom of 1.5<!--n:value tried-->, 2<!--m:zoomed_background.x3.below_90_unwarned--> at 3<!--n:value tried--> and 3<!--m:zoomed_background.x4.below_90_unwarned--> at 4<!--n:value tried-->. §1.10 separates the warnings that
+predict from the apparent width from those that measure the calibrated image.
+
+### 1.9 Synthetic fibers of known height
+
+No bundled scan has a known fiber height, so straight fibers of known height
+were drawn and analyzed (experiment synthetic_height): three parallel cylinders
+of diameter $D$ = 2<!--n:value tried-->, 4<!--n:value tried--> or 8<!--n:value tried--> nm under a spherical probe apex of radius 15<!--c:scripts/synthetic_suite.py::TIP--> nm, in scans
+of 320<!--n:value tried--> × 320<!--n:value tried--> px at 1<!--n:value tried-->, 2<!--n:value tried-->, 5<!--n:value tried--> and 10<!--n:value tried--> nm pixels, with the tilt, roughness and line noise of
+the synthetic suite and pixel noise of 0.05<!--n:value tried--> or 0.2<!--n:value tried--> nm. The probe's cross-section of
+each cylinder is evaluated at every pixel centre, as a scan samples the
+surface. Three quantities are read on the middle 80<!--n:definition--> % of each fiber and divided
+by $D$: the height the pixel grid can show (the fiber-only image at the pixels
+nearest the axis), the height background calibration removed at those pixels
+(the median of the fiber-only image minus the calibrated image), and the
+reported height (the median of the traced fibers' height samples). With
+`trendfill` and 0.05<!--n:value tried--> nm noise:
+
+| Pixel size | $D$ | $W$ | Pixel grid shows | Removed | Reported |
+|---|---|---|---|---|---|
+| 1<!--n:value tried--> nm | 2<!--n:value tried--> nm | 11.1<!--m:synthetic_height.px1.d2.w_px--> px | 1.00<!--m:synthetic_height.px1.d2.n0.05.peak--> | 0.13<!--m:synthetic_height.trendfill.px1.d2.n0.05.bg_loss--> | 0.94<!--m:synthetic_height.trendfill.px1.d2.n0.05.height--> |
+| 1<!--n:value tried--> nm | 4<!--n:value tried--> nm | 16.0<!--m:synthetic_height.px1.d4.w_px--> px | 1.00<!--m:synthetic_height.px1.d4.n0.05.peak--> | 0.53<!--m:synthetic_height.trendfill.px1.d4.n0.05.bg_loss--> | – |
+| 1<!--n:value tried--> nm | 8<!--n:value tried--> nm | 23.3<!--m:synthetic_height.px1.d8.w_px--> px | 1.00<!--m:synthetic_height.px1.d8.n0.05.peak--> | 0.84<!--m:synthetic_height.trendfill.px1.d8.n0.05.bg_loss--> | – |
+| 2<!--n:value tried--> nm | 2<!--n:value tried--> nm | 5.6<!--m:synthetic_height.px2.d2.w_px--> px | 0.99<!--m:synthetic_height.px2.d2.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px2.d2.n0.05.bg_loss--> | 1.02<!--m:synthetic_height.trendfill.px2.d2.n0.05.height--> |
+| 2<!--n:value tried--> nm | 4<!--n:value tried--> nm | 8.0<!--m:synthetic_height.px2.d4.w_px--> px | 1.00<!--m:synthetic_height.px2.d4.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px2.d4.n0.05.bg_loss--> | 1.02<!--m:synthetic_height.trendfill.px2.d4.n0.05.height--> |
+| 2<!--n:value tried--> nm | 8<!--n:value tried--> nm | 11.7<!--m:synthetic_height.px2.d8.w_px--> px | 1.00<!--m:synthetic_height.px2.d8.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px2.d8.n0.05.bg_loss--> | 1.01<!--m:synthetic_height.trendfill.px2.d8.n0.05.height--> |
+| 5<!--n:value tried--> nm | 2<!--n:value tried--> nm | 2.2<!--m:synthetic_height.px5.d2.w_px--> px | 0.96<!--m:synthetic_height.px5.d2.n0.05.peak--> | 0.01<!--m:synthetic_height.trendfill.px5.d2.n0.05.bg_loss--> | 0.97<!--m:synthetic_height.trendfill.px5.d2.n0.05.height--> |
+| 5<!--n:value tried--> nm | 4<!--n:value tried--> nm | 3.2<!--m:synthetic_height.px5.d4.w_px--> px | 0.98<!--m:synthetic_height.px5.d4.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px5.d4.n0.05.bg_loss--> | 0.99<!--m:synthetic_height.trendfill.px5.d4.n0.05.height--> |
+| 5<!--n:value tried--> nm | 8<!--n:value tried--> nm | 4.7<!--m:synthetic_height.px5.d8.w_px--> px | 0.99<!--m:synthetic_height.px5.d8.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px5.d8.n0.05.bg_loss--> | 1.00<!--m:synthetic_height.trendfill.px5.d8.n0.05.height--> |
+| 10<!--n:value tried--> nm | 2<!--n:value tried--> nm | 1.1<!--m:synthetic_height.px10.d2.w_px--> px | 0.85<!--m:synthetic_height.px10.d2.n0.05.peak--> | 0.01<!--m:synthetic_height.trendfill.px10.d2.n0.05.bg_loss--> | – |
+| 10<!--n:value tried--> nm | 4<!--n:value tried--> nm | 1.6<!--m:synthetic_height.px10.d4.w_px--> px | 0.93<!--m:synthetic_height.px10.d4.n0.05.peak--> | 0.01<!--m:synthetic_height.trendfill.px10.d4.n0.05.bg_loss--> | 0.89<!--m:synthetic_height.trendfill.px10.d4.n0.05.height--> |
+| 10<!--n:value tried--> nm | 8<!--n:value tried--> nm | 2.3<!--m:synthetic_height.px10.d8.w_px--> px | 0.97<!--m:synthetic_height.px10.d8.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px10.d8.n0.05.bg_loss--> | 0.97<!--m:synthetic_height.trendfill.px10.d8.n0.05.height--> |
+
+A dash marks a run whose traced lines do not follow the fibers, so their
+height samples are not a height of the fiber. At 1<!--n:value tried--> nm pixels with $D$ = 4<!--n:value tried--> and
+8<!--n:value tried--> nm the calibrated fibers are hollowed, and the traced lines loop inside them or
+miss them; at 10<!--n:value tried--> nm pixels the 2<!--n:value tried--> nm fibers are visible in the calibrated image but
+traced over only 0.15<!--m:synthetic_height.trendfill.px10.d2.n0.05.traced--> of their length (both viewed on the calibrated images).
+
+Over all three methods and both noise levels: at 2<!--n:value tried--> nm pixels, where the fibers
+span 5.6<!--m:synthetic_height.px2.d2.w_px-->–11.7<!--m:synthetic_height.px2.d8.w_px--> px (the bundled scans' fibers span 7.5<!--m:zoomed_background.hplantTOC.width_px-->–8.6<!--m:zoomed_background.NDTOC.width_px--> px, §1.8), calibration
+removed between −0.01<!--m:synthetic_height.px2.removed_range[0]--> and 0.03<!--m:synthetic_height.px2.removed_range[1]--> of the height and the reported height was
+0.98–1.05<!--m:synthetic_height.px2.height_range--> of it. At 5<!--n:value tried--> and 10<!--n:value tried--> nm pixels calibration removed at most 0.02<!--m:synthetic_height.coarse.removed_max-->; there
+the pixel grid limits the height, showing 0.96–0.99<!--m:synthetic_height.px5.peak_range--> of it at 5<!--n:value tried--> nm and
+0.85–0.97<!--m:synthetic_height.px10.peak_range--> at 10<!--n:value tried--> nm, because the narrow top of the fiber falls between pixel
+centres. At 1<!--n:value tried--> nm pixels every method removed part of the fibers (ranges over
+$D$, at 0.05<!--n:value tried--> and 0.2<!--n:value tried--> nm noise): `trendfill` 0.13–0.84<!--m:synthetic_height.px1.trendfill.n0.05.removed_range--> and 0.70–0.95<!--m:synthetic_height.px1.trendfill.n0.2.removed_range-->, `tophat`
+0.07–0.53<!--m:synthetic_height.px1.tophat.n0.05.removed_range--> and 0.10–0.55<!--m:synthetic_height.px1.tophat.n0.2.removed_range-->, `spline1d` 0.01–0.46<!--m:synthetic_height.px1.spline1d.n0.05.removed_range--> and 0.38–0.90<!--m:synthetic_height.px1.spline1d.n0.2.removed_range-->. How `background_warnings` fared on these runs is
+in §1.10.
+
+### 1.10 Predicted and measured background warnings
+
+`background_warnings` (`lib/pipeline.py`) raises two kinds of warning. Three
+compare the apparent width with the limits of §1.8 and so predict a loss:
+`element_small`, `flank_step_low` and `width_unchecked`. Two measure the
+calibrated image. `relief_absorbed` fires when, on the fiber mask, 0.1<!--c:lib/pipeline.py::_MAX_ABSORBED_FRACTION--> or more
+of the relief the input showed was subtracted as background standing above the
+background beside the mask (within 2<!--c:lib/pipeline.py::_ABSORBED_RING_WIDTHS--> apparent widths of it, averaged over 3<!--c:lib/pipeline.py::_ABSORBED_SMOOTH_WIDTHS--> widths);
+`width_unmeasured` fires when no apparent width could be measured for most
+components, so that no other check could run. The two lengths and the limit
+were chosen by looking at the runs below, so these runs served as a development
+set rather than an independent test.
+
+A run counts as losing height when it lost more than 0.1<!--n:definition--> of it and as sound when
+it lost less than 0.03<!--n:definition-->:
+
+| Runs | Losing height | Sound | Predicted: caught | Predicted: on sound runs | Measured: caught | Measured: on sound runs | Either: caught | Either: on sound runs |
+|---|---|---|---|---|---|---|---|---|
+| Known-height fibers at 23<!--n:value tried-->° (§1.9) | 14<!--m:synthetic_height.lossy--> | 54<!--m:synthetic_height.sound--> | 7<!--m:synthetic_height.predicted.caught--> | 13<!--m:synthetic_height.predicted.false--> | 13<!--m:synthetic_height.measured.caught--> | 0<!--m:synthetic_height.measured.false--> | 14<!--m:synthetic_height.any.caught--> | 13<!--m:synthetic_height.any.false--> |
+| The same at 0.05<!--n:value tried--> nm noise in four orientations | 20<!--m:synthetic_height_orientation.lossy--> | 103<!--m:synthetic_height_orientation.sound--> | 7<!--m:synthetic_height_orientation.predicted.caught--> | 19<!--m:synthetic_height_orientation.predicted.false--> | 18<!--m:synthetic_height_orientation.measured.caught--> | 1<!--m:synthetic_height_orientation.measured.false--> | 19<!--m:synthetic_height_orientation.any.caught--> | 20<!--m:synthetic_height_orientation.any.false--> |
+| Zoomed bundled scans (§1.8) | 51<!--m:zoomed_background.tally.lossy--> | 27<!--m:zoomed_background.tally.sound--> | 19<!--m:zoomed_background.tally.predicted.caught--> | 3<!--m:zoomed_background.tally.predicted.false--> | 44<!--m:zoomed_background.tally.measured.caught--> | 1<!--m:zoomed_background.tally.measured.false--> | 45<!--m:zoomed_background.tally.any.caught--> | 4<!--m:zoomed_background.tally.any.false--> |
+
+The four orientations are 0<!--n:value tried-->, 23<!--n:value tried-->, 45<!--n:value tried--> and 90<!--n:value tried-->° to the scan lines (experiment
+synthetic_height_orientation). The measured warnings flagged 1<!--m:synthetic_height_orientation.measured.false_axis_parallel--> sound
+run there, with its fibers parallel to an image axis: 90<!--n:value tried-->° at 1<!--n:value tried--> nm pixels, with
+`spline1d`, flagged because no width could be measured. Rendered, the
+calibrated fibers keep their height, but the traced lines break into loops and
+fragments inside them, so the warning that no width could be measured is true
+there although the trouble lies after calibration.
 
 ## 2. Binarization
 
@@ -241,9 +319,9 @@ heights are medians, as a percentage of the highest height within 3<!--n:definit
 
 | Scan | Mean mask width, global alone → both (px) | Mask components | Branch points of the final skeleton | Height of the pixels the local threshold removes / keeps (%) |
 |---|---|---|---|---|
-| tunicate CNF | 15.6<!--m:local_threshold.tunicate.global.mask_width_px--> → 10.1<!--m:local_threshold.tunicate.both.mask_width_px--> | 1<!--m:local_threshold.tunicate.global.mask_components--> → 9<!--m:local_threshold.tunicate.both.mask_components--> | 69<!--m:local_threshold.tunicate.global.branch_points--> → 32<!--m:local_threshold.tunicate.both.branch_points--> | 25<!--m:local_threshold.tunicate.removed_percent_of_crest--> / 83<!--m:local_threshold.tunicate.kept_percent_of_crest--> |
-| higher-plant TOC | 12.1<!--m:local_threshold.hplantTOC.global.mask_width_px--> → 8.9<!--m:local_threshold.hplantTOC.both.mask_width_px--> | 10<!--m:local_threshold.hplantTOC.global.mask_components--> → 8<!--m:local_threshold.hplantTOC.both.mask_components--> | 6<!--m:local_threshold.hplantTOC.global.branch_points--> → 5<!--m:local_threshold.hplantTOC.both.branch_points--> | 34<!--m:local_threshold.hplantTOC.removed_percent_of_crest--> / 75<!--m:local_threshold.hplantTOC.kept_percent_of_crest--> |
-| Bruker NDTOC | 13.0<!--m:local_threshold.NDTOC.global.mask_width_px--> → 9.5<!--m:local_threshold.NDTOC.both.mask_width_px--> | 16<!--m:local_threshold.NDTOC.global.mask_components--> → 20<!--m:local_threshold.NDTOC.both.mask_components--> | 154<!--m:local_threshold.NDTOC.global.branch_points--> → 76<!--m:local_threshold.NDTOC.both.branch_points--> | 35<!--m:local_threshold.NDTOC.removed_percent_of_crest--> / 72<!--m:local_threshold.NDTOC.kept_percent_of_crest--> |
+| tunicate CNF | 15.6<!--m:local_threshold.tunicate.global.mask_width_px--> → 10.1<!--m:local_threshold.tunicate.both.mask_width_px--> | 1<!--m:local_threshold.tunicate.global.mask_components--> → 11<!--m:local_threshold.tunicate.both.mask_components--> | 69<!--m:local_threshold.tunicate.global.branch_points--> → 33<!--m:local_threshold.tunicate.both.branch_points--> | 25<!--m:local_threshold.tunicate.removed_percent_of_crest--> / 83<!--m:local_threshold.tunicate.kept_percent_of_crest--> |
+| higher-plant TOC | 12.0<!--m:local_threshold.hplantTOC.global.mask_width_px--> → 8.5<!--m:local_threshold.hplantTOC.both.mask_width_px--> | 12<!--m:local_threshold.hplantTOC.global.mask_components--> → 12<!--m:local_threshold.hplantTOC.both.mask_components--> | 6<!--m:local_threshold.hplantTOC.global.branch_points--> → 5<!--m:local_threshold.hplantTOC.both.branch_points--> | 34<!--m:local_threshold.hplantTOC.removed_percent_of_crest--> / 75<!--m:local_threshold.hplantTOC.kept_percent_of_crest--> |
+| Bruker NDTOC | 12.9<!--m:local_threshold.NDTOC.global.mask_width_px--> → 9.5<!--m:local_threshold.NDTOC.both.mask_width_px--> | 22<!--m:local_threshold.NDTOC.global.mask_components--> → 24<!--m:local_threshold.NDTOC.both.mask_components--> | 156<!--m:local_threshold.NDTOC.global.branch_points--> → 76<!--m:local_threshold.NDTOC.both.branch_points--> | 35<!--m:local_threshold.NDTOC.removed_percent_of_crest--> / 72<!--m:local_threshold.NDTOC.kept_percent_of_crest--> |
 
 Rendered over the height images of all 3<!--m:kink_reference.scans--> bundled scans, the pixels the local threshold removes are the
 lower flanks of the fibers; where a fiber lies alone, the only effect is a
@@ -258,20 +336,56 @@ apart from the fibers and the later filters of the binarization removed them.
 
 ### 2.5 The linearity filter
 
-On the 3<!--m:linearity_filter.inputs--> test inputs (experiment linearity_filter), $s_{\text{ratio}}$ reached
-3.36<!--m:linearity_filter.s_ratio_max-->, and 49<!--m:linearity_filter.s_ratio_above_one--> components scored $s_{\text{ratio}} > 1$. The filter removed
-251<!--m:linearity_filter.removed_reaching_h_length--> components whose bounding box reaches `h_length`; each was rendered over the
+On the 3<!--m:linearity_filter.inputs--> test inputs (experiment linearity_filter), $s_{	ext{ratio}}$ reached
+5.16<!--m:linearity_filter.s_ratio_max-->, and 159<!--m:linearity_filter.s_ratio_above_one--> components scored $s_{	ext{ratio}} > 1$. The filter removed
+160<!--m:linearity_filter.removed_reaching_h_length--> components whose largest extent reaches `h_length`; each was rendered over the
 calibrated height image and judged by eye. Most were background texture,
-particles and the scan-line glitches of the higher-plant scan, but 7<!--m:linearity_filter.removed_fiber_pieces-->
-were pieces of real fibers: short bent or kinked pieces (on the tunicate scan),
-fiber ends cut by the image border (on the higher-plant and Bruker scans),
-and on the higher-plant scan a low fiber piece
-cut by its scan-line glitch.
+particles and the scan-line glitches of the higher-plant scan, but 2<!--m:linearity_filter.removed_fiber_pieces-->
+were pieces of real fibers: a short bent piece reaching the image border on the
+tunicate scan, and a fiber end cut by the image border on the Bruker scan.
 
 On a synthetic band along the rows (area 865<!--m:linearity_filter.band.horizontal.area--> pixels), Canny found
-14<!--m:linearity_filter.band.horizontal.edge_pixels--> edge pixels in the bounding-box crop, all at the rounded ends, the score was
-0<!--m:linearity_filter.band.horizontal.s_ratio-->, and the band was removed; the same band at 45<!--n:definition-->° (area 620<!--m:linearity_filter.band.diagonal.area--> pixels)
-gave 356<!--m:linearity_filter.band.diagonal.edge_pixels--> edge pixels and a score of 1.35<!--m:linearity_filter.band.diagonal.s_ratio--> and was kept.
+264<!--m:linearity_filter.band.horizontal.edge_pixels--> edge pixels in the bounding-box crop with the filter's one-pixel margin and
+14<!--m:linearity_filter.band.horizontal.edge_pixels_unpadded--> without it, all of those at the rounded ends; the score was
+1.39<!--m:linearity_filter.band.horizontal.s_ratio-->, and the band was kept. The same band at 45<!--n:definition-->° (area 620<!--m:linearity_filter.band.diagonal.area--> pixels)
+gave 364<!--m:linearity_filter.band.diagonal.edge_pixels--> edge pixels (356<!--m:linearity_filter.band.diagonal.edge_pixels_unpadded--> without the margin) and a score of
+1.81<!--m:linearity_filter.band.diagonal.s_ratio--> and was kept.
+
+The two straightest clearly visible fibers under 1000<!--n:literal in the quoted code--> px on the Bruker scan
+(experiment linearity_axis_fibers) were analyzed as scanned and with the whole
+scan rotated so that the principal axis of each fiber's component runs along
+the columns and, turned a further 90<!--n:definition-->°, along the rows. The fifth column counts
+the outline pixels lying on the sides of the bounding box, which Canny finds
+only because of the margin. Where the filter tested them, it kept them:
+
+| Fiber | View | Area (px) | Outline pixels | of which on the box's sides | $s_{	ext{ratio}}$ |
+|---|---|---|---|---|---|
+| first | as scanned, axis at 91.1<!--m:linearity_axis_fibers.a.original_axis_deg-->° | 871<!--m:linearity_axis_fibers.a.original.area--> | 300<!--m:linearity_axis_fibers.a.original.outline_px--> | 22<!--m:linearity_axis_fibers.a.original.outline_on_box_sides_px--> | 2.52<!--m:linearity_axis_fibers.a.original.s_ratio--> |
+| second | as scanned, axis at 63.4<!--m:linearity_axis_fibers.b.original_axis_deg-->° | 482<!--m:linearity_axis_fibers.b.original.area--> | 177<!--m:linearity_axis_fibers.b.original.outline_px--> | 18<!--m:linearity_axis_fibers.b.original.outline_on_box_sides_px--> | 1.28<!--m:linearity_axis_fibers.b.original.s_ratio--> |
+| second | along the columns | 574<!--m:linearity_axis_fibers.b.columns.area--> | 247<!--m:linearity_axis_fibers.b.columns.outline_px--> | 36<!--m:linearity_axis_fibers.b.columns.outline_on_box_sides_px--> | 1.83<!--m:linearity_axis_fibers.b.columns.s_ratio--> |
+| second | along the rows | 685<!--m:linearity_axis_fibers.b.rows.area--> | 339<!--m:linearity_axis_fibers.b.rows.outline_px--> | 19<!--m:linearity_axis_fibers.b.rows.outline_on_box_sides_px--> | 3.16<!--m:linearity_axis_fibers.b.rows.s_ratio--> |
+
+Rotated, the first fiber joined the background texture beside it, and its
+component reached 1349<!--m:linearity_axis_fibers.a.columns.area--> and 1367<!--m:linearity_axis_fibers.a.rows.area--> px, which the filter does not test. Every view
+of both fibers stayed in the final binarized mask (viewed on the calibrated
+image). This is two fibers of one scan.
+
+How far the verdict on a straight shape still depends on its angle was measured
+on synthetic rods with round ends, drawn at every 5<!--n:value tried-->° from 0<!--n:value tried-->° to 90<!--n:value tried-->° with
+3<!--n:value tried--> random sub-pixel placements each and passed alone through the filter
+(experiment linearity_rotated_rods). The table gives how many of the
+57<!--m:linearity_rotated_rods.placements--> placements of each rod were kept:
+
+| Width (px) | 16<!--n:value tried--> px long | 20<!--n:value tried--> | 22<!--n:value tried--> | 24<!--n:value tried--> | 26<!--n:value tried--> | 28<!--n:value tried--> | 32<!--n:value tried--> | 40<!--n:value tried--> |
+|---|---|---|---|---|---|---|---|---|
+| 3<!--n:value tried--> | 0<!--m:linearity_rotated_rods.w3.l16.kept--> | 20<!--m:linearity_rotated_rods.w3.l20.kept--> | 46<!--m:linearity_rotated_rods.w3.l22.kept--> | 57<!--m:linearity_rotated_rods.w3.l24.kept--> | 57<!--m:linearity_rotated_rods.w3.l26.kept--> | 57<!--m:linearity_rotated_rods.w3.l28.kept--> | 57<!--m:linearity_rotated_rods.w3.l32.kept--> | 57<!--m:linearity_rotated_rods.w3.l40.kept--> |
+| 5<!--n:value tried--> | 0<!--m:linearity_rotated_rods.w5.l16.kept--> | 12<!--m:linearity_rotated_rods.w5.l20.kept--> | 37<!--m:linearity_rotated_rods.w5.l22.kept--> | 52<!--m:linearity_rotated_rods.w5.l24.kept--> | 56<!--m:linearity_rotated_rods.w5.l26.kept--> | 57<!--m:linearity_rotated_rods.w5.l28.kept--> | 57<!--m:linearity_rotated_rods.w5.l32.kept--> | 57<!--m:linearity_rotated_rods.w5.l40.kept--> |
+| 7<!--n:value tried--> | 0<!--m:linearity_rotated_rods.w7.l16.kept--> | 8<!--m:linearity_rotated_rods.w7.l20.kept--> | 22<!--m:linearity_rotated_rods.w7.l22.kept--> | 50<!--m:linearity_rotated_rods.w7.l24.kept--> | 56<!--m:linearity_rotated_rods.w7.l26.kept--> | 57<!--m:linearity_rotated_rods.w7.l28.kept--> | 57<!--m:linearity_rotated_rods.w7.l32.kept--> | 57<!--m:linearity_rotated_rods.w7.l40.kept--> |
+| 9<!--n:value tried--> | 0<!--m:linearity_rotated_rods.w9.l16.kept--> | 5<!--m:linearity_rotated_rods.w9.l20.kept--> | 11<!--m:linearity_rotated_rods.w9.l22.kept--> | 30<!--m:linearity_rotated_rods.w9.l24.kept--> | 52<!--m:linearity_rotated_rods.w9.l26.kept--> | 57<!--m:linearity_rotated_rods.w9.l28.kept--> | 57<!--m:linearity_rotated_rods.w9.l32.kept--> | 57<!--m:linearity_rotated_rods.w9.l40.kept--> |
+
+A rod was kept at every placement from 24<!--m:linearity_rotated_rods.w3.shortest_always_kept--> px long at a width of 3<!--n:value tried--> px and from
+28<!--m:linearity_rotated_rods.w9.shortest_always_kept--> px at the other widths, and at none 16<!--m:linearity_rotated_rods.w9.longest_never_kept--> px long. In between, whether it was
+kept depended on its angle and placement.
 
 ### 2.6 Components the linearity filter does not test
 
@@ -321,20 +435,21 @@ bottom of the scan, so on this scan a low branch point is not a sign of a
 spurious branch.
 
 The height-gated pruning changes little in the final skeleton. Skipping it
-changes 1<!--m:branch_pruning.tunicate.skipped.final_changed_pixels--> of 7967<!--m:branch_pruning.tunicate.final_pixels--> skeleton pixels on the tunicate scan,
-10<!--m:branch_pruning.hplantTOC.skipped.final_changed_pixels--> of 1921<!--m:branch_pruning.hplantTOC.final_pixels--> on the higher-plant scan and 176<!--m:branch_pruning.NDTOC.skipped.final_changed_pixels--> of 9033<!--m:branch_pruning.NDTOC.final_pixels--> on the Bruker scan; treating every branch point as low changes
+changes 1<!--m:branch_pruning.tunicate.skipped.final_changed_pixels--> of 8075<!--m:branch_pruning.tunicate.final_pixels--> skeleton pixels on the tunicate scan,
+10<!--m:branch_pruning.hplantTOC.skipped.final_changed_pixels--> of 2076<!--m:branch_pruning.hplantTOC.final_pixels--> on the higher-plant scan and 200<!--m:branch_pruning.NDTOC.skipped.final_changed_pixels--> of 9183<!--m:branch_pruning.NDTOC.final_pixels--> on the Bruker scan; treating every branch point as low changes
 0<!--m:branch_pruning.tunicate.all_low.final_changed_pixels--> pixels on the tunicate scan. The short arms it removes are removed again
 by the spur pruning of [Analysis algorithms](algorithms.md) §3.5, which judges by
 length alone: with the spur pruning switched off, skipping the height-gated
-pruning changes 137<!--m:branch_pruning.tunicate.spurs_off.skipped.final_changed_pixels-->, 159<!--m:branch_pruning.hplantTOC.spurs_off.skipped.final_changed_pixels--> and 928<!--m:branch_pruning.NDTOC.spurs_off.skipped.final_changed_pixels--> pixels on the same three scans.
+pruning changes 133<!--m:branch_pruning.tunicate.spurs_off.skipped.final_changed_pixels-->, 159<!--m:branch_pruning.hplantTOC.spurs_off.skipped.final_changed_pixels--> and 974<!--m:branch_pruning.NDTOC.spurs_off.skipped.final_changed_pixels--> pixels on the same three scans.
 
 ### 3.3 Loop enclosures
 
-On the bundled scans each loop left by an interior hole of the mask puts 2<!--m:loop_candidates.all.branch_points_range[0]--> to
-4<!--m:loop_candidates.all.branch_points_range[1]--> branch points on its ring. Of the 17<!--m:loop_candidates.candidates--> enclosures small enough to qualify
+On the bundled scans each loop left by an interior hole of the mask puts 1<!--m:loop_candidates.all.branch_points_range[0]--> to
+4<!--m:loop_candidates.all.branch_points_range[1]--> branch points on its ring. Of the 18<!--m:loop_candidates.candidates--> enclosures small enough to qualify
 for filling, judged by eye on the height image, 8<!--m:loop_candidates.fiber.count--> lie in a fiber, 8<!--m:loop_candidates.crossing.count--> at a crossing,
 and 1<!--m:loop_candidates.gap.count--> on the tunicate scan is a sliver enclosed by two distinct fibers, which run
-side by side with a groove between them and touch at both ends. The median
+side by side with a groove between them and touch at both ends; the remaining
+1<!--m:loop_candidates.particle.count--> lies inside a particle at the end of a faint strand on the Bruker scan. The median
 interior height is 83<!--m:loop_candidates.all.ratio_percent_range[0]-->–105<!--m:loop_candidates.all.ratio_percent_range[1]--> % of the surrounding ridge's median for every one of
 them, and the sliver's 83<!--m:loop_candidates.gap.ratio_percent_range[0]--> % lies inside that range, just above a loop artefact inside a fiber (experiment loop_candidates), so no
 threshold on this ratio fills every loop artefact and keeps the sliver. The sliver
@@ -345,10 +460,10 @@ the groove. More such slivers were built synthetically (§3.4).
 
 On 24<!--m:loop_sliver.scans--> synthetic scans of two straight fibers that part into a lens-shaped
 gap and rejoin (Gaussian sections 4<!--n:value tried--> nm high with standard deviations of 1.5<!--n:value tried-->, 2<!--n:value tried-->
-and 3<!--n:value tried--> px, gaps of 4<!--n:value tried--> to 12<!--n:value tried--> px; experiment loop_sliver), 5<!--m:loop_sliver.candidates--> enclosures were small
+and 3<!--n:value tried--> px, gaps of 4<!--n:value tried--> to 12<!--n:value tried--> px; experiment loop_sliver), 6<!--m:loop_sliver.candidates--> enclosures were small
 enough for `collapse_skeleton_loops` to consider. Their median interior height
 was 53<!--m:loop_sliver.ratio_percent_range[0]-->–97<!--m:loop_sliver.ratio_percent_range[1]--> % of the surrounding ridge's, because the flanks of two close
-fibers overlap, so all 5<!--m:loop_sliver.filled--> passed the 0.3<!--c:lib/skeletonizer.py::DEFAULT_LOOP_HEIGHT_RATIO--> guard and were filled; rendered,
+fibers overlap, so all 6<!--m:loop_sliver.filled--> passed the 0.3<!--c:lib/skeletonizer.py::DEFAULT_LOOP_HEIGHT_RATIO--> guard and were filled; rendered,
 the two fibers were then joined into one line running down the middle of the
 gap. Wider gaps enclosed more than `max_loop_area` and kept both fibers. On these
 scans the guard never stopped a fill.
@@ -376,7 +491,7 @@ border; no reason for the two margins to differ was found.
 of them, the diagonal Y kernel, leaves 4<!--n:definition--> of its 9<!--n:definition--> cells free so that it catches Y
 junctions at angles the axis-aligned kernels miss. On the default skeleton of
 each test input (experiment diagonal_ybranch) it was the only kernel to find
-53<!--m:diagonal_ybranch.all.only_diagonal_y--> of the 113<!--m:diagonal_ybranch.all.branch_points--> branch points: 15<!--m:diagonal_ybranch.tunicate.only_diagonal_y--> of 32<!--m:diagonal_ybranch.tunicate.branch_points--> on the tunicate scan, 3<!--m:diagonal_ybranch.hplantTOC.only_diagonal_y--> of 5<!--m:diagonal_ybranch.hplantTOC.branch_points--> on the
+53<!--m:diagonal_ybranch.all.only_diagonal_y--> of the 114<!--m:diagonal_ybranch.all.branch_points--> branch points: 15<!--m:diagonal_ybranch.tunicate.only_diagonal_y--> of 33<!--m:diagonal_ybranch.tunicate.branch_points--> on the tunicate scan, 3<!--m:diagonal_ybranch.hplantTOC.only_diagonal_y--> of 5<!--m:diagonal_ybranch.hplantTOC.branch_points--> on the
 higher-plant TOC scan and 35<!--m:diagonal_ybranch.NDTOC.only_diagonal_y--> of 76<!--m:diagonal_ybranch.NDTOC.branch_points--> on the Bruker scan. Each pixel only this kernel finds has at least three
 8<!--n:definition-->-connected skeleton neighbours (pixels with fewer: 0<!--m:diagonal_ybranch.all.only_diagonal_y_below_3_neighbours-->), so none of them lies on a
 plain stretch of the skeleton, where a pixel has two.
@@ -477,9 +592,9 @@ Two caveats apply to the table:
 
 | `centerline_method` | Median distance (nm) | Real scans | Notes |
 |---|---|---|---|
-| `"half_max_025w"` (default) | 0.21<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->–0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 50<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 59<!--m:kink_reference.default.false--> | |
-| `"half_max_05w"` | 0.20<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[0]-->–0.25<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[1]--> | 48<!--m:kink_reference.hm05.found--> / 4<!--m:kink_reference.hm05.missed--> / 41<!--m:kink_reference.hm05.false--> | The fewest unmatched bends of the three scored, but it merged the two corners of 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> of the 8<!--m:synthetic_centerline.pairs--> synthetic same-sense pairs, and slightly stronger smoothing raised the misses to 10–12<!--m:kink_reference.hm05_stronger.missed_range-->. |
-| `"skeleton_pixels"` | 0.54<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[0]-->–0.62<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[1]--> | 52<!--m:kink_reference.skeleton_pixels.found--> / 0<!--m:kink_reference.skeleton_pixels.missed--> / 126<!--m:kink_reference.skeleton_pixels.false--> | The staircase and the swing at junctions read as bends. |
+| `"half_max_025w"` (default) | 0.21<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->–0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 50<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 68<!--m:kink_reference.default.false--> | |
+| `"half_max_05w"` | 0.20<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[0]-->–0.25<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[1]--> | 48<!--m:kink_reference.hm05.found--> / 4<!--m:kink_reference.hm05.missed--> / 45<!--m:kink_reference.hm05.false--> | The fewest unmatched bends of the three scored, but it merged the two corners of 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> of the 8<!--m:synthetic_centerline.pairs--> synthetic same-sense pairs, and slightly stronger smoothing raised the misses to 10–12<!--m:kink_reference.hm05_stronger.missed_range-->. |
+| `"skeleton_pixels"` | 0.54<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[0]-->–0.62<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[1]--> | 52<!--m:kink_reference.skeleton_pixels.found--> / 0<!--m:kink_reference.skeleton_pixels.missed--> / 140<!--m:kink_reference.skeleton_pixels.false--> | The staircase and the swing at junctions read as bends. |
 | `"smoothed_skeleton_05w"`, `"smoothed_skeleton_1w"` | 0.33<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[0]-->–0.56<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[1]--> / 0.39<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[0]-->–0.94<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[1]--> | not scored | |
 | `"quarter_max"` | 0.20<!--m:synthetic_centerline.quarter_max.group_median_nm_range[0]-->–0.24<!--m:synthetic_centerline.quarter_max.group_median_nm_range[1]--> | not scored | Closer to the axis than the default on 4<!--m:synthetic_centerline.ribbons.quarter_closer_than_default--> of the 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> twisted ribbons, but pulled up to 3.5<!--m:synthetic_centerline.G_circle_d3.max_nm.quarter_max--> nm off the thin, round control fiber. |
 | `"centroid"` | 0.31<!--m:synthetic_centerline.centroid.group_median_nm_range[0]-->–0.38<!--m:synthetic_centerline.centroid.group_median_nm_range[1]--> | not scored | |
@@ -492,25 +607,25 @@ false detections referred to below.
 
 | Rule | Found | Found 1–2<!--n:definition--> widths from the mark | Missed | Unmatched |
 |---|---|---|---|---|
-| Excess-turning rule, on the centerline | 50<!--m:kink_reference.default.found--> | 0<!--m:kink_reference.default.displaced--> | 3<!--m:kink_reference.default.missed--> | 59<!--m:kink_reference.default.false--> |
-| Earlier polyline rule, on the skeleton track | 42<!--m:kink_reference.old_rule.found--> | 3<!--m:kink_reference.old_rule.displaced--> | 8<!--m:kink_reference.old_rule.missed--> | 70<!--m:kink_reference.old_rule.false--> |
+| Excess-turning rule, on the centerline | 50<!--m:kink_reference.default.found--> | 0<!--m:kink_reference.default.displaced--> | 3<!--m:kink_reference.default.missed--> | 68<!--m:kink_reference.default.false--> |
+| Earlier polyline rule, on the skeleton track | 42<!--m:kink_reference.old_rule.found--> | 3<!--m:kink_reference.old_rule.displaced--> | 8<!--m:kink_reference.old_rule.missed--> | 77<!--m:kink_reference.old_rule.false--> |
 
 The earlier rule's row applies `KinkDetector.kinks_and_decomposed_from_track`,
 kept for bundles of format 1.0<!--n:bundle format version--> (`kink_decompose_px` = 3<!--c:lib/pipeline.py::ProcParams.kink_decompose_px--> px, `kinkangle_deg` =
 150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg-->°), to the traced skeleton tracks of the same images.
 
 A reported bend within $W$ of a mark the reference calls ambiguous or a
-junction is counted neither as found nor as unmatched. Of the 134<!--m:kink_reference.default.detections--> bends the
+junction is counted neither as found nor as unmatched. Of the 143<!--m:kink_reference.default.detections--> bends the
 excess-turning rule reported, 25<!--m:kink_reference.default.exempt--> were such. Per scan, the rule's row reads:
 
 | Scan | Clear kinks marked | Reported bends | Found | Missed | Unmatched | Near an ambiguous or junction mark |
 |---|---|---|---|---|---|---|
-| higher-plant TOC | 3<!--m:kink_reference.default.hplantTOC.ref--> | 6<!--m:kink_reference.default.hplantTOC.detections--> | 3<!--m:kink_reference.default.hplantTOC.found--> | 0<!--m:kink_reference.default.hplantTOC.missed--> | 3<!--m:kink_reference.default.hplantTOC.false--> | 0<!--m:kink_reference.default.hplantTOC.exempt--> |
-| tunicate CNF | 44<!--m:kink_reference.default.tunicate.ref--> | 67<!--m:kink_reference.default.tunicate.detections--> | 42<!--m:kink_reference.default.tunicate.found--> | 2<!--m:kink_reference.default.tunicate.missed--> | 13<!--m:kink_reference.default.tunicate.false--> | 12<!--m:kink_reference.default.tunicate.exempt--> |
-| Bruker NDTOC | 6<!--m:kink_reference.default.NDTOC.ref--> | 61<!--m:kink_reference.default.NDTOC.detections--> | 5<!--m:kink_reference.default.NDTOC.found--> | 1<!--m:kink_reference.default.NDTOC.missed--> | 43<!--m:kink_reference.default.NDTOC.false--> | 13<!--m:kink_reference.default.NDTOC.exempt--> |
+| higher-plant TOC | 3<!--m:kink_reference.default.hplantTOC.ref--> | 9<!--m:kink_reference.default.hplantTOC.detections--> | 3<!--m:kink_reference.default.hplantTOC.found--> | 0<!--m:kink_reference.default.hplantTOC.missed--> | 6<!--m:kink_reference.default.hplantTOC.false--> | 0<!--m:kink_reference.default.hplantTOC.exempt--> |
+| tunicate CNF | 44<!--m:kink_reference.default.tunicate.ref--> | 69<!--m:kink_reference.default.tunicate.detections--> | 42<!--m:kink_reference.default.tunicate.found--> | 2<!--m:kink_reference.default.tunicate.missed--> | 15<!--m:kink_reference.default.tunicate.false--> | 12<!--m:kink_reference.default.tunicate.exempt--> |
+| Bruker NDTOC | 6<!--m:kink_reference.default.NDTOC.ref--> | 65<!--m:kink_reference.default.NDTOC.detections--> | 5<!--m:kink_reference.default.NDTOC.found--> | 1<!--m:kink_reference.default.NDTOC.missed--> | 47<!--m:kink_reference.default.NDTOC.false--> | 13<!--m:kink_reference.default.NDTOC.exempt--> |
 
 The higher-plant TOC and Bruker NDTOC scans image the same dispersion; on them
-the rule reported 6<!--m:kink_reference.default.hplantTOC.detections--> and 61<!--m:kink_reference.default.NDTOC.detections--> bends where the reference marks 3<!--m:kink_reference.default.hplantTOC.ref--> and 6<!--m:kink_reference.default.NDTOC.ref--> clear kinks.
+the rule reported 9<!--m:kink_reference.default.hplantTOC.detections--> and 65<!--m:kink_reference.default.NDTOC.detections--> bends where the reference marks 3<!--m:kink_reference.default.hplantTOC.ref--> and 6<!--m:kink_reference.default.NDTOC.ref--> clear kinks.
 
 The lengths of the rule are multiples of $W$ set from $W$ being the resolution
 of the image and were not optimized against this reference, but the rule and
@@ -518,7 +633,7 @@ its centerline were chosen among candidates by their scores on it, so the
 reference served as a development set rather than an independent test; no
 held-out scans were scored.
 Changing any one of them to a neighbouring value moved the clear kinks found
-within 48–52<!--m:kink_reference.sens_all.found_range--> and the unmatched bends within 44–76<!--m:kink_reference.sens_all.false_range--> (50<!--m:kink_reference.default.found--> and 59<!--m:kink_reference.default.false--> at
+within 48–52<!--m:kink_reference.sens_all.found_range--> and the unmatched bends within 51–88<!--m:kink_reference.sens_all.false_range--> (50<!--m:kink_reference.default.found--> and 68<!--m:kink_reference.default.false--> at
 the defaults). The largest drops came from stronger smoothing: 48<!--m:kink_reference.sens_heading_0.35.found--> with the
 heading smoothed over 0.35<!--n:value tried--> W, 49<!--m:kink_reference.sens_line_x1.4.found--> with the centerline smoothing ×1.4<!--n:value tried-->.
 
@@ -533,7 +648,7 @@ heading smoothed over 0.35<!--n:value tried--> W, 49<!--m:kink_reference.sens_li
 
 Without the candidates taken from the maxima of the window turning itself, the
 rule found 47<!--m:turn_maxima.without.found--> instead of 50<!--m:turn_maxima.with.found--> of the clear reference kinks, and reported
-43<!--m:turn_maxima.without.false--> instead of 59<!--m:turn_maxima.with.false--> unmatched bends (experiment turn_maxima).
+48<!--m:turn_maxima.without.false--> instead of 68<!--m:turn_maxima.with.false--> unmatched bends (experiment turn_maxima).
 
 ### 4.5 The angle stored for a kink
 
@@ -586,15 +701,18 @@ the real kinks. Scored against the visual reference
 | 4<!--n:value tried--> | 5<!--m:kink_reference.noise4.lost--> | 9<!--m:kink_reference.noise4.fewer_false--> |
 
 The false detections on these scans are rounded bends, tangles, bends next to
-crossings, and shallow bends whose excess turning only just clears the
-threshold, not noise: 25<!--m:kink_reference.default.false_excess_30_40--> of the 59<!--m:kink_reference.default.false--> have an excess of 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->–40<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|190 - v-->°. For
-11<!--m:kink_reference.default.false_arm_turn_below_threshold--> of them the turning read from the arms (180<!--n:definition-->° − `ka`) falls below
+crossings, bends on faint strands and on a patch of the higher-plant scan's
+disturbed scan line, and shallow bends whose excess turning only just clears
+the threshold, not noise: 31<!--m:kink_reference.default.false_excess_30_40--> of the 68<!--m:kink_reference.default.false--> have an excess of 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->–40<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|190 - v-->°. For
+16<!--m:kink_reference.default.false_arm_turn_below_threshold--> of them the turning read from the arms (180<!--n:definition-->° − `ka`) falls below
 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->°, because the arm angle is measured apart from the excess turning the rule
 tests. A heavily bent fiber's own kinks raise its floor, which is where the
 lost clear kinks lay. On the synthetic sweep the floor changed the false bends
-on the straight, arc and sine fibers nowhere, not even at the finest pixel size
-with the heaviest noise (11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px width, 0.30<!--n:value tried--> nm pixel noise: 2.3<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> per µm without it,
-2.3<!--m:kink_rule_sweep.W16.n0.30.k3.fp_per_um--> with it), but at that setting it cut the bends reported on the 165<!--n:example-->° bend,
+on the straight, arc and sine fibers only at the coarsest pixel size with the
+heaviest noise, from 5.3<!--m:kink_rule_sweep.W3.n0.30.base.fp_per_um--> to 2.3<!--m:kink_rule_sweep.W3.n0.30.k3.fp_per_um--> per µm, where most of them lay on patches of
+background joined to the fiber (§4.8). At the finest pixel size with the
+heaviest noise (11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px width, 0.30<!--n:value tried--> nm pixel noise) it left them unchanged
+(2.2<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> per µm without it, 2.2<!--m:kink_rule_sweep.W16.n0.30.k3.fp_per_um--> with it), but at that setting it cut the bends reported on the 165<!--n:example-->° bend,
 which must not be reported, from 9<!--m:kink_rule_sweep.W16.n0.30.base.kink165_reported--> to 4<!--m:kink_rule_sweep.W16.n0.30.k3.kink165_reported-->. Its only
 change to the corners found was at the coarsest pixel size with the heaviest
 noise, where it dropped the one corner matched there (1<!--m:kink_rule_sweep.W3.n0.30.base.kinked_found--> without it,
@@ -618,9 +736,12 @@ width.
   the near-horizontal arm is drawn broken in the height image itself, the
   tracing split the fiber into many fragments, and false bends gathered on
   that arm. On the straight, arc and sine fibers of the same setting the rule
-  reported 2.3<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> false bends per µm.
-- At the three finer pixel sizes there was no false positive on straight
-  fibers, arcs or meanders at pixel noise up to 0.15<!--n:value tried--> nm, and none on a 165<!--n:example-->° bend.
+  reported 2.2<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> false bends per µm.
+- At the three finer pixel sizes, at pixel noise up to 0.15<!--n:value tried--> nm, the straight
+  fibers, arcs and meanders carried a single false positive
+  (1<!--m:kink_rule_sweep.W5.n0.05.base.reported_on_smooth--> at the 3<!--m:kink_rule_sweep.W5.measured_width_px--> px setting with 0.05<!--n:value tried--> nm noise): rendered, it lies at the end
+  of an arc, where a patch of background had joined the fiber's end. There was
+  none on a 165<!--n:example-->° bend.
 - At the coarsest pixel size of the sweep (5.2<!--c:scripts/kink_rule_sweep.py::APPARENT_WIDTH_NM|v / 3--> nm, where the fiber spans
   fewer pixels than at the 3<!--m:kink_rule_sweep.W5.measured_width_px--> px setting), the width measured below
   2<!--c:lib/centerline.py::_MIN_WIDTH_PX--> px and was raised to 2<!--m:kink_rule_sweep.W3.measured_width_px--> px. One corner was matched, a 145<!--n:example-->° corner
@@ -630,21 +751,23 @@ width.
   wander through the noise, and carries several other bends, on the straight
   arm and after it leaves. Most of that trace lies on the real fiber; its
   tail and every bend on it but the matched one are false. The rule reported
-  between 1.1<!--m:kink_rule_sweep.W3.n0.15.base.fp_per_um--> and 2.2<!--m:kink_rule_sweep.W3.n0.30.base.fp_per_um--> false bends per µm on the straight, arc and sine fibers
-  at every noise level, and bends on the 165<!--n:example-->° bend. Rendered for one scan of a
+  between 1.1<!--m:kink_rule_sweep.W3.n0.15.base.fp_per_um--> and 5.3<!--m:kink_rule_sweep.W3.n0.30.base.fp_per_um--> false bends per µm on the straight, arc and sine fibers
+  at every noise level, and bends on the 165<!--n:example-->° bend. At 0.30<!--n:value tried--> nm most of them lay,
+  rendered, on patches of background that the binarization kept joined to the
+  fiber. Rendered for one scan of a
   straight fiber and one of a 120<!--n:example-->° corner, the bends lay on a straight stretch and
   around the corner rather than at its apex.
 
 ### 4.9 The end margin
 
-On the 3<!--n:count--> real bundled scans, 43<!--m:track_ends.hplantTOC.near_branch_percent-->–67<!--m:track_ends.tunicate.near_branch_percent--> % of track ends lie within 3<!--n:definition--> px of a
+On the 3<!--n:count--> real bundled scans, 34<!--m:track_ends.hplantTOC.near_branch_percent-->–64<!--m:track_ends.tunicate.near_branch_percent--> % of track ends lie within 3<!--n:definition--> px of a
 branch point (experiment track_ends): many track ends are cuts at a crossing,
 not fiber ends.
 
 At a margin of $1.0\,W$ the false detections on the bundled scans rose from
-59<!--m:kink_reference.default.false--> to 76<!--m:kink_reference.sens_end_1.false--> without a further clear kink being found; at $2.0\,W$ they fell to
-44<!--m:kink_reference.sens_end_2.false-->, but the synthetic corners 2<!--n:value tried--> $W$ from an end, judged at the default
-(2<!--m:synthetic_kinks.margin_default.end2W.corners_judged--> of 2<!--m:synthetic_kinks.end_cases_per_distance-->), were no longer judged (0<!--m:synthetic_kinks.margin_2W.end2W.corners_judged-->). None of the 45<!--m:kink_reference.default.unjudged--> bends left
+68<!--m:kink_reference.default.false--> to 88<!--m:kink_reference.sens_end_1.false--> without a further clear kink being found; at $2.0\,W$ they fell to
+52<!--m:kink_reference.sens_end_2.false-->, but the synthetic corners 2<!--n:value tried--> $W$ from an end, judged at the default
+(2<!--m:synthetic_kinks.margin_default.end2W.corners_judged--> of 2<!--m:synthetic_kinks.end_cases_per_distance-->), were no longer judged (0<!--m:synthetic_kinks.margin_2W.end2W.corners_judged-->). None of the 49<!--m:kink_reference.default.unjudged--> bends left
 unjudged on the bundled scans lay on a clear reference kink.
 
 ### 4.10 Crest height against the height at the centerline
@@ -656,9 +779,9 @@ the reliable points:
 
 | Input | Median difference (nm) | 90<!--n:definition-->th percentile (nm) | Median, % of crest | 90<!--n:definition-->th percentile, % of crest |
 |---|---|---|---|---|
-| tunicate CNF | 0.071<!--m:crest_height.tunicate.median_nm--> | 0.212<!--m:crest_height.tunicate.p90_nm--> | 0.941<!--m:crest_height.tunicate.median_percent--> | 2.648<!--m:crest_height.tunicate.p90_percent--> |
-| higher-plant TOC | 0.013<!--m:crest_height.hplantTOC.median_nm--> | 0.075<!--m:crest_height.hplantTOC.p90_nm--> | 0.818<!--m:crest_height.hplantTOC.median_percent--> | 4.592<!--m:crest_height.hplantTOC.p90_percent--> |
-| Bruker NDTOC | 0.025<!--m:crest_height.NDTOC.median_nm--> | 0.128<!--m:crest_height.NDTOC.p90_nm--> | 1.246<!--m:crest_height.NDTOC.median_percent--> | 7.051<!--m:crest_height.NDTOC.p90_percent--> |
+| tunicate CNF | 0.070<!--m:crest_height.tunicate.median_nm--> | 0.211<!--m:crest_height.tunicate.p90_nm--> | 0.937<!--m:crest_height.tunicate.median_percent--> | 2.646<!--m:crest_height.tunicate.p90_percent--> |
+| higher-plant TOC | 0.014<!--m:crest_height.hplantTOC.median_nm--> | 0.089<!--m:crest_height.hplantTOC.p90_nm--> | 0.846<!--m:crest_height.hplantTOC.median_percent--> | 5.004<!--m:crest_height.hplantTOC.p90_percent--> |
+| Bruker NDTOC | 0.025<!--m:crest_height.NDTOC.median_nm--> | 0.129<!--m:crest_height.NDTOC.p90_nm--> | 1.269<!--m:crest_height.NDTOC.median_percent--> | 7.252<!--m:crest_height.NDTOC.p90_percent--> |
 The crest height was never below the height at the centerline. Reading the
 height at the centerline would therefore make the fiber lower, by the small but
 one-sided amounts in the table, because the half-maximum midpoint lies beside the
@@ -673,8 +796,8 @@ crossing (within 3<!--n:definition--> px of a branch point) and free ends.
 
 | Input | Cut ends | Ratio at a cut end | Back to 1.05<!--n:definition--> or less within (W) | Ratio at a free end |
 |---|---|---|---|---|
-| tunicate CNF | 43<!--m:cut_end_skirt.tunicate.cut_ends--> | 1.43<!--m:cut_end_skirt.tunicate.cut.ratio_at_end--> | 0.75<!--m:cut_end_skirt.tunicate.cut.back_within_widths--> | 1.04<!--m:cut_end_skirt.tunicate.free.ratio_at_end--> |
-| higher-plant TOC | 7<!--m:cut_end_skirt.hplantTOC.cut_ends--> | 1.25<!--m:cut_end_skirt.hplantTOC.cut.ratio_at_end--> | 1.00<!--m:cut_end_skirt.hplantTOC.cut.back_within_widths--> | 0.96<!--m:cut_end_skirt.hplantTOC.free.ratio_at_end--> |
+| tunicate CNF | 45<!--m:cut_end_skirt.tunicate.cut_ends--> | 1.43<!--m:cut_end_skirt.tunicate.cut.ratio_at_end--> | 0.75<!--m:cut_end_skirt.tunicate.cut.back_within_widths--> | 1.03<!--m:cut_end_skirt.tunicate.free.ratio_at_end--> |
+| higher-plant TOC | 7<!--m:cut_end_skirt.hplantTOC.cut_ends--> | 1.25<!--m:cut_end_skirt.hplantTOC.cut.ratio_at_end--> | 1.00<!--m:cut_end_skirt.hplantTOC.cut.back_within_widths--> | 0.74<!--m:cut_end_skirt.hplantTOC.free.ratio_at_end--> |
 | Bruker NDTOC | 83<!--m:cut_end_skirt.NDTOC.cut_ends--> | 1.26<!--m:cut_end_skirt.NDTOC.cut.ratio_at_end--> | 0.50<!--m:cut_end_skirt.NDTOC.cut.back_within_widths--> | 0.70<!--m:cut_end_skirt.NDTOC.free.ratio_at_end--> |
 
 Rendered as profiles, the height at a cut end is raised above the fiber's own
@@ -692,9 +815,9 @@ section fell on every test input and rose on none:
 
 | Input | Points | Located, full width (%) | Located, each half (%) |
 |---|---|---|---|
-| tunicate CNF | 7815<!--m:section_width_limit.tunicate.points--> | 88.0<!--m:section_width_limit.tunicate.reliable_full_percent--> | 83.6<!--m:section_width_limit.tunicate.reliable_half_percent--> |
-| higher-plant TOC | 1896<!--m:section_width_limit.hplantTOC.points--> | 92.0<!--m:section_width_limit.hplantTOC.reliable_full_percent--> | 87.4<!--m:section_width_limit.hplantTOC.reliable_half_percent--> |
-| Bruker NDTOC | 8615<!--m:section_width_limit.NDTOC.points--> | 81.6<!--m:section_width_limit.NDTOC.reliable_full_percent--> | 75.6<!--m:section_width_limit.NDTOC.reliable_half_percent--> |
+| tunicate CNF | 7917<!--m:section_width_limit.tunicate.points--> | 88.1<!--m:section_width_limit.tunicate.reliable_full_percent--> | 83.7<!--m:section_width_limit.tunicate.reliable_half_percent--> |
+| higher-plant TOC | 2051<!--m:section_width_limit.hplantTOC.points--> | 86.7<!--m:section_width_limit.hplantTOC.reliable_full_percent--> | 80.9<!--m:section_width_limit.hplantTOC.reliable_half_percent--> |
+| Bruker NDTOC | 8765<!--m:section_width_limit.NDTOC.points--> | 81.7<!--m:section_width_limit.NDTOC.reliable_full_percent--> | 75.6<!--m:section_width_limit.NDTOC.reliable_half_percent--> |
 
 The fiber of the tunicate scan that loses the most points, 137<!--m:section_width_limit.tunicate.most_lost.lost--> of its 919<!--m:section_width_limit.tunicate.most_lost.points-->,
 was rendered over the calibrated height image with its cross-sections. The
@@ -763,9 +886,9 @@ input (experiment frame_margin):
 
 | Input | Fibers | Reaching the frame, no margin | 2<!--n:value tried--> px margin | 5<!--n:value tried--> px margin |
 |---|---|---|---|---|
-| tunicate CNF | 60<!--m:frame_margin.tunicate.fibers--> | 16<!--m:frame_margin.tunicate.margin_0.reaching--> | 16<!--m:frame_margin.tunicate.margin_2.reaching--> | 16<!--m:frame_margin.tunicate.margin_5.reaching--> |
-| higher-plant TOC | 15<!--m:frame_margin.hplantTOC.fibers--> | 3<!--m:frame_margin.hplantTOC.margin_0.reaching--> | 3<!--m:frame_margin.hplantTOC.margin_2.reaching--> | 3<!--m:frame_margin.hplantTOC.margin_5.reaching--> |
-| Bruker NDTOC | 139<!--m:frame_margin.NDTOC.fibers--> | 16<!--m:frame_margin.NDTOC.margin_0.reaching--> | 16<!--m:frame_margin.NDTOC.margin_2.reaching--> | 17<!--m:frame_margin.NDTOC.margin_5.reaching--> |
+| tunicate CNF | 63<!--m:frame_margin.tunicate.fibers--> | 17<!--m:frame_margin.tunicate.margin_0.reaching--> | 17<!--m:frame_margin.tunicate.margin_2.reaching--> | 17<!--m:frame_margin.tunicate.margin_5.reaching--> |
+| higher-plant TOC | 19<!--m:frame_margin.hplantTOC.fibers--> | 3<!--m:frame_margin.hplantTOC.margin_0.reaching--> | 3<!--m:frame_margin.hplantTOC.margin_2.reaching--> | 3<!--m:frame_margin.hplantTOC.margin_5.reaching--> |
+| Bruker NDTOC | 143<!--m:frame_margin.NDTOC.fibers--> | 16<!--m:frame_margin.NDTOC.margin_0.reaching--> | 16<!--m:frame_margin.NDTOC.margin_2.reaching--> | 17<!--m:frame_margin.NDTOC.margin_5.reaching--> |
 
 Margins of 1<!--n:value tried--> and 2<!--n:value tried--> px changed no verdict (changes: 0<!--m:frame_margin.all.changed_up_to_2-->). From 3<!--n:value tried--> px on,
 1<!--m:frame_margin.all.changed_at_5--> fiber of the Bruker scan joins. Rendered over the calibrated height

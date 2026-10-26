@@ -103,6 +103,37 @@ def _from_square_pixels(mask: np.ndarray, rows: int, aspect: float) -> np.ndarra
     return out
 
 
+def _max_extent_px(mask: np.ndarray) -> float:
+    """
+    Largest extent of a mask in any direction (maximum Feret diameter), in pixels.
+    マスクのあらゆる向きでの最大の差し渡し（最大フェレ径、画素）。
+
+    Parameters
+    ----------
+    mask
+        Boolean mask of one component.
+        1 つの成分の真偽値マスク。
+
+    Returns
+    -------
+    float
+        The longest distance between two corners of the component's pixels, so
+        a run of ``n`` pixels along a row measures about ``n`` and one along a
+        diagonal about ``n * sqrt(2)``; it does not depend on how the component
+        lies on the grid, as the side of an axis-aligned bounding box does.
+        成分の画素の角どうしの最長距離。行に沿った ``n`` 画素の並びはおよそ
+        ``n``、斜めの並びはおよそ ``n * sqrt(2)`` と測る。軸に平行な外接矩形の辺と
+        違い、成分が格子にどう置かれているかによらない。
+    """
+    ys, xs = np.nonzero(mask)
+    corners = np.concatenate(
+        [np.column_stack((xs + dx, ys + dy)) for dx in (0, 1) for dy in (0, 1)]
+    ).astype(np.float32)
+    hull = cv2.convexHull(corners).reshape(-1, 2).astype(float)
+    gaps = hull[:, None, :] - hull[None, :, :]
+    return float(np.sqrt((gaps ** 2).sum(axis=-1)).max())
+
+
 class Segmenter:
     """
     Create binary nanofiber masks from calibrated AFM height images.
@@ -540,11 +571,12 @@ class Segmenter:
             Mask to filter.
             ふるいにかけるマスク。
         h_length
-            Shortest line kept, in pixels: a component whose bounding box is
-            shorter is removed without the test, and it is the vote threshold
-            of the Hough line peaks.
-            残す線の最短の長さ（画素）。外接矩形がこれより短い成分は検査せずに
-            除去し、Hough 直線のピークの得票しきい値にも使う。
+            Shortest line kept, in pixels: a component whose largest extent
+            (`_max_extent_px`) is shorter is removed without the test, and a
+            Hough line counts toward the score only when it is longer.
+            残す線の最短の長さ（画素）。最大の差し渡し（`_max_extent_px`）が
+            これより短い成分は検査せずに除去し、Hough 直線はこれより長いときだけ
+            スコアに数える。
         h_sratio
             Smallest score (line votes over edge pixels) a component under
             1000 px needs to be kept.
@@ -570,10 +602,6 @@ class Segmenter:
             # Large components are retained without the linearity test.
             if area >= 1000:
                 continue
-            # Components shorter than the Hough threshold cannot form a retained line.
-            if max(width, height) < h_length:
-                out_binary_image[label_image == i] = 0
-                continue
             # Judge this component on its own pixels, not on the whole mask
             # inside its bounding box: a diagonal fiber's axis-aligned box is
             # large and mostly empty, so other components often lie inside it,
@@ -586,20 +614,43 @@ class Segmenter:
             target = label_image[
                 top : top + height, left : left + width
             ] == i
-            target_edge = canny(target, sigma=0, low_threshold=0, high_threshold=1)
+            # A component shorter than h_length in every direction cannot hold a
+            # retained line. Its largest extent is used, not the side of its
+            # bounding box, which is up to sqrt(2) shorter for a diagonal one.
+            # どの向きにも h_length より短い成分は、残す線を含みえない。外接矩形の
+            # 辺ではなく最大の差し渡しを使う。斜めの成分では辺が最大 sqrt(2) 倍
+            # 短くなるためである。
+            if _max_extent_px(target) < h_length:
+                out_binary_image[label_image == i] = 0
+                continue
+            # Pad the crop by one pixel: canny never marks the outermost pixels
+            # of its input, so without the margin the borders a component has
+            # on the sides of its box (both long borders of a band along the
+            # rows or columns) would not count as outline.
+            # 切り出しの周りに 1 画素の余白を付ける。canny は入力の最外周の画素を
+            # 輪郭にしないので、余白が無いと、成分の縁のうち外接矩形の辺に重なる
+            # 部分（行や列に沿う帯なら長い縁の両方）が輪郭に数えられない。
+            target_edge = canny(
+                np.pad(target, 1), sigma=0, low_threshold=0, high_threshold=1
+            )
             # Use Hough accumulator votes as a proxy for detected line length.
+            # A digital line of length L holds L * max(|cos|, |sin|) pixels of
+            # its angle, so a line counts when its votes exceed h_length times
+            # that factor: one test of length at every angle.
             # Hough アキュムレータの投票数を、検出された直線長の代理指標として使う。
+            # 長さ L のデジタル直線は、その角度の max(|cos|, |sin|) 倍の L 画素を
+            # 持つので、得票が h_length のその倍を超える線を数える。どの角度でも
+            # 同じ長さで判定するためである。
             h, theta, d = hough_line(target_edge)
-            accums, _, _ = hough_line_peaks(
+            accums, angles, _ = hough_line_peaks(
                 h, theta, d,
                 min_distance=max(1, linegap),
                 min_angle=1,
-                threshold=h_length,
+                threshold=h_length / np.sqrt(2),
             )
-            if len(accums) > 0:
-                total_length = float(np.sum(accums))
-            else:
-                total_length = 0.0
+            pixels_per_length = np.maximum(np.abs(np.cos(angles)), np.abs(np.sin(angles)))
+            long_enough = accums > h_length * pixels_per_length
+            total_length = float(np.sum(accums[long_enough]))
             # Offset the denominator so an empty edge map cannot divide by zero.
             # NumPy only warns (does not raise) on a zero denominator, so this
             # offset is the actual guard.

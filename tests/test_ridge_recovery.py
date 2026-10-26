@@ -24,13 +24,16 @@ from lib.segmenter import Segmenter
 
 def _two_fiber_image() -> np.ndarray:
     """
-    Height map with one broad ridge and one faint narrow ridge.
-    太い尾根 1 本と細く淡い尾根 1 本を持つ高さマップ。
+    Height map with one broad ridge and one short narrow ridge.
+    太い尾根 1 本と短く細い尾根 1 本を持つ高さマップ。
 
-    The broad ridge clears `area_min` on its own; the faint one is the kind of
-    structure the amplitude path drops, so it is the candidate for recovery.
-    太い尾根は単独で `area_min` を満たす。淡い尾根は振幅経路が落とす種類の
-    構造で、回収の候補になる。
+    The broad ridge clears `area_min` on its own; the short one, 2 by 40 px,
+    binarizes to fewer pixels than `area_min` (100 in `_segment`), so the
+    amplitude path drops it, while at 10 nm per pixel it is long enough for
+    recovery's length test, so it is the candidate for recovery.
+    太い尾根は単独で `area_min` を満たす。短い尾根は 2 × 40 px で、二値化すると
+    `area_min`（`_segment` では 100）より画素が少ないので振幅経路が落とすが、
+    画素 10 nm では回収の長さの判定を通るので、回収の候補になる。
     """
     rng = np.random.default_rng(0)
     img = rng.normal(0.0, 0.05, size=(200, 200))
@@ -38,8 +41,8 @@ def _two_fiber_image() -> np.ndarray:
     # Broad, tall diagonal ridge.
     for offset in range(-3, 4):
         img[rows, np.clip(rows + offset, 0, 199)] += 6.0
-    # Faint, narrow horizontal ridge well away from the broad one.
-    img[160:162, 20:180] += 2.2
+    # Short, narrow horizontal ridge well away from the broad one.
+    img[160:162, 20:60] += 2.2
     return img
 
 
@@ -98,14 +101,14 @@ def test_recovery_only_adds():
 
 
 def test_recovery_finds_the_faint_ridge():
-    """The faint ridge is exactly the structure recovery exists to pick up."""
+    """The short ridge is exactly the structure recovery exists to pick up."""
     arr = _two_fiber_image()
     off, _ = _segment(arr, recovery=False, nm_per_px=10.0)
     on, _ = _segment(arr, recovery=True, nm_per_px=10.0)
     faint = np.zeros_like(off)
-    faint[160:162, 20:180] = True
-    assert off[faint].sum() < faint.sum() * 0.5, "fixture no longer misses the faint ridge"
-    assert on[faint].sum() > off[faint].sum(), "recovery did not pick up the faint ridge"
+    faint[160:162, 20:60] = True
+    assert off[faint].sum() < faint.sum() * 0.5, "fixture no longer misses the short ridge"
+    assert on[faint].sum() > off[faint].sum(), "recovery did not pick up the short ridge"
 
 
 @pytest.mark.parametrize("field, value", [

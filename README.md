@@ -347,10 +347,15 @@ area at a fine pixel size — can lose fiber height to the background. The
 warning compares the analysis with the limits each method was checked to:
 for `tophat`, a `tophat_se_size` below 2.5 times the fibers' apparent width; for
 `trendfill` and `spline1d`, fiber flanks that step little against the noise, or
-an apparent width above 19 px. For such scans choose `tophat` with
-`tophat_se_size` about three times the apparent width. How the limits were
-set, on zoomed copies of the bundled scans, is in
-[Evaluation on particular data](docs/validation.md) §1.8.
+an apparent width above 19 px. It also measures, on the fibers the analysis
+found, how much of their relief went into the subtracted background compared
+with the background just beside them, and warns at a tenth or more; when no
+fiber width could be measured, it says that the background could not be
+checked, because a calibration that removed the fibers leaves exactly that.
+For such scans choose `tophat` with `tophat_se_size` about three times the
+apparent width. How the limits were set, on zoomed copies of the bundled scans,
+is in [Evaluation on particular data](docs/validation.md) §1.8, and how both
+kinds of warning fared in §1.10.
 
 ### Plot Profiler — `guis/GUI02_PlotProfiler.py`
 
@@ -1220,8 +1225,10 @@ test suite instead of degrading silently in the launcher.
   fibers span many pixels they can subtract part of each fiber's height as
   background; when fibers span about three times their usual pixel width,
   the default settings may detect no fiber at all. GUI01 and `cli.py process`
-  warn when an analysis lies outside the limits each method was checked to
-  (see the Image Preprocessor section above).
+  warn when an analysis lies outside the limits each method was checked to,
+  when part of the fibers' relief is measured in the subtracted background, or
+  when no fiber width could be measured (see the Image Preprocessor section
+  above).
 - The graphical tools require a working Tk installation and are primarily
   developed and tested on Windows; the CLI and library are platform-independent.
 - The `.b2z` bundle is a project-specific container. Use `cli.py export` to read

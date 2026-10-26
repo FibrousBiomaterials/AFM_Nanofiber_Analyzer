@@ -92,7 +92,65 @@ def test_tophat_element_against_width():
     assert w.suggest_method == "tophat" and w.suggest_tophat_se_size > 25
 
 
-def test_no_warning_without_a_measured_width():
+def test_unmeasured_width_is_reported_not_passed_over():
+    """
+    No measured width means no check could run, which is said rather than hidden.
+    幅を測れなければどの検査も行えず、そのことを隠さずに報告する。
+
+    A calibration that removes the fibers leaves exactly this state, so an empty
+    list here would read as "the background is fine" when nothing was checked.
+    繊維を取り除いた補正が残すのはまさにこの状態であり、ここで空を返すと、何も
+    検査していないのに「背景は問題ない」と読めてしまう。
+    """
     p = ProcParams(bg_method="tophat", tophat_se_size=25)
-    assert background_warnings(p, _image(40.0, components=4, fallback=2), None) == []
-    assert background_warnings(p, _image(None, components=0), None) == []
+    for image in (_image(40.0, components=4, fallback=2), _image(None, components=0)):
+        (w,) = background_warnings(p, image, None)
+        assert w.reason == "width_unmeasured"
+        assert w.width_px is None and w.suggest_method is None
+
+
+def _scene(kept, bands=0.0, width_px=8.0, height_nm=4.0):
+    """
+    A straight fiber whose calibration kept `kept` of its height.
+    補正で高さの `kept` だけが残った直線繊維。
+
+    The input carries the fiber and, optionally, horizontal bands of `bands` nm
+    that vary over 40 px; the calibration subtracts the bands and ``1 - kept``
+    of the fiber.
+    入力は繊維と、必要なら 40 px の周期で変わる振幅 `bands` nm の横縞を持つ。補正は
+    縞と繊維の ``1 - kept`` を引く。
+    """
+    h = w = 128
+    yy, xx = np.mgrid[0:h + 1, 0:w + 1].astype(float)
+    sigma = width_px / 2.355
+    fiber = height_nm * np.exp(-0.5 * ((xx - 0.3 * yy - 40.0) / sigma) ** 2)
+    band = bands * np.sin(2 * np.pi * yy / 40.0)
+    raw = fiber + band
+    cal = (kept * fiber)[1:, 1:]
+    mask = cal > 0.5 * kept * height_nm
+    return SimpleNamespace(
+        apparent_width_summary={"median_px": width_px, "component_count": 1,
+                                "fallback_count": 0, "fallback_px": 8.0},
+        original_image=raw, calibrated_image=cal, binarized_image=mask,
+        skeleton_image=np.zeros_like(mask, dtype=np.uint8))
+
+
+@pytest.mark.parametrize("method", ["tophat", "spline1d"])
+def test_measured_absorption_is_reported(method):
+    p = ProcParams(bg_method=method, tophat_se_size=101)
+    warnings = background_warnings(p, _scene(kept=0.5), None)
+    (w,) = [w for w in warnings if w.reason == "relief_absorbed"]
+    assert w.absorbed_fraction == pytest.approx(0.5, abs=0.05)
+    if method == "tophat":
+        # The element is already wider than the one suggested for this width.
+        # 構造要素は既にこの幅に勧める値より大きい。
+        assert w.suggest_method is None
+
+
+def test_background_that_varies_slowly_is_not_counted_as_loss():
+    """
+    Bands removed correctly read as no loss, however tall they are.
+    正しく引かれた縞は、どれほど高くても損失と読まない。
+    """
+    p = ProcParams(bg_method="tophat", tophat_se_size=101)
+    assert background_warnings(p, _scene(kept=1.0, bands=10.0), None) == []

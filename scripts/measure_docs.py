@@ -641,16 +641,16 @@ def bg_legacy_halo() -> dict:
 
 # Visual labels of the loop candidates, keyed by (scan, x, y) of the enclosed
 # region's bounding-box centre. Every candidate was rendered over the calibrated
-# height image and judged by eye (2026-09-30, 2026-10-07, 2026-10-13): "fiber" when the loop lies
+# height image and judged by eye (2026-09-30, 2026-10-07, 2026-10-13, 2026-10-26): "fiber" when the loop lies
 # inside one fiber body, "crossing" when it lies where fibers cross or branch, "gap"
 # when two separate fibers enclose the region between them, whether or not its floor
-# reaches the background. A candidate without a label fails the experiment, so a
+# reaches the background, and "particle" when it lies inside the body of a particle. A candidate without a label fails the experiment, so a
 # change in what the skeletonizer produces forces a new look.
 # ループ候補の目視ラベル。囲まれた領域の外接矩形の中心 (scan, x, y) をキーとする。
-# 各候補を較正済み高さ画像に重ねて描画し、目視で判断した（2026-09-30、2026-10-07、2026-10-13）。
-# 1 本の繊維本体の内側なら "fiber"、繊維の交差・分岐の場所なら "crossing"、別々の
-# 繊維がその間の領域を囲んでいるなら、その底が背景まで下がるかどうかによらず
-# "gap"。ラベルの無い候補があると実験は失敗するため、細線化の結果が変われば
+# 各候補を較正済み高さ画像に重ねて描画し、目視で判断した（2026-09-30、2026-10-07、2026-10-13、
+# 2026-10-26）。1 本の繊維本体の内側なら "fiber"、繊維の交差・分岐の場所なら "crossing"、
+# 別々の繊維がその間の領域を囲んでいるなら、その底が背景まで下がるかどうかによらず
+# "gap"、粒子の本体の内側なら "particle"。ラベルの無い候補があると実験は失敗するため、細線化の結果が変われば
 # 見直しが強制される。
 LOOP_LABELS = {
     ("hplantTOC", 923, 554): "fiber", ("tunicate", 1001, 367): "fiber",
@@ -668,6 +668,11 @@ LOOP_LABELS = {
     ("NDTOC", 816, 684): "fiber", ("NDTOC", 810, 906): "crossing",
     ("NDTOC", 888, 347): "crossing",
     ("NDTOC", 262, 915): "fiber", ("NDTOC", 151, 947): "fiber",
+    # A bright particle at the end of a faint strand, which the linearity filter
+    # keeps since its change of 2026-10-26; the loop lies inside the particle.
+    # 淡い筋の端にある明るい粒子。2026-10-26 の直線性フィルタの変更から残る。
+    # 輪は粒子の中にある。
+    ("NDTOC", 939, 24): "particle",
 }
 
 
@@ -731,7 +736,7 @@ def loop_candidates() -> dict:
     if unlabeled:
         raise SystemExit(f"loop candidates without a visual label: {unlabeled}")
     values: dict = {"candidates": len(found)}
-    for label in ("fiber", "crossing", "gap"):
+    for label in ("fiber", "crossing", "gap", "particle"):
         group = [c for c in found if LOOP_LABELS[c["key"]] == label]
         values[f"{label}.count"] = len(group)
         if group:
@@ -889,7 +894,7 @@ def _all_test_inputs() -> Dict[str, str]:
     return dict(krs.SCANS)
 
 
-# Components the linearity filter removes whose bounding box reaches h_length,
+# Components the linearity filter removes whose largest extent reaches h_length,
 # per test input, as counted when every one of them was rendered over the
 # calibrated height image and judged by eye (2026-10-06). LINEARITY_FIBER_PIECES
 # lists, by the centre of the bounding box, the ones judged to be pieces of real
@@ -900,8 +905,14 @@ def _all_test_inputs() -> Dict[str, str]:
 # after the background stage's noise histogram changed, by rendering and
 # judging every component not removed before: one is a low fiber piece cut by
 # the glitch band of the higher-plant scan, the others particles, background
-# texture and a scan-line glitch.
-# 直線性フィルタが消すかたまりのうち、囲む長方形が h_length に届くものの数
+# texture and a scan-line glitch. They were taken again on 2026-10-26, after the
+# filter began padding its crop, reading Hough votes as a length at each line's
+# angle and testing the largest extent instead of the bounding box: every
+# component counted for the first time was rendered and judged (24 on the
+# Bruker scan, background texture and particles; 1 on the higher-plant scan, a
+# short bright piece that could not be told apart), and the fiber pieces no
+# longer removed were dropped from LINEARITY_FIBER_PIECES.
+# 直線性フィルタが消すかたまりのうち、最大の差し渡しが h_length に届くものの数
 # （テスト入力ごと）。すべてを補正後の高さ画像に重ねて描き、目視で判断したときの
 # 数である（2026-10-06）。LINEARITY_FIBER_PIECES は、そのうち本物の繊維の片
 # （曲がった繊維片と、画像の端で切れた繊維の端）と判断したものを、囲む長方形の
@@ -910,14 +921,17 @@ def _all_test_inputs() -> Dict[str, str]:
 # 見直しが強制される。背景段のノイズのヒストグラムが変わった後の 2026-10-13 に、
 # 以前は消されていなかったかたまりをすべて描いて判断し、数を取り直した。1 つは
 # 高等植物スキャンのグリッチの帯で切れた低い繊維の片で、ほかは粒子、背景の凹凸、
-# 走査線のグリッチであった。
+# 走査線のグリッチであった。フィルタが切り出しに余白を付け、Hough の得票を
+# 各直線の角度で長さに直し、外接矩形ではなく最大の差し渡しで判定するように
+# なった後の 2026-10-26 に、数を取り直した。初めて数えに入ったかたまりをすべて
+# 描いて判断し（Bruker スキャンの 24 個は背景の凹凸と粒子、高等植物スキャンの
+# 1 個は見分けられない短く明るい片）、消されなくなった繊維の片を
+# LINEARITY_FIBER_PIECES から除いた。
 LINEARITY_REMOVED_INSPECTED = {
-    "hplantTOC": 9, "tunicate": 5, "NDTOC": 237,
+    "hplantTOC": 2, "tunicate": 2, "NDTOC": 156,
 }
 LINEARITY_FIBER_PIECES = {
-    ("tunicate", 17, 688), ("tunicate", 10, 843), ("tunicate", 613, 922),
-    ("tunicate", 557, 934), ("hplantTOC", 106, 1012),
-    ("hplantTOC", 839, 797), ("NDTOC", 591, 1010),
+    ("tunicate", 10, 843), ("NDTOC", 591, 1010),
 }
 
 
@@ -926,11 +940,12 @@ LINEARITY_FIBER_PIECES = {
     ["lib/pipeline.py", "lib/segmenter.py"],
     "The linearity filter of Segmenter (_remove_nonlinear_objects) at the defaults: on "
     "every test input, the largest s_ratio and how many components score above 1, and "
-    "the components it removes whose bounding box reaches h_length, against the visual "
+    "the components it removes whose largest extent reaches h_length, against the visual "
     "labels in LINEARITY_REMOVED_INSPECTED and LINEARITY_FIBER_PIECES; on synthetic bands "
     "(a line about 120 px long, horizontal or at 45 degrees, dilated three times with the "
     "4-connected element), the Canny edge pixels found "
-    "in the bounding-box crop, the s_ratio and whether the band is kept.",
+    "in the bounding-box crop with and without the filter's one-pixel margin, the s_ratio "
+    "and whether the band is kept.",
 )
 def linearity_filter() -> dict:
     import numpy as np
@@ -939,6 +954,7 @@ def linearity_filter() -> dict:
     from lib.afm_io import load_afm_image
     from lib.pipeline import ProcParams, build_stages
     from lib.processed_image import ProcessedImage
+    from lib.segmenter import _max_extent_px
 
     params = ProcParams()
     values: dict = {}
@@ -956,8 +972,8 @@ def linearity_filter() -> dict:
         removed = seg.no_small_binary_image.astype(bool) & ~seg.no_linear_binary_image.astype(bool)
         lab, _ = ndi.label(removed, structure=np.ones((3, 3)))
         centres = []
-        for sl in ndi.find_objects(lab):
-            if max(sl[0].stop - sl[0].start, sl[1].stop - sl[1].start) >= params.h_length:
+        for k, sl in enumerate(ndi.find_objects(lab)):
+            if _max_extent_px(lab[sl] == k + 1) >= params.h_length:
                 centres.append(((sl[1].start + sl[1].stop) // 2, (sl[0].start + sl[0].stop) // 2))
         if len(centres) != LINEARITY_REMOVED_INSPECTED[name]:
             raise SystemExit(f"{name}: the linearity filter removes {len(centres)} components "
@@ -986,10 +1002,173 @@ def linearity_filter() -> dict:
         seg.h_sratio_list = []
         kept = seg._remove_nonlinear_objects(mask, params.h_length, params.h_sratio)
         values[f"band.{tag}.area"] = int(mask.sum())
-        values[f"band.{tag}.edge_pixels"] = int(canny(crop, sigma=0, low_threshold=0,
+        values[f"band.{tag}.edge_pixels_unpadded"] = int(canny(crop, sigma=0, low_threshold=0,
+                                                               high_threshold=1).sum())
+        values[f"band.{tag}.edge_pixels"] = int(canny(np.pad(crop, 1), sigma=0, low_threshold=0,
                                                       high_threshold=1).sum())
         values[f"band.{tag}.s_ratio"] = float(seg.h_sratio_list[-1])
         values[f"band.{tag}.kept"] = int(bool(np.asarray(kept).any()))
+    return values
+
+
+# Straight, clearly visible fibers under 1000 px on the Bruker scan, as the
+# centre of their component on the raw grid, chosen on 2026-10-22 by rendering
+# every component under 1000 px and 30 px or longer over the calibrated height
+# image; they are the two straightest of those that are not scan-line patches.
+# Bruker スキャン上の、1000 px 未満でまっすぐで明瞭な繊維。生画像の格子での成分の
+# 中心。2026-10-22 に、1000 px 未満かつ 30 px 以上の成分をすべて補正後の高さ画像に
+# 重ねて描いて選んだ。走査線上の明るい部分を除いて最もまっすぐな 2 本である。
+LINEARITY_AXIS_FIBERS = {"a": ("NDTOC", (961, 925)), "b": ("NDTOC", (891, 462))}
+
+
+@experiment(
+    "linearity_axis_fibers",
+    ["lib/pipeline.py", "lib/segmenter.py"],
+    "The fibers of LINEARITY_AXIS_FIBERS in their original orientation and with the "
+    "whole raw scan rotated (cubic interpolation, edges extended) so the principal "
+    "axis of the fiber's component runs along the columns and, after a further exact "
+    "90 degree turn, along the rows. Per view, after background calibration and "
+    "segmentation at the defaults: the component's area before the linearity filter, "
+    "whether the filter tests it (area under 1000 px), the s_ratio the filter computed "
+    "for it, its Canny outline pixels in the bounding box padded by one pixel and how "
+    "many of them lie on the box's sides (the part of the outline that the filter's "
+    "one-pixel margin lets Canny find), and whether more than half of it is in the final binarized mask.",
+)
+def linearity_axis_fibers() -> dict:
+    import math
+    import numpy as np
+    from scipy import ndimage as ndi
+    from skimage.feature import canny
+    from lib.afm_io import load_afm_image
+    from lib.pipeline import ProcParams, build_stages
+    from lib.processed_image import ProcessedImage
+
+    params = ProcParams()
+
+    def segment(raw):
+        stages = build_stages(params)
+        image = ProcessedImage(raw, "rotated")
+        stages.bg_calibrator(image)
+        stages.segmenter(image)
+        return stages.segmenter, np.asarray(image.binarized_image) > 0
+
+    def rotate(raw, angle, quarter, point):
+        # Track the fiber's centre through the same rotation with a marker.
+        # 同じ回転を印にも掛けて、繊維の中心を追う。
+        marker = np.zeros(raw.shape)
+        marker[point[1] - 1:point[1] + 2, point[0] - 1:point[0] + 2] = 1.0
+        if angle:
+            raw = ndi.rotate(raw, angle, reshape=False, order=3, mode="nearest")
+            marker = ndi.rotate(marker, angle, reshape=False, order=1, mode="constant")
+        if quarter:
+            raw, marker = np.rot90(raw).copy(), np.rot90(marker).copy()
+        cy, cx = ndi.center_of_mass(marker)
+        return raw, (int(round(cx)), int(round(cy)))
+
+    def component(mask, point):
+        lab, _n = ndi.label(mask, structure=np.ones((3, 3)))
+        x, y = point[0] - 1, point[1] - 1   # the calibrated grid drops a row and column
+        ids = lab[y - 4:y + 5, x - 4:x + 5]
+        ids = ids[ids > 0]
+        return lab == np.bincount(ids).argmax() if ids.size else None
+
+    def axis_deg(comp):
+        ys, xs = np.nonzero(comp)
+        pts = np.column_stack([xs, ys]).astype(float)
+        pts -= pts.mean(0)
+        _ev, evec = np.linalg.eigh(np.cov(pts.T))
+        return math.degrees(math.atan2(evec[1, 1], evec[0, 1])) % 180.0
+
+    values: dict = {}
+    for key, (scan, point) in LINEARITY_AXIS_FIBERS.items():
+        raw0 = np.asarray(load_afm_image(str(ROOT / _all_test_inputs()[scan])), float)
+        seg0, _fin0 = segment(raw0)
+        angle0 = axis_deg(component(seg0.no_small_binary_image > 0, point))
+        values[f"{key}.original_axis_deg"] = angle0
+        # The sign of a rotation that brings the axis to 90 degrees is taken as the
+        # one whose result reads nearer 90.
+        # 軸を 90 度へ回す向きは、結果が 90 度に近く読める方を採る。
+        best = None
+        for sign in (1.0, -1.0):
+            turn = sign * (90.0 - angle0)
+            raw, p = rotate(raw0, turn, False, point)
+            comp = component(segment(raw)[0].no_small_binary_image > 0, p)
+            if comp is not None:
+                err = abs(axis_deg(comp) - 90.0)
+                if best is None or err < best[0]:
+                    best = (err, turn)
+        values[f"{key}.rotation_deg"] = best[1]
+        for view, turn, quarter in (("original", 0.0, False), ("columns", best[1], False),
+                                    ("rows", best[1], True)):
+            raw, p = rotate(raw0, turn, quarter, point) if (turn or quarter) else (raw0, point)
+            seg, final = segment(raw)
+            comp = component(seg.no_small_binary_image > 0, p)
+            area = int(comp.sum())
+            tested = area < 1000
+            seg.h_sratio_list = []
+            seg._remove_nonlinear_objects(comp, params.h_length, params.h_sratio)
+            ys, xs = np.nonzero(comp)
+            crop = comp[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+            padded = canny(np.pad(crop, 1), sigma=0, low_threshold=0, high_threshold=1)
+            inner = canny(crop, sigma=0, low_threshold=0, high_threshold=1)
+            prefix = f"{key}.{view}"
+            values[f"{prefix}.area"] = area
+            values[f"{prefix}.tested"] = int(tested)
+            values[f"{prefix}.s_ratio"] = float(seg.h_sratio_list[-1]) if tested else None
+            values[f"{prefix}.outline_px"] = int(padded.sum())
+            values[f"{prefix}.outline_on_box_sides_px"] = int(padded.sum() - inner.sum())
+            values[f"{prefix}.kept"] = int((final & comp).sum() > 0.5 * area)
+    return values
+
+
+# Lengths and widths (px) of the synthetic rods of linearity_rotated_rods, the
+# angles they are drawn at, and how many sub-pixel placements each angle gets.
+# linearity_rotated_rods の合成の棒の長さと幅（画素）、描く角度、各角度で
+# 試す画素以下のずらしの数。
+ROD_LENGTHS = (16, 20, 22, 24, 26, 28, 32, 40)
+ROD_WIDTHS = (3, 5, 7, 9)
+ROD_ANGLES = tuple(range(0, 91, 5))
+ROD_OFFSETS = 3
+
+
+@experiment(
+    "linearity_rotated_rods",
+    ["lib/pipeline.py", "lib/segmenter.py"],
+    "Synthetic rods with round ends (stadium shapes) of each length in ROD_LENGTHS and "
+    "width in ROD_WIDTHS, drawn at every angle in ROD_ANGLES with ROD_OFFSETS random "
+    "sub-pixel placements (seeded), each passed alone through the linearity filter at "
+    "the defaults: how many of the placements it keeps.",
+)
+def linearity_rotated_rods() -> dict:
+    import numpy as np
+    from lib.pipeline import ProcParams, build_stages
+
+    params = ProcParams()
+    seg = build_stages(params).segmenter
+    rng = np.random.default_rng(0)
+
+    def rod(length, width, angle, offset):
+        n = int(length + width + 12)
+        yy, xx = np.mgrid[0:n, 0:n].astype(float)
+        ux, uy = np.cos(np.radians(angle)), np.sin(np.radians(angle))
+        px, py = xx - (n / 2 + offset[0]), yy - (n / 2 + offset[1])
+        t = np.clip(px * ux + py * uy, -(length - width) / 2, (length - width) / 2)
+        return np.hypot(px - t * ux, py - t * uy) <= width / 2
+
+    values: dict = {"placements": len(ROD_ANGLES) * ROD_OFFSETS}
+    for width in ROD_WIDTHS:
+        for length in ROD_LENGTHS:
+            kept = 0
+            for angle in ROD_ANGLES:
+                for _ in range(ROD_OFFSETS):
+                    mask = rod(length, width, angle, rng.uniform(-0.5, 0.5, 2))
+                    kept += int(seg._remove_nonlinear_objects(
+                        mask, params.h_length, params.h_sratio).any())
+            values[f"w{width}.l{length}.kept"] = kept
+        always = [l for l in ROD_LENGTHS if values[f"w{width}.l{l}.kept"] == values["placements"]]
+        never = [l for l in ROD_LENGTHS if values[f"w{width}.l{l}.kept"] == 0]
+        values[f"w{width}.shortest_always_kept"] = min(always) if always else None
+        values[f"w{width}.longest_never_kept"] = max(never) if never else None
     return values
 
 
@@ -1975,6 +2154,312 @@ def y_branch_kink() -> dict:
     return {"old_rule_angle_deg": best[1], "current_kinks_within_one_width": int(best[2])}
 
 
+# Background warnings that measure the calibrated image rather than predict from
+# the apparent width; the others compare the width with checked limits.
+# 見かけ幅から予測するのではなく補正後の画像を測る背景の警告。それ以外は幅を確かめた
+# 限界と比べる。
+MEASURED_REASONS = ("relief_absorbed", "width_unmeasured")
+
+
+def _warning_tally(values: dict, prefix: str, runs) -> None:
+    """
+    Record how each kind of warning fared on runs labelled by their height loss.
+    高さの損失で分けた実行に対し、警告の種類ごとの結果を記録する。
+
+    `runs` are ``(loss, predicted, measured)``: a run losing more than 0.1 of
+    the height should be warned on, one losing less than 0.03 should not.
+    `runs` は ``(損失, 予測の警告, 実測の警告)``。高さの 0.1 より多くを失った実行は
+    警告されるべきで、0.03 未満しか失っていない実行は警告されるべきでない。
+    """
+    lossy = [r for r in runs if r[0] > 0.1]
+    sound = [r for r in runs if r[0] < 0.03]
+    values[f"{prefix}runs"] = len(runs)
+    values[f"{prefix}lossy"] = len(lossy)
+    values[f"{prefix}sound"] = len(sound)
+    for kind, pick in (("predicted", lambda r: r[1]), ("measured", lambda r: r[2]),
+                       ("any", lambda r: r[1] or r[2])):
+        values[f"{prefix}{kind}.caught"] = sum(bool(pick(r)) for r in lossy)
+        values[f"{prefix}{kind}.false"] = sum(bool(pick(r)) for r in sound)
+
+
+SYNTH_HEIGHT_PX_NM = (1.0, 2.0, 5.0, 10.0)
+SYNTH_HEIGHT_DIAM_NM = (2.0, 4.0, 8.0)
+SYNTH_HEIGHT_NOISE_NM = (0.05, 0.2)
+SYNTH_HEIGHT_METHODS = ("trendfill", "tophat", "spline1d")
+SYNTH_HEIGHT_SHAPE = (320, 320)
+SYNTH_HEIGHT_LENGTH_PX = 220.0
+SYNTH_HEIGHT_OFFSETS_PX = (-80.0, 0.0, 80.0)
+
+
+def _synthetic_height_scan(nmpx: float, diam: float, noise: float, seed: int = 0,
+                           angle_deg: float = 23.0):
+    """
+    Three straight fibers point-sampled from the analytic tip-dilated surface.
+    解析的に探針で膨張させた表面から点標本化した、3 本の直線繊維。
+
+    Returns
+    -------
+    tuple
+        ``(clean, image, segments)``: the fibers alone, the scan with the
+        synthetic suite's tilt, roughness, line noise and the given pixel
+        noise added, and each fiber's end points in pixel coordinates (pixel
+        ``(i, j)`` centred at ``(j + 0.5, i + 0.5)``).
+        ``(clean, image, segments)``。繊維だけの画像、合成スイートの傾斜・粗さ・
+        走査線ノイズと指定の画素ノイズを加えた走査、画素座標での各繊維の端点
+        （画素 ``(i, j)`` の中心が ``(j + 0.5, i + 0.5)``）。
+
+    Notes
+    -----
+    A cylinder of radius r on the substrate, dilated by a spherical apex of
+    radius R, has the cross-section r + sqrt((r + R)^2 - d^2) - R, floored at
+    the substrate. It is evaluated at each pixel centre, as a scan samples the
+    surface, rather than dilating a pixelated cylinder: a cylinder narrower
+    than a pixel is missed by the pixel grid before the dilation, which would
+    put a rendering loss into a measurement of the analysis.
+    基板上の半径 r の円柱を半径 R の球状先端で膨張させた断面は
+    r + sqrt((r + R)^2 - d^2) - R（基板で下限）である。画素化した円柱を膨張させる
+    のではなく、走査が表面を標本化するのと同じく各画素中心で評価する。画素より
+    細い円柱は膨張の前に画素格子から抜け落ち、描画の損失が解析の測定に入り込む
+    ためである。
+    """
+    import math
+    import numpy as np
+    import synthetic_fibers as sf
+    import synthetic_suite as ss
+
+    h, w = SYNTH_HEIGHT_SHAPE
+    angle = math.radians(angle_deg)
+    along = (math.cos(angle), math.sin(angle))
+    perp = (-math.sin(angle), math.cos(angle))
+    half = SYNTH_HEIGHT_LENGTH_PX / 2.0
+    segments = []
+    for o in SYNTH_HEIGHT_OFFSETS_PX:
+        cx, cy = w / 2.0 + o * perp[0], h / 2.0 + o * perp[1]
+        segments.append(((cx - half * along[0], cy - half * along[1]),
+                         (cx + half * along[0], cy + half * along[1])))
+    gy, gx = np.mgrid[0:h, 0:w].astype(float)
+    px, py = gx + 0.5, gy + 0.5
+    dist = np.full((h, w), np.inf)
+    for (x0, y0), (x1, y1) in segments:
+        vx, vy = x1 - x0, y1 - y0
+        t = np.clip(((px - x0) * vx + (py - y0) * vy) / (vx * vx + vy * vy), 0.0, 1.0)
+        dist = np.minimum(dist, np.hypot(px - x0 - t * vx, py - y0 - t * vy))
+    d_nm = dist * nmpx
+    r, tip = diam / 2.0, ss.TIP
+    clean = np.maximum(r + np.sqrt(np.maximum((r + tip) ** 2 - d_nm ** 2, 0.0)) - tip, 0.0)
+    clean[d_nm >= r + tip] = 0.0
+
+    rng = np.random.default_rng(seed)
+    yy, xx = gy, gx
+    image = clean + ss.REND["tilt_nm"] * (0.66 * xx / (w - 1) + 0.34 * yy / (h - 1))
+    image = image + ss.REND["roughness_nm"] * sf.self_affine_field(
+        (h, w), nmpx, ss.REND["roughness_corr_nm"], 0.5, rng)
+    image = image + rng.normal(0.0, ss.REND["line_noise_nm"], (h, 1))
+    image = image + rng.normal(0.0, noise, (h, w))
+    return clean, image, segments
+
+
+def _synthetic_height_runs(out, tag: str, nmpx: float, diam: float, noise: float,
+                           angle_deg: float = 23.0) -> dict:
+    """
+    Analyze one synthetic_height scene with every background method.
+    synthetic_height の 1 場面を、各背景補正方式で解析する。
+
+    Returns
+    -------
+    dict
+        ``"peak"``, what the pixel grid shows on the axes over the true height,
+        and per method ``{"bg_loss", "height", "traced", "warned"}``: what
+        calibration removed there and the traced fibers' median height, both
+        over the true height, the traced length over the true length, and the
+        number of background warnings.
+        ``"peak"``（軸上で画素格子が示す高さ ÷ 真の高さ）と、方式ごとの
+        ``{"bg_loss", "height", "traced", "warned"}``（そこで補正が取り除いた
+        高さと追跡した繊維の高さの中央値をそれぞれ真の高さで割った値、追跡した
+        長さ ÷ 真の長さ、背景の警告の数）。
+    """
+    import math
+    import shutil
+    import numpy as np
+    from scipy.spatial import cKDTree
+    import synthetic_suite as ss
+    from lib import measure
+    from lib.pipeline import ProcParams, process_file
+
+    h, w = SYNTH_HEIGHT_SHAPE
+    size = (w * nmpx / 1000.0, h * nmpx / 1000.0)
+    w_px = 2.0 * math.sqrt((diam / 2) ** 2 + 2 * ss.TIP * diam / 2) / nmpx
+    limit = max(3.0, 0.5 * w_px)
+    clean, image, segments = _synthetic_height_scan(nmpx, diam, noise, angle_deg=angle_deg)
+    # Pixels nearest the middle 80 % of each true axis, and the truth in bundle
+    # coordinates (pixel centres at integers, one pixel trimmed).
+    # 各真の軸の中央 80 % に最も近い画素と、バンドル座標での真値（画素中心が整数で、
+    # 1 画素がトリムされている）。
+    rows, cols, dense = [], [], []
+    for (x0, y0), (x1, y1) in segments:
+        t = np.linspace(0.0, 1.0, int(4 * SYNTH_HEIGHT_LENGTH_PX) + 1)
+        x, y = x0 + t * (x1 - x0), y0 + t * (y1 - y0)
+        dense.append(np.column_stack([x - ss.SHIFT, y - ss.SHIFT]))
+        mid = (t >= 0.1) & (t <= 0.9)
+        rows.append(np.floor(y[mid]).astype(int))
+        cols.append(np.floor(x[mid]).astype(int))
+    pix = np.unique(np.column_stack([np.concatenate(rows), np.concatenate(cols)]), axis=0)
+    tree = cKDTree(np.vstack(dense))
+    true_len = len(segments) * SYNTH_HEIGHT_LENGTH_PX * nmpx
+    peak = clean[pix[:, 0], pix[:, 1]]
+    runs: dict = {"peak": float(np.median(peak)) / diam}
+    txt = out / f"{tag}.txt"
+    if not txt.is_file():
+        np.savetxt(txt, image, delimiter=",", fmt="%.4f")
+    for method in SYNTH_HEIGHT_METHODS:
+        stem = f"{tag}_{method}"
+        bundle = out / f"{stem}.b2z"
+        warned = out / f"{stem}_warnings.json"
+        if not bundle.is_file() or not warned.is_file():
+            shutil.copyfile(txt, out / f"{stem}.txt")
+            run = process_file(str(out / f"{stem}.txt"), ProcParams(bg_method=method),
+                               scan_size_um=size, scan_size_source="manual",
+                               output_dir=str(out))
+            warned.write_text(json.dumps(
+                [wn.reason for wn in run.background_warnings]), encoding="utf-8")
+        result = measure.measure_bundle(str(bundle))
+        cal = np.asarray(result.image.calibrated_image, float)
+        calibrated = cal[pix[:, 0] - 1, pix[:, 1] - 1]
+        samples, traced = [], 0.0
+        for f, s in zip(result.fibers, result.stats):
+            x = np.asarray(f.xtrack, float) + float(f.data[0])
+            y = np.asarray(f.ytrack, float) + float(f.data[1])
+            if x.size < 5 or np.median(tree.query(np.column_stack([x, y]))[0]) > limit:
+                continue
+            heights = np.asarray(f.height, float)
+            samples.append(heights[measure.height_sample_mask(f)])
+            traced += float(s.length_nm)
+        runs[method] = {
+            "bg_loss": float(np.median(peak - calibrated)) / diam,
+            "height": (float(np.median(np.concatenate(samples))) / diam
+                       if samples else None),
+            "traced": traced / true_len,
+            "warned": len(reasons := json.loads(warned.read_text(encoding="utf-8"))),
+            "measured": any(r in MEASURED_REASONS for r in reasons),
+            "predicted": any(r not in MEASURED_REASONS for r in reasons),
+        }
+    return runs
+
+
+@experiment(
+    "synthetic_height",
+    ["lib/pipeline.py", "lib/measure.py", "lib/centerline.py"],
+    "Three parallel straight fibers of known height (cylinders of diameter 2, 4 and 8 "
+    "nm under the synthetic suite's 15 nm spherical apex, point-sampled from the "
+    "analytic dilated surface, with the suite's tilt, roughness and line noise) in "
+    "320 x 320 px scans at 1, 2, 5 and 10 nm pixels and 0.05 and 0.2 nm pixel noise, "
+    "analyzed with each background method at its defaults. Per condition: the median "
+    "height of the pixels nearest the true axes in the fiber-only image (what the pixel "
+    "grid can show), the median of that minus the calibrated height at the same pixels "
+    "(what background calibration removed), the median of the traced fibers' height "
+    "samples (measure.height_sample_mask), each over the true height, and the traced "
+    "length over the true length. Axes are read on their middle 80 %.",
+)
+def synthetic_height() -> dict:
+    import math
+    import synthetic_suite as ss
+
+    out = cache_dir("synthetic_height")
+    out.mkdir(parents=True, exist_ok=True)
+    values: dict = {}
+    for nmpx in SYNTH_HEIGHT_PX_NM:
+        for diam in SYNTH_HEIGHT_DIAM_NM:
+            values[f"px{nmpx:g}.d{diam:g}.w_px"] = (
+                2.0 * math.sqrt((diam / 2) ** 2 + 2 * ss.TIP * diam / 2) / nmpx)
+            for noise in SYNTH_HEIGHT_NOISE_NM:
+                tag = f"px{nmpx:g}_d{diam:g}_n{noise:g}"
+                runs = _synthetic_height_runs(out, tag, nmpx, diam, noise)
+                values[f"px{nmpx:g}.d{diam:g}.n{noise:g}.peak"] = runs["peak"]
+                for method in SYNTH_HEIGHT_METHODS:
+                    key = f"{method}.px{nmpx:g}.d{diam:g}.n{noise:g}"
+                    for name, value in runs[method].items():
+                        values[f"{key}.{name}"] = value
+
+    def over(name, pxs, methods=SYNTH_HEIGHT_METHODS, noises=SYNTH_HEIGHT_NOISE_NM,
+             diams=SYNTH_HEIGHT_DIAM_NM):
+        return [values[f"{m}.px{p:g}.d{d:g}.n{n:g}.{name}"]
+                for m in methods for p in pxs for d in diams for n in noises]
+
+    values["px2.removed_range"] = [min(over("bg_loss", (2.0,))), max(over("bg_loss", (2.0,)))]
+    values["px2.height_range"] = [min(over("height", (2.0,))), max(over("height", (2.0,)))]
+    values["coarse.removed_max"] = max(over("bg_loss", (5.0, 10.0)))
+    for p in (5.0, 10.0):
+        peaks = [values[f"px{p:g}.d{d:g}.n0.05.peak"] for d in SYNTH_HEIGHT_DIAM_NM]
+        values[f"px{p:g}.peak_range"] = [min(peaks), max(peaks)]
+    for m in SYNTH_HEIGHT_METHODS:
+        for n in SYNTH_HEIGHT_NOISE_NM:
+            lost = over("bg_loss", (1.0,), methods=(m,), noises=(n,))
+            values[f"px1.{m}.n{n:g}.removed_range"] = [min(lost), max(lost)]
+    # Runs that lost more than a tenth of the height, and how many the background
+    # warning missed; runs warned on although they lost almost nothing.
+    # 高さの 1 割より多くを失った実行と、そのうち背景の警告が出なかった数。ほとんど
+    # 失っていないのに警告が出た実行。
+    _warning_tally(values, "", list(zip(over("bg_loss", SYNTH_HEIGHT_PX_NM),
+                                         over("predicted", SYNTH_HEIGHT_PX_NM),
+                                         over("measured", SYNTH_HEIGHT_PX_NM))))
+    return values
+
+
+SYNTH_HEIGHT_ANGLES_DEG = (0.0, 23.0, 45.0, 90.0)
+
+
+@experiment(
+    "synthetic_height_orientation",
+    ["lib/pipeline.py", "lib/measure.py", "lib/centerline.py"],
+    "The scenes of synthetic_height at 0.05 nm pixel noise, drawn with the fibers "
+    "running at 0, 23, 45 and 90 degrees to the scan lines (23 is synthetic_height "
+    "itself): per orientation, method, pixel size and diameter, what background "
+    "calibration removed on the axes, the traced fibers' median height (both over the "
+    "true height), the traced length over the true length and the number of background "
+    "warnings; and per orientation and method the largest removal at 2, 5 and 10 nm "
+    "pixels and the range of removals at 1 nm pixels.",
+)
+def synthetic_height_orientation() -> dict:
+    out = cache_dir("synthetic_height")
+    out.mkdir(parents=True, exist_ok=True)
+    values: dict = {}
+    for angle in SYNTH_HEIGHT_ANGLES_DEG:
+        for nmpx in SYNTH_HEIGHT_PX_NM:
+            for diam in SYNTH_HEIGHT_DIAM_NM:
+                tag = f"px{nmpx:g}_d{diam:g}_n0.05"
+                if angle != 23.0:
+                    tag += f"_a{angle:g}"
+                runs = _synthetic_height_runs(out, tag, nmpx, diam, 0.05, angle_deg=angle)
+                values[f"a{angle:g}.px{nmpx:g}.d{diam:g}.peak"] = runs["peak"]
+                for method in SYNTH_HEIGHT_METHODS:
+                    key = f"a{angle:g}.{method}.px{nmpx:g}.d{diam:g}"
+                    for name, value in runs[method].items():
+                        values[f"{key}.{name}"] = value
+    for angle in SYNTH_HEIGHT_ANGLES_DEG:
+        for method in SYNTH_HEIGHT_METHODS:
+            def lost(pxs):
+                return [values[f"a{angle:g}.{method}.px{p:g}.d{d:g}.bg_loss"]
+                        for p in pxs for d in SYNTH_HEIGHT_DIAM_NM]
+            values[f"a{angle:g}.{method}.fine_coarse.removed_max"] = max(lost((2.0, 5.0, 10.0)))
+            values[f"a{angle:g}.{method}.px1.removed_range"] = [min(lost((1.0,))),
+                                                                max(lost((1.0,)))]
+    _warning_tally(values, "", [
+        (values[f"{k}.bg_loss"], values[f"{k}.predicted"], values[f"{k}.measured"])
+        for k in (f"a{a:g}.{m}.px{p:g}.d{d:g}" for a in SYNTH_HEIGHT_ANGLES_DEG
+                  for m in SYNTH_HEIGHT_METHODS for p in SYNTH_HEIGHT_PX_NM
+                  for d in SYNTH_HEIGHT_DIAM_NM)])
+    # Runs the measured warning flagged without a height loss, and how many of
+    # them traced no fiber at all.
+    # 高さを失っていないのに実測の警告が出た実行と、そのうち繊維を 1 本も追跡
+    # しなかった実行。
+    flagged = [k for k in {k.rsplit(".", 1)[0] for k in values if k.endswith(".measured")}
+               if values[f"{k}.measured"] and values[f"{k}.bg_loss"] < 0.03]
+    values["measured.false_untraced"] = sum(values[f"{k}.traced"] < 0.05 for k in flagged)
+    values["measured.false_axis_parallel"] = sum(k.split(".")[0] in ("a0", "a90")
+                                                 for k in flagged)
+    return values
+
+
 @experiment(
     "test_suite_bend",
     ["lib/pipeline.py", "lib/kink_detector.py", "lib/centerline.py"],
@@ -2639,9 +3124,15 @@ def zoomed_background() -> dict:
                     res = score(ProcParams(bg_method=method))
                     entry = dict(scan=name, k=k, method=method, kept=res["kept"],
                                  kept_p10=res["kept_p10"], bg95=res["bg95"],
-                                 warned=bool(res["warns"]))
-                    if res["warns"]:
-                        w = res["warns"][0]
+                                 warned=bool(res["warns"]),
+                                 predicted=any(w.reason not in MEASURED_REASONS
+                                               for w in res["warns"]),
+                                 measured=any(w.reason in MEASURED_REASONS
+                                              for w in res["warns"]))
+                    advised = [w for w in res["warns"] if w.suggest_method]
+                    entry["reasons"] = [w.reason for w in res["warns"]]
+                    if advised:
+                        w = advised[0]
                         entry["width_px"] = w.width_px
                         entry["suggest"] = w.suggest_method
                         kw = dict(bg_method=w.suggest_method)
@@ -2673,7 +3164,7 @@ def zoomed_background() -> dict:
         values[f"x{k:g}.below_90_unwarned"] = sum(r["kept"] < 0.9 and not r["warned"] for r in sel)
         values[f"x{k:g}.warned"] = sum(r["warned"] for r in sel)
         values[f"x{k:g}.warned_above_97"] = sum(r["warned"] and r["kept"] >= 0.97 for r in sel)
-        fol = [r["followed_kept"] for r in sel if r["warned"]]
+        fol = [r["followed_kept"] for r in sel if "followed_kept" in r]
         values[f"x{k:g}.followed_kept_range"] = rng(fol)
     quiet = [r for r in runs if not r["warned"]]
     warned = [r for r in runs if r["warned"]]
@@ -2684,9 +3175,15 @@ def zoomed_background() -> dict:
     values["missed_below_90"] = sum(r["kept"] < 0.9 for r in quiet)
     values["warned.kept_range"] = rng([r["kept"] for r in warned])
     values["warned_above_97"] = sum(r["kept"] >= 0.97 for r in warned)
-    values["followed.kept_range"] = rng([r["followed_kept"] for r in warned])
-    values["followed.bg95_max"] = max((r["followed_bg95"] for r in warned), default=None)
-    values["followed.still_warned"] = sum(r["followed_warned"] for r in warned)
+    # A warning without a suggested setting (no width measured) has nothing to follow.
+    # 勧める設定の無い警告（幅を測れなかった）には、従う設定が無い。
+    _warning_tally(values, "tally.", [(1.0 - r["kept"], r["predicted"], r["measured"])
+                                      for r in runs])
+    advised = [r for r in warned if "followed_kept" in r]
+    values["warned_without_advice"] = len(warned) - len(advised)
+    values["followed.kept_range"] = rng([r["followed_kept"] for r in advised])
+    values["followed.bg95_max"] = max((r["followed_bg95"] for r in advised), default=None)
+    values["followed.still_warned"] = sum(r["followed_warned"] for r in advised)
     values["unwarned.bg95_max"] = max((r["bg95"] for r in quiet), default=None)
     (WORK / "zoomed_background_runs.json").write_text(
         json.dumps(runs, indent=1), encoding="utf-8")

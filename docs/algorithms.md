@@ -958,20 +958,23 @@ Fibers do; contamination particles and tip artefacts do not.
   of them, so skipping the test did not change the result
   ([Evaluation on particular data](validation.md) §2.6). A large non-linear
   object, such as a big contamination blob, is still kept untested.
-- Components whose bounding box is smaller than `h_length` (default 20<!--c:lib/pipeline.py::ProcParams.h_length--> px) in
-  both dimensions are removed: they cannot contain a line of the required
-  length (`h_length` has a second role in the next item, explained at the end
-  of this section).
-- Otherwise the component's bounding box is Canny-edged (Canny's method is the
-  standard way to extract an image's edges) and run through a Hough line
-  transform. The Hough transform describes a straight line by two numbers, its
-  distance from the origin and the angle of its tilt, and counts, for every
-  candidate straight line, the
-  edge points lying on it; that count is the line's "votes", and a line with
-  many votes (a Hough peak) has many of the outline's points on it. Lines with
-  more than `h_length` votes are taken (how lines too close to each other are
-  handled is explained at the end of this section), and their votes are summed. The
-  score is
+- Components whose largest extent is shorter than `h_length` (default 20<!--c:lib/pipeline.py::ProcParams.h_length--> px)
+  are removed: they cannot contain a line of the required length. The largest
+  extent (`_max_extent_px`, the maximum Feret diameter) is the longest distance
+  between two corners of the component's pixels. It is used rather than the
+  sides of the bounding box because a bounding box is axis-aligned: for a
+  component lying diagonally its sides are up to $\sqrt{2}$ times shorter than
+  the component, so the same shape would pass or fail depending on its angle.
+- Otherwise the component's bounding box, with a one-pixel margin added, is
+  Canny-edged (Canny's method is the standard way to extract an image's edges)
+  and run through a Hough line transform. The Hough transform describes a
+  straight line by two numbers, its distance from the origin and the angle of
+  its tilt, and counts, for every candidate straight line, the edge points
+  lying on it; that count is the line's "votes", and a line with many votes (a
+  Hough peak) has many of the outline's points on it. Lines longer than
+  `h_length` are taken (how votes are read as a length is explained below, and
+  how lines too close to each other are handled at the end of this section),
+  and their votes are summed. The score is
 
   $$
   s_{\text{ratio}} = \frac{\sum \text{Hough peak accumulator votes}}{\sum \text{edge pixels}}
@@ -992,17 +995,49 @@ empty and neighbouring objects land inside it often; cropping the whole mask
 let their outlines enter both sides of the $s_{\text{ratio}}$ fraction, and a
 component's verdict could turn on what happened to lie near it.
 
-The crop is the bounding box itself, with no margin around it.
-`skimage.feature.canny` does not mark the outermost pixels of an image as edges,
-so the parts of a component's border that lie on the sides of its bounding box
-are not counted as outline. A band running straight along the rows or columns
-has both of its long borders on the sides of the box; no long line is then
-found, $s_{\text{ratio}} = 0$, and the band is removed although it is
-straight, if its area is below 1000<!--n:literal in the quoted code--> pixels. This runs against the filter's purpose,
-which is to keep line-like shapes. Short fiber pieces running close to the rows
-or columns, whose border lies largely on the sides of the box, are the most
-likely to be removed, so what survives can be biased by fiber orientation. Bent
-or kinked fiber pieces, whose outline does not follow long straight lines, also
+The largest extent is the longest distance between two vertices of the convex
+hull of the corners of the component's pixels:
+
+```python
+# source: lib/segmenter.py::_max_extent_px
+ys, xs = np.nonzero(mask)
+corners = np.concatenate(
+    [np.column_stack((xs + dx, ys + dy)) for dx in (0, 1) for dy in (0, 1)]
+).astype(np.float32)
+hull = cv2.convexHull(corners).reshape(-1, 2).astype(float)
+gaps = hull[:, None, :] - hull[None, :, :]
+return float(np.sqrt((gaps ** 2).sum(axis=-1)).max())
+```
+
+The crop is padded with a margin of one empty pixel on every side
+(`np.pad(target, 1)`). `skimage.feature.canny` does not mark the outermost
+pixels of an image as edges, so without the margin the parts of a component's
+border that lie on the sides of its bounding box would not be counted as
+outline. A band running straight along the rows or columns has both of its long
+borders there: without the margin no long line would be found and the band
+would be removed although it is straight.
+
+A line's votes are the number of outline pixels on it, and the number of pixels
+a straight line of a given length holds depends on its angle. A digital line
+along a row or a column has one pixel per pixel of length; one at 45<!--n:definition-->° has one
+pixel per diagonal step, which is $\sqrt{2}$ long. In general a line of length
+$L$ at angle $\theta$ holds $L \max(|\cos\theta|, |\sin\theta|)$ pixels
+(the same factor for the angle `skimage.transform.hough_line` reports, which is
+that of the line's normal). A line is therefore taken when
+
+$$
+\text{votes} > h_{\text{length}} \max(|\cos\theta|, |\sin\theta|),
+$$
+
+that is, when the length its votes amount to exceeds `h_length`, whatever its
+angle. `skimage.transform.hough_line_peaks` is called with the smallest of these
+thresholds, $h_{\text{length}} / \sqrt{2}$ (a line at 45<!--n:definition-->°), and each peak it
+returns is then tested at its own angle. Comparing the votes with `h_length`
+itself would ask a diagonal line to be up to $\sqrt{2}$ times longer than one
+along an axis. How far the verdict on a straight rod still depends on its angle
+is measured in [Evaluation on particular data](validation.md) §2.5.
+
+Bent or kinked fiber pieces, whose outline does not follow long straight lines,
 score low and can be removed when their area is below 1000<!--n:literal in the quoted code--> pixels. What the
 filter removed on the test inputs, real fiber pieces included, is shown in
 [Evaluation on particular data](validation.md) §2.5. An analysis that counts
@@ -1014,35 +1049,37 @@ for i in range(1, n_labels):
     left, top, width, height, area = stats[i]
     if area >= 1000:
         continue
-    if max(width, height) < h_length:
-        out_binary_image[label_image == i] = 0
-        continue
     target = label_image[
         top : top + height, left : left + width
     ] == i
-    target_edge = canny(target, sigma=0, low_threshold=0, high_threshold=1)
+    if _max_extent_px(target) < h_length:
+        out_binary_image[label_image == i] = 0
+        continue
+    target_edge = canny(
+        np.pad(target, 1), sigma=0, low_threshold=0, high_threshold=1
+    )
     h, theta, d = hough_line(target_edge)
-    accums, _, _ = hough_line_peaks(
+    accums, angles, _ = hough_line_peaks(
         h, theta, d,
         min_distance=max(1, linegap),
         min_angle=1,
-        threshold=h_length,
+        threshold=h_length / np.sqrt(2),
     )
-    if len(accums) > 0:
-        total_length = float(np.sum(accums))
-    else:
-        total_length = 0.0
+    pixels_per_length = np.maximum(np.abs(np.cos(angles)), np.abs(np.sin(angles)))
+    long_enough = accums > h_length * pixels_per_length
+    total_length = float(np.sum(accums[long_enough]))
     s_ratio = total_length / (np.sum(target_edge) + _DENOM_EPS)
     self.h_sratio_list.append(s_ratio)
     if s_ratio < h_sratio and np.sum(target) < 1000:
         out_binary_image[label_image == i] = 0
 ```
 
-One further detail: `h_length` plays two roles in this function. In the
-bounding-box test above it is a length in pixels, but it is also passed as the
-Hough peak `threshold` argument, where it is the vote threshold (a proxy for line
-length): `skimage.transform.hough_line_peaks` takes lines whose votes exceed
-it, not lines whose votes equal it.
+One further detail: `h_length` is used twice in this function, both times as a
+length in pixels: as the shortest largest extent a component may have, and as
+the length a Hough line must exceed. In the second role the comparison is
+strict — a line whose votes equal the threshold at its angle is not taken —
+which is also how `skimage.transform.hough_line_peaks` applies its own
+`threshold` argument.
 
 `linegap` in the code is an argument of this function with a default of 1<!--c:lib/segmenter.py::Segmenter._remove_nonlinear_objects(linegap)-->
 (`Segmenter.__call__` does not pass it, so the default always applies). In

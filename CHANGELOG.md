@@ -87,7 +87,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   above 19 px; it suggests `spline1d`, or `tophat` with `tophat_se_size` about
   three times the apparent width. GUI01's description of `tophat` says the
   same. The limits were set on zoomed copies of the bundled scans
-  (`docs/validation.md` §1.8). Analysis results do not change.
+  (`docs/validation.md` §1.8). Beside these predictions the warning measures
+  the calibrated image: it fires when a tenth or more of the fibers' relief
+  was subtracted as background standing above the background beside them, and
+  says so when no fiber width could be measured, the state a calibration that
+  removed the fibers leaves (`docs/validation.md` §1.10). Analysis results do
+  not change.
 
 ### Changed
 
@@ -207,6 +212,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The linearity filter (`Segmenter._remove_nonlinear_objects`) no longer
+  judges a component by how it lies on the pixel grid. It cropped each
+  component without a margin, so Canny did not count the outline lying on the
+  sides of the bounding box, and a straight band along the rows or columns
+  scored 0 and was removed; it compared Hough votes, which count pixels, with
+  `h_length`, so a diagonal line had to be up to √2 times longer than one
+  along an axis; and it took a component's length from the sides of its
+  bounding box, which are up to √2 times shorter than a diagonal component.
+  The crop now has a one-pixel margin, a line's votes are read as a length at
+  its own angle, and the length test uses the component's largest extent
+  (`segmenter._max_extent_px`). `h_length`, `h_sratio` and the 1000 px
+  exemption keep their values and meaning. Synthetic rods with round ends,
+  40 and 60 px long and 3 to 9 px wide, were removed along the rows and the
+  columns and kept at every other angle; they are now kept at every angle, as
+  is every tested rod of 28 px or longer (24 px or longer at a width of 3 px),
+  while shorter ones still depend on their angle (`docs/validation.md` §2.5).
+  On the bundled scans the final binarized masks gained 11 components and lost
+  none: on the tunicate scan two fiber pieces and one piece that cannot be told
+  apart, on the Bruker scan three faint strands ending in particles and one
+  particle, and on the higher-plant scan four patches on its disturbed scan
+  line, which are traced as fibers unless that line is left out (GUI01's
+  scan-line range, or an exclusion in GUI04). **Fiber counts and every
+  measurement change from this version**: with the default settings 139 → 143
+  fibers on the Bruker NDTOC scan, 15 → 19 on the higher-plant TOC scan and
+  60 → 63 on the tunicate scan.
 - The apparent width W is no longer read too narrow on fibers that span many
   pixels. Each cross-section was read over a fixed ±12 px, and its base is the
   section's 10th percentile, so on a fiber wider than about 10 px the base lay
