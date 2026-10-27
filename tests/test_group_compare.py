@@ -172,6 +172,74 @@ def test_min_attainable_p_bounds_every_untied_sample():
         assert result.ks_p >= floor - 1e-12
 
 
+@pytest.mark.parametrize("a, b", [([1.0, 1, 1], [3.0, 3, 3]),
+                                  ([1.0, 1, 2], [3.0, 3, 4])])
+def test_tied_small_pair_does_not_beat_its_floor(a, b):
+    """
+    Tied values no longer take three against three below p = 0.10.
+    同順位があっても 3 対 3 は p = 0.10 を下回らない。
+
+    scipy's normal approximation, which it uses for a tied Mann-Whitney
+    test, reported 0.047 and 0.072 for these separated pairs while the
+    comparison table said the pair could not reach 0.05.
+    scipy は同順位のある Mann-Whitney 検定に正規近似を使い、これらの分離した
+    ペアに 0.047 と 0.072 を返していた。一方で比較表は、このペアは 0.05 に
+    届かないと述べていた。
+    """
+    result = compare_groups([("A", np.array(a)), ("B", np.array(b))])[0]
+    assert result.mannwhitney_p == pytest.approx(0.1)
+    assert result.ks_p == pytest.approx(0.1)
+    assert result.min_attainable_p == pytest.approx(0.1)
+
+
+def test_equal_sizes_never_go_below_the_floor_with_ties():
+    """
+    Equal-size groups stay at or above the reported floor, ties included.
+    同じ大きさの群は、同順位を含めても報告された下限以上にとどまる。
+    """
+    rng = np.random.default_rng(5)
+    for n in (3, 4, 5):
+        for _ in range(100):
+            values = rng.integers(0, 3, size=2 * n).astype(float)
+            result = compare_groups([("A", values[:n]), ("B", values[n:])])[0]
+            assert result.mannwhitney_p >= result.min_attainable_p - 1e-12
+            assert result.ks_p >= result.min_attainable_p - 1e-12
+
+
+def test_unequal_tied_pair_reaches_one_arrangement():
+    """
+    With unequal sizes, ties can leave the observed split alone in its tail.
+    大きさが違うと、同順位によって観測された分け方だけが裾に残ることがある。
+    """
+    from math import comb
+
+    result = compare_groups([("A", np.array([1.0, 1, 1])),
+                             ("B", np.array([2.0, 2, 2, 2]))])[0]
+    assert result.mannwhitney_p == pytest.approx(1.0 / comb(7, 3))
+    assert result.ks_p == pytest.approx(1.0 / comb(7, 3))
+    assert result.min_attainable_p == pytest.approx(2.0 / comb(7, 3))
+
+
+@pytest.mark.parametrize("n_a, n_b", [(3, 3), (3, 5), (4, 4), (5, 6), (8, 8)])
+def test_counted_pvalues_match_scipy_exact_without_ties(n_a, n_b):
+    """
+    Without ties, counting arrangements gives scipy's exact p-values.
+    同順位が無ければ、並べ方の数え上げは scipy の厳密な p 値と一致する。
+    """
+    from scipy.stats import ks_2samp, mannwhitneyu
+
+    from lib.group_compare import _exact_pvalues
+
+    rng = np.random.default_rng(n_a * 10 + n_b)
+    for _ in range(10):
+        values = rng.permutation(n_a + n_b).astype(float)
+        a, b = values[:n_a], values[n_a:]
+        u_p, ks_p = _exact_pvalues(a, b)
+        assert u_p == pytest.approx(
+            mannwhitneyu(a, b, alternative="two-sided", method="exact").pvalue)
+        assert ks_p == pytest.approx(ks_2samp(a, b, method="exact").pvalue)
+
+
 def test_delta_magnitude_labels():
     """Magnitude labels follow the documented thresholds and sign-independence."""
     assert delta_magnitude(0.10) == "negligible"

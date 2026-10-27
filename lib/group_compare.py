@@ -32,6 +32,9 @@ Choosing what one sample is remains the caller's responsibility.
 
 # ===== Standard library =====
 from dataclasses import dataclass
+from functools import lru_cache
+from itertools import combinations
+from math import comb
 from typing import List, Sequence, Tuple
 
 # ===== Numerical / scientific libraries =====
@@ -54,6 +57,17 @@ MAGNITUDE_LARGE = "large"
 # これ未満の観測数では順位検定は何も語らないため、無意味な p 値を与えるのでは
 # なく「計算せず」として報告する。
 MIN_SAMPLES_FOR_TEST = 3
+
+# Pairs that can be split into at most this many arrangements are tested by
+# counting every arrangement. That count is exact with tied values, where
+# scipy's Mann-Whitney turns to its normal approximation and its KS test treats
+# the data as untied; small groups are where that matters, because there a
+# p-value sits close to the level. Ten against ten makes 184,756 arrangements.
+# 並べ方がこの数以下のペアは、全ての並べ方を数えて検定する。この数え上げは
+# 同順位があっても厳密である。scipy の Mann-Whitney は同順位があると正規近似に
+# 切り替わり、KS 検定は同順位が無いものとして扱う。それが問題になるのは小さな
+# 群であり、そこでは p 値が有意水準の近くにある。10 対 10 では 184,756 通りになる。
+_EXACT_ARRANGEMENT_LIMIT = 100_000
 
 
 @dataclass(frozen=True)
@@ -100,11 +114,15 @@ class PairComparison:
         NaN when the pair was not tested. A pair whose value is above the
         significance level cannot reject at it however far apart the groups
         are, so a non-significant result there says nothing about whether
-        they differ.
+        they differ. For a pair tested by counting arrangements, tied values
+        cannot bring two groups of equal size below it, while two groups of
+        unequal size can fall to half of it (see `_min_attainable_p`).
         この標本数でどちらかの検定が返しうる最小の p 値。2 群がまったく重ならず、
         同じ値を含まないときに達する。未検定のペアでは NaN。この値が有意水準を
         上回るペアは、群がどれほど離れていてもその水準で棄却できないため、そこでの
-        「有意差なし」は差の有無について何も言っていない。
+        「有意差なし」は差の有無について何も言っていない。並べ方を数えて検定する
+        ペアでは、同順位があっても同じ大きさの 2 群はこの値を下回らず、大きさの違う
+        2 群はその半分まで下がりうる（`_min_attainable_p` 参照）。
 
     Notes
     -----
@@ -132,6 +150,130 @@ class PairComparison:
     min_attainable_p: float = float("nan")
 
 
+def _exact_pvalues(a: np.ndarray, b: np.ndarray) -> Tuple[float, float]:
+    """
+    Return exact two-sided Mann-Whitney U and KS p-values by full enumeration.
+    全ての並べ方を数え上げ、厳密な両側 Mann-Whitney U と KS の p 値を返す。
+
+    Parameters
+    ----------
+    a
+        First sample, finite values only.
+        1 つ目の標本。有限値のみ。
+    b
+        Second sample, finite values only.
+        2 つ目の標本。有限値のみ。
+
+    Returns
+    -------
+    tuple of float
+        ``(mannwhitney_p, ks_p)``: the share of all ways of assigning the
+        pooled values to groups of these sizes whose statistic is at least as
+        extreme as the observed one.
+        ``(mannwhitney_p, ks_p)``。合併した値をこの大きさの 2 群に割り振る全ての
+        方法のうち、統計量が観測値と同じかそれ以上に極端なものの割合。
+
+    Notes
+    -----
+    This is the permutation test of each statistic, conditional on the values
+    observed, so it is exact whether or not they are tied. The two-sided
+    Mann-Whitney statistic is ``|U - n_a n_b / 2|``; the KS statistic is the
+    largest gap between the two empirical distribution functions, read only
+    at the end of each run of equal values, where both functions step. Both
+    are compared on an integer scale (twice U, and ``n_a n_b`` times the gap)
+    so equal statistics compare equal. Without tied values the result equals
+    scipy's exact methods.
+    各統計量の並べ替え検定であり、観測された値を条件とするため、同順位の有無に
+    かかわらず厳密である。両側 Mann-Whitney の統計量は ``|U - n_a n_b / 2|``、
+    KS の統計量は 2 つの経験分布関数の差の最大値であり、両関数が段を上がる、
+    等しい値の連なりの終わりでのみ読む。どちらも整数の尺度（U の 2 倍、差の
+    ``n_a n_b`` 倍）で比べ、等しい統計量が等しく比較されるようにする。同順位が
+    無ければ、結果は scipy の厳密法と一致する。
+    """
+    from scipy.stats import rankdata
+
+    n_a, n_b = a.size, b.size
+    pooled = np.concatenate([a, b])
+    n = pooled.size
+    # Row 0 is the observed split: the first n_a pooled values form group A.
+    # 0 行目が観測された分け方であり、合併した値の先頭 n_a 個が群 A になる。
+    members = np.fromiter(
+        (i for split in combinations(range(n), n_a) for i in split),
+        dtype=np.intp,
+    ).reshape(-1, n_a)
+
+    # Midranks are multiples of one half, so twice them are integers.
+    # 中間順位は 1/2 の倍数なので、その 2 倍は整数になる。
+    rank2 = np.rint(2.0 * rankdata(pooled)).astype(np.int64)
+    u2 = rank2[members].sum(axis=1) - n_a * (n_a + 1)
+    u_stat = np.abs(u2 - n_a * n_b)
+
+    order = np.argsort(pooled, kind="stable")
+    ordered = pooled[order]
+    run_ends = np.flatnonzero(np.r_[ordered[1:] != ordered[:-1], True])
+    in_a = np.zeros((members.shape[0], n), dtype=bool)
+    np.put_along_axis(in_a, members, True, axis=1)
+    count_a = np.cumsum(in_a[:, order], axis=1)[:, run_ends]
+    count_b = (run_ends + 1) - count_a
+    d_stat = np.abs(count_a * n_b - count_b * n_a).max(axis=1)
+
+    return (float(np.mean(u_stat >= u_stat[0])),
+            float(np.mean(d_stat >= d_stat[0])))
+
+
+def _pair_pvalues(a: np.ndarray, b: np.ndarray) -> Tuple[float, float]:
+    """
+    Return the two-sided Mann-Whitney U and KS p-values of one pair.
+    1 組の両側 Mann-Whitney U と KS の p 値を返す。
+
+    Parameters
+    ----------
+    a
+        First sample.
+        1 つ目の標本。
+    b
+        Second sample.
+        2 つ目の標本。
+
+    Returns
+    -------
+    tuple of float
+        ``(mannwhitney_p, ks_p)``; either is NaN when it cannot be computed.
+        ``(mannwhitney_p, ks_p)``。計算できないものは NaN。
+
+    Notes
+    -----
+    A pair with at most `_EXACT_ARRANGEMENT_LIMIT` arrangements is tested by
+    `_exact_pvalues`; a larger one by `scipy.stats.mannwhitneyu`, whose
+    p-value carries a tie correction, and `scipy.stats.ks_2samp`.
+    並べ方が `_EXACT_ARRANGEMENT_LIMIT` 以下のペアは `_exact_pvalues` で、それより
+    大きいペアは同順位補正つきの `scipy.stats.mannwhitneyu` と
+    `scipy.stats.ks_2samp` で検定する。
+    """
+    if not (np.all(np.isfinite(a)) and np.all(np.isfinite(b))):
+        return float("nan"), float("nan")
+    if comb(a.size + b.size, a.size) <= _EXACT_ARRANGEMENT_LIMIT:
+        return _exact_pvalues(a, b)
+
+    from scipy.stats import ks_2samp, mannwhitneyu
+
+    try:
+        u_p = float(mannwhitneyu(a, b, alternative="two-sided").pvalue)
+    except Exception:
+        # Degenerate input (for example two constant samples) leaves the
+        # pair reported as not tested rather than aborting the whole
+        # comparison table.
+        # 退化した入力（例: 定数の 2 標本）では、比較表全体を中断せず、
+        # そのペアを未検定として報告する。
+        u_p = float("nan")
+    try:
+        ks_p = float(ks_2samp(a, b).pvalue)
+    except Exception:
+        ks_p = float("nan")
+    return u_p, ks_p
+
+
+@lru_cache(maxsize=None)
 def _min_attainable_p(n_a: int, n_b: int) -> float:
     """
     Return the smallest p-value either test can return at these sample sizes.
@@ -159,16 +301,34 @@ def _min_attainable_p(n_a: int, n_b: int) -> float:
     -----
     Complete separation is the most extreme arrangement both rank statistics
     can take, so the tests are run on it rather than on a formula: the value
-    then follows whichever exact or asymptotic method scipy chooses for these
-    sizes. Tied values send scipy to the asymptotic Mann-Whitney method and
-    shrink its variance, which can bring a separated pair below this value:
-    three equal values against three other equal values give 0.047 rather
-    than 0.10.
+    then follows the method `_pair_pvalues` uses at these sizes.
     完全な分離は両方の順位統計量がとりうる最も極端な並びであるため、式ではなく
-    その並びに対して検定を実行する。こうすると値は、scipy がこの標本数に選ぶ
-    厳密法・漸近法のどちらにも従う。同順位があると scipy は Mann-Whitney に漸近法
-    を使い、その分散も縮むため、分離したペアがこの値を下回ることがある。等しい 3 値
-    対 別の等しい 3 値では 0.10 ではなく 0.047 になる。
+    その並びに対して検定を実行する。こうすると値は、`_pair_pvalues` がこの標本数で
+    使う方法に従う。
+
+    When the arrangements are counted, both separated arrangements -- A
+    entirely below B and entirely above it -- are as extreme as each other,
+    so the value is 2 / C(n_a + n_b, n_a). Swapping the groups' labels leaves
+    both statistics unchanged when the groups are the same size, so no data
+    of equal sizes, tied or not, gets below it. With unequal sizes, tied
+    values can leave the observed split the only one that extreme, and the
+    p-value then reaches 1 / C(n_a + n_b, n_a): three equal values against
+    four other equal values give 0.029, where untied samples cannot get
+    below 0.057.
+    並べ方を数える場合、分離した 2 つの並び（A が B より全て下、全て上）は同じだけ
+    極端なので、値は 2 / C(n_a + n_b, n_a) となる。2 群が同じ大きさなら、群の
+    ラベルを入れ替えても両統計量は変わらないため、同順位の有無にかかわらず、同じ
+    大きさのデータはこれを下回らない。大きさが違うと、同順位によって観測された
+    分け方だけがその極端さになることがあり、p 値は 1 / C(n_a + n_b, n_a) に
+    達する。等しい 3 値対 別の等しい 4 値では 0.029 となり、同順位の無い標本は
+    0.057 を下回れない。
+
+    Beyond `_EXACT_ARRANGEMENT_LIMIT` the value is scipy's for separated
+    samples, which tied samples can undercut through its approximations; it
+    is then far below any conventional significance level.
+    `_EXACT_ARRANGEMENT_LIMIT` を超えると値は分離した標本に対する scipy の値で
+    あり、同順位のある標本はその近似によってこれを下回りうる。その場合の値は
+    通常のどの有意水準よりもはるかに小さい。
 
     Examples
     --------
@@ -176,13 +336,9 @@ def _min_attainable_p(n_a: int, n_b: int) -> float:
     >>> round(_min_attainable_p(3, 3), 3), round(_min_attainable_p(4, 4), 4)
     (0.1, 0.0286)
     """
-    from scipy.stats import ks_2samp, mannwhitneyu
-
     a = np.arange(n_a, dtype=float)
     b = np.arange(n_a, n_a + n_b, dtype=float)
-    u_p = float(mannwhitneyu(a, b, alternative="two-sided").pvalue)
-    ks_p = float(ks_2samp(a, b).pvalue)
-    return min(u_p, ks_p)
+    return min(_pair_pvalues(a, b))
 
 
 def delta_magnitude(delta: float) -> str:
@@ -401,23 +557,28 @@ def compare_groups(
     報告できるようにするためである。
 
     The tests are the two-sided Mann-Whitney U test [MannWhitney1947]_ and the
-    two-sample Kolmogorov-Smirnov test [Smirnov1948]_, computed by
-    `scipy.stats.mannwhitneyu` and `scipy.stats.ks_2samp`.
+    two-sample Kolmogorov-Smirnov test [Smirnov1948]_. A pair whose groups
+    can be arranged in at most `_EXACT_ARRANGEMENT_LIMIT` ways is tested by
+    counting every arrangement, which is exact with tied values too; a larger
+    pair by `scipy.stats.mannwhitneyu` and `scipy.stats.ks_2samp`.
     検定は両側 Mann-Whitney U 検定 [MannWhitney1947]_ と 2 標本
-    Kolmogorov-Smirnov 検定 [Smirnov1948]_ であり、`scipy.stats.mannwhitneyu` と
+    Kolmogorov-Smirnov 検定 [Smirnov1948]_ である。群の並べ方が
+    `_EXACT_ARRANGEMENT_LIMIT` 通り以下のペアは全ての並べ方を数えて検定し、これは
+    同順位があっても厳密である。それより大きいペアは `scipy.stats.mannwhitneyu` と
     `scipy.stats.ks_2samp` で計算する。
 
-    The Kolmogorov-Smirnov p-value assumes continuous distributions. Tied
-    values -- for example the zeros of a per-fiber kink density, where a
-    fiber without a kink reads 0 -- make it conservative: with no difference
-    present it rejects less often than its nominal level, so a small KS
-    p-value still stands while a large one may miss a real difference. The
-    Mann-Whitney p-value is computed with a tie correction.
-    Kolmogorov-Smirnov の p 値は連続分布を仮定している。同順位（例えば
-    ファイバー単位のキンク密度で、キンクの無いファイバーが 0 となるもの）があると
-    保守的になり、差が無いときに名目の水準より少なくしか棄却しない。したがって
-    小さい KS の p 値はそのまま有効だが、大きい値は実在の差を見逃していることが
-    ある。Mann-Whitney の p 値は同順位の補正を入れて計算する。
+    On a larger pair the Kolmogorov-Smirnov p-value assumes continuous
+    distributions. Tied values -- for example the zeros of a per-fiber kink
+    density, where a fiber without a kink reads 0 -- make it conservative:
+    with no difference present it rejects less often than its nominal level,
+    so a small KS p-value still stands while a large one may miss a real
+    difference. The Mann-Whitney p-value is computed there with a tie
+    correction.
+    大きいペアでは、Kolmogorov-Smirnov の p 値は連続分布を仮定している。同順位
+    （例えばファイバー単位のキンク密度で、キンクの無いファイバーが 0 となるもの）
+    があると保守的になり、差が無いときに名目の水準より少なくしか棄却しない。
+    したがって小さい KS の p 値はそのまま有効だが、大きい値は実在の差を見逃して
+    いることがある。そこでの Mann-Whitney の p 値は同順位の補正を入れて計算する。
 
     References
     ----------
@@ -450,8 +611,6 @@ def compare_groups(
     if len(groups) < 2:
         return []
 
-    from scipy.stats import ks_2samp, mannwhitneyu
-
     pairs = []
     for i in range(len(groups)):
         for j in range(i + 1, len(groups)):
@@ -465,19 +624,7 @@ def compare_groups(
             )
             u_p = ks_p = float("nan")
             if testable:
-                try:
-                    u_p = float(mannwhitneyu(a, b, alternative="two-sided").pvalue)
-                except Exception:
-                    # Degenerate input (for example two constant samples)
-                    # leaves the pair reported as not tested rather than
-                    # aborting the whole comparison table.
-                    # 退化した入力（例: 定数の 2 標本）では、比較表全体を中断
-                    # せず、そのペアを未検定として報告する。
-                    u_p = float("nan")
-                try:
-                    ks_p = float(ks_2samp(a, b).pvalue)
-                except Exception:
-                    ks_p = float("nan")
+                u_p, ks_p = _pair_pvalues(a, b)
 
             # The effect size is gated on the same sample-size condition as the
             # tests, so a row is either wholly computed or wholly blank. Cliff's

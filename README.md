@@ -515,7 +515,11 @@ tested. Three is the fewest at which a p-value is computed, not the fewest at
 which one can be significant: two groups of three folders that do not overlap
 at all and hold no equal values give p = 0.10, and two groups of four give
 p = 0.029. A note under the
-table names every pair too small to reach p < 0.05.
+table names every pair too small to reach p < 0.05. When a pair's values can
+be split between the two groups in at most 100,000 ways, both p-values are
+computed by counting every split, which stays exact when values are tied, so
+two groups of three still cannot get below p = 0.10; larger pairs use scipy's
+Mann-Whitney U with a tie correction and its two-sample KS test.
 
 Each group reports median and interquartile range alongside mean, standard
 deviation, and mode, because fiber morphology distributions are right-skewed

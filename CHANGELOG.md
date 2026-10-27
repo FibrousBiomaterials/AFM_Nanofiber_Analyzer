@@ -432,6 +432,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a figure that assumes the six tests are independent; they now say only that
   the rate exceeds the nominal 5%. They also now note that the KS p-value is
   conservative on tied samples. Results do not change.
+- GUI03's between-group tests compute both p-values of a pair whose values can
+  be split between the two groups in at most 100,000 ways by counting every
+  split, which is exact when values are tied. With tied values scipy's
+  Mann-Whitney U turned to its normal approximation, which gave three equal
+  values against three other equal values p = 0.047, below the 0.10 that the
+  note under the comparison table names as the smallest a pair of three can
+  reach, and scipy's KS test treated the values as untied. **Mann-Whitney U and
+  KS p-values of such pairs with tied values change from this version**, as do
+  untied Mann-Whitney U p-values of such pairs in which both groups hold more
+  than eight values, which scipy computed by its normal approximation; untied
+  p-values that scipy computed exactly do not change.
 
 ### Deprecated
 
