@@ -2389,6 +2389,86 @@ def _synthetic_height_runs(out, tag: str, nmpx: float, diam: float, noise: float
     return runs
 
 
+END_LOSS_PX_NM = (1.0, 2.0, 4.0)
+END_LOSS_TAPERS_NM = (0.0, 20.0)
+END_LOSS_SEEDS = (0, 1, 2)
+END_LOSS_LENGTH_NM = 600.0
+END_LOSS_FIELD_NM = 900.0
+
+
+@experiment(
+    "end_loss",
+    ["lib/pipeline.py", "lib/measure.py", "lib/centerline.py"],
+    "One straight fiber 600 nm long (a cylinder of diameter 3 nm under a 10 nm "
+    "spherical apex, with square ends or ends tapering to 0.3 of the diameter over "
+    "20 nm) in the middle of a 900 nm scan at 1, 2 and 4 nm pixels, with the "
+    "background of scripts/kink_rule_sweep.py and 0.05 nm pixel noise, 3 seeds each, "
+    "analyzed at the defaults. Each end of the traced fiber is projected onto the true "
+    "axis; its deficit is the distance from there to the true end, positive when the "
+    "measured centerline stops short and negative when it runs past. Reported per "
+    "pixel size and end shape: the range of the end deficits in nm and in apparent "
+    "widths, and the range of the contour length error.",
+)
+def end_loss() -> dict:
+    import itertools
+    import numpy as np
+    import kink_rule_sweep as sweep
+    import synthetic_fibers as sf
+    from lib import measure
+    from lib.pipeline import ProcParams, process_file
+
+    out = cache_dir("end_loss")
+    out.mkdir(parents=True, exist_ok=True)
+    values: dict = {}
+    runs = single = 0
+    for nmpx, taper in itertools.product(END_LOSS_PX_NM, END_LOSS_TAPERS_NM):
+        ends_nm, ends_w, errors = [], [], []
+        for seed in END_LOSS_SEEDS:
+            n = int(round(END_LOSS_FIELD_NM / nmpx))
+            line = sf.straight_centerline(END_LOSS_LENGTH_NM, shape=(n, n), nm_per_px=nmpx,
+                                          angle_deg=23.0)
+            tag = f"px{nmpx:g}_t{taper:g}_s{seed}"
+            bundle = out / f"{tag}.b2z"
+            if not bundle.is_file():
+                scan = sf.render_scan([line], shape=(n, n), nm_per_px=nmpx,
+                                      fiber_diameter_nm=3.0, taper_nm=taper,
+                                      taper_end_ratio=0.3, tip_radius_nm=10.0,
+                                      noise_nm=0.05, seed=seed, **sweep.BACKGROUND)
+                txt = sf.write_afm_text(scan, str(out / f"{tag}.txt"))
+                process_file(txt, ProcParams(), scan_size_um=scan.scan_size_um,
+                             scan_size_source="manual", output_dir=str(out))
+            result = measure.measure_bundle(str(bundle))
+            # The true axis on the bundle grid: synthetic coordinates less 0.5 for
+            # the pixel centre and 1 for the calibrator's [1:, 1:] crop.
+            # バンドル格子上の真の軸。合成座標から画素中心の 0.5 と較正の [1:, 1:] の 1 を引く。
+            x0, y0 = line.x[0] - 1.5, line.y[0] - 1.5
+            ux, uy = line.x[-1] - line.x[0], line.y[-1] - line.y[0]
+            true_px = float(np.hypot(ux, uy))
+            ux, uy = ux / true_px, uy / true_px
+            on_axis = []
+            for f, s in zip(result.fibers, result.stats):
+                x = np.asarray(f.xtrack, float) + float(f.data[0])
+                y = np.asarray(f.ytrack, float) + float(f.data[1])
+                if x.size >= 5 and np.median(np.abs(-(x - x0) * uy + (y - y0) * ux)) < 3.0:
+                    on_axis.append((s, (x - x0) * ux + (y - y0) * uy))
+            runs += 1
+            if len(on_axis) != 1:
+                continue
+            single += 1
+            s, t = on_axis[0]
+            for deficit_px in (min(t[0], t[-1]), true_px - max(t[0], t[-1])):
+                ends_nm.append(deficit_px * nmpx)
+                ends_w.append(deficit_px * nmpx / s.width_nm)
+            errors.append(100.0 * (s.length_nm / (true_px * nmpx) - 1.0))
+        key = f"px{nmpx:g}.taper{taper:g}"
+        values[f"{key}.end_deficit_nm_range"] = [min(ends_nm), max(ends_nm)]
+        values[f"{key}.end_deficit_w_range"] = [min(ends_w), max(ends_w)]
+        values[f"{key}.length_error_percent_range"] = [min(errors), max(errors)]
+    values["runs"] = runs
+    values["single_fiber_runs"] = single
+    return values
+
+
 @experiment(
     "synthetic_height",
     ["lib/pipeline.py", "lib/measure.py", "lib/centerline.py"],

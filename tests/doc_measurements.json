@@ -298,6 +298,86 @@
     "tunicate.only_diagonal_y": 15
    }
   },
+  "end_loss": {
+   "description": "One straight fiber 600 nm long (a cylinder of diameter 3 nm under a 10 nm spherical apex, with square ends or ends tapering to 0.3 of the diameter over 20 nm) in the middle of a 900 nm scan at 1, 2 and 4 nm pixels, with the background of scripts/kink_rule_sweep.py and 0.05 nm pixel noise, 3 seeds each, analyzed at the defaults. Each end of the traced fiber is projected onto the true axis; its deficit is the distance from there to the true end, positive when the measured centerline stops short and negative when it runs past. Reported per pixel size and end shape: the range of the end deficits in nm and in apparent widths, and the range of the contour length error.",
+   "snapshot": "973e0fd842eb0392",
+   "values": {
+    "px1.taper0.end_deficit_nm_range": [
+     -0.49895,
+     0.484341
+    ],
+    "px1.taper0.end_deficit_w_range": [
+     -0.044351,
+     0.043053
+    ],
+    "px1.taper0.length_error_percent_range": [
+     0.06763,
+     0.333567
+    ],
+    "px1.taper20.end_deficit_nm_range": [
+     -5.431653,
+     0.875248
+    ],
+    "px1.taper20.end_deficit_w_range": [
+     -0.493787,
+     0.0778
+    ],
+    "px1.taper20.length_error_percent_range": [
+     0.032681,
+     1.615486
+    ],
+    "px2.taper0.end_deficit_nm_range": [
+     -0.795997,
+     0.198841
+    ],
+    "px2.taper0.end_deficit_w_range": [
+     -0.072363,
+     0.018076
+    ],
+    "px2.taper0.length_error_percent_range": [
+     0.258647,
+     0.339462
+    ],
+    "px2.taper20.end_deficit_nm_range": [
+     -2.641364,
+     1.304617
+    ],
+    "px2.taper20.end_deficit_w_range": [
+     -0.240124,
+     0.118602
+    ],
+    "px2.taper20.length_error_percent_range": [
+     0.032614,
+     0.741676
+    ],
+    "px4.taper0.end_deficit_nm_range": [
+     -3.339001,
+     0.516143
+    ],
+    "px4.taper0.end_deficit_w_range": [
+     -0.303546,
+     0.046922
+    ],
+    "px4.taper0.length_error_percent_range": [
+     0.459438,
+     1.131651
+    ],
+    "px4.taper20.end_deficit_nm_range": [
+     1.045634,
+     9.304447
+    ],
+    "px4.taper20.end_deficit_w_range": [
+     0.095058,
+     0.845859
+    ],
+    "px4.taper20.length_error_percent_range": [
+     -1.684294,
+     -0.91353
+    ],
+    "runs": 18,
+    "single_fiber_runs": 18
+   }
+  },
   "frame_margin": {
    "description": "The frame test of measure.isolated_fiber_flags on the traced fibers of each test input, with the frame widened to a margin of 0 to 5 px: how many fibers reach it, and how many verdicts differ from the margin of 0 px the code uses; the fibers a margin adds are checked against FRAME_MARGIN_ADDED_INSPECTED.",
    "snapshot": "973e0fd842eb0392",

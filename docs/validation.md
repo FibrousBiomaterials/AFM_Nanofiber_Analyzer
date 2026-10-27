@@ -595,6 +595,10 @@ junctions):
 | Half-maximum centerline | 0.11<!--m:synthetic_centerline.half_max_025w.median_px--> px | 0.37<!--m:synthetic_centerline.half_max_025w.p95_px--> px | −0.6<!--m:synthetic_centerline.half_max_025w.length_error_percent_range[0]--> to +2.3<!--m:synthetic_centerline.half_max_025w.length_error_percent_range[1]--> % |
 | Skeleton track (corrected chain-code length) | 0.30<!--m:synthetic_centerline.skeleton_track.median_px--> px | 0.90<!--m:synthetic_centerline.skeleton_track.p95_px--> px | −0.7<!--m:synthetic_centerline.skeleton_track.length_error_percent_range[0]--> to +3.8<!--m:synthetic_centerline.skeleton_track.length_error_percent_range[1]--> % |
 
+The contour length error is measured between the points of the true centerline
+nearest the two ends of the measured line, so it leaves out the length the
+ends add or lose; that is measured in §4.14.
+
 These are the scenes the centerline and the kink rule were chosen on
 (`scripts/synthetic_suite.py`), so, like the visual reference of §4.4, they
 served as a development set rather than an independent test.
@@ -874,6 +878,35 @@ size; 0.05<!--n:condition--> nm raised it at 2<!--n:condition--> and 10<!--n:con
 depend on the pixel size, so a difference in curvature between groups imaged at
 different pixel sizes contains a difference in imaging; GUI03 warns when the
 bundles it compares for curvature differ in pixel size.
+
+### 4.14 Length at the free ends of a fiber
+
+What the ends add to or take from the contour length was measured on single
+straight fibers 600<!--c:scripts/measure_docs.py::END_LOSS_LENGTH_NM--> nm long lying inside the scan, with square ends and with
+ends tapering to 0.3<!--n:value tried--> of the diameter over 20<!--n:value tried--> nm (experiment end_loss: a cylinder
+of diameter 3<!--n:value tried--> nm under a 10<!--n:value tried--> nm apex, the background of the kink sweep with
+0.05<!--n:value tried--> nm pixel noise, 3<!--c:scripts/measure_docs.py::len(END_LOSS_SEEDS)--> seeds per setting). Each end of the measured centerline was
+projected onto the true axis. A positive deficit means that the measured
+centerline stops short of the true end, a negative one that it runs past it.
+Every scan traced the fiber as one piece (18<!--m:end_loss.single_fiber_runs--> of 18<!--m:end_loss.runs-->).
+
+| Pixel size | Ends | Deficit per end | In apparent widths | Contour length error |
+|---|---|---|---|---|
+| 1<!--n:value tried--> nm | square | −0.5<!--m:end_loss.px1.taper0.end_deficit_nm_range[0]--> to +0.5<!--m:end_loss.px1.taper0.end_deficit_nm_range[1]--> nm | −0.04<!--m:end_loss.px1.taper0.end_deficit_w_range[0]--> to +0.04<!--m:end_loss.px1.taper0.end_deficit_w_range[1]--> | +0.07<!--m:end_loss.px1.taper0.length_error_percent_range[0]--> to +0.33<!--m:end_loss.px1.taper0.length_error_percent_range[1]--> % |
+| 1<!--n:value tried--> nm | tapered | −5.4<!--m:end_loss.px1.taper20.end_deficit_nm_range[0]--> to +0.9<!--m:end_loss.px1.taper20.end_deficit_nm_range[1]--> nm | −0.49<!--m:end_loss.px1.taper20.end_deficit_w_range[0]--> to +0.08<!--m:end_loss.px1.taper20.end_deficit_w_range[1]--> | +0.03<!--m:end_loss.px1.taper20.length_error_percent_range[0]--> to +1.62<!--m:end_loss.px1.taper20.length_error_percent_range[1]--> % |
+| 2<!--n:value tried--> nm | square | −0.8<!--m:end_loss.px2.taper0.end_deficit_nm_range[0]--> to +0.2<!--m:end_loss.px2.taper0.end_deficit_nm_range[1]--> nm | −0.07<!--m:end_loss.px2.taper0.end_deficit_w_range[0]--> to +0.02<!--m:end_loss.px2.taper0.end_deficit_w_range[1]--> | +0.26<!--m:end_loss.px2.taper0.length_error_percent_range[0]--> to +0.34<!--m:end_loss.px2.taper0.length_error_percent_range[1]--> % |
+| 2<!--n:value tried--> nm | tapered | −2.6<!--m:end_loss.px2.taper20.end_deficit_nm_range[0]--> to +1.3<!--m:end_loss.px2.taper20.end_deficit_nm_range[1]--> nm | −0.24<!--m:end_loss.px2.taper20.end_deficit_w_range[0]--> to +0.12<!--m:end_loss.px2.taper20.end_deficit_w_range[1]--> | +0.03<!--m:end_loss.px2.taper20.length_error_percent_range[0]--> to +0.74<!--m:end_loss.px2.taper20.length_error_percent_range[1]--> % |
+| 4<!--n:value tried--> nm | square | −3.3<!--m:end_loss.px4.taper0.end_deficit_nm_range[0]--> to +0.5<!--m:end_loss.px4.taper0.end_deficit_nm_range[1]--> nm | −0.30<!--m:end_loss.px4.taper0.end_deficit_w_range[0]--> to +0.05<!--m:end_loss.px4.taper0.end_deficit_w_range[1]--> | +0.46<!--m:end_loss.px4.taper0.length_error_percent_range[0]--> to +1.13<!--m:end_loss.px4.taper0.length_error_percent_range[1]--> % |
+| 4<!--n:value tried--> nm | tapered | +1.0<!--m:end_loss.px4.taper20.end_deficit_nm_range[0]--> to +9.3<!--m:end_loss.px4.taper20.end_deficit_nm_range[1]--> nm | +0.10<!--m:end_loss.px4.taper20.end_deficit_w_range[0]--> to +0.85<!--m:end_loss.px4.taper20.end_deficit_w_range[1]--> | −1.68<!--m:end_loss.px4.taper20.length_error_percent_range[0]--> to −0.91<!--m:end_loss.px4.taper20.length_error_percent_range[1]--> % |
+
+Rendered, at 1<!--n:value tried--> nm pixels the measured centerline of a tapered end continues past
+the fiber's end into the image the probe spreads around it, and in one scan
+bends off the axis there; at 4<!--n:value tried--> nm pixels the tapered end fades into the
+background and the measured centerline stops before it; square ends stop
+within a pixel of the true end. The error at an end is therefore not of one
+sign: it depends on the pixel size and on how the fiber ends, and a real scan
+does not show how its fibers end. These are free ends; an end cut at a
+crossing is the case of §4.11.
 
 ## 5. Stripe-noise screening
 

@@ -545,6 +545,9 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 | 半値中点の中心線 | 0.11<!--m:synthetic_centerline.half_max_025w.median_px--> px | 0.37<!--m:synthetic_centerline.half_max_025w.p95_px--> px | −0.6<!--m:synthetic_centerline.half_max_025w.length_error_percent_range[0]-->〜+2.3<!--m:synthetic_centerline.half_max_025w.length_error_percent_range[1]--> % |
 | スケルトントラック（補正済みチェーンコード長） | 0.30<!--m:synthetic_centerline.skeleton_track.median_px--> px | 0.90<!--m:synthetic_centerline.skeleton_track.p95_px--> px | −0.7<!--m:synthetic_centerline.skeleton_track.length_error_percent_range[0]-->〜+3.8<!--m:synthetic_centerline.skeleton_track.length_error_percent_range[1]--> % |
 
+輪郭長の誤差は、計測した中心線の両端に最も近い真の中心線上の点どうしの間で測って
+いるので、端で増えたり減ったりする長さを含まない。それは §4.14 で測った。
+
 これらは中心線とキンク規則を選んだときの場面である（`scripts/synthetic_suite.py`）。
 したがって §4.4 の目視基準と同じく、独立した検証ではなく開発用のデータである。
 
@@ -798,6 +801,32 @@ turn_maxima）。
 平均を上げ、0.05<!--n:condition--> nm のノイズは画素 2<!--n:condition-->・10<!--n:condition--> nm では上げ、5<!--n:condition--> nm ではわずかに下げた。どちらも画素サイズに依存するので、異なる画素サイズで撮像した群の間の
 曲率の差には、撮像条件の違いが含まれる。GUI03 は、曲率で比べるバンドルの画素サイズが
 違うときに警告する。
+
+### 4.14 繊維の自由端での長さ
+
+端が輪郭長に加えたり差し引いたりする長さを、走査の内側に収まった長さ
+600<!--c:scripts/measure_docs.py::END_LOSS_LENGTH_NM--> nm の直線の繊維 1<!--n:count--> 本で測った。端は角ばったものと、20<!--n:value tried--> nm かけて直径の 0.3<!--n:value tried--> まで
+細くなるものの 2<!--n:count--> 通りである（実験 end_loss。直径 3<!--n:value tried--> nm の円柱を先端半径 10<!--n:value tried--> nm の
+探針で描き、背景はキンクの掃引と同じものに画素ノイズ 0.05<!--n:value tried--> nm を加え、設定ごとに
+シード 3<!--c:scripts/measure_docs.py::len(END_LOSS_SEEDS)--> つ）。計測した中心線の各端を真の軸に投影した。不足量が正なら計測した
+中心線が真の端の手前で止まり、負なら真の端を越えて伸びている。どの走査でも繊維は
+1<!--n:count--> 本につながって追跡された（18<!--m:end_loss.runs--> 枚中 18<!--m:end_loss.single_fiber_runs--> 枚）。
+
+| 画素サイズ | 端 | 端 1<!--n:count--> つあたりの不足量 | 見かけ幅単位 | 輪郭長の誤差 |
+|---|---|---|---|---|
+| 1<!--n:value tried--> nm | 角ばった端 | −0.5<!--m:end_loss.px1.taper0.end_deficit_nm_range[0]-->〜+0.5<!--m:end_loss.px1.taper0.end_deficit_nm_range[1]--> nm | −0.04<!--m:end_loss.px1.taper0.end_deficit_w_range[0]-->〜+0.04<!--m:end_loss.px1.taper0.end_deficit_w_range[1]--> | +0.07<!--m:end_loss.px1.taper0.length_error_percent_range[0]-->〜+0.33<!--m:end_loss.px1.taper0.length_error_percent_range[1]--> % |
+| 1<!--n:value tried--> nm | 細くなる端 | −5.4<!--m:end_loss.px1.taper20.end_deficit_nm_range[0]-->〜+0.9<!--m:end_loss.px1.taper20.end_deficit_nm_range[1]--> nm | −0.49<!--m:end_loss.px1.taper20.end_deficit_w_range[0]-->〜+0.08<!--m:end_loss.px1.taper20.end_deficit_w_range[1]--> | +0.03<!--m:end_loss.px1.taper20.length_error_percent_range[0]-->〜+1.62<!--m:end_loss.px1.taper20.length_error_percent_range[1]--> % |
+| 2<!--n:value tried--> nm | 角ばった端 | −0.8<!--m:end_loss.px2.taper0.end_deficit_nm_range[0]-->〜+0.2<!--m:end_loss.px2.taper0.end_deficit_nm_range[1]--> nm | −0.07<!--m:end_loss.px2.taper0.end_deficit_w_range[0]-->〜+0.02<!--m:end_loss.px2.taper0.end_deficit_w_range[1]--> | +0.26<!--m:end_loss.px2.taper0.length_error_percent_range[0]-->〜+0.34<!--m:end_loss.px2.taper0.length_error_percent_range[1]--> % |
+| 2<!--n:value tried--> nm | 細くなる端 | −2.6<!--m:end_loss.px2.taper20.end_deficit_nm_range[0]-->〜+1.3<!--m:end_loss.px2.taper20.end_deficit_nm_range[1]--> nm | −0.24<!--m:end_loss.px2.taper20.end_deficit_w_range[0]-->〜+0.12<!--m:end_loss.px2.taper20.end_deficit_w_range[1]--> | +0.03<!--m:end_loss.px2.taper20.length_error_percent_range[0]-->〜+0.74<!--m:end_loss.px2.taper20.length_error_percent_range[1]--> % |
+| 4<!--n:value tried--> nm | 角ばった端 | −3.3<!--m:end_loss.px4.taper0.end_deficit_nm_range[0]-->〜+0.5<!--m:end_loss.px4.taper0.end_deficit_nm_range[1]--> nm | −0.30<!--m:end_loss.px4.taper0.end_deficit_w_range[0]-->〜+0.05<!--m:end_loss.px4.taper0.end_deficit_w_range[1]--> | +0.46<!--m:end_loss.px4.taper0.length_error_percent_range[0]-->〜+1.13<!--m:end_loss.px4.taper0.length_error_percent_range[1]--> % |
+| 4<!--n:value tried--> nm | 細くなる端 | +1.0<!--m:end_loss.px4.taper20.end_deficit_nm_range[0]-->〜+9.3<!--m:end_loss.px4.taper20.end_deficit_nm_range[1]--> nm | +0.10<!--m:end_loss.px4.taper20.end_deficit_w_range[0]-->〜+0.85<!--m:end_loss.px4.taper20.end_deficit_w_range[1]--> | −1.68<!--m:end_loss.px4.taper20.length_error_percent_range[0]-->〜−0.91<!--m:end_loss.px4.taper20.length_error_percent_range[1]--> % |
+
+描いてみると、画素 1<!--n:value tried--> nm では、細くなる端の計測した中心線は、繊維の端を越えて、
+探針がその周りに広げた像の中まで伸び、ある走査ではそこで軸から曲がって離れている。
+画素 4<!--n:value tried--> nm では、細くなる端は背景に溶け込み、計測した中心線はその手前で止まる。
+角ばった端は、真の端から画素の幅以内で止まる。したがって端の誤差の向きは一定ではなく、
+画素サイズと繊維の終わり方によって決まり、実際の走査からは繊維がどう終わっているかは
+分からない。これらは自由端の結果であり、交差で切れた端は §4.11 の場合である。
 
 ## 5. 縞ノイズの検査
 
