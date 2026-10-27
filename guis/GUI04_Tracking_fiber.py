@@ -2637,7 +2637,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # プランが、保存時に読み直した骨格ではなく、実際に構築の基になった
                 # 骨格を記録するようにするためである。
                 digest = skeleton_digest(
-                    load_bundle(stem + BUNDLE_EXT)["skeletonized"]
+                    load_bundle(
+                        stem + BUNDLE_EXT, keys=["skeletonized"],
+                    )["skeletonized"]
                 )
                 self.ui_queue.put((
                     "file_loaded",
