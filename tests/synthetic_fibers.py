@@ -52,7 +52,6 @@ from typing import Optional, Sequence, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.ndimage import grey_dilation
 from scipy.spatial import cKDTree
 
 # Centerline sampling step in pixels. A quarter pixel keeps the ground truth
@@ -60,11 +59,6 @@ from scipy.spatial import cKDTree
 # 中心線のサンプリング間隔（画素）。1/4 画素にすることで、整数端点の直線描画が
 # 真値そのものに階段状の量子化を持ち込むのを避ける。
 CENTERLINE_STEP_PX: float = 0.25
-
-# Height assigned to probe offsets outside the apex sphere, so those offsets
-# can never win the dilation maximum.
-_OUTSIDE_TIP: float = -1.0e9
-
 
 @dataclass(frozen=True)
 class Centerline:
@@ -390,44 +384,204 @@ def kinked_centerline(
 # ===== Forward model =====
 
 
-def spherical_tip_structure(
-    tip_radius_nm: float, nm_per_px: float, max_height_nm: float
-) -> NDArray[np.float64]:
+def _distance_to_line(
+    line: Centerline, radii: NDArray, qx: NDArray, qy: NDArray
+) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
     """
-    Structuring element of a spherical probe apex, for grayscale dilation.
-    グレースケール dilation 用の、球状探針先端の構造要素。
+    Distance from each query point to a centerline polyline, and the radius there.
+    各問い合わせ点から中心線の折れ線までの距離と、そこでの半径。
 
     Parameters
     ----------
-    tip_radius_nm
-        Apex radius of curvature.
-        先端の曲率半径。
+    line
+        Centerline whose samples are joined into a polyline.
+        サンプルを結んで折れ線とする中心線。
+    radii
+        Fiber radius at each sample of `line`, in nanometers.
+        `line` の各サンプルにおける繊維半径（nm）。
+    qx, qy
+        Query points in pixel coordinates.
+        画素座標の問い合わせ点。
+
+    Returns
+    -------
+    tuple of ndarray
+        Distance in pixels to the nearest point of the polyline, and the
+        radius interpolated linearly at that point.
+        折れ線上の最近点までの距離（画素）と、その点で線形補間した半径。
+
+    Notes
+    -----
+    The distance to the nearest *sample* would be up to half a sample step too
+    long between two samples, which on a fiber narrower than a pixel is a
+    visible fraction of its radius. The nearest sample only selects the two
+    segments next to it; the distance is taken to those segments.
+    最近傍 *サンプル* までの距離は、2 サンプルの間でサンプル間隔の半分まで長く
+    なり、画素より細い繊維ではその半径に対して無視できない。最近傍サンプルは
+    隣接する 2 つの線分を選ぶためだけに使い、距離はその線分まで測る。
+    """
+    x = np.asarray(line.x, dtype=np.float64)
+    y = np.asarray(line.y, dtype=np.float64)
+    n = x.size
+    _d, k = cKDTree(np.column_stack([x, y])).query(np.column_stack([qx, qy]))
+    if n == 1:
+        return np.hypot(qx - x[0], qy - y[0]), np.full(qx.shape, float(radii[0]))
+    best_d = np.full(qx.shape, np.inf)
+    best_r = np.zeros(qx.shape)
+    for offset in (-1, 0):
+        i0 = np.clip(k + offset, 0, n - 2)
+        i1 = i0 + 1
+        vx, vy = x[i1] - x[i0], y[i1] - y[i0]
+        t = np.clip(((qx - x[i0]) * vx + (qy - y[i0]) * vy)
+                    / np.maximum(vx * vx + vy * vy, 1e-12), 0.0, 1.0)
+        d = np.hypot(qx - x[i0] - t * vx, qy - y[i0] - t * vy)
+        better = d < best_d
+        best_d = np.where(better, d, best_d)
+        best_r = np.where(better, radii[i0] + t * (radii[i1] - radii[i0]), best_r)
+    return best_d, best_r
+
+
+def _tip_reach_nm(tip_radius_nm: float, max_height_nm: float) -> float:
+    """
+    Lateral reach beyond which a spherical apex cannot touch a surface.
+    それより外側では球状の先端が表面に触れ得ない横方向の到達距離。
+
+    Notes
+    -----
+    An offset ``rho`` from the apex lowers the sphere by
+    ``R - sqrt(R^2 - rho^2)``; once that exceeds the tallest feature, the
+    substrate under the apex is reached first. A feature at least ``R`` tall
+    can meet the sphere anywhere up to its equator, so the reach is then ``R``.
+    先端からのずれ ``rho`` で球は ``R - sqrt(R^2 - rho^2)`` 下がる。それが最大の
+    高さを超えると、先端直下の基板に先に触れる。高さが ``R`` 以上の形状は球の
+    赤道まで触れ得るので、そのとき到達距離は ``R`` である。
+    """
+    r = float(tip_radius_nm)
+    h = float(max_height_nm)
+    if h >= r:
+        return r
+    return float(np.sqrt(2.0 * r * h - h * h))
+
+
+def dilate_analytic(
+    surface_at,
+    *,
+    shape: Tuple[int, int],
+    nm_per_px: float,
+    tip_radius_nm: float,
+    max_height_nm: float,
+    near: Optional[NDArray[np.bool_]] = None,
+) -> NDArray[np.float64]:
+    """
+    Image of an analytic surface scanned by a spherical apex, sampled at pixel centres.
+    解析的な表面を球状の先端で走査した画像を、画素中心で標本化して返す。
+
+    Parameters
+    ----------
+    surface_at
+        Callable ``(x, y) -> height`` giving the ideal surface in nanometers at
+        any point in pixel coordinates (pixel ``(i, j)`` centred at
+        ``(j + 0.5, i + 0.5)``); zero on the bare substrate.
+        画素座標の任意の点で理想表面の高さ（nm）を返す呼び出し可能オブジェクト
+        ``(x, y) -> 高さ``（画素 ``(i, j)`` の中心は ``(j + 0.5, i + 0.5)``）。
+        基板上では 0。
+    shape
+        Image shape ``(rows, columns)``.
+        画像の形 ``(行, 列)``。
     nm_per_px
-        Pixel size of the image the element will be applied to.
-        適用先画像の画素サイズ。
+        Pixel size in nanometers.
+        画素サイズ（nm）。
+    tip_radius_nm
+        Apex radius; ``0`` samples the surface itself.
+        先端半径。``0`` なら表面そのものを標本化する。
     max_height_nm
-        Tallest feature in the image. The element is truncated at the lateral
-        reach where the apex has already descended by this much, beyond which
-        an offset can never win the dilation maximum.
-        画像内の最大高さ。先端がこの高さぶん下がる横方向到達距離で構造要素を
-        打ち切る。それより外側のオフセットは dilation の最大値を取り得ない。
+        Upper bound on the surface height, which bounds how far from a pixel
+        centre the apex can touch.
+        表面の高さの上限。先端が画素中心からどこまで離れて触れ得るかを決める。
+    near
+        Pixels that may lie within reach of the surface; the rest are
+        substrate and read 0. ``None`` evaluates every pixel.
+        表面に届き得る画素。それ以外は基板で 0 になる。``None`` なら全画素を
+        評価する。
 
     Returns
     -------
     ndarray
-        Additive structuring element in nanometers; offsets outside the apex
-        sphere carry a large negative value.
-        ナノメートル単位の加算型構造要素。先端球の外側には大きな負値が入る。
+        Height image in nanometers.
+        ナノメートル単位の高さ画像。
+
+    Notes
+    -----
+    A scan samples the dilated surface at its pixel positions; it does not
+    dilate a pixel-sampled surface. The two differ for any feature that is not
+    smooth on the pixel scale: a fiber narrower than a pixel is mostly lost
+    between pixel centres before a pixel-grid dilation can widen it, which
+    leaves a crest that rises and falls along the fiber with the pixel phase.
+    Here the apex height at each pixel centre is the maximum over offsets
+    ``q`` of ``surface(p + q) - (R - sqrt(R^2 - |q|^2))``, searched on a grid
+    and refined twice around the best offset, each time ten times finer, so
+    the result is set by the surface and the probe, not by the pixel grid.
+    The refinement assumes a single maximum per pixel, which holds where the
+    surface is concave on its support, as a cylinder or a convex ribbon
+    section is.
+    走査は膨張した表面をその画素位置で標本化するのであって、画素で標本化した
+    表面を膨張させるのではない。両者は画素スケールで滑らかでない形状について
+    異なる。画素より細い繊維は、画素格子上の膨張で広がる前に画素中心の間で
+    ほとんど失われ、繊維に沿って画素の位相とともに上下する稜線が残る。ここでは
+    各画素中心での先端の高さを、ずれ ``q`` についての
+    ``surface(p + q) - (R - sqrt(R^2 - |q|^2))`` の最大値とし、格子上で探して
+    から最良のずれの周りで 2 回、そのたびに 10 倍細かく絞り込む。したがって
+    結果は画素格子ではなく表面と探針で決まる。絞り込みは画素ごとに最大値が
+    1 つであることを仮定しており、円柱や凸なリボン断面のように表面がその台の
+    上で凹であれば成り立つ。
     """
+    h, w = shape
+    gy, gx = np.mgrid[0:h, 0:w]
+    if near is None:
+        near = np.ones(shape, dtype=bool)
+    qx = gx[near] + 0.5
+    qy = gy[near] + 0.5
+    image = np.zeros(shape, np.float64)
     r = float(tip_radius_nm)
-    reach = min(r, float(np.sqrt(max(2.0 * r * max_height_nm - max_height_nm ** 2, 0.0))))
-    a = int(np.ceil(reach / nm_per_px)) + 1
-    yy, xx = np.mgrid[-a:a + 1, -a:a + 1].astype(np.float64) * nm_per_px
-    rho = np.hypot(xx, yy)
-    element = np.full(rho.shape, _OUTSIDE_TIP)
-    inside = rho <= r
-    element[inside] = -(r - np.sqrt(r * r - rho[inside] ** 2))
-    return element
+    if r <= 0:
+        image[near] = surface_at(qx, qy)
+        return image
+    reach = _tip_reach_nm(r, max_height_nm)
+
+    def apex(ox, oy):
+        # Apex height for offsets (ox, oy) in nm; offsets beyond the reach lose.
+        # ずれ (ox, oy)（nm）での先端の高さ。到達距離の外のずれは選ばれない。
+        rho2 = ox * ox + oy * oy
+        drop = r - np.sqrt(np.maximum(r * r - rho2, 0.0))
+        value = surface_at(qx + ox / nm_per_px, qy + oy / nm_per_px) - drop
+        return np.where(rho2 <= reach * reach, value, -np.inf)
+
+    step = max(0.25, reach / 20.0)
+    n = int(np.ceil(reach / step))
+    best = np.full(qx.shape, -np.inf)
+    bx = np.zeros(qx.shape)
+    by = np.zeros(qx.shape)
+    offsets = [(ox, oy) for oy in np.arange(-n, n + 1) * step
+               for ox in np.arange(-n, n + 1) * step if ox * ox + oy * oy <= reach * reach]
+    for ox, oy in offsets:
+        value = apex(np.full(qx.shape, ox), np.full(qx.shape, oy))
+        better = value > best
+        best = np.where(better, value, best)
+        bx = np.where(better, ox, bx)
+        by = np.where(better, oy, by)
+    for _level in range(2):
+        span, step = 2.0 * step, step / 10.0
+        grid = np.arange(-int(round(span / step)), int(round(span / step)) + 1) * step
+        cx, cy = bx.copy(), by.copy()
+        for dy in grid:
+            for dx in grid:
+                value = apex(cx + dx, cy + dy)
+                better = value > best
+                best = np.where(better, value, best)
+                bx = np.where(better, cx + dx, bx)
+                by = np.where(better, cy + dy, by)
+    image[near] = np.maximum(best, 0.0)
+    return image
 
 
 def _per_sample_radii(
@@ -643,6 +797,20 @@ def render_scan(
     ------
     ValueError
         If `centerlines` is empty.
+
+    Notes
+    -----
+    The tip-dilated surface is evaluated at each pixel centre, as a scan
+    samples it (see `dilate_analytic`). For a cylinder the dilation has a
+    closed form, so no search over probe offsets is needed. Dilating a
+    pixel-sampled cylinder instead loses most of a fiber narrower than a pixel
+    between the pixel centres and leaves a crest that rises and falls with the
+    pixel phase, which a detector would then be scored against.
+    探針で膨張した表面を、走査が標本化するのと同じく各画素中心で評価する
+    （`dilate_analytic` 参照）。円柱では膨張に閉じた式があるため、探針のずれに
+    ついての探索は要らない。画素で標本化した円柱を膨張させると、画素より細い
+    繊維の大半が画素中心の間で失われ、画素の位相とともに上下する稜線が残り、
+    検出器はそれに対して採点されてしまう。
     """
     if not centerlines:
         raise ValueError("at least one centerline is required")
@@ -651,37 +819,35 @@ def render_scan(
         np.atleast_1d(np.asarray(fiber_diameter_nm, dtype=float)),
         (len(centerlines),),
     )
-    xs = np.concatenate([line.x for line in centerlines])
-    ys = np.concatenate([line.y for line in centerlines])
-    radii = _per_sample_radii(centerlines, diameters, nm_per_px,
-                              taper_nm, taper_end_ratio)
-    tree = cKDTree(np.column_stack([xs, ys]))
     gy, gx = np.mgrid[0:h, 0:w]
-    query = np.column_stack([gx.ravel() + 0.5, gy.ravel() + 0.5])
-    dist_px, nearest = tree.query(query)
-    d_nm = dist_px.reshape(h, w) * nm_per_px
-
-    # Ideal surface of a cylinder of radius r lying on the substrate: its axis
-    # sits at height r, so the apparent height at the ridge is the diameter.
-    # The radius is taken from the nearest centerline sample, which is what
-    # lets it vary along a tapering fiber and differ between two crossing ones.
-    # 基板上に横たわる半径 r の円柱の理想表面。軸は高さ r にあるため、稜線での
-    # 見かけ高さは直径に等しい。半径は最近傍の中心線サンプルから取るため、
-    # 先細りする繊維に沿って変化させたり、交差する 2 本で変えたりできる。
-    r_map = radii[nearest].reshape(h, w)
-    surface = np.zeros((h, w), np.float64)
-    inside = d_nm < r_map
-    surface[inside] = r_map[inside] + np.sqrt(
-        np.maximum(r_map[inside] ** 2 - d_nm[inside] ** 2, 0.0)
-    )
-
-    if tip_radius_nm > 0:
-        element = spherical_tip_structure(
-            tip_radius_nm, nm_per_px, 2.0 * float(radii.max())
-        )
-        image = grey_dilation(surface, structure=element, mode="nearest")
-    else:
-        image = surface.copy()
+    qx = gx.ravel() + 0.5
+    qy = gy.ravel() + 0.5
+    tip = float(tip_radius_nm)
+    image = np.zeros((h, w), np.float64)
+    for line, diameter in zip(centerlines, diameters):
+        radii = _per_sample_radii([line], np.array([diameter]), nm_per_px,
+                                  taper_nm, taper_end_ratio)
+        dist_px, r = _distance_to_line(line, radii, qx, qy)
+        d_nm = (dist_px * nm_per_px).reshape(h, w)
+        r = r.reshape(h, w)
+        # A cylinder of radius r lies on the substrate with its axis at height
+        # r, so its ridge stands at the diameter. A sphere of radius R touching
+        # it has its centre r + R from the axis, so the apex at lateral
+        # distance d stands at r + sqrt((r + R)^2 - d^2) - R, until the apex
+        # meets the substrate; R = 0 gives the bare cylinder. The radius comes
+        # from the nearest point of the centerline, so it can thin along a
+        # tapering fiber and differ between two crossing ones.
+        # 半径 r の円柱は軸を高さ r にして基板上に横たわるので、稜線は直径の
+        # 高さにある。これに触れる半径 R の球の中心は軸から r + R 離れるので、
+        # 横方向の距離 d での先端の高さは、先端が基板に触れるまで
+        # r + sqrt((r + R)^2 - d^2) - R である。R = 0 なら円柱そのもの。半径は
+        # 中心線上の最近点から取るので、先細りする繊維に沿って細くしたり、
+        # 交差する 2 本で変えたりできる。
+        surface = r + np.sqrt(np.maximum((r + tip) ** 2 - d_nm ** 2, 0.0)) - tip
+        surface[d_nm >= r + tip] = 0.0
+        # Scanning the union of the fibers gives the higher of their images.
+        # 繊維の和集合を走査すると、それぞれの像の高い方になる。
+        image = np.maximum(image, np.maximum(surface, 0.0))
 
     rng = np.random.default_rng(seed)
     if tilt_nm:

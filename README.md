@@ -353,7 +353,9 @@ with the background just beside them, and warns at a tenth or more; when no
 fiber width could be measured, it says that the background could not be
 checked, because a calibration that removed the fibers leaves exactly that.
 For such scans choose `tophat` with `tophat_se_size` about three times the
-apparent width. How the limits were set, on zoomed copies of the bundled scans,
+apparent width. `tophat` removes less of the height steps between scan lines
+than `trendfill`, so horizontal stripes of the raw scan may remain (§1.11 of the
+evaluation document). How the limits were set, on zoomed copies of the bundled scans,
 is in [Evaluation on particular data](docs/validation.md) §1.8, and how both
 kinds of warning fared in §1.10.
 

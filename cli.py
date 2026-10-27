@@ -147,7 +147,9 @@ def _background_warning_text(warning) -> str:
     """
     if warning.suggest_method == "tophat":
         advice = (f'rerun with "bg_method": "tophat", "tophat_se_size": '
-                  f"{warning.suggest_tophat_se_size} in the --params file")
+                  f"{warning.suggest_tophat_se_size} in the --params file "
+                  f"(tophat removes less of the height steps between scan lines than "
+                  f"trendfill, so horizontal stripes may remain)")
     elif warning.suggest_method:
         advice = (f'rerun with "bg_method": "{warning.suggest_method}" '
                   f"in the --params file")

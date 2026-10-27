@@ -356,7 +356,10 @@ def _format_background_warning(fname: str, warning: BackgroundWarning) -> str:
     if warning.suggest_method == "tophat":
         advice = _(
             "bg_method を tophat、tophat_se_size を {se} にして解析し直してください。"
-        ).format(se=warning.suggest_tophat_se_size)
+        ).format(se=warning.suggest_tophat_se_size) + _(
+            "tophat は走査線ごとの高さの段差を trendfill ほど取り除かないため、"
+            "補正後の画像に横縞が残ることがあります。"
+        )
     elif warning.suggest_method:
         advice = _("bg_method を {method} にして解析し直してください。").format(
             method=warning.suggest_method)

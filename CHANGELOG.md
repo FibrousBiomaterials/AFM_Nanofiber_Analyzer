@@ -212,6 +212,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The synthetic scans the evaluation in `docs/validation.md` §4 is measured
+  on now sample the probe-dilated fiber at each pixel centre, as a scan does
+  (`tests/synthetic_fibers.py`: `render_scan`, and the new `dilate_analytic`
+  for the twisted ribbons). They dilated a pixel-sampled fiber instead, which
+  lost most of a fiber narrower than a pixel between the pixel centres and left
+  a crest that rose and fell along the fiber: at the coarsest pixel size of the
+  kink sweep (5.2 nm) the crest of a 3 nm fiber read between 1.15 and 2.85 nm.
+  The numbers of `docs/validation.md` §4.2–§4.9 that come from these scans are
+  measured again. Two statements there change: at the coarsest pixel size of
+  the sweep most corners are now found, and the arm that looked broken at the
+  heaviest noise is intact in the raw scan and is removed by background
+  calibration. **Analysis results do not change.** The negative-control test
+  checks a 140° corner instead of a 145° one, whose 35° turn reads on either
+  side of the 30° threshold depending on the noise seed.
 - The linearity filter (`Segmenter._remove_nonlinear_objects`) no longer
   judges a component by how it lies on the pixel grid. It cropped each
   component without a margin, so Canny did not count the outline lying on the

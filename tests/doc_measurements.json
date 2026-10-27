@@ -605,8 +605,8 @@
    "description": "Synthetic kinked, straight, arc and sine fibers over apparent width and pixel noise, scored against the analytic centerline (scripts/kink_rule_sweep.py with the base rule and a 3-sigma noise floor).",
    "snapshot": "973e0fd842eb0392",
    "values": {
-    "W16.arm_error_deg": 1.57,
-    "W16.excess_error_deg": 3.36,
+    "W16.arm_error_deg": 2.35,
+    "W16.excess_error_deg": 2.06,
     "W16.kink120.cases": 6,
     "W16.kink120.found": 5,
     "W16.kink140.cases": 6,
@@ -636,110 +636,110 @@
     "W16.n0.15.kink120.found": 2,
     "W16.n0.15.kink140.found": 2,
     "W16.n0.15.kink145.found": 2,
-    "W16.n0.30.base.fp_per_um": 2.227171,
-    "W16.n0.30.base.kink165_reported": 9,
+    "W16.n0.30.base.fp_per_um": 5.353046,
+    "W16.n0.30.base.kink165_reported": 4,
     "W16.n0.30.base.kinked_found": 3,
-    "W16.n0.30.base.reported_on_smooth": 8,
-    "W16.n0.30.k3.fp_per_um": 2.227171,
+    "W16.n0.30.base.reported_on_smooth": 21,
+    "W16.n0.30.k3.fp_per_um": 3.31379,
     "W16.n0.30.k3.kink165_reported": 4,
     "W16.n0.30.k3.kinked_found": 3,
-    "W16.n0.30.k3.reported_on_smooth": 8,
+    "W16.n0.30.k3.reported_on_smooth": 13,
     "W16.n0.30.kink120.found": 1,
     "W16.n0.30.kink140.found": 1,
     "W16.n0.30.kink145.found": 1,
-    "W3.arm_error_deg": 3.53,
-    "W3.excess_error_deg": 3.63,
+    "W3.arm_error_deg": 3.3,
+    "W3.excess_error_deg": 5.31,
     "W3.kink120.cases": 6,
-    "W3.kink120.found": 0,
+    "W3.kink120.found": 6,
     "W3.kink140.cases": 6,
-    "W3.kink140.found": 0,
+    "W3.kink140.found": 2,
     "W3.kink145.cases": 6,
-    "W3.kink145.found": 1,
+    "W3.kink145.found": 5,
     "W3.measured_width_px": 2.0,
-    "W3.n0.05.base.fp_per_um": 1.120448,
-    "W3.n0.05.base.kink165_reported": 1,
-    "W3.n0.05.base.kinked_found": 0,
-    "W3.n0.05.base.reported_on_smooth": 2,
-    "W3.n0.05.k3.fp_per_um": 1.120448,
-    "W3.n0.05.k3.kink165_reported": 1,
-    "W3.n0.05.k3.kinked_found": 0,
-    "W3.n0.05.k3.reported_on_smooth": 2,
-    "W3.n0.05.kink120.found": 0,
-    "W3.n0.05.kink140.found": 0,
-    "W3.n0.05.kink145.found": 0,
-    "W3.n0.15.base.fp_per_um": 1.115449,
-    "W3.n0.15.base.kink165_reported": 8,
-    "W3.n0.15.base.kinked_found": 0,
-    "W3.n0.15.base.reported_on_smooth": 2,
-    "W3.n0.15.k3.fp_per_um": 1.115449,
-    "W3.n0.15.k3.kink165_reported": 8,
-    "W3.n0.15.k3.kinked_found": 0,
-    "W3.n0.15.k3.reported_on_smooth": 2,
-    "W3.n0.15.kink120.found": 0,
-    "W3.n0.15.kink140.found": 0,
-    "W3.n0.15.kink145.found": 0,
-    "W3.n0.30.base.fp_per_um": 5.251313,
-    "W3.n0.30.base.kink165_reported": 7,
-    "W3.n0.30.base.kinked_found": 1,
-    "W3.n0.30.base.reported_on_smooth": 14,
-    "W3.n0.30.k3.fp_per_um": 2.250563,
-    "W3.n0.30.k3.kink165_reported": 7,
-    "W3.n0.30.k3.kinked_found": 0,
-    "W3.n0.30.k3.reported_on_smooth": 6,
-    "W3.n0.30.kink120.found": 0,
+    "W3.n0.05.base.fp_per_um": 1.948368,
+    "W3.n0.05.base.kink165_reported": 0,
+    "W3.n0.05.base.kinked_found": 5,
+    "W3.n0.05.base.reported_on_smooth": 8,
+    "W3.n0.05.k3.fp_per_um": 1.948368,
+    "W3.n0.05.k3.kink165_reported": 0,
+    "W3.n0.05.k3.kinked_found": 5,
+    "W3.n0.05.k3.reported_on_smooth": 8,
+    "W3.n0.05.kink120.found": 2,
+    "W3.n0.05.kink140.found": 1,
+    "W3.n0.05.kink145.found": 2,
+    "W3.n0.15.base.fp_per_um": 1.017812,
+    "W3.n0.15.base.kink165_reported": 0,
+    "W3.n0.15.base.kinked_found": 5,
+    "W3.n0.15.base.reported_on_smooth": 4,
+    "W3.n0.15.k3.fp_per_um": 1.017812,
+    "W3.n0.15.k3.kink165_reported": 0,
+    "W3.n0.15.k3.kinked_found": 5,
+    "W3.n0.15.k3.reported_on_smooth": 4,
+    "W3.n0.15.kink120.found": 2,
+    "W3.n0.15.kink140.found": 1,
+    "W3.n0.15.kink145.found": 2,
+    "W3.n0.30.base.fp_per_um": 1.614019,
+    "W3.n0.30.base.kink165_reported": 1,
+    "W3.n0.30.base.kinked_found": 3,
+    "W3.n0.30.base.reported_on_smooth": 7,
+    "W3.n0.30.k3.fp_per_um": 1.614019,
+    "W3.n0.30.k3.kink165_reported": 1,
+    "W3.n0.30.k3.kinked_found": 3,
+    "W3.n0.30.k3.reported_on_smooth": 7,
+    "W3.n0.30.kink120.found": 2,
     "W3.n0.30.kink140.found": 0,
     "W3.n0.30.kink145.found": 1,
-    "W5.arm_error_deg": 4.18,
-    "W5.excess_error_deg": 4.63,
+    "W5.arm_error_deg": 0.71,
+    "W5.excess_error_deg": 1.71,
     "W5.kink120.cases": 6,
     "W5.kink120.found": 6,
     "W5.kink140.cases": 6,
-    "W5.kink140.found": 4,
+    "W5.kink140.found": 6,
     "W5.kink145.cases": 6,
     "W5.kink145.found": 6,
-    "W5.measured_width_px": 3.25,
-    "W5.n0.05.base.fp_per_um": 0.259134,
+    "W5.measured_width_px": 3.5,
+    "W5.n0.05.base.fp_per_um": 0.0,
     "W5.n0.05.base.kink165_reported": 0,
-    "W5.n0.05.base.kinked_found": 5,
-    "W5.n0.05.base.reported_on_smooth": 1,
-    "W5.n0.05.k3.fp_per_um": 0.259134,
+    "W5.n0.05.base.kinked_found": 6,
+    "W5.n0.05.base.reported_on_smooth": 0,
+    "W5.n0.05.k3.fp_per_um": 0.0,
     "W5.n0.05.k3.kink165_reported": 0,
-    "W5.n0.05.k3.kinked_found": 5,
-    "W5.n0.05.k3.reported_on_smooth": 1,
+    "W5.n0.05.k3.kinked_found": 6,
+    "W5.n0.05.k3.reported_on_smooth": 0,
     "W5.n0.05.kink120.found": 2,
-    "W5.n0.05.kink140.found": 1,
+    "W5.n0.05.kink140.found": 2,
     "W5.n0.05.kink145.found": 2,
     "W5.n0.15.base.fp_per_um": 0.0,
     "W5.n0.15.base.kink165_reported": 0,
-    "W5.n0.15.base.kinked_found": 5,
+    "W5.n0.15.base.kinked_found": 6,
     "W5.n0.15.base.reported_on_smooth": 0,
     "W5.n0.15.k3.fp_per_um": 0.0,
     "W5.n0.15.k3.kink165_reported": 0,
-    "W5.n0.15.k3.kinked_found": 5,
+    "W5.n0.15.k3.kinked_found": 6,
     "W5.n0.15.k3.reported_on_smooth": 0,
     "W5.n0.15.kink120.found": 2,
-    "W5.n0.15.kink140.found": 1,
+    "W5.n0.15.kink140.found": 2,
     "W5.n0.15.kink145.found": 2,
-    "W5.n0.30.base.fp_per_um": 0.0,
+    "W5.n0.30.base.fp_per_um": 0.249501,
     "W5.n0.30.base.kink165_reported": 0,
     "W5.n0.30.base.kinked_found": 6,
-    "W5.n0.30.base.reported_on_smooth": 0,
-    "W5.n0.30.k3.fp_per_um": 0.0,
+    "W5.n0.30.base.reported_on_smooth": 1,
+    "W5.n0.30.k3.fp_per_um": 0.249501,
     "W5.n0.30.k3.kink165_reported": 0,
     "W5.n0.30.k3.kinked_found": 6,
-    "W5.n0.30.k3.reported_on_smooth": 0,
+    "W5.n0.30.k3.reported_on_smooth": 1,
     "W5.n0.30.kink120.found": 2,
     "W5.n0.30.kink140.found": 2,
     "W5.n0.30.kink145.found": 2,
-    "W8.arm_error_deg": 1.66,
-    "W8.excess_error_deg": 7.92,
+    "W8.arm_error_deg": 1.96,
+    "W8.excess_error_deg": 2.385,
     "W8.kink120.cases": 6,
     "W8.kink120.found": 6,
     "W8.kink140.cases": 6,
     "W8.kink140.found": 6,
     "W8.kink145.cases": 6,
     "W8.kink145.found": 6,
-    "W8.measured_width_px": 5.5,
+    "W8.measured_width_px": 5.75,
     "W8.n0.05.base.fp_per_um": 0.0,
     "W8.n0.05.base.kink165_reported": 0,
     "W8.n0.05.base.kinked_found": 6,
@@ -773,6 +773,33 @@
     "W8.n0.30.kink120.found": 2,
     "W8.n0.30.kink140.found": 2,
     "W8.n0.30.kink145.found": 2
+   }
+  },
+  "line_steps": {
+   "description": "Per bundled scan: the median absolute step between the median heights of adjacent rows (scan lines), each row's median taken over its lowest 60 % of pixels so that fibers stay out of it, after a least-squares plane is removed, for the raw scan and for the image calibrated by trendfill and by tophat at their defaults.",
+   "snapshot": "140ac1267acbe65f",
+   "values": {
+    "NDTOC.raw_nm": 0.041753,
+    "NDTOC.tophat_nm": 0.019931,
+    "NDTOC.trendfill_nm": 0.00716,
+    "hplantTOC.raw_nm": 0.019654,
+    "hplantTOC.tophat_nm": 0.018247,
+    "hplantTOC.trendfill_nm": 0.003826,
+    "tophat.over_raw_range": [
+     0.300947,
+     0.928391
+    ],
+    "tophat_over_trendfill_range": [
+     2.765947,
+     4.769156
+    ],
+    "trendfill.over_raw_range": [
+     0.108804,
+     0.194666
+    ],
+    "tunicate.raw_nm": 0.043598,
+    "tunicate.tophat_nm": 0.013121,
+    "tunicate.trendfill_nm": 0.004744
    }
   },
   "linearity_axis_fibers": {
@@ -993,38 +1020,38 @@
     "10x3.R0.crest.rms_nm": 1.819824,
     "10x3.R0.half_max_025w.rms_nm": 0.744671,
     "10x3.R0.quarter_max.rms_nm": 0.454266,
-    "10x3.R10.centroid.rms_nm": 1.667795,
-    "10x3.R10.crest.rms_nm": 2.529587,
-    "10x3.R10.half_max_025w.rms_nm": 1.862099,
-    "10x3.R10.quarter_max.rms_nm": 1.43903,
-    "10x3.R40.centroid.rms_nm": 1.974502,
-    "10x3.R40.crest.rms_nm": 2.058458,
-    "10x3.R40.half_max_025w.rms_nm": 2.027769,
-    "10x3.R40.quarter_max.rms_nm": 1.943047,
+    "10x3.R10.centroid.rms_nm": 1.751172,
+    "10x3.R10.crest.rms_nm": 2.668139,
+    "10x3.R10.half_max_025w.rms_nm": 1.971331,
+    "10x3.R10.quarter_max.rms_nm": 1.535944,
+    "10x3.R40.centroid.rms_nm": 1.987676,
+    "10x3.R40.crest.rms_nm": 2.080124,
+    "10x3.R40.half_max_025w.rms_nm": 2.049177,
+    "10x3.R40.quarter_max.rms_nm": 1.958747,
     "16x3.R0.centroid.rms_nm": 1.107484,
     "16x3.R0.crest.rms_nm": 2.994482,
     "16x3.R0.half_max_025w.rms_nm": 1.484871,
     "16x3.R0.quarter_max.rms_nm": 0.693521,
-    "16x3.R10.centroid.rms_nm": 2.775658,
-    "16x3.R10.crest.rms_nm": 4.369211,
-    "16x3.R10.half_max_025w.rms_nm": 3.23425,
-    "16x3.R10.quarter_max.rms_nm": 2.232323,
-    "16x3.R40.centroid.rms_nm": 3.219864,
-    "16x3.R40.crest.rms_nm": 3.261951,
-    "16x3.R40.half_max_025w.rms_nm": 3.301707,
-    "16x3.R40.quarter_max.rms_nm": 3.212338,
+    "16x3.R10.centroid.rms_nm": 2.882721,
+    "16x3.R10.crest.rms_nm": 4.485679,
+    "16x3.R10.half_max_025w.rms_nm": 3.40221,
+    "16x3.R10.quarter_max.rms_nm": 2.368526,
+    "16x3.R40.centroid.rms_nm": 3.23033,
+    "16x3.R40.crest.rms_nm": 3.242721,
+    "16x3.R40.half_max_025w.rms_nm": 3.314103,
+    "16x3.R40.quarter_max.rms_nm": 3.236304,
     "6x2.R0.centroid.rms_nm": 0.432824,
     "6x2.R0.crest.rms_nm": 0.825597,
     "6x2.R0.half_max_025w.rms_nm": 0.481795,
     "6x2.R0.quarter_max.rms_nm": 0.371836,
-    "6x2.R10.centroid.rms_nm": 1.075007,
-    "6x2.R10.crest.rms_nm": 1.394982,
-    "6x2.R10.half_max_025w.rms_nm": 1.142879,
-    "6x2.R10.quarter_max.rms_nm": 0.980109,
-    "6x2.R40.centroid.rms_nm": 1.227253,
-    "6x2.R40.crest.rms_nm": 1.329871,
-    "6x2.R40.half_max_025w.rms_nm": 1.245975,
-    "6x2.R40.quarter_max.rms_nm": 1.204996,
+    "6x2.R10.centroid.rms_nm": 1.160532,
+    "6x2.R10.crest.rms_nm": 1.638332,
+    "6x2.R10.half_max_025w.rms_nm": 1.247001,
+    "6x2.R10.quarter_max.rms_nm": 1.060997,
+    "6x2.R40.centroid.rms_nm": 1.294311,
+    "6x2.R40.crest.rms_nm": 1.368237,
+    "6x2.R40.half_max_025w.rms_nm": 1.322227,
+    "6x2.R40.quarter_max.rms_nm": 1.27216,
     "R0.default_over_crest_range": [
      0.409199,
      0.583572
@@ -1034,20 +1061,20 @@
      0.583572
     ],
     "R10.default_over_crest_range": [
-     0.736128,
-     0.819279
+     0.738841,
+     0.761141
     ],
     "R10.height_lines_over_crest_range": [
-     0.510921,
-     0.819279
+     0.528019,
+     0.761141
     ],
     "R40.default_over_crest_range": [
-     0.936914,
-     1.012188
+     0.966373,
+     1.022013
     ],
     "R40.height_lines_over_crest_range": [
-     0.9061,
-     1.012188
+     0.929781,
+     1.022013
     ]
    }
   },
@@ -1214,140 +1241,140 @@
    "description": "On the synthetic suite of scripts/synthetic_suite.py (groups A-F: 60 scans, 2 nm pixels, W = 8 px; group G: twisted ribbons): the distance of each centerline method from the true centerline, the contour-length error, the same-sense corner pairs, and the lateral offset on the ribbons.",
    "snapshot": "973e0fd842eb0392",
    "values": {
-    "G_circle_d3.max_nm.quarter_max": 3.498126,
-    "G_circle_d3.rms_px.crest": 0.228375,
-    "G_circle_d3.rms_px.default": 0.12326,
-    "G_circle_d3.rms_px.quarter_max": 0.310887,
-    "G_ribbon10x3_p150.max_nm.quarter_max": 2.385415,
-    "G_ribbon10x3_p150.rms_px.crest": 0.949004,
-    "G_ribbon10x3_p150.rms_px.default": 0.851752,
-    "G_ribbon10x3_p150.rms_px.quarter_max": 0.684843,
-    "G_ribbon10x3_p300.max_nm.quarter_max": 2.396373,
-    "G_ribbon10x3_p300.rms_px.crest": 1.104169,
-    "G_ribbon10x3_p300.rms_px.default": 0.872824,
-    "G_ribbon10x3_p300.rms_px.quarter_max": 0.704334,
-    "G_ribbon16x3_p300.max_nm.quarter_max": 9.457501,
-    "G_ribbon16x3_p300.rms_px.crest": 2.30683,
-    "G_ribbon16x3_p300.rms_px.default": 1.842627,
-    "G_ribbon16x3_p300.rms_px.quarter_max": 1.341738,
-    "G_ribbon4x2_p300.max_nm.quarter_max": 3.673927,
-    "G_ribbon4x2_p300.rms_px.crest": 0.43854,
-    "G_ribbon4x2_p300.rms_px.default": 0.317815,
-    "G_ribbon4x2_p300.rms_px.quarter_max": 0.419776,
-    "G_ribbon6x2_p300.max_nm.quarter_max": 1.801957,
-    "G_ribbon6x2_p300.rms_px.crest": 0.691766,
-    "G_ribbon6x2_p300.rms_px.default": 0.552872,
-    "G_ribbon6x2_p300.rms_px.quarter_max": 0.505413,
+    "G_circle_d3.max_nm.quarter_max": 3.576617,
+    "G_circle_d3.rms_px.crest": 0.222132,
+    "G_circle_d3.rms_px.default": 0.127189,
+    "G_circle_d3.rms_px.quarter_max": 0.318611,
+    "G_ribbon10x3_p150.max_nm.quarter_max": 2.290325,
+    "G_ribbon10x3_p150.rms_px.crest": 0.894023,
+    "G_ribbon10x3_p150.rms_px.default": 0.908563,
+    "G_ribbon10x3_p150.rms_px.quarter_max": 0.739497,
+    "G_ribbon10x3_p300.max_nm.quarter_max": 2.525994,
+    "G_ribbon10x3_p300.rms_px.crest": 1.150736,
+    "G_ribbon10x3_p300.rms_px.default": 0.925267,
+    "G_ribbon10x3_p300.rms_px.quarter_max": 0.771141,
+    "G_ribbon16x3_p300.max_nm.quarter_max": 10.550126,
+    "G_ribbon16x3_p300.rms_px.crest": 2.376348,
+    "G_ribbon16x3_p300.rms_px.default": 2.119238,
+    "G_ribbon16x3_p300.rms_px.quarter_max": 1.684115,
+    "G_ribbon4x2_p300.max_nm.quarter_max": 4.13209,
+    "G_ribbon4x2_p300.rms_px.crest": 0.520142,
+    "G_ribbon4x2_p300.rms_px.default": 0.351786,
+    "G_ribbon4x2_p300.rms_px.quarter_max": 0.468164,
+    "G_ribbon6x2_p300.max_nm.quarter_max": 1.880748,
+    "G_ribbon6x2_p300.rms_px.crest": 0.761907,
+    "G_ribbon6x2_p300.rms_px.default": 0.593205,
+    "G_ribbon6x2_p300.rms_px.quarter_max": 0.5416,
     "centroid.group_median_nm_range": [
-     0.312777,
-     0.382922
+     0.316185,
+     0.391517
     ],
     "centroid.length_error_percent_range": [
-     -1.464392,
-     0.747976
+     -0.686226,
+     2.284294
     ],
-    "centroid.median_px": 0.17512,
-    "centroid.p95_px": 0.690165,
+    "centroid.median_px": 0.179392,
+    "centroid.p95_px": 0.69313,
     "crest.group_median_nm_range": [
-     0.416118,
-     0.479997
+     0.430576,
+     0.478489
     ],
     "crest.length_error_percent_range": [
-     -1.325392,
-     0.934701
+     -0.614473,
+     2.623537
     ],
-    "crest.median_px": 0.230322,
-    "crest.p95_px": 0.698376,
+    "crest.median_px": 0.231661,
+    "crest.p95_px": 0.696704,
     "half_max_025w.group_median_nm_range": [
-     0.20995,
-     0.244347
+     0.216075,
+     0.242463
     ],
     "half_max_025w.length_error_percent_range": [
-     -1.542466,
-     0.487537
+     -0.563388,
+     2.318792
     ],
-    "half_max_025w.median_px": 0.112996,
-    "half_max_025w.p95_px": 0.354595,
+    "half_max_025w.median_px": 0.114304,
+    "half_max_025w.p95_px": 0.36556,
     "half_max_05w.group_median_nm_range": [
-     0.199529,
-     0.248689
+     0.191287,
+     0.260154
     ],
     "half_max_05w.length_error_percent_range": [
-     -2.597633,
-     0.336048
+     -1.63709,
+     1.814408
     ],
-    "half_max_05w.median_px": 0.106058,
-    "half_max_05w.p95_px": 0.386217,
+    "half_max_05w.median_px": 0.104078,
+    "half_max_05w.p95_px": 0.408922,
     "pairs": 8,
-    "pairs_w2.centerline_median_px": 0.117956,
+    "pairs_w2.centerline_median_px": 0.114244,
     "pairs_w2.merged_pairs": 2,
     "pairs_w2.vertex_median_px_range": [
-     0.965685,
-     1.1703
+     0.940616,
+     1.134133
     ],
-    "pairs_w4.centerline_median_px": 0.104975,
-    "pairs_w4.merged_pairs": 0,
+    "pairs_w4.centerline_median_px": 0.108038,
+    "pairs_w4.merged_pairs": 1,
     "pairs_w4.vertex_median_px_range": [
-     0.624224,
-     0.84333
+     0.59049,
+     0.886352
     ],
     "quarter_max.group_median_nm_range": [
-     0.197662,
-     0.236004
+     0.202329,
+     0.247112
     ],
     "quarter_max.length_error_percent_range": [
-     -1.68451,
-     0.618367
+     -0.669678,
+     2.116146
     ],
-    "quarter_max.median_px": 0.111058,
-    "quarter_max.p95_px": 0.415827,
+    "quarter_max.median_px": 0.114357,
+    "quarter_max.p95_px": 0.453369,
     "ribbons.anisotropic_count": 5,
     "ribbons.count": 6,
-    "ribbons.crest_farthest_of_three": 5,
+    "ribbons.crest_farthest_of_three": 4,
     "ribbons.crest_over_default_range": [
-     1.114179,
-     1.37986
+     0.983996,
+     1.478577
     ],
     "ribbons.kinks_reported": 0,
     "ribbons.quarter_closer_than_default": 4,
     "scans_af": 60,
     "scans_g": 6,
     "skeleton_pixels.group_median_nm_range": [
-     0.537194,
-     0.62199
+     0.543098,
+     0.638685
     ],
     "skeleton_pixels.length_error_percent_range": [
-     3.97092,
-     7.817318
+     4.809084,
+     9.548586
     ],
-    "skeleton_pixels.median_px": 0.294111,
-    "skeleton_pixels.p95_px": 0.900814,
+    "skeleton_pixels.median_px": 0.295021,
+    "skeleton_pixels.p95_px": 0.900497,
     "skeleton_track.length_error_percent_range": [
-     -1.460026,
-     2.177389
+     -0.665134,
+     3.818539
     ],
-    "skeleton_track.median_px": 0.294111,
-    "skeleton_track.p95_px": 0.900814,
+    "skeleton_track.median_px": 0.295021,
+    "skeleton_track.p95_px": 0.900497,
     "smoothed_skeleton_05w.group_median_nm_range": [
-     0.328933,
-     0.556208
+     0.370608,
+     0.513582
     ],
     "smoothed_skeleton_05w.length_error_percent_range": [
-     -3.994421,
-     0.338256
+     -2.844463,
+     1.345095
     ],
-    "smoothed_skeleton_05w.median_px": 0.218164,
-    "smoothed_skeleton_05w.p95_px": 0.841316,
+    "smoothed_skeleton_05w.median_px": 0.221514,
+    "smoothed_skeleton_05w.p95_px": 0.877205,
     "smoothed_skeleton_1w.group_median_nm_range": [
-     0.394549,
-     0.944966
+     0.438231,
+     0.947498
     ],
     "smoothed_skeleton_1w.length_error_percent_range": [
-     -5.808497,
-     0.21424
+     -4.720055,
+     1.221082
     ],
-    "smoothed_skeleton_1w.median_px": 0.275484,
-    "smoothed_skeleton_1w.p95_px": 1.737968
+    "smoothed_skeleton_1w.median_px": 0.264891,
+    "smoothed_skeleton_1w.p95_px": 1.759055
    }
   },
   "synthetic_height": {
@@ -2871,30 +2898,34 @@
     "arcs.scans": 6,
     "corner120.clear": 2,
     "corner120.excess_read_range_deg": [
-     101.020848,
-     109.978276
+     99.925529,
+     100.923903
     ],
     "corner120.found": 2,
     "corner20.clear": 0,
     "corner20.found": 0,
     "corner30.clear": 0,
+    "corner30.excess_read_range_deg": [
+     30.143115,
+     30.143115
+    ],
     "corner30.found": 0,
     "corner40.clear": 2,
     "corner40.excess_read_range_deg": [
-     37.354966,
-     37.99046
+     34.64355,
+     38.772126
     ],
     "corner40.found": 2,
     "corner60.clear": 2,
     "corner60.excess_read_range_deg": [
-     52.144287,
-     55.620988
+     54.76359,
+     56.151321
     ],
     "corner60.found": 2,
     "corner90.clear": 2,
     "corner90.excess_read_range_deg": [
-     83.440694,
-     84.511268
+     82.606259,
+     83.578781
     ],
     "corner90.found": 2,
     "corners_40_up.clear": 8,
@@ -2903,11 +2934,11 @@
     "crossings_branches.scans": 10,
     "end_cases_per_distance": 2,
     "margin_2W.end1.5W.corners_judged": 0,
-    "margin_2W.end2W.corners_judged": 0,
-    "margin_default.end1.5W.corners_judged": 0,
-    "margin_default.end2W.corners_judged": 2,
+    "margin_2W.end2W.corners_judged": 1,
+    "margin_default.end1.5W.corners_judged": 1,
+    "margin_default.end2W.corners_judged": 1,
     "old_rule.arcs_sines_reported": 31,
-    "sines.reported": 12,
+    "sines.reported": 11,
     "sines.scans": 4,
     "sines.tightest_radius_w_range": [
      1.621139,

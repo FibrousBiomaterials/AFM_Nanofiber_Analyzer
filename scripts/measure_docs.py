@@ -477,6 +477,47 @@ def bg_stats() -> dict:
 
 
 @experiment(
+    "line_steps",
+    ["lib/pipeline.py", "lib/bg_calibrator.py"],
+    "Per bundled scan: the median absolute step between the median heights of "
+    "adjacent rows (scan lines), each row's median taken over its lowest 60 % of "
+    "pixels so that fibers stay out of it, after a least-squares plane is removed, "
+    "for the raw scan and for the image calibrated by trendfill and by tophat at "
+    "their defaults.",
+)
+def line_steps() -> dict:
+    import numpy as np
+    import kink_reference_score as krs
+    from lib.pipeline import ProcParams, build_stages
+    from lib.processed_image import ProcessedImage
+
+    def step(img):
+        h, w = img.shape
+        yy, xx = np.mgrid[0:h, 0:w].astype(float)
+        design = np.column_stack([xx.ravel(), yy.ravel(), np.ones(h * w)])
+        coef, *_ = np.linalg.lstsq(design, img.ravel(), rcond=None)
+        flat = img - (design @ coef).reshape(h, w)
+        top = np.quantile(flat, 0.6, axis=1)
+        rows = np.array([np.median(r[r <= t]) for r, t in zip(flat, top)])
+        return float(np.median(np.abs(np.diff(rows))))
+
+    values: dict = {}
+    for name, rel in krs.SCANS.items():
+        arr = np.asarray(_raw_scan(rel), float)
+        values[f"{name}.raw_nm"] = step(arr[1:, 1:])
+        for method in ("trendfill", "tophat"):
+            image = ProcessedImage(arr.copy(), name, None)
+            build_stages(ProcParams(bg_method=method)).bg_calibrator(image)
+            values[f"{name}.{method}_nm"] = step(np.asarray(image.calibrated_image, float))
+    for method in ("trendfill", "tophat"):
+        ratios = [values[f"{n}.{method}_nm"] / values[f"{n}.raw_nm"] for n in krs.SCANS]
+        values[f"{method}.over_raw_range"] = [min(ratios), max(ratios)]
+    over = [values[f"{n}.tophat_nm"] / values[f"{n}.trendfill_nm"] for n in krs.SCANS]
+    values["tophat_over_trendfill_range"] = [min(over), max(over)]
+    return values
+
+
+@experiment(
     "bg_fill",
     ["lib/bg_calibrator.py"],
     "Square holes of 21 px cut into fiber-free background of the tunicate scan: how far "
@@ -1840,7 +1881,6 @@ def synthetic_centerline() -> dict:
 def ribbon_tip_swing() -> dict:
     import math
     import numpy as np
-    from scipy.ndimage import grey_dilation
     import synthetic_fibers as sf
     import synthetic_suite as ss
     from lib import centerline as cl
@@ -1849,10 +1889,9 @@ def ribbon_tip_swing() -> dict:
     line = sf.straight_centerline(length, angle_deg=20.0, shape=shape, nm_per_px=ss.NMPX)
     x0, y0 = line.x[0], line.y[0]
     th = math.atan2(line.y[-1] - y0, line.x[-1] - x0)
+    coords = ss.ribbon_axis_coords(line)
     gy, gx = np.mgrid[0:shape[0], 0:shape[1]].astype(float)
-    dx, dy = gx + 0.5 - x0, gy + 0.5 - y0
-    s = (dx * math.cos(th) + dy * math.sin(th)) * ss.NMPX
-    u = (-dx * math.sin(th) + dy * math.cos(th)) * ss.NMPX
+    s, u = coords(gx + 0.5, gy + 0.5)
     # Pixel track of the true axis, which lies at line coordinate - 0.5 in pixels.
     # 真の軸の画素トラック。軸は画素座標で、線の座標 - 0.5 にある。
     t = np.arange(60.0, length - 60.0, 0.5) / ss.NMPX
@@ -1866,13 +1905,17 @@ def ribbon_tip_swing() -> dict:
     values: dict = {}
     ratios: dict = {}
     for a, b in ((16, 3), (10, 3), (6, 2)):
-        surf = ss._ribbon_height(u, 2 * np.pi * s / 300.0 + 0.3, a, b)
-        surf[(s < 0) | (s > length)] = 0.0
+        def surface(x, y, a=a, b=b):
+            sx, ux = coords(x, y)
+            surf = ss._ribbon_height(ux, 2 * np.pi * sx / 300.0 + 0.3, a, b)
+            return np.where((sx < 0) | (sx > length), 0.0, surf)
+        tallest = float(np.hypot(a, b))
         for radius in (0, 10, 40):
-            img = surf if radius == 0 else grey_dilation(
-                surf, structure=sf.spherical_tip_structure(float(radius), ss.NMPX,
-                                                           float(surf.max())),
-                mode="nearest")
+            reach = radius + tallest + 2 * ss.NMPX
+            near = (np.abs(u) <= reach) & (s >= -reach) & (s <= length + reach)
+            img = sf.dilate_analytic(surface, shape=shape, nm_per_px=ss.NMPX,
+                                     tip_radius_nm=float(radius), max_height_nm=tallest,
+                                     near=near)
             rms = {}
             for method in height_lines + (cl.CREST_CENTERLINE,):
                 res = cl.place_centerline(img, px, py, None, method=method)

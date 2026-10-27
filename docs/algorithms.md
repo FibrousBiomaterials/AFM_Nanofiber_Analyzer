@@ -815,7 +815,7 @@ filled[last + 1:] = np.mean(line[valid_pos[-k:]])
 | `bg_method` | Use when | What it computes |
 |---|---|---|
 | `trendfill` (default) | General use. Excludes fibers from the background pool, so it does not eat into them. | The fiber mask from a histogram fit of the gradients (`lmfit`), the trend fit, the fill, and the smoothing. |
-| `tophat` | When the fiber mask of `trendfill` does not work: for instance, when the corrected image shows dark rims along both sides of the fibers (the mask misses the fiber shoulders, §1.3 Step 2<!--n:label-->) or a tiled, cell-like mottling of the background (false detections from noise remain, §1.3 Step 2<!--n:label-->). | No fiber mask: only the trend fit, the opening, and the smoothing. |
+| `tophat` | When the fiber mask of `trendfill` does not work: for instance, when the corrected image shows dark rims along both sides of the fibers (the mask misses the fiber shoulders, §1.3 Step 2<!--n:label-->) or a tiled, cell-like mottling of the background (false detections from noise remain, §1.3 Step 2<!--n:label-->). It removes less of the height offsets between scan lines than `trendfill`, so horizontal stripes of the raw scan remain ([Evaluation on particular data](validation.md) §1.11). | No fiber mask: only the trend fit, the opening, and the smoothing. |
 | `spline1d` | Scans with prominent line noise (height offsets between scan lines, produced by drift during the scan or by feedback trouble). | All of `trendfill`'s mask detection and `_bg_generate`, then a one-dimensional spline per line. |
 
 A stored parameter file that selects a method no longer available

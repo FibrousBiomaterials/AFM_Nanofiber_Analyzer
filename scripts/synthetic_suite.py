@@ -195,25 +195,43 @@ def _ribbon_height(u, phi, a, b):
     return h
 
 
-def _render_ribbon(a, b, period, seed=1, shape=(384, 384), length=600.0, taper=40.0):
-    from scipy.ndimage import grey_dilation
-    line = sf.straight_centerline(length, angle_deg=20.0, shape=shape, nm_per_px=NMPX)
+def ribbon_axis_coords(line):
+    """
+    Map pixel coordinates to (along-axis, across-axis) nm on a straight ribbon line.
+    画素座標を、直線リボンの軸に沿った位置と軸を横切る位置（nm）に写す。
+    """
     x0, y0 = line.x[0], line.y[0]
     th = math.atan2(line.y[-1] - y0, line.x[-1] - x0)
+
+    def coords(x, y):
+        dx, dy = x - x0, y - y0
+        return ((dx * math.cos(th) + dy * math.sin(th)) * NMPX,
+                (-dx * math.sin(th) + dy * math.cos(th)) * NMPX)
+    return coords
+
+
+def _render_ribbon(a, b, period, seed=1, shape=(384, 384), length=600.0, taper=40.0):
+    line = sf.straight_centerline(length, angle_deg=20.0, shape=shape, nm_per_px=NMPX)
+    coords = ribbon_axis_coords(line)
+
+    def surface(x, y):
+        s, u = coords(x, y)
+        scale = 0.2 + 0.8 * np.clip(np.minimum(s, length - s) / taper, 0, 1)
+        phi = (2 * np.pi * s / period + 0.3) if period else np.zeros_like(s)
+        if a == b == 0:
+            r = 1.5 * scale
+            surf = np.where(np.abs(u) < r, r + np.sqrt(np.maximum(r * r - u * u, 0)), 0.0)
+        else:
+            surf = _ribbon_height(u, phi, a * scale, b * scale)
+        return np.where((s < 0) | (s > length), 0.0, surf)
+
     gy, gx = np.mgrid[0:shape[0], 0:shape[1]].astype(float)
-    dx, dy = gx + 0.5 - x0, gy + 0.5 - y0
-    s = (dx * math.cos(th) + dy * math.sin(th)) * NMPX
-    u = (-dx * math.sin(th) + dy * math.cos(th)) * NMPX
-    scale = 0.2 + 0.8 * np.clip(np.minimum(s, length - s) / taper, 0, 1)
-    phi = (2 * np.pi * s / period + 0.3) if period else np.zeros_like(s)
-    if a == b == 0:
-        r = 1.5 * scale
-        surf = np.where(np.abs(u) < r, r + np.sqrt(np.maximum(r * r - u * u, 0)), 0.0)
-    else:
-        surf = _ribbon_height(u, phi, a * scale, b * scale)
-    surf[(s < 0) | (s > length)] = 0.0
-    img = grey_dilation(surf, structure=sf.spherical_tip_structure(RIBBON_TIP_NM, NMPX, float(surf.max())),
-                        mode="nearest")
+    tallest = 3.0 if a == b == 0 else float(np.hypot(a, b))
+    s, u = coords(gx + 0.5, gy + 0.5)
+    reach = RIBBON_TIP_NM + tallest + 2 * NMPX
+    near = (np.abs(u) <= reach) & (s >= -reach) & (s <= length + reach)
+    img = sf.dilate_analytic(surface, shape=shape, nm_per_px=NMPX, tip_radius_nm=RIBBON_TIP_NM,
+                             max_height_nm=tallest, near=near)
     rng = np.random.default_rng(seed)
     img = img + 1.0 * (0.66 * gx / (shape[1] - 1) + 0.34 * gy / (shape[0] - 1))
     img = img + 0.40 * sf.self_affine_field(shape, NMPX, 120.0, 0.6, rng)

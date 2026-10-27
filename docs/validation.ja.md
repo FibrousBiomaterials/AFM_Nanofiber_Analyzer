@@ -262,6 +262,26 @@ zoomed_background）。各同梱スキャンについて、既定の補正後の
 繊維は高さを保っているが、追跡した線がその中で輪や断片に崩れている。したがって、幅を
 測れなかったという警告はそこでも正しく、ただ問題は補正の後で起きている。
 
+### 1.11 `tophat` での走査線ごとの段差
+
+`tophat` が取り除く走査線どうしの高さの段差は、`trendfill` より少ない。隣り合う
+走査線の段差を、最小二乗の平面を引いたあと、各行の画素のうち低い方の 60<!--n:definition--> % で
+行ごとの中央値を取り（繊維を含めないため）、隣り合う行の中央値の差の絶対値の中央値
+として測った（実験 line_steps）。
+
+| 走査 | 生 | `trendfill` | `tophat` |
+|---|---|---|---|
+| 高等植物 TOC | 0.020<!--m:line_steps.hplantTOC.raw_nm--> nm | 0.004<!--m:line_steps.hplantTOC.trendfill_nm--> nm | 0.018<!--m:line_steps.hplantTOC.tophat_nm--> nm |
+| ホヤ CNF | 0.044<!--m:line_steps.tunicate.raw_nm--> nm | 0.005<!--m:line_steps.tunicate.trendfill_nm--> nm | 0.013<!--m:line_steps.tunicate.tophat_nm--> nm |
+| Bruker NDTOC | 0.042<!--m:line_steps.NDTOC.raw_nm--> nm | 0.007<!--m:line_steps.NDTOC.trendfill_nm--> nm | 0.020<!--m:line_steps.NDTOC.tophat_nm--> nm |
+
+生の段差のうち、`trendfill` は 0.11<!--m:line_steps.trendfill.over_raw_range[0]-->〜0.19<!--m:line_steps.trendfill.over_raw_range[1]-->、`tophat` は 0.30<!--m:line_steps.tophat.over_raw_range[0]-->〜0.93<!--m:line_steps.tophat.over_raw_range[1]--> を残し、`tophat` は
+`trendfill` の 2.8<!--m:line_steps.tophat_over_trendfill_range[0]-->〜4.8<!--m:line_steps.tophat_over_trendfill_range[1]--> 倍を残した。背景にコントラストを合わせて描くと、3<!--n:count--> 枚とも
+`tophat` の画像には生の走査の横縞が残っており、ホヤのスキャンを横切る暗い帯は
+`trendfill` では消え、`tophat` では残る。`background_warnings` は `trendfill` や
+`spline1d` が繊維の高さを失うときに `tophat` を勧める（§1.8）。その勧めに従うと、
+繊維の高さは保たれる代わりにこれらの縞が残る。
+
 ## 2. 二値化
 
 [解析アルゴリズム](algorithms.ja.md) §2 を参照。
@@ -476,12 +496,13 @@ y_branch_kink）。
 断面が異方的なフィブリルは、ねじれに伴って最も高い縁を左右交互に向ける。合成
 データ一式のねじれリボン 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> 本（直線の軸に沿った 4<!--n:value tried-->×2<!--n:value tried-->〜16<!--n:value tried-->×3<!--n:value tried--> nm の
 長方形断面、探針 10<!--c:scripts/synthetic_suite.py::RIBBON_TIP_NM--> nm で描画）では、測った 3<!--n:count--> 本の線（既定の線、1/4 高さの
-中点、頂点）のうち頂点が 5<!--m:synthetic_centerline.ribbons.crest_farthest_of_three--> 本すべてで軸から最も離れ、既定の線の
-1.1<!--m:synthetic_centerline.ribbons.crest_over_default_range[0]-->〜1.4<!--m:synthetic_centerline.ribbons.crest_over_default_range[1]--> 倍であった（横方向のずれの二乗平均平方根）。またキンク規則が、円形の
+中点、頂点）のうち頂点が 4<!--m:synthetic_centerline.ribbons.crest_farthest_of_three--> 本で軸から最も離れた。頂点の横方向のずれの二乗平均平方根は
+既定の線の 0.98<!--m:synthetic_centerline.ribbons.crest_over_default_range[0]-->〜1.48<!--m:synthetic_centerline.ribbons.crest_over_default_range[1]--> 倍で、例外は 0.98<!--m:synthetic_centerline.ribbons.crest_over_default_range[0]--> 倍の、150<!--n:value tried--> nm ごとにねじれる 10<!--n:value tried-->×3<!--n:value tried--> nm の
+リボン（一式の中で最も短いねじれ周期）であった。またキンク規則が、円形の
 対照繊維を含むリボンの走査 6<!--m:synthetic_centerline.ribbons.count--> 枚で報告したキンクは 0<!--m:synthetic_centerline.ribbons.kinks_reported--> 件であった（実験
 synthetic_centerline）。半値より低いレベルが一様に良かったわけではない。1/4 高さの
 中点はリボン 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> 本中 4<!--m:synthetic_centerline.ribbons.quarter_closer_than_default--> 本で既定の線より軸に近かったが、細い円形の対照繊維
-では背景の凹凸に最大 3.5<!--m:synthetic_centerline.G_circle_d3.max_nm.quarter_max--> nm 引き寄せられた。
+では背景の凹凸に最大 3.6<!--m:synthetic_centerline.G_circle_d3.max_nm.quarter_max--> nm 引き寄せられた。
 
 **探針の先端。** 揺れが探針によってどう変わるかを、次のように確かめた。
 リボンのうち 3<!--n:count--> 本（16<!--n:value tried-->×3<!--n:value tried-->、10<!--n:value tried-->×3<!--n:value tried-->、6<!--n:value tried-->×2<!--n:value tried--> nm、ねじれの周期 300<!--n:value tried--> nm）を、雑音・傾き・
@@ -492,18 +513,18 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 | リボン (nm) | 先端半径 (nm) | 既定の線 | 1/4 高さの中点 | 重心 | 頂点 |
 |---|---|---|---|---|---|
 | 16<!--n:value tried-->×3<!--n:value tried--> | 0<!--n:value tried--> | 1.48<!--m:ribbon_tip_swing.16x3.R0.half_max_025w.rms_nm--> | 0.69<!--m:ribbon_tip_swing.16x3.R0.quarter_max.rms_nm--> | 1.11<!--m:ribbon_tip_swing.16x3.R0.centroid.rms_nm--> | 2.99<!--m:ribbon_tip_swing.16x3.R0.crest.rms_nm--> |
-| 16<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 3.23<!--m:ribbon_tip_swing.16x3.R10.half_max_025w.rms_nm--> | 2.23<!--m:ribbon_tip_swing.16x3.R10.quarter_max.rms_nm--> | 2.78<!--m:ribbon_tip_swing.16x3.R10.centroid.rms_nm--> | 4.37<!--m:ribbon_tip_swing.16x3.R10.crest.rms_nm--> |
-| 16<!--n:value tried-->×3<!--n:value tried--> | 40<!--n:value tried--> | 3.30<!--m:ribbon_tip_swing.16x3.R40.half_max_025w.rms_nm--> | 3.21<!--m:ribbon_tip_swing.16x3.R40.quarter_max.rms_nm--> | 3.22<!--m:ribbon_tip_swing.16x3.R40.centroid.rms_nm--> | 3.26<!--m:ribbon_tip_swing.16x3.R40.crest.rms_nm--> |
+| 16<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 3.40<!--m:ribbon_tip_swing.16x3.R10.half_max_025w.rms_nm--> | 2.37<!--m:ribbon_tip_swing.16x3.R10.quarter_max.rms_nm--> | 2.88<!--m:ribbon_tip_swing.16x3.R10.centroid.rms_nm--> | 4.49<!--m:ribbon_tip_swing.16x3.R10.crest.rms_nm--> |
+| 16<!--n:value tried-->×3<!--n:value tried--> | 40<!--n:value tried--> | 3.31<!--m:ribbon_tip_swing.16x3.R40.half_max_025w.rms_nm--> | 3.24<!--m:ribbon_tip_swing.16x3.R40.quarter_max.rms_nm--> | 3.23<!--m:ribbon_tip_swing.16x3.R40.centroid.rms_nm--> | 3.24<!--m:ribbon_tip_swing.16x3.R40.crest.rms_nm--> |
 | 10<!--n:value tried-->×3<!--n:value tried--> | 0<!--n:value tried--> | 0.74<!--m:ribbon_tip_swing.10x3.R0.half_max_025w.rms_nm--> | 0.45<!--m:ribbon_tip_swing.10x3.R0.quarter_max.rms_nm--> | 0.66<!--m:ribbon_tip_swing.10x3.R0.centroid.rms_nm--> | 1.82<!--m:ribbon_tip_swing.10x3.R0.crest.rms_nm--> |
-| 10<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 1.86<!--m:ribbon_tip_swing.10x3.R10.half_max_025w.rms_nm--> | 1.44<!--m:ribbon_tip_swing.10x3.R10.quarter_max.rms_nm--> | 1.67<!--m:ribbon_tip_swing.10x3.R10.centroid.rms_nm--> | 2.53<!--m:ribbon_tip_swing.10x3.R10.crest.rms_nm--> |
-| 10<!--n:value tried-->×3<!--n:value tried--> | 40<!--n:value tried--> | 2.03<!--m:ribbon_tip_swing.10x3.R40.half_max_025w.rms_nm--> | 1.94<!--m:ribbon_tip_swing.10x3.R40.quarter_max.rms_nm--> | 1.97<!--m:ribbon_tip_swing.10x3.R40.centroid.rms_nm--> | 2.06<!--m:ribbon_tip_swing.10x3.R40.crest.rms_nm--> |
+| 10<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 1.97<!--m:ribbon_tip_swing.10x3.R10.half_max_025w.rms_nm--> | 1.54<!--m:ribbon_tip_swing.10x3.R10.quarter_max.rms_nm--> | 1.75<!--m:ribbon_tip_swing.10x3.R10.centroid.rms_nm--> | 2.67<!--m:ribbon_tip_swing.10x3.R10.crest.rms_nm--> |
+| 10<!--n:value tried-->×3<!--n:value tried--> | 40<!--n:value tried--> | 2.05<!--m:ribbon_tip_swing.10x3.R40.half_max_025w.rms_nm--> | 1.96<!--m:ribbon_tip_swing.10x3.R40.quarter_max.rms_nm--> | 1.99<!--m:ribbon_tip_swing.10x3.R40.centroid.rms_nm--> | 2.08<!--m:ribbon_tip_swing.10x3.R40.crest.rms_nm--> |
 | 6<!--n:value tried-->×2<!--n:value tried--> | 0<!--n:value tried--> | 0.48<!--m:ribbon_tip_swing.6x2.R0.half_max_025w.rms_nm--> | 0.37<!--m:ribbon_tip_swing.6x2.R0.quarter_max.rms_nm--> | 0.43<!--m:ribbon_tip_swing.6x2.R0.centroid.rms_nm--> | 0.83<!--m:ribbon_tip_swing.6x2.R0.crest.rms_nm--> |
-| 6<!--n:value tried-->×2<!--n:value tried--> | 10<!--n:value tried--> | 1.14<!--m:ribbon_tip_swing.6x2.R10.half_max_025w.rms_nm--> | 0.98<!--m:ribbon_tip_swing.6x2.R10.quarter_max.rms_nm--> | 1.08<!--m:ribbon_tip_swing.6x2.R10.centroid.rms_nm--> | 1.39<!--m:ribbon_tip_swing.6x2.R10.crest.rms_nm--> |
-| 6<!--n:value tried-->×2<!--n:value tried--> | 40<!--n:value tried--> | 1.25<!--m:ribbon_tip_swing.6x2.R40.half_max_025w.rms_nm--> | 1.20<!--m:ribbon_tip_swing.6x2.R40.quarter_max.rms_nm--> | 1.23<!--m:ribbon_tip_swing.6x2.R40.centroid.rms_nm--> | 1.33<!--m:ribbon_tip_swing.6x2.R40.crest.rms_nm--> |
+| 6<!--n:value tried-->×2<!--n:value tried--> | 10<!--n:value tried--> | 1.25<!--m:ribbon_tip_swing.6x2.R10.half_max_025w.rms_nm--> | 1.06<!--m:ribbon_tip_swing.6x2.R10.quarter_max.rms_nm--> | 1.16<!--m:ribbon_tip_swing.6x2.R10.centroid.rms_nm--> | 1.64<!--m:ribbon_tip_swing.6x2.R10.crest.rms_nm--> |
+| 6<!--n:value tried-->×2<!--n:value tried--> | 40<!--n:value tried--> | 1.32<!--m:ribbon_tip_swing.6x2.R40.half_max_025w.rms_nm--> | 1.27<!--m:ribbon_tip_swing.6x2.R40.quarter_max.rms_nm--> | 1.29<!--m:ribbon_tip_swing.6x2.R40.centroid.rms_nm--> | 1.37<!--m:ribbon_tip_swing.6x2.R40.crest.rms_nm--> |
 
 頂点に比べると、既定の線のずれは、膨張なしで 0.41<!--m:ribbon_tip_swing.R0.default_over_crest_range[0]-->〜0.58<!--m:ribbon_tip_swing.R0.default_over_crest_range[1]--> 倍、先端半径 10<!--n:value tried--> nm で
-0.74<!--m:ribbon_tip_swing.R10.default_over_crest_range[0]-->〜0.82<!--m:ribbon_tip_swing.R10.default_over_crest_range[1]--> 倍、40<!--n:value tried--> nm で 0.94<!--m:ribbon_tip_swing.R40.default_over_crest_range[0]-->〜1.01<!--m:ribbon_tip_swing.R40.default_over_crest_range[1]--> 倍であった。40<!--n:value tried--> nm では、既定の線、1/4 高さの
-中点、重心のずれは、どれも頂点の 0.91<!--m:ribbon_tip_swing.R40.height_lines_over_crest_range[0]-->〜1.01<!--m:ribbon_tip_swing.R40.height_lines_over_crest_range[1]--> 倍になった。試したこの 3<!--n:count--> 本のリボンと 3<!--n:count--> つの先端半径では、探針の先端が
+0.74<!--m:ribbon_tip_swing.R10.default_over_crest_range[0]-->〜0.76<!--m:ribbon_tip_swing.R10.default_over_crest_range[1]--> 倍、40<!--n:value tried--> nm で 0.97<!--m:ribbon_tip_swing.R40.default_over_crest_range[0]-->〜1.02<!--m:ribbon_tip_swing.R40.default_over_crest_range[1]--> 倍であった。40<!--n:value tried--> nm では、既定の線、1/4 高さの
+中点、重心のずれは、どれも頂点の 0.93<!--m:ribbon_tip_swing.R40.height_lines_over_crest_range[0]-->〜1.02<!--m:ribbon_tip_swing.R40.height_lines_over_crest_range[1]--> 倍になった。試したこの 3<!--n:count--> 本のリボンと 3<!--n:count--> つの先端半径では、探針の先端が
 太いほど、この 3<!--n:count--> つの線の揺れは頂点の揺れに近づいた。
 
 **なぜ 1/4 幅か。** 平滑化の幅は、2<!--n:count--> つの特徴がどこまで近づくと中心線がそれらを
@@ -512,8 +533,8 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 
 | 枠とオフセットの平滑化 | 1<!--n:count--> つの折れと判定された組 | コーナー頂点から中心線までの距離（中央値。間隔ごとの範囲） | 真の中心線までの距離（中央値） |
 |---|---|---|---|
-| $W/2$ | 8<!--m:synthetic_centerline.pairs--> 組中 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> 組 | 0.97<!--m:synthetic_centerline.pairs_w2.vertex_median_px_range[0]-->〜1.17<!--m:synthetic_centerline.pairs_w2.vertex_median_px_range[1]--> px | 0.12<!--m:synthetic_centerline.pairs_w2.centerline_median_px--> px |
-| $W/4$（既定） | 8<!--m:synthetic_centerline.pairs--> 組中 0<!--m:synthetic_centerline.pairs_w4.merged_pairs--> 組 | 0.62<!--m:synthetic_centerline.pairs_w4.vertex_median_px_range[0]-->〜0.84<!--m:synthetic_centerline.pairs_w4.vertex_median_px_range[1]--> px | 0.10<!--m:synthetic_centerline.pairs_w4.centerline_median_px--> px |
+| $W/2$ | 8<!--m:synthetic_centerline.pairs--> 組中 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> 組 | 0.94<!--m:synthetic_centerline.pairs_w2.vertex_median_px_range[0]-->〜1.13<!--m:synthetic_centerline.pairs_w2.vertex_median_px_range[1]--> px | 0.11<!--m:synthetic_centerline.pairs_w2.centerline_median_px--> px |
+| $W/4$（既定） | 8<!--m:synthetic_centerline.pairs--> 組中 1<!--m:synthetic_centerline.pairs_w4.merged_pairs--> 組 | 0.59<!--m:synthetic_centerline.pairs_w4.vertex_median_px_range[0]-->〜0.89<!--m:synthetic_centerline.pairs_w4.vertex_median_px_range[1]--> px | 0.11<!--m:synthetic_centerline.pairs_w4.centerline_median_px--> px |
 
 **既知の中心線に対する精度。** 合成データ一式の A〜F 群の走査 60<!--m:synthetic_centerline.scans_af--> 枚（球状の探針で
 描画。コーナー、ジグザグ、コーナー対、端に近いコーナー、直線、円弧、蛇行、交差、
@@ -521,8 +542,8 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 
 | | 真の中心線までの距離（中央値） | 同 95<!--n:definition--> パーセンタイル | 輪郭長の誤差（スキャン群ごとの範囲） |
 |---|---|---|---|
-| 半値中点の中心線 | 0.11<!--m:synthetic_centerline.half_max_025w.median_px--> px | 0.35<!--m:synthetic_centerline.half_max_025w.p95_px--> px | −1.5<!--m:synthetic_centerline.half_max_025w.length_error_percent_range[0]-->〜+0.5<!--m:synthetic_centerline.half_max_025w.length_error_percent_range[1]--> % |
-| スケルトントラック（補正済みチェーンコード長） | 0.29<!--m:synthetic_centerline.skeleton_track.median_px--> px | 0.90<!--m:synthetic_centerline.skeleton_track.p95_px--> px | −1.5<!--m:synthetic_centerline.skeleton_track.length_error_percent_range[0]-->〜+2.2<!--m:synthetic_centerline.skeleton_track.length_error_percent_range[1]--> % |
+| 半値中点の中心線 | 0.11<!--m:synthetic_centerline.half_max_025w.median_px--> px | 0.37<!--m:synthetic_centerline.half_max_025w.p95_px--> px | −0.6<!--m:synthetic_centerline.half_max_025w.length_error_percent_range[0]-->〜+2.3<!--m:synthetic_centerline.half_max_025w.length_error_percent_range[1]--> % |
+| スケルトントラック（補正済みチェーンコード長） | 0.30<!--m:synthetic_centerline.skeleton_track.median_px--> px | 0.90<!--m:synthetic_centerline.skeleton_track.p95_px--> px | −0.7<!--m:synthetic_centerline.skeleton_track.length_error_percent_range[0]-->〜+3.8<!--m:synthetic_centerline.skeleton_track.length_error_percent_range[1]--> % |
 
 これらは中心線とキンク規則を選んだときの場面である（`scripts/synthetic_suite.py`）。
 したがって §4.4 の目視基準と同じく、独立した検証ではなく開発用のデータである。
@@ -542,13 +563,13 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 
 | `centerline_method` | 距離の中央値（nm） | 実スキャン | 備考 |
 |---|---|---|---|
-| `"half_max_025w"`（既定） | 0.21<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->〜0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 50<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 68<!--m:kink_reference.default.false--> | |
-| `"half_max_05w"` | 0.20<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[0]-->〜0.25<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[1]--> | 48<!--m:kink_reference.hm05.found--> / 4<!--m:kink_reference.hm05.missed--> / 45<!--m:kink_reference.hm05.false--> | 採点した 3<!--n:count--> 種類の中で一致しない折れが最も少ない。ただし合成の同じ向きのコーナー対 8<!--m:synthetic_centerline.pairs--> 組中 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> 組で 2<!--n:count--> つのコーナーを 1<!--n:count--> つにまとめ、平滑化をわずかに強めると見落としが 10〜12<!--m:kink_reference.hm05_stronger.missed_range--> 件に増えた。 |
-| `"skeleton_pixels"` | 0.54<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[0]-->〜0.62<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[1]--> | 52<!--m:kink_reference.skeleton_pixels.found--> / 0<!--m:kink_reference.skeleton_pixels.missed--> / 140<!--m:kink_reference.skeleton_pixels.false--> | 階段状のギザつきと分岐部での振れを折れとして読んでしまう。 |
-| `"smoothed_skeleton_05w"`、`"smoothed_skeleton_1w"` | 0.33<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[0]-->〜0.56<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[1]--> / 0.39<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[0]-->〜0.94<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[1]--> | 採点なし | |
-| `"quarter_max"` | 0.20<!--m:synthetic_centerline.quarter_max.group_median_nm_range[0]-->〜0.24<!--m:synthetic_centerline.quarter_max.group_median_nm_range[1]--> | 採点なし | ねじれリボン 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> 本中 4<!--m:synthetic_centerline.ribbons.quarter_closer_than_default--> 本で既定より軸に近いが、細い円形の対照繊維では背景の凹凸に最大 3.5<!--m:synthetic_centerline.G_circle_d3.max_nm.quarter_max--> nm 引き寄せられた。 |
-| `"centroid"` | 0.31<!--m:synthetic_centerline.centroid.group_median_nm_range[0]-->〜0.38<!--m:synthetic_centerline.centroid.group_median_nm_range[1]--> | 採点なし | |
-| `"crest"` | 0.42<!--m:synthetic_centerline.crest.group_median_nm_range[0]-->〜0.48<!--m:synthetic_centerline.crest.group_median_nm_range[1]--> | 採点なし | ねじれリボン 5<!--m:synthetic_centerline.ribbons.crest_farthest_of_three--> 本すべてで軸から最も離れた（既定の 1.1<!--m:synthetic_centerline.ribbons.crest_over_default_range[0]-->〜1.4<!--m:synthetic_centerline.ribbons.crest_over_default_range[1]--> 倍）。 |
+| `"half_max_025w"`（既定） | 0.22<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->〜0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 50<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 68<!--m:kink_reference.default.false--> | |
+| `"half_max_05w"` | 0.19<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[0]-->〜0.26<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[1]--> | 48<!--m:kink_reference.hm05.found--> / 4<!--m:kink_reference.hm05.missed--> / 45<!--m:kink_reference.hm05.false--> | 採点した 3<!--n:count--> 種類の中で一致しない折れが最も少ない。ただし合成の同じ向きのコーナー対 8<!--m:synthetic_centerline.pairs--> 組中 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> 組で 2<!--n:count--> つのコーナーを 1<!--n:count--> つにまとめ（既定は 1<!--m:synthetic_centerline.pairs_w4.merged_pairs--> 組）、平滑化をわずかに強めると見落としが 10〜12<!--m:kink_reference.hm05_stronger.missed_range--> 件に増えた。 |
+| `"skeleton_pixels"` | 0.54<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[0]-->〜0.64<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[1]--> | 52<!--m:kink_reference.skeleton_pixels.found--> / 0<!--m:kink_reference.skeleton_pixels.missed--> / 140<!--m:kink_reference.skeleton_pixels.false--> | 階段状のギザつきと分岐部での振れを折れとして読んでしまう。 |
+| `"smoothed_skeleton_05w"`、`"smoothed_skeleton_1w"` | 0.37<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[0]-->〜0.51<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[1]--> / 0.44<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[0]-->〜0.95<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[1]--> | 採点なし | |
+| `"quarter_max"` | 0.20<!--m:synthetic_centerline.quarter_max.group_median_nm_range[0]-->〜0.25<!--m:synthetic_centerline.quarter_max.group_median_nm_range[1]--> | 採点なし | ねじれリボン 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> 本中 4<!--m:synthetic_centerline.ribbons.quarter_closer_than_default--> 本で既定より軸に近いが、細い円形の対照繊維では背景の凹凸に最大 3.6<!--m:synthetic_centerline.G_circle_d3.max_nm.quarter_max--> nm 引き寄せられた。 |
+| `"centroid"` | 0.32<!--m:synthetic_centerline.centroid.group_median_nm_range[0]-->〜0.39<!--m:synthetic_centerline.centroid.group_median_nm_range[1]--> | 採点なし | |
+| `"crest"` | 0.43<!--m:synthetic_centerline.crest.group_median_nm_range[0]-->〜0.48<!--m:synthetic_centerline.crest.group_median_nm_range[1]--> | 採点なし | ねじれリボン 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> 本中 4<!--m:synthetic_centerline.ribbons.crest_farthest_of_three--> 本で軸から最も離れた（既定の 0.98<!--m:synthetic_centerline.ribbons.crest_over_default_range[0]-->〜1.48<!--m:synthetic_centerline.ribbons.crest_over_default_range[1]--> 倍）。 |
 
 ### 4.4 目視基準との比較
 
@@ -605,10 +626,10 @@ turn_maxima）。
 
 | コーナーの回転角 | 読まれた超過回転 |
 |---|---|
-| 40<!--n:value tried--> 度 | 37〜38<!--m:synthetic_kinks.corner40.excess_read_range_deg--> 度 |
-| 60<!--n:value tried--> 度 | 52〜56<!--m:synthetic_kinks.corner60.excess_read_range_deg--> 度 |
-| 90<!--n:value tried--> 度 | 83〜85<!--m:synthetic_kinks.corner90.excess_read_range_deg--> 度 |
-| 120<!--n:value tried--> 度 | 101〜110<!--m:synthetic_kinks.corner120.excess_read_range_deg--> 度 |
+| 40<!--n:value tried--> 度 | 35〜39<!--m:synthetic_kinks.corner40.excess_read_range_deg--> 度 |
+| 60<!--n:value tried--> 度 | 55〜56<!--m:synthetic_kinks.corner60.excess_read_range_deg--> 度 |
+| 90<!--n:value tried--> 度 | 83〜84<!--m:synthetic_kinks.corner90.excess_read_range_deg--> 度 |
+| 120<!--n:value tried--> 度 | 100〜101<!--m:synthetic_kinks.corner120.excess_read_range_deg--> 度 |
 
 このため、しきい値をわずかに上回る折れが下回って読まれることがある。テスト
 スイートで 33.5<!--m:test_suite_bend.drawn_turn_deg--> 度に描いた折れは 26.5<!--m:test_suite_bend.read_excess_deg--> 度と読まれる（実験 test_suite_bend）。
@@ -619,9 +640,11 @@ turn_maxima）。
 
 | 見かけ幅 | 腕のなす角 | 180<!--n:definition--> 度 − 超過回転 |
 |---|---|---|
-| 3<!--m:kink_rule_sweep.W5.measured_width_px--> px | 4.2<!--m:kink_rule_sweep.W5.arm_error_deg--> 度 | 4.6<!--m:kink_rule_sweep.W5.excess_error_deg--> 度 |
-| 5.5<!--m:kink_rule_sweep.W8.measured_width_px--> px | 1.7<!--m:kink_rule_sweep.W8.arm_error_deg--> 度 | 7.9<!--m:kink_rule_sweep.W8.excess_error_deg--> 度 |
-| 11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px | 1.6<!--m:kink_rule_sweep.W16.arm_error_deg--> 度 | 3.4<!--m:kink_rule_sweep.W16.excess_error_deg--> 度 |
+| 3.5<!--m:kink_rule_sweep.W5.measured_width_px--> px | 0.7<!--m:kink_rule_sweep.W5.arm_error_deg--> 度 | 1.7<!--m:kink_rule_sweep.W5.excess_error_deg--> 度 |
+| 5.75<!--m:kink_rule_sweep.W8.measured_width_px--> px | 2.0<!--m:kink_rule_sweep.W8.arm_error_deg--> 度 | 2.4<!--m:kink_rule_sweep.W8.excess_error_deg--> 度 |
+| 11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px | 2.35<!--m:kink_rule_sweep.W16.arm_error_deg--> 度 | 2.1<!--m:kink_rule_sweep.W16.excess_error_deg--> 度 |
+
+11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px では、超過回転の方が誤差が小さかった。
 
 ### 4.6 合成形状での結果
 
@@ -632,7 +655,7 @@ turn_maxima）。
   交差と分岐（10<!--m:synthetic_kinks.crossings_branches.scans--> 枚で 0<!--m:synthetic_kinks.crossings_branches.reported--> 件）、ねじれリボン（6<!--m:synthetic_centerline.ribbons.count--> 枚で 0<!--m:synthetic_centerline.ribbons.kinks_reported--> 件）では、折れを
   報告しなかった。
 - 40<!--n:value tried--> 度以上の孤立したコーナーはすべて見つけた（8<!--m:synthetic_kinks.corners_40_up.clear--> 件中 8<!--m:synthetic_kinks.corners_40_up.found--> 件）。
-- 最小曲率半径が 1.6〜1.8<!--m:synthetic_kinks.sines.tightest_radius_w_range--> $W$ の正弦波状の蛇行 4<!--m:synthetic_kinks.sines.scans--> 枚では、12<!--m:synthetic_kinks.sines.reported--> 件の折れを
+- 最小曲率半径が 1.6〜1.8<!--m:synthetic_kinks.sines.tightest_radius_w_range--> $W$ の正弦波状の蛇行 4<!--m:synthetic_kinks.sines.scans--> 枚では、11<!--m:synthetic_kinks.sines.reported--> 件の折れを
   報告した。半径が約 $2.9\,W$ を下回ると窓の中だけで 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度を超えて回り、
   曲率が急に変わる場所では脇の回転でそれを打ち消しきれないためである。
 - 以前の折れ線規則は、同じ円弧と蛇行で 31<!--m:synthetic_kinks.old_rule.arcs_sines_reported--> 件を報告した（実験 synthetic_kinks）。
@@ -655,14 +678,11 @@ turn_maxima）。
 判定に使う超過回転とは別に測るためである。また強く折れ曲がった繊維では、その
 繊維自身のキンクがノイズ床を押し上げる。失われた明瞭なキンクはそうした繊維に
 あった。合成データの掃引では、ノイズ床が直線・円弧・正弦波の繊維の偽の折れを変えたのは、
-最も粗い画素サイズと最も強いノイズの条件だけで、1<!--n:definition--> µm あたり 5.3<!--m:kink_rule_sweep.W3.n0.30.base.fp_per_um--> から 2.3<!--m:kink_rule_sweep.W3.n0.30.k3.fp_per_um--> に
-減らした。そこでは偽の折れの多くが、繊維につながった背景のかたまりの上にあった（§4.8）。
-最も細かい画素サイズと最も強いノイズの条件（幅 11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px、画素ノイズ 0.30<!--n:value tried--> nm）では
-変えず、1<!--n:definition--> µm あたりの偽の折れはノイズ床なしで 2.2<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um-->、ありで 2.2<!--m:kink_rule_sweep.W16.n0.30.k3.fp_per_um--> で
-ある。ただしその条件では、報告してはならない 165<!--n:example--> 度の曲がりに報告した折れを
-9<!--m:kink_rule_sweep.W16.n0.30.base.kink165_reported--> から 4<!--m:kink_rule_sweep.W16.n0.30.k3.kink165_reported--> に減らした。見つかるコーナーを変えたのは、
-最も粗い画素サイズと最も強いノイズの条件だけで、そこで対応が付いた 1<!--n:count--> つのコーナーを
-落とした（ノイズ床なしで 1<!--m:kink_rule_sweep.W3.n0.30.base.kinked_found-->、ありで 0<!--m:kink_rule_sweep.W3.n0.30.k3.kinked_found-->。§4.8）。
+最も細かい画素サイズと最も強いノイズの条件（幅 11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px、画素ノイズ 0.30<!--n:value tried--> nm）だけで、
+1<!--n:definition--> µm あたり 5.4<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> から 3.3<!--m:kink_rule_sweep.W16.n0.30.k3.fp_per_um--> に減らした。その条件で、報告してはならない 165<!--n:example--> 度の
+曲がりに報告した折れは変えなかった（ノイズ床なしで 4<!--m:kink_rule_sweep.W16.n0.30.base.kink165_reported-->、ありで 4<!--m:kink_rule_sweep.W16.n0.30.k3.kink165_reported-->）。見つかる
+コーナーはどの条件でも変えなかった。たとえば最も粗い画素サイズと最も強いノイズの条件
+では、ノイズ床なしで 3<!--m:kink_rule_sweep.W3.n0.30.base.kinked_found-->、ありで 3<!--m:kink_rule_sweep.W3.n0.30.k3.kinked_found--> つ見つかった（§4.8）。
 
 ### 4.8 掃引で規則が働いた範囲
 
@@ -670,32 +690,28 @@ turn_maxima）。
 実際に測った $W$ である。各コーナーは 3<!--c:scripts/kink_rule_sweep.py::len(NOISES_NM)--> つのノイズ水準と 2<!--c:scripts/kink_rule_sweep.py::len(SEEDS)--> つのシードで
 描き、角度と幅ごとに 6<!--m:kink_rule_sweep.W5.kink120.cases--> 枚である。
 
-- 3<!--m:kink_rule_sweep.W5.measured_width_px--> px では、内角 120<!--n:example--> 度と 145<!--n:example--> 度のコーナーはすべて見つかり（6<!--m:kink_rule_sweep.W5.kink145.cases--> 枚中
-  6<!--m:kink_rule_sweep.W5.kink120.found--> 枚と 6<!--m:kink_rule_sweep.W5.kink145.found--> 枚）、140<!--n:example--> 度は 6<!--m:kink_rule_sweep.W5.kink140.cases--> 枚中 4<!--m:kink_rule_sweep.W5.kink140.found--> 枚であった。見落とした 140<!--n:example--> 度の例
-  でもコーナーを含む繊維は途切れずに追跡されていたので、見落としは追跡ではなく
-  規則の側で起きている。140<!--n:example--> 度が 145<!--n:example--> 度より見つかりにくかった原因は特定して
-  いない。
-- 5.5<!--m:kink_rule_sweep.W8.measured_width_px--> px では、すべてのコーナーが見つかった（6<!--m:kink_rule_sweep.W8.kink140.cases--> 枚中 6<!--m:kink_rule_sweep.W8.kink120.found-->・6<!--m:kink_rule_sweep.W8.kink140.found-->・6<!--m:kink_rule_sweep.W8.kink145.found--> 枚）。
+- 3.5<!--m:kink_rule_sweep.W5.measured_width_px--> px では、すべてのコーナーが見つかった（6<!--m:kink_rule_sweep.W5.kink145.cases--> 枚中 6<!--m:kink_rule_sweep.W5.kink120.found-->・6<!--m:kink_rule_sweep.W5.kink140.found-->・6<!--m:kink_rule_sweep.W5.kink145.found--> 枚）。
+- 5.75<!--m:kink_rule_sweep.W8.measured_width_px--> px では、すべてのコーナーが見つかった（6<!--m:kink_rule_sweep.W8.kink140.cases--> 枚中 6<!--m:kink_rule_sweep.W8.kink120.found-->・6<!--m:kink_rule_sweep.W8.kink140.found-->・6<!--m:kink_rule_sweep.W8.kink145.found--> 枚）。
 - 11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px では、各角度とも 6<!--m:kink_rule_sweep.W16.kink140.cases--> 枚中 5<!--m:kink_rule_sweep.W16.kink120.found-->・5<!--m:kink_rule_sweep.W16.kink140.found-->・5<!--m:kink_rule_sweep.W16.kink145.found--> 枚であった。画素ノイズ 0.15<!--n:value tried--> nm
-  まではすべて見つかり、0.30<!--n:value tried--> nm では 2<!--c:scripts/kink_rule_sweep.py::len(SEEDS)--> 枚中 1<!--m:kink_rule_sweep.W16.n0.30.kink120.found--> 枚であった。このノイズでは、ほぼ
-  水平な腕が高さ画像そのものの中で途切れて描かれ、追跡は繊維を多数の断片に
-  分け、偽の折れがその腕に集まった。同じ設定の直線・円弧・正弦波の繊維では、
-  規則は 1<!--n:definition--> µm あたり 2.2<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> 件の偽の折れを報告した。
-- 細かい方の 3<!--n:count--> つの画素サイズでは、画素ノイズ 0.15<!--n:value tried--> nm までの直線・円弧・蛇行の
-  偽陽性は 1<!--m:kink_rule_sweep.W5.n0.05.base.reported_on_smooth--> つだけであった（3<!--m:kink_rule_sweep.W5.measured_width_px--> px の設定、ノイズ 0.05<!--n:value tried--> nm）。描いてみると、
-  背景の小片が繊維の端につながった、円弧の端にある。165<!--n:example--> 度の曲がりには無かった。
-- 掃引で最も粗い画素サイズ（5.2<!--c:scripts/kink_rule_sweep.py::APPARENT_WIDTH_NM|v / 3--> nm。繊維が占める画素は 3<!--m:kink_rule_sweep.W5.measured_width_px--> px の設定より
-  少ない）では、幅は 2<!--c:lib/centerline.py::_MIN_WIDTH_PX--> px 未満と測られて 2<!--m:kink_rule_sweep.W3.measured_width_px--> px に引き上げられた。対応が付いた
-  コーナーは、画素ノイズ 0.30<!--n:value tried--> nm での 145<!--n:example--> 度のコーナー 1<!--n:count--> つだけである（6<!--m:kink_rule_sweep.W3.kink145.cases--> 枚中
-  1<!--m:kink_rule_sweep.W3.kink145.found--> 枚。120<!--n:example--> 度と 140<!--n:example--> 度のコーナーは一つも無い）。描いてみると、対応した
-  点はコーナーそのものの上にあるが、それが属するトラックは途切れた水平の腕を途中まで
-  たどったあと腕を離れてノイズの中をさまよい、腕の上と離れた後に他の折れをいくつも
-  持つ。そのトラックの大部分は本物の繊維の上にあり、偽なのは末尾と、対応した折れ以外の
-すべての折れである。規則は、どのノイズの水準でも直線・円弧・正弦波の繊維に 1<!--n:definition--> µm
-  あたり 1.1<!--m:kink_rule_sweep.W3.n0.15.base.fp_per_um-->〜5.3<!--m:kink_rule_sweep.W3.n0.30.base.fp_per_um--> 件の偽の折れを報告し、165<!--n:example--> 度の曲がりにも折れを報告した。0.30<!--n:value tried--> nm では、
-  描いてみると、その多くが、二値化が繊維につながったまま残した背景のかたまりの上にあった。
-  直線の繊維 1<!--n:count--> 枚と 120<!--n:example--> 度のコーナー 1<!--n:count--> 枚を描いてみると、折れはまっすぐな区間の上と、
-  コーナーの頂点ではなくその周りにあった。
+  まではすべて見つかり、0.30<!--n:value tried--> nm では 2<!--c:scripts/kink_rule_sweep.py::len(SEEDS)--> 枚中 1<!--m:kink_rule_sweep.W16.n0.30.kink120.found--> 枚であった。このノイズでは、描いて
+  みると、生の走査では途切れていないほぼ水平な腕の高さの大部分を背景補正が取り除いた。
+  そのうち 1<!--n:count--> 枚では、繊維マスクが腕の一部しか覆わず、マスクした画素を最寄りの
+  マスク外の画素（腕そのものの上にある）で埋めたため、腕の高さのほぼすべてが背景に
+  入った。腕が沿って走る走査線の方向の平滑化はそれを背景に残したが、走査を
+  90<!--n:value tried--> 度回すと、同じ平滑化がその大部分を背景から取り除いた。この走査には
+  `background_warnings` が警告を出していた（`flank_step_low` と `relief_absorbed`）。
+  追跡はその腕を多数の断片に分け、偽の折れがその腕に集まった。同じ設定の直線・
+  円弧・正弦波の繊維では、規則は 1<!--n:definition--> µm あたり 5.4<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> 件の偽の折れを報告した。
+- 細かい方の 3<!--n:count--> つの画素サイズでは、画素ノイズ 0.15<!--n:value tried--> nm までの直線・円弧・蛇行に
+  偽陽性は無く、165<!--n:example--> 度の曲がりにも無かった。
+- 掃引で最も粗い画素サイズ（5.2<!--c:scripts/kink_rule_sweep.py::APPARENT_WIDTH_NM|v / 3--> nm。繊維が占める画素は 3.5<!--m:kink_rule_sweep.W5.measured_width_px--> px の設定より
+  少ない）では、幅は 2<!--c:lib/centerline.py::_MIN_WIDTH_PX--> px 未満と測られて 2<!--m:kink_rule_sweep.W3.measured_width_px--> px に引き上げられた。120<!--n:example--> 度の
+  コーナーは 6<!--m:kink_rule_sweep.W3.kink120.cases--> 枚中 6<!--m:kink_rule_sweep.W3.kink120.found--> 枚、145<!--n:example--> 度は 5<!--m:kink_rule_sweep.W3.kink145.found--> 枚、140<!--n:example--> 度は 2<!--m:kink_rule_sweep.W3.kink140.found--> 枚で見つかった。描いてみると、
+  140<!--n:example--> 度の 6<!--n:count--> 枚はどれもコーナーを途切れずに追跡しており、そこで規則が報告した
+  ほかの折れはまっすぐな腕の上と繊維の端にある。幅が 2<!--m:kink_rule_sweep.W3.measured_width_px--> px なので、判定しないのは
+  トラック端から 3<!--x:1.5 * 2--> px 以内の折れだけである。直線・円弧・正弦波の繊維には、どのノイズの
+  水準でも 1<!--n:definition--> µm あたり 1.0<!--m:kink_rule_sweep.W3.n0.15.base.fp_per_um-->〜1.9<!--m:kink_rule_sweep.W3.n0.05.base.fp_per_um--> 件の偽の折れを報告し、165<!--n:example--> 度の曲がりには
+  0.30<!--n:value tried--> nm で 1<!--m:kink_rule_sweep.W3.n0.30.base.kink165_reported--> 件報告した。
 
 ### 4.9 端の範囲
 
@@ -705,8 +721,11 @@ turn_maxima）。
 
 端の範囲を $1.0\,W$ にすると、同梱スキャンの誤検出は 68<!--m:kink_reference.default.false--> 件から 88<!--m:kink_reference.sens_end_1.false--> 件に
 増え、明瞭なキンクの検出は 1<!--n:count--> 件も増えなかった。$2.0\,W$ にすると誤検出は
-52<!--m:kink_reference.sens_end_2.false--> 件に減ったが、既定では判定していた端から 2<!--n:value tried--> $W$ の合成コーナー
-（2<!--m:synthetic_kinks.end_cases_per_distance--> 件中 2<!--m:synthetic_kinks.margin_default.end2W.corners_judged--> 件）を判定しなくなった（0<!--m:synthetic_kinks.margin_2W.end2W.corners_judged--> 件）。同梱スキャンで判定しな
+52<!--m:kink_reference.sens_end_2.false--> 件に減り、明瞭なキンクの検出は同じ 50<!--m:kink_reference.sens_end_2.found--> 件であった。端から 1.5<!--n:value tried--> $W$ の
+合成コーナーは、既定で 2<!--m:synthetic_kinks.end_cases_per_distance--> 件中 1<!--m:synthetic_kinks.margin_default.end1.5W.corners_judged--> 件、$2.0\,W$ で 0<!--m:synthetic_kinks.margin_2W.end1.5W.corners_judged--> 件を判定した。端から 2<!--n:value tried--> $W$ の
+合成コーナーは、既定で 2<!--m:synthetic_kinks.end_cases_per_distance--> 件中 1<!--m:synthetic_kinks.margin_default.end2W.corners_judged--> 件、$2.0\,W$ で 1<!--m:synthetic_kinks.margin_2W.end2W.corners_judged--> 件を判定した。描いてみると、
+各組のうちどちらの範囲でも判定しなかった走査では、短い腕の追跡が繊維の端より手前で
+終わり、コーナーがトラック端から $1.5\,W$ 以内に入っている。同梱スキャンで判定しな
 かった 49<!--m:kink_reference.default.unjudged--> 件の折れには、明瞭な基準キンクに当たるものは無かった。
 
 ### 4.10 頂点高さと中心線上の高さ

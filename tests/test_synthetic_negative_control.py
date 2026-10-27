@@ -128,15 +128,22 @@ def _kinked_cases():
     Cases with exactly one kink of a known interior angle at a known place.
     既知の内角の折れを、既知の位置にちょうど 1 点だけ持つケース。
 
-    145 degrees sits below the pipeline's 150 degree default and must be found;
+    140 degrees sits below the pipeline's 150 degree default and must be found;
     165 degrees sits above it and must not be. Asserting only the first would
-    be the recovery-only metric that any loosened threshold improves.
-    145 度はパイプラインの既定 150 度を下回るので検出されなければならず、
+    be the recovery-only metric that any loosened threshold improves. The
+    found case turns by 40 degrees, the turn the synthetic suite calls a clear
+    kink, because the probe and the centerline round a sharp corner and the
+    rule reads its turn low: a 35 degree turn reads on either side of the
+    30 degree threshold depending on the noise seed.
+    140 度はパイプラインの既定 150 度を下回るので検出されなければならず、
     165 度は上回るので検出されてはならない。前者だけを検証するのは、しきい値を
-    緩めれば必ず改善する「回収率のみの指標」になってしまう。
+    緩めれば必ず改善する「回収率のみの指標」になってしまう。検出させるケースを
+    合成一式が明瞭なキンクとする 40 度の回転にしているのは、探針と中心線が鋭い
+    コーナーを丸め、規則がその回転を小さく読むためである。35 度の回転は、
+    ノイズのシードによって 30 度のしきい値のどちら側にも読まれる。
     """
     return {
-        "kink_145deg": ([sf.kinked_centerline(LENGTH_NM, 145.0, **_GEOM)], {}),
+        "kink_140deg": ([sf.kinked_centerline(LENGTH_NM, 140.0, **_GEOM)], {}),
         "gentle_165deg": ([sf.kinked_centerline(LENGTH_NM, 165.0, **_GEOM)], {}),
     }
 
@@ -234,10 +241,10 @@ def test_a_smooth_fiber_carries_no_kink(analyzed, case):
 @pytest.mark.slow
 def test_the_known_kink_is_found_where_it_is(analyzed):
     """
-    The one 145 degree bend must be reported, and at its own position.
-    145 度の折れ 1 点は報告されなければならず、その位置で報告されねばならない。
+    The one 140 degree bend must be reported, and at its own position.
+    140 度の折れ 1 点は報告されなければならず、その位置で報告されねばならない。
     """
-    scan, fibers = analyzed["kink_145deg"]
+    scan, fibers = analyzed["kink_140deg"]
     kx, ky = _detected_kinks_xy(fibers)
     tx, ty = scan.true_kinks_xy
     assert tx.size == 1
