@@ -24,6 +24,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a twentieth of the height the crest read at most 3 % high and every width
   held (`docs/validation.md` §4.15–§4.17). None
   of the bundled scans is warned. Analysis results do not change.
+- The READMEs, `docs/algorithms.md` and `docs/validation.md` §4.5 state that
+  the angle stored for a kink includes the fiber's own turning between the two
+  arms it is read from, whose centres lie two apparent widths apart: on
+  synthetic corners placed on fibers curving at a radius of 40 px (apparent
+  width 5.75 px) the stored angle read 16° sharper or 20° blunter. Analysis
+  results do not change.
 - The READMEs and `docs/validation.md` §6.2 state that the fibers GUI04's
   「非孤立を除外」 keeps are not a fair sample of fiber lengths: among straight
   segments placed at random, the median length of the isolated ones was 9 % to

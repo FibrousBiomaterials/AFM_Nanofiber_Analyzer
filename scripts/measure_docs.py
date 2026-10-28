@@ -2870,6 +2870,178 @@ def test_suite_bend() -> dict:
     return {"drawn_turn_deg": turn, "read_excess_deg": read, "read_interior_deg": 180.0 - read}
 
 
+ARC_KINK_TURNS_DEG = (40, 60, 90)
+ARC_KINK_RADII_W = (10, 5, 3)
+ARC_KINK_ARC_TURN_DEG = 60.0
+ARC_KINK_SEEDS = (1, 2, 3, 4)
+
+
+def _arm_curvature_shares(fiber, aspect: float) -> list:
+    """
+    Per kink of one fiber: the stored angle and the fiber's own turning between its arms.
+    1 本のファイバーのキンクごとに、保存角と両腕の間での繊維自体の回転を返す。
+
+    The fiber's own curvature is read on the flanks the kink rule reads
+    (0.75 W to 1.75 W from the bend), and counted only when both flanks curve the
+    same way (the smaller of the two rates); multiplied by the distance between
+    the arm centres it is the turning the arm angle carries besides the bend's
+    own. Positive when it makes the stored angle sharper.
+    """
+    import math
+    import numpy as np
+    from lib import kink_detector as kd
+
+    x = np.asarray(fiber.xtrack, float)
+    y = np.asarray(fiber.ytrack, float) * aspect
+    width = float(fiber.width_px)
+    profile = kd._heading_profile(x, y, width)
+    if profile is None or not len(fiber.kink_indices):
+        return []
+    orig, s, _length, sm, heading = profile
+    c = kd._CORE_WIDTHS * width
+    f = kd._FLANK_WIDTHS * width
+    gap = kd._ARM_GAP_WIDTHS * width
+    arm = kd._ARM_LENGTH_WIDTHS * width
+    indices = list(fiber.kink_indices) + list(getattr(fiber, "unjudged_indices", []))
+    pos = {int(i): float(s[np.argmin(np.abs(orig - i))]) for i in indices}
+    out = []
+    for i, stored in zip(fiber.kink_indices, fiber.kink_angles):
+        p = pos[int(i)]
+        sense = np.sign(np.interp(p + c, sm, heading) - np.interp(p - c, sm, heading))
+        before = [q for q in pos.values() if q < p]
+        after = [q for q in pos.values() if q > p]
+        left_lo = max(sm[0], p - gap - arm, (max(before) + gap) if before else -np.inf)
+        right_hi = min(sm[-1], p + gap + arm, (min(after) - gap) if after else np.inf)
+        span = 0.5 * ((p + gap) + right_hi) - 0.5 * (left_lo + (p - gap))
+        left = sense * (np.interp(p - c, sm, heading)
+                        - np.interp(max(sm[0], p - c - f), sm, heading)) / f
+        right = sense * (np.interp(min(sm[-1], p + c + f), sm, heading)
+                         - np.interp(p + c, sm, heading)) / f
+        if left > 0 and right > 0:
+            rate = min(left, right)
+        elif left < 0 and right < 0:
+            rate = max(left, right)
+        else:
+            rate = 0.0
+        out.append((math.degrees(float(stored)), math.degrees(rate * span)))
+    return out
+
+
+@experiment(
+    "kink_angle_on_arcs",
+    ["lib/pipeline.py", "lib/kink_detector.py", "lib/centerline.py", "lib/measure.py"],
+    "A corner of known turning (40, 60 and 90 degrees) placed on a fiber that curves at "
+    "radius ARC_KINK_RADII_W apparent widths (ARC_KINK_ARC_TURN_DEG degrees on each side "
+    "of the corner, then straight), curving the same way as the corner or the opposite "
+    "way, and on a straight fiber; the fiber and background of scripts/kink_rule_sweep.py "
+    "at a designed width of 8 px, 0.05 nm pixel noise, seeds ARC_KINK_SEEDS, analyzed at "
+    "the defaults. The stored angle of the kink nearest the corner (within 1.5 W) minus "
+    "the interior angle between the tangents at the corner, per radius and sense; and "
+    "2 W / R, the fiber's own turning between arm centres 2 W apart. Per bundled scan "
+    "analyzed at the defaults: the fiber's own turning between the arms of each kink "
+    "(read on the flanks of the kink rule, counted when both curve the same way).",
+)
+def kink_angle_on_arcs() -> dict:
+    import math
+    import numpy as np
+    import kink_reference_score as krs
+    import kink_rule_sweep as sweep
+    import synthetic_fibers as sf
+    from lib import measure
+    from lib.pipeline import ProcParams, process_file
+
+    nm_per_px = sweep.APPARENT_WIDTH_NM / 8.0
+    shape = sweep._shape_for(nm_per_px)
+    step = sf.CENTERLINE_STEP_PX * nm_per_px
+    out = cache_dir("kink_angle_on_arcs")
+    out.mkdir(parents=True, exist_ok=True)
+
+    def corner_on_arc(turn_deg, radius_w, sense):
+        k = 0.0 if radius_w is None else sense / (radius_w * sweep.APPARENT_WIDTH_NM)
+        s = np.arange(step, sweep.LENGTH_NM / 2.0 + 1e-9, step)
+        arc_nm = (math.inf if radius_w is None
+                  else radius_w * sweep.APPARENT_WIDTH_NM * math.radians(ARC_KINK_ARC_TURN_DEG))
+        sk = np.minimum(s, arc_nm)
+        half = math.radians(turn_deg) / 2.0
+        h = sk * k + half
+        after = np.cumsum(np.column_stack([np.cos(h), np.sin(h)]) * step, axis=0)
+        h = -sk * k - half
+        before = -np.cumsum(np.column_stack([np.cos(h), np.sin(h)]) * step, axis=0)
+        pts = np.vstack([before[::-1], [[0.0, 0.0]], after])
+        pts -= pts.mean(0)
+        x, y = sf._place(pts[:, 0], pts[:, 1], shape=shape, nm_per_px=nm_per_px,
+                         angle_deg=23.0, center_px=None)
+        return sf.Centerline(x, y, np.array([len(s)], np.int64),
+                             np.array([180.0 - turn_deg]), "kinked", float("inf"))
+
+    values: dict = {}
+    widths = []
+    for radius_w in (None,) + ARC_KINK_RADII_W:
+        for sense, label in (((1, "straight"),) if radius_w is None
+                             else ((1, f"r{radius_w}.same"), (-1, f"r{radius_w}.opposite"))):
+            errors, cases = [], 0
+            for turn in ARC_KINK_TURNS_DEG:
+                for seed in ARC_KINK_SEEDS:
+                    cases += 1
+                    stem = f"t{turn}_r{radius_w}_s{sense}_seed{seed}"
+                    scan = sf.render_scan([corner_on_arc(turn, radius_w, sense)], shape=shape,
+                                          nm_per_px=nm_per_px,
+                                          fiber_diameter_nm=sweep.FIBER_DIAMETER_NM,
+                                          tip_radius_nm=sweep.TIP_RADIUS_NM, noise_nm=0.05,
+                                          seed=seed, **sweep.BACKGROUND)
+                    txt = sf.write_afm_text(scan, str(out / (stem + ".txt")))
+                    bundle = out / (stem + ".b2z")
+                    if not bundle.is_file():
+                        bundle = Path(process_file(txt, ProcParams(), scan_size_um=scan.scan_size_um,
+                                                   scan_size_source="manual",
+                                                   output_dir=str(out)).bundle_path)
+                    image = measure.load_tracking_image(str(bundle), nm_per_px, nm_per_px)
+                    tx, ty = scan.true_kinks_xy
+                    best = None
+                    for fiber in image.fibers_in_image_parallel():
+                        widths.append(float(fiber.width_px))
+                        x = np.asarray(fiber.xtrack, float) + float(fiber.data[0])
+                        y = np.asarray(fiber.ytrack, float) + float(fiber.data[1])
+                        for k, angle in zip(fiber.kink_indices, fiber.kink_angles):
+                            d = math.hypot(x[k] + 0.5 - tx[0], y[k] + 0.5 - ty[0])
+                            if d <= 1.5 * fiber.width_px and (best is None or d < best[0]):
+                                best = (d, math.degrees(float(angle)))
+                    if best is not None:
+                        errors.append(best[1] - (180.0 - turn))
+            values[f"{label}.found"] = len(errors)
+            values[f"{label}.cases"] = cases
+            if errors:
+                values[f"{label}.median_error_deg"] = float(np.median(errors))
+                values[f"{label}.error_range_deg"] = [float(min(errors)), float(max(errors))]
+    width_px = float(np.median(widths))
+    values["measured_width_px"] = width_px
+    for radius_w in ARC_KINK_RADII_W:
+        values[f"r{radius_w}.predicted_deg"] = math.degrees(
+            2.0 * width_px * nm_per_px / (radius_w * sweep.APPARENT_WIDTH_NM))
+
+    pooled = []
+    for name, rel in krs.SCANS.items():
+        _default_bundle(rel)
+        bundle = cache_dir("kink_reference_half_max_025w") / (Path(rel).stem + ".b2z")
+        # Every distance here is in pixels and widths, so the pixel size is irrelevant.
+        image = measure.load_tracking_image(str(bundle), 1.0, 1.0)
+        aspect = float(image.pixel_aspect)
+        shares = [added for fiber in image.fibers_in_image_parallel()
+                  for _stored, added in _arm_curvature_shares(fiber, aspect)]
+        pooled += shares
+        a = np.abs(shares)
+        values[f"{name}.kinks"] = len(shares)
+        values[f"{name}.over_10_deg"] = int(np.sum(a > 10.0))
+        values[f"{name}.max_abs_deg"] = float(a.max()) if a.size else None
+    a = np.abs(pooled)
+    values["bundled.kinks"] = len(pooled)
+    values["bundled.median_abs_deg"] = float(np.median(a))
+    values["bundled.over_5_deg"] = int(np.sum(a > 5.0))
+    values["bundled.over_10_deg"] = int(np.sum(a > 10.0))
+    values["bundled.max_abs_deg"] = float(a.max())
+    return values
+
+
 @experiment(
     "border_drift",
     ["lib/pipeline.py", "lib/skeletonizer.py", "lib/measure.py"],

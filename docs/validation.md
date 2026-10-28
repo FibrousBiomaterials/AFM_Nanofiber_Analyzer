@@ -722,6 +722,34 @@ the 3<!--c:scripts/kink_rule_sweep.py::len(NOISES_NM)--> noise levels, was:
 
 At 11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px the excess was the closer of the two.
 
+The arms also carry the fiber's own turning between their centres, which lie
+$2\,W$ apart when neither arm is cut short, and nothing is subtracted for it. A corner
+of 40<!--n:value tried-->°, 60<!--n:value tried-->° or 90<!--n:value tried-->° turning was placed on a fiber that curves at radius $R$ on both
+sides of it (60<!--c:scripts/measure_docs.py::ARC_KINK_ARC_TURN_DEG-->° of arc on each side, then straight), the same way as the corner or
+the opposite way, and on a straight fiber, with the fiber and background of the
+sweep above at a designed width of 8<!--n:value tried--> px (measured $W$ = 5.75<!--m:kink_angle_on_arcs.measured_width_px--> px), 4<!--c:scripts/measure_docs.py::len(ARC_KINK_SEEDS)--> seeds each
+(experiment kink_angle_on_arcs). The median of the stored angle minus the
+interior angle between the tangents at the corner, with the corners found out
+of those placed:
+
+| $R$ (px) | $2W/R$ | Fiber curving the same way | Fiber curving the opposite way |
+|---|---|---|---|
+| — | — | +1.3<!--m:kink_angle_on_arcs.straight.median_error_deg-->° (12<!--m:kink_angle_on_arcs.straight.found-->/12<!--m:kink_angle_on_arcs.straight.cases-->) | — |
+| 80<!--x:10 * 8--> | 8.2<!--m:kink_angle_on_arcs.r10.predicted_deg-->° | −7.6<!--m:kink_angle_on_arcs.r10.same.median_error_deg-->° (8<!--m:kink_angle_on_arcs.r10.same.found-->/12<!--m:kink_angle_on_arcs.r10.same.cases-->) | +9.2<!--m:kink_angle_on_arcs.r10.opposite.median_error_deg-->° (12<!--m:kink_angle_on_arcs.r10.opposite.found-->/12<!--m:kink_angle_on_arcs.r10.opposite.cases-->) |
+| 40<!--x:5 * 8--> | 16.5<!--m:kink_angle_on_arcs.r5.predicted_deg-->° | −16.0<!--m:kink_angle_on_arcs.r5.same.median_error_deg-->° (12<!--m:kink_angle_on_arcs.r5.same.found-->/12<!--m:kink_angle_on_arcs.r5.same.cases-->) | +19.7<!--m:kink_angle_on_arcs.r5.opposite.median_error_deg-->° (8<!--m:kink_angle_on_arcs.r5.opposite.found-->/12<!--m:kink_angle_on_arcs.r5.opposite.cases-->) |
+| 24<!--x:3 * 8--> | 27.5<!--m:kink_angle_on_arcs.r3.predicted_deg-->° | −27.0<!--m:kink_angle_on_arcs.r3.same.median_error_deg-->° (12<!--m:kink_angle_on_arcs.r3.same.found-->/12<!--m:kink_angle_on_arcs.r3.same.cases-->) | +31.0<!--m:kink_angle_on_arcs.r3.opposite.median_error_deg-->° (8<!--m:kink_angle_on_arcs.r3.opposite.found-->/12<!--m:kink_angle_on_arcs.r3.opposite.cases-->) |
+
+A fiber curving the same way as the corner made the stored angle sharper, one
+curving the opposite way blunter, by about $2W/R$.
+
+On the three bundled scans that turning was read for every kink on the flanks
+the kink rule reads, and counted when both flanks curve the same way: over
+139<!--m:kink_angle_on_arcs.bundled.kinks--> kinks its median was 0<!--m:kink_angle_on_arcs.bundled.median_abs_deg-->°, it exceeded 10<!--n:value tried-->° at 19<!--m:kink_angle_on_arcs.bundled.over_10_deg--> and reached 65<!--m:kink_angle_on_arcs.bundled.max_abs_deg-->°. Rendered over
+the calibrated height image, none of the 12<!--n:number rendered--> kinks with the largest turning was a
+corner on a smoothly curving fiber: they lay at crossings or junctions, on
+faint strands and tangles, where a fiber ran into background texture, beside a
+particle, and on a thin fiber with a step beside a crossing.
+
 ### 4.6 Synthetic shapes
 
 - On synthetic zigzags, corners 1.5–3<!--n:value tried--> $W$ apart were all found

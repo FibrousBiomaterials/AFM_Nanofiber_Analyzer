@@ -1265,6 +1265,19 @@ test suite instead of degrading silently in the launcher.
   closely, and GUI01 and `cli.py process` warn when the typical fiber height is
   less than 20 times the pixel noise; see
   [Evaluation on particular data](docs/validation.md) §4.15–§4.17.
+- The angle stored for a kink is read between two arms whose centres lie two
+  apparent widths apart, and the fiber's own turning between them is not
+  subtracted. On a fiber that curves around the kink, the angle therefore reads
+  sharper where the fiber curves the same way as the kink and blunter where it
+  curves the opposite way, by about two apparent widths divided by the radius
+  (in radians): on synthetic corners placed on fibers curving at a radius of
+  40 px, with an apparent width of 5.75 px, 16° sharper and 20° blunter.
+  Whether a bend is a kink does not depend on it, because the kink rule
+  subtracts the fiber's own curvature before it judges. On the bundled scans the
+  median of this turning over all kinks was 0°, and the kinks where it was
+  largest lay at crossings, on faint strands and tangles, and where a fiber runs
+  into background texture, rather than on smoothly curving fibers; see
+  [Evaluation on particular data](docs/validation.md) §4.5.
 - The graphical tools require a working Tk installation and are primarily
   developed and tested on Windows; the CLI and library are platform-independent.
 - The `.b2z` bundle is a project-specific container. Use `cli.py export` to read

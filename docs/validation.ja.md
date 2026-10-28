@@ -664,6 +664,31 @@ turn_maxima）。
 
 11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px では、超過回転の方が誤差が小さかった。
 
+腕は、両腕の中心の間での繊維自体の回転も含む。腕が打ち切られなければ両腕の中心は
+$2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:value tried-->°・60<!--n:value tried-->°・90<!--n:value tried-->° の角を、両側で半径 $R$ で
+曲がる繊維（角の両側にそれぞれ 60<!--c:scripts/measure_docs.py::ARC_KINK_ARC_TURN_DEG-->° の円弧、その先は直線）の上に、角と同じ向きに曲がる
+場合と逆向きに曲がる場合について置き、まっすぐな繊維の上にも置いた。繊維と背景は
+上のスイープと同じで、設計上の幅は 8<!--n:value tried--> px（測定した $W$ = 5.75<!--m:kink_angle_on_arcs.measured_width_px--> px）、種は各 4<!--c:scripts/measure_docs.py::len(ARC_KINK_SEEDS)--> 個である
+（実験 kink_angle_on_arcs）。保存された角から角の頂点での接線のなす内角を引いた値の
+中央値と、置いた角のうち見つかった数を示す。
+
+| $R$ (px) | $2W/R$ | 角と同じ向きに曲がる繊維 | 角と逆向きに曲がる繊維 |
+|---|---|---|---|
+| — | — | +1.3<!--m:kink_angle_on_arcs.straight.median_error_deg--> 度 (12<!--m:kink_angle_on_arcs.straight.found-->/12<!--m:kink_angle_on_arcs.straight.cases-->) | — |
+| 80<!--x:10 * 8--> | 8.2<!--m:kink_angle_on_arcs.r10.predicted_deg--> 度 | −7.6<!--m:kink_angle_on_arcs.r10.same.median_error_deg--> 度 (8<!--m:kink_angle_on_arcs.r10.same.found-->/12<!--m:kink_angle_on_arcs.r10.same.cases-->) | +9.2<!--m:kink_angle_on_arcs.r10.opposite.median_error_deg--> 度 (12<!--m:kink_angle_on_arcs.r10.opposite.found-->/12<!--m:kink_angle_on_arcs.r10.opposite.cases-->) |
+| 40<!--x:5 * 8--> | 16.5<!--m:kink_angle_on_arcs.r5.predicted_deg--> 度 | −16.0<!--m:kink_angle_on_arcs.r5.same.median_error_deg--> 度 (12<!--m:kink_angle_on_arcs.r5.same.found-->/12<!--m:kink_angle_on_arcs.r5.same.cases-->) | +19.7<!--m:kink_angle_on_arcs.r5.opposite.median_error_deg--> 度 (8<!--m:kink_angle_on_arcs.r5.opposite.found-->/12<!--m:kink_angle_on_arcs.r5.opposite.cases-->) |
+| 24<!--x:3 * 8--> | 27.5<!--m:kink_angle_on_arcs.r3.predicted_deg--> 度 | −27.0<!--m:kink_angle_on_arcs.r3.same.median_error_deg--> 度 (12<!--m:kink_angle_on_arcs.r3.same.found-->/12<!--m:kink_angle_on_arcs.r3.same.cases-->) | +31.0<!--m:kink_angle_on_arcs.r3.opposite.median_error_deg--> 度 (8<!--m:kink_angle_on_arcs.r3.opposite.found-->/12<!--m:kink_angle_on_arcs.r3.opposite.cases-->) |
+
+角と同じ向きに曲がる繊維では保存角が鋭く、逆向きに曲がる繊維では鈍くなり、その差は
+おおよそ $2W/R$ であった。
+
+同梱の 3<!--n:count--> スキャンでは、各キンクについてこの回転を、キンクの規則が読む脇で読み、
+両脇が同じ向きに曲がるときに数えた。139<!--m:kink_angle_on_arcs.bundled.kinks--> 個のキンクで中央値は 0<!--m:kink_angle_on_arcs.bundled.median_abs_deg--> 度、10<!--n:value tried--> 度を超えたのは
+19<!--m:kink_angle_on_arcs.bundled.over_10_deg--> 個、最大は 65<!--m:kink_angle_on_arcs.bundled.max_abs_deg--> 度であった。補正後の高さ画像に重ねて描くと、この回転が最も大きい
+12<!--n:number rendered--> 個のキンクに、なめらかに曲がる繊維の上の角は 1<!--n:count--> つもなかった。それらは交差や分岐、
+かすかな繊維や絡まり、繊維が背景の凹凸に入るところ、粒子の横、交差の横の段のある
+細い繊維の上にあった。
+
 ### 4.6 合成形状での結果
 
 - 合成ジグザグでは、1.5〜3<!--n:value tried--> $W$ 離れたコーナーはすべて見つかった

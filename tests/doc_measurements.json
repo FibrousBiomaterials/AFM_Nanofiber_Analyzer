@@ -500,6 +500,79 @@
     "n60.shorter_percent": 12.738998
    }
   },
+  "kink_angle_on_arcs": {
+   "description": "A corner of known turning (40, 60 and 90 degrees) placed on a fiber that curves at radius ARC_KINK_RADII_W apparent widths (ARC_KINK_ARC_TURN_DEG degrees on each side of the corner, then straight), curving the same way as the corner or the opposite way, and on a straight fiber; the fiber and background of scripts/kink_rule_sweep.py at a designed width of 8 px, 0.05 nm pixel noise, seeds ARC_KINK_SEEDS, analyzed at the defaults. The stored angle of the kink nearest the corner (within 1.5 W) minus the interior angle between the tangents at the corner, per radius and sense; and 2 W / R, the fiber's own turning between arm centres 2 W apart. Per bundled scan analyzed at the defaults: the fiber's own turning between the arms of each kink (read on the flanks of the kink rule, counted when both curve the same way).",
+   "snapshot": "337acb91f6befe75",
+   "values": {
+    "NDTOC.kinks": 65,
+    "NDTOC.max_abs_deg": 65.293768,
+    "NDTOC.over_10_deg": 14,
+    "bundled.kinks": 139,
+    "bundled.max_abs_deg": 65.293768,
+    "bundled.median_abs_deg": 0.0,
+    "bundled.over_10_deg": 19,
+    "bundled.over_5_deg": 29,
+    "hplantTOC.kinks": 6,
+    "hplantTOC.max_abs_deg": 24.910583,
+    "hplantTOC.over_10_deg": 1,
+    "measured_width_px": 5.75,
+    "r10.opposite.cases": 12,
+    "r10.opposite.error_range_deg": [
+     6.283507,
+     10.770622
+    ],
+    "r10.opposite.found": 12,
+    "r10.opposite.median_error_deg": 9.249763,
+    "r10.predicted_deg": 8.236268,
+    "r10.same.cases": 12,
+    "r10.same.error_range_deg": [
+     -10.442358,
+     -5.635368
+    ],
+    "r10.same.found": 8,
+    "r10.same.median_error_deg": -7.6342,
+    "r3.opposite.cases": 12,
+    "r3.opposite.error_range_deg": [
+     26.950548,
+     37.805155
+    ],
+    "r3.opposite.found": 8,
+    "r3.opposite.median_error_deg": 30.998887,
+    "r3.predicted_deg": 27.454228,
+    "r3.same.cases": 12,
+    "r3.same.error_range_deg": [
+     -28.680761,
+     -24.644819
+    ],
+    "r3.same.found": 12,
+    "r3.same.median_error_deg": -26.981297,
+    "r5.opposite.cases": 12,
+    "r5.opposite.error_range_deg": [
+     16.742065,
+     24.600279
+    ],
+    "r5.opposite.found": 8,
+    "r5.opposite.median_error_deg": 19.65049,
+    "r5.predicted_deg": 16.472537,
+    "r5.same.cases": 12,
+    "r5.same.error_range_deg": [
+     -18.757874,
+     -13.946986
+    ],
+    "r5.same.found": 12,
+    "r5.same.median_error_deg": -16.043477,
+    "straight.cases": 12,
+    "straight.error_range_deg": [
+     -2.677769,
+     3.198386
+    ],
+    "straight.found": 12,
+    "straight.median_error_deg": 1.312085,
+    "tunicate.kinks": 68,
+    "tunicate.max_abs_deg": 38.805176,
+    "tunicate.over_10_deg": 4
+   }
+  },
   "kink_reference": {
    "description": "Score the kink rule, its variants and the earlier polyline rule against the visual reference of clear kinks on the three bundled scans (scripts/kink_reference_score.py procedure).",
    "snapshot": "337acb91f6befe75",

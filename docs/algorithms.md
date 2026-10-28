@@ -2804,6 +2804,14 @@ to $p$ in arc length, and the kink position (`kp`) records the skeleton pixel
 corresponding to that point; when two bends fall on the same point, the one with
 the larger excess is kept.
 
+The two arms' directions differ by the bend's own turning and also by the
+fiber's own turning between the arm centres, which lie $2\,W$ apart when
+neither arm is cut short; nothing is subtracted for the latter. On a fiber that
+curves at radius $R$ around the bend, $\phi$ is therefore sharper than the angle
+between the tangents at the bend by about $2W/R$ rad where the fiber curves the
+same way as the bend, and blunter by as much where it curves the opposite way
+(measured in [Evaluation on particular data](validation.md) §4.5).
+
 `measure.compute_fiber_stats` converts the angles to degrees
 (`FiberStats.kink_angles_deg`), which is what the fiber CSV holds. The kinks
 along a fiber are distinct defect events, not repeated measurements of one
