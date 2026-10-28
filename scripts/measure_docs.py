@@ -2673,6 +2673,174 @@ def narrow_axis_fibers() -> dict:
     return values
 
 
+def _noisy_cylinder_scene(width_px: float, noise: float, shape: str, seed: int,
+                          diameter: float = 2.0, apex: float = 15.0):
+    """
+    One fiber point-sampled from a tip-dilated cylinder, with pixel noise.
+    探針で膨張させた円柱から点標本化した繊維 1 本に、画素ノイズを加えたもの。
+
+    The pixel size is chosen so that the fiber's apparent width is `width_px`.
+    The fiber runs straight at 20 degrees to the rows, or along an arc of radius
+    4 widths; returned with the pixel track of its true axis.
+    画素サイズは、繊維の見かけ幅が `width_px` になるように選ぶ。繊維は行に対して
+    20 度の直線、または半径 4 幅の円弧に沿い、真の軸の画素トラックと一緒に返す。
+    """
+    import math
+    import numpy as np
+
+    r = diameter / 2.0
+    nmpx = 2.0 * math.sqrt((r + apex) ** 2 - apex ** 2) / width_px
+    n = int(max(160, 14 * width_px))
+    yy, xx = np.mgrid[0:n, 0:n].astype(float) + 0.5
+    rng = np.random.default_rng(seed)
+    if shape == "line":
+        a = math.radians(20.0)
+        cx = cy = n / 2.0
+        d = np.abs(-(xx - cx) * math.sin(a) + (yy - cy) * math.cos(a))
+        t = np.arange(-0.3 * n, 0.3 * n, 0.5)
+        px, py = cx + t * math.cos(a), cy + t * math.sin(a)
+    else:
+        rad = 4.0 * width_px
+        cx, cy = n / 2.0, n / 2.0 + rad * 0.3
+        d = np.abs(np.hypot(xx - cx, yy - cy) - rad)
+        th = np.linspace(-0.6, 0.6, int(2.4 * rad)) - math.pi / 2.0
+        px, py = cx + rad * np.cos(th), cy + rad * np.sin(th)
+    img = np.maximum(r + np.sqrt(np.maximum((r + apex) ** 2 - (d * nmpx) ** 2, 0.0)) - apex,
+                     0.0) + rng.normal(0.0, noise, (n, n))
+    px, py = np.floor(px).astype(int), np.floor(py).astype(int)
+    keep = np.r_[True, (np.diff(px) != 0) | (np.diff(py) != 0)]
+    return img, px[keep].astype(float), py[keep].astype(float)
+
+
+# Crest heights under pixel noise: apparent widths, noise levels and seeds.
+# 画素ノイズのもとでの頂点高さ。見かけ幅、ノイズの大きさ、シード。
+CREST_NOISE_WIDTHS_PX = (3.0, 5.0, 8.0, 16.0, 24.0)
+CREST_NOISE_NM = (0.0, 0.05, 0.1, 0.2)
+CREST_NOISE_SEEDS = (0, 1, 2)
+
+
+@experiment(
+    "crest_noise",
+    ["lib/centerline.py"],
+    "A fiber point-sampled from a cylinder 2 nm in diameter dilated by a 15 nm "
+    "spherical apex (_noisy_cylinder_scene), straight at 20 degrees to the rows and "
+    "along an arc of radius 4 W, at each apparent width in CREST_NOISE_WIDTHS_PX and "
+    "pixel noise in CREST_NOISE_NM (3 seeds); the default centerline is placed on the "
+    "pixel track of the true axis. Per shape, width and noise: the median crest height "
+    "over the middle 60 % of the fiber minus the true height, averaged over the seeds.",
+)
+def crest_noise() -> dict:
+    import numpy as np
+    from lib.centerline import place_centerline
+
+    values: dict = {}
+    for shape in ("line", "arc"):
+        for w in CREST_NOISE_WIDTHS_PX:
+            for noise in CREST_NOISE_NM:
+                bias = []
+                for seed in CREST_NOISE_SEEDS:
+                    img, px, py = _noisy_cylinder_scene(w, noise, shape, seed)
+                    crest = place_centerline(img, px, py, None).crest
+                    m = crest.size
+                    bias.append(float(np.median(crest[int(0.2 * m):int(0.8 * m)])) - 2.0)
+                values[f"{shape}.W{w:g}.n{noise:g}_nm"] = float(np.mean(bias))
+    return values
+
+
+# Apparent widths under pixel noise: widths, noise levels and seeds.
+# 画素ノイズのもとでの見かけ幅。幅、ノイズの大きさ、シード。
+WIDTH_NOISE_WIDTHS_PX = (8.0, 16.0, 24.0, 32.0)
+WIDTH_NOISE_NM = (0.05, 0.1, 0.15, 0.2, 0.3)
+WIDTH_NOISE_SEEDS = (0, 1, 2)
+
+
+@experiment(
+    "width_noise",
+    ["lib/centerline.py"],
+    "The straight fiber of crest_noise (_noisy_cylinder_scene) at each apparent width "
+    "in WIDTH_NOISE_WIDTHS_PX and pixel noise in WIDTH_NOISE_NM (3 seeds): the "
+    "apparent width place_centerline measures and the share of centerline points "
+    "located on their own cross-section, averaged over the seeds.",
+)
+def width_noise() -> dict:
+    import numpy as np
+    from lib.centerline import place_centerline
+
+    values: dict = {}
+    for w in WIDTH_NOISE_WIDTHS_PX:
+        for noise in WIDTH_NOISE_NM:
+            measured, located = [], []
+            for seed in WIDTH_NOISE_SEEDS:
+                img, px, py = _noisy_cylinder_scene(w, noise, "line", seed)
+                placed = place_centerline(img, px, py, None)
+                measured.append(float(placed.width_px))
+                located.append(float(np.mean(placed.reliable)))
+            values[f"W{w:g}.n{noise:g}.width_px"] = float(np.mean(measured))
+            values[f"W{w:g}.n{noise:g}.located_percent"] = 100.0 * float(np.mean(located))
+    return values
+
+
+@experiment(
+    "noise_warning",
+    ["lib/pipeline.py"],
+    "pipeline.fiber_snr and pipeline.noise_warnings: the typical fiber height over the "
+    "pixel noise of every test input analyzed at the defaults, and, on the straight "
+    "fiber of crest_noise (_noisy_cylinder_scene, seed 0) at apparent widths of 8 and "
+    "24 px and each pixel noise in WIDTH_NOISE_NM, analyzed through process_file at the "
+    "defaults and with tophat at three widths, the ratio read, whether the warning was "
+    "raised, the skeleton pixels, the background warnings raised and the median "
+    "apparent width.",
+)
+def noise_warning() -> dict:
+    import tempfile
+    import numpy as np
+    from lib.pipeline import ProcParams, build_stages, fiber_snr, process_file
+    from lib.processed_image import ProcessedImage
+    import synthetic_fibers as sf
+
+    values: dict = {}
+    snrs = []
+    for name, rel in _all_test_inputs().items():
+        stages = build_stages(ProcParams())
+        image = ProcessedImage(_raw_scan(rel), name)
+        stages.bg_calibrator(image)
+        stages.segmenter(image)
+        stages.skeletonizer(image)
+        height, noise = fiber_snr(image)
+        values[f"{name}.snr"] = height / noise
+        snrs.append(height / noise)
+    values["inputs.snr_range"] = [min(snrs), max(snrs)]
+    with tempfile.TemporaryDirectory(dir=str(WORK)) as tmp:
+        for w in (8.0, 24.0):
+            for noise in WIDTH_NOISE_NM:
+                img, _px, _py = _noisy_cylinder_scene(w, noise, "line", 0)
+                nmpx = 2.0 * np.sqrt(16.0 ** 2 - 15.0 ** 2) / w
+                txt = str(Path(tmp) / f"W{w:g}_n{noise:g}.txt")
+                np.savetxt(txt, img, delimiter=",")
+                size_um = img.shape[1] * nmpx / 1000.0
+                # The defaults, and tophat with the element background_warnings
+                # suggests, the setting a wide fiber is analyzed again with.
+                # 既定の設定と、太い繊維を解析し直す設定である、background_warnings が
+                # 勧める構造要素での tophat。
+                settings = {"default": ProcParams(),
+                            "tophat": ProcParams(bg_method="tophat",
+                                                 tophat_se_size=int(round(3.0 * w)) | 1)}
+                for label, params in settings.items():
+                    result = process_file(txt, params, scan_size_um=(size_um, size_um),
+                                          scan_size_source="manual", output_dir=tmp)
+                    key = f"W{w:g}.n{noise:g}.{label}"
+                    read = fiber_snr(result.image)
+                    values[f"{key}.snr"] = read[0] / read[1] if read else None
+                    values[f"{key}.warned"] = int(bool(result.noise_warnings))
+                    values[f"{key}.skeleton_px"] = int(
+                        (np.asarray(result.image.skeleton_image) > 0).sum())
+                    values[f"{key}.background_warnings"] = sorted(
+                        {bw.reason for bw in result.background_warnings})
+                    summary = getattr(result.image, "apparent_width_summary", None) or {}
+                    values[f"{key}.width_px"] = summary.get("median_px")
+    return values
+
+
 @experiment(
     "test_suite_bend",
     ["lib/pipeline.py", "lib/kink_detector.py", "lib/centerline.py"],
@@ -3044,6 +3212,62 @@ def frame_margin() -> dict:
     values["all.changed_up_to_2"] = sum(
         values[f"{n}.margin_{m}.changed"] for n in krs.SCANS for m in (1, 2))
     values["all.changed_at_5"] = sum(values[f"{n}.margin_5.changed"] for n in krs.SCANS)
+    return values
+
+
+# Straight segments placed at random in a unit square: the counts per scene,
+# the median and spread of the log-normal lengths, and the scenes per count.
+# 単位正方形に無作為に置いた直線の線分。場面ごとの本数、対数正規の長さの中央値と
+# ばらつき、本数ごとの場面の数。
+ISOLATION_COUNTS = (20, 60, 150)
+ISOLATION_MEDIAN_LENGTH = 0.08
+ISOLATION_LOG_SIGMA = 0.6
+ISOLATION_SCENES = 200
+
+
+@experiment(
+    "isolation_length_bias",
+    [],
+    "Straight segments with log-normal lengths (median ISOLATION_MEDIAN_LENGTH, "
+    "log-sigma ISOLATION_LOG_SIGMA) placed at uniformly random centres and angles in a "
+    "unit square, ISOLATION_SCENES scenes per count in ISOLATION_COUNTS: the median "
+    "length of every segment against that of the isolated ones (no crossing with "
+    "another segment and wholly inside the square), and the share isolated, per "
+    "count.",
+)
+def isolation_length_bias() -> dict:
+    import numpy as np
+
+    rng = np.random.default_rng(0)
+
+    def crosses(p1, p2, q1, q2):
+        def side(a, b, c):
+            return (b[..., 0] - a[..., 0]) * (c[..., 1] - a[..., 1]) - \
+                (b[..., 1] - a[..., 1]) * (c[..., 0] - a[..., 0])
+        d1, d2 = side(q1, q2, p1), side(q1, q2, p2)
+        d3, d4 = side(p1, p2, q1), side(p1, p2, q2)
+        return (d1 * d2 < 0) & (d3 * d4 < 0)
+
+    values: dict = {}
+    for count in ISOLATION_COUNTS:
+        everything, isolated = [], []
+        for _ in range(ISOLATION_SCENES):
+            length = ISOLATION_MEDIAN_LENGTH * np.exp(rng.normal(0.0, ISOLATION_LOG_SIGMA, count))
+            centre = rng.uniform(0.0, 1.0, (count, 2))
+            angle = rng.uniform(0.0, np.pi, count)
+            half = 0.5 * length[:, None] * np.column_stack([np.cos(angle), np.sin(angle)])
+            a, b = centre - half, centre + half
+            inside = ((a >= 0) & (a <= 1) & (b >= 0) & (b <= 1)).all(axis=1)
+            hit = crosses(a[:, None], b[:, None], a[None, :], b[None, :])
+            np.fill_diagonal(hit, False)
+            alone = inside & ~hit.any(axis=1)
+            everything.extend(length.tolist())
+            isolated.extend(length[alone].tolist())
+        values[f"n{count}.all_median"] = float(np.median(everything))
+        values[f"n{count}.isolated_median"] = float(np.median(isolated))
+        values[f"n{count}.isolated_share_percent"] = 100.0 * len(isolated) / len(everything)
+        values[f"n{count}.shorter_percent"] = 100.0 * (
+            1.0 - values[f"n{count}.isolated_median"] / values[f"n{count}.all_median"])
     return values
 
 

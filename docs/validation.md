@@ -925,6 +925,77 @@ sign: it depends on the pixel size and on how the fiber ends, and a real scan
 does not show how its fibers end. These are free ends; an end cut at a
 crossing is the case of §4.11.
 
+### 4.15 Crest height under pixel noise
+
+A fiber point-sampled from a cylinder 2<!--n:value tried--> nm in diameter dilated by a spherical
+apex of radius 15<!--n:value tried--> nm was drawn straight at 20<!--n:value tried-->° to the rows and along an arc of
+radius 4<!--n:value tried--> $W$, at the pixel sizes that give each apparent width below, with pixel
+noise of 0<!--n:value tried-->, 0.05<!--n:value tried-->, 0.1<!--n:value tried--> and 0.2<!--n:value tried--> nm and 3<!--n:count--> seeds (experiment crest_noise). The default
+centerline was placed on the pixel track of the true axis, and the median crest
+height over the middle 60<!--n:definition--> % of the fiber was compared with the true height. On the
+straight fiber, the difference in nm:
+
+| Apparent width (px) | No noise | 0.05<!--n:value tried--> nm | 0.1<!--n:value tried--> nm | 0.2<!--n:value tried--> nm |
+|---|---|---|---|---|
+| 3<!--n:value tried--> | −0.050<!--m:crest_noise.line.W3.n0_nm--> | −0.046<!--m:crest_noise.line.W3.n0.05_nm--> | −0.041<!--m:crest_noise.line.W3.n0.1_nm--> | −0.007<!--m:crest_noise.line.W3.n0.2_nm--> |
+| 5<!--n:value tried--> | −0.020<!--m:crest_noise.line.W5.n0_nm--> | −0.011<!--m:crest_noise.line.W5.n0.05_nm--> | +0.007<!--m:crest_noise.line.W5.n0.1_nm--> | +0.061<!--m:crest_noise.line.W5.n0.2_nm--> |
+| 8<!--n:value tried--> | −0.008<!--m:crest_noise.line.W8.n0_nm--> | +0.006<!--m:crest_noise.line.W8.n0.05_nm--> | +0.030<!--m:crest_noise.line.W8.n0.1_nm--> | +0.087<!--m:crest_noise.line.W8.n0.2_nm--> |
+| 16<!--n:value tried--> | −0.002<!--m:crest_noise.line.W16.n0_nm--> | +0.016<!--m:crest_noise.line.W16.n0.05_nm--> | +0.042<!--m:crest_noise.line.W16.n0.1_nm--> | +0.097<!--m:crest_noise.line.W16.n0.2_nm--> |
+| 24<!--n:value tried--> | −0.001<!--m:crest_noise.line.W24.n0_nm--> | +0.026<!--m:crest_noise.line.W24.n0.05_nm--> | +0.060<!--m:crest_noise.line.W24.n0.1_nm--> | +0.175<!--m:crest_noise.line.W24.n0.2_nm--> |
+
+The crest of each section is the largest of the samples near its top, and with
+noise that lies above the top they scatter around, by more the flatter the top:
+the crest read high by more the noisier the scan and the wider the fiber, up to
++0.175<!--m:crest_noise.line.W24.n0.2_nm--> nm on the straight fiber and +0.190<!--m:crest_noise.arc.W24.n0.2_nm--> nm on the arc at 24<!--n:value tried--> px and 0.2<!--n:value tried--> nm. At
+0.05<!--n:value tried--> nm noise, a fortieth of the height, the largest difference was −0.048<!--m:crest_noise.arc.W3.n0.05_nm--> nm, on
+the arc at 3<!--n:value tried--> px, where the pixel grid limits the height (§1.9).
+
+### 4.16 Apparent width under pixel noise
+
+The straight fiber of §4.15 at apparent widths of 8<!--n:value tried--> to 32<!--n:value tried--> px and pixel noise of
+0.05<!--n:value tried--> to 0.3<!--n:value tried--> nm, 3<!--n:count--> seeds each (experiment width_noise): the width `place_centerline`
+measured, in px, and in brackets the share of centerline points located on their
+own cross-section:
+
+| Apparent width (px) | 0.05<!--n:value tried--> nm | 0.1<!--n:value tried--> nm | 0.15<!--n:value tried--> nm | 0.2<!--n:value tried--> nm | 0.3<!--n:value tried--> nm |
+|---|---|---|---|---|---|
+| 8<!--n:value tried--> | 7.75<!--m:width_noise.W8.n0.05.width_px--> (100<!--m:width_noise.W8.n0.05.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.1.width_px--> (100<!--m:width_noise.W8.n0.1.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.15.width_px--> (100<!--m:width_noise.W8.n0.15.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.2.width_px--> (100<!--m:width_noise.W8.n0.2.located_percent--> %) | 7.67<!--m:width_noise.W8.n0.3.width_px--> (100<!--m:width_noise.W8.n0.3.located_percent--> %) |
+| 16<!--n:value tried--> | 15.75<!--m:width_noise.W16.n0.05.width_px--> (100<!--m:width_noise.W16.n0.05.located_percent--> %) | 15.92<!--m:width_noise.W16.n0.1.width_px--> (100<!--m:width_noise.W16.n0.1.located_percent--> %) | 15.83<!--m:width_noise.W16.n0.15.width_px--> (100<!--m:width_noise.W16.n0.15.located_percent--> %) | 14.50<!--m:width_noise.W16.n0.2.width_px--> (100<!--m:width_noise.W16.n0.2.located_percent--> %) | 13.92<!--m:width_noise.W16.n0.3.width_px--> (100<!--m:width_noise.W16.n0.3.located_percent--> %) |
+| 24<!--n:value tried--> | 23.75<!--m:width_noise.W24.n0.05.width_px--> (100<!--m:width_noise.W24.n0.05.located_percent--> %) | 23.75<!--m:width_noise.W24.n0.1.width_px--> (100<!--m:width_noise.W24.n0.1.located_percent--> %) | 13.42<!--m:width_noise.W24.n0.15.width_px--> (0<!--m:width_noise.W24.n0.15.located_percent--> %) | 12.17<!--m:width_noise.W24.n0.2.width_px--> (0<!--m:width_noise.W24.n0.2.located_percent--> %) | 9.25<!--m:width_noise.W24.n0.3.width_px--> (13<!--m:width_noise.W24.n0.3.located_percent--> %) |
+| 32<!--n:value tried--> | 31.75<!--m:width_noise.W32.n0.05.width_px--> (100<!--m:width_noise.W32.n0.05.located_percent--> %) | 31.75<!--m:width_noise.W32.n0.1.width_px--> (100<!--m:width_noise.W32.n0.1.located_percent--> %) | 10.25<!--m:width_noise.W32.n0.15.width_px--> (3<!--m:width_noise.W32.n0.15.located_percent--> %) | 8.17<!--m:width_noise.W32.n0.2.width_px--> (37<!--m:width_noise.W32.n0.2.located_percent--> %) | 5.75<!--m:width_noise.W32.n0.3.width_px--> (59<!--m:width_noise.W32.n0.3.located_percent--> %) |
+
+From 0.15<!--n:value tried--> nm of noise on, the widths of 24<!--n:value tried--> and 32<!--n:value tried--> px were read at about half or
+less, and few of the points were located. When the first range of ±12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px is
+shorter than 1.25<!--c:lib/centerline.py::_WIDTH_RANGE_MIN_WIDTHS--> widths, the profiles are read again over a longer range, and that
+reading is kept only when most of its sections hold a single crest
+(`centerline.measure_apparent_width`); a noise peak rising more than a tenth of
+the crest above the base fails that test, so the narrower first reading, whose base lies on the
+fiber's skirt, is kept. Every length of the centerline placement and the kink
+rule is a multiple of $W$, so on such a scan both work at the wrong scale.
+
+### 4.17 The noise warning
+
+`pipeline.noise_warnings` warns when the median calibrated height under the
+skeleton is less than 20<!--c:lib/pipeline.py::MIN_FIBER_SNR--> times the pixel noise of the calibrated background
+(`pipeline.fiber_snr`): 1.4826<!--n:definition--> times the median absolute deviation of the differences
+between horizontally adjacent pixels more than 4<!--c:lib/pipeline.py::_NOISE_MASK_MARGIN_PX--> px from the binarized mask,
+divided by $\sqrt{2}$. The limit was set from §4.15–§4.16: with the noise at a
+twentieth of the height, the crest read at most +0.060<!--m:crest_noise.line.W24.n0.1_nm--> nm high (24<!--n:value tried--> px) and every
+width held, and with more noise the crests read higher and the widths of 24<!--n:value tried-->
+and 32<!--n:value tried--> px collapsed.
+
+On the three bundled scans the ratio was 42–406<!--m:noise_warning.inputs.snr_range--> (experiment noise_warning), so
+none was warned. The straight fiber of §4.15 was analyzed through the whole
+pipeline. At 8<!--n:value tried--> px the warning was raised from 0.1<!--n:value tried--> nm of noise on (ratio read
+19.6<!--m:noise_warning.W8.n0.1.default.snr-->) and not at 0.05<!--n:value tried--> nm (39.6<!--m:noise_warning.W8.n0.05.default.snr-->). At 24<!--n:value tried--> px the default analysis
+traced nothing at any noise: background calibration removed the fiber (§1.8, viewed
+on the calibrated image) and `background_warnings` reported that no width could
+be measured. With `tophat` at three widths, the setting that warning suggests,
+the fiber was traced at 0.05<!--n:value tried--> nm with a width of 23.75<!--m:noise_warning.W24.n0.05.tophat.width_px--> px and no warning; from
+0.1<!--n:value tried--> nm on the warning was raised (ratio 18.1<!--m:noise_warning.W24.n0.1.tophat.snr--> and below), no width could be
+measured for most components and the skeleton held 573<!--m:noise_warning.W24.n0.3.tophat.skeleton_px--> to 867<!--m:noise_warning.W24.n0.15.tophat.skeleton_px--> pixels
+against 349<!--m:noise_warning.W24.n0.05.tophat.skeleton_px--> at 0.05<!--n:value tried--> nm.
+
 ## 5. Stripe-noise screening
 
 ### 5.1 The step threshold
@@ -967,3 +1038,24 @@ Margins of 1<!--n:value tried--> and 2<!--n:value tried--> px changed no verdict
 image, it is a short fragment between crossings that runs along the left border
 a few pixels from it rather than out of the scan, so a margin would count it as
 continuing outside the scan when it does not.
+
+### 6.2 Length bias of the isolated population
+
+"Exclude non-isolated" keeps the fibers that touch no other fiber and stay
+inside the scan. Whether that population is a fair sample of fiber lengths was
+checked on straight segments placed at random in a unit square (experiment
+isolation_length_bias): lengths drawn from a log-normal distribution of median
+0.08<!--c:scripts/measure_docs.py::ISOLATION_MEDIAN_LENGTH--> and log-sigma 0.6<!--c:scripts/measure_docs.py::ISOLATION_LOG_SIGMA-->, uniformly random centres and angles, 200<!--c:scripts/measure_docs.py::ISOLATION_SCENES--> scenes
+per count. A segment counts as isolated when it crosses no other segment and lies
+wholly inside the square.
+
+| Segments per scene | Isolated (%) | Median length, all | Median length, isolated | Isolated shorter by (%) |
+|---|---|---|---|---|
+| 20<!--n:value tried--> | 79<!--m:isolation_length_bias.n20.isolated_share_percent--> | 0.081<!--m:isolation_length_bias.n20.all_median--> | 0.074<!--m:isolation_length_bias.n20.isolated_median--> | 9<!--m:isolation_length_bias.n20.shorter_percent--> |
+| 60<!--n:value tried--> | 65<!--m:isolation_length_bias.n60.isolated_share_percent--> | 0.080<!--m:isolation_length_bias.n60.all_median--> | 0.070<!--m:isolation_length_bias.n60.isolated_median--> | 13<!--m:isolation_length_bias.n60.shorter_percent--> |
+| 150<!--n:value tried--> | 44<!--m:isolation_length_bias.n150.isolated_share_percent--> | 0.080<!--m:isolation_length_bias.n150.all_median--> | 0.062<!--m:isolation_length_bias.n150.isolated_median--> | 23<!--m:isolation_length_bias.n150.shorter_percent--> |
+
+The isolated segments were shorter than the whole population at every density,
+and the more so the denser the scene. The isolated population therefore under-represents
+long fibers; it measures whole fibers, but not the lengths of a fair sample of
+them.

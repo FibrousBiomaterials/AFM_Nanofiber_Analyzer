@@ -1157,6 +1157,144 @@ def background_warnings(params: ProcParams, image: ProcessedImage,
     return out
 
 
+# Smallest ratio of the typical fiber height to the pixel noise at which the
+# crest heights and apparent widths stayed close to the truth, set empirically
+# on synthetic fibers (docs/validation.md §4.15-§4.16). The crest of a section
+# is the largest of noisy samples, so noise lifts it, and noise also defeats the
+# single-crest test that lets a wide fiber's width be read over a longer range.
+# `noise_warnings` compares an analysis with it.
+# 頂点高さと見かけ幅が真の値に近く保たれた、典型的な繊維の高さと画素ノイズの比の
+# 下限。合成繊維で経験的に決めた（docs/validation.ja.md §4.15〜§4.16）。断面の頂点は
+# 雑音の乗った標本の最大値なのでノイズで持ち上がり、太い繊維の幅をより長い範囲で読む
+# ための「頂点は 1 つか」の判定もノイズで通らなくなる。`noise_warnings` が解析をこの比と
+# 比べる。
+MIN_FIBER_SNR = 20.0
+# Pixels kept away from the binarized mask when the noise is read on the
+# background, so no fiber flank enters it.
+# 背景でノイズを読むときに二値化マスクから離す画素数。繊維の斜面が入らないように
+# するため。
+_NOISE_MASK_MARGIN_PX = 4
+
+
+@dataclass(frozen=True)
+class NoiseWarning:
+    """
+    A scan whose pixel noise is large against the fibers' height.
+    繊維の高さに対して画素ノイズが大きい走査。
+
+    Attributes
+    ----------
+    snr
+        Typical fiber height over the pixel noise (`fiber_snr`), below
+        `MIN_FIBER_SNR`.
+        典型的な繊維の高さ ÷ 画素ノイズ（`fiber_snr`）。`MIN_FIBER_SNR` 未満。
+    height_nm
+        Median calibrated height under the skeleton (nm).
+        スケルトン上の補正後の高さの中央値（nm）。
+    noise_nm
+        Pixel noise of the calibrated background (nm).
+        補正後の背景の画素ノイズ（nm）。
+    width_px
+        Median apparent width of the traced fibers (px), or ``None`` when it
+        was not measured.
+        追跡した繊維の見かけ幅の中央値（px）。測れなかったときは ``None``。
+    """
+
+    snr: float
+    height_nm: float
+    noise_nm: float
+    width_px: Optional[float]
+
+
+def fiber_snr(image: ProcessedImage) -> Optional[Tuple[float, float]]:
+    """
+    Typical fiber height and pixel noise of an analyzed scan.
+    解析した走査の典型的な繊維の高さと画素ノイズ。
+
+    Parameters
+    ----------
+    image
+        The processed image after skeletonization, carrying
+        `calibrated_image`, `binarized_image` and `skeleton_image`.
+        細線化後の処理済み画像。`calibrated_image`、`binarized_image`、
+        `skeleton_image` を持つ。
+
+    Returns
+    -------
+    tuple of float or None
+        ``(height_nm, noise_nm)``: the median calibrated height under the
+        skeleton, and the noise of the calibrated background -- 1.4826 times
+        the median absolute deviation of the differences between horizontally
+        adjacent pixels more than `_NOISE_MASK_MARGIN_PX` from the binarized
+        mask, divided by sqrt(2) because a difference carries the noise of two
+        pixels. ``None`` when either cannot be read.
+        ``(height_nm, noise_nm)``。スケルトン上の補正後の高さの中央値と、補正後の
+        背景のノイズ。ノイズは、二値化マスクから `_NOISE_MASK_MARGIN_PX` より離れた、
+        横に隣り合う画素の差の中央絶対偏差の 1.4826 倍を sqrt(2) で割ったもの
+        （差は 2 画素分のノイズを含むため）。どちらかを読めなければ ``None``。
+
+    Notes
+    -----
+    The differences of neighbouring pixels leave out the background's slower
+    variation, which a crest reading does not see either: what lifts a crest is
+    the noise from one pixel to the next.
+    隣り合う画素の差は背景のゆっくりした変化を含まないが、頂点高さの読み取りが
+    受けるのもそれではなく、画素から画素へのノイズである。
+    """
+    from scipy.ndimage import binary_dilation
+
+    cal = getattr(image, "calibrated_image", None)
+    mask = getattr(image, "binarized_image", None)
+    skel = getattr(image, "skeleton_image", None)
+    if cal is None or mask is None or skel is None:
+        return None
+    cal = np.asarray(cal, dtype=float)
+    on = np.asarray(skel) > 0
+    if not on.any():
+        return None
+    height = float(np.median(cal[on]))
+    near = binary_dilation(np.asarray(mask) > 0, iterations=_NOISE_MASK_MARGIN_PX)
+    pair = ~near[:, 1:] & ~near[:, :-1]
+    dif = np.diff(cal, axis=1)[pair]
+    if dif.size < 100:
+        return None
+    noise = 1.4826 * float(np.median(np.abs(dif - np.median(dif)))) / np.sqrt(2.0)
+    return height, noise
+
+
+def noise_warnings(image: ProcessedImage) -> List[NoiseWarning]:
+    """
+    Check an analysis against the noise its crest heights and widths hold to.
+    解析を、頂点高さと見かけ幅が保たれるノイズの範囲と比べる。
+
+    Parameters
+    ----------
+    image
+        The processed image after kink detection, carrying
+        `apparent_width_summary` and what `fiber_snr` reads.
+        キンク検出後の処理済み画像。`apparent_width_summary` と、`fiber_snr` が
+        読むものを持つ。
+
+    Returns
+    -------
+    list of NoiseWarning
+        One warning when the typical fiber height is less than `MIN_FIBER_SNR`
+        times the pixel noise, else empty (also when the ratio cannot be read).
+        典型的な繊維の高さが画素ノイズの `MIN_FIBER_SNR` 倍に満たないときは警告
+        1 件、それ以外（比を読めないときも含む）は空。
+    """
+    read = fiber_snr(image)
+    if read is None:
+        return []
+    height, noise = read
+    if not (height > 0 and noise > 0) or height >= MIN_FIBER_SNR * noise:
+        return []
+    summary = getattr(image, "apparent_width_summary", None) or {}
+    width = summary.get("median_px")
+    return [NoiseWarning(height / noise, height, noise,
+                         float(width) if width is not None else None)]
+
+
 @dataclass
 class PipelineResult:
     """
@@ -1188,6 +1326,12 @@ class PipelineResult:
         (`background_warnings`); empty when none applies.
         背景補正が繊維の高さを低くした可能性がある理由（`background_warnings`）。
         該当しなければ空。
+    noise_warnings
+        Whether the pixel noise is large against the fibers' height
+        (`noise_warnings`), so that crest heights may read high and the widths
+        of wide fibers low; empty when it is not.
+        画素ノイズが繊維の高さに対して大きく、頂点高さが高く、太い繊維の幅が細く
+        出るおそれがあるか（`noise_warnings`）。そうでなければ空。
     """
 
     image: ProcessedImage
@@ -1196,6 +1340,7 @@ class PipelineResult:
     elapsed_s: float
     pixel_lengths_nm: Optional[Dict[str, float]] = None  # remove-in: 3.0.0
     background_warnings: List[BackgroundWarning] = field(default_factory=list)
+    noise_warnings: List[NoiseWarning] = field(default_factory=list)
 
 
 def process_file(
@@ -1650,6 +1795,7 @@ def process_file(
         param_path=param_path,
         elapsed_s=time.time() - t0,
         background_warnings=background_warnings(params, image, stages.bg_calibrator),
+        noise_warnings=noise_warnings(image),
     )
 
 

@@ -10,6 +10,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- GUI03 reports the effective sample size (Σw)²/Σw² of a `Miles-Lantuejoul`
+  weighted length distribution in the figure and the log, and in the log the
+  share of the total weight its heaviest fiber carries: the weights have no
+  upper bound, and on the tunicate test scan one fiber carried 17 % of the
+  weight of 46.
+- GUI01 and `cli.py process` warn when the typical fiber height (the median
+  calibrated height under the skeleton) is less than 20 times the pixel noise of
+  the calibrated background (`pipeline.noise_warnings`, `PipelineResult.noise_warnings`).
+  A fiber's height is the crest of each cross-section, the largest of the
+  samples near its top, so pixel noise lifts it, and noise can make the
+  apparent width of a wide fiber read narrow; on synthetic fibers with noise of
+  a twentieth of the height the crest read at most 3 % high and every width
+  held (`docs/validation.md` §4.15–§4.17). None
+  of the bundled scans is warned. Analysis results do not change.
+- The READMEs and `docs/validation.md` §6.2 state that the fibers GUI04's
+  「非孤立を除外」 keeps are not a fair sample of fiber lengths: among straight
+  segments placed at random, the median length of the isolated ones was 9 % to
+  23 % below that of all of them, the more so the denser the scene.
 - The centerline each fiber is placed on is now an analysis parameter,
   `centerline_method` (GUI01's Kinkdetector group, `cli.py process
   --centerline`). The default, `half_max_025w`, is the half-maximum midpoint line
@@ -96,6 +114,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- GUI03 weights the per-fiber kink densities of the `fiber` unit by each
+  fiber's judged length. A fragment judged over a few nanometres read a very
+  large density from a single kink and, counted as one sample, pulled the
+  distribution as far as a long fiber: on the three bundled scans the
+  unweighted per-fiber mean was 3.23, 2.94 and 9.05 kinks per µm against pooled
+  kinks over pooled judged length of 1.78, 2.00 and 5.27, the ratio the
+  `image` and `folder` units report, and the weighted mean is now that ratio.
+  **GUI03's `fiber`-unit kink-density histogram, mean, standard deviation and
+  quartiles change from this version**, and they are no longer tested between
+  groups, because the rank tests take no weights; test at `image` or `folder`.
+  Per-fiber densities in GUI04 and the CSV do not change.
 - The measurement regression test (`tests/test_measurement_regression.py`) now
   also fingerprints each fiber's mean curvature, which GUI03 and GUI04 show but
   the per-fiber CSV does not contain, so a change to curvature alone no longer

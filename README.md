@@ -359,6 +359,14 @@ evaluation document). How the limits were set, on zoomed copies of the bundled s
 is in [Evaluation on particular data](docs/validation.md) §1.8, and how both
 kinds of warning fared in §1.10.
 
+The log also warns when the typical fiber height (the median calibrated height
+under the skeleton) is less than 20 times the pixel noise of the calibrated
+background. A fiber's height is the crest of each cross-section, the largest of
+the samples near its top, so noise lifts it, and noise can make the apparent
+width of a wide fiber read narrow (Known Limitations below); such a scan should
+be measured again with less noise against the fibers. How the limit was set, on
+synthetic fibers, is in §4.15–§4.17 of the evaluation document.
+
 ### Plot Profiler — `guis/GUI02_PlotProfiler.py`
 
 ![Plot Profiler window: a line placed on the AFM height map and the extracted height profile alongside it.](figures/gui02.png)
@@ -454,7 +462,10 @@ distribution toward short fibers, because a long fiber is more likely to reach
 the frame, so `Miles-Lantuejoul` also weights each remaining fiber by the
 inverse of its chance of fitting inside the frame —
 (W − 2)(H − 2) / ((W − 1 − w)(H − 1 − h)) for a W × H pixel image and a w × h
-skeleton bounding box. Weighted samples are not tested between groups, because
+skeleton bounding box. The weights have no upper bound — a fiber whose box
+nearly fills the frame weighs many fibers — so the log and the figure report the
+effective sample size (Σw)²/Σw² and the log the share of the total weight the
+heaviest fiber carries. Weighted samples are not tested between groups, because
 Mann-Whitney U and KS take no weights. The correction covers the frame only: a
 fragment cut at a crossing is still counted as a whole fiber, and the log
 reports how many of the remaining lengths are such lower bounds. A fiber CSV
@@ -474,7 +485,12 @@ kinks along a fiber are distinct defect events rather than repeated
 measurements of one fiber property, so a per-fiber median of their angles
 describes nothing about the fiber. Kink density is pooled rather than taken as
 a median of per-fiber densities, because when more than half of an image's
-fibers carry no kink that median is 0 whatever the others do. This distinction
+fibers carry no kink that median is 0 whatever the others do. At the `fiber`
+unit each fiber's kink density is weighted by its judged length: a fragment
+judged over a few nanometres reads a very large density from a single kink, and
+counted as one sample it would pull the distribution as far as a long fiber
+does. The weighted mean is then the same pooled ratio, and the weighted samples
+are not tested; test at `image` or `folder`. This distinction
 is reported, not just applied: pooled skeleton pixels are not independent
 observations — a long fiber contributes more pixels than a short one — so
 the statistics table and the figure annotation give the sample count broken
@@ -525,8 +541,8 @@ Each group reports median and interquartile range alongside mean, standard
 deviation, and mode, because fiber morphology distributions are right-skewed
 and the mode moves with the histogram bin width. The standard deviation of an
 unweighted sample is the sample standard deviation (divided by n − 1, blank for
-a single sample); a weighted one (`length`, or `Miles-Lantuejoul` per fiber)
-is divided by the total weight. The table heading and the `std definition`
+a single sample); a weighted one (`length`, `Miles-Lantuejoul` per fiber, or
+`kink density` per fiber) is divided by the total weight. The table heading and the `std definition`
 column of the statistics CSV say which. Samples outside the plotted
 range are reported in the log as a percentage rather than dropped silently;
 the summary statistics always describe the whole sample. A group with fewer
@@ -651,7 +667,11 @@ press, every fiber whose whole length could not be measured
 along its path, one that runs off the edge of the scan, or one the connector
 can see a continuation past. A fiber cut where it crosses another one has a
 truncated length rather than a short one, so leaving those fragments in the
-population biases length statistics low. The excluded fibers are recorded like
+population biases length statistics low. The fibers that remain are not an
+unbiased sample of fiber lengths either: among straight segments placed at
+random, the median length of the isolated ones was 9 % to 23 % below that of
+all of them, the more so the denser the scene
+([Evaluation on particular data](docs/validation.md) §6.2). The excluded fibers are recorded like
 any hand-picked exclusion, with the note `not isolated`, so one press of
 "Undo last" takes them all back and "Exclusion settings" shows why each one went.
 
@@ -1235,6 +1255,16 @@ test suite instead of degrading silently in the launcher.
   when part of the fibers' relief is measured in the subtracted background, or
   when no fiber width could be measured (see the Image Preprocessor section
   above).
+- Pixel noise biases two measurements of wide fibers. A fiber's height is the
+  crest of each cross-section, the largest of the samples near its top, so it
+  reads high by more the noisier the scan and the wider the fiber: on synthetic
+  2 nm fibers about 0.03 nm at 0.05 nm noise and 0.18 nm at 0.2 nm noise, 24 px
+  wide. On fibers 24 and 32 px wide, 0.15 nm of noise made the measured apparent
+  width half or less, which also rescales the centerline placement and the kink
+  rule. Scans whose noise is small against the fiber height are measured
+  closely, and GUI01 and `cli.py process` warn when the typical fiber height is
+  less than 20 times the pixel noise; see
+  [Evaluation on particular data](docs/validation.md) §4.15–§4.17.
 - The graphical tools require a working Tk installation and are primarily
   developed and tested on Windows; the CLI and library are platform-independent.
 - The `.b2z` bundle is a project-specific container. Use `cli.py export` to read

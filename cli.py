@@ -78,6 +78,7 @@ from lib.measure import (
 )
 from lib.pipeline import (
     BACKGROUND_CHECKED_MAX_WIDTH_PX,
+    MIN_FIBER_SNR,
     MIN_FLANK_STEP_RATIO,
     ProcParams,
     build_stages,
@@ -174,6 +175,17 @@ def _background_warning_text(warning) -> str:
         why = (f"apparent width (median {warning.width_px:.1f} px) is above the "
                f"{BACKGROUND_CHECKED_MAX_WIDTH_PX:g} px {warning.bg_method} was checked to")
     return f"warning: {why}; fiber heights may read low; {advice}"
+
+
+def _noise_warning_text(warning) -> str:
+    """
+    One line for a `lib.pipeline.NoiseWarning`.
+    `lib.pipeline.NoiseWarning` 1 件を 1 行にする。
+    """
+    return (f"warning: the typical fiber height ({warning.height_nm:.2f} nm) is only "
+            f"{warning.snr:.1f} times the pixel noise ({warning.noise_nm:.3f} nm), below "
+            f"{MIN_FIBER_SNR:g}; fiber heights may read high and the apparent width of "
+            f"wide fibers low; analyze scans with less noise against the fibers")
 
 
 def _output_stem(txt_path: str, output_dir: str, row_range=None) -> str:
@@ -370,6 +382,8 @@ def cmd_process(args: argparse.Namespace) -> int:
         print(f"done ({result.elapsed_s:.2f}s) -> {result.bundle_path}")
         for w in result.background_warnings:
             print("    " + _background_warning_text(w), file=sys.stderr)
+        for w in result.noise_warnings:
+            print("    " + _noise_warning_text(w), file=sys.stderr)
         n_done += 1
 
     print(

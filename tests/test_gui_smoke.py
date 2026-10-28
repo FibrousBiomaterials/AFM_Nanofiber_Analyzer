@@ -1323,6 +1323,71 @@ def test_gui03_frame_mode_filters_and_weights_contour_length():
         np.array([100.0, 300.0]), np.array([1.0, 2.0]))["median"])]
 
 
+def test_gui03_weights_fiber_kink_density_by_judged_length(tk_app, tmp_path, monkeypatch):
+    """
+    Fiber-unit kink densities are weighted by the judged length and not tested.
+    ファイバー単位のキンク密度は判定長で重み付けされ、検定されない。
+
+    A short fragment reads a large density from a single kink; weighted by its
+    judged length it counts as much as that length, and the weighted mean is the
+    pooled density the image unit reports. A run reports the fibers measured,
+    not the weight, and the rank tests are not applied to weighted samples.
+    短い断片はキンク 1 個で大きな密度を示すが、判定長で重み付けすればその長さの
+    分だけ数えられ、重み付き平均は画像単位が報告するまとめた密度と一致する。実行は
+    重みではなく計測した本数を報告し、重み付きの標本には順位検定をかけない。
+    """
+    stats = [_kink_stat(10.0, (150.0,)), _kink_stat(1000.0, ()), _kink_stat(2000.0, (90.0,))]
+    values, weights, n_fibers, _n = gui03.App._values_from_fiber_stats(
+        [("a.b2z", stats)], gui03.PARAM_KINK_DENSITY, gui03.UNIT_FIBER)
+    assert n_fibers == 3
+    assert weights == [pytest.approx(10.0), pytest.approx(1000.0), pytest.approx(2000.0)]
+    weighted_mean = np.average(values, weights=weights)
+    pooled, _w, _f, _i = gui03.App._values_from_fiber_stats(
+        [("a.b2z", stats)], gui03.PARAM_KINK_DENSITY, gui03.UNIT_IMAGE)
+    assert weighted_mean == pytest.approx(pooled[0])
+
+    app = tk_app(gui03.App)
+    folders = []
+    for name in ("A", "B"):
+        folder = tmp_path / name
+        folder.mkdir()
+        (folder / ("sample" + gui03.BUNDLE_EXT)).write_bytes(b"")
+        folders.append(str(folder))
+    monkeypatch.setattr(app, "_collect_bundle_values",
+                        lambda *a, **k: (values, weights, 3, 1, []))
+    app._worker_run({
+        "groups": [
+            {"id": n, "name": n, "color": "#1f77b4", "folders": [f]}
+            for n, f in zip(("A", "B"), folders)
+        ],
+        "param": gui03.PARAM_KINK_DENSITY,
+        "unit": gui03.UNIT_FIBER,
+        "input_mode": gui03.INPUT_BUNDLE,
+        "apply_exclusions": False,
+        "apply_connection": False,
+        "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
+        "plot_type": gui03.PLOT_HISTOGRAM,
+        "min_h": 0.0, "max_h": 200.0, "step": 10.0,
+        "yaxis_mode": "density", "display_mode": gui03.App.MODE_STACK,
+        "show_height_text": True,
+        "fig_w": 6.0, "fig_h": 3.0,
+        "label_fs": 15.0, "tick_fs": 15.0, "ann_fs": 15.0,
+        "group_name_fs": 15.0,
+    })
+    done = None
+    while not app.ui_queue.empty():
+        kind, payload = app.ui_queue.get_nowait()
+        if kind == "done":
+            done = payload
+    assert done is not None
+    assert done["comparisons"] == []
+    assert gui03.UNIT_IMAGE in done["comparison_note"]
+    r = done["results"][0]
+    assert r["n_samples"] == 3.0 and r["n_in_range"] == 3.0
+    assert r["weight_total"] == pytest.approx(3010.0)
+    assert r["mean"] == pytest.approx(pooled[0])
+
+
 def test_gui03_frame_weighted_run_reports_fibers_and_skips_tests(
         tk_app, tmp_path, monkeypatch):
     """

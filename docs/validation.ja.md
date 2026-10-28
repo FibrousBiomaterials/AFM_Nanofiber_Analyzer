@@ -843,6 +843,66 @@ turn_maxima）。
 画素サイズと繊維の終わり方によって決まり、実際の走査からは繊維がどう終わっているかは
 分からない。これらは自由端の結果であり、交差で切れた端は §4.11 の場合である。
 
+### 4.15 画素ノイズのもとでの頂点高さ
+
+半径 15<!--n:value tried--> nm の球状の先端で膨張させた直径 2<!--n:value tried--> nm の円柱から点標本化した繊維を、行に対して
+20<!--n:value tried--> 度の直線と、半径 4<!--n:value tried--> $W$ の円弧として、下の各見かけ幅になる画素サイズで描き、画素ノイズ
+0<!--n:value tried-->、0.05<!--n:value tried-->、0.1<!--n:value tried-->、0.2<!--n:value tried--> nm、シード 3<!--n:count--> 通りを加えた（実験 crest_noise）。既定の中心線を真の軸の画素トラックの
+上に置き、繊維の中央 60<!--n:definition--> % での頂点高さの中央値を真の高さと比べた。直線の繊維での差（nm）は
+次のとおり。
+
+| 見かけの幅（画素） | ノイズ無し | 0.05<!--n:value tried--> nm | 0.1<!--n:value tried--> nm | 0.2<!--n:value tried--> nm |
+|---|---|---|---|---|
+| 3<!--n:value tried--> | −0.050<!--m:crest_noise.line.W3.n0_nm--> | −0.046<!--m:crest_noise.line.W3.n0.05_nm--> | −0.041<!--m:crest_noise.line.W3.n0.1_nm--> | −0.007<!--m:crest_noise.line.W3.n0.2_nm--> |
+| 5<!--n:value tried--> | −0.020<!--m:crest_noise.line.W5.n0_nm--> | −0.011<!--m:crest_noise.line.W5.n0.05_nm--> | +0.007<!--m:crest_noise.line.W5.n0.1_nm--> | +0.061<!--m:crest_noise.line.W5.n0.2_nm--> |
+| 8<!--n:value tried--> | −0.008<!--m:crest_noise.line.W8.n0_nm--> | +0.006<!--m:crest_noise.line.W8.n0.05_nm--> | +0.030<!--m:crest_noise.line.W8.n0.1_nm--> | +0.087<!--m:crest_noise.line.W8.n0.2_nm--> |
+| 16<!--n:value tried--> | −0.002<!--m:crest_noise.line.W16.n0_nm--> | +0.016<!--m:crest_noise.line.W16.n0.05_nm--> | +0.042<!--m:crest_noise.line.W16.n0.1_nm--> | +0.097<!--m:crest_noise.line.W16.n0.2_nm--> |
+| 24<!--n:value tried--> | −0.001<!--m:crest_noise.line.W24.n0_nm--> | +0.026<!--m:crest_noise.line.W24.n0.05_nm--> | +0.060<!--m:crest_noise.line.W24.n0.1_nm--> | +0.175<!--m:crest_noise.line.W24.n0.2_nm--> |
+
+各断面の頂点は頂部付近の標本の最大値であり、ノイズがあると、それは標本がばらつく中心の
+頂部より上にあり、頂部が平らなほど大きく上回る。そのため頂点高さは、ノイズが大きく繊維が
+太いほど高く出て、24<!--n:value tried--> 画素・0.2<!--n:value tried--> nm では直線の繊維で +0.175<!--m:crest_noise.line.W24.n0.2_nm--> nm、円弧で +0.190<!--m:crest_noise.arc.W24.n0.2_nm--> nm に
+達した。高さの四十分の一にあたる 0.05<!--n:value tried--> nm のノイズでは、差が最も大きかったのは円弧の
+3<!--n:value tried--> 画素での −0.048<!--m:crest_noise.arc.W3.n0.05_nm--> nm で、画素格子が高さを制限する場合である（§1.9）。
+
+### 4.16 画素ノイズのもとでの見かけの幅
+
+§4.15 の直線の繊維を、見かけの幅 8<!--n:value tried-->〜32<!--n:value tried--> 画素、画素ノイズ 0.05<!--n:value tried-->〜0.3<!--n:value tried--> nm で、シード
+3<!--n:count--> 通りずつ描いた（実験 width_noise）。`place_centerline` が測った幅（画素）と、かっこ内に、
+自身の断面の上に置けた中心線の点の割合を示す。
+
+| 見かけの幅（画素） | 0.05<!--n:value tried--> nm | 0.1<!--n:value tried--> nm | 0.15<!--n:value tried--> nm | 0.2<!--n:value tried--> nm | 0.3<!--n:value tried--> nm |
+|---|---|---|---|---|---|
+| 8<!--n:value tried--> | 7.75<!--m:width_noise.W8.n0.05.width_px--> (100<!--m:width_noise.W8.n0.05.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.1.width_px--> (100<!--m:width_noise.W8.n0.1.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.15.width_px--> (100<!--m:width_noise.W8.n0.15.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.2.width_px--> (100<!--m:width_noise.W8.n0.2.located_percent--> %) | 7.67<!--m:width_noise.W8.n0.3.width_px--> (100<!--m:width_noise.W8.n0.3.located_percent--> %) |
+| 16<!--n:value tried--> | 15.75<!--m:width_noise.W16.n0.05.width_px--> (100<!--m:width_noise.W16.n0.05.located_percent--> %) | 15.92<!--m:width_noise.W16.n0.1.width_px--> (100<!--m:width_noise.W16.n0.1.located_percent--> %) | 15.83<!--m:width_noise.W16.n0.15.width_px--> (100<!--m:width_noise.W16.n0.15.located_percent--> %) | 14.50<!--m:width_noise.W16.n0.2.width_px--> (100<!--m:width_noise.W16.n0.2.located_percent--> %) | 13.92<!--m:width_noise.W16.n0.3.width_px--> (100<!--m:width_noise.W16.n0.3.located_percent--> %) |
+| 24<!--n:value tried--> | 23.75<!--m:width_noise.W24.n0.05.width_px--> (100<!--m:width_noise.W24.n0.05.located_percent--> %) | 23.75<!--m:width_noise.W24.n0.1.width_px--> (100<!--m:width_noise.W24.n0.1.located_percent--> %) | 13.42<!--m:width_noise.W24.n0.15.width_px--> (0<!--m:width_noise.W24.n0.15.located_percent--> %) | 12.17<!--m:width_noise.W24.n0.2.width_px--> (0<!--m:width_noise.W24.n0.2.located_percent--> %) | 9.25<!--m:width_noise.W24.n0.3.width_px--> (13<!--m:width_noise.W24.n0.3.located_percent--> %) |
+| 32<!--n:value tried--> | 31.75<!--m:width_noise.W32.n0.05.width_px--> (100<!--m:width_noise.W32.n0.05.located_percent--> %) | 31.75<!--m:width_noise.W32.n0.1.width_px--> (100<!--m:width_noise.W32.n0.1.located_percent--> %) | 10.25<!--m:width_noise.W32.n0.15.width_px--> (3<!--m:width_noise.W32.n0.15.located_percent--> %) | 8.17<!--m:width_noise.W32.n0.2.width_px--> (37<!--m:width_noise.W32.n0.2.located_percent--> %) | 5.75<!--m:width_noise.W32.n0.3.width_px--> (59<!--m:width_noise.W32.n0.3.located_percent--> %) |
+
+ノイズが 0.15<!--n:value tried--> nm 以上になると、24<!--n:value tried--> 画素と 32<!--n:value tried--> 画素の幅は半分程度以下に読まれ、置けた点も
+わずかになった。最初の範囲 ±12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> 画素が幅の 1.25<!--c:lib/centerline.py::_WIDTH_RANGE_MIN_WIDTHS--> 倍より短いときは、より長い範囲で断面を読み直し、
+その読み取りは大半の断面が頂点を 1<!--n:count--> つしか含まないときだけ使われる
+（`centerline.measure_apparent_width`）。ふもとから見た頂点の高さの十分の一を超えて立ち上がる
+ノイズの山があるとこの判定に通らず、ふもとが繊維の裾に来る狭い最初の読み取りが残る。中心線の配置とキンク規則の長さは
+どれも $W$ の倍数なので、そうした走査では両方とも誤った尺度で働く。
+
+### 4.17 ノイズの警告
+
+`pipeline.noise_warnings` は、スケルトン上の補正後の高さの中央値が、補正後の背景の
+画素ノイズの 20<!--c:lib/pipeline.py::MIN_FIBER_SNR--> 倍に満たないときに警告する（`pipeline.fiber_snr`）。画素ノイズは、
+二値化マスクから 4<!--c:lib/pipeline.py::_NOISE_MASK_MARGIN_PX--> 画素より離れた、横に隣り合う画素の差の中央絶対偏差の 1.4826<!--n:definition--> 倍を
+$\sqrt{2}$ で割ったものである。この限界は §4.15〜§4.16 から決めた。ノイズが高さの
+二十分の一のとき、頂点高さの高めのずれは最大 +0.060<!--m:crest_noise.line.W24.n0.1_nm--> nm（24<!--n:value tried--> 画素）で、どの幅も保たれ、
+それよりノイズが大きいと頂点高さはさらに高く出て、24<!--n:value tried--> 画素と 32<!--n:value tried--> 画素の幅は崩れた。
+
+同梱の 3<!--n:count--> つのスキャンでは比は 42–406<!--m:noise_warning.inputs.snr_range--> で（実験 noise_warning）、どれも警告されなかった。
+§4.15 の直線の繊維をパイプライン全体で解析した。8<!--n:value tried--> 画素では、ノイズ 0.1<!--n:value tried--> nm 以上で
+警告が出て（読んだ比 19.6<!--m:noise_warning.W8.n0.1.default.snr-->）、0.05<!--n:value tried--> nm（39.6<!--m:noise_warning.W8.n0.05.default.snr-->）では出なかった。24<!--n:value tried--> 画素では、既定の解析は
+どのノイズでも何も追跡しなかった。背景補正が繊維を取り除き（§1.8。補正後の画像で確認）、
+`background_warnings` が幅を測れなかったことを報告した。その警告が勧める設定である、幅の
+3<!--n:value tried--> 倍の構造要素の `tophat` では、0.05<!--n:value tried--> nm で繊維が幅 23.75<!--m:noise_warning.W24.n0.05.tophat.width_px--> 画素で追跡され、警告は
+出なかった。0.1<!--n:value tried--> nm 以上では警告が出て（比 18.1<!--m:noise_warning.W24.n0.1.tophat.snr--> 以下）、大半の成分で幅を測れず、
+スケルトンは 0.05<!--n:value tried--> nm の 349<!--m:noise_warning.W24.n0.05.tophat.skeleton_px--> 画素に対して 573<!--m:noise_warning.W24.n0.3.tophat.skeleton_px-->〜867<!--m:noise_warning.W24.n0.15.tophat.skeleton_px--> 画素になった。
+
 ## 5. 縞ノイズの検査
 
 ### 5.1 段差のしきい値
@@ -882,3 +942,20 @@ turn_maxima）。
 Bruker のスキャンの繊維が 1<!--m:frame_margin.all.changed_at_5--> 本加わる。補正後の高さ画像に重ねて描くと、それは
 交差の間にある短い断片で、走査範囲の外へ出るのではなく、左端から数画素のところを
 端に沿って走っている。余白を取ると、外へ続いていない繊維を外へ続くものと数えることになる。
+
+### 6.2 孤立した母集団の長さの偏り
+
+「非孤立を除外」は、他のファイバーに接せず走査範囲の内側にとどまるファイバーを残す。
+その母集団がファイバーの長さの公平な標本かどうかを、単位正方形に無作為に置いた直線の
+線分で確かめた（実験 isolation_length_bias）。長さは中央値 0.08<!--c:scripts/measure_docs.py::ISOLATION_MEDIAN_LENGTH-->、対数の標準偏差 0.6<!--c:scripts/measure_docs.py::ISOLATION_LOG_SIGMA--> の
+対数正規分布から取り、中心と向きは一様に無作為とし、本数ごとに 200<!--c:scripts/measure_docs.py::ISOLATION_SCENES--> 場面を作った。
+他のどの線分とも交わらず、正方形の内側に収まる線分を孤立とした。
+
+| 場面あたりの本数 | 孤立 (%) | 長さの中央値、全体 | 長さの中央値、孤立 | 孤立のほうが短い割合 (%) |
+|---|---|---|---|---|
+| 20<!--n:value tried--> | 79<!--m:isolation_length_bias.n20.isolated_share_percent--> | 0.081<!--m:isolation_length_bias.n20.all_median--> | 0.074<!--m:isolation_length_bias.n20.isolated_median--> | 9<!--m:isolation_length_bias.n20.shorter_percent--> |
+| 60<!--n:value tried--> | 65<!--m:isolation_length_bias.n60.isolated_share_percent--> | 0.080<!--m:isolation_length_bias.n60.all_median--> | 0.070<!--m:isolation_length_bias.n60.isolated_median--> | 13<!--m:isolation_length_bias.n60.shorter_percent--> |
+| 150<!--n:value tried--> | 44<!--m:isolation_length_bias.n150.isolated_share_percent--> | 0.080<!--m:isolation_length_bias.n150.all_median--> | 0.062<!--m:isolation_length_bias.n150.isolated_median--> | 23<!--m:isolation_length_bias.n150.shorter_percent--> |
+
+孤立した線分は、どの密度でも全体より短く、場面が密なほどその差は大きかった。したがって孤立した母集団では長いファイバーが少なく、
+全長を測ったファイバーではあっても、ファイバーの長さの公平な標本ではない。

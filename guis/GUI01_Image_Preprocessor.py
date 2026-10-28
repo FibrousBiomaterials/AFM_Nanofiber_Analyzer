@@ -93,8 +93,8 @@ from matplotlib.transforms import blended_transform_factory
 # lib.pipeline が CLI と共通の前処理パイプラインを駆動する。本 GUI は
 # バッチ方針（スキップ/上書き/停止）と UI 表示のみを担当する。
 from lib.pipeline import (
-    BACKGROUND_CHECKED_MAX_WIDTH_PX, MIN_FLANK_STEP_RATIO, BackgroundWarning,
-    ProcParams, PipelineStages, STAGE_KEYS, build_stages, process_file,
+    BACKGROUND_CHECKED_MAX_WIDTH_PX, MIN_FIBER_SNR, MIN_FLANK_STEP_RATIO,
+    BackgroundWarning, NoiseWarning, ProcParams, PipelineStages, STAGE_KEYS, build_stages, process_file,
     bundle_path_for, existing_min_set, merge_params_dict, param_path_for,
     row_range_suffix, validate_params,
 )
@@ -395,6 +395,35 @@ def _format_background_warning(fname: str, warning: BackgroundWarning) -> str:
         ).format(name=fname, width=warning.width_px, method=warning.bg_method,
                  limit=BACKGROUND_CHECKED_MAX_WIDTH_PX)
     return text + advice
+
+
+def _format_noise_warning(fname: str, warning: NoiseWarning) -> str:
+    """
+    Turn a `lib.pipeline.NoiseWarning` into a translated log line.
+    `lib.pipeline.NoiseWarning` を翻訳済みのログ行にする。
+
+    Parameters
+    ----------
+    fname
+        Name of the analyzed file, as the log shows it.
+        ログに表示する、解析したファイルの名前。
+    warning
+        One warning from `PipelineResult.noise_warnings`.
+        `PipelineResult.noise_warnings` の警告 1 件。
+
+    Returns
+    -------
+    str
+        The warning and what to do about it.
+        警告と、その対処。
+    """
+    return _(
+        "警告: {name}: 繊維の典型的な高さ（{height:.2f} nm）が画素ノイズ（{noise:.3f} nm）の"
+        "{snr:.1f} 倍しかなく、{limit:g} 倍に届きません。繊維の高さが高めに、太い繊維の"
+        "見かけ幅が細く測られるおそれがあります。繊維に対してノイズの小さい走査で解析して"
+        "ください。"
+    ).format(name=fname, height=warning.height_nm, noise=warning.noise_nm,
+             snr=warning.snr, limit=MIN_FIBER_SNR)
 
 
 # ===== Settings =====
@@ -3483,6 +3512,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.ui_queue.put(("log", _("解析完了: %s (%ss)") % (fname, dt_s)))
         for warning in result.background_warnings:
             self.ui_queue.put(("log", _format_background_warning(fname, warning)))
+        for warning in result.noise_warnings:
+            self.ui_queue.put(("log", _format_noise_warning(fname, warning)))
         if iid is not None:
             self.ui_queue.put(("status", (iid, STATUS_ANALYZED, dt_s)))
         self.ui_queue.put(("progress", 1))

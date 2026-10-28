@@ -1585,6 +1585,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "{image} は画像 1 枚、{folder} は登録フォルダ 1 つです。{image} と "
             "{folder} は含まれるファイバー値の中央値で、キンク角は全キンクの角度の"
             "中央値、キンク密度は総キンク数を判定した長さの合計で割った値です。"
+            "キンク密度の {fiber} 集計は各ファイバーを判定した長さで重み付けするため、"
+            "平均はこの比と同じになり、検定はしません。"
             "{pixel} でまとめた分布は独立観測ではなく、長いファイバーほど重みが"
             "大きくなるため、群間比較では {fiber}・{image}・{folder} でも確認して"
             "ください。1 フォルダが 1 試料なら、試料間の差を検定する単位は {folder} "
@@ -3103,6 +3105,29 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         return param == PARAM_LENGTH and frame_mode == FRAME_MILES_LANTUEJOUL
 
     @staticmethod
+    def _kink_length_weighted(param: str, unit: str) -> bool:
+        """
+        Return whether kink densities are weighted by their fiber's judged length.
+        キンク密度を、そのファイバーの判定長で重み付けするかを返す。
+
+        Notes
+        -----
+        A fiber's kink density is its kink count over its judged length, so a
+        fragment judged over a few nanometers reads tens or hundreds of kinks
+        per micrometer from a single kink, and counted as one sample it pulls
+        the fiber-unit distribution as far as a long fiber does. Weighted by the
+        judged length, every micrometer counts the same, and the weighted mean
+        is the pooled kinks over the pooled judged length that the image and
+        folder units report.
+        ファイバーのキンク密度はキンク数を判定長で割ったものなので、数 nm しか
+        判定しなかった断片は、キンク 1 個で 1 µm あたり数十〜数百と読まれ、1 標本と
+        して数えると長いファイバーと同じだけファイバー単位の分布を引っ張る。判定長で
+        重み付けすれば各 µm が等しく数えられ、重み付き平均は、画像・フォルダ単位が
+        報告する「まとめたキンク数 ÷ まとめた判定長」と一致する。
+        """
+        return param == PARAM_KINK_DENSITY and unit == UNIT_FIBER
+
+    @staticmethod
     def _frame_filtered(per_source, param: str, frame_mode: str,
                         frame_report) -> list:
         """
@@ -3387,12 +3412,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         -------
         tuple
             ``(values, weights, n_fibers, n_images)``. `weights` is None except
-            for `frame_weighted` fiber samples; the image and folder units
+            for `frame_weighted` fiber samples and for kink density at the fiber
+            unit, whose samples are weighted by their judged length in
+            nanometers (`_kink_length_weighted`); the image and folder units
             take a weighted median instead and stay unweighted. Under
             `UNIT_FOLDER` `values` holds one value for all of `per_source`,
             which is one registered folder.
             ``(値リスト, 重み, ファイバー数, 画像数)``。`weights` は
-            `frame_weighted` のファイバー単位標本以外では None。image・folder
+            `frame_weighted` のファイバー単位標本と、判定長 (nm) で重み付けする
+            ファイバー単位のキンク密度（`_kink_length_weighted`）以外では None。image・folder
             単位では代わりに重み付き中央値を取り、重みなしのままにする。
             `UNIT_FOLDER` では `values` は `per_source`（登録フォルダ 1 つ分）
             全体の値 1 つになる。
@@ -3423,8 +3451,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 )["median"]
             return float(np.median(source_values))
 
+        kink_weighted = App._kink_length_weighted(param, unit)
         values = []
-        weights = [] if frame_weighted and unit not in SUMMARY_UNITS else None
+        weights = ([] if (frame_weighted or kink_weighted) and unit not in SUMMARY_UNITS
+                   else None)
         n_fibers = 0
         n_images = 0
         folder_values = []
@@ -3455,6 +3485,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 source_values.extend(samples)
                 if frame_weighted:
                     source_weights.extend([stat.frame_weight] * len(samples))
+                elif kink_weighted:
+                    source_weights.extend(
+                        [1000.0 * fiber_judged_length_um(stat)] * len(samples))
 
             if not source_values:
                 continue
@@ -3541,7 +3574,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ))
         weighted = unit in LENGTH_WEIGHTED_UNITS or (
             frame_weighted and unit == UNIT_FIBER
-        )
+        ) or self._kink_length_weighted(param, unit)
+        # Weights that do not measure the sample: the Miles-Lantuejoul weight and
+        # the judged length a kink density is weighted by. Under either, the
+        # sample size reported is the number of fibers measured.
+        # 標本の量を表さない重み。Miles-Lantuejoul 重みと、キンク密度を重み付けする
+        # 判定長である。どちらでも、報告する標本量は計測したファイバーの本数とする。
+        counted_by_fiber = frame_weighted or self._kink_length_weighted(param, unit)
 
         results = []
         errors = []
@@ -3769,7 +3808,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # その合計は観測した本数ではなく推定本数であるため、計測した
                 # 本数を報告する。
                 "n_samples": (
-                    float(arr.size) if wts is None or frame_weighted
+                    float(arr.size) if wts is None or counted_by_fiber
                     else float(wts.sum())
                 ),
                 # Total weight, which is what the histogram bars sum to and so
@@ -3787,7 +3826,27 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "n_raw": int(arr.size),
                 "n_fibers": grp_fibers,
                 "n_images": grp_images,
+                # Kish's effective sample size of the Miles-Lantuejoul weights:
+                # the weights are unbounded, so a few fibers whose box nearly
+                # fills the frame can carry most of the weighted sample.
+                # Miles-Lantuejoul 重みの Kish の有効標本数。重みには上限が無く、
+                # 外接矩形が枠をほぼ埋める少数のファイバーが重み付き標本の大半を
+                # 担いうるためである。
+                "n_effective": (
+                    float(wts.sum() ** 2 / np.sum(wts ** 2))
+                    if frame_weighted and wts is not None and wts.size else None
+                ),
+                "max_weight_share": (
+                    float(wts.max() / wts.sum())
+                    if frame_weighted and wts is not None and wts.size else None
+                ),
             })
+            if results[-1]["n_effective"] is not None:
+                self.ui_queue.put(("log", _(
+                    "[{g}] Miles-Lantuejoul 重みの有効標本数は {neff:.1f} 本（計測した {n} 本）で、"
+                    "最大の重みを持つ 1 本が重みの合計の {share:.0%} を占めます。"
+                ).format(g=grp_name, neff=results[-1]["n_effective"], n=int(arr.size),
+                         share=results[-1]["max_weight_share"])))
 
         self._log_pixel_size_spread(curvature_pixel_sizes)
 
@@ -3839,7 +3898,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # するため、報告する本数と比べられるよう件数を別に数える。
             r["n_in_range"] = (
                 float(np.histogram(r["values"], bins=edges)[0].sum())
-                if frame_weighted else total
+                if counted_by_fiber else total
             )
             if total > 0:
                 k = int(np.argmax(counts))
@@ -3914,6 +3973,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "{ml} 補正の標本は重み付きのため検定しません。検定するには "
                 "{exclude} に切り替えてください。"
             ).format(ml=FRAME_MILES_LANTUEJOUL, exclude=FRAME_EXCLUDE)
+        elif self._kink_length_weighted(param, unit):
+            # The fiber-unit kink densities are weighted by the judged length,
+            # which the rank tests cannot take; the image and folder units test
+            # the pooled densities instead.
+            # ファイバー単位のキンク密度は判定長で重み付けしてあり、順位検定はその
+            # 重みを受け付けない。画像・フォルダ単位では、まとめた密度を検定する。
+            comparison_note = _(
+                "{fiber} 集計のキンク密度は判定長で重み付けしているため検定しません。"
+                "検定するには {image} か {folder} の集計に切り替えてください。"
+            ).format(fiber=UNIT_FIBER, image=UNIT_IMAGE, folder=UNIT_FOLDER)
         else:
             try:
                 comparisons = compare_groups(
@@ -4384,6 +4453,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # 2 行にする。1 行では軸より広く、切れてしまう。
                 lines.append("frame-touching fibers excluded")
                 lines.append("Miles-Lantuejoul weighted")
+                if r.get("n_effective") is not None:
+                    lines.append("effective N = {0:.1f}".format(r["n_effective"]))
+            if self._kink_length_weighted(param, unit):
+                lines.append("weighted by judged length")
 
             # Anchored to the right edge so the box grows leftwards. Left
             # anchoring clipped the longer lines this annotation now carries
@@ -4578,7 +4651,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         # Miles-Lantuejoul 重みは無次元である。
                         frame_weighted = (r.get("frame_mode")
                                           == FRAME_MILES_LANTUEJOUL)
-                        w.writerow(["value_nm",
+                        value_column = (
+                            "value_per_um" if self._last_param == PARAM_KINK_DENSITY
+                            else "value_nm")
+                        w.writerow([value_column,
                                     "weight" if frame_weighted else "weight_nm"])
                         for v, wt in zip(r["values"], r["weights"]):
                             w.writerow([float(v), float(wt)])

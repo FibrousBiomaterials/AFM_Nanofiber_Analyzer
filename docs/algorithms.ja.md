@@ -499,7 +499,7 @@ tri_dify_fill[self._lined_up_marks(tri_dify_fill, short_y)] = 1
 8<!--n:literal in the quoted code--> 連結のかたまりの最大の差し渡し（最大フェレ径、`segmenter._max_extent_px`）が
 `noise_detect_factor` を超えるときに残す。細い繊維の印は繊維に沿って続くので、向きに
 よらず残る。ノイズの段差が残すような孤立した短い印は、同じ長さで引き続き捨てられる。
-軸に沿う繊維がどうなるかは[特定データでの評価](validation.ja.md) §1.12 にある。
+軸に沿う繊維がどうなるかは[個別データでの評価](validation.ja.md) §1.12 にある。
 
 ```python
 # source: lib/bg_calibrator.py::BGCalibrator._lined_up_marks
