@@ -1015,6 +1015,10 @@ $$
 端点は追跡した部分の端なので、交差で切断されたファイバーは、追跡した部分について
 記述される。
 
+連結したフィブリル（§5.2）では、輪郭長に、繊維を観測していない隙間に引いた直線の
+橋渡し部が含まれる。隙間での繊維の実際の経路は、直線の橋渡し部より短くはならないので、
+連結したフィブリルの直線度は、実際の経路で測った場合と同じかそれより高くなる。
+
 古いバンドルのスケルトントラックと `skeleton_pixels` の中心線（§2.8）では、分子は
 ユークリッド弦ではない。同じ 2 画素を
 結ぶ離散化した直線を、輪郭と同じチェーンコード尺度で測った長さである。この尺度は
@@ -1042,6 +1046,11 @@ before = np.searchsorted(horizon, horizon - half, side="left")
 after = np.searchsorted(horizon, horizon + half, side="left")
 valid = (after < horizon.size) & (after > before)
 valid &= (horizon - horizon[np.clip(before, 0, horizon.size - 1)] >= half * 0.5)
+measured = getattr(fiber, "height_measured", None)
+if measured is not None:
+    bridged = np.concatenate(([0], np.cumsum(~np.asarray(measured, dtype=bool))))
+    last = np.clip(after, 0, horizon.size - 1)
+    valid &= bridged[last + 1] == bridged[before]
 if not valid.any():
     return np.empty(0, dtype=float)
 i = np.nonzero(valid)[0]
@@ -1085,6 +1094,12 @@ horizon.size`）。**後方**は半窓の半分（25 nm）あれば足りる。�
 `horizon[i] - horizon[j] >= half * 0.5` なので、先頭から 25〜50 nm の点は短い後方の
 弦を使う。100 nm より短いファイバーは曲率を持たず、欄は 0 ではなく空欄になる。
 完全な直線と読まれないようにするためである。
+
+連結したフィブリルでは、窓（$j$ から $k$ まで）に橋渡し部の点（`Fiber.height_measured`
+が `False` の点、§5.2）を含む点も使わない。橋渡し部は繊維を観測していない隙間に引いた
+直線なので、その両端での回転は繊維ではなく連結から生じる。`bridged` は各インデックス
+までの橋渡し部の点の数で、窓の両端でこの数が同じなら、窓は橋渡し部の点を含まない。
+どの窓も橋渡し部にかかる連結フィブリルは曲率を持たず、欄は空欄になる。
 
 回転角は符号なしなので、まっすぐなファイバーでも 0 にはならない。中心線自身の横方向の
 揺れが平均を 0 より上に保ち、画像のノイズがそれを変える（測った場合のうち 1 つを除いて

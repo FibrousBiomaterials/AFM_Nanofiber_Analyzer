@@ -41,7 +41,7 @@
     "lib/measure.py::compute_fiber_stats": "6a39c3c21d1c628d5f2a67d9ee3d61b39107ea395b3b5e140271104355dcaa30",
     "lib/measure.py::height_sample_mask": "c211dd2dc7da07dcd19caa4415741a89bafb605920d755f0599769e2e261dc88",
     "lib/measure.py::fiber_straightness": "8d0b345c1e5ccf2c33b5bb93d057f0e210cf036e5a79147c0f33743b3455e3b5",
-    "lib/measure.py::fiber_curvature_profile": "18de09ffe2ea8731122fa6642a1287538092f9d8ab4d6d2d3c282c0cc7c707b7",
+    "lib/measure.py::fiber_curvature_profile": "e93275bbf33dc816e984d57b22ca6b1b7a8603ffde7effd730643ad12a8b4db0",
     "lib/measure.py::fiber_mean_curvature": "f80572b248edd41170003b9296c6f9d83f1a79dfd0b384c592884865b388e1ae",
     "lib/measure.py::fiber_kink_density": "1fa2db13beba695f7827c7d3619e348576152b82cf77a095353787ba9f746c39",
     "lib/measure.py::fiber_judged_length_um": "beeb59bedf1787511a47ba877df054551f9615119d6a5c341a571d09e55f4f68",

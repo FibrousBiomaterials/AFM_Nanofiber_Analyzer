@@ -435,7 +435,9 @@ marked right up to the edge.
 - **Pattern 2<!--n:label--> — `[+1, -1]`**: a sharp ridge with no resolved flat crest.
   Accepted when the span exceeds `noise_detect_factor` (default 10<!--c:lib/pipeline.py::ProcParams.noise_detect_factor--> pixels); this
   condition rejects short steps, spans of 10<!--c:lib/pipeline.py::ProcParams.noise_detect_factor--> pixels or less by default, as
-  noise.
+  noise. A shorter span is still accepted when its mark lines up with the
+  other marks of the same scan direction into an object longer than
+  `noise_detect_factor` (explained below the code).
 
 Pattern 1<!--n:label--> has no lower bound on length like that of pattern 2<!--n:label-->, so it also fires
 on small noise steps; the small marks it leaves are removed in Step 2<!--n:label--> as
@@ -474,12 +476,14 @@ left unmarked.
 In the code, `l_arr` holds the value of each run and `arg_arr` the index where
 it starts. Pattern 1<!--n:label--> is accepted when the zero run is shorter than
 `fiber_detect_factor`, and pattern 2<!--n:label--> when the distance from the start of the +1<!--n:label-->
-run to the start of the run after the −1<!--n:label--> run exceeds `noise_detect_factor`. The
-Y pass is the same code with rows and columns swapped:
+run to the start of the run after the −1<!--n:label--> run exceeds `noise_detect_factor`; a
+pattern-2<!--n:label--> mark with a shorter span goes to `short_x` instead. The Y pass is the
+same code with rows and columns swapped:
 
 ```python
 # source: lib/bg_calibrator.py::BGCalibrator._extract_fiber
 tri_difx_fill = np.zeros(tri_difx.shape)
+short_x = np.zeros(tri_difx.shape, dtype=bool)
 for j in range(tri_difx.shape[0]):
     row = tri_difx[j, :]
     change_pos = np.where(np.diff(row) != 0)[0]
@@ -496,11 +500,60 @@ for j in range(tri_difx.shape[0]):
     gap1_ok = (arg_arr[2:-1] - arg_arr[1:-2]) < self.fiber_detect_factor
     for vi in np.where(mask1 & gap1_ok)[0]:
         tri_difx_fill[j, arg_arr[vi]:arg_arr[vi + 3] - 1] = 1
-    mask2 = (l_arr[:-3] == 1) & (l_arr[1:-2] == -1)
-    gap2_ok = (arg_arr[2:-1] - arg_arr[:-3]) > self.noise_detect_factor
+    mask2 = (l_arr[:-2] == 1) & (l_arr[1:-1] == -1)
+    gap2_ok = (arg_arr[2:] - arg_arr[:-2]) > self.noise_detect_factor
     for vi in np.where(mask2 & gap2_ok)[0]:
         tri_difx_fill[j, arg_arr[vi]:arg_arr[vi + 2] - 1] = 1
+    for vi in np.where(mask2 & ~gap2_ok)[0]:
+        short_x[j, arg_arr[vi]:arg_arr[vi + 2] - 1] = True
+...
+tri_difx_fill[self._lined_up_marks(tri_difx_fill, short_x)] = 1
+tri_dify_fill[self._lined_up_marks(tri_dify_fill, short_y)] = 1
 ```
+
+The span test of pattern 2<!--n:label--> measures a ridge along the scan line, and that is
+the ridge's width only when the ridge crosses the line at right angles. A
+fiber narrower than `noise_detect_factor` pixels that runs along the other axis
+is crossed that way by every scan line. When its crest falls on a pixel rather
+than between two, no flat run separates the rise from the fall, so pattern 1<!--n:label-->
+does not match either, and the span test alone would leave the whole fiber
+unmarked; its height would then be subtracted with the background. A fiber at
+a few degrees from the axis meets the same condition along every stretch where
+its crest passes over pixel centres. `_lined_up_marks` therefore measures the
+object the short marks form instead of each line's span: a short mark is kept
+when its 8<!--n:literal in the quoted code-->-connected component, taken together with the other marks of the same
+scan direction, has a largest extent (maximum Feret diameter,
+`segmenter._max_extent_px`) above `noise_detect_factor`. The marks of a narrow
+fiber continue along the fiber and pass, whatever its direction; an isolated
+short mark, which is what a noise step leaves, is still rejected by the same
+length. How the fibers along the axes fare is in
+[Evaluation on particular data](validation.md) §1.12.
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._lined_up_marks
+keep = np.zeros(short.shape, dtype=bool)
+if not short.any():
+    return keep
+union = ((fill > 0) | short).astype(np.uint8)
+n_cc, labels, stats, _centroids = cv2.connectedComponentsWithStats(union, connectivity=8)
+limit = self.noise_detect_factor
+accepted = np.zeros(n_cc, dtype=bool)
+for k in np.unique(labels[short]):
+    w = stats[k, cv2.CC_STAT_WIDTH]
+    h = stats[k, cv2.CC_STAT_HEIGHT]
+    if max(w, h) > limit:
+        accepted[k] = True
+    elif np.hypot(w, h) > limit:
+        x0 = stats[k, cv2.CC_STAT_LEFT]
+        y0 = stats[k, cv2.CC_STAT_TOP]
+        accepted[k] = _max_extent_px(labels[y0:y0 + h, x0:x0 + w] == k) > limit
+keep[short] = accepted[labels[short]]
+return keep
+```
+
+The bounding box decides most components without the Feret diameter: a box
+with a side longer than the limit holds a longer extent, and a box whose
+diagonal is not longer cannot.
 
 #### Step 2 — Clean and dilate the mask
 
@@ -511,13 +564,15 @@ In `_bg_generate`, two corrections are applied before the mask is used:
 pixels in size, which scatter densely across noisy or wide-field images. Most of
 these small marks come from pattern 1<!--n:label-->. Within one row, pattern 1<!--n:label--> marks at least
 2<!--x:1 + 1 + 1 - 1--> pixels (rise, flat and fall one pixel each, the last pixel left unmarked)
-and pattern 2<!--n:label--> at least
-`noise_detect_factor` pixels. A pattern-2<!--n:label--> mark therefore runs for at least
+and a pattern-2<!--n:label--> mark accepted by its span at least
+`noise_detect_factor` pixels. Such a mark therefore runs for at least
 `noise_detect_factor` (default 10<!--c:lib/pipeline.py::ProcParams.noise_detect_factor-->) pixels within a single row, which already
 gives it an area of at least `min_mask_component_area` (default 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area--> pixels,
-explained next). With the two defaults, only pattern 1<!--n:label--> makes components smaller
-than that; the two defaults are both 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area-->, but they are separate parameters.
-Pattern 2<!--n:label--> makes them too when `noise_detect_factor` is lowered (the stage-class
+explained next). A shorter pattern-2<!--n:label--> mark is kept only as part of an object
+longer than `noise_detect_factor`, which can still have a smaller area when it
+is a thin diagonal; otherwise, with the two defaults, the components smaller
+than that come from pattern 1<!--n:label-->. The two defaults are both 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area-->, but they are separate parameters.
+Pattern 2<!--n:label--> makes small components too when `noise_detect_factor` is lowered (the stage-class
 constructor default is 2<!--c:lib/bg_calibrator.py::BGCalibrator.__init__(noise_detect_factor)-->). Components
 smaller than `min_mask_component_area` (default 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area-->, 8<!--n:literal in the quoted code-->-connected) are dropped.
 Without this, the dilation below expands each false positive into a square

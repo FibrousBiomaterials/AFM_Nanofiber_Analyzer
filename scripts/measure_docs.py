@@ -682,14 +682,14 @@ def bg_legacy_halo() -> dict:
 
 # Visual labels of the loop candidates, keyed by (scan, x, y) of the enclosed
 # region's bounding-box centre. Every candidate was rendered over the calibrated
-# height image and judged by eye (2026-09-30, 2026-10-07, 2026-10-13, 2026-10-26): "fiber" when the loop lies
+# height image and judged by eye (2026-09-30, 2026-10-07, 2026-10-13, 2026-10-26, 2026-10-28): "fiber" when the loop lies
 # inside one fiber body, "crossing" when it lies where fibers cross or branch, "gap"
 # when two separate fibers enclose the region between them, whether or not its floor
 # reaches the background, and "particle" when it lies inside the body of a particle. A candidate without a label fails the experiment, so a
 # change in what the skeletonizer produces forces a new look.
 # ループ候補の目視ラベル。囲まれた領域の外接矩形の中心 (scan, x, y) をキーとする。
 # 各候補を較正済み高さ画像に重ねて描画し、目視で判断した（2026-09-30、2026-10-07、2026-10-13、
-# 2026-10-26）。1 本の繊維本体の内側なら "fiber"、繊維の交差・分岐の場所なら "crossing"、
+# 2026-10-26、2026-10-28）。1 本の繊維本体の内側なら "fiber"、繊維の交差・分岐の場所なら "crossing"、
 # 別々の繊維がその間の領域を囲んでいるなら、その底が背景まで下がるかどうかによらず
 # "gap"、粒子の本体の内側なら "particle"。ラベルの無い候補があると実験は失敗するため、細線化の結果が変われば
 # 見直しが強制される。
@@ -707,7 +707,7 @@ LOOP_LABELS = {
     ("NDTOC", 371, 482): "crossing", ("NDTOC", 953, 500): "crossing",
     ("NDTOC", 912, 505): "crossing", ("NDTOC", 645, 595): "crossing",
     ("NDTOC", 816, 684): "fiber", ("NDTOC", 810, 906): "crossing",
-    ("NDTOC", 888, 347): "crossing",
+    ("NDTOC", 888, 347): "crossing", ("NDTOC", 1006, 604): "crossing",
     ("NDTOC", 262, 915): "fiber", ("NDTOC", 151, 947): "fiber",
     # A bright particle at the end of a faint strand, which the linearity filter
     # keeps since its change of 2026-10-26; the loop lies inside the particle.
@@ -952,7 +952,10 @@ def _all_test_inputs() -> Dict[str, str]:
 # component counted for the first time was rendered and judged (24 on the
 # Bruker scan, background texture and particles; 1 on the higher-plant scan, a
 # short bright piece that could not be told apart), and the fiber pieces no
-# longer removed were dropped from LINEARITY_FIBER_PIECES.
+# longer removed were dropped from LINEARITY_FIBER_PIECES. On 2026-10-28, after
+# the background fiber mask began keeping short ridge marks that line up into a
+# longer object, the one component counted for the first time (higher-plant
+# scan, a round particle on the scan-line glitch) was rendered and judged.
 # 直線性フィルタが消すかたまりのうち、最大の差し渡しが h_length に届くものの数
 # （テスト入力ごと）。すべてを補正後の高さ画像に重ねて描き、目視で判断したときの
 # 数である（2026-10-06）。LINEARITY_FIBER_PIECES は、そのうち本物の繊維の片
@@ -967,9 +970,12 @@ def _all_test_inputs() -> Dict[str, str]:
 # なった後の 2026-10-26 に、数を取り直した。初めて数えに入ったかたまりをすべて
 # 描いて判断し（Bruker スキャンの 24 個は背景の凹凸と粒子、高等植物スキャンの
 # 1 個は見分けられない短く明るい片）、消されなくなった繊維の片を
-# LINEARITY_FIBER_PIECES から除いた。
+# LINEARITY_FIBER_PIECES から除いた。背景の繊維マスクが、つながって長い物体を
+# なす短い尾根の印を残すようになった後の 2026-10-28 に、初めて数えに入った
+# かたまり 1 個（高等植物スキャンの、走査線のグリッチにかかった丸い粒子）を描いて
+# 判断した。
 LINEARITY_REMOVED_INSPECTED = {
-    "hplantTOC": 2, "tunicate": 2, "NDTOC": 156,
+    "hplantTOC": 3, "tunicate": 2, "NDTOC": 156,
 }
 LINEARITY_FIBER_PIECES = {
     ("tunicate", 10, 843), ("NDTOC", 591, 1010),
@@ -2580,6 +2586,90 @@ def synthetic_height_orientation() -> dict:
     values["measured.false_untraced"] = sum(values[f"{k}.traced"] < 0.05 for k in flagged)
     values["measured.false_axis_parallel"] = sum(k.split(".")[0] in ("a0", "a90")
                                                  for k in flagged)
+    return values
+
+
+# Narrow fibers near the scan axes: pixel size and diameter of each fiber, the
+# angles to the scan lines, the positions of the axis across the pixel grid (as
+# a fraction of a pixel; 0 puts it on the boundary between two rows or columns),
+# and the pixel noise.
+# 走査軸に近い細い繊維。各繊維の画素サイズと直径、走査線に対する角度、画素格子に
+# 対する軸の位置（画素の割合。0 は 2 行または 2 列の境目に置く）、画素ノイズ。
+NARROW_AXIS_FIBERS = ((5.0, 4.0), (5.0, 8.0), (2.0, 2.0))
+NARROW_AXIS_ANGLES_DEG = (0.0, 1.0, 3.0, 10.0, 23.0, 45.0, 90.0)
+NARROW_AXIS_PHASES_PX = (0.0, 0.25, 0.5)
+NARROW_AXIS_NOISE_NM = (0.05, 0.2)
+NARROW_AXIS_METHODS = ("trendfill", "spline1d")
+
+
+@experiment(
+    "narrow_axis_fibers",
+    ["lib/pipeline.py"],
+    "Three straight fibers point-sampled from a cylinder dilated by a 15 nm "
+    "spherical apex (diameter 4 or 8 nm at 5 nm pixels, 2 nm at 2 nm pixels), on a "
+    "320 x 320 px scan with a plane tilt, at each angle to the scan lines in "
+    "NARROW_AXIS_ANGLES_DEG and each axis position across the pixel grid in "
+    "NARROW_AXIS_PHASES_PX, with 0.05 or 0.2 nm pixel noise: per fiber, method and "
+    "noise, the smallest share of the axis pixels the background fiber mask covered "
+    "and the smallest median calibrated height on the axis over the true height, "
+    "taken over all angles and positions; and each fiber's apparent width.",
+)
+def narrow_axis_fibers() -> dict:
+    import math
+    import numpy as np
+    from lib.pipeline import ProcParams, build_stages
+    from lib.processed_image import ProcessedImage
+
+    n = 320
+    apex = 15.0
+    values: dict = {}
+
+    def scene(nmpx, diam, angle, phase, noise):
+        r = diam / 2.0
+        yy, xx = np.mgrid[0:n, 0:n].astype(float) + 0.5
+        t = math.radians(angle)
+        fiber = np.zeros((n, n))
+        axis = np.zeros((n, n), dtype=bool)
+        for offset in (-80.0, 0.0, 80.0):
+            cx = n / 2.0 - (offset + phase) * math.sin(t)
+            cy = n / 2.0 + (offset + phase) * math.cos(t)
+            d = -(xx - cx) * math.sin(t) + (yy - cy) * math.cos(t)
+            s = (xx - cx) * math.cos(t) + (yy - cy) * math.sin(t)
+            surface = np.maximum(
+                r + np.sqrt(np.maximum((r + apex) ** 2 - (d * nmpx) ** 2, 0.0)) - apex, 0.0)
+            fiber = np.maximum(fiber, surface * (np.abs(s) < 110))
+            axis |= (np.abs(d) < 0.71) & (np.abs(s) < 88)
+        rng = np.random.default_rng(0)
+        raw = fiber + rng.normal(0.0, noise, (n, n)) + np.linspace(0.0, 1.0, n)[None, :]
+        return raw, fiber, axis
+
+    for nmpx, diam in NARROW_AXIS_FIBERS:
+        key = f"px{nmpx:g}.d{diam:g}"
+        # The apparent width: the full width at half maximum of the dilated
+        # cross-section, in pixels.
+        # 見かけの幅。膨張させた断面の半値全幅（画素）。
+        r = diam / 2.0
+        half = math.sqrt((r + apex) ** 2 - apex ** 2)
+        values[f"{key}.width_px"] = 2.0 * half / nmpx
+        for method in NARROW_AXIS_METHODS:
+            for noise in NARROW_AXIS_NOISE_NM:
+                covered, kept = [], []
+                for angle in NARROW_AXIS_ANGLES_DEG:
+                    for phase in NARROW_AXIS_PHASES_PX:
+                        raw, fiber, axis = scene(nmpx, diam, angle, phase, noise)
+                        bg = build_stages(ProcParams(bg_method=method)).bg_calibrator
+                        image = ProcessedImage(original_AFM=raw, name="narrow")
+                        bg(image)
+                        rows, cols = np.nonzero(axis[1:, 1:])
+                        covered.append(float(np.isnan(bg.bg_only)[rows, cols].mean()))
+                        truth = fiber[1:, 1:][rows, cols]
+                        kept.append(float(np.median(image.calibrated_image[rows, cols] / truth)))
+                values[f"{key}.{method}.n{noise:g}.mask_min"] = min(covered)
+                values[f"{key}.{method}.n{noise:g}.height_min"] = min(kept)
+    values["mask_min"] = min(v for k, v in values.items() if k.endswith(".mask_min"))
+    for method in NARROW_AXIS_METHODS:
+        values[f"{method}.height_min"] = min(
+            v for k, v in values.items() if k.endswith(".height_min") and f".{method}." in k)
     return values
 
 

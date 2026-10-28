@@ -212,6 +212,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `trendfill` and `spline1d` no longer subtract narrow fibers that run along a
+  scan axis as background. Their fiber mask accepted a sharp ridge without a
+  flat crest only when it spanned more than `noise_detect_factor` (10) pixels
+  along the scan line, and a fiber narrower than that, crossed at right angles
+  by the lines of the other axis, never did when its crest fell on a pixel
+  centre. On synthetic fibers of apparent width 3.2–4.7 px, between 83 and 98 %
+  of the height was subtracted at 0–3° to the scan lines, and up to 16 % at 45°
+  and 90°, depending on where the axis lay on the pixel grid, and of six such
+  fibers inspected at 0° and 3°, the skeleton followed four for less than half
+  their length. Such a short mark is now kept when it
+  lines up with the other marks of its scan direction into an object longer
+  than `noise_detect_factor` (`BGCalibrator._lined_up_marks`), so the
+  mask covers these fibers at every angle and position (`docs/validation.md`
+  §1.12). The same search also skipped a sharp ridge followed by only one more
+  run on its scan line; it is now examined. On the bundled scans, the four
+  bright patches on the scan-line glitch of the higher-plant scan are no longer
+  traced as fibers, and the background between two converging fibers at the
+  right edge of the tunicate scan is no longer overestimated. **Calibrated
+  heights, masks, skeletons and measurements change from this version**
+  wherever such a fiber or ridge occurs.
+- The curvature of a connected fibril no longer includes the corners of the
+  connector's bridges: a point whose window reaches a bridge is left out
+  (`measure.fiber_curvature_profile`). A bridge is a straight segment drawn
+  across a gap where no fiber was observed, so the turning at its ends came from
+  the connection. With the fragments auto-connected at the default settings on
+  the three bundled scans, the bridges had raised a connected fibril's mean
+  curvature by a median of 10 %, 1 % and 5 % (at most 22 %, 148 % and
+  1114 %), and 4 of the 34 connected fibrils of the Bruker scan now have no
+  curvature, because every window reaches a bridge. **The curvature of
+  connected fibrils changes from this version**; fibers without a bridge are
+  unaffected. The straightness of a connected fibril still runs over the
+  bridges, which can only raise it (`docs/gui04_measurements.md` §3.5).
 - The synthetic scans the evaluation in `docs/validation.md` §4 is measured
   on now sample the probe-dilated fiber at each pixel centre, as a scan does
   (`tests/synthetic_fibers.py`: `render_scan`, and the new `dilate_analytic`

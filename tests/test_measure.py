@@ -973,6 +973,31 @@ def test_curvature_is_empty_for_a_fiber_shorter_than_the_window():
     assert fiber_curvature_profile(short, spp, spp, window_nm=500.0).size == 0
 
 
+def test_curvature_leaves_out_windows_that_reach_a_bridge():
+    """
+    The corners a connector bridge makes do not enter the curvature.
+    連結の橋渡し部が作る角は曲率に入らない。
+
+    Two straight fragments on one line, joined by a bridge that steps sideways,
+    turn only at the bridge's ends; every window that reaches the bridge is left
+    out, so what remains reads straight.
+    同じ直線上の 2 つの断片を、横にずれる橋渡し部でつなぐと、回転は橋渡し部の
+    両端にしかない。橋渡し部にかかる窓はすべて除くので、残りはまっすぐと読む。
+    """
+    spp = 2.0
+    xs = np.arange(300.0)
+    ys = np.where(xs < 140, 0.0, 6.0)
+    ys[140:160] = np.linspace(0.0, 6.0, 20)
+    track = _ArcTrack(xs, ys, spp)
+    assert float(np.max(fiber_curvature_profile(track, spp, spp))) > 1.0
+    observed = np.ones(xs.size, dtype=bool)
+    observed[140:160] = False
+    track.height_measured = observed
+    profile = fiber_curvature_profile(track, spp, spp)
+    assert profile.size > 0
+    assert float(np.max(profile)) == pytest.approx(0.0, abs=1e-9)
+
+
 def test_kink_angle_and_density_handle_a_kinkless_fiber_differently():
     """
     A fiber with no kink has no angle but a real density of zero.

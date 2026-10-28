@@ -26,6 +26,7 @@ from scipy import signal
 from scipy.ndimage import distance_transform_edt
 
 from .processed_image import ProcessedImage
+from .segmenter import _max_extent_px
 
 if TYPE_CHECKING:
     # Annotation only: lmfit is imported inside `BGCalibrator._bg_fit`, the one
@@ -1225,6 +1226,7 @@ class BGCalibrator:
         # Process X-direction ridge patterns row by row.
         # X方向のリッジパターンを行ごとに処理する。
         tri_difx_fill = np.zeros(tri_difx.shape)
+        short_x = np.zeros(tri_difx.shape, dtype=bool)
         for j in range(tri_difx.shape[0]):
             row = tri_difx[j, :]
             # Run-length encoding exposes gradient sign transitions used for ridge detection.
@@ -1254,14 +1256,17 @@ class BGCalibrator:
             # パターン2: [1, -1] かつ微小ノイズを除くため十分なスパン。
             # This catches sharp ridge-like spans without an explicit zero plateau.
             # 0 区間を伴わない急峻なリッジ候補もこの条件で補足する。
-            mask2 = (l_arr[:-3] == 1) & (l_arr[1:-2] == -1)
-            gap2_ok = (arg_arr[2:-1] - arg_arr[:-3]) > self.noise_detect_factor
+            mask2 = (l_arr[:-2] == 1) & (l_arr[1:-1] == -1)
+            gap2_ok = (arg_arr[2:] - arg_arr[:-2]) > self.noise_detect_factor
             for vi in np.where(mask2 & gap2_ok)[0]:
                 tri_difx_fill[j, arg_arr[vi]:arg_arr[vi + 2] - 1] = 1
+            for vi in np.where(mask2 & ~gap2_ok)[0]:
+                short_x[j, arg_arr[vi]:arg_arr[vi + 2] - 1] = True
 
         # Process Y-direction ridge patterns column by column.
         # Y方向のリッジパターンを列ごとに処理する。
         tri_dify_fill = np.zeros(tri_dify.shape)
+        short_y = np.zeros(tri_dify.shape, dtype=bool)
         for j in range(tri_dify.shape[1]):
             col = tri_dify[:, j]
             # Apply the same sign-transition logic symmetrically in Y-direction.
@@ -1287,12 +1292,92 @@ class BGCalibrator:
 
             # Pattern 2: [1, -1] with enough span to avoid tiny noise.
             # パターン2: [1, -1] かつ微小ノイズを除くため十分なスパン。
-            mask2 = (l_arr[:-3] == 1) & (l_arr[1:-2] == -1)
-            gap2_ok = (arg_arr[2:-1] - arg_arr[:-3]) > self.noise_detect_factor
+            mask2 = (l_arr[:-2] == 1) & (l_arr[1:-1] == -1)
+            gap2_ok = (arg_arr[2:] - arg_arr[:-2]) > self.noise_detect_factor
             for vi in np.where(mask2 & gap2_ok)[0]:
                 tri_dify_fill[arg_arr[vi]:arg_arr[vi + 2] - 1, j] = 1
+            for vi in np.where(mask2 & ~gap2_ok)[0]:
+                short_y[arg_arr[vi]:arg_arr[vi + 2] - 1, j] = True
+
+        # A pattern-2 mark too short along its own scan line is kept when it
+        # lines up with the other marks of that direction into an object longer
+        # than `noise_detect_factor`: a narrow fiber crossed at right angles
+        # spans only a few pixels on every scan line, but its marks continue
+        # along the fiber, whereas a noise step stays a short isolated mark.
+        # 自分の走査線に沿っては短すぎるパターン2の印も、同じ方向の他の印とつながって
+        # `noise_detect_factor` より長い物体をなすなら残す。細い繊維を直角に横切る
+        # 走査線ではどの線でも数画素にしかならないが、その印は繊維に沿って続く。
+        # 雑音の段差は短く孤立した印のままである。
+        tri_difx_fill[self._lined_up_marks(tri_difx_fill, short_x)] = 1
+        tri_dify_fill[self._lined_up_marks(tri_dify_fill, short_y)] = 1
 
         return tri_difx_fill, tri_dify_fill
+
+    def _lined_up_marks(self, fill: np.ndarray, short: np.ndarray) -> np.ndarray:
+        """
+        Select the short pattern-2 marks that belong to an object longer than `noise_detect_factor`.
+        `noise_detect_factor` より長い物体に属する短いパターン2の印を選ぶ。
+
+        Parameters
+        ----------
+        fill
+            Marks of one scan direction accepted by patterns 1 and 2.
+            1 つの走査方向でパターン1・2が受け入れた印。
+        short
+            Pattern-2 marks of the same direction whose span along the scan
+            line is `noise_detect_factor` pixels or less.
+            同じ方向のパターン2の印のうち、走査線に沿った長さが
+            `noise_detect_factor` 画素以下のもの。
+
+        Returns
+        -------
+        np.ndarray
+            Boolean mask of the `short` pixels whose 8-connected component of
+            ``fill`` and ``short`` together has a largest extent (maximum Feret
+            diameter, `segmenter._max_extent_px`) above `noise_detect_factor`.
+            ``fill`` と ``short`` を合わせた 8 連結成分の最大の差し渡し（最大フェレ径、
+            `segmenter._max_extent_px`）が `noise_detect_factor` を超える ``short`` の
+            画素を示す真偽値マスク。
+
+        Notes
+        -----
+        The span test of pattern 2 measures a ridge along the scan line, which
+        is its width only when the ridge crosses the line at right angles. A
+        fiber narrower than `noise_detect_factor` pixels that runs along the
+        other axis is crossed that way on every line, and when its crest falls
+        on a pixel rather than between two, no flat run separates the rise from
+        the fall, so pattern 1 does not match either: the whole fiber stayed
+        unmasked and its height was subtracted with the background. Measuring
+        the object the marks form instead of each line's span accepts such a
+        fiber whatever its direction, while an isolated short mark, which is
+        what a noise step makes, is still rejected by the same length.
+        パターン2の長さの判定は尾根を走査線に沿って測るため、それが尾根の幅になるのは
+        尾根が走査線を直角に横切るときだけである。もう一方の軸に沿って走る
+        `noise_detect_factor` 画素より細い繊維は、どの走査線でもそのように横切られる。
+        その頂部が 2 画素の間ではなく画素の上に来ると、上りと下りの間に平らな区間が
+        できず、パターン1にも当たらない。繊維全体がマスクされず、その高さが背景と
+        一緒に差し引かれていた。各線の長さではなく印がなす物体の大きさを測れば、
+        そうした繊維を向きによらず受け入れつつ、雑音の段差が作る孤立した短い印は
+        同じ長さで退けられる。
+        """
+        keep = np.zeros(short.shape, dtype=bool)
+        if not short.any():
+            return keep
+        union = ((fill > 0) | short).astype(np.uint8)
+        n_cc, labels, stats, _centroids = cv2.connectedComponentsWithStats(union, connectivity=8)
+        limit = self.noise_detect_factor
+        accepted = np.zeros(n_cc, dtype=bool)
+        for k in np.unique(labels[short]):
+            w = stats[k, cv2.CC_STAT_WIDTH]
+            h = stats[k, cv2.CC_STAT_HEIGHT]
+            if max(w, h) > limit:
+                accepted[k] = True
+            elif np.hypot(w, h) > limit:
+                x0 = stats[k, cv2.CC_STAT_LEFT]
+                y0 = stats[k, cv2.CC_STAT_TOP]
+                accepted[k] = _max_extent_px(labels[y0:y0 + h, x0:x0 + w] == k) > limit
+        keep[short] = accepted[labels[short]]
+        return keep
 
     def _bg_generate(
         self,

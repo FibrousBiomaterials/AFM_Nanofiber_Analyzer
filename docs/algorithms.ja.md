@@ -420,7 +420,8 @@ tri_difx = np.where(dif_x < outx_min, -1, 0) + np.where(dif_x > outx_max, 1, 0)
 - **パターン 2<!--n:label--> — `[+1, -1]`**: てっぺんの平らな部分が見えないほど尖った山。
   上りと下りを合わせた長さが `noise_detect_factor`（既定 10<!--c:lib/pipeline.py::ProcParams.noise_detect_factor--> 画素）を超えるときに
   繊維とみなす。この条件によって、その長さが既定で 10<!--c:lib/pipeline.py::ProcParams.noise_detect_factor--> 画素以下の短い段差は
-  ノイズとして捨てられる。
+  ノイズとして捨てられる。それより短くても、同じ走査方向のほかの印とつながって
+  `noise_detect_factor` より長い物体をなす印は繊維とみなす（コードの後で説明する）。
 
 パターン 1<!--n:label--> には、パターン 2<!--n:label--> のような長さの下限が無いので、ノイズによる小さな段差にも
 反応する。そうしてできる小さな印は、手順 2<!--n:label--> で、面積の小さなかたまりとして取り除く。
@@ -453,12 +454,13 @@ tri_difx = np.where(dif_x < outx_min, -1, 0) + np.where(dif_x > outx_max, 1, 0)
 下のコードでは、`l_arr` が各区間の値、`arg_arr` が各区間の始まる位置である。
 パターン 1<!--n:label--> は、てっぺんの平らな区間（0<!--n:label--> の区間）が `fiber_detect_factor` より短いときに
 採る。パターン 2<!--n:label--> は、上り（+1<!--n:label-->）の区間の始まりから下り（−1<!--n:label-->）の区間の終わりまでの
-長さが `noise_detect_factor` を超えるときに採る。Y の走査は、行と列を入れ替えた
-だけの同じコードである。
+長さが `noise_detect_factor` を超えるときに採る。それより短いパターン 2<!--n:label--> の印は、
+代わりに `short_x` に入れる。Y の走査は、行と列を入れ替えただけの同じコードである。
 
 ```python
 # source: lib/bg_calibrator.py::BGCalibrator._extract_fiber
 tri_difx_fill = np.zeros(tri_difx.shape)
+short_x = np.zeros(tri_difx.shape, dtype=bool)
 for j in range(tri_difx.shape[0]):
     row = tri_difx[j, :]
     change_pos = np.where(np.diff(row) != 0)[0]
@@ -475,11 +477,55 @@ for j in range(tri_difx.shape[0]):
     gap1_ok = (arg_arr[2:-1] - arg_arr[1:-2]) < self.fiber_detect_factor
     for vi in np.where(mask1 & gap1_ok)[0]:
         tri_difx_fill[j, arg_arr[vi]:arg_arr[vi + 3] - 1] = 1
-    mask2 = (l_arr[:-3] == 1) & (l_arr[1:-2] == -1)
-    gap2_ok = (arg_arr[2:-1] - arg_arr[:-3]) > self.noise_detect_factor
+    mask2 = (l_arr[:-2] == 1) & (l_arr[1:-1] == -1)
+    gap2_ok = (arg_arr[2:] - arg_arr[:-2]) > self.noise_detect_factor
     for vi in np.where(mask2 & gap2_ok)[0]:
         tri_difx_fill[j, arg_arr[vi]:arg_arr[vi + 2] - 1] = 1
+    for vi in np.where(mask2 & ~gap2_ok)[0]:
+        short_x[j, arg_arr[vi]:arg_arr[vi + 2] - 1] = True
+...
+tri_difx_fill[self._lined_up_marks(tri_difx_fill, short_x)] = 1
+tri_dify_fill[self._lined_up_marks(tri_dify_fill, short_y)] = 1
 ```
+
+パターン 2<!--n:label--> の長さの判定は尾根を走査線に沿って測るので、それが尾根の幅になるのは、
+尾根が走査線を直角に横切るときだけである。もう一方の軸に沿って走る
+`noise_detect_factor` 画素より細い繊維は、どの走査線にもそのように横切られる。その
+てっぺんが 2<!--n:count--> 画素の間ではなく画素の上に来ると、上りと下りの間に平らな区間ができず、
+パターン 1<!--n:label--> にも当たらない。長さの判定だけでは繊維全体に印が付かず、その高さが背景と
+一緒に差し引かれてしまう。軸から数度だけ傾いた繊維も、てっぺんが画素の中心の上を
+通る区間ごとに同じ条件にあたる。そこで `_lined_up_marks` は、各線の長さではなく、
+短い印がなす物体の大きさを測る。短い印は、同じ走査方向のほかの印と合わせた
+8<!--n:literal in the quoted code--> 連結のかたまりの最大の差し渡し（最大フェレ径、`segmenter._max_extent_px`）が
+`noise_detect_factor` を超えるときに残す。細い繊維の印は繊維に沿って続くので、向きに
+よらず残る。ノイズの段差が残すような孤立した短い印は、同じ長さで引き続き捨てられる。
+軸に沿う繊維がどうなるかは[特定データでの評価](validation.ja.md) §1.12 にある。
+
+```python
+# source: lib/bg_calibrator.py::BGCalibrator._lined_up_marks
+keep = np.zeros(short.shape, dtype=bool)
+if not short.any():
+    return keep
+union = ((fill > 0) | short).astype(np.uint8)
+n_cc, labels, stats, _centroids = cv2.connectedComponentsWithStats(union, connectivity=8)
+limit = self.noise_detect_factor
+accepted = np.zeros(n_cc, dtype=bool)
+for k in np.unique(labels[short]):
+    w = stats[k, cv2.CC_STAT_WIDTH]
+    h = stats[k, cv2.CC_STAT_HEIGHT]
+    if max(w, h) > limit:
+        accepted[k] = True
+    elif np.hypot(w, h) > limit:
+        x0 = stats[k, cv2.CC_STAT_LEFT]
+        y0 = stats[k, cv2.CC_STAT_TOP]
+        accepted[k] = _max_extent_px(labels[y0:y0 + h, x0:x0 + w] == k) > limit
+keep[short] = accepted[labels[short]]
+return keep
+```
+
+ほとんどのかたまりは、最大フェレ径を測るまでもなく外接矩形で決まる。辺の一つが
+上限より長い矩形には、それより長い差し渡しがある。対角線が上限より長くない矩形には、
+それより長い差し渡しはありえない。
 
 #### 手順 2 — マスクの掃除と膨張
 
@@ -493,10 +539,12 @@ for j in range(tri_difx.shape[0]):
 
 この小さな印は、ほとんどがパターン 1<!--n:label--> から来る。1<!--n:count--> 行の中で印が付く長さは、パターン 1<!--n:label-->
 では最短で 2<!--x:1 + 1 + 1 - 1--> 画素（上り・平ら・下りが 1<!--n:definition--> 画素ずつで、最後の 1<!--n:definition--> 画素は印に含めない）、
-パターン 2<!--n:label--> では `noise_detect_factor` 画素以上だからである。パターン 2<!--n:label--> の印は、1<!--n:count--> 行
+長さの判定で採ったパターン 2<!--n:label--> の印では `noise_detect_factor` 画素以上だからである。そうした印は、1<!--n:count--> 行
 だけでも `noise_detect_factor`（既定 10<!--c:lib/pipeline.py::ProcParams.noise_detect_factor-->）画素以上つながるので、面積がすでに次に説明する
-`min_mask_component_area`（既定 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area--> 画素）以上になる。既定の値どうしでは、面積がこれより
-小さなかたまりを作るのはパターン 1<!--n:label--> だけである。2<!--n:count--> つの既定値はどちらも 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area--> だが、
+`min_mask_component_area`（既定 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area--> 画素）以上になる。それより短いパターン 2<!--n:label--> の印は、
+`noise_detect_factor` より長い物体の一部としてだけ残るが、その物体が細く斜めに続くと
+面積はこれより小さくなりうる。それを除けば、既定の値どうしでは、面積がこれより
+小さなかたまりはパターン 1<!--n:label--> から来る。2<!--n:count--> つの既定値はどちらも 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area--> だが、
 別々のパラメータである（`noise_detect_factor` を小さくすると、パターン 2<!--n:label--> も小さなかたまりを作る。
 `BGCalibrator` をプログラムから直接作るときの既定値は 2<!--c:lib/bg_calibrator.py::BGCalibrator.__init__(noise_detect_factor)--> なので、この場合にあたる）。
 

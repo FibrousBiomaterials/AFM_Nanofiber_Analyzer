@@ -1006,10 +1006,13 @@ def fiber_curvature_profile(
         One curvature per point that has a full half window of arc ahead of
         it and at least half of a half window behind it, so points between a
         quarter and half a window from the start use a shorter backward
-        chord; empty when the fiber is shorter than the window.
-        前方に弧長で完全な半窓があり、後方に半窓の半分以上がある点ごとに 1 つの
-        曲率。したがって先頭から窓の 1/4〜1/2 にある点は、短い後方の弦を使う。
-        ファイバーが窓より短い場合は空。
+        chord, and whose window holds no connector bridge
+        (`Fiber.height_measured` ``False``); empty when the fiber is shorter
+        than the window or every window reaches a bridge.
+        前方に弧長で完全な半窓があり、後方に半窓の半分以上があり、窓に連結の橋渡し部
+        （`Fiber.height_measured` が ``False`` の点）を含まない点ごとに 1 つの曲率。
+        したがって先頭から窓の 1/4〜1/2 にある点は、短い後方の弦を使う。
+        ファイバーが窓より短い場合や、どの窓も橋渡し部にかかる場合は空。
 
     Notes
     -----
@@ -1087,6 +1090,16 @@ def fiber_curvature_profile(
     after = np.searchsorted(horizon, horizon + half, side="left")
     valid = (after < horizon.size) & (after > before)
     valid &= (horizon - horizon[np.clip(before, 0, horizon.size - 1)] >= half * 0.5)
+    # A window that reaches a connector bridge is left out: the bridge is a
+    # straight segment drawn across a gap where no fiber was observed, so the
+    # turning at its two ends comes from the connection, not from the fiber.
+    # 連結の橋渡し部にかかる窓は除く。橋渡し部は繊維を観測していない隙間に引いた
+    # 直線なので、その両端での回転は繊維ではなく連結から生じる。
+    measured = getattr(fiber, "height_measured", None)
+    if measured is not None:
+        bridged = np.concatenate(([0], np.cumsum(~np.asarray(measured, dtype=bool))))
+        last = np.clip(after, 0, horizon.size - 1)
+        valid &= bridged[last + 1] == bridged[before]
     if not valid.any():
         return np.empty(0, dtype=float)
     # The turning angle itself was exact on digitised arcs, so the residual

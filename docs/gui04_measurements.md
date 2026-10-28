@@ -1071,6 +1071,11 @@ reads 0.9994: only the centerline's own small sideways noise keeps it below 1. T
 endpoints are the ends of the traced part, so a fiber cut at a crossing is
 described over the part that was traced.
 
+On a connected fibril (§5.2), the contour length includes the straight bridges
+drawn across the gaps where no fiber was observed. The fiber's real path across
+a gap is at least as long as the straight bridge, so the straightness of a
+connected fibril is at least as high as it would be over that real path.
+
 For the skeleton track of an older bundle, and for the `skeleton_pixels`
 centerline (§2.8), the numerator is not the Euclidean chord. It is a digitised straight line between the same two pixels, measured
 with the same chain-code metric as the contour. That metric reports a straight
@@ -1098,6 +1103,11 @@ before = np.searchsorted(horizon, horizon - half, side="left")
 after = np.searchsorted(horizon, horizon + half, side="left")
 valid = (after < horizon.size) & (after > before)
 valid &= (horizon - horizon[np.clip(before, 0, horizon.size - 1)] >= half * 0.5)
+measured = getattr(fiber, "height_measured", None)
+if measured is not None:
+    bridged = np.concatenate(([0], np.cumsum(~np.asarray(measured, dtype=bool))))
+    last = np.clip(after, 0, horizon.size - 1)
+    valid &= bridged[last + 1] == bridged[before]
 if not valid.any():
     return np.empty(0, dtype=float)
 i = np.nonzero(valid)[0]
@@ -1144,6 +1154,14 @@ check is `horizon[i] - horizon[j] >= half * 0.5`, so points 25–50 nm from the
 start use a shorter backward chord. A fiber shorter than 100 nm has no
 curvature, and its cell is blank rather than 0, so it is not read as perfectly
 straight.
+
+On a connected fibril a point is also left out when its window, from $j$ to $k$,
+holds a bridge point (`Fiber.height_measured` is `False`, §5.2). A bridge is a
+straight segment drawn across a gap where no fiber was observed, so the turning
+at its two ends comes from the connection, not from the fiber. `bridged` counts
+the bridge points up to each index, and a window holds none when the count is
+the same at both of its ends. A connected fibril every window of which reaches
+a bridge has no curvature, and its cell is blank.
 
 The turning angle is unsigned, so a straight fiber does not read 0: the
 centerline's own sideways ripple keeps the mean above zero, and image noise
