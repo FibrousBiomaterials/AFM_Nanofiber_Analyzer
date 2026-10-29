@@ -10,11 +10,16 @@ document explains, so it can be regenerated whenever that code changes::
 
 The PNG files are written to ``docs/images/`` and are shared by
 ``docs/algorithms.md`` and ``docs/algorithms.ja.md``; their labels are fixed
-English, as for every plot in this project.
+English, as for every plot in this project. The one exception is the figure
+explaining the excess turning, which carries several sentences of reading
+instructions and is drawn once in each language (``kink_excess_idea.png`` and
+``kink_excess_idea.ja.png``); the Japanese one needs a Japanese font.
 各図は、文書が説明するコードに合成高さ画像を通して描くため、そのコードが
 変わったときはいつでも作り直せる。PNG は ``docs/images/`` に書き出し、
 英語版と日本語版の両方が共有する。図中の文字は、このプロジェクトの他の図と
-同じく英語で固定する。
+同じく英語で固定する。唯一の例外は超過回転を説明する図で、読み方の文を
+いくつも含むため言語ごとに描く（``kink_excess_idea.png`` と
+``kink_excess_idea.ja.png``）。日本語版には日本語フォントが要る。
 """
 
 # ===== Standard library =====
@@ -449,6 +454,163 @@ def _draw_arms(path, width):
     plt.close(fig)
 
 
+# Meiryo first: Yu Gothic sets the degree sign with a full-width gap after it.
+# Meiryo を先にする。Yu Gothic は度記号の後ろに全角幅の空きを入れる。
+_JAPANESE_FONTS = ("Meiryo", "Yu Gothic", "MS Gothic", "Noto Sans CJK JP", "IPAexGothic")
+
+_IDEA_TEXT = {
+    "en": dict(
+        a="a  A 40° corner set in an arc of radius 3W\nblue: direction just before, orange: just after",
+        b="b  Directions at the two ends of a 1.5W stretch\nthe arc's own 29° is added: 69°",
+        c="c  The same measure on the arc without the corner\n29° with no corner at all",
+        d="d  Heading along the centerline: the arc is a slope, the corner a step\n"
+          "excess turning = how far the line rises above the slope of the flanks",
+        arc="the arc without the corner", line="centerline", stretch="stretch compared (1.5W)",
+        gather="the two directions\nmoved to one point",
+        heading="direction of the centerline", expected="slope of the flanks continued",
+        flank="flanks", window="window", step="step 40°\n= excess turning",
+        slope="steady slope\n= the arc's own turning",
+        xlabel="position along the centerline (px)", ylabel="direction (°)"),
+    "ja": dict(
+        a="a  半径 3W の円弧の途中にある 40° の角\n青：折れる直前の向き　橙：折れた直後の向き",
+        b="b  1.5W の区間の両端で向きを比べる\n円弧自身の 29° が上乗せされて 69°",
+        c="c  角の無い円弧を同じ方法で測ると\n角が無いのに 29°",
+        d="d  中心線に沿った向き：円弧はなだらかな傾き、角は段になる\n"
+          "超過回転 ＝ 脇の傾きを延ばした線より飛び出した分",
+        arc="角が無かった場合の円弧", line="中心線", stretch="比べる区間（1.5W）",
+        gather="2 つの向きを\n1 点に集めたもの",
+        heading="中心線の向き", expected="脇の傾きを延ばした線",
+        flank="脇", window="窓", step="段の高さ 40°\n＝ 超過回転",
+        slope="なだらかな傾き\n＝ 円弧自身の曲がり",
+        xlabel="中心線に沿った位置（画素）", ylabel="向き（°）"),
+}
+
+
+def _draw_excess_idea(path, width, lang):
+    """
+    Draw why the kink rule tests the excess turning, on a 40-degree corner set in an arc.
+    円弧の途中にある 40 度の角で、キンク規則が超過回転を検定する理由を描く。
+
+    Notes
+    -----
+    The corner line is judged by `KinkDetector.judge_line` and must give one
+    kink of 40 degrees of excess, and the plain arc none, so the figure fails to
+    build if the rule stops treating them that way.
+    角のある線を `KinkDetector.judge_line` で判定し、超過回転 40 度のキンクが
+    1 つ、角の無い円弧ではキンクが無いことを確かめる。規則がそう扱わなくなれば
+    図は作れない。
+    """
+    from matplotlib import font_manager
+    from matplotlib.patches import Arc, FancyArrowPatch
+
+    text = _IDEA_TEXT[lang]
+    family = None
+    if lang == "ja":
+        available = {f.name for f in font_manager.fontManager.ttflist}
+        family = next((name for name in _JAPANESE_FONTS if name in available), None)
+        if family is None:
+            raise RuntimeError("no Japanese font found for the Japanese figure")
+    c = kd._CORE_WIDTHS * width
+    f = kd._FLANK_WIDTHS * width
+    radius = 3.0 * width
+    corner = np.radians(40.0)
+    step = 0.05
+    length = 70.0
+    s0 = length / 2
+    s = np.arange(0.0, length + step / 2, step)
+    h_corner = s / radius + np.where(s >= s0, corner, 0.0)
+    h_arc = s / radius
+
+    def path_of(heading):
+        x = np.concatenate([[0.0], np.cumsum(step * np.cos(heading[:-1]))])
+        y = np.concatenate([[0.0], np.cumsum(step * np.sin(heading[:-1]))])
+        return x, y
+
+    xc, yc = path_of(h_corner)
+    xa, ya = path_of(h_arc)
+    judged = kd.KinkDetector().judge_line(xc[::10], yc[::10], width)
+    if (len(judged.kink_indices) != 1
+            or abs(np.degrees(judged.kink_excess[0]) - 40.0) > 0.5
+            or len(kd.KinkDetector().judge_line(xa[::10], ya[::10], width).kink_indices)):
+        raise RuntimeError("figure no longer matches KinkDetector.judge_line")
+
+    def at(x, y, p):
+        return float(np.interp(p, s, x)), float(np.interp(p, s, y))
+
+    def arrow(ax, x0, y0, ang, size, colour):
+        ax.add_patch(FancyArrowPatch((x0, y0), (x0 + size * np.cos(ang), y0 + size * np.sin(ang)),
+                                     arrowstyle="-|>", mutation_scale=18, color=colour, lw=2.5))
+
+    def angle_mark(ax, x0, y0, a0, a1, r, label, colour, text_r):
+        lo, hi = sorted((np.degrees(a0), np.degrees(a1)))
+        ax.add_patch(Arc((x0, y0), 2 * r, 2 * r, theta1=lo, theta2=hi, color=colour, lw=2.5))
+        mid = np.radians((lo + hi) / 2)
+        ax.text(x0 + text_r * r * np.cos(mid), y0 + text_r * r * np.sin(mid), label,
+                color=colour, fontsize=15, fontweight="bold", ha="center", va="center",
+                bbox=dict(facecolor="white", edgecolor="none", alpha=0.85))
+
+    context = {"font.family": family} if family else {}
+    with plt.rc_context(context):
+        fig, axs = plt.subplots(2, 2, figsize=(13.5, 12.5))
+        ax = axs[0, 0]
+        ax.plot(xa, ya, ls="--", color="0.6", lw=2, label=text["arc"])
+        ax.plot(xc, yc, color="black", lw=2.5, label=text["line"])
+        vx, vy = at(xc, yc, s0)
+        before, after = s0 / radius, s0 / radius + corner
+        arrow(ax, vx, vy, before, 14, "tab:blue")
+        arrow(ax, vx, vy, after, 14, "tab:orange")
+        angle_mark(ax, vx, vy, before, after, 7, "40°", "green", 1.6)
+        ax.set_title(text["a"], fontsize=13)
+
+        for ax, (x, y, heading, title) in zip(
+                (axs[0, 1], axs[1, 0]),
+                ((xc, yc, h_corner, text["b"]), (xa, ya, h_arc, text["c"]))):
+            ax.plot(x, y, color="black", lw=2.5)
+            m = (s >= s0 - c) & (s <= s0 + c)
+            ax.plot(x[m], y[m], color="tab:red", lw=10, alpha=0.35, solid_capstyle="butt",
+                    label=text["stretch"])
+            a0 = float(np.interp(s0 - c, s, heading))
+            a1 = float(np.interp(s0 + c, s, heading))
+            arrow(ax, *at(x, y, s0 - c), a0, 9, "tab:blue")
+            arrow(ax, *at(x, y, s0 + c), a1, 9, "tab:orange")
+            cx, cy = min(x) - 2, max(y) - 16
+            arrow(ax, cx, cy, a0, 9, "tab:blue")
+            arrow(ax, cx, cy, a1, 9, "tab:orange")
+            angle_mark(ax, cx, cy, a0, a1, 4.5, "%.0f°" % np.degrees(a1 - a0), "tab:red", 2.4)
+            ax.text(cx, cy - 3, text["gather"], fontsize=11, ha="center", va="top", color="0.3")
+            ax.set_title(title, fontsize=13)
+
+        ax = axs[1, 1]
+        ax.axvspan(s0 - c - f, s0 - c, color="tab:blue", alpha=0.10, label=text["flank"])
+        ax.axvspan(s0 + c, s0 + c + f, color="tab:blue", alpha=0.10)
+        ax.axvspan(s0 - c, s0 + c, color="tab:red", alpha=0.10, label=text["window"])
+        ax.plot(s, np.degrees(h_corner), color="black", lw=2.5, label=text["heading"])
+        ax.plot(s, np.degrees(h_arc), ls="--", color="0.55", lw=2, label=text["expected"])
+        lo, hi = np.degrees(s0 / radius), np.degrees(s0 / radius + corner)
+        ax.annotate("", (s0 + 1.5, hi), (s0 + 1.5, lo),
+                    arrowprops=dict(arrowstyle="<->", color="green", lw=2.5))
+        ax.text(s0 + 2.5, (lo + hi) / 2, text["step"], color="green", fontsize=14,
+                fontweight="bold", va="center",
+                bbox=dict(facecolor="white", edgecolor="none", alpha=0.85))
+        ax.text(s0 - c - f - 1, np.degrees((s0 - c - f) / radius) + 18, text["slope"],
+                fontsize=12, ha="right", color="0.3")
+        ax.set_xlabel(text["xlabel"], fontsize=12)
+        ax.set_ylabel(text["ylabel"], fontsize=12)
+        ax.legend(fontsize=11, loc="upper left")
+        ax.set_title(text["d"], fontsize=13)
+
+        for ax in (axs[0, 0], axs[0, 1], axs[1, 0]):
+            ax.set_aspect("equal")
+            ax.set_xticks([])
+            ax.set_yticks([])
+            for spine in ax.spines.values():
+                spine.set_color("0.85")
+            ax.legend(fontsize=11, loc="lower right")
+        fig.tight_layout()
+        fig.savefig(path, dpi=110, bbox_inches="tight", pad_inches=0.05)
+        plt.close(fig)
+
+
 def main() -> None:
     os.makedirs(OUT_DIR, exist_ok=True)
     note = ("blue line: image edge   yellow: mask edge (half maximum)   "
@@ -485,6 +647,8 @@ def main() -> None:
     # Kink figures work on synthetic centerlines given directly to the
     # detector, with an apparent width of 8 px.
     # キンクの図は、検出器に直接渡す合成の中心線で描く。見かけの幅は 8 px。
+    _draw_excess_idea(os.path.join(OUT_DIR, "kink_excess_idea.png"), 8.0, "en")
+    _draw_excess_idea(os.path.join(OUT_DIR, "kink_excess_idea.ja.png"), 8.0, "ja")
     _draw_heading(os.path.join(OUT_DIR, "kink_heading.png"), 8.0)
     _draw_arms(os.path.join(OUT_DIR, "kink_arms.png"), 8.0)
 

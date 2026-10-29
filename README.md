@@ -1304,6 +1304,16 @@ test suite instead of degrading silently in the launcher.
   largest lay at crossings, on faint strands and tangles, and where a fiber runs
   into background texture, rather than on smoothly curving fibers; see
   [Evaluation on particular data](docs/validation.md) §4.5.
+- At the default `low_threshold` (1.8 nm; GUI01's "Height threshold to remove
+  low-height components") the analysis measures the main, thicker fibrils.
+  Binarized components whose maximum height stays below it are removed, and on
+  the bundled scans most of them were thin strands the authors judged to be
+  fibrils peeled from the thicker ones. To measure such strands, lower
+  `low_threshold`. Only strands that the earlier binarization steps keep as
+  components are then added, and scan-line streaks and glitch pieces are added
+  with them; exclude those in GUI04. A low strand joined to the end of a kept
+  fiber becomes part of that fiber and can only be excluded with it. See
+  [Evaluation on particular data](docs/validation.md) §2.7.
 - The graphical tools require a working Tk installation and are primarily
   developed and tested on Windows; the CLI and library are platform-independent.
 - The `.b2z` bundle is a project-specific container. Use `cli.py export` to read

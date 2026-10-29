@@ -444,6 +444,67 @@ testing them made the filter take several times longer, and over ten times
 longer on the tunicate scan, because the Hough transform of a large crop is slow. A large
 non-linear object, such as a big contamination blob, is still kept untested.
 
+### 2.7 The height filter
+
+The height filter (`Segmenter.remove_low_component`) removes a component whose
+maximum height is below `low_threshold` (default 1.8<!--c:lib/pipeline.py::ProcParams.low_threshold--> nm). It runs after the
+other steps of binarization and sees only the components they left
+(`Segmenter.__call__`). Each test input was analyzed at the defaults (experiment
+low_threshold_removal), and every component the filter removed was rendered
+over the calibrated height image (−0.5<!--n:display range--> to 3<!--n:display range--> nm) and judged by eye:
+
+| Input | Components tested | Removed | Maximum height of the removed (nm) | Lowest maximum kept (nm) |
+|---|---|---|---|---|
+| tunicate CNF | 22<!--m:low_threshold_removal.tunicate.tested--> | 5<!--m:low_threshold_removal.tunicate.removed--> | 0.69–1.02<!--m:low_threshold_removal.tunicate.removed_max_nm--> | 2.29<!--m:low_threshold_removal.tunicate.kept_lowest_max_nm--> |
+| higher-plant TOC | 15<!--m:low_threshold_removal.hplantTOC.tested--> | 7<!--m:low_threshold_removal.hplantTOC.removed--> | 0.65–1.67<!--m:low_threshold_removal.hplantTOC.removed_max_nm--> | 1.83<!--m:low_threshold_removal.hplantTOC.kept_lowest_max_nm--> |
+| Bruker NDTOC | 198<!--m:low_threshold_removal.NDTOC.tested--> | 171<!--m:low_threshold_removal.NDTOC.removed--> | 0.72–1.80<!--m:low_threshold_removal.NDTOC.removed_max_nm--> | 2.16<!--m:low_threshold_removal.NDTOC.kept_lowest_max_nm--> |
+
+No later step put a removed component back. On the tunicate scan, 2<!--m:low_threshold_removal.tunicate.removed.fibril--> of the
+removed components are thin strands, which the authors judged to be fibrils,
+most likely peeled from the thicker ones during fibrillation; 2<!--m:low_threshold_removal.tunicate.removed.line--> lie along
+one scan line (a streak), and 1<!--m:low_threshold_removal.tunicate.removed.unclear--> at the image border could not be told. On
+the higher-plant scan, 5<!--m:low_threshold_removal.hplantTOC.removed.fibril--> are thin strands the authors judged to be fibrils of
+the same kind, 1<!--m:low_threshold_removal.hplantTOC.removed.line--> is a piece of the scan-line glitch, and 1<!--m:low_threshold_removal.hplantTOC.removed.unclear-->, at the image
+border, is probably a fibril but could not be told for certain. On the Bruker scan the removed components are pieces of a network of low
+strands that covers the background, which the authors judged to be mostly
+peeled fibrils. At the default, the analysis therefore measures the main,
+thicker fibrils and leaves the thin peeled ones out. On the higher-plant scan
+the threshold falls among fibrils: the lowest kept component, a fibril, reaches
+1.83<!--m:low_threshold_removal.hplantTOC.kept_lowest_max_nm--> nm, and the removed strands reach 1.67<!--m:low_threshold_removal.hplantTOC.removed_max_nm[1]--> nm.
+
+The kept components whose maximum is below 2.6<!--c:scripts/measure_docs.py::LOW_THRESHOLD_KEPT_LOW_NM--> nm were rendered as well:
+1<!--m:low_threshold_removal.tunicate.kept_below_limit.fibril--> on the tunicate scan, a short fibril piece between crossings in the
+tangle; 3<!--m:low_threshold_removal.hplantTOC.kept_below_limit.fibril--> fibrils on the higher-plant scan; and on the Bruker scan 4<!--m:low_threshold_removal.NDTOC.kept_below_limit.fibril-->
+fibrils and 3<!--m:low_threshold_removal.NDTOC.kept_below_limit.particle--> pieces of the low network, each carrying a bright particle.
+The filter reads each component's maximum, so a particle on a low strand keeps
+the strand.
+
+The same experiment analyzed the inputs with `low_threshold` switched off. On
+the tunicate scan every removed component was then kept: the 2<!--m:low_threshold_removal.tunicate.off.kept.fibril--> fibril
+strands, the 2<!--m:low_threshold_removal.tunicate.off.kept.line--> streak pieces and the 1<!--m:low_threshold_removal.tunicate.off.kept.unclear--> unclear component; on the
+higher-plant scan likewise the 5<!--m:low_threshold_removal.hplantTOC.off.kept.fibril--> fibril strands, the 1<!--m:low_threshold_removal.hplantTOC.off.kept.line--> glitch piece and
+the 1<!--m:low_threshold_removal.hplantTOC.off.kept.unclear--> unclear component. Within the fibers the default keeps, the skeleton
+and its branch points barely changed:
+
+| Input | Skeleton pixels | of which changed | Branch points | of which changed |
+|---|---|---|---|---|
+| tunicate CNF | 8068<!--m:low_threshold_removal.tunicate.off.skeleton_px--> | 0<!--m:low_threshold_removal.tunicate.off.skeleton_px_changed--> | 33<!--m:low_threshold_removal.tunicate.off.branch_points--> | 0<!--m:low_threshold_removal.tunicate.off.branch_points_changed--> |
+| higher-plant TOC | 1903<!--m:low_threshold_removal.hplantTOC.off.skeleton_px--> | 0<!--m:low_threshold_removal.hplantTOC.off.skeleton_px_changed--> | 4<!--m:low_threshold_removal.hplantTOC.off.branch_points--> | 0<!--m:low_threshold_removal.hplantTOC.off.branch_points_changed--> |
+| Bruker NDTOC | 9139<!--m:low_threshold_removal.NDTOC.off.skeleton_px--> | 6<!--m:low_threshold_removal.NDTOC.off.skeleton_px_changed--> | 71<!--m:low_threshold_removal.NDTOC.off.branch_points--> | 0<!--m:low_threshold_removal.NDTOC.off.branch_points_changed--> |
+
+Of the pieces of 20<!--n:definition--> px or more kept only with the filter off, 0<!--m:low_threshold_removal.tunicate.off.attached--> on the tunicate
+scan, 0<!--m:low_threshold_removal.hplantTOC.off.attached--> on the higher-plant scan and 1<!--m:low_threshold_removal.NDTOC.off.attached--> on the Bruker scan touch a fiber
+the default keeps. The Bruker one is a low strand continuing the end of a kept
+fiber, and the 6<!--m:low_threshold_removal.NDTOC.off.skeleton_px_changed--> changed pixels are there: the fiber is traced longer, no branch
+point appears, and no kept fiber is cut.
+
+Lowering `low_threshold` therefore adds the thin fibrils that the earlier steps
+of binarization left as components, together with scan-line streaks and glitch
+pieces, which are then measured as fibers and have to be excluded by hand in
+GUI04. A strand joined end to end to a kept fiber, as on the Bruker scan, is part
+of that fiber's track, so it can only be excluded together with the fiber. The
+height filter cannot bring back strands the earlier steps removed.
+
 ## 3. Skeletonization
 
 See [Analysis algorithms](algorithms.md) §3.

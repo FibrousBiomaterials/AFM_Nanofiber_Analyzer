@@ -406,6 +406,62 @@ linearity_large_exemption。両方の実行時間も記録している）。
 切り出しの Hough 変換は時間がかかるからである。ただし、大きな汚れのかたまりのような、
 線の形をしていない大きなものも、検査されずに残る。
 
+### 2.7 高さフィルタ
+
+高さフィルタ（`Segmenter.remove_low_component`）は、最大の高さが `low_threshold`
+（既定値 1.8<!--c:lib/pipeline.py::ProcParams.low_threshold--> nm）に届かないかたまりを消す。二値化のほかの段の後に動き、それらが
+残したかたまりだけを見る（`Segmenter.__call__`）。各テスト入力を既定値で解析し
+（実験 low_threshold_removal）、フィルタが消したかたまりをすべて補正後の高さ画像
+（−0.5<!--n:display range-->〜3<!--n:display range--> nm で表示）に重ねて描き、目視で判断した。
+
+| 入力 | 検査したかたまり | 消えたもの | 消えたものの最大の高さ (nm) | 残ったものの最大の高さの最小値 (nm) |
+|---|---|---|---|---|
+| チュニケート CNF | 22<!--m:low_threshold_removal.tunicate.tested--> | 5<!--m:low_threshold_removal.tunicate.removed--> | 0.69–1.02<!--m:low_threshold_removal.tunicate.removed_max_nm--> | 2.29<!--m:low_threshold_removal.tunicate.kept_lowest_max_nm--> |
+| 高等植物 TOC | 15<!--m:low_threshold_removal.hplantTOC.tested--> | 7<!--m:low_threshold_removal.hplantTOC.removed--> | 0.65–1.67<!--m:low_threshold_removal.hplantTOC.removed_max_nm--> | 1.83<!--m:low_threshold_removal.hplantTOC.kept_lowest_max_nm--> |
+| Bruker NDTOC | 198<!--m:low_threshold_removal.NDTOC.tested--> | 171<!--m:low_threshold_removal.NDTOC.removed--> | 0.72–1.80<!--m:low_threshold_removal.NDTOC.removed_max_nm--> | 2.16<!--m:low_threshold_removal.NDTOC.kept_lowest_max_nm--> |
+
+消えたかたまりを後の段が戻すことは無かった。チュニケートのスキャンでは、消えた
+かたまりのうち 2<!--m:low_threshold_removal.tunicate.removed.fibril--> 個は細い筋で、著者はこれをフィブリル（解繊の際に太い繊維から
+剥離したものと考えられる）と判断した。2<!--m:low_threshold_removal.tunicate.removed.line--> 個は一本の走査線に沿う横筋、画像の端の
+1<!--m:low_threshold_removal.tunicate.removed.unclear--> 個は何か判断できなかった。高等植物スキャンでは、5<!--m:low_threshold_removal.hplantTOC.removed.fibril--> 個が著者が同じ種類の
+フィブリルと判断した細い筋、1<!--m:low_threshold_removal.hplantTOC.removed.line--> 個が走査線のグリッチの断片で、画像の端の 1<!--m:low_threshold_removal.hplantTOC.removed.unclear--> 個はおそらくフィブリルだが確かには判断
+できなかった。
+Bruker スキャンでは、消えたかたまりは背景を覆う低い筋の網目の断片で、著者は大部分を
+剥離したフィブリルと判断した。したがって既定値の解析は、太い主たるフィブリルを測り、
+剥離した細いフィブリルを測定対象から外す。高等植物スキャンでは、しきい値がフィブリルの
+高さの範囲にかかっている。残ったかたまりで最も低いもの（フィブリル）は 1.83<!--m:low_threshold_removal.hplantTOC.kept_lowest_max_nm--> nm に
+届き、消えた筋は 1.67<!--m:low_threshold_removal.hplantTOC.removed_max_nm[1]--> nm まで届く。
+
+最大の高さが 2.6<!--c:scripts/measure_docs.py::LOW_THRESHOLD_KEPT_LOW_NM--> nm 未満で残ったかたまりも描いた。チュニケートのスキャンでは
+1<!--m:low_threshold_removal.tunicate.kept_below_limit.fibril--> 個で、絡み合いの交差の間にあるフィブリルの短い片である。高等植物スキャンでは
+3<!--m:low_threshold_removal.hplantTOC.kept_below_limit.fibril--> 個ともフィブリルである。Bruker スキャンでは 4<!--m:low_threshold_removal.NDTOC.kept_below_limit.fibril--> 個がフィブリル、3<!--m:low_threshold_removal.NDTOC.kept_below_limit.particle--> 個が低い
+網目の断片で、それぞれに明るい粒子が乗っている。フィルタはかたまりごとの最大値を読む
+ので、低い筋の上に粒子があると、その筋は残る。
+
+同じ実験で、`low_threshold` を切った解析も行った。チュニケートのスキャンでは、
+消えていたかたまりがすべて残った（フィブリルの筋 2<!--m:low_threshold_removal.tunicate.off.kept.fibril--> 個、横筋の断片
+2<!--m:low_threshold_removal.tunicate.off.kept.line--> 個、判断できなかったもの 1<!--m:low_threshold_removal.tunicate.off.kept.unclear--> 個）。高等植物スキャンでも同様に、
+フィブリルの筋 5<!--m:low_threshold_removal.hplantTOC.off.kept.fibril--> 個、グリッチの断片 1<!--m:low_threshold_removal.hplantTOC.off.kept.line--> 個、判断できなかったもの
+1<!--m:low_threshold_removal.hplantTOC.off.kept.unclear--> 個が残った。既定値で残る繊維の範囲では、骨格と分岐点はほとんど変わらなかった。
+
+| 入力 | 骨格の画素 | そのうち変わったもの | 分岐点 | そのうち変わったもの |
+|---|---|---|---|---|
+| チュニケート CNF | 8068<!--m:low_threshold_removal.tunicate.off.skeleton_px--> | 0<!--m:low_threshold_removal.tunicate.off.skeleton_px_changed--> | 33<!--m:low_threshold_removal.tunicate.off.branch_points--> | 0<!--m:low_threshold_removal.tunicate.off.branch_points_changed--> |
+| 高等植物 TOC | 1903<!--m:low_threshold_removal.hplantTOC.off.skeleton_px--> | 0<!--m:low_threshold_removal.hplantTOC.off.skeleton_px_changed--> | 4<!--m:low_threshold_removal.hplantTOC.off.branch_points--> | 0<!--m:low_threshold_removal.hplantTOC.off.branch_points_changed--> |
+| Bruker NDTOC | 9139<!--m:low_threshold_removal.NDTOC.off.skeleton_px--> | 6<!--m:low_threshold_removal.NDTOC.off.skeleton_px_changed--> | 71<!--m:low_threshold_removal.NDTOC.off.branch_points--> | 0<!--m:low_threshold_removal.NDTOC.off.branch_points_changed--> |
+
+フィルタを切ったときだけ残る 20<!--n:definition--> px 以上の片のうち、既定値で残る繊維に接する
+ものは、チュニケートのスキャンで 0<!--m:low_threshold_removal.tunicate.off.attached--> 個、高等植物スキャンで 0<!--m:low_threshold_removal.hplantTOC.off.attached--> 個、Bruker
+スキャンで 1<!--m:low_threshold_removal.NDTOC.off.attached--> 個であった。Bruker スキャンのその片は、残る繊維の端から続く低い筋で、
+変わった 6<!--m:low_threshold_removal.NDTOC.off.skeleton_px_changed--> 画素はそこにある。その繊維は長く追跡されるようになるが、分岐点は
+現れず、残る繊維が切れることは無い。
+
+したがって `low_threshold` を下げると、二値化の前の段がかたまりとして残した細い
+フィブリルが加わる。走査線の横筋やグリッチの断片も一緒に加わり、繊維として測られる
+ので、GUI04 で手で除外する必要がある。Bruker スキャンの例のように残る繊維と端で
+つながった筋は、その繊維の追跡の一部になるので、繊維ごとでなければ除外できない。
+前の段が消した筋は、高さフィルタでは戻らない。
+
 ## 3. 細線化
 
 [解析アルゴリズム](algorithms.ja.md) §3 を参照。

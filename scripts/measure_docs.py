@@ -3907,6 +3907,171 @@ def zoomed_background() -> dict:
     return values
 
 
+# What the components remove_low_component removes at the defaults are, by the
+# centre of each component, as judged on 2026-10-28 and 2026-10-29 by rendering
+# every one over the calibrated height image (-0.5 to 3 nm): "fibril" were
+# judged by the authors to be thin fibrils, most likely peeled from the thicker
+# ones during fibrillation; "line" lie along one scan line (a streak on the
+# tunicate scan, a piece of the scan-line glitch on the higher-plant scan);
+# "unclear" could not be told (the one on the higher-plant scan, at the image
+# border, the authors judged probably a fibril, without certainty). The 171
+# removed components of the Bruker scan are
+# pieces of the network of low strands that covers its background, which the
+# authors judged to be mostly peeled fibrils; they are counted, not listed. The
+# components kept below 2.6 nm and the one piece that only survives with
+# low_threshold off and touches a kept fiber were rendered the same way. A
+# different count fails the experiment, so a change in what the filter removes
+# forces a new look.
+# remove_low_component が既定で消す成分が何であるかを、成分の中心で示す。
+# 2026-10-28 と 2026-10-29 に、すべてを補正後の高さ画像（-0.5〜3 nm）に重ねて描いて
+# 判断した。"fibril" は、著者が細いフィブリル（解繊の際に太い繊維から剥離した
+# ものと考えられる）と判断したもの、"line" は 1 本の走査線に沿うもの（tunicate
+# スキャンの横筋、高等植物スキャンの走査線のグリッチの断片）、"unclear" は判断
+# できなかったもの（高等植物スキャンの画像の端の 1 個は、著者がおそらくフィブリル
+# だが確かではないと判断した）。Bruker スキャンで消える 171 成分は、背景を覆う低い筋の網目の
+# 断片で、著者は大部分を剥離したフィブリルと判断した。数だけを数え、列挙はしない。
+# 2.6 nm 未満で残る成分と、low_threshold を切ったときだけ残って既定の繊維に接する
+# 1 片も同じように描いて見た。数が変わると実験は失敗するので、消えるものが変われば
+# 見直しが強制される。
+LOW_THRESHOLD_REMOVED_JUDGED = {
+    "tunicate": {(179, 528): "line", (290, 528): "line", (586, 514): "fibril",
+                 (335, 351): "fibril", (1020, 394): "unclear"},
+    "hplantTOC": {(160, 975): "fibril", (838, 797): "fibril", (573, 677): "fibril",
+                  (106, 1013): "unclear", (612, 830): "line", (150, 532): "fibril",
+                  (231, 663): "fibril"},
+}
+LOW_THRESHOLD_REMOVED_INSPECTED = {"tunicate": 5, "hplantTOC": 7, "NDTOC": 171}
+# The kept components below LOW_THRESHOLD_KEPT_LOW_NM, by centre: "fibril" are
+# fibrils (on the tunicate scan a short piece between crossings in the tangle);
+# "particle" are pieces of the Bruker scan's low network carrying a bright
+# particle, which alone reaches the threshold.
+# LOW_THRESHOLD_KEPT_LOW_NM 未満で残る成分（中心で示す）。"fibril" はフィブリル
+# （tunicate スキャンでは絡み合いの交差の間の短い片）、"particle" は Bruker
+# スキャンの低い網目の断片で、その上の明るい粒子だけがしきい値に届くもの。
+LOW_THRESHOLD_KEPT_LOW_JUDGED = {
+    "tunicate": {(611, 921): "fibril"},
+    "hplantTOC": {(61, 897): "fibril", (801, 82): "fibril", (904, 91): "fibril"},
+    "NDTOC": {(994, 28): "particle", (584, 756): "particle", (986, 421): "fibril",
+              (290, 29): "fibril", (116, 116): "particle", (371, 599): "fibril",
+              (130, 728): "fibril"},
+}
+LOW_THRESHOLD_KEPT_LOW_INSPECTED = {k: len(v) for k, v in LOW_THRESHOLD_KEPT_LOW_JUDGED.items()}
+LOW_THRESHOLD_ATTACHED_INSPECTED = {"NDTOC": [(987, 861)]}
+LOW_THRESHOLD_KEPT_LOW_NM = 2.6
+
+
+@experiment(
+    "low_threshold_removal",
+    ["lib/pipeline.py"],
+    "remove_low_component at the default low_threshold on each test input: the components "
+    "it tests and removes, the range of the removed components' maximum height, the lowest "
+    "maximum among the kept ones and how many kept ones stay below "
+    "LOW_THRESHOLD_KEPT_LOW_NM, the removed ones by the visual judgement in "
+    "LOW_THRESHOLD_REMOVED_JUDGED; and, with low_threshold switched off, how many skeleton "
+    "pixels and branch points inside the default binarized mask change and which pieces "
+    "kept only then touch a fiber the default keeps (pieces of 20 px or more).",
+)
+def low_threshold_removal() -> dict:
+    import cv2
+    import numpy as np
+    from scipy import ndimage as ndi
+    from lib.blosc2_io import load_bundle
+    from lib.pipeline import ProcParams, build_stages, process_file
+
+    values: dict = {}
+    for name, rel in _all_test_inputs().items():
+        runs = {}
+        for tag, params in (("default", ProcParams()), ("off", ProcParams(low_threshold=-1e9))):
+            out = cache_dir(f"low_threshold_{tag}")
+            out.mkdir(parents=True, exist_ok=True)
+            stages = build_stages(params)
+            result = process_file(str(ROOT / rel), params, stages=stages, output_dir=str(out))
+            runs[tag] = (result, stages.segmenter)
+        result, seg = runs["default"]
+        image = result.image
+        heights = getattr(image, "detection_image", None)
+        heights = np.asarray(image.calibrated_image if heights is None else heights, float)
+        before = np.asarray(seg.no_connecting_binary_image, np.uint8)
+        after = np.asarray(seg.no_low_binary_image, bool)
+        final = np.asarray(image.binarized_image, bool)
+        n, lab, _, _ = cv2.connectedComponentsWithStats(before, 8)
+        removed, kept = [], []
+        for i in range(1, n):
+            comp = lab == i
+            ys, xs = np.nonzero(comp)
+            entry = (float(heights[comp].max()), int(xs.mean()), int(ys.mean()),
+                     bool((comp & final).any()))
+            (kept if after[comp].any() else removed).append(entry)
+        if len(removed) != LOW_THRESHOLD_REMOVED_INSPECTED[name]:
+            raise SystemExit(f"{name}: low_threshold removes {len(removed)} components, "
+                             f"{LOW_THRESHOLD_REMOVED_INSPECTED[name]} were inspected; render "
+                             "and judge them again")
+        kept_low = sum(1 for h, *_ in kept if h < LOW_THRESHOLD_KEPT_LOW_NM)
+        if kept_low != LOW_THRESHOLD_KEPT_LOW_INSPECTED[name]:
+            raise SystemExit(f"{name}: {kept_low} kept components stay below "
+                             f"{LOW_THRESHOLD_KEPT_LOW_NM} nm, "
+                             f"{LOW_THRESHOLD_KEPT_LOW_INSPECTED[name]} were inspected")
+        final_off = np.asarray(runs["off"][0].image.binarized_image, bool)
+        judged = LOW_THRESHOLD_REMOVED_JUDGED.get(name)
+        if judged is not None:
+            kept_off = {kind: 0 for kind in ("fibril", "line", "unclear")}
+            for (x, y), kind in judged.items():
+                match = [(cx, cy) for _, cx, cy, _ in removed
+                         if abs(cx - x) <= 3 and abs(cy - y) <= 3]
+                if not match:
+                    raise SystemExit(f"{name}: the removed component at ({x}, {y}) is gone; "
+                                     "render and judge again")
+                comp = next(lab == i for i in range(1, n)
+                            if not after[lab == i].any()
+                            and (int(np.nonzero(lab == i)[1].mean()),
+                                 int(np.nonzero(lab == i)[0].mean())) == match[0])
+                # Whether the analysis keeps it once low_threshold is off.
+                # low_threshold を切ったときに残るかどうか。
+                kept_off[kind] += int(bool((comp & final_off).any()))
+            for kind in ("fibril", "line", "unclear"):
+                values[f"{name}.removed.{kind}"] = sum(1 for k in judged.values() if k == kind)
+                values[f"{name}.off.kept.{kind}"] = kept_off[kind]
+        for (x, y), kind in LOW_THRESHOLD_KEPT_LOW_JUDGED[name].items():
+            if not any(abs(cx - x) <= 3 and abs(cy - y) <= 3 and h < LOW_THRESHOLD_KEPT_LOW_NM
+                       for h, cx, cy, _ in kept):
+                raise SystemExit(f"{name}: the kept component at ({x}, {y}) is gone; "
+                                 "render and judge again")
+        for kind in ("fibril", "particle"):
+            values[f"{name}.kept_below_limit.{kind}"] = sum(
+                1 for k in LOW_THRESHOLD_KEPT_LOW_JUDGED[name].values() if k == kind)
+        values[f"{name}.tested"] = n - 1
+        values[f"{name}.removed"] = len(removed)
+        values[f"{name}.removed_max_nm"] = [min(h for h, *_ in removed), max(h for h, *_ in removed)]
+        values[f"{name}.removed_restored"] = sum(1 for *_, restored in removed if restored)
+        values[f"{name}.kept_lowest_max_nm"] = min(h for h, *_ in kept)
+        values[f"{name}.kept_below_limit"] = kept_low
+
+        bundles = {tag: load_bundle(runs[tag][0].bundle_path, ["skeletonized", "bp"])
+                   for tag in runs}
+        skel = {tag: np.asarray(b["skeletonized"], bool) for tag, b in bundles.items()}
+        bp = {tag: np.asarray(b["bp"], bool) for tag, b in bundles.items()}
+        values[f"{name}.off.skeleton_px"] = int((skel["default"] & final).sum())
+        values[f"{name}.off.skeleton_px_changed"] = int(((skel["default"] ^ skel["off"]) & final).sum())
+        values[f"{name}.off.branch_points"] = int((bp["default"] & final).sum())
+        values[f"{name}.off.branch_points_changed"] = int(((bp["default"] ^ bp["off"]) & final).sum())
+        new = final_off & ~final
+        pieces, count = ndi.label(new, structure=np.ones((3, 3)))
+        attached = []
+        for i in range(1, count + 1):
+            piece = pieces == i
+            if piece.sum() >= 20 and (ndi.binary_dilation(piece) & final).any():
+                ys, xs = np.nonzero(piece)
+                attached.append((int(xs.mean()), int(ys.mean())))
+        inspected = LOW_THRESHOLD_ATTACHED_INSPECTED.get(name, [])
+        if len(attached) != len(inspected) or not all(
+                any(abs(x - ax) <= 3 and abs(y - ay) <= 3 for ax, ay in attached)
+                for x, y in inspected):
+            raise SystemExit(f"{name}: the pieces touching a kept fiber with low_threshold off "
+                             f"are {attached}, {inspected} were inspected; render them again")
+        values[f"{name}.off.attached"] = len(attached)
+    return values
+
+
 # ----------------------------------------------------------------------------
 # Recording
 # ----------------------------------------------------------------------------

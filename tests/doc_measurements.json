@@ -1313,6 +1313,72 @@
     "scans": 24
    }
   },
+  "low_threshold_removal": {
+   "description": "remove_low_component at the default low_threshold on each test input: the components it tests and removes, the range of the removed components' maximum height, the lowest maximum among the kept ones and how many kept ones stay below LOW_THRESHOLD_KEPT_LOW_NM, the removed ones by the visual judgement in LOW_THRESHOLD_REMOVED_JUDGED; and, with low_threshold switched off, how many skeleton pixels and branch points inside the default binarized mask change and which pieces kept only then touch a fiber the default keeps (pieces of 20 px or more).",
+   "snapshot": "f65a43f7a8a5ead5",
+   "values": {
+    "NDTOC.kept_below_limit": 7,
+    "NDTOC.kept_below_limit.fibril": 4,
+    "NDTOC.kept_below_limit.particle": 3,
+    "NDTOC.kept_lowest_max_nm": 2.159824,
+    "NDTOC.off.attached": 1,
+    "NDTOC.off.branch_points": 71,
+    "NDTOC.off.branch_points_changed": 0,
+    "NDTOC.off.skeleton_px": 9139,
+    "NDTOC.off.skeleton_px_changed": 6,
+    "NDTOC.removed": 171,
+    "NDTOC.removed_max_nm": [
+     0.723101,
+     1.799748
+    ],
+    "NDTOC.removed_restored": 0,
+    "NDTOC.tested": 198,
+    "hplantTOC.kept_below_limit": 3,
+    "hplantTOC.kept_below_limit.fibril": 3,
+    "hplantTOC.kept_below_limit.particle": 0,
+    "hplantTOC.kept_lowest_max_nm": 1.829273,
+    "hplantTOC.off.attached": 0,
+    "hplantTOC.off.branch_points": 4,
+    "hplantTOC.off.branch_points_changed": 0,
+    "hplantTOC.off.kept.fibril": 5,
+    "hplantTOC.off.kept.line": 1,
+    "hplantTOC.off.kept.unclear": 1,
+    "hplantTOC.off.skeleton_px": 1903,
+    "hplantTOC.off.skeleton_px_changed": 0,
+    "hplantTOC.removed": 7,
+    "hplantTOC.removed.fibril": 5,
+    "hplantTOC.removed.line": 1,
+    "hplantTOC.removed.unclear": 1,
+    "hplantTOC.removed_max_nm": [
+     0.653647,
+     1.669373
+    ],
+    "hplantTOC.removed_restored": 0,
+    "hplantTOC.tested": 15,
+    "tunicate.kept_below_limit": 1,
+    "tunicate.kept_below_limit.fibril": 1,
+    "tunicate.kept_below_limit.particle": 0,
+    "tunicate.kept_lowest_max_nm": 2.293758,
+    "tunicate.off.attached": 0,
+    "tunicate.off.branch_points": 33,
+    "tunicate.off.branch_points_changed": 0,
+    "tunicate.off.kept.fibril": 2,
+    "tunicate.off.kept.line": 2,
+    "tunicate.off.kept.unclear": 1,
+    "tunicate.off.skeleton_px": 8068,
+    "tunicate.off.skeleton_px_changed": 0,
+    "tunicate.removed": 5,
+    "tunicate.removed.fibril": 2,
+    "tunicate.removed.line": 2,
+    "tunicate.removed.unclear": 1,
+    "tunicate.removed_max_nm": [
+     0.694331,
+     1.022434
+    ],
+    "tunicate.removed_restored": 0,
+    "tunicate.tested": 22
+   }
+  },
   "narrow_axis_fibers": {
    "description": "Three straight fibers point-sampled from a cylinder dilated by a 15 nm spherical apex (diameter 4 or 8 nm at 5 nm pixels, 2 nm at 2 nm pixels), on a 320 x 320 px scan with a plane tilt, at each angle to the scan lines in NARROW_AXIS_ANGLES_DEG and each axis position across the pixel grid in NARROW_AXIS_PHASES_PX, with 0.05 or 0.2 nm pixel noise: per fiber, method and noise, the smallest share of the axis pixels the background fiber mask covered and the smallest median calibrated height on the axis over the true height, taken over all angles and positions; and each fiber's apparent width.",
    "snapshot": "f65a43f7a8a5ead5",

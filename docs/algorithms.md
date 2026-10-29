@@ -1178,9 +1178,14 @@ return out_binary_image
 ### 2.5 Height filter
 
 `remove_low_component` removes any component whose **maximum** height over the
-calibrated image is below `low_threshold` (default 1.8<!--c:lib/pipeline.py::ProcParams.low_threshold--> nm). Using the maximum
-rather than the mean is what lets a genuine thin fiber survive while a broad
-low smear is discarded.
+calibrated image is below `low_threshold` (default 1.8<!--c:lib/pipeline.py::ProcParams.low_threshold--> nm). A component is kept
+as soon as one of its pixels reaches `low_threshold`, so the test asks how high
+the component rises at its highest point, not how high it is along its length.
+A low strand that lies in the same component as a fiber reaching the threshold,
+or whose component also holds a particle reaching it, is therefore kept with
+that fiber or particle, while a component that stays below `low_threshold` everywhere is removed
+whatever its shape. What the filter removes from the bundled scans is described
+in [Evaluation on particular data](validation.md) §2.7.
 
 ```python
 # source: lib/segmenter.py::Segmenter.remove_low_component
@@ -2566,6 +2571,32 @@ needs 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->° of excess t
 *stored* for a kink is measured separately, from its arms (see *The reported
 angle* below).
 
+**The excess on an example.** Figure 4<!--n:label--> shows why the rule tests the excess
+and not the window's turning, on a corner of 40<!--n:example-->° set in an arc of radius
+$3\,W$. Panel a marks the corner: the centerline follows the arc and changes
+direction by 40<!--n:example-->° at one point. Panel b measures the corner the simple way, as the
+change of direction between the two ends of a stretch of $2c = 1.5\,W$ centred
+on it, which is the window's turning $T$. The arc keeps turning on both sides of
+the corner inside that stretch, so its own 29<!--x:degrees(2 * 0.75 / 3)-->° is added and $T$ reads
+69<!--x:40 + degrees(2 * 0.75 / 3)-->°. Panel c applies the same measure to the arc without the corner: it reads
+29<!--x:degrees(2 * 0.75 / 3)-->° although there is no corner, and on an arc a little tighter it would pass
+the default 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->° at every point of the curve. Panel d plots the heading along
+the centerline: the arc is a steady slope and the corner a step. The dashed
+line continues the slope read on the flanks across the window, and the height
+of the step above it is the excess $E$, the 40<!--n:example-->° of the corner.
+
+![A corner set in an arc, measured by the window's turning and by the excess](images/kink_excess_idea.png)
+
+Figure 4<!--n:label-->: a corner of 40<!--n:example-->° set in an arc of radius $3\,W$, on a synthetic centerline
+given directly to the detector (apparent width $W$ = 8<!--n:example--> px). a: the corner; blue is
+the direction just before it, orange just after. b: the directions at the two
+ends of a $1.5\,W$ stretch centred on the corner (red band), drawn again from
+one point on the left. c: the same on the arc without the corner. d: the
+heading along the centerline, with the window (red band), the flanks (blue
+bands) and the flanks' slope continued (dashed). Drawn by
+`scripts/make_doc_figures.py`, which checks that `KinkDetector.judge_line`
+finds one kink of 40<!--n:example-->° excess on this line and none on the arc without the corner.
+
 **Why the excess and not the turning.** The window's turning alone reports
 curvature as well as kinks: an arc of radius $3\,W$ already turns 29<!--x:degrees(2 * 0.75 / 3)-->° across
 $1.5\,W$. An arc turns at the same rate inside the window and on both flanks, so
@@ -2575,11 +2606,11 @@ curve ends has one curved flank and one straight one, and it is still a corner.
 When either flank turns opposite to the turning inside the window, nothing is
 subtracted. For instance, on a line whose 2<!--n:count--> bends turn back against each other to
 form a step, the second bend falls in a flank of the first, and that flank turns
-the other way (Figure 4<!--n:label-->, right).
+the other way (Figure 5<!--n:label-->, right).
 
 ![The heading θ(s) of three centerlines, with the turning T and the excess E](images/kink_heading.png)
 
-Figure 4<!--n:label-->: the heading $\theta(s)$ of 3<!--n:count--> synthetic centerlines (lines given directly to
+Figure 5<!--n:label-->: the heading $\theta(s)$ of 3<!--n:count--> synthetic centerlines (lines given directly to
 the detector, not taken from an image; apparent width $W$ = 8<!--n:example--> px). The horizontal
 axis is the arc length divided by $W$, the vertical axis the heading in degrees.
 The orange band is the window $p \pm c$, the blue bands the flanks of length
@@ -2753,12 +2784,12 @@ mean heading over a stretch 1<!--c:lib/kink_detector.py::_ARM_LENGTH_WIDTHS--> $
 the range over which the probe rounds the bend) and cut short at the next bend,
 so that the turning of a nearby next bend (for example the second bend of a jog,
 where two bends turn back against each other to form a step) does not enter the
-arm's direction (Figure 5<!--n:label-->). The excess the bend was judged by is stored beside the
+arm's direction (Figure 6<!--n:label-->). The excess the bend was judged by is stored beside the
 angle too (§4.5).
 
 ![Two bends forming a step, and the arms of the first one](images/kink_arms.png)
 
-Figure 5<!--n:label-->: a synthetic centerline whose 2<!--n:count--> bends of 45<!--n:example-->° each form a step (a line
+Figure 6<!--n:label-->: a synthetic centerline whose 2<!--n:count--> bends of 45<!--n:example-->° each form a step (a line
 given directly to the detector, not taken from an image; apparent width $W$ =
 8<!--n:example--> px, bends $1.375\,W$ apart). Blue is the left arm of the first bend and orange
 its right arm, cut short before the second bend ($p_{\text{next}} - g$). The
