@@ -10,6 +10,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- GUI03's "枠のファイバー" setting for `contour length` has a fourth option,
+  `Kaplan-Meier`, which estimates the fiber length distribution from every
+  fiber with an end of its own: a fiber with both ends its own is a length seen
+  whole, one cut at a crossing or by the frame at its other end is a censored
+  observation, and one with no end of its own is not used
+  (`measure.kaplan_meier_length_weights`, `measure.fiber_real_end_count`). On
+  straight segments scattered at random and cut at crossings and the scan
+  border it recovered the quartiles and 90th percentile of the true lengths
+  within 2 %, where the fibers seen whole read up to 30 % short
+  (`docs/validation.md` §6.3). Weighted samples are not tested between groups.
+  It is offered for the `fiber` unit only. The part of the distribution beyond
+  the longest fiber seen whole is not filled in: a median or quartile that
+  falls there reads "> that length", the mean, standard deviation and mode are
+  left blank, and the bars and the ECDF fall short of one by that share.
+- The fiber CSV gains a last column, `frame_end_count` (how many of the fiber's
+  skeleton endpoints lie on the frame), which the estimate needs; earlier CSVs
+  still read, and are left out of the estimate. No measured value changes, but
+  the CSV written for the same bundle is no longer byte-identical.
+
 - GUI03 reports the effective sample size (Σw)²/Σw² of a `Miles-Lantuejoul`
   weighted length distribution in the figure and the log, and in the log the
   share of the total weight its heaviest fiber carries: the weights have no

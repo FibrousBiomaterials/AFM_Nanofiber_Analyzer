@@ -208,6 +208,7 @@ FIBER_CSV_COLUMNS = (
     "line_reliable_fraction", "unjudged_count",
     "touches_frame", "cut_end_count", "frame_weight",
     "unjudged_bridge_count", "bridge_excluded_nm",
+    "frame_end_count",
 )
 
 # The column set of the development version that added straightness, and the
@@ -239,6 +240,14 @@ FIBER_CSV_COLUMNS_V3 = FIBER_CSV_COLUMNS[:13]
 # 記録が無いものとして読む。その CSV のどのファイバーもそのように計測されており、
 # キンク密度の分母は書き出したときと同じく橋渡し部を含んだままになる。
 FIBER_CSV_COLUMNS_V4 = FIBER_CSV_COLUMNS[:16]
+
+# The column set before the frame-end column. A CSV with it reads with that
+# field unrecorded, so GUI03 leaves its lengths out of the Kaplan-Meier
+# estimate rather than taking an end on the frame for a fiber end.
+# 枠の端の列を追加する前の列構成。これで書かれた CSV はその項目を未記録として
+# 読むため、GUI03 は枠上の端を繊維の端と取り違えず、その長さを Kaplan-Meier
+# 推定から外す。
+FIBER_CSV_COLUMNS_V5 = FIBER_CSV_COLUMNS[:18]
 
 
 @dataclass(frozen=True)
@@ -359,6 +368,16 @@ class FiberStats:
         （`Fiber.bridge_excluded_px` × X ピクセルサイズ）。橋渡し部の無い
         ファイバーでは 0、ピクセルサイズが与えられず橋渡し部を持つファイバーでは
         NaN。`fiber_kink_density` はこれを分母から除く。
+    frame_end_count
+        How many of the fiber's two ends are skeleton endpoints on the
+        outermost row or column, where the fiber leaves the scan rather than
+        ending (`_frame_end_count`). Disjoint from `cut_end_count`, so
+        ``2 - cut_end_count - frame_end_count`` ends are the fiber's own.
+        ``None`` when not recorded.
+        ファイバーの 2 つの端のうち、最外周の行・列にあるスケルトン端点の数。そこでは
+        ファイバーは終わるのではなく走査範囲の外へ出ていく（`_frame_end_count`）。
+        `cut_end_count` とは重ならないため、``2 - cut_end_count - frame_end_count``
+        個の端がファイバー自身の端である。記録が無い場合は ``None``。
 
     Examples
     --------
@@ -399,6 +418,7 @@ class FiberStats:
     frame_weight: float = float("nan")
     unjudged_bridge_count: int = 0
     bridge_excluded_nm: float = 0.0
+    frame_end_count: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -629,6 +649,179 @@ def _cut_end_count(fiber: Fiber) -> int:
         return 0
     ends = set(int(i) for i in np.asarray(fiber.ep_indices).tolist())
     return len({0, n - 1} - ends)
+
+
+def _frame_end_count(
+    fiber: Fiber,
+    frame: Optional[Tuple[int, int]],
+) -> Optional[int]:
+    """
+    Count how many of a fiber's skeleton endpoints lie on the frame.
+    ファイバーのスケルトン端点のうち、枠上にあるものの数を数える。
+
+    Parameters
+    ----------
+    fiber
+        Traced fiber whose `ep_indices` record its skeleton endpoints.
+        スケルトン端点を `ep_indices` に記録している追跡済みファイバー。
+    frame
+        Image shape from `_image_frame_shape`; ``None`` leaves it unrecorded.
+        `_image_frame_shape` が返した画像形状。``None`` なら記録しない。
+
+    Returns
+    -------
+    Optional[int]
+        0, 1 or 2, or ``None`` without a frame.
+        0、1、2 のいずれか。枠が無ければ ``None``。
+
+    Notes
+    -----
+    Only ends that are skeleton endpoints are counted, so an end cut at a
+    crossing is never counted twice; the frame is the outermost row or column
+    of skeleton pixels, as in `_reaches_frame`.
+    スケルトン端点である端だけを数えるため、交差で切れた端を二重に数えることは
+    ない。枠は `_reaches_frame` と同じく、スケルトン画素の最外周の行・列である。
+    """
+    if frame is None:
+        return None
+    n = len(fiber.xtrack)
+    if n == 0:
+        return 0
+    height, width = frame
+    sx, sy = skeleton_track(fiber)
+    ends = set(int(i) for i in np.asarray(fiber.ep_indices).tolist())
+    count = 0
+    for i in {0, n - 1} & ends:
+        gx = float(sx[i]) + float(fiber.data[0])
+        gy = float(sy[i]) + float(fiber.data[1])
+        if gx <= 0 or gy <= 0 or gx >= width - 1 or gy >= height - 1:
+            count += 1
+    return count
+
+
+def fiber_real_end_count(stat: "FiberStats") -> Optional[int]:
+    """
+    Return how many of a fiber's ends are its own, not a cut or the frame.
+    ファイバーの端のうち、切断でも枠でもない自身の端の数を返す。
+
+    Parameters
+    ----------
+    stat
+        Per-fiber statistics with the frame and cut-end fields recorded.
+        枠と切断端の項目が記録されたファイバー単位の統計値。
+
+    Returns
+    -------
+    Optional[int]
+        0, 1 or 2, or ``None`` when any of the three fields is unrecorded.
+        0、1、2 のいずれか。3 つの項目のどれかが未記録なら ``None``。
+
+    Notes
+    -----
+    A fiber whose skeleton touches the frame away from its ends leaves the
+    scan there, so at most one of its ends starts a length that is not cut
+    short; it is counted with at most one end of its own.
+    端以外の場所でスケルトンが枠に触れるファイバーは、そこで走査範囲の外へ出る
+    ため、短く切れていない長さの起点になれる端は多くても 1 つである。自身の端は
+    多くても 1 つとして数える。
+    """
+    if (stat.touches_frame is None or stat.cut_end_count is None
+            or stat.frame_end_count is None):
+        return None
+    own = max(0, 2 - int(stat.cut_end_count) - int(stat.frame_end_count))
+    if stat.touches_frame and stat.frame_end_count == 0:
+        own = min(own, 1)
+    return own
+
+
+def kaplan_meier_length_weights(
+    lengths: Sequence[float],
+    own_ends: Sequence[int],
+) -> Tuple[np.ndarray, float]:
+    """
+    Weight fiber lengths by the Kaplan-Meier estimate of the length distribution.
+    ファイバー長を、長さ分布の Kaplan-Meier 推定で重み付けする。
+
+    Parameters
+    ----------
+    lengths
+        Measured length of each fiber, in any unit.
+        各ファイバーの計測した長さ（単位は任意）。
+    own_ends
+        How many of each fiber's ends are its own (`fiber_real_end_count`).
+        各ファイバーの端のうち自身の端の数（`fiber_real_end_count`）。
+
+    Returns
+    -------
+    tuple
+        ``(weights, unassigned)``. `weights` has one entry per fiber: the
+        number of fibers the estimate places at that fiber's length, nonzero
+        only for a fiber with both ends its own. `unassigned` is the share of
+        the distribution the estimate cannot place, because it lies beyond the
+        longest fiber seen whole.
+        ``(weights, unassigned)``。`weights` はファイバーごとに 1 つで、推定が
+        そのファイバーの長さに置くファイバーの本数。両端とも自身の端である
+        ファイバーだけが 0 でない。`unassigned` は、全長を見たうち最長のファイバー
+        より長い側にあるため推定が置けない、分布の割合。
+
+    Notes
+    -----
+    Each own end starts one observation of the length from a fiber end: a
+    fiber with both ends its own gives two complete observations, one with a
+    single own end gives one observation cut short (right-censored) at its
+    measured length, and one with no own end gives none, since nothing
+    measured on it starts at a fiber end. A cut or the frame stops an
+    observation independently of the fiber's length as long as the fibers
+    are spread evenly over a region larger than the scan and the crossings
+    along a fiber do not depend on its length, which is what Kaplan-Meier
+    needs. The weights are the estimate's steps, each shared among the
+    complete fibers at that length and scaled by half the number of
+    observations, so they count fibers and pool across sources.
+    自身の端の 1 つずつが、ファイバーの端から測った長さの観測の起点になる。両端
+    とも自身の端であるファイバーは完全な観測を 2 つ与え、自身の端が 1 つだけの
+    ファイバーは、計測した長さで打ち切られた（右側打ち切り）観測を 1 つ与える。
+    自身の端の無いファイバーは、そこで測ったものがファイバーの端から始まらない
+    ため、何も与えない。ファイバーが走査範囲より広い領域に一様に散らばり、
+    ファイバーに沿った交差がその長さによらなければ、切断や枠による打ち切りは
+    ファイバーの長さと独立に起き、これが Kaplan-Meier の前提である。重みは推定の
+    各段を、その長さの完全なファイバーで分け、観測数の半分を掛けたもので、
+    ファイバーの本数を数えるため、ソースをまたいでまとめられる。
+
+    Examples
+    --------
+    Two fibers seen whole and one cut short at 2: the cut fiber is longer than
+    2, so its share goes to the fiber seen whole beyond it, at 3.
+
+    >>> from lib.measure import kaplan_meier_length_weights
+    >>> w, rest = kaplan_meier_length_weights([1.0, 3.0, 2.0], [2, 2, 1])
+    >>> [round(float(v), 3) for v in w], round(rest, 3)
+    ([1.0, 1.5, 0.0], 0.0)
+    """
+    lengths = np.asarray(lengths, dtype=np.float64)
+    own = np.asarray(own_ends, dtype=np.int64)
+    weights = np.zeros(lengths.size, dtype=np.float64)
+    observations = float(own.sum())
+    if observations == 0.0:
+        return weights, 1.0
+    # Events before censorings at a tied length, the usual Kaplan-Meier order.
+    # 同じ長さでは打ち切りより先に事象を数える。Kaplan-Meier の通常の順である。
+    order = np.lexsort((own != 2, lengths))
+    at_risk = observations
+    survival = 1.0
+    i = 0
+    while i < order.size:
+        j = i
+        while j < order.size and lengths[order[j]] == lengths[order[i]]:
+            j += 1
+        tied = order[i:j]
+        complete = tied[own[tied] == 2]
+        if complete.size and at_risk > 0.0:
+            step = survival * (2.0 * complete.size) / at_risk
+            weights[complete] = step / complete.size * (observations / 2.0)
+            survival -= step
+        at_risk -= float(own[tied].sum())
+        i = j
+    return weights, max(survival, 0.0)
 
 
 def isolated_fiber_flags(
@@ -1328,6 +1521,7 @@ def compute_fiber_stats(
                 bridge_px * x_size_per_pixel if x_size_per_pixel is not None
                 else (0.0 if bridge_px == 0.0 else float("nan"))
             ),
+            frame_end_count=_frame_end_count(f, frame_shape),
         ))
     return stats
 
@@ -2918,8 +3112,8 @@ def read_fiber_csv(path: str) -> List[FiberStats]:
         # from any release reads with its missing fields left undefined.
         # 以前の列構成はすべて現在の接頭辞なので、どのリリースのファイルも、無い
         # 項目を未定義のままにして読める。
-        known = (FIBER_CSV_COLUMNS, FIBER_CSV_COLUMNS_V4, FIBER_CSV_COLUMNS_V3,
-                 FIBER_CSV_COLUMNS_V2, FIBER_CSV_COLUMNS_V1)
+        known = (FIBER_CSV_COLUMNS, FIBER_CSV_COLUMNS_V5, FIBER_CSV_COLUMNS_V4,
+                 FIBER_CSV_COLUMNS_V3, FIBER_CSV_COLUMNS_V2, FIBER_CSV_COLUMNS_V1)
         expected = next((c for c in known if columns == list(c)), None)
         if expected is None:
             raise ValueError(
@@ -2996,6 +3190,7 @@ def read_fiber_csv(path: str) -> List[FiberStats]:
                         0.0 if col.get("bridge_excluded_nm") is None
                         else optional_float(row, "bridge_excluded_nm")
                     ),
+                    frame_end_count=recorded_int(row, "frame_end_count"),
                 ))
             except ValueError as e:
                 raise ValueError(f"{path} line {row_number}: {e}") from e
@@ -3077,7 +3272,7 @@ def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
     >>> header.split(",") == list(FIBER_CSV_COLUMNS)
     True
     >>> line
-    '0,812.3,2.500,3.100,2,1,121.0,,,,0,,0,,,,0,0.00'
+    '0,812.3,2.500,3.100,2,1,121.0,,,,0,,0,,,,0,0.00,'
     """
     def blank_or(value: float, fmt: str) -> str:
         # An undefined value is an empty cell, never "nan", so a spreadsheet
@@ -3109,6 +3304,7 @@ def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
                 blank_or(s.frame_weight, "{0:.6g}"),
                 int(s.unjudged_bridge_count),
                 blank_or(s.bridge_excluded_nm, "{0:.2f}"),
+                "" if s.frame_end_count is None else int(s.frame_end_count),
             ])
 
 

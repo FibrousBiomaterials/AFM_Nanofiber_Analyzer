@@ -901,9 +901,13 @@ cut_end_count=_cut_end_count(f),
   ```
 
 連結したフィブリルが切断端を持つのは、外側の断片が交差で終わっていた場合だけである
-（§5.2）。CSV 出力は 2 つの条件を書き出し（`touches_frame`・`cut_end_count`）、
-GUI03 は枠に達したファイバーを長さの統計から外し、必要なら残りを
-Miles-Lantuéjoul 補正（`FiberStats.frame_weight`）で重み付けできる。
+（§5.2）。CSV 出力は 2 つの条件（`touches_frame`・`cut_end_count`）と、
+ファイバーのスケルトン端点のうち枠上にあるものの数（`frame_end_count`、
+`_frame_end_count`）を書き出す。GUI03 は枠に達したファイバーを長さの統計から外し、
+必要なら残りを Miles-Lantuéjoul 補正（`FiberStats.frame_weight`）で重み付けできる。
+また、自身の端を 1 つだけ持つファイバーを計測した長さ以上であると分かっている
+ものとして数える Kaplan–Meier 推定で、長さの分布を推定することもできる
+（`measure.kaplan_meier_length_weights`）。
 
 ### 3.3 どの高さ標本を数えるか
 

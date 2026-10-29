@@ -1323,6 +1323,71 @@ def test_gui03_frame_mode_filters_and_weights_contour_length():
         np.array([100.0, 300.0]), np.array([1.0, 2.0]))["median"])]
 
 
+def test_gui03_kaplan_meier_weights_the_fibers_seen_whole():
+    """
+    Kaplan-Meier keeps the fibers seen whole, weighted, and reports the rest.
+    Kaplan-Meier は全長を見たファイバーを重み付きで残し、残りを報告する。
+
+    A fiber cut at one end is censored: it carries no weight itself but moves
+    its share onto the longer fibers seen whole. A source that does not record
+    the frame ends is left out whole.
+    片端が切れたファイバーは打ち切りであり、自身は重みを持たないが、その分を
+    より長い全長のファイバーへ移す。枠の端を記録していないソースは丸ごと外す。
+    """
+    import dataclasses
+
+    def stat(length, cut, frame_end):
+        return dataclasses.replace(
+            _frame_stat(length, frame_end > 0, cut, float("nan")),
+            frame_end_count=frame_end)
+
+    judged = [stat(100.0, 0, 0), stat(300.0, 0, 0), stat(200.0, 1, 0),
+              stat(50.0, 2, 0), stat(400.0, 0, 2)]
+    unrecorded = [_frame_stat(250.0, False, 0, float("nan"))]
+    per_source = [("a.b2z", judged), ("old_fibers.csv", unrecorded)]
+
+    kept, report = gui03._apply_frame_mode(per_source, gui03.FRAME_KAPLAN_MEIER)
+    assert [[s.length_nm for s in stats] for _p, stats in kept] == [[100.0, 300.0]]
+    assert [s.frame_weight for s in kept[0][1]] == [
+        pytest.approx(1.0), pytest.approx(1.5)]
+    assert report["unrecorded"] == ["old_fibers.csv"]
+    assert (report["total"], report["complete"], report["censored"],
+            report["no_own_end"]) == (5, 2, 1, 2)
+    assert report["unassigned"] == pytest.approx(0.0)
+    assert report["longest_nm"] == 300.0
+    assert gui03.App._frame_weighted(gui03.PARAM_LENGTH, gui03.FRAME_KAPLAN_MEIER)
+
+
+def test_gui03_kaplan_meier_summary_leaves_what_it_cannot_place_blank():
+    """
+    Quartiles beyond the longest fiber seen whole, and the mean, are not reported.
+    全長を見た最長のファイバーより長い側の四分位数と、平均は報告しない。
+
+    Two fibers seen whole carry one fiber each and two more lie beyond them,
+    so the estimate reaches half the fibers and no further: the median is the
+    longest fiber seen whole, the upper quartile is beyond it, and without
+    anything beyond the statistics are the weighted ones.
+    全長を見た 2 本が 1 本ずつを担い、さらに 2 本がその先にあるため、推定は
+    半数のファイバーまでしか届かない。中央値は全長を見た最長のファイバーで、
+    上側四分位数はその先にある。先に何も無ければ重み付き統計値になる。
+    """
+    values = np.array([100.0, 300.0])
+    weights = np.array([1.0, 1.0])
+    stats = gui03._kaplan_meier_summary(values, weights, beyond=2.0)
+    assert np.isnan(stats["mean"]) and np.isnan(stats["std"])
+    assert stats["q1"] == pytest.approx(200.0)
+    assert stats["median"] == pytest.approx(300.0)
+    assert np.isnan(stats["q3"])
+
+    r = dict(stats, km_beyond=2.0, km_longest_nm=300.0)
+    assert gui03._quantile_text(r, "q3", "{0:.1f}") == "> 300.0"
+    assert gui03._quantile_text(r, "median", "{0:.1f}") == "300.0"
+    assert gui03._quantile_text(dict(r, km_beyond=0.0), "q3", "{0:.1f}") == "-"
+
+    whole = gui03._kaplan_meier_summary(values, weights, beyond=0.0)
+    assert whole == gui03._summary_stats(values, weights)
+
+
 def test_gui03_weights_fiber_kink_density_by_judged_length(tk_app, tmp_path, monkeypatch):
     """
     Fiber-unit kink densities are weighted by the judged length and not tested.

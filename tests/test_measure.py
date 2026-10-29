@@ -1669,6 +1669,81 @@ def test_frame_columns_mark_the_frame_and_cut_ends():
     assert stats[2].frame_weight == pytest.approx(stats[0].frame_weight)
 
 
+def test_frame_end_count_tells_the_frame_from_a_fiber_end():
+    """
+    An endpoint on the frame is counted; a cut end is not, even on the frame.
+    枠上の端点は数え、切断端は枠上でも数えない。
+
+    The fiber's own ends are what is left, and a fiber touching the frame
+    away from its ends keeps at most one.
+    残りがファイバー自身の端であり、端以外で枠に触れるファイバーは多くても
+    1 つしか持たない。
+    """
+    import dataclasses
+    from lib.measure import fiber_real_end_count
+
+    inside = _straight_fiber(x0=5, x1=15, y=5)
+    one_on_frame = _straight_fiber(x0=20, x1=39, y=10)
+    both_on_frame = _straight_fiber(x0=0, x1=39, y=12)
+    cut_on_frame = dataclasses.replace(
+        _straight_fiber(x0=20, x1=39, y=14), ep_indices=np.array([0]),
+    )
+    stats = compute_fiber_stats(
+        [inside, one_on_frame, both_on_frame, cut_on_frame], 10.0,
+        frame_shape=(40, 40),
+    )
+    assert [s.frame_end_count for s in stats] == [0, 1, 2, 0]
+    assert [s.cut_end_count for s in stats] == [0, 0, 0, 1]
+    assert [fiber_real_end_count(s) for s in stats] == [2, 1, 0, 1]
+
+    grazing = dataclasses.replace(stats[0], touches_frame=True)
+    assert fiber_real_end_count(grazing) == 1
+    unrecorded = dataclasses.replace(stats[0], frame_end_count=None)
+    assert fiber_real_end_count(unrecorded) is None
+
+
+def test_kaplan_meier_weights_recover_lengths_cut_at_crossings():
+    """
+    Kaplan-Meier on end-start observations undoes the bias of cut fibers.
+    端から始まる観測に対する Kaplan-Meier は、切れたファイバーの偏りを解消する。
+
+    Each fiber of log-normal length is cut where crossings fall along it, at
+    the same rate per unit length on every fiber. The pieces run short, the
+    fibers seen whole run short too, and the weighted median of the fibers
+    seen whole has to come back to the true median.
+    対数正規の長さの各ファイバーを、その上に交差が落ちる位置で切る。交差は
+    どのファイバーでも単位長さあたり同じ率で落ちる。断片も、全長を見たファイバーも
+    短く出るが、全長を見たファイバーの重み付き中央値は真の中央値へ戻らなければ
+    ならない。
+    """
+    from lib.measure import kaplan_meier_length_weights
+
+    rng = np.random.default_rng(0)
+    true = 100.0 * np.exp(rng.normal(0.0, 0.6, 20000))
+    lengths, own = [], []
+    for t in true:
+        cuts = np.sort(rng.uniform(0.0, t, rng.poisson(t / 100.0)))
+        bounds = np.concatenate([[0.0], cuts, [t]])
+        for k in range(bounds.size - 1):
+            lengths.append(bounds[k + 1] - bounds[k])
+            own.append(int(k == 0) + int(k == bounds.size - 2))
+    lengths, own = np.asarray(lengths), np.asarray(own)
+
+    weights, rest = kaplan_meier_length_weights(lengths, own)
+    whole = own == 2
+    order = np.argsort(lengths[whole])
+    cdf = np.cumsum(weights[whole][order]) / np.sum(weights)
+    km_median = lengths[whole][order][np.searchsorted(cdf, 0.5)]
+
+    assert np.median(lengths) < 0.6 * np.median(true)
+    assert np.median(lengths[whole]) < 0.8 * np.median(true)
+    assert km_median == pytest.approx(np.median(true), rel=0.03)
+    assert rest < 0.01
+    # The weights count fibers: they add up to the fibers the ends stand for.
+    # 重みはファイバーの本数を数え、端が代表する本数に合計が一致する。
+    assert np.sum(weights) == pytest.approx(own.sum() / 2.0 * (1.0 - rest))
+
+
 def test_frame_columns_are_unrecorded_without_an_image_shape():
     """
     Without the image shape the frame test reads as "not recorded", not False.

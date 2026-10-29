@@ -473,6 +473,31 @@ exported before the frame columns existed records no frame test, so it is left
 out of the length aggregation under `exclude` and `Miles-Lantuejoul`, and the
 log names it.
 
+`Kaplan-Meier` also takes in the fibers cut at a crossing. It estimates the
+distribution of fiber lengths from every fiber with an end of its own
+(`lib.measure.kaplan_meier_length_weights`): a fiber whose two ends are both its
+own — neither cut at a crossing nor on the frame — is a length seen whole, one
+with a single end of its own is known only to be at least as long as measured
+and enters as a censored observation, and one with neither is not used. The
+figure shows the fibers seen whole, weighted by the estimate, and the log says
+how many fibers of each kind there were and what share of the distribution lies
+beyond the longest fiber seen whole, where it cannot be estimated. On straight
+segments scattered at random and cut at crossings and at the scan border, the
+estimate recovered the quartiles and the 90th percentile of the true length
+distribution within 2 %, while the fibers seen whole alone read up to 30 % short
+([Evaluation on particular data](docs/validation.md) §6.3). The estimate assumes
+that where a fiber is cut does not depend on its length; in that simulation the
+segments were spread evenly over a region larger than the scan and the
+crossings fell along each segment at random. It is computed per registered
+folder and offered for the `fiber` unit only, because the median of one scan or
+folder can itself lie beyond what was seen whole. The part of the distribution
+beyond the longest fiber seen whole is never filled in: a median or quartile
+that falls there is shown as "> that length", the mean, standard deviation and
+mode are left blank because they depend on that part, the histogram bars and
+the ECDF fall short of one by its share, and the figure states the share. A
+fiber CSV that does not record which ends lie on the frame is left out, and the
+log names it.
+
 A separate aggregation-unit selector decides what counts as one sample:
 `pixel` (one skeleton pixel), `length` (one skeleton pixel weighted by the
 contour length it represents), `kink` (one kink), `fiber` (one fiber, using
@@ -541,8 +566,8 @@ Each group reports median and interquartile range alongside mean, standard
 deviation, and mode, because fiber morphology distributions are right-skewed
 and the mode moves with the histogram bin width. The standard deviation of an
 unweighted sample is the sample standard deviation (divided by n − 1, blank for
-a single sample); a weighted one (`length`, `Miles-Lantuejoul` per fiber, or
-`kink density` per fiber) is divided by the total weight. The table heading and the `std definition`
+a single sample); a weighted one (`length`, `Miles-Lantuejoul` or
+`Kaplan-Meier` per fiber, or `kink density` per fiber) is divided by the total weight. The table heading and the `std definition`
 column of the statistics CSV say which. Samples outside the plotted
 range are reported in the log as a percentage rather than dropped silently;
 the summary statistics always describe the whole sample. A group with fewer
@@ -671,7 +696,8 @@ population biases length statistics low. The fibers that remain are not an
 unbiased sample of fiber lengths either: among straight segments placed at
 random, the median length of the isolated ones was 9 % to 23 % below that of
 all of them, the more so the denser the scene
-([Evaluation on particular data](docs/validation.md) §6.2). The excluded fibers are recorded like
+([Evaluation on particular data](docs/validation.md) §6.2). The `Kaplan-Meier`
+length estimate of Fiber Morphology Statistics uses the cut fibers as well. The excluded fibers are recorded like
 any hand-picked exclusion, with the note `not isolated`, so one press of
 "Undo last" takes them all back and "Exclusion settings" shows why each one went.
 

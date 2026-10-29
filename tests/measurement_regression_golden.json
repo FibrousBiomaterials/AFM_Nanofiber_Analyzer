@@ -2,21 +2,21 @@
   "testdata_Bruker_txt/NDTOC250306.000.txt": {
     "default": {
       "curvature_sha256": "6c838a9116cd69c519626f7a0dfee2e9925bbab5b36da6f9bdfea4c9e08c8ae9",
-      "fiber_csv_sha256": "80fc3bd4f438f6def657d0ad82a3170452d55a81d8088d6ca72b33d2ab10db28",
+      "fiber_csv_sha256": "eabf4074a303e2d29cc684a657fcaefd6ce8d2b9ed9c94592823ab3d19d59904",
       "fibers": 142,
       "heights_sha256": "bfd2d9480c76a9361d1964909f7846d00354efd0efb868eed15f822b7573def1",
       "total_length_nm": 9620.1
     },
     "max_loop_area_0": {
       "curvature_sha256": "233001cdcaabd532181312cbbb08780cec17bb5d537ed98fa401c02289208561",
-      "fiber_csv_sha256": "8dfa73ca18846dc0868ddcf144762c5fe48f66180fc1f22573c12ce0dcad1244",
+      "fiber_csv_sha256": "c3ac81db9e5605a9ca8c91148c65c66f75e3c7b00b099b08a658b5f71cebdf52",
       "fibers": 151,
       "heights_sha256": "22a78b717b53d03bbc375ff28353f679ece16597c23cae630345b11fd33f009a",
       "total_length_nm": 9472.7
     },
     "spur_length_0": {
       "curvature_sha256": "4441dcb2d5fe79b582256568f750971da93c843cfca84018b31bf1abb2332f37",
-      "fiber_csv_sha256": "2b6c176075cee211375ee3000f508c771f0f14c07d524300f90caa11861fbad8",
+      "fiber_csv_sha256": "7a417317df647ddbb1713b1027d5fa5950fac121952ae29042e68b3950c3a6d1",
       "fibers": 151,
       "heights_sha256": "e4a28bd578ece9b78debffc48b6d4750c1414bfd49ad7dfe6399508fa1eb82bc",
       "total_length_nm": 9581.1
@@ -25,21 +25,21 @@
   "testdata_higherplantTOC/_20250318-164122_T.ssp .txt": {
     "default": {
       "curvature_sha256": "a7208b4d64a5343bd96b6f6088d9add6efd8f081044ab66bf0df525d1b6d8343",
-      "fiber_csv_sha256": "b3e7c24fc4a68d594a7dce03126c07966ee974142fa72b655d7248d252ca7b37",
+      "fiber_csv_sha256": "1d30f104eb48a70537e1d9bf21ce950a9664dd42189fd8e669ddb4948b67f34b",
       "fibers": 15,
       "heights_sha256": "65416937a1b9d2a4b907dc03445155a053514a3b80ce8b8fbaf9b6b094773cc4",
       "total_length_nm": 4038.8
     },
     "max_loop_area_0": {
       "curvature_sha256": "d6e173ed7c7dba1bfa14f8516720f671e81066401a4e88f33cb35859d54a2014",
-      "fiber_csv_sha256": "f76fb9d056630008024735e4e1600f3ec068c9de02a1df9c57e9b64e358a74c2",
+      "fiber_csv_sha256": "010fccfeeb7e38f57b3c5aadf01633c81faeae1611d8107fd77d2eb933f7df33",
       "fibers": 15,
       "heights_sha256": "5f46f262c65a97ee5ac4438d97fcd4f6f5e81462f9daaa83c2a4f68d21dcad9c",
       "total_length_nm": 4013.2
     },
     "spur_length_0": {
       "curvature_sha256": "ba6344f280efe2e9dd0c84aef981e657b4d240267d73b3b98f98430da8eea1d6",
-      "fiber_csv_sha256": "eba04272d299853f0c6785f08c5f3714175685b57c6551b2b71978d486742a81",
+      "fiber_csv_sha256": "8eb36c2c11467e815677a34b2accdd9c9b6951313e2a06d1f80afd0d1f3b8f45",
       "fibers": 16,
       "heights_sha256": "c5db7f16636f8c6df3ce120f438041dae5c8e4c677f823342e7fad85d06eeaa7",
       "total_length_nm": 4029.7
@@ -48,21 +48,21 @@
   "testdata_tunicateCNF/TunicateACTOCCNF.txt": {
     "default": {
       "curvature_sha256": "36b26eeaaa86a333b1e73c3bf64f9fe41bcde8da339cfbb7d1fcbac198e2d314",
-      "fiber_csv_sha256": "51c705341d23e3c375946f38c30dcb5ab5eb09074015140e6eb15a6364d5667f",
+      "fiber_csv_sha256": "97003797cf85556a7ca9e55977425ab90431af74a9a3fb99e6f968224e8ec915",
       "fibers": 63,
       "heights_sha256": "e6c2993af333197f006b2496cc5ec22488abf2d9850391a204cbd947870f8894",
       "total_length_nm": 8578.0
     },
     "max_loop_area_0": {
       "curvature_sha256": "37dc997c8975c5e63cd99398e5d7ccb0227c3199bb5b5018335ad260b9b88205",
-      "fiber_csv_sha256": "af648371df064926d008165d5ab8ac897628b795cc07d7e540a1e25428da7fb9",
+      "fiber_csv_sha256": "dfc4f4998204ba6e1dce6ec297114896c40b3e705b268134ad6f214a5f28a054",
       "fibers": 66,
       "heights_sha256": "82e12f7b9fe94d22ca72fddbfb90d262c59f6f629e8d5017866335a80d42de0b",
       "total_length_nm": 8562.7
     },
     "spur_length_0": {
       "curvature_sha256": "3f902b9bf5ed9eb3c51d75dfd6a18cfa0f5a5f863c2a59504743e343a43a805f",
-      "fiber_csv_sha256": "323af7144474c932bc97affb0e2632fe5c0d8f97028977c2b7e86d79eb90277b",
+      "fiber_csv_sha256": "a072e383f587fd4104ff7499c8680d8a1183b730a8843b68d8e470277e75b95f",
       "fibers": 65,
       "heights_sha256": "ae1c1982e754775ef95349caa0a1aa332328bf761d9e71c68d781eb189002f80",
       "total_length_nm": 8559.5

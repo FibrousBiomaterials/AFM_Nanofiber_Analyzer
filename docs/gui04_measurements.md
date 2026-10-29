@@ -954,9 +954,13 @@ cut_end_count=_cut_end_count(f),
 
 A connected fibril carries a cut end only where its outer fragment ended at a
 crossing (§5.2). The CSV export writes both conditions (`touches_frame`,
-`cut_end_count`), and GUI03 can leave the fibers that reach the frame out of its
-length statistics, optionally weighting the rest by the Miles-Lantuéjoul
-correction (`FiberStats.frame_weight`).
+`cut_end_count`) and how many of the fiber's skeleton endpoints lie on the frame
+(`frame_end_count`, `_frame_end_count`). GUI03 can leave the fibers that reach
+the frame out of its length statistics, optionally weighting the rest by the
+Miles-Lantuéjoul correction (`FiberStats.frame_weight`), or estimate the length
+distribution by Kaplan–Meier, which counts a fiber with one end of its own as
+known to be at least as long as measured
+(`measure.kaplan_meier_length_weights`).
 
 ### 3.3 Which height samples count
 

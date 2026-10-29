@@ -984,3 +984,31 @@ Bruker のスキャンの繊維が 1<!--m:frame_margin.all.changed_at_5--> 本�
 
 孤立した線分は、どの密度でも全体より短く、場面が密なほどその差は大きかった。したがって孤立した母集団では長いファイバーが少なく、
 全長を測ったファイバーではあっても、ファイバーの長さの公平な標本ではない。
+
+### 6.3 Kaplan–Meier による長さの推定
+
+GUI03 の枠の扱い `Kaplan-Meier`（`measure.kaplan_meier_length_weights`）は、自身の端を
+持つ全ファイバーを使う。両端とも自身の端であるファイバーは全長を見た長さ、自身の端が
+1<!--n:count--> つだけのファイバーは計測した長さ以上であることだけが分かっている長さ（打ち切り）
+とし、自身の端の無いファイバーは使わない。これを、§6.2 と同じ対数正規の長さの直線の
+線分で確かめた。線分は走査範囲より広い領域に、中心と向きを一様に無作為に置き、走査
+範囲が一様な分散の上の窓になるようにした（実験 kaplan_meier_length）。各線分を走査
+範囲の縁と、他の線分とのすべての交差で切った。ただし、ファイバー連結がつなぎ直すと
+みなした割合の交差では切っていない。各行 200<!--c:scripts/measure_docs.py::KAPLAN_MEIER_SCENES--> 場面である。生成した分布の中央値は
+0.080<!--m:kaplan_meier_length.true.q50-->、90<!--n:label--> パーセンタイルは 0.173<!--m:kaplan_meier_length.true.q90--> である。
+
+| 単位面積あたりの線分数 | つなぎ直した交差 (%) | 全長を見たもの (%) | 中央値、全断片 | 中央値、全長を見たもの | 中央値、Kaplan–Meier | 90<!--n:label--> パーセンタイル、全長を見たもの | 90<!--n:label--> パーセンタイル、Kaplan–Meier |
+|---|---|---|---|---|---|---|---|
+| 20<!--n:value tried--> | 0<!--n:value tried--> | 64<!--m:kaplan_meier_length.d20.r0.whole_percent--> | 0.066<!--m:kaplan_meier_length.d20.r0.pieces.q50--> | 0.074<!--m:kaplan_meier_length.d20.r0.isolated.q50--> | 0.080<!--m:kaplan_meier_length.d20.r0.km.q50--> | 0.153<!--m:kaplan_meier_length.d20.r0.isolated.q90--> | 0.176<!--m:kaplan_meier_length.d20.r0.km.q90--> |
+| 20<!--n:value tried--> | 90<!--n:value tried--> | 79<!--m:kaplan_meier_length.d20.r90.whole_percent--> | 0.073<!--m:kaplan_meier_length.d20.r90.pieces.q50--> | 0.077<!--m:kaplan_meier_length.d20.r90.isolated.q50--> | 0.080<!--m:kaplan_meier_length.d20.r90.km.q50--> | 0.158<!--m:kaplan_meier_length.d20.r90.isolated.q90--> | 0.170<!--m:kaplan_meier_length.d20.r90.km.q90--> |
+| 60<!--n:value tried--> | 0<!--n:value tried--> | 43<!--m:kaplan_meier_length.d60.r0.whole_percent--> | 0.054<!--m:kaplan_meier_length.d60.r0.pieces.q50--> | 0.069<!--m:kaplan_meier_length.d60.r0.isolated.q50--> | 0.079<!--m:kaplan_meier_length.d60.r0.km.q50--> | 0.140<!--m:kaplan_meier_length.d60.r0.isolated.q90--> | 0.170<!--m:kaplan_meier_length.d60.r0.km.q90--> |
+| 60<!--n:value tried--> | 90<!--n:value tried--> | 78<!--m:kaplan_meier_length.d60.r90.whole_percent--> | 0.072<!--m:kaplan_meier_length.d60.r90.pieces.q50--> | 0.076<!--m:kaplan_meier_length.d60.r90.isolated.q50--> | 0.080<!--m:kaplan_meier_length.d60.r90.km.q50--> | 0.161<!--m:kaplan_meier_length.d60.r90.isolated.q90--> | 0.173<!--m:kaplan_meier_length.d60.r90.km.q90--> |
+| 150<!--n:value tried--> | 0<!--n:value tried--> | 21<!--m:kaplan_meier_length.d150.r0.whole_percent--> | 0.038<!--m:kaplan_meier_length.d150.r0.pieces.q50--> | 0.062<!--m:kaplan_meier_length.d150.r0.isolated.q50--> | 0.080<!--m:kaplan_meier_length.d150.r0.km.q50--> | 0.120<!--m:kaplan_meier_length.d150.r0.isolated.q90--> | 0.173<!--m:kaplan_meier_length.d150.r0.km.q90--> |
+| 150<!--n:value tried--> | 90<!--n:value tried--> | 77<!--m:kaplan_meier_length.d150.r90.whole_percent--> | 0.071<!--m:kaplan_meier_length.d150.r90.pieces.q50--> | 0.076<!--m:kaplan_meier_length.d150.r90.isolated.q50--> | 0.080<!--m:kaplan_meier_length.d150.r90.km.q50--> | 0.161<!--m:kaplan_meier_length.d150.r90.isolated.q90--> | 0.173<!--m:kaplan_meier_length.d150.r90.km.q90--> |
+
+すべての行の四分位点と 90<!--n:label--> パーセンタイルで、Kaplan–Meier の推定は生成した分布の
+−1.4〜1.9<!--m:kaplan_meier_length.km.error_range_percent--> % に収まり、全長を見た断片だけでは −30〜−3.2<!--m:kaplan_meier_length.isolated.error_range_percent--> % であった。
+推定した分布のうち、全長を見た最長の断片より長い側にあって置けなかったのは、多くても
+0.41<!--m:kaplan_meier_length.d150.r0.unassigned_percent--> % であった。線分は直線で、交差はすべて見つかり、短いために失われる断片は
+無い。また推定は、ファイバーがどこで切れるかがその長さによらないことを前提とする。
+ここでは、交差は各線分に沿って無作為に落ちる。

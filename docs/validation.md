@@ -1087,3 +1087,34 @@ The isolated segments were shorter than the whole population at every density,
 and the more so the denser the scene. The isolated population therefore under-represents
 long fibers; it measures whole fibers, but not the lengths of a fair sample of
 them.
+
+### 6.3 The Kaplan–Meier length estimate
+
+GUI03's `Kaplan-Meier` frame mode (`measure.kaplan_meier_length_weights`) uses
+every fiber with an end of its own: one with both ends its own is a length seen
+whole, one with a single end of its own is known only to be at least as long as
+measured (censored), and one with none is not used. It was checked on straight
+segments with the log-normal lengths of §6.2 placed at uniformly random centres
+and angles over a region larger than the scan, so that the scan is a window on
+an even dispersion (experiment kaplan_meier_length). Each segment was cut at the
+scan border and at every crossing with another segment, except a share of the
+crossings that fiber connection was taken to rejoin; 200<!--c:scripts/measure_docs.py::KAPLAN_MEIER_SCENES--> scenes per row. The
+generating distribution has median 0.080<!--m:kaplan_meier_length.true.q50--> and 90<!--n:label-->th percentile 0.173<!--m:kaplan_meier_length.true.q90-->.
+
+| Segments per unit area | Crossings rejoined (%) | Seen whole (%) | Median, all pieces | Median, seen whole | Median, Kaplan–Meier | 90<!--n:label-->th percentile, seen whole | 90<!--n:label-->th percentile, Kaplan–Meier |
+|---|---|---|---|---|---|---|---|
+| 20<!--n:value tried--> | 0<!--n:value tried--> | 64<!--m:kaplan_meier_length.d20.r0.whole_percent--> | 0.066<!--m:kaplan_meier_length.d20.r0.pieces.q50--> | 0.074<!--m:kaplan_meier_length.d20.r0.isolated.q50--> | 0.080<!--m:kaplan_meier_length.d20.r0.km.q50--> | 0.153<!--m:kaplan_meier_length.d20.r0.isolated.q90--> | 0.176<!--m:kaplan_meier_length.d20.r0.km.q90--> |
+| 20<!--n:value tried--> | 90<!--n:value tried--> | 79<!--m:kaplan_meier_length.d20.r90.whole_percent--> | 0.073<!--m:kaplan_meier_length.d20.r90.pieces.q50--> | 0.077<!--m:kaplan_meier_length.d20.r90.isolated.q50--> | 0.080<!--m:kaplan_meier_length.d20.r90.km.q50--> | 0.158<!--m:kaplan_meier_length.d20.r90.isolated.q90--> | 0.170<!--m:kaplan_meier_length.d20.r90.km.q90--> |
+| 60<!--n:value tried--> | 0<!--n:value tried--> | 43<!--m:kaplan_meier_length.d60.r0.whole_percent--> | 0.054<!--m:kaplan_meier_length.d60.r0.pieces.q50--> | 0.069<!--m:kaplan_meier_length.d60.r0.isolated.q50--> | 0.079<!--m:kaplan_meier_length.d60.r0.km.q50--> | 0.140<!--m:kaplan_meier_length.d60.r0.isolated.q90--> | 0.170<!--m:kaplan_meier_length.d60.r0.km.q90--> |
+| 60<!--n:value tried--> | 90<!--n:value tried--> | 78<!--m:kaplan_meier_length.d60.r90.whole_percent--> | 0.072<!--m:kaplan_meier_length.d60.r90.pieces.q50--> | 0.076<!--m:kaplan_meier_length.d60.r90.isolated.q50--> | 0.080<!--m:kaplan_meier_length.d60.r90.km.q50--> | 0.161<!--m:kaplan_meier_length.d60.r90.isolated.q90--> | 0.173<!--m:kaplan_meier_length.d60.r90.km.q90--> |
+| 150<!--n:value tried--> | 0<!--n:value tried--> | 21<!--m:kaplan_meier_length.d150.r0.whole_percent--> | 0.038<!--m:kaplan_meier_length.d150.r0.pieces.q50--> | 0.062<!--m:kaplan_meier_length.d150.r0.isolated.q50--> | 0.080<!--m:kaplan_meier_length.d150.r0.km.q50--> | 0.120<!--m:kaplan_meier_length.d150.r0.isolated.q90--> | 0.173<!--m:kaplan_meier_length.d150.r0.km.q90--> |
+| 150<!--n:value tried--> | 90<!--n:value tried--> | 77<!--m:kaplan_meier_length.d150.r90.whole_percent--> | 0.071<!--m:kaplan_meier_length.d150.r90.pieces.q50--> | 0.076<!--m:kaplan_meier_length.d150.r90.isolated.q50--> | 0.080<!--m:kaplan_meier_length.d150.r90.km.q50--> | 0.161<!--m:kaplan_meier_length.d150.r90.isolated.q90--> | 0.173<!--m:kaplan_meier_length.d150.r90.km.q90--> |
+
+Over the quartiles and the 90<!--n:label-->th percentile of every row, the Kaplan–Meier
+estimate lay within −1.4–1.9<!--m:kaplan_meier_length.km.error_range_percent--> % of the generating distribution, and the
+pieces seen whole within −30–−3.2<!--m:kaplan_meier_length.isolated.error_range_percent--> %. At most 0.41<!--m:kaplan_meier_length.d150.r0.unassigned_percent--> % of the
+estimated distribution lay beyond the longest piece seen whole, where it cannot
+be placed. The segments are straight, every crossing is found, and no piece is
+lost for being short. The estimate also assumes that where a fiber is cut does
+not depend on its length; here the crossings fall at random along each
+segment.

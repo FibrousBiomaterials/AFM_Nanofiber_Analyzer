@@ -2796,7 +2796,6 @@ def noise_warning() -> dict:
     import numpy as np
     from lib.pipeline import ProcParams, build_stages, fiber_snr, process_file
     from lib.processed_image import ProcessedImage
-    import synthetic_fibers as sf
 
     values: dict = {}
     snrs = []
@@ -3440,6 +3439,115 @@ def isolation_length_bias() -> dict:
         values[f"n{count}.isolated_share_percent"] = 100.0 * len(isolated) / len(everything)
         values[f"n{count}.shorter_percent"] = 100.0 * (
             1.0 - values[f"n{count}.isolated_median"] / values[f"n{count}.all_median"])
+    return values
+
+
+KAPLAN_MEIER_DENSITIES = (20, 60, 150)
+KAPLAN_MEIER_RESOLVED = (0.0, 0.9)
+KAPLAN_MEIER_SCENES = 200
+KAPLAN_MEIER_QUANTILES = (0.25, 0.5, 0.75, 0.9)
+
+
+@experiment(
+    "kaplan_meier_length",
+    ["lib/measure.py"],
+    "Straight segments with log-normal lengths (median ISOLATION_MEDIAN_LENGTH, "
+    "log-sigma ISOLATION_LOG_SIGMA) at uniformly random centres and angles over a "
+    "region extending 0.6 beyond each side of the unit square, KAPLAN_MEIER_DENSITIES "
+    "segments per unit area, KAPLAN_MEIER_SCENES scenes each; every segment is cut at "
+    "the square and at each crossing with another segment, except a fraction "
+    "KAPLAN_MEIER_RESOLVED of crossings (one decision per pair) that connection "
+    "rejoins. Per density and fraction: the quartiles and 90th percentile of the "
+    "generating distribution, of the pieces with both ends real (inside, not at a "
+    "crossing), and of measure.kaplan_meier_length_weights over every piece with two, "
+    "one or no real end; and the median of all pieces.",
+)
+def kaplan_meier_length() -> dict:
+    import math
+    import numpy as np
+    from lib.measure import kaplan_meier_length_weights
+
+    rng = np.random.default_rng(0)
+    margin = 0.6
+    side = 1.0 + 2.0 * margin
+
+    def crossings(a, b):
+        r = b - a
+        den = r[:, None, 0] * r[None, :, 1] - r[:, None, 1] * r[None, :, 0]
+        qp = a[None, :, :] - a[:, None, :]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            t = (qp[..., 0] * r[None, :, 1] - qp[..., 1] * r[None, :, 0]) / den
+            u = (qp[..., 0] * r[:, None, 1] - qp[..., 1] * r[:, None, 0]) / den
+        return np.where((t > 0) & (t < 1) & (u > 0) & (u < 1), t, np.nan)
+
+    def inside(a, b):
+        lo, hi = 0.0, 1.0
+        d = b - a
+        for k in range(2):
+            if d[k] == 0.0:
+                if not 0.0 <= a[k] <= 1.0:
+                    return None
+                continue
+            t0, t1 = sorted(((0.0 - a[k]) / d[k], (1.0 - a[k]) / d[k]))
+            lo, hi = max(lo, t0), min(hi, t1)
+        return (lo, hi) if hi > lo else None
+
+    def weighted_quantiles(lengths, weights, total):
+        order = np.argsort(lengths)
+        cdf = np.cumsum(weights[order]) / total
+        return [float(lengths[order][min(np.searchsorted(cdf, q), cdf.size - 1)])
+                for q in KAPLAN_MEIER_QUANTILES]
+
+    z = {0.25: -0.6744897501960817, 0.5: 0.0, 0.75: 0.6744897501960817,
+         0.9: 1.2815515655446004}
+    values: dict = {}
+    for q in KAPLAN_MEIER_QUANTILES:
+        values[f"true.q{int(q * 100)}"] = ISOLATION_MEDIAN_LENGTH * math.exp(
+            ISOLATION_LOG_SIGMA * z[q])
+    for density in KAPLAN_MEIER_DENSITIES:
+        for resolved in KAPLAN_MEIER_RESOLVED:
+            lengths, own = [], []
+            for _ in range(KAPLAN_MEIER_SCENES):
+                n = rng.poisson(density * side * side)
+                length = ISOLATION_MEDIAN_LENGTH * np.exp(rng.normal(0.0, ISOLATION_LOG_SIGMA, n))
+                centre = rng.uniform(-margin, 1.0 + margin, (n, 2))
+                angle = rng.uniform(0.0, np.pi, n)
+                half = 0.5 * length[:, None] * np.column_stack([np.cos(angle), np.sin(angle)])
+                a, b = centre - half, centre + half
+                t = crossings(a, b)
+                np.fill_diagonal(t, np.nan)
+                kept = rng.uniform(size=t.shape) >= resolved
+                t = np.where(kept & kept.T, t, np.nan)
+                for i in range(n):
+                    window = inside(a[i], b[i])
+                    if window is None:
+                        continue
+                    t0, t1 = window
+                    cuts = np.sort(t[i][np.isfinite(t[i])])
+                    bounds = np.concatenate([[t0], cuts[(cuts > t0) & (cuts < t1)], [t1]])
+                    last = bounds.size - 2
+                    for k in range(bounds.size - 1):
+                        lengths.append((bounds[k + 1] - bounds[k]) * length[i])
+                        own.append(int(k == 0 and t0 == 0.0) + int(k == last and t1 == 1.0))
+            lengths = np.asarray(lengths)
+            own = np.asarray(own)
+            weights, rest = kaplan_meier_length_weights(lengths, own)
+            whole = own == 2
+            key = f"d{density}.r{int(resolved * 100)}"
+            km = weighted_quantiles(lengths[whole], weights[whole], own.sum() / 2.0)
+            isolated = np.quantile(lengths[whole], KAPLAN_MEIER_QUANTILES)
+            for q, k_value, i_value in zip(KAPLAN_MEIER_QUANTILES, km, isolated):
+                values[f"{key}.km.q{int(q * 100)}"] = k_value
+                values[f"{key}.isolated.q{int(q * 100)}"] = float(i_value)
+            values[f"{key}.pieces.q50"] = float(np.median(lengths))
+            values[f"{key}.whole_percent"] = 100.0 * float(np.mean(whole))
+            values[f"{key}.unassigned_percent"] = 100.0 * rest
+    for name in ("km", "isolated"):
+        errors = [100.0 * (values[f"d{d}.r{int(r * 100)}.{name}.q{int(q * 100)}"]
+                           / values[f"true.q{int(q * 100)}"] - 1.0)
+                  for d in KAPLAN_MEIER_DENSITIES for r in KAPLAN_MEIER_RESOLVED
+                  for q in KAPLAN_MEIER_QUANTILES]
+        values[f"{name}.error_range_percent"] = [min(errors), max(errors)]
     return values
 
 

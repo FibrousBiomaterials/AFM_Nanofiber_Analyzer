@@ -87,6 +87,7 @@ from lib.measure import (
     DEFAULT_CURVATURE_WINDOW_NM,
     collect_fiber_curvature, collect_fiber_stats, collect_fiber_stats_from_csv,
     collect_skeleton_height_profiles, fiber_judged_length_um, fiber_kink_density,
+    fiber_real_end_count, kaplan_meier_length_weights,
     read_centerline_from_bundle, read_scan_size_from_bundle,
     skeleton_height_values,
 )
@@ -332,19 +333,31 @@ PARAM_ORDER = (
 # valid measurements of the part inside, so this applies to length only.
 # Excluding them removes the truncated lengths but, since a long fiber is more
 # likely to reach the frame, under-represents long fibers; the
-# Miles-Lantuejoul weight (`FiberStats.frame_weight`) corrects that. Internal
-# state keys shown verbatim, like the quantity and unit keys.
+# Miles-Lantuejoul weight (`FiberStats.frame_weight`) corrects that. Fibers
+# cut at a crossing are lower bounds too, which only the Kaplan-Meier estimate
+# (`lib.measure.kaplan_meier_length_weights`) takes into account: it uses every
+# fiber with an end of its own, treating one cut at the other end as known to
+# be at least as long as measured. Internal state keys shown verbatim, like the
+# quantity and unit keys.
 # 画像の枠に達したファイバーを輪郭長でどう扱うか。枠で切れたファイバーの長さは
 # 短く測られるが、高さ・曲率・キンクは枠内の部分の測定として有効なままなので、
 # これは長さにだけ適用する。除外すれば切り詰められた長さは消えるが、長いファイ
 # バーほど枠に達しやすいため長いファイバーが過小になる。Miles-Lantuejoul 重み
-# （`FiberStats.frame_weight`）がそれを補正する。計測量・集計単位のキーと同じく、
-# そのまま表示する内部状態キー。
+# （`FiberStats.frame_weight`）がそれを補正する。交差で切れたファイバーの長さも
+# 下限値であり、それを扱うのは Kaplan-Meier 推定
+# （`lib.measure.kaplan_meier_length_weights`）だけである。自身の端を持つ全ファイバー
+# を使い、もう一方の端が切れたものは、計測した長さ以上であることが分かっている
+# ものとして扱う。計測量・集計単位のキーと同じく、そのまま表示する内部状態キー。
 FRAME_INCLUDE = "include"
 FRAME_EXCLUDE = "exclude"
 FRAME_MILES_LANTUEJOUL = "Miles-Lantuejoul"
+FRAME_KAPLAN_MEIER = "Kaplan-Meier"
 
-FRAME_MODES = (FRAME_INCLUDE, FRAME_EXCLUDE, FRAME_MILES_LANTUEJOUL)
+FRAME_MODES = (FRAME_INCLUDE, FRAME_EXCLUDE, FRAME_MILES_LANTUEJOUL,
+               FRAME_KAPLAN_MEIER)
+# The modes whose samples carry a weight in `FiberStats.frame_weight`.
+# 標本が `FiberStats.frame_weight` に重みを持つ扱い。
+WEIGHTED_FRAME_MODES = (FRAME_MILES_LANTUEJOUL, FRAME_KAPLAN_MEIER)
 
 
 def _apply_frame_mode(per_source, frame_mode: str) -> tuple:
@@ -393,6 +406,8 @@ def _apply_frame_mode(per_source, frame_mode: str) -> tuple:
     """
     if frame_mode == FRAME_INCLUDE:
         return per_source, None
+    if frame_mode == FRAME_KAPLAN_MEIER:
+        return _apply_kaplan_meier(per_source)
     kept = []
     report = {"total": 0, "frame": 0, "lower_bound": 0, "unrecorded": []}
     for path, stats in per_source:
@@ -404,6 +419,81 @@ def _apply_frame_mode(per_source, frame_mode: str) -> tuple:
         report["frame"] += len(stats) - len(survivors)
         report["lower_bound"] += sum(1 for s in survivors if s.cut_end_count)
         kept.append((path, survivors))
+    return kept, report
+
+
+def _apply_kaplan_meier(per_source) -> tuple:
+    """
+    Weight the fibers seen whole by the Kaplan-Meier length distribution.
+    全長を見たファイバーを、Kaplan-Meier の長さ分布で重み付けする。
+
+    Parameters
+    ----------
+    per_source
+        ``(source_path, stats)`` pairs, one per bundle or per CSV file, all
+        estimated together.
+        ``(ソースパス, 統計値リスト)`` のペア。バンドルまたは CSV 1 件ごとで、
+        すべてまとめて推定する。
+
+    Returns
+    -------
+    tuple
+        ``(kept, report)``. `kept` holds, per source, the fibers with both
+        ends their own, each with its weight in `frame_weight`; a fiber cut at
+        one end enters the estimate as censored and carries no weight itself.
+        `report` has ``kaplan_meier`` (True), ``total``, ``complete``,
+        ``censored``, ``no_own_end``, ``unassigned`` (the share of fibers the
+        estimate places beyond the longest one seen whole), ``beyond`` (that
+        many fibers), ``longest_nm`` and ``unrecorded``.
+        ``(kept, report)``。`kept` はソースごとに、両端とも自身の端である
+        ファイバーを、重みを `frame_weight` に入れて持つ。片端が切れたファイバーは
+        打ち切りとして推定に入り、自身は重みを持たない。`report` は
+        ``kaplan_meier``（True）・``total``・``complete``・``censored``・
+        ``no_own_end``・``unassigned``（全長を見たうち最長のものより長い側に推定が
+        置く本数の割合）・``beyond``（その本数）・``longest_nm``・``unrecorded``
+        を持つ。
+
+    Notes
+    -----
+    A source that does not record the frame end of its fibers (a fiber CSV
+    exported before the column existed) is left out whole, for the reason
+    `_apply_frame_mode` gives.
+    ファイバーの枠の端を記録していないソース（列の追加前に出力されたファイバー
+    CSV）は、`_apply_frame_mode` に書いた理由により丸ごと外す。
+    """
+    import dataclasses
+
+    report = {"kaplan_meier": True, "total": 0, "complete": 0, "censored": 0,
+              "no_own_end": 0, "unassigned": 0.0, "beyond": 0.0,
+              "longest_nm": float("nan"), "unrecorded": []}
+    recorded = []
+    for path, stats in per_source:
+        own = [fiber_real_end_count(s) for s in stats]
+        if any(o is None for o in own):
+            report["unrecorded"].append(path)
+            continue
+        recorded.append((path, stats, own))
+    lengths = [s.length_nm for _p, stats, _o in recorded for s in stats]
+    own = [o for _p, _s, owns in recorded for o in owns]
+    weights, rest = kaplan_meier_length_weights(lengths, own)
+    kept = []
+    at = 0
+    for path, stats, owns in recorded:
+        survivors = []
+        for s, o in zip(stats, owns):
+            if o == 2 and weights[at] > 0.0:
+                survivors.append(dataclasses.replace(s, frame_weight=float(weights[at])))
+            at += 1
+        kept.append((path, survivors))
+    report["total"] = len(own)
+    report["complete"] = sum(1 for o in own if o == 2)
+    report["censored"] = sum(1 for o in own if o == 1)
+    report["no_own_end"] = sum(1 for o in own if o == 0)
+    report["unassigned"] = rest if sum(own) else 0.0
+    report["beyond"] = rest * sum(own) / 2.0
+    whole = [ln for ln, o in zip(lengths, own) if o == 2]
+    if whole:
+        report["longest_nm"] = float(max(whole))
     return kept, report
 
 
@@ -504,6 +594,78 @@ def _fiber_samples(stat, param: str, unit: str) -> list:
         return [float(a) for a in stat.kink_angles_deg]
     value = _fiber_value(stat, param)
     return [] if value is None else [value]
+
+
+def _kaplan_meier_summary(values: np.ndarray, weights: np.ndarray,
+                          beyond: float) -> dict:
+    """
+    Return the statistics a Kaplan-Meier length estimate can give.
+    Kaplan-Meier による長さの推定が与えられる統計値を返す。
+
+    Parameters
+    ----------
+    values
+        Lengths of the fibers seen whole.
+        全長を見たファイバーの長さ。
+    weights
+        Their Kaplan-Meier weights, in fibers.
+        それらの Kaplan-Meier 重み（本数）。
+    beyond
+        Fibers the estimate places beyond the longest fiber seen whole.
+        推定が、全長を見たうち最長のファイバーより長い側に置く本数。
+
+    Returns
+    -------
+    dict
+        The keys of `_summary_stats`. With nothing beyond, the weighted
+        statistics of `_summary_stats`; otherwise a quartile that falls beyond
+        the longest fiber seen whole, the mean and the standard deviation are
+        NaN, because they depend on the part of the distribution that was not
+        estimated.
+        `_summary_stats` と同じキー。推定できない部分が無ければ `_summary_stats`
+        の重み付き統計値。あれば、全長を見たうち最長のファイバーより長い側に落ちる
+        四分位数と、平均・標準偏差は NaN とする。推定していない部分の分布に
+        依存するためである。
+
+    Notes
+    -----
+    The quartiles are taken against every fiber the estimate stands for, the
+    part beyond included, so a median is reported only where the estimate
+    reaches half the fibers; statistics packages report such a median as
+    missing in the same way.
+    四分位数は、推定できない部分を含め、推定が表す全ファイバーに対して取る。
+    そのため中央値は、推定が半数のファイバーに届く場合にだけ報告する。統計
+    パッケージもそのような中央値を同じように欠測として返す。
+    """
+    if beyond <= 0.0:
+        return _summary_stats(values, weights)
+    assigned = float(weights.sum())
+    total = assigned + float(beyond)
+    order = np.argsort(values)
+    sorted_values = values[order]
+    sorted_weights = weights[order]
+    positions = (np.cumsum(sorted_weights) - 0.5 * sorted_weights) / total
+    q1, median, q3 = (
+        float(np.interp(q, positions, sorted_values)) if q <= assigned / total
+        else float("nan")
+        for q in (0.25, 0.5, 0.75)
+    )
+    return {"mean": float("nan"), "std": float("nan"),
+            "q1": q1, "median": median, "q3": q3,
+            "std_definition": STD_WEIGHTED}
+
+
+def _quantile_text(r: dict, key: str, fmt: str) -> str:
+    """
+    Format a quartile of a result, or say it lies beyond the longest fiber seen whole.
+    結果の四分位数を書式化する。全長を見た最長のファイバーより長い側にあれば、そう書く。
+    """
+    value = r[key]
+    if np.isfinite(value):
+        return fmt.format(value)
+    if r.get("km_beyond", 0.0) > 0.0:
+        return "> " + fmt.format(r["km_longest_nm"])
+    return "-"
 
 
 def _summary_stats(values: np.ndarray, weights=None) -> dict:
@@ -1655,13 +1817,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "{exclude} は長さの集計から外します。ただし長いファイバーほど枠に"
             "達しやすいため、外すだけでは長いファイバーが過小になります。{ml} は"
             "外したうえで、残った各ファイバーを枠内に収まる確率の逆数で重み付けし"
-            "（Miles-Lantuejoul 補正）、その偏りを補正します。重み付きの標本には"
-            "群間検定を行いません。交差で切れた断片は補正されず、その本数はログに"
-            "出ます。高さ・曲率・キンクは枠内の部分の測定として有効なため、この設定"
-            "の影響を受けません。"
+            "（Miles-Lantuejoul 補正）、その偏りを補正します。交差で切れた断片は"
+            "補正されず、その本数はログに出ます。{km} は、枠と交差のどちらで切れた"
+            "長さも扱います。自身の端を 2 つ持つファイバーを全長の観測、1 つだけ持つ"
+            "ファイバーを「計測した長さ以上」の観測として、ファイバーの長さの分布を"
+            "推定します（Kaplan-Meier 推定）。{km} は {fiber} 集計でだけ使えます。"
+            "全長を見たうち最長のファイバーより長い側は推定できず、その割合は図と"
+            "ログに出ます。そこに落ちる中央値や四分位数は数値の代わりに「> その長さ」"
+            "と書き、平均・標準偏差・最頻値は空欄にします。重み付きの標本には群間"
+            "検定を行いません。高さ・曲率・キンクは枠内の部分の測定として有効なため、"
+            "この設定の影響を受けません。"
         ).format(
             length=PARAM_LENGTH, include=FRAME_INCLUDE,
             exclude=FRAME_EXCLUDE, ml=FRAME_MILES_LANTUEJOUL,
+            km=FRAME_KAPLAN_MEIER, fiber=UNIT_FIBER,
         ))
         self._update_frame_mode_state()
 
@@ -3099,10 +3268,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
     @staticmethod
     def _frame_weighted(param: str, frame_mode: str) -> bool:
         """
-        Return whether samples carry the Miles-Lantuejoul frame weight.
-        標本が Miles-Lantuejoul の枠重みを持つかを返す。
+        Return whether samples carry a frame weight (Miles-Lantuejoul or Kaplan-Meier).
+        標本が枠の重み（Miles-Lantuejoul または Kaplan-Meier）を持つかを返す。
         """
-        return param == PARAM_LENGTH and frame_mode == FRAME_MILES_LANTUEJOUL
+        return param == PARAM_LENGTH and frame_mode in WEIGHTED_FRAME_MODES
 
     @staticmethod
     def _kink_length_weighted(param: str, unit: str) -> bool:
@@ -3553,6 +3722,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             if param == PARAM_LENGTH else FRAME_INCLUDE
         )
         frame_weighted = self._frame_weighted(param, frame_mode)
+        # A Kaplan-Meier estimate describes fibers; the median of one image or
+        # folder can itself lie beyond what was seen whole, so it is offered
+        # for the fiber unit only.
+        # Kaplan-Meier 推定はファイバーを記述する。画像やフォルダの中央値それ自体が
+        # 全長を見た範囲より長い側にありうるため、fiber 単位でだけ使える。
+        if frame_mode == FRAME_KAPLAN_MEIER and unit != UNIT_FIBER:
+            self.ui_queue.put(("fatal", {
+                "text": _("{km} は {fiber} 集計でだけ使えます。集計単位を {fiber} に"
+                          "するか、枠の扱いを変えてください。").format(
+                              km=FRAME_KAPLAN_MEIER, fiber=UNIT_FIBER),
+                "trace": "",
+            }))
+            return
 
         # The pixel combination pools every tracked point without individuating
         # fibers, so it cannot count "N fibers"; it is also the only
@@ -3596,6 +3778,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             grp_weights = [] if weighted else None
             grp_fibers = 0 if counts_fibers else None
             grp_images = 0
+            # Fibers the Kaplan-Meier estimate places beyond the longest fiber
+            # seen whole, and that length, summed over the group's folders.
+            # Kaplan-Meier 推定が、全長を見た最長のファイバーより長い側に置く
+            # 本数と、その長さ。グループのフォルダにわたって合計する。
+            grp_km_beyond = 0.0
+            grp_km_longest = float("nan")
 
             for folder in grp["folders"]:
                 folder_name = os.path.basename(folder)
@@ -3731,9 +3919,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
                 # Say what the frame mode removed, and how many of the lengths
                 # that remain are still lower bounds because a crossing cut
-                # them: the frame correction does not model those.
+                # them: the frame correction does not model those. Under
+                # Kaplan-Meier, say instead which fibers the estimate used and
+                # how much of the distribution it could not place.
+                # Kaplan-Meier では代わりに、推定がどのファイバーを使い、分布の
+                # どれだけを置けなかったかを示す。
                 # 枠の扱いが何を外したか、また残った長さのうち交差で切れて依然
                 # 下限値であるものが何本あるかを示す。枠の補正はそれらを扱わない。
+                if frame_report.get("kaplan_meier"):
+                    grp_km_beyond += frame_report["beyond"]
+                    grp_km_longest = float(np.nanmax(
+                        [grp_km_longest, frame_report["longest_nm"]]))
                 if frame_report:
                     for skipped in frame_report["unrecorded"]:
                         self.ui_queue.put(("log", _(
@@ -3744,15 +3940,32 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                             grp=grp_name, folder=folder_name,
                             name=os.path.basename(skipped),
                         )))
-                    self.ui_queue.put(("log", _(
-                        "[{grp}/{folder}] 長さ: 枠に達したファイバー {n}/{total} 本を"
-                        "除外しました。残りのうち {k} 本は交差などで切れた端を持ち、"
-                        "長さは下限値です"
-                    ).format(
-                        grp=grp_name, folder=folder_name,
-                        n=frame_report["frame"], total=frame_report["total"],
-                        k=frame_report["lower_bound"],
-                    )))
+                    if frame_report.get("kaplan_meier"):
+                        self.ui_queue.put(("log", _(
+                            "[{grp}/{folder}] 長さ ({km}): {total} 本のうち、両端とも"
+                            "自身の端である {whole} 本で分布を推定し、片端が切れた {cut} 本を"
+                            "打ち切りとして使いました。両端とも切れているか枠にかかる {none} 本は"
+                            "使っていません。全長を見たうち最長のファイバー ({longest:.0f} nm) より"
+                            "長い側にある {share:.0%} は、推定できません"
+                        ).format(
+                            grp=grp_name, folder=folder_name, km=FRAME_KAPLAN_MEIER,
+                            total=frame_report["total"],
+                            whole=frame_report["complete"],
+                            cut=frame_report["censored"],
+                            none=frame_report["no_own_end"],
+                            longest=frame_report["longest_nm"],
+                            share=frame_report["unassigned"],
+                        )))
+                    else:
+                        self.ui_queue.put(("log", _(
+                            "[{grp}/{folder}] 長さ: 枠に達したファイバー {n}/{total} 本を"
+                            "除外しました。残りのうち {k} 本は交差などで切れた端を持ち、"
+                            "長さは下限値です"
+                        ).format(
+                            grp=grp_name, folder=folder_name,
+                            n=frame_report["frame"], total=frame_report["total"],
+                            k=frame_report["lower_bound"],
+                        )))
 
                 for failed_path, msg in load_errors:
                     suffix = INPUT_SUFFIXES[input_mode]
@@ -3784,7 +3997,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # 平均・標準偏差に加えて四分位数も求める。ファイバー形態の分布は
             # 右に裾を引くため、対称性を仮定しない中央値と四分位範囲での
             # 記述が必要になる。
-            stats = _summary_stats(arr, wts)
+            kaplan_meier = frame_mode == FRAME_KAPLAN_MEIER and wts is not None
+            stats = (_kaplan_meier_summary(arr, wts, grp_km_beyond) if kaplan_meier
+                     else _summary_stats(arr, wts))
             results.append({
                 "id": grp["id"],
                 "name": grp_name,
@@ -3819,6 +4034,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     float(arr.size) if wts is None else float(wts.sum())
                 ),
                 "frame_mode": frame_mode,
+                # What the Kaplan-Meier estimate could not place: the fibers
+                # beyond the longest one seen whole, and that length.
+                # Kaplan-Meier 推定が置けなかったもの。全長を見た最長のファイバー
+                # より長い側の本数と、その長さ。
+                "km_beyond": grp_km_beyond if kaplan_meier else 0.0,
+                "km_longest_nm": grp_km_longest,
                 # The raw point count drives the "too few samples to read the
                 # shape" notice, which is about the histogram, not the weight.
                 # 「形状が読めるほど標本が無い」通知は生の点数で判断する。これは
@@ -3843,10 +4064,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             })
             if results[-1]["n_effective"] is not None:
                 self.ui_queue.put(("log", _(
-                    "[{g}] Miles-Lantuejoul 重みの有効標本数は {neff:.1f} 本（計測した {n} 本）で、"
+                    "[{g}] {mode} 重みの有効標本数は {neff:.1f} 本（計測した {n} 本）で、"
                     "最大の重みを持つ 1 本が重みの合計の {share:.0%} を占めます。"
-                ).format(g=grp_name, neff=results[-1]["n_effective"], n=int(arr.size),
-                         share=results[-1]["max_weight_share"])))
+                ).format(g=grp_name, mode=frame_mode, neff=results[-1]["n_effective"],
+                         n=int(arr.size), share=results[-1]["max_weight_share"])))
 
         self._log_pixel_size_spread(curvature_pixel_sizes)
 
@@ -3904,6 +4125,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 k = int(np.argmax(counts))
                 r["mode"] = float((edges[k] + edges[k + 1]) / 2.0)
             else:
+                r["mode"] = float("nan")
+            # Under Kaplan-Meier the bars are fractions of every fiber the
+            # estimate stands for, so they sum to less than one by the part it
+            # could not place, and the tallest bar is not the mode of a
+            # distribution whose tail is unknown.
+            # Kaplan-Meier では棒を、推定が表す全ファイバーに対する割合とする。
+            # そのため棒の合計は、置けなかった部分だけ 1 に届かない。また裾の
+            # 分からない分布では、最も高い棒は最頻値ではない。
+            r["norm_total"] = total
+            if r.get("km_beyond", 0.0) > 0.0:
+                r["norm_total"] = r["weight_total"] + r["km_beyond"]
                 r["mode"] = float("nan")
 
             # Summary statistics describe the whole sample, while the bars show
@@ -3972,7 +4204,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             comparison_note = _(
                 "{ml} 補正の標本は重み付きのため検定しません。検定するには "
                 "{exclude} に切り替えてください。"
-            ).format(ml=FRAME_MILES_LANTUEJOUL, exclude=FRAME_EXCLUDE)
+            ).format(ml=frame_mode, exclude=FRAME_EXCLUDE)
         elif self._kink_length_weighted(param, unit):
             # The fiber-unit kink densities are weighted by the judged length,
             # which the rank tests cannot take; the image and folder units test
@@ -4056,9 +4288,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "", tk.END,
                 values=(
                     r["name"],
-                    f"{r['median']:.3f}",
-                    f"{r['q1']:.3f}–{r['q3']:.3f}",
-                    f"{r['mean']:.3f}",
+                    _quantile_text(r, "median", "{0:.3f}"),
+                    _quantile_text(r, "q1", "{0:.3f}") + "–"
+                    + _quantile_text(r, "q3", "{0:.3f}"),
+                    _blank_if_nan(r["mean"], "{0:.3f}") or "-",
                     _blank_if_nan(r["std"], "{0:.3f}") or "-",
                     mode_str,
                     _format_sample_size(r["n_samples"], unit),
@@ -4278,7 +4511,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # the fraction of sampled points.
             # 重み付き累積割合。length 単位の曲線が、サンプル点の割合ではなく、
             # 各値以下にある観測輪郭長の割合を表すようにする。
-            cumulative = np.cumsum(weights) / float(weights.sum())
+            # Under Kaplan-Meier the curve stops short of one by the part of
+            # the distribution beyond the longest fiber seen whole.
+            # Kaplan-Meier では、全長を見た最長のファイバーより長い側の分だけ、
+            # 曲線は 1 に届かずに終わる。
+            cumulative = np.cumsum(weights) / (
+                float(weights.sum()) + r.get("km_beyond", 0.0))
             ax.step(
                 sorted_values, cumulative, where="post",
                 color=r["color"], label=r["name"], linewidth=1.6,
@@ -4315,7 +4553,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         spec = PARAM_SPECS[param]
 
         stats = []
-        for r in results:
+        positions = []
+        # A Kaplan-Meier box whose quartiles lie beyond the longest fiber seen
+        # whole cannot be drawn, so its place says why instead.
+        # 四分位数が全長を見た最長のファイバーより長い側にある Kaplan-Meier の箱は
+        # 描けないため、その位置に理由を書く。
+        unplaced = []
+        for k, r in enumerate(results, start=1):
+            if not all(np.isfinite(r[q]) for q in ("q1", "median", "q3")):
+                unplaced.append((k, r))
+                continue
+            positions.append(k)
             values = np.asarray(r["values"], dtype=float)
             iqr = r["q3"] - r["q1"]
             # Tukey fences: the whiskers reach the furthest sample still within
@@ -4336,13 +4584,23 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "fliers": [],
             })
 
-        artists = ax.bxp(stats, showfliers=False, patch_artist=True)
-        for patch, r in zip(artists["boxes"], results):
-            patch.set_facecolor(r["color"])
-            patch.set_alpha(0.55)
-            patch.set_edgecolor(r["color"])
-        for median in artists["medians"]:
-            median.set_color("black")
+        if stats:
+            drawn = [results[k - 1] for k in positions]
+            artists = ax.bxp(stats, positions=positions, showfliers=False,
+                             patch_artist=True)
+            for patch, r in zip(artists["boxes"], drawn):
+                patch.set_facecolor(r["color"])
+                patch.set_alpha(0.55)
+                patch.set_edgecolor(r["color"])
+            for median in artists["medians"]:
+                median.set_color("black")
+        for k, r in unplaced:
+            ax.text(k, 0.5, "box reaches beyond\n{0:.0f} nm,\nnot estimated".format(
+                r["km_longest_nm"]), transform=ax.get_xaxis_transform(),
+                ha="center", va="center", fontsize=tick_fs, color=r["color"])
+        ax.set_xticks(range(1, len(results) + 1))
+        ax.set_xticklabels([r["name"] for r in results])
+        ax.set_xlim(0.5, len(results) + 0.5)
 
         ax.set_ylabel(spec["axis_label"], fontsize=label_fs)
         ax.tick_params(axis="y", labelsize=tick_fs)
@@ -4413,20 +4671,33 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # A group of one sample has no standard deviation, so its mean is
             # written alone rather than as "± nan".
             # 標本 1 個の群には標準偏差が無いため、"± nan" ではなく平均だけを書く。
-            mean_line = (
-                "{p} = {m} ± {s} {u}".format(
+            # Under Kaplan-Meier with part of the distribution unplaced the
+            # mean is not defined, so the line says so instead of a number.
+            # Kaplan-Meier で分布の一部を置けなかったときは平均が定まらないため、
+            # 数値の代わりにそう書く。
+            if not np.isfinite(r["mean"]):
+                mean_line = "{p}: mean not estimated".format(p=param)
+            elif np.isfinite(r["std"]):
+                mean_line = "{p} = {m} ± {s} {u}".format(
                     p=param, m=f"{r['mean']:.2f}", s=f"{r['std']:.2f}",
                     u=value_unit,
-                ) if np.isfinite(r["std"])
-                else "{p} = {m} {u}".format(
+                )
+            else:
+                mean_line = "{p} = {m} {u}".format(
                     p=param, m=f"{r['mean']:.2f}", u=value_unit,
                 )
-            )
             lines = [
                 mean_line,
-                "median = {md} {u} (IQR {q1}–{q3})".format(
-                    md=f"{r['median']:.2f}", u=value_unit,
-                    q1=f"{r['q1']:.2f}", q3=f"{r['q3']:.2f}",
+                "median {eq}{md} {u} (IQR {q1} to {q3})".format(
+                    eq="= " if np.isfinite(r["median"]) else "",
+                    md=_quantile_text(r, "median", "{0:.2f}"), u=value_unit,
+                    q1=_quantile_text(r, "q1", "{0:.2f}"),
+                    q3=_quantile_text(r, "q3", "{0:.2f}"),
+                ) if not (np.isfinite(r["q1"]) and np.isfinite(r["q3"]))
+                else "median = {md} {u} (IQR {q1}–{q3})".format(
+                    md=_quantile_text(r, "median", "{0:.2f}"), u=value_unit,
+                    q1=_quantile_text(r, "q1", "{0:.2f}"),
+                    q3=_quantile_text(r, "q3", "{0:.2f}"),
                 ),
                 "mode = {mo} {u}".format(
                     mo=f"{r['mode']:.2f}" if not np.isnan(r["mode"]) else "-",
@@ -4455,6 +4726,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 lines.append("Miles-Lantuejoul weighted")
                 if r.get("n_effective") is not None:
                     lines.append("effective N = {0:.1f}".format(r["n_effective"]))
+            elif frame_mode == FRAME_KAPLAN_MEIER:
+                lines.append("Kaplan-Meier estimate")
+                lines.append("(cut lengths censored)")
+                if r.get("n_effective") is not None:
+                    lines.append("effective N = {0:.1f}".format(r["n_effective"]))
+                if r.get("km_beyond", 0.0) > 0.0:
+                    share = r["km_beyond"] / (r["weight_total"] + r["km_beyond"])
+                    lines.append("{0:.0%} beyond {1:.0f} {2}".format(
+                        share, r["km_longest_nm"], value_unit))
+                    lines.append("not estimated")
             if self._kink_length_weighted(param, unit):
                 lines.append("weighted by judged length")
 
@@ -4481,7 +4762,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             ax = self.fig.add_subplot(111)
 
             for r in results:
-                y, ylabel = compute_y_and_label(r["counts"], r["total"])
+                y, ylabel = compute_y_and_label(r["counts"], r.get("norm_total", r["total"]))
                 alpha = 1.0 if n == 1 else 0.5
                 ax.bar(
                     edges[:-1], y, width=widths, align="edge",
@@ -4512,7 +4793,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 axes = [axes]
 
             for ax, r in zip(axes, results):
-                y, ylabel = compute_y_and_label(r["counts"], r["total"])
+                y, ylabel = compute_y_and_label(r["counts"], r.get("norm_total", r["total"]))
                 ax.bar(
                     edges[:-1], y, width=widths, align="edge",
                     color=r["color"], edgecolor="none",
@@ -4647,10 +4928,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         # 長さ重み付けの標本は重みも併せて出力する必要がある。重み
                         # が無いと、そのファイルからは重みなしの分布が再計算され、
                         # 元の図や統計値と黙って食い違ってしまう。
-                        # The Miles-Lantuejoul weight is dimensionless.
-                        # Miles-Lantuejoul 重みは無次元である。
+                        # The Miles-Lantuejoul and Kaplan-Meier weights are
+                        # dimensionless.
+                        # Miles-Lantuejoul 重みと Kaplan-Meier 重みは無次元である。
                         frame_weighted = (r.get("frame_mode")
-                                          == FRAME_MILES_LANTUEJOUL)
+                                          in WEIGHTED_FRAME_MODES)
                         value_column = (
                             "value_per_um" if self._last_param == PARAM_KINK_DENSITY
                             else "value_nm")
@@ -4797,6 +5079,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     # std を n - 1 で割ったか重みの合計で割ったか
                     # （`_summary_stats`）。既存の列位置を保つため末尾に足す。
                     "std definition",
+                    # Under Kaplan-Meier, the percentage of fibers the estimate
+                    # places beyond the longest fiber seen whole; a statistic
+                    # that falls there is blank.
+                    # Kaplan-Meier で、推定が全長を見た最長のファイバーより長い
+                    # 側に置くファイバーの割合。そこに落ちる統計値は空欄になる。
+                    "not estimated (%)",
                 ])
                 for r in self._last_results:
                     mode_val = "" if np.isnan(r["mode"]) else f"{r['mode']:.3f}"
@@ -4804,10 +5092,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         r["name"],
                         self._last_param,
                         self._last_unit,
-                        f"{r['median']:.3f}",
-                        f"{r['q1']:.3f}",
-                        f"{r['q3']:.3f}",
-                        f"{r['mean']:.3f}",
+                        _blank_if_nan(r["median"], "{0:.3f}"),
+                        _blank_if_nan(r["q1"], "{0:.3f}"),
+                        _blank_if_nan(r["q3"], "{0:.3f}"),
+                        _blank_if_nan(r["mean"], "{0:.3f}"),
                         _blank_if_nan(r["std"], "{0:.3f}"),
                         mode_val,
                         _sample_size_csv_value(r["n_samples"], self._last_unit),
@@ -4818,6 +5106,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         (r.get("frame_mode", FRAME_INCLUDE)
                          if self._last_param == PARAM_LENGTH else ""),
                         r.get("std_definition", STD_SAMPLE),
+                        ("{0:.1f}".format(100.0 * r["km_beyond"] / (
+                            r["weight_total"] + r["km_beyond"]))
+                         if r.get("km_beyond", 0.0) > 0.0 else ""),
                     ])
 
         save_csv_with_dialog(

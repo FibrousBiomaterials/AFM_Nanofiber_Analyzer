@@ -38,7 +38,7 @@
     "lib/measure.py::MIN_HEIGHT_SAMPLES": "6f1175bf7aafe11a61921560ca0a70816b04bc70ba9d689ece005191dc7d56dc",
     "lib/measure.py::HEIGHT_UPPER_PERCENTILE": "59c6a936d67f89d6e59b990ff3b2b77ecaa8415d2216352ebd2f07f6bdcae454",
     "lib/measure.py::DEFAULT_CURVATURE_WINDOW_NM": "655eaaae94629b6f6bac66fe6431ee0facf8d61e70f52ef753adbe5707a5f9aa",
-    "lib/measure.py::compute_fiber_stats": "6a39c3c21d1c628d5f2a67d9ee3d61b39107ea395b3b5e140271104355dcaa30",
+    "lib/measure.py::compute_fiber_stats": "0350ffaaa29204875474c6b04f5749f46ab70206cf6660639d81a53649711be4",
     "lib/measure.py::height_sample_mask": "c211dd2dc7da07dcd19caa4415741a89bafb605920d755f0599769e2e261dc88",
     "lib/measure.py::fiber_straightness": "8d0b345c1e5ccf2c33b5bb93d057f0e210cf036e5a79147c0f33743b3455e3b5",
     "lib/measure.py::fiber_curvature_profile": "e93275bbf33dc816e984d57b22ca6b1b7a8603ffde7effd730643ad12a8b4db0",
