@@ -10,16 +10,17 @@ document explains, so it can be regenerated whenever that code changes::
 
 The PNG files are written to ``docs/images/`` and are shared by
 ``docs/algorithms.md`` and ``docs/algorithms.ja.md``; their labels are fixed
-English, as for every plot in this project. The one exception is the figure
-explaining the excess turning, which carries several sentences of reading
-instructions and is drawn once in each language (``kink_excess_idea.png`` and
-``kink_excess_idea.ja.png``); the Japanese one needs a Japanese font.
+English, as for every plot in this project. The exceptions are the two
+figures explaining the kink rule, which carry several sentences of reading
+instructions and are drawn once in each language (``kink_excess_idea`` and
+``kink_short_segments``, with ``.ja.png`` for Japanese); the Japanese ones need
+a Japanese font.
 各図は、文書が説明するコードに合成高さ画像を通して描くため、そのコードが
 変わったときはいつでも作り直せる。PNG は ``docs/images/`` に書き出し、
 英語版と日本語版の両方が共有する。図中の文字は、このプロジェクトの他の図と
-同じく英語で固定する。唯一の例外は超過回転を説明する図で、読み方の文を
-いくつも含むため言語ごとに描く（``kink_excess_idea.png`` と
-``kink_excess_idea.ja.png``）。日本語版には日本語フォントが要る。
+同じく英語で固定する。例外はキンク規則を説明する 2 つの図で、読み方の文を
+いくつも含むため言語ごとに描く（``kink_excess_idea`` と ``kink_short_segments``。
+日本語版は ``.ja.png``）。日本語版には日本語フォントが要る。
 """
 
 # ===== Standard library =====
@@ -264,7 +265,7 @@ def _excess_curve(sm, heading, length, width):
     Returns ``(p, core, excess, background)``, the positions at least ``c``
     from both ends and the window turning, the excess turning and the
     subtracted flank rate there.
-    両端から ``c`` 以上離れた位置と、そこでの窓の回転・超過回転・差し引いた脇の
+    両端から ``c`` 以上離れた位置と、そこでの折れの区間の回転・超過回転・差し引いた前後の区間の
     回転率を返す。
     """
     c = kd._CORE_WIDTHS * width
@@ -341,7 +342,7 @@ def _arc_line(radius, total_deg, lead):
 def _draw_heading(path, width):
     """
     Draw the heading theta(s) of three lines with the window, the flanks, T and E.
-    3 本の線の向き theta(s) に、窓・脇・T・E を重ねて描く。
+    3 本の線の向き theta(s) に、折れの区間・前後の区間・T・E を重ねて描く。
     """
     c = kd._CORE_WIDTHS * width
     f = kd._FLANK_WIDTHS * width
@@ -473,14 +474,14 @@ _IDEA_TEXT = {
         xlabel="position along the centerline (px)", ylabel="direction (°)"),
     "ja": dict(
         a="a  半径 3W の円弧の途中にある 40° の角\n青：折れる直前の向き　橙：折れた直後の向き",
-        b="b  1.5W の区間の両端で向きを比べる\n円弧自身の 29° が上乗せされて 69°",
+        b="b  折れの区間（1.5W）の両端で向きを比べる\n円弧自身の 29° が上乗せされて 69°",
         c="c  角の無い円弧を同じ方法で測ると\n角が無いのに 29°",
         d="d  中心線に沿った向き：円弧はなだらかな傾き、角は段になる\n"
-          "超過回転 ＝ 脇の傾きを延ばした線より飛び出した分",
-        arc="角が無かった場合の円弧", line="中心線", stretch="比べる区間（1.5W）",
+          "超過回転 ＝ 前後の区間の傾きを延ばした線より飛び出した分",
+        arc="角が無かった場合の円弧", line="中心線", stretch="折れの区間（1.5W）",
         gather="2 つの向きを\n1 点に集めたもの",
-        heading="中心線の向き", expected="脇の傾きを延ばした線",
-        flank="脇", window="窓", step="段の高さ 40°\n＝ 超過回転",
+        heading="中心線の向き", expected="前後の区間の傾きを延ばした線",
+        flank="前後の区間", window="折れの区間", step="段の高さ 40°\n＝ 超過回転",
         slope="なだらかな傾き\n＝ 円弧自身の曲がり",
         xlabel="中心線に沿った位置（画素）", ylabel="向き（°）"),
 }
@@ -611,6 +612,214 @@ def _draw_excess_idea(path, width, lang):
         plt.close(fig)
 
 
+_SHORT_TEXT = {
+    "en": dict(
+        suptitle="Why a bend cannot be measured between neighbouring points "
+                 "(example: W = 8 px, a corner rounded over W, points jittered by 0.2 px)",
+        a="a  A real corner is rounded and its points carry noise (enlarged)\n"
+          "example: a 40° corner rounded over W (8 px), each point moved by 0.2 px",
+        b="b  Measured at every point along the centerline\n"
+          "neighbouring points (red) swing everywhere and cannot locate the corner",
+        c="c  Angle between the segments to the points L away on either side\n"
+          "short L swings with noise; longer L blunts the rounded corner",
+        d="d  Kink rule: headings smoothed over W/4, compared at ±L (T)\n"
+          "at L = 0.75W the corner reaches about 40° and straight parts stay small;\n"
+          "the arc is subtracted using the flanks",
+        clean="centerline without noise", noisy="centerline with noise (a point every 0.5 px)",
+        neighbour="segments to the neighbouring points: {v:.0f}°",
+        rule="kink rule: smoothed directions at the ends of the window: {v:.0f}°",
+        neighbour_b="angle between the segments to the neighbouring points",
+        rule_b="kink rule: difference of directions at the ends of the window (T)",
+        threshold="threshold 30°", rounded_span="where the corner is rounded",
+        corner="rounded 40° corner (noise)", straight="straight part (noise): truly 0°",
+        arc="arc of radius 3W: no corner", band=" (median and 5–95%)",
+        true="true\ncorner 40°", window="window of the kink rule\n(±0.75W)",
+        xpos="position along the centerline (px)", angle="angle read (°)",
+        xl="L (from the point to one side, in units of W); left end = neighbouring points"),
+    "ja": dict(
+        suptitle="隣り合う点どうしで角度を測れない理由（例：W = 8 画素、角の丸まり W、点のゆらぎ 0.2 画素）",
+        a="a  実際の角は丸まり、点にはノイズが乗る（拡大図）\n"
+          "例：40° の角が W（8 画素）の長さにわたって丸まり、各点が 0.2 画素ゆらぐ",
+        b="b  中心線に沿って各点で測ると\n隣り合う点（赤）はノイズでどこでも振れ、角を見分けられない",
+        c="c  その点と、両側へ L 離れた点を結ぶ線分のなす角\n"
+          "L が短いとノイズで振れ、長くすると丸まった角が鈍って見える",
+        d="d  キンク規則：W/4 でならした向きを、点から ±L の位置で比べる（T）\n"
+          "L = 0.75W で角は約 40° に届き、まっすぐな部分は小さい。\n円弧の分は前後の区間から引く",
+        clean="ノイズの無い中心線", noisy="ノイズを乗せた中心線（0.5 画素ごとの点）",
+        neighbour="隣り合う点との線分：{v:.0f}°",
+        rule="キンク規則：折れの区間の両端でのならした向き：{v:.0f}°",
+        neighbour_b="隣り合う点との線分のなす角",
+        rule_b="キンク規則：折れの区間の両端での向きの差（T）",
+        threshold="閾値 30°", rounded_span="角が丸まっている範囲",
+        corner="丸まった 40° の角（ノイズあり）", straight="まっすぐな部分（ノイズあり）：本当は 0°",
+        arc="半径 3W の円弧：角は無い", band="（中央値と 5〜95% の幅）",
+        true="本当の\n角 40°", window="折れの区間\n（±0.75W）",
+        xpos="中心線に沿った位置（画素）", angle="測れる角度（°）",
+        xl="L（点から片側へ、W を単位として）。左端は隣り合う点"),
+}
+
+
+def _draw_short_segments(path, width, lang):
+    """
+    Draw why a bend is not measured between neighbouring centerline points.
+    折れを中心線の隣り合う点どうしで測らない理由を描く。
+
+    Notes
+    -----
+    The corner's rounding (one apparent width) and the jitter of the points
+    (0.2 px) are example values, not measurements. The kink rule's reading
+    uses its own heading (`kink_detector._heading_profile`) and window half
+    length `kink_detector._CORE_WIDTHS`, and the figure fails to build unless
+    the rule reads the noise-free rounded corner within 2 degrees of its 40.
+    角の丸まり（見かけ幅 1 つ分）と点のゆらぎ（0.2 px）は例として置いた値で、
+    計測値ではない。キンク規則の読みには規則自身の向き
+    （`kink_detector._heading_profile`）と窓の半長 `kink_detector._CORE_WIDTHS`
+    を使い、ノイズの無い丸まった角を規則が 40 度から 2 度以内で読まなければ
+    図は作れない。
+    """
+    from matplotlib import font_manager
+    from matplotlib.patches import FancyArrowPatch
+
+    text = _SHORT_TEXT[lang]
+    family = None
+    if lang == "ja":
+        available = {f.name for f in font_manager.fontManager.ttflist}
+        family = next((name for name in _JAPANESE_FONTS if name in available), None)
+        if family is None:
+            raise RuntimeError("no Japanese font found for the Japanese figure")
+    c = kd._CORE_WIDTHS * width
+    step, noise, reps = 0.5, 0.2, 300
+    length = 10.0 * width
+    s0 = length / 2
+    s = np.arange(0.0, length + step / 2, step)
+    i0 = int(round(s0 / step))
+    rng = np.random.default_rng(0)
+
+    def smoothstep(t):
+        t = np.clip(t, 0.0, 1.0)
+        return t * t * (3 - 2 * t)
+
+    def line(heading, jitter):
+        x = np.concatenate([[0.0], np.cumsum(step * np.cos(heading[:-1]))])
+        y = np.concatenate([[0.0], np.cumsum(step * np.sin(heading[:-1]))])
+        if jitter:
+            d = rng.normal(0.0, jitter, s.size)
+            x, y = x - d * np.sin(heading), y + d * np.cos(heading)
+        return x, y
+
+    def chord_turn(x, y, i, k):
+        a = np.arctan2(y[i] - y[i - k], x[i] - x[i - k])
+        b = np.arctan2(y[i + k] - y[i], x[i + k] - x[i])
+        return float(np.degrees(np.abs((b - a + np.pi) % (2 * np.pi) - np.pi)))
+
+    def rule_profile(x, y):
+        orig, sl, _length, sm, heading = kd._heading_profile(x, y, width)
+        return sm, heading, float(sl[int(np.searchsorted(orig, i0))])
+
+    def rule_turn(sm, heading, p, half):
+        return float(np.degrees(abs(np.interp(p + half, sm, heading)
+                                    - np.interp(p - half, sm, heading))))
+
+    rounded = np.radians(40.0) * smoothstep((s - (s0 - width / 2)) / width)
+    straight = np.zeros_like(s)
+    arc = s / (3.0 * width)
+    clean_reading = rule_turn(*rule_profile(*line(rounded, 0.0)), c)
+    if abs(clean_reading - 40.0) > 2.0:
+        raise RuntimeError("figure no longer matches KinkDetector's heading: %.1f deg"
+                           % clean_reading)
+    ks = np.arange(1, int(1.5 * width / step) + 1)
+    halves = ks * step
+
+    with plt.rc_context({"font.family": family} if family else {}):
+        fig = plt.figure(figsize=(18, 13.5))
+        gs = fig.add_gridspec(2, 2)
+
+        ax = fig.add_subplot(gs[0, 0])
+        x, y = line(rounded, noise)
+        xi, yi = line(rounded, 0.0)
+        sm, heading, p = rule_profile(x, y)
+        arc_len = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
+        ax.plot(xi, yi, color="0.7", lw=7, alpha=0.5, label=text["clean"])
+        ax.plot(x, y, ".-", color="black", ms=4, lw=1, label=text["noisy"])
+        ax.plot(x[i0 - 1:i0 + 2], y[i0 - 1:i0 + 2], "o-", color="tab:red", lw=3, ms=8,
+                label=text["neighbour"].format(v=chord_turn(x, y, i0, 1)))
+        for side in (-1, 1):
+            q = p + side * c
+            j = int(np.argmin(np.abs(arc_len - q)))
+            h = float(np.interp(q, sm, heading))
+            ax.add_patch(FancyArrowPatch((x[j], y[j]), (x[j] + 5 * np.cos(h), y[j] + 5 * np.sin(h)),
+                                         arrowstyle="-|>", mutation_scale=20, color="tab:blue",
+                                         lw=3))
+        ax.plot([], [], color="tab:blue", lw=3, label=text["rule"].format(v=rule_turn(sm, heading, p, c)))
+        ax.set_xlim(x[i0] - 13, x[i0] + 11)
+        ax.set_ylim(y[i0] - 7, y[i0] + 11)
+        ax.set_aspect("equal")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.legend(fontsize=11, loc="upper left")
+        ax.set_title(text["a"], fontsize=13)
+
+        ax = fig.add_subplot(gs[0, 1])
+        idx = np.arange(int(1.5 * width / step), s.size - int(1.5 * width / step))
+        ax.plot(s[idx], [chord_turn(x, y, i, 1) for i in idx], color="tab:red", lw=1.6,
+                label=text["neighbour_b"])
+        ax.plot(s[idx], [rule_turn(sm, heading, arc_len[i], c) for i in idx], color="tab:blue",
+                lw=2.5, label=text["rule_b"])
+        ax.axhline(30, color="green", ls="--", lw=2, label=text["threshold"])
+        ax.axvspan(s0 - width / 2, s0 + width / 2, color="orange", alpha=0.15,
+                   label=text["rounded_span"])
+        ax.set_xlabel(text["xpos"], fontsize=12)
+        ax.set_ylabel(text["angle"], fontsize=12)
+        ax.legend(fontsize=11, loc="upper left")
+        ax.set_title(text["b"], fontsize=13)
+
+        def summary(heading_true, jitter, fn):
+            vals = np.array([[fn(*line(heading_true, jitter), k) for k in ks]
+                             for _ in range(reps if jitter else 1)])
+            return (np.median(vals, axis=0), np.percentile(vals, 5, axis=0),
+                    np.percentile(vals, 95, axis=0))
+
+        def chord_fn(xx, yy, k):
+            return chord_turn(xx, yy, i0, k)
+
+        def rule_fn(xx, yy, k):
+            smm, hh, pp = rule_profile(xx, yy)
+            return rule_turn(smm, hh, pp, k * step)
+
+        cases = ((rounded, noise, "tab:purple", text["corner"]),
+                 (straight, noise, "tab:red", text["straight"]),
+                 (arc, 0.0, "tab:brown", text["arc"]))
+        for col, (fn, title) in enumerate(((chord_fn, text["c"]), (rule_fn, text["d"]))):
+            ax = fig.add_subplot(gs[1, col])
+            for heading_true, jitter, colour, label in cases:
+                med, lo, hi = summary(heading_true, jitter, fn)
+                ax.plot(halves / width, med, color=colour, lw=3,
+                        label=label + (text["band"] if jitter else ""))
+                if jitter:
+                    ax.fill_between(halves / width, lo, hi, color=colour, alpha=0.15)
+            ax.axhline(40, color="0.4", ls=":", lw=2)
+            edge = ax.get_yaxis_transform()
+            ax.text(1.01, 40, text["true"], fontsize=11, color="0.3", va="center",
+                    transform=edge)
+            ax.axhline(30, color="green", ls="--", lw=2)
+            ax.text(1.01, 30, text["threshold"], fontsize=11, color="green", va="center",
+                    transform=edge)
+            if col == 1:
+                ax.axvline(kd._CORE_WIDTHS, color="0.4", lw=1.5)
+                ax.text(kd._CORE_WIDTHS + 0.02, 62, text["window"], fontsize=11, color="0.3")
+            ax.set_xlim(0, 1.5)
+            ax.set_ylim(0, 90)
+            ax.set_xlabel(text["xl"], fontsize=12)
+            ax.set_ylabel(text["angle"], fontsize=12)
+            ax.legend(fontsize=10.5, loc="upper right")
+            ax.set_title(title, fontsize=13)
+
+        fig.suptitle(text["suptitle"], fontsize=16, y=0.995)
+        fig.tight_layout()
+        fig.savefig(path, dpi=90, bbox_inches="tight", pad_inches=0.05)
+        plt.close(fig)
+
+
 def main() -> None:
     os.makedirs(OUT_DIR, exist_ok=True)
     note = ("blue line: image edge   yellow: mask edge (half maximum)   "
@@ -649,6 +858,8 @@ def main() -> None:
     # キンクの図は、検出器に直接渡す合成の中心線で描く。見かけの幅は 8 px。
     _draw_excess_idea(os.path.join(OUT_DIR, "kink_excess_idea.png"), 8.0, "en")
     _draw_excess_idea(os.path.join(OUT_DIR, "kink_excess_idea.ja.png"), 8.0, "ja")
+    _draw_short_segments(os.path.join(OUT_DIR, "kink_short_segments.png"), 8.0, "en")
+    _draw_short_segments(os.path.join(OUT_DIR, "kink_short_segments.ja.png"), 8.0, "ja")
     _draw_heading(os.path.join(OUT_DIR, "kink_heading.png"), 8.0)
     _draw_arms(os.path.join(OUT_DIR, "kink_arms.png"), 8.0)
 

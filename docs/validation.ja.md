@@ -683,13 +683,13 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 | 長さ | 既定値 | 試した隣の値 |
 |---|---|---|
 | 中心線の平滑化 | W/4 | ×0.6<!--n:value tried-->、×1.4<!--n:value tried--> |
-| 窓の半長 $c$ | 0.75<!--c:lib/kink_detector.py::_CORE_WIDTHS--> W | 0.6<!--n:value tried--> W、0.9<!--n:value tried--> W |
-| 脇の長さ $f$ | 1.0<!--c:lib/kink_detector.py::_FLANK_WIDTHS--> W | 0.75<!--n:value tried--> W、1.5<!--n:value tried--> W |
+| 折れの区間の半長 $c$ | 0.75<!--c:lib/kink_detector.py::_CORE_WIDTHS--> W | 0.6<!--n:value tried--> W、0.9<!--n:value tried--> W |
+| 前後の区間の長さ $f$ | 1.0<!--c:lib/kink_detector.py::_FLANK_WIDTHS--> W | 0.75<!--n:value tried--> W、1.5<!--n:value tried--> W |
 | 向きの平滑化 $\sigma$ | 0.25<!--c:lib/kink_detector.py::_HEADING_SIGMA_WIDTHS--> W | 0.15<!--n:value tried--> W、0.35<!--n:value tried--> W |
 | 端の範囲 | 1.5<!--c:lib/kink_detector.py::END_MARGIN_WIDTHS--> W | 1.0<!--n:value tried--> W、2.0<!--n:value tried--> W |
 | 抑制半径 | 0.75<!--c:lib/kink_detector.py::_SUPPRESS_WIDTHS--> W | 0.5<!--n:value tried--> W、1.0<!--n:value tried--> W |
 
-窓の回転そのものの極大から取る候補を除くと、明瞭な基準キンクの検出は
+折れの区間での回転そのものの極大から取る候補を除くと、明瞭な基準キンクの検出は
 50<!--m:turn_maxima.with.found--> 件から 47<!--m:turn_maxima.without.found--> 件に減り、一致しない折れは 64<!--m:turn_maxima.with.false--> 件から 48<!--m:turn_maxima.without.false--> 件に減った（実験
 turn_maxima）。
 
@@ -738,8 +738,8 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 角と同じ向きに曲がる繊維では保存角が鋭く、逆向きに曲がる繊維では鈍くなり、その差は
 おおよそ $2W/R$ であった。
 
-同梱の 3<!--n:count--> スキャンでは、各キンクについてこの回転を、キンクの規則が読む脇で読み、
-両脇が同じ向きに曲がるときに数えた。139<!--m:kink_angle_on_arcs.bundled.kinks--> 個のキンクで中央値は 0<!--m:kink_angle_on_arcs.bundled.median_abs_deg--> 度、10<!--n:value tried--> 度を超えたのは
+同梱の 3<!--n:count--> スキャンでは、各キンクについてこの回転を、キンクの規則が読む前後の区間で読み、
+前後の区間が同じ向きに曲がるときに数えた。139<!--m:kink_angle_on_arcs.bundled.kinks--> 個のキンクで中央値は 0<!--m:kink_angle_on_arcs.bundled.median_abs_deg--> 度、10<!--n:value tried--> 度を超えたのは
 19<!--m:kink_angle_on_arcs.bundled.over_10_deg--> 個、最大は 65<!--m:kink_angle_on_arcs.bundled.max_abs_deg--> 度であった。補正後の高さ画像に重ねて描くと、この回転が最も大きい
 12<!--n:number rendered--> 個のキンクに、なめらかに曲がる繊維の上の角は 1<!--n:count--> つもなかった。それらは交差や分岐、
 かすかな繊維や絡まり、繊維が背景の凹凸に入るところ、粒子の横、交差の横の段のある
@@ -755,8 +755,8 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
   報告しなかった。
 - 40<!--n:value tried--> 度以上の孤立したコーナーはすべて見つけた（8<!--m:synthetic_kinks.corners_40_up.clear--> 件中 8<!--m:synthetic_kinks.corners_40_up.found--> 件）。
 - 最小曲率半径が 1.6〜1.8<!--m:synthetic_kinks.sines.tightest_radius_w_range--> $W$ の正弦波状の蛇行 4<!--m:synthetic_kinks.sines.scans--> 枚では、11<!--m:synthetic_kinks.sines.reported--> 件の折れを
-  報告した。半径が約 $2.9\,W$ を下回ると窓の中だけで 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度を超えて回り、
-  曲率が急に変わる場所では脇の回転でそれを打ち消しきれないためである。
+  報告した。半径が約 $2.9\,W$ を下回ると折れの区間だけで 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度を超えて回り、
+  曲率が急に変わる場所では前後の区間の回転でそれを打ち消しきれないためである。
 - 以前の折れ線規則は、同じ円弧と蛇行で 31<!--m:synthetic_kinks.old_rule.arcs_sines_reported--> 件を報告した（実験 synthetic_kinks）。
 
 ### 4.7 中心線ごとのノイズ床

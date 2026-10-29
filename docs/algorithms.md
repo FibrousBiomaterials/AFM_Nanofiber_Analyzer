@@ -2597,6 +2597,39 @@ bands) and the flanks' slope continued (dashed). Drawn by
 `scripts/make_doc_figures.py`, which checks that `KinkDetector.judge_line`
 finds one kink of 40<!--n:example-->° excess on this line and none on the arc without the corner.
 
+**Why not measure between neighbouring points.** Shortening the window removes
+the arc's share, and in the limit the angle between the segments from a point to
+its two neighbours would read the corner of Figure 4<!--n:label--> a exactly. On an image it does
+not, for two reasons. A corner in an image is not a point: the probe rounds it
+over about half a width on either side (the range the arms of the stored angle
+skip, see *The angle stored for a kink* below), so segments much shorter than that see
+only part of the turn. And every point of the centerline
+carries some positional noise, which changes the direction of a short segment
+far more than that of a long one. Figure 5<!--n:label--> shows both on a synthetic centerline
+with a 40<!--n:example-->° corner rounded over $W$ and each point moved at random by 0.2<!--n:example--> px (example
+values, not measured on a scan). The angle between neighbouring segments swings
+across the threshold all along the line and does not stand out at the corner
+(b); lengthening the segments (c) calms the noise but blunts the rounded corner.
+The rule instead smooths the heading over $W/4$ ($\sigma$, `_HEADING_SIGMA_WIDTHS`) and compares it
+at the two ends of the window (d), which takes in the whole rounded corner while
+straight parts stay near 0<!--n:analytic (a straight line does not turn)-->; the arc's share that a window of that length
+brings in is what the flanks subtract.
+
+![Measuring a rounded, noisy corner between neighbouring points and with the window](images/kink_short_segments.png)
+
+Figure 5<!--n:label-->: a synthetic centerline with a corner of 40<!--n:example-->° rounded over $W$ = 8<!--n:example--> px and points
+every 0.5<!--n:example--> px, each moved across the line at random by 0.2<!--n:example--> px. a: the centerline
+near the corner, with the segments to the neighbouring points (red) and the
+smoothed directions at the two ends of the window (blue). b: both readings at
+every point along the centerline. c: the angle between the segments from a
+point to the points $L$ away on either side, against $L$; d: the rule's turning
+$T$ with the window's half length set to $L$, the vertical line marking
+$c$ = 0.75<!--c:lib/kink_detector.py::_CORE_WIDTHS--> $W$. In c and d, for the rounded corner and for a straight part,
+both with noise, the line is the median and the band the 5<!--n:definition-->–95<!--n:definition--> % range over 300<!--n:example-->
+random draws; the arc of radius $3\,W$ is drawn without noise. Drawn by `scripts/make_doc_figures.py`,
+which uses the detector's own heading (`_heading_profile`) and checks that the
+rule reads the noise-free rounded corner within 2<!--n:example-->° of 40<!--n:example-->°.
+
 **Why the excess and not the turning.** The window's turning alone reports
 curvature as well as kinks: an arc of radius $3\,W$ already turns 29<!--x:degrees(2 * 0.75 / 3)-->° across
 $1.5\,W$. An arc turns at the same rate inside the window and on both flanks, so
@@ -2606,11 +2639,11 @@ curve ends has one curved flank and one straight one, and it is still a corner.
 When either flank turns opposite to the turning inside the window, nothing is
 subtracted. For instance, on a line whose 2<!--n:count--> bends turn back against each other to
 form a step, the second bend falls in a flank of the first, and that flank turns
-the other way (Figure 5<!--n:label-->, right).
+the other way (Figure 6<!--n:label-->, right).
 
 ![The heading θ(s) of three centerlines, with the turning T and the excess E](images/kink_heading.png)
 
-Figure 5<!--n:label-->: the heading $\theta(s)$ of 3<!--n:count--> synthetic centerlines (lines given directly to
+Figure 6<!--n:label-->: the heading $\theta(s)$ of 3<!--n:count--> synthetic centerlines (lines given directly to
 the detector, not taken from an image; apparent width $W$ = 8<!--n:example--> px). The horizontal
 axis is the arc length divided by $W$, the vertical axis the heading in degrees.
 The orange band is the window $p \pm c$, the blue bands the flanks of length
@@ -2784,12 +2817,12 @@ mean heading over a stretch 1<!--c:lib/kink_detector.py::_ARM_LENGTH_WIDTHS--> $
 the range over which the probe rounds the bend) and cut short at the next bend,
 so that the turning of a nearby next bend (for example the second bend of a jog,
 where two bends turn back against each other to form a step) does not enter the
-arm's direction (Figure 6<!--n:label-->). The excess the bend was judged by is stored beside the
+arm's direction (Figure 7<!--n:label-->). The excess the bend was judged by is stored beside the
 angle too (§4.5).
 
 ![Two bends forming a step, and the arms of the first one](images/kink_arms.png)
 
-Figure 6<!--n:label-->: a synthetic centerline whose 2<!--n:count--> bends of 45<!--n:example-->° each form a step (a line
+Figure 7<!--n:label-->: a synthetic centerline whose 2<!--n:count--> bends of 45<!--n:example-->° each form a step (a line
 given directly to the detector, not taken from an image; apparent width $W$ =
 8<!--n:example--> px, bends $1.375\,W$ apart). Blue is the left arm of the first bend and orange
 its right arm, cut short before the second bend ($p_{\text{next}} - g$). The
