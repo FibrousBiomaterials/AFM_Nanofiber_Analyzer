@@ -1548,17 +1548,16 @@ def test_gui03_scan_size_note_names_each_group_when_sizes_differ():
             {"A": [(2.0, 2.0)], "B": [(2.0, 1.0)]}, mode) != ""
 
 
-def _kink_condition(threshold=150.0, line="half_max_025w", version="1.6",
-                    pixel_nm=2.0, width_px=8.0):
+def _kink_condition(threshold=150.0, version="1.6", pixel_nm=2.0, width_px=8.0):
     """Build one `App._bundle_kink_conditions` entry."""
-    return {"threshold": threshold, "line": line, "version": version,
+    return {"threshold": threshold, "version": version,
             "pixel_nm": pixel_nm, "width_px": width_px}
 
 
 def test_gui03_kink_definitions_that_differ_block_the_test():
     """
-    A different threshold or centerline stops the test; imaging only warns.
-    しきい値や中心線の違いは検定を止め、撮像条件の違いは警告にとどまる。
+    A different threshold stops the test; imaging only warns.
+    しきい値の違いは検定を止め、撮像条件の違いは警告にとどまる。
     """
     report = gui03._kink_condition_report
     same = {"A": [_kink_condition()], "B": [_kink_condition()]}
@@ -1571,16 +1570,79 @@ def test_gui03_kink_definitions_that_differ_block_the_test():
     # 全バンドルに 1 つのしきい値を適用すれば違いは無くなる。
     assert report(thresholds, True) == ([], "")
 
-    lines = {"A": [_kink_condition()], "B": [_kink_condition(line="crest")]}
-    warnings, blocking = report(lines, True)
-    assert warnings == [] and "crest" in blocking
-
-    imaging = {"A": [_kink_condition()],
+    imaging ={"A": [_kink_condition()],
                "B": [_kink_condition(pixel_nm=5.0, version="1.5")]}
     warnings, blocking = report(imaging, False)
     assert blocking == "" and len(warnings) == 2
     assert "2.00" in warnings[0] and "5.00" in warnings[0]
     assert "1.5, 1.6" in warnings[1]
+
+
+@pytest.mark.parametrize("param", [
+    gui03.PARAM_LENGTH, gui03.PARAM_HEIGHT, gui03.PARAM_CURVATURE,
+    gui03.PARAM_KINK_DENSITY,
+])
+def test_gui03_worker_does_not_test_across_centerlines(
+        tk_app, tmp_path, monkeypatch, param):
+    """
+    Bundles on different centerlines get no test, whatever the quantity.
+    中心線の違うバンドルは、どの計測量でも検定しない。
+
+    Every measurement reads the line, so the difference may be the line alone.
+    すべての測定は線を読むため、差は線の違いだけによるかもしれない。
+    """
+    app = tk_app(gui03.App)
+    folders = []
+    for name in ("A", "B"):
+        folder = tmp_path / name
+        folder.mkdir()
+        (folder / ("sample" + gui03.BUNDLE_EXT)).write_bytes(b"")
+        folders.append(str(folder))
+
+    lines = iter(("half_max_025w", "crest"))
+    monkeypatch.setattr(app, "_count_bundles_by_line",
+                        lambda paths: {next(lines): 1})
+    monkeypatch.setattr(
+        app, "_collect_bundle_values",
+        lambda paths, param, unit, **kw: ([1.0, 2.0, 3.0], None, 3, 3, []))
+    app._worker_run({
+        "groups": [
+            {"id": n, "name": n, "color": "#1f77b4", "folders": [f]}
+            for n, f in zip(("A", "B"), folders)
+        ],
+        "param": param,
+        "unit": gui03.UNIT_IMAGE,
+        "input_mode": gui03.INPUT_BUNDLE,
+        "apply_exclusions": False,
+        "apply_connection": False,
+        "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
+        "plot_type": gui03.PLOT_HISTOGRAM,
+        "min_h": 0.0, "max_h": 30.0, "step": 1.0,
+        "yaxis_mode": "density", "display_mode": gui03.App.MODE_STACK,
+        "show_height_text": True,
+        "fig_w": 6.0, "fig_h": 3.0,
+        "label_fs": 15.0, "tick_fs": 15.0, "ann_fs": 15.0,
+        "group_name_fs": 15.0,
+    })
+
+    done = None
+    while not app.ui_queue.empty():
+        kind, payload = app.ui_queue.get_nowait()
+        if kind == "done":
+            done = payload
+    assert done is not None
+    assert done["comparisons"] == []
+    assert "crest" in done["comparison_note"]
+    assert "half_max_025w" in done["comparison_note"]
+
+
+def test_gui03_one_centerline_does_not_block_the_test():
+    """
+    One line, or none recorded, leaves the test to run.
+    線が 1 種類、または記録が無ければ、検定は実行される。
+    """
+    assert gui03._centerline_block_note(set()) == ""
+    assert gui03._centerline_block_note({"crest"}) == ""
 
 
 def test_gui03_median_width_uses_the_bundles_that_record_one():

@@ -527,29 +527,23 @@ def _kink_condition_report(conditions_by_group: dict,
 
     Notes
     -----
-    A different threshold or centerline is a different definition of a kink, so
-    such groups are not tested. A different pixel size or format changes how
-    the same definition reads a scan: the difference is reported and the test
-    still runs, as for curvature.
-    しきい値や中心線が違えばキンクの定義が違うため、そうした群は検定しない。画素
-    サイズや形式の違いは、同じ定義が画像をどう読むかを変える。その差は報告し、検定は
-    曲率と同じく実行する。
+    A different threshold is a different definition of a kink, so such groups
+    are not tested. A different pixel size or format changes how the same
+    definition reads a scan: the difference is reported and the test still runs,
+    as for curvature.
+    しきい値が違えばキンクの定義が違うため、そうした群は検定しない。画素サイズや
+    形式の違いは、同じ定義が画像をどう読むかを変える。その差は報告し、検定は曲率と
+    同じく実行する。
     """
     conditions = [c for group in conditions_by_group.values() for c in group]
-    blocking = []
+    blocking = ""
     thresholds = sorted({c["threshold"] for c in conditions})
     if len(thresholds) > 1 and not threshold_applied:
-        blocking.append(_(
+        blocking = _(
             "比較したバンドルのキンクのしきい値が {values} 度と異なり、キンクの定義が"
             "違うため検定しません。「キンクのしきい値」に値を入れると、全バンドルを同じ"
             "しきい値で選び直して検定します。"
-        ).format(values=", ".join(f"{v:g}" for v in thresholds)))
-    lines = sorted({c["line"] for c in conditions if c["line"] is not None})
-    if len(lines) > 1:
-        blocking.append(_(
-            "比較したバンドルの中心線が {lines} と異なり、キンクを判定する線が違うため"
-            "検定しません。同じ中心線で解析し直してください。"
-        ).format(lines=", ".join(lines)))
+        ).format(values=", ".join(f"{v:g}" for v in thresholds))
 
     warnings = []
     sizes = [c["pixel_nm"] for c in conditions if c["pixel_nm"] is not None]
@@ -569,7 +563,43 @@ def _kink_condition_report(conditions_by_group: dict,
             "見かけの幅やキンクの探し方の定義が違うため、同じ版で解析し直すことを"
             "勧めます。"
         ).format(versions=", ".join(versions)))
-    return warnings, "\n".join(blocking)
+    return warnings, blocking
+
+
+def _centerline_block_note(lines) -> str:
+    """
+    Word why bundles analyzed on different centerlines are not tested.
+    異なる中心線で解析したバンドルを検定しない理由を述べる。
+
+    Parameters
+    ----------
+    lines
+        Centerline names found among the compared bundles.
+        比べるバンドルにあった中心線の名前。
+
+    Returns
+    -------
+    str
+        The reason no test runs, or an empty string when there is one line or
+        none.
+        検定しない理由。線が 1 種類以下なら空文字列。
+
+    Notes
+    -----
+    Every length, height, curvature and kink is measured along the centerline,
+    so a difference between groups on different lines may be the lines alone,
+    and a p-value could not tell that from a difference between the specimens.
+    長さ・高さ・曲率・キンクはすべて中心線に沿って測るため、線の違う群の差は線の違い
+    だけによるかもしれず、p 値はそれを試料の差と区別できない。
+    """
+    names = sorted(lines)
+    if len(names) < 2:
+        return ""
+    return _(
+        "比較したバンドルの中心線が {lines} と異なるため検定しません。長さ・高さ・曲率・"
+        "キンクはすべて中心線に沿って測るため、線が違う結果は比較できません。同じ中心線で"
+        "解析し直してください。"
+    ).format(lines=", ".join(names))
 
 
 def _median_width_nm(conditions: list):
@@ -3790,11 +3820,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Returns
         -------
         list of dict
-            One entry per readable bundle: ``threshold`` (degrees), ``line``,
+            One entry per readable bundle: ``threshold`` (degrees),
             ``version``, ``pixel_nm`` and ``width_px``, the last two ``None``
             when not recorded. A bundle that cannot be read is passed over,
             because the collector reports it.
-            読めたバンドルごとに 1 項目。``threshold``（度）、``line``、
+            読めたバンドルごとに 1 項目。``threshold``（度）、
             ``version``、``pixel_nm``、``width_px``。最後の 2 つは記録が無ければ
             ``None``。読めないバンドルは読み飛ばす。コレクタがそれを報告するため
             である。
@@ -3804,7 +3834,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             try:
                 meta = load_bundle_meta(path)
                 angle, _decompose = kink_params_from_meta(meta)
-                line = read_centerline_from_bundle(path)
             except Exception:
                 continue
             sizes = App._bundle_pixel_sizes([path])
@@ -3813,7 +3842,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # An unrecorded threshold is the detector default (150 degrees).
                 # 記録の無いしきい値は検出器の既定値（150 度）である。
                 "threshold": round(150.0 if angle is None else float(angle), 6),
-                "line": line,
                 "version": str(meta.get("version") or ""),
                 "pixel_nm": sizes[0] if sizes else None,
                 "width_px": None if width is None else float(width),
@@ -4293,6 +4321,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 各グループのキンク数が依存する条件（`_kink_condition_report`）。
         kink_quantity = param in (PARAM_KINK_ANGLE, PARAM_KINK_DENSITY)
         kink_conditions: dict = {}
+        # Centerline of every bundle measured (`_centerline_block_note`).
+        # 計測した全バンドルの中心線（`_centerline_block_note`）。
+        analyzed_lines: set = set()
 
         # The length floor and the kink threshold are decided over every
         # bundle of the run before any group is measured, because both must be
@@ -4403,6 +4434,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # フォルダは結果からは見分けがつかないためである。
                 if input_mode != INPUT_FIBER_CSV:
                     by_line = self._count_bundles_by_line(bundle_paths)
+                    analyzed_lines.update(by_line)
                     n_old = by_line.get(SKELETON_TRACK, 0)
                     if n_old:
                         self.ui_queue.put(("log", _(
@@ -4704,6 +4736,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "注意: ファイバー CSV には解析条件の記録が無いため、比較するファイルのキンクの"
                 "しきい値・中心線・画素サイズが揃っているかは確かめていません。"
             )))
+        elif input_mode == INPUT_FIBER_CSV:
+            self.ui_queue.put(("log", _(
+                "注意: ファイバー CSV には中心線の記録が無いため、比較するファイルの中心線が"
+                "揃っているかは確かめていません。"
+            )))
         scan_size_note = _scan_size_spread_note(frame_scan_sizes, frame_mode)
         if scan_size_note:
             self.ui_queue.put(("log", scan_size_note))
@@ -4841,8 +4878,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "{fiber}・{image}・{folder} のいずれかの集計に切り替えてください。"
             ).format(unit=unit, fiber=UNIT_FIBER, image=UNIT_IMAGE,
                      folder=UNIT_FOLDER)
-        elif kink_blocking:
-            comparison_note = kink_blocking
+        elif kink_blocking or _centerline_block_note(analyzed_lines):
+            comparison_note = "\n".join(
+                text for text in (_centerline_block_note(analyzed_lines),
+                                  kink_blocking)
+                if text
+            )
         elif frame_weighted and unit == UNIT_FIBER:
             # Mann-Whitney U and KS take no weights, and a weighted
             # Mann-Whitney has no standard form, so a corrected fiber sample is

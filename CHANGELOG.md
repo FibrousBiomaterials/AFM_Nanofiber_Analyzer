@@ -174,10 +174,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (reference)`): both tests were shown corrected side by side, and reading
   whichever came out smaller tests each pair twice. The comparison CSV is
   unchanged and still holds the corrected KS value.
-- GUI03 no longer tests `kink angle` or `kink density` between bundles judged at
-  different kink thresholds or on different centerlines, which are different
-  definitions of a kink; entering a kink threshold applies one to every bundle.
-  The results table and the statistics CSV (a new last column, `median W (nm)`)
+- GUI03 runs no between-group test across bundles analyzed on different
+  centerlines, for any quantity, because every measurement reads the line. It
+  also does not test `kink angle` or `kink density` between bundles judged at
+  different kink thresholds, which are different definitions of a kink; entering
+  a kink threshold applies one to every bundle. The results table and the statistics CSV (a new last column, `median W (nm)`)
   show each group's median apparent width, the scale its kinks were judged at,
   and the log warns when the bundles differ in pixel size or format.
 - The kink rule searches for bends down to a fixed excess turning of 10°

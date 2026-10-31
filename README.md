@@ -446,7 +446,8 @@ smoothed over half a width (`half_max_05w`), the skeleton pixels themselves
 crest (`crest`). Kinks are judged on the chosen line and every measurement reads
 it, so results from different lines are not comparable; the bundle records the
 line, GUI04 names a non-default one when it opens the bundle, and GUI03 names
-the lines of each folder whenever one is not the default. How each line is
+the lines of each folder whenever one is not the default and runs no
+between-group test across bundles on different lines. How each line is
 placed is in `docs/algorithms.md` §4.2 and `docs/gui04_measurements.md` §2.8,
 and what it did worse than the default in the comparison is in
 `docs/validation.md` §4.3.
@@ -587,9 +588,9 @@ which one can be significant: two groups of three folders that do not overlap
 at all and hold no equal values give p = 0.10, and two groups of four give
 p = 0.029. A note under the
 table names every pair too small to reach p < 0.05. For `kink angle` and
-`kink density`, kinks judged at different thresholds or on different centerlines
-are different definitions of a kink, so such bundles are not tested; entering a
-kink threshold applies one to every bundle. The table shows each group's median
+`kink density`, kinks judged at different thresholds are different definitions
+of a kink, so such bundles are not tested; entering a kink threshold applies one
+to every bundle. The table shows each group's median
 apparent width W (the scale its kinks were judged at, also in the statistics
 CSV), and the log warns when the bundles differ in pixel size or format. When a pair's values can
 be split between the two groups in at most 100,000 ways, both p-values are
