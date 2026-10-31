@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-29 13:45+0900\n"
+"POT-Creation-Date: 2026-10-29 17:00+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -251,11 +251,11 @@ msgstr ""
 #: guis/GUI01_Image_Preprocessor.py:1146 guis/GUI01_Image_Preprocessor.py:2156
 #: guis/GUI01_Image_Preprocessor.py:2165 guis/GUI01_Image_Preprocessor.py:5120
 #: guis/GUI01_Image_Preprocessor.py:5129
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2125
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2979
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4647
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4773
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4803
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2165
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3034
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4891
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5017
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5047
 #: guis/GUI04_Tracking_fiber.py:6207
 msgid "非表示"
 msgstr ""
@@ -445,7 +445,7 @@ msgid "vmax"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:2152 guis/GUI01_Image_Preprocessor.py:5114
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2139
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2179
 msgid "重ね表示"
 msgstr ""
 
@@ -480,14 +480,14 @@ msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:2191 guis/GUI01_Image_Preprocessor.py:5166
 #: guis/GUI02_PlotProfiler.py:880
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2202
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2242
 #: guis/GUI04_Tracking_fiber.py:1778
 msgid "軸ラベル"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:2200 guis/GUI01_Image_Preprocessor.py:5176
 #: guis/GUI02_PlotProfiler.py:892
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2211
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2251
 #: guis/GUI04_Tracking_fiber.py:1787 guis/GUI04_Tracking_fiber.py:6412
 #: guis/GUI04_Tracking_fiber.py:6545
 msgid "軸目盛"
@@ -502,7 +502,7 @@ msgstr ""
 #: guis/GUI02_PlotProfiler.py:269 guis/GUI02_PlotProfiler.py:997
 #: guis/GUI02_PlotProfiler.py:2315
 #: guis/GUI03_Fiber_Morphology_Statistics.py:1623
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4872
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5116
 #: guis/GUI04_Tracking_fiber.py:1752 guis/GUI04_Tracking_fiber.py:5936
 #: guis/GUI04_Tracking_fiber.py:6461 guis/GUI04_Tracking_fiber.py:6614
 #: guis/GUI04_Tracking_fiber.py:7095 guis/GUI04_Tracking_fiber.py:7103
@@ -632,8 +632,8 @@ msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:2989 guis/GUI01_Image_Preprocessor.py:4812
 #: guis/GUI01_Image_Preprocessor.py:4867
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2677
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2720
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2717
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2760
 #: guis/GUI04_Tracking_fiber.py:3747 guis/GUI04_Tracking_fiber.py:5302
 #: guis/GUI04_Tracking_fiber.py:7615 guis/GUI04_Tracking_fiber.py:7751
 msgid "確認"
@@ -770,7 +770,7 @@ msgid "%s: 既存データのためスキップ"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:3437 guis/GUI01_Image_Preprocessor.py:3498
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4354
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4598
 msgid "完了"
 msgstr ""
 
@@ -1174,7 +1174,7 @@ msgid "個別表示: %s"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:5063
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2131
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2171
 msgid "表示"
 msgstr ""
 
@@ -1364,7 +1364,7 @@ msgid ""
 msgstr ""
 
 #: guis/GUI02_PlotProfiler.py:1502
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3084
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3141
 msgid "不明なエラー"
 msgstr ""
 
@@ -1468,7 +1468,7 @@ msgid "グループ追加"
 msgstr ""
 
 #: guis/GUI03_Fiber_Morphology_Statistics.py:1272
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2846
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2886
 msgid "グループ削除"
 msgstr ""
 
@@ -1501,13 +1501,13 @@ msgid "有効バンドル数"
 msgstr ""
 
 #: guis/GUI03_Fiber_Morphology_Statistics.py:1317
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2579
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2619
 #, python-brace-format
 msgid "グループ数: {g} / 有効バンドル総数: {p} / 欠損: {m}"
 msgstr ""
 
 #: guis/GUI03_Fiber_Morphology_Statistics.py:1333
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5119
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5363
 msgid "統計値を保存"
 msgstr ""
 
@@ -1517,7 +1517,7 @@ msgid "{param} ({value_unit}) / {sample} 単位"
 msgstr ""
 
 #: guis/GUI03_Fiber_Morphology_Statistics.py:1486
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5005
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5249
 msgid "比較を保存"
 msgstr ""
 
@@ -1533,11 +1533,11 @@ msgstr ""
 msgid "数値を保存"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1659
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1665
 msgid "入力"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1668
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1674
 #, python-brace-format
 msgid ""
 "{bundle} は GUI01 が出力した .b2z を直接読み、全ての集計単位が使えます。{csv} は Fiber Tracker "
@@ -1547,22 +1547,22 @@ msgid ""
 "{length} 集計は使えません。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1682
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1688
 msgid "除外を適用"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1688
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1694
 #, python-brace-format
 msgid ""
 "バンドル横の {suffix} に記録された手動除外を適用します。Fiber Tracker "
 "で除外したファイバーが集計から外れ、何本外れたかはログに出ます。OFF にすると、追跡された全てのファイバーを集計します。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1695
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1701
 msgid "連結を適用"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1701
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1707
 #, python-brace-format
 msgid ""
 "バンドル横の {suffix} に記録された連結結果を適用します。Fiber Tracker で連結して保存したバンドルは、そこで見ていたのと同じ"
@@ -1570,11 +1570,11 @@ msgid ""
 "本のフィブリルとして集計されます。自動連結と手動連結は区別されません。記録されているのはどの断片が繋がっているかであり、探索はここでは実行されないため、集計対象は画面で確認したものと一致します。ファイルの無いバンドルは骨格断片のまま集計されるため、適用できた枚数はログに出ます。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1717
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1723
 msgid "計測量"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1726
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1732
 #, python-brace-format
 msgid ""
 "比較する形態パラメータを選びます。いずれもファイバー追跡の結果から算出します。{height} "
@@ -1582,11 +1582,11 @@ msgid ""
 " はバンドルに走査範囲が記録されている必要があります。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1735
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1741
 msgid "集計単位"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1745
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1751
 #, python-brace-format
 msgid ""
 "1 標本の数え方を選びます。{pixel} は骨格画素 1 点、{kink} はキンク 1 点、{fiber} はファイバー 1 "
@@ -1601,22 +1601,22 @@ msgid ""
 "は両方を取り除き、「観測した輪郭長のうちの割合」を表す走査条件に依らない分布にします。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1767
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1773
 msgid "図"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1777
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1783
 #, python-brace-format
 msgid ""
 "{histogram} は 1 群の分布の形を示します。{ecdf} は累積分布を重ねて描くため、ビン幅に依存せずに群を比較できます。{box} "
 "は各群の中央値と四分位数を並べて要約します。{ecdf} と {box} は常に重ね／並置表示になるため、縦並び・重ね表示の選択は使われません。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1783
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1789
 msgid "曲率窓"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1797
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1803
 #, python-brace-format
 msgid ""
 "{curvature} "
@@ -1624,11 +1624,11 @@ msgid ""
 " 20 nm では常に 19.4 rad/{um} でした）。大きくすると滑らかになりますが、窓より短いファイバーは測定対象から外れます。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1804
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1810
 msgid "枠のファイバー"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1815
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1821
 #, python-brace-format
 msgid ""
 "{length} だけに効く設定です。画像の枠に達したファイバーは走査範囲の外へ続いているため、長さが短く測られます。{include} "
@@ -1644,106 +1644,131 @@ msgid ""
 "その長さ」と書き、平均・標準偏差・最頻値は空欄にします。重み付きの標本には群間検定を行いません。高さ・曲率・キンクは枠内の部分の測定として有効なため、この設定の影響を受けません。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1915
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1845
+msgid "長さの下限をそろえる"
+msgstr ""
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1851
+#, python-brace-format
+msgid ""
+"二値化は一定の画素数より短い成分を取り除くため、残る最短の繊維長は画素サイズとともに大きくなります。粗い走査には、細かい走査が残す短い繊維が写りません。ON"
+" "
+"にすると、比べる全バンドルの下限長のうち最も長いものより短いファイバーを、どの計測量の集計からも外します。下限長と外した本数はログに出ます。{csv}"
+" 入力には画素サイズが無いため適用しません。"
+msgstr ""
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1858
+msgid "キンクのしきい値"
+msgstr ""
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1868
+#, python-brace-format
+msgid ""
+"{angle} と {density} に効く設定です。空欄なら、各バンドルを解析したときのしきい値（GUI01 の "
+"kinkangle_deg）でキンクを数え、しきい値の違うバンドルが混ざっていればログで警告します。内角の値（度）を入れると、全バンドルのキンクをその値で選び直します。バンドルには閾値未満の折れも保存されているため、選び直したキンクは、その値で解析し直した場合と位置・数・角度とも一致します。形式"
+" 1.6 より前のバンドルと、保存した下限より低い折れまで求める値には使えず、その旨がログに出ます。"
+msgstr ""
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1955
 #, python-brace-format
 msgid "入力を {mode} に変更しました（{suffix} を探索します）。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2007
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2047
 msgid "曲率窓は正の値にしてください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2051
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2091
 #, python-brace-format
 msgid ""
 "計測量を {param} に変更しました。ヒストグラム範囲を既定値（min={min}, max={max}, "
 "step={step}）に戻しました。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2092
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2132
 msgid "min"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2101
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2141
 msgid "max"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2110
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2150
 msgid "step"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2122
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2162
 msgid "Y"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2133
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2173
 msgid "縦並び"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2147
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2187
 msgid "統計値表示"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2169
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2209
 msgid "図の幅"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2180
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2220
 msgid "図の高さ"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2189
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2229
 #, python-brace-format
 msgid "{histogram} を縦並びで表示するときは 1 グループ分の高さで、図全体の高さはグループ数倍になります。それ以外では図全体の高さです。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2193
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2233
 msgid "フォントサイズ：グループ名"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2220
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2260
 msgid "統計値"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2281
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2321
 msgid "使い方:\n"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2282
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2322
 msgid "  1)「グループ追加」でデータ群を作成（自動で 1 個作成済み）\n"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2283
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2323
 msgid "  2) Treeview でグループを選び「フォルダ追加」で .b2z バンドルを含むフォルダを登録\n"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2284
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2324
 msgid "  3) 計測量と集計単位、条件と表示モード（縦並び/重ね表示）を設定して「ヒストグラム作成」\n"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2285
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2325
 msgid "  4) 必要に応じて「画像を保存」「数値を保存（グループ別CSV）」\n"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2287
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2327
 msgid "ヒント:\n"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2288
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2328
 msgid "  - グループをダブルクリックで名前変更／右クリックで色変更\n"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2289
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2329
 #, python-brace-format
 msgid "  - 縦軸モード: 非表示=目盛なし / {density}=割合(0–1) / {percent}=パーセント\n"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2292
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2332
 #, python-brace-format
 msgid "  - グループ間でデータ数が大きく異なるときは {density} または {percent} を推奨\n"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2295
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2335
 #, python-brace-format
 msgid ""
 "  - {pixel} "
@@ -1751,266 +1776,319 @@ msgid ""
 "{fiber}・{image}・{folder} 集計での N も併せて確認してください。\n"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2301
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2341
 #, python-brace-format
 msgid "  - どの計測量もファイバー追跡を行うため処理時間がかかります。{height} 以外はバンドルに走査範囲が記録されている必要があります。\n"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2303
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2343
 msgid ""
 "  - mode はヒストグラムのビン幅に依存します。step を変えると値が変わるため、報告には median と IQR を併記してください。"
 "\n"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2362
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2402
 msgid "step は正の値にしてください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2364
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2404
 msgid "max height は min height より大きくしてください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2400
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2440
 msgid "ヒストグラムの横/縦の長さは正の値にしてください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2403
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2443
 msgid "フォントサイズは正の値にしてください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2504
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2544
 msgid "pairs"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2615
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2655
 #, python-brace-format
 msgid "[アクセス不可] {err}"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2620
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2660
 #, python-brace-format
 msgid "入力なし（*{ext} が見つかりません）"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2662
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2702
 #, python-brace-format
 msgid "グループ追加: {name}"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2671
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2700
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2737
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2789
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2711
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2740
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2777
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2829
 msgid "未選択"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2671
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2711
 msgid "削除するグループを選択してください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2678
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2718
 #, python-brace-format
 msgid ""
 "グループ「{name}」を削除しますか？\n"
 "所属フォルダの登録もすべて解除されます。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2684
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2724
 #, python-brace-format
 msgid "グループ削除: {name}"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2700
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2740
 msgid "並び替えるグループを選択してください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2720
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2760
 msgid "すべてのグループとフォルダ登録を削除しますか？"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2727
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2767
 msgid "全クリアしました。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2738
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2778
 msgid "フォルダを追加する先のグループを Treeview で選択してください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2742
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2782
 msgid "解析対象フォルダを選択"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2748
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2788
 msgid "重複"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2748
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2788
 msgid "このフォルダは同じグループに既に登録されています。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2756
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2796
 #, python-brace-format
 msgid "注意: 「{f}」は別グループ「{n}」にも登録されています。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2775
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2815
 #, python-brace-format
 msgid "[{name}] 追加: {path}"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2776
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2816
 #, python-brace-format
 msgid "有効ペア数: {n}"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2778
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2818
 msgid "欠損/注意:"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2789
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2829
 msgid "削除するフォルダ行を選択してください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2798
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2838
 #, python-brace-format
 msgid "[{name}] フォルダ削除: {path}"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2843
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2883
 msgid "名前を変更"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2844
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2884
 msgid "色を変更"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2856
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2896
 msgid "フォルダ名をグループ名にする"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2860
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2900
 msgid "フォルダ名をコピーする"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2874
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2908
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2914
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2948
 #, python-brace-format
 msgid "注意: 同名のグループ「{n}」が既に存在します。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2877
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2911
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2917
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2951
 #, python-brace-format
 msgid "グループ名変更: {name}"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2887
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2927
 #, python-brace-format
 msgid "フォルダ名をコピーしました: {name}"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2895
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2935
 msgid "グループ名変更"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2896
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2936
 msgid "新しいグループ名を入力してください:"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2918
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2958
 msgid "グループ色を選択"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2923
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2963
 #, python-brace-format
 msgid "[{name}] 色を変更: {c}"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2942
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2947
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2982
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2987
 msgid "入力不足"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2942
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2982
 msgid "グループが登録されていません。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2948
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2988
 msgid "どのグループにもフォルダが登録されていません。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2966
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2972
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3006
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3012
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3027
 msgid "設定エラー"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2967
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3007
 msgid "ヒストグラム範囲が不正です（min < max かつ step > 0）。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2973
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3013
 msgid "サイズ/フォントサイズは正の値にしてください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2981
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3028
+msgid "キンクのしきい値は 0〜180 度の数値にするか、空欄にしてください。"
+msgstr ""
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3036
 #, python-brace-format
 msgid "注意: グループ間でデータ数が異なる場合、生カウント比較は誤解を招く可能性があります。{density} または {percent} を推奨します。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2992
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3047
 msgid "有効ペアなし"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2993
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3048
 msgid "有効な calibrated/skeletonized バンドルが見つかりません。ログを確認してください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3083
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3140
 msgid "致命的エラー"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3464
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3548
 #, python-brace-format
 msgid ""
 "注意: 比較したバンドルの画素サイズが {low}〜{high} nm/px と異なります。曲率は中心線の揺れにより、まっすぐな繊維でも 0 "
 "より大きく出ます。その上乗せは画素サイズとノイズで変わるため、画素サイズの違うバンドルの間の曲率の差には、撮像条件の違いも含まれます。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3501
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3600
+msgid "長さの下限: どのバンドルにも走査範囲・解析設定・見かけ幅の記録が無いため、そろえません。"
+msgstr ""
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3608
+#, python-brace-format
+msgid ""
+"注意: 比較したバンドルが残す最短の繊維長が {low:.0f}〜{high:.0f} nm "
+"と異なります。粗い走査ほど短い繊維が写らないため、群の差に撮像条件の違いが含まれます。「長さの下限をそろえる」を ON "
+"にすると、全群を{high:.0f} nm で切りそろえます。"
+msgstr ""
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3615
+#, python-brace-format
+msgid ""
+"長さの下限: {floor:.0f} nm より短いファイバーを全群の集計から外します（各バンドルの下限 {low:.0f}〜{high:.0f}"
+" nm の最大）。"
+msgstr ""
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3620
+#, python-brace-format
+msgid ""
+"長さの下限: {n} バンドルは走査範囲・解析設定・見かけ幅のいずれかが記録されておらず、自身の下限を求められません。それらにも "
+"{floor:.0f} nm を適用しますが、自身の下限がそれより長い可能性があります（GUI01 で再解析すると記録されます）。"
+msgstr ""
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3645
+#, python-brace-format
+msgid "キンク: 全バンドルのキンクを内角しきい値 {t:g} 度で選び直します。選び直せないバンドルは読込失敗として報告されます。"
+msgstr ""
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3661
+#, python-brace-format
+msgid ""
+"注意: 比較したバンドルのキンクのしきい値が {values} "
+"度と異なります。しきい値の緩いバンドルほどキンクが多く数えられるため、群の差に解析条件の違いが含まれます。「キンクのしきい値」に値を入れると、全バンドルを同じしきい値で選び直します。"
+msgstr ""
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3698
 #, python-brace-format
 msgid "曲率窓 {w} nm より短いファイバー {n} 本 / {total} 本は測定対象外です。窓を広げるとさらに減ります。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3732
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3929
 #, python-brace-format
 msgid "{km} は {fiber} 集計でだけ使えます。集計単位を {fiber} にするか、枠の扱いを変えてください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3793
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3993
+#, python-brace-format
+msgid "長さの下限: {csv} には画素サイズの記録が無いため、そろえません。"
+msgstr ""
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3998
+#, python-brace-format
+msgid "キンク: {csv} には閾値未満の折れが無いため、しきい値は選び直さず、Fiber Tracker が出力したときのキンクを数えます。"
+msgstr ""
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4020
 #, python-brace-format
 msgid "[{grp}/{folder}] {msg}"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3798
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4025
 #, python-brace-format
 msgid "[{grp}/{folder}] 有効ペアがありません"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3815
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4042
 #, python-brace-format
 msgid "[{grp}/{folder}] {n} バンドルを計測中..."
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3826
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4053
 #, python-brace-format
 msgid "[{grp}/{folder}] 連結を適用: {n}/{total} バンドル"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3828
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4055
 msgid "（残りは骨格断片のまま集計）"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3850
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4077
 #, python-brace-format
 msgid ""
 "[{grp}/{folder}] {n}/{total} バンドルは旧版（形式 "
@@ -2018,29 +2096,34 @@ msgid ""
 " で再解析してください"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3868
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4095
 #, python-brace-format
 msgid "[{grp}/{folder}] 中心線: {lines}"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3896
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4127
 #, python-brace-format
 msgid "[{grp}/{folder}] {param} の抽出に失敗: {err}"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3913
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4144
 #, python-brace-format
 msgid "[{grp}/{folder}] 手動除外を適用: 追跡した {total} 本のうち {n} 本を除外しました"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3936
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4157
+#, python-brace-format
+msgid "[{grp}/{folder}] 長さの下限: 計測した {total} 本のうち、{floor:.0f} nm より短い {n} 本を外しました"
+msgstr ""
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4180
 #, python-brace-format
 msgid ""
 "[{grp}/{folder}] {name}: 枠の判定が記録されていないため、長さの集計から外しました（現行の Fiber Tracker "
 "で出力し直すと記録されます）"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3945
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4189
 #, python-brace-format
 msgid ""
 "[{grp}/{folder}] 長さ ({km}): {total} 本のうち、両端とも自身の端である {whole} "
@@ -2049,134 +2132,134 @@ msgid ""
 "は、推定できません"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3961
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4205
 #, python-brace-format
 msgid ""
 "[{grp}/{folder}] 長さ: 枠に達したファイバー {n}/{total} 本を除外しました。残りのうち {k} "
 "本は交差などで切れた端を持ち、長さは下限値です"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3974
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4218
 #, python-brace-format
 msgid "[{grp}/{folder}] 読込失敗: {base} ({err})"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3988
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4232
 #, python-brace-format
 msgid "[{grp}] データ 0 件のためスキップしました"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4067
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4311
 #, python-brace-format
 msgid ""
 "[{g}] {mode} 重みの有効標本数は {neff:.1f} 本（計測した {n} 本）で、最大の重みを持つ 1 本が重みの合計の "
 "{share:.0%} を占めます。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4076
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4320
 #, python-brace-format
 msgid "どのグループからも {param} のデータを得られませんでした。ログを確認してください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4086
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4330
 msgid "ヒストグラム範囲の準備に失敗しました。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4159
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4403
 #, python-brace-format
 msgid "[{grp}] 標本の {pct}% がヒストグラム範囲外です（統計値は範囲外を含む全標本から計算しています）"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4177
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4421
 #, python-brace-format
 msgid "[{grp}] 標本が {n} 個しかないため、ヒストグラムの形状は解釈できません。テーブルの median と IQR を参照してください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4191
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4435
 msgid "比較には 2 群以上が必要です。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4194
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4438
 #, python-brace-format
 msgid "{unit} 集計の標本は独立観測ではないため検定しません。{fiber}・{image}・{folder} のいずれかの集計に切り替えてください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4205
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4449
 #, python-brace-format
 msgid "{ml} 補正の標本は重み付きのため検定しません。検定するには {exclude} に切り替えてください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4215
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4459
 #, python-brace-format
 msgid ""
 "{fiber} 集計のキンク密度は判定長で重み付けしているため検定しません。検定するには {image} か {folder} "
 "の集計に切り替えてください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4224
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4468
 #, python-brace-format
 msgid "群間比較に失敗しました: {err}"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4350
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4594
 msgid "=== エラー/注意（処理は継続しました） ==="
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4423
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4667
 msgid "p 値は Holm 補正後（括弧内は補正前）"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4424
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4668
 msgid "p 値（2 群のため補正不要）"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4866
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4882
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4969
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5034
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5110
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5126
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5213
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5278
 msgid "未作成"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4866
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4882
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5034
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5110
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5126
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5278
 msgid "先にヒストグラムを作成してください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4886
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5130
 msgid "CSV 保存先フォルダを選択"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4946
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5190
 #, python-brace-format
 msgid "{n} 個のCSVを保存しました → {dir}"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4951
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5008
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5122
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5195
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5252
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5366
 #: guis/GUI04_Tracking_fiber.py:3457 guis/GUI04_Tracking_fiber.py:3478
 #: lib/ui_tools.py:430
 msgid "保存失敗"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4951 lib/ui_tools.py:985
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5195 lib/ui_tools.py:985
 #, python-brace-format
 msgid ""
 "CSVの保存に失敗しました:\n"
 "{e}"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4969
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5213
 msgid "先に群間比較を実行してください。"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5007
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5251
 #, python-brace-format
 msgid "群間比較を保存しました → {path}"
 msgstr ""
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5121
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5365
 #, python-brace-format
 msgid "統計値を保存しました → {path}"
 msgstr ""

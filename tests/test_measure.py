@@ -27,8 +27,8 @@ import pytest
 
 import cli
 from lib import imp_tools
-from lib.blosc2_io import load_bundle, save_bundle
-from lib.bundle_schema import BUNDLE_FORMAT_VERSION, CENTERLINE_KEY
+from lib.blosc2_io import load_bundle, load_bundle_meta, save_bundle
+from lib.bundle_schema import BUNDLE_FORMAT_VERSION, CENTERLINE_KEY, make_spatial_calibration
 from lib.centerline import DEFAULT_CENTERLINE_METHOD
 from lib.fiber import Fiber
 from lib.fiber_tracking_image import FiberTrackingImage
@@ -59,6 +59,7 @@ from lib.measure import (
     fiber_mean_curvature,
     fiber_straightness,
     isolated_fiber_flags,
+    length_floor_nm,
     load_tracking_image,
     measure_bundle,
     read_fiber_csv,
@@ -1904,3 +1905,122 @@ def test_the_bridge_columns_round_trip_through_the_csv(tmp_path):
             writer.writerow(r[:width])
     older = read_fiber_csv(path)[0]
     assert older.unjudged_bridge_count == 0 and older.bridge_excluded_nm == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Another kink threshold, and the common length floor
+# 別のキンクしきい値と、共通の下限長
+# ---------------------------------------------------------------------------
+
+def _kink_record(result):
+    """Each fiber's kink and unjudged skeleton pixels and kink angles."""
+    out = []
+    for f in result.fibers:
+        def pixels(indices):
+            idx = np.asarray(indices, dtype=int)
+            return tuple(zip((np.asarray(f.skeleton_xtrack)[idx] + int(f.data[0])).tolist(),
+                             (np.asarray(f.skeleton_ytrack)[idx] + int(f.data[1])).tolist()))
+        out.append((pixels(f.kink_indices), pixels(f.unjudged_indices),
+                    np.round(np.asarray(f.kink_angles, float), 12).tolist()))
+    return out
+
+
+@pytest.mark.parametrize("threshold", [140.0, 170.0])
+def test_another_threshold_applied_to_a_bundle_matches_an_analysis_at_it(tmp_path, threshold):
+    """
+    Kinks, their angles and the unjudged bends equal those of an analysis at that threshold.
+    キンク・その角度・判定しなかった折れは、そのしきい値で解析した結果と一致する。
+    """
+    txt = write_synthetic_fiber_txt(tmp_path)
+    bundles = {}
+    for t in (FAST_PARAMS.kinkangle_deg, threshold):
+        out = tmp_path / f"t{t:g}"
+        out.mkdir()
+        params = ProcParams(**{**FAST_PARAMS.__dict__, "kinkangle_deg": t})
+        bundles[t] = process_file(txt, params, output_dir=str(out)).bundle_path
+    direct = measure_bundle(bundles[threshold], scale_um=SCALE_UM)
+    again = measure_bundle(bundles[FAST_PARAMS.kinkangle_deg], scale_um=SCALE_UM,
+                           kink_threshold_deg=threshold)
+    assert _kink_record(again) == _kink_record(direct)
+
+
+def test_a_threshold_below_the_stored_floor_is_refused(measured):
+    """A threshold asking for bends below the search floor cannot be met from the stored bends."""
+    bundle_path, _ = measured
+    with pytest.raises(ValueError, match="stores them down to 10"):
+        measure_bundle(bundle_path, scale_um=SCALE_UM, kink_threshold_deg=175.0)
+
+
+def test_a_bundle_storing_no_weak_bends_refuses_another_threshold(measured, tmp_path):
+    """A bundle of format 1.5 searched at its threshold, so no other one can be applied."""
+    bundle_path, _ = measured
+    arrays = load_bundle(bundle_path)
+    meta = load_bundle_meta(bundle_path)
+    for key in ("wp", "wa", "we"):
+        arrays.pop(key, None)
+    meta["version"] = "1.5"
+    older = str(tmp_path / "older.b2z")
+    save_bundle(older, arrays, vlmeta=meta)
+    with pytest.raises(ValueError, match="stores no bends below its kink threshold"):
+        measure_bundle(older, scale_um=SCALE_UM, kink_threshold_deg=140.0)
+    # Without a threshold it is measured as stored.
+    # しきい値を与えなければ、保存どおりに計測する。
+    assert len(measure_bundle(older, scale_um=SCALE_UM).fibers) >= 1
+
+
+def test_the_length_floor_is_read_from_the_recorded_settings(measured):
+    """
+    The floor is max(h_length, area_min / W) pixels at the larger pixel size.
+    下限は max(h_length, area_min / W) 画素に、大きい方の画素サイズを掛けたもの。
+    """
+    bundle_path, _ = measured
+    assert length_floor_nm(bundle_path) is None  # no scan size recorded
+    meta = load_bundle_meta(bundle_path)
+    arrays = load_bundle(bundle_path)
+    meta["spatial_calibration"] = make_spatial_calibration(SCALE_UM, SCALE_UM, "manual")
+    calibrated = os.path.join(os.path.dirname(bundle_path), "calibrated_copy.b2z")
+    save_bundle(calibrated, arrays, vlmeta=meta)
+    width = meta["apparent_width"]["median_px"]
+    expected = max(FAST_PARAMS.h_length, FAST_PARAMS.area_min / width) * EXPECTED_SIZE_PER_PIXEL
+    assert length_floor_nm(calibrated) == pytest.approx(expected)
+
+
+def test_fibers_shorter_than_the_floor_are_left_out_and_counted(measured):
+    """
+    A floor above every fiber leaves none, and the report says how many it removed.
+    すべての繊維より長い下限では何も残らず、報告が外した本数を示す。
+    """
+    bundle_path, result = measured
+    longest = max(s.length_nm for s in result.stats)
+    kept = measure_bundle(bundle_path, scale_um=SCALE_UM, min_length_nm=longest)
+    assert len(kept.stats) >= 1 and all(s.length_nm >= longest for s in kept.stats)
+    report = []
+    per_bundle, errors = collect_fiber_stats(
+        [bundle_path], scale_um=SCALE_UM, min_length_nm=longest + 1.0, floor_report=report)
+    assert errors == [] and per_bundle[0][1] == []
+    assert report == [(bundle_path, len(result.stats), 0)]
+
+
+def test_cli_measure_applies_a_length_floor_and_another_threshold(measured, tmp_path):
+    """
+    `--length-floor` leaves out shorter fibers, `--kink-threshold-deg` re-selects kinks, and an unmeetable threshold fails.
+    `--length-floor` は短い繊維を外し、`--kink-threshold-deg` はキンクを選び直し、満たせないしきい値は失敗する。
+    """
+    bundle_path, result = measured
+    stem = os.path.splitext(os.path.basename(bundle_path))[0]
+    longest = max(s.length_nm for s in result.stats)
+    out_dir = str(tmp_path / "floor")
+    rc = cli.main(["measure", bundle_path, "--scale-um", str(SCALE_UM),
+                   "--output-dir", out_dir, "--length-floor", f"{longest + 1.0}"])
+    assert rc == 0
+    assert read_fiber_csv(os.path.join(out_dir, stem + "_fibers.csv")) == []
+    out_dir = str(tmp_path / "threshold")
+    rc = cli.main(["measure", bundle_path, "--scale-um", str(SCALE_UM),
+                   "--output-dir", out_dir, "--kink-threshold-deg", "140"])
+    assert rc == 0
+    again = measure_bundle(bundle_path, scale_um=SCALE_UM, kink_threshold_deg=140.0)
+    rows = read_fiber_csv(os.path.join(out_dir, stem + "_fibers.csv"))
+    assert [r.kink_count for r in rows] == [s.kink_count for s in again.stats]
+    assert cli.main(["measure", bundle_path, "--scale-um", str(SCALE_UM),
+                     "--output-dir", out_dir, "--kink-threshold-deg", "175"]) == 1
+    assert cli.main(["measure", bundle_path, "--length-floor", "common"]) == 2

@@ -2669,21 +2669,32 @@ bend's centre to the outer end of a flank is $c + f = 1.75\,W$, and bends within
 (§4.4), so of the judged bends only those $1.5\,W$ to $1.75\,W + \delta$ from an end are
 affected. A flank is cut by at most $0.25\,W + \delta$, and what is subtracted is
 smaller by that length's fraction of $f$ ($= W$); when $W$ is much larger than
-$\delta$, the fraction is about $1/4$. A position $p$ is accepted only when all
-of the following hold:
+$\delta$, the fraction is about $1/4$.
+
+Bends are searched for not at the threshold but down to a fixed **search
+floor** $F$ of excess turning: `WEAK_BEND_FLOOR_DEG` = 10<!--c:lib/kink_detector.py::WEAK_BEND_FLOOR_DEG-->°, or the
+threshold's excess when that is lower (`KinkDetector.weak_bend_floor`). A
+position $p$ is kept as a bend only when all of the following hold:
 
 - it lies at least $c$ from both ends. Closer to an end the window runs off the
   centerline and $T$ cannot be computed (the $1.5\,W$ of §4.4 is the range,
   among the bends that can be computed, that is judged);
-- $|T(p)|$ reaches the threshold. $E$ never exceeds $|T|$, so this condition
+- $|T(p)|$ reaches $F$. $E$ never exceeds $|T|$, so this condition
   follows automatically from the next one; it is listed because the code
   checks it too. `excess_at` computes $T$ and $E$ together and then compares
-  $|T|$ with the threshold before $E$, and the maxima of $|T|$ itself (described in
+  $|T|$ with $F$ before $E$, and the maxima of $|T|$ itself (described in
   "Finding candidates" below) are taken as candidates only when they reach
-  the threshold, so there the condition narrows the candidates before $E$ is
+  $F$, so there the condition narrows the candidates before $E$ is
   computed;
-- $E(p)$ reaches both the threshold and the noise floor (described in "Scale and
-  the noise floor" below). By default no noise floor is used (it is 0<!--c:lib/kink_detector.py::NOISE_SIGMAS-->).
+- $E(p)$ reaches $F$.
+
+A kept bend is a **kink** when $E(p)$ reaches both the threshold and the noise
+floor (described in "Scale and the noise floor" below; by default no noise
+floor is used, it is 0<!--c:lib/kink_detector.py::NOISE_SIGMAS-->). The others are **weak bends**, which are
+not kinks but are stored (§4.5). The search runs at $F$ so that which bends a
+threshold makes kinks does not depend on the threshold the search ran at: any
+threshold down to $F$ can then be applied to the stored bends afterwards and
+selects the kinks an analysis at that threshold reports (§4.5).
 
 The threshold is $\pi - \phi_{\text{max}}$ in radians (`turn_threshold`):
 
@@ -2725,8 +2736,9 @@ f = _FLANK_WIDTHS * width
 profile = _heading_profile(x, y, width)
 ...
 turn_threshold = max(np.pi - float(self.threshold_angle_from_decomposed_indices), 0.0)
+search = self.weak_bend_floor
 curvature = np.abs(np.gradient(heading, _HEADING_STEP_PX))
-curvature_floor = _CURVATURE_FLOOR_FRAC * turn_threshold / (2.0 * c)
+curvature_floor = _CURVATURE_FLOOR_FRAC * search / (2.0 * c)
 radius = _SUPPRESS_WIDTHS * width
 def excess_profile(p: NDArray) -> Tuple[NDArray, NDArray]:
     core = np.interp(p + c, sm, heading) - np.interp(p - c, sm, heading)
@@ -2739,14 +2751,23 @@ def excess_profile(p: NDArray) -> Tuple[NDArray, NDArray]:
     return core, np.abs(core) - 2.0 * c * background
 grid = sm[(sm >= c) & (sm <= length - c)]
 ...
+kink_level = max(turn_threshold, floor)
 def excess_at(p: float) -> Optional[float]:
     if p < c or p > length - c:
         return None
     core, excess = excess_profile(np.array([p]))
-    if abs(float(core[0])) < turn_threshold:
+    if abs(float(core[0])) < search:
         return None
     excess = float(excess[0])
-    return excess if excess >= max(turn_threshold, floor) else None
+    return excess if excess >= search else None
+```
+
+```python
+# source: lib/kink_detector.py::WEAK_BEND_FLOOR_DEG, KinkDetector.weak_bend_floor
+WEAK_BEND_FLOOR_DEG = 10.0
+...
+turn_threshold = max(np.pi - float(self.threshold_angle_from_decomposed_indices), 0.0)
+return min(np.radians(WEAK_BEND_FLOOR_DEG), turn_threshold)
 ```
 
 In the code, `self.threshold_angle_from_decomposed_indices` is `kinkangle_deg`
@@ -2765,13 +2786,18 @@ candidates" below.
 $E$ is evaluated only at candidate positions, which are of two kinds:
 
 - **Curvature maxima.** The curvature $|d\theta/ds|$ is how fast the heading
-  changes per unit length. Its maxima are candidates when they reach a floor: half the mean curvature that a bend exactly at the threshold has
-  across the window, $0.5 \times (\pi - \phi_{\text{max}}) / (2c)$
+  changes per unit length. Its maxima are candidates when they reach a floor: half the mean curvature that a bend exactly at the search floor has
+  across the window, $0.5 \times F / (2c)$
   (`_CURVATURE_FLOOR_FRAC` = 0.5<!--c:lib/kink_detector.py::_CURVATURE_FLOOR_FRAC-->).
 - **Maxima of $|T|$ itself**, added wherever no candidate accepted from the
-  curvature maxima above lies within $0.75\,W$. A corner whose curvature peak is split in two by noise, or whose
+  curvature maxima above, with an excess at least as large, lies within $0.75\,W$. A corner whose curvature peak is split in two by noise, or whose
   turning runs straight into a curve, has no single curvature maximum at its
   centre. They are searched on the samples at least $c$ from both ends (`grid`).
+  Only a stronger curvature-maximum candidate shuts one out: were any accepted
+  candidate nearby enough, a weak curvature maximum beside a corner, which the
+  low search floor accepts, would shut out the corner's own maximum of $|T|$
+  and leave the bend to be judged at the weaker position, so which position
+  stands for the corner would depend on $F$.
 
 Candidates closer than $0.75\,W$ are one bend. Candidates are taken in
 decreasing order of excess, so of such a group the one with the largest excess
@@ -2793,10 +2819,11 @@ if grid.size >= 3:
     for i in range(1, grid.size - 1):
         if (window_turn[i] >= window_turn[i - 1]
                 and window_turn[i] > window_turn[i + 1]
-                and window_turn[i] >= turn_threshold):
+                and window_turn[i] >= search):
             p = float(grid[i])
             excess = excess_at(p)
-            if excess is not None and all(abs(p - q) > radius for _, q in fine):
+            if excess is not None and all(
+                    abs(p - q) > radius or e < excess for e, q in fine):
                 coarse.append((excess, p))
 kept: List[Tuple[float, float]] = []
 for excess, p in sorted(fine + coarse, key=lambda t: -t[0]):
@@ -2848,8 +2875,10 @@ where:
 - $s_0$ and $s_1$ are the positions of the first and last heading samples
   (0.25<!--x:0.5 / 2--> px from the start, and 0.25–0.75<!--x:[0.5 / 2, 0.5 * 1.5]--> px from the end);
 - $p_{\text{prev}}$ and $p_{\text{next}}$ are the nearest of the bends left after
-  candidates were merged into one (including those next to an end that are not
-  judged), and are left out when there is none.
+  candidates were merged into one whose excess reaches the kink level
+  (including those next to an end that are not judged), and are left out when
+  there is none. A weak bend does not cut an arm, so a kink's angle does not
+  depend on $F$.
 
 Each arm's direction $\bar\theta$ is the mean of the smoothed heading sampled at
 16<!--n:literal in the quoted code--> evenly spaced points of its interval, and the interior angle is
@@ -2916,18 +2945,21 @@ return max(np.pi - turn, 0.0)
 ```python
 # source: lib/kink_detector.py::KinkDetector.judge_line
 margin = END_MARGIN_WIDTHS * width
-positions = sorted(q for _, q in kept)
+positions = sorted(q for e, q in kept if e >= kink_level)
 ...
 for excess, p in kept:
     index = int(orig[int(np.argmin(np.abs(s - p)))])
     if index in taken:
         continue
     taken.add(index)
+    strong = excess >= kink_level
     if not margin <= p <= length - margin:
-        unjudged.append((index, UNJUDGED_NEAR_END))
+        if strong:
+            unjudged.append((index, UNJUDGED_NEAR_END))
     elif not judge_bridges and any(
             a <= p + c and b >= p - c for a, b in bridges):
-        unjudged.append((index, UNJUDGED_AT_BRIDGE))
+        if strong:
+            unjudged.append((index, UNJUDGED_AT_BRIDGE))
     else:
         before = [q for q in positions if q < p]
         after = [q for q in positions if q > p]
@@ -2938,16 +2970,23 @@ for excess, p in kept:
         )
         if not np.isfinite(angle):
             angle = np.pi - excess
-        kinks.append((index, angle, excess))
+        (kinks if strong else weak).append((index, angle, excess))
 kinks.sort()
+weak.sort()
 unjudged.sort()
-kink_indices = np.array([k for k, _, _ in kinks], dtype=np.intp)
-kink_angles = np.clip(
-    np.array([a for _, a, _ in kinks], dtype=np.float64),
-    _MIN_INTERIOR_ANGLE, np.pi - _MIN_INTERIOR_ANGLE,
-)
-kink_excess = np.array([e for _, _, e in kinks], dtype=np.float64)
+def columns(bends):
+    indices = np.array([k for k, _, _ in bends], dtype=np.intp)
+    angles = np.clip(
+        np.array([a for _, a, _ in bends], dtype=np.float64),
+        _MIN_INTERIOR_ANGLE, np.pi - _MIN_INTERIOR_ANGLE,
+    )
+    return indices, angles, np.array([e for _, _, e in bends], dtype=np.float64)
+kink_indices, kink_angles, kink_excess = columns(kinks)
+weak_indices, weak_angles, weak_excess = columns(weak)
 ```
+
+A weak bend next to an end, or at a bridge whose bends are not judged, is not
+kept: bends there are not judged, so it would be a kink at no threshold.
 
 ```python
 # source: lib/measure.py::compute_fiber_stats
@@ -3011,7 +3050,8 @@ Such a bend is not dropped silently. `KinkDetector.kinks_on_line` returns it
 separately, the bundle stores it separately too (`up`), it reaches each
 fiber as `Fiber.unjudged_indices`, and GUI04 draws it as a grey hollow circle,
 so "reached the threshold but not judged because it lies next to an end" stays
-distinguishable from "below the threshold" (which is not recorded anywhere).
+distinguishable from "below the threshold" (the weak bends of §4.3, stored in
+`wp` only where kinks are judged).
 Kink counts, densities and angles, in GUI04's fiber table and in the CSV alike,
 are computed from judged kinks only and never include such a bend. The number of
 bends not judged is reported separately from the kinks, in the `unjudged`
@@ -3062,6 +3102,66 @@ The bundle also stores, beside each kink's angle `ka`, the excess turning it
 was judged by (`ke`, `KinkJudgement.kink_excess`). The angle is the geometry
 of the bend and the excess is the quantity the rule tested; keeping both means
 a kink can be audited against the threshold without re-running the rule.
+
+From format 1.6<!--n:bundle format version--> the bundle also stores the weak bends of §4.3 (`wp`, with
+their angles `wa` and excesses `we`) and the search floor they were found down
+to (the vlmeta entry `bundle_schema.WEAK_BEND_FLOOR_KEY`). The
+stored kinks and weak bends together are every bend the search kept, so a
+different threshold can be applied to them when the bundle is measured
+(`measure.measure_bundle` with `kink_threshold_deg`, GUI03's kink threshold,
+`cli.py measure --kink-threshold-deg`). Because the search does not depend on
+the threshold, the bends whose excess reaches the new threshold are, down to
+the floor, the kinks an analysis at that threshold reports. Which bends those
+are is taken from the bundle; the values read at them are not. A kink's angle
+has its arms cut at the neighbouring kinks, and the bends left unjudged next to
+an end are those that reach the threshold, so both depend on the threshold.
+Each traced centerline is therefore judged again at the new threshold
+(`FiberTrackingImage.kink_rejudge`), and its kinks must be exactly the stored
+bends the threshold selects, or the bundle is refused as no longer matching the
+rule. Fibers reconnected across crossings are judged at the new threshold as
+well. How the result compares with an analysis at that threshold on the
+bundled scans is in [Evaluation on particular data](validation.md) §4.18. A
+threshold asking for bends below the stored floor, or a bundle older than
+format 1.6<!--n:bundle format version-->, which stores no weak bends, is refused rather than measured from an
+incomplete set of bends.
+
+```python
+# source: lib/measure.py::_apply_kink_threshold
+floor = weak_bend_floor_from_meta(meta)
+if floor is None:
+...
+excess_deg = 180.0 - float(kink_threshold_deg)
+if excess_deg < floor - 1e-9:
+...
+empty_points = np.zeros((2, 0), dtype=np.int64)
+points = np.concatenate(
+    [np.asarray(data["kp"]), np.asarray(data.get("wp", empty_points))], axis=1)
+angles = np.concatenate([np.asarray(data["ka"]), np.asarray(data.get("wa", ()))])
+excess = np.concatenate([np.asarray(data.get("ke", ())), np.asarray(data.get("we", ()))])
+keep = excess >= np.radians(excess_deg) - 1e-12
+image.all_kink_coordinates = (points[0][keep], points[1][keep])
+image.all_kink_angles = angles[keep]
+image.all_kink_excess = excess[keep]
+image.kink_angle_deg = float(kink_threshold_deg)
+image.kink_rejudge = KinkDetector(
+    threshold_angle_from_decomposed_indices=np.radians(float(kink_threshold_deg)),
+    centerline_method=image.centerline,
+)
+```
+
+```python
+# source: lib/fiber_tracking_image.py::_build_fiber
+if rejudge is not None and is_placed_line(centerline):
+    judged = rejudge.judge_line(placed.x, placed.y, placed.width_px, pixel_aspect)
+    if [int(i) for i in judged.kink_indices] != kink_indices:
+        raise ValueError(
+            "the kinks found again at the requested threshold differ from "
+            "the bends the bundle stores; re-analyze the bundle"
+        )
+    kink_angles = np.asarray(judged.kink_angles, dtype=np.float64)
+    kink_excess = np.asarray(judged.kink_excess, dtype=np.float64)
+    unjudged_indices = [int(i) for i in judged.unjudged_indices]
+```
 
 ### 4.6 The polyline rule of format 1.0 bundles
 

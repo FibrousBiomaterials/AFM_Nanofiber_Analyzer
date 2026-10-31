@@ -10,6 +10,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- GUI03 cuts every compared group at a common length floor ("長さの下限を
+  そろえる", on by default): fibers shorter than the longest of the compared
+  bundles' floors are left out of every quantity, and the log reports the floor
+  and how many fibers each folder lost. A bundle's floor is
+  `max(h_length, area_min / W)` pixels at its pixel size, W being its median
+  apparent width (`measure.length_floor_nm`), because binarization removes
+  shorter components whatever their angle, so a coarser scan cannot contain the
+  short fibers a finer one keeps; on synthetic straight fibers every fiber at
+  least that long was kept (`docs/validation.md` §2.8). `measure_bundle` and the
+  four bundle collectors take the floor as `min_length_nm`, and
+  `cli.py measure --length-floor common|NM` applies it to CSV output. With the
+  option off, GUI03 warns when the compared bundles' floors differ. **GUI03's
+  distributions and statistics change from this version at the default
+  setting**, because fibers below the floor are left out even of a single
+  bundle; `cli.py measure` and GUI04 keep every fiber unless asked.
+- GUI03 has a kink threshold for `kink angle` and `kink density`. Left blank,
+  each bundle is counted at its own threshold and the log warns when the
+  compared bundles were analyzed at different ones; a value applies that
+  interior-angle threshold to every bundle (`measure_bundle(kink_threshold_deg=...)`,
+  `cli.py measure --kink-threshold-deg`). On the three bundled scans the kinks,
+  angles and unjudged bends obtained this way at 140°, 160° and 170° were those
+  of an analysis at that threshold (`docs/validation.md` §4.18). It needs a
+  bundle of format 1.6 and a threshold whose excess turning is not below the
+  floor the bends were stored down to.
 - GUI03's "枠のファイバー" setting for `contour length` has a fourth option,
   `Kaplan-Meier`, which estimates the fiber length distribution from every
   fiber with an end of its own: a fiber with both ends its own is a length seen
@@ -47,7 +71,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the angle stored for a kink includes the fiber's own turning between the two
   arms it is read from, whose centres lie two apparent widths apart: on
   synthetic corners placed on fibers curving at a radius of 40 px (apparent
-  width 5.75 px) the stored angle read 16° sharper or 20° blunter. Analysis
+  width 5.75 px) the stored angle read 17° sharper or 19° blunter. Analysis
   results do not change.
 - The READMEs and `docs/validation.md` §6.2 state that the fibers GUI04's
   「非孤立を除外」 keeps are not a fair sample of fiber lengths: among straight
@@ -139,12 +163,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The kink rule searches for bends down to a fixed excess turning of 10°
+  (`kink_detector.WEAK_BEND_FLOOR_DEG`) instead of at the threshold, and a
+  maximum of the window turning is shut out only by a curvature-maximum
+  candidate at least as strong, so which bends a threshold makes kinks no
+  longer depends on the threshold the search ran at. The bends found below the
+  threshold are stored in the new optional bundle keys `wp`, `wa` and `we`,
+  with the floor in the vlmeta entry `weak_bend_floor_deg`, and the **bundle
+  format is now 1.6**. **Kinks found with the default settings change from this
+  version**: compared on the same traced lines of the three bundled scans, 162
+  of 220 fibers kept the same kinks; on the others, of the 116 kinks found by
+  both rules 84 moved by at most a quarter of an apparent width and the rest by
+  at most 0.73 widths, 4 kinks were added and 3 lost. Scored against the visual
+  reference, 49 of the 53 clear kinks were found and 1 was displaced, against
+  50 found before, with 64 unmatched detections either way. A bundle of
+  format 1.5 or older is measured as stored, but no other threshold can be
+  applied to it; re-analyze it.
 - GUI03 weights the per-fiber kink densities of the `fiber` unit by each
   fiber's judged length. A fragment judged over a few nanometres read a very
   large density from a single kink and, counted as one sample, pulled the
-  distribution as far as a long fiber: on the three bundled scans the
-  unweighted per-fiber mean was 3.23, 2.94 and 9.05 kinks per µm against pooled
-  kinks over pooled judged length of 1.78, 2.00 and 5.27, the ratio the
+  distribution as far as a long fiber: on the three bundled scans (the NDTOC
+  scan, which records no scan size, taken as 2 µm) the unweighted per-fiber mean
+  was 3.74, 3.28 and 7.59 kinks per µm against pooled kinks over pooled judged
+  length of 2.08, 2.06 and 5.11, the ratio the
   `image` and `folder` units report, and the weighted mean is now that ratio.
   **GUI03's `fiber`-unit kink-density histogram, mean, standard deviation and
   quartiles change from this version**, and they are no longer tested between

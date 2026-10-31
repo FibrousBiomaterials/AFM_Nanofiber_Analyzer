@@ -76,8 +76,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # ===== Project libraries =====
-from lib.blosc2_io import BUNDLE_EXT, load_bundle
-from lib.bundle_schema import pixel_size_nm
+from lib.blosc2_io import BUNDLE_EXT, load_bundle, load_bundle_meta
+from lib.bundle_schema import kink_params_from_meta, pixel_size_nm
 from lib.centerline import DEFAULT_CENTERLINE_METHOD, SKELETON_TRACK
 from lib.connect_selection import (
     CONNECT_SUFFIX, connect_path_for, load_connect_plan,
@@ -87,7 +87,7 @@ from lib.measure import (
     DEFAULT_CURVATURE_WINDOW_NM,
     collect_fiber_curvature, collect_fiber_stats, collect_fiber_stats_from_csv,
     collect_skeleton_height_profiles, fiber_judged_length_um, fiber_kink_density,
-    fiber_real_end_count, kaplan_meier_length_weights,
+    fiber_real_end_count, kaplan_meier_length_weights, length_floor_nm,
     read_centerline_from_bundle, read_scan_size_from_bundle,
     skeleton_height_values,
 )
@@ -1655,6 +1655,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         inputbar.pack(fill=tk.X, padx=6, pady=(6, 0))
         parambar = ttk.Frame(parent)
         parambar.pack(fill=tk.X, padx=6, pady=(4, 0))
+        # The third row holds what makes bundles of different analyses
+        # comparable: a common length floor and a common kink threshold.
+        # 3 段目には、解析条件の違うバンドルを比べられるようにする設定（共通の
+        # 下限長と共通のキンクしきい値）を置く。
+        comparebar = ttk.Frame(parent)
+        comparebar.pack(fill=tk.X, padx=6, pady=(4, 0))
 
         ttk.Label(inputbar, text=_("入力")).pack(side=tk.LEFT)
         self.input_var = tk.StringVar(value=self.input_mode)
@@ -1833,6 +1839,40 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             km=FRAME_KAPLAN_MEIER, fiber=UNIT_FIBER,
         ))
         self._update_frame_mode_state()
+
+        self.length_floor_var = tk.BooleanVar(value=True)
+        self.chk_length_floor = ttk.Checkbutton(
+            comparebar, text=_("長さの下限をそろえる"),
+            variable=self.length_floor_var,
+            command=self._reset_result_state,
+        )
+        self.chk_length_floor.pack(side=tk.LEFT)
+        ToolTip(self.chk_length_floor, _(
+            "二値化は一定の画素数より短い成分を取り除くため、残る最短の繊維長は"
+            "画素サイズとともに大きくなります。粗い走査には、細かい走査が残す短い"
+            "繊維が写りません。ON にすると、比べる全バンドルの下限長のうち最も長い"
+            "ものより短いファイバーを、どの計測量の集計からも外します。下限長と外した"
+            "本数はログに出ます。{csv} 入力には画素サイズが無いため適用しません。"
+        ).format(csv=INPUT_FIBER_CSV))
+
+        ttk.Label(comparebar, text=_("キンクのしきい値") + " (deg)").pack(
+            side=tk.LEFT, padx=(16, 0))
+        self.kink_threshold_var = tk.StringVar(value="")
+        self.ent_kink_threshold = ttk.Entry(
+            comparebar, textvariable=self.kink_threshold_var, width=6,
+        )
+        self.ent_kink_threshold.pack(side=tk.LEFT, padx=(4, 8))
+        self.kink_threshold_var.trace_add(
+            "write", lambda *_a: self._reset_result_state())
+        ToolTip(self.ent_kink_threshold, _(
+            "{angle} と {density} に効く設定です。空欄なら、各バンドルを解析した"
+            "ときのしきい値（GUI01 の kinkangle_deg）でキンクを数え、しきい値の違う"
+            "バンドルが混ざっていればログで警告します。内角の値（度）を入れると、"
+            "全バンドルのキンクをその値で選び直します。バンドルには閾値未満の折れも"
+            "保存されているため、選び直したキンクは、その値で解析し直した場合と"
+            "位置・数・角度とも一致します。形式 1.6 より前のバンドルと、保存した下限"
+            "より低い折れまで求める値には使えず、その旨がログに出ます。"
+        ).format(angle=PARAM_KINK_ANGLE, density=PARAM_KINK_DENSITY))
 
     def _available_params(self) -> list:
         """
@@ -2973,6 +3013,21 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 _("サイズ/フォントサイズは正の値にしてください。"),
             )
             return
+        # A blank kink threshold keeps each bundle's own.
+        # キンクのしきい値が空欄なら各バンドル自身のしきい値のまま。
+        threshold_text = self.kink_threshold_var.get().strip()
+        kink_threshold_deg = None
+        if threshold_text:
+            try:
+                kink_threshold_deg = float(threshold_text)
+            except ValueError:
+                kink_threshold_deg = float("nan")
+            if not (0.0 <= kink_threshold_deg <= 180.0):
+                messagebox.showerror(
+                    _("設定エラー"),
+                    _("キンクのしきい値は 0〜180 度の数値にするか、空欄にしてください。"),
+                )
+                return
 
         # Raw counts can mislead comparisons when group sizes differ.
         # グループ間でデータ数が異なる場合、生カウント比較は誤解を招きやすい。
@@ -3019,6 +3074,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "apply_connection": bool(self.apply_connection_var.get()),
             "curvature_window": self.curvature_window,
             "frame_mode": self.frame_mode,
+            "length_floor": bool(self.length_floor_var.get()),
+            "kink_threshold_deg": kink_threshold_deg,
             "plot_type": self.plot_type_var.get(),
             "min_h": min_h,
             "max_h": max_h,
@@ -3107,7 +3164,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                                apply_connection: bool = False,
                                frame_mode: str = FRAME_INCLUDE,
                                frame_report=None,
-                               curation_report=None) -> tuple:
+                               curation_report=None,
+                               min_length_nm=None,
+                               floor_report=None,
+                               kink_threshold_deg=None) -> tuple:
         """
         Collect one folder's samples for a quantity and aggregation unit.
         1 フォルダ分の標本を、計測量と集計単位に従って収集する。
@@ -3157,6 +3217,21 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             `lib.measure` のコレクタへ ``curation_report`` として渡すリスト。
             手動除外で何本外れたかを呼び出し側がログに出せるようにするため。
             ファイバー CSV 入力では埋めない。
+        min_length_nm
+            Common length floor in nanometers (`_common_length_floor`), or
+            ``None``; not used for fiber CSV input.
+            共通の下限長 (nm)（`_common_length_floor`）、または ``None``。
+            ファイバー CSV 入力では使わない。
+        floor_report
+            List passed to the collector as its ``floor_report``, so the caller
+            can log how many fibers the floor removed.
+            コレクタへ ``floor_report`` として渡すリスト。下限で何本外れたかを
+            呼び出し側がログに出せるようにするため。
+        kink_threshold_deg
+            Interior-angle threshold every bundle's kinks are selected at again,
+            or ``None``; used for the kink quantities of bundle input only.
+            全バンドルのキンクを選び直す内角しきい値、または ``None``。バンドル
+            入力のキンクの計測量でだけ使う。
 
         Returns
         -------
@@ -3209,6 +3284,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 apply_exclusions=apply_exclusions,
                 apply_connection=apply_connection,
                 curation_report=curation_report,
+                min_length_nm=min_length_nm,
+                floor_report=floor_report,
             )
             failed = {path for path, _msg in load_errors}
             n_images = sum(1 for path in bundle_paths if path not in failed)
@@ -3226,6 +3303,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 apply_exclusions=apply_exclusions,
                 apply_connection=apply_connection,
                 curation_report=curation_report,
+                min_length_nm=min_length_nm,
+                floor_report=floor_report,
             )
             values = []
             weights = []
@@ -3249,6 +3328,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 curvature_window_nm=curvature_window,
                 apply_connection=apply_connection,
                 curation_report=curation_report,
+                min_length_nm=min_length_nm,
+                floor_report=floor_report,
             )
             self._log_curvature_caveats(per_fiber, curvature_window)
             return self._curvature_values(per_fiber, unit) + (load_errors,)
@@ -3258,6 +3339,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             apply_exclusions=apply_exclusions,
             apply_connection=apply_connection,
             curation_report=curation_report,
+            kink_threshold_deg=kink_threshold_deg,
+            min_length_nm=min_length_nm,
+            floor_report=floor_report,
         )
         return self._values_from_fiber_stats(
             self._frame_filtered(per_bundle, param, frame_mode, frame_report),
@@ -3466,6 +3550,119 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "その上乗せは画素サイズとノイズで変わるため、画素サイズの違うバンドルの間の"
             "曲率の差には、撮像条件の違いも含まれます。"
         ).format(low=f"{low:.2f}", high=f"{high:.2f}")))
+
+    def _common_length_floor(self, bundle_paths, enabled: bool):
+        """
+        Find the length floor shared by every compared bundle and log it.
+        比べる全バンドルに共通の下限長を求めてログに出す。
+
+        Parameters
+        ----------
+        bundle_paths
+            Every ``.b2z`` bundle of the run, whichever group it belongs to.
+            グループを問わず、実行内のすべての ``.b2z`` バンドル。
+        enabled
+            Whether the floor is applied; when not, the user is only warned
+            that the bundles' floors differ.
+            下限を適用するか。適用しないときは、バンドルの下限が違うことだけを
+            警告する。
+
+        Returns
+        -------
+        float or None
+            The largest of the bundles' floors (`length_floor_nm`) in
+            nanometers when `enabled`; ``None`` otherwise or when no bundle
+            records one.
+            `enabled` のとき、各バンドルの下限（`length_floor_nm`）の最大値（nm）。
+            それ以外、またはどのバンドルにも記録が無いときは ``None``。
+
+        Notes
+        -----
+        The floor of a coarse scan is longer than that of a fine one, so
+        fibers between the two are present in one group and absent from the
+        other for no reason in the specimen. Cutting every group at the
+        largest floor compares the same population of lengths.
+        粗い走査の下限は細かい走査より長いため、その間の長さの繊維は、試料とは
+        関係なく一方の群にだけ現れる。全群を最大の下限で切りそろえると、同じ長さの
+        範囲の母集団どうしを比べることになる。
+        """
+        floors = {}
+        for path in bundle_paths:
+            try:
+                floors[path] = length_floor_nm(path)
+            except Exception:
+                floors[path] = None
+        known = [v for v in floors.values() if v is not None]
+        unknown = len(floors) - len(known)
+        if not known:
+            if enabled and floors:
+                self.ui_queue.put(("log", _(
+                    "長さの下限: どのバンドルにも走査範囲・解析設定・見かけ幅の記録が"
+                    "無いため、そろえません。"
+                )))
+            return None
+        low, high = min(known), max(known)
+        if not enabled:
+            if high > low * 1.01:
+                self.ui_queue.put(("log", _(
+                    "注意: 比較したバンドルが残す最短の繊維長が {low:.0f}〜{high:.0f} nm と"
+                    "異なります。粗い走査ほど短い繊維が写らないため、群の差に撮像条件の"
+                    "違いが含まれます。「長さの下限をそろえる」を ON にすると、全群を"
+                    "{high:.0f} nm で切りそろえます。"
+                ).format(low=low, high=high)))
+            return None
+        self.ui_queue.put(("log", _(
+            "長さの下限: {floor:.0f} nm より短いファイバーを全群の集計から外します"
+            "（各バンドルの下限 {low:.0f}〜{high:.0f} nm の最大）。"
+        ).format(floor=high, low=low, high=high)))
+        if unknown:
+            self.ui_queue.put(("log", _(
+                "長さの下限: {n} バンドルは走査範囲・解析設定・見かけ幅のいずれかが"
+                "記録されておらず、自身の下限を求められません。それらにも {floor:.0f} nm を"
+                "適用しますが、自身の下限がそれより長い可能性があります（GUI01 で再解析"
+                "すると記録されます）。"
+            ).format(n=unknown, floor=high)))
+        return high
+
+    def _log_kink_thresholds(self, bundle_paths, kink_threshold_deg) -> None:
+        """
+        Say which kink threshold the kinks are counted at, and warn on a mix.
+        キンクをどのしきい値で数えるかを示し、混在していれば警告する。
+
+        Parameters
+        ----------
+        bundle_paths
+            Every ``.b2z`` bundle of the run.
+            実行内のすべての ``.b2z`` バンドル。
+        kink_threshold_deg
+            Threshold every bundle's kinks are selected at again, or ``None``
+            to keep each bundle's own.
+            全バンドルのキンクを選び直すしきい値。``None`` なら各バンドル自身の
+            しきい値のまま。
+        """
+        if kink_threshold_deg is not None:
+            self.ui_queue.put(("log", _(
+                "キンク: 全バンドルのキンクを内角しきい値 {t:g} 度で選び直します。"
+                "選び直せないバンドルは読込失敗として報告されます。"
+            ).format(t=kink_threshold_deg)))
+            return
+        recorded = set()
+        for path in bundle_paths:
+            try:
+                angle, _decompose = kink_params_from_meta(load_bundle_meta(path))
+            except Exception:
+                continue
+            # An unrecorded threshold is the detector default (150 degrees).
+            # 記録の無いしきい値は検出器の既定値（150 度）である。
+            recorded.add(round(150.0 if angle is None else float(angle), 6))
+        if len(recorded) > 1:
+            values = sorted(recorded)
+            self.ui_queue.put(("log", _(
+                "注意: 比較したバンドルのキンクのしきい値が {values} 度と異なります。"
+                "しきい値の緩いバンドルほどキンクが多く数えられるため、群の差に解析"
+                "条件の違いが含まれます。「キンクのしきい値」に値を入れると、全バンドルを"
+                "同じしきい値で選び直します。"
+            ).format(values=", ".join(f"{v:g}" for v in values))))
 
     def _log_curvature_caveats(self, per_fiber, curvature_window: float) -> None:
         """
@@ -3772,6 +3969,36 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 警告するために集める（`_log_pixel_size_spread`）。
         curvature_pixel_sizes: list = []
 
+        # The length floor and the kink threshold are decided over every
+        # bundle of the run before any group is measured, because both must be
+        # the same for every group compared.
+        # 下限長とキンクのしきい値は、どのグループを計測するより前に実行内の全
+        # バンドルで決める。比べる全グループで同じでなければならないためである。
+        min_length_nm = None
+        kink_threshold_deg = None
+        if input_mode == INPUT_BUNDLE:
+            all_bundles = [
+                cal_path
+                for grp in groups for folder in grp["folders"]
+                for cal_path, _skl_path in self._find_pairs(folder)[0]
+            ]
+            min_length_nm = self._common_length_floor(
+                all_bundles, bool(args.get("length_floor", True)))
+            if param in (PARAM_KINK_ANGLE, PARAM_KINK_DENSITY):
+                kink_threshold_deg = args.get("kink_threshold_deg")
+                self._log_kink_thresholds(all_bundles, kink_threshold_deg)
+        else:
+            if args.get("length_floor", True):
+                self.ui_queue.put(("log", _(
+                    "長さの下限: {csv} には画素サイズの記録が無いため、そろえません。"
+                ).format(csv=INPUT_FIBER_CSV)))
+            if (args.get("kink_threshold_deg") is not None
+                    and param in (PARAM_KINK_ANGLE, PARAM_KINK_DENSITY)):
+                self.ui_queue.put(("log", _(
+                    "キンク: {csv} には閾値未満の折れが無いため、しきい値は選び直さず、"
+                    "Fiber Tracker が出力したときのキンクを数えます。"
+                ).format(csv=INPUT_FIBER_CSV)))
+
         for grp in groups:
             grp_name = grp["name"]
             grp_values = []
@@ -3879,6 +4106,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
                 frame_report = {}
                 curation_report: list = []
+                floor_report: list = []
                 try:
                     (values, weights, n_fibers, n_images,
                      load_errors) = self._collect_bundle_values(
@@ -3890,6 +4118,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         frame_mode=frame_mode,
                         frame_report=frame_report,
                         curation_report=curation_report,
+                        min_length_nm=min_length_nm,
+                        floor_report=floor_report,
+                        kink_threshold_deg=kink_threshold_deg,
                     )
                 except Exception as e:
                     errors.append(
@@ -3915,6 +4146,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     ).format(
                         grp=grp_name, folder=folder_name,
                         total=traced, n=traced - kept,
+                    )))
+
+                # Say how many fibers the common length floor removed.
+                # 共通の下限長で何本外れたかを示す。
+                if min_length_nm is not None and floor_report:
+                    measured = sum(row[1] for row in floor_report)
+                    kept = sum(row[2] for row in floor_report)
+                    self.ui_queue.put(("log", _(
+                        "[{grp}/{folder}] 長さの下限: 計測した {total} 本のうち、"
+                        "{floor:.0f} nm より短い {n} 本を外しました"
+                    ).format(
+                        grp=grp_name, folder=folder_name, total=measured,
+                        floor=min_length_nm, n=measured - kept,
                     )))
 
                 # Say what the frame mode removed, and how many of the lengths

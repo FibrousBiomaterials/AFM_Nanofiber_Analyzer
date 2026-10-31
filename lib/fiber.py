@@ -105,8 +105,8 @@ class Fiber:
         but never counted as kinks. Empty for a bundle older than format 1.1.
         キンク規則が測ったが判定しなかった折れのインデックス列。線の端から見かけ幅
         1.5 本分以内（そこでは片側の繊維が短すぎ、キンクと端そのものの形を区別
-        できない）と、継ぎ目の折れを判定しない連結プランの連結フィブリルで、窓が
-        連結器の橋渡し部にかかるもの。描画はするがキンクとしては数えない。形式 1.1
+        できない）と、継ぎ目の折れを判定しない連結プランの連結フィブリルで、折れの
+        区間が連結器の橋渡し部にかかるもの。描画はするがキンクとしては数えない。形式 1.1
         より古いバンドルでは空。
     unjudged_reasons
         Why each bend of `unjudged_indices` was not judged, index-aligned with

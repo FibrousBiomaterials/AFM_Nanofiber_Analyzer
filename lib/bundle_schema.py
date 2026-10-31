@@ -186,13 +186,31 @@ from .centerline import (
 #      読み取り側は太い繊維の線を、キンクを判定したより細い W で置いてしまう。
 #      読み取り側は形式 1.4 以前のバンドルの幅を、固定の ±12 px の範囲で読む
 #      （`width_range_adaptive_from_meta`）。
-BUNDLE_FORMAT_VERSION = "1.5"
+# 1.6: the kink rule searches for bends down to a fixed floor of excess
+#      turning (`kink_detector.WEAK_BEND_FLOOR_DEG`) rather than at the
+#      threshold, and the bends found below the threshold are stored in the
+#      optional `wp`, `wa` and `we`, with the floor in the vlmeta entry
+#      `WEAK_BEND_FLOOR_KEY`. The kinks a threshold selects from the stored
+#      bends are then those an analysis at that threshold finds, down to the
+#      floor (`weak_bend_floor_from_meta`). `kp`, `ka`, `ke` and `up` keep
+#      their shapes, but the search that produced them changed, so the
+#      version was bumped; a bundle of format 1.5 or older stores no weak
+#      bends and a threshold cannot be applied to it again.
+# 1.6: キンク規則は、しきい値ではなく超過回転の固定の下限
+#      （`kink_detector.WEAK_BEND_FLOOR_DEG`）まで折れを探し、しきい値に届かな
+#      かった折れを任意キー `wp`・`wa`・`we` に、その下限を vlmeta の
+#      `WEAK_BEND_FLOOR_KEY` に保存する。こうすると、保存した折れからあるしきい値
+#      が選ぶキンクは、下限までは、そのしきい値で解析したときのキンクになる
+#      （`weak_bend_floor_from_meta`）。`kp`・`ka`・`ke`・`up` の形は変わらないが、
+#      それらを生んだ探索が変わったため版を上げた。形式 1.5 以前のバンドルは閾値
+#      未満の折れを持たず、しきい値を当て直せない。
+BUNDLE_FORMAT_VERSION = "1.6"
 
 # Versions this code base can read. Readers reject unknown versions loudly so
 # a future format change cannot be silently misinterpreted by old releases.
 # 本コードベースが読める形式バージョン。未知のバージョンは明示的に拒否し、
 # 将来の形式変更を旧リリースが黙って誤解釈しないようにする。
-SUPPORTED_BUNDLE_VERSIONS = ("1.0", "1.1", "1.2", "1.3", "1.4", "1.5")
+SUPPORTED_BUNDLE_VERSIONS = ("1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6")
 
 # Format versions whose kinks were judged on, and whose fibers are drawn and
 # measured along, the half-maximum centerline. A 1.0 bundle, or one recording
@@ -204,7 +222,7 @@ HALF_MAX_CENTERLINE_VERSIONS = ("1.1",)
 
 # Format versions that record their line in `CENTERLINE_KEY`.
 # 線を `CENTERLINE_KEY` に記録する形式バージョン。
-CENTERLINE_KEY_VERSIONS = ("1.2", "1.3", "1.4", "1.5")
+CENTERLINE_KEY_VERSIONS = ("1.2", "1.3", "1.4", "1.5", "1.6")
 
 # Format versions whose line and kinks were computed in physical geometry,
 # with Y scaled by the pixel aspect. Older bundles were computed in pixel
@@ -212,7 +230,7 @@ CENTERLINE_KEY_VERSIONS = ("1.2", "1.3", "1.4", "1.5")
 # 線とキンクを、Y を画素の縦横比で拡大した実空間の幾何で計算した形式バージョン。
 # それより古いバンドルは画素座標の幾何で計算されており、そのまま画素座標で読む。
 # こうして保存済みのキンクと線が食い違わないようにする。
-PHYSICAL_GEOMETRY_VERSIONS = ("1.3", "1.4", "1.5")
+PHYSICAL_GEOMETRY_VERSIONS = ("1.3", "1.4", "1.5", "1.6")
 
 # Format versions whose apparent width was read halfway between each
 # profile's base and the first maximum uphill from the track point
@@ -223,7 +241,7 @@ PHYSICAL_GEOMETRY_VERSIONS = ("1.3", "1.4", "1.5")
 # 読んだ形式バージョン
 # （`centerline.WIDTH_PEAK_NEAREST`）。形式 1.1〜1.3 のバンドルはプロファイル全体の
 # 最大値で判定されており、そのまま全体の最大値で読む。
-NEAREST_PEAK_WIDTH_VERSIONS = ("1.4", "1.5")
+NEAREST_PEAK_WIDTH_VERSIONS = ("1.4", "1.5", "1.6")
 
 # Format versions whose apparent width was read over a cross-section range that
 # grows with the fiber (`centerline.measure_apparent_width`). Older bundles were
@@ -231,7 +249,26 @@ NEAREST_PEAK_WIDTH_VERSIONS = ("1.4", "1.5")
 # 見かけ幅を、繊維に合わせて広がる断面の範囲で読んだ形式バージョン
 # （`centerline.measure_apparent_width`）。それより古いバンドルは固定の ±12 px の
 # 範囲で判定されており、そのまま固定の範囲で読む。
-ADAPTIVE_WIDTH_RANGE_VERSIONS = ("1.5",)
+ADAPTIVE_WIDTH_RANGE_VERSIONS = ("1.5", "1.6")
+
+# Format versions that store the bends below the kink threshold (`wp`, `wa`,
+# `we`) and the search floor they were found down to (`WEAK_BEND_FLOOR_KEY`),
+# so a threshold can be applied to them again. Older bundles were searched at
+# their threshold and cannot be.
+# キンクのしきい値に届かなかった折れ（`wp`・`wa`・`we`）と、それを探した下限
+# （`WEAK_BEND_FLOOR_KEY`）を保存し、しきい値を当て直せる形式バージョン。それより
+# 古いバンドルはしきい値で探しており、当て直せない。
+WEAK_BEND_VERSIONS = ("1.6",)
+
+# vlmeta key holding the excess turning, in degrees, down to which a bundle of
+# a format listed in `WEAK_BEND_VERSIONS` searched for bends
+# (`kink_detector.KinkDetector.weak_bend_floor`). A threshold applied to the
+# stored bends selects the kinks an analysis at it finds only down to this
+# value.
+# `WEAK_BEND_VERSIONS` の形式のバンドルが折れを探した超過回転の下限（度）を保持する
+# vlmeta キー（`kink_detector.KinkDetector.weak_bend_floor`）。保存した折れに当てた
+# しきい値が、そのしきい値で解析したときのキンクを選ぶのは、この値までである。
+WEAK_BEND_FLOOR_KEY = "weak_bend_floor_deg"
 
 # vlmeta key naming the line a bundle's kinks were judged on and its fibers
 # are measured along: one of `centerline.CENTERLINE_METHODS`. Required from
@@ -269,7 +306,12 @@ REQUIRED_BUNDLE_KEYS = [
 #                   written from format 1.1, so an older bundle lacks it.
 #   /ke           : Excess turning each kink was judged by, radians, shape
 #                   (N,) matching `kp`; written from format 1.1.
-OPTIONAL_BUNDLE_KEYS = ["original", "up", "ke"]
+#   /wp           : Bends whose excess reached the search floor and not the
+#                   threshold, where kinks are judged, shape (2, N); written
+#                   from format 1.6.
+#   /wa           : Interior angle of each `wp` bend, radians, shape (N,).
+#   /we           : Excess turning of each `wp` bend, radians, shape (N,).
+OPTIONAL_BUNDLE_KEYS = ["original", "up", "ke", "wp", "wa", "we"]
 
 # vlmeta key holding the physical spatial calibration (scan size). It is
 # optional provenance metadata, like "input_format": bundles written before
@@ -426,7 +468,7 @@ _BINARY_KEYS = ("binarized", "skeletonized", "bp", "ep")
 
 # Point-set keys stored as (2, N) coordinate arrays.
 # (2, N) 座標配列として格納される点群キー。
-_POINT_KEYS = ("kp", "dp", "up")
+_POINT_KEYS = ("kp", "dp", "up", "wp")
 
 
 def _is_finite_array(a: np.ndarray) -> bool:
@@ -635,6 +677,31 @@ def validate_bundle(
                 )
             if ke.size > 0 and not np.all(ke >= 0):
                 problems.append("ke: kink excess turnings must be non-negative radians")
+
+    # --- Weak bends: wa/we (N,) radians, one per wp column -------------------
+    for key, what in (("wa", "weak-bend angles"), ("we", "weak-bend excess turnings")):
+        if key not in arrays:
+            continue
+        values = arrays[key]
+        if values.ndim != 1:
+            problems.append(f"{key}: expected shape (N,), got {values.shape}")
+            continue
+        if not _is_finite_array(values):
+            problems.append(f"{key}: {what} must be finite numbers")
+        if "wp" not in arrays:
+            problems.append(f"{key}: present without wp")
+        elif arrays["wp"].ndim == 2 and arrays["wp"].shape[0] == 2 \
+                and values.shape[0] != arrays["wp"].shape[1]:
+            problems.append(
+                f"{key}: {values.shape[0]} values but wp holds "
+                f"{arrays['wp'].shape[1]} points"
+            )
+    if "wa" in arrays and arrays["wa"].ndim == 1 and arrays["wa"].size > 0 \
+            and not (np.all(arrays["wa"] > 0) and np.all(arrays["wa"] < np.pi)):
+        problems.append("wa: weak-bend angles must be radians strictly inside (0, pi)")
+    if "we" in arrays and arrays["we"].ndim == 1 and arrays["we"].size > 0 \
+            and not np.all(arrays["we"] >= 0):
+        problems.append("we: weak-bend excess turnings must be non-negative radians")
 
     # --- Format version ------------------------------------------------------
     if meta is not None and "version" in meta:
@@ -961,6 +1028,37 @@ def width_range_adaptive_from_meta(meta: Optional[Dict]) -> bool:
     幅で繊維の線を置く。
     """
     return (meta or {}).get("version") in ADAPTIVE_WIDTH_RANGE_VERSIONS
+
+
+def weak_bend_floor_from_meta(meta: Optional[Dict]) -> Optional[float]:
+    """
+    Return the excess turning down to which a bundle stored its bends.
+    バンドルが折れを保存した超過回転の下限を返す。
+
+    Parameters
+    ----------
+    meta
+        Bundle vlmeta dictionary, or ``None``.
+        バンドルの vlmeta 辞書、または ``None``。
+
+    Returns
+    -------
+    float or None
+        The floor in degrees for a format listed in `WEAK_BEND_VERSIONS`
+        whose `WEAK_BEND_FLOOR_KEY` is a finite number in [0, 180]; ``None``
+        otherwise, when no threshold can be applied to the bundle again.
+        `WEAK_BEND_VERSIONS` に含まれる形式で、`WEAK_BEND_FLOOR_KEY` が [0, 180] の
+        有限の数なら、その下限（度）。それ以外は ``None`` で、そのバンドルには
+        しきい値を当て直せない。
+    """
+    meta = meta or {}
+    if meta.get("version") not in WEAK_BEND_VERSIONS:
+        return None
+    value = meta.get(WEAK_BEND_FLOOR_KEY)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    value = float(value)
+    return value if np.isfinite(value) and 0.0 <= value <= 180.0 else None
 
 
 def kink_params_from_meta(

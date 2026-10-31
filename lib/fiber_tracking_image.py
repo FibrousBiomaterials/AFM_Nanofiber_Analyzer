@@ -34,6 +34,7 @@ from .centerline import (
     polyline_distance,
 )
 from .fiber import Fiber
+from .kink_detector import KinkDetector
 
 
 def _build_fiber(
@@ -53,6 +54,7 @@ def _build_fiber(
     pixel_aspect: float = 1.0,
     width_peak: str = WIDTH_PEAK_NEAREST,
     width_adaptive: bool = True,
+    rejudge: Optional[KinkDetector] = None,
 ) -> Fiber:
     """
     Build one Fiber from a labeled skeleton component and feature lookups.
@@ -135,12 +137,26 @@ def _build_fiber(
         (`bundle_schema.width_range_adaptive_from_meta`).
         見かけ幅を繊維に合わせて広がる範囲で読むか。バンドルのキンクを判定したときの
         もの（`bundle_schema.width_range_adaptive_from_meta`）。
+    rejudge
+        Detector at another threshold to judge the placed line again with
+        (`FiberTrackingImage.kink_rejudge`), or ``None`` to read the stored
+        kinks. Its kinks must be exactly those of `kink_set` on this track.
+        別のしきい値で、置いた線を判定し直す検出器
+        （`FiberTrackingImage.kink_rejudge`）。``None`` なら保存キンクを読む。
+        その判定のキンクは、このトラック上の `kink_set` と完全に一致しなければ
+        ならない。
 
     Returns
     -------
     Fiber
         Constructed fiber for the given label.
         指定ラベルに対して構築された Fiber。
+
+    Raises
+    ------
+    ValueError
+        If the line judged again by `rejudge` gives kinks other than the
+        stored bends `kink_set` selects on this track.
     """
     # `data_row` is OpenCV component stats: (x, y, width, height, area).
     x, y, w, h, _size = data_row
@@ -227,6 +243,28 @@ def _build_fiber(
     ]
     kink_angles = np.array([v[0] for v in kink_values], dtype=np.float64)
     kink_excess = np.array([v[1] for v in kink_values], dtype=np.float64)
+
+    # At another threshold the stored bends say which are kinks, and judging
+    # the line again gives what an analysis at that threshold reads from them:
+    # each angle's arms are cut at the neighbouring kinks of that threshold,
+    # and the bends next to an end are those that reach it. A disagreement on
+    # which bends are kinks means the record and the rule differ, so it is
+    # refused rather than measured from either.
+    # 別のしきい値では、保存した折れがどれがキンクかを決め、線を判定し直すと、
+    # そのしきい値で解析したときにそれらから読む値が得られる。各角度の腕はその
+    # しきい値のキンクで切られ、端のそばの折れはそのしきい値に届くものになる。
+    # どれがキンクかで食い違えば記録と規則が異なるため、どちらからも計測せず
+    # 拒否する。
+    if rejudge is not None and is_placed_line(centerline):
+        judged = rejudge.judge_line(placed.x, placed.y, placed.width_px, pixel_aspect)
+        if [int(i) for i in judged.kink_indices] != kink_indices:
+            raise ValueError(
+                "the kinks found again at the requested threshold differ from "
+                "the bends the bundle stores; re-analyze the bundle"
+            )
+        kink_angles = np.asarray(judged.kink_angles, dtype=np.float64)
+        kink_excess = np.asarray(judged.kink_excess, dtype=np.float64)
+        unjudged_indices = [int(i) for i in judged.unjudged_indices]
 
     return Fiber(
         fiber_image, tuple(data_row), xtrack, ytrack, horizon, height,
@@ -479,6 +517,14 @@ class FiberTrackingImage:
         # 見かけ幅を繊維に合わせて広がる範囲で読むか。`lib.measure` がバンドルから
         # 設定する（`bundle_schema.width_range_adaptive_from_meta`）。
         self.width_adaptive: bool = True
+        # Detector at another kink threshold that `fibers_in_image_parallel`
+        # judges each traced line again with, checked against the stored
+        # bends (`_build_fiber`); set by `lib.measure` when a threshold is
+        # applied to the bundle, ``None`` otherwise.
+        # `fibers_in_image_parallel` が追跡した各線を判定し直す、別のキンク
+        # しきい値の検出器。保存した折れと照合する（`_build_fiber`）。バンドルに
+        # しきい値を当てるとき `lib.measure` が設定し、それ以外は ``None``。
+        self.kink_rejudge: Optional[KinkDetector] = None
 
     def fibers_in_image_parallel(
         self,
@@ -510,6 +556,7 @@ class FiberTrackingImage:
         return self._generate_fiber_instances(
             self.skeleton_image, parallel=True,
             max_workers=max_workers, progress_cb=progress_cb,
+            rejudge=self.kink_rejudge,
         )
 
     def specific_height_fibers(
@@ -579,6 +626,7 @@ class FiberTrackingImage:
         parallel: bool = False,
         max_workers: Optional[int] = None,
         progress_cb: Optional[Callable[[int, int], None]] = None,
+        rejudge: Optional[KinkDetector] = None,
     ) -> list[Fiber]:
         """
         Generate Fiber instances from a skeleton image.
@@ -617,6 +665,13 @@ class FiberTrackingImage:
         progress_cb
             Progress callback receiving `(done, total)`.
             `(done, total)` を受け取る進捗コールバック。
+        rejudge
+            Detector each traced line is judged again with (`_build_fiber`).
+            Passed only for the stored skeleton, whose lines are those the
+            stored bends were found on; a height band cuts other lines.
+            追跡した各線を判定し直す検出器（`_build_fiber`）。保存した折れが
+            見つかった線そのものである保存スケルトンのときだけ渡す。高さ帯は
+            別の線を切り出すためである。
 
         Returns
         -------
@@ -653,7 +708,7 @@ class FiberTrackingImage:
                 kink_set, dp_set, ep_set, kink_angle_map, spp_y,
                 branch_points=bp, centerline=kind, unjudged_set=unjudged_set,
                 pixel_aspect=aspect, width_peak=width_peak,
-                width_adaptive=width_adaptive,
+                width_adaptive=width_adaptive, rejudge=rejudge,
             )
 
         if not parallel:

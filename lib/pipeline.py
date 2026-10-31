@@ -52,8 +52,8 @@ from .blosc2_io import save_bundle, bundle_has_keys, BUNDLE_EXT
 from .bundle_schema import (
     APPARENT_WIDTH_KEY, CENTERLINE_KEY,
     BUNDLE_FORMAT_VERSION, OPTIONAL_BUNDLE_KEYS, REQUIRED_BUNDLE_KEYS,  # noqa: F401
-    SOURCE_REGION_KEY, SPATIAL_CALIBRATION_KEY, make_spatial_calibration,
-    pixel_aspect, pixel_size_nm, validate_bundle,
+    SOURCE_REGION_KEY, SPATIAL_CALIBRATION_KEY, WEAK_BEND_FLOOR_KEY,
+    make_spatial_calibration, pixel_aspect, pixel_size_nm, validate_bundle,
 )
 from .centerline import CENTERLINE_METHODS, DEFAULT_CENTERLINE_METHOD
 from .kink_detector import KinkDetector
@@ -1664,6 +1664,7 @@ def process_file(
     kp_x, kp_y = image.all_kink_coordinates
     dp_x, dp_y = image.decomposed_point_coordinates
     up_x, up_y = image.unjudged_point_coordinates
+    wp_x, wp_y = image.weak_bend_coordinates
 
     arrays = {
         "calibrated":   image.calibrated_image,
@@ -1676,6 +1677,9 @@ def process_file(
         "ka":           image.all_kink_angles,           # Kink angles in radians.
         "up":           np.stack([up_x, up_y]).astype(np.int64),  # Bends not judged next to a track end, shape (2, N).
         "ke":           np.asarray(image.all_kink_excess, dtype=np.float64),  # Excess turning each kink was judged by, radians, shape (N,).
+        "wp":           np.stack([wp_x, wp_y]).astype(np.int64),  # Bends below the threshold, shape (2, N).
+        "wa":           np.asarray(image.weak_bend_angles, dtype=np.float64),  # Their interior angles, radians, shape (N,).
+        "we":           np.asarray(image.weak_bend_excess, dtype=np.float64),  # Their excess turning, radians, shape (N,).
     }
 
     # Optionally bundle the raw original AFM height image. When included,
@@ -1766,6 +1770,10 @@ def process_file(
     width_summary = getattr(image, "apparent_width_summary", None)
     if width_summary is not None:
         vlmeta[APPARENT_WIDTH_KEY] = dict(width_summary)
+    # The floor the weak bends were searched down to, which bounds the
+    # thresholds that can be applied to them again.
+    # 閾値未満の折れを探した下限。当て直せるしきい値の範囲を決める。
+    vlmeta[WEAK_BEND_FLOOR_KEY] = float(np.degrees(image.weak_bend_floor))
 
     param_path = param_path_for(stem)
     bundle_path = bundle_path_for(stem)

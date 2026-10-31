@@ -70,6 +70,7 @@ from lib.bundle_schema import REQUIRED_BUNDLE_KEYS, validate_bundle
 from lib.centerline import CENTERLINE_METHODS, SKELETON_TRACK
 from lib import gwy_convert
 from lib.measure import (
+    length_floor_nm,
     measure_bundle,
     read_centerline_from_bundle,
     skeleton_height_values,
@@ -568,6 +569,33 @@ def cmd_measure(args: argparse.Namespace) -> int:
         )
         return 2
 
+    if args.kink_threshold_deg is not None and not (0 <= args.kink_threshold_deg <= 180):
+        print("error: --kink-threshold-deg must be in [0, 180] degrees", file=sys.stderr)
+        return 2
+    # "common" cuts every bundle at the largest of their own floors, so the
+    # CSVs of differently sized scans describe the same range of lengths.
+    # "common" は全バンドルを各自の下限の最大値で切りそろえ、走査範囲の違う
+    # スキャンの CSV が同じ長さの範囲を表すようにする。
+    min_length_nm = None
+    if args.length_floor is not None:
+        if args.length_floor == "common":
+            floors = [f for f in (length_floor_nm(p) for p in inputs) if f is not None]
+            if not floors:
+                print("error: --length-floor common: no bundle records a scan size, "
+                      "its analysis settings and an apparent width", file=sys.stderr)
+                return 2
+            min_length_nm = max(floors)
+        else:
+            try:
+                min_length_nm = float(args.length_floor)
+            except ValueError:
+                min_length_nm = float("nan")
+            if not (min_length_nm >= 0):
+                print("error: --length-floor must be 'common' or a length in nm "
+                      "of at least 0", file=sys.stderr)
+                return 2
+        print(f"length floor: fibers shorter than {min_length_nm:.1f} nm are left out")
+
     if args.output_dir:
         os.makedirs(args.output_dir, exist_ok=True)
 
@@ -579,6 +607,8 @@ def cmd_measure(args: argparse.Namespace) -> int:
         try:
             result = measure_bundle(
                 bundle_path, scale_um=args.scale_um, scale_y_um=args.scale_y_um,
+                kink_threshold_deg=args.kink_threshold_deg,
+                min_length_nm=min_length_nm,
             )
             csv_path = stem + "_fibers.csv"
             write_fiber_csv(csv_path, result.stats)
@@ -587,7 +617,9 @@ def cmd_measure(args: argparse.Namespace) -> int:
             print(f"    {type(e).__name__}: {e}", file=sys.stderr)
             failures.append(name)
             continue
-        print(f"{len(result.stats)} fibers -> {os.path.basename(csv_path)}")
+        dropped = (f" ({result.short_dropped} shorter than the floor left out)"
+                   if min_length_nm is not None else "")
+        print(f"{len(result.stats)} fibers{dropped} -> {os.path.basename(csv_path)}")
         if result.image.centerline == SKELETON_TRACK:
             print(
                 "    note: analyzed before bundle format 1.1, so fibers are "
@@ -984,6 +1016,21 @@ def build_parser() -> argparse.ArgumentParser:
         "--output-dir", metavar="DIR",
         help="directory for <stem>_fibers.csv outputs "
              "(default: next to each bundle)",
+    )
+    p_measure.add_argument(
+        "--kink-threshold-deg", type=float, default=None, metavar="DEG",
+        help="select every bundle's kinks again at this interior-angle "
+             "threshold instead of the one it was analyzed with; needs bundle "
+             "format 1.6, which stores the bends below the threshold, and fails "
+             "for a threshold asking for bends below the floor they were stored "
+             "down to",
+    )
+    p_measure.add_argument(
+        "--length-floor", default=None, metavar="common|NM",
+        help="leave out fibers shorter than this length in nm; 'common' takes "
+             "the largest of the input bundles' own floors (the shortest length "
+             "each analysis keeps at any angle), so scans of different pixel "
+             "sizes are compared over the same lengths",
     )
     p_measure.set_defaults(func=cmd_measure)
 

@@ -89,7 +89,7 @@ fragments = image.fibers_in_image_parallel(
     progress_cb=progress_cb,
 )
 ...
-return curate_fibers(
+result = curate_fibers(
     image,
     fragments,
     exclude_anchors=exclude_anchors,
@@ -99,6 +99,9 @@ return curate_fibers(
 
 `curate_fibers` は、保存済みの除外を追跡済みの断片に適用し、残った断片に保存済み
 の連結プランを適用する（§5）。返されるファイバーがファイバー一覧の各行になる。
+GUI04 は `measure_bundle` に別のキンクのしきい値も下限長も渡さない（それらを使うのは
+GUI03 と `cli.py measure` だけである）。そのため一覧には、バンドルが保存したキンクと
+すべてのファイバーが出る。
 
 ## 1. バンドルからファイバーへ
 
@@ -1611,10 +1614,12 @@ point_arc = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
 bridges = _bridge_intervals(observed, point_arc)
 ...
     if not margin <= p <= length - margin:
-        unjudged.append((index, UNJUDGED_NEAR_END))
+        if strong:
+            unjudged.append((index, UNJUDGED_NEAR_END))
     elif not judge_bridges and any(
             a <= p + c and b >= p - c for a, b in bridges):
-        unjudged.append((index, UNJUDGED_AT_BRIDGE))
+        if strong:
+            unjudged.append((index, UNJUDGED_AT_BRIDGE))
 ...
 reach = 0.0 if judge_bridges else c
 bridge_excluded = _covered_length(

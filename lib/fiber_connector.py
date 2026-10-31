@@ -143,11 +143,11 @@ class ConnectParams:
         way the bridge itself is left out of that divisor, because nothing
         was observed there. On the skeleton track of a format 1.0 bundle the
         polyline rule judges the fibril and this setting has no effect.
-        窓が橋渡し部（繊維を観測していない隙間に引く直線）にかかる折れを、キンク
+        折れの区間が橋渡し部（繊維を観測していない隙間に引く直線）にかかる折れを、キンク
         規則が判定するかどうか。その角は画像で見えたものではなく連結によって生じる
         ため、選択はユーザーに委ねる。``True``（既定）は他の折れと同じく数え、
         ``False`` は判定しないもの（`kink_detector.UNJUDGED_AT_BRIDGE`）として返し、
-        窓が橋渡し部にかかる位置をキンク密度の分母から除く。どちらの場合も、
+        折れの区間が橋渡し部にかかる位置をキンク密度の分母から除く。どちらの場合も、
         何も観測していない橋渡し部そのものは分母から除く。形式 1.0 のバンドルの
         スケルトントラックでは折れ線規則でフィブリルを判定し、この設定は効かない。
 
@@ -1736,7 +1736,7 @@ def _rebuild_connected_fiber(
         Whether a bend whose window reaches a bridge (a run of points
         `height_measured` marks ``False``) is judged
         (`ConnectParams.judge_bridge_kinks`).
-        窓が橋渡し部（`height_measured` が ``False`` の点の連続）にかかる折れを
+        折れの区間が橋渡し部（`height_measured` が ``False`` の点の連続）にかかる折れを
         判定するか（`ConnectParams.judge_bridge_kinks`）。
 
     Returns

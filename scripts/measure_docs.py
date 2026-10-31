@@ -2123,8 +2123,8 @@ def ridge_hysteresis() -> dict:
     "turn_maxima",
     ["lib/pipeline.py", "lib/measure.py", "lib/kink_detector.py", "lib/centerline.py"],
     "The visual reference of kink_reference scored with the rule as it is and with its "
-    "second kind of candidate (maxima of |T| away from any accepted curvature maximum) "
-    "disabled: the clear kinks found and the unmatched bends of each.",
+    "second kind of candidate (maxima of |T| away from any accepted curvature maximum at "
+    "least as strong) disabled: the clear kinks found and the unmatched bends of each.",
 )
 def turn_maxima() -> dict:
     import inspect
@@ -4069,6 +4069,263 @@ def low_threshold_removal() -> dict:
             raise SystemExit(f"{name}: the pieces touching a kept fiber with low_threshold off "
                              f"are {attached}, {inspected} were inspected; render them again")
         values[f"{name}.off.attached"] = len(attached)
+    return values
+
+
+# Synthetic straight fibers for the length floor: the apparent widths aimed at
+# (the pixel size is the modelled fiber's apparent width over these), the rod
+# lengths in pixels, and the angles and sub-pixel offsets each is drawn at.
+# 下限長を調べる合成の直線繊維。狙う見かけ幅（画素サイズはモデル繊維の見かけ幅を
+# これで割ったもの）、棒の長さ（画素）、各棒を描く角度と画素未満のずれ。
+LENGTH_FLOOR_WIDTHS_PX = (3.0, 4.0, 5.0, 6.5, 8.0, 12.0)
+LENGTH_FLOOR_LENGTHS_PX = tuple(range(12, 58, 2))
+LENGTH_FLOOR_ANGLES_DEG = tuple(range(0, 91, 10))
+LENGTH_FLOOR_OFFSETS_PX = ((0.0, 0.0), (0.37, 0.61), (0.71, 0.23))
+
+
+@experiment(
+    "length_floor_completeness",
+    ["lib/pipeline.py", "lib/measure.py", "lib/segmenter.py", "lib/skeletonizer.py",
+     "lib/centerline.py"],
+    "Straight synthetic fibers (scripts/kink_rule_sweep.py fiber and background, 0.05 nm "
+    "pixel noise) of every length in LENGTH_FLOOR_LENGTHS_PX, drawn at every angle in "
+    "LENGTH_FLOOR_ANGLES_DEG and offset in LENGTH_FLOOR_OFFSETS_PX, one scan per apparent "
+    "width in LENGTH_FLOOR_WIDTHS_PX and length, analyzed at the defaults. A fiber counts "
+    "as kept when a traced centerline lies on its axis over more than half its points. "
+    "Reported per width: the median measured apparent width, measure.length_floor_nm in "
+    "pixels, the shortest length kept at every angle and offset, the longest length lost "
+    "at any, how many fibers at or above the floor were lost, and the longest measured "
+    "length of a kept fiber drawn shorter than the floor.",
+)
+def length_floor_completeness() -> dict:
+    import numpy as np
+    import kink_rule_sweep as sweep
+    import synthetic_fibers as sf
+    from lib import measure
+    from lib.pipeline import ProcParams, process_file
+
+    out = cache_dir("length_floor_completeness")
+    out.mkdir(parents=True, exist_ok=True)
+    values: dict = {"fibers_per_scan": len(LENGTH_FLOOR_ANGLES_DEG) * len(LENGTH_FLOOR_OFFSETS_PX)}
+    for target in LENGTH_FLOOR_WIDTHS_PX:
+        nmpx = sweep.APPARENT_WIDTH_NM / target
+        kept_by_length, widths, floors = {}, [], []
+        rows = []
+        for length in LENGTH_FLOOR_LENGTHS_PX:
+            cell = int(length + 6 * target + 12)
+            shape = (cell * len(LENGTH_FLOOR_OFFSETS_PX) + 20,
+                     cell * len(LENGTH_FLOOR_ANGLES_DEG) + 20)
+            rods, lines = [], []
+            for r, (ox, oy) in enumerate(LENGTH_FLOOR_OFFSETS_PX):
+                for k, angle in enumerate(LENGTH_FLOOR_ANGLES_DEG):
+                    cx, cy = 10 + cell * (k + 0.5) + ox, 10 + cell * (r + 0.5) + oy
+                    lines.append(sf.straight_centerline(
+                        length * nmpx, shape=shape, nm_per_px=nmpx, angle_deg=float(angle),
+                        center_px=(cx, cy)))
+                    rods.append((cx, cy, angle))
+            tag = f"w{target:g}_l{length}"
+            bundle = out / f"{tag}.b2z"
+            if not bundle.is_file():
+                scan = sf.render_scan(lines, shape=shape, nm_per_px=nmpx,
+                                      fiber_diameter_nm=sweep.FIBER_DIAMETER_NM,
+                                      tip_radius_nm=sweep.TIP_RADIUS_NM, noise_nm=0.05,
+                                      seed=1, **sweep.BACKGROUND)
+                txt = sf.write_afm_text(scan, str(out / f"{tag}.txt"))
+                process_file(txt, ProcParams(), scan_size_um=scan.scan_size_um,
+                             scan_size_source="manual", output_dir=str(out))
+            # A scan where nothing was traced records no apparent width and so
+            # no floor; the floor of the width is taken from the other scans.
+            # 何も追跡されなかった走査は見かけ幅を記録せず下限も持たない。その幅の
+            # 下限は他の走査から取る。
+            floor_nm = measure.length_floor_nm(str(bundle))
+            if floor_nm is not None:
+                floors.append(floor_nm / nmpx)
+            result = measure.measure_bundle(str(bundle))
+            kept = 0
+            for cx, cy, angle in rods:
+                ux, uy = math.cos(math.radians(angle)), math.sin(math.radians(angle))
+                # The axis on the bundle grid: synthetic coordinates less 0.5 for
+                # the pixel centre and 1 for the calibrator's [1:, 1:] crop.
+                # バンドル格子上の軸。合成座標から画素中心の 0.5 と較正の [1:, 1:] の 1 を引く。
+                x0, y0 = cx - 1.5, cy - 1.5
+                total = 0.0
+                for f, s in zip(result.fibers, result.stats):
+                    x = np.asarray(f.xtrack, float) + float(f.data[0]) - x0
+                    y = np.asarray(f.ytrack, float) + float(f.data[1]) - y0
+                    on = ((np.abs(-x * uy + y * ux) < 3.0)
+                          & (np.abs(x * ux + y * uy) < length / 2 + 2 * target))
+                    if x.size and on.mean() > 0.5:
+                        total += s.length_nm / nmpx
+                        widths.append(s.width_nm / nmpx)
+                if total > 0:
+                    kept += 1
+                    rows.append((length, total))
+            kept_by_length[length] = kept
+        floor = float(np.median(floors))
+        n = values["fibers_per_scan"]
+        always = [L for L in LENGTH_FLOOR_LENGTHS_PX
+                  if all(kept_by_length[m] == n for m in LENGTH_FLOOR_LENGTHS_PX if m >= L)]
+        key = f"w{target:g}"
+        values[f"{key}.measured_width_px"] = float(np.median(widths))
+        values[f"{key}.floor_px"] = floor
+        values[f"{key}.shortest_always_kept_px"] = min(always) if always else None
+        values[f"{key}.longest_with_loss_px"] = max(
+            (L for L in LENGTH_FLOOR_LENGTHS_PX if kept_by_length[L] < n), default=None)
+        values[f"{key}.lost_at_or_above_floor"] = sum(
+            n - kept_by_length[L] for L in LENGTH_FLOOR_LENGTHS_PX if L >= floor)
+        values[f"{key}.longest_measured_below_floor_px"] = max(
+            (m for L, m in rows if L < floor), default=None)
+    values["lost_at_or_above_floor"] = sum(
+        values[f"w{t:g}.lost_at_or_above_floor"] for t in LENGTH_FLOOR_WIDTHS_PX)
+    return values
+
+
+# Kink thresholds re-applied to the stored bends of a default analysis.
+# 既定の解析の保存した折れに当て直すキンクのしきい値。
+REAPPLIED_KINK_THRESHOLDS_DEG = (140.0, 160.0, 170.0)
+
+
+@experiment(
+    "weak_bend_reapply",
+    ["lib/pipeline.py", "lib/measure.py", "lib/kink_detector.py", "lib/centerline.py"],
+    "On the three bundled scans analyzed at the defaults and again at each threshold in "
+    "REAPPLIED_KINK_THRESHOLDS_DEG: the bends stored below the default threshold, and, "
+    "for each threshold, the kinks measure_bundle selects from the default bundle with "
+    "kink_threshold_deg against those of the analysis at that threshold -- how many "
+    "fibers carry the same kink points, how many kinks there are, how many of the kinks "
+    "at the same points read a different angle (by more than 0.01 degree), the "
+    "largest such difference, and how many fibers carry the same unjudged bends.",
+)
+def weak_bend_reapply() -> dict:
+    import numpy as np
+    import kink_reference_score as krs
+    from lib import measure
+    from lib.blosc2_io import load_bundle
+    from lib.pipeline import ProcParams, process_file
+
+    def scan_bundle(name, threshold):
+        cache = cache_dir(f"weak_bend_reapply_{threshold:g}")
+        cache.mkdir(parents=True, exist_ok=True)
+        txt = str(ROOT / krs.SCANS[name])
+        bundle = cache / (Path(txt).stem + ".b2z")
+        if not bundle.is_file():
+            bundle = Path(process_file(txt, ProcParams(kinkangle_deg=threshold),
+                                       output_dir=str(cache)).bundle_path)
+        return str(bundle)
+
+    def kinks(result):
+        # A kink is identified by the skeleton pixel it is stored at.
+        # キンクは、それを保存したスケルトン画素で識別する。
+        out = []
+        for f in result.fibers:
+            def points(indices):
+                idx = np.asarray(indices, dtype=int)
+                xs = np.asarray(f.skeleton_xtrack)[idx] + int(f.data[0])
+                ys = np.asarray(f.skeleton_ytrack)[idx] + int(f.data[1])
+                return tuple(zip(xs.tolist(), ys.tolist()))
+            out.append((points(f.kink_indices),
+                        np.degrees(np.asarray(f.kink_angles, float)),
+                        points(f.unjudged_indices)))
+        return out
+
+    values: dict = {}
+    default = ProcParams().kinkangle_deg
+    for name in krs.SCANS:
+        base = scan_bundle(name, default)
+        values[f"{name}.stored_kinks"] = int(load_bundle(base, keys=["ka"])["ka"].size)
+        values[f"{name}.stored_weak"] = int(load_bundle(base, keys=["we"])["we"].size)
+        for threshold in REAPPLIED_KINK_THRESHOLDS_DEG:
+            # Pixel sizes play no part in which bends are kinks, so a unit scale
+            # is passed for the scans that record none.
+            # どの折れがキンクかに画素サイズは関わらないため、記録の無い走査には
+            # 単位スケールを渡す。
+            direct = kinks(measure.measure_bundle(scan_bundle(name, threshold), scale_um=1.0))
+            again = kinks(measure.measure_bundle(base, scale_um=1.0,
+                                                 kink_threshold_deg=threshold))
+            same = [a[0] == b[0] for a, b in zip(direct, again)]
+            diffs = [np.abs(a[1] - b[1]) for (a, b), s in zip(zip(direct, again), same)
+                     if s and a[1].size]
+            diffs = np.concatenate(diffs) if diffs else np.zeros(0)
+            key = f"{name}.t{threshold:g}"
+            values[f"{key}.fibers"] = len(direct)
+            values[f"{key}.same_points"] = int(sum(same)) if len(direct) == len(again) else None
+            values[f"{key}.kinks_direct"] = int(sum(len(a[0]) for a in direct))
+            values[f"{key}.kinks_reapplied"] = int(sum(len(b[0]) for b in again))
+            values[f"{key}.angle_changed"] = int((diffs > 0.01).sum())
+            values[f"{key}.angle_change_max_deg"] = float(diffs.max()) if diffs.size else 0.0
+            values[f"{key}.same_unjudged"] = int(sum(a[2] == b[2] for a, b in zip(direct, again)))
+    for t in REAPPLIED_KINK_THRESHOLDS_DEG:
+        values[f"all.t{t:g}.fibers"] = sum(values[f"{n}.t{t:g}.fibers"] for n in krs.SCANS)
+        values[f"all.t{t:g}.same_points"] = sum(values[f"{n}.t{t:g}.same_points"] or 0
+                                                for n in krs.SCANS)
+        values[f"all.t{t:g}.kinks"] = sum(values[f"{n}.t{t:g}.kinks_direct"] for n in krs.SCANS)
+        values[f"all.t{t:g}.angle_changed"] = sum(values[f"{n}.t{t:g}.angle_changed"]
+                                                  for n in krs.SCANS)
+        values[f"all.t{t:g}.angle_change_max_deg"] = max(
+            values[f"{n}.t{t:g}.angle_change_max_deg"] for n in krs.SCANS)
+        values[f"all.t{t:g}.same_unjudged"] = sum(values[f"{n}.t{t:g}.same_unjudged"]
+                                                  for n in krs.SCANS)
+    values["all.stored_weak"] = sum(values[f"{n}.stored_weak"] for n in krs.SCANS)
+    values["all.stored_kinks"] = sum(values[f"{n}.stored_kinks"] for n in krs.SCANS)
+    return values
+
+
+@experiment(
+    "weak_bend_noise",
+    ["lib/pipeline.py", "lib/measure.py", "lib/kink_detector.py", "lib/centerline.py"],
+    "The kink-free families of scripts/kink_rule_sweep.py (straight, arc of 60 degrees, "
+    "sine) at apparent widths 5, 8 and 16 px, pixel noise 0.05 and 0.15 nm and seeds 1 "
+    "and 2, analyzed at the defaults; every traced line is judged with the search floor "
+    "lowered to 1 degree, and the excess turning of every bend found where kinks are "
+    "judged is pooled: its 95th and 99th percentiles, and how many bends per micrometre "
+    "of contour reach 10, 20 and 30 degrees.",
+)
+def weak_bend_noise() -> dict:
+    import numpy as np
+    import kink_rule_sweep as sweep
+    import synthetic_fibers as sf
+    from lib import kink_detector as kd
+    from lib import measure
+    from lib.kink_detector import KinkDetector
+    from lib.pipeline import ProcParams, process_file
+
+    out = cache_dir("weak_bend_noise")
+    out.mkdir(parents=True, exist_ok=True)
+    excess, length_um = [], 0.0
+    for w_px in (5.0, 8.0, 16.0):
+        nmpx = sweep.APPARENT_WIDTH_NM / w_px
+        shape = sweep._shape_for(nmpx)
+        for noise in (0.05, 0.15):
+            for seed in (1, 2):
+                for fam, (lines, _interior) in sweep.families(nmpx, shape).items():
+                    if fam.startswith("kink"):
+                        continue
+                    tag = f"W{w_px:g}_n{noise:.2f}_s{seed}_{fam}"
+                    bundle = out / f"{tag}.b2z"
+                    if not bundle.is_file():
+                        scan = sf.render_scan(lines, shape=shape, nm_per_px=nmpx,
+                                              fiber_diameter_nm=sweep.FIBER_DIAMETER_NM,
+                                              tip_radius_nm=sweep.TIP_RADIUS_NM,
+                                              noise_nm=noise, seed=seed, **sweep.BACKGROUND)
+                        txt = sf.write_afm_text(scan, str(out / f"{tag}.txt"))
+                        process_file(txt, ProcParams(), scan_size_um=scan.scan_size_um,
+                                     scan_size_source="manual", output_dir=str(out))
+                    result = measure.measure_bundle(str(bundle))
+                    with patched(kd, WEAK_BEND_FLOOR_DEG=1.0):
+                        detector = KinkDetector()
+                        for f, s in zip(result.fibers, result.stats):
+                            x = np.asarray(f.xtrack, float) + float(f.data[0])
+                            y = np.asarray(f.ytrack, float) + float(f.data[1])
+                            judged = detector.judge_line(x, y, f.width_px)
+                            excess += list(np.degrees(judged.kink_excess))
+                            excess += list(np.degrees(judged.weak_excess))
+                            length_um += s.length_nm / 1000.0
+    excess = np.asarray(excess)
+    values = {"bends": int(excess.size), "contour_um": length_um,
+              "excess_p95_deg": float(np.percentile(excess, 95)),
+              "excess_p99_deg": float(np.percentile(excess, 99))}
+    for level in (10, 20, 30):
+        values[f"per_um_at_least_{level}"] = float((excess >= level).sum() / length_um)
     return values
 
 

@@ -1,9 +1,9 @@
 {
   "_comment": "SHA-256 of each symbol docs/gui04_measurements.md explains, with comments and docstrings removed. Refresh with `python scripts/check_gui04_docs.py --update` only after rereading the affected sections of both language versions.",
   "symbols": {
-    "lib/measure.py::measure_bundle": "3fe99540c837c6157c9f6c5dbbdde8f0433dbcdbd28196cb1e8a808fce316c71",
+    "lib/measure.py::measure_bundle": "a2feeb9c780a16cabc950941f500398761c5f81854402f19afddeb74a1b588e7",
     "lib/bundle_schema.py::pixel_size_nm": "62a3a2671ce2e963d46f8d6906823444aa214bd8a53c13a0140c4a6cfd734ef0",
-    "lib/fiber_tracking_image.py::_build_fiber": "1b50c18339d7500d20ade59bdef9f90143f8fa886967158cb5cf2a9e1b68921c",
+    "lib/fiber_tracking_image.py::_build_fiber": "cc9e84fb9c3f17dd4a807d13e55dcae48a9293f75fbf5bfb87cb12467acad957",
     "lib/fiber.py::Fiber.length": "e2a59e65c72f8c8f8e12247a4a350392327b0aa86bc836dd4960872802fc43bf",
     "lib/centerline.py::_WIDTH_SEARCH_PX": "a80f543b2328dc3b83a7033d7c16385a72ce99878c698740c0ed856919138629",
     "lib/centerline.py::_WIDTH_STEP_PX": "63ce0419343d51976112a87e127ec441adcb885295184bfd1d258828cd195184",
@@ -47,7 +47,7 @@
     "lib/measure.py::fiber_judged_length_um": "beeb59bedf1787511a47ba877df054551f9615119d6a5c341a571d09e55f4f68",
     "lib/kink_detector.py::END_MARGIN_WIDTHS": "840f6d96c4ed28eb659902ba8cb4d37bb43b50263b4d1c4332c7d6eba78c179e",
     "lib/kink_detector.py::_bridge_intervals": "682567ed534050b4e1fbb7d38af56bf14200e32340847e92ee102cfb53213dc0",
-    "lib/kink_detector.py::KinkDetector.judge_line": "5b3eb2b4b1272361be5d85d54d593c3bc10d6754ea69e945aa6d41b42b1ff5dd",
+    "lib/kink_detector.py::KinkDetector.judge_line": "16dc176ba710ea52921daa7d18380ee9466450e2c55dff7962add05a984c510d",
     "guis/GUI04_Tracking_fiber.py::App._build_fiber_table": "319e8b54c20ba4030c64750a0a75149179250a0f84cc8cde6f51734cb5cc5068",
     "guis/GUI04_Tracking_fiber.py::_table_values": "9be6cd867a4eeeefe5b13a5357f4459097a156cdaec90091083f636b2bfd0fdd",
     "guis/GUI04_Tracking_fiber.py::length_is_lower_bound": "408cb3d8828927ca827ec7d93d99a458589a1c19a10e5bbab38f4f572bb2083c",

@@ -2510,20 +2510,30 @@ $s_0$ と $s_1$）で、端から $\delta$ だけ内側にある（$0.25 \le \de
 折れのうちこの影響を受けるのは、端から $1.5\,W$〜$1.75\,W + \delta$ にあるものだけである。
 前後の区間が切れる長さは最大 $0.25\,W + \delta$ で、差し引く量は、その長さの $f$（$= W$）に
 対する割合だけ小さくなる。$W$ が $\delta$ より十分大きければ、この割合はおよそ
-$1/4$ である。位置 $p$ を採るのは、次の
+$1/4$ である。
+
+折れは、しきい値ではなく、超過回転の固定の**探索の下限** $F$ まで探す。$F$ は
+`WEAK_BEND_FLOOR_DEG` = 10<!--c:lib/kink_detector.py::WEAK_BEND_FLOOR_DEG--> 度で、しきい値の超過回転のほうが低ければそちらである
+（`KinkDetector.weak_bend_floor`）。位置 $p$ を折れとして残すのは、次の
 条件をすべて満たすときだけである。
 
 - 両端から $c$ 以上離れている。これより端に近いと、折れの区間が中心線からはみ出して
   $T$ を計算できない（§4.4 の $1.5\,W$ は、計算できた折れのうち、どこまでを
   判定するかの範囲である）。
-- $|T(p)|$ がしきい値以上である。$E$ は $|T|$ を超えないので、この条件は次の
+- $|T(p)|$ が $F$ 以上である。$E$ は $|T|$ を超えないので、この条件は次の
   条件から自動的に満たされる。それでも挙げるのは、コードがこの条件も調べて
   いるからである。`excess_at` は $T$ と $E$ を一緒に計算したあと、$E$ より先に $|T|$ を
-  しきい値と比べる。また、後の「候補の探し方」で説明する $|T|$ そのものの極大は、
-  しきい値以上のものだけを候補にするので、そこではこの条件が、$E$ を計算する前に
+  $F$ と比べる。また、後の「候補の探し方」で説明する $|T|$ そのものの極大は、
+  $F$ 以上のものだけを候補にするので、そこではこの条件が、$E$ を計算する前に
   候補を絞る。
-- $E(p)$ が、しきい値とノイズ床（後の「尺度とノイズ床」で説明する）の両方以上
-  である。既定ではノイズ床を使わない（0<!--c:lib/kink_detector.py::NOISE_SIGMAS--> である）。
+- $E(p)$ が $F$ 以上である。
+
+残した折れのうち、$E(p)$ がしきい値とノイズ床（後の「尺度とノイズ床」で説明する。
+既定ではノイズ床を使わず、0<!--c:lib/kink_detector.py::NOISE_SIGMAS--> である）の両方以上のものを**キンク**とする。
+残りは**閾値未満の折れ**で、キンクではないが保存する（§4.5）。$F$ で探すのは、
+あるしきい値がどの折れをキンクにするかが、探索をどのしきい値で行ったかに
+よらないようにするためである。こうすると、保存した折れに $F$ までの任意の
+しきい値を後から当てて、そのしきい値で解析したときに報告されるキンクを選べる（§4.5）。
 
 しきい値は、ラジアンで表した $\pi - \phi_{\text{max}}$（`turn_threshold`）である。
 
@@ -2565,8 +2575,9 @@ f = _FLANK_WIDTHS * width
 profile = _heading_profile(x, y, width)
 ...
 turn_threshold = max(np.pi - float(self.threshold_angle_from_decomposed_indices), 0.0)
+search = self.weak_bend_floor
 curvature = np.abs(np.gradient(heading, _HEADING_STEP_PX))
-curvature_floor = _CURVATURE_FLOOR_FRAC * turn_threshold / (2.0 * c)
+curvature_floor = _CURVATURE_FLOOR_FRAC * search / (2.0 * c)
 radius = _SUPPRESS_WIDTHS * width
 def excess_profile(p: NDArray) -> Tuple[NDArray, NDArray]:
     core = np.interp(p + c, sm, heading) - np.interp(p - c, sm, heading)
@@ -2579,14 +2590,23 @@ def excess_profile(p: NDArray) -> Tuple[NDArray, NDArray]:
     return core, np.abs(core) - 2.0 * c * background
 grid = sm[(sm >= c) & (sm <= length - c)]
 ...
+kink_level = max(turn_threshold, floor)
 def excess_at(p: float) -> Optional[float]:
     if p < c or p > length - c:
         return None
     core, excess = excess_profile(np.array([p]))
-    if abs(float(core[0])) < turn_threshold:
+    if abs(float(core[0])) < search:
         return None
     excess = float(excess[0])
-    return excess if excess >= max(turn_threshold, floor) else None
+    return excess if excess >= search else None
+```
+
+```python
+# source: lib/kink_detector.py::WEAK_BEND_FLOOR_DEG, KinkDetector.weak_bend_floor
+WEAK_BEND_FLOOR_DEG = 10.0
+...
+turn_threshold = max(np.pi - float(self.threshold_angle_from_decomposed_indices), 0.0)
+return min(np.radians(WEAK_BEND_FLOOR_DEG), turn_threshold)
 ```
 
 コードの `self.threshold_angle_from_decomposed_indices` は、`kinkangle_deg` をラジアンに直した値で
@@ -2604,13 +2624,17 @@ $E$ は、候補の位置でだけ計算する。候補は 2<!--n:count--> 種�
 
 - **曲率がまわりより大きくなる点（曲率の極大）**: 曲率とは、向きが長さあたりに
   変わる速さ $|d\theta/ds|$ のことである。曲率の極大のうち、下限以上のものを候補に
-  する。下限は、しきい値ちょうどの折れが折れの区間全体で持つ平均の曲率の半分、つまり
-  $0.5 \times (\pi - \phi_{\text{max}}) / (2c)$ である
+  する。下限は、探索の下限ちょうどの折れが折れの区間全体で持つ平均の曲率の半分、つまり
+  $0.5 \times F / (2c)$ である
   （`_CURVATURE_FLOOR_FRAC` = 0.5<!--c:lib/kink_detector.py::_CURVATURE_FLOOR_FRAC-->）。
 - **$|T|$ そのものの極大**: ただし、$0.75\,W$ 以内に、上の曲率の極大から採った
-  候補が無い場所だけに加える。ノイズで曲率の山が 2<!--n:count--> つに割れてしまった角や、
+  候補のうち超過回転が同じかそれより大きいものが無い場所だけに加える。ノイズで曲率の山が 2<!--n:count--> つに割れてしまった角や、
   回転がそのまま曲線へ続いていく角では、真ん中に曲率の極大が 1<!--n:count--> つも無いから
   である。両端から $c$ 以上離れた点（`grid`）の上で探す。
+  締め出すのは、より強い曲率の極大の候補だけである。近くに採った候補があれば
+  何でも締め出すとすると、低い探索の下限が採る、角のそばの弱い曲率の極大が、角
+  そのものの $|T|$ の極大を締め出し、折れをその弱い位置で判定させてしまう。そうなると、
+  どの位置が角を代表するかが $F$ によって変わる。
 
 $0.75\,W$ より近い候補どうしは、1<!--n:count--> つの折れとみなす。候補を超過回転の大きい
 順に処理するので、そうした組の中では超過回転がいちばん大きいものが残る。
@@ -2631,10 +2655,11 @@ if grid.size >= 3:
     for i in range(1, grid.size - 1):
         if (window_turn[i] >= window_turn[i - 1]
                 and window_turn[i] > window_turn[i + 1]
-                and window_turn[i] >= turn_threshold):
+                and window_turn[i] >= search):
             p = float(grid[i])
             excess = excess_at(p)
-            if excess is not None and all(abs(p - q) > radius for _, q in fine):
+            if excess is not None and all(
+                    abs(p - q) > radius or e < excess for e, q in fine):
                 coarse.append((excess, p))
 kept: List[Tuple[float, float]] = []
 for excess, p in sorted(fine + coarse, key=lambda t: -t[0]):
@@ -2682,9 +2707,10 @@ $$
 
 - $s_0$ と $s_1$ は、向きを求めた最初の点と最後の点の位置である（始まりの端から
   0.25<!--x:0.5 / 2--> px、終わりの端から 0.25〜0.75<!--x:[0.5 / 2, 0.5 * 1.5]--> px 内側）。
-- $p_{\text{prev}}$ と $p_{\text{next}}$ は、候補を 1<!--n:count--> つにまとめた後に残った折れ（端の
-  そばで判定しなかったものも含む）のうち、前後でいちばん近いものである。無ければ、
-  その項は使わない。
+- $p_{\text{prev}}$ と $p_{\text{next}}$ は、候補を 1<!--n:count--> つにまとめた後に残った折れのうち、
+  超過回転がキンクの水準に届いたもの（端のそばで判定しなかったものも含む）で、前後で
+  いちばん近いものである。無ければ、その項は使わない。閾値未満の折れは腕を
+  区切らないため、キンクの角度は $F$ によらない。
 
 各腕の向き $\bar\theta$ は、区間の中に等間隔に取った 16<!--n:literal in the quoted code--> 点で、なめらかにした後の
 向きを読み、平均したものである。内角は
@@ -2747,18 +2773,21 @@ return max(np.pi - turn, 0.0)
 ```python
 # source: lib/kink_detector.py::KinkDetector.judge_line
 margin = END_MARGIN_WIDTHS * width
-positions = sorted(q for _, q in kept)
+positions = sorted(q for e, q in kept if e >= kink_level)
 ...
 for excess, p in kept:
     index = int(orig[int(np.argmin(np.abs(s - p)))])
     if index in taken:
         continue
     taken.add(index)
+    strong = excess >= kink_level
     if not margin <= p <= length - margin:
-        unjudged.append((index, UNJUDGED_NEAR_END))
+        if strong:
+            unjudged.append((index, UNJUDGED_NEAR_END))
     elif not judge_bridges and any(
             a <= p + c and b >= p - c for a, b in bridges):
-        unjudged.append((index, UNJUDGED_AT_BRIDGE))
+        if strong:
+            unjudged.append((index, UNJUDGED_AT_BRIDGE))
     else:
         before = [q for q in positions if q < p]
         after = [q for q in positions if q > p]
@@ -2769,16 +2798,23 @@ for excess, p in kept:
         )
         if not np.isfinite(angle):
             angle = np.pi - excess
-        kinks.append((index, angle, excess))
+        (kinks if strong else weak).append((index, angle, excess))
 kinks.sort()
+weak.sort()
 unjudged.sort()
-kink_indices = np.array([k for k, _, _ in kinks], dtype=np.intp)
-kink_angles = np.clip(
-    np.array([a for _, a, _ in kinks], dtype=np.float64),
-    _MIN_INTERIOR_ANGLE, np.pi - _MIN_INTERIOR_ANGLE,
-)
-kink_excess = np.array([e for _, _, e in kinks], dtype=np.float64)
+def columns(bends):
+    indices = np.array([k for k, _, _ in bends], dtype=np.intp)
+    angles = np.clip(
+        np.array([a for _, a, _ in bends], dtype=np.float64),
+        _MIN_INTERIOR_ANGLE, np.pi - _MIN_INTERIOR_ANGLE,
+    )
+    return indices, angles, np.array([e for _, _, e in bends], dtype=np.float64)
+kink_indices, kink_angles, kink_excess = columns(kinks)
+weak_indices, weak_angles, weak_excess = columns(weak)
 ```
+
+端のそば、および折れを判定しない橋渡し部にある閾値未満の折れは残さない。そこの
+折れは判定しないため、どのしきい値でもキンクにならないからである。
 
 ```python
 # source: lib/measure.py::compute_fiber_stats
@@ -2837,8 +2873,8 @@ $W$ ではなく画素の数で決まっているのは、次のものである�
 こうした折れも、捨てずに残しておく。`KinkDetector.kinks_on_line` はこれを別にして
 返し、バンドルにも別に保存する（`up`）。各繊維には `Fiber.unjudged_indices` として
 渡る。GUI04 はこれを灰色の中が空いた丸で描く。こうして、「しきい値に届いたが、端に
-近いので判定しなかった」ものと、「しきい値に届かなかった」もの（どこにも記録しない）を
-区別できる。キンクの数・密度・角度は、
+近いので判定しなかった」ものと、「しきい値に届かなかった」もの（§4.3 の閾値未満の
+折れ。キンクを判定する範囲にあるものだけを `wp` に保存する）を区別できる。キンクの数・密度・角度は、
 GUI04 の一覧でも CSV でも、判定したキンクだけから求め、判定しなかった折れは入れない。
 判定しなかった折れの数は、キンクとは別に、GUI04 の一覧の `unjudged` 列と CSV の
 `unjudged_count` 列に出す。
@@ -2883,6 +2919,62 @@ GUI03、およびプランを渡された `lib/measure.py` である。どちら
 `KinkJudgement.kink_excess`）も保存する。角度は折れの形を表し、超過回転は規則が
 実際に試した量を表す。両方あれば、規則を実行し直さなくても、各キンクがしきい値
 をどれだけ超えていたかを確かめられる。
+
+形式 1.6<!--n:bundle format version--> からは、§4.3 の閾値未満の折れ（`wp`。その角度 `wa` と超過回転 `we`）と、
+それを探した探索の下限（vlmeta の `bundle_schema.WEAK_BEND_FLOOR_KEY`）
+もバンドルに保存する。保存したキンクと閾値未満の折れを合わせると、探索が残した
+すべての折れになる。そのため、バンドルを計測するときに別のしきい値を当てられる
+（`measure.measure_bundle` の `kink_threshold_deg`、GUI03 の「キンクのしきい値」、
+`cli.py measure --kink-threshold-deg`）。探索はしきい値によらないため、超過回転が
+新しいしきい値に届く折れは、下限までは、そのしきい値で解析したときに報告される
+キンクと同じになる。どの折れがキンクかはバンドルから取るが、そこで読む値は
+取らない。キンクの角度の腕は隣のキンクで切られ、端のそばで判定しない折れは
+しきい値に届くものなので、どちらもしきい値によるからである。そこで、追跡した各
+中心線を新しいしきい値で判定し直し（`FiberTrackingImage.kink_rejudge`）、その
+キンクが、しきい値が選ぶ保存した折れと完全に一致することを求める。一致しなければ、
+規則と合わなくなったバンドルとして拒否する。交差をまたいで連結した繊維も、新しい
+しきい値で判定する。同梱のスキャンで、そのしきい値で解析した場合と比べた結果は
+[個別データでの評価](validation.ja.md) §4.18 にある。保存した下限より低い折れまで
+求めるしきい値と、閾値未満の折れを持たない形式 1.6<!--n:bundle format version--> より前のバンドルは、
+欠けた折れの集まりから計測せずに拒否する。
+
+```python
+# source: lib/measure.py::_apply_kink_threshold
+floor = weak_bend_floor_from_meta(meta)
+if floor is None:
+...
+excess_deg = 180.0 - float(kink_threshold_deg)
+if excess_deg < floor - 1e-9:
+...
+empty_points = np.zeros((2, 0), dtype=np.int64)
+points = np.concatenate(
+    [np.asarray(data["kp"]), np.asarray(data.get("wp", empty_points))], axis=1)
+angles = np.concatenate([np.asarray(data["ka"]), np.asarray(data.get("wa", ()))])
+excess = np.concatenate([np.asarray(data.get("ke", ())), np.asarray(data.get("we", ()))])
+keep = excess >= np.radians(excess_deg) - 1e-12
+image.all_kink_coordinates = (points[0][keep], points[1][keep])
+image.all_kink_angles = angles[keep]
+image.all_kink_excess = excess[keep]
+image.kink_angle_deg = float(kink_threshold_deg)
+image.kink_rejudge = KinkDetector(
+    threshold_angle_from_decomposed_indices=np.radians(float(kink_threshold_deg)),
+    centerline_method=image.centerline,
+)
+```
+
+```python
+# source: lib/fiber_tracking_image.py::_build_fiber
+if rejudge is not None and is_placed_line(centerline):
+    judged = rejudge.judge_line(placed.x, placed.y, placed.width_px, pixel_aspect)
+    if [int(i) for i in judged.kink_indices] != kink_indices:
+        raise ValueError(
+            "the kinks found again at the requested threshold differ from "
+            "the bends the bundle stores; re-analyze the bundle"
+        )
+    kink_angles = np.asarray(judged.kink_angles, dtype=np.float64)
+    kink_excess = np.asarray(judged.kink_excess, dtype=np.float64)
+    unjudged_indices = [int(i) for i in judged.unjudged_indices]
+```
 
 ### 4.6 古い形式（1.0）のバンドルで使う折れ線の規則
 

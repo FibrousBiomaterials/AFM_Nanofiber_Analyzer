@@ -314,3 +314,58 @@ def test_an_unjudged_bend_near_an_end_says_so():
     x, y, _ = _walk([("L", 80), ("T", 60), ("L", 1.0 * W)])
     judged = KinkDetector().judge_line(x, y, W)
     assert list(judged.unjudged_reasons) == ["end"]
+
+
+def test_a_bend_below_the_threshold_is_kept_as_a_weak_bend():
+    """
+    A 20 degree turn is not a kink at the default threshold but is returned as a weak bend.
+    20 度の回転は既定のしきい値ではキンクではないが、閾値未満の折れとして返る。
+    """
+    x, y, corners = _walk([("L", 60), ("T", 20), ("L", 60)])
+    judged = KinkDetector().judge_line(x, y, W)
+    assert judged.kink_indices.size == 0
+    assert judged.weak_indices.size == 1
+    assert abs(int(judged.weak_indices[0]) - corners[0]) <= 0.5 * W
+    assert np.degrees(judged.weak_excess[0]) == pytest.approx(20.0, abs=3.0)
+    assert np.degrees(judged.weak_angles[0]) == pytest.approx(160.0, abs=3.0)
+
+
+def test_a_bend_below_the_search_floor_is_not_kept():
+    """A 5 degree turn is below the 10 degree search floor and is not returned at all."""
+    x, y, _ = _walk([("L", 60), ("T", 5), ("L", 60)])
+    judged = KinkDetector().judge_line(x, y, W)
+    assert judged.kink_indices.size == 0 and judged.weak_indices.size == 0
+
+
+def test_a_weak_bend_next_to_an_end_is_not_kept():
+    """A weak bend where kinks are not judged is neither a kink, unjudged, nor a weak bend."""
+    x, y, _ = _walk([("L", 80), ("T", 20), ("L", 1.0 * W)])
+    judged = KinkDetector().judge_line(x, y, W)
+    assert judged.kink_indices.size == 0
+    assert judged.unjudged_indices.size == 0
+    assert judged.weak_indices.size == 0
+
+
+def test_the_search_floor_follows_a_threshold_below_it():
+    """A threshold of 5 degrees of excess lowers the search to it."""
+    lax = KinkDetector(threshold_angle_from_decomposed_indices=np.radians(175.0))
+    assert np.degrees(lax.weak_bend_floor) == pytest.approx(5.0)
+    assert np.degrees(KinkDetector().weak_bend_floor) == pytest.approx(10.0)
+
+
+@pytest.mark.parametrize("other_deg", [130.0, 140.0, 160.0, 168.0])
+def test_a_threshold_selects_from_the_stored_bends_the_kinks_it_would_find(other_deg):
+    """
+    Kinks at another threshold are exactly the bends found at the default whose excess reaches it.
+    別のしきい値でのキンクは、既定で見つけた折れのうち超過回転がそれに届くものと完全に一致する。
+    """
+    x, y, _ = _walk([("L", 50), ("T", 15), ("L", 30), ("T", -25), ("L", 25), ("T", 35),
+                     ("L", 30), ("A", 3 * W, 40), ("L", 20), ("T", 55), ("L", 50)])
+    default = KinkDetector().judge_line(x, y, W)
+    other = KinkDetector(
+        threshold_angle_from_decomposed_indices=np.radians(other_deg)).judge_line(x, y, W)
+    bends = np.concatenate([default.kink_indices, default.weak_indices])
+    excess = np.concatenate([default.kink_excess, default.weak_excess])
+    selected = sorted(int(i) for i, e in zip(bends, excess)
+                      if e >= np.radians(180.0 - other_deg))
+    assert [int(i) for i in other.kink_indices] == selected

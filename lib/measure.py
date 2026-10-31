@@ -44,6 +44,7 @@ predate the scan-size contract.
 
 # ===== Standard library =====
 import csv
+import dataclasses
 import os
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
@@ -58,6 +59,8 @@ from .blosc2_io import bundle_keys, load_bundle, load_bundle_meta
 # キー契約と検証は bundle_schema が管理する。既存の
 # `measure.TRACKING_BUNDLE_KEYS` 利用側が動き続けるよう、ここで再インポートする。
 from .bundle_schema import (
+    APPARENT_WIDTH_KEY,
+    PARAMS_KEY,
     TRACKING_BUNDLE_KEYS,
     centerline_from_meta,
     kink_params_from_meta,
@@ -65,6 +68,7 @@ from .bundle_schema import (
     pixel_size_nm,
     scan_size_um_from_meta,
     validate_bundle,
+    weak_bend_floor_from_meta,
     width_peak_from_meta,
     width_range_adaptive_from_meta,
 )
@@ -88,7 +92,7 @@ from .fiber_selection import (
     load_exclusions,
 )
 from .fiber_tracking_image import FiberTrackingImage
-from .kink_detector import END_MARGIN_WIDTHS, UNJUDGED_AT_BRIDGE
+from .kink_detector import END_MARGIN_WIDTHS, UNJUDGED_AT_BRIDGE, KinkDetector
 # On the skeleton track of a bundle older than format 1.1, straightness
 # measures a straight reference line with the same corrected chain-code metric
 # the fiber's own length uses, so the two are comparable.
@@ -99,11 +103,13 @@ from . import imp_tools
 
 # Optional bundle keys a tracking load reads when present
 # (`bundle_schema.OPTIONAL_BUNDLE_KEYS`): the bends not judged next to a track
-# end, which bundles older than format 1.1 lack.
+# end and the excess of each kink, which bundles older than format 1.1 lack,
+# and the bends below the threshold, which bundles older than format 1.6 lack.
 # 追跡用の読み込みで、存在すれば読む任意バンドルキー
 # （`bundle_schema.OPTIONAL_BUNDLE_KEYS`）。トラック端のそばで判定しなかった
-# 折れで、形式 1.1 より古いバンドルには無い。
-_TRACKING_OPTIONAL_KEYS = ("up", "ke")
+# 折れと各キンクの超過回転は形式 1.1 より古いバンドルに、閾値未満の折れは形式
+# 1.6 より古いバンドルに無い。
+_TRACKING_OPTIONAL_KEYS = ("up", "ke", "wp", "wa", "we")
 
 # Chebyshev distance in pixels within which a track pixel counts as touching a
 # branch point. `imp_tools.remove_bp` clears a 3x3 neighborhood around each
@@ -355,7 +361,7 @@ class FiberStats:
         How many of the `unjudged_count` bends were not judged because their
         window reaches a connector bridge
         (`kink_detector.UNJUDGED_AT_BRIDGE`); the rest lie next to an end.
-        `unjudged_count` の折れのうち、窓が連結器の橋渡し部にかかるため判定
+        `unjudged_count` の折れのうち、折れの区間が連結器の橋渡し部にかかるため判定
         しなかったものの数（`kink_detector.UNJUDGED_AT_BRIDGE`）。残りは端のそば
         にある。
     bridge_excluded_nm
@@ -466,6 +472,12 @@ class MeasureResult:
         because of `plan_missing` members.
         `plan_missing` のメンバーにより 2 つ以上に割れた、または消滅した保存済み
         連鎖の本数。
+    short_dropped
+        Fibers left out of `fibers` and `stats` because they were shorter than
+        the length floor the caller asked for (`measure_bundle` with
+        ``min_length_nm``).
+        呼び出し側が求めた下限長（`measure_bundle` の ``min_length_nm``）より短い
+        ため、`fibers` と `stats` から外したファイバーの数。
     """
 
     image: FiberTrackingImage
@@ -475,6 +487,7 @@ class MeasureResult:
     curated_count: int = 0
     plan_missing: int = 0
     plan_splits: int = 0
+    short_dropped: int = 0
 
 
 def _image_frame_shape(image: FiberTrackingImage) -> Optional[Tuple[int, int]]:
@@ -1830,8 +1843,8 @@ def fiber_kink_density(stat: FiberStats) -> float:
     中心線の上（形式 1.1 以降）では、連結フィブリルの橋渡し部も分母から除く
     （`FiberStats.bridge_excluded_nm`）。
     橋渡し部は繊維を観測していない隙間に引いた直線であり、折れがあるのは両端の
-    角だけである。また、継ぎ目の折れを判定しない連結プランでは、窓が橋渡し部に
-    かかる位置も判定していない。継ぎ目の折れを判定するときは、橋渡し部の角の
+    角だけである。また、継ぎ目の折れを判定しない連結プランでは、折れの区間が
+    橋渡し部にかかる位置も判定していない。継ぎ目の折れを判定するときは、橋渡し部の角の
     キンクは数え、分母から除くのは橋渡し部の長さだけである。
 
     The divisor is `fiber_judged_length_um`, which GUI03 also sums when it
@@ -2122,6 +2135,73 @@ def read_scan_size_from_bundle(
     return scan_size_um_from_meta(load_bundle_meta(bundle_path))
 
 
+def length_floor_nm(bundle_path: str) -> Optional[float]:
+    """
+    Return the shortest fiber length a bundle's analysis keeps whatever its angle.
+    バンドルの解析が向きによらず残す最短の繊維長を返す。
+
+    Parameters
+    ----------
+    bundle_path
+        Path to the ``.b2z`` bundle file.
+        ``.b2z`` バンドルファイルのパス。
+
+    Returns
+    -------
+    float or None
+        ``max(h_length, area_min / W)`` pixels times the larger of the two
+        pixel sizes, in nanometers, with `h_length` and `area_min` as the
+        bundle's analysis recorded them and W its median apparent width in
+        pixels. ``None`` when the bundle records no scan size, no analysis
+        settings or no apparent width.
+        バンドルの解析が記録した `h_length` と `area_min`、および見かけ幅の中央値
+        W（画素）から求めた ``max(h_length, area_min / W)`` 画素に、2 軸の画素
+        サイズの大きい方を掛けた長さ（nm）。走査範囲・解析設定・見かけ幅の
+        いずれかが記録されていなければ ``None``。
+
+    Notes
+    -----
+    Binarization removes every component shorter than `h_length` pixels in
+    every direction and every component of `area_min` pixels or fewer, and a
+    fiber W pixels wide covers about W pixels per pixel of length, so a fiber
+    shorter than this floor in pixels can be lost depending on its angle and
+    placement. Measured in pixels, the floor is the same at every scan size,
+    but in nanometers it grows with the pixel size: a coarser scan cannot
+    contain the short fibers a finer one keeps. Two groups imaged at
+    different pixel sizes are therefore compared above the larger of their
+    floors (GUI03, `cli.py measure --length-floor`). On synthetic straight
+    fibers, every fiber at least this long was kept (docs/validation.md §2.8).
+    The floor is taken at the median width, so a fiber narrower than the
+    median can still be lost somewhat above it.
+    二値化は、どの向きにも `h_length` 画素より短い成分と、`area_min` 画素以下の
+    成分を取り除く。幅 W 画素の繊維は長さ 1 画素あたり約 W 画素を占めるため、
+    この下限より短い繊維は、向きと置き方次第で失われうる。画素で測った下限は
+    どの走査範囲でも同じだが、nm では画素サイズとともに大きくなる。粗い走査には、
+    細かい走査が残す短い繊維が含まれえない。そのため、異なる画素サイズで撮った
+    群どうしは、両者の下限の大きいほうより長い繊維で比べる（GUI03、
+    `cli.py measure --length-floor`）。合成の直線繊維では、この長さ以上の繊維は
+    すべて残った（docs/validation.ja.md §2.8）。下限は幅の中央値で求めるため、
+    中央値より細い繊維は、下限より多少長くても失われうる。
+    """
+    meta = load_bundle_meta(bundle_path)
+    scan = scan_size_um_from_meta(meta)
+    params = meta.get(PARAMS_KEY)
+    width = (meta.get(APPARENT_WIDTH_KEY) or {}).get("median_px")
+    if scan is None or not isinstance(params, dict) or not width:
+        return None
+    try:
+        h_length = float(params["h_length"])
+        area_min = float(params["area_min"])
+        width = float(width)
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not (width > 0 and np.isfinite(h_length) and np.isfinite(area_min)):
+        return None
+    height_px, width_px = load_bundle(bundle_path, keys=["calibrated"])["calibrated"].shape
+    pixel_nm = max(pixel_size_nm(scan[0], width_px), pixel_size_nm(scan[1], height_px))
+    return max(h_length, area_min / width) * pixel_nm
+
+
 def read_centerline_from_bundle(bundle_path: str) -> str:
     """
     Report which line a bundle's fibers are drawn and measured along.
@@ -2272,6 +2352,95 @@ def curate_fibers(
     )
 
 
+def _apply_kink_threshold(
+    image: FiberTrackingImage,
+    data: Dict[str, np.ndarray],
+    meta: Optional[Dict],
+    kink_threshold_deg: float,
+) -> None:
+    """
+    Select a bundle's kinks again at another interior-angle threshold.
+    バンドルのキンクを、別の内角しきい値で選び直す。
+
+    Parameters
+    ----------
+    image
+        Container built from `data`, whose stored kinks are replaced before
+        any fiber is traced.
+        `data` から組み立てたコンテナ。ファイバーを追跡する前に保存キンクを
+        置き換える。
+    data
+        The bundle's arrays, with the optional `wp`, `wa` and `we`.
+        任意キー `wp`・`wa`・`we` を含むバンドルの配列。
+    meta
+        The bundle's vlmeta.
+        バンドルの vlmeta。
+    kink_threshold_deg
+        Interior-angle threshold in degrees, as `ProcParams.kinkangle_deg`:
+        a bend is a kink when its excess turning is at least 180 minus it.
+        内角しきい値（度）。`ProcParams.kinkangle_deg` と同じく、超過回転が
+        180 からこれを引いた値以上の折れをキンクとする。
+
+    Raises
+    ------
+    ValueError
+        If the bundle stores no bends below its threshold (format older than
+        1.6), or if the threshold asks for bends below the floor they were
+        stored down to.
+
+    Notes
+    -----
+    The stored kinks and the stored weak bends together are every bend the
+    search found down to the floor, and a threshold selects the same of them
+    that an analysis at that threshold reports, because the search does not
+    depend on the threshold (`kink_detector.WEAK_BEND_FLOOR_DEG`). The angles
+    and the bends not judged next to an end do depend on it -- a kink's arms
+    are cut at the neighbouring kinks -- so `image.kink_rejudge` makes each
+    traced line be judged again at this threshold, and the kinks found must be
+    exactly the stored bends selected here (`fiber_tracking_image._build_fiber`).
+    Fibrils built by the connector are judged at this threshold too, because
+    `image.kink_angle_deg` is set to it.
+    保存キンクと保存した閾値未満の折れを合わせると、探索が下限までに見つけた
+    すべての折れになる。探索はしきい値によらない（`kink_detector.WEAK_BEND_FLOOR_DEG`）
+    ため、しきい値はその中から、そのしきい値で解析したときに報告される折れと同じ
+    ものを選ぶ。角度と、端のそばで判定しない折れはしきい値による（キンクの腕は隣の
+    キンクで切られる）ため、`image.kink_rejudge` により追跡した各線をこのしきい値で
+    判定し直し、見つかったキンクがここで選んだ保存した折れと完全に一致することを
+    求める（`fiber_tracking_image._build_fiber`）。連結器が組み立てるフィブリルも、
+    `image.kink_angle_deg` をこの値にするため、このしきい値で判定される。
+    """
+    floor = weak_bend_floor_from_meta(meta)
+    if floor is None:
+        raise ValueError(
+            "the bundle stores no bends below its kink threshold (format "
+            f"{(meta or {}).get('version', 'unrecorded')}); re-analyze it in "
+            "the image preprocessor to apply another threshold"
+        )
+    excess_deg = 180.0 - float(kink_threshold_deg)
+    # Rounding of the stored floor must not refuse the analysis threshold.
+    # 保存された下限の丸めで、解析時のしきい値が拒否されないようにする。
+    if excess_deg < floor - 1e-9:
+        raise ValueError(
+            f"a kink threshold of {kink_threshold_deg:g} degrees needs bends "
+            f"down to {excess_deg:g} degrees of excess turning, but the bundle "
+            f"stores them down to {floor:g}"
+        )
+    empty_points = np.zeros((2, 0), dtype=np.int64)
+    points = np.concatenate(
+        [np.asarray(data["kp"]), np.asarray(data.get("wp", empty_points))], axis=1)
+    angles = np.concatenate([np.asarray(data["ka"]), np.asarray(data.get("wa", ()))])
+    excess = np.concatenate([np.asarray(data.get("ke", ())), np.asarray(data.get("we", ()))])
+    keep = excess >= np.radians(excess_deg) - 1e-12
+    image.all_kink_coordinates = (points[0][keep], points[1][keep])
+    image.all_kink_angles = angles[keep]
+    image.all_kink_excess = excess[keep]
+    image.kink_angle_deg = float(kink_threshold_deg)
+    image.kink_rejudge = KinkDetector(
+        threshold_angle_from_decomposed_indices=np.radians(float(kink_threshold_deg)),
+        centerline_method=image.centerline,
+    )
+
+
 def measure_bundle(
     bundle_path: str,
     scale_um: Optional[float] = None,
@@ -2280,6 +2449,8 @@ def measure_bundle(
     scale_y_um: Optional[float] = None,
     plan: Optional[ConnectionPlan] = None,
     exclude_anchors: Sequence[Tuple[int, int]] = (),
+    kink_threshold_deg: Optional[float] = None,
+    min_length_nm: Optional[float] = None,
 ) -> MeasureResult:
     """
     Trace all fibers in one bundle and compute their statistics.
@@ -2343,6 +2514,20 @@ def measure_bundle(
         手動除外ファイバーのアンカー画素。再結合の**前**に、追跡済み断片へ
         適用する（`curate_fibers` 参照）。既定は空で、呼び出し側がキュレーション
         を要求しない限り何も除外しない。
+    kink_threshold_deg
+        Interior-angle threshold in degrees to select the kinks at instead of
+        the one the bundle was analyzed with (`_apply_kink_threshold`);
+        ``None`` keeps the stored kinks.
+        バンドルを解析したしきい値の代わりにキンクを選ぶ内角しきい値（度）
+        （`_apply_kink_threshold`）。``None`` なら保存キンクのまま。
+    min_length_nm
+        Contour length in nanometers below which a measured fiber is left out
+        of the result, after curation and connection, so groups imaged at
+        different pixel sizes can be compared above a common floor
+        (`length_floor_nm`); ``None`` keeps every fiber.
+        キュレーションと連結の後、これより短い計測ファイバーを結果から外す輪郭長
+        (nm)。異なる画素サイズで撮った群を共通の下限より上で比べるためのもの
+        （`length_floor_nm`）。``None`` ならすべて残す。
 
     Returns
     -------
@@ -2356,8 +2541,9 @@ def measure_bundle(
     ------
     ValueError
         If `scale_um` is ``None`` and the bundle records no scan size, if a
-        resolved scale is not a positive number, or if the bundle violates
-        the ``.b2z`` contract (see `lib.bundle_schema.validate_bundle`).
+        resolved scale is not a positive number, if the bundle violates
+        the ``.b2z`` contract (see `lib.bundle_schema.validate_bundle`), or if
+        `kink_threshold_deg` cannot be applied to it.
 
     Notes
     -----
@@ -2434,6 +2620,8 @@ def measure_bundle(
     image = _tracking_image_from_arrays(
         name, data, x_size_per_pixel, y_size_per_pixel, meta=meta,
     )
+    if kink_threshold_deg is not None:
+        _apply_kink_threshold(image, data, meta, kink_threshold_deg)
     fragments = image.fibers_in_image_parallel(
         max_workers=max_workers,
         progress_cb=progress_cb,
@@ -2459,12 +2647,25 @@ def measure_bundle(
                 "re-analyzed since, so connect it again in the fiber tracker"
             )
 
-    return curate_fibers(
+    result = curate_fibers(
         image,
         fragments,
         exclude_anchors=exclude_anchors,
         plan=plan,
     )
+    if min_length_nm is not None:
+        # The floor applies to the measured population, so it runs after
+        # connection: a fibril is judged by its own length, not its pieces'.
+        # 下限は計測する母集団にかけるため連結の後に適用する。フィブリルは断片の
+        # 長さではなく自身の長さで判定する。
+        keep = [i for i, s in enumerate(result.stats) if s.length_nm >= min_length_nm]
+        result = dataclasses.replace(
+            result,
+            fibers=[result.fibers[i] for i in keep],
+            stats=[result.stats[i] for i in keep],
+            short_dropped=len(result.stats) - len(keep),
+        )
+    return result
 
 
 def _exclusion_anchors(bundle_path: str) -> List[Tuple[int, int]]:
@@ -2580,6 +2781,46 @@ def _report_curation(
     if report is not None:
         report.append((
             bundle_path, len(result.fragments), int(result.curated_count),
+            len(result.fibers) + int(result.short_dropped),
+        ))
+
+
+def _report_floor(
+    report: Optional[List[Tuple[str, int, int]]],
+    bundle_path: str,
+    result: MeasureResult,
+) -> None:
+    """
+    Append how many of one bundle's fibers the length floor kept.
+    1 バンドルのファイバーのうち、下限長が残した本数を報告リストへ追加する。
+
+    Parameters
+    ----------
+    report
+        List the caller passed as ``floor_report``; ``None`` records nothing.
+        呼び出し側が ``floor_report`` として渡したリスト。``None`` なら何も
+        記録しない。
+    bundle_path
+        Bundle the counts belong to.
+        件数が属するバンドル。
+    result
+        Measurement of that bundle.
+        そのバンドルの計測結果。
+
+    Notes
+    -----
+    The entry is ``(bundle_path, measured, kept)``: the fibers measured after
+    curation and connection, and those at least as long as the floor. Like the
+    curation counts, it lets a caller say how much the floor removed, which
+    the surviving population alone does not show.
+    項目は ``(バンドルパス, 計測数, 残った数)`` で、キュレーションと連結の後に
+    計測したファイバー数と、そのうち下限以上の長さを持つ数である。キュレーションの
+    件数と同じく、残った母集団だけでは分からない、下限が取り除いた量を呼び出し側
+    が示せるようにする。
+    """
+    if report is not None:
+        report.append((
+            bundle_path, len(result.fibers) + int(result.short_dropped),
             len(result.fibers),
         ))
 
@@ -2592,6 +2833,9 @@ def collect_fiber_stats(
     apply_exclusions: bool = False,
     apply_connection: bool = False,
     curation_report: Optional[List[Tuple[str, int, int, int]]] = None,
+    kink_threshold_deg: Optional[float] = None,
+    min_length_nm: Optional[float] = None,
+    floor_report: Optional[List[Tuple[str, int, int]]] = None,
 ) -> Tuple[List[Tuple[str, List[FiberStats]]], List[Tuple[str, str]]]:
     """
     Measure several ``.b2z`` bundles and return per-fiber statistics per bundle.
@@ -2643,6 +2887,21 @@ def collect_fiber_stats(
         計測したバンドルごとに ``(バンドルパス, 追跡数, 除外後の数, 計測数)``
         を 1 件追加するリスト。追跡された断片数、手動除外の後に残った数、連結後に
         計測したファイバー数である。``None`` なら何も記録しない。
+    kink_threshold_deg
+        Interior-angle threshold in degrees to select every bundle's kinks at,
+        forwarded to `measure_bundle`; ``None`` keeps each bundle's own. A
+        bundle it cannot be applied to becomes an error entry.
+        すべてのバンドルのキンクを選ぶ内角しきい値（度）。`measure_bundle` へ
+        渡す。``None`` なら各バンドル自身のしきい値のまま。当てられないバンドルは
+        エラー項目になる。
+    min_length_nm
+        Length floor forwarded to `measure_bundle`; see `length_floor_nm`.
+        `measure_bundle` へ渡す下限長。`length_floor_nm` 参照。
+    floor_report
+        List to which one ``(bundle_path, measured, kept)`` tuple is appended
+        per measured bundle (`_report_floor`); ``None`` records nothing.
+        計測したバンドルごとに ``(バンドルパス, 計測数, 残った数)`` を 1 件追加する
+        リスト（`_report_floor`）。``None`` なら何も記録しない。
 
     Returns
     -------
@@ -2707,12 +2966,15 @@ def collect_fiber_stats(
                 max_workers=max_workers,
                 exclude_anchors=anchors,
                 plan=plan,
+                kink_threshold_deg=kink_threshold_deg,
+                min_length_nm=min_length_nm,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
 
         _report_curation(curation_report, path, result)
+        _report_floor(floor_report, path, result)
         per_bundle.append((path, list(result.stats)))
     return per_bundle, errors
 
@@ -2786,6 +3048,8 @@ def collect_skeleton_height_profiles(
     apply_exclusions: bool = False,
     apply_connection: bool = False,
     curation_report: Optional[List[Tuple[str, int, int, int]]] = None,
+    min_length_nm: Optional[float] = None,
+    floor_report: Optional[List[Tuple[str, int, int]]] = None,
 ) -> Tuple[List[Tuple[str, np.ndarray, np.ndarray]], List[Tuple[str, str]]]:
     """
     Collect tracked height profiles and their contour length weights.
@@ -2820,6 +3084,13 @@ def collect_skeleton_height_profiles(
         `collect_fiber_stats`.
         `collect_fiber_stats` と同様に、各バンドルのキュレーション件数を受け取る
         リスト。
+    min_length_nm
+        Length floor forwarded to `measure_bundle`; see `length_floor_nm`.
+        `measure_bundle` へ渡す下限長。`length_floor_nm` 参照。
+    floor_report
+        List receiving each bundle's floor counts, as in
+        `collect_fiber_stats`.
+        `collect_fiber_stats` と同様に、各バンドルの下限長の件数を受け取るリスト。
 
     Returns
     -------
@@ -2888,12 +3159,14 @@ def collect_skeleton_height_profiles(
                 max_workers=max_workers,
                 exclude_anchors=anchors,
                 plan=plan,
+                min_length_nm=min_length_nm,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
 
         _report_curation(curation_report, path, result)
+        _report_floor(floor_report, path, result)
         fibers = result.fibers
 
         heights: List[np.ndarray] = []
@@ -2925,6 +3198,8 @@ def collect_fiber_curvature(
     curvature_window_nm: float = DEFAULT_CURVATURE_WINDOW_NM,
     apply_connection: bool = False,
     curation_report: Optional[List[Tuple[str, int, int, int]]] = None,
+    min_length_nm: Optional[float] = None,
+    floor_report: Optional[List[Tuple[str, int, int]]] = None,
 ) -> Tuple[List[Tuple[str, np.ndarray]], List[Tuple[str, str]]]:
     """
     Measure the per-fiber mean curvature across several bundles.
@@ -2964,6 +3239,13 @@ def collect_fiber_curvature(
         `collect_fiber_stats`.
         `collect_fiber_stats` と同様に、各バンドルのキュレーション件数を受け取る
         リスト。
+    min_length_nm
+        Length floor forwarded to `measure_bundle`; see `length_floor_nm`.
+        `measure_bundle` へ渡す下限長。`length_floor_nm` 参照。
+    floor_report
+        List receiving each bundle's floor counts, as in
+        `collect_fiber_stats`.
+        `collect_fiber_stats` と同様に、各バンドルの下限長の件数を受け取るリスト。
 
     Returns
     -------
@@ -3021,12 +3303,14 @@ def collect_fiber_curvature(
                 max_workers=max_workers,
                 exclude_anchors=anchors,
                 plan=plan,
+                min_length_nm=min_length_nm,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
 
         _report_curation(curation_report, path, result)
+        _report_floor(floor_report, path, result)
         fibers = result.fibers
 
         x_spp = result.image.size_per_pixel
@@ -3314,6 +3598,8 @@ def skeleton_height_values(
     apply_connection: bool = False,
     max_workers: Optional[int] = None,
     curation_report: Optional[List[Tuple[str, int, int, int]]] = None,
+    min_length_nm: Optional[float] = None,
+    floor_report: Optional[List[Tuple[str, int, int]]] = None,
 ) -> Tuple[np.ndarray, List[Tuple[str, str]]]:
     """
     Collect tracked fiber heights from multiple ``.b2z`` bundles.
@@ -3342,6 +3628,17 @@ def skeleton_height_values(
         `collect_fiber_stats`.
         `collect_fiber_stats` と同様に、各バンドルのキュレーション件数を受け取る
         リスト。
+    min_length_nm
+        Length floor forwarded to `measure_bundle`; see `length_floor_nm`. Not
+        applied to a bundle without a recorded scan size, whose lengths are
+        placeholders.
+        `measure_bundle` へ渡す下限長。`length_floor_nm` 参照。走査範囲が未記録の
+        バンドルは長さが代替値のため適用しない。
+    floor_report
+        List receiving each bundle's floor counts, as in
+        `collect_fiber_stats`; a bundle the floor was not applied to adds none.
+        `collect_fiber_stats` と同様に、各バンドルの下限長の件数を受け取るリスト。
+        下限を適用しなかったバンドルは追加しない。
 
     Returns
     -------
@@ -3415,18 +3712,25 @@ def skeleton_height_values(
             # 高さは物理ピクセルサイズに依存しないため、走査範囲が未記録の
             # バンドルもここでは計測できる。HEIGHT_ONLY_SCALE_UM を参照。
             recorded = read_scan_size_from_bundle(path)
+            # A length floor needs real lengths, so a bundle measured at the
+            # placeholder scale is left whole.
+            # 下限長には実際の長さが要るため、代替スケールで計測するバンドルには
+            # 適用しない。
             result = measure_bundle(
                 path,
                 scale_um=None if recorded else HEIGHT_ONLY_SCALE_UM,
                 max_workers=max_workers,
                 exclude_anchors=anchors,
                 plan=plan,
+                min_length_nm=min_length_nm if recorded else None,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
 
         _report_curation(curation_report, path, result)
+        if recorded:
+            _report_floor(floor_report, path, result)
         for fiber in result.fibers:
             height = np.asarray(fiber.height, dtype=float)
             if height.size:

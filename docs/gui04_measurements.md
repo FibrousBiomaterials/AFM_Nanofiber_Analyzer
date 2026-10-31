@@ -94,7 +94,7 @@ fragments = image.fibers_in_image_parallel(
     progress_cb=progress_cb,
 )
 ...
-return curate_fibers(
+result = curate_fibers(
     image,
     fragments,
     exclude_anchors=exclude_anchors,
@@ -104,7 +104,10 @@ return curate_fibers(
 
 `curate_fibers` applies the user's saved exclusions to the traced fragments.
 It then applies the saved connection plan to the fragments that remain (§5).
-The fibers it returns are the rows of the fiber table.
+The fibers it returns are the rows of the fiber table. GUI04 passes
+`measure_bundle` neither another kink threshold nor a length floor, which only
+GUI03 and `cli.py measure` use, so the table shows the kinks the bundle stores
+and every fiber.
 
 ## 1. From a bundle to fibers
 
@@ -1698,10 +1701,12 @@ point_arc = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
 bridges = _bridge_intervals(observed, point_arc)
 ...
     if not margin <= p <= length - margin:
-        unjudged.append((index, UNJUDGED_NEAR_END))
+        if strong:
+            unjudged.append((index, UNJUDGED_NEAR_END))
     elif not judge_bridges and any(
             a <= p + c and b >= p - c for a, b in bridges):
-        unjudged.append((index, UNJUDGED_AT_BRIDGE))
+        if strong:
+            unjudged.append((index, UNJUDGED_AT_BRIDGE))
 ...
 reach = 0.0 if judge_bridges else c
 bridge_excluded = _covered_length(
