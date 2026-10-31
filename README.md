@@ -472,17 +472,26 @@ every fiber shorter than it, so the log reports how many fibers that excluded.
 fiber that reaches the edge of the scan continues outside it, so its measured
 length is only a lower bound, while its height, curvature and kinks remain valid
 for the part inside; the setting therefore applies to length only. `include`
-(the default) aggregates every fiber; `exclude` leaves out the fibers whose
-skeleton reaches the outermost row or column. Excluding them alone biases the
-distribution toward short fibers, because a long fiber is more likely to reach
-the frame, so `Miles-Lantuejoul` also weights each remaining fiber by the
+(the default) aggregates every fiber, and the figure, the log and the statistics
+CSV report what share of each group's fibers reach the frame; `exclude` leaves
+out the fibers whose skeleton reaches the outermost row or column. Excluding them
+alone biases the distribution toward short fibers, because a long fiber is more
+likely to reach the frame. Under either setting the shift depends on how long the
+fibers are against the scan, so the log warns when the bundles compared under
+`include` or `exclude` differ in scan size by more than 1 %. `Miles-Lantuejoul`
+reduces the bias: it also weights each remaining fiber by the
 inverse of its chance of fitting inside the frame —
 (W − 2)(H − 2) / ((W − 1 − w)(H − 1 − h)) for a W × H pixel image and a w × h
 skeleton bounding box. The weights have no upper bound — a fiber whose box
 nearly fills the frame weighs many fibers — so the log and the figure report the
 effective sample size (Σw)²/Σw² and the log the share of the total weight the
-heaviest fiber carries. Weighted samples are not tested between groups, because
-Mann-Whitney U and KS take no weights. The correction covers the frame only: a
+heaviest fiber carries. Weighted fiber samples are not tested between groups,
+because Mann-Whitney U and KS take no weights; at the `image` and `folder` units
+each sample is the weighted median of one scan or folder, an unweighted value,
+so those units are tested with the correction in place. The weights restore only
+lengths that were seen: a length approaching the scan size fits inside the frame
+at few orientations or none, so the distribution still reads short there. The
+correction covers the frame only: a
 fragment cut at a crossing is still counted as a whole fiber, and the log
 reports how many of the remaining lengths are such lower bounds. A fiber CSV
 exported before the frame columns existed records no frame test, so it is left

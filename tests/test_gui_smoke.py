@@ -1298,8 +1298,12 @@ def test_gui03_frame_mode_filters_and_weights_contour_length():
     unrecorded = [_frame_stat(200.0, None, None, float("nan"))]
     per_source = [("a.b2z", judged), ("old_fibers.csv", unrecorded)]
 
+    # `include` removes nothing and still counts what the frame cut.
+    # `include` は何も外さず、枠で切れたものは数える。
     kept, report = gui03._apply_frame_mode(per_source, gui03.FRAME_INCLUDE)
-    assert kept is per_source and report is None
+    assert kept is per_source
+    assert report == {"total": 3, "frame": 1, "lower_bound": 1,
+                      "unrecorded": ["old_fibers.csv"]}
 
     kept, report = gui03._apply_frame_mode(per_source, gui03.FRAME_EXCLUDE)
     assert [[s.length_nm for s in stats] for _p, stats in kept] == [[100.0, 300.0]]
@@ -1509,10 +1513,151 @@ def test_gui03_frame_weighted_run_reports_fibers_and_skips_tests(
     assert seen["frame_mode"] == gui03.FRAME_MILES_LANTUEJOUL
     assert done["comparisons"] == []
     assert gui03.FRAME_MILES_LANTUEJOUL in done["comparison_note"]
+    # The way to a test keeps the correction: it names the summary units, not
+    # the mode whose bias the correction exists to remove.
+    # 検定への道は補正を保つ。案内するのは要約単位であり、補正が取り除くはずの
+    # 偏りを持つモードではない。
+    assert gui03.FRAME_EXCLUDE not in done["comparison_note"]
+    assert gui03.UNIT_IMAGE in done["comparison_note"]
+    assert gui03.UNIT_FOLDER in done["comparison_note"]
     r = done["results"][0]
     assert r["n_samples"] == 3.0
     assert r["weight_total"] == pytest.approx(4.5)
     assert r["n_in_range"] == 3.0
+
+
+def test_gui03_scan_size_note_names_each_group_when_sizes_differ():
+    """
+    The scan-size warning appears only when sizes differ, per group.
+    走査範囲の警告は違うときだけ、グループごとに出る。
+    """
+    for mode in (gui03.FRAME_INCLUDE, gui03.FRAME_EXCLUDE):
+        assert gui03._scan_size_spread_note({}, mode) == ""
+        assert gui03._scan_size_spread_note({"A": [(2.0, 2.0)]}, mode) == ""
+        # Within one percent is the rounding of a header value, not a difference.
+        # 1 % 以内はヘッダの値の丸めであり、違いではない。
+        assert gui03._scan_size_spread_note(
+            {"A": [(2.0, 2.0)], "B": [(2.01, 2.01)]}, mode) == ""
+        text = gui03._scan_size_spread_note(
+            {"A": [(2.0, 2.0)], "B": [(5.0, 5.0), (5.0, 5.0)]}, mode)
+        assert mode in text and gui03.FRAME_MILES_LANTUEJOUL in text
+        assert "A: 2×2" in text and "B: 5×5" in text
+        # One axis differing is enough: the frame cuts along both.
+        # 片方の軸の違いで足りる。枠は両軸で切る。
+        assert gui03._scan_size_spread_note(
+            {"A": [(2.0, 2.0)], "B": [(2.0, 1.0)]}, mode) != ""
+
+
+@pytest.mark.parametrize(
+    "frame_mode, share",
+    [(gui03.FRAME_INCLUDE, pytest.approx(0.5)), (gui03.FRAME_EXCLUDE, None)],
+)
+def test_gui03_include_reports_the_share_cut_by_the_frame(
+        tk_app, tmp_path, monkeypatch, frame_mode, share):
+    """
+    `include` reports per group what share of its fibers reach the frame.
+    `include` はグループごとに枠に達したファイバーの割合を報告する。
+    """
+    app = tk_app(gui03.App)
+    folders = []
+    for name in ("A", "B"):
+        folder = tmp_path / name
+        folder.mkdir()
+        (folder / ("sample" + gui03.BUNDLE_EXT)).write_bytes(b"")
+        folders.append(str(folder))
+
+    def _collect(paths, param, unit, **kwargs):
+        kwargs["frame_report"].update(
+            {"total": 4, "frame": 2, "lower_bound": 1, "unrecorded": []})
+        return [100.0, 200.0, 300.0, 400.0], None, 4, 1, []
+
+    monkeypatch.setattr(app, "_collect_bundle_values", _collect)
+    app._worker_run({
+        "groups": [
+            {"id": n, "name": n, "color": "#1f77b4", "folders": [f]}
+            for n, f in zip(("A", "B"), folders)
+        ],
+        "param": gui03.PARAM_LENGTH,
+        "unit": gui03.UNIT_FIBER,
+        "input_mode": gui03.INPUT_BUNDLE,
+        "apply_exclusions": False,
+        "apply_connection": False,
+        "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
+        "frame_mode": frame_mode,
+        "plot_type": gui03.PLOT_HISTOGRAM,
+        "min_h": 0.0, "max_h": 3000.0, "step": 100.0,
+        "yaxis_mode": "density", "display_mode": gui03.App.MODE_STACK,
+        "show_height_text": True,
+        "fig_w": 6.0, "fig_h": 3.0,
+        "label_fs": 15.0, "tick_fs": 15.0, "ann_fs": 15.0,
+        "group_name_fs": 15.0,
+    })
+
+    done = None
+    while not app.ui_queue.empty():
+        kind, payload = app.ui_queue.get_nowait()
+        if kind == "done":
+            done = payload
+    assert done is not None
+    assert [r["frame_share"] for r in done["results"]] == [share, share]
+
+
+@pytest.mark.parametrize("unit", [gui03.UNIT_IMAGE, gui03.UNIT_FOLDER])
+def test_gui03_frame_weighted_summary_units_are_tested(
+        tk_app, tmp_path, monkeypatch, unit):
+    """
+    Miles-Lantuejoul at the image and folder units is tested as corrected.
+    image・folder 単位の Miles-Lantuejoul は補正したまま検定する。
+
+    Each sample is the weighted median of one scan or folder, an unweighted
+    value, so the rank tests apply to it.
+    各標本は 1 画像または 1 フォルダの重み付き中央値という重みのない値なので、
+    順位検定を適用できる。
+    """
+    app = tk_app(gui03.App)
+    folders = []
+    for name in ("A", "B"):
+        folder = tmp_path / name
+        folder.mkdir()
+        (folder / ("sample" + gui03.BUNDLE_EXT)).write_bytes(b"")
+        folders.append(str(folder))
+
+    samples = iter(([100.0, 200.0, 300.0], [400.0, 500.0, 600.0]))
+
+    def _collect(paths, param, unit, **kwargs):
+        return next(samples), None, 3, 3, []
+
+    monkeypatch.setattr(app, "_collect_bundle_values", _collect)
+    app._worker_run({
+        "groups": [
+            {"id": n, "name": n, "color": "#1f77b4", "folders": [f]}
+            for n, f in zip(("A", "B"), folders)
+        ],
+        "param": gui03.PARAM_LENGTH,
+        "unit": unit,
+        "input_mode": gui03.INPUT_BUNDLE,
+        "apply_exclusions": False,
+        "apply_connection": False,
+        "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
+        "frame_mode": gui03.FRAME_MILES_LANTUEJOUL,
+        "plot_type": gui03.PLOT_HISTOGRAM,
+        "min_h": 0.0, "max_h": 3000.0, "step": 100.0,
+        "yaxis_mode": "density", "display_mode": gui03.App.MODE_STACK,
+        "show_height_text": True,
+        "fig_w": 6.0, "fig_h": 3.0,
+        "label_fs": 15.0, "tick_fs": 15.0, "ann_fs": 15.0,
+        "group_name_fs": 15.0,
+    })
+
+    done = None
+    while not app.ui_queue.empty():
+        kind, payload = app.ui_queue.get_nowait()
+        if kind == "done":
+            done = payload
+    assert done is not None
+    assert done["comparison_note"] == ""
+    assert len(done["comparisons"]) == 1
+    assert done["comparisons"][0].mannwhitney_p == pytest.approx(0.1)
 
 
 def test_gui04_marks_a_length_that_is_a_lower_bound():

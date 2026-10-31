@@ -94,9 +94,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   only a lower bound; its height, curvature and kinks are unaffected by the
   setting. Because a long fiber is more likely to reach the edge, `exclude`
   alone favours short fibers, and `Miles-Lantuejoul` weights each remaining
-  fiber by the inverse of its chance of fitting inside the frame; weighted
-  samples are not tested between groups. The default, `include`, gives the same
-  results as before.
+  fiber by the inverse of its chance of fitting inside the frame. Weighted fiber
+  samples are not tested between groups; at the `image` and `folder` units each
+  sample is the weighted median of one scan or folder, an unweighted value, and
+  is tested. The default, `include`, gives the same results as before, and the
+  figure, the log and the statistics CSV (a new last column, `reaching frame
+  (%)`) report what share of each group's fibers reach the frame. The log warns
+  when the bundles compared under `include` or `exclude` differ in scan size by
+  more than 1 %, because how far the lengths shift depends on how long the fibers
+  are against the scan.
 - GUI04's fiber table marks a length that is only a lower bound with `≥`: the
   fiber reaches the frame, or has an end cut at a crossing or by the height
   filter.

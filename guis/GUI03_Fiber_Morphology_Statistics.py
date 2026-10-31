@@ -379,15 +379,19 @@ def _apply_frame_mode(per_source, frame_mode: str) -> tuple:
     tuple
         ``(kept, report)``. `kept` has the same shape as `per_source`, less
         the fibers that reach the frame and less every source that does not
-        record the frame test. `report` is None for `FRAME_INCLUDE`, otherwise
-        a dict with ``total`` and ``frame`` (fibers judged and excluded),
-        ``lower_bound`` (kept fibers with a cut end) and ``unrecorded`` (the
-        sources left out).
+        record the frame test; under `FRAME_INCLUDE` it is `per_source` itself.
+        `report` is a dict with ``total`` and ``frame`` (fibers judged, and
+        those that reach the frame), ``lower_bound`` (fibers judged not to
+        reach it that have a cut end) and ``unrecorded`` (the sources without
+        the test). `FRAME_INCLUDE` counts the same fibers and removes none, so
+        the share of lengths the frame cut can be reported.
         ``(kept, report)``。`kept` は `per_source` と同じ形で、枠に達した
-        ファイバーと、枠の判定を記録していないソースを除いたもの。`report` は
-        `FRAME_INCLUDE` では None、それ以外では ``total``・``frame``（判定した
-        本数と除外した本数）、``lower_bound``（残ったうち切断端を持つ本数）、
-        ``unrecorded``（外したソース）を持つ dict。
+        ファイバーと、枠の判定を記録していないソースを除いたもの。
+        `FRAME_INCLUDE` では `per_source` そのもの。`report` は ``total``・
+        ``frame``（判定した本数と枠に達した本数）、``lower_bound``（枠に達して
+        いないと判定され、切断端を持つ本数）、``unrecorded``（判定の無いソース）を
+        持つ dict。`FRAME_INCLUDE` は同じ本数を数えるが何も外さない。枠で切れた
+        長さの割合を報告できるようにするためである。
 
     Notes
     -----
@@ -404,8 +408,6 @@ def _apply_frame_mode(per_source, frame_mode: str) -> tuple:
     持つファイバーは残す。その長さも下限値だが、それはセグメンテーションの性質で
     あり枠の補正はそれを扱わない。本数は報告に出す。
     """
-    if frame_mode == FRAME_INCLUDE:
-        return per_source, None
     if frame_mode == FRAME_KAPLAN_MEIER:
         return _apply_kaplan_meier(per_source)
     kept = []
@@ -419,7 +421,80 @@ def _apply_frame_mode(per_source, frame_mode: str) -> tuple:
         report["frame"] += len(stats) - len(survivors)
         report["lower_bound"] += sum(1 for s in survivors if s.cut_end_count)
         kept.append((path, survivors))
-    return kept, report
+    return (per_source if frame_mode == FRAME_INCLUDE else kept), report
+
+
+def _scan_size_spread_note(sizes_by_group: dict, frame_mode: str) -> str:
+    """
+    Word the warning that bundles compared without a frame correction differ in scan size.
+    枠の補正なしで比べるバンドルの走査範囲が違うときの警告文を作る。
+
+    Parameters
+    ----------
+    sizes_by_group
+        Group name mapped to the ``(x_um, y_um)`` scan size of each of its
+        bundles that records one.
+        グループ名から、走査範囲を記録した各バンドルの ``(x_um, y_um)`` への対応。
+    frame_mode
+        `FRAME_INCLUDE` or `FRAME_EXCLUDE`, which selects how the shift is
+        worded.
+        `FRAME_INCLUDE` または `FRAME_EXCLUDE`。偏りの説明の文面を選ぶ。
+
+    Returns
+    -------
+    str
+        The warning, or an empty string when every recorded size agrees within
+        one percent on both axes.
+        警告文。記録されたすべての走査範囲が両軸で 1 % 以内に一致すれば空文字列。
+
+    Notes
+    -----
+    Keeping the fibers the frame cut measures them short, and leaving them out
+    favours short fibers. Either way the amount is set by how long the fibers
+    are against the scan, so a difference between scan sizes enters the length
+    distributions. The spread is taken over every bundle of the run, so the
+    warning says that such bundles were compared, and the sizes are listed per
+    group so the reader can see how they are distributed. The comparison is
+    still made; the user is told.
+    枠で切れたファイバーを残せば短く測られ、外せば短いファイバーが有利になる。
+    どちらでも大きさは走査範囲に対する繊維の長さで決まるため、走査範囲の違いが長さの
+    分布に入り込む。ばらつきは実行内の全バンドルで取るので、警告が示すのはそうした
+    バンドルを比べたことである。
+    走査範囲はグループごとに挙げ、どう分かれているかを読み手が見られるようにする。
+    比較はそのまま行い、ユーザーに知らせる。
+    """
+    sizes = [size for group in sizes_by_group.values() for size in group]
+    if len(sizes) < 2:
+        return ""
+    # A spread under one percent, such as the rounding of a scan size written
+    # in an instrument header, does not raise the warning.
+    # 装置ヘッダに書かれた走査範囲の丸めのような 1 % 未満の違いでは警告しない。
+    if all(max(axis) <= min(axis) * 1.01 for axis in zip(*sizes)):
+        return ""
+    groups = "; ".join(
+        "{name}: {sizes}".format(
+            name=name,
+            sizes=", ".join(
+                "{0:.3g}×{1:.3g}".format(*size) for size in sorted(set(group))
+            ),
+        )
+        for name, group in sizes_by_group.items() if group
+    )
+    if frame_mode == FRAME_INCLUDE:
+        return _(
+            "注意: {mode} で比較したバンドルの走査範囲 ({um}) が異なります（{groups}）。"
+            "枠で切れたファイバーは短く測られ、分布は短い側に偏ります。その大きさは走査範囲に"
+            "対する繊維の長さで変わります。そのため走査範囲の違うバンドルの間の長さの差には、"
+            "撮像条件の違いも含まれます。{ml} を使うと、この偏りは小さくなります。"
+        ).format(mode=frame_mode, um=UNIT_MICROMETER, groups=groups,
+                 ml=FRAME_MILES_LANTUEJOUL)
+    return _(
+        "注意: {exclude} で比較したバンドルの走査範囲 ({um}) が異なります（{groups}）。"
+        "枠に達したファイバーを外すと分布は短い側に偏り、その大きさは走査範囲に対する"
+        "繊維の長さで変わります。そのため走査範囲の違うバンドルの間の長さの差には、"
+        "撮像条件の違いも含まれます。{ml} を使うと、この偏りは小さくなります。"
+    ).format(exclude=frame_mode, um=UNIT_MICROMETER, groups=groups,
+             ml=FRAME_MILES_LANTUEJOUL)
 
 
 def _apply_kaplan_meier(per_source) -> tuple:
@@ -1820,23 +1895,28 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ToolTip(self.cmb_frame_mode, _(
             "{length} だけに効く設定です。画像の枠に達したファイバーは走査範囲の外へ"
             "続いているため、長さが短く測られます。{include} はそのまま集計し、"
+            "枠に達した割合をグループごとに図とログに出します。"
             "{exclude} は長さの集計から外します。ただし長いファイバーほど枠に"
-            "達しやすいため、外すだけでは長いファイバーが過小になります。{ml} は"
+            "達しやすいため、外すだけでは長いファイバーが過小になります。どちらの偏りも"
+            "走査範囲で変わるため、比べるバンドルの走査範囲が違うとログで警告します。{ml} は"
             "外したうえで、残った各ファイバーを枠内に収まる確率の逆数で重み付けし"
-            "（Miles-Lantuejoul 補正）、その偏りを補正します。交差で切れた断片は"
+            "（Miles-Lantuejoul 補正）、その偏りを小さくします。走査範囲に近い長さは"
+            "枠に収まる向きが少ないか無いため、差が残ります。交差で切れた断片は"
             "補正されず、その本数はログに出ます。{km} は、枠と交差のどちらで切れた"
             "長さも扱います。自身の端を 2 つ持つファイバーを全長の観測、1 つだけ持つ"
             "ファイバーを「計測した長さ以上」の観測として、ファイバーの長さの分布を"
             "推定します（Kaplan-Meier 推定）。{km} は {fiber} 集計でだけ使えます。"
             "全長を見たうち最長のファイバーより長い側は推定できず、その割合は図と"
             "ログに出ます。そこに落ちる中央値や四分位数は数値の代わりに「> その長さ」"
-            "と書き、平均・標準偏差・最頻値は空欄にします。重み付きの標本には群間"
-            "検定を行いません。高さ・曲率・キンクは枠内の部分の測定として有効なため、"
-            "この設定の影響を受けません。"
+            "と書き、平均・標準偏差・最頻値は空欄にします。{fiber} 集計の重み付きの標本"
+            "には群間検定を行いません。{ml} の {image}・{folder} 集計は、各画像・各"
+            "フォルダの重み付き中央値を検定します。高さ・曲率・キンクは枠内の部分の"
+            "測定として有効なため、この設定の影響を受けません。"
         ).format(
             length=PARAM_LENGTH, include=FRAME_INCLUDE,
             exclude=FRAME_EXCLUDE, ml=FRAME_MILES_LANTUEJOUL,
             km=FRAME_KAPLAN_MEIER, fiber=UNIT_FIBER,
+            image=UNIT_IMAGE, folder=UNIT_FOLDER,
         ))
         self._update_frame_mode_state()
 
@@ -3509,6 +3589,37 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 continue
         return sizes
 
+    @staticmethod
+    def _bundle_scan_sizes(bundle_paths) -> list:
+        """
+        Read the scan size recorded in each bundle.
+        各バンドルに記録された走査範囲を読む。
+
+        Parameters
+        ----------
+        bundle_paths
+            ``.b2z`` bundles about to be measured.
+            これから計測する ``.b2z`` バンドル。
+
+        Returns
+        -------
+        list of tuple
+            ``(x_um, y_um)`` per bundle with a recorded scan size; a bundle
+            without one, or one that cannot be read, is passed over, because
+            the collector reports it.
+            走査範囲を記録したバンドルごとの ``(x_um, y_um)``。記録の無いバンドルや
+            読めないバンドルは読み飛ばす。コレクタがそれを報告するためである。
+        """
+        sizes = []
+        for path in bundle_paths:
+            try:
+                scan = read_scan_size_from_bundle(path)
+            except Exception:
+                continue
+            if scan is not None:
+                sizes.append(tuple(float(v) for v in scan))
+        return sizes
+
     def _log_pixel_size_spread(self, pixel_sizes: list) -> None:
         """
         Warn when the bundles measured for curvature differ in pixel size.
@@ -3968,6 +4079,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 曲率を計測した全バンドルの X 画素サイズ。比較するバンドルで違うときに
         # 警告するために集める（`_log_pixel_size_spread`）。
         curvature_pixel_sizes: list = []
+        # Scan size of every bundle whose lengths carry no frame correction, per
+        # group, to warn when the compared bundles differ in it
+        # (`_scan_size_spread_note`).
+        # 長さに枠の補正をかけない全バンドルの走査範囲をグループごとに集める。比較する
+        # バンドルで違うときに警告するため（`_scan_size_spread_note`）。
+        uncorrected_lengths = (
+            param == PARAM_LENGTH
+            and frame_mode in (FRAME_INCLUDE, FRAME_EXCLUDE)
+        )
+        frame_scan_sizes: dict = {}
 
         # The length floor and the kink threshold are decided over every
         # bundle of the run before any group is measured, because both must be
@@ -4011,6 +4132,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # 本数と、その長さ。グループのフォルダにわたって合計する。
             grp_km_beyond = 0.0
             grp_km_longest = float("nan")
+            # Under `FRAME_INCLUDE`: fibers judged, those that reach the frame,
+            # and those with an end cut elsewhere, over the group's folders.
+            # `FRAME_INCLUDE` のとき、判定した本数、枠に達した本数、それ以外で切れた
+            # 端を持つ本数。グループのフォルダにわたって合計する。
+            grp_frame_total = 0
+            grp_frame_touching = 0
+            grp_frame_cut = 0
 
             for folder in grp["folders"]:
                 folder_name = os.path.basename(folder)
@@ -4104,6 +4232,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     curvature_pixel_sizes.extend(
                         self._bundle_pixel_sizes(bundle_paths))
 
+                if uncorrected_lengths and input_mode == INPUT_BUNDLE:
+                    frame_scan_sizes.setdefault(grp_name, []).extend(
+                        self._bundle_scan_sizes(bundle_paths))
+
                 frame_report = {}
                 curation_report: list = []
                 floor_report: list = []
@@ -4174,7 +4306,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     grp_km_beyond += frame_report["beyond"]
                     grp_km_longest = float(np.nanmax(
                         [grp_km_longest, frame_report["longest_nm"]]))
-                if frame_report:
+                if frame_report and frame_mode == FRAME_INCLUDE:
+                    grp_frame_total += frame_report["total"]
+                    grp_frame_touching += frame_report["frame"]
+                    grp_frame_cut += frame_report["lower_bound"]
+                    for skipped in frame_report["unrecorded"]:
+                        self.ui_queue.put(("log", _(
+                            "[{grp}/{folder}] {name}: 枠の判定が記録されていないため、"
+                            "枠に達した本数に数えていません（現行の Fiber Tracker で"
+                            "出力し直すと記録されます）"
+                        ).format(
+                            grp=grp_name, folder=folder_name,
+                            name=os.path.basename(skipped),
+                        )))
+                elif frame_report:
                     for skipped in frame_report["unrecorded"]:
                         self.ui_queue.put(("log", _(
                             "[{grp}/{folder}] {name}: 枠の判定が記録されていない"
@@ -4284,6 +4429,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # より長い側の本数と、その長さ。
                 "km_beyond": grp_km_beyond if kaplan_meier else 0.0,
                 "km_longest_nm": grp_km_longest,
+                # Share of the fibers aggregated under `FRAME_INCLUDE` whose
+                # length the frame cut, which is what the mode leaves in.
+                # `FRAME_INCLUDE` で集計したファイバーのうち、枠で長さが切れたものの
+                # 割合。このモードが分布に残すものである。
+                "frame_share": (
+                    grp_frame_touching / grp_frame_total if grp_frame_total
+                    else None
+                ),
                 # The raw point count drives the "too few samples to read the
                 # shape" notice, which is about the histogram, not the weight.
                 # 「形状が読めるほど標本が無い」通知は生の点数で判断する。これは
@@ -4312,8 +4465,26 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     "最大の重みを持つ 1 本が重みの合計の {share:.0%} を占めます。"
                 ).format(g=grp_name, mode=frame_mode, neff=results[-1]["n_effective"],
                          n=int(arr.size), share=results[-1]["max_weight_share"])))
+            if results[-1]["frame_share"] is not None:
+                self.ui_queue.put(("log", _(
+                    "[{g}] 長さ: {total} 本のうち {n} 本 ({share:.0%}) が枠に達し、"
+                    "ほかに {k} 本が交差などで切れた端を持ちます。どちらの長さも下限値です。"
+                ).format(g=grp_name, total=grp_frame_total, n=grp_frame_touching,
+                         share=results[-1]["frame_share"], k=grp_frame_cut)))
 
         self._log_pixel_size_spread(curvature_pixel_sizes)
+        scan_size_note = _scan_size_spread_note(frame_scan_sizes, frame_mode)
+        if scan_size_note:
+            self.ui_queue.put(("log", scan_size_note))
+        if uncorrected_lengths and input_mode == INPUT_FIBER_CSV:
+            # A fiber CSV has no scan-size column, so the check cannot run; saying
+            # so keeps its silence from reading as "the scan sizes agree".
+            # ファイバー CSV には走査範囲の列が無く、確かめられない。そう述べることで、
+            # 警告が出ないことが「走査範囲が一致している」と読まれないようにする。
+            self.ui_queue.put(("log", _(
+                "注意: ファイバー CSV には走査範囲の記録が無いため、{mode} で"
+                "比較するファイルの走査範囲が揃っているかは確かめていません。"
+            ).format(mode=frame_mode)))
 
         if not results:
             self.ui_queue.put(("fatal", {
@@ -4439,16 +4610,34 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "{fiber}・{image}・{folder} のいずれかの集計に切り替えてください。"
             ).format(unit=unit, fiber=UNIT_FIBER, image=UNIT_IMAGE,
                      folder=UNIT_FOLDER)
-        elif frame_weighted:
+        elif frame_weighted and unit == UNIT_FIBER:
             # Mann-Whitney U and KS take no weights, and a weighted
-            # Mann-Whitney has no standard form, so a corrected sample is
-            # described but not tested.
+            # Mann-Whitney has no standard form, so a corrected fiber sample is
+            # described but not tested. An image or folder sample is that
+            # scan's or folder's weighted median, one unweighted value, so
+            # those units are tested with the correction in place. The note
+            # does not point at `exclude`, which can be tested only by dropping
+            # the correction for the bias it introduces.
             # Mann-Whitney U と KS は重みを受け付けず、重み付き Mann-Whitney
-            # には標準的な形が無い。そのため補正した標本は記述するが検定しない。
-            comparison_note = _(
-                "{ml} 補正の標本は重み付きのため検定しません。検定するには "
-                "{exclude} に切り替えてください。"
-            ).format(ml=frame_mode, exclude=FRAME_EXCLUDE)
+            # には標準的な形が無い。そのため補正したファイバー標本は記述するが検定
+            # しない。画像・フォルダの標本はその画像・フォルダの重み付き中央値という
+            # 重みのない 1 値なので、これらの単位は補正したまま検定する。注記で
+            # `exclude` を案内しないのは、それが生む偏りの補正を捨てることになるため
+            # である。
+            if frame_mode == FRAME_KAPLAN_MEIER:
+                comparison_note = _(
+                    "{km} の標本は重み付きのため検定しません。枠で切れた長さを"
+                    "補正して検定するには、枠の扱いを {ml} に、集計単位を {image} か "
+                    "{folder} にしてください。{ml} は交差で切れた長さを補正しません。"
+                ).format(km=FRAME_KAPLAN_MEIER, ml=FRAME_MILES_LANTUEJOUL,
+                         image=UNIT_IMAGE, folder=UNIT_FOLDER)
+            else:
+                comparison_note = _(
+                    "{fiber} 集計の {ml} 補正の標本は重み付きのため検定しません。"
+                    "補正したまま検定するには {image} か {folder} の集計に切り替えて"
+                    "ください。各画像・各フォルダの重み付き中央値を検定します。"
+                ).format(fiber=UNIT_FIBER, ml=FRAME_MILES_LANTUEJOUL,
+                         image=UNIT_IMAGE, folder=UNIT_FOLDER)
         elif self._kink_length_weighted(param, unit):
             # The fiber-unit kink densities are weighted by the judged length,
             # which the rank tests cannot take; the image and folder units test
@@ -4659,8 +4848,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             state=tk.NORMAL if comparisons else tk.DISABLED
         )
         if not comparisons:
-            self.comparison_note_var.set(note)
-            self._set_comparison_caveat("")
+            # These notes say how to reach a test, which is longer than the
+            # one-line header can show, so they go in the wrapping label.
+            # これらの注記は検定に至る方法を述べており、1 行の見出しには収まらない
+            # ため、折り返す欄に出す。
+            self.comparison_note_var.set("")
+            self._set_comparison_caveat(note)
             return
 
         self.comparison_note_var.set(
@@ -4961,6 +5154,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # 論文に載る長さ分布は、枠で切れたファイバーを含むかを明示しなければ
             # ならない。それによって数値が変わるためである。
             frame_mode = r.get("frame_mode", FRAME_INCLUDE)
+            if r.get("frame_share") is not None:
+                lines.append("{0:.0%} of fibers reach the frame".format(
+                    r["frame_share"]))
             if frame_mode == FRAME_EXCLUDE:
                 lines.append("frame-touching fibers excluded")
             elif frame_mode == FRAME_MILES_LANTUEJOUL:
@@ -5329,6 +5525,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     # Kaplan-Meier で、推定が全長を見た最長のファイバーより長い
                     # 側に置くファイバーの割合。そこに落ちる統計値は空欄になる。
                     "not estimated (%)",
+                    # Under `include`, the percentage of fibers the frame cut.
+                    # `include` で、枠で切れたファイバーの割合。
+                    "reaching frame (%)",
                 ])
                 for r in self._last_results:
                     mode_val = "" if np.isnan(r["mode"]) else f"{r['mode']:.3f}"
@@ -5353,6 +5552,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         ("{0:.1f}".format(100.0 * r["km_beyond"] / (
                             r["weight_total"] + r["km_beyond"]))
                          if r.get("km_beyond", 0.0) > 0.0 else ""),
+                        ("{0:.1f}".format(100.0 * r["frame_share"])
+                         if r.get("frame_share") is not None else ""),
                     ])
 
         save_csv_with_dialog(
