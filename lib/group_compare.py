@@ -135,6 +135,16 @@ class PairComparison:
     は位置のずれを検出し、Kolmogorov-Smirnov は分布形状の任意の差に反応する
     （中央値が同じでばらつきが異なる 2 標本を含む）。片方だけで分離するペアは
     矛盾ではなく、それ自体が情報である。
+
+    GUI03 takes the Mann-Whitney U test as the primary test and shows the
+    Kolmogorov-Smirnov p-value uncorrected as a reference: reading whichever of
+    the two came out smaller would test each pair twice, which a correction
+    across pairs does not cover. The correction covers one quantity at a time;
+    testing several quantities is a further family, left to the reader.
+    GUI03 は Mann-Whitney U を主検定とし、Kolmogorov-Smirnov の p 値は補正なしの参考値
+    として示す。2 つのうち小さく出た方を読むと各ペアを 2 回検定したことになり、ペアに
+    またがる補正ではそれを扱えないためである。補正の範囲は 1 つの計測量であり、複数の
+    計測量を検定する場合の補正は読み手に委ねられる。
     """
 
     group_a: str

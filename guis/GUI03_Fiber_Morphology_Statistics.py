@@ -77,7 +77,9 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # ===== Project libraries =====
 from lib.blosc2_io import BUNDLE_EXT, load_bundle, load_bundle_meta
-from lib.bundle_schema import kink_params_from_meta, pixel_size_nm
+from lib.bundle_schema import (
+    APPARENT_WIDTH_KEY, kink_params_from_meta, pixel_size_nm,
+)
 from lib.centerline import DEFAULT_CENTERLINE_METHOD, SKELETON_TRACK
 from lib.connect_selection import (
     CONNECT_SUFFIX, connect_path_for, load_connect_plan,
@@ -495,6 +497,109 @@ def _scan_size_spread_note(sizes_by_group: dict, frame_mode: str) -> str:
         "撮像条件の違いも含まれます。{ml} を使うと、この偏りは小さくなります。"
     ).format(exclude=frame_mode, um=UNIT_MICROMETER, groups=groups,
              ml=FRAME_MILES_LANTUEJOUL)
+
+
+def _kink_condition_report(conditions_by_group: dict,
+                           threshold_applied: bool) -> tuple:
+    """
+    Say how the bundles compared for kinks differ in what the count depends on.
+    キンクを比べるバンドルが、キンク数の依存する条件でどう違うかを述べる。
+
+    Parameters
+    ----------
+    conditions_by_group
+        Group name mapped to the `App._bundle_kink_conditions` entry of each of
+        its bundles.
+        グループ名から、各バンドルの `App._bundle_kink_conditions` の項目への対応。
+    threshold_applied
+        Whether one kink threshold was applied to every bundle at measurement,
+        so the thresholds recorded in the bundles no longer decide the count.
+        計測時に全バンドルへ 1 つのキンクのしきい値を適用したか。適用すれば、記録
+        されたしきい値はキンク数を決めなくなる。
+
+    Returns
+    -------
+    tuple
+        ``(warnings, blocking)``. `warnings` lists the texts to log; `blocking`
+        is the reason no test runs, or an empty string.
+        ``(warnings, blocking)``。`warnings` はログに出す文の列、`blocking` は検定
+        しない理由で、無ければ空文字列。
+
+    Notes
+    -----
+    A different threshold or centerline is a different definition of a kink, so
+    such groups are not tested. A different pixel size or format changes how
+    the same definition reads a scan: the difference is reported and the test
+    still runs, as for curvature.
+    しきい値や中心線が違えばキンクの定義が違うため、そうした群は検定しない。画素
+    サイズや形式の違いは、同じ定義が画像をどう読むかを変える。その差は報告し、検定は
+    曲率と同じく実行する。
+    """
+    conditions = [c for group in conditions_by_group.values() for c in group]
+    blocking = []
+    thresholds = sorted({c["threshold"] for c in conditions})
+    if len(thresholds) > 1 and not threshold_applied:
+        blocking.append(_(
+            "比較したバンドルのキンクのしきい値が {values} 度と異なり、キンクの定義が"
+            "違うため検定しません。「キンクのしきい値」に値を入れると、全バンドルを同じ"
+            "しきい値で選び直して検定します。"
+        ).format(values=", ".join(f"{v:g}" for v in thresholds)))
+    lines = sorted({c["line"] for c in conditions if c["line"] is not None})
+    if len(lines) > 1:
+        blocking.append(_(
+            "比較したバンドルの中心線が {lines} と異なり、キンクを判定する線が違うため"
+            "検定しません。同じ中心線で解析し直してください。"
+        ).format(lines=", ".join(lines)))
+
+    warnings = []
+    sizes = [c["pixel_nm"] for c in conditions if c["pixel_nm"] is not None]
+    # A spread under one percent, such as the rounding of a scan size written
+    # in an instrument header, does not raise the warning.
+    # 装置ヘッダに書かれた走査範囲の丸めのような 1 % 未満の違いでは警告しない。
+    if sizes and max(sizes) > min(sizes) * 1.01:
+        warnings.append(_(
+            "注意: 比較したバンドルの画素サイズが {low}〜{high} nm/px と異なります。"
+            "キンクの検出は見かけの幅・画素サイズ・ノイズで変わるため"
+            "（docs/validation.md §4.4、§4.8）、群の差には撮像条件の違いも含まれます。"
+        ).format(low=f"{min(sizes):.2f}", high=f"{max(sizes):.2f}"))
+    versions = sorted({c["version"] for c in conditions if c["version"]})
+    if len(versions) > 1:
+        warnings.append(_(
+            "注意: 比較したバンドルの形式が {versions} と混在しています。形式によって"
+            "見かけの幅やキンクの探し方の定義が違うため、同じ版で解析し直すことを"
+            "勧めます。"
+        ).format(versions=", ".join(versions)))
+    return warnings, "\n".join(blocking)
+
+
+def _median_width_nm(conditions: list):
+    """
+    Return the median apparent width of some bundles, in nanometers.
+    いくつかのバンドルの見かけの幅の中央値 (nm) を返す。
+
+    Parameters
+    ----------
+    conditions
+        `App._bundle_kink_conditions` entries.
+        `App._bundle_kink_conditions` の項目。
+
+    Returns
+    -------
+    float or None
+        Median over the bundles that record a width and a pixel size, or
+        ``None`` when none does.
+        幅と画素サイズを記録したバンドルにわたる中央値。無ければ ``None``。
+
+    Notes
+    -----
+    The kink rule measures every length in apparent widths, so this is the scale
+    a group's kinks were judged at, and it includes probe broadening.
+    キンクの規則はすべての長さを見かけの幅で測るため、これがそのグループのキンクを
+    判定した尺度であり、探針による広がりを含む。
+    """
+    widths = [c["width_px"] * c["pixel_nm"] for c in conditions
+              if c["width_px"] is not None and c["pixel_nm"] is not None]
+    return float(np.median(widths)) if widths else None
 
 
 def _apply_kaplan_meier(per_source) -> tuple:
@@ -927,6 +1032,32 @@ def _comparison_caveat(unit: str) -> str:
             "1 試料なら、試料間の差は {folder} 集計で検定してください。"
         ).format(image=UNIT_IMAGE, folder=UNIT_FOLDER)
     return ""
+
+
+def _primary_test_note() -> str:
+    """
+    Say which of the two tests a conclusion rests on.
+    2 つの検定のどちらを結論の根拠とするかを述べる。
+
+    Returns
+    -------
+    str
+        The note shown under the comparison table.
+        比較表の下に出す注記。
+
+    Notes
+    -----
+    Both tests are run on every pair, so reading whichever came out smaller
+    tests each pair twice and the correction across pairs would not cover it.
+    Naming one test as primary keeps the correction meaningful.
+    どのペアも両方の検定にかけるため、小さく出た方を読むと各ペアを 2 回検定したことに
+    なり、ペアにまたがる補正ではそれを扱えない。主検定を 1 つ定めることで補正が意味を
+    保つ。
+    """
+    return _(
+        "主検定は Mann-Whitney U です。KS は分布の形の違いを見る参考値で、補正して"
+        "いません。結論は Mann-Whitney の p 値で述べてください。"
+    )
 
 
 # The level a reader conventionally reads a p-value against. Nothing is
@@ -1435,7 +1566,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.result_tree, _res_sb = create_scrolled_treeview(
             res_tree_row,
             columns=("group", "median", "iqr", "mean", "std", "mode",
-                     "n", "nfib", "nimg"),
+                     "n", "nfib", "nimg", "width"),
             show="headings",
             height=5,
             headings=self._result_headings(self.param),
@@ -1456,6 +1587,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "n":      {"width": 66, "anchor": "e", "stretch": False},
                 "nfib":   {"width": 62, "anchor": "e", "stretch": False},
                 "nimg":   {"width": 66, "anchor": "e", "stretch": False},
+                "width":  {"width": 56, "anchor": "e", "stretch": False},
             },
             tree_pack_kwargs={
                 "side": tk.LEFT, "fill": tk.BOTH, "expand": True,
@@ -1463,6 +1595,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             scrollbar_side=tk.LEFT,
             scrollbar_pack_kwargs={"side": tk.LEFT, "fill": tk.Y},
         )
+        self._show_width_column(False)
 
         res_hsb = ttk.Scrollbar(
             frm_res, orient=tk.HORIZONTAL, command=self.result_tree.xview,
@@ -1508,7 +1641,29 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "n": "N",
             "nfib": "N fibers",
             "nimg": "N images",
+            "width": "W (nm)",
         }
+
+    def _show_width_column(self, show: bool) -> None:
+        """
+        Show or hide the apparent-width column of the result table.
+        結果テーブルの見かけの幅の列を表示または非表示にする。
+
+        Parameters
+        ----------
+        show
+            Whether the table lists the column.
+            テーブルにこの列を出すかどうか。
+        """
+        columns = self.result_tree["columns"]
+        self.result_tree.configure(
+            displaycolumns=columns if show else columns[:-1])
+        # The other columns give up the room the width column takes, because the
+        # table does not grow and a column past its edge reads as absent.
+        # 他の列が幅の列の分を譲る。テーブルは広がらず、端からはみ出した列は無いように
+        # 見えるためである。
+        self.result_tree.column("group", width=64 if show else 100)
+        self.result_tree.column("n", width=46 if show else 66)
 
     def _update_result_caption(self, param: str = None, unit: str = None) -> None:
         """
@@ -1583,7 +1738,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "pair": "Pair",
                 "n": "N",
                 "u": "Mann-Whitney p",
-                "ks": "KS p",
+                "ks": "KS p (reference)",
                 "delta": "Cliff's delta",
                 "magnitude": "effect",
             },
@@ -1591,7 +1746,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "pair": {"width": 140, "anchor": "w", "stretch": True},
                 "n": {"width": 76, "anchor": "e", "stretch": False},
                 "u": {"width": 108, "anchor": "e", "stretch": False},
-                "ks": {"width": 90, "anchor": "e", "stretch": False},
+                "ks": {"width": 112, "anchor": "e", "stretch": False},
                 "delta": {"width": 92, "anchor": "e", "stretch": False},
                 "magnitude": {"width": 80, "anchor": "w", "stretch": False},
             },
@@ -3620,6 +3775,51 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 sizes.append(tuple(float(v) for v in scan))
         return sizes
 
+    @staticmethod
+    def _bundle_kink_conditions(bundle_paths) -> list:
+        """
+        Read what a kink count depends on from each bundle.
+        キンク数が依存する条件を各バンドルから読む。
+
+        Parameters
+        ----------
+        bundle_paths
+            ``.b2z`` bundles about to be measured.
+            これから計測する ``.b2z`` バンドル。
+
+        Returns
+        -------
+        list of dict
+            One entry per readable bundle: ``threshold`` (degrees), ``line``,
+            ``version``, ``pixel_nm`` and ``width_px``, the last two ``None``
+            when not recorded. A bundle that cannot be read is passed over,
+            because the collector reports it.
+            読めたバンドルごとに 1 項目。``threshold``（度）、``line``、
+            ``version``、``pixel_nm``、``width_px``。最後の 2 つは記録が無ければ
+            ``None``。読めないバンドルは読み飛ばす。コレクタがそれを報告するため
+            である。
+        """
+        conditions = []
+        for path in bundle_paths:
+            try:
+                meta = load_bundle_meta(path)
+                angle, _decompose = kink_params_from_meta(meta)
+                line = read_centerline_from_bundle(path)
+            except Exception:
+                continue
+            sizes = App._bundle_pixel_sizes([path])
+            width = (meta.get(APPARENT_WIDTH_KEY) or {}).get("median_px")
+            conditions.append({
+                # An unrecorded threshold is the detector default (150 degrees).
+                # 記録の無いしきい値は検出器の既定値（150 度）である。
+                "threshold": round(150.0 if angle is None else float(angle), 6),
+                "line": line,
+                "version": str(meta.get("version") or ""),
+                "pixel_nm": sizes[0] if sizes else None,
+                "width_px": None if width is None else float(width),
+            })
+        return conditions
+
     def _log_pixel_size_spread(self, pixel_sizes: list) -> None:
         """
         Warn when the bundles measured for curvature differ in pixel size.
@@ -4089,6 +4289,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             and frame_mode in (FRAME_INCLUDE, FRAME_EXCLUDE)
         )
         frame_scan_sizes: dict = {}
+        # What each group's kink counts depend on (`_kink_condition_report`).
+        # 各グループのキンク数が依存する条件（`_kink_condition_report`）。
+        kink_quantity = param in (PARAM_KINK_ANGLE, PARAM_KINK_DENSITY)
+        kink_conditions: dict = {}
 
         # The length floor and the kink threshold are decided over every
         # bundle of the run before any group is measured, because both must be
@@ -4235,6 +4439,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 if uncorrected_lengths and input_mode == INPUT_BUNDLE:
                     frame_scan_sizes.setdefault(grp_name, []).extend(
                         self._bundle_scan_sizes(bundle_paths))
+
+                if kink_quantity and input_mode == INPUT_BUNDLE:
+                    kink_conditions.setdefault(grp_name, []).extend(
+                        self._bundle_kink_conditions(bundle_paths))
 
                 frame_report = {}
                 curation_report: list = []
@@ -4437,6 +4645,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     grp_frame_touching / grp_frame_total if grp_frame_total
                     else None
                 ),
+                # The scale the group's kinks were judged at, shown beside the
+                # kink statistics so a difference in it can be seen.
+                # そのグループのキンクを判定した尺度。差が見えるよう、キンクの統計値の
+                # 隣に示す。
+                "width_nm": _median_width_nm(kink_conditions.get(grp_name, [])),
                 # The raw point count drives the "too few samples to read the
                 # shape" notice, which is about the histogram, not the weight.
                 # 「形状が読めるほど標本が無い」通知は生の点数で判断する。これは
@@ -4473,6 +4686,24 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                          share=results[-1]["frame_share"], k=grp_frame_cut)))
 
         self._log_pixel_size_spread(curvature_pixel_sizes)
+        kink_warnings, kink_blocking = _kink_condition_report(
+            kink_conditions, kink_threshold_deg is not None)
+        for text in kink_warnings:
+            self.ui_queue.put(("log", text))
+        for r in results:
+            if r["width_nm"] is not None:
+                self.ui_queue.put(("log", _(
+                    "[{g}] キンクを判定した尺度: 見かけの幅の中央値 {w:.1f} nm"
+                ).format(g=r["name"], w=r["width_nm"])))
+        if kink_quantity and input_mode == INPUT_FIBER_CSV:
+            # A fiber CSV records no analysis conditions, so the check cannot
+            # run; saying so keeps its silence from reading as "they agree".
+            # ファイバー CSV には解析条件の記録が無く、確かめられない。そう述べること
+            # で、警告が出ないことが「条件が一致している」と読まれないようにする。
+            self.ui_queue.put(("log", _(
+                "注意: ファイバー CSV には解析条件の記録が無いため、比較するファイルのキンクの"
+                "しきい値・中心線・画素サイズが揃っているかは確かめていません。"
+            )))
         scan_size_note = _scan_size_spread_note(frame_scan_sizes, frame_mode)
         if scan_size_note:
             self.ui_queue.put(("log", scan_size_note))
@@ -4610,6 +4841,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "{fiber}・{image}・{folder} のいずれかの集計に切り替えてください。"
             ).format(unit=unit, fiber=UNIT_FIBER, image=UNIT_IMAGE,
                      folder=UNIT_FOLDER)
+        elif kink_blocking:
+            comparison_note = kink_blocking
         elif frame_weighted and unit == UNIT_FIBER:
             # Mann-Whitney U and KS take no weights, and a weighted
             # Mann-Whitney has no standard form, so a corrected fiber sample is
@@ -4730,8 +4963,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     _format_sample_size(r["n_samples"], unit),
                     "-" if r["n_fibers"] is None else f"{r['n_fibers']:,}",
                     f"{r['n_images']:,}",
+                    "-" if r.get("width_nm") is None else f"{r['width_nm']:.1f}",
                 ),
             )
+        # The width column takes room from the plot, so it shows only beside
+        # the kink quantities it explains.
+        # 幅の列はプロットの領域を削るため、説明する相手であるキンクの量のときだけ出す。
+        self._show_width_column(any(r.get("width_nm") is not None for r in results))
 
         self._draw_figure(
             results=results,
@@ -4857,11 +5095,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return
 
         self.comparison_note_var.set(
-            _("p 値は Holm 補正後（括弧内は補正前）") if len(comparisons) > 1
+            _("Mann-Whitney p は Holm 補正後（括弧内は補正前）") if len(comparisons) > 1
             else _("p 値（2 群のため補正不要）")
         )
         self._set_comparison_caveat("\n".join(
-            text for text in (_comparison_caveat(unit),
+            text for text in (_primary_test_note(),
+                              _comparison_caveat(unit),
                               _attainable_p_note(comparisons))
             if text
         ))
@@ -4871,13 +5110,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     adj=self._format_p(c.mannwhitney_p_adjusted),
                     raw=self._format_p(c.mannwhitney_p),
                 )
-                ks_text = "{adj} ({raw})".format(
-                    adj=self._format_p(c.ks_p_adjusted),
-                    raw=self._format_p(c.ks_p),
-                )
             else:
                 u_text = self._format_p(c.mannwhitney_p)
-                ks_text = self._format_p(c.ks_p)
+            # Uncorrected: the correction covers the primary test, and a value
+            # labelled as a reference is not what a conclusion rests on.
+            # 補正しない。補正の対象は主検定であり、参考値と表示した値は結論の根拠に
+            # ならない。
+            ks_text = self._format_p(c.ks_p)
 
             self.comparison_tree.insert("", tk.END, values=(
                 "{a} vs {b}".format(a=c.group_a, b=c.group_b),
@@ -5398,12 +5637,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Notes
         -----
         Both the raw and the Holm-adjusted p-values are written. The adjusted
-        one is what a conclusion rests on, but the raw value is what another
-        correction could be recomputed from, so dropping it would make the
-        exported table impossible to re-analyze.
+        Mann-Whitney one is what a conclusion rests on, but the raw value is
+        what another correction could be recomputed from, so dropping it would
+        make the exported table impossible to re-analyze. The KS columns are
+        kept for the same reason, although the window shows KS as a reference.
         生の p 値と Holm 補正後の p 値をどちらも書き出す。結論の根拠になるのは
-        補正後の値だが、別の補正法を計算し直せるのは生の値からである。落とすと
-        出力した表を再解析できなくなる。
+        Mann-Whitney の補正後の値だが、別の補正法を計算し直せるのは生の値からである。
+        落とすと出力した表を再解析できなくなる。KS の列も同じ理由で残す。画面では KS を
+        参考値として示す。
         """
         if not self._last_comparisons:
             messagebox.showwarning(_("未作成"), _("先に群間比較を実行してください。"))
@@ -5528,6 +5769,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     # Under `include`, the percentage of fibers the frame cut.
                     # `include` で、枠で切れたファイバーの割合。
                     "reaching frame (%)",
+                    # Under the kink quantities, the scale the kinks were judged at.
+                    # キンクの量で、キンクを判定した尺度。
+                    "median W (nm)",
                 ])
                 for r in self._last_results:
                     mode_val = "" if np.isnan(r["mode"]) else f"{r['mode']:.3f}"
@@ -5554,6 +5798,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                          if r.get("km_beyond", 0.0) > 0.0 else ""),
                         ("{0:.1f}".format(100.0 * r["frame_share"])
                          if r.get("frame_share") is not None else ""),
+                        ("{0:.3f}".format(r["width_nm"])
+                         if r.get("width_nm") is not None else ""),
                     ])
 
         save_csv_with_dialog(

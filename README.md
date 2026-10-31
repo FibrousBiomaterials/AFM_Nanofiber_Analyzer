@@ -565,9 +565,14 @@ quartiles the table reports, weighted ones included, which Matplotlib's own
 boxplot cannot compute.
 
 Below the statistics table, a comparison table tests every pair of groups with
-a two-sided Mann-Whitney U and a two-sample Kolmogorov-Smirnov test, Holm-
-corrected across all pairs, and reports Cliff's delta as an effect size that
-does not grow with sample size. The tests are offered only for the `fiber`,
+a two-sided Mann-Whitney U test, Holm-corrected across all pairs, and reports
+Cliff's delta as an effect size that does not grow with sample size. Mann-Whitney
+U is the primary test. A two-sample Kolmogorov-Smirnov p-value is shown beside it
+uncorrected, as a reference for differences in the shape of the distribution,
+because reading whichever of the two came out smaller would test each pair
+twice; the comparison CSV also holds its Holm-corrected value. The correction
+covers one quantity at a time, so testing several quantities is a further
+multiple comparison, left to the reader. The tests are offered only for the `fiber`,
 `image`, and `folder` units: skeleton pixels, length-weighted points, and
 several kinks from one fiber are not independent observations, so a p-value
 over them would measure how finely the images were sampled rather than whether
@@ -581,7 +586,12 @@ tested. Three is the fewest at which a p-value is computed, not the fewest at
 which one can be significant: two groups of three folders that do not overlap
 at all and hold no equal values give p = 0.10, and two groups of four give
 p = 0.029. A note under the
-table names every pair too small to reach p < 0.05. When a pair's values can
+table names every pair too small to reach p < 0.05. For `kink angle` and
+`kink density`, kinks judged at different thresholds or on different centerlines
+are different definitions of a kink, so such bundles are not tested; entering a
+kink threshold applies one to every bundle. The table shows each group's median
+apparent width W (the scale its kinks were judged at, also in the statistics
+CSV), and the log warns when the bundles differ in pixel size or format. When a pair's values can
 be split between the two groups in at most 100,000 ways, both p-values are
 computed by counting every split, which stays exact when values are tied, so
 two groups of three still cannot get below p = 0.10; larger pairs use scipy's
@@ -1201,7 +1211,7 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | `lib/connect_selection.py` | Fiber-connection results stored in `<stem>_connect.json` beside the bundle: written by GUI04, applied by `lib/measure.py`. What is stored is which fragments are joined, in what order and orientation — named by anchor pixels, with a fingerprint of the skeleton they were found on, so a re-analyzed bundle is refused rather than measured against a plan describing a skeleton it no longer has. Whether a join was automatic or manual is deliberately not recorded. |
 | `lib/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |
 | `lib/fiber_connector.py` | Reconnection of skeleton fragments split at crossings/branches into whole fibrils, split into a search (`plan_from_auto_connect`) and a construction (`build_connected_fibers`) so the decision the search reaches can be stored and rebuilt without searching again. `connection_candidates` backs GUI04's manual connection. |
-| `lib/group_compare.py` | Between-group comparison for GUI03: Mann-Whitney U and two-sample KS with Holm correction over all pairs, plus Cliff's delta as an effect size that does not grow with sample size. |
+| `lib/group_compare.py` | Between-group comparison for GUI03: Mann-Whitney U with Holm correction over all pairs and two-sample KS, plus Cliff's delta as an effect size that does not grow with sample size. |
 | `lib/fiber_selection.py` | Manual fiber exclusions stored in `<stem>_excluded.json` beside the bundle: written by GUI04, applied by `lib/measure.py`. An exclusion is an anchor pixel on the excluded fiber's track rather than a list index, so it keeps its meaning when fiber connection renumbers the list. |
 | `lib/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |
 | `lib/gwy_convert.py` | Conversion of files this software cannot read into `.gwy` through Gwyddion's `gwyconvert` (optional `convert` dependency), shared by GUI00 and `cli.py convert`: extension-based selection, `<original file name>_converted.gwy` output, skipping of existing outputs, and rejection of results without a length-unit channel. |

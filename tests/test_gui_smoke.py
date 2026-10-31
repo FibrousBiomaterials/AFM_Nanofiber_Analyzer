@@ -1548,6 +1548,107 @@ def test_gui03_scan_size_note_names_each_group_when_sizes_differ():
             {"A": [(2.0, 2.0)], "B": [(2.0, 1.0)]}, mode) != ""
 
 
+def _kink_condition(threshold=150.0, line="half_max_025w", version="1.6",
+                    pixel_nm=2.0, width_px=8.0):
+    """Build one `App._bundle_kink_conditions` entry."""
+    return {"threshold": threshold, "line": line, "version": version,
+            "pixel_nm": pixel_nm, "width_px": width_px}
+
+
+def test_gui03_kink_definitions_that_differ_block_the_test():
+    """
+    A different threshold or centerline stops the test; imaging only warns.
+    しきい値や中心線の違いは検定を止め、撮像条件の違いは警告にとどまる。
+    """
+    report = gui03._kink_condition_report
+    same = {"A": [_kink_condition()], "B": [_kink_condition()]}
+    assert report(same, False) == ([], "")
+
+    thresholds = {"A": [_kink_condition()], "B": [_kink_condition(threshold=160.0)]}
+    warnings, blocking = report(thresholds, False)
+    assert warnings == [] and "150, 160" in blocking
+    # Applying one threshold to every bundle removes the difference.
+    # 全バンドルに 1 つのしきい値を適用すれば違いは無くなる。
+    assert report(thresholds, True) == ([], "")
+
+    lines = {"A": [_kink_condition()], "B": [_kink_condition(line="crest")]}
+    warnings, blocking = report(lines, True)
+    assert warnings == [] and "crest" in blocking
+
+    imaging = {"A": [_kink_condition()],
+               "B": [_kink_condition(pixel_nm=5.0, version="1.5")]}
+    warnings, blocking = report(imaging, False)
+    assert blocking == "" and len(warnings) == 2
+    assert "2.00" in warnings[0] and "5.00" in warnings[0]
+    assert "1.5, 1.6" in warnings[1]
+
+
+def test_gui03_median_width_uses_the_bundles_that_record_one():
+    """
+    The group's width is in nanometers, over the bundles that record both values.
+    グループの幅は nm で、両方の値を記録したバンドルにわたって求める。
+    """
+    width = gui03._median_width_nm
+    assert width([]) is None
+    assert width([_kink_condition(width_px=None)]) is None
+    assert width([_kink_condition(pixel_nm=None)]) is None
+    assert width([_kink_condition(pixel_nm=2.0, width_px=8.0),
+                  _kink_condition(pixel_nm=5.0, width_px=6.0),
+                  _kink_condition(width_px=None)]) == pytest.approx(23.0)
+
+
+def test_gui03_worker_does_not_test_kinks_of_different_thresholds(
+        tk_app, tmp_path, monkeypatch):
+    """
+    Kink density of bundles judged at different thresholds gets no test.
+    異なるしきい値で判定したバンドルのキンク密度は検定しない。
+    """
+    app = tk_app(gui03.App)
+    folders = []
+    for name in ("A", "B"):
+        folder = tmp_path / name
+        folder.mkdir()
+        (folder / ("sample" + gui03.BUNDLE_EXT)).write_bytes(b"")
+        folders.append(str(folder))
+
+    thresholds = iter((150.0, 160.0))
+    monkeypatch.setattr(
+        gui03.App, "_bundle_kink_conditions",
+        staticmethod(lambda paths: [_kink_condition(threshold=next(thresholds))]))
+    monkeypatch.setattr(
+        app, "_collect_bundle_values",
+        lambda paths, param, unit, **kw: ([1.0, 2.0, 3.0], None, 3, 3, []))
+    app._worker_run({
+        "groups": [
+            {"id": n, "name": n, "color": "#1f77b4", "folders": [f]}
+            for n, f in zip(("A", "B"), folders)
+        ],
+        "param": gui03.PARAM_KINK_DENSITY,
+        "unit": gui03.UNIT_IMAGE,
+        "input_mode": gui03.INPUT_BUNDLE,
+        "apply_exclusions": False,
+        "apply_connection": False,
+        "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
+        "plot_type": gui03.PLOT_HISTOGRAM,
+        "min_h": 0.0, "max_h": 30.0, "step": 1.0,
+        "yaxis_mode": "density", "display_mode": gui03.App.MODE_STACK,
+        "show_height_text": True,
+        "fig_w": 6.0, "fig_h": 3.0,
+        "label_fs": 15.0, "tick_fs": 15.0, "ann_fs": 15.0,
+        "group_name_fs": 15.0,
+    })
+
+    done = None
+    while not app.ui_queue.empty():
+        kind, payload = app.ui_queue.get_nowait()
+        if kind == "done":
+            done = payload
+    assert done is not None
+    assert done["comparisons"] == []
+    assert "150, 160" in done["comparison_note"]
+    assert done["results"][0]["width_nm"] == pytest.approx(16.0)
+
+
 @pytest.mark.parametrize(
     "frame_mode, share",
     [(gui03.FRAME_INCLUDE, pytest.approx(0.5)), (gui03.FRAME_EXCLUDE, None)],
