@@ -49,6 +49,7 @@ variants is the rule alone.
 from __future__ import annotations
 
 import argparse
+import csv
 import math
 import os
 import re
@@ -67,6 +68,11 @@ from lib.pipeline import ProcParams, process_file  # noqa: E402
 
 REFERENCE_PATH = os.path.join(
     PROJECT_ROOT, "private_docs", "kink_reference_2026-09-15", "基準一覧.md")
+# Kinks two people marked on the same scans: scan, annotator letter, x (column),
+# y (row), kind (``clear`` or ``ambiguous``), on the calibrated pixel grid.
+# 2 人が同じスキャンに付けたキンクの印。スキャン、注釈者の記号、x（列）、y（行）、
+# 種別（``clear`` / ``ambiguous``）で、座標は較正画像の画素格子上にある。
+HUMAN_REFERENCE_PATH = os.path.join(PROJECT_ROOT, "docs", "data", "human_kink_marks.csv")
 
 # Reference section name -> bundled scan. The Gwyddion text exports of the
 # higher-plant scan share its reference and are not scored separately.
@@ -136,6 +142,43 @@ def load_reference(path: str = REFERENCE_PATH) -> Dict[str, List[dict]]:
                 angle_deg=float(angle.group(1)) if angle else float("nan"),
             ))
     return refs
+
+
+def load_human_reference(path: str = HUMAN_REFERENCE_PATH) -> Dict[str, Dict[str, List[dict]]]:
+    """
+    Read the marks two people made, per scan and annotator.
+    2 人が付けた印を、スキャンと注釈者ごとに読む。
+
+    Returns
+    -------
+    dict
+        Scan name -> annotator letter -> records with ``kind``, ``x`` and ``y``.
+        スキャン名 -> 注釈者の記号 -> ``kind``・``x``・``y`` を持つレコード。
+    """
+    refs: Dict[str, Dict[str, List[dict]]] = {name: {} for name in SCANS}
+    with open(path, encoding="utf-8", newline="") as handle:
+        for row in csv.DictReader(handle):
+            refs[row["scan"]].setdefault(row["annotator"], []).append(
+                dict(kind=row["kind"], x=float(row["x"]), y=float(row["y"])))
+    return refs
+
+
+def match_marks(a: Sequence[dict], b: Sequence[dict], reach: float) -> List[Tuple[int, int, float]]:
+    """
+    Pair the marks of two annotators one to one, nearest first, within `reach`.
+    2 人の注釈者の印を、近いものから順に `reach` 以内で 1 対 1 に対応付ける。
+    """
+    pairs = sorted((math.hypot(p["x"] - q["x"], p["y"] - q["y"]), i, j)
+                   for i, p in enumerate(a) for j, q in enumerate(b))
+    used_a, used_b, out = set(), set(), []
+    for dist, i, j in pairs:
+        if dist > reach:
+            break
+        if i not in used_a and j not in used_b:
+            used_a.add(i)
+            used_b.add(j)
+            out.append((i, j, dist))
+    return out
 
 
 def prepare_scan(name: str, cache_dir: str, params: ProcParams):

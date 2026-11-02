@@ -21,6 +21,7 @@ images.
 |---|---|---|
 | Bundled scans | a tunicate CNF scan (`testdata_tunicateCNF`), a higher-plant TOC scan (`testdata_higherplantTOC`), and a Bruker NDTOC scan (`testdata_Bruker_txt`); the two samples in `testdata_artificial` are crops of the tunicate scan and are not used | `SCANS` in `scripts/kink_reference_score.py` |
 | Visual reference | kinks marked on the height images of the bundled scans by an AI coding agent (Claude Code), which viewed each fiber on an enlarged crop of the height image with no detector output drawn on it, although for some fibers it already knew where the detector then in use placed kinks: 53<!--m:kink_reference.clear_marks--> clear kinks | `scripts/kink_reference_score.py` |
+| Human marks | kinks two people marked on the bundled scans, with no detector kinks drawn (§4.19): 80<!--m:kink_reference_human.all.A.ref--> and 122<!--m:kink_reference_human.all.B.ref--> clear marks | `docs/data/human_kink_marks.csv`, read by `load_human_reference` in `scripts/kink_reference_score.py` |
 | Synthetic suite | scans drawn with a known centerline and known corners: 2<!--c:scripts/synthetic_suite.py::NMPX--> nm pixels, apparent width $W$ = 8<!--c:scripts/synthetic_suite.py::W--> px | `scripts/synthetic_suite.py` |
 | Kink-rule sweep | synthetic kinked, straight, arc and sine fibers over apparent width and pixel noise | `scripts/kink_rule_sweep.py` |
 
@@ -793,6 +794,8 @@ Without the candidates taken from the maxima of the window turning itself, the
 rule found 47<!--m:turn_maxima.without.found--> instead of 49<!--m:turn_maxima.with.found--> of the clear reference kinks, and reported
 49<!--m:turn_maxima.without.false--> instead of 64<!--m:turn_maxima.with.false--> unmatched bends (experiment turn_maxima).
 
+§4.19 scores the same rule against the kinks two people marked.
+
 ### 4.5 The angle stored for a kink
 
 The excess turning read low on sharp synthetic corners, where the probe and the
@@ -1143,6 +1146,72 @@ had a 95<!--n:definition-->th percentile of 12.9<!--m:weak_bend_noise.excess_p95
 contour 6.6<!--m:weak_bend_noise.per_um_at_least_10--> bends reached 10<!--n:value tried-->°, 0.25<!--m:weak_bend_noise.per_um_at_least_20--> reached 20<!--n:value tried-->° and 0<!--m:weak_bend_noise.per_um_at_least_30--> reached 30<!--n:value tried-->°. These
 fibers have no kink, so a threshold in that range would count those bends as
 kinks on them.
+
+### 4.19 The kink rule against two people's marks
+
+Two authors of this software, A and B, marked kinks on the three bundled scans,
+each working independently of the other; the marks are in
+`docs/data/human_kink_marks.csv`. Neither had seen any of the detector's output
+before marking. They saw the calibrated height image with the traced
+centerlines drawn over it and no detector kinks, and called each mark clear or
+ambiguous. Every mark is taken as correct. The images they marked came
+from an analysis by earlier code (bundle format 1.5<!--n:bundle format version-->), whose skeleton differs from
+the current analysis, so the marks are compared with the current analysis by
+position. No setting of the rule was chosen by its score on these marks, but
+the scans are the ones the rule was developed on (§4.4), so this is not a test
+on held-out scans (experiment kink_reference_human).
+
+Two people's marks are at the same place when they pair one to one, nearest
+first, within the scan's median apparent width $W$. Dice pairs the clear marks
+alone and is twice the pairs over the sum of the two counts.
+
+| Scan | $W$ (px) | A's clear marks | B's clear marks | Same place | Both clear | Clear for one, ambiguous for the other | Both ambiguous | Only A | Only B | Dice of the clear marks |
+|---|---|---|---|---|---|---|---|---|---|---|
+| higher-plant TOC | 7.6<!--m:kink_reference_human.hplantTOC.width_px--> | 5<!--m:kink_reference_human.hplantTOC.agree.clear_a--> | 6<!--m:kink_reference_human.hplantTOC.agree.clear_b--> | 5<!--m:kink_reference_human.hplantTOC.agree.same_place--> | 4<!--m:kink_reference_human.hplantTOC.agree.both_clear--> | 1<!--m:kink_reference_human.hplantTOC.agree.kinds_differ--> | 0<!--m:kink_reference_human.hplantTOC.agree.both_ambiguous--> | 0<!--m:kink_reference_human.hplantTOC.agree.only_a--> | 7<!--m:kink_reference_human.hplantTOC.agree.only_b--> | 0.73<!--m:kink_reference_human.hplantTOC.agree.clear_dice--> |
+| tunicate CNF | 8.0<!--m:kink_reference_human.tunicate.width_px--> | 62<!--m:kink_reference_human.tunicate.agree.clear_a--> | 94<!--m:kink_reference_human.tunicate.agree.clear_b--> | 71<!--m:kink_reference_human.tunicate.agree.same_place--> | 61<!--m:kink_reference_human.tunicate.agree.both_clear--> | 8<!--m:kink_reference_human.tunicate.agree.kinds_differ--> | 2<!--m:kink_reference_human.tunicate.agree.both_ambiguous--> | 0<!--m:kink_reference_human.tunicate.agree.only_a--> | 40<!--m:kink_reference_human.tunicate.agree.only_b--> | 0.78<!--m:kink_reference_human.tunicate.agree.clear_dice--> |
+| Bruker NDTOC | 8.6<!--m:kink_reference_human.NDTOC.width_px--> | 13<!--m:kink_reference_human.NDTOC.agree.clear_a--> | 22<!--m:kink_reference_human.NDTOC.agree.clear_b--> | 21<!--m:kink_reference_human.NDTOC.agree.same_place--> | 11<!--m:kink_reference_human.NDTOC.agree.both_clear--> | 6<!--m:kink_reference_human.NDTOC.agree.kinds_differ--> | 4<!--m:kink_reference_human.NDTOC.agree.both_ambiguous--> | 2<!--m:kink_reference_human.NDTOC.agree.only_a--> | 11<!--m:kink_reference_human.NDTOC.agree.only_b--> | 0.63<!--m:kink_reference_human.NDTOC.agree.clear_dice--> |
+| all | — | 80<!--m:kink_reference_human.all.agree.clear_a--> | 122<!--m:kink_reference_human.all.agree.clear_b--> | 97<!--m:kink_reference_human.all.agree.same_place--> | 76<!--m:kink_reference_human.all.agree.both_clear--> | 15<!--m:kink_reference_human.all.agree.kinds_differ--> | 6<!--m:kink_reference_human.all.agree.both_ambiguous--> | 2<!--m:kink_reference_human.all.agree.only_a--> | 58<!--m:kink_reference_human.all.agree.only_b--> | 0.75<!--m:kink_reference_human.all.agree.clear_dice--> |
+
+The rule was scored at the defaults by the procedure of §4.4 against three
+references: A's marks, B's marks, and the marks both call clear, where every
+other mark of either person counts as ambiguous and a pair sits at its midpoint.
+Merged means that the only reported bend within $W$ had already matched another
+clear mark. The last column counts reported bends within $W$ of a mark that is
+not clear in that reference. The rule reported 140<!--m:kink_reference_human.all.detections--> bends.
+
+| Reference | Scan | Clear marks | Found | Found 1–2<!--n:definition--> widths from the mark | Merged | Missed | Unmatched | Near a mark not clear |
+|---|---|---|---|---|---|---|---|---|
+| A's clear marks | higher-plant TOC | 5<!--m:kink_reference_human.hplantTOC.A.ref--> | 4<!--m:kink_reference_human.hplantTOC.A.found--> | 0<!--m:kink_reference_human.hplantTOC.A.displaced--> | 0<!--m:kink_reference_human.hplantTOC.A.merged--> | 1<!--m:kink_reference_human.hplantTOC.A.missed--> | 3<!--m:kink_reference_human.hplantTOC.A.false--> | 0<!--m:kink_reference_human.hplantTOC.A.exempt--> |
+| A's clear marks | tunicate CNF | 62<!--m:kink_reference_human.tunicate.A.ref--> | 49<!--m:kink_reference_human.tunicate.A.found--> | 3<!--m:kink_reference_human.tunicate.A.displaced--> | 2<!--m:kink_reference_human.tunicate.A.merged--> | 8<!--m:kink_reference_human.tunicate.A.missed--> | 12<!--m:kink_reference_human.tunicate.A.false--> | 6<!--m:kink_reference_human.tunicate.A.exempt--> |
+| A's clear marks | Bruker NDTOC | 13<!--m:kink_reference_human.NDTOC.A.ref--> | 13<!--m:kink_reference_human.NDTOC.A.found--> | 0<!--m:kink_reference_human.NDTOC.A.displaced--> | 0<!--m:kink_reference_human.NDTOC.A.merged--> | 0<!--m:kink_reference_human.NDTOC.A.missed--> | 44<!--m:kink_reference_human.NDTOC.A.false--> | 6<!--m:kink_reference_human.NDTOC.A.exempt--> |
+| A's clear marks | all | 80<!--m:kink_reference_human.all.A.ref--> | 66<!--m:kink_reference_human.all.A.found--> | 3<!--m:kink_reference_human.all.A.displaced--> | 2<!--m:kink_reference_human.all.A.merged--> | 9<!--m:kink_reference_human.all.A.missed--> | 59<!--m:kink_reference_human.all.A.false--> | 12<!--m:kink_reference_human.all.A.exempt--> |
+| B's clear marks | higher-plant TOC | 6<!--m:kink_reference_human.hplantTOC.B.ref--> | 4<!--m:kink_reference_human.hplantTOC.B.found--> | 0<!--m:kink_reference_human.hplantTOC.B.displaced--> | 0<!--m:kink_reference_human.hplantTOC.B.merged--> | 2<!--m:kink_reference_human.hplantTOC.B.missed--> | 1<!--m:kink_reference_human.hplantTOC.B.false--> | 2<!--m:kink_reference_human.hplantTOC.B.exempt--> |
+| B's clear marks | tunicate CNF | 94<!--m:kink_reference_human.tunicate.B.ref--> | 63<!--m:kink_reference_human.tunicate.B.found--> | 3<!--m:kink_reference_human.tunicate.B.displaced--> | 4<!--m:kink_reference_human.tunicate.B.merged--> | 24<!--m:kink_reference_human.tunicate.B.missed--> | 1<!--m:kink_reference_human.tunicate.B.false--> | 3<!--m:kink_reference_human.tunicate.B.exempt--> |
+| B's clear marks | Bruker NDTOC | 22<!--m:kink_reference_human.NDTOC.B.ref--> | 15<!--m:kink_reference_human.NDTOC.B.found--> | 0<!--m:kink_reference_human.NDTOC.B.displaced--> | 0<!--m:kink_reference_human.NDTOC.B.merged--> | 7<!--m:kink_reference_human.NDTOC.B.missed--> | 44<!--m:kink_reference_human.NDTOC.B.false--> | 4<!--m:kink_reference_human.NDTOC.B.exempt--> |
+| B's clear marks | all | 122<!--m:kink_reference_human.all.B.ref--> | 82<!--m:kink_reference_human.all.B.found--> | 3<!--m:kink_reference_human.all.B.displaced--> | 4<!--m:kink_reference_human.all.B.merged--> | 33<!--m:kink_reference_human.all.B.missed--> | 46<!--m:kink_reference_human.all.B.false--> | 9<!--m:kink_reference_human.all.B.exempt--> |
+| marks both call clear | higher-plant TOC | 4<!--m:kink_reference_human.hplantTOC.both.ref--> | 4<!--m:kink_reference_human.hplantTOC.both.found--> | 0<!--m:kink_reference_human.hplantTOC.both.displaced--> | 0<!--m:kink_reference_human.hplantTOC.both.merged--> | 0<!--m:kink_reference_human.hplantTOC.both.missed--> | 1<!--m:kink_reference_human.hplantTOC.both.false--> | 2<!--m:kink_reference_human.hplantTOC.both.exempt--> |
+| marks both call clear | tunicate CNF | 61<!--m:kink_reference_human.tunicate.both.ref--> | 49<!--m:kink_reference_human.tunicate.both.found--> | 2<!--m:kink_reference_human.tunicate.both.displaced--> | 2<!--m:kink_reference_human.tunicate.both.merged--> | 8<!--m:kink_reference_human.tunicate.both.missed--> | 1<!--m:kink_reference_human.tunicate.both.false--> | 18<!--m:kink_reference_human.tunicate.both.exempt--> |
+| marks both call clear | Bruker NDTOC | 11<!--m:kink_reference_human.NDTOC.both.ref--> | 11<!--m:kink_reference_human.NDTOC.both.found--> | 0<!--m:kink_reference_human.NDTOC.both.displaced--> | 0<!--m:kink_reference_human.NDTOC.both.merged--> | 0<!--m:kink_reference_human.NDTOC.both.missed--> | 42<!--m:kink_reference_human.NDTOC.both.false--> | 10<!--m:kink_reference_human.NDTOC.both.exempt--> |
+| marks both call clear | all | 76<!--m:kink_reference_human.all.both.ref--> | 64<!--m:kink_reference_human.all.both.found--> | 2<!--m:kink_reference_human.all.both.displaced--> | 2<!--m:kink_reference_human.all.both.merged--> | 8<!--m:kink_reference_human.all.both.missed--> | 44<!--m:kink_reference_human.all.both.false--> | 30<!--m:kink_reference_human.all.both.exempt--> |
+
+Under every reference the unmatched bends are mostly on the Bruker NDTOC scan:
+42<!--m:kink_reference_human.NDTOC.both.false--> of the 44<!--m:kink_reference_human.all.both.false--> against the marks both call clear, on a scan where all
+11<!--m:kink_reference_human.NDTOC.both.ref--> of those marks were found.
+
+Each missed mark is sorted below by the first test it passes: no centerline
+within $W$; within the end margin of 1.5<!--c:lib/kink_detector.py::END_MARGIN_WIDTHS--> W of its centerline, where the rule
+judges no bend; within $W$ of the image edge; within 2<!--n:definition--> W of a branch point;
+within 1.5<!--n:definition--> W of another clear mark; otherwise elsewhere. No missed mark stopped
+at the image edge or branch-point test under any reference.
+
+| Reference | Missed | No centerline within $W$ | Within the end margin | Near another clear mark | Elsewhere |
+|---|---|---|---|---|---|
+| A's clear marks | 9<!--m:kink_reference_human.all.A.missed--> | 0<!--m:kink_reference_human.all.A.missed_no_centerline--> | 9<!--m:kink_reference_human.all.A.missed_near_end--> | 0<!--m:kink_reference_human.all.A.missed_near_mark--> | 0<!--m:kink_reference_human.all.A.missed_elsewhere--> |
+| B's clear marks | 33<!--m:kink_reference_human.all.B.missed--> | 7<!--m:kink_reference_human.all.B.missed_no_centerline--> | 15<!--m:kink_reference_human.all.B.missed_near_end--> | 2<!--m:kink_reference_human.all.B.missed_near_mark--> | 9<!--m:kink_reference_human.all.B.missed_elsewhere--> |
+| marks both call clear | 8<!--m:kink_reference_human.all.both.missed--> | 0<!--m:kink_reference_human.all.both.missed_no_centerline--> | 7<!--m:kink_reference_human.all.both.missed_near_end--> | 1<!--m:kink_reference_human.all.both.missed_near_mark--> | 0<!--m:kink_reference_human.all.both.missed_elsewhere--> |
+
+Of the 53<!--m:kink_reference_human.all.ai.clear--> clear kinks of the visual reference of §4.4, 43<!--m:kink_reference_human.all.ai.by_a--> have a clear mark of A within
+$W$, 50<!--m:kink_reference_human.all.ai.by_b--> a clear mark of B, and 43<!--m:kink_reference_human.all.ai.by_both--> a mark both call clear.
 
 ## 5. Stripe-noise screening
 

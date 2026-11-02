@@ -4329,6 +4329,125 @@ def weak_bend_noise() -> dict:
     return values
 
 
+@experiment(
+    "kink_reference_human",
+    ["lib/pipeline.py", "lib/measure.py", "lib/kink_detector.py", "lib/centerline.py"],
+    "Score the kink rule at the defaults against the kinks two people marked on the "
+    "three bundled scans (docs/data/human_kink_marks.csv), by the procedure of "
+    "scripts/kink_reference_score.py: against each person's clear marks, and against "
+    "the marks both called clear, every other mark then counting as ambiguous. Two "
+    "people's marks are the same place when paired one to one, nearest first, within "
+    "the scan's median apparent width. A missed mark is sorted by the first test it "
+    "passes: no centerline within W, within the end margin of its centerline, within "
+    "W of the image edge, within 2 W of a branch point, within 1.5 W of another clear "
+    "mark, otherwise elsewhere.",
+)
+def kink_reference_human() -> dict:
+    import numpy as np
+    import kink_reference_score as krs
+    from lib.kink_detector import END_MARGIN_WIDTHS, KinkDetector
+
+    categories = ("no_centerline", "near_end", "near_edge", "near_branch", "near_mark",
+                  "elsewhere")
+
+    def category(mark, lines, fibers, bp_xy, shape, clear):
+        best = (None, None, math.inf)
+        for i, line in enumerate(lines):
+            dist = np.hypot(line[:, 0] - mark["x"], line[:, 1] - mark["y"])
+            j = int(np.argmin(dist))
+            if dist[j] < best[2]:
+                best = (i, j, float(dist[j]))
+        fi, pi, dist = best
+        w = float(fibers[fi].width_px)
+        if dist > w:
+            return "no_centerline"
+        line = lines[fi]
+        s = np.concatenate([[0.0], np.cumsum(np.hypot(*np.diff(line, axis=0).T))])
+        if min(s[pi], s[-1] - s[pi]) < END_MARGIN_WIDTHS * w:
+            return "near_end"
+        h, wd = shape
+        if min(mark["x"], mark["y"], wd - 1 - mark["x"], h - 1 - mark["y"]) <= w:
+            return "near_edge"
+        if bp_xy.size and np.min(np.hypot(bp_xy[:, 0] - mark["x"], bp_xy[:, 1] - mark["y"])) <= 2 * w:
+            return "near_branch"
+        if any(o is not mark and math.hypot(o["x"] - mark["x"], o["y"] - mark["y"]) <= 1.5 * w
+               for o in clear):
+            return "near_mark"
+        return "elsewhere"
+
+    def add(values, prefix, counts):
+        for key, n in counts.items():
+            values[f"{prefix}.{key}"] = values.get(f"{prefix}.{key}", 0) + n
+
+    human = krs.load_human_reference()
+    ai = krs.load_reference()
+    cache = str(cache_dir("kink_reference_half_max_025w"))
+    values: dict = {}
+    for name in krs.SCANS:
+        image, fibers = krs.prepare_scan(name, cache, krs.ProcParams())
+        kinks, unjudged = krs.detect(fibers, KinkDetector())
+        w = float(np.median([f.width_px for f in fibers]))
+        lines = [np.column_stack([np.asarray(f.xtrack, float) + float(f.data[0]),
+                                  np.asarray(f.ytrack, float) + float(f.data[1])]) for f in fibers]
+        bp_xy = np.argwhere(np.asarray(image.bp) > 0)[:, ::-1].astype(float)
+        shape = np.asarray(image.calibrated_image).shape
+        a, b = human[name]["A"], human[name]["B"]
+        values[f"{name}.width_px"] = w
+        values[f"{name}.detections"] = len(kinks)
+        values["all.detections"] = values.get("all.detections", 0) + len(kinks)
+
+        def rule_against(refs):
+            clear = [r for r in refs if r["kind"] == "clear"]
+            c = krs.score(refs, kinks, unjudged)
+            out = {k: c[k] for k in ("ref", "found", "displaced", "merged", "missed", "false",
+                                     "exempt", "unjudged_on_clear")}
+            out["ambiguous"] = len(refs) - len(clear)
+            cats = [category(r, lines, fibers, bp_xy, shape, clear) for r in c["missed_list"]]
+            out.update({f"missed_{k}": cats.count(k) for k in categories})
+            return out
+
+        pairs = krs.match_marks(a, b, w)
+        both_clear = {(i, j) for i, j, _d in pairs
+                      if a[i]["kind"] == "clear" and b[j]["kind"] == "clear"}
+        kinds_differ = sum(a[i]["kind"] != b[j]["kind"] for i, j, _d in pairs)
+        paired_a = {i for i, _j, _d in pairs}
+        paired_b = {j for _i, j, _d in pairs}
+        clear_a = [r for r in a if r["kind"] == "clear"]
+        clear_b = [r for r in b if r["kind"] == "clear"]
+        agreement = dict(
+            same_place=len(pairs), both_clear=len(both_clear), kinds_differ=kinds_differ,
+            both_ambiguous=len(pairs) - len(both_clear) - kinds_differ,
+            only_a=len(a) - len(paired_a), only_b=len(b) - len(paired_b),
+            clear_pairs=len(krs.match_marks(clear_a, clear_b, w)),
+            clear_a=len(clear_a), clear_b=len(clear_b))
+        consensus = [dict(kind="clear" if (i, j) in both_clear else "ambiguous",
+                          x=(a[i]["x"] + b[j]["x"]) / 2, y=(a[i]["y"] + b[j]["y"]) / 2)
+                     for i, j, _d in pairs]
+        consensus += [dict(kind="ambiguous", x=r["x"], y=r["y"])
+                      for i, r in enumerate(a) if i not in paired_a]
+        consensus += [dict(kind="ambiguous", x=r["x"], y=r["y"])
+                      for j, r in enumerate(b) if j not in paired_b]
+        ai_clear = [r for r in ai[name] if r["kind"] == "clear"]
+
+        def covered(marks, others):
+            return sum(any(math.hypot(m["x"] - o["x"], m["y"] - o["y"]) <= w for o in others)
+                       for m in marks)
+
+        ai_counts = dict(clear=len(ai_clear), by_a=covered(ai_clear, clear_a),
+                         by_b=covered(ai_clear, clear_b),
+                         by_both=covered(ai_clear, [r for r in consensus if r["kind"] == "clear"]))
+        for group, counts in (("A", rule_against(a)), ("B", rule_against(b)),
+                              ("both", rule_against(consensus)), ("agree", agreement),
+                              ("ai", ai_counts)):
+            add(values, f"{name}.{group}", counts)
+            add(values, f"all.{group}", counts)
+    for scope in (*krs.SCANS, "all"):
+        agree = lambda key: values[f"{scope}.agree.{key}"]  # noqa: E731
+        values[f"{scope}.agree.clear_dice"] = (
+            2 * agree("clear_pairs") / (agree("clear_a") + agree("clear_b")))
+    return values
+
+
 # ----------------------------------------------------------------------------
 # Recording
 # ----------------------------------------------------------------------------

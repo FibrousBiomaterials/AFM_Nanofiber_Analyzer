@@ -19,6 +19,7 @@ Bruker NDTOC のスキャンは同じ分散液を測ったもので、後者は 
 |---|---|---|
 | 同梱スキャン | チュニケート CNF（`testdata_tunicateCNF`）、高等植物 TOC（`testdata_higherplantTOC`）、Bruker NDTOC（`testdata_Bruker_txt`）の各スキャン。`testdata_artificial` の 2<!--n:count--> つの試料はチュニケートのスキャンの切り抜きなので使わない | `scripts/kink_reference_score.py` の `SCANS` |
 | 目視基準 | 同梱スキャンの高さ画像に、AI コーディングエージェント（Claude Code）が付けたキンクの印。繊維ごとに高さ画像を拡大した切り出しを見て付けており、画像には検出器の出力を描いていない。ただし一部の繊維については、当時の検出器がどこにキンクを置くかを事前に知っていた。明瞭なキンク 53<!--m:kink_reference.clear_marks--> 件 | `scripts/kink_reference_score.py` |
+| 人の印 | 同梱スキャンに 2<!--n:count--> 人が、検出器のキンクを描かない画像の上で付けたキンクの印（§4.19）。明瞭な印は 80<!--m:kink_reference_human.all.A.ref--> 件と 122<!--m:kink_reference_human.all.B.ref--> 件 | `docs/data/human_kink_marks.csv`。`scripts/kink_reference_score.py` の `load_human_reference` で読む |
 | 合成データ一式 | 中心線とコーナーの位置が既知の合成スキャン。画素 2<!--c:scripts/synthetic_suite.py::NMPX--> nm、見かけ幅 $W$ = 8<!--c:scripts/synthetic_suite.py::W--> px | `scripts/synthetic_suite.py` |
 | キンク規則の掃引 | 見かけ幅と画素ノイズを変えて描いた、折れ・直線・円弧・正弦波の合成繊維 | `scripts/kink_rule_sweep.py` |
 
@@ -726,6 +727,8 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 49<!--m:turn_maxima.with.found--> 件から 47<!--m:turn_maxima.without.found--> 件に減り、一致しない折れは 64<!--m:turn_maxima.with.false--> 件から 49<!--m:turn_maxima.without.false--> 件に減った（実験
 turn_maxima）。
 
+同じ規則を 2<!--n:count--> 人が付けたキンクの印に対して採点した結果は §4.19 にある。
+
 ### 4.5 キンクとして保存する角度
 
 鋭い合成コーナーでは、探針と中心線が頂点を丸めるため、超過回転は実際より
@@ -1034,6 +1037,67 @@ $\sqrt{2}$ で割ったものである。この限界は §4.15〜§4.16 から�
 折れの超過回転は、95<!--n:definition--> パーセンタイルが 12.9<!--m:weak_bend_noise.excess_p95_deg--> 度、99<!--n:definition--> パーセンタイルが 17.3<!--m:weak_bend_noise.excess_p99_deg--> 度で、輪郭長
 1<!--n:definition--> µm あたり 6.6<!--m:weak_bend_noise.per_um_at_least_10--> 個が 10<!--n:value tried--> 度に、0.25<!--m:weak_bend_noise.per_um_at_least_20--> 個が 20<!--n:value tried--> 度に、0<!--m:weak_bend_noise.per_um_at_least_30--> 個が 30<!--n:value tried--> 度に届いた。これらの繊維に
 キンクは無いので、この範囲のしきい値では、それらの折れをキンクとして数えることになる。
+
+### 4.19 2<!--n:count--> 人が付けた印との比較
+
+本ソフトウェアの著者 A と B の 2<!--n:count--> 人が、同梱スキャン 3<!--n:count--> 枚に、互いに独立に作業してキンクの印を
+付けた。印は `docs/data/human_kink_marks.csv` にある。2<!--n:count--> 人とも、印を付ける前に検出器の
+出力を一切見ていない。2<!--n:count--> 人が見たのは、較正高さ画像に追跡済みの
+中心線を重ねたもので、検出器のキンクは描いていない。印ごとに明瞭か曖昧かを選んで
+もらった。印はすべて正解として扱う。印を付けた画像は以前のコードによる解析
+（バンドル形式 1.5<!--n:bundle format version-->）のもので、スケルトンが現在の解析と異なるため、現在の解析とは
+位置で比べる。規則の設定は、どれもこの印に対する得点で選んでいない。ただしスキャンは
+規則の開発に使ったものと同じ（§4.4）なので、開発に使っていないスキャンでの試験では
+ない（実験 kink_reference_human）。
+
+2<!--n:count--> 人の印は、近いものから順に 1<!--n:definition--> 対 1<!--n:definition--> で組にして、スキャンの見かけ幅の中央値 $W$ 以内に
+収まれば同じ場所とする。Dice は明瞭な印だけを組にして求め、組の数の 2<!--n:definition--> 倍を 2<!--n:count--> 人の
+件数の和で割った値である。
+
+| スキャン | $W$ (px) | A の明瞭な印 | B の明瞭な印 | 同じ場所 | 2<!--n:count--> 人とも明瞭 | 一方が明瞭、他方が曖昧 | 2<!--n:count--> 人とも曖昧 | A のみ | B のみ | 明瞭な印の Dice |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 高等植物 TOC | 7.6<!--m:kink_reference_human.hplantTOC.width_px--> | 5<!--m:kink_reference_human.hplantTOC.agree.clear_a--> | 6<!--m:kink_reference_human.hplantTOC.agree.clear_b--> | 5<!--m:kink_reference_human.hplantTOC.agree.same_place--> | 4<!--m:kink_reference_human.hplantTOC.agree.both_clear--> | 1<!--m:kink_reference_human.hplantTOC.agree.kinds_differ--> | 0<!--m:kink_reference_human.hplantTOC.agree.both_ambiguous--> | 0<!--m:kink_reference_human.hplantTOC.agree.only_a--> | 7<!--m:kink_reference_human.hplantTOC.agree.only_b--> | 0.73<!--m:kink_reference_human.hplantTOC.agree.clear_dice--> |
+| チュニケート CNF | 8.0<!--m:kink_reference_human.tunicate.width_px--> | 62<!--m:kink_reference_human.tunicate.agree.clear_a--> | 94<!--m:kink_reference_human.tunicate.agree.clear_b--> | 71<!--m:kink_reference_human.tunicate.agree.same_place--> | 61<!--m:kink_reference_human.tunicate.agree.both_clear--> | 8<!--m:kink_reference_human.tunicate.agree.kinds_differ--> | 2<!--m:kink_reference_human.tunicate.agree.both_ambiguous--> | 0<!--m:kink_reference_human.tunicate.agree.only_a--> | 40<!--m:kink_reference_human.tunicate.agree.only_b--> | 0.78<!--m:kink_reference_human.tunicate.agree.clear_dice--> |
+| Bruker NDTOC | 8.6<!--m:kink_reference_human.NDTOC.width_px--> | 13<!--m:kink_reference_human.NDTOC.agree.clear_a--> | 22<!--m:kink_reference_human.NDTOC.agree.clear_b--> | 21<!--m:kink_reference_human.NDTOC.agree.same_place--> | 11<!--m:kink_reference_human.NDTOC.agree.both_clear--> | 6<!--m:kink_reference_human.NDTOC.agree.kinds_differ--> | 4<!--m:kink_reference_human.NDTOC.agree.both_ambiguous--> | 2<!--m:kink_reference_human.NDTOC.agree.only_a--> | 11<!--m:kink_reference_human.NDTOC.agree.only_b--> | 0.63<!--m:kink_reference_human.NDTOC.agree.clear_dice--> |
+| 合計 | — | 80<!--m:kink_reference_human.all.agree.clear_a--> | 122<!--m:kink_reference_human.all.agree.clear_b--> | 97<!--m:kink_reference_human.all.agree.same_place--> | 76<!--m:kink_reference_human.all.agree.both_clear--> | 15<!--m:kink_reference_human.all.agree.kinds_differ--> | 6<!--m:kink_reference_human.all.agree.both_ambiguous--> | 2<!--m:kink_reference_human.all.agree.only_a--> | 58<!--m:kink_reference_human.all.agree.only_b--> | 0.75<!--m:kink_reference_human.all.agree.clear_dice--> |
+
+規則を既定の設定で、§4.4 の手順により 3<!--n:count--> つの基準に対して採点した。A の印、B の印、
+そして 2<!--n:count--> 人とも明瞭とした印である。最後の基準では、それ以外のどちらかの人の印をすべて
+曖昧として扱い、組になった印はその中点に置く。統合とは、$W$ 以内にある唯一の報告された
+折れが、既に別の明瞭な印に対応していたことをいう。最後の列は、その基準で明瞭でない印から
+$W$ 以内にある報告された折れの件数である。規則が報告した折れは 140<!--m:kink_reference_human.all.detections--> 件だった。
+
+| 基準 | スキャン | 明瞭な印 | 検出 | 印から 1〜2<!--n:definition--> 幅ずれて検出 | 統合 | 見落とし | 一致なし | 明瞭でない印のそば |
+|---|---|---|---|---|---|---|---|---|
+| A の明瞭な印 | 高等植物 TOC | 5<!--m:kink_reference_human.hplantTOC.A.ref--> | 4<!--m:kink_reference_human.hplantTOC.A.found--> | 0<!--m:kink_reference_human.hplantTOC.A.displaced--> | 0<!--m:kink_reference_human.hplantTOC.A.merged--> | 1<!--m:kink_reference_human.hplantTOC.A.missed--> | 3<!--m:kink_reference_human.hplantTOC.A.false--> | 0<!--m:kink_reference_human.hplantTOC.A.exempt--> |
+| A の明瞭な印 | チュニケート CNF | 62<!--m:kink_reference_human.tunicate.A.ref--> | 49<!--m:kink_reference_human.tunicate.A.found--> | 3<!--m:kink_reference_human.tunicate.A.displaced--> | 2<!--m:kink_reference_human.tunicate.A.merged--> | 8<!--m:kink_reference_human.tunicate.A.missed--> | 12<!--m:kink_reference_human.tunicate.A.false--> | 6<!--m:kink_reference_human.tunicate.A.exempt--> |
+| A の明瞭な印 | Bruker NDTOC | 13<!--m:kink_reference_human.NDTOC.A.ref--> | 13<!--m:kink_reference_human.NDTOC.A.found--> | 0<!--m:kink_reference_human.NDTOC.A.displaced--> | 0<!--m:kink_reference_human.NDTOC.A.merged--> | 0<!--m:kink_reference_human.NDTOC.A.missed--> | 44<!--m:kink_reference_human.NDTOC.A.false--> | 6<!--m:kink_reference_human.NDTOC.A.exempt--> |
+| A の明瞭な印 | 合計 | 80<!--m:kink_reference_human.all.A.ref--> | 66<!--m:kink_reference_human.all.A.found--> | 3<!--m:kink_reference_human.all.A.displaced--> | 2<!--m:kink_reference_human.all.A.merged--> | 9<!--m:kink_reference_human.all.A.missed--> | 59<!--m:kink_reference_human.all.A.false--> | 12<!--m:kink_reference_human.all.A.exempt--> |
+| B の明瞭な印 | 高等植物 TOC | 6<!--m:kink_reference_human.hplantTOC.B.ref--> | 4<!--m:kink_reference_human.hplantTOC.B.found--> | 0<!--m:kink_reference_human.hplantTOC.B.displaced--> | 0<!--m:kink_reference_human.hplantTOC.B.merged--> | 2<!--m:kink_reference_human.hplantTOC.B.missed--> | 1<!--m:kink_reference_human.hplantTOC.B.false--> | 2<!--m:kink_reference_human.hplantTOC.B.exempt--> |
+| B の明瞭な印 | チュニケート CNF | 94<!--m:kink_reference_human.tunicate.B.ref--> | 63<!--m:kink_reference_human.tunicate.B.found--> | 3<!--m:kink_reference_human.tunicate.B.displaced--> | 4<!--m:kink_reference_human.tunicate.B.merged--> | 24<!--m:kink_reference_human.tunicate.B.missed--> | 1<!--m:kink_reference_human.tunicate.B.false--> | 3<!--m:kink_reference_human.tunicate.B.exempt--> |
+| B の明瞭な印 | Bruker NDTOC | 22<!--m:kink_reference_human.NDTOC.B.ref--> | 15<!--m:kink_reference_human.NDTOC.B.found--> | 0<!--m:kink_reference_human.NDTOC.B.displaced--> | 0<!--m:kink_reference_human.NDTOC.B.merged--> | 7<!--m:kink_reference_human.NDTOC.B.missed--> | 44<!--m:kink_reference_human.NDTOC.B.false--> | 4<!--m:kink_reference_human.NDTOC.B.exempt--> |
+| B の明瞭な印 | 合計 | 122<!--m:kink_reference_human.all.B.ref--> | 82<!--m:kink_reference_human.all.B.found--> | 3<!--m:kink_reference_human.all.B.displaced--> | 4<!--m:kink_reference_human.all.B.merged--> | 33<!--m:kink_reference_human.all.B.missed--> | 46<!--m:kink_reference_human.all.B.false--> | 9<!--m:kink_reference_human.all.B.exempt--> |
+| 2<!--n:count--> 人とも明瞭とした印 | 高等植物 TOC | 4<!--m:kink_reference_human.hplantTOC.both.ref--> | 4<!--m:kink_reference_human.hplantTOC.both.found--> | 0<!--m:kink_reference_human.hplantTOC.both.displaced--> | 0<!--m:kink_reference_human.hplantTOC.both.merged--> | 0<!--m:kink_reference_human.hplantTOC.both.missed--> | 1<!--m:kink_reference_human.hplantTOC.both.false--> | 2<!--m:kink_reference_human.hplantTOC.both.exempt--> |
+| 2<!--n:count--> 人とも明瞭とした印 | チュニケート CNF | 61<!--m:kink_reference_human.tunicate.both.ref--> | 49<!--m:kink_reference_human.tunicate.both.found--> | 2<!--m:kink_reference_human.tunicate.both.displaced--> | 2<!--m:kink_reference_human.tunicate.both.merged--> | 8<!--m:kink_reference_human.tunicate.both.missed--> | 1<!--m:kink_reference_human.tunicate.both.false--> | 18<!--m:kink_reference_human.tunicate.both.exempt--> |
+| 2<!--n:count--> 人とも明瞭とした印 | Bruker NDTOC | 11<!--m:kink_reference_human.NDTOC.both.ref--> | 11<!--m:kink_reference_human.NDTOC.both.found--> | 0<!--m:kink_reference_human.NDTOC.both.displaced--> | 0<!--m:kink_reference_human.NDTOC.both.merged--> | 0<!--m:kink_reference_human.NDTOC.both.missed--> | 42<!--m:kink_reference_human.NDTOC.both.false--> | 10<!--m:kink_reference_human.NDTOC.both.exempt--> |
+| 2<!--n:count--> 人とも明瞭とした印 | 合計 | 76<!--m:kink_reference_human.all.both.ref--> | 64<!--m:kink_reference_human.all.both.found--> | 2<!--m:kink_reference_human.all.both.displaced--> | 2<!--m:kink_reference_human.all.both.merged--> | 8<!--m:kink_reference_human.all.both.missed--> | 44<!--m:kink_reference_human.all.both.false--> | 30<!--m:kink_reference_human.all.both.exempt--> |
+
+どの基準でも、一致しない折れの多くは Bruker NDTOC スキャンにある。2<!--n:count--> 人とも明瞭とした印に
+対しては 44<!--m:kink_reference_human.all.both.false--> 件のうち 42<!--m:kink_reference_human.NDTOC.both.false--> 件で、このスキャンではその印 11<!--m:kink_reference_human.NDTOC.both.ref--> 件をすべて検出している。
+
+見落とした印は、次の判定のうち最初に当てはまるもので分けた。$W$ 以内に中心線が無い。
+中心線の端から 1.5<!--c:lib/kink_detector.py::END_MARGIN_WIDTHS--> W の範囲内にある（規則はここの折れを判定しない）。画像の縁から $W$ 以内に
+ある。分岐点から 2<!--n:definition--> W 以内にある。別の明瞭な印から 1.5<!--n:definition--> W 以内にある。いずれでもなければ
+その他とする。画像の縁と分岐点の判定で分けられた印は、どの基準にも無かった。
+
+| 基準 | 見落とし | $W$ 以内に中心線なし | 端の範囲内 | 別の明瞭な印のそば | その他 |
+|---|---|---|---|---|---|
+| A の明瞭な印 | 9<!--m:kink_reference_human.all.A.missed--> | 0<!--m:kink_reference_human.all.A.missed_no_centerline--> | 9<!--m:kink_reference_human.all.A.missed_near_end--> | 0<!--m:kink_reference_human.all.A.missed_near_mark--> | 0<!--m:kink_reference_human.all.A.missed_elsewhere--> |
+| B の明瞭な印 | 33<!--m:kink_reference_human.all.B.missed--> | 7<!--m:kink_reference_human.all.B.missed_no_centerline--> | 15<!--m:kink_reference_human.all.B.missed_near_end--> | 2<!--m:kink_reference_human.all.B.missed_near_mark--> | 9<!--m:kink_reference_human.all.B.missed_elsewhere--> |
+| 2<!--n:count--> 人とも明瞭とした印 | 8<!--m:kink_reference_human.all.both.missed--> | 0<!--m:kink_reference_human.all.both.missed_no_centerline--> | 7<!--m:kink_reference_human.all.both.missed_near_end--> | 1<!--m:kink_reference_human.all.both.missed_near_mark--> | 0<!--m:kink_reference_human.all.both.missed_elsewhere--> |
+
+§4.4 の目視基準の明瞭なキンク 53<!--m:kink_reference_human.all.ai.clear--> 件のうち、$W$ 以内に A の明瞭な印があるものは 43<!--m:kink_reference_human.all.ai.by_a--> 件、
+B の明瞭な印があるものは 50<!--m:kink_reference_human.all.ai.by_b--> 件、2<!--n:count--> 人とも明瞭とした印があるものは 43<!--m:kink_reference_human.all.ai.by_both--> 件だった。
 
 ## 5. 縞ノイズの検査
 
