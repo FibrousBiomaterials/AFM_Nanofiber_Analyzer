@@ -98,6 +98,9 @@ testdata_Bruker_txt/*
 # What supports each sentence of paper.md (scripts/check_paper_claims.py,
 # tests/test_paper_claims.py); without it CI fails on a missing file.
 !tests/paper_claims.json
+# Which translation of CHANGELOG.ja.md each CHANGELOG.md entry was read against
+# (scripts/check_changelog_ja.py, tests/test_changelog_ja.py).
+!tests/changelog_ja_manifest.json
 # Zenodo deposition metadata must be version-controlled so the Zenodo GitHub
 # integration reads it from the archived release; otherwise *.json above hides it.
 !.zenodo.json

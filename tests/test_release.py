@@ -87,9 +87,10 @@ def test_only_this_softwares_bibtex_entry_is_edited():
 def test_the_real_files_take_a_release():
     """Every file a release edits has exactly the shape the edits expect."""
     files = _real(rel.RELEASE_FILES)
-    if not cv.unreleased_section(files[rel.CHANGELOG]).strip():
-        files[rel.CHANGELOG] = files[rel.CHANGELOG].replace(
-            "## [Unreleased]", "## [Unreleased]\n\n- test entry", 1)
+    for changelog in (rel.CHANGELOG, rel.CHANGELOG_JA):
+        if not cv.unreleased_section(files[changelog]).strip():
+            files[changelog] = files[changelog].replace(
+                "## [Unreleased]", "## [Unreleased]\n\n- test entry", 1)
     last = "2.0.1"
     out = rel.release_edits(files, "9.8.7", "2031-02-03", last)
     assert cv.pyproject_version(out[rel.PYPROJECT]) == "9.8.7"
@@ -100,6 +101,7 @@ def test_the_real_files_take_a_release():
         assert "version   = {9.8.7}" in out[readme]
         assert "year      = {2031}" in out[readme]
     assert "## [9.8.7] - 2031-02-03" in out[rel.CHANGELOG]
+    assert "## [9.8.7] - 2031-02-03" in out[rel.CHANGELOG_JA]
     # The result passes the version check as a release commit.
     after = {**_real(cv.WATCHED), **{k: v for k, v in out.items() if k in cv.WATCHED}}
     assert cv.find_problems(_real(cv.WATCHED), after, last) == []

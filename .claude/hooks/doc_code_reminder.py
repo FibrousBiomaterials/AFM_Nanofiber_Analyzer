@@ -44,6 +44,9 @@ After an Edit / Write / MultiEdit / NotebookEdit of a project file:
   and if the algorithm document quotes code from the file, every such excerpt is
   compared with the code (`scripts/doc_excerpts.check_pair_excerpts`).
 
+- Changelog: after an edit of `CHANGELOG.md`, `scripts/check_changelog_ja.py`
+  reports what `CHANGELOG.ja.md` no longer follows.
+
 A comment-only edit reports nothing. Each finding is reported once per session.
 
 プロジェクト内のファイルを Edit / Write / MultiEdit / NotebookEdit した後、
@@ -57,6 +60,8 @@ A comment-only edit reports nothing. Each finding is reported once per session.
   規則であり、既存のコードが使わない新しい定義は報告しない。さらに文書が
   そのファイルのコードを引用していれば、各コード片をコードと照合する
   （`scripts/doc_excerpts.check_pair_excerpts`）。
+- 変更履歴：`CHANGELOG.md` を編集した後、`scripts/check_changelog_ja.py` が
+  `CHANGELOG.ja.md` の追随していない箇所を報告する。
 
 コメントだけの編集では何も報告しない。各指摘はセッションごとに 1 回だけ報告する。
 
@@ -76,6 +81,7 @@ EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 
 ALGORITHM_DOCS = ("docs/algorithms.md", "docs/algorithms.ja.md")
 ALGORITHM_MANIFEST = "tests/algorithm_doc_manifest.json"
+CHANGELOG = "CHANGELOG.md"
 
 
 def _project_root() -> str:
@@ -211,6 +217,17 @@ def _algorithm_findings(root, rel):
     return out
 
 
+def _changelog_findings(root):
+    """Return ``(state key, message)`` pairs for the changelog's translation."""
+    checker = _load_script(root, "check_changelog_ja")
+    problems = checker.find_problems(
+        checker.read_worktree(checker.CHANGELOG_EN),
+        checker.read_worktree(checker.CHANGELOG_JA),
+        checker.load_manifest(checker.read_worktree))
+    return [(f"changelog-ja:{problem}", f"- {checker.CHANGELOG_JA}: {problem}")
+            for problem in problems[:5]]
+
+
 def _state_path(root: str, payload: dict) -> str:
     """Return the per-session file recording what was already reported."""
     sid = re.sub(r"[^A-Za-z0-9_-]", "_", str(payload.get("session_id") or "default"))[:80]
@@ -229,10 +246,13 @@ def main() -> int:
             return 0
         root = _project_root()
         rel = _relative(root, file_path)
-        if rel is None or not rel.endswith(".py"):
+        if rel is None or not (rel.endswith(".py") or rel == CHANGELOG):
             return 0
 
-        findings = _gui04_findings(root, rel) + _algorithm_findings(root, rel)
+        if rel == CHANGELOG:
+            findings = _changelog_findings(root)
+        else:
+            findings = _gui04_findings(root, rel) + _algorithm_findings(root, rel)
         if not findings:
             return 0
 
@@ -249,13 +269,23 @@ def main() -> int:
         with open(state_file, "w", encoding="utf-8") as fh:
             json.dump(sorted(reported | {key for key, _ in fresh}), fh)
 
-        lines = [
-            "This edit changed code that a document explains with its code "
-            "(comments and docstrings are ignored by this check):",
-            *(message for _, message in fresh),
-            "Updating the documents is part of this change (AGENTS.md §8.13, "
-            "§8.14). If the edit is not finished yet, do it once it is.",
-        ]
+        if rel == CHANGELOG:
+            lines = [
+                "This edit changed CHANGELOG.md, and CHANGELOG.ja.md is its "
+                "translation, kept entry by entry:",
+                *(message for _, message in fresh),
+                "Updating the translation is part of this change (AGENTS.md §8.11). "
+                "Apply the same edit there, then run "
+                "`.venv/Scripts/python.exe scripts/check_changelog_ja.py --update`.",
+            ]
+        else:
+            lines = [
+                "This edit changed code that a document explains with its code "
+                "(comments and docstrings are ignored by this check):",
+                *(message for _, message in fresh),
+                "Updating the documents is part of this change (AGENTS.md §8.13, "
+                "§8.14). If the edit is not finished yet, do it once it is.",
+            ]
         print(json.dumps({
             "hookSpecificOutput": {
                 "hookEventName": "PostToolUse",

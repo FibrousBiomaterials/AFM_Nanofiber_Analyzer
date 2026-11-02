@@ -137,7 +137,9 @@ numbers than before, and the commit must also add a line under
 This project is cited and its results are reproduced from a released version,
 so a change in output has to be visible in the changelog rather than only in
 the commit log. Do not set a version number or date in that entry; those are
-assigned when a release is cut. Scan manually with:
+assigned when a release is cut. The same entry goes into `CHANGELOG.ja.md`, the
+Japanese translation, which `scripts/check_changelog_ja.py` compares with
+`CHANGELOG.md` entry by entry. Scan manually with:
 
 ```bash
 python scripts/check_changelog.py --staged

@@ -1077,6 +1077,34 @@ Changes that alter results usually also warrant an entry for other reasons
 notable changes, and this rule only makes the result-changing case
 non-optional.
 
+`CHANGELOG.ja.md` is the Japanese translation of `CHANGELOG.md`, and the two are
+a synchronized pair on the same terms as the README pair: an edit to one requires
+the corresponding edit, including translation, in the other. Translate every
+entry; do not shorten or summarize it. The headings stay aligned through
+`SECTION_JA` in `scripts/check_changelog_ja.py`, and `scripts/release.py prepare`
+rolls `[Unreleased]` and the link definitions in both files.
+
+Three mechanisms enforce the pair, in the manner of §8.13:
+
+- `scripts/check_changelog_ja.py`, run from `.githooks/pre-commit`, splits both
+  files into entries and blocks a commit when the headings or the number of
+  entries differ; when an entry and its translation differ in inline code, URLs,
+  bold spans, paragraphs or nested items, or the translation lacks a number or a
+  Japanese UI label of the English; or when an entry changed and its translation
+  did not.
+- `tests/test_changelog_ja.py` runs the same check in CI, where it cannot be
+  skipped.
+- The Claude Code hook `.claude/hooks/doc_code_reminder.py` (`PostToolUse`) reports
+  what the translation no longer follows right after an edit of `CHANGELOG.md`.
+
+The check compares against `tests/changelog_ja_manifest.json`. After translating
+an edit, read the pair and refresh it with
+`.venv\Scripts\python.exe scripts\check_changelog_ja.py --update`, which refuses
+an English entry whose translation has not changed. An English edit that truly
+needs no change to the translation, such as a typo, is recorded with
+`--update --english-only`. The manifest is a tripwire, not a proof: whether a
+translation says what the English says is not machine-checked.
+
 ### 8.12 Verifying analysis and detection changes
 
 A claim about *what the analysis detected* is not verified until the rendered
@@ -1444,6 +1472,7 @@ Enforced by `.githooks/pre-commit` (`--staged`) and `tests/test_paper_claims.py`
 | Translation catalogs | Refresh with `.venv\Scripts\python.exe prepare_translate_catalogs.py` (keeps `PLUGIN_INFO` descriptions; a bare `pybabel extract/update` drops them and obsoletes the entries); never edit `.mo` files directly (§8.8). |
 | README pair | `README.md` ↔ `README.ja.md` stay synchronized in both directions, including translation of the edited passage. |
 | Result-changing fixes | If `tests/strict_regression_golden.json` or `tests/measurement_regression_golden.json` changes, add a `CHANGELOG.md` `[Unreleased]` entry stating that results change from this version; enforced by `.githooks/pre-commit` (§8.11). |
+| Changelog translation | `CHANGELOG.md` ↔ `CHANGELOG.ja.md` stay synchronized entry by entry; refresh `tests/changelog_ja_manifest.json` with `scripts/check_changelog_ja.py --update` after reading the translated pair. Enforced by `.githooks/pre-commit`, `tests/test_changelog_ja.py`, and the `PostToolUse` hook `.claude/hooks/doc_code_reminder.py` (§8.11). |
 | Readers of bundles | Measure the stored record as stored; never run background calibration, segmentation, skeletonization or its cleanup passes, `process_file` or `build_stages` when reading a bundle; recompute only what the recorded settings determine; handle an older format by asking for re-analysis, never by repairing it on load; enforced by `tests/test_reader_purity.py` and `tests/test_measurement_regression.py` (§8.16). |
 | Algorithm changes | A change to `bg_calibrator.py`, `segmenter.py`, `skeletonizer.py`, `kink_detector.py`, or `centerline.py` includes updating `docs/algorithms.md` **and** `docs/algorithms.ja.md`; refresh `tests/algorithm_doc_manifest.json` only after rereading the affected sections. Explain each step with its code and formula, quoting code only as verified `# source: <path>::<symbol>` excerpts (identical in both languages); reference code by symbol name, never by line number. Enforced by `.githooks/pre-commit`, `tests/test_algorithm_docs.py`, and the `PostToolUse` hook `.claude/hooks/doc_code_reminder.py` (§8.13). |
 | GUI04 measurement changes | A change to a symbol in `WATCHED_SYMBOLS` (`scripts/check_gui04_docs.py`), or a new GUI04 fiber-table column (which needs its own §3 subsection naming it), includes updating `docs/gui04_measurements.md` **and** `docs/gui04_measurements.ja.md`, prose and quoted excerpts alike; refresh `tests/gui04_doc_manifest.json` with `scripts/check_gui04_docs.py --update` only after rereading. Quote code only in `# source: <path>::<symbol>` blocks. Say 「中心線」/「スケルトントラック」 ("centerline"/"skeleton track"), never a bare 「線」/"line". Enforced by `.githooks/pre-commit`, `tests/test_gui04_docs.py`, and the `PostToolUse` hook `.claude/hooks/doc_code_reminder.py` (§8.14). |

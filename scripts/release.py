@@ -8,9 +8,10 @@ Two subcommands carry out the file edits of RELEASING.md:
     Checklist steps 1-6: set ``X.Y.Z`` in ``pyproject.toml`` and
     ``lib/__init__.py``; set ``version`` and ``date-released`` in
     ``CITATION.cff``; set ``version`` (and ``year``) in the BibTeX block of
-    both READMEs; turn ``## [Unreleased]`` of ``CHANGELOG.md`` into
-    ``## [X.Y.Z] - DATE`` under a new empty ``[Unreleased]`` and update the
-    link references; then run ``pytest``, ``ruff check .`` and
+    both READMEs; turn ``## [Unreleased]`` of ``CHANGELOG.md`` and
+    ``CHANGELOG.ja.md`` into ``## [X.Y.Z] - DATE`` under a new empty
+    ``[Unreleased]`` and update the link references; then run ``pytest``,
+    ``ruff check .`` and
     ``check.py --verify``. With ``--commit`` it also commits
     ("Release vX.Y.Z") and creates the tag ``vX.Y.Z`` (steps 7-8).
 ``start-dev X.Y.Z``
@@ -47,8 +48,9 @@ PYPROJECT = cv.PYPROJECT
 INIT = cv.INIT
 CITATION = "CITATION.cff"
 CHANGELOG = cv.CHANGELOG
+CHANGELOG_JA = "CHANGELOG.ja.md"
 READMES = cv.READMES
-RELEASE_FILES = (PYPROJECT, INIT, CITATION, CHANGELOG) + READMES
+RELEASE_FILES = (PYPROJECT, INIT, CITATION, CHANGELOG, CHANGELOG_JA) + READMES
 DEV_FILES = (PYPROJECT, INIT)
 BIBTEX_KEY = "@software{afm_nanofiber_analyzer"
 
@@ -118,7 +120,8 @@ def set_readme_bibtex(text: str, version: str, year: str, name: str = "README") 
     return text[:start] + block + text[end:]
 
 
-def roll_changelog(text: str, version: str, date: str, previous: Optional[str]) -> str:
+def roll_changelog(text: str, version: str, date: str, previous: Optional[str],
+                   name: str = CHANGELOG) -> str:
     """Turn ``[Unreleased]`` into ``[version] - date`` and update the links.
     ``[Unreleased]`` を ``[version] - date`` に変え、リンク参照を更新する。
 
@@ -127,6 +130,9 @@ def roll_changelog(text: str, version: str, date: str, previous: Optional[str]) 
     previous
         The release before this one, "X.Y.Z", or None for a first release.
         この前のリリース（"X.Y.Z"）。初回リリースなら None。
+    name
+        The file `text` came from, for messages.
+        `text` の元のファイル（メッセージ用）。
 
     Raises
     ------
@@ -136,17 +142,17 @@ def roll_changelog(text: str, version: str, date: str, previous: Optional[str]) 
     """
     if not cv.unreleased_section(text).strip():
         raise ReleaseError(
-            f"the '## [Unreleased]' section of {CHANGELOG} is empty; write what "
+            f"the '## [Unreleased]' section of {name} is empty; write what "
             "this release changes before releasing it")
     if re.search(rf"^##\s+\[{re.escape(version)}\]", text, re.MULTILINE):
-        raise ReleaseError(f"{CHANGELOG} already has a section for {version}")
+        raise ReleaseError(f"{name} already has a section for {version}")
     text = _sub_once(r"^##\s+\[Unreleased\][^\n]*$",
                      f"## [Unreleased]\n\n## [{version}] - {date}",
-                     text, f"'## [Unreleased]' heading in {CHANGELOG}",
+                     text, f"'## [Unreleased]' heading in {name}",
                      flags=re.MULTILINE | re.IGNORECASE)
     m = re.search(r"^\[Unreleased\]:\s*(\S+?)/compare/\S+$", text, re.MULTILINE)
     if not m:
-        raise ReleaseError(f"no '[Unreleased]: .../compare/...' link in {CHANGELOG}")
+        raise ReleaseError(f"no '[Unreleased]: .../compare/...' link in {name}")
     base = m.group(1)
     target = (f"{base}/compare/v{previous}...v{version}" if previous
               else f"{base}/releases/tag/v{version}")
@@ -179,6 +185,7 @@ def release_edits(files: Dict[str, str], version: str, date: str,
         INIT: set_init_version(files[INIT], version),
         CITATION: set_citation(files[CITATION], version, date),
         CHANGELOG: roll_changelog(files[CHANGELOG], version, date, previous),
+        CHANGELOG_JA: roll_changelog(files[CHANGELOG_JA], version, date, previous, CHANGELOG_JA),
     }
     for readme in READMES:
         out[readme] = set_readme_bibtex(files[readme], version, year, readme)
