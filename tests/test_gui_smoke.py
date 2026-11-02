@@ -1548,10 +1548,12 @@ def test_gui03_scan_size_note_names_each_group_when_sizes_differ():
             {"A": [(2.0, 2.0)], "B": [(2.0, 1.0)]}, mode) != ""
 
 
-def _kink_condition(threshold=150.0, version="1.6", pixel_nm=2.0, width_px=8.0):
+def _kink_condition(threshold=150.0, version="1.6", pixel_nm=2.0, width_px=8.0,
+                    height_nm=2.0, noise_nm=0.02):
     """Build one `App._bundle_kink_conditions` entry."""
     return {"threshold": threshold, "version": version,
-            "pixel_nm": pixel_nm, "width_px": width_px}
+            "pixel_nm": pixel_nm, "width_px": width_px,
+            "height_nm": height_nm, "noise_nm": noise_nm}
 
 
 def test_gui03_kink_definitions_that_differ_block_the_test():
@@ -1576,6 +1578,40 @@ def test_gui03_kink_definitions_that_differ_block_the_test():
     assert blocking == "" and len(warnings) == 2
     assert "2.00" in warnings[0] and "5.00" in warnings[0]
     assert "1.5, 1.6" in warnings[1]
+
+
+def test_gui03_kink_report_warns_only_below_the_noise_limit():
+    """
+    Noise warns at the limit the analysis warns at, not at any difference.
+    ノイズは解析が警告する限度で警告し、差があるだけでは警告しない。
+    """
+    from lib.pipeline import MIN_FIBER_SNR
+
+    report = gui03._kink_condition_report
+    above = _kink_condition(height_nm=2.0, noise_nm=2.0 / (MIN_FIBER_SNR + 1))
+    below = _kink_condition(height_nm=2.0, noise_nm=2.0 / (MIN_FIBER_SNR - 1))
+    unread = _kink_condition(height_nm=None, noise_nm=None)
+    # A difference above the limit, or a bundle that could not be read, says
+    # nothing about the limit.
+    # 限度より上の差や、読めなかったバンドルは限度について何も言わない。
+    assert report({"A": [_kink_condition()], "B": [above]}, False) == ([], "")
+    assert report({"A": [unread], "B": [above]}, False) == ([], "")
+    warnings, blocking = report({"A": [above], "B": [below]}, False)
+    assert blocking == "" and len(warnings) == 1
+    assert "1/2" in warnings[0]
+
+
+def test_gui03_frame_bias_note_names_the_uncorrected_length_modes():
+    """
+    Only uncorrected lengths carry the frame-bias note.
+    枠の偏りの注記は、補正していない長さにだけ付く。
+    """
+    note = gui03._frame_bias_note
+    assert gui03.FRAME_INCLUDE in note(gui03.PARAM_LENGTH, gui03.FRAME_INCLUDE)
+    assert gui03.FRAME_EXCLUDE in note(gui03.PARAM_LENGTH, gui03.FRAME_EXCLUDE)
+    assert note(gui03.PARAM_LENGTH, gui03.FRAME_MILES_LANTUEJOUL) == ""
+    assert note(gui03.PARAM_LENGTH, gui03.FRAME_KAPLAN_MEIER) == ""
+    assert note(gui03.PARAM_HEIGHT, gui03.FRAME_INCLUDE) == ""
 
 
 @pytest.mark.parametrize("param", [

@@ -179,8 +179,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   also does not test `kink angle` or `kink density` between bundles judged at
   different kink thresholds, which are different definitions of a kink; entering
   a kink threshold applies one to every bundle. The results table and the statistics CSV (a new last column, `median W (nm)`)
-  show each group's median apparent width, the scale its kinks were judged at,
-  and the log warns when the bundles differ in pixel size or format.
+  show each group's median apparent width, the scale its kinks were judged at.
+  The log gives each group's median pixel noise and warns when the bundles differ
+  in pixel size or format or when a bundle's fibers stand below the noise limit
+  of the analysis warning.
+- GUI03 says under the comparison table that the correction covers one quantity
+  at a time and, under `include` and `exclude`, that a length comparison also
+  holds a difference in frame bias, because the frame shortens long fibers more
+  even at one scan size.
 - The kink rule searches for bends down to a fixed excess turning of 10°
   (`kink_detector.WEAK_BEND_FLOOR_DEG`) instead of at the threshold, and a
   maximum of the window turning is shut out only by a curvature-maximum

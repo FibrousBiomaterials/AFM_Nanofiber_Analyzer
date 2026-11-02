@@ -60,6 +60,7 @@ import queue
 import threading
 import traceback
 from datetime import datetime
+from types import SimpleNamespace
 
 # ===== Numerical / scientific libraries =====
 import numpy as np
@@ -528,12 +529,15 @@ def _kink_condition_report(conditions_by_group: dict,
     Notes
     -----
     A different threshold is a different definition of a kink, so such groups
-    are not tested. A different pixel size or format changes how the same
-    definition reads a scan: the difference is reported and the test still runs,
-    as for curvature.
+    are not tested. A different pixel size or format, or noise above the limit
+    `pipeline.noise_warnings` applies, changes how the same definition reads a
+    scan: it is reported and the test still runs, as for curvature. A difference
+    in noise below that limit, or in apparent width, has no measured limit to
+    warn at, so those values are shown instead.
     しきい値が違えばキンクの定義が違うため、そうした群は検定しない。画素サイズや
-    形式の違いは、同じ定義が画像をどう読むかを変える。その差は報告し、検定は曲率と
-    同じく実行する。
+    形式の違い、`pipeline.noise_warnings` の限度を超えるノイズは、同じ定義が画像を
+    どう読むかを変える。それらは報告し、検定は曲率と同じく実行する。その限度より小さい
+    ノイズの差や見かけの幅の差には、警告する限度の測定値が無いため、値を示すにとどめる。
     """
     conditions = [c for group in conditions_by_group.values() for c in group]
     blocking = ""
@@ -563,6 +567,21 @@ def _kink_condition_report(conditions_by_group: dict,
             "見かけの幅やキンクの探し方の定義が違うため、同じ版で解析し直すことを"
             "勧めます。"
         ).format(versions=", ".join(versions)))
+    # Local import: see `App._bundle_height_and_noise`.
+    # 局所インポート。`App._bundle_height_and_noise` を参照。
+    from lib.pipeline import MIN_FIBER_SNR
+
+    ratios = [c["height_nm"] / c["noise_nm"] for c in conditions
+              if c.get("height_nm") is not None and c.get("noise_nm")]
+    low = [ratio for ratio in ratios if ratio < MIN_FIBER_SNR]
+    if low:
+        warnings.append(_(
+            "注意: 比較したバンドルのうち {n}/{total} 個は、繊維の高さが画素ノイズの "
+            "{limit:g} 倍未満です（最小 {ratio:.1f} 倍）。ノイズが大きいと太い繊維の幅が"
+            "短く読まれ、キンクを判定する尺度が変わります（docs/validation.md §4.16、"
+            "§4.17）。"
+        ).format(n=len(low), total=len(ratios), limit=MIN_FIBER_SNR,
+                 ratio=min(low)))
     return warnings, blocking
 
 
@@ -1079,15 +1098,59 @@ def _primary_test_note() -> str:
     -----
     Both tests are run on every pair, so reading whichever came out smaller
     tests each pair twice and the correction across pairs would not cover it.
-    Naming one test as primary keeps the correction meaningful.
+    Naming one test as primary keeps the correction meaningful. The quantities
+    are run one at a time, so no correction across them can be computed here,
+    which is why the note says so rather than leaving it to the documentation.
     どのペアも両方の検定にかけるため、小さく出た方を読むと各ペアを 2 回検定したことに
     なり、ペアにまたがる補正ではそれを扱えない。主検定を 1 つ定めることで補正が意味を
-    保つ。
+    保つ。計測量は 1 つずつ実行するので、量にまたがる補正はここでは計算できない。
+    そのため文書に任せず、注記で述べる。
     """
     return _(
-        "主検定は Mann-Whitney U です。KS は分布の形の違いを見る参考値で、補正して"
-        "いません。結論は Mann-Whitney の p 値で述べてください。"
+        "結論は Mann-Whitney の p 値で述べてください。KS は分布の形の違いを見る参考値"
+        "です。補正はこの計測量のペアだけにかかるため、複数の計測量を検定して述べるときは"
+        "別に補正が必要です。"
     )
+
+
+def _frame_bias_note(param: str, frame_mode: str) -> str:
+    """
+    Say that an uncorrected length comparison also holds a difference in frame bias.
+    補正なしの長さの比較には枠の偏りの差も含まれることを述べる。
+
+    Parameters
+    ----------
+    param
+        Measured-quantity key the comparison was run for.
+        比較を実行した計測量キー。
+    frame_mode
+        Frame mode the lengths were aggregated under.
+        長さを集計した枠の扱い。
+
+    Returns
+    -------
+    str
+        The note, or an empty string for any other quantity or mode.
+        注記。それ以外の計測量や扱いでは空文字列。
+
+    Notes
+    -----
+    The frame shortens long fibers more, so even at one scan size two groups
+    are biased by different amounts when their fibers differ in length, which is
+    the very difference under test. The test still runs, because refusing it
+    would leave the default setting with no comparison of lengths.
+    枠は長いファイバーほど大きく短縮する。したがって走査範囲が同じでも、繊維の長さが
+    違う 2 群の偏りの大きさは違い、それはまさに検定している差である。検定は実行する。
+    止めると既定の設定で長さを比較できなくなるためである。
+    """
+    if param != PARAM_LENGTH or frame_mode not in (FRAME_INCLUDE, FRAME_EXCLUDE):
+        return ""
+    return _(
+        "{mode} の長さは枠の影響で短い側に偏り、長いファイバーの群ほど大きく短縮されます。"
+        "この p 値と効果量には、その偏りの差も含まれます。補正して検定するには、枠の扱いを "
+        "{ml} に、集計単位を {image} か {folder} にしてください。"
+    ).format(mode=frame_mode, ml=FRAME_MILES_LANTUEJOUL, image=UNIT_IMAGE,
+             folder=UNIT_FOLDER)
 
 
 # The level a reader conventionally reads a p-value against. Nothing is
@@ -1797,12 +1860,24 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 注意書きは段落なので、注記の横ではなく表の下に置く。見出し行に置くと
         # ペイン全体が横に広がるためである。パネル幅で折り返し、文があるときだけ
         # 配置する。
-        self.comparison_caveat_var = tk.StringVar()
-        self.lbl_comparison_caveat = ttk.Label(
-            frm, textvariable=self.comparison_caveat_var, justify=tk.LEFT,
+        # Fixed height with a scrollbar: several notes can apply at once, and a
+        # label growing with them pushed the log, where the warnings go, off the
+        # window.
+        # 高さを固定しスクロールバーを付ける。複数の注記が同時に当てはまることがあり、
+        # ラベルが伸びると、警告の出るログがウィンドウの外へ押し出されるためである。
+        self.comparison_caveat_row = ttk.Frame(frm)
+        self.comparison_caveat_text = tk.Text(
+            self.comparison_caveat_row, height=3, wrap=tk.WORD, state=tk.DISABLED,
+            relief=tk.FLAT, font="TkDefaultFont",
+            background=ttk.Style().lookup("TFrame", "background"),
         )
-        frm.bind("<Configure>", lambda e: self.lbl_comparison_caveat.configure(
-            wraplength=max(e.width - 16, 100)))
+        caveat_sb = ttk.Scrollbar(
+            self.comparison_caveat_row, orient=tk.VERTICAL,
+            command=self.comparison_caveat_text.yview,
+        )
+        self.comparison_caveat_text.configure(yscrollcommand=caveat_sb.set)
+        self.comparison_caveat_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        caveat_sb.pack(side=tk.LEFT, fill=tk.Y)
 
     def _set_comparison_caveat(self, text: str) -> None:
         """
@@ -1812,14 +1887,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Parameters
         ----------
         text
-            Caveat to show; an empty string hides the label.
-            表示する注意書き。空文字列ならラベルを隠す。
+            Caveat to show; an empty string hides the field.
+            表示する注意書き。空文字列なら欄を隠す。
         """
-        self.comparison_caveat_var.set(text)
+        self.comparison_caveat_text.configure(state=tk.NORMAL)
+        self.comparison_caveat_text.delete("1.0", tk.END)
+        self.comparison_caveat_text.insert("1.0", text)
+        self.comparison_caveat_text.configure(state=tk.DISABLED)
         if text:
-            self.lbl_comparison_caveat.pack(fill=tk.X, padx=6, pady=(0, 4))
+            self.comparison_caveat_row.pack(fill=tk.X, padx=6, pady=(0, 4))
         else:
-            self.lbl_comparison_caveat.pack_forget()
+            self.comparison_caveat_row.pack_forget()
 
     def _build_log_panel(self, parent: ttk.Frame) -> None:
         """
@@ -3838,6 +3916,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 continue
             sizes = App._bundle_pixel_sizes([path])
             width = (meta.get(APPARENT_WIDTH_KEY) or {}).get("median_px")
+            height_nm, noise_nm = App._bundle_height_and_noise(path)
             conditions.append({
                 # An unrecorded threshold is the detector default (150 degrees).
                 # 記録の無いしきい値は検出器の既定値（150 度）である。
@@ -3845,8 +3924,53 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "version": str(meta.get("version") or ""),
                 "pixel_nm": sizes[0] if sizes else None,
                 "width_px": None if width is None else float(width),
+                "height_nm": height_nm,
+                "noise_nm": noise_nm,
             })
         return conditions
+
+    @staticmethod
+    def _bundle_height_and_noise(path: str) -> tuple:
+        """
+        Read a bundle's typical fiber height and pixel noise from its stored arrays.
+        保存された配列から、バンドルの典型的な繊維の高さと画素ノイズを読む。
+
+        Parameters
+        ----------
+        path
+            ``.b2z`` bundle about to be measured.
+            これから計測する ``.b2z`` バンドル。
+
+        Returns
+        -------
+        tuple
+            ``(height_nm, noise_nm)`` as `pipeline.fiber_snr` reads them, or
+            ``(None, None)`` when they cannot be read.
+            `pipeline.fiber_snr` が読む ``(height_nm, noise_nm)``。読めなければ
+            ``(None, None)``。
+
+        Notes
+        -----
+        This measures the stored record and runs no analysis stage. The import
+        is local because `lib.pipeline` brings the stage modules with it, which
+        a run that compares no kinks has no need to load.
+        保存された記録を測るだけで、解析段は実行しない。局所インポートなのは、
+        `lib.pipeline` が解析段のモジュールを伴って読み込まれ、キンクを比べない実行には
+        不要なためである。
+        """
+        from lib.pipeline import fiber_snr
+
+        try:
+            arrays = load_bundle(
+                path, keys=["calibrated", "binarized", "skeletonized"])
+            read = fiber_snr(SimpleNamespace(
+                calibrated_image=arrays["calibrated"],
+                binarized_image=arrays["binarized"],
+                skeleton_image=arrays["skeletonized"],
+            ))
+        except Exception:
+            return None, None
+        return (None, None) if read is None else read
 
     def _log_pixel_size_spread(self, pixel_sizes: list) -> None:
         """
@@ -4727,6 +4851,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 self.ui_queue.put(("log", _(
                     "[{g}] キンクを判定した尺度: 見かけの幅の中央値 {w:.1f} nm"
                 ).format(g=r["name"], w=r["width_nm"])))
+            noises = [c["noise_nm"] for c in kink_conditions.get(r["name"], [])
+                      if c.get("noise_nm") is not None]
+            if noises:
+                self.ui_queue.put(("log", _(
+                    "[{g}] 背景の画素ノイズの中央値: {n:.3f} nm"
+                ).format(g=r["name"], n=float(np.median(noises)))))
         if kink_quantity and input_mode == INPUT_FIBER_CSV:
             # A fiber CSV records no analysis conditions, so the check cannot
             # run; saying so keeps its silence from reading as "they agree".
@@ -4985,6 +5115,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._last_comparisons = payload["comparisons"]
         self._populate_comparison_table(
             payload["comparisons"], payload["comparison_note"], unit,
+            frame_note=_frame_bias_note(
+                param, payload["results"][0].get("frame_mode", FRAME_INCLUDE)),
         )
 
         for iid in self.result_tree.get_children(""):
@@ -5092,7 +5224,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         return "{0:.3f}".format(value)
 
     def _populate_comparison_table(self, comparisons, note: str,
-                                   unit: str = None) -> None:
+                                   unit: str = None,
+                                   frame_note: str = "") -> None:
         """
         Fill the between-group comparison table and its note.
         群間比較テーブルと注記を埋める。
@@ -5109,6 +5242,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             Aggregation unit the samples were tested at, which selects the
             caveat under the table (`_comparison_caveat`).
             検定した標本の集計単位。表の下の注意書きを選ぶ（`_comparison_caveat`）。
+        frame_note
+            What the frame mode leaves in the comparison (`_frame_bias_note`),
+            shown under the table when a test ran.
+            枠の扱いが比較に残すもの（`_frame_bias_note`）。検定したとき表の下に出す。
 
         Notes
         -----
@@ -5128,19 +5265,21 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
         if not comparisons:
             # These notes say how to reach a test, which is longer than the
-            # one-line header can show, so they go in the wrapping label.
+            # one-line header can show, so they go in the field under the table.
             # これらの注記は検定に至る方法を述べており、1 行の見出しには収まらない
-            # ため、折り返す欄に出す。
+            # ため、表の下の欄に出す。
             self.comparison_note_var.set("")
             self._set_comparison_caveat(note)
             return
 
         self.comparison_note_var.set(
-            _("Mann-Whitney p は Holm 補正後（括弧内は補正前）") if len(comparisons) > 1
-            else _("p 値（2 群のため補正不要）")
+            _("主検定 Mann-Whitney は Holm 補正後（括弧内は補正前）。KS は補正なしの参考値")
+            if len(comparisons) > 1
+            else _("主検定は Mann-Whitney（2 群のため補正不要）。KS は参考値")
         )
         self._set_comparison_caveat("\n".join(
             text for text in (_primary_test_note(),
+                              frame_note,
                               _comparison_caveat(unit),
                               _attainable_p_note(comparisons))
             if text

@@ -531,7 +531,8 @@ the median within that fiber for height), `image` (one scan), or `folder` (one
 registered folder, all of its scans together). An `image` or `folder` sample
 pools the fibers it holds: the median of their values, the median of all its
 kink angles for `kink angle`, and its total kink count divided by the total
-judged length for `kink density`. Kink angle has no `fiber` unit, because the
+judged length for `kink density`. A `folder` value therefore weighs each scan by
+how many fibers it holds, so a scan with many fibers outweighs a sparse one. Kink angle has no `fiber` unit, because the
 kinks along a fiber are distinct defect events rather than repeated
 measurements of one fiber property, so a per-fiber median of their angles
 describes nothing about the fiber. Kink density is pooled rather than taken as
@@ -573,7 +574,10 @@ uncorrected, as a reference for differences in the shape of the distribution,
 because reading whichever of the two came out smaller would test each pair
 twice; the comparison CSV also holds its Holm-corrected value. The correction
 covers one quantity at a time, so testing several quantities is a further
-multiple comparison, left to the reader. The tests are offered only for the `fiber`,
+multiple comparison, left to the reader, and a note under the table says so.
+Under `include` and `exclude` the same note says that a length comparison also
+holds a difference in frame bias: the frame shortens long fibers more, even at
+one scan size. The tests are offered only for the `fiber`,
 `image`, and `folder` units: skeleton pixels, length-weighted points, and
 several kinks from one fiber are not independent observations, so a p-value
 over them would measure how finely the images were sampled rather than whether
@@ -592,7 +596,9 @@ table names every pair too small to reach p < 0.05. For `kink angle` and
 of a kink, so such bundles are not tested; entering a kink threshold applies one
 to every bundle. The table shows each group's median
 apparent width W (the scale its kinks were judged at, also in the statistics
-CSV), and the log warns when the bundles differ in pixel size or format. When a pair's values can
+CSV), the log gives each group's median pixel noise, and it warns when the
+bundles differ in pixel size or format or when a bundle's fibers stand below the
+noise limit of the analysis warning. When a pair's values can
 be split between the two groups in at most 100,000 ways, both p-values are
 computed by counting every split, which stays exact when values are tied, so
 two groups of three still cannot get below p = 0.10; larger pairs use scipy's
