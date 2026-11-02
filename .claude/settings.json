@@ -69,6 +69,10 @@
           {
             "type": "command",
             "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.sh\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/question_first.py\""
+          },
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.sh\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/audit_prime.py\""
           }
         ]
       }
@@ -101,6 +105,10 @@
           {
             "type": "command",
             "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.sh\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/detection_claim_guard.py\""
+          },
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.sh\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/audit_guard.py\""
           }
         ]
       }

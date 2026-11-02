@@ -85,6 +85,21 @@ and never let the two files diverge.
 - Do not display the user's local absolute paths (anything outside the
   repository, such as the user profile directory) in chat responses.
   Repository-relative paths are fine.
+- A request to find, list or check problems — or to confirm there are none —
+  is an exhaustive review, not a search of the places you judge suspicious.
+  Fix the scope from the request first ("the software" means `lib/`, `guis/`,
+  `cli.py` and `Main.py`, with `--outputs`) and build the item list from the
+  code with `scripts/audit_ledger.py init`; name anything left out with
+  `--exclude PATH::REASON`. Mark every item (`mark`, with evidence a reader can
+  open), give subagents item ids rather than topics, confirm a subagent's
+  finding against the code before marking it, and report from `report`,
+  quoting its coverage line. While items are unchecked, never write that the
+  list is complete or that there are no problems. A review that leaves part of
+  the scope unexamined and does not say so reads as complete, and each later
+  review then surfaces problems the earlier one never looked for. In Claude
+  Code, `.claude/hooks/audit_prime.py` injects this procedure and
+  `.claude/hooks/audit_guard.py` blocks a reply of an open audit that lacks the
+  current coverage line.
 
 # Commenting and Docstring Rules
 
@@ -1449,6 +1464,7 @@ Enforced by `.githooks/pre-commit` (`--staged`) and `tests/test_paper_claims.py`
 | Global delete-and-regenerate | Forbidden |
 | Mass deletion of Japanese comments in one file | Stop and confirm with user |
 | Unclear comments | Flag with `TODO(review)`; never guess |
+| Requests to find problems | Exhaustive review over an item list built from the code (`scripts/audit_ledger.py`); every item marked with evidence; report quotes the coverage line and never claims completeness while items are unchecked; enforced in Claude Code by `.claude/hooks/audit_prime.py` and `audit_guard.py` |
 | Unverified statements in documentation | Never write one: verify by reading the code or running the computation, otherwise keep the existing text with `TODO(review)` or ask; report each statement as measured / read in code / unverified |
 | Past methods and change history | Comments, docstrings and explanatory docs describe the current code only; history goes to `CHANGELOG.md` and Git; compatibility behaviour still executed is described as current behaviour; results on particular data go to `docs/validation*.md` |
 | Numbers in the algorithm and evaluation docs | Results on particular data go in `docs/validation*.md`, never in `docs/algorithms*.md`. Every number carries a source marker (`m:` measured by `scripts/measure_docs.py`, `c:` code constant, `x:` arithmetic, `n:` not a result); checked by `scripts/check_doc_numbers.py` in pre-commit and `tests/test_doc_numbers.py`; a recording goes stale when its code changes; bundles the experiments reuse are cached under a fingerprint of the code and libraries that made them (`scripts/bundle_cache.py`); the pending list only shrinks (§8.15) |
