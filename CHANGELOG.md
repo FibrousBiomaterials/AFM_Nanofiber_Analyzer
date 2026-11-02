@@ -593,7 +593,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   KS p-values of such pairs with tied values change from this version**, as do
   untied Mann-Whitney U p-values of such pairs in which both groups hold more
   than eight values, which scipy computed by its normal approximation; untied
-  p-values that scipy computed exactly do not change.
+  p-values that scipy computed exactly do not change. A larger pair with tied
+  values and at most 5,000 values is tested on 20,000 random splits with a fixed
+  seed, so **its p-values change from this version too**, and they cannot read
+  below 1 in 20,001. On tied integer samples of 10 against 10, 9 against 12 and
+  11 against 11, scipy's KS p-value read 0.12 to 0.14 higher on average than the
+  count of every split, and disagreed on p < 0.05 in 31 of 340 pairs; the random
+  splits disagreed in none.
 
 ### Deprecated
 

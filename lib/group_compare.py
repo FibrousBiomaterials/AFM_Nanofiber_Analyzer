@@ -69,6 +69,26 @@ MIN_SAMPLES_FOR_TEST = 3
 # 群であり、そこでは p 値が有意水準の近くにある。10 対 10 では 184,756 通りになる。
 _EXACT_ARRANGEMENT_LIMIT = 100_000
 
+# A larger pair with tied values is tested on this many random splits, because
+# scipy's KS test treats tied values as untied however large the samples are. At
+# p = 0.05 the p-value then has a standard error of 0.0015.
+# それより大きく同順位のあるペアは、この数の無作為な分け方で検定する。scipy の KS
+# 検定は、標本がどれほど大きくても同順位を無いものとして扱うためである。このとき
+# p = 0.05 での p 値の標準誤差は 0.0015 である。
+_SAMPLED_SPLITS = 20_000
+_SAMPLED_BATCH = 500
+_SAMPLED_SEED = 0
+
+# Above this many values a pair goes back to scipy, because the random splits
+# take seconds per pair and grow with the values. At that size scipy's
+# Mann-Whitney p-value with its tie correction agrees with the random splits, so
+# only the KS p-value, which GUI03 shows as a reference, stays conservative.
+# これより値の多いペアは scipy に戻す。無作為な分け方はペアごとに数秒かかり、値の数と
+# ともに長くなるためである。この大きさでは同順位補正つきの scipy の Mann-Whitney の
+# p 値は無作為な分け方と一致するので、保守的なまま残るのは、GUI03 が参考値として示す
+# KS の p 値だけである。
+_SAMPLED_MAX_VALUES = 5_000
+
 
 @dataclass(frozen=True)
 class PairComparison:
@@ -200,17 +220,49 @@ def _exact_pvalues(a: np.ndarray, b: np.ndarray) -> Tuple[float, float]:
     ``n_a n_b`` 倍）で比べ、等しい統計量が等しく比較されるようにする。同順位が
     無ければ、結果は scipy の厳密法と一致する。
     """
-    from scipy.stats import rankdata
-
     n_a, n_b = a.size, b.size
     pooled = np.concatenate([a, b])
-    n = pooled.size
     # Row 0 is the observed split: the first n_a pooled values form group A.
     # 0 行目が観測された分け方であり、合併した値の先頭 n_a 個が群 A になる。
     members = np.fromiter(
-        (i for split in combinations(range(n), n_a) for i in split),
+        (i for split in combinations(range(pooled.size), n_a) for i in split),
         dtype=np.intp,
     ).reshape(-1, n_a)
+    u_stat, d_stat = _split_statistics(pooled, members, n_a, n_b)
+    return (float(np.mean(u_stat >= u_stat[0])),
+            float(np.mean(d_stat >= d_stat[0])))
+
+
+def _split_statistics(pooled: np.ndarray, members: np.ndarray,
+                      n_a: int, n_b: int) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Return both rank statistics of each given split of the pooled values.
+    合併した値の与えられた分け方ごとに、両方の順位統計量を返す。
+
+    Parameters
+    ----------
+    pooled
+        The two samples joined, finite values only.
+        2 標本を連結した値。有限値のみ。
+    members
+        One row per split, holding the `n_a` indices of `pooled` in group A.
+        分け方ごとに 1 行。群 A に入る `pooled` の添字 `n_a` 個を持つ。
+    n_a
+        Size of group A.
+        群 A の大きさ。
+    n_b
+        Size of group B.
+        群 B の大きさ。
+
+    Returns
+    -------
+    tuple of ndarray
+        ``(u_stat, d_stat)``, integer arrays: ``2 |U - n_a n_b / 2|`` and
+        ``n_a n_b`` times the KS distance, one value per row.
+        ``(u_stat, d_stat)``。整数の配列で、``2 |U - n_a n_b / 2|`` と、KS 距離の
+        ``n_a n_b`` 倍。行ごとに 1 値。
+    """
+    from scipy.stats import rankdata
 
     # Midranks are multiples of one half, so twice them are integers.
     # 中間順位は 1/2 の倍数なので、その 2 倍は整数になる。
@@ -221,14 +273,64 @@ def _exact_pvalues(a: np.ndarray, b: np.ndarray) -> Tuple[float, float]:
     order = np.argsort(pooled, kind="stable")
     ordered = pooled[order]
     run_ends = np.flatnonzero(np.r_[ordered[1:] != ordered[:-1], True])
-    in_a = np.zeros((members.shape[0], n), dtype=bool)
+    in_a = np.zeros((members.shape[0], pooled.size), dtype=bool)
     np.put_along_axis(in_a, members, True, axis=1)
     count_a = np.cumsum(in_a[:, order], axis=1)[:, run_ends]
     count_b = (run_ends + 1) - count_a
     d_stat = np.abs(count_a * n_b - count_b * n_a).max(axis=1)
+    return u_stat, d_stat
 
-    return (float(np.mean(u_stat >= u_stat[0])),
-            float(np.mean(d_stat >= d_stat[0])))
+
+def _sampled_pvalues(a: np.ndarray, b: np.ndarray) -> Tuple[float, float]:
+    """
+    Return two-sided Mann-Whitney U and KS p-values from random splits.
+    無作為な分け方から、両側 Mann-Whitney U と KS の p 値を返す。
+
+    Parameters
+    ----------
+    a
+        First sample, finite values only.
+        1 つ目の標本。有限値のみ。
+    b
+        Second sample, finite values only.
+        2 つ目の標本。有限値のみ。
+
+    Returns
+    -------
+    tuple of float
+        ``(mannwhitney_p, ks_p)``, each ``(1 + k) / (1 + _SAMPLED_SPLITS)``,
+        where ``k`` counts the random splits whose statistic is at least as
+        extreme as the observed one.
+        ``(mannwhitney_p, ks_p)``。それぞれ ``(1 + k) / (1 + _SAMPLED_SPLITS)``
+        で、``k`` は統計量が観測値と同じかそれ以上に極端な無作為の分け方の数。
+
+    Notes
+    -----
+    This is `_exact_pvalues` on a random sample of the splits. The observed split
+    counts as one of them, so a p-value is never 0 and cannot read below
+    ``1 / (1 + _SAMPLED_SPLITS)`` however far apart the groups are. The generator
+    is seeded with `_SAMPLED_SEED`, so a pair reads the same on every run with
+    one version of NumPy.
+    `_exact_pvalues` を分け方の無作為標本で行うものである。観測された分け方をその
+    1 つに数えるので、p 値は 0 にならず、群がどれほど離れていても
+    ``1 / (1 + _SAMPLED_SPLITS)`` を下回らない。乱数は `_SAMPLED_SEED` で固定するので、
+    同じ版の NumPy では同じペアはどの実行でも同じ値になる。
+    """
+    n_a, n_b = a.size, b.size
+    pooled = np.concatenate([a, b])
+    observed_u, observed_d = _split_statistics(
+        pooled, np.arange(n_a)[np.newaxis, :], n_a, n_b)
+    rng = np.random.default_rng(_SAMPLED_SEED)
+    u_count = d_count = 0
+    for start in range(0, _SAMPLED_SPLITS, _SAMPLED_BATCH):
+        size = min(_SAMPLED_BATCH, _SAMPLED_SPLITS - start)
+        members = np.argpartition(
+            rng.random((size, pooled.size)), n_a - 1, axis=1)[:, :n_a]
+        u_stat, d_stat = _split_statistics(pooled, members, n_a, n_b)
+        u_count += int(np.count_nonzero(u_stat >= observed_u[0]))
+        d_count += int(np.count_nonzero(d_stat >= observed_d[0]))
+    return ((1 + u_count) / (1 + _SAMPLED_SPLITS),
+            (1 + d_count) / (1 + _SAMPLED_SPLITS))
 
 
 def _pair_pvalues(a: np.ndarray, b: np.ndarray) -> Tuple[float, float]:
@@ -254,16 +356,24 @@ def _pair_pvalues(a: np.ndarray, b: np.ndarray) -> Tuple[float, float]:
     Notes
     -----
     A pair with at most `_EXACT_ARRANGEMENT_LIMIT` arrangements is tested by
-    `_exact_pvalues`; a larger one by `scipy.stats.mannwhitneyu`, whose
-    p-value carries a tie correction, and `scipy.stats.ks_2samp`.
-    並べ方が `_EXACT_ARRANGEMENT_LIMIT` 以下のペアは `_exact_pvalues` で、それより
-    大きいペアは同順位補正つきの `scipy.stats.mannwhitneyu` と
+    `_exact_pvalues`. A larger one with tied values and at most
+    `_SAMPLED_MAX_VALUES` values is tested by `_sampled_pvalues`. Any other goes
+    to `scipy.stats.mannwhitneyu`, whose p-value carries a tie correction, and
+    `scipy.stats.ks_2samp`, whose p-value is conservative on tied values.
+    並べ方が `_EXACT_ARRANGEMENT_LIMIT` 以下のペアは `_exact_pvalues` で検定する。
+    それより大きく、同順位があり、値が `_SAMPLED_MAX_VALUES` 個以下のペアは
+    `_sampled_pvalues` で検定する。それ以外は同順位補正つきの
+    `scipy.stats.mannwhitneyu` と、同順位があると p 値が保守的になる
     `scipy.stats.ks_2samp` で検定する。
     """
     if not (np.all(np.isfinite(a)) and np.all(np.isfinite(b))):
         return float("nan"), float("nan")
     if comb(a.size + b.size, a.size) <= _EXACT_ARRANGEMENT_LIMIT:
         return _exact_pvalues(a, b)
+    n_values = a.size + b.size
+    if (n_values <= _SAMPLED_MAX_VALUES
+            and np.unique(np.concatenate([a, b])).size < n_values):
+        return _sampled_pvalues(a, b)
 
     from scipy.stats import ks_2samp, mannwhitneyu
 
@@ -333,12 +443,13 @@ def _min_attainable_p(n_a: int, n_b: int) -> float:
     達する。等しい 3 値対 別の等しい 4 値では 0.029 となり、同順位の無い標本は
     0.057 を下回れない。
 
-    Beyond `_EXACT_ARRANGEMENT_LIMIT` the value is scipy's for separated
-    samples, which tied samples can undercut through its approximations; it
-    is then far below any conventional significance level.
-    `_EXACT_ARRANGEMENT_LIMIT` を超えると値は分離した標本に対する scipy の値で
-    あり、同順位のある標本はその近似によってこれを下回りうる。その場合の値は
-    通常のどの有意水準よりもはるかに小さい。
+    Beyond `_EXACT_ARRANGEMENT_LIMIT` the value is scipy's for separated untied
+    samples, far below any conventional significance level, and a pair with
+    tied values reads its p-value by another method (`_pair_pvalues`), so the
+    value is no bound on it.
+    `_EXACT_ARRANGEMENT_LIMIT` を超えると値は分離した同順位の無い標本に対する scipy の
+    値であり、通常のどの有意水準よりもはるかに小さい。同順位のあるペアの p 値は別の方法
+    （`_pair_pvalues`）で読むので、この値はその下限にはならない。
 
     Examples
     --------
@@ -569,22 +680,27 @@ def compare_groups(
     The tests are the two-sided Mann-Whitney U test [MannWhitney1947]_ and the
     two-sample Kolmogorov-Smirnov test [Smirnov1948]_. A pair whose groups
     can be arranged in at most `_EXACT_ARRANGEMENT_LIMIT` ways is tested by
-    counting every arrangement, which is exact with tied values too; a larger
-    pair by `scipy.stats.mannwhitneyu` and `scipy.stats.ks_2samp`.
+    counting every arrangement, which is exact with tied values too. A larger
+    pair with tied values and at most `_SAMPLED_MAX_VALUES` values is tested on
+    `_SAMPLED_SPLITS` random splits, which cannot read below
+    ``1 / (1 + _SAMPLED_SPLITS)``. Any other pair goes to
+    `scipy.stats.mannwhitneyu` and `scipy.stats.ks_2samp`.
     検定は両側 Mann-Whitney U 検定 [MannWhitney1947]_ と 2 標本
     Kolmogorov-Smirnov 検定 [Smirnov1948]_ である。群の並べ方が
     `_EXACT_ARRANGEMENT_LIMIT` 通り以下のペアは全ての並べ方を数えて検定し、これは
-    同順位があっても厳密である。それより大きいペアは `scipy.stats.mannwhitneyu` と
-    `scipy.stats.ks_2samp` で計算する。
+    同順位があっても厳密である。それより大きく、同順位があり、値が
+    `_SAMPLED_MAX_VALUES` 個以下のペアは `_SAMPLED_SPLITS` 個の無作為な分け方で検定し、
+    p 値は ``1 / (1 + _SAMPLED_SPLITS)`` を下回らない。それ以外のペアは
+    `scipy.stats.mannwhitneyu` と `scipy.stats.ks_2samp` で計算する。
 
-    On a larger pair the Kolmogorov-Smirnov p-value assumes continuous
+    In the scipy path the Kolmogorov-Smirnov p-value assumes continuous
     distributions. Tied values -- for example the zeros of a per-fiber kink
     density, where a fiber without a kink reads 0 -- make it conservative:
     with no difference present it rejects less often than its nominal level,
     so a small KS p-value still stands while a large one may miss a real
     difference. The Mann-Whitney p-value is computed there with a tie
     correction.
-    大きいペアでは、Kolmogorov-Smirnov の p 値は連続分布を仮定している。同順位
+    scipy の経路では、Kolmogorov-Smirnov の p 値は連続分布を仮定している。同順位
     （例えばファイバー単位のキンク密度で、キンクの無いファイバーが 0 となるもの）
     があると保守的になり、差が無いときに名目の水準より少なくしか棄却しない。
     したがって小さい KS の p 値はそのまま有効だが、大きい値は実在の差を見逃して

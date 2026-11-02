@@ -601,8 +601,11 @@ bundles differ in pixel size or format or when a bundle's fibers stand below the
 noise limit of the analysis warning. When a pair's values can
 be split between the two groups in at most 100,000 ways, both p-values are
 computed by counting every split, which stays exact when values are tied, so
-two groups of three still cannot get below p = 0.10; larger pairs use scipy's
-Mann-Whitney U with a tie correction and its two-sample KS test.
+two groups of three still cannot get below p = 0.10. A larger pair with equal
+values and at most 5,000 values is tested on 20,000 random splits with a fixed
+seed, so its p-value cannot read below 1 in 20,001. Any other pair uses scipy's
+Mann-Whitney U with a tie correction and its two-sample KS test, whose p-value is
+conservative when values are equal.
 
 Each group reports median and interquartile range alongside mean, standard
 deviation, and mode, because fiber morphology distributions are right-skewed

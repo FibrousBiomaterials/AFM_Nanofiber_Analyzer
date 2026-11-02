@@ -240,6 +240,90 @@ def test_counted_pvalues_match_scipy_exact_without_ties(n_a, n_b):
         assert ks_p == pytest.approx(ks_2samp(a, b, method="exact").pvalue)
 
 
+def _tied_pair(seed, n_a=10, n_b=10):
+    """Return a pair of integer samples, so tied values are certain."""
+    rng = np.random.default_rng(seed)
+    return (rng.integers(0, 5, n_a).astype(float),
+            rng.integers(0, 5, n_b).astype(float) + rng.integers(0, 3))
+
+
+def test_random_splits_read_close_to_counting_every_split():
+    """
+    On tied values the random splits agree with the exact count.
+    同順位のある値で、無作為な分け方は厳密な数え上げと一致する。
+
+    The bound is four standard errors at p = 0.5, the largest error they have.
+    許容幅は、誤差が最大になる p = 0.5 での標準誤差の 4 倍である。
+    """
+    from lib.group_compare import (
+        _SAMPLED_SPLITS, _exact_pvalues, _sampled_pvalues,
+    )
+
+    bound = 4.0 * np.sqrt(0.25 / _SAMPLED_SPLITS)
+    for seed in range(5):
+        a, b = _tied_pair(seed)
+        exact_u, exact_ks = _exact_pvalues(a, b)
+        sampled_u, sampled_ks = _sampled_pvalues(a, b)
+        assert abs(sampled_u - exact_u) < bound
+        assert abs(sampled_ks - exact_ks) < bound
+
+
+def test_random_splits_repeat_and_never_read_zero():
+    """
+    A pair reads the same on every run, and never below the sampling floor.
+    ペアはどの実行でも同じ値になり、抽出の下限を下回らない。
+    """
+    from lib.group_compare import _SAMPLED_SPLITS, _sampled_pvalues
+
+    a, b = _tied_pair(1)
+    assert _sampled_pvalues(a, b) == _sampled_pvalues(a, b)
+    far = _sampled_pvalues(np.zeros(40), np.ones(40))
+    assert far == (1.0 / (1 + _SAMPLED_SPLITS), 1.0 / (1 + _SAMPLED_SPLITS))
+
+
+def test_pair_method_follows_size_and_ties(monkeypatch):
+    """
+    Counting, random splits and scipy each take the pairs they are for.
+    数え上げ・無作為な分け方・scipy が、それぞれ対象のペアを受け持つ。
+    """
+    from scipy.stats import ks_2samp, mannwhitneyu
+
+    from lib import group_compare as gc
+
+    calls = []
+    monkeypatch.setattr(gc, "_exact_pvalues",
+                        lambda a, b: calls.append("exact") or (0.5, 0.5))
+    monkeypatch.setattr(gc, "_sampled_pvalues",
+                        lambda a, b: calls.append("sampled") or (0.5, 0.5))
+
+    small_a, small_b = _tied_pair(0, 4, 4)
+    gc._pair_pvalues(small_a, small_b)
+    assert calls == ["exact"]
+
+    # Above the limit, with tied values.
+    # 上限より大きく、同順位がある。
+    tied_a, tied_b = _tied_pair(0)
+    gc._pair_pvalues(tied_a, tied_b)
+    assert calls == ["exact", "sampled"]
+
+    # Above the limit, untied: scipy, as before.
+    # 上限より大きく、同順位が無い: scipy のまま。
+    values = np.random.default_rng(0).permutation(24).astype(float)
+    untied_a, untied_b = values[:12], values[12:]
+    u_p, ks_p = gc._pair_pvalues(untied_a, untied_b)
+    assert calls == ["exact", "sampled"]
+    assert u_p == pytest.approx(mannwhitneyu(untied_a, untied_b).pvalue)
+    assert ks_p == pytest.approx(ks_2samp(untied_a, untied_b).pvalue)
+
+    # Tied, but above the values the random splits take: scipy.
+    # 同順位はあるが、無作為な分け方が受ける値の数を超える: scipy。
+    monkeypatch.setattr(gc, "_SAMPLED_MAX_VALUES", tied_a.size + tied_b.size - 1)
+    u_p, ks_p = gc._pair_pvalues(tied_a, tied_b)
+    assert calls == ["exact", "sampled"]
+    assert u_p == pytest.approx(mannwhitneyu(tied_a, tied_b).pvalue)
+    assert ks_p == pytest.approx(ks_2samp(tied_a, tied_b).pvalue)
+
+
 def test_delta_magnitude_labels():
     """Magnitude labels follow the documented thresholds and sign-independence."""
     assert delta_magnitude(0.10) == "negligible"
