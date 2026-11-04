@@ -1,5 +1,5 @@
 {
- "_comment": "One entry per prose sentence of paper.md, recording what supports it. See scripts/check_paper_claims.py for the source kinds. A commit may not add an unverified sentence.",
+ "_comment": "One entry per prose sentence of paper.md, recording what supports it and its Japanese translation (ja), from which paper.ja.md is generated. See scripts/check_paper_claims.py for the source kinds. A commit may not add an unverified sentence.",
  "claims": [
   {
    "sentence": "Atomic force microscopy (AFM) records the height topography of individual nanofibers [@Mayumi2026].",
@@ -1362,7 +1362,7 @@
    "ja": "これらのスキャンと、幾何形状が既知の合成画像での各段階の評価は、`docs/validation.md` にまとめている。"
   },
   {
-   "sentence": "Kink detection has not been validated against kinks marked by people: the reference it was developed against was marked by an AI coding agent (see the AI usage disclosure), so its scores in `docs/validation.md` are not an independent estimate of accuracy.",
+   "sentence": "The reference kink detection was developed against was marked by an AI coding agent (see the AI usage disclosure), so its scores on that reference in `docs/validation.md` are not an independent estimate of accuracy.",
    "status": "verified",
    "sources": [
     {
@@ -1376,7 +1376,62 @@
      "quote": "the reference served as a development set rather than an independent test"
     }
    ],
-   "ja": "キンク検出は人が付けたキンクに対しては検証されていない。開発に用いた基準は AI コーディングエージェントが付けたものであり（AI 利用の開示を参照）、そのため `docs/validation.md` の得点は精度の独立した推定値ではない。"
+   "ja": "キンク検出の開発に用いた基準は AI コーディングエージェントが付けたものであり（AI 利用の開示を参照）、そのため `docs/validation.md` にあるその基準での得点は、精度の独立した推定値ではない。"
+  },
+  {
+   "sentence": "Two of the authors also marked kinks on the same three scans, each independently and without having seen the detector's output.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "doc",
+     "path": "docs/validation.md",
+     "quote": "Two authors of this software, A and B, marked kinks on the three bundled scans, each working independently of the other"
+    },
+    {
+     "kind": "doc",
+     "path": "docs/validation.md",
+     "quote": "Neither had seen any of the detector's output before marking."
+    },
+    {
+     "kind": "author",
+     "reason": "Confirmed by the user (an author of the paper) in conversation in 2026-11: both annotators are authors, they worked independently, and neither had seen the detector's output before marking."
+    }
+   ],
+   "ja": "著者のうち 2 人も、同じ 3 枚のスキャンに、互いに独立に、検出器の出力を見ないままキンクの印を付けた。"
+  },
+  {
+   "sentence": "Of the 76 kinks both marked as clear, the detector at the default settings found 64, and 44 of the 140 bends it reported matched no mark (`docs/validation.md`, §4.19).",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "doc",
+     "path": "docs/validation.md",
+     "quote": "| marks both call clear | all | 76 | 64 | 2 | 2 | 8 | 44 | 30 |"
+    },
+    {
+     "kind": "doc",
+     "path": "docs/validation.md",
+     "quote": "The rule was scored at the defaults by the procedure of §4.4 against three references"
+    },
+    {
+     "kind": "doc",
+     "path": "docs/validation.md",
+     "quote": "The rule reported 140 bends."
+    }
+   ],
+   "ja": "両者とも明瞭とした 76 個のキンクのうち、既定の設定の検出器は 64 個を検出し、検出器が報告した 140 個の折れのうち 44 個はどの印とも一致しなかった（`docs/validation.md`、§4.19）。"
+  },
+  {
+   "sentence": "These are the scans the detector was developed on, so this is not a test on held-out data.",
+   "status": "verified",
+   "sources": [
+    {
+     "kind": "doc",
+     "path": "docs/validation.md",
+     "quote": "the scans are the ones the rule was developed on (§4.4), so this is not a test on held-out scans"
+    }
+   ],
+   "ja": "これらは検出器の開発に用いたスキャンなので、開発に使っていないデータでの試験ではない。"
   },
   {
    "sentence": "During software development and preparation of the JOSS submission, the authors used the following generative AI tools:",

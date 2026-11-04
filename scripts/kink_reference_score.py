@@ -3,7 +3,7 @@
 Score kink-rule variants against the visual reference on the bundled scans.
 同梱スキャンの目視基準に対して、キンク規則の各変種を採点する。
 
-The reference (``private_docs/kink_reference_2026-09-15/基準一覧.md``) marks,
+The reference (``docs/data/ai_kink_marks.csv``) marks,
 on the calibrated height images, every bend an AI coding agent (Claude Code)
 judged to be a clear kink, an ambiguous one, or a junction, viewing enlarged
 crops with no detector output drawn on them, although for some fibers it
@@ -11,7 +11,7 @@ already knew where the detector then in use placed kinks. This
 script re-judges every traced fiber's line with one or more `KinkDetector`
 configurations and reports, per scan and in total, how many clear kinks each
 found, displaced, merged or missed, and how many detections match nothing.
-基準（``private_docs/kink_reference_2026-09-15/基準一覧.md``）は、較正高さ画像上で
+基準（``docs/data/ai_kink_marks.csv``）は、較正高さ画像上で
 AI コーディングエージェント（Claude Code）が明瞭なキンク・曖昧な折れ・合流点と
 判断したすべての折れを記録したものである。検出器の出力を重ねない拡大画像を見て
 判断したが、一部の繊維では、当時の検出器がどこにキンクを置くかを既に知っていた。本スクリプトは追跡した各繊維の線を 1 つ以上の
@@ -52,7 +52,6 @@ import argparse
 import csv
 import math
 import os
-import re
 import sys
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -66,8 +65,14 @@ from lib import measure  # noqa: E402
 from lib.kink_detector import KinkDetector  # noqa: E402
 from lib.pipeline import ProcParams, process_file  # noqa: E402
 
-REFERENCE_PATH = os.path.join(
-    PROJECT_ROOT, "private_docs", "kink_reference_2026-09-15", "基準一覧.md")
+# Bends an AI coding agent marked on the same scans: scan, fiber (the index in
+# the fragment list of the analysis it marked), kind (``clear``, ``ambiguous``
+# or ``junction``), x (column), y (row), the eyeballed turning in degrees and
+# the note written when the mark was recorded.
+# AI コーディングエージェントが同じスキャンに付けた印。スキャン、繊維（印を付けた
+# 解析の断片リストでの番号）、種別（``clear`` / ``ambiguous`` / ``junction``）、
+# x（列）、y（行）、目測の回転角（度）、印を記録したときのメモ。
+REFERENCE_PATH = os.path.join(PROJECT_ROOT, "docs", "data", "ai_kink_marks.csv")
 # Kinks two people marked on the same scans: scan, annotator letter, x (column),
 # y (row), kind (``clear`` or ``ambiguous``), on the calibrated pixel grid.
 # 2 人が同じスキャンに付けたキンクの印。スキャン、注釈者の記号、x（列）、y（行）、
@@ -88,8 +93,6 @@ SCANS: Dict[str, str] = {
 # testdata_artificial は除く。2 つの試料はどちらも tunicate スキャンをそのまま
 # 切り抜いたもので、採点すれば同じ繊維を重ねて数えることになる。
 
-KIND = {"明瞭": "clear", "曖昧": "ambiguous", "合流": "junction"}
-
 # Detector configurations compared by default: no noise test (the rule as
 # shipped in format 1.1), then the floor at 2, 3 and 4 noise scales.
 # 既定で比較する検出器の設定。ノイズ検定なし（形式 1.1 で出荷した規則）、次に
@@ -105,8 +108,8 @@ DEFAULT_VARIANTS: Dict[str, dict] = {
 
 def load_reference(path: str = REFERENCE_PATH) -> Dict[str, List[dict]]:
     """
-    Parse the reference tables into per-scan lists of marked bends.
-    基準の表を、スキャンごとの印の一覧に解析する。
+    Read the AI reference into per-scan lists of marked bends.
+    AI による基準を、スキャンごとの印の一覧に読む。
 
     Returns
     -------
@@ -119,27 +122,11 @@ def load_reference(path: str = REFERENCE_PATH) -> Dict[str, List[dict]]:
         を持つレコード。
     """
     refs: Dict[str, List[dict]] = {name: [] for name in SCANS}
-    current: Optional[str] = None
-    with open(path, encoding="utf-8") as handle:
-        for line in handle:
-            heading = re.match(r"^## (\w+)", line)
-            if heading:
-                current = heading.group(1)
-                continue
-            if current not in refs or not line.startswith("|"):
-                continue
-            cells = [c.strip() for c in line.strip().strip("|").split("|")]
-            if len(cells) < 5 or not cells[0].isdigit():
-                continue
-            kind = KIND.get(cells[2])
-            if kind is None:
-                continue
-            fiber = int(cells[0])
-            xy = [float(v) for v in cells[3].split(",")]
-            angle = re.match(r"(\d+(?:\.\d+)?)", cells[4])
-            refs[current].append(dict(
-                fiber=fiber, kind=kind, x=xy[0], y=xy[1],
-                angle_deg=float(angle.group(1)) if angle else float("nan"),
+    with open(path, encoding="utf-8", newline="") as handle:
+        for row in csv.DictReader(handle):
+            refs[row["scan"]].append(dict(
+                fiber=int(row["fiber"]), kind=row["kind"], x=float(row["x"]), y=float(row["y"]),
+                angle_deg=float(row["turn_deg"]) if row["turn_deg"] else float("nan"),
             ))
     return refs
 

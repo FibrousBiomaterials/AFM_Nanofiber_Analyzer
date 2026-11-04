@@ -669,10 +669,12 @@ Kinks are drawn as filled cyan points on the fiber's line, in the fiber view
 and in the overview. A bend closer than 1.5 apparent widths to an end of a
 fiber is drawn as a grey hollow circle instead: the kink rule measures it but
 does not judge it, because too little fiber lies on one side, and it is not
-counted in any kink number (see `docs/algorithms.md`, §4.4). Kink detection has
-not been validated against kinks marked by people: the reference it was
-developed against was marked by an AI coding agent (`docs/validation.md`,
-§4.4). Check kink counts against the drawn points before relying on them.
+counted in any kink number (see `docs/algorithms.md`, §4.4). The reference
+kink detection was developed against was marked by an AI coding agent
+(`docs/validation.md`, §4.4). Against the kinks two of the authors marked on the
+same scans, independently and without having seen the detector's output, it
+found 64 of the 76 both marked as clear (`docs/validation.md`, §4.19). Check
+kink counts against the drawn points before relying on them.
 
 Skeleton fragments split at crossings and branches can be reconnected into
 whole fibrils before measurement. "Auto Connect" searches for continuations and

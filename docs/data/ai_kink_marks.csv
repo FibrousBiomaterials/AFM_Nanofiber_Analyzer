@@ -1,0 +1,92 @@
+scan,fiber,kind,x,y,turn_deg,note
+hplantTOC,1,ambiguous,979,73,35,bend just before end B; arm ~1 W
+hplantTOC,2,ambiguous,929,69,55,turn from vertical to diagonal; upper arm ~12 px to end A
+hplantTOC,2,clear,886,103,60,corner diagonal -> vertical
+hplantTOC,5,clear,967,544,50,corner of upper band turning down (user-reported #5)
+hplantTOC,12,clear,250,775,45,"bottom bend to the left; top of #12 is a junction, no kink"
+tunicate,0,clear,491,71,43,corner diagonal -> down
+tunicate,0,ambiguous,509,125,37,"jog bend 2; bend 1 at (505,117) ~16 deg is below 25, not recorded (12.5x)"
+tunicate,0,ambiguous,501,198,33,sharp corner but near 30 deg
+tunicate,0,ambiguous,482,228,38,"zigzag corner 1, near 30-40 deg"
+tunicate,0,clear,460,235,48,zigzag corner 2
+tunicate,0,clear,446,225,70,"zigzag corner 3, ~2 W from corner 2"
+tunicate,2,clear,992,23,55,apex of ^; left arm ~2 W to junction A
+tunicate,3,clear,463,277,67,corner at lower-left end
+tunicate,3,clear,443,257,45,bend ~2 W before crossing B
+tunicate,5,ambiguous,68,240,33,apex near 30 deg
+tunicate,5,clear,158,260,45,"jog bend 2; bend 1 at (150,262) ~20 deg is below 25, not recorded (12.5x)"
+tunicate,5,clear,186,275,140,hairpin at bottom
+tunicate,5,clear,171,225,70,"L at bright blob, top of long band"
+tunicate,5,clear,146,227,90,"L corner, horizontal -> up"
+tunicate,5,ambiguous,148,198,30,"bulge bend 1, out to the right (12.5x)"
+tunicate,5,clear,151,190,47,"bulge bend 2, back to the left"
+tunicate,5,ambiguous,145,178,27,"bulge bend 3, straightening ~1 W below (146,171)"
+tunicate,5,clear,146,171,60,"top-left corner, up -> up-right"
+tunicate,5,clear,161,164,50,"peak, ~1.8 W from (146,171)"
+tunicate,5,clear,250,200,62,corner diagonal -> down
+tunicate,5,ambiguous,254,234,25,mild bend at bright blob
+tunicate,5,clear,264,253,73,zigzag corner
+tunicate,5,clear,246,273,66,"zigzag corner, ~2.7 W from (264,253)"
+tunicate,6,junction,997,337,50,T junction: track switches from the vertical fiber to the diagonal
+tunicate,6,clear,845,247,63,apex of ^
+tunicate,7,clear,366,254,41,"hump bend 1, horizontal -> up-left (12.5x)"
+tunicate,7,clear,357,247,68,"hump bend 2, up-left -> down-left, ~1.2 W after bend 1"
+tunicate,8,clear,416,279,80,L corner ~2 W below crossing A
+tunicate,9,junction,1010,345,22,track runs through a merge with the big diagonal
+tunicate,11,ambiguous,267,321,90,J hook at end B below a crossing; arm ~1.2 W
+tunicate,16,ambiguous,13,519,68,corner ~1.5 W before merging into the thick band
+tunicate,19,ambiguous,962,581,48,bend ~1.5 W from blob end A
+tunicate,25,clear,136,640,63,peak of thin band
+tunicate,26,ambiguous,1004,652,70,turn ~12 px from junction end A
+tunicate,26,clear,997,684,55,zigzag corner below blob
+tunicate,26,clear,985,691,60,"zigzag corner, ~1.5 W from (997,684)"
+tunicate,30,clear,219,713,48,zigzag corner 1
+tunicate,30,clear,237,706,44,"zigzag corner 2, ~2 W from corner 1"
+tunicate,32,clear,774,790,70,apex of <
+tunicate,32,clear,791,825,45,bend below apex
+tunicate,33,clear,826,820,43,vertical band turning down-left
+tunicate,34,clear,233,740,61,peak
+tunicate,34,clear,242,750,44,~1.5 W after the peak
+tunicate,34,clear,283,751,63,horizontal -> down
+tunicate,34,ambiguous,290,766,37,"down -> down-right, ~1.8 W after (283,751), near threshold"
+tunicate,34,clear,334,797,42,down-right -> down at blob
+tunicate,34,clear,349,863,49,down -> down-right
+tunicate,34,clear,386,887,44,down-right -> down
+tunicate,34,clear,391,903,41,"down -> down-right, ~1.8 W after (386,887)"
+tunicate,34,clear,489,967,42,down-right -> right
+tunicate,35,ambiguous,49,786,33,corner near 30 deg
+tunicate,36,clear,174,838,67,vertical -> down-left
+tunicate,36,clear,145,852,58,"jog bend 1, down-left -> down (12.5x)"
+tunicate,36,clear,143,864,42,"jog bend 2, down -> down-left, ~1.2 W after bend 1"
+tunicate,36,clear,82,960,62,corner near the bottom
+tunicate,37,ambiguous,706,876,53,"rounded corner, ~1.5 W to junction B"
+tunicate,45,ambiguous,745,903,37,rounded sag
+tunicate,50,ambiguous,683,929,32,small dip
+tunicate,50,clear,696,921,60,peak of thin fiber
+tunicate,51,clear,655,1007,80,L: vertical fiber turning left at the tangle
+tunicate,55,clear,767,994,50,thin fiber corner 1
+tunicate,55,clear,784,991,60,"thin fiber corner 2, ~2.5 W after corner 1"
+tunicate,55,ambiguous,795,1004,33,third bend near 30 deg
+NDTOC,5,junction,801,30,40,track switches from the top piece to the diagonal at a crossing
+NDTOC,9,ambiguous,27,34,130,"faint end curling back, arc-like over ~3 W"
+NDTOC,21,junction,14,175,59,track leaves the vertical band into a branch
+NDTOC,27,junction,82,211,60,track leaves the thick band into the hook
+NDTOC,27,ambiguous,92,221,120,"rounded hairpin (C) beside the thick band, spread ~2.5 W"
+NDTOC,31,ambiguous,551,243,38,bend near 30-40 deg
+NDTOC,35,clear,915,262,65,corner down-right -> right
+NDTOC,43,clear,40,361,90,"rounded L at the bottom, bend over ~1.5 W"
+NDTOC,50,ambiguous,329,323,57,bend where a faint thin arm joins the bright band
+NDTOC,57,ambiguous,540,417,31,mild bend on the side of a loop
+NDTOC,64,ambiguous,401,417,48,"bend ~1.5 W from junction B, noisy"
+NDTOC,100,ambiguous,104,614,25,mild bend where the thin part meets the thick part
+NDTOC,101,clear,973,603,68,L: diagonal turning into the bottom band
+NDTOC,110,ambiguous,803,662,33,"bend ~2 W before junction B, particle nearby"
+NDTOC,112,ambiguous,957,679,48,lambda-shaped join with a short protrusion; junction-like
+NDTOC,113,ambiguous,143,670,76,corner where a faint thin arm joins
+NDTOC,114,ambiguous,728,718,60,faint end hook
+NDTOC,120,ambiguous,808,902,45,"bend, lower arm thinner and faint"
+NDTOC,122,clear,288,906,138,sharp apex (fold) at a bright blob
+NDTOC,126,ambiguous,82,939,80,short fragment turning into the thick band
+NDTOC,131,clear,321,955,59,peak
+NDTOC,131,ambiguous,268,972,39,bend ~1.5 W before junction B
+NDTOC,133,clear,366,986,67,corner at a bright blob

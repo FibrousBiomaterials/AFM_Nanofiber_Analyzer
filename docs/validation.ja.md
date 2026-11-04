@@ -18,7 +18,7 @@ Bruker NDTOC のスキャンは同じ分散液を測ったもので、後者は 
 | データ | 内容 | コード |
 |---|---|---|
 | 同梱スキャン | チュニケート CNF（`testdata_tunicateCNF`）、高等植物 TOC（`testdata_higherplantTOC`）、Bruker NDTOC（`testdata_Bruker_txt`）の各スキャン。`testdata_artificial` の 2<!--n:count--> つの試料はチュニケートのスキャンの切り抜きなので使わない | `scripts/kink_reference_score.py` の `SCANS` |
-| 目視基準 | 同梱スキャンの高さ画像に、AI コーディングエージェント（Claude Code）が付けたキンクの印。繊維ごとに高さ画像を拡大した切り出しを見て付けており、画像には検出器の出力を描いていない。ただし一部の繊維については、当時の検出器がどこにキンクを置くかを事前に知っていた。明瞭なキンク 53<!--m:kink_reference.clear_marks--> 件 | `scripts/kink_reference_score.py` |
+| 目視基準 | 同梱スキャンの高さ画像に、AI コーディングエージェント（Claude Code）が付けたキンクの印。繊維ごとに高さ画像を拡大した切り出しを見て付けており、画像には検出器の出力を描いていない。ただし一部の繊維については、当時の検出器がどこにキンクを置くかを事前に知っていた。明瞭なキンク 53<!--m:kink_reference.clear_marks--> 件 | `docs/data/ai_kink_marks.csv`。`scripts/kink_reference_score.py` の `load_reference` で読む |
 | 人の印 | 同梱スキャンに 2<!--n:count--> 人が、検出器のキンクを描かない画像の上で付けたキンクの印（§4.19）。明瞭な印は 80<!--m:kink_reference_human.all.A.ref--> 件と 122<!--m:kink_reference_human.all.B.ref--> 件 | `docs/data/human_kink_marks.csv`。`scripts/kink_reference_score.py` の `load_human_reference` で読む |
 | 合成データ一式 | 中心線とコーナーの位置が既知の合成スキャン。画素 2<!--c:scripts/synthetic_suite.py::NMPX--> nm、見かけ幅 $W$ = 8<!--c:scripts/synthetic_suite.py::W--> px | `scripts/synthetic_suite.py` |
 | キンク規則の掃引 | 見かけ幅と画素ノイズを変えて描いた、折れ・直線・円弧・正弦波の合成繊維 | `scripts/kink_rule_sweep.py` |
