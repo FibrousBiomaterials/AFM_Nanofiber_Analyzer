@@ -199,13 +199,13 @@ warned on with a suggested setting was analyzed again with that setting.
 | Zoom | Runs | Kept below 0.9<!--n:definition--> | of which not warned | Warned | Warned with 0.97<!--n:definition--> or more kept |
 |---|---|---|---|---|---|
 | 1<!--n:value tried--> | 18<!--m:zoomed_background.x1.runs--> | 0<!--m:zoomed_background.x1.below_90--> | 0<!--m:zoomed_background.x1.below_90_unwarned--> | 3<!--m:zoomed_background.x1.warned--> | 2<!--m:zoomed_background.x1.warned_above_97--> |
-| 1.5<!--n:value tried--> | 18<!--m:zoomed_background.x1.5.runs--> | 7<!--m:zoomed_background.x1.5.below_90--> | 1<!--m:zoomed_background.x1.5.below_90_unwarned--> | 11<!--m:zoomed_background.x1.5.warned--> | 1<!--m:zoomed_background.x1.5.warned_above_97--> |
+| 1.5<!--n:value tried--> | 18<!--m:zoomed_background.x1.5.runs--> | 7<!--m:zoomed_background.x1.5.below_90--> | 1<!--m:zoomed_background.x1.5.below_90_unwarned--> | 10<!--m:zoomed_background.x1.5.warned--> | 1<!--m:zoomed_background.x1.5.warned_above_97--> |
 | 2<!--n:value tried--> | 18<!--m:zoomed_background.x2.runs--> | 12<!--m:zoomed_background.x2.below_90--> | 0<!--m:zoomed_background.x2.below_90_unwarned--> | 13<!--m:zoomed_background.x2.warned--> | 0<!--m:zoomed_background.x2.warned_above_97--> |
 | 3<!--n:value tried--> | 18<!--m:zoomed_background.x3.runs--> | 15<!--m:zoomed_background.x3.below_90--> | 3<!--m:zoomed_background.x3.below_90_unwarned--> | 14<!--m:zoomed_background.x3.warned--> | 1<!--m:zoomed_background.x3.warned_above_97--> |
 | 4<!--n:value tried--> | 18<!--m:zoomed_background.x4.runs--> | 17<!--m:zoomed_background.x4.below_90--> | 3<!--m:zoomed_background.x4.below_90_unwarned--> | 15<!--m:zoomed_background.x4.warned--> | 0<!--m:zoomed_background.x4.warned_above_97--> |
 
 A warning that no fiber width could be measured carries no setting to follow;
-28<!--m:zoomed_background.warned_without_advice--> of the 56<!--m:zoomed_background.warned--> warned runs had only that. Analyzed again as suggested, the other warned
+28<!--m:zoomed_background.warned_without_advice--> of the 55<!--m:zoomed_background.warned--> warned runs had only that. Analyzed again as suggested, the other warned
 runs kept 0.51–1.01<!--m:zoomed_background.followed.kept_range--> of their height, with the background error's 95<!--n:definition-->th percentile at most
 0.24<!--m:zoomed_background.followed.bg95_max--> nm, and 4<!--m:zoomed_background.followed.still_warned--> of them were warned on again; the lowest, 0.51<!--m:zoomed_background.x4.followed_kept_range[0]-->, is the one run at a zoom
 of 4<!--n:value tried--> that carried a suggestion. Of the runs that kept less than 0.9<!--n:definition--> of their height, the
@@ -232,7 +232,7 @@ reported height (the median of the traced fibers' height samples). With
 | 1<!--n:value tried--> nm | 2<!--n:value tried--> nm | 11.1<!--m:synthetic_height.px1.d2.w_px--> px | 1.00<!--m:synthetic_height.px1.d2.n0.05.peak--> | 0.13<!--m:synthetic_height.trendfill.px1.d2.n0.05.bg_loss--> | 0.94<!--m:synthetic_height.trendfill.px1.d2.n0.05.height--> |
 | 1<!--n:value tried--> nm | 4<!--n:value tried--> nm | 16.0<!--m:synthetic_height.px1.d4.w_px--> px | 1.00<!--m:synthetic_height.px1.d4.n0.05.peak--> | 0.53<!--m:synthetic_height.trendfill.px1.d4.n0.05.bg_loss--> | – |
 | 1<!--n:value tried--> nm | 8<!--n:value tried--> nm | 23.3<!--m:synthetic_height.px1.d8.w_px--> px | 1.00<!--m:synthetic_height.px1.d8.n0.05.peak--> | 0.84<!--m:synthetic_height.trendfill.px1.d8.n0.05.bg_loss--> | – |
-| 2<!--n:value tried--> nm | 2<!--n:value tried--> nm | 5.6<!--m:synthetic_height.px2.d2.w_px--> px | 0.99<!--m:synthetic_height.px2.d2.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px2.d2.n0.05.bg_loss--> | 1.02<!--m:synthetic_height.trendfill.px2.d2.n0.05.height--> |
+| 2<!--n:value tried--> nm | 2<!--n:value tried--> nm | 5.6<!--m:synthetic_height.px2.d2.w_px--> px | 0.99<!--m:synthetic_height.px2.d2.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px2.d2.n0.05.bg_loss--> | 1.03<!--m:synthetic_height.trendfill.px2.d2.n0.05.height--> |
 | 2<!--n:value tried--> nm | 4<!--n:value tried--> nm | 8.0<!--m:synthetic_height.px2.d4.w_px--> px | 1.00<!--m:synthetic_height.px2.d4.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px2.d4.n0.05.bg_loss--> | 1.02<!--m:synthetic_height.trendfill.px2.d4.n0.05.height--> |
 | 2<!--n:value tried--> nm | 8<!--n:value tried--> nm | 11.7<!--m:synthetic_height.px2.d8.w_px--> px | 1.00<!--m:synthetic_height.px2.d8.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px2.d8.n0.05.bg_loss--> | 1.01<!--m:synthetic_height.trendfill.px2.d8.n0.05.height--> |
 | 5<!--n:value tried--> nm | 2<!--n:value tried--> nm | 2.2<!--m:synthetic_height.px5.d2.w_px--> px | 0.96<!--m:synthetic_height.px5.d2.n0.05.peak--> | 0.01<!--m:synthetic_height.trendfill.px5.d2.n0.05.bg_loss--> | 0.96<!--m:synthetic_height.trendfill.px5.d2.n0.05.height--> |
@@ -676,10 +676,10 @@ root-mean-square lateral offset from the axis (nm) over the middle of the track.
 | Ribbon (nm) | Apex radius (nm) | default line | quarter-height midpoint | centroid | crest |
 |---|---|---|---|---|---|
 | 16<!--n:value tried-->×3<!--n:value tried--> | 0<!--n:value tried--> | 1.48<!--m:ribbon_tip_swing.16x3.R0.half_max_025w.rms_nm--> | 0.69<!--m:ribbon_tip_swing.16x3.R0.quarter_max.rms_nm--> | 1.11<!--m:ribbon_tip_swing.16x3.R0.centroid.rms_nm--> | 2.99<!--m:ribbon_tip_swing.16x3.R0.crest.rms_nm--> |
-| 16<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 3.40<!--m:ribbon_tip_swing.16x3.R10.half_max_025w.rms_nm--> | 2.37<!--m:ribbon_tip_swing.16x3.R10.quarter_max.rms_nm--> | 2.88<!--m:ribbon_tip_swing.16x3.R10.centroid.rms_nm--> | 4.49<!--m:ribbon_tip_swing.16x3.R10.crest.rms_nm--> |
+| 16<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 3.41<!--m:ribbon_tip_swing.16x3.R10.half_max_025w.rms_nm--> | 2.37<!--m:ribbon_tip_swing.16x3.R10.quarter_max.rms_nm--> | 2.89<!--m:ribbon_tip_swing.16x3.R10.centroid.rms_nm--> | 4.48<!--m:ribbon_tip_swing.16x3.R10.crest.rms_nm--> |
 | 16<!--n:value tried-->×3<!--n:value tried--> | 40<!--n:value tried--> | 3.31<!--m:ribbon_tip_swing.16x3.R40.half_max_025w.rms_nm--> | 3.24<!--m:ribbon_tip_swing.16x3.R40.quarter_max.rms_nm--> | 3.23<!--m:ribbon_tip_swing.16x3.R40.centroid.rms_nm--> | 3.24<!--m:ribbon_tip_swing.16x3.R40.crest.rms_nm--> |
 | 10<!--n:value tried-->×3<!--n:value tried--> | 0<!--n:value tried--> | 0.74<!--m:ribbon_tip_swing.10x3.R0.half_max_025w.rms_nm--> | 0.45<!--m:ribbon_tip_swing.10x3.R0.quarter_max.rms_nm--> | 0.66<!--m:ribbon_tip_swing.10x3.R0.centroid.rms_nm--> | 1.82<!--m:ribbon_tip_swing.10x3.R0.crest.rms_nm--> |
-| 10<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 1.97<!--m:ribbon_tip_swing.10x3.R10.half_max_025w.rms_nm--> | 1.54<!--m:ribbon_tip_swing.10x3.R10.quarter_max.rms_nm--> | 1.75<!--m:ribbon_tip_swing.10x3.R10.centroid.rms_nm--> | 2.67<!--m:ribbon_tip_swing.10x3.R10.crest.rms_nm--> |
+| 10<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 1.97<!--m:ribbon_tip_swing.10x3.R10.half_max_025w.rms_nm--> | 1.54<!--m:ribbon_tip_swing.10x3.R10.quarter_max.rms_nm--> | 1.75<!--m:ribbon_tip_swing.10x3.R10.centroid.rms_nm--> | 2.68<!--m:ribbon_tip_swing.10x3.R10.crest.rms_nm--> |
 | 10<!--n:value tried-->×3<!--n:value tried--> | 40<!--n:value tried--> | 2.05<!--m:ribbon_tip_swing.10x3.R40.half_max_025w.rms_nm--> | 1.96<!--m:ribbon_tip_swing.10x3.R40.quarter_max.rms_nm--> | 1.99<!--m:ribbon_tip_swing.10x3.R40.centroid.rms_nm--> | 2.08<!--m:ribbon_tip_swing.10x3.R40.crest.rms_nm--> |
 | 6<!--n:value tried-->×2<!--n:value tried--> | 0<!--n:value tried--> | 0.48<!--m:ribbon_tip_swing.6x2.R0.half_max_025w.rms_nm--> | 0.37<!--m:ribbon_tip_swing.6x2.R0.quarter_max.rms_nm--> | 0.43<!--m:ribbon_tip_swing.6x2.R0.centroid.rms_nm--> | 0.83<!--m:ribbon_tip_swing.6x2.R0.crest.rms_nm--> |
 | 6<!--n:value tried-->×2<!--n:value tried--> | 10<!--n:value tried--> | 1.25<!--m:ribbon_tip_swing.6x2.R10.half_max_025w.rms_nm--> | 1.06<!--m:ribbon_tip_swing.6x2.R10.quarter_max.rms_nm--> | 1.16<!--m:ribbon_tip_swing.6x2.R10.centroid.rms_nm--> | 1.64<!--m:ribbon_tip_swing.6x2.R10.crest.rms_nm--> |
@@ -736,12 +736,12 @@ Two caveats apply to the table:
 
 | `centerline_method` | Median distance (nm) | Real scans | Notes |
 |---|---|---|---|
-| `"half_max_025w"` (default) | 0.22<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->–0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 49<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 64<!--m:kink_reference.default.false--> | |
+| `"half_max_025w"` (default) | 0.22<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->–0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 49<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 63<!--m:kink_reference.default.false--> | |
 | `"half_max_05w"` | 0.19<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[0]-->–0.26<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[1]--> | 48<!--m:kink_reference.hm05.found--> / 4<!--m:kink_reference.hm05.missed--> / 45<!--m:kink_reference.hm05.false--> | The fewest unmatched bends of the three scored, but it merged the two corners of 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> of the 8<!--m:synthetic_centerline.pairs--> synthetic same-sense pairs (the default: 1<!--m:synthetic_centerline.pairs_w4.merged_pairs-->), and slightly stronger smoothing raised the misses to 10–12<!--m:kink_reference.hm05_stronger.missed_range-->. |
 | `"skeleton_pixels"` | 0.54<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[0]-->–0.64<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[1]--> | 51<!--m:kink_reference.skeleton_pixels.found--> / 1<!--m:kink_reference.skeleton_pixels.missed--> / 133<!--m:kink_reference.skeleton_pixels.false--> | The staircase and the swing at junctions read as bends. |
 | `"smoothed_skeleton_05w"`, `"smoothed_skeleton_1w"` | 0.37<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[0]-->–0.51<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[1]--> / 0.44<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[0]-->–0.95<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[1]--> | not scored | |
 | `"quarter_max"` | 0.20<!--m:synthetic_centerline.quarter_max.group_median_nm_range[0]-->–0.25<!--m:synthetic_centerline.quarter_max.group_median_nm_range[1]--> | not scored | Closer to the axis than the default on 4<!--m:synthetic_centerline.ribbons.quarter_closer_than_default--> of the 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> twisted ribbons, but pulled up to 3.6<!--m:synthetic_centerline.G_circle_d3.max_nm.quarter_max--> nm off the thin, round control fiber. |
-| `"centroid"` | 0.32<!--m:synthetic_centerline.centroid.group_median_nm_range[0]-->–0.39<!--m:synthetic_centerline.centroid.group_median_nm_range[1]--> | not scored | |
+| `"centroid"` | 0.31<!--m:synthetic_centerline.centroid.group_median_nm_range[0]-->–0.39<!--m:synthetic_centerline.centroid.group_median_nm_range[1]--> | not scored | |
 | `"crest"` | 0.43<!--m:synthetic_centerline.crest.group_median_nm_range[0]-->–0.48<!--m:synthetic_centerline.crest.group_median_nm_range[1]--> | not scored | The farthest from the axis on 4<!--m:synthetic_centerline.ribbons.crest_farthest_of_three--> of the 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> twisted ribbons (0.99<!--m:synthetic_centerline.ribbons.crest_over_default_range[0]-->–1.48<!--m:synthetic_centerline.ribbons.crest_over_default_range[1]--> times as far as the default). |
 
 ### 4.4 The kink rule against the visual reference
@@ -751,7 +751,7 @@ false detections referred to below.
 
 | Rule | Found | Found 1–2<!--n:definition--> widths from the mark | Missed | Unmatched |
 |---|---|---|---|---|
-| Excess-turning rule, on the centerline | 49<!--m:kink_reference.default.found--> | 1<!--m:kink_reference.default.displaced--> | 3<!--m:kink_reference.default.missed--> | 64<!--m:kink_reference.default.false--> |
+| Excess-turning rule, on the centerline | 49<!--m:kink_reference.default.found--> | 1<!--m:kink_reference.default.displaced--> | 3<!--m:kink_reference.default.missed--> | 63<!--m:kink_reference.default.false--> |
 | Earlier polyline rule, on the skeleton track | 42<!--m:kink_reference.old_rule.found--> | 3<!--m:kink_reference.old_rule.displaced--> | 8<!--m:kink_reference.old_rule.missed--> | 76<!--m:kink_reference.old_rule.false--> |
 
 The earlier rule's row applies `KinkDetector.kinks_and_decomposed_from_track`,
@@ -759,13 +759,13 @@ kept for bundles of format 1.0<!--n:bundle format version--> (`kink_decompose_px
 150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg-->°), to the traced skeleton tracks of the same images.
 
 A reported bend within $W$ of a mark the reference calls ambiguous or a
-junction is counted neither as found nor as unmatched. Of the 140<!--m:kink_reference.default.detections--> bends the
+junction is counted neither as found nor as unmatched. Of the 139<!--m:kink_reference.default.detections--> bends the
 excess-turning rule reported, 26<!--m:kink_reference.default.exempt--> were such. Per scan, the rule's row reads:
 
 | Scan | Clear kinks marked | Reported bends | Found | Missed | Unmatched | Near an ambiguous or junction mark |
 |---|---|---|---|---|---|---|
 | higher-plant TOC | 3<!--m:kink_reference.default.hplantTOC.ref--> | 7<!--m:kink_reference.default.hplantTOC.detections--> | 3<!--m:kink_reference.default.hplantTOC.found--> | 0<!--m:kink_reference.default.hplantTOC.missed--> | 3<!--m:kink_reference.default.hplantTOC.false--> | 1<!--m:kink_reference.default.hplantTOC.exempt--> |
-| tunicate CNF | 44<!--m:kink_reference.default.tunicate.ref--> | 70<!--m:kink_reference.default.tunicate.detections--> | 42<!--m:kink_reference.default.tunicate.found--> | 2<!--m:kink_reference.default.tunicate.missed--> | 16<!--m:kink_reference.default.tunicate.false--> | 12<!--m:kink_reference.default.tunicate.exempt--> |
+| tunicate CNF | 44<!--m:kink_reference.default.tunicate.ref--> | 69<!--m:kink_reference.default.tunicate.detections--> | 42<!--m:kink_reference.default.tunicate.found--> | 2<!--m:kink_reference.default.tunicate.missed--> | 15<!--m:kink_reference.default.tunicate.false--> | 12<!--m:kink_reference.default.tunicate.exempt--> |
 | Bruker NDTOC | 6<!--m:kink_reference.default.NDTOC.ref--> | 63<!--m:kink_reference.default.NDTOC.detections--> | 4<!--m:kink_reference.default.NDTOC.found--> | 1<!--m:kink_reference.default.NDTOC.missed--> | 45<!--m:kink_reference.default.NDTOC.false--> | 13<!--m:kink_reference.default.NDTOC.exempt--> |
 
 The higher-plant TOC and Bruker NDTOC scans image the same dispersion; on them
@@ -777,7 +777,7 @@ its centerline were chosen among candidates by their scores on it, so the
 reference served as a development set rather than an independent test; no
 held-out scans were scored.
 Changing any one of them to a neighbouring value moved the clear kinks found
-within 48–51<!--m:kink_reference.sens_all.found_range--> and the unmatched bends within 47–84<!--m:kink_reference.sens_all.false_range--> (49<!--m:kink_reference.default.found--> and 64<!--m:kink_reference.default.false--> at
+within 48–51<!--m:kink_reference.sens_all.found_range--> and the unmatched bends within 46–82<!--m:kink_reference.sens_all.false_range--> (49<!--m:kink_reference.default.found--> and 63<!--m:kink_reference.default.false--> at
 the defaults). The only drop in the clear kinks found came from stronger
 smoothing of the heading: 48<!--m:kink_reference.sens_heading_0.35.found--> with the heading smoothed over 0.35<!--n:value tried--> W.
 
@@ -792,7 +792,7 @@ smoothing of the heading: 48<!--m:kink_reference.sens_heading_0.35.found--> with
 
 Without the candidates taken from the maxima of the window turning itself, the
 rule found 47<!--m:turn_maxima.without.found--> instead of 49<!--m:turn_maxima.with.found--> of the clear reference kinks, and reported
-49<!--m:turn_maxima.without.false--> instead of 64<!--m:turn_maxima.with.false--> unmatched bends (experiment turn_maxima).
+49<!--m:turn_maxima.without.false--> instead of 63<!--m:turn_maxima.with.false--> unmatched bends (experiment turn_maxima).
 
 §4.19 scores the same rule against the kinks two people marked.
 
@@ -805,7 +805,7 @@ centerline round the apex:
 |---|---|
 | 40<!--n:value tried-->° | 38–39<!--m:synthetic_kinks.corner40.excess_read_range_deg-->° |
 | 60<!--n:value tried-->° | 56–59<!--m:synthetic_kinks.corner60.excess_read_range_deg-->° |
-| 90<!--n:value tried-->° | 85–86<!--m:synthetic_kinks.corner90.excess_read_range_deg-->° |
+| 90<!--n:value tried-->° | 85–87<!--m:synthetic_kinks.corner90.excess_read_range_deg-->° |
 | 120<!--n:value tried-->° | 100–102<!--m:synthetic_kinks.corner120.excess_read_range_deg-->° |
 
 A bend just above the threshold can therefore read below it: the bend drawn at
@@ -817,9 +817,9 @@ the 3<!--c:scripts/kink_rule_sweep.py::len(NOISES_NM)--> noise levels, was:
 
 | Apparent width | Arm angle | 180<!--n:definition-->° minus the excess |
 |---|---|---|
-| 3.5<!--m:kink_rule_sweep.W5.measured_width_px--> px | 0.7<!--m:kink_rule_sweep.W5.arm_error_deg-->° | 1.7<!--m:kink_rule_sweep.W5.excess_error_deg-->° |
+| 3.5<!--m:kink_rule_sweep.W5.measured_width_px--> px | 0.7<!--m:kink_rule_sweep.W5.arm_error_deg-->° | 1.6<!--m:kink_rule_sweep.W5.excess_error_deg-->° |
 | 5.75<!--m:kink_rule_sweep.W8.measured_width_px--> px | 1.9<!--m:kink_rule_sweep.W8.arm_error_deg-->° | 2.4<!--m:kink_rule_sweep.W8.excess_error_deg-->° |
-| 11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px | 2.63<!--m:kink_rule_sweep.W16.arm_error_deg-->° | 4.5<!--m:kink_rule_sweep.W16.excess_error_deg-->° |
+| 11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px | 2.65<!--m:kink_rule_sweep.W16.arm_error_deg-->° | 4.5<!--m:kink_rule_sweep.W16.excess_error_deg-->° |
 
 At every width the arm angle was the closer of the two.
 
@@ -838,19 +838,19 @@ of those placed:
 | — | — | +1.2<!--m:kink_angle_on_arcs.straight.median_error_deg-->° (12<!--m:kink_angle_on_arcs.straight.found-->/12<!--m:kink_angle_on_arcs.straight.cases-->) | — |
 | 80<!--x:10 * 8--> | 8.2<!--m:kink_angle_on_arcs.r10.predicted_deg-->° | −8.1<!--m:kink_angle_on_arcs.r10.same.median_error_deg-->° (8<!--m:kink_angle_on_arcs.r10.same.found-->/12<!--m:kink_angle_on_arcs.r10.same.cases-->) | +9.1<!--m:kink_angle_on_arcs.r10.opposite.median_error_deg-->° (12<!--m:kink_angle_on_arcs.r10.opposite.found-->/12<!--m:kink_angle_on_arcs.r10.opposite.cases-->) |
 | 40<!--x:5 * 8--> | 16.5<!--m:kink_angle_on_arcs.r5.predicted_deg-->° | −16.7<!--m:kink_angle_on_arcs.r5.same.median_error_deg-->° (12<!--m:kink_angle_on_arcs.r5.same.found-->/12<!--m:kink_angle_on_arcs.r5.same.cases-->) | +19.0<!--m:kink_angle_on_arcs.r5.opposite.median_error_deg-->° (8<!--m:kink_angle_on_arcs.r5.opposite.found-->/12<!--m:kink_angle_on_arcs.r5.opposite.cases-->) |
-| 24<!--x:3 * 8--> | 27.5<!--m:kink_angle_on_arcs.r3.predicted_deg-->° | −27.4<!--m:kink_angle_on_arcs.r3.same.median_error_deg-->° (12<!--m:kink_angle_on_arcs.r3.same.found-->/12<!--m:kink_angle_on_arcs.r3.same.cases-->) | +30.4<!--m:kink_angle_on_arcs.r3.opposite.median_error_deg-->° (8<!--m:kink_angle_on_arcs.r3.opposite.found-->/12<!--m:kink_angle_on_arcs.r3.opposite.cases-->) |
+| 24<!--x:3 * 8--> | 27.5<!--m:kink_angle_on_arcs.r3.predicted_deg-->° | −27.5<!--m:kink_angle_on_arcs.r3.same.median_error_deg-->° (12<!--m:kink_angle_on_arcs.r3.same.found-->/12<!--m:kink_angle_on_arcs.r3.same.cases-->) | +30.4<!--m:kink_angle_on_arcs.r3.opposite.median_error_deg-->° (8<!--m:kink_angle_on_arcs.r3.opposite.found-->/12<!--m:kink_angle_on_arcs.r3.opposite.cases-->) |
 
 A fiber curving the same way as the corner made the stored angle sharper, one
 curving the opposite way blunter, by about $2W/R$.
 
 On the three bundled scans that turning was read for every kink on the flanks
 the kink rule reads, and counted when both flanks curve the same way: over
-140<!--m:kink_angle_on_arcs.bundled.kinks--> kinks its median was 0<!--m:kink_angle_on_arcs.bundled.median_abs_deg-->°, it exceeded 10<!--n:value tried-->° at 22<!--m:kink_angle_on_arcs.bundled.over_10_deg--> and reached 83<!--m:kink_angle_on_arcs.bundled.max_abs_deg-->°. Rendered over
+139<!--m:kink_angle_on_arcs.bundled.kinks--> kinks its median was 0<!--m:kink_angle_on_arcs.bundled.median_abs_deg-->°, it exceeded 10<!--n:value tried-->° at 22<!--m:kink_angle_on_arcs.bundled.over_10_deg--> and reached 85<!--m:kink_angle_on_arcs.bundled.max_abs_deg-->°. Rendered over
 the calibrated height image, none of the 12<!--n:number rendered--> kinks with the largest turning was a
 corner on a smoothly curving fiber: they lay at crossings or junctions, on
 faint strands and tangles, where a fiber ran into background texture, beside a
-particle, where low strands meet a bright fiber from the side, and on a thin
-fiber with a step beside a crossing.
+particle, where low strands meet a bright fiber from the side, on a thin
+fiber with a step beside a crossing, and at the tip of a hairpin turn.
 
 ### 4.6 Synthetic shapes
 
@@ -875,19 +875,19 @@ the real kinks. Scored against the visual reference
 | Noise-floor factor | Clear kinks lost | False detections removed |
 |---|---|---|
 | 3<!--n:value tried--> | 3<!--m:kink_reference.noise3.lost--> | 8<!--m:kink_reference.noise3.fewer_false--> |
-| 4<!--n:value tried--> | 5<!--m:kink_reference.noise4.lost--> | 11<!--m:kink_reference.noise4.fewer_false--> |
+| 4<!--n:value tried--> | 5<!--m:kink_reference.noise4.lost--> | 10<!--m:kink_reference.noise4.fewer_false--> |
 
 The false detections on these scans are rounded bends, tangles, bends next to
 crossings, bends on faint strands, and shallow bends whose excess turning only just clears
-the threshold, not noise: 24<!--m:kink_reference.default.false_excess_30_40--> of the 64<!--m:kink_reference.default.false--> have an excess of 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->–40<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|190 - v-->°. For
+the threshold, not noise: 23<!--m:kink_reference.default.false_excess_30_40--> of the 63<!--m:kink_reference.default.false--> have an excess of 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->–40<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|190 - v-->°. For
 13<!--m:kink_reference.default.false_arm_turn_below_threshold--> of them the turning read from the arms (180<!--n:definition-->° − `ka`) falls below
 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->°, because the arm angle is measured apart from the excess turning the rule
 tests. A heavily bent fiber's own kinks raise its floor, which is where the
 lost clear kinks lay. On the synthetic sweep the floor changed the false bends
 on the straight, arc and sine fibers only at the finest pixel size with the
-heaviest noise (11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px width, 0.30<!--n:value tried--> nm pixel noise), from 5.9<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> to 3.8<!--m:kink_rule_sweep.W16.n0.30.k3.fp_per_um--> per µm. At
-that setting it left the bends reported on the 165<!--n:example-->° bend, which must not be
-reported, unchanged (4<!--m:kink_rule_sweep.W16.n0.30.base.kink165_reported--> without it, 4<!--m:kink_rule_sweep.W16.n0.30.k3.kink165_reported--> with it). It changed none of the corners found;
+heaviest noise (11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px width, 0.30<!--n:value tried--> nm pixel noise), from 5.4<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> to 4.1<!--m:kink_rule_sweep.W16.n0.30.k3.fp_per_um--> per µm. At
+that setting the bends reported on the 165<!--n:example-->° bend, which must not be
+reported, went from 6<!--m:kink_rule_sweep.W16.n0.30.base.kink165_reported--> without it to 3<!--m:kink_rule_sweep.W16.n0.30.k3.kink165_reported--> with it. It changed none of the corners found;
 at the coarsest pixel size with the heaviest noise, for example, 4<!--m:kink_rule_sweep.W3.n0.30.base.kinked_found--> were found
 without it and 4<!--m:kink_rule_sweep.W3.n0.30.k3.kinked_found--> with it (§4.8).
 
@@ -912,7 +912,7 @@ width.
   `background_warnings` warned on that scan (`flank_step_low` and
   `relief_absorbed`). The tracing split that arm into many fragments, and false
   bends gathered on it. On the
-  straight, arc and sine fibers of the same setting the rule reported 5.9<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um-->
+  straight, arc and sine fibers of the same setting the rule reported 5.4<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um-->
   false bends per µm.
 - At the three finer pixel sizes, at pixel noise up to 0.15<!--n:value tried--> nm, the straight
   fibers, arcs and meanders carried no false positive, and there was none on a
@@ -935,11 +935,11 @@ branch point (experiment track_ends): many track ends are cuts at a crossing,
 not fiber ends.
 
 At a margin of $1.0\,W$ the false detections on the bundled scans rose from
-64<!--m:kink_reference.default.false--> to 82<!--m:kink_reference.sens_end_1.false--> without a further clear kink being found; at $2.0\,W$ they fell to
-47<!--m:kink_reference.sens_end_2.false--> with the same 49<!--m:kink_reference.sens_end_2.found--> clear kinks found. On the synthetic corners 1.5<!--n:value tried--> $W$
+63<!--m:kink_reference.default.false--> to 81<!--m:kink_reference.sens_end_1.false--> without a further clear kink being found; at $2.0\,W$ they fell to
+46<!--m:kink_reference.sens_end_2.false--> with the same 49<!--m:kink_reference.sens_end_2.found--> clear kinks found. On the synthetic corners 1.5<!--n:value tried--> $W$
 from an end, the default judged 2<!--m:synthetic_kinks.margin_default.end1.5W.corners_judged--> of 2<!--m:synthetic_kinks.end_cases_per_distance--> and $2.0\,W$ judged 0<!--m:synthetic_kinks.margin_2W.end1.5W.corners_judged-->; on those 2<!--n:value tried--> $W$ from an
 end, the default judged 2<!--m:synthetic_kinks.margin_default.end2W.corners_judged--> of 2<!--m:synthetic_kinks.end_cases_per_distance--> and $2.0\,W$ judged 1<!--m:synthetic_kinks.margin_2W.end2W.corners_judged-->. None of
-the 44<!--m:kink_reference.default.unjudged--> bends left unjudged on the bundled scans lay on a clear reference kink.
+the 45<!--m:kink_reference.default.unjudged--> bends left unjudged on the bundled scans lay on a clear reference kink.
 
 ### 4.10 Crest height against the height at the centerline
 
@@ -950,9 +950,9 @@ the reliable points:
 
 | Input | Median difference (nm) | 90<!--n:definition-->th percentile (nm) | Median, % of crest | 90<!--n:definition-->th percentile, % of crest |
 |---|---|---|---|---|
-| tunicate CNF | 0.070<!--m:crest_height.tunicate.median_nm--> | 0.211<!--m:crest_height.tunicate.p90_nm--> | 0.940<!--m:crest_height.tunicate.median_percent--> | 2.602<!--m:crest_height.tunicate.p90_percent--> |
-| higher-plant TOC | 0.013<!--m:crest_height.hplantTOC.median_nm--> | 0.076<!--m:crest_height.hplantTOC.p90_nm--> | 0.809<!--m:crest_height.hplantTOC.median_percent--> | 4.439<!--m:crest_height.hplantTOC.p90_percent--> |
-| Bruker NDTOC | 0.025<!--m:crest_height.NDTOC.median_nm--> | 0.129<!--m:crest_height.NDTOC.p90_nm--> | 1.260<!--m:crest_height.NDTOC.median_percent--> | 7.270<!--m:crest_height.NDTOC.p90_percent--> |
+| tunicate CNF | 0.071<!--m:crest_height.tunicate.median_nm--> | 0.209<!--m:crest_height.tunicate.p90_nm--> | 0.942<!--m:crest_height.tunicate.median_percent--> | 2.600<!--m:crest_height.tunicate.p90_percent--> |
+| higher-plant TOC | 0.014<!--m:crest_height.hplantTOC.median_nm--> | 0.078<!--m:crest_height.hplantTOC.p90_nm--> | 0.809<!--m:crest_height.hplantTOC.median_percent--> | 4.478<!--m:crest_height.hplantTOC.p90_percent--> |
+| Bruker NDTOC | 0.023<!--m:crest_height.NDTOC.median_nm--> | 0.125<!--m:crest_height.NDTOC.p90_nm--> | 1.190<!--m:crest_height.NDTOC.median_percent--> | 7.044<!--m:crest_height.NDTOC.p90_percent--> |
 The crest height was never below the height at the centerline. Reading the
 height at the centerline would therefore make the fiber lower, by the small but
 one-sided amounts in the table, because the half-maximum midpoint lies beside the
@@ -986,13 +986,13 @@ section fell on every test input and rose on none:
 
 | Input | Points | Located, full width (%) | Located, each half (%) |
 |---|---|---|---|
-| tunicate CNF | 7919<!--m:section_width_limit.tunicate.points--> | 88.1<!--m:section_width_limit.tunicate.reliable_full_percent--> | 84.0<!--m:section_width_limit.tunicate.reliable_half_percent--> |
-| higher-plant TOC | 1883<!--m:section_width_limit.hplantTOC.points--> | 92.5<!--m:section_width_limit.hplantTOC.reliable_full_percent--> | 88.1<!--m:section_width_limit.hplantTOC.reliable_half_percent--> |
-| Bruker NDTOC | 8788<!--m:section_width_limit.NDTOC.points--> | 81.7<!--m:section_width_limit.NDTOC.reliable_full_percent--> | 75.6<!--m:section_width_limit.NDTOC.reliable_half_percent--> |
+| tunicate CNF | 7919<!--m:section_width_limit.tunicate.points--> | 88.1<!--m:section_width_limit.tunicate.reliable_full_percent--> | 83.9<!--m:section_width_limit.tunicate.reliable_half_percent--> |
+| higher-plant TOC | 1883<!--m:section_width_limit.hplantTOC.points--> | 92.5<!--m:section_width_limit.hplantTOC.reliable_full_percent--> | 88.2<!--m:section_width_limit.hplantTOC.reliable_half_percent--> |
+| Bruker NDTOC | 8788<!--m:section_width_limit.NDTOC.points--> | 81.7<!--m:section_width_limit.NDTOC.reliable_full_percent--> | 75.8<!--m:section_width_limit.NDTOC.reliable_half_percent--> |
 
-The fiber of the tunicate scan that loses the most points, 134<!--m:section_width_limit.tunicate.most_lost.lost--> of its 920<!--m:section_width_limit.tunicate.most_lost.points-->,
-was rendered over the calibrated height image with its cross-sections. The
-points it loses are the straight stretch from its corner to the right border: a
+The fiber of the tunicate scan that loses the most points, 141<!--m:section_width_limit.tunicate.most_lost.lost--> of its 920<!--m:section_width_limit.tunicate.most_lost.points-->,
+was rendered over the calibrated height image with its cross-sections. Most of
+the points it loses are the straight stretch from its corner to the right border: a
 single fiber, crossed once by another, whose sections are single-peaked with the
 crest a little off the middle, so that one half is wider than 0.75<!--c:lib/centerline.py::_MAX_SECTION_WIDTHS|v / 2--> W while the
 full width stays within 1.5<!--c:lib/centerline.py::_MAX_SECTION_WIDTHS--> W.
@@ -1009,9 +1009,9 @@ curvature_noise_floor, rad/µm, mean over the draws):
 
 | Pixel (nm) | Noise 0<!--n:condition--> nm | Noise 0.05<!--n:condition--> nm | Noise 0.15<!--n:condition--> nm |
 |---|---|---|---|
-| 2<!--n:condition--> | 0.03<!--m:curvature_noise_floor.px2.noise0.mean--> | 0.06<!--m:curvature_noise_floor.px2.noise0.05.mean--> | 0.16<!--m:curvature_noise_floor.px2.noise0.15.mean--> |
-| 5<!--n:condition--> | 0.29<!--m:curvature_noise_floor.px5.noise0.mean--> | 0.27<!--m:curvature_noise_floor.px5.noise0.05.mean--> | 0.35<!--m:curvature_noise_floor.px5.noise0.15.mean--> |
-| 10<!--n:condition--> | 0.64<!--m:curvature_noise_floor.px10.noise0.mean--> | 0.66<!--m:curvature_noise_floor.px10.noise0.05.mean--> | 0.82<!--m:curvature_noise_floor.px10.noise0.15.mean--> |
+| 2<!--n:condition--> | 0.02<!--m:curvature_noise_floor.px2.noise0.mean--> | 0.06<!--m:curvature_noise_floor.px2.noise0.05.mean--> | 0.15<!--m:curvature_noise_floor.px2.noise0.15.mean--> |
+| 5<!--n:condition--> | 0.33<!--m:curvature_noise_floor.px5.noise0.mean--> | 0.29<!--m:curvature_noise_floor.px5.noise0.05.mean--> | 0.35<!--m:curvature_noise_floor.px5.noise0.15.mean--> |
+| 10<!--n:condition--> | 0.36<!--m:curvature_noise_floor.px10.noise0.mean--> | 0.37<!--m:curvature_noise_floor.px10.noise0.05.mean--> | 0.57<!--m:curvature_noise_floor.px10.noise0.15.mean--> |
 
 Without noise the reading comes from the pixel grid. Rendered against the true
 axis, the centerline at 5<!--n:condition--> and 10<!--n:condition--> nm pixels carries a ripple at the period of
@@ -1042,7 +1042,7 @@ Every scan traced the fiber as one piece (18<!--m:end_loss.single_fiber_runs--> 
 | 2<!--n:value tried--> nm | square | −0.8<!--m:end_loss.px2.taper0.end_deficit_nm_range[0]--> to +0.2<!--m:end_loss.px2.taper0.end_deficit_nm_range[1]--> nm | −0.07<!--m:end_loss.px2.taper0.end_deficit_w_range[0]--> to +0.02<!--m:end_loss.px2.taper0.end_deficit_w_range[1]--> | +0.25<!--m:end_loss.px2.taper0.length_error_percent_range[0]--> to +0.34<!--m:end_loss.px2.taper0.length_error_percent_range[1]--> % |
 | 2<!--n:value tried--> nm | tapered | −2.6<!--m:end_loss.px2.taper20.end_deficit_nm_range[0]--> to +1.3<!--m:end_loss.px2.taper20.end_deficit_nm_range[1]--> nm | −0.24<!--m:end_loss.px2.taper20.end_deficit_w_range[0]--> to +0.12<!--m:end_loss.px2.taper20.end_deficit_w_range[1]--> | +0.03<!--m:end_loss.px2.taper20.length_error_percent_range[0]--> to +0.74<!--m:end_loss.px2.taper20.length_error_percent_range[1]--> % |
 | 4<!--n:value tried--> nm | square | −3.3<!--m:end_loss.px4.taper0.end_deficit_nm_range[0]--> to +0.5<!--m:end_loss.px4.taper0.end_deficit_nm_range[1]--> nm | −0.30<!--m:end_loss.px4.taper0.end_deficit_w_range[0]--> to +0.05<!--m:end_loss.px4.taper0.end_deficit_w_range[1]--> | +0.47<!--m:end_loss.px4.taper0.length_error_percent_range[0]--> to +1.13<!--m:end_loss.px4.taper0.length_error_percent_range[1]--> % |
-| 4<!--n:value tried--> nm | tapered | +1.1<!--m:end_loss.px4.taper20.end_deficit_nm_range[0]--> to +9.3<!--m:end_loss.px4.taper20.end_deficit_nm_range[1]--> nm | +0.10<!--m:end_loss.px4.taper20.end_deficit_w_range[0]--> to +0.85<!--m:end_loss.px4.taper20.end_deficit_w_range[1]--> | −1.67<!--m:end_loss.px4.taper20.length_error_percent_range[0]--> to −0.91<!--m:end_loss.px4.taper20.length_error_percent_range[1]--> % |
+| 4<!--n:value tried--> nm | tapered | +1.0<!--m:end_loss.px4.taper20.end_deficit_nm_range[0]--> to +9.3<!--m:end_loss.px4.taper20.end_deficit_nm_range[1]--> nm | +0.10<!--m:end_loss.px4.taper20.end_deficit_w_range[0]--> to +0.85<!--m:end_loss.px4.taper20.end_deficit_w_range[1]--> | −1.67<!--m:end_loss.px4.taper20.length_error_percent_range[0]--> to −0.91<!--m:end_loss.px4.taper20.length_error_percent_range[1]--> % |
 
 Rendered, at 1<!--n:value tried--> nm pixels the measured centerline of a tapered end continues past
 the fiber's end into the image the probe spreads around it, and in one scan
@@ -1065,18 +1065,18 @@ straight fiber, the difference in nm:
 
 | Apparent width (px) | No noise | 0.05<!--n:value tried--> nm | 0.1<!--n:value tried--> nm | 0.2<!--n:value tried--> nm |
 |---|---|---|---|---|
-| 3<!--n:value tried--> | −0.050<!--m:crest_noise.line.W3.n0_nm--> | −0.046<!--m:crest_noise.line.W3.n0.05_nm--> | −0.041<!--m:crest_noise.line.W3.n0.1_nm--> | −0.007<!--m:crest_noise.line.W3.n0.2_nm--> |
-| 5<!--n:value tried--> | −0.020<!--m:crest_noise.line.W5.n0_nm--> | −0.011<!--m:crest_noise.line.W5.n0.05_nm--> | +0.007<!--m:crest_noise.line.W5.n0.1_nm--> | +0.061<!--m:crest_noise.line.W5.n0.2_nm--> |
-| 8<!--n:value tried--> | −0.008<!--m:crest_noise.line.W8.n0_nm--> | +0.006<!--m:crest_noise.line.W8.n0.05_nm--> | +0.030<!--m:crest_noise.line.W8.n0.1_nm--> | +0.087<!--m:crest_noise.line.W8.n0.2_nm--> |
-| 16<!--n:value tried--> | −0.002<!--m:crest_noise.line.W16.n0_nm--> | +0.016<!--m:crest_noise.line.W16.n0.05_nm--> | +0.042<!--m:crest_noise.line.W16.n0.1_nm--> | +0.097<!--m:crest_noise.line.W16.n0.2_nm--> |
-| 24<!--n:value tried--> | −0.001<!--m:crest_noise.line.W24.n0_nm--> | +0.026<!--m:crest_noise.line.W24.n0.05_nm--> | +0.060<!--m:crest_noise.line.W24.n0.1_nm--> | +0.175<!--m:crest_noise.line.W24.n0.2_nm--> |
+| 3<!--n:value tried--> | −0.064<!--m:crest_noise.line.W3.n0_nm--> | −0.045<!--m:crest_noise.line.W3.n0.05_nm--> | −0.039<!--m:crest_noise.line.W3.n0.1_nm--> | −0.001<!--m:crest_noise.line.W3.n0.2_nm--> |
+| 5<!--n:value tried--> | −0.021<!--m:crest_noise.line.W5.n0_nm--> | −0.011<!--m:crest_noise.line.W5.n0.05_nm--> | +0.007<!--m:crest_noise.line.W5.n0.1_nm--> | +0.052<!--m:crest_noise.line.W5.n0.2_nm--> |
+| 8<!--n:value tried--> | −0.008<!--m:crest_noise.line.W8.n0_nm--> | +0.006<!--m:crest_noise.line.W8.n0.05_nm--> | +0.029<!--m:crest_noise.line.W8.n0.1_nm--> | +0.086<!--m:crest_noise.line.W8.n0.2_nm--> |
+| 16<!--n:value tried--> | −0.002<!--m:crest_noise.line.W16.n0_nm--> | +0.017<!--m:crest_noise.line.W16.n0.05_nm--> | +0.042<!--m:crest_noise.line.W16.n0.1_nm--> | +0.095<!--m:crest_noise.line.W16.n0.2_nm--> |
+| 24<!--n:value tried--> | −0.001<!--m:crest_noise.line.W24.n0_nm--> | +0.026<!--m:crest_noise.line.W24.n0.05_nm--> | +0.058<!--m:crest_noise.line.W24.n0.1_nm--> | +0.172<!--m:crest_noise.line.W24.n0.2_nm--> |
 
 The crest of each section is the largest of the samples near its top, and with
 noise that lies above the top they scatter around, by more the flatter the top:
 the crest read high by more the noisier the scan and the wider the fiber, up to
-+0.175<!--m:crest_noise.line.W24.n0.2_nm--> nm on the straight fiber and +0.190<!--m:crest_noise.arc.W24.n0.2_nm--> nm on the arc at 24<!--n:value tried--> px and 0.2<!--n:value tried--> nm. At
-0.05<!--n:value tried--> nm noise, a fortieth of the height, the largest difference was −0.048<!--m:crest_noise.arc.W3.n0.05_nm--> nm, on
-the arc at 3<!--n:value tried--> px, where the pixel grid limits the height (§1.9).
++0.172<!--m:crest_noise.line.W24.n0.2_nm--> nm on the straight fiber and +0.176<!--m:crest_noise.arc.W24.n0.2_nm--> nm on the arc at 24<!--n:value tried--> px and 0.2<!--n:value tried--> nm. At
+0.05<!--n:value tried--> nm noise, a fortieth of the height, the largest difference was −0.045<!--m:crest_noise.line.W3.n0.05_nm--> nm, on
+the straight fiber at 3<!--n:value tried--> px, where the pixel grid limits the height (§1.9).
 
 ### 4.16 Apparent width under pixel noise
 
@@ -1087,10 +1087,10 @@ own cross-section:
 
 | Apparent width (px) | 0.05<!--n:value tried--> nm | 0.1<!--n:value tried--> nm | 0.15<!--n:value tried--> nm | 0.2<!--n:value tried--> nm | 0.3<!--n:value tried--> nm |
 |---|---|---|---|---|---|
-| 8<!--n:value tried--> | 7.75<!--m:width_noise.W8.n0.05.width_px--> (100<!--m:width_noise.W8.n0.05.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.1.width_px--> (100<!--m:width_noise.W8.n0.1.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.15.width_px--> (100<!--m:width_noise.W8.n0.15.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.2.width_px--> (100<!--m:width_noise.W8.n0.2.located_percent--> %) | 7.67<!--m:width_noise.W8.n0.3.width_px--> (100<!--m:width_noise.W8.n0.3.located_percent--> %) |
-| 16<!--n:value tried--> | 15.75<!--m:width_noise.W16.n0.05.width_px--> (100<!--m:width_noise.W16.n0.05.located_percent--> %) | 15.92<!--m:width_noise.W16.n0.1.width_px--> (100<!--m:width_noise.W16.n0.1.located_percent--> %) | 15.83<!--m:width_noise.W16.n0.15.width_px--> (100<!--m:width_noise.W16.n0.15.located_percent--> %) | 14.50<!--m:width_noise.W16.n0.2.width_px--> (100<!--m:width_noise.W16.n0.2.located_percent--> %) | 13.92<!--m:width_noise.W16.n0.3.width_px--> (100<!--m:width_noise.W16.n0.3.located_percent--> %) |
-| 24<!--n:value tried--> | 23.75<!--m:width_noise.W24.n0.05.width_px--> (100<!--m:width_noise.W24.n0.05.located_percent--> %) | 23.75<!--m:width_noise.W24.n0.1.width_px--> (100<!--m:width_noise.W24.n0.1.located_percent--> %) | 13.42<!--m:width_noise.W24.n0.15.width_px--> (0<!--m:width_noise.W24.n0.15.located_percent--> %) | 12.17<!--m:width_noise.W24.n0.2.width_px--> (0<!--m:width_noise.W24.n0.2.located_percent--> %) | 9.25<!--m:width_noise.W24.n0.3.width_px--> (13<!--m:width_noise.W24.n0.3.located_percent--> %) |
-| 32<!--n:value tried--> | 31.75<!--m:width_noise.W32.n0.05.width_px--> (100<!--m:width_noise.W32.n0.05.located_percent--> %) | 31.75<!--m:width_noise.W32.n0.1.width_px--> (100<!--m:width_noise.W32.n0.1.located_percent--> %) | 10.25<!--m:width_noise.W32.n0.15.width_px--> (3<!--m:width_noise.W32.n0.15.located_percent--> %) | 8.17<!--m:width_noise.W32.n0.2.width_px--> (37<!--m:width_noise.W32.n0.2.located_percent--> %) | 5.75<!--m:width_noise.W32.n0.3.width_px--> (59<!--m:width_noise.W32.n0.3.located_percent--> %) |
+| 8<!--n:value tried--> | 7.75<!--m:width_noise.W8.n0.05.width_px--> (100<!--m:width_noise.W8.n0.05.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.1.width_px--> (100<!--m:width_noise.W8.n0.1.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.15.width_px--> (100<!--m:width_noise.W8.n0.15.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.2.width_px--> (100<!--m:width_noise.W8.n0.2.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.3.width_px--> (100<!--m:width_noise.W8.n0.3.located_percent--> %) |
+| 16<!--n:value tried--> | 15.75<!--m:width_noise.W16.n0.05.width_px--> (100<!--m:width_noise.W16.n0.05.located_percent--> %) | 15.92<!--m:width_noise.W16.n0.1.width_px--> (100<!--m:width_noise.W16.n0.1.located_percent--> %) | 15.92<!--m:width_noise.W16.n0.15.width_px--> (100<!--m:width_noise.W16.n0.15.located_percent--> %) | 14.50<!--m:width_noise.W16.n0.2.width_px--> (100<!--m:width_noise.W16.n0.2.located_percent--> %) | 13.92<!--m:width_noise.W16.n0.3.width_px--> (100<!--m:width_noise.W16.n0.3.located_percent--> %) |
+| 24<!--n:value tried--> | 23.75<!--m:width_noise.W24.n0.05.width_px--> (100<!--m:width_noise.W24.n0.05.located_percent--> %) | 23.75<!--m:width_noise.W24.n0.1.width_px--> (100<!--m:width_noise.W24.n0.1.located_percent--> %) | 13.50<!--m:width_noise.W24.n0.15.width_px--> (0<!--m:width_noise.W24.n0.15.located_percent--> %) | 12.17<!--m:width_noise.W24.n0.2.width_px--> (0<!--m:width_noise.W24.n0.2.located_percent--> %) | 9.46<!--m:width_noise.W24.n0.3.width_px--> (10<!--m:width_noise.W24.n0.3.located_percent--> %) |
+| 32<!--n:value tried--> | 31.83<!--m:width_noise.W32.n0.05.width_px--> (100<!--m:width_noise.W32.n0.05.located_percent--> %) | 31.75<!--m:width_noise.W32.n0.1.width_px--> (100<!--m:width_noise.W32.n0.1.located_percent--> %) | 10.33<!--m:width_noise.W32.n0.15.width_px--> (2<!--m:width_noise.W32.n0.15.located_percent--> %) | 8.33<!--m:width_noise.W32.n0.2.width_px--> (34<!--m:width_noise.W32.n0.2.located_percent--> %) | 6.00<!--m:width_noise.W32.n0.3.width_px--> (59<!--m:width_noise.W32.n0.3.located_percent--> %) |
 
 From 0.15<!--n:value tried--> nm of noise on, the widths of 24<!--n:value tried--> and 32<!--n:value tried--> px were read at about half or
 less, and few of the points were located. When the first range of ±12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px is
@@ -1108,7 +1108,7 @@ skeleton is less than 20<!--c:lib/pipeline.py::MIN_FIBER_SNR--> times the pixel 
 (`pipeline.fiber_snr`): 1.4826<!--n:definition--> times the median absolute deviation of the differences
 between horizontally adjacent pixels more than 4<!--c:lib/pipeline.py::_NOISE_MASK_MARGIN_PX--> px from the binarized mask,
 divided by $\sqrt{2}$. The limit was set from §4.15–§4.16: with the noise at a
-twentieth of the height, the crest read at most +0.060<!--m:crest_noise.line.W24.n0.1_nm--> nm high (24<!--n:value tried--> px) and every
+twentieth of the height, the crest read at most +0.061<!--m:crest_noise.arc.W24.n0.1_nm--> nm high (the arc at 24<!--n:value tried--> px) and every
 width held, and with more noise the crests read higher and the widths of 24<!--n:value tried-->
 and 32<!--n:value tried--> px collapsed.
 
@@ -1127,23 +1127,23 @@ against 349<!--m:noise_warning.W24.n0.05.tophat.skeleton_px--> at 0.05<!--n:valu
 ### 4.18 Another kink threshold applied to a bundle
 
 The three bundled scans were analyzed at the defaults, whose bundles store
-140<!--m:weak_bend_reapply.all.stored_kinks--> kinks and 322<!--m:weak_bend_reapply.all.stored_weak--> bends below the threshold, and again at three other
+139<!--m:weak_bend_reapply.all.stored_kinks--> kinks and 326<!--m:weak_bend_reapply.all.stored_weak--> bends below the threshold, and again at three other
 thresholds. Each threshold was then applied to the default bundle with
 `measure_bundle(kink_threshold_deg=...)` and compared, fiber by fiber over the
 220<!--m:weak_bend_reapply.all.t160.fibers--> fibers, with the analysis at that threshold (experiment weak_bend_reapply):
 
 | Threshold | Kinks in the analysis at it | Fibers with the same kink points | Kinks reading another angle | Fibers with the same bends not judged |
 |---|---|---|---|---|
-| 140<!--n:value tried-->° | 97<!--m:weak_bend_reapply.all.t140.kinks--> | 220<!--m:weak_bend_reapply.all.t140.same_points--> | 0<!--m:weak_bend_reapply.all.t140.angle_changed--> | 220<!--m:weak_bend_reapply.all.t140.same_unjudged--> |
+| 140<!--n:value tried-->° | 98<!--m:weak_bend_reapply.all.t140.kinks--> | 220<!--m:weak_bend_reapply.all.t140.same_points--> | 0<!--m:weak_bend_reapply.all.t140.angle_changed--> | 220<!--m:weak_bend_reapply.all.t140.same_unjudged--> |
 | 160<!--n:value tried-->° | 206<!--m:weak_bend_reapply.all.t160.kinks--> | 220<!--m:weak_bend_reapply.all.t160.same_points--> | 0<!--m:weak_bend_reapply.all.t160.angle_changed--> | 220<!--m:weak_bend_reapply.all.t160.same_unjudged--> |
-| 170<!--n:value tried-->° | 462<!--m:weak_bend_reapply.all.t170.kinks--> | 220<!--m:weak_bend_reapply.all.t170.same_points--> | 0<!--m:weak_bend_reapply.all.t170.angle_changed--> | 220<!--m:weak_bend_reapply.all.t170.same_unjudged--> |
+| 170<!--n:value tried-->° | 465<!--m:weak_bend_reapply.all.t170.kinks--> | 220<!--m:weak_bend_reapply.all.t170.same_points--> | 0<!--m:weak_bend_reapply.all.t170.angle_changed--> | 220<!--m:weak_bend_reapply.all.t170.same_unjudged--> |
 
 How low a threshold means anything is a separate question. On the kink-free
 synthetic fibers of the sweep (straight, arc and sine, at designed widths 5<!--n:value tried-->, 8<!--n:value tried-->
 and 16<!--n:value tried--> px, pixel noise 0.05<!--n:value tried--> and 0.15<!--n:value tried--> nm, 2<!--n:value tried--> seeds), every line was judged with the search
 floor lowered to 1<!--n:value tried-->° (experiment weak_bend_noise). The excess of the bends found
-had a 95<!--n:definition-->th percentile of 12.9<!--m:weak_bend_noise.excess_p95_deg-->° and a 99<!--n:definition-->th of 17.3<!--m:weak_bend_noise.excess_p99_deg-->°, and per micrometre of
-contour 6.6<!--m:weak_bend_noise.per_um_at_least_10--> bends reached 10<!--n:value tried-->°, 0.25<!--m:weak_bend_noise.per_um_at_least_20--> reached 20<!--n:value tried-->° and 0<!--m:weak_bend_noise.per_um_at_least_30--> reached 30<!--n:value tried-->°. These
+had a 95<!--n:definition-->th percentile of 13.0<!--m:weak_bend_noise.excess_p95_deg-->° and a 99<!--n:definition-->th of 17.3<!--m:weak_bend_noise.excess_p99_deg-->°, and per micrometre of
+contour 6.5<!--m:weak_bend_noise.per_um_at_least_10--> bends reached 10<!--n:value tried-->°, 0.21<!--m:weak_bend_noise.per_um_at_least_20--> reached 20<!--n:value tried-->° and 0<!--m:weak_bend_noise.per_um_at_least_30--> reached 30<!--n:value tried-->°. These
 fibers have no kink, so a threshold in that range would count those bends as
 kinks on them.
 
@@ -1177,25 +1177,25 @@ references: A's marks, B's marks, and the marks both call clear, where every
 other mark of either person counts as ambiguous and a pair sits at its midpoint.
 Merged means that the only reported bend within $W$ had already matched another
 clear mark. The last column counts reported bends within $W$ of a mark that is
-not clear in that reference. The rule reported 140<!--m:kink_reference_human.all.detections--> bends.
+not clear in that reference. The rule reported 139<!--m:kink_reference_human.all.detections--> bends.
 
 | Reference | Scan | Clear marks | Found | Found 1–2<!--n:definition--> widths from the mark | Merged | Missed | Unmatched | Near a mark not clear |
 |---|---|---|---|---|---|---|---|---|
 | A's clear marks | higher-plant TOC | 5<!--m:kink_reference_human.hplantTOC.A.ref--> | 4<!--m:kink_reference_human.hplantTOC.A.found--> | 0<!--m:kink_reference_human.hplantTOC.A.displaced--> | 0<!--m:kink_reference_human.hplantTOC.A.merged--> | 1<!--m:kink_reference_human.hplantTOC.A.missed--> | 3<!--m:kink_reference_human.hplantTOC.A.false--> | 0<!--m:kink_reference_human.hplantTOC.A.exempt--> |
-| A's clear marks | tunicate CNF | 62<!--m:kink_reference_human.tunicate.A.ref--> | 49<!--m:kink_reference_human.tunicate.A.found--> | 3<!--m:kink_reference_human.tunicate.A.displaced--> | 2<!--m:kink_reference_human.tunicate.A.merged--> | 8<!--m:kink_reference_human.tunicate.A.missed--> | 12<!--m:kink_reference_human.tunicate.A.false--> | 6<!--m:kink_reference_human.tunicate.A.exempt--> |
+| A's clear marks | tunicate CNF | 62<!--m:kink_reference_human.tunicate.A.ref--> | 48<!--m:kink_reference_human.tunicate.A.found--> | 3<!--m:kink_reference_human.tunicate.A.displaced--> | 3<!--m:kink_reference_human.tunicate.A.merged--> | 8<!--m:kink_reference_human.tunicate.A.missed--> | 12<!--m:kink_reference_human.tunicate.A.false--> | 6<!--m:kink_reference_human.tunicate.A.exempt--> |
 | A's clear marks | Bruker NDTOC | 13<!--m:kink_reference_human.NDTOC.A.ref--> | 13<!--m:kink_reference_human.NDTOC.A.found--> | 0<!--m:kink_reference_human.NDTOC.A.displaced--> | 0<!--m:kink_reference_human.NDTOC.A.merged--> | 0<!--m:kink_reference_human.NDTOC.A.missed--> | 44<!--m:kink_reference_human.NDTOC.A.false--> | 6<!--m:kink_reference_human.NDTOC.A.exempt--> |
-| A's clear marks | all | 80<!--m:kink_reference_human.all.A.ref--> | 66<!--m:kink_reference_human.all.A.found--> | 3<!--m:kink_reference_human.all.A.displaced--> | 2<!--m:kink_reference_human.all.A.merged--> | 9<!--m:kink_reference_human.all.A.missed--> | 59<!--m:kink_reference_human.all.A.false--> | 12<!--m:kink_reference_human.all.A.exempt--> |
+| A's clear marks | all | 80<!--m:kink_reference_human.all.A.ref--> | 65<!--m:kink_reference_human.all.A.found--> | 3<!--m:kink_reference_human.all.A.displaced--> | 3<!--m:kink_reference_human.all.A.merged--> | 9<!--m:kink_reference_human.all.A.missed--> | 59<!--m:kink_reference_human.all.A.false--> | 12<!--m:kink_reference_human.all.A.exempt--> |
 | B's clear marks | higher-plant TOC | 6<!--m:kink_reference_human.hplantTOC.B.ref--> | 4<!--m:kink_reference_human.hplantTOC.B.found--> | 0<!--m:kink_reference_human.hplantTOC.B.displaced--> | 0<!--m:kink_reference_human.hplantTOC.B.merged--> | 2<!--m:kink_reference_human.hplantTOC.B.missed--> | 1<!--m:kink_reference_human.hplantTOC.B.false--> | 2<!--m:kink_reference_human.hplantTOC.B.exempt--> |
-| B's clear marks | tunicate CNF | 94<!--m:kink_reference_human.tunicate.B.ref--> | 63<!--m:kink_reference_human.tunicate.B.found--> | 3<!--m:kink_reference_human.tunicate.B.displaced--> | 4<!--m:kink_reference_human.tunicate.B.merged--> | 24<!--m:kink_reference_human.tunicate.B.missed--> | 1<!--m:kink_reference_human.tunicate.B.false--> | 3<!--m:kink_reference_human.tunicate.B.exempt--> |
+| B's clear marks | tunicate CNF | 94<!--m:kink_reference_human.tunicate.B.ref--> | 63<!--m:kink_reference_human.tunicate.B.found--> | 3<!--m:kink_reference_human.tunicate.B.displaced--> | 4<!--m:kink_reference_human.tunicate.B.merged--> | 24<!--m:kink_reference_human.tunicate.B.missed--> | 0<!--m:kink_reference_human.tunicate.B.false--> | 3<!--m:kink_reference_human.tunicate.B.exempt--> |
 | B's clear marks | Bruker NDTOC | 22<!--m:kink_reference_human.NDTOC.B.ref--> | 15<!--m:kink_reference_human.NDTOC.B.found--> | 0<!--m:kink_reference_human.NDTOC.B.displaced--> | 0<!--m:kink_reference_human.NDTOC.B.merged--> | 7<!--m:kink_reference_human.NDTOC.B.missed--> | 44<!--m:kink_reference_human.NDTOC.B.false--> | 4<!--m:kink_reference_human.NDTOC.B.exempt--> |
-| B's clear marks | all | 122<!--m:kink_reference_human.all.B.ref--> | 82<!--m:kink_reference_human.all.B.found--> | 3<!--m:kink_reference_human.all.B.displaced--> | 4<!--m:kink_reference_human.all.B.merged--> | 33<!--m:kink_reference_human.all.B.missed--> | 46<!--m:kink_reference_human.all.B.false--> | 9<!--m:kink_reference_human.all.B.exempt--> |
+| B's clear marks | all | 122<!--m:kink_reference_human.all.B.ref--> | 82<!--m:kink_reference_human.all.B.found--> | 3<!--m:kink_reference_human.all.B.displaced--> | 4<!--m:kink_reference_human.all.B.merged--> | 33<!--m:kink_reference_human.all.B.missed--> | 45<!--m:kink_reference_human.all.B.false--> | 9<!--m:kink_reference_human.all.B.exempt--> |
 | marks both call clear | higher-plant TOC | 4<!--m:kink_reference_human.hplantTOC.both.ref--> | 4<!--m:kink_reference_human.hplantTOC.both.found--> | 0<!--m:kink_reference_human.hplantTOC.both.displaced--> | 0<!--m:kink_reference_human.hplantTOC.both.merged--> | 0<!--m:kink_reference_human.hplantTOC.both.missed--> | 1<!--m:kink_reference_human.hplantTOC.both.false--> | 2<!--m:kink_reference_human.hplantTOC.both.exempt--> |
-| marks both call clear | tunicate CNF | 61<!--m:kink_reference_human.tunicate.both.ref--> | 49<!--m:kink_reference_human.tunicate.both.found--> | 2<!--m:kink_reference_human.tunicate.both.displaced--> | 2<!--m:kink_reference_human.tunicate.both.merged--> | 8<!--m:kink_reference_human.tunicate.both.missed--> | 1<!--m:kink_reference_human.tunicate.both.false--> | 18<!--m:kink_reference_human.tunicate.both.exempt--> |
+| marks both call clear | tunicate CNF | 61<!--m:kink_reference_human.tunicate.both.ref--> | 49<!--m:kink_reference_human.tunicate.both.found--> | 2<!--m:kink_reference_human.tunicate.both.displaced--> | 2<!--m:kink_reference_human.tunicate.both.merged--> | 8<!--m:kink_reference_human.tunicate.both.missed--> | 0<!--m:kink_reference_human.tunicate.both.false--> | 18<!--m:kink_reference_human.tunicate.both.exempt--> |
 | marks both call clear | Bruker NDTOC | 11<!--m:kink_reference_human.NDTOC.both.ref--> | 11<!--m:kink_reference_human.NDTOC.both.found--> | 0<!--m:kink_reference_human.NDTOC.both.displaced--> | 0<!--m:kink_reference_human.NDTOC.both.merged--> | 0<!--m:kink_reference_human.NDTOC.both.missed--> | 42<!--m:kink_reference_human.NDTOC.both.false--> | 10<!--m:kink_reference_human.NDTOC.both.exempt--> |
-| marks both call clear | all | 76<!--m:kink_reference_human.all.both.ref--> | 64<!--m:kink_reference_human.all.both.found--> | 2<!--m:kink_reference_human.all.both.displaced--> | 2<!--m:kink_reference_human.all.both.merged--> | 8<!--m:kink_reference_human.all.both.missed--> | 44<!--m:kink_reference_human.all.both.false--> | 30<!--m:kink_reference_human.all.both.exempt--> |
+| marks both call clear | all | 76<!--m:kink_reference_human.all.both.ref--> | 64<!--m:kink_reference_human.all.both.found--> | 2<!--m:kink_reference_human.all.both.displaced--> | 2<!--m:kink_reference_human.all.both.merged--> | 8<!--m:kink_reference_human.all.both.missed--> | 43<!--m:kink_reference_human.all.both.false--> | 30<!--m:kink_reference_human.all.both.exempt--> |
 
 Under every reference the unmatched bends are mostly on the Bruker NDTOC scan:
-42<!--m:kink_reference_human.NDTOC.both.false--> of the 44<!--m:kink_reference_human.all.both.false--> against the marks both call clear, on a scan where all
+42<!--m:kink_reference_human.NDTOC.both.false--> of the 43<!--m:kink_reference_human.all.both.false--> against the marks both call clear, on a scan where all
 11<!--m:kink_reference_human.NDTOC.both.ref--> of those marks were found.
 
 Each missed mark is sorted below by the first test it passes: no centerline

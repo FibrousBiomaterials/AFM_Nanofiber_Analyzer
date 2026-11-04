@@ -1400,13 +1400,13 @@
    "ja": "著者のうち 2 人も、同じ 3 枚のスキャンに、互いに独立に、検出器の出力を見ないままキンクの印を付けた。"
   },
   {
-   "sentence": "Of the 76 kinks both marked as clear, the detector at the default settings found 64, and 44 of the 140 bends it reported matched no mark (`docs/validation.md`, §4.19).",
+   "sentence": "Of the 76 kinks both marked as clear, the detector at the default settings found 64, and 43 of the 139 bends it reported matched no mark (`docs/validation.md`, §4.19).",
    "status": "verified",
    "sources": [
     {
      "kind": "doc",
      "path": "docs/validation.md",
-     "quote": "| marks both call clear | all | 76 | 64 | 2 | 2 | 8 | 44 | 30 |"
+     "quote": "| marks both call clear | all | 76 | 64 | 2 | 2 | 8 | 43 | 30 |"
     },
     {
      "kind": "doc",
@@ -1416,10 +1416,10 @@
     {
      "kind": "doc",
      "path": "docs/validation.md",
-     "quote": "The rule reported 140 bends."
+     "quote": "The rule reported 139 bends."
     }
    ],
-   "ja": "両者とも明瞭とした 76 個のキンクのうち、既定の設定の検出器は 64 個を検出し、検出器が報告した 140 個の折れのうち 44 個はどの印とも一致しなかった（`docs/validation.md`、§4.19）。"
+   "ja": "両者とも明瞭とした 76 個のキンクのうち、既定の設定の検出器は 64 個を検出し、検出器が報告した 139 個の折れのうち 43 個はどの印とも一致しなかった（`docs/validation.md`、§4.19）。"
   },
   {
    "sentence": "These are the scans the detector was developed on, so this is not a test on held-out data.",

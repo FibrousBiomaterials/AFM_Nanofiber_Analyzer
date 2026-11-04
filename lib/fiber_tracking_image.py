@@ -55,6 +55,7 @@ def _build_fiber(
     width_peak: str = WIDTH_PEAK_NEAREST,
     width_adaptive: bool = True,
     rejudge: Optional[KinkDetector] = None,
+    symmetric_section: bool = True,
 ) -> Fiber:
     """
     Build one Fiber from a labeled skeleton component and feature lookups.
@@ -145,6 +146,12 @@ def _build_fiber(
         （`FiberTrackingImage.kink_rejudge`）。``None`` なら保存キンクを読む。
         その判定のキンクは、このトラック上の `kink_set` と完全に一致しなければ
         ならない。
+    symmetric_section
+        Whether the line is placed by the rule that does not depend on the
+        direction the fiber was traced in, as the bundle's kinks were judged
+        (`bundle_schema.symmetric_section_from_meta`).
+        繊維を追跡した向きに依存しない規則で線を置くか。バンドルのキンクを判定した
+        ときのもの（`bundle_schema.symmetric_section_from_meta`）。
 
     Returns
     -------
@@ -175,7 +182,7 @@ def _build_fiber(
         placed = place_centerline(
             cal, xtrack_prcimg, ytrack_prcimg, branch_points,
             method=centerline, aspect=pixel_aspect, width_peak=width_peak,
-            width_adaptive=width_adaptive,
+            width_adaptive=width_adaptive, symmetric_section=symmetric_section,
         )
         xtrack = placed.x - x
         ytrack = placed.y - y
@@ -391,6 +398,16 @@ class FiberTrackingImage:
         もので、`lib.measure` がバンドルから設定する
         （`bundle_schema.width_range_adaptive_from_meta`）。バンドルから読み込まない
         コンテナでは ``True``。
+    symmetric_section
+        Whether the line is placed by the rule that does not depend on the
+        direction the fiber was traced in, as the bundle's kinks were judged;
+        set by `lib.measure` from the bundle
+        (`bundle_schema.symmetric_section_from_meta`), ``True`` for a container
+        not loaded from a bundle.
+        繊維を追跡した向きに依存しない規則で線を置くか。バンドルのキンクを判定した
+        ときのもので、`lib.measure` がバンドルから設定する
+        （`bundle_schema.symmetric_section_from_meta`）。バンドルから読み込まない
+        コンテナでは ``True``。
 
     Examples
     --------
@@ -517,6 +534,12 @@ class FiberTrackingImage:
         # 見かけ幅を繊維に合わせて広がる範囲で読むか。`lib.measure` がバンドルから
         # 設定する（`bundle_schema.width_range_adaptive_from_meta`）。
         self.width_adaptive: bool = True
+        # Whether the line is placed by the direction-independent rule;
+        # `lib.measure` sets it from the bundle
+        # (`bundle_schema.symmetric_section_from_meta`).
+        # 追跡の向きに依存しない規則で線を置くか。`lib.measure` がバンドルから
+        # 設定する（`bundle_schema.symmetric_section_from_meta`）。
+        self.symmetric_section: bool = True
         # Detector at another kink threshold that `fibers_in_image_parallel`
         # judges each traced line again with, checked against the stored
         # bends (`_build_fiber`); set by `lib.measure` when a threshold is
@@ -701,6 +724,7 @@ class FiberTrackingImage:
         aspect = self.pixel_aspect
         width_peak = self.width_peak
         width_adaptive = self.width_adaptive
+        symmetric_section = self.symmetric_section
 
         def build(label: int) -> Fiber:
             return _build_fiber(
@@ -709,6 +733,7 @@ class FiberTrackingImage:
                 branch_points=bp, centerline=kind, unjudged_set=unjudged_set,
                 pixel_aspect=aspect, width_peak=width_peak,
                 width_adaptive=width_adaptive, rejudge=rejudge,
+                symmetric_section=symmetric_section,
             )
 
         if not parallel:

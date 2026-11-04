@@ -201,7 +201,7 @@ agent (see the AI usage disclosure), so its scores on that reference in
 `docs/validation.md` are not an independent estimate of accuracy. Two of the
 authors also marked kinks on the same three scans, each independently and
 without having seen the detector's output. Of the 76 kinks both marked as
-clear, the detector at the default settings found 64, and 44 of the 140 bends it
+clear, the detector at the default settings found 64, and 43 of the 139 bends it
 reported matched no mark (`docs/validation.md`, §4.19). These are the scans the
 detector was developed on, so this is not a test on held-out data.
 

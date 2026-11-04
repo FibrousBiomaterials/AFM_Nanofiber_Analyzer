@@ -420,7 +420,7 @@ blank, each bundle's kinks are counted at the threshold it was analyzed with,
 and the log warns when the compared bundles differ. A value selects every
 bundle's kinks again at that interior-angle threshold and gives the kinks,
 angles and unjudged bends an analysis at it reports, because a bundle of format
-1.6 stores the bends below its threshold (see `docs/algorithms.md`, §4.5).
+1.6 or later stores the bends below its threshold (see `docs/algorithms.md`, §4.5).
 
 Every quantity here describes the shape of an individual fiber. Coverage-type
 quantities are deliberately absent: the specimen is a dispersion drop-cast onto
@@ -466,7 +466,11 @@ shape. Against synthetic arcs of 80–400 nm radius (2 nm pixels), the
 centerline's estimate was within 2% of 1/R with a 100 nm window and within 3%
 at 50 nm, while a 20 nm window read the 400 nm arc as 1.9 times too curved; on
 the skeleton track, whose steps are orthogonal or diagonal only, a 20 nm window
-was off by 1.3–5.3 times. Raising the window smooths the estimate but drops
+was off by 1.3–5.3 times.
+<!-- TODO(review): the 20 nm-window figures (1.9 times; 1.3-5.3 times) were not
+reproduced when the curvature window was made symmetric; the 100 nm and 50 nm
+figures were measured again on synthetic arcs of 80-400 nm radius and still
+hold. --> Raising the window smooths the estimate but drops
 every fiber shorter than it, so the log reports how many fibers that excluded.
 
 `contour length` has one more setting, "Fibers at frame". A
@@ -517,10 +521,18 @@ segments were spread evenly over a region larger than the scan and the
 crossings fell along each segment at random. It is computed per registered
 folder and offered for the `fiber` unit only, because the median of one scan or
 folder can itself lie beyond what was seen whole. The part of the distribution
-beyond the longest fiber seen whole is never filled in: a median or quartile
-that falls there is shown as "> that length", the mean, standard deviation and
-mode are left blank because they depend on that part, the histogram bars and
-the ECDF fall short of one by its share, and the figure states the share. A
+beyond the longest fiber seen whole is never filled in. Each folder's unplaced
+share lies somewhere beyond the longest fiber that folder saw whole, so a
+median or quartile that depends on where it lies is shown as the range it can
+take, "[lower, upper]", or "> lower" when it has no upper end: the lower end
+places each folder's share just beyond that folder's own longest fiber seen
+whole, and the upper end places it at infinity. With one folder this is
+"> the longest fiber seen whole". The log and the statistics CSV also give a
+95 % interval for each quartile from resampling the fibers within each folder,
+which covers the sampling of the fibers as well. The mean, standard deviation
+and mode are left blank because they depend on the unplaced part, the
+histogram bars and the ECDF fall short of one by its share, and the figure
+states the share. A
 fiber CSV that does not record which ends lie on the frame is left out, and the
 log names it.
 
@@ -1079,7 +1091,7 @@ Each bundle also stores root metadata (blosc2 `vlmeta`):
 | Key | Content |
 |---|---|
 | `params` | Analysis-parameter dictionary, identical to `<input_stem>_param.json`. Read back for `kinkangle_deg` (see below), and for `kink_decompose_px` on a bundle of format 1.0; the remaining fields are provenance. |
-| `version` | Bundle format version (currently `"1.6"`, whose kink rule searches for bends down to a fixed floor of excess turning instead of at the threshold and stores those below the threshold in `wp`, `wa` and `we`, so another threshold can be applied when the bundle is measured; a `"1.5"` or older bundle stores none and cannot. From `"1.5"` the apparent width W is read over a cross-section range that grows with the fiber, so a fiber spread over many pixels is not measured narrow; a `"1.4"` bundle was judged with the fixed ±12 px range and is read that way. From `"1.4"` W is read at the level halfway between each cross-section's base and the first maximum uphill from the track point, the fiber's own crest, so a taller neighbouring fiber does not set the level it is read at as long as the fiber has a maximum of its own; a `"1.1"` to `"1.3"` bundle was judged halfway to the cross-section's overall maximum and is read that way. From `"1.3"` the centerline and kinks are computed in the scan's physical geometry, so the angles on a scan with different X and Y pixel sizes are the specimen's; a `"1.2"` bundle was computed in pixel geometry and is read in it, a `"1.1"` bundle is measured along the half-maximum centerline, and a `"1.0"` bundle along its skeleton track until it is re-analyzed). |
+| `version` | Bundle format version (currently `"1.7"`, whose cross-sections are sampled symmetrically about the track point and climbed to the fiber's crest without preferring one side of the section, so the centerline, and every curvature and kink read from it, do not depend on the direction the fiber was traced in; a `"1.6"` or older bundle was placed with the climb that prefers one side and is read that way. From `"1.6"` the kink rule searches for bends down to a fixed floor of excess turning instead of at the threshold and stores those below the threshold in `wp`, `wa` and `we`, so another threshold can be applied when the bundle is measured; a `"1.5"` or older bundle stores none and cannot. From `"1.5"` the apparent width W is read over a cross-section range that grows with the fiber, so a fiber spread over many pixels is not measured narrow; a `"1.4"` bundle was judged with the fixed ±12 px range and is read that way. From `"1.4"` W is read at the level halfway between each cross-section's base and the first maximum uphill from the track point, the fiber's own crest, so a taller neighbouring fiber does not set the level it is read at as long as the fiber has a maximum of its own; a `"1.1"` to `"1.3"` bundle was judged halfway to the cross-section's overall maximum and is read that way. From `"1.3"` the centerline and kinks are computed in the scan's physical geometry, so the angles on a scan with different X and Y pixel sizes are the specimen's; a `"1.2"` bundle was computed in pixel geometry and is read in it, a `"1.1"` bundle is measured along the half-maximum centerline, and a `"1.0"` bundle along its skeleton track until it is re-analyzed). |
 | `centerline` | The centerline the kinks were judged on and the fibers are measured along, one of the `centerline_method` values. Required from format 1.2; a reader builds the fibers on exactly this line and refuses a 1.2 or later bundle that does not name a known one. |
 | `weak_bend_floor_deg` | Excess turning in degrees down to which the kink rule searched for bends: 10, or the threshold's excess when that is lower. Another threshold can be applied to the stored bends only down to this floor. Written from format 1.6. |
 | `software_version` | Application release that wrote the bundle. |
@@ -1380,7 +1392,7 @@ test suite instead of degrading silently in the launcher.
   analyzed at different `kinkangle_deg` values are not compared on the same
   rule unless a common threshold is applied (GUI03's kink threshold,
   `cli.py measure --kink-threshold-deg`). That is possible only for bundles of
-  format 1.6, and only down to the excess turning the bends were stored down to
+  format 1.6 or later, and only down to the excess turning the bends were stored down to
   (10° unless the analysis threshold asked for less); re-analyze older bundles.
 - The graphical tools require a working Tk installation and are primarily
   developed and tested on Windows; the CLI and library are platform-independent.

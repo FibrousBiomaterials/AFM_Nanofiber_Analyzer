@@ -182,12 +182,12 @@ zoomed_background）。各同梱スキャンについて、既定の補正後の
 | 拡大率 | 実行数 | 残った高さ 0.9<!--n:definition--> 未満 | うち警告なし | 警告あり | 警告ありで 0.97<!--n:definition--> 以上残った |
 |---|---|---|---|---|---|
 | 1<!--n:value tried--> | 18<!--m:zoomed_background.x1.runs--> | 0<!--m:zoomed_background.x1.below_90--> | 0<!--m:zoomed_background.x1.below_90_unwarned--> | 3<!--m:zoomed_background.x1.warned--> | 2<!--m:zoomed_background.x1.warned_above_97--> |
-| 1.5<!--n:value tried--> | 18<!--m:zoomed_background.x1.5.runs--> | 7<!--m:zoomed_background.x1.5.below_90--> | 1<!--m:zoomed_background.x1.5.below_90_unwarned--> | 11<!--m:zoomed_background.x1.5.warned--> | 1<!--m:zoomed_background.x1.5.warned_above_97--> |
+| 1.5<!--n:value tried--> | 18<!--m:zoomed_background.x1.5.runs--> | 7<!--m:zoomed_background.x1.5.below_90--> | 1<!--m:zoomed_background.x1.5.below_90_unwarned--> | 10<!--m:zoomed_background.x1.5.warned--> | 1<!--m:zoomed_background.x1.5.warned_above_97--> |
 | 2<!--n:value tried--> | 18<!--m:zoomed_background.x2.runs--> | 12<!--m:zoomed_background.x2.below_90--> | 0<!--m:zoomed_background.x2.below_90_unwarned--> | 13<!--m:zoomed_background.x2.warned--> | 0<!--m:zoomed_background.x2.warned_above_97--> |
 | 3<!--n:value tried--> | 18<!--m:zoomed_background.x3.runs--> | 15<!--m:zoomed_background.x3.below_90--> | 3<!--m:zoomed_background.x3.below_90_unwarned--> | 14<!--m:zoomed_background.x3.warned--> | 1<!--m:zoomed_background.x3.warned_above_97--> |
 | 4<!--n:value tried--> | 18<!--m:zoomed_background.x4.runs--> | 17<!--m:zoomed_background.x4.below_90--> | 3<!--m:zoomed_background.x4.below_90_unwarned--> | 15<!--m:zoomed_background.x4.warned--> | 0<!--m:zoomed_background.x4.warned_above_97--> |
 
-繊維の幅を測れなかったという警告には、従う設定が無い。警告が出た 56<!--m:zoomed_background.warned--> 回のうち 28<!--m:zoomed_background.warned_without_advice--> 回は
+繊維の幅を測れなかったという警告には、従う設定が無い。警告が出た 55<!--m:zoomed_background.warned--> 回のうち 28<!--m:zoomed_background.warned_without_advice--> 回は
 その警告だけだった。それ以外の警告が出た実行を勧めどおりに解析し直すと、高さの
 0.51〜1.01<!--m:zoomed_background.followed.kept_range--> が残り、背景の誤差の 95<!--n:definition--> パーセンタイルは最大 0.24<!--m:zoomed_background.followed.bg95_max--> nm で、4<!--m:zoomed_background.followed.still_warned--> 回は再び警告が
 出た。最も低い 0.51<!--m:zoomed_background.x4.followed_kept_range[0]--> は、拡大率 4<!--n:value tried--> で勧める設定を伴った唯一の実行である。高さの 0.9<!--n:definition--> 未満
@@ -212,7 +212,7 @@ zoomed_background）。各同梱スキャンについて、既定の補正後の
 | 1<!--n:value tried--> nm | 2<!--n:value tried--> nm | 11.1<!--m:synthetic_height.px1.d2.w_px--> px | 1.00<!--m:synthetic_height.px1.d2.n0.05.peak--> | 0.13<!--m:synthetic_height.trendfill.px1.d2.n0.05.bg_loss--> | 0.94<!--m:synthetic_height.trendfill.px1.d2.n0.05.height--> |
 | 1<!--n:value tried--> nm | 4<!--n:value tried--> nm | 16.0<!--m:synthetic_height.px1.d4.w_px--> px | 1.00<!--m:synthetic_height.px1.d4.n0.05.peak--> | 0.53<!--m:synthetic_height.trendfill.px1.d4.n0.05.bg_loss--> | – |
 | 1<!--n:value tried--> nm | 8<!--n:value tried--> nm | 23.3<!--m:synthetic_height.px1.d8.w_px--> px | 1.00<!--m:synthetic_height.px1.d8.n0.05.peak--> | 0.84<!--m:synthetic_height.trendfill.px1.d8.n0.05.bg_loss--> | – |
-| 2<!--n:value tried--> nm | 2<!--n:value tried--> nm | 5.6<!--m:synthetic_height.px2.d2.w_px--> px | 0.99<!--m:synthetic_height.px2.d2.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px2.d2.n0.05.bg_loss--> | 1.02<!--m:synthetic_height.trendfill.px2.d2.n0.05.height--> |
+| 2<!--n:value tried--> nm | 2<!--n:value tried--> nm | 5.6<!--m:synthetic_height.px2.d2.w_px--> px | 0.99<!--m:synthetic_height.px2.d2.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px2.d2.n0.05.bg_loss--> | 1.03<!--m:synthetic_height.trendfill.px2.d2.n0.05.height--> |
 | 2<!--n:value tried--> nm | 4<!--n:value tried--> nm | 8.0<!--m:synthetic_height.px2.d4.w_px--> px | 1.00<!--m:synthetic_height.px2.d4.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px2.d4.n0.05.bg_loss--> | 1.02<!--m:synthetic_height.trendfill.px2.d4.n0.05.height--> |
 | 2<!--n:value tried--> nm | 8<!--n:value tried--> nm | 11.7<!--m:synthetic_height.px2.d8.w_px--> px | 1.00<!--m:synthetic_height.px2.d8.n0.05.peak--> | 0.00<!--m:synthetic_height.trendfill.px2.d8.n0.05.bg_loss--> | 1.01<!--m:synthetic_height.trendfill.px2.d8.n0.05.height--> |
 | 5<!--n:value tried--> nm | 2<!--n:value tried--> nm | 2.2<!--m:synthetic_height.px5.d2.w_px--> px | 0.96<!--m:synthetic_height.px5.d2.n0.05.peak--> | 0.01<!--m:synthetic_height.trendfill.px5.d2.n0.05.bg_loss--> | 0.96<!--m:synthetic_height.trendfill.px5.d2.n0.05.height--> |
@@ -618,10 +618,10 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 | リボン (nm) | 先端半径 (nm) | 既定の線 | 1/4 高さの中点 | 重心 | 頂点 |
 |---|---|---|---|---|---|
 | 16<!--n:value tried-->×3<!--n:value tried--> | 0<!--n:value tried--> | 1.48<!--m:ribbon_tip_swing.16x3.R0.half_max_025w.rms_nm--> | 0.69<!--m:ribbon_tip_swing.16x3.R0.quarter_max.rms_nm--> | 1.11<!--m:ribbon_tip_swing.16x3.R0.centroid.rms_nm--> | 2.99<!--m:ribbon_tip_swing.16x3.R0.crest.rms_nm--> |
-| 16<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 3.40<!--m:ribbon_tip_swing.16x3.R10.half_max_025w.rms_nm--> | 2.37<!--m:ribbon_tip_swing.16x3.R10.quarter_max.rms_nm--> | 2.88<!--m:ribbon_tip_swing.16x3.R10.centroid.rms_nm--> | 4.49<!--m:ribbon_tip_swing.16x3.R10.crest.rms_nm--> |
+| 16<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 3.41<!--m:ribbon_tip_swing.16x3.R10.half_max_025w.rms_nm--> | 2.37<!--m:ribbon_tip_swing.16x3.R10.quarter_max.rms_nm--> | 2.89<!--m:ribbon_tip_swing.16x3.R10.centroid.rms_nm--> | 4.48<!--m:ribbon_tip_swing.16x3.R10.crest.rms_nm--> |
 | 16<!--n:value tried-->×3<!--n:value tried--> | 40<!--n:value tried--> | 3.31<!--m:ribbon_tip_swing.16x3.R40.half_max_025w.rms_nm--> | 3.24<!--m:ribbon_tip_swing.16x3.R40.quarter_max.rms_nm--> | 3.23<!--m:ribbon_tip_swing.16x3.R40.centroid.rms_nm--> | 3.24<!--m:ribbon_tip_swing.16x3.R40.crest.rms_nm--> |
 | 10<!--n:value tried-->×3<!--n:value tried--> | 0<!--n:value tried--> | 0.74<!--m:ribbon_tip_swing.10x3.R0.half_max_025w.rms_nm--> | 0.45<!--m:ribbon_tip_swing.10x3.R0.quarter_max.rms_nm--> | 0.66<!--m:ribbon_tip_swing.10x3.R0.centroid.rms_nm--> | 1.82<!--m:ribbon_tip_swing.10x3.R0.crest.rms_nm--> |
-| 10<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 1.97<!--m:ribbon_tip_swing.10x3.R10.half_max_025w.rms_nm--> | 1.54<!--m:ribbon_tip_swing.10x3.R10.quarter_max.rms_nm--> | 1.75<!--m:ribbon_tip_swing.10x3.R10.centroid.rms_nm--> | 2.67<!--m:ribbon_tip_swing.10x3.R10.crest.rms_nm--> |
+| 10<!--n:value tried-->×3<!--n:value tried--> | 10<!--n:value tried--> | 1.97<!--m:ribbon_tip_swing.10x3.R10.half_max_025w.rms_nm--> | 1.54<!--m:ribbon_tip_swing.10x3.R10.quarter_max.rms_nm--> | 1.75<!--m:ribbon_tip_swing.10x3.R10.centroid.rms_nm--> | 2.68<!--m:ribbon_tip_swing.10x3.R10.crest.rms_nm--> |
 | 10<!--n:value tried-->×3<!--n:value tried--> | 40<!--n:value tried--> | 2.05<!--m:ribbon_tip_swing.10x3.R40.half_max_025w.rms_nm--> | 1.96<!--m:ribbon_tip_swing.10x3.R40.quarter_max.rms_nm--> | 1.99<!--m:ribbon_tip_swing.10x3.R40.centroid.rms_nm--> | 2.08<!--m:ribbon_tip_swing.10x3.R40.crest.rms_nm--> |
 | 6<!--n:value tried-->×2<!--n:value tried--> | 0<!--n:value tried--> | 0.48<!--m:ribbon_tip_swing.6x2.R0.half_max_025w.rms_nm--> | 0.37<!--m:ribbon_tip_swing.6x2.R0.quarter_max.rms_nm--> | 0.43<!--m:ribbon_tip_swing.6x2.R0.centroid.rms_nm--> | 0.83<!--m:ribbon_tip_swing.6x2.R0.crest.rms_nm--> |
 | 6<!--n:value tried-->×2<!--n:value tried--> | 10<!--n:value tried--> | 1.25<!--m:ribbon_tip_swing.6x2.R10.half_max_025w.rms_nm--> | 1.06<!--m:ribbon_tip_swing.6x2.R10.quarter_max.rms_nm--> | 1.16<!--m:ribbon_tip_swing.6x2.R10.centroid.rms_nm--> | 1.64<!--m:ribbon_tip_swing.6x2.R10.crest.rms_nm--> |
@@ -671,12 +671,12 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 
 | `centerline_method` | 距離の中央値（nm） | 実スキャン | 備考 |
 |---|---|---|---|
-| `"half_max_025w"`（既定） | 0.22<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->〜0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 49<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 64<!--m:kink_reference.default.false--> | |
+| `"half_max_025w"`（既定） | 0.22<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[0]-->〜0.24<!--m:synthetic_centerline.half_max_025w.group_median_nm_range[1]--> | 49<!--m:kink_reference.default.found--> / 3<!--m:kink_reference.default.missed--> / 63<!--m:kink_reference.default.false--> | |
 | `"half_max_05w"` | 0.19<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[0]-->〜0.26<!--m:synthetic_centerline.half_max_05w.group_median_nm_range[1]--> | 48<!--m:kink_reference.hm05.found--> / 4<!--m:kink_reference.hm05.missed--> / 45<!--m:kink_reference.hm05.false--> | 採点した 3<!--n:count--> 種類の中で一致しない折れが最も少ない。ただし合成の同じ向きのコーナー対 8<!--m:synthetic_centerline.pairs--> 組中 2<!--m:synthetic_centerline.pairs_w2.merged_pairs--> 組で 2<!--n:count--> つのコーナーを 1<!--n:count--> つにまとめ（既定は 1<!--m:synthetic_centerline.pairs_w4.merged_pairs--> 組）、平滑化をわずかに強めると見落としが 10〜12<!--m:kink_reference.hm05_stronger.missed_range--> 件に増えた。 |
 | `"skeleton_pixels"` | 0.54<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[0]-->〜0.64<!--m:synthetic_centerline.skeleton_pixels.group_median_nm_range[1]--> | 51<!--m:kink_reference.skeleton_pixels.found--> / 1<!--m:kink_reference.skeleton_pixels.missed--> / 133<!--m:kink_reference.skeleton_pixels.false--> | 階段状のギザつきと分岐部での振れを折れとして読んでしまう。 |
 | `"smoothed_skeleton_05w"`、`"smoothed_skeleton_1w"` | 0.37<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[0]-->〜0.51<!--m:synthetic_centerline.smoothed_skeleton_05w.group_median_nm_range[1]--> / 0.44<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[0]-->〜0.95<!--m:synthetic_centerline.smoothed_skeleton_1w.group_median_nm_range[1]--> | 採点なし | |
 | `"quarter_max"` | 0.20<!--m:synthetic_centerline.quarter_max.group_median_nm_range[0]-->〜0.25<!--m:synthetic_centerline.quarter_max.group_median_nm_range[1]--> | 採点なし | ねじれリボン 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> 本中 4<!--m:synthetic_centerline.ribbons.quarter_closer_than_default--> 本で既定より軸に近いが、細い円形の対照繊維では背景の凹凸に最大 3.6<!--m:synthetic_centerline.G_circle_d3.max_nm.quarter_max--> nm 引き寄せられた。 |
-| `"centroid"` | 0.32<!--m:synthetic_centerline.centroid.group_median_nm_range[0]-->〜0.39<!--m:synthetic_centerline.centroid.group_median_nm_range[1]--> | 採点なし | |
+| `"centroid"` | 0.31<!--m:synthetic_centerline.centroid.group_median_nm_range[0]-->〜0.39<!--m:synthetic_centerline.centroid.group_median_nm_range[1]--> | 採点なし | |
 | `"crest"` | 0.43<!--m:synthetic_centerline.crest.group_median_nm_range[0]-->〜0.48<!--m:synthetic_centerline.crest.group_median_nm_range[1]--> | 採点なし | ねじれリボン 5<!--m:synthetic_centerline.ribbons.anisotropic_count--> 本中 4<!--m:synthetic_centerline.ribbons.crest_farthest_of_three--> 本で軸から最も離れた（既定の 0.99<!--m:synthetic_centerline.ribbons.crest_over_default_range[0]-->〜1.48<!--m:synthetic_centerline.ribbons.crest_over_default_range[1]--> 倍）。 |
 
 ### 4.4 目視基準との比較
@@ -686,7 +686,7 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 
 | 規則 | 検出 | 印から 1〜2<!--n:definition--> 幅ずれて検出 | 見落とし | 一致なし |
 |---|---|---|---|---|
-| 超過回転規則（中心線上） | 49<!--m:kink_reference.default.found--> | 1<!--m:kink_reference.default.displaced--> | 3<!--m:kink_reference.default.missed--> | 64<!--m:kink_reference.default.false--> |
+| 超過回転規則（中心線上） | 49<!--m:kink_reference.default.found--> | 1<!--m:kink_reference.default.displaced--> | 3<!--m:kink_reference.default.missed--> | 63<!--m:kink_reference.default.false--> |
 | 以前の折れ線規則（スケルトントラック上） | 42<!--m:kink_reference.old_rule.found--> | 3<!--m:kink_reference.old_rule.displaced--> | 8<!--m:kink_reference.old_rule.missed--> | 76<!--m:kink_reference.old_rule.false--> |
 
 以前の規則の行は、同じ画像の追跡済みスケルトントラックに、形式 1.0<!--n:bundle format version--> の
@@ -694,13 +694,13 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 （`kink_decompose_px` = 3<!--c:lib/pipeline.py::ProcParams.kink_decompose_px--> px、`kinkangle_deg` = 150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg--> 度）を適用して採点した。
 
 基準が曖昧な折れまたは合流点とした印から $W$ 以内の報告された折れは、検出にも
-一致なしにも数えない。超過回転規則が報告した 140<!--m:kink_reference.default.detections--> 件の折れのうち、26<!--m:kink_reference.default.exempt--> 件がこれにあたる。
+一致なしにも数えない。超過回転規則が報告した 139<!--m:kink_reference.default.detections--> 件の折れのうち、26<!--m:kink_reference.default.exempt--> 件がこれにあたる。
 規則の行を走査ごとに分けると次のとおりである。
 
 | 走査 | 印を付けた明瞭なキンク | 報告された折れ | 検出 | 見落とし | 一致なし | 曖昧・合流の印のそば |
 |---|---|---|---|---|---|---|
 | 高等植物 TOC | 3<!--m:kink_reference.default.hplantTOC.ref--> | 7<!--m:kink_reference.default.hplantTOC.detections--> | 3<!--m:kink_reference.default.hplantTOC.found--> | 0<!--m:kink_reference.default.hplantTOC.missed--> | 3<!--m:kink_reference.default.hplantTOC.false--> | 1<!--m:kink_reference.default.hplantTOC.exempt--> |
-| ホヤ CNF | 44<!--m:kink_reference.default.tunicate.ref--> | 70<!--m:kink_reference.default.tunicate.detections--> | 42<!--m:kink_reference.default.tunicate.found--> | 2<!--m:kink_reference.default.tunicate.missed--> | 16<!--m:kink_reference.default.tunicate.false--> | 12<!--m:kink_reference.default.tunicate.exempt--> |
+| ホヤ CNF | 44<!--m:kink_reference.default.tunicate.ref--> | 69<!--m:kink_reference.default.tunicate.detections--> | 42<!--m:kink_reference.default.tunicate.found--> | 2<!--m:kink_reference.default.tunicate.missed--> | 15<!--m:kink_reference.default.tunicate.false--> | 12<!--m:kink_reference.default.tunicate.exempt--> |
 | Bruker NDTOC | 6<!--m:kink_reference.default.NDTOC.ref--> | 63<!--m:kink_reference.default.NDTOC.detections--> | 4<!--m:kink_reference.default.NDTOC.found--> | 1<!--m:kink_reference.default.NDTOC.missed--> | 45<!--m:kink_reference.default.NDTOC.false--> | 13<!--m:kink_reference.default.NDTOC.exempt--> |
 
 高等植物 TOC と Bruker NDTOC の走査は同じ分散液を撮ったものである。基準が明瞭な
@@ -710,8 +710,8 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 対して最適化はしていない。ただし規則と中心線は、候補の中からこの基準での成績によって
 選んだ。したがってこの基準は独立した検証ではなく開発用のデータであり、評価用に
 取り分けたスキャンでの採点は行っていない。どれか 1<!--n:count--> つを隣の値に変えると、検出
-できた明瞭なキンクは 48〜51<!--m:kink_reference.sens_all.found_range--> 件、一致なしは 47〜84<!--m:kink_reference.sens_all.false_range--> 件の範囲で動いた（既定は
-それぞれ 49<!--m:kink_reference.default.found--> 件と 64<!--m:kink_reference.default.false--> 件）。明瞭なキンクの検出が減ったのは向きの平滑化を
+できた明瞭なキンクは 48〜51<!--m:kink_reference.sens_all.found_range--> 件、一致なしは 46〜82<!--m:kink_reference.sens_all.false_range--> 件の範囲で動いた（既定は
+それぞれ 49<!--m:kink_reference.default.found--> 件と 63<!--m:kink_reference.default.false--> 件）。明瞭なキンクの検出が減ったのは向きの平滑化を
 強めたときだけで、0.35<!--n:value tried--> W で 48<!--m:kink_reference.sens_heading_0.35.found--> 件であった。
 
 | 長さ | 既定値 | 試した隣の値 |
@@ -724,7 +724,7 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 | 抑制半径 | 0.75<!--c:lib/kink_detector.py::_SUPPRESS_WIDTHS--> W | 0.5<!--n:value tried--> W、1.0<!--n:value tried--> W |
 
 折れの区間での回転そのものの極大から取る候補を除くと、明瞭な基準キンクの検出は
-49<!--m:turn_maxima.with.found--> 件から 47<!--m:turn_maxima.without.found--> 件に減り、一致しない折れは 64<!--m:turn_maxima.with.false--> 件から 49<!--m:turn_maxima.without.false--> 件に減った（実験
+49<!--m:turn_maxima.with.found--> 件から 47<!--m:turn_maxima.without.found--> 件に減り、一致しない折れは 63<!--m:turn_maxima.with.false--> 件から 49<!--m:turn_maxima.without.false--> 件に減った（実験
 turn_maxima）。
 
 同じ規則を 2<!--n:count--> 人が付けたキンクの印に対して採点した結果は §4.19 にある。
@@ -738,7 +738,7 @@ turn_maxima）。
 |---|---|
 | 40<!--n:value tried--> 度 | 38〜39<!--m:synthetic_kinks.corner40.excess_read_range_deg--> 度 |
 | 60<!--n:value tried--> 度 | 56〜59<!--m:synthetic_kinks.corner60.excess_read_range_deg--> 度 |
-| 90<!--n:value tried--> 度 | 85〜86<!--m:synthetic_kinks.corner90.excess_read_range_deg--> 度 |
+| 90<!--n:value tried--> 度 | 85〜87<!--m:synthetic_kinks.corner90.excess_read_range_deg--> 度 |
 | 120<!--n:value tried--> 度 | 100〜102<!--m:synthetic_kinks.corner120.excess_read_range_deg--> 度 |
 
 このため、しきい値をわずかに上回る折れが下回って読まれることがある。テスト
@@ -750,9 +750,9 @@ turn_maxima）。
 
 | 見かけ幅 | 腕のなす角 | 180<!--n:definition--> 度 − 超過回転 |
 |---|---|---|
-| 3.5<!--m:kink_rule_sweep.W5.measured_width_px--> px | 0.7<!--m:kink_rule_sweep.W5.arm_error_deg--> 度 | 1.7<!--m:kink_rule_sweep.W5.excess_error_deg--> 度 |
+| 3.5<!--m:kink_rule_sweep.W5.measured_width_px--> px | 0.7<!--m:kink_rule_sweep.W5.arm_error_deg--> 度 | 1.6<!--m:kink_rule_sweep.W5.excess_error_deg--> 度 |
 | 5.75<!--m:kink_rule_sweep.W8.measured_width_px--> px | 1.9<!--m:kink_rule_sweep.W8.arm_error_deg--> 度 | 2.4<!--m:kink_rule_sweep.W8.excess_error_deg--> 度 |
-| 11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px | 2.63<!--m:kink_rule_sweep.W16.arm_error_deg--> 度 | 4.5<!--m:kink_rule_sweep.W16.excess_error_deg--> 度 |
+| 11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px | 2.65<!--m:kink_rule_sweep.W16.arm_error_deg--> 度 | 4.5<!--m:kink_rule_sweep.W16.excess_error_deg--> 度 |
 
 どの幅でも、腕の角度のほうが誤差が小さかった。
 
@@ -769,17 +769,17 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 | — | — | +1.2<!--m:kink_angle_on_arcs.straight.median_error_deg--> 度 (12<!--m:kink_angle_on_arcs.straight.found-->/12<!--m:kink_angle_on_arcs.straight.cases-->) | — |
 | 80<!--x:10 * 8--> | 8.2<!--m:kink_angle_on_arcs.r10.predicted_deg--> 度 | −8.1<!--m:kink_angle_on_arcs.r10.same.median_error_deg--> 度 (8<!--m:kink_angle_on_arcs.r10.same.found-->/12<!--m:kink_angle_on_arcs.r10.same.cases-->) | +9.1<!--m:kink_angle_on_arcs.r10.opposite.median_error_deg--> 度 (12<!--m:kink_angle_on_arcs.r10.opposite.found-->/12<!--m:kink_angle_on_arcs.r10.opposite.cases-->) |
 | 40<!--x:5 * 8--> | 16.5<!--m:kink_angle_on_arcs.r5.predicted_deg--> 度 | −16.7<!--m:kink_angle_on_arcs.r5.same.median_error_deg--> 度 (12<!--m:kink_angle_on_arcs.r5.same.found-->/12<!--m:kink_angle_on_arcs.r5.same.cases-->) | +19.0<!--m:kink_angle_on_arcs.r5.opposite.median_error_deg--> 度 (8<!--m:kink_angle_on_arcs.r5.opposite.found-->/12<!--m:kink_angle_on_arcs.r5.opposite.cases-->) |
-| 24<!--x:3 * 8--> | 27.5<!--m:kink_angle_on_arcs.r3.predicted_deg--> 度 | −27.4<!--m:kink_angle_on_arcs.r3.same.median_error_deg--> 度 (12<!--m:kink_angle_on_arcs.r3.same.found-->/12<!--m:kink_angle_on_arcs.r3.same.cases-->) | +30.4<!--m:kink_angle_on_arcs.r3.opposite.median_error_deg--> 度 (8<!--m:kink_angle_on_arcs.r3.opposite.found-->/12<!--m:kink_angle_on_arcs.r3.opposite.cases-->) |
+| 24<!--x:3 * 8--> | 27.5<!--m:kink_angle_on_arcs.r3.predicted_deg--> 度 | −27.5<!--m:kink_angle_on_arcs.r3.same.median_error_deg--> 度 (12<!--m:kink_angle_on_arcs.r3.same.found-->/12<!--m:kink_angle_on_arcs.r3.same.cases-->) | +30.4<!--m:kink_angle_on_arcs.r3.opposite.median_error_deg--> 度 (8<!--m:kink_angle_on_arcs.r3.opposite.found-->/12<!--m:kink_angle_on_arcs.r3.opposite.cases-->) |
 
 角と同じ向きに曲がる繊維では保存角が鋭く、逆向きに曲がる繊維では鈍くなり、その差は
 おおよそ $2W/R$ であった。
 
 同梱の 3<!--n:count--> スキャンでは、各キンクについてこの回転を、キンクの規則が読む前後の区間で読み、
-前後の区間が同じ向きに曲がるときに数えた。140<!--m:kink_angle_on_arcs.bundled.kinks--> 個のキンクで中央値は 0<!--m:kink_angle_on_arcs.bundled.median_abs_deg--> 度、10<!--n:value tried--> 度を超えたのは
-22<!--m:kink_angle_on_arcs.bundled.over_10_deg--> 個、最大は 83<!--m:kink_angle_on_arcs.bundled.max_abs_deg--> 度であった。補正後の高さ画像に重ねて描くと、この回転が最も大きい
+前後の区間が同じ向きに曲がるときに数えた。139<!--m:kink_angle_on_arcs.bundled.kinks--> 個のキンクで中央値は 0<!--m:kink_angle_on_arcs.bundled.median_abs_deg--> 度、10<!--n:value tried--> 度を超えたのは
+22<!--m:kink_angle_on_arcs.bundled.over_10_deg--> 個、最大は 85<!--m:kink_angle_on_arcs.bundled.max_abs_deg--> 度であった。補正後の高さ画像に重ねて描くと、この回転が最も大きい
 12<!--n:number rendered--> 個のキンクに、なめらかに曲がる繊維の上の角は 1<!--n:count--> つもなかった。それらは交差や分岐、
 かすかな繊維や絡まり、繊維が背景の凹凸に入るところ、粒子の横、明るい繊維に低い筋が
-横から合わさるところ、交差の横の段のある細い繊維の上にあった。
+横から合わさるところ、交差の横の段のある細い繊維の上、ヘアピン状に折り返す繊維の先端にあった。
 
 ### 4.6 合成形状での結果
 
@@ -804,18 +804,18 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 | ノイズ床の倍数 | 失った明瞭なキンク | 減った誤検出 |
 |---|---|---|
 | 3<!--n:value tried--> | 3<!--m:kink_reference.noise3.lost--> | 8<!--m:kink_reference.noise3.fewer_false--> |
-| 4<!--n:value tried--> | 5<!--m:kink_reference.noise4.lost--> | 11<!--m:kink_reference.noise4.fewer_false--> |
+| 4<!--n:value tried--> | 5<!--m:kink_reference.noise4.lost--> | 10<!--m:kink_reference.noise4.fewer_false--> |
 
 これらのスキャンの誤検出は、丸みのある曲がり、絡まり、交差の近くの折れ、淡い筋の
 上の折れ、それに超過回転がしきい値を
-わずかに上回るだけの浅い折れであって、ノイズではない。64<!--m:kink_reference.default.false--> 件のうち 24<!--m:kink_reference.default.false_excess_30_40--> 件は超過回転が 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->〜40<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|190 - v--> 度である。そのうち
+わずかに上回るだけの浅い折れであって、ノイズではない。63<!--m:kink_reference.default.false--> 件のうち 23<!--m:kink_reference.default.false_excess_30_40--> 件は超過回転が 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->〜40<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|190 - v--> 度である。そのうち
 13<!--m:kink_reference.default.false_arm_turn_below_threshold--> 件は、腕から読んだ回転（180<!--n:definition--> 度 − `ka`）が 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度を下回る。腕の角度は
 判定に使う超過回転とは別に測るためである。また強く折れ曲がった繊維では、その
 繊維自身のキンクがノイズ床を押し上げる。失われた明瞭なキンクはそうした繊維に
 あった。合成データの掃引では、ノイズ床が直線・円弧・正弦波の繊維の偽の折れを変えたのは、
 最も細かい画素サイズと最も強いノイズの条件（幅 11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px、画素ノイズ 0.30<!--n:value tried--> nm）だけで、
-1<!--n:definition--> µm あたり 5.9<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> から 3.8<!--m:kink_rule_sweep.W16.n0.30.k3.fp_per_um--> に減らした。その条件で、報告してはならない 165<!--n:example--> 度の
-曲がりに報告した折れは変えなかった（ノイズ床なしで 4<!--m:kink_rule_sweep.W16.n0.30.base.kink165_reported-->、ありで 4<!--m:kink_rule_sweep.W16.n0.30.k3.kink165_reported-->）。見つかる
+1<!--n:definition--> µm あたり 5.4<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> から 4.1<!--m:kink_rule_sweep.W16.n0.30.k3.fp_per_um--> に減らした。その条件で、報告してはならない 165<!--n:example--> 度の
+曲がりに報告した折れは、ノイズ床なしの 6<!--m:kink_rule_sweep.W16.n0.30.base.kink165_reported--> 件からありの 3<!--m:kink_rule_sweep.W16.n0.30.k3.kink165_reported--> 件になった。見つかる
 コーナーはどの条件でも変えなかった。たとえば最も粗い画素サイズと最も強いノイズの条件
 では、ノイズ床なしで 4<!--m:kink_rule_sweep.W3.n0.30.base.kinked_found-->、ありで 4<!--m:kink_rule_sweep.W3.n0.30.k3.kinked_found--> つ見つかった（§4.8）。
 
@@ -836,7 +836,7 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
   90<!--n:value tried--> 度回すと、同じ平滑化がその大部分を背景から取り除いた。この走査には
   `background_warnings` が警告を出していた（`flank_step_low` と `relief_absorbed`）。
   追跡はその腕を多数の断片に分け、偽の折れがその腕に集まった。同じ設定の直線・
-  円弧・正弦波の繊維では、規則は 1<!--n:definition--> µm あたり 5.9<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> 件の偽の折れを報告した。
+  円弧・正弦波の繊維では、規則は 1<!--n:definition--> µm あたり 5.4<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> 件の偽の折れを報告した。
 - 細かい方の 3<!--n:count--> つの画素サイズでは、画素ノイズ 0.15<!--n:value tried--> nm までの直線・円弧・蛇行に
   偽陽性は無く、165<!--n:example--> 度の曲がりにも無かった。
 - 掃引で最も粗い画素サイズ（5.2<!--c:scripts/kink_rule_sweep.py::APPARENT_WIDTH_NM|v / 3--> nm。繊維が占める画素は 3.5<!--m:kink_rule_sweep.W5.measured_width_px--> px の設定より
@@ -854,12 +854,12 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 3<!--n:definition--> px 以内にある（実験 track_ends）。トラックの端の多くは繊維の本当の終端では
 なく、交差での切断である。
 
-端の範囲を $1.0\,W$ にすると、同梱スキャンの誤検出は 64<!--m:kink_reference.default.false--> 件から 82<!--m:kink_reference.sens_end_1.false--> 件に
+端の範囲を $1.0\,W$ にすると、同梱スキャンの誤検出は 63<!--m:kink_reference.default.false--> 件から 81<!--m:kink_reference.sens_end_1.false--> 件に
 増え、明瞭なキンクの検出は 1<!--n:count--> 件も増えなかった。$2.0\,W$ にすると誤検出は
-47<!--m:kink_reference.sens_end_2.false--> 件に減り、明瞭なキンクの検出は同じ 49<!--m:kink_reference.sens_end_2.found--> 件であった。端から 1.5<!--n:value tried--> $W$ の
+46<!--m:kink_reference.sens_end_2.false--> 件に減り、明瞭なキンクの検出は同じ 49<!--m:kink_reference.sens_end_2.found--> 件であった。端から 1.5<!--n:value tried--> $W$ の
 合成コーナーは、既定で 2<!--m:synthetic_kinks.end_cases_per_distance--> 件中 2<!--m:synthetic_kinks.margin_default.end1.5W.corners_judged--> 件、$2.0\,W$ で 0<!--m:synthetic_kinks.margin_2W.end1.5W.corners_judged--> 件を判定した。端から 2<!--n:value tried--> $W$ の
 合成コーナーは、既定で 2<!--m:synthetic_kinks.end_cases_per_distance--> 件中 2<!--m:synthetic_kinks.margin_default.end2W.corners_judged--> 件、$2.0\,W$ で 1<!--m:synthetic_kinks.margin_2W.end2W.corners_judged--> 件を判定した。同梱スキャンで判定しな
-かった 44<!--m:kink_reference.default.unjudged--> 件の折れには、明瞭な基準キンクに当たるものは無かった。
+かった 45<!--m:kink_reference.default.unjudged--> 件の折れには、明瞭な基準キンクに当たるものは無かった。
 
 ### 4.10 頂点高さと中心線上の高さ
 
@@ -869,9 +869,9 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 
 | 入力 | 差の中央値 (nm) | 差の 90<!--n:definition--> パーセンタイル (nm) | 中央値、頂点高さに対する % | 90<!--n:definition--> パーセンタイル、頂点高さに対する % |
 |---|---|---|---|---|
-| チュニケート CNF | 0.070<!--m:crest_height.tunicate.median_nm--> | 0.211<!--m:crest_height.tunicate.p90_nm--> | 0.940<!--m:crest_height.tunicate.median_percent--> | 2.602<!--m:crest_height.tunicate.p90_percent--> |
-| 高等植物 TOC | 0.013<!--m:crest_height.hplantTOC.median_nm--> | 0.076<!--m:crest_height.hplantTOC.p90_nm--> | 0.809<!--m:crest_height.hplantTOC.median_percent--> | 4.439<!--m:crest_height.hplantTOC.p90_percent--> |
-| Bruker NDTOC | 0.025<!--m:crest_height.NDTOC.median_nm--> | 0.129<!--m:crest_height.NDTOC.p90_nm--> | 1.260<!--m:crest_height.NDTOC.median_percent--> | 7.270<!--m:crest_height.NDTOC.p90_percent--> |
+| チュニケート CNF | 0.071<!--m:crest_height.tunicate.median_nm--> | 0.209<!--m:crest_height.tunicate.p90_nm--> | 0.942<!--m:crest_height.tunicate.median_percent--> | 2.600<!--m:crest_height.tunicate.p90_percent--> |
+| 高等植物 TOC | 0.014<!--m:crest_height.hplantTOC.median_nm--> | 0.078<!--m:crest_height.hplantTOC.p90_nm--> | 0.809<!--m:crest_height.hplantTOC.median_percent--> | 4.478<!--m:crest_height.hplantTOC.p90_percent--> |
+| Bruker NDTOC | 0.023<!--m:crest_height.NDTOC.median_nm--> | 0.125<!--m:crest_height.NDTOC.p90_nm--> | 1.190<!--m:crest_height.NDTOC.median_percent--> | 7.044<!--m:crest_height.NDTOC.p90_percent--> |
 頂点高さが中心線上の高さより低いことは、1<!--n:count--> 度も無かった。したがって、中心線の
 位置で高さを読むと、繊維は低く出る。差は表のとおり小さいが、いつも低く出る向きで
 ある。左右が非対称な断面では、半値の中点が頂点の横にずれるからである。
@@ -901,12 +901,12 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 
 | 入力 | 点 | 位置を決めた点、全幅 (%) | 位置を決めた点、各半分 (%) |
 |---|---|---|---|
-| チュニケート CNF | 7919<!--m:section_width_limit.tunicate.points--> | 88.1<!--m:section_width_limit.tunicate.reliable_full_percent--> | 84.0<!--m:section_width_limit.tunicate.reliable_half_percent--> |
-| 高等植物 TOC | 1883<!--m:section_width_limit.hplantTOC.points--> | 92.5<!--m:section_width_limit.hplantTOC.reliable_full_percent--> | 88.1<!--m:section_width_limit.hplantTOC.reliable_half_percent--> |
-| Bruker NDTOC | 8788<!--m:section_width_limit.NDTOC.points--> | 81.7<!--m:section_width_limit.NDTOC.reliable_full_percent--> | 75.6<!--m:section_width_limit.NDTOC.reliable_half_percent--> |
+| チュニケート CNF | 7919<!--m:section_width_limit.tunicate.points--> | 88.1<!--m:section_width_limit.tunicate.reliable_full_percent--> | 83.9<!--m:section_width_limit.tunicate.reliable_half_percent--> |
+| 高等植物 TOC | 1883<!--m:section_width_limit.hplantTOC.points--> | 92.5<!--m:section_width_limit.hplantTOC.reliable_full_percent--> | 88.2<!--m:section_width_limit.hplantTOC.reliable_half_percent--> |
+| Bruker NDTOC | 8788<!--m:section_width_limit.NDTOC.points--> | 81.7<!--m:section_width_limit.NDTOC.reliable_full_percent--> | 75.8<!--m:section_width_limit.NDTOC.reliable_half_percent--> |
 
-チュニケートのスキャンで最も多くの点を失う繊維（920<!--m:section_width_limit.tunicate.most_lost.points--> 点中 134<!--m:section_width_limit.tunicate.most_lost.lost--> 点）を、補正後の
-高さ画像に断面とともに描いた。失う点は、角から右端までの直線区間である。この
+チュニケートのスキャンで最も多くの点を失う繊維（920<!--m:section_width_limit.tunicate.most_lost.points--> 点中 141<!--m:section_width_limit.tunicate.most_lost.lost--> 点）を、補正後の
+高さ画像に断面とともに描いた。失う点の大半は、角から右端までの直線区間にある。この
 区間は他の繊維に 1<!--n:count--> 回交差されるだけの 1<!--n:count--> 本の繊維で、断面は単峰だが頂点が中央から少し
 ずれている。そのため全幅は 1.5<!--c:lib/centerline.py::_MAX_SECTION_WIDTHS--> W 以内に収まるのに、片側の半分が 0.75<!--c:lib/centerline.py::_MAX_SECTION_WIDTHS|v / 2--> W を超える。
 
@@ -920,9 +920,9 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 
 | 画素 (nm) | ノイズ 0<!--n:condition--> nm | ノイズ 0.05<!--n:condition--> nm | ノイズ 0.15<!--n:condition--> nm |
 |---|---|---|---|
-| 2<!--n:condition--> | 0.03<!--m:curvature_noise_floor.px2.noise0.mean--> | 0.06<!--m:curvature_noise_floor.px2.noise0.05.mean--> | 0.16<!--m:curvature_noise_floor.px2.noise0.15.mean--> |
-| 5<!--n:condition--> | 0.29<!--m:curvature_noise_floor.px5.noise0.mean--> | 0.27<!--m:curvature_noise_floor.px5.noise0.05.mean--> | 0.35<!--m:curvature_noise_floor.px5.noise0.15.mean--> |
-| 10<!--n:condition--> | 0.64<!--m:curvature_noise_floor.px10.noise0.mean--> | 0.66<!--m:curvature_noise_floor.px10.noise0.05.mean--> | 0.82<!--m:curvature_noise_floor.px10.noise0.15.mean--> |
+| 2<!--n:condition--> | 0.02<!--m:curvature_noise_floor.px2.noise0.mean--> | 0.06<!--m:curvature_noise_floor.px2.noise0.05.mean--> | 0.15<!--m:curvature_noise_floor.px2.noise0.15.mean--> |
+| 5<!--n:condition--> | 0.33<!--m:curvature_noise_floor.px5.noise0.mean--> | 0.29<!--m:curvature_noise_floor.px5.noise0.05.mean--> | 0.35<!--m:curvature_noise_floor.px5.noise0.15.mean--> |
+| 10<!--n:condition--> | 0.36<!--m:curvature_noise_floor.px10.noise0.mean--> | 0.37<!--m:curvature_noise_floor.px10.noise0.05.mean--> | 0.57<!--m:curvature_noise_floor.px10.noise0.15.mean--> |
 
 ノイズが無いときの値は画素の格子から来る。真の軸に対して描くと、画素 5<!--n:condition-->・10<!--n:condition--> nm
 では中心線にスケルトントラックの階段の周期で揺れが残っており、繊維がまたぐ画素が
@@ -949,7 +949,7 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 | 2<!--n:value tried--> nm | 角ばった端 | −0.8<!--m:end_loss.px2.taper0.end_deficit_nm_range[0]-->〜+0.2<!--m:end_loss.px2.taper0.end_deficit_nm_range[1]--> nm | −0.07<!--m:end_loss.px2.taper0.end_deficit_w_range[0]-->〜+0.02<!--m:end_loss.px2.taper0.end_deficit_w_range[1]--> | +0.25<!--m:end_loss.px2.taper0.length_error_percent_range[0]-->〜+0.34<!--m:end_loss.px2.taper0.length_error_percent_range[1]--> % |
 | 2<!--n:value tried--> nm | 細くなる端 | −2.6<!--m:end_loss.px2.taper20.end_deficit_nm_range[0]-->〜+1.3<!--m:end_loss.px2.taper20.end_deficit_nm_range[1]--> nm | −0.24<!--m:end_loss.px2.taper20.end_deficit_w_range[0]-->〜+0.12<!--m:end_loss.px2.taper20.end_deficit_w_range[1]--> | +0.03<!--m:end_loss.px2.taper20.length_error_percent_range[0]-->〜+0.74<!--m:end_loss.px2.taper20.length_error_percent_range[1]--> % |
 | 4<!--n:value tried--> nm | 角ばった端 | −3.3<!--m:end_loss.px4.taper0.end_deficit_nm_range[0]-->〜+0.5<!--m:end_loss.px4.taper0.end_deficit_nm_range[1]--> nm | −0.30<!--m:end_loss.px4.taper0.end_deficit_w_range[0]-->〜+0.05<!--m:end_loss.px4.taper0.end_deficit_w_range[1]--> | +0.47<!--m:end_loss.px4.taper0.length_error_percent_range[0]-->〜+1.13<!--m:end_loss.px4.taper0.length_error_percent_range[1]--> % |
-| 4<!--n:value tried--> nm | 細くなる端 | +1.1<!--m:end_loss.px4.taper20.end_deficit_nm_range[0]-->〜+9.3<!--m:end_loss.px4.taper20.end_deficit_nm_range[1]--> nm | +0.10<!--m:end_loss.px4.taper20.end_deficit_w_range[0]-->〜+0.85<!--m:end_loss.px4.taper20.end_deficit_w_range[1]--> | −1.67<!--m:end_loss.px4.taper20.length_error_percent_range[0]-->〜−0.91<!--m:end_loss.px4.taper20.length_error_percent_range[1]--> % |
+| 4<!--n:value tried--> nm | 細くなる端 | +1.0<!--m:end_loss.px4.taper20.end_deficit_nm_range[0]-->〜+9.3<!--m:end_loss.px4.taper20.end_deficit_nm_range[1]--> nm | +0.10<!--m:end_loss.px4.taper20.end_deficit_w_range[0]-->〜+0.85<!--m:end_loss.px4.taper20.end_deficit_w_range[1]--> | −1.67<!--m:end_loss.px4.taper20.length_error_percent_range[0]-->〜−0.91<!--m:end_loss.px4.taper20.length_error_percent_range[1]--> % |
 
 描いてみると、画素 1<!--n:value tried--> nm では、細くなる端の計測した中心線は、繊維の端を越えて、
 探針がその周りに広げた像の中まで伸び、ある走査ではそこで軸から曲がって離れている。
@@ -968,17 +968,17 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 
 | 見かけの幅（画素） | ノイズ無し | 0.05<!--n:value tried--> nm | 0.1<!--n:value tried--> nm | 0.2<!--n:value tried--> nm |
 |---|---|---|---|---|
-| 3<!--n:value tried--> | −0.050<!--m:crest_noise.line.W3.n0_nm--> | −0.046<!--m:crest_noise.line.W3.n0.05_nm--> | −0.041<!--m:crest_noise.line.W3.n0.1_nm--> | −0.007<!--m:crest_noise.line.W3.n0.2_nm--> |
-| 5<!--n:value tried--> | −0.020<!--m:crest_noise.line.W5.n0_nm--> | −0.011<!--m:crest_noise.line.W5.n0.05_nm--> | +0.007<!--m:crest_noise.line.W5.n0.1_nm--> | +0.061<!--m:crest_noise.line.W5.n0.2_nm--> |
-| 8<!--n:value tried--> | −0.008<!--m:crest_noise.line.W8.n0_nm--> | +0.006<!--m:crest_noise.line.W8.n0.05_nm--> | +0.030<!--m:crest_noise.line.W8.n0.1_nm--> | +0.087<!--m:crest_noise.line.W8.n0.2_nm--> |
-| 16<!--n:value tried--> | −0.002<!--m:crest_noise.line.W16.n0_nm--> | +0.016<!--m:crest_noise.line.W16.n0.05_nm--> | +0.042<!--m:crest_noise.line.W16.n0.1_nm--> | +0.097<!--m:crest_noise.line.W16.n0.2_nm--> |
-| 24<!--n:value tried--> | −0.001<!--m:crest_noise.line.W24.n0_nm--> | +0.026<!--m:crest_noise.line.W24.n0.05_nm--> | +0.060<!--m:crest_noise.line.W24.n0.1_nm--> | +0.175<!--m:crest_noise.line.W24.n0.2_nm--> |
+| 3<!--n:value tried--> | −0.064<!--m:crest_noise.line.W3.n0_nm--> | −0.045<!--m:crest_noise.line.W3.n0.05_nm--> | −0.039<!--m:crest_noise.line.W3.n0.1_nm--> | −0.001<!--m:crest_noise.line.W3.n0.2_nm--> |
+| 5<!--n:value tried--> | −0.021<!--m:crest_noise.line.W5.n0_nm--> | −0.011<!--m:crest_noise.line.W5.n0.05_nm--> | +0.007<!--m:crest_noise.line.W5.n0.1_nm--> | +0.052<!--m:crest_noise.line.W5.n0.2_nm--> |
+| 8<!--n:value tried--> | −0.008<!--m:crest_noise.line.W8.n0_nm--> | +0.006<!--m:crest_noise.line.W8.n0.05_nm--> | +0.029<!--m:crest_noise.line.W8.n0.1_nm--> | +0.086<!--m:crest_noise.line.W8.n0.2_nm--> |
+| 16<!--n:value tried--> | −0.002<!--m:crest_noise.line.W16.n0_nm--> | +0.017<!--m:crest_noise.line.W16.n0.05_nm--> | +0.042<!--m:crest_noise.line.W16.n0.1_nm--> | +0.095<!--m:crest_noise.line.W16.n0.2_nm--> |
+| 24<!--n:value tried--> | −0.001<!--m:crest_noise.line.W24.n0_nm--> | +0.026<!--m:crest_noise.line.W24.n0.05_nm--> | +0.058<!--m:crest_noise.line.W24.n0.1_nm--> | +0.172<!--m:crest_noise.line.W24.n0.2_nm--> |
 
 各断面の頂点は頂部付近の標本の最大値であり、ノイズがあると、それは標本がばらつく中心の
 頂部より上にあり、頂部が平らなほど大きく上回る。そのため頂点高さは、ノイズが大きく繊維が
-太いほど高く出て、24<!--n:value tried--> 画素・0.2<!--n:value tried--> nm では直線の繊維で +0.175<!--m:crest_noise.line.W24.n0.2_nm--> nm、円弧で +0.190<!--m:crest_noise.arc.W24.n0.2_nm--> nm に
-達した。高さの四十分の一にあたる 0.05<!--n:value tried--> nm のノイズでは、差が最も大きかったのは円弧の
-3<!--n:value tried--> 画素での −0.048<!--m:crest_noise.arc.W3.n0.05_nm--> nm で、画素格子が高さを制限する場合である（§1.9）。
+太いほど高く出て、24<!--n:value tried--> 画素・0.2<!--n:value tried--> nm では直線の繊維で +0.172<!--m:crest_noise.line.W24.n0.2_nm--> nm、円弧で +0.176<!--m:crest_noise.arc.W24.n0.2_nm--> nm に
+達した。高さの四十分の一にあたる 0.05<!--n:value tried--> nm のノイズでは、差が最も大きかったのは直線の繊維の
+3<!--n:value tried--> 画素での −0.045<!--m:crest_noise.line.W3.n0.05_nm--> nm で、画素格子が高さを制限する場合である（§1.9）。
 
 ### 4.16 画素ノイズのもとでの見かけの幅
 
@@ -988,10 +988,10 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 
 | 見かけの幅（画素） | 0.05<!--n:value tried--> nm | 0.1<!--n:value tried--> nm | 0.15<!--n:value tried--> nm | 0.2<!--n:value tried--> nm | 0.3<!--n:value tried--> nm |
 |---|---|---|---|---|---|
-| 8<!--n:value tried--> | 7.75<!--m:width_noise.W8.n0.05.width_px--> (100<!--m:width_noise.W8.n0.05.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.1.width_px--> (100<!--m:width_noise.W8.n0.1.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.15.width_px--> (100<!--m:width_noise.W8.n0.15.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.2.width_px--> (100<!--m:width_noise.W8.n0.2.located_percent--> %) | 7.67<!--m:width_noise.W8.n0.3.width_px--> (100<!--m:width_noise.W8.n0.3.located_percent--> %) |
-| 16<!--n:value tried--> | 15.75<!--m:width_noise.W16.n0.05.width_px--> (100<!--m:width_noise.W16.n0.05.located_percent--> %) | 15.92<!--m:width_noise.W16.n0.1.width_px--> (100<!--m:width_noise.W16.n0.1.located_percent--> %) | 15.83<!--m:width_noise.W16.n0.15.width_px--> (100<!--m:width_noise.W16.n0.15.located_percent--> %) | 14.50<!--m:width_noise.W16.n0.2.width_px--> (100<!--m:width_noise.W16.n0.2.located_percent--> %) | 13.92<!--m:width_noise.W16.n0.3.width_px--> (100<!--m:width_noise.W16.n0.3.located_percent--> %) |
-| 24<!--n:value tried--> | 23.75<!--m:width_noise.W24.n0.05.width_px--> (100<!--m:width_noise.W24.n0.05.located_percent--> %) | 23.75<!--m:width_noise.W24.n0.1.width_px--> (100<!--m:width_noise.W24.n0.1.located_percent--> %) | 13.42<!--m:width_noise.W24.n0.15.width_px--> (0<!--m:width_noise.W24.n0.15.located_percent--> %) | 12.17<!--m:width_noise.W24.n0.2.width_px--> (0<!--m:width_noise.W24.n0.2.located_percent--> %) | 9.25<!--m:width_noise.W24.n0.3.width_px--> (13<!--m:width_noise.W24.n0.3.located_percent--> %) |
-| 32<!--n:value tried--> | 31.75<!--m:width_noise.W32.n0.05.width_px--> (100<!--m:width_noise.W32.n0.05.located_percent--> %) | 31.75<!--m:width_noise.W32.n0.1.width_px--> (100<!--m:width_noise.W32.n0.1.located_percent--> %) | 10.25<!--m:width_noise.W32.n0.15.width_px--> (3<!--m:width_noise.W32.n0.15.located_percent--> %) | 8.17<!--m:width_noise.W32.n0.2.width_px--> (37<!--m:width_noise.W32.n0.2.located_percent--> %) | 5.75<!--m:width_noise.W32.n0.3.width_px--> (59<!--m:width_noise.W32.n0.3.located_percent--> %) |
+| 8<!--n:value tried--> | 7.75<!--m:width_noise.W8.n0.05.width_px--> (100<!--m:width_noise.W8.n0.05.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.1.width_px--> (100<!--m:width_noise.W8.n0.1.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.15.width_px--> (100<!--m:width_noise.W8.n0.15.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.2.width_px--> (100<!--m:width_noise.W8.n0.2.located_percent--> %) | 7.75<!--m:width_noise.W8.n0.3.width_px--> (100<!--m:width_noise.W8.n0.3.located_percent--> %) |
+| 16<!--n:value tried--> | 15.75<!--m:width_noise.W16.n0.05.width_px--> (100<!--m:width_noise.W16.n0.05.located_percent--> %) | 15.92<!--m:width_noise.W16.n0.1.width_px--> (100<!--m:width_noise.W16.n0.1.located_percent--> %) | 15.92<!--m:width_noise.W16.n0.15.width_px--> (100<!--m:width_noise.W16.n0.15.located_percent--> %) | 14.50<!--m:width_noise.W16.n0.2.width_px--> (100<!--m:width_noise.W16.n0.2.located_percent--> %) | 13.92<!--m:width_noise.W16.n0.3.width_px--> (100<!--m:width_noise.W16.n0.3.located_percent--> %) |
+| 24<!--n:value tried--> | 23.75<!--m:width_noise.W24.n0.05.width_px--> (100<!--m:width_noise.W24.n0.05.located_percent--> %) | 23.75<!--m:width_noise.W24.n0.1.width_px--> (100<!--m:width_noise.W24.n0.1.located_percent--> %) | 13.50<!--m:width_noise.W24.n0.15.width_px--> (0<!--m:width_noise.W24.n0.15.located_percent--> %) | 12.17<!--m:width_noise.W24.n0.2.width_px--> (0<!--m:width_noise.W24.n0.2.located_percent--> %) | 9.46<!--m:width_noise.W24.n0.3.width_px--> (10<!--m:width_noise.W24.n0.3.located_percent--> %) |
+| 32<!--n:value tried--> | 31.83<!--m:width_noise.W32.n0.05.width_px--> (100<!--m:width_noise.W32.n0.05.located_percent--> %) | 31.75<!--m:width_noise.W32.n0.1.width_px--> (100<!--m:width_noise.W32.n0.1.located_percent--> %) | 10.33<!--m:width_noise.W32.n0.15.width_px--> (2<!--m:width_noise.W32.n0.15.located_percent--> %) | 8.33<!--m:width_noise.W32.n0.2.width_px--> (34<!--m:width_noise.W32.n0.2.located_percent--> %) | 6.00<!--m:width_noise.W32.n0.3.width_px--> (59<!--m:width_noise.W32.n0.3.located_percent--> %) |
 
 ノイズが 0.15<!--n:value tried--> nm 以上になると、24<!--n:value tried--> 画素と 32<!--n:value tried--> 画素の幅は半分程度以下に読まれ、置けた点も
 わずかになった。最初の範囲 ±12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> 画素が幅の 1.25<!--c:lib/centerline.py::_WIDTH_RANGE_MIN_WIDTHS--> 倍より短いときは、より長い範囲で断面を読み直し、
@@ -1006,7 +1006,7 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 画素ノイズの 20<!--c:lib/pipeline.py::MIN_FIBER_SNR--> 倍に満たないときに警告する（`pipeline.fiber_snr`）。画素ノイズは、
 二値化マスクから 4<!--c:lib/pipeline.py::_NOISE_MASK_MARGIN_PX--> 画素より離れた、横に隣り合う画素の差の中央絶対偏差の 1.4826<!--n:definition--> 倍を
 $\sqrt{2}$ で割ったものである。この限界は §4.15〜§4.16 から決めた。ノイズが高さの
-二十分の一のとき、頂点高さの高めのずれは最大 +0.060<!--m:crest_noise.line.W24.n0.1_nm--> nm（24<!--n:value tried--> 画素）で、どの幅も保たれ、
+二十分の一のとき、頂点高さの高めのずれは最大 +0.061<!--m:crest_noise.arc.W24.n0.1_nm--> nm（円弧の 24<!--n:value tried--> 画素）で、どの幅も保たれ、
 それよりノイズが大きいと頂点高さはさらに高く出て、24<!--n:value tried--> 画素と 32<!--n:value tried--> 画素の幅は崩れた。
 
 同梱の 3<!--n:count--> つのスキャンでは比は 42–406<!--m:noise_warning.inputs.snr_range--> で（実験 noise_warning）、どれも警告されなかった。
@@ -1020,22 +1020,22 @@ $\sqrt{2}$ で割ったものである。この限界は §4.15〜§4.16 から�
 
 ### 4.18 バンドルに別のキンクのしきい値を当てる
 
-同梱の 3<!--n:count--> スキャンを既定の設定で解析し（バンドルにはキンク 140<!--m:weak_bend_reapply.all.stored_kinks--> 個と、しきい値に
-届かなかった折れ 322<!--m:weak_bend_reapply.all.stored_weak--> 個が保存される）、別の 3<!--n:count--> つのしきい値でも解析した。次に、各しきい値を
+同梱の 3<!--n:count--> スキャンを既定の設定で解析し（バンドルにはキンク 139<!--m:weak_bend_reapply.all.stored_kinks--> 個と、しきい値に
+届かなかった折れ 326<!--m:weak_bend_reapply.all.stored_weak--> 個が保存される）、別の 3<!--n:count--> つのしきい値でも解析した。次に、各しきい値を
 `measure_bundle(kink_threshold_deg=...)` で既定のバンドルに当て、そのしきい値で解析した
 結果と 220<!--m:weak_bend_reapply.all.t160.fibers--> 本の繊維ごとに比べた（実験 weak_bend_reapply）。
 
 | しきい値 | そのしきい値での解析のキンク数 | キンクの点が同じ繊維 | 角度が違うキンク | 判定しなかった折れが同じ繊維 |
 |---|---|---|---|---|
-| 140<!--n:value tried--> 度 | 97<!--m:weak_bend_reapply.all.t140.kinks--> | 220<!--m:weak_bend_reapply.all.t140.same_points--> | 0<!--m:weak_bend_reapply.all.t140.angle_changed--> | 220<!--m:weak_bend_reapply.all.t140.same_unjudged--> |
+| 140<!--n:value tried--> 度 | 98<!--m:weak_bend_reapply.all.t140.kinks--> | 220<!--m:weak_bend_reapply.all.t140.same_points--> | 0<!--m:weak_bend_reapply.all.t140.angle_changed--> | 220<!--m:weak_bend_reapply.all.t140.same_unjudged--> |
 | 160<!--n:value tried--> 度 | 206<!--m:weak_bend_reapply.all.t160.kinks--> | 220<!--m:weak_bend_reapply.all.t160.same_points--> | 0<!--m:weak_bend_reapply.all.t160.angle_changed--> | 220<!--m:weak_bend_reapply.all.t160.same_unjudged--> |
-| 170<!--n:value tried--> 度 | 462<!--m:weak_bend_reapply.all.t170.kinks--> | 220<!--m:weak_bend_reapply.all.t170.same_points--> | 0<!--m:weak_bend_reapply.all.t170.angle_changed--> | 220<!--m:weak_bend_reapply.all.t170.same_unjudged--> |
+| 170<!--n:value tried--> 度 | 465<!--m:weak_bend_reapply.all.t170.kinks--> | 220<!--m:weak_bend_reapply.all.t170.same_points--> | 0<!--m:weak_bend_reapply.all.t170.angle_changed--> | 220<!--m:weak_bend_reapply.all.t170.same_unjudged--> |
 
 しきい値をどこまで下げて意味があるかは別の問題である。掃引のキンクの無い合成繊維
 （直線・円弧・正弦波。設計の幅 5<!--n:value tried-->・8<!--n:value tried-->・16<!--n:value tried--> px、画素ノイズ 0.05<!--n:value tried-->・0.15<!--n:value tried--> nm、シード 2<!--n:value tried--> 通り）の
 すべての線を、探索の下限を 1<!--n:value tried--> 度まで下げて判定した（実験 weak_bend_noise）。見つかった
-折れの超過回転は、95<!--n:definition--> パーセンタイルが 12.9<!--m:weak_bend_noise.excess_p95_deg--> 度、99<!--n:definition--> パーセンタイルが 17.3<!--m:weak_bend_noise.excess_p99_deg--> 度で、輪郭長
-1<!--n:definition--> µm あたり 6.6<!--m:weak_bend_noise.per_um_at_least_10--> 個が 10<!--n:value tried--> 度に、0.25<!--m:weak_bend_noise.per_um_at_least_20--> 個が 20<!--n:value tried--> 度に、0<!--m:weak_bend_noise.per_um_at_least_30--> 個が 30<!--n:value tried--> 度に届いた。これらの繊維に
+折れの超過回転は、95<!--n:definition--> パーセンタイルが 13.0<!--m:weak_bend_noise.excess_p95_deg--> 度、99<!--n:definition--> パーセンタイルが 17.3<!--m:weak_bend_noise.excess_p99_deg--> 度で、輪郭長
+1<!--n:definition--> µm あたり 6.5<!--m:weak_bend_noise.per_um_at_least_10--> 個が 10<!--n:value tried--> 度に、0.21<!--m:weak_bend_noise.per_um_at_least_20--> 個が 20<!--n:value tried--> 度に、0<!--m:weak_bend_noise.per_um_at_least_30--> 個が 30<!--n:value tried--> 度に届いた。これらの繊維に
 キンクは無いので、この範囲のしきい値では、それらの折れをキンクとして数えることになる。
 
 ### 4.19 2<!--n:count--> 人が付けた印との比較
@@ -1065,25 +1065,25 @@ $\sqrt{2}$ で割ったものである。この限界は §4.15〜§4.16 から�
 そして 2<!--n:count--> 人とも明瞭とした印である。最後の基準では、それ以外のどちらかの人の印をすべて
 曖昧として扱い、組になった印はその中点に置く。統合とは、$W$ 以内にある唯一の報告された
 折れが、既に別の明瞭な印に対応していたことをいう。最後の列は、その基準で明瞭でない印から
-$W$ 以内にある報告された折れの件数である。規則が報告した折れは 140<!--m:kink_reference_human.all.detections--> 件だった。
+$W$ 以内にある報告された折れの件数である。規則が報告した折れは 139<!--m:kink_reference_human.all.detections--> 件だった。
 
 | 基準 | スキャン | 明瞭な印 | 検出 | 印から 1〜2<!--n:definition--> 幅ずれて検出 | 統合 | 見落とし | 一致なし | 明瞭でない印のそば |
 |---|---|---|---|---|---|---|---|---|
 | A の明瞭な印 | 高等植物 TOC | 5<!--m:kink_reference_human.hplantTOC.A.ref--> | 4<!--m:kink_reference_human.hplantTOC.A.found--> | 0<!--m:kink_reference_human.hplantTOC.A.displaced--> | 0<!--m:kink_reference_human.hplantTOC.A.merged--> | 1<!--m:kink_reference_human.hplantTOC.A.missed--> | 3<!--m:kink_reference_human.hplantTOC.A.false--> | 0<!--m:kink_reference_human.hplantTOC.A.exempt--> |
-| A の明瞭な印 | チュニケート CNF | 62<!--m:kink_reference_human.tunicate.A.ref--> | 49<!--m:kink_reference_human.tunicate.A.found--> | 3<!--m:kink_reference_human.tunicate.A.displaced--> | 2<!--m:kink_reference_human.tunicate.A.merged--> | 8<!--m:kink_reference_human.tunicate.A.missed--> | 12<!--m:kink_reference_human.tunicate.A.false--> | 6<!--m:kink_reference_human.tunicate.A.exempt--> |
+| A の明瞭な印 | チュニケート CNF | 62<!--m:kink_reference_human.tunicate.A.ref--> | 48<!--m:kink_reference_human.tunicate.A.found--> | 3<!--m:kink_reference_human.tunicate.A.displaced--> | 3<!--m:kink_reference_human.tunicate.A.merged--> | 8<!--m:kink_reference_human.tunicate.A.missed--> | 12<!--m:kink_reference_human.tunicate.A.false--> | 6<!--m:kink_reference_human.tunicate.A.exempt--> |
 | A の明瞭な印 | Bruker NDTOC | 13<!--m:kink_reference_human.NDTOC.A.ref--> | 13<!--m:kink_reference_human.NDTOC.A.found--> | 0<!--m:kink_reference_human.NDTOC.A.displaced--> | 0<!--m:kink_reference_human.NDTOC.A.merged--> | 0<!--m:kink_reference_human.NDTOC.A.missed--> | 44<!--m:kink_reference_human.NDTOC.A.false--> | 6<!--m:kink_reference_human.NDTOC.A.exempt--> |
-| A の明瞭な印 | 合計 | 80<!--m:kink_reference_human.all.A.ref--> | 66<!--m:kink_reference_human.all.A.found--> | 3<!--m:kink_reference_human.all.A.displaced--> | 2<!--m:kink_reference_human.all.A.merged--> | 9<!--m:kink_reference_human.all.A.missed--> | 59<!--m:kink_reference_human.all.A.false--> | 12<!--m:kink_reference_human.all.A.exempt--> |
+| A の明瞭な印 | 合計 | 80<!--m:kink_reference_human.all.A.ref--> | 65<!--m:kink_reference_human.all.A.found--> | 3<!--m:kink_reference_human.all.A.displaced--> | 3<!--m:kink_reference_human.all.A.merged--> | 9<!--m:kink_reference_human.all.A.missed--> | 59<!--m:kink_reference_human.all.A.false--> | 12<!--m:kink_reference_human.all.A.exempt--> |
 | B の明瞭な印 | 高等植物 TOC | 6<!--m:kink_reference_human.hplantTOC.B.ref--> | 4<!--m:kink_reference_human.hplantTOC.B.found--> | 0<!--m:kink_reference_human.hplantTOC.B.displaced--> | 0<!--m:kink_reference_human.hplantTOC.B.merged--> | 2<!--m:kink_reference_human.hplantTOC.B.missed--> | 1<!--m:kink_reference_human.hplantTOC.B.false--> | 2<!--m:kink_reference_human.hplantTOC.B.exempt--> |
-| B の明瞭な印 | チュニケート CNF | 94<!--m:kink_reference_human.tunicate.B.ref--> | 63<!--m:kink_reference_human.tunicate.B.found--> | 3<!--m:kink_reference_human.tunicate.B.displaced--> | 4<!--m:kink_reference_human.tunicate.B.merged--> | 24<!--m:kink_reference_human.tunicate.B.missed--> | 1<!--m:kink_reference_human.tunicate.B.false--> | 3<!--m:kink_reference_human.tunicate.B.exempt--> |
+| B の明瞭な印 | チュニケート CNF | 94<!--m:kink_reference_human.tunicate.B.ref--> | 63<!--m:kink_reference_human.tunicate.B.found--> | 3<!--m:kink_reference_human.tunicate.B.displaced--> | 4<!--m:kink_reference_human.tunicate.B.merged--> | 24<!--m:kink_reference_human.tunicate.B.missed--> | 0<!--m:kink_reference_human.tunicate.B.false--> | 3<!--m:kink_reference_human.tunicate.B.exempt--> |
 | B の明瞭な印 | Bruker NDTOC | 22<!--m:kink_reference_human.NDTOC.B.ref--> | 15<!--m:kink_reference_human.NDTOC.B.found--> | 0<!--m:kink_reference_human.NDTOC.B.displaced--> | 0<!--m:kink_reference_human.NDTOC.B.merged--> | 7<!--m:kink_reference_human.NDTOC.B.missed--> | 44<!--m:kink_reference_human.NDTOC.B.false--> | 4<!--m:kink_reference_human.NDTOC.B.exempt--> |
-| B の明瞭な印 | 合計 | 122<!--m:kink_reference_human.all.B.ref--> | 82<!--m:kink_reference_human.all.B.found--> | 3<!--m:kink_reference_human.all.B.displaced--> | 4<!--m:kink_reference_human.all.B.merged--> | 33<!--m:kink_reference_human.all.B.missed--> | 46<!--m:kink_reference_human.all.B.false--> | 9<!--m:kink_reference_human.all.B.exempt--> |
+| B の明瞭な印 | 合計 | 122<!--m:kink_reference_human.all.B.ref--> | 82<!--m:kink_reference_human.all.B.found--> | 3<!--m:kink_reference_human.all.B.displaced--> | 4<!--m:kink_reference_human.all.B.merged--> | 33<!--m:kink_reference_human.all.B.missed--> | 45<!--m:kink_reference_human.all.B.false--> | 9<!--m:kink_reference_human.all.B.exempt--> |
 | 2<!--n:count--> 人とも明瞭とした印 | 高等植物 TOC | 4<!--m:kink_reference_human.hplantTOC.both.ref--> | 4<!--m:kink_reference_human.hplantTOC.both.found--> | 0<!--m:kink_reference_human.hplantTOC.both.displaced--> | 0<!--m:kink_reference_human.hplantTOC.both.merged--> | 0<!--m:kink_reference_human.hplantTOC.both.missed--> | 1<!--m:kink_reference_human.hplantTOC.both.false--> | 2<!--m:kink_reference_human.hplantTOC.both.exempt--> |
-| 2<!--n:count--> 人とも明瞭とした印 | チュニケート CNF | 61<!--m:kink_reference_human.tunicate.both.ref--> | 49<!--m:kink_reference_human.tunicate.both.found--> | 2<!--m:kink_reference_human.tunicate.both.displaced--> | 2<!--m:kink_reference_human.tunicate.both.merged--> | 8<!--m:kink_reference_human.tunicate.both.missed--> | 1<!--m:kink_reference_human.tunicate.both.false--> | 18<!--m:kink_reference_human.tunicate.both.exempt--> |
+| 2<!--n:count--> 人とも明瞭とした印 | チュニケート CNF | 61<!--m:kink_reference_human.tunicate.both.ref--> | 49<!--m:kink_reference_human.tunicate.both.found--> | 2<!--m:kink_reference_human.tunicate.both.displaced--> | 2<!--m:kink_reference_human.tunicate.both.merged--> | 8<!--m:kink_reference_human.tunicate.both.missed--> | 0<!--m:kink_reference_human.tunicate.both.false--> | 18<!--m:kink_reference_human.tunicate.both.exempt--> |
 | 2<!--n:count--> 人とも明瞭とした印 | Bruker NDTOC | 11<!--m:kink_reference_human.NDTOC.both.ref--> | 11<!--m:kink_reference_human.NDTOC.both.found--> | 0<!--m:kink_reference_human.NDTOC.both.displaced--> | 0<!--m:kink_reference_human.NDTOC.both.merged--> | 0<!--m:kink_reference_human.NDTOC.both.missed--> | 42<!--m:kink_reference_human.NDTOC.both.false--> | 10<!--m:kink_reference_human.NDTOC.both.exempt--> |
-| 2<!--n:count--> 人とも明瞭とした印 | 合計 | 76<!--m:kink_reference_human.all.both.ref--> | 64<!--m:kink_reference_human.all.both.found--> | 2<!--m:kink_reference_human.all.both.displaced--> | 2<!--m:kink_reference_human.all.both.merged--> | 8<!--m:kink_reference_human.all.both.missed--> | 44<!--m:kink_reference_human.all.both.false--> | 30<!--m:kink_reference_human.all.both.exempt--> |
+| 2<!--n:count--> 人とも明瞭とした印 | 合計 | 76<!--m:kink_reference_human.all.both.ref--> | 64<!--m:kink_reference_human.all.both.found--> | 2<!--m:kink_reference_human.all.both.displaced--> | 2<!--m:kink_reference_human.all.both.merged--> | 8<!--m:kink_reference_human.all.both.missed--> | 43<!--m:kink_reference_human.all.both.false--> | 30<!--m:kink_reference_human.all.both.exempt--> |
 
 どの基準でも、一致しない折れの多くは Bruker NDTOC スキャンにある。2<!--n:count--> 人とも明瞭とした印に
-対しては 44<!--m:kink_reference_human.all.both.false--> 件のうち 42<!--m:kink_reference_human.NDTOC.both.false--> 件で、このスキャンではその印 11<!--m:kink_reference_human.NDTOC.both.ref--> 件をすべて検出している。
+対しては 43<!--m:kink_reference_human.all.both.false--> 件のうち 42<!--m:kink_reference_human.NDTOC.both.false--> 件で、このスキャンではその印 11<!--m:kink_reference_human.NDTOC.both.ref--> 件をすべて検出している。
 
 見落とした印は、次の判定のうち最初に当てはまるもので分けた。$W$ 以内に中心線が無い。
 中心線の端から 1.5<!--c:lib/kink_detector.py::END_MARGIN_WIDTHS--> W の範囲内にある（規則はここの折れを判定しない）。画像の縁から $W$ 以内に

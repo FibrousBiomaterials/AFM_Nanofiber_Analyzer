@@ -6975,12 +6975,12 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         ax.axis("on")
         # The samples the height statistics use are drawn solid; the ones
         # they leave out -- the last width at a cut end, the connector's
-        # interpolated bridges -- are drawn dashed and lighter, so the guide
-        # lines below visibly come from the solid part only. Each run is
-        # extended by one sample so the two styles meet instead of leaving
-        # a gap.
+        # interpolated bridges and a width on each side of them -- are drawn
+        # dashed and lighter, so the guide lines below visibly come from the
+        # solid part only. Each run is extended by one sample so the two
+        # styles meet instead of leaving a gap.
         # 高さ統計が使う標本は実線で、外す標本（切断端の最後の 1 幅、連結器が
-        # 補間した橋渡し）は薄い破線で描く。下の補助線が実線部分だけから来ている
+        # 補間した橋渡しとその両側 1 幅）は薄い破線で描く。下の補助線が実線部分だけから来ている
         # ことが見て分かるようにするためである。各区間は 1 標本ずつ延ばし、2 つの
         # 線種が途切れずに接するようにする。
         horizon = np.asarray(fiber.horizon, dtype=float)

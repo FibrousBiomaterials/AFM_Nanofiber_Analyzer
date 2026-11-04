@@ -133,7 +133,10 @@ GUI04 はその名前をログに出す。数値がどの中心線に沿って�
 形式が幅を読む極大（`bundle_schema.width_peak_from_meta`）で中心線を置く。形式 1.5 の
 バンドルは W を、繊維に合わせて広がる断面の範囲で読んでおり（§2.1）、それより古い
 バンドルは固定の ±12 px で読んでいる。GUI04 はバンドルの形式と同じ読み方で読む
-（`bundle_schema.width_range_adaptive_from_meta`）。
+（`bundle_schema.width_range_adaptive_from_meta`）。形式 1.7 のバンドルは各断面を
+スケルトン点について対称に標本化し、繊維を追跡した向きに依存しない §2.3 の規則で
+上っており、それより古いバンドルは断面の一方の側を優先する規則で上っている。GUI04 は
+バンドルの規則で中心線を置く（`bundle_schema.symmetric_section_from_meta`）。
 
 ```python
 # source: lib/fiber_tracking_image.py::_build_fiber
@@ -143,7 +146,7 @@ if is_placed_line(centerline):
     placed = place_centerline(
         cal, xtrack_prcimg, ytrack_prcimg, branch_points,
         method=centerline, aspect=pixel_aspect, width_peak=width_peak,
-        width_adaptive=width_adaptive,
+        width_adaptive=width_adaptive, symmetric_section=symmetric_section,
     )
     xtrack = placed.x - x
     ytrack = placed.y - y
@@ -212,9 +215,9 @@ for i, (px, py) in enumerate(zip(xtrack_prcimg.tolist(), ytrack_prcimg.tolist())
 # source: lib/centerline.py::place_centerline
 width, measured = measure_apparent_width(
     height, x, y, return_measured=True, aspect=aspect, peak=width_peak,
-    adaptive_range=width_adaptive)
+    adaptive_range=width_adaptive, symmetric_section=symmetric_section)
 lx, ly, reliable, crest = _refine(
-    height, x, y, width, branch_points, method, aspect)
+    height, x, y, width, branch_points, method, aspect, symmetric_section)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 ```
 
@@ -271,12 +274,14 @@ y = np.asarray(ytrack, dtype=np.float64) * float(aspect)
 if x.size < 2 or height is None:
     return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
 search = _WIDTH_SEARCH_PX
-width, _single = _width_in_range(height, x, y, aspect, peak, search)
+width, _single = _width_in_range(height, x, y, aspect, peak, search,
+                                 symmetric_section)
 while (adaptive_range and width is not None and search < _WIDTH_SEARCH_MAX_PX
        and search < _WIDTH_RANGE_MIN_WIDTHS * width):
     search = min(_WIDTH_SEARCH_MAX_PX,
                  max(_WIDTH_RANGE_WIDTHS * width, search + _WIDTH_STEP_PX))
-    wider, single = _width_in_range(height, x, y, aspect, peak, search)
+    wider, single = _width_in_range(height, x, y, aspect, peak, search,
+                                    symmetric_section)
     if wider is None or single < 0.5:
         break
     width = wider
@@ -294,7 +299,8 @@ profiles = _bilinear(
 )
 centre = offsets.size // 2
 if peak == WIDTH_PEAK_NEAREST:
-    top = profiles[np.arange(x.size), _climb_to_maximum(profiles, centre)]
+    top = profiles[np.arange(x.size),
+                   _climb_to_maximum(profiles, centre, symmetric_section)]
 else:
     top = profiles.max(axis=1)
 base = np.percentile(profiles, 10.0, axis=1)
@@ -401,7 +407,11 @@ norm[norm == 0.0] = 1.0
 nx, ny = -ty / norm, tx / norm
 reach = _CREST_REACH_WIDTHS * width
 half_reach = _HALF_MAX_REACH_WIDTHS * width
-s = np.arange(-(reach + half_reach), reach + half_reach + 1e-9, _WIDTH_STEP_PX)
+if symmetric_section:
+    half_grid = np.arange(0.0, reach + half_reach + 1e-9, _WIDTH_STEP_PX)
+    s = np.concatenate((-half_grid[:0:-1], half_grid))
+else:
+    s = np.arange(-(reach + half_reach), reach + half_reach + 1e-9, _WIDTH_STEP_PX)
 ns = s.size
 prof = _bilinear(img, (fy[:, None] + ny[:, None] * s[None, :]) / a,
                  fx[:, None] + nx[:, None] * s[None, :])
@@ -409,7 +419,10 @@ prof = _bilinear(img, (fy[:, None] + ny[:, None] * s[None, :]) / a,
 
 `prof[i, :]` は点 $i$ の断面で、法線に沿って 0.25 px ごとに標本化してある。
 範囲は枠から $\pm(0.75 + 1.5)\,W$ で、内訳は断面の頂点（§2.3）を探す 0.75 W と、その先で
-半値交点を探す 1.5 W である。
+半値交点を探す 1.5 W である。標本は枠の点から外側へ並べるので、枠の点について鏡映対称
+になる。繊維を逆向きに追跡すると法線が反転するため、両側で並び方の違う標本では、
+鏡映した断面を別のオフセットで読むことになる。形式 1.6 以前のバンドルは、判定された
+ときと同じく範囲の一端から標本化する（§1.2）。
 
 ### 2.3 坂を上って最初の極大へ
 
@@ -420,7 +433,7 @@ prof = _bilinear(img, (fy[:, None] + ny[:, None] * s[None, :]) / a,
 ```python
 # source: lib/centerline.py::_refine
 c = int(np.argmin(np.abs(s)))
-k = _climb_to_maximum(prof, c)
+k = _climb_to_maximum(prof, c, symmetric_section)
 peak = prof[rows, k]
 within_reach = np.abs(s[k]) < reach - 0.5 * _WIDTH_STEP_PX
 ```
@@ -430,19 +443,37 @@ within_reach = np.abs(s[k]) < reach - 0.5 * _WIDTH_STEP_PX
 n, ns = prof.shape
 dif = np.diff(prof, axis=1)
 k = np.full(n, c)
-go_right = dif[:, c] > 0
-go_left = ~go_right & (dif[:, c - 1] < 0)
+rises_right = dif[:, c] > 0
+rises_left = dif[:, c - 1] < 0
 stop_right = dif[:, c:] <= 0
-right_end = np.where(stop_right.any(1), stop_right.argmax(1), stop_right.shape[1]) + c
-k = np.where(go_right, np.minimum(right_end, ns - 1), k)
+right_end = np.minimum(
+    np.where(stop_right.any(1), stop_right.argmax(1), stop_right.shape[1]) + c, ns - 1)
 stop_left = dif[:, :c][:, ::-1] >= 0
-left_steps = np.where(stop_left.any(1), stop_left.argmax(1), c)
-return np.where(go_left, c - left_steps, k)
+left_end = c - np.where(stop_left.any(1), stop_left.argmax(1), c)
+if not symmetric:
+    k = np.where(rises_right, right_end, k)
+    return np.where(~rises_right & rises_left, left_end, k)
+rows = np.arange(n)
+right_steps = right_end - c
+left_steps = c - left_end
+right_wins = (right_steps < left_steps) | (
+    (right_steps == left_steps) & (prof[rows, right_end] > prof[rows, left_end]))
+left_wins = (left_steps < right_steps) | (
+    (right_steps == left_steps) & (prof[rows, left_end] > prof[rows, right_end]))
+k = np.where(rises_right & (~rises_left | right_wins), right_end, k)
+return np.where(rises_left & (~rises_right | left_wins), left_end, k)
 ```
 
 `k[i]` はその極大の標本位置、`peak[i]` はその高さである。枠から 0.75 W 以上
 離れた極大は別の物体のものである。その断面は `within_reach` を満たさず、中心線を置く
 のには使わない。
+
+断面が枠の点の両側で上り坂になっている、つまり点が 2 つの極大の間の谷にあるときは、
+近いほうの極大へ、同じ近さなら高いほうへ上る。点について厳密に対称な断面ではその点に
+留まる。繊維を逆向きに追跡すると法線が反転して各断面が左右反転するため、一方の側を
+優先する規則では、中心線と、そこから読む曲率とキンクがすべて、繊維をたまたまどちら
+向きに追跡したかで動いてしまう。形式 1.6 以前のバンドルは、判定されたときの規則
+どおり、この場合に標本位置の大きい側へ上る（§1.2）。
 
 ### 2.4 半値中点
 
@@ -915,7 +946,7 @@ cut_end_count=_cut_end_count(f),
 ### 3.3 どの高さ標本を数えるか
 
 `Fiber.height` のすべての点が高さ統計に入るわけではない。
-`measure.height_sample_mask` は 2 種類の標本を外す。
+`measure.height_sample_mask` は 3 種類の標本を外す。
 
 ```python
 # source: lib/measure.py::CUT_END_EXCLUSION_WIDTHS, MIN_HEIGHT_SAMPLES, HEIGHT_UPPER_PERCENTILE
@@ -943,6 +974,12 @@ if np.isfinite(width) and width > 0.0 and n > 1:
         mask &= ~(arc < zone)
     if n - 1 not in ends:
         mask &= ~(arc > arc[-1] - zone)
+    bridge = np.flatnonzero(~measured)
+    if bridge.size:
+        gap = np.abs(arc[:, None] - arc[bridge][None, :]).min(axis=1)
+        away_from_bridges = mask & (gap >= zone)
+        if away_from_bridges.sum() >= MIN_HEIGHT_SAMPLES:
+            mask = away_from_bridges
 if mask.sum() < MIN_HEIGHT_SAMPLES:
     mask = measured
     if not mask.any():
@@ -959,10 +996,15 @@ return mask
    こうした端から 1 W 以内（中心線に沿った X 画素単位の弧長で測る。Y は W と同じ単位にするため
    `Fiber.pixel_aspect` で拡大する）の標本は、一部が相手の
    繊維のものになっている。本物の繊維端の標本は残す。
+3. **橋渡し部の両側 1 幅。** 橋渡し部は、スケルトンが交差で切られてできた 2 つの断片の
+   間の隙間をまたぐ（§5.2）。そのため、その脇の標本は、切断端と同じ理由でその交差の
+   そばにある。橋渡し部の点から同じ測り方で 1 W 以内の標本を外す。
 
-残る標本が 3 未満になる場合は、短い断片でも高さを報告できるよう切断端の除外を
-やめる。測定値が 1 つも残らない場合は全標本を使う。幅を持たないファイバー
-（形式 1.0 のバンドルで、スケルトントラック上のもの）には切断端の除外を行わない。
+残る標本が 3 未満になる場合は、まず橋渡し部の周囲の除外をやめ、それでも足りなければ
+切断端の除外をやめる。こうして短い断片でも高さを報告でき、切断端の規則だけで外れる
+標本が先に戻ることはない。橋渡し部そのものの標本は外したままにする。測定値が 1 つも
+残らない場合は全標本を使う。幅を持たないファイバー（形式 1.0 のバンドルで、
+スケルトントラック上のもの）には、W で決まる 2 つの除外をどちらも行わない。
 
 ### 3.4 `median (nm)`、`max (nm)`、`p90 (nm)`
 
@@ -1049,10 +1091,11 @@ if horizon.size < 3 or float(horizon[-1]) < window_nm:
 xs = np.asarray(fiber.xtrack, dtype=float) * x_size_per_pixel
 ys = np.asarray(fiber.ytrack, dtype=float) * y_size_per_pixel
 half = window_nm / 2.0
-before = np.searchsorted(horizon, horizon - half, side="left")
-after = np.searchsorted(horizon, horizon + half, side="left")
-valid = (after < horizon.size) & (after > before)
-valid &= (horizon - horizon[np.clip(before, 0, horizon.size - 1)] >= half * 0.5)
+tolerance = 1e-9 * window_nm
+before = np.searchsorted(horizon, horizon - half + tolerance, side="right") - 1
+after = np.searchsorted(horizon, horizon + half - tolerance, side="left")
+valid = (after < horizon.size) & (before >= 0)
+before = np.clip(before, 0, horizon.size - 1)
 measured = getattr(fiber, "height_measured", None)
 if measured is not None:
     bridged = np.concatenate(([0], np.cumsum(~np.asarray(measured, dtype=bool))))
@@ -1079,7 +1122,8 @@ profile = fiber_curvature_profile(
 return float(np.mean(profile)) if profile.size else float("nan")
 ```
 
-中心線の各点 $i$ について、弧長で半窓（50 nm）後ろの点 $j$ と、半窓前の点 $k$ を取る。
+中心線の各点 $i$ について、弧長で半窓（50 nm）以上後ろにある最後の点 $j$ と、半窓以上
+前にある最初の点 $k$ を取る。
 2 本の弦 $j \to i$ と $i \to k$ を引き、それらのなす符号なしの角を、両者が張る弧の
 半分で割ったものが曲率である。
 
@@ -1096,11 +1140,13 @@ $$
 ノイズで決まってしまう。画素 2 nm で半径 80〜400 nm の合成円弧では、100 nm の窓で
 $1/R$ の 2 % 以内に収まった。
 
-点を使うのは、その**前方**に完全な半窓がある場合だけである（`after <
-horizon.size`）。**後方**は半窓の半分（25 nm）あれば足りる。この判定は
-`horizon[i] - horizon[j] >= half * 0.5` なので、先頭から 25〜50 nm の点は短い後方の
-弦を使う。100 nm より短いファイバーは曲率を持たず、欄は 0 ではなく空欄になる。
-完全な直線と読まれないようにするためである。
+点を使うのは、その**前後両方**に弧長で半窓以上がある場合だけである（`before >= 0`
+かつ `after < horizon.size`）。したがって、どちらかの端から 50 nm 以内の点は曲率を
+持たない。前後を同じに扱うのは、繊維を逆向きに追跡すると 2 本の弦が入れ替わるため
+である。点の前方と後方で窓の届き方が違えば、同じ繊維が逆向きでは別の曲率になって
+しまう。`tolerance`（窓の 10 億分の 1）は、ちょうど半窓離れた点を、`horizon` の丸めに
+よらず前後とも窓の中に入れる。100 nm より短いファイバーは曲率を持たず、欄は 0 では
+なく空欄になる。完全な直線と読まれないようにするためである。
 
 連結したフィブリルでは、窓（$j$ から $k$ まで）に橋渡し部の点（`Fiber.height_measured`
 が `False` の点、§5.2）を含む点も使わない。橋渡し部は繊維を観測していない隙間に引いた
@@ -1536,8 +1582,8 @@ if xs:
    であり、フィブリルは画素鎖のままになる。
 3. **橋渡しの高さ。** 隙間の手前の最後の `num_avg_points` = 5 個の高さの平均から、
    隙間の先の最初の 5 個の平均まで、線形に変化させる。橋渡しの点は、信頼できる点
-   とも測定値とも扱わない。そのため `reliable` の割合を下げ、高さ統計からは外れる
-   （§3.3）が、`length (nm)` には含まれる。
+   とも測定値とも扱わない。そのため `reliable` の割合を下げ、その両側 1 幅の標本と
+   ともに高さ統計からは外れる（§3.3）が、`length (nm)` には含まれる。
 
 つないだ中心線は、次に `Fiber` になる。
 
@@ -1560,6 +1606,7 @@ if is_placed_line(kind):
         aspect=aspect,
         peak=getattr(image, "width_peak", WIDTH_PEAK_NEAREST),
         adaptive_range=bool(getattr(image, "width_adaptive", True)),
+        symmetric_section=bool(getattr(image, "symmetric_section", True)),
     )
     judged = detector.judge_line(
         line_x, line_y, width, aspect,

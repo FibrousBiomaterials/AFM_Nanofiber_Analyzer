@@ -558,24 +558,40 @@ def _unit_tangents(x: NDArray, y: NDArray, half: int) -> Tuple[NDArray, NDArray]
     return tx / norm, ty / norm
 
 
-def _climb_to_maximum(prof: NDArray, c: int) -> NDArray:
+def _climb_to_maximum(prof: NDArray, c: int, symmetric: bool = True) -> NDArray:
     """
     Sample index of the local maximum reached by climbing uphill from `c`.
     `c` から坂を上って着く極大の標本インデックス。
 
-    Each row of `prof` is climbed from column `c` in the direction it rises
-    (toward higher columns when it rises on both sides), and stops at the
-    first sample the next one does not exceed. A row that falls on both sides
-    of `c` stays at `c`. This is the **first** maximum reached, not the
-    highest in the row, so a taller neighbouring fiber further along
-    the profile does not take the place of the fiber under `c` as long as
+    Each row of `prof` is climbed from column `c` in the direction it rises,
+    and stops at the first sample the next one does not exceed. A row that
+    falls on both sides of `c` stays at `c`. This is the **first** maximum
+    reached, not the highest in the row, so a taller neighbouring fiber further
+    along the profile does not take the place of the fiber under `c` as long as
     that fiber has a maximum of its own; one that is only a shoulder on the
     taller fiber's flank climbs to the taller fiber's maximum.
-    `prof` の各行を、列 `c` から上る向き（両側に上るときは列の大きい側）へ上り、
-    次の標本が上回らない最初の標本で止まる。`c` の両側で下がる行は `c` に留まる。
-    これは行の最大値ではなく **最初に着く** 極大なので、`c` の下にある繊維が自身の極大を持つ限り、
+    `prof` の各行を、列 `c` から上る向きへ上り、次の標本が上回らない最初の標本で
+    止まる。`c` の両側で下がる行は `c` に留まる。これは行の最大値ではなく
+    **最初に着く** 極大なので、`c` の下にある繊維が自身の極大を持つ限り、
     プロファイルのさらに先にある高い隣の繊維がそれに取って代わることはない。高い
     繊維の斜面の肩にすぎない繊維は、高い繊維の極大まで上る。
+
+    A row that rises on both sides of `c` (`c` lies in a valley between two
+    maxima) climbs to the nearer maximum, and to the higher one when both are
+    equally near; a row exactly symmetric about `c` stays at `c`. The profiles
+    run along the normal of the traced track, and tracing the fiber the other
+    way reverses that normal and so mirrors every row, so a rule that favours
+    one side of the row would make the line, and every curvature and kink read
+    from it, depend on the direction the fiber happened to be traced in. With
+    `symmetric` ``False`` such a row climbs toward higher columns, the rule a
+    reader passes for a bundle of format 1.6 or older.
+    `c` の両側に上る行（`c` が 2 つの極大の間の谷にある）は、近いほうの極大へ、
+    同じ近さなら高いほうへ上る。`c` について厳密に対称な行は `c` に留まる。
+    プロファイルは追跡したトラックの法線に沿って並び、繊維を逆向きに追跡すると
+    その法線が反転して各行が左右反転する。そのため行の一方の側を優先する規則では、
+    線と、そこから読む曲率とキンクがすべて、繊維をたまたまどちら向きに追跡したかに
+    依存してしまう。`symmetric` が ``False`` のときはこうした行が列の大きい側へ
+    上る。これは形式 1.6 以前のバンドルの読み取り側が渡す規則である。
 
     Parameters
     ----------
@@ -585,6 +601,13 @@ def _climb_to_maximum(prof: NDArray, c: int) -> NDArray:
     c
         Column the climb starts from, ``0 < c < ns - 1``.
         上り始める列。``0 < c < ns - 1``。
+    symmetric
+        Choose between two rising sides by distance and height
+        (`bundle_schema.symmetric_section_from_meta`); ``False`` prefers higher
+        columns.
+        両側に上るとき、距離と高さで向きを選ぶ
+        （`bundle_schema.symmetric_section_from_meta`）。``False`` なら列の大きい側を
+        優先する。
 
     Returns
     -------
@@ -595,14 +618,25 @@ def _climb_to_maximum(prof: NDArray, c: int) -> NDArray:
     n, ns = prof.shape
     dif = np.diff(prof, axis=1)
     k = np.full(n, c)
-    go_right = dif[:, c] > 0
-    go_left = ~go_right & (dif[:, c - 1] < 0)
+    rises_right = dif[:, c] > 0
+    rises_left = dif[:, c - 1] < 0
     stop_right = dif[:, c:] <= 0
-    right_end = np.where(stop_right.any(1), stop_right.argmax(1), stop_right.shape[1]) + c
-    k = np.where(go_right, np.minimum(right_end, ns - 1), k)
+    right_end = np.minimum(
+        np.where(stop_right.any(1), stop_right.argmax(1), stop_right.shape[1]) + c, ns - 1)
     stop_left = dif[:, :c][:, ::-1] >= 0
-    left_steps = np.where(stop_left.any(1), stop_left.argmax(1), c)
-    return np.where(go_left, c - left_steps, k)
+    left_end = c - np.where(stop_left.any(1), stop_left.argmax(1), c)
+    if not symmetric:
+        k = np.where(rises_right, right_end, k)
+        return np.where(~rises_right & rises_left, left_end, k)
+    rows = np.arange(n)
+    right_steps = right_end - c
+    left_steps = c - left_end
+    right_wins = (right_steps < left_steps) | (
+        (right_steps == left_steps) & (prof[rows, right_end] > prof[rows, left_end]))
+    left_wins = (left_steps < right_steps) | (
+        (right_steps == left_steps) & (prof[rows, left_end] > prof[rows, right_end]))
+    k = np.where(rises_right & (~rises_left | right_wins), right_end, k)
+    return np.where(rises_left & (~rises_right | left_wins), left_end, k)
 
 
 def measure_apparent_width(
@@ -613,6 +647,7 @@ def measure_apparent_width(
     aspect: float = 1.0,
     peak: str = WIDTH_PEAK_NEAREST,
     adaptive_range: bool = True,
+    symmetric_section: bool = True,
 ) -> Union[float, Tuple[float, bool]]:
     """
     Apparent full width at half maximum of the fiber under a track, in pixels.
@@ -656,6 +691,14 @@ def measure_apparent_width(
         幅が範囲に対して小さくないとき、より長い範囲でプロファイルを読み直す
         （Notes 参照）。``False`` は固定の ±`_WIDTH_SEARCH_PX` の範囲のままにする。
         これを渡すのは形式 1.4 以前のバンドルの読み取り側だけである。
+    symmetric_section
+        Climb to the crest by the rule that does not depend on the direction
+        the track was traced in (`_climb_to_maximum`). ``False`` keeps the rule
+        that prefers higher columns, which only a reader of a format 1.6 or
+        older bundle passes.
+        トラックを追跡した向きに依存しない規則で頂点へ上る（`_climb_to_maximum`）。
+        ``False`` は列の大きい側を優先する規則のままにする。これを渡すのは形式 1.6
+        以前のバンドルの読み取り側だけである。
 
     Returns
     -------
@@ -750,7 +793,8 @@ def measure_apparent_width(
         return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
 
     search = _WIDTH_SEARCH_PX
-    width, _single = _width_in_range(height, x, y, aspect, peak, search)
+    width, _single = _width_in_range(height, x, y, aspect, peak, search,
+                                     symmetric_section)
     # The base is the profile's 10th percentile, so it lies on the background
     # only while the range reaches well past the fiber; a range shorter than
     # `_WIDTH_RANGE_MIN_WIDTHS` widths takes the base on the fiber's skirt and
@@ -770,7 +814,8 @@ def measure_apparent_width(
            and search < _WIDTH_RANGE_MIN_WIDTHS * width):
         search = min(_WIDTH_SEARCH_MAX_PX,
                      max(_WIDTH_RANGE_WIDTHS * width, search + _WIDTH_STEP_PX))
-        wider, single = _width_in_range(height, x, y, aspect, peak, search)
+        wider, single = _width_in_range(height, x, y, aspect, peak, search,
+                                        symmetric_section)
         if wider is None or single < 0.5:
             break
         width = wider
@@ -780,7 +825,8 @@ def measure_apparent_width(
 
 
 def _width_in_range(height: NDArray, x: NDArray, y: NDArray, aspect: float,
-                    peak: str, search: float) -> Tuple[Optional[float], float]:
+                    peak: str, search: float,
+                    symmetric_section: bool = True) -> Tuple[Optional[float], float]:
     """
     Median apparent width with the profiles read over +-`search` X pixels.
     断面を ±`search` X 画素の範囲で読んだときの見かけ幅の中央値。
@@ -789,12 +835,14 @@ def _width_in_range(height: NDArray, x: NDArray, y: NDArray, aspect: float,
     give one, and the fraction of the usable sections whose run holds a single
     crest -- from the crest outward the profile never rises again by more than
     `_WIDTH_SECOND_CREST_FRAC` of the crest above the base. `x` and `y` are in
-    X-pixel units, as `measure_apparent_width` prepares them.
+    X-pixel units, as `measure_apparent_width` prepares them, and
+    `symmetric_section` is as there.
     ``(width, single)`` を返す。幅（読める断面が少なすぎるときは ``None``）と、使える
     断面のうち区間が頂点を 1 つしか含まない割合である。頂点から外側へ向かって、
     プロファイルが基準からの頂点の高さの `_WIDTH_SECOND_CREST_FRAC` 倍を超えて
     再び上がることがなければ、頂点は 1 つとする。`x` と `y` は
-    `measure_apparent_width` が用意した X 画素単位の座標。
+    `measure_apparent_width` が用意した X 画素単位の座標。`symmetric_section` は
+    `measure_apparent_width` と同じ。
     """
     tx, ty = _unit_tangents(x, y, _WIDTH_TANGENT_HALF)
     nx, ny = -ty, tx
@@ -807,7 +855,8 @@ def _width_in_range(height: NDArray, x: NDArray, y: NDArray, aspect: float,
 
     centre = offsets.size // 2
     if peak == WIDTH_PEAK_NEAREST:
-        top = profiles[np.arange(x.size), _climb_to_maximum(profiles, centre)]
+        top = profiles[np.arange(x.size),
+                       _climb_to_maximum(profiles, centre, symmetric_section)]
     else:
         top = profiles.max(axis=1)
     base = np.percentile(profiles, 10.0, axis=1)
@@ -1010,6 +1059,7 @@ def refine_centerline(
     width_px: float,
     branch_points: Optional[NDArray] = None,
     aspect: float = 1.0,
+    symmetric_section: bool = True,
 ) -> Tuple[NDArray, NDArray, NDArray]:
     """
     Move each skeleton point to the half-maximum midpoint of its cross-section.
@@ -1034,6 +1084,9 @@ def refine_centerline(
     aspect
         Y pixel size over X pixel size, as in `place_centerline`.
         Y 画素サイズ ÷ X 画素サイズ。`place_centerline` と同じ。
+    symmetric_section
+        As in `place_centerline`.
+        `place_centerline` と同じ。
 
     Returns
     -------
@@ -1079,7 +1132,8 @@ def refine_centerline(
     オフセットを保つ。
     """
     lx, ly, reliable, _crest = _refine(
-        height, xtrack, ytrack, width_px, branch_points, aspect=aspect)
+        height, xtrack, ytrack, width_px, branch_points, aspect=aspect,
+        symmetric_section=symmetric_section)
     return lx, ly, reliable
 
 
@@ -1147,6 +1201,7 @@ def _refine(
     branch_points: Optional[NDArray],
     method: str = HALF_MAX_025W_CENTERLINE,
     aspect: float = 1.0,
+    symmetric_section: bool = True,
 ) -> Tuple[NDArray, NDArray, NDArray, NDArray]:
     """
     Place the line and read the crest height at each of its points.
@@ -1178,6 +1233,14 @@ def _refine(
         in X pixels, and the line is returned in image pixels.
         Y 画素サイズ ÷ X 画素サイズ。枠・法線・距離・分岐点の半径といった幾何は Y を
         これで拡大した X 画素単位で計算し、線は画像の画素座標で返す。
+    symmetric_section
+        Sample each cross-section symmetrically about the frame point and climb
+        by the direction-independent rule (`_climb_to_maximum`); ``False`` is
+        the sampling and rule a reader passes for a bundle of format 1.6 or
+        older (`place_centerline`).
+        各断面を枠の点について対称に標本化し、向きに依存しない規則で上る
+        （`_climb_to_maximum`）。``False`` は形式 1.6 以前のバンドルの読み取り側が
+        渡す標本化と規則である（`place_centerline`）。
 
     Returns
     -------
@@ -1253,7 +1316,18 @@ def _refine(
 
     reach = _CREST_REACH_WIDTHS * width
     half_reach = _HALF_MAX_REACH_WIDTHS * width
-    s = np.arange(-(reach + half_reach), reach + half_reach + 1e-9, _WIDTH_STEP_PX)
+    if symmetric_section:
+        # Built outward from 0 so the samples mirror about the frame point:
+        # tracing the fiber the other way reverses the normal, and samples
+        # that sit differently on the two sides would read the mirrored
+        # section at other offsets.
+        # 0 から外側へ作り、標本を枠の点について鏡映対称にする。繊維を逆向きに
+        # 追跡すると法線が反転するため、両側で並び方の違う標本では、鏡映した断面を
+        # 別のオフセットで読むことになる。
+        half_grid = np.arange(0.0, reach + half_reach + 1e-9, _WIDTH_STEP_PX)
+        s = np.concatenate((-half_grid[:0:-1], half_grid))
+    else:
+        s = np.arange(-(reach + half_reach), reach + half_reach + 1e-9, _WIDTH_STEP_PX)
     ns = s.size
     prof = _bilinear(img, (fy[:, None] + ny[:, None] * s[None, :]) / a,
                      fx[:, None] + nx[:, None] * s[None, :])
@@ -1263,7 +1337,7 @@ def _refine(
     # Climb uphill from the frame point to the first local maximum.
     # 枠の点から坂を上り、最初に着く極大へ達する。
     c = int(np.argmin(np.abs(s)))
-    k = _climb_to_maximum(prof, c)
+    k = _climb_to_maximum(prof, c, symmetric_section)
     peak = prof[rows, k]
     within_reach = np.abs(s[k]) < reach - 0.5 * _WIDTH_STEP_PX
 
@@ -1492,6 +1566,7 @@ def place_centerline(
     aspect: float = 1.0,
     width_peak: str = WIDTH_PEAK_NEAREST,
     width_adaptive: bool = True,
+    symmetric_section: bool = True,
 ) -> CenterlineResult:
     """
     Place the chosen centerline of one traced skeleton track.
@@ -1536,6 +1611,14 @@ def place_centerline(
         見かけ幅を繊維に合わせて広がる範囲で読むか（`measure_apparent_width` の
         `adaptive_range`）。読み取り側は、バンドルのキンクを判定したときのもの
         （`bundle_schema.width_range_adaptive_from_meta`）を渡す。
+    symmetric_section
+        Whether each cross-section is sampled symmetrically about the track and
+        climbed by the rule that does not depend on the direction the fiber was
+        traced in (`_climb_to_maximum`); a reader passes what its bundle's kinks
+        were judged with (`bundle_schema.symmetric_section_from_meta`).
+        各断面をトラックについて対称に標本化し、繊維を追跡した向きに依存しない規則
+        で上るか（`_climb_to_maximum`）。読み取り側は、バンドルのキンクを判定した
+        ときのもの（`bundle_schema.symmetric_section_from_meta`）を渡す。
 
     Returns
     -------
@@ -1571,7 +1654,7 @@ def place_centerline(
     >>> ytrack = np.full(xtrack.size, 10)
     >>> result = place_centerline(height, xtrack, ytrack)
     >>> round(float(np.median(result.y)), 2)
-    10.3
+    10.29
     >>> result.width_px, result.width_measured
     (3.5, True)
     """
@@ -1587,9 +1670,9 @@ def place_centerline(
         )
     width, measured = measure_apparent_width(
         height, x, y, return_measured=True, aspect=aspect, peak=width_peak,
-        adaptive_range=width_adaptive)
+        adaptive_range=width_adaptive, symmetric_section=symmetric_section)
     lx, ly, reliable, crest = _refine(
-        height, x, y, width, branch_points, method, aspect)
+        height, x, y, width, branch_points, method, aspect, symmetric_section)
     return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 
 

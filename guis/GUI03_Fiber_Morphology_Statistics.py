@@ -362,6 +362,17 @@ FRAME_MODES = (FRAME_INCLUDE, FRAME_EXCLUDE, FRAME_MILES_LANTUEJOUL,
 # 標本が `FiberStats.frame_weight` に重みを持つ扱い。
 WEIGHTED_FRAME_MODES = (FRAME_MILES_LANTUEJOUL, FRAME_KAPLAN_MEIER)
 
+# Resamples behind the interval reported beside a Kaplan-Meier quartile
+# (`_kaplan_meier_interval`), and the fixed seed that makes the interval the
+# same on every run of the same data.
+# Kaplan-Meier の四分位数の脇に出す区間（`_kaplan_meier_interval`）の
+# リサンプリング回数と、同じデータでは毎回同じ区間になるようにする固定の種。
+KM_RESAMPLES = 200
+KM_RESAMPLE_SEED = 20261104
+# The three quantiles a summary reports, with the result keys they go under.
+# 要約が報告する 3 つの分位点と、それを入れる結果のキー。
+QUARTILE_KEYS = ((0.25, "q1"), (0.5, "median"), (0.75, "q3"))
+
 
 def _apply_frame_mode(per_source, frame_mode: str) -> tuple:
     """
@@ -673,14 +684,18 @@ def _apply_kaplan_meier(per_source) -> tuple:
         `report` has ``kaplan_meier`` (True), ``total``, ``complete``,
         ``censored``, ``no_own_end``, ``unassigned`` (the share of fibers the
         estimate places beyond the longest one seen whole), ``beyond`` (that
-        many fibers), ``longest_nm`` and ``unrecorded``.
+        many fibers), ``longest_nm``, ``unrecorded``, and ``lengths_nm`` and
+        ``own_ends``, the length and own-end count of every fiber the estimate
+        read, which `_kaplan_meier_interval` resamples.
         ``(kept, report)``。`kept` はソースごとに、両端とも自身の端である
         ファイバーを、重みを `frame_weight` に入れて持つ。片端が切れたファイバーは
         打ち切りとして推定に入り、自身は重みを持たない。`report` は
         ``kaplan_meier``（True）・``total``・``complete``・``censored``・
         ``no_own_end``・``unassigned``（全長を見たうち最長のものより長い側に推定が
-        置く本数の割合）・``beyond``（その本数）・``longest_nm``・``unrecorded``
-        を持つ。
+        置く本数の割合）・``beyond``（その本数）・``longest_nm``・``unrecorded``、
+        および推定が読んだ全ファイバーの長さと自身の端の数である ``lengths_nm`` と
+        ``own_ends`` を持つ。後の 2 つは `_kaplan_meier_interval` がリサンプリング
+        する。
 
     Notes
     -----
@@ -723,6 +738,8 @@ def _apply_kaplan_meier(per_source) -> tuple:
     whole = [ln for ln, o in zip(lengths, own) if o == 2]
     if whole:
         report["longest_nm"] = float(max(whole))
+    report["lengths_nm"] = np.asarray(lengths, dtype=float)
+    report["own_ends"] = np.asarray(own, dtype=int)
     return kept, report
 
 
@@ -825,8 +842,98 @@ def _fiber_samples(stat, param: str, unit: str) -> list:
     return [] if value is None else [value]
 
 
+def _kaplan_meier_bounds(values: np.ndarray, weights: np.ndarray,
+                         folders) -> dict:
+    """
+    Return the bounds of each quartile of a pooled Kaplan-Meier length estimate.
+    フォルダをまとめた Kaplan-Meier の長さ推定について、各四分位数の範囲を返す。
+
+    Parameters
+    ----------
+    values
+        Lengths of the fibers seen whole, over every folder.
+        全フォルダの、全長を見たファイバーの長さ。
+    weights
+        Their Kaplan-Meier weights, in fibers.
+        それらの Kaplan-Meier 重み（本数）。
+    folders
+        ``(longest_nm, beyond)`` per folder: the longest fiber that folder saw
+        whole (NaN when it saw none) and the fibers its estimate places beyond
+        it.
+        フォルダごとの ``(longest_nm, beyond)``。そのフォルダが全長を見た最長の
+        ファイバー（1 本も無ければ NaN）と、その推定がそれより長い側に置く本数。
+
+    Returns
+    -------
+    dict
+        ``{key: (lower, upper)}`` for each key of `QUARTILE_KEYS`; ``upper`` is
+        infinite when the quantile can lie anywhere beyond ``lower``.
+        `QUARTILE_KEYS` の各キーについて ``{key: (lower, upper)}``。分位点が
+        ``lower`` より先のどこにでもありうるときは ``upper`` が無限大。
+
+    Notes
+    -----
+    Each folder's estimate stops at the longest fiber that folder saw whole,
+    and the fibers it places beyond lie somewhere above that length, not above
+    the longest fiber of the whole group. Placing every folder's share at
+    infinity gives the largest each quantile can be, and placing it just above
+    that folder's own longest fiber the smallest; a folder that saw no fiber
+    whole gives no such length and is placed just above zero. With one folder
+    the two agree wherever the estimate reaches the quantile, and otherwise
+    the quantile is known only to exceed the longest fiber seen whole.
+    各フォルダの推定は、そのフォルダが全長を見た最長のファイバーで止まり、推定が
+    それより長い側に置くファイバーは、グループ全体の最長のファイバーではなく、
+    その長さより先のどこかにある。全フォルダの分を無限遠に置くと各分位点は
+    最も大きく、各フォルダ自身の最長のファイバーのすぐ先に置くと最も小さくなる。
+    1 本も全長を見なかったフォルダにはその長さが無く、0 のすぐ先に置く。
+    フォルダが 1 つなら、推定が分位点に届く範囲で両者は一致し、届かなければ
+    分位点は全長を見た最長のファイバーより長いことしか分からない。
+    """
+    values = np.asarray(values, dtype=float)
+    weights = np.asarray(weights, dtype=float)
+    shares = sorted((float(longest) if np.isfinite(longest) else 0.0, float(beyond))
+                    for longest, beyond in folders if beyond > 0.0)
+    assigned = float(weights.sum())
+    total = assigned + sum(b for _l, b in shares)
+    order = np.argsort(values)
+    sorted_values = values[order]
+    sorted_weights = weights[order]
+    upper_positions = (np.cumsum(sorted_weights) - 0.5 * sorted_weights) / total
+
+    # The lower bound: each folder's share sits just above its own longest
+    # fiber, so every length above that moves up by the share.
+    # 下限。各フォルダの分を自身の最長のファイバーのすぐ先に置くため、それより
+    # 長い各長さは、その分だけ上へずれる。
+    positions = []
+    lengths = []
+    for value, position in zip(sorted_values, upper_positions):
+        below = sum(b for longest, b in shares if longest < value)
+        positions.append(position + below / total)
+        lengths.append(value)
+    placed = 0.0
+    for longest, beyond in shares:
+        start = float(sorted_weights[sorted_values <= longest].sum()) + placed
+        positions.extend([start / total, (start + beyond) / total])
+        lengths.extend([longest, longest])
+        placed += beyond
+    knots = np.lexsort((lengths, positions))
+    positions = np.asarray(positions, dtype=float)[knots]
+    lengths = np.maximum.accumulate(np.asarray(lengths, dtype=float)[knots])
+
+    bounds = {}
+    for q, key in QUARTILE_KEYS:
+        if sorted_values.size == 0:
+            bounds[key] = (0.0, float("inf"))
+            continue
+        upper = (float(np.interp(q, upper_positions, sorted_values))
+                 if q <= assigned / total else float("inf"))
+        lower = float(np.interp(q, positions, lengths))
+        bounds[key] = (min(lower, upper), upper)
+    return bounds
+
+
 def _kaplan_meier_summary(values: np.ndarray, weights: np.ndarray,
-                          beyond: float) -> dict:
+                          folders) -> dict:
     """
     Return the statistics a Kaplan-Meier length estimate can give.
     Kaplan-Meier による長さの推定が与えられる統計値を返す。
@@ -839,22 +946,26 @@ def _kaplan_meier_summary(values: np.ndarray, weights: np.ndarray,
     weights
         Their Kaplan-Meier weights, in fibers.
         それらの Kaplan-Meier 重み（本数）。
-    beyond
-        Fibers the estimate places beyond the longest fiber seen whole.
-        推定が、全長を見たうち最長のファイバーより長い側に置く本数。
+    folders
+        ``(longest_nm, beyond)`` per folder estimated, as in
+        `_kaplan_meier_bounds`.
+        推定したフォルダごとの ``(longest_nm, beyond)``。`_kaplan_meier_bounds`
+        と同じ。
 
     Returns
     -------
     dict
-        The keys of `_summary_stats`. With nothing beyond, the weighted
-        statistics of `_summary_stats`; otherwise a quartile that falls beyond
-        the longest fiber seen whole, the mean and the standard deviation are
-        NaN, because they depend on the part of the distribution that was not
-        estimated.
-        `_summary_stats` と同じキー。推定できない部分が無ければ `_summary_stats`
-        の重み付き統計値。あれば、全長を見たうち最長のファイバーより長い側に落ちる
-        四分位数と、平均・標準偏差は NaN とする。推定していない部分の分布に
-        依存するためである。
+        The keys of `_summary_stats` and ``bounds``. With nothing beyond, the
+        weighted statistics of `_summary_stats` and no bounds; otherwise a
+        quartile is reported only where its bounds (`_kaplan_meier_bounds`,
+        kept under ``bounds``) agree and is NaN elsewhere, and the mean and the
+        standard deviation are NaN, because they depend on the part of the
+        distribution that was not estimated.
+        `_summary_stats` のキーと ``bounds``。推定できない部分が無ければ
+        `_summary_stats` の重み付き統計値で、範囲は持たない。あれば、四分位数は
+        その範囲（`_kaplan_meier_bounds`。``bounds`` に入れる）の上下が一致する
+        場合だけ報告し、それ以外は NaN とする。平均・標準偏差も NaN とする。
+        推定していない部分の分布に依存するためである。
 
     Notes
     -----
@@ -866,34 +977,145 @@ def _kaplan_meier_summary(values: np.ndarray, weights: np.ndarray,
     そのため中央値は、推定が半数のファイバーに届く場合にだけ報告する。統計
     パッケージもそのような中央値を同じように欠測として返す。
     """
-    if beyond <= 0.0:
-        return _summary_stats(values, weights)
-    assigned = float(weights.sum())
-    total = assigned + float(beyond)
-    order = np.argsort(values)
-    sorted_values = values[order]
-    sorted_weights = weights[order]
-    positions = (np.cumsum(sorted_weights) - 0.5 * sorted_weights) / total
-    q1, median, q3 = (
-        float(np.interp(q, positions, sorted_values)) if q <= assigned / total
-        else float("nan")
-        for q in (0.25, 0.5, 0.75)
-    )
-    return {"mean": float("nan"), "std": float("nan"),
-            "q1": q1, "median": median, "q3": q3,
-            "std_definition": STD_WEIGHTED}
+    if sum(b for _l, b in folders) <= 0.0:
+        return dict(_summary_stats(values, weights), bounds={})
+    bounds = _kaplan_meier_bounds(values, weights, folders)
+    stats = {"mean": float("nan"), "std": float("nan"),
+             "std_definition": STD_WEIGHTED, "bounds": bounds}
+    for _q, key in QUARTILE_KEYS:
+        lower, upper = bounds[key]
+        stats[key] = (upper if np.isfinite(upper)
+                      and upper - lower <= 1e-9 * max(1.0, abs(upper))
+                      else float("nan"))
+    return stats
+
+
+def _kaplan_meier_interval(samples, resamples: int = KM_RESAMPLES,
+                           seed: int = KM_RESAMPLE_SEED) -> dict:
+    """
+    Return a resampling interval for each quartile of a pooled length estimate.
+    フォルダをまとめた長さ推定の各四分位数について、リサンプリング区間を返す。
+
+    Parameters
+    ----------
+    samples
+        ``(lengths_nm, own_ends)`` arrays per folder: every fiber the folder's
+        estimate read (`_apply_kaplan_meier`'s report).
+        フォルダごとの ``(lengths_nm, own_ends)`` 配列。そのフォルダの推定が
+        読んだ全ファイバー（`_apply_kaplan_meier` の report）。
+    resamples
+        Number of resamples.
+        リサンプリング回数。
+    seed
+        Seed of the random resampling, so the same data give the same interval.
+        ランダムなリサンプリングの種。同じデータには同じ区間を与える。
+
+    Returns
+    -------
+    dict
+        ``{key: (lower, upper)}`` for each key of `QUARTILE_KEYS`: the 2.5th
+        percentile of the quartile's lower bound and the 97.5th percentile of
+        its upper bound over the resamples, ``upper`` infinite when more than
+        2.5 % of the resamples leave the quartile without an upper bound.
+        Empty when no folder has a fiber.
+        `QUARTILE_KEYS` の各キーについて ``{key: (lower, upper)}``。リサンプリング
+        にわたる、四分位数の下限の 2.5 パーセンタイルと上限の 97.5 パーセンタイル。
+        2.5 % を超えるリサンプルで上限が定まらなければ ``upper`` は無限大。
+        どのフォルダにもファイバーが無ければ空。
+
+    Notes
+    -----
+    The bounds of `_kaplan_meier_bounds` cover only where each folder's
+    unplaced share might lie; the fibers measured are themselves a sample. The
+    fibers of each folder are drawn again with replacement, the estimate and
+    its bounds are recomputed, and the interval spans the bounds' spread. Each
+    folder is resampled on its own, so a folder keeps its own fibers and its
+    own longest fiber seen whole.
+    `_kaplan_meier_bounds` の範囲が扱うのは、各フォルダの置けなかった分がどこに
+    ありうるかだけであり、計測したファイバー自体も標本である。各フォルダの
+    ファイバーを復元抽出し直して推定とその範囲を計算し直し、区間はその範囲の
+    ばらつきにわたる。フォルダごとに別々にリサンプリングするため、各フォルダは
+    自身のファイバーと、全長を見た自身の最長のファイバーを保つ。
+    """
+    samples = [(np.asarray(lengths, dtype=float), np.asarray(own, dtype=int))
+               for lengths, own in samples if len(lengths)]
+    if not samples:
+        return {}
+    rng = np.random.default_rng(seed)
+    lowers = {key: [] for _q, key in QUARTILE_KEYS}
+    uppers = {key: [] for _q, key in QUARTILE_KEYS}
+    for _ in range(resamples):
+        values, weights, folders = [], [], []
+        for lengths, own in samples:
+            pick = rng.integers(0, lengths.size, lengths.size)
+            drawn, drawn_own = lengths[pick], own[pick]
+            fiber_weights, rest = kaplan_meier_length_weights(drawn, drawn_own)
+            keep = (drawn_own == 2) & (fiber_weights > 0.0)
+            values.append(drawn[keep])
+            weights.append(fiber_weights[keep])
+            whole = drawn[drawn_own == 2]
+            folders.append((float(whole.max()) if whole.size else float("nan"),
+                            rest * float(drawn_own.sum()) / 2.0))
+        values = np.concatenate(values)
+        weights = np.concatenate(weights)
+        bounds = (_kaplan_meier_bounds(values, weights, folders) if values.size
+                  else {key: (0.0, float("inf")) for _q, key in QUARTILE_KEYS})
+        for _q, key in QUARTILE_KEYS:
+            lowers[key].append(bounds[key][0])
+            uppers[key].append(bounds[key][1])
+    return {key: (float(np.percentile(lowers[key], 2.5)),
+                  float(np.percentile(uppers[key], 97.5, method="higher")))
+            for _q, key in QUARTILE_KEYS}
+
+
+def _range_csv_values(ranges: dict) -> list:
+    """
+    Return the CSV cells of the quartile ranges: lower and upper per key of `QUARTILE_KEYS`.
+    四分位数の範囲の CSV セルを返す。`QUARTILE_KEYS` のキーごとに下限と上限。
+
+    A key without a range gives two blank cells, and an upper end that is not
+    bounded reads ``inf``.
+    範囲の無いキーは空欄 2 つになり、定まらない上限は ``inf`` と書く。
+    """
+    cells = []
+    for _q, key in QUARTILE_KEYS:
+        if key not in ranges:
+            cells.extend(["", ""])
+            continue
+        lower, upper = ranges[key]
+        cells.append("{0:.3f}".format(lower))
+        cells.append("{0:.3f}".format(upper) if np.isfinite(upper) else "inf")
+    return cells
+
+
+def _range_text(bounds, fmt: str) -> str:
+    """
+    Format a ``(lower, upper)`` range, open-ended when ``upper`` is infinite.
+    ``(lower, upper)`` の範囲を書式化する。``upper`` が無限大なら上を開く。
+    """
+    lower, upper = bounds
+    if not np.isfinite(upper):
+        return "> " + fmt.format(lower)
+    return "[" + fmt.format(lower) + ", " + fmt.format(upper) + "]"
 
 
 def _quantile_text(r: dict, key: str, fmt: str) -> str:
     """
-    Format a quartile of a result, or say it lies beyond the longest fiber seen whole.
-    結果の四分位数を書式化する。全長を見た最長のファイバーより長い側にあれば、そう書く。
+    Format a quartile of a result, or the range a Kaplan-Meier estimate leaves it in.
+    結果の四分位数を書式化する。Kaplan-Meier 推定で値が定まらなければ、その範囲を書く。
+
+    A quartile the estimate leaves undetermined reads ``[lower, upper]``, or
+    ``> lower`` when it can lie anywhere beyond `lower`
+    (`_kaplan_meier_bounds`).
+    推定で値が定まらない四分位数は ``[lower, upper]``、`lower` より先のどこにでも
+    ありうるときは ``> lower`` と書く（`_kaplan_meier_bounds`）。
     """
     value = r[key]
     if np.isfinite(value):
         return fmt.format(value)
-    if r.get("km_beyond", 0.0) > 0.0:
-        return "> " + fmt.format(r["km_longest_nm"])
+    bounds = r.get("quantile_bounds", {}).get(key)
+    if bounds is not None:
+        return _range_text(bounds, fmt)
     return "-"
 
 
@@ -2170,8 +2392,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "ファイバーを「計測した長さ以上」の観測として、ファイバーの長さの分布を"
             "推定します（Kaplan-Meier 推定）。{km} は {fiber} 集計でだけ使えます。"
             "全長を見たうち最長のファイバーより長い側は推定できず、その割合は図と"
-            "ログに出ます。そこに落ちる中央値や四分位数は数値の代わりに「> その長さ」"
-            "と書き、平均・標準偏差・最頻値は空欄にします。{fiber} 集計の重み付きの標本"
+            "ログに出ます。そこに落ちる中央値や四分位数は、数値の代わりにありうる範囲を"
+            "「[下限, 上限]」か「> 下限」で書きます。下限は各フォルダの推定できない部分を"
+            "そのフォルダで全長を見た最長のファイバーのすぐ先に、上限は無限遠に置いたときの"
+            "値です。ファイバーを各フォルダ内でリサンプリングした 95 % 区間はログと統計値の "
+            "CSV に出ます。平均・標準偏差・最頻値は空欄にします。{fiber} 集計の重み付きの標本"
             "には群間検定を行いません。{ml} の {image}・{folder} 集計は、各画像・各"
             "フォルダの重み付き中央値を検定します。高さ・曲率・キンクは枠内の部分の"
             "測定として有効なため、この設定の影響を受けません。"
@@ -4491,6 +4716,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # 本数と、その長さ。グループのフォルダにわたって合計する。
             grp_km_beyond = 0.0
             grp_km_longest = float("nan")
+            # Per folder: its longest fiber seen whole and the fibers beyond it
+            # (`_kaplan_meier_bounds`), and every fiber its estimate read
+            # (`_kaplan_meier_interval`).
+            # フォルダごとの、全長を見た最長のファイバーとそれより長い側の本数
+            # （`_kaplan_meier_bounds`）、および推定が読んだ全ファイバー
+            # （`_kaplan_meier_interval`）。
+            grp_km_folders = []
+            grp_km_samples = []
             # Under `FRAME_INCLUDE`: fibers judged, those that reach the frame,
             # and those with an end cut elsewhere, over the group's folders.
             # `FRAME_INCLUDE` のとき、判定した本数、枠に達した本数、それ以外で切れた
@@ -4670,6 +4903,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     grp_km_beyond += frame_report["beyond"]
                     grp_km_longest = float(np.nanmax(
                         [grp_km_longest, frame_report["longest_nm"]]))
+                    grp_km_folders.append(
+                        (frame_report["longest_nm"], frame_report["beyond"]))
+                    grp_km_samples.append(
+                        (frame_report["lengths_nm"], frame_report["own_ends"]))
                 if frame_report and frame_mode == FRAME_INCLUDE:
                     grp_frame_total += frame_report["total"]
                     grp_frame_touching += frame_report["frame"]
@@ -4751,8 +4988,26 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # 右に裾を引くため、対称性を仮定しない中央値と四分位範囲での
             # 記述が必要になる。
             kaplan_meier = frame_mode == FRAME_KAPLAN_MEIER and wts is not None
-            stats = (_kaplan_meier_summary(arr, wts, grp_km_beyond) if kaplan_meier
+            stats = (_kaplan_meier_summary(arr, wts, grp_km_folders) if kaplan_meier
                      else _summary_stats(arr, wts))
+            km_interval = (_kaplan_meier_interval(grp_km_samples) if kaplan_meier
+                           else {})
+            if km_interval:
+                # The quartiles' 95 % resampling interval, which covers the
+                # sampling of the fibers as well as where each folder's
+                # unplaced share lies.
+                # 四分位数の 95 % リサンプリング区間。各フォルダの置けなかった分の
+                # 位置に加えて、ファイバーの標本抽出によるばらつきも含む。
+                self.ui_queue.put(("log", _(
+                    "[{grp}] 長さ ({km}): ファイバーを各フォルダ内で {n} 回"
+                    "リサンプリングした 95 % 区間は、第 1 四分位数 {q1}、中央値 {md}、"
+                    "第 3 四分位数 {q3} nm です"
+                ).format(
+                    grp=grp_name, km=FRAME_KAPLAN_MEIER, n=KM_RESAMPLES,
+                    q1=_range_text(km_interval["q1"], "{0:.1f}"),
+                    md=_range_text(km_interval["median"], "{0:.1f}"),
+                    q3=_range_text(km_interval["q3"], "{0:.1f}"),
+                )))
             results.append({
                 "id": grp["id"],
                 "name": grp_name,
@@ -4765,6 +5020,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "median": stats["median"],
                 "q1": stats["q1"],
                 "q3": stats["q3"],
+                # Under Kaplan-Meier, the range a quartile lies in when where
+                # each folder's unplaced share lies leaves it undetermined
+                # (`_kaplan_meier_bounds`), and the 95 % resampling interval
+                # (`_kaplan_meier_interval`).
+                # Kaplan-Meier で、各フォルダの置けなかった分の位置によって値が
+                # 定まらない四分位数の範囲（`_kaplan_meier_bounds`）と、95 %
+                # リサンプリング区間（`_kaplan_meier_interval`）。
+                "quantile_bounds": stats.get("bounds", {}),
+                "km_interval": km_interval,
                 # The reported sample size is the total weight, which is a
                 # count when the weights are implicit ones and a contour
                 # length in nanometers under length weighting. The
@@ -4793,6 +5057,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # より長い側の本数と、その長さ。
                 "km_beyond": grp_km_beyond if kaplan_meier else 0.0,
                 "km_longest_nm": grp_km_longest,
+                "km_folders": grp_km_folders if kaplan_meier else [],
                 # Share of the fibers aggregated under `FRAME_INCLUDE` whose
                 # length the frame cut, which is what the mode leaves in.
                 # `FRAME_INCLUDE` で集計したファイバーのうち、枠で長さが切れたものの
@@ -5128,7 +5393,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 values=(
                     r["name"],
                     _quantile_text(r, "median", "{0:.3f}"),
-                    _quantile_text(r, "q1", "{0:.3f}") + "–"
+                    # A quartile given as a range reads poorly joined by a dash.
+                    # 範囲で示した四分位数はダッシュでつなぐと読みにくい。
+                    _quantile_text(r, "q1", "{0:.3f}")
+                    + ("–" if np.isfinite(r["q1"]) and np.isfinite(r["q3"]) else " to ")
                     + _quantile_text(r, "q3", "{0:.3f}"),
                     _blank_if_nan(r["mean"], "{0:.3f}") or "-",
                     _blank_if_nan(r["std"], "{0:.3f}") or "-",
@@ -5410,10 +5678,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         stats = []
         positions = []
-        # A Kaplan-Meier box whose quartiles lie beyond the longest fiber seen
-        # whole cannot be drawn, so its place says why instead.
-        # 四分位数が全長を見た最長のファイバーより長い側にある Kaplan-Meier の箱は
-        # 描けないため、その位置に理由を書く。
+        # A Kaplan-Meier box whose quartiles the estimate leaves undetermined
+        # cannot be drawn, so its place says where they lie instead.
+        # 推定で四分位数が定まらない Kaplan-Meier の箱は描けないため、その位置に
+        # 四分位数のある範囲を書く。
         unplaced = []
         for k, r in enumerate(results, start=1):
             if not all(np.isfinite(r[q]) for q in ("q1", "median", "q3")):
@@ -5451,9 +5719,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             for median in artists["medians"]:
                 median.set_color("black")
         for k, r in unplaced:
-            ax.text(k, 0.5, "box reaches beyond\n{0:.0f} nm,\nnot estimated".format(
-                r["km_longest_nm"]), transform=ax.get_xaxis_transform(),
-                ha="center", va="center", fontsize=tick_fs, color=r["color"])
+            lines = ["box not estimated"] + [
+                "{0} {1}".format(label, _quantile_text(r, key, "{0:.0f}"))
+                for label, key in (("Q1", "q1"), ("median", "median"), ("Q3", "q3"))
+                if not np.isfinite(r[key])
+            ]
+            ax.text(k, 0.5, "\n".join(lines), transform=ax.get_xaxis_transform(),
+                    ha="center", va="center", fontsize=tick_fs, color=r["color"])
         ax.set_xticks(range(1, len(results) + 1))
         ax.set_xticklabels([r["name"] for r in results])
         ax.set_xlim(0.5, len(results) + 0.5)
@@ -5592,9 +5864,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     lines.append("effective N = {0:.1f}".format(r["n_effective"]))
                 if r.get("km_beyond", 0.0) > 0.0:
                     share = r["km_beyond"] / (r["weight_total"] + r["km_beyond"])
-                    lines.append("{0:.0%} beyond {1:.0f} {2}".format(
-                        share, r["km_longest_nm"], value_unit))
-                    lines.append("not estimated")
+                    # Each folder's share lies beyond its own longest fiber
+                    # seen whole, so one length is named only when one folder
+                    # carries a share.
+                    # 各フォルダの分は、そのフォルダが全長を見た最長のファイバーより
+                    # 先にあるため、分を持つフォルダが 1 つのときだけ長さを書く。
+                    carrying = [lg for lg, b in r.get("km_folders", []) if b > 0.0]
+                    if len(carrying) == 1 and np.isfinite(carrying[0]):
+                        lines.append("{0:.0%} beyond {1:.0f} {2}".format(
+                            share, carrying[0], value_unit))
+                        lines.append("not estimated")
+                    else:
+                        lines.append("{0:.0%} beyond each folder's".format(share))
+                        lines.append("longest, not estimated")
             if self._kink_length_weighted(param, unit):
                 lines.append("weighted by judged length")
 
@@ -5952,6 +6234,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     # Under the kink quantities, the scale the kinks were judged at.
                     # キンクの量で、キンクを判定した尺度。
                     "median W (nm)",
+                    # Under Kaplan-Meier, the range each quartile lies in when
+                    # it is not determined (`_kaplan_meier_bounds`), and its
+                    # 95 % resampling interval (`_kaplan_meier_interval`); an
+                    # upper end that is not bounded reads "inf".
+                    # Kaplan-Meier で、値が定まらない四分位数のある範囲
+                    # （`_kaplan_meier_bounds`）と、その 95 % リサンプリング区間
+                    # （`_kaplan_meier_interval`）。上が定まらなければ "inf"。
+                    "Q1 lower bound", "Q1 upper bound",
+                    "median lower bound", "median upper bound",
+                    "Q3 lower bound", "Q3 upper bound",
+                    "Q1 95% interval lower", "Q1 95% interval upper",
+                    "median 95% interval lower", "median 95% interval upper",
+                    "Q3 95% interval lower", "Q3 95% interval upper",
                 ])
                 for r in self._last_results:
                     mode_val = "" if np.isnan(r["mode"]) else f"{r['mode']:.3f}"
@@ -5980,6 +6275,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                          if r.get("frame_share") is not None else ""),
                         ("{0:.3f}".format(r["width_nm"])
                          if r.get("width_nm") is not None else ""),
+                        *_range_csv_values(r.get("quantile_bounds", {})),
+                        *_range_csv_values(r.get("km_interval", {})),
                     ])
 
         save_csv_with_dialog(

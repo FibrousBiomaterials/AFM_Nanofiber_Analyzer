@@ -2185,7 +2185,12 @@ for i in range(np.sum(imgcopy)):
    ことはない。そのうえで点を、**断面の高さが、ふもとと頂点のちょうど中間の高さ
    （半値）まで下がる 2<!--n:count--> つの位置の真ん中**に置く。ここでのふもとは、頂点から左右
    それぞれ $1.5\,W$ 以内の最低値のうち、低いほうである。半値まで下がる位置も、この
-   範囲の中で探す。
+   範囲の中で探す。断面が基準線の点の両側で上り坂のときは、近いほうの頂点へ、同じ
+   近さなら高いほうへ上り、断面は基準線の点について鏡映対称な位置で読む。繊維を逆向き
+   に追跡すると法線が反転して各断面が左右反転するため、一方の側を優先したり、両側を
+   違う位置で読んだりすると、中心線と、そこから読む曲率とキンクがすべて、繊維を
+   たまたまどちら向きに追跡したかで動いてしまう。手順 1<!--n:label--> で $W$ を読む頂点も、
+   同じ上り方で決める。
 4. この 1<!--n:count--> 本の繊維の位置を決められない断面には「信頼できない」と印を付け、その
    オフセットは測らずに、周りの信頼できる点から補間する。次の断面がこれにあたる。
    - 分岐点から $W$ 以内の断面
@@ -2225,9 +2230,9 @@ for i in range(np.sum(imgcopy)):
 # source: lib/centerline.py::place_centerline
 width, measured = measure_apparent_width(
     height, x, y, return_measured=True, aspect=aspect, peak=width_peak,
-    adaptive_range=width_adaptive)
+    adaptive_range=width_adaptive, symmetric_section=symmetric_section)
 lx, ly, reliable, crest = _refine(
-    height, x, y, width, branch_points, method, aspect)
+    height, x, y, width, branch_points, method, aspect, symmetric_section)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 ```
 
@@ -2271,7 +2276,10 @@ return (pixel_size_nm(scan_size_um[1], rows)
 画素座標の幾何で組み立て直す。形式 1.4<!--n:bundle format version--> からは、手順 1<!--n:label--> の見かけの幅 $W$ を
 各断面で坂を上って最初に着く頂点から読む。読み取り側は、形式 1.1<!--n:bundle format version-->〜1.3<!--n:bundle format version--> のバンドルを、
 判定したときと同じく各断面のいちばん高い値との中間で読んだ $W$ で組み立て直す
-（`bundle_schema.width_peak_from_meta`）。
+（`bundle_schema.width_peak_from_meta`）。形式 1.7<!--n:bundle format version--> からは、手順 1<!--n:label--> と 3<!--n:label--> の断面を、
+繊維のどちらの側も優先せずに読んで上る。読み取り側は、それより古いバンドルを、判定
+したときと同じく、両側が上り坂のときは法線の決まった一方の側へ上り、手順 3<!--n:label--> の断面を
+範囲の一端から読む規則で組み立て直す（`bundle_schema.symmetric_section_from_meta`）。
 
 | バンドルの形式 | キンクを判定した線 | 組み立て直すときに使う線 |
 |---|---|---|

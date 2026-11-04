@@ -2309,7 +2309,15 @@ in five steps:
    **midpoint of the two positions where the cross-section falls to half-way
    between its base and its crest** (the half maximum). The base here is the
    lower of the minima within $1.5\,W$ on each side of the crest, and the
-   half-maximum positions are searched for within the same range.
+   half-maximum positions are searched for within the same range. Where the
+   cross-section rises on both sides of the reference point, it is climbed to
+   the nearer crest, and to the higher one when both are equally near, and the
+   cross-section is read at positions that mirror about the reference point:
+   tracing a fiber the other way reverses the normal and mirrors every
+   cross-section, so preferring one side, or reading the two sides at
+   different positions, would move the centerline, and every curvature and
+   kink read from it, with the direction the fiber happened to be traced in.
+   The same climb sets the crest step 1<!--n:label--> measures $W$ from.
 4. A cross-section that cannot locate this one fiber is marked unreliable, and
    its offset is interpolated from the reliable points around it instead of
    measured. These are:
@@ -2356,9 +2364,9 @@ same function:
 # source: lib/centerline.py::place_centerline
 width, measured = measure_apparent_width(
     height, x, y, return_measured=True, aspect=aspect, peak=width_peak,
-    adaptive_range=width_adaptive)
+    adaptive_range=width_adaptive, symmetric_section=symmetric_section)
 lx, ly, reliable, crest = _refine(
-    height, x, y, width, branch_points, method, aspect)
+    height, x, y, width, branch_points, method, aspect, symmetric_section)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 ```
 
@@ -2407,7 +2415,12 @@ centerline with the aspect of the recorded scan size
 pixel geometry it was judged in. From format 1.4<!--n:bundle format version--> the apparent width $W$ of
 step 1<!--n:label--> is read from each section's first crest uphill; a reader rebuilds a bundle
 of format 1.1<!--n:bundle format version--> to 1.3<!--n:bundle format version--> with $W$ read halfway to each section's highest value, as
-it was judged (`bundle_schema.width_peak_from_meta`).
+it was judged (`bundle_schema.width_peak_from_meta`). From format 1.7<!--n:bundle format version--> the
+cross-sections of steps 1<!--n:label--> and 3<!--n:label--> are read and climbed without preferring one side
+of the fiber; a reader rebuilds an older bundle with the climb that goes toward
+one fixed side of the normal when both sides rise, and with the
+cross-section of step 3<!--n:label--> read from one end of its range, as it was judged
+(`bundle_schema.symmetric_section_from_meta`).
 
 | Bundle format | Kinks were judged on | Rebuilt on |
 |---|---|---|

@@ -204,13 +204,33 @@ from .centerline import (
 #      （`weak_bend_floor_from_meta`）。`kp`・`ka`・`ke`・`up` の形は変わらないが、
 #      それらを生んだ探索が変わったため版を上げた。形式 1.5 以前のバンドルは閾値
 #      未満の折れを持たず、しきい値を当て直せない。
-BUNDLE_FORMAT_VERSION = "1.6"
+# 1.7: each cross-section the line is placed on, and the apparent width W is
+#      read from, is sampled symmetrically about the track point, and the
+#      climb to the fiber's crest no longer prefers one side of the section
+#      when both sides rise (`centerline._climb_to_maximum`). Tracing a fiber
+#      the other way reverses its normals, so the one-sided rule moved the
+#      line, and every curvature and kink read from it, with the direction the
+#      fiber happened to be traced in. No array changes, but `kp`, `ka`, `ke`,
+#      `up`, `wp`, `wa` and `we` were judged on the new line, so a 1.6 reader
+#      would draw them on a line they were not judged on. A reader places the
+#      line of a bundle of format 1.6 or older by the one-sided rule
+#      (`symmetric_section_from_meta`).
+# 1.7: 線を置き、見かけ幅 W を読む各断面を、トラック点について対称に標本化し、
+#      繊維の頂点へ上る際、断面の両側が上り坂のときに一方の側を優先しなくなった
+#      （`centerline._climb_to_maximum`）。繊維を逆向きに追跡すると法線が反転する
+#      ため、一方の側を優先する規則では、線と、そこから読む曲率とキンクがすべて、
+#      繊維をたまたまどちら向きに追跡したかで動いた。配列は変わらないが、
+#      `kp`・`ka`・`ke`・`up`・`wp`・`wa`・`we` は新しい線の上で判定されており、
+#      1.6 の読み取り側はそれらを判定に使っていない線の上に描いてしまう。読み取り
+#      側は形式 1.6 以前のバンドルの線を一方の側を優先する規則で置く
+#      （`symmetric_section_from_meta`）。
+BUNDLE_FORMAT_VERSION = "1.7"
 
 # Versions this code base can read. Readers reject unknown versions loudly so
 # a future format change cannot be silently misinterpreted by old releases.
 # 本コードベースが読める形式バージョン。未知のバージョンは明示的に拒否し、
 # 将来の形式変更を旧リリースが黙って誤解釈しないようにする。
-SUPPORTED_BUNDLE_VERSIONS = ("1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6")
+SUPPORTED_BUNDLE_VERSIONS = ("1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7")
 
 # Format versions whose kinks were judged on, and whose fibers are drawn and
 # measured along, the half-maximum centerline. A 1.0 bundle, or one recording
@@ -222,7 +242,7 @@ HALF_MAX_CENTERLINE_VERSIONS = ("1.1",)
 
 # Format versions that record their line in `CENTERLINE_KEY`.
 # 線を `CENTERLINE_KEY` に記録する形式バージョン。
-CENTERLINE_KEY_VERSIONS = ("1.2", "1.3", "1.4", "1.5", "1.6")
+CENTERLINE_KEY_VERSIONS = ("1.2", "1.3", "1.4", "1.5", "1.6", "1.7")
 
 # Format versions whose line and kinks were computed in physical geometry,
 # with Y scaled by the pixel aspect. Older bundles were computed in pixel
@@ -230,7 +250,7 @@ CENTERLINE_KEY_VERSIONS = ("1.2", "1.3", "1.4", "1.5", "1.6")
 # 線とキンクを、Y を画素の縦横比で拡大した実空間の幾何で計算した形式バージョン。
 # それより古いバンドルは画素座標の幾何で計算されており、そのまま画素座標で読む。
 # こうして保存済みのキンクと線が食い違わないようにする。
-PHYSICAL_GEOMETRY_VERSIONS = ("1.3", "1.4", "1.5", "1.6")
+PHYSICAL_GEOMETRY_VERSIONS = ("1.3", "1.4", "1.5", "1.6", "1.7")
 
 # Format versions whose apparent width was read halfway between each
 # profile's base and the first maximum uphill from the track point
@@ -241,7 +261,7 @@ PHYSICAL_GEOMETRY_VERSIONS = ("1.3", "1.4", "1.5", "1.6")
 # 読んだ形式バージョン
 # （`centerline.WIDTH_PEAK_NEAREST`）。形式 1.1〜1.3 のバンドルはプロファイル全体の
 # 最大値で判定されており、そのまま全体の最大値で読む。
-NEAREST_PEAK_WIDTH_VERSIONS = ("1.4", "1.5", "1.6")
+NEAREST_PEAK_WIDTH_VERSIONS = ("1.4", "1.5", "1.6", "1.7")
 
 # Format versions whose apparent width was read over a cross-section range that
 # grows with the fiber (`centerline.measure_apparent_width`). Older bundles were
@@ -249,7 +269,7 @@ NEAREST_PEAK_WIDTH_VERSIONS = ("1.4", "1.5", "1.6")
 # 見かけ幅を、繊維に合わせて広がる断面の範囲で読んだ形式バージョン
 # （`centerline.measure_apparent_width`）。それより古いバンドルは固定の ±12 px の
 # 範囲で判定されており、そのまま固定の範囲で読む。
-ADAPTIVE_WIDTH_RANGE_VERSIONS = ("1.5", "1.6")
+ADAPTIVE_WIDTH_RANGE_VERSIONS = ("1.5", "1.6", "1.7")
 
 # Format versions that store the bends below the kink threshold (`wp`, `wa`,
 # `we`) and the search floor they were found down to (`WEAK_BEND_FLOOR_KEY`),
@@ -258,7 +278,16 @@ ADAPTIVE_WIDTH_RANGE_VERSIONS = ("1.5", "1.6")
 # キンクのしきい値に届かなかった折れ（`wp`・`wa`・`we`）と、それを探した下限
 # （`WEAK_BEND_FLOOR_KEY`）を保存し、しきい値を当て直せる形式バージョン。それより
 # 古いバンドルはしきい値で探しており、当て直せない。
-WEAK_BEND_VERSIONS = ("1.6",)
+WEAK_BEND_VERSIONS = ("1.6", "1.7")
+
+# Format versions whose cross-sections were sampled symmetrically about the
+# track and climbed by the rule that does not depend on the direction the fiber
+# was traced in (`centerline._climb_to_maximum`). Older bundles were judged with
+# the rule that prefers one side of the section and are read with it.
+# 断面をトラックについて対称に標本化し、繊維を追跡した向きに依存しない規則で頂点へ
+# 上った形式バージョン（`centerline._climb_to_maximum`）。それより古いバンドルは
+# 断面の一方の側を優先する規則で判定されており、そのままその規則で読む。
+SYMMETRIC_SECTION_VERSIONS = ("1.7",)
 
 # vlmeta key holding the excess turning, in degrees, down to which a bundle of
 # a format listed in `WEAK_BEND_VERSIONS` searched for bends
@@ -1028,6 +1057,36 @@ def width_range_adaptive_from_meta(meta: Optional[Dict]) -> bool:
     幅で繊維の線を置く。
     """
     return (meta or {}).get("version") in ADAPTIVE_WIDTH_RANGE_VERSIONS
+
+
+def symmetric_section_from_meta(meta: Optional[Dict]) -> bool:
+    """
+    Return whether a bundle's line was placed by the direction-independent rule.
+    バンドルの線を、追跡の向きに依存しない規則で置いたかを返す。
+
+    Parameters
+    ----------
+    meta
+        Bundle vlmeta dictionary, or ``None``.
+        バンドルの vlmeta 辞書、または ``None``。
+
+    Returns
+    -------
+    bool
+        ``True`` for a format listed in `SYMMETRIC_SECTION_VERSIONS`; ``False``
+        for an older format, whose line was placed by the rule that prefers one
+        side of each cross-section.
+        `SYMMETRIC_SECTION_VERSIONS` に含まれる形式なら ``True``。それより古い形式
+        では ``False``。その線は各断面の一方の側を優先する規則で置かれた。
+
+    Notes
+    -----
+    As with `width_peak_from_meta`, a reader places a fiber's line by the rule
+    the stored kinks were judged on.
+    `width_peak_from_meta` と同じく、読み取り側は保存済みキンクを判定したのと同じ
+    規則で繊維の線を置く。
+    """
+    return (meta or {}).get("version") in SYMMETRIC_SECTION_VERSIONS
 
 
 def weak_bend_floor_from_meta(meta: Optional[Dict]) -> Optional[float]:

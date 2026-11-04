@@ -1795,6 +1795,7 @@ def _rebuild_connected_fiber(
             aspect=aspect,
             peak=getattr(image, "width_peak", WIDTH_PEAK_NEAREST),
             adaptive_range=bool(getattr(image, "width_adaptive", True)),
+            symmetric_section=bool(getattr(image, "symmetric_section", True)),
         )
         judged = detector.judge_line(
             line_x, line_y, width, aspect,

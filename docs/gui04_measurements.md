@@ -144,7 +144,12 @@ maximum; GUI04 places the centerline with the maximum the bundle's format
 reads the width from (`bundle_schema.width_peak_from_meta`). A bundle of format
 1.5 had W read over a cross-section range that grows with the fiber (§2.1), and
 an older one over the fixed ±12 px; GUI04 reads it as the bundle's format did
-(`bundle_schema.width_range_adaptive_from_meta`).
+(`bundle_schema.width_range_adaptive_from_meta`). A bundle of format 1.7 had
+each cross-section sampled symmetrically about the skeleton point and climbed
+by the rule of §2.3 that does not depend on the direction the fiber was traced
+in, and an older one by the rule that prefers one side of the section; GUI04
+places the centerline by the bundle's rule
+(`bundle_schema.symmetric_section_from_meta`).
 
 ```python
 # source: lib/fiber_tracking_image.py::_build_fiber
@@ -154,7 +159,7 @@ if is_placed_line(centerline):
     placed = place_centerline(
         cal, xtrack_prcimg, ytrack_prcimg, branch_points,
         method=centerline, aspect=pixel_aspect, width_peak=width_peak,
-        width_adaptive=width_adaptive,
+        width_adaptive=width_adaptive, symmetric_section=symmetric_section,
     )
     xtrack = placed.x - x
     ytrack = placed.y - y
@@ -227,9 +232,9 @@ accuracy on synthetic scans are in [Evaluation on particular data](validation.md
 # source: lib/centerline.py::place_centerline
 width, measured = measure_apparent_width(
     height, x, y, return_measured=True, aspect=aspect, peak=width_peak,
-    adaptive_range=width_adaptive)
+    adaptive_range=width_adaptive, symmetric_section=symmetric_section)
 lx, ly, reliable, crest = _refine(
-    height, x, y, width, branch_points, method, aspect)
+    height, x, y, width, branch_points, method, aspect, symmetric_section)
 return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 ```
 
@@ -288,12 +293,14 @@ y = np.asarray(ytrack, dtype=np.float64) * float(aspect)
 if x.size < 2 or height is None:
     return (FALLBACK_WIDTH_PX, False) if return_measured else FALLBACK_WIDTH_PX
 search = _WIDTH_SEARCH_PX
-width, _single = _width_in_range(height, x, y, aspect, peak, search)
+width, _single = _width_in_range(height, x, y, aspect, peak, search,
+                                 symmetric_section)
 while (adaptive_range and width is not None and search < _WIDTH_SEARCH_MAX_PX
        and search < _WIDTH_RANGE_MIN_WIDTHS * width):
     search = min(_WIDTH_SEARCH_MAX_PX,
                  max(_WIDTH_RANGE_WIDTHS * width, search + _WIDTH_STEP_PX))
-    wider, single = _width_in_range(height, x, y, aspect, peak, search)
+    wider, single = _width_in_range(height, x, y, aspect, peak, search,
+                                    symmetric_section)
     if wider is None or single < 0.5:
         break
     width = wider
@@ -311,7 +318,8 @@ profiles = _bilinear(
 )
 centre = offsets.size // 2
 if peak == WIDTH_PEAK_NEAREST:
-    top = profiles[np.arange(x.size), _climb_to_maximum(profiles, centre)]
+    top = profiles[np.arange(x.size),
+                   _climb_to_maximum(profiles, centre, symmetric_section)]
 else:
     top = profiles.max(axis=1)
 base = np.percentile(profiles, 10.0, axis=1)
@@ -428,7 +436,11 @@ norm[norm == 0.0] = 1.0
 nx, ny = -ty / norm, tx / norm
 reach = _CREST_REACH_WIDTHS * width
 half_reach = _HALF_MAX_REACH_WIDTHS * width
-s = np.arange(-(reach + half_reach), reach + half_reach + 1e-9, _WIDTH_STEP_PX)
+if symmetric_section:
+    half_grid = np.arange(0.0, reach + half_reach + 1e-9, _WIDTH_STEP_PX)
+    s = np.concatenate((-half_grid[:0:-1], half_grid))
+else:
+    s = np.arange(-(reach + half_reach), reach + half_reach + 1e-9, _WIDTH_STEP_PX)
 ns = s.size
 prof = _bilinear(img, (fy[:, None] + ny[:, None] * s[None, :]) / a,
                  fx[:, None] + nx[:, None] * s[None, :])
@@ -437,7 +449,11 @@ prof = _bilinear(img, (fy[:, None] + ny[:, None] * s[None, :]) / a,
 `prof[i, :]` is the cross-section at point $i$, sampled every 0.25 px along the
 normal. It extends $\pm(0.75 + 1.5)\,W$ from the frame: 0.75 W in which to find
 the section's crest (§2.3), plus 1.5 W beyond it in which to find the half-maximum
-crossings.
+crossings. The samples are laid out from the frame point outward, so they
+mirror about it: tracing the fiber the other way reverses the normal, and
+samples placed differently on the two sides would read the mirrored section at
+other offsets. A bundle of format 1.6 or older is sampled from one end of the
+range instead, as it was judged (§1.2).
 
 ### 2.3 Climbing to the first maximum uphill
 
@@ -449,7 +465,7 @@ one the width measurement of a format 1.4 bundle uses (§2.1).
 ```python
 # source: lib/centerline.py::_refine
 c = int(np.argmin(np.abs(s)))
-k = _climb_to_maximum(prof, c)
+k = _climb_to_maximum(prof, c, symmetric_section)
 peak = prof[rows, k]
 within_reach = np.abs(s[k]) < reach - 0.5 * _WIDTH_STEP_PX
 ```
@@ -459,19 +475,39 @@ within_reach = np.abs(s[k]) < reach - 0.5 * _WIDTH_STEP_PX
 n, ns = prof.shape
 dif = np.diff(prof, axis=1)
 k = np.full(n, c)
-go_right = dif[:, c] > 0
-go_left = ~go_right & (dif[:, c - 1] < 0)
+rises_right = dif[:, c] > 0
+rises_left = dif[:, c - 1] < 0
 stop_right = dif[:, c:] <= 0
-right_end = np.where(stop_right.any(1), stop_right.argmax(1), stop_right.shape[1]) + c
-k = np.where(go_right, np.minimum(right_end, ns - 1), k)
+right_end = np.minimum(
+    np.where(stop_right.any(1), stop_right.argmax(1), stop_right.shape[1]) + c, ns - 1)
 stop_left = dif[:, :c][:, ::-1] >= 0
-left_steps = np.where(stop_left.any(1), stop_left.argmax(1), c)
-return np.where(go_left, c - left_steps, k)
+left_end = c - np.where(stop_left.any(1), stop_left.argmax(1), c)
+if not symmetric:
+    k = np.where(rises_right, right_end, k)
+    return np.where(~rises_right & rises_left, left_end, k)
+rows = np.arange(n)
+right_steps = right_end - c
+left_steps = c - left_end
+right_wins = (right_steps < left_steps) | (
+    (right_steps == left_steps) & (prof[rows, right_end] > prof[rows, left_end]))
+left_wins = (left_steps < right_steps) | (
+    (right_steps == left_steps) & (prof[rows, left_end] > prof[rows, right_end]))
+k = np.where(rises_right & (~rises_left | right_wins), right_end, k)
+return np.where(rises_left & (~rises_right | left_wins), left_end, k)
 ```
 
 `k[i]` is the sample index of that maximum and `peak[i]` its height. A maximum
 at or beyond 0.75 W from the frame belongs to something else. Such a section is
 not `within_reach` and is not used to place the centerline.
+
+When the section rises on both sides of the frame point, so that the point lies
+in a valley between two maxima, the climb goes to the nearer maximum, and to the
+higher one when both are equally near; a section exactly symmetric about the
+point stays there. Tracing the fiber the other way reverses the normal and
+mirrors every section, so a rule that preferred one side would move the
+centerline, and every curvature and kink read from it, with the direction the
+fiber happened to be traced in. A bundle of format 1.6 or older climbs toward
+the higher sample index in that case, the rule it was judged with (§1.2).
 
 ### 2.4 The half-maximum midpoint
 
@@ -968,7 +1004,7 @@ known to be at least as long as measured
 ### 3.3 Which height samples count
 
 Not every point of `Fiber.height` enters the height statistics.
-`measure.height_sample_mask` leaves out two kinds of sample:
+`measure.height_sample_mask` leaves out three kinds of sample:
 
 ```python
 # source: lib/measure.py::CUT_END_EXCLUSION_WIDTHS, MIN_HEIGHT_SAMPLES, HEIGHT_UPPER_PERCENTILE
@@ -996,6 +1032,12 @@ if np.isfinite(width) and width > 0.0 and n > 1:
         mask &= ~(arc < zone)
     if n - 1 not in ends:
         mask &= ~(arc > arc[-1] - zone)
+    bridge = np.flatnonzero(~measured)
+    if bridge.size:
+        gap = np.abs(arc[:, None] - arc[bridge][None, :]).min(axis=1)
+        away_from_bridges = mask & (gap >= zone)
+        if away_from_bridges.sum() >= MIN_HEIGHT_SAMPLES:
+            mask = away_from_bridges
 if mask.sum() < MIN_HEIGHT_SAMPLES:
     mask = measured
     if not mask.any():
@@ -1013,11 +1055,18 @@ return mask
    an end, measured in arc length along the centerline in X pixels (Y scaled by
    `Fiber.pixel_aspect`, the unit W is in), therefore partly belong to the
    other fiber. A real fiber end keeps its samples.
+3. **A width either side of a bridge.** A bridge spans the gap between two
+   fragments that the skeleton was cut into at a crossing (§5.2), so the
+   samples beside it are next to that crossing for the same reason as at a cut
+   end. The samples within 1 W of a bridge point, measured the same way, are
+   left out.
 
-If fewer than 3 samples would remain, the cut-end exclusion is dropped so that a
-short fragment still reports a height. If nothing measured remains at all, every
-sample is used. A fiber without a width (format 1.0, on the skeleton track) has no cut-end
-exclusion.
+If fewer than 3 samples would remain, the bridge-neighbourhood exclusion is
+dropped, and then, if still too few remain, the cut-end exclusion, so that a
+short fragment still reports a height and no sample the cut-end rule alone
+leaves out comes back first; the bridge samples themselves stay out. If nothing
+measured remains at all, every sample is used. A fiber without a width (format 1.0, on the skeleton track) has
+neither of the two exclusions that W sets.
 
 ### 3.4 `median (nm)`, `max (nm)`, `p90 (nm)`
 
@@ -1106,10 +1155,11 @@ if horizon.size < 3 or float(horizon[-1]) < window_nm:
 xs = np.asarray(fiber.xtrack, dtype=float) * x_size_per_pixel
 ys = np.asarray(fiber.ytrack, dtype=float) * y_size_per_pixel
 half = window_nm / 2.0
-before = np.searchsorted(horizon, horizon - half, side="left")
-after = np.searchsorted(horizon, horizon + half, side="left")
-valid = (after < horizon.size) & (after > before)
-valid &= (horizon - horizon[np.clip(before, 0, horizon.size - 1)] >= half * 0.5)
+tolerance = 1e-9 * window_nm
+before = np.searchsorted(horizon, horizon - half + tolerance, side="right") - 1
+after = np.searchsorted(horizon, horizon + half - tolerance, side="left")
+valid = (after < horizon.size) & (before >= 0)
+before = np.clip(before, 0, horizon.size - 1)
 measured = getattr(fiber, "height_measured", None)
 if measured is not None:
     bridged = np.concatenate(([0], np.cumsum(~np.asarray(measured, dtype=bool))))
@@ -1136,8 +1186,9 @@ profile = fiber_curvature_profile(
 return float(np.mean(profile)) if profile.size else float("nan")
 ```
 
-For each centerline point $i$, take the point $j$ half a window (50 nm of arc) behind
-it and the point $k$ half a window ahead. Two chords are drawn, $j \to i$ and
+For each centerline point $i$, take $j$, the last point at least half a window
+(50 nm of arc) behind it, and $k$, the first point at least half a window ahead.
+Two chords are drawn, $j \to i$ and
 $i \to k$, and the curvature is the unsigned angle between them divided by half
 the arc they span:
 
@@ -1155,12 +1206,15 @@ The window is needed even on the sub-pixel centerline. Over a few pixels the
 turning angle is set by the centerline's own sideways noise. On synthetic arcs of
 80–400 nm radius with 2 nm pixels, the 100 nm window read within 2 % of $1/R$.
 
-A point is used only if a full half window exists **ahead** of it (`after <
-horizon.size`). **Behind** it, half of a half window (25 nm) is enough. This
-check is `horizon[i] - horizon[j] >= half * 0.5`, so points 25–50 nm from the
-start use a shorter backward chord. A fiber shorter than 100 nm has no
-curvature, and its cell is blank rather than 0, so it is not read as perfectly
-straight.
+A point is used only if at least half a window of arc exists on **both** sides
+of it (`before >= 0` and `after < horizon.size`), so the points within 50 nm of
+either end have no curvature. The two sides are treated alike because tracing
+the fiber the other way swaps the two chords: a window that reached differently
+ahead of a point than behind it would give the same fiber another curvature in
+the other direction. `tolerance`, a billionth of the window, keeps a point
+exactly half a window away inside the window on both sides whatever the
+rounding of `horizon`. A fiber shorter than 100 nm has no curvature, and its
+cell is blank rather than 0, so it is not read as perfectly straight.
 
 On a connected fibril a point is also left out when its window, from $j$ to $k$,
 holds a bridge point (`Fiber.height_measured` is `False`, §5.2). A bridge is a
@@ -1617,8 +1671,8 @@ if xs:
 3. **Bridge heights.** The bridge heights run linearly from the mean of the last
    `num_avg_points` = 5 heights before the gap to the mean of the first 5 after
    it. Bridge points are marked neither reliable nor measured. They lower the
-   `reliable` fraction and are left out of the height statistics (§3.3), but
-   they count toward `length (nm)`.
+   `reliable` fraction and are left out of the height statistics, as are the
+   samples within a width of them (§3.3), but they count toward `length (nm)`.
 
 The joined centerline then becomes a `Fiber`:
 
@@ -1641,6 +1695,7 @@ if is_placed_line(kind):
         aspect=aspect,
         peak=getattr(image, "width_peak", WIDTH_PEAK_NEAREST),
         adaptive_range=bool(getattr(image, "width_adaptive", True)),
+        symmetric_section=bool(getattr(image, "symmetric_section", True)),
     )
     judged = detector.judge_line(
         line_x, line_y, width, aspect,

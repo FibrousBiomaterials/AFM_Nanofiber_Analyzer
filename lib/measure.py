@@ -69,6 +69,7 @@ from .bundle_schema import (
     scan_size_um_from_meta,
     validate_bundle,
     weak_bend_floor_from_meta,
+    symmetric_section_from_meta,
     width_peak_from_meta,
     width_range_adaptive_from_meta,
 )
@@ -275,10 +276,12 @@ class FiberStats:
         Median height along the fiber's line in nanometers, over the samples
         `height_sample_mask` keeps: the crest of each cross-section
         (`Fiber.height`), less the last width at a cut end and the connector's
-        interpolated bridges. 0.0 when the fiber has no height samples.
+        interpolated bridges with a width on each side. 0.0 when the fiber has
+        no height samples.
         ファイバーの線上の高さ中央値 (nm)。`height_sample_mask` が残す標本、
-        すなわち各断面の頂点（`Fiber.height`）から、切断端の最後の 1 幅と連結器が
-        補間した橋渡しを除いたものについて取る。高さサンプルが無い場合は 0.0。
+        すなわち各断面の頂点（`Fiber.height`）から、切断端の最後の 1 幅と、連結器が
+        補間した橋渡しとその両側 1 幅を除いたものについて取る。高さサンプルが無い
+        場合は 0.0。
     height_max_nm
         Maximum height over the same samples in nanometers. 0.0 when the
         fiber has no height samples.
@@ -1209,15 +1212,12 @@ def fiber_curvature_profile(
     Returns
     -------
     ndarray
-        One curvature per point that has a full half window of arc ahead of
-        it and at least half of a half window behind it, so points between a
-        quarter and half a window from the start use a shorter backward
-        chord, and whose window holds no connector bridge
+        One curvature per point that has at least half a window of arc on
+        each side of it and whose window holds no connector bridge
         (`Fiber.height_measured` ``False``); empty when the fiber is shorter
         than the window or every window reaches a bridge.
-        前方に弧長で完全な半窓があり、後方に半窓の半分以上があり、窓に連結の橋渡し部
+        前後それぞれに弧長で半窓以上があり、窓に連結の橋渡し部
         （`Fiber.height_measured` が ``False`` の点）を含まない点ごとに 1 つの曲率。
-        したがって先頭から窓の 1/4〜1/2 にある点は、短い後方の弦を使う。
         ファイバーが窓より短い場合や、どの窓も橋渡し部にかかる場合は空。
 
     Notes
@@ -1239,6 +1239,14 @@ def fiber_curvature_profile(
     means the same physical smoothing on scans of different sizes.
     窓幅は画素ではなく nm で指定する。走査範囲の異なる画像でも、同じ設定が同じ
     物理的な平滑化を意味するようにするためである。
+
+    Each chord ends at the first track point at least half a window away, on
+    either side alike. Tracing the fiber the other way swaps the two chords, so
+    a window that reached differently ahead of a point than behind it would
+    give the same fiber another curvature in the other direction.
+    各弦は、前後とも同じく、半窓以上離れた最初のトラック点で終わる。繊維を逆向きに
+    追跡すると 2 本の弦が入れ替わるため、点の前方と後方で窓の届き方が違えば、
+    同じ繊維が逆向きでは別の曲率になってしまう。
 
     On the half-maximum centerline (bundle format 1.1) a step is not limited
     to orthogonal or diagonal, but the window is still needed: over a few pixels
@@ -1292,10 +1300,15 @@ def fiber_curvature_profile(
     # rarely land exactly on the requested half-window.
     # searchsorted で各点の窓端を一括で求める。弧長は仮定せず `horizon` から
     # 読み戻す。2 つの弦が要求した半窓にちょうど収まることはまれなためである。
-    before = np.searchsorted(horizon, horizon - half, side="left")
-    after = np.searchsorted(horizon, horizon + half, side="left")
-    valid = (after < horizon.size) & (after > before)
-    valid &= (horizon - horizon[np.clip(before, 0, horizon.size - 1)] >= half * 0.5)
+    # A tolerance well below any step keeps a point exactly half a window away
+    # inside the window on both sides, whatever the rounding of `horizon`.
+    # どのステップよりも十分小さい許容差により、ちょうど半窓離れた点は、`horizon`
+    # の丸めによらず前後とも窓の中に入る。
+    tolerance = 1e-9 * window_nm
+    before = np.searchsorted(horizon, horizon - half + tolerance, side="right") - 1
+    after = np.searchsorted(horizon, horizon + half - tolerance, side="left")
+    valid = (after < horizon.size) & (before >= 0)
+    before = np.clip(before, 0, horizon.size - 1)
     # A window that reaches a connector bridge is left out: the bridge is a
     # straight segment drawn across a gap where no fiber was observed, so the
     # turning at its two ends comes from the connection, not from the fiber.
@@ -1560,30 +1573,38 @@ def height_sample_mask(fiber: Fiber) -> np.ndarray:
 
     Notes
     -----
-    Two kinds of sample are left out. A value the fiber connector interpolated
-    across a bridge (`Fiber.height_measured` is ``False``) is not a
-    measurement of the image at all. And within `CUT_END_EXCLUSION_WIDTHS` of
-    an end that is a cut -- an end whose point is not in `ep_indices`, so the
+    Three kinds of sample are left out. A value the fiber connector
+    interpolated across a bridge (`Fiber.height_measured` is ``False``) is not
+    a measurement of the image at all. Within `CUT_END_EXCLUSION_WIDTHS` of an
+    end that is a cut -- an end whose point is not in `ep_indices`, so the
     skeleton continued into a crossing there -- the height belongs partly to
     the other fiber, because `imp_tools.remove_bp` clears only a 3x3
-    neighbourhood while the crossing's skirt extends about a width. A real
-    fiber end keeps its samples: the fiber genuinely ends there. The zone is
-    measured in pixel arc length along the line, so no pixel size is needed.
-    2 種類の標本を外す。連結器が橋渡しで補間した値（`Fiber.height_measured` が
-    ``False``）は、そもそも画像の測定値ではない。また、切断である端（その点が
+    neighbourhood while the crossing's skirt extends about a width. A bridge
+    spans such a cleared crossing between the two fragments it joins, so the
+    samples within the same distance of a bridge are left out for the same
+    reason. A real fiber end keeps its samples: the fiber genuinely ends
+    there. The zones are measured in pixel arc length along the line, so no
+    pixel size is needed.
+    3 種類の標本を外す。連結器が橋渡しで補間した値（`Fiber.height_measured` が
+    ``False``）は、そもそも画像の測定値ではない。切断である端（その点が
     `ep_indices` に無い端。スケルトンがそこで交差へ続いていた）から
     `CUT_END_EXCLUSION_WIDTHS` 以内では、高さの一部は相手の繊維のものである。
     `imp_tools.remove_bp` が消すのは 3×3 近傍だけで、交差の裾は 1 幅ほど広がる
-    ためである。本物の繊維端はその標本を残す。繊維は実際にそこで終わっている。
-    範囲は線に沿った画素単位の弧長で測るため、ピクセルサイズは要らない。
+    ためである。橋渡し部は、つなぐ 2 つの断片の間で、そうして消された交差をまたぐ
+    ため、橋渡し部から同じ距離以内の標本も同じ理由で外す。本物の繊維端はその標本を
+    残す。繊維は実際にそこで終わっている。範囲は線に沿った画素単位の弧長で測るため、
+    ピクセルサイズは要らない。
 
-    When fewer than `MIN_HEIGHT_SAMPLES` samples would remain, the cut-end
-    exclusion is dropped so a short fragment still reports a height; the
-    bridge exclusion stays, and only when nothing is measured at all does the
-    mask fall back to every sample.
-    残る標本が `MIN_HEIGHT_SAMPLES` を下回るときは、短い断片も高さを報告できる
-    よう切断端の除外をやめる。橋渡しの除外は残し、測定済みの標本が 1 つも無い
-    ときだけ全標本に戻す。
+    When fewer than `MIN_HEIGHT_SAMPLES` samples would remain, the
+    bridge-neighbourhood exclusion is dropped, and then, if still too few
+    remain, the cut-end exclusion, so a short fragment still reports a height
+    and no sample the cut-end rule alone leaves out comes back before the
+    bridge neighbourhood does; the bridge itself stays excluded, and only when
+    nothing is measured at all does the mask fall back to every sample.
+    残る標本が `MIN_HEIGHT_SAMPLES` を下回るときは、まず橋渡し部の周囲の除外を
+    やめ、それでも足りなければ切断端の除外をやめる。こうして短い断片も高さを報告
+    でき、切断端の規則だけで外れる標本が、橋渡し部の周囲より先に戻ることはない。
+    橋渡し部そのものの除外は残し、測定済みの標本が 1 つも無いときだけ全標本に戻す。
 
     GUI04's height profile draws the excluded samples dashed and reads its
     median and maximum guide lines from this mask, so the numbers in the table
@@ -1595,7 +1616,7 @@ def height_sample_mask(fiber: Fiber) -> np.ndarray:
     --------
     A fiber 4 px wide whose first end is a cut (it is not in `ep_indices`)
     and whose points 20-22 are a bridge the connector interpolated loses
-    the first width and the bridge:
+    the first width, and the bridge with less than a width on each side:
 
     >>> import numpy as np
     >>> from lib.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
@@ -1614,7 +1635,7 @@ def height_sample_mask(fiber: Fiber) -> np.ndarray:
     ...               centerline=HALF_MAX_025W_CENTERLINE, width_px=4.0,
     ...               height_measured=measured)
     >>> np.flatnonzero(~height_sample_mask(fiber))
-    array([ 0,  1,  2,  3, 20, 21, 22])
+    array([ 0,  1,  2,  3, 17, 18, 19, 20, 21, 22, 23, 24, 25])
     """
     n = len(fiber.height)
     if n == 0:
@@ -1634,6 +1655,12 @@ def height_sample_mask(fiber: Fiber) -> np.ndarray:
             mask &= ~(arc < zone)
         if n - 1 not in ends:
             mask &= ~(arc > arc[-1] - zone)
+        bridge = np.flatnonzero(~measured)
+        if bridge.size:
+            gap = np.abs(arc[:, None] - arc[bridge][None, :]).min(axis=1)
+            away_from_bridges = mask & (gap >= zone)
+            if away_from_bridges.sum() >= MIN_HEIGHT_SAMPLES:
+                mask = away_from_bridges
 
     if mask.sum() < MIN_HEIGHT_SAMPLES:
         mask = measured
@@ -2060,6 +2087,7 @@ def _tracking_image_from_arrays(
     # 定義で読む。
     image.width_peak = width_peak_from_meta(meta)
     image.width_adaptive = width_range_adaptive_from_meta(meta)
+    image.symmetric_section = symmetric_section_from_meta(meta)
     return image
 
 
@@ -3108,15 +3136,21 @@ def collect_skeleton_height_profiles(
     -----
     This is the length-weighted counterpart of `skeleton_height_values`. Both
     walk the same traced fibers, which exclude the branch-point neighborhoods
-    `imp_tools.remove_bp` clears before tracing, and read the same heights;
-    this one adds the contour length each height represents. They share the
+    `imp_tools.remove_bp` clears before tracing, and read the same heights --
+    the samples `height_sample_mask` keeps, which each fiber's own height
+    statistics use, so a pooled distribution and the per-fiber heights of one
+    population are read from the same samples; this one adds the contour
+    length each height represents. They share the
     per-bundle failure contract, with one difference: when `scale_um` is
     omitted, a bundle that records no scan size becomes an error entry here,
     because the weights are lengths in nanometers, whereas
     `skeleton_height_values` still collects its heights.
     本関数は `skeleton_height_values` の長さ重み付け版である。両者は同じ追跡
     済みファイバー（追跡前に `imp_tools.remove_bp` が消去する分岐点近傍を含ま
-    ない）をたどって同じ高さを読み、本関数はさらに各高さが表す輪郭長を加える。
+    ない）をたどって同じ高さ、すなわち `height_sample_mask` が残す標本を読む。
+    これは各ファイバー自身の高さ統計が使う標本であり、1 つの母集団のプールした
+    分布とファイバーごとの高さは同じ標本から読まれる。本関数はさらに各高さが表す
+    輪郭長を加える。
     バンドル単位の失敗契約も共通だが、1 点だけ異なる。`scale_um` を省略した
     とき、走査範囲を記録していないバンドルは、重みが nm 単位の長さであるため
     本関数ではエラー項目になる。一方 `skeleton_height_values` はその場合も高さを
@@ -3124,7 +3158,8 @@ def collect_skeleton_height_profiles(
 
     Examples
     --------
-    The weights of one bundle sum to the contour length of its fibers. The
+    The weights of one bundle are the contour lengths the kept samples of its
+    fibers represent. The
     synthetic test scan records no scan size, so the 1.25 µm listed for it in
     ``testdata_artificial/scale_table_sample.csv`` is passed. The input path
     is relative to the repository root:
@@ -3132,17 +3167,21 @@ def collect_skeleton_height_profiles(
     >>> import tempfile
     >>> import numpy as np
     >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import collect_skeleton_height_profiles, measure_bundle
+    >>> from lib.measure import (collect_skeleton_height_profiles,
+    ...                          contour_length_weights, height_sample_mask,
+    ...                          measure_bundle)
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
     ...     per_bundle, errors = collect_skeleton_height_profiles(
     ...         [bundle], scale_um=1.25)
-    ...     stats = measure_bundle(bundle, scale_um=1.25).stats
+    ...     fibers = measure_bundle(bundle, scale_um=1.25).fibers
     >>> path, heights_nm, weights_nm = per_bundle[0]
     >>> heights_nm.shape == weights_nm.shape, errors
     (True, [])
-    >>> bool(np.isclose(weights_nm.sum(), sum(s.length_nm for s in stats)))
+    >>> kept = sum(float(contour_length_weights(f.horizon)[height_sample_mask(f)].sum())
+    ...            for f in fibers)
+    >>> bool(np.isclose(weights_nm.sum(), kept))
     True
     """
     per_bundle: List[Tuple[str, np.ndarray, np.ndarray]] = []
@@ -3175,8 +3214,9 @@ def collect_skeleton_height_profiles(
             height = np.asarray(fiber.height, dtype=float)
             if height.size == 0:
                 continue
-            heights.append(height)
-            weights.append(contour_length_weights(fiber.horizon))
+            keep = height_sample_mask(fiber)
+            heights.append(height[keep])
+            weights.append(contour_length_weights(fiber.horizon)[keep])
 
         if heights:
             per_bundle.append(
@@ -3665,11 +3705,14 @@ def skeleton_height_values(
 
     The population is therefore not every skeleton pixel even when nothing is
     excluded: tracing leaves out the branch-point neighborhoods that
-    `imp_tools.remove_bp` clears. This makes the result the unweighted
-    counterpart of
+    `imp_tools.remove_bp` clears, and of each traced fiber only the samples
+    `height_sample_mask` keeps are collected, the ones its own height
+    statistics use. This makes the result the unweighted counterpart of
     `collect_skeleton_height_profiles`, over the same fibers.
     そのため、除外が 1 つも無い場合でも母集団は骨格の全画素ではない。追跡は
-    `imp_tools.remove_bp` が消去する分岐点近傍を除くためである。この結果、本関数は同じファイバー群に対する
+    `imp_tools.remove_bp` が消去する分岐点近傍を除き、さらに各追跡済みファイバー
+    からは `height_sample_mask` が残す標本、すなわちそのファイバー自身の高さ統計が
+    使う標本だけを集めるためである。この結果、本関数は同じファイバー群に対する
     `collect_skeleton_height_profiles` の重み無し版になる。
 
     A load failure in one bundle does not abort the collection; remaining
@@ -3734,7 +3777,7 @@ def skeleton_height_values(
         for fiber in result.fibers:
             height = np.asarray(fiber.height, dtype=float)
             if height.size:
-                heights.append(height)
+                heights.append(height[height_sample_mask(fiber)])
 
     if not heights:
         return np.empty(0, dtype=float), errors

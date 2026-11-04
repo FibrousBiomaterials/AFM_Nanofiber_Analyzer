@@ -1377,19 +1377,79 @@ def test_gui03_kaplan_meier_summary_leaves_what_it_cannot_place_blank():
     """
     values = np.array([100.0, 300.0])
     weights = np.array([1.0, 1.0])
-    stats = gui03._kaplan_meier_summary(values, weights, beyond=2.0)
+    stats = gui03._kaplan_meier_summary(values, weights, [(300.0, 2.0)])
     assert np.isnan(stats["mean"]) and np.isnan(stats["std"])
     assert stats["q1"] == pytest.approx(200.0)
     assert stats["median"] == pytest.approx(300.0)
     assert np.isnan(stats["q3"])
 
-    r = dict(stats, km_beyond=2.0, km_longest_nm=300.0)
+    r = dict(stats, quantile_bounds=stats["bounds"])
     assert gui03._quantile_text(r, "q3", "{0:.1f}") == "> 300.0"
     assert gui03._quantile_text(r, "median", "{0:.1f}") == "300.0"
-    assert gui03._quantile_text(dict(r, km_beyond=0.0), "q3", "{0:.1f}") == "-"
+    assert gui03._quantile_text(dict(r, quantile_bounds={}), "q3", "{0:.1f}") == "-"
 
-    whole = gui03._kaplan_meier_summary(values, weights, beyond=0.0)
-    assert whole == gui03._summary_stats(values, weights)
+    whole = gui03._kaplan_meier_summary(values, weights, [(300.0, 0.0)])
+    assert whole == dict(gui03._summary_stats(values, weights), bounds={})
+
+
+def test_gui03_kaplan_meier_places_each_folders_share_beyond_its_own_fiber():
+    """
+    A folder's unplaced share lies beyond that folder's longest fiber, not the group's.
+    フォルダの置けなかった分は、グループではなくそのフォルダの最長のファイバーより先にある。
+
+    One folder saw a fiber of 100 nm whole and places one more fiber beyond
+    it; another saw a fiber of 300 nm whole and places nothing beyond. The
+    unplaced fiber may be as short as just over 100 nm, so the median lies
+    anywhere from 100 to 300 nm and the upper quartile anywhere above 200 nm;
+    reading the share as lying beyond 300 nm would report a median of 300 nm
+    and an upper quartile above 300 nm.
+    一方のフォルダは 100 nm のファイバーを全長で見て、その先にさらに 1 本を置く。
+    もう一方は 300 nm のファイバーを全長で見て、先には何も置かない。置けなかった
+    1 本は 100 nm をわずかに超えるだけかもしれないため、中央値は 100〜300 nm の
+    どこか、上側四分位数は 200 nm より先のどこかにある。その分を 300 nm より先に
+    あるとみなすと、中央値 300 nm、上側四分位数 300 nm 超と報告してしまう。
+    """
+    values = np.array([100.0, 300.0])
+    weights = np.array([1.0, 1.0])
+    stats = gui03._kaplan_meier_summary(values, weights, [(100.0, 1.0), (300.0, 0.0)])
+    assert stats["bounds"]["q1"] == pytest.approx((100.0, 150.0))
+    assert stats["bounds"]["median"] == pytest.approx((100.0, 300.0))
+    assert stats["bounds"]["q3"][0] == pytest.approx(200.0)
+    assert np.isinf(stats["bounds"]["q3"][1])
+    assert all(np.isnan(stats[key]) for key in ("q1", "median", "q3"))
+    r = dict(stats, quantile_bounds=stats["bounds"])
+    assert gui03._quantile_text(r, "median", "{0:.1f}") == "[100.0, 300.0]"
+    assert gui03._quantile_text(r, "q3", "{0:.1f}") == "> 200.0"
+    assert gui03._range_csv_values(stats["bounds"]) == [
+        "100.000", "150.000", "100.000", "300.000", "200.000", "inf"]
+
+
+def test_gui03_kaplan_meier_interval_is_reproducible_and_spans_the_bounds():
+    """
+    The resampling interval is the same on every run and contains the bounds of the data.
+    リサンプリング区間は毎回同じで、データ自身の範囲を含む。
+    """
+    rng = np.random.default_rng(3)
+    samples = []
+    for longest in (150.0, 400.0):
+        lengths = rng.uniform(20.0, longest, 60)
+        own = rng.choice([0, 1, 2], size=60, p=[0.2, 0.3, 0.5])
+        samples.append((lengths, own))
+    first = gui03._kaplan_meier_interval(samples, resamples=50)
+    assert first == gui03._kaplan_meier_interval(samples, resamples=50)
+    values, weights, folders = [], [], []
+    for lengths, own in samples:
+        w, rest = gui03.kaplan_meier_length_weights(lengths, own)
+        keep = (own == 2) & (w > 0.0)
+        values.append(lengths[keep])
+        weights.append(w[keep])
+        folders.append((float(lengths[own == 2].max()), rest * own.sum() / 2.0))
+    bounds = gui03._kaplan_meier_bounds(
+        np.concatenate(values), np.concatenate(weights), folders)
+    for key in ("q1", "median", "q3"):
+        assert first[key][0] <= bounds[key][0] + 1e-9
+        assert first[key][1] >= bounds[key][1] - 1e-9
+    assert gui03._kaplan_meier_interval([]) == {}
 
 
 def test_gui03_weights_fiber_kink_density_by_judged_length(tk_app, tmp_path, monkeypatch):

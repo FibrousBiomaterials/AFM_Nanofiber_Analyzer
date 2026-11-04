@@ -328,6 +328,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with the row scaled by the pixel aspect, as the centerline and the kink rule
   do. Nothing changes for square pixels or for a stored connection, which is
   not searched again.
+- Each cross-section the centerline is placed on, and the apparent width W is
+  read from, is sampled symmetrically about the track point, and where it rises
+  on both sides of that point the climb to the fiber's crest goes to the nearer
+  crest, and to the higher one at equal distance, instead of always toward the
+  same side of the normal (`centerline._climb_to_maximum`). Tracing a fiber the
+  other way reverses its normals, so the one-sided climb moved the centerline,
+  and every curvature and kink read from it, with the direction the fiber
+  happened to be traced in. The **bundle format is now 1.7**; a bundle of
+  format 1.6 or older is still placed with the one-sided climb it was judged
+  with (`bundle_schema.symmetric_section_from_meta`). **Centerlines and kinks
+  found with the default settings change from this version**: on the three
+  bundled scans the stored kinks went from 7, 70 and 63 to 7, 69 and 63.
+- GUI03's `Kaplan-Meier` estimate over several folders places each folder's
+  unestimated share beyond that folder's own longest fiber seen whole, not
+  beyond the longest fiber of the group. A quartile that depends on where that
+  share lies is shown as the range it can take, "[lower, upper]", or "> lower"
+  when it has no upper end, in the results table, the figure and the
+  statistics CSV; reading the share as lying beyond the group's longest fiber
+  could report such a quartile as a value or as "> that length" when it lay
+  below. The log and the statistics CSV also give each quartile's 95 %
+  interval from resampling the fibers within each folder 200 times, with a
+  fixed seed. One folder reads as before. The statistics CSV gains twelve last
+  columns for the ranges and the intervals.
 
 ### Fixed
 
@@ -600,6 +623,37 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   11 against 11, scipy's KS p-value read 0.12 to 0.14 higher on average than the
   count of every split, and disagreed on p < 0.05 in 31 of 340 pairs; the random
   splits disagreed in none.
+- A fiber's curvature no longer depends on the direction it was traced in.
+  Each point's two chords end at the first track point at least half a window
+  away on either side alike (`measure.fiber_curvature_profile`), where the
+  window reached a full half window ahead of a point but as little as a quarter
+  window behind it. Together with the symmetric cross-sections above, the mean
+  curvature of a fiber traced the other way now agrees to within 1e-11; on the
+  three bundled scans it differed by a median of 7 % to 21 % and by up to 122 %.
+  A point within half a window of either end has no curvature, so one fiber on
+  each of two scans no longer has one. **Curvatures change from this
+  version.**
+- The height statistics of a connected fibril leave out the samples within one
+  apparent width of a connector bridge, as they already did at a cut end
+  (`measure.height_sample_mask`): a bridge spans the crossing the fragments
+  were cut at, and the samples beside it are partly the other fiber's height.
+  When too few samples would remain, the bridge neighbourhood is given back
+  before the cut ends. On the fibrils the automatic connection search builds on
+  the three bundled scans, together with the changes above, the maximum height
+  fell by more than 20 % on 3 of 14 fibrils of the tunicate scan (by up to a
+  factor of 1.95) and 4 of 34 of the NDTOC scan (1.48), and none of 3 of the
+  higher-plant scan; the median height moved by at most 0.6 %, 4.3 % and 30 %
+  on the higher-plant, tunicate and NDTOC scans. **Heights of connected
+  fibrils change from this version.**
+- The pooled height distributions — GUI03's `pixel` and `length` units,
+  `cli.py heights`, `measure.skeleton_height_values` and
+  `measure.collect_skeleton_height_profiles` — use the samples the per-fiber
+  height statistics use (`measure.height_sample_mask`), leaving out the last
+  width at a cut end and the connector's bridges with a width on either side.
+  On the three bundled scans, together with the changes above, this removed
+  5.2 %, 9.0 % and 14.2 % of the samples of the higher-plant, tunicate and
+  NDTOC scans and lowered their medians by 1.1 %, 0.8 % and 1.0 %. **Pooled
+  height distributions change from this version.**
 
 ### Deprecated
 

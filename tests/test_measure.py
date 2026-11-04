@@ -947,8 +947,8 @@ def test_curvature_recovers_a_known_radius():
 
 def test_curvature_window_below_the_pixel_scale_is_noise():
     """
-    A window of a few pixels reports the same value whatever the true curvature.
-    数画素の窓は、真の曲率によらず同じ値を返す。
+    A window of a few pixels reads the quantisation, not the true curvature.
+    数画素の窓は、真の曲率ではなく量子化を読む。
 
     Skeleton steps are orthogonal or diagonal only, so the turn between
     consecutive steps is quantised to multiples of 45 degrees. This is why the
@@ -962,9 +962,13 @@ def test_curvature_window_below_the_pixel_scale_is_noise():
         _digitised_arc(100, spp), spp, spp, window_nm=20.0)))
     gentle = float(np.median(fiber_curvature_profile(
         _digitised_arc(250, spp), spp, spp, window_nm=20.0)))
-    # The true curvatures differ by a factor of 2.5; the noise floor does not.
-    # 真の曲率は 2.5 倍違うが、ノイズ下限は違わない。
-    assert tight == pytest.approx(gentle, rel=0.05)
+    # The true curvatures differ by a factor of 2.5; the readings differ by far
+    # less, and the gentler arc reads several times too curved.
+    # 真の曲率は 2.5 倍違うが、読みの違いははるかに小さく、緩い円弧は何倍も
+    # 曲がって読まれる。
+    true_gentle = 1000.0 / (250 * spp)
+    assert tight / gentle < 1.5
+    assert gentle > 3.0 * true_gentle
 
 
 def test_curvature_is_empty_for_a_fiber_shorter_than_the_window():
@@ -1481,23 +1485,26 @@ def _flagged_fiber(n=40, width_px=4.0, ends=(0, 39), bridge=()):
 
 def test_height_sample_mask_excludes_cut_ends_and_bridges():
     """
-    The last width at a cut end and the connector's bridges do not count.
-    切断端の最後の 1 幅と連結器の橋渡しは数えない。
+    The last width at a cut end, the connector's bridges and a width beside them do not count.
+    切断端の最後の 1 幅、連結器の橋渡しとその脇の 1 幅は数えない。
 
     A cut end is one whose point is not a skeleton endpoint: the skeleton went
     on into a crossing there, where the height is partly the other fiber's.
-    A real end keeps its samples, because the fiber genuinely ends there.
+    A bridge spans such a crossing, so the width beside it is left out for the
+    same reason. A real end keeps its samples, because the fiber genuinely
+    ends there.
     切断端とは、その点がスケルトンの端点でない端である。スケルトンはそこで交差へ
-    続いており、高さは一部が相手の繊維のものである。本物の端は標本を残す。繊維は
-    実際にそこで終わっている。
+    続いており、高さは一部が相手の繊維のものである。橋渡しはそうした交差をまたぐ
+    ため、その脇の 1 幅も同じ理由で外す。本物の端は標本を残す。繊維は実際にそこで
+    終わっている。
     """
     from lib.measure import height_sample_mask
 
     mask = height_sample_mask(_flagged_fiber(ends=(39,), bridge=(20, 21, 22)))
     assert not mask[:4].any(), "the last width at the cut head is excluded"
-    assert mask[4:20].all()
-    assert not mask[20:23].any(), "bridge samples are not measurements"
-    assert mask[23:].all(), "a real end keeps its samples"
+    assert mask[4:17].all()
+    assert not mask[17:26].any(), "the bridge and a width either side are excluded"
+    assert mask[26:].all(), "a real end keeps its samples"
 
     both_real = height_sample_mask(_flagged_fiber(ends=(0, 39)))
     assert both_real.all()
@@ -1512,16 +1519,36 @@ def test_height_sample_mask_keeps_a_short_fragment_measurable():
     A fragment shorter than its exclusion zones still reports a height.
     除外域より短い断片も高さを報告する。
 
-    Dropping the cut-end exclusion is the fallback; the bridge exclusion
-    stays, because a bridge is not a measurement at any length.
-    切断端の除外をやめるのが退避である。橋渡しの除外は残る。橋渡しはどの長さでも
-    測定値ではないからである。
+    Dropping the cut-end and bridge-neighbourhood exclusions is the fallback;
+    the bridge itself stays excluded, because a bridge is not a measurement at
+    any length.
+    切断端と橋渡しの周囲の除外をやめるのが退避である。橋渡しそのものの除外は残る。
+    橋渡しはどの長さでも測定値ではないからである。
     """
     from lib.measure import height_sample_mask
 
     short = _flagged_fiber(n=6, ends=(), bridge=(2,))
     mask = height_sample_mask(short)
     assert mask.sum() == 5 and not mask[2]
+
+
+def test_height_sample_mask_gives_up_the_bridge_neighbourhood_first():
+    """
+    Too few samples away from the bridges restores the bridge neighbourhood, not the cut ends.
+    橋渡しから離れた標本が少なすぎるときは、切断端ではなく橋渡しの周囲を戻す。
+
+    Twelve points with cut ends and a bridge in the middle: the cut ends take
+    the outer 4 px on each side and the bridge neighbourhood the rest, so the
+    bridge neighbourhood is given back and the cut ends stay excluded.
+    切断端を持ち中央に橋渡しのある 12 点。切断端が両側の外側 4 px を、橋渡しの
+    周囲が残りを取るため、橋渡しの周囲を戻し、切断端は外したままにする。
+    """
+    from lib.measure import height_sample_mask
+
+    mask = height_sample_mask(_flagged_fiber(n=12, ends=(), bridge=(6,)))
+    assert not mask[:4].any() and not mask[8:].any(), "cut ends stay excluded"
+    assert not mask[6], "the bridge is never a measurement"
+    assert mask[4:6].all() and mask[7:8].all()
 
 
 def test_kink_density_uses_the_judged_length():
