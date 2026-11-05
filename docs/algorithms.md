@@ -1412,7 +1412,7 @@ Figure 1<!--n:label-->: a synthetic height image of a fiber that crosses the who
 angle and leaves through the top and the bottom edge (the whole image is shown;
 the blue line is the image edge). From the left: the height and the mask edge
 ("height and mask edge"), the result thinned without padding (`plain`), and the
-result thinned with padding (`padded`). Yellow is the mask edge, red the
+result thinned with padding (`padded`). Green is the mask edge, red the
 skeleton. For illustration, the mask in this figure is the pixels higher than
 half the fiber height (the real binarization uses the thresholds of §2). In
 `plain` both ends of the line bend toward a corner
@@ -1456,7 +1456,7 @@ thinning does at any end. Panel 3<!--n:label--> is
 the result with the padding cropped off (`padded`): that line is gone. Panel 4<!--n:label-->
 is what `thin_ignoring_image_border` returns: only the fiber along the edge is
 back to `plain`, and the crossing fiber keeps the straight `padded` line.
-Yellow is the mask edge, red the skeleton. As in Figure 1<!--n:label-->, the mask is the
+Green is the mask edge, red the skeleton. As in Figure 1<!--n:label-->, the mask is the
 pixels higher than half the fiber height, for illustration.
 
 ```python
@@ -1907,7 +1907,7 @@ Figure 3<!--n:label-->: a synthetic height image of a fiber with a low, widened 
 round mound) above and to the right of its tip (the whole image is shown; the
 blue line is the image edge). From the left: the
 height and the mask edge ("height and mask edge"), the thinned result
-("thinned"), and the result after `prune_terminal_hooks`. Yellow is the mask
+("thinned"), and the result after `prune_terminal_hooks`. Green is the mask
 edge, red the skeleton. For illustration, the mask in this figure is cut at a
 low height so that it includes the skirt (the real binarization uses the
 thresholds of §2). The thinned line turns into the skirt at the tip;
@@ -2540,12 +2540,83 @@ bend is a candidate; only a bend the rule below accepts is a **kink**.
 
 #### The excess-turning rule
 
-The rule works on the heading of the centerline, $\theta(s)$, where $s$ is the
-length measured along the centerline (arc length). The centerline is resampled
-every 0.5<!--c:lib/kink_detector.py::_HEADING_STEP_PX--> px of $s$, and the heading at each point, smoothed with a Gaussian
-of standard deviation $W/4$, is $\theta(s)$ (`kink_detector._heading_profile`).
-At a position $p$ along the arc it compares the turning inside a window with the
-fiber's own turning just outside it:
+A kink is a place where the fiber changes direction sharply within a short
+distance; a place where it only curves gently is not a kink. The rule reads how
+the direction of the fiber changes along its centerline (§4.2) and measures
+the part of that change that the fiber's gentle curving does not explain. Every
+length below is in units of the apparent width $W$ measured on that fiber in
+§4.2.
+
+**Reading the direction along the centerline**
+
+At each position on the centerline, the direction in which the fiber runs,
+expressed as an angle, is the **heading** $\theta(s)$ there; $s$ is the length
+measured along the centerline from its end (arc length). Where the fiber runs
+straight the heading does not change, where it curves gently it changes little
+by little, and at a kink it changes by a large amount within a short distance.
+The difference between the headings at two positions is the **turning**
+between them.
+
+The heading is computed as follows (`kink_detector._heading_profile`). The
+centerline is resampled every 0.5<!--c:lib/kink_detector.py::_HEADING_STEP_PX--> px of arc length, the direction from each point
+to the next is taken, and the sequence is smoothed with a Gaussian of standard
+deviation $W/4$, because wiggles of the centerline shorter than $W/4$ are not
+the fiber's shape.
+
+**Measuring the angle at a point misses a rounded corner**
+
+The most direct way to measure a corner is the angle, at each point of the
+centerline, between the two segments that join it to its neighbours before and
+after it. If the corner turned at a single point, this angle would be the corner
+itself. In an image it does not: the AFM probe (the tip that traces the sample
+surface) rounds a corner over about half a width on either side (the range the
+arms of the stored angle skip, see *The angle stored for a kink* below), so the
+corner's turning is spread over about $W$ of the centerline. The centerline has
+one point per skeleton pixel, so a neighbouring point is only about one pixel
+away, and the angle between the segments to the neighbours shows only part of
+the spread turning.
+
+Figure 4<!--n:label--> shows this at a corner of a real fiber of a bundled scan. The centerline
+is smooth, and on straight parts the angle between the segments to the
+neighbours is small. At the corner this angle stays below the threshold as
+well, because the turning is shared among several points before and after it
+(red in b).
+
+![The angle at each point and the turning across the window at a corner of a real fiber](images/kink_point_angles.png)
+
+Figure 4<!--n:label-->: a corner of one fiber of the bundled tunicate scan
+(`testdata_tunicateCNF/TunicateACTOCCNF.txt`), analyzed with the default
+settings; the same fiber as in Figure 6<!--n:label-->.
+
+**Measuring across a longer piece picks up gentle curving too**
+
+To take in the whole rounded corner, the headings are compared at the two ends
+of a longer piece. The rule takes the piece of length $2c$ ($c = 0.75\,W$)
+centred on a position $p$ as the **window** and its turning
+$T(p) = \theta(p + c) - \theta(p - c)$ as the turning across the window. The
+probe spreads a corner's turning over about $W$ of the centerline, so a length
+of $1.5\,W$ holds the whole rounded corner even when its centre is placed a
+little off. As Figure 4<!--n:label--> b shows, the turning read this way passes the threshold
+at the corner and stays near 0<!--n:analytic (a straight line does not turn)--> on straight parts.
+
+But this turning appears wherever the fiber curves, corner or not. On a piece
+that curves with radius $R$, the headings at the two ends of the window differ
+by $2c/R$ radians. A gentle curve of radius $3\,W$ already gives 29<!--x:degrees(2 * 0.75 / 3)-->°, and a
+slightly tighter curve would pass the default threshold of 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->° at every
+position along it, although it has no corner at all. A corner on a curve also
+reads larger than it is, because the curve's share is added to it.
+
+**Estimating the curving just outside and subtracting it**
+
+A corner and gentle curving differ in a way that can be seen: a corner's turning
+happens only inside the window, while gentle curving goes on in the same way
+outside it. The rule therefore takes a piece of length $f = W$ just outside the
+window before and after it, the **flanks**, and measures how much the fiber
+turns per length there, the **turning rate**. If the fiber kept turning at that
+rate inside the window, the window's turning would be the rate times $2c$. What
+is left when this is subtracted from the actual turning is the **excess
+turning** $E$: the turning that happens only inside the window and that the
+fiber's gentle curving does not explain. As formulas:
 
 $$
 T(p) = \theta(p + c) - \theta(p - c), \qquad c = 0.75\,W
@@ -2560,17 +2631,66 @@ $$
 E(p) = |T(p)| - 2c \, \max\bigl(0,\ \min(\operatorname{sgn} T(p)\, r_{\text{L}},\ \operatorname{sgn} T(p)\, r_{\text{R}})\bigr)
 $$
 
-$T$ is the turning inside the window, and $r_{\text{L}}$ and $r_{\text{R}}$ are the
-turning rates (turning per length) on the two flanks. The window is $2c$ long,
-so $2c$ times a flank rate is the turning the window would show if it kept
-turning at the flank's rate. Multiplying by $\operatorname{sgn} T(p)$ (the sign
-of $T$) counts only a flank turning the same way as the window. $E$ is the
-**excess turning**: the part of the window's turning that keeping on at the
-flanks' rate does not explain.
+$r_{\text{L}}$ and $r_{\text{R}}$ are the turning rates on the flank before and the flank after.
+Two rules decide which rate is subtracted:
 
-The threshold is expressed as the bend's interior angle: the angle on the inside
-of the bend, 180<!--n:definition-->° for a straight line and smaller the sharper the bend. A
-bend with interior angle $\phi_{\text{max}}$ changes direction by
+- **The smaller rate is used**: only the smaller of the two rates is
+  subtracted, because a corner where a curve ends has one curved side and one
+  straight side and is still a corner. The straight side's rate is 0<!--n:analytic (a straight line does not turn)-->, so
+  such a corner keeps all of its turning.
+- **Nothing is subtracted when a side turns the other way**: the rates are
+  multiplied by the sign of $T$, $\operatorname{sgn} T(p)$, so only a side
+  turning the same way as the window counts; when either side turns the other
+  way, nothing is subtracted.
+  <!-- TODO(review): why nothing is subtracted when a flank turns the other way
+  is not recorded in the code; confirm with the authors before stating it. -->
+
+Figure 5<!--n:label--> shows this subtraction on 3<!--n:count--> lines whose shape is known. The upper
+panels show the fiber (a grey band $W$ wide) and its centerline, with the window
+coloured green and the flanks hatched. The front end of the window is marked by
+a short pink bar and the back end by an orange one; the pink dashed line is the
+tangent to the centerline at the front end, the orange dashed line the tangent
+at the back end (drawn to both sides), and the angle between them is $T$. The
+black dash-dot curve is the centerline assumed to keep turning from the front
+end at the smaller flank rate; the angle between its tangent at its end (the
+black dotted line) and the orange dashed line is $E$.
+The blue × marks are the kinks the detector finds. The lower panels plot the heading
+along the same lines, each colour and the hatching meaning the same as above.
+A straight line keeps one heading, so each tangent of the upper panel appears
+below as a horizontal line drawn the same way, at the heading of its point, and
+$T$ and $E$ are the gaps between these lines, drawn as arrows at the front and
+back ends of the window.
+
+![The shape and heading of three lines, with the turning T and the excess E](images/kink_heading.png)
+
+Figure 5<!--n:label-->: 3<!--n:count--> synthetic centerlines (given directly to the detector, not taken from an
+image; apparent width $W$ = 8<!--n:example--> px). Column 1<!--n:label-->: a corner between straight parts.
+The flanks do not turn, so nothing is subtracted and $E = T$. Column 2<!--n:label-->: a corner
+where the fiber curves with radius $4\,W$. The flanks turn the same way, so
+their turning is subtracted and $E$ is smaller than $T$, but still reaches the
+threshold. Column 3<!--n:label-->: a part that curves at a steady rate (radius $2\,W$, with the
+curvature changed gradually at both ends). $T$ passes the threshold, but the
+flanks turn as fast as the window, so all of its turning is subtracted and $E$ is
+close to 0<!--n:analytic (an arc turns at one rate)-->. Drawn by `scripts/make_doc_figures.py`,
+which checks the formula for $E$ and the number of kinks found on each line
+against the output of `KinkDetector.judge_line`.
+
+**Assuming nothing about the shape of the fiber**
+
+The excess turning compares the window only with that fiber's own turning,
+measured just outside it; it assumes nothing about what shape the fiber has.
+Where the heading changes at a constant rate across the window and the flanks,
+the excess is exactly 0<!--n:analytic (T equals 2c times the flank rate)-->, however the fiber curves elsewhere; where the rate
+changes little over the length the rule reads ($2c + 2f$, 3.5<!--x:2 * 0.75 + 2 * 1--> widths), the
+excess stays small. A corner between straight arms, on the other hand, keeps all
+of its turning. The smoothing, the window and the flanks are all multiples of
+$W$, so every fiber is read in units of its own width, whatever the pixel size.
+
+**Calling a bend over the threshold a kink**
+
+The threshold is expressed as the bend's interior angle: the angle on the
+inside of the bend, 180<!--n:definition-->° for a straight line and smaller the sharper the bend.
+A bend with interior angle $\phi_{\text{max}}$ changes direction by
 $180^\circ - \phi_{\text{max}}$, so a bend is a kink when
 
 $$
@@ -2578,98 +2698,46 @@ E \ge 180^\circ - \phi_{\text{max}}
 $$
 
 with $\phi_{\text{max}}$ = `kinkangle_deg`, default 150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg-->°, so by default a kink
-needs 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->° of excess turning. The polyline rule used for bundles of format
-1.0<!--n:bundle format version--> (§4.6) reads the same `kinkangle_deg` as an interior-angle threshold.
-`pipeline.build_stages` converts it to radians for the detector. The angle
-*stored* for a kink is measured separately, from its arms (see *The reported
-angle* below).
+needs 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->° of excess turning. `pipeline.build_stages` converts it to radians for
+the detector. The polyline rule used for bundles of format 1.0<!--n:bundle format version--> (§4.6) reads the
+same `kinkangle_deg` as an interior-angle threshold. The angle *stored* for a
+kink is measured separately, from its arms (see *The angle stored for a kink*
+below).
 
-**The excess on an example.** Figure 4<!--n:label--> shows why the rule tests the excess
-and not the window's turning, on a corner of 40<!--n:example-->° set in an arc of radius
-$3\,W$. Panel a marks the corner: the centerline follows the arc and changes
-direction by 40<!--n:example-->° at one point. Panel b measures the corner the simple way, as the
-change of direction between the two ends of a stretch of $2c = 1.5\,W$ centred
-on it, which is the window's turning $T$. The arc keeps turning on both sides of
-the corner inside that stretch, so its own 29<!--x:degrees(2 * 0.75 / 3)-->° is added and $T$ reads
-69<!--x:40 + degrees(2 * 0.75 / 3)-->°. Panel c applies the same measure to the arc without the corner: it reads
-29<!--x:degrees(2 * 0.75 / 3)-->° although there is no corner, and on an arc a little tighter it would pass
-the default 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->° at every point of the curve. Panel d plots the heading along
-the centerline: the arc is a steady slope and the corner a step. The dashed
-line continues the slope read on the flanks across the window, and the height
-of the step above it is the excess $E$, the 40<!--n:example-->° of the corner.
+**Following the detector on a real fiber**
 
-![A corner set in an arc, measured by the window's turning and by the excess](images/kink_excess_idea.png)
+Figure 6<!--n:label--> shows the rule applied to one fiber of a bundled scan. The detector
+(`KinkDetector.judge_line`) works in this order:
 
-Figure 4<!--n:label-->: a corner of 40<!--n:example-->° set in an arc of radius $3\,W$, on a synthetic centerline
-given directly to the detector (apparent width $W$ = 8<!--n:example--> px). a: the corner; blue is
-the direction just before it, orange just after. b: the directions at the two
-ends of a $1.5\,W$ stretch centred on the corner (red band), drawn again from
-one point on the left. c: the same on the arc without the corner. d: the
-heading along the centerline, with the window (red band), the flanks (blue
-bands) and the flanks' slope continued (dashed). Drawn by
-`scripts/make_doc_figures.py`, which checks that `KinkDetector.judge_line`
-finds one kink of 40<!--n:example-->° excess on this line and none on the arc without the corner.
+![The kink rule on one fiber of a bundled scan](images/kink_real_fiber.png)
 
-**Why not measure between neighbouring points.** Shortening the window removes
-the arc's share, and in the limit the angle between the segments from a point to
-its two neighbours would read the corner of Figure 4<!--n:label--> a exactly. On an image it does
-not, for two reasons. A corner in an image is not a point: the probe rounds it
-over about half a width on either side (the range the arms of the stored angle
-skip, see *The angle stored for a kink* below), so segments much shorter than that see
-only part of the turn. And every point of the centerline
-carries some positional noise, which changes the direction of a short segment
-far more than that of a long one. Figure 5<!--n:label--> shows both on a synthetic centerline
-with a 40<!--n:example-->° corner rounded over $W$ and each point moved at random by 0.2<!--n:example--> px (example
-values, not measured on a scan). The angle between neighbouring segments swings
-across the threshold all along the line and does not stand out at the corner
-(b); lengthening the segments (c) calms the noise but blunts the rounded corner.
-The rule instead smooths the heading over $W/4$ ($\sigma$, `_HEADING_SIGMA_WIDTHS`) and compares it
-at the two ends of the window (d), which takes in the whole rounded corner while
-straight parts stay near 0<!--n:analytic (a straight line does not turn)-->; the arc's share that a window of that length
-brings in is what the flanks subtract.
+Figure 6<!--n:label-->: one fiber of the bundled tunicate scan
+(`testdata_tunicateCNF/TunicateACTOCCNF.txt`), analyzed with the default
+settings.
 
-![Measuring a rounded, noisy corner between neighbouring points and with the window](images/kink_short_segments.png)
-
-Figure 5<!--n:label-->: a synthetic centerline with a corner of 40<!--n:example-->° rounded over $W$ = 8<!--n:example--> px and points
-every 0.5<!--n:example--> px, each moved across the line at random by 0.2<!--n:example--> px. a: the centerline
-near the corner, with the segments to the neighbouring points (red) and the
-smoothed directions at the two ends of the window (blue). b: both readings at
-every point along the centerline. c: the angle between the segments from a
-point to the points $L$ away on either side, against $L$; d: the rule's turning
-$T$ with the window's half length set to $L$, the vertical line marking
-$c$ = 0.75<!--c:lib/kink_detector.py::_CORE_WIDTHS--> $W$. In c and d, for the rounded corner and for a straight part,
-both with noise, the line is the median and the band the 5<!--n:definition-->–95<!--n:definition--> % range over 300<!--n:example-->
-random draws; the arc of radius $3\,W$ is drawn without noise. Drawn by `scripts/make_doc_figures.py`,
-which uses the detector's own heading (`_heading_profile`) and checks that the
-rule reads the noise-free rounded corner within 2<!--n:example-->° of 40<!--n:example-->°.
-
-**Why the excess and not the turning.** The window's turning alone reports
-curvature as well as kinks: an arc of radius $3\,W$ already turns 29<!--x:degrees(2 * 0.75 / 3)-->° across
-$1.5\,W$. An arc turns at the same rate inside the window and on both flanks, so
-its excess is near zero, while a corner between straight arms keeps all of its
-turning. The *smaller* of the two flank rates is used because a corner where a
-curve ends has one curved flank and one straight one, and it is still a corner.
-When either flank turns opposite to the turning inside the window, nothing is
-subtracted. For instance, on a line whose 2<!--n:count--> bends turn back against each other to
-form a step, the second bend falls in a flank of the first, and that flank turns
-the other way (Figure 6<!--n:label-->, right).
-
-![The heading θ(s) of three centerlines, with the turning T and the excess E](images/kink_heading.png)
-
-Figure 6<!--n:label-->: the heading $\theta(s)$ of 3<!--n:count--> synthetic centerlines (lines given directly to
-the detector, not taken from an image; apparent width $W$ = 8<!--n:example--> px). The horizontal
-axis is the arc length divided by $W$, the vertical axis the heading in degrees.
-The orange band is the window $p \pm c$, the blue bands the flanks of length
-$f$, and the dashed line the heading the window would reach if it kept turning
-at the flank rate (what is subtracted). Left: a corner between straight arms.
-The flanks do not turn, so nothing is subtracted and $E = T$. Middle: an arc of
-radius $3\,W$. The window and the flanks turn at the same rate, so the dashed
-line lies on the curve and $E$ is close to 0<!--n:analytic (an arc turns at one rate)-->. Right: the first bend of a line
-whose 2<!--n:count--> bends turn back against each other to form a step. The right flank turns
-the other way at the second bend, so nothing is subtracted and $E = T$. The $T$
-and $E$ actually computed are shown above each panel. Drawn by
-`scripts/make_doc_figures.py`, which checks the formula for $E$ against the
-output of `KinkDetector.judge_line`.
+- **Take the centerline and the width** (a, b): the centerline placed in §4.2
+  and the apparent width $W$ measured on the same cross-sections. The window is
+  then 1.5<!--c:lib/kink_detector.py::_CORE_WIDTHS|2 * v--> widths long and each flank one width.
+- **Compute the heading** (c): at the corner the heading falls, but not in a
+  step, because the probe rounds the corner and the smoothing spreads it
+  further. Along the arms the heading wavers by a few degrees.
+- **Choose candidate positions** (d): the detector does not know where the
+  corners are. It takes as candidates the positions where the curvature
+  $|d\theta/ds|$ (how fast the heading changes per length) has a maximum, and
+  the maxima of $|T|$, except where a curvature-maximum candidate with at least
+  the same excess lies within 0.75<!--c:lib/kink_detector.py::_SUPPRESS_WIDTHS--> $W$ (*Finding candidates* below). Panel d
+  draws $|T|$ and $E$ at every position, but the detector judges only the
+  candidates.
+- **Compute the turning and the excess at each candidate** (b, c): at the
+  corner of this fiber the left flank turns slightly the other way, so nothing
+  is subtracted, the dashed line in c is level, and $E = T$. A candidate whose
+  $|T|$ or $E$ stays below a fixed search floor is dropped, and of candidates
+  closer than 0.75<!--c:lib/kink_detector.py::_SUPPRESS_WIDTHS--> $W$ only the one with the larger excess is kept (both
+  described below).
+- **Compare with the threshold** (d): a candidate whose $E$ reaches the
+  threshold is a kink, unless it lies within 1.5<!--c:lib/kink_detector.py::END_MARGIN_WIDTHS--> $W$ of an end, where bends
+  are not judged (§4.4; grey in d). On this fiber only the corner reaches the
+  threshold; elsewhere $|T|$ stays far below it.
 
 In the code, `_heading_profile` resamples, differences and smooths the heading,
 and `excess_profile` evaluates $T$ and $E$ at any position. Near an end the
