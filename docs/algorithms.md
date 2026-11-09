@@ -2576,17 +2576,16 @@ one point per skeleton pixel, so a neighbouring point is only about one pixel
 away, and the angle between the segments to the neighbours shows only part of
 the spread turning.
 
-Figure 4<!--n:label--> shows this at a corner of a real fiber of a bundled scan. The centerline
-is smooth, and on straight parts the angle between the segments to the
-neighbours is small. At the corner this angle stays below the threshold as
-well, because the turning is shared among several points before and after it
-(red in b).
+At a corner of a real fiber of a bundled scan, the centerline is smooth, and
+on straight parts the angle between the segments to the neighbours is small. At
+the corner this angle stays below the threshold as well, because the turning is
+shared among several points before and after it (Figure 4<!--n:label-->, red in b).
 
 ![The angle at each point and the turning across the window at a corner of a real fiber](images/kink_point_angles.png)
 
 Figure 4<!--n:label-->: a corner of one fiber of the bundled tunicate scan
 (`testdata_tunicateCNF/TunicateACTOCCNF.txt`), analyzed with the default
-settings; the same fiber as in Figure 6<!--n:label-->.
+settings; the same fiber as in Figure 8<!--n:label-->.
 
 **Measuring across a longer piece picks up gentle curving too**
 
@@ -2641,25 +2640,30 @@ Two rules decide which rate is subtracted:
 - **Nothing is subtracted when a side turns the other way**: the rates are
   multiplied by the sign of $T$, $\operatorname{sgn} T(p)$, so only a side
   turning the same way as the window counts; when either side turns the other
-  way, nothing is subtracted.
-  <!-- TODO(review): why nothing is subtracted when a flank turns the other way
-  is not recorded in the code; confirm with the authors before stating it. -->
+  way, nothing is subtracted (see *Flanks that do not turn evenly* below).
 
-Figure 5<!--n:label--> shows this subtraction on 3<!--n:count--> lines whose shape is known. The upper
-panels show the fiber (a grey band $W$ wide) and its centerline, with the window
-coloured green and the flanks hatched. The front end of the window is marked by
-a short pink bar and the back end by an orange one; the pink dashed line is the
-tangent to the centerline at the front end, the orange dashed line the tangent
-at the back end (drawn to both sides), and the angle between them is $T$. The
-black dash-dot curve is the centerline assumed to keep turning from the front
-end at the smaller flank rate; the angle between its tangent at its end (the
-black dotted line) and the orange dashed line is $E$.
-The blue × marks are the kinks the detector finds. The lower panels plot the heading
-along the same lines, each colour and the hatching meaning the same as above.
-A straight line keeps one heading, so each tangent of the upper panel appears
-below as a horizontal line drawn the same way, at the heading of its point, and
-$T$ and $E$ are the gaps between these lines, drawn as arrows at the front and
-back ends of the window.
+**Flanks that turn at the same rate**
+
+When both flanks turn at the same rate, that rate is subtracted. A corner
+between straight parts has flanks that do not turn, so nothing is subtracted and
+$E = T$; a corner partway along a curve loses only the curve's share; and a part
+that curves at a steady rate loses all of its turning, so $E$ is close to 0<!--n:analytic (an arc turns at one rate)-->
+(Figure 5<!--n:label-->).
+
+In Figures 5<!--n:label--> to 7<!--n:label--> the upper panels show the fiber (a grey band $W$ wide) and its
+centerline, with the window coloured green and the flanks hatched. The front
+end of the window is marked by a short pink bar and the back end by an orange
+one; the pink dashed line is the tangent to the centerline at the front end,
+the orange dashed line the tangent at the back end (drawn to both sides), and
+the angle between them is $T$. The black dash-dot curve is the centerline
+assumed to keep turning from the front end at the smaller flank rate; the angle
+between its tangent at its end (the black dotted line) and the orange dashed
+line is $E$. The blue × marks are the kinks the detector finds. The lower
+panels plot the heading along the same lines, each colour and the hatching
+meaning the same as above. A straight line keeps one heading, so each tangent of
+the upper panel appears below as a horizontal line drawn the same way, at the
+heading of its point, and $T$ and $E$ are the gaps between these lines, drawn as
+arrows at the front and back ends of the window.
 
 ![The shape and heading of three lines, with the turning T and the excess E](images/kink_heading.png)
 
@@ -2674,6 +2678,63 @@ flanks turn as fast as the window, so all of its turning is subtracted and $E$ i
 close to 0<!--n:analytic (an arc turns at one rate)-->. Drawn by `scripts/make_doc_figures.py`,
 which checks the formula for $E$ and the number of kinks found on each line
 against the output of `KinkDetector.judge_line`.
+
+**Flanks that turn at different rates**
+
+When the two flanks turn the same way at different rates, the centerline could
+be assumed to keep turning at either rate; the rule takes the smaller and
+subtracts only its share. If one flank is straight, the smaller rate is 0<!--n:analytic (a straight line does not turn)--> and
+nothing is subtracted, as at a corner where a curve ends (Figure 6<!--n:label-->).
+
+![Corners between flanks that curve at different rates](images/kink_flank_rates.png)
+
+Figure 6<!--n:label-->: 2<!--n:count--> synthetic centerlines with a corner of 40<!--n:example-->° (given directly to the
+detector, not taken from an image; apparent width $W$ = 8<!--n:example--> px). Left and middle: the
+same line, which curves with radius $3\,W$ before the corner and $8\,W$ after it,
+both the same way; on the left the centerline is assumed at the front flank's
+rate, the larger, which the rule does not use, and in the middle at the back
+flank's, the smaller, which it uses. Right: the fiber curves with radius $3\,W$
+before the corner and runs straight after it. Where the back flank's rate is
+used (middle and right), the assumed centerline is drawn back from the back end,
+and $E$ is the angle its tangent makes with the tangent at the front end; drawn
+from either end, it gives the same $E$. The window is drawn at the corner
+itself; the kink the detector reports (×) lies a little before it. Other colours
+and lines mean the same as in Figure 5<!--n:label-->. The
+turning of each flank and the angle subtracted, written in the panels, are
+computed by `scripts/make_doc_figures.py`, which checks the number of kinks the
+detector finds on each line against `KinkDetector.judge_line`.
+
+**Flanks that do not turn evenly**
+
+When another corner lies inside a flank, the flank's rate reads that corner's
+turning as if the flank curved evenly all along: the rate is the change of
+heading between the flank's two ends divided by its length $f$, and does not see
+where in the flank the turning happens. What the rule then subtracts depends on
+the other flank:
+
+- **The other flank is straight or turns the other way**: the smaller of the two
+  rates, counted in the window's sense, is 0<!--n:analytic (a straight line does not turn)--> or below, nothing is subtracted,
+  and the corner keeps all of its turning, as at a corner where a curve ends
+  (Figure 6<!--n:label-->, right column).
+- **Both flanks hold a corner turning the same way**: both rates are high, the
+  smaller is subtracted as if it were a gentle curving of the fiber, and a
+  corner between close neighbours of this kind can fall below the threshold
+  (Figure 7<!--n:label-->).
+
+On the bundled scans, a kink both of two people called clear more often has a
+flank turning the other way than both flanks turning the same way, and the rule
+finds most kinks of either kind ([evaluation on particular data](validation.md) §4.20).
+
+![Corners with neighbouring corners inside their flanks](images/kink_neighbour_corners.png)
+
+Figure 7<!--n:label-->: a synthetic centerline with 3<!--n:count--> corners of 60<!--n:example-->° each, all turning left,
+1.25<!--n:example--> W apart, so that a neighbouring corner lies in the middle of each flank and
+both flanks hold a corner turning the same way (given directly to the detector,
+not taken from an image; apparent width $W$ = 8<!--n:example--> px); the window is at the middle
+corner. Colours and lines mean the same as in Figure 5<!--n:label-->. The
+turning of each flank and the angle subtracted, written in the panels, are
+computed by `scripts/make_doc_figures.py`, which checks the number of kinks the
+detector finds on each line against `KinkDetector.judge_line`.
 
 **Assuming nothing about the shape of the fiber**
 
@@ -2706,12 +2767,12 @@ below).
 
 **Following the detector on a real fiber**
 
-Figure 6<!--n:label--> shows the rule applied to one fiber of a bundled scan. The detector
-(`KinkDetector.judge_line`) works in this order:
+The detector (`KinkDetector.judge_line`) works in the order below, followed
+here on one fiber of a bundled scan (Figure 8<!--n:label-->):
 
 ![The kink rule on one fiber of a bundled scan](images/kink_real_fiber.png)
 
-Figure 6<!--n:label-->: one fiber of the bundled tunicate scan
+Figure 8<!--n:label-->: one fiber of the bundled tunicate scan
 (`testdata_tunicateCNF/TunicateACTOCCNF.txt`), analyzed with the default
 settings.
 
@@ -2925,12 +2986,12 @@ mean heading over a stretch 1<!--c:lib/kink_detector.py::_ARM_LENGTH_WIDTHS--> $
 the range over which the probe rounds the bend) and cut short at the next bend,
 so that the turning of a nearby next bend (for example the second bend of a jog,
 where two bends turn back against each other to form a step) does not enter the
-arm's direction (Figure 7<!--n:label-->). The excess the bend was judged by is stored beside the
+arm's direction (Figure 9<!--n:label-->). The excess the bend was judged by is stored beside the
 angle too (§4.5).
 
 ![Two bends forming a step, and the arms of the first one](images/kink_arms.png)
 
-Figure 7<!--n:label-->: a synthetic centerline whose 2<!--n:count--> bends of 45<!--n:example-->° each form a step (a line
+Figure 9<!--n:label-->: a synthetic centerline whose 2<!--n:count--> bends of 45<!--n:example-->° each form a step (a line
 given directly to the detector, not taken from an image; apparent width $W$ =
 8<!--n:example--> px, bends $1.375\,W$ apart). Blue is the left arm of the first bend and orange
 its right arm, cut short before the second bend ($p_{\text{next}} - g$). The

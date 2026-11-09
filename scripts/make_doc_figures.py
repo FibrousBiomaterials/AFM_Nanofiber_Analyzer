@@ -365,6 +365,21 @@ def _corner_on_arc(radius, corner_deg, length):
     return x[::10], y[::10]
 
 
+def _corner_between_arcs(front_radius, back_radius, corner_deg, length):
+    """
+    A line that curves with one radius, turns by a corner halfway, then curves with another.
+    ある半径で曲がり、途中で角の分だけ向きを変え、その先は別の半径で曲がる線。
+    """
+    step = 0.05
+    s = np.arange(0.0, length + step / 2, step)
+    half = length / 2
+    heading = (np.where(s < half, s / front_radius, half / front_radius + (s - half) / back_radius)
+               + np.where(s >= half, np.radians(corner_deg), 0.0))
+    x = np.concatenate([[0.0], np.cumsum(step * np.cos(heading[:-1]))])
+    y = np.concatenate([[0.0], np.cumsum(step * np.sin(heading[:-1]))])
+    return x[::10], y[::10]
+
+
 def _ramped_arc(radius, straight, ramp, flat):
     """
     A curve whose curvature rises evenly to 1/radius, stays there, and falls again.
@@ -479,6 +494,134 @@ _HEADING_TEXT = {
         xlabel="中心線に沿った位置 s（繊維の幅 W を単位とする）", ylabel="中心線の向き θ（度）\ns = 0 での向きを 0° とする"),
 }
 
+# Text of the figure of corners whose two flanks turn at different rates;
+# everything not named here is the text of the heading figure.
+# 前後の区間が異なる回転率で曲がる角の図の文言。ここに無いものは向きの図の文言を
+# そのまま使う。
+_RATES_TEXT = {
+    "en": dict(
+        _HEADING_TEXT["en"],
+        names=("Assumed at the front flank's rate\n(the larger: not used)",
+               "Assumed at the back flank's rate\n(the smaller: used)",
+               "Only the front flank curves\n(a corner where a curve ends)"),
+        notes=("The front flank turns {front:.0f}°, the back flank {back:.0f}° (over W):\n"
+               "at the front flank's rate, {sub:.0f}° would be subtracted.",
+               "The same line at the smaller rate, the back flank's,\n"
+               "drawn from the back end: {sub:.0f}° is subtracted from T.",
+               "The front flank turns {front:.0f}°, the back flank is straight (over W):\n"
+               "the smaller rate is 0, so the angle subtracted is 0° (E = T)."),
+        unused_verdict=": not used for the judgement",
+        marks=("\u2298", "\u2713", None),
+        ghost=("assumed centerline: drawn from the end beside the flank whose rate it keeps "
+               "turning at (upper); its heading (lower)"),
+        earc=("E: angle between the tangent to the assumed centerline at its end and the tangent "
+              "to the centerline at the other end"),
+        on_orange="the black dash-dot and dotted\nlines lie on the orange dashed line",
+        low_on_orange="the black dash-dot and dotted\nlines lie on the orange dashed line",
+        key=_HEADING_TEXT["en"]["key"] + (
+            "\nThe assumed centerline is drawn from the end beside the flank whose rate is used; "
+            "drawn from either end, it gives the same E.")),
+    "ja": dict(
+        _HEADING_TEXT["ja"],
+        names=("前の区間の回転率で仮定した場合\n（大きいほう：使わない）",
+               "後ろの区間の回転率で仮定した場合\n（小さいほう：使う）",
+               "前の区間だけが曲がる\n（曲線が終わる所の角）"),
+        notes=("前の区間は {front:.0f}°、後ろの区間は {back:.0f}° 曲がる（W の間に）\n"
+               "→ 前の区間の回転率なら、{sub:.0f}° を差し引くことになる",
+               "同じ線で、小さいほうの後ろの区間の回転率を使い、後ろの端から延ばす\n"
+               "→ {sub:.0f}° を T から差し引く",
+               "前の区間は {front:.0f}° 曲がり、後ろの区間はまっすぐ（W の間に）\n"
+               "→ 小さいほうの回転率は 0 なので、差し引く角度は 0°（E = T）"),
+        unused_verdict="。この E は判定に使わない",
+        marks=("\u2298", "\u2713", None),
+        ghost=("仮定した中心線：回転率を使う区間の側の端から、その回転率のまま曲がり続けると仮定した"
+               "中心線（上段）と、その向き（下段）"),
+        earc="E：仮定した中心線の終わりでの接線と、反対側の端での中心線の接線がなす角",
+        on_orange="黒の一点鎖線と黒の点線は、\nオレンジの破線に重なる",
+        low_on_orange="黒の一点鎖線と黒の点線は、\nオレンジの破線に重なる",
+        key=_HEADING_TEXT["ja"]["key"] + (
+            "\n仮定した中心線は、回転率を使う区間の側の端から延ばしてある。どちらの端から延ばしても E は同じである。")),
+}
+
+
+def _rates_cases(width):
+    """
+    Corners of 40 degrees between flanks that curve at different rates.
+    異なる回転率で曲がる前後の区間にはさまれた、40 度の角。
+
+    Notes
+    -----
+    The first line, drawn twice, curves with radius 3 W before the corner and
+    8 W after it, both the same way: first with the assumed centerline from the
+    front flank's rate, which the rule does not use, then from the back flank's,
+    the smaller, which it does. The second line curves with radius 3 W before
+    the corner and runs straight after it, so the back flank's rate, 0, is the
+    one used. Where the back flank's rate is used, the assumed centerline is
+    drawn back from the back end. The window is drawn at the
+    corner itself, so each flank holds only its own curving.
+    1 本目は角の前を半径 3 W、後ろを半径 8 W で、どちらも同じ側へ曲がる。これを 2 回
+    描き、仮定した中心線を、まず規則が使わない前の区間の回転率から、次に規則が使う
+    小さいほうの後ろの区間の回転率から作る。2 本目は角の前を半径 3 W で曲がり、後ろは
+    まっすぐに進むので、使うのは後ろの区間の回転率 0 である。後ろの区間の回転率を使う
+    列では、仮定した中心線を後ろの端から戻る向きに描く。折れの区間は角そのものの位置に
+    置き、前後の区間にはそれぞれの曲がりだけが入るようにする。
+    """
+    corner = ("at", 4 * width)
+    curving = _corner_between_arcs(3 * width, 8 * width, 40, 8 * width)
+    return [(curving, corner, 1, "front"), (curving, corner, 1, "back", "back"),
+            (_corner_between_arcs(3 * width, np.inf, 40, 8 * width), corner, 1, "back", "back")]
+
+
+# Text of the figure of corners with neighbouring corners inside their flanks;
+# everything not named here is the text of the heading figure.
+# 前後の区間の中に隣の角がある角の図の文言。ここに無いものは向きの図の文言をそのまま使う。
+_NEIGHBOUR_TEXT = {
+    "en": dict(
+        _HEADING_TEXT["en"],
+        names=("Neighbouring corners turning the same way\nin the middle of both flanks",),
+        notes=("The front flank turns {front:.0f}°, the back flank {back:.0f}°,\n"
+               "both the same way (over W): the smaller is taken\n"
+               "as an even curving and {sub:.0f}° is subtracted from T.",),
+        flank_notes=("the turning of both flanks is the corner (×) in\n"
+                     "the middle of each, yet each rate reads it as an\n"
+                     "average over W, and the smaller is subtracted\nas an even curving",)),
+    "ja": dict(
+        _HEADING_TEXT["ja"],
+        names=("前後の区間の両方の中央に、\n同じ側へ折れる隣の角がある",),
+        notes=("前の区間は {front:.0f}°、後ろの区間は {back:.0f}°、\n"
+               "どちらも同じ側へ曲がる（W の間に）\n"
+               "→ 小さいほうを一様な曲がりとみなし、{sub:.0f}° を T から差し引く",),
+        flank_notes=("前後の区間の回転は、どちらもその中央の角（×）の分。\n"
+                     "それでも回転率は W で割った平均として読まれ、\n"
+                     "小さいほうが一様な曲がりとして差し引かれる",)),
+}
+
+
+def _neighbour_cases(width):
+    """
+    Corners of 60 degrees with a neighbouring corner in the middle of both flanks.
+    前後の区間の両方の中央に隣の角がある、60 度ずつ折れる角。
+
+    Notes
+    -----
+    The neighbouring corners are 1.25 W from the middle corner, which is the
+    middle of a flank (the window reaches 0.75 W, the flank W beyond it), and
+    the window is drawn at the middle corner. All three corners turn the same
+    way, so both flanks hold a corner turning the same way. A neighbouring
+    corner in one flank only, with the other flank straight, is not drawn: the
+    smaller rate is then the straight flank's, as at the corner where a curve
+    ends in the figure of flanks curving at different rates.
+    隣の角は真ん中の角から 1.25 W の所、つまり前後の区間の中央にある（折れの区間は
+    0.75 W、前後の区間はその先 W）。折れの区間は真ん中の角に置く。3 つの角はどれも
+    同じ側へ折れるので、前後の区間の両方に同じ側へ折れる角がある。片方の区間にだけ隣の
+    角があり、もう一方がまっすぐな場合は描かない。そのとき小さいほうの回転率はまっすぐな
+    区間のものになり、回転率の違う区間の図で曲線が終わる所の角と同じだからである。
+    """
+    middle = ("at", 7.25 * width)
+    return [(_polyline([0, 60, 120, 180], [6 * width, 1.25 * width, 1.25 * width, 6 * width]),
+             middle, 2)]
+
+
 # One colour per kind of element in this figure, chosen so that elements that
 # touch (T's arc and the two direction lines, E's arc and the dash-dot and
 # back-end lines) differ clearly. The centerline, the centerline the fiber
@@ -503,10 +646,10 @@ _T_COLOUR = "#6a3d9a"
 _E_COLOUR = "#00796b"
 
 
-def _draw_heading(path, width, lang):
+def _draw_heading(path, width, lang, cases=None, text=None):
     """
-    Draw four lines, their heading theta(s), the window, the flanks, T and E.
-    4 本の線の形と向き theta(s) に、折れの区間・前後の区間・T・E を重ねて描く。
+    Draw lines, their heading theta(s), the window, the flanks, T and E.
+    線の形と向き theta(s) に、折れの区間・前後の区間・T・E を重ねて描く。
 
     Notes
     -----
@@ -528,7 +671,7 @@ def _draw_heading(path, width, lang):
     from matplotlib.lines import Line2D
     from matplotlib.patches import Arc, Patch
 
-    text = _HEADING_TEXT[lang]
+    text = _HEADING_TEXT[lang] if text is None else text
     family = None
     if lang == "ja":
         available = {f.name for f in font_manager.fontManager.ttflist}
@@ -538,13 +681,17 @@ def _draw_heading(path, width, lang):
     c = kd._CORE_WIDTHS * width
     f = kd._FLANK_WIDTHS * width
     threshold = 180.0 - float(np.degrees(kd.KinkDetector().threshold_angle_from_decomposed_indices))
-    # Line, where the window is drawn, and how many kinks the detector must find.
-    # 線、折れの区間を描く場所、検出器が見つけるべきキンクの数。
-    cases = [
-        (_polyline([0, 50], [6 * width, 6 * width]), "kink", 1),
-        (_corner_on_arc(4 * width, 40, 8 * width), "kink", 1),
-        (_ramped_arc(2 * width, 3 * width, 3 * width, 4 * width), "middle", 0),
-    ]
+    # Line, where the window is drawn (the first kink, the middle of the line,
+    # or a given arc position), and how many kinks the detector must find.
+    # 線、折れの区間を描く場所（最初のキンク、線の中央、指定した弧長）、検出器が
+    # 見つけるべきキンクの数。
+    if cases is None:
+        cases = [
+            (_polyline([0, 50], [6 * width, 6 * width]), "kink", 1),
+            (_corner_on_arc(4 * width, 40, 8 * width), "kink", 1),
+            (_ramped_arc(2 * width, 3 * width, 3 * width, 4 * width), "middle", 0),
+        ]
+    ncol = len(cases)
     outline = [pe.withStroke(linewidth=4, foreground="white")]
     # The arrows below get a white edge so they stand out on the green window;
     # they are drawn under the heading curve, so the edge never hides it.
@@ -558,24 +705,64 @@ def _draw_heading(path, width, lang):
         # graphs keep room for theirs.
         # 上下の段はそれぞれ別の格子に置く。上段の形には軸ラベルが無いので列幅いっぱいに
         # 広げ、下段のグラフには軸ラベルの余地を残す。
-        fig = plt.figure(figsize=(17.0, 17.0))
-        upper_grid = fig.add_gridspec(1, 3, left=0.005, right=0.995, top=0.955, bottom=0.625,
+        # The width is set for three columns and narrows with fewer, down to a
+        # floor that leaves room for the legend and the key below.
+        # 幅は 3 列に合わせてあり、列が少ないときは狭める。ただし下の凡例と説明が収まる
+        # 幅を下限とする。
+        fig = plt.figure(figsize=(max(9.0, 17.0 * ncol / 3), 17.0))
+        upper_grid = fig.add_gridspec(1, ncol, left=0.005, right=0.995, top=0.955, bottom=0.625,
                                       wspace=0.03)
-        lower_grid = fig.add_gridspec(1, 3, left=0.075, right=0.985, top=0.53, bottom=0.26,
+        lower_grid = fig.add_gridspec(1, ncol, left=0.075, right=0.985, top=0.53, bottom=0.26,
                                       wspace=0.33)
-        for col, ((x, y), where, n_kinks) in enumerate(cases):
+        for col, case in enumerate(cases):
+            (x, y), where, n_kinks = case[:3]
+            # An optional fourth item draws the assumed centerline from one
+            # flank's rate ("front" or "back") instead of the smaller one.
+            # 4 つ目の項目があれば、仮定した中心線を小さいほうではなく、指定した
+            # 区間（"front" か "back"）の回転率から作る。
+            rate_from = case[3] if len(case) > 3 else None
+            # An optional fifth item draws the assumed centerline from the back
+            # end, backwards, when the rate used is the back flank's; E is the
+            # same either way.
+            # 5 つ目の項目があれば、使う回転率が後ろの区間のものであるとき、仮定した
+            # 中心線を後ろの端から後ろ向きに描く。E はどちらでも同じである。
+            from_back = len(case) > 4 and case[4] == "back"
             _, s, length, sm, heading = kd._heading_profile(x, y, width)
             p, core, excess, background = _excess_curve(sm, heading, length, width)
             positions, _ = _judged_positions(x, y, width, p, excess)
             if len(positions) != n_kinks:
                 raise RuntimeError("figure no longer matches KinkDetector.judge_line")
-            p0 = positions[0] if where == "kink" else float(p[np.argmin(np.abs(p - length / 2))])
+            if where == "middle":
+                p0 = float(p[np.argmin(np.abs(p - length / 2))])
+            elif where == "kink":
+                p0 = positions[0]
+            else:
+                p0 = float(p[np.argmin(np.abs(p - where[1]))])
             i = int(np.argmin(np.abs(p - p0)))
             th0 = float(np.interp(p0 - c, sm, heading))
             th1 = float(np.interp(p0 + c, sm, heading))
             rate = float(np.sign(core[i]) * background[i])
+
+            # Numbers a column may state, from the same computation: how much
+            # each flank turns over its length W in the window's sense, the
+            # turning subtracted over the window, and T.
+            # 列に書く数値を同じ計算から求める。前後の区間がそれぞれ長さ W の間に折れの
+            # 区間と同じ向きに曲がる角度、折れの区間で差し引く回転、T。
+            sense_i = np.sign(core[i])
+            numbers = dict(
+                front=float(np.degrees(sense_i * (th0 - np.interp(p0 - c - f, sm, heading)))),
+                back=float(np.degrees(sense_i * (np.interp(p0 + c + f, sm, heading) - th1))),
+                sub=float(np.degrees(abs(rate) * 2 * c)),
+                T=float(np.degrees(abs(core[i]))))
+            numbers["back_other"] = -numbers["back"]
+            if rate_from is not None:
+                rate = float(sense_i * np.radians(numbers[rate_from]) / f)
+                numbers["sub"] = float(np.degrees(abs(rate) * 2 * c))
+            col_note = text["notes"][col].format(**numbers)
             th_exp = th0 + rate * 2 * c
             t_deg, e_deg = float(np.degrees(abs(core[i]))), float(np.degrees(excess[i]))
+            if rate_from is not None:
+                e_deg = t_deg - numbers["sub"]
 
             # ---- Upper panel: the fiber, the window, and T and E as angles.
             # ---- 上段: 繊維、折れの区間、角度としての T と E。
@@ -664,9 +851,20 @@ def _draw_heading(path, width, lang):
             bx, by = float(np.interp(p0 + c, s, x)), float(np.interp(p0 + c, s, y))
             half = c + f + 1.5 * width
             tt = np.linspace(0.0, 2 * c, 121)
-            ga = th0 + rate * tt
-            gx = fx + np.concatenate([[0.0], np.cumsum(np.cos(ga[:-1]) * np.diff(tt))])
-            gy = fy + np.concatenate([[0.0], np.cumsum(np.sin(ga[:-1]) * np.diff(tt))])
+            if from_back:
+                # Walking back from the back end, the heading (in the forward
+                # sense) falls by the rate: the end heading is th1 - 2c * rate,
+                # compared with the front end's.
+                # 後ろの端から戻ると、（進む向きで見た）向きは回転率の分だけ減る。終わりの
+                # 向きは th1 - 2c * rate で、前の端の向きと比べる。
+                ga = th1 - rate * tt
+                gx = bx - np.concatenate([[0.0], np.cumsum(np.cos(ga[:-1]) * np.diff(tt))])
+                gy = by - np.concatenate([[0.0], np.cumsum(np.sin(ga[:-1]) * np.diff(tt))])
+                th_exp = th1 - rate * 2 * c
+            else:
+                ga = th0 + rate * tt
+                gx = fx + np.concatenate([[0.0], np.cumsum(np.cos(ga[:-1]) * np.diff(tt))])
+                gy = fy + np.concatenate([[0.0], np.cumsum(np.sin(ga[:-1]) * np.diff(tt))])
 
             def meet(px, py, a, qx, qy, b):
                 det = np.sin(b - a)
@@ -677,16 +875,29 @@ def _draw_heading(path, width, lang):
 
             reach = 0.45 * half
             t_at = meet(fx, fy, th0, bx, by, th1)
-            e_at = meet(gx[-1], gy[-1], th_exp, bx, by, th1)
+            if from_back:
+                e_at = meet(gx[-1], gy[-1], th_exp, fx, fy, th0)
+            else:
+                e_at = meet(gx[-1], gy[-1], th_exp, bx, by, th1)
             # The two tangents are one kind of line, drawn alike: dashed, of one
             # width, over the centerline (whose white edge shows in the gaps),
             # and told apart only by colour, the colour of the bar at their end.
             # 2 本の接線は同じ種類の線なので同じに描く。同じ太さの破線で中心線の上に描き
             # （すき間から中心線の白い縁が見える）、色だけで区別する。色は、それぞれの端の
             # 棒と同じにする。
-            ax.plot([fx, t_at[0] + reach * np.cos(th0)], [fy, t_at[1] + reach * np.sin(th0)],
+            # The tangent E is measured against reaches back past the point where
+            # the assumed centerline's tangent meets it.
+            # E を測る相手の接線は、仮定した中心線の接線と交わる点より手前まで延ばす。
+            front_start = (fx, fy)
+            if from_back and e_at is not None:
+                along = (e_at[0] - fx) * np.cos(th0) + (e_at[1] - fy) * np.sin(th0)
+                if along < 0:
+                    front_start = (e_at[0] - 0.1 * half * np.cos(th0),
+                                   e_at[1] - 0.1 * half * np.sin(th0))
+            ax.plot([front_start[0], t_at[0] + reach * np.cos(th0)],
+                    [front_start[1], t_at[1] + reach * np.sin(th0)],
                     color=_FRONT_COLOUR, lw=3.0, ls=_TANGENT_STYLE, zorder=6.55, alpha=0.5)
-            start = t_at if e_at is None else min(
+            start = t_at if (e_at is None or from_back) else min(
                 (t_at, e_at), key=lambda q: (q[0] - bx) * np.cos(th1) + (q[1] - by) * np.sin(th1))
             ax.plot([start[0] - 0.1 * half * np.cos(th1), bx + reach * np.cos(th1)],
                     [start[1] - 0.1 * half * np.sin(th1), by + reach * np.sin(th1)],
@@ -709,12 +920,24 @@ def _draw_heading(path, width, lang):
             # いると読めるようにする。前後の区間が回らないときはピンクの線、E が 0 のときは
             # オレンジの線である。
             tip = e_at if e_at is not None else (gx[-1], gy[-1])
+            # Drawn from the back end, the tangent at the end runs on backwards.
+            # 後ろの端から描いた場合、終わりでの接線は後ろ向きに延ばす。
+            way = -1.0 if from_back else 1.0
             if e_at is None:
-                stop = (bx + reach * np.cos(th1), by + reach * np.sin(th1))
+                stop = ((fx - reach * np.cos(th0), fy - reach * np.sin(th0)) if from_back
+                        else (bx + reach * np.cos(th1), by + reach * np.sin(th1)))
             else:
                 run = (1.0 if abs(rate) < 1e-9 else 1.4) * reach
-                stop = (tip[0] + run * np.cos(th_exp), tip[1] + run * np.sin(th_exp))
-            ax.plot([gx[-1], stop[0]], [gy[-1], stop[1]],
+                stop = (tip[0] + way * run * np.cos(th_exp), tip[1] + way * run * np.sin(th_exp))
+            # Drawn from the back end, the tangent also runs from the point where
+            # it meets the front end's tangent, so that E opens between the two
+            # on the front end's side.
+            # 後ろの端から描いた場合、接線は前の端の接線と交わる点からも引き、E が前の端の
+            # 側で 2 本の間に開くようにする。
+            first = (gx[-1], gy[-1])
+            if from_back and e_at is not None:
+                first = (e_at[0] + 0.1 * half * np.cos(th_exp), e_at[1] + 0.1 * half * np.sin(th_exp))
+            ax.plot([first[0], stop[0]], [first[1], stop[1]],
                     color="black", lw=2.0, ls=_END_STYLE, zorder=6, alpha=0.8)
             # A short bar across the fiber marks each end of the window, in the
             # colour of the tangent drawn there; the legend names the two, so the
@@ -847,10 +1070,15 @@ def _draw_heading(path, width, lang):
             arc_labels = []
             for centre, a0, a1, r, colour, label, value in (
                     (t_at, th0, th1, 0.42 * half, _T_COLOUR, "T", t_deg),
-                    (e_at, th_exp, th1, 0.28 * half, _E_COLOUR, "E", e_deg)):
+                    (e_at, th_exp, th0 if from_back else th1, 0.28 * half, _E_COLOUR, "E", e_deg)):
                 if centre is None:
                     continue
                 lo, hi = sorted((np.degrees(a0), np.degrees(a1)))
+                if from_back and label == "E":
+                    # Drawn from the back end, E opens towards the front end: the
+                    # sector between the two tangents on that side.
+                    # 後ろの端から描いた場合、E は前の端の側、つまり 2 本の接線の間のその側に開く。
+                    lo, hi = lo + 180.0, hi + 180.0
                 # Each arc crosses the centerline, so it is translucent like
                 # everything else drawn over it, and thick enough to stand out on
                 # the green window.
@@ -863,14 +1091,14 @@ def _draw_heading(path, width, lang):
                                    (centre[0] + r * np.cos(mid), centre[1] + r * np.sin(mid))))
             # Where lines lie on one another, say so with a leader line.
             # 線が重なる所には、引き出し線でそのことを書く。
-            if abs(rate) < 1e-9:
+            if abs(rate) < 1e-9 and "flank_notes" not in text:
                 # The note names the flank whose rate made the subtraction zero:
-                # both flat, or the one that does not turn. A case where only a
-                # flank turning the other way makes it zero has no note here and
-                # stops the figure, so the note can never name the wrong reason.
+                # both flat, the one that does not turn, or the one that turns the
+                # other way. A case none of these explains stops the figure, so
+                # the note can never name the wrong reason.
                 # 注記は、差し引く量を 0 にした前後の区間を書く。両方がまっすぐか、回らない
-                # 側か。逆向きに回る区間だけで 0 になる場合はここに注記が無く、図を止めるので、
-                # 注記が誤った理由を書くことはない。
+                # 側か、逆側へ曲がる側か。どれでも説明できない場合は図を止めるので、注記が
+                # 誤った理由を書くことはない。
                 r_left = (th0 - float(np.interp(p0 - c - f, sm, heading))) / f
                 r_right = (float(np.interp(p0 + c + f, sm, heading)) - th1) / f
                 still = np.radians(1.0) / f
@@ -879,12 +1107,22 @@ def _draw_heading(path, width, lang):
                 elif abs(r_left) < still:
                     note = text["same_front"]
                 elif abs(r_right) < still:
-                    note = text["same_back"]
+                    note = text["on_orange"] if from_back else text["same_back"]
+                elif np.sign(core[i]) * r_right < -still:
+                    note = text["same_opp_back"]
+                elif np.sign(core[i]) * r_left < -still:
+                    note = text["same_opp_front"]
                 else:
                     raise RuntimeError("the figure has no note for this case")
                 place(note, "black",
                       (t_at[0] + 0.7 * reach * np.cos(th0), t_at[1] + 0.7 * reach * np.sin(th0)),
                       size=12, weight="normal", leader=False)
+            if "flank_notes" in text:
+                # How the flanks read here, stated on the shape.
+                # ここで前後の区間がどう読まれるかを、形の上に書く。
+                place(text["flank_notes"][col].format(**numbers), "black",
+                      (gx[len(gx) // 2], gy[len(gy) // 2]), size=12, weight="normal",
+                      leader=False)
             if e_at is None:
                 place(text["zero"], _E_COLOUR,
                       (bx + 0.6 * reach * np.cos(th1), by + 0.6 * reach * np.sin(th1)),
@@ -907,6 +1145,15 @@ def _draw_heading(path, width, lang):
             for spine in ax.spines.values():
                 spine.set_color("0.85")
             ax.set_title(text["names"][col], fontsize=14)
+            # A figure comparing two choices marks the one used and the one not
+            # used, in the empty bottom right corner; DejaVu Sans has both signs.
+            # 2 つの選び方を比べる図では、使うほうと使わないほうに印を付け、空いている
+            # 右下に置く。2 つの記号はどちらも DejaVu Sans にある。
+            mark = text.get("marks", [None] * len(cases))[col]
+            if mark:
+                ax.text(0.92, 0.08, mark, transform=ax.transAxes, fontsize=44,
+                        fontfamily="DejaVu Sans", fontweight="bold", color="black",
+                        ha="right", va="bottom", zorder=8)
 
             # ---- Lower panel: the heading, with T and E as arrows.
             # ---- 下段: 向きと、矢印としての T と E。
@@ -939,16 +1186,20 @@ def _draw_heading(path, width, lang):
                     ls=_TANGENT_STYLE, zorder=4.6, alpha=0.5)
             ax.plot([xf - 0.5, xb + 0.8], [th_r, th_r], color=_BACK_COLOUR, lw=3.0,
                     ls=_TANGENT_STYLE, zorder=4.6, alpha=0.5)
-            ax.plot([xf, xb], [th_l, ext], color="black", lw=2.8, ls=_GHOST_STYLE,
-                    zorder=4, alpha=0.8)
-            ax.plot([xb, xb + 0.8], [ext, ext], color="black", lw=2.0, ls=_END_STYLE,
-                    zorder=4, alpha=0.8)
-            # E stands at the back end of the window, where it is measured. T
-            # stands at the front end, where the curve is still at the pink
-            # line's level, so the arrow and its letter keep clear of the curve.
-            # E は、それを測る折れの区間の後ろの端に立てる。T は、曲線がまだピンクの線の
-            # 高さにある前の端に立て、矢印と文字が曲線から離れるようにする。
-            xt, xe = xf, xb
+            # E stands where it is measured: at the back end when the assumed
+            # centerline runs forward from the front end, at the front end when
+            # it runs back from the back end. T stands at the other end.
+            # E はそれを測る端に立てる。仮定した中心線が前の端から進むときは後ろの端、
+            # 後ろの端から戻るときは前の端である。T はもう一方の端に立てる。
+            if from_back:
+                ext = th_r - float(np.degrees(rate) * 2 * c)
+                ghost_seg, end_seg = ([xb, xf], [th_r, ext]), ([xf - 0.8, xf], [ext, ext])
+                xt, xe, e_ref = xb, xf, th_l
+            else:
+                ghost_seg, end_seg = ([xf, xb], [th_l, ext]), ([xb, xb + 0.8], [ext, ext])
+                xt, xe, e_ref = xf, xb, th_r
+            ax.plot(*ghost_seg, color="black", lw=2.8, ls=_GHOST_STYLE, zorder=4, alpha=0.8)
+            ax.plot(*end_seg, color="black", lw=2.0, ls=_END_STYLE, zorder=4, alpha=0.8)
             ax.annotate("", xy=(xt, th_r), xytext=(xt, th_l), zorder=4.4,
                         arrowprops=dict(arrowstyle="<|-|>", color=_T_COLOUR, lw=2.4,
                                         mutation_scale=16, path_effects=arrow_edge))
@@ -968,7 +1219,7 @@ def _draw_heading(path, width, lang):
                 [np.c_[sm / width, deg],
                  np.c_[np.linspace(xf - 0.5, xb + 0.5, 30), np.full(30, th_l)],
                  np.c_[np.linspace(xf - 0.5, xb + 0.8, 30), np.full(30, th_r)],
-                 np.c_[np.linspace(xf, xb, 30), np.linspace(th_l, ext, 30)]])
+                 np.c_[np.linspace(*ghost_seg[0], 30), np.linspace(*ghost_seg[1], 30)]])
             marks_at = np.array([[q / width, float(np.interp(q, sm, deg))] for q in positions]
                                 ).reshape(-1, 2)
             best_level, best_gap = 0.5, -np.inf
@@ -987,12 +1238,13 @@ def _draw_heading(path, width, lang):
                     best_level, best_gap = t_level, gap
             ax.text(xt - 0.12, th_l + best_level * (th_r - th_l), "T", color=_T_COLOUR, fontsize=16,
                     fontweight="bold", ha="right", va="center", zorder=6, path_effects=outline)
-            if abs(th_r - ext) > 2.0:
-                ax.annotate("", xy=(xe, th_r), xytext=(xe, ext), zorder=4.4,
+            if abs(e_ref - ext) > 2.0:
+                ax.annotate("", xy=(xe, e_ref), xytext=(xe, ext), zorder=4.4,
                             arrowprops=dict(arrowstyle="<|-|>", color=_E_COLOUR, lw=2.4,
                                             mutation_scale=16, path_effects=arrow_edge))
-                ax.text(xe + 0.15, ext + 0.75 * (th_r - ext), "E", color=_E_COLOUR, fontsize=16,
-                        fontweight="bold", va="center", zorder=6, path_effects=outline)
+                ax.text(xe + (-0.15 if from_back else 0.15), ext + 0.75 * (e_ref - ext), "E",
+                        color=_E_COLOUR, fontsize=16, fontweight="bold", va="center",
+                        ha="right" if from_back else "left", zorder=6, path_effects=outline)
             else:
                 # With no arrow to label, the value stands well away from T's arrow.
                 # 名前を付ける矢印が無いので、値は T の矢印から十分離して書く。
@@ -1001,10 +1253,20 @@ def _draw_heading(path, width, lang):
             # Where the dash-dot heading is hidden under another line, say so, as
             # the upper panel does.
             # 一点鎖線の向きが別の線の下に隠れる所では、上段と同じくそのことを書く。
-            if abs(rate) < 1e-9:
-                ax.text(xb + f / width + 0.2, th_l + 0.05 * span, text["low_flat"], fontsize=12,
-                        ha="left", va="bottom", zorder=6, path_effects=outline)
-            elif abs(th_r - ext) <= 2.0:
+            if abs(rate) < 1e-9 and from_back:
+                # Drawn from the back end, it lies on the orange line instead.
+                # 後ろの端から描いた場合は、オレンジの線に重なる。
+                ax.text(xb + f / width + 0.2, th_r - 0.08 * span, text["low_on_orange"],
+                        fontsize=12, ha="left", va="top", zorder=6, path_effects=outline)
+            elif abs(rate) < 1e-9:
+                # Below the pink line when there is room there, clear of any
+                # kink beside it; otherwise just above it.
+                # 余地があればピンクの線の下に書き、横のキンクから離す。無ければすぐ上に書く。
+                below = th_l - 0.25 * span > float(deg.min())
+                ax.text(xb + f / width + 0.2, th_l + (-0.05 if below else 0.05) * span,
+                        text["low_flat"], fontsize=12, ha="left",
+                        va="top" if below else "bottom", zorder=6, path_effects=outline)
+            elif abs(e_ref - ext) <= 2.0:
                 # Bottom right, below the curve, where the panel is empty.
                 # 曲線より下の、空いている右下に書く。
                 ax.text(x_right - 0.3, 0.05 * span, text["low_curve"],
@@ -1018,8 +1280,12 @@ def _draw_heading(path, width, lang):
             ax.set_xlim(0.0, x_right)
             ax.tick_params(labelsize=11)
             verdict = (text["kink_verdict"] if e_deg >= threshold else text["no_verdict"]) % threshold
+            if rate_from is not None and rate_from != min(("front", "back"), key=numbers.get):
+                # A column drawn at the larger rate shows what is not used.
+                # 大きいほうの回転率で描いた列は、使わないものを示す。
+                verdict = text["unused_verdict"]
             values = text["values"] % (t_deg, e_deg) + verdict
-            ax.set_title("%s\n%s" % (text["notes"][col], values), fontsize=12.5)
+            ax.set_title("%s\n%s" % (col_note, values), fontsize=12.5)
             ax.set_xlabel(text["xlabel"], fontsize=12)
             ax.set_ylabel(text["ylabel"], fontsize=12)
         # One legend for both rows, and the meaning of T and E, below the figure.
@@ -1044,7 +1310,12 @@ def _draw_heading(path, width, lang):
                    Line2D([], [], color="black", lw=2.0, ls=_END_STYLE, label=text["end"]),
                    Line2D([], [], color=_T_COLOUR, lw=2.4, label=text["tarc"]),
                    Line2D([], [], color=_E_COLOUR, lw=2.4, label=text["earc"])]
-        fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.075), ncol=2,
+        # The legend sits above the bottom text, which is taller when it has
+        # more lines.
+        # 凡例は最下部の説明文の上に置く。説明文の行が多いほど高くなる。
+        key_lines = text["key"].count("\n") + 1
+        fig.legend(handles=handles, loc="lower center",
+                   bbox_to_anchor=(0.5, 0.075 + 0.016 * (key_lines - 4)), ncol=2,
                    fontsize=12, frameon=False)
         fig.text(0.5, 0.006, text["key"] % threshold, ha="center", va="bottom", fontsize=12)
         fig.savefig(path, dpi=75, bbox_inches="tight", pad_inches=0.05)
@@ -1534,6 +1805,11 @@ def main() -> None:
     # キンクの図は、検出器に直接渡す合成の中心線で描く。見かけの幅は 8 px。
     _draw_heading(os.path.join(OUT_DIR, "kink_heading.png"), 8.0, "en")
     _draw_heading(os.path.join(OUT_DIR, "kink_heading.ja.png"), 8.0, "ja")
+    for suffix, lang in (("", "en"), (".ja", "ja")):
+        _draw_heading(os.path.join(OUT_DIR, "kink_flank_rates%s.png" % suffix), 8.0, lang,
+                      cases=_rates_cases(8.0), text=_RATES_TEXT[lang])
+        _draw_heading(os.path.join(OUT_DIR, "kink_neighbour_corners%s.png" % suffix), 8.0, lang,
+                      cases=_neighbour_cases(8.0), text=_NEIGHBOUR_TEXT[lang])
     _draw_arms(os.path.join(OUT_DIR, "kink_arms.png"), 8.0)
 
     # The rule on one fiber of a bundled scan, analyzed with the defaults.

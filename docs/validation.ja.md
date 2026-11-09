@@ -1099,6 +1099,21 @@ $W$ 以内にある報告された折れの件数である。規則が報告し�
 §4.4 の目視基準の明瞭なキンク 53<!--m:kink_reference_human.all.ai.clear--> 件のうち、$W$ 以内に A の明瞭な印があるものは 43<!--m:kink_reference_human.all.ai.by_a--> 件、
 B の明瞭な印があるものは 50<!--m:kink_reference_human.all.ai.by_b--> 件、2<!--n:count--> 人とも明瞭とした印があるものは 43<!--m:kink_reference_human.all.ai.by_both--> 件だった。
 
+### 4.20 明瞭なキンクの前後の区間にある別の折れ
+
+規則は前後の区間の回転を区間全体の平均として読むので、区間の中にある別の折れは一様な曲がりとして
+読まれる（[アルゴリズムの説明](algorithms.ja.md) §4.3）。2<!--n:count--> 人とも明瞭なキンクとした 76<!--m:kink_neighbour_flanks.marks--> か所（§4.19）
+それぞれで、最も近い中心線の上の、印から $W/2$ 以内で折れの区間の回転が最大になる位置で、
+前後の区間が長さ $W$ の間に折れの区間と同じ向きに曲がる角度を読んだ。その向きに 10<!--n:definition-->° を超えて
+曲がれば同じ側へ、逆向きに 10<!--n:definition-->° を超えて曲がれば逆側へ曲がるとする。端の判定しない範囲にある
+印は 9<!--m:kink_neighbour_flanks.near_end--> か所、$W$ 以内に中心線が無い印は 0<!--m:kink_neighbour_flanks.no_centerline--> か所だった（実験 kink_neighbour_flanks）。
+
+| 前後の区間 | 明瞭なキンク | 規則が見つけた数 |
+|---|---|---|
+| 片方が逆側へ曲がる | 32<!--m:kink_neighbour_flanks.one_other--> | 31<!--m:kink_neighbour_flanks.one_other_found--> |
+| 両方とも同じ側へ曲がる | 5<!--m:kink_neighbour_flanks.both_same--> | 4<!--m:kink_neighbour_flanks.both_same_found--> |
+| それ以外 | 30<!--m:kink_neighbour_flanks.otherwise--> | 29<!--m:kink_neighbour_flanks.otherwise_found--> |
+
 ## 5. 縞ノイズの検査
 
 ### 5.1 段差のしきい値

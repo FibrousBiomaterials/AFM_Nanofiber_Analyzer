@@ -1213,6 +1213,23 @@ at the image edge or branch-point test under any reference.
 Of the 53<!--m:kink_reference_human.all.ai.clear--> clear kinks of the visual reference of §4.4, 43<!--m:kink_reference_human.all.ai.by_a--> have a clear mark of A within
 $W$, 50<!--m:kink_reference_human.all.ai.by_b--> a clear mark of B, and 43<!--m:kink_reference_human.all.ai.by_both--> a mark both call clear.
 
+### 4.20 Neighbouring bends in the flanks of a clear kink
+
+The rule reads each flank's turning as an average over the flank, so another
+bend inside a flank is read as an even curving ([the algorithms](algorithms.md) §4.3).
+At each of the 76<!--m:kink_neighbour_flanks.marks--> kinks both people called clear (§4.19), each flank's turning
+over its length $W$ was read on the nearest centerline, in the window's sense,
+at the position of the largest window turning within $W/2$ of the mark; a flank
+turns the same way or the other way when it turns by more than 10<!--n:definition-->° in that
+sense. 9<!--m:kink_neighbour_flanks.near_end--> marks lie within the end margin and 0<!--m:kink_neighbour_flanks.no_centerline--> have no centerline within $W$
+(experiment kink_neighbour_flanks).
+
+| Flanks | Clear kinks | Found by the rule |
+|---|---|---|
+| one turns the other way | 32<!--m:kink_neighbour_flanks.one_other--> | 31<!--m:kink_neighbour_flanks.one_other_found--> |
+| both turn the same way | 5<!--m:kink_neighbour_flanks.both_same--> | 4<!--m:kink_neighbour_flanks.both_same_found--> |
+| otherwise | 30<!--m:kink_neighbour_flanks.otherwise--> | 29<!--m:kink_neighbour_flanks.otherwise_found--> |
+
 ## 5. Stripe-noise screening
 
 ### 5.1 The step threshold

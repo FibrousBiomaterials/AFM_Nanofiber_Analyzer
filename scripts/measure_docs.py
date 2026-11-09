@@ -4446,6 +4446,82 @@ def kink_reference_human() -> dict:
     return values
 
 
+@experiment(
+    "kink_neighbour_flanks",
+    ["lib/pipeline.py", "lib/measure.py", "lib/kink_detector.py", "lib/centerline.py"],
+    "At each kink both people called clear on the three bundled scans (the consensus "
+    "marks of kink_reference_human), how far each flank turns over its length W in the "
+    "window's sense, read at the position of the largest window turning within W/2 of "
+    "the mark on the nearest centerline, and whether the rule at the defaults reports a "
+    "bend within W of the mark. Marks with no centerline within W, or whose position "
+    "lies within the end margin, are counted apart. A flank turns the same way, or the "
+    "other way, when it turns by more than 10 degrees in that sense.",
+)
+def kink_neighbour_flanks() -> dict:
+    import numpy as np
+    import kink_reference_score as krs
+    import lib.kink_detector as kd
+
+    level = 10.0
+    human = krs.load_human_reference()
+    cache = str(cache_dir("kink_reference_half_max_025w"))
+    keys = ("both_same", "one_other", "otherwise")
+    values: dict = {"marks": 0, "no_centerline": 0, "near_end": 0}
+    for key in keys:
+        values[key] = 0
+        values[f"{key}_found"] = 0
+    for scan in krs.SCANS:
+        image, fibers = krs.prepare_scan(scan, cache, krs.ProcParams())
+        w_med = float(np.median([f.width_px for f in fibers]))
+        a, b = human[scan]["A"], human[scan]["B"]
+        pairs = krs.match_marks(a, b, w_med)
+        clear = [dict(x=(a[i]["x"] + b[j]["x"]) / 2, y=(a[i]["y"] + b[j]["y"]) / 2)
+                 for i, j, _d in pairs if a[i]["kind"] == "clear" and b[j]["kind"] == "clear"]
+        kinks, _unjudged = krs.detect(fibers, kd.KinkDetector())
+        lines = [np.column_stack([np.asarray(f.xtrack, float) + float(f.data[0]),
+                                  np.asarray(f.ytrack, float) + float(f.data[1])]) for f in fibers]
+        for mark in clear:
+            values["marks"] += 1
+            best = (None, None, math.inf)
+            for k, line in enumerate(lines):
+                dist = np.hypot(line[:, 0] - mark["x"], line[:, 1] - mark["y"])
+                j = int(np.argmin(dist))
+                if dist[j] < best[2]:
+                    best = (k, j, float(dist[j]))
+            k, j, dist = best
+            width = float(fibers[k].width_px)
+            if dist > width:
+                values["no_centerline"] += 1
+                continue
+            line = lines[k]
+            orig, s_arc, length, sm, heading = kd._heading_profile(line[:, 0], line[:, 1], width)
+            c, f = kd._CORE_WIDTHS * width, kd._FLANK_WIDTHS * width
+            q0 = float(s_arc[min(int(np.searchsorted(orig, j)), len(s_arc) - 1)])
+            margin = kd.END_MARGIN_WIDTHS * width
+            if q0 < margin or q0 > length - margin:
+                values["near_end"] += 1
+                continue
+            grid = sm[(np.abs(sm - q0) <= width / 2) & (sm >= c) & (sm <= length - c)]
+            core = np.interp(grid + c, sm, heading) - np.interp(grid - c, sm, heading)
+            q = float(grid[int(np.argmax(np.abs(core)))])
+            sense = np.sign(np.interp(q + c, sm, heading) - np.interp(q - c, sm, heading))
+            front = math.degrees(sense * (np.interp(q - c, sm, heading)
+                                          - np.interp(max(sm[0], q - c - f), sm, heading)))
+            back = math.degrees(sense * (np.interp(min(sm[-1], q + c + f), sm, heading)
+                                         - np.interp(q + c, sm, heading)))
+            if front > level and back > level:
+                key = "both_same"
+            elif min(front, back) < -level:
+                key = "one_other"
+            else:
+                key = "otherwise"
+            found = any(math.hypot(kk["x"] - mark["x"], kk["y"] - mark["y"]) <= kk["w"]
+                        for kk in kinks)
+            values[key] += 1
+            values[f"{key}_found"] += int(found)
+    return values
+
+
 # ----------------------------------------------------------------------------
 # Recording
 # ----------------------------------------------------------------------------

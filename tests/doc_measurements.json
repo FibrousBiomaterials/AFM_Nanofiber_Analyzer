@@ -657,6 +657,21 @@
     "tunicate.over_10_deg": 6
    }
   },
+  "kink_neighbour_flanks": {
+   "description": "At each kink both people called clear on the three bundled scans (the consensus marks of kink_reference_human), how far each flank turns over its length W in the window's sense, read at the position of the largest window turning within W/2 of the mark on the nearest centerline, and whether the rule at the defaults reports a bend within W of the mark. Marks with no centerline within W, or whose position lies within the end margin, are counted apart. A flank turns the same way, or the other way, when it turns by more than 10 degrees in that sense.",
+   "snapshot": "5fc9fdf1e8a66dbd",
+   "values": {
+    "both_same": 5,
+    "both_same_found": 4,
+    "marks": 76,
+    "near_end": 9,
+    "no_centerline": 0,
+    "one_other": 32,
+    "one_other_found": 31,
+    "otherwise": 30,
+    "otherwise_found": 29
+   }
+  },
   "kink_reference": {
    "description": "Score the kink rule, its variants and the earlier polyline rule against the visual reference of clear kinks on the three bundled scans (scripts/kink_reference_score.py procedure).",
    "snapshot": "5fc9fdf1e8a66dbd",
