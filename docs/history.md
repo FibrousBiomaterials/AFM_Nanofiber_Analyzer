@@ -336,21 +336,50 @@ higher-plant scans lie where the skeleton splits around a crossing or a wide
 part of a fiber, where its end curls, and on some bends the authors did not
 mark.
 
+The centerline is also where a fiber is measured from 2.0.0 on, when GUI03,
+GUI04 and `cli.py measure` read a bundle. In 1.0.0 a fiber's heights were the
+calibrated heights at its skeleton pixels and its length that of the skeleton
+pixel chain (`imp_tools.convert_track_to_distance`). On the half-maximum
+centerline its heights are the crest of the cross-section at each point and
+its length that of the polyline through the points
+(`centerline.polyline_distance`; `fiber_tracking_image._build_fiber`), so the
+heights and lengths these programs report changed in 2.0.0 as well.
+[`gui04_measurements.md`](gui04_measurements.md) §2.6 and §2.7 explain both.
+
 ### 4.2 The rule: from polyline angles to excess turning
 
 1.0.0 cut the skeleton at its branch points, traced each piece, and split its
 pixel chain recursively into a polyline whose points lie within 3 px
-(`threshold_distance`) of the chain. At each inner vertex of the polyline it
-measured the angle between the neighbouring vertices and reported a kink when
-the angle was 150° or less (`KinkDetector._binary_decompose_simple` and
+(`threshold_distance`) of the chain. Every inner vertex of the polyline was a
+candidate: it measured the angle between the neighbouring vertices there and
+reported a kink when the angle was 150° or less
+(`KinkDetector._binary_decompose_simple` and
 `KinkDetector._detect_kink_from_decomposed_indices` at `v1.0.0`).
 
 From 2.0.0 a bend is a kink when its turning within ±0.75 W of the fiber's
 apparent width W, less what the fiber's own curvature on either side accounts
 for, reaches 180° minus `kinkangle_deg`; bends within 1.5 W of an end are not
-judged
-(`KinkDetector.judge_line`). [`algorithms.md`](algorithms.md) §4 explains the
-rule as it is now.
+judged (`KinkDetector.judge_line`). The bends to judge are found on the
+line's heading, smoothed over a quarter of W and sampled every 0.5 px along
+the line (`_heading_profile`). There are two kinds of candidate: maxima of the
+curvature, the heading's rate of change, that reach half the mean curvature a
+bend at the threshold has across the window; and maxima of the turning across
+the window of ±0.75 W that reach the threshold, dropped where a candidate of
+the first kind lies within 0.75 W. A candidate is kept when its excess turning
+reaches the threshold; candidates are taken strongest first, and one within
+0.75 W of a candidate already kept counts as the same bend
+(`KinkDetector.judge_line` at `v2.0.0`). [`algorithms.md`](algorithms.md) §4
+explains the rule as it is now.
+
+The angle stored for a kink changed too. 1.0.0 stored the angle at the
+polyline vertex between its two neighbouring vertices. From 2.0.0 the stored
+angle is the interior angle between the two arms of the line read beside the
+bend, beyond the half width the probe rounds the apex over
+(`_arm_interior_angle`), and the excess turning that decided the kink is
+stored beside it. At the 58 marks both authors call clear that 1.0.0 and
+c43409b both find, the median angle hardly moves (122.7° and 122.3°), but the
+angle of a single kink does: the difference is −6.7° to +3.6° between the
+quartiles and reaches −58° and +49°.
 
 On the centerline the new rule finds the same 66 marks and lowers the kinks
 that match no mark from 51 to 43, on the tunicate scan from 7 to none. The
@@ -377,6 +406,17 @@ Five commits since 2.0.0 change the kinks or the centerline on these scans:
 | `d5460ea` | W of a wide fiber is read over a range that grows with the fiber (format 1.5) | 64 | 11 | 45 |
 | `0476088` | bends are searched down to a fixed floor of excess turning, so which bends a threshold selects does not depend on the threshold (format 1.6) | 66 | 8 | 44 |
 | `7666493` | each cross-section is read symmetrically about the track point, so the centerline does not depend on the direction a fiber was traced in (format 1.7) | 66 | 8 | 43 |
+
+Format 1.6 (`0476088`) changed how the candidates of §4.2 are found. In 2.0.0
+the search ran at the threshold: only bends whose turning and excess reached
+it became candidates, so a bundle held only the bends that one threshold
+selected. Since `0476088` the search runs down to a fixed floor of 10° of
+excess turning (`WEAK_BEND_FLOOR_DEG`, or the threshold's own excess when that
+is lower; `KinkDetector.weak_bend_floor`), and the curvature a candidate must
+reach is taken from that floor. A window maximum is now dropped only where a
+stronger candidate of the first kind lies within 0.75 W. Of the bends kept,
+those reaching the threshold are kinks and only they bound their neighbours'
+arms; the others, where kinks are judged, are stored as weak bends.
 
 The format 1.2 and 1.3 changes do not change these scans: 1.2 lets the
 analysis choose the centerline and keeps the half-maximum centerline as the

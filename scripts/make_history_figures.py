@@ -229,16 +229,17 @@ def run_kink_detector(src: str, calibrated_path: str, skeleton_path: str, out_pa
         `run_skeletonizer` が書いた ``.npz``。その ``skeleton`` を追跡する。
     out_path
         ``.npz`` file to write: ``kinks`` (2, N) as (x = column, y = row);
-        ``line_x``, ``line_y`` (column, row) and ``line_id`` for the recorded
-        lines; ``width_px``, the median apparent width the version reports
-        (NaN when it reports none).
+        ``angles``, the interior angle the version stores for each kink, in
+        radians; ``line_x``, ``line_y`` (column, row) and ``line_id`` for the
+        recorded lines; ``width_px``, the median apparent width the version
+        reports (NaN when it reports none).
+        書き出す ``.npz``。``kinks``（2, N、x = 列、y = 行）、各キンクについてその版が
+        保存する内角 ``angles``（ラジアン）、記録した線の ``line_x``・``line_y``
+        （列・行）と ``line_id``、およびその版が報告する見かけ幅の中央値
+        ``width_px``（報告しなければ NaN）。
     centerline_method
         Line to judge kinks on (``ProcParams.centerline_method``); empty keeps
         the version's default.
-        書き出す ``.npz``。``kinks``（2, N、x = 列、y = 行）、記録した線の
-        ``line_x``・``line_y``（列・行）と ``line_id``、およびその版が報告する
-        見かけ幅の中央値 ``width_px``（報告しなければ NaN）。
-    centerline_method
         キンクを判定する線（``ProcParams.centerline_method``）。空ならその版の既定。
     """
     sys.path.insert(0, src)
@@ -266,11 +267,12 @@ def run_kink_detector(src: str, calibrated_path: str, skeleton_path: str, out_pa
               else pipeline.ProcParams())
     pipeline.build_stages(params).kink_detector(image)
     kinks = np.asarray(image.all_kink_coordinates, dtype=float).reshape(2, -1)
+    angles = np.asarray(image.all_kink_angles, dtype=float).reshape(-1)
     ids = [np.full(len(x), i) for i, (x, _y) in enumerate(lines)]
     summary = getattr(image, "apparent_width_summary", None) or {}
     width = summary.get("median_px")
     np.savez_compressed(
-        out_path, kinks=kinks, width_px=np.array(np.nan if width is None else float(width)),
+        out_path, kinks=kinks, angles=angles, width_px=np.array(np.nan if width is None else float(width)),
         line_x=np.concatenate([x for x, _y in lines]) if lines else np.zeros(0),
         line_y=np.concatenate([y for _x, y in lines]) if lines else np.zeros(0),
         line_id=np.concatenate(ids) if ids else np.zeros(0, dtype=int))
@@ -609,9 +611,12 @@ def kink_scores(cache: Path, commits) -> dict:
         a, b = human[MARK_SCAN_NAMES[scan_key]]["A"], human[MARK_SCAN_NAMES[scan_key]]["B"]
         both = _both_marks(a, b, w)
         for commit in commits:
-            xy = (np.load(_kinked(cache, commit, scan_key, scan_path))["kinks"]
-                  if isinstance(commit, str) else np.load(commit(scan_key, scan_path))["kinks"])
-            kinks = [dict(x=float(x), y=float(y), w=w) for x, y in zip(xy[0], xy[1])]
+            data = (np.load(_kinked(cache, commit, scan_key, scan_path))
+                    if isinstance(commit, str) else np.load(commit(scan_key, scan_path)))
+            xy = data["kinks"]
+            angles = data["angles"] if "angles" in data else np.full(xy.shape[1], np.nan)
+            kinks = [dict(x=float(x), y=float(y), w=w, angle=float(a))
+                     for x, y, a in zip(xy[0], xy[1], angles)]
             for name, refs in (("A", a), ("B", b), ("both", both)):
                 counts = krs.score(refs, kinks, [])
                 counts["detections"] = len(kinks)
@@ -1226,6 +1231,23 @@ def check_attributions(cache: Path) -> None:
                   f"found {total['found'] + total['displaced']:3d}, merged {total['merged']:2d}, "
                   f"missed {total['missed']:2d}, matching no mark {total['false']:3d} ({per_scan}), "
                   f"near a mark not clear {total['exempt']:2d}")
+    print("[4.2] interior angle stored for the kinks of 1.0.0 and c43409b at the same clear mark:")
+    old_version, new_version = ERAS[0][1], ERAS[-1][1]
+    scores = kink_scores(cache, [old_version, new_version])
+    differences, old_angles, new_angles = [], [], []
+    for key, _p, _t in SCANS:
+        by_mark = [{id(ref): kink["angle"] for ref, kink in scores[(c, key, "both")]["pairs"]}
+                   for c in (old_version, new_version)]
+        for mark in by_mark[0].keys() & by_mark[1].keys():
+            old_angles.append(np.degrees(by_mark[0][mark]))
+            new_angles.append(np.degrees(by_mark[1][mark]))
+            differences.append(new_angles[-1] - old_angles[-1])
+    if differences:
+        q1, median, q3 = np.percentile(differences, [25, 50, 75])
+        print(f"    {len(differences)} marks; median angle 1.0.0 {np.median(old_angles):.1f} deg, "
+              f"c43409b {np.median(new_angles):.1f} deg; difference c43409b - 1.0.0: "
+              f"median {median:+.1f}, quartiles {q1:+.1f} to {q3:+.1f}, "
+              f"range {min(differences):+.1f} to {max(differences):+.1f} deg")
     print("[4.1] each line judged by each rule, against the marks both call clear:")
     old_rule, new_code = ERAS[0][1], ERAS[-1][1]
     combinations = {
