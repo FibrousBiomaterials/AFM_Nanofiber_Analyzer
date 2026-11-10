@@ -272,14 +272,14 @@ def _draw(out: Path, arrays: Dict, base: str) -> List[Path]:
         old = np.load(arrays[(base, scan_key)]["skeletonization"])["skeleton"]
         new = np.load(arrays[(WORKTREE, scan_key)]["skeletonization"])["skeleton"]
         rgb = np.dstack([grey] * 3) * 0.7
-        rgb[ndimage.binary_dilation(new, widen)] = blue
+        rgb[ndimage.binary_dilation(new & old, widen)] = blue
         rgb[ndimage.binary_dilation(old & ~new, widen)] = (1.0, 0.0, 1.0)
         rgb[ndimage.binary_dilation(new & ~old, widen)] = (0.0, 0.88, 0.0)
         axes[r, 0].imshow(rgb)
         circle(axes[r, 0], old ^ new, yellow)
         axes[r, 0].set_title(f"{title}   {labels[1]} against {labels[0]}", fontsize=24)
     finish(fig, axes, "skeletonization", [
-        Line2D([], [], color=blue, linewidth=6, label="skeleton of the working tree"),
+        Line2D([], [], color=blue, linewidth=6, label="unchanged skeleton"),
         Line2D([], [], color=green, linewidth=6, label="pixels the working tree adds"),
         Line2D([], [], color=magenta, linewidth=6, label="pixels the working tree removes"),
         Line2D([], [], linestyle="", marker="o", markersize=26, markerfacecolor="none",

@@ -430,13 +430,15 @@ def figure_skeletonization(cache: Path, out_dir: Path, dpi: int, lang: str = "en
     `SKELETON_CHANGES` の各変更がスケルトンをどう変えたかを描く。
 
     One row per scan and one column per change, all on the same calibrated
-    image and mask (`_skeletonized`). Each panel shows the skeleton after the
-    change in blue over the grey height image, the pixels the change added in
+    image and mask (`_skeletonized`). Each panel shows the skeleton pixels
+    common to before and after the change in blue over the grey height image,
+    the pixels the change added in
     green and those it removed in magenta, circled because at the size of a
     whole scan they are a few pixels across. Lines are drawn three pixels wide
     so that a one-pixel skeleton survives the reduction.
     スキャンごとに 1 段、変更ごとに 1 列で、どれも同じ補正後の画像とマスクを使う
-    （`_skeletonized`）。各パネルは、変更後のスケルトンを灰色の高さ画像の上に青で、
+    （`_skeletonized`）。各パネルは、変更の前後で共通のスケルトンの画素を灰色の高さ画像の
+    上に青で、
     その変更が加えた画素を緑で、取り除いた画素をマゼンタで示し、スキャン全体の大きさ
     では数画素にしかならないため円で囲む。1 画素のスケルトンが縮小で消えないよう、
     線は 3 画素の幅で描く。
@@ -459,7 +461,7 @@ def figure_skeletonization(cache: Path, out_dir: Path, dpi: int, lang: str = "en
             before, after = (np.load(_skeletonized(cache, c, scan_key, scan_path))["skeleton"]
                              for c in (before_commit, after_commit))
             rgb = np.dstack([grey] * 3) * 0.7
-            rgb[ndimage.binary_dilation(after, widen)] = (0.30, 0.55, 1.00)
+            rgb[ndimage.binary_dilation(after & before, widen)] = (0.30, 0.55, 1.00)
             added, removed = after & ~before, before & ~after
             rgb[ndimage.binary_dilation(removed, widen)] = (1.0, 0.0, 1.0)
             rgb[ndimage.binary_dilation(added, widen)] = (0.0, 0.88, 0.0)
@@ -481,7 +483,7 @@ def figure_skeletonization(cache: Path, out_dir: Path, dpi: int, lang: str = "en
         ax.set_yticks([])
     from matplotlib.lines import Line2D
     _legend(fig, [
-        Line2D([], [], color=(0.30, 0.55, 1.00), linewidth=6, label=LABELS[lang]["skeleton_after"]),
+        Line2D([], [], color=(0.30, 0.55, 1.00), linewidth=6, label=LABELS[lang]["skeleton_unchanged"]),
         Line2D([], [], color=(0.0, 0.88, 0.0), linewidth=6, label=LABELS[lang]["pixels_added"]),
         Line2D([], [], color=(1.0, 0.0, 1.0), linewidth=6, label=LABELS[lang]["pixels_removed"]),
         Line2D([], [], linestyle="", marker="o", markersize=26, markerfacecolor="none",
@@ -871,7 +873,7 @@ LABELS = {
         "mask": "binarized mask",
         "added_component": "component added to the column before",
         "removed_component": "component removed from the column before",
-        "skeleton_after": "skeleton after the change",
+        "skeleton_unchanged": "unchanged skeleton",
         "pixels_added": "pixels the change added",
         "pixels_removed": "pixels the change removed",
         "changed_place": "place that changed",
@@ -883,12 +885,15 @@ LABELS = {
         "skeleton_pixels": "skeleton pixels",
         "centerline": "half-maximum centerline",
         "location": "rows {y0}-{y1}, columns {x0}-{x1}",
+        "mask_unchanged": "unchanged mask",
+        "component_added": "component {version} adds",
+        "component_removed": "component {version} removes",
     },
     "ja": {
         "mask": "二値化のマスク",
         "added_component": "前の列に対して加わった成分",
         "removed_component": "前の列に対して取り除かれた成分",
-        "skeleton_after": "変更後のスケルトン",
+        "skeleton_unchanged": "変化のないスケルトン",
         "pixels_added": "変更で加わった画素",
         "pixels_removed": "変更で取り除かれた画素",
         "changed_place": "変わった場所",
@@ -900,6 +905,9 @@ LABELS = {
         "skeleton_pixels": "スケルトンの画素",
         "centerline": "半値中心線",
         "location": "行 {y0}-{y1}、列 {x0}-{x1}",
+        "mask_unchanged": "変化のないマスク",
+        "component_added": "{version} が加えた成分",
+        "component_removed": "{version} が取り除いた成分",
     },
 }
 
@@ -935,7 +943,7 @@ def _font_context(lang: str) -> dict:
 # 品質 92 の JPEG はその 3 分の 1 から半分で、7 倍に拡大しても PNG と見分けられ
 # なかった。色の解像度を必ず半分にする WebP は、細い色付きの線や印をにじませた。
 # 中心線の拡大図はノイズが少なく、PNG のほうが小さい。
-PNG_FIGURES = ("centerline",)
+PNG_FIGURES = ("centerline", "binarization_zoom", "skeleton_zoom")
 JPEG_OPTIONS = {"quality": 92, "subsampling": 0, "optimize": True}
 
 
@@ -948,7 +956,8 @@ def _figure_path(out_dir: Path, name: str, lang: str = "en") -> Path:
     JPEG unless listed in `PNG_FIGURES`.
     ``--full`` の原寸版は PNG とし、縮小版は `PNG_FIGURES` にあるもの以外は JPEG とする。
     """
-    suffix = "png" if out_dir == FULL_DIR or name in PNG_FIGURES else "jpg"
+    png = name in PNG_FIGURES or any(name.startswith(f"{p}_") for p in PNG_FIGURES)
+    suffix = "png" if out_dir == FULL_DIR or png else "jpg"
     return out_dir / (f"{name}.ja.{suffix}" if lang == "ja" else f"{name}.{suffix}")
 
 
@@ -984,6 +993,211 @@ def _kink_handles(lang: str):
         Line2D([], [], linestyle="", marker="o", markersize=16, markerfacecolor="#ff00ff",
                markeredgecolor="black", label=LABELS[lang]["kink_no_mark"]),
     ]
+
+
+# Places the enlarged figures show besides those chosen by rule: the narrow gap
+# between two fibers that §3.1 describes, as (scan key, row, column).
+# 規則で選ぶ場所のほかに拡大図が示す場所。§3.1 が述べる 2 本のファイバーの間の
+# 細い隙間で、(スキャンのキー, 行, 列)。
+ZOOM_EXTRA = {"loops": [("tunicate", 1010, 633)]}
+ZOOM_PLACES = 4
+ZOOM_DPI = 80
+
+
+def _zoom_box(piece, shape, half_min: int = 25):
+    """
+    Return the crop (rows, columns) around a changed piece, at least 2 * `half_min` across.
+    変わった部分の周りの切り出し範囲（行, 列）を返す。幅は 2 * `half_min` 以上。
+    """
+    cy = (piece[0].start + piece[0].stop) // 2
+    cx = (piece[1].start + piece[1].stop) // 2
+    half = max(half_min, int(0.7 * max(piece[0].stop - piece[0].start,
+                                       piece[1].stop - piece[1].start)) + 10)
+    return (slice(max(0, cy - half), min(shape[0], cy + half)),
+            slice(max(0, cx - half), min(shape[1], cx + half)))
+
+
+def _changed_places(changes, count: int):
+    """
+    Return the `count` largest changed pieces over all scans, largest first.
+    全スキャンで変わった部分のうち大きいほうから `count` 個を返す。
+
+    Parameters
+    ----------
+    changes
+        (scan key, boolean array of changed pixels) for each scan.
+        スキャンごとの (スキャンのキー, 変わった画素の真偽値の配列)。
+    """
+    import numpy as np
+    from scipy import ndimage
+    pieces = []
+    for scan_key, changed in changes:
+        labelled, _n = ndimage.label(changed, structure=np.ones((3, 3)))
+        for index, piece in enumerate(ndimage.find_objects(labelled), start=1):
+            pieces.append((int((labelled[piece] == index).sum()), scan_key, piece))
+    pieces.sort(key=lambda t: -t[0])
+    return [(scan_key, piece) for _size, scan_key, piece in pieces[:count]]
+
+
+def _zoom_panels(fig, panels, columns: int):
+    """
+    Draw RGB crops in a grid of `columns`, titled by scan and location.
+    RGB の切り出しを `columns` 列の格子に描き、スキャンと場所で題を付ける。
+    """
+    import numpy as np
+    rows = int(np.ceil(len(panels) / columns))
+    axes = fig.subplots(rows, columns, squeeze=False,
+                        gridspec_kw={"wspace": 0.08, "hspace": 0.25})
+    for ax, (rgb, title) in zip(axes.ravel(), panels):
+        ax.imshow(rgb, interpolation="nearest")
+        ax.set_title(title, fontsize=15)
+    for ax in axes.ravel():
+        ax.set_xticks([])
+        ax.set_yticks([])
+    for ax in axes.ravel()[len(panels):]:
+        ax.axis("off")
+
+
+def figure_binarization_zoom(cache: Path, out_dir: Path, dpi: int, lang: str = "en") -> None:
+    """
+    Enlarge every component a later mask adds to or removes from the one before.
+    後のマスクが前のマスクに加えた成分と取り除いた成分を、すべて拡大して描く。
+
+    The masks are those of `figure_binarization` (each version given the newest
+    calibrated image), compared group by group; each panel shows the grey height
+    image with the mask the two share in blue, the component added in green or
+    the one removed in magenta.
+    マスクは `figure_binarization` のもの（どの版にも最新の補正後の画像を与える）で、
+    同一のマスクの組ごとに比べる。各パネルは灰色の高さ画像に、両者に共通するマスクを青、
+    加わった成分を緑、取り除かれた成分をマゼンタで示す。
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+    from scipy import ndimage
+
+    blue, green, magenta = np.array([0.30, 0.55, 1.00]), np.array([0.0, 0.88, 0.0]), np.array([1.0, 0.0, 1.0])
+    panels, versions, drawn = [], None, set()
+    data = {}
+    for scan_key, scan_path, title in SCANS:
+        groups = []
+        for label, commit in ERAS:
+            mask = np.load(_segmented(cache, commit, scan_key, scan_path))["binarized"]
+            if groups and np.array_equal(groups[-1][1], mask):
+                groups[-1][0].append(label)
+            else:
+                groups.append(([label], mask))
+        calibrated = np.load(_analyzed(cache, ERAS[-1][1], scan_key, scan_path))["calibrated"]
+        data[scan_key] = (title, calibrated, groups)
+    for scan_key, (title, calibrated, groups) in data.items():
+        hi = float(np.percentile(calibrated, 99.5))
+        grey = np.clip((calibrated + 0.5) / (hi + 0.5), 0.0, 1.0)
+        for (before_labels, before), (after_labels, after) in zip(groups, groups[1:]):
+            versions = (", ".join(before_labels), ", ".join(after_labels))
+            for changed, colour in ((after & ~before, green), (before & ~after, magenta)):
+                labelled, _n = ndimage.label(changed, structure=np.ones((3, 3)))
+                for piece in ndimage.find_objects(labelled):
+                    rows, cols = _zoom_box(piece, calibrated.shape)
+                    rgb = np.dstack([grey[rows, cols]] * 3) * 0.85
+                    kept = before[rows, cols] & after[rows, cols]
+                    rgb[kept] = 0.45 * rgb[kept] + 0.55 * blue
+                    part = changed[rows, cols]
+                    rgb[part] = 0.35 * rgb[part] + 0.65 * colour
+                    where = LABELS[lang]["location"].format(y0=rows.start, y1=rows.stop,
+                                                            x0=cols.start, x1=cols.stop)
+                    panels.append((rgb, f"{title}\n{where}"))
+                    drawn.add("added" if colour is green else "removed")
+    if not panels:
+        return
+    columns = 4
+    rows_n = int(np.ceil(len(panels) / columns))
+    fig = plt.figure(figsize=(5 * columns, 5.6 * rows_n))
+    _zoom_panels(fig, panels, columns)
+    # List only the colours some panel draws, so the legend names nothing absent.
+    handles = [Patch(facecolor=blue, label=LABELS[lang]["mask_unchanged"])]
+    if "added" in drawn:
+        handles.append(Line2D([], [], color=green, linewidth=8,
+                              label=LABELS[lang]["component_added"].format(version=versions[1])))
+    if "removed" in drawn:
+        handles.append(Line2D([], [], color=magenta, linewidth=8,
+                              label=LABELS[lang]["component_removed"].format(version=versions[1])))
+    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.02), ncol=len(handles),
+               fontsize=16, frameon=False)
+    path = _figure_path(out_dir, "binarization_zoom", lang)
+    _save(fig, path, dpi)
+    plt.close(fig)
+    print(f"wrote {path.relative_to(ROOT)}")
+
+
+def figure_skeleton_zooms(cache: Path, out_dir: Path, dpi: int, lang: str = "en") -> None:
+    """
+    Enlarge, for each change of `SKELETON_CHANGES`, the places it changed most.
+    `SKELETON_CHANGES` の変更ごとに、最も大きく変えた場所を拡大して描く。
+
+    One figure per change: the `ZOOM_PLACES` largest changed pieces over the three
+    scans, plus the places of `ZOOM_EXTRA`, each on the grey height image with the
+    skeleton pixels common to before and after the change in blue, the pixels it
+    added in green and those it removed in magenta.
+    変更ごとに 1 枚の図で、3 スキャンを通して大きいほうから `ZOOM_PLACES` 個の変わった
+    部分と `ZOOM_EXTRA` の場所を、灰色の高さ画像に変更の前後で共通のスケルトンの画素を
+    青、加えた画素を緑、取り除いた画素をマゼンタで重ねて示す。
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from matplotlib.lines import Line2D
+
+    keys = ("loops", "border", "tips", "hooks")
+    titles = {k: t for k, _p, t in SCANS}
+    paths = {k: p for k, p, _t in SCANS}
+    blue, green, magenta = (0.30, 0.55, 1.00), (0.0, 0.88, 0.0), (1.0, 0.0, 1.0)
+    for number, (key, (_label, before_commit, after_commit)) in enumerate(
+            zip(keys, SKELETON_CHANGES), start=1):
+        skeletons, greys = {}, {}
+        for scan_key, scan_path, _title in SCANS:
+            calibrated = np.load(_analyzed(cache, ERAS[-1][1], scan_key, scan_path))["calibrated"]
+            hi = float(np.percentile(calibrated, 99.5))
+            greys[scan_key] = np.clip((calibrated + 0.5) / (hi + 0.5), 0.0, 1.0)
+            skeletons[scan_key] = tuple(
+                np.load(_skeletonized(cache, c, scan_key, paths[scan_key]))["skeleton"]
+                for c in (before_commit, after_commit))
+        places = _changed_places([(k, b ^ a) for k, (b, a) in skeletons.items()], ZOOM_PLACES)
+        for scan_key, row, col in ZOOM_EXTRA.get(key, []):
+            places.append((scan_key, (slice(row - 5, row + 5), slice(col - 5, col + 5))))
+        panels, added, removed = [], False, False
+        for scan_key, piece in places:
+            before, after = skeletons[scan_key]
+            rows, cols = _zoom_box(piece, before.shape)
+            rgb = np.dstack([greys[scan_key][rows, cols]] * 3) * 0.8
+            b, a = before[rows, cols], after[rows, cols]
+            rgb[a & b] = blue
+            rgb[b & ~a] = magenta
+            rgb[a & ~b] = green
+            added |= bool((a & ~b).any())
+            removed |= bool((b & ~a).any())
+            where = LABELS[lang]["location"].format(y0=rows.start, y1=rows.stop,
+                                                    x0=cols.start, x1=cols.stop)
+            panels.append((rgb, f"{titles[scan_key]}\n{where}"))
+        columns = len(panels)
+        fig = plt.figure(figsize=(5 * columns, 6))
+        _zoom_panels(fig, panels, columns)
+        # List only the colours some panel draws, so the legend names nothing absent.
+        handles = [Line2D([], [], color=blue, linewidth=8, label=LABELS[lang]["skeleton_unchanged"])]
+        if added:
+            handles.append(Line2D([], [], color=green, linewidth=8, label=LABELS[lang]["pixels_added"]))
+        if removed:
+            handles.append(Line2D([], [], color=magenta, linewidth=8,
+                                  label=LABELS[lang]["pixels_removed"]))
+        fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.04), ncol=len(handles),
+                   fontsize=16, frameon=False)
+        path = _figure_path(out_dir, f"skeleton_zoom_{number}", lang)
+        _save(fig, path, dpi)
+        plt.close(fig)
+        print(f"wrote {path.relative_to(ROOT)}")
 
 
 def figure_binarization(cache: Path, out_dir: Path, dpi: int, lang: str = "en") -> None:
@@ -1024,6 +1238,7 @@ def figure_binarization(cache: Path, out_dir: Path, dpi: int, lang: str = "en") 
     fig, axes = plt.subplots(len(rows), n_cols, figsize=(11 * n_cols, 11.5 * len(rows)),
                              gridspec_kw={"wspace": 0.04, "hspace": 0.1}, squeeze=False)
     blue = np.array([0.30, 0.55, 1.00])
+    drawn = set()
     for r, (title, calibrated, groups) in enumerate(rows):
         hi = float(np.percentile(calibrated, 99.5))
         grey = np.clip((calibrated + 0.5) / (hi + 0.5), 0.0, 1.0)
@@ -1038,6 +1253,8 @@ def figure_binarization(cache: Path, out_dir: Path, dpi: int, lang: str = "en") 
             if previous is not None:
                 for changed, colour in ((mask & ~previous, "#00e000"), (previous & ~mask, "#ff00ff")):
                     labelled, count = ndimage.label(changed, structure=np.ones((3, 3)))
+                    if count:
+                        drawn.add(colour)
                     for piece in ndimage.find_objects(labelled):
                         cy = (piece[0].start + piece[0].stop) / 2
                         cx = (piece[1].start + piece[1].stop) / 2
@@ -1053,15 +1270,14 @@ def figure_binarization(cache: Path, out_dir: Path, dpi: int, lang: str = "en") 
         ax.set_yticks([])
     from matplotlib.lines import Line2D
     from matplotlib.patches import Patch
-    _legend(fig, [
-        Patch(facecolor=blue, label=LABELS[lang]["mask"]),
-        Line2D([], [], linestyle="", marker="o", markersize=26, markerfacecolor="none",
-               markeredgecolor="#00e000", markeredgewidth=4,
-               label=LABELS[lang]["added_component"]),
-        Line2D([], [], linestyle="", marker="o", markersize=26, markerfacecolor="none",
-               markeredgecolor="#ff00ff", markeredgewidth=4,
-               label=LABELS[lang]["removed_component"]),
-    ], 3)
+    # List only the circle colours some panel draws, so the legend names nothing absent.
+    handles = [Patch(facecolor=blue, label=LABELS[lang]["mask"])]
+    for colour, key in (("#00e000", "added_component"), ("#ff00ff", "removed_component")):
+        if colour in drawn:
+            handles.append(Line2D([], [], linestyle="", marker="o", markersize=26,
+                                  markerfacecolor="none", markeredgecolor=colour,
+                                  markeredgewidth=4, label=LABELS[lang][key]))
+    _legend(fig, handles, len(handles))
     path = _figure_path(out_dir, "binarization", lang)
     _save(fig, path, dpi)
     plt.close(fig)
@@ -1341,6 +1557,9 @@ def main() -> None:
             figure_skeletonization(cache, out_dir, dpi, lang)
             figure_kinks(cache, out_dir, dpi, lang)
             figure_centerline(cache, out_dir, dpi, lang)
+            zoom_dpi = dpi if args.full else ZOOM_DPI
+            figure_binarization_zoom(cache, out_dir, zoom_dpi, lang)
+            figure_skeleton_zooms(cache, out_dir, zoom_dpi, lang)
 
 
 if __name__ == "__main__":

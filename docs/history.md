@@ -155,8 +155,8 @@ To show what the binarization itself changed, every version is given the same
 calibrated image: that of c43409b at its default settings. The first column shows
 that image in grey; each further column shows a version's mask in blue, and
 versions whose masks are identical share a column. A green circle marks a
-component the version adds to the mask of the column before it, and a magenta
-circle one it removes; on these scans no version removes one. The defaults
+component the version adds to the mask of the column before it; on these
+scans no version removes one. The defaults
 of the binarization settings (`wsize_localbin`, `global_threshold`,
 `area_min`, `area_min_connecting`, `apply_no_connecting`, `h_length`,
 `h_sratio`, `low_threshold`) are the same in all three versions (`ProcParams`).
@@ -192,7 +192,10 @@ tunicate scan they are a faint fiber branching off at the left edge and two
 short faint pieces beside a crossing near the bottom; on the NDTOC scan, three
 faint strands ending in particles and one particle with a short protrusion. On
 the higher-plant scan the added component lies on the disturbed scan line and
-is not a fiber.
+is not a fiber. The figure below enlarges every component c43409b adds, on the
+grey height image with the unchanged mask in blue.
+
+[![Components c43409b adds](images/history/binarization_zoom.png)](images/history/binarization_zoom.png)
 
 The faint branch at the left edge of the tunicate scan was binarized by 1.0.0
 and lost in 2.0.0. The binarization of 2.0.0 keeps it on the calibrated image
@@ -213,10 +216,10 @@ c43409b and its mask. The defaults of `bp_height`, `branch_length` and
 and `spur_length` (`ProcParams`). On this input 2.0.0 and c43409b give
 identical skeletons, and every difference between 1.0.0 and 2.0.0 comes from
 four commits, one column each in the figure below. Each panel shows the
-skeleton after the change in blue, the pixels the change added in green and
+skeleton the change left unchanged in blue, the pixels it added in green and
 those it removed in magenta, with a yellow circle around each place that
-changed. At the size of a whole scan these places are a few pixels across;
-the figure written by `--full` shows them.
+changed. At the size of a whole scan these places are a few pixels across,
+so each subsection below enlarges the places its change altered most.
 
 [![Skeletonization](images/history/skeletonization.jpg)](images/history/skeletonization.jpg)
 
@@ -233,7 +236,11 @@ reaches a branch point within `spur_length` (12) pixels
 at crossings collapsed into one line, and short side branches removed. One
 ring near the bottom of the tunicate scan encloses the narrow gap between two
 fibers that run side by side and touch at both ends; it is filled too, and the
-two fibers are joined into one line there (`docs/validation.md` §3.3).
+two fibers are joined into one line there (`docs/validation.md` §3.3). The
+figure enlarges the four places where this change altered the most skeleton
+pixels on the three scans and, last, that gap.
+
+[![Loops and spurs, enlarged](images/history/skeleton_zoom_1.png)](images/history/skeleton_zoom_1.png)
 
 ### 3.2 Fibers leaving the scan (`15368e3`)
 
@@ -242,7 +249,10 @@ skeleton of a fiber running off the scan turned aside over its last pixels.
 The mask is now extended outward by repeating its border 12 pixels before
 thinning (`thin_ignoring_image_border`). In the figure the changes all lie on
 the edges of the scans, where the end of a skeleton now runs on to the edge
-in the direction of its fiber.
+in the direction of its fiber. The figure enlarges the four places where this
+change altered the most skeleton pixels.
+
+[![Fibers leaving the scan, enlarged](images/history/skeleton_zoom_2.png)](images/history/skeleton_zoom_2.png)
 
 ### 3.3 Fiber tips in branch pruning (`3a2415d`)
 
@@ -250,7 +260,10 @@ Branch pruning follows a short arm from its end towards a branch point. It
 used to follow it inside a small crop around the end, so an arm that ran on
 past the crop looked like a dead end and was deleted. It now follows the arm
 over the whole image. In the figure this keeps a short piece of skeleton on a
-faint strand once on the tunicate scan and twice on the NDTOC scan.
+faint strand once on the tunicate scan and twice on the NDTOC scan; the
+figure enlarges these three places.
+
+[![Fiber tips in branch pruning, enlarged](images/history/skeleton_zoom_3.png)](images/history/skeleton_zoom_3.png)
 
 ### 3.4 Hooks at fiber ends (`af4f501`)
 
@@ -260,7 +273,10 @@ that turn back within 12 pixels of it and lie lower than half the median of
 the fiber body next to them (`prune_terminal_hooks`). In the figure a few
 pixels disappear from fiber ends that turn aside on the higher-plant and NDTOC
 scans; most are one or two pixels, and a few on the NDTOC scan are hooks that
-bend back.
+bend back. The figure enlarges the four places where this change altered the
+most skeleton pixels.
+
+[![Hooks at fiber ends, enlarged](images/history/skeleton_zoom_4.png)](images/history/skeleton_zoom_4.png)
 
 ## 4. Centerline and kink detection
 
