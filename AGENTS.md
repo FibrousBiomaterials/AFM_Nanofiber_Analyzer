@@ -1454,6 +1454,55 @@ sentences that had been checked.
 Enforced by `.githooks/pre-commit` (`--staged`) and `tests/test_paper_claims.py`
 (CI). Do not bypass either with `--no-verify`.
 
+### 8.18 Visual review of analysis changes
+
+A change to what the GUI01 analysis stages compute — the modules in
+`VISUAL_MODULES` of `scripts/check_visual_review.py`: background correction,
+binarization, skeletonization, the centerline, kink detection, `imp_tools.py`
+and `pipeline.py` — is accepted only after its effect has been looked at on
+whole images of the bundled scans and a person has approved what it shows.
+The goldens report that an output moved, not whether it got better or worse,
+and the images show what the numbers do not: while `docs/history.md` was
+written, the 2.0.0 `tophat` change was seen to leave the raw scan's line
+offsets visible on the tunicate scan, which its changelog entry does not
+mention, and the noise-range change of the background mask to deepen a
+subtracted fiber on that scan, which its entry summarizes as local and small.
+
+1. Run `.venv\Scripts\python.exe scripts\visual_diff.py compare [BASE]`
+   (`BASE` defaults to `HEAD`). It runs the base commit and the working tree on
+   the three bundled scans, giving each later stage the working tree's output
+   of the earlier stages so a figure shows that stage's change alone, and
+   writes figures and `summary.json` to `.tmp/visual_diff/`. When every
+   stage's output is bit-identical it records the code as `identical` and
+   nothing more is needed.
+2. Otherwise Read every figure it writes — each stage, each scan, as whole
+   images, and the enlarged centerline — and look at the places that changed
+   at full resolution before describing them (§8.12). Record what was seen with
+   `visual_diff.py record --stage STAGE=VERDICT:NOTE` for every stage
+   (`improved`, `worse`, `mixed` or `unchanged`, with where), which stores a
+   `pending` review in `tests/visual_review.json`. Describe what the images
+   show; do not choose crops or wording to make a change look better.
+3. Show the user the figures and the recorded verdicts. `visual_diff.py
+   approve --by NAME` marks the review approved. **An agent runs it only after
+   the user has approved that review in the conversation**, with the name the
+   user gives, never on its own judgement, and never treats a pending review
+   as approved.
+
+The record is keyed by a fingerprint of the code of `VISUAL_MODULES` with
+comments and docstrings removed (`doc_excerpts.code_symbol_digests`), so a
+comment or docstring edit needs no review. A fingerprint is covered by an
+`approved` review with a name, an `identical` record, or the `baseline` entry
+for the code the check was introduced on. The rule sits beside §8.11, not in
+place of it: a result-changing change still needs its changelog entry.
+
+Enforced by `scripts/check_visual_review.py --staged` in `.githooks/pre-commit`
+(only when the staged code changes the fingerprint against `HEAD`),
+`tests/test_visual_review.py` (CI, the working tree), and the Claude Code hook
+`.claude/hooks/doc_code_reminder.py`, which reports an uncovered change right
+after an edit of one of these modules. Like the document fingerprints, the
+record shows that a review was recorded, not that anyone looked; that part is
+this rule. Do not bypass the check with `--no-verify`.
+
 ## 9. Summary
 
 | Item | Rule |
@@ -1502,6 +1551,7 @@ Enforced by `.githooks/pre-commit` (`--staged`) and `tests/test_paper_claims.py`
 | Algorithm changes | A change to `bg_calibrator.py`, `segmenter.py`, `skeletonizer.py`, `kink_detector.py`, or `centerline.py` includes updating `docs/algorithms.md` **and** `docs/algorithms.ja.md`; refresh `tests/algorithm_doc_manifest.json` only after rereading the affected sections. Explain each step with its code and formula, quoting code only as verified `# source: <path>::<symbol>` excerpts (identical in both languages); reference code by symbol name, never by line number. Enforced by `.githooks/pre-commit`, `tests/test_algorithm_docs.py`, and the `PostToolUse` hook `.claude/hooks/doc_code_reminder.py` (§8.13). |
 | GUI04 measurement changes | A change to a symbol in `WATCHED_SYMBOLS` (`scripts/check_gui04_docs.py`), or a new GUI04 fiber-table column (which needs its own §3 subsection naming it), includes updating `docs/gui04_measurements.md` **and** `docs/gui04_measurements.ja.md`, prose and quoted excerpts alike; refresh `tests/gui04_doc_manifest.json` with `scripts/check_gui04_docs.py --update` only after rereading. Quote code only in `# source: <path>::<symbol>` blocks. Say 「中心線」/「スケルトントラック」 ("centerline"/"skeleton track"), never a bare 「線」/"line". Enforced by `.githooks/pre-commit`, `tests/test_gui04_docs.py`, and the `PostToolUse` hook `.claude/hooks/doc_code_reminder.py` (§8.14). |
 | Claims in `paper.md` | Every sentence has an entry in `tests/paper_claims.json`: `verified` with a checked source (`doc`, `code`, `figure`, `external` with a verbatim quote, or `author` only when the user confirmed it), or `unverified` with a note; evaluative claims stay unverified until the authors confirm them; a commit may not add an unverified sentence; each entry carries its Japanese translation and `paper.ja.md` is generated from them with `--write-ja`, never edited by hand; checked by `scripts/check_paper_claims.py` in pre-commit and `tests/test_paper_claims.py` (§8.17). |
+| Visual review of analysis changes | A change to what the GUI01 analysis stages compute (`VISUAL_MODULES` in `scripts/check_visual_review.py`) needs `scripts/visual_diff.py compare`, every figure Read, per-stage verdicts recorded with `record`, and a person's approval with `approve --by NAME`, which an agent runs only after the user approved the review in the conversation; bit-identical output records itself as `identical`; keyed by a code fingerprint without comments and docstrings in `tests/visual_review.json`; beside, not instead of, §8.11; checked by `scripts/check_visual_review.py --staged` in pre-commit, `tests/test_visual_review.py`, and `.claude/hooks/doc_code_reminder.py` (§8.18). |
 | Version bookkeeping | Package version later than the last `vX.Y.Z` tag and equal in `pyproject.toml` / `lib/__init__.py`; a bundle-format bump listed in `SUPPORTED_BUNDLE_VERSIONS`, CHANGELOG `[Unreleased]` and both READMEs with at least a MINOR step; a removed `ProcParams` field only with a MAJOR step. Enforced by `scripts/check_versions.py` in `.githooks/pre-commit` (§8.2). |
 | Destructive Git operations | Forbidden unless explicitly requested; `git restore` of files corrupted by your own edit is allowed. |
 | Deleting files | Only to the recycle bin with `scripts/trash.py` (or `trash.send_to_trash` in code); irreversible delete commands are denied in `.claude/settings.json`, and a denial is not worked around another way. |

@@ -1,0 +1,11 @@
+{
+  "reviews": [
+    {
+      "fingerprint": "946da3b62ba0",
+      "base": "662d610b348424feb6bdbc18df76b211a174caa7",
+      "date": "2026-11-10",
+      "status": "baseline",
+      "note": "The analysis code this check was introduced on; no visual review covers it. docs/history.md shows its effect against 1.0.0 and 2.0.0."
+    }
+  ]
+}

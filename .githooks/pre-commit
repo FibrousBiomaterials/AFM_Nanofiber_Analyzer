@@ -75,10 +75,11 @@ doc_number_checker="$repo_root/scripts/check_doc_numbers.py"
 version_checker="$repo_root/scripts/check_versions.py"
 paper_claim_checker="$repo_root/scripts/check_paper_claims.py"
 changelog_ja_checker="$repo_root/scripts/check_changelog_ja.py"
+visual_review_checker="$repo_root/scripts/check_visual_review.py"
 
 # Fail closed: a missing checker script also blocks the commit.
 # フェイルクローズ方針: 検査スクリプトが無い場合もコミットを中止する。
-for script in "$checker" "$changelog_checker" "$algorithm_doc_checker" "$gui04_doc_checker" "$doc_number_checker" "$version_checker" "$paper_claim_checker" "$changelog_ja_checker"; do
+for script in "$checker" "$changelog_checker" "$algorithm_doc_checker" "$gui04_doc_checker" "$doc_number_checker" "$version_checker" "$paper_claim_checker" "$changelog_ja_checker" "$visual_review_checker"; do
     if [ ! -f "$script" ]; then
         echo "pre-commit: $script not found; blocking commit (fail-closed)." >&2
         exit 1
@@ -117,5 +118,10 @@ $py "$doc_number_checker" --staged || exit $?
 $py "$paper_claim_checker" --staged || exit $?
 
 $py "$changelog_ja_checker" --staged || exit $?
+
+# A change to what the GUI01 analysis stages compute needs a visual review a
+# person approved (AGENTS.md §8.18).
+# GUI01 の解析段階の計算を変える変更には、人が承認した目視の確認が要る（AGENTS.md §8.18）。
+$py "$visual_review_checker" --staged || exit $?
 
 exec $py "$version_checker" --staged

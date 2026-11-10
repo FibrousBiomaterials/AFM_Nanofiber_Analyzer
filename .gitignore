@@ -98,6 +98,9 @@ testdata_Bruker_txt/*
 # What supports each sentence of paper.md (scripts/check_paper_claims.py,
 # tests/test_paper_claims.py); without it CI fails on a missing file.
 !tests/paper_claims.json
+# The visual reviews of changes to the analysis stages
+# (scripts/check_visual_review.py, tests/test_visual_review.py), for the same reason.
+!tests/visual_review.json
 # Which translation of CHANGELOG.ja.md each CHANGELOG.md entry was read against
 # (scripts/check_changelog_ja.py, tests/test_changelog_ja.py).
 !tests/changelog_ja_manifest.json

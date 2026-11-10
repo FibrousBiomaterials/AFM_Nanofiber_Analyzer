@@ -217,6 +217,23 @@ def _algorithm_findings(root, rel):
     return out
 
 
+def _visual_findings(root, rel):
+    """Return ``(state key, message)`` pairs for the visual review of the analysis stages."""
+    checker = _load_script(root, "check_visual_review")
+    if rel not in checker.VISUAL_MODULES or not checker.problems(checker.read_worktree):
+        return []
+    current = checker.fingerprint(checker.read_worktree)
+    return [(
+        f"visual-review:{current}",
+        f"- {rel} changed what the GUI01 analysis stages compute, and no review "
+        f"covers this code (fingerprint {current}). Once the edit is finished, run "
+        "`.venv/Scripts/python.exe scripts/visual_diff.py compare`, Read every "
+        "figure it writes, record what you saw with `visual_diff.py record`, and "
+        "ask the user to approve it; run `visual_diff.py approve --by NAME` only "
+        "after the user approved it in the conversation (AGENTS.md §8.18).",
+    )]
+
+
 def _changelog_findings(root):
     """Return ``(state key, message)`` pairs for the changelog's translation."""
     checker = _load_script(root, "check_changelog_ja")
@@ -252,7 +269,8 @@ def main() -> int:
         if rel == CHANGELOG:
             findings = _changelog_findings(root)
         else:
-            findings = _gui04_findings(root, rel) + _algorithm_findings(root, rel)
+            findings = (_gui04_findings(root, rel) + _algorithm_findings(root, rel)
+                        + _visual_findings(root, rel))
         if not findings:
             return 0
 
@@ -283,8 +301,9 @@ def main() -> int:
                 "This edit changed code that a document explains with its code "
                 "(comments and docstrings are ignored by this check):",
                 *(message for _, message in fresh),
-                "Updating the documents is part of this change (AGENTS.md §8.13, "
-                "§8.14). If the edit is not finished yet, do it once it is.",
+                "Updating the documents, and the visual review, are part of this "
+                "change (AGENTS.md §8.13, §8.14, §8.18). If the edit is not "
+                "finished yet, do it once it is.",
             ]
         print(json.dumps({
             "hookSpecificOutput": {
