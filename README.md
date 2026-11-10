@@ -1030,6 +1030,14 @@ exists, that every analysis parameter is documented, and fingerprints the four
 algorithm modules so a change to what they compute fails the test suite until
 the explanation has been reviewed.
 
+[`docs/history.md`](docs/history.md) follows the same stages and the fiber
+centerline from version 1.0.0 to commit `c43409b`, and shows on the bundled
+scans what each change did; kink detection is scored against the kinks two of
+the authors marked by hand. Read it when results differ between versions of
+this software. Its figures, and the measurements behind its statements, come
+from `scripts/make_history_figures.py`.
+[`docs/history.ja.md`](docs/history.ja.md) is the Japanese counterpart.
+
 ### API documentation
 
 The modules in `lib/` are documented with Sphinx, which renders their
