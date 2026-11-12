@@ -386,6 +386,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   odd line width of 1 or more, so one sample lies on the line (an even width put
   the samples half a pixel off the line on either side and none on it).
   **GUI02 profile heights change from this version.**
+- GUI03 refuses to aggregate a group that holds two analyses of the same scan
+  lines of one input file, and lists the pairs. GUI01 keeps a scan's
+  whole-image bundle when the scan is later analyzed as scan-line ranges, so
+  both can sit in one folder, as can a copy of a bundle under another name;
+  pooled, every fiber of the overlap was counted twice, and on the NDTOC scan
+  with its rows 0–512 beside it, 116 fibers read as 190 from two images. The
+  input file is the bundle's recorded `input_sha256`, or the file name less its
+  `_r<start>-<stop>` suffix for a fiber CSV and for a bundle without one, and
+  the log says when only names were compared. Ranges that do not overlap are
+  aggregated as before. **GUI03 no longer aggregates such a group.**
+- GUI03's histogram ends at the entered maximum. Its bin edges stopped one step
+  short of it, so the last bin was not drawn and its samples were logged as
+  outside the range and left out of `N in range` in the statistics CSV: with
+  the default height range on the tunicate scan, 24.5 % of the skeleton-pixel
+  heights were reported outside 0–10 nm, where 22.4 % lie. A range that is not
+  a whole number of steps now ends its last bin past the maximum. **GUI03
+  histograms, the share logged outside them and `N in range` change from this
+  version**; the summary statistics and the tests do not.
+- GUI03 no longer logs that the common length floor is applied to bundles that
+  record no scan size. No floor in nanometers can be applied to them: `height`
+  per `pixel` aggregates all their fibers, and every other quantity cannot read
+  them, which the log now says. Measured values do not change.
+- GUI03's curvature-window tooltip no longer says that a window that is too
+  small returns a constant value whatever the true curvature (19.4 rad/µm at
+  20 nm). Direction is quantised only on the lines that follow the skeleton
+  pixels (`skeleton`, `skeleton_pixels`), which the tooltip now names: on arcs
+  of 150–1200 nm radius digitised at 4.88 nm pixels, such a line read
+  20.2–23.6 rad/µm at 20 nm, while the same arcs sampled off the pixel grid
+  read 1/R.
 - Ridge recovery (`ridge_recovery`, off by default) measures a candidate's
   length along the longest path through its skeleton, thinned with
   `skimage.morphology.thin` as the binarized mask is, with the corner-count

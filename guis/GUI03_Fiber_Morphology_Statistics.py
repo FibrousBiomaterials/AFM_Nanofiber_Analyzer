@@ -79,9 +79,11 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # ===== Project libraries =====
 from lib.blosc2_io import BUNDLE_EXT, load_bundle, load_bundle_meta
 from lib.bundle_schema import (
-    APPARENT_WIDTH_KEY, kink_params_from_meta, pixel_size_nm,
+    APPARENT_WIDTH_KEY, SOURCE_REGION_KEY, kink_params_from_meta, pixel_size_nm,
 )
-from lib.centerline import DEFAULT_CENTERLINE_METHOD, SKELETON_TRACK
+from lib.centerline import (
+    DEFAULT_CENTERLINE_METHOD, SKELETON_PIXEL_LINE, SKELETON_TRACK,
+)
 from lib.connect_selection import (
     CONNECT_SUFFIX, connect_path_for, load_connect_plan,
 )
@@ -150,6 +152,14 @@ INPUT_SUFFIXES = {
     INPUT_BUNDLE: BUNDLE_EXT,
     INPUT_FIBER_CSV: "_fibers.csv",
 }
+
+# Name of a scan-line-range analysis, as `lib.pipeline.row_range_suffix` writes
+# it after the input's stem (the suffix of the input type removed). Parsed here
+# rather than imported because a reader must not import the pipeline.
+# `lib.pipeline.row_range_suffix` が入力のステムの後ろに書く、走査線範囲の解析の
+# 名前（入力タイプの接尾辞は除く）。読み取り側はパイプラインを import しては
+# ならないため、ここで解析する。
+_ROW_RANGE_NAME = re.compile(r"^(?P<stem>.+)_r(?P<start>\d+)-(?P<stop>\d+)$")
 
 # Aggregation units that need the bundle's images and tracks, so they are not
 # offered when the input is a per-fiber CSV.
@@ -2360,12 +2370,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self._commit_curvature_window,
         )
         ToolTip(self.ent_curvature_window, _(
-            "{curvature} が回転角を測る弧長です。骨格のステップは直交か斜めしか"
-            "無いため画素スケールでは方向が量子化され、窓が小さすぎると真の曲率に"
-            "関係なく一定のノイズ値が返ります（既知半径の円弧に対し 20 nm では"
-            "常に 19.4 rad/{um} でした）。大きくすると滑らかになりますが、窓より"
+            "{curvature} が回転角を測る弧長です。スケルトンの画素をそのままたどる線"
+            "（{skeleton}、{pixels}）では一歩が直交か斜めに限られるため、窓が小さいと"
+            "方向の量子化が値に表れます。大きくすると滑らかになりますが、窓より"
             "短いファイバーは測定対象から外れます。"
-        ).format(curvature=PARAM_CURVATURE, um=UNIT_MICROMETER))
+        ).format(curvature=PARAM_CURVATURE, skeleton=SKELETON_TRACK,
+                 pixels=SKELETON_PIXEL_LINE))
 
         ttk.Label(parambar, text=_("枠のファイバー")).pack(side=tk.LEFT)
         self.frame_mode_var = tk.StringVar(value=self.frame_mode)
@@ -3234,6 +3244,87 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             pairs.append((bundle_path, bundle_path))
 
         return pairs, missing
+
+    @staticmethod
+    def _overlapping_inputs(paths, input_mode: str) -> tuple:
+        """
+        Return the inputs of one group that analyzed the same scan lines of one input file.
+        1 つのグループのうち、1 つの入力ファイルの同じ走査線を解析した入力の組を返す。
+
+        Parameters
+        ----------
+        paths
+            Every input of the group, over all its folders.
+            グループの全フォルダにわたる全入力。
+        input_mode
+            `INPUT_BUNDLE` or `INPUT_FIBER_CSV`.
+            `INPUT_BUNDLE` または `INPUT_FIBER_CSV`。
+
+        Returns
+        -------
+        tuple
+            ``(pairs, by_name)``: the overlapping ``(path, path)`` pairs, and how
+            many inputs could be traced to their input file only by their name.
+            ``(pairs, by_name)``。重なる ``(path, path)`` の組と、入力ファイルを
+            名前でしか突き止められなかった入力の数。
+
+        Notes
+        -----
+        GUI01 keeps a whole-image bundle when the scan is later analyzed as
+        scan-line ranges, so both can sit in one folder, as can a copy of a
+        bundle under another name; pooling them counts every fiber of the
+        overlap twice. Two inputs overlap when they come from the same input
+        file and their scan-line ranges intersect. The input file is the
+        bundle's recorded ``input_sha256`` when both record one, and otherwise
+        the name less its ``_r<start>-<stop>`` suffix; the range is the
+        bundle's ``source_region``, or for a fiber CSV the name's suffix, and
+        its absence means the whole image. A bundle that cannot be read is left
+        out, because its measurement reports it.
+        GUI01 は、走査を後から走査線範囲で解析しても画像全体のバンドルを残すため、
+        両方が 1 つのフォルダに並びうる。バンドルを別名でコピーした場合も同じである。
+        まとめると重なった部分の繊維をすべて二度数える。2 つの入力は、同じ入力
+        ファイルに由来し、走査線の範囲が交わるときに重なるとする。入力ファイルは、
+        両方が記録していればバンドルの ``input_sha256``、そうでなければ
+        ``_r<start>-<stop>`` を除いた名前で見る。範囲はバンドルの ``source_region``、
+        ファイバー CSV では名前の接尾辞で見て、無ければ画像全体とする。読めない
+        バンドルは、その計測が報告するため外す。
+        """
+        suffix = INPUT_SUFFIXES[input_mode]
+        entries = []
+        for path in paths:
+            name = os.path.basename(path)
+            if name.endswith(suffix):
+                name = name[:-len(suffix)]
+            match = _ROW_RANGE_NAME.match(name)
+            source = match.group("stem") if match else name
+            rows = ((int(match.group("start")), int(match.group("stop")))
+                    if match else None)
+            sha = None
+            if input_mode == INPUT_BUNDLE:
+                try:
+                    meta = load_bundle_meta(path)
+                except Exception:
+                    continue
+                sha = meta.get("input_sha256") or None
+                region = meta.get(SOURCE_REGION_KEY)
+                try:
+                    rows = (int(region["row_start"]), int(region["row_stop"]))
+                except (TypeError, KeyError, ValueError):
+                    rows = None
+            entries.append((path, sha, source, rows))
+
+        pairs = []
+        for i, (path_a, sha_a, source_a, rows_a) in enumerate(entries):
+            for path_b, sha_b, source_b, rows_b in entries[i + 1:]:
+                same_input = (sha_a == sha_b) if (sha_a and sha_b) else (
+                    source_a == source_b)
+                if not same_input:
+                    continue
+                if (rows_a is None or rows_b is None
+                        or (rows_a[0] < rows_b[1] and rows_b[0] < rows_a[1])):
+                    pairs.append((path_a, path_b))
+        by_name = sum(1 for _p, sha, _s, _r in entries if not sha)
+        return pairs, by_name
 
     def _scan_folder(self, folder: str) -> dict:
         """
@@ -4275,13 +4366,33 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         範囲の母集団どうしを比べることになる。
         """
         floors = {}
+        # Bundles whose own floor is unknown, split by why: without a scan size
+        # no floor in nanometers can be applied to the bundle at all
+        # (`skeleton_height_values` measures it whole, every other collector
+        # cannot read it), while a bundle that records a scan size but not its
+        # settings or width is still cut at the common floor.
+        # 自身の下限が分からないバンドルを理由で分ける。走査範囲が無ければ nm の
+        # 下限はそもそも当てられない（`skeleton_height_values` は全体を計測し、
+        # ほかの collector は読み込めない）。走査範囲はあるが設定や幅が無い
+        # バンドルには、共通の下限が当てられる。
+        no_scan = 0
+        unknown = 0
         for path in bundle_paths:
             try:
                 floors[path] = length_floor_nm(path)
             except Exception:
                 floors[path] = None
+            if floors[path] is None:
+                try:
+                    if read_scan_size_from_bundle(path) is None:
+                        no_scan += 1
+                    else:
+                        unknown += 1
+                except Exception:
+                    # An unreadable bundle is reported when it is measured.
+                    # 読めないバンドルは計測の段階で報告される。
+                    pass
         known = [v for v in floors.values() if v is not None]
-        unknown = len(floors) - len(known)
         if not known:
             if enabled and floors:
                 self.ui_queue.put(("log", _(
@@ -4310,6 +4421,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "適用しますが、自身の下限がそれより長い可能性があります（GUI01 で再解析"
                 "すると記録されます）。"
             ).format(n=unknown, floor=high)))
+        if no_scan:
+            self.ui_queue.put(("log", _(
+                "長さの下限: {n} バンドルは走査範囲が記録されていないため、下限を"
+                "適用しません（画素の高さでは全ファイバーを集計し、走査範囲を要する"
+                "計測量では読み込めません）。"
+            ).format(n=no_scan)))
         return high
 
     def _log_kink_thresholds(self, bundle_paths, kink_threshold_deg) -> None:
@@ -4673,6 +4790,49 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Centerline of every bundle measured (`_centerline_block_note`).
         # 計測した全バンドルの中心線（`_centerline_block_note`）。
         analyzed_lines: set = set()
+
+        # Two analyses of the same scan lines pooled into one group count every
+        # fiber of the overlap twice, so such a group is refused before anything
+        # is measured (`_overlapping_inputs`).
+        # 同じ走査線の解析を 2 つ 1 つのグループにまとめると、重なった部分の繊維を
+        # すべて二度数える。そのため、何かを計測する前にそのグループを拒否する
+        # （`_overlapping_inputs`）。
+        for grp in groups:
+            grp_paths = [
+                path
+                for folder in grp["folders"]
+                for path, _skl_path in self._find_pairs(folder)[0]
+            ]
+            overlaps, by_name = self._overlapping_inputs(grp_paths, input_mode)
+            if overlaps:
+                shown = overlaps[:10]
+                listed = "\n".join(
+                    "{a} / {b}".format(
+                        a=os.path.join(os.path.basename(os.path.dirname(a)),
+                                       os.path.basename(a)),
+                        b=os.path.join(os.path.basename(os.path.dirname(b)),
+                                       os.path.basename(b)),
+                    )
+                    for a, b in shown
+                )
+                if len(overlaps) > len(shown):
+                    listed += "\n" + _("ほか {n} 組").format(
+                        n=len(overlaps) - len(shown))
+                self.ui_queue.put(("fatal", {
+                    "text": _(
+                        "グループ「{grp}」に、同じ入力ファイルの同じ走査線を解析した"
+                        "結果が複数あります。重なった部分の繊維を二度数えるため、"
+                        "集計しません。次の各組のどちらかをフォルダから外してください。"
+                        "\n{pairs}"
+                    ).format(grp=grp["name"], pairs=listed),
+                    "trace": "",
+                }))
+                return
+            if by_name:
+                self.ui_queue.put(("log", _(
+                    "[{grp}] {n} 件の入力には元の入力ファイルの記録が無いため、同じ"
+                    "走査線の解析が重なっていないかはファイル名だけで確かめました。"
+                ).format(grp=grp["name"], n=by_name)))
 
         # The length floor and the kink threshold are decided over every
         # bundle of the run before any group is measured, because both must be
@@ -5158,7 +5318,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return
 
         try:
-            edges = np.arange(min_h, max_h, step)
+            # Equal bins of width `step` from `min_h` that reach `max_h`: an
+            # arange to `max_h` stops one step short of it, so the last bin of
+            # the entered range was missing from the figure and its samples
+            # were counted as outside it. When the range is not a whole number
+            # of steps, the last bin ends past `max_h` instead of short of it.
+            # `min_h` から幅 `step` の等幅ビンを `max_h` まで並べる。`max_h` まで
+            # の arange は 1 step 手前で止まるため、入力範囲の最後のビンが図から
+            # 欠け、その標本が範囲外と数えられていた。範囲が step で割り切れない
+            # ときは、最後のビンを `max_h` の手前ではなく先で終える。
+            n_bins = int(np.ceil((max_h - min_h) / step - 1e-9))
+            edges = min_h + step * np.arange(n_bins + 1)
+            if np.isclose(edges[-1], max_h, rtol=0.0,
+                          atol=1e-9 * max(abs(max_h), step)):
+                edges[-1] = max_h
         except Exception:
             self.ui_queue.put(("fatal", {
                 "text": _("ヒストグラム範囲の準備に失敗しました。"),

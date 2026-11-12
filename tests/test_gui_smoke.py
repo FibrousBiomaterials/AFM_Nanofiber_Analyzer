@@ -877,6 +877,220 @@ def test_gui03_non_fatal_notices_stay_in_the_log(tk_app, silence_dialogs):
     assert "notice two" in log
 
 
+def _gui03_run_args(folders_by_group, input_mode=None, **overrides):
+    """
+    Build the minimal argument dict of a GUI03 worker run.
+    GUI03 ワーカー実行の最小の引数辞書を作る。
+    """
+    args = {
+        "groups": [
+            {"id": name, "name": name, "color": "#1f77b4", "folders": folders}
+            for name, folders in folders_by_group
+        ],
+        "param": gui03.PARAM_HEIGHT,
+        "unit": gui03.UNIT_FIBER,
+        "input_mode": input_mode or gui03.INPUT_BUNDLE,
+        "apply_exclusions": False,
+        "apply_connection": False,
+        "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
+        "plot_type": gui03.PLOT_HISTOGRAM,
+        "min_h": 0.0, "max_h": 10.0, "step": 0.2,
+        "yaxis_mode": "density", "display_mode": gui03.App.MODE_STACK,
+        "show_height_text": True,
+        "fig_w": 6.0, "fig_h": 3.0,
+        "label_fs": 15.0, "tick_fs": 15.0, "ann_fs": 15.0,
+        "group_name_fs": 15.0,
+    }
+    args.update(overrides)
+    return args
+
+
+def _gui03_drain(app):
+    """
+    Return every message a GUI03 worker run queued, in order.
+    GUI03 ワーカー実行が積んだメッセージを順にすべて返す。
+    """
+    messages = []
+    while not app.ui_queue.empty():
+        messages.append(app.ui_queue.get_nowait())
+    return messages
+
+
+def _range_bundle(path, sha, rows=None):
+    """
+    Write a bundle carrying only the provenance the overlap check reads.
+    重なりの検査が読む来歴だけを持つバンドルを書く。
+    """
+    from lib.blosc2_io import save_bundle
+    from lib.bundle_schema import SOURCE_REGION_KEY
+
+    meta = {"input_sha256": sha} if sha else {}
+    if rows is not None:
+        meta[SOURCE_REGION_KEY] = {
+            "row_start": rows[0], "row_stop": rows[1], "row_total": 1024}
+    save_bundle(str(path), {"calibrated": np.zeros((2, 2))}, vlmeta=meta)
+
+
+def test_gui03_finds_analyses_of_the_same_scan_lines(tmp_path):
+    """
+    Two analyses of the same scan lines of one input file are reported as a pair.
+    1 つの入力ファイルの同じ走査線を解析した 2 つの結果を組として報告する。
+
+    GUI01 keeps the whole-image bundle when a scan is later analyzed as
+    scan-line ranges, so a folder can hold both; pooled, every fiber of the
+    overlap is counted twice (116 fibers read as 190 on a test scan). Ranges
+    that do not intersect are two images and must not be reported.
+    GUI01 は走査を後から走査線範囲で解析しても画像全体のバンドルを残すため、1 つの
+    フォルダに両方が並びうる。まとめると重なった部分の繊維をすべて二度数える
+    （試験走査で 116 本が 190 本になった）。交わらない範囲は 2 枚の画像であり、
+    報告してはならない。
+    """
+    find = gui03.App._overlapping_inputs
+    bundle = gui03.INPUT_BUNDLE
+
+    _range_bundle(tmp_path / "scan.b2z", "a")
+    _range_bundle(tmp_path / "scan_r0-512.b2z", "a", (0, 512))
+    _range_bundle(tmp_path / "scan_r256-768.b2z", "a", (256, 768))
+    _range_bundle(tmp_path / "scan_r512-1024.b2z", "a", (512, 1024))
+    _range_bundle(tmp_path / "other.b2z", "b")
+    _range_bundle(tmp_path / "copy.b2z", "b")
+    (tmp_path / "broken.b2z").write_bytes(b"")
+
+    def names(paths):
+        pairs, by_name = find([str(tmp_path / p) for p in paths], bundle)
+        return {tuple(sorted(os.path.basename(p) for p in pair))
+                for pair in pairs}, by_name
+
+    assert names(["scan.b2z", "scan_r0-512.b2z"]) == (
+        {("scan.b2z", "scan_r0-512.b2z")}, 0)
+    assert names(["scan_r0-512.b2z", "scan_r256-768.b2z"])[0] == {
+        ("scan_r0-512.b2z", "scan_r256-768.b2z")}
+    assert names(["scan_r0-512.b2z", "scan_r512-1024.b2z"]) == (set(), 0)
+    assert names(["other.b2z", "copy.b2z"])[0] == {("copy.b2z", "other.b2z")}
+    assert names(["scan.b2z", "other.b2z", "broken.b2z"]) == (set(), 0)
+
+    # A fiber CSV records no input file, so its name is all there is.
+    # ファイバー CSV には入力ファイルの記録が無く、手掛かりは名前だけである。
+    csv = gui03.INPUT_FIBER_CSV
+    pairs, by_name = find(["s_fibers.csv", "s_r0-512_fibers.csv",
+                           "s_r512-1024_fibers.csv", "t_fibers.csv"], csv)
+    assert {tuple(sorted(p)) for p in pairs} == {
+        ("s_fibers.csv", "s_r0-512_fibers.csv"),
+        ("s_fibers.csv", "s_r512-1024_fibers.csv"),
+    }
+    assert by_name == 4
+
+
+def test_gui03_worker_refuses_a_group_with_overlapping_analyses(
+        tk_app, tmp_path, monkeypatch):
+    """
+    A group holding two analyses of the same scan lines is refused, not pooled.
+    同じ走査線の解析を 2 つ含むグループは、まとめずに拒否する。
+
+    The refusal comes before any bundle is measured, so no figure, table or
+    test of the double-counted population is ever produced.
+    拒否はどのバンドルを計測するより前に行うため、二重に数えた母集団の図・表・検定
+    は一切作られない。
+    """
+    app = tk_app(gui03.App)
+    measured = []
+    monkeypatch.setattr(
+        app, "_collect_bundle_values",
+        lambda paths, param, unit, **kwargs: (
+            measured.append(list(paths)) or ([1.0, 2.0, 3.0], None, 3, 1, [])),
+    )
+
+    overlapping = tmp_path / "overlapping"
+    overlapping.mkdir()
+    _range_bundle(overlapping / "scan.b2z", "a")
+    _range_bundle(overlapping / "scan_r0-512.b2z", "a", (0, 512))
+    app._worker_run(_gui03_run_args([("G", [str(overlapping)])]))
+    kinds = [kind for kind, _body in _gui03_drain(app)]
+    assert kinds.count("fatal") == 1
+    assert "done" not in kinds
+    assert measured == []
+
+    disjoint = tmp_path / "disjoint"
+    disjoint.mkdir()
+    _range_bundle(disjoint / "scan_r0-512.b2z", "a", (0, 512))
+    _range_bundle(disjoint / "scan_r512-1024.b2z", "a", (512, 1024))
+    app._worker_run(_gui03_run_args([("G", [str(disjoint)])]))
+    kinds = [kind for kind, _body in _gui03_drain(app)]
+    assert "fatal" not in kinds
+    assert "done" in kinds
+
+
+def test_gui03_histogram_reaches_the_entered_maximum(
+        tk_app, tmp_path, monkeypatch):
+    """
+    The histogram's last bin ends at the entered maximum, not one step short.
+    ヒストグラムの最後のビンは、入力した最大値の 1 step 手前ではなく最大値で終わる。
+
+    Bin edges built with an arange to the maximum stopped a step short of it,
+    so the last bin was missing from the figure and its samples were logged
+    as outside the range: 24.5 % instead of 22.4 % on a test scan.
+    最大値までの arange で作ったビンの端は 1 step 手前で止まり、最後のビンが図から
+    欠け、その標本が範囲外としてログに出ていた。試験走査で 22.4 % のところが
+    24.5 % になった。
+    """
+    app = tk_app(gui03.App)
+    folder = tmp_path / "bundles"
+    folder.mkdir()
+    (folder / ("sample" + gui03.BUNDLE_EXT)).write_bytes(b"")
+    monkeypatch.setattr(
+        app, "_collect_bundle_values",
+        lambda paths, param, unit, **kwargs: ([0.5, 9.9, 10.0], None, 3, 1, []),
+    )
+
+    app._worker_run(_gui03_run_args([("G", [str(folder)])]))
+    done = [body for kind, body in _gui03_drain(app) if kind == "done"]
+    assert len(done) == 1
+    assert done[0]["edges"][-1] == 10.0
+    assert len(done[0]["edges"]) == 51
+    assert done[0]["results"][0]["n_in_range"] == 3.0
+    # The only notice with a percentage is the share outside the range.
+    # 割合を含む通知は範囲外の割合だけである。
+    assert not [e for e in done[0]["errors"] if "%" in e]
+
+    app._worker_run(_gui03_run_args([("G", [str(folder)])], step=0.3))
+    done = [body for kind, body in _gui03_drain(app) if kind == "done"]
+    assert done[0]["edges"][-1] >= 10.0
+    assert done[0]["results"][0]["n_in_range"] == 3.0
+
+
+def test_gui03_length_floor_log_names_bundles_it_cannot_cut(monkeypatch):
+    """
+    Bundles without a scan size are logged as not cut, not as cut at the floor.
+    走査範囲の無いバンドルは、下限で切ったとではなく切らないとログに出す。
+
+    A floor in nanometers cannot be applied without a pixel size:
+    `skeleton_height_values` measures such a bundle whole, and every other
+    collector cannot read it. A bundle that records a scan size but not its
+    settings or width is still cut at the common floor.
+    ピクセルサイズが無ければ nm の下限は当てられない。`skeleton_height_values` は
+    そのバンドルを全体のまま計測し、ほかの collector は読み込めない。走査範囲は
+    あるが設定や幅を記録していないバンドルには、共通の下限が当たる。
+    """
+    import queue
+
+    floors = {"known": 40.0}
+    scans = {"known": (2.0, 2.0), "scan_a": (2.0, 2.0), "scan_b": (2.0, 2.0)}
+    monkeypatch.setattr(gui03, "length_floor_nm", lambda p: floors.get(p))
+    monkeypatch.setattr(gui03, "read_scan_size_from_bundle", lambda p: scans.get(p))
+
+    app = object.__new__(gui03.App)
+    app.ui_queue = queue.Queue()
+    floor = app._common_length_floor(
+        ["known", "scan_a", "scan_b", "none_a", "none_b", "none_c"], True)
+    assert floor == 40.0
+    logs = [body for kind, body in _gui03_drain(app) if kind == "log"]
+    # The common floor, the 2 bundles cut at it, the 3 bundles not cut.
+    # 共通の下限、それで切る 2 バンドル、切らない 3 バンドル。
+    assert len(logs) == 3
+    assert "2" in logs[1] and "3" not in logs[1]
+    assert "3" in logs[2]
+
+
 def test_gui04_fiber_table_shows_straightness_and_curvature(tk_app, tmp_path):
     """
     The fiber table reports the per-fiber shape values GUI03 aggregates.

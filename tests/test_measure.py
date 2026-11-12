@@ -971,6 +971,38 @@ def test_curvature_window_below_the_pixel_scale_is_noise():
     assert gentle > 3.0 * true_gentle
 
 
+def test_curvature_window_quantisation_belongs_to_pixel_chains():
+    """
+    A line whose steps are not pixel steps reads 1/R even at a 20 nm window.
+    画素の一歩に縛られない線は、20 nm の窓でも 1/R を読む。
+
+    The quantisation of the test above comes from the pixel chain's steps,
+    which is why GUI03's curvature-window tooltip names the pixel-chain lines
+    only: the same arcs sampled off the pixel grid, as a placed centerline
+    is, read their true curvature.
+    上のテストの量子化は画素の連鎖の一歩から生じる。GUI03 の曲率窓のツールチップが
+    画素の連鎖の線だけを挙げるのはこのためで、配置した中心線のように画素格子から
+    外れて標本化した同じ円弧は、真の曲率を読む。
+    """
+    from types import SimpleNamespace
+
+    from lib.centerline import polyline_distance
+
+    spp = 1.953
+    for radius_px in (100, 250):
+        chain = _digitised_arc(radius_px, spp)
+        cx, cy = radius_px + 2, 2
+        angle = np.arctan2(chain.ytrack - cy, chain.xtrack - cx)
+        line = SimpleNamespace(
+            xtrack=cx + radius_px * np.cos(angle),
+            ytrack=cy + radius_px * np.sin(angle),
+        )
+        line.horizon = polyline_distance(line.xtrack, line.ytrack, spp)
+        measured = float(np.median(
+            fiber_curvature_profile(line, spp, spp, window_nm=20.0)))
+        assert measured == pytest.approx(1000.0 / (radius_px * spp), rel=0.01)
+
+
 def test_curvature_is_empty_for_a_fiber_shorter_than_the_window():
     """A fiber that cannot span the window yields no curvature at all."""
     spp = 2.0
