@@ -374,7 +374,13 @@ synthetic fibers, is in §4.15–§4.17 of the evaluation document.
 Load raw, calibrated, or bundled AFM height data and interactively extract
 height profiles along selected line segments. The scale defaults to the
 recorded (`.b2z`), header (text/CSV), or channel-extent (`.gwy`) scan size so
-profile distances are reproducible.
+profile distances are reproducible. Each profile sample takes the value of the
+pixel that contains it (nearest neighbour), so the heights of a profile are
+pixel values, never values interpolated between pixels. The line width is an
+odd number of pixels, so one sample lies on the line and the others whole pixels
+to either side; with a line width above one, the samples across the line are
+combined by the selected aggregation (max, min, or mean), leaving out the
+samples that lie beyond the image edge.
 
 ### Fiber Morphology Statistics — `guis/GUI03_Fiber_Morphology_Statistics.py`
 
@@ -841,12 +847,13 @@ directly, with no manual export step: select a `.gwy` in GUI01 (batch folder),
 GUI02 (Plot Profiler), or `cli.py process`, exactly like a text scan. A `.gwy`
 container holds several channels (topography, phase, amplitude, …); the
 topography/height channel is auto-selected, and you can override it by id or
-title — a dropdown appears in GUI02 for multi-channel files, and `cli.py
-process` accepts `--channel <id|name>`. Length-valued channels are converted
-from their SI unit to nm and the scan size is read from the channel extents, in
-the channel's lateral unit. When a file holds no channel with a length unit,
-GUI01 and `cli.py process` refuse it rather than analyze whichever channel the
-automatic choice falls back to, unless a channel is named with `--channel`.
+title — a dropdown appears in GUI02 for a multi-channel file it opens, and
+`cli.py process` accepts `--channel <id|name>`. Length-valued channels are
+converted from their SI unit to nm and the scan size is read from the channel
+extents, in the channel's lateral unit. When a file holds no channel with a
+length unit, GUI01, GUI02 and `cli.py process` refuse it rather than analyze
+whichever channel the automatic choice falls back to, unless a channel is named
+with `--channel`.
 An explicitly selected non-length channel is passed through in its native
 values; it is not suitable for workflows or labels that assume height in nm.
 Reading `.gwy` requires the lightweight, pure-Python `gwyfile` package (a

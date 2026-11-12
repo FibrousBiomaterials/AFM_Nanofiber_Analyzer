@@ -5,10 +5,20 @@ AFM 高さプロファイルを抽出する GUI プラグイン。
 The plugin loads two-dimensional AFM arrays from bundles, NumPy files,
 text/CSV exports, or native Gwyddion files; it lets the user mark two or more
 points on the heatmap and computes concatenated profiles along the selected
-segments using `skimage.measure.profile_line`.
+segments using `skimage.measure.profile_line`. Each sample takes the value of
+the pixel that contains it (nearest neighbour, ``order=0``), so no height is
+interpolated between pixels. The line width is an odd number of pixels, so one
+sample lies on the line and the others whole pixels to either side; with a line
+width above one, the samples across the line are combined by the selected
+aggregation (max, min, or mean), leaving out the samples that lie beyond the
+image edge.
 バンドル、NumPy ファイル、テキスト/CSV エクスポート、または Gwyddion
 ネイティブファイルから 2 次元 AFM 配列を読み込み、ヒートマップ上で 2 点以上を
 指定して `skimage.measure.profile_line` により各線分のプロファイルを連結計算する。
+各標本はそれを含む画素の値をとる（最近傍、``order=0``）ため、画素の間を補間した
+高さは含まれない。線幅は奇数の画素数で、標本は線の上に 1 つ、その両側に整数画素ずつ
+並ぶ。線幅が 1 を超えるときは、線を横切る方向の標本を選択した集計
+（最大・最小・平均）でまとめ、画像の端より外にある標本は除く。
 
 Accepted inputs are ``.b2z`` (its ``calibrated`` array), ``.npy``, ``.csv``,
 ``.txt``, and ``.gwy``. Nothing is written automatically: the heatmap and
@@ -592,8 +602,17 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # Path of the last file whose array loaded successfully.
         # 配列の読み込みに最後に成功したファイルのパス。
         self._loaded_path = None
+        # Scan size of the .gwy channel last loaded (None for other inputs);
+        # a channel switch compares it with the new channel's.
+        # 最後に読み込んだ .gwy チャンネルの走査範囲（他の入力では None）。
+        # チャンネル切替時に新しいチャンネルの範囲と比べる。
+        self._gwy_scan_size = None
         self.linewidth = 3
-        self.reduce_func = np.max
+        # NaN-aware, because samples beyond the image edge are NaN (see
+        # profile_between_points) and are left out of the aggregation.
+        # 画像の外の標本は NaN になる（profile_between_points 参照）ので、NaN を
+        # 除いて集計する関数を使う。
+        self.reduce_func = np.nanmax
         # Band patches visualizing the profile_line sampling width on the heatmap.
         # Kept in data coordinates so pan/zoom rescales them automatically.
         # ヒートマップ上に profile_line のサンプリング幅を可視化する帯パッチ。
@@ -1395,8 +1414,21 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             if self.flag2:
                 self.make_profile()
 
+        # profile_line places the samples across the line at offsets
+        # -(w - 1)/2 ... (w - 1)/2 pixels, one pixel apart. An odd width w
+        # puts one sample on the line and whole pixels to either side; an even
+        # width puts the samples half a pixel off the line on either side and
+        # none on the line itself. A width below one would be committed and
+        # then fail inside the redraw.
+        # profile_line は線を横切る標本を、中心から -(w - 1)/2 〜 (w - 1)/2 画素の
+        # 位置に 1 画素間隔で置く。奇数の w では線の上に 1 つ、両側に整数画素ずつ
+        # 並ぶが、偶数では線から半画素ずれた両側に並び、線の上には標本が無い。
+        # 1 未満の幅は確定された後、再描画の中で失敗する。
         return self._commit_float_fields(
             [(self.entrylw, "linewidth", "linewidth", int)],
+            validator=lambda v: None
+            if v["linewidth"] >= 1 and v["linewidth"] % 2 == 1
+            else _("1 以上の奇数を入力してください。"),
             on_success=_on_success,
         )
 
@@ -1413,11 +1445,11 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         """
         rf = self.rfbox.get()
         if rf == _("最大"):
-            self.reduce_func = np.max
+            self.reduce_func = np.nanmax
         elif rf == _("最小"):
-            self.reduce_func = np.min
+            self.reduce_func = np.nanmin
         elif rf == _("平均"):
-            self.reduce_func = np.mean
+            self.reduce_func = np.nanmean
         if self.flag2:
             self.make_profile()
 
@@ -1440,6 +1472,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         """
         data = None
         err_detail = ""
+        gwy_scan_size = None
         # Only a bundle carries a fiber mask; clear the previous one first so a
         # later load cannot reuse the mask of the file loaded before it.
         # ファイバーマスクを持つのはバンドルだけなので、先に前回分を捨てる。
@@ -1482,7 +1515,29 @@ class App(tk.Tk, UnconfirmedEntryMixin):
                 # Gwyddion ネイティブ .gwy：チャンネルドロップダウンで選んだ
                 # チャンネル（self._gwy_channel_id）を読み込む。未設定時は自動
                 # 選択された地形チャンネルを既定とする。
-                data = load_gwy_image(path, channel=self._gwy_channel_id).data
+                gwy = load_gwy_image(path, channel=self._gwy_channel_id)
+                # The automatic choice falls back to a channel without a length
+                # unit when the file holds no height; its values (volts,
+                # degrees, or values whose unit was not recorded) would then be
+                # shown and saved as Height (nm). Refuse it, as
+                # lib.pipeline.process_file does; a channel picked in the
+                # dropdown is let through.
+                # 自動選択は、ファイルに高さが無いとき長さの単位を持たないチャンネル
+                # へ落ちる。その値（ボルト、度、単位が記録されていない値）が
+                # Height (nm) として表示・保存されてしまうため、
+                # lib.pipeline.process_file と同じく拒否する。ドロップダウンで
+                # 選んだチャンネルは通す。
+                selected = gwy.channel
+                if (self._gwy_channel_id is None
+                        and not selected.is_length_channel):
+                    raise ValueError(
+                        f"{os.path.basename(path)} has no channel with a length "
+                        f"unit, so no height channel could be selected "
+                        f"automatically (selected: {selected.display_label} "
+                        f"({selected.z_unit or 'no unit'}))"
+                    )
+                data = gwy.data
+                gwy_scan_size = gwy.scan_size
             else:
                 # Text / CSV — delegate to the AFM text loader, which auto-detects
                 # the header layout (Shimadzu multi-column, Bruker single-column),
@@ -1520,9 +1575,10 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         self.image_h, self.image_w = data.shape[:2]
         self._bundle_trimmed = path.endswith(BUNDLE_EXT)
         self._loaded_path = path
+        self._gwy_scan_size = gwy_scan_size
         return data
 
-    def _apply_loaded_scan_size(self, path: str) -> bool:
+    def _apply_loaded_scan_size(self, path: str, scan_size=None) -> bool:
         """
         Default the scale to a file's recorded or header scan size, if any.
         ファイルの記録走査範囲またはヘッダ走査範囲があればスケールを既定化する。
@@ -1538,6 +1594,17 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         Y が異なれば矩形スキャン、等しければ Y 欄は空（正方スキャン）とする。
         走査範囲が不明な入力（`.npy` 等）は現在のスケールを保持する。
 
+        Parameters
+        ----------
+        path
+            Input file whose scan size is read.
+            走査範囲を読み取る入力ファイル。
+        scan_size
+            A scan size (`lib.afm_io.ScanSize`) already read, applied instead of
+            reading `path`; a channel switch passes the new channel's.
+            読み取り済みの走査範囲（`lib.afm_io.ScanSize`）。指定時は `path` を
+            読まずにこれを適用する。チャンネル切替は新しいチャンネルの値を渡す。
+
         Returns
         -------
         bool
@@ -1547,7 +1614,9 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         size_um = None
         size_y_um = None
         try:
-            if path.endswith(BUNDLE_EXT):
+            if scan_size is not None:
+                size_um, size_y_um = scan_size.x_um, scan_size.y_um
+            elif path.endswith(BUNDLE_EXT):
                 recorded = read_scan_size_from_bundle(path)
                 if recorded is not None:
                     size_um, size_y_um = recorded
@@ -1639,16 +1708,51 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         """
         Reload the image with the channel chosen in the dropdown.
         ドロップダウンで選んだチャンネルで画像を再読み込みする。
+
+        A channel is another image, so the points and the profile of the
+        previous one are cleared, and the scale takes the new channel's extent
+        when it differs from the previous channel's. A channel that cannot be
+        read leaves the previous one selected and on screen.
+        チャンネルは別の画像なので、前のチャンネルの打点とプロファイルは消去し、
+        新しいチャンネルの範囲が前のチャンネルと違えばスケールをその範囲にする。
+        読めないチャンネルでは、前のチャンネルを選択・表示したままにする。
         """
         index = self.gwy_channel_box.current()
         if index < 0 or index >= len(self._gwy_channels):
             return
+        previous_id = self._gwy_channel_id
+        previous_size = self._gwy_scan_size
         self._gwy_channel_id = self._gwy_channels[index].channel_id
-        # Reload from disk with the new channel; the scan size is shared across
-        # channels, so the current scale stays valid.
-        # 新しいチャンネルでディスクから再読み込みする。走査範囲はチャンネル間で
-        # 共通のため、現在のスケールはそのまま有効。
+        # Reload from disk with the new channel. load_array_file sets
+        # _loaded_path again only when the array was read, which tells a failed
+        # load apart.
+        # 新しいチャンネルでディスクから再読み込みする。load_array_file は配列を
+        # 読めたときだけ _loaded_path を設定し直すので、失敗を見分けられる。
+        self._loaded_path = None
         self.image_showing(reload=True)
+        if self._loaded_path != self.path:
+            self._loaded_path = self.path
+            self._gwy_channel_id = previous_id
+            for i, channel in enumerate(self._gwy_channels):
+                if channel.channel_id == previous_id:
+                    self.gwy_channel_box.current(i)
+                    break
+            return
+        if self.flag2:
+            self.hide_profile_canvas()
+        self.xlist = []
+        self.ylist = []
+        # Channels of one file can span different extents. The new extent is
+        # taken only when it differs, so a scale typed for the file survives a
+        # switch between channels of the same extent.
+        # 1 つのファイルのチャンネルが異なる範囲を持つことがある。範囲が違うときだけ
+        # 新しい範囲を採り、同じ範囲のチャンネル間の切替では手入力のスケールを残す。
+        new_size = self._gwy_scan_size
+        if (new_size is not None and previous_size is not None
+                and (new_size.x_um, new_size.y_um)
+                != (previous_size.x_um, previous_size.y_um)):
+            self._apply_loaded_scan_size(self.path, scan_size=new_size)
+            self.image_showing(reload=False)
 
     def load_image(self) -> None:
         """
@@ -1814,6 +1918,62 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             File path selected by the user.
             ユーザーが選択したファイルパス。
         """
+        loadable = bool(path) and os.path.isfile(path)
+        if loadable:
+            # Keep what describes the image on screen: a file that cannot be
+            # loaded leaves that image displayed, and it must stay measured
+            # with its own scale and named as itself.
+            # 画面上の画像を表す状態を控える。読めないファイルでは画像がそのまま
+            # 表示されるので、その画像自身のスケールと名前で測り続ける必要がある。
+            previous = (
+                self._loaded_path, self.scale_um, self.scale_y_um,
+                self.entryas.get(), self.entry_scale_y.get(),
+                self._gwy_channel_id,
+            )
+            # Load with the automatic channel choice, which is the channel the
+            # dropdown preselects; the dropdown is set up after the load.
+            # 自動選択（ドロップダウンが初期選択するチャンネル）で読み込む。
+            # ドロップダウンは読み込みの後に準備する。
+            self._gwy_channel_id = None
+
+            # Default the scale to this file's recorded/header scan size so
+            # profile distances are reproducible; the user can still override.
+            # Done before the first draw so the axis extent uses the new scale.
+            # プロファイル距離を再現可能にするため、スケールをこのファイルの記録/
+            # ヘッダ走査範囲で既定化する（ユーザーは上書き可能）。初回描画前に
+            # 行い、軸 extent に新スケールを反映する。
+            found_scan_size = self._apply_loaded_scan_size(path)
+
+            # New file selected — force a fresh load.
+            # 新しいファイルが選ばれたので必ずディスクから読み込む。
+            self._loaded_path = None
+            self.image_showing(reload=True)
+
+            if self._loaded_path != path:
+                # The load failed and image_showing returned before drawing.
+                # 読み込みに失敗し、image_showing は描画前に戻った。
+                (self._loaded_path, self.scale_um, self.scale_y_um,
+                 entry_x, entry_y, self._gwy_channel_id) = previous
+                for entry, text in ((self.entryas, entry_x),
+                                    (self.entry_scale_y, entry_y)):
+                    entry.delete(0, "end")
+                    entry.insert(0, text)
+                self._refresh_scale_y_placeholder()
+                try:
+                    self._refresh_all_entry_states()
+                except Exception:
+                    pass
+                if self._loaded_path is not None:
+                    self.path = self._loaded_path
+                    self.filename = os.path.basename(self.path)
+                return
+
+            # Prepare the .gwy channel dropdown (shown only for multi-channel
+            # .gwy) for the file now on screen.
+            # 表示中のファイル向けに .gwy のチャンネルドロップダウン（複数チャンネルの
+            # .gwy でのみ表示）を準備する。
+            self._setup_gwy_channel_selector(path)
+
         # Clear any existing profile so it cannot be mixed with a newly loaded file.
         if self.flag2:
             self.hide_profile_canvas()
@@ -1844,27 +2004,8 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             )
             self.showfilename.grid(row=0, column=1, sticky="w")
 
-        # If the file can be loaded, show it and enable profile picking.
-        if path and os.path.isfile(path):
-            # Prepare the .gwy channel dropdown (shown only for multi-channel
-            # .gwy) before loading, so the first draw uses the chosen channel.
-            # .gwy のチャンネルドロップダウン（複数チャンネルの .gwy でのみ表示）を
-            # 読み込み前に準備し、初回描画で選択チャンネルを使うようにする。
-            self._setup_gwy_channel_selector(path)
-
-            # Default the scale to this file's recorded/header scan size so
-            # profile distances are reproducible; the user can still override.
-            # Done before the first draw so the axis extent uses the new scale.
-            # プロファイル距離を再現可能にするため、スケールをこのファイルの記録/
-            # ヘッダ走査範囲で既定化する（ユーザーは上書き可能）。初回描画前に
-            # 行い、軸 extent に新スケールを反映する。
-            found_scan_size = self._apply_loaded_scan_size(path)
-
-            # New file selected — force a fresh load.
-            # 新しいファイルが選ばれたので必ずディスクから読み込む。
-            self._loaded_path = None
-            self.image_showing(reload=True)
-
+        # If the file was loaded, enable profile picking.
+        if loadable:
             # Without a recorded scan size the scale entries keep whatever the
             # previous file (or the default) set, and every profile distance is
             # computed from it, so say so. Only after a successful load, so a
@@ -1909,8 +2050,17 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             Matplotlib mouse event whose `xdata` and `ydata` are display-unit coordinates.
             `xdata` と `ydata` が表示単位座標を表す Matplotlib マウスイベント。
         """
-        # Ignore clicks outside the image axes.
-        if event.xdata and event.ydata:
+        # Ignore clicks outside the image axes (the colorbar is an axes of its
+        # own) and off the image, where there is no pixel to read. The right
+        # border x == x_extent belongs to no pixel (a column holds
+        # [c, c + 1) of the extent), so it is excluded too.
+        # 画像の軸の外（カラーバーは別の軸）と画像の外のクリックは無視する。
+        # 画像の外には読む画素が無い。右の境界 x == x_extent はどの画素にも
+        # 含まれない（各列は範囲の [c, c + 1) を占める）ので、これも除く。
+        x_extent, y_extent, _unit = self._get_extent_scale_xy_and_unit()
+        if (event.inaxes is self.ax and event.xdata and event.ydata
+                and 0 <= event.xdata < x_extent
+                and 0 <= event.ydata <= y_extent):
             # Use right-click so point picking does not conflict with pan/zoom interactions.
             if event.button == 3:
                 # event.xdata / event.ydata are in the heatmap's display unit
@@ -2220,8 +2370,23 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # profile_line expects coordinates as (row, col) = (y, x).
         start = np.array([ty1, tx1])
         end = np.array([ty2, tx2])
+        # order=0 reads each sample from the pixel that contains it, so no
+        # height is interpolated between pixels. Bilinear interpolation, the
+        # default for float images, averages neighbouring pixels and reads a
+        # crest crossed between pixel centres below its highest pixel.
+        # A sample of a wide band that lies beyond the image edge is NaN
+        # (skimage passes mode='constant' to SciPy as 'grid-constant', so only
+        # samples outside every pixel are), and the NaN-aware reduce_func
+        # leaves it out instead of counting the edge pixel again.
+        # order=0 は各標本をそれを含む画素から読むため、画素の間を補間した高さは
+        # 生じない。浮動小数画像の既定である双線形補間は隣接画素を平均し、
+        # 画素中心の間で横切った山を、その最も高い画素より低く読む。
+        # 幅のある帯の標本のうち画像の外にあるものは NaN になり（skimage は
+        # mode='constant' を SciPy の 'grid-constant' として渡すので、どの画素にも
+        # 含まれない標本だけが NaN になる）、NaN を除く reduce_func が端の画素を
+        # 重ねて数えずに除外する。
         profile = profile_line(
-            self.img, start, end, mode='nearest',
+            self.img, start, end, order=0, mode='constant', cval=np.nan,
             linewidth=self.linewidth, reduce_func=self.reduce_func,
         )
         # The points are already stored in micrometers per axis, so their plain

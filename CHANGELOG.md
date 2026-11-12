@@ -368,6 +368,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The Plot Profiler (GUI02) reads each profile sample from the pixel that
+  contains it (`order=0`) instead of interpolating bilinearly between pixels, so
+  a crest crossed between pixel centres no longer reads below its highest pixel:
+  by up to 20 % on a synthetic ridge with a Gaussian width of one pixel, and by a
+  median of 0.3–1.2 % on fibers of the bundled scans at line width 1. The
+  samples of a wide sampling band that lie beyond the image edge are left out
+  of the aggregation instead of reading the edge pixel again, which weighted it
+  in the mean (by up to 1.03 nm on lines along the edges of the bundled scans at
+  line width 5). It also
+  clears the previous channel's points and profile after a `.gwy` channel
+  switch, takes the extent of a channel whose extent differs, keeps the image on
+  screen measured with its own scale and named as itself when another file fails
+  to load, refuses a `.gwy` whose automatically selected channel has no length
+  unit (including one that records no unit), as GUI01 and `cli.py process` do,
+  ignores right-clicks off the image and on the colorbar, and accepts only an
+  odd line width of 1 or more, so one sample lies on the line (an even width put
+  the samples half a pixel off the line on either side and none on it).
+  **GUI02 profile heights change from this version.**
 - Ridge recovery (`ridge_recovery`, off by default) measures a candidate's
   length along the longest path through its skeleton, thinned with
   `skimage.morphology.thin` as the binarized mask is, with the corner-count
