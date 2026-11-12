@@ -1393,7 +1393,11 @@ msgstr "先にフォルダを選択してください。"
 msgid "左側に最小値を入力してください"
 msgstr "左側に最小値を入力してください"
 
-#: guis/GUI02_PlotProfiler.py:1419 guis/GUI04_Tracking_fiber.py:7257
+#: guis/GUI02_PlotProfiler.py:1431
+msgid "1 以上の奇数を入力してください。"
+msgstr "1 以上の奇数を入力してください。"
+
+#: guis/GUI04_Tracking_fiber.py:7257
 #, fuzzy
 msgid "1 以上の整数を入力してください。"
 msgstr "数値を入力してください"

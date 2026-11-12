@@ -1520,7 +1520,11 @@ msgstr "Please draw the height profile first."
 msgid "左側に最小値を入力してください"
 msgstr "Please enter the minimum value on the left"
 
-#: guis/GUI02_PlotProfiler.py:1419 guis/GUI04_Tracking_fiber.py:7257
+#: guis/GUI02_PlotProfiler.py:1431
+msgid "1 以上の奇数を入力してください。"
+msgstr "Enter an odd integer of 1 or more."
+
+#: guis/GUI04_Tracking_fiber.py:7257
 msgid "1 以上の整数を入力してください。"
 msgstr "must be an integer of 1 or more."
 
