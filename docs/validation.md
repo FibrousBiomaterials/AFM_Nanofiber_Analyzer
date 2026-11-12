@@ -635,6 +635,18 @@ higher-plant TOC scan and 34<!--m:diagonal_ybranch.NDTOC.only_diagonal_y--> of 7
 8<!--n:definition-->-connected skeleton neighbours (pixels with fewer: 0<!--m:diagonal_ybranch.all.only_diagonal_y_below_3_neighbours-->), so none of them lies on a
 plain stretch of the skeleton, where a pixel has two.
 
+### 3.7 Rings removed with their fiber sections
+
+`Skeletonizer.remove_small_and_ring` removes every skeleton component without an
+endpoint (§3.7 of the algorithm page). On the three test inputs analyzed at the
+defaults (experiment ring_components), 2<!--m:ring_components.all.rings--> such components reached it, and each
+was rendered over the calibrated height image with the skeleton entering the
+step. On the tunicate scan, 1<!--m:ring_components.tunicate.rings--> ring of 77<!--m:ring_components.tunicate.ring_pixels--> px runs along the sections of the
+fibers that bound one cell of the mesh; those sections are absent from the stored
+skeleton, so no fiber is measured along them. On the higher-plant TOC scan,
+1<!--m:ring_components.hplantTOC.rings--> ring of 41<!--m:ring_components.hplantTOC.ring_pixels--> px outlines a short, bright, wide object, and whether that object
+is a fiber could not be told. The Bruker scan has 0<!--m:ring_components.NDTOC.rings--> rings.
+
 ## 4. Centerline and kinks
 
 See [Analysis algorithms](algorithms.md) §4.

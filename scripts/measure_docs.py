@@ -3233,10 +3233,11 @@ def ridge_recovery_bundled() -> dict:
     import kink_reference_score as krs
     from scipy.ndimage import binary_dilation
     from skimage.filters import apply_hysteresis_threshold, frangi, threshold_otsu, threshold_triangle
-    from skimage.morphology import skeletonize
+    from skimage.morphology import thin
     from lib.bundle_schema import pixel_size_nm, scan_size_um_from_meta
     from lib import blosc2_io
     from lib.pipeline import ProcParams
+    from lib.segmenter import _skeleton_path_length_px
 
     values: dict = {}
     base = ProcParams()
@@ -3271,13 +3272,15 @@ def ridge_recovery_bundled() -> dict:
         if not low < high:
             low = high * 0.3
         outside = apply_hysteresis_threshold(response, low, high) & ~mask
-        n, labels = cv2.connectedComponents(outside.astype(np.uint8), connectivity=8)
+        n, labels, boxes, _ = cv2.connectedComponentsWithStats(outside.astype(np.uint8), connectivity=8)
         kept = touching = 0
         longest = 0.0
         grown = binary_dilation(mask)
         for lab in range(1, n):
             comp = labels == lab
-            length = float(skeletonize(comp).sum()) * nm_per_px
+            x, y, w, h = boxes[lab, :4]
+            length = _skeleton_path_length_px(
+                thin(np.pad(labels[y:y + h, x:x + w] == lab, 1))) * nm_per_px
             if length >= base.ridge_min_length_nm:
                 kept += 1
                 touching += int((comp & grown).any())
@@ -3321,6 +3324,66 @@ def diagonal_ybranch() -> dict:
     values["all.branch_points"] = total
     values["all.only_diagonal_y"] = only_total
     values["all.only_diagonal_y_below_3_neighbours"] = below
+    return values
+
+
+# The endpoint-free components Skeletonizer.remove_small_and_ring drops on the
+# test inputs, by the centre of the bounding box, as judged when the skeleton
+# entering the step was rendered over the calibrated height image (2026-11-11).
+# The tunicate ring runs along the sections of the fibers that bound one cell of
+# the mesh; the higher-plant ring outlines a short, bright, wide object and
+# whether it is a fiber could not be told. A different set fails the
+# experiment, so a change in which rings are dropped forces a new look.
+# Skeletonizer.remove_small_and_ring が試験入力で取り除く端点のない成分（外接矩形の
+# 中心で示す）。この段階に入るスケルトンを補正後の高さ画像に重ねて描いて判断したもの
+# （2026-11-11）。ホヤの輪は網目の 1 つの目を囲む繊維の区間に沿って走る。高等植物の
+# 輪は短く明るく幅の広い物体の輪郭をなぞっており、それが繊維かどうかは判断できなかった。
+# 集合が変わると実験は失敗するので、取り除かれる輪が変われば見直しが強制される。
+RING_COMPONENTS_INSPECTED = {
+    ("tunicate", (619, 957), "fiber sections"),
+    ("hplantTOC", (784, 465), "undetermined"),
+}
+
+
+@experiment(
+    "ring_components",
+    ["lib/pipeline.py", "lib/skeletonizer.py"],
+    "On every test input analyzed at the defaults: the skeleton components entering "
+    "Skeletonizer.remove_small_and_ring, those with no endpoint (which the step removes) "
+    "and their pixels in total, checked against RING_COMPONENTS_INSPECTED.",
+)
+def ring_components() -> dict:
+    import cv2
+    import numpy as np
+    from lib import imp_tools
+    from lib.pipeline import ProcParams, build_stages, process_file
+
+    values: dict = {}
+    found = set()
+    cache = cache_dir("ring_components")
+    cache.mkdir(parents=True, exist_ok=True)
+    for name, rel in _all_test_inputs().items():
+        stages = build_stages(ProcParams())
+        process_file(str(ROOT / rel), ProcParams(), stages=stages, output_dir=str(cache))
+        skel = np.asarray(stages.skeletonizer._cleaned_skeleton_image).astype(np.uint8)
+        n, labels, stats, _ = cv2.connectedComponentsWithStats(skel)
+        ends = imp_tools.endPoints(skel)
+        rings = sorted(set(range(1, n)) - set(np.unique(labels[ends > 0]).tolist()))
+        values[f"{name}.components"] = int(n - 1)
+        values[f"{name}.rings"] = len(rings)
+        values[f"{name}.ring_pixels"] = int(sum(stats[i][4] for i in rings))
+        for i in rings:
+            found.add((name, (int(stats[i][0] + stats[i][2] // 2),
+                              int(stats[i][1] + stats[i][3] // 2))))
+    inspected = {(scan, centre) for scan, centre, _ in RING_COMPONENTS_INSPECTED}
+    assert found == inspected, (
+        f"rings changed: {sorted(found ^ inspected)}; render them over the height "
+        "image and update RING_COMPONENTS_INSPECTED")
+    values["all.rings"] = len(found)
+    values["all.fiber_sections"] = sum(1 for *_, label in RING_COMPONENTS_INSPECTED
+                                       if label == "fiber sections")
+    values["all.undetermined"] = sum(1 for *_, label in RING_COMPONENTS_INSPECTED
+                                     if label == "undetermined")
     return values
 
 

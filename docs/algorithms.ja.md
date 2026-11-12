@@ -1162,13 +1162,24 @@ return out_binary_image
    こうすれば、すでに見つかった繊維に一点だけ触れている長い繊維も拾える。逆に、
    すでにある繊維にまったく触れていないかたまりだけを拾うやり方では、そうした
    繊維は丸ごと捨てられてしまう。しかも長い繊維ほど触れやすい。
-4. 残ったかたまりのうち、細線化した画素の数に画素の大きさを掛けた長さが
-   `ridge_min_length_nm`（既定 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm）以上のものだけを採る。この既定値は
-   経験的に選んだもので、それを裏付ける評価はない。
+4. 残ったかたまりのうち、スケルトンの長さに画素の大きさを掛けた値が
+   `ridge_min_length_nm`（既定 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm）以上のものだけを採る。各かたまりは、
+   二値マスクと同じく `skimage.morphology.thin` で細線化する（§3.1）。その範囲は、
+   外接矩形に 1<!--n:definition--> 画素の空の余白を付けたものである。長さ
+   （`_skeleton_path_length_px`）は、そのスケルトンを通る最も長い経路に沿って測る。
+   経路は、8<!--n:definition--> 連結の画素上の 2<!--n:count--> 回の最短経路探索で求める（任意の画素から
+   最も遠い画素へ、そこからさらに最も遠い画素へ）。そのため、幅のある領域を細線化すると
+   端の近くに生え、本数がリッジの向きで変わる横枝は数えない。経路に沿った長さは
+   Vossepoel と Smeulders（1982<!--n:citation-->）の角数え推定で、縦横の一歩を 0.980<!--c:lib/segmenter.py::_LENGTH_WEIGHT_ORTHOGONAL-->、斜めの一歩を
+   1.406<!--c:lib/segmenter.py::_LENGTH_WEIGHT_DIAGONAL--> と数え、一つ前と向きの違う一歩ごとに 0.091<!--c:lib/segmenter.py::_LENGTH_WEIGHT_CORNER|-v--> を引く。この引き算が、軸と対角の
+   間の向きの直線が作る階段を補正する。画素の数で数えると、斜めの区間はおよそ
+   $\sqrt{2}$ 分の 1<!--n:definition--> に短く読まれるが、この長さではそうならない。ただし、画素から
+   求めるどの推定も、全方向をまったく同じ長さには読めない。
+   この既定値は経験的に選んだもので、それを裏付ける評価はない。
 
 Frangi フィルタは等方的で、1<!--n:count--> つのスケールはどの向きでも同じ画素数の幅である。その
 ため X と Y の画素サイズが違う走査では、X に沿う繊維と Y に沿う繊維とで探す実寸の幅が
-変わり、スケルトンの画素数も長さにならない。そこで画素の縦横比（Y 画素サイズ ÷ X
+変わり、スケルトンに沿った一歩の長さも X と Y とで変わる。そこで画素の縦横比（Y 画素サイズ ÷ X
 画素サイズ、`bundle_schema.pixel_aspect`）が 1<!--n:definition--> でないときは、まず高さと採用済みの
 マスクを Y 方向に描き直して、X 画素と同じ大きさの正方画素に載せる
 （`segmenter._to_square_pixels`。高さは線形補間、マスクは最も近い行）。上の 4<!--n:count--> つの
@@ -1220,17 +1231,62 @@ candidate = apply_hysteresis_threshold(response, low, high)
 outside = candidate & ~binary_image.astype(bool)
 if not outside.any():
     return empty
-n_labels, labels = cv2.connectedComponents(outside.astype(np.uint8), connectivity=8)
-keep = [
-    label for label in range(1, n_labels)
-    if skeletonize(labels == label).sum() * nm_per_px >= self.ridge_min_length_nm
-]
+n_labels, labels, boxes, _ = cv2.connectedComponentsWithStats(
+    outside.astype(np.uint8), connectivity=8)
+keep = []
+for label in range(1, n_labels):
+    x, y, w, h = boxes[label, :4]
+    component = np.pad(labels[y:y + h, x:x + w] == label, 1)
+    if _skeleton_path_length_px(thin(component)) * nm_per_px >= self.ridge_min_length_nm:
+        keep.append(label)
 if not keep:
     return empty
 recovered = np.isin(labels, keep)
 if resampled:
     recovered = _from_square_pixels(recovered, rows, pixel_aspect) & ~original_binary
 return recovered
+```
+
+手順 4<!--n:label--> の長さ：
+
+```python
+# source: lib/segmenter.py::_skeleton_path_length_px
+s = np.asarray(skeleton, dtype=bool)
+labels, n_pieces = ndi_label(s, structure=np.ones((3, 3), dtype=bool))
+longest = 0.0
+for piece in range(1, n_pieces + 1):
+    ys, xs = np.nonzero(labels == piece)
+    if ys.size < 2:
+        continue
+    index = np.full(s.shape, -1, dtype=np.int64)
+    index[ys, xs] = np.arange(ys.size)
+    rows, cols, weights = [], [], []
+    for dy, dx in ((0, 1), (1, 0), (1, 1), (1, -1)):
+        y2, x2 = ys + dy, xs + dx
+        inside = (y2 < s.shape[0]) & (x2 >= 0) & (x2 < s.shape[1])
+        j = np.full(ys.size, -1, dtype=np.int64)
+        j[inside] = index[y2[inside], x2[inside]]
+        joined = j >= 0
+        rows.append(np.nonzero(joined)[0]); cols.append(j[joined])
+        weights.append(np.full(int(joined.sum()), float(np.hypot(dy, dx))))
+    r, c, w = np.concatenate(rows), np.concatenate(cols), np.concatenate(weights)
+    graph = csr_matrix((np.concatenate([w, w]), (np.concatenate([r, c]), np.concatenate([c, r]))),
+                       shape=(ys.size, ys.size))
+    start = int(np.argmax(dijkstra(graph, indices=0)))
+    distance, previous = dijkstra(graph, indices=start, return_predecessors=True)
+    node = int(np.argmax(distance))
+    path = [node]
+    while node != start:
+        node = int(previous[node])
+        path.append(node)
+    steps = np.diff(np.column_stack([ys[path], xs[path]]), axis=0)
+    diagonal = np.abs(steps).sum(axis=1) == 2
+    turns = int(np.any(steps[1:] != steps[:-1], axis=1).sum())
+    length = (_LENGTH_WEIGHT_ORTHOGONAL * int((~diagonal).sum())
+              + _LENGTH_WEIGHT_DIAGONAL * int(diagonal.sum())
+              + _LENGTH_WEIGHT_CORNER * turns)
+    longest = max(longest, length)
+return longest
 ```
 
 ### 2.7 クロージングで隙間を埋める
@@ -1657,8 +1713,8 @@ return init_skeleton_image - branches_image
 塗りつぶした場所から離れたスケルトンの画素は、同じ位置に残る。キンクや端点の
 ように画素の位置で決まる点も、そうした場所では変わらない。
 
-この処理で本物の繊維 2<!--n:count--> 本がくっついてしまわないように、**高さのチェック**を
-入れている。マスクの穴は、基板の高さの画素だけでできるとは限らない。基板から
+この処理で、間の隙間が背景に近い高さまで下がる別々の繊維 2<!--n:count--> 本がくっついて
+しまわないように、**高さのチェック**を入れている。マスクの穴は、基板の高さの画素だけでできるとは限らない。基板から
 十分高くても、局所のしきい値（§2.1）で周りの重み付き平均より低かった画素は
 マスクから落ちるので、繊維の本体の中や交差の中にも穴ができる。そうしたループの
 アーティファクトは、囲まれた内側も高いままである（同梱のスキャンでの値は
@@ -1910,7 +1966,9 @@ for i in range(run):
 `remove_small_and_ring` は、`min_area`（既定 10<!--c:lib/pipeline.py::ProcParams.min_area--> 画素）より小さいかたまりと、
 **端点を 1<!--n:count--> つも持たない**かたまりを取り除く。端点の無いかたまりは閉じた輪であり、
 端から端へたどる繊維の追跡ではたどれない。そのため、本当に輪の形をした繊維も
-ここで取り除かれる。
+ここで取り除かれる。網目の 1<!--n:count--> つの目を囲んで閉じた、何本もの繊維の区間も、スケルトンの
+ほかの部分が 1<!--n:count--> つもつながっていなければ、同じように取り除かれる。テスト用のスキャンで
+取り除かれた輪は [個別データでの評価](validation.ja.md) §3.7 にある。
 
 ```python
 # source: lib/skeletonizer.py::Skeletonizer.remove_small_and_ring

@@ -1423,13 +1423,17 @@ def process_file(
     gwy_channel
         Channel selector for a ``.gwy`` input, forwarded to
         `lib.gwy_io.load_gwy_image`: ``None`` auto-selects the topography
-        channel, an integer selects by channel id, a string by title.
-        Explicitly selected non-length channels retain their native values and
-        are not suitable for this height-in-nm pipeline. Ignored for text/CSV
-        inputs.
+        channel, an integer selects by channel id, a string by title. When
+        ``None`` and the file holds no channel with a length unit, the input
+        is refused (`ValueError`) instead of analyzing whichever channel the
+        automatic choice falls back to. Explicitly selected non-length channels
+        retain their native values and are not suitable for this height-in-nm
+        pipeline. Ignored for text/CSV inputs.
         ``.gwy`` 入力のチャンネル指定で `lib.gwy_io.load_gwy_image` へ渡す。
         ``None`` は地形チャンネルを自動選択、整数はチャンネル id、文字列は
-        タイトルで選択する。長さ以外のチャンネルを明示選択した場合は元単位の
+        タイトルで選択する。``None`` で、長さ単位のチャンネルがファイルに無い
+        ときは、自動選択が落ちた先のチャンネルを解析せず、入力を拒否する
+        （`ValueError`）。長さ以外のチャンネルを明示選択した場合は元単位の
         ままなので、nm 高さを前提とする本パイプラインには適さない。
         テキスト/CSV 入力では無視される。
     row_range
@@ -1461,8 +1465,13 @@ def process_file(
     ------
     ValueError
         If `params` fails `validate_params`; the message lists every problem.
+        Also if a ``.gwy`` input analyzed without `gwy_channel` holds no channel
+        with a length unit, or if a text input declares a value unit that is not
+        a length (`lib.afm_io.load_afm_text`).
         `params` が `validate_params` に通らない場合。メッセージに全問題を
-        列挙する。
+        列挙する。`gwy_channel` を指定せずに解析した ``.gwy`` 入力に長さ単位の
+        チャンネルが無い場合と、テキスト入力が長さでない値の単位を宣言している
+        場合（`lib.afm_io.load_afm_text`）も送出する。
     Exception
         Any stage or I/O failure propagates unchanged; batch callers decide
         whether to continue with remaining files.
@@ -1517,8 +1526,29 @@ def process_file(
         # Local import keeps the feature-specific gwyfile dependency out of
         # text-only runs.
         # ローカル import により .gwy 用の gwyfile 依存をテキスト専用実行から外す。
-        from .gwy_io import load_gwy_image
+        from .gwy_io import list_gwy_channels, load_gwy_image
         gwy_image = load_gwy_image(txt_path, channel=gwy_channel)
+        # The automatic choice falls back to a channel without a length unit
+        # when the file holds no height; its values (degrees, volts, or values
+        # whose unit was not recorded at all) would then be stored and measured
+        # as nanometres. Refuse it, and let an explicit `gwy_channel` through,
+        # which the user chose knowingly.
+        # 自動選択は、ファイルに高さが無いとき長さの単位を持たないチャンネルへ
+        # 落ちる。その値（度、ボルト、単位がまったく記録されていない値）が nm として
+        # 保存・計測されてしまうため拒否する。利用者が承知で選んだ明示的な
+        # `gwy_channel` は通す。
+        selected = gwy_image.channel
+        if gwy_channel is None and not selected.is_length_channel:
+            available = ", ".join(
+                f"{c.display_label} ({c.z_unit or 'no unit'})"
+                for c in list_gwy_channels(txt_path)
+            )
+            raise ValueError(
+                f"{os.path.basename(txt_path)} has no channel with a length unit, "
+                f"so no height channel could be selected automatically "
+                f"(channels: {available}); name a channel explicitly to "
+                f"analyze it anyway"
+            )
         height_data = gwy_image.data
         header_size = gwy_image.scan_size
         input_format_meta = {

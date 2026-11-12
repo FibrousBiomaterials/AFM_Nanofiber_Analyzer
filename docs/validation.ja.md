@@ -582,6 +582,17 @@ length_floor_completeness）。
 8<!--n:definition--> 連結の骨格近傍を 3<!--n:definition--> つ以上持ち（それより少ない画素: 0<!--m:diagonal_ybranch.all.only_diagonal_y_below_3_neighbours--> 個）、近傍が 2<!--n:definition--> つである
 骨格の素直な区間には 1<!--n:count--> つも無い。
 
+### 3.7 繊維の区間ごと取り除かれる輪
+
+`Skeletonizer.remove_small_and_ring` は端点を持たない骨格の成分をすべて取り除く
+（アルゴリズムのページの §3.7）。3<!--n:count--> つのテスト入力を既定で解析すると（実験
+ring_components）、この段階に届いたそのような成分は 2<!--m:ring_components.all.rings--> 個で、どれもこの段階に
+入る骨格とともに補正後の高さ画像に重ねて描いた。チュニケートのスキャンでは、
+77<!--m:ring_components.tunicate.ring_pixels--> px の輪が 1<!--m:ring_components.tunicate.rings--> 個あり、網目の 1<!--n:count--> つの目を囲む繊維の区間に沿って走る。その区間は
+保存される骨格に無いので、そこに沿って測られる繊維は無い。高等植物 TOC のスキャンでは、
+41<!--m:ring_components.hplantTOC.ring_pixels--> px の輪が 1<!--m:ring_components.hplantTOC.rings--> 個あり、短く明るく幅の広い物体の輪郭をなぞる。その物体が繊維かどうかは
+判断できなかった。Bruker のスキャンの輪は 0<!--m:ring_components.NDTOC.rings--> 個である。
+
 ## 4. 中心線とキンク
 
 [解析アルゴリズム](algorithms.ja.md) §4 を参照。

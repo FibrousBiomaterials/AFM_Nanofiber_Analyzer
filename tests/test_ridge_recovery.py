@@ -180,3 +180,85 @@ def test_recovery_on_square_pixels_ignores_the_resampling():
     base = seg._recover_missed_ridges(arr, np.zeros(arr.shape, bool), 10.0)
     explicit = seg._recover_missed_ridges(arr, np.zeros(arr.shape, bool), 10.0, 1.0)
     assert np.array_equal(base, explicit)
+
+
+def _ridge(shape, centre, angle_deg, length_px, sigma=3.0, height=3.0):
+    """A Gaussian ridge of the given length and direction with rounded ends."""
+    yy, xx = np.mgrid[0:shape[0], 0:shape[1]].astype(float)
+    t = np.radians(angle_deg)
+    dx, dy = xx - centre[0], yy - centre[1]
+    along = np.abs(dx * np.cos(t) + dy * np.sin(t)) - length_px / 2.0
+    across = -dx * np.sin(t) + dy * np.cos(t)
+    return height * np.exp(-(across ** 2 + np.clip(along, 0.0, None) ** 2) / (2 * sigma ** 2))
+
+
+def test_skeleton_path_length_does_not_depend_on_direction():
+    """
+    A thinned straight line measures its length within 2.5 % at every angle.
+    細線化した直線が、どの角度でも 2.5 % 以内でその長さに測られること。
+
+    Measured at every 5 degrees, these lines read 0.980 to 1.011 of their length
+    by the corner-count estimate; counting 1 and sqrt(2) per step reads them up
+    to about 9 % long, and a pixel count reads the diagonal about 1.4 times short.
+    5 度おきに測ると、これらの直線は角数え推定でその長さの 0.980〜1.011 倍に
+    読まれる。一歩を 1 と sqrt(2) で数えると最大約 9 % 長く、画素数では対角の
+    直線を約 1.4 分の 1 に短く読む。
+    """
+    from skimage.morphology import thin
+
+    from lib.segmenter import _skeleton_path_length_px
+
+    for angle in range(0, 91, 5):
+        t = np.radians(angle)
+        n = 400
+        xs = np.round(np.linspace(0, 80 * np.cos(t), n)).astype(int) + 5
+        ys = np.round(np.linspace(0, 80 * np.sin(t), n)).astype(int) + 5
+        line = np.zeros((100, 100), bool)
+        line[ys, xs] = True
+        assert _skeleton_path_length_px(thin(line)) == pytest.approx(80.0, rel=0.025)
+
+
+def test_skeleton_length_leaves_side_branches_out():
+    """
+    Side branches thinning grows near the ends of a wide ridge are not counted.
+    幅のあるリッジの細線化で端の近くに生える横枝は数えないこと。
+
+    The recovered region of a ridge is much wider than the ridge, and its
+    skeleton forks near both ends; counting the forks read Gaussian ridges of
+    three widths at seven angles 1.3 to 2.4 times their length, by an amount
+    that changed with the angle.
+    回収された領域はリッジよりずっと幅が広く、そのスケルトンは両端の近くで
+    分かれる。分かれ目を数えると、3 通りの幅、7 通りの角度のガウス断面の
+    リッジを、その長さの 1.3〜2.4 倍に、角度によって違う量だけ長く読んだ。
+    """
+    import cv2
+    from skimage.morphology import thin
+
+    from lib.segmenter import _skeleton_path_length_px
+
+    seg = Segmenter(ridge_recovery=True, ridge_min_length_nm=1.0)
+    for angle in (0.0, 45.0):
+        image = _ridge((300, 300), (150.3, 150.7), angle, 110.0)
+        kept = seg._recover_missed_ridges(image, np.zeros(image.shape, bool), 1.0)
+        _, labels, stats, _ = cv2.connectedComponentsWithStats(kept.astype(np.uint8), connectivity=8)
+        region = labels == 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+        assert _skeleton_path_length_px(thin(region)) == pytest.approx(110.0, rel=0.05)
+
+
+def test_recovery_keeps_equal_ridges_alike_at_every_angle():
+    """
+    Two ridges of one length, along a row and at 45 degrees, get the same verdict.
+    同じ長さの 2 本の尾根（行に沿うものと 45 度のもの）が、同じ判定を受けること。
+
+    Counted in pixels, the diagonal skeleton read about 1.4 times short, so a
+    threshold between the two readings kept only the horizontal ridge.
+    画素数で数えると斜めのスケルトンは約 1.4 分の 1 に短く読まれ、2 つの読みの間の
+    しきい値では横の尾根だけが残った。
+    """
+    image = _ridge((400, 400), (100, 100), 0.0, 110.0) + _ridge((400, 400), (270, 270), 45.0, 110.0)
+    for threshold_nm in (100.0, 145.0, 155.0):
+        seg = Segmenter(ridge_recovery=True, ridge_min_length_nm=threshold_nm)
+        kept = seg._recover_missed_ridges(image, np.zeros(image.shape, bool), 1.0)
+        horizontal = bool(kept[97:104, 97:104].any())
+        diagonal = bool(kept[267:274, 267:274].any())
+        assert horizontal == diagonal

@@ -1224,14 +1224,27 @@ when the scan size is recorded, for example in the input file.
    at one point is then still recovered. Taking instead only the candidate
    components that do not touch the existing mask at all would discard such a
    fiber whole — and the longer a fiber, the more likely it touches.
-4. Surviving components are kept when their skeleton's pixel count times the
-   pixel size reaches `ridge_min_length_nm` (default 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm). The default is an
-   empirical choice that no evaluation supports.
+4. Surviving components are kept when the length of their skeleton times the
+   pixel size reaches `ridge_min_length_nm` (default 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm). Each component
+   is thinned with `skimage.morphology.thin`, as the binarized mask is (§3.1),
+   inside its bounding box with an empty margin of one pixel. The length
+   (`_skeleton_path_length_px`) is taken along the longest path through that
+   skeleton, found by two shortest-path sweeps over its 8<!--n:definition-->-connected pixels
+   (from any pixel to the farthest one, and from there to the farthest again),
+   so the side branches that thinning grows near the ends of a wide region,
+   whose number changes with the ridge's direction, are not counted. Along the
+   path it is the corner-count estimate of Vossepoel and Smeulders (1982<!--n:citation-->):
+   0.980<!--c:lib/segmenter.py::_LENGTH_WEIGHT_ORTHOGONAL--> per orthogonal step and 1.406<!--c:lib/segmenter.py::_LENGTH_WEIGHT_DIAGONAL--> per diagonal step, less 0.091<!--c:lib/segmenter.py::_LENGTH_WEIGHT_CORNER|-v--> per
+   step whose direction differs from the one before, which corrects for the
+   staircase a line between the axes and the diagonal forms. A count of its
+   pixels reads a diagonal segment about $\sqrt{2}$ times short; this length does
+   not, though no estimate from the pixels reads every direction exactly the
+   same. The default is an empirical choice that no evaluation supports.
 
 The Frangi filter is isotropic: one scale is one width in pixels in every
 direction. On a scan whose X and Y pixel sizes differ, it would therefore look
 for a different physical width across a fiber running along X than along Y, and
-a skeleton's pixel count would not be a length. So when the pixel aspect (the Y
+a step along the skeleton would not be as long along Y as along X. So when the pixel aspect (the Y
 pixel size over the X pixel size, `bundle_schema.pixel_aspect`) is not 1<!--n:definition-->, the
 heights and the accepted mask are first resampled along Y onto square pixels as
 wide as an X pixel (`segmenter._to_square_pixels`; heights linearly, the mask
@@ -1283,17 +1296,62 @@ candidate = apply_hysteresis_threshold(response, low, high)
 outside = candidate & ~binary_image.astype(bool)
 if not outside.any():
     return empty
-n_labels, labels = cv2.connectedComponents(outside.astype(np.uint8), connectivity=8)
-keep = [
-    label for label in range(1, n_labels)
-    if skeletonize(labels == label).sum() * nm_per_px >= self.ridge_min_length_nm
-]
+n_labels, labels, boxes, _ = cv2.connectedComponentsWithStats(
+    outside.astype(np.uint8), connectivity=8)
+keep = []
+for label in range(1, n_labels):
+    x, y, w, h = boxes[label, :4]
+    component = np.pad(labels[y:y + h, x:x + w] == label, 1)
+    if _skeleton_path_length_px(thin(component)) * nm_per_px >= self.ridge_min_length_nm:
+        keep.append(label)
 if not keep:
     return empty
 recovered = np.isin(labels, keep)
 if resampled:
     recovered = _from_square_pixels(recovered, rows, pixel_aspect) & ~original_binary
 return recovered
+```
+
+The length of step 4<!--n:label-->:
+
+```python
+# source: lib/segmenter.py::_skeleton_path_length_px
+s = np.asarray(skeleton, dtype=bool)
+labels, n_pieces = ndi_label(s, structure=np.ones((3, 3), dtype=bool))
+longest = 0.0
+for piece in range(1, n_pieces + 1):
+    ys, xs = np.nonzero(labels == piece)
+    if ys.size < 2:
+        continue
+    index = np.full(s.shape, -1, dtype=np.int64)
+    index[ys, xs] = np.arange(ys.size)
+    rows, cols, weights = [], [], []
+    for dy, dx in ((0, 1), (1, 0), (1, 1), (1, -1)):
+        y2, x2 = ys + dy, xs + dx
+        inside = (y2 < s.shape[0]) & (x2 >= 0) & (x2 < s.shape[1])
+        j = np.full(ys.size, -1, dtype=np.int64)
+        j[inside] = index[y2[inside], x2[inside]]
+        joined = j >= 0
+        rows.append(np.nonzero(joined)[0]); cols.append(j[joined])
+        weights.append(np.full(int(joined.sum()), float(np.hypot(dy, dx))))
+    r, c, w = np.concatenate(rows), np.concatenate(cols), np.concatenate(weights)
+    graph = csr_matrix((np.concatenate([w, w]), (np.concatenate([r, c]), np.concatenate([c, r]))),
+                       shape=(ys.size, ys.size))
+    start = int(np.argmax(dijkstra(graph, indices=0)))
+    distance, previous = dijkstra(graph, indices=start, return_predecessors=True)
+    node = int(np.argmax(distance))
+    path = [node]
+    while node != start:
+        node = int(previous[node])
+        path.append(node)
+    steps = np.diff(np.column_stack([ys[path], xs[path]]), axis=0)
+    diagonal = np.abs(steps).sum(axis=1) == 2
+    turns = int(np.any(steps[1:] != steps[:-1], axis=1).sum())
+    length = (_LENGTH_WEIGHT_ORTHOGONAL * int((~diagonal).sum())
+              + _LENGTH_WEIGHT_DIAGONAL * int(diagonal.sum())
+              + _LENGTH_WEIGHT_CORNER * turns)
+    longest = max(longest, length)
+return longest
 ```
 
 ### 2.7 Fill gaps with a closing
@@ -1745,7 +1803,8 @@ end of §3.3, so no pixel is left that this thinning can delete, and skeleton
 pixels far from the filled loops keep their coordinates, and features looked up by pixel
 coordinate, such as kinks and endpoints, do not change there.
 
-A **height guard** prevents this from fusing two real fibers. A hole in the mask
+A **height guard** prevents this from fusing two fibers whose gap reaches down
+near the background. A hole in the mask
 is not made of substrate-level pixels only: a pixel well above the substrate is
 still dropped when the local threshold (§2.1) finds it below the weighted mean of
 its surroundings, so holes also open inside a fiber body or a crossing. Such a
@@ -2013,7 +2072,10 @@ had it been that short when §3.5 ran, so `Skeletonizer.__call__` runs
 `remove_small_and_ring` drops components below `min_area` (default 10<!--c:lib/pipeline.py::ProcParams.min_area--> pixels) and
 components with **no endpoints at all**. An endpoint-free component is a closed
 ring, which no fiber tracing can traverse. A fiber that really is ring-shaped is
-therefore removed here as well.
+therefore removed here as well, and so are the sections of several fibers that
+close around one cell of a mesh when nothing else of the skeleton remains
+attached to them. The rings removed on the bundled scans are in
+[Evaluation on particular data](validation.md) §3.7.
 
 ```python
 # source: lib/skeletonizer.py::Skeletonizer.remove_small_and_ring

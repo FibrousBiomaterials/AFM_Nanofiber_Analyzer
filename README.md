@@ -808,7 +808,13 @@ fallback), so no import settings are required. Two layouts are recognized
 
 Height arrays are returned in nanometers. Files without a recognized value-unit
 header are assumed to already contain nm values; Gwyddion Export Text files
-that declare a supported length unit are converted to nm. The physical scan
+that declare a supported length unit are converted to nm. A Shimadzu
+`[DATA Unit(...)]` line and a single-column label such as Bruker's
+`Height(nm)` are read the same way, and a file whose header declares a unit
+that is not a length (for example a phase channel in `deg`) is refused.
+Length units are read in any case as meters, millimeters, micrometers (also
+`um` and `micron`), nanometers, picometers and angstroms, written as symbols or
+spelled out; no other prefix is read, so `MM` is a millimeter. The physical scan
 size is read from the input when present (Shimadzu `SizeX` / `SizeY`,
 Gwyddion `# Width` / `# Height`, or native `.gwy` channel extents) and stored
 in the bundle as the spatial calibration. Inputs without a recorded scan size
@@ -837,7 +843,10 @@ container holds several channels (topography, phase, amplitude, …); the
 topography/height channel is auto-selected, and you can override it by id or
 title — a dropdown appears in GUI02 for multi-channel files, and `cli.py
 process` accepts `--channel <id|name>`. Length-valued channels are converted
-from their SI unit to nm and the scan size is read from the channel extents.
+from their SI unit to nm and the scan size is read from the channel extents, in
+the channel's lateral unit. When a file holds no channel with a length unit,
+GUI01 and `cli.py process` refuse it rather than analyze whichever channel the
+automatic choice falls back to, unless a channel is named with `--channel`.
 An explicitly selected non-length channel is passed through in its native
 values; it is not suitable for workflows or labels that assume height in nm.
 Reading `.gwy` requires the lightweight, pure-Python `gwyfile` package (a
@@ -1333,10 +1342,11 @@ test suite instead of degrading silently in the launcher.
 
 ## Known Limitations
 
-- Text/CSV values without a recognized value-unit header are assumed to be
-  nanometers. Gwyddion Export Text files with a supported length-unit header
-  are converted automatically; other unitless exports must be converted before
-  loading.
+- Text/CSV values without a declared value unit are assumed to be
+  nanometers. A declared length unit (Shimadzu `[DATA Unit(...)]`, Gwyddion
+  `# Value units`, a single-column label such as `Height(nm)`) is converted
+  automatically, and a declared unit that is not a length is refused; other
+  unitless exports must be converted before loading.
 - Single-column (Bruker NanoScope) exports must contain a perfect-square number
   of height values, because the data is reshaped to a square `(s, s)` image.
 - Length measurements require a physical scan size from the input metadata or

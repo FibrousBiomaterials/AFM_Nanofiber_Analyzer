@@ -11,14 +11,17 @@ from typing import TYPE_CHECKING, Optional
 
 import cv2
 import numpy as np
+from scipy.ndimage import label as ndi_label
 from scipy.ndimage import maximum as ndi_maximum
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import dijkstra
 from skimage.feature import canny
 from skimage.filters import (
     apply_hysteresis_threshold, frangi, threshold_local, threshold_otsu,
     threshold_triangle,
 )
 from skimage.morphology import (
-    binary_dilation, binary_erosion, closing, skeletonize,
+    binary_dilation, binary_erosion, closing, thin,
 )
 from skimage.transform import hough_line, hough_line_peaks
 
@@ -132,6 +135,116 @@ def _max_extent_px(mask: np.ndarray) -> float:
     hull = cv2.convexHull(corners).reshape(-1, 2).astype(float)
     gaps = hull[:, None, :] - hull[None, :, :]
     return float(np.sqrt((gaps ** 2).sum(axis=-1)).max())
+
+
+# Weights of the corner-count length estimator (Vossepoel & Smeulders 1982):
+# per orthogonal step, per diagonal step, and per change of direction. Counting
+# 1 and sqrt(2) per step reads a straight line between the axes and the diagonal
+# longer than one along either, because its pixels form a staircase; the corner
+# term corrects for the staircase, and the weights are the published
+# least-squares values for straight lines.
+# 角数え長さ推定（Vossepoel & Smeulders 1982）の重み。縦横の一歩、斜めの一歩、
+# 向きの変わり目 1 つごとの値。一歩を 1 と sqrt(2) で数えると、軸と対角の間の
+# 向きの直線は画素が階段になるため、軸や対角に沿う直線より長く読まれる。角の項が
+# その階段を補正する。重みは論文が直線について最小二乗で求めた値をそのまま使う。
+_LENGTH_WEIGHT_ORTHOGONAL = 0.980
+_LENGTH_WEIGHT_DIAGONAL = 1.406
+_LENGTH_WEIGHT_CORNER = -0.091
+
+
+def _skeleton_path_length_px(skeleton: np.ndarray) -> float:
+    """
+    Length of the longest path through a thin skeleton, in pixels.
+    細いスケルトンを通る最も長い経路の長さ（画素）。
+
+    Parameters
+    ----------
+    skeleton
+        Boolean one-pixel-wide skeleton.
+        1 画素幅の真偽値スケルトン。
+
+    Returns
+    -------
+    float
+        The corner-count estimate of Vossepoel & Smeulders (1982),
+        ``0.980 n_e + 1.406 n_o - 0.091 n_c``, along the longest path between
+        two pixels of the skeleton: ``n_e`` and ``n_o`` count its orthogonal and
+        diagonal steps and ``n_c`` the steps whose direction differs from the
+        one before. For a skeleton of several pieces, the longest of their
+        paths; 0 for fewer than two pixels.
+        スケルトンの 2 画素を結ぶ最も長い経路に沿った、Vossepoel & Smeulders
+        (1982) の角数え推定 ``0.980 n_e + 1.406 n_o - 0.091 n_c``。``n_e`` と
+        ``n_o`` はその縦横と斜めの歩数、``n_c`` は一つ前と向きの違う歩数。
+        スケルトンが複数の断片なら、それぞれの経路のうち最も長いもの。画素が
+        2 つ未満なら 0。
+
+    Notes
+    -----
+    Only the longest path is measured because the side branches thinning grows
+    near the ends of a wide region are not part of the ridge's length, and how
+    many grow depends on the ridge's direction. The path is found by two
+    shortest-path sweeps over the 8-connected pixels (steps of 1 and sqrt(2)):
+    from any pixel to the farthest one, and from there to the farthest again,
+    which is the longest path of a skeleton without loops.
+    No estimate from the pixels makes every direction read exactly the same
+    length, because a digitized line has lost part of its direction.
+    最も長い経路だけを測るのは、幅のある領域を細線化すると端の近くに生える
+    横枝がリッジの長さではなく、その本数がリッジの向きで変わるためである。経路は
+    8 連結の画素（一歩 1 と sqrt(2)）上の 2 回の最短経路探索で求める。任意の
+    画素から最も遠い画素へ、そこからさらに最も遠い画素へ。ループの無い
+    スケルトンなら、これが最も長い経路になる。
+    画素に描いた線は向きの情報の一部を失っているので、画素から求めるどの推定も、
+    全方向をまったく同じ長さには読めない。
+
+    Examples
+    --------
+    A row of 10 pixels, a diagonal of 10, and the row with a 3-pixel branch,
+    which the longest path leaves out:
+
+    >>> import numpy as np
+    >>> from lib.segmenter import _skeleton_path_length_px
+    >>> row = np.zeros((6, 12), bool); row[2, 1:11] = True
+    >>> diagonal = np.eye(10, dtype=bool)
+    >>> branched = row.copy(); branched[3:6, 5] = True
+    >>> [round(_skeleton_path_length_px(a), 3) for a in (row, diagonal, branched)]
+    [8.82, 12.654, 8.82]
+    """
+    s = np.asarray(skeleton, dtype=bool)
+    labels, n_pieces = ndi_label(s, structure=np.ones((3, 3), dtype=bool))
+    longest = 0.0
+    for piece in range(1, n_pieces + 1):
+        ys, xs = np.nonzero(labels == piece)
+        if ys.size < 2:
+            continue
+        index = np.full(s.shape, -1, dtype=np.int64)
+        index[ys, xs] = np.arange(ys.size)
+        rows, cols, weights = [], [], []
+        for dy, dx in ((0, 1), (1, 0), (1, 1), (1, -1)):
+            y2, x2 = ys + dy, xs + dx
+            inside = (y2 < s.shape[0]) & (x2 >= 0) & (x2 < s.shape[1])
+            j = np.full(ys.size, -1, dtype=np.int64)
+            j[inside] = index[y2[inside], x2[inside]]
+            joined = j >= 0
+            rows.append(np.nonzero(joined)[0]); cols.append(j[joined])
+            weights.append(np.full(int(joined.sum()), float(np.hypot(dy, dx))))
+        r, c, w = np.concatenate(rows), np.concatenate(cols), np.concatenate(weights)
+        graph = csr_matrix((np.concatenate([w, w]), (np.concatenate([r, c]), np.concatenate([c, r]))),
+                           shape=(ys.size, ys.size))
+        start = int(np.argmax(dijkstra(graph, indices=0)))
+        distance, previous = dijkstra(graph, indices=start, return_predecessors=True)
+        node = int(np.argmax(distance))
+        path = [node]
+        while node != start:
+            node = int(previous[node])
+            path.append(node)
+        steps = np.diff(np.column_stack([ys[path], xs[path]]), axis=0)
+        diagonal = np.abs(steps).sum(axis=1) == 2
+        turns = int(np.any(steps[1:] != steps[:-1], axis=1).sum())
+        length = (_LENGTH_WEIGHT_ORTHOGONAL * int((~diagonal).sum())
+                  + _LENGTH_WEIGHT_DIAGONAL * int(diagonal.sum())
+                  + _LENGTH_WEIGHT_CORNER * turns)
+        longest = max(longest, length)
+    return longest
 
 
 class Segmenter:
@@ -431,11 +544,12 @@ class Segmenter:
         pixel sizes differ it would look for a different width across a
         fiber running along X than along Y; resampling onto square pixels
         makes one scale one physical width in every direction, and makes the
-        skeleton's pixel count a length in X pixels.
+        length along the skeleton (`_skeleton_path_length_px`) a length in X
+        pixels.
         Frangi フィルタのスケールは等方的なので、X と Y の画素サイズが違う走査では、
         X に沿う繊維と Y に沿う繊維とで探す幅が変わってしまう。正方画素に描き直すと、
-        1 つのスケールがどの向きでも同じ実寸の幅になり、スケルトンの画素数も X 画素
-        単位の長さになる。
+        1 つのスケールがどの向きでも同じ実寸の幅になり、スケルトンに沿った長さ
+        （`_skeleton_path_length_px`）も X 画素単位の長さになる。
         """
         empty = np.zeros_like(binary_image, dtype=bool)
         if not self.ridge_recovery or not nm_per_px or nm_per_px <= 0:
@@ -471,11 +585,26 @@ class Segmenter:
         outside = candidate & ~binary_image.astype(bool)
         if not outside.any():
             return empty
-        n_labels, labels = cv2.connectedComponents(outside.astype(np.uint8), connectivity=8)
-        keep = [
-            label for label in range(1, n_labels)
-            if skeletonize(labels == label).sum() * nm_per_px >= self.ridge_min_length_nm
-        ]
+        n_labels, labels, boxes, _ = cv2.connectedComponentsWithStats(
+            outside.astype(np.uint8), connectivity=8)
+        # The length is measured along the skeleton, not as its pixel count,
+        # which reads a diagonal segment about sqrt(2) times short. The
+        # component is thinned with `thin`, as the binarized mask is
+        # (`thin_ignoring_image_border`), so a ridge is measured on the same
+        # kind of skeleton the fibers are traced on. Each component is thinned
+        # inside its bounding box with a one-pixel empty margin, which gives
+        # the thinning of the whole image without its cost.
+        # 長さはスケルトンに沿って測る。画素数では斜めの区間がおよそ sqrt(2) 分の 1
+        # に短く読まれるためである。成分は二値マスクと同じく `thin` で細線化する
+        # （`thin_ignoring_image_border`）。繊維をたどるのと同じ種類のスケルトンで
+        # リッジを測るためである。各成分は外接矩形に 1 画素の空の余白を付けた範囲で
+        # 細線化する。画像全体を細線化したのと同じ結果を、その手間なしに得る。
+        keep = []
+        for label in range(1, n_labels):
+            x, y, w, h = boxes[label, :4]
+            component = np.pad(labels[y:y + h, x:x + w] == label, 1)
+            if _skeleton_path_length_px(thin(component)) * nm_per_px >= self.ridge_min_length_nm:
+                keep.append(label)
         if not keep:
             return empty
         recovered = np.isin(labels, keep)

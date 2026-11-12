@@ -54,7 +54,11 @@ import numpy as np
 # ヘッダから読んだ走査範囲をパイプライン・GUI が同一に扱えるようにする。
 # check_input_file_size はプロジェクト共通の入力ファイルサイズ上限
 # （`lib.afm_io.MAX_INPUT_FILE_BYTES`）を .gwy 入力にも適用する。
-from .afm_io import ScanSize, check_input_file_size
+# `_length_unit_nm` is the single reading of length units, shared with the text
+# loaders so a unit means the same thing in a .gwy and in a text header.
+# `_length_unit_nm` は長さ単位の唯一の解釈で、テキストローダと共有し、単位が
+# .gwy でもテキストのヘッダでも同じ意味になるようにする。
+from .afm_io import ScanSize, _length_unit_nm, check_input_file_size
 
 # Canonical extension for Gwyddion native files. `afm_io` dispatches on this.
 # Gwyddion ネイティブファイルの正規拡張子。`afm_io` がこれで振り分ける。
@@ -166,16 +170,17 @@ def _is_length_unit(unit: Optional[str]) -> bool:
     Returns
     -------
     bool
-        True for metres and their prefixed forms (mm, µm, nm, pm).
-        メートルと接頭辞付きの形（mm・µm・nm・pm）なら True。
+        True for the units `afm_io._length_unit_nm` reads as a length (the
+        keys of `afm_io._LENGTH_UNITS_NM`, in any case); ``False`` for ``None``
+        and for an empty unit.
+        `afm_io._length_unit_nm` が長さと読む単位（`afm_io._LENGTH_UNITS_NM` の
+        キー。大文字と小文字は問わない）なら True。``None`` と空の単位は False。
     """
-    if not unit:
-        return False
-    # gwyfile reports base SI unit strings; topography is plain "m". Accept the
-    # "µm"/"nm" spellings too in case a writer stored a prefixed unit string.
-    # gwyfile は基底 SI 単位文字列を返し、地形は素の "m"。接頭辞付き単位を
-    # 書き込むライタに備え "µm"/"nm" 等の表記も受け付ける。
-    return unit.strip().lower() in {"m", "mm", "um", "µm", "μm", "nm", "pm"}
+    # Gwyddion itself stores the base unit, so topography is plain "m"; other
+    # writers can store a prefixed or spelled-out unit, which is read too.
+    # Gwyddion 自身は基本単位を保存するため地形は素の "m" である。他のライタは
+    # 接頭辞付きや綴りの単位を書きうるので、それも読む。
+    return _length_unit_nm(unit) is not None
 
 
 def _z_to_nm_factor(z_unit: Optional[str]) -> float:
@@ -204,13 +209,8 @@ def _z_to_nm_factor(z_unit: Optional[str]) -> float:
         Nanometres per stored unit for a length unit; ``1.0`` otherwise.
         長さの単位なら保存単位あたりの nm、それ以外は ``1.0``。
     """
-    factors = {
-        "m": 1.0e9, "mm": 1.0e6, "um": 1.0e3, "µm": 1.0e3, "μm": 1.0e3,
-        "nm": 1.0, "pm": 1.0e-3,
-    }
-    if not z_unit:
-        return 1.0
-    return factors.get(z_unit.strip().lower(), 1.0)
+    factor = _length_unit_nm(z_unit)
+    return 1.0 if factor is None else factor
 
 
 def _z_unit_of(datafield) -> Optional[str]:
@@ -462,15 +462,22 @@ def _resolve_channel(
 
 def _scan_size_from_datafield(datafield) -> Optional[ScanSize]:
     """
-    Read a channel's physical scan size, converting meters to micrometers.
-    チャンネルの物理走査範囲を読み取り、メートルを µm へ換算する。
+    Read a channel's physical scan size in micrometers.
+    チャンネルの物理走査範囲を µm で読み取る。
 
     Gwyddion stores the fast-scan (X) extent in ``xreal`` and the slow-scan (Y)
-    extent in ``yreal``, both in meters. A non-positive or missing extent yields
-    ``None`` so the caller falls back to a measurement-time scan size.
+    extent in ``yreal``, in the unit of the field's ``si_unit_xy``, which
+    Gwyddion itself writes as the base unit ``m``. That unit is read and
+    converted (`afm_io._length_unit_nm`); a field that records no lateral unit
+    is read in metres. A lateral unit that is not a length, or a non-positive or
+    missing extent, yields ``None`` so the caller falls back to a
+    measurement-time scan size rather than to a guessed one.
     Gwyddion は高速走査軸 (X) の範囲を ``xreal``、低速走査軸 (Y) の範囲を
-    ``yreal`` に、いずれもメートルで保存する。範囲が非正または欠損のときは
-    ``None`` を返し、呼び出し側が計測時の走査範囲へフォールバックできるようにする。
+    ``yreal`` に、フィールドの ``si_unit_xy`` の単位で保存する。Gwyddion 自身は
+    基本単位 ``m`` で書く。その単位を読んで換算し（`afm_io._length_unit_nm`）、
+    横方向の単位を記録していないフィールドはメートルとして読む。横方向の単位が
+    長さでないとき、または範囲が非正か欠損のときは ``None`` を返し、呼び出し側が
+    推測した値ではなく計測時の走査範囲へフォールバックするようにする。
 
     Parameters
     ----------
@@ -488,8 +495,17 @@ def _scan_size_from_datafield(datafield) -> Optional[ScanSize]:
     yreal = getattr(datafield, "yreal", None)
     if xreal is None or yreal is None:
         return None
-    x_um = float(xreal) * 1.0e6
-    y_um = float(yreal) * 1.0e6
+    si = getattr(datafield, "si_unit_xy", None)
+    xy_unit = getattr(si, "unitstr", None) if si is not None else None
+    if xy_unit:
+        unit_nm = _length_unit_nm(xy_unit)
+        if unit_nm is None:
+            return None
+        to_um = unit_nm / 1000.0
+    else:
+        to_um = 1.0e6
+    x_um = float(xreal) * to_um
+    y_um = float(yreal) * to_um
     if not (x_um > 0 and y_um > 0):
         return None
     return ScanSize(x_um=x_um, y_um=y_um)

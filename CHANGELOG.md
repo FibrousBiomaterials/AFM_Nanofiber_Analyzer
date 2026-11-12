@@ -169,6 +169,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Units of the input are read instead of assumed. A `.gwy` with no channel in a
+  length unit, including one whose channels record no unit, is refused by GUI01
+  and `cli.py process` unless `--channel` names one: the automatic choice fell
+  back to a phase or other channel and stored its values as nanometres. A text input whose header declares a value unit that is
+  not a length (Gwyddion `# Value units`, Shimadzu `[DATA Unit(...)]`, or a
+  single-column label such as Bruker's `Height(nm)`) is refused by every loader,
+  GUI02 included, and a declared length unit is converted; Shimadzu's and
+  Bruker's declarations were not read before. A `.gwy` scan size is read in the
+  channel's lateral unit rather than assumed to be metres. Length units are read
+  in any case as metres, millimetres, micrometres (also `um` and `micron`),
+  nanometres, picometres and angstroms, as symbols or spelled out; no other
+  prefix is read, so `MM` is a millimetre. Inputs in nanometres, and
+  Gwyddion inputs in metres, give the same results as before; a file declared in
+  another length unit is measured in that unit from this version.
 - GUI03 takes Mann-Whitney U as the primary between-group test, Holm-corrected
   across all pairs, and shows the KS p-value uncorrected as a reference (`KS p
   (reference)`): both tests were shown corrected side by side, and reading
@@ -354,6 +368,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Ridge recovery (`ridge_recovery`, off by default) measures a candidate's
+  length along the longest path through its skeleton, thinned with
+  `skimage.morphology.thin` as the binarized mask is, with the corner-count
+  weights of Vossepoel and Smeulders (1982)
+  (`segmenter._skeleton_path_length_px`), instead of counting the pixels of its
+  whole skeleton. The pixel count read a diagonal segment about 1.4 times short,
+  so of two ridges of one length the one along a row could be kept and the
+  diagonal one dropped; and it counted the side branches that thinning grows
+  near the ends of a wide recovered region, whose number changes with the
+  ridge's direction. **Analyses with ridge recovery on change from this
+  version**; the default analysis does not.
 - `trendfill` and `spline1d` no longer subtract narrow fibers that run along a
   scan axis as background. Their fiber mask accepted a sharp ridge without a
   flat crest only when it spanned more than `noise_detect_factor` (10) pixels

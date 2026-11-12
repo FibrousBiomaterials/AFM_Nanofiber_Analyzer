@@ -353,3 +353,122 @@ def test_input_file_size_limit_missing_file(tmp_path, monkeypatch):
     monkeypatch.setattr(afm_io, "MAX_INPUT_FILE_BYTES", 16)
     with pytest.raises(ValueError, match="読み込めません"):
         load_afm_text(str(tmp_path / "nope.txt"))
+
+
+@pytest.mark.parametrize("unit, nm", [
+    ("m", 1.0e9), ("mm", 1.0e6), ("µm", 1.0e3), ("μm", 1.0e3), ("um", 1.0e3),
+    ("nm", 1.0), ("pm", 1.0e-3), ("Ångström", 0.1), ("Ångstrom", 0.1),
+    ("Microns", 1.0e3), ("UM", 1.0e3), ("NM", 1.0), ("M", 1.0e9),
+    ("MM", 1.0e6), ("Mm", 1.0e6), ("PM", 1.0e-3),
+    ("Å", 0.1), ("Å", 0.1), ("AA", 0.1), ("Angstroms", 0.1),
+    ("micron", 1.0e3), ("Nanometer", 1.0), ("micrometres", 1.0e3), ("м", 1.0e9),
+])
+def test_length_unit_spellings(unit, nm):
+    """Every spelling of a length unit, in any case, reads as its factor to nanometres.
+
+    No prefix beyond milli, micro, nano and pico is read, so ``MM`` and ``Mm``
+    can only be millimetres and ``PM`` picometres.
+    """
+    from lib.afm_io import _length_unit_nm
+
+    assert _length_unit_nm(unit) == pytest.approx(nm, rel=1e-12)
+
+
+@pytest.mark.parametrize("unit", ["", None, "deg", "rad", "V", "A", "Hz", "%", "km", "cm",
+                                  "Gm", "Em", "m^2", "px", "Pa", "xm"])
+def test_non_length_units_are_not_lengths(unit):
+    """Units that are not a length, and lengths with a prefix AFM data do not use, read as None."""
+    from lib.afm_io import _length_unit_nm
+
+    assert _length_unit_nm(unit) is None
+
+
+def test_gwyddion_text_phase_channel_is_refused(tmp_path):
+    """A Gwyddion export whose value unit is not a length is refused, not read as nm."""
+    path = tmp_path / "gwy_phase.txt"
+    _write_gwyddion_txt(path, np.full((12, 12), 12.5), unit="deg", japanese=True)
+    with pytest.raises(ValueError, match="not a length"):
+        load_afm_text(str(path))
+
+
+def test_gwyddion_text_dimensionless_channel_is_refused(tmp_path):
+    """An empty value unit (a dimensionless channel) is refused too."""
+    path = tmp_path / "gwy_dimensionless.txt"
+    _write_gwyddion_txt(path, np.full((12, 12), 0.5), unit="")
+    with pytest.raises(ValueError, match="not a length"):
+        load_afm_text(str(path))
+
+
+def test_gwyddion_text_angstrom_heights_are_converted(tmp_path):
+    """A value unit outside the common ones, here the angstrom, is converted to nm."""
+    path = tmp_path / "gwy_angstrom.txt"
+    _write_gwyddion_txt(path, np.full((12, 12), 30.0), unit="Å")
+    np.testing.assert_allclose(load_afm_text(str(path)), np.full((12, 12), 3.0), rtol=1e-12)
+
+
+def _write_shimadzu_with_data_unit(path, unit) -> None:
+    """Write a minimal Shimadzu header ending in ``[DATA Unit(<unit>)]`` and a matrix."""
+    header = ["Shimadzu SPM File Format Version 4.30", "[SCANNING PARAMS]",
+              "SizeX: 2.0000um", "SizeY: 2.0000um", f"[DATA Unit({unit})]"]
+    rows = [",".join(["2.5"] * 12) for _ in range(12)]
+    path.write_text("\n".join(header + rows) + "\n", encoding="utf-8")
+
+
+def test_shimadzu_data_unit_is_applied(tmp_path):
+    """Shimadzu's [DATA Unit(...)] converts the values to nm."""
+    path = tmp_path / "shimadzu_um.txt"
+    _write_shimadzu_with_data_unit(path, "um")
+    np.testing.assert_allclose(load_afm_text(str(path)), np.full((12, 12), 2500.0), rtol=1e-12)
+    path_nm = tmp_path / "shimadzu_nm.txt"
+    _write_shimadzu_with_data_unit(path_nm, "nm")
+    np.testing.assert_array_equal(load_afm_text(str(path_nm)), np.full((12, 12), 2.5))
+
+
+def test_shimadzu_non_length_data_unit_is_refused(tmp_path):
+    """A Shimadzu file whose data unit is not a length is refused."""
+    path = tmp_path / "shimadzu_deg.txt"
+    _write_shimadzu_with_data_unit(path, "deg")
+    with pytest.raises(ValueError, match="not a length"):
+        load_afm_text(str(path))
+
+
+@pytest.mark.parametrize("label, factor", [("Height(nm)", 1.0), ("Height(um)", 1.0e3)])
+def test_single_column_label_unit_is_applied(tmp_path, label, factor):
+    """A single-column label such as Bruker's Height(nm) gives the value unit."""
+    path = tmp_path / "single.txt"
+    path.write_text(label + "\n" + "\n".join(["1.5"] * 16) + "\n", encoding="utf-8")
+    np.testing.assert_allclose(load_afm_text(str(path)), np.full((4, 4), 1.5 * factor), rtol=1e-12)
+
+
+def test_single_column_non_length_label_is_refused(tmp_path):
+    """A single-column label in a unit that is not a length is refused."""
+    path = tmp_path / "single_phase.txt"
+    path.write_text("Phase(deg)\n" + "\n".join(["1.5"] * 16) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="not a length"):
+        load_afm_text(str(path))
+
+
+def test_shimadzu_size_in_upper_case_is_read(tmp_path):
+    """A scan size written in capitals (``2.0000UM``) reads as micrometres."""
+    path = tmp_path / "shimadzu_size.txt"
+    _write_shimadzu_header(path, size_x="2.0000UM", size_y="1.5000UM")
+    size = read_scan_size(str(path))
+    assert size.x_um == pytest.approx(2.0) and size.y_um == pytest.approx(1.5)
+
+
+def test_single_column_label_before_a_blank_line_is_read(tmp_path):
+    """A blank line between the label and the data does not hide its unit."""
+    path = tmp_path / "single_phase_blank.txt"
+    path.write_text("Phase(deg)\n\n" + "\n".join(["1.5"] * 16) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="not a length"):
+        load_afm_text(str(path))
+
+
+def test_gwyddion_text_phase_in_pixels_is_refused(tmp_path):
+    """A phase channel exported with pixel sizes is refused like one in micrometres."""
+    path = tmp_path / "gwy_phase_px.txt"
+    rows = "\n".join("\t".join(["12.5"] * 16) for _ in range(16))
+    path.write_text("# Channel: Phase\n# Width: 16 px\n# Height: 16 px\n"
+                    "# Value units: deg\n" + rows + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="not a length"):
+        load_afm_text(str(path))

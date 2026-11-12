@@ -148,14 +148,37 @@ class ScanSize:
     y_um: float
 
 
+# A decimal number with an optional exponent. Written out instead of a run of
+# digits, dots and "eE+-" so that an "e" or "E" is read as an exponent only when
+# digits follow it, and otherwise is left to the unit.
+# 指数部を持ちうる 10 進数。数字・点・"eE+-" の並びとして書かないのは、"e" や
+# "E" を、後に数字が続くときだけ指数と読み、そうでなければ単位に残すため。
+_NUMBER = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
+
 # Shimadzu SPM file headers record the scan range under [SCANNING PARAMS] as
-# e.g. ``SizeX: 2.0000um`` / ``SizeY: 2.0000um``. The unit is typically um or nm.
+# e.g. ``SizeX: 2.0000um`` / ``SizeY: 2.0000um``. The unit is typically um or nm;
+# it is read by `_length_unit_nm`.
 # 島津 SPM のヘッダは [SCANNING PARAMS] 配下に走査範囲を ``SizeX: 2.0000um`` /
-# ``SizeY: 2.0000um`` の形で記録する。単位は通常 um または nm。
+# ``SizeY: 2.0000um`` の形で記録する。単位は通常 um または nm で、
+# `_length_unit_nm` で読む。
 _SHIMADZU_SIZE_RE = re.compile(
-    r"^\s*Size([XY])\s*:\s*([0-9.eE+\-]+)\s*(mm|nm|pm|um|[µμ]m|m)\b",
+    r"^\s*Size([XY])\s*:\s*(" + _NUMBER + r")\s*(\S+)\s*$",
     re.IGNORECASE,
 )
+
+# Shimadzu SPM text exports state the unit of the height values on the line
+# just before the data, e.g. ``[DATA Unit(nm)]``.
+# 島津 SPM のテキスト出力は、データ直前の行に高さの値の単位を
+# ``[DATA Unit(nm)]`` の形で書く。
+_SHIMADZU_DATA_UNIT_RE = re.compile(
+    r"^\s*\[\s*DATA\s+Unit\s*\(\s*([^()]*?)\s*\)\s*\]\s*$", re.IGNORECASE,
+)
+
+# A single-column export (Bruker NanoScope) names its values on the line just
+# before the data, with their unit in parentheses, e.g. ``Height(nm)``.
+# 1 列形式の出力（Bruker NanoScope）は、データ直前の行で値の名前を書き、単位を
+# 括弧に入れる（例 ``Height(nm)``）。
+_COLUMN_LABEL_UNIT_RE = re.compile(r"^\s*[^()#:\[\]]*\(\s*([^()]*?)\s*\)\s*$")
 
 # Gwyddion "Export Text" writes a localized comment header before the data
 # matrix, e.g. (Japanese-locale Gwyddion):
@@ -167,33 +190,91 @@ _SHIMADZU_SIZE_RE = re.compile(
 # ASCII ":" or full-width "：", so the parser keys off the *value structure*
 # rather than the (untranslatable) key text:
 #   - a size entry's value is "<number> <length-unit>"  (1st = X, 2nd = Y)
-#   - the value-unit entry's value is a "<length-unit>" alone
+#   - the value-unit entry is the comment that follows the two size entries
+#     (Gwyddion writes Channel, Width, Height, Value units in that order)
 # The leading "#" distinguishes Gwyddion comments from the Shimadzu "SizeX:"
-# keys, which carry no "#".
+# keys, which carry no "#". `_GWY_ENTRY_RE` also matches an entry whose value is
+# empty, which Gwyddion writes for a dimensionless channel.
 # Gwyddion「Export Text」はデータ行列の前に、UI 言語へ翻訳されたコメントヘッダを
 # 出力する（上は日本語ロケールの例）。コロンは半角 ":" と全角 "：" が混在し、
 # キー語は翻訳されるため、キー語ではなく「値の構造」で判定する:
 #   - サイズ項目の値は "<数値> <長さ単位>"（1 つ目=X、2 つ目=Y）
-#   - 値の単位項目の値は "<長さ単位>" 単独
+#   - 値の単位項目は 2 つのサイズ項目の次のコメント（Gwyddion は Channel、
+#     Width、Height、Value units の順に書く）
 # 先頭の "#" により、"#" を持たない島津の "SizeX:" キーと区別する。
+# `_GWY_ENTRY_RE` は値が空の項目にも一致する。Gwyddion は無次元のチャンネルで
+# 値を空にして書く。
 _GWY_COMMENT_RE = re.compile(r"^\s*#\s*[^:：]+[:：]\s*(\S.*?)\s*$")
-_GWY_SIZE_VALUE_RE = re.compile(
-    r"^([0-9.eE+\-]+)\s*(mm|nm|pm|um|[µμ]m|m)$", re.IGNORECASE
-)
-_GWY_UNIT_ONLY_RE = re.compile(r"^(mm|nm|pm|um|[µμ]m|m)$", re.IGNORECASE)
+_GWY_ENTRY_RE = re.compile(r"^\s*#\s*[^:：]+[:：][ \t]*(.*?)\s*$")
+_GWY_SIZE_VALUE_RE = re.compile(r"^(" + _NUMBER + r")\s*(\S+)$")
 
-# Length-unit conversion factors. "µm" (U+00B5) and "μm" (U+03BC, Greek mu) are
-# both micrometers; instruments emit either codepoint.
-# 長さ単位の換算係数。"µm"(U+00B5) と "μm"(U+03BC, ギリシャ文字ミュー) はいずれも
-# マイクロメートルで、装置によってどちらのコードポイントも出力されうる。
-_LENGTH_UNIT_TO_UM = {
-    "m": 1.0e6, "mm": 1.0e3, "um": 1.0, "µm": 1.0, "μm": 1.0,
-    "nm": 1.0e-3, "pm": 1.0e-6,
+# Length units an AFM file can state, in nanometres, keyed by their casefolded
+# spelling: metres with the prefixes AFM data use (milli, micro, nano, pico) as
+# symbols and spelled out, "micron", and the angstrom as U+00C5, U+212B,
+# Gwyddion's ASCII spellings and spelled out. They are matched without regard to
+# case because no other prefix is accepted: "MM" or "Mm" can only be a
+# millimetre and "PM" a picometre, never a megametre or a petametre, which no
+# scan reaches. Casefolding also maps the micro sign U+00B5 onto the Greek mu
+# U+03BC and U+212B onto U+00C5. "u" and "~" stand for micro as Gwyddion
+# accepts them, and the Cyrillic "м" is Gwyddion's metre. A bare "A" is not an
+# angstrom: it is the ampere.
+# AFM のファイルが書きうる長さ単位（nm 換算）。綴りを casefold した文字列を
+# キーにする。AFM のデータが使う接頭辞（ミリ・マイクロ・ナノ・ピコ）を付けた
+# メートルの記号と綴り、"micron"、オングストロームの U+00C5・U+212B・Gwyddion の
+# ASCII 表記・綴り。ほかの接頭辞は受け付けないので、大文字と小文字を区別せずに
+# 照合する。"MM" や "Mm" はミリメートル、"PM" はピコメートルとしか読めず、
+# どの走査も届かないメガメートルやペタメートルにはならない。casefold により
+# マイクロ記号 U+00B5 はギリシャ文字ミュー U+03BC に、U+212B は U+00C5 に
+# そろう。"u" と "~" は Gwyddion が受け付けるマイクロの代用で、キリル文字の
+# "м" は Gwyddion のメートル。単独の "A" はオングストロームではなくアンペアである。
+_PREFIX_NM = {"": 1.0e9, "milli": 1.0e6, "micro": 1.0e3, "nano": 1.0, "pico": 1.0e-3}
+_LENGTH_UNITS_NM = {
+    "m": 1.0e9, "mm": 1.0e6, "μm": 1.0e3, "um": 1.0e3, "~m": 1.0e3,
+    "nm": 1.0, "pm": 1.0e-3, "м": 1.0e9,
+    "micron": 1.0e3, "microns": 1.0e3, "mum": 1.0e3,
+    "å": 0.1, "aa": 0.1, "ang": 0.1,
+    **{f"{a}ngstr{o}m{s}": 0.1
+       for a in ("a", "å") for o in ("o", "ö") for s in ("", "s")},
+    **{f"{prefix}{base}": nm
+       for prefix, nm in _PREFIX_NM.items()
+       for base in ("meter", "meters", "metre", "metres")},
 }
-_LENGTH_UNIT_TO_NM = {
-    "m": 1.0e9, "mm": 1.0e6, "um": 1.0e3, "µm": 1.0e3, "μm": 1.0e3,
-    "nm": 1.0, "pm": 1.0e-3,
-}
+
+
+def _length_unit_nm(unit: Optional[str]) -> Optional[float]:
+    """
+    Nanometres per unit of a length-unit string, or None for anything else.
+    長さ単位の文字列 1 単位あたりの nm。長さでなければ None。
+
+    Parameters
+    ----------
+    unit
+        Unit as written in a file header or a Gwyddion SI unit; the spellings
+        read are the keys of `_LENGTH_UNITS_NM`, in any case.
+        ファイルのヘッダや Gwyddion の SI 単位に書かれた単位。読む綴りは
+        `_LENGTH_UNITS_NM` のキーで、大文字と小文字は問わない。
+
+    Returns
+    -------
+    float or None
+        The factor that converts a value in `unit` into nanometres; ``None``
+        when `unit` is empty, ``None``, or not a length.
+        `unit` の値を nm に換算する係数。`unit` が空・``None``・長さでなければ
+        ``None``。
+
+    Examples
+    --------
+    >>> from lib.afm_io import _length_unit_nm
+    >>> _length_unit_nm("m"), _length_unit_nm("µm"), _length_unit_nm("UM")
+    (1000000000.0, 1000.0, 1000.0)
+    >>> _length_unit_nm("Å"), _length_unit_nm("Nanometers"), _length_unit_nm("MM")
+    (0.1, 1.0, 1000000.0)
+    >>> _length_unit_nm("deg") is None, _length_unit_nm("km") is None
+    (True, True)
+    """
+    if unit is None:
+        return None
+    return _LENGTH_UNITS_NM.get(unit.strip().casefold())
 
 # Maximum header lines scanned for scan-size keys. The scan range sits in the
 # small text header, so reading the whole multi-megabyte data body is wasteful.
@@ -615,7 +696,14 @@ def _shimadzu_scan_size(
         m = _SHIMADZU_SIZE_RE.match(line)
         if m is None:
             continue
-        value_um = float(m.group(2)) * _LENGTH_UNIT_TO_UM.get(m.group(3).lower(), 1.0)
+        # A size whose unit is not a length is not a scan size; the axis then
+        # stays missing rather than taking a guessed unit.
+        # 単位が長さでないサイズは走査範囲ではない。単位を推測せず、その軸は
+        # 欠けたままにする。
+        unit_nm = _length_unit_nm(m.group(3))
+        if unit_nm is None:
+            continue
+        value_um = float(m.group(2)) * (unit_nm / 1000.0)
         if m.group(1).upper() == "X":
             x_um = value_um
         else:
@@ -657,50 +745,223 @@ def _gwyddion_scan_size(
         m = _GWY_COMMENT_RE.match(line)
         if m is None:
             continue
-        sm = _GWY_SIZE_VALUE_RE.match(m.group(1))
-        if sm is None:
+        value_um = _gwyddion_size_um(m.group(1))
+        if value_um is None:
             continue
-        sizes.append(float(sm.group(1)) * _LENGTH_UNIT_TO_UM.get(sm.group(2).lower(), 1.0))
+        sizes.append(value_um)
         if len(sizes) >= 2:
             return sizes[0], sizes[1]
     return None, None
 
 
-def _gwyddion_height_unit_to_nm(header_lines: List[str]) -> float:
+def _gwyddion_size_um(value: str) -> Optional[float]:
     """
-    Return the nm-per-unit factor from a Gwyddion value-unit comment.
-    Gwyddion の値単位コメントから nm 換算係数を返す。
+    Read a Gwyddion size entry ``<number> <length-unit>`` in micrometres.
+    Gwyddion のサイズ項目 ``<数値> <長さ単位>`` を µm として読む。
 
-    Gwyddion exports height in SI units (its matrix is typically in meters),
-    recorded as a unit-only comment such as ``# Value units: m``. When no such
-    comment is present (Shimadzu/Bruker exports), ``1.0`` is returned so the
-    data is treated as already being in nanometers.
-    Gwyddion は高さを SI 単位（行列は通常メートル）で出力し、``# Value units: m``
-    のような単位のみのコメントで記録する。そのコメントが無い場合（島津/Bruker の
-    出力）は ``1.0`` を返し、データを既に nm とみなす。
+    Parameters
+    ----------
+    value
+        The value part of a header comment, after its key.
+        ヘッダのコメントのうち、キーの後ろの値の部分。
+
+    Returns
+    -------
+    float or None
+        The size in micrometres; ``None`` unless `value` is a number followed by
+        a length unit.
+        µm 単位の大きさ。`value` が数値と長さ単位の組でなければ ``None``。
+    """
+    sm = _GWY_SIZE_VALUE_RE.match(value)
+    if sm is None:
+        return None
+    unit_nm = _length_unit_nm(sm.group(2))
+    if unit_nm is None:
+        return None
+    return float(sm.group(1)) * (unit_nm / 1000.0)
+
+
+def _not_a_height(unit: str, where: str, path: str) -> ValueError:
+    """
+    The error raised for a file whose values are declared in a unit that is not a length.
+    値が長さでない単位で宣言されたファイルに対して送出する例外。
+
+    Parameters
+    ----------
+    unit
+        The declared unit.
+        宣言された単位。
+    where
+        Which header line declared it, for the message.
+        どのヘッダ行が宣言したか（メッセージ用）。
+    path
+        The input file.
+        入力ファイル。
+
+    Returns
+    -------
+    ValueError
+        The error to raise.
+        送出する例外。
+    """
+    return ValueError(
+        f"the values of {path} are declared in {unit!r} ({where}), which is not "
+        f"a length; this loader returns heights in nm, so a non-height channel "
+        f"is refused rather than read as nanometres"
+    )
+
+
+def _gwyddion_height_unit_to_nm(header_lines: List[str], path: str = "") -> Optional[float]:
+    """
+    Return the nm-per-unit factor a Gwyddion header declares for the values.
+    Gwyddion のヘッダが値について宣言する nm 換算係数を返す。
+
+    Gwyddion's "Export Text" writes its comment header as Channel, Width,
+    Height and Value units, in that order, with the key words translated. The
+    value unit is therefore read as the comment that follows the two size
+    entries (each a number and a unit, in any unit), whatever language the keys
+    are in. It is the channel's base unit (``m`` for heights, ``deg`` for a
+    phase, empty for a dimensionless channel).
+    Gwyddion「Export Text」はコメントヘッダを Channel、Width、Height、
+    Value units の順に、キー語を翻訳して書く。そのため値の単位は、キーが何語でも、
+    2 つのサイズ項目（それぞれ数値と単位の組。単位は問わない）の次のコメントとして
+    読む。これはチャンネルの基本単位（高さなら ``m``、位相なら ``deg``、無次元なら
+    空）である。
 
     Parameters
     ----------
     header_lines
         Leading lines of the file (`_read_header_lines`).
         ファイル先頭の行（`_read_header_lines`）。
+    path
+        The input file, named in the error message.
+        入力ファイル。例外のメッセージに載せる。
 
     Returns
     -------
-    float
-        Nanometres per unit of the stored heights; ``1.0`` when no value-unit
-        comment is found or its unit is not recognized.
-        保存された高さ 1 単位あたりの nm。値単位のコメントが無いか単位を
-        認識できなければ ``1.0``。
+    float or None
+        Nanometres per unit of the stored heights; ``None`` when the header
+        declares no value unit. Without the Gwyddion layout, the first comment
+        whose whole value is a length unit is taken as the declaration.
+        保存された高さ 1 単位あたりの nm。ヘッダが値の単位を宣言していなければ
+        ``None``。Gwyddion の並びが無いときは、値全体が長さ単位である最初の
+        コメントを宣言とみなす。
+
+    Raises
+    ------
+    ValueError
+        If the Gwyddion layout is present and its value unit is not a length.
     """
+    values = [m.group(1) for m in map(_GWY_ENTRY_RE.match, header_lines) if m]
+    for i in range(len(values) - 2):
+        # The layout is recognized by its shape alone: two sizes, each a number
+        # and a unit, then a bare unit or nothing. The sizes need not be in a
+        # length unit; an export in pixels still declares its value unit, and a
+        # phase channel exported in pixels must be refused like any other.
+        # 並びは形だけで見分ける。数値と単位の組であるサイズが 2 つ続き、その次が
+        # 単位 1 語か空。サイズが長さの単位である必要はない。画素単位で書き出しても
+        # 値の単位は宣言されており、画素単位で書き出した位相のチャンネルもほかと
+        # 同じく拒否しなければならない。
+        if (_GWY_SIZE_VALUE_RE.match(values[i])
+                and _GWY_SIZE_VALUE_RE.match(values[i + 1])
+                and len(values[i + 2].split()) <= 1):
+            unit = values[i + 2]
+            factor = _length_unit_nm(unit)
+            if factor is None:
+                raise _not_a_height(unit, "Gwyddion value-unit comment", path)
+            return factor
     for line in header_lines:
         m = _GWY_COMMENT_RE.match(line)
         if m is None:
             continue
-        um = _GWY_UNIT_ONLY_RE.match(m.group(1))
-        if um is not None:
-            return _LENGTH_UNIT_TO_NM.get(um.group(1).lower(), 1.0)
-    return 1.0
+        factor = _length_unit_nm(m.group(1))
+        if factor is not None:
+            return factor
+    return None
+
+
+def _shimadzu_height_unit_to_nm(header_lines: List[str], path: str = "") -> Optional[float]:
+    """
+    Return the nm-per-unit factor of a Shimadzu ``[DATA Unit(...)]`` line.
+    島津の ``[DATA Unit(...)]`` 行の nm 換算係数を返す。
+
+    Parameters
+    ----------
+    header_lines
+        Header lines before the data (`_read_header_lines`).
+        データより前のヘッダ行（`_read_header_lines`）。
+    path
+        The input file, named in the error message.
+        入力ファイル。例外のメッセージに載せる。
+
+    Returns
+    -------
+    float or None
+        Nanometres per unit of the stored heights; ``None`` when the header has
+        no ``[DATA Unit(...)]`` line.
+        保存された高さ 1 単位あたりの nm。ヘッダに ``[DATA Unit(...)]`` 行が
+        無ければ ``None``。
+
+    Raises
+    ------
+    ValueError
+        If the declared unit is not a length.
+    """
+    for line in header_lines:
+        m = _SHIMADZU_DATA_UNIT_RE.match(line)
+        if m is None:
+            continue
+        factor = _length_unit_nm(m.group(1))
+        if factor is None:
+            raise _not_a_height(m.group(1), "[DATA Unit(...)] line", path)
+        return factor
+    return None
+
+
+def _column_label_height_unit_to_nm(header_lines: List[str], path: str = "") -> Optional[float]:
+    """
+    Return the nm-per-unit factor of a single-column label such as ``Height(nm)``.
+    ``Height(nm)`` のような 1 列形式の見出しの nm 換算係数を返す。
+
+    Only the last non-blank line before the data is read, which is where Bruker
+    NanoScope single-column exports name their values; blank lines between the
+    label and the data are skipped so that they cannot hide a declared unit.
+    データより前の、空行でない最後の行だけを読む。Bruker NanoScope の 1 列形式の
+    出力が値の名前を書くのはその行である。見出しとデータの間の空行は飛ばし、
+    宣言された単位を空行が隠さないようにする。
+
+    Parameters
+    ----------
+    header_lines
+        Header lines before the data (`_read_header_lines`).
+        データより前のヘッダ行（`_read_header_lines`）。
+    path
+        The input file, named in the error message.
+        入力ファイル。例外のメッセージに載せる。
+
+    Returns
+    -------
+    float or None
+        Nanometres per unit of the stored values; ``None`` when that line does
+        not end in a unit in parentheses.
+        保存された値 1 単位あたりの nm。その行が括弧に入った単位で終わらなければ
+        ``None``。
+
+    Raises
+    ------
+    ValueError
+        If the unit in parentheses is not a length.
+    """
+    filled = [line for line in header_lines if line.strip()]
+    if not filled:
+        return None
+    m = _COLUMN_LABEL_UNIT_RE.match(filled[-1])
+    if m is None:
+        return None
+    factor = _length_unit_nm(m.group(1))
+    if factor is None:
+        raise _not_a_height(m.group(1), f"column label {filled[-1].strip()!r}", path)
+    return factor
 
 
 def read_scan_size(path: str) -> Optional[ScanSize]:
@@ -806,12 +1067,15 @@ def load_afm_text(
     （Bruker NanoScope 等）は 1 次元として読み込んだ後、要素数の平方根が整数の
     ときに限り正方形 ``(s, s)`` に reshape する。
 
-    Height values are returned in nanometers. Shimadzu/Bruker exports are
-    already in nm and pass through unchanged; a Gwyddion export that declares a
-    different unit in its header (e.g. ``# Value units: m``) is converted to nm.
-    高さ値は nm 単位で返す。島津/Bruker の出力は既に nm でそのまま通す。
-    Gwyddion 出力がヘッダで別単位（例: ``# Value units: m``）を宣言している場合は
-    nm へ換算する。
+    Height values are returned in nanometers. The unit the header declares --
+    Shimadzu's ``[DATA Unit(nm)]``, Gwyddion's ``# Value units: m``, or a
+    single-column label such as Bruker's ``Height(nm)`` -- is converted to nm
+    (`_length_unit_nm`); a file whose header declares no unit is taken to be in
+    nm already.
+    高さ値は nm 単位で返す。ヘッダが宣言する単位（島津の ``[DATA Unit(nm)]``、
+    Gwyddion の ``# Value units: m``、Bruker の ``Height(nm)`` のような 1 列形式の
+    見出し）を nm へ換算する（`_length_unit_nm`）。単位を宣言しないヘッダの
+    ファイルは、既に nm とみなす。
 
     Parameters
     ----------
@@ -838,11 +1102,14 @@ def load_afm_text(
         If the file exceeds `MAX_INPUT_FILE_BYTES`, if the numeric data
         region cannot be detected, if the multi-column region has an
         inconsistent column count, if a single-column file does not contain
-        a perfect-square number of values, or if the loaded data contains
-        non-finite values.
+        a perfect-square number of values, if the header declares a value unit
+        that is not a length (for example a phase channel in ``deg``), or if
+        the loaded data contains non-finite values.
         ファイルが `MAX_INPUT_FILE_BYTES` を超える場合、数値データ領域を
         検出できない場合、多列領域の列数が一致しない場合、1 列形式の要素数が
-        平方数にならない場合、または読み込んだデータに非有限値が含まれる場合。
+        平方数にならない場合、ヘッダが長さでない値の単位を宣言している場合
+        （例: ``deg`` の位相チャンネル）、または読み込んだデータに非有限値が
+        含まれる場合。
 
     Examples
     --------
@@ -869,7 +1136,23 @@ def load_afm_text(
     # カンマ）と高さの値単位（Gwyddion はメートル出力、島津/Bruker は既に nm）を
     # 取得する。
     header = _read_header_lines(path, info.encoding, info.skiprows + 1)
-    unit_to_nm = _gwyddion_height_unit_to_nm(header[:info.skiprows])
+    # The value unit is taken from whichever declaration the header carries:
+    # Shimadzu's [DATA Unit(...)], Gwyddion's value-unit comment, or a
+    # single-column label such as Bruker's "Height(nm)". A header that declares
+    # none is read as nanometres; one that declares a unit other than a length
+    # is refused, because the array is returned as heights in nm.
+    # 値の単位はヘッダにある宣言から取る。島津の [DATA Unit(...)]、Gwyddion の
+    # 値の単位のコメント、Bruker の "Height(nm)" のような 1 列形式の見出しである。
+    # 宣言の無いヘッダは nm とみなし、長さ以外の単位を宣言するものは拒否する。
+    # 配列を nm の高さとして返すためである。
+    lead = header[:info.skiprows]
+    unit_to_nm = _shimadzu_height_unit_to_nm(lead, path)
+    if unit_to_nm is None:
+        unit_to_nm = _gwyddion_height_unit_to_nm(lead, path)
+    if unit_to_nm is None and info.n_cols == 1:
+        unit_to_nm = _column_label_height_unit_to_nm(lead, path)
+    if unit_to_nm is None:
+        unit_to_nm = 1.0
 
     if info.n_cols > 1:
         # Multi-column: detect the delimiter from the first data row, then use
@@ -896,9 +1179,9 @@ def load_afm_text(
         data = flat.reshape(sqrt_size, sqrt_size)
 
     # Convert to nanometers when the header declares another unit (Gwyddion
-    # "Value units: m"); a factor of 1.0 leaves Shimadzu/Bruker data unchanged.
+    # "Value units: m"); a factor of 1.0 leaves nm data unchanged.
     # ヘッダが別単位を宣言している場合（Gwyddion の "Value units: m"）は nm へ
-    # 換算する。係数 1.0 のときは島津/Bruker のデータをそのまま通す。
+    # 換算する。係数 1.0 のときは nm のデータをそのまま通す。
     if unit_to_nm != 1.0:
         data = data * unit_to_nm
 

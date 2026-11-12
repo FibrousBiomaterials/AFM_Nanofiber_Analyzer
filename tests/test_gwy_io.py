@@ -189,3 +189,55 @@ def test_gwy_input_file_size_limit(synthetic_fiber_gwy, monkeypatch):
     # Restoring a generous limit loads the same file normally.
     monkeypatch.setattr(afm_io, "MAX_INPUT_FILE_BYTES", 2 * 1024**3)
     assert load_gwy_image(synthetic_fiber_gwy).data.shape == (128, 128)
+
+
+def _write_single_channel_gwy(path, *, z_unit, xy_unit="m", xreal=2e-6, yreal=2e-6):
+    """Write a one-channel .gwy with the given value and lateral units."""
+    from gwyfile.objects import GwyContainer, GwyDataField, GwySIUnit
+
+    field = GwyDataField(
+        np.full((32, 32), 0.5), xreal=xreal, yreal=yreal,
+        si_unit_xy=GwySIUnit(unitstr=xy_unit), si_unit_z=GwySIUnit(unitstr=z_unit),
+    )
+    container = GwyContainer()
+    container["/0/data"] = field
+    container["/0/data/title"] = "Channel"
+    container.tofile(str(path))
+    return str(path)
+
+
+@pytest.mark.parametrize("z_unit", ["deg", ""])
+def test_pipeline_refuses_gwy_without_a_length_channel(tmp_path, z_unit):
+    """Without a length channel, automatic selection refuses instead of analyzing as nm.
+
+    A channel that records no unit at all is refused too: its values may be a
+    height in metres or no height at all, and neither is a value in nm.
+    """
+    from lib.pipeline import ProcParams, process_file
+
+    path = _write_single_channel_gwy(tmp_path / "no_height.gwy", z_unit=z_unit)
+    with pytest.raises(ValueError, match="no channel with a length unit"):
+        process_file(path, ProcParams(), output_dir=str(tmp_path))
+    assert not list(tmp_path.glob("*.b2z"))
+
+
+def test_angstrom_channel_is_a_height(tmp_path):
+    """A value axis in angstroms is a length channel and is converted to nm."""
+    path = _write_single_channel_gwy(tmp_path / "angstrom.gwy", z_unit="Å")
+    image = load_gwy_image(path)
+    assert image.channel.is_length_channel
+    np.testing.assert_allclose(image.data, np.full((32, 32), 0.05), rtol=1e-12)
+
+
+def test_lateral_unit_is_read(tmp_path):
+    """xreal/yreal are read in the field's lateral unit, not assumed to be metres."""
+    path = _write_single_channel_gwy(tmp_path / "nm_xy.gwy", z_unit="m",
+                                     xy_unit="nm", xreal=2000.0, yreal=1500.0)
+    assert read_gwy_scan_size(path) == ScanSize(x_um=2.0, y_um=1.5)
+
+
+def test_non_length_lateral_unit_gives_no_scan_size(tmp_path):
+    """A lateral unit that is not a length yields no scan size rather than a guess."""
+    path = _write_single_channel_gwy(tmp_path / "px_xy.gwy", z_unit="m",
+                                     xy_unit="px", xreal=32.0, yreal=32.0)
+    assert read_gwy_scan_size(path) is None
