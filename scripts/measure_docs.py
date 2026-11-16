@@ -256,6 +256,7 @@ def kink_rule_sweep() -> dict:
         out = str(WORK / "kink_rule_sweep")
         quick = False
         variants = ["base", "k3"]
+        jobs = sweep.default_jobs()
 
     rows = sweep.run(Args)
     values: dict = {}

@@ -26,8 +26,11 @@ Usage
 
 Writes ``sweep.csv`` (one row per scan and variant) and prints a summary
 table under the output directory (``.tmp/kink_rule_sweep`` by default).
+``--jobs N`` sets how many worker processes analyze the scans; the result does
+not depend on it.
 出力ディレクトリ（既定 ``.tmp/kink_rule_sweep``）に ``sweep.csv``（画像 × 変種
-ごとに 1 行）を書き、要約表を表示する。
+ごとに 1 行）を書き、要約表を表示する。``--jobs N`` で、画像を解析するワーカー
+プロセスの数を指定する。結果はこの数によらない。
 """
 
 from __future__ import annotations
@@ -38,6 +41,7 @@ import math
 import os
 import sys
 import time
+from concurrent.futures import ProcessPoolExecutor
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -127,61 +131,123 @@ def _fiber_kinks(fibers, detector: KinkDetector):
     return kinks, length_px, (float(np.median(widths)) if widths else float("nan"))
 
 
+def default_jobs() -> int:
+    """
+    Return the number of worker processes the sweep uses by default.
+    掃引が既定で使うワーカープロセスの数を返す。
+
+    Returns
+    -------
+    int
+        One less than the logical CPU count, at least 1, so the machine stays
+        usable while the scans are analyzed.
+        論理 CPU 数より 1 少ない数（最小 1）。画像を解析している間も PC を
+        使えるようにするためである。
+    """
+    return max(1, (os.cpu_count() or 2) - 1)
+
+
+def _scan_rows(task: tuple) -> Tuple[List[dict], str]:
+    """
+    Render, analyze and score one scan; return its rows and a progress note.
+    画像 1 枚を描画・解析・採点し、その行と進捗表示用の文字列を返す。
+
+    A module-level function taking one picklable tuple, so `run` can hand the
+    scans to worker processes. A scan depends on nothing but its own task: the
+    noise is drawn from the task's seed and every file it writes is named by
+    its own stem.
+    `run` が画像をワーカープロセスへ渡せるよう、pickle 可能なタプル 1 つを受け取る
+    モジュール直下の関数にしている。1 枚の画像は自分のタスクだけで決まる。ノイズは
+    タスクの乱数の種から引き、書き出すファイルはすべて自分の stem で名付ける。
+    """
+    out, variant_names, w_px, noise, seed, fam = task
+    nm_per_px = APPARENT_WIDTH_NM / w_px
+    shape = _shape_for(nm_per_px)
+    lines, interior = families(nm_per_px, shape)[fam]
+    stem = "W%g_n%.2f_s%d_%s" % (w_px, noise, seed, fam)
+    scan = sf.render_scan(
+        lines, shape=shape, nm_per_px=nm_per_px,
+        fiber_diameter_nm=FIBER_DIAMETER_NM,
+        tip_radius_nm=TIP_RADIUS_NM, noise_nm=noise, seed=seed,
+        **BACKGROUND,
+    )
+    txt = sf.write_afm_text(scan, os.path.join(out, stem + ".txt"))
+    result = process_file(txt, ProcParams(), scan_size_um=scan.scan_size_um,
+                          scan_size_source="manual")
+    image = measure.load_tracking_image(result.bundle_path, nm_per_px, nm_per_px)
+    fibers = image.fibers_in_image_parallel()
+    tx, ty = scan.true_kinks_xy
+    rows: List[dict] = []
+    w_med = float("nan")
+    for vname in variant_names:
+        kinks, length_px, w_med = _fiber_kinks(
+            fibers, KinkDetector(**DEFAULT_VARIANTS[vname]))
+        length_um = length_px * nm_per_px / 1000.0
+        row = dict(W_px=w_px, W_measured_px=round(w_med, 2),
+                   nm_per_px=round(nm_per_px, 3), noise_nm=noise,
+                   seed=seed, family=fam, variant=vname,
+                   n_fibers=len(fibers), length_um=round(length_um, 3),
+                   kinks=len(kinks), true_interior_deg=interior,
+                   found=0, false=len(kinks),
+                   arm_interior_deg=float("nan"),
+                   excess_deg=float("nan"))
+        if tx.size and kinks:
+            # The nearest detection within 1.5 W of the true
+            # apex is the match; everything else is false.
+            # 真の頂点から 1.5 W 以内で最も近い検出を対応とし、
+            # それ以外はすべて偽とする。
+            d = [math.hypot(kx - tx[0], ky - ty[0]) for kx, ky, *_ in kinks]
+            j = int(np.argmin(d))
+            if d[j] <= 1.5 * kinks[j][4]:
+                row["found"] = 1
+                row["false"] = len(kinks) - 1
+                row["arm_interior_deg"] = round(kinks[j][2], 2)
+                row["excess_deg"] = round(kinks[j][3], 2)
+        rows.append(row)
+    return rows, "%-28s fibers %d  W %.1f px" % (stem, len(fibers), w_med)
+
+
 def run(args) -> List[dict]:
-    variants = {k: DEFAULT_VARIANTS[k] for k in args.variants}
+    """
+    Analyze every scan of the sweep and return one row per scan and variant.
+    掃引のすべての画像を解析し、画像 × 変種ごとに 1 行を返す。
+
+    The scans are independent, so ``args.jobs`` worker processes analyze them
+    side by side (1, or an ``args`` without ``jobs``, runs them in this
+    process). The rows come back in the order of the scans whatever the number
+    of workers, so ``sweep.csv`` and everything computed from the rows are the
+    same for any ``jobs``.
+    画像どうしは独立なので、``args.jobs`` 個のワーカープロセスが並行して解析する
+    （1、または ``jobs`` を持たない ``args`` では、このプロセス内で実行する）。行は
+    ワーカー数によらず画像の順に返るため、``sweep.csv`` と、行から計算するものは
+    すべて、どの ``jobs`` でも同じになる。
+    """
     widths = WIDTHS_PX if not args.quick else (3.0, 8.0)
     noises = NOISES_NM if not args.quick else (0.05, 0.30)
     seeds = SEEDS if not args.quick else (1,)
     os.makedirs(args.out, exist_ok=True)
-    rows: List[dict] = []
-    t0 = time.time()
-    n_scans = 0
+    tasks = []
     for w_px in widths:
         nm_per_px = APPARENT_WIDTH_NM / w_px
-        shape = _shape_for(nm_per_px)
+        fam_names = list(families(nm_per_px, _shape_for(nm_per_px)))
         for noise in noises:
             for seed in seeds:
-                for fam, (lines, interior) in families(nm_per_px, shape).items():
-                    stem = "W%g_n%.2f_s%d_%s" % (w_px, noise, seed, fam)
-                    scan = sf.render_scan(
-                        lines, shape=shape, nm_per_px=nm_per_px,
-                        fiber_diameter_nm=FIBER_DIAMETER_NM,
-                        tip_radius_nm=TIP_RADIUS_NM, noise_nm=noise, seed=seed,
-                        **BACKGROUND,
-                    )
-                    txt = sf.write_afm_text(scan, os.path.join(args.out, stem + ".txt"))
-                    result = process_file(txt, ProcParams(), scan_size_um=scan.scan_size_um,
-                                          scan_size_source="manual")
-                    image = measure.load_tracking_image(result.bundle_path, nm_per_px, nm_per_px)
-                    fibers = image.fibers_in_image_parallel()
-                    n_scans += 1
-                    tx, ty = scan.true_kinks_xy
-                    for vname, kwargs in variants.items():
-                        kinks, length_px, w_med = _fiber_kinks(fibers, KinkDetector(**kwargs))
-                        length_um = length_px * nm_per_px / 1000.0
-                        row = dict(W_px=w_px, W_measured_px=round(w_med, 2),
-                                   nm_per_px=round(nm_per_px, 3), noise_nm=noise,
-                                   seed=seed, family=fam, variant=vname,
-                                   n_fibers=len(fibers), length_um=round(length_um, 3),
-                                   kinks=len(kinks), true_interior_deg=interior,
-                                   found=0, false=len(kinks),
-                                   arm_interior_deg=float("nan"),
-                                   excess_deg=float("nan"))
-                        if tx.size and kinks:
-                            # The nearest detection within 1.5 W of the true
-                            # apex is the match; everything else is false.
-                            # 真の頂点から 1.5 W 以内で最も近い検出を対応とし、
-                            # それ以外はすべて偽とする。
-                            d = [math.hypot(kx - tx[0], ky - ty[0]) for kx, ky, *_ in kinks]
-                            j = int(np.argmin(d))
-                            if d[j] <= 1.5 * kinks[j][4]:
-                                row["found"] = 1
-                                row["false"] = len(kinks) - 1
-                                row["arm_interior_deg"] = round(kinks[j][2], 2)
-                                row["excess_deg"] = round(kinks[j][3], 2)
-                        rows.append(row)
-                    print("[%3d] %-28s fibers %d  W %.1f px  %.0fs" % (
-                        n_scans, stem, len(fibers), w_med, time.time() - t0), flush=True)
+                for fam in fam_names:
+                    tasks.append((args.out, tuple(args.variants), w_px, noise, seed, fam))
+    jobs = max(1, min(int(getattr(args, "jobs", 1) or 1), len(tasks)))
+    rows: List[dict] = []
+    t0 = time.time()
+
+    def collect(results) -> None:
+        for n_scans, (scan_rows, note) in enumerate(results, 1):
+            rows.extend(scan_rows)
+            print("[%3d] %s  %.0fs" % (n_scans, note, time.time() - t0), flush=True)
+
+    if jobs == 1:
+        collect(map(_scan_rows, tasks))
+    else:
+        with ProcessPoolExecutor(max_workers=jobs) as pool:
+            collect(pool.map(_scan_rows, tasks))
     with open(os.path.join(args.out, "sweep.csv"), "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         writer.writeheader()
@@ -230,6 +296,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--out", default=os.path.join(PROJECT_ROOT, ".tmp", "kink_rule_sweep"))
     parser.add_argument("--quick", action="store_true")
     parser.add_argument("--variants", nargs="*", default=list(DEFAULT_VARIANTS))
+    parser.add_argument("--jobs", type=int, default=default_jobs(),
+                        help="worker processes analyzing the scans (default: %(default)s)")
     args = parser.parse_args(argv)
     rows = run(args)
     summary = summarize(rows)
