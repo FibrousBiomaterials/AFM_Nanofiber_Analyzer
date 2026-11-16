@@ -1,7 +1,7 @@
 {
   "_comment": "SHA-256 of each symbol docs/gui04_measurements.md explains, with comments and docstrings removed. Refresh with `python scripts/check_gui04_docs.py --update` only after rereading the affected sections of both language versions.",
   "symbols": {
-    "lib/measure.py::measure_bundle": "82ce8b78b450edc0fdd95db7582b39b356debc2f20d31a7b02d019a05d013156",
+    "lib/measure.py::measure_bundle": "e506061796c30cb558caf83eec34601f840d42233f36b2e7fa79086ac3e69659",
     "lib/bundle_schema.py::pixel_size_nm": "62a3a2671ce2e963d46f8d6906823444aa214bd8a53c13a0140c4a6cfd734ef0",
     "lib/fiber_tracking_image.py::_build_fiber": "8362ca0f9a5e238bbb305f4d1899c3d24858c01cd746f640617ad3b5b9f12d58",
     "lib/fiber.py::Fiber.length": "e2a59e65c72f8c8f8e12247a4a350392327b0aa86bc836dd4960872802fc43bf",

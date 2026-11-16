@@ -84,6 +84,7 @@ return float(scan_size_um) * 1000.0 / (int(stored_pixels) + 1)
 data, meta = _load_validated_arrays(
     bundle_path, TRACKING_BUNDLE_KEYS, optional=_TRACKING_OPTIONAL_KEYS,
 )
+...
 height_px, width_px = data["calibrated"].shape
 x_size_per_pixel = pixel_size_nm(scale_um, width_px)
 y_size_per_pixel = pixel_size_nm(scale_y_um, height_px)

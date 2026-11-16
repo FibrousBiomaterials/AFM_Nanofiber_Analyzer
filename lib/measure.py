@@ -2633,7 +2633,12 @@ def measure_bundle(
     >>> type(result.stats[0]).__name__
     'FiberStats'
     """
-    recorded = read_scan_size_from_bundle(bundle_path)
+    data, meta = _load_validated_arrays(
+        bundle_path, TRACKING_BUNDLE_KEYS, optional=_TRACKING_OPTIONAL_KEYS,
+    )
+    # The recorded scan size comes from the metadata loaded with the arrays, so
+    # the metadata is not read from the bundle file a second time.
+    recorded = scan_size_um_from_meta(meta)
     if scale_um is None:
         if recorded is None:
             raise ValueError(
@@ -2671,9 +2676,6 @@ def measure_bundle(
         else SCALE_SOURCE_ENTERED
     )
 
-    data, meta = _load_validated_arrays(
-        bundle_path, TRACKING_BUNDLE_KEYS, optional=_TRACKING_OPTIONAL_KEYS,
-    )
     height_px, width_px = data["calibrated"].shape
     # Per-axis pixel size: X spans the columns (width), Y spans the rows
     # (height), matching the bundle coordinate convention (x=column, y=row).
