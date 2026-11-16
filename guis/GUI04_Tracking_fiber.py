@@ -50,12 +50,14 @@ PLUGIN_INFO = {
         "・高さプロファイル、ファイバー拡大像、およびAFM全体像の PNG 出力\n"
         "・全ファイバーの統計値 CSV エクスポート\n"
         "\n"
-        "入力フォルダは GUI01 の出力フォルダをそのまま指定してください。\n"
+        "GUI01 が出力した .b2z ファイルを開いてください。"
+        "GUI01 の「GUI04で開く」からも開けます。\n"
     )
 }
 
 # ===== Standard library =====
 import os
+import sys
 import math
 import traceback
 import queue
@@ -122,6 +124,7 @@ from lib.measure import (
     height_sample_mask, isolated_fiber_flags, measure_bundle,
     read_scan_size_from_bundle, write_fiber_csv,
 )
+from lib.plugin_launch import call_when_shown
 from lib.translator import _, current_language
 from lib.ui_tools import (
     apply_window_size, setup_matplotlib_style, save_figure_with_dialog, ToolTip,
@@ -185,44 +188,45 @@ OVERVIEW_MODE_FIBERS = "fibers"
 
 # ===== Utility functions =====
 
-def find_analyzed_stems(folder: str) -> List[str]:
+def read_sidecar_snapshot(stem: str) -> Tuple[Optional[bytes], Optional[bytes]]:
     """
-    Find GUI01 analyzed dataset stems in a folder.
-    フォルダ内から GUI01 の解析済みデータセットのステムを検出する。
+    Read the bytes of a dataset's two curation sidecars as they are on disk.
+    データセットの 2 つのキュレーション用サイドカーを、ディスク上のままバイト列で読む。
 
     Parameters
     ----------
-    folder
-        Folder that contains GUI01 output bundles.
-        GUI01 の出力バンドルを含むフォルダ。
+    stem
+        Dataset path without the bundle extension.
+        バンドル拡張子を除いたデータセットのパス。
 
     Returns
     -------
-    list of str
-        Full paths without the bundle extension, sorted by dataset name.
-        バンドル拡張子を除いたフルパスを、データセット名順に並べたリスト。
+    tuple
+        ``(exclusion, connection)`` file contents, ``None`` for a file that
+        does not exist or cannot be read.
+        ``(除外, 連結)`` ファイルの内容。存在しない、または読めないファイルは
+        ``None``。
 
     Notes
     -----
-    Only bundles that contain all required keys are accepted. For
-    ``sample.b2z``, this function returns the stem used later as
-    ``stem + BUNDLE_EXT``.
-    必須キーが全て揃っているバンドルだけを対象とする。``sample.b2z`` に
-    対しては、後段で ``stem + BUNDLE_EXT`` として使うステムを返す。
+    GUI01 opens a new GUI04 window each time its button is pressed, so two
+    windows can hold the same bundle, and a save in one would silently
+    replace the other's curation. The window compares this snapshot, taken
+    when the sidecars were read, with the files just before it writes them.
+    GUI01 はボタンを押すたびに新しい GUI04 ウインドウを開くため、2 つのウインドウ
+    が同じバンドルを開くことがあり、一方の保存が他方のキュレーションを黙って置き
+    換えてしまう。ウインドウはサイドカーを読んだ時点のこのスナップショットを、
+    書き出す直前のファイルと比べる。
     """
-    stems = []
-    try:
-        for fn in sorted(os.listdir(folder)):
-            if not fn.endswith(BUNDLE_EXT):
-                continue
-            base = fn[: -len(BUNDLE_EXT)]
-            stem = os.path.join(folder, base)
-            ok, _missing = bundle_has_keys(stem + BUNDLE_EXT, REQUIRED_BUNDLE_KEYS)
-            if ok:
-                stems.append(stem)
-    except OSError:
-        pass
-    return stems
+    bundle_path = stem + BUNDLE_EXT
+    contents = []
+    for path in (exclusion_path_for(bundle_path), connect_path_for(bundle_path)):
+        try:
+            with open(path, "rb") as fh:
+                contents.append(fh.read())
+        except OSError:
+            contents.append(None)
+    return contents[0], contents[1]
 
 
 def crop_with_margin(image: np.ndarray, bbox: tuple, pad: int) -> tuple:
@@ -798,8 +802,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
     Attributes
     ----------
     folder_path
-        Folder containing GUI01 output bundles.
-        GUI01 の出力バンドルを含むフォルダ。
+        Folder of the bundle last opened, where the open and save dialogs
+        start; empty before a bundle is opened.
+        最後に開いたバンドルのフォルダ。開く・保存ダイアログはここから始まる。
+        バンドルを開く前は空。
     current_image
         Currently loaded AFM tracking image, or ``None`` before selection.
         現在読み込まれている AFM 追跡画像。未選択時は ``None``。
@@ -809,12 +815,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     Notes
     -----
-    The layout has a top bar, a file list, a fiber table, an AFM overview, and
-    a log area. Fiber detail images and height profiles are displayed in one
-    non-modal ``FiberDetailWindow`` that follows the selected fiber.
-    レイアウトはトップバー、ファイル一覧、ファイバー一覧、AFM 全体像、ログ領域で
-    構成される。ファイバー拡大像と高さプロファイルは、選択ファイバーに追従する
-    非モーダルの ``FiberDetailWindow`` で表示する。
+    The layout has a top bar, a fiber table, an AFM overview, and a log area;
+    one bundle is open at a time, named in the window title. Fiber detail
+    images and height profiles are displayed in one non-modal
+    ``FiberDetailWindow`` that follows the selected fiber.
+    レイアウトはトップバー、ファイバー一覧、AFM 全体像、ログ領域で構成される。
+    一度に開くバンドルは 1 つで、その名前をウインドウタイトルに示す。ファイバー
+    拡大像と高さプロファイルは、選択ファイバーに追従する非モーダルの
+    ``FiberDetailWindow`` で表示する。
     """
 
     def __init__(self) -> None:
@@ -859,6 +867,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 再解析のたびにダイアログを繰り返さないために保持する。
         self._scale_override_warned: Optional[tuple] = None
         self.current_stem:   str = ""
+        # The loaded dataset's sidecars as they were read, ``(stem, snapshot)``
+        # from `read_sidecar_snapshot`, so a save can tell whether another
+        # window wrote them since. The pending copy is taken when a load starts
+        # and adopted only when that load succeeds.
+        # 読み込んだ時点のサイドカーの内容。`read_sidecar_snapshot` による
+        # ``(stem, スナップショット)`` で、保存時に別のウインドウがその後書き換え
+        # たかを判別するために使う。読み込み開始時に保留側へ取り、その読み込みが
+        # 成功したときだけ採用する。
+        self._sidecar_snapshot: Optional[tuple] = None
+        self._pending_sidecar_snapshot: Optional[tuple] = None
 
         # Index of the focused fiber in the current table. The table allows a
         # multi-row selection, and this is the single row the detail window,
@@ -1012,13 +1030,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # deliberate act rather than a side effect of clicking, because the
         # sidecar is an analysis input: GUI03 aggregates over what it says, so
         # a mis-click must not reach the file on its own. The cost of that
-        # choice is unsaved state, which the guards on dataset switch, folder
-        # change, and window close exist to keep from being lost silently.
+        # choice is unsaved state, which the guards on opening a bundle and on
+        # window close exist to keep from being lost silently.
         # 除外集合がディスク上の内容と異なるかどうか。保存はクリックの副作用では
         # なく意図的な操作とする。サイドカーは解析入力であり、GUI03 はその内容に
         # 従って集計するため、誤クリックが独りでにファイルへ到達してはならない。
-        # その代償が未保存状態であり、データセット切替・フォルダ変更・ウインドウ
-        # 終了時のガードは、それを黙って失わせないために存在する。
+        # その代償が未保存状態であり、バンドルを開くとき・ウインドウ終了時の
+        # ガードは、それを黙って失わせないために存在する。
         self._exclusions_dirty = False
 
         # The exclusion set as it stands on disk, kept as a comparison key so
@@ -1186,13 +1204,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _build_topbar(self) -> None:
         """
-        Build the top toolbar with folder, scale, filter, and unit controls.
-        フォルダ、スケール、フィルター、単位コントロールを持つ上部バーを構築する。
+        Build the top toolbar with open, scale, filter, and unit controls.
+        ファイルを開く、スケール、フィルター、単位コントロールを持つ上部バーを構築する。
         """
         bar = ttk.Frame(self)
         bar.pack(side="top", fill="x", padx=8, pady=5)
 
-        ttk.Button(bar, text=_("📂 フォルダ選択"), command=self._on_select_folder).pack(side="left", padx=4)
+        ttk.Button(bar, text=_("📂 ファイルを開く"), command=self._on_open_file).pack(side="left", padx=4)
         ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=6, pady=2)
 
         # -- Scale (micrometers): same Enter-to-commit behavior as GUI01 --
@@ -1566,38 +1584,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _build_main(self) -> None:
         """
-        Build the main horizontal pane that contains file and analysis views.
-        ファイル表示と解析表示を含むメイン横ペインを構築する。
+        Build the main area that holds the analysis views.
+        解析表示を収めるメイン領域を構築する。
         """
-        paned = ttk.PanedWindow(self, orient="horizontal")
-        paned.pack(fill="both", expand=True, padx=8, pady=4)
-
-        left   = ttk.Frame(paned)
-        center = ttk.Frame(paned)
-        paned.add(left,   weight=1)
-        paned.add(center, weight=8)
-
-        self._build_left_pane(left)
+        center = ttk.Frame(self)
+        center.pack(fill="both", expand=True, padx=8, pady=4)
         self._build_center_pane(center)
-
-    def _build_left_pane(self, parent: ttk.Frame) -> None:
-        """
-        Build the dataset list pane.
-        データセット一覧ペインを構築する。
-        """
-        lf = ttk.LabelFrame(parent, text=_("ファイル一覧"))
-        lf.pack(fill="both", expand=True, padx=4, pady=4)
-
-        self.file_tree, _file_vsb = create_scrolled_treeview(
-            lf,
-            columns=("name",),
-            show="headings",
-            selectmode="browse",
-            height=30,
-            headings={"name": _("データセット名")},
-            column_options={"name": {"width": 140, "anchor": "w"}},
-        )
-        self.file_tree.bind("<<TreeviewSelect>>", self._on_file_select)
 
     def _build_center_pane(self, parent: ttk.Frame) -> None:
         """
@@ -2259,12 +2251,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Notes
         -----
         This is not a dataset switch, so it does not go through
-        `_on_file_select`: that path asks whether to save unsaved exclusions
+        `_on_open_file`: that path asks whether to save unsaved exclusions
         before replacing them, which is right when leaving a dataset and wrong
         here. The dataset stays loaded and its exclusions stay with it, so
         turning fiber connection on, changing the scale, or editing the
         connection parameters carries the curation through untouched.
-        これはデータセットの切替ではないため `_on_file_select` を経由しない。同
+        これはデータセットの切替ではないため `_on_open_file` を経由しない。同
         メソッドは未保存の除外を置き換える前に保存の可否を尋ねるが、それはデータ
         セットから離れるときに正しい処理であり、ここでは誤りである。データセットは
         読み込まれたままで除外もそれに付随するので、自動連結の実行、スケール
@@ -2304,136 +2296,106 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         return int(math.ceil(mx + 1.0))
 
     # =========================================================================
-    # Folder selection
+    # Opening a bundle
     # =========================================================================
 
     def _default_save_dir(self) -> str:
         """
-        Return the selected GUI01 output folder for save dialogs.
-        保存ダイアログ用に、選択済みの GUI01 出力フォルダを返す。
+        Return the folder of the bundle last opened, for save dialogs.
+        保存ダイアログ用に、最後に開いたバンドルのフォルダを返す。
         """
         return self.folder_path or os.getcwd()
 
-    def _on_select_folder(self) -> None:
+    def _on_open_file(self) -> None:
         """
-        Handle folder selection and reset dataset-dependent UI state.
-        フォルダ選択時に、データセット依存の UI 状態を初期化する。
+        Ask for a GUI01 bundle and open it.
+        GUI01 のバンドルを選ばせて開く。
         """
-        # Changing folders drops the current dataset, so its unsaved exclusions
-        # are offered first, before the dialog replaces everything.
-        # フォルダ変更は現在のデータセットを破棄するため、ダイアログで全てが
-        # 置き換わる前に未保存の除外の扱いを確認する。
-        if not self._confirm_unsaved_curation():
-            return
-
-        folder = filedialog.askdirectory(title=_("GUI01 の出力フォルダを選択"))
-        if not folder:
-            return
-        self._end_region_select()
-        self.folder_path = folder
-        self._log(_("フォルダ: {folder}").format(folder=folder))
-
-        stems = find_analyzed_stems(folder)
-        for iid in self.file_tree.get_children():
-            self.file_tree.delete(iid)
-
-        # -- Reset state when switching folders --
-        # Clear the height-filter checkbox but keep the Entry values.
-        # 高さフィルター はチェック OFF、Entry 値は保持する。
-        self.filter_enabled_var.set(False)
-        self._filter_active   = False
-        self._filtered_fibers = []
-        # Clear retained dataset objects.
-        self.current_image     = None
-        self.current_fibers    = []
-        self.current_fragments = []
-        self.current_stem      = ""
-        self._fiber_stats      = []
-        self._sel_idx          = None
-        self._sel_indices      = []
-        self._overview_bg_drawn = False
-        self._highlight_patches = []
-        # Drop the pan/zoom view state with the dataset: the next dataset gets
-        # its own full view, and stale limits must not be restored onto it.
-        # パン/ズームの状態もデータセットと一緒に破棄する。次のデータセットは
-        # 自身の全体表示から始まり、古い軸範囲を復元してはならない。
-        self._afm_home_limits = None
-        self._afm_extent_key  = None
-        self._overview_labels = []
-        self._overview_boxes  = []
-        # Clear the fiber table.
-        for iid in self.fiber_tree.get_children():
-            self.fiber_tree.delete(iid)
-        # Clear the AFM overview.
-        self._afm_ax.clear()
-        self._afm_ax.axis("off")
-        if self._afm_cbar is not None:
-            try:
-                self._afm_cbar.remove()
-            except Exception:
-                pass
-            self._afm_cbar = None
-        self._afm_canvas.draw_idle()
-        # Clear detail-window plots if a detail window is open.
-        if self._detail_window_alive():
-            try:
-                self._detail_window.clear_for_no_selection()
-            except Exception:
-                pass
-
-        if not stems:
-            self._log(_("解析済みデータセットが見つかりませんでした。"))
-            return
-
-        for stem in stems:
-            self.file_tree.insert("", "end", iid=stem, values=(os.path.basename(stem),))
-        self._log(_("{count} 件のデータセットを検出しました。").format(count=len(stems)))
-        # Do not auto-select; after folder selection, the dataset intentionally stays unselected.
-        # 自動選択は行わない（仕様変更：フォルダ選択直後は未選択）。
-
-    # =========================================================================
-    # File selection
-    # =========================================================================
-
-    def _on_file_select(self, _event=None) -> None:
-        """
-        Start loading and analyzing the selected GUI01 bundle in a worker thread.
-        選択された GUI01 バンドルの読み込みと解析をワーカースレッドで開始する。
-        """
-        sel = self.file_tree.selection()
-        if not sel:
-            return
-        stem = sel[0]
-        # Selecting the dataset that is already loaded is not a switch. A
-        # cancelled switch puts the selection back on it (below and in
-        # `_start_analysis`), which fires this handler again; loading it then
-        # would reload it from disk, dropping unsaved curation, and ask again.
-        # 読み込み済みのデータセットを選ぶのは切替ではない。切替を中止すると選択が
-        # それに戻り（下記と `_start_analysis`）、このハンドラーが再び呼ばれる。
-        # そこで読み込むと、ディスクから読み直して未保存のキュレーションを失い、
-        # 同じ確認を再び出してしまう。
-        if stem == self.current_stem and self.current_image is not None:
-            return
         if self.is_running:
             self._log(_("読み込み中です。しばらくお待ちください。"))
             return
-
-        # Exclusions belong to the dataset being left, so ask before the load
-        # replaces them. Cancelling restores the tree selection, otherwise the
-        # highlight would sit on a dataset that was never loaded.
-        # 除外はこれから離れるデータセットに属するため、読み込みが上書きする前に
-        # 確認する。中止した場合はツリーの選択を戻す。そうしないと、読み込まれて
-        # いないデータセットの上に選択表示だけが残る。
+        # Opening another bundle leaves the current dataset, so its unsaved
+        # curation is offered first, before the dialog is shown.
+        # 別のバンドルを開くと現在のデータセットを離れるため、ダイアログを出す前に
+        # 未保存のキュレーションの扱いを確認する。
         if not self._confirm_unsaved_curation():
-            if self.current_stem and self.file_tree.exists(self.current_stem):
-                self.file_tree.selection_set(self.current_stem)
-                self.file_tree.focus(self.current_stem)
             return
+        # Start in the folder of the bundle open now: a window GUI01 started
+        # is a new process, in which the dialog remembers no earlier folder.
+        # 現在開いているバンドルのフォルダから始める。GUI01 が起動したウインドウは
+        # 新しいプロセスであり、ダイアログは以前のフォルダを覚えていない。
+        dialog_kwargs = {}
+        if self.folder_path:
+            dialog_kwargs["initialdir"] = self.folder_path
+        path = filedialog.askopenfilename(
+            title=_("GUI01 のバンドルを開く"),
+            filetypes=[(_("バンドル"), "*" + BUNDLE_EXT)],
+            **dialog_kwargs,
+        )
+        if not path:
+            return
+        self.open_bundle(path)
+
+    def open_bundle(self, path: str) -> None:
+        """
+        Open one GUI01 bundle, chosen in the dialog or handed over by GUI01.
+        ダイアログで選んだ、または GUI01 から渡された GUI01 バンドルを 1 つ開く。
+
+        Parameters
+        ----------
+        path
+            ``.b2z`` bundle written by GUI01.
+            GUI01 が書き出した ``.b2z`` バンドル。
+
+        Notes
+        -----
+        The bundle is checked for the keys GUI04 reads before anything of the
+        current dataset is replaced, so a file that cannot be opened leaves
+        the dataset on screen as it was. Unsaved curation is asked about by
+        the caller: `_on_open_file` before its dialog, while a window started
+        with a bundle has nothing loaded yet.
+        現在のデータセットを何も置き換えないうちに、GUI04 が読むキーがバンドルに
+        揃っているかを確かめる。開けないファイルでは、画面上のデータセットは元の
+        まま残る。未保存のキュレーションの確認は呼び出し側が行う。`_on_open_file`
+        はダイアログの前に確認し、バンドルを渡されて起動したウインドウにはまだ何も
+        読み込まれていない。
+        """
+        path = os.path.abspath(path)
+        name = os.path.basename(path)
+        if not path.lower().endswith(BUNDLE_EXT) or not os.path.isfile(path):
+            messagebox.showerror(
+                _("エラー"),
+                _("GUI01 のバンドル ({ext}) ではないか、ファイルが見つかりません: {path}").format(
+                    ext=BUNDLE_EXT, path=path,
+                ),
+                parent=self,
+            )
+            return
+        # A file that cannot be read reports every key as missing.
+        # 読めないファイルでは全キーが欠けていると報告される。
+        ok, missing = bundle_has_keys(path, REQUIRED_BUNDLE_KEYS)
+        if not ok:
+            message = _(
+                "このバンドルは開けません。ファイルを読めないか、GUI04 が読むデータが"
+                "不足しています: {missing}"
+            ).format(missing=", ".join(missing))
+            self._log("{0}: {1}".format(name, message))
+            messagebox.showerror(_("エラー"), message, parent=self)
+            return
+
+        # Opening the bundle that is already loaded reads it again from disk,
+        # which is how curation saved from another window is brought in; the
+        # unsaved curation of this window was asked about before the dialog.
+        # 読み込み済みのバンドルを開くと、ディスクから読み直す。別のウインドウで
+        # 保存したキュレーションを取り込む方法がこれである。このウインドウの未保存
+        # のキュレーションは、ダイアログの前に確認済みである。
+        stem = path[: -len(BUNDLE_EXT)]
 
         # A region drawn for the dataset being left would select in the next.
         # 離れるデータセットのために始めた範囲指定が次のデータセットで選択しない
         # ようにする。
         self._end_region_select()
+        self.folder_path = os.path.dirname(path)
         self._start_analysis(stem, reuse_exclusions=False)
 
     def _report_scale_override(
@@ -2594,9 +2556,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             if value is None:
                 self.is_running = False
                 self._log(_("スケールが入力されなかったため、読み込みを中止しました。"))
-                if self.current_stem and self.file_tree.exists(self.current_stem):
-                    self.file_tree.selection_set(self.current_stem)
-                    self.file_tree.focus(self.current_stem)
                 return
             self.scale_um = float(value)
             self.scale_um_var.set(self._fmt_num(self.scale_um))
@@ -2631,6 +2590,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 再解析では行わない。再解析はまさにその切替やパラメータ編集によって開始
         # されるため、ここで読み直すとそれを取り消してしまう。
         if not reuse_exclusions:
+            # Taken before the sidecars are read, so a write that lands in
+            # between makes the save ask rather than overwrite unasked.
+            # サイドカーを読む前に取る。その間に書き込みがあっても、保存時に黙って
+            # 上書きせず確認が出るようにするためである。
+            self._pending_sidecar_snapshot = (stem, read_sidecar_snapshot(stem))
             self._restore_connect_plan(stem)
 
         # Capture the connection result now so the worker is not affected by
@@ -2867,6 +2831,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 対して解決されてしまう。
         if not reuse_exclusions:
             self._connect_history = []
+            self._sidecar_snapshot = self._pending_sidecar_snapshot
+            self.title("{0} – {1}".format(
+                PLUGIN_INFO["name"], os.path.basename(stem) + BUNDLE_EXT,
+            ))
         # Filter activation follows the checkbox and is applied later if enabled.
         # フィルターはチェックボックスの状態を参照する（チェックONなら後で適用）。
         self._filter_active  = False
@@ -2907,10 +2875,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # Freshly loaded from disk, so nothing is pending and this set is
             # the baseline every later edit is compared against. Any unsaved
             # change from the previous dataset was already resolved by the
-            # guard in _on_file_select before this load was started.
+            # guard in _on_open_file before this load was started.
             # ディスクから読み直した直後なので保留中の変更は無く、この集合が以後
             # の編集を比較する基準となる。前のデータセットの未保存の変更は、この
-            # 読み込みが始まる前に _on_file_select のガードで処理済みである。
+            # 読み込みが始まる前に _on_open_file のガードで処理済みである。
             #
             # A sidecar that failed to load arrives here empty, so the baseline
             # is "no exclusions" and the broken file is left untouched until
@@ -2974,8 +2942,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 表示モードで分岐し、ファイル切替後も色分け表示を維持する。
         self._rebuild_overview_bg()
 
-        # Auto-select the first fiber after file selection, unlike folder selection.
-        # 先頭ファイバーを自動選択（ファイル選択時は内部選択を行う、フォルダ選択時とは別）。
+        # Auto-select the first fiber once a bundle is loaded.
+        # バンドルを読み込んだら先頭ファイバーを自動選択する。
         children = self.fiber_tree.get_children()
         if children:
             self.fiber_tree.selection_set(children[0])
@@ -3054,7 +3022,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Enable or disable selection widgets during loading.
         読み込み中の誤操作を防ぐため、選択ウィジェットを有効化または無効化する。
         """
-        self.file_tree.configure(selectmode="browse" if enabled else "none")
         self.fiber_tree.configure(selectmode="extended" if enabled else "none")
 
     # =========================================================================
@@ -3633,6 +3600,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if self.current_image is None:
             messagebox.showinfo(_("情報"), _("データセットを選択してください。"))
             return False
+        if not self._confirm_sidecars_unchanged():
+            return False
 
         bundle_name = os.path.basename(self.current_stem) + BUNDLE_EXT
         try:
@@ -3645,6 +3614,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 _("除外ファイルを保存できませんでした:\n{err}").format(err=e),
             )
             return False
+        # Recorded after each write, so a failed connection write below does
+        # not make this window's own exclusion file read as someone else's.
+        # 書き込みごとに記録し直す。下の連結の書き出しが失敗しても、このウインドウ
+        # 自身が書いた除外ファイルを他者の変更と取り違えないようにする。
+        self._record_sidecar_snapshot()
 
         # The plan is written with the thresholds now in the settings window
         # and the fingerprint of the skeleton it was built on, so a later read
@@ -3666,6 +3640,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 _("連結ファイルを保存できませんでした:\n{err}").format(err=e),
             )
             return False
+        self._record_sidecar_snapshot()
         self.connect_plan = plan
 
         if self._excluded_records:
@@ -3697,6 +3672,57 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._refresh_curation_button()
         return True
 
+    def _record_sidecar_snapshot(self) -> None:
+        """
+        Remember the loaded dataset's sidecars as they are on disk now.
+        読み込み済みデータセットのサイドカーの現在のディスク上の内容を記録する。
+        """
+        self._sidecar_snapshot = (
+            self.current_stem, read_sidecar_snapshot(self.current_stem),
+        )
+
+    def _confirm_sidecars_unchanged(self) -> bool:
+        """
+        Ask before overwriting sidecars written elsewhere since they were read.
+        読み込み後に他所で書き換えられたサイドカーを上書きする前に確認する。
+
+        Returns
+        -------
+        bool
+            True when the files are as this window read them or the user
+            chose to overwrite them, False when the save is to be abandoned.
+            ファイルがこのウインドウの読んだときのままか、ユーザーが上書きを
+            選んだ場合は True、保存を中止する場合は False。
+
+        Notes
+        -----
+        GUI01 opens a new window each time "GUI04で開く" is pressed, so the
+        same bundle can be open twice. Each window keeps its curation in
+        memory until it saves, so without this check the later save would
+        replace the earlier one's work with nothing to say so.
+        GUI01 は「GUI04で開く」を押すたびに新しいウインドウを開くため、同じバンドル
+        が 2 つ開いていることがある。各ウインドウは保存するまでキュレーションを
+        メモリ上に持つので、この確認が無ければ、後から保存した側が先に保存した側
+        の作業を、何も知らせずに置き換えてしまう。
+        """
+        snapshot = self._sidecar_snapshot
+        if snapshot is None or snapshot[0] != self.current_stem:
+            return True
+        if read_sidecar_snapshot(self.current_stem) == snapshot[1]:
+            return True
+        return messagebox.askyesno(
+            _("除外・連結ファイルの上書き"),
+            _("このバンドルの {excluded} または {connect} は、このウインドウが読み込んだ"
+              "後に、別のウインドウなどで書き換えられています。上書きすると、その変更は"
+              "失われます。上書きしますか？\n"
+              "「いいえ」で保存を中止します。書き換えられた内容を読み込むには、この"
+              "バンドルを開き直してください。").format(
+                excluded=EXCLUSION_SUFFIX, connect=CONNECT_SUFFIX,
+            ),
+            icon="warning",
+            parent=self,
+        )
+
     def _confirm_unsaved_curation(self) -> bool:
         """
         Offer to save unsaved curation before leaving the current dataset.
@@ -3711,11 +3737,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Notes
         -----
         Manual saving is only safe if leaving cannot silently drop the work,
-        so every path out of a dataset — selecting another one, changing the
-        folder, closing the window — goes through here.
+        so every path out of a dataset — opening a bundle, closing the
+        window — goes through here.
         手動保存が成立するのは、離脱によって作業が黙って失われない場合に限る。
-        そのため、データセットから出る全ての経路（別データセットの選択、フォルダ
-        変更、ウインドウ終了）はここを通す。
+        そのため、データセットから出る全ての経路（バンドルを開く、ウインドウ
+        終了）はここを通す。
 
         The connection state is covered as well as the exclusion set, so a
         dataset switch cannot drop an unsaved connection change without a word.
@@ -8078,10 +8104,21 @@ class ColumnHelpWindow(tk.Toplevel):
 
 def main() -> None:
     """
-    Launch the GUI04 fiber tracking application.
-    GUI04 ファイバー追跡アプリケーションを起動する。
+    Launch the GUI04 fiber tracking application, opening any bundle named on the command line.
+    GUI04 ファイバー追跡アプリケーションを起動し、コマンドラインで指定されたバンドルを開く。
+
+    GUI01's "GUI04で開く" passes the bundle it is showing as the first
+    argument (`lib.plugin_launch`); without one the window opens empty.
+    GUI01 の「GUI04で開く」は表示中のバンドルを第 1 引数として渡す
+    （`lib.plugin_launch`）。引数が無ければ空のウインドウで開く。
     """
     app = App()
+    if len(sys.argv) > 1:
+        # Open once the window is on screen, so the scale prompt and any error
+        # dialog appear over it.
+        # スケール入力やエラーダイアログがウインドウの上に出るよう、ウインドウの
+        # 表示後に開く。
+        call_when_shown(app, app.open_bundle, sys.argv[1])
     app.mainloop()
 
 # Run main only when this file is executed directly, not when imported.

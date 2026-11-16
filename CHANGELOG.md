@@ -174,6 +174,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   scan size was otherwise recorded nowhere but GUI04's log. Earlier CSVs still
   read. No measured value changes, but the CSV written for the same bundle is
   no longer byte-identical.
+- GUI01 opens its results in the measuring tools. 「GUI02で開く」 and
+  「GUI04で開く」, above the preview, open the bundle the preview shows in Plot
+  Profiler or Fiber Tracker, and 「このフォルダをGUI03で解析」, at the head of the
+  file list, opens Fiber Morphology Statistics with the folder registered in
+  its first group. Each press opens a new window. The plugins are started
+  through the launcher's `--run-plugin`, which now hands the arguments after
+  the module name to the plugin as `sys.argv[1:]` (`lib.plugin_launch`). The
+  two preview buttons stand beside 「画像を保存」 and 「個別表示」; to make room on
+  that row, the preview's four font sizes are set in a window opened by
+  「フォントサイズ…」. Analysis results do not change.
 
 ### Changed
 
@@ -373,6 +383,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   interval from resampling the fibers within each folder 200 times, with a
   fixed seed. One folder reads as before. The statistics CSV gains twelve last
   columns for the ranges and the intervals.
+- GUI04 opens one `.b2z` file, with 「📂 ファイルを開く」 or from GUI01's
+  「GUI04で開く」, instead of listing a folder: the file list on the left and
+  「📂 フォルダ選択」 are gone, and the window title names the open bundle.
+  Opening the bundle already open reads it again from disk. Because GUI01 can
+  open one bundle in two windows, saving the curation asks before overwriting
+  an exclusion or connection file that changed on disk after the window read
+  it. Analysis results do not change.
 
 ### Fixed
 

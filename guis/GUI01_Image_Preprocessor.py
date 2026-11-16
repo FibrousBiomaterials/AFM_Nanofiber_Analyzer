@@ -108,6 +108,7 @@ from lib.stripe_noise import (
     DEFAULT_STEP_THRESHOLD_NM, StripeNoise, evaluate_scan_lines,
     propose_clean_ranges,
 )
+from lib.plugin_launch import launch_plugin
 from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, ToolTip, setup_matplotlib_style,
@@ -124,6 +125,15 @@ from lib.ui_tools import (
 STATUS_PENDING  = "pending"    # Not analyzed.
 STATUS_RUNNING  = "running"    # Analysis in progress.
 STATUS_ANALYZED = "analyzed"   # Analysis complete.
+
+# ===== Plugins this window opens on its results =====
+# Import paths handed to `lib.plugin_launch.launch_plugin`, the same form the
+# launcher uses for its buttons.
+# `lib.plugin_launch.launch_plugin` に渡す import パス。ランチャーのボタンと
+# 同じ形である。
+PROFILER_MODULE   = "guis.GUI02_PlotProfiler"
+STATISTICS_MODULE = "guis.GUI03_Fiber_Morphology_Statistics"
+TRACKER_MODULE    = "guis.GUI04_Tracking_fiber"
 
 # ===== File-table column layout =====
 # Fixed column order of the tksheet file table; rows are append-only and the
@@ -1122,6 +1132,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # アイドル時へ遅延させ、セル編集の応答性を保つ。
         self._preview_row: Optional[int] = None
         self._preview_redraw_pending = False
+        # Item whose bundle the preview is drawing now, None while it is blank.
+        # "GUI02で開く" / "GUI04で開く" open this bundle and are enabled only
+        # while there is one, so they never hand over a file the user is not
+        # looking at.
+        # プレビューが現在描画しているバンドルの項目。空白のときは None。
+        # 「GUI02で開く」「GUI04で開く」はこのバンドルを開き、これがあるときだけ
+        # 押せる。ユーザーが見ていないファイルを渡すことはない。
+        self._preview_shown_item: Optional[FileItem] = None
 
         # Scale display is applied immediately to all preview panels.
         self.show_scale_var = tk.BooleanVar(value=False)
@@ -1259,6 +1277,21 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             text=_("X / Y セルは直接入力・Excel から貼り付け可"),
             foreground="#8a8a8a",
         ).pack(side="left", padx=(8, 0))
+        # The hand-over to GUI03 acts on the whole folder, so it sits on the
+        # list's own header rather than with the per-file preview controls.
+        # GUI03 への受け渡しはフォルダ全体に対する操作なので、ファイル単位の
+        # プレビュー操作ではなく一覧の見出し行に置く。
+        self.btn_open_gui03 = ttk.Button(
+            list_header, text=_("このフォルダをGUI03で解析"),
+            command=self.on_open_folder_in_gui03,
+        )
+        self.btn_open_gui03.pack(side="right")
+        ToolTip(
+            self.btn_open_gui03,
+            _("Fiber Morphology Statistics (GUI03) を新しいウインドウで開き、"
+              "このフォルダを最初のグループに登録します。") + "\n"
+            + _("解析済みのファイルが無いとき、または解析の実行中は押せません。"),
+        )
 
         # Inner frame hosts the spreadsheet-style file table.
         list_inner = ttk.Frame(list_frame)
@@ -2090,7 +2123,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Entry-based numeric controls use Enter-to-commit so partial edits do not
         # immediately redraw figures with invalid or unintended values.
         self._build_preview_scale_row()
-        self._build_preview_font_row()
+        self._build_preview_action_row()
 
     def _build_preview_scale_row(self) -> None:
         """
@@ -2170,59 +2203,153 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
         ToolTip(lbl_overlay, overlay_help)
 
-    def _build_preview_font_row(self) -> None:
+    def _build_preview_action_row(self) -> None:
         """
-        Build preview row 2: title/label/tick/legend font sizes, image export, single-view.
-        プレビュー行2（タイトル/軸ラベル/軸目盛/凡例のフォントサイズ・画像保存・個別表示）を構築する。
+        Build preview row 2: font sizes, then what can be done with the shown result.
+        プレビュー行2（フォントサイズ、続いて表示中の結果に対する操作）を構築する。
         """
-        # -- Row 2: font sizes, image export, and single-view dialog --
         ctrl2 = ttk.Frame(self.right_frame)
         ctrl2.pack(side="top", fill="x", padx=4, pady=(0, 4))
 
-        ttk.Label(ctrl2, text=_("フォントサイズ：タイトル")).pack(side="left", padx=(8, 2))
-        self.ent_title_fs = ttk.Entry(ctrl2, width=5, textvariable=self.title_fs_var)
-        self.ent_title_fs.pack(side="left", padx=2)
-        self._register_unconfirmed_entry(
-            self.ent_title_fs,
-            lambda: self._fmt_num(self.fs_title),
-            self.validate_main_font_sizes,
+        # The four font sizes sit in their own small window. Inline they left
+        # no room on this row, at the default window width, for the four
+        # action buttons to stand together.
+        # 4 つのフォントサイズは専用の小さなウインドウに置く。この行に並べると、
+        # 既定のウインドウ幅では 4 つの操作ボタンを並べる余地が残らない。
+        self.btn_font_sizes = ttk.Button(
+            ctrl2, text=_("フォントサイズ…"), command=self.on_open_font_sizes)
+        self.btn_font_sizes.pack(side="left", padx=(8, 4))
+        ToolTip(
+            self.btn_font_sizes,
+            _("プレビューのタイトル・軸ラベル・軸目盛・凡例のフォントサイズを"
+              "設定するウインドウを開きます。"),
         )
+        self._build_font_size_window()
 
-        ttk.Label(ctrl2, text=_("軸ラベル")).pack(side="left", padx=(10, 2))
-        self.ent_label_fs = ttk.Entry(ctrl2, width=5, textvariable=self.label_fs_var)
-        self.ent_label_fs.pack(side="left", padx=2)
-        self._register_unconfirmed_entry(
-            self.ent_label_fs,
-            lambda: self._fmt_num(self.fs_label),
-            self.validate_main_font_sizes,
-        )
-
-        ttk.Label(ctrl2, text=_("軸目盛")).pack(side="left", padx=(10, 2))
-        self.ent_tick_fs = ttk.Entry(ctrl2, width=5, textvariable=self.tick_fs_var)
-        self.ent_tick_fs.pack(side="left", padx=2)
-        self._register_unconfirmed_entry(
-            self.ent_tick_fs,
-            lambda: self._fmt_num(self.fs_tick),
-            self.validate_main_font_sizes,
-        )
-
-        ttk.Label(ctrl2, text=_("凡例")).pack(side="left", padx=(10, 2))
-        self.ent_legend_fs = ttk.Entry(ctrl2, width=5, textvariable=self.legend_fs_var)
-        self.ent_legend_fs.pack(side="left", padx=2)
-        self._register_unconfirmed_entry(
-            self.ent_legend_fs,
-            lambda: self._fmt_num(self.fs_legend),
-            self.validate_main_font_sizes,
-        )
-
-        # Export the full right-pane preview figure.
+        # The four buttons act on the analysis result the preview shows, so
+        # they stand together: save or enlarge the figure, or open the bundle
+        # in the measuring GUIs.
+        # 4 つのボタンはプレビューに表示中の解析結果に対する操作なので、まとめて
+        # 並べる。図の保存と拡大、および計測用の GUI でバンドルを開く操作である。
+        ttk.Separator(ctrl2, orient="vertical").pack(
+            side="left", fill="y", padx=8, pady=2)
         self.btn_export_preview = ttk.Button(
             ctrl2, text=_("画像を保存"), command=self.on_export_preview)
-        self.btn_export_preview.pack(side="left", padx=(16, 4))
+        self.btn_export_preview.pack(side="left", padx=4)
 
         self.btn_open_single = ttk.Button(
             ctrl2, text=_("個別表示"), command=self.on_open_single_view)
         self.btn_open_single.pack(side="left", padx=4)
+
+        ttk.Separator(ctrl2, orient="vertical").pack(
+            side="left", fill="y", padx=8, pady=2)
+        self.btn_open_gui02 = ttk.Button(
+            ctrl2, text=_("GUI02で開く"),
+            command=lambda: self._open_shown_bundle_in(PROFILER_MODULE))
+        self.btn_open_gui02.pack(side="left", padx=4)
+        self.btn_open_gui04 = ttk.Button(
+            ctrl2, text=_("GUI04で開く"),
+            command=lambda: self._open_shown_bundle_in(TRACKER_MODULE))
+        self.btn_open_gui04.pack(side="left", padx=4)
+        not_shown = _("プレビューに画像が表示されていないとき、または解析の実行中は押せません。")
+        ToolTip(
+            self.btn_open_gui02,
+            _("表示中の解析結果 (.b2z) を Plot Profiler (GUI02) で新しいウインドウに開きます。")
+            + "\n" + not_shown,
+        )
+        ToolTip(
+            self.btn_open_gui04,
+            _("表示中の解析結果 (.b2z) を Fiber Tracker (GUI04) で新しいウインドウに開きます。")
+            + "\n" + not_shown,
+        )
+
+    def _build_font_size_window(self) -> None:
+        """
+        Build the hidden window that holds the preview's four font-size entries.
+        プレビューのフォントサイズ入力欄 4 つを収める非表示ウインドウを構築する。
+
+        Notes
+        -----
+        The window is built once and only hidden when closed, so the entries
+        `validate_main_font_sizes` reads always exist. Its entries have a
+        registry of their own: Enter in the window commits the font sizes
+        only, and Enter in the main window cannot commit a size left
+        unconfirmed in a window the user no longer sees.
+        ウインドウは 1 度だけ構築し、閉じるときは隠すだけにする。これにより
+        `validate_main_font_sizes` が読む入力欄は常に存在する。入力欄は専用の
+        登録簿に入れる。ウインドウ内の Enter はフォントサイズだけを確定し、
+        メインウインドウの Enter が、もう見えていないウインドウに未確定で残った
+        サイズを確定することもない。
+        """
+        win = tk.Toplevel(self)
+        win.withdraw()
+        win.title(_("フォントサイズ"))
+        win.transient(self)
+        win.resizable(False, False)
+        if self._clam_bg:
+            win.configure(bg=self._clam_bg)
+        win.protocol("WM_DELETE_WINDOW", self._close_font_size_window)
+        win.bind("<Escape>", lambda _e: self._close_font_size_window())
+        self._font_size_window = win
+        self._font_size_entries: list = []
+
+        body = ttk.Frame(win, padding=10)
+        body.pack(fill="both", expand=True)
+        rows = (
+            (_("タイトル"), self.title_fs_var,  "ent_title_fs",  lambda: self.fs_title),
+            (_("軸ラベル"), self.label_fs_var,  "ent_label_fs",  lambda: self.fs_label),
+            (_("軸目盛"),   self.tick_fs_var,   "ent_tick_fs",   lambda: self.fs_tick),
+            (_("凡例"),     self.legend_fs_var, "ent_legend_fs", lambda: self.fs_legend),
+        )
+        for r, (label, var, attr, committed) in enumerate(rows):
+            ttk.Label(body, text=label).grid(
+                row=r, column=0, sticky="w", padx=(0, 10), pady=2)
+            entry = ttk.Entry(body, width=6, textvariable=var)
+            entry.grid(row=r, column=1, sticky="e", pady=2)
+            setattr(self, attr, entry)
+            self._register_unconfirmed_entry(
+                entry,
+                lambda committed=committed: self._fmt_num(committed()),
+                self.validate_main_font_sizes,
+                registry=self._font_size_entries,
+            )
+        ttk.Label(
+            body, text=_("Enter キーで確定します"), foreground="#8a8a8a",
+        ).grid(row=len(rows), column=0, columnspan=2, sticky="w", pady=(6, 0))
+        ttk.Button(
+            body, text=_("閉じる"), command=self._close_font_size_window,
+        ).grid(row=len(rows) + 1, column=0, columnspan=2, sticky="e", pady=(8, 0))
+
+    def on_open_font_sizes(self) -> None:
+        """
+        Show the font-size window just below its button.
+        フォントサイズのウインドウを、そのボタンのすぐ下に表示する。
+        """
+        win = self._font_size_window
+        x = self.btn_font_sizes.winfo_rootx()
+        y = self.btn_font_sizes.winfo_rooty() + self.btn_font_sizes.winfo_height() + 2
+        win.geometry("+{0}+{1}".format(x, y))
+        win.deiconify()
+        win.lift()
+        self.ent_title_fs.focus_set()
+
+    def _close_font_size_window(self) -> None:
+        """
+        Hide the font-size window, discarding sizes typed but not confirmed.
+        フォントサイズのウインドウを隠し、入力したが確定していないサイズを破棄する。
+        """
+        # Text left unconfirmed would wait unseen in the hidden window and
+        # read as already typed the next time it opens; the entries go back
+        # to the sizes the preview is drawn with.
+        # 未確定のまま残した文字は、隠れたウインドウの中で見えないまま残り、次に
+        # 開いたときに入力済みのように見える。入力欄は、プレビューを描いている
+        # サイズへ戻す。
+        rewrite_entries(
+            (entry, committed())
+            for entry, committed, _commit in self._font_size_entries
+        )
+        self._refresh_all_entry_states(self._font_size_entries)
+        self._font_size_window.withdraw()
 
     # ---------- Unconfirmed-entry mechanism, shared with GUI02 ----------
     # Entries are marked as unconfirmed when text differs from committed state,
@@ -2272,6 +2399,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             validator=lambda v: None if all(1 <= v[k] <= 60 for k in keys)
             else _("フォントサイズは 1〜60 の範囲で入力してください"),
             on_success=self.on_redraw_preview,
+            parent=self._font_size_window,
         )
 
     def validate_scale_um(self) -> bool:
@@ -2589,6 +2717,21 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             has_sel = bool(self.sheet.get_selected_rows(get_cells_as_rows=True))
             _set([self.btn_run_sel, self.btn_apply_scale_sel],
                  "!disabled" if has_sel else "disabled")
+
+        # The hand-over buttons stay off while an analysis runs: it may be
+        # rewriting the very bundle they would open, and a folder measured
+        # midway through holds only part of its bundles.
+        # 受け渡しボタンは解析の実行中は押せない。開こうとするバンドルそのものを
+        # 書き換えている可能性があり、途中で集計したフォルダにはバンドルの一部しか
+        # 無いためである。
+        shown = self._preview_shown_item is not None
+        _set([self.btn_open_gui02, self.btn_open_gui04],
+             "!disabled" if shown and not running else "disabled")
+        has_analyzed = bool(self.folder_path) and any(
+            it.status == STATUS_ANALYZED for it in self.items
+        )
+        _set([self.btn_open_gui03],
+             "!disabled" if has_analyzed and not running else "disabled")
 
     def _on_sheet_select(self) -> None:
         """
@@ -3895,16 +4038,25 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         選択ファイルのメイン 2x2 プレビューを再描画する。
         """
         # Redraw synchronously; controls such as vmin/vmax reuse cached data.
-        it = self._get_selected_item_for_preview()
-        if not it:
-            self._invalidate_current_data()
-            self._preview_clear_axes()
-            return
-        data = self._ensure_current_data(it)
-        if data is None:
-            self._preview_clear_axes()
-            return
-        self._render_preview(it, data)
+        self._preview_shown_item = None
+        try:
+            it = self._get_selected_item_for_preview()
+            if not it:
+                self._invalidate_current_data()
+                self._preview_clear_axes()
+                return
+            data = self._ensure_current_data(it)
+            if data is None:
+                self._preview_clear_axes()
+                return
+            self._render_preview(it, data)
+            self._preview_shown_item = it
+        finally:
+            # Every redraw decides whether a bundle is on screen, so it is
+            # also where the hand-over buttons learn it.
+            # 再描画のたびに画面上のバンドルの有無が決まるため、受け渡しボタンも
+            # ここでそれを知る。
+            self._update_controls_state()
 
     def _render_preview(
         self, it: FileItem, data: Optional[Dict[str, np.ndarray]]
@@ -4077,6 +4229,65 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             messagebox.showinfo(_("情報"), _("フォルダが選択されていません。"))
             return
         open_folder_in_os(self.folder_path)
+
+    # ---------- Hand-over to the measuring GUIs ----------
+    def _open_shown_bundle_in(self, module_import_path: str) -> None:
+        """
+        Open the bundle shown in the preview in another GUI.
+        プレビューに表示中のバンドルを別の GUI で開く。
+
+        Parameters
+        ----------
+        module_import_path
+            `PROFILER_MODULE` or `TRACKER_MODULE`.
+            `PROFILER_MODULE` または `TRACKER_MODULE`。
+
+        Notes
+        -----
+        The bundle on disk is what the preview draws, so the other GUI shows
+        the same analysis, scan-line range included. Each press starts a new
+        window; GUI04 asks before overwriting curation another of its windows
+        saved meanwhile.
+        プレビューが描いているのはディスク上のバンドルなので、もう一方の GUI は
+        走査線範囲も含めて同じ解析結果を表示する。押すたびに新しいウインドウが
+        開く。GUI04 は、その間に別の GUI04 ウインドウが保存したキュレーションを
+        上書きする前に確認する。
+        """
+        it = self._preview_shown_item
+        if it is None or self.is_running:
+            return
+        path = bundle_path_for(it.stem)
+        try:
+            launch_plugin(module_import_path, [path])
+        except Exception as e:
+            self._log_exception(_("起動に失敗しました"), e)
+            return
+        self._log(_("{name} を新しいウインドウで開きます。").format(
+            name=os.path.basename(path)))
+
+    def on_open_folder_in_gui03(self) -> None:
+        """
+        Open the current folder in GUI03 (Fiber Morphology Statistics).
+        現在のフォルダを GUI03（Fiber Morphology Statistics）で開く。
+
+        Notes
+        -----
+        GUI01 writes each bundle beside its input, so the folder it reads is
+        the folder GUI03 aggregates. GUI03 registers it in the group it
+        starts with; folders to compare against are added there.
+        GUI01 は各バンドルを入力の隣に書き出すため、GUI01 が読むフォルダは
+        GUI03 が集計するフォルダでもある。GUI03 はそれを起動時のグループに
+        登録する。比較するフォルダは GUI03 で追加する。
+        """
+        if not self.folder_path or self.is_running:
+            return
+        try:
+            launch_plugin(STATISTICS_MODULE, [self.folder_path])
+        except Exception as e:
+            self._log_exception(_("起動に失敗しました"), e)
+            return
+        self._log(_("フォルダを GUI03 で開きます: {path}").format(
+            path=self.folder_path))
 
     # ---------- Save Log ----------
     def on_save_log(self) -> None:

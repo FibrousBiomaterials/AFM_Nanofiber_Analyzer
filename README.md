@@ -367,6 +367,15 @@ width of a wide fiber read narrow (Known Limitations below); such a scan should
 be measured again with less noise against the fibers. How the limit was set, on
 synthetic fibers, is in §4.15–§4.17 of the evaluation document.
 
+The results open in the measuring tools without choosing the files again.
+"Open in GUI02" and "Open in GUI04", above the preview, open the bundle the
+preview shows in Plot Profiler or Fiber Tracker; "Analyze Folder in GUI03", at
+the head of the file list, opens Fiber Morphology Statistics with the folder
+registered in its first group, where folders to compare with are added. Each
+press opens a new window. The three buttons are unavailable while an analysis
+runs, the GUI03 one while no file in the folder has been analyzed, and the two
+preview ones while the preview shows no image.
+
 ### Plot Profiler — `guis/GUI02_PlotProfiler.py`
 
 ![Plot Profiler window: a line placed on the AFM height map and the extracted height profile alongside it.](figures/gui02.png)
@@ -643,8 +652,10 @@ the output to read.
 
 ![Fiber Tracker window: per-fiber statistics table beside the full AFM overview with the selected fiber highlighted.](figures/gui04.png)
 
-Load `.b2z` bundles, rebuild tracked `Fiber` objects, inspect individual
-fibers, export plots, and export fiber statistics to CSV.
+Open a `.b2z` bundle — with "Open File", or from GUI01's "Open in GUI04" — to
+rebuild tracked `Fiber` objects, inspect individual fibers, export plots, and
+export fiber statistics to CSV. One bundle is open at a time, and the window
+title names it.
 
 The fiber table lists length, median, maximum and 90th-percentile height,
 `straightness`, `curvature`, endpoint and kink counts, `kink density`, the
@@ -739,9 +750,12 @@ Fibers can also be excluded by hand: select one, check it in the overview, and
 through them in reverse order. Changes take effect in the views at once but
 reach the sidecars only when "Save Curation" is pressed, because those files are an
 analysis input — GUI03 aggregates over what it says — and a mis-click should
-not rewrite it on its own. Leaving a dataset with unsaved changes (selecting
-another dataset, changing folders, or closing the window) offers to save,
-discard, or cancel, so the choice is never made silently. This is
+not rewrite it on its own. Leaving a dataset with unsaved changes (opening
+another bundle or closing the window) offers to save, discard, or cancel, so
+the choice is never made silently. Since GUI01 opens a new window at each
+press, one bundle can be open in two windows: a save over sidecars that another
+window wrote after this one loaded them asks before overwriting, and opening
+the bundle again loads what was written. This is
 what makes a dense network analyzable at all — nearly every fiber there touches
 a crossing, so no automatic filter can separate debris and scan-line artifacts
 from real fibrils. Exclusions are written to `<stem>_excluded.json` beside the
@@ -1220,6 +1234,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- kink_detector.py
 |   |-- measure.py
 |   |-- pipeline.py
+|   |-- plugin_launch.py
 |   |-- processed_image.py
 |   |-- segmenter.py
 |   |-- skeletonizer.py
@@ -1273,6 +1288,7 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
 | `lib/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, `collect_fiber_stats` (per-fiber statistics over many bundles), `collect_skeleton_height_profiles` (tracked heights with the contour length each point represents), `isolated_fiber_flags` (which fibers touch no other fiber), skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
 | `lib/pipeline.py` | `ProcParams` parameter schema, stage construction, and `process_file`, the GUI-independent pipeline driver shared by GUI01 and `cli.py`; the `.b2z` contract itself lives in `lib/bundle_schema.py`. |
+| `lib/plugin_launch.py` | Starts a GUI plugin in its own process through `Main.py --run-plugin`, optionally handing it a file or folder; used by the launcher and by GUI01's buttons that open its results in GUI02, GUI03 and GUI04. |
 | `lib/processed_image.py` | `ProcessedImage`, the container passed through the GUI01 preprocessing pipeline. |
 | `lib/segmenter.py` | `Segmenter`, which builds binary nanofiber masks from calibrated AFM images. |
 | `lib/skeletonizer.py` | `Skeletonizer`, which thins segmented masks, prunes branches, and labels skeleton components. |

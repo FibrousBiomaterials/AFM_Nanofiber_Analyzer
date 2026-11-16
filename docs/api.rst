@@ -113,6 +113,10 @@ Support modules
    :members:
    :show-inheritance:
 
+.. automodule:: lib.plugin_launch
+   :members:
+   :show-inheritance:
+
 Compatibility
 -------------
 

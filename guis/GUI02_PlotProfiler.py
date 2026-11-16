@@ -48,6 +48,7 @@ PLUGIN_INFO = {
 
 # ===== Standard library =====
 import os
+import sys
 from typing import Iterator
 
 # ===== Numerical / scientific libraries =====
@@ -77,6 +78,7 @@ from lib.afm_io import load_afm_text, read_scan_size
 from lib.bundle_schema import pixel_size_nm
 from lib.gwy_io import GWY_EXT, list_gwy_channels, load_gwy_image, select_default_channel
 from lib.measure import read_scan_size_from_bundle
+from lib.plugin_launch import call_when_shown
 from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, ToolTip, setup_matplotlib_style,
@@ -1781,8 +1783,23 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         path = filedialog.askopenfilename(filetypes=filetype)
         if not path:
             return
-        # Guard against rare cases where the dialog returns a non-existent path.
-        # ダイアログが稀に存在しないパスを返すケースに備える。
+        self.open_path(path)
+
+    def open_path(self, path: str) -> None:
+        """
+        Load one AFM data file, as chosen in the dialog or handed over by GUI01.
+        ダイアログで選んだ、または GUI01 から渡された AFM データファイルを 1 つ読み込む。
+
+        Parameters
+        ----------
+        path
+            File to load, of any format `load_array_file` accepts.
+            読み込むファイル。`load_array_file` が受け付ける形式であればよい。
+        """
+        # Guard against rare cases where the dialog returns a non-existent path,
+        # and against a file removed after GUI01 handed it over.
+        # ダイアログが稀に存在しないパスを返すケースと、GUI01 から渡された後に
+        # ファイルが消されたケースに備える。
         if not os.path.isfile(path):
             messagebox.showerror(
                 _("エラー"),
@@ -2620,10 +2637,21 @@ class App(tk.Tk, UnconfirmedEntryMixin):
 
 def main() -> None:
     """
-    Start the plot-profiler GUI.
-    Plot Profiler GUI を起動する。
+    Start the plot-profiler GUI, opening the file named on the command line.
+    Plot Profiler GUI を起動し、コマンドラインで指定されたファイルを開く。
+
+    GUI01's "GUI02で開く" passes the bundle it is showing as the first
+    argument (`lib.plugin_launch`); without one the window opens empty.
+    GUI01 の「GUI02で開く」は表示中のバンドルを第 1 引数として渡す
+    （`lib.plugin_launch`）。引数が無ければ空のウインドウで開く。
     """
     app = App()
+    if len(sys.argv) > 1:
+        # Load once the window is on screen, so a warning or error dialog
+        # appears over it.
+        # 警告やエラーのダイアログがウインドウの上に出るよう、ウインドウの表示後に
+        # 読み込む。
+        call_when_shown(app, app.open_path, sys.argv[1])
     app.mainloop()
 
 

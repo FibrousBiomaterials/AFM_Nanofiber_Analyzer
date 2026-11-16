@@ -8,9 +8,12 @@ Multi-entry design:
 
     - no subcommand           -> launch the main launcher GUI
                                  ランチャー GUI を起動する（通常モード）
-    - `--run-plugin <path>`   -> import the plugin module and call its main()
-                                 指定プラグインを import して main() を呼ぶ
-                                 （ランチャーから分離起動されたプラグイン）
+    - `--run-plugin <path> [args...]`
+                              -> import the plugin module and call its main(),
+                                 with `args` in sys.argv[1:]
+                                 指定プラグインを import して main() を呼ぶ。
+                                 `args` は sys.argv[1:] に入る
+                                 （ランチャーや GUI01 から分離起動されたプラグイン）
 
   This multi-entry design is required because PyInstaller's bootloader
   does NOT honor `-c` or `-m` flags when invoking the frozen executable,
@@ -33,10 +36,10 @@ Plugin startup:
 
 import sys
 import ast
-import subprocess
 import importlib
 import threading
 from pathlib import Path
+from typing import Sequence
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk  # type: ignore
@@ -58,6 +61,7 @@ if str(BASE_DIR) not in sys.path:
 
 from lib.ui_tools import apply_window_size
 from lib.translator import _, current_language, set_language, SUPPORTED
+from lib.plugin_launch import RUN_PLUGIN_FLAG, launch_plugin
 
 # =========================
 # Configuration constants
@@ -131,7 +135,9 @@ def _build_splash(module_import_path: str) -> tuple[tk.Tk, ttk.Progressbar]:
     return splash, pbar
 
 
-def _run_plugin_and_exit(module_import_path: str) -> None:
+def _run_plugin_and_exit(
+    module_import_path: str, plugin_args: Sequence[str] = (),
+) -> None:
     """
     Run a plugin after showing a splash progress window.
     スプラッシュ進捗ウィンドウを表示してからプラグインを実行する。
@@ -140,6 +146,16 @@ def _run_plugin_and_exit(module_import_path: str) -> None:
     updating while startup work proceeds.
     重い import はワーカースレッドで実行し、起動処理中も tkinter の
     スプラッシュ表示を更新できるようにする。
+
+    `plugin_args` (a file or folder GUI01 hands over) is placed in
+    ``sys.argv[1:]`` before the plugin's ``main()`` is called, which is where
+    it arrives when the plugin file is run directly as a script, so a plugin
+    reads it the same way on both paths and keeps the ``main() -> None``
+    signature.
+    `plugin_args`（GUI01 が渡すファイルやフォルダ）は、プラグインの ``main()``
+    を呼ぶ前に ``sys.argv[1:]`` へ入れる。プラグインファイルをスクリプトとして
+    直接実行したときに届く場所と同じであり、プラグインはどちらの経路でも同じ
+    方法で読め、``main() -> None`` の形も保てる。
     """
     # ---- 1) Build splash window ----
     splash, pbar = _build_splash(module_import_path)
@@ -220,6 +236,7 @@ def _run_plugin_and_exit(module_import_path: str) -> None:
         return
 
     # ---- 6) Call plugin main() ----
+    sys.argv = [module_import_path, *plugin_args]
     try:
         mod.main()
     except Exception as e:
@@ -686,36 +703,22 @@ class MainApp(tk.Tk):
           builds, ``sys.executable`` is ``Main.exe``; in source runs, this
           ``Main.py`` file is re-invoked with the same subcommand. Keeping both
           paths on ``--run-plugin`` centralizes splash handling and explicit
-          ``main()`` invocation in `_run_plugin_and_exit`.
+          ``main()`` invocation in `_run_plugin_and_exit`. The command is
+          built by `lib.plugin_launch.plugin_command`.
           凍結ビルドでもソース実行でも、本プロジェクト独自の
           ``--run-plugin`` サブコマンドを使う。凍結時は ``sys.executable`` が
           ``Main.exe``、ソース実行時はこの ``Main.py`` を同じサブコマンド付きで
           再起動する。これにより、スプラッシュ表示と ``main()`` の明示呼び出しを
-          `_run_plugin_and_exit` に集約できる。
+          `_run_plugin_and_exit` に集約できる。コマンドは
+          `lib.plugin_launch.plugin_command` が組み立てる。
         """
         self._set_status("Launching...")
         try:
-            # Use the same --run-plugin path for frozen and source runs.
-            # 凍結ビルドでもソース実行でも `--run-plugin` 経路で統一する。
-            if getattr(sys, "frozen", False):
-                cmd = [sys.executable, "--run-plugin", module_import_path]
-            else:
-                # Source run: re-invoke this Main.py with --run-plugin.
-                cmd = [sys.executable, str(Path(__file__).resolve()),
-                       "--run-plugin", module_import_path]
-
-            # On Windows, detach the child so closing the launcher does not
-            # kill it, and hide any spurious console window in windowed mode.
-            # Windows では子プロセスを切り離し、ランチャー終了で道連れに
-            # ならないようにする。また windowed モードで意図しないコンソールが
-            # 出ないようにフラグを立てる。
-            popen_kwargs: dict = {"cwd": str(BASE_DIR)}
-            if sys.platform.startswith("win"):
-                popen_kwargs["creationflags"] = (
-                    subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS
-                )
-
-            subprocess.Popen(cmd, **popen_kwargs)
+            # GUI01 opens GUI02-GUI04 through the same function, so the
+            # launcher and GUI01 cannot come to build different commands.
+            # GUI01 も同じ関数で GUI02〜GUI04 を開くため、ランチャーと GUI01 が
+            # 異なるコマンドを組み立てることはない。
+            launch_plugin(module_import_path)
         except Exception as e:
             self._set_message(f"Failed to launch:\n{e}")
         finally:
@@ -743,14 +746,14 @@ def main() -> None:
     argv = sys.argv[1:]
     if argv:
         head = argv[0]
-        if head == "--run-plugin":
+        if head == RUN_PLUGIN_FLAG:
             if len(argv) < 2:
                 _show_startup_error(
                     title="Invalid arguments",
                     message="`--run-plugin` requires a plugin import path argument.",
                 )
                 return
-            _run_plugin_and_exit(argv[1])
+            _run_plugin_and_exit(argv[1], argv[2:])
             return
         # Unknown arguments are ignored and the launcher starts normally.
         # 未知の引数は無視してランチャーを通常起動する。

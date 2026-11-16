@@ -719,6 +719,183 @@ def test_gui04_unsaved_exclusions_block_leaving_on_cancel(tk_app, monkeypatch):
     assert app._exclusions_dirty is False
 
 
+def test_gui04_save_asks_before_overwriting_sidecars_written_elsewhere(
+    tk_app, tmp_path, monkeypatch
+):
+    """
+    A save over sidecars another window wrote since the load asks first.
+    読み込み後に別のウインドウが書いたサイドカーへの保存は、先に確認する。
+
+    GUI01 opens a new GUI04 window per press, so one bundle can be open twice;
+    without the check the later save silently replaces the earlier one's work.
+    GUI01 は押すたびに新しい GUI04 ウインドウを開くため、1 つのバンドルが 2 つ
+    開いていることがある。確認が無ければ、後の保存が先の作業を黙って置き換える。
+    """
+    app = tk_app(gui04.App)
+    app.current_image = _StubImage()
+    app.current_stem = os.path.join(tmp_path, "scan")
+    bundle = app.current_stem + ".b2z"
+    app._record_sidecar_snapshot()
+
+    # Another window saves an exclusion after this one read the sidecars.
+    # このウインドウがサイドカーを読んだ後に、別のウインドウが除外を保存する。
+    gui04.save_exclusions(
+        exclusion_path_for(bundle), "scan.b2z",
+        [{"x": 5, "y": 5, "note": "other window"}],
+    )
+    app._excluded_records = [{"x": 1, "y": 2, "note": "this window"}]
+    app._exclusions_dirty = True
+
+    asked = []
+    monkeypatch.setattr(
+        gui04.messagebox, "askyesno",
+        lambda *a, **k: asked.append(a[0]) or False,
+    )
+    assert app._on_save_curation() is False
+    assert asked, "the overwrite was not asked about"
+    assert load_exclusions(exclusion_path_for(bundle))[0]["note"] == "other window"
+
+    monkeypatch.setattr(gui04.messagebox, "askyesno", lambda *a, **k: True)
+    assert app._on_save_curation() is True
+    assert load_exclusions(exclusion_path_for(bundle))[0]["note"] == "this window"
+
+    # Its own save is not mistaken for someone else's on the next save.
+    # 自身の保存を、次の保存で他者の変更と取り違えない。
+    def _unexpected(*_args, **_kwargs):
+        raise AssertionError("this window's own save must not prompt")
+
+    monkeypatch.setattr(gui04.messagebox, "askyesno", _unexpected)
+    app._excluded_records = []
+    app._exclusions_dirty = True
+    assert app._on_save_curation() is True
+
+
+def test_gui04_refuses_a_file_that_is_not_a_bundle(
+    tk_app, tmp_path, silence_dialogs
+):
+    """
+    A file without GUI04's keys is reported and leaves the window as it was.
+    GUI04 のキーを持たないファイルは報告し、ウインドウは元のままにする。
+    """
+    calls = silence_dialogs(gui04)
+    app = tk_app(gui04.App)
+    not_bundle = tmp_path / "scan_param.json"
+    not_bundle.write_text("{}", encoding="utf-8")
+
+    app.open_bundle(str(not_bundle))
+    app.open_bundle(str(tmp_path / "missing.b2z"))
+
+    assert [kind for kind, _t, _m in calls] == ["showerror", "showerror"]
+    assert app.current_stem == "" and app.is_running is False
+
+
+def test_gui01_hand_over_buttons_follow_the_preview(
+    tk_app, isolated_gui01_settings, tmp_path, monkeypatch
+):
+    """
+    GUI02/GUI04 open the bundle on screen; GUI03 opens the folder.
+    GUI02/GUI04 は画面上のバンドルを、GUI03 はフォルダを開く。
+
+    The buttons are off without something to hand over and while an analysis
+    may be rewriting it, so they never pass a file the user is not looking at.
+    渡すものが無いとき、および解析がそれを書き換えうる間は押せない。ユーザーが
+    見ていないファイルを渡すことはない。
+    """
+    launched = []
+    monkeypatch.setattr(
+        gui01, "launch_plugin", lambda module, args=(): launched.append((module, list(args)))
+    )
+    app = tk_app(gui01.App)
+    buttons = (app.btn_open_gui02, app.btn_open_gui03, app.btn_open_gui04)
+
+    def enabled():
+        return tuple(not b.instate(["disabled"]) for b in buttons)
+
+    app._update_controls_state()
+    assert enabled() == (False, False, False)
+
+    item = gui01.FileItem(txt_path=str(tmp_path / "scan.txt"))
+    item.status = gui01.STATUS_ANALYZED
+    app.folder_path = str(tmp_path)
+    app.items = [item]
+    app._update_controls_state()
+    assert enabled() == (False, True, False)
+
+    app._preview_shown_item = item
+    app._update_controls_state()
+    assert enabled() == (True, True, True)
+
+    app.btn_open_gui04.invoke()
+    app.btn_open_gui02.invoke()
+    app.btn_open_gui03.invoke()
+    bundle = str(tmp_path / "scan") + gui01.BUNDLE_EXT
+    assert launched == [
+        (gui01.TRACKER_MODULE, [bundle]),
+        (gui01.PROFILER_MODULE, [bundle]),
+        (gui01.STATISTICS_MODULE, [str(tmp_path)]),
+    ]
+
+    app.is_running = True
+    app._update_controls_state()
+    assert enabled() == (False, False, False)
+
+
+def test_gui01_font_sizes_are_set_in_their_own_window(
+    tk_app, isolated_gui01_settings
+):
+    """
+    The preview's font sizes commit from their window and never linger unseen.
+    プレビューのフォントサイズは専用ウインドウから確定し、見えないまま残らない。
+
+    The window is only hidden when closed, so a size typed but not confirmed
+    would wait in it unseen; closing puts the entries back to the sizes the
+    preview is drawn with.
+    ウインドウは閉じても隠れるだけなので、入力したが確定していないサイズは
+    見えないまま残ってしまう。閉じるときに、入力欄をプレビューを描いている
+    サイズへ戻す。
+    """
+    app = tk_app(gui01.App)
+    window = app._font_size_window
+    assert not window.winfo_viewable()
+
+    app.btn_font_sizes.invoke()
+    app.update_idletasks()
+    assert window.winfo_viewable()
+
+    app.ent_title_fs.delete(0, "end")
+    app.ent_title_fs.insert(0, "24")
+    app._commit_all_unconfirmed(app._font_size_entries)
+    assert app.fs_title == 24
+
+    # The main window's Enter does not reach the font sizes.
+    # メインウインドウの Enter はフォントサイズに届かない。
+    app.ent_label_fs.delete(0, "end")
+    app.ent_label_fs.insert(0, "30")
+    app._commit_all_unconfirmed(app._unconfirmed_entries)
+    assert app.fs_label != 30
+
+    app._close_font_size_window()
+    assert not window.winfo_viewable()
+    assert float(app.ent_label_fs.get()) == app.fs_label
+
+
+def test_gui03_registers_a_handed_over_folder(tk_app, tmp_path, silence_dialogs):
+    """
+    The folder GUI01 hands over joins the group GUI03 starts with.
+    GUI01 から渡されたフォルダは、GUI03 の起動時のグループに登録される。
+    """
+    calls = silence_dialogs(gui03)
+    app = tk_app(gui03.App)
+    group = app.groups[0]
+
+    app.add_folder(group, str(tmp_path))
+    assert group.folder_paths == [os.path.normpath(str(tmp_path))]
+
+    app.add_folder(group, str(tmp_path / "missing"))
+    assert len(group.folder_paths) == 1
+    assert [kind for kind, _t, _m in calls] == ["showerror"]
+
+
 def test_gui04_undoing_every_exclusion_leaves_nothing_unsaved(tk_app, monkeypatch):
     """
     A set walked back to what is on disk stops counting as unsaved.

@@ -54,6 +54,7 @@ PLUGIN_INFO = {
 # ===== Standard library =====
 import os
 import re
+import sys
 import csv
 import uuid
 import queue
@@ -96,6 +97,7 @@ from lib.measure import (
     read_centerline_from_bundle, read_scan_size_from_bundle,
     skeleton_height_values,
 )
+from lib.plugin_launch import call_when_shown
 from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, setup_matplotlib_style, save_figure_with_dialog,
@@ -3441,7 +3443,31 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         folder = filedialog.askdirectory(title=_("解析対象フォルダを選択"))
         if not folder:
             return
+        self.add_folder(g, folder)
+
+    def add_folder(self, g: Group, folder: str) -> None:
+        """
+        Register one input folder in a group and scan its bundles.
+        入力フォルダを 1 つグループへ登録し、そのバンドルをスキャンする。
+
+        Parameters
+        ----------
+        g
+            Group the folder joins.
+            フォルダを登録するグループ。
+        folder
+            Folder chosen in the dialog, or handed over by GUI01's
+            "このフォルダをGUI03で解析".
+            ダイアログで選んだフォルダ、または GUI01 の「このフォルダをGUI03で解析」
+            から渡されたフォルダ。
+        """
         folder = os.path.normpath(folder)
+        if not os.path.isdir(folder):
+            messagebox.showerror(
+                _("エラー"),
+                _("フォルダが見つかりません: {path}").format(path=folder),
+            )
+            return
 
         if folder in g.folder_paths:
             messagebox.showinfo(_("重複"), _("このフォルダは同じグループに既に登録されています。"))
@@ -6465,10 +6491,22 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
 def main() -> None:
     """
-    Launch the fiber morphology statistics GUI.
-    繊維形態統計 GUI を起動する。
+    Launch the fiber morphology statistics GUI with any folder named on the command line.
+    繊維形態統計 GUI を起動し、コマンドラインで指定されたフォルダがあれば登録する。
+
+    GUI01's "このフォルダをGUI03で解析" passes the folder it has open as the
+    first argument (`lib.plugin_launch`), which joins the group the window
+    starts with; without one the window opens with that group empty.
+    GUI01 の「このフォルダをGUI03で解析」は開いているフォルダを第 1 引数として
+    渡す（`lib.plugin_launch`）。そのフォルダは起動時のグループに登録される。
+    引数が無ければ、そのグループが空のままウインドウが開く。
     """
     app = App()
+    if len(sys.argv) > 1:
+        # Register once the window is on screen, so a warning dialog appears
+        # over it.
+        # 警告ダイアログがウインドウの上に出るよう、ウインドウの表示後に登録する。
+        call_when_shown(app, app.add_folder, app.groups[0], sys.argv[1])
     app.mainloop()
 
 
