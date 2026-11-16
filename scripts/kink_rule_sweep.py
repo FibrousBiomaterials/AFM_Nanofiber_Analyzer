@@ -147,36 +147,71 @@ def default_jobs() -> int:
     return max(1, (os.cpu_count() or 2) - 1)
 
 
-def _scan_rows(task: tuple) -> Tuple[List[dict], str]:
+def _scan_bundle(out: str, reuse: bool, w_px: float, noise: float, seed: int,
+                 fam: str) -> Tuple[str, str, list, float]:
     """
-    Render, analyze and score one scan; return its rows and a progress note.
-    画像 1 枚を描画・解析・採点し、その行と進捗表示用の文字列を返す。
+    Return one scan's name, bundle, centerlines and true interior angle.
+    画像 1 枚の名前・バンドル・中心線・真の内角を返す。
 
-    A module-level function taking one picklable tuple, so `run` can hand the
-    scans to worker processes. A scan depends on nothing but its own task: the
-    noise is drawn from the task's seed and every file it writes is named by
-    its own stem.
-    `run` が画像をワーカープロセスへ渡せるよう、pickle 可能なタプル 1 つを受け取る
-    モジュール直下の関数にしている。1 枚の画像は自分のタスクだけで決まる。ノイズは
-    タスクの乱数の種から引き、書き出すファイルはすべて自分の stem で名付ける。
+    The scan is drawn and analyzed here unless ``reuse`` is set and its bundle
+    is already in ``out``: drawing and the pipeline are nearly all of a scan's
+    time, and neither depends on the code that reads the bundle.
+    ``reuse`` が真で、バンドルがすでに ``out`` にある場合を除き、ここで画像を描いて
+    解析する。1 枚にかかる時間のほとんどは描画とパイプラインであり、どちらも
+    バンドルを読む側のコードには依存しない。
+
+    Everything that decides what a scan's bundle holds is this function and
+    the definitions it reads (`families`, `_shape_for`, and the fiber and
+    background constants). `bundle_cache.GENERATOR_DEFINITIONS` names exactly
+    those, so changing one of them starts a new cache folder, while the
+    scoring in `_scan_rows` can change without the scans being analyzed again.
+    バンドルの中身を決めるものは、この関数と、それが読む定義（`families`、
+    `_shape_for`、繊維と背景の定数）がすべてである。
+    `bundle_cache.GENERATOR_DEFINITIONS` はちょうどそれらを挙げているので、その
+    どれかを変えると新しいキャッシュフォルダから始まる。一方 `_scan_rows` の採点は、
+    画像を解析し直すことなく変えられる。
     """
-    out, variant_names, w_px, noise, seed, fam = task
     nm_per_px = APPARENT_WIDTH_NM / w_px
     shape = _shape_for(nm_per_px)
     lines, interior = families(nm_per_px, shape)[fam]
     stem = "W%g_n%.2f_s%d_%s" % (w_px, noise, seed, fam)
-    scan = sf.render_scan(
-        lines, shape=shape, nm_per_px=nm_per_px,
-        fiber_diameter_nm=FIBER_DIAMETER_NM,
-        tip_radius_nm=TIP_RADIUS_NM, noise_nm=noise, seed=seed,
-        **BACKGROUND,
-    )
-    txt = sf.write_afm_text(scan, os.path.join(out, stem + ".txt"))
-    result = process_file(txt, ProcParams(), scan_size_um=scan.scan_size_um,
-                          scan_size_source="manual")
-    image = measure.load_tracking_image(result.bundle_path, nm_per_px, nm_per_px)
+    bundle = os.path.join(out, stem + ".b2z")
+    if not (reuse and os.path.isfile(bundle)):
+        scan = sf.render_scan(
+            lines, shape=shape, nm_per_px=nm_per_px,
+            fiber_diameter_nm=FIBER_DIAMETER_NM,
+            tip_radius_nm=TIP_RADIUS_NM, noise_nm=noise, seed=seed,
+            **BACKGROUND,
+        )
+        txt = sf.write_afm_text(scan, os.path.join(out, stem + ".txt"))
+        bundle = process_file(txt, ProcParams(), scan_size_um=scan.scan_size_um,
+                              scan_size_source="manual").bundle_path
+    return stem, bundle, lines, interior
+
+
+def _scan_rows(task: tuple) -> Tuple[List[dict], str]:
+    """
+    Score one scan against its known answer; return its rows and a progress note.
+    画像 1 枚を正解と照らして採点し、その行と進捗表示用の文字列を返す。
+
+    A module-level function taking one picklable tuple, so `run` can hand the
+    scans to worker processes. A scan depends on nothing but its own task: the
+    noise is drawn from the task's seed and every file it writes is named by
+    its own stem. The true kinks are read from the centerlines, so a scan
+    whose bundle `_scan_bundle` reuses is not drawn at all.
+    `run` が画像をワーカープロセスへ渡せるよう、pickle 可能なタプル 1 つを受け取る
+    モジュール直下の関数にしている。1 枚の画像は自分のタスクだけで決まる。ノイズは
+    タスクの乱数の種から引き、書き出すファイルはすべて自分の stem で名付ける。
+    真のキンクは中心線から読むので、`_scan_bundle` がバンドルを使い回す画像は
+    一切描かない。
+    """
+    out, variant_names, reuse, w_px, noise, seed, fam = task
+    nm_per_px = APPARENT_WIDTH_NM / w_px
+    stem, bundle, lines, interior = _scan_bundle(out, reuse, w_px, noise, seed, fam)
+    image = measure.load_tracking_image(bundle, nm_per_px, nm_per_px)
     fibers = image.fibers_in_image_parallel()
-    tx, ty = scan.true_kinks_xy
+    tx = np.concatenate([line.x[line.kink_indices] for line in lines])
+    ty = np.concatenate([line.y[line.kink_indices] for line in lines])
     rows: List[dict] = []
     w_med = float("nan")
     for vname in variant_names:
@@ -221,11 +256,23 @@ def run(args) -> List[dict]:
     （1、または ``jobs`` を持たない ``args`` では、このプロセス内で実行する）。行は
     ワーカー数によらず画像の順に返るため、``sweep.csv`` と、行から計算するものは
     すべて、どの ``jobs`` でも同じになる。
+
+    ``args.reuse`` (absent means off) keeps the bundles already in ``args.out``
+    instead of drawing and analyzing their scans again. Only a caller whose
+    folder is named by the code that makes the bundles sets it
+    (`bundle_cache.cache_root`, as `scripts/measure_docs.py` does): in any
+    other folder a bundle left by older code would be read as current.
+    ``args.reuse``（無ければ無効）は、``args.out`` にすでにあるバンドルを使い、
+    その画像の描画と解析をやり直さない。これを指定するのは、バンドルを作るコードで
+    名付けたフォルダを渡す呼び出し側だけである（`bundle_cache.cache_root`。
+    `scripts/measure_docs.py` がそうしている）。それ以外のフォルダでは、古いコードが
+    残したバンドルを今のものとして読んでしまう。
     """
     widths = WIDTHS_PX if not args.quick else (3.0, 8.0)
     noises = NOISES_NM if not args.quick else (0.05, 0.30)
     seeds = SEEDS if not args.quick else (1,)
     os.makedirs(args.out, exist_ok=True)
+    reuse = bool(getattr(args, "reuse", False))
     tasks = []
     for w_px in widths:
         nm_per_px = APPARENT_WIDTH_NM / w_px
@@ -233,7 +280,7 @@ def run(args) -> List[dict]:
         for noise in noises:
             for seed in seeds:
                 for fam in fam_names:
-                    tasks.append((args.out, tuple(args.variants), w_px, noise, seed, fam))
+                    tasks.append((args.out, tuple(args.variants), reuse, w_px, noise, seed, fam))
     jobs = max(1, min(int(getattr(args, "jobs", 1) or 1), len(tasks)))
     rows: List[dict] = []
     t0 = time.time()

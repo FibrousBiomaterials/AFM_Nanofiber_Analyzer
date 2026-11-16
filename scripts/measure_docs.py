@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import copy
 import functools
 import hashlib
 import json
@@ -120,6 +121,43 @@ def patched(module, **values):
     finally:
         for k, v in old.items():
             setattr(module, k, v)
+
+
+def reading_each_bundle_once(func: Callable[[], dict]) -> Callable[[], dict]:
+    """
+    Run an experiment with each bundle's tracking image read from disk once.
+    各バンドルの追跡用の画像をディスクから 1 回だけ読んで、実験を実行する。
+
+    `measure.load_tracking_image` opens the bundle file several times, and an
+    experiment that builds one bundle's fibers on every centerline method
+    asked for the same file once per method. Within the experiment the first
+    load of a bundle is kept untouched and every load, the first included, gets
+    a deep copy of it, so each caller still receives an image of its own to
+    set a centerline on and trace. A bundle written again is read again: the
+    file's modification time is part of what identifies a load.
+    `measure.load_tracking_image` はバンドルのファイルを何度も開く。1 つのバンドルの
+    繊維をすべての中心線の方法で組み立てる実験は、方法ごとに同じファイルを読んで
+    いた。実験の中では、バンドルの最初の読み込み結果に手を付けずに保持し、最初の
+    回も含めてすべての読み込みにその深い複製を渡す。そのため呼び出し側は、中心線を
+    設定して追跡するための自分専用の画像をこれまでどおり受け取る。書き直された
+    バンドルは読み直す。ファイルの更新時刻を、読み込みを区別する要素に含めている。
+    """
+    @functools.wraps(func)
+    def wrapper() -> dict:
+        from lib import measure
+        real = measure.load_tracking_image
+        first: dict = {}
+
+        def load(bundle_path, *sizes, **named):
+            key = (str(bundle_path), Path(bundle_path).stat().st_mtime_ns, sizes,
+                   tuple(sorted(named.items())))
+            if key not in first:
+                first[key] = real(bundle_path, *sizes, **named)
+            return copy.deepcopy(first[key])
+
+        with patched(measure, load_tracking_image=load):
+            return func()
+    return wrapper
 
 
 @experiment(
@@ -252,11 +290,17 @@ def kink_rule_sweep() -> dict:
     import numpy as np
     import kink_rule_sweep as sweep
 
+    # The bundles go in the fingerprinted cache and are reused: nearly all of
+    # the sweep's time is drawing and analyzing its scans, which a change to
+    # the code that reads bundles does not affect.
+    # バンドルは指紋付きのキャッシュに置いて使い回す。掃引の時間のほとんどは画像の
+    # 描画と解析であり、バンドルを読む側のコードの変更はそれに影響しない。
     class Args:
-        out = str(WORK / "kink_rule_sweep")
+        out = str(cache_dir("kink_rule_sweep"))
         quick = False
         variants = ["base", "k3"]
         jobs = sweep.default_jobs()
+        reuse = True
 
     rows = sweep.run(Args)
     values: dict = {}
@@ -1716,6 +1760,7 @@ def _synthetic():
     "method from the true centerline, the contour-length error, the same-sense corner "
     "pairs, and the lateral offset on the ribbons.",
 )
+@reading_each_bundle_once
 def synthetic_centerline() -> dict:
     import numpy as np
     from lib import centerline as cl
@@ -1949,6 +1994,7 @@ def ribbon_tip_swing() -> dict:
     "earlier polyline rule on the arcs and meanders, and corners near an end judged at "
     "an end margin of 1.5 W and 2.0 W.",
 )
+@reading_each_bundle_once
 def synthetic_kinks() -> dict:
     import math
     from lib import kink_detector as kd
@@ -2982,19 +3028,24 @@ def kink_angle_on_arcs() -> dict:
                 for seed in ARC_KINK_SEEDS:
                     cases += 1
                     stem = f"t{turn}_r{radius_w}_s{sense}_seed{seed}"
-                    scan = sf.render_scan([corner_on_arc(turn, radius_w, sense)], shape=shape,
-                                          nm_per_px=nm_per_px,
-                                          fiber_diameter_nm=sweep.FIBER_DIAMETER_NM,
-                                          tip_radius_nm=sweep.TIP_RADIUS_NM, noise_nm=0.05,
-                                          seed=seed, **sweep.BACKGROUND)
-                    txt = sf.write_afm_text(scan, str(out / (stem + ".txt")))
+                    line = corner_on_arc(turn, radius_w, sense)
                     bundle = out / (stem + ".b2z")
                     if not bundle.is_file():
+                        # The scan is drawn only to be analyzed: the corner's
+                        # position is read from the centerline below.
+                        # 画像は解析するためだけに描く。コーナーの位置は下で中心線
+                        # から読む。
+                        scan = sf.render_scan([line], shape=shape,
+                                              nm_per_px=nm_per_px,
+                                              fiber_diameter_nm=sweep.FIBER_DIAMETER_NM,
+                                              tip_radius_nm=sweep.TIP_RADIUS_NM, noise_nm=0.05,
+                                              seed=seed, **sweep.BACKGROUND)
+                        txt = sf.write_afm_text(scan, str(out / (stem + ".txt")))
                         bundle = Path(process_file(txt, ProcParams(), scan_size_um=scan.scan_size_um,
                                                    scan_size_source="manual",
                                                    output_dir=str(out)).bundle_path)
                     image = measure.load_tracking_image(str(bundle), nm_per_px, nm_per_px)
-                    tx, ty = scan.true_kinks_xy
+                    tx, ty = line.x[line.kink_indices], line.y[line.kink_indices]
                     best = None
                     for fiber in image.fibers_in_image_parallel():
                         widths.append(float(fiber.width_px))
