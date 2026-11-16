@@ -67,7 +67,13 @@ computation differs, the difference is stated (§2.7, §3.5).
 **Pixel size.** Every physical length on this page uses the pixel size that
 `measure.measure_bundle` works out from the scan size. By default the scan
 size is the one recorded in the bundle (`spatial_calibration`). GUI04 passes the
-X and Y scan sizes from its scale fields instead, and a blank Y reuses X. The
+X and Y scan sizes from its scale fields instead, and a blank Y reuses X.
+Opening a dataset sets the fields to the recorded scan size, or asks for one
+when the bundle records none; a scale the user then commits in the fields is
+used until the dataset is opened again. When its Y/X ratio differs from the
+recorded one, GUI04 warns that the centerline and the kinks stay in the
+geometry they were placed in (§1.2), so lengths and kinks rest on different
+aspect ratios. The
 analysis arrays are one pixel smaller than the raw scan on each axis (see
 [Analysis algorithms](algorithms.md), *Conventions*), so the divisor is the
 array size plus one. That division is `bundle_schema.pixel_size_nm`, which the
@@ -108,6 +114,23 @@ The fibers it returns are the rows of the fiber table. GUI04 passes
 `measure_bundle` neither another kink threshold nor a length floor, which only
 GUI03 and `cli.py measure` use, so the table shows the kinks the bundle stores
 and every fiber.
+
+The fiber CSV ends every row with the scan sizes the lengths were measured at
+(`scale_x_um`, `scale_y_um`, in µm) and `scale_source`, which `measure_bundle`
+sets to `recorded` when both equal the scan size the bundle records and to
+`entered` otherwise, so a file says whether its lengths can be reproduced from
+the bundle alone:
+
+```python
+# source: lib/measure.py::measure_bundle
+scale_source = (
+    SCALE_SOURCE_RECORDED
+    if recorded is not None
+    and math.isclose(scale_um, recorded[0], rel_tol=1e-9)
+    and math.isclose(scale_y_um, recorded[1], rel_tol=1e-9)
+    else SCALE_SOURCE_ENTERED
+)
+```
 
 ## 1. From a bundle to fibers
 
@@ -1625,7 +1648,12 @@ return _candidates_for(index, ends, backs, medians, params, reach)
 ### 5.2 Building a fibril from a chain
 
 A chain is an ordered list of fragments, each with a flag saying whether to
-reverse it. `_build_chain_fiber` joins the fragments end to end:
+reverse it. `connect_selection.resolve_plan_chains` reads it from the saved plan
+and turns it, if needed, to run from its lower-numbered fragment to its
+higher-numbered one: the kink rule samples the centerline from its first point,
+so one fibril stored in the two directions would otherwise be judged twice and
+could carry different kink angles. `_build_chain_fiber` joins the fragments end
+to end:
 
 ```python
 # source: lib/fiber_connector.py::_build_chain_fiber

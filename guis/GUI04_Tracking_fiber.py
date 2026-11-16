@@ -46,7 +46,7 @@ PLUGIN_INFO = {
         "・ファイバーごとの高さプロファイル（キンク位置・端点・中央値/最大値線）\n"
         "・統計値（高さ中央値・最大値・長さ・端点数・キンク数・キンク角度）\n"
         "・ファイバー連結（交差・分岐で分断された断片を1本のフィブリルへ再結合、自動探索と手動選択）\n"
-        "・高さ範囲フィルター（specific_height_fibers 相当）\n"
+        "・高さ範囲フィルター（各ファイバーから、高さが範囲内の区間を切り出す）\n"
         "・高さプロファイル、ファイバー拡大像、およびAFM全体像の PNG 出力\n"
         "・全ファイバーの統計値 CSV エクスポート\n"
         "\n"
@@ -69,7 +69,7 @@ import numpy as np
 
 # ===== GUI libraries =====
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox, simpledialog
 from tkinter import font as tkfont
 
 # ===== Plotting libraries =====
@@ -101,7 +101,8 @@ from lib.fiber_connector import (
     ConnectParams, chain_for_manual_join, connection_candidates_by_index,
     filter_fibers_by_height, plan_from_auto_connect,
 )
-from lib.blosc2_io import bundle_has_keys, load_bundle, BUNDLE_EXT
+from lib.blosc2_io import bundle_has_keys, load_bundle, load_bundle_meta, BUNDLE_EXT
+from lib.bundle_schema import BUNDLE_FORMAT_VERSION
 from lib.connect_selection import (
     CONNECT_SUFFIX, ChainMember, ConnectionPlan, connect_path_for,
     load_connect_plan, plan_from_chains, plan_state_key, plan_with_chain,
@@ -110,7 +111,7 @@ from lib.connect_selection import (
 )
 from lib.fiber_selection import (
     EXCLUSION_SUFFIX, constituent_anchors, exclusion_path_for, excluded_flags,
-    fiber_anchor, load_exclusions, save_exclusions,
+    fiber_anchor, fiber_track_pixels, load_exclusions, save_exclusions,
 )
 from lib.kink_detector import END_MARGIN_WIDTHS, UNJUDGED_AT_BRIDGE
 from lib.measure import (
@@ -544,7 +545,6 @@ def fiber_column_help() -> Dict[str, ColumnHelp]:
     um = UNIT_MICROMETER
     window = f"{DEFAULT_CURVATURE_WINDOW_NM:g}"
     half_window = f"{DEFAULT_CURVATURE_WINDOW_NM / 2:g}"
-    quarter_window = f"{DEFAULT_CURVATURE_WINDOW_NM / 4:g}"
     margin = f"{END_MARGIN_WIDTHS:g}"
     # Symbols shared by the formulas: L contour length, p_x / p_y pixel sizes.
     # 式で共通の記号: L は輪郭長、p_x / p_y は画素サイズ。
@@ -607,11 +607,14 @@ def fiber_column_help() -> Dict[str, ColumnHelp]:
               "この角度を、2 本の線分にまたがる長さの半分で割ったものが点 i の曲率です。"
               "半分で割るのは、線分の向きはその線分の中点での向きに等しく、2 本の線分の"
               "中点どうしは全体の半分しか離れていないためです。これを全部の点で平均します。"
-              "始点から {half} nm 以内の点は、手前側に {quarter} nm 以上あれば、短い線分で"
-              "測ります。").format(half=half_window, quarter=quarter_window),
+              "両端から {half} nm 以内の点は、前後の片側に {half} nm を取れないので"
+              "測りません。連結したフィブリルでは、j から k までに継ぎ目がかかる点も"
+              "測りません。").format(half=half_window),
             "κ_i = |φ(i→k) − φ(j→i)| / ((s_k − s_j) / 2) × 1000   [rad/µm]",
-            _("ファイバーが {window} nm より短いとき。曲率 0（まっすぐ）と誤解されない"
-              "よう、0 ではなく空欄にします。").format(window=window),
+            _("前後それぞれ {half} nm を取れる点が 1 つも無いとき（長さがおよそ "
+              "{window} nm 以下のファイバー）、または連結したフィブリルで、どの点でも "
+              "j から k までに継ぎ目がかかるとき。曲率 0（まっすぐ）と誤解されない"
+              "よう、0 ではなく空欄にします。").format(half=half_window, window=window),
             "3.6"),
         "EP count": ColumnHelp(
             _("ファイバーの端のうち、交差で切れたのではなくファイバー自体がそこで終わって"
@@ -845,6 +848,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Fingerprint of the loaded dataset's skeleton; empty until a load.
         # 読み込み済みデータセットの骨格の指紋。読み込みまでは空。
         self._skeleton_digest: str = ""
+        # Scan sizes and their source the loaded dataset was measured at
+        # (`MeasureResult.scale_source`); unknown until a load.
+        # 読み込み済みデータセットを計測した走査範囲とその出どころ
+        # （`MeasureResult.scale_source`）。読み込みまでは不明。
+        self._measured_scale: tuple = (None, None, "")
+        # The (dataset, X, Y) an aspect-changing scale override was last warned
+        # about, so the dialog is not repeated on every re-analysis.
+        # 縦横比を変えるスケールの上書きを最後に警告した (データセット, X, Y)。
+        # 再解析のたびにダイアログを繰り返さないために保持する。
+        self._scale_override_warned: Optional[tuple] = None
         self.current_stem:   str = ""
 
         # Index of the focused fiber in the current table. The table allows a
@@ -2391,6 +2404,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if not sel:
             return
         stem = sel[0]
+        # Selecting the dataset that is already loaded is not a switch. A
+        # cancelled switch puts the selection back on it (below and in
+        # `_start_analysis`), which fires this handler again; loading it then
+        # would reload it from disk, dropping unsaved curation, and ask again.
+        # 読み込み済みのデータセットを選ぶのは切替ではない。切替を中止すると選択が
+        # それに戻り（下記と `_start_analysis`）、このハンドラーが再び呼ばれる。
+        # そこで読み込むと、ディスクから読み直して未保存のキュレーションを失い、
+        # 同じ確認を再び出してしまう。
+        if stem == self.current_stem and self.current_image is not None:
+            return
         if self.is_running:
             self._log(_("読み込み中です。しばらくお待ちください。"))
             return
@@ -2412,6 +2435,63 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # ようにする。
         self._end_region_select()
         self._start_analysis(stem, reuse_exclusions=False)
+
+    def _report_scale_override(
+        self, stem: str, recorded: Tuple[float, float],
+    ) -> None:
+        """
+        Say when a re-analysis measures at a scale other than the recorded one.
+        再解析が記録と異なるスケールで計測するとき、そのことを伝える。
+
+        Parameters
+        ----------
+        stem
+            Dataset being re-analyzed.
+            再解析するデータセット。
+        recorded
+            ``(x_um, y_um)`` scan size the bundle records.
+            バンドルに記録された走査範囲 ``(x_um, y_um)``。
+
+        Notes
+        -----
+        The entered scale sets every length, but the centerline is placed and
+        the kinks are judged in the geometry `lib.measure` reads from the
+        bundle (`bundle_schema.pixel_aspect_from_meta`), because the stored
+        kinks were judged there. A scale with the recorded aspect only rescales
+        the lengths; one with another aspect measures the lengths in a geometry
+        the centerline and the kinks were not placed in, so that case is warned
+        about in a dialog as well as the log, once per dataset and scale.
+        入力したスケールはすべての長さを決めるが、中心線の配置とキンクの判定は、
+        `lib.measure` がバンドルから読む幾何（`bundle_schema.pixel_aspect_from_meta`）
+        で行う。保存されたキンクがその幾何で判定されたためである。記録と同じ縦横比の
+        スケールは長さを拡大縮小するだけだが、縦横比の異なるスケールでは、中心線と
+        キンクを置いた幾何とは別の幾何で長さを測ることになる。そこでその場合は、
+        データセットとスケールの組ごとに 1 回、ログに加えてダイアログでも警告する。
+        """
+        rec_x, rec_y = recorded
+        x = self.scale_um
+        y = self.scale_y_um if self.scale_y_um is not None else x
+        if (math.isclose(x, rec_x, rel_tol=1e-9)
+                and math.isclose(y, rec_y, rel_tol=1e-9)):
+            return
+        self._log(_(
+            "バンドルに記録された走査範囲 {rx}×{ry} µm ではなく、入力されたスケール "
+            "{x}×{y} µm で計測します。"
+        ).format(rx=self._fmt_num(rec_x), ry=self._fmt_num(rec_y),
+                 x=self._fmt_num(x), y=self._fmt_num(y)))
+        if math.isclose(y / x, rec_y / rec_x, rel_tol=1e-6):
+            return
+        message = _(
+            "入力したスケールの縦横比（Y/X = {new}）が、バンドルに記録された走査範囲の"
+            "縦横比（Y/X = {rec}）と異なります。長さは入力したスケールで測りますが、"
+            "中心線の位置とキンクの判定は解析時の幾何のまま変わりません。そのため長さと"
+            "キンクが別の縦横比に基づくことになります。"
+        ).format(new=f"{y / x:.4g}", rec=f"{rec_y / rec_x:.4g}")
+        self._log(message)
+        key = (stem, x, y)
+        if self._scale_override_warned != key:
+            self._scale_override_warned = key
+            messagebox.showwarning(_("スケールの縦横比"), message, parent=self)
 
     def _start_analysis(self, stem: str, reuse_exclusions: bool = False) -> None:
         """
@@ -2447,17 +2527,22 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         self.is_running = True
 
-        # Default the scale to the bundle's recorded scan size so fiber lengths
-        # are reproduced from the bundle alone. Both axes are adopted: a
-        # distinct Y size keeps a rectangular scan, an equal one leaves the Y
-        # entry empty (square scan). The user can still override via the
-        # entries; bundles without a recorded scan size keep the current value.
-        # スケールをバンドル記録の走査範囲で既定化し、ファイバー長をバンドル単体で
-        # 再現する。両軸を採用し、Y が異なれば矩形スキャン、等しければ Y 欄は空
-        # （正方スキャン）とする。入力欄で上書きは可能で、走査範囲未記録の
-        # バンドルは現在値を保持する。
+        # Opening a dataset defaults the scale to the bundle's recorded scan
+        # size so fiber lengths are reproduced from the bundle alone. Both axes
+        # are adopted: a distinct Y size keeps a rectangular scan, an equal one
+        # leaves the Y entry empty (square scan). A re-analysis keeps the scale
+        # the user committed in the entries, which overrides the recorded size
+        # (below); for a bundle without a recorded scan size the user is asked
+        # for it (further below).
+        # データセットを開くときは、スケールをバンドル記録の走査範囲で既定化し、
+        # ファイバー長をバンドル単体で再現する。両軸を採用し、Y が異なれば矩形
+        # スキャン、等しければ Y 欄は空（正方スキャン）とする。再解析では、
+        # ユーザーが入力欄で確定したスケールを保ち、記録された走査範囲より優先する
+        # （下記）。走査範囲未記録のバンドルではユーザーに入力させる（さらに下記）。
         recorded = read_scan_size_from_bundle(stem + BUNDLE_EXT)
-        if recorded is not None:
+        if recorded is not None and reuse_exclusions:
+            self._report_scale_override(stem, recorded)
+        elif recorded is not None:
             rec_x, rec_y = recorded
             new_scale_y = rec_y if abs(rec_y - rec_x) > 1e-9 else None
             x_changed = abs(rec_x - self.scale_um) > 1e-9
@@ -2488,6 +2573,40 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                             y=self._fmt_num(new_scale_y),
                         )
                     )
+        elif not reuse_exclusions:
+            # A bundle that records no scan size would otherwise be measured at
+            # whatever the scale fields hold from the dataset opened before, so
+            # its lengths would depend on the order the files were opened in.
+            # The user states the scale for this dataset instead. A re-analysis
+            # keeps the value the user has just committed.
+            # 走査範囲を記録していないバンドルは、そのままでは直前に開いた
+            # データセットのスケール欄の値で計測され、長さがファイルを開いた順序で
+            # 変わってしまう。そこで、このデータセットのスケールをユーザーに入力
+            # させる。再解析では、ユーザーが確定したばかりの値をそのまま使う。
+            value = simpledialog.askfloat(
+                _("スケールの入力"),
+                _("このバンドルには走査範囲が記録されていません。"
+                  "画像の X（幅）方向の実寸を µm で入力してください。"
+                  "Y は X と同じ（正方スキャン）として扱います。"
+                  "矩形スキャンの場合は、読み込み後に Y 欄へ入力してください。"),
+                initialvalue=self.scale_um, minvalue=1e-9, parent=self,
+            )
+            if value is None:
+                self.is_running = False
+                self._log(_("スケールが入力されなかったため、読み込みを中止しました。"))
+                if self.current_stem and self.file_tree.exists(self.current_stem):
+                    self.file_tree.selection_set(self.current_stem)
+                    self.file_tree.focus(self.current_stem)
+                return
+            self.scale_um = float(value)
+            self.scale_um_var.set(self._fmt_num(self.scale_um))
+            self.scale_y_um = None
+            self.scale_y_um_var.set("")
+            self._refresh_scale_y_placeholder()
+            self._log(_(
+                "このバンドルには走査範囲が記録されていないため、入力されたスケール "
+                "{scale} µm（正方スキャン）で計測します。"
+            ).format(scale=self._fmt_num(self.scale_um)))
 
         # Use committed internal scale, not unconfirmed Entry text. While an
         # Entry is unconfirmed, the old committed value remains active.
@@ -2629,6 +2748,24 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         "ファイバーはこの線に沿って描画・計測され、キンクもこの線上で"
                         "判定されています。"
                     ).format(line=result.image.centerline)))
+                # A bundle of a format between 1.1 and the current one is also
+                # measured by its own format's rules (`bundle_schema`
+                # `*_from_meta`), which place the centerline and read the width
+                # differently; say so, as for format 1.0, since nothing else on
+                # screen does.
+                # 形式 1.1 から現在の形式の手前までのバンドルも、その形式の規則
+                # （`bundle_schema` の `*_from_meta`）で計測され、中心線の置き方や
+                # 幅の読み方が異なる。形式 1.0 と同様に、そのことを伝える。画面の他の
+                # どこにも示されないためである。
+                version = load_bundle_meta(stem + BUNDLE_EXT).get("version")
+                if (result.image.centerline != SKELETON_TRACK
+                        and version != BUNDLE_FORMAT_VERSION):
+                    self.ui_queue.put(("log", _(
+                        "このバンドルは旧版（形式 {version}）で解析されています。"
+                        "中心線の置き方と保存されたキンクは、その形式の規則のままです"
+                        "（現在の形式は {current}）。現在の規則で計測するには GUI01 で"
+                        "再解析してください。"
+                    ).format(version=version, current=BUNDLE_FORMAT_VERSION)))
                 stats = table_row_values(result)
                 # The skeleton is fingerprinted here, on the worker, so a plan
                 # this window saves later records the skeleton it was actually
@@ -2645,7 +2782,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     "file_loaded",
                     (stem, result.image, result.fibers, stats,
                      result.fragments, records, result.curated_count,
-                     reuse_exclusions, digest),
+                     reuse_exclusions, digest,
+                     (result.scale_um, result.scale_y_um, result.scale_source)),
                 ))
             except Exception:
                 self.ui_queue.put(("file_error", (stem, traceback.format_exc())))
@@ -2656,7 +2794,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         stats: List[tuple], fragments: List[Fiber],
                         records: List[dict], curated_count: int,
                         reuse_exclusions: bool = False,
-                        digest: str = "") -> None:
+                        digest: str = "",
+                        scale: tuple = (None, None, "")) -> None:
         """
         Apply worker-thread load results to the UI on the main thread.
         ワーカースレッドから受け取った読み込み結果をメインスレッドで UI に反映する。
@@ -2701,8 +2840,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             ワーカーが計算したバンドル骨格の `skeleton_digest`。後で作る連結
             プランが、骨格を再びハッシュせずに自身が記述する骨格を記録できるよう
             保持する。
+        scale
+            ``(scale_um, scale_y_um, scale_source)`` the worker measured with
+            (`MeasureResult`), kept for the CSV export.
+            ワーカーが計測に使った ``(scale_um, scale_y_um, scale_source)``
+            （`MeasureResult`）。CSV 出力のために保持する。
         """
         self.current_image     = image
+        self._measured_scale   = scale
         self.current_stem      = stem
         self.current_fibers    = fibers
         self.current_fragments = fragments
@@ -2808,7 +2953,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         unmeasurable = sum(1 for s in stats if not np.isfinite(s[3]))
         if unmeasurable:
             self._log(_(
-                "曲率窓 {w} nm より短いファイバー {n} 本は曲率欄が空欄になります。"
+                "曲率窓 {w} nm を張れる点が無いファイバー {n} 本は曲率欄が空欄になります"
+                "（前後それぞれ窓の半分を取れる点が無いか、連結したフィブリルで"
+                "どの点の窓にも継ぎ目がかかるため）。"
             ).format(
                 w=self._fmt_num(DEFAULT_CURVATURE_WINDOW_NM), n=unmeasurable,
             ))
@@ -3235,7 +3382,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         決して計算しない。フィルターの切断面はファイバーの端ではなく、そこで
         見つかる候補はフィルターの中にしか存在しない対象どうしの連結を提示して
         しまう。
+
+        An open candidate window is closed: its rows and the fiber it was
+        opened for are positions in the population it was built from, so after
+        a change its connect button would join two other fibers.
+        開いている候補ウインドウは閉じる。その行と、開いた対象のファイバーは、
+        作られたときの母集団での位置であり、母集団が変わった後は連結ボタンが別の
+        2 本を繋いでしまうためである。
         """
+        window = self._candidate_window
+        if window is not None and window.winfo_exists():
+            window.destroy()
+        self._candidate_window = None
         if self.current_image is None or len(self.current_fibers) < 2:
             self._candidate_cache = {}
             return
@@ -3315,11 +3473,32 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             exclude_anchors=anchors,
             plan=self.connect_plan,
         )
-        if result.plan_splits:
+        # `plan_splits` also counts a fibril every fragment of which was
+        # excluded; that one was removed, not split, so it is reported apart.
+        # `plan_splits` は、すべての断片が除外されたフィブリルも数える。それは分割
+        # ではなく取り除かれたものなので、分けて報告する。
+        kept_pixels = set()
+        for fragment in self._surviving_fragments():
+            kept_pixels |= fiber_track_pixels(fragment)
+        removed = [
+            chain for chain in self.connect_plan.chains
+            if not any(
+                (int(m.anchor[0]), int(m.anchor[1])) in kept_pixels
+                for m in chain
+            )
+        ]
+        split = result.plan_splits - len(removed)
+        if split:
             self._log(_(
                 "除外により、連結したフィブリル {n} 本が分割されました"
                 "（断片 {m} 本が除外対象）。"
-            ).format(n=result.plan_splits, m=result.plan_missing))
+            ).format(n=split,
+                     m=result.plan_missing - sum(len(c) for c in removed)))
+        if removed:
+            self._log(_(
+                "連結したフィブリル {n} 本は、すべての断片を除外したため"
+                "取り除かれました。"
+            ).format(n=len(removed)))
         self._apply_curated(result)
 
     def _apply_curated(self, result) -> None:
@@ -3353,8 +3532,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         fibrils of the population just installed.
         連結一覧ウインドウが開いていれば最後に作り直す。その行は、いま反映した
         母集団のフィブリルを指すためである。
+
+        The connection candidates are rebuilt on the filtered path too: they
+        index `current_fibers`, which has just changed, and turning the filter
+        off later only refills the table.
+        連結候補はフィルター有効時の経路でも作り直す。候補は今変わった
+        `current_fibers` を指しており、後でフィルターを外しても一覧が埋め直される
+        だけだからである。
         """
         if self._filter_active:
+            self._rebuild_candidate_cache()
             self._apply_filter()
         else:
             self._refresh_population_views()
@@ -3624,12 +3811,29 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         Notes
         -----
-        One anchor is recorded per constituent fragment of each fiber, so that
-        excluding a connected fibril removes all of it; `lib.fiber_selection`
-        explains why the fibril's own midpoint is not enough.
-        各ファイバーの構成断片ごとに 1 つのアンカーを記録し、連結済みフィブリルを
-        除外したときにその全体が取り除かれるようにする。フィブリル自身の中点では
-        不十分な理由は `lib.fiber_selection` に記載している。
+        One anchor is recorded per fragment of each fiber's chain
+        (`_display_chains`), so that excluding a connected fibril removes all
+        of it; `lib.fiber_selection` explains why the fibril's own midpoint is
+        not enough. The fragments are read from the chain rather than found by
+        overlap (`fiber_selection.constituent_anchors`), because a short
+        fragment trimmed at both of its junctions keeps less than half of its
+        pixels on the fibril and would not be found.
+        各ファイバーの連鎖（`_display_chains`）の断片ごとに 1 つのアンカーを記録し、
+        連結済みフィブリルを除外したときにその全体が取り除かれるようにする。
+        フィブリル自身の中点では不十分な理由は `lib.fiber_selection` に記載して
+        いる。断片は重なり（`fiber_selection.constituent_anchors`）で探すのではなく
+        連鎖から読む。両方の接合部で切り詰められた短い断片は、画素の半分以上が
+        フィブリル上に残らず、重なりでは見つからないためである。
+
+        Refused while the height filter is active: the rows are then pieces
+        cut out of a fiber, while an exclusion names a whole fragment, so
+        excluding a row would remove more than the row, or, for a piece whose
+        middle lies on a connector bridge, nothing at all. Connection is
+        refused for the same reason (`_selected_display_indices`).
+        高さフィルターが有効な間は受け付けない。そのとき行はファイバーから
+        切り出した部分区間であり、除外は断片全体を指すため、行を除外すると行より
+        多くを取り除くか、中央が連結器の橋渡し部にある区間では何も取り除かない。
+        連結も同じ理由で受け付けない（`_selected_display_indices`）。
 
         The whole selection becomes one undo step. Debris and scan-line
         artifacts are judged in groups while looking at the overview, so
@@ -3640,14 +3844,26 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         その操作がたまたま最後に書いたアンカー 1 件ではなく、ユーザーが行った
         操作そのものを戻さなければならない。
         """
+        if self._filter_active:
+            messagebox.showinfo(_("情報"), _(
+                "高さフィルターが有効な間は除外できません。一覧の行はファイバーから"
+                "切り出した部分区間ですが、除外はファイバー全体に対して行うためです。"
+                "高さフィルターを外してから除外してください。"
+            ))
+            return
         fibers = self._selected_fibers()
         if not fibers:
             messagebox.showinfo(_("情報"), _("除外するファイバーを選択してください。"))
             return
 
+        fragments = self._surviving_fragments()
+        chains = self._display_chains()
         anchors = []
-        for fiber in fibers:
-            anchors.extend(constituent_anchors(fiber, self.current_fragments))
+        for index in self._sel_indices:
+            if 0 <= index < len(chains):
+                anchors.extend(
+                    fiber_anchor(fragments[i]) for i, _flip in chains[index]
+                )
         for x, y in anchors:
             self._excluded_records.append({"x": x, "y": y, "note": ""})
         self._exclusion_groups.append(len(anchors))
@@ -3999,11 +4215,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         The test is on the centerline the overview draws, with the same
         pixel-center offset, because the user aims at what is on screen. It
         only chooses rows: what gets recorded on exclusion is still the
-        skeleton-pixel anchors `constituent_anchors` derives.
+        skeleton-pixel anchors of each row's fragments (`_on_exclude_selected`).
         判定には全体像が描く中心線を、同じ画素中心の補正付きで使う。ユーザーは
         画面上に見えているものを狙うためである。ここで決まるのは行の選択だけで
-        あり、除外時に記録されるのは従来どおり `constituent_anchors` が導く
-        スケルトン画素のアンカーである。
+        あり、除外時に記録されるのは各行の断片のスケルトン画素のアンカーである
+        （`_on_exclude_selected`）。
         """
         x_scale, y_scale, _unit = self._get_extent_scale_xy_and_unit()
         h_px, w_px = self.current_image.calibrated_image.shape[:2]
@@ -4579,17 +4795,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Without a filter, every fiber is shown with a dashed white box and its
         original index. With the height filter on, each surviving fiber keeps
         the same dashed white box and number (renumbered over the filtered
-        list, matching the fiber table) and additionally has its extracted
-        skeleton pixels scattered in magenta over the AFM image, matching the
-        pixel-level ``specific_height_fibers`` extraction: a fiber contributes
-        only the sub-segments whose calibrated height lies in the selected
-        range.
+        list, matching the fiber table) and additionally has the centerline
+        points of its extracted sub-segments scattered in magenta over the AFM
+        image: a fiber contributes only the sub-segments whose height
+        (`Fiber.height`) lies in the selected range
+        (`fiber_connector.filter_fibers_by_height`).
         フィルターなしでは全ファイバーを破線白枠と元番号で表示する。高さ
         フィルター ON でも各残存ファイバーを同じ破線白枠と番号（フィルター後
         リストで振り直した、一覧テーブルと一致する番号）で表示し、さらに抽出
-        されたスケルトン画素をマゼンタで AFM 像上に散布表示して、画素単位の
-        ``specific_height_fibers`` 抽出（補正高さが範囲内の区間のみ残る）に
-        一致させる。
+        された部分区間の中心線の点をマゼンタで AFM 像上に散布表示する。各
+        ファイバーからは、高さ（`Fiber.height`）が範囲内の部分区間だけが残る
+        （`fiber_connector.filter_fibers_by_height`）。
 
         In color-coded fiber mode the height background is replaced entirely by
         `_draw_overview_fibers_bg`, which honors the same filter state.
@@ -4642,7 +4858,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if self._filter_active:
             parts.append("filter: {count} segments".format(count=len(filtered)))
         if excluded:
-            parts.append("{n} excluded".format(n=len(self._excluded_records)))
+            # One exclusion record names one fragment, so excluding a connected
+            # fibril adds one per fragment; the count says so.
+            # 除外の記録は断片 1 つにつき 1 件なので、連結したフィブリルを除外すると
+            # 断片の数だけ増える。表示もそのとおりに書く。
+            parts.append("excluded fragments: {n}".format(
+                n=len(self._excluded_records)))
         self._draw_overview_background(
             labeled_fibers=list(enumerate(filtered)),
             title_suffix="  [{parts}]".format(parts=", ".join(parts)),
@@ -5006,15 +5227,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         )
 
         image = self.current_image
-        # Compose with fiber connection: when connection is active, filter the
-        # connected fibrils (current_fibers) rather than the raw skeleton, so the
-        # "connect, then filter" order is preserved and the connector cannot
-        # bridge across regions the filter removes.
-        # ファイバー連結との合成：連結が有効なときは生スケルトンではなく連結済み
-        # フィブリル（current_fibers）をフィルターする。これにより「連結してから
-        # フィルター」の順序が保たれ、連結器がフィルターで除去した領域を橋渡しで
-        # 埋め戻すことはない。
-        connect_fibers = bool(self.connect_plan.chains)
+        # Filter the measured population (current_fibers), which already has
+        # the exclusions and any connection applied, rather than the raw
+        # skeleton: an excluded fiber stays out, the "connect, then filter"
+        # order is preserved so the connector cannot bridge across regions the
+        # filter removes, and one definition of a height-band piece holds
+        # whether or not anything in the image is connected.
+        # 生スケルトンではなく計測対象の母集団（current_fibers。除外と連結を
+        # 適用済み）をフィルターする。除外したファイバーは外れたままとなり、
+        # 「連結してからフィルター」の順序が保たれて連結器がフィルターで除去した
+        # 領域を橋渡しで埋め戻すことはなく、画像内に連結があってもなくても高さ帯の
+        # 区間は 1 つの定義で作られる。
         connected_fibers = self.current_fibers
         # A piece of a fibril is judged at its bridges as the fibril was.
         # フィブリルの一部は、橋渡し部でフィブリルと同じく判定する。
@@ -5037,32 +5260,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         _last_pct_ref[0] = pct
                         self.ui_queue.put(("progress", (done, total)))
 
-                if connect_fibers:
-                    # Connect-then-filter: test each connected fibril against its
-                    # own height profile (including interpolated bridge heights)
-                    # and slice out the in-band runs, so an in-band bridge keeps
-                    # the fibril joined instead of re-splitting it.
-                    # 連結してからフィルター：連結済みフィブリルを自身の高さ
-                    # プロファイル（橋渡し補間値を含む）で判定し帯域内区間を
-                    # 切り出す。帯域内の橋渡しはフィブリルを連結したまま保つ。
-                    result = filter_fibers_by_height(
-                        image, connected_fibers, lo, hi, progress_cb=_progress,
-                        judge_bridge_kinks=judge_bridge_kinks,
-                    )
-                else:
-                    # Pixel-level extraction on the raw skeleton: keep only
-                    # skeleton pixels whose calibrated height is within [lo, hi]
-                    # and rebuild fibers from them. Delegates to
-                    # FiberTrackingImage.specific_height_fibers so the GUI matches
-                    # the reference height-filter behavior, which isolates the
-                    # portions at a target height (e.g. dents) rather than
-                    # selecting whole fibers by a summary statistic.
-                    # 生スケルトン上の画素単位抽出。補正高さが [lo, hi] の
-                    # スケルトン画素のみを残して再構築する。specific_height_fibers
-                    # に委譲し、要約統計でファイバーを丸ごと選ぶのではなく特定
-                    # 高さの箇所（凹みなど）を切り出す、本来の高さフィルター仕様に
-                    # 一致させる。
-                    result = image.specific_height_fibers(lo, hi, progress_cb=_progress)
+                # Test each fiber against its own height profile (including the
+                # interpolated bridge heights of a connected fibril) and slice
+                # out the in-band runs, so the filter isolates the portions at a
+                # target height (e.g. dents) rather than selecting whole fibers
+                # by a summary statistic, and an in-band bridge keeps a fibril
+                # joined instead of re-splitting it.
+                # 各ファイバーを自身の高さプロファイル（連結フィブリルでは橋渡しの
+                # 補間値を含む）で判定し帯域内区間を切り出す。要約統計でファイバーを
+                # 丸ごと選ぶのではなく特定高さの箇所（凹みなど）を切り出し、帯域内の
+                # 橋渡しはフィブリルを連結したまま保つ。
+                result = filter_fibers_by_height(
+                    image, connected_fibers, lo, hi, progress_cb=_progress,
+                    judge_bridge_kinks=judge_bridge_kinks,
+                )
                 self.ui_queue.put(("filter_done", (result, lo, hi)))
             except Exception:
                 self.ui_queue.put(("filter_error", traceback.format_exc()))
@@ -5974,12 +6185,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # GUI03 needs to exclude or weight lengths cut by the frame.
             # 画像形状も同様に枠の列を埋める。GUI03 が枠で切れた長さを除外・
             # 重み付けするのに必要である。
+            # The scale the dataset was measured at closes every row, so the
+            # file says what its lengths rest on, including a scale entered
+            # for a bundle that records none.
+            # 計測に使ったスケールを全行の末尾に書き、長さが何に基づくかを
+            # ファイル自体が示すようにする。走査範囲を記録していないバンドルに
+            # 入力したスケールも含む。
+            scale_x, scale_y, source = self._measured_scale
             write_fiber_csv(path, compute_fiber_stats(
                 fibers,
                 self.current_image.size_per_pixel,
                 self.current_image.y_size_per_pixel,
                 frame_shape=np.shape(self.current_image.calibrated_image),
-            ))
+            ), scale_um=scale_x, scale_y_um=scale_y, scale_source=source)
 
         save_csv_with_dialog(
             self,
@@ -6016,12 +6234,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         def _on_file_loaded(payload):
             (stem, image, fibers, stats, fragments, records, curated,
-             reuse, digest) = payload
+             reuse, digest, scale) = payload
             self.is_running = False
             self._hide_progress()
             self._set_ui_enabled(True)
             self._on_file_loaded(stem, image, fibers, stats, fragments,
-                                 records, curated, reuse, digest)
+                                 records, curated, reuse, digest, scale)
 
         def _on_file_error(payload):
             stem, tb = payload

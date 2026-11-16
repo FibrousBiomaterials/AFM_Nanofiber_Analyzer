@@ -145,7 +145,10 @@ def _measure_signatures(rel: str) -> dict:
                 scale = FALLBACK_NM_PER_PX * (width + 1) / 1000.0
             result = measure_bundle(bundle, scale_um=scale)
             csv_path = os.path.join(sub, "fibers.csv")
-            write_fiber_csv(csv_path, result.stats)
+            write_fiber_csv(
+                csv_path, result.stats, scale_um=result.scale_um,
+                scale_y_um=result.scale_y_um, scale_source=result.scale_source,
+            )
             with open(csv_path, "rb") as f:
                 csv_bytes = f.read()
             heights, errors = skeleton_height_values([bundle])

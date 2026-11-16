@@ -611,7 +611,10 @@ def cmd_measure(args: argparse.Namespace) -> int:
                 min_length_nm=min_length_nm,
             )
             csv_path = stem + "_fibers.csv"
-            write_fiber_csv(csv_path, result.stats)
+            write_fiber_csv(
+                csv_path, result.stats, scale_um=result.scale_um,
+                scale_y_um=result.scale_y_um, scale_source=result.scale_source,
+            )
         except Exception as e:
             print("FAILED")
             print(f"    {type(e).__name__}: {e}", file=sys.stderr)

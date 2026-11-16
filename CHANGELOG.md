@@ -166,6 +166,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   says so when no fiber width could be measured, the state a calibration that
   removed the fibers leaves (`docs/validation.md` §1.10). Analysis results do
   not change.
+- The fiber CSV written by GUI04 and `cli.py measure` ends every row with the
+  scan sizes the lengths were measured at, `scale_x_um` and `scale_y_um` (µm),
+  and `scale_source`: `recorded` when they are the scan size the bundle
+  records, `entered` when the user gave another one or one the bundle does not
+  record (`MeasureResult.scale_source`). A scale entered for a bundle without a
+  scan size was otherwise recorded nowhere but GUI04's log. Earlier CSVs still
+  read. No measured value changes, but the CSV written for the same bundle is
+  no longer byte-identical.
 
 ### Changed
 
@@ -726,6 +734,58 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   5.2 %, 9.0 % and 14.2 % of the samples of the higher-plant, tunicate and
   NDTOC scans and lowered their medians by 1.1 %, 0.8 % and 1.0 %. **Pooled
   height distributions change from this version.**
+- GUI04's height filter cuts every fiber of the measured population, with the
+  exclusions and any connection applied, into its in-band runs
+  (`fiber_connector.filter_fibers_by_height`), whether or not anything in the
+  image is connected. With nothing connected it rebuilt the band from the whole
+  stored skeleton (`FiberTrackingImage.specific_height_fibers`), so excluded
+  fibers came back while the filter was on (10 pieces, 725 nm, on the
+  higher-plant scan and 4 pieces, 470 nm, on the NDTOC scan after excluding the
+  longest fiber), and a fiber's pieces were tested on the calibrated pixel
+  heights and kept the stored kinks, whereas with a connection anywhere in the
+  image they were tested on the crest heights and judged again. **GUI04's
+  height-filter rows, and the CSV exported with the filter on, change from this
+  version.**
+- GUI04 refuses to exclude fibers while the height filter is on. A row is then
+  a piece cut out of a fiber, while an exclusion names a whole fragment, so
+  excluding a row removed the whole fragment it came from or, for a piece
+  centred on a connector bridge, nothing at all.
+- Excluding a connected fibril in GUI04 records an anchor for every fragment of
+  its chain. The fragments were found by overlap, a fragment counting when more
+  than half of its pixels lay on the fibril, which missed a short fragment
+  trimmed at both of its junctions; that fragment stayed in the population as a
+  fiber of its own (3 of the 34 automatically connected fibrils of the NDTOC
+  scan). Exclusion files written before this version keep their content.
+- GUI04 asks for the scan size when it opens a bundle that records none, as
+  `cli.py process` writes without `--scale-um`, and measures the bundle as a
+  square scan of the entered size. It measured such a bundle at whatever the
+  scale fields held from the dataset opened before, logged like a recorded
+  size, so the same bundle measured 2.5 times longer after a 5 µm bundle than
+  after a 2 µm one. Cancelling the question leaves the loaded dataset as it was.
+- Cancelling a dataset switch in GUI04 at the question about unsaved exclusions
+  and connections leaves the loaded dataset as it was. Putting the file list's
+  selection back on that dataset started loading it again, so the question came
+  back after every Cancel.
+- A scale committed in GUI04's scale fields measures a bundle that records a
+  scan size until the dataset is opened again. Every re-analysis reset the
+  fields to the recorded size, so a typed scale changed nothing. When the
+  entered Y/X ratio differs from the recorded one, GUI04 warns that the
+  centerline and the kinks stay in the geometry they were placed in, so lengths
+  and kinks rest on different aspect ratios. The bundle itself is not changed.
+- GUI04's overview title gives the number of excluded fragments
+  (`excluded fragments: N`). It read `N excluded`, while one exclusion is
+  recorded per fragment, so excluding one connected fibril of 6 fragments read
+  `6 excluded`. Excluding every fragment of a connected fibril is logged as
+  removing the fibril rather than as splitting it.
+- A connected fibril is built running from its lower-numbered fragment to its
+  higher-numbered one, whichever way its chain was stored
+  (`connect_selection.resolve_plan_chains`). The kink rule samples a line from
+  its first point, so the same fibril joined by hand from either of its two
+  fibers, or stored the other way round, could carry different kink angles (by
+  up to 0.54° on the bundled scans) and, on one fibril of the tunicate scan, a
+  different kink count (13 and 14). **Kink counts, angles and densities of
+  connected fibrils, in GUI04 and in GUI03 reading a saved connection file, can
+  change from this version.**
 
 ### Deprecated
 

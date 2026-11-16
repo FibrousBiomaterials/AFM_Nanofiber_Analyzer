@@ -513,6 +513,21 @@ def resolve_plan_chains(
     ``A-B-C`` の中央を取り除くと ``A`` と ``C`` は別々に残り、繋がることはない。
     誰もそれを 1 本だと決めていないからである。
 
+    Each chain is returned running from its lower fragment index to its higher
+    one, reversed (member order and flips) if it was stored the other way. The
+    kink rule a fibril is judged by (`KinkDetector.judge_line`) samples the
+    line from its first point, so the same fibril stored in the two directions
+    — joined from either of its two fibers by hand, say — would otherwise be
+    judged twice and could carry different kink angles. Removing fragments
+    renumbers the list but keeps the order of the survivors, so the direction
+    does not change with the exclusions either.
+    各連鎖は、断片番号の小さい側から大きい側へ向かう向きで返す。逆向きに保存
+    されていればメンバーの順序と反転を逆にする。フィブリルを判定するキンク規則
+    （`KinkDetector.judge_line`）は線を先頭の点から標本化するため、同じフィブリルが
+    2 通りの向きで保存されていると（たとえば 2 本のどちらから手で連結したかで）、
+    別々に判定されてキンク角が異なりうる。断片を取り除くと番号は詰め直されるが、
+    残った断片の順序は変わらないため、向きは除外によっても変わらない。
+
     Examples
     --------
     A plan joining fragments ``A-B-C`` resolves whole while all three are
@@ -533,6 +548,13 @@ def resolve_plan_chains(
     ([[(0, False), (1, False), (2, False)]], 0, 0)
     >>> resolve_plan_chains([a, c], plan)
     ([], 1, 1)
+
+    The same fibril stored the other way round resolves to the same chain:
+
+    >>> reverse = plan_from_chains([a, b, c], [[(2, True), (1, True), (0, True)]],
+    ...                            ConnectParams())
+    >>> resolve_plan_chains([a, b, c], reverse)
+    ([[(0, False), (1, False), (2, False)]], 0, 0)
     """
     owner: Dict[Tuple[int, int], int] = {}
     for i, frag in enumerate(fragments):
@@ -565,6 +587,16 @@ def resolve_plan_chains(
             runs.append(run)
 
         kept = [r for r in runs if len(r) >= 2]
+        # One fibril is built in one direction whichever way it was stored:
+        # the run is reversed, member order and every flip, when its first
+        # fragment comes after its last in the fragment list.
+        # 1 本のフィブリルは、どちら向きに保存されていても同じ向きで組み立てる。
+        # 先頭の断片が断片リストで末尾の断片より後にあるときは、メンバーの順序と
+        # 各メンバーの反転を逆にする。
+        kept = [
+            r if r[0][0] < r[-1][0] else [(i, not f) for i, f in reversed(r)]
+            for r in kept
+        ]
         resolved.extend(kept)
         if len(kept) != 1 or len(kept[0]) != len(chain):
             splits += 1

@@ -44,6 +44,8 @@ from lib.fiber_selection import (
 )
 from lib.measure import (
     FIBER_CSV_COLUMNS,
+    SCALE_SOURCE_ENTERED,
+    SCALE_SOURCE_RECORDED,
     FiberStats,
     FIBER_CSV_COLUMNS_V1,
     collect_fiber_curvature,
@@ -508,7 +510,10 @@ def test_cli_measure_writes_identical_csv(measured, tmp_path):
     bundle_path, result = measured
 
     direct_path = os.path.join(tmp_path, "direct.csv")
-    write_fiber_csv(direct_path, result.stats)
+    write_fiber_csv(
+        direct_path, result.stats, scale_um=result.scale_um,
+        scale_y_um=result.scale_y_um, scale_source=result.scale_source,
+    )
 
     out_dir = os.path.join(tmp_path, "cli_out")
     rc = cli.main([
@@ -2042,6 +2047,42 @@ def test_the_length_floor_is_read_from_the_recorded_settings(measured):
     width = meta["apparent_width"]["median_px"]
     expected = max(FAST_PARAMS.h_length, FAST_PARAMS.area_min / width) * EXPECTED_SIZE_PER_PIXEL
     assert length_floor_nm(calibrated) == pytest.approx(expected)
+
+
+def test_the_csv_records_the_scale_and_whether_the_bundle_recorded_it(measured, tmp_path):
+    """
+    The scale columns say which scan size the lengths were measured at.
+    スケールの列は、長さをどの走査範囲で計測したかを示す。
+
+    A bundle that records no scan size is measured at an entered one; a
+    bundle that records one reads as recorded whether the caller omits the
+    scale or passes the same value, as GUI04 does, and as entered otherwise.
+    走査範囲を記録していないバンドルは入力値で計測される。記録しているバンドルは、
+    スケールを省いても、GUI04 のように同じ値を渡しても recorded となり、それ以外は
+    entered となる。
+    """
+    bundle_path, result = measured
+    assert (result.scale_um, result.scale_y_um, result.scale_source) == (
+        SCALE_UM, SCALE_UM, SCALE_SOURCE_ENTERED)
+
+    meta = load_bundle_meta(bundle_path)
+    meta["spatial_calibration"] = make_spatial_calibration(SCALE_UM, SCALE_UM, "manual")
+    recorded = os.path.join(tmp_path, "recorded.b2z")
+    save_bundle(recorded, load_bundle(bundle_path), vlmeta=meta)
+    assert measure_bundle(recorded).scale_source == SCALE_SOURCE_RECORDED
+    assert measure_bundle(recorded, scale_um=SCALE_UM).scale_source == SCALE_SOURCE_RECORDED
+    other = measure_bundle(recorded, scale_um=2 * SCALE_UM)
+    assert (other.scale_um, other.scale_y_um, other.scale_source) == (
+        2 * SCALE_UM, 2 * SCALE_UM, SCALE_SOURCE_ENTERED)
+
+    path = os.path.join(tmp_path, "fibers.csv")
+    write_fiber_csv(path, other.stats, scale_um=other.scale_um,
+                    scale_y_um=other.scale_y_um, scale_source=other.scale_source)
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        rows = list(csv.reader(f))
+    assert rows[0][-3:] == ["scale_x_um", "scale_y_um", "scale_source"]
+    assert all(row[-3:] == ["3.84", "3.84", "entered"] for row in rows[1:])
+    assert len(read_fiber_csv(path)) == len(other.stats)
 
 
 def test_fibers_shorter_than_the_floor_are_left_out_and_counted(measured):

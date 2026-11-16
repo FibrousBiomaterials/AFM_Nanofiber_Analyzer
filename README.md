@@ -997,7 +997,12 @@ read from the fiber, 0 when the fallback was used), `line_reliable_fraction`,
 `unjudged_bridge_count` (bends not judged because their window reaches a
 connection bridge), and `bridge_excluded_nm` (the length the bridges took out of the kink
 density's divisor). `measure` applies no connection, so it writes these two as 0;
-they are filled for connected fibrils in GUI04's export. Earlier column sets are read back. `heights` prints a
+they are filled for connected fibrils in GUI04's export. Every row ends with the
+scan sizes the lengths were measured at, `scale_x_um` and `scale_y_um` (µm), and
+`scale_source`: `recorded` when they are the scan size the bundle records,
+`entered` when `--scale-um` gave another one, or when the bundle records none and
+the size was entered (`--scale-um`, or GUI04's prompt). Earlier column sets are
+read back. `heights` prints a
 per-bundle summary and optionally writes a long-format CSV (`bundle`,
 `height_nm`) for regrouping and re-binning in external tools. Folder
 arguments expand to all bundles directly inside the folder.

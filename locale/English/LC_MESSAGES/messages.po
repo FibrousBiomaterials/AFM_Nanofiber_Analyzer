@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-11-12 15:48+0900\n"
+"POT-Creation-Date: 2026-11-16 13:11+0900\n"
 "PO-Revision-Date: 2026-04-27 14:35+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -64,7 +64,7 @@ msgstr "Log"
 
 #: guis/GUI00_Format_Converter.py:178 guis/GUI01_Image_Preprocessor.py:1575
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2147
-#: guis/GUI04_Tracking_fiber.py:1861 lib/ui_tools.py:414
+#: guis/GUI04_Tracking_fiber.py:1874 lib/ui_tools.py:414
 msgid "ログを保存"
 msgstr "Save Log"
 
@@ -288,7 +288,7 @@ msgstr "Failed to load startup settings file (falling back to defaults): %s"
 #: guis/GUI03_Fiber_Morphology_Statistics.py:5948
 #: guis/GUI03_Fiber_Morphology_Statistics.py:6087
 #: guis/GUI03_Fiber_Morphology_Statistics.py:6117
-#: guis/GUI04_Tracking_fiber.py:6207
+#: guis/GUI04_Tracking_fiber.py:6425
 msgid "非表示"
 msgstr "Hidden"
 
@@ -320,7 +320,7 @@ msgstr "Settings"
 msgid "出力先を開く"
 msgstr "Open Output Folder"
 
-#: guis/GUI01_Image_Preprocessor.py:1251 guis/GUI04_Tracking_fiber.py:1575
+#: guis/GUI01_Image_Preprocessor.py:1251 guis/GUI04_Tracking_fiber.py:1588
 msgid "ファイル一覧"
 msgstr "File List"
 
@@ -360,12 +360,12 @@ msgstr "Paste"
 msgid "削除"
 msgstr "Delete"
 
-#: guis/GUI01_Image_Preprocessor.py:1363 guis/GUI04_Tracking_fiber.py:1379
+#: guis/GUI01_Image_Preprocessor.py:1363 guis/GUI04_Tracking_fiber.py:1392
 msgid "元に戻す"
 msgstr "Undo"
 
-#: guis/GUI01_Image_Preprocessor.py:1461 guis/GUI02_PlotProfiler.py:730
-#: guis/GUI04_Tracking_fiber.py:1206
+#: guis/GUI01_Image_Preprocessor.py:1461 guis/GUI02_PlotProfiler.py:733
+#: guis/GUI04_Tracking_fiber.py:1219
 msgid "AFM 画像の X（幅）方向の実寸"
 msgstr "Actual X (width) size of the AFM image"
 
@@ -375,13 +375,13 @@ msgstr ""
 "Used for the preview axis ticks and, once applied to files, as the basis "
 "for length measurements."
 
-#: guis/GUI01_Image_Preprocessor.py:1484 guis/GUI02_PlotProfiler.py:752
-#: guis/GUI04_Tracking_fiber.py:1228
+#: guis/GUI01_Image_Preprocessor.py:1484 guis/GUI02_PlotProfiler.py:755
+#: guis/GUI04_Tracking_fiber.py:1241
 msgid "AFM 画像の Y（高さ）方向の実寸"
 msgstr "Actual Y (height) size of the AFM image"
 
-#: guis/GUI01_Image_Preprocessor.py:1485 guis/GUI02_PlotProfiler.py:753
-#: guis/GUI04_Tracking_fiber.py:1229
+#: guis/GUI01_Image_Preprocessor.py:1485 guis/GUI02_PlotProfiler.py:756
+#: guis/GUI04_Tracking_fiber.py:1242
 msgid "空欄なら X（幅）と同じ（正方スキャン）。"
 msgstr "Leave empty to use the same value as X (width) — a square scan."
 
@@ -445,7 +445,7 @@ msgstr "Columns: filename, scale_um or scale_x_um, scale_y_um."
 
 #: guis/GUI01_Image_Preprocessor.py:1577
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2149
-#: guis/GUI04_Tracking_fiber.py:1864
+#: guis/GUI04_Tracking_fiber.py:1877
 msgid "ログをクリア"
 msgstr "Clear Log"
 
@@ -470,17 +470,17 @@ msgid "スケール表示"
 msgstr "Show Scale"
 
 #: guis/GUI01_Image_Preprocessor.py:2122 guis/GUI01_Image_Preprocessor.py:5077
-#: guis/GUI04_Tracking_fiber.py:1263
+#: guis/GUI04_Tracking_fiber.py:1276
 msgid "軸目盛単位"
 msgstr "Axis Tick Unit"
 
 #: guis/GUI01_Image_Preprocessor.py:2133 guis/GUI01_Image_Preprocessor.py:5088
-#: guis/GUI04_Tracking_fiber.py:1822
+#: guis/GUI04_Tracking_fiber.py:1835
 msgid "vmin"
 msgstr "vmin"
 
 #: guis/GUI01_Image_Preprocessor.py:2142 guis/GUI01_Image_Preprocessor.py:5097
-#: guis/GUI04_Tracking_fiber.py:1830
+#: guis/GUI04_Tracking_fiber.py:1843
 msgid "vmax"
 msgstr "vmax"
 
@@ -514,42 +514,42 @@ msgid "ファイバーの分解点（オレンジ）"
 msgstr "Fiber decomposition points (orange)"
 
 #: guis/GUI01_Image_Preprocessor.py:2182 guis/GUI01_Image_Preprocessor.py:5146
-#: guis/GUI02_PlotProfiler.py:883 guis/GUI04_Tracking_fiber.py:1769
+#: guis/GUI02_PlotProfiler.py:886 guis/GUI04_Tracking_fiber.py:1782
 msgid "フォントサイズ：タイトル"
 msgstr "Font Size: Title"
 
 #: guis/GUI01_Image_Preprocessor.py:2191 guis/GUI01_Image_Preprocessor.py:5166
-#: guis/GUI02_PlotProfiler.py:896
+#: guis/GUI02_PlotProfiler.py:899
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2820
-#: guis/GUI04_Tracking_fiber.py:1778
+#: guis/GUI04_Tracking_fiber.py:1791
 msgid "軸ラベル"
 msgstr "Axis Label"
 
 #: guis/GUI01_Image_Preprocessor.py:2200 guis/GUI01_Image_Preprocessor.py:5176
-#: guis/GUI02_PlotProfiler.py:908
+#: guis/GUI02_PlotProfiler.py:911
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2829
-#: guis/GUI04_Tracking_fiber.py:1787 guis/GUI04_Tracking_fiber.py:6412
-#: guis/GUI04_Tracking_fiber.py:6545
+#: guis/GUI04_Tracking_fiber.py:1800 guis/GUI04_Tracking_fiber.py:6630
+#: guis/GUI04_Tracking_fiber.py:6763
 msgid "軸目盛"
 msgstr "Ticks"
 
 #: guis/GUI01_Image_Preprocessor.py:2209 guis/GUI01_Image_Preprocessor.py:5186
-#: guis/GUI04_Tracking_fiber.py:6554
+#: guis/GUI04_Tracking_fiber.py:6772
 msgid "凡例"
 msgstr "Legend"
 
 #: guis/GUI01_Image_Preprocessor.py:2220 guis/GUI01_Image_Preprocessor.py:5196
-#: guis/GUI02_PlotProfiler.py:276 guis/GUI02_PlotProfiler.py:1013
-#: guis/GUI02_PlotProfiler.py:2468
+#: guis/GUI02_PlotProfiler.py:279 guis/GUI02_PlotProfiler.py:1016
+#: guis/GUI02_PlotProfiler.py:2480
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2193
 #: guis/GUI03_Fiber_Morphology_Statistics.py:6186
-#: guis/GUI04_Tracking_fiber.py:1752 guis/GUI04_Tracking_fiber.py:5936
-#: guis/GUI04_Tracking_fiber.py:6461 guis/GUI04_Tracking_fiber.py:6614
-#: guis/GUI04_Tracking_fiber.py:7095 guis/GUI04_Tracking_fiber.py:7103
+#: guis/GUI04_Tracking_fiber.py:1765 guis/GUI04_Tracking_fiber.py:6147
+#: guis/GUI04_Tracking_fiber.py:6679 guis/GUI04_Tracking_fiber.py:6832
+#: guis/GUI04_Tracking_fiber.py:7313 guis/GUI04_Tracking_fiber.py:7321
 msgid "画像を保存"
 msgstr "Save Image"
 
-#: guis/GUI01_Image_Preprocessor.py:2224 guis/GUI04_Tracking_fiber.py:1755
+#: guis/GUI01_Image_Preprocessor.py:2224 guis/GUI04_Tracking_fiber.py:1768
 msgid "個別表示"
 msgstr "Individual View"
 
@@ -558,19 +558,19 @@ msgid "vmin は vmax 以下にしてください"
 msgstr "vmin must be less than or equal to vmax"
 
 #: guis/GUI01_Image_Preprocessor.py:2273 guis/GUI01_Image_Preprocessor.py:5219
-#: guis/GUI02_PlotProfiler.py:1112
+#: guis/GUI02_PlotProfiler.py:1115
 msgid "フォントサイズは 1〜60 の範囲で入力してください"
 msgstr "Enter a font size in the range 1-60."
 
 #: guis/GUI01_Image_Preprocessor.py:2291 guis/GUI01_Image_Preprocessor.py:2329
-#: guis/GUI02_PlotProfiler.py:714 guis/GUI02_PlotProfiler.py:1147
-#: guis/GUI02_PlotProfiler.py:1184 guis/GUI04_Tracking_fiber.py:1191
-#: guis/GUI04_Tracking_fiber.py:2015 guis/GUI04_Tracking_fiber.py:2047
+#: guis/GUI02_PlotProfiler.py:717 guis/GUI02_PlotProfiler.py:1150
+#: guis/GUI02_PlotProfiler.py:1187 guis/GUI04_Tracking_fiber.py:1204
+#: guis/GUI04_Tracking_fiber.py:2028 guis/GUI04_Tracking_fiber.py:2060
 msgid "スケール"
 msgstr "Scale"
 
 #: guis/GUI01_Image_Preprocessor.py:2291 guis/GUI01_Image_Preprocessor.py:2329
-#: guis/GUI02_PlotProfiler.py:1147 guis/GUI02_PlotProfiler.py:1184
+#: guis/GUI02_PlotProfiler.py:1150 guis/GUI02_PlotProfiler.py:1187
 msgid "は正の数を入力してください"
 msgstr "must be a positive number"
 
@@ -579,21 +579,22 @@ msgstr "must be a positive number"
 #: guis/GUI01_Image_Preprocessor.py:3344 guis/GUI01_Image_Preprocessor.py:3361
 #: guis/GUI01_Image_Preprocessor.py:4741 guis/GUI01_Image_Preprocessor.py:4746
 #: guis/GUI01_Image_Preprocessor.py:4850 guis/GUI01_Image_Preprocessor.py:4899
-#: guis/GUI01_Image_Preprocessor.py:4919 guis/GUI02_PlotProfiler.py:1179
-#: guis/GUI02_PlotProfiler.py:1183 guis/GUI02_PlotProfiler.py:1542
-#: guis/GUI02_PlotProfiler.py:1556 guis/GUI02_PlotProfiler.py:1776
-#: guis/GUI02_PlotProfiler.py:2264 guis/GUI02_PlotProfiler.py:2283
-#: guis/GUI02_PlotProfiler.py:2294 guis/GUI02_PlotProfiler.py:2302
-#: guis/GUI02_PlotProfiler.py:2446 guis/GUI04_Tracking_fiber.py:2042
-#: guis/GUI04_Tracking_fiber.py:2046 guis/GUI04_Tracking_fiber.py:6659
-#: guis/GUI04_Tracking_fiber.py:6662 guis/GUI04_Tracking_fiber.py:6666
-#: guis/GUI04_Tracking_fiber.py:6701 guis/GUI04_Tracking_fiber.py:6704
+#: guis/GUI01_Image_Preprocessor.py:4919 guis/GUI02_PlotProfiler.py:1182
+#: guis/GUI02_PlotProfiler.py:1186 guis/GUI02_PlotProfiler.py:1554
+#: guis/GUI02_PlotProfiler.py:1568 guis/GUI02_PlotProfiler.py:1788
+#: guis/GUI02_PlotProfiler.py:2276 guis/GUI02_PlotProfiler.py:2295
+#: guis/GUI02_PlotProfiler.py:2306 guis/GUI02_PlotProfiler.py:2314
+#: guis/GUI02_PlotProfiler.py:2458 guis/GUI04_Tracking_fiber.py:2055
+#: guis/GUI04_Tracking_fiber.py:2059 guis/GUI04_Tracking_fiber.py:6877
+#: guis/GUI04_Tracking_fiber.py:6880 guis/GUI04_Tracking_fiber.py:6884
+#: guis/GUI04_Tracking_fiber.py:6919 guis/GUI04_Tracking_fiber.py:6922
 #: lib/ui_tools.py:1345 lib/ui_tools.py:1355
+#: tests/test_gui02_profile_state.py:486
 msgid "エラー"
 msgstr "Error"
 
-#: guis/GUI01_Image_Preprocessor.py:2324 guis/GUI02_PlotProfiler.py:1179
-#: guis/GUI04_Tracking_fiber.py:2042 lib/ui_tools.py:1345
+#: guis/GUI01_Image_Preprocessor.py:2324 guis/GUI02_PlotProfiler.py:1182
+#: guis/GUI04_Tracking_fiber.py:2055 lib/ui_tools.py:1345
 msgid "数値を入力してください"
 msgstr "Please enter a number"
 
@@ -682,8 +683,8 @@ msgstr "No split entries to collapse."
 #: guis/GUI01_Image_Preprocessor.py:4867
 #: guis/GUI03_Fiber_Morphology_Statistics.py:3376
 #: guis/GUI03_Fiber_Morphology_Statistics.py:3419
-#: guis/GUI04_Tracking_fiber.py:3747 guis/GUI04_Tracking_fiber.py:5302
-#: guis/GUI04_Tracking_fiber.py:7615 guis/GUI04_Tracking_fiber.py:7751
+#: guis/GUI04_Tracking_fiber.py:3963 guis/GUI04_Tracking_fiber.py:5513
+#: guis/GUI04_Tracking_fiber.py:7833 guis/GUI04_Tracking_fiber.py:7969
 msgid "確認"
 msgstr "Confirm"
 
@@ -745,7 +746,7 @@ msgstr ""
 "image)."
 
 #: guis/GUI01_Image_Preprocessor.py:3116 guis/GUI01_Image_Preprocessor.py:3167
-#: guis/GUI01_Image_Preprocessor.py:3244 guis/GUI02_PlotProfiler.py:2008
+#: guis/GUI01_Image_Preprocessor.py:3244 guis/GUI02_PlotProfiler.py:2020
 msgid "注意"
 msgstr "Warning"
 
@@ -859,19 +860,20 @@ msgid "プレビュー読み込み失敗"
 msgstr "Failed to load preview"
 
 #: guis/GUI01_Image_Preprocessor.py:4049 guis/GUI01_Image_Preprocessor.py:4077
-#: guis/GUI02_PlotProfiler.py:1306 guis/GUI02_PlotProfiler.py:1321
-#: guis/GUI04_Tracking_fiber.py:3447 guis/GUI04_Tracking_fiber.py:3603
-#: guis/GUI04_Tracking_fiber.py:3645 guis/GUI04_Tracking_fiber.py:3712
-#: guis/GUI04_Tracking_fiber.py:3717 guis/GUI04_Tracking_fiber.py:3736
-#: guis/GUI04_Tracking_fiber.py:3789 guis/GUI04_Tracking_fiber.py:3792
-#: guis/GUI04_Tracking_fiber.py:3832 guis/GUI04_Tracking_fiber.py:4541
-#: guis/GUI04_Tracking_fiber.py:5295 guis/GUI04_Tracking_fiber.py:5311
-#: guis/GUI04_Tracking_fiber.py:5372 guis/GUI04_Tracking_fiber.py:5390
-#: guis/GUI04_Tracking_fiber.py:5395 guis/GUI04_Tracking_fiber.py:5400
-#: guis/GUI04_Tracking_fiber.py:5512 guis/GUI04_Tracking_fiber.py:5624
-#: guis/GUI04_Tracking_fiber.py:5884 guis/GUI04_Tracking_fiber.py:5946
-#: guis/GUI04_Tracking_fiber.py:5951 guis/GUI04_Tracking_fiber.py:7442
-#: guis/GUI04_Tracking_fiber.py:7603 guis/GUI04_Tracking_fiber.py:7722
+#: guis/GUI02_PlotProfiler.py:1309 guis/GUI02_PlotProfiler.py:1324
+#: guis/GUI04_Tracking_fiber.py:3634 guis/GUI04_Tracking_fiber.py:3790
+#: guis/GUI04_Tracking_fiber.py:3848 guis/GUI04_Tracking_fiber.py:3856
+#: guis/GUI04_Tracking_fiber.py:3928 guis/GUI04_Tracking_fiber.py:3933
+#: guis/GUI04_Tracking_fiber.py:3952 guis/GUI04_Tracking_fiber.py:4005
+#: guis/GUI04_Tracking_fiber.py:4008 guis/GUI04_Tracking_fiber.py:4048
+#: guis/GUI04_Tracking_fiber.py:4757 guis/GUI04_Tracking_fiber.py:5506
+#: guis/GUI04_Tracking_fiber.py:5522 guis/GUI04_Tracking_fiber.py:5583
+#: guis/GUI04_Tracking_fiber.py:5601 guis/GUI04_Tracking_fiber.py:5606
+#: guis/GUI04_Tracking_fiber.py:5611 guis/GUI04_Tracking_fiber.py:5723
+#: guis/GUI04_Tracking_fiber.py:5835 guis/GUI04_Tracking_fiber.py:6095
+#: guis/GUI04_Tracking_fiber.py:6157 guis/GUI04_Tracking_fiber.py:6162
+#: guis/GUI04_Tracking_fiber.py:7660 guis/GUI04_Tracking_fiber.py:7821
+#: guis/GUI04_Tracking_fiber.py:7940
 msgid "情報"
 msgstr "Information"
 
@@ -883,12 +885,12 @@ msgstr "Please select an already analyzed file."
 msgid "プレビュー画像を保存"
 msgstr "Save Preview Image"
 
-#: guis/GUI01_Image_Preprocessor.py:4093 guis/GUI04_Tracking_fiber.py:2122
+#: guis/GUI01_Image_Preprocessor.py:4093 guis/GUI04_Tracking_fiber.py:2135
 #, python-brace-format
 msgid "ログ保存: {path}"
 msgstr "Log saved: {path}"
 
-#: guis/GUI01_Image_Preprocessor.py:4094 guis/GUI04_Tracking_fiber.py:2123
+#: guis/GUI01_Image_Preprocessor.py:4094 guis/GUI04_Tracking_fiber.py:2136
 msgid "ログ保存失敗"
 msgstr "Failed to save log"
 
@@ -1323,8 +1325,8 @@ msgstr "Display"
 msgid "重ね描きしません"
 msgstr "Do not overlay"
 
-#: guis/GUI01_Image_Preprocessor.py:5156 guis/GUI02_PlotProfiler.py:920
-#: guis/GUI04_Tracking_fiber.py:1796 guis/GUI04_Tracking_fiber.py:6422
+#: guis/GUI01_Image_Preprocessor.py:5156 guis/GUI02_PlotProfiler.py:923
+#: guis/GUI04_Tracking_fiber.py:1809 guis/GUI04_Tracking_fiber.py:6640
 msgid "カラーバー"
 msgstr "Colorbar"
 
@@ -1332,89 +1334,89 @@ msgstr "Colorbar"
 msgid "個別表示画像を保存"
 msgstr "Save Individual View Image"
 
-#: guis/GUI02_PlotProfiler.py:149
+#: guis/GUI02_PlotProfiler.py:152
 msgid "Designed graph"
 msgstr "Designed graph"
 
-#: guis/GUI02_PlotProfiler.py:198 guis/GUI04_Tracking_fiber.py:6363
-#: guis/GUI04_Tracking_fiber.py:6503
+#: guis/GUI02_PlotProfiler.py:201 guis/GUI04_Tracking_fiber.py:6581
+#: guis/GUI04_Tracking_fiber.py:6721
 msgid "幅"
 msgstr "Width"
 
-#: guis/GUI02_PlotProfiler.py:210 guis/GUI04_Tracking_fiber.py:1734
-#: guis/GUI04_Tracking_fiber.py:6372 guis/GUI04_Tracking_fiber.py:6512
+#: guis/GUI02_PlotProfiler.py:213 guis/GUI04_Tracking_fiber.py:1747
+#: guis/GUI04_Tracking_fiber.py:6590 guis/GUI04_Tracking_fiber.py:6730
 msgid "高さ"
 msgstr "Height"
 
-#: guis/GUI02_PlotProfiler.py:222
+#: guis/GUI02_PlotProfiler.py:225
 msgid "軸ラベルサイズ"
 msgstr "Axis Label Size"
 
-#: guis/GUI02_PlotProfiler.py:234
+#: guis/GUI02_PlotProfiler.py:237
 msgid "目盛りサイズ"
 msgstr "Tick Size"
 
-#: guis/GUI02_PlotProfiler.py:246 guis/GUI04_Tracking_fiber.py:6572
+#: guis/GUI02_PlotProfiler.py:249 guis/GUI04_Tracking_fiber.py:6790
 msgid "目盛りの向き"
 msgstr "Tick Direction"
 
-#: guis/GUI02_PlotProfiler.py:249 guis/GUI02_PlotProfiler.py:368
-#: guis/GUI04_Tracking_fiber.py:6171
+#: guis/GUI02_PlotProfiler.py:252 guis/GUI02_PlotProfiler.py:371
+#: guis/GUI04_Tracking_fiber.py:6389
 msgid "外向き"
 msgstr "Outward"
 
-#: guis/GUI02_PlotProfiler.py:249 guis/GUI02_PlotProfiler.py:370
-#: guis/GUI04_Tracking_fiber.py:6172
+#: guis/GUI02_PlotProfiler.py:252 guis/GUI02_PlotProfiler.py:373
+#: guis/GUI04_Tracking_fiber.py:6390
 msgid "内向き"
 msgstr "Inward"
 
-#: guis/GUI02_PlotProfiler.py:249 guis/GUI02_PlotProfiler.py:262
-#: guis/GUI02_PlotProfiler.py:372 guis/GUI02_PlotProfiler.py:386
-#: guis/GUI04_Tracking_fiber.py:6173 guis/GUI04_Tracking_fiber.py:6178
+#: guis/GUI02_PlotProfiler.py:252 guis/GUI02_PlotProfiler.py:265
+#: guis/GUI02_PlotProfiler.py:375 guis/GUI02_PlotProfiler.py:389
+#: guis/GUI04_Tracking_fiber.py:6391 guis/GUI04_Tracking_fiber.py:6396
 msgid "両方"
 msgstr "Both"
 
-#: guis/GUI02_PlotProfiler.py:260
+#: guis/GUI02_PlotProfiler.py:263
 msgid "グリッド"
 msgstr "Grid"
 
-#: guis/GUI02_PlotProfiler.py:262 guis/GUI02_PlotProfiler.py:377
-#: guis/GUI04_Tracking_fiber.py:6179
+#: guis/GUI02_PlotProfiler.py:265 guis/GUI02_PlotProfiler.py:380
+#: guis/GUI04_Tracking_fiber.py:6397
 msgid "無し"
 msgstr "None"
 
-#: guis/GUI02_PlotProfiler.py:262 guis/GUI02_PlotProfiler.py:380
-#: guis/GUI04_Tracking_fiber.py:6176
+#: guis/GUI02_PlotProfiler.py:265 guis/GUI02_PlotProfiler.py:383
+#: guis/GUI04_Tracking_fiber.py:6394
 msgid "x軸"
 msgstr "X-axis"
 
-#: guis/GUI02_PlotProfiler.py:262 guis/GUI02_PlotProfiler.py:383
-#: guis/GUI04_Tracking_fiber.py:6177
+#: guis/GUI02_PlotProfiler.py:265 guis/GUI02_PlotProfiler.py:386
+#: guis/GUI04_Tracking_fiber.py:6395
 msgid "y軸"
 msgstr "Y-axis"
 
-#: guis/GUI02_PlotProfiler.py:434 guis/GUI02_PlotProfiler.py:1331
+#: guis/GUI02_PlotProfiler.py:437 guis/GUI02_PlotProfiler.py:1334
 msgid "プロファイル画像を保存"
 msgstr "Save Profile Image"
 
-#: guis/GUI02_PlotProfiler.py:666
+#: guis/GUI02_PlotProfiler.py:669
 msgid "参照"
 msgstr "Browse"
 
-#: guis/GUI02_PlotProfiler.py:671
+#: guis/GUI02_PlotProfiler.py:674
 msgid "←このボタンを押してファイルを選んで下さい"
 msgstr "← Click this button to select a file"
 
-#: guis/GUI02_PlotProfiler.py:683
+#: guis/GUI02_PlotProfiler.py:686
 msgid "チャンネル"
 msgstr "Channel"
 
-#: guis/GUI02_PlotProfiler.py:801 guis/GUI04_Tracking_fiber.py:1809
-#: guis/GUI04_Tracking_fiber.py:7363
+#: guis/GUI02_PlotProfiler.py:804 guis/GUI04_Tracking_fiber.py:1822
+#: guis/GUI04_Tracking_fiber.py:7581
 msgid "自動"
 msgstr "Auto"
 
-#: guis/GUI02_PlotProfiler.py:807 guis/GUI04_Tracking_fiber.py:1815
+#: guis/GUI02_PlotProfiler.py:810 guis/GUI04_Tracking_fiber.py:1828
 msgid ""
 "ON時: 画像ごとに vmin/vmax を自動計算。\n"
 "  vmin = 画像最小値 を切り下げ\n"
@@ -1426,11 +1428,11 @@ msgstr ""
 "  vmax = round up the image maximum + 1\n"
 "When OFF: use the fixed vmin / vmax values from the input fields."
 
-#: guis/GUI02_PlotProfiler.py:838
+#: guis/GUI02_PlotProfiler.py:841
 msgid "線幅（ピクセル）:"
 msgstr "Line Width (pixels):"
 
-#: guis/GUI02_PlotProfiler.py:841
+#: guis/GUI02_PlotProfiler.py:844
 msgid ""
 "高さプロファイルを取得する線分の垂直方向の幅（ピクセル数）。\n"
 "1 にすると線分の真上のみ、3 以上にすると周囲数ピクセルも含めて\n"
@@ -1449,11 +1451,11 @@ msgstr ""
 "The chosen width is shown as a blue band on the left heatmap and rescales"
 " with the pixel size when you zoom."
 
-#: guis/GUI02_PlotProfiler.py:861 guis/GUI04_Tracking_fiber.py:7848
+#: guis/GUI02_PlotProfiler.py:864 guis/GUI04_Tracking_fiber.py:8066
 msgid "計算方法"
 msgstr "Calculation Method"
 
-#: guis/GUI02_PlotProfiler.py:864
+#: guis/GUI02_PlotProfiler.py:867
 msgid ""
 "上の「線幅」が 2 以上のとき、線分垂直方向の複数ピクセルから\n"
 "1 つの高さ値を決める集計方法。\n"
@@ -1470,33 +1472,33 @@ msgstr ""
 "level)\n"
 "\"Average\": use the mean value (when you want to smooth noise)"
 
-#: guis/GUI02_PlotProfiler.py:871 guis/GUI02_PlotProfiler.py:1435
-#: guis/GUI04_Tracking_fiber.py:1290
+#: guis/GUI02_PlotProfiler.py:874 guis/GUI02_PlotProfiler.py:1447
+#: guis/GUI04_Tracking_fiber.py:1303
 msgid "最大"
 msgstr "Maximum"
 
-#: guis/GUI02_PlotProfiler.py:871 guis/GUI02_PlotProfiler.py:1437
-#: guis/GUI04_Tracking_fiber.py:1282
+#: guis/GUI02_PlotProfiler.py:874 guis/GUI02_PlotProfiler.py:1449
+#: guis/GUI04_Tracking_fiber.py:1295
 msgid "最小"
 msgstr "Minimum"
 
-#: guis/GUI02_PlotProfiler.py:871 guis/GUI02_PlotProfiler.py:1439
+#: guis/GUI02_PlotProfiler.py:874 guis/GUI02_PlotProfiler.py:1451
 msgid "平均"
 msgstr "Average"
 
-#: guis/GUI02_PlotProfiler.py:943
+#: guis/GUI02_PlotProfiler.py:946
 msgid "一点取り消し"
 msgstr "Undo Last Point"
 
-#: guis/GUI02_PlotProfiler.py:948
+#: guis/GUI02_PlotProfiler.py:951
 msgid "全点取り消し"
 msgstr "Clear All Points"
 
-#: guis/GUI02_PlotProfiler.py:1008 guis/GUI04_Tracking_fiber.py:1685
+#: guis/GUI02_PlotProfiler.py:1011 guis/GUI04_Tracking_fiber.py:1698
 msgid "リセット"
 msgstr "Reset"
 
-#: guis/GUI02_PlotProfiler.py:1055
+#: guis/GUI02_PlotProfiler.py:1058
 msgid ""
 "左クリックでパン、右クリックで打点。\n"
 "最低2点で高さプロファイルが表示されます。"
@@ -1504,31 +1506,27 @@ msgstr ""
 "Left-click to pan, right-click to place points.\n"
 "A height profile is displayed once at least two points are placed."
 
-#: guis/GUI02_PlotProfiler.py:1306
+#: guis/GUI02_PlotProfiler.py:1309
 msgid "先にファイルを読み込んでください。"
 msgstr "Please load a file first."
 
-#: guis/GUI02_PlotProfiler.py:1312
+#: guis/GUI02_PlotProfiler.py:1315
 msgid "ヒートマップを保存"
 msgstr "Save Heatmap"
 
-#: guis/GUI02_PlotProfiler.py:1321
+#: guis/GUI02_PlotProfiler.py:1324
 msgid "先に高さプロファイルを描画してください。"
 msgstr "Please draw the height profile first."
 
-#: guis/GUI02_PlotProfiler.py:1373
+#: guis/GUI02_PlotProfiler.py:1376
 msgid "左側に最小値を入力してください"
 msgstr "Please enter the minimum value on the left"
 
-#: guis/GUI02_PlotProfiler.py:1431
+#: guis/GUI02_PlotProfiler.py:1431 tests/test_gui02_profile_state.py:486
 msgid "1 以上の奇数を入力してください。"
 msgstr "Enter an odd integer of 1 or more."
 
-#: guis/GUI04_Tracking_fiber.py:7257
-msgid "1 以上の整数を入力してください。"
-msgstr "must be an integer of 1 or more."
-
-#: guis/GUI02_PlotProfiler.py:1543
+#: guis/GUI02_PlotProfiler.py:1555
 #, python-brace-format
 msgid ""
 "ファイルを読み込めませんでした。\n"
@@ -1539,51 +1537,51 @@ msgstr ""
 "The format may be unsupported or the file may be corrupted.\n"
 "Details: {0}"
 
-#: guis/GUI02_PlotProfiler.py:1545
+#: guis/GUI02_PlotProfiler.py:1557
 #: guis/GUI03_Fiber_Morphology_Statistics.py:3800
 msgid "不明なエラー"
 msgstr "Unknown Error"
 
-#: guis/GUI02_PlotProfiler.py:1557
+#: guis/GUI02_PlotProfiler.py:1569
 #, python-brace-format
 msgid "2 次元配列ではありません (shape={0})。"
 msgstr "Data is not a 2D array (shape={0})."
 
-#: guis/GUI02_PlotProfiler.py:1761
+#: guis/GUI02_PlotProfiler.py:1773
 msgid "AFMデータ"
 msgstr "AFM Data"
 
-#: guis/GUI02_PlotProfiler.py:1762
+#: guis/GUI02_PlotProfiler.py:1774
 msgid "バンドル"
 msgstr "Bundle"
 
-#: guis/GUI02_PlotProfiler.py:1763
+#: guis/GUI02_PlotProfiler.py:1775
 msgid ".npy"
 msgstr ".npy"
 
-#: guis/GUI02_PlotProfiler.py:1764
+#: guis/GUI02_PlotProfiler.py:1776
 msgid "テキスト/CSV"
 msgstr "Text/CSV"
 
-#: guis/GUI02_PlotProfiler.py:1765
+#: guis/GUI02_PlotProfiler.py:1777
 msgid "Gwyddion"
 msgstr "Gwyddion"
 
-#: guis/GUI02_PlotProfiler.py:1766
+#: guis/GUI02_PlotProfiler.py:1778
 msgid "すべて"
 msgstr "All"
 
-#: guis/GUI02_PlotProfiler.py:1777
+#: guis/GUI02_PlotProfiler.py:1789
 #, python-brace-format
 msgid "ファイルが見つかりません: {0}"
 msgstr "File not found: {0}"
 
-#: guis/GUI02_PlotProfiler.py:1991
+#: guis/GUI02_PlotProfiler.py:2003
 #, python-brace-format
 msgid "ファイルパス：{}"
 msgstr "File path: {}"
 
-#: guis/GUI02_PlotProfiler.py:2009
+#: guis/GUI02_PlotProfiler.py:2021
 #, python-brace-format
 msgid ""
 "このファイルには走査範囲が記録されていません。\n"
@@ -1593,33 +1591,33 @@ msgstr ""
 "The current scale (X {x} µm, Y {y} µm) is kept. Check the scale before "
 "measuring distances."
 
-#: guis/GUI02_PlotProfiler.py:2018
+#: guis/GUI02_PlotProfiler.py:2030
 msgid "ヒートマップ上を右クリックで打点して下さい。各点を結ぶ線分の高さプロファイルが計算されます。"
 msgstr ""
 "Right-click on the heatmap to place points. The height profile of the "
 "line connecting the points will be calculated."
 
-#: guis/GUI02_PlotProfiler.py:2264 guis/GUI02_PlotProfiler.py:2294
+#: guis/GUI02_PlotProfiler.py:2276 guis/GUI02_PlotProfiler.py:2306
 msgid "打点されていません"
 msgstr "No points placed"
 
-#: guis/GUI02_PlotProfiler.py:2283 guis/GUI02_PlotProfiler.py:2302
+#: guis/GUI02_PlotProfiler.py:2295 guis/GUI02_PlotProfiler.py:2314
 msgid "画像を開いてください"
 msgstr "Please open an image"
 
-#: guis/GUI02_PlotProfiler.py:2446
+#: guis/GUI02_PlotProfiler.py:2458
 msgid "線を引いてください"
 msgstr "Please draw a line"
 
-#: guis/GUI02_PlotProfiler.py:2462
+#: guis/GUI02_PlotProfiler.py:2474
 msgid "csvで保存"
 msgstr "Save as CSV"
 
-#: guis/GUI02_PlotProfiler.py:2474
+#: guis/GUI02_PlotProfiler.py:2486
 msgid "レイアウト調整してグラフ作成"
 msgstr "Create Graph with Layout Adjustment"
 
-#: guis/GUI02_PlotProfiler.py:2605
+#: guis/GUI02_PlotProfiler.py:2617
 msgid "保存先を選んで下さい"
 msgstr "Choose save destination"
 
@@ -1965,8 +1963,8 @@ msgid ""
 "が回転角を測る弧長です。スケルトンの画素をそのままたどる線（{skeleton}、{pixels}）では一歩が直交か斜めに限られるため、窓が小さいと方向の量子化が値に表れます。大きくすると滑らかになりますが、窓より短いファイバーは測定対象から外れます。"
 msgstr ""
 "The arc length over which {curvature} measures its turning angle. On the "
-"lines that follow the skeleton pixels as they are ({skeleton}, {pixels}), "
-"every step is orthogonal or diagonal, so with a small window the "
+"lines that follow the skeleton pixels as they are ({skeleton}, {pixels}),"
+" every step is orthogonal or diagonal, so with a small window the "
 "quantised direction shows in the value. A larger window smooths the "
 "estimate but excludes every fiber shorter than it."
 
@@ -2525,17 +2523,18 @@ msgid ""
 "\n"
 "{pairs}"
 msgstr ""
-"Group \"{grp}\" holds more than one analysis of the same scan lines of one "
-"input file. The fibers of the overlap would be counted twice, so nothing "
-"is aggregated. Remove one file of each pair below from its folder.\n"
+"Group \"{grp}\" holds more than one analysis of the same scan lines of "
+"one input file. The fibers of the overlap would be counted twice, so "
+"nothing is aggregated. Remove one file of each pair below from its "
+"folder.\n"
 "{pairs}"
 
 #: guis/GUI03_Fiber_Morphology_Statistics.py:4833
 #, python-brace-format
 msgid "[{grp}] {n} 件の入力には元の入力ファイルの記録が無いため、同じ走査線の解析が重なっていないかはファイル名だけで確かめました。"
 msgstr ""
-"[{grp}] {n} inputs do not record their input file, so whether analyses of "
-"the same scan lines overlap was checked by file name only."
+"[{grp}] {n} inputs do not record their input file, so whether analyses of"
+" the same scan lines overlap was checked by file name only."
 
 #: guis/GUI03_Fiber_Morphology_Statistics.py:4858
 #, python-brace-format
@@ -2833,7 +2832,7 @@ msgstr "Saved {n} CSV files -> {dir}"
 #: guis/GUI03_Fiber_Morphology_Statistics.py:6265
 #: guis/GUI03_Fiber_Morphology_Statistics.py:6324
 #: guis/GUI03_Fiber_Morphology_Statistics.py:6463
-#: guis/GUI04_Tracking_fiber.py:3457 guis/GUI04_Tracking_fiber.py:3478
+#: guis/GUI04_Tracking_fiber.py:3644 guis/GUI04_Tracking_fiber.py:3665
 #: lib/ui_tools.py:430
 msgid "保存失敗"
 msgstr "Save Failed"
@@ -2977,8 +2976,8 @@ msgid ""
 "中心線の各点 i について、中心線に沿って {half} nm 手前の点 j と {half} nm 先の点 k を取り、線分 j→i と線分 "
 "i→k の向きの差（角度の大きさ）を求めます。この角度を、2 本の線分にまたがる長さの半分で割ったものが点 i "
 "の曲率です。半分で割るのは、線分の向きはその線分の中点での向きに等しく、2 "
-"本の線分の中点どうしは全体の半分しか離れていないためです。これを全部の点で平均します。始点から {half} nm 以内の点は、手前側に "
-"{quarter} nm 以上あれば、短い線分で測ります。"
+"本の線分の中点どうしは全体の半分しか離れていないためです。これを全部の点で平均します。両端から {half} nm 以内の点は、前後の片側に "
+"{half} nm を取れないので測りません。連結したフィブリルでは、j から k までに継ぎ目がかかる点も測りません。"
 msgstr ""
 "For each centerline point i, takes the point j {half} nm behind it and "
 "the point k {half} nm ahead along the centerline, and finds the angle "
@@ -2986,17 +2985,24 @@ msgstr ""
 "the two segments span is the curvature at i. It is halved because a "
 "segment's direction equals the direction at its midpoint, and the "
 "midpoints of the two segments are only half the total apart. The values "
-"are averaged over all points. A point within {half} nm of the start is "
-"measured with a shorter segment if at least {quarter} nm lies behind it."
+"are averaged over all points. Points within {half} nm of either end are "
+"not measured, because {half} nm cannot be taken on one side. On a "
+"connected fibril, points with a bridge between j and k are not measured "
+"either."
 
-#: guis/GUI04_Tracking_fiber.py:613
+#: guis/GUI04_Tracking_fiber.py:614
 #, python-brace-format
-msgid "ファイバーが {window} nm より短いとき。曲率 0（まっすぐ）と誤解されないよう、0 ではなく空欄にします。"
+msgid ""
+"前後それぞれ {half} nm を取れる点が 1 つも無いとき（長さがおよそ {window} nm "
+"以下のファイバー）、または連結したフィブリルで、どの点でも j から k までに継ぎ目がかかるとき。曲率 0（まっすぐ）と誤解されないよう、0 "
+"ではなく空欄にします。"
 msgstr ""
-"When the fiber is shorter than {window} nm. The cell is left blank rather"
-" than 0 so that it is not mistaken for zero curvature (a straight fiber)."
+"When no point has {half} nm on both sides (fibers about {window} nm long "
+"or shorter), or, on a connected fibril, when every point has a bridge "
+"between j and k. The cell is left blank rather than 0 so it is not read "
+"as zero curvature (straight)."
 
-#: guis/GUI04_Tracking_fiber.py:617
+#: guis/GUI04_Tracking_fiber.py:620
 msgid ""
 "ファイバーの端のうち、交差で切れたのではなくファイバー自体がそこで終わっている端（スケルトンの端点）の数です。両端とも自由なら "
 "2、片方の端が他のファイバーとの交差で切れていれば 1、両端とも交差で切れた断片なら 0 になります。画像の縁で終わる端も数えます。"
@@ -3006,7 +3012,7 @@ msgstr ""
 " 1 when one end is cut at a crossing with another fiber, and 0 for a "
 "fragment cut at both ends. Ends on the image border are counted too."
 
-#: guis/GUI04_Tracking_fiber.py:623
+#: guis/GUI04_Tracking_fiber.py:626
 #, python-brace-format
 msgid ""
 "キンク（鋭い折れ曲がり）と判定した箇所の数です。中心線の端から {margin} W 以内の折れは判定しないので、ここには数えず "
@@ -3017,7 +3023,7 @@ msgstr ""
 "{unjudged} column instead of here. How kinks are judged is explained in "
 "§4.3 of {doc}."
 
-#: guis/GUI04_Tracking_fiber.py:630
+#: guis/GUI04_Tracking_fiber.py:633
 #, python-brace-format
 msgid ""
 "長さ 1 µm あたりのキンクの数 ({unit}) です。キンクが 1 つも無いファイバーは 0 "
@@ -3026,7 +3032,7 @@ msgstr ""
 "Number of kinks per 1 µm of length ({unit}). A fiber with no kinks shows "
 "0, meaning that kinks were looked for and none were found."
 
-#: guis/GUI04_Tracking_fiber.py:633
+#: guis/GUI04_Tracking_fiber.py:636
 #, python-brace-format
 msgid ""
 "キンク数を、判定の対象になった長さで割ります。キンクは中心線の両端 {margin} W "
@@ -3042,12 +3048,12 @@ msgstr ""
 "bends are set not to be judged, so is the range that was not judged. For "
 "a format 1.0 bundle (which has no W), the whole contour length is used."
 
-#: guis/GUI04_Tracking_fiber.py:640
+#: guis/GUI04_Tracking_fiber.py:643
 #, python-brace-format
 msgid "ファイバーが {length} W より短く、判定の対象になる長さが残らないとき。"
 msgstr "When the fiber is shorter than {length} W, leaving no length to examine."
 
-#: guis/GUI04_Tracking_fiber.py:644
+#: guis/GUI04_Tracking_fiber.py:647
 #, python-brace-format
 msgid ""
 "キンクかどうかを判定しなかった折れの数です。理由は 2 つあります。中心線の端から {margin} W "
@@ -3063,7 +3069,7 @@ msgstr ""
 "they are shown as hollow magenta diamonds. Neither is counted in {kinks} "
 "or in the kink density."
 
-#: guis/GUI04_Tracking_fiber.py:652
+#: guis/GUI04_Tracking_fiber.py:655
 msgid ""
 "ファイバーの見かけの幅 W (nm) "
 "です。高さの断面で、まわりの基準面と頂点のちょうど中間の高さでの幅（半値全幅）を測り、ファイバー全体での中央値を取ったものです。キンクの判定などで、長さの物差しとして使います。探針の太さによる広がりを含むので、ファイバーの実際の太さではありません。幅は"
@@ -3083,13 +3089,13 @@ msgstr ""
 " Y pixel sizes differ, it is exact only for fibers running in the Y "
 "direction."
 
-#: guis/GUI04_Tracking_fiber.py:661
+#: guis/GUI04_Tracking_fiber.py:664
 msgid "幅を測れずに代わりの値を使ったとき、または形式 1.0 のバンドルのとき。"
 msgstr ""
 "When the width could not be measured and a substitute value was used, or "
 "when the bundle is format 1.0."
 
-#: guis/GUI04_Tracking_fiber.py:664
+#: guis/GUI04_Tracking_fiber.py:667
 msgid "中心線のうち、このファイバー自身の高さの断面から位置を決められた点の割合（0〜1）です。断面の上に置く中心線（既定の中心線を含む）では、決められなかった点は、平滑化したスケルトンを前後から補間したずれ量だけ動かした位置に置きます。値が低いほど、中心線の多くがスケルトンの形に従っており、そこで見つかるキンクや曲率は高さではなくスケルトンの形を表します。スケルトン系の中心線では、どの点もスケルトンの画素そのもの、または長さ方向に平滑化したスケルトンの上にあります。"
 msgstr ""
 "The fraction (0 to 1) of centerline points whose position could be found "
@@ -3102,7 +3108,7 @@ msgstr ""
 " a skeleton-based centerline, every point lies on the skeleton pixels "
 "themselves or on the skeleton smoothed along its length."
 
-#: guis/GUI04_Tracking_fiber.py:670
+#: guis/GUI04_Tracking_fiber.py:673
 #, python-brace-format
 msgid ""
 "中心線の各点のうち、次の条件をすべて満たす点を数え、全体の点の数で割ります。高さの断面からこのファイバー 1 "
@@ -3116,47 +3122,47 @@ msgstr ""
 "{junction:g} W from any branch point. Points in connected sections are "
 "not counted as meeting the conditions."
 
-#: guis/GUI04_Tracking_fiber.py:677
+#: guis/GUI04_Tracking_fiber.py:680
 msgid "形式 1.0 のバンドルのとき。"
 msgstr "When the bundle is format 1.0."
 
-#: guis/GUI04_Tracking_fiber.py:780
+#: guis/GUI04_Tracking_fiber.py:783
 #, python-brace-format
 msgid "計算方法: {method}"
 msgstr "Computation: {method}"
 
-#: guis/GUI04_Tracking_fiber.py:784 guis/GUI04_Tracking_fiber.py:7853
+#: guis/GUI04_Tracking_fiber.py:787 guis/GUI04_Tracking_fiber.py:8071
 #, python-brace-format
 msgid "空欄になる場合: {reason}"
 msgstr "Blank when: {reason}"
 
-#: guis/GUI04_Tracking_fiber.py:1182
+#: guis/GUI04_Tracking_fiber.py:1195
 msgid "📂 フォルダ選択"
 msgstr "📂 Select Folder"
 
-#: guis/GUI04_Tracking_fiber.py:1207
+#: guis/GUI04_Tracking_fiber.py:1220
 msgid "ファイバー解析の長さ・座標換算に使われる重要な値。"
 msgstr ""
 "An important value used for length and coordinate conversion in fiber "
 "analysis."
 
-#: guis/GUI04_Tracking_fiber.py:1208 guis/GUI04_Tracking_fiber.py:1230
+#: guis/GUI04_Tracking_fiber.py:1221 guis/GUI04_Tracking_fiber.py:1243
 msgid "変更すると現在のファイルが再解析される。"
 msgstr "Changing this will reanalyze the current file."
 
-#: guis/GUI04_Tracking_fiber.py:1278
+#: guis/GUI04_Tracking_fiber.py:1291
 msgid "高さフィルター"
 msgstr "Height Filter"
 
-#: guis/GUI04_Tracking_fiber.py:1311
+#: guis/GUI04_Tracking_fiber.py:1324
 msgid "連結"
 msgstr "Connection"
 
-#: guis/GUI04_Tracking_fiber.py:1330 guis/GUI04_Tracking_fiber.py:5382
+#: guis/GUI04_Tracking_fiber.py:1343 guis/GUI04_Tracking_fiber.py:5593
 msgid "自動連結"
 msgstr "Auto Connect"
 
-#: guis/GUI04_Tracking_fiber.py:1334
+#: guis/GUI04_Tracking_fiber.py:1347
 msgid ""
 "交差・分岐で分断された骨格断片のうち、位置・向き・高さが連続するものを探索し、1 本のフィブリルとして連結します。\n"
 "結果は連結として保持され、しきい値を後から変えても変化しません。条件を変えたいときは設定を変更してから再度実行してください。\n"
@@ -3170,15 +3176,15 @@ msgstr ""
 "and run this again.\n"
 "If a connection already exists, you are asked before it is discarded."
 
-#: guis/GUI04_Tracking_fiber.py:1341
+#: guis/GUI04_Tracking_fiber.py:1354
 msgid "自動連結の設定"
 msgstr "Auto Connect Settings"
 
-#: guis/GUI04_Tracking_fiber.py:1346
+#: guis/GUI04_Tracking_fiber.py:1359
 msgid "手動で連結"
 msgstr "Connect Manually"
 
-#: guis/GUI04_Tracking_fiber.py:1351
+#: guis/GUI04_Tracking_fiber.py:1364
 msgid ""
 "ファイバー一覧で 1 本を選び、その端の近くにある連結先の候補から相手を選んで連結します。\n"
 "候補は自動連結より広い範囲で探し、自動連結の条件を満たすかどうかを一覧に表示します。自動連結が角度や高さで見送った連結を、画像を見て判断して繋ぐための操作です。"
@@ -3193,11 +3199,11 @@ msgstr ""
 " is made after looking at the image.\n"
 "Disabled while the selected fiber has no candidate at all."
 
-#: guis/GUI04_Tracking_fiber.py:1360
+#: guis/GUI04_Tracking_fiber.py:1373
 msgid "連結を解除"
 msgstr "Disconnect"
 
-#: guis/GUI04_Tracking_fiber.py:1365
+#: guis/GUI04_Tracking_fiber.py:1378
 msgid ""
 "この画像の連結部を一覧するウインドウを開きます。\n"
 "行を選ぶと全体像で連結部を示し、選んだ連結部だけを解除するか、すべての連結を解除できます。\n"
@@ -3208,7 +3214,7 @@ msgstr ""
 "only the chosen junctions, or every connection.\n"
 "Disabled while nothing is connected."
 
-#: guis/GUI04_Tracking_fiber.py:1384
+#: guis/GUI04_Tracking_fiber.py:1397
 msgid ""
 "直前の連結操作（自動連結・手動連結・連結の解除）を 1 つ元に戻します。自動連結 1 回分も 1 操作として戻せます。\n"
 "連結の解除を元に戻すと、その連結は復活します。何を元に戻したかはログに表示されます。"
@@ -3219,15 +3225,15 @@ msgstr ""
 "Undoing a disconnection restores that connection. The log shows what was "
 "undone."
 
-#: guis/GUI04_Tracking_fiber.py:1399
+#: guis/GUI04_Tracking_fiber.py:1412
 msgid "除外"
 msgstr "Exclusion"
 
-#: guis/GUI04_Tracking_fiber.py:1402
+#: guis/GUI04_Tracking_fiber.py:1415
 msgid "選択を除外"
 msgstr "Exclude selected"
 
-#: guis/GUI04_Tracking_fiber.py:1406
+#: guis/GUI04_Tracking_fiber.py:1419
 #, python-brace-format
 msgid ""
 "選択中のファイバーを計測・CSV 出力の対象から外します。\n"
@@ -3250,11 +3256,11 @@ msgstr ""
 "automatic filter can remove get excluded, while you look at them in the "
 "overview."
 
-#: guis/GUI04_Tracking_fiber.py:1435
+#: guis/GUI04_Tracking_fiber.py:1448
 msgid "非孤立を除外"
 msgstr "Exclude non-isolated"
 
-#: guis/GUI04_Tracking_fiber.py:1440
+#: guis/GUI04_Tracking_fiber.py:1453
 msgid ""
 "全長を計測できなかったファイバーをまとめて除外し、孤立ファイバーだけを残します。\n"
 "他のファイバーと交差・接触しているファイバーは、そこで切断されて全長が不明なため除外されます。\n"
@@ -3280,21 +3286,21 @@ msgstr ""
 "fragments before connection, so if any fibrils are connected, first "
 "remove every connection with \"Disconnect\"."
 
-#: guis/GUI04_Tracking_fiber.py:1457
+#: guis/GUI04_Tracking_fiber.py:1470
 msgid "直前を取消"
 msgstr "Undo last"
 
-#: guis/GUI04_Tracking_fiber.py:1462
+#: guis/GUI04_Tracking_fiber.py:1475
 msgid "最後に行った除外を取り消します。繰り返し押すと、追加した逆順にさかのぼって取り消せます。"
 msgstr ""
 "Undo the most recent exclusion. Press it repeatedly to walk back through "
 "the exclusions in reverse order."
 
-#: guis/GUI04_Tracking_fiber.py:1478
+#: guis/GUI04_Tracking_fiber.py:1491
 msgid "範囲で選択"
 msgstr "Select by Region"
 
-#: guis/GUI04_Tracking_fiber.py:1482
+#: guis/GUI04_Tracking_fiber.py:1495
 msgid ""
 "押した後、AFM 全体像の上をドラッグして矩形を描くと、その矩形に一部でもかかったファイバーを一覧で選択します。\n"
 "Ctrl を押しながらドラッグすると、今の選択に追加します。\n"
@@ -3309,21 +3315,21 @@ msgstr ""
 "The mode ends after one rectangle. To cancel, press Esc or press this "
 "button again."
 
-#: guis/GUI04_Tracking_fiber.py:1506
+#: guis/GUI04_Tracking_fiber.py:1519
 msgid "除外設定"
 msgstr "Exclusion settings"
 
-#: guis/GUI04_Tracking_fiber.py:1511
+#: guis/GUI04_Tracking_fiber.py:1524
 msgid "このデータセットの除外を一覧し、任意の 1 件または全件を解除します。解除もファイルへ書き出すには、「除外・連結を保存」が必要です。"
 msgstr ""
 "List this dataset's exclusions and restore any one or all of them. To "
 "write the restorations to the file as well, press \"Save Curation\"."
 
-#: guis/GUI04_Tracking_fiber.py:1537
+#: guis/GUI04_Tracking_fiber.py:1550
 msgid "除外・連結を保存"
 msgstr "Save Curation"
 
-#: guis/GUI04_Tracking_fiber.py:1542
+#: guis/GUI04_Tracking_fiber.py:1555
 #, python-brace-format
 msgid ""
 "現在の除外と連結を、バンドル横の {excluded} と {connect} へまとめて書き出します。Fiber Morphology "
@@ -3339,35 +3345,35 @@ msgstr ""
 "Saving with no exclusions deletes the exclusion file. Enabled only while "
 "there are unsaved changes."
 
-#: guis/GUI04_Tracking_fiber.py:1584
+#: guis/GUI04_Tracking_fiber.py:1597
 msgid "データセット名"
 msgstr "Dataset Name"
 
-#: guis/GUI04_Tracking_fiber.py:1606
+#: guis/GUI04_Tracking_fiber.py:1619
 msgid "ファイバー一覧"
 msgstr "Fiber List"
 
-#: guis/GUI04_Tracking_fiber.py:1607 guis/GUI04_Tracking_fiber.py:5989
+#: guis/GUI04_Tracking_fiber.py:1620 guis/GUI04_Tracking_fiber.py:6207
 #: lib/ui_tools.py:972
 msgid "CSVで保存"
 msgstr "Save as CSV"
 
-#: guis/GUI04_Tracking_fiber.py:1608
+#: guis/GUI04_Tracking_fiber.py:1621
 msgid "計測値の説明"
 msgstr "About the Measurements"
 
-#: guis/GUI04_Tracking_fiber.py:1612
+#: guis/GUI04_Tracking_fiber.py:1625
 msgid "ファイバー一覧の各計測値が何を表すか、どう計算するか、空欄になるのはどんなときかを一覧で表示します。列見出しにマウスを乗せても、その値の説明が表示されます。"
 msgstr ""
 "Lists what each measurement in the fiber list represents, how it is "
 "computed, and when it is left blank. Hovering over a column heading also "
 "shows the explanation of that value."
 
-#: guis/GUI04_Tracking_fiber.py:1687
+#: guis/GUI04_Tracking_fiber.py:1700
 msgid "選択へズーム"
 msgstr "Zoom to Selection"
 
-#: guis/GUI04_Tracking_fiber.py:1691
+#: guis/GUI04_Tracking_fiber.py:1704
 msgid ""
 "選択中のファイバーが画面いっぱいになるまで拡大します。\n"
 "表示範囲外のファイバーを選んだ場合は自動で表示範囲へ入りますが、\n"
@@ -3377,11 +3383,11 @@ msgstr ""
 "Selecting a fiber outside the visible region brings it into view "
 "automatically, but does not change the zoom level."
 
-#: guis/GUI04_Tracking_fiber.py:1696
+#: guis/GUI04_Tracking_fiber.py:1709
 msgid "番号・枠"
 msgstr "Numbers & Boxes"
 
-#: guis/GUI04_Tracking_fiber.py:1702
+#: guis/GUI04_Tracking_fiber.py:1715
 msgid ""
 "各ファイバーの番号と破線枠の表示を切り替えます。\n"
 "OFF にすると全体像の再描画が目に見えて速くなるため、\n"
@@ -3393,15 +3399,15 @@ msgstr ""
 " when zooming and panning feel slow.\n"
 "The yellow box on the selected fiber is always shown."
 
-#: guis/GUI04_Tracking_fiber.py:1727
+#: guis/GUI04_Tracking_fiber.py:1740
 msgid "AFM 全体像"
 msgstr "AFM Overview"
 
-#: guis/GUI04_Tracking_fiber.py:1740
+#: guis/GUI04_Tracking_fiber.py:1753
 msgid "ファイバー色分け"
 msgstr "Color-coded fibers"
 
-#: guis/GUI04_Tracking_fiber.py:1746
+#: guis/GUI04_Tracking_fiber.py:1759
 msgid ""
 "各ファイバーを個別色で二値化像上に散布表示します。\n"
 "どの骨格がひとつのフィブリルに繋がったかを一目で確認でき、\n"
@@ -3411,92 +3417,139 @@ msgstr ""
 "See at a glance which skeleton fragments joined into one fibril —\n"
 "useful for verifying the fiber-connection result."
 
-#: guis/GUI04_Tracking_fiber.py:2004
+#: guis/GUI04_Tracking_fiber.py:2017
 msgid "スケール変更"
 msgstr "Change Scale"
 
-#: guis/GUI04_Tracking_fiber.py:2005
+#: guis/GUI04_Tracking_fiber.py:2018
 msgid "ファイバーを再解析します..."
 msgstr "Reanalyzing fibers..."
 
-#: guis/GUI04_Tracking_fiber.py:2015 guis/GUI04_Tracking_fiber.py:2047
+#: guis/GUI04_Tracking_fiber.py:2028 guis/GUI04_Tracking_fiber.py:2060
 msgid "には正の数値を入力してください。"
 msgstr "must be a positive number."
 
-#: guis/GUI04_Tracking_fiber.py:2064
+#: guis/GUI04_Tracking_fiber.py:2077
 msgid "Y スケール変更: ファイバーを再解析します..."
 msgstr "Y scale changed: re-analyzing fibers..."
 
-#: guis/GUI04_Tracking_fiber.py:2176
+#: guis/GUI04_Tracking_fiber.py:2189
 msgid "vmin は vmax 以下にしてください。"
 msgstr "vmin must be less than or equal to vmax."
 
-#: guis/GUI04_Tracking_fiber.py:2199
+#: guis/GUI04_Tracking_fiber.py:2212
 msgid "最小値 < 最大値 となるように入力してください。"
 msgstr "Min value must be less than max value."
 
-#: guis/GUI04_Tracking_fiber.py:2227 guis/GUI04_Tracking_fiber.py:6662
-#: guis/GUI04_Tracking_fiber.py:6704
+#: guis/GUI04_Tracking_fiber.py:2240 guis/GUI04_Tracking_fiber.py:6880
+#: guis/GUI04_Tracking_fiber.py:6922
 msgid "フォントサイズは 1〜60 の範囲で入力してください。"
 msgstr "Enter a font size in the range 1-60."
 
-#: guis/GUI04_Tracking_fiber.py:2263 guis/GUI04_Tracking_fiber.py:2395
-#: guis/GUI04_Tracking_fiber.py:5298
+#: guis/GUI04_Tracking_fiber.py:2276 guis/GUI04_Tracking_fiber.py:2418
+#: guis/GUI04_Tracking_fiber.py:5509
 msgid "読み込み中です。しばらくお待ちください。"
 msgstr "Loading... Please wait."
 
-#: guis/GUI04_Tracking_fiber.py:2316
+#: guis/GUI04_Tracking_fiber.py:2329
 msgid "GUI01 の出力フォルダを選択"
 msgstr "Select GUI01 Output Folder"
 
-#: guis/GUI04_Tracking_fiber.py:2321
+#: guis/GUI04_Tracking_fiber.py:2334
 #, python-brace-format
 msgid "フォルダ: {folder}"
 msgstr "Folder: {folder}"
 
-#: guis/GUI04_Tracking_fiber.py:2372
+#: guis/GUI04_Tracking_fiber.py:2385
 msgid "解析済みデータセットが見つかりませんでした。"
 msgstr "No analyzed datasets found."
 
-#: guis/GUI04_Tracking_fiber.py:2377
+#: guis/GUI04_Tracking_fiber.py:2390
 #, python-brace-format
 msgid "{count} 件のデータセットを検出しました。"
 msgstr "Detected {count} dataset(s)."
 
-#: guis/GUI04_Tracking_fiber.py:2480
+#: guis/GUI04_Tracking_fiber.py:2478
+#, python-brace-format
+msgid "バンドルに記録された走査範囲 {rx}×{ry} µm ではなく、入力されたスケール {x}×{y} µm で計測します。"
+msgstr ""
+"Measuring at the entered scale {x}×{y} µm instead of the scan size {rx}×{ry} "
+"µm recorded in the bundle."
+
+#: guis/GUI04_Tracking_fiber.py:2485
+#, python-brace-format
+msgid ""
+"入力したスケールの縦横比（Y/X = {new}）が、バンドルに記録された走査範囲の縦横比（Y/X = "
+"{rec}）と異なります。長さは入力したスケールで測りますが、中心線の位置とキンクの判定は解析時の幾何のまま変わりません。そのため長さとキンクが別の縦横比に基づくことになります。"
+msgstr ""
+"The aspect ratio of the entered scale (Y/X = {new}) differs from that of the "
+"scan size recorded in the bundle (Y/X = {rec}). Lengths are measured at the "
+"entered scale, but the centerline position and the kink judgement stay in "
+"the geometry of the analysis, so lengths and kinks rest on different aspect "
+"ratios."
+
+#: guis/GUI04_Tracking_fiber.py:2494
+msgid "スケールの縦横比"
+msgstr "Scale aspect ratio"
+
+#: guis/GUI04_Tracking_fiber.py:2565
 #, python-brace-format
 msgid "バンドル記録のスケール {scale} µm を使用します。"
 msgstr "Using the scan size {scale} µm recorded in the bundle."
 
-#: guis/GUI04_Tracking_fiber.py:2486
+#: guis/GUI04_Tracking_fiber.py:2571
 #, python-brace-format
 msgid "バンドル記録のスケール {x}×{y} µm を使用します。"
 msgstr "Using the scan size {x}×{y} µm recorded in the bundle."
 
-#: guis/GUI04_Tracking_fiber.py:2545
+#: guis/GUI04_Tracking_fiber.py:2587
+msgid "スケールの入力"
+msgstr "Enter scale"
+
+#: guis/GUI04_Tracking_fiber.py:2588
+msgid ""
+"このバンドルには走査範囲が記録されていません。画像の X（幅）方向の実寸を µm で入力してください。Y は X "
+"と同じ（正方スキャン）として扱います。矩形スキャンの場合は、読み込み後に Y 欄へ入力してください。"
+msgstr ""
+"This bundle records no scan size. Enter the physical size of the image "
+"along X (width) in µm. Y is taken to be the same as X (square scan). For "
+"a rectangular scan, enter Y in the Y field after loading."
+
+#: guis/GUI04_Tracking_fiber.py:2596
+msgid "スケールが入力されなかったため、読み込みを中止しました。"
+msgstr "No scale was entered, so loading was cancelled."
+
+#: guis/GUI04_Tracking_fiber.py:2607
+#, python-brace-format
+msgid "このバンドルには走査範囲が記録されていないため、入力されたスケール {scale} µm（正方スキャン）で計測します。"
+msgstr ""
+"This bundle records no scan size, so it is measured at the entered scale "
+"of {scale} µm (square scan)."
+
+#: guis/GUI04_Tracking_fiber.py:2664
 #, python-brace-format
 msgid "除外ファイルを読めませんでした: {err}"
 msgstr "Could not read the exclusion file: {err}"
 
-#: guis/GUI04_Tracking_fiber.py:2549
+#: guis/GUI04_Tracking_fiber.py:2668
 #, python-brace-format
 msgid "読み込み中: {name}  スケール={scale}"
 msgstr "Loading: {name}  scale={scale}"
 
-#: guis/GUI04_Tracking_fiber.py:2555
+#: guis/GUI04_Tracking_fiber.py:2674
 #, python-brace-format
 msgid "保存済みの連結を適用します（フィブリル {n} 本）。"
 msgstr "Applying the saved connection ({n} fibril(s))."
 
-#: guis/GUI04_Tracking_fiber.py:2558
+#: guis/GUI04_Tracking_fiber.py:2677
 msgid "ファイル読み込み中..."
 msgstr "Reading files..."
 
-#: guis/GUI04_Tracking_fiber.py:2581
+#: guis/GUI04_Tracking_fiber.py:2700
 msgid "ファイバー解析を開始 (並列処理)..."
 msgstr "Starting fiber analysis (parallel processing)..."
 
-#: guis/GUI04_Tracking_fiber.py:2614
+#: guis/GUI04_Tracking_fiber.py:2733
 msgid ""
 "このバンドルは旧版（形式 "
 "1.0）で解析されています。保存されたスケルトンをそのまま追跡し、ファイバーをスケルトンに沿って描画・計測しています。旧版のスケルトンには、現在の解析が取り除く小ループや行き止まりの短い枝が残っていることがあり、そこでファイバーが分断されます。GUI01"
@@ -3508,64 +3561,85 @@ msgstr ""
 "dead-end branches that the current analysis removes, and the fibers are "
 "split there. Re-analyze it in GUI01."
 
-#: guis/GUI04_Tracking_fiber.py:2628
+#: guis/GUI04_Tracking_fiber.py:2747
 #, python-brace-format
 msgid "このバンドルは既定以外の中心線 {line} で解析されています。ファイバーはこの線に沿って描画・計測され、キンクもこの線上で判定されています。"
 msgstr ""
 "This bundle was analyzed on the non-default centerline {line}. Fibers are"
 " drawn and measured along this centerline, and kinks were detected on it."
 
-#: guis/GUI04_Tracking_fiber.py:2781
+#: guis/GUI04_Tracking_fiber.py:2764
+#, python-brace-format
+msgid ""
+"このバンドルは旧版（形式 {version}）で解析されています。中心線の置き方と保存されたキンクは、その形式の規則のままです（現在の形式は "
+"{current}）。現在の規則で計測するには GUI01 で再解析してください。"
+msgstr ""
+"This bundle was analyzed by an earlier version (format {version}). Its "
+"centerline placement and stored kinks follow that format's rules (the "
+"current format is {current}). Re-analyze it in GUI01 to measure it by the"
+" current rules."
+
+#: guis/GUI04_Tracking_fiber.py:2926
 #, python-brace-format
 msgid "除外を復元しました: {n} 件"
 msgstr "Restored {n} exclusion(s)."
 
-#: guis/GUI04_Tracking_fiber.py:2798
+#: guis/GUI04_Tracking_fiber.py:2943
 #, python-brace-format
 msgid "読み込み完了: {name}  ファイバー数: {count}"
 msgstr "Load complete: {name}  Fiber count: {count}"
 
-#: guis/GUI04_Tracking_fiber.py:2811
+#: guis/GUI04_Tracking_fiber.py:2956
 #, python-brace-format
-msgid "曲率窓 {w} nm より短いファイバー {n} 本は曲率欄が空欄になります。"
+msgid ""
+"曲率窓 {w} nm を張れる点が無いファイバー {n} "
+"本は曲率欄が空欄になります（前後それぞれ窓の半分を取れる点が無いか、連結したフィブリルでどの点の窓にも継ぎ目がかかるため）。"
 msgstr ""
-"{n} fibers are shorter than the {w} nm curvature window, so their "
-"curvature cell is blank."
+"{n} fibers have no point the {w} nm curvature window fits around, so "
+"their curvature cell is blank (no point has half the window on both "
+"sides, or, on a connected fibril, every point's window reaches a bridge)."
 
-#: guis/GUI04_Tracking_fiber.py:2891
+#: guis/GUI04_Tracking_fiber.py:3038
 #, python-brace-format
 msgid "見かけ幅 W の中央値: {w_nm} nm ({w_px} px)。キンク規則の長さはこの W の倍数です。"
 msgstr ""
 "Median apparent width W: {w_nm} nm ({w_px} px). Every length of the kink "
 "rule is a multiple of this W."
 
-#: guis/GUI04_Tracking_fiber.py:2896
+#: guis/GUI04_Tracking_fiber.py:3043
 #, python-brace-format
 msgid "見かけ幅 W の中央値: {w_px} px。キンク規則の長さはこの W の倍数です。"
 msgstr ""
 "Median apparent width W: {w_px} px. Every length of the kink rule is a "
 "multiple of this W."
 
-#: guis/GUI04_Tracking_fiber.py:2901
+#: guis/GUI04_Tracking_fiber.py:3048
 #, python-brace-format
 msgid "幅を測れず既定の {fallback_px} px を使ったファイバー: {n} 本（表の W 欄は空欄）"
 msgstr ""
 "{n} fibers gave no usable width and were placed with the default "
 "{fallback_px} px (their W cell is blank)."
 
-#: guis/GUI04_Tracking_fiber.py:3320
+#: guis/GUI04_Tracking_fiber.py:3493
 #, python-brace-format
 msgid "除外により、連結したフィブリル {n} 本が分割されました（断片 {m} 本が除外対象）。"
 msgstr "Exclusions split {n} connected fibril(s) ({m} fragment(s) excluded)."
 
-#: guis/GUI04_Tracking_fiber.py:3447 guis/GUI04_Tracking_fiber.py:3712
-#: guis/GUI04_Tracking_fiber.py:3789 guis/GUI04_Tracking_fiber.py:3832
-#: guis/GUI04_Tracking_fiber.py:5295 guis/GUI04_Tracking_fiber.py:5390
-#: guis/GUI04_Tracking_fiber.py:5512 guis/GUI04_Tracking_fiber.py:5946
+#: guis/GUI04_Tracking_fiber.py:3499
+#, python-brace-format
+msgid "連結したフィブリル {n} 本は、すべての断片を除外したため取り除かれました。"
+msgstr ""
+"{n} connected fibril(s) removed because all of their fragments were "
+"excluded."
+
+#: guis/GUI04_Tracking_fiber.py:3634 guis/GUI04_Tracking_fiber.py:3928
+#: guis/GUI04_Tracking_fiber.py:4005 guis/GUI04_Tracking_fiber.py:4048
+#: guis/GUI04_Tracking_fiber.py:5506 guis/GUI04_Tracking_fiber.py:5601
+#: guis/GUI04_Tracking_fiber.py:5723 guis/GUI04_Tracking_fiber.py:6157
 msgid "データセットを選択してください。"
 msgstr "Please select a dataset."
 
-#: guis/GUI04_Tracking_fiber.py:3458
+#: guis/GUI04_Tracking_fiber.py:3645
 #, python-brace-format
 msgid ""
 "除外ファイルを保存できませんでした:\n"
@@ -3574,7 +3648,7 @@ msgstr ""
 "Could not save the exclusion file:\n"
 "{err}"
 
-#: guis/GUI04_Tracking_fiber.py:3479
+#: guis/GUI04_Tracking_fiber.py:3666
 #, python-brace-format
 msgid ""
 "連結ファイルを保存できませんでした:\n"
@@ -3583,31 +3657,31 @@ msgstr ""
 "Could not save the connection file:\n"
 "{err}"
 
-#: guis/GUI04_Tracking_fiber.py:3485
+#: guis/GUI04_Tracking_fiber.py:3672
 #, python-brace-format
 msgid "除外を保存しました（{n} 件）: {path}"
 msgstr "Saved {n} exclusion(s) to {path}"
 
-#: guis/GUI04_Tracking_fiber.py:3490
+#: guis/GUI04_Tracking_fiber.py:3677
 #, python-brace-format
 msgid "除外が無くなったため、除外ファイルを削除しました: {path}"
 msgstr "No exclusions left, so the exclusion file was deleted: {path}"
 
-#: guis/GUI04_Tracking_fiber.py:3495
+#: guis/GUI04_Tracking_fiber.py:3682
 #, python-brace-format
 msgid "連結を保存しました（フィブリル {n} 本 / 断片 {m} 本）: {path}"
 msgstr "Saved the connection ({n} fibril(s) from {m} fragment(s)): {path}"
 
-#: guis/GUI04_Tracking_fiber.py:3501
+#: guis/GUI04_Tracking_fiber.py:3688
 #, python-brace-format
 msgid "連結を保存しました（連結なし）: {path}"
 msgstr "Saved the connection (nothing connected): {path}"
 
-#: guis/GUI04_Tracking_fiber.py:3548
+#: guis/GUI04_Tracking_fiber.py:3735
 msgid "未保存のキュレーション"
 msgstr "Unsaved curation"
 
-#: guis/GUI04_Tracking_fiber.py:3549
+#: guis/GUI04_Tracking_fiber.py:3736
 #, python-brace-format
 msgid ""
 "除外・連結に未保存の変更があります（除外 {n} 件）。保存しますか？\n"
@@ -3617,39 +3691,46 @@ msgstr ""
 "exclusions). Save them?\n"
 "\"No\" discards them; \"Cancel\" stops the operation."
 
-#: guis/GUI04_Tracking_fiber.py:3559
+#: guis/GUI04_Tracking_fiber.py:3746
 msgid "未保存のキュレーションを破棄しました。"
 msgstr "Unsaved curation"
 
-#: guis/GUI04_Tracking_fiber.py:3603
+#: guis/GUI04_Tracking_fiber.py:3790
 msgid "取り消せる除外がありません。"
 msgstr "There is no exclusion to undo."
 
-#: guis/GUI04_Tracking_fiber.py:3610
+#: guis/GUI04_Tracking_fiber.py:3797
 #, python-brace-format
 msgid "直前の除外を取り消しました: 位置 ({x}, {y})"
 msgstr "Undid the last exclusion, at ({x}, {y})"
 
-#: guis/GUI04_Tracking_fiber.py:3615
+#: guis/GUI04_Tracking_fiber.py:3802
 #, python-brace-format
 msgid "直前の除外を取り消しました: {n} 件の記録"
 msgstr "Undid the last exclusion: {n} records"
 
-#: guis/GUI04_Tracking_fiber.py:3645
+#: guis/GUI04_Tracking_fiber.py:3849
+msgid "高さフィルターが有効な間は除外できません。一覧の行はファイバーから切り出した部分区間ですが、除外はファイバー全体に対して行うためです。高さフィルターを外してから除外してください。"
+msgstr ""
+"Fibers cannot be excluded while the height filter is on. The rows are "
+"then pieces cut out of fibers, whereas an exclusion applies to the whole "
+"fiber. Turn the height filter off before excluding."
+
+#: guis/GUI04_Tracking_fiber.py:3856
 msgid "除外するファイバーを選択してください。"
 msgstr "Select the fiber to exclude."
 
-#: guis/GUI04_Tracking_fiber.py:3657
+#: guis/GUI04_Tracking_fiber.py:3873
 #, python-brace-format
 msgid "ファイバーを除外しました: 位置 ({x}, {y}) / 長さ {length:.0f} nm"
 msgstr "Excluded a fiber at ({x}, {y}), length {length:.0f} nm"
 
-#: guis/GUI04_Tracking_fiber.py:3661
+#: guis/GUI04_Tracking_fiber.py:3877
 #, python-brace-format
 msgid "ファイバーを {n} 本除外しました（合計長さ {length:.0f} nm）"
 msgstr "Excluded {n} fibers, total length {length:.0f} nm"
 
-#: guis/GUI04_Tracking_fiber.py:3718
+#: guis/GUI04_Tracking_fiber.py:3934
 msgid ""
 "「連結を解除」ですべての連結を解除してから実行してください。\n"
 "孤立かどうかは連結前の断片に対して定義されます。連結は交差を越えてファイバーをつなぐため、孤立ファイバーがネットワークへ取り込まれ、孤立と判定されなくなります。"
@@ -3663,19 +3744,19 @@ msgstr ""
 "Connection and this operation are mutually exclusive ways of dealing with"
 " fragmentation."
 
-#: guis/GUI04_Tracking_fiber.py:3737
+#: guis/GUI04_Tracking_fiber.py:3953
 #, python-brace-format
 msgid "除外対象がありません。{n} 本すべてが孤立と判定されました。"
 msgstr "Nothing to exclude: all {n} fibers were judged isolated."
 
-#: guis/GUI04_Tracking_fiber.py:3748
+#: guis/GUI04_Tracking_fiber.py:3964
 #, python-brace-format
 msgid "全長を計測できなかったファイバー {n} 本を除外します（残り {rest} 本）。よろしいですか？"
 msgstr ""
 "Exclude {n} fibers whose full length could not be measured, leaving "
 "{rest}. Continue?"
 
-#: guis/GUI04_Tracking_fiber.py:3767
+#: guis/GUI04_Tracking_fiber.py:3983
 #, python-brace-format
 msgid ""
 "全長を計測できなかったファイバーを {n} 本除外しました（残り {rest} / {total} "
@@ -3685,66 +3766,66 @@ msgstr ""
 "{total} left). Only fibers touching no other fiber, not reaching the "
 "image edge, and with no connection partner remain."
 
-#: guis/GUI04_Tracking_fiber.py:3778
+#: guis/GUI04_Tracking_fiber.py:3994
 msgid "注意: 交差に達したファイバーを全て除外したため、残った本数が少なくなっています。"
 msgstr "Note: every fiber reaching a crossing was excluded, so few fibers remain."
 
-#: guis/GUI04_Tracking_fiber.py:3792
+#: guis/GUI04_Tracking_fiber.py:4008
 msgid "除外されたファイバーはありません。"
 msgstr "No fibers have been excluded."
 
-#: guis/GUI04_Tracking_fiber.py:3829 guis/GUI04_Tracking_fiber.py:3918
+#: guis/GUI04_Tracking_fiber.py:4045 guis/GUI04_Tracking_fiber.py:4134
 msgid "範囲選択を取りやめました。"
 msgstr "Region selection cancelled."
 
-#: guis/GUI04_Tracking_fiber.py:3841
+#: guis/GUI04_Tracking_fiber.py:4057
 msgid "AFM 全体像の上をドラッグして範囲を指定してください。Esc キーで取りやめます。"
 msgstr "Drag on the AFM overview to mark a region. Press Esc to cancel."
 
-#: guis/GUI04_Tracking_fiber.py:3949
+#: guis/GUI04_Tracking_fiber.py:4165
 msgid "範囲内にファイバーがありません。"
 msgstr "No fibers in the region."
 
-#: guis/GUI04_Tracking_fiber.py:3966
+#: guis/GUI04_Tracking_fiber.py:4182
 #, python-brace-format
 msgid "範囲にかかるファイバー {n} 本を選択しました（選択中 {total} 本）。全体像の枠で確認してから「選択を除外」を押してください。"
 msgstr ""
 "Selected {n} fibers touching the region ({total} selected in total). "
 "Check the frames on the overview, then press \"Exclude selected\"."
 
-#: guis/GUI04_Tracking_fiber.py:4541 guis/GUI04_Tracking_fiber.py:5884
+#: guis/GUI04_Tracking_fiber.py:4757 guis/GUI04_Tracking_fiber.py:6095
 msgid "ファイバーを選択してください。"
 msgstr "Please select a fiber."
 
-#: guis/GUI04_Tracking_fiber.py:5003
+#: guis/GUI04_Tracking_fiber.py:5224
 msgid "フィルター適用中..."
 msgstr "Applying filter..."
 
-#: guis/GUI04_Tracking_fiber.py:5005
+#: guis/GUI04_Tracking_fiber.py:5226
 #, python-brace-format
 msgid "フィルター適用中: 高さ {lo}〜{hi}"
 msgstr "Applying filter: height {lo}-{hi}"
 
-#: guis/GUI04_Tracking_fiber.py:5091
+#: guis/GUI04_Tracking_fiber.py:5302
 #, python-brace-format
 msgid "フィルター適用完了: 高さ {lo}〜{hi}"
 msgstr "Filter applied: height {lo}-{hi}"
 
-#: guis/GUI04_Tracking_fiber.py:5092
+#: guis/GUI04_Tracking_fiber.py:5303
 #, python-brace-format
 msgid "{count} 件"
 msgstr "{count} items"
 
-#: guis/GUI04_Tracking_fiber.py:5107
+#: guis/GUI04_Tracking_fiber.py:5318
 msgid "フィルターをリセットしました。"
 msgstr "Filter reset."
 
-#: guis/GUI04_Tracking_fiber.py:5151
+#: guis/GUI04_Tracking_fiber.py:5362
 #, python-brace-format
 msgid "ファイバー連結: 断片 {before} 本 → フィブリル {after} 本（{joins} 件連結）"
 msgstr "Fiber connection: {before} fragments -> {after} fibrils ({joins} joined)"
 
-#: guis/GUI04_Tracking_fiber.py:5303
+#: guis/GUI04_Tracking_fiber.py:5514
 #, python-brace-format
 msgid ""
 "現在の連結結果（フィブリル {n} 本）は破棄され、自動連結の結果に置き換わります。手動で連結したものも含まれます。\n"
@@ -3755,19 +3836,19 @@ msgstr ""
 "hand.\n"
 "Continue?"
 
-#: guis/GUI04_Tracking_fiber.py:5311
+#: guis/GUI04_Tracking_fiber.py:5522
 msgid "連結できるファイバーがありません。"
 msgstr "There are no fibers to connect."
 
-#: guis/GUI04_Tracking_fiber.py:5320
+#: guis/GUI04_Tracking_fiber.py:5531
 msgid "自動連結中..."
 msgstr "Connecting fibers automatically..."
 
-#: guis/GUI04_Tracking_fiber.py:5370
+#: guis/GUI04_Tracking_fiber.py:5581
 msgid "自動連結: 連結できる断片はありませんでした。"
 msgstr "Auto connect: no fragments could be connected."
 
-#: guis/GUI04_Tracking_fiber.py:5373
+#: guis/GUI04_Tracking_fiber.py:5584
 msgid ""
 "連結できる断片がありませんでした。\n"
 "この画像では、交差や隙間で分断された断片が見つからないということです。条件を変えたい場合は「自動連結の設定」のしきい値を変更してから、もう一度実行してください。"
@@ -3777,72 +3858,72 @@ msgstr ""
 "To use different conditions, change the thresholds under \"Auto Connect "
 "Settings\" and run it again."
 
-#: guis/GUI04_Tracking_fiber.py:5380
+#: guis/GUI04_Tracking_fiber.py:5591
 #, python-brace-format
 msgid "自動連結を実行しました: フィブリル {n} 本（断片 {m} 本を連結）"
 msgstr "Auto connect done: {n} fibril(s) from {m} joined fragment(s)"
 
-#: guis/GUI04_Tracking_fiber.py:5395
+#: guis/GUI04_Tracking_fiber.py:5606
 msgid "連結するファイバーを 1 本だけ選択してください。"
 msgstr "Select exactly one fiber to connect."
 
-#: guis/GUI04_Tracking_fiber.py:5401
+#: guis/GUI04_Tracking_fiber.py:5612
 msgid "このファイバーの端の近くに、連結できる相手がありません。"
 msgstr "There is nothing near this fiber's ends that it could be connected to."
 
-#: guis/GUI04_Tracking_fiber.py:5426
+#: guis/GUI04_Tracking_fiber.py:5637
 msgid "連結対象が変化したため、連結を中止しました。"
 msgstr "The fibers to connect changed, so the connection was cancelled."
 
-#: guis/GUI04_Tracking_fiber.py:5446
+#: guis/GUI04_Tracking_fiber.py:5657
 #, python-brace-format
 msgid "手動で連結しました: 断片 {n} 本のフィブリル（距離 {d:.1f} px / 角度 {a:.0f} 度{auto}）"
 msgstr ""
 "Connected by hand: a fibril of {n} fragment(s) (distance {d:.1f} px / "
 "angle {a:.0f} degrees{auto})"
 
-#: guis/GUI04_Tracking_fiber.py:5449
+#: guis/GUI04_Tracking_fiber.py:5660
 msgid " / 自動連結の条件外"
 msgstr " / outside the automatic conditions"
 
-#: guis/GUI04_Tracking_fiber.py:5451
+#: guis/GUI04_Tracking_fiber.py:5662
 msgid "手動連結"
 msgstr "Manual connection"
 
-#: guis/GUI04_Tracking_fiber.py:5575
+#: guis/GUI04_Tracking_fiber.py:5786
 #, python-brace-format
 msgid "連結を解除しました: {n} 箇所（フィブリル {m} 本）"
 msgstr "Disconnected {n} junction(s) ({m} fibril(s))"
 
-#: guis/GUI04_Tracking_fiber.py:5578
+#: guis/GUI04_Tracking_fiber.py:5789
 msgid "連結の解除"
 msgstr "Disconnection"
 
-#: guis/GUI04_Tracking_fiber.py:5604
+#: guis/GUI04_Tracking_fiber.py:5815
 #, python-brace-format
 msgid "すべての連結を解除しました: フィブリル {n} 本を断片へ戻しました。"
 msgstr "Removed every connection: {n} fibril(s) taken back apart into fragments."
 
-#: guis/GUI04_Tracking_fiber.py:5606
+#: guis/GUI04_Tracking_fiber.py:5817
 msgid "すべての連結の解除"
 msgstr "Removal of every connection"
 
-#: guis/GUI04_Tracking_fiber.py:5624
+#: guis/GUI04_Tracking_fiber.py:5835
 msgid "元に戻せる連結操作がありません。"
 msgstr "There is no connection operation to undo."
 
-#: guis/GUI04_Tracking_fiber.py:5628
+#: guis/GUI04_Tracking_fiber.py:5839
 #, python-brace-format
 msgid "「{action}」を元に戻しました。"
 msgstr "Undid \"{action}\"."
 
-#: guis/GUI04_Tracking_fiber.py:5697
+#: guis/GUI04_Tracking_fiber.py:5908
 msgid "継ぎ目の折れもキンクとして判定します。連結したフィブリルのキンクを判定し直しました。"
 msgstr ""
 "Bends at bridges are now judged as kinks too. The kinks of the connected "
 "fibrils were judged again."
 
-#: guis/GUI04_Tracking_fiber.py:5702
+#: guis/GUI04_Tracking_fiber.py:5913
 #, python-brace-format
 msgid "継ぎ目の折れは判定しません。連結したフィブリルのキンクを判定し直し、継ぎ目にかかる折れ {n} 箇所を判定しない折れ（マゼンタの菱形）にしました。"
 msgstr ""
@@ -3850,36 +3931,36 @@ msgstr ""
 "judged again, and {n} bends at bridges are now unjudged bends (magenta "
 "diamonds)."
 
-#: guis/GUI04_Tracking_fiber.py:5708
+#: guis/GUI04_Tracking_fiber.py:5919
 msgid "自動連結のしきい値を更新しました。「自動連結」を実行すると反映されます。"
 msgstr ""
 "Updated the automatic connection thresholds. They take effect the next "
 "time \"Auto Connect\" is run."
 
-#: guis/GUI04_Tracking_fiber.py:5774
+#: guis/GUI04_Tracking_fiber.py:5985
 #, python-brace-format
 msgid "連結ファイルを読めませんでした: {err}"
 msgstr "Could not read the connection file: {err}"
 
-#: guis/GUI04_Tracking_fiber.py:5794
+#: guis/GUI04_Tracking_fiber.py:6005
 #, python-brace-format
 msgid "連結を復元しました: フィブリル {n} 本（断片 {m} 本）"
 msgstr "Restored the connection: {n} fibril(s) from {m} fragment(s)"
 
-#: guis/GUI04_Tracking_fiber.py:5797
+#: guis/GUI04_Tracking_fiber.py:6008
 msgid "連結を復元しました: 連結なし"
 msgstr "Restored the connection: nothing connected"
 
-#: guis/GUI04_Tracking_fiber.py:5951
+#: guis/GUI04_Tracking_fiber.py:6162
 msgid "エクスポートするファイバーがありません。"
 msgstr "No fibers to export."
 
-#: guis/GUI04_Tracking_fiber.py:5991
+#: guis/GUI04_Tracking_fiber.py:6209
 #, python-brace-format
 msgid "{msg} ({count} 件)"
 msgstr "{msg} ({count} items)"
 
-#: guis/GUI04_Tracking_fiber.py:6031
+#: guis/GUI04_Tracking_fiber.py:6249
 #, python-brace-format
 msgid ""
 "読み込みエラー: {name}\n"
@@ -3888,7 +3969,7 @@ msgstr ""
 "Load error: {name}\n"
 "{tb}"
 
-#: guis/GUI04_Tracking_fiber.py:6045
+#: guis/GUI04_Tracking_fiber.py:6263
 #, python-brace-format
 msgid ""
 "フィルターエラー:\n"
@@ -3897,65 +3978,65 @@ msgstr ""
 "Filter error:\n"
 "{tb}"
 
-#: guis/GUI04_Tracking_fiber.py:6196
+#: guis/GUI04_Tracking_fiber.py:6414
 msgid "自動(best)"
 msgstr "Auto (best)"
 
-#: guis/GUI04_Tracking_fiber.py:6197
+#: guis/GUI04_Tracking_fiber.py:6415
 msgid "右上"
 msgstr "Upper Right"
 
-#: guis/GUI04_Tracking_fiber.py:6198
+#: guis/GUI04_Tracking_fiber.py:6416
 msgid "左上"
 msgstr "Upper Left"
 
-#: guis/GUI04_Tracking_fiber.py:6199
+#: guis/GUI04_Tracking_fiber.py:6417
 msgid "右下"
 msgstr "Lower Right"
 
-#: guis/GUI04_Tracking_fiber.py:6200
+#: guis/GUI04_Tracking_fiber.py:6418
 msgid "左下"
 msgstr "Lower Left"
 
-#: guis/GUI04_Tracking_fiber.py:6201
+#: guis/GUI04_Tracking_fiber.py:6419
 msgid "上中央"
 msgstr "Upper Center"
 
-#: guis/GUI04_Tracking_fiber.py:6202
+#: guis/GUI04_Tracking_fiber.py:6420
 msgid "下中央"
 msgstr "Lower Center"
 
-#: guis/GUI04_Tracking_fiber.py:6203
+#: guis/GUI04_Tracking_fiber.py:6421
 msgid "左中央"
 msgstr "Center Left"
 
-#: guis/GUI04_Tracking_fiber.py:6204
+#: guis/GUI04_Tracking_fiber.py:6422
 msgid "右中央"
 msgstr "Center Right"
 
-#: guis/GUI04_Tracking_fiber.py:6205
+#: guis/GUI04_Tracking_fiber.py:6423
 msgid "中央"
 msgstr "Center"
 
-#: guis/GUI04_Tracking_fiber.py:6206
+#: guis/GUI04_Tracking_fiber.py:6424
 msgid "軸外(右)"
 msgstr "Outside Axis (right)"
 
-#: guis/GUI04_Tracking_fiber.py:6316
+#: guis/GUI04_Tracking_fiber.py:6534
 #, python-brace-format
 msgid "個別表示 – {name}"
 msgstr "Individual View - {name}"
 
-#: guis/GUI04_Tracking_fiber.py:6318
+#: guis/GUI04_Tracking_fiber.py:6536
 #, python-brace-format
 msgid "個別表示 – {name} / fiber #{idx}"
 msgstr "Individual View - {name} / fiber #{idx}"
 
-#: guis/GUI04_Tracking_fiber.py:6383
+#: guis/GUI04_Tracking_fiber.py:6601
 msgid "余白"
 msgstr "Margin"
 
-#: guis/GUI04_Tracking_fiber.py:6393
+#: guis/GUI04_Tracking_fiber.py:6611
 msgid ""
 "追跡範囲の周囲を何画素分まで表示に含めるかを指定します。\n"
 "端点で終わったのか交差で切れたのかを周囲ごと確認できます。\n"
@@ -3968,27 +4049,27 @@ msgstr ""
 "Display only: measured values such as length and height are unaffected.\n"
 "Set it to 0 to go back to a crop that fits the tracked range exactly."
 
-#: guis/GUI04_Tracking_fiber.py:6402 guis/GUI04_Tracking_fiber.py:6536
+#: guis/GUI04_Tracking_fiber.py:6620 guis/GUI04_Tracking_fiber.py:6754
 msgid "フォントサイズ：軸ラベル"
 msgstr "Font Size: Axis Label"
 
-#: guis/GUI04_Tracking_fiber.py:6440 guis/GUI04_Tracking_fiber.py:6603
+#: guis/GUI04_Tracking_fiber.py:6658 guis/GUI04_Tracking_fiber.py:6821
 msgid "表示："
 msgstr "Display:"
 
-#: guis/GUI04_Tracking_fiber.py:6442 guis/GUI04_Tracking_fiber.py:6605
+#: guis/GUI04_Tracking_fiber.py:6660 guis/GUI04_Tracking_fiber.py:6823
 msgid "キンク"
 msgstr "Kinks"
 
-#: guis/GUI04_Tracking_fiber.py:6447
+#: guis/GUI04_Tracking_fiber.py:6665
 msgid "中心線"
 msgstr "Centerline"
 
-#: guis/GUI04_Tracking_fiber.py:6452
+#: guis/GUI04_Tracking_fiber.py:6670
 msgid "追跡範囲"
 msgstr "Tracked Range"
 
-#: guis/GUI04_Tracking_fiber.py:6458
+#: guis/GUI04_Tracking_fiber.py:6676
 msgid ""
 "計測対象のファイバーを囲む破線枠を表示します。\n"
 "余白に隣接ファイバーが写り込んでも、どれが計測対象かを取り違えずに済みます。"
@@ -3997,104 +4078,104 @@ msgstr ""
 "Even when the margin brings neighboring fibers into the frame, it stays "
 "clear which fiber is the measured one."
 
-#: guis/GUI04_Tracking_fiber.py:6527
+#: guis/GUI04_Tracking_fiber.py:6745
 msgid "Y最大"
 msgstr "Y max"
 
-#: guis/GUI04_Tracking_fiber.py:6580
+#: guis/GUI04_Tracking_fiber.py:6798
 msgid "グリッド表示"
 msgstr "Show Grid"
 
-#: guis/GUI04_Tracking_fiber.py:6588
+#: guis/GUI04_Tracking_fiber.py:6806
 msgid "凡例位置"
 msgstr "Legend Position"
 
-#: guis/GUI04_Tracking_fiber.py:6610
+#: guis/GUI04_Tracking_fiber.py:6828
 msgid "中央値/最大値"
 msgstr "Median/Max"
 
-#: guis/GUI04_Tracking_fiber.py:6659
+#: guis/GUI04_Tracking_fiber.py:6877
 msgid "拡大像の設定値が不正です。"
 msgstr "Zoom view settings are invalid."
 
-#: guis/GUI04_Tracking_fiber.py:6667
+#: guis/GUI04_Tracking_fiber.py:6885
 #, python-brace-format
 msgid "余白は 0〜{max} px の範囲で入力してください。"
 msgstr "Enter a margin in the range 0-{max} px."
 
-#: guis/GUI04_Tracking_fiber.py:6701
+#: guis/GUI04_Tracking_fiber.py:6919
 msgid "プロファイルの設定値が不正です。"
 msgstr "Profile settings are invalid."
 
-#: guis/GUI04_Tracking_fiber.py:6730
+#: guis/GUI04_Tracking_fiber.py:6948
 msgid "y軸最大値には正の数値を入力してください。"
 msgstr "Enter a positive number for the Y-axis maximum."
 
-#: guis/GUI04_Tracking_fiber.py:7163
+#: guis/GUI04_Tracking_fiber.py:7381
 msgid "ファイバー連結の設定"
 msgstr "Fiber Connection Settings"
 
-#: guis/GUI04_Tracking_fiber.py:7173
+#: guis/GUI04_Tracking_fiber.py:7391
 msgid "連結距離"
 msgstr "Connection distance"
 
-#: guis/GUI04_Tracking_fiber.py:7174
+#: guis/GUI04_Tracking_fiber.py:7392
 msgid "端点どうしがこの距離以内なら連結候補にする。"
 msgstr "Endpoints within this distance of each other become connection candidates."
 
-#: guis/GUI04_Tracking_fiber.py:7175
+#: guis/GUI04_Tracking_fiber.py:7393
 msgid "直線性の角度しきい値"
 msgstr "Linearity angle threshold"
 
-#: guis/GUI04_Tracking_fiber.py:7176
+#: guis/GUI04_Tracking_fiber.py:7394
 msgid "両端点の角度がこの値を超える（＝ほぼ直線）ときのみ連結する。"
 msgstr ""
 "Connect only when the angle at the two endpoints exceeds this value (i.e."
 " nearly straight)."
 
-#: guis/GUI04_Tracking_fiber.py:7177
+#: guis/GUI04_Tracking_fiber.py:7395
 msgid "方向推定の振り返り点数"
 msgstr "Look-back points for direction estimation"
 
-#: guis/GUI04_Tracking_fiber.py:7178
+#: guis/GUI04_Tracking_fiber.py:7396
 msgid "端点での向きを推定するのに使うトラック点数。"
 msgstr "Number of tracked points used to estimate the direction at an endpoint."
 
-#: guis/GUI04_Tracking_fiber.py:7179
+#: guis/GUI04_Tracking_fiber.py:7397
 msgid "橋渡し高さの平均点数"
 msgstr "Points averaged for the bridge height"
 
-#: guis/GUI04_Tracking_fiber.py:7180
+#: guis/GUI04_Tracking_fiber.py:7398
 msgid "連結部の高さを決めるために平均する端点サンプル数。"
 msgstr ""
 "Number of endpoint samples averaged to determine the height of the "
 "connection."
 
-#: guis/GUI04_Tracking_fiber.py:7181
+#: guis/GUI04_Tracking_fiber.py:7399
 msgid "高さ差の許容比"
 msgstr "Allowed height-difference ratio"
 
-#: guis/GUI04_Tracking_fiber.py:7182
+#: guis/GUI04_Tracking_fiber.py:7400
 msgid "高さ中央値の相対差がこの値以下の断片のみ連結する。大きいほど緩い。"
 msgstr ""
 "Connect only fragments whose median heights differ relatively by at most "
 "this value. Larger is more permissive."
 
-#: guis/GUI04_Tracking_fiber.py:7183
+#: guis/GUI04_Tracking_fiber.py:7401
 msgid "交差ノイズのトリミング点数"
 msgstr "Trim points for crossing noise"
 
-#: guis/GUI04_Tracking_fiber.py:7184
+#: guis/GUI04_Tracking_fiber.py:7402
 msgid "連結前に接合部付近から切り落とす骨格点数。"
 msgstr ""
 "Number of skeleton points trimmed from around the junction before "
 "connecting."
 
-#: guis/GUI04_Tracking_fiber.py:7205
+#: guis/GUI04_Tracking_fiber.py:7423
 msgid "継ぎ目の折れもキンクとして判定する"
 msgstr "Judge bends at bridges as kinks too"
 
-#: guis/GUI04_Tracking_fiber.py:7210
+#: guis/GUI04_Tracking_fiber.py:7428
 msgid ""
 "連結した継ぎ目（繊維が見えていない隙間を直線でつないだ部分）にかかる折れを、キンクとして判定するかどうか。外すと、それらの折れは判定せず、個別表示のウインドウと"
 " AFM "
@@ -4109,45 +4190,49 @@ msgstr ""
 " itself is not included in the kink density's divisor. This setting has "
 "no effect on a format 1.0 bundle."
 
-#: guis/GUI04_Tracking_fiber.py:7220
+#: guis/GUI04_Tracking_fiber.py:7438
 msgid "適用"
 msgstr "Apply"
 
-#: guis/GUI04_Tracking_fiber.py:7221
+#: guis/GUI04_Tracking_fiber.py:7439
 msgid "既定値に戻す"
 msgstr "Restore Initial Values"
 
-#: guis/GUI04_Tracking_fiber.py:7222 guis/GUI04_Tracking_fiber.py:7387
-#: guis/GUI04_Tracking_fiber.py:7511 guis/GUI04_Tracking_fiber.py:7696
-#: guis/GUI04_Tracking_fiber.py:7811
+#: guis/GUI04_Tracking_fiber.py:7440 guis/GUI04_Tracking_fiber.py:7605
+#: guis/GUI04_Tracking_fiber.py:7729 guis/GUI04_Tracking_fiber.py:7914
+#: guis/GUI04_Tracking_fiber.py:8029
 msgid "閉じる"
 msgstr "Close"
 
-#: guis/GUI04_Tracking_fiber.py:7251
+#: guis/GUI04_Tracking_fiber.py:7469
 msgid "正の数値を入力してください。"
 msgstr "must be a positive number."
 
-#: guis/GUI04_Tracking_fiber.py:7253
+#: guis/GUI04_Tracking_fiber.py:7471
 msgid "0 より大きく 180 以下の角度を入力してください。"
 msgstr "Enter an angle greater than 0 and no more than 180."
 
-#: guis/GUI04_Tracking_fiber.py:7255
+#: guis/GUI04_Tracking_fiber.py:7473
 msgid "2 以上の整数を入力してください。"
 msgstr "must be an integer of 2 or more."
 
-#: guis/GUI04_Tracking_fiber.py:7259
+#: guis/GUI04_Tracking_fiber.py:7475
+msgid "1 以上の整数を入力してください。"
+msgstr "must be an integer of 1 or more."
+
+#: guis/GUI04_Tracking_fiber.py:7477
 msgid "0 以上の整数を入力してください。"
 msgstr "must be an integer of 0 or more."
 
-#: guis/GUI04_Tracking_fiber.py:7273
+#: guis/GUI04_Tracking_fiber.py:7491
 msgid "入力エラー"
 msgstr "Input Error"
 
-#: guis/GUI04_Tracking_fiber.py:7339
+#: guis/GUI04_Tracking_fiber.py:7557
 msgid "連結先の候補"
 msgstr "Connection Candidates"
 
-#: guis/GUI04_Tracking_fiber.py:7344
+#: guis/GUI04_Tracking_fiber.py:7562
 #, python-brace-format
 msgid ""
 "ファイバー #{n} の連結先を選んでください。距離は端どうしの画素距離、角度は連結部の直線性です。「自動」が ✓ "
@@ -4158,19 +4243,19 @@ msgstr ""
 "candidate marked ✓ under \"Auto\" also meets the conditions the automatic"
 " connection uses."
 
-#: guis/GUI04_Tracking_fiber.py:7385
+#: guis/GUI04_Tracking_fiber.py:7603
 msgid "この候補と連結"
 msgstr "Connect to this candidate"
 
-#: guis/GUI04_Tracking_fiber.py:7442
+#: guis/GUI04_Tracking_fiber.py:7660
 msgid "連結する候補を選択してください。"
 msgstr "Select the candidate to connect to."
 
-#: guis/GUI04_Tracking_fiber.py:7491
+#: guis/GUI04_Tracking_fiber.py:7709
 msgid "連結の一覧"
 msgstr "Connections"
 
-#: guis/GUI04_Tracking_fiber.py:7496
+#: guis/GUI04_Tracking_fiber.py:7714
 msgid ""
 "連結部の一覧です。行を選ぶと全体像で連結部を丸で示します。位置は全体像の画素座標、gap は繋いだ 2 "
 "端の画素距離です。複数行を選んでまとめて解除できます。"
@@ -4180,19 +4265,19 @@ msgstr ""
 "distance between the two joined ends. Select several rows to disconnect "
 "them together."
 
-#: guis/GUI04_Tracking_fiber.py:7507
+#: guis/GUI04_Tracking_fiber.py:7725
 msgid "選択した連結を解除"
 msgstr "Disconnect selected"
 
-#: guis/GUI04_Tracking_fiber.py:7509
+#: guis/GUI04_Tracking_fiber.py:7727
 msgid "すべての連結を解除"
 msgstr "Disconnect all"
 
-#: guis/GUI04_Tracking_fiber.py:7603
+#: guis/GUI04_Tracking_fiber.py:7821
 msgid "解除する連結を選択してください。"
 msgstr "Select the junctions to disconnect."
 
-#: guis/GUI04_Tracking_fiber.py:7616
+#: guis/GUI04_Tracking_fiber.py:7834
 #, python-brace-format
 msgid ""
 "すべての連結（{n} 箇所）を解除します。\n"
@@ -4201,53 +4286,53 @@ msgstr ""
 "Every connection ({n} junction(s)) will be removed.\n"
 "One press of \"Undo\" brings them back. Continue?"
 
-#: guis/GUI04_Tracking_fiber.py:7661
+#: guis/GUI04_Tracking_fiber.py:7879
 msgid "除外したファイバー"
 msgstr "Excluded Fibers"
 
-#: guis/GUI04_Tracking_fiber.py:7666
+#: guis/GUI04_Tracking_fiber.py:7884
 #, python-brace-format
 msgid "位置は全体像の画素座標です。除外はバンドル横の {suffix} に保存されます。"
 msgstr ""
 "Positions are whole-image pixel coordinates. Exclusions are saved as "
 "{suffix} beside the bundle."
 
-#: guis/GUI04_Tracking_fiber.py:7692
+#: guis/GUI04_Tracking_fiber.py:7910
 msgid "選択を解除"
 msgstr "Restore selected"
 
-#: guis/GUI04_Tracking_fiber.py:7694
+#: guis/GUI04_Tracking_fiber.py:7912
 msgid "すべて解除"
 msgstr "Restore all"
 
-#: guis/GUI04_Tracking_fiber.py:7722
+#: guis/GUI04_Tracking_fiber.py:7940
 msgid "解除する行を選択してください。"
 msgstr "Select the row to restore."
 
-#: guis/GUI04_Tracking_fiber.py:7734
+#: guis/GUI04_Tracking_fiber.py:7952
 #, python-brace-format
 msgid "除外を解除しました: 位置 ({x}, {y})"
 msgstr "Restored the fiber at ({x}, {y})"
 
-#: guis/GUI04_Tracking_fiber.py:7752
+#: guis/GUI04_Tracking_fiber.py:7970
 #, python-brace-format
 msgid "このデータセットの除外 {n} 件をすべて解除しますか？"
 msgstr "Restore all {n} exclusions for this dataset?"
 
-#: guis/GUI04_Tracking_fiber.py:7761
+#: guis/GUI04_Tracking_fiber.py:7979
 #, python-brace-format
 msgid "除外をすべて解除しました: {n} 件"
 msgstr "Restored all {n} exclusions."
 
-#: guis/GUI04_Tracking_fiber.py:7797
+#: guis/GUI04_Tracking_fiber.py:8015
 msgid "ファイバー一覧の計測値の説明"
 msgstr "Fiber List Measurements"
 
-#: guis/GUI04_Tracking_fiber.py:7802
+#: guis/GUI04_Tracking_fiber.py:8020
 msgid "列見出しにマウスを乗せても、その値の説明が表示されます。"
 msgstr "Hovering over a column heading also shows the explanation of that value."
 
-#: guis/GUI04_Tracking_fiber.py:7809
+#: guis/GUI04_Tracking_fiber.py:8027
 #, python-brace-format
 msgid "計算方法とそのコードは、リポジトリの {doc} の各節（§）で説明しています。"
 msgstr ""
@@ -4399,7 +4484,7 @@ msgstr ""
 "  - 'spline1d'    : row/column-wise 1D B-spline interpolation (the ends "
 "hold that line's own level).\n"
 
-#: guis/GUI02_PlotProfiler.py:38
+#: guis/GUI02_PlotProfiler.py:41
 msgid ""
 "AFMの高さプロファイルをGUIで取得します。\n"
 "高さプロファイルは skimage.measure の profile_line を用いて計算します。\n"
@@ -4451,7 +4536,7 @@ msgid ""
 "・ファイバーごとの高さプロファイル（キンク位置・端点・中央値/最大値線）\n"
 "・統計値（高さ中央値・最大値・長さ・端点数・キンク数・キンク角度）\n"
 "・ファイバー連結（交差・分岐で分断された断片を1本のフィブリルへ再結合、自動探索と手動選択）\n"
-"・高さ範囲フィルター（specific_height_fibers 相当）\n"
+"・高さ範囲フィルター（各ファイバーから、高さが範囲内の区間を切り出す）\n"
 "・高さプロファイル、ファイバー拡大像、およびAFM全体像の PNG 出力\n"
 "・全ファイバーの統計値 CSV エクスポート\n"
 "\n"
@@ -4467,8 +4552,10 @@ msgstr ""
 " count, kink angle)\n"
 "- Fiber connection (rejoin fragments split at crossings and branches into"
 " one fibril, by automatic search and by hand)\n"
-"- Height range filter (equivalent to specific_height_fibers)\n"
+"- Height range filter (cuts out, from each fiber, the runs whose height "
+"lies in the range)\n"
 "- PNG output of height profiles, fiber zoom views, and the full AFM view\n"
 "- CSV export of statistics for all fibers\n"
 "\n"
 "Specify the GUI01 output folder as the input folder.\n"
+

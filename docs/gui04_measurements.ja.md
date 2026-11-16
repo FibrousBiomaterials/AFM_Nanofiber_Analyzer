@@ -64,7 +64,11 @@
 **画素サイズ。** このページの物理的な長さはすべて、`measure.measure_bundle` が
 走査範囲から求めた画素サイズを使う。既定の走査範囲はバンドルに記録されたもの
 （`spatial_calibration`）である。GUI04 は代わりに、スケール欄の X・Y 走査範囲を
-渡す。Y が空欄なら X を使う。解析配列は生スキャンより各軸 1 画素小さいので
+渡す。Y が空欄なら X を使う。データセットを開くとスケール欄は記録された走査範囲に
+なり、バンドルに記録が無ければ入力を求める。その後ユーザーがスケール欄で確定した
+スケールは、データセットを開き直すまで使われる。その Y/X の比が記録と異なるとき、
+GUI04 は、中心線とキンクは置かれた幾何のまま変わらない（§1.2）ため、長さとキンクが
+別の縦横比に基づくことを警告する。解析配列は生スキャンより各軸 1 画素小さいので
 （[解析アルゴリズム](algorithms.ja.md) の「全体を通じた表記規則」参照）、割る数は
 配列サイズに 1 を足したものになる。この割り算は `bundle_schema.pixel_size_nm` が
 行う。解析パイプラインも、走査の一部の行だけを解析したときの走査範囲を記録する際にこの
@@ -102,6 +106,22 @@ result = curate_fibers(
 GUI04 は `measure_bundle` に別のキンクのしきい値も下限長も渡さない（それらを使うのは
 GUI03 と `cli.py measure` だけである）。そのため一覧には、バンドルが保存したキンクと
 すべてのファイバーが出る。
+
+ファイバー CSV は、各行の末尾に、長さを計測した走査範囲（`scale_x_um`、`scale_y_um`、
+単位 µm）と `scale_source` を書く。`measure_bundle` は、両方がバンドルに記録された
+走査範囲と等しいとき `scale_source` を `recorded` に、それ以外では `entered` にする。
+これにより、その長さがバンドルだけから再現できるかをファイル自体が示す。
+
+```python
+# source: lib/measure.py::measure_bundle
+scale_source = (
+    SCALE_SOURCE_RECORDED
+    if recorded is not None
+    and math.isclose(scale_um, recorded[0], rel_tol=1e-9)
+    and math.isclose(scale_y_um, recorded[1], rel_tol=1e-9)
+    else SCALE_SOURCE_ENTERED
+)
+```
 
 ## 1. バンドルからファイバーへ
 
@@ -1538,6 +1558,9 @@ return _candidates_for(index, ends, backs, medians, params, reach)
 ### 5.2 連鎖からフィブリルを組み立てる
 
 連鎖は断片の順序付きリストで、各断片には反転するかどうかのフラグが付いている。
+`connect_selection.resolve_plan_chains` は保存されたプランから連鎖を読み、必要なら向きを変えて、
+番号の小さい断片から大きい断片へ向かうようにする。キンク規則は中心線を先頭の点から標本化するため、
+そうしないと 1 本のフィブリルが 2 通りの向きで保存されたとき別々に判定され、キンク角が異なりうる。
 `_build_chain_fiber` は断片を端と端でつなぐ。
 
 ```python

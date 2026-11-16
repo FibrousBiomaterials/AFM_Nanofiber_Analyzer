@@ -240,7 +240,7 @@ def test_gui04_overview_is_numbered_from_the_displayed_fibers(tk_app, monkeypatc
     displayed = app._display_fibers()
     assert len(displayed) == 2
     assert calls[-1]["labeled_fibers"] == list(enumerate(displayed))
-    assert "1 excluded" in calls[-1]["title_suffix"]
+    assert "excluded fragments: 1" in calls[-1]["title_suffix"]
 
 
 def test_gui04_batch_exclusion_undoes_in_one_press(tk_app, monkeypatch):

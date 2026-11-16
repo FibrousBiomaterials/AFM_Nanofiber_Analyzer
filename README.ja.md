@@ -906,7 +906,11 @@ python cli.py heights results --output heights.csv
 `touches_frame`、`cut_end_count`、`frame_weight`、`unjudged_bridge_count`（折れの区間が連結の
 橋渡し部にかかるため判定しなかった折れの数）、`bridge_excluded_nm`（橋渡し部がキンク
 密度の分母から除いた長さ）です。`measure` は連結を適用しないので、この 2 列は 0 になり、
-値が入るのは GUI04 の出力の連結フィブリルです。以前の列構成も読み戻せます。`heights` は
+値が入るのは GUI04 の出力の連結フィブリルです。各行の末尾には、長さを計測した走査範囲
+`scale_x_um`、`scale_y_um`（µm）と `scale_source` が入ります。`scale_source` は、それが
+バンドルに記録された走査範囲なら `recorded`、`--scale-um` で別の値を与えたとき、または
+バンドルに記録が無く値を入力したとき（`--scale-um`、または GUI04 の入力欄）は `entered` です。
+以前の列構成も読み戻せます。`heights` は
 バンドルごとの要約を表示し、`--output` を付けると縦持ち形式の CSV
 （`bundle`、`height_nm`）を書き出して、外部ツールでの再グループ化・再ビニング
 に利用できます。フォルダを引数に渡すと、フォルダ直下の全バンドルに展開され

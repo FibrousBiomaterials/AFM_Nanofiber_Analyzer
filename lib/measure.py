@@ -45,6 +45,7 @@ predate the scan-size contract.
 # ===== Standard library =====
 import csv
 import dataclasses
+import math
 import os
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
@@ -216,7 +217,19 @@ FIBER_CSV_COLUMNS = (
     "touches_frame", "cut_end_count", "frame_weight",
     "unjudged_bridge_count", "bridge_excluded_nm",
     "frame_end_count",
+    "scale_x_um", "scale_y_um", "scale_source",
 )
+
+# Values of the `scale_source` column and of `MeasureResult.scale_source`: the
+# scan size the lengths were measured at is the one the bundle records, or one
+# the user entered (GUI04's scale fields, ``cli.py measure --scale-um``) that
+# differs from it or stands in for a scan size the bundle does not record.
+# `scale_source` 列と `MeasureResult.scale_source` の値。長さを計測した走査範囲が
+# バンドルに記録された値か、ユーザーが入力した値（GUI04 のスケール欄、
+# ``cli.py measure --scale-um``）で、記録と異なるか記録の無い走査範囲の代わりに
+# なったものかを表す。
+SCALE_SOURCE_RECORDED = "recorded"
+SCALE_SOURCE_ENTERED = "entered"
 
 # The column set of the development version that added straightness, and the
 # set shipped in 1.0.0 before it. Kept so a CSV written by either still reads:
@@ -255,6 +268,12 @@ FIBER_CSV_COLUMNS_V4 = FIBER_CSV_COLUMNS[:16]
 # 読むため、GUI03 は枠上の端を繊維の端と取り違えず、その長さを Kaplan-Meier
 # 推定から外す。
 FIBER_CSV_COLUMNS_V5 = FIBER_CSV_COLUMNS[:18]
+
+# The column set before the scale columns. A CSV with it reads as before; the
+# scale is not part of `FiberStats`, so nothing it holds goes undefined.
+# スケールの列を追加する前の列構成。これで書かれた CSV はこれまでどおり読める。
+# スケールは `FiberStats` の項目ではないため、未定義になる項目は無い。
+FIBER_CSV_COLUMNS_V6 = FIBER_CSV_COLUMNS[:19]
 
 
 @dataclass(frozen=True)
@@ -481,6 +500,17 @@ class MeasureResult:
         ``min_length_nm``).
         呼び出し側が求めた下限長（`measure_bundle` の ``min_length_nm``）より短い
         ため、`fibers` と `stats` から外したファイバーの数。
+    scale_um, scale_y_um
+        X and Y scan sizes in micrometers the lengths were measured at; NaN
+        when the result was not made by `measure_bundle`.
+        長さを計測した X・Y の走査範囲 (µm)。`measure_bundle` 以外で作った結果
+        では NaN。
+    scale_source
+        `SCALE_SOURCE_RECORDED` when both are the scan size the bundle
+        records, `SCALE_SOURCE_ENTERED` otherwise; empty when not made by
+        `measure_bundle`.
+        両方がバンドルに記録された走査範囲なら `SCALE_SOURCE_RECORDED`、そうで
+        なければ `SCALE_SOURCE_ENTERED`。`measure_bundle` 以外で作った結果では空。
     """
 
     image: FiberTrackingImage
@@ -491,6 +521,9 @@ class MeasureResult:
     plan_missing: int = 0
     plan_splits: int = 0
     short_dropped: int = 0
+    scale_um: float = float("nan")
+    scale_y_um: float = float("nan")
+    scale_source: str = ""
 
 
 def _image_frame_shape(image: FiberTrackingImage) -> Optional[Tuple[int, int]]:
@@ -2600,8 +2633,8 @@ def measure_bundle(
     >>> type(result.stats[0]).__name__
     'FiberStats'
     """
+    recorded = read_scan_size_from_bundle(bundle_path)
     if scale_um is None:
-        recorded = read_scan_size_from_bundle(bundle_path)
         if recorded is None:
             raise ValueError(
                 "scale_um is None and the bundle records no scan size; "
@@ -2623,6 +2656,20 @@ def measure_bundle(
         raise ValueError(
             f"scale_y_um must be a positive number, got {scale_y_um!r}"
         )
+    # Which scan size the lengths rest on travels with the result, so an
+    # export can say whether they can be reproduced from the bundle alone. A
+    # caller that passes the recorded size, as GUI04 does, still reads as
+    # recorded.
+    # 長さがどの走査範囲に基づくかを結果と一緒に渡し、出力がバンドルだけから
+    # 再現できるかを示せるようにする。GUI04 のように記録された値を渡した場合も
+    # recorded とする。
+    scale_source = (
+        SCALE_SOURCE_RECORDED
+        if recorded is not None
+        and math.isclose(scale_um, recorded[0], rel_tol=1e-9)
+        and math.isclose(scale_y_um, recorded[1], rel_tol=1e-9)
+        else SCALE_SOURCE_ENTERED
+    )
 
     data, meta = _load_validated_arrays(
         bundle_path, TRACKING_BUNDLE_KEYS, optional=_TRACKING_OPTIONAL_KEYS,
@@ -2693,7 +2740,10 @@ def measure_bundle(
             stats=[result.stats[i] for i in keep],
             short_dropped=len(result.stats) - len(keep),
         )
-    return result
+    return dataclasses.replace(
+        result, scale_um=float(scale_um), scale_y_um=float(scale_y_um),
+        scale_source=scale_source,
+    )
 
 
 def _exclusion_anchors(bundle_path: str) -> List[Tuple[int, int]]:
@@ -3436,8 +3486,9 @@ def read_fiber_csv(path: str) -> List[FiberStats]:
         # from any release reads with its missing fields left undefined.
         # 以前の列構成はすべて現在の接頭辞なので、どのリリースのファイルも、無い
         # 項目を未定義のままにして読める。
-        known = (FIBER_CSV_COLUMNS, FIBER_CSV_COLUMNS_V5, FIBER_CSV_COLUMNS_V4,
-                 FIBER_CSV_COLUMNS_V3, FIBER_CSV_COLUMNS_V2, FIBER_CSV_COLUMNS_V1)
+        known = (FIBER_CSV_COLUMNS, FIBER_CSV_COLUMNS_V6, FIBER_CSV_COLUMNS_V5,
+                 FIBER_CSV_COLUMNS_V4, FIBER_CSV_COLUMNS_V3, FIBER_CSV_COLUMNS_V2,
+                 FIBER_CSV_COLUMNS_V1)
         expected = next((c for c in known if columns == list(c)), None)
         if expected is None:
             raise ValueError(
@@ -3553,7 +3604,13 @@ def collect_fiber_stats_from_csv(
     return per_file, errors
 
 
-def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
+def write_fiber_csv(
+    path: str,
+    stats: Sequence[FiberStats],
+    scale_um: Optional[float] = None,
+    scale_y_um: Optional[float] = None,
+    scale_source: str = "",
+) -> None:
     """
     Write per-fiber statistics to a CSV file.
     ファイバーごとの統計値を CSV ファイルへ書き出す。
@@ -3566,6 +3623,17 @@ def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
     stats
         Statistics rows, typically from `compute_fiber_stats`.
         統計値の行。通常は `compute_fiber_stats` の戻り値。
+    scale_um, scale_y_um
+        X and Y scan sizes in micrometers the lengths were measured at
+        (`MeasureResult.scale_um`, `MeasureResult.scale_y_um`), written on
+        every row; ``None`` leaves the cells empty.
+        長さを計測した X・Y の走査範囲 (µm)（`MeasureResult.scale_um`、
+        `MeasureResult.scale_y_um`）。全行に書く。``None`` なら空セル。
+    scale_source
+        `SCALE_SOURCE_RECORDED` or `SCALE_SOURCE_ENTERED`
+        (`MeasureResult.scale_source`), written on every row.
+        `SCALE_SOURCE_RECORDED` または `SCALE_SOURCE_ENTERED`
+        （`MeasureResult.scale_source`）。全行に書く。
 
     See Also
     --------
@@ -3596,8 +3664,24 @@ def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
     >>> header.split(",") == list(FIBER_CSV_COLUMNS)
     True
     >>> line
-    '0,812.3,2.500,3.100,2,1,121.0,,,,0,,0,,,,0,0.00,'
+    '0,812.3,2.500,3.100,2,1,121.0,,,,0,,0,,,,0,0.00,,,,'
+
+    The scale columns close every row when the caller passes the scale:
+
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     path = os.path.join(folder, "fibers.csv")
+    ...     write_fiber_csv(path, [row], scale_um=5.0, scale_y_um=5.0,
+    ...                     scale_source="entered")
+    ...     with open(path, encoding="utf-8-sig") as f:
+    ...         header, line = f.read().splitlines()
+    >>> line.split(",")[-3:]
+    ['5', '5', 'entered']
     """
+    scale_cells = [
+        "" if scale_um is None else f"{scale_um:.10g}",
+        "" if scale_y_um is None else f"{scale_y_um:.10g}",
+        scale_source,
+    ]
     def blank_or(value: float, fmt: str) -> str:
         # An undefined value is an empty cell, never "nan", so a spreadsheet
         # reads it as missing rather than as a string.
@@ -3629,6 +3713,7 @@ def write_fiber_csv(path: str, stats: Sequence[FiberStats]) -> None:
                 int(s.unjudged_bridge_count),
                 blank_or(s.bridge_excluded_nm, "{0:.2f}"),
                 "" if s.frame_end_count is None else int(s.frame_end_count),
+                *scale_cells,
             ])
 
 
