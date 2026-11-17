@@ -80,7 +80,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # ===== Project libraries =====
 from lib.blosc2_io import BUNDLE_EXT, load_bundle, load_bundle_meta
 from lib.bundle_schema import (
-    APPARENT_WIDTH_KEY, SOURCE_REGION_KEY, kink_params_from_meta, pixel_size_nm,
+    APPARENT_WIDTH_KEY, SOURCE_REGION_KEY, centerline_from_meta,
+    kink_params_from_meta, pixel_size_nm, scan_size_um_from_meta,
 )
 from lib.centerline import (
     DEFAULT_CENTERLINE_METHOD, SKELETON_PIXEL_LINE, SKELETON_TRACK,
@@ -94,8 +95,7 @@ from lib.measure import (
     collect_fiber_curvature, collect_fiber_stats, collect_fiber_stats_from_csv,
     collect_skeleton_height_profiles, fiber_judged_length_um, fiber_kink_density,
     fiber_real_end_count, kaplan_meier_length_weights, length_floor_nm,
-    read_centerline_from_bundle, read_scan_size_from_bundle,
-    skeleton_height_values,
+    read_scan_size_from_bundle, skeleton_height_values,
 )
 from lib.plugin_launch import call_when_shown
 from lib.translator import _
@@ -384,6 +384,13 @@ KM_RESAMPLE_SEED = 20261104
 # The three quantiles a summary reports, with the result keys they go under.
 # 要約が報告する 3 つの分位点と、それを入れる結果のキー。
 QUARTILE_KEYS = ((0.25, "q1"), (0.5, "median"), (0.75, "q3"))
+# The kink threshold of a bundle that records none: the detector default
+# (`pipeline.ProcParams.kinkangle_deg`), which is what such a run used. Written
+# out because importing `lib.pipeline` loads the analysis stages.
+# しきい値を記録していないバンドルのキンクしきい値。そのような実行が使った検出器の
+# 既定値（`pipeline.ProcParams.kinkangle_deg`）である。`lib.pipeline` を読み込むと
+# 解析段まで読み込まれるため、値を書き出している。
+UNRECORDED_KINK_ANGLE_DEG = 150.0
 
 
 def _apply_frame_mode(per_source, frame_mode: str) -> tuple:
@@ -1669,11 +1676,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Figure の縦幅 (inch)。縦並び表示では 1 サブプロット分の高さとして扱う。
     """
 
-    # Input bundles come from GUI01 and contain both calibrated and skeletonized arrays.
-    # 入力は GUI01_Image_Preprocessor が出力する .b2z バンドル形式で、
-    # calibrated / skeletonized が同一ファイルに含まれる。
-    BUNDLE_SUFFIX = BUNDLE_EXT
-
     # Internal display-mode keys stay untranslated; UI labels go through gettext.
     # 表示モードの内部キーは翻訳せず、UI 表示のみ _() 経由で行う。
     MODE_STACK = "stack"
@@ -1732,6 +1734,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 輪郭長で画像の枠に達したファイバーをどう扱うか。以前のすべての実行と
         # 同じ結果になるよう、含めることを既定とする。
         self.frame_mode = FRAME_INCLUDE
+
+        # Bundle metadata read during a comparison run (`_bundle_meta`); None
+        # between runs.
+        # 比較の実行中に読んだバンドルのメタデータ（`_bundle_meta`）。実行の外では None。
+        self._meta_cache: dict | None = None
 
         # Keep committed values separate from Entry text so edits can be confirmed with Enter.
         # Entry の textvariable とは別に確定済みの値を保持し、Enter 確定で反映する。
@@ -4154,14 +4161,49 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         counts: dict = {}
         for path in bundle_paths:
             try:
-                line = read_centerline_from_bundle(path)
+                line = centerline_from_meta(self._bundle_meta(path))
             except Exception:
                 continue
             counts[line] = counts.get(line, 0) + 1
         return counts
 
-    @staticmethod
-    def _bundle_pixel_sizes(bundle_paths) -> list:
+    def _bundle_meta(self, path: str) -> dict:
+        """
+        Read a bundle's metadata, at most once in a comparison run.
+        バンドルのメタデータを読む。1 回の比較実行の中では高々 1 度しか読まない。
+
+        Parameters
+        ----------
+        path
+            ``.b2z`` bundle of the run.
+            実行内の ``.b2z`` バンドル。
+
+        Returns
+        -------
+        dict
+            The bundle's vlmeta (`blosc2_io.load_bundle_meta`).
+            バンドルの vlmeta（`blosc2_io.load_bundle_meta`）。
+
+        Notes
+        -----
+        Several helpers inspect the same bundles before they are measured, and
+        each read opens the bundle file, so `_worker_run` keeps what was read
+        until the run ends. A read that fails is not kept: every helper still
+        sees it fail and passes the bundle over, as it did when reading the
+        file itself. Outside a run the metadata is read directly.
+        複数の補助関数が計測前に同じバンドルを調べ、読むたびにバンドルファイルを
+        開くため、`_worker_run` は読んだ内容を実行の終わりまで保持する。読み取りに
+        失敗した結果は保持しない。各補助関数は自分でファイルを読んでいたときと
+        同じく失敗を受け取り、そのバンドルを読み飛ばす。実行の外では直接読む。
+        """
+        cache = getattr(self, "_meta_cache", None)
+        if cache is None:
+            return load_bundle_meta(path)
+        if path not in cache:
+            cache[path] = load_bundle_meta(path)
+        return cache[path]
+
+    def _bundle_pixel_sizes(self, bundle_paths) -> list:
         """
         Read the X pixel size each bundle is measured with, in nanometers.
         各バンドルを計測する X 画素サイズ (nm) を読む。
@@ -4185,7 +4227,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         sizes = []
         for path in bundle_paths:
             try:
-                scan = read_scan_size_from_bundle(path)
+                scan = scan_size_um_from_meta(self._bundle_meta(path))
                 if scan is None:
                     continue
                 width = load_bundle(path, keys=["calibrated"])["calibrated"].shape[1]
@@ -4194,8 +4236,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 continue
         return sizes
 
-    @staticmethod
-    def _bundle_scan_sizes(bundle_paths) -> list:
+    def _bundle_scan_sizes(self, bundle_paths) -> list:
         """
         Read the scan size recorded in each bundle.
         各バンドルに記録された走査範囲を読む。
@@ -4218,15 +4259,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         sizes = []
         for path in bundle_paths:
             try:
-                scan = read_scan_size_from_bundle(path)
+                scan = scan_size_um_from_meta(self._bundle_meta(path))
             except Exception:
                 continue
             if scan is not None:
                 sizes.append(tuple(float(v) for v in scan))
         return sizes
 
-    @staticmethod
-    def _bundle_kink_conditions(bundle_paths) -> list:
+    def _bundle_kink_conditions(self, bundle_paths) -> list:
         """
         Read what a kink count depends on from each bundle.
         キンク数が依存する条件を各バンドルから読む。
@@ -4252,17 +4292,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         conditions = []
         for path in bundle_paths:
             try:
-                meta = load_bundle_meta(path)
+                meta = self._bundle_meta(path)
                 angle, _decompose = kink_params_from_meta(meta)
             except Exception:
                 continue
-            sizes = App._bundle_pixel_sizes([path])
+            sizes = self._bundle_pixel_sizes([path])
             width = (meta.get(APPARENT_WIDTH_KEY) or {}).get("median_px")
             height_nm, noise_nm = App._bundle_height_and_noise(path)
             conditions.append({
-                # An unrecorded threshold is the detector default (150 degrees).
-                # 記録の無いしきい値は検出器の既定値（150 度）である。
-                "threshold": round(150.0 if angle is None else float(angle), 6),
+                "threshold": round(UNRECORDED_KINK_ANGLE_DEG if angle is None
+                                   else float(angle), 6),
                 "version": str(meta.get("version") or ""),
                 "pixel_nm": sizes[0] if sizes else None,
                 "width_px": None if width is None else float(width),
@@ -4480,12 +4519,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         recorded = set()
         for path in bundle_paths:
             try:
-                angle, _decompose = kink_params_from_meta(load_bundle_meta(path))
+                angle, _decompose = kink_params_from_meta(self._bundle_meta(path))
             except Exception:
                 continue
-            # An unrecorded threshold is the detector default (150 degrees).
-            # 記録の無いしきい値は検出器の既定値（150 度）である。
-            recorded.add(round(150.0 if angle is None else float(angle), 6))
+            recorded.add(round(UNRECORDED_KINK_ANGLE_DEG if angle is None
+                               else float(angle), 6))
         if len(recorded) > 1:
             values = sorted(recorded)
             self.ui_queue.put(("log", _(
@@ -4712,6 +4750,31 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         return values, weights, n_fibers, n_images
 
     def _worker_run(self, args: dict) -> None:
+        """
+        Run one comparison in a background thread, reading each bundle's metadata once.
+        バックグラウンドスレッドで 1 回の比較を実行する。各バンドルのメタデータは 1 度だけ読む。
+
+        Parameters
+        ----------
+        args
+            Settings of the run, as `on_run` collects them.
+            `on_run` が集めた実行の設定。
+
+        Notes
+        -----
+        The metadata read during the run is kept until it ends
+        (`_bundle_meta`) and dropped afterwards, so the next run reads bundles
+        that were analyzed again in the meantime.
+        実行中に読んだメタデータは実行の終わりまで保持し（`_bundle_meta`）、その後は
+        捨てる。その間に再解析されたバンドルは、次の実行で読み直される。
+        """
+        self._meta_cache = {}
+        try:
+            self._run_comparison(args)
+        finally:
+            self._meta_cache = None
+
+    def _run_comparison(self, args: dict) -> None:
         """
         Compute histogram data in a background thread.
         バックグラウンドスレッドでヒストグラム用データを計算する。

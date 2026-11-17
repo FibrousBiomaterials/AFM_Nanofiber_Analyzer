@@ -853,16 +853,6 @@ class FileItem:
         )
 
     @property
-    def analyzed_rows(self) -> Optional[int]:
-        """
-        Return how many scan lines this entry analyzes, or ``None`` if unknown.
-        この項目が解析する走査線数を返す。不明なら ``None``。
-        """
-        if self.row_range is not None:
-            return self.row_range[1] - self.row_range[0]
-        return self.full_rows
-
-    @property
     def analyzed_scan_size_um(self) -> Optional[Tuple[float, float]]:
         """
         Return the (X, Y) extent actually analyzed, in micrometers.
