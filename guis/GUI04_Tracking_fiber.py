@@ -2951,6 +2951,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # Programmatic re-selection, so keep the current pan/zoom view.
             # プログラムによる選び直しのため、現在のパン/ズームを維持する。
             self._on_fiber_select(follow_view=False)
+        else:
+            self._clear_fiber_selection()
 
         # If a new file is selected while the height filter is on, apply it automatically.
         # 高さフィルター ON のまま新ファイルに切り替わった場合、自動で適用する。
@@ -3368,6 +3370,27 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self.current_image, self.current_fibers, self.connect_params,
         )
 
+    def _clear_fiber_selection(self) -> None:
+        """
+        Forget the selected fiber and blank the detail window.
+        選択中のファイバーを解除し、個別表示ウインドウを空にする。
+
+        Notes
+        -----
+        Called when the fiber list is rebuilt without a row being selected
+        again. Row ids are positions in the displayed list, so a kept index
+        would name another fiber of the new list, and the detail window would
+        go on showing a fiber the list no longer has.
+        一覧を作り直して行を選び直さないときに呼ぶ。行 ID は表示リスト内の位置
+        なので、番号を残すと新しい一覧の別のファイバーを指し、個別表示は一覧に
+        もう無いファイバーを表示し続ける。
+        """
+        self._sel_idx = None
+        self._sel_indices = []
+        self._refresh_connect_buttons()
+        if self._detail_window_alive():
+            self._detail_window.clear_for_no_selection()
+
     def _refresh_population_views(self) -> None:
         """
         Rebuild the table and overview after the measured population changed.
@@ -3401,6 +3424,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # Programmatic re-selection, so keep the current pan/zoom view.
             # プログラムによる選び直しのため、現在のパン/ズームを維持する。
             self._on_fiber_select(follow_view=False)
+        else:
+            self._clear_fiber_selection()
 
     def _recurate_population(self) -> None:
         """
@@ -5314,6 +5339,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._filter_active   = True
         self._filtered_fibers = filtered
         self._populate_fiber_table(self._display_fibers())
+        self._clear_fiber_selection()
 
         # Rebuild the overview so the extracted skeleton pixels are scattered
         # over the AFM image. The drawing itself lives in _rebuild_overview_bg
@@ -5338,6 +5364,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._filtered_fibers = []
         if self.current_image is not None:
             self._populate_fiber_table(self._display_fibers())
+            self._clear_fiber_selection()
             self._overview_bg_drawn = False
             self._rebuild_overview_bg()
             self._afm_canvas.draw_idle()

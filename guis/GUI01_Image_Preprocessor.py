@@ -4295,6 +4295,38 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             error_title=_("ログ保存失敗"),
         )
 
+    def report_callback_exception(self, exc: type[BaseException],
+                                  val: BaseException,
+                                  tb: Optional[TracebackType]) -> None:
+        """
+        Show and log tkinter callback exceptions raised in this window or its dialogs.
+        本ウインドウとそのダイアログで起きた tkinter コールバック例外を表示し、ログへ記録する。
+
+        Parameters
+        ----------
+        exc, val, tb
+            Exception type, instance and traceback, as Tk passes them.
+            Tk が渡すとおりの例外の型・インスタンス・トレースバック。
+
+        Notes
+        -----
+        Tk hands every callback exception to the root window's handler,
+        whichever widget registered the callback, so a dialog's exceptions
+        arrive here too. Without this override they reach only stderr, which
+        a windowed build does not show.
+        Tk はコールバックを登録したウィジェットにかかわらず、すべてのコールバック
+        例外をルートウインドウのハンドラへ渡すため、ダイアログの例外もここに届く。
+        これを上書きしなければ例外は標準エラーにしか出ず、ウインドウ版のビルドでは
+        見えない。
+        """
+        msg = "".join(traceback.format_exception(exc, val, tb))
+        try:
+            self._log(_("[Tkコールバック例外]\n") + msg)
+        except Exception:
+            # The log widget may not exist yet or may already be destroyed.
+            pass
+        messagebox.showerror(_("内部エラー"), str(val), parent=self)
+
     # ---------- Settings Dialog ----------
     def on_open_settings(self) -> None:
         """
@@ -5118,26 +5150,6 @@ class SettingsDialog(tk.Toplevel):
             self.parent._log(_("設定を読み込みました: %s") % path)
         except Exception as e:
             messagebox.showerror(_("エラー"), _("読み込みに失敗しました。\n%s") % e)
-            
-    def report_callback_exception(self, exc: type[BaseException],
-                                  val: BaseException,
-                                  tb: Optional[TracebackType]) -> None:
-        """
-        Show and log tkinter callback exceptions raised by this dialog.
-        本ダイアログの tkinter コールバック例外を表示し、ログへ記録する。
-
-        Parameters
-        ----------
-        exc, val, tb
-            Exception type, instance and traceback, as Tk passes them.
-            Tk が渡すとおりの例外の型・インスタンス・トレースバック。
-        """
-        msg = "".join(traceback.format_exception(exc, val, tb))
-        try:
-            self._log(_("[Tkコールバック例外]\n") + msg)
-        except Exception:
-            pass
-        messagebox.showerror(_("内部エラー"), str(val))
 
 
 # ===== Single-file preview dialog =====
