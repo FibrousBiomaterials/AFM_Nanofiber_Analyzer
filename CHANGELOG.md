@@ -184,6 +184,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   two preview buttons stand beside 「画像を保存」 and 「個別表示」; to make room on
   that row, the preview's four font sizes are set in a window opened by
   「フォントサイズ…」. Analysis results do not change.
+- GUI05, Thumbnail Viewer (`guis/GUI05_Thumbnail_Viewer.py`), shows the
+  `calibrated` height images of many `.b2z` bundles as a gallery of thumbnails
+  and saves the gallery as A4 sheets. Bundles are added with 「フォルダを追加」
+  (the bundles directly inside a folder), with 「ファイルを追加」, or by dropping
+  files and folders onto the gallery; a bundle already listed is skipped, and
+  an unreadable one is listed below the pages with the reason. The gallery is
+  drawn as the pages of the sheet, so the orientation, 「列数」 and 「行数」
+  arrange the screen as they arrange the saved sheet, and 「表示」 draws the
+  pages fitted to the gallery or at a percentage of the paper size, which Ctrl
+  with the mouse wheel changes. Bundles appear in the order they were added
+  and are rearranged by dragging; the 「並べ替え」 menu sorts the gallery by
+  name or by date once. Each thumbnail is drawn under its file name with the
+  physical aspect ratio of its scan. A scale bar and a color bar under each
+  image state its size and the height range its colors span, because every
+  image is colored over its own automatic range
+  (`ui_tools.compute_auto_vrange`); entering vmin / vmax changes the range of
+  the selected images, of all of them after Ctrl+A. Both bars are shown from
+  the start, 「スケールバー」 and 「カラーバー」 turn them off, and
+  「フォントサイズ…」 sets the text sizes of the sheet.
+  「GUI02で開く」 and 「GUI04で開く」 open the selected bundles in Plot Profiler
+  and Fiber Tracker. 「シートを保存」 writes the pages, either all in a single
+  PDF or as a PNG per page (`_p01`, `_p02`, … when there are several), reading
+  the images again from the bundles. There is no print command: the saved
+  sheet is printed from the application that opens it. Dropping files uses the
+  new dependency `tkinterdnd2`; when it cannot be loaded the window opens
+  without drag and drop. Dropping was checked on
+  Windows only. Analysis results do not change.
 
 ### Changed
 

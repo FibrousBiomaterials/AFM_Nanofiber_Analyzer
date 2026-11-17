@@ -65,6 +65,7 @@ READER_MODULES = (
     "guis/GUI02_PlotProfiler.py",
     "guis/GUI03_Fiber_Morphology_Statistics.py",
     "guis/GUI04_Tracking_fiber.py",
+    "guis/GUI05_Thumbnail_Viewer.py",
 )
 
 # `cli.py` also analyzes (`process`), so only its bundle-reading commands are

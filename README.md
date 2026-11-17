@@ -271,6 +271,12 @@ The optional `convert` dependency (`gwyddionpy-converter`) supplies
 never bundled into the standalone build. The launchers install it; otherwise
 install it with `python -m pip install -e ".[convert]"` from a source checkout.
 
+`tkinterdnd2` (MIT) lets files and folders be dropped onto the Thumbnail
+Viewer (GUI05). It ships the tkdnd library for Windows, Linux and macOS; when
+the package or that library cannot be loaded, GUI05 opens without drag and
+drop and its "Add Folder" and "Add Files" buttons still work. Dropping has
+been checked on Windows only.
+
 For an exact, reproducible environment, `requirements.lock.txt` records a
 test-verified snapshot of all package versions:
 
@@ -813,6 +819,66 @@ crosses a neighbor — the very distinction the two filters above are about. The
 margin re-crops the same calibrated image for display only; no measured value
 depends on it.
 
+### Thumbnail Viewer — `guis/GUI05_Thumbnail_Viewer.py`
+
+Show the background-corrected height images (`calibrated`) of many `.b2z`
+bundles side by side as thumbnails, and save the gallery as A4 sheets. Bundles
+are added with "Add Folder" (the bundles directly inside the folder, as in
+GUI01 and GUI03), with "Add Files", or by dropping files and folders onto the
+gallery. A bundle already in the gallery is skipped, a dropped file that is not
+a `.b2z` is ignored, and a file that cannot be read is listed below the pages
+with the reason instead of stopping the others. The window writes nothing to
+the bundles and deletes no file: "Delete" and "Delete All" only take tiles out
+of the window.
+
+The gallery is drawn as the pages of the sheet it will save: the paper
+orientation and the columns and rows of a page lay out the screen as they lay
+out the sheet, with the page breaks shown. "Display" sets the size
+the pages are drawn at — fitted to the gallery's width, a whole page, or a
+percentage of the paper size — and Ctrl with the mouse wheel changes it in
+steps. Bundles appear in the order they were added, a later addition going to
+the end. Dragging a thumbnail moves it — together with the other selected
+thumbnails when it is one of several — to the gap a blue line marks, and the
+"Sort" menu puts the current gallery into name or date order once.
+
+Each thumbnail is drawn with the physical aspect ratio of its scan, so a
+rectangular scan or a scan-line-range analysis appears as the strip it is. The
+file name stands above it. Images are reduced by averaging the pixels each
+thumbnail pixel covers, because keeping every n-th pixel would drop a fiber a
+few pixels wide wherever it falls between them.
+
+Each image is colored over its own automatic range
+(`lib.ui_tools.compute_auto_vrange`, computed with the bundle's skeleton),
+which shows the fibers of every image clearly but makes the colors of two
+thumbnails mean different heights. To change the range, select thumbnails and
+enter vmin / vmax; with every thumbnail selected (Ctrl+A) all images get one
+range and can be compared by color. With several selected, an entry is blank
+where their values differ, and an entry left blank keeps each image's own
+value, so one bound can be set alone. "Auto" returns the selected images to
+their automatic range.
+
+"Open in GUI02" and "Open in GUI04" open each selected bundle in Plot Profiler
+or Fiber Tracker, in a window of its own; with four or more selected the
+window asks first.
+
+Two lines under each image state its size and the heights its colors stand
+for: a scale bar aligned with the image's left edge, the longest of 1, 2 or 5
+times a power of ten within 30 % of the image width, and a color bar, a strip
+of the colormap between the two heights its ends stand for. They are drawn
+below the image rather than on it, so they cover no part of the scan. A bundle
+that records no scan size gets no scale bar. Both are shown from the start,
+and "Scale bar" and "Colorbar" turn them off. "Font Sizes…" sets the text size
+of the file name and of the labels of the two bars, in points on the saved
+sheet; a line of a cell is as tall as its font needs, and the image takes the
+height that is left.
+
+"Save Sheet" writes the pages as they appear on the screen. A PDF holds all
+pages in one file; a PNG is one file per page, and with more than one page
+`_p01`, `_p02`, … is appended to the chosen name. The images are read again
+from the bundles for the sheet rather than enlarged from the thumbnails. The
+window has no print command: with "Open after saving" the saved sheet opens in
+the system's default application, and it is printed from there.
+
 ## Supported Input Formats
 
 `lib/afm_io.py` loads text/CSV height exports and auto-detects the header
@@ -919,7 +985,8 @@ path shared by GUI01 and `cli.py` — which applies `BGCalibrator`, `Segmenter`,
 `Skeletonizer`, and `KinkDetector` in that order and writes one
 `<input_stem>.b2z` compressed TreeStore bundle and one
 `<input_stem>_param.json` per input. The Plot Profiler (GUI02), Fiber Morphology
-Statistics (GUI03), and Fiber Tracker (GUI04) then read those bundles.
+Statistics (GUI03), Fiber Tracker (GUI04), and Thumbnail Viewer (GUI05) then
+read those bundles.
 
 The preprocessing parameters are stored in the generated
 `<input_stem>_param.json` file. They cover background calibration, segmentation,
@@ -1219,6 +1286,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- GUI02_PlotProfiler.py
 |   |-- GUI03_Fiber_Morphology_Statistics.py
 |   |-- GUI04_Tracking_fiber.py
+|   |-- GUI05_Thumbnail_Viewer.py
 |   `-- __init__.py
 |-- lib/
 |   |-- afm_io.py
@@ -1288,7 +1356,7 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
 | `lib/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, `collect_fiber_stats` (per-fiber statistics over many bundles), `collect_skeleton_height_profiles` (tracked heights with the contour length each point represents), `isolated_fiber_flags` (which fibers touch no other fiber), skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
 | `lib/pipeline.py` | `ProcParams` parameter schema, stage construction, and `process_file`, the GUI-independent pipeline driver shared by GUI01 and `cli.py`; the `.b2z` contract itself lives in `lib/bundle_schema.py`. |
-| `lib/plugin_launch.py` | Starts a GUI plugin in its own process through `Main.py --run-plugin`, optionally handing it a file or folder; used by the launcher and by GUI01's buttons that open its results in GUI02, GUI03 and GUI04. |
+| `lib/plugin_launch.py` | Starts a GUI plugin in its own process through `Main.py --run-plugin`, optionally handing it a file or folder; used by the launcher, by GUI01's buttons that open its results in GUI02, GUI03 and GUI04, and by GUI05's buttons that open the selected bundles in GUI02 and GUI04. |
 | `lib/processed_image.py` | `ProcessedImage`, the container passed through the GUI01 preprocessing pipeline. |
 | `lib/segmenter.py` | `Segmenter`, which builds binary nanofiber masks from calibrated AFM images. |
 | `lib/skeletonizer.py` | `Skeletonizer`, which thins segmented masks, prunes branches, and labels skeleton components. |

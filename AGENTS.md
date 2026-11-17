@@ -872,6 +872,7 @@ additional files and keep at least these files consistent:
 - `guis/GUI02_PlotProfiler.py`
 - `guis/GUI03_Fiber_Morphology_Statistics.py`
 - `guis/GUI04_Tracking_fiber.py`
+- `guis/GUI05_Thumbnail_Viewer.py`
 - `lib/blosc2_io.py`
 - `README.md` / `README.ja.md`
 
@@ -893,6 +894,16 @@ additional files and keep at least these files consistent:
   through `FiberTrackingImage`, and preserves workflows for fiber lists, full
   AFM view, individual fiber view, profiles, height filtering, figure export,
   and CSV export.
+- GUI05 expects GUI01 `.b2z` bundles, any number at a time, and draws only
+  `calibrated`, as thumbnails with the physical aspect ratio of each scan. It
+  reads `skeletonized` and the recorded scan size when the bundle has them (for
+  `compute_auto_vrange` and the aspect ratio) and still shows a bundle without
+  them. It keeps a reduced copy of each image and reads the bundles again when
+  a sheet is saved. It writes PNG or PDF sheets only, never a bundle. The
+  gallery on the screen and the saved sheet are both placed by
+  `SheetLayout.cell_parts`, so a setting that changes the sheet changes the
+  screen with it; keep new sheet elements in that one geometry. Dropping files
+  needs the `tkinterdnd2` package, and the window opens without it.
 
 ### 8.4 Long-running GUI work
 
@@ -1377,7 +1388,7 @@ Enforced by `.githooks/pre-commit` (`--staged`) and `tests/test_doc_numbers.py`
 A bundle is the record of one analysis, made with the settings it ran with.
 Code that reads bundles — `lib/measure.py`, `lib/fiber_tracking_image.py`,
 `lib/fiber_connector.py`, `lib/connect_selection.py`, `lib/fiber_selection.py`,
-GUI02–GUI04, and the bundle-reading commands of `cli.py` — measures that record
+GUI02–GUI05, and the bundle-reading commands of `cli.py` — measures that record
 as stored. It never runs a stage that produces or rewrites the stored arrays:
 background calibration, segmentation, skeletonization or any of its cleanup
 passes, `pipeline.process_file`, `pipeline.build_stages`.

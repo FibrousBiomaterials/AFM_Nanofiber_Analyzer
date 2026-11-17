@@ -36,6 +36,7 @@ import guis.GUI01_Image_Preprocessor as gui01
 import guis.GUI02_PlotProfiler as gui02
 import guis.GUI03_Fiber_Morphology_Statistics as gui03
 import guis.GUI04_Tracking_fiber as gui04
+import guis.GUI05_Thumbnail_Viewer as gui05
 
 pytestmark = requires_tk
 
@@ -2322,3 +2323,734 @@ def test_gui04_marks_a_length_that_is_a_lower_bound():
     # 何も記録されていないことは切断の証拠ではない。
     assert not gui04.length_is_lower_bound(
         _frame_stat(1.0, None, None, float("nan")))
+
+
+def _write_gui05_bundle(path, shape=(40, 60), scan_um=(1.5, 1.0), peak=10.0):
+    """
+    Write a small bundle holding what GUI05 reads: a height image with one
+    bright line, its skeleton, and optionally a recorded scan size.
+    GUI05 が読む内容だけを持つ小さなバンドルを書く。明るい線が 1 本ある高さ像、
+    そのスケルトン、および任意で記録された走査範囲。
+    """
+    from lib.blosc2_io import save_bundle
+    from lib.bundle_schema import SPATIAL_CALIBRATION_KEY, make_spatial_calibration
+
+    rng = np.random.default_rng(0)
+    image = rng.normal(0.0, 0.2, shape)
+    row = shape[0] // 2
+    image[row, 5:-5] = peak
+    skeleton = np.zeros(shape, dtype=bool)
+    skeleton[row, 5:-5] = True
+    vlmeta = None
+    if scan_um is not None:
+        vlmeta = {SPATIAL_CALIBRATION_KEY:
+                  make_spatial_calibration(scan_um[0], scan_um[1], "manual")}
+    save_bundle(str(path), {"calibrated": image, "skeletonized": skeleton},
+                vlmeta=vlmeta)
+    return str(path)
+
+
+def _gui05_idle(app) -> None:
+    """Pump the event loop until GUI05's worker has no job left."""
+    pump_until(app, lambda: app._outstanding == 0 and not app._relayout_pending,
+               timeout=60)
+
+
+@pytest.fixture
+def gui05_app(tk_app):
+    """
+    Build a GUI05 window after collecting the windows of earlier tests.
+    先行するテストのウィンドウを回収してから、GUI05 のウィンドウを作る。
+
+    A destroyed window is freed by the garbage collector, whenever it next
+    runs. GUI05 reads and draws in a worker thread, and a collection that
+    starts there would release the Tk variables of an earlier test's window
+    from a thread Tk does not accept calls from. Collecting here, in the main
+    thread, leaves nothing of that kind for the worker.
+    破棄されたウィンドウは、ガベージコレクタが次に動いたときに解放される。GUI05 は
+    読み込みと描画をワーカースレッドで行うため、そこで回収が始まると、先行する
+    テストのウィンドウが持つ Tk の変数が、Tk が呼び出しを受け付けないスレッドから
+    解放されてしまう。ここ（メインスレッド）で回収して、ワーカーに残さない。
+    """
+    import gc
+
+    gc.collect()
+    return tk_app(gui05.App)
+
+
+def test_gui05_window_builds(tk_app):
+    _assert_window_built(tk_app(gui05.App))
+
+
+def test_gui05_window_is_wide_enough_for_its_two_rows_of_controls(tk_app):
+    """
+    The window never takes a width that cuts off a row of controls, unless
+    the screen itself is narrower.
+    ウィンドウは、操作欄の行が切れる幅にはならない（画面自体がそれより狭い場合を
+    除く）。
+    """
+    app = tk_app(gui05.App)
+    needed = max(row.winfo_reqwidth() for row in app._control_rows) + 16
+    # `apply_window_size` keeps a margin of 100 px from the screen edge.
+    # `apply_window_size` は画面端から 100 px の余白を保つ。
+    assert app.minsize()[0] == min(needed, app.winfo_screenwidth() - 100)
+    assert len(app._control_rows) == 2
+
+
+def test_gui05_opens_without_the_drop_package(tk_app, monkeypatch):
+    """
+    Without tkinterdnd2 the window still opens and says dropping is off.
+    tkinterdnd2 が無くてもウィンドウは開き、ドロップが使えないことを知らせる。
+    """
+    import sys
+
+    # A None entry makes `import tkinterdnd2` raise ImportError.
+    monkeypatch.setitem(sys.modules, "tkinterdnd2", None)
+    app = tk_app(gui05.App)
+    _assert_window_built(app)
+    assert not app.dnd_enabled
+    assert "tkinterdnd2" in app.log_text.get("1.0", "end")
+
+
+def test_gui05_lists_a_folder_and_keeps_going_past_an_unreadable_bundle(
+        gui05_app, tmp_path):
+    """
+    A folder adds its bundles once; a file that is not a bundle is listed as
+    unreadable instead of stopping the others.
+    フォルダはその直下のバンドルを 1 回だけ追加する。バンドルでないファイルは
+    読めなかったものとして並び、他の読み込みを止めない。
+    """
+    _write_gui05_bundle(tmp_path / "scan2.b2z")
+    _write_gui05_bundle(tmp_path / "scan10.b2z", scan_um=None)
+    (tmp_path / "broken.b2z").write_text("not a bundle", encoding="utf-8")
+    (tmp_path / "notes.txt").write_text("ignored", encoding="utf-8")
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    _write_gui05_bundle(sub / "inner.b2z")
+
+    app = gui05_app
+    app.add_paths([str(tmp_path)])
+    _gui05_idle(app)
+
+    # A folder is read in natural name order, scan2 before scan10, and the
+    # subfolder is not searched.
+    # フォルダは自然な名前順（scan2 が scan10 より前）で読み、サブフォルダは探さない。
+    assert [item.name for item in app.items] == [
+        "broken.b2z", "scan2.b2z", "scan10.b2z"]
+    by_name = {item.name: item for item in app.items}
+    assert by_name["broken.b2z"].error
+    assert by_name["scan2.b2z"].scan_size_um == (1.5, 1.0)
+    assert by_name["scan10.b2z"].scan_size_um is None
+    assert by_name["scan2.b2z"].preview.shape == (40, 60)
+    # Two images on the page, and the unreadable file in the list below it.
+    # ページに 2 画像、その下の一覧に読めなかったファイル。
+    assert [box[0] for box in app._page_boxes] == [
+        by_name["scan2.b2z"].key, by_name["scan10.b2z"].key]
+    assert len(app._tile_boxes) == 3
+    assert str(app.btn_export.cget("state")) == "normal"
+
+    # The same folder again, and one of its files named another way, add nothing.
+    # 同じフォルダをもう一度、またその中のファイルを別の書き方で指定しても増えない。
+    app.add_paths([str(tmp_path), str(tmp_path / "sub" / ".." / "scan2.b2z")])
+    _gui05_idle(app)
+    assert len(app.items) == 3
+
+
+def test_gui05_keeps_the_physical_aspect_of_a_scan():
+    """
+    A thumbnail has the scan's physical proportions, not the pixel grid's.
+    サムネイルは画素の格子ではなく、走査の物理的な縦横比を持つ。
+    """
+    # 255 x 767 stored pixels of a 3.75 x 1.25 um scan: one third as tall.
+    # 3.75 × 1.25 µm の走査の保存画素 255 × 767。高さは幅の 3 分の 1。
+    assert gui05.height_over_width((3.75, 1.25), (255, 767)) == pytest.approx(
+        1 / 3, rel=0.01)
+    # 512 lines of 256 pixels over a square scan are drawn square.
+    # 正方形の走査を 512 行 × 256 画素で測ったものは、正方形に描く。
+    assert gui05.height_over_width((2.0, 2.0), (511, 255)) == pytest.approx(
+        1.0, rel=0.01)
+    # Without a scan size the pixels are taken as square.
+    # 走査範囲が無ければ、画素を正方形とみなす。
+    assert gui05.height_over_width(None, (100, 400)) == pytest.approx(0.25)
+    assert gui05.fit_box(0.25, 200, 200) == pytest.approx((200, 50))
+    assert gui05.fit_box(4.0, 200, 200) == pytest.approx((50, 200))
+
+
+def test_gui05_reducing_an_image_keeps_a_thin_fiber():
+    """
+    A one-pixel line survives a tenfold reduction, which decimation would lose.
+    1 画素幅の線は 10 分の 1 に縮小しても残る。間引きでは失われる。
+    """
+    image = np.zeros((100, 100))
+    image[:, 37] = 10.0
+    reduced = gui05.resample_area(image, 10, 10)
+    assert reduced.shape == (10, 10)
+    # The line's column keeps a tenth of its height in every row.
+    # 線のある列は、どの行でも高さの 10 分の 1 を保つ。
+    assert reduced[:, 3] == pytest.approx(1.0)
+    assert image[::10, ::10].max() == 0.0
+
+
+def test_gui05_shortened_names_keep_their_ends():
+    """A long file name is cut in the middle, so the range suffix stays."""
+    name = "TunicateACTOCCNF_a_long_description_r100-300.b2z"
+    short = gui05.elide_middle(name, lambda s: len(s) <= 24)
+    assert len(short) == 24
+    assert short.startswith("Tunicate") and short.endswith("100-300.b2z")
+    assert gui05.elide_middle("short.b2z", lambda s: len(s) <= 24) == "short.b2z"
+    assert gui05.elide_end("abcdefghij", lambda s: len(s) <= 5) == "abcd…"
+
+
+def test_gui05_selecting_all_gives_every_image_one_color_range(gui05_app, tmp_path):
+    """
+    With every image selected, the entries show only what the images share,
+    and what is entered becomes the range of all of them.
+    すべての画像を選択すると、入力欄は画像に共通する値だけを表示し、入力した値が
+    全画像の範囲になる。
+    """
+    _write_gui05_bundle(tmp_path / "low.b2z", peak=4.0)
+    _write_gui05_bundle(tmp_path / "high.b2z", peak=30.0)
+    app = gui05_app
+    app.add_paths([str(tmp_path)])
+    _gui05_idle(app)
+    low, high = app.items
+    ranges = [app._vrange_for(item) for item in app.items]
+    # The two automatic ranges share their lower bound and differ above.
+    # 2 つの自動範囲は、下限が同じで上限が異なる。
+    assert ranges[0][0] == ranges[1][0] and ranges[0][1] != ranges[1][1]
+
+    assert app._on_select_all() == "break"
+    assert app.selected == {low.key, high.key}
+    # A value shown is a value all selected images have; the other is blank.
+    # 表示される値は、選択した全画像が持つ値。もう一方は空欄。
+    assert float(app.ent_vmin.get()) == ranges[0][0]
+    assert app.ent_vmax.get() == ""
+
+    # A blank entry is left alone: only vmin changes, each vmax stays.
+    # 空欄の側は変えない。vmin だけが変わり、各画像の vmax はそのまま。
+    app.ent_vmin.delete(0, "end")
+    app.ent_vmin.insert(0, "0")
+    assert app._commit_vrange()
+    assert [app._vrange_for(item) for item in app.items] == [
+        (0.0, ranges[0][1]), (0.0, ranges[1][1])]
+    assert app.ent_vmax.get() == ""
+
+    app.ent_vmax.insert(0, "20")
+    assert app._commit_vrange()
+    assert {app._vrange_for(item) for item in app.items} == {(0.0, 20.0)}
+    assert (app.ent_vmin.get(), app.ent_vmax.get()) == ("0", "20")
+    # The sheet is written with the range every image now has.
+    # シートは、全画像が持つようになったこの範囲で書き出される。
+    assert {entry.vrange for entry in app.sheet_entries()} == {(0.0, 20.0)}
+
+
+def test_gui05_a_range_that_would_be_empty_changes_nothing(gui05_app, tmp_path,
+                                                           silence_dialogs):
+    """
+    When one selected image would get a vmax not above its vmin, no image is
+    changed.
+    選択した画像の 1 枚でも vmax が vmin 以下になるなら、どの画像も変えない。
+    """
+    _write_gui05_bundle(tmp_path / "low.b2z", peak=4.0)
+    _write_gui05_bundle(tmp_path / "high.b2z", peak=30.0)
+    dialogs = silence_dialogs(gui05)
+    app = gui05_app
+    app.add_paths([str(tmp_path)])
+    _gui05_idle(app)
+    before = [app._vrange_for(item) for item in app.items]
+    app._on_select_all()
+
+    # Above the lower image's vmax, below the higher one's.
+    # 低い方の画像の vmax より上で、高い方の vmax より下。
+    app.ent_vmin.delete(0, "end")
+    app.ent_vmin.insert(0, str(before[0][1] + 1))
+    assert not app._commit_vrange()
+    assert [app._vrange_for(item) for item in app.items] == before
+    assert all(item.manual_vrange is None for item in app.items)
+
+    app.ent_vmin.delete(0, "end")
+    app.ent_vmin.insert(0, "abc")
+    assert not app._commit_vrange()
+    assert [kind for kind, _title, _message in dialogs] == ["showerror", "showerror"]
+
+
+def test_gui05_dropped_paths_with_spaces_are_split_correctly(
+        gui05_app, monkeypatch):
+    """
+    One drop delivers a Tcl list; a path with spaces arrives in braces.
+    1 回のドロップは Tcl リストで届き、空白を含むパスは波括弧で囲まれる。
+    """
+    from types import SimpleNamespace
+
+    app = gui05_app
+    received = []
+    monkeypatch.setattr(app, "add_paths", lambda paths: received.extend(paths))
+    event = SimpleNamespace(
+        data="{C:/data/a folder} {C:/data/sample one.b2z} C:/data/日本語.b2z",
+        action="copy")
+    assert app._on_drop(event) == "copy"
+    assert received == ["C:/data/a folder", "C:/data/sample one.b2z",
+                        "C:/data/日本語.b2z"]
+
+
+def test_gui05_removing_a_tile_deletes_no_file(gui05_app, tmp_path):
+    """Taking a tile out of the gallery leaves the bundle on disk."""
+    path = _write_gui05_bundle(tmp_path / "keep.b2z")
+    _write_gui05_bundle(tmp_path / "other.b2z")
+    app = gui05_app
+    app.add_paths([str(tmp_path)])
+    _gui05_idle(app)
+
+    app.selected = {gui05.bundle_key(path)}
+    app.on_remove_selected()
+    assert [item.name for item in app.items] == ["other.b2z"]
+    assert os.path.exists(path)
+    # A removed bundle can be added again.
+    # 外したバンドルは、もう一度追加できる。
+    app.add_paths([path])
+    _gui05_idle(app)
+    assert len(app.items) == 2
+
+
+def test_gui05_sheet_is_written_as_numbered_png_pages_or_one_pdf(
+        gui05_app, tmp_path, monkeypatch):
+    """
+    A sheet of several pages is one PNG per page, or all pages in one PDF,
+    each page at A4 size.
+    複数ページのシートは、PNG ではページごとに 1 ファイル、PDF では全ページを
+    1 ファイルに書き出す。各ページは A4 の大きさ。
+    """
+    import re
+
+    from PIL import Image
+
+    data = tmp_path / "data"
+    data.mkdir()
+    for name in ("a.b2z", "b.b2z", "c.b2z"):
+        _write_gui05_bundle(data / name)
+    (data / "broken.b2z").write_text("not a bundle", encoding="utf-8")
+    opened = []
+    monkeypatch.setattr(gui05, "open_in_default_app", opened.append)
+
+    app = gui05_app
+    app.add_paths([str(data)])
+    _gui05_idle(app)
+    app.cols_var.set("1")
+    app.rows_var.set("2")
+    # The unreadable bundle is left out: three images on two pages.
+    # 読めないバンドルは含めない。3 画像で 2 ページ。
+    assert [entry.name for entry in app.sheet_entries()] == ["a.b2z", "b.b2z", "c.b2z"]
+
+    png = tmp_path / "sheet.png"
+    monkeypatch.setattr(gui05.filedialog, "asksaveasfilename", lambda **kw: str(png))
+    app.on_export()
+    _gui05_idle(app)
+    pages = [tmp_path / "sheet_p01.png", tmp_path / "sheet_p02.png"]
+    assert all(page.exists() for page in pages) and not png.exists()
+    with Image.open(pages[0]) as image:
+        width, height = image.size
+    # A4 portrait at the project's figure resolution.
+    # プロジェクトの図の解像度での A4 縦。
+    assert width == round(210 / 25.4 * gui05.FIGURE_SAVE_DPI)
+    assert abs(height - 297 / 25.4 * gui05.FIGURE_SAVE_DPI) <= 1
+    assert opened == [str(pages[0])]
+
+    pdf = tmp_path / "sheet.pdf"
+    monkeypatch.setattr(gui05.filedialog, "asksaveasfilename", lambda **kw: str(pdf))
+    app.on_export()
+    _gui05_idle(app)
+    content = pdf.read_bytes()
+    assert content.startswith(b"%PDF")
+    assert len(re.findall(rb"/Type\s*/Page\b", content)) == 2
+    assert opened[-1] == str(pdf)
+
+
+def test_gui05_new_bundles_go_to_the_end_and_the_order_can_be_changed(
+        gui05_app, tmp_path):
+    """
+    A later addition lands after what is shown, whatever its name; sorting
+    and moving rearrange the gallery, and the sheet follows.
+    後から追加したものは、名前にかかわらず表示中のものの後ろに入る。並べ替えと
+    移動は一覧を並べ直し、シートもそれに従う。
+    """
+    first = tmp_path / "first"
+    later = tmp_path / "later"
+    first.mkdir()
+    later.mkdir()
+    for name in ("m.b2z", "z.b2z"):
+        _write_gui05_bundle(first / name)
+    early_name = _write_gui05_bundle(later / "a.b2z")
+    os.utime(early_name, (1_000_000, 1_000_000))
+
+    app = gui05_app
+    app.add_paths([str(first)])
+    _gui05_idle(app)
+    app.add_paths([str(later)])
+    _gui05_idle(app)
+
+    def names():
+        return [item.name for item in app.items]
+
+    # "a" sorts first by name, yet it was added last.
+    # 「a」は名前順では先頭だが、追加は最後だった。
+    assert names() == ["m.b2z", "z.b2z", "a.b2z"]
+
+    keys = {item.name: item.key for item in app.items}
+    app.move_items([keys["a.b2z"]], keys["z.b2z"])
+    assert names() == ["m.b2z", "a.b2z", "z.b2z"]
+    app.move_items([keys["m.b2z"], keys["a.b2z"]], None)
+    assert names() == ["z.b2z", "m.b2z", "a.b2z"]
+    # Aiming at a tile that is itself moving means the next one that stays.
+    # 動かす側のタイルを目標にした場合は、動かない次のタイルが目標になる。
+    app.move_items([keys["z.b2z"], keys["m.b2z"]], keys["m.b2z"])
+    assert names() == ["z.b2z", "m.b2z", "a.b2z"]
+    assert [entry.name for entry in app.sheet_entries()] == names()
+
+    # The sort menu holds the two orders: by name, then by date.
+    # 並べ替えのメニューは 2 つの順を持つ。名前順、次に更新日時順。
+    assert str(app.btn_sort.cget("state")) == "normal"
+    app.sort_menu.invoke(0)
+    assert names() == ["a.b2z", "m.b2z", "z.b2z"]
+    app.move_items([keys["z.b2z"]], keys["a.b2z"])
+    app.sort_menu.invoke(1)
+    assert names()[0] == "a.b2z"
+
+
+def test_gui05_a_drag_drops_in_front_of_or_behind_the_nearest_tile():
+    """
+    The left half of a tile means "before it", the right half "after it".
+    タイルの左半分は「その前」、右半分は「その後」を表す。
+    """
+    boxes = [("a", 0, 0, 100, 100), ("b", 110, 0, 210, 100),
+             ("c", 0, 110, 100, 210)]
+    assert gui05.insertion_point(boxes, 20, 50) == ("a", (0, 0, 100))
+    assert gui05.insertion_point(boxes, 90, 50) == ("b", (100, 0, 100))
+    assert gui05.insertion_point(boxes, 200, 50) == ("c", (210, 0, 100))
+    # Behind the last tile is the end of the gallery.
+    # 最後のタイルの後ろは、一覧の末尾。
+    assert gui05.insertion_point(boxes, 95, 150) == (None, (100, 110, 210))
+    # Beside a row, in the margin, the pointer still aims at that row.
+    # 行の横の余白にあるポインタも、その行を指す。
+    assert gui05.insertion_point(boxes, 400, 160) == (None, (100, 110, 210))
+    assert gui05.insertion_point([], 10, 10) is None
+
+
+def test_gui05_the_gallery_is_laid_out_as_the_pages_of_the_sheet(
+        gui05_app, tmp_path):
+    """
+    Images per row and rows per page arrange the screen as they do the sheet.
+    1 行の画像数と 1 ページの行数は、シートと同じく画面の配置を決める。
+    """
+    for name in ("a.b2z", "b.b2z", "c.b2z"):
+        _write_gui05_bundle(tmp_path / name)
+    app = gui05_app
+    app.add_paths([str(tmp_path)])
+    _gui05_idle(app)
+
+    def boxes():
+        _gui05_idle(app)
+        return app._page_boxes
+
+    app.cols_var.set("3")
+    app.rows_var.set("2")
+    one_row = boxes()
+    # Three images side by side on one page.
+    # 1 ページに 3 画像が横に並ぶ。
+    assert len({box[2] for box in one_row}) == 1
+    assert one_row[0][1] < one_row[1][1] < one_row[2][1]
+
+    app.cols_var.set("1")
+    stacked = boxes()
+    # One image per row, two rows per page: the third starts a second page.
+    # 1 行に 1 画像、1 ページに 2 行。3 枚目は 2 ページ目から始まる。
+    assert len({box[1] for box in stacked}) == 1
+    row_step = stacked[1][2] - stacked[0][2]
+    assert stacked[2][2] - stacked[1][2] > row_step
+    assert stacked[0][3] - stacked[0][1] > one_row[0][3] - one_row[0][1]
+
+
+def test_gui05_bars_take_their_lines_from_the_image():
+    """
+    A scale bar and a color bar each take a line under the image, in the cell.
+    スケールバーとカラーバーは、セルの中で画像の下にそれぞれ 1 行を取る。
+    """
+    plain = gui05.SheetLayout(4, 5, show_scale_bar=False,
+                              show_colorbar=False).cell_parts(0, 1.0)
+    # Both bars are part of a layout unless it turns them off.
+    # 2 つのバーは、外さない限り配置に含まれる。
+    both = gui05.SheetLayout(4, 5).cell_parts(0, 1.0)
+    assert plain.scale_bar_y is None and plain.colorbar_y is None
+    # Top to bottom: name, image, scale bar, color bar, inside the cell.
+    # 上から順に、名前・画像・スケールバー・カラーバー。すべてセルの中。
+    image_top = both.image[1] + both.image[3]
+    cell_bottom = gui05.SheetLayout(4, 5).cell_box_mm(0)[1]
+    assert (both.name_top > image_top > both.image[1] > both.scale_bar_y
+            > both.colorbar_y > cell_bottom)
+    assert both.image[3] < plain.image[3]
+    # The name keeps its place, so cells with and without bars align.
+    # 名前の位置は変わらない。バーの有無でセルの名前がずれない。
+    assert both.name_top == pytest.approx(plain.name_top)
+
+    # Larger fonts take taller lines, and the image gives up the height.
+    # 大きなフォントは行を高くし、その分だけ画像が低くなる。
+    large = gui05.SheetLayout(4, 5, name_pt=12.0, colorbar_pt=14.0).cell_parts(0, 1.0)
+    assert large.image[3] < both.image[3]
+    assert large.name_top == pytest.approx(plain.name_top)
+
+    # The longest of 1, 2 or 5 times a power of ten within 30 % of the width.
+    # 幅の 30 % 以内で、10 の累乗の 1・2・5 倍のうち最長のもの。
+    assert gui05.scale_bar_for(5.0) == (1.0, "1 µm")
+    assert gui05.scale_bar_for(2.0)[1] == "500 nm"
+    assert gui05.scale_bar_for(0.32)[1] == "50 nm"
+    assert gui05.scale_bar_for(20.0) == (5.0, "5 µm")
+
+
+def test_gui05_sheet_page_prints_the_name_the_bar_labels_and_the_page_number():
+    """
+    A sheet page carries each image's name, the labels of its two bars and
+    the page number, and no other text.
+    シートのページに載る文字は、各画像の名前、2 つのバーのラベル、ページ番号だけ。
+    """
+    entry = gui05.SheetEntry(path="unused.b2z", name="scan.b2z", aspect=1.0,
+                             vrange=(-1.0, 4.0), scale_bar=(0.25, "500 nm"))
+
+    def page_texts(layout):
+        figure, failed = gui05.render_sheet_page(
+            [entry], layout, 2, 3, lambda path: np.zeros((8, 8)))
+        assert not failed
+        return figure, {text.get_text(): text for text in figure.texts}
+
+    figure, texts = page_texts(gui05.SheetLayout(4, 5, name_pt=9.0))
+    # The scale bar's length, and the two heights at the ends of the color bar.
+    # スケールバーの長さと、カラーバーの両端の 2 つの高さ。
+    assert set(texts) == {"scan.b2z", "500 nm", "-1", "4 nm", "2 / 3"}
+    # The name stands above the image, at the size the layout gives it, and
+    # the bar labels below it.
+    # 名前は画像の上にあり、大きさは配置で指定したもの。バーのラベルは画像の下。
+    image_axes = figure.axes[0].get_position()
+    assert texts["scan.b2z"].get_position()[1] > image_axes.y1
+    assert texts["500 nm"].get_position()[1] < image_axes.y0
+    assert texts["4 nm"].get_position()[1] < texts["500 nm"].get_position()[1]
+    assert texts["scan.b2z"].get_fontsize() == 9.0
+
+    # With both bars turned off, only the name and the page number remain.
+    # 2 つのバーを外すと、名前とページ番号だけが残る。
+    _figure, texts = page_texts(gui05.SheetLayout(
+        4, 5, show_scale_bar=False, show_colorbar=False))
+    assert set(texts) == {"scan.b2z", "2 / 3"}
+
+
+def test_gui05_zoom_is_chosen_or_changed_with_the_wheel(gui05_app, tmp_path):
+    """
+    A percentage draws the page at that share of the paper size, and Ctrl
+    with the wheel steps from the size shown.
+    百分率は、用紙の実寸に対するその割合でページを描く。Ctrl+ホイールは、
+    表示中の大きさから倍率を刻む。
+    """
+    from types import SimpleNamespace
+
+    _write_gui05_bundle(tmp_path / "a.b2z")
+    app = gui05_app
+    app.add_paths([str(tmp_path)])
+    _gui05_idle(app)
+    paper = app._paper_scale()
+
+    app.cmb_zoom.current(2 + gui05.ZOOM_PRESETS.index(50))
+    app.cmb_zoom.event_generate("<<ComboboxSelected>>")
+    app.update()
+    assert app._page_scale == pytest.approx(paper * 0.5)
+    half_width = app._page_boxes[0][3] - app._page_boxes[0][1]
+
+    assert app._on_zoom_wheel(SimpleNamespace(delta=120, num=0)) == "break"
+    assert app._zoom_percent == pytest.approx(50 * gui05.ZOOM_WHEEL_FACTOR)
+    assert app.cmb_zoom.get() == "55%"
+    assert app._page_boxes[0][3] - app._page_boxes[0][1] > half_width
+    app._on_zoom_wheel(SimpleNamespace(delta=-120, num=0))
+    assert app._zoom_percent == pytest.approx(50.0)
+
+    # The wheel cannot leave the range of zooms.
+    # ホイールでは、倍率の範囲の外へは出られない。
+    app.set_zoom_percent(1.0)
+    assert app._zoom_percent == gui05.ZOOM_MIN_PERCENT
+    app.set_zoom_percent(10_000.0)
+    assert app._zoom_percent == gui05.ZOOM_MAX_PERCENT
+
+    # From a fitted view the wheel steps from the size that view has.
+    # 枠に合わせた表示からは、その表示の大きさを起点に刻む。
+    app.cmb_zoom.current(0)
+    app.cmb_zoom.event_generate("<<ComboboxSelected>>")
+    app.update()
+    fitted = app._page_scale / paper * 100.0
+    app._on_zoom_wheel(SimpleNamespace(delta=120, num=0))
+    assert app._zoom_percent == pytest.approx(
+        min(gui05.ZOOM_MAX_PERCENT, fitted * gui05.ZOOM_WHEEL_FACTOR))
+
+
+def test_gui05_font_sizes_reach_the_screen_and_the_sheet(gui05_app, tmp_path):
+    """
+    The four font sizes are part of the layout the sheet is written with.
+    4 つのフォントサイズは、シートの書き出しに使う配置の一部になる。
+    """
+    _write_gui05_bundle(tmp_path / "a.b2z")
+    app = gui05_app
+    app.add_paths([str(tmp_path)])
+    _gui05_idle(app)
+    default_height = app._sheet_layout().cell_parts(0, 1.0).image[3]
+
+    app.on_open_font_sizes()
+    dialog = app._font_dialog
+    assert dialog.winfo_exists()
+    app.on_open_font_sizes()
+    assert app._font_dialog is dialog
+
+    app.font_vars[gui05.FONT_NAME].set("12.0")
+    app.font_vars[gui05.FONT_SCALE_BAR].set("9.0")
+    _gui05_idle(app)
+    layout = app._sheet_layout()
+    assert (layout.name_pt, layout.scale_bar_pt) == (12.0, 9.0)
+    assert layout.cell_parts(0, 1.0).image[3] < default_height
+
+    # An unusable value falls back to the default instead of breaking the view.
+    # 使えない値は、表示を壊さずに既定値へ戻る。
+    app.font_vars[gui05.FONT_COLORBAR].set("")
+    assert app._sheet_layout().colorbar_pt == gui05.DEFAULT_FONT_PT[gui05.FONT_COLORBAR]
+
+    app.on_reset_font_sizes()
+    assert app._sheet_layout() == gui05.SheetLayout(
+        gui05.DEFAULT_SHEET_COLS, gui05.DEFAULT_SHEET_ROWS)
+    dialog.destroy()
+
+
+def test_gui05_a_color_range_can_be_set_for_selected_images(gui05_app, tmp_path):
+    """
+    The vmin/vmax entries change the selected images alone, and "Auto"
+    returns them to the automatic range.
+    vmin/vmax の入力欄は選択した画像だけを変え、「自動」は自動範囲に戻す。
+    """
+    _write_gui05_bundle(tmp_path / "a.b2z", peak=4.0)
+    _write_gui05_bundle(tmp_path / "b.b2z", peak=30.0)
+    app = gui05_app
+    app.add_paths([str(tmp_path)])
+    _gui05_idle(app)
+    first, second = app.items
+    automatic = app._vrange_for(first)
+
+    # With nothing selected there is nothing to edit.
+    # 何も選択していなければ、編集する対象が無い。
+    assert str(app.ent_vmin.cget("state")) == "disabled"
+    app._set_selection({first.key}, anchor=first.key)
+    assert str(app.ent_vmin.cget("state")) == "normal"
+    assert (float(app.ent_vmin.get()), float(app.ent_vmax.get())) == automatic
+
+    app.ent_vmin.delete(0, "end")
+    app.ent_vmin.insert(0, "0.5")
+    app.ent_vmax.delete(0, "end")
+    app.ent_vmax.insert(0, "3")
+    assert app._commit_vrange()
+    assert app._vrange_for(first) == (0.5, 3.0)
+    assert second.manual_vrange is None
+    assert app.sheet_entries()[0].vrange == (0.5, 3.0)
+
+    # "Auto" returns the selected image to its automatic range.
+    # 「自動」は、選択した画像を自動範囲に戻す。
+    app.on_auto_range()
+    assert first.manual_vrange is None
+    assert app._vrange_for(first) == automatic
+    assert (float(app.ent_vmin.get()), float(app.ent_vmax.get())) == automatic
+
+    # It can always be pressed: with nothing to do it only says so.
+    # いつでも押せる。することが無いときは、その旨を伝えるだけ。
+    lines = len(app.log_text.get("1.0", "end").splitlines())
+    app.on_auto_range()
+    app._set_selection(set(), anchor=None)
+    app.on_auto_range()
+    assert len(app.log_text.get("1.0", "end").splitlines()) == lines + 2
+    assert [item.manual_vrange for item in app.items] == [None, None]
+
+
+def test_gui05_opens_the_selected_bundles_in_another_gui(gui05_app, tmp_path,
+                                                         monkeypatch):
+    """
+    Each selected bundle opens in a window of its own; from four on, the user
+    is asked first and can cancel.
+    選択した各バンドルは、それぞれ別のウィンドウで開く。4 件以上では先に確認し、
+    キャンセルできる。
+    """
+    for name in ("a.b2z", "b.b2z", "c.b2z", "d.b2z"):
+        _write_gui05_bundle(tmp_path / name)
+    (tmp_path / "broken.b2z").write_text("not a bundle", encoding="utf-8")
+    launched = []
+    asked = []
+    answer = {"ok": False}
+
+    def ask(title=None, message=None, **_kwargs):
+        asked.append(message)
+        return answer["ok"]
+
+    monkeypatch.setattr(gui05, "launch_plugin",
+                        lambda module, args: launched.append((module, list(args))))
+    monkeypatch.setattr(gui05.messagebox, "askokcancel", ask)
+    app = gui05_app
+    app.add_paths([str(tmp_path)])
+    _gui05_idle(app)
+    keys = {item.name: item.key for item in app.items}
+
+    # Nothing selected: nothing opens.
+    # 選択が無ければ、何も開かない。
+    app.on_open_selected_in(gui05.PROFILER_MODULE, "GUI02")
+    assert not launched and not asked
+
+    # Three open at once, in display order, by their full paths.
+    # 3 件はすぐに、表示の順に、絶対パスで開く。
+    app._set_selection({keys["c.b2z"], keys["a.b2z"], keys["b.b2z"]}, anchor=None)
+    app.on_open_selected_in(gui05.PROFILER_MODULE, "GUI02")
+    assert not asked
+    assert launched == [
+        (gui05.PROFILER_MODULE, [os.path.abspath(str(tmp_path / name))])
+        for name in ("a.b2z", "b.b2z", "c.b2z")]
+
+    # Everything selected: the unreadable file is left out, and four ask first.
+    # 全選択では、読めないファイルを除いた 4 件について、先に確認する。
+    launched.clear()
+    app._on_select_all()
+    app.on_open_selected_in(gui05.TRACKER_MODULE, "GUI04")
+    assert len(asked) == 1 and "4" in asked[0] and "GUI04" in asked[0]
+    assert not launched
+
+    answer["ok"] = True
+    app.on_open_selected_in(gui05.TRACKER_MODULE, "GUI04")
+    assert [module for module, _args in launched] == [gui05.TRACKER_MODULE] * 4
+
+
+def test_gui05_sheet_carries_the_bars_shown_on_the_screen(gui05_app, tmp_path,
+                                                          monkeypatch):
+    """
+    The bars are shown from the start and are written to the sheet; turning
+    one off takes it out of the layout.
+    バーは最初から表示され、シートにも書き出される。外すと配置から無くなる。
+    """
+    _write_gui05_bundle(tmp_path / "a.b2z")
+    _write_gui05_bundle(tmp_path / "b.b2z", scan_um=None)
+    monkeypatch.setattr(gui05, "open_in_default_app", lambda path: None)
+    app = gui05_app
+    app.add_paths([str(tmp_path)])
+    _gui05_idle(app)
+    assert app.scale_bar_var.get() and app.colorbar_var.get()
+    app.colorbar_var.set(False)
+    assert not app._sheet_layout().show_colorbar
+    app.colorbar_var.set(True)
+    _gui05_idle(app)
+
+    entries = app.sheet_entries()
+    # 30 % of a 1.5 um wide image allows a 200 nm bar; no scan size, no bar.
+    # 幅 1.5 µm の画像の 30 % に収まるのは 200 nm のバー。走査範囲が無ければ、
+    # バーも無い。
+    assert entries[0].scale_bar[1] == "200 nm"
+    assert entries[1].scale_bar is None
+    assert app._sheet_layout().show_scale_bar and app._sheet_layout().show_colorbar
+
+    png = tmp_path / "bars.png"
+    monkeypatch.setattr(gui05.filedialog, "asksaveasfilename", lambda **kw: str(png))
+    app.on_export()
+    _gui05_idle(app)
+    assert png.exists()

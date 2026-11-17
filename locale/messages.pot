@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-11-16 15:32+0900\n"
+"POT-Creation-Date: 2026-11-17 13:52+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -54,13 +54,14 @@ msgstr ""
 msgid "詳細"
 msgstr ""
 
-#: guis/GUI00_Format_Converter.py:174
+#: guis/GUI00_Format_Converter.py:174 guis/GUI05_Thumbnail_Viewer.py:1637
 msgid "ログ"
 msgstr ""
 
 #: guis/GUI00_Format_Converter.py:178 guis/GUI01_Image_Preprocessor.py:1608
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2149
-#: guis/GUI04_Tracking_fiber.py:1866 lib/ui_tools.py:414
+#: guis/GUI04_Tracking_fiber.py:1866 guis/GUI05_Thumbnail_Viewer.py:1641
+#: lib/ui_tools.py:414
 msgid "ログを保存"
 msgstr ""
 
@@ -308,7 +309,7 @@ msgstr ""
 msgid "解析済みのファイルが無いとき、または解析の実行中は押せません。"
 msgstr ""
 
-#: guis/GUI01_Image_Preprocessor.py:1313
+#: guis/GUI01_Image_Preprocessor.py:1313 guis/GUI05_Thumbnail_Viewer.py:2972
 msgid "ファイル名"
 msgstr ""
 
@@ -336,7 +337,7 @@ msgstr ""
 msgid "貼り付け"
 msgstr ""
 
-#: guis/GUI01_Image_Preprocessor.py:1395
+#: guis/GUI01_Image_Preprocessor.py:1395 guis/GUI05_Thumbnail_Viewer.py:1429
 msgid "削除"
 msgstr ""
 
@@ -485,7 +486,7 @@ msgstr ""
 msgid "ファイバーの分解点（オレンジ）"
 msgstr ""
 
-#: guis/GUI01_Image_Preprocessor.py:2220
+#: guis/GUI01_Image_Preprocessor.py:2220 guis/GUI05_Thumbnail_Viewer.py:1566
 msgid "フォントサイズ…"
 msgstr ""
 
@@ -508,11 +509,11 @@ msgstr ""
 msgid "個別表示"
 msgstr ""
 
-#: guis/GUI01_Image_Preprocessor.py:2247
+#: guis/GUI01_Image_Preprocessor.py:2247 guis/GUI05_Thumbnail_Viewer.py:1575
 msgid "GUI02で開く"
 msgstr ""
 
-#: guis/GUI01_Image_Preprocessor.py:2251
+#: guis/GUI01_Image_Preprocessor.py:2251 guis/GUI05_Thumbnail_Viewer.py:1581
 msgid "GUI04で開く"
 msgstr ""
 
@@ -528,7 +529,7 @@ msgstr ""
 msgid "表示中の解析結果 (.b2z) を Fiber Tracker (GUI04) で新しいウインドウに開きます。"
 msgstr ""
 
-#: guis/GUI01_Image_Preprocessor.py:2286
+#: guis/GUI01_Image_Preprocessor.py:2286 guis/GUI05_Thumbnail_Viewer.py:2966
 msgid "フォントサイズ"
 msgstr ""
 
@@ -563,6 +564,7 @@ msgstr ""
 #: guis/GUI01_Image_Preprocessor.py:2320 guis/GUI04_Tracking_fiber.py:7466
 #: guis/GUI04_Tracking_fiber.py:7631 guis/GUI04_Tracking_fiber.py:7755
 #: guis/GUI04_Tracking_fiber.py:7940 guis/GUI04_Tracking_fiber.py:8055
+#: guis/GUI05_Thumbnail_Viewer.py:2997
 msgid "閉じる"
 msgstr ""
 
@@ -603,13 +605,15 @@ msgstr ""
 #: guis/GUI04_Tracking_fiber.py:2367 guis/GUI04_Tracking_fiber.py:2383
 #: guis/GUI04_Tracking_fiber.py:6903 guis/GUI04_Tracking_fiber.py:6906
 #: guis/GUI04_Tracking_fiber.py:6910 guis/GUI04_Tracking_fiber.py:6945
-#: guis/GUI04_Tracking_fiber.py:6948 lib/ui_tools.py:1345 lib/ui_tools.py:1355
-#: tests/test_gui02_profile_state.py:486
+#: guis/GUI04_Tracking_fiber.py:6948 guis/GUI05_Thumbnail_Viewer.py:2743
+#: guis/GUI05_Thumbnail_Viewer.py:2758 lib/ui_tools.py:1345
+#: lib/ui_tools.py:1355 tests/test_gui02_profile_state.py:486
 msgid "エラー"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:2452 guis/GUI02_PlotProfiler.py:1184
-#: guis/GUI04_Tracking_fiber.py:2047 lib/ui_tools.py:1345
+#: guis/GUI04_Tracking_fiber.py:2047 guis/GUI05_Thumbnail_Viewer.py:2743
+#: lib/ui_tools.py:1345
 msgid "数値を入力してください"
 msgstr ""
 
@@ -692,6 +696,7 @@ msgstr ""
 #: guis/GUI03_Fiber_Morphology_Statistics.py:3421
 #: guis/GUI04_Tracking_fiber.py:3989 guis/GUI04_Tracking_fiber.py:5539
 #: guis/GUI04_Tracking_fiber.py:7859 guis/GUI04_Tracking_fiber.py:7995
+#: guis/GUI05_Thumbnail_Viewer.py:2835
 msgid "確認"
 msgstr ""
 
@@ -883,10 +888,11 @@ msgid "プレビュー画像を保存"
 msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:4263 guis/GUI01_Image_Preprocessor.py:4287
+#: guis/GUI05_Thumbnail_Viewer.py:2848
 msgid "起動に失敗しました"
 msgstr ""
 
-#: guis/GUI01_Image_Preprocessor.py:4265
+#: guis/GUI01_Image_Preprocessor.py:4265 guis/GUI05_Thumbnail_Viewer.py:2850
 #, python-brace-format
 msgid "{name} を新しいウインドウで開きます。"
 msgstr ""
@@ -1246,6 +1252,7 @@ msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:5274
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2751
+#: guis/GUI05_Thumbnail_Viewer.py:1478
 msgid "表示"
 msgstr ""
 
@@ -1260,6 +1267,7 @@ msgstr ""
 
 #: guis/GUI01_Image_Preprocessor.py:5367 guis/GUI02_PlotProfiler.py:925
 #: guis/GUI04_Tracking_fiber.py:1801 guis/GUI04_Tracking_fiber.py:6666
+#: guis/GUI05_Thumbnail_Viewer.py:1557 guis/GUI05_Thumbnail_Viewer.py:2974
 msgid "カラーバー"
 msgstr ""
 
@@ -1345,7 +1353,7 @@ msgid "チャンネル"
 msgstr ""
 
 #: guis/GUI02_PlotProfiler.py:806 guis/GUI04_Tracking_fiber.py:1814
-#: guis/GUI04_Tracking_fiber.py:7607
+#: guis/GUI04_Tracking_fiber.py:7607 guis/GUI05_Thumbnail_Viewer.py:1539
 msgid "自動"
 msgstr ""
 
@@ -3667,6 +3675,326 @@ msgstr ""
 msgid "計算方法とそのコードは、リポジトリの {doc} の各節（§）で説明しています。"
 msgstr ""
 
+#: guis/GUI05_Thumbnail_Viewer.py:1407
+msgid "フォルダやファイルを追加するか、一覧の枠へドロップしてください。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1409
+msgid "フォルダまたはファイルを追加してください。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1425
+msgid "フォルダを追加"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1427
+msgid "ファイルを追加"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1433
+msgid ""
+"選択したサムネイルを一覧から削除します（ファイルはそのまま残ります）。\n"
+"クリックで 1 つ選択、Ctrl+クリックで追加、Shift+クリックで範囲を選択します。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1436
+msgid "全て削除"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1440
+msgid "すべてのサムネイルを一覧から削除します（ファイルはそのまま残ります）。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1445
+msgid "並べ替え"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1447
+msgid "名前順"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1449
+msgid "更新日時順"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1454
+msgid ""
+"サムネイルは追加した順に並びます。ドラッグすると並べ替えられます（複数選択していれば、まとめて動かせます）。\n"
+"このメニューは、現在の一覧をその順に 1 回並べ直します。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1460
+msgid "用紙"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1461
+msgid "A4 縦"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1461
+msgid "A4 横"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1464
+msgid "列数"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1466
+msgid "1 ページの 1 行に並べる画像の数です。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1470
+msgid "行数"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1472
+msgid "1 ページに並べる行の数です。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1481
+msgid ""
+"ページを画面に描く大きさです。100% は用紙の実寸です。\n"
+"一覧の上で Ctrl を押しながらマウスホイールを回しても、倍率を変えられます。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1485
+msgid "幅に合わせる"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1485
+msgid "ページ全体"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1491 guis/GUI05_Thumbnail_Viewer.py:2891
+#: guis/GUI05_Thumbnail_Viewer.py:2894 guis/GUI05_Thumbnail_Viewer.py:2914
+msgid "シートを保存"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1495
+msgid ""
+"画面に見えているとおりのページを、A4 のシートとして保存します。\n"
+"PDF は全ページを 1 つのファイルに、PNG は 1 ページを 1 つのファイルに保存します（複数ページでは名前の末尾に _p01、_p02 "
+"… が付きます）。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1500
+msgid "保存後に開く"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1504
+msgid ""
+"保存したシートを既定のアプリで開きます。印刷はそのアプリから行います。\n"
+"PNG で複数ページになった場合は 1 ページ目を開きます。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1518
+msgid ""
+"色の範囲は画像ごとに自動で決まります。サムネイルを選択して vmin / vmax を入力し、Enter "
+"で確定すると、選択した画像の範囲が変わります。Ctrl+A ですべて選択できます。\n"
+"複数選択で値が揃っていない側は空欄になります。空欄のまま確定した側は、各画像の値のまま変わりません。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1542
+msgid "選択した画像の色範囲を、自動で決めた範囲に戻します。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1550 guis/GUI05_Thumbnail_Viewer.py:2973
+msgid "スケールバー"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1554
+msgid "各画像の下、画像の左端に合わせてスケールバーを表示します。走査範囲の記録が無いバンドルには表示しません。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1561
+msgid "各画像の下に、その画像の色と高さの対応を示すカラーバーを表示します。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1570
+msgid "ファイル名・スケールバー・カラーバーの文字の大きさを設定します。画面と保存するシートの両方に反映されます。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1579
+msgid "選択した画像を Plot Profiler で開きます。1 つにつきウィンドウが 1 つ開きます。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1585
+msgid "選択した画像を Fiber Tracker で開きます。1 つにつきウィンドウが 1 つ開きます。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1718
+#, python-brace-format
+msgid "ドラッグ＆ドロップは使えません（{reason}）。「フォルダを追加」「ファイルを追加」は使えます。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1824
+msgid ".b2z バンドルを含むフォルダを選択"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1836
+msgid ".b2z バンドルを選択"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1883
+#, python-brace-format
+msgid "追加: {n_new} 件（既に一覧にあるため省略 {n_dup} 件、.b2z 以外のため無視 {n_ignored} 件）"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1904
+#, python-brace-format
+msgid "一覧から {n} 件を外しました。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1917
+msgid "一覧を空にしました。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1937
+msgid "更新日時の古い順に並べ替えました。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:1940
+msgid "名前順に並べ替えました。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2053
+#, python-brace-format
+msgid "{name}: 読み込めませんでした ({reason})"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2059 guis/GUI05_Thumbnail_Viewer.py:2922
+#, python-brace-format
+msgid "シートを保存中… {page} / {n_pages} ページ"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2066 lib/ui_tools.py:2464
+#, python-brace-format
+msgid "保存: {path}"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2069
+#, python-brace-format
+msgid "{n} 件の画像は読み直せなかったため、シートでは空欄です: {names}"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2076
+#, python-brace-format
+msgid "シートを保存できませんでした: {reason}"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2078 guis/GUI05_Thumbnail_Viewer.py:2901
+#: lib/ui_tools.py:984 lib/ui_tools.py:2460
+msgid "保存エラー"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2078 lib/ui_tools.py:2461
+#, python-brace-format
+msgid ""
+"保存に失敗しました:\n"
+"{e}"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2082
+#, python-brace-format
+msgid "処理中にエラーが発生しました: {reason}"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2103
+#, python-brace-format
+msgid "読み込み完了: {n_ok} 件（読み込めなかったもの {n_failed} 件）"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2149
+#, python-brace-format
+msgid "読み込み中… {done} / {total}"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2152
+#, python-brace-format
+msgid "{n} 件（選択 {n_selected} 件）"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2240
+msgid "ここに .b2z ファイルまたはフォルダをドロップしてください。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2242
+msgid "「フォルダを追加」または「ファイルを追加」で読み込んでください。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2282
+#, python-brace-format
+msgid "ページ {page} / {n_pages}"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2425
+msgid "読み込めなかったファイル"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2759
+msgid "vmax には vmin より大きい値を入力してください"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2769
+#, python-brace-format
+msgid "{n} 件の画像の色範囲を {vmin} 〜 {vmax} nm に設定しました。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2774
+#, python-brace-format
+msgid "{n} 件の画像の {bound} を {value} nm に設定しました。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2794
+msgid "色範囲を自動に戻す画像を選択してください。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2798
+msgid "選択した画像は、既に自動の色範囲です。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2802
+#, python-brace-format
+msgid "{n} 件の画像の色範囲を自動に戻しました。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2832
+msgid "開く画像を選択してください。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2836
+#, python-brace-format
+msgid "選択した {n} 件を {gui} で開きます。ウィンドウが {n} 個開きます。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2891
+msgid "保存する画像がありません。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2902
+msgid "拡張子は .png または .pdf にしてください。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2915
+#, python-brace-format
+msgid ""
+"次のファイルは既にあります。上書きしますか？\n"
+"{names}"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2924
+#, python-brace-format
+msgid "シートを保存します（画像 {n} 件、{n_pages} ページ）。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2990
+msgid "大きさは保存するシート上のポイントです。セルの幅に収まらないファイル名は、中央を省略します。"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:2995
+msgid "既定に戻す"
+msgstr ""
+
 #: lib/ui_tools.py:406
 msgid "ログ無し"
 msgstr ""
@@ -3703,10 +4031,6 @@ msgstr ""
 msgid "All files"
 msgstr ""
 
-#: lib/ui_tools.py:984 lib/ui_tools.py:2460
-msgid "保存エラー"
-msgstr ""
-
 #: lib/ui_tools.py:990
 #, python-brace-format
 msgid "CSV 保存完了: {path}"
@@ -3730,18 +4054,6 @@ msgstr ""
 
 #: lib/ui_tools.py:2449
 msgid "図を保存"
-msgstr ""
-
-#: lib/ui_tools.py:2461
-#, python-brace-format
-msgid ""
-"保存に失敗しました:\n"
-"{e}"
-msgstr ""
-
-#: lib/ui_tools.py:2464
-#, python-brace-format
-msgid "保存: {path}"
 msgstr ""
 
 #: lib/ui_tools.py:2468
@@ -3805,4 +4117,12 @@ msgid ""
 "・全ファイバーの統計値 CSV エクスポート\n"
 "\n"
 "GUI01 が出力した .b2z ファイルを開いてください。GUI01 の「GUI04で開く」からも開けます。\n"
+msgstr ""
+
+#: guis/GUI05_Thumbnail_Viewer.py:58
+msgid ""
+"Image Preprocessor で解析した複数の .b2z バンドルを読み込み、バックグラウンド補正済みの高さ像をサムネイルの一覧として表示します。\n"
+"フォルダ単位での追加、ファイルを選んでの追加、一覧へのドラッグ＆ドロップでの追加ができます。\n"
+"一覧は保存するシートのページとして表示され、サムネイルをドラッグして並べ替えられます。色の範囲は画像ごとに調節でき、各画像にスケールバーとカラーバーを付けられます。\n"
+"一覧は A4 に割り付けたシートとして PNG または PDF で保存できます。印刷は保存したファイルを開いたアプリから行ってください。"
 msgstr ""

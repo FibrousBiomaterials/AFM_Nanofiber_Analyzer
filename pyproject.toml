@@ -60,6 +60,13 @@ dependencies = [
     "Pillow",
     "scikit-image",
     "scipy",
+    # Drops of files onto GUI05 (guis/GUI05_Thumbnail_Viewer.py), checked with
+    # 0.7.0. GUI05 turns dropping off when the package or its tkdnd library
+    # fails to load, so it is not needed to open the window.
+    # GUI05（guis/GUI05_Thumbnail_Viewer.py）へのファイルのドロップに使う。0.7.0
+    # で確認した。パッケージや同梱の tkdnd ライブラリを読み込めない場合、GUI05 は
+    # ドロップを無効にするだけなので、ウィンドウを開くのには要らない。
+    "tkinterdnd2",
     "tksheet",
 ]
 

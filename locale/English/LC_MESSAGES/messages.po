@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-11-16 15:32+0900\n"
+"POT-Creation-Date: 2026-11-17 13:52+0900\n"
 "PO-Revision-Date: 2026-04-27 14:35+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -58,13 +58,14 @@ msgstr "Gwyddion module that read it"
 msgid "詳細"
 msgstr "Details"
 
-#: guis/GUI00_Format_Converter.py:174
+#: guis/GUI00_Format_Converter.py:174 guis/GUI05_Thumbnail_Viewer.py:1637
 msgid "ログ"
 msgstr "Log"
 
 #: guis/GUI00_Format_Converter.py:178 guis/GUI01_Image_Preprocessor.py:1608
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2149
-#: guis/GUI04_Tracking_fiber.py:1866 lib/ui_tools.py:414
+#: guis/GUI04_Tracking_fiber.py:1866 guis/GUI05_Thumbnail_Viewer.py:1641
+#: lib/ui_tools.py:414
 msgid "ログを保存"
 msgstr "Save Log"
 
@@ -342,7 +343,7 @@ msgstr ""
 msgid "解析済みのファイルが無いとき、または解析の実行中は押せません。"
 msgstr "Unavailable while no file has been analyzed or an analysis is running."
 
-#: guis/GUI01_Image_Preprocessor.py:1313
+#: guis/GUI01_Image_Preprocessor.py:1313 guis/GUI05_Thumbnail_Viewer.py:2972
 msgid "ファイル名"
 msgstr "File Name"
 
@@ -370,7 +371,7 @@ msgstr "Copy"
 msgid "貼り付け"
 msgstr "Paste"
 
-#: guis/GUI01_Image_Preprocessor.py:1395
+#: guis/GUI01_Image_Preprocessor.py:1395 guis/GUI05_Thumbnail_Viewer.py:1429
 msgid "削除"
 msgstr "Delete"
 
@@ -527,7 +528,7 @@ msgstr "Fiber kink points (cyan)"
 msgid "ファイバーの分解点（オレンジ）"
 msgstr "Fiber decomposition points (orange)"
 
-#: guis/GUI01_Image_Preprocessor.py:2220
+#: guis/GUI01_Image_Preprocessor.py:2220 guis/GUI05_Thumbnail_Viewer.py:1566
 msgid "フォントサイズ…"
 msgstr "Font Sizes…"
 
@@ -552,11 +553,11 @@ msgstr "Save Image"
 msgid "個別表示"
 msgstr "Individual View"
 
-#: guis/GUI01_Image_Preprocessor.py:2247
+#: guis/GUI01_Image_Preprocessor.py:2247 guis/GUI05_Thumbnail_Viewer.py:1575
 msgid "GUI02で開く"
 msgstr "Open in GUI02"
 
-#: guis/GUI01_Image_Preprocessor.py:2251
+#: guis/GUI01_Image_Preprocessor.py:2251 guis/GUI05_Thumbnail_Viewer.py:1581
 msgid "GUI04で開く"
 msgstr "Open in GUI04"
 
@@ -576,7 +577,7 @@ msgstr ""
 "Opens the analysis result shown (.b2z) in Fiber Tracker (GUI04) in a new "
 "window."
 
-#: guis/GUI01_Image_Preprocessor.py:2286
+#: guis/GUI01_Image_Preprocessor.py:2286 guis/GUI05_Thumbnail_Viewer.py:2966
 msgid "フォントサイズ"
 msgstr "Font Sizes"
 
@@ -611,6 +612,7 @@ msgstr "Press Enter to confirm"
 #: guis/GUI01_Image_Preprocessor.py:2320 guis/GUI04_Tracking_fiber.py:7466
 #: guis/GUI04_Tracking_fiber.py:7631 guis/GUI04_Tracking_fiber.py:7755
 #: guis/GUI04_Tracking_fiber.py:7940 guis/GUI04_Tracking_fiber.py:8055
+#: guis/GUI05_Thumbnail_Viewer.py:2997
 msgid "閉じる"
 msgstr "Close"
 
@@ -651,13 +653,15 @@ msgstr "must be a positive number"
 #: guis/GUI04_Tracking_fiber.py:2367 guis/GUI04_Tracking_fiber.py:2383
 #: guis/GUI04_Tracking_fiber.py:6903 guis/GUI04_Tracking_fiber.py:6906
 #: guis/GUI04_Tracking_fiber.py:6910 guis/GUI04_Tracking_fiber.py:6945
-#: guis/GUI04_Tracking_fiber.py:6948 lib/ui_tools.py:1345 lib/ui_tools.py:1355
-#: tests/test_gui02_profile_state.py:486
+#: guis/GUI04_Tracking_fiber.py:6948 guis/GUI05_Thumbnail_Viewer.py:2743
+#: guis/GUI05_Thumbnail_Viewer.py:2758 lib/ui_tools.py:1345
+#: lib/ui_tools.py:1355 tests/test_gui02_profile_state.py:486
 msgid "エラー"
 msgstr "Error"
 
 #: guis/GUI01_Image_Preprocessor.py:2452 guis/GUI02_PlotProfiler.py:1184
-#: guis/GUI04_Tracking_fiber.py:2047 lib/ui_tools.py:1345
+#: guis/GUI04_Tracking_fiber.py:2047 guis/GUI05_Thumbnail_Viewer.py:2743
+#: lib/ui_tools.py:1345
 msgid "数値を入力してください"
 msgstr "Please enter a number"
 
@@ -748,6 +752,7 @@ msgstr "No split entries to collapse."
 #: guis/GUI03_Fiber_Morphology_Statistics.py:3421
 #: guis/GUI04_Tracking_fiber.py:3989 guis/GUI04_Tracking_fiber.py:5539
 #: guis/GUI04_Tracking_fiber.py:7859 guis/GUI04_Tracking_fiber.py:7995
+#: guis/GUI05_Thumbnail_Viewer.py:2835
 msgid "確認"
 msgstr "Confirm"
 
@@ -949,10 +954,11 @@ msgid "プレビュー画像を保存"
 msgstr "Save Preview Image"
 
 #: guis/GUI01_Image_Preprocessor.py:4263 guis/GUI01_Image_Preprocessor.py:4287
+#: guis/GUI05_Thumbnail_Viewer.py:2848
 msgid "起動に失敗しました"
 msgstr "Failed to launch"
 
-#: guis/GUI01_Image_Preprocessor.py:4265
+#: guis/GUI01_Image_Preprocessor.py:4265 guis/GUI05_Thumbnail_Viewer.py:2850
 #, python-brace-format
 msgid "{name} を新しいウインドウで開きます。"
 msgstr "Opening {name} in a new window."
@@ -1395,6 +1401,7 @@ msgstr "Individual view: %s"
 
 #: guis/GUI01_Image_Preprocessor.py:5274
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2751
+#: guis/GUI05_Thumbnail_Viewer.py:1478
 msgid "表示"
 msgstr "Display"
 
@@ -1409,6 +1416,7 @@ msgstr "Font Size: Title"
 
 #: guis/GUI01_Image_Preprocessor.py:5367 guis/GUI02_PlotProfiler.py:925
 #: guis/GUI04_Tracking_fiber.py:1801 guis/GUI04_Tracking_fiber.py:6666
+#: guis/GUI05_Thumbnail_Viewer.py:1557 guis/GUI05_Thumbnail_Viewer.py:2974
 msgid "カラーバー"
 msgstr "Colorbar"
 
@@ -1494,7 +1502,7 @@ msgid "チャンネル"
 msgstr "Channel"
 
 #: guis/GUI02_PlotProfiler.py:806 guis/GUI04_Tracking_fiber.py:1814
-#: guis/GUI04_Tracking_fiber.py:7607
+#: guis/GUI04_Tracking_fiber.py:7607 guis/GUI05_Thumbnail_Viewer.py:1539
 msgid "自動"
 msgstr "Auto"
 
@@ -4430,6 +4438,361 @@ msgstr ""
 "The computation and its code are explained in the numbered sections (§) "
 "of {doc} in the repository."
 
+#: guis/GUI05_Thumbnail_Viewer.py:1407
+msgid "フォルダやファイルを追加するか、一覧の枠へドロップしてください。"
+msgstr "Add folders or files, or drop them onto the gallery."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1409
+msgid "フォルダまたはファイルを追加してください。"
+msgstr "Add folders or files."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1425
+msgid "フォルダを追加"
+msgstr "Add Folder"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1427
+msgid "ファイルを追加"
+msgstr "Add Files"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1433
+msgid ""
+"選択したサムネイルを一覧から削除します（ファイルはそのまま残ります）。\n"
+"クリックで 1 つ選択、Ctrl+クリックで追加、Shift+クリックで範囲を選択します。"
+msgstr ""
+"Deletes the selected thumbnails from the gallery (the files stay where "
+"they are).\n"
+"Click selects one, Ctrl+click adds to the selection, and Shift+click "
+"selects a range."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1436
+msgid "全て削除"
+msgstr "Delete All"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1440
+msgid "すべてのサムネイルを一覧から削除します（ファイルはそのまま残ります）。"
+msgstr "Deletes every thumbnail from the gallery (the files stay where they are)."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1445
+msgid "並べ替え"
+msgstr "Sort"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1447
+msgid "名前順"
+msgstr "By Name"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1449
+msgid "更新日時順"
+msgstr "By Date"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1454
+msgid ""
+"サムネイルは追加した順に並びます。ドラッグすると並べ替えられます（複数選択していれば、まとめて動かせます）。\n"
+"このメニューは、現在の一覧をその順に 1 回並べ直します。"
+msgstr ""
+"Thumbnails appear in the order they were added. Drag one to rearrange "
+"them (with several selected, they move together).\n"
+"This menu puts the current gallery into the chosen order once."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1460
+msgid "用紙"
+msgstr "Paper"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1461
+msgid "A4 縦"
+msgstr "A4 portrait"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1461
+msgid "A4 横"
+msgstr "A4 landscape"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1464
+msgid "列数"
+msgstr "Columns"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1466
+msgid "1 ページの 1 行に並べる画像の数です。"
+msgstr "The number of images in one row of a page."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1470
+msgid "行数"
+msgstr "Rows"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1472
+msgid "1 ページに並べる行の数です。"
+msgstr "The number of rows on a page."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1481
+msgid ""
+"ページを画面に描く大きさです。100% は用紙の実寸です。\n"
+"一覧の上で Ctrl を押しながらマウスホイールを回しても、倍率を変えられます。"
+msgstr ""
+"The size the pages are drawn at on the screen. 100% is the real size of "
+"the paper.\n"
+"Holding Ctrl and turning the mouse wheel over the gallery also changes "
+"the zoom."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1485
+msgid "幅に合わせる"
+msgstr "Fit width"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1485
+msgid "ページ全体"
+msgstr "Whole page"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1491 guis/GUI05_Thumbnail_Viewer.py:2891
+#: guis/GUI05_Thumbnail_Viewer.py:2894 guis/GUI05_Thumbnail_Viewer.py:2914
+msgid "シートを保存"
+msgstr "Save Sheet"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1495
+msgid ""
+"画面に見えているとおりのページを、A4 のシートとして保存します。\n"
+"PDF は全ページを 1 つのファイルに、PNG は 1 ページを 1 つのファイルに保存します（複数ページでは名前の末尾に _p01、_p02 "
+"… が付きます）。"
+msgstr ""
+"Saves the pages as they appear on the screen, as A4 sheets.\n"
+"A PDF holds every page in one file; a PNG is one file per page (with "
+"several pages, _p01, _p02, ... is appended to the name)."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1500
+msgid "保存後に開く"
+msgstr "Open after saving"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1504
+msgid ""
+"保存したシートを既定のアプリで開きます。印刷はそのアプリから行います。\n"
+"PNG で複数ページになった場合は 1 ページ目を開きます。"
+msgstr ""
+"Opens the saved sheet in the default application; print it from there.\n"
+"For a PNG sheet of several pages, the first page is opened."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1518
+msgid ""
+"色の範囲は画像ごとに自動で決まります。サムネイルを選択して vmin / vmax を入力し、Enter "
+"で確定すると、選択した画像の範囲が変わります。Ctrl+A ですべて選択できます。\n"
+"複数選択で値が揃っていない側は空欄になります。空欄のまま確定した側は、各画像の値のまま変わりません。"
+msgstr ""
+"The color range of each image is set automatically. Select thumbnails, "
+"enter vmin / vmax and press Enter to change the range of the selected "
+"images. Ctrl+A selects them all.\n"
+"With several selected, an entry is blank where their values differ. An "
+"entry left blank when confirming keeps each image's own value."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1542
+msgid "選択した画像の色範囲を、自動で決めた範囲に戻します。"
+msgstr "Returns the color range of the selected images to the automatic range."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1550 guis/GUI05_Thumbnail_Viewer.py:2973
+msgid "スケールバー"
+msgstr "Scale bar"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1554
+msgid "各画像の下、画像の左端に合わせてスケールバーを表示します。走査範囲の記録が無いバンドルには表示しません。"
+msgstr ""
+"Shows a scale bar under each image, aligned with the image's left edge. "
+"It is not shown for a bundle that records no scan size."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1561
+msgid "各画像の下に、その画像の色と高さの対応を示すカラーバーを表示します。"
+msgstr "Shows a color bar under each image, relating its colors to heights."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1570
+msgid "ファイル名・スケールバー・カラーバーの文字の大きさを設定します。画面と保存するシートの両方に反映されます。"
+msgstr ""
+"Sets the text size of the file name, the scale bar and the color bar. It "
+"applies to the screen and to the saved sheet alike."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1579
+msgid "選択した画像を Plot Profiler で開きます。1 つにつきウィンドウが 1 つ開きます。"
+msgstr "Opens the selected images in Plot Profiler, one window for each."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1585
+msgid "選択した画像を Fiber Tracker で開きます。1 つにつきウィンドウが 1 つ開きます。"
+msgstr "Opens the selected images in Fiber Tracker, one window for each."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1718
+#, python-brace-format
+msgid "ドラッグ＆ドロップは使えません（{reason}）。「フォルダを追加」「ファイルを追加」は使えます。"
+msgstr ""
+"Drag and drop is not available ({reason}). \"Add Folder\" and \"Add "
+"Files\" still work."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1824
+msgid ".b2z バンドルを含むフォルダを選択"
+msgstr "Select a folder containing .b2z bundles"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1836
+msgid ".b2z バンドルを選択"
+msgstr "Select .b2z bundles"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1883
+#, python-brace-format
+msgid "追加: {n_new} 件（既に一覧にあるため省略 {n_dup} 件、.b2z 以外のため無視 {n_ignored} 件）"
+msgstr ""
+"Added: {n_new} (skipped {n_dup} already in the gallery, ignored "
+"{n_ignored} that are not .b2z)"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1904
+#, python-brace-format
+msgid "一覧から {n} 件を外しました。"
+msgstr "Removed {n} from the gallery."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1917
+msgid "一覧を空にしました。"
+msgstr "The gallery was emptied."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1937
+msgid "更新日時の古い順に並べ替えました。"
+msgstr "Sorted by date modified, oldest first."
+
+#: guis/GUI05_Thumbnail_Viewer.py:1940
+msgid "名前順に並べ替えました。"
+msgstr "Sorted by name."
+
+#: guis/GUI05_Thumbnail_Viewer.py:2053
+#, python-brace-format
+msgid "{name}: 読み込めませんでした ({reason})"
+msgstr "{name}: could not be read ({reason})"
+
+#: guis/GUI05_Thumbnail_Viewer.py:2059 guis/GUI05_Thumbnail_Viewer.py:2922
+#, python-brace-format
+msgid "シートを保存中… {page} / {n_pages} ページ"
+msgstr "Saving sheet... page {page} / {n_pages}"
+
+#: guis/GUI05_Thumbnail_Viewer.py:2066 lib/ui_tools.py:2464
+#, python-brace-format
+msgid "保存: {path}"
+msgstr "Saved: {path}"
+
+#: guis/GUI05_Thumbnail_Viewer.py:2069
+#, python-brace-format
+msgid "{n} 件の画像は読み直せなかったため、シートでは空欄です: {names}"
+msgstr "{n} image(s) could not be read again and are blank on the sheet: {names}"
+
+#: guis/GUI05_Thumbnail_Viewer.py:2076
+#, python-brace-format
+msgid "シートを保存できませんでした: {reason}"
+msgstr "The sheet could not be saved: {reason}"
+
+#: guis/GUI05_Thumbnail_Viewer.py:2078 guis/GUI05_Thumbnail_Viewer.py:2901
+#: lib/ui_tools.py:984 lib/ui_tools.py:2460
+msgid "保存エラー"
+msgstr "Save Error"
+
+#: guis/GUI05_Thumbnail_Viewer.py:2078 lib/ui_tools.py:2461
+#, python-brace-format
+msgid ""
+"保存に失敗しました:\n"
+"{e}"
+msgstr ""
+"Failed to save figure:\n"
+"{e}"
+
+#: guis/GUI05_Thumbnail_Viewer.py:2082
+#, python-brace-format
+msgid "処理中にエラーが発生しました: {reason}"
+msgstr "An error occurred during processing: {reason}"
+
+#: guis/GUI05_Thumbnail_Viewer.py:2103
+#, python-brace-format
+msgid "読み込み完了: {n_ok} 件（読み込めなかったもの {n_failed} 件）"
+msgstr "Loading finished: {n_ok} loaded ({n_failed} could not be read)"
+
+#: guis/GUI05_Thumbnail_Viewer.py:2149
+#, python-brace-format
+msgid "読み込み中… {done} / {total}"
+msgstr "Loading... {done} / {total}"
+
+#: guis/GUI05_Thumbnail_Viewer.py:2152
+#, python-brace-format
+msgid "{n} 件（選択 {n_selected} 件）"
+msgstr "{n} items ({n_selected} selected)"
+
+#: guis/GUI05_Thumbnail_Viewer.py:2240
+msgid "ここに .b2z ファイルまたはフォルダをドロップしてください。"
+msgstr "Drop .b2z files or folders here."
+
+#: guis/GUI05_Thumbnail_Viewer.py:2242
+msgid "「フォルダを追加」または「ファイルを追加」で読み込んでください。"
+msgstr "Load bundles with \"Add Folder\" or \"Add Files\"."
+
+#: guis/GUI05_Thumbnail_Viewer.py:2282
+#, python-brace-format
+msgid "ページ {page} / {n_pages}"
+msgstr "Page {page} / {n_pages}"
+
+#: guis/GUI05_Thumbnail_Viewer.py:2425
+msgid "読み込めなかったファイル"
+msgstr "Files that could not be read"
+
+#: guis/GUI05_Thumbnail_Viewer.py:2759
+msgid "vmax には vmin より大きい値を入力してください"
+msgstr "Enter a vmax greater than vmin."
+
+#: guis/GUI05_Thumbnail_Viewer.py:2769
+#, python-brace-format
+msgid "{n} 件の画像の色範囲を {vmin} 〜 {vmax} nm に設定しました。"
+msgstr "The color range of {n} image(s) was set to {vmin} to {vmax} nm."
+
+#: guis/GUI05_Thumbnail_Viewer.py:2774
+#, python-brace-format
+msgid "{n} 件の画像の {bound} を {value} nm に設定しました。"
+msgstr "The {bound} of {n} image(s) was set to {value} nm."
+
+#: guis/GUI05_Thumbnail_Viewer.py:2794
+msgid "色範囲を自動に戻す画像を選択してください。"
+msgstr "Select the images whose color range is to return to automatic."
+
+#: guis/GUI05_Thumbnail_Viewer.py:2798
+msgid "選択した画像は、既に自動の色範囲です。"
+msgstr "The selected images already use the automatic color range."
+
+#: guis/GUI05_Thumbnail_Viewer.py:2802
+#, python-brace-format
+msgid "{n} 件の画像の色範囲を自動に戻しました。"
+msgstr "The color range of {n} image(s) was returned to automatic."
+
+#: guis/GUI05_Thumbnail_Viewer.py:2832
+msgid "開く画像を選択してください。"
+msgstr "Select the images to open."
+
+#: guis/GUI05_Thumbnail_Viewer.py:2836
+#, python-brace-format
+msgid "選択した {n} 件を {gui} で開きます。ウィンドウが {n} 個開きます。"
+msgstr "The {n} selected images will be opened in {gui}, in {n} windows."
+
+#: guis/GUI05_Thumbnail_Viewer.py:2891
+msgid "保存する画像がありません。"
+msgstr "There are no images to save."
+
+#: guis/GUI05_Thumbnail_Viewer.py:2902
+msgid "拡張子は .png または .pdf にしてください。"
+msgstr "Use the extension .png or .pdf."
+
+#: guis/GUI05_Thumbnail_Viewer.py:2915
+#, python-brace-format
+msgid ""
+"次のファイルは既にあります。上書きしますか？\n"
+"{names}"
+msgstr ""
+"These files already exist. Overwrite them?\n"
+"{names}"
+
+#: guis/GUI05_Thumbnail_Viewer.py:2924
+#, python-brace-format
+msgid "シートを保存します（画像 {n} 件、{n_pages} ページ）。"
+msgstr "Saving the sheet ({n} image(s), {n_pages} page(s))."
+
+#: guis/GUI05_Thumbnail_Viewer.py:2990
+msgid "大きさは保存するシート上のポイントです。セルの幅に収まらないファイル名は、中央を省略します。"
+msgstr ""
+"Sizes are in points on the saved sheet. A file name too wide for its cell"
+" is shortened in the middle."
+
+#: guis/GUI05_Thumbnail_Viewer.py:2995
+msgid "既定に戻す"
+msgstr "Reset to Defaults"
+
 #: lib/ui_tools.py:406
 msgid "ログ無し"
 msgstr "No Log"
@@ -4468,10 +4831,6 @@ msgstr "CSV"
 msgid "All files"
 msgstr "All files"
 
-#: lib/ui_tools.py:984 lib/ui_tools.py:2460
-msgid "保存エラー"
-msgstr "Save Error"
-
 #: lib/ui_tools.py:990
 #, python-brace-format
 msgid "CSV 保存完了: {path}"
@@ -4498,20 +4857,6 @@ msgstr ""
 #: lib/ui_tools.py:2449
 msgid "図を保存"
 msgstr "Save Figure"
-
-#: lib/ui_tools.py:2461
-#, python-brace-format
-msgid ""
-"保存に失敗しました:\n"
-"{e}"
-msgstr ""
-"Failed to save figure:\n"
-"{e}"
-
-#: lib/ui_tools.py:2464
-#, python-brace-format
-msgid "保存: {path}"
-msgstr "Saved: {path}"
 
 #: lib/ui_tools.py:2468
 msgid "保存完了"
@@ -4646,4 +4991,23 @@ msgstr ""
 "\n"
 "Open a .b2z file written by GUI01. It can also be opened from \"Open in "
 "GUI04\" in GUI01.\n"
+
+#: guis/GUI05_Thumbnail_Viewer.py:58
+msgid ""
+"Image Preprocessor で解析した複数の .b2z "
+"バンドルを読み込み、バックグラウンド補正済みの高さ像をサムネイルの一覧として表示します。\n"
+"フォルダ単位での追加、ファイルを選んでの追加、一覧へのドラッグ＆ドロップでの追加ができます。\n"
+"一覧は保存するシートのページとして表示され、サムネイルをドラッグして並べ替えられます。色の範囲は画像ごとに調節でき、各画像にスケールバーとカラーバーを付けられます。"
+"\n"
+"一覧は A4 に割り付けたシートとして PNG または PDF で保存できます。印刷は保存したファイルを開いたアプリから行ってください。"
+msgstr ""
+"Loads multiple .b2z bundles analyzed with Image Preprocessor and shows "
+"their background-corrected height images as a gallery of thumbnails.\n"
+"Bundles are added a folder at a time, as chosen files, or by dragging and"
+" dropping onto the gallery.\n"
+"The gallery is shown as the pages of the sheet to be saved, and "
+"thumbnails are rearranged by dragging. The color range can be adjusted "
+"per image, and a scale bar and a color bar can be added to each image.\n"
+"The gallery can be saved as A4 sheets in PNG or PDF. Print from the "
+"application that opens the saved file."
 
