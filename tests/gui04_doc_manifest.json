@@ -3,7 +3,7 @@
   "symbols": {
     "lib/measure.py::measure_bundle": "e506061796c30cb558caf83eec34601f840d42233f36b2e7fa79086ac3e69659",
     "lib/bundle_schema.py::pixel_size_nm": "62a3a2671ce2e963d46f8d6906823444aa214bd8a53c13a0140c4a6cfd734ef0",
-    "lib/fiber_tracking_image.py::_build_fiber": "8362ca0f9a5e238bbb305f4d1899c3d24858c01cd746f640617ad3b5b9f12d58",
+    "lib/fiber_tracking_image.py::_build_fiber": "743fcbc17f319374ef5ae513035db0e63b727e6ffbd3170ca3474091c01c3a38",
     "lib/fiber.py::Fiber.length": "e2a59e65c72f8c8f8e12247a4a350392327b0aa86bc836dd4960872802fc43bf",
     "lib/centerline.py::_WIDTH_SEARCH_PX": "a80f543b2328dc3b83a7033d7c16385a72ce99878c698740c0ed856919138629",
     "lib/centerline.py::_WIDTH_STEP_PX": "63ce0419343d51976112a87e127ec441adcb885295184bfd1d258828cd195184",

@@ -161,7 +161,12 @@ GUI04 はその名前をログに出す。数値がどの中心線に沿って�
 
 ```python
 # source: lib/fiber_tracking_image.py::_build_fiber
-xtrack_prcimg, ytrack_prcimg = imp_tools.tracking(target_image)
+y0, x0 = max(int(y) - 1, 0), max(int(x) - 1, 0)
+sub_label = label_image[y0: y + h + 1, x0: x + w + 1]
+target_image = (sub_label == label).astype(np.uint8)
+xtrack_local, ytrack_local = imp_tools.tracking(target_image)
+xtrack_prcimg = xtrack_local + x0
+ytrack_prcimg = ytrack_local + y0
 fiber_image = cal[y: y + h, x: x + w].copy()
 if is_placed_line(centerline):
     placed = place_centerline(
@@ -205,6 +210,9 @@ for i, (px, py) in enumerate(zip(xtrack_prcimg.tolist(), ytrack_prcimg.tolist())
 ```
 
 `imp_tools.tracking` は成分を一方の端からもう一方の端まで辿り、画素を順番に返す。
+追跡は成分の外接矩形（`x`, `y`, `w`, `h`）を 1 画素広げて画像の範囲で切った領域で
+行い、返った座標に領域の左上（`x0`, `y0`）を足して、画像全体の座標
+`xtrack_prcimg` / `ytrack_prcimg` に戻す。
 中心線はスケルトン画素 1 つにつきちょうど 1 点を持つので、添字 `i` は中心線と
 スケルトントラックで同じ場所を指す。そのため、バンドルにスケルトン画素として保存された
 キンク・端点・未判定の折れを、スケルトン座標で照合したうえで、中心線上の同じ添字に

@@ -177,7 +177,12 @@ places the centerline by the bundle's rule
 
 ```python
 # source: lib/fiber_tracking_image.py::_build_fiber
-xtrack_prcimg, ytrack_prcimg = imp_tools.tracking(target_image)
+y0, x0 = max(int(y) - 1, 0), max(int(x) - 1, 0)
+sub_label = label_image[y0: y + h + 1, x0: x + w + 1]
+target_image = (sub_label == label).astype(np.uint8)
+xtrack_local, ytrack_local = imp_tools.tracking(target_image)
+xtrack_prcimg = xtrack_local + x0
+ytrack_prcimg = ytrack_local + y0
 fiber_image = cal[y: y + h, x: x + w].copy()
 if is_placed_line(centerline):
     placed = place_centerline(
@@ -221,7 +226,11 @@ for i, (px, py) in enumerate(zip(xtrack_prcimg.tolist(), ytrack_prcimg.tolist())
 ```
 
 `imp_tools.tracking` walks the component from one end to the other and returns
-its pixels in order. The centerline has exactly one point per skeleton pixel,
+its pixels in order. It is run on the component's bounding box (`x`, `y`, `w`,
+`h`) grown by one pixel and clipped to the image, and the corner of that region
+(`x0`, `y0`) is added to the coordinates it returns, which gives
+`xtrack_prcimg` / `ytrack_prcimg` in the coordinates of the whole image.
+The centerline has exactly one point per skeleton pixel,
 so index `i` refers to the same place on the centerline and on the skeleton
 track. That is why the kinks, endpoints, and unjudged bends stored at skeleton
 pixels in the bundle can be looked up by skeleton coordinate and then drawn at

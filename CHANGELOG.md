@@ -434,6 +434,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   window of their own, opened with 「統計処理」 beside 「数値を保存」.
   「統計値を保存」 and 「比較を保存」 are in that window. Closing it hides it, and
   a run made while it is open refreshes it.
+- Measuring a bundle traces each skeleton component inside its bounding box,
+  grown by one pixel, instead of over the whole image
+  (`fiber_tracking_image._build_fiber`). `imp_tools.tracking` searches every
+  pixel of the array it is given for the two endpoints, so the whole image was
+  searched once per component. GUI03, GUI04 and `cli.py measure` / `heights`
+  all build their fibers this way. On the three bundled scans, analyzed with
+  the default settings, the 220 fibers built are identical in every field, and
+  building them took 5.1 s instead of 9.8 s. No measured quantity changes.
 
 ### Fixed
 

@@ -167,10 +167,28 @@ def _build_fiber(
     """
     # `data_row` is OpenCV component stats: (x, y, width, height, area).
     x, y, w, h, _size = data_row
-    target_image = np.where(label_image == label, 1, 0).astype(np.uint8)
+    # Trace the component inside its bounding box, not on the whole image:
+    # `imp_tools.tracking` looks for the end points with morphology over every
+    # pixel it is handed, so a whole-image mask per fiber costs the image area
+    # once for each fiber. The box is grown by one pixel, clipped to the image,
+    # so the array is one pixel only when the image is; `tracking` answers a
+    # one-pixel array without looking for end points, and a one-pixel component
+    # of a larger image must still be refused for having a single end point.
+    # 成分は、画像全体ではなく外接矩形の中で追跡する。`imp_tools.tracking` は
+    # 渡された全画素にモルフォロジー演算をかけて端点を探すため、ファイバーごとに
+    # 画像全体のマスクを渡すと、ファイバー 1 本につき画像の面積分の計算がかかる。
+    # 矩形は 1 画素広げ、画像の範囲で切る。配列が 1 画素になるのは画像が 1 画素の
+    # ときだけにするためである。`tracking` は 1 画素の配列には端点を探さずに答える
+    # が、それより大きい画像の 1 画素の成分は、端点が 1 つしか無いものとして
+    # これまでどおり拒否されなければならない。
+    y0, x0 = max(int(y) - 1, 0), max(int(x) - 1, 0)
+    sub_label = label_image[y0: y + h + 1, x0: x + w + 1]
+    target_image = (sub_label == label).astype(np.uint8)
     # Track skeleton pixels in order so we can treat the fiber as a 1D sequence.
     # 骨格ピクセルを順序付きで追跡し、ファイバーを1次元列として扱えるようにする。
-    xtrack_prcimg, ytrack_prcimg = imp_tools.tracking(target_image)
+    xtrack_local, ytrack_local = imp_tools.tracking(target_image)
+    xtrack_prcimg = xtrack_local + x0
+    ytrack_prcimg = ytrack_local + y0
     fiber_image = cal[y: y + h, x: x + w].copy()
     if is_placed_line(centerline):
         # The skeleton fixes which pixels are this fiber and their order; the
@@ -636,8 +654,8 @@ class FiberTrackingImage:
         upper_cond = (self.calibrated_image <= upper_height) if include_upper_limit else (self.calibrated_image < upper_height)
         # Keep only skeleton pixels whose calibrated heights satisfy both conditions.
         skeleton_image = np.where(lower_cond & upper_cond & self.skeleton_image, 1, 0).astype(np.uint8)
-        # Build in parallel: same fibers as the sequential path, just faster.
-        # 並列で構築する。逐次と同一の Fiber を、より高速に得るだけ。
+        # Build in parallel: the same fibers as the sequential path gives.
+        # 並列で構築する。得られる Fiber は逐次の経路と同一である。
         return self._generate_fiber_instances(
             skeleton_image, parallel=True, progress_cb=progress_cb,
         )
@@ -672,16 +690,10 @@ class FiberTrackingImage:
             When True, build fibers with a `ThreadPoolExecutor`. `_build_fiber`
             is a pure function of its arguments and the lookup tables are
             read-only after construction, so the threaded result is identical
-            to the sequential one (output stays in label order). Most of the
-            per-fiber cost is `imp_tools.tracking`'s hit-or-miss matching in
-            native code that releases the GIL, so threading gives a real
-            speedup.
+            to the sequential one (output stays in label order).
             True のとき `ThreadPoolExecutor` でファイバーを構築する。
             `_build_fiber` は引数のみに依存する純関数で、参照テーブルは構築後
             読み取り専用のため、並列結果は逐次と同一になる（出力はラベル順）。
-            ファイバーごとの処理時間の大半は GIL を解放するネイティブコード
-            （`imp_tools.tracking` の hit-or-miss 照合）が占めるため、並列化が
-            実際に効く。
         max_workers
             Maximum number of worker threads when `parallel` is True.
             `parallel` が True のときのワーカースレッド最大数。
