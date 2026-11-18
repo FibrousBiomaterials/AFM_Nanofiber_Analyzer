@@ -3115,8 +3115,7 @@ along a fiber are distinct defect events, not repeated measurements of one
 fiber property, so no per-fiber value is formed from their angles. GUI03 (the
 window that pools fiber values from many images and compares groups)
 histograms, by aggregation unit, every kink's angle as it is (kink), or the
-median of all kink angles in each image (image) or in each registered folder
-(folder):
+median of all kink angles in each image (image):
 
 ```python
 # source: lib/kink_detector.py::_ARM_GAP_WIDTHS, _ARM_LENGTH_WIDTHS, _ARM_MIN_WIDTHS

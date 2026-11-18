@@ -233,24 +233,24 @@ SCALE_SOURCE_ENTERED = "entered"
 
 # The column set of the development version that added straightness, and the
 # set shipped in 1.0.0 before it. Kept so a CSV written by either still reads:
-# the file is how a curated fiber population travels between GUI04 and GUI03,
-# and rejecting an older export would strand work that is still perfectly
-# valid for every column it has. `read_fiber_csv` accepts any earlier column
-# set and leaves the missing fields undefined.
+# the file holds a fiber population someone curated in GUI04, and rejecting an
+# older export would strand work that is still perfectly valid for every
+# column it has. `read_fiber_csv` accepts any earlier column set and leaves the
+# missing fields undefined.
 # straightness を追加した開発版の列構成と、その前の 1.0.0 で出荷した列構成。
-# どちらが書き出した CSV も今も読めるように残す。このファイルはキュレーション
-# 済みのファイバー母集団が GUI04 から GUI03 へ渡る経路であり、古い出力を拒否
-# すると、持っている全列については依然として有効な作業を無駄にしてしまう。
+# どちらが書き出した CSV も今も読めるように残す。このファイルは GUI04 で誰かが
+# キュレーションしたファイバー母集団を持っており、古い出力を拒否すると、持って
+# いる全列については依然として有効な作業を無駄にしてしまう。
 # `read_fiber_csv` は以前のどの列構成も受け付け、無い項目は未定義のままにする。
 FIBER_CSV_COLUMNS_V2 = FIBER_CSV_COLUMNS[:8]
 FIBER_CSV_COLUMNS_V1 = FIBER_CSV_COLUMNS[:7]
 
 # The column set before the frame and cut-end columns. A CSV with it reads
-# with those fields unrecorded, so GUI03 can tell "not recorded" from "does
-# not touch the frame" and refuses to filter or weight lengths it cannot judge.
+# with those fields unrecorded, so a reader can tell "not recorded" from "does
+# not touch the frame" and need not filter or weight lengths it cannot judge.
 # 枠・切断端の列を追加する前の列構成。これで書かれた CSV はそれらの項目を
-# 未記録として読むため、GUI03 は「記録なし」と「枠に触れない」を区別でき、判定
-# できない長さを除外・重み付けに使わない。
+# 未記録として読むため、読み手は「記録なし」と「枠に触れない」を区別でき、判定
+# できない長さを除外・重み付けに使わずに済む。
 FIBER_CSV_COLUMNS_V3 = FIBER_CSV_COLUMNS[:13]
 
 # The column set before the connector-bridge columns. A CSV with it reads with
@@ -262,11 +262,12 @@ FIBER_CSV_COLUMNS_V3 = FIBER_CSV_COLUMNS[:13]
 FIBER_CSV_COLUMNS_V4 = FIBER_CSV_COLUMNS[:16]
 
 # The column set before the frame-end column. A CSV with it reads with that
-# field unrecorded, so GUI03 leaves its lengths out of the Kaplan-Meier
-# estimate rather than taking an end on the frame for a fiber end.
+# field unrecorded, so a reader can leave its lengths out of a Kaplan-Meier
+# estimate rather than take an end on the frame for a fiber end
+# (`fiber_real_end_count` returns ``None`` for them).
 # 枠の端の列を追加する前の列構成。これで書かれた CSV はその項目を未記録として
-# 読むため、GUI03 は枠上の端を繊維の端と取り違えず、その長さを Kaplan-Meier
-# 推定から外す。
+# 読むため、読み手は枠上の端を繊維の端と取り違えず、その長さを Kaplan-Meier
+# 推定から外せる（`fiber_real_end_count` はそれらに ``None`` を返す）。
 FIBER_CSV_COLUMNS_V5 = FIBER_CSV_COLUMNS[:18]
 
 # The column set before the scale columns. A CSV with it reads as before; the
@@ -1725,12 +1726,11 @@ def _fiber_kink_angle(stat: FiberStats) -> float:
     (`_DEPRECATED_ALIASES`). Nothing in the analysis calls it: the kinks along
     a fiber are distinct defect events, not repeated measurements of one fiber
     property, so a per-fiber median of their angles describes no property of
-    the fiber. GUI03 summarizes kink angles per kink, per image or per folder
-    instead.
+    the fiber. GUI03 summarizes kink angles per kink or per image instead.
     非推奨の公開名 `fiber_kink_angle`（`_DEPRECATED_ALIASES`）からのみ到達する。
     解析からは呼ばない。1 本のファイバーに沿ったキンクはそれぞれ別の欠陥であり、
     1 つの性質を繰り返し測ったものではないため、その角度のファイバーごとの中央値は
-    ファイバーの性質を表さない。GUI03 はキンク角をキンク・画像・フォルダ単位で
+    ファイバーの性質を表さない。GUI03 はキンク角をキンク単位または画像単位で
     要約する。
 
     Examples
@@ -1812,11 +1812,11 @@ def fiber_judged_length_um(stat: FiberStats) -> float:
     -----
     The single definition of the length a kink could have been counted on:
     `fiber_kink_density` divides one fiber's kinks by it, and GUI03 divides an
-    image's or a folder's total kink count by the sum of it, so the two
+    image's total kink count by the sum of it, so the two
     densities differ only in how they are pooled. Why each part is left out is
     explained in `fiber_kink_density`.
     キンクを数え得た長さの唯一の定義。`fiber_kink_density` は 1 本のキンク数を
-    これで割り、GUI03 は画像またはフォルダの総キンク数をこの合計で割る。2 つの
+    これで割り、GUI03 は画像の総キンク数をこの合計で割る。2 つの
     密度の違いはまとめ方だけになる。各部分を除く理由は `fiber_kink_density` に
     書いてある。
 
@@ -1908,9 +1908,9 @@ def fiber_kink_density(stat: FiberStats) -> float:
     キンクは数え、分母から除くのは橋渡し部の長さだけである。
 
     The divisor is `fiber_judged_length_um`, which GUI03 also sums when it
-    pools the kinks of an image or a folder.
-    分母は `fiber_judged_length_um` であり、GUI03 が画像やフォルダのキンクを
-    まとめるときもこれを合計する。
+    pools the kinks of an image.
+    分母は `fiber_judged_length_um` であり、GUI03 が画像のキンクをまとめるときも
+    これを合計する。
 
     A fiber with no kink is a valid zero: zero kinks over a judged length is a
     real density, not a missing measurement, whereas such a fiber has no kink

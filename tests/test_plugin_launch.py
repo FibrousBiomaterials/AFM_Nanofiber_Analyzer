@@ -53,6 +53,35 @@ def test_main_hands_the_arguments_after_the_module_to_the_plugin(monkeypatch):
     assert seen == [("guis.GUI02_PlotProfiler", ["x.b2z"])]
 
 
+def test_paths_travel_through_a_list_file(tmp_path):
+    """
+    A list file carries any number of paths, non-ASCII ones included, and is removed once read.
+    一覧ファイルは任意の数のパスを運ぶ。非 ASCII のパスも運び、読んだら消える。
+
+    A command line holds a limited number of characters, so GUI01 and GUI05
+    hand GUI03 its bundles through a file; paths given as plain arguments are
+    read by the same call.
+    コマンドラインに入る文字数には上限があるため、GUI01 と GUI05 は GUI03 へ
+    バンドルをファイルで渡す。パスをそのまま引数に書いた場合も、同じ呼び出しで読む。
+    """
+    paths = [str(tmp_path / ("scan %03d 試料.b2z" % i)) for i in range(400)]
+    args = plugin_launch.path_list_arguments(paths)
+    assert args[0] == plugin_launch.PATH_LIST_FLAG and len(args) == 2
+    assert Path(args[1]).is_file()
+    # Longer than a Windows command line can be.
+    # Windows のコマンドラインに入る長さを超えている。
+    assert sum(len(p) + 1 for p in paths) > 32767
+
+    assert plugin_launch.read_path_arguments(["first.b2z"] + args + ["last.b2z"]) == (
+        ["first.b2z"] + paths + ["last.b2z"])
+    assert not Path(args[1]).exists()
+
+    # A list file that is gone contributes nothing; plain arguments still arrive.
+    # 無くなった一覧ファイルは何も加えない。そのままの引数は届く。
+    assert plugin_launch.read_path_arguments(args + ["plain.b2z"]) == ["plain.b2z"]
+    assert plugin_launch.read_path_arguments([]) == []
+
+
 class _FakeWindow:
     """Window that maps after a number of polls, recording scheduled calls."""
 

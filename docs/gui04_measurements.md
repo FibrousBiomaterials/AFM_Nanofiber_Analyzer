@@ -859,7 +859,7 @@ synthetic and real scans, is in [Evaluation on particular data](validation.md)
 §4.2–§4.3.
 Re-analyzing the same images with another centerline compares the centerlines,
 not the specimens: every length, height and kink changes with it. GUI03
-therefore names the centerlines of each folder whenever one of them is not the
+therefore names the centerlines of each group whenever one of them is not the
 default.
 
 ## 3. The fiber table
@@ -1323,7 +1323,7 @@ $$
 
 The divisor is the **judged** length, computed by
 `measure.fiber_judged_length_um`; GUI03 sums the same length when it pools the
-kinks of an image or a folder. The kink rule does not judge a bend within
+kinks of an image. The kink rule does not judge a bend within
 1.5 W of either end, so dividing by the whole contour would bias the density
 low, most of all on dense specimens with many short fragments. A fiber shorter
 than 3 W had nothing judged and is blank. A fiber with no kink over a judged

@@ -609,25 +609,6 @@ def test_gui04_a_saved_sidecar_is_restored_on_load(tk_app, tmp_path):
     assert str(app._btn_save_curation.cget("state")) == "disabled"
 
 
-def test_gui03_offers_connection_only_for_bundle_input(tk_app):
-    """
-    The connect switch is disabled for fiber CSV input, like the exclusion one.
-    ファイバー CSV 入力では、除外と同様に連結スイッチも無効になる。
-
-    A CSV was exported from the population GUI04 was displaying, so its
-    connection state is already baked into the rows.
-    CSV は GUI04 が表示していた母集団から出力されているため、連結状態は既に行へ
-    反映されている。
-    """
-    app = tk_app(gui03.App)
-    assert str(app.chk_connection.cget("state")) == "normal"
-
-    app.input_var.set(gui03.INPUT_FIBER_CSV)
-    app._on_input_change()
-    assert str(app.chk_connection.cget("state")) == "disabled"
-    assert str(app.chk_exclusions.cget("state")) == "disabled"
-
-
 def test_gui04_reanalysis_keeps_unsaved_exclusions(tk_app, monkeypatch):
     """
     Re-analyzing the loaded dataset carries its exclusions through untouched.
@@ -794,14 +775,19 @@ def test_gui01_hand_over_buttons_follow_the_preview(
     tk_app, isolated_gui01_settings, tmp_path, monkeypatch
 ):
     """
-    GUI02/GUI04 open the bundle on screen; GUI03 opens the folder.
-    GUI02/GUI04 は画面上のバンドルを、GUI03 はフォルダを開く。
+    GUI02/GUI04 open the bundle on screen; GUI03 opens the folder's bundles.
+    GUI02/GUI04 は画面上のバンドルを、GUI03 はフォルダのバンドルを開く。
 
     The buttons are off without something to hand over and while an analysis
     may be rewriting it, so they never pass a file the user is not looking at.
+    GUI03 is handed every bundle directly inside the folder through a list
+    file, and nothing else that sits there.
     渡すものが無いとき、および解析がそれを書き換えうる間は押せない。ユーザーが
-    見ていないファイルを渡すことはない。
+    見ていないファイルを渡すことはない。GUI03 には、フォルダ直下の全バンドルを
+    一覧ファイルで渡し、そこにある他のファイルは渡さない。
     """
+    from lib import plugin_launch
+
     launched = []
     monkeypatch.setattr(
         gui01, "launch_plugin", lambda module, args=(): launched.append((module, list(args)))
@@ -826,15 +812,23 @@ def test_gui01_hand_over_buttons_follow_the_preview(
     app._update_controls_state()
     assert enabled() == (True, True, True)
 
+    bundle = str(tmp_path / "scan") + gui01.BUNDLE_EXT
+    other = str(tmp_path / "other_r0-256") + gui01.BUNDLE_EXT
+    for path in (bundle, other, str(tmp_path / "scan_param.json")):
+        with open(path, "wb"):
+            pass
+
     app.btn_open_gui04.invoke()
     app.btn_open_gui02.invoke()
     app.btn_open_gui03.invoke()
-    bundle = str(tmp_path / "scan") + gui01.BUNDLE_EXT
-    assert launched == [
+    assert launched[:2] == [
         (gui01.TRACKER_MODULE, [bundle]),
         (gui01.PROFILER_MODULE, [bundle]),
-        (gui01.STATISTICS_MODULE, [str(tmp_path)]),
     ]
+    module, args = launched[2]
+    assert module == gui01.STATISTICS_MODULE
+    assert args[0] == plugin_launch.PATH_LIST_FLAG
+    assert plugin_launch.read_path_arguments(args) == [other, bundle]
 
     app.is_running = True
     app._update_controls_state()
@@ -880,21 +874,102 @@ def test_gui01_font_sizes_are_set_in_their_own_window(
     assert float(app.ent_label_fs.get()) == app.fs_label
 
 
-def test_gui03_registers_a_handed_over_folder(tk_app, tmp_path, silence_dialogs):
+def test_gui03_registers_handed_over_bundles(tk_app, tmp_path, silence_dialogs):
     """
-    The folder GUI01 hands over joins the group GUI03 starts with.
-    GUI01 から渡されたフォルダは、GUI03 の起動時のグループに登録される。
+    The bundles GUI01 or GUI05 hands over join the group GUI03 starts with.
+    GUI01 や GUI05 から渡されたバンドルは、GUI03 の起動時のグループに登録される。
+
+    A path that is not an existing bundle, and a bundle the group already
+    holds, are left out with a line in the log and no dialog, so one wrong
+    path among many does not stop the rest from being registered.
+    存在するバンドルではないパスと、グループが既に持つバンドルは、ダイアログを
+    出さずログに 1 行出して追加しない。多数のうち 1 つのパスが誤っていても、残りの
+    登録は止まらない。
     """
     calls = silence_dialogs(gui03)
     app = tk_app(gui03.App)
     group = app.groups[0]
+    first = tmp_path / ("a" + gui03.BUNDLE_EXT)
+    second = tmp_path / ("b" + gui03.BUNDLE_EXT)
+    for path in (first, second, tmp_path / "notes.txt"):
+        path.write_bytes(b"")
 
-    app.add_folder(group, str(tmp_path))
-    assert group.folder_paths == [os.path.normpath(str(tmp_path))]
+    app.add_files(group, [str(first), str(tmp_path), str(tmp_path / "notes.txt"),
+                          str(tmp_path / ("missing" + gui03.BUNDLE_EXT)),
+                          str(second)])
+    assert group.files == [os.path.normpath(str(first)), os.path.normpath(str(second))]
+    assert app.tree.get_children(group.id) == tuple(
+        app._file_iid(group, path) for path in group.files)
+    assert app.tree.set(group.id, "count") == "2"
 
-    app.add_folder(group, str(tmp_path / "missing"))
-    assert len(group.folder_paths) == 1
-    assert [kind for kind, _t, _m in calls] == ["showerror"]
+    # The same file given with other separators and letter case is the same file.
+    # 区切り文字や大文字小文字が違っても、同じファイルは同じファイルである。
+    app.add_files(group, [str(first).replace("\\", "/").upper()
+                          if os.name == "nt" else str(first)])
+    assert len(group.files) == 2
+    assert calls == []
+
+
+def test_gui03_moves_files_between_groups(tk_app, tmp_path):
+    """
+    Moving file rows re-registers them in the target group and marks the result stale.
+    ファイル行を移すと、移動先のグループに登録し直され、表示中の結果に古い旨の印が付く。
+
+    A file the target already holds stays where it is, because a group that
+    held one bundle twice would be refused by the run.
+    移動先が既に持つファイルは動かさない。1 つのバンドルを二重に持つグループは、
+    実行で拒否されるためである。
+    """
+    app = tk_app(gui03.App)
+    source = app.groups[0]
+    target = app._add_group_internal("Group 2")
+    paths = []
+    for name in ("a", "b", "c"):
+        path = tmp_path / (name + gui03.BUNDLE_EXT)
+        path.write_bytes(b"")
+        paths.append(os.path.normpath(str(path)))
+    app.add_files(source, paths)
+    app.add_files(target, paths[2:])
+    app._has_result = True
+
+    rows = [(app._file_iid(source, p), source, p) for p in paths]
+    app.move_files(rows, target)
+
+    assert source.files == paths[2:]
+    assert target.files == [paths[2], paths[0], paths[1]]
+    assert app.tree.get_children(source.id) == (app._file_iid(source, paths[2]),)
+    assert app.tree.get_children(target.id) == tuple(
+        app._file_iid(target, p) for p in target.files)
+    assert set(app.tree.selection()) == {
+        app._file_iid(target, paths[0]), app._file_iid(target, paths[1])}
+    assert app.stale_var.get() != ""
+
+
+def test_gui03_statistics_window_is_hidden_not_destroyed(tk_app):
+    """
+    The statistics window opens from its button and survives being closed.
+    統計ウィンドウはボタンから開き、閉じても破棄されない。
+
+    The tables live in it, so a run fills them whether it is shown or not and
+    reopening shows the latest result.
+    表はこのウィンドウにあるため、表示の有無にかかわらず実行のたびに埋まり、開き
+    直せば最新の結果が見える。
+    """
+    app = tk_app(gui03.App)
+    window = app.stats_window
+    assert window.state() == "withdrawn"
+    assert str(app.btn_stats.cget("state")) == "disabled"
+    assert app.result_tree.winfo_toplevel() is window
+    assert app.comparison_tree.winfo_toplevel() is window
+
+    app.btn_stats.configure(state="normal")
+    app.btn_stats.invoke()
+    app.update_idletasks()
+    assert window.state() == "normal"
+
+    window.tk.call(window.protocol("WM_DELETE_WINDOW"))
+    assert window.state() == "withdrawn"
+    assert window.winfo_exists()
 
 
 def test_gui04_undoing_every_exclusion_leaves_nothing_unsaved(tk_app, monkeypatch):
@@ -967,7 +1042,7 @@ def test_gui03_worker_stops_when_bin_edges_fail(tk_app, tmp_path, monkeypatch):
 
     folder = tmp_path / "bundles"
     folder.mkdir()
-    # _find_pairs only filters on the extension; the contents never get read
+    # The worker only checks that the file exists; the contents never get read
     # because _collect_bundle_values is replaced below.
     (folder / ("sample" + gui03.BUNDLE_EXT)).write_bytes(b"")
 
@@ -984,11 +1059,10 @@ def test_gui03_worker_stops_when_bin_edges_fail(tk_app, tmp_path, monkeypatch):
     app._worker_run({
         "groups": [{
             "id": "g", "name": "G", "color": "#1f77b4",
-            "folders": [str(folder)],
+            "files": _gui03_bundles(folder),
         }],
         "param": gui03.PARAM_HEIGHT,
         "unit": gui03.UNIT_PIXEL,
-        "input_mode": gui03.INPUT_BUNDLE,
         "apply_exclusions": False,
         "apply_connection": False,
         "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
@@ -1055,19 +1129,29 @@ def test_gui03_non_fatal_notices_stay_in_the_log(tk_app, silence_dialogs):
     assert "notice two" in log
 
 
-def _gui03_run_args(folders_by_group, input_mode=None, **overrides):
+def _gui03_bundles(folder):
+    """
+    Return the bundle files directly inside a folder, as one group's file list.
+    フォルダ直下のバンドルファイルを、1 グループ分のファイル一覧として返す。
+    """
+    return sorted(
+        os.path.join(str(folder), name) for name in os.listdir(str(folder))
+        if name.endswith(gui03.BUNDLE_EXT)
+    )
+
+
+def _gui03_run_args(files_by_group, **overrides):
     """
     Build the minimal argument dict of a GUI03 worker run.
     GUI03 ワーカー実行の最小の引数辞書を作る。
     """
     args = {
         "groups": [
-            {"id": name, "name": name, "color": "#1f77b4", "folders": folders}
-            for name, folders in folders_by_group
+            {"id": name, "name": name, "color": "#1f77b4", "files": files}
+            for name, files in files_by_group
         ],
         "param": gui03.PARAM_HEIGHT,
         "unit": gui03.UNIT_FIBER,
-        "input_mode": input_mode or gui03.INPUT_BUNDLE,
         "apply_exclusions": False,
         "apply_connection": False,
         "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
@@ -1115,16 +1199,15 @@ def test_gui03_finds_analyses_of_the_same_scan_lines(tmp_path):
     1 つの入力ファイルの同じ走査線を解析した 2 つの結果を組として報告する。
 
     GUI01 keeps the whole-image bundle when a scan is later analyzed as
-    scan-line ranges, so a folder can hold both; pooled, every fiber of the
+    scan-line ranges, so a group can hold both; pooled, every fiber of the
     overlap is counted twice (116 fibers read as 190 on a test scan). Ranges
     that do not intersect are two images and must not be reported.
     GUI01 は走査を後から走査線範囲で解析しても画像全体のバンドルを残すため、1 つの
-    フォルダに両方が並びうる。まとめると重なった部分の繊維をすべて二度数える
+    グループに両方が入りうる。まとめると重なった部分の繊維をすべて二度数える
     （試験走査で 116 本が 190 本になった）。交わらない範囲は 2 枚の画像であり、
     報告してはならない。
     """
     find = gui03.App._overlapping_inputs
-    bundle = gui03.INPUT_BUNDLE
 
     _range_bundle(tmp_path / "scan.b2z", "a")
     _range_bundle(tmp_path / "scan_r0-512.b2z", "a", (0, 512))
@@ -1135,7 +1218,7 @@ def test_gui03_finds_analyses_of_the_same_scan_lines(tmp_path):
     (tmp_path / "broken.b2z").write_bytes(b"")
 
     def names(paths):
-        pairs, by_name = find([str(tmp_path / p) for p in paths], bundle)
+        pairs, by_name = find([str(tmp_path / p) for p in paths])
         return {tuple(sorted(os.path.basename(p) for p in pair))
                 for pair in pairs}, by_name
 
@@ -1147,16 +1230,13 @@ def test_gui03_finds_analyses_of_the_same_scan_lines(tmp_path):
     assert names(["other.b2z", "copy.b2z"])[0] == {("copy.b2z", "other.b2z")}
     assert names(["scan.b2z", "other.b2z", "broken.b2z"]) == (set(), 0)
 
-    # A fiber CSV records no input file, so its name is all there is.
-    # ファイバー CSV には入力ファイルの記録が無く、手掛かりは名前だけである。
-    csv = gui03.INPUT_FIBER_CSV
-    pairs, by_name = find(["s_fibers.csv", "s_r0-512_fibers.csv",
-                           "s_r512-1024_fibers.csv", "t_fibers.csv"], csv)
-    assert {tuple(sorted(p)) for p in pairs} == {
-        ("s_fibers.csv", "s_r0-512_fibers.csv"),
-        ("s_fibers.csv", "s_r512-1024_fibers.csv"),
-    }
-    assert by_name == 4
+    # A bundle that records no input file is traced to it by its name alone.
+    # 入力ファイルの記録が無いバンドルは、名前だけで入力ファイルを突き止める。
+    _range_bundle(tmp_path / "old.b2z", None)
+    _range_bundle(tmp_path / "old_r0-512.b2z", None, (0, 512))
+    _range_bundle(tmp_path / "old_r512-1024.b2z", None, (512, 1024))
+    assert names(["old.b2z", "old_r0-512.b2z", "old_r512-1024.b2z"]) == (
+        {("old.b2z", "old_r0-512.b2z"), ("old.b2z", "old_r512-1024.b2z")}, 3)
 
 
 def test_gui03_worker_refuses_a_group_with_overlapping_analyses(
@@ -1182,7 +1262,7 @@ def test_gui03_worker_refuses_a_group_with_overlapping_analyses(
     overlapping.mkdir()
     _range_bundle(overlapping / "scan.b2z", "a")
     _range_bundle(overlapping / "scan_r0-512.b2z", "a", (0, 512))
-    app._worker_run(_gui03_run_args([("G", [str(overlapping)])]))
+    app._worker_run(_gui03_run_args([("G", _gui03_bundles(overlapping))]))
     kinds = [kind for kind, _body in _gui03_drain(app)]
     assert kinds.count("fatal") == 1
     assert "done" not in kinds
@@ -1192,7 +1272,7 @@ def test_gui03_worker_refuses_a_group_with_overlapping_analyses(
     disjoint.mkdir()
     _range_bundle(disjoint / "scan_r0-512.b2z", "a", (0, 512))
     _range_bundle(disjoint / "scan_r512-1024.b2z", "a", (512, 1024))
-    app._worker_run(_gui03_run_args([("G", [str(disjoint)])]))
+    app._worker_run(_gui03_run_args([("G", _gui03_bundles(disjoint))]))
     kinds = [kind for kind, _body in _gui03_drain(app)]
     assert "fatal" not in kinds
     assert "done" in kinds
@@ -1220,7 +1300,7 @@ def test_gui03_histogram_reaches_the_entered_maximum(
         lambda paths, param, unit, **kwargs: ([0.5, 9.9, 10.0], None, 3, 1, []),
     )
 
-    app._worker_run(_gui03_run_args([("G", [str(folder)])]))
+    app._worker_run(_gui03_run_args([("G", _gui03_bundles(folder))]))
     done = [body for kind, body in _gui03_drain(app) if kind == "done"]
     assert len(done) == 1
     assert done[0]["edges"][-1] == 10.0
@@ -1230,7 +1310,7 @@ def test_gui03_histogram_reaches_the_entered_maximum(
     # 割合を含む通知は範囲外の割合だけである。
     assert not [e for e in done[0]["errors"] if "%" in e]
 
-    app._worker_run(_gui03_run_args([("G", [str(folder)])], step=0.3))
+    app._worker_run(_gui03_run_args([("G", _gui03_bundles(folder))], step=0.3))
     done = [body for kind, body in _gui03_drain(app) if kind == "done"]
     assert done[0]["edges"][-1] >= 10.0
     assert done[0]["results"][0]["n_in_range"] == 3.0
@@ -1370,7 +1450,7 @@ def test_gui03_and_gui04_agree_on_the_kink_quantities():
         fiber_kink_density(stat)
     )
     assert gui03._fiber_value(stat, gui03.PARAM_KINK_ANGLE) is None
-    for unit in (gui03.UNIT_KINK, gui03.UNIT_IMAGE, gui03.UNIT_FOLDER):
+    for unit in (gui03.UNIT_KINK, gui03.UNIT_IMAGE):
         assert gui03._fiber_samples(stat, gui03.PARAM_KINK_ANGLE, unit) == [
             100.0, 120.0, 170.0]
     assert gui03.UNIT_FIBER not in gui03.PARAM_SPECS[gui03.PARAM_KINK_ANGLE]["units"]
@@ -1399,10 +1479,10 @@ def _kink_stat(length_nm, angles):
     )
 
 
-def test_gui03_pools_kinks_per_image_and_folder():
+def test_gui03_pools_kinks_per_image():
     """
-    Image and folder units pool kinks rather than summarizing per fiber.
-    画像・フォルダ単位はファイバーごとに要約せず、キンクをまとめる。
+    The image unit pools kinks rather than summarizing per fiber.
+    画像単位はファイバーごとに要約せず、キンクをまとめる。
 
     Kink density divides the pooled count by the pooled judged length, so an
     image whose kinkless fibers outnumber the kinked ones still reads the kinks
@@ -1426,30 +1506,22 @@ def test_gui03_pools_kinks_per_image_and_folder():
     assert values == [pytest.approx(1.0), pytest.approx(0.25)]
     assert weights is None and (n_fibers, n_images) == (5, 2)
 
-    values, _w, n_fibers, n_images = gui03.App._values_from_fiber_stats(
-        per_source, gui03.PARAM_KINK_DENSITY, gui03.UNIT_FOLDER)
-    assert values == [pytest.approx(4 / 7)]
-    assert (n_fibers, n_images) == (5, 2)
-
     values, _w, n_fibers, _m = gui03.App._values_from_fiber_stats(
         per_source, gui03.PARAM_KINK_ANGLE, gui03.UNIT_IMAGE)
     assert values == [160.0, 90.0]
     assert n_fibers == 2
-    values, _w, _n, _m = gui03.App._values_from_fiber_stats(
-        per_source, gui03.PARAM_KINK_ANGLE, gui03.UNIT_FOLDER)
-    assert values == [pytest.approx(155.0)]
 
-    # A folder value pools every fiber of the folder, not the image medians.
-    # フォルダの値は画像の中央値ではなく、フォルダの全ファイバーをまとめる。
+    # An image value is the median of the image's fibers, one value per image.
+    # 画像の値はその画像のファイバーの中央値で、画像 1 枚につき 1 つである。
     lengths = [("a.b2z", [_kink_stat(v, ()) for v in (100.0, 200.0, 900.0)]),
                ("b.b2z", [_kink_stat(v, ()) for v in (300.0, 400.0)])]
     values, _w, n_fibers, n_images = gui03.App._values_from_fiber_stats(
-        lengths, gui03.PARAM_LENGTH, gui03.UNIT_FOLDER)
-    assert values == [300.0] and (n_fibers, n_images) == (5, 2)
+        lengths, gui03.PARAM_LENGTH, gui03.UNIT_IMAGE)
+    assert values == [200.0, 350.0] and (n_fibers, n_images) == (5, 2)
     values, _w, n_fibers, n_images = gui03.App._curvature_values(
         [("a.b2z", np.array([1.0, 2.0, np.nan])), ("b.b2z", np.array([9.0]))],
-        gui03.UNIT_FOLDER)
-    assert values == [2.0] and (n_fibers, n_images) == (3, 2)
+        gui03.UNIT_IMAGE)
+    assert values == [1.5, 9.0] and (n_fibers, n_images) == (3, 2)
 
 
 def test_gui03_standard_deviation_is_the_sample_one():
@@ -1469,23 +1541,26 @@ def test_gui03_standard_deviation_is_the_sample_one():
     assert weighted["std_definition"] == gui03.STD_WEIGHTED
 
 
-def test_gui03_tests_folders_and_warns_at_fiber_and_image():
+def test_gui03_tests_images_and_warns_at_fiber():
     """
-    Folder samples are testable, and the other two testable units carry a note.
-    フォルダの標本は検定でき、他の検定可能な 2 単位には注意書きが付く。
+    Image samples are testable, and the fiber unit carries a note pointing at them.
+    画像の標本は検定でき、fiber 単位には image 単位を案内する注意書きが付く。
+
+    Every quantity can be aggregated per image, so the unit the note points
+    at is always on offer.
+    どの計測量も画像単位で集計できるため、注意書きが案内する単位は常に選べる。
     """
-    assert gui03.UNIT_FOLDER in gui03.TESTABLE_UNITS
+    assert gui03.TESTABLE_UNITS == (gui03.UNIT_FIBER, gui03.UNIT_IMAGE)
     for spec in gui03.PARAM_SPECS.values():
-        assert gui03.UNIT_FOLDER in spec["units"]
-    assert gui03._comparison_caveat(gui03.UNIT_FOLDER) == ""
-    for unit in (gui03.UNIT_FIBER, gui03.UNIT_IMAGE):
-        assert gui03.UNIT_FOLDER in gui03._comparison_caveat(unit)
+        assert gui03.UNIT_IMAGE in spec["units"]
+    assert gui03._comparison_caveat(gui03.UNIT_IMAGE) == ""
+    assert gui03.UNIT_IMAGE in gui03._comparison_caveat(gui03.UNIT_FIBER)
 
 
 def test_gui03_names_pairs_too_small_to_reach_significance():
     """
-    A pair of three folders against three is named; four against four is not.
-    3 フォルダ対 3 フォルダのペアは挙げ、4 対 4 は挙げない。
+    A pair of three samples against three is named; four against four is not.
+    3 標本対 3 標本のペアは挙げ、4 対 4 は挙げない。
     """
     from lib.group_compare import compare_groups
 
@@ -1784,18 +1859,18 @@ def test_gui03_kaplan_meier_summary_leaves_what_it_cannot_place_blank():
     assert whole == dict(gui03._summary_stats(values, weights), bounds={})
 
 
-def test_gui03_kaplan_meier_places_each_folders_share_beyond_its_own_fiber():
+def test_gui03_kaplan_meier_places_each_estimates_share_beyond_its_own_fiber():
     """
-    A folder's unplaced share lies beyond that folder's longest fiber, not the group's.
-    フォルダの置けなかった分は、グループではなくそのフォルダの最長のファイバーより先にある。
+    An estimate's unplaced share lies beyond that estimate's longest fiber, not the pooled one.
+    推定の置けなかった分は、まとめた全体ではなくその推定の最長のファイバーより先にある。
 
-    One folder saw a fiber of 100 nm whole and places one more fiber beyond
+    One estimate saw a fiber of 100 nm whole and places one more fiber beyond
     it; another saw a fiber of 300 nm whole and places nothing beyond. The
     unplaced fiber may be as short as just over 100 nm, so the median lies
     anywhere from 100 to 300 nm and the upper quartile anywhere above 200 nm;
     reading the share as lying beyond 300 nm would report a median of 300 nm
     and an upper quartile above 300 nm.
-    一方のフォルダは 100 nm のファイバーを全長で見て、その先にさらに 1 本を置く。
+    一方の推定は 100 nm のファイバーを全長で見て、その先にさらに 1 本を置く。
     もう一方は 300 nm のファイバーを全長で見て、先には何も置かない。置けなかった
     1 本は 100 nm をわずかに超えるだけかもしれないため、中央値は 100〜300 nm の
     どこか、上側四分位数は 200 nm より先のどこかにある。その分を 300 nm より先に
@@ -1829,15 +1904,15 @@ def test_gui03_kaplan_meier_interval_is_reproducible_and_spans_the_bounds():
         samples.append((lengths, own))
     first = gui03._kaplan_meier_interval(samples, resamples=50)
     assert first == gui03._kaplan_meier_interval(samples, resamples=50)
-    values, weights, folders = [], [], []
+    values, weights, estimates = [], [], []
     for lengths, own in samples:
         w, rest = gui03.kaplan_meier_length_weights(lengths, own)
         keep = (own == 2) & (w > 0.0)
         values.append(lengths[keep])
         weights.append(w[keep])
-        folders.append((float(lengths[own == 2].max()), rest * own.sum() / 2.0))
+        estimates.append((float(lengths[own == 2].max()), rest * own.sum() / 2.0))
     bounds = gui03._kaplan_meier_bounds(
-        np.concatenate(values), np.concatenate(weights), folders)
+        np.concatenate(values), np.concatenate(weights), estimates)
     for key in ("q1", "median", "q3"):
         assert first[key][0] <= bounds[key][0] + 1e-9
         assert first[key][1] >= bounds[key][1] - 1e-9
@@ -1878,12 +1953,11 @@ def test_gui03_weights_fiber_kink_density_by_judged_length(tk_app, tmp_path, mon
                         lambda *a, **k: (values, weights, 3, 1, []))
     app._worker_run({
         "groups": [
-            {"id": n, "name": n, "color": "#1f77b4", "folders": [f]}
+            {"id": n, "name": n, "color": "#1f77b4", "files": _gui03_bundles(f)}
             for n, f in zip(("A", "B"), folders)
         ],
         "param": gui03.PARAM_KINK_DENSITY,
         "unit": gui03.UNIT_FIBER,
-        "input_mode": gui03.INPUT_BUNDLE,
         "apply_exclusions": False,
         "apply_connection": False,
         "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
@@ -1937,12 +2011,11 @@ def test_gui03_frame_weighted_run_reports_fibers_and_skips_tests(
     monkeypatch.setattr(app, "_collect_bundle_values", _collect)
     app._worker_run({
         "groups": [
-            {"id": n, "name": n, "color": "#1f77b4", "folders": [f]}
+            {"id": n, "name": n, "color": "#1f77b4", "files": _gui03_bundles(f)}
             for n, f in zip(("A", "B"), folders)
         ],
         "param": gui03.PARAM_LENGTH,
         "unit": gui03.UNIT_FIBER,
-        "input_mode": gui03.INPUT_BUNDLE,
         "apply_exclusions": False,
         "apply_connection": False,
         "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
@@ -1965,13 +2038,12 @@ def test_gui03_frame_weighted_run_reports_fibers_and_skips_tests(
     assert seen["frame_mode"] == gui03.FRAME_MILES_LANTUEJOUL
     assert done["comparisons"] == []
     assert gui03.FRAME_MILES_LANTUEJOUL in done["comparison_note"]
-    # The way to a test keeps the correction: it names the summary units, not
+    # The way to a test keeps the correction: it names the image unit, not
     # the mode whose bias the correction exists to remove.
-    # 検定への道は補正を保つ。案内するのは要約単位であり、補正が取り除くはずの
+    # 検定への道は補正を保つ。案内するのは image 単位であり、補正が取り除くはずの
     # 偏りを持つモードではない。
     assert gui03.FRAME_EXCLUDE not in done["comparison_note"]
     assert gui03.UNIT_IMAGE in done["comparison_note"]
-    assert gui03.UNIT_FOLDER in done["comparison_note"]
     r = done["results"][0]
     assert r["n_samples"] == 3.0
     assert r["weight_total"] == pytest.approx(4.5)
@@ -2095,12 +2167,11 @@ def test_gui03_worker_does_not_test_across_centerlines(
         lambda paths, param, unit, **kw: ([1.0, 2.0, 3.0], None, 3, 3, []))
     app._worker_run({
         "groups": [
-            {"id": n, "name": n, "color": "#1f77b4", "folders": [f]}
+            {"id": n, "name": n, "color": "#1f77b4", "files": _gui03_bundles(f)}
             for n, f in zip(("A", "B"), folders)
         ],
         "param": param,
         "unit": gui03.UNIT_IMAGE,
-        "input_mode": gui03.INPUT_BUNDLE,
         "apply_exclusions": False,
         "apply_connection": False,
         "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
@@ -2170,12 +2241,11 @@ def test_gui03_worker_does_not_test_kinks_of_different_thresholds(
         lambda paths, param, unit, **kw: ([1.0, 2.0, 3.0], None, 3, 3, []))
     app._worker_run({
         "groups": [
-            {"id": n, "name": n, "color": "#1f77b4", "folders": [f]}
+            {"id": n, "name": n, "color": "#1f77b4", "files": _gui03_bundles(f)}
             for n, f in zip(("A", "B"), folders)
         ],
         "param": gui03.PARAM_KINK_DENSITY,
         "unit": gui03.UNIT_IMAGE,
-        "input_mode": gui03.INPUT_BUNDLE,
         "apply_exclusions": False,
         "apply_connection": False,
         "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
@@ -2225,12 +2295,11 @@ def test_gui03_include_reports_the_share_cut_by_the_frame(
     monkeypatch.setattr(app, "_collect_bundle_values", _collect)
     app._worker_run({
         "groups": [
-            {"id": n, "name": n, "color": "#1f77b4", "folders": [f]}
+            {"id": n, "name": n, "color": "#1f77b4", "files": _gui03_bundles(f)}
             for n, f in zip(("A", "B"), folders)
         ],
         "param": gui03.PARAM_LENGTH,
         "unit": gui03.UNIT_FIBER,
-        "input_mode": gui03.INPUT_BUNDLE,
         "apply_exclusions": False,
         "apply_connection": False,
         "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
@@ -2253,18 +2322,17 @@ def test_gui03_include_reports_the_share_cut_by_the_frame(
     assert [r["frame_share"] for r in done["results"]] == [share, share]
 
 
-@pytest.mark.parametrize("unit", [gui03.UNIT_IMAGE, gui03.UNIT_FOLDER])
-def test_gui03_frame_weighted_summary_units_are_tested(
-        tk_app, tmp_path, monkeypatch, unit):
+def test_gui03_frame_weighted_image_unit_is_tested(
+        tk_app, tmp_path, monkeypatch):
     """
-    Miles-Lantuejoul at the image and folder units is tested as corrected.
-    image・folder 単位の Miles-Lantuejoul は補正したまま検定する。
+    Miles-Lantuejoul at the image unit is tested as corrected.
+    image 単位の Miles-Lantuejoul は補正したまま検定する。
 
-    Each sample is the weighted median of one scan or folder, an unweighted
-    value, so the rank tests apply to it.
-    各標本は 1 画像または 1 フォルダの重み付き中央値という重みのない値なので、
-    順位検定を適用できる。
+    Each sample is the weighted median of one scan, an unweighted value, so
+    the rank tests apply to it.
+    各標本は 1 画像の重み付き中央値という重みのない値なので、順位検定を適用できる。
     """
+    unit = gui03.UNIT_IMAGE
     app = tk_app(gui03.App)
     folders = []
     for name in ("A", "B"):
@@ -2281,12 +2349,11 @@ def test_gui03_frame_weighted_summary_units_are_tested(
     monkeypatch.setattr(app, "_collect_bundle_values", _collect)
     app._worker_run({
         "groups": [
-            {"id": n, "name": n, "color": "#1f77b4", "folders": [f]}
+            {"id": n, "name": n, "color": "#1f77b4", "files": _gui03_bundles(f)}
             for n, f in zip(("A", "B"), folders)
         ],
         "param": gui03.PARAM_LENGTH,
         "unit": unit,
-        "input_mode": gui03.INPUT_BUNDLE,
         "apply_exclusions": False,
         "apply_connection": False,
         "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
@@ -3020,6 +3087,48 @@ def test_gui05_opens_the_selected_bundles_in_another_gui(gui05_app, tmp_path,
     answer["ok"] = True
     app.on_open_selected_in(gui05.TRACKER_MODULE, "GUI04")
     assert [module for module, _args in launched] == [gui05.TRACKER_MODULE] * 4
+
+
+def test_gui05_opens_the_selection_in_one_gui03_window(gui05_app, tmp_path,
+                                                       monkeypatch):
+    """
+    Every selected bundle goes to one GUI03 window, through a list file.
+    選択した全バンドルは、一覧ファイルを通して 1 つの GUI03 ウィンドウへ渡る。
+
+    GUI03 aggregates a group together, so the selection is one launch whatever
+    its size, without the question the per-bundle windows ask first, and the
+    unreadable file is left out.
+    GUI03 はグループをまとめて集計するため、選択の件数にかかわらず起動は 1 回で、
+    バンドルごとにウィンドウを開くときの確認は出さない。読めないファイルは渡さない。
+    """
+    from lib import plugin_launch
+
+    for name in ("a.b2z", "b.b2z", "c.b2z", "d.b2z"):
+        _write_gui05_bundle(tmp_path / name)
+    (tmp_path / "broken.b2z").write_text("not a bundle", encoding="utf-8")
+    launched = []
+    asked = []
+    monkeypatch.setattr(gui05, "launch_plugin",
+                        lambda module, args: launched.append((module, list(args))))
+    monkeypatch.setattr(gui05.messagebox, "askokcancel",
+                        lambda *a, **k: asked.append(a) or True)
+    app = gui05_app
+    app.add_paths([str(tmp_path)])
+    _gui05_idle(app)
+
+    app.on_open_selected_in_statistics()
+    assert not launched
+
+    app._on_select_all()
+    app.on_open_selected_in_statistics()
+    assert not asked
+    assert len(launched) == 1
+    module, args = launched[0]
+    assert module == gui05.STATISTICS_MODULE
+    assert args[0] == plugin_launch.PATH_LIST_FLAG
+    assert plugin_launch.read_path_arguments(args) == [
+        os.path.abspath(str(tmp_path / name))
+        for name in ("a.b2z", "b.b2z", "c.b2z", "d.b2z")]
 
 
 def test_gui05_sheet_carries_the_bars_shown_on_the_screen(gui05_app, tmp_path,

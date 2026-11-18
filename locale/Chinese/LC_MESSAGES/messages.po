@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-11-17 13:52+0900\n"
+"POT-Creation-Date: 2026-11-18 14:23+0900\n"
 "PO-Revision-Date: 2026-04-27 14:35+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh\n"
@@ -43,7 +43,7 @@ msgstr "转换对象：扩展名不是 {skipped} 的文件。输出：同一文�
 msgid "ファイル"
 msgstr "文件"
 
-#: guis/GUI00_Format_Converter.py:157 guis/GUI01_Image_Preprocessor.py:1330
+#: guis/GUI00_Format_Converter.py:157 guis/GUI01_Image_Preprocessor.py:1320
 msgid "状態"
 msgstr "状态"
 
@@ -55,13 +55,13 @@ msgstr "读取所用的 Gwyddion 模块"
 msgid "詳細"
 msgstr "详情"
 
-#: guis/GUI00_Format_Converter.py:174 guis/GUI05_Thumbnail_Viewer.py:1637
+#: guis/GUI00_Format_Converter.py:174 guis/GUI05_Thumbnail_Viewer.py:1605
 msgid "ログ"
 msgstr "日志"
 
-#: guis/GUI00_Format_Converter.py:178 guis/GUI01_Image_Preprocessor.py:1608
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2149
-#: guis/GUI04_Tracking_fiber.py:1866 guis/GUI05_Thumbnail_Viewer.py:1641
+#: guis/GUI00_Format_Converter.py:178 guis/GUI01_Image_Preprocessor.py:1598
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2235
+#: guis/GUI04_Tracking_fiber.py:1866 guis/GUI05_Thumbnail_Viewer.py:1609
 #: lib/ui_tools.py:414
 msgid "ログを保存"
 msgstr "保存日志"
@@ -259,458 +259,459 @@ msgstr "启动时配置文件包含未使用的键（已忽略）: %s"
 msgid "起動時設定ファイルの読み込みに失敗しました（デフォルトにフォールバック）: %s"
 msgstr "读取启动时配置文件失败（回退至默认设置）: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:1164 guis/GUI01_Image_Preprocessor.py:2189
-#: guis/GUI01_Image_Preprocessor.py:2198 guis/GUI01_Image_Preprocessor.py:5331
-#: guis/GUI01_Image_Preprocessor.py:5340
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2745
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3719
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5974
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6113
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6143
-#: guis/GUI04_Tracking_fiber.py:6451
+#: guis/GUI01_Image_Preprocessor.py:1154 guis/GUI01_Image_Preprocessor.py:2179
+#: guis/GUI01_Image_Preprocessor.py:2188 guis/GUI01_Image_Preprocessor.py:5353
+#: guis/GUI01_Image_Preprocessor.py:5362
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2780
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4166
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6339
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6476
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6506
+#: guis/GUI04_Tracking_fiber.py:6478
 msgid "非表示"
 msgstr "隐藏"
 
-#: guis/GUI01_Image_Preprocessor.py:1221
+#: guis/GUI01_Image_Preprocessor.py:1211
 msgid "フォルダ選択"
 msgstr "选择文件夹"
 
-#: guis/GUI01_Image_Preprocessor.py:1228
+#: guis/GUI01_Image_Preprocessor.py:1218
 msgid "解析済みを上書き"
 msgstr "覆盖已解析文件"
 
-#: guis/GUI01_Image_Preprocessor.py:1232
+#: guis/GUI01_Image_Preprocessor.py:1222
 msgid "全て解析"
 msgstr "全部解析"
 
-#: guis/GUI01_Image_Preprocessor.py:1235
+#: guis/GUI01_Image_Preprocessor.py:1225
 msgid "解析"
 msgstr "解析"
 
-#: guis/GUI01_Image_Preprocessor.py:1238
+#: guis/GUI01_Image_Preprocessor.py:1228
 msgid "停止"
 msgstr "停止"
 
-#: guis/GUI01_Image_Preprocessor.py:1244 guis/GUI01_Image_Preprocessor.py:4366
+#: guis/GUI01_Image_Preprocessor.py:1234 guis/GUI01_Image_Preprocessor.py:4408
 msgid "設定"
 msgstr "设置"
 
-#: guis/GUI01_Image_Preprocessor.py:1247
+#: guis/GUI01_Image_Preprocessor.py:1237
 msgid "出力先を開く"
 msgstr "打开输出文件夹"
 
-#: guis/GUI01_Image_Preprocessor.py:1269
+#: guis/GUI01_Image_Preprocessor.py:1259
 msgid "ファイル一覧"
 msgstr "文件列表"
 
-#: guis/GUI01_Image_Preprocessor.py:1277
+#: guis/GUI01_Image_Preprocessor.py:1267
 msgid "X / Y セルは直接入力・Excel から貼り付け可"
 msgstr "可直接在 X / Y 单元格中输入，或从 Excel 粘贴"
 
-#: guis/GUI01_Image_Preprocessor.py:1285
+#: guis/GUI01_Image_Preprocessor.py:1275
 msgid "このフォルダをGUI03で解析"
 msgstr "用 GUI03 分析此文件夹"
 
-#: guis/GUI01_Image_Preprocessor.py:1291
-msgid "Fiber Morphology Statistics (GUI03) を新しいウインドウで開き、このフォルダを最初のグループに登録します。"
-msgstr "在新窗口中打开 Fiber Morphology Statistics (GUI03)，并将此文件夹登记到第一个组。"
+#: guis/GUI01_Image_Preprocessor.py:1281
+msgid ""
+"Fiber Morphology Statistics (GUI03) "
+"を新しいウインドウで開き、このフォルダのバンドルを最初のグループに登録します。"
+msgstr "在新窗口中打开 Fiber Morphology Statistics (GUI03)，并将此文件夹中的包文件登记到第一个组。"
 
-#: guis/GUI01_Image_Preprocessor.py:1293
+#: guis/GUI01_Image_Preprocessor.py:1283
 msgid "解析済みのファイルが無いとき、または解析の実行中は押せません。"
 msgstr "没有已分析的文件或正在分析时不可用。"
 
-#: guis/GUI01_Image_Preprocessor.py:1313 guis/GUI05_Thumbnail_Viewer.py:2972
+#: guis/GUI01_Image_Preprocessor.py:1303 guis/GUI05_Thumbnail_Viewer.py:2974
 msgid "ファイル名"
 msgstr "文件名"
 
-#: guis/GUI01_Image_Preprocessor.py:1328
+#: guis/GUI01_Image_Preprocessor.py:1318
 msgid "縞ノイズ率"
 msgstr "条纹噪声率"
 
-#: guis/GUI01_Image_Preprocessor.py:1329
+#: guis/GUI01_Image_Preprocessor.py:1319
 msgid "走査線範囲"
 msgstr "扫描线范围"
 
-#: guis/GUI01_Image_Preprocessor.py:1331
+#: guis/GUI01_Image_Preprocessor.py:1321
 msgid "処理時間"
 msgstr "处理时间"
 
-#: guis/GUI01_Image_Preprocessor.py:1392
+#: guis/GUI01_Image_Preprocessor.py:1382
 msgid "セルを編集"
 msgstr "编辑单元格"
 
-#: guis/GUI01_Image_Preprocessor.py:1393
+#: guis/GUI01_Image_Preprocessor.py:1383
 msgid "コピー"
 msgstr "复制"
 
-#: guis/GUI01_Image_Preprocessor.py:1394
+#: guis/GUI01_Image_Preprocessor.py:1384
 msgid "貼り付け"
 msgstr "粘贴"
 
-#: guis/GUI01_Image_Preprocessor.py:1395 guis/GUI05_Thumbnail_Viewer.py:1429
+#: guis/GUI01_Image_Preprocessor.py:1385 guis/GUI05_Thumbnail_Viewer.py:1390
 msgid "削除"
 msgstr "删除"
 
-#: guis/GUI01_Image_Preprocessor.py:1396 guis/GUI04_Tracking_fiber.py:1410
+#: guis/GUI01_Image_Preprocessor.py:1386 guis/GUI04_Tracking_fiber.py:1410
 msgid "元に戻す"
 msgstr "撤销"
 
-#: guis/GUI01_Image_Preprocessor.py:1494 guis/GUI02_PlotProfiler.py:735
+#: guis/GUI01_Image_Preprocessor.py:1484 guis/GUI02_PlotProfiler.py:735
 #: guis/GUI04_Tracking_fiber.py:1237
 msgid "AFM 画像の X（幅）方向の実寸"
 msgstr "AFM 图像 X（宽度）方向的实际尺寸"
 
-#: guis/GUI01_Image_Preprocessor.py:1495
+#: guis/GUI01_Image_Preprocessor.py:1485
 msgid "プレビューの軸目盛と、ファイルへ適用したときの長さ計測の基準に使われる。"
 msgstr "用于预览的坐标轴刻度，并在应用到文件后作为长度测量的基准。"
 
-#: guis/GUI01_Image_Preprocessor.py:1517 guis/GUI02_PlotProfiler.py:757
+#: guis/GUI01_Image_Preprocessor.py:1507 guis/GUI02_PlotProfiler.py:757
 #: guis/GUI04_Tracking_fiber.py:1259
 msgid "AFM 画像の Y（高さ）方向の実寸"
 msgstr "AFM 图像 Y（高度）方向的实际尺寸"
 
-#: guis/GUI01_Image_Preprocessor.py:1518 guis/GUI02_PlotProfiler.py:758
+#: guis/GUI01_Image_Preprocessor.py:1508 guis/GUI02_PlotProfiler.py:758
 #: guis/GUI04_Tracking_fiber.py:1260
 msgid "空欄なら X（幅）と同じ（正方スキャン）。"
 msgstr "留空则与 X（宽度）相同（正方扫描）。"
 
-#: guis/GUI01_Image_Preprocessor.py:1556
+#: guis/GUI01_Image_Preprocessor.py:1546
 msgid "選択ファイルに適用"
 msgstr "应用到所选文件"
 
-#: guis/GUI01_Image_Preprocessor.py:1561
+#: guis/GUI01_Image_Preprocessor.py:1551
 msgid "全ファイルに適用"
 msgstr "应用到全部文件"
 
-#: guis/GUI01_Image_Preprocessor.py:1566
+#: guis/GUI01_Image_Preprocessor.py:1556
 msgid "スケール表(CSV)読込"
 msgstr "载入比例表(CSV)"
 
-#: guis/GUI01_Image_Preprocessor.py:1571
+#: guis/GUI01_Image_Preprocessor.py:1561
 msgid "縞ノイズで分割"
 msgstr "按条纹噪声分割"
 
-#: guis/GUI01_Image_Preprocessor.py:1576
+#: guis/GUI01_Image_Preprocessor.py:1566
 msgid "分割を解除"
 msgstr "取消分割"
 
-#: guis/GUI01_Image_Preprocessor.py:1582
+#: guis/GUI01_Image_Preprocessor.py:1572
 msgid "分割した項目を画像全体の 1 項目へ戻します。"
 msgstr "将分割后的项目合并回整幅图像的单个项目。"
 
-#: guis/GUI01_Image_Preprocessor.py:1583
+#: guis/GUI01_Image_Preprocessor.py:1573
 msgid "分割時に作成した .b2z を削除するかは実行時に確認します。"
 msgstr "执行时会询问是否删除分割生成的 .b2z 文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:1587
+#: guis/GUI01_Image_Preprocessor.py:1577
 msgid "走査を縞ノイズの無い走査線範囲へ分割し、「走査線範囲」列へ入れます。"
 msgstr "将扫描分割为没有条纹噪声的扫描线范围，并填入“扫描线范围”列。"
 
-#: guis/GUI01_Image_Preprocessor.py:1588
+#: guis/GUI01_Image_Preprocessor.py:1578
 msgid "選択中のファイル、選択が無ければ縞ノイズのある全ファイルが対象です。"
 msgstr "作用于所选文件；若未选择，则作用于所有存在条纹噪声的文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:1592
+#: guis/GUI01_Image_Preprocessor.py:1582
 msgid "スケール入力欄の値を選択ファイルへ適用します。"
 msgstr "将比例输入框的值应用到选中文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:1593
+#: guis/GUI01_Image_Preprocessor.py:1583
 msgid "ヘッダから取得できないファイルにスケールを与えるときに使います。"
 msgstr "用于为头部没有扫描尺寸的文件设置比例。"
 
-#: guis/GUI01_Image_Preprocessor.py:1597
+#: guis/GUI01_Image_Preprocessor.py:1587
 msgid "ファイル名とスケールを対応付けた CSV を読み込みます。"
 msgstr "载入将文件名与比例对应的 CSV。"
 
-#: guis/GUI01_Image_Preprocessor.py:1598
+#: guis/GUI01_Image_Preprocessor.py:1588
 msgid "列: filename, scale_um もしくは scale_x_um, scale_y_um。"
 msgstr "列: filename, scale_um 或 scale_x_um, scale_y_um。"
 
-#: guis/GUI01_Image_Preprocessor.py:1610
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2151
+#: guis/GUI01_Image_Preprocessor.py:1600
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2237
 #: guis/GUI04_Tracking_fiber.py:1869
 msgid "ログをクリア"
 msgstr "清除日志"
 
-#: guis/GUI01_Image_Preprocessor.py:1625
+#: guis/GUI01_Image_Preprocessor.py:1615
 msgid "-/- 完了"
 msgstr "-/- 已完成"
 
-#: guis/GUI01_Image_Preprocessor.py:1641 guis/GUI01_Image_Preprocessor.py:3538
+#: guis/GUI01_Image_Preprocessor.py:1631 guis/GUI01_Image_Preprocessor.py:3528
 msgid "-"
 msgstr "-"
 
-#: guis/GUI01_Image_Preprocessor.py:2085 guis/GUI01_Image_Preprocessor.py:2861
+#: guis/GUI01_Image_Preprocessor.py:2075 guis/GUI01_Image_Preprocessor.py:2851
 msgid "欠損: "
 msgstr "缺失: "
 
-#: guis/GUI01_Image_Preprocessor.py:2139 guis/GUI01_Image_Preprocessor.py:5284
+#: guis/GUI01_Image_Preprocessor.py:2129 guis/GUI01_Image_Preprocessor.py:5306
 msgid "タイトル表示"
 msgstr "显示标题"
 
-#: guis/GUI01_Image_Preprocessor.py:2145 guis/GUI01_Image_Preprocessor.py:5285
+#: guis/GUI01_Image_Preprocessor.py:2135 guis/GUI01_Image_Preprocessor.py:5307
 msgid "スケール表示"
 msgstr "显示比例尺"
 
-#: guis/GUI01_Image_Preprocessor.py:2155 guis/GUI01_Image_Preprocessor.py:5288
+#: guis/GUI01_Image_Preprocessor.py:2145 guis/GUI01_Image_Preprocessor.py:5310
 #: guis/GUI04_Tracking_fiber.py:1294
 msgid "軸目盛単位"
 msgstr "坐标轴刻度单位"
 
-#: guis/GUI01_Image_Preprocessor.py:2166 guis/GUI01_Image_Preprocessor.py:5299
+#: guis/GUI01_Image_Preprocessor.py:2156 guis/GUI01_Image_Preprocessor.py:5321
 #: guis/GUI04_Tracking_fiber.py:1827
 msgid "vmin"
 msgstr "vmin"
 
-#: guis/GUI01_Image_Preprocessor.py:2175 guis/GUI01_Image_Preprocessor.py:5308
+#: guis/GUI01_Image_Preprocessor.py:2165 guis/GUI01_Image_Preprocessor.py:5330
 #: guis/GUI04_Tracking_fiber.py:1835
 msgid "vmax"
 msgstr "vmax"
 
-#: guis/GUI01_Image_Preprocessor.py:2185 guis/GUI01_Image_Preprocessor.py:5325
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2759
+#: guis/GUI01_Image_Preprocessor.py:2175 guis/GUI01_Image_Preprocessor.py:5347
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2794
 msgid "重ね表示"
 msgstr "叠加显示"
 
-#: guis/GUI01_Image_Preprocessor.py:2197 guis/GUI01_Image_Preprocessor.py:5339
+#: guis/GUI01_Image_Preprocessor.py:2187 guis/GUI01_Image_Preprocessor.py:5361
 msgid "Skeletonized 画像に重ねる特徴点の種類を選択します。"
 msgstr "选择要叠加到骨架化图像上的特征点类型。"
 
-#: guis/GUI01_Image_Preprocessor.py:2198
+#: guis/GUI01_Image_Preprocessor.py:2188
 msgid "重ね表示しません"
 msgstr "不叠加显示"
 
-#: guis/GUI01_Image_Preprocessor.py:2199 guis/GUI01_Image_Preprocessor.py:5341
+#: guis/GUI01_Image_Preprocessor.py:2189 guis/GUI01_Image_Preprocessor.py:5363
 msgid "ファイバーの端点（青）"
 msgstr "纤维端点（蓝色）"
 
-#: guis/GUI01_Image_Preprocessor.py:2200 guis/GUI01_Image_Preprocessor.py:5342
+#: guis/GUI01_Image_Preprocessor.py:2190 guis/GUI01_Image_Preprocessor.py:5364
 msgid "ファイバーの分岐点（赤）"
 msgstr "纤维分支点（红色）"
 
-#: guis/GUI01_Image_Preprocessor.py:2201 guis/GUI01_Image_Preprocessor.py:5343
+#: guis/GUI01_Image_Preprocessor.py:2191 guis/GUI01_Image_Preprocessor.py:5365
 msgid "ファイバーのキンク点（シアン）"
 msgstr "纤维扭结点（青色）"
 
-#: guis/GUI01_Image_Preprocessor.py:2202 guis/GUI01_Image_Preprocessor.py:5344
+#: guis/GUI01_Image_Preprocessor.py:2192 guis/GUI01_Image_Preprocessor.py:5366
 msgid "ファイバーの分解点（オレンジ）"
 msgstr "纤维分解点（橙色）"
 
-#: guis/GUI01_Image_Preprocessor.py:2220 guis/GUI05_Thumbnail_Viewer.py:1566
+#: guis/GUI01_Image_Preprocessor.py:2210 guis/GUI05_Thumbnail_Viewer.py:1527
 msgid "フォントサイズ…"
 msgstr "字体大小…"
 
-#: guis/GUI01_Image_Preprocessor.py:2224
+#: guis/GUI01_Image_Preprocessor.py:2214
 msgid "プレビューのタイトル・軸ラベル・軸目盛・凡例のフォントサイズを設定するウインドウを開きます。"
 msgstr "打开用于设置预览的标题、坐标轴标签、刻度和图例字体大小的窗口。"
 
-#: guis/GUI01_Image_Preprocessor.py:2237 guis/GUI01_Image_Preprocessor.py:5407
+#: guis/GUI01_Image_Preprocessor.py:2227 guis/GUI01_Image_Preprocessor.py:5429
 #: guis/GUI02_PlotProfiler.py:281 guis/GUI02_PlotProfiler.py:1018
 #: guis/GUI02_PlotProfiler.py:2497
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2195
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6212
-#: guis/GUI04_Tracking_fiber.py:1757 guis/GUI04_Tracking_fiber.py:6173
-#: guis/GUI04_Tracking_fiber.py:6705 guis/GUI04_Tracking_fiber.py:6858
-#: guis/GUI04_Tracking_fiber.py:7339 guis/GUI04_Tracking_fiber.py:7347
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2281
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6577
+#: guis/GUI04_Tracking_fiber.py:1757 guis/GUI04_Tracking_fiber.py:6200
+#: guis/GUI04_Tracking_fiber.py:6732 guis/GUI04_Tracking_fiber.py:6885
+#: guis/GUI04_Tracking_fiber.py:7366 guis/GUI04_Tracking_fiber.py:7374
 msgid "画像を保存"
 msgstr "保存图像"
 
-#: guis/GUI01_Image_Preprocessor.py:2241 guis/GUI04_Tracking_fiber.py:1760
+#: guis/GUI01_Image_Preprocessor.py:2231 guis/GUI04_Tracking_fiber.py:1760
 msgid "個別表示"
 msgstr "单独显示"
 
-#: guis/GUI01_Image_Preprocessor.py:2247 guis/GUI05_Thumbnail_Viewer.py:1575
+#: guis/GUI01_Image_Preprocessor.py:2237 guis/GUI05_Thumbnail_Viewer.py:1536
 msgid "GUI02で開く"
 msgstr "在 GUI02 中打开"
 
-#: guis/GUI01_Image_Preprocessor.py:2251 guis/GUI05_Thumbnail_Viewer.py:1581
+#: guis/GUI01_Image_Preprocessor.py:2241 guis/GUI05_Thumbnail_Viewer.py:1549
 msgid "GUI04で開く"
 msgstr "在 GUI04 中打开"
 
-#: guis/GUI01_Image_Preprocessor.py:2254
+#: guis/GUI01_Image_Preprocessor.py:2244
 msgid "プレビューに画像が表示されていないとき、または解析の実行中は押せません。"
 msgstr "预览未显示图像或正在分析时不可用。"
 
-#: guis/GUI01_Image_Preprocessor.py:2257
+#: guis/GUI01_Image_Preprocessor.py:2247
 msgid "表示中の解析結果 (.b2z) を Plot Profiler (GUI02) で新しいウインドウに開きます。"
 msgstr "在新窗口中用 Plot Profiler (GUI02) 打开当前显示的分析结果 (.b2z)。"
 
-#: guis/GUI01_Image_Preprocessor.py:2262
+#: guis/GUI01_Image_Preprocessor.py:2252
 msgid "表示中の解析結果 (.b2z) を Fiber Tracker (GUI04) で新しいウインドウに開きます。"
 msgstr "在新窗口中用 Fiber Tracker (GUI04) 打开当前显示的分析结果 (.b2z)。"
 
-#: guis/GUI01_Image_Preprocessor.py:2286 guis/GUI05_Thumbnail_Viewer.py:2966
+#: guis/GUI01_Image_Preprocessor.py:2276 guis/GUI05_Thumbnail_Viewer.py:2968
 msgid "フォントサイズ"
 msgstr "字体大小"
 
-#: guis/GUI01_Image_Preprocessor.py:2299
+#: guis/GUI01_Image_Preprocessor.py:2289
 msgid "タイトル"
 msgstr "标题"
 
-#: guis/GUI01_Image_Preprocessor.py:2300 guis/GUI01_Image_Preprocessor.py:5377
+#: guis/GUI01_Image_Preprocessor.py:2290 guis/GUI01_Image_Preprocessor.py:5399
 #: guis/GUI02_PlotProfiler.py:901
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2822
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2857
 #: guis/GUI04_Tracking_fiber.py:1783
 msgid "軸ラベル"
 msgstr "坐标轴标签"
 
-#: guis/GUI01_Image_Preprocessor.py:2301 guis/GUI01_Image_Preprocessor.py:5387
+#: guis/GUI01_Image_Preprocessor.py:2291 guis/GUI01_Image_Preprocessor.py:5409
 #: guis/GUI02_PlotProfiler.py:913
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2831
-#: guis/GUI04_Tracking_fiber.py:1792 guis/GUI04_Tracking_fiber.py:6656
-#: guis/GUI04_Tracking_fiber.py:6789
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2866
+#: guis/GUI04_Tracking_fiber.py:1792 guis/GUI04_Tracking_fiber.py:6683
+#: guis/GUI04_Tracking_fiber.py:6816
 msgid "軸目盛"
 msgstr "坐标轴刻度"
 
-#: guis/GUI01_Image_Preprocessor.py:2302 guis/GUI01_Image_Preprocessor.py:5397
-#: guis/GUI04_Tracking_fiber.py:6798
+#: guis/GUI01_Image_Preprocessor.py:2292 guis/GUI01_Image_Preprocessor.py:5419
+#: guis/GUI04_Tracking_fiber.py:6825
 msgid "凡例"
 msgstr "图例"
 
-#: guis/GUI01_Image_Preprocessor.py:2317 lib/ui_tools.py:1159
+#: guis/GUI01_Image_Preprocessor.py:2307 lib/ui_tools.py:1159
 msgid "Enter キーで確定します"
 msgstr "按 Enter 键确认"
 
-#: guis/GUI01_Image_Preprocessor.py:2320 guis/GUI04_Tracking_fiber.py:7466
-#: guis/GUI04_Tracking_fiber.py:7631 guis/GUI04_Tracking_fiber.py:7755
-#: guis/GUI04_Tracking_fiber.py:7940 guis/GUI04_Tracking_fiber.py:8055
-#: guis/GUI05_Thumbnail_Viewer.py:2997
+#: guis/GUI01_Image_Preprocessor.py:2310 guis/GUI04_Tracking_fiber.py:7493
+#: guis/GUI04_Tracking_fiber.py:7658 guis/GUI04_Tracking_fiber.py:7782
+#: guis/GUI04_Tracking_fiber.py:7967 guis/GUI04_Tracking_fiber.py:8082
+#: guis/GUI05_Thumbnail_Viewer.py:2999
 msgid "閉じる"
 msgstr "关闭"
 
-#: guis/GUI01_Image_Preprocessor.py:2376 guis/GUI01_Image_Preprocessor.py:5456
+#: guis/GUI01_Image_Preprocessor.py:2366 guis/GUI01_Image_Preprocessor.py:5478
 msgid "vmin は vmax 以下にしてください"
 msgstr "vmin 必须小于或等于 vmax"
 
-#: guis/GUI01_Image_Preprocessor.py:2400 guis/GUI01_Image_Preprocessor.py:5430
+#: guis/GUI01_Image_Preprocessor.py:2390 guis/GUI01_Image_Preprocessor.py:5452
 #: guis/GUI02_PlotProfiler.py:1117
 msgid "フォントサイズは 1〜60 の範囲で入力してください"
 msgstr "请输入 1-60 范围内的字体大小。"
 
-#: guis/GUI01_Image_Preprocessor.py:2419 guis/GUI01_Image_Preprocessor.py:2457
+#: guis/GUI01_Image_Preprocessor.py:2409 guis/GUI01_Image_Preprocessor.py:2447
 #: guis/GUI02_PlotProfiler.py:719 guis/GUI02_PlotProfiler.py:1152
 #: guis/GUI02_PlotProfiler.py:1189 guis/GUI04_Tracking_fiber.py:1222
 #: guis/GUI04_Tracking_fiber.py:2020 guis/GUI04_Tracking_fiber.py:2052
 msgid "スケール"
 msgstr "比例尺"
 
-#: guis/GUI01_Image_Preprocessor.py:2419 guis/GUI01_Image_Preprocessor.py:2457
+#: guis/GUI01_Image_Preprocessor.py:2409 guis/GUI01_Image_Preprocessor.py:2447
 #: guis/GUI02_PlotProfiler.py:1152 guis/GUI02_PlotProfiler.py:1189
 msgid "は正の数を入力してください"
 msgstr "必须输入正数"
 
-#: guis/GUI01_Image_Preprocessor.py:2452 guis/GUI01_Image_Preprocessor.py:2456
-#: guis/GUI01_Image_Preprocessor.py:3307 guis/GUI01_Image_Preprocessor.py:3471
-#: guis/GUI01_Image_Preprocessor.py:3487 guis/GUI01_Image_Preprocessor.py:3504
-#: guis/GUI01_Image_Preprocessor.py:4952 guis/GUI01_Image_Preprocessor.py:4957
-#: guis/GUI01_Image_Preprocessor.py:5061 guis/GUI01_Image_Preprocessor.py:5110
-#: guis/GUI01_Image_Preprocessor.py:5130 guis/GUI02_PlotProfiler.py:1184
+#: guis/GUI01_Image_Preprocessor.py:2442 guis/GUI01_Image_Preprocessor.py:2446
+#: guis/GUI01_Image_Preprocessor.py:3297 guis/GUI01_Image_Preprocessor.py:3461
+#: guis/GUI01_Image_Preprocessor.py:3477 guis/GUI01_Image_Preprocessor.py:3494
+#: guis/GUI01_Image_Preprocessor.py:4994 guis/GUI01_Image_Preprocessor.py:4999
+#: guis/GUI01_Image_Preprocessor.py:5103 guis/GUI01_Image_Preprocessor.py:5152
+#: guis/GUI01_Image_Preprocessor.py:5172 guis/GUI02_PlotProfiler.py:1184
 #: guis/GUI02_PlotProfiler.py:1188 guis/GUI02_PlotProfiler.py:1556
 #: guis/GUI02_PlotProfiler.py:1570 guis/GUI02_PlotProfiler.py:1805
 #: guis/GUI02_PlotProfiler.py:2293 guis/GUI02_PlotProfiler.py:2312
 #: guis/GUI02_PlotProfiler.py:2323 guis/GUI02_PlotProfiler.py:2331
-#: guis/GUI02_PlotProfiler.py:2475
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3467
-#: guis/GUI04_Tracking_fiber.py:2047 guis/GUI04_Tracking_fiber.py:2051
-#: guis/GUI04_Tracking_fiber.py:2367 guis/GUI04_Tracking_fiber.py:2383
-#: guis/GUI04_Tracking_fiber.py:6903 guis/GUI04_Tracking_fiber.py:6906
-#: guis/GUI04_Tracking_fiber.py:6910 guis/GUI04_Tracking_fiber.py:6945
-#: guis/GUI04_Tracking_fiber.py:6948 guis/GUI05_Thumbnail_Viewer.py:2743
-#: guis/GUI05_Thumbnail_Viewer.py:2758 lib/ui_tools.py:1345
-#: lib/ui_tools.py:1355 tests/test_gui02_profile_state.py:486
+#: guis/GUI02_PlotProfiler.py:2475 guis/GUI04_Tracking_fiber.py:2047
+#: guis/GUI04_Tracking_fiber.py:2051 guis/GUI04_Tracking_fiber.py:2367
+#: guis/GUI04_Tracking_fiber.py:2383 guis/GUI04_Tracking_fiber.py:6930
+#: guis/GUI04_Tracking_fiber.py:6933 guis/GUI04_Tracking_fiber.py:6937
+#: guis/GUI04_Tracking_fiber.py:6972 guis/GUI04_Tracking_fiber.py:6975
+#: guis/GUI05_Thumbnail_Viewer.py:2711 guis/GUI05_Thumbnail_Viewer.py:2726
+#: lib/ui_tools.py:1345 lib/ui_tools.py:1355
+#: tests/test_gui02_profile_state.py:486
 msgid "エラー"
 msgstr "错误"
 
-#: guis/GUI01_Image_Preprocessor.py:2452 guis/GUI02_PlotProfiler.py:1184
-#: guis/GUI04_Tracking_fiber.py:2047 guis/GUI05_Thumbnail_Viewer.py:2743
+#: guis/GUI01_Image_Preprocessor.py:2442 guis/GUI02_PlotProfiler.py:1184
+#: guis/GUI04_Tracking_fiber.py:2047 guis/GUI05_Thumbnail_Viewer.py:2711
 #: lib/ui_tools.py:1345
 msgid "数値を入力してください"
 msgstr "请输入数值"
 
-#: guis/GUI01_Image_Preprocessor.py:2786
+#: guis/GUI01_Image_Preprocessor.py:2776
 msgid "既存ファイル: 上書きON（解析開始前に上書き対象数をログ表示）"
 msgstr "现有文件：开启覆盖（解析开始前在日志中显示覆盖目标数量）"
 
-#: guis/GUI01_Image_Preprocessor.py:2788
+#: guis/GUI01_Image_Preprocessor.py:2778
 msgid "既存ファイル: スキップ（再計算・上書きしない）"
 msgstr "现有文件：跳过（不重新计算、不覆盖）"
 
-#: guis/GUI01_Image_Preprocessor.py:2796
+#: guis/GUI01_Image_Preprocessor.py:2786
 msgid "入力フォルダを選択（.txt / .gwy を含む）"
 msgstr "选择输入文件夹（包含 .txt / .gwy 文件）"
 
-#: guis/GUI01_Image_Preprocessor.py:2801
+#: guis/GUI01_Image_Preprocessor.py:2791
 #, python-format
 msgid "フォルダ選択: %s"
 msgstr "已选择文件夹: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:2814
+#: guis/GUI01_Image_Preprocessor.py:2804
 #, python-format
 msgid "フォルダ読み込み失敗: %s"
 msgstr "文件夹读取失败: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:2862
+#: guis/GUI01_Image_Preprocessor.py:2852
 #, python-format
 msgid "%s: 未解析（%s）"
 msgstr "%s: 未解析（%s）"
 
-#: guis/GUI01_Image_Preprocessor.py:2883
+#: guis/GUI01_Image_Preprocessor.py:2873
 msgid "対象ファイル（.txt / .gwy）がありません。"
 msgstr "没有找到目标 .txt / .gwy 文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:2886
+#: guis/GUI01_Image_Preprocessor.py:2876
 #, python-brace-format
 msgid "走査線範囲の項目を {0} 件復元しました。"
 msgstr "已恢复 {0} 个扫描线范围项目。"
 
-#: guis/GUI01_Image_Preprocessor.py:2889
+#: guis/GUI01_Image_Preprocessor.py:2879
 #, python-format
 msgid "スケール: バンドル記録 %d 件 / ヘッダ取得 %d 件 / 未設定 %d 件"
 msgstr "比例: bundle 记录 %d 个 / 头部获取 %d 个 / 未设置 %d 个"
 
-#: guis/GUI01_Image_Preprocessor.py:2894
+#: guis/GUI01_Image_Preprocessor.py:2884
 msgid "スケール（画像の実寸 µm）が未設定のファイルがあります。「適用」または「スケール表(CSV)読込」で設定してください。"
 msgstr "有文件未设置比例（图像实际尺寸 µm）。请用「应用」或「载入比例表(CSV)」进行设置。"
 
-#: guis/GUI01_Image_Preprocessor.py:2978
+#: guis/GUI01_Image_Preprocessor.py:2968
 #, python-brace-format
 msgid "縞ノイズ率を判定できません: {0} ({1})"
 msgstr "无法判定条纹噪声: {0} ({1})"
 
-#: guis/GUI01_Image_Preprocessor.py:2990
+#: guis/GUI01_Image_Preprocessor.py:2980
 #, python-brace-format
 msgid "{0}: 走査線の {1:.0f}% がフィードバック不良の影響下（最大段差 {2:.0f} nm）"
 msgstr "{0}: {1:.0f}% 的扫描线受反馈失控影响（最大台阶 {2:.0f} nm）"
 
-#: guis/GUI01_Image_Preprocessor.py:3002
+#: guis/GUI01_Image_Preprocessor.py:2992
 #, python-brace-format
 msgid "  グリッチのない走査線範囲: {0}"
 msgstr "  无故障的扫描线范围: {0}"
 
-#: guis/GUI01_Image_Preprocessor.py:3007
+#: guis/GUI01_Image_Preprocessor.py:2997
 msgid "  解析に足る長さのグリッチのない範囲がありません。再測定を推奨します。"
 msgstr "  没有足够长度的无故障范围。建议重新测量。"
 
-#: guis/GUI01_Image_Preprocessor.py:3011
+#: guis/GUI01_Image_Preprocessor.py:3001
 #, python-brace-format
 msgid "縞ノイズ: {0} 件のファイルに走査の乱れがあります。"
 msgstr "条纹噪声: {0} 个文件存在扫描扰动。"
 
-#: guis/GUI01_Image_Preprocessor.py:3116
+#: guis/GUI01_Image_Preprocessor.py:3106
 msgid "分割された項目がありません。"
 msgstr "没有可合并的分割项目。"
 
-#: guis/GUI01_Image_Preprocessor.py:3132 guis/GUI01_Image_Preprocessor.py:5023
-#: guis/GUI01_Image_Preprocessor.py:5078
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3378
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3421
-#: guis/GUI04_Tracking_fiber.py:3989 guis/GUI04_Tracking_fiber.py:5539
-#: guis/GUI04_Tracking_fiber.py:7859 guis/GUI04_Tracking_fiber.py:7995
-#: guis/GUI05_Thumbnail_Viewer.py:2835
+#: guis/GUI01_Image_Preprocessor.py:3122 guis/GUI01_Image_Preprocessor.py:5065
+#: guis/GUI01_Image_Preprocessor.py:5120
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3380
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3425
+#: guis/GUI04_Tracking_fiber.py:4014 guis/GUI04_Tracking_fiber.py:5566
+#: guis/GUI04_Tracking_fiber.py:7886 guis/GUI04_Tracking_fiber.py:8022
+#: guis/GUI05_Thumbnail_Viewer.py:2803
 msgid "確認"
 msgstr "确认"
 
-#: guis/GUI01_Image_Preprocessor.py:3133
+#: guis/GUI01_Image_Preprocessor.py:3123
 #, python-brace-format
 msgid ""
 "分割を解除します。分割時に作成した出力 {0} 件も削除しますか？\n"
@@ -719,135 +720,135 @@ msgstr ""
 "将取消分割。是否同时删除分割生成的 {0} 个输出文件？\n"
 "选择“否”将保留文件，下次打开该文件夹时分割项目会再次出现在列表中。"
 
-#: guis/GUI01_Image_Preprocessor.py:3157
+#: guis/GUI01_Image_Preprocessor.py:3147
 #, python-brace-format
 msgid "削除できません: {0} ({1})"
 msgstr "无法删除: {0} ({1})"
 
-#: guis/GUI01_Image_Preprocessor.py:3160
+#: guis/GUI01_Image_Preprocessor.py:3150
 #, python-brace-format
 msgid "分割時の出力を {0} 件削除しました。"
 msgstr "已删除分割生成的 {0} 个输出文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:3172
+#: guis/GUI01_Image_Preprocessor.py:3162
 #, python-brace-format
 msgid "分割時の出力 {0} 件はそのまま残しました。"
 msgstr "已保留分割生成的 {0} 个输出文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:3173
+#: guis/GUI01_Image_Preprocessor.py:3163
 #, python-brace-format
 msgid "{0} 件のファイルの分割を解除しました。"
 msgstr "已取消 {0} 个文件的分割。"
 
-#: guis/GUI01_Image_Preprocessor.py:3203
+#: guis/GUI01_Image_Preprocessor.py:3193
 msgid "分割できるファイルがありません（縞ノイズ検査が未完了か、乱れがありません）。"
 msgstr "没有可分割的文件（条纹噪声检查尚未完成，或不存在扰动）。"
 
-#: guis/GUI01_Image_Preprocessor.py:3220
+#: guis/GUI01_Image_Preprocessor.py:3210
 #, python-brace-format
 msgid "{0}: 解析に足る長さのグリッチのない範囲がありません。"
 msgstr "{0}: 没有足够长度的无故障范围。"
 
-#: guis/GUI01_Image_Preprocessor.py:3223
+#: guis/GUI01_Image_Preprocessor.py:3213
 #, python-brace-format
 msgid "{0}: 全体が使えるため範囲は不要です。"
 msgstr "{0}: 整幅图像均可使用，无需设置范围。"
 
-#: guis/GUI01_Image_Preprocessor.py:3230
+#: guis/GUI01_Image_Preprocessor.py:3220
 #, python-brace-format
 msgid "{0}: 縞ノイズの無い {1} 件の範囲へ分割しました: {2}"
 msgstr "{0}: 已分割为 {1} 个无条纹噪声的范围: {2}"
 
-#: guis/GUI01_Image_Preprocessor.py:3235
+#: guis/GUI01_Image_Preprocessor.py:3225
 msgid "範囲はセルを直接編集して調整できます（空にすると画像全体）。"
 msgstr "可直接编辑单元格调整范围（清空则表示整幅图像）。"
 
-#: guis/GUI01_Image_Preprocessor.py:3259 guis/GUI01_Image_Preprocessor.py:3310
-#: guis/GUI01_Image_Preprocessor.py:3387 guis/GUI02_PlotProfiler.py:2037
+#: guis/GUI01_Image_Preprocessor.py:3249 guis/GUI01_Image_Preprocessor.py:3300
+#: guis/GUI01_Image_Preprocessor.py:3377 guis/GUI02_PlotProfiler.py:2037
 msgid "注意"
 msgstr "注意"
 
-#: guis/GUI01_Image_Preprocessor.py:3259
+#: guis/GUI01_Image_Preprocessor.py:3249
 msgid "適用するファイルを選択してください。"
 msgstr "请选择要应用的文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:3275
+#: guis/GUI01_Image_Preprocessor.py:3265
 #, python-format
 msgid "スケール %g µm を %d 件に適用しました。"
 msgstr "已将比例 %g µm 应用到 %d 个文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:3278
+#: guis/GUI01_Image_Preprocessor.py:3268
 #, python-format
 msgid "スケール %g×%g µm を %d 件に適用しました。"
 msgstr "已将比例 %g×%g µm 应用到 %d 个文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:3299
+#: guis/GUI01_Image_Preprocessor.py:3289
 msgid "スケール表(CSV)を選択"
 msgstr "选择比例表(CSV)"
 
-#: guis/GUI01_Image_Preprocessor.py:3307
+#: guis/GUI01_Image_Preprocessor.py:3297
 #, python-format
 msgid "スケール表の読み込みに失敗しました: %s"
 msgstr "比例表载入失败: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:3310
+#: guis/GUI01_Image_Preprocessor.py:3300
 msgid "スケール表に有効な行がありませんでした。"
 msgstr "比例表中没有有效行。"
 
-#: guis/GUI01_Image_Preprocessor.py:3332
+#: guis/GUI01_Image_Preprocessor.py:3322
 #, python-format
 msgid "スケール表を適用しました: 一致 %d 件 / 未一致 %d 件"
 msgstr "已应用比例表: 匹配 %d 个 / 未匹配 %d 个"
 
-#: guis/GUI01_Image_Preprocessor.py:3387
+#: guis/GUI01_Image_Preprocessor.py:3377
 msgid "先にフォルダを選択してください。"
 msgstr "请先选择文件夹。"
 
-#: guis/GUI01_Image_Preprocessor.py:3422
+#: guis/GUI01_Image_Preprocessor.py:3412
 msgid "停止要求を受け付けました（安全に中断します）"
 msgstr "已接收停止请求（将安全中断）"
 
-#: guis/GUI01_Image_Preprocessor.py:3423
+#: guis/GUI01_Image_Preprocessor.py:3413
 msgid "停止要求を送信しました…"
 msgstr "已发送停止请求…"
 
-#: guis/GUI01_Image_Preprocessor.py:3469
+#: guis/GUI01_Image_Preprocessor.py:3459
 msgid "スケール未設定のファイルがあります。先にスケールを設定してください:"
 msgstr "有文件未设置比例。请先设置比例:"
 
-#: guis/GUI01_Image_Preprocessor.py:3487 guis/GUI01_Image_Preprocessor.py:4229
+#: guis/GUI01_Image_Preprocessor.py:3477 guis/GUI01_Image_Preprocessor.py:4219
 msgid "フォルダが選択されていません。"
 msgstr "尚未选择文件夹。"
 
-#: guis/GUI01_Image_Preprocessor.py:3502 guis/GUI01_Image_Preprocessor.py:3505
+#: guis/GUI01_Image_Preprocessor.py:3492 guis/GUI01_Image_Preprocessor.py:3495
 msgid "解析パラメータが不正なため開始できません。"
 msgstr "解析参数无效，无法开始。"
 
-#: guis/GUI01_Image_Preprocessor.py:3523
+#: guis/GUI01_Image_Preprocessor.py:3513
 #, python-format
 msgid "上書き対象ファイル数: %d"
 msgstr "覆盖目标文件数: %d"
 
-#: guis/GUI01_Image_Preprocessor.py:3537 guis/GUI01_Image_Preprocessor.py:3715
+#: guis/GUI01_Image_Preprocessor.py:3527 guis/GUI01_Image_Preprocessor.py:3705
 #, python-brace-format
 msgid "{0}/{1} 完了"
 msgstr "{0}/{1} 已完成"
 
-#: guis/GUI01_Image_Preprocessor.py:3563
+#: guis/GUI01_Image_Preprocessor.py:3553
 msgid "停止しました。"
 msgstr "已停止。"
 
-#: guis/GUI01_Image_Preprocessor.py:3576
+#: guis/GUI01_Image_Preprocessor.py:3566
 #, python-format
 msgid "%s: 既存データのためスキップ"
 msgstr "%s: 因已存在数据而跳过"
 
-#: guis/GUI01_Image_Preprocessor.py:3580 guis/GUI01_Image_Preprocessor.py:3641
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5665
+#: guis/GUI01_Image_Preprocessor.py:3570 guis/GUI01_Image_Preprocessor.py:3631
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6030
 msgid "完了"
 msgstr "完成"
 
-#: guis/GUI01_Image_Preprocessor.py:3646
+#: guis/GUI01_Image_Preprocessor.py:3636
 #, python-format
 msgid ""
 "解析失敗: %s\n"
@@ -858,91 +859,105 @@ msgstr ""
 "%s\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:3650
+#: guis/GUI01_Image_Preprocessor.py:3640
 msgid "失敗"
 msgstr "失败"
 
-#: guis/GUI01_Image_Preprocessor.py:3655
+#: guis/GUI01_Image_Preprocessor.py:3645
 #, python-format
 msgid "解析完了: %s (%ss)"
 msgstr "解析完成: %s (%s秒)"
 
-#: guis/GUI01_Image_Preprocessor.py:3748
+#: guis/GUI01_Image_Preprocessor.py:3738
 #, python-brace-format
 msgid "{0} / {1}"
 msgstr "{0} / {1}"
 
-#: guis/GUI01_Image_Preprocessor.py:3965
+#: guis/GUI01_Image_Preprocessor.py:3955
 msgid "プレビュー読み込み失敗"
 msgstr "预览图像读取失败"
 
-#: guis/GUI01_Image_Preprocessor.py:4201 guis/GUI01_Image_Preprocessor.py:4229
+#: guis/GUI01_Image_Preprocessor.py:4191 guis/GUI01_Image_Preprocessor.py:4219
 #: guis/GUI02_PlotProfiler.py:1311 guis/GUI02_PlotProfiler.py:1326
-#: guis/GUI04_Tracking_fiber.py:3601 guis/GUI04_Tracking_fiber.py:3816
-#: guis/GUI04_Tracking_fiber.py:3874 guis/GUI04_Tracking_fiber.py:3882
-#: guis/GUI04_Tracking_fiber.py:3954 guis/GUI04_Tracking_fiber.py:3959
-#: guis/GUI04_Tracking_fiber.py:3978 guis/GUI04_Tracking_fiber.py:4031
-#: guis/GUI04_Tracking_fiber.py:4034 guis/GUI04_Tracking_fiber.py:4074
-#: guis/GUI04_Tracking_fiber.py:4783 guis/GUI04_Tracking_fiber.py:5532
-#: guis/GUI04_Tracking_fiber.py:5548 guis/GUI04_Tracking_fiber.py:5609
-#: guis/GUI04_Tracking_fiber.py:5627 guis/GUI04_Tracking_fiber.py:5632
-#: guis/GUI04_Tracking_fiber.py:5637 guis/GUI04_Tracking_fiber.py:5749
-#: guis/GUI04_Tracking_fiber.py:5861 guis/GUI04_Tracking_fiber.py:6121
-#: guis/GUI04_Tracking_fiber.py:6183 guis/GUI04_Tracking_fiber.py:6188
-#: guis/GUI04_Tracking_fiber.py:7686 guis/GUI04_Tracking_fiber.py:7847
-#: guis/GUI04_Tracking_fiber.py:7966
+#: guis/GUI04_Tracking_fiber.py:3626 guis/GUI04_Tracking_fiber.py:3841
+#: guis/GUI04_Tracking_fiber.py:3899 guis/GUI04_Tracking_fiber.py:3907
+#: guis/GUI04_Tracking_fiber.py:3979 guis/GUI04_Tracking_fiber.py:3984
+#: guis/GUI04_Tracking_fiber.py:4003 guis/GUI04_Tracking_fiber.py:4056
+#: guis/GUI04_Tracking_fiber.py:4059 guis/GUI04_Tracking_fiber.py:4099
+#: guis/GUI04_Tracking_fiber.py:4808 guis/GUI04_Tracking_fiber.py:5559
+#: guis/GUI04_Tracking_fiber.py:5575 guis/GUI04_Tracking_fiber.py:5636
+#: guis/GUI04_Tracking_fiber.py:5654 guis/GUI04_Tracking_fiber.py:5659
+#: guis/GUI04_Tracking_fiber.py:5664 guis/GUI04_Tracking_fiber.py:5776
+#: guis/GUI04_Tracking_fiber.py:5888 guis/GUI04_Tracking_fiber.py:6148
+#: guis/GUI04_Tracking_fiber.py:6210 guis/GUI04_Tracking_fiber.py:6215
+#: guis/GUI04_Tracking_fiber.py:7713 guis/GUI04_Tracking_fiber.py:7874
+#: guis/GUI04_Tracking_fiber.py:7993
 msgid "情報"
 msgstr "信息"
 
-#: guis/GUI01_Image_Preprocessor.py:4201
+#: guis/GUI01_Image_Preprocessor.py:4191
 msgid "解析済みファイルを選択してください。"
 msgstr "请选择已解析的文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:4218
+#: guis/GUI01_Image_Preprocessor.py:4208
 msgid "プレビュー画像を保存"
 msgstr "保存预览图像"
 
-#: guis/GUI01_Image_Preprocessor.py:4263 guis/GUI01_Image_Preprocessor.py:4287
-#: guis/GUI05_Thumbnail_Viewer.py:2848
+#: guis/GUI01_Image_Preprocessor.py:4253 guis/GUI01_Image_Preprocessor.py:4287
+#: guis/GUI01_Image_Preprocessor.py:4297 guis/GUI05_Thumbnail_Viewer.py:2816
+#: guis/GUI05_Thumbnail_Viewer.py:2849
 msgid "起動に失敗しました"
 msgstr "启动失败"
 
-#: guis/GUI01_Image_Preprocessor.py:4265 guis/GUI05_Thumbnail_Viewer.py:2850
+#: guis/GUI01_Image_Preprocessor.py:4255 guis/GUI05_Thumbnail_Viewer.py:2818
 #, python-brace-format
 msgid "{name} を新しいウインドウで開きます。"
 msgstr "正在新窗口中打开 {name}。"
 
-#: guis/GUI01_Image_Preprocessor.py:4289
+#: guis/GUI01_Image_Preprocessor.py:4290
 #, python-brace-format
-msgid "フォルダを GUI03 で開きます: {path}"
-msgstr "正在用 GUI03 打开文件夹：{path}"
+msgid "フォルダにバンドル (*{ext}) がありません: {path}"
+msgstr "文件夹中没有包文件 (*{ext})：{path}"
 
-#: guis/GUI01_Image_Preprocessor.py:4304 guis/GUI04_Tracking_fiber.py:2127
+#: guis/GUI01_Image_Preprocessor.py:4299
+#, python-brace-format
+msgid "フォルダの {n} 個のバンドルを GUI03 で開きます: {path}"
+msgstr "正在用 GUI03 打开文件夹中的 {n} 个包文件：{path}"
+
+#: guis/GUI01_Image_Preprocessor.py:4314 guis/GUI04_Tracking_fiber.py:2127
 #, python-brace-format
 msgid "ログ保存: {path}"
 msgstr "日志已保存: {path}"
 
-#: guis/GUI01_Image_Preprocessor.py:4305 guis/GUI04_Tracking_fiber.py:2128
+#: guis/GUI01_Image_Preprocessor.py:4315 guis/GUI04_Tracking_fiber.py:2128
 msgid "ログ保存失敗"
 msgstr "日志保存失败"
 
-#: guis/GUI01_Image_Preprocessor.py:4520
+#: guis/GUI01_Image_Preprocessor.py:4344
+msgid "[Tkコールバック例外]\n"
+msgstr "[Tk 回调异常]\n"
+
+#: guis/GUI01_Image_Preprocessor.py:4348
+msgid "内部エラー"
+msgstr "内部错误"
+
+#: guis/GUI01_Image_Preprocessor.py:4562
 msgid "解析条件（次回解析時にのみ反映）"
 msgstr "解析条件（仅在下次解析时生效）"
 
-#: guis/GUI01_Image_Preprocessor.py:4631
+#: guis/GUI01_Image_Preprocessor.py:4673
 msgid "BGCalibrator"
 msgstr "BGCalibrator"
 
-#: guis/GUI01_Image_Preprocessor.py:4646
+#: guis/GUI01_Image_Preprocessor.py:4688
 msgid "bg_method"
 msgstr "bg_method"
 
-#: guis/GUI01_Image_Preprocessor.py:4647
+#: guis/GUI01_Image_Preprocessor.py:4689
 msgid "背景推定方式（下の説明参照）。選択に応じて使うパラメータのみ有効化されます"
 msgstr "背景估计方法（见下方说明）。只启用所选方法使用的参数。"
 
-#: guis/GUI01_Image_Preprocessor.py:4653
+#: guis/GUI01_Image_Preprocessor.py:4695
 msgid ""
 "trendfill : 勾配リッジ検出 + 2次トレンド除去 + "
 "最近傍充填。勾配で繊維マスクを作り、試料傾斜を2次曲面で除いてから穴を埋める。汎用だがリッジ検出パラメータの調整が必要（1.0.0 では "
@@ -952,7 +967,7 @@ msgstr ""
 "最近邻背景填充。根据梯度生成纤维掩膜，先用二次曲面去除样品倾斜，再填充空洞。通用性高，但需要调整脊线检测参数（在 1.0.0 中名为 "
 "'inpaint'）。"
 
-#: guis/GUI01_Image_Preprocessor.py:4654
+#: guis/GUI01_Image_Preprocessor.py:4696
 msgid ""
 "tophat : 形態学的opening。tophat_se_size "
 "より細い明るい構造を前景として除去。マスク不要・高速。拡大して撮った画像など、繊維が多くの画素にまたがる画像では他の方式より高さを保ちやすい。そのときは"
@@ -962,7 +977,7 @@ msgstr ""
 "细的明亮结构作为前景去除。无需掩膜，速度快。对于纤维跨越许多像素的扫描（例如以细小像素拍摄的小范围），它比其他方法更能保留纤维高度；此时请将 "
 "tophat_se_size 设为纤维表观宽度的约 3 倍（分析后如有需要，日志会显示建议值）"
 
-#: guis/GUI01_Image_Preprocessor.py:4655
+#: guis/GUI01_Image_Preprocessor.py:4697
 msgid ""
 "spline1d : 2次トレンド除去 + 行/列ごとの1D "
 "B-スプライン補間。ライン端は外挿せず自ラインの水準を保持。spline1d_axis "
@@ -971,15 +986,15 @@ msgstr ""
 "spline1d：二次趋势面去除 + 按行/列进行 1D B 样条插值。两端不做外推，而是保持该行/列自身的基准水平。通过 "
 "spline1d_axis 选择插值方向；'x'（默认）时，若图像的行为扫描线，则同时去除各扫描线的上下偏移（横向条纹）。"
 
-#: guis/GUI01_Image_Preprocessor.py:4668
+#: guis/GUI01_Image_Preprocessor.py:4710
 msgid "[tophat時のみ] 構造要素直径"
 msgstr "[仅 tophat] 结构元素直径"
 
-#: guis/GUI01_Image_Preprocessor.py:4669
+#: guis/GUI01_Image_Preprocessor.py:4711
 msgid "最大ファイバー幅の2〜3倍。奇数(偶数は+1)"
 msgstr "设为最大纤维宽度的 2-3 倍。使用奇数（偶数会 +1）。"
 
-#: guis/GUI01_Image_Preprocessor.py:4672
+#: guis/GUI01_Image_Preprocessor.py:4714
 msgid ""
 "[spline1d時のみ] "
 "補間の向き。'x'=各行を横に補間し、画像の行が走査ラインのときは走査ラインごとの上下のずれ(横縞)も除去。'y'=各列を縦に補間し、横縞は除去しない"
@@ -987,23 +1002,23 @@ msgstr ""
 "[仅 spline1d] 插值方向。'x' 对各行横向插值；当图像的行为扫描线时，同时去除各扫描线的上下偏移（横向条纹）。'y' "
 "对各列纵向插值，不去除横向条纹。"
 
-#: guis/GUI01_Image_Preprocessor.py:4675
+#: guis/GUI01_Image_Preprocessor.py:4717
 msgid "[spline1d時のみ] 行/列スプライン order。実用範囲1〜3 (2=旧pandas互換)。点数不足の行は線形に自動フォールバック"
 msgstr "[仅 spline1d] 行/列样条 order。实用范围 1-3（2=旧 pandas 兼容）。点数不足的行会自动回退为线性。"
 
-#: guis/GUI01_Image_Preprocessor.py:4678
+#: guis/GUI01_Image_Preprocessor.py:4720
 msgid "[trendfill, spline1d時] 背景範囲（中心±sigma*係数）を決める係数"
 msgstr "[trendfill, spline1d] 决定背景范围（中心 ± sigma * 系数）的系数。"
 
-#: guis/GUI01_Image_Preprocessor.py:4680
+#: guis/GUI01_Image_Preprocessor.py:4722
 msgid "[trendfill, spline1d時] [1,0,-1]の急変を繊維として除外する距離しきい値"
 msgstr "[trendfill, spline1d] 将 [1,0,-1] 等急变作为纤维排除的距离阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4682
+#: guis/GUI01_Image_Preprocessor.py:4724
 msgid "[trendfill, spline1d時] [1,-1]の急変が一定以上離れている場合に構造とみなすしきい値"
 msgstr "[trendfill, spline1d] 当 [1,-1] 急变相隔一定距离以上时将其视为结构的阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4685
+#: guis/GUI01_Image_Preprocessor.py:4727
 msgid ""
 "[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）。spline1d "
 "ではライン端に保持する水準の平均本数も兼ねる"
@@ -1011,115 +1026,115 @@ msgstr ""
 "[trendfill, tophat, spline1d] Savitzky-Golay 滤波器的窗口宽度（平滑范围）。在 spline1d "
 "中还决定两端保持水平时的平均样本数。"
 
-#: guis/GUI01_Image_Preprocessor.py:4687
+#: guis/GUI01_Image_Preprocessor.py:4729
 msgid "[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの多項式次数"
 msgstr "[trendfill, tophat, spline1d] Savitzky-Golay 滤波器的多项式次数"
 
-#: guis/GUI01_Image_Preprocessor.py:4690
+#: guis/GUI01_Image_Preprocessor.py:4732
 msgid "中央値フィルタを最後にかける（点ノイズに強い）"
 msgstr "最后应用中值滤波器（对点噪声鲁棒）"
 
-#: guis/GUI01_Image_Preprocessor.py:4693
+#: guis/GUI01_Image_Preprocessor.py:4735
 msgid "[trendfill, spline1d時] 繊維マスクを膨張させる画素数（0でdilationなし）"
 msgstr "[trendfill, spline1d] 纤维掩膜膨胀的像素数（0 表示不膨胀）"
 
-#: guis/GUI01_Image_Preprocessor.py:4695
+#: guis/GUI01_Image_Preprocessor.py:4737
 msgid "[trendfill, spline1d時] dilation前にマスクから除外する連結成分の最小面積"
 msgstr "[trendfill, spline1d] dilation 前从掩膜中排除的连通成分最小面积"
 
-#: guis/GUI01_Image_Preprocessor.py:4696
+#: guis/GUI01_Image_Preprocessor.py:4738
 msgid "1でフィルタ無効"
 msgstr "设为 1 时禁用过滤器"
 
-#: guis/GUI01_Image_Preprocessor.py:4706
+#: guis/GUI01_Image_Preprocessor.py:4748
 msgid "Segmenter"
 msgstr "Segmenter"
 
-#: guis/GUI01_Image_Preprocessor.py:4707
+#: guis/GUI01_Image_Preprocessor.py:4749
 msgid "局所しきい値の計算に使う窓サイズ"
 msgstr "计算局部阈值使用的窗口大小"
 
-#: guis/GUI01_Image_Preprocessor.py:4708
+#: guis/GUI01_Image_Preprocessor.py:4750
 msgid "全体一律の2値化しきい値"
 msgstr "全局统一的二值化阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4709
+#: guis/GUI01_Image_Preprocessor.py:4751
 msgid "小さい連結成分を消す面積しきい値"
 msgstr "删除小连通成分的面积阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4710
+#: guis/GUI01_Image_Preprocessor.py:4752
 msgid "つながり成分を除くときの面積しきい値"
 msgstr "去除连接成分时的面积阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4711
+#: guis/GUI01_Image_Preprocessor.py:4753
 msgid "つながり除去を実行するかどうか"
 msgstr "是否执行连接去除"
 
-#: guis/GUI01_Image_Preprocessor.py:4719
+#: guis/GUI01_Image_Preprocessor.py:4761
 msgid "線分検出で線分とみなす最小長さ"
 msgstr "线段检测中视为线段的最小长度"
 
-#: guis/GUI01_Image_Preprocessor.py:4720
+#: guis/GUI01_Image_Preprocessor.py:4762
 msgid "線っぽさ"
 msgstr "线状程度"
 
-#: guis/GUI01_Image_Preprocessor.py:4720
+#: guis/GUI01_Image_Preprocessor.py:4762
 msgid "のしきい値"
 msgstr "的阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4721
+#: guis/GUI01_Image_Preprocessor.py:4763
 msgid "高さが低い成分を消すしきい値"
 msgstr "删除高度较低成分的阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4723
+#: guis/GUI01_Image_Preprocessor.py:4765
 msgid "しきい値で拾えなかった繊維をリッジフィルタで検出して追加する。1画像あたり数秒〜30秒遅くなる"
 msgstr "用脊线滤波器检测阈值未能提取的纤维并补充。每张图像会慢数秒～30 秒"
 
-#: guis/GUI01_Image_Preprocessor.py:4726
+#: guis/GUI01_Image_Preprocessor.py:4768
 msgid "[ridge_recovery時] 追加するセグメントの最小長"
 msgstr "[ridge_recovery] 补充线段的最小长度"
 
-#: guis/GUI01_Image_Preprocessor.py:4728
+#: guis/GUI01_Image_Preprocessor.py:4770
 msgid "[ridge_recovery時] リッジフィルタが探索する繊維半幅の下限"
 msgstr "[ridge_recovery] 脊线滤波器搜索的纤维半宽下限"
 
-#: guis/GUI01_Image_Preprocessor.py:4730
+#: guis/GUI01_Image_Preprocessor.py:4772
 msgid "[ridge_recovery時] リッジフィルタが探索する繊維半幅の上限"
 msgstr "[ridge_recovery] 脊线滤波器搜索的纤维半宽上限"
 
-#: guis/GUI01_Image_Preprocessor.py:4732
+#: guis/GUI01_Image_Preprocessor.py:4774
 msgid "Skeletonizer"
 msgstr "Skeletonizer"
 
-#: guis/GUI01_Image_Preprocessor.py:4733
+#: guis/GUI01_Image_Preprocessor.py:4775
 msgid "分岐点が低い高さか判定するしきい値"
 msgstr "判断分支部点是否为低高度的阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4734
+#: guis/GUI01_Image_Preprocessor.py:4776
 msgid "枝とみなす短い線を追跡する最大長"
 msgstr "视为分支的短线最大追踪长度"
 
-#: guis/GUI01_Image_Preprocessor.py:4735
+#: guis/GUI01_Image_Preprocessor.py:4777
 msgid "小さすぎる線分（ノイズ）を削除する面積しきい値"
 msgstr "删除过小线段（噪声）的面积阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4736
+#: guis/GUI01_Image_Preprocessor.py:4778
 msgid "骨格上の小ループ（マスクの穴由来の二重線）を1本に潰す最大囲み面積。0で無効"
 msgstr "将骨架上的小环（掩膜孔洞造成的双线）压缩为单线的最大包围面积。0 为禁用"
 
-#: guis/GUI01_Image_Preprocessor.py:4737
+#: guis/GUI01_Image_Preprocessor.py:4779
 msgid "高さに関係なく除去する行き止まりの短い枝の最大長。画素単位のため解像度に応じて調整。0で無効"
 msgstr "不论高度一律移除的短小末端分支的最大长度。以像素为单位，请根据扫描分辨率调整。0 为禁用"
 
-#: guis/GUI01_Image_Preprocessor.py:4739
+#: guis/GUI01_Image_Preprocessor.py:4781
 msgid "Kinkdetector"
 msgstr "Kinkdetector"
 
-#: guis/GUI01_Image_Preprocessor.py:4740
+#: guis/GUI01_Image_Preprocessor.py:4782
 msgid "折れ線近似の3点のなす角がこの値以下ならkink判定"
 msgstr "折线逼近中3点夹角小于此值则判定为扭结（kink）"
 
-#: guis/GUI01_Image_Preprocessor.py:4752
+#: guis/GUI01_Image_Preprocessor.py:4794
 msgid ""
 "キンク判定と、長さ・高さ・曲率などすべての計測に使う中心線（W は繊維の見かけ幅）\n"
 "half_max_025w：高さ断面の半値中点、W/4 で平滑化（既定）\n"
@@ -1139,55 +1154,55 @@ msgstr ""
 "centroid：高度重心\n"
 "crest：截面顶点（在扭转纤维上偏离轴线最远）"
 
-#: guis/GUI01_Image_Preprocessor.py:4781
+#: guis/GUI01_Image_Preprocessor.py:4823
 msgid "縞ノイズの判定"
 msgstr "条纹噪声的判定"
 
-#: guis/GUI01_Image_Preprocessor.py:4785
+#: guis/GUI01_Image_Preprocessor.py:4827
 msgid "フィードバック不良とみなす段差"
 msgstr "视为反馈失控的台阶"
 
-#: guis/GUI01_Image_Preprocessor.py:4799
+#: guis/GUI01_Image_Preprocessor.py:4841
 msgid "隣接走査線間の高さ段差がこの値を超える箇所を走査の乱れとして数え、影響を受けた走査線の割合を一覧の「縞ノイズ率」列に表示します（解析条件には含まれません）"
 msgstr "相邻扫描线之间的高度台阶超过此值的位置将被计为扫描扰动，受影响扫描线的比例显示在列表的“条纹噪声率”列中（不属于分析条件）"
 
-#: guis/GUI01_Image_Preprocessor.py:4816
+#: guis/GUI01_Image_Preprocessor.py:4858
 msgid "保存オプション"
 msgstr "保存选项"
 
-#: guis/GUI01_Image_Preprocessor.py:4821
+#: guis/GUI01_Image_Preprocessor.py:4863
 msgid "解析時に元データを保存"
 msgstr "解析时保存原始数据"
 
-#: guis/GUI01_Image_Preprocessor.py:4827
+#: guis/GUI01_Image_Preprocessor.py:4869
 msgid "ONのとき、背景補正前の元データも解析後の .b2z に original として同梱します（解析条件には含まれません）"
 msgstr "开启时，背景校正前的原始数据也会作为 original 打包到解析后的 .b2z 中（不包含在解析条件中）"
 
-#: guis/GUI01_Image_Preprocessor.py:4839
+#: guis/GUI01_Image_Preprocessor.py:4881
 msgid "OK"
 msgstr "确定"
 
-#: guis/GUI01_Image_Preprocessor.py:4840
+#: guis/GUI01_Image_Preprocessor.py:4882
 msgid "設定の保存"
 msgstr "保存设置"
 
-#: guis/GUI01_Image_Preprocessor.py:4841
+#: guis/GUI01_Image_Preprocessor.py:4883
 msgid "設定の読み込み"
 msgstr "加载设置"
 
-#: guis/GUI01_Image_Preprocessor.py:4842
+#: guis/GUI01_Image_Preprocessor.py:4884
 msgid "キャンセル"
 msgstr "取消"
 
-#: guis/GUI01_Image_Preprocessor.py:4846
+#: guis/GUI01_Image_Preprocessor.py:4888
 msgid "現在値を既定値として保存"
 msgstr "将当前值保存为默认值"
 
-#: guis/GUI01_Image_Preprocessor.py:4848
+#: guis/GUI01_Image_Preprocessor.py:4890
 msgid "初期値に戻す"
 msgstr "恢复初始值"
 
-#: guis/GUI01_Image_Preprocessor.py:4952
+#: guis/GUI01_Image_Preprocessor.py:4994
 #, python-format
 msgid ""
 "設定値の読み取りに失敗しました。\n"
@@ -1196,20 +1211,20 @@ msgstr ""
 "读取设置值失败。\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:4967
+#: guis/GUI01_Image_Preprocessor.py:5009
 msgid "設定を更新しました（次回解析時に反映）"
 msgstr "设置已更新（下次解析时生效）"
 
-#: guis/GUI01_Image_Preprocessor.py:4992 guis/GUI01_Image_Preprocessor.py:4997
+#: guis/GUI01_Image_Preprocessor.py:5034 guis/GUI01_Image_Preprocessor.py:5039
 #, python-brace-format
 msgid "「フィードバック不良とみなす段差」には正の数値を入力してください: {0}"
 msgstr "请为“视为反馈失控的台阶”输入正数: {0}"
 
-#: guis/GUI01_Image_Preprocessor.py:5007
+#: guis/GUI01_Image_Preprocessor.py:5049
 msgid "設定変更をキャンセルしました"
 msgstr "已取消设置更改"
 
-#: guis/GUI01_Image_Preprocessor.py:5024
+#: guis/GUI01_Image_Preprocessor.py:5066
 msgid ""
 "現在のダイアログ値を起動時の既定値として保存します。\n"
 "起動時設定ファイルを上書きします。よろしいですか？"
@@ -1217,12 +1232,12 @@ msgstr ""
 "将当前对话框值保存为启动时默认值。\n"
 "这将覆盖启动时配置文件。是否继续？"
 
-#: guis/GUI01_Image_Preprocessor.py:5059
+#: guis/GUI01_Image_Preprocessor.py:5101
 #, python-format
 msgid "現在値を既定値として保存しました: %s"
 msgstr "已将当前值保存为默认值: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:5061
+#: guis/GUI01_Image_Preprocessor.py:5103
 #, python-format
 msgid ""
 "既定値の保存に失敗しました。\n"
@@ -1231,7 +1246,7 @@ msgstr ""
 "默认值保存失败。\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:5079
+#: guis/GUI01_Image_Preprocessor.py:5121
 msgid ""
 "ダイアログの全パラメータと「元データを保存」「縞ノイズの判定」を初期値に戻します。\n"
 "（この操作では設定ファイルは変更されません）\n"
@@ -1241,24 +1256,24 @@ msgstr ""
 "（此操作不会更改设置文件。）\n"
 "确定吗？"
 
-#: guis/GUI01_Image_Preprocessor.py:5088
+#: guis/GUI01_Image_Preprocessor.py:5130
 msgid "ダイアログを初期値に戻しました（未保存）"
 msgstr "已将对话框恢复为初始值（未保存）"
 
-#: guis/GUI01_Image_Preprocessor.py:5096
+#: guis/GUI01_Image_Preprocessor.py:5138
 msgid "設定の保存（JSON）"
 msgstr "保存设置（JSON）"
 
-#: guis/GUI01_Image_Preprocessor.py:5100 guis/GUI01_Image_Preprocessor.py:5119
+#: guis/GUI01_Image_Preprocessor.py:5142 guis/GUI01_Image_Preprocessor.py:5161
 msgid "JSON"
 msgstr "JSON"
 
-#: guis/GUI01_Image_Preprocessor.py:5108
+#: guis/GUI01_Image_Preprocessor.py:5150
 #, python-format
 msgid "設定を保存しました: %s"
 msgstr "设置已保存: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:5110
+#: guis/GUI01_Image_Preprocessor.py:5152
 #, python-format
 msgid ""
 "保存に失敗しました。\n"
@@ -1267,16 +1282,16 @@ msgstr ""
 "保存失败。\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:5118
+#: guis/GUI01_Image_Preprocessor.py:5160
 msgid "設定の読み込み（JSON）"
 msgstr "加载设置（JSON）"
 
-#: guis/GUI01_Image_Preprocessor.py:5128
+#: guis/GUI01_Image_Preprocessor.py:5170
 #, python-format
 msgid "設定を読み込みました: %s"
 msgstr "设置已加载: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:5130
+#: guis/GUI01_Image_Preprocessor.py:5172
 #, python-format
 msgid ""
 "読み込みに失敗しました。\n"
@@ -1285,41 +1300,33 @@ msgstr ""
 "加载失败。\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:5147
-msgid "[Tkコールバック例外]\n"
-msgstr "[Tk 回调异常]\n"
-
-#: guis/GUI01_Image_Preprocessor.py:5150
-msgid "内部エラー"
-msgstr "内部错误"
-
-#: guis/GUI01_Image_Preprocessor.py:5196
+#: guis/GUI01_Image_Preprocessor.py:5218
 #, python-format
 msgid "個別表示: %s"
 msgstr "单独显示: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:5274
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2751
-#: guis/GUI05_Thumbnail_Viewer.py:1478
+#: guis/GUI01_Image_Preprocessor.py:5296
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2786
+#: guis/GUI05_Thumbnail_Viewer.py:1439
 msgid "表示"
 msgstr "显示"
 
-#: guis/GUI01_Image_Preprocessor.py:5340
+#: guis/GUI01_Image_Preprocessor.py:5362
 msgid "重ね描きしません"
 msgstr "不叠加绘制"
 
-#: guis/GUI01_Image_Preprocessor.py:5357 guis/GUI02_PlotProfiler.py:888
+#: guis/GUI01_Image_Preprocessor.py:5379 guis/GUI02_PlotProfiler.py:888
 #: guis/GUI04_Tracking_fiber.py:1774
 msgid "フォントサイズ：タイトル"
 msgstr "字体大小：标题"
 
-#: guis/GUI01_Image_Preprocessor.py:5367 guis/GUI02_PlotProfiler.py:925
-#: guis/GUI04_Tracking_fiber.py:1801 guis/GUI04_Tracking_fiber.py:6666
-#: guis/GUI05_Thumbnail_Viewer.py:1557 guis/GUI05_Thumbnail_Viewer.py:2974
+#: guis/GUI01_Image_Preprocessor.py:5389 guis/GUI02_PlotProfiler.py:925
+#: guis/GUI04_Tracking_fiber.py:1801 guis/GUI04_Tracking_fiber.py:6693
+#: guis/GUI05_Thumbnail_Viewer.py:1518 guis/GUI05_Thumbnail_Viewer.py:2976
 msgid "カラーバー"
 msgstr "颜色条"
 
-#: guis/GUI01_Image_Preprocessor.py:5630
+#: guis/GUI01_Image_Preprocessor.py:5652
 msgid "個別表示画像を保存"
 msgstr "保存单独显示图像"
 
@@ -1327,13 +1334,13 @@ msgstr "保存单独显示图像"
 msgid "Designed graph"
 msgstr "设计图表"
 
-#: guis/GUI02_PlotProfiler.py:203 guis/GUI04_Tracking_fiber.py:6607
-#: guis/GUI04_Tracking_fiber.py:6747
+#: guis/GUI02_PlotProfiler.py:203 guis/GUI04_Tracking_fiber.py:6634
+#: guis/GUI04_Tracking_fiber.py:6774
 msgid "幅"
 msgstr "宽度"
 
 #: guis/GUI02_PlotProfiler.py:215 guis/GUI04_Tracking_fiber.py:1739
-#: guis/GUI04_Tracking_fiber.py:6616 guis/GUI04_Tracking_fiber.py:6756
+#: guis/GUI04_Tracking_fiber.py:6643 guis/GUI04_Tracking_fiber.py:6783
 msgid "高さ"
 msgstr "高度"
 
@@ -1345,23 +1352,23 @@ msgstr "坐标轴标签大小"
 msgid "目盛りサイズ"
 msgstr "刻度大小"
 
-#: guis/GUI02_PlotProfiler.py:251 guis/GUI04_Tracking_fiber.py:6816
+#: guis/GUI02_PlotProfiler.py:251 guis/GUI04_Tracking_fiber.py:6843
 msgid "目盛りの向き"
 msgstr "刻度方向"
 
 #: guis/GUI02_PlotProfiler.py:254 guis/GUI02_PlotProfiler.py:373
-#: guis/GUI04_Tracking_fiber.py:6415
+#: guis/GUI04_Tracking_fiber.py:6442
 msgid "外向き"
 msgstr "向外"
 
 #: guis/GUI02_PlotProfiler.py:254 guis/GUI02_PlotProfiler.py:375
-#: guis/GUI04_Tracking_fiber.py:6416
+#: guis/GUI04_Tracking_fiber.py:6443
 msgid "内向き"
 msgstr "向内"
 
 #: guis/GUI02_PlotProfiler.py:254 guis/GUI02_PlotProfiler.py:267
 #: guis/GUI02_PlotProfiler.py:377 guis/GUI02_PlotProfiler.py:391
-#: guis/GUI04_Tracking_fiber.py:6417 guis/GUI04_Tracking_fiber.py:6422
+#: guis/GUI04_Tracking_fiber.py:6444 guis/GUI04_Tracking_fiber.py:6449
 msgid "両方"
 msgstr "双向"
 
@@ -1370,17 +1377,17 @@ msgid "グリッド"
 msgstr "网格"
 
 #: guis/GUI02_PlotProfiler.py:267 guis/GUI02_PlotProfiler.py:382
-#: guis/GUI04_Tracking_fiber.py:6423
+#: guis/GUI04_Tracking_fiber.py:6450
 msgid "無し"
 msgstr "无"
 
 #: guis/GUI02_PlotProfiler.py:267 guis/GUI02_PlotProfiler.py:385
-#: guis/GUI04_Tracking_fiber.py:6420
+#: guis/GUI04_Tracking_fiber.py:6447
 msgid "x軸"
 msgstr "x轴"
 
 #: guis/GUI02_PlotProfiler.py:267 guis/GUI02_PlotProfiler.py:388
-#: guis/GUI04_Tracking_fiber.py:6421
+#: guis/GUI04_Tracking_fiber.py:6448
 msgid "y軸"
 msgstr "y轴"
 
@@ -1401,7 +1408,7 @@ msgid "チャンネル"
 msgstr "通道"
 
 #: guis/GUI02_PlotProfiler.py:806 guis/GUI04_Tracking_fiber.py:1814
-#: guis/GUI04_Tracking_fiber.py:7607 guis/GUI05_Thumbnail_Viewer.py:1539
+#: guis/GUI04_Tracking_fiber.py:7634 guis/GUI05_Thumbnail_Viewer.py:1500
 msgid "自動"
 msgstr "自动"
 
@@ -1435,7 +1442,7 @@ msgstr ""
 "对于纳米纤维，设置为约 3-5 可减小噪声影响。\n"
 "所设宽度会在左侧热图上以蓝色带显示，缩放时会随像素大小缩放。"
 
-#: guis/GUI02_PlotProfiler.py:866 guis/GUI04_Tracking_fiber.py:8092
+#: guis/GUI02_PlotProfiler.py:866 guis/GUI04_Tracking_fiber.py:8119
 msgid "計算方法"
 msgstr "计算方法"
 
@@ -1518,7 +1525,7 @@ msgstr ""
 "详细信息: {0}"
 
 #: guis/GUI02_PlotProfiler.py:1559
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3826
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4270
 msgid "不明なエラー"
 msgstr "未知错误"
 
@@ -1598,7 +1605,7 @@ msgstr "调整布局并生成图表"
 msgid "保存先を選んで下さい"
 msgstr "请选择保存位置"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:511
+#: guis/GUI03_Fiber_Morphology_Statistics.py:508
 #, python-brace-format
 msgid ""
 "注意: {mode} で比較したバンドルの走査範囲 ({um}) "
@@ -1609,7 +1616,7 @@ msgstr ""
 "不同（{groups}）。被边框切断的纤维长度测得偏短，使分布偏向短纤维，其程度取决于纤维长度相对于扫描范围的大小，因此扫描范围不同的文件之间的长度差异也包含成像条件的差异。使用"
 " {ml} 可减小这一偏差。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:518
+#: guis/GUI03_Fiber_Morphology_Statistics.py:515
 #, python-brace-format
 msgid ""
 "注意: {exclude} で比較したバンドルの走査範囲 ({um}) "
@@ -1620,7 +1627,7 @@ msgstr ""
 "不同（{groups}）。排除到达边框的纤维会使分布偏向短纤维，其程度取决于纤维长度相对于扫描范围的大小，因此扫描范围不同的文件之间的长度差异也包含成像条件的差异。使用"
 " {ml} 可减小这一偏差。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:570
+#: guis/GUI03_Fiber_Morphology_Statistics.py:567
 #, python-brace-format
 msgid ""
 "比較したバンドルのキンクのしきい値が {values} "
@@ -1629,7 +1636,7 @@ msgstr ""
 "所比较捆绑包的扭结阈值不同（{values} "
 "度），扭结的定义不同，因此不进行检验。在「扭结阈值」中输入数值后，将以同一阈值重新选择所有捆绑包的扭结并进行检验。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:582
+#: guis/GUI03_Fiber_Morphology_Statistics.py:579
 #, python-brace-format
 msgid ""
 "注意: 比較したバンドルの画素サイズが {low}〜{high} nm/px "
@@ -1640,14 +1647,14 @@ msgstr ""
 "nm/px）。扭结的检测随表观宽度、像素尺寸和噪声而变（docs/validation.md "
 "§4.4、§4.8），因此组间差异中也包含成像条件的差异。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:589
+#: guis/GUI03_Fiber_Morphology_Statistics.py:586
 #, python-brace-format
 msgid ""
 "注意: 比較したバンドルの形式が {versions} "
 "と混在しています。形式によって見かけの幅やキンクの探し方の定義が違うため、同じ版で解析し直すことを勧めます。"
 msgstr "注意：所比较捆绑包的格式混有 {versions}。不同格式对表观宽度和扭结搜索的定义不同，建议用同一版本重新分析。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:602
+#: guis/GUI03_Fiber_Morphology_Statistics.py:599
 #, python-brace-format
 msgid ""
 "注意: 比較したバンドルのうち {n}/{total} 個は、繊維の高さが画素ノイズの {limit:g} 倍未満です（最小 "
@@ -1657,32 +1664,23 @@ msgstr ""
 "注意：所比较捆绑包中有 {n}/{total} 个的纤维高度低于像素噪声的 {limit:g} 倍（最小 {ratio:.1f} "
 "倍）。噪声较大时粗纤维的宽度读数偏短，判定扭结的尺度随之改变（docs/validation.md §4.16、§4.17）。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:641
+#: guis/GUI03_Fiber_Morphology_Statistics.py:638
 #, python-brace-format
 msgid ""
 "比較したバンドルの中心線が {lines} "
 "と異なるため検定しません。長さ・高さ・曲率・キンクはすべて中心線に沿って測るため、線が違う結果は比較できません。同じ中心線で解析し直してください。"
 msgstr "所比较捆绑包的中心线不同（{lines}），因此不进行检验。长度、高度、曲率和扭结都沿中心线测量，因此不同中心线的结果无法比较。请用同一中心线重新分析。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1306
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1299
 #, python-brace-format
 msgid ""
-"{fiber} 集計は、同じ画像・同じフォルダのファイバーを独立な標本として検定しています。p "
-"値は試料の数ではなくファイバー本数とともに小さくなります。1 フォルダが 1 試料なら、試料間の差は {folder} 集計で検定してください。"
+"{fiber} 集計は、同じ画像のファイバーを独立な標本として検定しています。p "
+"値はファイバー本数とともに小さくなります。場所ごとの違いを踏まえて比べるには、{image} 集計で検定してください。"
 msgstr ""
-"{fiber} 汇总把同一图像、同一文件夹中的纤维当作独立样本进行检验，因此 p 值随纤维根数而非试样数量的增加而变小。若每个文件夹对应 1 "
-"个试样，请用 {folder} 汇总检验试样之间的差异。"
+"{fiber} 汇总把同一图像中的纤维当作独立样本进行检验，因此 p 值随纤维根数的增加而变小。如需在考虑不同位置之间差异的前提下进行比较，请用 "
+"{image} 汇总进行检验。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1313
-#, python-brace-format
-msgid ""
-"{image} 集計は、同じフォルダの画像を独立な標本として検定しています。p 値は試料の数ではなく画像枚数とともに小さくなります。1 フォルダが"
-" 1 試料なら、試料間の差は {folder} 集計で検定してください。"
-msgstr ""
-"{image} 汇总把同一文件夹中的图像当作独立样本进行检验，因此 p 值随图像幅数而非试样数量的增加而变小。若每个文件夹对应 1 个试样，请用 "
-"{folder} 汇总检验试样之间的差异。"
-
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1344
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1330
 msgid ""
 "結論は Mann-Whitney の p 値で述べてください。KS "
 "は分布の形の違いを見る参考値です。補正はこの計測量のペアだけにかかるため、複数の計測量を検定して述べるときは別に補正が必要です。"
@@ -1690,17 +1688,16 @@ msgstr ""
 "请用 Mann-Whitney 的 p 值陈述结论。KS "
 "是用于观察分布形状差异的参考值。校正仅涵盖此计测量的各对，因此报告多个计测量的检验时需要另行校正。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1383
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1369
 #, python-brace-format
 msgid ""
 "{mode} の長さは枠の影響で短い側に偏り、長いファイバーの群ほど大きく短縮されます。この p "
-"値と効果量には、その偏りの差も含まれます。補正して検定するには、枠の扱いを {ml} に、集計単位を {image} か {folder} "
-"にしてください。"
+"値と効果量には、その偏りの差も含まれます。補正して検定するには、枠の扱いを {ml} に、集計単位を {image} にしてください。"
 msgstr ""
 "{mode} 下的长度因边框而偏短，纤维越长的组缩短越多，因此此 p 值和效应量中也包含这一偏差的差异。如需校正后检验，请将边框处理设为 "
-"{ml}，并将汇总单位设为 {image} 或 {folder}。"
+"{ml}，并将汇总单位设为 {image}。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1439
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1424
 #, python-brace-format
 msgid ""
 "次のペアは、同じ値が無ければ 2 群が完全に分かれても p 値が {alpha} 未満になりません（値はこの標本数で到達しうる最小の p 値）: "
@@ -1709,98 +1706,100 @@ msgstr ""
 "在没有相同值的情况下，即使两组完全不重叠，以下各对的 p 值也无法低于 {alpha}（各值为该样本量下可达到的最小 p "
 "值）：{pairs}。对于这些组对，“无显著差异”并不表示不存在差异。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1802
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1818
 msgid "グループ追加"
 msgstr "添加组"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1805
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3571
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1821
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3666
 msgid "グループ削除"
 msgstr "删除组"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1808
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1824
 msgid "↑"
 msgstr "↑"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1811
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1827
 msgid "↓"
 msgstr "↓"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1814
-msgid "フォルダ追加"
-msgstr "添加文件夹"
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1830
+msgid "ファイル追加"
+msgstr "添加文件"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1817
-msgid "フォルダ削除"
-msgstr "删除文件夹"
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1833
+msgid "選択中のグループに .b2z バンドルを追加します。ダイアログでは複数のファイルを選べ、Ctrl+A でフォルダ内の全ファイルを選べます。"
+msgstr "向所选的组添加 .b2z 包文件。对话框中可选择多个文件，按 Ctrl+A 可选中文件夹内的全部文件。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1820
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1836
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3697
+msgid "ファイル削除"
+msgstr "删除文件"
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1839
 msgid "全クリア"
 msgstr "全部清除"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1833
-msgid "グループ／フォルダ"
-msgstr "组/文件夹"
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1856
+msgid "グループ／ファイル"
+msgstr "组/文件"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1834
-msgid "有効バンドル数"
-msgstr "有效包数量"
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1857
+msgid "ファイル数"
+msgstr "文件数"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1850
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3199
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1880
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3257
 #, python-brace-format
-msgid "グループ数: {g} / 有効バンドル総数: {p} / 欠損: {m}"
-msgstr "组数: {g} / 有效包总数: {p} / 缺失: {m}"
+msgid "グループ数: {g} / ファイル総数: {p}"
+msgstr "组数: {g} / 文件总数: {p}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:1866
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6486
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1916
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3925
+msgid "ファイル行を選ぶと、その画像を表示します。"
+msgstr "选择文件行即可显示其图像。"
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:1955
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6855
 msgid "統計値を保存"
 msgstr "保存统计值"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2013
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2099
 #, python-brace-format
 msgid "{param} ({value_unit}) / {sample} 単位"
 msgstr "{param}（{value_unit}）/ 以 {sample} 为单位"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2043
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6347
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2129
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6714
 msgid "比較を保存"
 msgstr "保存比较"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2047
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2133
 msgid "群間比較"
 msgstr "组间比较"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2192
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2278
 msgid "ヒストグラム作成"
 msgstr "生成直方图"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2198
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2284
 msgid "数値を保存"
 msgstr "保存数值"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2237
-msgid "入力"
-msgstr "输入"
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2288
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6887
+msgid "統計処理"
+msgstr "统计处理"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2246
-#, python-brace-format
-msgid ""
-"{bundle} は GUI01 が出力した .b2z を直接読み、全ての集計単位が使えます。{csv} は Fiber Tracker "
-"が出力した {suffix} "
-"を読み、そこに残っているファイバーだけを集計します。密なネットワークでは自動フィルターでゴミを落とせないため、Fiber Tracker "
-"で全体像を見ながら除外し、その結果を集計するのがこの経路の目的です。{csv} はファイバー単位の値しか持たないため、{pixel} と "
-"{length} 集計は使えません。"
-msgstr ""
-"{bundle} 直接读取 GUI01 输出的 .b2z，可使用全部统计单位。{csv} 读取 Fiber Tracker 输出的 "
-"{suffix}，只统计其中保留的纤维。密集网络中自动筛选无法剔除杂质，因此该路径的用途是在 Fiber Tracker "
-"中对照整幅图像进行排除，再统计保留下来的结果。{csv} 仅含纤维级数值，故无法使用 {pixel} 与 {length} 统计单位。"
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2293
+msgid "グループごとの統計値と群間比較の結果を、別のウィンドウに表示します。統計値と比較の保存もそのウィンドウで行います。開いたままヒストグラムを作成し直すと、内容が更新されます。"
+msgstr "在单独的窗口中显示各组的统计值和组间比较结果。统计值和比较结果也在该窗口中保存。在窗口打开的状态下重新生成直方图，内容会随之更新。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2260
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2346
 msgid "除外を適用"
 msgstr "应用排除"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2266
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2352
 #, python-brace-format
 msgid ""
 "バンドル横の {suffix} に記録された手動除外を適用します。Fiber Tracker "
@@ -1809,11 +1808,11 @@ msgstr ""
 "应用数据包旁 {suffix} 中记录的手动排除。在 Fiber Tracker "
 "中排除的纤维将不计入统计，排除数量会显示在日志中。关闭后将统计全部追踪到的纤维。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2273
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2359
 msgid "連結を適用"
 msgstr "应用连接"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2279
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2365
 #, python-brace-format
 msgid ""
 "バンドル横の {suffix} に記録された連結結果を適用します。Fiber Tracker で連結して保存したバンドルは、そこで見ていたのと同じ"
@@ -1824,11 +1823,11 @@ msgstr ""
 "bundle，将按当时所见的整条纤维进行统计。自动连结与手动连结不作区分。记录的是哪些片段相连，此处不再执行搜索，因此统计对象与屏幕上确认的一致。没有该文件的"
 " bundle 仍按骨架片段统计，可应用的数量会写入日志。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2295
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2381
 msgid "計測量"
 msgstr "测量量"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2304
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2390
 #, python-brace-format
 msgid ""
 "比較する形態パラメータを選びます。いずれもファイバー追跡の結果から算出します。{height} "
@@ -1839,38 +1838,37 @@ msgstr ""
 "直接收集追踪点的高度，因此在未记录扫描范围的数据包上也能测量；{length} / {angle} / {density} "
 "则要求数据包中记录了扫描范围。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2313
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2399
 msgid "集計単位"
 msgstr "统计单位"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2323
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2409
 #, python-brace-format
 msgid ""
 "1 標本の数え方を選びます。{pixel} は骨格画素 1 点、{kink} はキンク 1 点、{fiber} はファイバー 1 "
-"本（高さはファイバー内の中央値）、{image} は画像 1 枚、{folder} は登録フォルダ 1 つです。{image} と "
-"{folder} "
+"本（高さはファイバー内の中央値）、{image} は画像 1 枚です。{image} "
 "は含まれるファイバー値の中央値で、キンク角は全キンクの角度の中央値、キンク密度は総キンク数を判定した長さの合計で割った値です。キンク密度の "
 "{fiber} 集計は各ファイバーを判定した長さで重み付けするため、平均はこの比と同じになり、検定はしません。{pixel} "
-"でまとめた分布は独立観測ではなく、長いファイバーほど重みが大きくなるため、群間比較では {fiber}・{image}・{folder} "
-"でも確認してください。1 フォルダが 1 試料なら、試料間の差を検定する単位は {folder} です。{length} "
-"は骨格画素を輪郭長で重み付けします。画素を等しく数えると、斜めの骨格ステップが約 1.41 "
+"でまとめた分布は独立観測ではなく、長いファイバーほど重みが大きくなるため、群間比較では {fiber}・{image} "
+"でも確認してください。{fiber} は同じ画像のファイバーを独立と数えるため、場所ごとの違いを踏まえて比べるときは {image} "
+"を使います。{length} は骨格画素を輪郭長で重み付けします。画素を等しく数えると、斜めの骨格ステップが約 1.41 "
 "倍長いことと、走査範囲の異なる画像でピクセルサイズが変わることの 2 つの偏りが入ります。{length} "
 "は両方を取り除き、「観測した輪郭長のうちの割合」を表す走査条件に依らない分布にします。"
 msgstr ""
 "选择 1 个样本的计数方式。{pixel} 为 1 个骨架像素，{kink} 为 1 个扭结，{fiber} 为 1 "
-"根纤维（高度取该纤维内的中位数），{image} 为 1 幅图像，{folder} 为 1 个已登记的文件夹。{image} 与 {folder}"
-" 取其中各纤维值的中位数；扭结角取其中全部扭结角的中位数，扭结密度取扭结总数除以判定长度之和。按 {fiber} "
+"根纤维（高度取该纤维内的中位数），{image} 为 1 幅图像。{image} "
+"取其中各纤维值的中位数；扭结角取其中全部扭结角的中位数，扭结密度取扭结总数除以判定长度之和。按 {fiber} "
 "汇总的扭结密度以判定长度对各纤维加权，因此其平均值等于该比值，且不进行检验。按 {pixel} "
-"汇总的分布并非独立观测，纤维越长权重越大，因此在组间比较时请同时确认 {fiber}、{image} 或 {folder} "
-"的结果。若每个文件夹对应 1 个试样，检验试样之间差异的单位是 {folder}。{length} "
+"汇总的分布并非独立观测，纤维越长权重越大，因此在组间比较时请同时确认 {fiber} 或 {image} 的结果。{fiber} "
+"把同一图像中的纤维当作独立样本，因此如需在考虑不同位置之间差异的前提下进行比较，请使用 {image}。{length} "
 "按轮廓长度对骨架像素加权。等权计数会带来两种偏差：斜向骨架步长约为正交步长的 1.41 倍，且扫描范围不同的图像其像素尺寸也不同。{length}"
 " 可消除这两种偏差，给出与扫描条件无关的分布，即各取值在所观测轮廓长度中所占的比例。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2345
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2431
 msgid "図"
 msgstr "图"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2355
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2441
 #, python-brace-format
 msgid ""
 "{histogram} は 1 群の分布の形を示します。{ecdf} は累積分布を重ねて描くため、ビン幅に依存せずに群を比較できます。{box} "
@@ -1879,11 +1877,11 @@ msgstr ""
 "{histogram} 显示单个组的分布形状。{ecdf} 叠加累积分布，因此比较各组时不依赖组距。{box} "
 "并排概括各组的中位数与四分位数。{ecdf} 与 {box} 始终将所有组绘制在同一坐标轴上，因此纵向排列/叠加显示的选择不起作用。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2361
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2447
 msgid "曲率窓"
 msgstr "曲率窗口"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2375
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2461
 #, python-brace-format
 msgid ""
 "{curvature} "
@@ -1892,11 +1890,11 @@ msgstr ""
 "{curvature} "
 "测量转角所用的弧长。在直接沿骨架像素的线（{skeleton}、{pixels}）上，每一步只能是正交或斜向，因此窗口较小时，方向的量化会体现在数值中。窗口越大估计越平滑，但短于窗口的纤维会被排除在测量之外。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2382
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2468
 msgid "枠のファイバー"
 msgstr "边框处的纤维"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2393
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2479
 #, python-brace-format
 msgid ""
 "{length} だけに効く設定です。画像の枠に達したファイバーは走査範囲の外へ続いているため、長さが短く測られます。{include} "
@@ -1907,12 +1905,10 @@ msgid ""
 " は、枠と交差のどちらで切れた長さも扱います。自身の端を 2 つ持つファイバーを全長の観測、1 "
 "つだけ持つファイバーを「計測した長さ以上」の観測として、ファイバーの長さの分布を推定します（Kaplan-Meier 推定）。{km} は "
 "{fiber} "
-"集計でだけ使えます。全長を見たうち最長のファイバーより長い側は推定できず、その割合は図とログに出ます。そこに落ちる中央値や四分位数は、数値の代わりにありうる範囲を「[下限,"
-" 上限]」か「> "
-"下限」で書きます。下限は各フォルダの推定できない部分をそのフォルダで全長を見た最長のファイバーのすぐ先に、上限は無限遠に置いたときの値です。ファイバーを各フォルダ内でリサンプリングした"
-" 95 % 区間はログと統計値の CSV に出ます。平均・標準偏差・最頻値は空欄にします。{fiber} "
-"集計の重み付きの標本には群間検定を行いません。{ml} の {image}・{folder} "
-"集計は、各画像・各フォルダの重み付き中央値を検定します。高さ・曲率・キンクは枠内の部分の測定として有効なため、この設定の影響を受けません。"
+"集計でだけ使えます。全長を見たうち最長のファイバーより長い側は推定できず、その割合は図とログに出ます。推定はグループごとに行います。そこに落ちる中央値や四分位数は、数値の代わりに「>"
+" 全長を見た最長のファイバーの長さ」と書きます。ファイバーをリサンプリングした 95 % 区間はログと統計値の CSV "
+"に出ます。平均・標準偏差・最頻値は空欄にします。{fiber} 集計の重み付きの標本には群間検定を行いません。{ml} の {image} "
+"集計は、各画像の重み付き中央値を検定します。高さ・曲率・キンクは枠内の部分の測定として有効なため、この設定の影響を受けません。"
 msgstr ""
 "此设置仅作用于 {length}。到达图像边框的纤维会延伸到扫描范围之外，因此测得的长度偏短。{include} "
 "照常统计这些纤维，并按组在图和日志中显示到达边框的比例。{exclude} "
@@ -1921,32 +1917,26 @@ msgstr ""
 "校正），从而减小这一偏差。接近扫描范围的长度能落在边框内的方向很少或没有，因此差异仍然存在。在交叉处被切断的片段不做校正，其数量会输出到日志。{km}"
 " 同时处理在边框处和在交叉处被切断的长度。它把具有 2 个自身端部的纤维视为全长的观测，把仅有 1 "
 "个自身端部的纤维视为“至少与测得长度一样长”的观测，从而估计纤维长度的分布（Kaplan-Meier 估计）。{km} 仅可用于 {fiber} "
-"汇总。比完整可见的最长纤维更长的部分无法估计，其比例会显示在图中并输出到日志。落在该部分的中位数或四分位数不显示数值，而写为其可能的范围“[下限,"
-" 上限]”或“> "
-"下限”。下限是将各文件夹无法估计的部分置于该文件夹完整可见的最长纤维之后所得的值，上限是将其置于无穷远处所得的值。在各文件夹内对纤维重抽样得到的 "
-"95 % 区间会输出到日志和统计值 CSV。平均值、标准差和众数留空。{fiber} 汇总的加权样本不进行组间检验；{ml} 的 {image} "
-"和 {folder} 汇总则检验每幅图像或每个文件夹的加权中位数。高度、曲率和扭结作为边框内部分的测量仍然有效，因此不受此设置影响。"
+"汇总。比完整可见的最长纤维更长的部分无法估计，其比例会显示在图中并输出到日志。估计按组进行。落在该部分的中位数或四分位数不显示数值，而写为“> "
+"完整可见的最长纤维的长度”。对纤维重抽样得到的 95 % 区间会输出到日志和统计值 CSV。平均值、标准差和众数留空。{fiber} "
+"汇总的加权样本不进行组间检验；{ml} 的 {image} "
+"汇总则检验每幅图像的加权中位数。高度、曲率和扭结作为边框内部分的测量仍然有效，因此不受此设置影响。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2425
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2510
 msgid "長さの下限をそろえる"
 msgstr "统一长度下限"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2431
-#, python-brace-format
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2516
 msgid ""
 "二値化は一定の画素数より短い成分を取り除くため、残る最短の繊維長は画素サイズとともに大きくなります。粗い走査には、細かい走査が残す短い繊維が写りません。ON"
-" "
-"にすると、比べる全バンドルの下限長のうち最も長いものより短いファイバーを、どの計測量の集計からも外します。下限長と外した本数はログに出ます。{csv}"
-" 入力には画素サイズが無いため適用しません。"
-msgstr ""
-"二值化会去除短于一定像素数的成分，因此保留下来的最短纤维长度随像素尺寸增大：粗扫描无法包含细扫描所保留的短纤维。开启后，短于所比较捆绑包下限长度中最长者的纤维将从所有测量量的统计中排除。下限长度和排除的根数会输出到日志。{csv}"
-" 输入没有像素尺寸，因此不适用。"
+" にすると、比べる全バンドルの下限長のうち最も長いものより短いファイバーを、どの計測量の集計からも外します。下限長と外した本数はログに出ます。"
+msgstr "二值化会去除短于一定像素数的成分，因此保留下来的最短纤维长度随像素尺寸增大：粗扫描无法包含细扫描所保留的短纤维。开启后，短于所比较捆绑包下限长度中最长者的纤维将从所有测量量的统计中排除。下限长度和排除的根数会输出到日志。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2438
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2523
 msgid "キンクのしきい値"
 msgstr "扭结阈值"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2448
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2533
 #, python-brace-format
 msgid ""
 "{angle} と {density} に効く設定です。空欄なら、各バンドルを解析したときのしきい値（GUI01 の "
@@ -1957,346 +1947,353 @@ msgstr ""
 "kinkangle_deg）计数扭结，若混有阈值不同的捆绑包，则在日志中警告。输入内角值（度）后，将以该值重新选择所有捆绑包的扭结。捆绑包也保存了低于阈值的弯折，因此重新选择的扭结在位置、数量和角度上都与以该值重新分析的结果一致。不能用于格式"
 " 1.6 之前的捆绑包，也不能用于需要低于所保存下限的弯折的值，日志会说明这一点。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2535
-#, python-brace-format
-msgid "入力を {mode} に変更しました（{suffix} を探索します）。"
-msgstr "输入已更改为 {mode}（将搜索 {suffix}）。"
-
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2627
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2662
 msgid "曲率窓は正の値にしてください。"
 msgstr "曲率窗口必须为正值。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2671
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2706
 #, python-brace-format
 msgid ""
 "計測量を {param} に変更しました。ヒストグラム範囲を既定値（min={min}, max={max}, "
 "step={step}）に戻しました。"
 msgstr "测量量已更改为 {param}。直方图范围已恢复为默认值（min={min}, max={max}, step={step}）。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2712
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2747
 msgid "min"
 msgstr "最小值"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2721
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2756
 msgid "max"
 msgstr "最大值"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2730
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2765
 msgid "step"
 msgstr "步长"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2742
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2777
 msgid "Y"
 msgstr "Y轴"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2753
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2788
 msgid "縦並び"
 msgstr "纵向排列"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2767
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2802
 msgid "統計値表示"
 msgstr "显示统计值"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2789
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2824
 msgid "図の幅"
 msgstr "图宽"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2800
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2835
 msgid "図の高さ"
 msgstr "图高"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2809
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2844
 #, python-brace-format
 msgid "{histogram} を縦並びで表示するときは 1 グループ分の高さで、図全体の高さはグループ数倍になります。それ以外では図全体の高さです。"
 msgstr "以纵向排列显示 {histogram} 时，此值为每个组的高度，整幅图的高度为其组数倍。其他情况下为整幅图的高度。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2813
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2848
 msgid "フォントサイズ：グループ名"
 msgstr "字体大小：组名"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2840
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2875
 msgid "統計値"
 msgstr "统计值"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2901
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2936
 msgid "使い方:\n"
 msgstr "使用方法:\n"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2902
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2937
 msgid "  1)「グループ追加」でデータ群を作成（自動で 1 個作成済み）\n"
 msgstr "  1) 使用“添加组”创建数据组（已自动创建 1 个）\n"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2903
-msgid "  2) Treeview でグループを選び「フォルダ追加」で .b2z バンドルを含むフォルダを登録\n"
-msgstr "  2) 在 Treeview 中选择组，并使用“添加文件夹”注册包含 .b2z 包的文件夹\n"
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2938
+msgid "  2) Treeview でグループを選び「ファイル追加」で .b2z バンドルを登録（複数選択可）\n"
+msgstr "  2) 在 Treeview 中选择组，并使用“添加文件”登记 .b2z 包文件（可多选）\n"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2904
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2939
 msgid "  3) 計測量と集計単位、条件と表示モード（縦並び/重ね表示）を設定して「ヒストグラム作成」\n"
 msgstr "  3) 设置测量量与统计单位、范围以及显示模式（纵向排列/叠加显示），然后点击“生成直方图”\n"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2905
-msgid "  4) 必要に応じて「画像を保存」「数値を保存（グループ別CSV）」\n"
-msgstr "  4) 根据需要点击“保存图像”或“保存数值（按组 CSV）”\n"
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2940
+msgid "  4) 統計値と群間比較は「統計処理」で表示。必要に応じて「画像を保存」「数値を保存（グループ別CSV）」\n"
+msgstr "  4) 统计值和组间比较通过“统计处理”显示。根据需要点击“保存图像”或“保存数值（按组 CSV）”\n"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2907
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2942
 msgid "ヒント:\n"
 msgstr "提示:\n"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2908
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2943
 msgid "  - グループをダブルクリックで名前変更／右クリックで色変更\n"
 msgstr "  - 双击组可重命名，右键可更改颜色\n"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2909
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2944
+msgid "  - ファイル行を選ぶと画像を表示。別のグループへドラッグすると移動\n"
+msgstr "  - 选择文件行可显示图像；拖到其他组即可移动\n"
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2945
 #, python-brace-format
 msgid "  - 縦軸モード: 非表示=目盛なし / {density}=割合(0–1) / {percent}=パーセント\n"
 msgstr "  - 纵轴模式：隐藏=无刻度 / {density}=比例 (0-1) / {percent}=百分比\n"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2912
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2948
 #, python-brace-format
 msgid "  - グループ間でデータ数が大きく異なるときは {density} または {percent} を推奨\n"
 msgstr "  - 当组之间的数据数量差异较大时，建议使用 {density} 或 {percent}\n"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2915
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2951
 #, python-brace-format
 msgid ""
 "  - {pixel} "
 "集計は骨格画素をまとめた分布で、長いファイバーほど重みが大きく、同一ファイバーの隣接画素も独立ではありません。群間比較の根拠には "
-"{fiber}・{image}・{folder} 集計での N も併せて確認してください。\n"
+"{fiber}・{image} 集計での N も併せて確認してください。\n"
 msgstr ""
 "  - {pixel} 汇总是把骨架像素合并而成的分布，纤维越长权重越大，同一纤维的相邻像素也不独立。作为组间比较依据时，请同时确认 "
-"{fiber}、{image} 或 {folder} 汇总下的 N。\n"
+"{fiber} 或 {image} 汇总下的 N。\n"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2921
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2956
 #, python-brace-format
 msgid "  - どの計測量もファイバー追跡を行うため処理時間がかかります。{height} 以外はバンドルに走査範囲が記録されている必要があります。\n"
 msgstr "  - 所有测量量都会进行纤维追踪，因此需要处理时间。{height} 以外的测量量要求数据包中记录了扫描范围。\n"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2923
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2958
 msgid ""
 "  - mode はヒストグラムのビン幅に依存します。step を変えると値が変わるため、報告には median と IQR を併記してください。"
 "\n"
 msgstr "  - mode 依赖于直方图的组距，更改 step 会改变其数值，因此报告时请同时列出 median 与 IQR。\n"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2982
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3016
 msgid "step は正の値にしてください。"
 msgstr "step 必须为正值。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2984
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3018
 msgid "max height は min height より大きくしてください。"
 msgstr "max height 必须大于 min height。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3020
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3054
 msgid "ヒストグラムの横/縦の長さは正の値にしてください。"
 msgstr "直方图的横/纵长度必须为正值。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3023
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3057
 msgid "フォントサイズは正の値にしてください。"
 msgstr "字体大小必须为正值。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3124
-msgid "pairs"
-msgstr "有效包数"
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3277
+msgid "一覧が変わりました。ヒストグラムを作成し直してください。"
+msgstr "列表已更改。请重新生成直方图。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3235
-#, python-brace-format
-msgid "[アクセス不可] {err}"
-msgstr "[无法访问] {err}"
-
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3240
-#, python-brace-format
-msgid "入力なし（*{ext} が見つかりません）"
-msgstr "无输入（未找到 *{ext}）"
-
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3363
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3364
 #, python-brace-format
 msgid "グループ追加: {name}"
 msgstr "已添加组: {name}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3372
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3401
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3438
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3514
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3373
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3405
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3442
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3528
 msgid "未選択"
 msgstr "未选择"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3372
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3373
 msgid "削除するグループを選択してください。"
 msgstr "请选择要删除的组。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3379
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3381
 #, python-brace-format
 msgid ""
 "グループ「{name}」を削除しますか？\n"
-"所属フォルダの登録もすべて解除されます。"
+"所属ファイルの登録もすべて解除されます。"
 msgstr ""
 "要删除组“{name}”吗？\n"
-"该组下的所有文件夹注册也会被解除。"
+"该组中的所有文件注册也将被解除。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3385
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3389
 #, python-brace-format
 msgid "グループ削除: {name}"
 msgstr "已删除组: {name}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3401
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3405
 msgid "並び替えるグループを選択してください。"
 msgstr "请选择要重新排序的组。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3421
-msgid "すべてのグループとフォルダ登録を削除しますか？"
-msgstr "要删除所有组和文件夹注册吗？"
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3425
+msgid "すべてのグループとファイル登録を削除しますか？"
+msgstr "要删除所有组和文件注册吗？"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3428
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3432
 msgid "全クリアしました。"
 msgstr "已全部清除。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3439
-msgid "フォルダを追加する先のグループを Treeview で選択してください。"
-msgstr "请在 Treeview 中选择要添加文件夹的目标组。"
-
 #: guis/GUI03_Fiber_Morphology_Statistics.py:3443
-msgid "解析対象フォルダを選択"
-msgstr "选择解析目标文件夹"
+msgid "ファイルを追加する先のグループを Treeview で選択してください。"
+msgstr "请在 Treeview 中选择要添加文件的目标组。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3468
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3448
+#: guis/GUI05_Thumbnail_Viewer.py:1804
+msgid ".b2z バンドルを選択"
+msgstr "选择 .b2z 数据包"
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3489
 #, python-brace-format
-msgid "フォルダが見つかりません: {path}"
-msgstr "找不到文件夹：{path}"
+msgid "[{name}] 追加しません（{ext} ファイルではないか、見つかりません）: {path}"
+msgstr "[{name}] 未添加（不是 {ext} 文件，或找不到）：{path}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3473
-msgid "重複"
-msgstr "重复"
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3493
+#, python-brace-format
+msgid "[{name}] 追加しません（同じグループに登録済み）: {path}"
+msgstr "[{name}] 未添加（已在同一组中登记）：{path}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3473
-msgid "このフォルダは同じグループに既に登録されています。"
-msgstr "此文件夹已注册到同一组。"
-
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3481
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3499
 #, python-brace-format
 msgid "注意: 「{f}」は別グループ「{n}」にも登録されています。"
 msgstr "注意：“{f}”也已注册到另一个组“{n}”。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3500
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3516
 #, python-brace-format
-msgid "[{name}] 追加: {path}"
-msgstr "[{name}] 已添加: {path}"
+msgid "[{name}] {n} 個のファイルを追加しました:"
+msgstr "[{name}] 已添加 {n} 个文件："
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3501
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3528
+msgid "削除するファイル行を選択してください。"
+msgstr "请选择要删除的文件行。"
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3533
 #, python-brace-format
-msgid "有効ペア数: {n}"
-msgstr "有效配对数: {n}"
+msgid "[{name}] ファイル削除: {path}"
+msgstr "[{name}] 已删除文件: {path}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3503
-msgid "欠損/注意:"
-msgstr "缺失/注意:"
-
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3514
-msgid "削除するフォルダ行を選択してください。"
-msgstr "请选择要删除的文件夹行。"
-
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3523
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3571
 #, python-brace-format
-msgid "[{name}] フォルダ削除: {path}"
-msgstr "[{name}] 已删除文件夹: {path}"
+msgid "[{src}] → [{dst}] 移しません（移動先に登録済み）: {name}"
+msgstr "[{src}] → [{dst}] 未移动（目标组中已登记）：{name}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3568
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3584
+#, python-brace-format
+msgid "[{src}] → [{dst}] 移動: {name}"
+msgstr "[{src}] → [{dst}] 已移动：{name}"
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3663
 msgid "名前を変更"
 msgstr "重命名"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3569
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3664
 msgid "色を変更"
 msgstr "更改颜色"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3581
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3694
+msgid "グループへ移動"
+msgstr "移动到组"
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3701
 msgid "フォルダ名をグループ名にする"
 msgstr "将文件夹名设为组名"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3585
-msgid "フォルダ名をコピーする"
-msgstr "复制文件夹名"
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3705
+msgid "ファイル名をコピーする"
+msgstr "复制文件名"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3599
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3633
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3720
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4080
 #, python-brace-format
 msgid "注意: 同名のグループ「{n}」が既に存在します。"
 msgstr "注意：同名组“{n}”已存在。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3602
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3636
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3723
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4083
 #, python-brace-format
 msgid "グループ名変更: {name}"
 msgstr "组名已更改: {name}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3612
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3733
 #, python-brace-format
-msgid "フォルダ名をコピーしました: {name}"
-msgstr "已复制文件夹名：{name}"
+msgid "ファイル名をコピーしました: {name}"
+msgstr "已复制文件名：{name}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3620
+#: guis/GUI03_Fiber_Morphology_Statistics.py:3946
+#, python-brace-format
+msgid "読み込み中: {name}"
+msgstr "正在读取: {name}"
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4012
+#, python-brace-format
+msgid "画像を読めません: {name}"
+msgstr "无法读取图像: {name}"
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4014
+#, python-brace-format
+msgid "画像を読めません: {path} ({err})"
+msgstr "无法读取图像: {path} ({err})"
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4067
 msgid "グループ名変更"
 msgstr "更改组名"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3621
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4068
 msgid "新しいグループ名を入力してください:"
 msgstr "请输入新的组名:"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3643
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4090
 msgid "グループ色を選択"
 msgstr "选择组颜色"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3648
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4095
 #, python-brace-format
 msgid "[{name}] 色を変更: {c}"
 msgstr "[{name}] 颜色已更改: {c}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3667
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3672
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4114
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4119
 msgid "入力不足"
 msgstr "输入不足"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3667
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4114
 msgid "グループが登録されていません。"
 msgstr "尚未注册任何组。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3673
-msgid "どのグループにもフォルダが登録されていません。"
-msgstr "尚未注册任何文件夹。"
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4120
+msgid "どのグループにもファイルが登録されていません。"
+msgstr "任何组中都尚未登记文件。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3691
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3697
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3712
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4138
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4144
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4159
 msgid "設定エラー"
 msgstr "设置错误"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3692
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4139
 msgid "ヒストグラム範囲が不正です（min < max かつ step > 0）。"
 msgstr "直方图范围无效（需要 min < max 且 step > 0）。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3698
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4145
 msgid "サイズ/フォントサイズは正の値にしてください。"
 msgstr "大小和字体大小必须为正值。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3713
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4160
 msgid "キンクのしきい値は 0〜180 度の数値にするか、空欄にしてください。"
 msgstr "请将扭结阈值设为 0～180 度的数值，或留空。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3721
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4168
 #, python-brace-format
 msgid "注意: グループ間でデータ数が異なる場合、生カウント比較は誤解を招く可能性があります。{density} または {percent} を推奨します。"
 msgstr "注意：如果组之间的数据数量不同，比较原始计数可能会造成误解。建议使用 {density} 或 {percent}。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3732
-msgid "有効ペアなし"
-msgstr "无有效配对"
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4181
+msgid "入力なし"
+msgstr "无输入"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3733
-msgid "有効な calibrated/skeletonized バンドルが見つかりません。ログを確認してください。"
-msgstr "未找到有效的 calibrated/skeletonized 包。请检查日志。"
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4182
+msgid "登録したファイルが 1 つも見つかりません。"
+msgstr "找不到任何已登记的文件。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:3825
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4269
 msgid "致命的エラー"
 msgstr "致命错误"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4353
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4803
 #, python-brace-format
 msgid ""
 "注意: 比較したバンドルの画素サイズが {low}〜{high} nm/px と異なります。曲率は中心線の揺れにより、まっすぐな繊維でも 0 "
@@ -2305,11 +2302,11 @@ msgstr ""
 "注意：所比较的数据包像素尺寸不同（{low}〜{high} nm/px）。由于中心线的抖动，即使是笔直的纤维，曲率也会大于 "
 "0。这一附加量随像素尺寸和噪声而变，因此像素尺寸不同的数据包之间的曲率差异中也包含成像条件的差异。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4425
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4875
 msgid "長さの下限: どのバンドルにも走査範囲・解析設定・見かけ幅の記録が無いため、そろえません。"
 msgstr "长度下限：没有任何捆绑包记录扫描范围、分析设置和表观宽度，因此不统一下限。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4433
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4883
 #, python-brace-format
 msgid ""
 "注意: 比較したバンドルが残す最短の繊維長が {low:.0f}〜{high:.0f} nm "
@@ -2319,7 +2316,7 @@ msgstr ""
 "注意：所比较捆绑包保留的最短纤维长度在 {low:.0f}～{high:.0f} nm "
 "之间不同。扫描越粗，越无法包含短纤维，因此组间差异中包含成像条件的差异。开启「统一长度下限」后，所有组都将在 {high:.0f} nm 处截齐。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4440
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4890
 #, python-brace-format
 msgid ""
 "長さの下限: {floor:.0f} nm より短いファイバーを全群の集計から外します（各バンドルの下限 {low:.0f}〜{high:.0f}"
@@ -2328,7 +2325,7 @@ msgstr ""
 "长度下限：将短于 {floor:.0f} nm 的纤维从所有组的统计中排除（各捆绑包下限 {low:.0f}～{high:.0f} nm "
 "中的最大值）。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4445
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4895
 #, python-brace-format
 msgid ""
 "長さの下限: {n} バンドルは走査範囲・解析設定・見かけ幅のいずれかが記録されておらず、自身の下限を求められません。それらにも "
@@ -2337,19 +2334,19 @@ msgstr ""
 "长度下限：{n} 个捆绑包未记录扫描范围、分析设置或表观宽度中的某一项，无法求出其自身的下限。对它们也适用 {floor:.0f} "
 "nm，但其自身的下限可能更长（在 GUI01 中重新分析后会记录）。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4452
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4902
 #, python-brace-format
 msgid ""
 "長さの下限: {n} "
 "バンドルは走査範囲が記録されていないため、下限を適用しません（画素の高さでは全ファイバーを集計し、走査範囲を要する計測量では読み込めません）。"
 msgstr "长度下限：{n} 个捆绑包未记录扫描范围，因此不对它们应用下限（像素高度会统计其全部纤维，需要扫描范围的测量量则无法读取它们）。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4476
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4926
 #, python-brace-format
 msgid "キンク: 全バンドルのキンクを内角しきい値 {t:g} 度で選び直します。選び直せないバンドルは読込失敗として報告されます。"
 msgstr "扭结：以内角阈值 {t:g} 度重新选择所有捆绑包的扭结。无法重新选择的捆绑包将作为读取失败报告。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4492
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4941
 #, python-brace-format
 msgid ""
 "注意: 比較したバンドルのキンクのしきい値が {values} "
@@ -2358,163 +2355,146 @@ msgstr ""
 "注意：所比较捆绑包的扭结阈值不同（{values} "
 "度）。阈值越宽松，计数的扭结越多，因此组间差异中包含分析条件的差异。在「扭结阈值」中输入数值后，将以相同阈值重新选择所有捆绑包的扭结。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4529
+#: guis/GUI03_Fiber_Morphology_Statistics.py:4978
 #, python-brace-format
 msgid "曲率窓 {w} nm より短いファイバー {n} 本 / {total} 本は測定対象外です。窓を広げるとさらに減ります。"
 msgstr "{total} 根纤维中有 {n} 根短于 {w} nm 的曲率窗口，未纳入测量。窗口越大，被排除的越多。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4760
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5187
 #, python-brace-format
 msgid "{km} は {fiber} 集計でだけ使えます。集計単位を {fiber} にするか、枠の扱いを変えてください。"
 msgstr "{km} 仅可用于 {fiber} 汇总。请将汇总单位改为 {fiber}，或更改边框纤维的处理方式。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4845
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5255
+#, python-brace-format
+msgid "[{grp}] ファイルが見つかりません: {path}"
+msgstr "[{grp}] 找不到文件：{path}"
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5279
 #, python-brace-format
 msgid "ほか {n} 組"
 msgstr "另有 {n} 组"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4849
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5283
 #, python-brace-format
 msgid ""
-"グループ「{grp}」に、同じ入力ファイルの同じ走査線を解析した結果が複数あります。重なった部分の繊維を二度数えるため、集計しません。次の各組のどちらかをフォルダから外してください。"
+"グループ「{grp}」に、同じ入力ファイルの同じ走査線を解析した結果が複数あります。重なった部分の繊維を二度数えるため、集計しません。次の各組のどちらかをグループから外してください。"
 "\n"
 "{pairs}"
 msgstr ""
-"组“{grp}”中包含对同一输入文件的同一扫描线所做的多个分析结果。重叠部分的纤维会被计数两次，因此不进行统计。请将以下每组中的一个文件移出其文件夹。"
+"组“{grp}”中包含对同一输入文件的同一扫描线所做的多个分析结果。重叠部分的纤维会被计数两次，因此不进行统计。请将以下每对中的一个文件移出该组。"
 "\n"
 "{pairs}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4859
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5293
 #, python-brace-format
 msgid "[{grp}] {n} 件の入力には元の入力ファイルの記録が無いため、同じ走査線の解析が重なっていないかはファイル名だけで確かめました。"
 msgstr "[{grp}] {n} 个输入未记录原始输入文件，因此仅按文件名检查了同一扫描线的分析是否重叠。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4884
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5319
 #, python-brace-format
-msgid "長さの下限: {csv} には画素サイズの記録が無いため、そろえません。"
-msgstr "长度下限：{csv} 没有像素尺寸的记录，因此不统一下限。"
+msgid "[{grp}] 計測できるファイルがありません"
+msgstr "[{grp}] 没有可测量的文件"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4889
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5335
 #, python-brace-format
-msgid "キンク: {csv} には閾値未満の折れが無いため、しきい値は選び直さず、Fiber Tracker が出力したときのキンクを数えます。"
-msgstr "扭结：{csv} 不含低于阈值的弯折，因此不重新应用阈值，按 Fiber Tracker 导出时的扭结计数。"
+msgid "[{grp}] {n} バンドルを計測中..."
+msgstr "[{grp}] 正在测量 {n} 个数据包..."
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4926
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5346
 #, python-brace-format
-msgid "[{grp}/{folder}] {msg}"
-msgstr "[{grp}/{folder}] {msg}"
+msgid "[{grp}] 連結を適用: {n}/{total} バンドル"
+msgstr "[{grp}] 已应用连接: {n}/{total} 个数据包"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4931
-#, python-brace-format
-msgid "[{grp}/{folder}] 有効ペアがありません"
-msgstr "[{grp}/{folder}] 无有效配对"
-
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4948
-#, python-brace-format
-msgid "[{grp}/{folder}] {n} バンドルを計測中..."
-msgstr "[{grp}/{folder}] 正在测量 {n} 个数据包..."
-
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4959
-#, python-brace-format
-msgid "[{grp}/{folder}] 連結を適用: {n}/{total} バンドル"
-msgstr "[{grp}/{folder}] 已应用连接: {n}/{total} 个数据包"
-
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4961
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5348
 msgid "（残りは骨格断片のまま集計）"
 msgstr "（其余按骨架片段统计）"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:4984
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5368
 #, python-brace-format
 msgid ""
-"[{grp}/{folder}] {n}/{total} バンドルは旧版（形式 "
+"[{grp}] {n}/{total} バンドルは旧版（形式 "
 "1.0）で解析されています。保存されたスケルトンをそのまま追跡してスケルトンに沿って計測するため、現在の解析が取り除く小ループや行き止まりの短い枝でファイバーが分断されていることがあります。GUI01"
 " で再解析してください"
 msgstr ""
-"[{grp}/{folder}] {n}/{total} 个数据包由旧版本（格式 "
+"[{grp}] {n}/{total} 个数据包由旧版本（格式 "
 "1.0）分析。按原样追踪保存的骨架并沿骨架测量，因此纤维可能在当前分析会去除的小环和短小末端分支处被切断。请在 GUI01 中重新分析"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5002
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5384
 #, python-brace-format
-msgid "[{grp}/{folder}] 中心線: {lines}"
-msgstr "[{grp}/{folder}] 中心线: {lines}"
+msgid "[{grp}] 中心線: {lines}"
+msgstr "[{grp}] 中心线: {lines}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5042
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5422
 #, python-brace-format
-msgid "[{grp}/{folder}] {param} の抽出に失敗: {err}"
-msgstr "[{grp}/{folder}] {param} 提取失败: {err}"
+msgid "[{grp}] {param} の抽出に失敗: {err}"
+msgstr "[{grp}] {param} 提取失败: {err}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5059
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5442
 #, python-brace-format
-msgid "[{grp}/{folder}] 手動除外を適用: 追跡した {total} 本のうち {n} 本を除外しました"
-msgstr "[{grp}/{folder}] 已应用手动排除：在追踪到的 {total} 根纤维中排除了 {n} 根"
+msgid "[{grp}] 手動除外を適用: 追跡した {total} 本のうち {n} 本を除外しました"
+msgstr "[{grp}] 已应用手动排除：在追踪到的 {total} 根纤维中排除了 {n} 根"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5072
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5454
 #, python-brace-format
-msgid "[{grp}/{folder}] 長さの下限: 計測した {total} 本のうち、{floor:.0f} nm より短い {n} 本を外しました"
-msgstr "[{grp}/{folder}] 长度下限：在测量的 {total} 根中，排除了短于 {floor:.0f} nm 的 {n} 根"
+msgid "[{grp}] 長さの下限: 計測した {total} 本のうち、{floor:.0f} nm より短い {n} 本を外しました"
+msgstr "[{grp}] 长度下限：在测量的 {total} 根中，排除了短于 {floor:.0f} nm 的 {n} 根"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5102
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5501
+#, python-brace-format
+msgid "[{grp}] {name}: 枠の判定が記録されていないため、枠に達した本数に数えていません"
+msgstr "[{grp}] {name}：未记录边框判定，未计入到达边框的根数"
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5509
+#, python-brace-format
+msgid "[{grp}] {name}: 枠の判定が記録されていないため、長さの集計から外しました"
+msgstr "[{grp}] {name}：未记录边框判定，已排除在长度统计之外"
+
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5516
 #, python-brace-format
 msgid ""
-"[{grp}/{folder}] {name}: 枠の判定が記録されていないため、枠に達した本数に数えていません（現行の Fiber "
-"Tracker で出力し直すと記録されます）"
-msgstr "[{grp}/{folder}] {name}：未记录边框判定，未计入到达边框的根数（用当前版本的 Fiber Tracker 重新导出即可记录）"
-
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5112
-#, python-brace-format
-msgid ""
-"[{grp}/{folder}] {name}: 枠の判定が記録されていないため、長さの集計から外しました（現行の Fiber Tracker "
-"で出力し直すと記録されます）"
-msgstr "[{grp}/{folder}] {name}：未记录边框判定，已排除在长度统计之外（用当前版本的 Fiber Tracker 重新导出即可记录）"
-
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5121
-#, python-brace-format
-msgid ""
-"[{grp}/{folder}] 長さ ({km}): {total} 本のうち、両端とも自身の端である {whole} "
-"本で分布を推定し、片端が切れた {cut} 本を打ち切りとして使いました。両端とも切れているか枠にかかる {none} "
-"本は使っていません。全長を見たうち最長のファイバー ({longest:.0f} nm) より長い側にある {share:.0%} "
-"は、推定できません"
+"[{grp}] 長さ ({km}): {total} 本のうち、両端とも自身の端である {whole} 本で分布を推定し、片端が切れた {cut}"
+" 本を打ち切りとして使いました。両端とも切れているか枠にかかる {none} 本は使っていません。全長を見たうち最長のファイバー "
+"({longest:.0f} nm) より長い側にある {share:.0%} は、推定できません"
 msgstr ""
-"[{grp}/{folder}] 长度 ({km})：在 {total} 根纤维中，用两端均为自身端部的 {whole} "
-"根估计分布，并将一端被切断的 {cut} 根作为删失观测使用。两端均被切断或位于边框上的 {none} 根未使用。比完整可见的最长纤维 "
-"({longest:.0f} nm) 更长的 {share:.0%} 部分无法估计"
+"[{grp}] 长度 ({km})：在 {total} 根纤维中，用两端均为自身端部的 {whole} 根估计分布，并将一端被切断的 {cut} "
+"根作为删失观测使用。两端均被切断或位于边框上的 {none} 根未使用。比完整可见的最长纤维 ({longest:.0f} nm) 更长的 "
+"{share:.0%} 部分无法估计"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5137
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5532
 #, python-brace-format
 msgid ""
-"[{grp}/{folder}] 長さ: 枠に達したファイバー {n}/{total} 本を除外しました。残りのうち {k} "
+"[{grp}] 長さ: 枠に達したファイバー {n}/{total} 本を除外しました。残りのうち {k} "
 "本は交差などで切れた端を持ち、長さは下限値です"
-msgstr ""
-"[{grp}/{folder}] 长度：已排除 {total} 根中到达边框的 {n} 根纤维。其余纤维中有 {k} "
-"根的端部在交叉等处被切断，其长度为下限值"
+msgstr "[{grp}] 长度：已排除 {total} 根中到达边框的 {n} 根纤维。其余纤维中有 {k} 根的端部在交叉等处被切断，其长度为下限值"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5150
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5546
 #, python-brace-format
-msgid "[{grp}/{folder}] 読込失敗: {base} ({err})"
-msgstr "[{grp}/{folder}] 读取失败: {base} ({err})"
+msgid "[{grp}] 読込失敗: {base} ({err})"
+msgstr "[{grp}] 读取失败: {base} ({err})"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5164
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5553
 #, python-brace-format
 msgid "[{grp}] データ 0 件のためスキップしました"
 msgstr "[{grp}] 因数据为 0 件而跳过"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5188
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5577
 #, python-brace-format
 msgid ""
-"[{grp}] 長さ ({km}): ファイバーを各フォルダ内で {n} 回リサンプリングした 95 % 区間は、第 1 四分位数 "
-"{q1}、中央値 {md}、第 3 四分位数 {q3} nm です"
+"[{grp}] 長さ ({km}): ファイバーを {n} 回リサンプリングした 95 % 区間は、第 1 四分位数 {q1}、中央値 "
+"{md}、第 3 四分位数 {q3} nm です"
 msgstr ""
-"[{grp}] 长度 ({km})：在各文件夹内对纤维重抽样 {n} 次得到的 95 % 区间为：第一四分位数 {q1}，中位数 "
-"{md}，第三四分位数 {q3} nm"
+"[{grp}] 长度 ({km})：对纤维重抽样 {n} 次得到的 95 % 区间为：第一四分位数 {q1}，中位数 {md}，第三四分位数 "
+"{q3} nm"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5284
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5672
 #, python-brace-format
 msgid ""
 "[{g}] {mode} 重みの有効標本数は {neff:.1f} 本（計測した {n} 本）で、最大の重みを持つ 1 本が重みの合計の "
 "{share:.0%} を占めます。"
 msgstr "[{g}] {mode} 权重的有效样本量为 {neff:.1f} 根（实测 {n} 根），权重最大的 1 根占权重总和的 {share:.0%}。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5290
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5678
 #, python-brace-format
 msgid ""
 "[{g}] 長さ: {total} 本のうち {n} 本 ({share:.0%}) が枠に達し、ほかに {k} "
@@ -2523,130 +2503,115 @@ msgstr ""
 "[{g}] 长度：{total} 根中有 {n} 根 ({share:.0%}) 到达边框，另有 {k} "
 "根的端部在交叉等处被切断。这两类长度都是下限值。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5303
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5691
 #, python-brace-format
 msgid "[{g}] キンクを判定した尺度: 見かけの幅の中央値 {w:.1f} nm"
 msgstr "[{g}] 判定扭结的尺度：表观宽度中位数 {w:.1f} nm"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5309
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5697
 #, python-brace-format
 msgid "[{g}] 背景の画素ノイズの中央値: {n:.3f} nm"
 msgstr "[{g}] 背景像素噪声的中位数：{n:.3f} nm"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5317
-msgid "注意: ファイバー CSV には解析条件の記録が無いため、比較するファイルのキンクのしきい値・中心線・画素サイズが揃っているかは確かめていません。"
-msgstr "注意：纤维 CSV 未记录分析条件，因此未确认所比较文件的扭结阈值、中心线和像素尺寸是否一致。"
-
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5322
-msgid "注意: ファイバー CSV には中心線の記録が無いため、比較するファイルの中心線が揃っているかは確かめていません。"
-msgstr "注意：纤维 CSV 未记录中心线，因此未确认所比较文件的中心线是否一致。"
-
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5334
-#, python-brace-format
-msgid "注意: ファイバー CSV には走査範囲の記録が無いため、{mode} で比較するファイルの走査範囲が揃っているかは確かめていません。"
-msgstr "注意：纤维 CSV 未记录扫描范围，因此未确认在 {mode} 下比较的文件扫描范围是否一致。"
-
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5340
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5705
 #, python-brace-format
 msgid "どのグループからも {param} のデータを得られませんでした。ログを確認してください。"
 msgstr "未能从任何组获取 {param} 数据。请查看日志。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5363
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5728
 msgid "ヒストグラム範囲の準備に失敗しました。"
 msgstr "直方图范围准备失败。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5436
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5801
 #, python-brace-format
 msgid "[{grp}] 標本の {pct}% がヒストグラム範囲外です（統計値は範囲外を含む全標本から計算しています）"
 msgstr "[{grp}] 有 {pct}% 的样本超出直方图范围（统计值基于含范围外在内的全部样本计算）"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5454
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5819
 #, python-brace-format
 msgid "[{grp}] 標本が {n} 個しかないため、ヒストグラムの形状は解釈できません。テーブルの median と IQR を参照してください。"
 msgstr "[{grp}] 样本仅有 {n} 个，无法解读直方图的形状。请参考表中的 median 与 IQR。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5468
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5833
 msgid "比較には 2 群以上が必要です。"
 msgstr "比较至少需要两个组。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5471
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5836
 #, python-brace-format
-msgid "{unit} 集計の標本は独立観測ではないため検定しません。{fiber}・{image}・{folder} のいずれかの集計に切り替えてください。"
-msgstr "按 {unit} 汇总的样本并非独立观测，因此不进行检验。请切换到 {fiber}、{image} 或 {folder} 单位。"
+msgid "{unit} 集計の標本は独立観測ではないため検定しません。{fiber} か {image} の集計に切り替えてください。"
+msgstr "按 {unit} 汇总的样本并非独立观测，因此不进行检验。请切换到 {fiber} 或 {image} 单位。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5497
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5860
 #, python-brace-format
 msgid ""
-"{km} の標本は重み付きのため検定しません。枠で切れた長さを補正して検定するには、枠の扱いを {ml} に、集計単位を {image} か "
-"{folder} にしてください。{ml} は交差で切れた長さを補正しません。"
+"{km} の標本は重み付きのため検定しません。枠で切れた長さを補正して検定するには、枠の扱いを {ml} に、集計単位を {image} "
+"にしてください。{ml} は交差で切れた長さを補正しません。"
 msgstr ""
-"{km} 的样本是加权样本，因此不进行检验。如需在校正边框截断长度的同时进行检验，请将边框处理设为 {ml}，并将汇总单位设为 {image} 或"
-" {folder}。{ml} 不校正在交叉处被切断的长度。"
+"{km} 的样本是加权样本，因此不进行检验。如需在校正边框截断长度的同时进行检验，请将边框处理设为 {ml}，并将汇总单位设为 "
+"{image}。{ml} 不校正在交叉处被切断的长度。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5504
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5867
 #, python-brace-format
 msgid ""
-"{fiber} 集計の {ml} 補正の標本は重み付きのため検定しません。補正したまま検定するには {image} か {folder} "
-"の集計に切り替えてください。各画像・各フォルダの重み付き中央値を検定します。"
+"{fiber} 集計の {ml} 補正の標本は重み付きのため検定しません。補正したまま検定するには {image} "
+"の集計に切り替えてください。各画像の重み付き中央値を検定します。"
 msgstr ""
-"按 {fiber} 汇总的 {ml} 校正样本是加权样本，因此不进行检验。如需在保留校正的同时进行检验，请切换到 {image} 或 "
-"{folder} 汇总，此时检验每幅图像或每个文件夹的加权中位数。"
+"按 {fiber} 汇总的 {ml} 校正样本是加权样本，因此不进行检验。如需在保留校正的同时进行检验，请切换到 {image} "
+"汇总，此时检验每幅图像的加权中位数。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5516
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5879
 #, python-brace-format
-msgid ""
-"{fiber} 集計のキンク密度は判定長で重み付けしているため検定しません。検定するには {image} か {folder} "
-"の集計に切り替えてください。"
-msgstr "按 {fiber} 汇总的扭结密度以判定长度加权，因此不进行检验。如需检验，请切换到 {image} 或 {folder} 汇总。"
+msgid "{fiber} 集計のキンク密度は判定長で重み付けしているため検定しません。検定するには {image} の集計に切り替えてください。"
+msgstr "按 {fiber} 汇总的扭结密度以判定长度加权，因此不进行检验。如需检验，请切换到 {image} 汇总。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5525
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5888
 #, python-brace-format
 msgid "群間比較に失敗しました: {err}"
 msgstr "组间比较失败: {err}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5661
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6026
 msgid "=== エラー/注意（処理は継続しました） ==="
 msgstr "=== 错误/注意（处理已继续） ==="
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5743
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6108
 msgid "主検定 Mann-Whitney は Holm 補正後（括弧内は補正前）。KS は補正なしの参考値"
 msgstr "主检验 Mann-Whitney 为 Holm 校正后（括号内为校正前）。KS 为未校正的参考值"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5745
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6110
 msgid "主検定は Mann-Whitney（2 群のため補正不要）。KS は参考値"
 msgstr "主检验为 Mann-Whitney（两组无需校正）。KS 为参考值"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6206
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6222
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6311
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6376
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6571
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6587
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6676
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6743
 msgid "未作成"
 msgstr "尚未生成"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6206
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6222
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6376
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6571
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6587
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6743
 msgid "先にヒストグラムを作成してください。"
 msgstr "请先生成直方图。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6226
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6591
 msgid "CSV 保存先フォルダを選択"
 msgstr "选择 CSV 保存目标文件夹"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6286
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6651
 #, python-brace-format
 msgid "{n} 個のCSVを保存しました → {dir}"
 msgstr "已保存 {n} 个 CSV → {dir}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6291
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6350
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6489
-#: guis/GUI04_Tracking_fiber.py:3613 guis/GUI04_Tracking_fiber.py:3639
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6656
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6717
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6858
+#: guis/GUI04_Tracking_fiber.py:3638 guis/GUI04_Tracking_fiber.py:3664
 #: lib/ui_tools.py:430
 msgid "保存失敗"
 msgstr "保存失败"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6291 lib/ui_tools.py:985
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6656 lib/ui_tools.py:985
 #, python-brace-format
 msgid ""
 "CSVの保存に失敗しました:\n"
@@ -2655,16 +2620,16 @@ msgstr ""
 "CSV 保存失败:\n"
 "{e}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6311
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6676
 msgid "先に群間比較を実行してください。"
 msgstr "请先执行组间比较。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6349
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6716
 #, python-brace-format
 msgid "群間比較を保存しました → {path}"
 msgstr "组间比较已保存 → {path}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6488
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6857
 #, python-brace-format
 msgid "統計値を保存しました → {path}"
 msgstr "统计值已保存 → {path}"
@@ -2863,7 +2828,7 @@ msgstr "数据包为格式 1.0 时。"
 msgid "計算方法: {method}"
 msgstr "计算方法：{method}"
 
-#: guis/GUI04_Tracking_fiber.py:791 guis/GUI04_Tracking_fiber.py:8097
+#: guis/GUI04_Tracking_fiber.py:791 guis/GUI04_Tracking_fiber.py:8124
 #, python-brace-format
 msgid "空欄になる場合: {reason}"
 msgstr "留空的情况：{reason}"
@@ -2888,7 +2853,7 @@ msgstr "高度过滤器"
 msgid "連結"
 msgstr "连结"
 
-#: guis/GUI04_Tracking_fiber.py:1361 guis/GUI04_Tracking_fiber.py:5619
+#: guis/GUI04_Tracking_fiber.py:1361 guis/GUI04_Tracking_fiber.py:5646
 msgid "自動連結"
 msgstr "自动连结"
 
@@ -3041,7 +3006,7 @@ msgstr ""
 msgid "ファイバー一覧"
 msgstr "纤维列表"
 
-#: guis/GUI04_Tracking_fiber.py:1612 guis/GUI04_Tracking_fiber.py:6233
+#: guis/GUI04_Tracking_fiber.py:1612 guis/GUI04_Tracking_fiber.py:6260
 #: lib/ui_tools.py:972
 msgid "CSVで保存"
 msgstr "保存为 CSV"
@@ -3124,13 +3089,13 @@ msgstr "vmin 必须小于或等于 vmax。"
 msgid "最小値 < 最大値 となるように入力してください。"
 msgstr "请输入满足 最小值 < 最大值 的数值。"
 
-#: guis/GUI04_Tracking_fiber.py:2232 guis/GUI04_Tracking_fiber.py:6906
-#: guis/GUI04_Tracking_fiber.py:6948
+#: guis/GUI04_Tracking_fiber.py:2232 guis/GUI04_Tracking_fiber.py:6933
+#: guis/GUI04_Tracking_fiber.py:6975
 msgid "フォントサイズは 1〜60 の範囲で入力してください。"
 msgstr "请输入 1-60 范围内的字体大小。"
 
 #: guis/GUI04_Tracking_fiber.py:2268 guis/GUI04_Tracking_fiber.py:2315
-#: guis/GUI04_Tracking_fiber.py:5535
+#: guis/GUI04_Tracking_fiber.py:5562
 msgid "読み込み中です。しばらくお待ちください。"
 msgstr "正在加载，请稍候。"
 
@@ -3259,39 +3224,39 @@ msgid ""
 "本は曲率欄が空欄になります（前後それぞれ窓の半分を取れる点が無いか、連結したフィブリルでどの点の窓にも継ぎ目がかかるため）。"
 msgstr "{n} 根纤维没有能容纳 {w} nm 曲率窗口的点，因此其曲率栏为空（没有前后各能取到窗口一半的点，或在连接的原纤维中每个点的窗口都触及连接处）。"
 
-#: guis/GUI04_Tracking_fiber.py:3006
+#: guis/GUI04_Tracking_fiber.py:3008
 #, python-brace-format
 msgid "見かけ幅 W の中央値: {w_nm} nm ({w_px} px)。キンク規則の長さはこの W の倍数です。"
 msgstr "表观宽度 W 的中位数：{w_nm} nm（{w_px} px）。扭结规则的所有长度都是该 W 的倍数。"
 
-#: guis/GUI04_Tracking_fiber.py:3011
+#: guis/GUI04_Tracking_fiber.py:3013
 #, python-brace-format
 msgid "見かけ幅 W の中央値: {w_px} px。キンク規則の長さはこの W の倍数です。"
 msgstr "表观宽度 W 的中位数：{w_px} px。扭结规则的所有长度都是该 W 的倍数。"
 
-#: guis/GUI04_Tracking_fiber.py:3016
+#: guis/GUI04_Tracking_fiber.py:3018
 #, python-brace-format
 msgid "幅を測れず既定の {fallback_px} px を使ったファイバー: {n} 本（表の W 欄は空欄）"
 msgstr "有 {n} 根纤维无法测得宽度，使用了默认的 {fallback_px} px（表中 W 栏为空白）。"
 
-#: guis/GUI04_Tracking_fiber.py:3460
+#: guis/GUI04_Tracking_fiber.py:3485
 #, python-brace-format
 msgid "除外により、連結したフィブリル {n} 本が分割されました（断片 {m} 本が除外対象）。"
 msgstr "由于排除，{n} 条已连结的纤维被拆分（{m} 个片段被排除）。"
 
-#: guis/GUI04_Tracking_fiber.py:3466
+#: guis/GUI04_Tracking_fiber.py:3491
 #, python-brace-format
 msgid "連結したフィブリル {n} 本は、すべての断片を除外したため取り除かれました。"
 msgstr "{n} 条已连结的纤维因其全部片段被排除而被移除。"
 
-#: guis/GUI04_Tracking_fiber.py:3601 guis/GUI04_Tracking_fiber.py:3954
-#: guis/GUI04_Tracking_fiber.py:4031 guis/GUI04_Tracking_fiber.py:4074
-#: guis/GUI04_Tracking_fiber.py:5532 guis/GUI04_Tracking_fiber.py:5627
-#: guis/GUI04_Tracking_fiber.py:5749 guis/GUI04_Tracking_fiber.py:6183
+#: guis/GUI04_Tracking_fiber.py:3626 guis/GUI04_Tracking_fiber.py:3979
+#: guis/GUI04_Tracking_fiber.py:4056 guis/GUI04_Tracking_fiber.py:4099
+#: guis/GUI04_Tracking_fiber.py:5559 guis/GUI04_Tracking_fiber.py:5654
+#: guis/GUI04_Tracking_fiber.py:5776 guis/GUI04_Tracking_fiber.py:6210
 msgid "データセットを選択してください。"
 msgstr "请选择数据集。"
 
-#: guis/GUI04_Tracking_fiber.py:3614
+#: guis/GUI04_Tracking_fiber.py:3639
 #, python-brace-format
 msgid ""
 "除外ファイルを保存できませんでした:\n"
@@ -3300,7 +3265,7 @@ msgstr ""
 "无法保存排除文件:\n"
 "{err}"
 
-#: guis/GUI04_Tracking_fiber.py:3640
+#: guis/GUI04_Tracking_fiber.py:3665
 #, python-brace-format
 msgid ""
 "連結ファイルを保存できませんでした:\n"
@@ -3309,31 +3274,31 @@ msgstr ""
 "无法保存连结文件：\n"
 "{err}"
 
-#: guis/GUI04_Tracking_fiber.py:3647
+#: guis/GUI04_Tracking_fiber.py:3672
 #, python-brace-format
 msgid "除外を保存しました（{n} 件）: {path}"
 msgstr "已保存排除记录（{n} 条）: {path}"
 
-#: guis/GUI04_Tracking_fiber.py:3652
+#: guis/GUI04_Tracking_fiber.py:3677
 #, python-brace-format
 msgid "除外が無くなったため、除外ファイルを削除しました: {path}"
 msgstr "已无排除记录，故删除排除文件: {path}"
 
-#: guis/GUI04_Tracking_fiber.py:3657
+#: guis/GUI04_Tracking_fiber.py:3682
 #, python-brace-format
 msgid "連結を保存しました（フィブリル {n} 本 / 断片 {m} 本）: {path}"
 msgstr "已保存连结（{n} 条纤维 / {m} 个片段）：{path}"
 
-#: guis/GUI04_Tracking_fiber.py:3663
+#: guis/GUI04_Tracking_fiber.py:3688
 #, python-brace-format
 msgid "連結を保存しました（連結なし）: {path}"
 msgstr "已保存连结（无连结）：{path}"
 
-#: guis/GUI04_Tracking_fiber.py:3714
+#: guis/GUI04_Tracking_fiber.py:3739
 msgid "除外・連結ファイルの上書き"
 msgstr "覆盖排除与连接文件"
 
-#: guis/GUI04_Tracking_fiber.py:3715
+#: guis/GUI04_Tracking_fiber.py:3740
 #, python-brace-format
 msgid ""
 "このバンドルの {excluded} または {connect} "
@@ -3343,11 +3308,11 @@ msgstr ""
 "此包文件的 {excluded} 或 {connect} 在本窗口读取之后已被其他窗口等改写。覆盖将丢失那些更改。要覆盖吗？\n"
 "“否”将取消保存。要读取改写后的内容，请重新打开此包文件。"
 
-#: guis/GUI04_Tracking_fiber.py:3761
+#: guis/GUI04_Tracking_fiber.py:3786
 msgid "未保存のキュレーション"
 msgstr "未保存的整理结果"
 
-#: guis/GUI04_Tracking_fiber.py:3762
+#: guis/GUI04_Tracking_fiber.py:3787
 #, python-brace-format
 msgid ""
 "除外・連結に未保存の変更があります（除外 {n} 件）。保存しますか？\n"
@@ -3356,43 +3321,43 @@ msgstr ""
 "排除与连结有未保存的更改（排除 {n} 条）。要保存吗？\n"
 "“否”将放弃更改，“取消”将中止该操作。"
 
-#: guis/GUI04_Tracking_fiber.py:3772
+#: guis/GUI04_Tracking_fiber.py:3797
 msgid "未保存のキュレーションを破棄しました。"
 msgstr "未保存的整理结果"
 
-#: guis/GUI04_Tracking_fiber.py:3816
+#: guis/GUI04_Tracking_fiber.py:3841
 msgid "取り消せる除外がありません。"
 msgstr "没有可撤销的排除。"
 
-#: guis/GUI04_Tracking_fiber.py:3823
+#: guis/GUI04_Tracking_fiber.py:3848
 #, python-brace-format
 msgid "直前の除外を取り消しました: 位置 ({x}, {y})"
 msgstr "已撤销上一次排除: 位置 ({x}, {y})"
 
-#: guis/GUI04_Tracking_fiber.py:3828
+#: guis/GUI04_Tracking_fiber.py:3853
 #, python-brace-format
 msgid "直前の除外を取り消しました: {n} 件の記録"
 msgstr "已撤销上一次排除: {n} 条记录"
 
-#: guis/GUI04_Tracking_fiber.py:3875
+#: guis/GUI04_Tracking_fiber.py:3900
 msgid "高さフィルターが有効な間は除外できません。一覧の行はファイバーから切り出した部分区間ですが、除外はファイバー全体に対して行うためです。高さフィルターを外してから除外してください。"
 msgstr "高度过滤器启用期间无法排除。此时列表中的行是从纤维中截取的部分区段，而排除是对整根纤维进行的。请先关闭高度过滤器再排除。"
 
-#: guis/GUI04_Tracking_fiber.py:3882
+#: guis/GUI04_Tracking_fiber.py:3907
 msgid "除外するファイバーを選択してください。"
 msgstr "请选择要排除的纤维。"
 
-#: guis/GUI04_Tracking_fiber.py:3899
+#: guis/GUI04_Tracking_fiber.py:3924
 #, python-brace-format
 msgid "ファイバーを除外しました: 位置 ({x}, {y}) / 長さ {length:.0f} nm"
 msgstr "已排除纤维: 位置 ({x}, {y}) / 长度 {length:.0f} nm"
 
-#: guis/GUI04_Tracking_fiber.py:3903
+#: guis/GUI04_Tracking_fiber.py:3928
 #, python-brace-format
 msgid "ファイバーを {n} 本除外しました（合計長さ {length:.0f} nm）"
 msgstr "已排除 {n} 根纤维（总长度 {length:.0f} nm）"
 
-#: guis/GUI04_Tracking_fiber.py:3960
+#: guis/GUI04_Tracking_fiber.py:3985
 msgid ""
 "「連結を解除」ですべての連結を解除してから実行してください。\n"
 "孤立かどうかは連結前の断片に対して定義されます。連結は交差を越えてファイバーをつなぐため、孤立ファイバーがネットワークへ取り込まれ、孤立と判定されなくなります。"
@@ -3403,17 +3368,17 @@ msgstr ""
 "是否孤立是针对连结前的片段定义的。连结会跨越交叉把纤维连起来，孤立纤维因此被并入网络，不再被判定为孤立。\n"
 "连结与本操作是应对片段化的两种互斥方法。"
 
-#: guis/GUI04_Tracking_fiber.py:3979
+#: guis/GUI04_Tracking_fiber.py:4004
 #, python-brace-format
 msgid "除外対象がありません。{n} 本すべてが孤立と判定されました。"
 msgstr "没有可排除的对象。全部 {n} 条纤维均被判定为孤立。"
 
-#: guis/GUI04_Tracking_fiber.py:3990
+#: guis/GUI04_Tracking_fiber.py:4015
 #, python-brace-format
 msgid "全長を計測できなかったファイバー {n} 本を除外します（残り {rest} 本）。よろしいですか？"
 msgstr "将排除 {n} 条无法测得全长的纤维（剩余 {rest} 条）。确定吗？"
 
-#: guis/GUI04_Tracking_fiber.py:4009
+#: guis/GUI04_Tracking_fiber.py:4034
 #, python-brace-format
 msgid ""
 "全長を計測できなかったファイバーを {n} 本除外しました（残り {rest} / {total} "
@@ -3422,64 +3387,64 @@ msgstr ""
 "已排除 {n} 条无法测得全长的纤维（剩余 {rest} / {total} "
 "条）。仅保留不与其他纤维交叉或接触、未到达图像边缘、且没有连接对象的纤维。"
 
-#: guis/GUI04_Tracking_fiber.py:4020
+#: guis/GUI04_Tracking_fiber.py:4045
 msgid "注意: 交差に達したファイバーを全て除外したため、残った本数が少なくなっています。"
 msgstr "注意：已排除所有到达交叉处的纤维，因此保留的数量较少。"
 
-#: guis/GUI04_Tracking_fiber.py:4034
+#: guis/GUI04_Tracking_fiber.py:4059
 msgid "除外されたファイバーはありません。"
 msgstr "没有被排除的纤维。"
 
-#: guis/GUI04_Tracking_fiber.py:4071 guis/GUI04_Tracking_fiber.py:4160
+#: guis/GUI04_Tracking_fiber.py:4096 guis/GUI04_Tracking_fiber.py:4185
 msgid "範囲選択を取りやめました。"
 msgstr "已取消范围选择。"
 
-#: guis/GUI04_Tracking_fiber.py:4083
+#: guis/GUI04_Tracking_fiber.py:4108
 msgid "AFM 全体像の上をドラッグして範囲を指定してください。Esc キーで取りやめます。"
 msgstr "请在 AFM 全图上拖动以指定范围。按 Esc 键取消。"
 
-#: guis/GUI04_Tracking_fiber.py:4191
+#: guis/GUI04_Tracking_fiber.py:4216
 msgid "範囲内にファイバーがありません。"
 msgstr "范围内没有纤维。"
 
-#: guis/GUI04_Tracking_fiber.py:4208
+#: guis/GUI04_Tracking_fiber.py:4233
 #, python-brace-format
 msgid "範囲にかかるファイバー {n} 本を選択しました（選択中 {total} 本）。全体像の枠で確認してから「選択を除外」を押してください。"
 msgstr "已选中与范围重叠的纤维 {n} 根（当前共选中 {total} 根）。请在全图上的方框中确认后，按“排除所选”。"
 
-#: guis/GUI04_Tracking_fiber.py:4783 guis/GUI04_Tracking_fiber.py:6121
+#: guis/GUI04_Tracking_fiber.py:4808 guis/GUI04_Tracking_fiber.py:6148
 msgid "ファイバーを選択してください。"
 msgstr "请选择纤维。"
 
-#: guis/GUI04_Tracking_fiber.py:5250
+#: guis/GUI04_Tracking_fiber.py:5275
 msgid "フィルター適用中..."
 msgstr "正在应用过滤器..."
 
-#: guis/GUI04_Tracking_fiber.py:5252
+#: guis/GUI04_Tracking_fiber.py:5277
 #, python-brace-format
 msgid "フィルター適用中: 高さ {lo}〜{hi}"
 msgstr "正在应用过滤器: 高度 {lo}〜{hi}"
 
-#: guis/GUI04_Tracking_fiber.py:5328
+#: guis/GUI04_Tracking_fiber.py:5354
 #, python-brace-format
 msgid "フィルター適用完了: 高さ {lo}〜{hi}"
 msgstr "过滤器应用完成: 高度 {lo}〜{hi}"
 
-#: guis/GUI04_Tracking_fiber.py:5329
+#: guis/GUI04_Tracking_fiber.py:5355
 #, python-brace-format
 msgid "{count} 件"
 msgstr "{count} 件"
 
-#: guis/GUI04_Tracking_fiber.py:5344
+#: guis/GUI04_Tracking_fiber.py:5371
 msgid "フィルターをリセットしました。"
 msgstr "已重置过滤器。"
 
-#: guis/GUI04_Tracking_fiber.py:5388
+#: guis/GUI04_Tracking_fiber.py:5415
 #, python-brace-format
 msgid "ファイバー連結: 断片 {before} 本 → フィブリル {after} 本（{joins} 件連結）"
 msgstr "纤维连接：断片 {before} 段 → 纤维 {after} 根（连接 {joins} 处）"
 
-#: guis/GUI04_Tracking_fiber.py:5540
+#: guis/GUI04_Tracking_fiber.py:5567
 #, python-brace-format
 msgid ""
 "現在の連結結果（フィブリル {n} 本）は破棄され、自動連結の結果に置き換わります。手動で連結したものも含まれます。\n"
@@ -3488,19 +3453,19 @@ msgstr ""
 "当前的连结结果（{n} 条纤维）将被丢弃，并替换为自动连结的结果，其中也包括手动建立的连结。\n"
 "是否继续？"
 
-#: guis/GUI04_Tracking_fiber.py:5548
+#: guis/GUI04_Tracking_fiber.py:5575
 msgid "連結できるファイバーがありません。"
 msgstr "没有可连结的纤维。"
 
-#: guis/GUI04_Tracking_fiber.py:5557
+#: guis/GUI04_Tracking_fiber.py:5584
 msgid "自動連結中..."
 msgstr "正在自动连结……"
 
-#: guis/GUI04_Tracking_fiber.py:5607
+#: guis/GUI04_Tracking_fiber.py:5634
 msgid "自動連結: 連結できる断片はありませんでした。"
 msgstr "自动连结：没有可连结的片段。"
 
-#: guis/GUI04_Tracking_fiber.py:5610
+#: guis/GUI04_Tracking_fiber.py:5637
 msgid ""
 "連結できる断片がありませんでした。\n"
 "この画像では、交差や隙間で分断された断片が見つからないということです。条件を変えたい場合は「自動連結の設定」のしきい値を変更してから、もう一度実行してください。"
@@ -3508,100 +3473,100 @@ msgstr ""
 "没有可连结的片段。\n"
 "在该图像中未找到因交叉或间隙而被切断的片段。若要更改条件，请在“自动连结设置”中修改阈值后再次执行。"
 
-#: guis/GUI04_Tracking_fiber.py:5617
+#: guis/GUI04_Tracking_fiber.py:5644
 #, python-brace-format
 msgid "自動連結を実行しました: フィブリル {n} 本（断片 {m} 本を連結）"
 msgstr "已执行自动连结：{n} 条纤维（连结了 {m} 个片段）"
 
-#: guis/GUI04_Tracking_fiber.py:5632
+#: guis/GUI04_Tracking_fiber.py:5659
 msgid "連結するファイバーを 1 本だけ選択してください。"
 msgstr "请只选择一条要连结的纤维。"
 
-#: guis/GUI04_Tracking_fiber.py:5638
+#: guis/GUI04_Tracking_fiber.py:5665
 msgid "このファイバーの端の近くに、連結できる相手がありません。"
 msgstr "该纤维端点附近没有可连结的对象。"
 
-#: guis/GUI04_Tracking_fiber.py:5663
+#: guis/GUI04_Tracking_fiber.py:5690
 msgid "連結対象が変化したため、連結を中止しました。"
 msgstr "连结对象已发生变化，连结已中止。"
 
-#: guis/GUI04_Tracking_fiber.py:5683
+#: guis/GUI04_Tracking_fiber.py:5710
 #, python-brace-format
 msgid "手動で連結しました: 断片 {n} 本のフィブリル（距離 {d:.1f} px / 角度 {a:.0f} 度{auto}）"
 msgstr "已手动连结：由 {n} 个片段组成的纤维（距离 {d:.1f} px / 角度 {a:.0f} 度{auto}）"
 
-#: guis/GUI04_Tracking_fiber.py:5686
+#: guis/GUI04_Tracking_fiber.py:5713
 msgid " / 自動連結の条件外"
 msgstr " / 不满足自动连结条件"
 
-#: guis/GUI04_Tracking_fiber.py:5688
+#: guis/GUI04_Tracking_fiber.py:5715
 msgid "手動連結"
 msgstr "手动连结"
 
-#: guis/GUI04_Tracking_fiber.py:5812
+#: guis/GUI04_Tracking_fiber.py:5839
 #, python-brace-format
 msgid "連結を解除しました: {n} 箇所（フィブリル {m} 本）"
 msgstr "已解除连结：{n} 处（{m} 条纤维）"
 
-#: guis/GUI04_Tracking_fiber.py:5815
+#: guis/GUI04_Tracking_fiber.py:5842
 msgid "連結の解除"
 msgstr "解除连结"
 
-#: guis/GUI04_Tracking_fiber.py:5841
+#: guis/GUI04_Tracking_fiber.py:5868
 #, python-brace-format
 msgid "すべての連結を解除しました: フィブリル {n} 本を断片へ戻しました。"
 msgstr "已解除全部连结：{n} 条纤维已还原为片段。"
 
-#: guis/GUI04_Tracking_fiber.py:5843
+#: guis/GUI04_Tracking_fiber.py:5870
 msgid "すべての連結の解除"
 msgstr "解除全部连结"
 
-#: guis/GUI04_Tracking_fiber.py:5861
+#: guis/GUI04_Tracking_fiber.py:5888
 msgid "元に戻せる連結操作がありません。"
 msgstr "没有可撤销的连结操作。"
 
-#: guis/GUI04_Tracking_fiber.py:5865
+#: guis/GUI04_Tracking_fiber.py:5892
 #, python-brace-format
 msgid "「{action}」を元に戻しました。"
 msgstr "已撤销“{action}”。"
 
-#: guis/GUI04_Tracking_fiber.py:5934
+#: guis/GUI04_Tracking_fiber.py:5961
 msgid "継ぎ目の折れもキンクとして判定します。連結したフィブリルのキンクを判定し直しました。"
 msgstr "连接处的弯折也将作为扭结判定。已重新判定所连接原纤维的扭结。"
 
-#: guis/GUI04_Tracking_fiber.py:5939
+#: guis/GUI04_Tracking_fiber.py:5966
 #, python-brace-format
 msgid "継ぎ目の折れは判定しません。連結したフィブリルのキンクを判定し直し、継ぎ目にかかる折れ {n} 箇所を判定しない折れ（マゼンタの菱形）にしました。"
 msgstr "不判定连接处的弯折。已重新判定所连接原纤维的扭结，并将连接处的 {n} 个弯折设为未判定弯折（品红色菱形）。"
 
-#: guis/GUI04_Tracking_fiber.py:5945
+#: guis/GUI04_Tracking_fiber.py:5972
 msgid "自動連結のしきい値を更新しました。「自動連結」を実行すると反映されます。"
 msgstr "已更新自动连结的阈值。执行“自动连结”后生效。"
 
-#: guis/GUI04_Tracking_fiber.py:6011
+#: guis/GUI04_Tracking_fiber.py:6038
 #, python-brace-format
 msgid "連結ファイルを読めませんでした: {err}"
 msgstr "无法读取连结文件：{err}"
 
-#: guis/GUI04_Tracking_fiber.py:6031
+#: guis/GUI04_Tracking_fiber.py:6058
 #, python-brace-format
 msgid "連結を復元しました: フィブリル {n} 本（断片 {m} 本）"
 msgstr "已恢复连结：{n} 条纤维（{m} 个片段）"
 
-#: guis/GUI04_Tracking_fiber.py:6034
+#: guis/GUI04_Tracking_fiber.py:6061
 msgid "連結を復元しました: 連結なし"
 msgstr "已恢复连结：无连结"
 
-#: guis/GUI04_Tracking_fiber.py:6188
+#: guis/GUI04_Tracking_fiber.py:6215
 msgid "エクスポートするファイバーがありません。"
 msgstr "没有可导出的纤维。"
 
-#: guis/GUI04_Tracking_fiber.py:6235
+#: guis/GUI04_Tracking_fiber.py:6262
 #, python-brace-format
 msgid "{msg} ({count} 件)"
 msgstr "{msg} ({count} 件)"
 
-#: guis/GUI04_Tracking_fiber.py:6275
+#: guis/GUI04_Tracking_fiber.py:6302
 #, python-brace-format
 msgid ""
 "読み込みエラー: {name}\n"
@@ -3610,7 +3575,7 @@ msgstr ""
 "读取错误: {name}\n"
 "{tb}"
 
-#: guis/GUI04_Tracking_fiber.py:6289
+#: guis/GUI04_Tracking_fiber.py:6316
 #, python-brace-format
 msgid ""
 "フィルターエラー:\n"
@@ -3619,65 +3584,65 @@ msgstr ""
 "过滤器错误:\n"
 "{tb}"
 
-#: guis/GUI04_Tracking_fiber.py:6440
+#: guis/GUI04_Tracking_fiber.py:6467
 msgid "自動(best)"
 msgstr "自动(best)"
 
-#: guis/GUI04_Tracking_fiber.py:6441
+#: guis/GUI04_Tracking_fiber.py:6468
 msgid "右上"
 msgstr "右上"
 
-#: guis/GUI04_Tracking_fiber.py:6442
+#: guis/GUI04_Tracking_fiber.py:6469
 msgid "左上"
 msgstr "左上"
 
-#: guis/GUI04_Tracking_fiber.py:6443
+#: guis/GUI04_Tracking_fiber.py:6470
 msgid "右下"
 msgstr "右下"
 
-#: guis/GUI04_Tracking_fiber.py:6444
+#: guis/GUI04_Tracking_fiber.py:6471
 msgid "左下"
 msgstr "左下"
 
-#: guis/GUI04_Tracking_fiber.py:6445
+#: guis/GUI04_Tracking_fiber.py:6472
 msgid "上中央"
 msgstr "上方居中"
 
-#: guis/GUI04_Tracking_fiber.py:6446
+#: guis/GUI04_Tracking_fiber.py:6473
 msgid "下中央"
 msgstr "下方居中"
 
-#: guis/GUI04_Tracking_fiber.py:6447
+#: guis/GUI04_Tracking_fiber.py:6474
 msgid "左中央"
 msgstr "左侧居中"
 
-#: guis/GUI04_Tracking_fiber.py:6448
+#: guis/GUI04_Tracking_fiber.py:6475
 msgid "右中央"
 msgstr "右侧居中"
 
-#: guis/GUI04_Tracking_fiber.py:6449
+#: guis/GUI04_Tracking_fiber.py:6476
 msgid "中央"
 msgstr "居中"
 
-#: guis/GUI04_Tracking_fiber.py:6450
+#: guis/GUI04_Tracking_fiber.py:6477
 msgid "軸外(右)"
 msgstr "轴外（右）"
 
-#: guis/GUI04_Tracking_fiber.py:6560
+#: guis/GUI04_Tracking_fiber.py:6587
 #, python-brace-format
 msgid "個別表示 – {name}"
 msgstr "单独显示 - {name}"
 
-#: guis/GUI04_Tracking_fiber.py:6562
+#: guis/GUI04_Tracking_fiber.py:6589
 #, python-brace-format
 msgid "個別表示 – {name} / fiber #{idx}"
 msgstr "单独显示 - {name} / fiber #{idx}"
 
-#: guis/GUI04_Tracking_fiber.py:6627
+#: guis/GUI04_Tracking_fiber.py:6654
 msgid "余白"
 msgstr "边距"
 
-#: guis/GUI04_Tracking_fiber.py:6637
+#: guis/GUI04_Tracking_fiber.py:6664
 msgid ""
 "追跡範囲の周囲を何画素分まで表示に含めるかを指定します。\n"
 "端点で終わったのか交差で切れたのかを周囲ごと確認できます。\n"
@@ -3689,27 +3654,27 @@ msgstr ""
 "仅用于显示，不影响长度、高度等测量值。\n"
 "设为 0 时恢复为与追踪范围完全一致的裁剪。"
 
-#: guis/GUI04_Tracking_fiber.py:6646 guis/GUI04_Tracking_fiber.py:6780
+#: guis/GUI04_Tracking_fiber.py:6673 guis/GUI04_Tracking_fiber.py:6807
 msgid "フォントサイズ：軸ラベル"
 msgstr "字体大小：坐标轴标签"
 
-#: guis/GUI04_Tracking_fiber.py:6684 guis/GUI04_Tracking_fiber.py:6847
+#: guis/GUI04_Tracking_fiber.py:6711 guis/GUI04_Tracking_fiber.py:6874
 msgid "表示："
 msgstr "显示："
 
-#: guis/GUI04_Tracking_fiber.py:6686 guis/GUI04_Tracking_fiber.py:6849
+#: guis/GUI04_Tracking_fiber.py:6713 guis/GUI04_Tracking_fiber.py:6876
 msgid "キンク"
 msgstr "扭结"
 
-#: guis/GUI04_Tracking_fiber.py:6691
+#: guis/GUI04_Tracking_fiber.py:6718
 msgid "中心線"
 msgstr "中心线"
 
-#: guis/GUI04_Tracking_fiber.py:6696
+#: guis/GUI04_Tracking_fiber.py:6723
 msgid "追跡範囲"
 msgstr "追踪范围"
 
-#: guis/GUI04_Tracking_fiber.py:6702
+#: guis/GUI04_Tracking_fiber.py:6729
 msgid ""
 "計測対象のファイバーを囲む破線枠を表示します。\n"
 "余白に隣接ファイバーが写り込んでも、どれが計測対象かを取り違えずに済みます。"
@@ -3717,96 +3682,96 @@ msgstr ""
 "显示包围测量对象纤维的虚线框。\n"
 "即使边距中出现相邻纤维，也不会弄错哪一条是测量对象。"
 
-#: guis/GUI04_Tracking_fiber.py:6771
+#: guis/GUI04_Tracking_fiber.py:6798
 msgid "Y最大"
 msgstr "Y最大值"
 
-#: guis/GUI04_Tracking_fiber.py:6824
+#: guis/GUI04_Tracking_fiber.py:6851
 msgid "グリッド表示"
 msgstr "显示网格"
 
-#: guis/GUI04_Tracking_fiber.py:6832
+#: guis/GUI04_Tracking_fiber.py:6859
 msgid "凡例位置"
 msgstr "图例位置"
 
-#: guis/GUI04_Tracking_fiber.py:6854
+#: guis/GUI04_Tracking_fiber.py:6881
 msgid "中央値/最大値"
 msgstr "中位数/最大值"
 
-#: guis/GUI04_Tracking_fiber.py:6903
+#: guis/GUI04_Tracking_fiber.py:6930
 msgid "拡大像の設定値が不正です。"
 msgstr "放大图设置值无效。"
 
-#: guis/GUI04_Tracking_fiber.py:6911
+#: guis/GUI04_Tracking_fiber.py:6938
 #, python-brace-format
 msgid "余白は 0〜{max} px の範囲で入力してください。"
 msgstr "请输入 0-{max} px 范围内的边距。"
 
-#: guis/GUI04_Tracking_fiber.py:6945
+#: guis/GUI04_Tracking_fiber.py:6972
 msgid "プロファイルの設定値が不正です。"
 msgstr "剖面设置值无效。"
 
-#: guis/GUI04_Tracking_fiber.py:6974
+#: guis/GUI04_Tracking_fiber.py:7001
 msgid "y軸最大値には正の数値を入力してください。"
 msgstr "请为 y 轴最大值输入正数。"
 
-#: guis/GUI04_Tracking_fiber.py:7407
+#: guis/GUI04_Tracking_fiber.py:7434
 msgid "ファイバー連結の設定"
 msgstr "纤维连接设置"
 
-#: guis/GUI04_Tracking_fiber.py:7417
+#: guis/GUI04_Tracking_fiber.py:7444
 msgid "連結距離"
 msgstr "连接距离"
 
-#: guis/GUI04_Tracking_fiber.py:7418
+#: guis/GUI04_Tracking_fiber.py:7445
 msgid "端点どうしがこの距離以内なら連結候補にする。"
 msgstr "两端点相距在该距离以内时作为连接候选。"
 
-#: guis/GUI04_Tracking_fiber.py:7419
+#: guis/GUI04_Tracking_fiber.py:7446
 msgid "直線性の角度しきい値"
 msgstr "直线性角度阈值"
 
-#: guis/GUI04_Tracking_fiber.py:7420
+#: guis/GUI04_Tracking_fiber.py:7447
 msgid "両端点の角度がこの値を超える（＝ほぼ直線）ときのみ連結する。"
 msgstr "仅当两端点的夹角超过该值（＝近乎直线）时才连接。"
 
-#: guis/GUI04_Tracking_fiber.py:7421
+#: guis/GUI04_Tracking_fiber.py:7448
 msgid "方向推定の振り返り点数"
 msgstr "方向估计的回溯点数"
 
-#: guis/GUI04_Tracking_fiber.py:7422
+#: guis/GUI04_Tracking_fiber.py:7449
 msgid "端点での向きを推定するのに使うトラック点数。"
 msgstr "用于估计端点方向的轨迹点数。"
 
-#: guis/GUI04_Tracking_fiber.py:7423
+#: guis/GUI04_Tracking_fiber.py:7450
 msgid "橋渡し高さの平均点数"
 msgstr "桥接高度的平均点数"
 
-#: guis/GUI04_Tracking_fiber.py:7424
+#: guis/GUI04_Tracking_fiber.py:7451
 msgid "連結部の高さを決めるために平均する端点サンプル数。"
 msgstr "为确定连接部高度而平均的端点采样数。"
 
-#: guis/GUI04_Tracking_fiber.py:7425
+#: guis/GUI04_Tracking_fiber.py:7452
 msgid "高さ差の許容比"
 msgstr "高度差容许比"
 
-#: guis/GUI04_Tracking_fiber.py:7426
+#: guis/GUI04_Tracking_fiber.py:7453
 msgid "高さ中央値の相対差がこの値以下の断片のみ連結する。大きいほど緩い。"
 msgstr "仅连接高度中位数相对差在该值以下的片段。值越大越宽松。"
 
-#: guis/GUI04_Tracking_fiber.py:7427
+#: guis/GUI04_Tracking_fiber.py:7454
 msgid "交差ノイズのトリミング点数"
 msgstr "交叉噪声的修剪点数"
 
-#: guis/GUI04_Tracking_fiber.py:7428
+#: guis/GUI04_Tracking_fiber.py:7455
 msgid "連結前に接合部付近から切り落とす骨格点数。"
 msgstr "连接前从接合部附近切除的骨架点数。"
 
-#: guis/GUI04_Tracking_fiber.py:7449
+#: guis/GUI04_Tracking_fiber.py:7476
 msgid "継ぎ目の折れもキンクとして判定する"
 msgstr "连接处的弯折也作为扭结判定"
 
-#: guis/GUI04_Tracking_fiber.py:7454
+#: guis/GUI04_Tracking_fiber.py:7481
 msgid ""
 "連結した継ぎ目（繊維が見えていない隙間を直線でつないだ部分）にかかる折れを、キンクとして判定するかどうか。外すと、それらの折れは判定せず、個別表示のウインドウと"
 " AFM "
@@ -3817,80 +3782,80 @@ msgstr ""
 "全图中显示为品红色空心菱形，既不计入扭结数，也不计入扭结密度。无论哪种情况，连接处本身的长度都不计入扭结密度的分母。此设置对格式 1.0 "
 "的数据包无效。"
 
-#: guis/GUI04_Tracking_fiber.py:7464
+#: guis/GUI04_Tracking_fiber.py:7491
 msgid "適用"
 msgstr "应用"
 
-#: guis/GUI04_Tracking_fiber.py:7465
+#: guis/GUI04_Tracking_fiber.py:7492
 msgid "既定値に戻す"
 msgstr "恢复初始值"
 
-#: guis/GUI04_Tracking_fiber.py:7495
+#: guis/GUI04_Tracking_fiber.py:7522
 msgid "正の数値を入力してください。"
 msgstr "必须输入正数。"
 
-#: guis/GUI04_Tracking_fiber.py:7497
+#: guis/GUI04_Tracking_fiber.py:7524
 msgid "0 より大きく 180 以下の角度を入力してください。"
 msgstr "请输入大于 0 且不超过 180 的角度。"
 
-#: guis/GUI04_Tracking_fiber.py:7499
+#: guis/GUI04_Tracking_fiber.py:7526
 msgid "2 以上の整数を入力してください。"
 msgstr "必须输入不小于 2 的整数。"
 
-#: guis/GUI04_Tracking_fiber.py:7501
+#: guis/GUI04_Tracking_fiber.py:7528
 msgid "1 以上の整数を入力してください。"
 msgstr "必须输入不小于 1 的整数。"
 
-#: guis/GUI04_Tracking_fiber.py:7503
+#: guis/GUI04_Tracking_fiber.py:7530
 msgid "0 以上の整数を入力してください。"
 msgstr "必须输入不小于 0 的整数。"
 
-#: guis/GUI04_Tracking_fiber.py:7517
+#: guis/GUI04_Tracking_fiber.py:7544
 msgid "入力エラー"
 msgstr "输入错误"
 
-#: guis/GUI04_Tracking_fiber.py:7583
+#: guis/GUI04_Tracking_fiber.py:7610
 msgid "連結先の候補"
 msgstr "连结候选"
 
-#: guis/GUI04_Tracking_fiber.py:7588
+#: guis/GUI04_Tracking_fiber.py:7615
 #, python-brace-format
 msgid ""
 "ファイバー #{n} の連結先を選んでください。距離は端どうしの画素距離、角度は連結部の直線性です。「自動」が ✓ "
 "の候補は自動連結でも連結される条件を満たしています。"
 msgstr "请选择纤维 #{n} 的连结对象。距离为两端点之间的像素距离，角度为连接处的平直度。“自动”列标有 ✓ 的候选同时满足自动连结的条件。"
 
-#: guis/GUI04_Tracking_fiber.py:7629
+#: guis/GUI04_Tracking_fiber.py:7656
 msgid "この候補と連結"
 msgstr "与该候选连结"
 
-#: guis/GUI04_Tracking_fiber.py:7686
+#: guis/GUI04_Tracking_fiber.py:7713
 msgid "連結する候補を選択してください。"
 msgstr "请选择要连结的候选。"
 
-#: guis/GUI04_Tracking_fiber.py:7735
+#: guis/GUI04_Tracking_fiber.py:7762
 msgid "連結の一覧"
 msgstr "连结列表"
 
-#: guis/GUI04_Tracking_fiber.py:7740
+#: guis/GUI04_Tracking_fiber.py:7767
 msgid ""
 "連結部の一覧です。行を選ぶと全体像で連結部を丸で示します。位置は全体像の画素座標、gap は繋いだ 2 "
 "端の画素距離です。複数行を選んでまとめて解除できます。"
 msgstr "本图像中所有连结处的列表。选择一行即在整体图上用圆圈标出该连结处。位置为整体图的像素坐标，gap 为所连结两端之间的像素距离。可选择多行一并解除。"
 
-#: guis/GUI04_Tracking_fiber.py:7751
+#: guis/GUI04_Tracking_fiber.py:7778
 msgid "選択した連結を解除"
 msgstr "解除所选连结"
 
-#: guis/GUI04_Tracking_fiber.py:7753
+#: guis/GUI04_Tracking_fiber.py:7780
 msgid "すべての連結を解除"
 msgstr "解除全部连结"
 
-#: guis/GUI04_Tracking_fiber.py:7847
+#: guis/GUI04_Tracking_fiber.py:7874
 msgid "解除する連結を選択してください。"
 msgstr "请选择要解除的连结。"
 
-#: guis/GUI04_Tracking_fiber.py:7860
+#: guis/GUI04_Tracking_fiber.py:7887
 #, python-brace-format
 msgid ""
 "すべての連結（{n} 箇所）を解除します。\n"
@@ -3899,72 +3864,72 @@ msgstr ""
 "将解除全部连结（{n} 处）。\n"
 "按一次“撤销”即可恢复。确定吗？"
 
-#: guis/GUI04_Tracking_fiber.py:7905
+#: guis/GUI04_Tracking_fiber.py:7932
 msgid "除外したファイバー"
 msgstr "已排除的纤维"
 
-#: guis/GUI04_Tracking_fiber.py:7910
+#: guis/GUI04_Tracking_fiber.py:7937
 #, python-brace-format
 msgid "位置は全体像の画素座標です。除外はバンドル横の {suffix} に保存されます。"
 msgstr "位置为整幅图像的像素坐标。排除信息保存在数据包旁的 {suffix} 中。"
 
-#: guis/GUI04_Tracking_fiber.py:7936
+#: guis/GUI04_Tracking_fiber.py:7963
 msgid "選択を解除"
 msgstr "恢复所选"
 
-#: guis/GUI04_Tracking_fiber.py:7938
+#: guis/GUI04_Tracking_fiber.py:7965
 msgid "すべて解除"
 msgstr "全部恢复"
 
-#: guis/GUI04_Tracking_fiber.py:7966
+#: guis/GUI04_Tracking_fiber.py:7993
 msgid "解除する行を選択してください。"
 msgstr "请选择要恢复的行。"
 
-#: guis/GUI04_Tracking_fiber.py:7978
+#: guis/GUI04_Tracking_fiber.py:8005
 #, python-brace-format
 msgid "除外を解除しました: 位置 ({x}, {y})"
 msgstr "已恢复纤维: 位置 ({x}, {y})"
 
-#: guis/GUI04_Tracking_fiber.py:7996
+#: guis/GUI04_Tracking_fiber.py:8023
 #, python-brace-format
 msgid "このデータセットの除外 {n} 件をすべて解除しますか？"
 msgstr "要恢复该数据集的全部 {n} 条排除记录吗？"
 
-#: guis/GUI04_Tracking_fiber.py:8005
+#: guis/GUI04_Tracking_fiber.py:8032
 #, python-brace-format
 msgid "除外をすべて解除しました: {n} 件"
 msgstr "已恢复全部排除记录: {n} 条"
 
-#: guis/GUI04_Tracking_fiber.py:8041
+#: guis/GUI04_Tracking_fiber.py:8068
 msgid "ファイバー一覧の計測値の説明"
 msgstr "纤维列表测量值说明"
 
-#: guis/GUI04_Tracking_fiber.py:8046
+#: guis/GUI04_Tracking_fiber.py:8073
 msgid "列見出しにマウスを乗せても、その値の説明が表示されます。"
 msgstr "将鼠标悬停在列标题上也会显示该值的说明。"
 
-#: guis/GUI04_Tracking_fiber.py:8053
+#: guis/GUI04_Tracking_fiber.py:8080
 #, python-brace-format
 msgid "計算方法とそのコードは、リポジトリの {doc} の各節（§）で説明しています。"
 msgstr "计算方法及其代码在代码仓库中 {doc} 的各节（§）中说明。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1407
+#: guis/GUI05_Thumbnail_Viewer.py:1368
 msgid "フォルダやファイルを追加するか、一覧の枠へドロップしてください。"
 msgstr "请添加文件夹或文件，或将其拖放到列表区域。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1409
+#: guis/GUI05_Thumbnail_Viewer.py:1370
 msgid "フォルダまたはファイルを追加してください。"
 msgstr "请添加文件夹或文件。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1425
+#: guis/GUI05_Thumbnail_Viewer.py:1386
 msgid "フォルダを追加"
 msgstr "添加文件夹"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1427
+#: guis/GUI05_Thumbnail_Viewer.py:1388
 msgid "ファイルを追加"
 msgstr "添加文件"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1433
+#: guis/GUI05_Thumbnail_Viewer.py:1394
 msgid ""
 "選択したサムネイルを一覧から削除します（ファイルはそのまま残ります）。\n"
 "クリックで 1 つ選択、Ctrl+クリックで追加、Shift+クリックで範囲を選択します。"
@@ -3972,27 +3937,27 @@ msgstr ""
 "将所选缩略图从列表中删除（文件保持不变）。\n"
 "单击选择一个，Ctrl+单击追加选择，Shift+单击选择范围。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1436
+#: guis/GUI05_Thumbnail_Viewer.py:1397
 msgid "全て削除"
 msgstr "全部删除"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1440
+#: guis/GUI05_Thumbnail_Viewer.py:1401
 msgid "すべてのサムネイルを一覧から削除します（ファイルはそのまま残ります）。"
 msgstr "将所有缩略图从列表中删除（文件保持不变）。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1445
+#: guis/GUI05_Thumbnail_Viewer.py:1406
 msgid "並べ替え"
 msgstr "排序"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1447
+#: guis/GUI05_Thumbnail_Viewer.py:1408
 msgid "名前順"
 msgstr "按名称"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1449
+#: guis/GUI05_Thumbnail_Viewer.py:1410
 msgid "更新日時順"
 msgstr "按修改时间"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1454
+#: guis/GUI05_Thumbnail_Viewer.py:1415
 msgid ""
 "サムネイルは追加した順に並びます。ドラッグすると並べ替えられます（複数選択していれば、まとめて動かせます）。\n"
 "このメニューは、現在の一覧をその順に 1 回並べ直します。"
@@ -4000,35 +3965,35 @@ msgstr ""
 "缩略图按添加顺序排列。拖动即可重新排列（选中多个时可一起移动）。\n"
 "此菜单将当前列表按所选顺序重新排列一次。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1460
+#: guis/GUI05_Thumbnail_Viewer.py:1421
 msgid "用紙"
 msgstr "纸张"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1461
+#: guis/GUI05_Thumbnail_Viewer.py:1422
 msgid "A4 縦"
 msgstr "A4 纵向"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1461
+#: guis/GUI05_Thumbnail_Viewer.py:1422
 msgid "A4 横"
 msgstr "A4 横向"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1464
+#: guis/GUI05_Thumbnail_Viewer.py:1425
 msgid "列数"
 msgstr "列数"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1466
+#: guis/GUI05_Thumbnail_Viewer.py:1427
 msgid "1 ページの 1 行に並べる画像の数です。"
 msgstr "每页一行中排列的图像数量。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1470
+#: guis/GUI05_Thumbnail_Viewer.py:1431
 msgid "行数"
 msgstr "行数"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1472
+#: guis/GUI05_Thumbnail_Viewer.py:1433
 msgid "1 ページに並べる行の数です。"
 msgstr "每页排列的行数。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1481
+#: guis/GUI05_Thumbnail_Viewer.py:1442
 msgid ""
 "ページを画面に描く大きさです。100% は用紙の実寸です。\n"
 "一覧の上で Ctrl を押しながらマウスホイールを回しても、倍率を変えられます。"
@@ -4036,20 +4001,20 @@ msgstr ""
 "页面在屏幕上绘制的大小。100% 为纸张的实际尺寸。\n"
 "在列表上按住 Ctrl 并滚动鼠标滚轮，也可以改变缩放比例。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1485
+#: guis/GUI05_Thumbnail_Viewer.py:1446
 msgid "幅に合わせる"
 msgstr "适应宽度"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1485
+#: guis/GUI05_Thumbnail_Viewer.py:1446
 msgid "ページ全体"
 msgstr "整页"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1491 guis/GUI05_Thumbnail_Viewer.py:2891
-#: guis/GUI05_Thumbnail_Viewer.py:2894 guis/GUI05_Thumbnail_Viewer.py:2914
+#: guis/GUI05_Thumbnail_Viewer.py:1452 guis/GUI05_Thumbnail_Viewer.py:2893
+#: guis/GUI05_Thumbnail_Viewer.py:2896 guis/GUI05_Thumbnail_Viewer.py:2916
 msgid "シートを保存"
 msgstr "保存总览页"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1495
+#: guis/GUI05_Thumbnail_Viewer.py:1456
 msgid ""
 "画面に見えているとおりのページを、A4 のシートとして保存します。\n"
 "PDF は全ページを 1 つのファイルに、PNG は 1 ページを 1 つのファイルに保存します（複数ページでは名前の末尾に _p01、_p02 "
@@ -4058,11 +4023,11 @@ msgstr ""
 "将屏幕上显示的页面原样保存为 A4 总览页。\n"
 "PDF 将所有页保存为一个文件，PNG 每页保存为一个文件（多页时在文件名末尾加上 _p01、_p02 …）。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1500
+#: guis/GUI05_Thumbnail_Viewer.py:1461
 msgid "保存後に開く"
 msgstr "保存后打开"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1504
+#: guis/GUI05_Thumbnail_Viewer.py:1465
 msgid ""
 "保存したシートを既定のアプリで開きます。印刷はそのアプリから行います。\n"
 "PNG で複数ページになった場合は 1 ページ目を開きます。"
@@ -4070,7 +4035,7 @@ msgstr ""
 "用默认应用打开保存的总览页，请在该应用中打印。\n"
 "PNG 有多页时打开第 1 页。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1518
+#: guis/GUI05_Thumbnail_Viewer.py:1479
 msgid ""
 "色の範囲は画像ごとに自動で決まります。サムネイルを選択して vmin / vmax を入力し、Enter "
 "で確定すると、選択した画像の範囲が変わります。Ctrl+A ですべて選択できます。\n"
@@ -4080,100 +4045,106 @@ msgstr ""
 "\n"
 "选中多幅图像时，数值不一致的一侧显示为空。确认时保持为空的一侧，各图像的数值不变。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1542
+#: guis/GUI05_Thumbnail_Viewer.py:1503
 msgid "選択した画像の色範囲を、自動で決めた範囲に戻します。"
 msgstr "将所选图像的颜色范围恢复为自动确定的范围。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1550 guis/GUI05_Thumbnail_Viewer.py:2973
+#: guis/GUI05_Thumbnail_Viewer.py:1511 guis/GUI05_Thumbnail_Viewer.py:2975
 msgid "スケールバー"
 msgstr "比例尺"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1554
+#: guis/GUI05_Thumbnail_Viewer.py:1515
 msgid "各画像の下、画像の左端に合わせてスケールバーを表示します。走査範囲の記録が無いバンドルには表示しません。"
 msgstr "在每幅图像下方、与图像左边缘对齐显示比例尺。未记录扫描范围的数据包不显示。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1561
+#: guis/GUI05_Thumbnail_Viewer.py:1522
 msgid "各画像の下に、その画像の色と高さの対応を示すカラーバーを表示します。"
 msgstr "在每幅图像下方显示颜色条，表示该图像的颜色与高度的对应关系。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1570
+#: guis/GUI05_Thumbnail_Viewer.py:1531
 msgid "ファイル名・スケールバー・カラーバーの文字の大きさを設定します。画面と保存するシートの両方に反映されます。"
 msgstr "设置文件名、比例尺和颜色条的文字大小。同时应用于屏幕和保存的总览页。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1579
+#: guis/GUI05_Thumbnail_Viewer.py:1540
 msgid "選択した画像を Plot Profiler で開きます。1 つにつきウィンドウが 1 つ開きます。"
 msgstr "在 Plot Profiler 中打开所选图像，每幅图像打开一个窗口。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1585
+#: guis/GUI05_Thumbnail_Viewer.py:1542
+msgid "GUI03で開く"
+msgstr "在 GUI03 中打开"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1546
+msgid ""
+"選択した画像を Fiber Morphology Statistics で開きます。選択した全画像が 1 つのグループに入った状態で、ウィンドウが"
+" 1 つ開きます。"
+msgstr "在 Fiber Morphology Statistics 中打开所选图像。所选的全部图像归入同一个组，只打开一个窗口。"
+
+#: guis/GUI05_Thumbnail_Viewer.py:1553
 msgid "選択した画像を Fiber Tracker で開きます。1 つにつきウィンドウが 1 つ開きます。"
 msgstr "在 Fiber Tracker 中打开所选图像，每幅图像打开一个窗口。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1718
+#: guis/GUI05_Thumbnail_Viewer.py:1686
 #, python-brace-format
 msgid "ドラッグ＆ドロップは使えません（{reason}）。「フォルダを追加」「ファイルを追加」は使えます。"
 msgstr "无法使用拖放（{reason}）。仍可使用“添加文件夹”和“添加文件”。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1824
+#: guis/GUI05_Thumbnail_Viewer.py:1792
 msgid ".b2z バンドルを含むフォルダを選択"
 msgstr "选择包含 .b2z 数据包的文件夹"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1836
-msgid ".b2z バンドルを選択"
-msgstr "选择 .b2z 数据包"
-
-#: guis/GUI05_Thumbnail_Viewer.py:1883
+#: guis/GUI05_Thumbnail_Viewer.py:1851
 #, python-brace-format
 msgid "追加: {n_new} 件（既に一覧にあるため省略 {n_dup} 件、.b2z 以外のため無視 {n_ignored} 件）"
 msgstr "已添加: {n_new} 个（因已在列表中而跳过 {n_dup} 个，因不是 .b2z 而忽略 {n_ignored} 个）"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1904
+#: guis/GUI05_Thumbnail_Viewer.py:1872
 #, python-brace-format
 msgid "一覧から {n} 件を外しました。"
 msgstr "已从列表中移除 {n} 个。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1917
+#: guis/GUI05_Thumbnail_Viewer.py:1885
 msgid "一覧を空にしました。"
 msgstr "已清空列表。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1937
+#: guis/GUI05_Thumbnail_Viewer.py:1905
 msgid "更新日時の古い順に並べ替えました。"
 msgstr "已按修改时间从旧到新排序。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:1940
+#: guis/GUI05_Thumbnail_Viewer.py:1908
 msgid "名前順に並べ替えました。"
 msgstr "已按名称排序。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2053
+#: guis/GUI05_Thumbnail_Viewer.py:2021
 #, python-brace-format
 msgid "{name}: 読み込めませんでした ({reason})"
 msgstr "{name}: 无法读取 ({reason})"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2059 guis/GUI05_Thumbnail_Viewer.py:2922
+#: guis/GUI05_Thumbnail_Viewer.py:2027 guis/GUI05_Thumbnail_Viewer.py:2924
 #, python-brace-format
 msgid "シートを保存中… {page} / {n_pages} ページ"
 msgstr "正在保存总览页… 第 {page} / {n_pages} 页"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2066 lib/ui_tools.py:2464
+#: guis/GUI05_Thumbnail_Viewer.py:2034 lib/ui_tools.py:2522
 #, python-brace-format
 msgid "保存: {path}"
 msgstr "已保存: {path}"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2069
+#: guis/GUI05_Thumbnail_Viewer.py:2037
 #, python-brace-format
 msgid "{n} 件の画像は読み直せなかったため、シートでは空欄です: {names}"
 msgstr "有 {n} 幅图像无法重新读取，在总览页中为空白: {names}"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2076
+#: guis/GUI05_Thumbnail_Viewer.py:2044
 #, python-brace-format
 msgid "シートを保存できませんでした: {reason}"
 msgstr "无法保存总览页: {reason}"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2078 guis/GUI05_Thumbnail_Viewer.py:2901
-#: lib/ui_tools.py:984 lib/ui_tools.py:2460
+#: guis/GUI05_Thumbnail_Viewer.py:2046 guis/GUI05_Thumbnail_Viewer.py:2903
+#: lib/ui_tools.py:984 lib/ui_tools.py:2518
 msgid "保存エラー"
 msgstr "保存错误"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2078 lib/ui_tools.py:2461
+#: guis/GUI05_Thumbnail_Viewer.py:2046 lib/ui_tools.py:2519
 #, python-brace-format
 msgid ""
 "保存に失敗しました:\n"
@@ -4182,88 +4153,93 @@ msgstr ""
 "图表保存失败:\n"
 "{e}"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2082
+#: guis/GUI05_Thumbnail_Viewer.py:2050
 #, python-brace-format
 msgid "処理中にエラーが発生しました: {reason}"
 msgstr "处理过程中发生错误: {reason}"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2103
+#: guis/GUI05_Thumbnail_Viewer.py:2071
 #, python-brace-format
 msgid "読み込み完了: {n_ok} 件（読み込めなかったもの {n_failed} 件）"
 msgstr "读取完成: {n_ok} 个（无法读取 {n_failed} 个）"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2149
+#: guis/GUI05_Thumbnail_Viewer.py:2117
 #, python-brace-format
 msgid "読み込み中… {done} / {total}"
 msgstr "正在读取… {done} / {total}"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2152
+#: guis/GUI05_Thumbnail_Viewer.py:2120
 #, python-brace-format
 msgid "{n} 件（選択 {n_selected} 件）"
 msgstr "{n} 个（已选 {n_selected} 个）"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2240
+#: guis/GUI05_Thumbnail_Viewer.py:2208
 msgid "ここに .b2z ファイルまたはフォルダをドロップしてください。"
 msgstr "请将 .b2z 文件或文件夹拖放到此处。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2242
+#: guis/GUI05_Thumbnail_Viewer.py:2210
 msgid "「フォルダを追加」または「ファイルを追加」で読み込んでください。"
 msgstr "请使用“添加文件夹”或“添加文件”读取。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2282
+#: guis/GUI05_Thumbnail_Viewer.py:2250
 #, python-brace-format
 msgid "ページ {page} / {n_pages}"
 msgstr "第 {page} / {n_pages} 页"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2425
+#: guis/GUI05_Thumbnail_Viewer.py:2393
 msgid "読み込めなかったファイル"
 msgstr "无法读取的文件"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2759
+#: guis/GUI05_Thumbnail_Viewer.py:2727
 msgid "vmax には vmin より大きい値を入力してください"
 msgstr "请为 vmax 输入大于 vmin 的值"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2769
+#: guis/GUI05_Thumbnail_Viewer.py:2737
 #, python-brace-format
 msgid "{n} 件の画像の色範囲を {vmin} 〜 {vmax} nm に設定しました。"
 msgstr "已将 {n} 幅图像的颜色范围设置为 {vmin} ～ {vmax} nm。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2774
+#: guis/GUI05_Thumbnail_Viewer.py:2742
 #, python-brace-format
 msgid "{n} 件の画像の {bound} を {value} nm に設定しました。"
 msgstr "已将 {n} 幅图像的 {bound} 设置为 {value} nm。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2794
+#: guis/GUI05_Thumbnail_Viewer.py:2762
 msgid "色範囲を自動に戻す画像を選択してください。"
 msgstr "请选择要将颜色范围恢复为自动的图像。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2798
+#: guis/GUI05_Thumbnail_Viewer.py:2766
 msgid "選択した画像は、既に自動の色範囲です。"
 msgstr "所选图像已使用自动颜色范围。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2802
+#: guis/GUI05_Thumbnail_Viewer.py:2770
 #, python-brace-format
 msgid "{n} 件の画像の色範囲を自動に戻しました。"
 msgstr "已将 {n} 幅图像的颜色范围恢复为自动。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2832
+#: guis/GUI05_Thumbnail_Viewer.py:2800 guis/GUI05_Thumbnail_Viewer.py:2840
 msgid "開く画像を選択してください。"
 msgstr "请选择要打开的图像。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2836
+#: guis/GUI05_Thumbnail_Viewer.py:2804
 #, python-brace-format
 msgid "選択した {n} 件を {gui} で開きます。ウィンドウが {n} 個開きます。"
 msgstr "将在 {gui} 中打开所选的 {n} 幅图像，会打开 {n} 个窗口。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2891
+#: guis/GUI05_Thumbnail_Viewer.py:2851
+#, python-brace-format
+msgid "{n} 件の画像を GUI03 の新しいウインドウで開きます。"
+msgstr "正在 GUI03 的新窗口中打开 {n} 幅图像。"
+
+#: guis/GUI05_Thumbnail_Viewer.py:2893
 msgid "保存する画像がありません。"
 msgstr "没有可保存的图像。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2902
+#: guis/GUI05_Thumbnail_Viewer.py:2904
 msgid "拡張子は .png または .pdf にしてください。"
 msgstr "扩展名请使用 .png 或 .pdf。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2915
+#: guis/GUI05_Thumbnail_Viewer.py:2917
 #, python-brace-format
 msgid ""
 "次のファイルは既にあります。上書きしますか？\n"
@@ -4272,16 +4248,16 @@ msgstr ""
 "以下文件已存在。是否覆盖？\n"
 "{names}"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2924
+#: guis/GUI05_Thumbnail_Viewer.py:2926
 #, python-brace-format
 msgid "シートを保存します（画像 {n} 件、{n_pages} ページ）。"
 msgstr "保存总览页（图像 {n} 幅，共 {n_pages} 页）。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2990
+#: guis/GUI05_Thumbnail_Viewer.py:2992
 msgid "大きさは保存するシート上のポイントです。セルの幅に収まらないファイル名は、中央を省略します。"
 msgstr "大小为保存的总览页上的磅值。超出单元格宽度的文件名会省略中间部分。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2995
+#: guis/GUI05_Thumbnail_Viewer.py:2997
 msgid "既定に戻す"
 msgstr "恢复默认值"
 
@@ -4346,11 +4322,11 @@ msgstr ""
 "{0}: {1}\n"
 "{2}"
 
-#: lib/ui_tools.py:2449
+#: lib/ui_tools.py:2507
 msgid "図を保存"
 msgstr "保存图表"
 
-#: lib/ui_tools.py:2468
+#: lib/ui_tools.py:2526
 msgid "保存完了"
 msgstr "保存完成"
 
@@ -4413,24 +4389,24 @@ msgstr ""
 "支持格式：.b2z 包（自动提取 calibrated 键）/ .npy / csv / txt / Gwyddion .gwy。\n"
 "高度剖面图也可以在调整布局后作为图像输出。"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:46
+#: guis/GUI03_Fiber_Morphology_Statistics.py:51
 msgid ""
 "AFMで撮影したナノファイバーの形態パラメータの分布と統計量をGUIで求めるプログラムです。\n"
-"入力データには、Image Preprocessor が出力する .b2z バンドルファイル、または Fiber Tracker "
-"が出力するファイバー単位の CSV を使います。\n"
+"入力データには、Image Preprocessor が出力する .b2z "
+"バンドルファイルを使います。ファイルをグループごとに登録し、選択中のファイルの背景補正済みの高さ像を確認できます。\n"
 "計測量は height（高さ）、contour length（輪郭長）、straightness（直線度）、curvature（曲率）、kink "
 "angle（キンク角）、kink density（キンク密度）から選べ、いずれもファイバー追跡結果から算出します。\n"
-"集計単位（骨格画素・輪郭長重み付け・ファイバー・キンク・画像・フォルダ）を切り替えられるため、画素をまとめた分布だけでなく、ファイバー単位・画像単位・フォルダ単位の分布としても確認できます。"
+"集計単位（骨格画素・輪郭長重み付け・ファイバー・キンク・画像）を切り替えられるため、画素をまとめた分布だけでなく、ファイバー単位・画像単位の分布としても確認できます。"
 "\n"
-"図はヒストグラム・ECDF・箱ひげ図から選べ、中央値・四分位範囲・平均・標準偏差・最頻値と、標本数の内訳を併記します。複数のデータ群（グループ）を登録すると、縦並び・重ね表示で比較でき、ファイバー単位・画像単位・フォルダ単位では群間検定の結果も表示します。"
+"図はヒストグラム・ECDF・箱ひげ図から選べ、中央値・四分位範囲・平均・標準偏差・最頻値と、標本数の内訳を併記します。複数のデータ群（グループ）を登録すると、縦並び・重ね表示で比較でき、ファイバー単位・画像単位では群間検定の結果も表示します。"
 msgstr ""
 "通过 GUI 求取 AFM 拍摄的纳米纤维形态参数的分布与统计量。\n"
-"输入数据使用 Image Preprocessor 输出的 .b2z 包文件，或 Fiber Tracker 输出的按纤维记录的 CSV。\n"
+"输入数据使用 Image Preprocessor 输出的 .b2z 包文件。文件按组登记，并可查看所选文件经背景校正的高度图像。\n"
 "测量量可从 height（高度）、contour "
 "length（轮廓长度）、straightness（直线度）、curvature（曲率）、kink angle（扭结角）、kink "
 "density（扭结密度）中选择，均由纤维追踪结果计算。\n"
-"统计单位（骨架像素、轮廓长度加权、纤维、扭结、图像、文件夹）可切换，因此不仅能查看合并像素的分布，也能查看按纤维、按图像或按文件夹的分布。\n"
-"图可从直方图、ECDF、箱线图中选择，同时列出中位数、四分位距、平均值、标准差、众数以及样本数明细。注册多个数据群组后，可以纵向排列或叠加显示进行比较，按纤维、按图像或按文件夹统计时还会显示组间检验的结果。"
+"统计单位（骨架像素、轮廓长度加权、纤维、扭结、图像）可切换，因此不仅能查看合并像素的分布，也能查看按纤维或按图像的分布。\n"
+"图可从直方图、ECDF、箱线图中选择，同时列出中位数、四分位距、平均值、标准差、众数以及样本数明细。注册多个数据群组后，可以纵向排列或叠加显示进行比较，按纤维或按图像统计时还会显示组间检验的结果。"
 
 #: guis/GUI04_Tracking_fiber.py:42
 msgid ""
@@ -4460,7 +4436,7 @@ msgstr ""
 "\n"
 "请打开 GUI01 输出的 .b2z 文件。也可以从 GUI01 的“在 GUI04 中打开”打开。\n"
 
-#: guis/GUI05_Thumbnail_Viewer.py:58
+#: guis/GUI05_Thumbnail_Viewer.py:60
 msgid ""
 "Image Preprocessor で解析した複数の .b2z "
 "バンドルを読み込み、バックグラウンド補正済みの高さ像をサムネイルの一覧として表示します。\n"

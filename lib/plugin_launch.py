@@ -21,16 +21,30 @@ plugin reads them the same way in both cases.
 モジュール名の後ろの引数は ``sys.argv[1:]`` としてプラグインに届く。これは
 プラグインファイルをスクリプトとして直接実行したときと同じ場所であり、
 プラグインはどちらの場合も同じ方法で引数を読める。
+
+Any number of paths is handed over through a list file
+(`path_list_arguments`, read back by `read_path_arguments`), because a command
+line holds a limited number of characters. GUI01 and GUI05 hand GUI03 its
+bundles this way.
+任意の数のパスは一覧ファイルで渡す（`path_list_arguments`。読む側は
+`read_path_arguments`）。コマンドラインに入る文字数には上限があるためである。
+GUI01 と GUI05 は、この方法で GUI03 にバンドルを渡す。
 """
 
+import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Callable, List, Sequence
 
 #: Subcommand of `Main.py` that imports a plugin module and calls its main().
 #: プラグインモジュールを import して main() を呼ぶ `Main.py` のサブコマンド。
 RUN_PLUGIN_FLAG = "--run-plugin"
+
+#: Plugin argument naming a file that lists the paths handed over, one per line.
+#: 渡すパスを 1 行に 1 つ書いたファイルを指すプラグイン引数。
+PATH_LIST_FLAG = "--path-list"
 
 
 def app_base_dir() -> Path:
@@ -78,6 +92,95 @@ def plugin_command(module_import_path: str, args: Sequence[str] = ()) -> List[st
     else:
         head = [sys.executable, str(app_base_dir() / "Main.py")]
     return head + [RUN_PLUGIN_FLAG, module_import_path] + [str(a) for a in args]
+
+
+def path_list_arguments(paths: Sequence[str]) -> List[str]:
+    """
+    Write paths to a list file and return the plugin arguments that name it.
+    パスを一覧ファイルに書き、そのファイルを指すプラグイン引数を返す。
+
+    Parameters
+    ----------
+    paths
+        Paths to hand to the plugin, in the order it should receive them.
+        プラグインに渡すパス。プラグインが受け取る順に並べる。
+
+    Returns
+    -------
+    list of str
+        ``[PATH_LIST_FLAG, list_file]``, to pass as the ``args`` of
+        `launch_plugin`.
+        ``[PATH_LIST_FLAG, 一覧ファイル]``。`launch_plugin` の ``args`` に渡す。
+
+    Notes
+    -----
+    Windows does not start a process whose command line reaches 32,767
+    characters, which a few hundred bundle paths can do. The file is UTF-8,
+    one path per line, in the system's temporary folder, and
+    `read_path_arguments` removes it after reading; it is left behind only
+    when the plugin never starts.
+    Windows は、コマンドラインが 32,767 文字に達するプロセスを起動しない。数百個の
+    バンドルのパスはこれに達しうる。ファイルは UTF-8 で 1 行に 1 パス、システムの
+    一時フォルダに置き、`read_path_arguments` が読んだ後に消す。残るのは
+    プラグインが起動しなかった場合だけである。
+    """
+    fd, list_path = tempfile.mkstemp(prefix="afm_paths_", suffix=".txt")
+    with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+        for path in paths:
+            f.write(str(path) + "\n")
+    return [PATH_LIST_FLAG, list_path]
+
+
+def read_path_arguments(args: Sequence[str]) -> List[str]:
+    """
+    Return the paths a plugin was handed, reading any list file among them.
+    プラグインに渡されたパスを返す。引数に一覧ファイルがあればそれを読む。
+
+    Parameters
+    ----------
+    args
+        The plugin's arguments (``sys.argv[1:]``).
+        プラグインの引数（``sys.argv[1:]``）。
+
+    Returns
+    -------
+    list of str
+        The paths in the order given: each argument as it is, and the lines of
+        a list file in place of ``PATH_LIST_FLAG`` and the file that follows
+        it. A list file that cannot be read contributes nothing.
+        与えられた順のパス。各引数はそのまま、``PATH_LIST_FLAG`` とそれに続く
+        ファイルは、その一覧ファイルの各行に置き換える。読めない一覧ファイルは
+        何も加えない。
+
+    Notes
+    -----
+    A plugin started by hand with paths as plain arguments reads them through
+    the same call. The list file is removed once read, because only the
+    process it was written for reads it.
+    パスをそのまま引数に書いて手で起動したプラグインも、同じ呼び出しで読める。
+    一覧ファイルは読んだら消す。読むのは、それを渡されたプロセスだけだからである。
+    """
+    paths: List[str] = []
+    args = [str(a) for a in args]
+    i = 0
+    while i < len(args):
+        if args[i] == PATH_LIST_FLAG and i + 1 < len(args):
+            list_path = args[i + 1]
+            try:
+                with open(list_path, encoding="utf-8") as f:
+                    paths.extend(line.rstrip("\r\n") for line in f
+                                 if line.strip())
+            except OSError:
+                pass
+            try:
+                os.remove(list_path)
+            except OSError:
+                pass
+            i += 2
+            continue
+        paths.append(args[i])
+        i += 1
+    return paths
 
 
 def call_when_shown(window, callback: Callable[..., object], *args) -> None:

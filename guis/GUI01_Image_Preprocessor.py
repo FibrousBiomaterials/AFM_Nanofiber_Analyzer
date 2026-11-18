@@ -108,7 +108,7 @@ from lib.stripe_noise import (
     DEFAULT_STEP_THRESHOLD_NM, StripeNoise, evaluate_scan_lines,
     propose_clean_ranges,
 )
-from lib.plugin_launch import launch_plugin
+from lib.plugin_launch import launch_plugin, path_list_arguments
 from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, ToolTip, setup_matplotlib_style,
@@ -1279,7 +1279,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ToolTip(
             self.btn_open_gui03,
             _("Fiber Morphology Statistics (GUI03) を新しいウインドウで開き、"
-              "このフォルダを最初のグループに登録します。") + "\n"
+              "このフォルダのバンドルを最初のグループに登録します。") + "\n"
             + _("解析済みのファイルが無いとき、または解析の実行中は押せません。"),
         )
 
@@ -4257,27 +4257,47 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def on_open_folder_in_gui03(self) -> None:
         """
-        Open the current folder in GUI03 (Fiber Morphology Statistics).
-        現在のフォルダを GUI03（Fiber Morphology Statistics）で開く。
+        Open the current folder's bundles in GUI03 (Fiber Morphology Statistics).
+        現在のフォルダのバンドルを GUI03（Fiber Morphology Statistics）で開く。
 
         Notes
         -----
-        GUI01 writes each bundle beside its input, so the folder it reads is
-        the folder GUI03 aggregates. GUI03 registers it in the group it
-        starts with; folders to compare against are added there.
-        GUI01 は各バンドルを入力の隣に書き出すため、GUI01 が読むフォルダは
-        GUI03 が集計するフォルダでもある。GUI03 はそれを起動時のグループに
-        登録する。比較するフォルダは GUI03 で追加する。
+        GUI01 writes each bundle beside its input, so the bundles handed over
+        are every ``.b2z`` file directly inside the folder it reads, in name
+        order. GUI03 registers them in the group it starts with; bundles to
+        compare against are added there. The paths go through a list file
+        (`path_list_arguments`), since a folder can hold more paths than a
+        command line does.
+        GUI01 は各バンドルを入力の隣に書き出すため、渡すバンドルは GUI01 が読む
+        フォルダの直下にある全 ``.b2z`` ファイルで、名前順に並べる。GUI03 は
+        それらを起動時のグループに登録する。比較するバンドルは GUI03 で追加する。
+        パスは一覧ファイルで渡す（`path_list_arguments`）。フォルダはコマンド
+        ラインに入る数より多くのパスを持ちうるためである。
         """
         if not self.folder_path or self.is_running:
             return
         try:
-            launch_plugin(STATISTICS_MODULE, [self.folder_path])
+            bundles = sorted(
+                os.path.join(self.folder_path, name)
+                for name in os.listdir(self.folder_path)
+                if name.endswith(BUNDLE_EXT)
+                and os.path.isfile(os.path.join(self.folder_path, name))
+            )
+        except OSError as e:
+            self._log_exception(_("起動に失敗しました"), e)
+            return
+        if not bundles:
+            self._log(_("フォルダにバンドル (*{ext}) がありません: {path}").format(
+                ext=BUNDLE_EXT, path=self.folder_path))
+            return
+        try:
+            launch_plugin(STATISTICS_MODULE, path_list_arguments(
+                [os.path.abspath(path) for path in bundles]))
         except Exception as e:
             self._log_exception(_("起動に失敗しました"), e)
             return
-        self._log(_("フォルダを GUI03 で開きます: {path}").format(
-            path=self.folder_path))
+        self._log(_("フォルダの {n} 個のバンドルを GUI03 で開きます: {path}").format(
+            n=len(bundles), path=self.folder_path))
 
     # ---------- Save Log ----------
     def on_save_log(self) -> None:

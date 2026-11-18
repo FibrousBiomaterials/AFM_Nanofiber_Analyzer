@@ -2,37 +2,42 @@
 Interactive fiber morphology statistics GUI for AFM nanofiber analysis.
 AFM ナノファイバー解析用の形態パラメータ統計 GUI。
 
-Loads ``.b2z`` bundles produced by the image preprocessor, or per-fiber CSVs
-exported by the fiber tracker, and summarizes the distribution of one
-morphological quantity — height, contour length, straightness, curvature, kink
-angle, or kink density — for one group or across user-defined groups.
-画像前処理 GUI が出力した ``.b2z`` バンドル、またはファイバートラッカーが出力
-したファイバー単位の CSV を読み込み、形態パラメータ（高さ・輪郭長・直線度・
-曲率・キンク角・キンク密度）のいずれか 1 つの分布を、1 つのグループについて、
-またはユーザー定義グループ間で要約する。
+Loads ``.b2z`` bundles produced by the image preprocessor and summarizes the
+distribution of one morphological quantity — height, contour length,
+straightness, curvature, kink angle, or kink density — for one group or across
+user-defined groups. Bundles are registered file by file, each in a group; a
+group stands for one specimen, and its bundles are aggregated together. A
+bundle is moved to another group by dragging its row, and the calibrated height
+image of the selected bundle is shown beside the list.
+画像前処理 GUI が出力した ``.b2z`` バンドルを読み込み、形態パラメータ（高さ・
+輪郭長・直線度・曲率・キンク角・キンク密度）のいずれか 1 つの分布を、1 つの
+グループについて、またはユーザー定義グループ間で要約する。バンドルはファイル
+単位でグループに登録する。グループは 1 つの試料を表し、そのバンドルをまとめて
+集計する。バンドルは行をドラッグして別のグループへ移せ、選択中のバンドルの補正済み
+高さ像を一覧の隣に表示する。
 
 The aggregation unit selects what counts as one sample: a skeleton pixel, a
-fiber, one kink, a whole image, or a whole registered folder. This matters for
-reporting because pooled skeleton pixels are not independent observations — a
-long fiber contributes more pixels than a short one, and neighboring pixels of
-one fiber repeat the same object — so group comparisons should also be
-inspected per fiber, per image, or per folder. Fibers of one image, and images
-of one folder, share a preparation as well, so when a folder holds one
-specimen, the folder is the unit a difference between specimens is tested on.
+fiber, one kink, or a whole image. This matters for reporting because pooled
+skeleton pixels are not independent observations — a long fiber contributes
+more pixels than a short one, and neighboring pixels of one fiber repeat the
+same object — so group comparisons should also be inspected per fiber or per
+image. Fibers of one image share that scan as well, so a comparison that
+allows for the difference between places on a specimen is made per image.
 集計単位は「1 標本」を何と数えるかを選ぶ（骨格画素・ファイバー 1 本・キンク
-1 点・画像 1 枚・登録フォルダ 1 つ）。骨格画素をまとめた分布は独立観測ではなく
-（長いファイバーほど多くの画素を出し、同一ファイバーの隣接画素は同じ対象の繰り
-返しになる）、群間比較ではファイバー単位・画像単位・フォルダ単位でも確認する
-必要があるため、報告上この区別が重要になる。同じ画像のファイバー、同じフォルダの
-画像も試料作製を共有するため、1 フォルダが 1 試料であれば、試料間の差を検定する
-単位はフォルダである。
+1 点・画像 1 枚）。骨格画素をまとめた分布は独立観測ではなく（長いファイバーほど
+多くの画素を出し、同一ファイバーの隣接画素は同じ対象の繰り返しになる）、群間比較
+ではファイバー単位・画像単位でも確認する必要があるため、報告上この区別が重要に
+なる。同じ画像のファイバーもその走査を共有するため、試料上の場所ごとの違いを
+踏まえた比較は画像単位で行う。
 
-Nothing is written automatically. Through file dialogs the user saves the
-histogram figure, the sampled values of each group (one CSV per group), the
-summary statistics (CSV), the between-group comparison (CSV), and the log.
-自動では何も書き出さない。ファイルダイアログから、ヒストグラム図、各グループの
-標本値（グループごとに 1 つの CSV）、要約統計量 (CSV)、群間比較 (CSV)、ログを
-保存する。
+The summary statistics and the between-group comparison are shown in a window
+of their own, opened from the main window. Nothing is written automatically.
+Through file dialogs the user saves the histogram figure, the sampled values of
+each group (one CSV per group), the summary statistics (CSV), the between-group
+comparison (CSV), and the log.
+要約統計量と群間比較は、メインウィンドウから開く別のウィンドウに表示する。自動では
+何も書き出さない。ファイルダイアログから、ヒストグラム図、各グループの標本値
+（グループごとに 1 つの CSV）、要約統計量 (CSV)、群間比較 (CSV)、ログを保存する。
 """
 
 # ===== Plugin metadata =====
@@ -44,10 +49,10 @@ PLUGIN_INFO = {
     "name": "Fiber Morphology Statistics",
     "description": (
         "AFMで撮影したナノファイバーの形態パラメータの分布と統計量をGUIで求めるプログラムです。\n"
-        "入力データには、Image Preprocessor が出力する .b2z バンドルファイル、または Fiber Tracker が出力するファイバー単位の CSV を使います。\n"
+        "入力データには、Image Preprocessor が出力する .b2z バンドルファイルを使います。ファイルをグループごとに登録し、選択中のファイルの背景補正済みの高さ像を確認できます。\n"
         "計測量は height（高さ）、contour length（輪郭長）、straightness（直線度）、curvature（曲率）、kink angle（キンク角）、kink density（キンク密度）から選べ、いずれもファイバー追跡結果から算出します。\n"
-        "集計単位（骨格画素・輪郭長重み付け・ファイバー・キンク・画像・フォルダ）を切り替えられるため、画素をまとめた分布だけでなく、ファイバー単位・画像単位・フォルダ単位の分布としても確認できます。\n"
-        "図はヒストグラム・ECDF・箱ひげ図から選べ、中央値・四分位範囲・平均・標準偏差・最頻値と、標本数の内訳を併記します。複数のデータ群（グループ）を登録すると、縦並び・重ね表示で比較でき、ファイバー単位・画像単位・フォルダ単位では群間検定の結果も表示します。"
+        "集計単位（骨格画素・輪郭長重み付け・ファイバー・キンク・画像）を切り替えられるため、画素をまとめた分布だけでなく、ファイバー単位・画像単位の分布としても確認できます。\n"
+        "図はヒストグラム・ECDF・箱ひげ図から選べ、中央値・四分位範囲・平均・標準偏差・最頻値と、標本数の内訳を併記します。複数のデータ群（グループ）を登録すると、縦並び・重ね表示で比較でき、ファイバー単位・画像単位では群間検定の結果も表示します。"
     )
 }
 
@@ -92,19 +97,19 @@ from lib.connect_selection import (
 from lib.group_compare import compare_groups
 from lib.measure import (
     DEFAULT_CURVATURE_WINDOW_NM,
-    collect_fiber_curvature, collect_fiber_stats, collect_fiber_stats_from_csv,
+    collect_fiber_curvature, collect_fiber_stats,
     collect_skeleton_height_profiles, fiber_judged_length_um, fiber_kink_density,
     fiber_real_end_count, kaplan_meier_length_weights, length_floor_nm,
     read_scan_size_from_bundle, skeleton_height_values,
 )
-from lib.plugin_launch import call_when_shown
+from lib.plugin_launch import read_path_arguments
 from lib.translator import _
 from lib.ui_tools import (
     apply_window_size, setup_matplotlib_style, save_figure_with_dialog,
     setup_ttk_theme,
     save_text_widget_log, create_scrolled_text, create_scrolled_treeview,
     drain_ui_queue, save_csv_with_dialog, bind_mousewheel_scroll,
-    UNIT_MICROMETER, ToolTip,
+    compute_auto_vrange, read_height_image, UNIT_MICROMETER, ToolTip,
     UnconfirmedEntryMixin, LogMixin,
 )
 
@@ -126,54 +131,42 @@ UNIT_LENGTH = "length"
 UNIT_KINK = "kink"
 UNIT_FIBER = "fiber"
 UNIT_IMAGE = "image"
-UNIT_FOLDER = "folder"
-
-# Units that summarize a whole source — an image, or every image of a
-# registered folder — into one sample.
-# ソース全体（画像 1 枚、または登録フォルダの全画像）を 1 標本に要約する単位。
-SUMMARY_UNITS = (UNIT_IMAGE, UNIT_FOLDER)
-
-# Input types. Bundles carry the images, so they support every aggregation
-# unit and can have manual exclusions applied from their sidecars. A folder of
-# GUI04 fiber CSVs carries only per-fiber rows, but those rows are the fibers a
-# person looked at and accepted in the fiber tracker, which is the only way to
-# curate a dense network where nearly every fiber touches a crossing.
-# 入力タイプ。バンドルは画像を含むため全ての集計単位に対応し、サイドカーからの
-# 手動除外も適用できる。GUI04 のファイバー CSV のフォルダはファイバー単位の行
-# しか持たないが、その行はファイバートラッカーで人が見て採用したファイバーで
-# あり、ほぼ全てのファイバーが交差に接する密なネットワークをキュレーションする
-# 唯一の手段である。
-INPUT_BUNDLE = "bundle"
-INPUT_FIBER_CSV = "fiber csv"
-
-INPUT_ORDER = (INPUT_BUNDLE, INPUT_FIBER_CSV)
-
-# Suffix each input type is discovered by inside a registered folder.
-# 登録フォルダ内で各入力タイプを検出するための接尾辞。
-INPUT_SUFFIXES = {
-    INPUT_BUNDLE: BUNDLE_EXT,
-    INPUT_FIBER_CSV: "_fibers.csv",
-}
 
 # Name of a scan-line-range analysis, as `lib.pipeline.row_range_suffix` writes
-# it after the input's stem (the suffix of the input type removed). Parsed here
-# rather than imported because a reader must not import the pipeline.
+# it after the input's stem (the bundle extension removed). Parsed here rather
+# than imported because a reader must not import the pipeline.
 # `lib.pipeline.row_range_suffix` が入力のステムの後ろに書く、走査線範囲の解析の
-# 名前（入力タイプの接尾辞は除く）。読み取り側はパイプラインを import しては
+# 名前（バンドルの拡張子は除く）。読み取り側はパイプラインを import しては
 # ならないため、ここで解析する。
 _ROW_RANGE_NAME = re.compile(r"^(?P<stem>.+)_r(?P<start>\d+)-(?P<stop>\d+)$")
 
-# Aggregation units that need the bundle's images and tracks, so they are not
-# offered when the input is a per-fiber CSV.
-# バンドルの画像とトラックを必要とする集計単位。入力がファイバー単位の CSV の
-# ときは提供しない。
-BUNDLE_ONLY_UNITS = (UNIT_PIXEL, UNIT_LENGTH)
+# Pointer travel, in pixels, from which a press on a file row is a drag
+# rather than a click, and the band at the top and bottom of the list in
+# which a drag scrolls it.
+# ファイル行での押下を、クリックではなくドラッグとみなすポインタの移動量（px）と、
+# ドラッグ中に一覧をスクロールさせる上下端の帯の幅。
+DRAG_THRESHOLD_PX = 6
+DRAG_SCROLL_BAND_PX = 18
 
-# Quantities that need something only a bundle carries. Curvature is measured
-# by walking the traced track, which a per-fiber CSV does not store.
-# バンドルにしか無い情報を必要とする計測量。曲率は追跡トラックをたどって測る
-# 必要があるが、ファイバー単位の CSV にはトラックが保存されていない。
-BUNDLE_ONLY_PARAMS = (PARAM_CURVATURE,)
+# Tag marking the group row a dragged file would be dropped into, and its
+# background color.
+# ドラッグ中のファイルを落とす先のグループ行に付けるタグと、その背景色。
+DROP_TARGET_TAG = "drop_target"
+DROP_TARGET_COLOR = "#cfe2f3"
+
+# Colormap of the bundle preview, the one GUI02 and GUI04 draw height images
+# with, and how many previews stay in memory so stepping back through the
+# list does not read the files again.
+# バンドルのプレビューのカラーマップ（GUI02・GUI04 が高さ像の描画に使うもの）と、
+# 一覧を戻るときにファイルを読み直さずに済むよう、メモリに残すプレビューの数。
+PREVIEW_COLORMAP = "afmhot"
+PREVIEW_CACHE_SIZE = 8
+# Delay, in milliseconds, between a selection change and the read of its
+# bundle, so moving through the list with the arrow keys reads only the row
+# the selection rests on.
+# 選択の変化からバンドルを読むまでの待ち時間（ミリ秒）。矢印キーで一覧を移動した
+# とき、選択が止まった行だけを読むようにする。
+PREVIEW_DELAY_MS = 150
 
 # Plot types. The histogram shows the shape of one distribution, the ECDF
 # compares several without depending on a bin width, and the box summarises
@@ -195,16 +188,14 @@ PLOT_TYPES = (PLOT_HISTOGRAM, PLOT_ECDF, PLOT_BOX)
 # 長さ重み付けの点は試料の独立観測ではなく、複数のキンクは 1 本のファイバーから
 # 来る。それらに対する p 値は、試料が異なるかどうかではなく、画像をどれだけ
 # 細かくサンプリングしたかを測ってしまう。
-# The three testable units differ in what they treat as independent: fibers
-# of one image and images of one folder share a preparation, so only the
-# folder unit tests a difference between specimens when a folder holds one
-# specimen, and the comparison note says so for the other two
+# The two testable units differ in what they treat as independent: the fiber
+# unit counts the fibers of one image as independent, which the image unit
+# does not, and the comparison note says so for the fiber unit
 # (`_comparison_caveat`).
-# 検定できる 3 単位は何を独立とみなすかが違う。同じ画像のファイバーと同じ
-# フォルダの画像は試料作製を共有するため、1 フォルダが 1 試料なら、試料間の差を
-# 検定するのはフォルダ単位だけであり、他の 2 単位では比較の注記がその旨を述べる
+# 検定できる 2 単位は何を独立とみなすかが違う。fiber 単位は同じ画像のファイバーを
+# 独立と数え、image 単位は数えない。fiber 単位では比較の注記がその旨を述べる
 # （`_comparison_caveat`）。
-TESTABLE_UNITS = (UNIT_FIBER, UNIT_IMAGE, UNIT_FOLDER)
+TESTABLE_UNITS = (UNIT_FIBER, UNIT_IMAGE)
 
 # How the standard deviation was computed, named in the results table heading
 # and the summary CSV. An unweighted sample divides by n - 1, the sample
@@ -245,7 +236,6 @@ UNIT_NOUNS = {
     UNIT_KINK: "kinks",
     UNIT_FIBER: "fibers",
     UNIT_IMAGE: "images",
-    UNIT_FOLDER: "folders",
 }
 
 # Aggregation units whose sample size is a physical length, not a count.
@@ -283,21 +273,21 @@ PARAM_SPECS = {
         "slug": "height",
         "value_unit": "nm",
         "axis_label": "height (nm)",
-        "units": (UNIT_PIXEL, UNIT_LENGTH, UNIT_FIBER, UNIT_IMAGE, UNIT_FOLDER),
+        "units": (UNIT_PIXEL, UNIT_LENGTH, UNIT_FIBER, UNIT_IMAGE),
         "default_range": (0.0, 10.0, 0.2),
     },
     PARAM_LENGTH: {
         "slug": "contour_length",
         "value_unit": "nm",
         "axis_label": "contour length (nm)",
-        "units": (UNIT_FIBER, UNIT_IMAGE, UNIT_FOLDER),
+        "units": (UNIT_FIBER, UNIT_IMAGE),
         "default_range": (0.0, 3000.0, 100.0),
     },
     PARAM_KINK_ANGLE: {
         "slug": "kink_angle",
         "value_unit": "degree",
         "axis_label": "kink angle (degree)",
-        "units": (UNIT_KINK, UNIT_IMAGE, UNIT_FOLDER),
+        "units": (UNIT_KINK, UNIT_IMAGE),
         "default_range": (0.0, 180.0, 5.0),
     },
     PARAM_STRAIGHTNESS: {
@@ -309,14 +299,14 @@ PARAM_SPECS = {
         # 無次元量のためラベルに単位は付けない。定義を書き下すと箱ひげの軸から
         # はみ出したうえ、その説明は毎回の図ではなくドキュメントに属する。
         "axis_label": "straightness",
-        "units": (UNIT_FIBER, UNIT_IMAGE, UNIT_FOLDER),
+        "units": (UNIT_FIBER, UNIT_IMAGE),
         "default_range": (0.0, 1.02, 0.02),
     },
     PARAM_CURVATURE: {
         "slug": "curvature",
         "value_unit": "rad/" + UNIT_MICROMETER,
         "axis_label": "curvature (rad/" + UNIT_MICROMETER + ")",
-        "units": (UNIT_FIBER, UNIT_IMAGE, UNIT_FOLDER),
+        "units": (UNIT_FIBER, UNIT_IMAGE),
         "default_range": (0.0, 20.0, 0.5),
     },
     PARAM_KINK_DENSITY: {
@@ -324,7 +314,7 @@ PARAM_SPECS = {
         "value_unit": UNIT_PER_MICROMETER,
         "value_unit_plot": UNIT_PER_MICROMETER_PLOT,
         "axis_label": "kink density (" + UNIT_PER_MICROMETER_PLOT + ")",
-        "units": (UNIT_FIBER, UNIT_IMAGE, UNIT_FOLDER),
+        "units": (UNIT_FIBER, UNIT_IMAGE),
         "default_range": (0.0, 20.0, 0.5),
     },
 }
@@ -401,8 +391,8 @@ def _apply_frame_mode(per_source, frame_mode: str) -> tuple:
     Parameters
     ----------
     per_source
-        ``(source_path, stats)`` pairs, one per bundle or per CSV file.
-        ``(ソースパス, 統計値リスト)`` のペア。バンドルまたは CSV 1 件ごと。
+        ``(source_path, stats)`` pairs, one per bundle.
+        ``(ソースパス, 統計値リスト)`` のペア。バンドル 1 件ごと。
     frame_mode
         One of `FRAME_MODES`.
         `FRAME_MODES` のいずれか。
@@ -428,18 +418,18 @@ def _apply_frame_mode(per_source, frame_mode: str) -> tuple:
 
     Notes
     -----
-    A source that does not record the test (a fiber CSV exported before the
-    column existed) is left out whole rather than kept unfiltered: mixing
-    fibers that were judged with fibers that could not be would bias the
+    A source whose fibers carry no frame test (`FiberStats.touches_frame` is
+    ``None``) is left out whole rather than kept unfiltered: mixing fibers
+    that were judged with fibers that could not be would bias the
     distribution in a direction nobody can state. A fiber with a cut end is
     kept: its length is a lower bound too, but that is a property of the
     segmentation, which the frame correction does not model, and the report
     says how many there are.
-    判定を記録していないソース（列の追加前に出力されたファイバー CSV）は、
-    絞り込まずに残すのではなく丸ごと外す。判定できたファイバーとできなかった
-    ファイバーを混ぜると、向きを誰も言えない偏りが分布に入るためである。切断端を
-    持つファイバーは残す。その長さも下限値だが、それはセグメンテーションの性質で
-    あり枠の補正はそれを扱わない。本数は報告に出す。
+    ファイバーが枠の判定を持たないソース（`FiberStats.touches_frame` が
+    ``None``）は、絞り込まずに残すのではなく丸ごと外す。判定できたファイバーと
+    できなかったファイバーを混ぜると、向きを誰も言えない偏りが分布に入るためである。
+    切断端を持つファイバーは残す。その長さも下限値だが、それはセグメンテーションの
+    性質であり枠の補正はそれを扱わない。本数は報告に出す。
     """
     if frame_mode == FRAME_KAPLAN_MEIER:
         return _apply_kaplan_meier(per_source)
@@ -689,10 +679,10 @@ def _apply_kaplan_meier(per_source) -> tuple:
     Parameters
     ----------
     per_source
-        ``(source_path, stats)`` pairs, one per bundle or per CSV file, all
-        estimated together.
-        ``(ソースパス, 統計値リスト)`` のペア。バンドルまたは CSV 1 件ごとで、
-        すべてまとめて推定する。
+        ``(source_path, stats)`` pairs, one per bundle, all estimated
+        together.
+        ``(ソースパス, 統計値リスト)`` のペア。バンドル 1 件ごとで、すべて
+        まとめて推定する。
 
     Returns
     -------
@@ -718,11 +708,11 @@ def _apply_kaplan_meier(per_source) -> tuple:
 
     Notes
     -----
-    A source that does not record the frame end of its fibers (a fiber CSV
-    exported before the column existed) is left out whole, for the reason
+    A source with a fiber whose own ends cannot be counted
+    (`fiber_real_end_count` returns ``None``) is left out whole, for the reason
     `_apply_frame_mode` gives.
-    ファイバーの枠の端を記録していないソース（列の追加前に出力されたファイバー
-    CSV）は、`_apply_frame_mode` に書いた理由により丸ごと外す。
+    自身の端の数を数えられないファイバー（`fiber_real_end_count` が ``None`` を
+    返す）を含むソースは、`_apply_frame_mode` に書いた理由により丸ごと外す。
     """
     import dataclasses
 
@@ -809,10 +799,10 @@ def _fiber_value(stat, param: str):
         value = fiber_kink_density(stat)
         return None if not np.isfinite(value) else value
     if param == PARAM_STRAIGHTNESS:
-        # A CSV written before straightness existed leaves the field
-        # undefined, and those fibers contribute nothing rather than a zero.
-        # straightness が存在する前に書かれた CSV ではこの項目が未定義であり、
-        # そうしたファイバーは 0 ではなく「寄与なし」として扱う。
+        # A fiber whose straightness is undefined (NaN) contributes nothing
+        # rather than a zero.
+        # straightness が未定義（NaN）のファイバーは、0 ではなく「寄与なし」として
+        # 扱う。
         value = float(stat.straightness)
         return None if not np.isfinite(value) else value
     return None
@@ -833,10 +823,9 @@ def _fiber_samples(stat, param: str, unit: str) -> list:
         `PARAM_SPECS` の計測量キー。
     unit
         Aggregation-unit key. Kink angle yields every kink of the fiber at
-        any unit, because the image and folder units summarize the kinks
-        themselves.
+        any unit, because the image unit summarizes the kinks themselves.
         集計単位キー。キンク角はどの単位でもファイバー内の全キンクを返す。
-        画像・フォルダ単位はキンクそのものを要約するためである。
+        画像単位はキンクそのものを要約するためである。
 
     Returns
     -------
@@ -862,25 +851,26 @@ def _fiber_samples(stat, param: str, unit: str) -> list:
 
 
 def _kaplan_meier_bounds(values: np.ndarray, weights: np.ndarray,
-                         folders) -> dict:
+                         estimates) -> dict:
     """
-    Return the bounds of each quartile of a pooled Kaplan-Meier length estimate.
-    フォルダをまとめた Kaplan-Meier の長さ推定について、各四分位数の範囲を返す。
+    Return the bounds of each quartile of a Kaplan-Meier length estimate.
+    Kaplan-Meier の長さ推定について、各四分位数の範囲を返す。
 
     Parameters
     ----------
     values
-        Lengths of the fibers seen whole, over every folder.
-        全フォルダの、全長を見たファイバーの長さ。
+        Lengths of the fibers seen whole, over every estimate pooled.
+        まとめる全推定の、全長を見たファイバーの長さ。
     weights
         Their Kaplan-Meier weights, in fibers.
         それらの Kaplan-Meier 重み（本数）。
-    folders
-        ``(longest_nm, beyond)`` per folder: the longest fiber that folder saw
-        whole (NaN when it saw none) and the fibers its estimate places beyond
-        it.
-        フォルダごとの ``(longest_nm, beyond)``。そのフォルダが全長を見た最長の
-        ファイバー（1 本も無ければ NaN）と、その推定がそれより長い側に置く本数。
+    estimates
+        ``(longest_nm, beyond)`` per estimate pooled: the longest fiber that
+        estimate saw whole (NaN when it saw none) and the fibers it places
+        beyond it. A run makes one estimate per group, so it passes one entry.
+        まとめる推定ごとの ``(longest_nm, beyond)``。その推定が全長を見た最長の
+        ファイバー（1 本も無ければ NaN）と、それより長い側に置く本数。実行では
+        グループごとに 1 回推定するため、項目は 1 つになる。
 
     Returns
     -------
@@ -892,26 +882,25 @@ def _kaplan_meier_bounds(values: np.ndarray, weights: np.ndarray,
 
     Notes
     -----
-    Each folder's estimate stops at the longest fiber that folder saw whole,
-    and the fibers it places beyond lie somewhere above that length, not above
-    the longest fiber of the whole group. Placing every folder's share at
-    infinity gives the largest each quantile can be, and placing it just above
-    that folder's own longest fiber the smallest; a folder that saw no fiber
-    whole gives no such length and is placed just above zero. With one folder
-    the two agree wherever the estimate reaches the quantile, and otherwise
-    the quantile is known only to exceed the longest fiber seen whole.
-    各フォルダの推定は、そのフォルダが全長を見た最長のファイバーで止まり、推定が
-    それより長い側に置くファイバーは、グループ全体の最長のファイバーではなく、
-    その長さより先のどこかにある。全フォルダの分を無限遠に置くと各分位点は
-    最も大きく、各フォルダ自身の最長のファイバーのすぐ先に置くと最も小さくなる。
-    1 本も全長を見なかったフォルダにはその長さが無く、0 のすぐ先に置く。
-    フォルダが 1 つなら、推定が分位点に届く範囲で両者は一致し、届かなければ
-    分位点は全長を見た最長のファイバーより長いことしか分からない。
+    An estimate stops at the longest fiber it saw whole, and the fibers it
+    places beyond lie somewhere above that length. Placing every estimate's
+    share at infinity gives the largest each quantile can be, and placing it
+    just above that estimate's own longest fiber the smallest; an estimate
+    that saw no fiber whole gives no such length and is placed just above
+    zero. With one estimate the two agree wherever it reaches the quantile,
+    and otherwise the quantile is known only to exceed the longest fiber seen
+    whole.
+    推定は、全長を見た最長のファイバーで止まり、それより長い側に置くファイバーは、
+    その長さより先のどこかにある。全推定の分を無限遠に置くと各分位点は最も大きく、
+    各推定自身の最長のファイバーのすぐ先に置くと最も小さくなる。1 本も全長を
+    見なかった推定にはその長さが無く、0 のすぐ先に置く。推定が 1 つなら、推定が
+    分位点に届く範囲で両者は一致し、届かなければ分位点は全長を見た最長の
+    ファイバーより長いことしか分からない。
     """
     values = np.asarray(values, dtype=float)
     weights = np.asarray(weights, dtype=float)
     shares = sorted((float(longest) if np.isfinite(longest) else 0.0, float(beyond))
-                    for longest, beyond in folders if beyond > 0.0)
+                    for longest, beyond in estimates if beyond > 0.0)
     assigned = float(weights.sum())
     total = assigned + sum(b for _l, b in shares)
     order = np.argsort(values)
@@ -919,9 +908,9 @@ def _kaplan_meier_bounds(values: np.ndarray, weights: np.ndarray,
     sorted_weights = weights[order]
     upper_positions = (np.cumsum(sorted_weights) - 0.5 * sorted_weights) / total
 
-    # The lower bound: each folder's share sits just above its own longest
+    # The lower bound: each estimate's share sits just above its own longest
     # fiber, so every length above that moves up by the share.
-    # 下限。各フォルダの分を自身の最長のファイバーのすぐ先に置くため、それより
+    # 下限。各推定の分を自身の最長のファイバーのすぐ先に置くため、それより
     # 長い各長さは、その分だけ上へずれる。
     positions = []
     lengths = []
@@ -952,7 +941,7 @@ def _kaplan_meier_bounds(values: np.ndarray, weights: np.ndarray,
 
 
 def _kaplan_meier_summary(values: np.ndarray, weights: np.ndarray,
-                          folders) -> dict:
+                          estimates) -> dict:
     """
     Return the statistics a Kaplan-Meier length estimate can give.
     Kaplan-Meier による長さの推定が与えられる統計値を返す。
@@ -965,11 +954,9 @@ def _kaplan_meier_summary(values: np.ndarray, weights: np.ndarray,
     weights
         Their Kaplan-Meier weights, in fibers.
         それらの Kaplan-Meier 重み（本数）。
-    folders
-        ``(longest_nm, beyond)`` per folder estimated, as in
-        `_kaplan_meier_bounds`.
-        推定したフォルダごとの ``(longest_nm, beyond)``。`_kaplan_meier_bounds`
-        と同じ。
+    estimates
+        ``(longest_nm, beyond)`` per estimate, as in `_kaplan_meier_bounds`.
+        推定ごとの ``(longest_nm, beyond)``。`_kaplan_meier_bounds` と同じ。
 
     Returns
     -------
@@ -996,9 +983,9 @@ def _kaplan_meier_summary(values: np.ndarray, weights: np.ndarray,
     そのため中央値は、推定が半数のファイバーに届く場合にだけ報告する。統計
     パッケージもそのような中央値を同じように欠測として返す。
     """
-    if sum(b for _l, b in folders) <= 0.0:
+    if sum(b for _l, b in estimates) <= 0.0:
         return dict(_summary_stats(values, weights), bounds={})
-    bounds = _kaplan_meier_bounds(values, weights, folders)
+    bounds = _kaplan_meier_bounds(values, weights, estimates)
     stats = {"mean": float("nan"), "std": float("nan"),
              "std_definition": STD_WEIGHTED, "bounds": bounds}
     for _q, key in QUARTILE_KEYS:
@@ -1012,16 +999,18 @@ def _kaplan_meier_summary(values: np.ndarray, weights: np.ndarray,
 def _kaplan_meier_interval(samples, resamples: int = KM_RESAMPLES,
                            seed: int = KM_RESAMPLE_SEED) -> dict:
     """
-    Return a resampling interval for each quartile of a pooled length estimate.
-    フォルダをまとめた長さ推定の各四分位数について、リサンプリング区間を返す。
+    Return a resampling interval for each quartile of a Kaplan-Meier length estimate.
+    Kaplan-Meier の長さ推定の各四分位数について、リサンプリング区間を返す。
 
     Parameters
     ----------
     samples
-        ``(lengths_nm, own_ends)`` arrays per folder: every fiber the folder's
-        estimate read (`_apply_kaplan_meier`'s report).
-        フォルダごとの ``(lengths_nm, own_ends)`` 配列。そのフォルダの推定が
-        読んだ全ファイバー（`_apply_kaplan_meier` の report）。
+        ``(lengths_nm, own_ends)`` arrays per estimate pooled: every fiber
+        the estimate read (`_apply_kaplan_meier`'s report). A run makes one
+        estimate per group, so it passes one entry.
+        まとめる推定ごとの ``(lengths_nm, own_ends)`` 配列。その推定が読んだ
+        全ファイバー（`_apply_kaplan_meier` の report）。実行ではグループごとに
+        1 回推定するため、項目は 1 つになる。
     resamples
         Number of resamples.
         リサンプリング回数。
@@ -1036,25 +1025,25 @@ def _kaplan_meier_interval(samples, resamples: int = KM_RESAMPLES,
         percentile of the quartile's lower bound and the 97.5th percentile of
         its upper bound over the resamples, ``upper`` infinite when more than
         2.5 % of the resamples leave the quartile without an upper bound.
-        Empty when no folder has a fiber.
+        Empty when no estimate has a fiber.
         `QUARTILE_KEYS` の各キーについて ``{key: (lower, upper)}``。リサンプリング
         にわたる、四分位数の下限の 2.5 パーセンタイルと上限の 97.5 パーセンタイル。
         2.5 % を超えるリサンプルで上限が定まらなければ ``upper`` は無限大。
-        どのフォルダにもファイバーが無ければ空。
+        どの推定にもファイバーが無ければ空。
 
     Notes
     -----
-    The bounds of `_kaplan_meier_bounds` cover only where each folder's
+    The bounds of `_kaplan_meier_bounds` cover only where an estimate's
     unplaced share might lie; the fibers measured are themselves a sample. The
-    fibers of each folder are drawn again with replacement, the estimate and
+    fibers of each estimate are drawn again with replacement, the estimate and
     its bounds are recomputed, and the interval spans the bounds' spread. Each
-    folder is resampled on its own, so a folder keeps its own fibers and its
-    own longest fiber seen whole.
-    `_kaplan_meier_bounds` の範囲が扱うのは、各フォルダの置けなかった分がどこに
-    ありうるかだけであり、計測したファイバー自体も標本である。各フォルダの
+    estimate is resampled on its own, so it keeps its own fibers and its own
+    longest fiber seen whole.
+    `_kaplan_meier_bounds` の範囲が扱うのは、推定の置けなかった分がどこに
+    ありうるかだけであり、計測したファイバー自体も標本である。各推定の
     ファイバーを復元抽出し直して推定とその範囲を計算し直し、区間はその範囲の
-    ばらつきにわたる。フォルダごとに別々にリサンプリングするため、各フォルダは
-    自身のファイバーと、全長を見た自身の最長のファイバーを保つ。
+    ばらつきにわたる。推定ごとに別々にリサンプリングするため、各推定は自身の
+    ファイバーと、全長を見た自身の最長のファイバーを保つ。
     """
     samples = [(np.asarray(lengths, dtype=float), np.asarray(own, dtype=int))
                for lengths, own in samples if len(lengths)]
@@ -1064,7 +1053,7 @@ def _kaplan_meier_interval(samples, resamples: int = KM_RESAMPLES,
     lowers = {key: [] for _q, key in QUARTILE_KEYS}
     uppers = {key: [] for _q, key in QUARTILE_KEYS}
     for _ in range(resamples):
-        values, weights, folders = [], [], []
+        values, weights, estimates = [], [], []
         for lengths, own in samples:
             pick = rng.integers(0, lengths.size, lengths.size)
             drawn, drawn_own = lengths[pick], own[pick]
@@ -1073,11 +1062,11 @@ def _kaplan_meier_interval(samples, resamples: int = KM_RESAMPLES,
             values.append(drawn[keep])
             weights.append(fiber_weights[keep])
             whole = drawn[drawn_own == 2]
-            folders.append((float(whole.max()) if whole.size else float("nan"),
-                            rest * float(drawn_own.sum()) / 2.0))
+            estimates.append((float(whole.max()) if whole.size else float("nan"),
+                              rest * float(drawn_own.sum()) / 2.0))
         values = np.concatenate(values)
         weights = np.concatenate(weights)
-        bounds = (_kaplan_meier_bounds(values, weights, folders) if values.size
+        bounds = (_kaplan_meier_bounds(values, weights, estimates) if values.size
                   else {key: (0.0, float("inf")) for _q, key in QUARTILE_KEYS})
         for _q, key in QUARTILE_KEYS:
             lowers[key].append(bounds[key][0])
@@ -1180,13 +1169,11 @@ def _summary_stats(values: np.ndarray, weights=None) -> dict:
 
     The unweighted standard deviation divides by n - 1, the sample standard
     deviation; dividing by n reads low by a factor of sqrt((n - 1) / n),
-    which matters most for the image and folder units, where a group holds
-    only a few samples. One value has no spread to estimate, so it is NaN
-    rather than 0.
+    which matters most for the image unit, where a group holds only a few
+    samples. One value has no spread to estimate, so it is NaN rather than 0.
     重みなしの標準偏差は n - 1 で割る標本標準偏差である。n で割ると
-    sqrt((n - 1) / n) 倍だけ小さく出る。これは群が少数の標本しか持たない画像・
-    フォルダ単位で最も効く。値が 1 個ではばらつきを推定できないため、0 ではなく
-    NaN とする。
+    sqrt((n - 1) / n) 倍だけ小さく出る。これは群が少数の標本しか持たない画像単位で
+    最も効く。値が 1 個ではばらつきを推定できないため、0 ではなく NaN とする。
     """
     if weights is None:
         q1, median, q3 = (
@@ -1246,15 +1233,15 @@ def _kink_totals(stats) -> tuple:
 
     Notes
     -----
-    The image and folder units divide the pooled count by the pooled length
-    instead of taking the median of per-fiber densities. When more than half
+    The image unit divides the pooled count by the pooled length instead of
+    taking the median of per-fiber densities. When more than half
     of an image's fibers carry no kink, the median of their densities is 0
     whatever the kinked fibers do, so a per-image median would compare zeros
     with zeros; a short fragment's density also swings with one kink more or
     less. The pooled ratio is kinks per micrometer of judged contour over the
     whole image, which every fiber enters in proportion to the length it was
     judged over.
-    画像・フォルダ単位では、ファイバーごとの密度の中央値ではなく、まとめた
+    画像単位では、ファイバーごとの密度の中央値ではなく、まとめた
     キンク数をまとめた長さで割る。画像のファイバーの半数以上がキンクを持たない
     とき、その密度の中央値はキンクを持つファイバーがどうであれ 0 になるため、
     画像ごとの中央値では 0 と 0 を比べることになる。また短い断片の密度はキンクが
@@ -1288,39 +1275,31 @@ def _comparison_caveat(unit: str) -> str:
     Returns
     -------
     str
-        Translated caveat for the fiber and image units; an empty string for
-        the folder unit, whose samples are the registered folders.
-        fiber・image 単位では翻訳済みの注意書き。folder 単位では空文字列
-        （標本が登録フォルダそのものであるため）。
+        Translated caveat for the fiber unit; an empty string for the image
+        unit, whose samples are the images themselves.
+        fiber 単位では翻訳済みの注意書き。image 単位では空文字列（標本が画像
+        そのものであるため）。
 
     Notes
     -----
-    Fibers of one image, and images of one folder, share a preparation, a tip
-    and a background calibration, so they can resemble each other more than
-    fibers of different specimens do; a test that counts them as independent
-    assumes they do not. Its significance grows with the number of fibers or
-    images rather than the number of specimens, so with one specimen per group
-    its p-value says that these preparations differ, not that the conditions
-    do.
-    同じ画像のファイバー、同じフォルダの画像は、試料作製・探針・背景補正を共有
-    するため、別の試料のファイバーどうしよりも互いに似ることがある。それらを独立と
-    数える検定は、似ていないと仮定している。その有意性は試料の数ではなくファイバー
-    や画像の数とともに増すため、各群が 1 試料なら、p 値が示すのは「この作製ロット
-    どうしが違う」ことであって、「条件が違う」ことではない。
+    Fibers of one image share one scan: one place on the specimen, one tip
+    and one background calibration. A test that counts them as independent
+    assumes they resemble each other no more than fibers of different images
+    do, and its significance grows with the number of fibers rather than the
+    number of images. The image unit takes one value per image instead, so
+    the difference between places on a specimen enters the comparison.
+    同じ画像のファイバーは 1 回の走査を共有する。試料上の 1 つの場所、1 つの探針、
+    1 回の背景補正である。それらを独立と数える検定は、別の画像のファイバーどうしと
+    同程度にしか似ていないと仮定しており、その有意性は画像の枚数ではなくファイバーの
+    本数とともに増す。image 単位は画像ごとに 1 つの値を取るため、試料上の場所ごとの
+    違いが比較に入る。
     """
     if unit == UNIT_FIBER:
         return _(
-            "{fiber} 集計は、同じ画像・同じフォルダのファイバーを独立な標本として"
-            "検定しています。p 値は試料の数ではなくファイバー本数とともに小さく"
-            "なります。1 フォルダが 1 試料なら、試料間の差は {folder} 集計で"
-            "検定してください。"
-        ).format(fiber=UNIT_FIBER, folder=UNIT_FOLDER)
-    if unit == UNIT_IMAGE:
-        return _(
-            "{image} 集計は、同じフォルダの画像を独立な標本として検定しています。"
-            "p 値は試料の数ではなく画像枚数とともに小さくなります。1 フォルダが "
-            "1 試料なら、試料間の差は {folder} 集計で検定してください。"
-        ).format(image=UNIT_IMAGE, folder=UNIT_FOLDER)
+            "{fiber} 集計は、同じ画像のファイバーを独立な標本として検定しています。"
+            "p 値はファイバー本数とともに小さくなります。場所ごとの違いを踏まえて"
+            "比べるには、{image} 集計で検定してください。"
+        ).format(fiber=UNIT_FIBER, image=UNIT_IMAGE)
     return ""
 
 
@@ -1389,9 +1368,8 @@ def _frame_bias_note(param: str, frame_mode: str) -> str:
     return _(
         "{mode} の長さは枠の影響で短い側に偏り、長いファイバーの群ほど大きく短縮されます。"
         "この p 値と効果量には、その偏りの差も含まれます。補正して検定するには、枠の扱いを "
-        "{ml} に、集計単位を {image} か {folder} にしてください。"
-    ).format(mode=frame_mode, ml=FRAME_MILES_LANTUEJOUL, image=UNIT_IMAGE,
-             folder=UNIT_FOLDER)
+        "{ml} に、集計単位を {image} にしてください。"
+    ).format(mode=frame_mode, ml=FRAME_MILES_LANTUEJOUL, image=UNIT_IMAGE)
 
 
 # The level a reader conventionally reads a p-value against. Nothing is
@@ -1422,11 +1400,11 @@ def _attainable_p_note(comparisons) -> str:
 
     Notes
     -----
-    With three folders against three, two groups that do not overlap at all
+    With three images against three, two groups that do not overlap at all
     still give p = 0.10, so a "not significant" there is a statement about
     the sample size, not about the specimens. The Holm correction only raises
     a p-value, so a pair named here cannot reach the level after it either.
-    3 フォルダ対 3 フォルダでは、まったく重ならない 2 群でも p = 0.10 となる。
+    3 画像対 3 画像では、まったく重ならない 2 群でも p = 0.10 となる。
     そこでの「有意差なし」は試料についてではなく標本数についての言明である。
     Holm 補正は p 値を上げるだけなので、ここで挙げたペアは補正後も水準に届かない。
     """
@@ -1578,10 +1556,23 @@ def _sanitize_filename(name: str) -> str:
     return s if s else "group"
 
 
+def _file_key(path: str) -> str:
+    """
+    Return the key that identifies one bundle file among the registered ones.
+    登録したバンドルファイルの中で 1 つのファイルを識別するキーを返す。
+
+    A path handed over by another GUI and one picked in a dialog may differ in
+    separators or letter case, so paths are compared after normalization.
+    他の GUI から渡されたパスとダイアログで選んだパスは、区切り文字や大文字小文字が
+    異なりうるため、正規化してから比べる。
+    """
+    return os.path.normcase(os.path.abspath(path))
+
+
 class Group:
     """
-    Store one user-defined group of input folders.
-    ユーザーが定義した入力フォルダ群を保持するクラス。
+    Store one user-defined group of bundle files, which stands for one specimen.
+    ユーザーが定義したバンドルファイルの群を保持するクラス。1 つの試料を表す。
 
     Attributes
     ----------
@@ -1594,49 +1585,26 @@ class Group:
     color
         Histogram display color as a Matplotlib/Tk-compatible hex string.
         Matplotlib と Tk で扱える hex 文字列形式のヒストグラム表示色。
-    folder_paths
-        Registered folder paths for this group; duplicates are not allowed
-        within the same group.
-        このグループに登録されたフォルダパス。同一グループ内の重複は許可しない。
-    folder_pairinfo
-        Per-folder scan results containing candidate bundle counts and
-        discovery warnings. Bundle contents are validated during loading.
-        候補バンドル数と探索時の警告を保持するフォルダ単位のスキャン結果。
-        バンドル内容は読み込み時に検証する。
+    files
+        Registered ``.b2z`` bundle paths of this group, in the order they were
+        added; a file is not registered twice in the same group.
+        このグループに登録された ``.b2z`` バンドルのパス。追加した順に並ぶ。
+        同じファイルを同一グループへ二重には登録しない。
     """
 
     def __init__(self, name: str, color: str) -> None:
         self.id = uuid.uuid4().hex
         self.name = name
         self.color = color
-        self.folder_paths = []
-        self.folder_pairinfo = {}
+        self.files = []
 
-    def total_pairs(self) -> int:
+    def holds(self, path: str) -> bool:
         """
-        Return the total candidate bundle count for this group.
-        このグループが持つ候補バンドル総数を返す。
-
-        Returns
-        -------
-        int
-            Sum of the ``pairs`` counts recorded for the group's folders.
-            グループの各フォルダについて記録した ``pairs`` の件数の合計。
+        Return whether a bundle file is already registered in this group.
+        バンドルファイルがこのグループに登録済みかを返す。
         """
-        return sum(self.folder_pairinfo.get(p, {}).get("pairs", 0) for p in self.folder_paths)
-
-    def total_missing(self) -> int:
-        """
-        Return the total warning or missing-item count for this group.
-        このグループが持つ警告または欠損メッセージの総数を返す。
-
-        Returns
-        -------
-        int
-            Number of ``missing`` messages recorded for the group's folders.
-            グループの各フォルダについて記録した ``missing`` メッセージの数。
-        """
-        return sum(len(self.folder_pairinfo.get(p, {}).get("missing", [])) for p in self.folder_paths)
+        key = _file_key(path)
+        return any(_file_key(p) == key for p in self.files)
 
 
 class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
@@ -1706,6 +1674,37 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.ui_queue = queue.Queue()
         self.is_running = False
 
+        # A press on a file row that may become a drag to another group
+        # (`_on_tree_press`); None between presses.
+        # 別グループへのドラッグになりうる、ファイル行での押下
+        # （`_on_tree_press`）。押下の外では None。
+        self._drag = None
+        self._drop_target_iid = None
+        # Folder the file dialog opens in: the folder of the files added last.
+        # ファイルダイアログが開くフォルダ。最後に追加したファイルのフォルダ。
+        self._last_dir = None
+
+        # Bundle preview: the reads go through a queue of their own, because
+        # `ui_queue` is replaced by every run and drained only while one runs.
+        # `_preview_request` numbers the reads so a result that arrives after
+        # the selection has moved on is dropped.
+        # バンドルのプレビュー。読み込みは専用のキューを通す。`ui_queue` は実行の
+        # たびに作り直され、実行中しか処理されないためである。`_preview_request` は
+        # 読み込みに番号を付け、選択が移った後に届いた結果を捨てられるようにする。
+        self._preview_queue = queue.Queue()
+        self._preview_request = 0
+        self._preview_reads = 0
+        self._preview_after_id = None
+        self._preview_poll_id = None
+        self._preview_cache = {}
+        self._preview_path = None
+
+        # Text shown beside the run button and in the statistics window once
+        # the groups changed after the run the result came from.
+        # 結果を出した実行の後でグループが変わったとき、実行ボタンの横と統計
+        # ウィンドウに出す文。
+        self.stale_var = tk.StringVar()
+
         # The measured quantity and the aggregation unit drive both the worker
         # and every axis/heading label, so they are held as committed state
         # rather than read from the widgets at draw time.
@@ -1713,15 +1712,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 描画時にウィジェットから読むのではなく確定済み状態として保持する。
         self.param = PARAM_HEIGHT
         self.unit = PARAM_SPECS[PARAM_HEIGHT]["units"][0]
-
-        # Input type and whether a bundle's manual exclusions are honored.
-        # Applying them is the default: a sidecar exists only because someone
-        # curated that dataset, and ignoring it would silently analyze objects
-        # they had already rejected.
-        # 入力タイプと、バンドルの手動除外を尊重するかどうか。適用を既定とする。
-        # サイドカーは誰かがそのデータセットをキュレーションしたときにのみ存在
-        # するため、無視すると既に棄却された対象を黙って解析することになる。
-        self.input_mode = INPUT_BUNDLE
 
         # Arc length the curvature estimator turns over. Committed like the
         # histogram range so an unconfirmed edit cannot reach a run.
@@ -1758,9 +1748,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._build_ui()
 
         g = self._add_group_internal(self._next_default_name())
-        # Select the initial group on startup so folder controls are immediately usable,
+        # Select the initial group on startup so file controls are immediately usable,
         # matching the behavior of on_add_group.
-        # 起動時に初期グループを選択状態にし、フォルダ操作を即利用可能にする（on_add_group と挙動を揃える）。
+        # 起動時に初期グループを選択状態にし、ファイル操作を即利用可能にする（on_add_group と挙動を揃える）。
         self.tree.selection_set(g.id)
         self.tree.focus(g.id)
 
@@ -1770,6 +1760,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         Build the histogram controls, tree view, plot canvas, and log area.
         ヒストグラム操作部、Treeview、描画キャンバス、ログ領域を構築する。
+
+        The statistics window is built here as well and stays hidden until
+        its button is pressed.
+        統計ウィンドウもここで構築し、ボタンが押されるまで隠しておく。
         """
         outer = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
         outer.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
@@ -1779,6 +1773,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         outer.add(left, weight=1)
         outer.add(right, weight=3)
 
+        self._build_statistics_window()
         # Build each pane top-to-bottom; creation order is preserved.
         self._build_left_pane(left)
         self._build_right_pane(right)
@@ -1787,18 +1782,32 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _build_left_pane(self, parent: ttk.Frame) -> None:
         """
-        Build the left pane: group/folder tree, result table, and log area.
-        左ペイン（グループ/フォルダツリー・結果表・ログ領域）を構築する。
+        Build the left pane: group/file tree, bundle preview, and log area.
+        左ペイン（グループ/ファイルツリー・バンドルのプレビュー・ログ領域）を構築する。
+
+        Notes
+        -----
+        The three share the pane's height through draggable sashes, so the
+        preview can be enlarged when an image has to be inspected closely.
+        3 つはドラッグできる仕切りでペインの高さを分け合う。画像を詳しく確かめたい
+        ときにプレビューを広げられるようにするためである。
         """
-        self._build_group_panel(parent)
-        self._build_result_panel(parent)
-        self._build_comparison_panel(parent)
-        self._build_log_panel(parent)
+        panes = ttk.PanedWindow(parent, orient=tk.VERTICAL)
+        panes.pack(fill=tk.BOTH, expand=True)
+        frm_group = ttk.Frame(panes)
+        frm_preview = ttk.Frame(panes)
+        frm_log = ttk.Frame(panes)
+        panes.add(frm_group, weight=2)
+        panes.add(frm_preview, weight=3)
+        panes.add(frm_log, weight=1)
+        self._build_group_panel(frm_group)
+        self._build_preview_panel(frm_preview)
+        self._build_log_panel(frm_log)
 
     def _build_group_panel(self, parent: ttk.Frame) -> None:
         """
-        Build the group/folder controls, tree view, and summary label.
-        グループ/フォルダ操作部・ツリー・サマリラベルを構築する。
+        Build the group/file controls, tree view, and summary label.
+        グループ/ファイル操作部・ツリー・サマリラベルを構築する。
         """
         frm_group = ttk.Frame(parent)
         frm_group.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
@@ -1818,11 +1827,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.btn_move_down = ttk.Button(grp_btn_row, text=_("↓"), width=3, command=lambda: self.on_move_group(+1))
         self.btn_move_down.pack(side=tk.LEFT, padx=(2, 0))
 
-        self.btn_add_folder = ttk.Button(grp_btn_row, text=_("フォルダ追加"), command=self.on_add_folder)
-        self.btn_add_folder.pack(side=tk.LEFT, padx=(6, 0))
+        self.btn_add_files = ttk.Button(grp_btn_row, text=_("ファイル追加"), command=self.on_add_files)
+        self.btn_add_files.pack(side=tk.LEFT, padx=(6, 0))
+        ToolTip(self.btn_add_files, _(
+            "選択中のグループに .b2z バンドルを追加します。ダイアログでは複数の"
+            "ファイルを選べ、Ctrl+A でフォルダ内の全ファイルを選べます。"))
 
-        self.btn_remove_folder = ttk.Button(grp_btn_row, text=_("フォルダ削除"), command=self.on_remove_folder)
-        self.btn_remove_folder.pack(side=tk.LEFT, padx=(6, 0))
+        self.btn_remove_files = ttk.Button(grp_btn_row, text=_("ファイル削除"), command=self.on_remove_files)
+        self.btn_remove_files.pack(side=tk.LEFT, padx=(6, 0))
 
         self.btn_clear_all = ttk.Button(grp_btn_row, text=_("全クリア"), command=self.on_clear_all)
         self.btn_clear_all.pack(side=tk.LEFT, padx=(6, 0))
@@ -1830,33 +1842,103 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         tree_row = ttk.Frame(frm_group)
         tree_row.pack(fill=tk.BOTH, expand=True, padx=6, pady=(2, 4))
 
+        # Several file rows can be selected at once, so they are removed or
+        # moved to another group together.
+        # 複数のファイル行を同時に選べる。まとめて削除したり、別のグループへ移したり
+        # できるようにするためである。
         self.tree, _tree_sb = create_scrolled_treeview(
             tree_row,
-            columns=("pairs",),
+            columns=("count",),
             show="tree headings",
-            selectmode="browse",
+            selectmode="extended",
             height=10,
             headings={
-                "#0": _("グループ／フォルダ"),
-                "pairs": _("有効バンドル数"),
+                "#0": _("グループ／ファイル"),
+                "count": _("ファイル数"),
             },
             column_options={
                 "#0": {"width": 320, "stretch": True},
-                "pairs": {"width": 120, "stretch": False, "anchor": "e"},
+                "count": {"width": 90, "stretch": False, "anchor": "e"},
             },
             scrollbar_side=tk.LEFT,
         )
+        self.tree.tag_configure(DROP_TARGET_TAG, background=DROP_TARGET_COLOR)
 
         self.tree.bind("<Double-1>", self._on_tree_double_click)
         self.tree.bind("<Button-3>", self._on_tree_right_click)
         # Bind Button-2 as well because macOS may report secondary-click that way.
         # macOS では右クリックが Button-2 として扱われる場合があるため両方バインドする。
         self.tree.bind("<Button-2>", self._on_tree_right_click)
+        self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
+        # Dragging file rows onto another group moves them there.
+        # ファイル行を別のグループへドラッグすると、そこへ移る。
+        self.tree.bind("<ButtonPress-1>", self._on_tree_press)
+        self.tree.bind("<B1-Motion>", self._on_tree_motion)
+        self.tree.bind("<ButtonRelease-1>", self._on_tree_release)
 
         self.summary_var = tk.StringVar(
-            value=_("グループ数: {g} / 有効バンドル総数: {p} / 欠損: {m}").format(g=0, p=0, m=0)
+            value=_("グループ数: {g} / ファイル総数: {p}").format(g=0, p=0)
         )
         ttk.Label(frm_group, textvariable=self.summary_var).pack(anchor="w", padx=6, pady=(0, 6))
+
+    def _build_preview_panel(self, parent: ttk.Frame) -> None:
+        """
+        Build the pane showing the calibrated image of the selected bundle.
+        選択中のバンドルの補正済み高さ像を表示するペインを構築する。
+
+        Notes
+        -----
+        The image is what the registered file holds, so a scan that should not
+        be aggregated — a disturbed one, or one filed under the wrong group —
+        can be recognized before it is measured.
+        画像は登録したファイルが持つものである。集計に入れるべきでない走査（乱れた
+        もの、別のグループに入れるべきもの）を、計測の前に見分けられるようにする。
+        """
+        frm = ttk.Frame(parent)
+        frm.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+
+        # A width of one character keeps a long file name from widening the
+        # pane; the label fills the pane and shows as much as fits.
+        # 幅を 1 文字にして、長いファイル名でペインが広がらないようにする。ラベルは
+        # ペインの幅いっぱいに広がり、収まる分だけ表示する。
+        self.preview_caption_var = tk.StringVar()
+        ttk.Label(frm, textvariable=self.preview_caption_var,
+                  anchor="w", width=1).pack(fill=tk.X, padx=6, pady=(2, 2))
+
+        # A small figure, so the canvas asks for little room and the pane's
+        # sash decides how large the image is drawn.
+        # Figure は小さくしておく。キャンバスの要求サイズを小さくし、画像の大きさを
+        # ペインの仕切りで決められるようにするためである。
+        self.preview_fig = plt.Figure(figsize=(3.2, 2.6), dpi=100)
+        self.preview_canvas = FigureCanvasTkAgg(self.preview_fig, master=frm)
+        self.preview_canvas.get_tk_widget().pack(
+            fill=tk.BOTH, expand=True, padx=6, pady=(0, 4))
+        self._clear_preview(_("ファイル行を選ぶと、その画像を表示します。"))
+
+    def _build_statistics_window(self) -> None:
+        """
+        Build the hidden window holding the statistics and comparison tables.
+        統計値の表と群間比較の表を載せるウィンドウを、隠した状態で構築する。
+
+        Notes
+        -----
+        The tables are built once and filled by every run, whether the window
+        is shown or not, so opening it shows the latest result and a run made
+        while it is open refreshes it.
+        表は 1 度だけ作り、ウィンドウが表示されているかどうかにかかわらず、実行の
+        たびに埋める。そのため開けば最新の結果が見え、開いたまま実行すれば内容が
+        更新される。
+        """
+        self.stats_window = StatisticsWindow(self)
+        self._build_result_panel(self.stats_window.body)
+        self._build_comparison_panel(self.stats_window.body)
+
+    def on_show_statistics(self) -> None:
+        """
+        Show the statistics window, in front of the other windows.
+        統計ウィンドウを、他のウィンドウの手前に表示する。
+        """
+        self.stats_window.show()
 
     def _build_result_panel(self, parent: ttk.Frame) -> None:
         """
@@ -1864,7 +1946,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         グループ別統計結果テーブルと保存ボタンを構築する。
         """
         frm_res = ttk.Frame(parent)
-        frm_res.pack(fill=tk.BOTH, expand=False, padx=4, pady=4)
+        frm_res.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
         res_btn_row = ttk.Frame(frm_res)
         res_btn_row.pack(fill=tk.X, padx=6, pady=(6, 2))
@@ -1876,24 +1958,24 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.btn_save_stats.pack(side=tk.LEFT)
 
         # One caption carries the quantity, its unit, and the sample unit, so
-        # the value columns do not each have to repeat the unit. Repeating it
-        # widened the table enough to push the paned-window sash and shrink
-        # the plot area.
+        # the value columns do not each have to repeat the unit.
         # 計測量・単位・集計単位はこのキャプションにまとめ、各数値列で単位を
-        # 繰り返さない。列ごとに単位を入れると表が広がり、ペインの仕切りが
-        # 動いてプロット領域が狭くなってしまう。
+        # 繰り返さない。
         self.result_caption_var = tk.StringVar()
         ttk.Label(res_btn_row, textvariable=self.result_caption_var).pack(
             side=tk.LEFT, padx=(10, 0)
         )
         self._update_result_caption()
+        # Says that the groups changed after the run the tables came from.
+        # 表を出した実行の後でグループが変わったことを示す。
+        ttk.Label(res_btn_row, textvariable=self.stale_var,
+                  foreground="#b00020").pack(side=tk.LEFT, padx=(12, 0))
 
         # The tree lives in its own row so a horizontal scrollbar can sit
-        # under it: the statistics row is wider than the left pane, and a
-        # Treeview clips overflowing columns without any scroll affordance.
-        # ツリーは専用の行に置き、その下に横スクロールバーを配置する。統計行は
-        # 左ペインより横に長く、Treeview は溢れた列をスクロール手段なしに
-        # 切り落としてしまうため。
+        # under it: a Treeview clips columns that overflow a narrowed window
+        # without any scroll affordance.
+        # ツリーは専用の行に置き、その下に横スクロールバーを配置する。Treeview は、
+        # 狭めたウィンドウから溢れた列をスクロール手段なしに切り落としてしまうため。
         res_tree_row = ttk.Frame(frm_res)
         res_tree_row.pack(fill=tk.BOTH, expand=True, padx=6, pady=(6, 0))
 
@@ -1904,13 +1986,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             show="headings",
             height=5,
             headings=self._result_headings(self.param),
-            # Widths hold the formatted values, not a unit-bearing heading:
-            # the Treeview's requested width is the sum of these, and it
-            # pushes the paned-window sash, so every column widened here is
-            # width taken from the plot.
-            # 列幅は単位付き見出しではなく整形後の値に合わせる。Treeview の要求
-            # 幅はこれらの合計で、ペインの仕切りを押すため、ここで広げた分だけ
-            # プロット領域が狭くなる。
+            # Widths hold the formatted values, not a unit-bearing heading; the
+            # group name takes whatever room the window has left.
+            # 列幅は単位付き見出しではなく整形後の値に合わせる。グループ名の列が、
+            # ウィンドウの残りの幅を使う。
             column_options={
                 "group":  {"width": 100, "anchor": "w", "stretch": True},
                 "median": {"width": 72, "anchor": "e", "stretch": False},
@@ -2042,7 +2121,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         の大きさを示す効果量である。
         """
         frm = ttk.Frame(parent)
-        frm.pack(fill=tk.BOTH, expand=False, padx=4, pady=(0, 4))
+        frm.pack(fill=tk.BOTH, expand=True, padx=4, pady=(0, 4))
 
         header = ttk.Frame(frm)
         header.pack(fill=tk.X, padx=6, pady=(0, 2))
@@ -2096,19 +2175,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         hsb.pack(fill=tk.X, padx=6, pady=(0, 4))
 
         # Below the table rather than beside the note, because the caveat is a
-        # paragraph and the header row would otherwise widen the whole pane;
+        # paragraph and the header row would otherwise widen the whole window;
         # it wraps to the panel width and is packed only while it has text.
         # 注意書きは段落なので、注記の横ではなく表の下に置く。見出し行に置くと
-        # ペイン全体が横に広がるためである。パネル幅で折り返し、文があるときだけ
+        # ウィンドウ全体が横に広がるためである。パネル幅で折り返し、文があるときだけ
         # 配置する。
-        # Fixed height with a scrollbar: several notes can apply at once, and a
-        # label growing with them pushed the log, where the warnings go, off the
-        # window.
-        # 高さを固定しスクロールバーを付ける。複数の注記が同時に当てはまることがあり、
-        # ラベルが伸びると、警告の出るログがウィンドウの外へ押し出されるためである。
+        # A scrollbar, because several notes can apply at once and together
+        # they are longer than the field.
+        # スクロールバーを付ける。複数の注記が同時に当てはまることがあり、合わせると
+        # 欄より長くなるためである。
         self.comparison_caveat_row = ttk.Frame(frm)
         self.comparison_caveat_text = tk.Text(
-            self.comparison_caveat_row, height=3, wrap=tk.WORD, state=tk.DISABLED,
+            self.comparison_caveat_row, height=6, wrap=tk.WORD, state=tk.DISABLED,
             relief=tk.FLAT, font="TkDefaultFont",
             background=ttk.Style().lookup("TFrame", "background"),
         )
@@ -2136,7 +2214,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.comparison_caveat_text.insert("1.0", text)
         self.comparison_caveat_text.configure(state=tk.DISABLED)
         if text:
-            self.comparison_caveat_row.pack(fill=tk.X, padx=6, pady=(0, 4))
+            self.comparison_caveat_row.pack(
+                fill=tk.BOTH, expand=True, padx=6, pady=(0, 4))
         else:
             self.comparison_caveat_row.pack_forget()
 
@@ -2205,14 +2284,29 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.btn_save_csv = ttk.Button(actionbar, text=_("数値を保存"), command=self.on_save_csv, state=tk.DISABLED)
         self.btn_save_csv.pack(side=tk.LEFT, padx=(6, 0))
 
+        self.btn_stats = ttk.Button(
+            actionbar, text=_("統計処理"),
+            command=self.on_show_statistics, state=tk.DISABLED,
+        )
+        self.btn_stats.pack(side=tk.LEFT, padx=(6, 0))
+        ToolTip(self.btn_stats, _(
+            "グループごとの統計値と群間比較の結果を、別のウィンドウに表示します。"
+            "統計値と比較の保存もそのウィンドウで行います。開いたままヒストグラムを"
+            "作成し直すと、内容が更新されます。"))
+
+        # Says that the groups changed after the run the figure came from.
+        # 図を出した実行の後でグループが変わったことを示す。
+        ttk.Label(actionbar, textvariable=self.stale_var,
+                  foreground="#b00020").pack(side=tk.LEFT, padx=(12, 0))
+
     def _build_quantity_controls(self, parent: ttk.Frame) -> None:
         """
         Build the selectors that choose what is plotted.
         描画する内容を選ぶセレクタを構築する。
 
-        They choose the input, the measured quantity, the aggregation unit, and
-        the plot type.
-        入力・計測量・集計単位・図の種類を選ぶ。
+        They choose the measured quantity, the aggregation unit, and the plot
+        type.
+        計測量・集計単位・図の種類を選ぶ。
 
         Notes
         -----
@@ -2241,27 +2335,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         comparebar = ttk.Frame(parent)
         comparebar.pack(fill=tk.X, padx=6, pady=(4, 0))
 
-        ttk.Label(inputbar, text=_("入力")).pack(side=tk.LEFT)
-        self.input_var = tk.StringVar(value=self.input_mode)
-        self.cmb_input = ttk.Combobox(
-            inputbar, textvariable=self.input_var,
-            values=list(INPUT_ORDER), width=11, state="readonly",
-        )
-        self.cmb_input.pack(side=tk.LEFT, padx=(4, 12))
-        self.cmb_input.bind("<<ComboboxSelected>>", lambda _e: self._on_input_change())
-        ToolTip(self.cmb_input, _(
-            "{bundle} は GUI01 が出力した .b2z を直接読み、全ての集計単位が使えます。"
-            "{csv} は Fiber Tracker が出力した {suffix} を読み、そこに残っている"
-            "ファイバーだけを集計します。密なネットワークでは自動フィルターで"
-            "ゴミを落とせないため、Fiber Tracker で全体像を見ながら除外し、その"
-            "結果を集計するのがこの経路の目的です。{csv} はファイバー単位の値しか"
-            "持たないため、{pixel} と {length} 集計は使えません。"
-        ).format(
-            bundle=INPUT_BUNDLE, csv=INPUT_FIBER_CSV,
-            suffix=INPUT_SUFFIXES[INPUT_FIBER_CSV],
-            pixel=UNIT_PIXEL, length=UNIT_LENGTH,
-        ))
-
+        # Applying a bundle's manual exclusions is the default: a sidecar
+        # exists only because someone curated that dataset, and ignoring it
+        # would silently analyze objects they had already rejected.
+        # バンドルの手動除外は適用を既定とする。サイドカーは誰かがそのデータセットを
+        # キュレーションしたときにのみ存在するため、無視すると既に棄却された対象を
+        # 黙って解析することになる。
         self.apply_exclusions_var = tk.BooleanVar(value=True)
         self.chk_exclusions = ttk.Checkbutton(
             parambar, text=_("除外を適用"),
@@ -2329,15 +2408,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ToolTip(self.cmb_unit, _(
             "1 標本の数え方を選びます。{pixel} は骨格画素 1 点、{kink} はキンク 1 点、"
             "{fiber} はファイバー 1 本（高さはファイバー内の中央値）、"
-            "{image} は画像 1 枚、{folder} は登録フォルダ 1 つです。{image} と "
-            "{folder} は含まれるファイバー値の中央値で、キンク角は全キンクの角度の"
-            "中央値、キンク密度は総キンク数を判定した長さの合計で割った値です。"
+            "{image} は画像 1 枚です。{image} は含まれるファイバー値の中央値で、"
+            "キンク角は全キンクの角度の中央値、キンク密度は総キンク数を判定した長さの"
+            "合計で割った値です。"
             "キンク密度の {fiber} 集計は各ファイバーを判定した長さで重み付けするため、"
             "平均はこの比と同じになり、検定はしません。"
             "{pixel} でまとめた分布は独立観測ではなく、長いファイバーほど重みが"
-            "大きくなるため、群間比較では {fiber}・{image}・{folder} でも確認して"
-            "ください。1 フォルダが 1 試料なら、試料間の差を検定する単位は {folder} "
-            "です。"
+            "大きくなるため、群間比較では {fiber}・{image} でも確認してください。"
+            "{fiber} は同じ画像のファイバーを独立と数えるため、場所ごとの違いを"
+            "踏まえて比べるときは {image} を使います。"
             "{length} は骨格画素を輪郭長で重み付けします。画素を等しく数えると、"
             "斜めの骨格ステップが約 1.41 倍長いことと、走査範囲の異なる画像で"
             "ピクセルサイズが変わることの 2 つの偏りが入ります。{length} は両方を"
@@ -2345,7 +2424,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "します。"
         ).format(
             pixel=UNIT_PIXEL, length=UNIT_LENGTH, kink=UNIT_KINK,
-            fiber=UNIT_FIBER, image=UNIT_IMAGE, folder=UNIT_FOLDER,
+            fiber=UNIT_FIBER, image=UNIT_IMAGE,
         ))
 
         self.plot_type_var = tk.StringVar(value=PLOT_HISTOGRAM)
@@ -2411,19 +2490,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "ファイバーを「計測した長さ以上」の観測として、ファイバーの長さの分布を"
             "推定します（Kaplan-Meier 推定）。{km} は {fiber} 集計でだけ使えます。"
             "全長を見たうち最長のファイバーより長い側は推定できず、その割合は図と"
-            "ログに出ます。そこに落ちる中央値や四分位数は、数値の代わりにありうる範囲を"
-            "「[下限, 上限]」か「> 下限」で書きます。下限は各フォルダの推定できない部分を"
-            "そのフォルダで全長を見た最長のファイバーのすぐ先に、上限は無限遠に置いたときの"
-            "値です。ファイバーを各フォルダ内でリサンプリングした 95 % 区間はログと統計値の "
+            "ログに出ます。推定はグループごとに行います。そこに落ちる中央値や四分位数は、"
+            "数値の代わりに「> 全長を見た最長のファイバーの長さ」と書きます。"
+            "ファイバーをリサンプリングした 95 % 区間はログと統計値の "
             "CSV に出ます。平均・標準偏差・最頻値は空欄にします。{fiber} 集計の重み付きの標本"
-            "には群間検定を行いません。{ml} の {image}・{folder} 集計は、各画像・各"
-            "フォルダの重み付き中央値を検定します。高さ・曲率・キンクは枠内の部分の"
+            "には群間検定を行いません。{ml} の {image} 集計は、各画像の重み付き中央値を"
+            "検定します。高さ・曲率・キンクは枠内の部分の"
             "測定として有効なため、この設定の影響を受けません。"
         ).format(
             length=PARAM_LENGTH, include=FRAME_INCLUDE,
             exclude=FRAME_EXCLUDE, ml=FRAME_MILES_LANTUEJOUL,
             km=FRAME_KAPLAN_MEIER, fiber=UNIT_FIBER,
-            image=UNIT_IMAGE, folder=UNIT_FOLDER,
+            image=UNIT_IMAGE,
         ))
         self._update_frame_mode_state()
 
@@ -2439,8 +2517,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "画素サイズとともに大きくなります。粗い走査には、細かい走査が残す短い"
             "繊維が写りません。ON にすると、比べる全バンドルの下限長のうち最も長い"
             "ものより短いファイバーを、どの計測量の集計からも外します。下限長と外した"
-            "本数はログに出ます。{csv} 入力には画素サイズが無いため適用しません。"
-        ).format(csv=INPUT_FIBER_CSV))
+            "本数はログに出ます。"
+        ))
 
         ttk.Label(comparebar, text=_("キンクのしきい値") + " (deg)").pack(
             side=tk.LEFT, padx=(16, 0))
@@ -2463,8 +2541,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def _available_params(self) -> list:
         """
-        Return the quantities the current input type can produce.
-        現在の入力タイプで算出できる計測量を返す。
+        Return the quantities the quantity selector offers.
+        計測量セレクタに出す計測量を返す。
 
         Returns
         -------
@@ -2472,14 +2550,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             Quantity keys in `PARAM_ORDER`.
             `PARAM_ORDER` の順に並んだ計測量キー。
         """
-        if self.input_mode == INPUT_BUNDLE:
-            return list(PARAM_ORDER)
-        return [p for p in PARAM_ORDER if p not in BUNDLE_ONLY_PARAMS]
+        return list(PARAM_ORDER)
 
     def _available_units(self, param: str) -> list:
         """
-        Return the aggregation units the current input type can produce.
-        現在の入力タイプで算出できる集計単位を返す。
+        Return the aggregation units a quantity can be aggregated at.
+        ある計測量を集計できる集計単位を返す。
 
         Parameters
         ----------
@@ -2493,55 +2569,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             Unit keys, in the quantity's declared order.
             計測量の宣言順に並んだ集計単位キー。
         """
-        units = list(PARAM_SPECS[param]["units"])
-        if self.input_mode != INPUT_BUNDLE:
-            units = [u for u in units if u not in BUNDLE_ONLY_UNITS]
-        return units
-
-    def _on_input_change(self) -> None:
-        """
-        Apply an input-type change to the unit list and cached results.
-        入力タイプの変更を集計単位一覧とキャッシュ済み結果へ反映する。
-        """
-        mode = self.input_var.get()
-        if mode not in INPUT_SUFFIXES:
-            self.input_var.set(self.input_mode)
-            return
-        if mode == self.input_mode:
-            return
-
-        self.input_mode = mode
-
-        params = self._available_params()
-        self.cmb_param.configure(values=params)
-        if self.param not in params:
-            self.param = params[0]
-            self.param_var.set(self.param)
-            self._apply_default_range(self.param)
-            for col, text in self._result_headings(self.param).items():
-                self.result_tree.heading(col, text=text)
-
-        units = self._available_units(self.param)
-        self.cmb_unit.configure(values=units)
-        if self.unit not in units:
-            self.unit = units[0]
-            self.unit_var.set(self.unit)
-            self._update_result_caption()
-
-        # Exclusions live beside a bundle; a fiber CSV already has them baked
-        # in, because GUI04 exported only the fibers it was displaying.
-        # 除外はバンドルの横にある。ファイバー CSV には既に適用済みで、GUI04 が
-        # 表示中のファイバーだけを出力しているため。
-        for chk in (self.chk_exclusions, self.chk_connection):
-            chk.configure(
-                state=tk.NORMAL if mode == INPUT_BUNDLE else tk.DISABLED
-            )
-
-        self._rescan_all()
-        self._reset_result_state()
-        self._log(_("入力を {mode} に変更しました（{suffix} を探索します）。").format(
-            mode=mode, suffix=INPUT_SUFFIXES[mode],
-        ))
+        return list(PARAM_SPECS[param]["units"])
 
     def _on_curation_toggle(self) -> None:
         """
@@ -2907,12 +2935,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         msg = (
             _("使い方:\n")
             + _("  1)「グループ追加」でデータ群を作成（自動で 1 個作成済み）\n")
-            + _("  2) Treeview でグループを選び「フォルダ追加」で .b2z バンドルを含むフォルダを登録\n")
+            + _("  2) Treeview でグループを選び「ファイル追加」で .b2z バンドルを登録（複数選択可）\n")
             + _("  3) 計測量と集計単位、条件と表示モード（縦並び/重ね表示）を設定して「ヒストグラム作成」\n")
-            + _("  4) 必要に応じて「画像を保存」「数値を保存（グループ別CSV）」\n")
+            + _("  4) 統計値と群間比較は「統計処理」で表示。必要に応じて「画像を保存」「数値を保存（グループ別CSV）」\n")
             + "\n"
             + _("ヒント:\n")
             + _("  - グループをダブルクリックで名前変更／右クリックで色変更\n")
+            + _("  - ファイル行を選ぶと画像を表示。別のグループへドラッグすると移動\n")
             + _("  - 縦軸モード: 非表示=目盛なし / {density}=割合(0–1) / {percent}=パーセント\n").format(
                 density="density", percent="percent"
             )
@@ -2921,9 +2950,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             )
             + _("  - {pixel} 集計は骨格画素をまとめた分布で、長いファイバーほど重みが大きく、"
                 "同一ファイバーの隣接画素も独立ではありません。群間比較の根拠には "
-                "{fiber}・{image}・{folder} 集計での N も併せて確認してください。\n").format(
+                "{fiber}・{image} 集計での N も併せて確認してください。\n").format(
                 pixel=UNIT_PIXEL, fiber=UNIT_FIBER, image=UNIT_IMAGE,
-                folder=UNIT_FOLDER,
             )
             + _("  - どの計測量もファイバー追跡を行うため処理時間がかかります。{height} 以外は"
                 "バンドルに走査範囲が記録されている必要があります。\n").format(height=PARAM_HEIGHT)
@@ -2935,13 +2963,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
     # _log is inherited from ui_tools.LogMixin.
     def _default_save_dir(self) -> str:
         """
-        Return the first registered input folder for save dialogs.
-        保存ダイアログ用に、最初に登録された入力フォルダを返す。
+        Return the folder of the first registered bundle for save dialogs.
+        保存ダイアログ用に、最初に登録されたバンドルのあるフォルダを返す。
         """
         for group in self.groups:
-            for folder in group.folder_paths:
-                if folder:
-                    return folder
+            for path in group.files:
+                return os.path.dirname(path)
         return os.getcwd()
 
     def _next_default_name(self) -> str:
@@ -3122,13 +3149,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         return f"● {g.name}"
 
-    def _folder_label(self, folder: str, info: dict) -> str:
+    def _file_label(self, path: str) -> str:
         """
-        Return the display label for a registered folder row.
-        登録フォルダ行に表示するラベルを返す。
+        Return the display label for a registered file row: the file name.
+        登録ファイル行に表示するラベル（ファイル名）を返す。
         """
-        pairs = info.get("pairs", 0)
-        return f"{folder}  ({_('pairs')}={pairs})"
+        return os.path.basename(path)
 
     def _insert_group_in_tree(self, g: Group) -> None:
         """
@@ -3142,7 +3168,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.tree.insert(
             "", tk.END, iid=g.id,
             text=self._group_label(g),
-            values=(g.total_pairs(),),
+            values=(len(g.files),),
             open=True,
             tags=(tag,),
         )
@@ -3154,172 +3180,160 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         tag = f"grp_{g.id}"
         self.tree.tag_configure(tag, foreground=g.color)
-        self.tree.item(g.id, text=self._group_label(g), values=(g.total_pairs(),), tags=(tag,))
+        self.tree.item(g.id, text=self._group_label(g), values=(len(g.files),), tags=(tag,))
 
-    def _refresh_folder_row(self, g: Group, folder: str) -> None:
+    def _file_iid(self, g: Group, path: str) -> str:
         """
-        Refresh a folder row after its scan result changes.
-        スキャン結果の変更後にフォルダ行を更新する。
+        Return the Treeview item ID of a file row: its group's id and its path.
+        ファイル行の Treeview アイテム ID（所属グループの id とパス）を返す。
         """
-        info = g.folder_pairinfo.get(folder, {})
-        iid = self._folder_iid(g, folder)
-        self.tree.item(iid, text=self._folder_label(folder, info), values=(info.get("pairs", 0),))
-
-    def _folder_iid(self, g: Group, folder: str) -> str:
-        """
-        Return the stable Treeview item ID for a folder row.
-        フォルダ行に使う安定した Treeview アイテム ID を返す。
-        """
-        return f"{g.id}::{folder}"
+        return f"{g.id}::{path}"
 
     def _find_group_by_iid(self, iid: str) -> tuple:
         """
-        Resolve a Treeview item ID to its group and optional folder.
-        Treeview アイテム ID からグループと任意のフォルダを解決する。
-        """
-        for g in self.groups:
-            if g.id == iid:
-                return g, None
-            for folder in g.folder_paths:
-                if self._folder_iid(g, folder) == iid:
-                    return g, folder
-        return None, None
-
-    def _selected_group(self) -> tuple:
-        """
-        Return the currently selected group and optional folder.
-        現在選択されているグループと任意のフォルダを返す。
-        """
-        sel = self.tree.selection()
-        if not sel:
-            return None, None
-        return self._find_group_by_iid(sel[0])
-
-    def _update_summary(self) -> None:
-        """
-        Update the group and bundle count summary label.
-        グループ数とバンドル数の概要ラベルを更新する。
-        """
-        total_pairs = sum(g.total_pairs() for g in self.groups)
-        total_missing = sum(g.total_missing() for g in self.groups)
-        self.summary_var.set(
-            _("グループ数: {g} / 有効バンドル総数: {p} / 欠損: {m}").format(
-                g=len(self.groups), p=total_pairs, m=total_missing
-            )
-        )
-
-    def _find_pairs(self, folder: str) -> tuple:
-        """
-        Return candidate bundle path pairs and warning messages for a folder.
-        フォルダ内の候補バンドルパスペアと警告メッセージを返す。
-
-        Parameters
-        ----------
-        folder
-            Folder scanned for ``.b2z`` analysis bundles.
-            ``.b2z`` 解析バンドルを探索するフォルダ。
+        Resolve a Treeview item ID to its group and, for a file row, its path.
+        Treeview アイテム ID から、グループと、ファイル行であればそのパスを解決する。
 
         Returns
         -------
         tuple
-            Candidate pair list and warning list. Each pair is
-            ``(bundle_path, bundle_path)``.
-            候補ペアリストと警告リスト。各ペアは ``(bundle_path, bundle_path)``。
+            ``(group, path)``; `path` is None for a group row, and both are
+            None for an ID that names no row.
+            ``(group, path)``。グループ行では `path` は None。どの行も指さない ID
+            では両方 None。
+        """
+        # A group id is a hex string, so the first "::" ends it whatever the
+        # path holds.
+        # グループの id は 16 進文字列なので、パスの内容にかかわらず最初の "::" が
+        # その終わりになる。
+        group_id, sep, path = iid.partition("::")
+        for g in self.groups:
+            if g.id != group_id:
+                continue
+            if not sep:
+                return g, None
+            return (g, path) if path in g.files else (None, None)
+        return None, None
+
+    def _selected_group(self) -> tuple:
+        """
+        Return the group the selection points at, and its file when one row is meant.
+        選択が指すグループと、行が 1 つに定まる場合はそのファイルを返す。
+
+        Returns
+        -------
+        tuple
+            ``(group, path)`` of the focused row when it is selected, otherwise
+            of the first selected row; ``(None, None)`` without a selection.
+            フォーカスのある行が選択されていればその ``(group, path)``、そうで
+            なければ選択の先頭の行のもの。選択が無ければ ``(None, None)``。
+        """
+        sel = self.tree.selection()
+        if not sel:
+            return None, None
+        focus = self.tree.focus()
+        return self._find_group_by_iid(focus if focus in sel else sel[0])
+
+    def _selected_file_rows(self) -> list:
+        """
+        Return the selected file rows as ``(iid, group, path)``, in tree order.
+        選択中のファイル行を ``(iid, group, path)`` で、ツリーの並び順に返す。
+        """
+        selected = set(self.tree.selection())
+        rows = []
+        for g in self.groups:
+            for path in g.files:
+                iid = self._file_iid(g, path)
+                if iid in selected:
+                    rows.append((iid, g, path))
+        return rows
+
+    def _update_summary(self) -> None:
+        """
+        Update the group and file count summary label.
+        グループ数とファイル数の概要ラベルを更新する。
+        """
+        self.summary_var.set(
+            _("グループ数: {g} / ファイル総数: {p}").format(
+                g=len(self.groups), p=sum(len(g.files) for g in self.groups),
+            )
+        )
+
+    def _mark_results_stale(self) -> None:
+        """
+        Say that the groups changed after the run the shown result came from.
+        表示中の結果を出した実行の後で、グループが変わったことを示す。
 
         Notes
         -----
-        Each ``.b2z`` candidate is passed downstream, where the required
-        calibrated and skeletonized keys are loaded and validated. The same
-        path is stored twice to satisfy code that expects separate ``cal_path``
-        and ``skl_path`` variables.
-        ``.b2z`` バンドルには calibrated / skeletonized が同一ファイル内に含まれる。
-        必須キーの読み込みと検証は下流処理で行う。別々の ``cal_path`` /
-        ``skl_path`` 変数を期待するコードに合わせ、同じパスを 2 回格納する。
+        The figure and the tables are kept, because they still describe the
+        run they came from; the note tells the reader that the list beside
+        them no longer does. It is cleared by the next run.
+        図と表は残す。それらは出した実行の内容を今も表しているためである。注記は、
+        隣の一覧がもうその実行の内容ではないことを読み手に伝える。次の実行で消える。
         """
-        try:
-            files = os.listdir(folder)
-        except Exception as e:
-            return [], [_("[アクセス不可] {err}").format(err=e)]
-
-        suffix = INPUT_SUFFIXES[self.input_mode]
-        bundle_files = [f for f in files if f.endswith(suffix)]
-        if not bundle_files:
-            return [], [_("入力なし（*{ext} が見つかりません）").format(ext=suffix)]
-
-        pairs = []
-        missing = []
-        for bf in bundle_files:
-            bundle_path = os.path.join(folder, bf)
-            pairs.append((bundle_path, bundle_path))
-
-        return pairs, missing
+        if self._has_result:
+            self.stale_var.set(
+                _("一覧が変わりました。ヒストグラムを作成し直してください。"))
 
     @staticmethod
-    def _overlapping_inputs(paths, input_mode: str) -> tuple:
+    def _overlapping_inputs(paths) -> tuple:
         """
-        Return the inputs of one group that analyzed the same scan lines of one input file.
-        1 つのグループのうち、1 つの入力ファイルの同じ走査線を解析した入力の組を返す。
+        Return the bundles of one group that analyzed the same scan lines of one input file.
+        1 つのグループのうち、1 つの入力ファイルの同じ走査線を解析したバンドルの組を返す。
 
         Parameters
         ----------
         paths
-            Every input of the group, over all its folders.
-            グループの全フォルダにわたる全入力。
-        input_mode
-            `INPUT_BUNDLE` or `INPUT_FIBER_CSV`.
-            `INPUT_BUNDLE` または `INPUT_FIBER_CSV`。
+            Every bundle of the group.
+            グループの全バンドル。
 
         Returns
         -------
         tuple
             ``(pairs, by_name)``: the overlapping ``(path, path)`` pairs, and how
-            many inputs could be traced to their input file only by their name.
+            many bundles could be traced to their input file only by their name.
             ``(pairs, by_name)``。重なる ``(path, path)`` の組と、入力ファイルを
-            名前でしか突き止められなかった入力の数。
+            名前でしか突き止められなかったバンドルの数。
 
         Notes
         -----
         GUI01 keeps a whole-image bundle when the scan is later analyzed as
-        scan-line ranges, so both can sit in one folder, as can a copy of a
-        bundle under another name; pooling them counts every fiber of the
-        overlap twice. Two inputs overlap when they come from the same input
+        scan-line ranges, so both can be registered in one group, as can a copy
+        of a bundle under another name; pooling them counts every fiber of the
+        overlap twice. Two bundles overlap when they come from the same input
         file and their scan-line ranges intersect. The input file is the
         bundle's recorded ``input_sha256`` when both record one, and otherwise
         the name less its ``_r<start>-<stop>`` suffix; the range is the
-        bundle's ``source_region``, or for a fiber CSV the name's suffix, and
-        its absence means the whole image. A bundle that cannot be read is left
-        out, because its measurement reports it.
+        bundle's ``source_region``, and its absence means the whole image. A
+        bundle that cannot be read is left out, because its measurement reports
+        it.
         GUI01 は、走査を後から走査線範囲で解析しても画像全体のバンドルを残すため、
-        両方が 1 つのフォルダに並びうる。バンドルを別名でコピーした場合も同じである。
-        まとめると重なった部分の繊維をすべて二度数える。2 つの入力は、同じ入力
-        ファイルに由来し、走査線の範囲が交わるときに重なるとする。入力ファイルは、
-        両方が記録していればバンドルの ``input_sha256``、そうでなければ
-        ``_r<start>-<stop>`` を除いた名前で見る。範囲はバンドルの ``source_region``、
-        ファイバー CSV では名前の接尾辞で見て、無ければ画像全体とする。読めない
-        バンドルは、その計測が報告するため外す。
+        両方が 1 つのグループに登録されうる。バンドルを別名でコピーした場合も同じ
+        である。まとめると重なった部分の繊維をすべて二度数える。2 つのバンドルは、
+        同じ入力ファイルに由来し、走査線の範囲が交わるときに重なるとする。入力
+        ファイルは、両方が記録していればバンドルの ``input_sha256``、そうでなければ
+        ``_r<start>-<stop>`` を除いた名前で見る。範囲はバンドルの ``source_region``
+        で見て、無ければ画像全体とする。読めないバンドルは、その計測が報告するため
+        外す。
         """
-        suffix = INPUT_SUFFIXES[input_mode]
         entries = []
         for path in paths:
             name = os.path.basename(path)
-            if name.endswith(suffix):
-                name = name[:-len(suffix)]
+            if name.endswith(BUNDLE_EXT):
+                name = name[:-len(BUNDLE_EXT)]
             match = _ROW_RANGE_NAME.match(name)
             source = match.group("stem") if match else name
-            rows = ((int(match.group("start")), int(match.group("stop")))
-                    if match else None)
-            sha = None
-            if input_mode == INPUT_BUNDLE:
-                try:
-                    meta = load_bundle_meta(path)
-                except Exception:
-                    continue
-                sha = meta.get("input_sha256") or None
-                region = meta.get(SOURCE_REGION_KEY)
-                try:
-                    rows = (int(region["row_start"]), int(region["row_stop"]))
-                except (TypeError, KeyError, ValueError):
-                    rows = None
+            try:
+                meta = load_bundle_meta(path)
+            except Exception:
+                continue
+            sha = meta.get("input_sha256") or None
+            region = meta.get(SOURCE_REGION_KEY)
+            try:
+                rows = (int(region["row_start"]), int(region["row_stop"]))
+            except (TypeError, KeyError, ValueError):
+                rows = None
             entries.append((path, sha, source, rows))
 
         pairs = []
@@ -3335,27 +3349,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         by_name = sum(1 for _p, sha, _s, _r in entries if not sha)
         return pairs, by_name
 
-    def _scan_folder(self, folder: str) -> dict:
-        """
-        Scan one folder and summarize candidate bundle counts and warnings.
-        1 つのフォルダをスキャンし、候補バンドル数と警告を要約する。
-        """
-        pairs, missing = self._find_pairs(folder)
-        return {"pairs": len(pairs), "missing": missing}
-
-    def _rescan_all(self) -> None:
-        """
-        Rescan all registered folders and refresh the tree summary.
-        登録済みフォルダをすべて再スキャンし、Treeview と概要を更新する。
-        """
-        for g in self.groups:
-            g.folder_pairinfo.clear()
-            for folder in g.folder_paths:
-                g.folder_pairinfo[folder] = self._scan_folder(folder)
-                self._refresh_folder_row(g, folder)
-            self._refresh_group_row(g)
-        self._update_summary()
-
     def on_add_group(self) -> None:
         """
         Add a new empty histogram group and select it in the tree.
@@ -3363,32 +3356,36 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         name = self._next_default_name()
         g = self._add_group_internal(name)
-        # Select the new group so the next folder-add action targets it.
-        # 追加直後に選択しておくと、そのまま「フォルダ追加」できる。
+        # Select the new group so the next file-add action targets it.
+        # 追加直後に選択しておくと、そのまま「ファイル追加」できる。
         self.tree.selection_set(g.id)
+        self.tree.focus(g.id)
         self.tree.see(g.id)
         self._log(_("グループ追加: {name}").format(name=g.name))
 
     def on_remove_group(self) -> None:
         """
         Remove the selected group after confirming data-loss cases.
-        選択中のグループを、登録フォルダが失われる場合は確認してから削除する。
+        選択中のグループを、登録ファイルが失われる場合は確認してから削除する。
         """
-        g, _folder = self._selected_group()
+        g, _path = self._selected_group()
         if g is None:
             messagebox.showwarning(_("未選択"), _("削除するグループを選択してください。"))
             return
-        # Skip confirmation for empty groups because no folder registrations are lost.
-        # 空グループでは失われるフォルダ登録がないため確認を省略する。
-        if g.folder_paths:
+        # Skip confirmation for empty groups because no file registrations are lost.
+        # 空グループでは失われるファイル登録がないため確認を省略する。
+        had_files = bool(g.files)
+        if had_files:
             if not messagebox.askyesno(
                 _("確認"),
-                _("グループ「{name}」を削除しますか？\n所属フォルダの登録もすべて解除されます。").format(name=g.name),
+                _("グループ「{name}」を削除しますか？\n所属ファイルの登録もすべて解除されます。").format(name=g.name),
             ):
                 return
         self.tree.delete(g.id)
         self.groups.remove(g)
         self._update_summary()
+        if had_files:
+            self._mark_results_stale()
         self._log(_("グループ削除: {name}").format(name=g.name))
 
     def on_move_group(self, delta: int) -> None:
@@ -3403,7 +3400,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             move past either end does nothing.
             移動する位置の数。負なら上へ、正なら下へ。端を越える移動では何もしない。
         """
-        g, _folder = self._selected_group()
+        g, _path = self._selected_group()
         if g is None:
             messagebox.showwarning(_("未選択"), _("並び替えるグループを選択してください。"))
             return
@@ -3422,10 +3419,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if not self.groups:
             return
         # Skip confirmation when all groups are empty.
-        # 全グループが空で失うフォルダ登録がない場合は確認を省略する。
-        has_any_folder = any(g.folder_paths for g in self.groups)
-        if has_any_folder:
-            if not messagebox.askyesno(_("確認"), _("すべてのグループとフォルダ登録を削除しますか？")):
+        # 全グループが空で失うファイル登録がない場合は確認を省略する。
+        has_any_file = any(g.files for g in self.groups)
+        if has_any_file:
+            if not messagebox.askyesno(_("確認"), _("すべてのグループとファイル登録を削除しますか？")):
                 return
         for iid in list(self.tree.get_children("")):
             self.tree.delete(iid)
@@ -3434,133 +3431,224 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._reset_result_state()
         self._log(_("全クリアしました。"))
 
-    def on_add_folder(self) -> None:
+    def on_add_files(self) -> None:
         """
-        Add an input folder to the selected group and scan bundle availability.
-        選択中グループへ入力フォルダを追加し、利用可能なバンドルをスキャンする。
+        Add bundle files chosen in a dialog to the selected group.
+        ダイアログで選んだバンドルファイルを、選択中のグループへ追加する。
         """
-        g, _folder = self._selected_group()
+        g, _path = self._selected_group()
         if g is None:
             messagebox.showwarning(
                 _("未選択"),
-                _("フォルダを追加する先のグループを Treeview で選択してください。"),
+                _("ファイルを追加する先のグループを Treeview で選択してください。"),
             )
             return
 
-        folder = filedialog.askdirectory(title=_("解析対象フォルダを選択"))
-        if not folder:
+        paths = filedialog.askopenfilenames(
+            parent=self, title=_(".b2z バンドルを選択"),
+            initialdir=self._last_dir,
+            filetypes=[("b2z bundle", "*" + BUNDLE_EXT)],
+        )
+        if not paths:
             return
-        self.add_folder(g, folder)
+        self._last_dir = os.path.dirname(paths[0])
+        self.add_files(g, list(paths))
 
-    def add_folder(self, g: Group, folder: str) -> None:
+    def add_files(self, g: Group, paths) -> None:
         """
-        Register one input folder in a group and scan its bundles.
-        入力フォルダを 1 つグループへ登録し、そのバンドルをスキャンする。
+        Register bundle files in a group.
+        バンドルファイルをグループへ登録する。
 
         Parameters
         ----------
         g
-            Group the folder joins.
-            フォルダを登録するグループ。
-        folder
-            Folder chosen in the dialog, or handed over by GUI01's
-            "このフォルダをGUI03で解析".
-            ダイアログで選んだフォルダ、または GUI01 の「このフォルダをGUI03で解析」
-            から渡されたフォルダ。
+            Group the files join.
+            ファイルを登録するグループ。
+        paths
+            Paths chosen in the dialog, or handed over by GUI01's
+            "このフォルダをGUI03で解析" or GUI05's "GUI03で開く".
+            ダイアログで選んだパス、または GUI01 の「このフォルダをGUI03で解析」や
+            GUI05 の「GUI03で開く」から渡されたパス。
+
+        Notes
+        -----
+        A path that is not an existing ``.b2z`` file, and a file the group
+        already holds, are left out and named in the log; the rest are added,
+        so one wrong path among many does not refuse the others. The same file
+        may be registered in another group, because a comparison may reuse it
+        on purpose; the log says so.
+        存在する ``.b2z`` ファイルではないパスと、グループが既に持つファイルは
+        追加せず、ログに挙げる。残りは追加する。多数のうち 1 つのパスが誤っていても、
+        他を拒まないためである。同じファイルを別のグループに登録することはできる。
+        比較で意図的に使い回すことがあるためで、その旨をログに出す。
         """
-        folder = os.path.normpath(folder)
-        if not os.path.isdir(folder):
-            messagebox.showerror(
-                _("エラー"),
-                _("フォルダが見つかりません: {path}").format(path=folder),
-            )
-            return
-
-        if folder in g.folder_paths:
-            messagebox.showinfo(_("重複"), _("このフォルダは同じグループに既に登録されています。"))
-            return
-
-        # Allow cross-group duplicates because intentional comparisons may reuse a folder.
-        # 意図的な比較の可能性があるため、別グループとの重複は許容して警告ログだけ出す。
-        for other in self.groups:
-            if other is not g and folder in other.folder_paths:
-                self._log(
-                    _("注意: 「{f}」は別グループ「{n}」にも登録されています。").format(
-                        f=folder, n=other.name
+        added = []
+        for raw in paths:
+            path = os.path.normpath(os.path.abspath(raw))
+            if not (path.lower().endswith(BUNDLE_EXT) and os.path.isfile(path)):
+                self._log(_("[{name}] 追加しません（{ext} ファイルではないか、見つかりません）: {path}").format(
+                    name=g.name, ext=BUNDLE_EXT, path=path))
+                continue
+            if g.holds(path):
+                self._log(_("[{name}] 追加しません（同じグループに登録済み）: {path}").format(
+                    name=g.name, path=path))
+                continue
+            for other in self.groups:
+                if other is not g and other.holds(path):
+                    self._log(
+                        _("注意: 「{f}」は別グループ「{n}」にも登録されています。").format(
+                            f=path, n=other.name
+                        )
                     )
-                )
-                break
+                    break
+            g.files.append(path)
+            self.tree.insert(
+                g.id, tk.END, iid=self._file_iid(g, path),
+                text=self._file_label(path), values=("",),
+            )
+            added.append(path)
 
-        g.folder_paths.append(folder)
-        info = self._scan_folder(folder)
-        g.folder_pairinfo[folder] = info
-
-        iid = self._folder_iid(g, folder)
-        self.tree.insert(
-            g.id, tk.END, iid=iid,
-            text=self._folder_label(folder, info),
-            values=(info.get("pairs", 0),),
-        )
-        self._refresh_group_row(g)
-        self._update_summary()
-
-        self._log(_("[{name}] 追加: {path}").format(name=g.name, path=folder))
-        self._log(_("有効ペア数: {n}").format(n=info["pairs"]))
-        if info["missing"]:
-            self._log(_("欠損/注意:"))
-            for m in info["missing"]:
-                self._log(f"  - {m}")
-
-    def on_remove_folder(self) -> None:
-        """
-        Remove the selected folder registration from its group.
-        選択中のフォルダ登録を所属グループから削除する。
-        """
-        g, folder = self._selected_group()
-        if g is None or folder is None:
-            messagebox.showwarning(_("未選択"), _("削除するフォルダ行を選択してください。"))
+        if not added:
             return
-        iid = self._folder_iid(g, folder)
-        self.tree.delete(iid)
-        if folder in g.folder_paths:
-            g.folder_paths.remove(folder)
-        g.folder_pairinfo.pop(folder, None)
         self._refresh_group_row(g)
         self._update_summary()
-        self._log(_("[{name}] フォルダ削除: {path}").format(name=g.name, path=folder))
+        self._mark_results_stale()
+        self._log(_("[{name}] {n} 個のファイルを追加しました:").format(
+            name=g.name, n=len(added)))
+        for path in added:
+            self._log(f"  - {path}")
 
-    def _on_tree_double_click(self, event) -> None:
+    def on_remove_files(self) -> None:
+        """
+        Remove the selected file registrations from their groups.
+        選択中のファイル登録を、所属グループから削除する。
+        """
+        rows = self._selected_file_rows()
+        if not rows:
+            messagebox.showwarning(_("未選択"), _("削除するファイル行を選択してください。"))
+            return
+        for iid, g, path in rows:
+            self.tree.delete(iid)
+            g.files.remove(path)
+            self._log(_("[{name}] ファイル削除: {path}").format(name=g.name, path=path))
+        for g in {id(g): g for _iid, g, _path in rows}.values():
+            self._refresh_group_row(g)
+        self._update_summary()
+        self._mark_results_stale()
+
+    def move_files(self, rows, target: Group) -> None:
+        """
+        Move registered files to another group.
+        登録したファイルを別のグループへ移す。
+
+        Parameters
+        ----------
+        rows
+            ``(iid, group, path)`` of the file rows to move
+            (`_selected_file_rows`).
+            移すファイル行の ``(iid, group, path)``（`_selected_file_rows`）。
+        target
+            Group the files join.
+            ファイルを移す先のグループ。
+
+        Notes
+        -----
+        A file already in `target` stays where it is, and the log says so:
+        moving it would register one bundle twice in a group, which a run
+        refuses (`_overlapping_inputs`). Every move is logged, so a drop made
+        by mistake can be seen and undone.
+        `target` に既にあるファイルは動かさず、その旨をログに出す。移すと 1 つの
+        バンドルがグループに二重に登録され、実行がそれを拒むためである
+        （`_overlapping_inputs`）。誤って落とした移動を見つけて戻せるよう、移動は
+        すべてログに出す。
+        """
+        moved = []
+        sources = {}
+        for iid, g, path in rows:
+            if g is target:
+                continue
+            if target.holds(path):
+                self._log(_("[{src}] → [{dst}] 移しません（移動先に登録済み）: {name}").format(
+                    src=g.name, dst=target.name, name=os.path.basename(path)))
+                continue
+            self.tree.delete(iid)
+            g.files.remove(path)
+            target.files.append(path)
+            new_iid = self._file_iid(target, path)
+            self.tree.insert(
+                target.id, tk.END, iid=new_iid,
+                text=self._file_label(path), values=("",),
+            )
+            moved.append(new_iid)
+            sources[id(g)] = g
+            self._log(_("[{src}] → [{dst}] 移動: {name}").format(
+                src=g.name, dst=target.name, name=os.path.basename(path)))
+        if not moved:
+            return
+        for g in sources.values():
+            self._refresh_group_row(g)
+        self._refresh_group_row(target)
+        self.tree.item(target.id, open=True)
+        self._update_summary()
+        self._mark_results_stale()
+        # Keep the moved rows selected, so they can be seen where they landed
+        # and moved again.
+        # 移した行を選択したままにする。どこへ入ったかが見え、続けて動かせる。
+        self.tree.selection_set(moved)
+        self.tree.focus(moved[-1])
+        self.tree.see(moved[-1])
+
+    def _on_tree_double_click(self, event):
         """
         Rename a group when its Treeview row is double-clicked.
         Treeview のグループ行がダブルクリックされたときに名前変更を行う。
+
+        Notes
+        -----
+        Tk delivers the second press of two quick presses on one spot to this
+        binding and not to the press binding. On a file row that press can be
+        the start of a drag — a row is clicked to select it and pressed again
+        at once to drag it — so it is handed to `_on_tree_press`.
+        Tk は、同じ場所での素早い 2 回の押下のうち 2 回目を、押下のバインドではなく
+        このバインドに渡す。ファイル行では、その押下がドラッグの始まりでありうる
+        （行をクリックして選び、すぐに押し直してドラッグする）ため、
+        `_on_tree_press` に渡す。
         """
         iid = self.tree.identify_row(event.y)
         if not iid:
-            return
-        g, folder = self._find_group_by_iid(iid)
-        if g is None or folder is not None:
-            return
+            return None
+        g, path = self._find_group_by_iid(iid)
+        if g is None:
+            return None
+        if path is not None:
+            return self._on_tree_press(event)
         self._rename_group(g)
+        return None
 
     def _on_tree_right_click(self, event) -> None:
         """
-        Open the context menu for the group or folder row under the pointer.
-        ポインタ下のグループ行またはフォルダ行のコンテキストメニューを開く。
+        Open the context menu for the group or file row under the pointer.
+        ポインタ下のグループ行またはファイル行のコンテキストメニューを開く。
         """
         iid = self.tree.identify_row(event.y)
         if not iid:
             return
-        g, folder = self._find_group_by_iid(iid)
+        g, path = self._find_group_by_iid(iid)
         if g is None:
             return
-        # Select the row under the pointer before opening its context menu.
-        # コンテキストメニューを開く前に、ポインタ下の行を選択状態にする。
-        self.tree.selection_set(iid)
+        # A right-click inside a selection of several rows keeps it, so the
+        # menu acts on all of them; anywhere else it selects the row under
+        # the pointer.
+        # 複数行の選択の中での右クリックは選択を保ち、メニューがその全行に作用する。
+        # それ以外では、ポインタ下の行を選択する。
+        if iid not in self.tree.selection():
+            self.tree.selection_set(iid)
+            self.tree.focus(iid)
 
-        if folder is None:
+        if path is None:
             menu = self._build_group_context_menu(g)
         else:
-            menu = self._build_folder_context_menu(g, folder)
+            menu = self._build_file_context_menu(g, path)
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -3578,27 +3666,53 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         menu.add_command(label=_("グループ削除"), command=self.on_remove_group)
         return menu
 
-    def _build_folder_context_menu(self, g: Group, folder: str) -> tk.Menu:
+    def _build_file_context_menu(self, g: Group, path: str) -> tk.Menu:
         """
-        Build the folder context menu for group-name and clipboard actions.
-        フォルダ名のグループ名反映・クリップボードコピー用メニューを構築する。
+        Build the file context menu: move, remove, group-name and clipboard actions.
+        ファイル行のメニュー（移動・削除・グループ名への反映・クリップボードコピー）を
+        構築する。
+
+        Notes
+        -----
+        "Move to group" does what dragging the selected rows does, for a list
+        long enough that the group to move to is out of view.
+        「グループへ移動」は、選択した行のドラッグと同じことをする。一覧が長く、
+        移動先のグループが見えていないときのためである。
         """
+        state = tk.DISABLED if self.is_running else tk.NORMAL
         menu = tk.Menu(self, tearoff=0)
+        move_menu = tk.Menu(menu, tearoff=0)
+        for other in self.groups:
+            if other is g:
+                continue
+            move_menu.add_command(
+                label=other.name,
+                command=lambda target=other: self.move_files(
+                    self._selected_file_rows(), target),
+            )
+        menu.add_cascade(
+            label=_("グループへ移動"), menu=move_menu,
+            state=state if len(self.groups) > 1 else tk.DISABLED,
+        )
+        menu.add_command(label=_("ファイル削除"), command=self.on_remove_files,
+                         state=state)
+        menu.add_separator()
         menu.add_command(
             label=_("フォルダ名をグループ名にする"),
-            command=lambda: self._set_group_name_from_folder(g, folder),
+            command=lambda: self._set_group_name_from_folder(g, path),
         )
         menu.add_command(
-            label=_("フォルダ名をコピーする"),
-            command=lambda: self._copy_folder_name(folder),
+            label=_("ファイル名をコピーする"),
+            command=lambda: self._copy_file_name(path),
         )
         return menu
 
-    def _set_group_name_from_folder(self, g: Group, folder: str) -> None:
+    def _set_group_name_from_folder(self, g: Group, path: str) -> None:
         """
-        Rename the group to the selected folder's basename.
-        選択したフォルダのベース名をグループ名に設定する。
+        Rename the group to the name of the folder that holds a file.
+        ファイルのあるフォルダの名前をグループ名に設定する。
         """
+        folder = os.path.dirname(path)
         new_name = os.path.basename(folder) or folder
         # Duplicate names are allowed because group color/order can still distinguish them.
         # グループ色や順序で識別できるため、同名は警告ログのみで許容する。
@@ -3608,15 +3722,341 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._refresh_group_row(g)
         self._log(_("グループ名変更: {name}").format(name=new_name))
 
-    def _copy_folder_name(self, folder: str) -> None:
+    def _copy_file_name(self, path: str) -> None:
         """
-        Copy the selected folder's basename to the clipboard.
-        選択したフォルダのベース名をクリップボードにコピーする。
+        Copy a file's name to the clipboard.
+        ファイル名をクリップボードにコピーする。
         """
-        name = os.path.basename(folder) or folder
+        name = os.path.basename(path)
         self.clipboard_clear()
         self.clipboard_append(name)
-        self._log(_("フォルダ名をコピーしました: {name}").format(name=name))
+        self._log(_("ファイル名をコピーしました: {name}").format(name=name))
+
+    # ----- Dragging file rows to another group -----
+
+    def _on_tree_press(self, event):
+        """
+        Note a press on a file row, which may become a drag to another group.
+        ファイル行での押下を記録する。別グループへのドラッグになりうる。
+
+        Notes
+        -----
+        A plain press on a row of a selection of several rows is kept from the
+        Treeview's own binding, which would reduce the selection to that row
+        at once and leave only one row to drag. The selection is reduced on
+        release instead, when the press turns out to have been a click
+        (`_on_tree_release`). A press with Shift or Ctrl held edits the
+        selection and never starts a drag.
+        複数行の選択の中の行での修飾キーなしの押下は、Treeview 自身のバインドに
+        渡さない。渡すと選択が直ちにその 1 行になり、ドラッグできるのが 1 行だけに
+        なるためである。押下がクリックだったと分かったときに、離した時点で選択を
+        その行にする（`_on_tree_release`）。Shift か Ctrl を押した押下は選択を
+        編集するもので、ドラッグは始めない。
+        """
+        self._drag = None
+        if self.is_running or event.state & 0x0005:
+            return None
+        if self.tree.identify_region(event.x, event.y) not in ("tree", "cell"):
+            return None
+        iid = self.tree.identify_row(event.y)
+        if not iid:
+            return None
+        g, path = self._find_group_by_iid(iid)
+        if path is None:
+            return None
+        selected = [row[0] for row in self._selected_file_rows()]
+        keeps_selection = iid in selected and len(self.tree.selection()) > 1
+        self._drag = {
+            "x": event.x, "y": event.y, "active": False,
+            "iids": selected if keeps_selection else [iid],
+            "click_iid": iid if keeps_selection else None,
+        }
+        if keeps_selection:
+            self.tree.focus_set()
+            self.tree.focus(iid)
+            return "break"
+        return None
+
+    def _on_tree_motion(self, event):
+        """
+        Follow a drag of file rows and mark the group they would be dropped into.
+        ファイル行のドラッグを追い、落とす先のグループに印を付ける。
+        """
+        drag = self._drag
+        if drag is None:
+            return None
+        if not drag["active"]:
+            moved = abs(event.x - drag["x"]) + abs(event.y - drag["y"])
+            if moved < DRAG_THRESHOLD_PX:
+                return "break"
+            drag["active"] = True
+            self.tree.configure(cursor="hand2")
+        # Near the top or bottom edge the list scrolls, so a group that is out
+        # of view can be reached.
+        # 上下の端の近くでは一覧をスクロールし、見えていないグループに届くようにする。
+        if event.y < DRAG_SCROLL_BAND_PX:
+            self.tree.yview_scroll(-1, "units")
+        elif event.y > self.tree.winfo_height() - DRAG_SCROLL_BAND_PX:
+            self.tree.yview_scroll(1, "units")
+        self._set_drop_target(self._drop_group_at(event.y, drag["iids"]))
+        return "break"
+
+    def _on_tree_release(self, event):
+        """
+        Drop dragged file rows into the group under the pointer.
+        ドラッグしたファイル行を、ポインタ下のグループへ落とす。
+        """
+        drag = self._drag
+        self._drag = None
+        if drag is None:
+            return None
+        if not drag["active"]:
+            if drag["click_iid"] is not None:
+                self.tree.selection_set(drag["click_iid"])
+            return None
+        self.tree.configure(cursor="")
+        self._set_drop_target(None)
+        target = self._drop_group_at(event.y, drag["iids"])
+        if target is not None:
+            rows = [(iid,) + self._find_group_by_iid(iid) for iid in drag["iids"]]
+            self.move_files([row for row in rows if row[1] is not None], target)
+        return "break"
+
+    def _drop_group_at(self, y: int, iids) -> "Group | None":
+        """
+        Return the group a drop at a height in the tree would move rows into.
+        ツリー内のある高さで落としたとき、行の移動先になるグループを返す。
+
+        Parameters
+        ----------
+        y
+            Pointer height inside the Treeview, in pixels.
+            Treeview 内でのポインタの高さ（px）。
+        iids
+            Item IDs of the dragged file rows.
+            ドラッグ中のファイル行のアイテム ID。
+
+        Returns
+        -------
+        Group or None
+            The group whose row, or one of whose file rows, is at `y`; ``None``
+            away from every row, and when every dragged row is already in that
+            group, so nothing would move.
+            `y` にグループ行かそのファイル行があるグループ。どの行からも外れて
+            いるとき、およびドラッグ中の全行が既にそのグループにあって何も動かない
+            ときは ``None``。
+        """
+        iid = self.tree.identify_row(y)
+        if not iid:
+            return None
+        group, _path = self._find_group_by_iid(iid)
+        if group is None:
+            return None
+        if all(self._find_group_by_iid(i)[0] is group for i in iids):
+            return None
+        return group
+
+    def _set_drop_target(self, group) -> None:
+        """
+        Mark one group row as the drop target, and unmark the previous one.
+        1 つのグループ行に落とす先の印を付け、前の印を外す。
+        """
+        iid = None if group is None else group.id
+        if iid == self._drop_target_iid:
+            return
+        previous = self._drop_target_iid
+        self._drop_target_iid = iid
+        for item, marked in ((previous, False), (iid, True)):
+            if item is None or not self.tree.exists(item):
+                continue
+            tags = [t for t in self.tree.item(item, "tags") if t != DROP_TARGET_TAG]
+            if marked:
+                tags.append(DROP_TARGET_TAG)
+            self.tree.item(item, tags=tags)
+
+    # ----- Preview of the selected bundle -----
+
+    def _on_tree_select(self, _event=None) -> None:
+        """
+        Show the image of the file row the selection rests on.
+        選択が指しているファイル行の画像を表示する。
+
+        Notes
+        -----
+        With several rows selected, the row shown is the focused one — the row
+        clicked last — when it is a selected file row, otherwise the last
+        selected file row. A group row has no image, so the pane is cleared.
+        複数行を選択しているときは、フォーカスのある行（最後にクリックした行）が
+        選択中のファイル行ならその行を、そうでなければ選択中の最後のファイル行を
+        表示する。グループ行には画像が無いので、ペインを空にする。
+        """
+        rows = self._selected_file_rows()
+        focus = self.tree.focus()
+        path = None
+        for iid, _g, row_path in rows:
+            if iid == focus:
+                path = row_path
+        if path is None and rows:
+            path = rows[-1][2]
+        self._request_preview(path)
+
+    def _request_preview(self, path) -> None:
+        """
+        Schedule the preview of a bundle, or clear the pane for ``None``.
+        バンドルのプレビューを予約する。``None`` ならペインを空にする。
+
+        Notes
+        -----
+        The read starts after `PREVIEW_DELAY_MS` without a further request, in
+        a worker thread, so stepping through the list neither reads every row
+        passed nor blocks the window.
+        読み込みは、次の要求が無いまま `PREVIEW_DELAY_MS` が過ぎてから、ワーカー
+        スレッドで始める。一覧を順に移動しても、通過した行をすべて読むことはなく、
+        ウィンドウも止まらない。
+        """
+        if path == self._preview_path:
+            return
+        if self._preview_after_id is not None:
+            self.after_cancel(self._preview_after_id)
+            self._preview_after_id = None
+        self._preview_path = path
+        self._preview_request += 1
+        if path is None:
+            self._clear_preview(_("ファイル行を選ぶと、その画像を表示します。"))
+            return
+        self._preview_after_id = self.after(
+            PREVIEW_DELAY_MS, self._start_preview_read, self._preview_request, path)
+
+    def _start_preview_read(self, request: int, path: str) -> None:
+        """
+        Read a bundle's preview in a worker thread, or take it from the cache.
+        バンドルのプレビューをワーカースレッドで読む。キャッシュにあればそれを使う。
+        """
+        self._preview_after_id = None
+        if request != self._preview_request:
+            return
+        try:
+            key = (_file_key(path), os.path.getmtime(path))
+        except OSError:
+            key = None
+        if key is not None and key in self._preview_cache:
+            self._show_preview(path, self._preview_cache[key])
+            return
+        self.preview_caption_var.set(
+            _("読み込み中: {name}").format(name=os.path.basename(path)))
+        self._preview_reads += 1
+        threading.Thread(
+            target=self._preview_worker, args=(request, path, key), daemon=True,
+        ).start()
+        if self._preview_poll_id is None:
+            self._preview_poll_id = self.after(40, self._poll_preview_queue)
+
+    def _preview_worker(self, request: int, path: str, key) -> None:
+        """
+        Read one bundle's preview and queue it for the main thread.
+        1 つのバンドルのプレビューを読み、メインスレッド向けのキューに積む。
+
+        Notes
+        -----
+        The image is the stored ``calibrated`` array, drawn over the color
+        range `compute_auto_vrange` gives, which is how GUI05 colors the same
+        bundle. The extent comes from the recorded scan size through
+        `bundle_schema.pixel_size_nm`; a bundle without one is drawn with
+        square pixels and no physical size.
+        画像は保存された ``calibrated`` 配列で、`compute_auto_vrange` が与える
+        色範囲で描く。GUI05 が同じバンドルに色を付ける方法と同じである。範囲は、
+        記録された走査範囲から `bundle_schema.pixel_size_nm` で求める。記録の無い
+        バンドルは正方形の画素で描き、物理サイズは示さない。
+        """
+        try:
+            image, mask = read_height_image(path)
+            vmin, vmax = (float(v) for v in compute_auto_vrange(image, mask))
+            try:
+                scan = scan_size_um_from_meta(load_bundle_meta(path))
+            except Exception:
+                scan = None
+            rows, cols = image.shape
+            extent = None
+            if scan is not None:
+                extent = (pixel_size_nm(scan[0], cols) * cols / 1000.0,
+                          pixel_size_nm(scan[1], rows) * rows / 1000.0)
+            data = {"image": image.astype(np.float32), "vrange": (vmin, vmax),
+                    "extent_um": extent, "shape": (rows, cols)}
+            self._preview_queue.put((request, path, key, data, None))
+        except Exception as exc:  # noqa: BLE001 - shown in the pane and the log
+            self._preview_queue.put(
+                (request, path, key, None, f"{type(exc).__name__}: {exc}"))
+
+    def _poll_preview_queue(self) -> None:
+        """
+        Show the previews the worker threads have read; poll while a read is running.
+        ワーカースレッドが読んだプレビューを表示する。読み込み中のものがある間は続ける。
+        """
+        self._preview_poll_id = None
+        while True:
+            try:
+                request, path, key, data, error = self._preview_queue.get_nowait()
+            except queue.Empty:
+                break
+            self._preview_reads -= 1
+            if data is not None and key is not None:
+                self._preview_cache[key] = data
+                while len(self._preview_cache) > PREVIEW_CACHE_SIZE:
+                    self._preview_cache.pop(next(iter(self._preview_cache)))
+            # A read that finished after the selection moved on is kept in the
+            # cache but not drawn.
+            # 選択が移った後に終わった読み込みは、キャッシュには残すが描かない。
+            if request != self._preview_request:
+                continue
+            if error is not None:
+                self._clear_preview(_("画像を読めません: {name}").format(
+                    name=os.path.basename(path)))
+                self._log(_("画像を読めません: {path} ({err})").format(
+                    path=path, err=error))
+            else:
+                self._show_preview(path, data)
+        if self._preview_reads > 0:
+            self._preview_poll_id = self.after(40, self._poll_preview_queue)
+
+    def _show_preview(self, path: str, data: dict) -> None:
+        """
+        Draw a bundle's calibrated image and caption in the preview pane.
+        バンドルの補正済み高さ像と見出しをプレビューペインに描く。
+        """
+        rows, cols = data["shape"]
+        extent = data["extent_um"]
+        vmin, vmax = data["vrange"]
+        self.preview_fig.clf()
+        ax = self.preview_fig.add_subplot(111)
+        if extent is None:
+            im = ax.imshow(data["image"], cmap=PREVIEW_COLORMAP,
+                           vmin=vmin, vmax=vmax, aspect="equal")
+            size_text = "{c} × {r} px".format(c=cols, r=rows)
+        else:
+            im = ax.imshow(data["image"], cmap=PREVIEW_COLORMAP,
+                           vmin=vmin, vmax=vmax, aspect="equal",
+                           extent=(0.0, extent[0], extent[1], 0.0))
+            size_text = "{x:.3g} × {y:.3g} {um}, {c} × {r} px".format(
+                x=extent[0], y=extent[1], um=UNIT_MICROMETER, c=cols, r=rows)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        colorbar = self.preview_fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
+        colorbar.set_label("height (nm)", fontsize=9)
+        colorbar.ax.tick_params(labelsize=8)
+        self.preview_fig.subplots_adjust(left=0.02, right=0.86, top=0.98, bottom=0.02)
+        self.preview_canvas.draw_idle()
+        self.preview_caption_var.set("{folder}/{name}  ({size})".format(
+            folder=os.path.basename(os.path.dirname(path)),
+            name=os.path.basename(path), size=size_text))
+
+    def _clear_preview(self, caption: str) -> None:
+        """
+        Empty the preview pane and show a caption in its place.
+        プレビューペインを空にし、代わりに見出しを表示する。
+        """
+        self.preview_fig.clf()
+        self.preview_canvas.draw_idle()
+        self.preview_caption_var.set(caption)
 
     def _rename_group(self, g: Group) -> None:
         """
@@ -3673,11 +4113,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if not self.groups:
             messagebox.showwarning(_("入力不足"), _("グループが登録されていません。"))
             return
-        non_empty_groups = [g for g in self.groups if g.folder_paths]
+        non_empty_groups = [g for g in self.groups if g.files]
         if not non_empty_groups:
             messagebox.showwarning(
                 _("入力不足"),
-                _("どのグループにもフォルダが登録されていません。"),
+                _("どのグループにもファイルが登録されていません。"),
             )
             return
 
@@ -3730,14 +4170,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 )
             )
 
-        # Rescan immediately before analysis so folder contents reflect the current disk state.
-        # 解析直前に再スキャンし、現在のディスク状態を反映する。
-        self._rescan_all()
-        total_pairs = sum(g.total_pairs() for g in self.groups)
-        if total_pairs <= 0:
+        # A registered file can have been moved or deleted since it was added,
+        # so the disk is checked immediately before analysis. The worker names
+        # each missing file; a run with none left is refused here.
+        # 登録したファイルは、追加した後で移動や削除をされていることがあるため、
+        # 解析直前にディスクを確かめる。見つからないファイルはワーカーが 1 つずつ
+        # 挙げる。1 つも残らない実行はここで断る。
+        if not any(os.path.isfile(p) for g in non_empty_groups for p in g.files):
             messagebox.showerror(
-                _("有効ペアなし"),
-                _("有効な calibrated/skeletonized バンドルが見つかりません。ログを確認してください。"),
+                _("入力なし"),
+                _("登録したファイルが 1 つも見つかりません。"),
             )
             return
 
@@ -3747,13 +4189,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 変更され得る Group オブジェクトではなく、軽量な辞書をワーカーへ渡す。
         groups_payload = []
         for g in self.groups:
-            if not g.folder_paths:
+            if not g.files:
                 continue
             groups_payload.append({
                 "id": g.id,
                 "name": g.name,
                 "color": g.color,
-                "folders": list(g.folder_paths),
+                "files": list(g.files),
             })
 
         self.ui_queue = queue.Queue()
@@ -3761,7 +4203,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "groups": groups_payload,
             "param": self.param,
             "unit": self.unit,
-            "input_mode": self.input_mode,
             "apply_exclusions": bool(self.apply_exclusions_var.get()),
             "apply_connection": bool(self.apply_connection_var.get()),
             "curvature_window": self.curvature_window,
@@ -3796,7 +4237,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         for b in (
             self.btn_add_group, self.btn_remove_group,
             self.btn_move_up, self.btn_move_down, self.btn_clear_all,
-            self.btn_add_folder, self.btn_remove_folder,
+            self.btn_add_files, self.btn_remove_files,
             self.btn_run,
         ):
             b.configure(state=state)
@@ -3806,15 +4247,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # セレクタは実行中のワーカーが何を計算するかを決めるため、完了まで
         # 操作を止める。有効時の状態は "readonly"。
         combo_state = tk.DISABLED if running else "readonly"
-        for c in (self.cmb_param, self.cmb_unit, self.cmb_input):
+        for c in (self.cmb_param, self.cmb_unit):
             c.configure(state=combo_state)
         self._update_frame_mode_state()
         for chk in (self.chk_exclusions, self.chk_connection):
-            chk.configure(
-                state=tk.DISABLED
-                if (running or self.input_mode != INPUT_BUNDLE)
-                else tk.NORMAL
-            )
+            chk.configure(state=state)
 
     def _poll_ui_queue(self) -> None:
         """
@@ -3849,7 +4286,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self.after(50, self._poll_ui_queue)
 
     def _collect_bundle_values(self, bundle_paths, param: str, unit: str,
-                               input_mode: str = INPUT_BUNDLE,
                                apply_exclusions: bool = False,
                                curvature_window: float =
                                DEFAULT_CURVATURE_WINDOW_NM,
@@ -3861,27 +4297,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                                floor_report=None,
                                kink_threshold_deg=None) -> tuple:
         """
-        Collect one folder's samples for a quantity and aggregation unit.
-        1 フォルダ分の標本を、計測量と集計単位に従って収集する。
+        Collect one group's samples for a quantity and aggregation unit.
+        1 グループ分の標本を、計測量と集計単位に従って収集する。
 
         Parameters
         ----------
         bundle_paths
-            ``.b2z`` bundles to read, all from one registered folder.
-            読み込む ``.b2z`` バンドル。すべて同一の登録フォルダに属する。
+            ``.b2z`` bundles to read, all registered in one group.
+            読み込む ``.b2z`` バンドル。すべて同一のグループに登録されている。
         param
             Measured-quantity key from `PARAM_SPECS`.
             `PARAM_SPECS` の計測量キー。
         unit
             Aggregation-unit key deciding what one sample counts as.
             1 標本を何と数えるかを決める集計単位キー。
-        input_mode
-            `INPUT_BUNDLE`, or `INPUT_FIBER_CSV` to read `bundle_paths` as
-            GUI04 per-fiber CSVs, whose rows are already curated, so the two
-            ``apply_*`` flags are not used then.
-            `INPUT_BUNDLE`、または `bundle_paths` を GUI04 のファイバー単位 CSV
-            として読む `INPUT_FIBER_CSV`。CSV の行はキュレーション済みのため、
-            そのとき 2 つの ``apply_*`` フラグは使わない。
         apply_exclusions
             Honor each bundle's manual-exclusion sidecar.
             各バンドルの手動除外サイドカーを適用する。
@@ -3896,24 +4325,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             One of `FRAME_MODES`; applied only to `PARAM_LENGTH`.
             `FRAME_MODES` のいずれか。`PARAM_LENGTH` にだけ適用する。
         frame_report
-            Dict filled with the `_apply_frame_mode` report when a frame mode
-            other than `FRAME_INCLUDE` was applied, so the caller can log it
-            with the group and folder names.
-            `FRAME_INCLUDE` 以外の扱いを適用したとき、`_apply_frame_mode` の報告で
-            埋める dict。呼び出し側がグループ名・フォルダ名を付けてログに出せる
-            ようにするため。
+            Dict filled with the `_apply_frame_mode` report for contour length,
+            so the caller can log it with the group name.
+            輪郭長について `_apply_frame_mode` の報告で埋める dict。呼び出し側が
+            グループ名を付けてログに出せるようにするため。
         curation_report
             List passed to the `lib.measure` collector as its
             ``curation_report``, so the caller can log how many fibers the
-            manual exclusions removed. Not filled for fiber CSV input.
+            manual exclusions removed.
             `lib.measure` のコレクタへ ``curation_report`` として渡すリスト。
             手動除外で何本外れたかを呼び出し側がログに出せるようにするため。
-            ファイバー CSV 入力では埋めない。
         min_length_nm
             Common length floor in nanometers (`_common_length_floor`), or
-            ``None``; not used for fiber CSV input.
+            ``None``.
             共通の下限長 (nm)（`_common_length_floor`）、または ``None``。
-            ファイバー CSV 入力では使わない。
         floor_report
             List passed to the collector as its ``floor_report``, so the caller
             can log how many fibers the floor removed.
@@ -3921,9 +4346,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             呼び出し側がログに出せるようにするため。
         kink_threshold_deg
             Interior-angle threshold every bundle's kinks are selected at again,
-            or ``None``; used for the kink quantities of bundle input only.
-            全バンドルのキンクを選び直す内角しきい値、または ``None``。バンドル
-            入力のキンクの計測量でだけ使う。
+            or ``None``; used for the kink quantities only.
+            全バンドルのキンクを選び直す内角しきい値、または ``None``。キンクの
+            計測量でだけ使う。
 
         Returns
         -------
@@ -3956,20 +4381,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         代替値で計測できるが、他の経路は追跡ステップを nm へ変換するために物理
         ピクセルサイズを必要とする。
         """
-        if input_mode == INPUT_FIBER_CSV:
-            # The rows are already the curated population: GUI04 exports what
-            # `_display_fibers` was showing, so filters, fiber connection, and
-            # manual exclusions are baked in and nothing is re-applied here.
-            # 行は既にキュレーション済みの母集団である。GUI04 は
-            # `_display_fibers` が表示していたものを出力するため、フィルター・
-            # ファイバー連結・手動除外は反映済みで、ここで再適用はしない。
-            per_file, load_errors = collect_fiber_stats_from_csv(bundle_paths)
-            return self._values_from_fiber_stats(
-                self._frame_filtered(per_file, param, frame_mode, frame_report),
-                param, unit,
-                frame_weighted=self._frame_weighted(param, frame_mode),
-            ) + (load_errors,)
-
         if param == PARAM_HEIGHT and unit == UNIT_PIXEL:
             heights, load_errors = skeleton_height_values(
                 bundle_paths,
@@ -4062,13 +4473,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         per micrometer from a single kink, and counted as one sample it pulls
         the fiber-unit distribution as far as a long fiber does. Weighted by the
         judged length, every micrometer counts the same, and the weighted mean
-        is the pooled kinks over the pooled judged length that the image and
-        folder units report.
+        is the pooled kinks over the pooled judged length, the ratio the image
+        unit reports per image.
         ファイバーのキンク密度はキンク数を判定長で割ったものなので、数 nm しか
         判定しなかった断片は、キンク 1 個で 1 µm あたり数十〜数百と読まれ、1 標本と
         して数えると長いファイバーと同じだけファイバー単位の分布を引っ張る。判定長で
-        重み付けすれば各 µm が等しく数えられ、重み付き平均は、画像・フォルダ単位が
-        報告する「まとめたキンク数 ÷ まとめた判定長」と一致する。
+        重み付けすれば各 µm が等しく数えられ、重み付き平均は「まとめたキンク数 ÷
+        まとめた判定長」になる。画像単位が画像ごとに報告するのと同じ比である。
         """
         return param == PARAM_KINK_DENSITY and unit == UNIT_FIBER
 
@@ -4592,12 +5003,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         -------
         tuple
             ``(values, weights, n_fibers, n_images)``; `weights` is always
-            None because the quantity counts objects. Under `UNIT_FOLDER`
-            `values` holds one median over every fiber of `per_fiber`, which
-            is one registered folder.
+            None because the quantity counts objects.
             ``(値, 重み, ファイバー数, 画像数)``。個数を数える量であるため
-            `weights` は常に None。`UNIT_FOLDER` では `values` は `per_fiber`
-            （登録フォルダ 1 つ分）の全ファイバーにわたる中央値 1 つになる。
+            `weights` は常に None。
         """
         values = []
         n_fibers = 0
@@ -4612,9 +5020,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 values.append(float(np.median(measurable)))
             else:
                 values.extend(measurable.tolist())
-
-        if unit == UNIT_FOLDER and values:
-            values = [float(np.median(values))]
         return values, None, n_fibers, n_images
 
     @staticmethod
@@ -4627,8 +5032,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Parameters
         ----------
         per_source
-            ``(source_path, stats)`` pairs, one per bundle or per CSV file.
-            ``(ソースパス, 統計値リスト)`` のペア。バンドルまたは CSV 1 件ごと。
+            ``(source_path, stats)`` pairs, one per bundle.
+            ``(ソースパス, 統計値リスト)`` のペア。バンドル 1 件ごと。
         param
             Measured-quantity key from `PARAM_SPECS`.
             `PARAM_SPECS` の計測量キー。
@@ -4649,34 +5054,22 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             ``(values, weights, n_fibers, n_images)``. `weights` is None except
             for `frame_weighted` fiber samples and for kink density at the fiber
             unit, whose samples are weighted by their judged length in
-            nanometers (`_kink_length_weighted`); the image and folder units
-            take a weighted median instead and stay unweighted. Under
-            `UNIT_FOLDER` `values` holds one value for all of `per_source`,
-            which is one registered folder.
+            nanometers (`_kink_length_weighted`); the image unit takes a
+            weighted median instead and stays unweighted.
             ``(値リスト, 重み, ファイバー数, 画像数)``。`weights` は
             `frame_weighted` のファイバー単位標本と、判定長 (nm) で重み付けする
-            ファイバー単位のキンク密度（`_kink_length_weighted`）以外では None。image・folder
+            ファイバー単位のキンク密度（`_kink_length_weighted`）以外では None。image
             単位では代わりに重み付き中央値を取り、重みなしのままにする。
-            `UNIT_FOLDER` では `values` は `per_source`（登録フォルダ 1 つ分）
-            全体の値 1 つになる。
 
         Notes
         -----
-        Shared by the bundle and CSV paths so a curated CSV and the bundle it
-        came from aggregate identically. That is what makes the two inputs
-        comparable rather than merely similar.
-        バンドル経路と CSV 経路で共有し、キュレーション済み CSV とその元となった
-        バンドルが同一に集計されるようにする。これにより 2 つの入力が「似ている」
-        ではなく「比較可能」になる。
-
-        An image or folder value pools its fibers rather than summarizing the
-        image values again: the median of every fiber value it holds, the
-        median of every kink angle for kink angle, and the pooled kinks over
-        the pooled judged length for kink density (`_kink_totals`).
-        画像・フォルダの値は、画像の値をさらに要約するのではなく、含まれる
-        ファイバーをまとめて求める。すなわち全ファイバー値の中央値、キンク角では
-        全キンク角の中央値、キンク密度ではまとめたキンク数をまとめた判定長で
-        割った値（`_kink_totals`）である。
+        An image value pools the image's fibers: the median of every fiber
+        value it holds, the median of every kink angle for kink angle, and the
+        pooled kinks over the pooled judged length for kink density
+        (`_kink_totals`).
+        画像の値は、その画像のファイバーをまとめて求める。すなわち全ファイバー値の
+        中央値、キンク角では全キンク角の中央値、キンク密度ではまとめたキンク数を
+        まとめた判定長で割った値（`_kink_totals`）である。
         """
         def pooled(source_values, source_weights) -> float:
             if frame_weighted:
@@ -4688,26 +5081,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         kink_weighted = App._kink_length_weighted(param, unit)
         values = []
-        weights = ([] if (frame_weighted or kink_weighted) and unit not in SUMMARY_UNITS
+        weights = ([] if (frame_weighted or kink_weighted) and unit != UNIT_IMAGE
                    else None)
         n_fibers = 0
         n_images = 0
-        folder_values = []
-        folder_weights = []
-        folder_kinks = 0
-        folder_judged_um = 0.0
         for _path, stats in per_source:
-            if param == PARAM_KINK_DENSITY and unit in SUMMARY_UNITS:
+            if param == PARAM_KINK_DENSITY and unit == UNIT_IMAGE:
                 kinks, judged_um, used = _kink_totals(stats)
                 if used == 0:
                     continue
                 n_fibers += used
                 n_images += 1
-                if unit == UNIT_IMAGE:
-                    values.append(kinks / judged_um)
-                else:
-                    folder_kinks += kinks
-                    folder_judged_um += judged_um
+                values.append(kinks / judged_um)
                 continue
 
             source_values = []
@@ -4733,20 +5118,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # 1 画像 1 標本とし、ファイバーの多い画像が同じ試料の疎な画像を
                 # 押しのけないようにする。
                 values.append(pooled(source_values, source_weights))
-            elif unit == UNIT_FOLDER:
-                folder_values.extend(source_values)
-                folder_weights.extend(source_weights)
             else:
                 values.extend(source_values)
                 if weights is not None:
                     weights.extend(source_weights)
-
-        if unit == UNIT_FOLDER:
-            if param == PARAM_KINK_DENSITY:
-                if folder_judged_um > 0.0:
-                    values.append(folder_kinks / folder_judged_um)
-            elif folder_values:
-                values.append(pooled(folder_values, folder_weights))
         return values, weights, n_fibers, n_images
 
     def _worker_run(self, args: dict) -> None:
@@ -4790,19 +5165,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         step = args["step"]
         param = args["param"]
         unit = args["unit"]
-        input_mode = args["input_mode"]
-        # Exclusions live beside a bundle; a fiber CSV already has them applied.
-        # 除外はバンドル横にある。ファイバー CSV には既に適用済み。
-        apply_exclusions = (
-            args["apply_exclusions"] and input_mode == INPUT_BUNDLE
-        )
-        # The connection result lives beside a bundle too; a fiber CSV was
-        # already exported from the connected population GUI04 was displaying.
-        # 連結結果もバンドルの横にある。ファイバー CSV は GUI04 が表示していた
-        # 連結済み母集団から既に出力されている。
-        apply_connection = (
-            args["apply_connection"] and input_mode == INPUT_BUNDLE
-        )
+        apply_exclusions = args["apply_exclusions"]
+        apply_connection = args["apply_connection"]
         curvature_window = args["curvature_window"]
         # The frame mode applies to contour length only; for any other
         # quantity the run is exactly what it was before the mode existed.
@@ -4813,11 +5177,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             if param == PARAM_LENGTH else FRAME_INCLUDE
         )
         frame_weighted = self._frame_weighted(param, frame_mode)
-        # A Kaplan-Meier estimate describes fibers; the median of one image or
-        # folder can itself lie beyond what was seen whole, so it is offered
-        # for the fiber unit only.
-        # Kaplan-Meier 推定はファイバーを記述する。画像やフォルダの中央値それ自体が
-        # 全長を見た範囲より長い側にありうるため、fiber 単位でだけ使える。
+        # A Kaplan-Meier estimate describes fibers; the median of one image
+        # can itself lie beyond what was seen whole, so it is offered for the
+        # fiber unit only.
+        # Kaplan-Meier 推定はファイバーを記述する。画像の中央値それ自体が全長を
+        # 見た範囲より長い側にありうるため、fiber 単位でだけ使える。
         if frame_mode == FRAME_KAPLAN_MEIER and unit != UNIT_FIBER:
             self.ui_queue.put(("fatal", {
                 "text": _("{km} は {fiber} 集計でだけ使えます。集計単位を {fiber} に"
@@ -4834,17 +5198,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 画素の組み合わせは追跡点を個体に分けずまとめるため "N fibers" を数え
         # られない。また、高さがピクセルサイズに依存しないことから、走査範囲が
         # 未記録のバンドルでも動く唯一の組み合わせでもある。
-        pixel_mode = (
-            input_mode == INPUT_BUNDLE
-            and param == PARAM_HEIGHT and unit == UNIT_PIXEL
-        )
+        pixel_mode = param == PARAM_HEIGHT and unit == UNIT_PIXEL
         # The length unit traces fibers but concatenates their profiles, so it
         # counts no individual fibers either.
         # length 単位はファイバーを追跡するがプロファイルを連結するため、こちらも
         # 個々のファイバーは数えない。
-        counts_fibers = not (pixel_mode or (
-            input_mode == INPUT_BUNDLE and unit == UNIT_LENGTH
-        ))
+        counts_fibers = not (pixel_mode or unit == UNIT_LENGTH)
         weighted = unit in LENGTH_WEIGHTED_UNITS or (
             frame_weighted and unit == UNIT_FIBER
         ) or self._kink_length_weighted(param, unit)
@@ -4880,6 +5239,23 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 計測した全バンドルの中心線（`_centerline_block_note`）。
         analyzed_lines: set = set()
 
+        # A registered file can have been moved or deleted since it was added.
+        # Each group is measured on the files that are on the disk now, and
+        # every missing one is named in the notices of the run.
+        # 登録したファイルは、追加した後で移動や削除をされていることがある。各
+        # グループは今ディスクにあるファイルで計測し、見つからないファイルは実行の
+        # 注意としてすべて挙げる。
+        group_files = {}
+        for grp in groups:
+            present = []
+            for path in grp["files"]:
+                if os.path.isfile(path):
+                    present.append(path)
+                else:
+                    errors.append(_("[{grp}] ファイルが見つかりません: {path}").format(
+                        grp=grp["name"], path=path))
+            group_files[grp["id"]] = present
+
         # Two analyses of the same scan lines pooled into one group count every
         # fiber of the overlap twice, so such a group is refused before anything
         # is measured (`_overlapping_inputs`).
@@ -4887,12 +5263,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # すべて二度数える。そのため、何かを計測する前にそのグループを拒否する
         # （`_overlapping_inputs`）。
         for grp in groups:
-            grp_paths = [
-                path
-                for folder in grp["folders"]
-                for path, _skl_path in self._find_pairs(folder)[0]
-            ]
-            overlaps, by_name = self._overlapping_inputs(grp_paths, input_mode)
+            overlaps, by_name = self._overlapping_inputs(group_files[grp["id"]])
             if overlaps:
                 shown = overlaps[:10]
                 listed = "\n".join(
@@ -4911,7 +5282,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     "text": _(
                         "グループ「{grp}」に、同じ入力ファイルの同じ走査線を解析した"
                         "結果が複数あります。重なった部分の繊維を二度数えるため、"
-                        "集計しません。次の各組のどちらかをフォルダから外してください。"
+                        "集計しません。次の各組のどちらかをグループから外してください。"
                         "\n{pairs}"
                     ).format(grp=grp["name"], pairs=listed),
                     "trace": "",
@@ -4928,299 +5299,254 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # the same for every group compared.
         # 下限長とキンクのしきい値は、どのグループを計測するより前に実行内の全
         # バンドルで決める。比べる全グループで同じでなければならないためである。
-        min_length_nm = None
         kink_threshold_deg = None
-        if input_mode == INPUT_BUNDLE:
-            all_bundles = [
-                cal_path
-                for grp in groups for folder in grp["folders"]
-                for cal_path, _skl_path in self._find_pairs(folder)[0]
-            ]
-            min_length_nm = self._common_length_floor(
-                all_bundles, bool(args.get("length_floor", True)))
-            if param in (PARAM_KINK_ANGLE, PARAM_KINK_DENSITY):
-                kink_threshold_deg = args.get("kink_threshold_deg")
-                self._log_kink_thresholds(all_bundles, kink_threshold_deg)
-        else:
-            if args.get("length_floor", True):
-                self.ui_queue.put(("log", _(
-                    "長さの下限: {csv} には画素サイズの記録が無いため、そろえません。"
-                ).format(csv=INPUT_FIBER_CSV)))
-            if (args.get("kink_threshold_deg") is not None
-                    and param in (PARAM_KINK_ANGLE, PARAM_KINK_DENSITY)):
-                self.ui_queue.put(("log", _(
-                    "キンク: {csv} には閾値未満の折れが無いため、しきい値は選び直さず、"
-                    "Fiber Tracker が出力したときのキンクを数えます。"
-                ).format(csv=INPUT_FIBER_CSV)))
+        all_bundles = [path for grp in groups for path in group_files[grp["id"]]]
+        min_length_nm = self._common_length_floor(
+            all_bundles, bool(args.get("length_floor", True)))
+        if param in (PARAM_KINK_ANGLE, PARAM_KINK_DENSITY):
+            kink_threshold_deg = args.get("kink_threshold_deg")
+            self._log_kink_thresholds(all_bundles, kink_threshold_deg)
 
         for grp in groups:
             grp_name = grp["name"]
-            grp_values = []
-            grp_weights = [] if weighted else None
-            grp_fibers = 0 if counts_fibers else None
-            grp_images = 0
-            # Fibers the Kaplan-Meier estimate places beyond the longest fiber
-            # seen whole, and that length, summed over the group's folders.
-            # Kaplan-Meier 推定が、全長を見た最長のファイバーより長い側に置く
-            # 本数と、その長さ。グループのフォルダにわたって合計する。
+            # Every bundle of the group is measured together, so the
+            # Kaplan-Meier estimate is made once over the whole group.
+            # グループの全バンドルをまとめて計測する。そのため Kaplan-Meier 推定は
+            # グループ全体で 1 回になる。
+            bundle_paths = group_files[grp["id"]]
+            if not bundle_paths:
+                errors.append(
+                    _("[{grp}] 計測できるファイルがありません").format(grp=grp_name)
+                )
+                continue
+
+            # Loading and measurement are delegated to lib.measure, the same
+            # code path as `cli.py heights` / `cli.py measure`. Per-bundle
+            # errors come back as fixed English strings and are wrapped in
+            # translated group context here.
+            # 読み込みと計測は `cli.py heights` / `cli.py measure` と同一経路の
+            # lib.measure へ委譲する。バンドルごとのエラーは固定英語文字列で返り、
+            # ここで翻訳済みのグループ文脈を付けて表示する。
+            # Every bundle path traces fibers, so none of them is fast enough
+            # to leave the log silent while it runs.
+            # どのバンドル経路もファイバー追跡を行うため、実行中にログを無音にして
+            # よいほど速い経路は無い。
+            self.ui_queue.put(("log", _(
+                "[{grp}] {n} バンドルを計測中..."
+            ).format(grp=grp_name, n=len(bundle_paths))))
+
+            # Say how many bundles actually carry a saved connection. A bundle
+            # without the sidecar is measured as fragments, and the difference
+            # is otherwise invisible in the result.
+            # 実際に保存済みの連結を持つバンドルが何個あるかを報告する。サイドカーの
+            # 無いバンドルは骨格断片として計測されるが、その差は結果からは見えない
+            # ためである。
+            if apply_connection:
+                n_conn = self._count_connected_bundles(bundle_paths)
+                msg = _("[{grp}] 連結を適用: {n}/{total} バンドル")
+                if n_conn < len(bundle_paths):
+                    msg += _("（残りは骨格断片のまま集計）")
+                self.ui_queue.put(("log", msg.format(
+                    grp=grp_name, n=n_conn, total=len(bundle_paths),
+                )))
+
+            # Say how many bundles were analyzed before format 1.1. They are
+            # measured along the skeleton track rather than the centerline, on
+            # a skeleton traced as stored that can still hold the loops and
+            # spurs the current analysis removes, and a group mixing them with
+            # current bundles is otherwise invisible in the result.
+            # 形式 1.1 より前に解析したバンドルが何個あるかを報告する。それらは
+            # 中心線ではなくスケルトントラックに沿って、保存されたとおりに追跡した
+            # スケルトンで計測され、そのスケルトンには現在の解析が取り除く小ループや
+            # 短い枝が残っていることがある。現在のバンドルと混ざったグループは結果
+            # からは見分けがつかないためである。
+            by_line = self._count_bundles_by_line(bundle_paths)
+            analyzed_lines.update(by_line)
+            n_old = by_line.get(SKELETON_TRACK, 0)
+            if n_old:
+                self.ui_queue.put(("log", _(
+                    "[{grp}] {n}/{total} バンドルは旧版（形式 1.0）で"
+                    "解析されています。保存されたスケルトンをそのまま追跡して"
+                    "スケルトンに沿って計測するため、現在の解析が取り除く小ループや"
+                    "行き止まりの短い枝でファイバーが分断されていることがあります。"
+                    "GUI01 で再解析してください"
+                ).format(
+                    grp=grp_name, n=n_old, total=len(bundle_paths),
+                )))
+            # Name the lines whenever one is not the default: every length,
+            # height and kink depends on the line, so groups analyzed on
+            # different lines differ for that reason alone.
+            # 既定以外の線が 1 つでもあれば線の名前を示す。長さ・高さ・キンクは
+            # すべて線に依存するため、別の線で解析した群どうしはそれだけで違いが出る。
+            chosen = {k: v for k, v in by_line.items() if k != SKELETON_TRACK}
+            if set(chosen) - {DEFAULT_CENTERLINE_METHOD}:
+                self.ui_queue.put(("log", _(
+                    "[{grp}] 中心線: {lines}"
+                ).format(
+                    grp=grp_name,
+                    lines=", ".join(
+                        f"{k} {v}/{len(bundle_paths)}"
+                        for k, v in sorted(chosen.items())),
+                )))
+
+            if param == PARAM_CURVATURE:
+                curvature_pixel_sizes.extend(
+                    self._bundle_pixel_sizes(bundle_paths))
+
+            if uncorrected_lengths:
+                frame_scan_sizes[grp_name] = self._bundle_scan_sizes(bundle_paths)
+
+            if kink_quantity:
+                kink_conditions[grp_name] = self._bundle_kink_conditions(
+                    bundle_paths)
+
+            frame_report = {}
+            curation_report: list = []
+            floor_report: list = []
+            try:
+                (grp_values, grp_weights, n_fibers, grp_images,
+                 load_errors) = self._collect_bundle_values(
+                    bundle_paths, param, unit,
+                    apply_exclusions=apply_exclusions,
+                    apply_connection=apply_connection,
+                    curvature_window=curvature_window,
+                    frame_mode=frame_mode,
+                    frame_report=frame_report,
+                    curation_report=curation_report,
+                    min_length_nm=min_length_nm,
+                    floor_report=floor_report,
+                    kink_threshold_deg=kink_threshold_deg,
+                )
+            except Exception as e:
+                errors.append(
+                    _("[{grp}] {param} の抽出に失敗: {err}").format(
+                        grp=grp_name, param=param, err=e
+                    )
+                )
+                continue
+            if not weighted:
+                grp_weights = None
+            grp_fibers = n_fibers if counts_fibers else None
+
+            # Say how many traced fibers the manual exclusions removed. The
+            # collectors return only what survived, so a population reduced by
+            # hand is otherwise indistinguishable from one the analysis
+            # produced.
+            # 手動除外で追跡済みファイバーが何本外れたかを示す。コレクタは残った
+            # ものしか返さないため、これが無いと手で減らした母集団が解析の出力と
+            # 見分けられない。
+            if apply_exclusions and curation_report:
+                traced = sum(row[1] for row in curation_report)
+                kept = sum(row[2] for row in curation_report)
+                self.ui_queue.put(("log", _(
+                    "[{grp}] 手動除外を適用: 追跡した {total} 本の"
+                    "うち {n} 本を除外しました"
+                ).format(
+                    grp=grp_name, total=traced, n=traced - kept,
+                )))
+
+            # Say how many fibers the common length floor removed.
+            # 共通の下限長で何本外れたかを示す。
+            if min_length_nm is not None and floor_report:
+                measured = sum(row[1] for row in floor_report)
+                kept = sum(row[2] for row in floor_report)
+                self.ui_queue.put(("log", _(
+                    "[{grp}] 長さの下限: 計測した {total} 本のうち、"
+                    "{floor:.0f} nm より短い {n} 本を外しました"
+                ).format(
+                    grp=grp_name, total=measured,
+                    floor=min_length_nm, n=measured - kept,
+                )))
+
+            # Say what the frame mode removed, and how many of the lengths
+            # that remain are still lower bounds because a crossing cut them:
+            # the frame correction does not model those. Under Kaplan-Meier,
+            # say instead which fibers the estimate used and how much of the
+            # distribution it could not place.
+            # Kaplan-Meier では代わりに、推定がどのファイバーを使い、分布の
+            # どれだけを置けなかったかを示す。
+            # 枠の扱いが何を外したか、また残った長さのうち交差で切れて依然
+            # 下限値であるものが何本あるかを示す。枠の補正はそれらを扱わない。
+            # The group's Kaplan-Meier estimate: the fibers it places beyond
+            # the longest fiber seen whole and that length
+            # (`_kaplan_meier_bounds`), and every fiber it read
+            # (`_kaplan_meier_interval`).
+            # グループの Kaplan-Meier 推定。全長を見た最長のファイバーより長い側に
+            # 置く本数とその長さ（`_kaplan_meier_bounds`）、および推定が読んだ
+            # 全ファイバー（`_kaplan_meier_interval`）。
             grp_km_beyond = 0.0
             grp_km_longest = float("nan")
-            # Per folder: its longest fiber seen whole and the fibers beyond it
-            # (`_kaplan_meier_bounds`), and every fiber its estimate read
-            # (`_kaplan_meier_interval`).
-            # フォルダごとの、全長を見た最長のファイバーとそれより長い側の本数
-            # （`_kaplan_meier_bounds`）、および推定が読んだ全ファイバー
-            # （`_kaplan_meier_interval`）。
-            grp_km_folders = []
+            grp_km_estimates = []
             grp_km_samples = []
             # Under `FRAME_INCLUDE`: fibers judged, those that reach the frame,
-            # and those with an end cut elsewhere, over the group's folders.
+            # and those with an end cut elsewhere.
             # `FRAME_INCLUDE` のとき、判定した本数、枠に達した本数、それ以外で切れた
-            # 端を持つ本数。グループのフォルダにわたって合計する。
+            # 端を持つ本数。
             grp_frame_total = 0
             grp_frame_touching = 0
             grp_frame_cut = 0
-
-            for folder in grp["folders"]:
-                folder_name = os.path.basename(folder)
-                pairs, missing_local = self._find_pairs(folder)
-                for m in missing_local:
-                    errors.append(
-                        _("[{grp}/{folder}] {msg}").format(grp=grp_name, folder=folder_name, msg=m)
-                    )
-
-                if not pairs:
-                    errors.append(
-                        _("[{grp}/{folder}] 有効ペアがありません").format(grp=grp_name, folder=folder_name)
-                    )
-                    continue
-
-                # Loading and measurement are delegated to lib.measure, the
-                # same code path as `cli.py heights` / `cli.py measure`.
-                # Per-bundle errors come back as fixed English strings and are
-                # wrapped in translated group/folder context here.
-                # 読み込みと計測は `cli.py heights` / `cli.py measure` と同一経路の
-                # lib.measure へ委譲する。バンドルごとのエラーは固定英語文字列で
-                # 返り、ここで翻訳済みのグループ/フォルダ文脈を付けて表示する。
-                bundle_paths = [cal_path for cal_path, _skl_path in pairs]
-                # Every bundle path traces fibers, so none of them is fast
-                # enough to leave the log silent while it runs.
-                # どのバンドル経路もファイバー追跡を行うため、実行中にログを
-                # 無音にしてよいほど速い経路は無い。
-                self.ui_queue.put(("log", _(
-                    "[{grp}/{folder}] {n} バンドルを計測中..."
-                ).format(grp=grp_name, folder=folder_name, n=len(bundle_paths))))
-
-                # Say how many bundles actually carry a saved connection. A
-                # bundle without the sidecar is measured as fragments, and the
-                # difference is otherwise invisible in the result.
-                # 実際に保存済みの連結を持つバンドルが何個あるかを報告する。
-                # サイドカーの無いバンドルは骨格断片として計測されるが、その差は
-                # 結果からは見えないためである。
-                if apply_connection:
-                    n_conn = self._count_connected_bundles(bundle_paths)
-                    msg = _("[{grp}/{folder}] 連結を適用: {n}/{total} バンドル")
-                    if n_conn < len(bundle_paths):
-                        msg += _("（残りは骨格断片のまま集計）")
-                    self.ui_queue.put(("log", msg.format(
-                        grp=grp_name, folder=folder_name,
-                        n=n_conn, total=len(bundle_paths),
-                    )))
-
-                # Say how many bundles were analyzed before format 1.1. They
-                # are measured along the skeleton track rather than the
-                # centerline, on a skeleton traced as stored that can still
-                # hold the loops and spurs the current analysis removes, and a
-                # folder mixing them with current bundles is otherwise
-                # invisible in the result.
-                # 形式 1.1 より前に解析したバンドルが何個あるかを報告する。それらは
-                # 中心線ではなくスケルトントラックに沿って、保存されたとおりに追跡
-                # したスケルトンで計測され、そのスケルトンには現在の解析が取り除く
-                # 小ループや短い枝が残っていることがある。現在のバンドルと混ざった
-                # フォルダは結果からは見分けがつかないためである。
-                if input_mode != INPUT_FIBER_CSV:
-                    by_line = self._count_bundles_by_line(bundle_paths)
-                    analyzed_lines.update(by_line)
-                    n_old = by_line.get(SKELETON_TRACK, 0)
-                    if n_old:
-                        self.ui_queue.put(("log", _(
-                            "[{grp}/{folder}] {n}/{total} バンドルは旧版（形式 1.0）で"
-                            "解析されています。保存されたスケルトンをそのまま追跡して"
-                            "スケルトンに沿って計測するため、現在の解析が取り除く小ループや"
-                            "行き止まりの短い枝でファイバーが分断されていることがあります。"
-                            "GUI01 で再解析してください"
-                        ).format(
-                            grp=grp_name, folder=folder_name,
-                            n=n_old, total=len(bundle_paths),
-                        )))
-                    # Name the lines whenever one is not the default: every
-                    # length, height and kink depends on the line, so groups
-                    # analyzed on different lines differ for that reason alone.
-                    # 既定以外の線が 1 つでもあれば線の名前を示す。長さ・高さ・
-                    # キンクはすべて線に依存するため、別の線で解析した群どうしは
-                    # それだけで違いが出る。
-                    chosen = {k: v for k, v in by_line.items() if k != SKELETON_TRACK}
-                    if set(chosen) - {DEFAULT_CENTERLINE_METHOD}:
-                        self.ui_queue.put(("log", _(
-                            "[{grp}/{folder}] 中心線: {lines}"
-                        ).format(
-                            grp=grp_name, folder=folder_name,
-                            lines=", ".join(
-                                f"{k} {v}/{len(bundle_paths)}"
-                                for k, v in sorted(chosen.items())),
-                        )))
-
-                if param == PARAM_CURVATURE and input_mode == INPUT_BUNDLE:
-                    curvature_pixel_sizes.extend(
-                        self._bundle_pixel_sizes(bundle_paths))
-
-                if uncorrected_lengths and input_mode == INPUT_BUNDLE:
-                    frame_scan_sizes.setdefault(grp_name, []).extend(
-                        self._bundle_scan_sizes(bundle_paths))
-
-                if kink_quantity and input_mode == INPUT_BUNDLE:
-                    kink_conditions.setdefault(grp_name, []).extend(
-                        self._bundle_kink_conditions(bundle_paths))
-
-                frame_report = {}
-                curation_report: list = []
-                floor_report: list = []
-                try:
-                    (values, weights, n_fibers, n_images,
-                     load_errors) = self._collect_bundle_values(
-                        bundle_paths, param, unit,
-                        input_mode=input_mode,
-                        apply_exclusions=apply_exclusions,
-                        apply_connection=apply_connection,
-                        curvature_window=curvature_window,
-                        frame_mode=frame_mode,
-                        frame_report=frame_report,
-                        curation_report=curation_report,
-                        min_length_nm=min_length_nm,
-                        floor_report=floor_report,
-                        kink_threshold_deg=kink_threshold_deg,
-                    )
-                except Exception as e:
-                    errors.append(
-                        _("[{grp}/{folder}] {param} の抽出に失敗: {err}").format(
-                            grp=grp_name, folder=folder_name, param=param, err=e
-                        )
-                    )
-                    continue
-
-                # Say how many traced fibers the manual exclusions removed.
-                # The collectors return only what survived, so a population
-                # reduced by hand is otherwise indistinguishable from one the
-                # analysis produced.
-                # 手動除外で追跡済みファイバーが何本外れたかを示す。コレクタは
-                # 残ったものしか返さないため、これが無いと手で減らした母集団が
-                # 解析の出力と見分けられない。
-                if apply_exclusions and curation_report:
-                    traced = sum(row[1] for row in curation_report)
-                    kept = sum(row[2] for row in curation_report)
+            if frame_report.get("kaplan_meier"):
+                grp_km_beyond = frame_report["beyond"]
+                grp_km_longest = frame_report["longest_nm"]
+                grp_km_estimates.append(
+                    (frame_report["longest_nm"], frame_report["beyond"]))
+                grp_km_samples.append(
+                    (frame_report["lengths_nm"], frame_report["own_ends"]))
+            if frame_report and frame_mode == FRAME_INCLUDE:
+                grp_frame_total = frame_report["total"]
+                grp_frame_touching = frame_report["frame"]
+                grp_frame_cut = frame_report["lower_bound"]
+                for skipped in frame_report["unrecorded"]:
                     self.ui_queue.put(("log", _(
-                        "[{grp}/{folder}] 手動除外を適用: 追跡した {total} 本の"
-                        "うち {n} 本を除外しました"
+                        "[{grp}] {name}: 枠の判定が記録されていないため、"
+                        "枠に達した本数に数えていません"
                     ).format(
-                        grp=grp_name, folder=folder_name,
-                        total=traced, n=traced - kept,
+                        grp=grp_name, name=os.path.basename(skipped),
                     )))
-
-                # Say how many fibers the common length floor removed.
-                # 共通の下限長で何本外れたかを示す。
-                if min_length_nm is not None and floor_report:
-                    measured = sum(row[1] for row in floor_report)
-                    kept = sum(row[2] for row in floor_report)
+            elif frame_report:
+                for skipped in frame_report["unrecorded"]:
                     self.ui_queue.put(("log", _(
-                        "[{grp}/{folder}] 長さの下限: 計測した {total} 本のうち、"
-                        "{floor:.0f} nm より短い {n} 本を外しました"
+                        "[{grp}] {name}: 枠の判定が記録されていない"
+                        "ため、長さの集計から外しました"
                     ).format(
-                        grp=grp_name, folder=folder_name, total=measured,
-                        floor=min_length_nm, n=measured - kept,
+                        grp=grp_name, name=os.path.basename(skipped),
                     )))
-
-                # Say what the frame mode removed, and how many of the lengths
-                # that remain are still lower bounds because a crossing cut
-                # them: the frame correction does not model those. Under
-                # Kaplan-Meier, say instead which fibers the estimate used and
-                # how much of the distribution it could not place.
-                # Kaplan-Meier では代わりに、推定がどのファイバーを使い、分布の
-                # どれだけを置けなかったかを示す。
-                # 枠の扱いが何を外したか、また残った長さのうち交差で切れて依然
-                # 下限値であるものが何本あるかを示す。枠の補正はそれらを扱わない。
                 if frame_report.get("kaplan_meier"):
-                    grp_km_beyond += frame_report["beyond"]
-                    grp_km_longest = float(np.nanmax(
-                        [grp_km_longest, frame_report["longest_nm"]]))
-                    grp_km_folders.append(
-                        (frame_report["longest_nm"], frame_report["beyond"]))
-                    grp_km_samples.append(
-                        (frame_report["lengths_nm"], frame_report["own_ends"]))
-                if frame_report and frame_mode == FRAME_INCLUDE:
-                    grp_frame_total += frame_report["total"]
-                    grp_frame_touching += frame_report["frame"]
-                    grp_frame_cut += frame_report["lower_bound"]
-                    for skipped in frame_report["unrecorded"]:
-                        self.ui_queue.put(("log", _(
-                            "[{grp}/{folder}] {name}: 枠の判定が記録されていないため、"
-                            "枠に達した本数に数えていません（現行の Fiber Tracker で"
-                            "出力し直すと記録されます）"
-                        ).format(
-                            grp=grp_name, folder=folder_name,
-                            name=os.path.basename(skipped),
-                        )))
-                elif frame_report:
-                    for skipped in frame_report["unrecorded"]:
-                        self.ui_queue.put(("log", _(
-                            "[{grp}/{folder}] {name}: 枠の判定が記録されていない"
-                            "ため、長さの集計から外しました（現行の Fiber Tracker で"
-                            "出力し直すと記録されます）"
-                        ).format(
-                            grp=grp_name, folder=folder_name,
-                            name=os.path.basename(skipped),
-                        )))
-                    if frame_report.get("kaplan_meier"):
-                        self.ui_queue.put(("log", _(
-                            "[{grp}/{folder}] 長さ ({km}): {total} 本のうち、両端とも"
-                            "自身の端である {whole} 本で分布を推定し、片端が切れた {cut} 本を"
-                            "打ち切りとして使いました。両端とも切れているか枠にかかる {none} 本は"
-                            "使っていません。全長を見たうち最長のファイバー ({longest:.0f} nm) より"
-                            "長い側にある {share:.0%} は、推定できません"
-                        ).format(
-                            grp=grp_name, folder=folder_name, km=FRAME_KAPLAN_MEIER,
-                            total=frame_report["total"],
-                            whole=frame_report["complete"],
-                            cut=frame_report["censored"],
-                            none=frame_report["no_own_end"],
-                            longest=frame_report["longest_nm"],
-                            share=frame_report["unassigned"],
-                        )))
-                    else:
-                        self.ui_queue.put(("log", _(
-                            "[{grp}/{folder}] 長さ: 枠に達したファイバー {n}/{total} 本を"
-                            "除外しました。残りのうち {k} 本は交差などで切れた端を持ち、"
-                            "長さは下限値です"
-                        ).format(
-                            grp=grp_name, folder=folder_name,
-                            n=frame_report["frame"], total=frame_report["total"],
-                            k=frame_report["lower_bound"],
-                        )))
+                    self.ui_queue.put(("log", _(
+                        "[{grp}] 長さ ({km}): {total} 本のうち、両端とも"
+                        "自身の端である {whole} 本で分布を推定し、片端が切れた {cut} 本を"
+                        "打ち切りとして使いました。両端とも切れているか枠にかかる {none} 本は"
+                        "使っていません。全長を見たうち最長のファイバー ({longest:.0f} nm) より"
+                        "長い側にある {share:.0%} は、推定できません"
+                    ).format(
+                        grp=grp_name, km=FRAME_KAPLAN_MEIER,
+                        total=frame_report["total"],
+                        whole=frame_report["complete"],
+                        cut=frame_report["censored"],
+                        none=frame_report["no_own_end"],
+                        longest=frame_report["longest_nm"],
+                        share=frame_report["unassigned"],
+                    )))
+                else:
+                    self.ui_queue.put(("log", _(
+                        "[{grp}] 長さ: 枠に達したファイバー {n}/{total} 本を"
+                        "除外しました。残りのうち {k} 本は交差などで切れた端を持ち、"
+                        "長さは下限値です"
+                    ).format(
+                        grp=grp_name,
+                        n=frame_report["frame"], total=frame_report["total"],
+                        k=frame_report["lower_bound"],
+                    )))
 
-                for failed_path, msg in load_errors:
-                    suffix = INPUT_SUFFIXES[input_mode]
-                    base = os.path.basename(failed_path)[:-len(suffix)]
-                    errors.append(
-                        _("[{grp}/{folder}] 読込失敗: {base} ({err})").format(
-                            grp=grp_name, folder=folder_name, base=base, err=msg
-                        )
+            for failed_path, msg in load_errors:
+                base = os.path.basename(failed_path)
+                if base.endswith(BUNDLE_EXT):
+                    base = base[:-len(BUNDLE_EXT)]
+                errors.append(
+                    _("[{grp}] 読込失敗: {base} ({err})").format(
+                        grp=grp_name, base=base, err=msg
                     )
-
-                grp_values.extend(values)
-                if grp_weights is not None:
-                    grp_weights.extend(weights)
-                grp_images += n_images
-                if grp_fibers is not None:
-                    grp_fibers += n_fibers
+                )
 
             if len(grp_values) == 0:
                 errors.append(
@@ -5237,18 +5563,18 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # 右に裾を引くため、対称性を仮定しない中央値と四分位範囲での
             # 記述が必要になる。
             kaplan_meier = frame_mode == FRAME_KAPLAN_MEIER and wts is not None
-            stats = (_kaplan_meier_summary(arr, wts, grp_km_folders) if kaplan_meier
+            stats = (_kaplan_meier_summary(arr, wts, grp_km_estimates) if kaplan_meier
                      else _summary_stats(arr, wts))
             km_interval = (_kaplan_meier_interval(grp_km_samples) if kaplan_meier
                            else {})
             if km_interval:
                 # The quartiles' 95 % resampling interval, which covers the
-                # sampling of the fibers as well as where each folder's
+                # sampling of the fibers as well as where the estimate's
                 # unplaced share lies.
-                # 四分位数の 95 % リサンプリング区間。各フォルダの置けなかった分の
-                # 位置に加えて、ファイバーの標本抽出によるばらつきも含む。
+                # 四分位数の 95 % リサンプリング区間。推定の置けなかった分の位置に
+                # 加えて、ファイバーの標本抽出によるばらつきも含む。
                 self.ui_queue.put(("log", _(
-                    "[{grp}] 長さ ({km}): ファイバーを各フォルダ内で {n} 回"
+                    "[{grp}] 長さ ({km}): ファイバーを {n} 回"
                     "リサンプリングした 95 % 区間は、第 1 四分位数 {q1}、中央値 {md}、"
                     "第 3 四分位数 {q3} nm です"
                 ).format(
@@ -5269,13 +5595,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "median": stats["median"],
                 "q1": stats["q1"],
                 "q3": stats["q3"],
-                # Under Kaplan-Meier, the range a quartile lies in when where
-                # each folder's unplaced share lies leaves it undetermined
+                # Under Kaplan-Meier, the range a quartile lies in when the
+                # estimate's unplaced share leaves it undetermined
                 # (`_kaplan_meier_bounds`), and the 95 % resampling interval
                 # (`_kaplan_meier_interval`).
-                # Kaplan-Meier で、各フォルダの置けなかった分の位置によって値が
-                # 定まらない四分位数の範囲（`_kaplan_meier_bounds`）と、95 %
-                # リサンプリング区間（`_kaplan_meier_interval`）。
+                # Kaplan-Meier で、推定の置けなかった分によって値が定まらない
+                # 四分位数の範囲（`_kaplan_meier_bounds`）と、95 % リサンプリング
+                # 区間（`_kaplan_meier_interval`）。
                 "quantile_bounds": stats.get("bounds", {}),
                 "km_interval": km_interval,
                 # The reported sample size is the total weight, which is a
@@ -5306,7 +5632,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # より長い側の本数と、その長さ。
                 "km_beyond": grp_km_beyond if kaplan_meier else 0.0,
                 "km_longest_nm": grp_km_longest,
-                "km_folders": grp_km_folders if kaplan_meier else [],
                 # Share of the fibers aggregated under `FRAME_INCLUDE` whose
                 # length the frame cut, which is what the mode leaves in.
                 # `FRAME_INCLUDE` で集計したファイバーのうち、枠で長さが切れたものの
@@ -5371,32 +5696,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 self.ui_queue.put(("log", _(
                     "[{g}] 背景の画素ノイズの中央値: {n:.3f} nm"
                 ).format(g=r["name"], n=float(np.median(noises)))))
-        if kink_quantity and input_mode == INPUT_FIBER_CSV:
-            # A fiber CSV records no analysis conditions, so the check cannot
-            # run; saying so keeps its silence from reading as "they agree".
-            # ファイバー CSV には解析条件の記録が無く、確かめられない。そう述べること
-            # で、警告が出ないことが「条件が一致している」と読まれないようにする。
-            self.ui_queue.put(("log", _(
-                "注意: ファイバー CSV には解析条件の記録が無いため、比較するファイルのキンクの"
-                "しきい値・中心線・画素サイズが揃っているかは確かめていません。"
-            )))
-        elif input_mode == INPUT_FIBER_CSV:
-            self.ui_queue.put(("log", _(
-                "注意: ファイバー CSV には中心線の記録が無いため、比較するファイルの中心線が"
-                "揃っているかは確かめていません。"
-            )))
         scan_size_note = _scan_size_spread_note(frame_scan_sizes, frame_mode)
         if scan_size_note:
             self.ui_queue.put(("log", scan_size_note))
-        if uncorrected_lengths and input_mode == INPUT_FIBER_CSV:
-            # A fiber CSV has no scan-size column, so the check cannot run; saying
-            # so keeps its silence from reading as "the scan sizes agree".
-            # ファイバー CSV には走査範囲の列が無く、確かめられない。そう述べることで、
-            # 警告が出ないことが「走査範囲が一致している」と読まれないようにする。
-            self.ui_queue.put(("log", _(
-                "注意: ファイバー CSV には走査範囲の記録が無いため、{mode} で"
-                "比較するファイルの走査範囲が揃っているかは確かめていません。"
-            ).format(mode=frame_mode)))
 
         if not results:
             self.ui_queue.put(("fatal", {
@@ -5532,9 +5834,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         elif unit not in TESTABLE_UNITS:
             comparison_note = _(
                 "{unit} 集計の標本は独立観測ではないため検定しません。"
-                "{fiber}・{image}・{folder} のいずれかの集計に切り替えてください。"
-            ).format(unit=unit, fiber=UNIT_FIBER, image=UNIT_IMAGE,
-                     folder=UNIT_FOLDER)
+                "{fiber} か {image} の集計に切り替えてください。"
+            ).format(unit=unit, fiber=UNIT_FIBER, image=UNIT_IMAGE)
         elif kink_blocking or _centerline_block_note(analyzed_lines):
             comparison_note = "\n".join(
                 text for text in (_centerline_block_note(analyzed_lines),
@@ -5544,41 +5845,40 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         elif frame_weighted and unit == UNIT_FIBER:
             # Mann-Whitney U and KS take no weights, and a weighted
             # Mann-Whitney has no standard form, so a corrected fiber sample is
-            # described but not tested. An image or folder sample is that
-            # scan's or folder's weighted median, one unweighted value, so
-            # those units are tested with the correction in place. The note
-            # does not point at `exclude`, which can be tested only by dropping
-            # the correction for the bias it introduces.
+            # described but not tested. An image sample is that scan's
+            # weighted median, one unweighted value, so the image unit is
+            # tested with the correction in place. The note does not point at
+            # `exclude`, which can be tested only by dropping the correction
+            # for the bias it introduces.
             # Mann-Whitney U と KS は重みを受け付けず、重み付き Mann-Whitney
             # には標準的な形が無い。そのため補正したファイバー標本は記述するが検定
-            # しない。画像・フォルダの標本はその画像・フォルダの重み付き中央値という
-            # 重みのない 1 値なので、これらの単位は補正したまま検定する。注記で
-            # `exclude` を案内しないのは、それが生む偏りの補正を捨てることになるため
-            # である。
+            # しない。画像の標本はその画像の重み付き中央値という重みのない 1 値
+            # なので、image 単位は補正したまま検定する。注記で `exclude` を案内
+            # しないのは、それが生む偏りの補正を捨てることになるためである。
             if frame_mode == FRAME_KAPLAN_MEIER:
                 comparison_note = _(
                     "{km} の標本は重み付きのため検定しません。枠で切れた長さを"
-                    "補正して検定するには、枠の扱いを {ml} に、集計単位を {image} か "
-                    "{folder} にしてください。{ml} は交差で切れた長さを補正しません。"
+                    "補正して検定するには、枠の扱いを {ml} に、集計単位を {image} に"
+                    "してください。{ml} は交差で切れた長さを補正しません。"
                 ).format(km=FRAME_KAPLAN_MEIER, ml=FRAME_MILES_LANTUEJOUL,
-                         image=UNIT_IMAGE, folder=UNIT_FOLDER)
+                         image=UNIT_IMAGE)
             else:
                 comparison_note = _(
                     "{fiber} 集計の {ml} 補正の標本は重み付きのため検定しません。"
-                    "補正したまま検定するには {image} か {folder} の集計に切り替えて"
-                    "ください。各画像・各フォルダの重み付き中央値を検定します。"
+                    "補正したまま検定するには {image} の集計に切り替えて"
+                    "ください。各画像の重み付き中央値を検定します。"
                 ).format(fiber=UNIT_FIBER, ml=FRAME_MILES_LANTUEJOUL,
-                         image=UNIT_IMAGE, folder=UNIT_FOLDER)
+                         image=UNIT_IMAGE)
         elif self._kink_length_weighted(param, unit):
             # The fiber-unit kink densities are weighted by the judged length,
-            # which the rank tests cannot take; the image and folder units test
-            # the pooled densities instead.
+            # which the rank tests cannot take; the image unit tests the pooled
+            # densities instead.
             # ファイバー単位のキンク密度は判定長で重み付けしてあり、順位検定はその
-            # 重みを受け付けない。画像・フォルダ単位では、まとめた密度を検定する。
+            # 重みを受け付けない。画像単位では、まとめた密度を検定する。
             comparison_note = _(
                 "{fiber} 集計のキンク密度は判定長で重み付けしているため検定しません。"
-                "検定するには {image} か {folder} の集計に切り替えてください。"
-            ).format(fiber=UNIT_FIBER, image=UNIT_IMAGE, folder=UNIT_FOLDER)
+                "検定するには {image} の集計に切り替えてください。"
+            ).format(fiber=UNIT_FIBER, image=UNIT_IMAGE)
         else:
             try:
                 comparisons = compare_groups(
@@ -5703,9 +6003,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._last_param = param
         self._last_unit = unit
         self._has_result = True
+        self.stale_var.set("")
         self.btn_save_fig.configure(state=tk.NORMAL)
         self.btn_save_csv.configure(state=tk.NORMAL)
         self.btn_save_stats.configure(state=tk.NORMAL)
+        self.btn_stats.configure(state=tk.NORMAL)
 
         # Non-fatal notices go to the log only. The run produced a result, and
         # the log panel is always on screen, so a modal dialog would add a
@@ -6126,19 +6428,17 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     lines.append("effective N = {0:.1f}".format(r["n_effective"]))
                 if r.get("km_beyond", 0.0) > 0.0:
                     share = r["km_beyond"] / (r["weight_total"] + r["km_beyond"])
-                    # Each folder's share lies beyond its own longest fiber
-                    # seen whole, so one length is named only when one folder
-                    # carries a share.
-                    # 各フォルダの分は、そのフォルダが全長を見た最長のファイバーより
-                    # 先にあるため、分を持つフォルダが 1 つのときだけ長さを書く。
-                    carrying = [lg for lg, b in r.get("km_folders", []) if b > 0.0]
-                    if len(carrying) == 1 and np.isfinite(carrying[0]):
+                    # The share lies beyond the longest fiber the group saw
+                    # whole; a group that saw none has no such length to name.
+                    # この分は、グループが全長を見た最長のファイバーより先にある。
+                    # 全長を見たファイバーが無いグループには、書ける長さが無い。
+                    longest = r.get("km_longest_nm", float("nan"))
+                    if np.isfinite(longest):
                         lines.append("{0:.0%} beyond {1:.0f} {2}".format(
-                            share, carrying[0], value_unit))
+                            share, longest, value_unit))
                         lines.append("not estimated")
                     else:
-                        lines.append("{0:.0%} beyond each folder's".format(share))
-                        lines.append("longest, not estimated")
+                        lines.append("{0:.0%} not estimated".format(share))
             if self._kink_length_weighted(param, unit):
                 lines.append("weighted by judged length")
 
@@ -6248,11 +6548,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.btn_save_fig.configure(state=tk.DISABLED)
         self.btn_save_csv.configure(state=tk.DISABLED)
         self.btn_save_stats.configure(state=tk.DISABLED)
+        self.btn_stats.configure(state=tk.DISABLED)
         self._last_results = None
         self._last_edges = None
         self._last_param = None
         self._last_unit = None
         self._has_result = False
+        self.stale_var.set("")
 
         self.fig.clf()
         self.ax = self.fig.add_subplot(111)
@@ -6402,8 +6704,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         c.magnitude,
                     ])
 
+        # The button is in the statistics window, so the dialog opens over it.
+        # ボタンは統計ウィンドウにあるので、ダイアログはその上に開く。
         save_csv_with_dialog(
-            self,
+            self.stats_window,
             _write,
             initial_dir=self._default_save_dir(),
             initial_name=default_name,
@@ -6541,8 +6845,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         *_range_csv_values(r.get("km_interval", {})),
                     ])
 
+        # The button is in the statistics window, so the dialog opens over it.
+        # ボタンは統計ウィンドウにあるので、ダイアログはその上に開く。
         save_csv_with_dialog(
-            self,
+            self.stats_window,
             _write_stats,
             initial_dir=self._default_save_dir(),
             initial_name=default_name,
@@ -6552,24 +6858,67 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             error_title=_("保存失敗"),
         )
 
+
+class StatisticsWindow(tk.Toplevel):
+    """
+    Window holding the statistics table and the between-group comparison.
+    統計値の表と群間比較を載せるウィンドウ。
+
+    Attributes
+    ----------
+    body
+        Frame the main window builds the two tables into.
+        メインウィンドウが 2 つの表を構築する先のフレーム。
+
+    Notes
+    -----
+    The window is created hidden and is hidden again, not destroyed, when it is
+    closed, so the tables keep the latest result and reopening shows it. It is
+    not tied to the main window's position, so it can sit beside the figure or
+    on another monitor.
+    ウィンドウは隠した状態で作り、閉じたときも破棄せずに隠す。そのため表は最新の
+    結果を保ち、開き直せばそれが表示される。メインウィンドウの位置には結び付けない
+    ので、図の横や別のモニターに置ける。
+    """
+
+    def __init__(self, master: tk.Misc) -> None:
+        super().__init__(master)
+        self.withdraw()
+        self.title(_("統計処理"))
+        apply_window_size(self, 860, 520, min_w=560, min_h=360)
+        self.protocol("WM_DELETE_WINDOW", self.withdraw)
+        self.body = ttk.Frame(self)
+        self.body.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+
+    def show(self) -> None:
+        """
+        Show the window in front of the others and give it the focus.
+        ウィンドウを他のウィンドウの手前に表示し、フォーカスを与える。
+        """
+        self.deiconify()
+        self.lift()
+        self.focus_set()
+
+
 def main() -> None:
     """
-    Launch the fiber morphology statistics GUI with any folder named on the command line.
-    繊維形態統計 GUI を起動し、コマンドラインで指定されたフォルダがあれば登録する。
+    Launch the fiber morphology statistics GUI with any bundles named on the command line.
+    繊維形態統計 GUI を起動し、コマンドラインで指定されたバンドルがあれば登録する。
 
-    GUI01's "このフォルダをGUI03で解析" passes the folder it has open as the
-    first argument (`lib.plugin_launch`), which joins the group the window
-    starts with; without one the window opens with that group empty.
-    GUI01 の「このフォルダをGUI03で解析」は開いているフォルダを第 1 引数として
-    渡す（`lib.plugin_launch`）。そのフォルダは起動時のグループに登録される。
-    引数が無ければ、そのグループが空のままウインドウが開く。
+    GUI01's "このフォルダをGUI03で解析" and GUI05's "GUI03で開く" hand their
+    bundles over through a list file, and paths given as plain arguments are
+    read the same way (`lib.plugin_launch.read_path_arguments`). The bundles
+    join the group the window starts with; without any the window opens with
+    that group empty.
+    GUI01 の「このフォルダをGUI03で解析」と GUI05 の「GUI03で開く」は、バンドルを
+    一覧ファイルで渡す。パスをそのまま引数に書いた場合も同じ方法で読む
+    （`lib.plugin_launch.read_path_arguments`）。バンドルは起動時のグループに登録
+    される。1 つも無ければ、そのグループが空のままウインドウが開く。
     """
     app = App()
-    if len(sys.argv) > 1:
-        # Register once the window is on screen, so a warning dialog appears
-        # over it.
-        # 警告ダイアログがウインドウの上に出るよう、ウインドウの表示後に登録する。
-        call_when_shown(app, app.add_folder, app.groups[0], sys.argv[1])
+    paths = read_path_arguments(sys.argv[1:])
+    if paths:
+        app.add_files(app.groups[0], paths)
     app.mainloop()
 
 

@@ -33,7 +33,7 @@ that gap with a documented, reproducible pipeline and a stable data format.
 - **(c) Fiber Morphology Statistics** shows the distribution of height, contour
   length, straightness, curvature, kink angle, or kink density for one sample
   group or compares it between user-defined groups, per skeleton pixel, per
-  unit of contour length, per fiber, per image, or per registered folder, and
+  unit of contour length, per fiber, or per image, and
   reports per-group statistics.
 - **(d) Fiber Tracker** lists the per-fiber quantities the Fiber Morphology
   Statistics can plot — length, median and maximum height, straightness,
@@ -376,8 +376,9 @@ synthetic fibers, is in §4.15–§4.17 of the evaluation document.
 The results open in the measuring tools without choosing the files again.
 "Open in GUI02" and "Open in GUI04", above the preview, open the bundle the
 preview shows in Plot Profiler or Fiber Tracker; "Analyze Folder in GUI03", at
-the head of the file list, opens Fiber Morphology Statistics with the folder
-registered in its first group, where folders to compare with are added. Each
+the head of the file list, opens Fiber Morphology Statistics with every bundle
+directly inside the folder registered in its first group, where bundles to
+compare with are added. Each
 press opens a new window. The three buttons are unavailable while an analysis
 runs, the GUI03 one while no file in the folder has been analyzed, and the two
 preview ones while the preview shows no image.
@@ -400,23 +401,26 @@ samples that lie beyond the image edge.
 ### Fiber Morphology Statistics — `guis/GUI03_Fiber_Morphology_Statistics.py`
 
 ![Fiber Morphology Statistics window: two sample groups with their height distributions and a per-group statistics table.](figures/gui03.png)
+<!-- TODO(review): figures/gui03.png shows the window before the statistics table
+moved to its own window and the bundle preview was added; retake it. -->
 
 Compare the distribution of one morphological quantity across user-defined
-groups of inputs. The input selector takes either `bundle` — GUI01's `.b2z`
-files, which support every aggregation unit — or `fiber csv`, a folder of
-`_fibers.csv` files exported from the Fiber Tracker. The CSV path exists
-because automatic filters cannot curate a dense network: nearly every traced
-fiber there touches a crossing, so the Fiber Tracker's visual exclusion is the
-only way to drop debris and scan-line artifacts, and its export is exactly the
-population that survived that review. For bundle input, the same exclusions are
-applied from each bundle's `_excluded.json` sidecar unless the checkbox is
-cleared, and the log reports how many fibers each folder lost. "Apply connection"
-does the same for fiber connection: a bundle whose `_connect.json` sidecar was
-written by the Fiber Tracker is measured as the whole fibrils shown there
-rather than as skeleton fragments, and the log reports how many bundles in
-each folder carried those settings. Connection settings are per bundle, so a
-folder can be curated one bundle at a time; the count is what makes a
-partially curated folder visible.
+groups of inputs. The inputs are GUI01's `.b2z` bundles, registered file by file
+in a group with "Add Files" (the dialog takes several files at once). A group
+stands for one specimen, and its bundles are aggregated together. The registered
+files are listed, and selecting a file row shows that bundle's calibrated height
+image under the list. Dragging a file row onto another group moves it there;
+several rows selected with Shift or Ctrl move together, and "Move to Group" in
+the right-click menu does the same. When the list changes after a result was
+produced, a note beside the run button says that it has to be created again.
+Unless the checkbox is cleared, the exclusions saved in the Fiber Tracker are
+applied from each bundle's `_excluded.json` sidecar, and the log reports how
+many fibers each group lost. "Apply connection" does the same for fiber
+connection: a bundle whose `_connect.json` sidecar was written by the Fiber
+Tracker is measured as the whole fibrils shown there rather than as skeleton
+fragments, and the log reports how many bundles in each group carried those
+settings. Connection settings are per bundle, so a group can be curated one
+bundle at a time; the count is what makes a partially curated group visible.
 
 The quantity selector offers `height`, `contour length`, `straightness`,
 `curvature`, `kink angle`, and `kink density` (kinks per micrometer of
@@ -435,8 +439,7 @@ of `area_min` pixels or fewer, so the shortest fiber that remains grows with the
 pixel size, and a coarse scan contains none of the short fibers a fine scan
 keeps (`measure.length_floor_nm`; see
 [Evaluation on particular data](docs/validation.md) §2.8). The floor and how
-many fibers it removed are logged; fiber CSV input records no pixel size and is
-not cut. "Kink threshold" applies to `kink angle` and `kink density`. Left
+many fibers it removed are logged. "Kink threshold" applies to `kink angle` and `kink density`. Left
 blank, each bundle's kinks are counted at the threshold it was analyzed with,
 and the log warns when the compared bundles differ. A value selects every
 bundle's kinks again at that interior-angle threshold and gives the kinks,
@@ -467,7 +470,7 @@ smoothed over half a width (`half_max_05w`), the skeleton pixels themselves
 crest (`crest`). Kinks are judged on the chosen line and every measurement reads
 it, so results from different lines are not comparable; the bundle records the
 line, GUI04 names a non-default one when it opens the bundle, and GUI03 names
-the lines of each folder whenever one is not the default and runs no
+the lines of each group whenever one is not the default and runs no
 between-group test across bundles on different lines. How each line is
 placed is in `docs/algorithms.md` §4.2 and `docs/gui04_measurements.md` §2.8,
 and what it did worse than the default in the comparison is in
@@ -512,17 +515,14 @@ skeleton bounding box. The weights have no upper bound — a fiber whose box
 nearly fills the frame weighs many fibers — so the log and the figure report the
 effective sample size (Σw)²/Σw² and the log the share of the total weight the
 heaviest fiber carries. Weighted fiber samples are not tested between groups,
-because Mann-Whitney U and KS take no weights; at the `image` and `folder` units
-each sample is the weighted median of one scan or folder, an unweighted value,
-so those units are tested with the correction in place. The weights restore only
+because Mann-Whitney U and KS take no weights; at the `image` unit
+each sample is the weighted median of one scan, an unweighted value,
+so that unit is tested with the correction in place. The weights restore only
 lengths that were seen: a length approaching the scan size fits inside the frame
 at few orientations or none, so the distribution still reads short there. The
 correction covers the frame only: a
 fragment cut at a crossing is still counted as a whole fiber, and the log
-reports how many of the remaining lengths are such lower bounds. A fiber CSV
-exported before the frame columns existed records no frame test, so it is left
-out of the length aggregation under `exclude` and `Miles-Lantuejoul`, and the
-log names it.
+reports how many of the remaining lengths are such lower bounds.
 
 `Kaplan-Meier` also takes in the fibers cut at a crossing. It estimates the
 distribution of fiber lengths from every fiber with an end of its own
@@ -539,33 +539,25 @@ distribution within 2 %, while the fibers seen whole alone read up to 30 % short
 ([Evaluation on particular data](docs/validation.md) §6.3). The estimate assumes
 that where a fiber is cut does not depend on its length; in that simulation the
 segments were spread evenly over a region larger than the scan and the
-crossings fell along each segment at random. It is computed per registered
-folder and offered for the `fiber` unit only, because the median of one scan or
-folder can itself lie beyond what was seen whole. The part of the distribution
-beyond the longest fiber seen whole is never filled in. Each folder's unplaced
-share lies somewhere beyond the longest fiber that folder saw whole, so a
-median or quartile that depends on where it lies is shown as the range it can
-take, "[lower, upper]", or "> lower" when it has no upper end: the lower end
-places each folder's share just beyond that folder's own longest fiber seen
-whole, and the upper end places it at infinity. With one folder this is
+crossings fell along each segment at random. It is computed per group
+and offered for the `fiber` unit only, because the median of one scan
+can itself lie beyond what was seen whole. The part of the distribution
+beyond the longest fiber seen whole is never filled in. A median or quartile
+that falls there is shown, instead of a number, as
 "> the longest fiber seen whole". The log and the statistics CSV also give a
-95 % interval for each quartile from resampling the fibers within each folder,
+95 % interval for each quartile from resampling the fibers,
 which covers the sampling of the fibers as well. The mean, standard deviation
 and mode are left blank because they depend on the unplaced part, the
 histogram bars and the ECDF fall short of one by its share, and the figure
-states the share. A
-fiber CSV that does not record which ends lie on the frame is left out, and the
-log names it.
+states the share.
 
 A separate aggregation-unit selector decides what counts as one sample:
 `pixel` (one skeleton pixel), `length` (one skeleton pixel weighted by the
 contour length it represents), `kink` (one kink), `fiber` (one fiber, using
-the median within that fiber for height), `image` (one scan), or `folder` (one
-registered folder, all of its scans together). An `image` or `folder` sample
-pools the fibers it holds: the median of their values, the median of all its
+the median within that fiber for height), or `image` (one scan). An `image` sample
+pools the fibers of that scan: the median of their values, the median of all its
 kink angles for `kink angle`, and its total kink count divided by the total
-judged length for `kink density`. A `folder` value therefore weighs each scan by
-how many fibers it holds, so a scan with many fibers outweighs a sparse one. Kink angle has no `fiber` unit, because the
+judged length for `kink density`. Kink angle has no `fiber` unit, because the
 kinks along a fiber are distinct defect events rather than repeated
 measurements of one fiber property, so a per-fiber median of their angles
 describes nothing about the fiber. Kink density is pooled rather than taken as
@@ -575,7 +567,7 @@ unit each fiber's kink density is weighted by its judged length: a fragment
 judged over a few nanometres reads a very large density from a single kink, and
 counted as one sample it would pull the distribution as far as a long fiber
 does. The weighted mean is then the same pooled ratio, and the weighted samples
-are not tested; test at `image` or `folder`. This distinction
+are not tested; test at `image`. This distinction
 is reported, not just applied: pooled skeleton pixels are not independent
 observations — a long fiber contributes more pixels than a short one — so
 the statistics table and the figure annotation give the sample count broken
@@ -599,6 +591,11 @@ to appear or disappear by rebinning; the box summarises each group from the same
 quartiles the table reports, weighted ones included, which Matplotlib's own
 boxplot cannot compute.
 
+The statistics table and the comparison table are shown in a separate window,
+opened with the "Statistics" button to the right of "Save Values". Creating the
+histogram again while the window is open refreshes its contents, and the
+statistics and the comparison are saved from that window.
+
 Below the statistics table, a comparison table tests every pair of groups with
 a two-sided Mann-Whitney U test, Holm-corrected across all pairs, and reports
 Cliff's delta as an effect size that does not grow with sample size. Mann-Whitney
@@ -610,18 +607,17 @@ covers one quantity at a time, so testing several quantities is a further
 multiple comparison, left to the reader, and a note under the table says so.
 Under `include` and `exclude` the same note says that a length comparison also
 holds a difference in frame bias: the frame shortens long fibers more, even at
-one scan size. The tests are offered only for the `fiber`,
-`image`, and `folder` units: skeleton pixels, length-weighted points, and
+one scan size. The tests are offered only for the `fiber`
+and `image` units: skeleton pixels, length-weighted points, and
 several kinks from one fiber are not independent observations, so a p-value
 over them would measure how finely the images were sampled rather than whether
-the specimens differ. The three testable units differ in what they count as
-independent. Fibers of one image, and scans of one folder, share a
-preparation, so at `fiber` and `image` a p-value shrinks with the number of
-fibers or scans rather than the number of specimens, and a note under the table
-says so. When each folder holds one specimen, `folder` is the unit that tests a
-difference between specimens; a group then needs at least three folders to be
+the specimens differ. The two testable units differ in what they count as
+independent. `fiber` counts the fibers of one image as independent samples, so
+its p-value shrinks with the number of fibers, and a note under the table
+says so. `image` takes one sample per scan, so the comparison allows for the
+difference between places on a specimen; a group then needs at least three scans to be
 tested. Three is the fewest at which a p-value is computed, not the fewest at
-which one can be significant: two groups of three folders that do not overlap
+which one can be significant: two groups of three scans that do not overlap
 at all and hold no equal values give p = 0.10, and two groups of four give
 p = 0.029. A note under the
 table names every pair too small to reach p < 0.05. For `kink angle` and
@@ -650,8 +646,8 @@ column of the statistics CSV say which. Samples outside the plotted
 range are reported in the log as a percentage rather than dropped silently;
 the summary statistics always describe the whole sample. A group with fewer
 than eight samples is flagged as one whose histogram shape cannot be read —
-the normal situation for `image` and `folder`, where a group holds as many
-samples as it holds scans or folders, and where the table's median and IQR are
+the normal situation for `image`, where a group holds as many
+samples as it holds scans, and where the table's median and IQR are
 the output to read.
 
 ### Fiber Tracker — `guis/GUI04_Tracking_fiber.py`
@@ -824,7 +820,7 @@ depends on it.
 Show the background-corrected height images (`calibrated`) of many `.b2z`
 bundles side by side as thumbnails, and save the gallery as A4 sheets. Bundles
 are added with "Add Folder" (the bundles directly inside the folder, as in
-GUI01 and GUI03), with "Add Files", or by dropping files and folders onto the
+GUI01), with "Add Files", or by dropping files and folders onto the
 gallery. A bundle already in the gallery is skipped, a dropped file that is not
 a `.b2z` is ignored, and a file that cannot be read is listed below the pages
 with the reason instead of stopping the others. The window writes nothing to
@@ -859,7 +855,8 @@ their automatic range.
 
 "Open in GUI02" and "Open in GUI04" open each selected bundle in Plot Profiler
 or Fiber Tracker, in a window of its own; with four or more selected the
-window asks first.
+window asks first. "Open in GUI03" opens one Fiber Morphology Statistics window
+with every selected bundle registered in one group.
 
 Two lines under each image state its size and the heights its colors stand
 for: a scale bar aligned with the image's left edge, the longest of 1, 2 or 5
@@ -1356,7 +1353,7 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
 | `lib/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, `collect_fiber_stats` (per-fiber statistics over many bundles), `collect_skeleton_height_profiles` (tracked heights with the contour length each point represents), `isolated_fiber_flags` (which fibers touch no other fiber), skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
 | `lib/pipeline.py` | `ProcParams` parameter schema, stage construction, and `process_file`, the GUI-independent pipeline driver shared by GUI01 and `cli.py`; the `.b2z` contract itself lives in `lib/bundle_schema.py`. |
-| `lib/plugin_launch.py` | Starts a GUI plugin in its own process through `Main.py --run-plugin`, optionally handing it a file or folder; used by the launcher, by GUI01's buttons that open its results in GUI02, GUI03 and GUI04, and by GUI05's buttons that open the selected bundles in GUI02 and GUI04. |
+| `lib/plugin_launch.py` | Starts a GUI plugin in its own process through `Main.py --run-plugin`, optionally handing it files, many of them through a list file; used by the launcher, by GUI01's buttons that open its results in GUI02, GUI03 and GUI04, and by GUI05's buttons that open the selected bundles in GUI02, GUI03 and GUI04. |
 | `lib/processed_image.py` | `ProcessedImage`, the container passed through the GUI01 preprocessing pipeline. |
 | `lib/segmenter.py` | `Segmenter`, which builds binary nanofiber masks from calibrated AFM images. |
 | `lib/skeletonizer.py` | `Skeletonizer`, which thins segmented masks, prunes branches, and labels skeleton components. |

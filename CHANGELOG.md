@@ -13,7 +13,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - GUI03 cuts every compared group at a common length floor ("長さの下限を
   そろえる", on by default): fibers shorter than the longest of the compared
   bundles' floors are left out of every quantity, and the log reports the floor
-  and how many fibers each folder lost. A bundle's floor is
+  and how many fibers each group lost. A bundle's floor is
   `max(h_length, area_min / W)` pixels at its pixel size, W being its median
   apparent width (`measure.length_floor_nm`), because binarization removes
   shorter components whatever their angle, so a coarser scan cannot contain the
@@ -50,7 +50,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   left blank, and the bars and the ECDF fall short of one by that share.
 - The fiber CSV gains a last column, `frame_end_count` (how many of the fiber's
   skeleton endpoints lie on the frame), which the estimate needs; earlier CSVs
-  still read, and are left out of the estimate. No measured value changes, but
+  still read. No measured value changes, but
   the CSV written for the same bundle is no longer byte-identical.
 
 - GUI03 reports the effective sample size (Σw)²/Σw² of a `Miles-Lantuejoul`
@@ -87,7 +87,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `crest`. Kinks are judged on the chosen line and every length, height,
   curvature and kink is measured along it, so results from different lines
   are not comparable. GUI04 names a non-default line when it opens a bundle,
-  and GUI03 names the lines of each folder whenever one is not the default.
+  and GUI03 names the lines of each group whenever one is not the default.
 - GUI03 can leave fibers that reach the edge of the scan out of its
   `contour length` statistics ("枠のファイバー": `include`, `exclude`,
   `Miles-Lantuejoul`). Such a fiber continues outside the scan, so its length is
@@ -95,8 +95,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   setting. Because a long fiber is more likely to reach the edge, `exclude`
   alone favours short fibers, and `Miles-Lantuejoul` weights each remaining
   fiber by the inverse of its chance of fitting inside the frame. Weighted fiber
-  samples are not tested between groups; at the `image` and `folder` units each
-  sample is the weighted median of one scan or folder, an unweighted value, and
+  samples are not tested between groups; at the `image` unit each
+  sample is the weighted median of one scan, an unweighted value, and
   is tested. The default, `include`, gives the same results as before, and the
   figure, the log and the statistics CSV (a new last column, `reaching frame
   (%)`) report what share of each group's fibers reach the frame. The log warns
@@ -140,13 +140,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - GUI03 warns when the bundles it compares for curvature differ in pixel size:
   curvature is averaged unsigned, so a straight fiber reads above zero by an
   amount that depends on the pixel size and the noise.
-- GUI03 gains the aggregation unit `folder`: one sample per registered folder,
-  pooling the fibers of all its scans, and between-group tests are offered for
-  it. Fibers of one image and scans of one folder share a preparation, so the
-  `fiber` and `image` units count as independent what may not be; when each
-  folder holds one specimen, `folder` is the unit that tests a difference
-  between specimens. A note under the comparison table now says this whenever
-  `fiber` or `image` is tested.
+- GUI03 says in a note under the comparison table what a test at the `fiber`
+  unit counts as independent: the fibers of one image are tested as independent
+  samples, so the p-value shrinks with the number of fibers, and the note
+  points at the `image` unit for a comparison that allows for the difference
+  between places on a specimen.
 
 - GUI01 and `cli.py process` warn after each file when the background
   calibration may have lowered fiber heights, and name the setting to analyze
@@ -177,8 +175,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - GUI01 opens its results in the measuring tools. 「GUI02で開く」 and
   「GUI04で開く」, above the preview, open the bundle the preview shows in Plot
   Profiler or Fiber Tracker, and 「このフォルダをGUI03で解析」, at the head of the
-  file list, opens Fiber Morphology Statistics with the folder registered in
-  its first group. Each press opens a new window. The plugins are started
+  file list, opens Fiber Morphology Statistics with every bundle directly
+  inside the folder registered in its first group; the paths are handed over
+  through a list file (`lib.plugin_launch.path_list_arguments`), because a
+  command line holds a limited number of characters. Each press opens a new
+  window. The plugins are started
   through the launcher's `--run-plugin`, which now hands the arguments after
   the module name to the plugin as `sys.argv[1:]` (`lib.plugin_launch`). The
   two preview buttons stand beside 「画像を保存」 and 「個別表示」; to make room on
@@ -204,13 +205,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the start, 「スケールバー」 and 「カラーバー」 turn them off, and
   「フォントサイズ…」 sets the text sizes of the sheet.
   「GUI02で開く」 and 「GUI04で開く」 open the selected bundles in Plot Profiler
-  and Fiber Tracker. 「シートを保存」 writes the pages, either all in a single
+  and Fiber Tracker, and 「GUI03で開く」 opens one Fiber Morphology Statistics
+  window with every selected bundle registered in one group. 「シートを保存」 writes the pages, either all in a single
   PDF or as a PNG per page (`_p01`, `_p02`, … when there are several), reading
   the images again from the bundles. There is no print command: the saved
   sheet is printed from the application that opens it. Dropping files uses the
   new dependency `tkinterdnd2`; when it cannot be loaded the window opens
   without drag and drop. Dropping was checked on
   Windows only. Analysis results do not change.
+- GUI03 shows the calibrated height image of the selected bundle under the
+  list of registered files, colored over the automatic range of
+  `ui_tools.compute_auto_vrange` and read by `ui_tools.read_height_image`, the
+  reader GUI05's thumbnails now use too, so a scan that should not be
+  aggregated can be recognized before it is measured.
+- GUI03 moves registered files between groups. Dragging file rows onto another
+  group, or 「グループへ移動」 in the right-click menu, moves them there, several
+  rows at once when they are selected with Shift or Ctrl. A file the target
+  group already holds is not moved, every move is logged, and when the list
+  changes after a result was produced, a note beside the run button and in the
+  statistics window says that the histogram has to be created again.
 
 ### Changed
 
@@ -269,10 +282,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   scan, which records no scan size, taken as 2 µm) the unweighted per-fiber mean
   was 3.74, 3.28 and 7.59 kinks per µm against pooled kinks over pooled judged
   length of 2.08, 2.06 and 5.11, the ratio the
-  `image` and `folder` units report, and the weighted mean is now that ratio.
+  `image` unit reports, and the weighted mean is now that ratio.
   **GUI03's `fiber`-unit kink-density histogram, mean, standard deviation and
   quartiles change from this version**, and they are no longer tested between
-  groups, because the rank tests take no weights; test at `image` or `folder`.
+  groups, because the rank tests take no weights; test at `image`.
   Per-fiber densities in GUI04 and the CSV do not change.
 - The measurement regression test (`tests/test_measurement_regression.py`) now
   also fingerprints each fiber's mean curvature, which GUI03 and GUI04 show but
@@ -399,17 +412,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with (`bundle_schema.symmetric_section_from_meta`). **Centerlines and kinks
   found with the default settings change from this version**: on the three
   bundled scans the stored kinks went from 7, 70 and 63 to 7, 69 and 63.
-- GUI03's `Kaplan-Meier` estimate over several folders places each folder's
-  unestimated share beyond that folder's own longest fiber seen whole, not
-  beyond the longest fiber of the group. A quartile that depends on where that
-  share lies is shown as the range it can take, "[lower, upper]", or "> lower"
-  when it has no upper end, in the results table, the figure and the
-  statistics CSV; reading the share as lying beyond the group's longest fiber
-  could report such a quartile as a value or as "> that length" when it lay
-  below. The log and the statistics CSV also give each quartile's 95 %
-  interval from resampling the fibers within each folder 200 times, with a
-  fixed seed. One folder reads as before. The statistics CSV gains twelve last
-  columns for the ranges and the intervals.
+- GUI03's `Kaplan-Meier` estimate is made once per group, over all the
+  group's bundles. The log and the statistics CSV give each quartile's 95 %
+  interval from resampling the fibers 200 times, with a fixed seed, and the
+  statistics CSV gains twelve last columns: the range each quartile lies in
+  when the estimate does not reach it, and the intervals.
 - GUI04 opens one `.b2z` file, with 「📂 ファイルを開く」 or from GUI01's
   「GUI04で開く」, instead of listing a folder: the file list on the left and
   「📂 フォルダ選択」 are gone, and the window title names the open bundle.
@@ -417,6 +424,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   open one bundle in two windows, saving the curation asks before overwriting
   an exclusion or connection file that changed on disk after the window read
   it. Analysis results do not change.
+- GUI03 registers `.b2z` bundles file by file, with 「ファイル追加」 (several at
+  once), instead of by folder, and lists them under their group. A group stands
+  for one specimen, and its bundles are aggregated together. 「フォルダ追加」 is
+  gone; selecting every file in the dialog registers a folder's bundles. A
+  registered file that is no longer on the disk is named in the notices of the
+  run, and the lines the log gave per folder are given per group.
+- GUI03 shows the statistics table and the between-group comparison in a
+  window of their own, opened with 「統計処理」 beside 「数値を保存」.
+  「統計値を保存」 and 「比較を保存」 are in that window. Closing it hides it, and
+  a run made while it is open refreshes it.
 
 ### Fixed
 
@@ -441,11 +458,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - GUI03 refuses to aggregate a group that holds two analyses of the same scan
   lines of one input file, and lists the pairs. GUI01 keeps a scan's
   whole-image bundle when the scan is later analyzed as scan-line ranges, so
-  both can sit in one folder, as can a copy of a bundle under another name;
-  pooled, every fiber of the overlap was counted twice, and on the NDTOC scan
+  both can be registered in one group, as can a copy of a bundle under another
+  name; pooled, every fiber of the overlap was counted twice, and on the NDTOC scan
   with its rows 0–512 beside it, 116 fibers read as 190 from two images. The
   input file is the bundle's recorded `input_sha256`, or the file name less its
-  `_r<start>-<stop>` suffix for a fiber CSV and for a bundle without one, and
+  `_r<start>-<stop>` suffix for a bundle without one, and
   the log says when only names were compared. Ranges that do not overlap are
   aggregated as before. **GUI03 no longer aggregates such a group.**
 - GUI03's histogram ends at the entered maximum. Its bin edges stopped one step
@@ -845,6 +862,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   angles describes no property of the fiber, and nothing in the analysis calls
   it any more (see Changed). The name still works and issues a
   `DeprecationWarning`; it will be removed in 3.0.0.
+
+### Removed
+
+- GUI03 no longer reads the per-fiber CSVs GUI04 exports (its `fiber csv`
+  input). A population curated in GUI04 reaches GUI03 through the bundle's
+  `_excluded.json` and `_connect.json` sidecars, which 「除外を適用」 and
+  「連結を適用」 apply. GUI04 and `cli.py measure` still write the CSV, and
+  `measure.read_fiber_csv` still reads it.
 
 ## [2.0.1] - 2026-09-17
 

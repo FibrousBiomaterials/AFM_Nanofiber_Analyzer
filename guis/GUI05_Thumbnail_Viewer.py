@@ -34,11 +34,13 @@ Each thumbnail is drawn under its file name with the physical aspect ratio of
 its scan. A scale bar and a color bar under it state its size and the height
 range its colors span, because thumbnails colored per image cannot be compared
 by color; both are shown unless turned off. The selected bundles can be opened
-in GUI02 or GUI04, each in a window of its own (`lib.plugin_launch`).
+in GUI02 or GUI04, each in a window of its own, or all together in one GUI03
+window as one group (`lib.plugin_launch`).
 各サムネイルは、ファイル名の下に、走査の物理アスペクト比で描く。その下の
 スケールバーとカラーバーが、大きさと色が表す高さの範囲を示す。画像ごとに色を
 決めたサムネイルは、色では互いに比べられないため。どちらも、外さない限り表示する。
 選択したバンドルは GUI02 または GUI04 で開ける。バンドルごとに別のウィンドウで
+開く。GUI03 では、選択した全バンドルを 1 つのグループとして 1 つのウィンドウで
 開く（`lib.plugin_launch`）。
 
 Dropping files needs the ``tkinterdnd2`` package; without it the window still
@@ -94,25 +96,28 @@ from matplotlib import colormaps
 from matplotlib.colors import Normalize
 
 # ===== Project libraries =====
-from lib.blosc2_io import BUNDLE_EXT, load_bundle, load_bundle_meta
+from lib.blosc2_io import BUNDLE_EXT, load_bundle_meta
 from lib.bundle_schema import pixel_size_nm, scan_size_um_from_meta
-from lib.plugin_launch import call_when_shown, launch_plugin
+from lib.plugin_launch import call_when_shown, launch_plugin, path_list_arguments
 from lib.translator import _
 from lib.ui_tools import (
     DEFAULT_VMAX, DEFAULT_VMIN, FIGURE_SAVE_DPI, UNIT_MICROMETER, LogMixin,
     ToolTip, UnconfirmedEntryMixin, apply_window_size, bind_mousewheel_scroll,
     compute_auto_vrange, create_scrolled_text, drain_ui_queue,
-    localized_combobox_width, rewrite_entries, save_text_widget_log,
-    setup_matplotlib_style, setup_ttk_theme,
+    localized_combobox_width, read_height_image, rewrite_entries,
+    save_text_widget_log, setup_matplotlib_style, setup_ttk_theme,
 )
 
 # ===== Plugins the selected bundles can be opened in =====
 # Import paths handed to `lib.plugin_launch.launch_plugin`, and the number of
-# selected bundles from which opening them asks first: each opens a window of
-# its own, in a process of its own.
-# `lib.plugin_launch.launch_plugin` に渡す import パスと、開く前に確認する
-# 選択数。バンドル 1 つごとに、独立したプロセスのウィンドウが 1 つ開く。
+# selected bundles from which opening them in GUI02 or GUI04 asks first: there
+# each opens a window of its own, in a process of its own. GUI03 takes every
+# selected bundle into one window.
+# `lib.plugin_launch.launch_plugin` に渡す import パスと、GUI02・GUI04 で開く前に
+# 確認する選択数。この 2 つでは、バンドル 1 つごとに独立したプロセスのウィンドウが
+# 1 つ開く。GUI03 は選択した全バンドルを 1 つのウィンドウで受け取る。
 PROFILER_MODULE = "guis.GUI02_PlotProfiler"
+STATISTICS_MODULE = "guis.GUI03_Fiber_Morphology_Statistics"
 TRACKER_MODULE = "guis.GUI04_Tracking_fiber"
 OPEN_CONFIRM_COUNT = 4
 
@@ -945,50 +950,6 @@ def insertion_point(boxes: Sequence[Tuple[str, float, float, float, float]],
     return before, (x1, y0, y1)
 
 
-def read_height_image(path: str) -> Tuple[np.ndarray, Optional[np.ndarray]]:
-    """
-    Read a bundle's calibrated height image and, if present, its skeleton.
-    バンドルの補正済み高さ像と、あればスケルトンを読む。
-
-    Parameters
-    ----------
-    path
-        Bundle file path.
-        バンドルファイルパス。
-
-    Returns
-    -------
-    tuple
-        ``(image, mask)``: the 2D height image in nanometers with non-finite
-        values replaced by the median, and the skeleton mask or ``None``.
-        ``(image, mask)``。有限でない値を中央値で置き換えた 2D 高さ像 (nm) と、
-        スケルトンのマスク（無ければ ``None``）。
-
-    Raises
-    ------
-    ValueError
-        If ``calibrated`` is not a non-empty 2D array.
-    """
-    try:
-        arrays = load_bundle(path, keys=["calibrated", "skeletonized"])
-        mask = arrays["skeletonized"]
-    except Exception:
-        # The skeleton only sharpens the automatic color range, so a bundle
-        # without it is read again for the height image alone.
-        # スケルトンは色範囲の自動設定を良くするだけなので、無いバンドルは
-        # 高さ像だけを読み直す。
-        arrays = load_bundle(path, keys=["calibrated"])
-        mask = None
-    image = np.asarray(arrays["calibrated"], dtype=float)
-    if image.ndim != 2 or image.size == 0:
-        raise ValueError(f"calibrated is not a 2D image (shape {image.shape})")
-    finite = np.isfinite(image)
-    if not finite.all():
-        fill = float(np.median(image[finite])) if finite.any() else 0.0
-        image = np.where(finite, image, fill)
-    return image, mask
-
-
 def load_thumb_item(path: str, order: int) -> ThumbItem:
     """
     Read one bundle into a gallery item; a failure becomes an error item.
@@ -1577,6 +1538,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         btn_gui02.pack(side=tk.LEFT)
         ToolTip(btn_gui02, _(
             "選択した画像を Plot Profiler で開きます。1 つにつきウィンドウが 1 つ開きます。"))
+        btn_gui03 = ttk.Button(
+            frm_view, text=_("GUI03で開く"),
+            command=self.on_open_selected_in_statistics)
+        btn_gui03.pack(side=tk.LEFT, padx=(6, 0))
+        ToolTip(btn_gui03, _(
+            "選択した画像を Fiber Morphology Statistics で開きます。選択した全画像が "
+            "1 つのグループに入った状態で、ウィンドウが 1 つ開きます。"))
         btn_gui04 = ttk.Button(
             frm_view, text=_("GUI04で開く"),
             command=lambda: self.on_open_selected_in(TRACKER_MODULE, "GUI04"))
@@ -1743,9 +1711,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Return the selected images that were read, in display order.
         選択中の画像のうち読めたものを、表示の順で返す。
 
-        These are what the vmin/vmax entries, "Auto" and the two "open in"
+        These are what the vmin/vmax entries, "Auto" and the three "open in"
         buttons act on.
-        vmin/vmax の入力欄、「自動」、2 つの「…で開く」ボタンは、これらを対象に
+        vmin/vmax の入力欄、「自動」、3 つの「…で開く」ボタンは、これらを対象に
         する。
         """
         return [item for item in self.items
@@ -2848,6 +2816,40 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 self._log_exception(_("起動に失敗しました"), exc)
                 return
             self._log(_("{name} を新しいウインドウで開きます。").format(name=item.name))
+
+    def on_open_selected_in_statistics(self) -> None:
+        """
+        Open every selected image in one GUI03 window, as one group.
+        選択した全画像を、1 つのグループとして 1 つの GUI03 ウィンドウで開く。
+
+        Notes
+        -----
+        GUI03 aggregates the bundles of a group together, so the selection is
+        one hand-over rather than a window per bundle. The paths go through a
+        list file (`path_list_arguments`), since a selection can hold more
+        paths than a command line does. Like the other two buttons it acts on
+        `selected_images`, which leaves out a bundle that could not be read.
+        GUI03 はグループのバンドルをまとめて集計するため、選択はバンドルごとの
+        ウィンドウではなく 1 回の受け渡しになる。パスは一覧ファイルで渡す
+        （`path_list_arguments`）。選択はコマンドラインに入る数より多くのパスを
+        持ちうるためである。他の 2 つのボタンと同じく `selected_images` を対象に
+        するため、読めなかったバンドルは含まれない。
+        """
+        targets = self.selected_images()
+        if not targets:
+            self._log(_("開く画像を選択してください。"))
+            return
+        try:
+            # The child starts in the application folder, so the bundles are
+            # named by their full paths.
+            # 子プロセスはアプリのフォルダで起動するので、バンドルは絶対パスで渡す。
+            launch_plugin(STATISTICS_MODULE, path_list_arguments(
+                [os.path.abspath(item.path) for item in targets]))
+        except Exception as exc:  # noqa: BLE001 - reported, nothing is lost
+            self._log_exception(_("起動に失敗しました"), exc)
+            return
+        self._log(_("{n} 件の画像を GUI03 の新しいウインドウで開きます。").format(
+            n=len(targets)))
 
     @staticmethod
     def _fmt_num(v) -> str:

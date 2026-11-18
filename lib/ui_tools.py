@@ -2232,6 +2232,64 @@ def compute_auto_vrange(
     return v_lo, v_hi
 
 
+def read_height_image(bundle_path: str) -> tuple:
+    """
+    Read a bundle's calibrated height image and, if present, its skeleton.
+    バンドルの補正済み高さ像と、あればスケルトンを読む。
+
+    Parameters
+    ----------
+    bundle_path
+        Path to the ``.b2z`` bundle file.
+        ``.b2z`` バンドルファイルのパス。
+
+    Returns
+    -------
+    tuple
+        ``(image, mask)``: the 2D height image in nanometers with non-finite
+        values replaced by the median, and the skeleton mask or ``None``.
+        ``(image, mask)``。有限でない値を中央値で置き換えた 2D 高さ像 (nm) と、
+        スケルトンのマスク（無ければ ``None``）。
+
+    Raises
+    ------
+    ValueError
+        If ``calibrated`` is not a non-empty 2D array.
+
+    Notes
+    -----
+    This is the image a GUI shows for a bundle (GUI03's preview, GUI05's
+    thumbnails), read by one function so both draw the same pixels, and the
+    mask is the one `compute_auto_vrange` takes. The skeleton only sharpens
+    the automatic color range, so a bundle without it is read again for the
+    height image alone.
+    GUI がバンドルについて表示する画像（GUI03 のプレビュー、GUI05 のサムネイル）で
+    あり、両者が同じ画素を描くよう 1 つの関数で読む。マスクは
+    `compute_auto_vrange` に渡すものである。スケルトンは色範囲の自動設定を良くする
+    だけなので、無いバンドルは高さ像だけを読み直す。
+    """
+    # Imported here so that a window which shows no bundle image, the launcher
+    # included, does not load the bundle reader.
+    # ここでインポートする。バンドルの画像を表示しないウィンドウ（ランチャーを
+    # 含む）が、バンドルの読み込み処理を読み込まずに済むようにするためである。
+    from lib.blosc2_io import load_bundle
+
+    try:
+        arrays = load_bundle(bundle_path, keys=["calibrated", "skeletonized"])
+        mask = arrays["skeletonized"]
+    except Exception:
+        arrays = load_bundle(bundle_path, keys=["calibrated"])
+        mask = None
+    image = np.asarray(arrays["calibrated"], dtype=float)
+    if image.ndim != 2 or image.size == 0:
+        raise ValueError(f"calibrated is not a 2D image (shape {image.shape})")
+    finite = np.isfinite(image)
+    if not finite.all():
+        fill = float(np.median(image[finite])) if finite.any() else 0.0
+        image = np.where(finite, image, fill)
+    return image, mask
+
+
 def setup_matplotlib_style(font_size: int = 12) -> None:
     """
     Apply the project-wide matplotlib style.
