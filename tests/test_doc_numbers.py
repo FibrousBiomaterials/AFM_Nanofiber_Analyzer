@@ -11,7 +11,9 @@ CI, where the pre-commit hook cannot be skipped around.
 
 from __future__ import annotations
 
+import copy
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -112,3 +114,85 @@ def test_exempt_positions_are_not_numbers(checker):
             "A note <!-- TODO(review): 9 on one line --> and\n"
             "<!-- TODO(review): a note over\ntwo lines with 10 -->\n")
     assert _with(checker, text, text) == []
+
+
+def _measure_docs():
+    sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+    spec = importlib.util.spec_from_file_location(
+        "measure_docs", PROJECT_ROOT / "scripts" / "measure_docs.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_golden_digest_ignores_layout_and_follows_the_values(checker):
+    """
+    One golden gives one digest however it is laid out; another value moves it.
+    同じゴールデンは体裁によらず同じダイジェストになり、値が違えば変わる。
+    """
+    def digest(*texts):
+        return checker.golden_digest(_reader(dict(zip(checker.GOLDENS, texts))))
+
+    assert digest('{"a": 1, "b": [2.5, 3]}', "{}") \
+        == digest('{\r\n  "b": [2.5, 3],\r\n  "a": 1\r\n}\r\n', "{}")
+    assert digest('{"a": 1}', "{}") != digest('{"a": 2}', "{}")
+    assert digest('{"a": 1}', "{}") != digest('{"a": 1}', '{"c": 0}')
+    # A golden that is absent is not the same as an empty one.
+    assert digest("{}", "{}") != checker.golden_digest(_reader({checker.GOLDENS[0]: "{}"}))
+
+
+def test_a_recording_is_stale_only_when_code_and_goldens_both_moved(checker):
+    """
+    Changed code alone, or moved goldens alone, leaves a recording valid.
+    コードだけが変わっても、ゴールデンだけが動いても、記録は有効なままである。
+
+    A change that reaches the same result another way changes the code and
+    not the goldens, and measuring again would cost every experiment's run
+    time. A recording with no golden digest is judged by its code alone.
+    同じ結果に別の方法で到達する変更は、コードを変えるがゴールデンは変えない。
+    測り直せば全実験の実行時間がかかる。ゴールデンのダイジェストを持たない記録は、
+    コードだけで判定する。
+    """
+    rel = "lib/fiber.py"
+    current = checker.doc_excerpts.code_symbol_digests(
+        checker.doc_excerpts.read_worktree(rel))
+    symbol = sorted(current)[0]
+    other_code = copy.deepcopy(current)
+    other_code[symbol] = "another digest"
+    goldens = dict(zip(checker.GOLDENS, ('{"a": 1}', '{"b": 2}')))
+
+    def read(path):
+        return goldens[path] if path in goldens else checker.doc_excerpts.read_worktree(path)
+
+    recorded_goldens = checker.golden_digest(read)
+
+    def stale(code, golden_field):
+        entry = {"snapshot": "s", "values": {}, **golden_field}
+        measurements = {"snapshots": {"s": {rel: code}}, "experiments": {"e": entry}}
+        return checker.stale_experiments(measurements, {"e"}, read)
+
+    assert stale(other_code, {"goldens": recorded_goldens}) == {}
+    assert stale(current, {"goldens": "the goldens of another day"}) == {}
+    assert stale(other_code, {"goldens": "the goldens of another day"}) \
+        == {"e": [f"{rel}: changed {symbol}"]}
+    assert stale(other_code, {}) == {"e": [f"{rel}: changed {symbol}"]}
+    assert stale(current, {}) == {}
+
+
+def test_a_measurement_records_the_goldens_it_was_made_beside(tmp_path, monkeypatch, checker):
+    """
+    ``record`` writes the digest of the goldens beside an experiment's values.
+    ``record`` は、実験の値とともにゴールデンのダイジェストを書く。
+    """
+    measure_docs = _measure_docs()
+    path = tmp_path / "doc_measurements.json"
+    monkeypatch.setattr(measure_docs, "MEASUREMENTS", path)
+    monkeypatch.setitem(measure_docs.EXPERIMENTS, "quick",
+                        dict(func=lambda: {"a": 1}, roots=[], description="d"))
+    measure_docs.record(["quick"])
+    data = json.loads(path.read_text(encoding="utf-8"))
+    entry = data["experiments"]["quick"]
+    assert entry["values"] == {"a": 1}
+    assert entry["goldens"] == checker.golden_digest(checker.doc_excerpts.read_worktree)
+    assert data["_comment"] == measure_docs.RECORD_COMMENT

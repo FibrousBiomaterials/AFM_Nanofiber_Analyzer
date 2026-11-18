@@ -26,7 +26,10 @@ Bruker NDTOC のスキャンは同じ分散液を測ったもので、後者は 
 数値はすべて、本文に名前を書いた `scripts/measure_docs.py` の実験が出したもので
 あり、表示されない印を持つ。`scripts/check_doc_numbers.py` がその印を
 `tests/doc_measurements.json` の記録と照合する。実験が走ったコードの計算内容が
-変わると、実験をやり直すまでこの検査は通らない（AGENTS.md §8.15）。
+変わり、かつ同梱スキャンの回帰テストのゴールデン（`tests/strict_regression_golden.json`、
+`tests/measurement_regression_golden.json`）が実験の後に動いていると、実験をやり直すまで
+この検査は通らない。ゴールデンが持つのは同梱スキャンの結果だけなので、合成スキャンや
+別の設定での結果だけを動かす変更は、この検査では分からない（AGENTS.md §8.15）。
 
 ## 1. 背景補正
 

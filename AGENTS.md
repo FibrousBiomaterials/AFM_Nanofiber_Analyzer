@@ -1352,14 +1352,33 @@ The two languages must cite the same `m:`, `c:` and `x:` sources.
 
 - **Measured values come only from `scripts/measure_docs.py`.** Each experiment
   there reproduces one group of statements from the current code and records
-  its values with the fingerprints of the analysis modules it ran on. Never
-  edit `tests/doc_measurements.json` by hand, and never write a measured number
-  that no experiment produces: add the experiment first.
-- **A recording goes stale with the code.** When what a recorded module
-  computes changes (the §8.13 rule, `doc_excerpts.computation_changes`), the
-  check fails until the experiment is run again with
+  its values with the fingerprints of the analysis modules it ran on and a
+  digest of the two goldens of §8.11. Never edit `tests/doc_measurements.json`
+  by hand, and never write a measured number that no experiment produces: add
+  the experiment first.
+- **A recording goes stale when the results move.** A recording is stale when
+  what a module it ran on computes has changed (the §8.13 rule,
+  `doc_excerpts.computation_changes`) **and** a golden of §8.11 differs from
+  the one it recorded (`check_doc_numbers.golden_digest`). The check then
+  fails until the experiment is run again with
   `.venv\Scripts\python.exe scripts\measure_docs.py --only <name>` and the
-  documents are updated to the new values.
+  documents are updated to the new values. The code says which experiments a
+  change can reach, the goldens whether the analysis output moved; a change
+  that leaves both goldens as they were — the same result computed faster, a
+  refactor — marks nothing stale. The reason is what happened while the code
+  alone was compared: a change that traces each skeleton component inside its
+  bounding box marked 21 recordings stale, although every fiber built from
+  the 727 bundles the experiments had cached was identical before and after
+  it.
+- **The goldens do not see every experiment.** They hold the bundled scans at
+  the settings §8.11 names, and they follow the analysis only when the tests
+  that compare them are run (`tests/test_strict_regression.py`,
+  `tests/test_measurement_regression.py`). The experiments also measure
+  synthetic scans and other settings, so a change that moves only such a
+  result, or one committed without running those tests, leaves its recordings
+  unmarked. Run every experiment once before a release
+  (`scripts\measure_docs.py` without `--only`), and measure at once after a
+  change known to alter a result the goldens do not hold.
 - **Cached bundles are keyed by the code that made them.** The experiments
   reuse analyzed bundles, and a bundle made by older code still yields numbers
   while the recording names the current code — bundles cached on 2026-09-30
@@ -1587,7 +1606,7 @@ follow this rule without the hook.
 | Requests to find problems | Exhaustive review over an item list built from the code (`scripts/audit_ledger.py`); every item marked with evidence; report quotes the coverage line and never claims completeness while items are unchecked; enforced in Claude Code by `.claude/hooks/audit_prime.py` and `audit_guard.py` |
 | Unverified statements in documentation | Never write one: verify by reading the code or running the computation, otherwise keep the existing text with `TODO(review)` or ask; report each statement as measured / read in code / unverified |
 | Past methods and change history | Comments, docstrings and explanatory docs describe the current code only; history goes to `CHANGELOG.md` and Git; compatibility behaviour still executed is described as current behaviour; results on particular data go to `docs/validation*.md` |
-| Numbers in the algorithm and evaluation docs | Results on particular data go in `docs/validation*.md`, never in `docs/algorithms*.md`. Every number carries a source marker (`m:` measured by `scripts/measure_docs.py`, `c:` code constant, `x:` arithmetic, `n:` not a result); checked by `scripts/check_doc_numbers.py` in pre-commit and `tests/test_doc_numbers.py`; a recording goes stale when its code changes; bundles the experiments reuse are cached under a fingerprint of the code and libraries that made them (`scripts/bundle_cache.py`); the pending list only shrinks (§8.15) |
+| Numbers in the algorithm and evaluation docs | Results on particular data go in `docs/validation*.md`, never in `docs/algorithms*.md`. Every number carries a source marker (`m:` measured by `scripts/measure_docs.py`, `c:` code constant, `x:` arithmetic, `n:` not a result); checked by `scripts/check_doc_numbers.py` in pre-commit and `tests/test_doc_numbers.py`; a recording goes stale when its code changed and a golden of §8.11 moved, and every experiment is run once before a release; bundles the experiments reuse are cached under a fingerprint of the code and libraries that made them (`scripts/bundle_cache.py`); the pending list only shrinks (§8.15) |
 | Comment incomplete vs. code (code does more than comment says) | Extend the comment under §4.2; preserve original wording's intent |
 | Comment contradicts code (says different thing than code does) | Flag with `TODO(review)` under §4.4; do not rewrite to match code unless user explicitly says the code is authoritative |
 | `PLUGIN_INFO` | Plain English string literals; never wrap with `_()`; do not add `\n` to `description` only for launcher wrapping |

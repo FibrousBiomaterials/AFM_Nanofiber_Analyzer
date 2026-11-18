@@ -7,14 +7,16 @@ Each experiment below reproduces one group of statements in
 fingerprints of the analysis code it ran on, to ``tests/doc_measurements.json``.
 The documents cite those values by key (``<!--m:experiment.key-->``) and
 ``scripts/check_doc_numbers.py`` compares them, so a number in the documents is
-exactly what an experiment here produced, and a change to the analysis code
-marks the recording stale until the experiment is run again.
+exactly what an experiment here produced. A recording is stale, until the
+experiment is run again, when the analysis code it ran on has changed and the
+regression goldens have moved since (`check_doc_numbers.stale_experiments`).
 以下の各実験は `docs/algorithms.md` の一群の記述を現在のコードで再現し、その値を、
 実行した解析コードの指紋とともに ``tests/doc_measurements.json`` に書く。文書は
 それらの値を項目名で引用し（``<!--m:experiment.key-->``）、
 ``scripts/check_doc_numbers.py`` が照合する。そのため文書の数値は、ここの実験が
-出した値そのものであり、解析コードが変わると、実験をやり直すまで記録は古いものと
-して扱われる。
+出した値そのものである。実行した解析コードが変わり、かつその後に回帰テストの
+ゴールデンが動いていると、実験をやり直すまで記録は古いものとして扱われる
+（`check_doc_numbers.stale_experiments`）。
 
 Usage
 -----
@@ -55,6 +57,7 @@ for extra in (ROOT, ROOT / "scripts", ROOT / "tests"):
         sys.path.insert(0, str(extra))
 
 import bundle_cache  # noqa: E402
+import check_doc_numbers  # noqa: E402
 import doc_excerpts  # noqa: E402
 from bundle_cache import closure  # noqa: E402
 
@@ -4661,15 +4664,29 @@ def _read() -> dict:
             else {"snapshots": {}, "experiments": {}})
 
 
+RECORD_COMMENT = (
+    "Values the algorithm documents cite with <!--m:experiment.key-->, written by "
+    "scripts/measure_docs.py and checked by scripts/check_doc_numbers.py. Each "
+    "experiment names the snapshot of the analysis code it ran on and the digest of "
+    "the regression goldens at that time; it is stale when what that code computes has "
+    "changed and the goldens have moved. Do not edit by hand."
+)
+
+
 def record(names: Sequence[str]) -> None:
     """
     Run the experiments and write each one's values as soon as it finishes.
     実験を実行し、終わるたびにその値を書き込む。
 
     The file is re-read before every write, so two processes measuring
-    different experiments do not overwrite each other's results.
+    different experiments do not overwrite each other's results. Beside its
+    values each experiment records the code it ran on and the regression
+    goldens as they are when it finishes (`check_doc_numbers.golden_digest`),
+    the two things `check_doc_numbers.stale_experiments` later compares.
     書き込みのたびにファイルを読み直すため、別々の実験を測る 2 つのプロセスが
-    互いの結果を上書きしない。
+    互いの結果を上書きしない。各実験は値とともに、実行したコードと、終了時点の
+    回帰テストのゴールデン（`check_doc_numbers.golden_digest`）を記録する。
+    `check_doc_numbers.stale_experiments` が後で比べるのはこの 2 つである。
     """
     for name in names:
         spec = EXPERIMENTS[name]
@@ -4679,15 +4696,11 @@ def record(names: Sequence[str]) -> None:
         snap = snapshot(closure(spec["roots"]))
         snap_id = hashlib.sha256(json.dumps(snap, sort_keys=True).encode()).hexdigest()[:16]
         data = _read()
-        data["_comment"] = (
-            "Values the algorithm documents cite with <!--m:experiment.key-->, written by "
-            "scripts/measure_docs.py and checked by scripts/check_doc_numbers.py. Each "
-            "experiment names the snapshot of the analysis code it ran on; a change to what "
-            "that code computes marks it stale. Do not edit by hand."
-        )
+        data["_comment"] = RECORD_COMMENT
         data["snapshots"][snap_id] = snap
-        data["experiments"][name] = dict(description=spec["description"],
-                                         snapshot=snap_id, values=values)
+        data["experiments"][name] = dict(
+            description=spec["description"], snapshot=snap_id, values=values,
+            goldens=check_doc_numbers.golden_digest(doc_excerpts.read_worktree))
         used = {e["snapshot"] for e in data["experiments"].values()}
         data["snapshots"] = {k: v for k, v in data["snapshots"].items() if k in used}
         MEASUREMENTS.write_text(

@@ -20,11 +20,14 @@ directly after it, and this script checks each one:
 ``0.23<!--m:experiment.key-->``
     Measured. The value recorded under that key in `MEASUREMENTS`, written by
     ``scripts/measure_docs.py``. The recording stores the fingerprints of the
-    analysis code it ran on; a change to what that code computes makes every
-    value of the recording stale until it is measured again.
+    analysis code it ran on and a digest of the regression goldens (`GOLDENS`).
+    When what that code computes has changed and the goldens have moved, every
+    value of the recording is stale until it is measured again
+    (`stale_experiments`).
     実測値。``scripts/measure_docs.py`` が `MEASUREMENTS` に書いたその項目の値。
-    記録は実行したときの解析コードの指紋を持ち、そのコードの計算が変わると、
-    測り直すまでその記録の値はすべて古いものとして扱われる。
+    記録は、実行したときの解析コードの指紋と、回帰テストのゴールデン（`GOLDENS`）の
+    ダイジェストを持つ。そのコードの計算が変わり、かつゴールデンが動いていると、
+    測り直すまでその記録の値はすべて古いものとして扱われる（`stale_experiments`）。
 ``3<!--c:lib/pipeline.py::ProcParams.mask_dilation-->``
     A constant or default in the code: a module constant (``path::NAME``), a
     class attribute or dataclass field (``path::Class.name``), or a parameter
@@ -79,6 +82,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import json
 import math
 import re
@@ -105,6 +109,14 @@ DOC_PAIRS = (
 DOCS = tuple(doc for pair in DOC_PAIRS for doc in pair)
 MEASUREMENTS = "tests/doc_measurements.json"
 PENDING = "tests/doc_numbers_pending.json"
+# The files whose change means the analysis gives different numbers on the
+# bundled scans (AGENTS.md section 8.11): the arrays the pipeline stores, and
+# the values `lib/measure.py` reports from them.
+# 変われば、同梱スキャンで解析の出す数値が変わったことを意味するファイル
+# （AGENTS.md §8.11）。パイプラインが保存する配列と、そこから `lib/measure.py` が
+# 報告する値。
+GOLDENS = ("tests/strict_regression_golden.json",
+           "tests/measurement_regression_golden.json")
 
 _MARKER = re.compile(r"<!--([mcxn]):(.*?)-->")
 _NUMBER = r"[+\-−±]?\d+(?:\.\d+)?"
@@ -391,13 +403,51 @@ def load_measurements(read: Callable[[str], Optional[str]]) -> dict:
     return json.loads(text) if text else {"snapshots": {}, "experiments": {}}
 
 
+def golden_digest(read: Callable[[str], Optional[str]]) -> str:
+    """
+    Digest of what the regression goldens (`GOLDENS`) hold.
+    回帰テストのゴールデン（`GOLDENS`）が持つ内容のダイジェスト。
+
+    Each file is parsed and written out again in one fixed form before it is
+    hashed, so line endings and layout do not enter the digest: the staged
+    copy and the working copy of one golden give the same digest.
+    各ファイルは、読み取って決まった 1 つの形に書き直してからハッシュする。改行コードや
+    体裁はダイジェストに入らないので、同じゴールデンのステージ済みの写しと作業
+    ツリーの写しは同じダイジェストになる。
+    """
+    parts: Dict[str, Optional[str]] = {}
+    for rel in GOLDENS:
+        text = read(rel)
+        parts[rel] = None if text is None else json.dumps(
+            json.loads(text), sort_keys=True, separators=(",", ":"))
+    payload = json.dumps(parts, sort_keys=True)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
 def stale_experiments(measurements: dict, used: set,
                       read: Callable[[str], Optional[str]]) -> Dict[str, List[str]]:
     """
-    Experiments whose recorded analysis code has since changed what it computes.
-    記録した解析コードの計算がその後変わった実験。
+    Experiments whose analysis code and analysis results have both changed since.
+    記録の後に、解析コードと解析結果の両方が変わった実験。
+
+    A recording is stale when what a module it ran on computes has changed
+    (`doc_excerpts.computation_changes`) and the regression goldens differ from
+    those it recorded (`golden_digest`). The code says which experiments a
+    change can reach; the goldens say whether the analysis output moved at
+    all, and a change that reaches the same result another way leaves them as
+    they were. The goldens hold the bundled scans only, so a change that moves
+    a result on other data alone is not seen here (AGENTS.md section 8.15). A
+    recording without a golden digest is judged by its code alone.
+    記録が古いのは、実行したモジュールの計算内容が変わり
+    （`doc_excerpts.computation_changes`）、かつ回帰テストのゴールデンが記録時と
+    異なる（`golden_digest`）ときである。コードは変更がどの実験に届きうるかを示し、
+    ゴールデンは解析の出力がそもそも動いたかを示す。同じ結果に別の方法で到達する
+    変更では、ゴールデンは動かない。ゴールデンが持つのは同梱スキャンだけなので、
+    それ以外のデータでの結果だけを動かす変更はここでは分からない（AGENTS.md
+    §8.15）。ゴールデンのダイジェストを持たない記録は、コードだけで判定する。
     """
     out: Dict[str, List[str]] = {}
+    goldens_now = golden_digest(read)
     snapshots = measurements.get("snapshots", {})
     paths = doc_excerpts.project_code_paths(ROOT)
     # Every file is read and parsed once, and each (snapshot, module) pair is compared
@@ -425,6 +475,8 @@ def stale_experiments(measurements: dict, used: set,
     for name in sorted(used):
         exp = measurements["experiments"].get(name)
         if exp is None or exp.get("historical"):
+            continue
+        if exp.get("goldens") == goldens_now:
             continue
         snap_id = exp.get("snapshot", "")
         problems: List[str] = []

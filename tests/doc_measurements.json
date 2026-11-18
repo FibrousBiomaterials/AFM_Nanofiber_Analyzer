@@ -1,8 +1,9 @@
 {
- "_comment": "Values the algorithm documents cite with <!--m:experiment.key-->, written by scripts/measure_docs.py and checked by scripts/check_doc_numbers.py. Each experiment names the snapshot of the analysis code it ran on; a change to what that code computes marks it stale. Do not edit by hand.",
+ "_comment": "Values the algorithm documents cite with <!--m:experiment.key-->, written by scripts/measure_docs.py and checked by scripts/check_doc_numbers.py. Each experiment names the snapshot of the analysis code it ran on and the digest of the regression goldens at that time; it is stale when what that code computes has changed and the goldens have moved. Do not edit by hand.",
  "experiments": {
   "bg_fill": {
    "description": "Square holes of 21 px cut into fiber-free background of the tunicate scan: how far the smoothed background estimate inside each hole, and on the genuine background beside it, moves from the estimate made with those pixels known, for each combination of detrending (none, plane, quadratic) and filler (nearest background pixel, OpenCV Navier-Stokes inpainting with radius 3).",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "3e42df8aeed5c97a",
    "values": {
     "hole_size_px": 21,
@@ -47,6 +48,7 @@
   },
   "bg_legacy_halo": {
    "description": "A synthetic 512 x 512 scan: a plane rising along X at the steepest slope of the bundled scans (0.24 nm/px), one straight fiber across it (Gaussian section, 8 nm high, sigma 3 px) and 0.05 nm noise, calibrated by the default background method of release 1.0.0 (run from a worktree of tag v1.0.0) and of the current code: the highest and lowest calibrated background beside the fiber.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "current.beside_max_nm": 0.18304,
@@ -61,6 +63,7 @@
   },
   "bg_stats": {
    "description": "Per bundled scan: the slope of the least-squares plane through the raw heights, the median width of the dilated trendfill fiber mask (twice the distance to its edge along its medial axis), the height the plane falls across that width, the peak-to-peak of the quadratic part left after the plane, and the median calibrated height under the default skeleton.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.drop_across_hole_nm": 0.038692,
@@ -82,6 +85,7 @@
   },
   "bg_timing": {
    "description": "Wall time of the three background methods on the bundled 1024 x 1024 Bruker scan, second of two runs, on the machine that ran this script.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "15d9aea744d4147e",
    "values": {
     "image_cols": 1024,
@@ -96,6 +100,7 @@
   },
   "border_drift": {
    "description": "Per bundled scan, thinned without and with the replicated border: the lateral distance from each skeleton point to the height crest along the point's normal (within half the fiber's apparent width), for the last 5 points of tracks that end within 2 px of the image edge and for points more than 10 px from either end.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "padded.end_median_px": 1.125,
@@ -108,6 +113,7 @@
   },
   "border_margins": {
    "description": "The skeleton of every test input with the two border margins of the skeletonizer swapped one at a time: the branch pruning skipping endpoints within 2 px of the border instead of branch_length, and the spur pruning sparing arms within branch_length of the border instead of 2 px. The skeleton pixels that change and how far from the border the farthest one lies.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.branch_margin_2.changed_px": 8,
@@ -126,6 +132,7 @@
   },
   "border_padding": {
    "description": "Thinning with and without the replicated border, compared outside the border band, on the binarized masks of the three bundled scans.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "identical_inside_band": 3,
@@ -134,6 +141,7 @@
   },
   "branch_pruning": {
    "description": "The height-gated pruning of Skeletonizer (set_low_bp_coor to prune_branches) on the default binarized mask of each bundled scan: the calibrated height at the branch points of the first skeleton and the share at or above bp_height, the pixels the pruning removes at the default bp_height and with every branch point treated as low, and how many pixels of the final skeleton change when the pruning is skipped or every branch point is treated as low, and when it is skipped with prune_short_spurs also switched off.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.all_low.final_changed_pixels": 0,
@@ -168,6 +176,7 @@
   },
   "closing_gaps": {
    "description": "skimage.morphology.closing with its default footprint on two straight bands of equal thickness separated by a gap: whether it joins them into one component, for thicknesses 1, 3 and 5 px and gaps 1, 2 and 3 px.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "44136fa355b3678a",
    "values": {
     "thick1.gap1.joined": 0,
@@ -186,6 +195,7 @@
   },
   "crest_height": {
    "description": "Every traceable skeleton component of every test input, its default centerline placed as KinkDetector places it: at the reliable points, the crest height (CenterlineResult.crest) minus the calibrated height read at the centerline, in nm and as a share of the crest height (median and 90th percentile), and the smallest difference.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.median_nm": 0.023495,
@@ -210,6 +220,7 @@
   },
   "crest_noise": {
    "description": "A fiber point-sampled from a cylinder 2 nm in diameter dilated by a 15 nm spherical apex (_noisy_cylinder_scene), straight at 20 degrees to the rows and along an arc of radius 4 W, at each apparent width in CREST_NOISE_WIDTHS_PX and pixel noise in CREST_NOISE_NM (3 seeds); the default centerline is placed on the pixel track of the true axis. Per shape, width and noise: the median crest height over the middle 60 % of the fiber minus the true height, averaged over the seeds.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "f523c2335781071a",
    "values": {
     "arc.W16.n0.05_nm": 0.018631,
@@ -256,6 +267,7 @@
   },
   "curvature_noise_floor": {
    "description": "A straight synthetic fiber 2 nm high with a Gaussian cross-section 20 nm wide at half maximum, 1200 nm long at 20 degrees to the rows, imaged at 2, 5 and 10 nm pixels with Gaussian height noise of 0, 0.05 and 0.15 nm (5 noise draws each, seeded). The default centerline is placed on the pixel track of the true axis, and reported is the mean curvature of measure.fiber_mean_curvature (100 nm window) in rad/um, averaged over the draws, with the smallest and largest draw, and the apparent width W of the noise-free image at each pixel size.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "98373742abfe79e9",
    "values": {
     "px10.noise0.05.mean": 0.374187,
@@ -310,6 +322,7 @@
   },
   "cut_end_skirt": {
    "description": "On every test input, the tracks at least 5 W long of the default centerline: the crest height near each end, in steps of W/4, over the track's median crest height (away from 2 W at each end), pooled by median over the ends cut at a crossing (within 3 px of a branch point) and over the free ends; the ratio at the end and the first distance (in W) where the cut-end ratio is 1.05 or less.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.cut.back_within_widths": 0.5,
@@ -331,6 +344,7 @@
   },
   "diagonal_ybranch": {
    "description": "On the default skeleton of each test input: the branch points imp_tools.branchedPoints finds, those only the four rotations of the diagonal Y kernel find, and the number of 8-connected skeleton neighbours of each of the latter.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.branch_points": 75,
@@ -346,6 +360,7 @@
   },
   "end_loss": {
    "description": "One straight fiber 600 nm long (a cylinder of diameter 3 nm under a 10 nm spherical apex, with square ends or ends tapering to 0.3 of the diameter over 20 nm) in the middle of a 900 nm scan at 1, 2 and 4 nm pixels, with the background of scripts/kink_rule_sweep.py and 0.05 nm pixel noise, 3 seeds each, analyzed at the defaults. Each end of the traced fiber is projected onto the true axis; its deficit is the distance from there to the true end, positive when the measured centerline stops short and negative when it runs past. Reported per pixel size and end shape: the range of the end deficits in nm and in apparent widths, and the range of the contour length error.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "px1.taper0.end_deficit_nm_range": [
@@ -426,6 +441,7 @@
   },
   "frame_margin": {
    "description": "The frame test of measure.isolated_fiber_flags on the traced fibers of each test input, with the frame widened to a margin of 0 to 5 px: how many fibers reach it, and how many verdicts differ from the margin of 0 px the code uses; the fibers a margin adds are checked against FRAME_MARGIN_ADDED_INSPECTED.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "NDTOC.fibers": 142,
@@ -473,6 +489,7 @@
   },
   "hough_edge_map": {
    "description": "Per bundled scan: whether the final binarized mask is identical when the linearity filter builds each component's edge map from the component alone (the current code) or, as up to release 1.0.0, from the whole working mask inside the component's bounding box.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.identical": 1,
@@ -484,6 +501,7 @@
   },
   "isolation_length_bias": {
    "description": "Straight segments with log-normal lengths (median ISOLATION_MEDIAN_LENGTH, log-sigma ISOLATION_LOG_SIGMA) placed at uniformly random centres and angles in a unit square, ISOLATION_SCENES scenes per count in ISOLATION_COUNTS: the median length of every segment against that of the isolated ones (no crossing with another segment and wholly inside the square), and the share isolated, per count.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "44136fa355b3678a",
    "values": {
     "n150.all_median": 0.080101,
@@ -502,6 +520,7 @@
   },
   "kaplan_meier_length": {
    "description": "Straight segments with log-normal lengths (median ISOLATION_MEDIAN_LENGTH, log-sigma ISOLATION_LOG_SIGMA) at uniformly random centres and angles over a region extending 0.6 beyond each side of the unit square, KAPLAN_MEIER_DENSITIES segments per unit area, KAPLAN_MEIER_SCENES scenes each; every segment is cut at the square and at each crossing with another segment, except a fraction KAPLAN_MEIER_RESOLVED of crossings (one decision per pair) that connection rejoins. Per density and fraction: the quartiles and 90th percentile of the generating distribution, of the pieces with both ends real (inside, not at a crossing), and of measure.kaplan_meier_length_weights over every piece with two, one or no real end; and the median of all pieces.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "98373742abfe79e9",
    "values": {
     "d150.r0.isolated.q25": 0.042494,
@@ -586,6 +605,7 @@
   },
   "kink_angle_on_arcs": {
    "description": "A corner of known turning (40, 60 and 90 degrees) placed on a fiber that curves at radius ARC_KINK_RADII_W apparent widths (ARC_KINK_ARC_TURN_DEG degrees on each side of the corner, then straight), curving the same way as the corner or the opposite way, and on a straight fiber; the fiber and background of scripts/kink_rule_sweep.py at a designed width of 8 px, 0.05 nm pixel noise, seeds ARC_KINK_SEEDS, analyzed at the defaults. The stored angle of the kink nearest the corner (within 1.5 W) minus the interior angle between the tangents at the corner, per radius and sense; and 2 W / R, the fiber's own turning between arm centres 2 W apart. Per bundled scan analyzed at the defaults: the fiber's own turning between the arms of each kink (read on the flanks of the kink rule, counted when both curve the same way).",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "NDTOC.kinks": 63,
@@ -659,6 +679,7 @@
   },
   "kink_neighbour_flanks": {
    "description": "At each kink both people called clear on the three bundled scans (the consensus marks of kink_reference_human), how far each flank turns over its length W in the window's sense, read at the position of the largest window turning within W/2 of the mark on the nearest centerline, and whether the rule at the defaults reports a bend within W of the mark. Marks with no centerline within W, or whose position lies within the end margin, are counted apart. A flank turns the same way, or the other way, when it turns by more than 10 degrees in that sense.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "both_same": 5,
@@ -674,6 +695,7 @@
   },
   "kink_reference": {
    "description": "Score the kink rule, its variants and the earlier polyline rule against the visual reference of clear kinks on the three bundled scans (scripts/kink_reference_score.py procedure).",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "clear_marks": 53,
@@ -919,6 +941,7 @@
   },
   "kink_reference_human": {
    "description": "Score the kink rule at the defaults against the kinks two people marked on the three bundled scans (docs/data/human_kink_marks.csv), by the procedure of scripts/kink_reference_score.py: against each person's clear marks, and against the marks both called clear, every other mark then counting as ambiguous. Two people's marks are the same place when paired one to one, nearest first, within the scan's median apparent width. A missed mark is sorted by the first test it passes: no centerline within W, within the end margin of its centerline, within W of the image edge, within 2 W of a branch point, within 1.5 W of another clear mark, otherwise elsewhere.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "NDTOC.A.ambiguous": 10,
@@ -1168,6 +1191,7 @@
   },
   "kink_rule_sweep": {
    "description": "Synthetic kinked, straight, arc and sine fibers over apparent width and pixel noise, scored against the analytic centerline (scripts/kink_rule_sweep.py with the base rule and a 3-sigma noise floor).",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "W16.arm_error_deg": 2.65,
@@ -1342,6 +1366,7 @@
   },
   "length_floor_completeness": {
    "description": "Straight synthetic fibers (scripts/kink_rule_sweep.py fiber and background, 0.05 nm pixel noise) of every length in LENGTH_FLOOR_LENGTHS_PX, drawn at every angle in LENGTH_FLOOR_ANGLES_DEG and offset in LENGTH_FLOOR_OFFSETS_PX, one scan per apparent width in LENGTH_FLOOR_WIDTHS_PX and length, analyzed at the defaults. A fiber counts as kept when a traced centerline lies on its axis over more than half its points. Reported per width: the median measured apparent width, measure.length_floor_nm in pixels, the shortest length kept at every angle and offset, the longest length lost at any, how many fibers at or above the floor were lost, and the longest measured length of a kept fiber drawn shorter than the floor.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "fibers_per_scan": 30,
@@ -1386,6 +1411,7 @@
   },
   "line_steps": {
    "description": "Per bundled scan: the median absolute step between the median heights of adjacent rows (scan lines), each row's median taken over its lowest 60 % of pixels so that fibers stay out of it, after a least-squares plane is removed, for the raw scan and for the image calibrated by trendfill and by tophat at their defaults.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.raw_nm": 0.041753,
@@ -1413,6 +1439,7 @@
   },
   "linearity_axis_fibers": {
    "description": "The fibers of LINEARITY_AXIS_FIBERS in their original orientation and with the whole raw scan rotated (cubic interpolation, edges extended) so the principal axis of the fiber's component runs along the columns and, after a further exact 90 degree turn, along the rows. Per view, after background calibration and segmentation at the defaults: the component's area before the linearity filter, whether the filter tests it (area under 1000 px), the s_ratio the filter computed for it, its Canny outline pixels in the bounding box padded by one pixel and how many of them lie on the box's sides (the part of the outline that the filter's one-pixel margin lets Canny find), and whether more than half of it is in the final binarized mask.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "a.columns.area": 1349,
@@ -1459,6 +1486,7 @@
   },
   "linearity_filter": {
    "description": "The linearity filter of Segmenter (_remove_nonlinear_objects) at the defaults: on every test input, the largest s_ratio and how many components score above 1, and the components it removes whose largest extent reaches h_length, against the visual labels in LINEARITY_REMOVED_INSPECTED and LINEARITY_FIBER_PIECES; on synthetic bands (a line about 120 px long, horizontal or at 45 degrees, dilated three times with the 4-connected element), the Canny edge pixels found in the bounding-box crop with and without the filter's one-pixel margin, the s_ratio and whether the band is kept.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "band.diagonal.area": 620,
@@ -1480,6 +1508,7 @@
   },
   "linearity_large_exemption": {
    "description": "The linearity filter of every test input as in the code (components of 1000 px or more are kept untested) and with every component tested: how many components reach 1000 px, how many of them testing would remove, and the wall time of the filter each way (mean of two runs after a warm-up, on the machine that ran this script).",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.all.seconds": 5.974709,
@@ -1498,6 +1527,7 @@
   },
   "linearity_rotated_rods": {
    "description": "Synthetic rods with round ends (stadium shapes) of each length in ROD_LENGTHS and width in ROD_WIDTHS, drawn at every angle in ROD_ANGLES with ROD_OFFSETS random sub-pixel placements (seeded), each passed alone through the linearity filter at the defaults: how many of the placements it keeps.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "placements": 57,
@@ -1545,6 +1575,7 @@
   },
   "local_threshold": {
    "description": "Binarization with the global threshold alone against the default global AND local threshold, everything else at the defaults, on each bundled scan: the height of the pixels the local threshold removes and keeps relative to the highest height within 3 px, the mean mask width (final mask area over final skeleton length), the 8-connected components of the final mask, and the branch points of the final skeleton.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.both.branch_points": 75,
@@ -1575,6 +1606,7 @@
   },
   "loop_candidates": {
    "description": "Every region enclosed by the skeleton that collapse_skeleton_loops considers on the bundled scans (at most max_loop_area, clear of the border): the median height inside over the median height of the skeleton ring around it, the branch points on that ring, and the visual label in LOOP_LABELS.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "all.branch_points_range": [
@@ -1610,6 +1642,7 @@
   },
   "loop_sliver": {
    "description": "Synthetic 200 x 200 scans of two straight fibers (Gaussian section, 4 nm high, sigma 1.5, 2 or 3 px) that part over 30 px into a lens-shaped gap of 4-12 px and rejoin, with 0.05 nm noise and a slight slope, run through the default pipeline: the enclosures collapse_skeleton_loops considers (at most max_loop_area), the median height inside over that of the skeleton ring around them, and how many are filled.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "candidates": 4,
@@ -1623,6 +1656,7 @@
   },
   "low_threshold_removal": {
    "description": "remove_low_component at the default low_threshold on each test input: the components it tests and removes, the range of the removed components' maximum height, the lowest maximum among the kept ones and how many kept ones stay below LOW_THRESHOLD_KEPT_LOW_NM, the removed ones by the visual judgement in LOW_THRESHOLD_REMOVED_JUDGED; and, with low_threshold switched off, how many skeleton pixels and branch points inside the default binarized mask change and which pieces kept only then touch a fiber the default keeps (pieces of 20 px or more).",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.kept_below_limit": 7,
@@ -1689,6 +1723,7 @@
   },
   "narrow_axis_fibers": {
    "description": "Three straight fibers point-sampled from a cylinder dilated by a 15 nm spherical apex (diameter 4 or 8 nm at 5 nm pixels, 2 nm at 2 nm pixels), on a 320 x 320 px scan with a plane tilt, at each angle to the scan lines in NARROW_AXIS_ANGLES_DEG and each axis position across the pixel grid in NARROW_AXIS_PHASES_PX, with 0.05 or 0.2 nm pixel noise: per fiber, method and noise, the smallest share of the axis pixels the background fiber mask covered and the smallest median calibrated height on the axis over the true height, taken over all angles and positions; and each fiber's apparent width.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "mask_min": 1.0,
@@ -1725,6 +1760,7 @@
   },
   "noise_warning": {
    "description": "pipeline.fiber_snr and pipeline.noise_warnings: the typical fiber height over the pixel noise of every test input analyzed at the defaults, and, on the straight fiber of crest_noise (_noisy_cylinder_scene, seed 0) at apparent widths of 8 and 24 px and each pixel noise in WIDTH_NOISE_NM, analyzed through process_file at the defaults and with tophat at three widths, the ratio read, whether the warning was raised, the skeleton pixels, the background warnings raised and the median apparent width.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.snr": 42.071142,
@@ -1865,6 +1901,7 @@
   },
   "ribbon_tip_swing": {
    "description": "Twisted ribbons of scripts/synthetic_suite.py (rectangular sections 16 x 3, 10 x 3 and 6 x 2 nm, twist period 300 nm, 2 nm pixels) drawn without noise, tilt or roughness and dilated by a spherical apex of radius 0, 10 and 40 nm (0: no dilation). Each centerline method is placed on the pixel track of the true axis; reported is the RMS lateral distance from the true axis over the middle 80 % of the track, in nm, and the ratio of each height-reading line to the crest.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "f523c2335781071a",
    "values": {
     "10x3.R0.centroid.rms_nm": 0.661363,
@@ -1931,6 +1968,7 @@
   },
   "ridge_hysteresis": {
    "description": "On the bundled tunicate scan (5 um): the ridge filter of _recover_missed_ridges and the calibrated heights themselves, each thresholded by hysteresis with the Otsu high and triangle low levels; the fraction of the image each covers, and the fraction of the ridge response below its low level on pixels at least 10 px from the default binarized mask.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "height.cover_percent": 11.729919,
@@ -1940,6 +1978,7 @@
   },
   "ridge_recovery_bundled": {
    "description": "Ridge recovery switched on for each bundled scan at its recorded scan size: the candidate components outside the thresholded mask whose skeleton reaches ridge_min_length_nm, how many of them touch that mask (the earlier rule dropped those), and the longest.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.kept": 0,
@@ -1958,6 +1997,7 @@
   },
   "ring_components": {
    "description": "On every test input analyzed at the defaults: the skeleton components entering Skeletonizer.remove_small_and_ring, those with no endpoint (which the step removes) and their pixels in total, checked against RING_COMPONENTS_INSPECTED.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.components": 25,
@@ -1976,6 +2016,7 @@
   },
   "savgol_axis": {
    "description": "Every test input calibrated by the default trendfill with the Savitzky-Golay smoothing of the background along X only (the code) and along X and then Y: on the background (pixels more than 5 px from the union of the two binarized masks), the spread of the per-row and per-column medians and of the background pixels.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.x_and_y.background_std_nm": 0.470643,
@@ -2000,6 +2041,7 @@
   },
   "section_width_limit": {
    "description": "The share of centerline points located on their own cross-section (Fiber.line_reliable) on each test input, with the width limit of centerline._refine applied to the full width at half maximum, as the code does, and to each half (0.75 widths from the crest); the fiber of the tunicate scan that loses the most points is checked against SECTION_MOST_LOST_INSPECTED.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "NDTOC.gained": 0,
@@ -2023,6 +2065,7 @@
   },
   "spline1d_axis": {
    "description": "Every test input calibrated by trendfill and by spline1d along 'x' and along 'y', everything else at the defaults: on the background (pixels more than 5 px from the union of the three binarized masks), the spread (standard deviation) of the per-row and per-column medians of the calibrated height, and of the background pixels themselves.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.trendfill.background_std_nm": 0.479185,
@@ -2056,6 +2099,7 @@
   },
   "spline1d_axis_rotated": {
    "description": "Every test input rotated by 90 degrees (np.rot90, so its scan lines become columns and its line offsets vertical stripes) and calibrated by trendfill and by spline1d along 'x' and along 'y', everything else at the defaults: on the background (pixels more than 5 px from the union of the three binarized masks), the spread of the per-row and per-column medians, as in spline1d_axis.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.trendfill.column_median_std_nm": 0.045952,
@@ -2080,6 +2124,7 @@
   },
   "spline1d_trend_order": {
    "description": "Every test input calibrated by spline1d as in the code (the trend added back before the Savitzky-Golay smoothing) and with the trend added back after it, as trendfill does: the largest difference in calibrated height.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.max_difference_nm": 8.9e-05,
@@ -2089,6 +2134,7 @@
   },
   "stripe_threshold": {
    "description": "stripe_noise.evaluate_scan_lines at the default threshold on the raw heights of each test input, as GUI01 screens them: the flagged line boundaries (checked against STRIPE_GLITCH_BOUNDARIES_INSPECTED), the smallest flagged step, and the largest and 99th-percentile step among the boundaries that are not flagged.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "d8ffaa1e72dfce07",
    "values": {
     "NDTOC.flagged": 0,
@@ -2108,6 +2154,7 @@
   },
   "synthetic_centerline": {
    "description": "On the synthetic suite of scripts/synthetic_suite.py (groups A-F: 60 scans, 2 nm pixels, W = 8 px; group G: twisted ribbons): the distance of each centerline method from the true centerline, the contour-length error, the same-sense corner pairs, and the lateral offset on the ribbons.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "G_circle_d3.max_nm.quarter_max": 3.581626,
@@ -2248,6 +2295,7 @@
   },
   "synthetic_height": {
    "description": "Three parallel straight fibers of known height (cylinders of diameter 2, 4 and 8 nm under the synthetic suite's 15 nm spherical apex, point-sampled from the analytic dilated surface, with the suite's tilt, roughness and line noise) in 320 x 320 px scans at 1, 2, 5 and 10 nm pixels and 0.05 and 0.2 nm pixel noise, analyzed with each background method at its defaults. Per condition: the median height of the pixels nearest the true axes in the fiber-only image (what the pixel grid can show), the median of that minus the calibrated height at the same pixels (what background calibration removed), the median of the traced fibers' height samples (measure.height_sample_mask), each over the true height, and the traced length over the true length. Axes are read on their middle 80 %.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "any.caught": 14,
@@ -2772,6 +2820,7 @@
   },
   "synthetic_height_orientation": {
    "description": "The scenes of synthetic_height at 0.05 nm pixel noise, drawn with the fibers running at 0, 23, 45 and 90 degrees to the scan lines (23 is synthetic_height itself): per orientation, method, pixel size and diameter, what background calibration removed on the axes, the traced fibers' median height (both over the true height), the traced length over the true length and the number of background warnings; and per orientation and method the largest removal at 2, 5 and 10 nm pixels and the range of removals at 1 nm pixels.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "a0.px1.d2.peak": 0.996093,
@@ -3761,6 +3810,7 @@
   },
   "synthetic_kinks": {
    "description": "The kink rule on the synthetic suite of scripts/synthetic_suite.py (default centerline): the excess read at isolated corners, corners found in zigzags, bends reported on straight fibers, arcs, meanders, crossings and branches, the earlier polyline rule on the arcs and meanders, and corners near an end judged at an end margin of 1.5 W and 2.0 W.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "arcs.reported": 0,
@@ -3825,6 +3875,7 @@
   },
   "test_suite_bend": {
    "description": "The bent fiber of tests/conftest.write_synthetic_fiber_txt (two segments meeting at a 146.5 degree interior angle, a 33.5 degree turn), analyzed as tests/test_pipeline.test_detects_the_drawn_kink does (tophat, kinkangle_deg 155): the excess turning the rule reads at the bend.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "drawn_turn_deg": 33.453309,
@@ -3834,6 +3885,7 @@
   },
   "thinning_example": {
    "description": "The five-pixel band with a one-pixel hole and a two-pixel bump drawn in section 3.1, thinned by skimage.morphology.thin.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "11406187a7bc8d87",
    "values": {
     "band_width_px": 5,
@@ -3846,6 +3898,7 @@
   },
   "tophat_border": {
    "description": "A 256 x 256 plane rising along X at the steepest slope found on the bundled scans (0.24 nm/px), opened with the default 25-px ellipse: the largest residual within 12 px of the uphill edge, opening the raw ramp (before the fix) and the detrended ramp (the current code).",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "3e42df8aeed5c97a",
    "values": {
     "detrended.uphill_band_max_nm": 0.293485,
@@ -3857,6 +3910,7 @@
   },
   "track_ends": {
    "description": "Per bundled scan: the fraction of traced track ends that lie within 3 px of a branch point of the skeleton.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "NDTOC.ends": 284,
@@ -3869,6 +3923,7 @@
   },
   "turn_maxima": {
    "description": "The visual reference of kink_reference scored with the rule as it is and with its second kind of candidate (maxima of |T| away from any accepted curvature maximum at least as strong) disabled: the clear kinks found and the unmatched bends of each.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "clear_kinks_lost_without": 2,
@@ -3880,6 +3935,7 @@
   },
   "weak_bend_noise": {
    "description": "The kink-free families of scripts/kink_rule_sweep.py (straight, arc of 60 degrees, sine) at apparent widths 5, 8 and 16 px, pixel noise 0.05 and 0.15 nm and seeds 1 and 2, analyzed at the defaults; every traced line is judged with the search floor lowered to 1 degree, and the excess turning of every bend found where kinks are judged is pooled: its 95th and 99th percentiles, and how many bends per micrometre of contour reach 10, 20 and 30 degrees.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "bends": 1441,
@@ -3893,6 +3949,7 @@
   },
   "weak_bend_reapply": {
    "description": "On the three bundled scans analyzed at the defaults and again at each threshold in REAPPLIED_KINK_THRESHOLDS_DEG: the bends stored below the default threshold, and, for each threshold, the kinks measure_bundle selects from the default bundle with kink_threshold_deg against those of the analysis at that threshold -- how many fibers carry the same kink points, how many kinks there are, how many of the kinks at the same points read a different angle (by more than 0.01 degree), the largest such difference, and how many fibers carry the same unjudged bends.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "NDTOC.stored_kinks": 63,
@@ -3988,6 +4045,7 @@
   },
   "width_noise": {
    "description": "The straight fiber of crest_noise (_noisy_cylinder_scene) at each apparent width in WIDTH_NOISE_WIDTHS_PX and pixel noise in WIDTH_NOISE_NM (3 seeds): the apparent width place_centerline measures and the share of centerline points located on their own cross-section, averaged over the seeds.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "f523c2335781071a",
    "values": {
     "W16.n0.05.located_percent": 100.0,
@@ -4034,6 +4092,7 @@
   },
   "y_branch_kink": {
    "description": "On the bundled higher-plant TOC scan, the bend the earlier polyline rule reports on the skeleton track below the Y-branch near pixel (288, 695) (viewed on the height image, 2026-09-30: two fibers join and the trunk below does not bend), and the kinks the current rule reports within one apparent width of it.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "2e675421156ef30f",
    "values": {
     "current_kinks_within_one_width": 0,
@@ -4042,6 +4101,7 @@
   },
   "zoomed_background": {
    "description": "Synthetic zoomed scans built from the bundled scans: the default calibrated image smoothed by a 1-px Gaussian is the true height and the subtracted background the background; tiles are upsampled by each zoom factor (same field, finer pixels), white noise at the scan's own level is added, and trendfill, spline1d and tophat are run at their defaults through all four stages. Per run: the median and 10th percentile of calibrated / true height at the default skeleton, the 95th percentile of the background error, and whether background_warnings fired; a warned run is analyzed again as the warning suggests.",
+   "goldens": "a8d59ae64291a388",
    "snapshot": "e83426f36f96f44c",
    "values": {
     "NDTOC.noise_nm": 0.064286,

@@ -28,8 +28,12 @@ images.
 Every number is produced by an experiment of `scripts/measure_docs.py`, named
 in the text, and carries a hidden marker that `scripts/check_doc_numbers.py`
 compares with the recording in `tests/doc_measurements.json`. When the code an
-experiment ran on changes what it computes, the check fails until the
-experiment is run again (AGENTS.md §8.15).
+experiment ran on has changed what it computes and the regression goldens of
+the bundled scans (`tests/strict_regression_golden.json`,
+`tests/measurement_regression_golden.json`) have moved since the experiment
+ran, the check fails until the experiment is run again. The goldens hold the
+bundled scans only, so a change that moves a result on synthetic scans or at
+other settings alone is not caught by this check (AGENTS.md §8.15).
 
 ## 1. Background calibration
 
