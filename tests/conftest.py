@@ -317,11 +317,90 @@ def pump_until(app, predicate, timeout: float = 180.0, interval: float = 0.01) -
         time.sleep(interval)
 
 
+def window_is_gone(app) -> bool:
+    """
+    Report whether a Tk root window no longer exists.
+    Tk のルートウィンドウがもう存在しないかどうかを返す。
+
+    Asks Tk instead of trusting that ``destroy()`` was called: ``destroy()``
+    can raise part-way and leave the window open.
+    ``destroy()`` を呼んだことを当てにせず、Tk に尋ねる。``destroy()`` は途中で
+    例外を出し、ウィンドウを開いたまま残すことがある。
+
+    Parameters
+    ----------
+    app
+        Tk root window, destroyed or not.
+        破棄済みかどうかを問わない Tk のルートウィンドウ。
+    """
+    import tkinter as tk
+
+    try:
+        return not int(app.tk.call("winfo", "exists", "."))
+    except tk.TclError:
+        # Tk refuses every window command once the application is destroyed.
+        # アプリケーションの破棄後、Tk はウィンドウへのコマンドをすべて拒否する。
+        return True
+
+
+def close_window(app) -> bool:
+    """
+    Destroy a window, by force when ``destroy()`` leaves it open.
+    ウィンドウを破棄する。``destroy()`` で閉じなかった場合は強制的に閉じる。
+
+    tkinter's ``destroy()`` cleans up the child widgets first and destroys the
+    window last, so an exception from one child's cleanup stops it before the
+    window is destroyed. That happens, for example, when a callback a child
+    scheduled was cancelled through another widget: its Tcl command is then
+    deleted twice, and the second deletion raises. The window would stay, with
+    everything it holds, until the test process ends, so it is destroyed here
+    by the Tcl command, which does not go through tkinter's cleanup.
+    tkinter の ``destroy()`` は子ウィジェットの後始末を先に行い、ウィンドウ本体を
+    最後に破棄する。そのため、子の後始末が例外を出すと、ウィンドウを破棄する前に
+    止まる。例えば、子が予約したコールバックを別のウィジェット経由で取り消した
+    場合、その Tcl コマンドは 2 回削除され、2 回目が例外になる。ウィンドウは、
+    保持しているものすべてとともにテストプロセスの終了まで残ってしまうので、
+    ここで tkinter の後始末を通らない Tcl のコマンドで破棄する。
+
+    Parameters
+    ----------
+    app
+        Tk root window to close.
+        閉じる Tk のルートウィンドウ。
+
+    Returns
+    -------
+    bool
+        True when ``destroy()`` left the window open and it was closed by force.
+        ``destroy()`` でウィンドウが残り、強制的に閉じた場合に True。
+    """
+    try:
+        app.destroy()
+    except Exception:
+        # Whether the window is gone is checked below; the exception alone does
+        # not say, because destroying an already destroyed window raises too.
+        # ウィンドウが消えたかどうかは下で確かめる。破棄済みのウィンドウの破棄も
+        # 例外を出すので、例外だけでは判断できない。
+        pass
+    if window_is_gone(app):
+        return False
+    try:
+        app.tk.call("destroy", ".")
+    except Exception:
+        pass
+    return True
+
+
 @pytest.fixture
 def tk_app():
     """
     Construct GUI plugin windows and guarantee they are destroyed afterwards.
     GUI プラグインのウィンドウを生成し、終了時に確実に破棄する。
+
+    A window that ``destroy()`` leaves open is closed by force and fails the
+    test that built it, so windows cannot pile up unnoticed over a test run.
+    ``destroy()`` で閉じなかったウィンドウは強制的に閉じ、それを作ったテストを
+    失敗にする。テスト実行の間にウィンドウが気づかれずに溜まることを防ぐ。
 
     Returns
     -------
@@ -345,13 +424,19 @@ def tk_app():
 
     yield _make
 
-    for app in apps:
-        try:
-            app.destroy()
-        except Exception:
-            # A test that already failed may leave a half-torn-down window;
-            # do not mask the real failure with a teardown error.
-            pass
+    # A test that already failed may leave a half-torn-down window, and an
+    # exception from destroying it must not mask the real failure; only a
+    # window that is still open afterwards is reported.
+    # 既に失敗したテストは、破棄しかけのウィンドウを残すことがある。その破棄の
+    # 例外で本来の失敗を隠してはならない。報告するのは、破棄の後も開いたままの
+    # ウィンドウだけである。
+    left_open = [type(app).__name__ for app in apps if close_window(app)]
+    if left_open:
+        pytest.fail(
+            "destroy() left these windows open, and they were closed by force: "
+            + ", ".join(left_open),
+            pytrace=False,
+        )
 
 
 @pytest.fixture

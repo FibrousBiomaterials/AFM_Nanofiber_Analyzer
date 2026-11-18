@@ -76,7 +76,9 @@ dependencies = [
 # pytest-xdist parallelizes the slow full-size regression tests across CPU
 # cores (`pytest -n auto`), which is the main lever for shortening the strict
 # regression suite; see [tool.pytest.ini_options] addopts.
-dev = ["pytest", "pytest-xdist", "Babel", "ruff"]
+# pytest needs the `faulthandler_exit_on_timeout` setting used below; it was
+# checked with 9.1.1.
+dev = ["pytest>=9.1", "pytest-xdist", "Babel", "ruff"]
 # Sphinx renders the lib/ docstrings into the API reference under docs/.
 # Napoleon (NumPy-style parsing) ships with Sphinx; furo is the HTML theme.
 # myst-parser renders the Markdown narrative pages (docs/algorithms.md).
@@ -118,6 +120,14 @@ testpaths = ["tests", "lib"]
 # is output-equivalent to serial. Override with `-n0` for serial runs, e.g.
 # when debugging a single test and you want live, ordered output.
 addopts = ["-n", "auto", "--doctest-modules"]
+# A test still running after this many seconds ends its test process, after
+# the stack of every thread is written to the error output. A hung GUI test
+# otherwise keeps its windows, and everything else its process holds, until
+# someone kills it. The limit covers one test with its setup and teardown;
+# pytest drops it once the test has failed, so the teardown of a failed test
+# is not covered.
+faulthandler_timeout = 600
+faulthandler_exit_on_timeout = true
 markers = [
     "slow: tests that run the whole pipeline, over a full-size real scan or a generated one",
 ]

@@ -73,6 +73,10 @@
           {
             "type": "command",
             "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.sh\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/audit_prime.py\""
+          },
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.sh\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/pytest_guard.py\""
           }
         ]
       }
@@ -84,6 +88,15 @@
           {
             "type": "command",
             "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.sh\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/question_first.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.sh\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/pytest_guard.py\""
           }
         ]
       }

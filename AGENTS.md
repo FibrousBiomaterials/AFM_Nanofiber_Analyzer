@@ -1514,6 +1514,57 @@ after an edit of one of these modules. Like the document fingerprints, the
 record shows that a review was recorded, not that anyone looked; that part is
 this rule. Do not bypass the check with `--no-verify`.
 
+### 8.19 Running the tests
+
+`pytest` with no arguments runs the whole suite in parallel workers
+(`addopts = ["-n", "auto", ...]` in `pyproject.toml`), and the GUI tests in it
+open real windows on the screen of whoever is working at the PC. Choose the
+tests by what the change touches; do not run the whole suite by habit.
+
+The reason is what happened without the rule. A change to the shared `tk_app`
+fixture in `tests/conftest.py` was first run on the whole suite, in the
+background and unannounced. The run hung on one test, the user reported GUI02
+windows left open in large numbers and unresponsive, and the PC was powered off
+41 minutes later.
+
+A test run needs the user's approval, given in the conversation before it
+starts, when
+
+- it names no test file or names a folder, so the whole suite or a whole
+  folder runs;
+- it runs tests of a file that opens windows while the parallel workers are on
+  (`-n 0` turns them off, so one window is open at a time); or
+- it runs more than 30 tests of files that open windows, even one at a time.
+
+`check.py --pin` and `scripts/release.py prepare` without `--skip-checks` start
+the whole suite themselves and need the same approval. Before asking, say what
+will run, that windows will open, and roughly how long it takes. Named test
+files that open no window, and up to 30 tests of window-opening files with
+`-n 0`, run without asking.
+
+After changing `tests/conftest.py`, a fixture, or code that opens or closes a
+window, run one test first and confirm that its window is gone when the test
+ends, before running more.
+
+Two safeguards in the suite itself hold however the tests are started. The
+`tk_app` fixture in `tests/conftest.py` asks Tk whether each window is gone
+after `destroy()`; a window left open is closed by force (`close_window`) and
+fails the test that built it, so windows cannot pile up unnoticed. And a test
+still running after `faulthandler_timeout` seconds (`[tool.pytest.ini_options]`
+in `pyproject.toml`) ends its test process, so a hung test cannot hold its
+windows and memory until someone kills it. pytest drops that limit once a test
+has failed, so the teardown of a failed test is not covered.
+
+In Claude Code, `.claude/hooks/pytest_guard.py` denies a command that needs
+approval until a message from the user contains the words 「テスト実行を許可」
+(or "allow the test run"); one message approves one run within 30 minutes, and
+words inside quotation marks or code approve nothing. The hook reads the
+command line only: a test file counts as opening windows when its text matches
+the hook's `WINDOW_RE` (Tk, the `tk_app` fixture, a plugin launch), tests are
+counted as functions rather than parametrized cases, and a run started from
+inside another script is not seen. Other agents, and a person at a terminal,
+follow this rule without the hook.
+
 ## 9. Summary
 
 | Item | Rule |
@@ -1566,4 +1617,5 @@ this rule. Do not bypass the check with `--no-verify`.
 | Version bookkeeping | Package version later than the last `vX.Y.Z` tag and equal in `pyproject.toml` / `lib/__init__.py`; a bundle-format bump listed in `SUPPORTED_BUNDLE_VERSIONS`, CHANGELOG `[Unreleased]` and both READMEs with at least a MINOR step; a removed `ProcParams` field only with a MAJOR step. Enforced by `scripts/check_versions.py` in `.githooks/pre-commit` (§8.2). |
 | Destructive Git operations | Forbidden unless explicitly requested; `git restore` of files corrupted by your own edit is allowed. |
 | Deleting files | Only to the recycle bin with `scripts/trash.py` (or `trash.send_to_trash` in code); irreversible delete commands are denied in `.claude/settings.json`, and a denial is not worked around another way. |
+| Running the tests | Choose tests by what the change touches. The user's approval in the conversation is needed before a run that names no test file or names a folder, that runs tests of window-opening files with the parallel workers on (no `-n 0`), or that runs more than 30 such tests even one at a time; also before `check.py --pin` and `scripts/release.py prepare` without `--skip-checks`. After changing `tests/conftest.py`, a fixture or window open/close code, run one test first and confirm its window is gone. Enforced in Claude Code by `.claude/hooks/pytest_guard.py`, which lets one such run through after the user sends 「テスト実行を許可」; in the suite itself, `tk_app` fails a test whose window `destroy()` left open and closes it by force, and a test over `faulthandler_timeout` seconds ends its test process (§8.19). |
 | Multi-line commit messages | Write to a file and pass with `git commit -F .tmp/commit_msg.txt`; never hand-quote inline (PowerShell `@'`…`'@` vs. `sh` `<<'EOF'`…`EOF` are not interchangeable, and the wrong one silently leaves the delimiter as the subject line). Enforced by `.githooks/commit-msg`. |

@@ -1330,7 +1330,7 @@ def test_gui04_fiber_table_shows_straightness_and_curvature(tk_app, tmp_path):
     assert float(curvature) > 0.0
 
 
-def test_gui04_blank_curvature_cell_for_a_fiber_short_of_the_window(tk_app):
+def test_gui04_blank_curvature_cell_for_a_fiber_short_of_the_window():
     """
     A fiber the curvature window cannot span leaves the cell blank, not zero.
     曲率窓を張れないファイバーのセルは 0 ではなく空欄になる。
@@ -1344,7 +1344,7 @@ def test_gui04_blank_curvature_cell_for_a_fiber_short_of_the_window(tk_app):
     assert gui04.blank_if_nan(3.14159, "{0:.2f}") == "3.14"
 
 
-def test_gui03_and_gui04_agree_on_the_kink_quantities(tk_app):
+def test_gui03_and_gui04_agree_on_the_kink_quantities():
     """
     GUI03's per-fiber kink values come from the same `lib.measure` functions
     GUI04 shows, so a value checked beside a fiber is the value histogrammed.
@@ -2888,8 +2888,8 @@ def test_gui05_zoom_is_chosen_or_changed_with_the_wheel(gui05_app, tmp_path):
 
 def test_gui05_font_sizes_reach_the_screen_and_the_sheet(gui05_app, tmp_path):
     """
-    The four font sizes are part of the layout the sheet is written with.
-    4 つのフォントサイズは、シートの書き出しに使う配置の一部になる。
+    The three font sizes are part of the layout the sheet is written with.
+    3 つのフォントサイズは、シートの書き出しに使う配置の一部になる。
     """
     _write_gui05_bundle(tmp_path / "a.b2z")
     app = gui05_app
