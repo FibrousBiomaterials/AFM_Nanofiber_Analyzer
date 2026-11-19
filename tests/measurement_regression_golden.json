@@ -4,21 +4,21 @@
       "curvature_sha256": "40ff3da6cd1c4a0b92b831929ce6735aa12ea400ba92a98da80deed730a5b773",
       "fiber_csv_sha256": "652df5f14d645a301cb3e4c5d77130c69e3f8a8b202d4db82bfa8f55123e0c7f",
       "fibers": 142,
-      "heights_sha256": "139d8de490dcf54369beb8092c77e86c00aabe788a5ecb8792dcfe1e35c518a2",
+      "heights_sha256": "2c75d2cc56f514be886ecd1b572cc1890d85eb1d3872a9090c2f27f65c48508a",
       "total_length_nm": 9619.6
     },
     "max_loop_area_0": {
       "curvature_sha256": "fc0335babccfa171f02dde505283f2bcc53b762f970b8f7da162e9a7a2459920",
       "fiber_csv_sha256": "8cdee34f55bada389d121ff036cf1d362b1ca9986f2cd3ccc80858823d7bb86b",
       "fibers": 151,
-      "heights_sha256": "203929ef00826c4a3052aa9a664977aa0df16a65b6a1366a5989eae3f11bd847",
+      "heights_sha256": "78fa43ba5200c091cf527fbcced4f64c1220a3a614cf0d87d7c62000c69cf770",
       "total_length_nm": 9472.1
     },
     "spur_length_0": {
       "curvature_sha256": "9ba1ffd69d5e724e6f0b61d543d22faec9b1e3f1845807928bf51adf3f2c67c7",
       "fiber_csv_sha256": "a30d82eb0c791f1dde512d486bc2f926eb2b85ab0953ebf3584d4702fe36abbf",
       "fibers": 151,
-      "heights_sha256": "fc1486bfc49832b3c44f1e572879fe909c123b72ebaec05bd674bfd8eb800ed2",
+      "heights_sha256": "5407d6d5e4118890901a8e235f423480eefba431a51040235889fbd4933a0128",
       "total_length_nm": 9580.3
     }
   },
@@ -27,21 +27,21 @@
       "curvature_sha256": "70344a761c80c480718c79689fa6fff7baea796e16b6a9d55ae76f8de6d8fbb8",
       "fiber_csv_sha256": "c23fc8ecf7c3b6615afec74ba72ec23c90f1cb4ada6008c3564830e96a4e6a88",
       "fibers": 15,
-      "heights_sha256": "8ba505ed6c01f02f0081aa387b01ff1ef7b518ba3b537ed501d789a82d5a6e5f",
+      "heights_sha256": "9f448e5640243c3b0aee56797c9d36a4c8ca2f87d2f0124899515c3d084f76f5",
       "total_length_nm": 4038.8
     },
     "max_loop_area_0": {
       "curvature_sha256": "41c242c4c88d4b75e987b12121a1c80f0c667bc1bc23caeaf198cb0abc24e836",
       "fiber_csv_sha256": "005df085ef1dec3dcc1381329c5508de4ccc528d3cc5510c1fb3fcea684f4e78",
       "fibers": 15,
-      "heights_sha256": "48dc19c7b5cf2aedf78eafe928c02195e093f6e8392790af0cf4b9f15db2e35d",
+      "heights_sha256": "a32dba8e189c7190f9a0fad721ba6b95da55adb7d9d1725081ee9ff26b3bf2ad",
       "total_length_nm": 4013.2
     },
     "spur_length_0": {
       "curvature_sha256": "7b70936a0364306a7a682ea5eba29d67901008f77b63bdb0d097510059bfaea9",
       "fiber_csv_sha256": "06fffc1bcd8d46d1d89311ce927b4491b4a50f594212f5e8218eeac4cf658109",
       "fibers": 16,
-      "heights_sha256": "e91a101778f60f3a70304b8d915f4b8cd21a09b068879cde4c45c4e91c0c57dd",
+      "heights_sha256": "3700e77d1c12ed5df8ef41c1ac18dad294baa394f3eb686e98315a500c316278",
       "total_length_nm": 4029.8
     }
   },
@@ -50,21 +50,21 @@
       "curvature_sha256": "d22c8b79f45adf33049acdc1eaeaca4179b03e123b430d833481a36883563470",
       "fiber_csv_sha256": "f578aa55551546a80b36ab322a75a3158a645569a0d208143837dfefdd4cbd42",
       "fibers": 63,
-      "heights_sha256": "4123746e2712b926206c535236821b18930d9d9d148740362c989b11c8f09c9c",
+      "heights_sha256": "99ba80ea093329ee6756d544f503a80955785f6eb77a5566200da2564bf32070",
       "total_length_nm": 8578.0
     },
     "max_loop_area_0": {
       "curvature_sha256": "f68f4035f4428ae13b324b0756dc850e270beac29fce3059003434edc0e18dd0",
       "fiber_csv_sha256": "f0741d5d4f94e2b22a3086a96cd307bd2518cf8b4f03eb96f2aca26419f0ff41",
       "fibers": 66,
-      "heights_sha256": "baf8c68d98edbd5c848647ec4b6366b7af8f21b24efaa00e41145f6e30be5c1a",
+      "heights_sha256": "a9df35a9ebd33c298a3578673248158dc2f5f6c4c24511dc2584bd2a07fa7aed",
       "total_length_nm": 8562.7
     },
     "spur_length_0": {
       "curvature_sha256": "51fc4eae00c47cd506c55227ad593787a0adaa8d2599dd578f0afbdbc0789e3f",
       "fiber_csv_sha256": "7f1b708344c254a476756684e1829a145542e83b38dcd0b827908abb7fbaafc7",
       "fibers": 65,
-      "heights_sha256": "ce62c577d8bcdf0040a0f8a22a67aed320411570052d69e8493d3d8c2a11c31c",
+      "heights_sha256": "c962de54ea459bafe180d016bb1d283d69a29eed5ecef538f93a902469766be1",
       "total_length_nm": 8559.5
     }
   }

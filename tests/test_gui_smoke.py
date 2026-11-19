@@ -1349,6 +1349,29 @@ def test_gui03_length_floor_log_names_bundles_it_cannot_cut(monkeypatch):
     assert "3" in logs[2]
 
 
+def test_gui03_warns_when_a_group_pools_pixel_sizes():
+    """
+    A group whose bundles differ in pixel size by more than 1 % is warned about.
+    画素サイズが 1 % を超えて違うバンドルをまとめるグループには警告を出す。
+
+    The `pixel` unit counts every skeleton pixel once, so a finer pixel size
+    weighs more in the group's distribution.
+    `pixel` 単位はスケルトン画素を 1 点ずつ数えるため、画素サイズが細かいほど
+    グループの分布での重みが大きくなる。
+    """
+    import queue
+
+    app = object.__new__(gui03.App)
+    app.ui_queue = queue.Queue()
+    app._log_group_pixel_size_spread("G", [3.9, 3.92])
+    app._log_group_pixel_size_spread("G", [3.9])
+    assert not _gui03_drain(app)
+    app._log_group_pixel_size_spread("G", [3.9, 7.8])
+    logs = [body for kind, body in _gui03_drain(app) if kind == "log"]
+    assert len(logs) == 1
+    assert "[G]" in logs[0] and "3.90" in logs[0] and "7.80" in logs[0]
+
+
 def test_gui04_fiber_table_shows_straightness_and_curvature(tk_app, tmp_path):
     """
     The fiber table reports the per-fiber shape values GUI03 aggregates.

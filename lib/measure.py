@@ -123,22 +123,6 @@ _TRACKING_OPTIONAL_KEYS = ("up", "ke", "wp", "wa", "we")
 # 1 つも捉えられない。
 BRANCH_TOUCH_RADIUS_PX = 2
 
-# Placeholder scan size used by `skeleton_height_values` for a bundle that
-# records none. Heights are sampled from the calibrated image and every
-# connection gate is computed in pixel, degree, and relative-height space
-# (`fiber_connector.connect_fiber_fragments`), as is kink detection, which
-# reads pixel coordinates only. The pixel size therefore reaches nothing but
-# `Fiber.horizon`, the contour length, which that collector never reads. This
-# keeps skeleton heights measurable on bundles written before the scan size
-# joined the contract.
-# 走査範囲を記録していないバンドルのために `skeleton_height_values` が使う
-# 代替走査範囲。高さは補正済み画像から採り、連結の判定は全て画素・度・相対高さ
-# の空間で行われ（`fiber_connector.connect_fiber_fragments`）、キンク検出も
-# 画素座標しか見ない。したがってピクセルサイズが影響するのは輪郭長である
-# `Fiber.horizon` だけであり、当該コレクタはそれを一切読まない。これにより、
-# 走査範囲が契約へ加わる前に書かれたバンドルでも高さを計測できる。
-HEIGHT_ONLY_SCALE_UM = 1.0
-
 # Arc length over which local curvature measures its turning angle, chosen by
 # measuring digitised circles of known radius and by rendering real fibers
 # coloured by curvature across a range of windows.
@@ -1753,14 +1737,33 @@ def _fiber_kink_angle(stat: FiberStats) -> float:
 # Deprecated public names that stay importable, mapped to (the object they
 # resolve to, the release that removes them). `fiber_kink_angle` summarized a
 # fiber's kinks by their median angle, which describes no property of the
-# fiber (`_fiber_kink_angle`). `scripts/release.py prepare` refuses a release
-# at or above each `remove-in` version until the entry is deleted.
+# fiber (`_fiber_kink_angle`). `collect_skeleton_height_profiles` backed a
+# length-weighted height distribution that GUI03 no longer offers: counting
+# skeleton pixels already weights a fiber by its length.
+# `scripts/release.py prepare` refuses a release at or above each `remove-in`
+# version until the entry is deleted.
 # import できるように残す非推奨の公開名と、(解決先, 削除するリリース) の対応。
 # `fiber_kink_angle` はファイバーのキンクを角度の中央値で要約していたが、それは
-# ファイバーの性質を表さない（`_fiber_kink_angle`）。`scripts/release.py prepare`
-# は、各 `remove-in` 印の版以上のリリースを、項目が消されるまで拒む。
+# ファイバーの性質を表さない（`_fiber_kink_angle`）。
+# `collect_skeleton_height_profiles` は、GUI03 がもう提供しない長さ重み付きの
+# 高さ分布を支えていた。スケルトン画素を数えれば、ファイバーはすでに長さで重み
+# 付けされる。`scripts/release.py prepare` は、各 `remove-in` 印の版以上の
+# リリースを、項目が消されるまで拒む。
 _DEPRECATED_ALIASES = {
     "fiber_kink_angle": ("_fiber_kink_angle", "3.0.0"),  # remove-in: 3.0.0
+    "collect_skeleton_height_profiles": (  # remove-in: 3.0.0
+        "_collect_skeleton_height_profiles", "3.0.0"),
+}
+
+# What to use instead of each deprecated name, for its warning.
+# 非推奨の名前ごとに、警告で示す代わりの手段。
+_DEPRECATION_ADVICE = {
+    "fiber_kink_angle": (
+        "a per-fiber median of kink angles describes no property of the "
+        "fiber, so summarize the kinks themselves"),
+    "collect_skeleton_height_profiles": (
+        "use skeleton_height_values, which counts skeleton pixels and so "
+        "already weights each fiber by its length"),
 }
 
 
@@ -1779,8 +1782,7 @@ def __getattr__(name: str):
         current, removed_in = _DEPRECATED_ALIASES[name]
         warnings.warn(
             f"lib.measure.{name} is deprecated and will be removed in "
-            f"{removed_in}; a per-fiber median of kink angles describes no "
-            f"property of the fiber, so summarize the kinks themselves",
+            f"{removed_in}; {_DEPRECATION_ADVICE[name]}",
             DeprecationWarning, stacklevel=2,
         )
         return globals()[current]
@@ -2809,12 +2811,17 @@ def _curation_for(
 
     Notes
     -----
-    Every collector resolves the two sidecars through this one function, so
-    they cannot drift apart in what "apply the saved curation" means. The
-    order the two are applied in is not decided here: `curate_fibers` owns it.
-    全てのコレクタは 2 つのサイドカーをこの関数経由で解決するため、「保存済みの
-    キュレーションを適用する」の意味がコレクタ間でずれることがない。両者を適用
-    する順序はここでは決めない。それは `curate_fibers` の責務である。
+    Every collector that measures traced fibers resolves the two sidecars
+    through this one function, so they cannot drift apart in what "apply the
+    saved curation" means. The order the two are applied in is not decided
+    here: `curate_fibers` owns it. `skeleton_height_values` traces nothing and
+    reads only the exclusions (`_exclusion_anchors`), because a connection
+    changes none of its samples.
+    追跡したファイバーを計測するコレクタはすべて 2 つのサイドカーをこの関数経由で
+    解決するため、「保存済みのキュレーションを適用する」の意味がコレクタ間で
+    ずれることがない。両者を適用する順序はここでは決めない。それは
+    `curate_fibers` の責務である。`skeleton_height_values` は何も追跡せず、除外
+    （`_exclusion_anchors`）だけを読む。連結はその標本を 1 つも変えないためである。
     """
     anchors = _exclusion_anchors(bundle_path) if apply_exclusions else []
     plan: Optional[ConnectionPlan] = None
@@ -3120,7 +3127,7 @@ def contour_length_weights(horizon: np.ndarray) -> np.ndarray:
     return weights
 
 
-def collect_skeleton_height_profiles(
+def _collect_skeleton_height_profiles(
     bundle_paths: Sequence[str],
     scale_um: Optional[float] = None,
     scale_y_um: Optional[float] = None,
@@ -3186,55 +3193,18 @@ def collect_skeleton_height_profiles(
 
     Notes
     -----
-    This is the length-weighted counterpart of `skeleton_height_values`. Both
-    walk the same traced fibers, which exclude the branch-point neighborhoods
-    `imp_tools.remove_bp` clears before tracing, and read the same heights --
-    the samples `height_sample_mask` keeps, which each fiber's own height
-    statistics use, so a pooled distribution and the per-fiber heights of one
-    population are read from the same samples; this one adds the contour
-    length each height represents. They share the
-    per-bundle failure contract, with one difference: when `scale_um` is
-    omitted, a bundle that records no scan size becomes an error entry here,
-    because the weights are lengths in nanometers, whereas
-    `skeleton_height_values` still collects its heights.
-    本関数は `skeleton_height_values` の長さ重み付け版である。両者は同じ追跡
-    済みファイバー（追跡前に `imp_tools.remove_bp` が消去する分岐点近傍を含ま
-    ない）をたどって同じ高さ、すなわち `height_sample_mask` が残す標本を読む。
-    これは各ファイバー自身の高さ統計が使う標本であり、1 つの母集団のプールした
-    分布とファイバーごとの高さは同じ標本から読まれる。本関数はさらに各高さが表す
-    輪郭長を加える。
-    バンドル単位の失敗契約も共通だが、1 点だけ異なる。`scale_um` を省略した
-    とき、走査範囲を記録していないバンドルは、重みが nm 単位の長さであるため
-    本関数ではエラー項目になる。一方 `skeleton_height_values` はその場合も高さを
-    収集する。
-
-    Examples
-    --------
-    The weights of one bundle are the contour lengths the kept samples of its
-    fibers represent. The
-    synthetic test scan records no scan size, so the 1.25 µm listed for it in
-    ``testdata_artificial/scale_table_sample.csv`` is passed. The input path
-    is relative to the repository root:
-
-    >>> import tempfile
-    >>> import numpy as np
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import (collect_skeleton_height_profiles,
-    ...                          contour_length_weights, height_sample_mask,
-    ...                          measure_bundle)
-    >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
-    ...                           ProcParams(), output_dir=folder).bundle_path
-    ...     per_bundle, errors = collect_skeleton_height_profiles(
-    ...         [bundle], scale_um=1.25)
-    ...     fibers = measure_bundle(bundle, scale_um=1.25).fibers
-    >>> path, heights_nm, weights_nm = per_bundle[0]
-    >>> heights_nm.shape == weights_nm.shape, errors
-    (True, [])
-    >>> kept = sum(float(contour_length_weights(f.horizon)[height_sample_mask(f)].sum())
-    ...            for f in fibers)
-    >>> bool(np.isclose(weights_nm.sum(), kept))
-    True
+    Reached only through the deprecated public name
+    `collect_skeleton_height_profiles` (`_DEPRECATED_ALIASES`); nothing in the
+    software calls it. It walks the traced fibers and reads, of each, the
+    samples `height_sample_mask` keeps, with the contour length each
+    represents (`contour_length_weights`). When `scale_um` is omitted, a
+    bundle that records no scan size becomes an error entry, because the
+    weights are lengths in nanometers.
+    非推奨の公開名 `collect_skeleton_height_profiles`（`_DEPRECATED_ALIASES`）
+    からのみ到達し、ソフトウェアからは呼ばない。追跡したファイバーをたどり、各
+    ファイバーから `height_sample_mask` が残す標本を、それぞれが表す輪郭長
+    （`contour_length_weights`）とともに読む。`scale_um` を省略したとき、走査範囲を
+    記録していないバンドルは、重みが nm 単位の長さであるためエラー項目になる。
     """
     per_bundle: List[Tuple[str, np.ndarray, np.ndarray]] = []
     errors: List[Tuple[str, str]] = []
@@ -3725,47 +3695,37 @@ def skeleton_height_values(
     apply_connection: bool = False,
     max_workers: Optional[int] = None,
     curation_report: Optional[List[Tuple[str, int, int, int]]] = None,
-    min_length_nm: Optional[float] = None,
-    floor_report: Optional[List[Tuple[str, int, int]]] = None,
 ) -> Tuple[np.ndarray, List[Tuple[str, str]]]:
     """
-    Collect tracked fiber heights from multiple ``.b2z`` bundles.
-    複数の ``.b2z`` バンドルから追跡済みファイバーの高さ値を収集する。
+    Collect the calibrated heights at the skeleton pixels of ``.b2z`` bundles.
+    複数の ``.b2z`` バンドルのスケルトン画素で、補正済み画像の高さ値を収集する。
 
     Parameters
     ----------
     bundle_paths
-        Paths to ``.b2z`` bundles containing the tracking keys.
-        追跡用キーを含む ``.b2z`` バンドルのパス。
+        Paths to ``.b2z`` bundles holding ``calibrated`` and ``skeletonized``.
+        ``calibrated`` と ``skeletonized`` を含む ``.b2z`` バンドルのパス。
     apply_exclusions
-        When ``True``, drop manually excluded fibers, as in
-        `collect_fiber_stats`.
-        ``True`` のとき、`collect_fiber_stats` と同様に手動除外されたファイバーを
-        取り除く。
+        When ``True``, drop the pieces of skeleton the manual-exclusion
+        sidecar names, as `collect_fiber_stats` drops those fibers.
+        ``True`` のとき、手動除外サイドカーが指すスケルトンの断片を、
+        `collect_fiber_stats` がそのファイバーを外すのと同様に取り除く。
     apply_connection
-        When ``True``, honor each bundle's saved connection result, as in
-        `collect_fiber_stats`.
-        ``True`` のとき、`collect_fiber_stats` と同様に各バンドルの保存済み連結
-        結果を尊重する。
+        Accepted so one set of curation settings can be passed to every
+        collector; it changes no sample (see Notes).
+        すべてのコレクタへ同じキュレーション設定を渡せるように受け付ける。標本は
+        変わらない（Notes 参照）。
     max_workers
-        Maximum number of worker threads used per bundle.
-        1 バンドルあたりの並列追跡ワーカースレッド数の上限。
+        Accepted for compatibility; nothing here runs in parallel.
+        互換のために受け付ける。この関数は並列処理を行わない。
     curation_report
-        List receiving each bundle's curation counts, as in
-        `collect_fiber_stats`.
-        `collect_fiber_stats` と同様に、各バンドルのキュレーション件数を受け取る
-        リスト。
-    min_length_nm
-        Length floor forwarded to `measure_bundle`; see `length_floor_nm`. Not
-        applied to a bundle without a recorded scan size, whose lengths are
-        placeholders.
-        `measure_bundle` へ渡す下限長。`length_floor_nm` 参照。走査範囲が未記録の
-        バンドルは長さが代替値のため適用しない。
-    floor_report
-        List receiving each bundle's floor counts, as in
-        `collect_fiber_stats`; a bundle the floor was not applied to adds none.
-        `collect_fiber_stats` と同様に、各バンドルの下限長の件数を受け取るリスト。
-        下限を適用しなかったバンドルは追加しない。
+        List receiving ``(bundle_path, pieces, kept, kept)`` per bundle: the
+        pieces of skeleton left once the branch points are cleared, and those
+        left after the manual exclusions, in the shape `collect_fiber_stats`
+        reports its counts in.
+        バンドルごとに ``(バンドルパス, 断片数, 残った数, 残った数)`` を受け取る
+        リスト。分岐点を消した後のスケルトンの断片数と、手動除外の後に残った数で、
+        `collect_fiber_stats` が件数を報告する形と同じ。
 
     Returns
     -------
@@ -3780,27 +3740,42 @@ def skeleton_height_values(
 
     Notes
     -----
-    The heights are sampled by walking the traced fibers, not by reading the
-    skeleton mask. Only a traced fiber can be excluded or reconnected -- an
-    exclusion names an object, and reconnection adds interpolated bridge
-    pixels that exist in no mask -- so a curated population is reachable only
-    through tracing.
-    高さは骨格マスクを読むのではなく、追跡済みファイバーをたどって採取する。
-    除外や再結合の対象になり得るのは追跡済みファイバーだけである。除外は対象
-    そのものを指し、再結合はどのマスクにも存在しない補間された橋渡し画素を
-    追加するためで、キュレーション済みの母集団へは追跡を通じてしか到達できない。
+    One sample is one skeleton pixel: nothing is traced and no centerline is
+    placed. Two kinds of pixel are left out, both where fibers cross or
+    branch, because the height there is not one fiber's: the 3x3
+    neighbourhood `imp_tools.remove_bp` clears around each branch point, and
+    every skeleton pixel closer than `CUT_END_EXCLUSION_WIDTHS` apparent
+    widths to it along the skeleton, where the other fiber's skirt still
+    raises the height (docs/validation.md §4.11). The width is the median the
+    analysis recorded (`bundle_schema.APPARENT_WIDTH_KEY`); a bundle that
+    records none keeps those pixels. The distance along the skeleton is in X
+    pixels with Y scaled by the pixel aspect
+    (`bundle_schema.pixel_aspect_from_meta`), as a line's arc length is.
+    1 標本はスケルトン画素 1 点である。追跡も中心線の配置も行わない。外す画素は
+    2 種類で、どちらも繊維が交差・分岐する所にある。そこでの高さは 1 本の繊維の
+    ものではないためである。`imp_tools.remove_bp` が各分岐点の周りで消す 3×3 と、
+    そこからスケルトンに沿って `CUT_END_EXCLUSION_WIDTHS` 見かけ幅より近い
+    スケルトン画素で、後者では相手の繊維の裾がまだ高さを持ち上げている
+    （docs/validation.ja.md §4.11）。幅は解析が記録した中央値
+    （`bundle_schema.APPARENT_WIDTH_KEY`）で、記録の無いバンドルではこれらの画素を
+    残す。スケルトンに沿った距離は X 画素単位で、Y は画素の縦横比
+    （`bundle_schema.pixel_aspect_from_meta`）で縮尺する。線の弧長と同じである。
 
-    The population is therefore not every skeleton pixel even when nothing is
-    excluded: tracing leaves out the branch-point neighborhoods that
-    `imp_tools.remove_bp` clears, and of each traced fiber only the samples
-    `height_sample_mask` keeps are collected, the ones its own height
-    statistics use. This makes the result the unweighted counterpart of
-    `collect_skeleton_height_profiles`, over the same fibers.
-    そのため、除外が 1 つも無い場合でも母集団は骨格の全画素ではない。追跡は
-    `imp_tools.remove_bp` が消去する分岐点近傍を除き、さらに各追跡済みファイバー
-    からは `height_sample_mask` が残す標本、すなわちそのファイバー自身の高さ統計が
-    使う標本だけを集めるためである。この結果、本関数は同じファイバー群に対する
-    `collect_skeleton_height_profiles` の重み無し版になる。
+    Every pixel counts once whichever way the skeleton runs, so a fiber
+    contributes in proportion to its pixel count. Pooling bundles of
+    different pixel sizes therefore weights the finer ones more; GUI03 warns
+    when a group does that.
+    スケルトンがどの向きに走っていても 1 画素は 1 回数えるため、ファイバーは
+    画素数に比例して寄与する。そのため画素サイズの異なるバンドルをまとめると
+    細かいほうの寄与が大きくなる。GUI03 はグループがそうなっているときに警告する。
+
+    A manual exclusion names a fiber by a pixel on it (`fiber_selection`), so
+    the piece of skeleton holding that pixel is dropped. A connection changes
+    no sample, because what it adds are interpolated bridge heights, which are
+    not image samples.
+    手動除外はファイバーをその上の画素で指す（`fiber_selection`）ため、その画素を
+    含むスケルトンの断片を外す。連結は標本を変えない。連結が加えるのは補間した
+    橋渡しの高さであり、画像の標本ではないためである。
 
     A load failure in one bundle does not abort the collection; remaining
     bundles are still processed so grouped GUI runs degrade gracefully.
@@ -3809,66 +3784,205 @@ def skeleton_height_values(
 
     Examples
     --------
-    The heights are the samples `collect_skeleton_height_profiles` weights,
-    and no scan size is needed for them. The input path is relative to the
-    repository root:
+    No scan size is needed. The input path is relative to the repository
+    root:
 
     >>> import tempfile
-    >>> import numpy as np
     >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import (collect_skeleton_height_profiles,
-    ...                          skeleton_height_values)
+    >>> from lib.measure import skeleton_height_values
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
     ...     heights_nm, errors = skeleton_height_values([bundle])
-    ...     profiles, _ = collect_skeleton_height_profiles([bundle],
-    ...                                                    scale_um=1.25)
     >>> heights_nm.ndim, errors
     (1, [])
-    >>> bool(np.array_equal(np.sort(heights_nm), np.sort(profiles[0][1])))
-    True
     """
     heights: List[np.ndarray] = []
     errors: List[Tuple[str, str]] = []
     for path in bundle_paths:
         try:
-            anchors, plan = _curation_for(
-                path, apply_exclusions, apply_connection,
-            )
-            # Heights do not depend on the physical pixel size, so a bundle
-            # without a recorded scan size is still measurable here; see
-            # HEIGHT_ONLY_SCALE_UM.
-            # 高さは物理ピクセルサイズに依存しないため、走査範囲が未記録の
-            # バンドルもここでは計測できる。HEIGHT_ONLY_SCALE_UM を参照。
-            recorded = read_scan_size_from_bundle(path)
-            # A length floor needs real lengths, so a bundle measured at the
-            # placeholder scale is left whole.
-            # 下限長には実際の長さが要るため、代替スケールで計測するバンドルには
-            # 適用しない。
-            result = measure_bundle(
-                path,
-                scale_um=None if recorded else HEIGHT_ONLY_SCALE_UM,
-                max_workers=max_workers,
-                exclude_anchors=anchors,
-                plan=plan,
-                min_length_nm=min_length_nm if recorded else None,
-            )
+            anchors = _exclusion_anchors(path) if apply_exclusions else []
+            values, pieces, kept = _skeleton_pixel_heights(path, anchors)
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
-
-        _report_curation(curation_report, path, result)
-        if recorded:
-            _report_floor(floor_report, path, result)
-        for fiber in result.fibers:
-            height = np.asarray(fiber.height, dtype=float)
-            if height.size:
-                heights.append(height[height_sample_mask(fiber)])
+        if curation_report is not None:
+            curation_report.append((path, pieces, kept, kept))
+        heights.append(values)
 
     if not heights:
         return np.empty(0, dtype=float), errors
     return np.concatenate(heights), errors
+
+
+def _skeleton_pixel_heights(
+    bundle_path: str,
+    exclude_anchors: Sequence[Tuple[int, int]] = (),
+) -> Tuple[np.ndarray, int, int]:
+    """
+    Read one bundle's heights at the skeleton pixels `skeleton_height_values` keeps.
+    `skeleton_height_values` が残すスケルトン画素で、1 バンドルの高さを読む。
+
+    Parameters
+    ----------
+    bundle_path
+        Bundle to read.
+        読むバンドル。
+    exclude_anchors
+        ``(x, y)`` pixels of manually excluded fibers; the piece of skeleton
+        holding each is dropped.
+        手動除外したファイバーの ``(x, y)`` 画素。それを含むスケルトンの断片を外す。
+
+    Returns
+    -------
+    tuple
+        ``(heights_nm, pieces, kept)``: the heights, the pieces of skeleton
+        left once the branch points are cleared, and how many of them the
+        exclusions left.
+        ``(高さ (nm), 断片数, 残った数)``。分岐点を消した後のスケルトンの断片数と、
+        除外の後に残った数。
+
+    Raises
+    ------
+    ValueError
+        If the bundle violates the ``.b2z`` contract.
+    """
+    import cv2
+    from scipy import ndimage as ndi
+
+    arrays, meta = _load_validated_arrays(
+        bundle_path, ["calibrated", "skeletonized", "bp"])
+    cal = np.asarray(arrays["calibrated"], dtype=float)
+    skeleton = np.asarray(arrays["skeletonized"]) > 0
+    square = np.ones((3, 3), dtype=np.uint8)
+    # The stored `bp` is `imp_tools.branchedPoints` of the stored skeleton
+    # (`Skeletonizer`), so clearing the 3x3 around each is what
+    # `imp_tools.remove_bp` does, without finding the branch points again. No
+    # piece is dropped for being short: it is still part of a fiber, and the
+    # pieces next to a crossing are left out below by their distance from it.
+    # 保存された `bp` は保存されたスケルトンの `imp_tools.branchedPoints`
+    # （`Skeletonizer`）なので、各点の 3×3 を消すことは、分岐点を探し直さずに
+    # `imp_tools.remove_bp` と同じことをする。短いという理由では断片を外さない。
+    # 短い断片もファイバーの一部であり、交差のそばの断片は下で交差からの距離に
+    # よって外す。
+    near_branch = cv2.dilate((np.asarray(arrays["bp"]) > 0).astype(np.uint8), square) > 0
+    kept = skeleton & ~near_branch
+    cleared = skeleton & near_branch
+
+    labels, pieces = ndi.label(kept, structure=np.ones((3, 3), dtype=bool))
+    excluded = set()
+    for x, y in exclude_anchors:
+        if 0 <= y < labels.shape[0] and 0 <= x < labels.shape[1] and labels[y, x]:
+            excluded.add(int(labels[y, x]))
+    if excluded:
+        kept &= ~np.isin(labels, sorted(excluded))
+
+    width = _recorded_median_width(meta)
+    if width is not None:
+        # The pixels next to a cleared crossing are where its pieces were cut;
+        # the zone is measured along the skeleton from them.
+        # 消した交差に接する画素が、断片が切られた所である。除外域はそこから
+        # スケルトンに沿って測る。
+        cut = kept & (cv2.dilate(cleared.astype(np.uint8), square) > 0)
+        if cut.any():
+            zone = CUT_END_EXCLUSION_WIDTHS * width
+            distance = _distance_along_skeleton(
+                kept, cut, pixel_aspect_from_meta(meta, cal.shape), zone)
+            kept &= ~(distance < zone)
+    return cal[kept], int(pieces), int(pieces - len(excluded))
+
+
+def _recorded_median_width(meta: Dict) -> Optional[float]:
+    """
+    Return the median apparent width a bundle's analysis recorded, in X pixels.
+    バンドルの解析が記録した見かけ幅の中央値（X 画素）を返す。
+
+    Parameters
+    ----------
+    meta
+        The bundle's vlmeta.
+        バンドルの vlmeta。
+
+    Returns
+    -------
+    float or None
+        The positive median of `bundle_schema.APPARENT_WIDTH_KEY`, or ``None``
+        when it is absent or unusable.
+        `bundle_schema.APPARENT_WIDTH_KEY` の正の中央値。無いか使えないときは
+        ``None``。
+    """
+    summary = meta.get(APPARENT_WIDTH_KEY)
+    if not isinstance(summary, dict):
+        return None
+    try:
+        width = float(summary.get("median_px"))
+    except (TypeError, ValueError):
+        return None
+    return width if np.isfinite(width) and width > 0 else None
+
+
+def _distance_along_skeleton(
+    mask: np.ndarray,
+    sources: np.ndarray,
+    aspect: float,
+    limit: float,
+) -> np.ndarray:
+    """
+    Measure each skeleton pixel's distance from the nearest source along the skeleton.
+    各スケルトン画素から、スケルトンに沿って最も近い起点までの距離を測る。
+
+    Parameters
+    ----------
+    mask
+        Boolean skeleton; pixels are joined to their eight neighbours.
+        真偽のスケルトン。画素は 8 近傍とつながる。
+    sources
+        Boolean mask of the pixels the distance is measured from.
+        距離を測る起点の画素の真偽マスク。
+    aspect
+        Y pixel size over X pixel size; a step is ``hypot(dx, dy * aspect)``.
+        Y 画素サイズ ÷ X 画素サイズ。1 歩は ``hypot(dx, dy * aspect)``。
+    limit
+        Distance beyond which a pixel is left at infinity.
+        これより遠い画素は無限大のままにする距離。
+
+    Returns
+    -------
+    ndarray
+        Distance in X pixels with the shape of `mask`; infinity off the
+        skeleton, beyond `limit`, or where no source can be reached.
+        `mask` と同じ形の距離（X 画素）。スケルトンの外、`limit` より遠い所、
+        起点に届かない所は無限大。
+    """
+    from scipy.sparse import csr_matrix
+    from scipy.sparse.csgraph import dijkstra
+
+    ys, xs = np.nonzero(mask)
+    out = np.full(mask.shape, np.inf)
+    if ys.size == 0:
+        return out
+    index = np.full(mask.shape, -1, dtype=np.int64)
+    index[ys, xs] = np.arange(ys.size)
+    rows, cols, steps = [], [], []
+    # Each pair of neighbours once; the graph is read as undirected.
+    # 隣り合う組をそれぞれ 1 回だけ。グラフは無向として読む。
+    for dy, dx in ((0, 1), (1, 0), (1, 1), (1, -1)):
+        ny, nx = ys + dy, xs + dx
+        inside = (ny < mask.shape[0]) & (nx >= 0) & (nx < mask.shape[1])
+        other = np.full(ys.size, -1, dtype=np.int64)
+        other[inside] = index[ny[inside], nx[inside]]
+        linked = other >= 0
+        rows.append(np.flatnonzero(linked))
+        cols.append(other[linked])
+        steps.append(np.full(int(linked.sum()), math.hypot(dx, dy * aspect)))
+    graph = csr_matrix(
+        (np.concatenate(steps), (np.concatenate(rows), np.concatenate(cols))),
+        shape=(ys.size, ys.size),
+    )
+    start = index[sources & mask]
+    distance = dijkstra(graph, directed=False, indices=start, min_only=True, limit=limit)
+    out[ys, xs] = distance
+    return out
 
 
 def write_heights_csv(

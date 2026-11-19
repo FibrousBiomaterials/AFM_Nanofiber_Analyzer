@@ -10,7 +10,7 @@ and with each skeleton cleanup turned off (``max_loop_area=0``,
 ``spur_length=0``), and the bundle is measured as GUI03, GUI04 and ``cli.py``
 measure it (`measure.measure_bundle`, `measure.skeleton_height_values`,
 `measure.fiber_mean_curvature` at its default window). The per-fiber CSV that
-`measure.write_fiber_csv` writes, the traced height values and each fiber's
+`measure.write_fiber_csv` writes, the skeleton-pixel heights and each fiber's
 mean curvature are recorded as SHA-256 hashes, so the test fails when any of
 them changes — the CSV at the precision it is written with, the heights and
 curvatures exactly — including a change made only when a bundle is read,
@@ -25,7 +25,7 @@ settings.
 （``max_loop_area=0``、``spur_length=0``）で解析し、GUI03・GUI04・``cli.py`` と
 同じ方法（`measure.measure_bundle`、`measure.skeleton_height_values`、既定の窓の
 `measure.fiber_mean_curvature`）で計測する。`measure.write_fiber_csv` が書く
-繊維ごとの CSV、追跡した高さの値、各繊維の平均曲率を SHA-256 ハッシュで記録
+繊維ごとの CSV、スケルトン画素の高さの値、各繊維の平均曲率を SHA-256 ハッシュで記録
 するので、いずれかが変われば失敗する。CSV は書き出す精度で、高さと曲率は
 厳密に比べる。バンドルを読むときだけに起きる変化も含み、これはパイプラインの
 golden からは見えない。この 3 つ以外の設定や、保存した除外・連結は試さない。

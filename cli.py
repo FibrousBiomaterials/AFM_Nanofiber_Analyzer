@@ -684,13 +684,13 @@ def cmd_heights(args: argparse.Namespace) -> int:
         stem = os.path.splitext(name)[0]
         per_bundle.append((stem, heights))
         if heights.size == 0:
-            # A readable bundle whose skeleton traced no fiber is a real
-            # outcome, not a failure; summarizing it would emit NumPy's
+            # A readable bundle with no skeleton pixel left to measure is a
+            # real outcome, not a failure; summarizing it would emit NumPy's
             # "mean of empty slice" warning and print nan for both statistics.
-            # 読み取れたバンドルでファイバーを 1 本も追跡できなかったのは正当な
-            # 結果であり失敗ではない。要約すると NumPy の「空スライスの平均」
+            # 読み取れたバンドルで計測できるスケルトン画素が 1 つも残らないのは
+            # 正当な結果であり失敗ではない。要約すると NumPy の「空スライスの平均」
             # 警告が出て、両統計量とも nan と表示されてしまう。
-            print(f"[{i}/{len(inputs)}] {name}: no traced fiber points")
+            print(f"[{i}/{len(inputs)}] {name}: no skeleton pixel to measure")
             continue
         print(
             f"[{i}/{len(inputs)}] {name}: {heights.size} skeleton px, "
@@ -698,10 +698,9 @@ def cmd_heights(args: argparse.Namespace) -> int:
         )
         if read_centerline_from_bundle(bundle_path) == SKELETON_TRACK:
             print(
-                "    note: analyzed before bundle format 1.1, so heights are "
-                "read along the skeleton track, and the stored skeleton, "
-                "traced as it is, can still hold loops and spurs the current "
-                "analysis removes; re-analyze the input",
+                "    note: analyzed before bundle format 1.1, so the stored "
+                "skeleton the heights are read on can still hold loops and "
+                "spurs the current analysis removes; re-analyze the input",
                 file=sys.stderr,
             )
 

@@ -27,8 +27,11 @@ import pytest
 
 import cli
 from lib import imp_tools
+from lib import measure as measure_module
 from lib.blosc2_io import load_bundle, load_bundle_meta, save_bundle
-from lib.bundle_schema import BUNDLE_FORMAT_VERSION, CENTERLINE_KEY, make_spatial_calibration
+from lib.bundle_schema import (
+    APPARENT_WIDTH_KEY, BUNDLE_FORMAT_VERSION, CENTERLINE_KEY, make_spatial_calibration,
+)
 from lib.centerline import DEFAULT_CENTERLINE_METHOD
 from lib.fiber import Fiber
 from lib.fiber_tracking_image import FiberTrackingImage
@@ -51,7 +54,6 @@ from lib.measure import (
     collect_fiber_curvature,
     collect_fiber_stats,
     collect_fiber_stats_from_csv,
-    collect_skeleton_height_profiles,
     compute_fiber_stats,
     contour_length_weights,
     fiber_curvature_profile,
@@ -532,25 +534,93 @@ def test_cli_measure_writes_identical_csv(measured, tmp_path):
 
 def test_skeleton_height_values_counts_and_range(measured):
     """
-    Collected heights come from the traced fibers and sit near 3 nm.
-    収集される高さは追跡済みファイバー由来で、3 nm 付近に分布する。
+    Collected heights are the skeleton pixels' and sit near 3 nm.
+    収集される高さはスケルトン画素のもので、3 nm 付近に分布する。
 
-    The population is the tracked points, not the skeleton mask: only a traced
-    fiber can be excluded or reconnected. On this synthetic image the two
-    coincide because it has no branch points for `imp_tools.remove_bp` to
-    clear, which is what makes the comparison below exact.
-    母集団は骨格マスクではなく追跡点である。除外や再結合の対象になり得るのは
-    追跡済みファイバーだけであるため。この合成画像では `imp_tools.remove_bp` が
-    消去する分岐点が無いため両者が一致し、それが下の比較を厳密にしている。
+    The synthetic image has no branch point, so no pixel is left out and the
+    count is that of the skeleton.
+    この合成画像には分岐点が無いため外れる画素は無く、件数はスケルトンの画素数に
+    等しい。
     """
-    bundle_path, result = measured
+    bundle_path, _result = measured
     heights, errors = skeleton_height_values([bundle_path])
     assert errors == []
 
-    assert heights.size == sum(len(f.height) for f in result.fibers)
-    skeleton = load_bundle(bundle_path, keys=["skeletonized"])["skeletonized"]
-    assert heights.size == int((skeleton > 0).sum())
+    arrays = load_bundle(bundle_path, keys=["skeletonized", "bp"])
+    assert not np.asarray(arrays["bp"]).any()
+    assert heights.size == int((arrays["skeletonized"] > 0).sum())
     assert float(np.median(heights)) == pytest.approx(3.0, abs=0.7)
+
+
+def _crossing_bundle(path, width_px=4.0):
+    """
+    Write a bundle whose skeleton is two lines crossing at one branch point.
+    1 つの分岐点で交差する 2 本の線をスケルトンに持つバンドルを書く。
+
+    The calibrated image is 1 nm along the lines and 3 nm in the 9x9 square
+    around the crossing, standing in for the other fiber's skirt.
+    補正済み画像は線上で 1 nm、交差の周り 9×9 で 3 nm とし、相手の繊維の裾の
+    代わりにする。
+    """
+    n, c = 41, 20
+    skeleton = np.zeros((n, n), dtype=np.uint8)
+    skeleton[c, :] = 1
+    skeleton[:, c] = 1
+    bp = np.zeros_like(skeleton)
+    bp[c, c] = 1
+    cal = np.ones((n, n), dtype=np.float64)
+    cal[c - 4:c + 5, c - 4:c + 5] = 3.0
+    meta = {"version": BUNDLE_FORMAT_VERSION, CENTERLINE_KEY: DEFAULT_CENTERLINE_METHOD}
+    if width_px is not None:
+        meta[APPARENT_WIDTH_KEY] = {"median_px": width_px}
+    save_bundle(path, {"calibrated": cal, "skeletonized": skeleton, "bp": bp}, vlmeta=meta)
+    return path
+
+
+def test_skeleton_height_values_leave_out_the_crossing(tmp_path):
+    """
+    The 3x3 at a branch point and one width along each arm are left out.
+    分岐点の 3×3 と、各腕に沿った 1 幅分が外れる。
+
+    Each arm keeps 19 pixels after the 3x3 is cleared; the 4 nearest the
+    crossing lie within one width (4 px) of it, which leaves 15 per arm, all
+    on the 1 nm line beyond the raised square.
+    3×3 を消すと各腕に 19 画素が残り、交差に近い 4 画素は交差から 1 幅（4 px）
+    以内にあるため、腕ごとに 15 画素が残る。いずれも持ち上げた正方形の外の 1 nm の
+    線上にある。
+    """
+    path = _crossing_bundle(os.path.join(tmp_path, "cross.b2z"))
+    heights, errors = skeleton_height_values([path])
+    assert errors == []
+    assert heights.size == 4 * 15
+    assert np.all(heights == 1.0)
+
+
+def test_skeleton_height_values_keep_the_crossing_arms_without_a_width(tmp_path):
+    """
+    A bundle that records no width keeps every pixel but the cleared 3x3.
+    幅を記録していないバンドルでは、消した 3×3 以外の画素をすべて残す。
+    """
+    path = _crossing_bundle(os.path.join(tmp_path, "cross.b2z"), width_px=None)
+    heights, errors = skeleton_height_values([path])
+    assert errors == []
+    assert heights.size == 4 * 19
+
+
+def test_skeleton_height_values_drop_the_excluded_piece(tmp_path):
+    """
+    An exclusion anchor drops the piece of skeleton that holds it.
+    除外アンカーは、それを含むスケルトンの断片を外す。
+    """
+    path = _crossing_bundle(os.path.join(tmp_path, "cross.b2z"))
+    save_exclusions(exclusion_path_for(path), "cross.b2z",
+                    [{"x": 5, "y": 20, "note": "debris"}])
+    report = []
+    heights, errors = skeleton_height_values(
+        [path], apply_exclusions=True, curation_report=report)
+    assert errors == []
+    assert heights.size == 3 * 15
+    assert report == [(path, 4, 3, 3)]
 
 
 def test_skeleton_height_values_applies_the_exclusion_sidecar(measured, tmp_path):
@@ -574,31 +644,24 @@ def test_skeleton_height_values_applies_the_exclusion_sidecar(measured, tmp_path
     assert curated.size == 0
 
 
-def test_skeleton_height_values_honors_the_connection_sidecar(measured, tmp_path):
+def test_skeleton_height_values_ignore_the_connection_sidecar(measured, tmp_path):
     """
-    The saved connection settings reach the pixel-unit population too.
-    保存済みの連結設定は、画素単位の母集団にも反映される。
+    A saved connection changes no skeleton-pixel height.
+    保存済みの連結は、スケルトン画素の高さを 1 つも変えない。
 
-    Reconnection adds interpolated bridge points that exist in no mask, so a
-    result identical to the directly connected measurement is the evidence
-    that the sidecar was read and applied rather than ignored.
-    再結合はどのマスクにも存在しない補間点を追加するため、直接連結を指定した
-    計測と一致することが、サイドカーが無視されず読まれ適用された証拠になる。
+    A connection adds only interpolated bridge heights, which are not image
+    samples.
+    連結が加えるのは補間した橋渡しの高さだけで、画像の標本ではない。
     """
     bundle_path, _result = measured
     copied = os.path.join(tmp_path, "copy.b2z")
     shutil.copyfile(bundle_path, copied)
-    plan = _auto_plan(copied)
-    save_connect_plan(connect_path_for(copied), "copy.b2z", plan)
+    save_connect_plan(connect_path_for(copied), "copy.b2z", _auto_plan(copied))
 
-    from_sidecar, errors = skeleton_height_values([copied], apply_connection=True)
+    connected, errors = skeleton_height_values([copied], apply_connection=True)
+    plain, _errors = skeleton_height_values([copied])
     assert errors == []
-
-    direct = measure_bundle(copied, scale_um=SCALE_UM, plan=plan)
-    expected = np.concatenate([np.asarray(f.height, dtype=float)
-                               for f in direct.fibers])
-    assert from_sidecar.size == expected.size
-    assert np.allclose(np.sort(from_sidecar), np.sort(expected))
+    assert np.array_equal(connected, plain)
 
 
 def test_skeleton_height_values_needs_no_recorded_scan_size(measured, tmp_path):
@@ -606,13 +669,11 @@ def test_skeleton_height_values_needs_no_recorded_scan_size(measured, tmp_path):
     Heights are measurable on a bundle that records no scan size.
     走査範囲を記録していないバンドルでも高さは計測できる。
 
-    Heights do not depend on the pixel size, so tracing such a bundle with the
-    placeholder scale is exact for this quantity. This keeps working the one
+    Heights do not depend on the pixel size, which keeps working the one
     combination that GUI03 offers for bundles predating the scan-size
     contract.
-    高さはピクセルサイズに依存しないため、代替スケールで追跡してもこの量に
-    関しては厳密である。これにより、走査範囲契約より前のバンドルに対して GUI03
-    が提供する唯一の組み合わせが動き続ける。
+    高さはピクセルサイズに依存しないため、走査範囲契約より前のバンドルに対して
+    GUI03 が提供する唯一の組み合わせが動き続ける。
     """
     bundle_path, _result = measured
     stripped = os.path.join(tmp_path, "no_scan_size.b2z")
@@ -765,10 +826,19 @@ def test_contour_length_weights_single_point_fiber():
     assert contour_length_weights(np.array([0.0])).tolist() == [0.0]
 
 
+def _deprecated_profiles():
+    """
+    Return the deprecated `collect_skeleton_height_profiles`, checking its warning.
+    非推奨の `collect_skeleton_height_profiles` を、その警告を確かめて返す。
+    """
+    with pytest.warns(DeprecationWarning, match="skeleton_height_values"):
+        return measure_module.collect_skeleton_height_profiles
+
+
 def test_collect_skeleton_height_profiles_totals_match_fiber_lengths(measured):
     """Collected weights total the summed contour length of the bundle."""
     bundle_path, result = measured
-    per_bundle, errors = collect_skeleton_height_profiles(
+    per_bundle, errors = _deprecated_profiles()(
         [bundle_path], scale_um=SCALE_UM,
     )
     assert errors == []
@@ -784,7 +854,7 @@ def test_collect_skeleton_height_profiles_totals_match_fiber_lengths(measured):
 def test_collect_skeleton_height_profiles_reports_bundle_without_scan_size(measured):
     """A bundle with no recorded scan size errors instead of raising."""
     bundle_path, _result = measured
-    per_bundle, errors = collect_skeleton_height_profiles([bundle_path])
+    per_bundle, errors = _deprecated_profiles()([bundle_path])
     assert per_bundle == []
     assert len(errors) == 1
     assert errors[0][0] == bundle_path
@@ -1258,8 +1328,8 @@ def test_collect_fiber_stats_applies_the_exclusion_sidecar(measured, tmp_path):
 def test_collectors_report_how_many_fibers_the_exclusions_removed(
         measured, tmp_path):
     """
-    Every collector reports traced, after-exclusion and measured counts.
-    どのコレクタも、追跡数・除外後の数・計測数を報告する。
+    Every tracing collector reports traced, after-exclusion and measured counts.
+    追跡するコレクタはどれも、追跡数・除外後の数・計測数を報告する。
 
     The collectors return only the surviving population, so this report is
     the only place a caller can read how much a manual curation removed.
@@ -1280,14 +1350,9 @@ def test_collectors_report_how_many_fibers_the_exclusions_removed(
         lambda report: collect_fiber_stats(
             [copied], scale_um=SCALE_UM, apply_exclusions=True,
             curation_report=report),
-        lambda report: collect_skeleton_height_profiles(
-            [copied], scale_um=SCALE_UM, apply_exclusions=True,
-            curation_report=report),
         lambda report: collect_fiber_curvature(
             [copied], scale_um=SCALE_UM, apply_exclusions=True,
             curation_report=report),
-        lambda report: skeleton_height_values(
-            [copied], apply_exclusions=True, curation_report=report),
     )
     for call in calls:
         report = []

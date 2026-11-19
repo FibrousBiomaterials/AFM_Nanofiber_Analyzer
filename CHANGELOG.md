@@ -12,14 +12,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - GUI03 cuts every compared group at a common length floor ("長さの下限を
   そろえる", on by default): fibers shorter than the longest of the compared
-  bundles' floors are left out of every quantity, and the log reports the floor
+  bundles' floors are left out of every quantity but the skeleton-pixel
+  heights, which measure no fiber length, and the log reports the floor
   and how many fibers each group lost. A bundle's floor is
   `max(h_length, area_min / W)` pixels at its pixel size, W being its median
   apparent width (`measure.length_floor_nm`), because binarization removes
   shorter components whatever their angle, so a coarser scan cannot contain the
   short fibers a finer one keeps; on synthetic straight fibers every fiber at
   least that long was kept (`docs/validation.md` §2.8). `measure_bundle` and the
-  four bundle collectors take the floor as `min_length_nm`, and
+  bundle collectors that trace fibers take the floor as `min_length_nm`, and
   `cli.py measure --length-floor common|NM` applies it to CSV output. With the
   option off, GUI03 warns when the compared bundles' floors differ. **GUI03's
   distributions and statistics change from this version at the default
@@ -744,8 +745,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   change from this version.**
 - GUI03's standard deviation of an unweighted sample divides by n − 1 (the
   sample standard deviation) instead of by n, and is left blank for a single
-  sample instead of reading 0. Weighted samples (`length`, and
-  `Miles-Lantuejoul` per fiber) still divide by the total weight. The results
+  sample instead of reading 0. Weighted samples (`Miles-Lantuejoul` per fiber)
+  still divide by the total weight. The results
   table heading says which (`SD (n-1)` or `weighted SD`), and the statistics
   CSV gains a `std definition` column after the existing ones. **Standard
   deviations of unweighted samples reported by GUI03 change from this version**
@@ -794,15 +795,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   higher-plant scan; the median height moved by at most 0.6 %, 4.3 % and 30 %
   on the higher-plant, tunicate and NDTOC scans. **Heights of connected
   fibrils change from this version.**
-- The pooled height distributions — GUI03's `pixel` and `length` units,
-  `cli.py heights`, `measure.skeleton_height_values` and
-  `measure.collect_skeleton_height_profiles` — use the samples the per-fiber
-  height statistics use (`measure.height_sample_mask`), leaving out the last
-  width at a cut end and the connector's bridges with a width on either side.
-  On the three bundled scans, together with the changes above, this removed
-  5.2 %, 9.0 % and 14.2 % of the samples of the higher-plant, tunicate and
-  NDTOC scans and lowered their medians by 1.1 %, 0.8 % and 1.0 %. **Pooled
-  height distributions change from this version.**
+- The pooled height distribution — GUI03's `pixel` unit, `cli.py heights` and
+  `measure.skeleton_height_values` — reads the calibrated image at the
+  skeleton pixels, without tracing fibers or placing a centerline. It leaves
+  out the 3×3 around each branch point and the skeleton closer to it than one
+  apparent width (the median the analysis recorded), measured along the
+  skeleton, where the other fiber's skirt raises the height
+  (`docs/validation.md` §4.11). A manual exclusion drops the piece of
+  skeleton holding its anchor; a saved connection, which adds only
+  interpolated bridge heights, changes no sample. Pieces shorter than 10
+  pixels, skeleton L-corners and pieces that cannot be traced are no longer
+  dropped, the length floor does not apply, and each height is the skeleton
+  pixel's rather than the crest height of the centerline. GUI03 warns when a
+  group pools bundles of different pixel sizes, because a finer pixel size
+  contributes more pixels per micrometer of fiber. **Pooled height
+  distributions change from this version.**
 - GUI04's height filter cuts every fiber of the measured population, with the
   exclusions and any connection applied, into its in-band runs
   (`fiber_connector.filter_fibers_by_height`), whether or not anything in the
@@ -870,9 +877,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   angles describes no property of the fiber, and nothing in the analysis calls
   it any more (see Changed). The name still works and issues a
   `DeprecationWarning`; it will be removed in 3.0.0.
+- `lib.measure.collect_skeleton_height_profiles` is deprecated, because GUI03
+  no longer offers the length-weighted height distribution it backed (see
+  Removed). The name still works and issues a `DeprecationWarning`; it will be
+  removed in 3.0.0.
 
 ### Removed
 
+- GUI03's `length` aggregation unit for `height`, which weighted each skeleton
+  pixel by the contour length it represents. Counting skeleton pixels already
+  weights a fiber by its length; what the weighting added was the longer reach
+  of a diagonal step and a common scale across pixel sizes, and GUI03 now warns
+  about mixed pixel sizes instead (see Fixed). `lib.measure.HEIGHT_ONLY_SCALE_UM`
+  is removed with the traced height collection that used it.
 - GUI03 no longer reads the per-fiber CSVs GUI04 exports (its `fiber csv`
   input). A population curated in GUI04 reaches GUI03 through the bundle's
   `_excluded.json` and `_connect.json` sidecars, which 「除外を適用」 and

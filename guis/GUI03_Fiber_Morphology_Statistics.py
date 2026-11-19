@@ -50,8 +50,8 @@ PLUGIN_INFO = {
     "description": (
         "AFMで撮影したナノファイバーの形態パラメータの分布と統計量をGUIで求めるプログラムです。\n"
         "入力データには、Image Preprocessor が出力する .b2z バンドルファイルを使います。ファイルをグループごとに登録し、選択中のファイルの背景補正済みの高さ像を確認できます。\n"
-        "計測量は height（高さ）、contour length（輪郭長）、straightness（直線度）、curvature（曲率）、kink angle（キンク角）、kink density（キンク密度）から選べ、いずれもファイバー追跡結果から算出します。\n"
-        "集計単位（骨格画素・輪郭長重み付け・ファイバー・キンク・画像）を切り替えられるため、画素をまとめた分布だけでなく、ファイバー単位・画像単位の分布としても確認できます。\n"
+        "計測量は height（高さ）、contour length（輪郭長）、straightness（直線度）、curvature（曲率）、kink angle（キンク角）、kink density（キンク密度）から選べ、骨格画素単位の高さ以外はファイバー追跡結果から算出します。\n"
+        "集計単位（骨格画素・ファイバー・キンク・画像）を切り替えられるため、画素をまとめた分布だけでなく、ファイバー単位・画像単位の分布としても確認できます。\n"
         "図はヒストグラム・ECDF・箱ひげ図から選べ、中央値・四分位範囲・平均・標準偏差・最頻値と、標本数の内訳を併記します。複数のデータ群（グループ）を登録すると、縦並び・重ね表示で比較でき、ファイバー単位・画像単位では群間検定の結果も表示します。"
     )
 }
@@ -98,7 +98,7 @@ from lib.group_compare import compare_groups
 from lib.measure import (
     DEFAULT_CURVATURE_WINDOW_NM,
     collect_fiber_curvature, collect_fiber_stats,
-    collect_skeleton_height_profiles, fiber_judged_length_um, fiber_kink_density,
+    fiber_judged_length_um, fiber_kink_density,
     fiber_real_end_count, kaplan_meier_length_weights, length_floor_nm,
     read_scan_size_from_bundle, skeleton_height_values,
 )
@@ -127,7 +127,6 @@ PARAM_STRAIGHTNESS = "straightness"
 PARAM_CURVATURE = "curvature"
 
 UNIT_PIXEL = "pixel"
-UNIT_LENGTH = "length"
 UNIT_KINK = "kink"
 UNIT_FIBER = "fiber"
 UNIT_IMAGE = "image"
@@ -180,14 +179,14 @@ PLOT_BOX = "box"
 PLOT_TYPES = (PLOT_HISTOGRAM, PLOT_ECDF, PLOT_BOX)
 
 # Aggregation units whose samples support a between-group test. The others are
-# excluded on principle rather than for convenience: skeleton pixels and
-# length-weighted points are not independent observations of a specimen, and
-# several kinks come from one fiber, so a p-value over them measures how
-# finely the images were sampled instead of whether the specimens differ.
-# 群間検定を適用できる集計単位。他を外すのは便宜ではなく原理による。骨格画素と
-# 長さ重み付けの点は試料の独立観測ではなく、複数のキンクは 1 本のファイバーから
-# 来る。それらに対する p 値は、試料が異なるかどうかではなく、画像をどれだけ
-# 細かくサンプリングしたかを測ってしまう。
+# excluded on principle rather than for convenience: skeleton pixels are not
+# independent observations of a specimen, and several kinks come from one
+# fiber, so a p-value over them measures how finely the images were sampled
+# instead of whether the specimens differ.
+# 群間検定を適用できる集計単位。他を外すのは便宜ではなく原理による。骨格画素は
+# 試料の独立観測ではなく、複数のキンクは 1 本のファイバーから来る。それらに
+# 対する p 値は、試料が異なるかどうかではなく、画像をどれだけ細かくサンプリング
+# したかを測ってしまう。
 # The two testable units differ in what they treat as independent: the fiber
 # unit counts the fibers of one image as independent, which the image unit
 # does not, and the comparison note says so for the fiber unit
@@ -226,24 +225,13 @@ UNIT_PER_MICROMETER = "1/" + UNIT_MICROMETER
 UNIT_PER_MICROMETER_PLOT = r"$\mathregular{\mu m^{-1}}$"
 
 # Plural nouns used when reporting the sample size of each aggregation unit.
-# The length unit measures a contour length rather than counting objects, so
-# its "count" is reported in micrometers.
-# 各集計単位の標本量を表示するときに使う複数形の名詞。length 単位は個数では
-# なく輪郭長を測るため、その「数」は µm で報告する。
+# 各集計単位の標本量を表示するときに使う複数形の名詞。
 UNIT_NOUNS = {
     UNIT_PIXEL: "px",
-    UNIT_LENGTH: UNIT_MICROMETER + " of contour",
     UNIT_KINK: "kinks",
     UNIT_FIBER: "fibers",
     UNIT_IMAGE: "images",
 }
-
-# Aggregation units whose sample size is a physical length, not a count.
-# They are formatted with a decimal and a unit instead of a thousands-grouped
-# integer.
-# 標本量が個数ではなく物理長になる集計単位。3 桁区切りの整数ではなく、小数と
-# 単位を付けて整形する。
-LENGTH_WEIGHTED_UNITS = (UNIT_LENGTH,)
 
 # Below this many samples a histogram shows no distribution shape, so the run
 # says so instead of letting a two-bar plot pass for one. It is a readability
@@ -273,7 +261,7 @@ PARAM_SPECS = {
         "slug": "height",
         "value_unit": "nm",
         "axis_label": "height (nm)",
-        "units": (UNIT_PIXEL, UNIT_LENGTH, UNIT_FIBER, UNIT_IMAGE),
+        "units": (UNIT_PIXEL, UNIT_FIBER, UNIT_IMAGE),
         "default_range": (0.0, 10.0, 0.2),
     },
     PARAM_LENGTH: {
@@ -1139,13 +1127,12 @@ def _summary_stats(values: np.ndarray, weights=None) -> dict:
         計測量の単位で表した標本値。
     weights
         Per-value weights, or None for an unweighted sample. Used by the
-        length-weighted aggregation, where a weight is the contour length in
-        nanometers that its value represents, and by the Miles-Lantuejoul
-        frame correction of contour lengths, where it is the dimensionless
-        `FiberStats.frame_weight`.
-        値ごとの重み。重みなしの標本では None。長さ重み付け集計で使い、その
-        場合の重みは各値が代表する輪郭長 (nm)。輪郭長の Miles-Lantuejoul 枠補正
-        でも使い、その場合は無次元の `FiberStats.frame_weight`。
+        Miles-Lantuejoul frame correction of contour lengths, where it is the
+        dimensionless `FiberStats.frame_weight`, and by the judged-length
+        weighting of per-fiber kink densities.
+        値ごとの重み。重みなしの標本では None。輪郭長の Miles-Lantuejoul 枠補正で
+        使い、その場合は無次元の `FiberStats.frame_weight`。ファイバー単位の
+        キンク密度の判定長による重み付けでも使う。
 
     Returns
     -------
@@ -1429,27 +1416,24 @@ def _attainable_p_note(comparisons) -> str:
 
 def _format_sample_size(value: float, unit: str) -> str:
     """
-    Format a sample size for the aggregation unit that produced it.
-    集計単位に応じて標本量を整形する。
+    Format a sample size for display.
+    表示用に標本量を整形する。
 
     Parameters
     ----------
     value
-        Sample size: a count for counted units, a contour length in
-        nanometers for length-weighted units.
-        標本量。個数を数える単位では件数、長さ重み付けの単位では輪郭長 (nm)。
+        Sample size, a count of samples.
+        標本量（標本の件数）。
     unit
-        Aggregation-unit key.
-        集計単位キー。
+        Aggregation-unit key; every unit counts its samples.
+        集計単位キー。どの単位も標本を件数で数える。
 
     Returns
     -------
     str
-        Grouped integer for counts, or a micrometer value for lengths.
-        個数は 3 桁区切りの整数、長さは µm 表記。
+        Integer with thousands separators.
+        3 桁区切りの整数。
     """
-    if unit in LENGTH_WEIGHTED_UNITS:
-        return "{0:,.1f}".format(value / 1000.0)
     return "{0:,}".format(int(value))
 
 
@@ -1490,20 +1474,18 @@ def _sample_size_csv_value(value: float, unit: str):
         Sample size in the same terms as `_format_sample_size` takes.
         `_format_sample_size` と同じ意味の標本量。
     unit
-        Aggregation-unit key.
-        集計単位キー。
+        Aggregation-unit key; every unit counts its samples.
+        集計単位キー。どの単位も標本を件数で数える。
 
     Returns
     -------
-    int or str
-        Plain integer count, or a micrometer value without thousands
-        separators, which a spreadsheet or a script would otherwise read as
-        text rather than as a number.
-        素の整数の件数、または 3 桁区切りを含まない µm 値。区切りが入ると
-        表計算やスクリプトが数値ではなく文字列として読んでしまう。
+    int
+        Plain integer count without thousands separators, which a
+        spreadsheet or a script would otherwise read as text rather than as a
+        number.
+        3 桁区切りを含まない素の整数の件数。区切りが入ると表計算やスクリプトが
+        数値ではなく文字列として読んでしまう。
     """
-    if unit in LENGTH_WEIGHTED_UNITS:
-        return "{0:.4f}".format(value / 1000.0)
     return int(value)
 
 
@@ -2387,14 +2369,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.cmb_param.pack(side=tk.LEFT, padx=(4, 12))
         self.cmb_param.bind("<<ComboboxSelected>>", lambda _e: self._on_param_change())
         ToolTip(self.cmb_param, _(
-            "比較する形態パラメータを選びます。いずれもファイバー追跡の結果から"
-            "算出します。{height} は追跡された点の高さをそのまま集めるため走査範囲"
-            "が未記録のバンドルでも計測できますが、{length} / {angle} / {density} は"
-            "バンドルに走査範囲が記録されている必要があります。"
-        ).format(
-            height=PARAM_HEIGHT, length=PARAM_LENGTH,
-            angle=PARAM_KINK_ANGLE, density=PARAM_KINK_DENSITY,
-        ))
+            "比較する形態パラメータを選びます。{height} の {pixel} 集計以外は"
+            "ファイバー追跡の結果から算出します。{height} の {pixel} 集計は骨格画素の"
+            "高さをそのまま集めるため走査範囲が未記録のバンドルでも計測できますが、"
+            "それ以外はバンドルに走査範囲が記録されている必要があります。"
+        ).format(height=PARAM_HEIGHT, pixel=UNIT_PIXEL))
 
         ttk.Label(inputbar, text=_("集計単位")).pack(side=tk.LEFT)
         self.unit_var = tk.StringVar(value=self.unit)
@@ -2417,13 +2396,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "大きくなるため、群間比較では {fiber}・{image} でも確認してください。"
             "{fiber} は同じ画像のファイバーを独立と数えるため、場所ごとの違いを"
             "踏まえて比べるときは {image} を使います。"
-            "{length} は骨格画素を輪郭長で重み付けします。画素を等しく数えると、"
-            "斜めの骨格ステップが約 1.41 倍長いことと、走査範囲の異なる画像で"
-            "ピクセルサイズが変わることの 2 つの偏りが入ります。{length} は両方を"
-            "取り除き、「観測した輪郭長のうちの割合」を表す走査条件に依らない分布に"
-            "します。"
+            "{pixel} は画素サイズの細かい画像ほど標本が多くなるため、画素サイズの"
+            "異なる画像を同じグループに混ぜるとログに注意を出します。"
         ).format(
-            pixel=UNIT_PIXEL, length=UNIT_LENGTH, kink=UNIT_KINK,
+            pixel=UNIT_PIXEL, kink=UNIT_KINK,
             fiber=UNIT_FIBER, image=UNIT_IMAGE,
         ))
 
@@ -2953,8 +2929,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "{fiber}・{image} 集計での N も併せて確認してください。\n").format(
                 pixel=UNIT_PIXEL, fiber=UNIT_FIBER, image=UNIT_IMAGE,
             )
-            + _("  - どの計測量もファイバー追跡を行うため処理時間がかかります。{height} 以外は"
-                "バンドルに走査範囲が記録されている必要があります。\n").format(height=PARAM_HEIGHT)
+            + _("  - {height} の {pixel} 集計以外はファイバー追跡を行うため処理時間が"
+                "かかり、バンドルに走査範囲が記録されている必要があります。\n").format(
+                height=PARAM_HEIGHT, pixel=UNIT_PIXEL)
             + _("  - mode はヒストグラムのビン幅に依存します。step を変えると値が変わるため、"
                 "報告には median と IQR を併記してください。\n")
         )
@@ -4337,8 +4314,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             手動除外で何本外れたかを呼び出し側がログに出せるようにするため。
         min_length_nm
             Common length floor in nanometers (`_common_length_floor`), or
-            ``None``.
+            ``None``; not applied to the skeleton-pixel heights.
             共通の下限長 (nm)（`_common_length_floor`）、または ``None``。
+            スケルトン画素の高さには当てない。
         floor_report
             List passed to the collector as its ``floor_report``, so the caller
             can log how many fibers the floor removed.
@@ -4354,32 +4332,30 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         -------
         tuple
             ``(values, weights, n_fibers, n_images, load_errors)``. `weights`
-            is None for every counted unit and holds the contour length in
-            nanometers that each value represents under ``UNIT_LENGTH``.
-            `n_fibers` counts the fibers that contributed at least one sample
-            and is 0 in the skeleton-pixel path, where fibers are not
-            individuated. `load_errors` holds ``(bundle_path, message)`` pairs.
+            is None unless the unit weights its samples (Miles-Lantuejoul,
+            judged length). `n_fibers` counts the fibers that contributed at
+            least one sample and is 0 in the skeleton-pixel path, where fibers
+            are not individuated. `load_errors` holds ``(bundle_path,
+            message)`` pairs.
             ``(値リスト, 重み, ファイバー数, 画像数, 読込エラー)``。`weights` は
-            個数で数える単位では None、``UNIT_LENGTH`` では各値が代表する
-            輪郭長 (nm)。`n_fibers` は 1 標本以上を出したファイバーの数で、
-            ファイバーを個体として扱わない骨格画素経路では 0。`load_errors` は
+            標本を重み付けする単位（Miles-Lantuejoul、判定長）以外では None。
+            `n_fibers` は 1 標本以上を出したファイバーの数で、ファイバーを個体と
+            して扱わない骨格画素経路では 0。`load_errors` は
             ``(バンドルパス, メッセージ)``。
 
         Notes
         -----
-        Every bundle path traces fibers, because exclusion and connection act
-        on traced objects and neither can be expressed on the skeleton mask.
-        The height/pixel combination is still the only one that works on a
-        bundle without a recorded scan size: heights do not depend on the
-        pixel size, so `skeleton_height_values` measures such a bundle with a
-        placeholder, while everything else needs a physical pixel size to turn
-        track steps into nanometers.
-        どのバンドル経路もファイバー追跡を行う。除外と連結は追跡された対象に
-        作用するものであり、いずれも骨格マスク上では表現できないためである。
-        走査範囲が未記録のバンドルで動くのが height/pixel だけである点は変わら
-        ない。高さはピクセルサイズに依存しないため `skeleton_height_values` は
-        代替値で計測できるが、他の経路は追跡ステップを nm へ変換するために物理
-        ピクセルサイズを必要とする。
+        The height/pixel combination reads the skeleton pixels without
+        tracing (`skeleton_height_values`), so it is the only one that works
+        on a bundle without a recorded scan size and the length floor does not
+        apply to it: no fiber length is measured. Every other path traces
+        fibers and needs a physical pixel size to turn track steps into
+        nanometers.
+        height/pixel の組み合わせは追跡せずにスケルトン画素を読む
+        （`skeleton_height_values`）。そのため走査範囲が未記録のバンドルでも動く
+        唯一の組み合わせであり、ファイバーの長さを測らないので下限長も当てない。
+        ほかの経路はすべてファイバーを追跡し、追跡ステップを nm へ変換するために
+        物理ピクセルサイズを必要とする。
         """
         if param == PARAM_HEIGHT and unit == UNIT_PIXEL:
             heights, load_errors = skeleton_height_values(
@@ -4387,42 +4363,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 apply_exclusions=apply_exclusions,
                 apply_connection=apply_connection,
                 curation_report=curation_report,
-                min_length_nm=min_length_nm,
-                floor_report=floor_report,
             )
             failed = {path for path, _msg in load_errors}
             n_images = sum(1 for path in bundle_paths if path not in failed)
             return heights.tolist(), None, 0, n_images, load_errors
-
-        if param == PARAM_HEIGHT and unit == UNIT_LENGTH:
-            # Length weighting walks the traced fibers rather than the skeleton
-            # mask, because the weight of a point is the contour length it
-            # represents and only the ordered track gives the step lengths.
-            # 長さ重み付けでは骨格マスクではなく追跡済みファイバーをたどる。点の
-            # 重みはその点が代表する輪郭長であり、ステップ長は順序付けられた
-            # トラックからしか得られないため。
-            profiles, load_errors = collect_skeleton_height_profiles(
-                bundle_paths,
-                apply_exclusions=apply_exclusions,
-                apply_connection=apply_connection,
-                curation_report=curation_report,
-                min_length_nm=min_length_nm,
-                floor_report=floor_report,
-            )
-            values = []
-            weights = []
-            n_images = 0
-            for _path, heights, point_weights in profiles:
-                if heights.size == 0:
-                    continue
-                n_images += 1
-                values.extend(heights.tolist())
-                weights.extend(point_weights.tolist())
-            # Fibers are traced here but not counted individually: the profiles
-            # arrive concatenated, which is what the weighted statistics need.
-            # ここではファイバーを追跡するが個体としては数えない。プロファイルは
-            # 連結された形で届き、重み付き統計に必要なのはその形だからである。
-            return values, weights, 0, n_images, load_errors
 
         if param == PARAM_CURVATURE:
             per_fiber, load_errors = collect_fiber_curvature(
@@ -4805,6 +4749,44 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "その上乗せは画素サイズとノイズで変わるため、画素サイズの違うバンドルの間の"
             "曲率の差には、撮像条件の違いも含まれます。"
         ).format(low=f"{low:.2f}", high=f"{high:.2f}")))
+
+    def _log_group_pixel_size_spread(self, grp_name: str, pixel_sizes: list) -> None:
+        """
+        Warn when one group pools skeleton pixels of different pixel sizes.
+        1 グループが画素サイズの異なるスケルトン画素をまとめるときに警告する。
+
+        Parameters
+        ----------
+        grp_name
+            Group the bundles belong to.
+            バンドルが属するグループ。
+        pixel_sizes
+            X pixel size of each bundle of the group, in nanometers.
+            グループの各バンドルの X 画素サイズ (nm)。
+
+        Notes
+        -----
+        The pixel unit counts every skeleton pixel once, so a fiber imaged at a
+        finer pixel size yields more samples per unit length and weighs more
+        in the group's pooled distribution. Nothing is corrected; the user is
+        told and decides whether the pooling is acceptable.
+        pixel 単位はスケルトン画素を 1 点ずつ数えるため、細かい画素サイズで撮像した
+        繊維ほど長さあたりの標本が多く、グループのまとめた分布での重みが大きくなる。
+        補正はせず、ユーザーに知らせて、まとめてよいかを判断してもらう。
+        """
+        if len(pixel_sizes) < 2:
+            return
+        low, high = min(pixel_sizes), max(pixel_sizes)
+        # The same one-percent tolerance as `_log_pixel_size_spread`.
+        # `_log_pixel_size_spread` と同じ 1 % の許容幅。
+        if high <= low * 1.01:
+            return
+        self.ui_queue.put(("log", _(
+            "[{grp}] 注意: このグループのバンドルの画素サイズが {low}〜{high} nm/px と"
+            "異なります。{pixel} 集計では画素 1 点を 1 標本と数えるため、画素の細かい"
+            "画像ほど繊維の長さあたりの標本が多く、分布への寄与が大きくなります。"
+        ).format(grp=grp_name, low=f"{low:.2f}", high=f"{high:.2f}",
+                 pixel=UNIT_PIXEL)))
 
     def _common_length_floor(self, bundle_paths, enabled: bool):
         """
@@ -5191,20 +5173,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             }))
             return
 
-        # The pixel combination pools every tracked point without individuating
+        # The pixel combination pools skeleton pixels without individuating
         # fibers, so it cannot count "N fibers"; it is also the only
         # combination that runs on a bundle with no recorded scan size,
         # because heights do not depend on the pixel size.
-        # 画素の組み合わせは追跡点を個体に分けずまとめるため "N fibers" を数え
-        # られない。また、高さがピクセルサイズに依存しないことから、走査範囲が
+        # 画素の組み合わせはスケルトン画素を個体に分けずまとめるため "N fibers" を
+        # 数えられない。また、高さがピクセルサイズに依存しないことから、走査範囲が
         # 未記録のバンドルでも動く唯一の組み合わせでもある。
         pixel_mode = param == PARAM_HEIGHT and unit == UNIT_PIXEL
-        # The length unit traces fibers but concatenates their profiles, so it
-        # counts no individual fibers either.
-        # length 単位はファイバーを追跡するがプロファイルを連結するため、こちらも
-        # 個々のファイバーは数えない。
-        counts_fibers = not (pixel_mode or unit == UNIT_LENGTH)
-        weighted = unit in LENGTH_WEIGHTED_UNITS or (
+        counts_fibers = not pixel_mode
+        weighted = (
             frame_weighted and unit == UNIT_FIBER
         ) or self._kink_length_weighted(param, unit)
         # Weights that do not measure the sample: the Miles-Lantuejoul weight and
@@ -5301,7 +5279,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # バンドルで決める。比べる全グループで同じでなければならないためである。
         kink_threshold_deg = None
         all_bundles = [path for grp in groups for path in group_files[grp["id"]]]
-        min_length_nm = self._common_length_floor(
+        # Skeleton-pixel heights measure no fiber length, so no floor is
+        # decided or logged for them.
+        # スケルトン画素の高さはファイバーの長さを測らないため、下限を決めず、
+        # ログにも出さない。
+        min_length_nm = None if pixel_mode else self._common_length_floor(
             all_bundles, bool(args.get("length_floor", True)))
         if param in (PARAM_KINK_ANGLE, PARAM_KINK_DENSITY):
             kink_threshold_deg = args.get("kink_threshold_deg")
@@ -5327,10 +5309,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # 読み込みと計測は `cli.py heights` / `cli.py measure` と同一経路の
             # lib.measure へ委譲する。バンドルごとのエラーは固定英語文字列で返り、
             # ここで翻訳済みのグループ文脈を付けて表示する。
-            # Every bundle path traces fibers, so none of them is fast enough
-            # to leave the log silent while it runs.
-            # どのバンドル経路もファイバー追跡を行うため、実行中にログを無音にして
-            # よいほど速い経路は無い。
+            # Every path but the skeleton-pixel heights traces fibers, which
+            # is too slow to leave the log silent while it runs.
+            # スケルトン画素の高さ以外の経路はすべてファイバー追跡を行い、実行中に
+            # ログを無音にしてよいほど速くはない。
             self.ui_queue.put(("log", _(
                 "[{grp}] {n} バンドルを計測中..."
             ).format(grp=grp_name, n=len(bundle_paths))))
@@ -5393,6 +5375,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 curvature_pixel_sizes.extend(
                     self._bundle_pixel_sizes(bundle_paths))
 
+            if pixel_mode:
+                self._log_group_pixel_size_spread(
+                    grp_name, self._bundle_pixel_sizes(bundle_paths))
+
             if uncorrected_lengths:
                 frame_scan_sizes[grp_name] = self._bundle_scan_sizes(bundle_paths)
 
@@ -5438,10 +5424,21 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             if apply_exclusions and curation_report:
                 traced = sum(row[1] for row in curation_report)
                 kept = sum(row[2] for row in curation_report)
-                self.ui_queue.put(("log", _(
-                    "[{grp}] 手動除外を適用: 追跡した {total} 本の"
-                    "うち {n} 本を除外しました"
-                ).format(
+                # Skeleton-pixel heights trace nothing: their counts are the
+                # pieces of skeleton left once the branch points are cleared.
+                # スケルトン画素の高さは何も追跡しない。その件数は、分岐点を
+                # 消した後に残るスケルトンの断片の数である。
+                if pixel_mode:
+                    msg = _(
+                        "[{grp}] 手動除外を適用: スケルトンの断片 {total} 個の"
+                        "うち {n} 個を除外しました"
+                    )
+                else:
+                    msg = _(
+                        "[{grp}] 手動除外を適用: 追跡した {total} 本の"
+                        "うち {n} 本を除外しました"
+                    )
+                self.ui_queue.put(("log", msg.format(
                     grp=grp_name, total=traced, n=traced - kept,
                 )))
 
@@ -5604,20 +5601,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # 区間（`_kaplan_meier_interval`）。
                 "quantile_bounds": stats.get("bounds", {}),
                 "km_interval": km_interval,
-                # The reported sample size is the total weight, which is a
-                # count when the weights are implicit ones and a contour
-                # length in nanometers under length weighting. The
-                # Miles-Lantuejoul weight is an exception: its total is an
-                # estimated fiber count, not what was observed, so the number
-                # of fibers measured is reported instead.
-                # 報告する標本量は重みの合計。重みが暗黙の 1 なら件数、長さ
-                # 重み付けなら輪郭長 (nm) になる。Miles-Lantuejoul 重みは例外で、
-                # その合計は観測した本数ではなく推定本数であるため、計測した
-                # 本数を報告する。
-                "n_samples": (
-                    float(arr.size) if wts is None or counted_by_fiber
-                    else float(wts.sum())
-                ),
+                # The reported sample size is the number of samples measured.
+                # No weight measures it: the total of the Miles-Lantuejoul
+                # weight is an estimated fiber count, not what was observed,
+                # and the judged length a kink density is weighted by is a
+                # length.
+                # 報告する標本量は計測した標本の数。重みはこれを表さない。
+                # Miles-Lantuejoul 重みの合計は観測した本数ではなく推定本数であり、
+                # キンク密度を重み付けする判定長は長さであるため。
+                "n_samples": float(arr.size),
                 # Total weight, which is what the histogram bars sum to and so
                 # what the out-of-range share is taken against.
                 # 重みの合計。ヒストグラムの棒の総和であり、範囲外の割合はこれに
@@ -5743,11 +5735,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return
 
         for r in results:
-            # Length weighting enters the histogram here as bin weights, so the
-            # bars show contour length per bin instead of a point count and
+            # Weights enter the histogram here as bin weights, so the bars
             # agree with the weighted statistics above.
-            # 長さ重み付けはビンの重みとしてここでヒストグラムに入る。棒はビン
-            # ごとの点数ではなく輪郭長を表し、上の重み付き統計と一致する。
+            # 重みはビンの重みとしてここでヒストグラムに入る。棒は上の重み付き
+            # 統計と一致する。
             counts, _edges = np.histogram(
                 r["values"], bins=edges, weights=r["weights"], density=False,
             )
@@ -5784,12 +5775,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # only the selected range. Silently dropping out-of-range samples
             # from the figure would misrepresent the distribution, so report the
             # excluded share rather than leaving the difference invisible. A
-            # share rather than a count because the sample size is a length,
-            # not a count, under length weighting.
+            # share of the total weight rather than a count, because under a
+            # weight the bars sum weights, not samples.
             # 要約統計量は全標本を、棒グラフは選択範囲のみを表す。範囲外の標本を
             # 黙って図から落とすと分布を誤って伝えるため、除外された割合を示す。
-            # 件数ではなく割合にするのは、長さ重み付けでは標本量が件数ではなく
-            # 長さになるため。
+            # 件数ではなく重みの合計に対する割合にするのは、重みがあると棒が標本の
+            # 数ではなく重みを合計するため。
             outside = r["weight_total"] - total
             # Fractional weights sum in a different order in the bins than in
             # the total, so a relative tolerance keeps rounding from reporting
@@ -6626,11 +6617,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         for v in r["values"]:
                             w.writerow([float(v)])
                     else:
-                        # A length-weighted sample needs its weights exported
-                        # too. Without them the file recomputes an unweighted
+                        # A weighted sample needs its weights exported too.
+                        # Without them the file recomputes an unweighted
                         # distribution and silently disagrees with the figure
                         # and the statistics it came from.
-                        # 長さ重み付けの標本は重みも併せて出力する必要がある。重み
+                        # 重み付きの標本は重みも併せて出力する必要がある。重み
                         # が無いと、そのファイルからは重みなしの分布が再計算され、
                         # 元の図や統計値と黙って食い違ってしまう。
                         # The Miles-Lantuejoul and Kaplan-Meier weights are
@@ -6766,13 +6757,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     "mode ({0})".format(value_unit),
                     # N samples is the whole sample the statistics describe;
                     # N in range is what the drawn bars contain. Both are
-                    # counts for the counted units and a contour length in
-                    # micrometers under length weighting, which is what the
-                    # "sample unit" column identifies.
+                    # counts of what the "sample unit" column names.
                     # N samples は統計量の母体となる全標本量、N in range は
-                    # 描画された棒に含まれる標本量。どちらも個数で数える単位では
-                    # 件数、長さ重み付けでは輪郭長 (µm) であり、その区別は
-                    # "sample unit" 列が示す。
+                    # 描画された棒に含まれる標本量。どちらも "sample unit" 列が
+                    # 示すものの件数である。
                     "N samples",
                     "N in range",
                     "N fibers",
