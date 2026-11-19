@@ -83,7 +83,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # ===== Project libraries =====
-from lib.blosc2_io import BUNDLE_EXT, load_bundle, load_bundle_meta
+from lib.blosc2_io import BUNDLE_EXT, bundle_array_shape, load_bundle, load_bundle_meta
 from lib.bundle_schema import (
     APPARENT_WIDTH_KEY, SOURCE_REGION_KEY, centerline_from_meta,
     kink_params_from_meta, pixel_size_nm, scan_size_um_from_meta,
@@ -776,7 +776,12 @@ def _fiber_value(stat, param: str):
     キンクが検出されなかったファイバーは欠測ではなく 0 という有効な値として扱う。
     """
     if param == PARAM_HEIGHT:
-        return float(stat.height_median_nm)
+        # NaN when every sample of the fiber read a crossing
+        # (`height_sample_mask`); such a fiber has no height of its own.
+        # 繊維の全標本が交差を読んだとき NaN になる（`height_sample_mask`）。
+        # そのような繊維には自身の高さが無い。
+        value = float(stat.height_median_nm)
+        return None if not np.isfinite(value) else value
     if param == PARAM_LENGTH:
         return float(stat.length_nm)
     # From lib.measure, so the value GUI04 shows beside a fiber is the value
@@ -1113,6 +1118,132 @@ def _quantile_text(r: dict, key: str, fmt: str) -> str:
     if bounds is not None:
         return _range_text(bounds, fmt)
     return "-"
+
+
+def _histogram_edges(min_h: float, max_h: float, step: float) -> np.ndarray:
+    """
+    Return equal bins of width `step` from `min_h` that reach `max_h`.
+    `min_h` から幅 `step` の等幅ビンを `max_h` まで並べて返す。
+
+    Notes
+    -----
+    An arange to `max_h` stops one step short of it, which would leave the
+    last bin of the entered range out of the figure and count its samples as
+    outside it. When the range is not a whole number of steps, the last bin
+    ends past `max_h` instead of short of it.
+    `max_h` までの arange は 1 step 手前で止まるため、入力範囲の最後のビンが図から
+    欠け、その標本が範囲外と数えられてしまう。範囲が step で割り切れないときは、
+    最後のビンを `max_h` の手前ではなく先で終える。
+    """
+    n_bins = int(np.ceil((max_h - min_h) / step - 1e-9))
+    edges = min_h + step * np.arange(n_bins + 1)
+    if np.isclose(edges[-1], max_h, rtol=0.0,
+                  atol=1e-9 * max(abs(max_h), step)):
+        edges[-1] = max_h
+    return edges
+
+
+def _bin_results(results: list, edges: np.ndarray, counted_by_fiber: bool) -> list:
+    """
+    Count each group's samples into `edges` and note the share outside them.
+    各グループの標本を `edges` のビンに数え、範囲外の割合を注記する。
+
+    Parameters
+    ----------
+    results
+        Per-group results holding ``values``, ``weights``, ``weight_total``
+        and ``km_beyond``; ``counts``, ``total``, ``n_in_range``, ``mode`` and
+        ``norm_total`` are written into each.
+        ``values``・``weights``・``weight_total``・``km_beyond`` を持つグループ
+        ごとの結果。各結果に ``counts``・``total``・``n_in_range``・``mode``・
+        ``norm_total`` を書き込む。
+    edges
+        Bin edges (`_histogram_edges`).
+        ビンの境界（`_histogram_edges`）。
+    counted_by_fiber
+        Whether the weights do not stand for sample counts (Miles-Lantuejoul,
+        judged-length kink densities), so the samples in range are counted
+        apart from the bar totals.
+        重みが標本の量を表さないか（Miles-Lantuejoul、判定長で重み付けした
+        キンク密度）。そのとき範囲内の標本数を棒の合計とは別に数える。
+
+    Returns
+    -------
+    list of str
+        One notice per group with samples outside the bins.
+        ビンの外に標本があるグループごとの通知。
+
+    Notes
+    -----
+    Only the bins depend on the histogram range and step; the samples and the
+    summary statistics do not, so a new range re-bins the samples already
+    collected instead of measuring the bundles again.
+    ヒストグラムの範囲と step に依存するのはビンだけで、標本と要約統計量は依存
+    しない。そのため範囲を変えたときは、バンドルを計測し直さず、集めた標本を
+    ビンに数え直す。
+    """
+    notes = []
+    for r in results:
+        # Weights enter the histogram here as bin weights, so the bars
+        # agree with the weighted statistics.
+        # 重みはビンの重みとしてここでヒストグラムに入る。棒は重み付き統計と一致する。
+        counts, _edges = np.histogram(
+            r["values"], bins=edges, weights=r["weights"], density=False,
+        )
+        total = float(counts.sum())
+        r["counts"] = counts
+        r["total"] = total
+        # How many samples the drawn range holds. Under the
+        # Miles-Lantuejoul weight the bars sum weights, so the count is
+        # taken separately to stay comparable with the reported fibers.
+        # 描画範囲に入る標本の量。Miles-Lantuejoul 重みでは棒が重みを合計
+        # するため、報告する本数と比べられるよう件数を別に数える。
+        r["n_in_range"] = (
+            float(np.histogram(r["values"], bins=edges)[0].sum())
+            if counted_by_fiber else total
+        )
+        if total > 0:
+            k = int(np.argmax(counts))
+            r["mode"] = float((edges[k] + edges[k + 1]) / 2.0)
+        else:
+            r["mode"] = float("nan")
+        # Under Kaplan-Meier the bars are fractions of every fiber the
+        # estimate stands for, so they sum to less than one by the part it
+        # could not place, and the tallest bar is not the mode of a
+        # distribution whose tail is unknown.
+        # Kaplan-Meier では棒を、推定が表す全ファイバーに対する割合とする。
+        # そのため棒の合計は、置けなかった部分だけ 1 に届かない。また裾の
+        # 分からない分布では、最も高い棒は最頻値ではない。
+        r["norm_total"] = total
+        if r.get("km_beyond", 0.0) > 0.0:
+            r["norm_total"] = r["weight_total"] + r["km_beyond"]
+            r["mode"] = float("nan")
+
+        # Summary statistics describe the whole sample, while the bars show
+        # only the selected range. Silently dropping out-of-range samples
+        # from the figure would misrepresent the distribution, so report the
+        # excluded share rather than leaving the difference invisible. A
+        # share of the total weight rather than a count, because under a
+        # weight the bars sum weights, not samples.
+        # 要約統計量は全標本を、棒グラフは選択範囲のみを表す。範囲外の標本を
+        # 黙って図から落とすと分布を誤って伝えるため、除外された割合を示す。
+        # 件数ではなく重みの合計に対する割合にするのは、重みがあると棒が標本の
+        # 数ではなく重みを合計するため。
+        outside = r["weight_total"] - total
+        # Fractional weights sum in a different order in the bins than in
+        # the total, so a relative tolerance keeps rounding from reporting
+        # "0.0% outside".
+        # 小数の重みはビンと合計で加算順が異なるため、相対許容誤差を設け、
+        # 丸め誤差で「0.0% が範囲外」と報告しないようにする。
+        if outside > 1e-9 * r["weight_total"] and r["weight_total"] > 0:
+            notes.append(
+                _("[{grp}] 標本の {pct}% がヒストグラム範囲外です"
+                  "（統計値は範囲外を含む全標本から計算しています）").format(
+                    grp=r["name"],
+                    pct="{0:.1f}".format(100.0 * outside / r["weight_total"]),
+                )
+            )
+    return notes
 
 
 def _summary_stats(values: np.ndarray, weights=None) -> dict:
@@ -2481,7 +2612,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ))
         self._update_frame_mode_state()
 
-        self.length_floor_var = tk.BooleanVar(value=True)
+        self.length_floor_var = tk.BooleanVar(value=False)
         self.chk_length_floor = ttk.Checkbutton(
             comparebar, text=_("長さの下限をそろえる"),
             variable=self.length_floor_var,
@@ -2985,8 +3116,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         Notes
         -----
-        These parameters trigger a full recalculation when results already exist.
-        既存の結果がある場合、これらのパラメータ変更は再計算を発生させる。
+        When results already exist, the collected samples are re-binned and
+        redrawn (`_rebin_last_results`); the bundles are not measured again.
+        既存の結果がある場合は、集めた標本をビンに数え直して再描画する
+        （`_rebin_last_results`）。バンドルは計測し直さない。
         """
         def _check(v):
             if v["step"] <= 0:
@@ -2997,7 +3130,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         def _on_success():
             if self._has_result and not self.is_running:
-                self.on_run()
+                self._rebin_last_results()
 
         return self._commit_float_fields(
             [
@@ -4585,7 +4718,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 scan = scan_size_um_from_meta(self._bundle_meta(path))
                 if scan is None:
                     continue
-                width = load_bundle(path, keys=["calibrated"])["calibrated"].shape[1]
+                width = bundle_array_shape(path, "calibrated")[1]
                 sizes.append(pixel_size_nm(scan[0], width))
             except Exception:
                 continue
@@ -5284,7 +5417,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # スケルトン画素の高さはファイバーの長さを測らないため、下限を決めず、
         # ログにも出さない。
         min_length_nm = None if pixel_mode else self._common_length_floor(
-            all_bundles, bool(args.get("length_floor", True)))
+            all_bundles, bool(args.get("length_floor", False)))
         if param in (PARAM_KINK_ANGLE, PARAM_KINK_DENSITY):
             kink_threshold_deg = args.get("kink_threshold_deg")
             self._log_kink_thresholds(all_bundles, kink_threshold_deg)
@@ -5701,20 +5834,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return
 
         try:
-            # Equal bins of width `step` from `min_h` that reach `max_h`: an
-            # arange to `max_h` stops one step short of it, so the last bin of
-            # the entered range was missing from the figure and its samples
-            # were counted as outside it. When the range is not a whole number
-            # of steps, the last bin ends past `max_h` instead of short of it.
-            # `min_h` から幅 `step` の等幅ビンを `max_h` まで並べる。`max_h` まで
-            # の arange は 1 step 手前で止まるため、入力範囲の最後のビンが図から
-            # 欠け、その標本が範囲外と数えられていた。範囲が step で割り切れない
-            # ときは、最後のビンを `max_h` の手前ではなく先で終える。
-            n_bins = int(np.ceil((max_h - min_h) / step - 1e-9))
-            edges = min_h + step * np.arange(n_bins + 1)
-            if np.isclose(edges[-1], max_h, rtol=0.0,
-                          atol=1e-9 * max(abs(max_h), step)):
-                edges[-1] = max_h
+            edges = _histogram_edges(min_h, max_h, step)
         except Exception:
             self.ui_queue.put(("fatal", {
                 "text": _("ヒストグラム範囲の準備に失敗しました。"),
@@ -5734,67 +5854,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # 実際にこのハンドラへ到達する。
             return
 
+        errors.extend(_bin_results(results, edges, counted_by_fiber))
         for r in results:
-            # Weights enter the histogram here as bin weights, so the bars
-            # agree with the weighted statistics above.
-            # 重みはビンの重みとしてここでヒストグラムに入る。棒は上の重み付き
-            # 統計と一致する。
-            counts, _edges = np.histogram(
-                r["values"], bins=edges, weights=r["weights"], density=False,
-            )
-            total = float(counts.sum())
-            r["counts"] = counts
-            r["total"] = total
-            # How many samples the drawn range holds. Under the
-            # Miles-Lantuejoul weight the bars sum weights, so the count is
-            # taken separately to stay comparable with the reported fibers.
-            # 描画範囲に入る標本の量。Miles-Lantuejoul 重みでは棒が重みを合計
-            # するため、報告する本数と比べられるよう件数を別に数える。
-            r["n_in_range"] = (
-                float(np.histogram(r["values"], bins=edges)[0].sum())
-                if counted_by_fiber else total
-            )
-            if total > 0:
-                k = int(np.argmax(counts))
-                r["mode"] = float((edges[k] + edges[k + 1]) / 2.0)
-            else:
-                r["mode"] = float("nan")
-            # Under Kaplan-Meier the bars are fractions of every fiber the
-            # estimate stands for, so they sum to less than one by the part it
-            # could not place, and the tallest bar is not the mode of a
-            # distribution whose tail is unknown.
-            # Kaplan-Meier では棒を、推定が表す全ファイバーに対する割合とする。
-            # そのため棒の合計は、置けなかった部分だけ 1 に届かない。また裾の
-            # 分からない分布では、最も高い棒は最頻値ではない。
-            r["norm_total"] = total
-            if r.get("km_beyond", 0.0) > 0.0:
-                r["norm_total"] = r["weight_total"] + r["km_beyond"]
-                r["mode"] = float("nan")
-
-            # Summary statistics describe the whole sample, while the bars show
-            # only the selected range. Silently dropping out-of-range samples
-            # from the figure would misrepresent the distribution, so report the
-            # excluded share rather than leaving the difference invisible. A
-            # share of the total weight rather than a count, because under a
-            # weight the bars sum weights, not samples.
-            # 要約統計量は全標本を、棒グラフは選択範囲のみを表す。範囲外の標本を
-            # 黙って図から落とすと分布を誤って伝えるため、除外された割合を示す。
-            # 件数ではなく重みの合計に対する割合にするのは、重みがあると棒が標本の
-            # 数ではなく重みを合計するため。
-            outside = r["weight_total"] - total
-            # Fractional weights sum in a different order in the bins than in
-            # the total, so a relative tolerance keeps rounding from reporting
-            # "0.0% outside".
-            # 小数の重みはビンと合計で加算順が異なるため、相対許容誤差を設け、
-            # 丸め誤差で「0.0% が範囲外」と報告しないようにする。
-            if outside > 1e-9 * r["weight_total"] and r["weight_total"] > 0:
-                errors.append(
-                    _("[{grp}] 標本の {pct}% がヒストグラム範囲外です"
-                      "（統計値は範囲外を含む全標本から計算しています）").format(
-                        grp=r["name"],
-                        pct="{0:.1f}".format(100.0 * outside / r["weight_total"]),
-                    )
-                )
+            # Kept for re-binning when only the histogram range changes
+            # (`App._rebin_last_results`).
+            # ヒストグラムの範囲だけが変わったときにビンを数え直すために保持する
+            # （`App._rebin_last_results`）。
+            r["counted_by_fiber"] = counted_by_fiber
 
             # A histogram over a handful of samples shows no distribution
             # shape, which is the normal situation for the image unit: a group
@@ -5937,33 +6003,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 param, payload["results"][0].get("frame_mode", FRAME_INCLUDE)),
         )
 
-        for iid in self.result_tree.get_children(""):
-            self.result_tree.delete(iid)
-        for r in results:
-            mode_str = f"{r['mode']:.3f}" if not np.isnan(r["mode"]) else "-"
-            self.result_tree.insert(
-                "", tk.END,
-                values=(
-                    r["name"],
-                    _quantile_text(r, "median", "{0:.3f}"),
-                    # A quartile given as a range reads poorly joined by a dash.
-                    # 範囲で示した四分位数はダッシュでつなぐと読みにくい。
-                    _quantile_text(r, "q1", "{0:.3f}")
-                    + ("–" if np.isfinite(r["q1"]) and np.isfinite(r["q3"]) else " to ")
-                    + _quantile_text(r, "q3", "{0:.3f}"),
-                    _blank_if_nan(r["mean"], "{0:.3f}") or "-",
-                    _blank_if_nan(r["std"], "{0:.3f}") or "-",
-                    mode_str,
-                    _format_sample_size(r["n_samples"], unit),
-                    "-" if r["n_fibers"] is None else f"{r['n_fibers']:,}",
-                    f"{r['n_images']:,}",
-                    "-" if r.get("width_nm") is None else f"{r['width_nm']:.1f}",
-                ),
-            )
-        # The width column takes room from the plot, so it shows only beside
-        # the kink quantities it explains.
-        # 幅の列はプロットの領域を削るため、説明する相手であるキンクの量のときだけ出す。
-        self._show_width_column(any(r.get("width_nm") is not None for r in results))
+        self._fill_result_table(results, unit)
 
         self._draw_figure(
             results=results,
@@ -6019,6 +6059,74 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 self._log(f"- {e}")
         else:
             self._log(_("完了"))
+
+    def _rebin_last_results(self) -> None:
+        """
+        Re-bin the collected samples at the current histogram range and redraw.
+        集めた標本を現在のヒストグラム範囲でビンに数え直し、再描画する。
+
+        Notes
+        -----
+        The range and step set only the bins, the mode and the share outside
+        the range (`_bin_results`); the samples, the summary statistics and
+        the between-group tests do not depend on them, so the bundles are not
+        measured again.
+        範囲と step が決めるのは、ビン・最頻値・範囲外の割合だけである
+        （`_bin_results`）。標本・要約統計量・群間検定はこれらに依存しないため、
+        バンドルを計測し直さない。
+        """
+        if not self._last_results:
+            return
+        try:
+            edges = _histogram_edges(self.min_h, self.max_h, self.step)
+        except Exception:
+            # The entries enforce only min < max and step > 0, so a wide range
+            # with a fine step can still run out of memory here.
+            # 入力が保証するのは min < max と step > 0 だけなので、広い範囲に
+            # 細かい step を与えるとここでメモリ不足になりうる。
+            messagebox.showerror(_("エラー"), _("ヒストグラム範囲の準備に失敗しました。"))
+            return
+        results = self._last_results
+        notes = _bin_results(
+            results, edges, bool(results[0].get("counted_by_fiber", False)))
+        self._last_edges = edges
+        self._fill_result_table(results, self._last_unit)
+        self._redraw_from_last_results()
+        for note in notes:
+            self._log(f"- {note}")
+
+    def _fill_result_table(self, results: list, unit: str) -> None:
+        """
+        Fill the per-group result table from the results of one run.
+        1 回の実行の結果から、グループごとの結果表を埋める。
+        """
+        for iid in self.result_tree.get_children(""):
+            self.result_tree.delete(iid)
+        for r in results:
+            mode_str = f"{r['mode']:.3f}" if not np.isnan(r["mode"]) else "-"
+            self.result_tree.insert(
+                "", tk.END,
+                values=(
+                    r["name"],
+                    _quantile_text(r, "median", "{0:.3f}"),
+                    # A quartile given as a range reads poorly joined by a dash.
+                    # 範囲で示した四分位数はダッシュでつなぐと読みにくい。
+                    _quantile_text(r, "q1", "{0:.3f}")
+                    + ("–" if np.isfinite(r["q1"]) and np.isfinite(r["q3"]) else " to ")
+                    + _quantile_text(r, "q3", "{0:.3f}"),
+                    _blank_if_nan(r["mean"], "{0:.3f}") or "-",
+                    _blank_if_nan(r["std"], "{0:.3f}") or "-",
+                    mode_str,
+                    _format_sample_size(r["n_samples"], unit),
+                    "-" if r["n_fibers"] is None else f"{r['n_fibers']:,}",
+                    f"{r['n_images']:,}",
+                    "-" if r.get("width_nm") is None else f"{r['width_nm']:.1f}",
+                ),
+            )
+        # The width column takes room from the plot, so it shows only beside
+        # the kink quantities it explains.
+        # 幅の列はプロットの領域を削るため、説明する相手であるキンクの量のときだけ出す。
+        self._show_width_column(any(r.get("width_nm") is not None for r in results))
 
     @staticmethod
     def _format_p(value: float) -> str:

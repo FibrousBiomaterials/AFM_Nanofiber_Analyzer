@@ -892,9 +892,9 @@ by `cli.py measure`, so a value checked here is the value those report.
 |---|---|---|
 | `#` | Row position in the displayed list | — |
 | `length (nm)` | `Fiber.length`, prefixed `≥` when it is a lower bound (§3.2) | — |
-| `median (nm)` | `FiberStats.height_median_nm` | — |
-| `max (nm)` | `FiberStats.height_max_nm` | — |
-| `p90 (nm)` | `FiberStats.height_p90_nm` | no height samples |
+| `median (nm)` | `FiberStats.height_median_nm` | no height sample kept (§3.3) |
+| `max (nm)` | `FiberStats.height_max_nm` | no height sample kept (§3.3) |
+| `p90 (nm)` | `FiberStats.height_p90_nm` | no height sample kept (§3.3) |
 | `straightness` | `measure.fiber_straightness` | contour length is 0 |
 | `curvature (rad/µm)` | `measure.fiber_mean_curvature` | fiber shorter than the 100 nm window |
 | `EP count` | `len(Fiber.ep_indices)` | — |
@@ -921,8 +921,8 @@ fresh = _table_values(
 self.fiber_tree.insert("", "end", iid=str(i), values=(
     i,
     ("≥ " if lower_bound else "") + f"{f.length:.0f}",
-    f"{med:.2f}",
-    f"{mx:.2f}",
+    blank_if_nan(med, "{0:.2f}"),
+    blank_if_nan(mx, "{0:.2f}"),
     blank_if_nan(p90, "{0:.2f}"),
     blank_if_nan(straight, "{0:.3f}"),
     blank_if_nan(curv, "{0:.2f}"),
@@ -1040,9 +1040,8 @@ Not every point of `Fiber.height` enters the height statistics.
 `measure.height_sample_mask` leaves out three kinds of sample:
 
 ```python
-# source: lib/measure.py::CUT_END_EXCLUSION_WIDTHS, MIN_HEIGHT_SAMPLES, HEIGHT_UPPER_PERCENTILE
+# source: lib/measure.py::CUT_END_EXCLUSION_WIDTHS, HEIGHT_UPPER_PERCENTILE
 CUT_END_EXCLUSION_WIDTHS = 1.0
-MIN_HEIGHT_SAMPLES = 3
 HEIGHT_UPPER_PERCENTILE = 90.0
 ```
 
@@ -1068,13 +1067,7 @@ if np.isfinite(width) and width > 0.0 and n > 1:
     bridge = np.flatnonzero(~measured)
     if bridge.size:
         gap = np.abs(arc[:, None] - arc[bridge][None, :]).min(axis=1)
-        away_from_bridges = mask & (gap >= zone)
-        if away_from_bridges.sum() >= MIN_HEIGHT_SAMPLES:
-            mask = away_from_bridges
-if mask.sum() < MIN_HEIGHT_SAMPLES:
-    mask = measured
-    if not mask.any():
-        mask = np.ones(n, dtype=bool)
+        mask &= gap >= zone
 return mask
 ```
 
@@ -1094,11 +1087,9 @@ return mask
    end. The samples within 1 W of a bridge point, measured the same way, are
    left out.
 
-If fewer than 3 samples would remain, the bridge-neighbourhood exclusion is
-dropped, and then, if still too few remain, the cut-end exclusion, so that a
-short fragment still reports a height and no sample the cut-end rule alone
-leaves out comes back first; the bridge samples themselves stay out. If nothing
-measured remains at all, every sample is used. A fiber without a width (format 1.0, on the skeleton track) has
+A fragment that lies wholly inside these zones keeps no sample: every sample
+it has reads the crossing, so none of them is this fiber's height, and its
+height cells are blank (§3.4). A fiber without a width (format 1.0, on the skeleton track) has
 neither of the two exclusions that W sets.
 
 ### 3.4 `median (nm)`, `max (nm)`, `p90 (nm)`
@@ -1109,14 +1100,15 @@ for i, f in enumerate(fibers):
     samples = np.asarray(f.height, dtype=float)
     if samples.size:
         samples = samples[height_sample_mask(f)]
-    med = float(np.median(samples)) if samples.size else 0.0
-    mx = float(np.max(samples)) if samples.size else 0.0
+    med = float(np.median(samples)) if samples.size else float("nan")
+    mx = float(np.max(samples)) if samples.size else float("nan")
     p90 = (float(np.percentile(samples, HEIGHT_UPPER_PERCENTILE))
            if samples.size else float("nan"))
 ```
 
 These are the median, the maximum, and the 90th percentile of the crest heights
-(§2.6) that the mask keeps. NumPy's default linear interpolation between order
+(§2.6) that the mask keeps; with no sample kept, all three are NaN and the
+cells are blank. NumPy's default linear interpolation between order
 statistics is used. The maximum is an extreme value and moves with a single
 noise spike or contamination particle. `p90` summarizes the tall end of the
 fiber without depending on one sample.
@@ -1482,7 +1474,7 @@ else:
             color="dimgray", lw=1.5)
     ax.plot(horizon, np.where(~used, height, np.nan),
             color="silver", lw=1.2, linestyle="--")
-if app.show_medmax_var.get():
+if app.show_medmax_var.get() and used.any():
     med = float(np.median(height[used]))
     mx  = float(np.max(height[used]))
 ...
@@ -1497,7 +1489,8 @@ The profile plots `Fiber.height` (the crest heights, §2.6) against
 `Fiber.horizon` (§2.7). The samples the height statistics use are solid. The ones
 `height_sample_mask` leaves out (§3.3) are dashed and lighter. The median and
 maximum guide lines are computed from the same mask as `median (nm)` and
-`max (nm)`, so the plot and the table always agree. The vertical cyan lines mark
+`max (nm)`, so the plot and the table always agree; a fiber with no sample kept
+has no guide lines, as its cells are blank. The vertical cyan lines mark
 the kinks at their distance along the centerline.
 
 ## 5. Connected fibrils

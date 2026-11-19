@@ -130,7 +130,6 @@ WATCHED_SYMBOLS: Tuple[str, ...] = (
     "lib/centerline.py::_whittaker_first_order",
     "lib/centerline.py::polyline_distance",
     "lib/measure.py::CUT_END_EXCLUSION_WIDTHS",
-    "lib/measure.py::MIN_HEIGHT_SAMPLES",
     "lib/measure.py::HEIGHT_UPPER_PERCENTILE",
     "lib/measure.py::DEFAULT_CURVATURE_WINDOW_NM",
     "lib/measure.py::compute_fiber_stats",

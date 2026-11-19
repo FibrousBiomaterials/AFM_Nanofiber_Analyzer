@@ -836,9 +836,9 @@ cols = ("#", "length (nm)", "median (nm)", "max (nm)", "p90 (nm)",
 |---|---|---|
 | `#` | 表示中の一覧での行位置 | — |
 | `length (nm)` | `Fiber.length`。下限値のときは前に `≥` を付ける（§3.2） | — |
-| `median (nm)` | `FiberStats.height_median_nm` | — |
-| `max (nm)` | `FiberStats.height_max_nm` | — |
-| `p90 (nm)` | `FiberStats.height_p90_nm` | 高さ標本が無い |
+| `median (nm)` | `FiberStats.height_median_nm` | 残る高さ標本が無い（§3.3） |
+| `max (nm)` | `FiberStats.height_max_nm` | 残る高さ標本が無い（§3.3） |
+| `p90 (nm)` | `FiberStats.height_p90_nm` | 残る高さ標本が無い（§3.3） |
 | `straightness` | `measure.fiber_straightness` | 輪郭長が 0 |
 | `curvature (rad/µm)` | `measure.fiber_mean_curvature` | ファイバーが 100 nm の窓より短い |
 | `EP count` | `len(Fiber.ep_indices)` | — |
@@ -865,8 +865,8 @@ fresh = _table_values(
 self.fiber_tree.insert("", "end", iid=str(i), values=(
     i,
     ("≥ " if lower_bound else "") + f"{f.length:.0f}",
-    f"{med:.2f}",
-    f"{mx:.2f}",
+    blank_if_nan(med, "{0:.2f}"),
+    blank_if_nan(mx, "{0:.2f}"),
     blank_if_nan(p90, "{0:.2f}"),
     blank_if_nan(straight, "{0:.3f}"),
     blank_if_nan(curv, "{0:.2f}"),
@@ -978,9 +978,8 @@ cut_end_count=_cut_end_count(f),
 `measure.height_sample_mask` は 3 種類の標本を外す。
 
 ```python
-# source: lib/measure.py::CUT_END_EXCLUSION_WIDTHS, MIN_HEIGHT_SAMPLES, HEIGHT_UPPER_PERCENTILE
+# source: lib/measure.py::CUT_END_EXCLUSION_WIDTHS, HEIGHT_UPPER_PERCENTILE
 CUT_END_EXCLUSION_WIDTHS = 1.0
-MIN_HEIGHT_SAMPLES = 3
 HEIGHT_UPPER_PERCENTILE = 90.0
 ```
 
@@ -1006,13 +1005,7 @@ if np.isfinite(width) and width > 0.0 and n > 1:
     bridge = np.flatnonzero(~measured)
     if bridge.size:
         gap = np.abs(arc[:, None] - arc[bridge][None, :]).min(axis=1)
-        away_from_bridges = mask & (gap >= zone)
-        if away_from_bridges.sum() >= MIN_HEIGHT_SAMPLES:
-            mask = away_from_bridges
-if mask.sum() < MIN_HEIGHT_SAMPLES:
-    mask = measured
-    if not mask.any():
-        mask = np.ones(n, dtype=bool)
+        mask &= gap >= zone
 return mask
 ```
 
@@ -1029,10 +1022,9 @@ return mask
    間の隙間をまたぐ（§5.2）。そのため、その脇の標本は、切断端と同じ理由でその交差の
    そばにある。橋渡し部の点から同じ測り方で 1 W 以内の標本を外す。
 
-残る標本が 3 未満になる場合は、まず橋渡し部の周囲の除外をやめ、それでも足りなければ
-切断端の除外をやめる。こうして短い断片でも高さを報告でき、切断端の規則だけで外れる
-標本が先に戻ることはない。橋渡し部そのものの標本は外したままにする。測定値が 1 つも
-残らない場合は全標本を使う。幅を持たないファイバー（形式 1.0 のバンドルで、
+断片全体がこれらの範囲に入るときは、標本が 1 つも残らない。その断片の標本はどれも
+交差を読んでおり、どれもこのファイバーの高さではないため、高さのセルは空欄になる
+（§3.4）。幅を持たないファイバー（形式 1.0 のバンドルで、
 スケルトントラック上のもの）には、W で決まる 2 つの除外をどちらも行わない。
 
 ### 3.4 `median (nm)`、`max (nm)`、`p90 (nm)`
@@ -1043,13 +1035,14 @@ for i, f in enumerate(fibers):
     samples = np.asarray(f.height, dtype=float)
     if samples.size:
         samples = samples[height_sample_mask(f)]
-    med = float(np.median(samples)) if samples.size else 0.0
-    mx = float(np.max(samples)) if samples.size else 0.0
+    med = float(np.median(samples)) if samples.size else float("nan")
+    mx = float(np.max(samples)) if samples.size else float("nan")
     p90 = (float(np.percentile(samples, HEIGHT_UPPER_PERCENTILE))
            if samples.size else float("nan"))
 ```
 
-マスクが残した頂点高さ（§2.6）の中央値・最大値・90 パーセンタイルである。
+マスクが残した頂点高さ（§2.6）の中央値・最大値・90 パーセンタイルである。残る標本が
+無いときは 3 つとも NaN で、セルは空欄になる。
 パーセンタイルには NumPy 既定の、順序統計量の間の線形補間を使う。最大値は極値
 なので、ノイズの尖塔 1 つや汚染粒子 1 つで動く。`p90` は、1 つの標本に左右されずに
 繊維の高い側を要約する。
@@ -1398,7 +1391,7 @@ else:
             color="dimgray", lw=1.5)
     ax.plot(horizon, np.where(~used, height, np.nan),
             color="silver", lw=1.2, linestyle="--")
-if app.show_medmax_var.get():
+if app.show_medmax_var.get() and used.any():
     med = float(np.median(height[used]))
     mx  = float(np.max(height[used]))
 ...
@@ -1412,7 +1405,8 @@ if app.show_kink_var.get() and len(fiber.kink_indices) > 0:
 プロファイルは `Fiber.height`（頂点高さ、§2.6）を `Fiber.horizon`（§2.7）に対して
 描く。高さ統計が使う標本は実線で描く。`height_sample_mask` が外す標本（§3.3）は
 薄い破線で描く。中央値と最大値の補助線は `median (nm)`・`max (nm)` と同じマスクから
-計算するので、プロットと表は常に一致する。シアンの縦線は、中心線に沿ったキンクの位置を
+計算するので、プロットと表は常に一致する。残る標本が無いファイバーはセルが空欄なので、
+補助線も引かない。シアンの縦線は、中心線に沿ったキンクの位置を
 示す。
 
 ## 5. 連結したフィブリル

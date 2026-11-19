@@ -10,8 +10,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- GUI03 cuts every compared group at a common length floor ("長さの下限を
-  そろえる", on by default): fibers shorter than the longest of the compared
+- GUI03 can cut every compared group at a common length floor ("長さの下限を
+  そろえる", off by default): fibers shorter than the longest of the compared
   bundles' floors are left out of every quantity but the skeleton-pixel
   heights, which measure no fiber length, and the log reports the floor
   and how many fibers each group lost. A bundle's floor is
@@ -22,10 +22,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   least that long was kept (`docs/validation.md` §2.8). `measure_bundle` and the
   bundle collectors that trace fibers take the floor as `min_length_nm`, and
   `cli.py measure --length-floor common|NM` applies it to CSV output. With the
-  option off, GUI03 warns when the compared bundles' floors differ. **GUI03's
-  distributions and statistics change from this version at the default
-  setting**, because fibers below the floor are left out even of a single
-  bundle; `cli.py measure` and GUI04 keep every fiber unless asked.
+  option off, GUI03 warns when the compared bundles' floors differ. GUI03,
+  `cli.py measure` and GUI04 keep every fiber unless asked.
 - GUI03 has a kink threshold for `kink angle` and `kink density`. Left blank,
   each bundle is counted at its own threshold and the log warns when the
   compared bundles were analyzed at different ones; a value applies that
@@ -446,6 +444,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A fiber's height statistics no longer give back the samples within one width
+  of a cut end or of a bridge when fewer than three would remain
+  (`measure.height_sample_mask`); those samples read the other fiber's skirt at
+  the crossing. A fragment that lies wholly within these zones keeps no sample,
+  and its `median (nm)`, `max (nm)` and `p90 (nm)` are blank in GUI04's table
+  and the fiber CSV, NaN in `FiberStats`, and it contributes no `height` per
+  `fiber` to GUI03; a fiber with no height sample at all also reads NaN instead
+  of 0.0. On the three bundled scans at the default settings, 16 of the 142
+  fibers of the Bruker scan changed, 15 of them (10.2–26.4 nm long) now without
+  a height; the other two scans did not change. **Per-fiber heights change from
+  this version.**
 - The Plot Profiler (GUI02) reads each profile sample from the pixel that
   contains it (`order=0`) instead of interpolating bilinearly between pixels, so
   a crest crossed between pixel centres no longer reads below its highest pixel:

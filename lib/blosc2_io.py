@@ -779,6 +779,50 @@ def load_bundle_meta(path: str) -> dict:
         return dict(ts.vlmeta[:])
 
 
+def bundle_array_shape(path: str, key: str) -> tuple[int, ...]:
+    """
+    Return the shape of one array of a bundle without decompressing it.
+    バンドルの 1 つの配列の shape を、展開せずに返す。
+
+    Parameters
+    ----------
+    path
+        Bundle file path.
+        バンドルファイルパス。
+    key
+        Array key; leading "/" is optional.
+        配列のキー。先頭の "/" は任意。
+
+    Returns
+    -------
+    tuple of int
+        The shape blosc2 records in the array's metadata.
+        blosc2 が配列のメタデータに記録している shape。
+
+    Raises
+    ------
+    KeyError
+        If the bundle holds no array under `key`.
+
+    Examples
+    --------
+    >>> import os, tempfile
+    >>> from lib.blosc2_io import save_bundle, bundle_array_shape
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     path = os.path.join(folder, "demo.b2z")
+    ...     save_bundle(path, {"calibrated": np.zeros((2, 3))})
+    ...     shape = bundle_array_shape(path, "calibrated")
+    >>> shape
+    (2, 3)
+    """
+    target = key if key.startswith("/") else "/" + key
+    with (
+        _ascii_read_path(path) as open_path,
+        blosc2.TreeStore(open_path, mode="r") as ts,
+    ):
+        return tuple(int(n) for n in ts[target].shape)
+
+
 def bundle_keys(path: str) -> list[str]:
     """
     List all leaf dataset keys in a bundle file.

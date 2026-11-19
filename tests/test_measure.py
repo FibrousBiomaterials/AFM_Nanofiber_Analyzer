@@ -1616,41 +1616,30 @@ def test_height_sample_mask_excludes_cut_ends_and_bridges():
     assert both_cut[4:36].all()
 
 
-def test_height_sample_mask_keeps_a_short_fragment_measurable():
+def test_height_sample_mask_leaves_a_fragment_inside_its_zones_without_samples():
     """
-    A fragment shorter than its exclusion zones still reports a height.
-    除外域より短い断片も高さを報告する。
+    A fragment lying wholly within its exclusion zones keeps no sample and has no height.
+    除外域の中に収まる断片は標本を 1 つも残さず、高さを持たない。
 
-    Dropping the cut-end and bridge-neighbourhood exclusions is the fallback;
-    the bridge itself stays excluded, because a bridge is not a measurement at
-    any length.
-    切断端と橋渡しの周囲の除外をやめるのが退避である。橋渡しそのものの除外は残る。
-    橋渡しはどの長さでも測定値ではないからである。
+    Every sample of such a fragment reads the crossing, so none is given back:
+    its median, maximum and p90 are NaN, not a value of the crossing.
+    そのような断片の標本はどれも交差を読むため、どれも戻さない。中央値・最大値・
+    p90 は交差の値ではなく NaN になる。
     """
-    from lib.measure import height_sample_mask
+    from lib.measure import compute_fiber_stats, height_sample_mask
 
     short = _flagged_fiber(n=6, ends=(), bridge=(2,))
-    mask = height_sample_mask(short)
-    assert mask.sum() == 5 and not mask[2]
+    assert not height_sample_mask(short).any()
+    stat = compute_fiber_stats([short])[0]
+    assert np.isnan(stat.height_median_nm)
+    assert np.isnan(stat.height_max_nm)
+    assert np.isnan(stat.height_p90_nm)
 
-
-def test_height_sample_mask_gives_up_the_bridge_neighbourhood_first():
-    """
-    Too few samples away from the bridges restores the bridge neighbourhood, not the cut ends.
-    橋渡しから離れた標本が少なすぎるときは、切断端ではなく橋渡しの周囲を戻す。
-
-    Twelve points with cut ends and a bridge in the middle: the cut ends take
-    the outer 4 px on each side and the bridge neighbourhood the rest, so the
-    bridge neighbourhood is given back and the cut ends stay excluded.
-    切断端を持ち中央に橋渡しのある 12 点。切断端が両側の外側 4 px を、橋渡しの
-    周囲が残りを取るため、橋渡しの周囲を戻し、切断端は外したままにする。
-    """
-    from lib.measure import height_sample_mask
-
-    mask = height_sample_mask(_flagged_fiber(n=12, ends=(), bridge=(6,)))
-    assert not mask[:4].any() and not mask[8:].any(), "cut ends stay excluded"
-    assert not mask[6], "the bridge is never a measurement"
-    assert mask[4:6].all() and mask[7:8].all()
+    # Twelve points with cut ends and a bridge in the middle: the cut ends
+    # take the outer 4 px on each side and the bridge neighbourhood the rest.
+    # 切断端を持ち中央に橋渡しのある 12 点。切断端が両側の外側 4 px を、橋渡しの
+    # 周囲が残りを取る。
+    assert not height_sample_mask(_flagged_fiber(n=12, ends=(), bridge=(6,))).any()
 
 
 def test_kink_density_uses_the_judged_length():

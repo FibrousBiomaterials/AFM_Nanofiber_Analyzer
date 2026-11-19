@@ -54,7 +54,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 # ===== Project libraries =====
-from .blosc2_io import bundle_keys, load_bundle, load_bundle_meta
+from .blosc2_io import bundle_array_shape, bundle_keys, load_bundle, load_bundle_meta
 # The key contract and validation are owned by bundle_schema; TRACKING_BUNDLE_KEYS
 # is re-imported here so existing `measure.TRACKING_BUNDLE_KEYS` users keep working.
 # キー契約と検証は bundle_schema が管理する。既存の
@@ -172,13 +172,6 @@ DEFAULT_CURVATURE_WINDOW_NM = 100.0
 # は交差を読んでしまう。
 CUT_END_EXCLUSION_WIDTHS = 1.0
 
-# Fewest samples the height statistics are taken over. A fragment shorter than
-# the excluded zones would otherwise report no height at all, so below this
-# count the exclusion is dropped and every measured sample is used.
-# 高さ統計を取る最少標本数。除外域より短い断片は高さを一切報告できなくなるため、
-# この数を下回るときは除外をやめ、測定済みの全標本を使う。
-MIN_HEIGHT_SAMPLES = 3
-
 # Upper percentile reported beside the maximum. The maximum is an extreme
 # value and moves with one noise spike or one contamination particle; the
 # percentile summarises the fiber's tall end without depending on one sample.
@@ -280,16 +273,16 @@ class FiberStats:
         Median height along the fiber's line in nanometers, over the samples
         `height_sample_mask` keeps: the crest of each cross-section
         (`Fiber.height`), less the last width at a cut end and the connector's
-        interpolated bridges with a width on each side. 0.0 when the fiber has
-        no height samples.
+        interpolated bridges with a width on each side. NaN when no sample
+        remains.
         ファイバーの線上の高さ中央値 (nm)。`height_sample_mask` が残す標本、
         すなわち各断面の頂点（`Fiber.height`）から、切断端の最後の 1 幅と、連結器が
-        補間した橋渡しとその両側 1 幅を除いたものについて取る。高さサンプルが無い
-        場合は 0.0。
+        補間した橋渡しとその両側 1 幅を除いたものについて取る。標本が 1 つも残らない
+        場合は NaN。
     height_max_nm
-        Maximum height over the same samples in nanometers. 0.0 when the
-        fiber has no height samples.
-        同じ標本についての高さ最大値 (nm)。高さサンプルが無い場合は 0.0。
+        Maximum height over the same samples in nanometers. NaN when no
+        sample remains.
+        同じ標本についての高さ最大値 (nm)。標本が 1 つも残らない場合は NaN。
     ep_count
         Number of endpoints detected on this fiber.
         このファイバーで検出された端点の数。
@@ -1517,8 +1510,8 @@ def compute_fiber_stats(
         samples = np.asarray(f.height, dtype=float)
         if samples.size:
             samples = samples[height_sample_mask(f)]
-        med = float(np.median(samples)) if samples.size else 0.0
-        mx = float(np.max(samples)) if samples.size else 0.0
+        med = float(np.median(samples)) if samples.size else float("nan")
+        mx = float(np.max(samples)) if samples.size else float("nan")
         p90 = (float(np.percentile(samples, HEIGHT_UPPER_PERCENTILE))
                if samples.size else float("nan"))
         angles = tuple(float(np.degrees(a)) for a in f.kink_angles)
@@ -1613,16 +1606,12 @@ def height_sample_mask(fiber: Fiber) -> np.ndarray:
     残す。繊維は実際にそこで終わっている。範囲は線に沿った画素単位の弧長で測るため、
     ピクセルサイズは要らない。
 
-    When fewer than `MIN_HEIGHT_SAMPLES` samples would remain, the
-    bridge-neighbourhood exclusion is dropped, and then, if still too few
-    remain, the cut-end exclusion, so a short fragment still reports a height
-    and no sample the cut-end rule alone leaves out comes back before the
-    bridge neighbourhood does; the bridge itself stays excluded, and only when
-    nothing is measured at all does the mask fall back to every sample.
-    残る標本が `MIN_HEIGHT_SAMPLES` を下回るときは、まず橋渡し部の周囲の除外を
-    やめ、それでも足りなければ切断端の除外をやめる。こうして短い断片も高さを報告
-    でき、切断端の規則だけで外れる標本が、橋渡し部の周囲より先に戻ることはない。
-    橋渡し部そのものの除外は残し、測定済みの標本が 1 つも無いときだけ全標本に戻す。
+    A fragment that lies wholly inside these zones keeps no sample, and its
+    height statistics are NaN (`compute_fiber_stats`): every sample it has
+    reads the crossing, so no value of it is this fiber's height.
+    断片全体がこれらの範囲に入るときは標本が 1 つも残らず、その高さ統計は NaN に
+    なる（`compute_fiber_stats`）。その断片の標本はどれも交差を読んでおり、
+    どの値もこのファイバーの高さではないためである。
 
     GUI04's height profile draws the excluded samples dashed and reads its
     median and maximum guide lines from this mask, so the numbers in the table
@@ -1676,14 +1665,7 @@ def height_sample_mask(fiber: Fiber) -> np.ndarray:
         bridge = np.flatnonzero(~measured)
         if bridge.size:
             gap = np.abs(arc[:, None] - arc[bridge][None, :]).min(axis=1)
-            away_from_bridges = mask & (gap >= zone)
-            if away_from_bridges.sum() >= MIN_HEIGHT_SAMPLES:
-                mask = away_from_bridges
-
-    if mask.sum() < MIN_HEIGHT_SAMPLES:
-        mask = measured
-        if not mask.any():
-            mask = np.ones(n, dtype=bool)
+            mask &= gap >= zone
     return mask
 
 
@@ -2260,7 +2242,7 @@ def length_floor_nm(bundle_path: str) -> Optional[float]:
         return None
     if not (width > 0 and np.isfinite(h_length) and np.isfinite(area_min)):
         return None
-    height_px, width_px = load_bundle(bundle_path, keys=["calibrated"])["calibrated"].shape
+    height_px, width_px = bundle_array_shape(bundle_path, "calibrated")
     pixel_nm = max(pixel_size_nm(scan[0], width_px), pixel_size_nm(scan[1], height_px))
     return max(h_length, area_min / width) * pixel_nm
 
@@ -3509,8 +3491,8 @@ def read_fiber_csv(path: str) -> List[FiberStats]:
                 stats.append(FiberStats(
                     index=int(row[col["index"]]),
                     length_nm=float(row[col["length_nm"]]),
-                    height_median_nm=float(row[col["height_median_nm"]]),
-                    height_max_nm=float(row[col["height_max_nm"]]),
+                    height_median_nm=optional_float(row, "height_median_nm"),
+                    height_max_nm=optional_float(row, "height_max_nm"),
                     ep_count=int(row[col["ep_count"]]),
                     kink_count=int(row[col["kink_count"]]),
                     kink_angles_deg=angles,
@@ -3668,8 +3650,8 @@ def write_fiber_csv(
             writer.writerow([
                 s.index,
                 f"{s.length_nm:.1f}",
-                f"{s.height_median_nm:.3f}",
-                f"{s.height_max_nm:.3f}",
+                blank_or(s.height_median_nm, "{0:.3f}"),
+                blank_or(s.height_max_nm, "{0:.3f}"),
                 s.ep_count,
                 s.kink_count,
                 ";".join(f"{a:.1f}" for a in s.kink_angles_deg),

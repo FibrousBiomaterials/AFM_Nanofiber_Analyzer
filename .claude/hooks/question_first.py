@@ -15,7 +15,8 @@ configuration for Claude Code, the AI coding agent used on this repository.
 - `UserPromptSubmit` (a message was just sent): classify the message, record
   the result for this session, and tell the agent what the turn is for.
 - `PreToolUse` (the agent is about to call a tool): in a question-only turn,
-  deny every tool except read-only lookups.
+  deny every tool of the main agent except read-only lookups. A subagent's
+  calls are never denied.
 
 このファイルは AFM 解析ソフトウェアの一部ではない。本体から import されることも
 ない。本リポジトリで使う AI コーディングエージェント Claude Code の設定である。
@@ -23,8 +24,9 @@ configuration for Claude Code, the AI coding agent used on this repository.
 
 - `UserPromptSubmit` (メッセージが送られた直後): メッセージを分類し、結果を
   セッションごとに記録し、このターンで何をすべきかをエージェントに伝える。
-- `PreToolUse` (エージェントがツールを呼ぶ直前): 質問だけのターンでは、読み取り
-  専用の参照以外のツールをすべて拒否する。
+- `PreToolUse` (エージェントがツールを呼ぶ直前): 質問だけのターンでは、メインの
+  エージェントの読み取り専用の参照以外のツールをすべて拒否する。サブエージェント
+  の呼び出しは拒否しない。
 
 Why it exists
 -------------
@@ -218,6 +220,15 @@ def on_prompt(payload: dict) -> None:
 
 
 def on_tool(payload: dict) -> None:
+    # A subagent's tool call carries `agent_id` (Claude Code hooks reference).
+    # A subagent running in this turn was started by an earlier message that
+    # asked for work, since the Agent tool itself is denied here, so its tools
+    # are not this turn's to deny.
+    # サブエージェントのツール呼び出しには `agent_id` が付く。このターンで動いて
+    # いるサブエージェントは、作業を頼んだ前のメッセージで起動されたもの (この
+    # ターンでは Agent ツール自体を拒否する) なので、そのツールは拒否しない。
+    if payload.get("agent_id"):
+        return
     try:
         with open(_state_path(payload), encoding="utf-8") as fh:
             state = json.load(fh)

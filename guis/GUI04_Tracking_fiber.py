@@ -581,18 +581,21 @@ def fiber_column_help() -> Dict[str, ColumnHelp]:
               "いちばん高い所（頂点）の値を使います。連結でつないだ部分（測った値ではなく"
               "補間した値）と、交差で切れた端から {w:g} W 以内（交差した相手のファイバー"
               "のすそが重なる範囲）は除きます。").format(w=CUT_END_EXCLUSION_WIDTHS),
-            "", "", "", "3.3, 3.4"),
+            "", "", _("ファイバー全体が除く範囲に入り、高さの値が 1 つも残らないとき。"),
+            "3.3, 3.4"),
         "max (nm)": ColumnHelp(
             _("ファイバーの高さの最大値 (nm) です。{median} と同じ高さの値から求めます。"
               "ノイズや付着したごみが 1 点あるだけでも、大きく変わることがあります。").format(
                   median="median"),
-            "", "", "", "3.3, 3.4"),
+            "", "", _("ファイバー全体が除く範囲に入り、高さの値が 1 つも残らないとき。"),
+            "3.3, 3.4"),
         "p90 (nm)": ColumnHelp(
             _("ファイバーの高い部分の目安になる高さ (nm) です。{median} と同じ高さの値を"
               "低い順に並べたとき、下から 90 % の位置にある値で、いちばん高い 1 割を除いた"
               "残りの最大値にあたります。{max} と違って、ノイズが 1 点あっても大きくは"
               "変わりません。").format(median="median", max="max"),
-            "", "", _("高さの値が 1 つも無いとき。"), "3.3, 3.4"),
+            "", "", _("ファイバー全体が除く範囲に入り、高さの値が 1 つも残らないとき。"),
+            "3.3, 3.4"),
         "straightness": ColumnHelp(
             _("ファイバーのまっすぐさです。1.0 なら直線で、曲がっているほど 0 に近づきます。"
               "交差で切れたファイバーでは、追跡できた部分についての値です。"),
@@ -3076,8 +3079,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 # 「≥」は枠または切断端で切り詰められた長さを示す。ファイバーは
                 # 計測した範囲の先へ続いている。
                 ("≥ " if lower_bound else "") + f"{f.length:.0f}",
-                f"{med:.2f}",
-                f"{mx:.2f}",
+                blank_if_nan(med, "{0:.2f}"),
+                blank_if_nan(mx, "{0:.2f}"),
                 blank_if_nan(p90, "{0:.2f}"),
                 blank_if_nan(straight, "{0:.3f}"),
                 blank_if_nan(curv, "{0:.2f}"),
@@ -7270,7 +7273,10 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         # read the same samples as the fiber table, so the two agree.
         # 中央値・最大値の水平線（メイン側のチェック状態を参照）。一覧テーブルと
         # 同じ標本を読むため、両者は一致する。
-        if app.show_medmax_var.get():
+        # A fiber with no sample left has blank cells in the table and no
+        # guide lines here.
+        # 標本が 1 つも残らないファイバーは、表のセルが空欄で、ここでも補助線を引かない。
+        if app.show_medmax_var.get() and used.any():
             med = float(np.median(height[used]))
             mx  = float(np.max(height[used]))
             ax.axhline(y=med, color="blue",      linestyle="--", lw=1.5, alpha=0.85,

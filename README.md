@@ -430,7 +430,8 @@ combination that works on a bundle with no recorded scan size; the rest need
 the scan size to turn track steps into nanometers.
 
 Two settings keep bundles of different scans and analyses comparable.
-"Common length floor" (on by default) leaves out of every quantity the fibers
+"Common length floor" (off by default; while it is off, the log warns when the
+compared bundles' floors differ) leaves out of every quantity the fibers
 shorter than the longest of the compared bundles' length floors; `height` per
 `pixel` measures no fiber length and is not cut. Binarization
 removes components shorter than `h_length` pixels in every direction and those

@@ -1316,6 +1316,47 @@ def test_gui03_histogram_reaches_the_entered_maximum(
     assert done[0]["results"][0]["n_in_range"] == 3.0
 
 
+def test_gui03_a_new_histogram_range_rebins_without_measuring_again(
+        tk_app, tmp_path, monkeypatch):
+    """
+    Committing a new range or step re-bins the collected samples; no bundle is read.
+    範囲や step を確定すると、集めた標本をビンに数え直す。バンドルは読まない。
+
+    Only the bins, the mode and the share outside the range depend on these
+    values, so measuring every bundle again would only repeat the samples.
+    これらの値に依存するのはビン・最頻値・範囲外の割合だけであり、全バンドルを
+    計測し直しても同じ標本を繰り返すだけである。
+    """
+    app = tk_app(gui03.App)
+    folder = tmp_path / "bundles"
+    folder.mkdir()
+    (folder / ("sample" + gui03.BUNDLE_EXT)).write_bytes(b"")
+    monkeypatch.setattr(
+        app, "_collect_bundle_values",
+        lambda paths, param, unit, **kwargs: ([0.5, 1.5, 1.6, 9.9], None, 4, 1, []),
+    )
+    app._worker_run(_gui03_run_args([("G", _gui03_bundles(folder))]))
+    done = [body for kind, body in _gui03_drain(app) if kind == "done"]
+    app._handle_done(done[0])
+
+    def _no_run():
+        raise AssertionError("the bundles were measured again")
+
+    monkeypatch.setattr(app, "on_run", _no_run)
+    app.min_var.set("0")
+    app.max_var.set("5")
+    app.step_var.set("1")
+    assert app._commit_histogram_params()
+
+    np.testing.assert_allclose(app._last_edges, np.arange(6.0))
+    r = app._last_results[0]
+    assert r["counts"].tolist() == [1.0, 2.0, 0.0, 0.0, 0.0]
+    assert r["mode"] == 1.5
+    row = app.result_tree.item(app.result_tree.get_children("")[0], "values")
+    assert row[5] == "1.500"
+    assert "25.0%" in app.log_text.get("1.0", "end")
+
+
 def test_gui03_length_floor_log_names_bundles_it_cannot_cut(monkeypatch):
     """
     Bundles without a scan size are logged as not cut, not as cut at the floor.
