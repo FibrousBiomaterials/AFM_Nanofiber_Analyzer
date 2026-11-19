@@ -1325,6 +1325,60 @@ def test_collect_fiber_stats_applies_the_exclusion_sidecar(measured, tmp_path):
     assert [s.index for s in curated[0][1]] == list(range(len(curated[0][1])))
 
 
+def test_collectors_reuse_a_measurement_until_its_inputs_change(
+        measured, tmp_path, monkeypatch):
+    """
+    A cached bundle is not traced again until the bundle, a sidecar or a setting changes.
+    キャッシュしたバンドルは、バンドル・サイドカー・設定が変わるまで追跡し直さない。
+
+    GUI03 keeps the cache between runs so switching the quantity, the unit or
+    the frame mode reads the same fibers; a curation saved since must not be
+    answered from the old measurement.
+    GUI03 は実行の間でキャッシュを保持し、計測量・集計単位・枠の扱いを切り替えても
+    同じファイバーを読む。その後に保存したキュレーションに、古い計測で答えては
+    ならない。
+    """
+    bundle_path, result = measured
+    copied = os.path.join(tmp_path, "copy.b2z")
+    shutil.copyfile(bundle_path, copied)
+
+    calls = []
+    real = measure_module.measure_bundle
+
+    def counting(*args, **kwargs):
+        calls.append(args[0])
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(measure_module, "measure_bundle", counting)
+    cache = {}
+    first, _e = collect_fiber_stats(
+        [copied], scale_um=SCALE_UM, apply_exclusions=True, cache=cache)
+    again, _e = collect_fiber_stats(
+        [copied], scale_um=SCALE_UM, apply_exclusions=True, cache=cache)
+    curvature, _e = collect_fiber_curvature(
+        [copied], scale_um=SCALE_UM, apply_exclusions=True, cache=cache)
+    assert len(calls) == 1
+    assert again[0][1] == first[0][1]
+    assert curvature[0][1].size == len(first[0][1])
+
+    # A setting the measurement depends on is a new entry.
+    # 計測が依存する設定が違えば、別の項目になる。
+    collect_fiber_stats([copied], scale_um=SCALE_UM, cache=cache)
+    assert len(calls) == 2
+
+    # An exclusion saved since is honored.
+    # その後に保存した除外は反映される。
+    anchor = fiber_anchor(result.fibers[0])
+    save_exclusions(
+        exclusion_path_for(copied), "copy.b2z",
+        [{"x": anchor[0], "y": anchor[1], "note": "debris"}],
+    )
+    curated, _e = collect_fiber_stats(
+        [copied], scale_um=SCALE_UM, apply_exclusions=True, cache=cache)
+    assert len(calls) == 3
+    assert len(curated[0][1]) == len(first[0][1]) - 1
+
+
 def test_collectors_report_how_many_fibers_the_exclusions_removed(
         measured, tmp_path):
     """

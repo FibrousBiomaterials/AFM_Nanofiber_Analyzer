@@ -31,7 +31,7 @@ that gap with a documented, reproducible pipeline and a stable data format.
 - **(b) Plot Profiler** extracts a height profile along a line placed
   interactively on the height map.
 - **(c) Fiber Morphology Statistics** shows the distribution of height, contour
-  length, straightness, curvature, kink angle, or kink density for one sample
+  length, straightness, curvature, or kink density for one sample
   group or compares it between user-defined groups, per skeleton pixel, per
   fiber, or per image, and reports per-group statistics.
 - **(d) Fiber Tracker** lists the per-fiber quantities the Fiber Morphology
@@ -422,8 +422,7 @@ settings. Connection settings are per bundle, so a group can be curated one
 bundle at a time; the count is what makes a partially curated group visible.
 
 The quantity selector offers `height`, `contour length`, `straightness`,
-`curvature`, `kink angle`, and `kink density` (kinks per micrometer of
-contour). All of them but `height` per `pixel` come from the same per-fiber
+`curvature`, and `kink density` (kinks per micrometer of contour). All of them but `height` per `pixel` come from the same per-fiber
 measurement `cli.py measure` and the Fiber Tracker use. `height` per `pixel`
 reads the skeleton pixels without tracing (see below), so it is the one
 combination that works on a bundle with no recorded scan size; the rest need
@@ -439,7 +438,7 @@ of `area_min` pixels or fewer, so the shortest fiber that remains grows with the
 pixel size, and a coarse scan contains none of the short fibers a fine scan
 keeps (`measure.length_floor_nm`; see
 [Evaluation on particular data](docs/validation.md) §2.8). The floor and how
-many fibers it removed are logged. "Kink threshold" applies to `kink angle` and `kink density`. Left
+many fibers it removed are logged. "Kink threshold" applies to `kink density`. Left
 blank, each bundle's kinks are counted at the threshold it was analyzed with,
 and the log warns when the compared bundles differ. A value selects every
 bundle's kinks again at that interior-angle threshold and gives the kinks,
@@ -470,8 +469,9 @@ smoothed over half a width (`half_max_05w`), the skeleton pixels themselves
 crest (`crest`). Kinks are judged on the chosen line and every measurement reads
 it, so results from different lines are not comparable; the bundle records the
 line, GUI04 names a non-default one when it opens the bundle, and GUI03 names
-the lines of each group whenever one is not the default and runs no
-between-group test across bundles on different lines. How each line is
+the lines of each group whenever one is not the default and warns when the
+compared bundles were analyzed on different lines; the between-group test
+still runs. How each line is
 placed is in `docs/algorithms.md` §4.2 and `docs/gui04_measurements.md` §2.8,
 and what it did worse than the default in the comparison is in
 `docs/validation.md` §4.3.
@@ -552,21 +552,18 @@ histogram bars and the ECDF fall short of one by its share, and the figure
 states the share.
 
 A separate aggregation-unit selector decides what counts as one sample:
-`pixel` (one skeleton pixel), `kink` (one kink), `fiber` (one fiber, using
+`pixel` (one skeleton pixel), `fiber` (one fiber, using
 the median within that fiber for height), or `image` (one scan). An `image` sample
-pools the fibers of that scan: the median of their values, the median of all its
-kink angles for `kink angle`, and its total kink count divided by the total
-judged length for `kink density`. Kink angle has no `fiber` unit, because the
-kinks along a fiber are distinct defect events rather than repeated
-measurements of one fiber property, so a per-fiber median of their angles
-describes nothing about the fiber. Kink density is pooled rather than taken as
-a median of per-fiber densities, because when more than half of an image's
-fibers carry no kink that median is 0 whatever the others do. At the `fiber`
-unit each fiber's kink density is weighted by its judged length: a fragment
-judged over a few nanometres reads a very large density from a single kink, and
-counted as one sample it would pull the distribution as far as a long fiber
-does. The weighted mean is then the same pooled ratio, and the weighted samples
-are not tested; test at `image`. This distinction
+pools the fibers of that scan: the median of their values, and its total kink
+count divided by the total judged length for `kink density`. Kink density is
+offered at `image` only: one fiber's density takes the values 0, 1/L, 2/L... of
+its judged length L, so a per-fiber distribution is shaped by the fragment
+lengths rather than by the fibers, and the rate a specimen has is the pooled
+kinks over the pooled judged length, with the scan as the replicate. It is
+pooled rather than taken as a median of per-fiber densities, because when more
+than half of an image's fibers carry no kink that median is 0 whatever the
+others do. GUI03 does not compare kink angles; the Fiber Tracker shows each
+fiber's kinks and the fiber CSV exports their angles. This distinction
 is reported, not just applied: pooled skeleton pixels are not independent
 observations — a long fiber contributes more pixels than a short one — so
 the statistics table and the figure annotation give the sample count broken
@@ -616,10 +613,10 @@ tested. Three is the fewest at which a p-value is computed, not the fewest at
 which one can be significant: two groups of three scans that do not overlap
 at all and hold no equal values give p = 0.10, and two groups of four give
 p = 0.029. A note under the
-table names every pair too small to reach p < 0.05. For `kink angle` and
-`kink density`, kinks judged at different thresholds are different definitions
-of a kink, so such bundles are not tested; entering a kink threshold applies one
-to every bundle. The table shows each group's median
+table names every pair too small to reach p < 0.05. For `kink density`, kinks
+judged at different thresholds are different definitions of a kink, so the log
+warns when the compared bundles differ in it and the test still runs; entering
+a kink threshold applies one to every bundle. The table shows each group's median
 apparent width W (the scale its kinks were judged at, also in the statistics
 CSV), the log gives each group's median pixel noise, and it warns when the
 bundles differ in pixel size or format or when a bundle's fibers stand below the
@@ -637,7 +634,7 @@ deviation, and mode, because fiber morphology distributions are right-skewed
 and the mode moves with the histogram bin width. The standard deviation of an
 unweighted sample is the sample standard deviation (divided by n − 1, blank for
 a single sample); a weighted one (`Miles-Lantuejoul` or
-`Kaplan-Meier` per fiber, or `kink density` per fiber) is divided by the total weight. The table heading and the `std definition`
+`Kaplan-Meier` per fiber) is divided by the total weight. The table heading and the `std definition`
 column of the statistics CSV say which. Samples outside the plotted
 range are reported in the log as a percentage rather than dropped silently;
 the summary statistics always describe the whole sample. A group with fewer
@@ -678,13 +675,12 @@ each end, where the kink rule judges nothing — so a fiber too short to judge
 shows a blank cell rather than 0. A blank `W` cell means the fiber's sections
 gave no usable width and the fixed fallback was used; the log says how many.
 
-`kink angle` is the one plotted quantity with no column. A cell holds one
-number, but the kinks along a fiber are distinct defect events rather than
-repeated measurements of a single fiber property the way height pixels are, so
-a per-fiber summary of them describes no property of the fiber — and for most
-fibers it would degenerate, since a fiber usually carries zero or one kink. The
-individual angles are exported in full by the CSV, in the `kink_angles_deg`
-column.
+Kink angles have no column. A cell holds one number, but the kinks along a
+fiber are distinct defect events rather than repeated measurements of a single
+fiber property the way height pixels are, so a per-fiber summary of them
+describes no property of the fiber — and for most fibers it would degenerate,
+since a fiber usually carries zero or one kink. The individual angles are
+exported in full by the CSV, in the `kink_angles_deg` column.
 
 A curvature cell can be blank: a fiber shorter than the curvature window has no
 curvature, and showing 0 would read as perfectly straight. A kink density of 0

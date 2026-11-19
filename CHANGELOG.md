@@ -24,7 +24,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `cli.py measure --length-floor common|NM` applies it to CSV output. With the
   option off, GUI03 warns when the compared bundles' floors differ. GUI03,
   `cli.py measure` and GUI04 keep every fiber unless asked.
-- GUI03 has a kink threshold for `kink angle` and `kink density`. Left blank,
+- GUI03 has a kink threshold for `kink density`. Left blank,
   each bundle is counted at its own threshold and the log warns when the
   compared bundles were analyzed at different ones; a value applies that
   interior-angle threshold to every bundle (`measure_bundle(kink_threshold_deg=...)`,
@@ -226,6 +226,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- GUI03 keeps each bundle's traced fibers between runs, so changing the
+  quantity, the aggregation unit or the frame mode no longer traces every bundle
+  again; a bundle is measured again when it, its exclusion or connection
+  sidecar, or a setting the measurement depends on has changed.
+  `measure.collect_fiber_stats` and `measure.collect_fiber_curvature` take the
+  mapping as `cache`. No measured value changes.
 - Units of the input are read instead of assumed. A `.gwy` with no channel in a
   length unit, including one whose channels record no unit, is refused by GUI01
   and `cli.py process` unless `--channel` names one: the automatic choice fell
@@ -245,11 +251,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (reference)`): both tests were shown corrected side by side, and reading
   whichever came out smaller tests each pair twice. The comparison CSV is
   unchanged and still holds the corrected KS value.
-- GUI03 runs no between-group test across bundles analyzed on different
-  centerlines, for any quantity, because every measurement reads the line. It
-  also does not test `kink angle` or `kink density` between bundles judged at
-  different kink thresholds, which are different definitions of a kink; entering
-  a kink threshold applies one to every bundle. The results table and the statistics CSV (a new last column, `median W (nm)`)
+- GUI03 warns when the compared bundles were analyzed on different
+  centerlines, for any quantity, because every measurement reads the line, and
+  when the bundles compared for `kink density` were judged at different kink
+  thresholds, which are different definitions of a kink; the between-group test
+  still runs, and entering a kink threshold applies one to every bundle. The results table and the statistics CSV (a new last column, `median W (nm)`)
   show each group's median apparent width, the scale its kinks were judged at.
   The log gives each group's median pixel noise and warns when the bundles differ
   in pixel size or format or when a bundle's fibers stand below the noise limit
@@ -274,18 +280,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   50 found before, with 64 unmatched detections either way. A bundle of
   format 1.5 or older is measured as stored, but no other threshold can be
   applied to it; re-analyze it.
-- GUI03 weights the per-fiber kink densities of the `fiber` unit by each
-  fiber's judged length. A fragment judged over a few nanometres read a very
-  large density from a single kink and, counted as one sample, pulled the
-  distribution as far as a long fiber: on the three bundled scans (the NDTOC
-  scan, which records no scan size, taken as 2 µm) the unweighted per-fiber mean
-  was 3.74, 3.28 and 7.59 kinks per µm against pooled kinks over pooled judged
-  length of 2.08, 2.06 and 5.11, the ratio the
-  `image` unit reports, and the weighted mean is now that ratio.
-  **GUI03's `fiber`-unit kink-density histogram, mean, standard deviation and
-  quartiles change from this version**, and they are no longer tested between
-  groups, because the rank tests take no weights; test at `image`.
-  Per-fiber densities in GUI04 and the CSV do not change.
+- GUI03 offers `kink density` per `image` only: the total kink count of a
+  scan over the total judged length of its fibers, tested between groups with
+  the scan as the replicate. One fiber's density takes the values 0, 1/L,
+  2/L... of its judged length L, so a per-fiber distribution is shaped by the
+  fragment lengths: a fragment judged over a few nanometres read a very large
+  density from a single kink, and on the three bundled scans (the NDTOC scan,
+  which records no scan size, taken as 2 µm) the unweighted per-fiber mean was
+  3.74, 3.28 and 7.59 kinks per µm against pooled kinks over pooled judged length
+  of 2.08, 2.06 and 5.11. **GUI03 no longer has a `fiber` unit for kink
+  density.** Per-fiber densities in GUI04 and the CSV do not change.
 - The measurement regression test (`tests/test_measurement_regression.py`) now
   also fingerprints each fiber's mean curvature, which GUI03 and GUI04 show but
   the per-fiber CSV does not contain, so a change to curvature alone no longer
@@ -293,13 +297,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   entries of the two cropped samples, which no test compared; the recorded
   fiber counts, lengths, CSV and height fingerprints are unchanged, so
   **analysis results do not change**.
-- GUI03 no longer offers `kink angle` per `fiber`, and its `image` value is the
-  median of every kink angle in the scan instead of the median of the
-  per-fiber medians. The kinks along a fiber are distinct defect events rather
-  than repeated measurements of one fiber property, so a per-fiber median of
-  their angles describes nothing about the fiber, and a fiber with several
-  kinks counted as much as one with a single kink. **GUI03's `image` kink
-  angles change from this version.**
+- GUI03 no longer compares `kink angle`, at any unit. The angles are those of
+  the bends the kink threshold selects, so their distribution is cut at the
+  threshold, and what the angle of a kink reflects has not been established.
+  GUI04 shows each fiber's kinks and the fiber CSV exports every kink angle.
 
 - Bundle format **1.2**: the vlmeta entry `centerline` records the line a
   bundle was analyzed on, and every reader builds the fibers on exactly that

@@ -1316,6 +1316,29 @@ def test_gui03_histogram_reaches_the_entered_maximum(
     assert done[0]["results"][0]["n_in_range"] == 3.0
 
 
+def test_gui03_keeps_traced_fibers_between_runs(tk_app, monkeypatch):
+    """
+    The fiber collectors get the window's measurement cache, run after run.
+    ファイバーのコレクタには、実行をまたいでウィンドウの計測キャッシュが渡る。
+
+    Changing the quantity, the unit or the frame mode only reads the same fibers
+    differently, so the bundles are not traced again
+    (`lib.measure._measure_curated` decides when an entry is still valid).
+    計測量・集計単位・枠の扱いの変更は同じファイバーの読み方を変えるだけなので、
+    バンドルを追跡し直さない（項目がまだ有効かは `lib.measure._measure_curated`
+    が決める）。
+    """
+    app = tk_app(gui03.App)
+    seen = []
+    monkeypatch.setattr(gui03, "collect_fiber_stats",
+                        lambda paths, **kw: (seen.append(kw["cache"]) or ([], [])))
+    monkeypatch.setattr(gui03, "collect_fiber_curvature",
+                        lambda paths, **kw: (seen.append(kw["cache"]) or ([], [])))
+    for param in (gui03.PARAM_LENGTH, gui03.PARAM_STRAIGHTNESS, gui03.PARAM_CURVATURE):
+        app._collect_bundle_values(["a.b2z"], param, gui03.UNIT_FIBER)
+    assert len(seen) == 3 and all(c is app._measure_cache for c in seen)
+
+
 def test_gui03_a_new_histogram_range_rebins_without_measuring_again(
         tk_app, tmp_path, monkeypatch):
     """
@@ -1488,48 +1511,21 @@ def test_gui04_blank_curvature_cell_for_a_fiber_short_of_the_window():
     assert gui04.blank_if_nan(3.14159, "{0:.2f}") == "3.14"
 
 
-def test_gui03_and_gui04_agree_on_the_kink_quantities():
+def test_gui03_compares_kink_density_per_image_only():
     """
-    GUI03's per-fiber kink values come from the same `lib.measure` functions
-    GUI04 shows, so a value checked beside a fiber is the value histogrammed.
-    GUI03 のファイバー単位のキンク値は、GUI04 が表示するのと同じ `lib.measure` の
-    関数から得る。ファイバーの横で確認した値が、そのままヒストグラム化される。
+    Kink density is offered per image only, and kink angle not at all.
+    キンク密度は画像単位でだけ、キンク角はまったく比べない。
 
-    Two separate implementations of "the kink density of a fiber" would let
-    the two windows disagree, which is exactly what the GUI04 columns exist to
-    rule out. Kink angle has no per-fiber value in either window: every unit
-    receives the kinks themselves.
-    「ファイバーのキンク密度」の実装が 2 つあると 2 つのウインドウが食い違いうる。
-    それを排除することこそが GUI04 の列の存在理由である。キンク角はどちらの
-    ウインドウでもファイバー単位の値を持たず、どの単位にもキンクそのものが渡る。
+    One fiber's density takes the values 0, 1/L, 2/L... of its judged length L,
+    so a per-fiber distribution is shaped by the fragment lengths; the rate a
+    specimen has is pooled kinks over pooled judged length, per image.
+    1 本の密度は判定長 L に対して 0、1/L、2/L… の値しか取らないため、ファイバー
+    ごとの分布の形は断片の長さで決まる。試料が持つ率は、画像ごとにまとめたキンク数を
+    まとめた判定長で割ったものである。
     """
-    from lib.measure import FiberStats, fiber_kink_density
-
-    stat = FiberStats(
-        index=0, length_nm=2000.0, height_median_nm=1.0, height_max_nm=2.0,
-        ep_count=2, kink_count=3, kink_angles_deg=(100.0, 120.0, 170.0),
-        straightness=0.8,
-    )
-    assert gui03._fiber_value(stat, gui03.PARAM_KINK_DENSITY) == pytest.approx(
-        fiber_kink_density(stat)
-    )
-    assert gui03._fiber_value(stat, gui03.PARAM_KINK_ANGLE) is None
-    for unit in (gui03.UNIT_KINK, gui03.UNIT_IMAGE):
-        assert gui03._fiber_samples(stat, gui03.PARAM_KINK_ANGLE, unit) == [
-            100.0, 120.0, 170.0]
-    assert gui03.UNIT_FIBER not in gui03.PARAM_SPECS[gui03.PARAM_KINK_ANGLE]["units"]
-
-    # A kinkless fiber has no angle to contribute, but its density is a real
-    # zero, so GUI03 must drop the first and keep the second.
-    # キンクの無いファイバーは寄与する角度を持たないが、密度は実在の 0 である。
-    # GUI03 は前者を落とし、後者は残さなければならない。
-    kinkless = FiberStats(
-        index=1, length_nm=1000.0, height_median_nm=1.0, height_max_nm=2.0,
-        ep_count=2, kink_count=0, kink_angles_deg=(), straightness=1.0,
-    )
-    assert gui03._fiber_samples(
-        kinkless, gui03.PARAM_KINK_ANGLE, gui03.UNIT_IMAGE) == []
-    assert gui03._fiber_value(kinkless, gui03.PARAM_KINK_DENSITY) == 0.0
+    assert gui03.PARAM_SPECS[gui03.PARAM_KINK_DENSITY]["units"] == (gui03.UNIT_IMAGE,)
+    assert "kink angle" not in gui03.PARAM_ORDER
+    assert "kink angle" not in gui03.PARAM_SPECS
 
 
 def _kink_stat(length_nm, angles):
@@ -1550,13 +1546,10 @@ def test_gui03_pools_kinks_per_image():
 
     Kink density divides the pooled count by the pooled judged length, so an
     image whose kinkless fibers outnumber the kinked ones still reads the kinks
-    it holds; a median of per-fiber densities would read 0 there. Kink angle is
-    the median of every kink, so a fiber with three kinks weighs three times one
-    with a single kink.
+    it holds; a median of per-fiber densities would read 0 there.
     キンク密度はまとめたキンク数をまとめた判定長で割る。キンクの無いファイバーが
     キンクのあるファイバーより多い画像でも、含まれるキンクが読める。ファイバーごとの
-    密度の中央値ならそこは 0 になる。キンク角は全キンクの中央値であり、キンク 3 個の
-    ファイバーはキンク 1 個のファイバーの 3 倍の重みを持つ。
+    密度の中央値ならそこは 0 になる。
     """
     image_a = [_kink_stat(1000.0, (150.0, 160.0, 170.0)),
                _kink_stat(1000.0, ()), _kink_stat(1000.0, ())]
@@ -1569,11 +1562,6 @@ def test_gui03_pools_kinks_per_image():
     # 3 µm に 3 個、4 µm に 1 個。ファイバーごとの中央値ならどちらも 0。
     assert values == [pytest.approx(1.0), pytest.approx(0.25)]
     assert weights is None and (n_fibers, n_images) == (5, 2)
-
-    values, _w, n_fibers, _m = gui03.App._values_from_fiber_stats(
-        per_source, gui03.PARAM_KINK_ANGLE, gui03.UNIT_IMAGE)
-    assert values == [160.0, 90.0]
-    assert n_fibers == 2
 
     # An image value is the median of the image's fibers, one value per image.
     # 画像の値はその画像のファイバーの中央値で、画像 1 枚につき 1 つである。
@@ -1637,8 +1625,8 @@ def test_gui03_names_pairs_too_small_to_reach_significance():
 
 def test_gui04_fiber_table_covers_every_gui03_quantity(tk_app):
     """
-    Every GUI03 quantity is readable per fiber in GUI04, except kink angle.
-    GUI03 の計測量は、キンク角を除きすべて GUI04 でファイバーごとに読める。
+    Every GUI03 quantity is readable per fiber in GUI04.
+    GUI03 の計測量は、すべて GUI04 でファイバーごとに読める。
 
     GUI03 shows these only pooled into a distribution, where a wrong value is
     invisible. This test is what keeps a newly added GUI03 quantity from
@@ -1647,21 +1635,6 @@ def test_gui04_fiber_table_covers_every_gui03_quantity(tk_app):
     テストは、GUI03 に計測量を追加したとき、実際のファイバーと照合する手段が無い
     まま出荷されることを防ぐ。
 
-    Kink angle is deliberately absent, and the reason is scientific rather
-    than a matter of table width: a cell holds one number, but the kinks along
-    a fiber are distinct defect events, not repeated measurements of one fiber
-    property the way height pixels are. A per-fiber median of them is not a
-    property of the fiber, and for most fibers it degenerates anyway -- in the
-    tunicate test image 27 of 37 fibers carry zero or one kink, so the median
-    is either undefined or just that single angle. The individual angles reach
-    the user through the CSV, which stores all of them.
-    キンク角を意図的に外しているのは、表の幅の問題ではなく科学的な理由による。
-    セルが持てる数値は 1 つだが、1 本のファイバー上の複数のキンクは、高さ画素の
-    ように 1 つのファイバー特性を繰り返し測ったものではなく、それぞれ独立した
-    欠陥事象である。その中央値はファイバーの性質ではなく、しかも大半の
-    ファイバーでは統計として成立しない。テスト画像では 37 本中 27 本がキンク
-    0 本または 1 本であり、中央値は未定義か単一の角度そのものになる。個々の角度は
-    全て CSV に保存され、そちらから参照できる。
     """
     app = tk_app(gui04.App)
     columns = " | ".join(str(c) for c in app.fiber_tree.cget("columns"))
@@ -1677,7 +1650,7 @@ def test_gui04_fiber_table_covers_every_gui03_quantity(tk_app):
     }
     # Recorded here so removing the column stays a decision, not a regression.
     # 列を持たないことを決定として記録し、退行と区別できるようにする。
-    deliberately_absent = {gui03.PARAM_KINK_ANGLE}
+    deliberately_absent: set = set()
 
     assert set(expected) | deliberately_absent == set(gui03.PARAM_ORDER), (
         "a GUI03 quantity was added or removed; give it a GUI04 column and "
@@ -1983,70 +1956,6 @@ def test_gui03_kaplan_meier_interval_is_reproducible_and_spans_the_bounds():
     assert gui03._kaplan_meier_interval([]) == {}
 
 
-def test_gui03_weights_fiber_kink_density_by_judged_length(tk_app, tmp_path, monkeypatch):
-    """
-    Fiber-unit kink densities are weighted by the judged length and not tested.
-    ファイバー単位のキンク密度は判定長で重み付けされ、検定されない。
-
-    A short fragment reads a large density from a single kink; weighted by its
-    judged length it counts as much as that length, and the weighted mean is the
-    pooled density the image unit reports. A run reports the fibers measured,
-    not the weight, and the rank tests are not applied to weighted samples.
-    短い断片はキンク 1 個で大きな密度を示すが、判定長で重み付けすればその長さの
-    分だけ数えられ、重み付き平均は画像単位が報告するまとめた密度と一致する。実行は
-    重みではなく計測した本数を報告し、重み付きの標本には順位検定をかけない。
-    """
-    stats = [_kink_stat(10.0, (150.0,)), _kink_stat(1000.0, ()), _kink_stat(2000.0, (90.0,))]
-    values, weights, n_fibers, _n = gui03.App._values_from_fiber_stats(
-        [("a.b2z", stats)], gui03.PARAM_KINK_DENSITY, gui03.UNIT_FIBER)
-    assert n_fibers == 3
-    assert weights == [pytest.approx(10.0), pytest.approx(1000.0), pytest.approx(2000.0)]
-    weighted_mean = np.average(values, weights=weights)
-    pooled, _w, _f, _i = gui03.App._values_from_fiber_stats(
-        [("a.b2z", stats)], gui03.PARAM_KINK_DENSITY, gui03.UNIT_IMAGE)
-    assert weighted_mean == pytest.approx(pooled[0])
-
-    app = tk_app(gui03.App)
-    folders = []
-    for name in ("A", "B"):
-        folder = tmp_path / name
-        folder.mkdir()
-        (folder / ("sample" + gui03.BUNDLE_EXT)).write_bytes(b"")
-        folders.append(str(folder))
-    monkeypatch.setattr(app, "_collect_bundle_values",
-                        lambda *a, **k: (values, weights, 3, 1, []))
-    app._worker_run({
-        "groups": [
-            {"id": n, "name": n, "color": "#1f77b4", "files": _gui03_bundles(f)}
-            for n, f in zip(("A", "B"), folders)
-        ],
-        "param": gui03.PARAM_KINK_DENSITY,
-        "unit": gui03.UNIT_FIBER,
-        "apply_exclusions": False,
-        "apply_connection": False,
-        "curvature_window": gui03.DEFAULT_CURVATURE_WINDOW_NM,
-        "plot_type": gui03.PLOT_HISTOGRAM,
-        "min_h": 0.0, "max_h": 200.0, "step": 10.0,
-        "yaxis_mode": "density", "display_mode": gui03.App.MODE_STACK,
-        "show_height_text": True,
-        "fig_w": 6.0, "fig_h": 3.0,
-        "label_fs": 15.0, "tick_fs": 15.0, "ann_fs": 15.0,
-        "group_name_fs": 15.0,
-    })
-    done = None
-    while not app.ui_queue.empty():
-        kind, payload = app.ui_queue.get_nowait()
-        if kind == "done":
-            done = payload
-    assert done is not None
-    assert done["comparisons"] == []
-    assert gui03.UNIT_IMAGE in done["comparison_note"]
-    r = done["results"][0]
-    assert r["n_samples"] == 3.0 and r["n_in_range"] == 3.0
-    assert r["weight_total"] == pytest.approx(3010.0)
-    assert r["mean"] == pytest.approx(pooled[0])
-
-
 def test_gui03_frame_weighted_run_reports_fibers_and_skips_tests(
         tk_app, tmp_path, monkeypatch):
     """
@@ -2144,26 +2053,26 @@ def _kink_condition(threshold=150.0, version="1.6", pixel_nm=2.0, width_px=8.0,
             "height_nm": height_nm, "noise_nm": noise_nm}
 
 
-def test_gui03_kink_definitions_that_differ_block_the_test():
+def test_gui03_kink_definitions_that_differ_warn():
     """
-    A different threshold stops the test; imaging only warns.
-    しきい値の違いは検定を止め、撮像条件の違いは警告にとどまる。
+    A different threshold, pixel size or format is reported; none stops the test.
+    しきい値・画素サイズ・形式の違いは報告し、どれも検定を止めない。
     """
     report = gui03._kink_condition_report
     same = {"A": [_kink_condition()], "B": [_kink_condition()]}
-    assert report(same, False) == ([], "")
+    assert report(same, False) == []
 
     thresholds = {"A": [_kink_condition()], "B": [_kink_condition(threshold=160.0)]}
-    warnings, blocking = report(thresholds, False)
-    assert warnings == [] and "150, 160" in blocking
+    warnings = report(thresholds, False)
+    assert len(warnings) == 1 and "150, 160" in warnings[0]
     # Applying one threshold to every bundle removes the difference.
     # 全バンドルに 1 つのしきい値を適用すれば違いは無くなる。
-    assert report(thresholds, True) == ([], "")
+    assert report(thresholds, True) == []
 
-    imaging ={"A": [_kink_condition()],
+    imaging = {"A": [_kink_condition()],
                "B": [_kink_condition(pixel_nm=5.0, version="1.5")]}
-    warnings, blocking = report(imaging, False)
-    assert blocking == "" and len(warnings) == 2
+    warnings = report(imaging, False)
+    assert len(warnings) == 2
     assert "2.00" in warnings[0] and "5.00" in warnings[0]
     assert "1.5, 1.6" in warnings[1]
 
@@ -2182,10 +2091,10 @@ def test_gui03_kink_report_warns_only_below_the_noise_limit():
     # A difference above the limit, or a bundle that could not be read, says
     # nothing about the limit.
     # 限度より上の差や、読めなかったバンドルは限度について何も言わない。
-    assert report({"A": [_kink_condition()], "B": [above]}, False) == ([], "")
-    assert report({"A": [unread], "B": [above]}, False) == ([], "")
-    warnings, blocking = report({"A": [above], "B": [below]}, False)
-    assert blocking == "" and len(warnings) == 1
+    assert report({"A": [_kink_condition()], "B": [above]}, False) == []
+    assert report({"A": [unread], "B": [above]}, False) == []
+    warnings = report({"A": [above], "B": [below]}, False)
+    assert len(warnings) == 1
     assert "1/2" in warnings[0]
 
 
@@ -2206,14 +2115,16 @@ def test_gui03_frame_bias_note_names_the_uncorrected_length_modes():
     gui03.PARAM_LENGTH, gui03.PARAM_HEIGHT, gui03.PARAM_CURVATURE,
     gui03.PARAM_KINK_DENSITY,
 ])
-def test_gui03_worker_does_not_test_across_centerlines(
+def test_gui03_worker_warns_across_centerlines(
         tk_app, tmp_path, monkeypatch, param):
     """
-    Bundles on different centerlines get no test, whatever the quantity.
-    中心線の違うバンドルは、どの計測量でも検定しない。
+    Bundles on different centerlines are tested, with a warning naming the lines.
+    中心線の違うバンドルも検定し、線の名前を挙げて警告する。
 
-    Every measurement reads the line, so the difference may be the line alone.
-    すべての測定は線を読むため、差は線の違いだけによるかもしれない。
+    Every measurement reads the line, so the difference may be the line alone;
+    the user is told and judges what that means.
+    すべての測定は線を読むため、差は線の違いだけによるかもしれない。ユーザーに
+    知らせ、その意味はユーザーが判断する。
     """
     app = tk_app(gui03.App)
     folders = []
@@ -2249,23 +2160,25 @@ def test_gui03_worker_does_not_test_across_centerlines(
     })
 
     done = None
+    logs = []
     while not app.ui_queue.empty():
         kind, payload = app.ui_queue.get_nowait()
         if kind == "done":
             done = payload
+        elif kind == "log":
+            logs.append(payload)
     assert done is not None
-    assert done["comparisons"] == []
-    assert "crest" in done["comparison_note"]
-    assert "half_max_025w" in done["comparison_note"]
+    assert len(done["comparisons"]) == 1
+    assert any("crest" in t and "half_max_025w" in t for t in logs)
 
 
-def test_gui03_one_centerline_does_not_block_the_test():
+def test_gui03_one_centerline_raises_no_warning():
     """
-    One line, or none recorded, leaves the test to run.
-    線が 1 種類、または記録が無ければ、検定は実行される。
+    One line, or none recorded, raises no warning.
+    線が 1 種類、または記録が無ければ、警告しない。
     """
-    assert gui03._centerline_block_note(set()) == ""
-    assert gui03._centerline_block_note({"crest"}) == ""
+    assert gui03._centerline_note(set()) == ""
+    assert gui03._centerline_note({"crest"}) == ""
 
 
 def test_gui03_median_width_uses_the_bundles_that_record_one():
@@ -2282,11 +2195,11 @@ def test_gui03_median_width_uses_the_bundles_that_record_one():
                   _kink_condition(width_px=None)]) == pytest.approx(23.0)
 
 
-def test_gui03_worker_does_not_test_kinks_of_different_thresholds(
+def test_gui03_worker_warns_when_kink_thresholds_differ(
         tk_app, tmp_path, monkeypatch):
     """
-    Kink density of bundles judged at different thresholds gets no test.
-    異なるしきい値で判定したバンドルのキンク密度は検定しない。
+    Kink density of bundles judged at different thresholds is tested, with a warning.
+    異なるしきい値で判定したバンドルのキンク密度も検定し、警告する。
     """
     app = tk_app(gui03.App)
     folders = []
@@ -2323,13 +2236,16 @@ def test_gui03_worker_does_not_test_kinks_of_different_thresholds(
     })
 
     done = None
+    logs = []
     while not app.ui_queue.empty():
         kind, payload = app.ui_queue.get_nowait()
         if kind == "done":
             done = payload
+        elif kind == "log":
+            logs.append(payload)
     assert done is not None
-    assert done["comparisons"] == []
-    assert "150, 160" in done["comparison_note"]
+    assert len(done["comparisons"]) == 1
+    assert any("150, 160" in t for t in logs)
     assert done["results"][0]["width_nm"] == pytest.approx(16.0)
 
 

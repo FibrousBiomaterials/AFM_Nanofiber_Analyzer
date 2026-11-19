@@ -53,7 +53,11 @@ turns (`HUMAN_TURN_WINDOW`):
 1. A Bash or PowerShell command that runs Python with `ANALYSIS_RE` in it, or
    in a `.py` file it runs, means detection numbers were computed
    (`runs_analysis`). A command that only mentions those words (`ls`, `git`,
-   `grep`) computes nothing and does not count.
+   `grep`) computes nothing and does not count, nor does a pytest run, which
+   reports pass or fail rather than detection numbers, a tool run on a file
+   (`python -m ruff check FILE`), or a repository checking script
+   (`CHECKER_RE`). In a `.py` file only the code is searched: words inside its
+   strings and comments do not count (`_code_only`).
 2. A `Read` of an image file means the pictures were actually looked at.
 3. If 1 happened and 2 has not happened since, the turn is blocked, once per
    analysis command: the next turns in the window are not blocked again for
@@ -68,7 +72,11 @@ JSON で渡されたトランスクリプトを読み、直近数回のユーザ
 1. Python を実行し、コマンドそのもの、または実行する `.py` ファイルに
    `ANALYSIS_RE` を含む Bash・PowerShell のコマンドがあれば、検出に関する数値を
    計算したとみなす（`runs_analysis`）。その語に触れるだけのコマンド（`ls`・
-   `git`・`grep`）は何も計算しておらず、数えない。
+   `git`・`grep`）は何も計算しておらず、数えない。pytest の実行も、検出の数値
+   ではなく合否を出すだけなので数えない。ファイルに対するツールの実行
+   （`python -m ruff check FILE`）と、リポジトリの検査スクリプト（`CHECKER_RE`）
+   も数えない。`.py` ファイルではコードだけを探し、文字列とコメントの中の語は
+   数えない（`_code_only`）。
 2. 画像ファイルの `Read` があれば、実際に画像を見たとみなす。
 3. 1 があり、その後に 2 がなければブロックする。止めるのは解析コマンド 1 つに
    つき 1 回で、窓の中の以後のターンを同じコマンドで再び止めることはしない。
@@ -146,7 +154,25 @@ IMAGE_RE = re.compile(r"\.(png|jpe?g|bmp|gif|webp|tiff?)\s*$", re.IGNORECASE)
 # `measure_bundle` に触れても何も計算しておらず、そうした言及を数えると、何も
 # 主張していないターンまで止めていた。
 PYTHON_RE = re.compile(r"(?:^|[\s/\\])(?:python[\d.]*|py)(?:\.exe)?(?=\s|$)", re.IGNORECASE)
-SCRIPT_RE = re.compile(r"[\w./\\-]+\.py\b")
+
+# Repository scripts that check documents, rules or records and name the
+# analysis symbols only as text to compare (`check_gui04_docs.WATCHED_SYMBOLS`,
+# the audit ledger's item list); running one computes no detection number.
+# 文書・規則・記録を検査するリポジトリのスクリプト。解析のシンボルは比べる文字列
+# として名指すだけで（`check_gui04_docs.WATCHED_SYMBOLS`、監査台帳の項目一覧）、
+# 実行しても検出の数値は出さない。
+CHECKER_RE = re.compile(r"(?:^|/)scripts/(?:check_\w+|audit_ledger|doc_excerpts|trash)\.py$")
+
+# A pytest run checks the code against assertions and reports pass or fail; it
+# gives the agent no detection numbers to conclude from. Its test files name
+# the analysis on every page, so a run of one GUI test read as an analysis
+# run. The segments of a command that run pytest are dropped before the check.
+# pytest の実行はコードをアサーションと照らして合否を出すだけで、エージェントが
+# 結論を引き出す検出の数値は出さない。テストファイルはどこにでも解析の語を含む
+# ため、GUI のテストを 1 件走らせただけで解析の実行と数えられていた。コマンドの
+# うち pytest を実行する区切りは、判定の前に取り除く。
+PYTEST_RE = re.compile(r"(?:-m\s+pytest|(?:^|[\s/\\])pytest(?:\.exe)?)(?=\s|$)", re.IGNORECASE)
+SEGMENT_RE = re.compile(r"&&|\|\||;|\n")
 
 # Commands that maintain this agent tooling rather than run the pipeline.
 # Editing or testing the guard means handling its own vocabulary - the REASON
@@ -218,20 +244,84 @@ def runs_analysis(cmd: str, root: str) -> bool:
     解析の語は、コマンドそのもの（インラインのスクリプトや heredoc）と、コマンドが
     名指す既存の ``.py`` ファイルの中で探す。ファイルから実行するスクリプトは、
     コマンド行にはその語を一つも見せないためである。
+
+    Segments that run pytest are left out first (`PYTEST_RE`). A ``.py`` file
+    is read only when it is the script Python runs -- the first argument after
+    the interpreter -- because a tool run as ``python -m ruff check FILE`` only
+    reads the file it names, and that file of the GUI names the analysis
+    throughout. ``python -m MODULE`` runs a tool, not the analysis, unless the
+    module is a file of this repository.
+    最初に pytest を実行する区切りを除く（`PYTEST_RE`）。``.py`` ファイルの中を
+    見るのは、それが Python の実行するスクリプト、すなわちインタプリタの直後の
+    引数であるときだけにする。``python -m ruff check FILE`` のようなツールは名指す
+    ファイルを読むだけで、GUI のファイルはどこにでも解析の語を含むためである。
+    ``python -m MODULE`` はツールの実行であり、解析ではない。ただしそのモジュールが
+    このリポジトリのファイルなら、その中を見る。
     """
+    cmd = "\n".join(seg for seg in SEGMENT_RE.split(cmd) if not PYTEST_RE.search(seg))
     if TOOLING_RE.search(cmd) or not PYTHON_RE.search(cmd):
         return False
-    if ANALYSIS_RE.search(cmd):
-        return True
-    for name in SCRIPT_RE.findall(cmd):
+    for seg in SEGMENT_RE.split(cmd):
+        match = PYTHON_RE.search(seg)
+        if not match:
+            continue
+        args = seg[match.end():].split()
+        # Interpreter options such as -I or -u come before what is run.
+        # -I や -u のようなインタプリタのオプションは、実行対象の前に来る。
+        while args and args[0].startswith("-") and args[0] not in ("-", "-c", "-m"):
+            args.pop(0)
+        if not args or args[0] in ("-", "-c") or args[0].startswith("<"):
+            # An inline script or a heredoc: the analysis is in the command.
+            # インラインのスクリプトか heredoc。解析の語はコマンドの中にある。
+            if ANALYSIS_RE.search(cmd):
+                return True
+            continue
+        if args[0] == "-m":
+            if len(args) < 2:
+                continue
+            name = args[1].replace(".", "/") + ".py"
+        else:
+            name = args[0].strip("\"'")
+        if not name.endswith(".py") or CHECKER_RE.search(name):
+            continue
         path = name if os.path.isabs(name) else os.path.join(root, name)
         try:
             with open(path, encoding="utf-8", errors="replace") as fh:
-                if ANALYSIS_RE.search(fh.read()):
+                if ANALYSIS_RE.search(_code_only(fh.read())):
                     return True
         except OSError:
             continue
     return False
+
+
+def _code_only(source: str) -> str:
+    """Return a script's code with its strings and comments removed.
+
+    スクリプトから文字列とコメントを除いたコードを返す。
+
+    A script that writes findings or replacement text names the analysis in its
+    strings without calling it, and an audit script that only marked a ledger
+    read as an analysis run. A call such as ``measure.measure_bundle(...)`` is
+    code and stays. A file that does not tokenize is returned whole, so a
+    broken script still counts.
+    所見や置き換え文字列を書くスクリプトは、解析を呼ばずに文字列の中で名指す。
+    台帳に記録するだけの監査用スクリプトが、解析の実行と読まれていた。
+    ``measure.measure_bundle(...)`` のような呼び出しはコードなので残る。字句解析
+    できないファイルは丸ごと返し、壊れたスクリプトも数える。
+    """
+    import io
+    import tokenize
+
+    dropped = {tokenize.STRING, tokenize.COMMENT}
+    # Python 3.12 splits f-strings into parts; their text is string too.
+    # Python 3.12 は f 文字列を部分に分ける。その文字も文字列である。
+    dropped |= {getattr(tokenize, n) for n in ("FSTRING_START", "FSTRING_MIDDLE", "FSTRING_END")
+                if hasattr(tokenize, n)}
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+    except (tokenize.TokenError, SyntaxError, IndentationError):
+        return source
+    return " ".join(t.string for t in tokens if t.type not in dropped)
 
 
 def _state_path(payload: dict, root: str) -> str:

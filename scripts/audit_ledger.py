@@ -336,7 +336,11 @@ def current_digests(ledger: Dict) -> Dict[str, str]:
 def effective_status(item: Dict, now: Dict[str, str]) -> str:
     if item["status"] == "unchecked":
         return "unchecked"
-    if item["file"] and item["status"] != "na" and now.get(item["id"]) != item["marked_digest"]:
+    # A definition deleted since marking has no digest, as `mark` records it
+    # ("" ), so it reads as marked rather than as stale forever.
+    # 記録後に削除された定義はダイジェストを持たず、`mark` もそう記録する（""）。
+    # そのため、いつまでも stale にはならず、記録済みとして読む。
+    if item["file"] and item["status"] != "na" and now.get(item["id"], "") != item["marked_digest"]:
         return "stale"
     return item["status"]
 

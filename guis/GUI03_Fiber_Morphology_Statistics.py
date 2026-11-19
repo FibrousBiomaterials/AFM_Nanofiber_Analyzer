@@ -4,27 +4,27 @@ AFM ナノファイバー解析用の形態パラメータ統計 GUI。
 
 Loads ``.b2z`` bundles produced by the image preprocessor and summarizes the
 distribution of one morphological quantity — height, contour length,
-straightness, curvature, kink angle, or kink density — for one group or across
+straightness, curvature, or kink density — for one group or across
 user-defined groups. Bundles are registered file by file, each in a group; a
 group stands for one specimen, and its bundles are aggregated together. A
 bundle is moved to another group by dragging its row, and the calibrated height
 image of the selected bundle is shown beside the list.
 画像前処理 GUI が出力した ``.b2z`` バンドルを読み込み、形態パラメータ（高さ・
-輪郭長・直線度・曲率・キンク角・キンク密度）のいずれか 1 つの分布を、1 つの
+輪郭長・直線度・曲率・キンク密度）のいずれか 1 つの分布を、1 つの
 グループについて、またはユーザー定義グループ間で要約する。バンドルはファイル
 単位でグループに登録する。グループは 1 つの試料を表し、そのバンドルをまとめて
 集計する。バンドルは行をドラッグして別のグループへ移せ、選択中のバンドルの補正済み
 高さ像を一覧の隣に表示する。
 
 The aggregation unit selects what counts as one sample: a skeleton pixel, a
-fiber, one kink, or a whole image. This matters for reporting because pooled
+fiber, or a whole image. This matters for reporting because pooled
 skeleton pixels are not independent observations — a long fiber contributes
 more pixels than a short one, and neighboring pixels of one fiber repeat the
 same object — so group comparisons should also be inspected per fiber or per
 image. Fibers of one image share that scan as well, so a comparison that
 allows for the difference between places on a specimen is made per image.
-集計単位は「1 標本」を何と数えるかを選ぶ（骨格画素・ファイバー 1 本・キンク
-1 点・画像 1 枚）。骨格画素をまとめた分布は独立観測ではなく（長いファイバーほど
+集計単位は「1 標本」を何と数えるかを選ぶ（骨格画素・ファイバー 1 本・画像
+1 枚）。骨格画素をまとめた分布は独立観測ではなく（長いファイバーほど
 多くの画素を出し、同一ファイバーの隣接画素は同じ対象の繰り返しになる）、群間比較
 ではファイバー単位・画像単位でも確認する必要があるため、報告上この区別が重要に
 なる。同じ画像のファイバーもその走査を共有するため、試料上の場所ごとの違いを
@@ -50,8 +50,8 @@ PLUGIN_INFO = {
     "description": (
         "AFMで撮影したナノファイバーの形態パラメータの分布と統計量をGUIで求めるプログラムです。\n"
         "入力データには、Image Preprocessor が出力する .b2z バンドルファイルを使います。ファイルをグループごとに登録し、選択中のファイルの背景補正済みの高さ像を確認できます。\n"
-        "計測量は height（高さ）、contour length（輪郭長）、straightness（直線度）、curvature（曲率）、kink angle（キンク角）、kink density（キンク密度）から選べ、骨格画素単位の高さ以外はファイバー追跡結果から算出します。\n"
-        "集計単位（骨格画素・ファイバー・キンク・画像）を切り替えられるため、画素をまとめた分布だけでなく、ファイバー単位・画像単位の分布としても確認できます。\n"
+        "計測量は height（高さ）、contour length（輪郭長）、straightness（直線度）、curvature（曲率）、kink density（キンク密度）から選べ、骨格画素単位の高さ以外はファイバー追跡結果から算出します。\n"
+        "集計単位（骨格画素・ファイバー・画像）を切り替えられるため、画素をまとめた分布だけでなく、ファイバー単位・画像単位の分布としても確認できます。\n"
         "図はヒストグラム・ECDF・箱ひげ図から選べ、中央値・四分位範囲・平均・標準偏差・最頻値と、標本数の内訳を併記します。複数のデータ群（グループ）を登録すると、縦並び・重ね表示で比較でき、ファイバー単位・画像単位では群間検定の結果も表示します。"
     )
 }
@@ -98,7 +98,7 @@ from lib.group_compare import compare_groups
 from lib.measure import (
     DEFAULT_CURVATURE_WINDOW_NM,
     collect_fiber_curvature, collect_fiber_stats,
-    fiber_judged_length_um, fiber_kink_density,
+    fiber_judged_length_um,
     fiber_real_end_count, kaplan_meier_length_weights, length_floor_nm,
     read_scan_size_from_bundle, skeleton_height_values,
 )
@@ -121,13 +121,11 @@ from lib.ui_tools import (
 # 軸ラベル・CSV 列・出力ラベルに使われる。
 PARAM_HEIGHT = "height"
 PARAM_LENGTH = "contour length"
-PARAM_KINK_ANGLE = "kink angle"
 PARAM_KINK_DENSITY = "kink density"
 PARAM_STRAIGHTNESS = "straightness"
 PARAM_CURVATURE = "curvature"
 
 UNIT_PIXEL = "pixel"
-UNIT_KINK = "kink"
 UNIT_FIBER = "fiber"
 UNIT_IMAGE = "image"
 
@@ -228,7 +226,6 @@ UNIT_PER_MICROMETER_PLOT = r"$\mathregular{\mu m^{-1}}$"
 # 各集計単位の標本量を表示するときに使う複数形の名詞。
 UNIT_NOUNS = {
     UNIT_PIXEL: "px",
-    UNIT_KINK: "kinks",
     UNIT_FIBER: "fibers",
     UNIT_IMAGE: "images",
 }
@@ -247,15 +244,14 @@ MIN_SAMPLES_FOR_SHAPE = 8
 # the plain-text unit for Tk labels and CSV headers; "value_unit_plot" is the
 # spelling Matplotlib draws and defaults to "value_unit" when the two agree.
 # The ranges are starting points for typical nanocellulose scans, not physical
-# limits: fibril heights are a few nm, contour lengths hundreds of nm to a few
-# µm, and kink angles are interior angles so they approach 180 deg for a
-# straight contour.
+# limits: fibril heights are a few nm and contour lengths hundreds of nm to a
+# few µm.
 # 計測量ごとの表示メタデータと既定ヒストグラム範囲。
 # "units" の先頭要素が既定の集計単位。"value_unit" は Tk ラベルと CSV ヘッダ用の
 # 素の単位表記、"value_unit_plot" は Matplotlib が描画する表記で、両者が一致する
 # 場合は "value_unit" が既定値になる。範囲は典型的なナノセルロース試料向けの
 # 初期値であって物理的な上限下限ではない（フィブリル高さは数 nm、輪郭長は
-# 数百 nm〜数 µm、キンク角は内角なので直線的な輪郭ほど 180 度に近づく）。
+# 数百 nm〜数 µm）。
 PARAM_SPECS = {
     PARAM_HEIGHT: {
         "slug": "height",
@@ -270,13 +266,6 @@ PARAM_SPECS = {
         "axis_label": "contour length (nm)",
         "units": (UNIT_FIBER, UNIT_IMAGE),
         "default_range": (0.0, 3000.0, 100.0),
-    },
-    PARAM_KINK_ANGLE: {
-        "slug": "kink_angle",
-        "value_unit": "degree",
-        "axis_label": "kink angle (degree)",
-        "units": (UNIT_KINK, UNIT_IMAGE),
-        "default_range": (0.0, 180.0, 5.0),
     },
     PARAM_STRAIGHTNESS: {
         "slug": "straightness",
@@ -302,7 +291,16 @@ PARAM_SPECS = {
         "value_unit": UNIT_PER_MICROMETER,
         "value_unit_plot": UNIT_PER_MICROMETER_PLOT,
         "axis_label": "kink density (" + UNIT_PER_MICROMETER_PLOT + ")",
-        "units": (UNIT_FIBER, UNIT_IMAGE),
+        # Per image only: one fiber's density takes the values 0, 1/L, 2/L...
+        # of its judged length L, so a per-fiber distribution is shaped by the
+        # fragment lengths rather than by the fibers. The rate a specimen has
+        # is pooled kinks over pooled judged length, with the image as the
+        # replicate (`_kink_totals`).
+        # 画像単位のみ。1 本の密度は判定長 L に対して 0、1/L、2/L… の値しか
+        # 取らないため、ファイバーごとの分布の形は繊維ではなく断片の長さで決まる。
+        # 試料が持つ率は、まとめたキンク数をまとめた判定長で割ったもので、画像を
+        # 反復の単位とする（`_kink_totals`）。
+        "units": (UNIT_IMAGE,),
         "default_range": (0.0, 20.0, 0.5),
     },
 }
@@ -318,7 +316,7 @@ for _spec in PARAM_SPECS.values():
 # 計測量セレクタに表示する順序。
 PARAM_ORDER = (
     PARAM_HEIGHT, PARAM_LENGTH, PARAM_STRAIGHTNESS, PARAM_CURVATURE,
-    PARAM_KINK_ANGLE, PARAM_KINK_DENSITY,
+    PARAM_KINK_DENSITY,
 )
 
 # How contour length treats fibers that reach the image frame. A fiber cut by
@@ -509,7 +507,7 @@ def _scan_size_spread_note(sizes_by_group: dict, frame_mode: str) -> str:
 
 
 def _kink_condition_report(conditions_by_group: dict,
-                           threshold_applied: bool) -> tuple:
+                           threshold_applied: bool) -> list:
     """
     Say how the bundles compared for kinks differ in what the count depends on.
     キンクを比べるバンドルが、キンク数の依存する条件でどう違うかを述べる。
@@ -528,36 +526,33 @@ def _kink_condition_report(conditions_by_group: dict,
 
     Returns
     -------
-    tuple
-        ``(warnings, blocking)``. `warnings` lists the texts to log; `blocking`
-        is the reason no test runs, or an empty string.
-        ``(warnings, blocking)``。`warnings` はログに出す文の列、`blocking` は検定
-        しない理由で、無ければ空文字列。
+    list of str
+        The warnings to log; empty when nothing differs.
+        ログに出す警告の列。何も違わなければ空。
 
     Notes
     -----
-    A different threshold is a different definition of a kink, so such groups
-    are not tested. A different pixel size or format, or noise above the limit
-    `pipeline.noise_warnings` applies, changes how the same definition reads a
-    scan: it is reported and the test still runs, as for curvature. A difference
-    in noise below that limit, or in apparent width, has no measured limit to
-    warn at, so those values are shown instead.
-    しきい値が違えばキンクの定義が違うため、そうした群は検定しない。画素サイズや
-    形式の違い、`pipeline.noise_warnings` の限度を超えるノイズは、同じ定義が画像を
-    どう読むかを変える。それらは報告し、検定は曲率と同じく実行する。その限度より小さい
-    ノイズの差や見かけの幅の差には、警告する限度の測定値が無いため、値を示すにとどめる。
+    A different threshold is a different definition of a kink; a different
+    pixel size or format, or noise above the limit `pipeline.noise_warnings`
+    applies, changes how the same definition reads a scan. Each is reported and
+    the test still runs; what the difference means for the comparison is the
+    user's to judge. A difference in noise below that limit, or in apparent
+    width, has no measured limit to warn at, so those values are shown instead.
+    しきい値が違えばキンクの定義が違い、画素サイズや形式の違い、
+    `pipeline.noise_warnings` の限度を超えるノイズは、同じ定義が画像をどう読むかを
+    変える。どれも報告し、検定は実行する。その違いが比較にとって何を意味するかは
+    ユーザーが判断する。その限度より小さいノイズの差や見かけの幅の差には、警告する
+    限度の測定値が無いため、値を示すにとどめる。
     """
     conditions = [c for group in conditions_by_group.values() for c in group]
-    blocking = ""
+    warnings = []
     thresholds = sorted({c["threshold"] for c in conditions})
     if len(thresholds) > 1 and not threshold_applied:
-        blocking = _(
-            "比較したバンドルのキンクのしきい値が {values} 度と異なり、キンクの定義が"
-            "違うため検定しません。「キンクのしきい値」に値を入れると、全バンドルを同じ"
-            "しきい値で選び直して検定します。"
-        ).format(values=", ".join(f"{v:g}" for v in thresholds))
-
-    warnings = []
+        warnings.append(_(
+            "注意: 比較したバンドルのキンクのしきい値が {values} 度と異なります。キンクの"
+            "定義が違うため、群の差にはしきい値の違いも含まれます。「キンクのしきい値」に"
+            "値を入れると、全バンドルを同じしきい値で選び直します。"
+        ).format(values=", ".join(f"{v:g}" for v in thresholds)))
     sizes = [c["pixel_nm"] for c in conditions if c["pixel_nm"] is not None]
     # A spread under one percent, such as the rounding of a scan size written
     # in an instrument header, does not raise the warning.
@@ -590,13 +585,13 @@ def _kink_condition_report(conditions_by_group: dict,
             "§4.17）。"
         ).format(n=len(low), total=len(ratios), limit=MIN_FIBER_SNR,
                  ratio=min(low)))
-    return warnings, blocking
+    return warnings
 
 
-def _centerline_block_note(lines) -> str:
+def _centerline_note(lines) -> str:
     """
-    Word why bundles analyzed on different centerlines are not tested.
-    異なる中心線で解析したバンドルを検定しない理由を述べる。
+    Word the warning that the compared bundles were analyzed on different centerlines.
+    比べるバンドルが異なる中心線で解析されたときの警告文を作る。
 
     Parameters
     ----------
@@ -607,25 +602,26 @@ def _centerline_block_note(lines) -> str:
     Returns
     -------
     str
-        The reason no test runs, or an empty string when there is one line or
-        none.
-        検定しない理由。線が 1 種類以下なら空文字列。
+        The warning, or an empty string when there is one line or none.
+        警告文。線が 1 種類以下なら空文字列。
 
     Notes
     -----
     Every length, height, curvature and kink is measured along the centerline,
     so a difference between groups on different lines may be the lines alone,
-    and a p-value could not tell that from a difference between the specimens.
+    and a p-value cannot tell that from a difference between the specimens.
+    The test still runs; the user is told.
     長さ・高さ・曲率・キンクはすべて中心線に沿って測るため、線の違う群の差は線の違い
-    だけによるかもしれず、p 値はそれを試料の差と区別できない。
+    だけによるかもしれず、p 値はそれを試料の差と区別できない。検定は実行し、
+    ユーザーに知らせる。
     """
     names = sorted(lines)
     if len(names) < 2:
         return ""
     return _(
-        "比較したバンドルの中心線が {lines} と異なるため検定しません。長さ・高さ・曲率・"
-        "キンクはすべて中心線に沿って測るため、線が違う結果は比較できません。同じ中心線で"
-        "解析し直してください。"
+        "注意: 比較したバンドルの中心線が {lines} と異なります。長さ・高さ・曲率・"
+        "キンクはすべて中心線に沿って測るため、群の差には中心線の違いも含まれます。"
+        "同じ中心線で解析し直すと、この違いは無くなります。"
     ).format(lines=", ".join(names))
 
 
@@ -758,22 +754,18 @@ def _fiber_value(stat, param: str):
     -------
     float or None
         Fiber-level value, or None when the fiber carries no such value. Kink
-        angle has no fiber-level value and always returns None
-        (`_fiber_samples`).
-        ファイバー単位の値。その値を持たないファイバーでは None。キンク角には
-        ファイバー単位の値が無く、常に None を返す（`_fiber_samples`）。
+        density has no fiber-level value here, because it is compared per image
+        only (`_kink_totals`).
+        ファイバー単位の値。その値を持たないファイバーでは None。キンク密度は画像
+        単位でだけ比べるため（`_kink_totals`）、ここではファイバー単位の値を持たない。
 
     Notes
     -----
     A fiber represents its height by the median of the values sampled along
     it, so one fiber contributes exactly one sample regardless of how long it
-    is. Kink density is kinks per micrometer of contour, which is the
-    length-normalized form used to compare fibers of different length; a
-    fiber with no detected kink is a valid zero, not a missing value.
+    is.
     ファイバーの高さは、そのファイバー上でサンプリングした値の中央値で代表させる。
-    これにより、長さにかかわらず 1 本が 1 標本になる。キンク密度は輪郭長 1 µm
-    あたりのキンク数で、長さの異なるファイバーを比較するための長さ正規化形である。
-    キンクが検出されなかったファイバーは欠測ではなく 0 という有効な値として扱う。
+    これにより、長さにかかわらず 1 本が 1 標本になる。
     """
     if param == PARAM_HEIGHT:
         # NaN when every sample of the fiber read a crossing
@@ -784,13 +776,6 @@ def _fiber_value(stat, param: str):
         return None if not np.isfinite(value) else value
     if param == PARAM_LENGTH:
         return float(stat.length_nm)
-    # From lib.measure, so the value GUI04 shows beside a fiber is the value
-    # histogrammed here; an undefined one contributes nothing.
-    # lib.measure から得る。GUI04 がファイバーの横に表示する値と、ここで
-    # ヒストグラム化する値を一致させるため。未定義の値は寄与しない。
-    if param == PARAM_KINK_DENSITY:
-        value = fiber_kink_density(stat)
-        return None if not np.isfinite(value) else value
     if param == PARAM_STRAIGHTNESS:
         # A fiber whose straightness is undefined (NaN) contributes nothing
         # rather than a zero.
@@ -815,30 +800,15 @@ def _fiber_samples(stat, param: str, unit: str) -> list:
         Measured-quantity key from `PARAM_SPECS`.
         `PARAM_SPECS` の計測量キー。
     unit
-        Aggregation-unit key. Kink angle yields every kink of the fiber at
-        any unit, because the image unit summarizes the kinks themselves.
-        集計単位キー。キンク角はどの単位でもファイバー内の全キンクを返す。
-        画像単位はキンクそのものを要約するためである。
+        Aggregation-unit key; every unit takes the fiber's one value.
+        集計単位キー。どの単位でもファイバーの 1 つの値を使う。
 
     Returns
     -------
     list of float
-        Zero or more samples, in track order for kink-level samples.
-        0 個以上の標本。キンク単位では追跡順に並ぶ。
-
-    Notes
-    -----
-    The kinks along a fiber are distinct defect events, not repeated
-    measurements of one fiber property the way height samples are, so they
-    are never reduced to a per-fiber value first: an image's kink angle is the
-    median of all its kinks, not of its fibers' medians.
-    1 本のファイバーに沿ったキンクはそれぞれ別の欠陥であり、高さの標本のように
-    1 つの性質を繰り返し測ったものではない。そのため先にファイバー単位の値へ
-    まとめることはしない。画像のキンク角は、ファイバーごとの中央値の中央値では
-    なく、その画像の全キンクの中央値である。
+        No sample or one.
+        標本 0 個または 1 個。
     """
-    if unit == UNIT_KINK or param == PARAM_KINK_ANGLE:
-        return [float(a) for a in stat.kink_angles_deg]
     value = _fiber_value(stat, param)
     return [] if value is None else [value]
 
@@ -1045,7 +1015,7 @@ def _kaplan_meier_interval(samples, resamples: int = KM_RESAMPLES,
     rng = np.random.default_rng(seed)
     lowers = {key: [] for _q, key in QUARTILE_KEYS}
     uppers = {key: [] for _q, key in QUARTILE_KEYS}
-    for _ in range(resamples):
+    for _resample in range(resamples):
         values, weights, estimates = [], [], []
         for lengths, own in samples:
             pick = rng.integers(0, lengths.size, lengths.size)
@@ -1161,11 +1131,11 @@ def _bin_results(results: list, edges: np.ndarray, counted_by_fiber: bool) -> li
         Bin edges (`_histogram_edges`).
         ビンの境界（`_histogram_edges`）。
     counted_by_fiber
-        Whether the weights do not stand for sample counts (Miles-Lantuejoul,
-        judged-length kink densities), so the samples in range are counted
-        apart from the bar totals.
-        重みが標本の量を表さないか（Miles-Lantuejoul、判定長で重み付けした
-        キンク密度）。そのとき範囲内の標本数を棒の合計とは別に数える。
+        Whether the weights do not stand for sample counts (the frame
+        weights), so the samples in range are counted apart from the bar
+        totals.
+        重みが標本の量を表さないか（枠の重み）。そのとき範囲内の標本数を棒の
+        合計とは別に数える。
 
     Returns
     -------
@@ -1259,11 +1229,9 @@ def _summary_stats(values: np.ndarray, weights=None) -> dict:
     weights
         Per-value weights, or None for an unweighted sample. Used by the
         Miles-Lantuejoul frame correction of contour lengths, where it is the
-        dimensionless `FiberStats.frame_weight`, and by the judged-length
-        weighting of per-fiber kink densities.
+        dimensionless `FiberStats.frame_weight`.
         値ごとの重み。重みなしの標本では None。輪郭長の Miles-Lantuejoul 枠補正で
-        使い、その場合は無次元の `FiberStats.frame_weight`。ファイバー単位の
-        キンク密度の判定長による重み付けでも使う。
+        使い、その場合は無次元の `FiberStats.frame_weight`。
 
     Returns
     -------
@@ -1842,6 +1810,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # between runs.
         # 比較の実行中に読んだバンドルのメタデータ（`_bundle_meta`）。実行の外では None。
         self._meta_cache: dict | None = None
+        # Each bundle's traced fibers, kept between runs so changing the
+        # quantity, the unit or the frame mode does not trace every bundle
+        # again; an entry is reused only while the bundle, its sidecars and the
+        # measurement settings are unchanged (`lib.measure._measure_curated`).
+        # Read and written only by the worker thread.
+        # 各バンドルの追跡結果。実行の間で保持し、計測量・集計単位・枠の扱いを
+        # 変えても全バンドルを追跡し直さないようにする。項目を使い回すのは、
+        # バンドル、そのサイドカー、計測の設定が変わっていない間だけである
+        # （`lib.measure._measure_curated`）。ワーカースレッドだけが読み書きする。
+        self._measure_cache: dict = {}
 
         # Keep committed values separate from Entry text so edits can be confirmed with Enter.
         # Entry の textvariable とは別に確定済みの値を保持し、Enter 確定で反映する。
@@ -2516,13 +2494,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.cmb_unit.pack(side=tk.LEFT, padx=(4, 8))
         self.cmb_unit.bind("<<ComboboxSelected>>", lambda _e: self._on_unit_change())
         ToolTip(self.cmb_unit, _(
-            "1 標本の数え方を選びます。{pixel} は骨格画素 1 点、{kink} はキンク 1 点、"
+            "1 標本の数え方を選びます。{pixel} は骨格画素 1 点、"
             "{fiber} はファイバー 1 本（高さはファイバー内の中央値）、"
             "{image} は画像 1 枚です。{image} は含まれるファイバー値の中央値で、"
-            "キンク角は全キンクの角度の中央値、キンク密度は総キンク数を判定した長さの"
-            "合計で割った値です。"
-            "キンク密度の {fiber} 集計は各ファイバーを判定した長さで重み付けするため、"
-            "平均はこの比と同じになり、検定はしません。"
+            "キンク密度は総キンク数を判定した長さの合計で割った値です。キンク密度は"
+            "{image} でだけ集計します。1 本ごとの密度は判定した長さ L に対して 0、"
+            "1/L、2/L… の値しか取らず、分布の形が断片の長さで決まるためです。"
             "{pixel} でまとめた分布は独立観測ではなく、長いファイバーほど重みが"
             "大きくなるため、群間比較では {fiber}・{image} でも確認してください。"
             "{fiber} は同じ画像のファイバーを独立と数えるため、場所ごとの違いを"
@@ -2530,8 +2507,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "{pixel} は画素サイズの細かい画像ほど標本が多くなるため、画素サイズの"
             "異なる画像を同じグループに混ぜるとログに注意を出します。"
         ).format(
-            pixel=UNIT_PIXEL, kink=UNIT_KINK,
-            fiber=UNIT_FIBER, image=UNIT_IMAGE,
+            pixel=UNIT_PIXEL, fiber=UNIT_FIBER, image=UNIT_IMAGE,
         ))
 
         self.plot_type_var = tk.StringVar(value=PLOT_HISTOGRAM)
@@ -2637,14 +2613,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.kink_threshold_var.trace_add(
             "write", lambda *_a: self._reset_result_state())
         ToolTip(self.ent_kink_threshold, _(
-            "{angle} と {density} に効く設定です。空欄なら、各バンドルを解析した"
+            "{density} に効く設定です。空欄なら、各バンドルを解析した"
             "ときのしきい値（GUI01 の kinkangle_deg）でキンクを数え、しきい値の違う"
             "バンドルが混ざっていればログで警告します。内角の値（度）を入れると、"
             "全バンドルのキンクをその値で選び直します。バンドルには閾値未満の折れも"
             "保存されているため、選び直したキンクは、その値で解析し直した場合と"
-            "位置・数・角度とも一致します。形式 1.6 より前のバンドルと、保存した下限"
+            "位置・数とも一致します。形式 1.6 より前のバンドルと、保存した下限"
             "より低い折れまで求める値には使えず、その旨がログに出ます。"
-        ).format(angle=PARAM_KINK_ANGLE, density=PARAM_KINK_DENSITY))
+        ).format(density=PARAM_KINK_DENSITY))
 
     def _available_params(self) -> list:
         """
@@ -4510,6 +4486,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 curation_report=curation_report,
                 min_length_nm=min_length_nm,
                 floor_report=floor_report,
+                cache=self._measure_cache,
             )
             self._log_curvature_caveats(per_fiber, curvature_window)
             return self._curvature_values(per_fiber, unit) + (load_errors,)
@@ -4522,6 +4499,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             kink_threshold_deg=kink_threshold_deg,
             min_length_nm=min_length_nm,
             floor_report=floor_report,
+            cache=self._measure_cache,
         )
         return self._values_from_fiber_stats(
             self._frame_filtered(per_bundle, param, frame_mode, frame_report),
@@ -4536,29 +4514,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         標本が枠の重み（Miles-Lantuejoul または Kaplan-Meier）を持つかを返す。
         """
         return param == PARAM_LENGTH and frame_mode in WEIGHTED_FRAME_MODES
-
-    @staticmethod
-    def _kink_length_weighted(param: str, unit: str) -> bool:
-        """
-        Return whether kink densities are weighted by their fiber's judged length.
-        キンク密度を、そのファイバーの判定長で重み付けするかを返す。
-
-        Notes
-        -----
-        A fiber's kink density is its kink count over its judged length, so a
-        fragment judged over a few nanometers reads tens or hundreds of kinks
-        per micrometer from a single kink, and counted as one sample it pulls
-        the fiber-unit distribution as far as a long fiber does. Weighted by the
-        judged length, every micrometer counts the same, and the weighted mean
-        is the pooled kinks over the pooled judged length, the ratio the image
-        unit reports per image.
-        ファイバーのキンク密度はキンク数を判定長で割ったものなので、数 nm しか
-        判定しなかった断片は、キンク 1 個で 1 µm あたり数十〜数百と読まれ、1 標本と
-        して数えると長いファイバーと同じだけファイバー単位の分布を引っ張る。判定長で
-        重み付けすれば各 µm が等しく数えられ、重み付き平均は「まとめたキンク数 ÷
-        まとめた判定長」になる。画像単位が画像ごとに報告するのと同じ比である。
-        """
-        return param == PARAM_KINK_DENSITY and unit == UNIT_FIBER
 
     @staticmethod
     def _frame_filtered(per_source, param: str, frame_mode: str,
@@ -5167,24 +5122,20 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         -------
         tuple
             ``(values, weights, n_fibers, n_images)``. `weights` is None except
-            for `frame_weighted` fiber samples and for kink density at the fiber
-            unit, whose samples are weighted by their judged length in
-            nanometers (`_kink_length_weighted`); the image unit takes a
-            weighted median instead and stays unweighted.
+            for `frame_weighted` fiber samples; the image unit takes a weighted
+            median instead and stays unweighted.
             ``(値リスト, 重み, ファイバー数, 画像数)``。`weights` は
-            `frame_weighted` のファイバー単位標本と、判定長 (nm) で重み付けする
-            ファイバー単位のキンク密度（`_kink_length_weighted`）以外では None。image
-            単位では代わりに重み付き中央値を取り、重みなしのままにする。
+            `frame_weighted` のファイバー単位標本以外では None。image 単位では
+            代わりに重み付き中央値を取り、重みなしのままにする。
 
         Notes
         -----
         An image value pools the image's fibers: the median of every fiber
-        value it holds, the median of every kink angle for kink angle, and the
-        pooled kinks over the pooled judged length for kink density
-        (`_kink_totals`).
+        value it holds, and the pooled kinks over the pooled judged length for
+        kink density (`_kink_totals`).
         画像の値は、その画像のファイバーをまとめて求める。すなわち全ファイバー値の
-        中央値、キンク角では全キンク角の中央値、キンク密度ではまとめたキンク数を
-        まとめた判定長で割った値（`_kink_totals`）である。
+        中央値、キンク密度ではまとめたキンク数をまとめた判定長で割った値
+        （`_kink_totals`）である。
         """
         def pooled(source_values, source_weights) -> float:
             if frame_weighted:
@@ -5194,10 +5145,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 )["median"]
             return float(np.median(source_values))
 
-        kink_weighted = App._kink_length_weighted(param, unit)
         values = []
-        weights = ([] if (frame_weighted or kink_weighted) and unit != UNIT_IMAGE
-                   else None)
+        weights = [] if frame_weighted and unit != UNIT_IMAGE else None
         n_fibers = 0
         n_images = 0
         for _path, stats in per_source:
@@ -5220,9 +5169,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 source_values.extend(samples)
                 if frame_weighted:
                     source_weights.extend([stat.frame_weight] * len(samples))
-                elif kink_weighted:
-                    source_weights.extend(
-                        [1000.0 * fiber_judged_length_um(stat)] * len(samples))
 
             if not source_values:
                 continue
@@ -5315,15 +5261,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 未記録のバンドルでも動く唯一の組み合わせでもある。
         pixel_mode = param == PARAM_HEIGHT and unit == UNIT_PIXEL
         counts_fibers = not pixel_mode
-        weighted = (
-            frame_weighted and unit == UNIT_FIBER
-        ) or self._kink_length_weighted(param, unit)
-        # Weights that do not measure the sample: the Miles-Lantuejoul weight and
-        # the judged length a kink density is weighted by. Under either, the
-        # sample size reported is the number of fibers measured.
-        # 標本の量を表さない重み。Miles-Lantuejoul 重みと、キンク密度を重み付けする
-        # 判定長である。どちらでも、報告する標本量は計測したファイバーの本数とする。
-        counted_by_fiber = frame_weighted or self._kink_length_weighted(param, unit)
+        weighted = frame_weighted and unit == UNIT_FIBER
+        # The frame weights do not measure the sample, so the sample size
+        # reported is the number of fibers measured.
+        # 枠の重みは標本の量を表さないため、報告する標本量は計測したファイバーの
+        # 本数とする。
+        counted_by_fiber = frame_weighted
 
         results = []
         errors = []
@@ -5344,10 +5287,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         frame_scan_sizes: dict = {}
         # What each group's kink counts depend on (`_kink_condition_report`).
         # 各グループのキンク数が依存する条件（`_kink_condition_report`）。
-        kink_quantity = param in (PARAM_KINK_ANGLE, PARAM_KINK_DENSITY)
+        kink_quantity = param == PARAM_KINK_DENSITY
         kink_conditions: dict = {}
-        # Centerline of every bundle measured (`_centerline_block_note`).
-        # 計測した全バンドルの中心線（`_centerline_block_note`）。
+        # Centerline of every bundle measured (`_centerline_note`).
+        # 計測した全バンドルの中心線（`_centerline_note`）。
         analyzed_lines: set = set()
 
         # A registered file can have been moved or deleted since it was added.
@@ -5412,13 +5355,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # バンドルで決める。比べる全グループで同じでなければならないためである。
         kink_threshold_deg = None
         all_bundles = [path for grp in groups for path in group_files[grp["id"]]]
+        # Measurements of bundles no longer registered are dropped, so the kept
+        # fibers stay bounded by what is compared.
+        # 登録から外れたバンドルの計測は捨て、保持する量を比べる対象に限る。
+        registered = {os.path.abspath(path) for path in all_bundles}
+        for key in [k for k in self._measure_cache if k[0] not in registered]:
+            del self._measure_cache[key]
         # Skeleton-pixel heights measure no fiber length, so no floor is
         # decided or logged for them.
         # スケルトン画素の高さはファイバーの長さを測らないため、下限を決めず、
         # ログにも出さない。
         min_length_nm = None if pixel_mode else self._common_length_floor(
             all_bundles, bool(args.get("length_floor", False)))
-        if param in (PARAM_KINK_ANGLE, PARAM_KINK_DENSITY):
+        if param == PARAM_KINK_DENSITY:
             kink_threshold_deg = args.get("kink_threshold_deg")
             self._log_kink_thresholds(all_bundles, kink_threshold_deg)
 
@@ -5736,12 +5685,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "km_interval": km_interval,
                 # The reported sample size is the number of samples measured.
                 # No weight measures it: the total of the Miles-Lantuejoul
-                # weight is an estimated fiber count, not what was observed,
-                # and the judged length a kink density is weighted by is a
-                # length.
+                # weight is an estimated fiber count, not what was observed.
                 # 報告する標本量は計測した標本の数。重みはこれを表さない。
-                # Miles-Lantuejoul 重みの合計は観測した本数ではなく推定本数であり、
-                # キンク密度を重み付けする判定長は長さであるため。
+                # Miles-Lantuejoul 重みの合計は観測した本数ではなく推定本数であるため。
                 "n_samples": float(arr.size),
                 # Total weight, which is what the histogram bars sum to and so
                 # what the out-of-range share is taken against.
@@ -5806,10 +5752,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                          share=results[-1]["frame_share"], k=grp_frame_cut)))
 
         self._log_pixel_size_spread(curvature_pixel_sizes)
-        kink_warnings, kink_blocking = _kink_condition_report(
-            kink_conditions, kink_threshold_deg is not None)
-        for text in kink_warnings:
+        for text in _kink_condition_report(
+                kink_conditions, kink_threshold_deg is not None):
             self.ui_queue.put(("log", text))
+        centerline_note = _centerline_note(analyzed_lines)
+        if centerline_note:
+            self.ui_queue.put(("log", centerline_note))
         for r in results:
             if r["width_nm"] is not None:
                 self.ui_queue.put(("log", _(
@@ -5893,12 +5841,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 "{unit} 集計の標本は独立観測ではないため検定しません。"
                 "{fiber} か {image} の集計に切り替えてください。"
             ).format(unit=unit, fiber=UNIT_FIBER, image=UNIT_IMAGE)
-        elif kink_blocking or _centerline_block_note(analyzed_lines):
-            comparison_note = "\n".join(
-                text for text in (_centerline_block_note(analyzed_lines),
-                                  kink_blocking)
-                if text
-            )
         elif frame_weighted and unit == UNIT_FIBER:
             # Mann-Whitney U and KS take no weights, and a weighted
             # Mann-Whitney has no standard form, so a corrected fiber sample is
@@ -5926,16 +5868,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     "ください。各画像の重み付き中央値を検定します。"
                 ).format(fiber=UNIT_FIBER, ml=FRAME_MILES_LANTUEJOUL,
                          image=UNIT_IMAGE)
-        elif self._kink_length_weighted(param, unit):
-            # The fiber-unit kink densities are weighted by the judged length,
-            # which the rank tests cannot take; the image unit tests the pooled
-            # densities instead.
-            # ファイバー単位のキンク密度は判定長で重み付けしてあり、順位検定はその
-            # 重みを受け付けない。画像単位では、まとめた密度を検定する。
-            comparison_note = _(
-                "{fiber} 集計のキンク密度は判定長で重み付けしているため検定しません。"
-                "検定するには {image} の集計に切り替えてください。"
-            ).format(fiber=UNIT_FIBER, image=UNIT_IMAGE)
         else:
             try:
                 comparisons = compare_groups(
@@ -6538,8 +6470,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                         lines.append("not estimated")
                     else:
                         lines.append("{0:.0%} not estimated".format(share))
-            if self._kink_length_weighted(param, unit):
-                lines.append("weighted by judged length")
 
             # Anchored to the right edge so the box grows leftwards. Left
             # anchoring clipped the longer lines this annotation now carries

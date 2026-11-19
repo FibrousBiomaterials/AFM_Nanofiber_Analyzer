@@ -2894,6 +2894,91 @@ def _report_floor(
         ))
 
 
+def _file_signature(path: str) -> Optional[Tuple[int, int]]:
+    """
+    Return a file's modification time and size, or ``None`` when it is absent.
+    ファイルの更新時刻とサイズを返す。無ければ ``None``。
+    """
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size)
+
+
+def _measure_curated(
+    bundle_path: str,
+    cache: Optional[Dict] = None,
+    **settings,
+) -> MeasureResult:
+    """
+    Measure one bundle with its saved curation, reusing a stored measurement.
+    保存済みのキュレーションで 1 バンドルを計測する。保存した計測があれば使い回す。
+
+    Parameters
+    ----------
+    bundle_path
+        Bundle to measure.
+        計測するバンドル。
+    cache
+        Mapping kept by the caller between calls, or ``None`` to measure
+        afresh. An entry is reused only while the bundle, its exclusion and
+        connection sidecars and every setting below are what they were.
+        呼び出し側が呼び出しの間で保持する辞書。``None`` なら毎回計測する。項目を
+        使い回すのは、バンドル、その除外・連結サイドカー、下の設定のすべてが前と
+        同じ間だけである。
+    **settings
+        ``scale_um``, ``scale_y_um``, ``max_workers``, ``apply_exclusions``,
+        ``apply_connection``, ``kink_threshold_deg`` and ``min_length_nm``, as
+        the collectors take them.
+        コレクタが受け取るのと同じ設定。
+
+    Returns
+    -------
+    MeasureResult
+        The measurement `measure_bundle` returns for these settings.
+        これらの設定で `measure_bundle` が返す計測結果。
+
+    Notes
+    -----
+    Tracing every bundle is the slow part of a GUI03 run, and the quantity, the
+    aggregation unit and the frame mode only change how the same fibers are
+    read. The key holds the files' modification times and sizes, so a bundle
+    re-analyzed or curated again since is measured again.
+    全バンドルの追跡は GUI03 の実行で時間のかかる部分であり、計測量・集計単位・
+    枠の扱いは同じファイバーの読み方を変えるだけである。キーにはファイルの更新
+    時刻とサイズを含めるため、その後に再解析や再キュレーションをしたバンドルは
+    計測し直す。
+    """
+    key = None
+    if cache is not None:
+        key = (
+            os.path.abspath(bundle_path),
+            _file_signature(bundle_path),
+            _file_signature(exclusion_path_for(bundle_path)),
+            _file_signature(connect_path_for(bundle_path)),
+            tuple(sorted((k, v) for k, v in settings.items() if k != "max_workers")),
+        )
+        if key in cache:
+            return cache[key]
+    anchors, plan = _curation_for(
+        bundle_path, settings["apply_exclusions"], settings["apply_connection"],
+    )
+    result = measure_bundle(
+        bundle_path,
+        scale_um=settings["scale_um"],
+        scale_y_um=settings["scale_y_um"],
+        max_workers=settings["max_workers"],
+        exclude_anchors=anchors,
+        plan=plan,
+        kink_threshold_deg=settings["kink_threshold_deg"],
+        min_length_nm=settings["min_length_nm"],
+    )
+    if key is not None:
+        cache[key] = result
+    return result
+
+
 def collect_fiber_stats(
     bundle_paths: Sequence[str],
     scale_um: Optional[float] = None,
@@ -2905,6 +2990,7 @@ def collect_fiber_stats(
     kink_threshold_deg: Optional[float] = None,
     min_length_nm: Optional[float] = None,
     floor_report: Optional[List[Tuple[str, int, int]]] = None,
+    cache: Optional[Dict] = None,
 ) -> Tuple[List[Tuple[str, List[FiberStats]]], List[Tuple[str, str]]]:
     """
     Measure several ``.b2z`` bundles and return per-fiber statistics per bundle.
@@ -2971,6 +3057,13 @@ def collect_fiber_stats(
         per measured bundle (`_report_floor`); ``None`` records nothing.
         計測したバンドルごとに ``(バンドルパス, 計測数, 残った数)`` を 1 件追加する
         リスト（`_report_floor`）。``None`` なら何も記録しない。
+    cache
+        Mapping the caller keeps between calls so a bundle measured with the
+        same files and settings is not traced again (`_measure_curated`);
+        ``None`` measures every bundle.
+        呼び出し側が呼び出しの間で保持する辞書。同じファイルと設定で計測した
+        バンドルを追跡し直さないようにする（`_measure_curated`）。``None`` なら
+        すべてのバンドルを計測する。
 
     Returns
     -------
@@ -3025,16 +3118,12 @@ def collect_fiber_stats(
         # 除外はアンカーとして渡し、`measure_bundle` が断片へ適用する。統計値は
         # 残ったファイバーで採番し直された状態で返るため、GUI04 の出力と一致する。
         try:
-            anchors, plan = _curation_for(
-                path, apply_exclusions, apply_connection,
-            )
-            result = measure_bundle(
-                path,
-                scale_um=scale_um,
-                scale_y_um=scale_y_um,
+            result = _measure_curated(
+                path, cache,
+                scale_um=scale_um, scale_y_um=scale_y_um,
                 max_workers=max_workers,
-                exclude_anchors=anchors,
-                plan=plan,
+                apply_exclusions=apply_exclusions,
+                apply_connection=apply_connection,
                 kink_threshold_deg=kink_threshold_deg,
                 min_length_nm=min_length_nm,
             )
@@ -3244,6 +3333,7 @@ def collect_fiber_curvature(
     curation_report: Optional[List[Tuple[str, int, int, int]]] = None,
     min_length_nm: Optional[float] = None,
     floor_report: Optional[List[Tuple[str, int, int]]] = None,
+    cache: Optional[Dict] = None,
 ) -> Tuple[List[Tuple[str, np.ndarray]], List[Tuple[str, str]]]:
     """
     Measure the per-fiber mean curvature across several bundles.
@@ -3290,6 +3380,12 @@ def collect_fiber_curvature(
         List receiving each bundle's floor counts, as in
         `collect_fiber_stats`.
         `collect_fiber_stats` と同様に、各バンドルの下限長の件数を受け取るリスト。
+    cache
+        Mapping that lets a bundle measured with the same files and settings be
+        reused, as in `collect_fiber_stats`; the curvature itself is computed
+        on every call, because the window can change.
+        `collect_fiber_stats` と同様に、同じファイルと設定で計測したバンドルを
+        使い回すための辞書。窓は変わりうるため、曲率そのものは毎回計算する。
 
     Returns
     -------
@@ -3337,16 +3433,13 @@ def collect_fiber_curvature(
     errors: List[Tuple[str, str]] = []
     for path in bundle_paths:
         try:
-            anchors, plan = _curation_for(
-                path, apply_exclusions, apply_connection,
-            )
-            result = measure_bundle(
-                path,
-                scale_um=scale_um,
-                scale_y_um=scale_y_um,
+            result = _measure_curated(
+                path, cache,
+                scale_um=scale_um, scale_y_um=scale_y_um,
                 max_workers=max_workers,
-                exclude_anchors=anchors,
-                plan=plan,
+                apply_exclusions=apply_exclusions,
+                apply_connection=apply_connection,
+                kink_threshold_deg=None,
                 min_length_nm=min_length_nm,
             )
         except Exception as e:
