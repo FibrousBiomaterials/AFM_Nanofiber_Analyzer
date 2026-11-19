@@ -180,6 +180,101 @@ def test_a_recording_is_stale_only_when_code_and_goldens_both_moved(checker):
     assert stale(current, {}) == {}
 
 
+def test_a_recording_that_lists_its_definitions_is_stale_only_through_them(checker):
+    """
+    A recording with ``depends`` ignores a change to a definition it never ran.
+    ``depends`` を持つ記録は、一度も実行しなかった定義の変更を無視する。
+
+    A recording without ``depends`` is still judged on the whole module.
+    ``depends`` を持たない記録は、これまでどおりモジュール全体で判定する。
+    """
+    rel = "lib/fiber.py"
+    current = checker.doc_excerpts.code_symbol_digests(
+        checker.doc_excerpts.read_worktree(rel))
+    ran, other = sorted(k for k in current if not k.startswith("<"))[:2]
+
+    def stale(changed, depends):
+        code = copy.deepcopy(current)
+        code[changed] = "another digest"
+        entry = {"snapshot": "s", "values": {}, "goldens": "the goldens of another day"}
+        if depends is not None:
+            entry["depends"] = depends
+        measurements = {"snapshots": {"s": {rel: code}}, "experiments": {"e": entry}}
+        return checker.stale_experiments(
+            measurements, {"e"}, checker.doc_excerpts.read_worktree)
+
+    assert stale(other, {rel: [ran]}) == {}
+    assert stale(ran, {rel: [ran]}) == {"e": [f"{rel}: changed {ran}"]}
+    assert stale(ran, {"lib/imp_tools.py": []}) == {}
+    assert stale(other, None) == {"e": [f"{rel}: changed {other}"]}
+
+
+def test_a_stale_recording_blocks_only_a_release(checker, capsys):
+    """
+    A stale recording is a warning by default and a problem with ``--release``.
+    古い記録は、既定では警告で、``--release`` を付けたときだけ問題になる。
+
+    Measuring again takes tens of minutes, so it is required before a release
+    rather than at every commit.
+    測り直しには数十分かかるため、それはコミットごとではなくリリースの前に求める。
+    """
+    measurements = json.dumps({
+        "snapshots": {"s": {"lib/fiber.py": {"Fiber": "a digest of another day"}}},
+        "experiments": {"e": {"snapshot": "s", "values": {"a": 0.5},
+                              "goldens": "the goldens of another day"}},
+    })
+    files = {doc: "" for doc in checker.DOCS}
+    files.update({checker.DOCS[0]: "A 0.5<!--m:e.a--> value.",
+                  checker.DOCS[1]: "値 0.5<!--m:e.a-->。",
+                  checker.MEASUREMENTS: measurements})
+    assert checker.check(_reader(files)) == []
+    assert "measurement 'e' is stale" in capsys.readouterr().err
+    blocking = checker.check(_reader(files), stale_blocks=True)
+    assert len(blocking) == 1 and "measurement 'e' is stale" in blocking[0]
+
+
+def test_a_measurement_lists_the_definitions_it_ran(tmp_path, monkeypatch):
+    """
+    ``record`` lists the project definitions an experiment executed.
+    ``record`` は、実験が実行したプロジェクトの定義を列挙する。
+
+    The definitions the executed code names are listed with it, and an
+    experiment that starts a child process lists none, because the code that
+    process runs cannot be seen.
+    実行したコードが名指す定義も合わせて列挙する。子プロセスを起動した実験は、
+    そのプロセスが実行するコードが見えないため、何も列挙しない。
+    """
+    import subprocess
+
+    import numpy as np
+    from lib import imp_tools
+
+    measure_docs = _measure_docs()
+    path = tmp_path / "doc_measurements.json"
+    monkeypatch.setattr(measure_docs, "MEASUREMENTS", path)
+
+    def ends():
+        skeleton = np.zeros((5, 5), dtype=np.uint8)
+        skeleton[2, 1:4] = 1
+        return {"ends": int(imp_tools.endPoints(skeleton).sum())}
+
+    def spawns():
+        subprocess.run([sys.executable, "-c", "pass"], check=True)
+        return {"a": 1}
+
+    monkeypatch.setitem(measure_docs.EXPERIMENTS, "ends",
+                        dict(func=ends, roots=[], description="d"))
+    monkeypatch.setitem(measure_docs.EXPERIMENTS, "spawns",
+                        dict(func=spawns, roots=[], description="d"))
+    measure_docs.record(["ends", "spawns"])
+    data = json.loads(path.read_text(encoding="utf-8"))
+    ran = data["experiments"]["ends"]["depends"]["lib/imp_tools.py"]
+    assert "endPoints" in ran
+    assert "_hitmiss_union" in ran
+    assert "remove_Lcorner" not in ran
+    assert "depends" not in data["experiments"]["spawns"]
+
+
 def test_a_measurement_records_the_goldens_it_was_made_beside(tmp_path, monkeypatch, checker):
     """
     ``record`` writes the digest of the goldens beside an experiment's values.

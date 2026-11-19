@@ -23,11 +23,14 @@ directly after it, and this script checks each one:
     analysis code it ran on and a digest of the regression goldens (`GOLDENS`).
     When what that code computes has changed and the goldens have moved, every
     value of the recording is stale until it is measured again
-    (`stale_experiments`).
+    (`stale_experiments`). A stale recording is a warning at a commit and an
+    error only with ``--release``, which `scripts/release.py prepare` uses.
     実測値。``scripts/measure_docs.py`` が `MEASUREMENTS` に書いたその項目の値。
     記録は、実行したときの解析コードの指紋と、回帰テストのゴールデン（`GOLDENS`）の
     ダイジェストを持つ。そのコードの計算が変わり、かつゴールデンが動いていると、
     測り直すまでその記録の値はすべて古いものとして扱われる（`stale_experiments`）。
+    古い記録は、コミットでは警告であり、``--release`` を付けたとき
+    （`scripts/release.py prepare` が付ける）だけ誤りになる。
 ``3<!--c:lib/pipeline.py::ProcParams.mask_dilation-->``
     A constant or default in the code: a module constant (``path::NAME``), a
     class attribute or dataclass field (``path::Class.name``), or a parameter
@@ -75,6 +78,7 @@ Usage
 -----
 ``python scripts/check_doc_numbers.py``            check the working tree
 ``python scripts/check_doc_numbers.py --staged``   check the staged snapshot
+``python scripts/check_doc_numbers.py --release``  also fail on a stale recording
 ``python scripts/check_doc_numbers.py --list-unmarked``
 """
 
@@ -430,21 +434,30 @@ def stale_experiments(measurements: dict, used: set,
     Experiments whose analysis code and analysis results have both changed since.
     記録の後に、解析コードと解析結果の両方が変わった実験。
 
-    A recording is stale when what a module it ran on computes has changed
-    (`doc_excerpts.computation_changes`) and the regression goldens differ from
-    those it recorded (`golden_digest`). The code says which experiments a
+    A recording is stale when code it ran on has changed and the regression
+    goldens differ from those it recorded (`golden_digest`). A recording that
+    lists the definitions it executed (``depends``, written by
+    `measure_docs.traced_run`) is judged on those alone
+    (`_dependency_changes`), so a change to a definition the experiment never
+    ran does not reach it; an older recording, or one whose experiment started
+    a child process, is judged on every definition of the modules it ran on
+    (`doc_excerpts.computation_changes`). The code says which experiments a
     change can reach; the goldens say whether the analysis output moved at
     all, and a change that reaches the same result another way leaves them as
     they were. The goldens hold the bundled scans only, so a change that moves
     a result on other data alone is not seen here (AGENTS.md section 8.15). A
     recording without a golden digest is judged by its code alone.
-    記録が古いのは、実行したモジュールの計算内容が変わり
-    （`doc_excerpts.computation_changes`）、かつ回帰テストのゴールデンが記録時と
-    異なる（`golden_digest`）ときである。コードは変更がどの実験に届きうるかを示し、
-    ゴールデンは解析の出力がそもそも動いたかを示す。同じ結果に別の方法で到達する
-    変更では、ゴールデンは動かない。ゴールデンが持つのは同梱スキャンだけなので、
-    それ以外のデータでの結果だけを動かす変更はここでは分からない（AGENTS.md
-    §8.15）。ゴールデンのダイジェストを持たない記録は、コードだけで判定する。
+    記録が古いのは、実行したコードが変わり、かつ回帰テストのゴールデンが記録時と
+    異なる（`golden_digest`）ときである。実行した定義を列挙した記録
+    （``depends``。`measure_docs.traced_run` が書く）は、それらだけで判定する
+    （`_dependency_changes`）。そのため、実験が一度も実行しなかった定義の変更は
+    届かない。それより古い記録や、実験が子プロセスを起動した記録は、実行した
+    モジュールのすべての定義で判定する（`doc_excerpts.computation_changes`）。
+    コードは変更がどの実験に届きうるかを示し、ゴールデンは解析の出力がそもそも
+    動いたかを示す。同じ結果に別の方法で到達する変更では、ゴールデンは動かない。
+    ゴールデンが持つのは同梱スキャンだけなので、それ以外のデータでの結果だけを
+    動かす変更はここでは分からない（AGENTS.md §8.15）。ゴールデンのダイジェストを
+    持たない記録は、コードだけで判定する。
     """
     out: Dict[str, List[str]] = {}
     goldens_now = golden_digest(read)
@@ -479,11 +492,59 @@ def stale_experiments(measurements: dict, used: set,
         if exp.get("goldens") == goldens_now:
             continue
         snap_id = exp.get("snapshot", "")
+        depends = exp.get("depends")
         problems: List[str] = []
         for rel, digests in sorted(snapshots.get(snap_id, {}).items()):
-            problems += changes_of(snap_id, rel, digests)
+            if depends is None:
+                problems += changes_of(snap_id, rel, digests)
+            elif rel in depends:
+                source = sources[rel] if rel in sources else read(rel)
+                found = (_dependency_changes(digests, depends[rel], source)
+                         if source is not None else ["removed"])
+                problems += [f"{rel}: {c}" for c in found[:3]]
         if problems:
             out[name] = problems
+    return out
+
+
+def _dependency_changes(recorded: Dict[str, str], keys: Sequence[str],
+                        source: str) -> List[str]:
+    """
+    Describe what changed among the definitions an experiment executed.
+    実験が実行した定義のうち、何が変わったかを記述する。
+
+    Parameters
+    ----------
+    recorded
+        `doc_excerpts.code_symbol_digests` of the whole module as recorded.
+        記録したときのモジュール全体の `doc_excerpts.code_symbol_digests`。
+    keys
+        The definitions the experiment depends on
+        (`measure_docs.dependencies`).
+        実験が依存する定義（`measure_docs.dependencies`）。
+    source
+        The module's current source.
+        モジュールの現在のソース。
+
+    Returns
+    -------
+    list of str
+        One line per dependency changed or removed, and per definition added
+        since the recording whose name a dependency mentions, because it
+        shadows what the name resolved to before.
+        変更・削除された依存ごと、および記録の後に追加された定義のうち依存が
+        名前を挙げるものごとに 1 行。その名前が以前指していたものを覆い隠すため
+        である。
+    """
+    current = doc_excerpts.code_symbol_digests(source)
+    out = [f"changed {k}" for k in keys
+           if k in current and k in recorded and current[k] != recorded[k]]
+    out += [f"removed {k}" for k in keys if k not in current]
+    added = [k for k in current if k not in recorded]
+    if added:
+        used = doc_excerpts._referenced_names(source, [k for k in keys if k in current])
+        out += [f"added {k}" for k in added
+                if k.split(":", 1)[-1].split("#")[0].split(".")[0] in used]
     return out
 
 
@@ -512,10 +573,29 @@ def _pending(read: Callable[[str], Optional[str]]) -> Dict[str, set]:
     return {doc: set(lines) for doc, lines in data.get("lines", {}).items()}
 
 
-def check(read: Callable[[str], Optional[str]], list_unmarked: bool = False) -> List[str]:
+def check(read: Callable[[str], Optional[str]], list_unmarked: bool = False,
+          stale_blocks: bool = False) -> List[str]:
     """
     Every problem with the numbers of the algorithm documents.
     アルゴリズム解説文書の数値のすべての問題。
+
+    Parameters
+    ----------
+    read
+        Reader of repository files (working tree or staged snapshot).
+        リポジトリのファイルを読む関数（作業ツリーまたはステージ済みの写し）。
+    list_unmarked
+        Print every number without a marker as well.
+        印の無い数値もすべて表示する。
+    stale_blocks
+        Count a stale recording (`stale_experiments`) as a problem. Otherwise
+        it is printed as a warning: measuring every stale experiment again
+        takes tens of minutes, so it is required before a release
+        (``--release``, `scripts/release.py prepare`) and not at every commit.
+        古い記録（`stale_experiments`）を問題として数える。そうでなければ警告として
+        表示する。古い実験をすべて測り直すには数十分かかるため、それを求めるのは
+        リリース前（``--release``、`scripts/release.py prepare`）であって、
+        コミットごとではない。
     """
     problems: List[str] = []
     measurements = load_measurements(read)
@@ -580,9 +660,14 @@ def check(read: Callable[[str], Optional[str]], list_unmarked: bool = False) -> 
             problems.append(f"{pair[0]} and {pair[1]} cite different sources: "
                             f"only in English {only_en}, only in Japanese {only_ja}")
     for name, why in stale_experiments(measurements, used_experiments, read).items():
-        problems.append(f"measurement {name!r} is stale ({'; '.join(why[:3])}); re-run "
-                        f"`.venv\\Scripts\\python.exe scripts/measure_docs.py --only {name}` "
-                        "and update the documents to the new values")
+        line = (f"measurement {name!r} is stale ({'; '.join(why[:3])}); re-run "
+                f"`.venv\\Scripts\\python.exe scripts/measure_docs.py --only {name}` "
+                "and update the documents to the new values")
+        if stale_blocks:
+            problems.append(line)
+        else:
+            print(f"doc-numbers: warning: {line} (required before a release)",
+                  file=sys.stderr)
     for doc, lines in pending.items():
         for line in sorted(lines - pending_seen.get(doc, set())):
             problems.append(f"{PENDING}: entry no longer needed in {doc} "
@@ -662,6 +747,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                         help="check the staged snapshot (pre-commit)")
     parser.add_argument("--list-unmarked", action="store_true",
                         help="print every number without a marker, pending or not")
+    parser.add_argument("--release", action="store_true",
+                        help="fail on a stale recording, as a release must "
+                             "(otherwise it is only a warning)")
     parser.add_argument("--init-pending", action="store_true",
                         help="create the pending list from the current documents (once)")
     parser.add_argument("--prune-pending", action="store_true",
@@ -672,7 +760,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.prune_pending:
         return prune_pending()
     read = doc_excerpts.read_staged if args.staged else doc_excerpts.read_worktree
-    problems = check(read, list_unmarked=args.list_unmarked)
+    problems = check(read, list_unmarked=args.list_unmarked, stale_blocks=args.release)
     if args.staged:
         problems += [f"{PENDING} may only shrink; this commit adds {entry}"
                      for entry in pending_additions()]

@@ -1373,10 +1373,22 @@ The two languages must cite the same `m:`, `c:` and `x:` sources.
   by hand, and never write a measured number that no experiment produces: add
   the experiment first.
 - **A recording goes stale when the results move.** A recording is stale when
-  what a module it ran on computes has changed (the §8.13 rule,
-  `doc_excerpts.computation_changes`) **and** a golden of §8.11 differs from
-  the one it recorded (`check_doc_numbers.golden_digest`). The check then
-  fails until the experiment is run again with
+  code it ran on has changed **and** a golden of §8.11 differs from the one it
+  recorded (`check_doc_numbers.golden_digest`). The code side is the
+  definitions the experiment executed: `measure_docs.traced_run` records
+  them as the recording's `depends` — each project definition that ran, and
+  the constants, classes and imports those name, followed through project
+  imports — and only a change to one of them reaches it
+  (`check_doc_numbers._dependency_changes`). A recording without `depends`
+  (made before it was recorded, or by an experiment that started a child
+  process, whose code cannot be seen) is judged on every definition of the
+  modules it ran on (the §8.13 rule, `doc_excerpts.computation_changes`). The
+  reason is the cost of the coarser rule: a change to one function marked
+  every experiment that had loaded its module, and of the 32 commits that
+  updated the recording after the first, six re-recorded 8 to 60 experiments
+  each and changed no value. The check then reports the recording — a warning
+  at a commit, an error before a release (end of this section) — until the
+  experiment is run again with
   `.venv\Scripts\python.exe scripts\measure_docs.py --only <name>` and the
   documents are updated to the new values. The code says which experiments a
   change can reach, the goldens whether the analysis output moved; a change
@@ -1416,7 +1428,11 @@ The two languages must cite the same `m:`, `c:` and `x:` sources.
   refuses a commit that adds one.
 
 Enforced by `.githooks/pre-commit` (`--staged`) and `tests/test_doc_numbers.py`
-(CI). Do not bypass either with `--no-verify`.
+(CI). Do not bypass either with `--no-verify`. A stale recording is a warning
+there and an error only with `--release`, which `scripts/release.py prepare`
+runs: measuring again takes tens of minutes and, at a commit that does not
+change what the analysis outputs, finds the same values, so the stale
+recordings are measured again before a release, not at every commit.
 
 ### 8.16 Readers measure the stored record
 
@@ -1622,7 +1638,7 @@ follow this rule without the hook.
 | Requests to find problems | Exhaustive review over an item list built from the code (`scripts/audit_ledger.py`); every item marked with evidence; report quotes the coverage line and never claims completeness while items are unchecked; enforced in Claude Code by `.claude/hooks/audit_prime.py` and `audit_guard.py` |
 | Unverified statements in documentation | Never write one: verify by reading the code or running the computation, otherwise keep the existing text with `TODO(review)` or ask; report each statement as measured / read in code / unverified |
 | Past methods and change history | Comments, docstrings and explanatory docs describe the current code only; history goes to `CHANGELOG.md` and Git; compatibility behaviour still executed is described as current behaviour; results on particular data go to `docs/validation*.md` |
-| Numbers in the algorithm and evaluation docs | Results on particular data go in `docs/validation*.md`, never in `docs/algorithms*.md`. Every number carries a source marker (`m:` measured by `scripts/measure_docs.py`, `c:` code constant, `x:` arithmetic, `n:` not a result); checked by `scripts/check_doc_numbers.py` in pre-commit and `tests/test_doc_numbers.py`; a recording goes stale when its code changed and a golden of §8.11 moved, and every experiment is run once before a release; bundles the experiments reuse are cached under a fingerprint of the code and libraries that made them (`scripts/bundle_cache.py`); the pending list only shrinks (§8.15) |
+| Numbers in the algorithm and evaluation docs | Results on particular data go in `docs/validation*.md`, never in `docs/algorithms*.md`. Every number carries a source marker (`m:` measured by `scripts/measure_docs.py`, `c:` code constant, `x:` arithmetic, `n:` not a result); checked by `scripts/check_doc_numbers.py` in pre-commit and `tests/test_doc_numbers.py`; a recording goes stale when a definition it executed (`depends`, else every definition of its modules) changed and a golden of §8.11 moved — a warning at a commit, an error with `--release` in `scripts/release.py prepare` — and every experiment is run once before a release; bundles the experiments reuse are cached under a fingerprint of the code and libraries that made them (`scripts/bundle_cache.py`); the pending list only shrinks (§8.15) |
 | Comment incomplete vs. code (code does more than comment says) | Extend the comment under §4.2; preserve original wording's intent |
 | Comment contradicts code (says different thing than code does) | Flag with `TODO(review)` under §4.4; do not rewrite to match code unless user explicitly says the code is authoritative |
 | `PLUGIN_INFO` | Plain English string literals; never wrap with `_()`; do not add `\n` to `description` only for launcher wrapping |

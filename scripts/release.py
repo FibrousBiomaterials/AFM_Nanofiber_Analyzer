@@ -489,9 +489,15 @@ def _preconditions(target: str, paths: Sequence[str]) -> Optional[str]:
 def _run_checks() -> List[str]:
     """Run RELEASING.md step 6; return the commands that failed."""
     failed = []
+    # A stale document measurement is only a warning at a commit, because
+    # measuring again takes tens of minutes; a release must not carry one.
+    # 文書の測定値の古い記録は、測り直しに数十分かかるためコミットでは警告に
+    # とどめる。リリースはそれを持ち込んではならない。
     for cmd in ([sys.executable, "-m", "pytest", "-q"],
                 [sys.executable, "-m", "ruff", "check", "."],
-                [sys.executable, "check.py", "--verify"]):
+                [sys.executable, "check.py", "--verify"],
+                [sys.executable, os.path.join("scripts", "check_doc_numbers.py"),
+                 "--release"]):
         print("$ " + " ".join(os.path.basename(c) if i == 0 else c
                               for i, c in enumerate(cmd)), flush=True)
         if subprocess.run(cmd, cwd=_root()).returncode != 0:

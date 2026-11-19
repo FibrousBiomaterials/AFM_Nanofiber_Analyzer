@@ -49,7 +49,7 @@ import math
 import sys
 import time
 from pathlib import Path
-from typing import Callable, Dict, Sequence
+from typing import Callable, Dict, Optional, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 for extra in (ROOT, ROOT / "scripts", ROOT / "tests"):
@@ -96,6 +96,226 @@ def snapshot(modules: Sequence[str]) -> Dict[str, Dict[str, str]]:
     """Per-definition fingerprints of the given modules (`doc_excerpts`)."""
     return {rel: doc_excerpts.code_symbol_digests((ROOT / rel).read_text(encoding="utf-8"))
             for rel in modules}
+
+
+# ----------------------------------------------------------------------------
+# What an experiment ran on
+# ----------------------------------------------------------------------------
+
+@contextlib.contextmanager
+def _watch_child_processes(spawned: list):
+    """
+    Note in `spawned` every child process the experiment starts.
+    実験が起動する子プロセスを `spawned` に記録する。
+
+    Code run in another process is invisible to `traced_run`, so a recording
+    that started one cannot list what it ran on.
+    別のプロセスで動いたコードは `traced_run` から見えないため、子プロセスを
+    起動した記録は、何の上で動いたかを列挙できない。
+    """
+    import concurrent.futures
+    import multiprocessing
+    import subprocess
+
+    targets = [(concurrent.futures.ProcessPoolExecutor, "__init__"),
+               (multiprocessing.Process, "start"),
+               (subprocess.Popen, "__init__")]
+    originals = [getattr(owner, attr) for owner, attr in targets]
+
+    def noting(original):
+        @functools.wraps(original)
+        def wrapper(*args, **kwargs):
+            spawned.append(original.__qualname__)
+            return original(*args, **kwargs)
+        return wrapper
+
+    for (owner, attr), original in zip(targets, originals):
+        setattr(owner, attr, noting(original))
+    try:
+        yield
+    finally:
+        for (owner, attr), original in zip(targets, originals):
+            setattr(owner, attr, original)
+
+
+def traced_run(func: Callable[[], dict]):
+    """
+    Run an experiment and list the project definitions it executed.
+    実験を実行し、実行したプロジェクトの定義を列挙する。
+
+    Returns
+    -------
+    tuple
+        ``(values, depends)``. `depends` maps each project file to the
+        `doc_excerpts.code_symbol_digests` keys of the definitions that ran and
+        of those they name (`dependencies`); ``None`` when the experiment
+        started a child process, whose code cannot be seen.
+        ``(値, depends)``。`depends` はプロジェクトの各ファイルを、実行された定義と
+        それが名指す定義の `doc_excerpts.code_symbol_digests` のキーへ対応づける
+        （`dependencies`）。実験が子プロセスを起動したときは、そのコードが見えないため
+        ``None``。
+
+    Notes
+    -----
+    `sys.monitoring` reports the first start of each code object and is then
+    told to stop reporting it, so following the calls costs almost nothing.
+    `sys.monitoring` は各コードオブジェクトの最初の開始だけを知らせ、その後は
+    知らせないよう指示されるため、呼び出しを追う費用はほとんど掛からない。
+    """
+    mon = sys.monitoring
+    tool = next(i for i in range(6) if mon.get_tool(i) is None)
+    started: set = set()
+
+    def on_start(code, _offset):
+        started.add(code)
+        return mon.DISABLE
+
+    spawned: list = []
+    mon.use_tool_id(tool, "measure_docs")
+    try:
+        mon.register_callback(tool, mon.events.PY_START, on_start)
+        mon.set_events(tool, mon.events.PY_START)
+        mon.restart_events()
+        with _watch_child_processes(spawned):
+            values = func()
+    finally:
+        mon.set_events(tool, 0)
+        mon.register_callback(tool, mon.events.PY_START, None)
+        mon.free_tool_id(tool)
+    if spawned:
+        return values, None
+    return values, dependencies(started)
+
+
+def _definition_key(qualname: str, keys) -> str:
+    """
+    Map a code object's qualified name to its `code_symbol_digests` key.
+    コードオブジェクトの修飾名を、その `code_symbol_digests` のキーへ対応づける。
+    """
+    name = qualname.split(".<locals>")[0]
+    if name in keys:
+        return name
+    parts = name.split(".")
+    if len(parts) > 1 and f"{parts[0]}.<body>" in keys:
+        return f"{parts[0]}.<body>"
+    return doc_excerpts.MODULE_STATEMENTS
+
+
+def _project_imports(rel: str, source: str) -> Dict[str, tuple]:
+    """
+    Map each name a module imports from project code to (file, name).
+    モジュールがプロジェクトのコードから import した名前を、(ファイル, 名前) へ対応づける。
+
+    A name bound to a whole module maps to that file and ``None``.
+    モジュール全体に束縛された名前は、そのファイルと ``None`` へ対応づける。
+    """
+    import ast
+
+    package = Path(rel).parent
+    out: Dict[str, tuple] = {}
+
+    def file_of(dotted: str) -> Optional[str]:
+        path = Path(*dotted.split(".")).with_suffix(".py")
+        return path.as_posix() if (ROOT / path).is_file() else None
+
+    for stmt in ast.parse(source).body:
+        if isinstance(stmt, ast.ImportFrom):
+            base = package
+            for _ in range(max(stmt.level - 1, 0)):
+                base = base.parent
+            prefix = (base.as_posix().replace("/", ".") + ".") if stmt.level else ""
+            module = (prefix + (stmt.module or "")).strip(".")
+            for alias in stmt.names:
+                bound = alias.asname or alias.name
+                target = file_of(f"{module}.{alias.name}") if module else file_of(alias.name)
+                if target:
+                    out[bound] = (target, None)
+                elif module and file_of(module):
+                    out[bound] = (file_of(module), alias.name)
+        elif isinstance(stmt, ast.Import):
+            for alias in stmt.names:
+                target = file_of(alias.name)
+                if target:
+                    out[alias.asname or alias.name.split(".")[0]] = (target, None)
+    return out
+
+
+def dependencies(started) -> Dict[str, list]:
+    """
+    The definitions a run depends on, from the code objects it started.
+    実行が開始したコードオブジェクトから、その実行が依存する定義を求める。
+
+    Parameters
+    ----------
+    started
+        Code objects that started during the run.
+        実行中に開始したコードオブジェクト。
+
+    Returns
+    -------
+    dict
+        Project file to sorted `code_symbol_digests` keys: every definition
+        that ran, every definition those name (a constant, a class with its
+        fields, an import, and through a project import the definition it
+        brings in), repeated until nothing is added, and each file's
+        module-level statements.
+        プロジェクトのファイルから、ソート済みの `code_symbol_digests` のキーへの
+        対応。実行された定義、それらが名指す定義（定数、フィールドを含むクラス、
+        import、プロジェクト内の import を通じて取り込む定義）を、増えなくなるまで
+        繰り返し加え、各ファイルのモジュールレベルの文も含める。
+    """
+    project = set(doc_excerpts.project_code_paths(ROOT))
+    sources: Dict[str, str] = {}
+    keys: Dict[str, Dict[str, str]] = {}
+    wanted: Dict[str, set] = {}
+
+    def load(rel: str) -> bool:
+        if rel not in project:
+            return False
+        if rel not in sources:
+            sources[rel] = (ROOT / rel).read_text(encoding="utf-8")
+            keys[rel] = doc_excerpts.code_symbol_digests(sources[rel])
+            wanted[rel] = {doc_excerpts.MODULE_STATEMENTS}
+        return True
+
+    for code in started:
+        try:
+            rel = Path(code.co_filename).resolve().relative_to(ROOT).as_posix()
+        except ValueError:
+            continue
+        if load(rel):
+            wanted[rel].add(_definition_key(code.co_qualname, keys[rel]))
+
+    done: Dict[str, set] = {}
+    while any(wanted[r] - done.get(r, set()) for r in list(wanted)):
+        for rel in list(wanted):
+            new = wanted[rel] - done.get(rel, set())
+            if not new:
+                continue
+            done.setdefault(rel, set()).update(new)
+            names = doc_excerpts._referenced_names(sources[rel], new) | {
+                k.split(":", 1)[1] for k in new if k.startswith("import:")}
+            imports = _project_imports(rel, sources[rel])
+            for key in keys[rel]:
+                base = key.split("#")[0]
+                if (base in names or base.split(".")[0] in names
+                        or (base.startswith("import:") and base[7:] in names)):
+                    wanted[rel].add(key)
+            for name in names:
+                if name not in imports:
+                    continue
+                target, attr = imports[name]
+                if not load(target):
+                    continue
+                if attr is not None:
+                    wanted[target].update(
+                        k for k in keys[target]
+                        if k.split("#")[0] == attr or k.startswith(f"{attr}."))
+                else:
+                    wanted[target].update(
+                        k for k in keys[target]
+                        if k.split("#")[0].split(".")[0] in names)
+    return {rel: sorted(ks) for rel, ks in sorted(wanted.items())}
 
 
 # ----------------------------------------------------------------------------
@@ -4680,27 +4900,33 @@ def record(names: Sequence[str]) -> None:
 
     The file is re-read before every write, so two processes measuring
     different experiments do not overwrite each other's results. Beside its
-    values each experiment records the code it ran on and the regression
-    goldens as they are when it finishes (`check_doc_numbers.golden_digest`),
-    the two things `check_doc_numbers.stale_experiments` later compares.
+    values each experiment records the code it ran on, the definitions it
+    executed (`traced_run`) and the regression goldens as they are when it
+    finishes (`check_doc_numbers.golden_digest`), what
+    `check_doc_numbers.stale_experiments` later compares.
     書き込みのたびにファイルを読み直すため、別々の実験を測る 2 つのプロセスが
-    互いの結果を上書きしない。各実験は値とともに、実行したコードと、終了時点の
-    回帰テストのゴールデン（`check_doc_numbers.golden_digest`）を記録する。
-    `check_doc_numbers.stale_experiments` が後で比べるのはこの 2 つである。
+    互いの結果を上書きしない。各実験は値とともに、実行したコード、実行した定義
+    （`traced_run`）、終了時点の回帰テストのゴールデン
+    （`check_doc_numbers.golden_digest`）を記録する。
+    `check_doc_numbers.stale_experiments` が後で比べるのはこれらである。
     """
     for name in names:
         spec = EXPERIMENTS[name]
         print(f"[measure_docs] {name}: {spec['description']}", flush=True)
         t0 = time.time()
-        values = _clean(spec["func"]())
-        snap = snapshot(closure(spec["roots"]))
+        values, depends = traced_run(spec["func"])
+        values = _clean(values)
+        snap = snapshot(sorted(set(closure(spec["roots"])) | set(depends or {})))
         snap_id = hashlib.sha256(json.dumps(snap, sort_keys=True).encode()).hexdigest()[:16]
         data = _read()
         data["_comment"] = RECORD_COMMENT
         data["snapshots"][snap_id] = snap
-        data["experiments"][name] = dict(
+        entry = dict(
             description=spec["description"], snapshot=snap_id, values=values,
             goldens=check_doc_numbers.golden_digest(doc_excerpts.read_worktree))
+        if depends is not None:
+            entry["depends"] = depends
+        data["experiments"][name] = entry
         used = {e["snapshot"] for e in data["experiments"].values()}
         data["snapshots"] = {k: v for k, v in data["snapshots"].items() if k in used}
         MEASUREMENTS.write_text(
