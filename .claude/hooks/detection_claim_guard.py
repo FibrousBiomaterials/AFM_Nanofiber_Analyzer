@@ -50,9 +50,14 @@ How it decides
 It reads the transcript named in the payload and examines the last few human
 turns (`HUMAN_TURN_WINDOW`):
 
-1. A Bash command matching `ANALYSIS_RE` means detection numbers were computed.
+1. A Bash or PowerShell command that runs Python with `ANALYSIS_RE` in it, or
+   in a `.py` file it runs, means detection numbers were computed
+   (`runs_analysis`). A command that only mentions those words (`ls`, `git`,
+   `grep`) computes nothing and does not count.
 2. A `Read` of an image file means the pictures were actually looked at.
-3. If 1 happened and 2 has not happened since, the turn is blocked.
+3. If 1 happened and 2 has not happened since, the turn is blocked, once per
+   analysis command: the next turns in the window are not blocked again for
+   the same command.
 
 Commands matching `TOOLING_RE` are ignored, because maintaining this hook
 means handling its own vocabulary.
@@ -60,10 +65,13 @@ means handling its own vocabulary.
 JSON で渡されたトランスクリプトを読み、直近数回のユーザー発言以降
 (`HUMAN_TURN_WINDOW`) を対象に、次の順で判定する。
 
-1. `ANALYSIS_RE` に一致する Bash コマンドがあれば、検出に関する数値を計算した
-   とみなす。
+1. Python を実行し、コマンドそのもの、または実行する `.py` ファイルに
+   `ANALYSIS_RE` を含む Bash・PowerShell のコマンドがあれば、検出に関する数値を
+   計算したとみなす（`runs_analysis`）。その語に触れるだけのコマンド（`ls`・
+   `git`・`grep`）は何も計算しておらず、数えない。
 2. 画像ファイルの `Read` があれば、実際に画像を見たとみなす。
-3. 1 があり、その後に 2 がなければブロックする。
+3. 1 があり、その後に 2 がなければブロックする。止めるのは解析コマンド 1 つに
+   つき 1 回で、窓の中の以後のターンを同じコマンドで再び止めることはしない。
 
 `TOOLING_RE` に一致するコマンドは数えない。このフック自体を直す作業では、
 ガードが探している単語を自分で打ち込むことになり、自分に反応してしまうため。
@@ -131,6 +139,15 @@ ANALYSIS_RE = re.compile(
 
 IMAGE_RE = re.compile(r"\.(png|jpe?g|bmp|gif|webp|tiff?)\s*$", re.IGNORECASE)
 
+# A command counts only when it runs Python: a mention of `.b2z` or
+# `measure_bundle` in `ls`, `git` or `grep` computes nothing, and counting such
+# mentions blocked turns that made no claim at all.
+# Python を実行するコマンドだけを数える。`ls`・`git`・`grep` の中で `.b2z` や
+# `measure_bundle` に触れても何も計算しておらず、そうした言及を数えると、何も
+# 主張していないターンまで止めていた。
+PYTHON_RE = re.compile(r"(?:^|[\s/\\])(?:python[\d.]*|py)(?:\.exe)?(?=\s|$)", re.IGNORECASE)
+SCRIPT_RE = re.compile(r"[\w./\\-]+\.py\b")
+
 # Commands that maintain this agent tooling rather than run the pipeline.
 # Editing or testing the guard means handling its own vocabulary - the REASON
 # text, ANALYSIS_RE itself, and payloads like {"prompt": "binarize ..."} - so
@@ -190,11 +207,44 @@ def _blocks(msg):
                 yield block
 
 
+def runs_analysis(cmd: str, root: str) -> bool:
+    """Whether a command runs Python on the analysis.
+
+    コマンドが解析に対して Python を実行するかどうか。
+
+    The analysis terms are looked for in the command itself (an inline script
+    or a heredoc) and in every ``.py`` file it names that exists, since a
+    script run from a file shows none of them on its command line.
+    解析の語は、コマンドそのもの（インラインのスクリプトや heredoc）と、コマンドが
+    名指す既存の ``.py`` ファイルの中で探す。ファイルから実行するスクリプトは、
+    コマンド行にはその語を一つも見せないためである。
+    """
+    if TOOLING_RE.search(cmd) or not PYTHON_RE.search(cmd):
+        return False
+    if ANALYSIS_RE.search(cmd):
+        return True
+    for name in SCRIPT_RE.findall(cmd):
+        path = name if os.path.isabs(name) else os.path.join(root, name)
+        try:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                if ANALYSIS_RE.search(fh.read()):
+                    return True
+        except OSError:
+            continue
+    return False
+
+
+def _state_path(payload: dict, root: str) -> str:
+    sid = re.sub(r"[^A-Za-z0-9_-]", "_", str(payload.get("session_id") or "default"))[:80]
+    return os.path.join(root, ".tmp", "hook_state", f"detection_claim_guard_{sid}.json")
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
     except Exception:
         return 0
+    root = os.environ.get("CLAUDE_PROJECT_DIR") or payload.get("cwd") or "."
 
     # Never block twice in a row: prevents a stop/continue loop.
     # 二度続けてブロックしない。stop と continue が往復する無限ループを防ぐ。
@@ -262,13 +312,33 @@ def main() -> int:
             if name == "Read":
                 if IMAGE_RE.search(str(args.get("file_path", ""))):
                     last_image = i
-            elif name == "Bash":
+            elif name in ("Bash", "PowerShell"):
                 cmd = str(args.get("command", "")).replace("\\", "/")
-                if not TOOLING_RE.search(cmd) and ANALYSIS_RE.search(cmd):
+                if runs_analysis(cmd, root):
                     last_analysis = i
 
-    if last_analysis >= 0 and last_image < last_analysis:
-        json.dump({"decision": "block", "reason": REASON}, sys.stdout)
+    if last_analysis < 0 or last_image >= last_analysis:
+        return 0
+    # Block once per analysis command: the agent has answered it (rendered an
+    # image or said it claims nothing), and asking again at the end of every
+    # later turn in the window repeated the same sentence each time.
+    # 解析コマンド 1 つにつき 1 回だけ止める。エージェントはもう答えて（画像を
+    # 描いたか、何も主張していないと述べて）おり、窓の中の以後のターンの終わりで
+    # 毎回問い直すと、同じ一文を毎回繰り返させていた。
+    state = _state_path(payload, root)
+    try:
+        with open(state, encoding="utf-8") as fh:
+            if json.load(fh).get("blocked_at") == last_analysis:
+                return 0
+    except (OSError, ValueError):
+        pass
+    try:
+        os.makedirs(os.path.dirname(state), exist_ok=True)
+        with open(state, "w", encoding="utf-8") as fh:
+            json.dump({"blocked_at": last_analysis}, fh)
+    except OSError:
+        pass
+    json.dump({"decision": "block", "reason": REASON}, sys.stdout)
     return 0
 
 

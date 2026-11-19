@@ -24,7 +24,9 @@ Items
   class-level assignment (constants, dataclass fields such as the
   ``ProcParams`` fields), and the remaining module-level statements as one
   ``<module>`` item. Nested functions belong to the item that contains them.
-- ``.md`` files: each section, by heading.
+- ``.md`` files: each section, by heading (``#`` lines inside fenced code are
+  not headings).
+- Any other file (a shell hook, a JSON file): one item for the whole file.
 - With ``--outputs``: every value a user can cite — GUI03 quantity per
   aggregation unit (and per frame mode for contour length), GUI03 between-group
   tests, GUI03 plot types, GUI04 fiber-table columns, fiber CSV columns, and
@@ -34,7 +36,9 @@ Items
   ``ProcParams`` のフィールドのようなデータクラスのフィールド）を 1 項目ずつ。残りの
   モジュールレベルの文はまとめて ``<module>`` の 1 項目にする。入れ子の関数は外側の
   項目に含める。
-- ``.md`` ファイル: 見出しごとの節。
+- ``.md`` ファイル: 見出しごとの節（フェンス付きコードの中の ``#`` の行は見出しでは
+  ない）。
+- それ以外のファイル（シェルのフック、JSON）: ファイル全体で 1 項目。
 - ``--outputs`` を付けると、利用者が引用できる値をすべて加える。GUI03 の計測量と
   集計単位の組（輪郭長は枠の扱いごと）、GUI03 の群間検定、GUI03 の図の種類、GUI04
   のファイバー一覧の列、ファイバー CSV の列、``.b2z`` バンドルのキー。
@@ -90,7 +94,11 @@ ACTIVE = AUDIT_DIR / "ACTIVE"
 STATUSES = ("ok", "problem", "na")
 # Evidence for ok/problem must point at something a reader can open.
 # ok / problem の根拠は、読み手が開いて確かめられるものを指していなければならない。
-LOCATION_RE = re.compile(r"[\w./\\-]+\.(py|md|json|txt|csv):\d+|\.tmp[/\\]\S+")
+# A path with a directory or an extension, then ``:line``; extension-less
+# files such as ``.githooks/pre-commit`` are items too, so they must be citable.
+# ディレクトリか拡張子を含むパスに ``:行`` が続くもの。``.githooks/pre-commit``
+# のような拡張子の無いファイルも項目になるので、根拠として示せなければならない。
+LOCATION_RE = re.compile(r"[\w.\\/-]*[./\\][\w./\\-]*:\d+|\.tmp[/\\]\S+")
 
 
 # ----------------------------------------------------------------------------
@@ -175,7 +183,14 @@ def _python_items(path: Path) -> Iterator[Dict]:
 def _markdown_items(path: Path) -> Iterator[Dict]:
     rel = _rel(path)
     lines = path.read_text(encoding="utf-8-sig").splitlines()
-    starts = [i for i, ln in enumerate(lines) if re.match(r"#{1,6} ", ln)]
+    # A "# comment" inside a fenced code example is not a heading.
+    # フェンス付きのコード例の中の「# コメント」は見出しではない。
+    starts, fenced = [], False
+    for i, ln in enumerate(lines):
+        if ln.lstrip().startswith("```"):
+            fenced = not fenced
+        elif not fenced and re.match(r"#{1,6} ", ln):
+            starts.append(i)
     if not starts or starts[0] != 0:
         starts.insert(0, 0)
     for k, s in enumerate(starts):
@@ -183,6 +198,29 @@ def _markdown_items(path: Path) -> Iterator[Dict]:
         title = lines[s].lstrip("#").strip() if lines[s].startswith("#") else "<preamble>"
         yield {"id": f"{rel}::{s + 1}:{title}", "kind": "section", "file": rel,
                "lines": f"{s + 1}-{e}", "digest": _digest("\n".join(lines[s:e]))}
+
+
+def _whole_file_item(path: Path) -> Iterator[Dict]:
+    """
+    One item for a file that is neither Python nor Markdown (a shell hook, a JSON file).
+    Python でも Markdown でもないファイル（シェルのフック、JSON）を 1 項目にする。
+
+    Its ``#`` lines are comments, not headings, so it is judged as a whole.
+    その ``#`` の行は見出しではなくコメントなので、ファイル全体で判定する。
+    """
+    rel = _rel(path)
+    text = path.read_text(encoding="utf-8-sig", errors="replace")
+    yield {"id": f"{rel}::<file>", "kind": "file", "file": rel,
+           "lines": f"1-{len(text.splitlines())}", "digest": _digest(text)}
+
+
+def _file_items(path: Path) -> Iterator[Dict]:
+    """Items of one file: Python definitions, Markdown sections, or the whole file."""
+    if path.suffix == ".py":
+        return _python_items(path)
+    if path.suffix == ".md":
+        return _markdown_items(path)
+    return _whole_file_item(path)
 
 
 def _output_items() -> Iterator[Dict]:
@@ -242,7 +280,7 @@ def inventory(paths: List[str], outputs: bool) -> List[Dict]:
             raise SystemExit(f"no such path: {p}")
     items: List[Dict] = []
     for f in files:
-        items += list(_python_items(f) if f.suffix == ".py" else _markdown_items(f))
+        items += list(_file_items(f))
     if outputs:
         items += list(_output_items())
     seen = set()
@@ -289,7 +327,7 @@ def current_digests(ledger: Dict) -> Dict[str, str]:
         path = ROOT / f
         if not path.exists():
             continue
-        found = _python_items(path) if path.suffix == ".py" else _markdown_items(path)
+        found = _file_items(path)
         for it in found:
             now[it["id"]] = it["digest"]
     return now

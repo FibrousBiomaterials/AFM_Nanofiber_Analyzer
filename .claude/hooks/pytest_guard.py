@@ -165,7 +165,14 @@ WINDOW_RE = re.compile(
     re.M,
 )
 
-_SEPARATOR_RE = re.compile(r"&&|\|\||[;|\n]")
+# The body of a here-document (`<<'EOF'` … `EOF`) or a PowerShell here-string
+# (`@'` … `'@`) is data handed to a program, not commands; its text can name
+# pytest without running it.
+# ヒアドキュメント（`<<'EOF'` … `EOF`）や PowerShell のヒア文字列（`@'` … `'@`）の
+# 本体はプログラムに渡すデータでありコマンドではない。pytest という語を含んでも
+# 実行はしない。
+_HEREDOC_RE = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_]\w*)\1")
+_HERESTRING_OPEN_RE = re.compile(r"@(['\"])\s*$")
 _PYTHON_RE = re.compile(r"(?:python[\d.]*|py|pypy[\d.]*)(?:\.exe)?", re.IGNORECASE)
 _PYTEST_RE = re.compile(r"(?:pytest|py\.test)(?:\.exe)?", re.IGNORECASE)
 _ENV_ASSIGN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*")
@@ -212,6 +219,70 @@ DENY_REASON = (
 
 def _basename(token: str) -> str:
     return token.replace("\\", "/").rsplit("/", 1)[-1]
+
+
+def _strip_bodies(command: str) -> str:
+    """Remove here-document and here-string bodies from a command.
+
+    コマンドからヒアドキュメントとヒア文字列の本体を取り除く。
+    """
+    lines = command.split("\n")
+    out, i = [], 0
+    while i < len(lines):
+        line = lines[i]
+        out.append(line)
+        i += 1
+        heredoc = _HEREDOC_RE.search(line)
+        herestring = _HERESTRING_OPEN_RE.search(line)
+        if heredoc:
+            end = heredoc.group(2)
+            while i < len(lines) and lines[i].strip() != end:
+                i += 1
+            i += 1
+        elif herestring:
+            end = herestring.group(1) + "@"
+            while i < len(lines) and not lines[i].startswith(end):
+                i += 1
+            i += 1
+    return "\n".join(out)
+
+
+def _segments(command: str) -> list:
+    """Split a command at ``&&``, ``||``, ``;``, ``|`` and newlines outside quotes.
+
+    引用符の外にある ``&&``・``||``・``;``・``|``・改行でコマンドを分ける。
+
+    A separator inside quotes is part of an argument: ``grep -E "a|pytest"``
+    is one grep, not a grep and a pytest run.
+    引用符の中の区切りは引数の一部である。``grep -E "a|pytest"`` は grep 1 つで
+    あって、grep と pytest の実行ではない。
+    """
+    segments, current, quote, i = [], [], None, 0
+    text = _strip_bodies(command or "")
+    while i < len(text):
+        ch = text[i]
+        if quote:
+            current.append(ch)
+            if ch == "\\" and quote == '"' and i + 1 < len(text):
+                current.append(text[i + 1])
+                i += 1
+            elif ch == quote:
+                quote = None
+        elif ch in "'\"":
+            quote = ch
+            current.append(ch)
+        elif text.startswith(("&&", "||"), i):
+            segments.append("".join(current))
+            current = []
+            i += 1
+        elif ch in ";|\n":
+            segments.append("".join(current))
+            current = []
+        else:
+            current.append(ch)
+        i += 1
+    segments.append("".join(current))
+    return segments
 
 
 def _tokens(segment: str, tool: str) -> list:
@@ -318,15 +389,24 @@ def _parse_pytest_args(args: list) -> tuple:
 
 
 def _count_tests(text: str, k_expr) -> int:
-    """Count the test functions of a file that a plain ``-k`` word keeps.
+    """Count the test functions of a file that a ``-k`` of plain words joined by ``or`` keeps.
 
-    ファイル中のテスト関数のうち、単純な ``-k`` の語で残るものを数える。
+    ファイル中のテスト関数のうち、``or`` でつないだ単純な語の ``-k`` で残るものを数える。
+
+    Any other expression (``and``, ``not``, parentheses) counts every test of
+    the file, which can only overstate the run.
+    それ以外の式（``and``・``not``・括弧）ではファイルの全テストを数える。実行を
+    多く見積もることにしかならない。
     """
     names = re.findall(r"^\s*(?:async\s+)?def\s+(test_\w*)", text, re.M)
-    if k_expr and re.fullmatch(r"[\w\[\].-]+", k_expr) and k_expr not in ("and", "or", "not"):
-        # pytest matches -k without regard to case.
-        # pytest の -k は大文字と小文字を区別しない。
-        names = [name for name in names if k_expr.lower() in name.lower()]
+    if k_expr:
+        terms = re.split(r"\s+or\s+", k_expr.strip())
+        if all(re.fullmatch(r"[\w\[\].-]+", t) and t not in ("and", "or", "not")
+               for t in terms):
+            # pytest matches -k without regard to case.
+            # pytest の -k は大文字と小文字を区別しない。
+            names = [name for name in names
+                     if any(t.lower() in name.lower() for t in terms)]
     return len(names)
 
 
@@ -391,7 +471,7 @@ def command_reasons(command: str, tool: str, root: str) -> list:
     シェルコマンドに承認が要る理由を返す。要らなければ空。
     """
     reasons = []
-    for segment in _SEPARATOR_RE.split(command or ""):
+    for segment in _segments(command):
         tokens = _tokens(segment, tool)
         if not tokens:
             continue
