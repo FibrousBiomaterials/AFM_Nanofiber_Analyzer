@@ -428,7 +428,7 @@ reads the skeleton pixels without tracing (see below), so it is the one
 combination that works on a bundle with no recorded scan size; the rest need
 the scan size to turn track steps into nanometers.
 
-Two settings keep bundles of different scans and analyses comparable.
+One setting keeps bundles of different scans comparable.
 "Common length floor" (off by default; while it is off, the log warns when the
 compared bundles' floors differ) leaves out of every quantity the fibers
 shorter than the longest of the compared bundles' length floors; `height` per
@@ -438,12 +438,9 @@ of `area_min` pixels or fewer, so the shortest fiber that remains grows with the
 pixel size, and a coarse scan contains none of the short fibers a fine scan
 keeps (`measure.length_floor_nm`; see
 [Evaluation on particular data](docs/validation.md) §2.8). The floor and how
-many fibers it removed are logged. "Kink threshold" applies to `kink density`. Left
-blank, each bundle's kinks are counted at the threshold it was analyzed with,
-and the log warns when the compared bundles differ. A value selects every
-bundle's kinks again at that interior-angle threshold and gives the kinks,
-angles and unjudged bends an analysis at it reports, because a bundle of format
-1.6 or later stores the bends below its threshold (see `docs/algorithms.md`, §4.5).
+many fibers it removed are logged. Kinks are counted at the threshold each
+bundle was analyzed with, and the log warns when the compared bundles differ;
+to compare them on one rule, analyze them again at one `kinkangle_deg`.
 
 Every quantity here describes the shape of an individual fiber. Coverage-type
 quantities are deliberately absent: the specimen is a dispersion drop-cast onto
@@ -1050,9 +1047,8 @@ python cli.py measure results\*.b2z
 python cli.py measure results\*.b2z --scale-um 2.0
 python cli.py measure results --scale-um 2.0 --output-dir stats
 python cli.py measure results\*.b2z --scale-um 5.0 --scale-y-um 2.5
-# Cut every bundle at the largest of their length floors, and count kinks at
-# an interior-angle threshold of 160 degrees instead of the analysis one.
-python cli.py measure results --length-floor common --kink-threshold-deg 160
+# Cut every bundle at the largest of their length floors.
+python cli.py measure results --length-floor common
 
 # Skeleton-pixel heights (the data behind the GUI03 height histogram).
 python cli.py heights results --output heights.csv
@@ -1171,17 +1167,14 @@ GUI01 writes these array keys:
 | `ka` | `(N,)` | Kink interior angles in radians, one per `kp` column: the angle between the two arms read beside the bend, beyond the half width the probe rounds the apex over (see `docs/algorithms.md`, §4.3). |
 | `ke` | `(N,)` | Excess turning each kink was judged by, in radians, one per `kp` column: the turning within ±0.75 W beyond what the fiber's own curvature on the flanks accounts for. Written from format 1.1. |
 | `up` | `(2, K)` | Bends the kink rule measured within 1.5 apparent fiber widths of a fiber end, where it does not judge them; see the convention below. GUI04 draws them as grey hollow circles and never counts them. Written from format 1.1. |
-| `wp` | `(2, B)` | Bends whose excess turning reached the search floor but not the kink threshold, where kinks are judged; see the convention below. Not kinks: they let another threshold be applied when the bundle is measured. Written from format 1.6. |
-| `wa` | `(B,)` | Interior angle of each `wp` bend in radians, read as for a kink. Written from format 1.6. |
-| `we` | `(B,)` | Excess turning of each `wp` bend in radians. Written from format 1.6. |
 | `original` | `(H+1, W+1)` | Raw height image in nm; present only when saving the original was requested. |
 
 All image-like arrays in one bundle share the same `(H, W)` shape. The
 background calibrator trims one pixel per axis, so `H` and `W` are one less
 than the raw input size (and one less than `original` when present).
 
-Coordinate convention: `kp[0]`, `dp[0]`, `up[0]` and `wp[0]` hold x (column) indices,
-and `kp[1]`, `dp[1]`, `up[1]` and `wp[1]` hold y (row) indices — 0-based pixel positions in the
+Coordinate convention: `kp[0]`, `dp[0]` and `up[0]` hold x (column) indices,
+and `kp[1]`, `dp[1]` and `up[1]` hold y (row) indices — 0-based pixel positions in the
 `calibrated` image. For example, `calibrated[kp[1][i], kp[0][i]]` is the
 height at the i-th kink.
 
@@ -1190,9 +1183,8 @@ Each bundle also stores root metadata (blosc2 `vlmeta`):
 | Key | Content |
 |---|---|
 | `params` | Analysis-parameter dictionary, identical to `<input_stem>_param.json`. Read back for `kinkangle_deg` (see below), and for `kink_decompose_px` on a bundle of format 1.0; the remaining fields are provenance. |
-| `version` | Bundle format version (currently `"1.7"`, whose cross-sections are sampled symmetrically about the track point and climbed to the fiber's crest without preferring one side of the section, so the centerline, and every curvature and kink read from it, do not depend on the direction the fiber was traced in; a `"1.6"` or older bundle was placed with the climb that prefers one side and is read that way. From `"1.6"` the kink rule searches for bends down to a fixed floor of excess turning instead of at the threshold and stores those below the threshold in `wp`, `wa` and `we`, so another threshold can be applied when the bundle is measured; a `"1.5"` or older bundle stores none and cannot. From `"1.5"` the apparent width W is read over a cross-section range that grows with the fiber, so a fiber spread over many pixels is not measured narrow; a `"1.4"` bundle was judged with the fixed ±12 px range and is read that way. From `"1.4"` W is read at the level halfway between each cross-section's base and the first maximum uphill from the track point, the fiber's own crest, so a taller neighbouring fiber does not set the level it is read at as long as the fiber has a maximum of its own; a `"1.1"` to `"1.3"` bundle was judged halfway to the cross-section's overall maximum and is read that way. From `"1.3"` the centerline and kinks are computed in the scan's physical geometry, so the angles on a scan with different X and Y pixel sizes are the specimen's; a `"1.2"` bundle was computed in pixel geometry and is read in it, a `"1.1"` bundle is measured along the half-maximum centerline, and a `"1.0"` bundle along its skeleton track until it is re-analyzed). |
+| `version` | Bundle format version (currently `"1.8"`, which does not store the bends below the kink threshold; the `wp`, `wa`, `we` and `weak_bend_floor_deg` of a `"1.6"` or `"1.7"` bundle are ignored. From `"1.7"` the cross-sections are sampled symmetrically about the track point and climbed to the fiber's crest without preferring one side of the section, so the centerline, and every curvature and kink read from it, do not depend on the direction the fiber was traced in; a `"1.6"` or older bundle was placed with the climb that prefers one side and is read that way. From `"1.6"` the kink rule searches for candidate bends down to a fixed excess turning of 10° instead of at the threshold. From `"1.5"` the apparent width W is read over a cross-section range that grows with the fiber, so a fiber spread over many pixels is not measured narrow; a `"1.4"` bundle was judged with the fixed ±12 px range and is read that way. From `"1.4"` W is read at the level halfway between each cross-section's base and the first maximum uphill from the track point, the fiber's own crest, so a taller neighbouring fiber does not set the level it is read at as long as the fiber has a maximum of its own; a `"1.1"` to `"1.3"` bundle was judged halfway to the cross-section's overall maximum and is read that way. From `"1.3"` the centerline and kinks are computed in the scan's physical geometry, so the angles on a scan with different X and Y pixel sizes are the specimen's; a `"1.2"` bundle was computed in pixel geometry and is read in it, a `"1.1"` bundle is measured along the half-maximum centerline, and a `"1.0"` bundle along its skeleton track until it is re-analyzed). |
 | `centerline` | The centerline the kinks were judged on and the fibers are measured along, one of the `centerline_method` values. Required from format 1.2; a reader builds the fibers on exactly this line and refuses a 1.2 or later bundle that does not name a known one. |
-| `weak_bend_floor_deg` | Excess turning in degrees down to which the kink rule searched for bends: 10, or the threshold's excess when that is lower. Another threshold can be applied to the stored bends only down to this floor. Written from format 1.6. |
 | `software_version` | Application release that wrote the bundle. |
 | `input_file` | Base name of the processed input file. |
 | `input_sha256` | SHA-256 digest of the input file contents. |
@@ -1486,17 +1478,16 @@ test suite instead of degrading silently in the launcher.
 - Binarization removes components shorter than a fixed number of pixels, so
   the shortest fiber an analysis keeps is longer, in nanometers, on a coarser
   scan, and length distributions of scans at different pixel sizes start at
-  different lengths. GUI03 cuts every compared group at the largest of the
-  bundles' floors by default, and `cli.py measure --length-floor common` does
-  the same. The floor is taken at each bundle's median apparent width, so a
+  different lengths. GUI03 can cut every compared group at the largest of the
+  bundles' floors ("Common length floor", off by default; while it is off, the
+  log warns when the floors differ), and `cli.py measure --length-floor common`
+  does the same. The floor is taken at each bundle's median apparent width, so a
   fiber narrower than the median can still be lost somewhat above it; see
   [Evaluation on particular data](docs/validation.md) §2.8.
 - Kinks are counted at the threshold each bundle was analyzed with, so bundles
   analyzed at different `kinkangle_deg` values are not compared on the same
-  rule unless a common threshold is applied (GUI03's kink threshold,
-  `cli.py measure --kink-threshold-deg`). That is possible only for bundles of
-  format 1.6 or later, and only down to the excess turning the bends were stored down to
-  (10° unless the analysis threshold asked for less); re-analyze older bundles.
+  rule; GUI03 warns when they differ, and they are compared on one rule only
+  after being analyzed again at one threshold.
 - The graphical tools require a working Tk installation and are primarily
   developed and tested on Windows; the CLI and library are platform-independent.
 - The `.b2z` bundle is a project-specific container. Use `cli.py export` to read

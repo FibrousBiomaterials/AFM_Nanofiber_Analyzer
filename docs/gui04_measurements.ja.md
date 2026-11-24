@@ -104,9 +104,8 @@ result = curate_fibers(
 
 `curate_fibers` は、保存済みの除外を追跡済みの断片に適用し、残った断片に保存済み
 の連結プランを適用する（§5）。返されるファイバーがファイバー一覧の各行になる。
-GUI04 は `measure_bundle` に別のキンクのしきい値も下限長も渡さない（それらを使うのは
-GUI03 と `cli.py measure` だけである）。そのため一覧には、バンドルが保存したキンクと
-すべてのファイバーが出る。
+GUI04 は `measure_bundle` に下限長を渡さない（それを使うのは GUI03 と `cli.py measure`
+だけである）。そのため一覧には、バンドルが保存したキンクとすべてのファイバーが出る。
 
 ファイバー CSV は、各行の末尾に、長さを計測した走査範囲（`scale_x_um`、`scale_y_um`、
 単位 µm）と `scale_source` を書く。`measure_bundle` は、両方がバンドルに記録された
@@ -1687,12 +1686,10 @@ point_arc = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
 bridges = _bridge_intervals(observed, point_arc)
 ...
     if not margin <= p <= length - margin:
-        if strong:
-            unjudged.append((index, UNJUDGED_NEAR_END))
+        unjudged.append((index, UNJUDGED_NEAR_END))
     elif not judge_bridges and any(
             a <= p + c and b >= p - c for a, b in bridges):
-        if strong:
-            unjudged.append((index, UNJUDGED_AT_BRIDGE))
+        unjudged.append((index, UNJUDGED_AT_BRIDGE))
 ...
 reach = 0.0 if judge_bridges else c
 bridge_excluded = _covered_length(

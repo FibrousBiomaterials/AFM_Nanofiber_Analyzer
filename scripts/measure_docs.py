@@ -4516,111 +4516,20 @@ def length_floor_completeness() -> dict:
     return values
 
 
-# Kink thresholds re-applied to the stored bends of a default analysis.
-# 既定の解析の保存した折れに当て直すキンクのしきい値。
-REAPPLIED_KINK_THRESHOLDS_DEG = (140.0, 160.0, 170.0)
-
-
-@experiment(
-    "weak_bend_reapply",
-    ["lib/pipeline.py", "lib/measure.py", "lib/kink_detector.py", "lib/centerline.py"],
-    "On the three bundled scans analyzed at the defaults and again at each threshold in "
-    "REAPPLIED_KINK_THRESHOLDS_DEG: the bends stored below the default threshold, and, "
-    "for each threshold, the kinks measure_bundle selects from the default bundle with "
-    "kink_threshold_deg against those of the analysis at that threshold -- how many "
-    "fibers carry the same kink points, how many kinks there are, how many of the kinks "
-    "at the same points read a different angle (by more than 0.01 degree), the "
-    "largest such difference, and how many fibers carry the same unjudged bends.",
-)
-def weak_bend_reapply() -> dict:
-    import numpy as np
-    import kink_reference_score as krs
-    from lib import measure
-    from lib.blosc2_io import load_bundle
-    from lib.pipeline import ProcParams, process_file
-
-    def scan_bundle(name, threshold):
-        cache = cache_dir(f"weak_bend_reapply_{threshold:g}")
-        cache.mkdir(parents=True, exist_ok=True)
-        txt = str(ROOT / krs.SCANS[name])
-        bundle = cache / (Path(txt).stem + ".b2z")
-        if not bundle.is_file():
-            bundle = Path(process_file(txt, ProcParams(kinkangle_deg=threshold),
-                                       output_dir=str(cache)).bundle_path)
-        return str(bundle)
-
-    def kinks(result):
-        # A kink is identified by the skeleton pixel it is stored at.
-        # キンクは、それを保存したスケルトン画素で識別する。
-        out = []
-        for f in result.fibers:
-            def points(indices):
-                idx = np.asarray(indices, dtype=int)
-                xs = np.asarray(f.skeleton_xtrack)[idx] + int(f.data[0])
-                ys = np.asarray(f.skeleton_ytrack)[idx] + int(f.data[1])
-                return tuple(zip(xs.tolist(), ys.tolist()))
-            out.append((points(f.kink_indices),
-                        np.degrees(np.asarray(f.kink_angles, float)),
-                        points(f.unjudged_indices)))
-        return out
-
-    values: dict = {}
-    default = ProcParams().kinkangle_deg
-    for name in krs.SCANS:
-        base = scan_bundle(name, default)
-        values[f"{name}.stored_kinks"] = int(load_bundle(base, keys=["ka"])["ka"].size)
-        values[f"{name}.stored_weak"] = int(load_bundle(base, keys=["we"])["we"].size)
-        for threshold in REAPPLIED_KINK_THRESHOLDS_DEG:
-            # Pixel sizes play no part in which bends are kinks, so a unit scale
-            # is passed for the scans that record none.
-            # どの折れがキンクかに画素サイズは関わらないため、記録の無い走査には
-            # 単位スケールを渡す。
-            direct = kinks(measure.measure_bundle(scan_bundle(name, threshold), scale_um=1.0))
-            again = kinks(measure.measure_bundle(base, scale_um=1.0,
-                                                 kink_threshold_deg=threshold))
-            same = [a[0] == b[0] for a, b in zip(direct, again)]
-            diffs = [np.abs(a[1] - b[1]) for (a, b), s in zip(zip(direct, again), same)
-                     if s and a[1].size]
-            diffs = np.concatenate(diffs) if diffs else np.zeros(0)
-            key = f"{name}.t{threshold:g}"
-            values[f"{key}.fibers"] = len(direct)
-            values[f"{key}.same_points"] = int(sum(same)) if len(direct) == len(again) else None
-            values[f"{key}.kinks_direct"] = int(sum(len(a[0]) for a in direct))
-            values[f"{key}.kinks_reapplied"] = int(sum(len(b[0]) for b in again))
-            values[f"{key}.angle_changed"] = int((diffs > 0.01).sum())
-            values[f"{key}.angle_change_max_deg"] = float(diffs.max()) if diffs.size else 0.0
-            values[f"{key}.same_unjudged"] = int(sum(a[2] == b[2] for a, b in zip(direct, again)))
-    for t in REAPPLIED_KINK_THRESHOLDS_DEG:
-        values[f"all.t{t:g}.fibers"] = sum(values[f"{n}.t{t:g}.fibers"] for n in krs.SCANS)
-        values[f"all.t{t:g}.same_points"] = sum(values[f"{n}.t{t:g}.same_points"] or 0
-                                                for n in krs.SCANS)
-        values[f"all.t{t:g}.kinks"] = sum(values[f"{n}.t{t:g}.kinks_direct"] for n in krs.SCANS)
-        values[f"all.t{t:g}.angle_changed"] = sum(values[f"{n}.t{t:g}.angle_changed"]
-                                                  for n in krs.SCANS)
-        values[f"all.t{t:g}.angle_change_max_deg"] = max(
-            values[f"{n}.t{t:g}.angle_change_max_deg"] for n in krs.SCANS)
-        values[f"all.t{t:g}.same_unjudged"] = sum(values[f"{n}.t{t:g}.same_unjudged"]
-                                                  for n in krs.SCANS)
-    values["all.stored_weak"] = sum(values[f"{n}.stored_weak"] for n in krs.SCANS)
-    values["all.stored_kinks"] = sum(values[f"{n}.stored_kinks"] for n in krs.SCANS)
-    return values
-
-
 @experiment(
     "weak_bend_noise",
     ["lib/pipeline.py", "lib/measure.py", "lib/kink_detector.py", "lib/centerline.py"],
     "The kink-free families of scripts/kink_rule_sweep.py (straight, arc of 60 degrees, "
     "sine) at apparent widths 5, 8 and 16 px, pixel noise 0.05 and 0.15 nm and seeds 1 "
-    "and 2, analyzed at the defaults; every traced line is judged with the search floor "
-    "lowered to 1 degree, and the excess turning of every bend found where kinks are "
-    "judged is pooled: its 95th and 99th percentiles, and how many bends per micrometre "
-    "of contour reach 10, 20 and 30 degrees.",
+    "and 2, analyzed at the defaults; every traced line is judged again at a threshold "
+    "of 1 degree of excess turning, which also lowers the search to 1 degree, and the "
+    "excess turning of every kink found is pooled: its 95th and 99th percentiles, and "
+    "how many bends per micrometre of contour reach 10, 20 and 30 degrees.",
 )
 def weak_bend_noise() -> dict:
     import numpy as np
     import kink_rule_sweep as sweep
     import synthetic_fibers as sf
-    from lib import kink_detector as kd
     from lib import measure
     from lib.kink_detector import KinkDetector
     from lib.pipeline import ProcParams, process_file
@@ -4647,15 +4556,18 @@ def weak_bend_noise() -> dict:
                         process_file(txt, ProcParams(), scan_size_um=scan.scan_size_um,
                                      scan_size_source="manual", output_dir=str(out))
                     result = measure.measure_bundle(str(bundle))
-                    with patched(kd, WEAK_BEND_FLOOR_DEG=1.0):
-                        detector = KinkDetector()
-                        for f, s in zip(result.fibers, result.stats):
-                            x = np.asarray(f.xtrack, float) + float(f.data[0])
-                            y = np.asarray(f.ytrack, float) + float(f.data[1])
-                            judged = detector.judge_line(x, y, f.width_px)
-                            excess += list(np.degrees(judged.kink_excess))
-                            excess += list(np.degrees(judged.weak_excess))
-                            length_um += s.length_nm / 1000.0
+                    # An interior-angle threshold of 179 degrees is 1 degree of
+                    # excess, so every bend down to it is a kink.
+                    # 内角しきい値 179 度は超過回転 1 度なので、そこまでの折れはすべて
+                    # キンクになる。
+                    detector = KinkDetector(
+                        threshold_angle_from_decomposed_indices=np.radians(179.0))
+                    for f, s in zip(result.fibers, result.stats):
+                        x = np.asarray(f.xtrack, float) + float(f.data[0])
+                        y = np.asarray(f.ytrack, float) + float(f.data[1])
+                        judged = detector.judge_line(x, y, f.width_px)
+                        excess += list(np.degrees(judged.kink_excess))
+                        length_um += s.length_nm / 1000.0
     excess = np.asarray(excess)
     values = {"bends": int(excess.size), "contour_um": length_um,
               "excess_p95_deg": float(np.percentile(excess, 95)),
@@ -4927,6 +4839,11 @@ def record(names: Sequence[str]) -> None:
         if depends is not None:
             entry["depends"] = depends
         data["experiments"][name] = entry
+        # A recording whose experiment was deleted describes code that no
+        # longer measures it, so it is dropped.
+        # 実験を削除した記録は、もうそれを測らないコードを表すため捨てる。
+        data["experiments"] = {k: v for k, v in data["experiments"].items()
+                               if k in EXPERIMENTS}
         used = {e["snapshot"] for e in data["experiments"].values()}
         data["snapshots"] = {k: v for k, v in data["snapshots"].items() if k in used}
         MEASUREMENTS.write_text(

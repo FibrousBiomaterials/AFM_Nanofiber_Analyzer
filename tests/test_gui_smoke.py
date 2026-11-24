@@ -2060,18 +2060,15 @@ def test_gui03_kink_definitions_that_differ_warn():
     """
     report = gui03._kink_condition_report
     same = {"A": [_kink_condition()], "B": [_kink_condition()]}
-    assert report(same, False) == []
+    assert report(same) == []
 
     thresholds = {"A": [_kink_condition()], "B": [_kink_condition(threshold=160.0)]}
-    warnings = report(thresholds, False)
+    warnings = report(thresholds)
     assert len(warnings) == 1 and "150, 160" in warnings[0]
-    # Applying one threshold to every bundle removes the difference.
-    # 全バンドルに 1 つのしきい値を適用すれば違いは無くなる。
-    assert report(thresholds, True) == []
 
     imaging = {"A": [_kink_condition()],
                "B": [_kink_condition(pixel_nm=5.0, version="1.5")]}
-    warnings = report(imaging, False)
+    warnings = report(imaging)
     assert len(warnings) == 2
     assert "2.00" in warnings[0] and "5.00" in warnings[0]
     assert "1.5, 1.6" in warnings[1]
@@ -2091,9 +2088,9 @@ def test_gui03_kink_report_warns_only_below_the_noise_limit():
     # A difference above the limit, or a bundle that could not be read, says
     # nothing about the limit.
     # 限度より上の差や、読めなかったバンドルは限度について何も言わない。
-    assert report({"A": [_kink_condition()], "B": [above]}, False) == []
-    assert report({"A": [unread], "B": [above]}, False) == []
-    warnings = report({"A": [above], "B": [below]}, False)
+    assert report({"A": [_kink_condition()], "B": [above]}) == []
+    assert report({"A": [unread], "B": [above]}) == []
+    warnings = report({"A": [above], "B": [below]})
     assert len(warnings) == 1
     assert "1/2" in warnings[0]
 

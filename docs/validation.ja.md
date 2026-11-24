@@ -1032,22 +1032,11 @@ $\sqrt{2}$ で割ったものである。この限界は §4.15〜§4.16 から�
 出なかった。0.1<!--n:value tried--> nm 以上では警告が出て（比 18.1<!--m:noise_warning.W24.n0.1.tophat.snr--> 以下）、大半の成分で幅を測れず、
 スケルトンは 0.05<!--n:value tried--> nm の 349<!--m:noise_warning.W24.n0.05.tophat.skeleton_px--> 画素に対して 573<!--m:noise_warning.W24.n0.3.tophat.skeleton_px-->〜867<!--m:noise_warning.W24.n0.15.tophat.skeleton_px--> 画素になった。
 
-### 4.18 バンドルに別のキンクのしきい値を当てる
+### 4.18 キンクのしきい値をどこまで下げて意味があるか
 
-同梱の 3<!--n:count--> スキャンを既定の設定で解析し（バンドルにはキンク 139<!--m:weak_bend_reapply.all.stored_kinks--> 個と、しきい値に
-届かなかった折れ 326<!--m:weak_bend_reapply.all.stored_weak--> 個が保存される）、別の 3<!--n:count--> つのしきい値でも解析した。次に、各しきい値を
-`measure_bundle(kink_threshold_deg=...)` で既定のバンドルに当て、そのしきい値で解析した
-結果と 220<!--m:weak_bend_reapply.all.t160.fibers--> 本の繊維ごとに比べた（実験 weak_bend_reapply）。
-
-| しきい値 | そのしきい値での解析のキンク数 | キンクの点が同じ繊維 | 角度が違うキンク | 判定しなかった折れが同じ繊維 |
-|---|---|---|---|---|
-| 140<!--n:value tried--> 度 | 98<!--m:weak_bend_reapply.all.t140.kinks--> | 220<!--m:weak_bend_reapply.all.t140.same_points--> | 0<!--m:weak_bend_reapply.all.t140.angle_changed--> | 220<!--m:weak_bend_reapply.all.t140.same_unjudged--> |
-| 160<!--n:value tried--> 度 | 206<!--m:weak_bend_reapply.all.t160.kinks--> | 220<!--m:weak_bend_reapply.all.t160.same_points--> | 0<!--m:weak_bend_reapply.all.t160.angle_changed--> | 220<!--m:weak_bend_reapply.all.t160.same_unjudged--> |
-| 170<!--n:value tried--> 度 | 465<!--m:weak_bend_reapply.all.t170.kinks--> | 220<!--m:weak_bend_reapply.all.t170.same_points--> | 0<!--m:weak_bend_reapply.all.t170.angle_changed--> | 220<!--m:weak_bend_reapply.all.t170.same_unjudged--> |
-
-しきい値をどこまで下げて意味があるかは別の問題である。掃引のキンクの無い合成繊維
+掃引のキンクの無い合成繊維
 （直線・円弧・正弦波。設計の幅 5<!--n:value tried-->・8<!--n:value tried-->・16<!--n:value tried--> px、画素ノイズ 0.05<!--n:value tried-->・0.15<!--n:value tried--> nm、シード 2<!--n:value tried--> 通り）の
-すべての線を、探索の下限を 1<!--n:value tried--> 度まで下げて判定した（実験 weak_bend_noise）。見つかった
+すべての線を、超過回転 1<!--n:value tried--> 度のしきい値で判定し直した（実験 weak_bend_noise）。見つかった
 折れの超過回転は、95<!--n:definition--> パーセンタイルが 13.0<!--m:weak_bend_noise.excess_p95_deg--> 度、99<!--n:definition--> パーセンタイルが 17.3<!--m:weak_bend_noise.excess_p99_deg--> 度で、輪郭長
 1<!--n:definition--> µm あたり 6.5<!--m:weak_bend_noise.per_um_at_least_10--> 個が 10<!--n:value tried--> 度に、0.21<!--m:weak_bend_noise.per_um_at_least_20--> 個が 20<!--n:value tried--> 度に、0<!--m:weak_bend_noise.per_um_at_least_30--> 個が 30<!--n:value tried--> 度に届いた。これらの繊維に
 キンクは無いので、この範囲のしきい値では、それらの折れをキンクとして数えることになる。

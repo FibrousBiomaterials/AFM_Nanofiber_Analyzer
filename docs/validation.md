@@ -1140,24 +1140,12 @@ the fiber was traced at 0.05<!--n:value tried--> nm with a width of 23.75<!--m:n
 measured for most components and the skeleton held 573<!--m:noise_warning.W24.n0.3.tophat.skeleton_px--> to 867<!--m:noise_warning.W24.n0.15.tophat.skeleton_px--> pixels
 against 349<!--m:noise_warning.W24.n0.05.tophat.skeleton_px--> at 0.05<!--n:value tried--> nm.
 
-### 4.18 Another kink threshold applied to a bundle
+### 4.18 How low a kink threshold means anything
 
-The three bundled scans were analyzed at the defaults, whose bundles store
-139<!--m:weak_bend_reapply.all.stored_kinks--> kinks and 326<!--m:weak_bend_reapply.all.stored_weak--> bends below the threshold, and again at three other
-thresholds. Each threshold was then applied to the default bundle with
-`measure_bundle(kink_threshold_deg=...)` and compared, fiber by fiber over the
-220<!--m:weak_bend_reapply.all.t160.fibers--> fibers, with the analysis at that threshold (experiment weak_bend_reapply):
-
-| Threshold | Kinks in the analysis at it | Fibers with the same kink points | Kinks reading another angle | Fibers with the same bends not judged |
-|---|---|---|---|---|
-| 140<!--n:value tried-->° | 98<!--m:weak_bend_reapply.all.t140.kinks--> | 220<!--m:weak_bend_reapply.all.t140.same_points--> | 0<!--m:weak_bend_reapply.all.t140.angle_changed--> | 220<!--m:weak_bend_reapply.all.t140.same_unjudged--> |
-| 160<!--n:value tried-->° | 206<!--m:weak_bend_reapply.all.t160.kinks--> | 220<!--m:weak_bend_reapply.all.t160.same_points--> | 0<!--m:weak_bend_reapply.all.t160.angle_changed--> | 220<!--m:weak_bend_reapply.all.t160.same_unjudged--> |
-| 170<!--n:value tried-->° | 465<!--m:weak_bend_reapply.all.t170.kinks--> | 220<!--m:weak_bend_reapply.all.t170.same_points--> | 0<!--m:weak_bend_reapply.all.t170.angle_changed--> | 220<!--m:weak_bend_reapply.all.t170.same_unjudged--> |
-
-How low a threshold means anything is a separate question. On the kink-free
+On the kink-free
 synthetic fibers of the sweep (straight, arc and sine, at designed widths 5<!--n:value tried-->, 8<!--n:value tried-->
-and 16<!--n:value tried--> px, pixel noise 0.05<!--n:value tried--> and 0.15<!--n:value tried--> nm, 2<!--n:value tried--> seeds), every line was judged with the search
-floor lowered to 1<!--n:value tried-->° (experiment weak_bend_noise). The excess of the bends found
+and 16<!--n:value tried--> px, pixel noise 0.05<!--n:value tried--> and 0.15<!--n:value tried--> nm, 2<!--n:value tried--> seeds), every line was judged again
+at a threshold of 1<!--n:value tried-->° of excess turning (experiment weak_bend_noise). The excess of the bends found
 had a 95<!--n:definition-->th percentile of 13.0<!--m:weak_bend_noise.excess_p95_deg-->° and a 99<!--n:definition-->th of 17.3<!--m:weak_bend_noise.excess_p99_deg-->°, and per micrometre of
 contour 6.5<!--m:weak_bend_noise.per_um_at_least_10--> bends reached 10<!--n:value tried-->°, 0.21<!--m:weak_bend_noise.per_um_at_least_20--> reached 20<!--n:value tried-->° and 0<!--m:weak_bend_noise.per_um_at_least_30--> reached 30<!--n:value tried-->°. These
 fibers have no kink, so a threshold in that range would count those bends as

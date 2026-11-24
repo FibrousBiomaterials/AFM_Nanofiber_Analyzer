@@ -552,36 +552,12 @@ def test_the_width_range_follows_the_format_version():
     assert width_range_adaptive_from_meta(None) is False
 
 
-def test_the_weak_bend_floor_is_read_only_from_a_format_that_stores_weak_bends():
+def test_the_weak_bends_of_an_older_bundle_are_ignored():
     """
-    A 1.6 bundle reports its search floor; an older one, or a malformed floor, reports none.
-    1.6 のバンドルは探索の下限を返し、それより古いものや不正な下限は何も返さない。
+    `wp`, `wa` and `we`, which formats 1.6 and 1.7 stored, do not stop a bundle from validating.
+    形式 1.6 と 1.7 が保存した `wp`・`wa`・`we` があっても、バンドルは検証を通る。
     """
-    from lib.bundle_schema import WEAK_BEND_FLOOR_KEY, weak_bend_floor_from_meta
-    assert weak_bend_floor_from_meta({"version": "1.6", WEAK_BEND_FLOOR_KEY: 10.0}) == 10.0
-    assert weak_bend_floor_from_meta({"version": "1.5", WEAK_BEND_FLOOR_KEY: 10.0}) is None
-    for bad in (None, "10", True, float("nan"), -1.0, 200.0):
-        assert weak_bend_floor_from_meta({"version": "1.6", WEAK_BEND_FLOOR_KEY: bad}) is None
-    assert weak_bend_floor_from_meta(None) is None
-
-
-def test_weak_bends_must_be_one_angle_and_one_excess_per_point():
-    """
-    `wa` and `we` hold one value per `wp` column, angles inside (0, pi) and non-negative excesses.
-    `wa` と `we` は `wp` の列ごとに 1 つの値を持ち、角度は (0, pi) 内、超過回転は非負である。
-    """
-    good = _valid_arrays()
-    good.update(wp=np.array([[2], [4]]), wa=np.array([2.9]), we=np.array([0.3]))
-    assert validate_bundle(good, meta=_valid_meta(), require=REQUIRED_BUNDLE_KEYS) == []
-    for change, expected in (
-            (dict(wa=np.array([2.9, 2.8])), "wa: 2 values but wp holds 1 points"),
-            (dict(we=np.array([-0.1])), "we: weak-bend excess turnings must be non-negative"),
-            (dict(wa=np.array([4.0])), "wa: weak-bend angles must be radians strictly inside"),
-    ):
-        bad = dict(good, **change)
-        problems = validate_bundle(bad, meta=_valid_meta(), require=REQUIRED_BUNDLE_KEYS)
-        assert any(expected in p for p in problems), problems
-    orphan = _valid_arrays()
-    orphan.update(we=np.array([0.3]))
-    problems = validate_bundle(orphan, meta=_valid_meta(), require=REQUIRED_BUNDLE_KEYS)
-    assert any("we: present without wp" in p for p in problems), problems
+    older = _valid_arrays()
+    older.update(wp=np.array([[2], [4]]), wa=np.array([2.9]), we=np.array([0.3]))
+    meta = dict(_valid_meta(), version="1.7")
+    assert validate_bundle(older, meta=meta, require=REQUIRED_BUNDLE_KEYS) == []

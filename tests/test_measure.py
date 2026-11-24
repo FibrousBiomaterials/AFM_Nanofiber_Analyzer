@@ -2080,65 +2080,9 @@ def test_the_bridge_columns_round_trip_through_the_csv(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Another kink threshold, and the common length floor
-# 別のキンクしきい値と、共通の下限長
+# The common length floor
+# 共通の下限長
 # ---------------------------------------------------------------------------
-
-def _kink_record(result):
-    """Each fiber's kink and unjudged skeleton pixels and kink angles."""
-    out = []
-    for f in result.fibers:
-        def pixels(indices):
-            idx = np.asarray(indices, dtype=int)
-            return tuple(zip((np.asarray(f.skeleton_xtrack)[idx] + int(f.data[0])).tolist(),
-                             (np.asarray(f.skeleton_ytrack)[idx] + int(f.data[1])).tolist()))
-        out.append((pixels(f.kink_indices), pixels(f.unjudged_indices),
-                    np.round(np.asarray(f.kink_angles, float), 12).tolist()))
-    return out
-
-
-@pytest.mark.parametrize("threshold", [140.0, 170.0])
-def test_another_threshold_applied_to_a_bundle_matches_an_analysis_at_it(tmp_path, threshold):
-    """
-    Kinks, their angles and the unjudged bends equal those of an analysis at that threshold.
-    キンク・その角度・判定しなかった折れは、そのしきい値で解析した結果と一致する。
-    """
-    txt = write_synthetic_fiber_txt(tmp_path)
-    bundles = {}
-    for t in (FAST_PARAMS.kinkangle_deg, threshold):
-        out = tmp_path / f"t{t:g}"
-        out.mkdir()
-        params = ProcParams(**{**FAST_PARAMS.__dict__, "kinkangle_deg": t})
-        bundles[t] = process_file(txt, params, output_dir=str(out)).bundle_path
-    direct = measure_bundle(bundles[threshold], scale_um=SCALE_UM)
-    again = measure_bundle(bundles[FAST_PARAMS.kinkangle_deg], scale_um=SCALE_UM,
-                           kink_threshold_deg=threshold)
-    assert _kink_record(again) == _kink_record(direct)
-
-
-def test_a_threshold_below_the_stored_floor_is_refused(measured):
-    """A threshold asking for bends below the search floor cannot be met from the stored bends."""
-    bundle_path, _ = measured
-    with pytest.raises(ValueError, match="stores them down to 10"):
-        measure_bundle(bundle_path, scale_um=SCALE_UM, kink_threshold_deg=175.0)
-
-
-def test_a_bundle_storing_no_weak_bends_refuses_another_threshold(measured, tmp_path):
-    """A bundle of format 1.5 searched at its threshold, so no other one can be applied."""
-    bundle_path, _ = measured
-    arrays = load_bundle(bundle_path)
-    meta = load_bundle_meta(bundle_path)
-    for key in ("wp", "wa", "we"):
-        arrays.pop(key, None)
-    meta["version"] = "1.5"
-    older = str(tmp_path / "older.b2z")
-    save_bundle(older, arrays, vlmeta=meta)
-    with pytest.raises(ValueError, match="stores no bends below its kink threshold"):
-        measure_bundle(older, scale_um=SCALE_UM, kink_threshold_deg=140.0)
-    # Without a threshold it is measured as stored.
-    # しきい値を与えなければ、保存どおりに計測する。
-    assert len(measure_bundle(older, scale_um=SCALE_UM).fibers) >= 1
-
 
 def test_the_length_floor_is_read_from_the_recorded_settings(measured):
     """
@@ -2209,10 +2153,10 @@ def test_fibers_shorter_than_the_floor_are_left_out_and_counted(measured):
     assert report == [(bundle_path, len(result.stats), 0)]
 
 
-def test_cli_measure_applies_a_length_floor_and_another_threshold(measured, tmp_path):
+def test_cli_measure_applies_a_length_floor(measured, tmp_path):
     """
-    `--length-floor` leaves out shorter fibers, `--kink-threshold-deg` re-selects kinks, and an unmeetable threshold fails.
-    `--length-floor` は短い繊維を外し、`--kink-threshold-deg` はキンクを選び直し、満たせないしきい値は失敗する。
+    `--length-floor` leaves out shorter fibers, and `common` needs a recorded scan size.
+    `--length-floor` は短い繊維を外し、`common` には記録された走査範囲が要る。
     """
     bundle_path, result = measured
     stem = os.path.splitext(os.path.basename(bundle_path))[0]
@@ -2222,13 +2166,4 @@ def test_cli_measure_applies_a_length_floor_and_another_threshold(measured, tmp_
                    "--output-dir", out_dir, "--length-floor", f"{longest + 1.0}"])
     assert rc == 0
     assert read_fiber_csv(os.path.join(out_dir, stem + "_fibers.csv")) == []
-    out_dir = str(tmp_path / "threshold")
-    rc = cli.main(["measure", bundle_path, "--scale-um", str(SCALE_UM),
-                   "--output-dir", out_dir, "--kink-threshold-deg", "140"])
-    assert rc == 0
-    again = measure_bundle(bundle_path, scale_um=SCALE_UM, kink_threshold_deg=140.0)
-    rows = read_fiber_csv(os.path.join(out_dir, stem + "_fibers.csv"))
-    assert [r.kink_count for r in rows] == [s.kink_count for s in again.stats]
-    assert cli.main(["measure", bundle_path, "--scale-um", str(SCALE_UM),
-                     "--output-dir", out_dir, "--kink-threshold-deg", "175"]) == 1
     assert cli.main(["measure", bundle_path, "--length-floor", "common"]) == 2

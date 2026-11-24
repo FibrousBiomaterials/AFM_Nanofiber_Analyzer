@@ -69,7 +69,6 @@ from .bundle_schema import (
     pixel_size_nm,
     scan_size_um_from_meta,
     validate_bundle,
-    weak_bend_floor_from_meta,
     symmetric_section_from_meta,
     width_peak_from_meta,
     width_range_adaptive_from_meta,
@@ -94,7 +93,7 @@ from .fiber_selection import (
     load_exclusions,
 )
 from .fiber_tracking_image import FiberTrackingImage
-from .kink_detector import END_MARGIN_WIDTHS, UNJUDGED_AT_BRIDGE, KinkDetector
+from .kink_detector import END_MARGIN_WIDTHS, UNJUDGED_AT_BRIDGE
 # On the skeleton track of a bundle older than format 1.1, straightness
 # measures a straight reference line with the same corrected chain-code metric
 # the fiber's own length uses, so the two are comparable.
@@ -105,13 +104,11 @@ from . import imp_tools
 
 # Optional bundle keys a tracking load reads when present
 # (`bundle_schema.OPTIONAL_BUNDLE_KEYS`): the bends not judged next to a track
-# end and the excess of each kink, which bundles older than format 1.1 lack,
-# and the bends below the threshold, which bundles older than format 1.6 lack.
+# end and the excess of each kink, which bundles older than format 1.1 lack.
 # 追跡用の読み込みで、存在すれば読む任意バンドルキー
 # （`bundle_schema.OPTIONAL_BUNDLE_KEYS`）。トラック端のそばで判定しなかった
-# 折れと各キンクの超過回転は形式 1.1 より古いバンドルに、閾値未満の折れは形式
-# 1.6 より古いバンドルに無い。
-_TRACKING_OPTIONAL_KEYS = ("up", "ke", "wp", "wa", "we")
+# 折れと各キンクの超過回転は、形式 1.1 より古いバンドルに無い。
+_TRACKING_OPTIONAL_KEYS = ("up", "ke")
 
 # Chebyshev distance in pixels within which a track pixel counts as touching a
 # branch point. `imp_tools.remove_bp` clears a 3x3 neighborhood around each
@@ -2397,95 +2394,6 @@ def curate_fibers(
     )
 
 
-def _apply_kink_threshold(
-    image: FiberTrackingImage,
-    data: Dict[str, np.ndarray],
-    meta: Optional[Dict],
-    kink_threshold_deg: float,
-) -> None:
-    """
-    Select a bundle's kinks again at another interior-angle threshold.
-    バンドルのキンクを、別の内角しきい値で選び直す。
-
-    Parameters
-    ----------
-    image
-        Container built from `data`, whose stored kinks are replaced before
-        any fiber is traced.
-        `data` から組み立てたコンテナ。ファイバーを追跡する前に保存キンクを
-        置き換える。
-    data
-        The bundle's arrays, with the optional `wp`, `wa` and `we`.
-        任意キー `wp`・`wa`・`we` を含むバンドルの配列。
-    meta
-        The bundle's vlmeta.
-        バンドルの vlmeta。
-    kink_threshold_deg
-        Interior-angle threshold in degrees, as `ProcParams.kinkangle_deg`:
-        a bend is a kink when its excess turning is at least 180 minus it.
-        内角しきい値（度）。`ProcParams.kinkangle_deg` と同じく、超過回転が
-        180 からこれを引いた値以上の折れをキンクとする。
-
-    Raises
-    ------
-    ValueError
-        If the bundle stores no bends below its threshold (format older than
-        1.6), or if the threshold asks for bends below the floor they were
-        stored down to.
-
-    Notes
-    -----
-    The stored kinks and the stored weak bends together are every bend the
-    search found down to the floor, and a threshold selects the same of them
-    that an analysis at that threshold reports, because the search does not
-    depend on the threshold (`kink_detector.WEAK_BEND_FLOOR_DEG`). The angles
-    and the bends not judged next to an end do depend on it -- a kink's arms
-    are cut at the neighbouring kinks -- so `image.kink_rejudge` makes each
-    traced line be judged again at this threshold, and the kinks found must be
-    exactly the stored bends selected here (`fiber_tracking_image._build_fiber`).
-    Fibrils built by the connector are judged at this threshold too, because
-    `image.kink_angle_deg` is set to it.
-    保存キンクと保存した閾値未満の折れを合わせると、探索が下限までに見つけた
-    すべての折れになる。探索はしきい値によらない（`kink_detector.WEAK_BEND_FLOOR_DEG`）
-    ため、しきい値はその中から、そのしきい値で解析したときに報告される折れと同じ
-    ものを選ぶ。角度と、端のそばで判定しない折れはしきい値による（キンクの腕は隣の
-    キンクで切られる）ため、`image.kink_rejudge` により追跡した各線をこのしきい値で
-    判定し直し、見つかったキンクがここで選んだ保存した折れと完全に一致することを
-    求める（`fiber_tracking_image._build_fiber`）。連結器が組み立てるフィブリルも、
-    `image.kink_angle_deg` をこの値にするため、このしきい値で判定される。
-    """
-    floor = weak_bend_floor_from_meta(meta)
-    if floor is None:
-        raise ValueError(
-            "the bundle stores no bends below its kink threshold (format "
-            f"{(meta or {}).get('version', 'unrecorded')}); re-analyze it in "
-            "the image preprocessor to apply another threshold"
-        )
-    excess_deg = 180.0 - float(kink_threshold_deg)
-    # Rounding of the stored floor must not refuse the analysis threshold.
-    # 保存された下限の丸めで、解析時のしきい値が拒否されないようにする。
-    if excess_deg < floor - 1e-9:
-        raise ValueError(
-            f"a kink threshold of {kink_threshold_deg:g} degrees needs bends "
-            f"down to {excess_deg:g} degrees of excess turning, but the bundle "
-            f"stores them down to {floor:g}"
-        )
-    empty_points = np.zeros((2, 0), dtype=np.int64)
-    points = np.concatenate(
-        [np.asarray(data["kp"]), np.asarray(data.get("wp", empty_points))], axis=1)
-    angles = np.concatenate([np.asarray(data["ka"]), np.asarray(data.get("wa", ()))])
-    excess = np.concatenate([np.asarray(data.get("ke", ())), np.asarray(data.get("we", ()))])
-    keep = excess >= np.radians(excess_deg) - 1e-12
-    image.all_kink_coordinates = (points[0][keep], points[1][keep])
-    image.all_kink_angles = angles[keep]
-    image.all_kink_excess = excess[keep]
-    image.kink_angle_deg = float(kink_threshold_deg)
-    image.kink_rejudge = KinkDetector(
-        threshold_angle_from_decomposed_indices=np.radians(float(kink_threshold_deg)),
-        centerline_method=image.centerline,
-    )
-
-
 def measure_bundle(
     bundle_path: str,
     scale_um: Optional[float] = None,
@@ -2494,7 +2402,6 @@ def measure_bundle(
     scale_y_um: Optional[float] = None,
     plan: Optional[ConnectionPlan] = None,
     exclude_anchors: Sequence[Tuple[int, int]] = (),
-    kink_threshold_deg: Optional[float] = None,
     min_length_nm: Optional[float] = None,
 ) -> MeasureResult:
     """
@@ -2559,12 +2466,6 @@ def measure_bundle(
         手動除外ファイバーのアンカー画素。再結合の**前**に、追跡済み断片へ
         適用する（`curate_fibers` 参照）。既定は空で、呼び出し側がキュレーション
         を要求しない限り何も除外しない。
-    kink_threshold_deg
-        Interior-angle threshold in degrees to select the kinks at instead of
-        the one the bundle was analyzed with (`_apply_kink_threshold`);
-        ``None`` keeps the stored kinks.
-        バンドルを解析したしきい値の代わりにキンクを選ぶ内角しきい値（度）
-        （`_apply_kink_threshold`）。``None`` なら保存キンクのまま。
     min_length_nm
         Contour length in nanometers below which a measured fiber is left out
         of the result, after curation and connection, so groups imaged at
@@ -2586,9 +2487,8 @@ def measure_bundle(
     ------
     ValueError
         If `scale_um` is ``None`` and the bundle records no scan size, if a
-        resolved scale is not a positive number, if the bundle violates
-        the ``.b2z`` contract (see `lib.bundle_schema.validate_bundle`), or if
-        `kink_threshold_deg` cannot be applied to it.
+        resolved scale is not a positive number, or if the bundle violates
+        the ``.b2z`` contract (see `lib.bundle_schema.validate_bundle`).
 
     Notes
     -----
@@ -2681,8 +2581,6 @@ def measure_bundle(
     image = _tracking_image_from_arrays(
         name, data, x_size_per_pixel, y_size_per_pixel, meta=meta,
     )
-    if kink_threshold_deg is not None:
-        _apply_kink_threshold(image, data, meta, kink_threshold_deg)
     fragments = image.fibers_in_image_parallel(
         max_workers=max_workers,
         progress_cb=progress_cb,
@@ -2929,8 +2827,8 @@ def _measure_curated(
         同じ間だけである。
     **settings
         ``scale_um``, ``scale_y_um``, ``max_workers``, ``apply_exclusions``,
-        ``apply_connection``, ``kink_threshold_deg`` and ``min_length_nm``, as
-        the collectors take them.
+        ``apply_connection`` and ``min_length_nm``, as the collectors take
+        them.
         コレクタが受け取るのと同じ設定。
 
     Returns
@@ -2971,7 +2869,6 @@ def _measure_curated(
         max_workers=settings["max_workers"],
         exclude_anchors=anchors,
         plan=plan,
-        kink_threshold_deg=settings["kink_threshold_deg"],
         min_length_nm=settings["min_length_nm"],
     )
     if key is not None:
@@ -2987,7 +2884,6 @@ def collect_fiber_stats(
     apply_exclusions: bool = False,
     apply_connection: bool = False,
     curation_report: Optional[List[Tuple[str, int, int, int]]] = None,
-    kink_threshold_deg: Optional[float] = None,
     min_length_nm: Optional[float] = None,
     floor_report: Optional[List[Tuple[str, int, int]]] = None,
     cache: Optional[Dict] = None,
@@ -3042,13 +2938,6 @@ def collect_fiber_stats(
         計測したバンドルごとに ``(バンドルパス, 追跡数, 除外後の数, 計測数)``
         を 1 件追加するリスト。追跡された断片数、手動除外の後に残った数、連結後に
         計測したファイバー数である。``None`` なら何も記録しない。
-    kink_threshold_deg
-        Interior-angle threshold in degrees to select every bundle's kinks at,
-        forwarded to `measure_bundle`; ``None`` keeps each bundle's own. A
-        bundle it cannot be applied to becomes an error entry.
-        すべてのバンドルのキンクを選ぶ内角しきい値（度）。`measure_bundle` へ
-        渡す。``None`` なら各バンドル自身のしきい値のまま。当てられないバンドルは
-        エラー項目になる。
     min_length_nm
         Length floor forwarded to `measure_bundle`; see `length_floor_nm`.
         `measure_bundle` へ渡す下限長。`length_floor_nm` 参照。
@@ -3124,7 +3013,6 @@ def collect_fiber_stats(
                 max_workers=max_workers,
                 apply_exclusions=apply_exclusions,
                 apply_connection=apply_connection,
-                kink_threshold_deg=kink_threshold_deg,
                 min_length_nm=min_length_nm,
             )
         except Exception as e:
@@ -3439,7 +3327,6 @@ def collect_fiber_curvature(
                 max_workers=max_workers,
                 apply_exclusions=apply_exclusions,
                 apply_connection=apply_connection,
-                kink_threshold_deg=None,
                 min_length_nm=min_length_nm,
             )
         except Exception as e:

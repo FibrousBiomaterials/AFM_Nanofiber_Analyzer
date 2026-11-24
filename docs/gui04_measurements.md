@@ -112,9 +112,8 @@ result = curate_fibers(
 `curate_fibers` applies the user's saved exclusions to the traced fragments.
 It then applies the saved connection plan to the fragments that remain (§5).
 The fibers it returns are the rows of the fiber table. GUI04 passes
-`measure_bundle` neither another kink threshold nor a length floor, which only
-GUI03 and `cli.py measure` use, so the table shows the kinks the bundle stores
-and every fiber.
+`measure_bundle` no length floor, which only GUI03 and `cli.py measure` use, so
+the table shows the kinks the bundle stores and every fiber.
 
 The fiber CSV ends every row with the scan sizes the lengths were measured at
 (`scale_x_um`, `scale_y_um`, in µm) and `scale_source`, which `measure_bundle`
@@ -1787,12 +1786,10 @@ point_arc = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
 bridges = _bridge_intervals(observed, point_arc)
 ...
     if not margin <= p <= length - margin:
-        if strong:
-            unjudged.append((index, UNJUDGED_NEAR_END))
+        unjudged.append((index, UNJUDGED_NEAR_END))
     elif not judge_bridges and any(
             a <= p + c and b >= p - c for a, b in bridges):
-        if strong:
-            unjudged.append((index, UNJUDGED_AT_BRIDGE))
+        unjudged.append((index, UNJUDGED_AT_BRIDGE))
 ...
 reach = 0.0 if judge_bridges else c
 bridge_excluded = _covered_length(

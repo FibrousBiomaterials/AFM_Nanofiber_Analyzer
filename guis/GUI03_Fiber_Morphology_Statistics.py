@@ -506,8 +506,7 @@ def _scan_size_spread_note(sizes_by_group: dict, frame_mode: str) -> str:
              ml=FRAME_MILES_LANTUEJOUL)
 
 
-def _kink_condition_report(conditions_by_group: dict,
-                           threshold_applied: bool) -> list:
+def _kink_condition_report(conditions_by_group: dict) -> list:
     """
     Say how the bundles compared for kinks differ in what the count depends on.
     キンクを比べるバンドルが、キンク数の依存する条件でどう違うかを述べる。
@@ -518,11 +517,6 @@ def _kink_condition_report(conditions_by_group: dict,
         Group name mapped to the `App._bundle_kink_conditions` entry of each of
         its bundles.
         グループ名から、各バンドルの `App._bundle_kink_conditions` の項目への対応。
-    threshold_applied
-        Whether one kink threshold was applied to every bundle at measurement,
-        so the thresholds recorded in the bundles no longer decide the count.
-        計測時に全バンドルへ 1 つのキンクのしきい値を適用したか。適用すれば、記録
-        されたしきい値はキンク数を決めなくなる。
 
     Returns
     -------
@@ -547,12 +541,13 @@ def _kink_condition_report(conditions_by_group: dict,
     conditions = [c for group in conditions_by_group.values() for c in group]
     warnings = []
     thresholds = sorted({c["threshold"] for c in conditions})
-    if len(thresholds) > 1 and not threshold_applied:
+    if len(thresholds) > 1:
         warnings.append(_(
             "注意: 比較したバンドルのキンクのしきい値が {values} 度と異なります。キンクの"
-            "定義が違うため、群の差にはしきい値の違いも含まれます。「キンクのしきい値」に"
-            "値を入れると、全バンドルを同じしきい値で選び直します。"
-        ).format(values=", ".join(f"{v:g}" for v in thresholds)))
+            "定義が違うため、群の差にはしきい値の違いも含まれます。そろえるには、Image "
+            "Preprocessor で同じしきい値（{param}）で解析し直してください。"
+        ).format(values=", ".join(f"{v:g}" for v in thresholds),
+                 param="kinkangle_deg"))
     sizes = [c["pixel_nm"] for c in conditions if c["pixel_nm"] is not None]
     # A spread under one percent, such as the rounding of a scan size written
     # in an instrument header, does not raise the warning.
@@ -2419,10 +2414,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         inputbar.pack(fill=tk.X, padx=6, pady=(6, 0))
         parambar = ttk.Frame(parent)
         parambar.pack(fill=tk.X, padx=6, pady=(4, 0))
-        # The third row holds what makes bundles of different analyses
-        # comparable: a common length floor and a common kink threshold.
-        # 3 段目には、解析条件の違うバンドルを比べられるようにする設定（共通の
-        # 下限長と共通のキンクしきい値）を置く。
+        # The third row holds what makes bundles of different scans
+        # comparable: a common length floor.
+        # 3 段目には、走査条件の違うバンドルを比べられるようにする設定（共通の
+        # 下限長）を置く。
         comparebar = ttk.Frame(parent)
         comparebar.pack(fill=tk.X, padx=6, pady=(4, 0))
 
@@ -2602,25 +2597,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "ものより短いファイバーを、どの計測量の集計からも外します。下限長と外した"
             "本数はログに出ます。"
         ))
-
-        ttk.Label(comparebar, text=_("キンクのしきい値") + " (deg)").pack(
-            side=tk.LEFT, padx=(16, 0))
-        self.kink_threshold_var = tk.StringVar(value="")
-        self.ent_kink_threshold = ttk.Entry(
-            comparebar, textvariable=self.kink_threshold_var, width=6,
-        )
-        self.ent_kink_threshold.pack(side=tk.LEFT, padx=(4, 8))
-        self.kink_threshold_var.trace_add(
-            "write", lambda *_a: self._reset_result_state())
-        ToolTip(self.ent_kink_threshold, _(
-            "{density} に効く設定です。空欄なら、各バンドルを解析した"
-            "ときのしきい値（GUI01 の kinkangle_deg）でキンクを数え、しきい値の違う"
-            "バンドルが混ざっていればログで警告します。内角の値（度）を入れると、"
-            "全バンドルのキンクをその値で選び直します。バンドルには閾値未満の折れも"
-            "保存されているため、選び直したキンクは、その値で解析し直した場合と"
-            "位置・数とも一致します。形式 1.6 より前のバンドルと、保存した下限"
-            "より低い折れまで求める値には使えず、その旨がログに出ます。"
-        ).format(density=PARAM_KINK_DENSITY))
 
     def _available_params(self) -> list:
         """
@@ -4231,22 +4207,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 _("サイズ/フォントサイズは正の値にしてください。"),
             )
             return
-        # A blank kink threshold keeps each bundle's own.
-        # キンクのしきい値が空欄なら各バンドル自身のしきい値のまま。
-        threshold_text = self.kink_threshold_var.get().strip()
-        kink_threshold_deg = None
-        if threshold_text:
-            try:
-                kink_threshold_deg = float(threshold_text)
-            except ValueError:
-                kink_threshold_deg = float("nan")
-            if not (0.0 <= kink_threshold_deg <= 180.0):
-                messagebox.showerror(
-                    _("設定エラー"),
-                    _("キンクのしきい値は 0〜180 度の数値にするか、空欄にしてください。"),
-                )
-                return
-
         # Raw counts can mislead comparisons when group sizes differ.
         # グループ間でデータ数が異なる場合、生カウント比較は誤解を招きやすい。
         if self.yaxis_mode_var.get() == _("非表示") and len(non_empty_groups) >= 2:
@@ -4294,7 +4254,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "curvature_window": self.curvature_window,
             "frame_mode": self.frame_mode,
             "length_floor": bool(self.length_floor_var.get()),
-            "kink_threshold_deg": kink_threshold_deg,
             "plot_type": self.plot_type_var.get(),
             "min_h": min_h,
             "max_h": max_h,
@@ -4380,8 +4339,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                                frame_report=None,
                                curation_report=None,
                                min_length_nm=None,
-                               floor_report=None,
-                               kink_threshold_deg=None) -> tuple:
+                               floor_report=None) -> tuple:
         """
         Collect one group's samples for a quantity and aggregation unit.
         1 グループ分の標本を、計測量と集計単位に従って収集する。
@@ -4431,11 +4389,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             can log how many fibers the floor removed.
             コレクタへ ``floor_report`` として渡すリスト。下限で何本外れたかを
             呼び出し側がログに出せるようにするため。
-        kink_threshold_deg
-            Interior-angle threshold every bundle's kinks are selected at again,
-            or ``None``; used for the kink quantities only.
-            全バンドルのキンクを選び直す内角しきい値、または ``None``。キンクの
-            計測量でだけ使う。
 
         Returns
         -------
@@ -4496,7 +4449,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             apply_exclusions=apply_exclusions,
             apply_connection=apply_connection,
             curation_report=curation_report,
-            kink_threshold_deg=kink_threshold_deg,
             min_length_nm=min_length_nm,
             floor_report=floor_report,
             cache=self._measure_cache,
@@ -4975,45 +4927,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             ).format(n=no_scan)))
         return high
 
-    def _log_kink_thresholds(self, bundle_paths, kink_threshold_deg) -> None:
-        """
-        Say which kink threshold the kinks are counted at, and warn on a mix.
-        キンクをどのしきい値で数えるかを示し、混在していれば警告する。
-
-        Parameters
-        ----------
-        bundle_paths
-            Every ``.b2z`` bundle of the run.
-            実行内のすべての ``.b2z`` バンドル。
-        kink_threshold_deg
-            Threshold every bundle's kinks are selected at again, or ``None``
-            to keep each bundle's own.
-            全バンドルのキンクを選び直すしきい値。``None`` なら各バンドル自身の
-            しきい値のまま。
-        """
-        if kink_threshold_deg is not None:
-            self.ui_queue.put(("log", _(
-                "キンク: 全バンドルのキンクを内角しきい値 {t:g} 度で選び直します。"
-                "選び直せないバンドルは読込失敗として報告されます。"
-            ).format(t=kink_threshold_deg)))
-            return
-        recorded = set()
-        for path in bundle_paths:
-            try:
-                angle, _decompose = kink_params_from_meta(self._bundle_meta(path))
-            except Exception:
-                continue
-            recorded.add(round(UNRECORDED_KINK_ANGLE_DEG if angle is None
-                               else float(angle), 6))
-        if len(recorded) > 1:
-            values = sorted(recorded)
-            self.ui_queue.put(("log", _(
-                "注意: 比較したバンドルのキンクのしきい値が {values} 度と異なります。"
-                "しきい値の緩いバンドルほどキンクが多く数えられるため、群の差に解析"
-                "条件の違いが含まれます。「キンクのしきい値」に値を入れると、全バンドルを"
-                "同じしきい値で選び直します。"
-            ).format(values=", ".join(f"{v:g}" for v in values))))
-
     def _log_curvature_caveats(self, per_fiber, curvature_window: float) -> None:
         """
         Report how many fibers the curvature window excluded.
@@ -5348,12 +5261,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     "走査線の解析が重なっていないかはファイル名だけで確かめました。"
                 ).format(grp=grp["name"], n=by_name)))
 
-        # The length floor and the kink threshold are decided over every
-        # bundle of the run before any group is measured, because both must be
-        # the same for every group compared.
-        # 下限長とキンクのしきい値は、どのグループを計測するより前に実行内の全
-        # バンドルで決める。比べる全グループで同じでなければならないためである。
-        kink_threshold_deg = None
+        # The length floor is decided over every bundle of the run before any
+        # group is measured, because it must be the same for every group
+        # compared.
+        # 下限長は、どのグループを計測するより前に実行内の全バンドルで決める。比べる
+        # 全グループで同じでなければならないためである。
         all_bundles = [path for grp in groups for path in group_files[grp["id"]]]
         # Measurements of bundles no longer registered are dropped, so the kept
         # fibers stay bounded by what is compared.
@@ -5367,9 +5279,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # ログにも出さない。
         min_length_nm = None if pixel_mode else self._common_length_floor(
             all_bundles, bool(args.get("length_floor", False)))
-        if param == PARAM_KINK_DENSITY:
-            kink_threshold_deg = args.get("kink_threshold_deg")
-            self._log_kink_thresholds(all_bundles, kink_threshold_deg)
 
         for grp in groups:
             grp_name = grp["name"]
@@ -5483,7 +5392,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     curation_report=curation_report,
                     min_length_nm=min_length_nm,
                     floor_report=floor_report,
-                    kink_threshold_deg=kink_threshold_deg,
                 )
             except Exception as e:
                 errors.append(
@@ -5752,8 +5660,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                          share=results[-1]["frame_share"], k=grp_frame_cut)))
 
         self._log_pixel_size_spread(curvature_pixel_sizes)
-        for text in _kink_condition_report(
-                kink_conditions, kink_threshold_deg is not None):
+        for text in _kink_condition_report(kink_conditions):
             self.ui_queue.put(("log", text))
         centerline_note = _centerline_note(analyzed_lines)
         if centerline_note:

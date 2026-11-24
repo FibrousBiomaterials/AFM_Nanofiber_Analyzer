@@ -2664,8 +2664,8 @@ $s_0$ と $s_1$）で、端から $\delta$ だけ内側にある（$0.25 \le \de
 $1/4$ である。
 
 折れは、しきい値ではなく、超過回転の固定の**探索の下限** $F$ まで探す。$F$ は
-`WEAK_BEND_FLOOR_DEG` = 10<!--c:lib/kink_detector.py::WEAK_BEND_FLOOR_DEG--> 度で、しきい値の超過回転のほうが低ければそちらである
-（`KinkDetector.weak_bend_floor`）。位置 $p$ を折れとして残すのは、次の
+`_SEARCH_FLOOR_DEG` = 10<!--c:lib/kink_detector.py::_SEARCH_FLOOR_DEG--> 度で、しきい値の超過回転のほうが低ければそちらである
+（`search`）。位置 $p$ を折れとして残すのは、次の
 条件をすべて満たすときだけである。
 
 - 両端から $c$ 以上離れている。これより端に近いと、折れの区間が中心線からはみ出して
@@ -2681,10 +2681,9 @@ $1/4$ である。
 
 残した折れのうち、$E(p)$ がしきい値とノイズ床（後の「尺度とノイズ床」で説明する。
 既定ではノイズ床を使わず、0<!--c:lib/kink_detector.py::NOISE_SIGMAS--> である）の両方以上のものを**キンク**とする。
-残りは**閾値未満の折れ**で、キンクではないが保存する（§4.5）。$F$ で探すのは、
-あるしきい値がどの折れをキンクにするかが、探索をどのしきい値で行ったかに
-よらないようにするためである。こうすると、保存した折れに $F$ までの任意の
-しきい値を後から当てて、そのしきい値で解析したときに報告されるキンクを選べる（§4.5）。
+残りは捨てる。それでも探す深さには意味がある。$F$ は後の「候補の探し方」の曲率の
+下限も決めるため、$F$ が低いほど候補が増え、しきい値を超える折れをどの候補が
+代表するかがそれによって変わりうる。
 
 しきい値は、ラジアンで表した $\pi - \phi_{\text{max}}$（`turn_threshold`）である。
 
@@ -2726,7 +2725,7 @@ f = _FLANK_WIDTHS * width
 profile = _heading_profile(x, y, width)
 ...
 turn_threshold = max(np.pi - float(self.threshold_angle_from_decomposed_indices), 0.0)
-search = self.weak_bend_floor
+search = min(np.radians(_SEARCH_FLOOR_DEG), turn_threshold)
 curvature = np.abs(np.gradient(heading, _HEADING_STEP_PX))
 curvature_floor = _CURVATURE_FLOOR_FRAC * search / (2.0 * c)
 radius = _SUPPRESS_WIDTHS * width
@@ -2753,11 +2752,8 @@ def excess_at(p: float) -> Optional[float]:
 ```
 
 ```python
-# source: lib/kink_detector.py::WEAK_BEND_FLOOR_DEG, KinkDetector.weak_bend_floor
-WEAK_BEND_FLOOR_DEG = 10.0
-...
-turn_threshold = max(np.pi - float(self.threshold_angle_from_decomposed_indices), 0.0)
-return min(np.radians(WEAK_BEND_FLOOR_DEG), turn_threshold)
+# source: lib/kink_detector.py::_SEARCH_FLOOR_DEG
+_SEARCH_FLOOR_DEG = 10.0
 ```
 
 コードの `self.threshold_angle_from_decomposed_indices` は、`kinkangle_deg` をラジアンに直した値で
@@ -2860,8 +2856,8 @@ $$
   0.25<!--x:0.5 / 2--> px、終わりの端から 0.25〜0.75<!--x:[0.5 / 2, 0.5 * 1.5]--> px 内側）。
 - $p_{\text{prev}}$ と $p_{\text{next}}$ は、候補を 1<!--n:count--> つにまとめた後に残った折れのうち、
   超過回転がキンクの水準に届いたもの（端のそばで判定しなかったものも含む）で、前後で
-  いちばん近いものである。無ければ、その項は使わない。閾値未満の折れは腕を
-  区切らないため、キンクの角度は $F$ によらない。
+  いちばん近いものである。無ければ、その項は使わない。キンクの水準に届かない
+  折れは腕を区切らない。
 
 各腕の向き $\bar\theta$ は、区間の中に等間隔に取った 16<!--n:literal in the quoted code--> 点で、なめらかにした後の
 向きを読み、平均したものである。内角は
@@ -2931,14 +2927,13 @@ for excess, p in kept:
     if index in taken:
         continue
     taken.add(index)
-    strong = excess >= kink_level
+    if excess < kink_level:
+        continue
     if not margin <= p <= length - margin:
-        if strong:
-            unjudged.append((index, UNJUDGED_NEAR_END))
+        unjudged.append((index, UNJUDGED_NEAR_END))
     elif not judge_bridges and any(
             a <= p + c and b >= p - c for a, b in bridges):
-        if strong:
-            unjudged.append((index, UNJUDGED_AT_BRIDGE))
+        unjudged.append((index, UNJUDGED_AT_BRIDGE))
     else:
         before = [q for q in positions if q < p]
         after = [q for q in positions if q > p]
@@ -2949,9 +2944,8 @@ for excess, p in kept:
         )
         if not np.isfinite(angle):
             angle = np.pi - excess
-        (kinks if strong else weak).append((index, angle, excess))
+        kinks.append((index, angle, excess))
 kinks.sort()
-weak.sort()
 unjudged.sort()
 def columns(bends):
     indices = np.array([k for k, _, _ in bends], dtype=np.intp)
@@ -2961,11 +2955,9 @@ def columns(bends):
     )
     return indices, angles, np.array([e for _, _, e in bends], dtype=np.float64)
 kink_indices, kink_angles, kink_excess = columns(kinks)
-weak_indices, weak_angles, weak_excess = columns(weak)
 ```
 
-端のそば、および折れを判定しない橋渡し部にある閾値未満の折れは残さない。そこの
-折れは判定しないため、どのしきい値でもキンクにならないからである。
+キンクの水準に届かない折れは、どこにも残さず、判定しなかった折れとしても報告しない。
 
 ```python
 # source: lib/measure.py::compute_fiber_stats
@@ -3024,8 +3016,8 @@ $W$ ではなく画素の数で決まっているのは、次のものである�
 こうした折れも、捨てずに残しておく。`KinkDetector.kinks_on_line` はこれを別にして
 返し、バンドルにも別に保存する（`up`）。各繊維には `Fiber.unjudged_indices` として
 渡る。GUI04 はこれを灰色の中が空いた丸で描く。こうして、「しきい値に届いたが、端に
-近いので判定しなかった」ものと、「しきい値に届かなかった」もの（§4.3 の閾値未満の
-折れ。キンクを判定する範囲にあるものだけを `wp` に保存する）を区別できる。キンクの数・密度・角度は、
+近いので判定しなかった」ものと、「しきい値に届かなかった」もの（保存しない）を
+区別できる。キンクの数・密度・角度は、
 GUI04 の一覧でも CSV でも、判定したキンクだけから求め、判定しなかった折れは入れない。
 判定しなかった折れの数は、キンクとは別に、GUI04 の一覧の `unjudged` 列と CSV の
 `unjudged_count` 列に出す。
@@ -3070,62 +3062,6 @@ GUI03、およびプランを渡された `lib/measure.py` である。どちら
 `KinkJudgement.kink_excess`）も保存する。角度は折れの形を表し、超過回転は規則が
 実際に試した量を表す。両方あれば、規則を実行し直さなくても、各キンクがしきい値
 をどれだけ超えていたかを確かめられる。
-
-形式 1.6<!--n:bundle format version--> からは、§4.3 の閾値未満の折れ（`wp`。その角度 `wa` と超過回転 `we`）と、
-それを探した探索の下限（vlmeta の `bundle_schema.WEAK_BEND_FLOOR_KEY`）
-もバンドルに保存する。保存したキンクと閾値未満の折れを合わせると、探索が残した
-すべての折れになる。そのため、バンドルを計測するときに別のしきい値を当てられる
-（`measure.measure_bundle` の `kink_threshold_deg`、GUI03 の「キンクのしきい値」、
-`cli.py measure --kink-threshold-deg`）。探索はしきい値によらないため、超過回転が
-新しいしきい値に届く折れは、下限までは、そのしきい値で解析したときに報告される
-キンクと同じになる。どの折れがキンクかはバンドルから取るが、そこで読む値は
-取らない。キンクの角度の腕は隣のキンクで切られ、端のそばで判定しない折れは
-しきい値に届くものなので、どちらもしきい値によるからである。そこで、追跡した各
-中心線を新しいしきい値で判定し直し（`FiberTrackingImage.kink_rejudge`）、その
-キンクが、しきい値が選ぶ保存した折れと完全に一致することを求める。一致しなければ、
-規則と合わなくなったバンドルとして拒否する。交差をまたいで連結した繊維も、新しい
-しきい値で判定する。同梱のスキャンで、そのしきい値で解析した場合と比べた結果は
-[個別データでの評価](validation.ja.md) §4.18 にある。保存した下限より低い折れまで
-求めるしきい値と、閾値未満の折れを持たない形式 1.6<!--n:bundle format version--> より前のバンドルは、
-欠けた折れの集まりから計測せずに拒否する。
-
-```python
-# source: lib/measure.py::_apply_kink_threshold
-floor = weak_bend_floor_from_meta(meta)
-if floor is None:
-...
-excess_deg = 180.0 - float(kink_threshold_deg)
-if excess_deg < floor - 1e-9:
-...
-empty_points = np.zeros((2, 0), dtype=np.int64)
-points = np.concatenate(
-    [np.asarray(data["kp"]), np.asarray(data.get("wp", empty_points))], axis=1)
-angles = np.concatenate([np.asarray(data["ka"]), np.asarray(data.get("wa", ()))])
-excess = np.concatenate([np.asarray(data.get("ke", ())), np.asarray(data.get("we", ()))])
-keep = excess >= np.radians(excess_deg) - 1e-12
-image.all_kink_coordinates = (points[0][keep], points[1][keep])
-image.all_kink_angles = angles[keep]
-image.all_kink_excess = excess[keep]
-image.kink_angle_deg = float(kink_threshold_deg)
-image.kink_rejudge = KinkDetector(
-    threshold_angle_from_decomposed_indices=np.radians(float(kink_threshold_deg)),
-    centerline_method=image.centerline,
-)
-```
-
-```python
-# source: lib/fiber_tracking_image.py::_build_fiber
-if rejudge is not None and is_placed_line(centerline):
-    judged = rejudge.judge_line(placed.x, placed.y, placed.width_px, pixel_aspect)
-    if [int(i) for i in judged.kink_indices] != kink_indices:
-        raise ValueError(
-            "the kinks found again at the requested threshold differ from "
-            "the bends the bundle stores; re-analyze the bundle"
-        )
-    kink_angles = np.asarray(judged.kink_angles, dtype=np.float64)
-    kink_excess = np.asarray(judged.kink_excess, dtype=np.float64)
-    unjudged_indices = [int(i) for i in judged.unjudged_indices]
-```
 
 ### 4.6 古い形式（1.0）のバンドルで使う折れ線の規則
 

@@ -569,9 +569,6 @@ def cmd_measure(args: argparse.Namespace) -> int:
         )
         return 2
 
-    if args.kink_threshold_deg is not None and not (0 <= args.kink_threshold_deg <= 180):
-        print("error: --kink-threshold-deg must be in [0, 180] degrees", file=sys.stderr)
-        return 2
     # "common" cuts every bundle at the largest of their own floors, so the
     # CSVs of differently sized scans describe the same range of lengths.
     # "common" は全バンドルを各自の下限の最大値で切りそろえ、走査範囲の違う
@@ -607,7 +604,6 @@ def cmd_measure(args: argparse.Namespace) -> int:
         try:
             result = measure_bundle(
                 bundle_path, scale_um=args.scale_um, scale_y_um=args.scale_y_um,
-                kink_threshold_deg=args.kink_threshold_deg,
                 min_length_nm=min_length_nm,
             )
             csv_path = stem + "_fibers.csv"
@@ -1018,14 +1014,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--output-dir", metavar="DIR",
         help="directory for <stem>_fibers.csv outputs "
              "(default: next to each bundle)",
-    )
-    p_measure.add_argument(
-        "--kink-threshold-deg", type=float, default=None, metavar="DEG",
-        help="select every bundle's kinks again at this interior-angle "
-             "threshold instead of the one it was analyzed with; needs bundle "
-             "format 1.6, which stores the bends below the threshold, and fails "
-             "for a threshold asking for bends below the floor they were stored "
-             "down to",
     )
     p_measure.add_argument(
         "--length-floor", default=None, metavar="common|NM",

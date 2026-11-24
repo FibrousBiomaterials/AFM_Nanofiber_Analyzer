@@ -24,15 +24,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `cli.py measure --length-floor common|NM` applies it to CSV output. With the
   option off, GUI03 warns when the compared bundles' floors differ. GUI03,
   `cli.py measure` and GUI04 keep every fiber unless asked.
-- GUI03 has a kink threshold for `kink density`. Left blank,
-  each bundle is counted at its own threshold and the log warns when the
-  compared bundles were analyzed at different ones; a value applies that
-  interior-angle threshold to every bundle (`measure_bundle(kink_threshold_deg=...)`,
-  `cli.py measure --kink-threshold-deg`). On the three bundled scans the kinks,
-  angles and unjudged bends obtained this way at 140°, 160° and 170° were those
-  of an analysis at that threshold (`docs/validation.md` §4.18). It needs a
-  bundle of format 1.6 and a threshold whose excess turning is not below the
-  floor the bends were stored down to.
 - GUI03's "枠のファイバー" setting for `contour length` has a fourth option,
   `Kaplan-Meier`, which estimates the fiber length distribution from every
   fiber with an end of its own: a fiber with both ends its own is a length seen
@@ -255,7 +246,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   centerlines, for any quantity, because every measurement reads the line, and
   when the bundles compared for `kink density` were judged at different kink
   thresholds, which are different definitions of a kink; the between-group test
-  still runs, and entering a kink threshold applies one to every bundle. The results table and the statistics CSV (a new last column, `median W (nm)`)
+  still runs; such bundles are compared on one rule after being analyzed again
+  at one threshold. The results table and the statistics CSV (a new last column, `median W (nm)`)
   show each group's median apparent width, the scale its kinks were judged at.
   The log gives each group's median pixel noise and warns when the bundles differ
   in pixel size or format or when a bundle's fibers stand below the noise limit
@@ -264,13 +256,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   at a time and, under `include` and `exclude`, that a length comparison also
   holds a difference in frame bias, because the frame shortens long fibers more
   even at one scan size.
-- The kink rule searches for bends down to a fixed excess turning of 10°
-  (`kink_detector.WEAK_BEND_FLOOR_DEG`) instead of at the threshold, and a
-  maximum of the window turning is shut out only by a curvature-maximum
-  candidate at least as strong, so which bends a threshold makes kinks no
-  longer depends on the threshold the search ran at. The bends found below the
-  threshold are stored in the new optional bundle keys `wp`, `wa` and `we`,
-  with the floor in the vlmeta entry `weak_bend_floor_deg`, and the **bundle
+- The kink rule searches for candidate bends down to a fixed excess turning of
+  10° instead of at the threshold, and a maximum of the window turning is shut
+  out only by a curvature-maximum candidate at least as strong; the **bundle
   format is now 1.6**. **Kinks found with the default settings change from this
   version**: compared on the same traced lines of the three bundled scans, 162
   of 220 fibers kept the same kinks; on the others, of the 116 kinks found by
@@ -278,8 +266,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   at most 0.73 widths, 4 kinks were added and 3 lost. Scored against the visual
   reference, 49 of the 53 clear kinks were found and 1 was displaced, against
   50 found before, with 64 unmatched detections either way. A bundle of
-  format 1.5 or older is measured as stored, but no other threshold can be
-  applied to it; re-analyze it.
+  format 1.5 or older is measured as stored.
+- Bundles no longer store the bends below the kink threshold: the keys `wp`,
+  `wa` and `we` and the vlmeta entry `weak_bend_floor_deg`, which formats 1.6
+  and 1.7 wrote, are not written, and the **bundle format is now 1.8**. GUI03's
+  kink-threshold field, `cli.py measure --kink-threshold-deg` and
+  `measure_bundle(kink_threshold_deg=...)`, which applied another threshold to
+  those bends, are removed; bundles analyzed at different `kinkangle_deg` are
+  compared after being analyzed again at one threshold, and GUI03 warns when
+  they differ. A bundle of format 1.6 or 1.7 is read as before, with those keys
+  ignored. Kinks and every measured value are unchanged.
 - GUI03 offers `kink density` per `image` only: the total kink count of a
   scan over the total judged length of its fibers, tested between groups with
   the scan as the replicate. One fiber's density takes the values 0, 1/L,
