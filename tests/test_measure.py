@@ -2135,35 +2135,3 @@ def test_the_csv_records_the_scale_and_whether_the_bundle_recorded_it(measured, 
     assert rows[0][-3:] == ["scale_x_um", "scale_y_um", "scale_source"]
     assert all(row[-3:] == ["3.84", "3.84", "entered"] for row in rows[1:])
     assert len(read_fiber_csv(path)) == len(other.stats)
-
-
-def test_fibers_shorter_than_the_floor_are_left_out_and_counted(measured):
-    """
-    A floor above every fiber leaves none, and the report says how many it removed.
-    すべての繊維より長い下限では何も残らず、報告が外した本数を示す。
-    """
-    bundle_path, result = measured
-    longest = max(s.length_nm for s in result.stats)
-    kept = measure_bundle(bundle_path, scale_um=SCALE_UM, min_length_nm=longest)
-    assert len(kept.stats) >= 1 and all(s.length_nm >= longest for s in kept.stats)
-    report = []
-    per_bundle, errors = collect_fiber_stats(
-        [bundle_path], scale_um=SCALE_UM, min_length_nm=longest + 1.0, floor_report=report)
-    assert errors == [] and per_bundle[0][1] == []
-    assert report == [(bundle_path, len(result.stats), 0)]
-
-
-def test_cli_measure_applies_a_length_floor(measured, tmp_path):
-    """
-    `--length-floor` leaves out shorter fibers, and `common` needs a recorded scan size.
-    `--length-floor` は短い繊維を外し、`common` には記録された走査範囲が要る。
-    """
-    bundle_path, result = measured
-    stem = os.path.splitext(os.path.basename(bundle_path))[0]
-    longest = max(s.length_nm for s in result.stats)
-    out_dir = str(tmp_path / "floor")
-    rc = cli.main(["measure", bundle_path, "--scale-um", str(SCALE_UM),
-                   "--output-dir", out_dir, "--length-floor", f"{longest + 1.0}"])
-    assert rc == 0
-    assert read_fiber_csv(os.path.join(out_dir, stem + "_fibers.csv")) == []
-    assert cli.main(["measure", bundle_path, "--length-floor", "common"]) == 2

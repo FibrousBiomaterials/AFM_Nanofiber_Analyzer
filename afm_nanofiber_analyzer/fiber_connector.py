@@ -106,7 +106,7 @@ class ConnectParams:
         angles, is the one on the specimen.
         成長中の端点と候補断片の端点が連結可能とみなされる最大距離（X 画素単位）。
         Y は画素の縦横比（`FiberTrackingImage.pixel_aspect`）で拡大するため、X と Y
-        の画素サイズが違う走査でも、距離は角度と同じく試料上のものになる。
+        のサンプリング間隔（nm/px）が違う走査でも、距離は角度と同じく試料上のものになる。
     angle_threshold
         Minimum straightness angle in degrees. Both the angle at the current
         endpoint and at the candidate endpoint must exceed this, so only
@@ -212,7 +212,7 @@ def _physical(point: ArrayLike, aspect: float) -> Tuple[float, float]:
     Scaling the row by the pixel aspect makes them the specimen's on a scan
     whose X and Y pixel sizes differ, as the centerline and the kink rule are.
     連結のゲートは断片端の間の距離と角度を比べる。行を画素の縦横比で拡大すると、
-    中心線やキンク規則と同じく、X と Y の画素サイズが違う走査でもそれらが試料上の
+    中心線やキンク規則と同じく、X と Y のサンプリング間隔（nm/px）が違う走査でもそれらが試料上の
     ものになる。
     """
     return (float(point[0]) * float(aspect), float(point[1]))
@@ -303,7 +303,7 @@ def _fragment_end_geometry(
     aspect
         Y pixel size over X pixel size (`FiberTrackingImage.pixel_aspect`);
         each row is multiplied by it (`_physical`).
-        Y 画素サイズ ÷ X 画素サイズ（`FiberTrackingImage.pixel_aspect`）。各行に
+        Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）（`FiberTrackingImage.pixel_aspect`）。各行に
         これを掛ける（`_physical`）。
 
     Returns
@@ -879,7 +879,7 @@ def build_connected_fibers(
     image
         Tracking container providing ``calibrated_image`` and the resolved
         per-axis pixel size.
-        ``calibrated_image`` と解決済みの軸別ピクセルサイズを提供する追跡コンテナ。
+        ``calibrated_image`` と解決済みの軸別のサンプリング間隔（nm/px）を提供する追跡コンテナ。
     fragments
         Skeleton fragments the chains index into.
         連鎖がインデックスで参照する骨格断片。
@@ -1017,7 +1017,7 @@ def _build_chain_fiber(
         接合部の切り落とし長と、橋渡しの平均化幅を与える。
     size_per_pixel, y_size_per_pixel
         Resolved per-axis pixel size for the path length.
-        経路長に使う、解決済みの軸別ピクセルサイズ。
+        経路長に使う、解決済みの軸別のサンプリング間隔（nm/px）。
 
     Returns
     -------
@@ -1708,7 +1708,7 @@ def _rebuild_connected_fiber(
         線の各点での高さ。
     size_per_pixel, y_size_per_pixel
         Pixel size along X and Y; ``None`` for Y means square pixels.
-        X 方向と Y 方向の画素サイズ。Y が ``None`` なら正方画素。
+        X 方向と Y 方向のサンプリング間隔（nm/px）。Y が ``None`` なら正方画素。
     pixel_x, pixel_y
         Skeleton pixels the fibril was docked from, index-aligned with the
         line; ``None`` means the line is those pixels, as for a bundle older
@@ -1880,7 +1880,7 @@ def filter_fibers_by_height(
     image
         Tracking container supplying the resolved per-axis pixel sizes used to
         recompute each sub-segment's path length.
-        各サブ区間の経路長を再計算するために使う軸別ピクセルサイズを提供する
+        各サブ区間の経路長を再計算するために使う軸別のサンプリング間隔（nm/px）を提供する
         追跡コンテナ。
     fibers
         Fibers to filter, typically the connected fibrils GUI04 currently

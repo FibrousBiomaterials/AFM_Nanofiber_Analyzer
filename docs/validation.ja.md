@@ -161,13 +161,13 @@ X 方向だけのときには無い横方向の筋が全体に出る。Bruker �
 同梱スキャンから、同じ繊維をより細かい画素で撮った走査を作った（実験
 zoomed_background）。各同梱スキャンについて、既定の補正後の画像を標準偏差 1<!--n:value tried--> px の
 ガウス関数でぼかしたものを基準の高さとし、既定の解析が引いた背景を背景とする。
-基準は元の画素サイズでの既定の解析そのものなので、下の「残った高さ」が測るのは、
+基準は元のサンプリング間隔（nm/px）での既定の解析そのものなので、下の「残った高さ」が測るのは、
 画素を細かくしたときにそれに比べて失われる高さであり、既定の解析自体の誤差では
 ない。この実験は高さの絶対的な精度を測っていない。それは §1.9 で合成繊維について測る。
 スケルトン画素を最も多く含む 256<!--c:scripts/measure_docs.py::ZOOM_TILE--> px の切り出し 2<!--n:count--> 枚を
 各拡大率で補間して拡大する。撮る範囲は同じまま、画素だけが細かくなる。そこに元の
 スキャンと同じ大きさの白色ノイズ（0.027<!--m:zoomed_background.tunicate.noise_nm-->〜0.064<!--m:zoomed_background.NDTOC.noise_nm--> nm）を加え、各方式を既定値で
-4<!--n:count--> 段すべてに通す。元の画素サイズでの繊維の見かけ幅は 7.6<!--m:zoomed_background.hplantTOC.width_px-->〜8.6<!--m:zoomed_background.NDTOC.width_px--> px なので、
+4<!--n:count--> 段すべてに通す。元のサンプリング間隔（nm/px）での繊維の見かけ幅は 7.6<!--m:zoomed_background.hplantTOC.width_px-->〜8.6<!--m:zoomed_background.NDTOC.width_px--> px なので、
 拡大率 $k$ では約 $k$ 倍の画素にまたがる。「残った高さ」は、既定のスケルトンの点で
 補正後の高さを基準の高さで割った値の中央値で、ここでは切り出しごとの範囲を示す。
 
@@ -210,7 +210,7 @@ zoomed_background）。各同梱スキャンについて、既定の補正後の
 高さ（繊維だけの画像から補正後の画像を引いた値の中央値）、報告される高さ（追跡した
 繊維の高さ標本の中央値）である。`trendfill`、ノイズ 0.05<!--n:value tried--> nm での結果は次のとおり。
 
-| 画素サイズ | $D$ | $W$ | 画素格子が示す高さ | 取り除かれた高さ | 報告される高さ |
+| サンプリング間隔（nm/px） | $D$ | $W$ | 画素格子が示す高さ | 取り除かれた高さ | 報告される高さ |
 |---|---|---|---|---|---|
 | 1<!--n:value tried--> nm | 2<!--n:value tried--> nm | 11.1<!--m:synthetic_height.px1.d2.w_px--> px | 1.00<!--m:synthetic_height.px1.d2.n0.05.peak--> | 0.13<!--m:synthetic_height.trendfill.px1.d2.n0.05.bg_loss--> | 0.94<!--m:synthetic_height.trendfill.px1.d2.n0.05.height--> |
 | 1<!--n:value tried--> nm | 4<!--n:value tried--> nm | 16.0<!--m:synthetic_height.px1.d4.w_px--> px | 1.00<!--m:synthetic_height.px1.d4.n0.05.peak--> | 0.53<!--m:synthetic_height.trendfill.px1.d4.n0.05.bg_loss--> | – |
@@ -469,10 +469,9 @@ Bruker スキャンでは、消えたかたまりは背景を覆う低い筋の�
 ### 2.8 解析が残す最短の繊維
 
 `measure.length_floor_nm` は、バンドルの下限長を
-$\max(\texttt{h\_length},\ \texttt{area\_min} / W)$ 画素に、大きいほうの画素サイズを
-掛けた長さとする。$W$ はバンドルの見かけ幅の中央値である。GUI03 と
-`cli.py measure --length-floor common` は、比べる全バンドルをこの下限の最大値で
-切りそろえる。この下限を確かめるため、長さ 12<!--n:value tried-->〜56<!--n:value tried--> px の合成の直線繊維を、
+$\max(\texttt{h\_length},\ \texttt{area\_min} / W)$ 画素に、大きいほうのサンプリング間隔（nm/px）を
+掛けた長さとする。$W$ はバンドルの見かけ幅の中央値である。GUI03 は、同じ
+グループにまとめたバンドルの下限が違うと警告する。この下限を確かめるため、長さ 12<!--n:value tried-->〜56<!--n:value tried--> px の合成の直線繊維を、
 0<!--n:value tried-->〜90<!--n:value tried--> 度の 10<!--n:value tried--> 度ごとに、画素未満のずれ 3<!--c:scripts/measure_docs.py::len(LENGTH_FLOOR_OFFSETS_PX)--> 通りで描き（走査 1<!--n:count--> 枚に 30<!--m:length_floor_completeness.fibers_per_scan--> 本）、キンクの掃引と
 同じ繊維と背景、画素ノイズ 0.05<!--n:value tried--> nm で、既定の設定で解析した（実験
 length_floor_completeness）。
@@ -724,7 +723,7 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 対して最適化はしていない。ただし規則と中心線は、候補の中からこの基準での成績によって
 選んだ。したがってこの基準は独立した検証ではなく開発用のデータであり、評価用に
 取り分けたスキャンでの採点は行っていない。2<!--n:count--> 人が付けた印（§4.19）に対しては、以前の
-折れ線規則が見つけた明瞭なキンクは超過回転規則より少なくない。また画素の大きさが違うと、
+折れ線規則が見つけた明瞭なキンクは超過回転規則より少なくない。またサンプリング間隔（nm/px）が違うと、
 折れ線規則は `kink_decompose_px` が固定であるため、キンクを落とすか一致しない折れを増やす（§4.21）。どれか 1<!--n:count--> つを隣の値に変えると、検出
 できた明瞭なキンクは 48〜51<!--m:kink_reference.sens_all.found_range--> 件、一致なしは 46〜82<!--m:kink_reference.sens_all.false_range--> 件の範囲で動いた（既定は
 それぞれ 49<!--m:kink_reference.default.found--> 件と 63<!--m:kink_reference.default.false--> 件）。明瞭なキンクの検出が減ったのは向きの平滑化を
@@ -829,10 +828,10 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 判定に使う超過回転とは別に測るためである。また強く折れ曲がった繊維では、その
 繊維自身のキンクがノイズ床を押し上げる。失われた明瞭なキンクはそうした繊維に
 あった。合成データの掃引では、ノイズ床が直線・円弧・正弦波の繊維の偽の折れを変えたのは、
-最も細かい画素サイズと最も強いノイズの条件（幅 11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px、画素ノイズ 0.30<!--n:value tried--> nm）だけで、
+最も小さいサンプリング間隔（nm/px）と最も強いノイズの条件（幅 11.5<!--m:kink_rule_sweep.W16.measured_width_px--> px、画素ノイズ 0.30<!--n:value tried--> nm）だけで、
 1<!--n:definition--> µm あたり 5.4<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> から 4.1<!--m:kink_rule_sweep.W16.n0.30.k3.fp_per_um--> に減らした。その条件で、報告してはならない 165<!--n:example--> 度の
 曲がりに報告した折れは、ノイズ床なしの 6<!--m:kink_rule_sweep.W16.n0.30.base.kink165_reported--> 件からありの 3<!--m:kink_rule_sweep.W16.n0.30.k3.kink165_reported--> 件になった。見つかる
-コーナーはどの条件でも変えなかった。たとえば最も粗い画素サイズと最も強いノイズの条件
+コーナーはどの条件でも変えなかった。たとえば最も大きいサンプリング間隔（nm/px）と最も強いノイズの条件
 では、ノイズ床なしで 4<!--m:kink_rule_sweep.W3.n0.30.base.kinked_found-->、ありで 4<!--m:kink_rule_sweep.W3.n0.30.k3.kinked_found--> つ見つかった（§4.8）。
 
 ### 4.8 掃引で規則が働いた範囲
@@ -853,9 +852,9 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
   `background_warnings` が警告を出していた（`flank_step_low` と `relief_absorbed`）。
   追跡はその腕を多数の断片に分け、偽の折れがその腕に集まった。同じ設定の直線・
   円弧・正弦波の繊維では、規則は 1<!--n:definition--> µm あたり 5.4<!--m:kink_rule_sweep.W16.n0.30.base.fp_per_um--> 件の偽の折れを報告した。
-- 細かい方の 3<!--n:count--> つの画素サイズでは、画素ノイズ 0.15<!--n:value tried--> nm までの直線・円弧・蛇行に
+- 小さい方の 3<!--n:count--> つのサンプリング間隔（nm/px）では、画素ノイズ 0.15<!--n:value tried--> nm までの直線・円弧・蛇行に
   偽陽性は無く、165<!--n:example--> 度の曲がりにも無かった。
-- 掃引で最も粗い画素サイズ（5.2<!--c:scripts/kink_rule_sweep.py::APPARENT_WIDTH_NM|v / 3--> nm。繊維が占める画素は 3.5<!--m:kink_rule_sweep.W5.measured_width_px--> px の設定より
+- 掃引で最も大きいサンプリング間隔（nm/px）である 5.2<!--c:scripts/kink_rule_sweep.py::APPARENT_WIDTH_NM|v / 3--> nm（繊維が占める画素は 3.5<!--m:kink_rule_sweep.W5.measured_width_px--> px の設定より
   少ない）では、幅は 2<!--c:afm_nanofiber_analyzer/centerline.py::_MIN_WIDTH_PX--> px 未満と測られて 2<!--m:kink_rule_sweep.W3.measured_width_px--> px に引き上げられた。120<!--n:example--> 度の
   コーナーは 6<!--m:kink_rule_sweep.W3.kink120.cases--> 枚中 6<!--m:kink_rule_sweep.W3.kink120.found--> 枚、145<!--n:example--> 度は 5<!--m:kink_rule_sweep.W3.kink145.found--> 枚、140<!--n:example--> 度は 5<!--m:kink_rule_sweep.W3.kink140.found--> 枚で見つかった。描いてみると、
   140<!--n:example--> 度の 6<!--n:count--> 枚はどれもコーナーを途切れずに追跡しており、そこで規則が報告した
@@ -930,7 +929,7 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 
 `measure.fiber_mean_curvature` は符号なしの曲率を平均するので、まっすぐな繊維でも
 0<!--n:comparison--> より大きい値になる。高さ 2<!--n:condition--> nm、半値全幅 20<!--n:condition--> nm のガウス断面で、長さ
-1200<!--n:condition--> nm、行に対して 20<!--n:condition-->° 傾いたまっすぐな合成繊維を、3<!--n:count--> 通りの画素サイズと
+1200<!--n:condition--> nm、行に対して 20<!--n:condition-->° 傾いたまっすぐな合成繊維を、3<!--n:count--> 通りのサンプリング間隔（nm/px）と
 3<!--n:count--> 通りのガウス高さノイズで描き（ノイズは各 5<!--n:condition--> 回）、軸の画素トラックに置いた
 既定の中心線で平均曲率を求めた（実験 curvature_noise_floor、rad/µm、5<!--n:condition--> 回の平均）。
 
@@ -943,9 +942,9 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 ノイズが無いときの値は画素の格子から来る。真の軸に対して描くと、画素 5<!--n:condition-->・10<!--n:condition--> nm
 では中心線にスケルトントラックの階段の周期で揺れが残っており、繊維がまたぐ画素が
 少ない 10<!--n:condition--> nm のほうが大きい。2<!--n:condition--> nm では横方向のずれはずっと小さい（W は画素
-2<!--n:condition-->・5<!--n:condition-->・10<!--n:condition--> nm でそれぞれ 9.5<!--m:curvature_noise_floor.px2.width_px-->・3.75<!--m:curvature_noise_floor.px5.width_px-->・2.00<!--m:curvature_noise_floor.px10.width_px--> px）。0.15<!--n:condition--> nm のノイズはどの画素サイズでも
-平均を上げ、0.05<!--n:condition--> nm のノイズは画素 2<!--n:condition-->・10<!--n:condition--> nm では上げ、5<!--n:condition--> nm ではわずかに下げた。どちらも画素サイズに依存するので、異なる画素サイズで撮像した群の間の
-曲率の差には、撮像条件の違いが含まれる。GUI03 は、曲率で比べるバンドルの画素サイズが
+2<!--n:condition-->・5<!--n:condition-->・10<!--n:condition--> nm でそれぞれ 9.5<!--m:curvature_noise_floor.px2.width_px-->・3.75<!--m:curvature_noise_floor.px5.width_px-->・2.00<!--m:curvature_noise_floor.px10.width_px--> px）。0.15<!--n:condition--> nm のノイズはどのサンプリング間隔（nm/px）でも
+平均を上げ、0.05<!--n:condition--> nm のノイズは画素 2<!--n:condition-->・10<!--n:condition--> nm では上げ、5<!--n:condition--> nm ではわずかに下げた。どちらもサンプリング間隔（nm/px）に依存するので、異なるサンプリング間隔（nm/px）で撮像した群の間の
+曲率の差には、撮像条件の違いが含まれる。GUI03 は、曲率で比べるバンドルのサンプリング間隔（nm/px）が
 違うときに警告する。
 
 ### 4.14 繊維の自由端での長さ
@@ -958,7 +957,7 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 中心線が真の端の手前で止まり、負なら真の端を越えて伸びている。どの走査でも繊維は
 1<!--n:count--> 本につながって追跡された（18<!--m:end_loss.runs--> 枚中 18<!--m:end_loss.single_fiber_runs--> 枚）。
 
-| 画素サイズ | 端 | 端 1<!--n:count--> つあたりの不足量 | 見かけ幅単位 | 輪郭長の誤差 |
+| サンプリング間隔（nm/px） | 端 | 端 1<!--n:count--> つあたりの不足量 | 見かけ幅単位 | 輪郭長の誤差 |
 |---|---|---|---|---|
 | 1<!--n:value tried--> nm | 角ばった端 | −0.5<!--m:end_loss.px1.taper0.end_deficit_nm_range[0]-->〜+0.5<!--m:end_loss.px1.taper0.end_deficit_nm_range[1]--> nm | −0.04<!--m:end_loss.px1.taper0.end_deficit_w_range[0]-->〜+0.04<!--m:end_loss.px1.taper0.end_deficit_w_range[1]--> | +0.07<!--m:end_loss.px1.taper0.length_error_percent_range[0]-->〜+0.33<!--m:end_loss.px1.taper0.length_error_percent_range[1]--> % |
 | 1<!--n:value tried--> nm | 細くなる端 | −5.4<!--m:end_loss.px1.taper20.end_deficit_nm_range[0]-->〜+0.9<!--m:end_loss.px1.taper20.end_deficit_nm_range[1]--> nm | −0.49<!--m:end_loss.px1.taper20.end_deficit_w_range[0]-->〜+0.08<!--m:end_loss.px1.taper20.end_deficit_w_range[1]--> | +0.03<!--m:end_loss.px1.taper20.length_error_percent_range[0]-->〜+1.62<!--m:end_loss.px1.taper20.length_error_percent_range[1]--> % |
@@ -971,13 +970,13 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 探針がその周りに広げた像の中まで伸び、ある走査ではそこで軸から曲がって離れている。
 画素 4<!--n:value tried--> nm では、細くなる端は背景に溶け込み、計測した中心線はその手前で止まる。
 角ばった端は、真の端から画素の幅以内で止まる。したがって端の誤差の向きは一定ではなく、
-画素サイズと繊維の終わり方によって決まり、実際の走査からは繊維がどう終わっているかは
+サンプリング間隔（nm/px）と繊維の終わり方によって決まり、実際の走査からは繊維がどう終わっているかは
 分からない。これらは自由端の結果であり、交差で切れた端は §4.11 の場合である。
 
 ### 4.15 画素ノイズのもとでの頂点高さ
 
 半径 15<!--n:value tried--> nm の球状の先端で膨張させた直径 2<!--n:value tried--> nm の円柱から点標本化した繊維を、行に対して
-20<!--n:value tried--> 度の直線と、半径 4<!--n:value tried--> $W$ の円弧として、下の各見かけ幅になる画素サイズで描き、画素ノイズ
+20<!--n:value tried--> 度の直線と、半径 4<!--n:value tried--> $W$ の円弧として、下の各見かけ幅になるサンプリング間隔（nm/px）で描き、画素ノイズ
 0<!--n:value tried-->、0.05<!--n:value tried-->、0.1<!--n:value tried-->、0.2<!--n:value tried--> nm、シード 3<!--n:count--> 通りを加えた（実験 crest_noise）。既定の中心線を真の軸の画素トラックの
 上に置き、繊維の中央 60<!--n:definition--> % での頂点高さの中央値を真の高さと比べた。直線の繊維での差（nm）は
 次のとおり。
@@ -1123,7 +1122,7 @@ B の明瞭な印があるものは 50<!--m:kink_reference_human.all.ai.by_b--> 
 印に対して、それぞれ 8<!--x:67 - 59--> 件、8<!--x:53 - 45--> 件、9<!--x:52 - 43--> 件多い。一方、見つけた明瞭な印は、それぞれ 5<!--x:70 - 65--> 件多く、
 1<!--x:82 - 81--> 件少なく、2<!--x:66 - 64--> 件多い。§4.4 では、超過回転規則とその中心線を選ぶのに使った目視基準に対して、
 見つけたキンクの数に差が出ている。この印に対しては、その差は現れない。2<!--n:count--> つの規則を
-別の画素の大きさで比べた結果は §4.21 にある。
+別のサンプリング間隔（nm/px）で比べた結果は §4.21 にある。
 
 ### 4.20 明瞭なキンクの前後の区間にある別の折れ
 
@@ -1140,11 +1139,11 @@ B の明瞭な印があるものは 50<!--m:kink_reference_human.all.ai.by_b--> 
 | 両方とも同じ側へ曲がる | 5<!--m:kink_neighbour_flanks.both_same--> | 4<!--m:kink_neighbour_flanks.both_same_found--> |
 | それ以外 | 30<!--m:kink_neighbour_flanks.otherwise--> | 29<!--m:kink_neighbour_flanks.otherwise_found--> |
 
-### 4.21 画素の大きさを変えたときのキンクの規則
+### 4.21 サンプリング間隔（nm/px）を変えたときのキンクの規則
 
 超過回転規則の長さは $W$ の倍数である。一方 §4.19 の折れ線規則は、スケルトントラックを
 固定の `kink_decompose_px` で分割する。その影響を見るため、同梱の各スキャンを同じ視野のまま
-画素の大きさを変えて作り直した。倍率 0.5<!--n:value tried--> では生データの 2<!--n:definition-->×2<!--n:definition--> 画素ごとに平均し、倍率 2<!--n:value tried--> では
+サンプリング間隔（nm/px）を変えて作り直した。倍率 0.5<!--n:value tried--> では生データの 2<!--n:definition-->×2<!--n:definition--> 画素ごとに平均し、倍率 2<!--n:value tried--> では
 生データを 3<!--n:definition--> 次補間し、補正後の背景と同じ水準の白色ノイズを加えた。画素数で表す
 `ProcParams` の設定はすべて倍率を掛け（面積は倍率の 2<!--n:definition--> 乗を掛け）、二値化を比べられる
 ようにしたので、差はキンクの規則だけによる。2<!--n:count--> 人が付けた印を作り直した格子へ移し、
@@ -1169,7 +1168,7 @@ B の明瞭な印があるものは 50<!--m:kink_reference_human.all.ai.by_b--> 
 どの倍率でも、規則は同じ繊維の上で採点した。ただし追跡された繊維は、Bruker NDTOC の
 スキャンでは倍率によって違い、倍率 0.5<!--n:value tried-->、1<!--n:value tried-->、2<!--n:value tried--> でそれぞれ 121<!--m:kink_pixel_size.x0.5.NDTOC.fibers--> 本、142<!--m:kink_pixel_size.x1.NDTOC.fibers--> 本、96<!--m:kink_pixel_size.x2.NDTOC.fibers--> 本
 だった。チュニケートのスキャンではどの倍率でも 63<!--m:kink_pixel_size.x0.5.tunicate.fibers--> 本だった。作り直したスキャンは同梱の
-スキャンから作ったもので、別の画素の大きさで撮ったものではない。
+スキャンから作ったもので、別のサンプリング間隔（nm/px）で撮ったものではない。
 
 ## 5. 縞ノイズの検査
 

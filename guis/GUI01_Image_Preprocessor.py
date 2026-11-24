@@ -4776,7 +4776,7 @@ class SettingsDialog(tk.Toplevel):
                 ("field", "branch_length", "branch_length", _("枝とみなす短い線を追跡する最大長") + " (px)", {"width": 10}),
                 ("field", "min_area", "min_area", _("小さすぎる線分（ノイズ）を削除する面積しきい値") + " (px^2)", {"width": 10}),
                 ("field", "max_loop_area", "max_loop_area", _("骨格上の小ループ（マスクの穴由来の二重線）を1本に潰す最大囲み面積。0で無効") + " (px^2)", {"width": 10}),
-                ("field", "spur_length", "spur_length", _("高さに関係なく除去する行き止まりの短い枝の最大長。画素単位のため解像度に応じて調整。0で無効"), {"width": 10}),
+                ("field", "spur_length", "spur_length", _("高さに関係なく除去する行き止まりの短い枝の最大長。画素単位のためサンプリング間隔（nm/px）に応じて調整。0で無効"), {"width": 10}),
             ]),
             (_("Kinkdetector"), [
                 ("field", "kinkangle_deg", "kinkangle_deg", _("折れ線近似の3点のなす角がこの値以下ならkink判定") + " (degree)", {}),

@@ -82,7 +82,7 @@ def _build_fiber(
         トラックに沿って高さを取得する補正済み画像。
     size_per_pixel
         Physical X (column) pixel size in nm/px used for path-length conversion.
-        経路長変換に使う X（列）軸の物理ピクセルサイズ (nm/px)。
+        経路長変換に使う X（列）軸のサンプリング間隔（nm/px）。
     kink_set
         ``(x, y)`` coordinate set of kink points.
         キンク点の ``(x, y)`` 座標集合。
@@ -98,7 +98,7 @@ def _build_fiber(
     y_size_per_pixel
         Physical Y (row) pixel size in nm/px. ``None`` reuses
         ``size_per_pixel`` for an isotropic (square-pixel) scale.
-        Y（行）軸の物理ピクセルサイズ (nm/px)。``None`` のときは
+        Y（行）軸のサンプリング間隔（nm/px）。``None`` のときは
         ``size_per_pixel`` を流用し等方（正方ピクセル）スケールとする。
 
     branch_points
@@ -123,7 +123,7 @@ def _build_fiber(
     pixel_aspect
         Y pixel size over X pixel size of the geometry the bundle's line and
         kinks were computed in (`bundle_schema.pixel_aspect_from_meta`).
-        バンドルの線とキンクを計算した幾何の Y 画素サイズ ÷ X 画素サイズ
+        バンドルの線とキンクを計算した幾何の Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）
         （`bundle_schema.pixel_aspect_from_meta`）。
     width_peak
         Which maximum the apparent width is read from, the one the bundle's
@@ -292,7 +292,7 @@ class FiberTrackingImage:
     y_size_per_pixel
         Physical Y (row) pixel size (nm/px); None reuses ``size_per_pixel``
         for an isotropic (square-pixel) scale.
-        Y（行）軸の物理ピクセルサイズ (nm/px)。None のときは
+        Y（行）軸のサンプリング間隔（nm/px）。None のときは
         ``size_per_pixel`` を流用し等方（正方ピクセル）スケールとする。
     calibrated_image
         Calibrated AFM image loaded from GUI01 output.
@@ -356,7 +356,7 @@ class FiberTrackingImage:
         1.3 and for a container not loaded from a bundle. Set by `afm_nanofiber_analyzer.measure`
         from the bundle (`bundle_schema.pixel_aspect_from_meta`), never from a
         scale entered at measurement time.
-        バンドルの線とキンクを計算した幾何の Y 画素サイズ ÷ X 画素サイズ。正方
+        バンドルの線とキンクを計算した幾何の Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）。正方
         画素、形式 1.3 より古いバンドル、バンドルから読み込まないコンテナでは 1.0。
         `afm_nanofiber_analyzer.measure` がバンドルから設定し（`bundle_schema.pixel_aspect_from_meta`）、
         計測時に入力された寸法からは決して設定しない。
@@ -434,14 +434,14 @@ class FiberTrackingImage:
             is unknown; fiber-length computation then fails loudly instead of
             silently assuming a default scan size, so callers that trace fibers
             must always pass an explicit value.
-            X（列）軸の物理ピクセルサイズ (nm/px)。None はスキャンスケール未知を
+            X（列）軸のサンプリング間隔（nm/px）。None はスキャンスケール未知を
             意味し、ファイバー長計算は既定スキャンサイズを黙って仮定せず明示的に
             失敗する。ファイバー追跡を行う呼び出し側は必ず明示値を渡すこと。
         y_size_per_pixel
             Physical Y (row) pixel size (nm/px). None reuses ``size_per_pixel``
             so a single value treats the pixels as square; pass a distinct
             value for rectangular scans or non-square pixel grids.
-            Y（行）軸の物理ピクセルサイズ (nm/px)。None のときは
+            Y（行）軸のサンプリング間隔（nm/px）。None のときは
             ``size_per_pixel`` を流用し、単一値では画素を正方として扱う。矩形
             スキャンや非正方ピクセル格子では別の値を渡す。
         """
@@ -672,7 +672,7 @@ class FiberTrackingImage:
         spp = self.size_per_pixel
         # Y pixel size falls back to the X value, keeping isotropic behavior
         # when only one scale is known.
-        # Y のピクセルサイズは X 値へフォールバックし、スケールが 1 つしか
+        # Y のサンプリング間隔（nm/px）は X 値へフォールバックし、スケールが 1 つしか
         # 分からない場合は等方挙動を保つ。
         spp_y = self.y_size_per_pixel if self.y_size_per_pixel is not None else spp
 

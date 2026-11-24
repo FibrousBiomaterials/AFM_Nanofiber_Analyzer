@@ -848,7 +848,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             "下の「計算方法」で集計した値が高さとして使われます。\n"
             "ナノファイバーの場合、3〜5 程度に設定するとノイズの影響を抑えられます。\n"
             "設定した幅は左のヒートマップ上に青い帯として表示され、"
-            "ズームすると画素サイズに応じて拡縮します。"
+            "表示を拡大・縮小すると、帯の幅も合わせて変わります。"
         ))
         c += 1
         self.entrylw = ttk.Entry(param_row, width=4)
@@ -1238,7 +1238,7 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         GUI01 バンドルでは、スケール欄は記録された走査範囲を保持する。背景補正器が
         先頭の 1 行 1 列を削るため、走査範囲は保存された ``calibrated`` 配列より
         各軸 1 画素分広い。`afm_nanofiber_analyzer.measure` と同じく `afm_nanofiber_analyzer.bundle_schema.pixel_size_nm`
-        で換算し、プロファイルの距離を GUI03・GUI04 と同じ画素サイズで測る。
+        で換算し、プロファイルの距離を GUI03・GUI04 と同じサンプリング間隔（nm/px）で測る。
         その他の入力は削られていないため、走査範囲がそのまま配列の範囲になる。
         """
         x_um, y_um = self._scale_xy_um()

@@ -142,7 +142,7 @@ _SUPPRESS_WIDTHS = 0.75
 # Arc-length step, in pixels, the heading is resampled at: a sampling step far
 # below every length above, not a scale of the rule.
 # 向きを再サンプリングする弧長の間隔（画素）。上のどの長さよりもずっと短い
-# サンプリング間隔であり、規則の尺度ではない。
+# 刻みであり、規則の尺度ではない。
 _HEADING_STEP_PX = 0.5
 
 # Excess turning, in degrees, down to which candidate bends are searched for,
@@ -592,7 +592,7 @@ class KinkDetector:
             (`bundle_schema.pixel_aspect`); 1 when the scan size is unknown.
             The centerline is placed and the kinks are judged in the geometry
             it gives.
-            `image` の Y 画素サイズ ÷ X 画素サイズ（`bundle_schema.pixel_aspect`）。
+            `image` の Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）（`bundle_schema.pixel_aspect`）。
             走査範囲が不明なら 1。中心線の配置とキンクの判定はこれが与える幾何で行う。
 
         Returns
@@ -801,7 +801,7 @@ class KinkDetector:
             Y pixel size over X pixel size (`bundle_schema.pixel_aspect`). The
             line's Y coordinates are scaled by it, so headings, turning and
             arm angles are those on the specimen.
-            Y 画素サイズ ÷ X 画素サイズ（`bundle_schema.pixel_aspect`）。線の Y 座標を
+            Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）（`bundle_schema.pixel_aspect`）。線の Y 座標を
             これで拡大するため、向き・回転・腕の角度は試料上のものになる。
         observed
             Per line point, whether its height was observed

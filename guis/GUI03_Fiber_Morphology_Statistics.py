@@ -100,7 +100,7 @@ from afm_nanofiber_analyzer.measure import (
     collect_fiber_curvature, collect_fiber_stats,
     fiber_judged_length_um,
     fiber_real_end_count, kaplan_meier_length_weights, length_floor_nm,
-    read_scan_size_from_bundle, skeleton_height_values,
+    skeleton_height_values,
 )
 from afm_nanofiber_analyzer.plugin_launch import read_path_arguments
 from afm_nanofiber_analyzer.translator import _
@@ -532,7 +532,7 @@ def _kink_condition_report(conditions_by_group: dict) -> list:
     the test still runs; what the difference means for the comparison is the
     user's to judge. A difference in noise below that limit, or in apparent
     width, has no measured limit to warn at, so those values are shown instead.
-    しきい値が違えばキンクの定義が違い、画素サイズや形式の違い、
+    しきい値が違えばキンクの定義が違い、サンプリング間隔（nm/px）や形式の違い、
     `pipeline.noise_warnings` の限度を超えるノイズは、同じ定義が画像をどう読むかを
     変える。どれも報告し、検定は実行する。その違いが比較にとって何を意味するかは
     ユーザーが判断する。その限度より小さいノイズの差や見かけの幅の差には、警告する
@@ -554,8 +554,8 @@ def _kink_condition_report(conditions_by_group: dict) -> list:
     # 装置ヘッダに書かれた走査範囲の丸めのような 1 % 未満の違いでは警告しない。
     if sizes and max(sizes) > min(sizes) * 1.01:
         warnings.append(_(
-            "注意: 比較したバンドルの画素サイズが {low}〜{high} nm/px と異なります。"
-            "キンクの検出は見かけの幅・画素サイズ・ノイズで変わるため"
+            "注意: 比較したバンドルのサンプリング間隔（nm/px）が {low}〜{high} nm/px と異なります。"
+            "キンクの検出は見かけの幅・サンプリング間隔（nm/px）・ノイズで変わるため"
             "（docs/validation.md §4.4、§4.8）、群の差には撮像条件の違いも含まれます。"
         ).format(low=f"{min(sizes):.2f}", high=f"{max(sizes):.2f}"))
     versions = sorted({c["version"] for c in conditions if c["version"]})
@@ -636,7 +636,7 @@ def _median_width_nm(conditions: list):
     float or None
         Median over the bundles that record a width and a pixel size, or
         ``None`` when none does.
-        幅と画素サイズを記録したバンドルにわたる中央値。無ければ ``None``。
+        幅とサンプリング間隔（nm/px）を記録したバンドルにわたる中央値。無ければ ``None``。
 
     Notes
     -----
@@ -2414,12 +2414,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         inputbar.pack(fill=tk.X, padx=6, pady=(6, 0))
         parambar = ttk.Frame(parent)
         parambar.pack(fill=tk.X, padx=6, pady=(4, 0))
-        # The third row holds what makes bundles of different scans
-        # comparable: a common length floor.
-        # 3 段目には、走査条件の違うバンドルを比べられるようにする設定（共通の
-        # 下限長）を置く。
-        comparebar = ttk.Frame(parent)
-        comparebar.pack(fill=tk.X, padx=6, pady=(4, 0))
 
         # Applying a bundle's manual exclusions is the default: a sidecar
         # exists only because someone curated that dataset, and ignoring it
@@ -2499,7 +2493,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "大きくなるため、群間比較では {fiber}・{image} でも確認してください。"
             "{fiber} は同じ画像のファイバーを独立と数えるため、場所ごとの違いを"
             "踏まえて比べるときは {image} を使います。"
-            "{pixel} は画素サイズの細かい画像ほど標本が多くなるため、画素サイズの"
+            "{pixel} はサンプリング間隔（nm/px）の小さい画像ほど標本が多くなるため、サンプリング間隔（nm/px）の"
             "異なる画像を同じグループに混ぜるとログに注意を出します。"
         ).format(
             pixel=UNIT_PIXEL, fiber=UNIT_FIBER, image=UNIT_IMAGE,
@@ -2582,21 +2576,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             image=UNIT_IMAGE,
         ))
         self._update_frame_mode_state()
-
-        self.length_floor_var = tk.BooleanVar(value=False)
-        self.chk_length_floor = ttk.Checkbutton(
-            comparebar, text=_("長さの下限をそろえる"),
-            variable=self.length_floor_var,
-            command=self._reset_result_state,
-        )
-        self.chk_length_floor.pack(side=tk.LEFT)
-        ToolTip(self.chk_length_floor, _(
-            "二値化は一定の画素数より短い成分を取り除くため、残る最短の繊維長は"
-            "画素サイズとともに大きくなります。粗い走査には、細かい走査が残す短い"
-            "繊維が写りません。ON にすると、比べる全バンドルの下限長のうち最も長い"
-            "ものより短いファイバーを、どの計測量の集計からも外します。下限長と外した"
-            "本数はログに出ます。"
-        ))
 
     def _available_params(self) -> list:
         """
@@ -4253,7 +4232,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "apply_connection": bool(self.apply_connection_var.get()),
             "curvature_window": self.curvature_window,
             "frame_mode": self.frame_mode,
-            "length_floor": bool(self.length_floor_var.get()),
             "plot_type": self.plot_type_var.get(),
             "min_h": min_h,
             "max_h": max_h,
@@ -4338,8 +4316,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                                frame_mode: str = FRAME_INCLUDE,
                                frame_report=None,
                                curation_report=None,
-                               min_length_nm=None,
-                               floor_report=None) -> tuple:
+                               group_name: str = "") -> tuple:
         """
         Collect one group's samples for a quantity and aggregation unit.
         1 グループ分の標本を、計測量と集計単位に従って収集する。
@@ -4379,16 +4356,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             manual exclusions removed.
             `afm_nanofiber_analyzer.measure` のコレクタへ ``curation_report`` として渡すリスト。
             手動除外で何本外れたかを呼び出し側がログに出せるようにするため。
-        min_length_nm
-            Common length floor in nanometers (`_common_length_floor`), or
-            ``None``; not applied to the skeleton-pixel heights.
-            共通の下限長 (nm)（`_common_length_floor`）、または ``None``。
-            スケルトン画素の高さには当てない。
-        floor_report
-            List passed to the collector as its ``floor_report``, so the caller
-            can log how many fibers the floor removed.
-            コレクタへ ``floor_report`` として渡すリスト。下限で何本外れたかを
-            呼び出し側がログに出せるようにするため。
+        group_name
+            Name the curvature-window note is prefixed with, as every other
+            per-group log line is.
+            曲率窓の注記の先頭に付けるグループ名。ほかのグループごとのログ行と同じ。
 
         Returns
         -------
@@ -4409,15 +4380,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         -----
         The height/pixel combination reads the skeleton pixels without
         tracing (`skeleton_height_values`), so it is the only one that works
-        on a bundle without a recorded scan size and the length floor does not
-        apply to it: no fiber length is measured. Every other path traces
+        on a bundle without a recorded scan size. Every other path traces
         fibers and needs a physical pixel size to turn track steps into
         nanometers.
         height/pixel の組み合わせは追跡せずにスケルトン画素を読む
         （`skeleton_height_values`）。そのため走査範囲が未記録のバンドルでも動く
-        唯一の組み合わせであり、ファイバーの長さを測らないので下限長も当てない。
+        唯一の組み合わせである。
         ほかの経路はすべてファイバーを追跡し、追跡ステップを nm へ変換するために
-        物理ピクセルサイズを必要とする。
+        サンプリング間隔（nm/px）を必要とする。
         """
         if param == PARAM_HEIGHT and unit == UNIT_PIXEL:
             heights, load_errors = skeleton_height_values(
@@ -4437,11 +4407,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 curvature_window_nm=curvature_window,
                 apply_connection=apply_connection,
                 curation_report=curation_report,
-                min_length_nm=min_length_nm,
-                floor_report=floor_report,
                 cache=self._measure_cache,
             )
-            self._log_curvature_caveats(per_fiber, curvature_window)
+            self._log_curvature_caveats(per_fiber, curvature_window, group_name)
             return self._curvature_values(per_fiber, unit) + (load_errors,)
 
         per_bundle, load_errors = collect_fiber_stats(
@@ -4449,8 +4417,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             apply_exclusions=apply_exclusions,
             apply_connection=apply_connection,
             curation_report=curation_report,
-            min_length_nm=min_length_nm,
-            floor_report=floor_report,
             cache=self._measure_cache,
         )
         return self._values_from_fiber_stats(
@@ -4601,7 +4567,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
     def _bundle_pixel_sizes(self, bundle_paths) -> list:
         """
         Read the X pixel size each bundle is measured with, in nanometers.
-        各バンドルを計測する X 画素サイズ (nm) を読む。
+        各バンドルを計測する X のサンプリング間隔（nm/px）を読む。
 
         Parameters
         ----------
@@ -4615,7 +4581,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             One pixel size per bundle with a recorded scan size
             (`bundle_schema.pixel_size_nm`); a bundle without one, or one that
             cannot be read, is passed over, because the collector reports it.
-            走査範囲を記録したバンドルごとの画素サイズ
+            走査範囲を記録したバンドルごとのサンプリング間隔（nm/px）
             （`bundle_schema.pixel_size_nm`）。記録の無いバンドルや読めない
             バンドルは読み飛ばす。コレクタがそれを報告するためである。
         """
@@ -4751,13 +4717,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
     def _log_pixel_size_spread(self, pixel_sizes: list) -> None:
         """
         Warn when the bundles measured for curvature differ in pixel size.
-        曲率を計測したバンドルの画素サイズが違うときに警告する。
+        曲率を計測したバンドルのサンプリング間隔（nm/px）が違うときに警告する。
 
         Parameters
         ----------
         pixel_sizes
             X pixel size of every bundle measured, in nanometers.
-            計測した全バンドルの X 画素サイズ (nm)。
+            計測した全バンドルの X のサンプリング間隔（nm/px）。
 
         Notes
         -----
@@ -4769,10 +4735,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         the warning says that such bundles were compared, not that the groups
         differ in pixel size. The comparison is still made; the user is told.
         曲率は符号なしで平均するため、まっすぐな繊維でも中心線の揺れが上乗せされ、
-        その量は画素サイズと画像のノイズで変わる。そのため、異なる画素サイズで撮像
+        その量はサンプリング間隔（nm/px）と画像のノイズで変わる。そのため、異なるサンプリング間隔（nm/px）で撮像
         したバンドルどうしは、撮像条件の違いによっても差が出る。ばらつきはグループを
         問わず実行内の全バンドルで取るので、警告が示すのはそうしたバンドルを比べた
-        ことであり、グループ間で画素サイズが違うことではない。比較はそのまま行い、
+        ことであり、グループ間でサンプリング間隔（nm/px）が違うことではない。比較はそのまま行い、
         ユーザーに知らせる。
         """
         if len(pixel_sizes) < 2:
@@ -4784,16 +4750,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if high <= low * 1.01:
             return
         self.ui_queue.put(("log", _(
-            "注意: 比較したバンドルの画素サイズが {low}〜{high} nm/px と異なります。"
+            "注意: 比較したバンドルのサンプリング間隔（nm/px）が {low}〜{high} nm/px と異なります。"
             "曲率は中心線の揺れにより、まっすぐな繊維でも 0 より大きく出ます。"
-            "その上乗せは画素サイズとノイズで変わるため、画素サイズの違うバンドルの間の"
+            "その上乗せはサンプリング間隔（nm/px）とノイズで変わるため、サンプリング間隔（nm/px）の違うバンドルの間の"
             "曲率の差には、撮像条件の違いも含まれます。"
         ).format(low=f"{low:.2f}", high=f"{high:.2f}")))
 
     def _log_group_pixel_size_spread(self, grp_name: str, pixel_sizes: list) -> None:
         """
         Warn when one group pools skeleton pixels of different pixel sizes.
-        1 グループが画素サイズの異なるスケルトン画素をまとめるときに警告する。
+        1 グループがサンプリング間隔（nm/px）の異なるスケルトン画素をまとめるときに警告する。
 
         Parameters
         ----------
@@ -4802,7 +4768,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             バンドルが属するグループ。
         pixel_sizes
             X pixel size of each bundle of the group, in nanometers.
-            グループの各バンドルの X 画素サイズ (nm)。
+            グループの各バンドルの X のサンプリング間隔（nm/px）。
 
         Notes
         -----
@@ -4810,7 +4776,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         finer pixel size yields more samples per unit length and weighs more
         in the group's pooled distribution. Nothing is corrected; the user is
         told and decides whether the pooling is acceptable.
-        pixel 単位はスケルトン画素を 1 点ずつ数えるため、細かい画素サイズで撮像した
+        pixel 単位はスケルトン画素を 1 点ずつ数えるため、小さいサンプリング間隔（nm/px）で撮像した
         繊維ほど長さあたりの標本が多く、グループのまとめた分布での重みが大きくなる。
         補正はせず、ユーザーに知らせて、まとめてよいかを判断してもらう。
         """
@@ -4822,112 +4788,68 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         if high <= low * 1.01:
             return
         self.ui_queue.put(("log", _(
-            "[{grp}] 注意: このグループのバンドルの画素サイズが {low}〜{high} nm/px と"
+            "[{grp}] 注意: このグループのバンドルのサンプリング間隔（nm/px）が {low}〜{high} nm/px と"
             "異なります。{pixel} 集計では画素 1 点を 1 標本と数えるため、画素の細かい"
             "画像ほど繊維の長さあたりの標本が多く、分布への寄与が大きくなります。"
         ).format(grp=grp_name, low=f"{low:.2f}", high=f"{high:.2f}",
                  pixel=UNIT_PIXEL)))
 
-    def _common_length_floor(self, bundle_paths, enabled: bool):
+    def _warn_group_length_floors(self, grp_name: str, bundle_paths) -> None:
         """
-        Find the length floor shared by every compared bundle and log it.
-        比べる全バンドルに共通の下限長を求めてログに出す。
+        Warn when the bundles of one group keep different shortest fiber lengths.
+        1 つのグループのバンドルが残す最短の繊維長が違うときに警告する。
 
         Parameters
         ----------
+        grp_name
+            Group name the warning is prefixed with.
+            警告の先頭に付けるグループ名。
         bundle_paths
-            Every ``.b2z`` bundle of the run, whichever group it belongs to.
-            グループを問わず、実行内のすべての ``.b2z`` バンドル。
-        enabled
-            Whether the floor is applied; when not, the user is only warned
-            that the bundles' floors differ.
-            下限を適用するか。適用しないときは、バンドルの下限が違うことだけを
-            警告する。
-
-        Returns
-        -------
-        float or None
-            The largest of the bundles' floors (`length_floor_nm`) in
-            nanometers when `enabled`; ``None`` otherwise or when no bundle
-            records one.
-            `enabled` のとき、各バンドルの下限（`length_floor_nm`）の最大値（nm）。
-            それ以外、またはどのバンドルにも記録が無いときは ``None``。
+            The group's ``.b2z`` bundles.
+            そのグループの ``.b2z`` バンドル。
 
         Notes
         -----
-        The floor of a coarse scan is longer than that of a fine one, so
-        fibers between the two are present in one group and absent from the
-        other for no reason in the specimen. Cutting every group at the
-        largest floor compares the same population of lengths.
-        粗い走査の下限は細かい走査より長いため、その間の長さの繊維は、試料とは
-        関係なく一方の群にだけ現れる。全群を最大の下限で切りそろえると、同じ長さの
-        範囲の母集団どうしを比べることになる。
+        The floor of a coarse scan is longer than that of a fine one
+        (`length_floor_nm`), so a group that pools both holds fibers between
+        the two floors from the fine scans only, and its distribution mixes
+        populations cut at different lengths. The group is not cut to one
+        floor: that would discard the short fibers the fine scans do record.
+        Groups are not compared for it, because each specimen may be imaged
+        at the resolution its fibers need.
+        粗い走査の下限は細かい走査より長い（`length_floor_nm`）ため、両方をまとめた
+        グループでは、2 つの下限の間の長さの繊維が細かい走査からだけ現れ、分布は
+        異なる長さで切れた母集団の混ざり物になる。グループを 1 つの下限で切ることは
+        しない。細かい走査が実際に記録している短い繊維を捨てることになるためである。
+        グループどうしは比べない。試料ごとに、その繊維に合ったサンプリング間隔（nm/px）で撮ることが
+        あるためである。
         """
-        floors = {}
-        # Bundles whose own floor is unknown, split by why: without a scan size
-        # no floor in nanometers can be applied to the bundle at all
-        # (`skeleton_height_values` measures it whole, every other collector
-        # cannot read it), while a bundle that records a scan size but not its
-        # settings or width is still cut at the common floor.
-        # 自身の下限が分からないバンドルを理由で分ける。走査範囲が無ければ nm の
-        # 下限はそもそも当てられない（`skeleton_height_values` は全体を計測し、
-        # ほかの collector は読み込めない）。走査範囲はあるが設定や幅が無い
-        # バンドルには、共通の下限が当てられる。
-        no_scan = 0
-        unknown = 0
+        floors = []
         for path in bundle_paths:
             try:
-                floors[path] = length_floor_nm(path)
+                floor = length_floor_nm(path)
             except Exception:
-                floors[path] = None
-            if floors[path] is None:
-                try:
-                    if read_scan_size_from_bundle(path) is None:
-                        no_scan += 1
-                    else:
-                        unknown += 1
-                except Exception:
-                    # An unreadable bundle is reported when it is measured.
-                    # 読めないバンドルは計測の段階で報告される。
-                    pass
-        known = [v for v in floors.values() if v is not None]
-        if not known:
-            if enabled and floors:
-                self.ui_queue.put(("log", _(
-                    "長さの下限: どのバンドルにも走査範囲・解析設定・見かけ幅の記録が"
-                    "無いため、そろえません。"
-                )))
-            return None
-        low, high = min(known), max(known)
-        if not enabled:
-            if high > low * 1.01:
-                self.ui_queue.put(("log", _(
-                    "注意: 比較したバンドルが残す最短の繊維長が {low:.0f}〜{high:.0f} nm と"
-                    "異なります。粗い走査ほど短い繊維が写らないため、群の差に撮像条件の"
-                    "違いが含まれます。「長さの下限をそろえる」を ON にすると、全群を"
-                    "{high:.0f} nm で切りそろえます。"
-                ).format(low=low, high=high)))
-            return None
+                # An unreadable bundle is reported when it is measured.
+                # 読めないバンドルは計測の段階で報告される。
+                continue
+            if floor is not None:
+                floors.append(floor)
+        if not floors:
+            return
+        low, high = min(floors), max(floors)
+        # A spread under one percent, such as the rounding of a scan size
+        # written in an instrument header, is not a difference.
+        # 装置ヘッダに書かれた走査範囲の丸めのような 1 % 未満の違いは、違いとしない。
+        if high <= low * 1.01:
+            return
         self.ui_queue.put(("log", _(
-            "長さの下限: {floor:.0f} nm より短いファイバーを全群の集計から外します"
-            "（各バンドルの下限 {low:.0f}〜{high:.0f} nm の最大）。"
-        ).format(floor=high, low=low, high=high)))
-        if unknown:
-            self.ui_queue.put(("log", _(
-                "長さの下限: {n} バンドルは走査範囲・解析設定・見かけ幅のいずれかが"
-                "記録されておらず、自身の下限を求められません。それらにも {floor:.0f} nm を"
-                "適用しますが、自身の下限がそれより長い可能性があります（GUI01 で再解析"
-                "すると記録されます）。"
-            ).format(n=unknown, floor=high)))
-        if no_scan:
-            self.ui_queue.put(("log", _(
-                "長さの下限: {n} バンドルは走査範囲が記録されていないため、下限を"
-                "適用しません（画素の高さでは全ファイバーを集計し、走査範囲を要する"
-                "計測量では読み込めません）。"
-            ).format(n=no_scan)))
-        return high
+            "[{grp}] 注意: このグループのバンドルが残す最短の繊維長が {low:.0f}〜{high:.0f} nm と"
+            "異なります。サンプリング間隔（nm/px）が大きい走査ほど短い繊維が写らないため、"
+            "このグループの分布には撮像条件の違いが混ざります。"
+        ).format(grp=grp_name, low=low, high=high)))
 
-    def _log_curvature_caveats(self, per_fiber, curvature_window: float) -> None:
+    def _log_curvature_caveats(self, per_fiber, curvature_window: float,
+                               group_name: str) -> None:
         """
         Report how many fibers the curvature window excluded.
         曲率窓が測定対象から外したファイバーの本数を報告する。
@@ -4940,6 +4862,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         curvature_window
             Arc length the curvature estimator used.
             曲率推定が使った弧長。
+        group_name
+            Group the fibers belong to. The window is one length for every
+            group, so a group of shorter fibers loses a larger share of them,
+            and the count has to say which group it is.
+            ファイバーが属するグループ。窓はどのグループにも同じ長さなので、短い
+            ファイバーの多いグループほど多くの割合を失う。そのため本数にはどの
+            グループのものかを付ける。
 
         Notes
         -----
@@ -4958,10 +4887,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         measurable = sum(int(np.isfinite(c).sum()) for _p, c in per_fiber)
         if measurable < total:
             self.ui_queue.put(("log", _(
-                "曲率窓 {w} nm より短いファイバー {n} 本 / {total} 本は測定"
-                "対象外です。窓を広げるとさらに減ります。"
+                "[{grp}] 曲率窓 {w} nm より短いファイバー {n} 本 / {total} 本は"
+                "測定対象外です。窓を広げるとさらに減ります。"
             ).format(
-                w=self._fmt_num(curvature_window),
+                grp=group_name, w=self._fmt_num(curvature_window),
                 n=total - measurable, total=total,
             )))
 
@@ -5170,7 +5099,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # combination that runs on a bundle with no recorded scan size,
         # because heights do not depend on the pixel size.
         # 画素の組み合わせはスケルトン画素を個体に分けずまとめるため "N fibers" を
-        # 数えられない。また、高さがピクセルサイズに依存しないことから、走査範囲が
+        # 数えられない。また、高さがサンプリング間隔（nm/px）に依存しないことから、走査範囲が
         # 未記録のバンドルでも動く唯一の組み合わせでもある。
         pixel_mode = param == PARAM_HEIGHT and unit == UNIT_PIXEL
         counts_fibers = not pixel_mode
@@ -5185,7 +5114,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         errors = []
         # X pixel size of every bundle measured for curvature, to warn when the
         # compared bundles differ in it (`_log_pixel_size_spread`).
-        # 曲率を計測した全バンドルの X 画素サイズ。比較するバンドルで違うときに
+        # 曲率を計測した全バンドルの X のサンプリング間隔（nm/px）。比較するバンドルで違うときに
         # 警告するために集める（`_log_pixel_size_spread`）。
         curvature_pixel_sizes: list = []
         # Scan size of every bundle whose lengths carry no frame correction, per
@@ -5261,11 +5190,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     "走査線の解析が重なっていないかはファイル名だけで確かめました。"
                 ).format(grp=grp["name"], n=by_name)))
 
-        # The length floor is decided over every bundle of the run before any
-        # group is measured, because it must be the same for every group
-        # compared.
-        # 下限長は、どのグループを計測するより前に実行内の全バンドルで決める。比べる
-        # 全グループで同じでなければならないためである。
         all_bundles = [path for grp in groups for path in group_files[grp["id"]]]
         # Measurements of bundles no longer registered are dropped, so the kept
         # fibers stay bounded by what is compared.
@@ -5273,13 +5197,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         registered = {os.path.abspath(path) for path in all_bundles}
         for key in [k for k in self._measure_cache if k[0] not in registered]:
             del self._measure_cache[key]
-        # Skeleton-pixel heights measure no fiber length, so no floor is
-        # decided or logged for them.
-        # スケルトン画素の高さはファイバーの長さを測らないため、下限を決めず、
-        # ログにも出さない。
-        min_length_nm = None if pixel_mode else self._common_length_floor(
-            all_bundles, bool(args.get("length_floor", False)))
-
         for grp in groups:
             grp_name = grp["name"]
             # Every bundle of the group is measured together, so the
@@ -5292,6 +5209,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     _("[{grp}] 計測できるファイルがありません").format(grp=grp_name)
                 )
                 continue
+            # Skeleton-pixel heights measure no fiber length, so the shortest
+            # length a bundle keeps does not matter to them.
+            # スケルトン画素の高さはファイバーの長さを測らないため、バンドルが残す
+            # 最短の長さは関係しない。
+            if not pixel_mode:
+                self._warn_group_length_floors(grp_name, bundle_paths)
 
             # Loading and measurement are delegated to afm_nanofiber_analyzer.measure, the same
             # code path as `cli.py heights` / `cli.py measure`. Per-bundle
@@ -5379,7 +5302,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
             frame_report = {}
             curation_report: list = []
-            floor_report: list = []
             try:
                 (grp_values, grp_weights, n_fibers, grp_images,
                  load_errors) = self._collect_bundle_values(
@@ -5390,8 +5312,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     frame_mode=frame_mode,
                     frame_report=frame_report,
                     curation_report=curation_report,
-                    min_length_nm=min_length_nm,
-                    floor_report=floor_report,
+                    group_name=grp_name,
                 )
             except Exception as e:
                 errors.append(
@@ -5430,19 +5351,6 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     )
                 self.ui_queue.put(("log", msg.format(
                     grp=grp_name, total=traced, n=traced - kept,
-                )))
-
-            # Say how many fibers the common length floor removed.
-            # 共通の下限長で何本外れたかを示す。
-            if min_length_nm is not None and floor_report:
-                measured = sum(row[1] for row in floor_report)
-                kept = sum(row[2] for row in floor_report)
-                self.ui_queue.put(("log", _(
-                    "[{grp}] 長さの下限: 計測した {total} 本のうち、"
-                    "{floor:.0f} nm より短い {n} 本を外しました"
-                ).format(
-                    grp=grp_name, total=measured,
-                    floor=min_length_nm, n=measured - kept,
                 )))
 
             # Say what the frame mode removed, and how many of the lengths

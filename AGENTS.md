@@ -1564,6 +1564,43 @@ counted as functions rather than parametrized cases, and a run started from
 inside another script is not seen. Other agents, and a person at a terminal,
 follow this rule without the hook.
 
+### 8.20 Steps that change what is compared
+
+A step that leaves measured objects out of a result, reweights them, or cuts
+them to a common range so that groups or bundles become comparable is proposed
+together with the experimental design it assumes, and is not built until the
+user has confirmed that design in the conversation.
+
+The reason is what happened without the rule. An academic review of GUI03
+noted that a coarser scan keeps no fiber shorter than its length floor
+(`measure.length_floor_nm`), and GUI03 was given a setting, on by default when
+it was added, that cut every compared group at the largest floor of all
+groups. Specimens whose fibers differ in length, such as tunicate and
+higher-plant cellulose, or one material after different treatments, are
+imaged at different resolutions by design, so the setting removed short fibers
+from a finely scanned group because of another group's scan and could distort
+the very difference being compared. It passed several reviews, because each
+checked that the code did what its rationale said, not whether the rationale
+held for how this project's specimens are imaged.
+
+- **Name when it distorts the result.** A proposal states the situations in
+  which the step makes a comparison wrong — in particular groups that differ
+  in specimen, treatment or imaging on purpose — and what the user loses. A
+  proposal that lists only what the step corrects is incomplete.
+- **Report rather than alter.** A difference between bundles (resolution,
+  analysis settings, kink threshold, centerline) is shown as a warning that
+  names it, and the data stay as measured, as GUI03 does for centerlines and
+  kink thresholds.
+- **One group's data never decide what is kept of another group.**
+- **Off by default is not a defence.** An option still has to be right for
+  every situation it is offered for, and its tooltip says when not to use it.
+- **A review checks the premise, not only the code.** For each such step, write
+  down the experimental situation its rationale assumes and check it against
+  how this project's specimens are prepared and imaged; a rationale in a
+  docstring or a document is a claim to check, not evidence.
+- **When this rule is introduced or tightened, search the existing code for
+  steps it covers in the same change.**
+
 ## 9. Index
 
 Where each rule is. The rules themselves are stated once, in their section.
@@ -1594,3 +1631,4 @@ Where each rule is. The rules themselves are stated once, in their section.
 | Claims in `paper.md` | §8.17 |
 | Visual review of analysis changes | §8.18 |
 | Running the tests | §8.19 |
+| Steps that change what is compared | §8.20 |

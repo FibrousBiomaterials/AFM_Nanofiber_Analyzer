@@ -1380,37 +1380,93 @@ def test_gui03_a_new_histogram_range_rebins_without_measuring_again(
     assert "25.0%" in app.log_text.get("1.0", "end")
 
 
-def test_gui03_length_floor_log_names_bundles_it_cannot_cut(monkeypatch):
+def test_gui03_warns_only_about_a_group_whose_floors_differ(monkeypatch):
     """
-    Bundles without a scan size are logged as not cut, not as cut at the floor.
-    走査範囲の無いバンドルは、下限で切ったとではなく切らないとログに出す。
+    A group of one floor gets no warning; a mixed group gets one naming both ends.
+    下限がそろったグループには警告せず、混ざったグループには両端を示す警告を 1 件出す。
 
-    A floor in nanometers cannot be applied without a pixel size:
-    `skeleton_height_values` measures such a bundle whole, and every other
-    collector cannot read it. A bundle that records a scan size but not its
-    settings or width is still cut at the common floor.
-    ピクセルサイズが無ければ nm の下限は当てられない。`skeleton_height_values` は
-    そのバンドルを全体のまま計測し、ほかの collector は読み込めない。走査範囲は
-    あるが設定や幅を記録していないバンドルには、共通の下限が当たる。
+    A spread under one percent is the rounding of a recorded scan size, and a
+    bundle whose floor is unknown is left out of the comparison.
+    1 % 未満の違いは記録された走査範囲の丸めであり、下限の分からないバンドルは
+    比較に入れない。
     """
     import queue
 
-    floors = {"known": 40.0}
-    scans = {"known": (2.0, 2.0), "scan_a": (2.0, 2.0), "scan_b": (2.0, 2.0)}
+    floors = {"a": 20.0, "b": 20.1, "c": 40.0}
     monkeypatch.setattr(gui03, "length_floor_nm", lambda p: floors.get(p))
-    monkeypatch.setattr(gui03, "read_scan_size_from_bundle", lambda p: scans.get(p))
+    app = object.__new__(gui03.App)
+    app.ui_queue = queue.Queue()
+    app._warn_group_length_floors("Same", ["a", "b", "unknown"])
+    assert [body for kind, body in _gui03_drain(app) if kind == "log"] == []
+    app._warn_group_length_floors("Mixed", ["a", "c", "unknown"])
+    logs = [body for kind, body in _gui03_drain(app) if kind == "log"]
+    assert len(logs) == 1 and logs[0].startswith("[Mixed]")
+    assert "20" in logs[0] and "40" in logs[0]
+
+
+def test_gui03_worker_warns_per_group_and_cuts_nothing(tk_app, tmp_path, monkeypatch):
+    """
+    Each group is checked against its own bundles only, and no fiber is cut.
+    各グループは自身のバンドルだけで調べ、繊維は 1 本も外さない。
+
+    Specimens are imaged at the resolution their fibers need, so a finely
+    scanned group is not compared with a coarsely scanned one for this.
+    試料はその繊維に必要な解像度で撮られるため、細かく撮ったグループと粗く撮った
+    グループをこのために比べない。
+    """
+    app = tk_app(gui03.App)
+    folders = {}
+    for name in ("Fine", "Coarse"):
+        folder = tmp_path / name
+        folder.mkdir()
+        for stem in ("s1", "s2"):
+            (folder / (stem + gui03.BUNDLE_EXT)).write_bytes(b"")
+        folders[name] = str(folder)
+    floors = {}
+    for name, (f1, f2) in (("Fine", (10.0, 10.0)), ("Coarse", (40.0, 80.0))):
+        paths = _gui03_bundles(folders[name])
+        floors[paths[0]], floors[paths[1]] = f1, f2
+    monkeypatch.setattr(gui03, "length_floor_nm", lambda p: floors.get(p))
+    passed = []
+
+    def collect(paths, param, unit, **kw):
+        passed.append(sorted(kw))
+        return [1.0, 2.0, 3.0], None, 3, 2, []
+
+    monkeypatch.setattr(app, "_collect_bundle_values", collect)
+    args = _gui03_run_args([(n, _gui03_bundles(folders[n])) for n in ("Fine", "Coarse")])
+    args["param"] = gui03.PARAM_LENGTH
+    args["unit"] = gui03.UNIT_FIBER
+    app._worker_run(args)
+    assert len(passed) == 2 and all("min_length_nm" not in kw for kw in passed)
+    warned = [body for kind, body in _gui03_drain(app)
+              if kind == "log" and ("80 nm" in body or "10 nm" in body)]
+    assert len(warned) == 1 and warned[0].startswith("[Coarse]")
+    assert "40" in warned[0] and "80" in warned[0]
+
+
+def test_gui03_curvature_window_note_names_its_group():
+    """
+    The count of fibers shorter than the curvature window says which group lost them.
+    曲率窓より短いファイバーの本数には、どのグループで失われたかを付ける。
+
+    The window is one length for every group, so a group of shorter fibers
+    loses a larger share, which an unnamed count would hide.
+    窓はどのグループにも同じ長さなので、短いファイバーの多いグループほど多くを
+    失う。名前のない本数ではそれが隠れる。
+    """
+    import queue
+
+    import numpy as np
 
     app = object.__new__(gui03.App)
     app.ui_queue = queue.Queue()
-    floor = app._common_length_floor(
-        ["known", "scan_a", "scan_b", "none_a", "none_b", "none_c"], True)
-    assert floor == 40.0
+    app._log_curvature_caveats([("a", np.array([1.0, 2.0]))], 100.0, "Long")
+    assert not _gui03_drain(app)
+    app._log_curvature_caveats([("b", np.array([1.0, np.nan, np.nan]))], 100.0, "Short")
     logs = [body for kind, body in _gui03_drain(app) if kind == "log"]
-    # The common floor, the 2 bundles cut at it, the 3 bundles not cut.
-    # 共通の下限、それで切る 2 バンドル、切らない 3 バンドル。
-    assert len(logs) == 3
-    assert "2" in logs[1] and "3" not in logs[1]
-    assert "3" in logs[2]
+    assert len(logs) == 1 and logs[0].startswith("[Short]")
+    assert "2" in logs[0] and "3" in logs[0]
 
 
 def test_gui03_warns_when_a_group_pools_pixel_sizes():

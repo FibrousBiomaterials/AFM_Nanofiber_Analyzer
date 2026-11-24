@@ -298,7 +298,7 @@ class FiberStats:
         straight fiber and a coiled one approaches 0. NaN when the pixel size
         was not supplied, or when the contour length is zero.
         端点間距離を輪郭長で割った値（(0, 1]）。1.0 は直線状のファイバーで、
-        巻き込んだものほど 0 に近づく。ピクセルサイズが与えられなかった場合、
+        巻き込んだものほど 0 に近づく。サンプリング間隔（nm/px）が与えられなかった場合、
         または輪郭長が 0 の場合は NaN。
     height_p90_nm
         `HEIGHT_UPPER_PERCENTILE` of the same height samples in nanometers,
@@ -310,8 +310,8 @@ class FiberStats:
         scaled by, in nanometers (`Fiber.width_px` times the X pixel size).
         NaN on the skeleton track or without a pixel size.
         ファイバーの線を置き、キンク規則を尺度付けした見かけ幅 W (nm)
-        （`Fiber.width_px` × X ピクセルサイズ）。スケルトントラック上、または
-        ピクセルサイズが無い場合は NaN。
+        （`Fiber.width_px` × X のサンプリング間隔（nm/px））。スケルトントラック上、または
+        サンプリング間隔（nm/px）が無い場合は NaN。
     width_measured
         Whether `width_nm` was read from the fiber's own cross-sections;
         ``False`` means the fallback width was substituted (`Fiber.width_measured`).
@@ -368,8 +368,8 @@ class FiberStats:
         no pixel size was given. `fiber_kink_density` leaves it out of the
         divisor.
         連結器の橋渡し部が、キンクを数える範囲から除く長さ (nm)
-        （`Fiber.bridge_excluded_px` × X ピクセルサイズ）。橋渡し部の無い
-        ファイバーでは 0、ピクセルサイズが与えられず橋渡し部を持つファイバーでは
+        （`Fiber.bridge_excluded_px` × X のサンプリング間隔（nm/px））。橋渡し部の無い
+        ファイバーでは 0、サンプリング間隔（nm/px）が与えられず橋渡し部を持つファイバーでは
         NaN。`fiber_kink_density` はこれを分母から除く。
     frame_end_count
         How many of the fiber's two ends are skeleton endpoints on the
@@ -469,12 +469,6 @@ class MeasureResult:
         because of `plan_missing` members.
         `plan_missing` のメンバーにより 2 つ以上に割れた、または消滅した保存済み
         連鎖の本数。
-    short_dropped
-        Fibers left out of `fibers` and `stats` because they were shorter than
-        the length floor the caller asked for (`measure_bundle` with
-        ``min_length_nm``).
-        呼び出し側が求めた下限長（`measure_bundle` の ``min_length_nm``）より短い
-        ため、`fibers` と `stats` から外したファイバーの数。
     scale_um, scale_y_um
         X and Y scan sizes in micrometers the lengths were measured at; NaN
         when the result was not made by `measure_bundle`.
@@ -495,7 +489,6 @@ class MeasureResult:
     curated_count: int = 0
     plan_missing: int = 0
     plan_splits: int = 0
-    short_dropped: int = 0
     scale_um: float = float("nan")
     scale_y_um: float = float("nan")
     scale_source: str = ""
@@ -623,7 +616,7 @@ def _frame_weight(
     Miles-Lantuejoul 補正は、残った各ファイバーを収まる確率の逆数で重み付けする。
     ``w x h`` の矩形が最外周の行・列を避けて置ける位置は
     ``(W - 1 - w)(H - 1 - h)`` 通りであり、1 画素の重みが 1 になるよう正規化する。
-    無次元の比なので、ピクセルサイズ・長方形画素・走査範囲の違いは打ち消し合い、
+    無次元の比なので、サンプリング間隔（nm/px）・長方形画素・走査範囲の違いは打ち消し合い、
     複数画像の重み付き標本を偏りなくまとめられる。補正するのは枠だけであり、交差で
     切れた断片は依然としてファイバー全体であるかのように数えられる。
     """
@@ -1054,11 +1047,11 @@ def fiber_straightness(
         トラックと輪郭長を参照する追跡済みファイバー。
     x_size_per_pixel
         Physical X (column) pixel size in nanometers.
-        X（列）方向の物理ピクセルサイズ (nm)。
+        X（列）方向のサンプリング間隔（nm/px）。
     y_size_per_pixel
         Physical Y (row) pixel size in nanometers; ``None`` reuses the X size
         for a square pixel grid.
-        Y（行）方向の物理ピクセルサイズ (nm)。``None`` のときは正方ピクセル格子
+        Y（行）方向のサンプリング間隔（nm/px）。``None`` のときは正方ピクセル格子
         として X の値を流用する。
 
     Returns
@@ -1209,10 +1202,10 @@ def fiber_curvature_profile(
         トラックと累積距離を参照する追跡済みファイバー。
     x_size_per_pixel
         Physical X (column) pixel size in nanometers.
-        X（列）方向の物理ピクセルサイズ (nm)。
+        X（列）方向のサンプリング間隔（nm/px）。
     y_size_per_pixel
         Physical Y (row) pixel size in nanometers; ``None`` reuses the X size.
-        Y（行）方向の物理ピクセルサイズ (nm)。``None`` のときは X の値を流用。
+        Y（行）方向のサンプリング間隔（nm/px）。``None`` のときは X の値を流用。
     window_nm
         Arc length over which the turning angle is measured.
         回転角を測る弧長。
@@ -1378,10 +1371,10 @@ def fiber_mean_curvature(
         計測対象の追跡済みファイバー。
     x_size_per_pixel
         Physical X (column) pixel size in nanometers.
-        X（列）方向の物理ピクセルサイズ (nm)。
+        X（列）方向のサンプリング間隔（nm/px）。
     y_size_per_pixel
         Physical Y (row) pixel size in nanometers; ``None`` reuses the X size.
-        Y（行）方向の物理ピクセルサイズ (nm)。``None`` のときは X の値を流用。
+        Y（行）方向のサンプリング間隔（nm/px）。``None`` のときは X の値を流用。
     window_nm
         Arc length the curvature estimator turns over.
         曲率推定が回転角を測る弧長。
@@ -1458,12 +1451,12 @@ def compute_fiber_stats(
         Physical X pixel size in nanometers. Straightness needs it to measure
         the chord in the same units as the contour length; without it that
         one field is NaN and every other statistic is unaffected.
-        X 方向の物理ピクセルサイズ (nm)。直線度は弦を輪郭長と同じ単位で測るため
+        X 方向のサンプリング間隔（nm/px）。直線度は弦を輪郭長と同じ単位で測るため
         これを必要とする。与えない場合はその項目のみ NaN となり、他の統計値は
         影響を受けない。
     y_size_per_pixel
         Physical Y pixel size in nanometers; ``None`` reuses the X size.
-        Y 方向の物理ピクセルサイズ (nm)。``None`` のときは X の値を流用する。
+        Y 方向のサンプリング間隔（nm/px）。``None`` のときは X の値を流用する。
     frame_shape
         ``(height, width)`` in pixels of the image the fibers were traced on,
         which the frame test and the Miles-Lantuejoul weight need; ``None``
@@ -1601,7 +1594,7 @@ def height_sample_mask(fiber: Fiber) -> np.ndarray:
     ためである。橋渡し部は、つなぐ 2 つの断片の間で、そうして消された交差をまたぐ
     ため、橋渡し部から同じ距離以内の標本も同じ理由で外す。本物の繊維端はその標本を
     残す。繊維は実際にそこで終わっている。範囲は線に沿った画素単位の弧長で測るため、
-    ピクセルサイズは要らない。
+    サンプリング間隔（nm/px）は要らない。
 
     A fragment that lies wholly inside these zones keeps no sample, and its
     height statistics are NaN (`compute_fiber_stats`): every sample it has
@@ -2027,11 +2020,11 @@ def _tracking_image_from_arrays(
         `_load_validated_arrays` が返すキーごとのバンドル配列。
     size_per_pixel
         X (column) pixel size.
-        X（列）軸のピクセルサイズ。
+        X（列）軸のサンプリング間隔（nm/px）。
     y_size_per_pixel
         Y (row) pixel size; ``None`` uses the X value, an isotropic
         (square-pixel) scale.
-        Y（行）軸のピクセルサイズ。``None`` なら X 値を流用し、等方（正方
+        Y（行）軸のサンプリング間隔（nm/px）。``None`` なら X 値を流用し、等方（正方
         ピクセル）スケールとする。
     meta
         The bundle's vlmeta, so the kink thresholds the stored kink points
@@ -2049,7 +2042,7 @@ def _tracking_image_from_arrays(
     -------
     FiberTrackingImage
         Container holding the arrays, the pixel sizes and the kink settings.
-        配列・ピクセルサイズ・キンクの設定を持つコンテナ。
+        配列・サンプリング間隔（nm/px）・キンクの設定を持つコンテナ。
     """
     cal = data["calibrated"]
     skl = data["skeletonized"].astype(np.uint8)
@@ -2123,11 +2116,11 @@ def load_tracking_image(
     size_per_pixel
         Physical X (column) pixel size in nanometers used for fiber-length
         calculations.
-        ファイバー長さ計算に使う X（列）軸の物理ピクセルサイズ (nm/px)。
+        ファイバー長さ計算に使う X（列）軸のサンプリング間隔（nm/px）。
     y_size_per_pixel
         Physical Y (row) pixel size in nanometers. ``None`` reuses
         ``size_per_pixel`` for an isotropic (square-pixel) scale.
-        Y（行）軸の物理ピクセルサイズ (nm/px)。``None`` のときは
+        Y（行）軸のサンプリング間隔（nm/px）。``None`` のときは
         ``size_per_pixel`` を流用し等方（正方ピクセル）スケールとする。
 
     Returns
@@ -2210,19 +2203,17 @@ def length_floor_nm(bundle_path: str) -> Optional[float]:
     shorter than this floor in pixels can be lost depending on its angle and
     placement. Measured in pixels, the floor is the same at every scan size,
     but in nanometers it grows with the pixel size: a coarser scan cannot
-    contain the short fibers a finer one keeps. Two groups imaged at
-    different pixel sizes are therefore compared above the larger of their
-    floors (GUI03, `cli.py measure --length-floor`). On synthetic straight
+    contain the short fibers a finer one keeps. GUI03 warns when the bundles
+    pooled in one group have different floors. On synthetic straight
     fibers, every fiber at least this long was kept (docs/validation.md §2.8).
     The floor is taken at the median width, so a fiber narrower than the
     median can still be lost somewhat above it.
     二値化は、どの向きにも `h_length` 画素より短い成分と、`area_min` 画素以下の
     成分を取り除く。幅 W 画素の繊維は長さ 1 画素あたり約 W 画素を占めるため、
     この下限より短い繊維は、向きと置き方次第で失われうる。画素で測った下限は
-    どの走査範囲でも同じだが、nm では画素サイズとともに大きくなる。粗い走査には、
-    細かい走査が残す短い繊維が含まれえない。そのため、異なる画素サイズで撮った
-    群どうしは、両者の下限の大きいほうより長い繊維で比べる（GUI03、
-    `cli.py measure --length-floor`）。合成の直線繊維では、この長さ以上の繊維は
+    どの走査範囲でも同じだが、nm ではサンプリング間隔（nm/px）とともに大きくなる。粗い走査には、
+    細かい走査が残す短い繊維が含まれえない。GUI03 は、1 つのグループにまとめた
+    バンドルの下限が違うときに警告する。合成の直線繊維では、この長さ以上の繊維は
     すべて残った（docs/validation.ja.md §2.8）。下限は幅の中央値で求めるため、
     中央値より細い繊維は、下限より多少長くても失われうる。
     """
@@ -2307,7 +2298,7 @@ def curate_fibers(
     image
         Tracking container the fragments were traced from, carrying the
         resolved per-axis pixel size used for the statistics.
-        断片の追跡元となった追跡コンテナ。統計計算に使う軸別ピクセルサイズを
+        断片の追跡元となった追跡コンテナ。統計計算に使う軸別のサンプリング間隔（nm/px）を
         確定済みで保持する。
     fragments
         Traced skeleton fragments, before any curation is applied.
@@ -2403,7 +2394,6 @@ def measure_bundle(
     scale_y_um: Optional[float] = None,
     plan: Optional[ConnectionPlan] = None,
     exclude_anchors: Sequence[Tuple[int, int]] = (),
-    min_length_nm: Optional[float] = None,
 ) -> MeasureResult:
     """
     Trace all fibers in one bundle and compute their statistics.
@@ -2424,8 +2414,8 @@ def measure_bundle(
         raised if neither an explicit value nor a recorded scan size is
         available.
         X（列）軸方向の生スキャン全体の物理幅 (µm)。解析配列は生スキャンより
-        1 列クロップされているため、X のピクセルサイズは
-        ``scale_um * 1000 / (横px + 1)``（関数本体のピクセルサイズ注記参照）。
+        1 列クロップされているため、X のサンプリング間隔（nm/px）は
+        ``scale_um * 1000 / (横px + 1)``（関数本体のサンプリング間隔（nm/px）注記参照）。
         ``None`` のときはバンドルに記録された走査範囲
         （``spatial_calibration``）が両軸を供給する。明示値も記録値も
         無い場合は ``ValueError`` を送出する。
@@ -2444,7 +2434,7 @@ def measure_bundle(
         otherwise, which treats the scan as square. Pass a distinct value for
         rectangular scans.
         Y（行）軸方向の生スキャン全体の物理高さ (µm)。解析配列の 1 行クロップに
-        対応して、Y のピクセルサイズは ``scale_y_um * 1000 / (縦px + 1)``。
+        対応して、Y のサンプリング間隔（nm/px）は ``scale_y_um * 1000 / (縦px + 1)``。
         ``None`` のときは（``scale_um`` も
         ``None`` なら）記録された Y 走査範囲、そうでなければ ``scale_um`` を
         既定値とし、走査を正方として扱う。矩形スキャンでは別の値を渡す。
@@ -2467,14 +2457,6 @@ def measure_bundle(
         手動除外ファイバーのアンカー画素。再結合の**前**に、追跡済み断片へ
         適用する（`curate_fibers` 参照）。既定は空で、呼び出し側がキュレーション
         を要求しない限り何も除外しない。
-    min_length_nm
-        Contour length in nanometers below which a measured fiber is left out
-        of the result, after curation and connection, so groups imaged at
-        different pixel sizes can be compared above a common floor
-        (`length_floor_nm`); ``None`` keeps every fiber.
-        キュレーションと連結の後、これより短い計測ファイバーを結果から外す輪郭長
-        (nm)。異なる画素サイズで撮った群を共通の下限より上で比べるためのもの
-        （`length_floor_nm`）。``None`` ならすべて残す。
 
     Returns
     -------
@@ -2496,7 +2478,7 @@ def measure_bundle(
     Pixel size is resolved per axis (X from image width, Y from image height)
     so rectangular fields of view and non-square pixel grids are measured
     correctly. Square scans on square pixel grids are unchanged.
-    ピクセルサイズは軸ごと（X は画像の幅、Y は画像の高さ）に解決するため、
+    サンプリング間隔（nm/px）は軸ごと（X は画像の幅、Y は画像の高さ）に解決するため、
     矩形視野や非正方ピクセル格子も正しく測れる。正方ピクセル格子の正方スキャンの
     結果は変わらない。
 
@@ -2569,7 +2551,7 @@ def measure_bundle(
     # raw pixel count is the bundle shape plus one. Dividing by the cropped
     # shape would inflate every length by width/(width-1) (~0.2% at 512 px).
     # `bundle_schema.pixel_size_nm` holds that convention for every caller.
-    # 軸別ピクセルサイズ：X は列（幅）、Y は行（高さ）に対応し、バンドルの
+    # 軸別のサンプリング間隔（nm/px）：X は列（幅）、Y は行（高さ）に対応し、バンドルの
     # 座標規約（x=列, y=行）に一致する。走査範囲は生スキャン全体の寸法だが、
     # BGCalibrator は解析配列を 1 行・1 列クロップする（``original[1:, 1:]``）
     # ため、生スキャンの画素数はバンドル形状 +1 になる。クロップ後の形状で
@@ -2613,18 +2595,6 @@ def measure_bundle(
         exclude_anchors=exclude_anchors,
         plan=plan,
     )
-    if min_length_nm is not None:
-        # The floor applies to the measured population, so it runs after
-        # connection: a fibril is judged by its own length, not its pieces'.
-        # 下限は計測する母集団にかけるため連結の後に適用する。フィブリルは断片の
-        # 長さではなく自身の長さで判定する。
-        keep = [i for i, s in enumerate(result.stats) if s.length_nm >= min_length_nm]
-        result = dataclasses.replace(
-            result,
-            fibers=[result.fibers[i] for i in keep],
-            stats=[result.stats[i] for i in keep],
-            short_dropped=len(result.stats) - len(keep),
-        )
     return dataclasses.replace(
         result, scale_um=float(scale_um), scale_y_um=float(scale_y_um),
         scale_source=scale_source,
@@ -2749,46 +2719,6 @@ def _report_curation(
     if report is not None:
         report.append((
             bundle_path, len(result.fragments), int(result.curated_count),
-            len(result.fibers) + int(result.short_dropped),
-        ))
-
-
-def _report_floor(
-    report: Optional[List[Tuple[str, int, int]]],
-    bundle_path: str,
-    result: MeasureResult,
-) -> None:
-    """
-    Append how many of one bundle's fibers the length floor kept.
-    1 バンドルのファイバーのうち、下限長が残した本数を報告リストへ追加する。
-
-    Parameters
-    ----------
-    report
-        List the caller passed as ``floor_report``; ``None`` records nothing.
-        呼び出し側が ``floor_report`` として渡したリスト。``None`` なら何も
-        記録しない。
-    bundle_path
-        Bundle the counts belong to.
-        件数が属するバンドル。
-    result
-        Measurement of that bundle.
-        そのバンドルの計測結果。
-
-    Notes
-    -----
-    The entry is ``(bundle_path, measured, kept)``: the fibers measured after
-    curation and connection, and those at least as long as the floor. Like the
-    curation counts, it lets a caller say how much the floor removed, which
-    the surviving population alone does not show.
-    項目は ``(バンドルパス, 計測数, 残った数)`` で、キュレーションと連結の後に
-    計測したファイバー数と、そのうち下限以上の長さを持つ数である。キュレーションの
-    件数と同じく、残った母集団だけでは分からない、下限が取り除いた量を呼び出し側
-    が示せるようにする。
-    """
-    if report is not None:
-        report.append((
-            bundle_path, len(result.fibers) + int(result.short_dropped),
             len(result.fibers),
         ))
 
@@ -2828,8 +2758,7 @@ def _measure_curated(
         同じ間だけである。
     **settings
         ``scale_um``, ``scale_y_um``, ``max_workers``, ``apply_exclusions``,
-        ``apply_connection`` and ``min_length_nm``, as the collectors take
-        them.
+        and ``apply_connection``, as the collectors take them.
         コレクタが受け取るのと同じ設定。
 
     Returns
@@ -2870,7 +2799,6 @@ def _measure_curated(
         max_workers=settings["max_workers"],
         exclude_anchors=anchors,
         plan=plan,
-        min_length_nm=settings["min_length_nm"],
     )
     if key is not None:
         cache[key] = result
@@ -2885,8 +2813,6 @@ def collect_fiber_stats(
     apply_exclusions: bool = False,
     apply_connection: bool = False,
     curation_report: Optional[List[Tuple[str, int, int, int]]] = None,
-    min_length_nm: Optional[float] = None,
-    floor_report: Optional[List[Tuple[str, int, int]]] = None,
     cache: Optional[Dict] = None,
 ) -> Tuple[List[Tuple[str, List[FiberStats]]], List[Tuple[str, str]]]:
     """
@@ -2939,14 +2865,6 @@ def collect_fiber_stats(
         計測したバンドルごとに ``(バンドルパス, 追跡数, 除外後の数, 計測数)``
         を 1 件追加するリスト。追跡された断片数、手動除外の後に残った数、連結後に
         計測したファイバー数である。``None`` なら何も記録しない。
-    min_length_nm
-        Length floor forwarded to `measure_bundle`; see `length_floor_nm`.
-        `measure_bundle` へ渡す下限長。`length_floor_nm` 参照。
-    floor_report
-        List to which one ``(bundle_path, measured, kept)`` tuple is appended
-        per measured bundle (`_report_floor`); ``None`` records nothing.
-        計測したバンドルごとに ``(バンドルパス, 計測数, 残った数)`` を 1 件追加する
-        リスト（`_report_floor`）。``None`` なら何も記録しない。
     cache
         Mapping the caller keeps between calls so a bundle measured with the
         same files and settings is not traced again (`_measure_curated`);
@@ -3014,14 +2932,12 @@ def collect_fiber_stats(
                 max_workers=max_workers,
                 apply_exclusions=apply_exclusions,
                 apply_connection=apply_connection,
-                min_length_nm=min_length_nm,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
 
         _report_curation(curation_report, path, result)
-        _report_floor(floor_report, path, result)
         per_bundle.append((path, list(result.stats)))
     return per_bundle, errors
 
@@ -3064,7 +2980,7 @@ def contour_length_weights(horizon: np.ndarray) -> np.ndarray:
     `horizon[-1] - horizon[0]` になる。点を等しく数える代わりにこの重みを使う
     ことには 2 つの意味がある。1 枚の画像内では骨格が直交ステップと斜めステップ
     を混在させ、補正済みチェーンコード長は約 1.41 倍異なるため、点を数えると
-    斜め区間が過小評価される。画像間では走査範囲に応じてピクセルサイズが変わり、
+    斜め区間が過小評価される。画像間では走査範囲に応じてサンプリング間隔（nm/px）が変わり、
     細かくサンプリングされた画像ほどファイバー 1 µm あたりの点数が多くなって
     集約分布を支配してしまう。長さ重み付けは両方の偏りを取り除き、分布を
     スケール不変にする。すなわち「サンプル点のうちの割合」ではなく「観測した
@@ -3095,8 +3011,6 @@ def _collect_skeleton_height_profiles(
     apply_exclusions: bool = False,
     apply_connection: bool = False,
     curation_report: Optional[List[Tuple[str, int, int, int]]] = None,
-    min_length_nm: Optional[float] = None,
-    floor_report: Optional[List[Tuple[str, int, int]]] = None,
 ) -> Tuple[List[Tuple[str, np.ndarray, np.ndarray]], List[Tuple[str, str]]]:
     """
     Collect tracked height profiles and their contour length weights.
@@ -3131,13 +3045,6 @@ def _collect_skeleton_height_profiles(
         `collect_fiber_stats`.
         `collect_fiber_stats` と同様に、各バンドルのキュレーション件数を受け取る
         リスト。
-    min_length_nm
-        Length floor forwarded to `measure_bundle`; see `length_floor_nm`.
-        `measure_bundle` へ渡す下限長。`length_floor_nm` 参照。
-    floor_report
-        List receiving each bundle's floor counts, as in
-        `collect_fiber_stats`.
-        `collect_fiber_stats` と同様に、各バンドルの下限長の件数を受け取るリスト。
 
     Returns
     -------
@@ -3180,14 +3087,12 @@ def _collect_skeleton_height_profiles(
                 max_workers=max_workers,
                 exclude_anchors=anchors,
                 plan=plan,
-                min_length_nm=min_length_nm,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
 
         _report_curation(curation_report, path, result)
-        _report_floor(floor_report, path, result)
         fibers = result.fibers
 
         heights: List[np.ndarray] = []
@@ -3220,8 +3125,6 @@ def collect_fiber_curvature(
     curvature_window_nm: float = DEFAULT_CURVATURE_WINDOW_NM,
     apply_connection: bool = False,
     curation_report: Optional[List[Tuple[str, int, int, int]]] = None,
-    min_length_nm: Optional[float] = None,
-    floor_report: Optional[List[Tuple[str, int, int]]] = None,
     cache: Optional[Dict] = None,
 ) -> Tuple[List[Tuple[str, np.ndarray]], List[Tuple[str, str]]]:
     """
@@ -3262,13 +3165,6 @@ def collect_fiber_curvature(
         `collect_fiber_stats`.
         `collect_fiber_stats` と同様に、各バンドルのキュレーション件数を受け取る
         リスト。
-    min_length_nm
-        Length floor forwarded to `measure_bundle`; see `length_floor_nm`.
-        `measure_bundle` へ渡す下限長。`length_floor_nm` 参照。
-    floor_report
-        List receiving each bundle's floor counts, as in
-        `collect_fiber_stats`.
-        `collect_fiber_stats` と同様に、各バンドルの下限長の件数を受け取るリスト。
     cache
         Mapping that lets a bundle measured with the same files and settings be
         reused, as in `collect_fiber_stats`; the curvature itself is computed
@@ -3328,14 +3224,12 @@ def collect_fiber_curvature(
                 max_workers=max_workers,
                 apply_exclusions=apply_exclusions,
                 apply_connection=apply_connection,
-                min_length_nm=min_length_nm,
             )
         except Exception as e:
             errors.append((path, f"{type(e).__name__}: {e}"))
             continue
 
         _report_curation(curation_report, path, result)
-        _report_floor(floor_report, path, result)
         fibers = result.fibers
 
         x_spp = result.image.size_per_pixel
@@ -3729,7 +3623,7 @@ def skeleton_height_values(
     different pixel sizes therefore weights the finer ones more; GUI03 warns
     when a group does that.
     スケルトンがどの向きに走っていても 1 画素は 1 回数えるため、ファイバーは
-    画素数に比例して寄与する。そのため画素サイズの異なるバンドルをまとめると
+    画素数に比例して寄与する。そのためサンプリング間隔（nm/px）の異なるバンドルをまとめると
     細かいほうの寄与が大きくなる。GUI03 はグループがそうなっているときに警告する。
 
     A manual exclusion names a fiber by a pixel on it (`fiber_selection`), so
@@ -3904,7 +3798,7 @@ def _distance_along_skeleton(
         距離を測る起点の画素の真偽マスク。
     aspect
         Y pixel size over X pixel size; a step is ``hypot(dx, dy * aspect)``.
-        Y 画素サイズ ÷ X 画素サイズ。1 歩は ``hypot(dx, dy * aspect)``。
+        Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）。1 歩は ``hypot(dx, dy * aspect)``。
     limit
         Distance beyond which a pixel is left at infinity.
         これより遠い画素は無限大のままにする距離。

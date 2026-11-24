@@ -1,7 +1,7 @@
 {
   "_comment": "SHA-256 of each symbol docs/gui04_measurements.md explains, with comments and docstrings removed. Refresh with `python scripts/check_gui04_docs.py --update` only after rereading the affected sections of both language versions.",
   "symbols": {
-    "afm_nanofiber_analyzer/measure.py::measure_bundle": "51bbaf25bf72bad035749b1e5bbbfbf3cf9bfe8d6ed69b22c61303d44ef26c13",
+    "afm_nanofiber_analyzer/measure.py::measure_bundle": "212d0e3bd342e93130757a9ec1146d419890a4cb1ea39d442a1356eae8196051",
     "afm_nanofiber_analyzer/bundle_schema.py::pixel_size_nm": "62a3a2671ce2e963d46f8d6906823444aa214bd8a53c13a0140c4a6cfd734ef0",
     "afm_nanofiber_analyzer/fiber_tracking_image.py::_build_fiber": "6e6b64380d1e953e0d93463af8235e45bf08215596161f9d0760757df8cda709",
     "afm_nanofiber_analyzer/fiber.py::Fiber.length": "e2a59e65c72f8c8f8e12247a4a350392327b0aa86bc836dd4960872802fc43bf",

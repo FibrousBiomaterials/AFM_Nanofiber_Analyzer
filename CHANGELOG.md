@@ -10,20 +10,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- GUI03 can cut every compared group at a common length floor ("長さの下限を
-  そろえる", off by default): fibers shorter than the longest of the compared
-  bundles' floors are left out of every quantity but the skeleton-pixel
-  heights, which measure no fiber length, and the log reports the floor
-  and how many fibers each group lost. A bundle's floor is
-  `max(h_length, area_min / W)` pixels at its pixel size, W being its median
-  apparent width (`measure.length_floor_nm`), because binarization removes
-  shorter components whatever their angle, so a coarser scan cannot contain the
-  short fibers a finer one keeps; on synthetic straight fibers every fiber at
-  least that long was kept (`docs/validation.md` §2.8). `measure_bundle` and the
-  bundle collectors that trace fibers take the floor as `min_length_nm`, and
-  `cli.py measure --length-floor common|NM` applies it to CSV output. With the
-  option off, GUI03 warns when the compared bundles' floors differ. GUI03,
-  `cli.py measure` and GUI04 keep every fiber unless asked.
+- GUI03 warns when one group pools bundles whose length floors differ, as
+  bundles of different resolution or analysis settings do, and logs the
+  shortest and the longest floor: a coarser scan cannot contain the short
+  fibers a finer one keeps, so the group's distribution mixes imaging
+  conditions. No fiber is left out, and groups are not compared for it,
+  because each specimen may be imaged at the resolution its fibers need. A
+  bundle's floor is `max(h_length, area_min / W)` pixels at its pixel size, W
+  being its median apparent width (`measure.length_floor_nm`), because
+  binarization removes shorter components whatever their angle; on synthetic
+  straight fibers every fiber at least that long was kept
+  (`docs/validation.md` §2.8).
 - GUI03's "枠のファイバー" setting for `contour length` has a fourth option,
   `Kaplan-Meier`, which estimates the fiber length distribution from every
   fiber with an end of its own: a fiber with both ends its own is a length seen
@@ -496,10 +493,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a whole number of steps now ends its last bin past the maximum. **GUI03
   histograms, the share logged outside them and `N in range` change from this
   version**; the summary statistics and the tests do not.
-- GUI03 no longer logs that the common length floor is applied to bundles that
-  record no scan size. No floor in nanometers can be applied to them: `height`
-  per `pixel` aggregates all their fibers, and every other quantity cannot read
-  them, which the log now says. Measured values do not change.
 - GUI03's curvature-window tooltip no longer says that a window that is too
   small returns a constant value whatever the true curvature (19.4 rad/µm at
   20 nm). Direction is quantised only on the lines that follow the skeleton
@@ -819,7 +812,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   skeleton holding its anchor; a saved connection, which adds only
   interpolated bridge heights, changes no sample. Pieces shorter than 10
   pixels, skeleton L-corners and pieces that cannot be traced are no longer
-  dropped, the length floor does not apply, and each height is the skeleton
+  dropped, and each height is the skeleton
   pixel's rather than the crest height of the centerline. GUI03 warns when a
   group pools bundles of different pixel sizes, because a finer pixel size
   contributes more pixels per micrometer of fiber. **Pooled height

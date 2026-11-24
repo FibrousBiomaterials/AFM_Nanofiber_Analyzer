@@ -38,7 +38,7 @@ _DENOM_EPS = 1e-21
 def _to_square_pixels(image: np.ndarray, aspect: float, order: int) -> np.ndarray:
     """
     Resample an image along Y onto a grid of square pixels, X pixels wide.
-    画像を Y 方向に描き直し、X 画素の大きさの正方画素の格子に載せる。
+    画像を Y 方向に描き直し、X のサンプリング間隔（nm/px）を一辺とする正方画素の格子に載せる。
 
     Parameters
     ----------
@@ -47,7 +47,7 @@ def _to_square_pixels(image: np.ndarray, aspect: float, order: int) -> np.ndarra
         走査の格子上の 2 次元配列。
     aspect
         Y pixel size over X pixel size (`bundle_schema.pixel_aspect`).
-        Y 画素サイズ ÷ X 画素サイズ（`bundle_schema.pixel_aspect`）。
+        Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）（`bundle_schema.pixel_aspect`）。
     order
         1 interpolates heights linearly between rows; 0 takes the nearest row,
         for a mask.
@@ -85,7 +85,7 @@ def _from_square_pixels(mask: np.ndarray, rows: int, aspect: float) -> np.ndarra
         走査の格子の行数。
     aspect
         Y pixel size over X pixel size.
-        Y 画素サイズ ÷ X 画素サイズ。
+        Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）。
 
     Returns
     -------
@@ -362,7 +362,7 @@ class Segmenter:
             lengths. Converted to pixel scales per image, so the same setting
             means the same physical structure at any scan resolution.
             リッジフィルタが探索する繊維半幅の範囲（物理量）。画像ごとに画素
-            スケールへ換算するため、同じ設定値が走査解像度によらず同じ物理
+            スケールへ換算するため、同じ設定値がサンプリング間隔（nm/px）によらず同じ物理
             構造を意味する。
         """
 
@@ -410,12 +410,12 @@ class Segmenter:
             X pixel size in nanometres, required only by ridge recovery. When
             omitted the recovery step is skipped, because its length and width
             settings are physical and cannot be converted without it.
-            X 画素サイズ (nm)。リッジ回収でのみ必要。省略時は回収段を行わない。
+            X のサンプリング間隔（nm/px）。リッジ回収でのみ必要。省略時は回収段を行わない。
             回収段の長さ・幅設定は物理量であり、これなしでは換算できないため。
         pixel_aspect
             Y pixel size over X pixel size (`bundle_schema.pixel_aspect`),
             read only by ridge recovery.
-            Y 画素サイズ ÷ X 画素サイズ（`bundle_schema.pixel_aspect`）。リッジ
+            Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）（`bundle_schema.pixel_aspect`）。リッジ
             回収だけが読む。
 
         Raises
@@ -503,15 +503,15 @@ class Segmenter:
             ここまでに採用されたマスク。この外側の実体だけが回収対象となる。
         nm_per_px
             X pixel size in nanometres, or None to skip recovery.
-            X 画素サイズ (nm)。None なら回収を行わない。
+            X のサンプリング間隔（nm/px）。None なら回収を行わない。
         pixel_aspect
             Y pixel size over X pixel size. When it is not 1, the heights and
             the mask are resampled along Y onto square pixels X pixels wide
             (`_to_square_pixels`), the filter, the thresholds and the length
             test run there, and the recovered mask is mapped back
             (`_from_square_pixels`).
-            Y 画素サイズ ÷ X 画素サイズ。1 でなければ、高さとマスクを Y 方向に
-            描き直して X 画素の大きさの正方画素に載せ（`_to_square_pixels`）、
+            Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）。1 でなければ、高さとマスクを Y 方向に
+            描き直して X のサンプリング間隔（nm/px）を一辺とする正方画素に載せ（`_to_square_pixels`）、
             フィルタ・しきい値・長さの判定をそこで行い、回収したマスクを元の格子へ
             戻す（`_from_square_pixels`）。
 
@@ -546,7 +546,7 @@ class Segmenter:
         makes one scale one physical width in every direction, and makes the
         length along the skeleton (`_skeleton_path_length_px`) a length in X
         pixels.
-        Frangi フィルタのスケールは等方的なので、X と Y の画素サイズが違う走査では、
+        Frangi フィルタのスケールは等方的なので、X と Y のサンプリング間隔（nm/px）が違う走査では、
         X に沿う繊維と Y に沿う繊維とで探す幅が変わってしまう。正方画素に描き直すと、
         1 つのスケールがどの向きでも同じ実寸の幅になり、スケルトンに沿った長さ
         （`_skeleton_path_length_px`）も X 画素単位の長さになる。

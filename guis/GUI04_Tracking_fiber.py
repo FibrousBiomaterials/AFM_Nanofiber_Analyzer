@@ -314,7 +314,7 @@ def table_row_values(result: MeasureResult) -> List[tuple]:
     ----------
     result
         Measurement whose `fibers`, `stats`, and `image` pixel sizes are read.
-        `fibers`・`stats` と `image` のピクセルサイズを読み取る計測結果。
+        `fibers`・`stats` と `image` のサンプリング間隔（nm/px）を読み取る計測結果。
 
     Returns
     -------
@@ -336,7 +336,7 @@ def table_row_values(result: MeasureResult) -> List[tuple]:
     Everything but the curvature comes from `result.stats`, which the
     measurement already computed with the pixel size.
     Tk メインスレッド外から呼び、テーブル再構築時に計測が走らないようにする。
-    曲率以外は、計測時にピクセルサイズ付きで算出済みの `result.stats` から取る。
+    曲率以外は、計測時にサンプリング間隔（nm/px）付きで算出済みの `result.stats` から取る。
     """
     return _table_values(result.stats, result.fibers,
                          result.image.size_per_pixel,
@@ -551,7 +551,7 @@ def fiber_column_help() -> Dict[str, ColumnHelp]:
     half_window = f"{DEFAULT_CURVATURE_WINDOW_NM / 2:g}"
     margin = f"{END_MARGIN_WIDTHS:g}"
     # Symbols shared by the formulas: L contour length, p_x / p_y pixel sizes.
-    # 式で共通の記号: L は輪郭長、p_x / p_y は画素サイズ。
+    # 式で共通の記号: L は輪郭長、p_x / p_y はサンプリング間隔（nm/px）。
     return {
         "#": ColumnHelp(
             _("いま表示している一覧での行番号です。連結を切り替えたり高さフィルターを"
@@ -562,7 +562,7 @@ def fiber_column_help() -> Dict[str, ColumnHelp]:
               "すき間をつなぐ直線部分も長さに含めます。値の前に「≥」が付いている"
               "ファイバーは、画像の枠に達しているか、交差や高さフィルターで切れた端を"
               "持っていて、測った範囲の先へ続いています。その値は本当の長さの下限です。"),
-            _("中心線の隣り合う点どうしの距離を、X・Y それぞれの画素サイズで nm に直して"
+            _("中心線の隣り合う点どうしの距離を、X・Y それぞれのサンプリング間隔（nm/px）で nm に直して"
               "足し合わせます（下の式）。ただし、中心線が画素を 1 つずつたどった列の場合"
               "（形式 1.0 のバンドルのスケルトントラックと {pixels} 方式）は、式の値を"
               "そのまま使わず、縦・横の 1 歩を {orthogonal:g} 画素、斜めの 1 歩を "
@@ -663,9 +663,9 @@ def fiber_column_help() -> Dict[str, ColumnHelp]:
               "ちょうど中間の高さでの幅（半値全幅）を測り、ファイバー全体での中央値を"
               "取ったものです。キンクの判定などで、長さの物差しとして使います。探針の太さに"
               "よる広がりを含むので、ファイバーの実際の太さではありません。幅は X の画素"
-              "単位で測り、X の画素サイズで nm に直します。形式 1.3 以降のバンドルでは Y を"
+              "単位で測り、X のサンプリング間隔（nm/px）で nm に直します。形式 1.3 以降のバンドルでは Y を"
               "画素の縦横比で拡大して測るので、どの向きのファイバーでも正確です。形式 1.2 "
-              "以前のバンドルで X と Y の画素サイズが違う画像では、Y 方向に伸びるファイバー"
+              "以前のバンドルで X と Y のサンプリング間隔（nm/px）が違う画像では、Y 方向に伸びるファイバー"
               "でだけ正確です。"),
             "", "",
             _("幅を測れずに代わりの値を使ったとき、または形式 1.0 のバンドルのとき。"),
@@ -2986,7 +2986,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         read as "not measured" rather than as a fault.
         キンク規則の長さはすべて W の倍数であり、W は繊維の幅であると同時に
         探針による広がりでもある。そのため探針の異なる 2 つのデータセットは、
-        ピクセルサイズが同じでも異なる物理尺度で判定されている。それが見える
+        サンプリング間隔（nm/px）が同じでも異なる物理尺度で判定されている。それが見える
         場所がこのログである。断面から幅が得られなかったファイバーは画素数である
         代替値で線を置いており、その本数を報告することで、表の空欄の W が不具合
         ではなく「未計測」と読めるようにする。
@@ -4432,7 +4432,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         h_px, w_px = img.shape[:2]
         # Per-axis pixel size keeps the correct physical aspect for rectangular
         # scans and non-square pixel grids (X from width, Y from height).
-        # 軸別ピクセルサイズで矩形スキャン・非正方格子の物理アスペクトを保つ
+        # 軸別のサンプリング間隔（軸表示の単位/px）で矩形スキャン・非正方格子の物理アスペクトを保つ
         # （X は幅、Y は高さ由来）。
         x_spp = x_scale / w_px
         y_spp = y_scale / h_px
@@ -4895,7 +4895,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 母集団が絞られている場合の経路（高さフィルター・手動除外・その併用）。
         filtered = self._display_fibers()
         # Compute per-axis pixel size in the selected tick-display unit.
-        # 軸表示単位に合わせて軸別ピクセルサイズを計算（µm / nm）。
+        # 軸表示の単位に合わせて軸別のサンプリング間隔を計算する（µm/px または nm/px）。
         x_scale, y_scale, _unit_label = self._get_extent_scale_xy_and_unit()
         img = self.current_image.calibrated_image
         h_px, w_px = img.shape[:2]
@@ -5195,7 +5195,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Eighth-block characters give the bar 8x the resolution of a whole-cell
         bar, so each ~1% worker update visibly advances it instead of standing
         still for several updates and then jumping a full cell.
-        1/8 ブロック文字でセル単位バーの 8 倍の解像度を持たせる。これにより
+        1/8 ブロック文字で、セル単位のバーの 8 倍の細かさで進み具合を表す。これにより
         ワーカーからの約 1% ごとの更新でバーが必ず少し進み、数回分まったく
         動かずに突然 1 セル飛ぶ「飛び飛び」表示を防ぐ。
         """
@@ -6234,7 +6234,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             # Pass the per-axis pixel size so the exported straightness is
             # filled in; without it that column would be blank and GUI03 could
             # not histogram straightness from a curated export.
-            # 軸別ピクセルサイズを渡し、出力される straightness を埋める。渡さ
+            # 軸別のサンプリング間隔（nm/px）を渡し、出力される straightness を埋める。渡さ
             # ないとその列は空になり、キュレーション済み出力から GUI03 が直線度
             # のヒストグラムを作れなくなる。
             # The image shape fills the frame columns in the same way, which
@@ -7037,7 +7037,7 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
 
         # Derive per-axis physical scale per pixel from the main image size
         # (X from width, Y from height).
-        # 物理スケール/px をメイン画像サイズから軸別に算出する（X は幅、Y は高さ）。
+        # 軸別のサンプリング間隔（軸ラベルの単位/px）を、メイン画像の画素数（横 × 縦）から算出する（X は横、Y は縦の画素数から）。
         if app.current_image is not None:
             full_h, full_w = app.current_image.calibrated_image.shape[:2]
             x_spp = x_scale / full_w
@@ -7048,7 +7048,7 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
             # axis-label unit), so this path stays consistent with the
             # scale-entry fallback instead of assuming a separate fixed size.
             # データ未ロード時のフォールバック：1024 px 画像を仮定し、確定済み
-            # スケールから画素サイズを導出する（軸ラベル単位に換算済み）。
+            # スケールからサンプリング間隔（軸ラベルの単位/px）を導出する（スケールは軸ラベルの単位に換算済み）。
             # スケール入力欄のフォールバックと別の固定サイズを仮定せず整合を保つ。
             x_spp = x_scale / 1024.0
             y_spp = y_scale / 1024.0
@@ -7063,7 +7063,7 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         dpi = 100
         self._fiber_fig.set_size_inches(w_px / dpi, h_px / dpi)
         # Match the Tk widget size to the Figure pixel size.
-        # Tk ウィジェット側も Figure と同じピクセルサイズに揃える。
+        # Tk ウィジェット側も、画面上の大きさ（ピクセル単位）を Figure と揃える。
         # Otherwise stale pixels can remain when the Figure becomes smaller.
         # これをやらないと、Figure を小さくした時に親フレームに残る
         # as clipped remnants from stale canvas pixels.
@@ -7237,7 +7237,7 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         dpi = 100
         self._prof_fig.set_size_inches(w_px / dpi, h_px / dpi)
         # Match the Tk widget size to the Figure pixel size.
-        # Tk ウィジェット側も Figure と同じピクセルサイズに揃える。
+        # Tk ウィジェット側も、画面上の大きさ（ピクセル単位）を Figure と揃える。
         self._prof_canvas.get_tk_widget().configure(width=w_px, height=h_px)
         try:
             self._prof_holder.configure(scrollregion=(0, 0, w_px, h_px))

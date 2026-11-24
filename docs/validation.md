@@ -514,9 +514,8 @@ height filter cannot bring back strands the earlier steps removed.
 
 `measure.length_floor_nm` takes the floor of a bundle as
 $\max(\texttt{h\_length},\ \texttt{area\_min} / W)$ pixels at its larger pixel
-size, with $W$ the bundle's median apparent width. GUI03 and
-`cli.py measure --length-floor common` cut every compared bundle at the largest
-of these floors. To check the floor, straight synthetic fibers 12<!--n:value tried--> to
+size, with $W$ the bundle's median apparent width. GUI03 warns when the
+bundles pooled in one group have different floors. To check the floor, straight synthetic fibers 12<!--n:value tried--> to
 56<!--n:value tried--> px long were drawn at every 10<!--n:value tried-->° from 0<!--n:value tried-->° to 90<!--n:value tried-->° with 3<!--c:scripts/measure_docs.py::len(LENGTH_FLOOR_OFFSETS_PX)--> sub-pixel offsets, 30<!--m:length_floor_completeness.fibers_per_scan--> fibers
 per scan, at 0.05<!--n:value tried--> nm pixel noise on the fiber and background of the kink sweep, and
 analyzed at the defaults (experiment length_floor_completeness):

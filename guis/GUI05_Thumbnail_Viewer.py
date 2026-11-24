@@ -151,7 +151,7 @@ COLORMAP_NAME = "afmhot"
 # `calibrated` array is several megabytes, so only this reduced copy is held
 # and the sheet export reads the bundles again at full resolution.
 # バンドルごとにメモリへ残す高さ像の長辺。`calibrated` 配列は 1 枚で数 MB あるため
-# この縮小版だけを保持し、シート出力ではバンドルを元の解像度で読み直す。
+# この縮小版だけを保持し、シート出力ではバンドルを読み直して縮小前の画像を使う。
 PREVIEW_MAX_PX = 400
 
 # Starting size of the window, in pixels; it opens wider when the two rows of
@@ -332,7 +332,7 @@ class SheetEntry:
     ----------
     path
         Bundle to read the full-resolution image from.
-        元の解像度の画像を読むバンドル。
+        縮小前の画像を読むバンドル。
     name
         File name printed above the image.
         画像の上に印字するファイル名。
@@ -1048,7 +1048,7 @@ def render_sheet_page(entries: Sequence[SheetEntry], layout: SheetLayout,
         1 から数えたページ番号とページ数。右下に印字する。
     read_image
         Returns the full-resolution height image of a bundle path.
-        バンドルのパスから元の解像度の高さ像を返す関数。
+        バンドルのパスから縮小前の高さ像を返す関数。
 
     Returns
     -------
@@ -1099,7 +1099,7 @@ def render_sheet_page(entries: Sequence[SheetEntry], layout: SheetLayout,
         else:
             # Reduce to the pixels the box has at the output resolution, by
             # averaging, so a PDF does not carry every bundle at full size.
-            # 出力解像度で箱が持つ画素数まで平均で縮小する。PDF に全バンドルを
+            # 出力の dpi で箱が持つ画素数まで平均で縮小する。PDF に全バンドルを
             # 元の大きさで埋め込まないため。
             rows, cols = image.shape
             target_w = min(cols, max(1, round(box_w / MM_PER_INCH * FIGURE_SAVE_DPI)))
@@ -1196,7 +1196,7 @@ def write_sheet(entries: Sequence[SheetEntry], layout: SheetLayout, path: str,
         ``.png`` または ``.pdf`` で終わる出力パス。`sheet_page_paths` を参照。
     read_image
         Returns the full-resolution height image of a bundle path.
-        バンドルのパスから元の解像度の高さ像を返す関数。
+        バンドルのパスから縮小前の高さ像を返す関数。
     progress
         Called with ``(page, n_pages)`` after each page is written.
         各ページを書き終えるたびに ``(page, n_pages)`` で呼ばれる。

@@ -431,17 +431,18 @@ reads the skeleton pixels without tracing (see below), so it is the one
 combination that works on a bundle with no recorded scan size; the rest need
 the scan size to turn track steps into nanometers.
 
-One setting keeps bundles of different scans comparable.
-"Common length floor" (off by default; while it is off, the log warns when the
-compared bundles' floors differ) leaves out of every quantity the fibers
-shorter than the longest of the compared bundles' length floors; `height` per
-`pixel` measures no fiber length and is not cut. Binarization
+The log warns when one group pools bundles whose length floors differ, as
+bundles of different resolution (the length of one pixel, nm/px) or analysis
+settings do. Binarization
 removes components shorter than `h_length` pixels in every direction and those
 of `area_min` pixels or fewer, so the shortest fiber that remains grows with the
 pixel size, and a coarse scan contains none of the short fibers a fine scan
 keeps (`measure.length_floor_nm`; see
-[Evaluation on particular data](docs/validation.md) §2.8). The floor and how
-many fibers it removed are logged. Kinks are counted at the threshold each
+[Evaluation on particular data](docs/validation.md) §2.8). Such a group's
+distribution mixes imaging conditions. No fiber is left out for it, and groups
+are not compared for it, because each specimen may be imaged at the resolution
+its fibers need. `height` per `pixel` measures no fiber length and is not
+checked. Kinks are counted at the threshold each
 bundle was analyzed with, and the log warns when the compared bundles differ;
 to compare them on one rule, analyze them again at one `kinkangle_deg`.
 
@@ -1027,7 +1028,7 @@ validates at load time; `validate` runs the same checks on demand:
 python cli.py validate results\*.b2z
 ```
 
-Each bundle is reported as `OK` (with format version, image size, kink count,
+Each bundle is reported as `OK` (with format version, image size in pixels (rows × columns), kink count,
 and provenance status) or `INVALID` with the specific contract violations.
 The exit code is non-zero when any bundle fails, so the command can guard
 scripted workflows.
@@ -1050,8 +1051,6 @@ python cli.py measure results\*.b2z
 python cli.py measure results\*.b2z --scale-um 2.0
 python cli.py measure results --scale-um 2.0 --output-dir stats
 python cli.py measure results\*.b2z --scale-um 5.0 --scale-y-um 2.5
-# Cut every bundle at the largest of their length floors.
-python cli.py measure results --length-floor common
 
 # Skeleton-pixel heights (the data behind the GUI03 height histogram).
 python cli.py heights results --output heights.csv
@@ -1481,10 +1480,8 @@ test suite instead of degrading silently in the launcher.
 - Binarization removes components shorter than a fixed number of pixels, so
   the shortest fiber an analysis keeps is longer, in nanometers, on a coarser
   scan, and length distributions of scans at different pixel sizes start at
-  different lengths. GUI03 can cut every compared group at the largest of the
-  bundles' floors ("Common length floor", off by default; while it is off, the
-  log warns when the floors differ), and `cli.py measure --length-floor common`
-  does the same. The floor is taken at each bundle's median apparent width, so a
+  different lengths. GUI03 warns when the bundles pooled in one group have
+  different floors and leaves every fiber in. The floor is taken at each bundle's median apparent width, so a
   fiber narrower than the median can still be lost somewhat above it; see
   [Evaluation on particular data](docs/validation.md) §2.8.
 - Kinks are counted at the threshold each bundle was analyzed with, so bundles

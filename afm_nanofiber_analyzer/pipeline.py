@@ -1625,12 +1625,12 @@ def process_file(
     # 記録する Y 方向の実寸を切り出し後の画像へ合わせる。上記のどちらの取得元も
     # 走査 *全体* を表す一方、保存される配列は残した走査線分しかなく、
     # `afm_nanofiber_analyzer.measure` は記録された走査範囲と保存形状から
-    # `bundle_schema.pixel_size_nm` を通して画素サイズを求める。保存形状が分かった
+    # `bundle_schema.pixel_size_nm` を通してサンプリング間隔（nm/px）を求める。保存形状が分かった
     # 時点で行い、キンク段の画素の縦横比がバンドルに記録される値から取られるように
     # する。
     #
     # 切り出しに記録する Y 方向の実寸は、その関数が切り出しの保存行数に対して、
-    # 画像全体の保存行数が持つはずだった画素サイズを返すような値とする。ここで
+    # 画像全体の保存行数が持つはずだったサンプリング間隔（nm/px）を返すような値とする。ここで
     # 行数の比を書き下さず関数を通して求めることで、切り出しは `afm_nanofiber_analyzer.measure` が
     # 適用する約束事と常にそろう。全体解析の経路には手を加えない。各段が落とす
     # 行数は決め打ちせず、この実行から求める。
@@ -1652,8 +1652,8 @@ def process_file(
     # aspect, and resamples a scan whose X and Y pixel sizes differ onto square
     # pixels before its isotropic filter runs. Without a resolved scan size the
     # segmenter skips recovery rather than guessing.
-    # リッジ回収は長さ・幅設定を物理量で持つため画素サイズを必要とする。X 画素
-    # サイズと画素の縦横比を受け取り、X と Y の画素サイズが違う走査は、等方的な
+    # リッジ回収は長さ・幅設定を物理量で持つためサンプリング間隔（nm/px）を必要とする。X の
+    # サンプリング間隔（nm/px）と画素の縦横比を受け取り、X と Y のサンプリング間隔（nm/px）が違う走査は、等方的な
     # フィルタをかける前に正方画素へ描き直す。走査範囲が未解決なら、推測せずに
     # 回収段を飛ばす。
     nm_per_px = None
@@ -1845,10 +1845,10 @@ def _pixel_lengths_nm(
         解析に使ったパラメータ。
     x_nm_per_px
         Pixel size along X (columns) in nanometres.
-        X（列）方向のピクセルサイズ (nm)。
+        X（列）方向のサンプリング間隔（nm/px）。
     y_nm_per_px
         Pixel size along Y (rows) in nanometres; ``None`` reuses X.
-        Y（行）方向のピクセルサイズ (nm)。``None`` なら X を流用する。
+        Y（行）方向のサンプリング間隔（nm/px）。``None`` なら X を流用する。
 
     Returns
     -------
@@ -1858,7 +1858,7 @@ def _pixel_lengths_nm(
         ``<field>_nm2``, and the skeleton cleanup's fixed pixel constants
         (`skeletonizer.DEFAULT_BORDER_PAD`, `skeletonizer.DEFAULT_HOOK_LENGTH`)
         the same way.
-        軸ごとのピクセルサイズ、画素で与える `ProcParams` の長さのすべてを
+        軸ごとのサンプリング間隔（nm/px）、画素で与える `ProcParams` の長さのすべてを
         ``<field>_nm``（X 方向で換算）として、面積のすべてを ``<field>_nm2``
         として、および骨格クリーニングの固定画素定数
         （`skeletonizer.DEFAULT_BORDER_PAD`、`skeletonizer.DEFAULT_HOOK_LENGTH`）

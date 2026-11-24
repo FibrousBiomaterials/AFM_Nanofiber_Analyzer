@@ -478,7 +478,7 @@ def polyline_distance(
 ) -> NDArray:
     """
     Cumulative Euclidean length along a polyline with per-axis pixel sizes.
-    軸別ピクセルサイズで測った、折れ線に沿った累積ユークリッド長。
+    軸別のサンプリング間隔（nm/px）で測った、折れ線に沿った累積ユークリッド長。
 
     Parameters
     ----------
@@ -671,7 +671,7 @@ def measure_apparent_width(
         Y pixel size over X pixel size (`bundle_schema.pixel_aspect`). The
         profiles are taken perpendicular to the fiber in physical space, and
         the width is returned in X pixels.
-        Y 画素サイズ ÷ X 画素サイズ（`bundle_schema.pixel_aspect`）。プロファイル
+        Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）（`bundle_schema.pixel_aspect`）。プロファイル
         は実空間で繊維に垂直に取り、幅は X 画素単位で返す。
     peak
         Which maximum of each profile the half-maximum level is taken from,
@@ -1083,7 +1083,7 @@ def refine_centerline(
         `height` と同じ座標系の分岐点マスク。無ければ ``None``。
     aspect
         Y pixel size over X pixel size, as in `place_centerline`.
-        Y 画素サイズ ÷ X 画素サイズ。`place_centerline` と同じ。
+        Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）。`place_centerline` と同じ。
     symmetric_section
         As in `place_centerline`.
         `place_centerline` と同じ。
@@ -1231,7 +1231,7 @@ def _refine(
         Y pixel size over X pixel size. The geometry -- frame, normals,
         distances, the branch-point radius -- is computed with Y scaled by it,
         in X pixels, and the line is returned in image pixels.
-        Y 画素サイズ ÷ X 画素サイズ。枠・法線・距離・分岐点の半径といった幾何は Y を
+        Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）。枠・法線・距離・分岐点の半径といった幾何は Y を
         これで拡大した X 画素単位で計算し、線は画像の画素座標で返す。
     symmetric_section
         Sample each cross-section symmetrically about the frame point and climb
@@ -1594,7 +1594,7 @@ def place_centerline(
         Y pixel size over X pixel size (`bundle_schema.pixel_aspect`); 1 for
         square pixels. The line is placed in physical geometry and returned
         in image pixels, and the width is in X pixels.
-        Y 画素サイズ ÷ X 画素サイズ（`bundle_schema.pixel_aspect`）。正方画素なら
+        Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）（`bundle_schema.pixel_aspect`）。正方画素なら
         1。線は実空間の幾何で置いて画像の画素座標で返し、幅は X 画素単位である。
     width_peak
         Which maximum the apparent width's half-maximum level is taken from
@@ -1708,7 +1708,7 @@ def half_max_centerline(
         すべての長さをこれで尺度付けする。
     aspect
         Y pixel size over X pixel size, as in `place_centerline`.
-        Y 画素サイズ ÷ X 画素サイズ。`place_centerline` と同じ。
+        Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）。`place_centerline` と同じ。
 
     Returns
     -------

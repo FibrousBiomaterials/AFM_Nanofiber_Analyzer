@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # Resolution used when saving publication-ready PNG figures.
-# 論文用 PNG 保存時の解像度。
+# 論文用 PNG 保存時の dpi。
 FIGURE_SAVE_DPI = 300
 
 

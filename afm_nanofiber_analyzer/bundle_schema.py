@@ -141,7 +141,7 @@ from .centerline import (
 #      skeletonization read, so the stored heights are the unfiltered ones.
 # 1.3: 線を置き、`kp`・`ka`・`ke`・`up` を判定するのは走査の実空間の幾何である。
 #      Y は記録された走査範囲から求めた画素の縦横比（`pixel_aspect_from_meta`）で
-#      拡大するため、X と Y の画素サイズが違う走査でも角度は試料上のものになる。
+#      拡大するため、X と Y のサンプリング間隔（nm/px）が違う走査でも角度は試料上のものになる。
 #      正方画素では何も変わらないが、1.2 の読み取り側は非正方画素の走査の線を画素
 #      座標の幾何で置き、実空間の幾何で判定したキンクの脇に描いてしまう。また
 #      `calibrated` には決してメディアンフィルタをかけない。`apply_median` を有効に
@@ -738,7 +738,7 @@ def make_spatial_calibration(
     layer recomputes from the saved image shape, so persisting it would risk
     drifting out of sync with the actual array (and with the one-pixel trim
     documented at module top).
-    ピクセルサイズは意図的に保存しない。これは各軸の
+    サンプリング間隔（nm/px）は意図的に保存しない。これは各軸の
     ``走査範囲_um * 1000 / 画素数`` から導出される量で、計測層が保存済み画像形状
     から再計算する。保存すると実配列（およびモジュール冒頭に記載の 1 画素
     トリミング）と不整合になる恐れがあるため。
@@ -809,7 +809,7 @@ def scan_size_um_from_meta(
 def pixel_size_nm(scan_size_um: float, stored_pixels: int) -> float:
     """
     Return the pixel size along one axis of a bundle's stored arrays, in nm.
-    バンドルの保存配列の 1 軸方向の画素サイズ (nm) を返す。
+    バンドルの保存配列の 1 軸方向のサンプリング間隔（nm/px）を返す。
 
     Parameters
     ----------
@@ -839,7 +839,7 @@ def pixel_size_nm(scan_size_um: float, stored_pixels: int) -> float:
     differently from `afm_nanofiber_analyzer.measure`.
     記録された走査範囲は、背景補正器が 1 画素削る前の解析画像の寸法であるため、
     それがまたがる画素数は保存画素数に 1 を足したものになる。記録された走査範囲と
-    画素サイズを相互に換算する呼び出し側はすべてこの関数を通し、この約束事を
+    サンプリング間隔（nm/px）を相互に換算する呼び出し側はすべてこの関数を通し、この約束事を
     1 か所に置く。呼び出し側ごとに書き下していたときは、後から加えたコードが
     トリミングを考えずに保存画素数で割り、`afm_nanofiber_analyzer.measure` と異なる長さを測った。
 
@@ -860,7 +860,7 @@ def pixel_aspect(
 ) -> float:
     """
     Return the Y pixel size over the X pixel size of a bundle's stored arrays.
-    バンドルの保存配列の Y 画素サイズ ÷ X 画素サイズを返す。
+    バンドルの保存配列の Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）を返す。
 
     Parameters
     ----------

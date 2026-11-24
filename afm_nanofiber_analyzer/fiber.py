@@ -165,7 +165,7 @@ class Fiber:
         Y pixel size over X pixel size of the geometry the line was placed
         and the kinks were judged in (`bundle_schema.pixel_aspect_from_meta`).
         A distance along the line in units of `width_px` scales Y by it.
-        線を置きキンクを判定した幾何の Y 画素サイズ ÷ X 画素サイズ
+        線を置きキンクを判定した幾何の Y のサンプリング間隔（nm/px） ÷ X のサンプリング間隔（nm/px）
         （`bundle_schema.pixel_aspect_from_meta`）。線に沿った距離を `width_px`
         の単位で測るときは Y をこれで拡大する。
     bridge_excluded_px

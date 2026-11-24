@@ -511,7 +511,7 @@ def convert_track_to_distance(xtrack: np.ndarray,
     Each inter-pixel step starts from the Euclidean distance with per-axis
     pixel sizes, ``sqrt((dx * x_step)^2 + (dy * y_step)^2)``, so anisotropic
     scans (rectangular field of view or non-square pixel grids) are handled.
-    画素間ステップは軸別ピクセルサイズによるユークリッド距離
+    画素間ステップは軸別のサンプリング間隔（nm/px）によるユークリッド距離
     ``sqrt((dx * x_step)^2 + (dy * y_step)^2)`` を基礎とするため、矩形視野や
     非正方ピクセル格子の異方性スキャンにも対応する。
 
