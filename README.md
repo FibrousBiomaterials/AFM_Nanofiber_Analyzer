@@ -587,7 +587,7 @@ boxplot cannot compute.
 
 The statistics table and the comparison table are shown in a separate window,
 opened with the "Statistics" button to the right of "Save Values". Creating the
-histogram again while the window is open refreshes its contents, and the
+plot again while the window is open refreshes its contents, and the
 statistics and the comparison are saved from that window.
 
 Below the statistics table, a comparison table tests every pair of groups with

@@ -109,7 +109,7 @@ from afm_nanofiber_analyzer.ui_tools import (
     setup_ttk_theme,
     save_text_widget_log, create_scrolled_text, create_scrolled_treeview,
     drain_ui_queue, save_csv_with_dialog, bind_mousewheel_scroll,
-    compute_auto_vrange, read_height_image, UNIT_MICROMETER, ToolTip,
+    compute_auto_vrange, read_height_image, rewrite_entries, UNIT_MICROMETER, ToolTip,
     UnconfirmedEntryMixin, LogMixin,
 )
 
@@ -164,6 +164,13 @@ PREVIEW_CACHE_SIZE = 8
 # 選択の変化からバンドルを読むまでの待ち時間（ミリ秒）。矢印キーで一覧を移動した
 # とき、選択が止まった行だけを読むようにする。
 PREVIEW_DELAY_MS = 150
+
+
+class _RunCancelled(Exception):
+    """
+    Raised in the worker thread when the user stopped the run.
+    ユーザーが実行を中止したときに、ワーカースレッドで送出する。
+    """
 
 # Plot types. The histogram shows the shape of one distribution, the ECDF
 # compares several without depending on a bin width, and the box summarises
@@ -1749,6 +1756,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         self.ui_queue = queue.Queue()
         self.is_running = False
+        # Set by the stop button; the worker checks it between bundles
+        # (`_raise_if_cancelled`). A new event is made for every run.
+        # 中止ボタンで立てる。ワーカーはバンドルの合間にこれを確かめる
+        # （`_raise_if_cancelled`）。実行ごとに新しく作る。
+        self._cancel_event = None
 
         # A press on a file row that may become a drag to another group
         # (`_on_tree_press`); None between presses.
@@ -1774,6 +1786,23 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._preview_poll_id = None
         self._preview_cache = {}
         self._preview_path = None
+        # What the pane draws now, ``(path, data)`` or None, so a change of the
+        # color range or of the ticks redraws it without reading it again.
+        # The color range the user fixed, or None for each image's own
+        # automatic range; a fixed range is kept from one file to the next so
+        # scans can be compared over the same heights. The vmin/vmax entries
+        # have a registry of their own, so Enter there does not rerun the
+        # comparison and the run button does not commit them.
+        # ペインが今描いているもの ``(path, data)``、または None。色範囲や目盛を
+        # 変えたとき、読み直さずに描き直すために持つ。ユーザーが固定した色範囲、
+        # または画像ごとの自動範囲を使う間は None。固定した範囲はファイルを
+        # 替えても保ち、同じ高さの範囲で走査どうしを見比べられるようにする。
+        # vmin/vmax の入力欄は登録簿を分け、そこでの Enter で比較を再実行せず、
+        # 実行ボタンでも確定されないようにする。
+        self._preview_shown = None
+        self._preview_vrange = None
+        self._preview_range_texts = ("", "")
+        self._preview_entries = []
 
         # Text shown beside the run button and in the statistics window once
         # the groups changed after the run the result came from.
@@ -1995,7 +2024,46 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # sash decides how large the image is drawn.
         # Figure は小さくしておく。キャンバスの要求サイズを小さくし、画像の大きさを
         # ペインの仕切りで決められるようにするためである。
-        self.preview_fig = plt.Figure(figsize=(3.2, 2.6), dpi=100)
+        # Packed before the canvas, from the bottom, so a small pane shrinks
+        # the image rather than hiding the controls.
+        # キャンバスより先に下から配置し、ペインが小さいときは操作欄ではなく画像を
+        # 縮める。
+        frm_view = ttk.Frame(frm)
+        frm_view.pack(side=tk.BOTTOM, fill=tk.X, padx=6, pady=(0, 4))
+        self.preview_ticks_var = tk.BooleanVar(value=True)
+        chk_ticks = ttk.Checkbutton(
+            frm_view, text=_("目盛"), variable=self.preview_ticks_var,
+            command=self._redraw_preview)
+        chk_ticks.pack(side=tk.LEFT, padx=(0, 8))
+        ToolTip(chk_ticks, _(
+            "軸に走査範囲の目盛（{um}）を付けます。走査範囲が記録されていない"
+            "バンドルでは、画素番号の目盛になります。").format(um=UNIT_MICROMETER))
+        range_help = _(
+            "色の範囲は画像ごとに自動で決まります。vmin / vmax を入力して Enter で"
+            "確定すると、その範囲で表示し、別のファイルを選んでも同じ範囲を使います。"
+            "「自動」で画像ごとの自動範囲に戻ります。")
+        entries = []
+        for index, name in enumerate(("vmin", "vmax")):
+            lbl = ttk.Label(frm_view, text=name)
+            lbl.pack(side=tk.LEFT)
+            ToolTip(lbl, range_help)
+            entry = ttk.Entry(frm_view, width=7)
+            entry.pack(side=tk.LEFT, padx=(4, 6))
+            self._register_unconfirmed_entry(
+                entry, lambda i=index: self._preview_range_texts[i],
+                self._commit_preview_vrange, registry=self._preview_entries)
+            entries.append(entry)
+        self.ent_preview_vmin, self.ent_preview_vmax = entries
+        ttk.Label(frm_view, text="nm").pack(side=tk.LEFT, padx=(0, 6))
+        btn_auto = ttk.Button(frm_view, text=_("自動"),
+                              command=self.on_preview_auto_range)
+        btn_auto.pack(side=tk.LEFT)
+        ToolTip(btn_auto, _("色の範囲を、画像ごとに自動で決めた範囲に戻します。"))
+
+        # Constrained layout leaves room for the tick labels at any pane size.
+        # constrained レイアウトにより、ペインの大きさによらず目盛ラベルの余白を取る。
+        self.preview_fig = plt.Figure(figsize=(3.2, 2.6), dpi=100,
+                                      layout="constrained")
         self.preview_canvas = FigureCanvasTkAgg(self.preview_fig, master=frm)
         self.preview_canvas.get_tk_widget().pack(
             fill=tk.BOTH, expand=True, padx=6, pady=(0, 4))
@@ -2356,13 +2424,19 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
     def _build_action_bar(self, parent: ttk.Frame) -> None:
         """
         Build the run / save-figure / save-CSV action bar.
-        ヒストグラム作成・画像保存・数値保存の操作バーを構築する。
+        グラフ作成・画像保存・数値保存の操作バーを構築する。
         """
         actionbar = ttk.Frame(parent)
         actionbar.pack(fill=tk.X, padx=6, pady=(6, 2))
 
-        self.btn_run = ttk.Button(actionbar, text=_("ヒストグラム作成"), command=self.on_run)
+        self.btn_run = ttk.Button(actionbar, text=_("グラフ作成"), command=self.on_run)
         self.btn_run.pack(side=tk.LEFT)
+        self.btn_cancel = ttk.Button(actionbar, text=_("中止"), command=self.on_cancel,
+                                     state=tk.DISABLED)
+        self.btn_cancel.pack(side=tk.LEFT, padx=(6, 0))
+        ToolTip(self.btn_cancel, _(
+            "実行中の計測を中止します。計測中のバンドルが終わった時点で止まり、"
+            "グラフと統計値は更新しません。"))
 
         self.btn_save_fig = ttk.Button(actionbar, text=_("画像を保存"), command=self.on_save_fig, state=tk.DISABLED)
         self.btn_save_fig.pack(side=tk.LEFT, padx=(6, 0))
@@ -2377,7 +2451,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self.btn_stats.pack(side=tk.LEFT, padx=(6, 0))
         ToolTip(self.btn_stats, _(
             "グループごとの統計値と群間比較の結果を、別のウィンドウに表示します。"
-            "統計値と比較の保存もそのウィンドウで行います。開いたままヒストグラムを"
+            "統計値と比較の保存もそのウィンドウで行います。開いたままグラフを"
             "作成し直すと、内容が更新されます。"))
 
         # Says that the groups changed after the run the figure came from.
@@ -2974,7 +3048,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             _("使い方:\n")
             + _("  1)「グループ追加」でデータ群を作成（自動で 1 個作成済み）\n")
             + _("  2) Treeview でグループを選び「ファイル追加」で .b2z バンドルを登録（複数選択可）\n")
-            + _("  3) 計測量と集計単位、条件と表示モード（縦並び/重ね表示）を設定して「ヒストグラム作成」\n")
+            + _("  3) 計測量と集計単位、条件と表示モード（縦並び/重ね表示）を設定して「グラフ作成」\n")
             + _("  4) 統計値と群間比較は「統計処理」で表示。必要に応じて「画像を保存」「数値を保存（グループ別CSV）」\n")
             + "\n"
             + _("ヒント:\n")
@@ -3315,7 +3389,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         if self._has_result:
             self.stale_var.set(
-                _("一覧が変わりました。ヒストグラムを作成し直してください。"))
+                _("一覧が変わりました。グラフを作成し直してください。"))
 
     @staticmethod
     def _overlapping_inputs(paths) -> tuple:
@@ -4000,14 +4074,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Notes
         -----
         The image is the stored ``calibrated`` array, drawn over the color
-        range `compute_auto_vrange` gives, which is how GUI05 colors the same
-        bundle. The extent comes from the recorded scan size through
-        `bundle_schema.pixel_size_nm`; a bundle without one is drawn with
-        square pixels and no physical size.
-        画像は保存された ``calibrated`` 配列で、`compute_auto_vrange` が与える
-        色範囲で描く。GUI05 が同じバンドルに色を付ける方法と同じである。範囲は、
-        記録された走査範囲から `bundle_schema.pixel_size_nm` で求める。記録の無い
-        バンドルは正方形の画素で描き、物理サイズは示さない。
+        range `compute_auto_vrange` gives unless the user fixed one in the
+        pane, which is how GUI05 colors the same bundle. The extent comes from
+        the recorded scan size through `bundle_schema.pixel_size_nm`; a bundle
+        without one is drawn with square pixels and no physical size.
+        画像は保存された ``calibrated`` 配列で、ペインで範囲を固定していなければ
+        `compute_auto_vrange` が与える色範囲で描く。GUI05 が同じバンドルに色を
+        付ける方法と同じである。範囲は、記録された走査範囲から
+        `bundle_schema.pixel_size_nm` で求める。記録の無いバンドルは正方形の
+        画素で描き、物理サイズは示さない。
         """
         try:
             image, mask = read_height_image(path)
@@ -4064,40 +4139,150 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Draw a bundle's calibrated image and caption in the preview pane.
         バンドルの補正済み高さ像と見出しをプレビューペインに描く。
         """
+        self._preview_shown = (path, data)
+        self._redraw_preview()
+
+    def _redraw_preview(self) -> None:
+        """
+        Draw the shown image again with the current color range and tick setting.
+        表示中の画像を、現在の色範囲と目盛の設定で描き直す。
+
+        Notes
+        -----
+        The ticks follow the extent: micrometers when the bundle records its
+        scan size, pixel indices otherwise. The color range is the one the
+        user fixed, or the image's own automatic range.
+        目盛は extent に従う。走査範囲を記録したバンドルではマイクロメートル、
+        記録の無いバンドルでは画素番号になる。色範囲は、ユーザーが固定した範囲か、
+        その画像の自動範囲である。
+        """
+        if self._preview_shown is None:
+            self._sync_preview_range_entries()
+            return
+        path, data = self._preview_shown
         rows, cols = data["shape"]
         extent = data["extent_um"]
-        vmin, vmax = data["vrange"]
+        vmin, vmax = self._preview_vrange or data["vrange"]
         self.preview_fig.clf()
         ax = self.preview_fig.add_subplot(111)
         if extent is None:
             im = ax.imshow(data["image"], cmap=PREVIEW_COLORMAP,
                            vmin=vmin, vmax=vmax, aspect="equal")
             size_text = "{c} × {r} px".format(c=cols, r=rows)
+            unit = "px"
         else:
             im = ax.imshow(data["image"], cmap=PREVIEW_COLORMAP,
                            vmin=vmin, vmax=vmax, aspect="equal",
                            extent=(0.0, extent[0], extent[1], 0.0))
             size_text = "{x:.3g} × {y:.3g} {um}, {c} × {r} px".format(
                 x=extent[0], y=extent[1], um=UNIT_MICROMETER, c=cols, r=rows)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        colorbar = self.preview_fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
+            unit = UNIT_MICROMETER
+        if self.preview_ticks_var.get():
+            ax.tick_params(labelsize=8)
+            ax.set_xlabel("x ({0})".format(unit), fontsize=8)
+            ax.set_ylabel("y ({0})".format(unit), fontsize=8)
+        else:
+            ax.set_xticks([])
+            ax.set_yticks([])
+        # An inset colorbar moves with the image, so the two stay together and
+        # centered in a pane of any shape; `colorbar(ax=...)` would push the
+        # image to the right edge of a wide pane.
+        # inset のカラーバーは画像に付いて動くため、ペインの形によらず両者が並んで
+        # 中央に置かれる。`colorbar(ax=...)` では、横長のペインで画像が右端に寄る。
+        cax = ax.inset_axes((1.04, 0.0, 0.05, 1.0))
+        colorbar = self.preview_fig.colorbar(im, cax=cax)
         colorbar.set_label("height (nm)", fontsize=9)
         colorbar.ax.tick_params(labelsize=8)
-        self.preview_fig.subplots_adjust(left=0.02, right=0.86, top=0.98, bottom=0.02)
         self.preview_canvas.draw_idle()
         self.preview_caption_var.set("{folder}/{name}  ({size})".format(
             folder=os.path.basename(os.path.dirname(path)),
             name=os.path.basename(path), size=size_text))
+        self._sync_preview_range_entries()
 
     def _clear_preview(self, caption: str) -> None:
         """
         Empty the preview pane and show a caption in its place.
         プレビューペインを空にし、代わりに見出しを表示する。
         """
+        self._preview_shown = None
         self.preview_fig.clf()
         self.preview_canvas.draw_idle()
         self.preview_caption_var.set(caption)
+        self._sync_preview_range_entries()
+
+    def _sync_preview_range_entries(self) -> None:
+        """
+        Show in the vmin/vmax entries the color range the pane draws with.
+        ペインが描いている色範囲を vmin/vmax の入力欄に表示する。
+
+        With no image and no fixed range there is nothing to show or change,
+        so both entries are blank and disabled.
+        画像も固定した範囲も無いときは、表示するものも変えるものも無いので、
+        両方を空にして無効にする。
+        """
+        vrange = self._preview_vrange
+        if vrange is None and self._preview_shown is not None:
+            vrange = self._preview_shown[1]["vrange"]
+        if vrange is None:
+            texts = ("", "")
+        else:
+            texts = tuple("{0:g}".format(v) for v in vrange)
+        self._preview_range_texts = texts
+        entries = (self.ent_preview_vmin, self.ent_preview_vmax)
+        for entry in entries:
+            entry.configure(state="normal")
+        rewrite_entries(zip(entries, texts))
+        self._refresh_all_entry_states(self._preview_entries)
+        if vrange is None:
+            for entry in entries:
+                entry.configure(state="disabled")
+
+    def _commit_preview_vrange(self) -> bool:
+        """
+        Fix the preview's color range to the entered vmin/vmax.
+        プレビューの色範囲を、入力された vmin/vmax に固定する。
+
+        Returns
+        -------
+        bool
+            ``True`` when the range was accepted, ``False`` when a value was
+            refused and a dialog said why.
+            範囲を受け付けた場合は ``True``。値を拒否し、理由をダイアログで
+            示した場合は ``False``。
+        """
+        bounds = []
+        for entry in (self.ent_preview_vmin, self.ent_preview_vmax):
+            try:
+                value = float(entry.get().strip())
+            except ValueError:
+                value = float("nan")
+            if not np.isfinite(value):
+                messagebox.showerror(_("エラー"), _("数値を入力してください"),
+                                     parent=self)
+                return False
+            bounds.append(value)
+        # A range of no width has no colors to spread.
+        # 幅の無い範囲では、色を割り当てられない。
+        if not bounds[1] > bounds[0]:
+            messagebox.showerror(
+                _("エラー"), _("vmax には vmin より大きい値を入力してください"),
+                parent=self)
+            return False
+        self._preview_vrange = (bounds[0], bounds[1])
+        self._log(_("プレビューの色範囲を {vmin} 〜 {vmax} nm に固定しました。").format(
+            vmin="{0:g}".format(bounds[0]), vmax="{0:g}".format(bounds[1])))
+        self._redraw_preview()
+        return True
+
+    def on_preview_auto_range(self) -> None:
+        """
+        Return the preview to each image's automatic color range.
+        プレビューの色範囲を、画像ごとの自動範囲に戻す。
+        """
+        if self._preview_vrange is not None:
+            self._preview_vrange = None
+            self._log(_("プレビューの色範囲を、画像ごとの自動範囲に戻しました。"))
+        self._redraw_preview()
 
     def _rename_group(self, g: Group) -> None:
         """
@@ -4137,8 +4322,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
     def on_run(self) -> None:
         """
-        Validate settings and start histogram extraction in a worker thread.
-        設定値を検証し、ワーカースレッドでヒストグラム抽出を開始する。
+        Validate settings and start the comparison run in a worker thread.
+        設定値を検証し、ワーカースレッドで比較の実行を開始する。
         """
         if self.is_running:
             return
@@ -4247,8 +4432,38 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             "group_name_fs": group_name_fs,
         }
 
+        self._cancel_event = threading.Event()
         threading.Thread(target=self._worker_run, args=(args,), daemon=True).start()
         self.after(60, self._poll_ui_queue)
+
+    def on_cancel(self) -> None:
+        """
+        Ask the running worker to stop at the next bundle boundary.
+        実行中のワーカーに、次のバンドルの区切りで止まるよう求める。
+
+        Notes
+        -----
+        A bundle being traced is not interrupted, so the run ends once that
+        bundle is finished. Bundles measured before the stop stay in the
+        measurement cache, so the next run does not trace them again.
+        追跡中のバンドルは途中で止めないため、実行はそのバンドルが終わった時点で
+        終わる。中止までに計測したバンドルは計測キャッシュに残るため、次の実行では
+        追跡し直さない。
+        """
+        if not self.is_running or self._cancel_event is None:
+            return
+        self._cancel_event.set()
+        self.btn_cancel.configure(state=tk.DISABLED)
+        self._log(_("中止しています。計測中のバンドルが終わると止まります..."))
+
+    def _raise_if_cancelled(self) -> None:
+        """
+        Raise `_RunCancelled` in the worker when the user pressed the stop button.
+        ユーザーが中止ボタンを押していれば、ワーカー内で `_RunCancelled` を送出する。
+        """
+        event = self._cancel_event
+        if event is not None and event.is_set():
+            raise _RunCancelled()
 
     def _set_running(self, running: bool) -> None:
         """
@@ -4264,6 +4479,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             self.btn_run,
         ):
             b.configure(state=state)
+        self.btn_cancel.configure(state=tk.NORMAL if running else tk.DISABLED)
+        if not running:
+            # A stop request belongs to the run that ended; the helpers it
+            # stops are also called outside a run.
+            # 中止要求は終わった実行のものである。それが止める補助関数は、実行の
+            # 外でも呼ばれる。
+            self._cancel_event = None
 
         # The selectors decide what the running worker is computing, so they
         # stay locked until it finishes; "readonly" is their enabled state.
@@ -4297,10 +4519,16 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 self._log(trace)
             return False
 
+        def _on_cancelled(_payload):
+            self._set_running(False)
+            self._log(_("グラフ作成を中止しました。グラフと統計値は更新していません。"))
+            return False
+
         should_continue = drain_ui_queue(self.ui_queue, {
             "log": self._log,
             "done": _on_done,
             "fatal": _on_fatal,
+            "cancelled": _on_cancelled,
         })
         if not should_continue:
             return
@@ -4390,40 +4618,91 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         サンプリング間隔（nm/px）を必要とする。
         """
         if param == PARAM_HEIGHT and unit == UNIT_PIXEL:
-            heights, load_errors = skeleton_height_values(
-                bundle_paths,
+            parts, load_errors = self._collect_per_bundle(
+                skeleton_height_values, bundle_paths,
                 apply_exclusions=apply_exclusions,
                 apply_connection=apply_connection,
                 curation_report=curation_report,
             )
+            heights = (np.concatenate(parts) if parts
+                       else np.empty(0, dtype=float))
             failed = {path for path, _msg in load_errors}
             n_images = sum(1 for path in bundle_paths if path not in failed)
             return heights.tolist(), None, 0, n_images, load_errors
 
         if param == PARAM_CURVATURE:
-            per_fiber, load_errors = collect_fiber_curvature(
-                bundle_paths,
+            parts, load_errors = self._collect_per_bundle(
+                collect_fiber_curvature, bundle_paths,
                 apply_exclusions=apply_exclusions,
                 curvature_window_nm=curvature_window,
                 apply_connection=apply_connection,
                 curation_report=curation_report,
                 cache=self._measure_cache,
             )
+            per_fiber = [entry for part in parts for entry in part]
             self._log_curvature_caveats(per_fiber, curvature_window, group_name)
             return self._curvature_values(per_fiber, unit) + (load_errors,)
 
-        per_bundle, load_errors = collect_fiber_stats(
-            bundle_paths,
+        parts, load_errors = self._collect_per_bundle(
+            collect_fiber_stats, bundle_paths,
             apply_exclusions=apply_exclusions,
             apply_connection=apply_connection,
             curation_report=curation_report,
             cache=self._measure_cache,
         )
+        per_bundle = [entry for part in parts for entry in part]
         return self._values_from_fiber_stats(
             self._frame_filtered(per_bundle, param, frame_mode, frame_report),
             param, unit,
             frame_weighted=self._frame_weighted(param, frame_mode),
         ) + (load_errors,)
+
+    def _collect_per_bundle(self, collector, bundle_paths, **kwargs) -> tuple:
+        """
+        Call an `afm_nanofiber_analyzer.measure` collector one bundle at a time.
+        `afm_nanofiber_analyzer.measure` のコレクタを 1 バンドルずつ呼ぶ。
+
+        Parameters
+        ----------
+        collector
+            `collect_fiber_stats`, `collect_fiber_curvature` or
+            `skeleton_height_values`.
+            `collect_fiber_stats`、`collect_fiber_curvature`、
+            `skeleton_height_values` のいずれか。
+        bundle_paths
+            ``.b2z`` bundles of one group.
+            1 グループの ``.b2z`` バンドル。
+        **kwargs
+            Keyword arguments passed to every call of `collector`.
+            `collector` の各呼び出しに渡すキーワード引数。
+
+        Returns
+        -------
+        tuple
+            ``(parts, load_errors)``: what each call returned for its bundle,
+            in bundle order, and every call's load errors.
+            ``(parts, load_errors)``。各呼び出しがそのバンドルについて返したものを
+            バンドル順に並べたものと、全呼び出しの読込エラー。
+
+        Notes
+        -----
+        Each collector measures its bundles one after another and shares
+        nothing between them, so the parts joined in order are what one call
+        over all the bundles returns. Calling it per bundle lets the stop
+        button take effect between bundles (`_raise_if_cancelled`).
+        各コレクタはバンドルを 1 つずつ順に計測し、バンドル間で何も共有しない。
+        そのため、各部分を順に連結したものは、全バンドルを 1 回で渡した結果と
+        同じである。1 バンドルずつ呼ぶことで、中止ボタンがバンドルの合間に効く
+        （`_raise_if_cancelled`）。
+        """
+        parts = []
+        load_errors = []
+        for path in bundle_paths:
+            self._raise_if_cancelled()
+            part, errors = collector([path], **kwargs)
+            parts.append(part)
+            load_errors.extend(errors)
+        return parts, load_errors
 
     @staticmethod
     def _frame_weighted(param: str, frame_mode: str) -> bool:
@@ -4652,6 +4931,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         """
         conditions = []
         for path in bundle_paths:
+            # Reading the arrays for the noise takes a while per bundle.
+            # ノイズを求める配列の読み込みは、バンドルごとに時間がかかる。
+            self._raise_if_cancelled()
             try:
                 meta = self._bundle_meta(path)
                 angle, _decompose = kink_params_from_meta(meta)
@@ -5049,6 +5331,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._meta_cache = {}
         try:
             self._run_comparison(args)
+        except _RunCancelled:
+            self.ui_queue.put(("cancelled", {}))
         finally:
             self._meta_cache = None
 
@@ -5198,6 +5482,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         for key in [k for k in self._measure_cache if k[0] not in registered]:
             del self._measure_cache[key]
         for grp in groups:
+            self._raise_if_cancelled()
             grp_name = grp["name"]
             # Every bundle of the group is measured together, so the
             # Kaplan-Meier estimate is made once over the whole group.
@@ -5314,6 +5599,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                     curation_report=curation_report,
                     group_name=grp_name,
                 )
+            except _RunCancelled:
+                raise
             except Exception as e:
                 errors.append(
                     _("[{grp}] {param} の抽出に失敗: {err}").format(
@@ -5567,6 +5854,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 ).format(g=grp_name, total=grp_frame_total, n=grp_frame_touching,
                          share=results[-1]["frame_share"], k=grp_frame_cut)))
 
+        self._raise_if_cancelled()
         self._log_pixel_size_spread(curvature_pixel_sizes)
         for text in _kink_condition_report(kink_conditions):
             self.ui_queue.put(("log", text))
@@ -6412,7 +6700,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         現在表示中のヒストグラム図をダイアログ経由で保存する。
         """
         if not self._has_result:
-            messagebox.showwarning(_("未作成"), _("先にヒストグラムを作成してください。"))
+            messagebox.showwarning(_("未作成"), _("先にグラフを作成してください。"))
             return
         save_figure_with_dialog(
             self, self.fig,
@@ -6428,7 +6716,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         各グループのサンプリング済みの値を CSV ファイルとして出力する。
         """
         if not self._has_result or not self._last_results:
-            messagebox.showwarning(_("未作成"), _("先にヒストグラムを作成してください。"))
+            messagebox.showwarning(_("未作成"), _("先にグラフを作成してください。"))
             return
 
         out_dir = filedialog.askdirectory(
@@ -6584,7 +6872,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         最新のヒストグラム結果に対する要約統計量を出力する。
         """
         if not self._has_result or not self._last_results:
-            messagebox.showwarning(_("未作成"), _("先にヒストグラムを作成してください。"))
+            messagebox.showwarning(_("未作成"), _("先にグラフを作成してください。"))
             return
 
         default_name = "histogram_stats_{ts}.csv".format(
