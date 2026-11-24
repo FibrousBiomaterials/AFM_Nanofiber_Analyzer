@@ -4698,6 +4698,190 @@ def kink_reference_human() -> dict:
     return values
 
 
+def _consensus_marks(a, b, w):
+    """
+    The marks both people call clear, every other mark of either ambiguous (§4.19).
+    2 人とも明瞭とした印と、それ以外のどちらかの印を曖昧としたもの（§4.19）。
+    """
+    import kink_reference_score as krs
+    pairs = krs.match_marks(a, b, w)
+    both = {(i, j) for i, j, _d in pairs
+            if a[i]["kind"] == "clear" and b[j]["kind"] == "clear"}
+    paired_a = {i for i, _j, _d in pairs}
+    paired_b = {j for _i, j, _d in pairs}
+    out = [dict(kind="clear" if (i, j) in both else "ambiguous",
+                x=(a[i]["x"] + b[j]["x"]) / 2, y=(a[i]["y"] + b[j]["y"]) / 2)
+           for i, j, _d in pairs]
+    out += [dict(kind="ambiguous", x=r["x"], y=r["y"]) for i, r in enumerate(a) if i not in paired_a]
+    out += [dict(kind="ambiguous", x=r["x"], y=r["y"]) for j, r in enumerate(b) if j not in paired_b]
+    return out
+
+
+def _polyline_kinks(fibers, decompose_px, angle_deg):
+    """
+    Judge each fiber's skeleton track by the polyline rule kept for format 1.0 bundles.
+    形式 1.0 のバンドルのために残した折れ線規則で、各繊維のスケルトントラックを判定する。
+    """
+    import numpy as np
+    from afm_nanofiber_analyzer.kink_detector import KinkDetector
+    detector = KinkDetector(threshold_distance=decompose_px,
+                            threshold_angle_from_decomposed_indices=math.radians(angle_deg))
+    kinks = []
+    for i, fiber in enumerate(fibers):
+        x = np.asarray(fiber.skeleton_xtrack, float) + float(fiber.data[0])
+        y = np.asarray(fiber.skeleton_ytrack, float) + float(fiber.data[1])
+        idx, _angles, _vertices = detector.kinks_and_decomposed_from_track(x, y)
+        kinks += [dict(x=float(x[k]), y=float(y[k]), w=float(fiber.width_px), fiber=i)
+                  for k in idx]
+    return kinks
+
+
+@experiment(
+    "kink_reference_polyline",
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/kink_detector.py", "afm_nanofiber_analyzer/centerline.py"],
+    "Score the polyline rule kept for bundles of format 1.0 "
+    "(KinkDetector.kinks_and_decomposed_from_track at kink_decompose_px and "
+    "kinkangle_deg of the default ProcParams) on the skeleton tracks of the fibers "
+    "the default analysis traces on the three bundled scans, against the kinks two "
+    "people marked, by the procedure of kink_reference_human: each person's clear "
+    "marks, and the marks both called clear.",
+)
+@reading_each_bundle_once
+def kink_reference_polyline() -> dict:
+    import numpy as np
+    import kink_reference_score as krs
+    from afm_nanofiber_analyzer.pipeline import ProcParams
+
+    params = ProcParams()
+    human = krs.load_human_reference()
+    cache = str(cache_dir("kink_reference_half_max_025w"))
+    keys = ("ref", "found", "displaced", "merged", "missed", "false")
+    values: dict = {}
+    for name in krs.SCANS:
+        _image, fibers = krs.prepare_scan(name, cache, params)
+        w = float(np.median([f.width_px for f in fibers]))
+        kinks = _polyline_kinks(fibers, params.kink_decompose_px, params.kinkangle_deg)
+        a, b = human[name]["A"], human[name]["B"]
+        for group, refs in (("A", a), ("B", b), ("both", _consensus_marks(a, b, w))):
+            counts = krs.score(refs, kinks, [])
+            for scope in (name, "all"):
+                for k in keys:
+                    values[f"{scope}.{group}.{k}"] = values.get(f"{scope}.{group}.{k}", 0) + counts[k]
+        for scope in (name, "all"):
+            values[f"{scope}.detections"] = values.get(f"{scope}.detections", 0) + len(kinks)
+    return values
+
+
+# Resampling factors of kink_pixel_size: 0.5 averages 2x2 pixels, 2 interpolates.
+# kink_pixel_size の倍率。0.5 は 2x2 画素の平均、2 は補間。
+PIXEL_SIZE_FACTORS = (0.5, 2.0)
+
+
+@experiment(
+    "kink_pixel_size",
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/kink_detector.py", "afm_nanofiber_analyzer/centerline.py"],
+    "The three bundled scans resampled to other pixel sizes over the same field: "
+    "factor 0.5 averages each 2x2 block of the raw scan, factor 2 interpolates it "
+    "(cubic) and adds white noise at the level of the scan's calibrated background, "
+    "estimated as in zoomed_background. Every ProcParams setting counted in pixels "
+    "is multiplied by the factor (areas by its square), so the segmentation is "
+    "comparable and the difference is the kink rule. The marks two people made are "
+    "moved to the resampled grid and the marks both called clear are scored, by the "
+    "procedure of kink_reference_human, for the excess-turning rule on the default "
+    "centerline and for the polyline rule on the skeleton track, with "
+    "kink_decompose_px at its default and multiplied by the factor.",
+)
+def kink_pixel_size() -> dict:
+    import dataclasses
+    import numpy as np
+    import kink_reference_score as krs
+    from scipy import ndimage as ndi
+    from afm_nanofiber_analyzer import measure
+    from afm_nanofiber_analyzer.blosc2_io import load_bundle
+    from afm_nanofiber_analyzer.kink_detector import KinkDetector
+    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+
+    base = ProcParams()
+    lengths = ("tophat_se_size", "mask_dilation", "h_length", "branch_length", "spur_length")
+    odd_lengths = ("savgol_window", "wsize_localbin")
+    areas = ("min_mask_component_area", "area_min", "min_area", "max_loop_area")
+
+    def scaled(k):
+        kw = {f: max(1, int(round(getattr(base, f) * k))) for f in lengths}
+        for f in odd_lengths:
+            v = max(3, int(round(getattr(base, f) * k)))
+            kw[f] = v if v % 2 else v + 1
+        kw.update({f: max(1, int(round(getattr(base, f) * k * k))) for f in areas})
+        return dataclasses.replace(base, **kw)
+
+    def resample(raw, k, noise, seed):
+        if k == 0.5:
+            h, w = (raw.shape[0] // 2) * 2, (raw.shape[1] // 2) * 2
+            r = raw[:h, :w]
+            return 0.25 * (r[0::2, 0::2] + r[1::2, 0::2] + r[0::2, 1::2] + r[1::2, 1::2])
+        up = ndi.zoom(raw, k, order=3, mode="nearest", grid_mode=True)
+        return up + np.random.default_rng(seed).normal(0.0, noise, up.shape)
+
+    def moved(marks, k):
+        # Calibrated (x, y) is raw (x + 1, y + 1); a raw pixel centre i lands
+        # at (i + 0.5) k - 0.5 on the resampled grid.
+        # 補正後の (x, y) は生データの (x + 1, y + 1)。生データの画素中心 i は
+        # 再標本化した格子の (i + 0.5) k - 0.5 に移る。
+        return [dict(m, x=(m["x"] + 1.5) * k - 1.5, y=(m["y"] + 1.5) * k - 1.5) for m in marks]
+
+    human = krs.load_human_reference()
+    default_cache = str(cache_dir("kink_reference_half_max_025w"))
+    keys = ("ref", "found", "displaced", "merged", "missed", "false")
+    values: dict = {}
+    for name, rel in krs.SCANS.items():
+        default_image, default_fibers = krs.prepare_scan(name, default_cache, base)
+        stem = Path(rel).stem
+        default_bundle = str(Path(default_cache) / (stem + ".b2z"))
+        scan_um = measure.read_scan_size_from_bundle(default_bundle)
+        data = load_bundle(default_bundle)
+        cal = np.asarray(data["calibrated"], float)
+        resid = cal - ndi.gaussian_filter(cal, 1.0)
+        far = ~ndi.binary_dilation(np.asarray(data["binarized"]) > 0, iterations=6)
+        mad = np.median(np.abs(resid[far] - np.median(resid[far])))
+        noise = 1.4826 * mad / np.sqrt(1 - 1 / np.pi + 1 / (4 * np.pi))
+        raw = np.asarray(_raw_scan(rel), float)
+        for k in (1.0, *PIXEL_SIZE_FACTORS):
+            if k == 1.0:
+                fibers = default_fibers
+            else:
+                cache = cache_dir("kink_pixel_size_%g" % k)
+                cache.mkdir(parents=True, exist_ok=True)
+                bundle = cache / (stem + ".b2z")
+                if not bundle.is_file():
+                    img = resample(raw, k, noise, seed=int(100 * k))
+                    src = cache / (stem + ".txt")
+                    np.savetxt(src, img, delimiter="\t", fmt="%.5f")
+                    size = None if scan_um is None else (
+                        scan_um[0] * img.shape[1] / (raw.shape[1] * k),
+                        scan_um[1] * img.shape[0] / (raw.shape[0] * k))
+                    bundle = Path(process_file(str(src), scaled(k), output_dir=str(cache),
+                                               scan_size_um=size).bundle_path)
+                image = measure.load_tracking_image(str(bundle), 1.0, 1.0)
+                fibers = image.fibers_in_image_parallel()
+            w = float(np.median([f.width_px for f in fibers]))
+            refs = _consensus_marks(moved(human[name]["A"], k), moved(human[name]["B"], k), w)
+            tag = "x%g" % k
+            values[f"{tag}.{name}.width_px"] = w
+            values[f"{tag}.{name}.fibers"] = len(fibers)
+            rules = (("excess", krs.detect(fibers, KinkDetector())),
+                     ("polyline", (_polyline_kinks(fibers, base.kink_decompose_px,
+                                                   base.kinkangle_deg), [])),
+                     ("polyline_scaled", (_polyline_kinks(fibers, base.kink_decompose_px * k,
+                                                          base.kinkangle_deg), [])))
+            for rule, (kinks, unjudged) in rules:
+                counts = krs.score(refs, kinks, unjudged)
+                counts["detections"] = len(kinks)
+                for key in (*keys, "detections"):
+                    full = f"{tag}.{rule}.{key}"
+                    values[full] = values.get(full, 0) + counts[key]
+    return values
+
+
 @experiment(
     "kink_neighbour_flanks",
     ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/kink_detector.py", "afm_nanofiber_analyzer/centerline.py"],

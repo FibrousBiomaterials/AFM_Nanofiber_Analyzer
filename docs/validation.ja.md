@@ -723,7 +723,9 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 規則の長さは、$W$ が画像の分解能であることから決めた $W$ の倍数であり、この基準に
 対して最適化はしていない。ただし規則と中心線は、候補の中からこの基準での成績によって
 選んだ。したがってこの基準は独立した検証ではなく開発用のデータであり、評価用に
-取り分けたスキャンでの採点は行っていない。どれか 1<!--n:count--> つを隣の値に変えると、検出
+取り分けたスキャンでの採点は行っていない。2<!--n:count--> 人が付けた印（§4.19）に対しては、以前の
+折れ線規則が見つけた明瞭なキンクは超過回転規則より少なくない。また画素の大きさが違うと、
+折れ線規則は `kink_decompose_px` が固定であるため、キンクを落とすか一致しない折れを増やす（§4.21）。どれか 1<!--n:count--> つを隣の値に変えると、検出
 できた明瞭なキンクは 48〜51<!--m:kink_reference.sens_all.found_range--> 件、一致なしは 46〜82<!--m:kink_reference.sens_all.false_range--> 件の範囲で動いた（既定は
 それぞれ 49<!--m:kink_reference.default.found--> 件と 63<!--m:kink_reference.default.false--> 件）。明瞭なキンクの検出が減ったのは向きの平滑化を
 強めたときだけで、0.35<!--n:value tried--> W で 48<!--m:kink_reference.sens_heading_0.35.found--> 件であった。
@@ -1102,6 +1104,27 @@ $W$ 以内にある報告された折れの件数である。規則が報告し�
 §4.4 の目視基準の明瞭なキンク 53<!--m:kink_reference_human.all.ai.clear--> 件のうち、$W$ 以内に A の明瞭な印があるものは 43<!--m:kink_reference_human.all.ai.by_a--> 件、
 B の明瞭な印があるものは 50<!--m:kink_reference_human.all.ai.by_b--> 件、2<!--n:count--> 人とも明瞭とした印があるものは 43<!--m:kink_reference_human.all.ai.by_both--> 件だった。
 
+形式 1.0<!--n:bundle format version--> のバンドルのために残してある折れ線規則（§4.4。
+`KinkDetector.kinks_and_decomposed_from_track`、`kink_decompose_px` = 3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kink_decompose_px--> px、
+`kinkangle_deg` = 150<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg--> 度）を、同じ繊維のスケルトントラックに適用した。この規則は、折れがその頂点の
+角度の誤差を超えることも条件にしている（[アルゴリズムの説明](algorithms.ja.md) §4.6）。報告した折れは
+149<!--m:kink_reference_polyline.all.detections--> 件で、採点の結果を上の表の超過回転規則の合計と並べて示す（実験 kink_reference_polyline）。
+
+| 基準 | 規則 | 明瞭な印 | 検出 | 印から 1〜2<!--n:definition--> 幅ずれて検出 | 統合 | 見落とし | 一致なし |
+|---|---|---|---|---|---|---|---|
+| A の明瞭な印 | 超過回転規則（中心線上） | 80<!--m:kink_reference_human.all.A.ref--> | 65<!--m:kink_reference_human.all.A.found--> | 3<!--m:kink_reference_human.all.A.displaced--> | 3<!--m:kink_reference_human.all.A.merged--> | 9<!--m:kink_reference_human.all.A.missed--> | 59<!--m:kink_reference_human.all.A.false--> |
+| A の明瞭な印 | 折れ線規則（スケルトントラック上） | 80<!--m:kink_reference_polyline.all.A.ref--> | 70<!--m:kink_reference_polyline.all.A.found--> | 1<!--m:kink_reference_polyline.all.A.displaced--> | 1<!--m:kink_reference_polyline.all.A.merged--> | 8<!--m:kink_reference_polyline.all.A.missed--> | 67<!--m:kink_reference_polyline.all.A.false--> |
+| B の明瞭な印 | 超過回転規則（中心線上） | 122<!--m:kink_reference_human.all.B.ref--> | 82<!--m:kink_reference_human.all.B.found--> | 3<!--m:kink_reference_human.all.B.displaced--> | 4<!--m:kink_reference_human.all.B.merged--> | 33<!--m:kink_reference_human.all.B.missed--> | 45<!--m:kink_reference_human.all.B.false--> |
+| B の明瞭な印 | 折れ線規則（スケルトントラック上） | 122<!--m:kink_reference_polyline.all.B.ref--> | 81<!--m:kink_reference_polyline.all.B.found--> | 5<!--m:kink_reference_polyline.all.B.displaced--> | 7<!--m:kink_reference_polyline.all.B.merged--> | 29<!--m:kink_reference_polyline.all.B.missed--> | 53<!--m:kink_reference_polyline.all.B.false--> |
+| 2<!--n:count--> 人とも明瞭とした印 | 超過回転規則（中心線上） | 76<!--m:kink_reference_human.all.both.ref--> | 64<!--m:kink_reference_human.all.both.found--> | 2<!--m:kink_reference_human.all.both.displaced--> | 2<!--m:kink_reference_human.all.both.merged--> | 8<!--m:kink_reference_human.all.both.missed--> | 43<!--m:kink_reference_human.all.both.false--> |
+| 2<!--n:count--> 人とも明瞭とした印 | 折れ線規則（スケルトントラック上） | 76<!--m:kink_reference_polyline.all.both.ref--> | 66<!--m:kink_reference_polyline.all.both.found--> | 2<!--m:kink_reference_polyline.all.both.displaced--> | 2<!--m:kink_reference_polyline.all.both.merged--> | 6<!--m:kink_reference_polyline.all.both.missed--> | 52<!--m:kink_reference_polyline.all.both.false--> |
+
+どの基準でも、折れ線規則の一致しない折れのほうが多い。A の印、B の印、2<!--n:count--> 人とも明瞭とした
+印に対して、それぞれ 8<!--x:67 - 59--> 件、8<!--x:53 - 45--> 件、9<!--x:52 - 43--> 件多い。一方、見つけた明瞭な印は、それぞれ 5<!--x:70 - 65--> 件多く、
+1<!--x:82 - 81--> 件少なく、2<!--x:66 - 64--> 件多い。§4.4 では、超過回転規則とその中心線を選ぶのに使った目視基準に対して、
+見つけたキンクの数に差が出ている。この印に対しては、その差は現れない。2<!--n:count--> つの規則を
+別の画素の大きさで比べた結果は §4.21 にある。
+
 ### 4.20 明瞭なキンクの前後の区間にある別の折れ
 
 規則は前後の区間の回転を区間全体の平均として読むので、区間の中にある別の折れは一様な曲がりとして
@@ -1116,6 +1139,37 @@ B の明瞭な印があるものは 50<!--m:kink_reference_human.all.ai.by_b--> 
 | 片方が逆側へ曲がる | 32<!--m:kink_neighbour_flanks.one_other--> | 31<!--m:kink_neighbour_flanks.one_other_found--> |
 | 両方とも同じ側へ曲がる | 5<!--m:kink_neighbour_flanks.both_same--> | 4<!--m:kink_neighbour_flanks.both_same_found--> |
 | それ以外 | 30<!--m:kink_neighbour_flanks.otherwise--> | 29<!--m:kink_neighbour_flanks.otherwise_found--> |
+
+### 4.21 画素の大きさを変えたときのキンクの規則
+
+超過回転規則の長さは $W$ の倍数である。一方 §4.19 の折れ線規則は、スケルトントラックを
+固定の `kink_decompose_px` で分割する。その影響を見るため、同梱の各スキャンを同じ視野のまま
+画素の大きさを変えて作り直した。倍率 0.5<!--n:value tried--> では生データの 2<!--n:definition-->×2<!--n:definition--> 画素ごとに平均し、倍率 2<!--n:value tried--> では
+生データを 3<!--n:definition--> 次補間し、補正後の背景と同じ水準の白色ノイズを加えた。画素数で表す
+`ProcParams` の設定はすべて倍率を掛け（面積は倍率の 2<!--n:definition--> 乗を掛け）、二値化を比べられる
+ようにしたので、差はキンクの規則だけによる。2<!--n:count--> 人が付けた印を作り直した格子へ移し、
+§4.19 と同じく 2<!--n:count--> 人とも明瞭とした印に対して採点した（実験 kink_pixel_size）。各欄は
+「検出 / 見落とし / 一致なし」である。倍率 1<!--n:value tried--> は §4.19 の解析である。
+
+| 倍率 | $W$ (px)：高等植物 TOC、チュニケート CNF、Bruker NDTOC | 超過回転規則（中心線上） | 折れ線規則、`kink_decompose_px` = 3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kink_decompose_px--> px | 折れ線規則、3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kink_decompose_px--> px × 倍率 |
+|---|---|---|---|---|
+| 0.5<!--n:value tried--> | 4.0<!--m:kink_pixel_size.x0.5.hplantTOC.width_px-->、4.25<!--m:kink_pixel_size.x0.5.tunicate.width_px-->、4.25<!--m:kink_pixel_size.x0.5.NDTOC.width_px--> | 60<!--m:kink_pixel_size.x0.5.excess.found--> / 14<!--m:kink_pixel_size.x0.5.excess.missed--> / 53<!--m:kink_pixel_size.x0.5.excess.false--> | 44<!--m:kink_pixel_size.x0.5.polyline.found--> / 27<!--m:kink_pixel_size.x0.5.polyline.missed--> / 28<!--m:kink_pixel_size.x0.5.polyline.false--> | 58<!--m:kink_pixel_size.x0.5.polyline_scaled.found--> / 12<!--m:kink_pixel_size.x0.5.polyline_scaled.missed--> / 69<!--m:kink_pixel_size.x0.5.polyline_scaled.false--> |
+| 1<!--n:value tried--> | 7.625<!--m:kink_pixel_size.x1.hplantTOC.width_px-->、8.0<!--m:kink_pixel_size.x1.tunicate.width_px-->、8.625<!--m:kink_pixel_size.x1.NDTOC.width_px--> | 64<!--m:kink_pixel_size.x1.excess.found--> / 8<!--m:kink_pixel_size.x1.excess.missed--> / 43<!--m:kink_pixel_size.x1.excess.false--> | 66<!--m:kink_pixel_size.x1.polyline.found--> / 6<!--m:kink_pixel_size.x1.polyline.missed--> / 52<!--m:kink_pixel_size.x1.polyline.false--> | 66<!--m:kink_pixel_size.x1.polyline_scaled.found--> / 6<!--m:kink_pixel_size.x1.polyline_scaled.missed--> / 52<!--m:kink_pixel_size.x1.polyline_scaled.false--> |
+| 2<!--n:value tried--> | 15.5<!--m:kink_pixel_size.x2.hplantTOC.width_px-->、16.0<!--m:kink_pixel_size.x2.tunicate.width_px-->、17.0<!--m:kink_pixel_size.x2.NDTOC.width_px--> | 60<!--m:kink_pixel_size.x2.excess.found--> / 11<!--m:kink_pixel_size.x2.excess.missed--> / 31<!--m:kink_pixel_size.x2.excess.false--> | 62<!--m:kink_pixel_size.x2.polyline.found--> / 11<!--m:kink_pixel_size.x2.polyline.missed--> / 166<!--m:kink_pixel_size.x2.polyline.false--> | 59<!--m:kink_pixel_size.x2.polyline_scaled.found--> / 13<!--m:kink_pixel_size.x2.polyline_scaled.missed--> / 34<!--m:kink_pixel_size.x2.polyline_scaled.false--> |
+
+`kink_decompose_px` を 3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kink_decompose_px--> px のままにすると、折れ線規則は倍率 0.5<!--n:value tried--> で 76<!--m:kink_pixel_size.x0.5.polyline.ref--> 件の印のうち
+27<!--m:kink_pixel_size.x0.5.polyline.missed--> 件を見落とし、倍率 2<!--n:value tried--> で一致しない折れを 166<!--m:kink_pixel_size.x2.polyline.false--> 件報告した。チュニケートのスキャンで、
+補正後の画像に重ねて描くと、倍率 0.5<!--n:value tried--> で見落とした折れには、ほかの繊維から離れた繊維の
+明瞭な角が含まれていた。倍率 2<!--n:value tried--> の一致しない折れは、幅の広い繊維に沿ったスケルトン
+トラックの画素単位の小さな揺れの上と、1<!--n:count--> 本の繊維の中でスケルトンが分かれる所にあった。
+`kink_decompose_px` に倍率を掛けると、折れ線規則の検出と見落としは、設定を変えていない超過回転規則と
+2<!--x:max(60 - 58, 14 - 12, 60 - 59, 13 - 11)--> 件以内で一致した。一致しない折れは、倍率 0.5<!--n:value tried--> と 2<!--n:value tried--> で 69<!--m:kink_pixel_size.x0.5.polyline_scaled.false--> 件と 34<!--m:kink_pixel_size.x2.polyline_scaled.false--> 件で、
+超過回転規則の 53<!--m:kink_pixel_size.x0.5.excess.false--> 件と 31<!--m:kink_pixel_size.x2.excess.false--> 件より多かった。
+
+どの倍率でも、規則は同じ繊維の上で採点した。ただし追跡された繊維は、Bruker NDTOC の
+スキャンでは倍率によって違い、倍率 0.5<!--n:value tried-->、1<!--n:value tried-->、2<!--n:value tried--> でそれぞれ 121<!--m:kink_pixel_size.x0.5.NDTOC.fibers--> 本、142<!--m:kink_pixel_size.x1.NDTOC.fibers--> 本、96<!--m:kink_pixel_size.x2.NDTOC.fibers--> 本
+だった。チュニケートのスキャンではどの倍率でも 63<!--m:kink_pixel_size.x0.5.tunicate.fibers--> 本だった。作り直したスキャンは同梱の
+スキャンから作ったもので、別の画素の大きさで撮ったものではない。
 
 ## 5. 縞ノイズの検査
 

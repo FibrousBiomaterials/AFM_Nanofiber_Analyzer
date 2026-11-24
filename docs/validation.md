@@ -791,7 +791,10 @@ The lengths of the rule are multiples of $W$ set from $W$ being the resolution
 of the image and were not optimized against this reference, but the rule and
 its centerline were chosen among candidates by their scores on it, so the
 reference served as a development set rather than an independent test; no
-held-out scans were scored.
+held-out scans were scored. Against the marks two people made (§4.19), the
+earlier polyline rule does not find fewer clear kinks than the excess-turning
+rule, and at other pixel sizes its fixed `kink_decompose_px` loses kinks or
+adds unmatched bends (§4.21).
 Changing any one of them to a neighbouring value moved the clear kinks found
 within 48–51<!--m:kink_reference.sens_all.found_range--> and the unmatched bends within 46–82<!--m:kink_reference.sens_all.false_range--> (49<!--m:kink_reference.default.found--> and 63<!--m:kink_reference.default.false--> at
 the defaults). The only drop in the clear kinks found came from stronger
@@ -1217,6 +1220,29 @@ at the image edge or branch-point test under any reference.
 Of the 53<!--m:kink_reference_human.all.ai.clear--> clear kinks of the visual reference of §4.4, 43<!--m:kink_reference_human.all.ai.by_a--> have a clear mark of A within
 $W$, 50<!--m:kink_reference_human.all.ai.by_b--> a clear mark of B, and 43<!--m:kink_reference_human.all.ai.by_both--> a mark both call clear.
 
+The polyline rule kept for bundles of format 1.0<!--n:bundle format version--> (§4.4:
+`KinkDetector.kinks_and_decomposed_from_track`, `kink_decompose_px` = 3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kink_decompose_px--> px,
+`kinkangle_deg` = 150<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg-->°), which includes the test that a bend exceed the angular
+error of its vertex ([the algorithms](algorithms.md) §4.6), was applied to the
+skeleton tracks of the same fibers. It reported 149<!--m:kink_reference_polyline.all.detections--> bends and scored as follows
+(experiment kink_reference_polyline), beside the totals of the excess-turning
+rule from the table above:
+
+| Reference | Rule | Clear marks | Found | Found 1–2<!--n:definition--> widths from the mark | Merged | Missed | Unmatched |
+|---|---|---|---|---|---|---|---|
+| A's clear marks | excess turning, on the centerline | 80<!--m:kink_reference_human.all.A.ref--> | 65<!--m:kink_reference_human.all.A.found--> | 3<!--m:kink_reference_human.all.A.displaced--> | 3<!--m:kink_reference_human.all.A.merged--> | 9<!--m:kink_reference_human.all.A.missed--> | 59<!--m:kink_reference_human.all.A.false--> |
+| A's clear marks | polyline, on the skeleton track | 80<!--m:kink_reference_polyline.all.A.ref--> | 70<!--m:kink_reference_polyline.all.A.found--> | 1<!--m:kink_reference_polyline.all.A.displaced--> | 1<!--m:kink_reference_polyline.all.A.merged--> | 8<!--m:kink_reference_polyline.all.A.missed--> | 67<!--m:kink_reference_polyline.all.A.false--> |
+| B's clear marks | excess turning, on the centerline | 122<!--m:kink_reference_human.all.B.ref--> | 82<!--m:kink_reference_human.all.B.found--> | 3<!--m:kink_reference_human.all.B.displaced--> | 4<!--m:kink_reference_human.all.B.merged--> | 33<!--m:kink_reference_human.all.B.missed--> | 45<!--m:kink_reference_human.all.B.false--> |
+| B's clear marks | polyline, on the skeleton track | 122<!--m:kink_reference_polyline.all.B.ref--> | 81<!--m:kink_reference_polyline.all.B.found--> | 5<!--m:kink_reference_polyline.all.B.displaced--> | 7<!--m:kink_reference_polyline.all.B.merged--> | 29<!--m:kink_reference_polyline.all.B.missed--> | 53<!--m:kink_reference_polyline.all.B.false--> |
+| marks both call clear | excess turning, on the centerline | 76<!--m:kink_reference_human.all.both.ref--> | 64<!--m:kink_reference_human.all.both.found--> | 2<!--m:kink_reference_human.all.both.displaced--> | 2<!--m:kink_reference_human.all.both.merged--> | 8<!--m:kink_reference_human.all.both.missed--> | 43<!--m:kink_reference_human.all.both.false--> |
+| marks both call clear | polyline, on the skeleton track | 76<!--m:kink_reference_polyline.all.both.ref--> | 66<!--m:kink_reference_polyline.all.both.found--> | 2<!--m:kink_reference_polyline.all.both.displaced--> | 2<!--m:kink_reference_polyline.all.both.merged--> | 6<!--m:kink_reference_polyline.all.both.missed--> | 52<!--m:kink_reference_polyline.all.both.false--> |
+
+Under every reference the polyline rule reports more unmatched bends, 8<!--x:67 - 59-->, 8<!--x:53 - 45-->
+and 9<!--x:52 - 43--> more against A's, B's and both people's marks, while it finds 5<!--x:70 - 65--> more,
+1<!--x:82 - 81--> fewer and 2<!--x:66 - 64--> more clear marks. The gap in found kinks that §4.4 shows against the visual reference,
+on which the excess-turning rule and its centerline were chosen, does not
+appear against these marks. §4.21 compares the two rules at other pixel sizes.
+
 ### 4.20 Neighbouring bends in the flanks of a clear kink
 
 The rule reads each flank's turning as an average over the flank, so another
@@ -1233,6 +1259,41 @@ sense. 9<!--m:kink_neighbour_flanks.near_end--> marks lie within the end margin 
 | one turns the other way | 32<!--m:kink_neighbour_flanks.one_other--> | 31<!--m:kink_neighbour_flanks.one_other_found--> |
 | both turn the same way | 5<!--m:kink_neighbour_flanks.both_same--> | 4<!--m:kink_neighbour_flanks.both_same_found--> |
 | otherwise | 30<!--m:kink_neighbour_flanks.otherwise--> | 29<!--m:kink_neighbour_flanks.otherwise_found--> |
+
+### 4.21 The kink rules at other pixel sizes
+
+The lengths of the excess-turning rule are multiples of $W$, while the polyline
+rule of §4.19 splits the skeleton track at a fixed `kink_decompose_px`. To see
+what that does, each bundled scan was resampled over the same field: at factor
+0.5<!--n:value tried--> each 2<!--n:definition-->×2<!--n:definition--> block of the raw scan was averaged, and at factor 2<!--n:value tried--> the raw scan was
+interpolated (cubic) and white noise at the level of its calibrated
+background added. Every `ProcParams` setting counted in pixels was multiplied
+by the factor (areas by its square), so the segmentation stays comparable and
+the difference is the kink rule. The marks two people made were moved to the
+resampled grid and the rules scored against the marks both call clear, as in
+§4.19 (experiment kink_pixel_size). Each cell reads found / missed / unmatched;
+factor 1<!--n:value tried--> is the analysis of §4.19.
+
+| Factor | $W$ (px): higher-plant TOC, tunicate CNF, Bruker NDTOC | Excess turning, on the centerline | Polyline, `kink_decompose_px` = 3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kink_decompose_px--> px | Polyline, 3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kink_decompose_px--> px × the factor |
+|---|---|---|---|---|
+| 0.5<!--n:value tried--> | 4.0<!--m:kink_pixel_size.x0.5.hplantTOC.width_px-->, 4.25<!--m:kink_pixel_size.x0.5.tunicate.width_px-->, 4.25<!--m:kink_pixel_size.x0.5.NDTOC.width_px--> | 60<!--m:kink_pixel_size.x0.5.excess.found--> / 14<!--m:kink_pixel_size.x0.5.excess.missed--> / 53<!--m:kink_pixel_size.x0.5.excess.false--> | 44<!--m:kink_pixel_size.x0.5.polyline.found--> / 27<!--m:kink_pixel_size.x0.5.polyline.missed--> / 28<!--m:kink_pixel_size.x0.5.polyline.false--> | 58<!--m:kink_pixel_size.x0.5.polyline_scaled.found--> / 12<!--m:kink_pixel_size.x0.5.polyline_scaled.missed--> / 69<!--m:kink_pixel_size.x0.5.polyline_scaled.false--> |
+| 1<!--n:value tried--> | 7.625<!--m:kink_pixel_size.x1.hplantTOC.width_px-->, 8.0<!--m:kink_pixel_size.x1.tunicate.width_px-->, 8.625<!--m:kink_pixel_size.x1.NDTOC.width_px--> | 64<!--m:kink_pixel_size.x1.excess.found--> / 8<!--m:kink_pixel_size.x1.excess.missed--> / 43<!--m:kink_pixel_size.x1.excess.false--> | 66<!--m:kink_pixel_size.x1.polyline.found--> / 6<!--m:kink_pixel_size.x1.polyline.missed--> / 52<!--m:kink_pixel_size.x1.polyline.false--> | 66<!--m:kink_pixel_size.x1.polyline_scaled.found--> / 6<!--m:kink_pixel_size.x1.polyline_scaled.missed--> / 52<!--m:kink_pixel_size.x1.polyline_scaled.false--> |
+| 2<!--n:value tried--> | 15.5<!--m:kink_pixel_size.x2.hplantTOC.width_px-->, 16.0<!--m:kink_pixel_size.x2.tunicate.width_px-->, 17.0<!--m:kink_pixel_size.x2.NDTOC.width_px--> | 60<!--m:kink_pixel_size.x2.excess.found--> / 11<!--m:kink_pixel_size.x2.excess.missed--> / 31<!--m:kink_pixel_size.x2.excess.false--> | 62<!--m:kink_pixel_size.x2.polyline.found--> / 11<!--m:kink_pixel_size.x2.polyline.missed--> / 166<!--m:kink_pixel_size.x2.polyline.false--> | 59<!--m:kink_pixel_size.x2.polyline_scaled.found--> / 13<!--m:kink_pixel_size.x2.polyline_scaled.missed--> / 34<!--m:kink_pixel_size.x2.polyline_scaled.false--> |
+
+With `kink_decompose_px` left at 3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kink_decompose_px--> px, the polyline rule missed 27<!--m:kink_pixel_size.x0.5.polyline.missed--> of the 76<!--m:kink_pixel_size.x0.5.polyline.ref--> marks at
+factor 0.5<!--n:value tried--> and reported 166<!--m:kink_pixel_size.x2.polyline.false--> unmatched bends at factor 2<!--n:value tried-->. On the tunicate scan,
+rendered over the calibrated image, the bends it missed at factor 0.5<!--n:value tried--> include
+clear corners of fibers lying apart from others, and the unmatched bends at
+factor 2<!--n:value tried--> lie on the pixel-scale wiggles of the skeleton track along wide fibers
+and where the skeleton splits inside one. With `kink_decompose_px` multiplied
+by the factor, the polyline rule found and missed within 2<!--x:max(60 - 58, 14 - 12, 60 - 59, 13 - 11)--> marks of the
+excess-turning rule, whose settings were not changed, and reported 69<!--m:kink_pixel_size.x0.5.polyline_scaled.false--> and 34<!--m:kink_pixel_size.x2.polyline_scaled.false-->
+unmatched bends against its 53<!--m:kink_pixel_size.x0.5.excess.false--> and 31<!--m:kink_pixel_size.x2.excess.false--> at factors 0.5<!--n:value tried--> and 2<!--n:value tried-->.
+
+The rules were scored on the same fibers at each factor, but the fibers traced
+differ between factors on the Bruker NDTOC scan: 121<!--m:kink_pixel_size.x0.5.NDTOC.fibers-->, 142<!--m:kink_pixel_size.x1.NDTOC.fibers--> and 96<!--m:kink_pixel_size.x2.NDTOC.fibers--> at factors
+0.5<!--n:value tried-->, 1<!--n:value tried--> and 2<!--n:value tried-->, against 63<!--m:kink_pixel_size.x0.5.tunicate.fibers--> at every factor on the tunicate scan. The resampled
+scans are made from the bundled ones, not recorded at another pixel size.
 
 ## 5. Stripe-noise screening
 
