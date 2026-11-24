@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Tests for lib/pipeline.py using the synthetic bent-fiber image.
-合成の折れ繊維画像を用いた lib/pipeline.py のテスト。
+Tests for afm_nanofiber_analyzer/pipeline.py using the synthetic bent-fiber image.
+合成の折れ繊維画像を用いた afm_nanofiber_analyzer/pipeline.py のテスト。
 
 These tests assert physically self-evident properties of the synthetic input
 (one fiber, one kink at the drawn bend) so they stay valid when algorithm
@@ -21,11 +21,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import lib
-from lib.blosc2_io import load_bundle, load_bundle_meta
-from lib.bundle_schema import BUNDLE_FORMAT_VERSION, SPATIAL_CALIBRATION_KEY
-from lib.measure import measure_bundle
-from lib.pipeline import (
+import afm_nanofiber_analyzer
+from afm_nanofiber_analyzer.blosc2_io import load_bundle, load_bundle_meta
+from afm_nanofiber_analyzer.bundle_schema import BUNDLE_FORMAT_VERSION, SPATIAL_CALIBRATION_KEY
+from afm_nanofiber_analyzer.measure import measure_bundle
+from afm_nanofiber_analyzer.pipeline import (
     ProcParams, STAGE_KEYS, REQUIRED_BUNDLE_KEYS,
     build_stages, process_file, merge_params_dict,
     bundle_path_for, param_path_for, existing_min_set,
@@ -136,7 +136,7 @@ def test_save_failure_preserves_previous_outputs(synthetic_fiber_txt, tmp_path, 
     def fail_save_bundle(*args, **kwargs):
         raise RuntimeError("simulated bundle write failure")
 
-    monkeypatch.setattr("lib.pipeline.save_bundle", fail_save_bundle)
+    monkeypatch.setattr("afm_nanofiber_analyzer.pipeline.save_bundle", fail_save_bundle)
     changed_params = ProcParams(bg_method="tophat", kinkangle_deg=120.0)
     with pytest.raises(RuntimeError, match="simulated bundle write failure"):
         process_file(synthetic_fiber_txt, changed_params, output_dir=out_dir)
@@ -274,7 +274,7 @@ def test_vlmeta_records_provenance(pipeline_result, synthetic_fiber_txt):
     result, _events = pipeline_result
     meta = load_bundle_meta(result.bundle_path)
 
-    assert meta["software_version"] == lib.__version__
+    assert meta["software_version"] == afm_nanofiber_analyzer.__version__
     assert meta["input_file"] == os.path.basename(synthetic_fiber_txt)
     with open(synthetic_fiber_txt, "rb") as f:
         assert meta["input_sha256"] == hashlib.sha256(f.read()).hexdigest()
@@ -359,13 +359,13 @@ def test_measure_bundle_without_scale_or_record_raises(pipeline_result):
 
 
 def test_software_version_matches_pyproject():
-    """lib.__version__ is the runtime copy of the pyproject [project] version."""
+    """afm_nanofiber_analyzer.__version__ is the runtime copy of the pyproject [project] version."""
     pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
     match = re.search(
         r'^version\s*=\s*"([^"]+)"', pyproject.read_text(encoding="utf-8"), re.M
     )
     assert match is not None, "version not found in pyproject.toml"
-    assert lib.__version__ == match.group(1)
+    assert afm_nanofiber_analyzer.__version__ == match.group(1)
 
 
 def test_save_original_key_is_optional(synthetic_fiber_txt, tmp_path):
@@ -412,7 +412,7 @@ def test_vlmeta_records_the_apparent_width(pipeline_result):
     キンク規則の長さはすべて見かけ幅の倍数なので、それを記録しないバンドルは、
     自身のキンクがどの物理尺度で意味を持つのかを言えない。
     """
-    from lib.bundle_schema import APPARENT_WIDTH_KEY
+    from afm_nanofiber_analyzer.bundle_schema import APPARENT_WIDTH_KEY
 
     result, _events = pipeline_result
     summary = load_bundle_meta(result.bundle_path)[APPARENT_WIDTH_KEY]
@@ -448,8 +448,8 @@ def test_pixel_length_names_are_deprecated():
     The public pixel-length names still resolve, with a DeprecationWarning.
     画素長の公開名は、DeprecationWarning 付きで引き続き解決する。
     """
-    import lib.bundle_schema as bundle_schema
-    import lib.pipeline as pipeline
+    import afm_nanofiber_analyzer.bundle_schema as bundle_schema
+    import afm_nanofiber_analyzer.pipeline as pipeline
 
     with pytest.warns(DeprecationWarning, match="3.0.0"):
         key = bundle_schema.PIXEL_LENGTHS_KEY
@@ -493,8 +493,8 @@ def test_the_median_filter_reaches_detection_but_never_the_heights(tmp_path):
     3x3 メディアンは尾根の頂点を 1 画素脇の隣接画素の高さまで平らにするため、
     フィルタ後の画像から読んだ高さは低く出る。
     """
-    from lib.afm_io import load_afm_image
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer.afm_io import load_afm_image
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     raw = np.asarray(load_afm_image(write_synthetic_fiber_txt(tmp_path)), dtype=float)
     images = {}

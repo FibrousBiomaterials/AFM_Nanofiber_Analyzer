@@ -1,18 +1,17 @@
 # Packaging metadata for AFM Nanofiber Analyzer.
 #
-# Scope: this configuration targets a development / editable install
-# (`pip install -e .`) so the launcher, GUIs, CLI, and tests run from a
-# checkout with declared dependencies. End-user distribution remains the
-# PyInstaller bundle produced by build.py (see README). The historical
-# top-level package names `lib` and `guis` are kept for compatibility with
-# the launcher and frozen builds, so a non-editable site-packages install
-# is not supported.
+# Scope: `pip install` installs only the analysis package
+# `afm_nanofiber_analyzer`, so it can be imported from any environment, such
+# as a Jupyter notebook. The launcher (Main.py), the GUIs (guis/) and the CLI
+# (cli.py) are not installed: they run from a checkout, where
+# `pip install -e .` provides the declared dependencies. End-user distribution
+# of the GUIs is the PyInstaller bundle produced by build.py (see README).
 #
-# 本設定は開発用の editable インストール（`pip install -e .`）を対象とする。
-# エンドユーザー向け配布は従来どおり build.py が生成する PyInstaller
-# バンドルである。トップレベルパッケージ名 `lib` / `guis` はランチャーと
-# 凍結ビルドとの互換のため維持しており、site-packages への通常インストール
-# は対象外。
+# `pip install` が入れるのは解析パッケージ `afm_nanofiber_analyzer` だけで、
+# Jupyter notebook などどの環境からも import できる。ランチャー（Main.py）・
+# GUI（guis/）・CLI（cli.py）はインストールせず、リポジトリから実行する。そこでは
+# `pip install -e .` が宣言した依存を入れる。GUI のエンドユーザー向け配布は
+# build.py が生成する PyInstaller バンドルである（README 参照）。
 
 [build-system]
 requires = ["setuptools>=77"]
@@ -79,20 +78,20 @@ dependencies = [
 # pytest needs the `faulthandler_exit_on_timeout` setting used below; it was
 # checked with 9.1.1.
 dev = ["pytest>=9.1", "pytest-xdist", "Babel", "ruff"]
-# Sphinx renders the lib/ docstrings into the API reference under docs/.
+# Sphinx renders the afm_nanofiber_analyzer/ docstrings into the API reference under docs/.
 # Napoleon (NumPy-style parsing) ships with Sphinx; furo is the HTML theme.
 # myst-parser renders the Markdown narrative pages (docs/algorithms.md).
 docs = ["sphinx", "furo", "myst-parser"]
 # gwyconvert runs Gwyddion's file modules for GUI00 / `cli.py convert`
-# (lib/gwy_convert.py). Optional because prebuilt wheels exist only for
+# (afm_nanofiber_analyzer/gwy_convert.py). Optional because prebuilt wheels exist only for
 # Windows x86_64, Linux x86_64 and macOS, and because the program is GPL: it is
 # installed by the user's own pip, never shipped in the PyInstaller build. The
-# upper bound guards the command-line contract lib/gwy_convert.py relies on
+# upper bound guards the command-line contract afm_nanofiber_analyzer/gwy_convert.py relies on
 # (input path, output path, JSON on stdout), which a 0.x release may change.
 # gwyconvert は GUI00 / `cli.py convert` で Gwyddion のファイルモジュールを
-# 実行する（lib/gwy_convert.py）。ビルド済み wheel が Windows x86_64・Linux
+# 実行する（afm_nanofiber_analyzer/gwy_convert.py）。ビルド済み wheel が Windows x86_64・Linux
 # x86_64・macOS にしかなく、また GPL のプログラムなので任意依存とし、利用者自身の
-# pip で入れて PyInstaller ビルドには同梱しない。上限は lib/gwy_convert.py が
+# pip で入れて PyInstaller ビルドには同梱しない。上限は afm_nanofiber_analyzer/gwy_convert.py が
 # 頼るコマンドラインの約束（入力パス・出力パス・標準出力の JSON）を守るため。
 # 0.x の版では変わりうる。
 convert = ["gwyddionpy-converter>=0.1.0,<0.2"]
@@ -100,19 +99,15 @@ convert = ["gwyddionpy-converter>=0.1.0,<0.2"]
 [project.urls]
 Repository = "https://github.com/FibrousBiomaterials/AFM_Nanofiber_Analyzer"
 
-[project.scripts]
-afm-analyzer = "Main:main"
-afm-analyzer-cli = "cli:main"
-
 [tool.setuptools]
-packages = ["lib", "guis"]
-py-modules = ["Main", "cli"]
+packages = ["afm_nanofiber_analyzer"]
 
 [tool.pytest.ini_options]
-# `lib` is collected for the `Examples` sections of its docstrings, which
-# --doctest-modules (in addopts) runs, so an example whose output the code no
-# longer produces fails here rather than reaching the API reference.
-testpaths = ["tests", "lib"]
+# `afm_nanofiber_analyzer` is collected for the `Examples` sections of its
+# docstrings, which --doctest-modules (in addopts) runs, so an example whose
+# output the code no longer produces fails here rather than reaching the API
+# reference.
+testpaths = ["tests", "afm_nanofiber_analyzer"]
 # Run tests in parallel across CPU cores via pytest-xdist. This roughly halves
 # the wall time of the full suite, whose cost is dominated by the slow
 # full-size regression tests (test_integration.py, test_strict_regression.py).

@@ -67,7 +67,7 @@ def _files(checker, claims, paper=PAPER, extra=None):
         checker.PAPER: paper,
         checker.BIB: "@article{Key2020,\n  title = {t}\n}\n",
         checker.CLAIMS: json.dumps(record),
-        "lib/mod.py": "VALUE = 3\n\ndef func():\n    return VALUE\n",
+        "afm_nanofiber_analyzer/mod.py": "VALUE = 3\n\ndef func():\n    return VALUE\n",
         "docs/d.md": "The bundled scans are\nthree scans.\n",
     }
     try:
@@ -117,8 +117,8 @@ def test_a_record_whose_sentence_left_the_paper_is_reported(checker):
 
 @pytest.mark.parametrize("source, fragment", [
     ({"kind": "doc", "path": "docs/d.md", "quote": "four scans"}, "quote not found"),
-    ({"kind": "code", "path": "lib/mod.py", "symbol": "missing"}, "symbol 'missing'"),
-    ({"kind": "code", "path": "lib/mod.py", "quote": "VALUE = 4"}, "quote not found"),
+    ({"kind": "code", "path": "afm_nanofiber_analyzer/mod.py", "symbol": "missing"}, "symbol 'missing'"),
+    ({"kind": "code", "path": "afm_nanofiber_analyzer/mod.py", "quote": "VALUE = 4"}, "quote not found"),
     ({"kind": "external", "ref": "Nobody2000", "locator": "p", "quote": "q"}, "neither a URL"),
     ({"kind": "external", "ref": "Key2020", "locator": "p", "quote": ""}, "without quote"),
     ({"kind": "author", "reason": ""}, "without reason"),
@@ -135,7 +135,7 @@ def test_sources_that_hold_pass(checker):
     claims = _all_unverified(checker)
     claims[0] = {"sentence": claims[0]["sentence"], "status": "verified", "sources": [
         {"kind": "doc", "path": "docs/d.md", "quote": "bundled scans are three scans"},
-        {"kind": "code", "path": "lib/mod.py", "symbol": "func", "quote": "return VALUE"},
+        {"kind": "code", "path": "afm_nanofiber_analyzer/mod.py", "symbol": "func", "quote": "return VALUE"},
         {"kind": "external", "ref": "Key2020", "locator": "p. 1", "quote": "q"},
         {"kind": "external", "ref": "https://example.org", "locator": "README", "quote": "q"},
         {"kind": "author", "reason": "confirmed by the corresponding author"},

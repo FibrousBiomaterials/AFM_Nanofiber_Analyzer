@@ -161,7 +161,7 @@ def thin_ignoring_image_border(
     carries it to the edge:
 
     >>> import numpy as np
-    >>> from lib.skeletonizer import thin_ignoring_image_border
+    >>> from afm_nanofiber_analyzer.skeletonizer import thin_ignoring_image_border
     >>> mask = np.zeros((9, 14), dtype=np.uint8)
     >>> mask[2:7, 0:10] = 1
     >>> thin_ignoring_image_border(mask, pad=0)[4].tolist()
@@ -266,8 +266,8 @@ def collapse_skeleton_loops(
     collapsing the loop leaves one straight line without any:
 
     >>> import numpy as np
-    >>> from lib.imp_tools import branchedPoints
-    >>> from lib.skeletonizer import collapse_skeleton_loops
+    >>> from afm_nanofiber_analyzer.imp_tools import branchedPoints
+    >>> from afm_nanofiber_analyzer.skeletonizer import collapse_skeleton_loops
     >>> skel = np.zeros((7, 11), dtype=np.uint8)
     >>> skel[3, 0:4] = skel[3, 7:11] = 1
     >>> skel[2, 4:7] = skel[4, 4:7] = 1
@@ -420,7 +420,7 @@ def prune_short_spurs(
     A two-pixel spur on a straight line is removed; the line is kept whole:
 
     >>> import numpy as np
-    >>> from lib.skeletonizer import prune_short_spurs
+    >>> from afm_nanofiber_analyzer.skeletonizer import prune_short_spurs
     >>> skel = np.zeros((9, 15), dtype=np.uint8)
     >>> skel[5, 1:14] = 1
     >>> skel[3:5, 7] = 1
@@ -635,7 +635,7 @@ def prune_terminal_hooks(
     high as the body, it is kept as a real bent end:
 
     >>> import numpy as np
-    >>> from lib.skeletonizer import prune_terminal_hooks
+    >>> from afm_nanofiber_analyzer.skeletonizer import prune_terminal_hooks
     >>> skel = np.zeros((14, 44), dtype=np.uint8)
     >>> skel[10, 10:41] = 1
     >>> skel[9, 9] = 1
@@ -751,9 +751,9 @@ class Skeletonizer:
     root:
 
     >>> import numpy as np
-    >>> from lib.afm_io import load_afm_text
-    >>> from lib.pipeline import ProcParams, build_stages
-    >>> from lib.processed_image import ProcessedImage
+    >>> from afm_nanofiber_analyzer.afm_io import load_afm_text
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    >>> from afm_nanofiber_analyzer.processed_image import ProcessedImage
     >>> heights = load_afm_text("testdata_artificial/sample_isotropic.txt")
     >>> image = ProcessedImage(original_AFM=heights, name="sample_isotropic")
     >>> stages = build_stages(ProcParams())
@@ -1176,7 +1176,7 @@ class Skeletonizer:
         the line is kept at ``min_area=5``:
 
         >>> import numpy as np
-        >>> from lib.skeletonizer import Skeletonizer
+        >>> from afm_nanofiber_analyzer.skeletonizer import Skeletonizer
         >>> skel = np.zeros((10, 12), dtype=np.uint8)
         >>> skel[1, 1:9] = 1
         >>> skel[4, 1:4] = 1

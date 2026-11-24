@@ -16,7 +16,7 @@ kink rule itself is explained there (§4.3–§4.6) and only its use is covered 
 Every code block starts with a header naming where it comes from:
 
 ```text
-# source: lib/measure.py::compute_fiber_stats
+# source: afm_nanofiber_analyzer/measure.py::compute_fiber_stats
 ```
 
 That is the file and the function, method (`Class.method`), or module constant
@@ -82,12 +82,12 @@ part of the scan's rows, so such a crop and the whole image measure with the
 same pixel size:
 
 ```python
-# source: lib/bundle_schema.py::pixel_size_nm
+# source: afm_nanofiber_analyzer/bundle_schema.py::pixel_size_nm
 return float(scan_size_um) * 1000.0 / (int(stored_pixels) + 1)
 ```
 
 ```python
-# source: lib/measure.py::measure_bundle
+# source: afm_nanofiber_analyzer/measure.py::measure_bundle
 data, meta = _load_validated_arrays(
     bundle_path, TRACKING_BUNDLE_KEYS, optional=_TRACKING_OPTIONAL_KEYS,
 )
@@ -122,7 +122,7 @@ sets to `recorded` when both equal the scan size the bundle records and to
 the bundle alone:
 
 ```python
-# source: lib/measure.py::measure_bundle
+# source: afm_nanofiber_analyzer/measure.py::measure_bundle
 scale_source = (
     SCALE_SOURCE_RECORDED
     if recorded is not None
@@ -175,7 +175,7 @@ places the centerline by the bundle's rule
 (`bundle_schema.symmetric_section_from_meta`).
 
 ```python
-# source: lib/fiber_tracking_image.py::_build_fiber
+# source: afm_nanofiber_analyzer/fiber_tracking_image.py::_build_fiber
 y0, x0 = max(int(y) - 1, 0), max(int(x) - 1, 0)
 sub_label = label_image[y0: y + h + 1, x0: x + w + 1]
 target_image = (sub_label == label).astype(np.uint8)
@@ -261,7 +261,7 @@ accuracy on synthetic scans are in [Evaluation on particular data](validation.md
 `centerline.place_centerline` measures the width, then places the centerline:
 
 ```python
-# source: lib/centerline.py::place_centerline
+# source: afm_nanofiber_analyzer/centerline.py::place_centerline
 width, measured = measure_apparent_width(
     height, x, y, return_measured=True, aspect=aspect, peak=width_peak,
     adaptive_range=width_adaptive, symmetric_section=symmetric_section)
@@ -285,7 +285,7 @@ Every length used to place the centerline is a multiple of the apparent width W,
 the procedure means the same thing at any pixel size:
 
 ```python
-# source: lib/centerline.py::_WIDTH_SEARCH_PX, _WIDTH_STEP_PX, _WIDTH_RANGE_MIN_WIDTHS, _WIDTH_RANGE_WIDTHS, _WIDTH_SEARCH_MAX_PX, _WIDTH_SECOND_CREST_FRAC, _WIDTH_TANGENT_HALF, FALLBACK_WIDTH_PX, _MIN_WIDTH_PX, _CREST_WINDOW_WIDTHS, _FRAME_SIGMA_WIDTHS, _CREST_REACH_WIDTHS, _HALF_MAX_REACH_WIDTHS, _MAX_SECTION_WIDTHS, _OFFSET_SMOOTH_WIDTHS, _JUNCTION_WIDTHS, _MIN_CREST_AMPLITUDE_FRAC
+# source: afm_nanofiber_analyzer/centerline.py::_WIDTH_SEARCH_PX, _WIDTH_STEP_PX, _WIDTH_RANGE_MIN_WIDTHS, _WIDTH_RANGE_WIDTHS, _WIDTH_SEARCH_MAX_PX, _WIDTH_SECOND_CREST_FRAC, _WIDTH_TANGENT_HALF, FALLBACK_WIDTH_PX, _MIN_WIDTH_PX, _CREST_WINDOW_WIDTHS, _FRAME_SIGMA_WIDTHS, _CREST_REACH_WIDTHS, _HALF_MAX_REACH_WIDTHS, _MAX_SECTION_WIDTHS, _OFFSET_SMOOTH_WIDTHS, _JUNCTION_WIDTHS, _MIN_CREST_AMPLITUDE_FRAC
 _WIDTH_SEARCH_PX = 12.0
 _WIDTH_STEP_PX = 0.25
 _WIDTH_RANGE_MIN_WIDTHS = 1.25
@@ -317,7 +317,7 @@ smallest width used (§2.1).
 from the **height** image. It does not use the binarized mask.
 
 ```python
-# source: lib/centerline.py::measure_apparent_width, _width_in_range
+# source: afm_nanofiber_analyzer/centerline.py::measure_apparent_width, _width_in_range
 if peak not in WIDTH_PEAKS:
     raise ValueError(f"peak must be one of {WIDTH_PEAKS}, got {peak!r}")
 x = np.asarray(xtrack, dtype=np.float64)
@@ -450,7 +450,7 @@ its sideways offset is measured from. No point is ever moved to the smoothed
 position, which would round off real corners.
 
 ```python
-# source: lib/centerline.py::_refine
+# source: afm_nanofiber_analyzer/centerline.py::_refine
 a = float(aspect)
 y = y * a
 width = float(width_px)
@@ -495,7 +495,7 @@ fiber from capturing the centerline. The climb is `_climb_to_maximum`, the same
 one the width measurement of a format 1.4 bundle uses (§2.1).
 
 ```python
-# source: lib/centerline.py::_refine
+# source: afm_nanofiber_analyzer/centerline.py::_refine
 c = int(np.argmin(np.abs(s)))
 k = _climb_to_maximum(prof, c, symmetric_section)
 peak = prof[rows, k]
@@ -503,7 +503,7 @@ within_reach = np.abs(s[k]) < reach - 0.5 * _WIDTH_STEP_PX
 ```
 
 ```python
-# source: lib/centerline.py::_climb_to_maximum
+# source: afm_nanofiber_analyzer/centerline.py::_climb_to_maximum
 n, ns = prof.shape
 dif = np.diff(prof, axis=1)
 k = np.full(n, c)
@@ -551,7 +551,7 @@ sub-sample position by linear interpolation. The centerline point is placed at
 the midpoint of the two crossings.
 
 ```python
-# source: lib/centerline.py::_refine
+# source: afm_nanofiber_analyzer/centerline.py::_refine
 window = np.abs(s[None, :] - s[k][:, None]) <= half_reach
 left = window & (col < k[:, None])
 right = window & (col > k[:, None])
@@ -605,7 +605,7 @@ skeleton track's median resolved amplitude, and must lie more than 1 W from ever
 point:
 
 ```python
-# source: lib/centerline.py::_refine
+# source: afm_nanofiber_analyzer/centerline.py::_refine
 typical = float(np.median(amplitude[resolved])) if resolved.any() else float(np.median(amplitude))
 weight = (resolved & (amplitude >= _MIN_CREST_AMPLITUDE_FRAC * typical)).astype(np.float64)
 ...
@@ -628,7 +628,7 @@ $$
 $$
 
 ```python
-# source: lib/centerline.py::_whittaker_first_order
+# source: afm_nanofiber_analyzer/centerline.py::_whittaker_first_order
 n = target.size
 if n == 1:
     return target.astype(np.float64).copy()
@@ -654,7 +654,7 @@ centerline would read
 low. A fiber's height is therefore the **crest** of its section:
 
 ```python
-# source: lib/centerline.py::_refine
+# source: afm_nanofiber_analyzer/centerline.py::_refine
 near = np.abs(s[None, :] - lateral[:, None]) <= _CREST_WINDOW_WIDTHS * width
 crest_near = np.where(near, prof, -np.inf).max(1)
 line_x = fx + nx * lateral
@@ -685,7 +685,7 @@ point is clamped to the range of pixel centres. Here the centerline also
 returns from X-pixel units to pixel coordinates (`line_y / a`):
 
 ```python
-# source: lib/centerline.py::_refine
+# source: afm_nanofiber_analyzer/centerline.py::_refine
 line_x = np.clip(line_x, 0.0, img.shape[1] - 1.0)
 line_y = np.clip(line_y / a, 0.0, img.shape[0] - 1.0)
 ```
@@ -700,7 +700,7 @@ On the centerline, distance along the fiber is the plain Euclidean length of
 the polyline. Each axis is scaled by its own pixel size:
 
 ```python
-# source: lib/centerline.py::polyline_distance
+# source: afm_nanofiber_analyzer/centerline.py::polyline_distance
 x = np.asarray(xtrack, dtype=np.float64)
 y = np.asarray(ytrack, dtype=np.float64)
 x_step = float(pixel_step_size)
@@ -719,7 +719,7 @@ $$
 This array is `Fiber.horizon`, and the fiber's length is its last element:
 
 ```python
-# source: lib/fiber.py::Fiber.length
+# source: afm_nanofiber_analyzer/fiber.py::Fiber.length
 @property
 def length(self) -> float:
 ...
@@ -757,7 +757,7 @@ point is placed differs:
 The smoothing widths and levels are:
 
 ```python
-# source: lib/centerline.py::_SKELETON_SMOOTH_WIDTHS, _WIDE_SMOOTH_WIDTHS, _QUARTER_LEVEL, _CENTROID_LEVEL
+# source: afm_nanofiber_analyzer/centerline.py::_SKELETON_SMOOTH_WIDTHS, _WIDE_SMOOTH_WIDTHS, _QUARTER_LEVEL, _CENTROID_LEVEL
 _SKELETON_SMOOTH_WIDTHS = {
     SMOOTHED_SKELETON_05W: 0.5,
     SMOOTHED_SKELETON_1W: 1.0,
@@ -772,7 +772,7 @@ of the offsets (the excerpts of §2.2 and §2.5). Methods D, E and F replace the
 offset of §2.4 after the reliability tests have been taken:
 
 ```python
-# source: lib/centerline.py::_refine
+# source: afm_nanofiber_analyzer/centerline.py::_refine
 if method == QUARTER_MAX_CENTERLINE:
     ql, qr, qok = _level_crossings(
         prof, s, left, right, base + _QUARTER_LEVEL * amplitude)
@@ -805,7 +805,7 @@ elif method == CREST_CENTERLINE:
 maximum, as §2.4 does at half the amplitude:
 
 ```python
-# source: lib/centerline.py::_level_crossings
+# source: afm_nanofiber_analyzer/centerline.py::_level_crossings
 n, ns = prof.shape
 rows = np.arange(n)
 col = np.arange(ns)[None, :]
@@ -845,7 +845,7 @@ still supply their reliability and crest height, and the centerline is then
 replaced by the skeleton track, raw or smoothed along its length:
 
 ```python
-# source: lib/centerline.py::_refine
+# source: afm_nanofiber_analyzer/centerline.py::_refine
 if method == SKELETON_PIXEL_LINE:
     line_x, line_y = x.copy(), y.copy()
 elif method in _SKELETON_SMOOTH_WIDTHS:
@@ -884,7 +884,7 @@ cols = ("#", "length (nm)", "median (nm)", "max (nm)", "p90 (nm)",
 ```
 
 All of them except `#`, `EP count`, and `Kink count` are computed by
-`lib/measure.py`. The same functions are called by the CSV export, by GUI03, and
+`afm_nanofiber_analyzer/measure.py`. The same functions are called by the CSV export, by GUI03, and
 by `cli.py measure`, so a value checked here is the value those report.
 
 | Column | Source | Blank when |
@@ -979,7 +979,7 @@ The two conditions are recorded by `compute_fiber_stats` from the image shape
 and the fiber's endpoints:
 
 ```python
-# source: lib/measure.py::compute_fiber_stats
+# source: afm_nanofiber_analyzer/measure.py::compute_fiber_stats
 touches_frame=(None if frame_shape is None
                else _reaches_frame(f, frame_shape)),
 cut_end_count=_cut_end_count(f),
@@ -993,7 +993,7 @@ cut_end_count=_cut_end_count(f),
   [Evaluation on particular data](validation.md) §6.1.
 
   ```python
-  # source: lib/measure.py::_reaches_frame
+  # source: afm_nanofiber_analyzer/measure.py::_reaches_frame
   if frame is None:
       return False
   height, width = frame
@@ -1015,7 +1015,7 @@ cut_end_count=_cut_end_count(f),
   the frame is not counted twice.
 
   ```python
-  # source: lib/measure.py::_cut_end_count
+  # source: afm_nanofiber_analyzer/measure.py::_cut_end_count
   n = len(fiber.xtrack)
   if n == 0:
       return 0
@@ -1039,13 +1039,13 @@ Not every point of `Fiber.height` enters the height statistics.
 `measure.height_sample_mask` leaves out three kinds of sample:
 
 ```python
-# source: lib/measure.py::CUT_END_EXCLUSION_WIDTHS, HEIGHT_UPPER_PERCENTILE
+# source: afm_nanofiber_analyzer/measure.py::CUT_END_EXCLUSION_WIDTHS, HEIGHT_UPPER_PERCENTILE
 CUT_END_EXCLUSION_WIDTHS = 1.0
 HEIGHT_UPPER_PERCENTILE = 90.0
 ```
 
 ```python
-# source: lib/measure.py::height_sample_mask
+# source: afm_nanofiber_analyzer/measure.py::height_sample_mask
 n = len(fiber.height)
 if n == 0:
     return np.zeros(0, dtype=bool)
@@ -1094,7 +1094,7 @@ neither of the two exclusions that W sets.
 ### 3.4 `median (nm)`, `max (nm)`, `p90 (nm)`
 
 ```python
-# source: lib/measure.py::compute_fiber_stats
+# source: afm_nanofiber_analyzer/measure.py::compute_fiber_stats
 for i, f in enumerate(fibers):
     samples = np.asarray(f.height, dtype=float)
     if samples.size:
@@ -1115,7 +1115,7 @@ fiber without depending on one sample.
 ### 3.5 `straightness`
 
 ```python
-# source: lib/measure.py::fiber_straightness
+# source: afm_nanofiber_analyzer/measure.py::fiber_straightness
 length = float(fiber.length)
 if not (length > 0.0):
     return float("nan")
@@ -1165,12 +1165,12 @@ lengths the same way cancels that bias for a straight fiber.
 ### 3.6 `curvature (rad/µm)`
 
 ```python
-# source: lib/measure.py::DEFAULT_CURVATURE_WINDOW_NM
+# source: afm_nanofiber_analyzer/measure.py::DEFAULT_CURVATURE_WINDOW_NM
 DEFAULT_CURVATURE_WINDOW_NM = 100.0
 ```
 
 ```python
-# source: lib/measure.py::fiber_curvature_profile
+# source: afm_nanofiber_analyzer/measure.py::fiber_curvature_profile
 if y_size_per_pixel is None:
     y_size_per_pixel = x_size_per_pixel
 horizon = np.asarray(fiber.horizon, dtype=float)
@@ -1203,7 +1203,7 @@ return (turn[good] / arc[good]) * 1000.0
 ```
 
 ```python
-# source: lib/measure.py::fiber_mean_curvature
+# source: afm_nanofiber_analyzer/measure.py::fiber_mean_curvature
 profile = fiber_curvature_profile(
     fiber, x_size_per_pixel, y_size_per_pixel, window_nm=window_nm,
 )
@@ -1291,12 +1291,12 @@ end or a magenta diamond at a bridge (§4.1). It is never counted in
 ### 3.9 `kink density (1/µm)`
 
 ```python
-# source: lib/kink_detector.py::END_MARGIN_WIDTHS
+# source: afm_nanofiber_analyzer/kink_detector.py::END_MARGIN_WIDTHS
 END_MARGIN_WIDTHS = 1.5
 ```
 
 ```python
-# source: lib/measure.py::fiber_judged_length_um
+# source: afm_nanofiber_analyzer/measure.py::fiber_judged_length_um
 length_um = float(stat.length_nm) / 1000.0
 width_nm = float(getattr(stat, "width_nm", float("nan")))
 if np.isfinite(width_nm) and width_nm > 0.0:
@@ -1310,7 +1310,7 @@ return length_um
 ```
 
 ```python
-# source: lib/measure.py::fiber_kink_density
+# source: afm_nanofiber_analyzer/measure.py::fiber_kink_density
 length_um = fiber_judged_length_um(stat)
 if not np.isfinite(length_um):
     return float("nan")
@@ -1346,7 +1346,7 @@ divisor it was written with.
 ### 3.10 `W (nm)`
 
 ```python
-# source: lib/measure.py::compute_fiber_stats
+# source: afm_nanofiber_analyzer/measure.py::compute_fiber_stats
 width_px = float(getattr(f, "width_px", float("nan")))
 width_nm = (
     width_px * x_size_per_pixel
@@ -1370,7 +1370,7 @@ probe's broadening. It is not the fiber's physical diameter.
 ### 3.11 `reliable`
 
 ```python
-# source: lib/measure.py::compute_fiber_stats
+# source: afm_nanofiber_analyzer/measure.py::compute_fiber_stats
 reliable = getattr(f, "line_reliable", None)
 reliable_fraction = (
     float("nan") if reliable is None or len(reliable) == 0
@@ -1503,7 +1503,7 @@ join are saved as chains of fragments and rebuilt at measurement time.
 ### 5.1 Candidate values
 
 ```python
-# source: lib/fiber_connector.py::ConnectParams
+# source: afm_nanofiber_analyzer/fiber_connector.py::ConnectParams
 clusters_range: float = 20.0
 angle_threshold: float = 110.0
 lookback_length: int = 15
@@ -1527,7 +1527,7 @@ points inside it. For a fragment shorter than 15 points, it is the fragment's ot
 end:
 
 ```python
-# source: lib/fiber_connector.py::_fragment_end_geometry
+# source: afm_nanofiber_analyzer/fiber_connector.py::_fragment_end_geometry
 sx, sy = skeleton_track(frag)
 xs = sx + frag.data[0]
 ys = sy + frag.data[1]
@@ -1539,7 +1539,7 @@ backs[i, 1] = _physical((ys[-step], xs[-step]), aspect)
 ```
 
 ```python
-# source: lib/fiber_connector.py::_physical
+# source: afm_nanofiber_analyzer/fiber_connector.py::_physical
 return (float(point[0]) * float(aspect), float(point[1]))
 ```
 
@@ -1547,19 +1547,19 @@ Each fragment's height for the height gate is the median of the calibrated
 image over its skeleton pixels. This is not the crest height of §2.6.
 
 ```python
-# source: lib/fiber_connector.py::_fragment_median_heights
+# source: afm_nanofiber_analyzer/fiber_connector.py::_fragment_median_heights
 medians[i] = float(np.median(calibrated[ys, xs]))
 ```
 
 The dialog searches within twice `clusters_range`, 40 px by default:
 
 ```python
-# source: lib/fiber_connector.py::MANUAL_RANGE_FACTOR
+# source: afm_nanofiber_analyzer/fiber_connector.py::MANUAL_RANGE_FACTOR
 MANUAL_RANGE_FACTOR = 2.0
 ```
 
 ```python
-# source: lib/fiber_connector.py::_manual_reach
+# source: afm_nanofiber_analyzer/fiber_connector.py::_manual_reach
 if radius is None:
     return float(params.clusters_range * MANUAL_RANGE_FACTOR)
 return float(radius)
@@ -1569,7 +1569,7 @@ For every end $C$ of another fiber within that radius, with look-back point
 $D$, the dialog reports:
 
 ```python
-# source: lib/fiber_connector.py::_candidates_for
+# source: afm_nanofiber_analyzer/fiber_connector.py::_candidates_for
 dist = float(np.hypot(B[0] - C[0], B[1] - C[1]))
 if dist > reach:
     continue
@@ -1616,7 +1616,7 @@ with the cosine clipped to $[-1, 1]$; when either side has zero length it
 returns 0. The second call passes $C$ as the middle point.
 
 ```python
-# source: lib/fiber_connector.py::angle_between_three_points
+# source: afm_nanofiber_analyzer/fiber_connector.py::angle_between_three_points
 ba = np.array(A) - np.array(B)
 bd = np.array(D) - np.array(B)
 denom = np.linalg.norm(ba) * np.linalg.norm(bd)
@@ -1639,7 +1639,7 @@ rejects can still be chosen by hand. The list comes back in the order
 distance:
 
 ```python
-# source: lib/fiber_connector.py::connection_candidates
+# source: afm_nanofiber_analyzer/fiber_connector.py::connection_candidates
 ends, backs = _fragment_end_geometry(
     fibers, params.lookback_length, _aspect_of(image))
 medians = _fragment_median_heights(image.calibrated_image, fibers)
@@ -1658,7 +1658,7 @@ could carry different kink angles. `_build_chain_fiber` joins the fragments end
 to end:
 
 ```python
-# source: lib/fiber_connector.py::_build_chain_fiber
+# source: afm_nanofiber_analyzer/fiber_connector.py::_build_chain_fiber
 long_enough = len(fh) > trim + n_avg
 head_trim = trim if (k > 0 and long_enough) else 0
 tail_trim = trim if (k < last and long_enough) else 0
@@ -1707,7 +1707,7 @@ if xs:
 The joined centerline then becomes a `Fiber`:
 
 ```python
-# source: lib/fiber_connector.py::_rebuild_connected_fiber
+# source: afm_nanofiber_analyzer/fiber_connector.py::_rebuild_connected_fiber
 if is_placed_line(kind):
     if is_pixel_chain_line(kind):
         horizon = imp_tools.convert_track_to_distance(
@@ -1765,7 +1765,7 @@ ep_indices = np.array([
   which the kink density leaves out of its divisor (§3.9).
 
 ```python
-# source: lib/kink_detector.py::_bridge_intervals
+# source: afm_nanofiber_analyzer/kink_detector.py::_bridge_intervals
 if observed is None:
     return []
 unobserved = ~np.asarray(observed, dtype=bool)
@@ -1780,7 +1780,7 @@ return [(float(arc[max(a - 1, 0)]), float(arc[min(b + 1, last)]))
 ```
 
 ```python
-# source: lib/kink_detector.py::KinkDetector.judge_line
+# source: afm_nanofiber_analyzer/kink_detector.py::KinkDetector.judge_line
 ...
 point_arc = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
 bridges = _bridge_intervals(observed, point_arc)
@@ -1805,7 +1805,7 @@ contiguous runs whose `Fiber.height` lies in the chosen band, bridge heights
 included, and rebuilds each run with `_rebuild_connected_fiber`:
 
 ```python
-# source: lib/fiber_connector.py::filter_fibers_by_height
+# source: afm_nanofiber_analyzer/fiber_connector.py::filter_fibers_by_height
 h = np.asarray(fib.height)
 lower_cond = (h >= lower_height) if include_lower_limit else (h > lower_height)
 upper_cond = (h <= upper_height) if include_upper_limit else (h < upper_height)

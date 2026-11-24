@@ -184,7 +184,7 @@ def branchedPoints(skel: NDArray[np.uint8]) -> NDArray[np.uint8]:
     Two lines crossing at row 3, column 3 meet at one branch point:
 
     >>> import numpy as np
-    >>> from lib.imp_tools import branchedPoints
+    >>> from afm_nanofiber_analyzer.imp_tools import branchedPoints
     >>> skel = np.zeros((7, 7), dtype=np.uint8)
     >>> skel[3, :] = 1
     >>> skel[:, 3] = 1
@@ -216,7 +216,7 @@ def endPoints(skel: NDArray[np.uint8]) -> NDArray[np.uint8]:
     The same crossing has four ends, one per arm (``(row, column)``):
 
     >>> import numpy as np
-    >>> from lib.imp_tools import endPoints
+    >>> from afm_nanofiber_analyzer.imp_tools import endPoints
     >>> skel = np.zeros((7, 7), dtype=np.uint8)
     >>> skel[3, :] = 1
     >>> skel[:, 3] = 1
@@ -260,7 +260,7 @@ def remove_bp(
     two-pixel arms, which an area filter of 3 then removes:
 
     >>> import numpy as np
-    >>> from lib.imp_tools import remove_bp
+    >>> from afm_nanofiber_analyzer.imp_tools import remove_bp
     >>> skel = np.zeros((7, 7), dtype=np.uint8)
     >>> skel[3, :] = 1
     >>> skel[:, 3] = 1
@@ -325,7 +325,7 @@ def remove_Lcorner(skeleton_image: NDArray[np.uint8]) -> NDArray[np.uint8]:
     step in its place:
 
     >>> import numpy as np
-    >>> from lib.imp_tools import remove_Lcorner
+    >>> from afm_nanofiber_analyzer.imp_tools import remove_Lcorner
     >>> skel = np.zeros((5, 5), dtype=np.uint8)
     >>> skel[1, 1] = skel[1, 2] = skel[2, 2] = skel[3, 2] = 1
     >>> remove_Lcorner(skel)
@@ -406,7 +406,7 @@ def tracking(skeleton_image: NDArray[np.uint8]) -> tuple[NDArray, NDArray]:
     Examples
     --------
     >>> import numpy as np
-    >>> from lib.imp_tools import tracking
+    >>> from afm_nanofiber_analyzer.imp_tools import tracking
     >>> skel = np.zeros((4, 6), dtype=np.uint8)
     >>> skel[1, 1:5] = 1
     >>> skel[2, 5] = 1
@@ -536,7 +536,7 @@ def convert_track_to_distance(xtrack: np.ndarray,
     --------
     One orthogonal step followed by two diagonal steps:
 
-    >>> from lib.imp_tools import convert_track_to_distance
+    >>> from afm_nanofiber_analyzer.imp_tools import convert_track_to_distance
     >>> convert_track_to_distance(np.array([0, 1, 2, 3]), np.array([0, 0, 1, 2]), 1.0)
     array([0.   , 0.948, 2.288, 3.628])
     """

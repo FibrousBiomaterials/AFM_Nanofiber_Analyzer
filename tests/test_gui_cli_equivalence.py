@@ -6,11 +6,11 @@ GUI01 と ``cli.py process`` の解析出力が一致することを検証する
 The project claims — in the README and in the JOSS paper — that an analysis run
 from the GUI and the same run from the command line produce identical numerical
 results for the same input and parameters. Structurally that holds because both
-call `lib.pipeline.process_file`, but nothing enforced it: a single line of
+call `afm_nanofiber_analyzer.pipeline.process_file`, but nothing enforced it: a single line of
 parameter massaging added on the GUI side would silently make the claim false,
 and the difference would show up in published measurements rather than in CI.
 本プロジェクトは README と JOSS 論文で「同一入力・同一パラメータなら GUI と CLI
-の数値結果は一致する」と主張している。両者が `lib.pipeline.process_file` を呼ぶ
+の数値結果は一致する」と主張している。両者が `afm_nanofiber_analyzer.pipeline.process_file` を呼ぶ
 という構造からそうなるはずだが、それを強制する仕組みは無かった。GUI 側に
 パラメータ加工が 1 行入るだけでこの主張は静かに偽となり、その差異は CI ではなく
 公表される測定値に現れる。
@@ -32,8 +32,8 @@ import pytest
 
 from conftest import PROJECT_ROOT, pump_until, requires_tk, write_synthetic_fiber_txt
 
-from lib.blosc2_io import load_bundle
-from lib.bundle_schema import REQUIRED_BUNDLE_KEYS
+from afm_nanofiber_analyzer.blosc2_io import load_bundle
+from afm_nanofiber_analyzer.bundle_schema import REQUIRED_BUNDLE_KEYS
 
 import guis.GUI01_Image_Preprocessor as gui01
 

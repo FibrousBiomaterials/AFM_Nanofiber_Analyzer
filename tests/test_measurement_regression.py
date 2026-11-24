@@ -63,12 +63,12 @@ import numpy as np
 # ===== Test / project libraries =====
 import pytest
 
-from lib.blosc2_io import load_bundle, load_bundle_meta
-from lib.bundle_schema import scan_size_um_from_meta
-from lib.measure import (
+from afm_nanofiber_analyzer.blosc2_io import load_bundle, load_bundle_meta
+from afm_nanofiber_analyzer.bundle_schema import scan_size_um_from_meta
+from afm_nanofiber_analyzer.measure import (
     fiber_mean_curvature, measure_bundle, skeleton_height_values, write_fiber_csv,
 )
-from lib.pipeline import ProcParams, process_file
+from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 GOLDEN_PATH = Path(__file__).resolve().parent / "measurement_regression_golden.json"

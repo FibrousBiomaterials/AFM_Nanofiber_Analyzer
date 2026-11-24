@@ -9,11 +9,11 @@ GUI01 の `.b2z` バンドルから読み込まれた配列を受け取り、表
 
 Notes
 -----
-`lib.pipeline` owns preprocessing and bundle creation, while `lib.measure`
+`afm_nanofiber_analyzer.pipeline` owns preprocessing and bundle creation, while `afm_nanofiber_analyzer.measure`
 loads and validates bundles before populating this container. This module
 handles fiber reconstruction only; it does not run background correction,
 binarization, or skeletonization.
-前処理とバンドル作成は `lib.pipeline`、バンドルの読み込み・検証は `lib.measure`
+前処理とバンドル作成は `afm_nanofiber_analyzer.pipeline`、バンドルの読み込み・検証は `afm_nanofiber_analyzer.measure`
 が担当してから本コンテナへ設定する。本モジュールはファイバー再構築のみを扱い、
 背景補正・二値化・細線化は行わない。
 """
@@ -344,62 +344,62 @@ class FiberTrackingImage:
         `centerline.CENTERLINE_METHODS` the bundle's kinks were judged on
         (format 1.1 and later), otherwise `centerline.SKELETON_TRACK`, which
         is also the default for a container not loaded from a bundle. Set by
-        `lib.measure` from the bundle (`bundle_schema.centerline_from_meta`).
+        `afm_nanofiber_analyzer.measure` from the bundle (`bundle_schema.centerline_from_meta`).
         繊維を組み立てる線。バンドルのキンクを判定した
         `centerline.CENTERLINE_METHODS` の値（形式 1.1 以降）、それ以外は
         `centerline.SKELETON_TRACK`。バンドルから読み込まないコンテナの既定値も
-        後者である。`lib.measure` がバンドルから設定する
+        後者である。`afm_nanofiber_analyzer.measure` がバンドルから設定する
         （`bundle_schema.centerline_from_meta`）。
     pixel_aspect
         Y pixel size over X pixel size of the geometry the bundle's line and
         kinks were computed in; 1.0 for square pixels, for a format older than
-        1.3 and for a container not loaded from a bundle. Set by `lib.measure`
+        1.3 and for a container not loaded from a bundle. Set by `afm_nanofiber_analyzer.measure`
         from the bundle (`bundle_schema.pixel_aspect_from_meta`), never from a
         scale entered at measurement time.
         バンドルの線とキンクを計算した幾何の Y 画素サイズ ÷ X 画素サイズ。正方
         画素、形式 1.3 より古いバンドル、バンドルから読み込まないコンテナでは 1.0。
-        `lib.measure` がバンドルから設定し（`bundle_schema.pixel_aspect_from_meta`）、
+        `afm_nanofiber_analyzer.measure` がバンドルから設定し（`bundle_schema.pixel_aspect_from_meta`）、
         計測時に入力された寸法からは決して設定しない。
     width_peak
         Which maximum the apparent width is read from: the one the bundle's
-        kinks were judged with, set by `lib.measure` from the bundle
+        kinks were judged with, set by `afm_nanofiber_analyzer.measure` from the bundle
         (`bundle_schema.width_peak_from_meta`);
         `centerline.WIDTH_PEAK_NEAREST` for a container not loaded from a
         bundle.
         見かけ幅をどの極大から読むか。バンドルのキンクを判定したときのもので、
-        `lib.measure` がバンドルから設定する（`bundle_schema.width_peak_from_meta`）。
+        `afm_nanofiber_analyzer.measure` がバンドルから設定する（`bundle_schema.width_peak_from_meta`）。
         バンドルから読み込まないコンテナでは `centerline.WIDTH_PEAK_NEAREST`。
     width_adaptive
         Whether the apparent width is read over a range that grows with the
-        fiber, as the bundle's kinks were judged; set by `lib.measure` from the
+        fiber, as the bundle's kinks were judged; set by `afm_nanofiber_analyzer.measure` from the
         bundle (`bundle_schema.width_range_adaptive_from_meta`), ``True`` for a
         container not loaded from a bundle.
         見かけ幅を繊維に合わせて広がる範囲で読むか。バンドルのキンクを判定したときの
-        もので、`lib.measure` がバンドルから設定する
+        もので、`afm_nanofiber_analyzer.measure` がバンドルから設定する
         （`bundle_schema.width_range_adaptive_from_meta`）。バンドルから読み込まない
         コンテナでは ``True``。
     symmetric_section
         Whether the line is placed by the rule that does not depend on the
         direction the fiber was traced in, as the bundle's kinks were judged;
-        set by `lib.measure` from the bundle
+        set by `afm_nanofiber_analyzer.measure` from the bundle
         (`bundle_schema.symmetric_section_from_meta`), ``True`` for a container
         not loaded from a bundle.
         繊維を追跡した向きに依存しない規則で線を置くか。バンドルのキンクを判定した
-        ときのもので、`lib.measure` がバンドルから設定する
+        ときのもので、`afm_nanofiber_analyzer.measure` がバンドルから設定する
         （`bundle_schema.symmetric_section_from_meta`）。バンドルから読み込まない
         コンテナでは ``True``。
 
     Examples
     --------
-    `lib.measure.measure_bundle` rebuilds the container from a bundle and
+    `afm_nanofiber_analyzer.measure.measure_bundle` rebuilds the container from a bundle and
     records the line its fibers are built on. The synthetic test scan records
     no scan size, so the 1.25 µm listed for it in
     ``testdata_artificial/scale_table_sample.csv`` is passed. The input path
     is relative to the repository root:
 
     >>> import tempfile
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import measure_bundle
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.measure import measure_bundle
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
@@ -479,13 +479,13 @@ class FiberTrackingImage:
         self.skipped_fiber_labels: tuple[tuple[int, str], ...] = ()
 
         # The kink thresholds that produced the arrays above, read from the
-        # bundle by `lib.measure`. They are carried on the container rather
+        # bundle by `afm_nanofiber_analyzer.measure`. They are carried on the container rather
         # than passed per call because every consumer that recomputes kinks
         # already holds the image, and one that had to be told separately is
         # one that can be told wrong, which would put two rules in one image.
         # None means the bundle recorded no usable value, and the
         # detector's own default applies — which is what such a run used.
-        # 上記の配列を生んだキンクしきい値。`lib.measure` がバンドルから読み取る。
+        # 上記の配列を生んだキンクしきい値。`afm_nanofiber_analyzer.measure` がバンドルから読み取る。
         # 呼び出しごとに渡すのではなくコンテナに載せるのは、キンクを再計算する
         # 側は必ず image を持っており、別途伝える方式では伝え間違いが起きうる
         # ためであり、伝え間違えると 1 枚の画像に 2 つの規則が混在する。None は
@@ -493,31 +493,31 @@ class FiberTrackingImage:
         # 使う。それがそのような実行で実際に使われた値である。
         self.kink_angle_deg: Optional[float] = None
         self.kink_decompose_px: Optional[float] = None
-        # Which line fibers are built on; `lib.measure` sets it from the
+        # Which line fibers are built on; `afm_nanofiber_analyzer.measure` sets it from the
         # bundle (`bundle_schema.centerline_from_meta`).
-        # 繊維を組み立てる線。`lib.measure` がバンドルから設定する
+        # 繊維を組み立てる線。`afm_nanofiber_analyzer.measure` がバンドルから設定する
         # （`bundle_schema.centerline_from_meta`）。
         self.centerline: str = SKELETON_TRACK
-        # The pixel aspect the line and kinks were computed with; `lib.measure`
+        # The pixel aspect the line and kinks were computed with; `afm_nanofiber_analyzer.measure`
         # sets it from the bundle (`bundle_schema.pixel_aspect_from_meta`).
-        # 線とキンクの計算に使われた画素の縦横比。`lib.measure` がバンドルから
+        # 線とキンクの計算に使われた画素の縦横比。`afm_nanofiber_analyzer.measure` がバンドルから
         # 設定する（`bundle_schema.pixel_aspect_from_meta`）。
         self.pixel_aspect: float = 1.0
-        # Which maximum the apparent width is read from; `lib.measure` sets it
+        # Which maximum the apparent width is read from; `afm_nanofiber_analyzer.measure` sets it
         # from the bundle (`bundle_schema.width_peak_from_meta`).
-        # 見かけ幅をどの極大から読むか。`lib.measure` がバンドルから設定する
+        # 見かけ幅をどの極大から読むか。`afm_nanofiber_analyzer.measure` がバンドルから設定する
         # （`bundle_schema.width_peak_from_meta`）。
         self.width_peak: str = WIDTH_PEAK_NEAREST
         # Whether the apparent width is read over a range that grows with the
-        # fiber; `lib.measure` sets it from the bundle
+        # fiber; `afm_nanofiber_analyzer.measure` sets it from the bundle
         # (`bundle_schema.width_range_adaptive_from_meta`).
-        # 見かけ幅を繊維に合わせて広がる範囲で読むか。`lib.measure` がバンドルから
+        # 見かけ幅を繊維に合わせて広がる範囲で読むか。`afm_nanofiber_analyzer.measure` がバンドルから
         # 設定する（`bundle_schema.width_range_adaptive_from_meta`）。
         self.width_adaptive: bool = True
         # Whether the line is placed by the direction-independent rule;
-        # `lib.measure` sets it from the bundle
+        # `afm_nanofiber_analyzer.measure` sets it from the bundle
         # (`bundle_schema.symmetric_section_from_meta`).
-        # 追跡の向きに依存しない規則で線を置くか。`lib.measure` がバンドルから
+        # 追跡の向きに依存しない規則で線を置くか。`afm_nanofiber_analyzer.measure` がバンドルから
         # 設定する（`bundle_schema.symmetric_section_from_meta`）。
         self.symmetric_section: bool = True
 

@@ -27,12 +27,12 @@
    "sources": [
     {
      "kind": "code",
-     "path": "lib/pipeline.py",
+     "path": "afm_nanofiber_analyzer/pipeline.py",
      "symbol": "process_file"
     },
     {
      "kind": "code",
-     "path": "lib/measure.py",
+     "path": "afm_nanofiber_analyzer/measure.py",
      "symbol": "measure_bundle"
     }
    ],
@@ -45,32 +45,32 @@
    "sources": [
     {
      "kind": "code",
-     "path": "lib/afm_io.py",
+     "path": "afm_nanofiber_analyzer/afm_io.py",
      "symbol": "load_afm_image"
     },
     {
      "kind": "code",
-     "path": "lib/bg_calibrator.py",
+     "path": "afm_nanofiber_analyzer/bg_calibrator.py",
      "symbol": "BGCalibrator"
     },
     {
      "kind": "code",
-     "path": "lib/segmenter.py",
+     "path": "afm_nanofiber_analyzer/segmenter.py",
      "symbol": "Segmenter"
     },
     {
      "kind": "code",
-     "path": "lib/skeletonizer.py",
+     "path": "afm_nanofiber_analyzer/skeletonizer.py",
      "symbol": "Skeletonizer"
     },
     {
      "kind": "code",
-     "path": "lib/kink_detector.py",
+     "path": "afm_nanofiber_analyzer/kink_detector.py",
      "symbol": "KinkDetector"
     },
     {
      "kind": "code",
-     "path": "lib/measure.py",
+     "path": "afm_nanofiber_analyzer/measure.py",
      "symbol": "FiberStats"
     }
    ],
@@ -105,13 +105,13 @@
    "sources": [
     {
      "kind": "code",
-     "path": "lib/pipeline.py",
+     "path": "afm_nanofiber_analyzer/pipeline.py",
      "symbol": "process_file",
      "quote": "problems = validate_bundle(arrays, require=REQUIRED_BUNDLE_KEYS)"
     },
     {
      "kind": "code",
-     "path": "lib/measure.py",
+     "path": "afm_nanofiber_analyzer/measure.py",
      "symbol": "_load_validated_arrays",
      "quote": "problems = validate_bundle(arrays, meta=meta, require=keys)"
     }
@@ -209,34 +209,34 @@
    "sources": [
     {
      "kind": "code",
-     "path": "lib/pipeline.py",
+     "path": "afm_nanofiber_analyzer/pipeline.py",
      "symbol": "process_file"
     },
     {
      "kind": "code",
-     "path": "lib/imp_tools.py",
+     "path": "afm_nanofiber_analyzer/imp_tools.py",
      "symbol": "remove_bp"
     },
     {
      "kind": "code",
-     "path": "lib/measure.py",
+     "path": "afm_nanofiber_analyzer/measure.py",
      "symbol": "FiberStats",
      "quote": "kink_angles_deg"
     },
     {
      "kind": "code",
-     "path": "lib/measure.py",
+     "path": "afm_nanofiber_analyzer/measure.py",
      "symbol": "FiberStats",
      "quote": "height_median_nm"
     },
     {
      "kind": "code",
-     "path": "lib/fiber_connector.py",
+     "path": "afm_nanofiber_analyzer/fiber_connector.py",
      "symbol": "plan_from_auto_connect"
     },
     {
      "kind": "code",
-     "path": "lib/fiber_selection.py",
+     "path": "afm_nanofiber_analyzer/fiber_selection.py",
      "symbol": "save_exclusions"
     },
     {
@@ -254,27 +254,27 @@
    "sources": [
     {
      "kind": "code",
-     "path": "lib/bg_calibrator.py",
+     "path": "afm_nanofiber_analyzer/bg_calibrator.py",
      "quote": "import cv2"
     },
     {
      "kind": "code",
-     "path": "lib/bg_calibrator.py",
+     "path": "afm_nanofiber_analyzer/bg_calibrator.py",
      "quote": "lmfit"
     },
     {
      "kind": "code",
-     "path": "lib/segmenter.py",
+     "path": "afm_nanofiber_analyzer/segmenter.py",
      "quote": "skimage"
     },
     {
      "kind": "code",
-     "path": "lib/bg_calibrator.py",
+     "path": "afm_nanofiber_analyzer/bg_calibrator.py",
      "quote": "scipy"
     },
     {
      "kind": "code",
-     "path": "lib/ui_tools.py",
+     "path": "afm_nanofiber_analyzer/ui_tools.py",
      "quote": "matplotlib"
     },
     {
@@ -298,7 +298,7 @@
     },
     {
      "kind": "code",
-     "path": "lib/pipeline.py",
+     "path": "afm_nanofiber_analyzer/pipeline.py",
      "symbol": "process_file"
     }
    ],
@@ -326,7 +326,7 @@
     },
     {
      "kind": "code",
-     "path": "lib/kink_detector.py",
+     "path": "afm_nanofiber_analyzer/kink_detector.py",
      "symbol": "KinkDetector.judge_line"
     }
    ],
@@ -344,7 +344,7 @@
     },
     {
      "kind": "code",
-     "path": "lib/bundle_schema.py",
+     "path": "afm_nanofiber_analyzer/bundle_schema.py",
      "symbol": "BUNDLE_FORMAT_VERSION"
     },
     {
@@ -354,13 +354,13 @@
     },
     {
      "kind": "code",
-     "path": "lib/pipeline.py",
+     "path": "afm_nanofiber_analyzer/pipeline.py",
      "symbol": "process_file",
      "quote": "problems = validate_bundle(arrays, require=REQUIRED_BUNDLE_KEYS)"
     },
     {
      "kind": "code",
-     "path": "lib/measure.py",
+     "path": "afm_nanofiber_analyzer/measure.py",
      "symbol": "_load_validated_arrays",
      "quote": "problems = validate_bundle(arrays, meta=meta, require=keys)"
     }
@@ -430,12 +430,12 @@
     },
     {
      "kind": "code",
-     "path": "lib/fiber.py",
+     "path": "afm_nanofiber_analyzer/fiber.py",
      "symbol": "Fiber"
     },
     {
      "kind": "code",
-     "path": "lib/kink_detector.py",
+     "path": "afm_nanofiber_analyzer/kink_detector.py",
      "symbol": "KinkDetector.judge_line"
     }
    ],
@@ -448,7 +448,7 @@
    "sources": [
     {
      "kind": "code",
-     "path": "lib/gwy_io.py",
+     "path": "afm_nanofiber_analyzer/gwy_io.py",
      "symbol": "load_gwy_image"
     },
     {
@@ -618,12 +618,12 @@
     },
     {
      "kind": "code",
-     "path": "lib/fiber_connector.py",
+     "path": "afm_nanofiber_analyzer/fiber_connector.py",
      "symbol": "plan_from_auto_connect"
     },
     {
      "kind": "code",
-     "path": "lib/fiber_selection.py",
+     "path": "afm_nanofiber_analyzer/fiber_selection.py",
      "symbol": "save_exclusions"
     }
    ],
@@ -783,33 +783,33 @@
    "sources": [
     {
      "kind": "code",
-     "path": "lib/measure.py",
+     "path": "afm_nanofiber_analyzer/measure.py",
      "symbol": "FiberStats",
      "quote": "height_median_nm"
     },
     {
      "kind": "code",
-     "path": "lib/measure.py",
+     "path": "afm_nanofiber_analyzer/measure.py",
      "symbol": "fiber_mean_curvature"
     },
     {
      "kind": "code",
-     "path": "lib/kink_detector.py",
+     "path": "afm_nanofiber_analyzer/kink_detector.py",
      "symbol": "KinkDetector.judge_line"
     },
     {
      "kind": "code",
-     "path": "lib/fiber_selection.py",
+     "path": "afm_nanofiber_analyzer/fiber_selection.py",
      "symbol": "save_exclusions"
     },
     {
      "kind": "code",
-     "path": "lib/connect_selection.py",
+     "path": "afm_nanofiber_analyzer/connect_selection.py",
      "symbol": "save_connect_plan"
     },
     {
      "kind": "code",
-     "path": "lib/measure.py",
+     "path": "afm_nanofiber_analyzer/measure.py",
      "symbol": "curate_fibers"
     }
    ],
@@ -872,7 +872,7 @@
    "sources": [
     {
      "kind": "code",
-     "path": "lib/pipeline.py",
+     "path": "afm_nanofiber_analyzer/pipeline.py",
      "symbol": "param_path_for"
     },
     {
@@ -882,7 +882,7 @@
     },
     {
      "kind": "code",
-     "path": "lib/bundle_schema.py",
+     "path": "afm_nanofiber_analyzer/bundle_schema.py",
      "symbol": "BUNDLE_FORMAT_VERSION"
     },
     {
@@ -944,13 +944,13 @@
    "sources": [
     {
      "kind": "code",
-     "path": "lib/bundle_schema.py",
+     "path": "afm_nanofiber_analyzer/bundle_schema.py",
      "symbol": "REQUIRED_BUNDLE_KEYS",
      "quote": "\"calibrated\", \"binarized\", \"skeletonized\""
     },
     {
      "kind": "code",
-     "path": "lib/pipeline.py",
+     "path": "afm_nanofiber_analyzer/pipeline.py",
      "symbol": "bundle_path_for"
     },
     {
@@ -973,7 +973,7 @@
     {
      "kind": "code",
      "path": "guis/GUI03_Fiber_Morphology_Statistics.py",
-     "quote": "from lib.group_compare import compare_groups"
+     "quote": "from afm_nanofiber_analyzer.group_compare import compare_groups"
     },
     {
      "kind": "code",
@@ -994,58 +994,58 @@
     },
     {
      "kind": "code",
-     "path": "lib/gwy_convert.py",
+     "path": "afm_nanofiber_analyzer/gwy_convert.py",
      "symbol": "find_converter"
     },
     {
      "kind": "code",
-     "path": "lib/gwy_convert.py",
+     "path": "afm_nanofiber_analyzer/gwy_convert.py",
      "symbol": "convert_file"
     },
     {
      "kind": "code",
-     "path": "lib/gwy_convert.py",
+     "path": "afm_nanofiber_analyzer/gwy_convert.py",
      "symbol": "INSTALL_COMMAND"
     }
    ],
    "ja": "tkinter のランチャーは、これらのツールを *Format Converter*（GUI00）とともに `guis/` から見つけ出す。*Format Converter* は、別途インストールする任意の変換ツール `gwyconvert` を実行して、GUI01 が読めないファイルを `.gwy` に変換する。"
   },
   {
-   "sentence": "Modules in `lib/` implement the input handling, background calibration, segmentation, skeletonization, kink detection, and per-fiber measurement.",
+   "sentence": "Modules in `afm_nanofiber_analyzer/` implement the input handling, background calibration, segmentation, skeletonization, kink detection, and per-fiber measurement.",
    "status": "verified",
    "sources": [
     {
      "kind": "code",
-     "path": "lib/afm_io.py",
+     "path": "afm_nanofiber_analyzer/afm_io.py",
      "symbol": "load_afm_image"
     },
     {
      "kind": "code",
-     "path": "lib/bg_calibrator.py",
+     "path": "afm_nanofiber_analyzer/bg_calibrator.py",
      "symbol": "BGCalibrator"
     },
     {
      "kind": "code",
-     "path": "lib/segmenter.py",
+     "path": "afm_nanofiber_analyzer/segmenter.py",
      "symbol": "Segmenter"
     },
     {
      "kind": "code",
-     "path": "lib/skeletonizer.py",
+     "path": "afm_nanofiber_analyzer/skeletonizer.py",
      "symbol": "Skeletonizer"
     },
     {
      "kind": "code",
-     "path": "lib/kink_detector.py",
+     "path": "afm_nanofiber_analyzer/kink_detector.py",
      "symbol": "KinkDetector"
     },
     {
      "kind": "code",
-     "path": "lib/measure.py",
+     "path": "afm_nanofiber_analyzer/measure.py",
      "symbol": "measure_bundle"
     }
    ],
-   "ja": "`lib/` のモジュールが、入力の処理、背景補正、領域分割、細線化、キンク検出、繊維ごとの測定を実装している。"
+   "ja": "`afm_nanofiber_analyzer/` のモジュールが、入力の処理、背景補正、領域分割、細線化、キンク検出、繊維ごとの測定を実装している。"
   },
   {
    "sentence": "A command-line interface provides batch preprocessing, validation, measurement, skeleton-height extraction, and bundle export.",
@@ -1080,7 +1080,7 @@
    "ja": "コマンドラインインターフェースは、一括の前処理、検証、測定、スケルトン上の高さの抽出、バンドルの書き出しを提供する。"
   },
   {
-   "sentence": "The GUI preprocessor and the CLI call the same pipeline function, and the GUI measurement views and the CLI call the same measurement routines, so equivalent runs produce identical numerical results — keeping the analysis in `lib/` and the interfaces thin is a deliberate choice that prevents the front ends from drifting apart.",
+   "sentence": "The GUI preprocessor and the CLI call the same pipeline function, and the GUI measurement views and the CLI call the same measurement routines, so equivalent runs produce identical numerical results — keeping the analysis in `afm_nanofiber_analyzer/` and the interfaces thin is a deliberate choice that prevents the front ends from drifting apart.",
    "status": "verified",
    "sources": [
     {
@@ -1095,7 +1095,7 @@
     }
    ],
    "note": "The bundle equivalence test runs on a synthetic scan.",
-   "ja": "GUI の前処理と CLI は同じパイプライン関数を呼び、GUI の測定画面と CLI は同じ測定ルーチンを呼ぶので、同等の実行は同一の数値結果を生む。解析を `lib/` に置きインターフェースを薄く保つのは、フロントエンド同士が食い違っていくのを防ぐための意図的な選択である。"
+   "ja": "GUI の前処理と CLI は同じパイプライン関数を呼び、GUI の測定画面と CLI は同じ測定ルーチンを呼ぶので、同等の実行は同一の数値結果を生む。解析を `afm_nanofiber_analyzer/` に置きインターフェースを薄く保つのは、フロントエンド同士が食い違っていくのを防ぐための意図的な選択である。"
   },
   {
    "sentence": "Results are persisted as one compressed bundle per input (`.b2z`, built on `blosc2`) with a JSON record of the analysis parameters.",
@@ -1103,17 +1103,17 @@
    "sources": [
     {
      "kind": "code",
-     "path": "lib/blosc2_io.py",
+     "path": "afm_nanofiber_analyzer/blosc2_io.py",
      "symbol": "save_bundle"
     },
     {
      "kind": "code",
-     "path": "lib/pipeline.py",
+     "path": "afm_nanofiber_analyzer/pipeline.py",
      "symbol": "bundle_path_for"
     },
     {
      "kind": "code",
-     "path": "lib/pipeline.py",
+     "path": "afm_nanofiber_analyzer/pipeline.py",
      "symbol": "param_path_for"
     }
    ],
@@ -1125,18 +1125,18 @@
    "sources": [
     {
      "kind": "code",
-     "path": "lib/bundle_schema.py",
+     "path": "afm_nanofiber_analyzer/bundle_schema.py",
      "symbol": "validate_bundle"
     },
     {
      "kind": "code",
-     "path": "lib/pipeline.py",
+     "path": "afm_nanofiber_analyzer/pipeline.py",
      "symbol": "process_file",
      "quote": "raise ValueError( \"bundle contract violation before save: \""
     },
     {
      "kind": "code",
-     "path": "lib/measure.py",
+     "path": "afm_nanofiber_analyzer/measure.py",
      "symbol": "_load_validated_arrays",
      "quote": "f\"bundle contract violation in"
     }
@@ -1154,12 +1154,12 @@
     },
     {
      "kind": "code",
-     "path": "lib/bundle_schema.py",
+     "path": "afm_nanofiber_analyzer/bundle_schema.py",
      "symbol": "scan_size_um_from_meta"
     },
     {
      "kind": "code",
-     "path": "lib/measure.py",
+     "path": "afm_nanofiber_analyzer/measure.py",
      "symbol": "measure_bundle"
     }
    ],
@@ -1184,7 +1184,7 @@
    "sources": [
     {
      "kind": "code",
-     "path": "lib/bg_calibrator.py",
+     "path": "afm_nanofiber_analyzer/bg_calibrator.py",
      "symbol": "BG_METHOD_NAMES",
      "quote": "(\"trendfill\", \"tophat\", \"spline1d\")"
     }
@@ -1274,7 +1274,7 @@
     },
     {
      "kind": "code",
-     "path": "lib/pipeline.py",
+     "path": "afm_nanofiber_analyzer/pipeline.py",
      "symbol": "process_file",
      "quote": "problems = validate_bundle(arrays, require=REQUIRED_BUNDLE_KEYS)"
     }

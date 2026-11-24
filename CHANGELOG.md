@@ -167,11 +167,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Profiler or Fiber Tracker, and 「このフォルダをGUI03で解析」, at the head of the
   file list, opens Fiber Morphology Statistics with every bundle directly
   inside the folder registered in its first group; the paths are handed over
-  through a list file (`lib.plugin_launch.path_list_arguments`), because a
+  through a list file (`afm_nanofiber_analyzer.plugin_launch.path_list_arguments`), because a
   command line holds a limited number of characters. Each press opens a new
   window. The plugins are started
   through the launcher's `--run-plugin`, which now hands the arguments after
-  the module name to the plugin as `sys.argv[1:]` (`lib.plugin_launch`). The
+  the module name to the plugin as `sys.argv[1:]` (`afm_nanofiber_analyzer.plugin_launch`). The
   two preview buttons stand beside 「画像を保存」 and 「個別表示」; to make room on
   that row, the preview's four font sizes are set in a window opened by
   「フォントサイズ…」. Analysis results do not change.
@@ -217,6 +217,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The analysis package `lib` is renamed `afm_nanofiber_analyzer`, so it can be
+  installed with `pip install` and imported from Python code outside the
+  checkout, such as a Jupyter notebook
+  (`from afm_nanofiber_analyzer import bg_calibrator`). **Code that imports
+  `lib` must import `afm_nanofiber_analyzer` instead**; no alias keeps the old
+  name working. `pip install` installs only this package: the launcher, the GUIs
+  and the CLI are not installed and run from the checkout (`python Main.py`,
+  `python cli.py`). No analysis result changes.
 - GUI03 keeps each bundle's traced fibers between runs, so changing the
   quantity, the aggregation unit or the frame mode no longer traces every bundle
   again; a bundle is measured again when it, its exclusion or connection
@@ -306,7 +314,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   before.
 - Bundle format **1.3**: the centerline, the apparent width and the kink rule
   work in the scan's physical geometry, with Y scaled by the pixel aspect
-  (`lib.bundle_schema.pixel_aspect`) taken from the recorded scan size. On a
+  (`afm_nanofiber_analyzer.bundle_schema.pixel_aspect`) taken from the recorded scan size. On a
   scan whose X and Y pixel sizes differ they worked in pixel geometry, so kink
   angles and widths were those of the pixel grid rather than of the specimen:
   a 120° corner on pixels half as tall as they are wide read as 109°. **Kink
@@ -639,11 +647,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Analyzing part of a scan's rows (GUI01's scan-line range, `cli.py process
   --rows`) no longer records a Y scan size that makes the pixels shorter in Y
   than in X. The scan size was scaled for a measurement that divides by the
-  stored row count, while `lib.measure` divides by that count plus one, so a
+  stored row count, while `afm_nanofiber_analyzer.measure` divides by that count plus one, so a
   crop's Y pixel size came out low by the factor N(k-1)/((N-1)k) for k kept rows
   out of N: on a 256-line scan, 0.7% for a 90-line crop and 2.7% for a 32-line
   one. The pixel size is now computed in one place,
-  `lib.bundle_schema.pixel_size_nm`, which the pipeline and `lib.measure` both
+  `afm_nanofiber_analyzer.bundle_schema.pixel_size_nm`, which the pipeline and `afm_nanofiber_analyzer.measure` both
   use. **Lengths, curvatures and kink densities of fibers in a cropped analysis
   change from this version**, and a cropped analysis now measures with the same
   pixel size as the whole image; bundles written by a cropped analysis must be
@@ -653,8 +661,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   at 256 px, 0.1% at 1024 px); **masks with ridge recovery switched on can change
   from this version**. Whole-image analyses with the default settings are
   unchanged.
-- GUI02 measures a bundle's height profiles with the pixel size `lib.measure`
-  uses (`lib.bundle_schema.pixel_size_nm`). It divided the recorded scan size by
+- GUI02 measures a bundle's height profiles with the pixel size `afm_nanofiber_analyzer.measure`
+  uses (`afm_nanofiber_analyzer.bundle_schema.pixel_size_nm`). It divided the recorded scan size by
   the stored pixel count, not that count plus one, so every distance along a
   bundle's profile was (N+1)/N times too long for N stored pixels on that axis,
   and the heatmap was drawn that much too wide. On the bundled tunicate and
@@ -691,7 +699,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - GUI04's "連結を解除…" opens a list of every junction in the image, so one
   wrong join inside a fibril can be cut without taking the whole fibril apart,
   and every connection can be removed at once (`plan_without_junctions` in
-  `lib.connect_selection`). The undo button is renamed from "連結を取消" to
+  `afm_nanofiber_analyzer.connect_selection`). The undo button is renamed from "連結を取消" to
   "元に戻す" and the log names the operation it took back: beside "連結を解除"
   the old name read as a second way to disconnect, so undoing a disconnection,
   which joins the fibril again, looked like the opposite of what was asked.
@@ -744,7 +752,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   sizes; that holds only for bundles of format 1.2 or older, which were
   measured in pixel geometry. Results do not change.
 - GUI03's `image` kink density is the scan's total kink count divided by the
-  total judged length of its fibers (`lib.measure.fiber_judged_length_um`, the
+  total judged length of its fibers (`afm_nanofiber_analyzer.measure.fiber_judged_length_um`, the
   divisor of `fiber_kink_density`). It was the median of the per-fiber
   densities, which is 0 whenever more than half of a scan's fibers carry no
   kink, however many kinks the others carry. **GUI03's `image` kink densities
@@ -757,7 +765,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   CSV gains a `std definition` column after the existing ones. **Standard
   deviations of unweighted samples reported by GUI03 change from this version**
   by a factor of sqrt(n / (n − 1)); no other statistic changes.
-- The docstrings of `lib.group_compare` stated that testing four groups pairwise
+- The docstrings of `afm_nanofiber_analyzer.group_compare` stated that testing four groups pairwise
   without correction finds a false difference "about a quarter of the time",
   a figure that assumes the six tests are independent; they now say only that
   the rate exceeds the nominal 5%. They also now note that the KS p-value is
@@ -871,30 +879,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecated
 
-- `lib.centerline.HALF_MAX_CENTERLINE` is now `HALF_MAX_025W_CENTERLINE`, so
+- `afm_nanofiber_analyzer.centerline.HALF_MAX_CENTERLINE` is now `HALF_MAX_025W_CENTERLINE`, so
   that every line's name states its smoothing. The old name still works and
   issues a `DeprecationWarning`; it will be removed in 3.0.0.
-- `lib.bundle_schema.PIXEL_LENGTHS_KEY`, `lib.pipeline.pixel_lengths_nm` and
+- `afm_nanofiber_analyzer.bundle_schema.PIXEL_LENGTHS_KEY`, `afm_nanofiber_analyzer.pipeline.pixel_lengths_nm` and
   the `PipelineResult.pixel_lengths_nm` field are deprecated, because the
   pipeline no longer writes or reports those values (see Changed). The two
   names still work and issue a `DeprecationWarning`, and the field stays as
   `None`; all three will be removed in 3.0.0.
-- `lib.measure.fiber_kink_angle` is deprecated: a per-fiber median of kink
+- `afm_nanofiber_analyzer.measure.fiber_kink_angle` is deprecated: a per-fiber median of kink
   angles describes no property of the fiber, and nothing in the analysis calls
   it any more (see Changed). The name still works and issues a
   `DeprecationWarning`; it will be removed in 3.0.0.
-- `lib.measure.collect_skeleton_height_profiles` is deprecated, because GUI03
+- `afm_nanofiber_analyzer.measure.collect_skeleton_height_profiles` is deprecated, because GUI03
   no longer offers the length-weighted height distribution it backed (see
   Removed). The name still works and issues a `DeprecationWarning`; it will be
   removed in 3.0.0.
 
 ### Removed
 
+- The console commands `afm-analyzer` and `afm-analyzer-cli`, which started
+  `Main.py` and `cli.py`: neither file is installed any more (see Changed). Run
+  `python Main.py` and `python cli.py` from the checkout instead.
 - GUI03's `length` aggregation unit for `height`, which weighted each skeleton
   pixel by the contour length it represents. Counting skeleton pixels already
   weights a fiber by its length; what the weighting added was the longer reach
   of a diagonal step and a common scale across pixel sizes, and GUI03 now warns
-  about mixed pixel sizes instead (see Fixed). `lib.measure.HEIGHT_ONLY_SCALE_UM`
+  about mixed pixel sizes instead (see Fixed). `afm_nanofiber_analyzer.measure.HEIGHT_ONLY_SCALE_UM`
   is removed with the traced height collection that used it.
 - GUI03 no longer reads the per-fiber CSVs GUI04 exports (its `fiber csv`
   input). A population curated in GUI04 reaches GUI03 through the bundle's

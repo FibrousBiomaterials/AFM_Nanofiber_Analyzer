@@ -75,8 +75,7 @@ chmod +x run_venv.sh
 
 `run_venv` is an idempotent launcher that handles both setup and startup. The first run creates the `.venv`,
 upgrades `pip`, and installs the project in editable mode (`pip install -e .`),
-so all dependencies come from `pyproject.toml` (the single source of truth) and
-the `afm-analyzer` / `afm-analyzer-cli` commands are registered. It then starts
+so all dependencies come from `pyproject.toml` (the single source of truth). It then starts
 `Main.py`, and every later run detects the completed setup and launches straight
 from that `.venv` without reinstalling. If `.venv` is later damaged — for
 example, files are deleted by accident — the next run repairs it automatically:
@@ -206,19 +205,23 @@ python Main.py
 ### Editable install for development (pip)
 
 The project ships a `pyproject.toml` for development installs. Installing in
-editable mode declares all runtime dependencies and registers two console
-commands; adding `[dev]` also installs the development tools (pytest,
-pytest-xdist, Babel, and ruff):
+editable mode declares all runtime dependencies and makes the analysis package
+`afm_nanofiber_analyzer` importable; adding `[dev]` also installs the
+development tools (pytest, pytest-xdist, Babel, and ruff). The launcher and the
+CLI run from the checkout:
 
 ```powershell
 python -m pip install -e ".[dev]"
 
-afm-analyzer                          # launcher GUI (same as python Main.py)
-afm-analyzer-cli process data\*.txt   # batch pipeline (same as python cli.py)
+python Main.py                        # launcher GUI
+python cli.py process data\*.txt      # batch pipeline
 ```
 
-The editable install targets development from a checkout. End-user
-distribution remains the PyInstaller bundle described below.
+`pip install` installs only the analysis package `afm_nanofiber_analyzer`, so
+an install without `-e` serves Python code outside the checkout, such as a
+Jupyter notebook (`from afm_nanofiber_analyzer import bg_calibrator`); the GUIs
+and the CLI are not installed. End-user distribution of the GUIs remains the
+PyInstaller bundle described below.
 
 ### Build a standalone Windows bundle
 
@@ -523,7 +526,7 @@ reports how many of the remaining lengths are such lower bounds.
 
 `Kaplan-Meier` also takes in the fibers cut at a crossing. It estimates the
 distribution of fiber lengths from every fiber with an end of its own
-(`lib.measure.kaplan_meier_length_weights`): a fiber whose two ends are both its
+(`afm_nanofiber_analyzer.measure.kaplan_meier_length_weights`): a fiber whose two ends are both its
 own — neither cut at a crossing nor on the frame — is a length seen whole, one
 with a single end of its own is known only to be at least as long as measured
 and enters as a censored observation, and one with neither is not used. The
@@ -654,7 +657,7 @@ The fiber table lists length, median, maximum and 90th-percentile height,
 number of bends measured but not judged (`unjudged`), the apparent width `W`
 the kink rule was scaled by, and the fraction of the fiber's line that was
 actually located on the fiber (`reliable`), for each fiber. Those values are
-the same ones GUI03 histograms, computed by the same `lib.measure` functions
+the same ones GUI03 histograms, computed by the same `afm_nanofiber_analyzer.measure` functions
 and shown here beside the fiber they describe, because a pooled distribution
 gives no way to tell whether an individual value is right. Select a row and
 the overview highlights that fiber, so a number can be read against the shape
@@ -683,7 +686,7 @@ A curvature cell can be blank: a fiber shorter than the curvature window has no
 curvature, and showing 0 would read as perfectly straight. A kink density of 0
 is not blank, because zero kinks over a judged contour length is a real
 measurement. The log reports how many fibers the curvature window excluded.
-That window is the `lib.measure` default, which is also GUI03's default.
+That window is the `afm_nanofiber_analyzer.measure` default, which is also GUI03's default.
 
 Kinks are drawn as filled cyan points on the fiber's line, in the fiber view
 and in the overview. A bend closer than 1.5 apparent widths to an end of a
@@ -758,7 +761,7 @@ window listing them, where any one or all of them can be restored.
 
 "Exclude non-isolated" is the bulk counterpart of "Exclude selected": it excludes, in one
 press, every fiber whose whole length could not be measured
-(`lib.measure.isolated_fiber_flags`) — one that touches another fiber somewhere
+(`afm_nanofiber_analyzer.measure.isolated_fiber_flags`) — one that touches another fiber somewhere
 along its path, one that runs off the edge of the scan, or one the connector
 can see a continuation past. A fiber cut where it crosses another one has a
 truncated length rather than a short one, so leaving those fragments in the
@@ -833,7 +836,7 @@ thumbnail pixel covers, because keeping every n-th pixel would drop a fiber a
 few pixels wide wherever it falls between them.
 
 Each image is colored over its own automatic range
-(`lib.ui_tools.compute_auto_vrange`, computed with the bundle's skeleton),
+(`afm_nanofiber_analyzer.ui_tools.compute_auto_vrange`, computed with the bundle's skeleton),
 which shows the fibers of every image clearly but makes the colors of two
 thumbnails mean different heights. To change the range, select thumbnails and
 enter vmin / vmax; with every thumbnail selected (Ctrl+A) all images get one
@@ -867,7 +870,7 @@ the system's default application, and it is printed from there.
 
 ## Supported Input Formats
 
-`lib/afm_io.py` loads text/CSV height exports and auto-detects the header
+`afm_nanofiber_analyzer/afm_io.py` loads text/CSV height exports and auto-detects the header
 length, column count, delimiter, and encoding (UTF-8, cp932/Shift-JIS, latin-1
 fallback), so no import settings are required. Two layouts are recognized
 (the multi-column delimiter, comma or whitespace/tab, is auto-detected):
@@ -955,7 +958,7 @@ informational header enabled on export so the scan size is preserved; otherwise
 set it in the GUI/CLI. Bruker `.spm` binaries can likewise be exported to text
 from NanoScope and read via the single-column layout above.
 
-The background calibrator (`BGCalibrator` in `lib/bg_calibrator.py`)
+The background calibrator (`BGCalibrator` in `afm_nanofiber_analyzer/bg_calibrator.py`)
 implements general line-scan AFM background correction and is applied to both
 formats. It was developed on Shimadzu SPM-9600 scans and was historically
 named `BG_Calibrator_shimadzu`; that import path and class name remain
@@ -966,7 +969,7 @@ available through a compatibility shim.
 ![Shared preprocessing and analysis workflow: AFM height input, the GUI01 preprocessing stages, the `.b2z` bundle, and the downstream GUI analyses.](figures/pipeline.png)
 
 Text and CSV exports are read by `afm_io.load_afm_text()`, native Gwyddion files
-by `gwy_io.load_gwy_image()`. Both feed `lib.pipeline.process_file` — the code
+by `gwy_io.load_gwy_image()`. Both feed `afm_nanofiber_analyzer.pipeline.process_file` — the code
 path shared by GUI01 and `cli.py` — which applies `BGCalibrator`, `Segmenter`,
 `Skeletonizer`, and `KinkDetector` in that order and writes one
 `<input_stem>.b2z` compressed TreeStore bundle and one
@@ -983,7 +986,7 @@ threshold.
 ### Command-line batch processing
 
 The same pipeline can be run without the GUI through `cli.py`, which calls
-`lib.pipeline.process_file` — the identical code path used by GUI01 — so CLI
+`afm_nanofiber_analyzer.pipeline.process_file` — the identical code path used by GUI01 — so CLI
 and GUI analysis arrays and parameters match for the same input and settings.
 Run-specific provenance such as `created_utc` naturally differs. This supports
 scripted batch runs and reproducible analyses.
@@ -1016,7 +1019,7 @@ scans of different sizes is processed correctly without one batch-wide value.
 ### Validating bundles
 
 The `.b2z` contract (required keys, array shapes, mask values, kink-angle
-units, format version) is defined in code by `lib/bundle_schema.py`. The
+units, format version) is defined in code by `afm_nanofiber_analyzer/bundle_schema.py`. The
 pipeline validates every bundle before saving and the measurement layer
 validates at load time; `validate` runs the same checks on demand:
 
@@ -1033,7 +1036,7 @@ scripted workflows.
 
 The per-fiber measurements shown by GUI04 are available through `measure`, and
 the skeleton-pixel heights used by GUI03 are available through `heights`.
-Both commands use `lib.measure`, the same analysis layer as the GUIs. A
+Both commands use `afm_nanofiber_analyzer.measure`, the same analysis layer as the GUIs. A
 complete, unfiltered GUI04 export uses the same CSV writer as `measure` and is
 byte-identical for the same bundle and scale; an active GUI04 height filter
 intentionally exports only the filtered fiber portions.
@@ -1127,7 +1130,7 @@ from `scripts/make_history_figures.py`.
 
 ### API documentation
 
-The modules in `lib/` are documented with Sphinx, which renders their
+The modules in `afm_nanofiber_analyzer/` are documented with Sphinx, which renders their
 docstrings into an API reference, alongside the algorithm document above. The
 published version is built from `main` by `.github/workflows/docs.yml` and
 served from GitHub Pages.
@@ -1148,7 +1151,7 @@ The entry point is then `docs/_build/html/index.html`.
 ## Data Format
 
 The current analysis output is a single `.b2z` bundle per input file. Bundles
-are written by `lib/blosc2_io.py` using `blosc2.TreeStore`. The layout is
+are written by `afm_nanofiber_analyzer/blosc2_io.py` using `blosc2.TreeStore`. The layout is
 documented below so the bundles can be read without this project's code, and
 `cli.py export` converts them to standard formats (see the end of this
 section).
@@ -1237,7 +1240,7 @@ The application separates GUI plugins from the reusable modules they call:
 
 - `Main.py` launches GUI plugins discovered in `guis/`.
 - `guis/` contains the user-facing tkinter tools.
-- `lib/` contains AFM I/O, background calibration, segmentation,
+- `afm_nanofiber_analyzer/` contains AFM I/O, background calibration, segmentation,
   skeleton cleanup, kink detection, fiber containers, bundle I/O, translation,
   and shared UI helpers.
 
@@ -1269,7 +1272,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- GUI04_Tracking_fiber.py
 |   |-- GUI05_Thumbnail_Viewer.py
 |   `-- __init__.py
-|-- lib/
+|-- afm_nanofiber_analyzer/
 |   |-- afm_io.py
 |   |-- bg_calibrator.py
 |   |-- bg_calibrator_shimadzu.py
@@ -1320,29 +1323,29 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 
 | Module | Main contents |
 |---|---|
-| `lib/afm_io.py` | Text/CSV AFM loader with automatic header, column, and encoding detection, explicit format override, and layout-consistency verification. |
-| `lib/bg_calibrator.py` | `BGCalibrator`, with `trendfill`, `tophat`, and `spline1d` background methods (`inpaint` is the retired name for `trendfill` and is still accepted in saved parameter files; `spline2d` was removed after 1.0.0). |
-| `lib/bg_calibrator_shimadzu.py` | Compatibility shim keeping the historical `BG_Calibrator_shimadzu` name importable. |
-| `lib/blosc2_io.py` | Blosc2 array storage and `.b2z` TreeStore bundle helpers. |
-| `lib/bundle_schema.py` | Executable `.b2z` contract: required keys, array shapes, value ranges, units, coordinate convention, and format version, with `validate_bundle` enforcing them at write and load time. |
-| `lib/connect_selection.py` | Fiber-connection results stored in `<stem>_connect.json` beside the bundle: written by GUI04, applied by `lib/measure.py`. What is stored is which fragments are joined, in what order and orientation — named by anchor pixels, with a fingerprint of the skeleton they were found on, so a re-analyzed bundle is refused rather than measured against a plan describing a skeleton it no longer has. Whether a join was automatic or manual is deliberately not recorded. |
-| `lib/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |
-| `lib/fiber_connector.py` | Reconnection of skeleton fragments split at crossings/branches into whole fibrils, split into a search (`plan_from_auto_connect`) and a construction (`build_connected_fibers`) so the decision the search reaches can be stored and rebuilt without searching again. `connection_candidates` backs GUI04's manual connection. |
-| `lib/group_compare.py` | Between-group comparison for GUI03: Mann-Whitney U with Holm correction over all pairs and two-sample KS, plus Cliff's delta as an effect size that does not grow with sample size. |
-| `lib/fiber_selection.py` | Manual fiber exclusions stored in `<stem>_excluded.json` beside the bundle: written by GUI04, applied by `lib/measure.py`. An exclusion is an anchor pixel on the excluded fiber's track rather than a list index, so it keeps its meaning when fiber connection renumbers the list. |
-| `lib/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |
-| `lib/gwy_convert.py` | Conversion of files this software cannot read into `.gwy` through Gwyddion's `gwyconvert` (optional `convert` dependency), shared by GUI00 and `cli.py convert`: extension-based selection, `<original file name>_converted.gwy` output, skipping of existing outputs, and rejection of results without a length-unit channel. |
-| `lib/gwy_io.py` | Lazy-loading reader for native, multi-channel Gwyddion `.gwy` files, including channel selection, length-channel conversion to nm, and scan-size extraction. |
-| `lib/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
-| `lib/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
-| `lib/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, `collect_fiber_stats` (per-fiber statistics over many bundles), `isolated_fiber_flags` (which fibers touch no other fiber), skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
-| `lib/pipeline.py` | `ProcParams` parameter schema, stage construction, and `process_file`, the GUI-independent pipeline driver shared by GUI01 and `cli.py`; the `.b2z` contract itself lives in `lib/bundle_schema.py`. |
-| `lib/plugin_launch.py` | Starts a GUI plugin in its own process through `Main.py --run-plugin`, optionally handing it files, many of them through a list file; used by the launcher, by GUI01's buttons that open its results in GUI02, GUI03 and GUI04, and by GUI05's buttons that open the selected bundles in GUI02, GUI03 and GUI04. |
-| `lib/processed_image.py` | `ProcessedImage`, the container passed through the GUI01 preprocessing pipeline. |
-| `lib/segmenter.py` | `Segmenter`, which builds binary nanofiber masks from calibrated AFM images. |
-| `lib/skeletonizer.py` | `Skeletonizer`, which thins segmented masks, prunes branches, and labels skeleton components. |
-| `lib/translator.py` | gettext language selection helpers. |
-| `lib/ui_tools.py` | Shared tkinter, matplotlib, logging, dialog, and export helpers used by the GUI plugins. |
+| `afm_nanofiber_analyzer/afm_io.py` | Text/CSV AFM loader with automatic header, column, and encoding detection, explicit format override, and layout-consistency verification. |
+| `afm_nanofiber_analyzer/bg_calibrator.py` | `BGCalibrator`, with `trendfill`, `tophat`, and `spline1d` background methods (`inpaint` is the retired name for `trendfill` and is still accepted in saved parameter files; `spline2d` was removed after 1.0.0). |
+| `afm_nanofiber_analyzer/bg_calibrator_shimadzu.py` | Compatibility shim keeping the historical `BG_Calibrator_shimadzu` name importable. |
+| `afm_nanofiber_analyzer/blosc2_io.py` | Blosc2 array storage and `.b2z` TreeStore bundle helpers. |
+| `afm_nanofiber_analyzer/bundle_schema.py` | Executable `.b2z` contract: required keys, array shapes, value ranges, units, coordinate convention, and format version, with `validate_bundle` enforcing them at write and load time. |
+| `afm_nanofiber_analyzer/connect_selection.py` | Fiber-connection results stored in `<stem>_connect.json` beside the bundle: written by GUI04, applied by `afm_nanofiber_analyzer/measure.py`. What is stored is which fragments are joined, in what order and orientation — named by anchor pixels, with a fingerprint of the skeleton they were found on, so a re-analyzed bundle is refused rather than measured against a plan describing a skeleton it no longer has. Whether a join was automatic or manual is deliberately not recorded. |
+| `afm_nanofiber_analyzer/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |
+| `afm_nanofiber_analyzer/fiber_connector.py` | Reconnection of skeleton fragments split at crossings/branches into whole fibrils, split into a search (`plan_from_auto_connect`) and a construction (`build_connected_fibers`) so the decision the search reaches can be stored and rebuilt without searching again. `connection_candidates` backs GUI04's manual connection. |
+| `afm_nanofiber_analyzer/group_compare.py` | Between-group comparison for GUI03: Mann-Whitney U with Holm correction over all pairs and two-sample KS, plus Cliff's delta as an effect size that does not grow with sample size. |
+| `afm_nanofiber_analyzer/fiber_selection.py` | Manual fiber exclusions stored in `<stem>_excluded.json` beside the bundle: written by GUI04, applied by `afm_nanofiber_analyzer/measure.py`. An exclusion is an anchor pixel on the excluded fiber's track rather than a list index, so it keeps its meaning when fiber connection renumbers the list. |
+| `afm_nanofiber_analyzer/fiber_tracking_image.py` | `FiberTrackingImage`, used by GUI04 to rebuild and track fibers from GUI01 bundle outputs. |
+| `afm_nanofiber_analyzer/gwy_convert.py` | Conversion of files this software cannot read into `.gwy` through Gwyddion's `gwyconvert` (optional `convert` dependency), shared by GUI00 and `cli.py convert`: extension-based selection, `<original file name>_converted.gwy` output, skipping of existing outputs, and rejection of results without a length-unit channel. |
+| `afm_nanofiber_analyzer/gwy_io.py` | Lazy-loading reader for native, multi-channel Gwyddion `.gwy` files, including channel selection, length-channel conversion to nm, and scan-size extraction. |
+| `afm_nanofiber_analyzer/imp_tools.py` | Skeleton morphology helpers, endpoint/branch-point detection, line tracing, and path-distance conversion. |
+| `afm_nanofiber_analyzer/kink_detector.py` | `KinkDetector`, which detects kink points from tracked skeleton components. |
+| `afm_nanofiber_analyzer/measure.py` | GUI-independent fiber measurement on `.b2z` bundles: `measure_bundle`, per-fiber `FiberStats`, `collect_fiber_stats` (per-fiber statistics over many bundles), `isolated_fiber_flags` (which fibers touch no other fiber), skeleton-height collection, and the CSV writers shared by GUI03/GUI04 and `cli.py`. |
+| `afm_nanofiber_analyzer/pipeline.py` | `ProcParams` parameter schema, stage construction, and `process_file`, the GUI-independent pipeline driver shared by GUI01 and `cli.py`; the `.b2z` contract itself lives in `afm_nanofiber_analyzer/bundle_schema.py`. |
+| `afm_nanofiber_analyzer/plugin_launch.py` | Starts a GUI plugin in its own process through `Main.py --run-plugin`, optionally handing it files, many of them through a list file; used by the launcher, by GUI01's buttons that open its results in GUI02, GUI03 and GUI04, and by GUI05's buttons that open the selected bundles in GUI02, GUI03 and GUI04. |
+| `afm_nanofiber_analyzer/processed_image.py` | `ProcessedImage`, the container passed through the GUI01 preprocessing pipeline. |
+| `afm_nanofiber_analyzer/segmenter.py` | `Segmenter`, which builds binary nanofiber masks from calibrated AFM images. |
+| `afm_nanofiber_analyzer/skeletonizer.py` | `Skeletonizer`, which thins segmented masks, prunes branches, and labels skeleton components. |
+| `afm_nanofiber_analyzer/translator.py` | gettext language selection helpers. |
+| `afm_nanofiber_analyzer/ui_tools.py` | Shared tkinter, matplotlib, logging, dialog, and export helpers used by the GUI plugins. |
 
 ## Adding a GUI Plugin
 

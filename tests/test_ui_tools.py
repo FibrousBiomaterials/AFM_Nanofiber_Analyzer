@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Tests for the automatic heatmap display range in lib/ui_tools.py.
-lib/ui_tools.py のヒートマップ表示範囲自動決定のテスト。
+Tests for the automatic heatmap display range in afm_nanofiber_analyzer/ui_tools.py.
+afm_nanofiber_analyzer/ui_tools.py のヒートマップ表示範囲自動決定のテスト。
 
 `compute_auto_vrange` decides the vmin/vmax that GUI02 and GUI04 hand to
 `imshow`, so its failure mode is a figure that is unreadable rather than an
@@ -22,8 +22,8 @@ import os
 import numpy as np
 import pytest
 
-from lib.blosc2_io import load_bundle
-from lib.ui_tools import (
+from afm_nanofiber_analyzer.blosc2_io import load_bundle
+from afm_nanofiber_analyzer.ui_tools import (
     DEFAULT_VMAX,
     DEFAULT_VMIN,
     compute_auto_vrange,

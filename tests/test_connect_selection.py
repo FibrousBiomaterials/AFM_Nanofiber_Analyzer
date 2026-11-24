@@ -25,7 +25,7 @@ import os
 import numpy as np
 import pytest
 
-from lib.connect_selection import (
+from afm_nanofiber_analyzer.connect_selection import (
     CONNECT_FORMAT,
     CONNECT_SUFFIX,
     CONNECT_VERSION,
@@ -39,8 +39,8 @@ from lib.connect_selection import (
     save_connect_plan,
     skeleton_digest,
 )
-from lib.fiber import Fiber
-from lib.fiber_connector import ConnectParams
+from afm_nanofiber_analyzer.fiber import Fiber
+from afm_nanofiber_analyzer.fiber_connector import ConnectParams
 
 
 def _write_raw(path: str, payload: dict) -> None:

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Tests for lib/stripe_noise.py.
-lib/stripe_noise.py のテスト。
+Tests for afm_nanofiber_analyzer/stripe_noise.py.
+afm_nanofiber_analyzer/stripe_noise.py のテスト。
 
 Unit tests use handmade images so the injected glitch is known exactly and the
 flagged lines can be compared against it. Two integration tests run the metric
@@ -20,8 +20,8 @@ crying wolf on good data, or answering with an unusable field either way.
 import numpy as np
 import pytest
 
-from lib.afm_io import load_afm_image
-from lib.stripe_noise import (
+from afm_nanofiber_analyzer.afm_io import load_afm_image
+from afm_nanofiber_analyzer.stripe_noise import (
     DEFAULT_GUARD_LINES,
     DEFAULT_STEP_THRESHOLD_NM,
     evaluate_scan_lines,

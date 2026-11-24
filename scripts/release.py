@@ -6,7 +6,7 @@ Two subcommands carry out the file edits of RELEASING.md:
 
 ``prepare X.Y.Z``
     Checklist steps 1-6: set ``X.Y.Z`` in ``pyproject.toml`` and
-    ``lib/__init__.py``; set ``version`` and ``date-released`` in
+    ``afm_nanofiber_analyzer/__init__.py``; set ``version`` and ``date-released`` in
     ``CITATION.cff``; set ``version`` (and ``year``) in the BibTeX block of
     both READMEs; turn ``## [Unreleased]`` of ``CHANGELOG.md`` and
     ``CHANGELOG.ja.md`` into ``## [X.Y.Z] - DATE`` under a new empty
@@ -15,7 +15,7 @@ Two subcommands carry out the file edits of RELEASING.md:
     ``check.py --verify``. With ``--commit`` it also commits
     ("Release vX.Y.Z") and creates the tag ``vX.Y.Z`` (steps 7-8).
 ``start-dev X.Y.Z``
-    Step 13: set ``X.Y.Z.dev0`` in ``pyproject.toml`` and ``lib/__init__.py``,
+    Step 13: set ``X.Y.Z.dev0`` in ``pyproject.toml`` and ``afm_nanofiber_analyzer/__init__.py``,
     leaving ``CITATION.cff`` and the READMEs at the released number. With
     ``--commit`` it commits ("Start X.Y.Z development").
 
@@ -80,8 +80,8 @@ def set_pyproject_version(text: str, version: str) -> str:
 
 
 def set_init_version(text: str, version: str) -> str:
-    """Set ``__version__`` in lib/__init__.py.
-    lib/__init__.py の ``__version__`` を設定する。
+    """Set ``__version__`` in afm_nanofiber_analyzer/__init__.py.
+    afm_nanofiber_analyzer/__init__.py の ``__version__`` を設定する。
     """
     return _sub_once(r'^(__version__\s*=\s*")[^"]*(")', rf"\g<1>{version}\g<2>",
                      text, f"__version__ line in {INIT}")
@@ -307,6 +307,7 @@ def suggest_level(
     after: Dict[str, Optional[str]],
     added_paths: Sequence[str],
     goldens_changed: bool,
+    package_renamed: bool = False,
 ) -> Tuple[str, List[Tuple[str, str]]]:
     """Classify the changes since the last release by the RELEASING.md table.
     前回リリースからの変更を RELEASING.md の表で分類する。
@@ -323,6 +324,11 @@ def suggest_level(
     goldens_changed
         Whether ``tests/strict_regression_golden.json`` changed.
         ``tests/strict_regression_golden.json`` が変わったかどうか。
+    package_renamed
+        Whether the last release kept the package in
+        ``check_versions.LEGACY_PACKAGE_DIR`` and the current code does not.
+        前回リリースではパッケージが ``check_versions.LEGACY_PACKAGE_DIR`` にあり、
+        現在のコードではそうでないかどうか。
 
     Returns
     -------
@@ -361,9 +367,13 @@ def suggest_level(
     if dropped:
         reasons.append((MAJOR, "bundle format(s) no longer readable: " + ", ".join(dropped)))
 
-    # Public lib/ API.
+    # Public afm_nanofiber_analyzer/ API.
+    if package_renamed:
+        reasons.append((MAJOR, f"package {cv.LEGACY_PACKAGE_DIR.rstrip('/')} renamed to "
+                        f"{cv.PACKAGE_DIR.rstrip('/')} (code importing the old name "
+                        "stops working)"))
     for path in sorted(set(before) | set(after)):
-        if not (path.startswith("lib/") and path.endswith(".py")):
+        if not (path.startswith("afm_nanofiber_analyzer/") and path.endswith(".py")):
             continue
         if before.get(path) is None:
             continue
@@ -373,7 +383,7 @@ def suggest_level(
         lost = sorted(public_names(before[path]) - public_names(after[path]))
         if lost:
             reasons.append((MAJOR, f"public name(s) removed from {path}: " + ", ".join(lost)
-                            + " (MAJOR if listed in AGENTS.md §8.7 or used outside lib/;"
+                            + " (MAJOR if listed in AGENTS.md §8.7 or used outside afm_nanofiber_analyzer/;"
                             " an alias keeps them working)"))
 
     # CLI.
@@ -592,10 +602,21 @@ def cmd_suggest(args: argparse.Namespace) -> int:
     if not last:
         raise ReleaseError("no vX.Y.Z tag is reachable from HEAD; nothing to compare with")
     tag = f"v{last}"
+    # Package files are compared under their current path; `cv._read` reads one
+    # at the legacy path in a revision that has the package only there.
+    # パッケージのファイルは現在のパスで比べる。パッケージを旧パスにしか持たない
+    # リビジョンでは、`cv._read` が旧パスで読む。
     lib_files = set()
+    legacy_only = {}
     for rev in (tag, "HEAD"):
-        listing = _git("ls-tree", "-r", "--name-only", rev, "--", "lib") or ""
-        lib_files.update(p for p in listing.split() if p.endswith(".py"))
+        listing = (_git("ls-tree", "-r", "--name-only", rev, "--",
+                        cv.PACKAGE_DIR.rstrip("/")) or "").split()
+        legacy_only[rev] = not listing
+        if not listing:
+            listing = [cv.PACKAGE_DIR + p[len(cv.LEGACY_PACKAGE_DIR):] for p in
+                       (_git("ls-tree", "-r", "--name-only", rev, "--",
+                             cv.LEGACY_PACKAGE_DIR.rstrip("/")) or "").split()]
+        lib_files.update(p for p in listing if p.endswith(".py"))
     paths = sorted(lib_files | {cv.PIPELINE, cv.SCHEMA, CLI, PYPROJECT, CHANGELOG})
     before = {p: cv._read(tag, p) for p in paths}
     after = {p: cv._read("HEAD", p) for p in paths}
@@ -603,7 +624,8 @@ def cmd_suggest(args: argparse.Namespace) -> int:
     changed = (_git("diff", "--name-only", f"{tag}..HEAD") or "").split()
     goldens = "tests/strict_regression_golden.json" in changed
 
-    level, reasons = suggest_level(before, after, added, goldens)
+    level, reasons = suggest_level(before, after, added, goldens,
+                                   package_renamed=legacy_only[tag] and not legacy_only["HEAD"])
     proposal = next_version(last, level)
     print(f"Changes in {tag}..HEAD (committed state only):")
     for lvl, why in reasons or [(PATCH, "no MAJOR or MINOR signal: fixes and documentation")]:

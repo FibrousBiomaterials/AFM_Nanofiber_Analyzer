@@ -35,13 +35,13 @@ visiting order), which is why it is not parallelized and why its result is
 recorded rather than repeated; construction is a pure function of the chain.
 That boundary is what lets a later measurement rebuild the fibrils that were
 on screen instead of searching again over a population that has meanwhile
-changed — see `lib.connect_selection`.
+changed — see `afm_nanofiber_analyzer.connect_selection`.
 探索はラボのノートブック ``generate_connected_fiber_instances`` の移植である。
 **逐次なのは探索だけ**であり（成長しながら断片を消費するため、どの連結が起きるかは
 訪問順に依存する）、並列化しないのも、結果を再現せず記録するのもこのためである。
 構築は連鎖の純関数である。この境界があるからこそ、後の計測は、その間に変化した
 母集団に対して探索をやり直すのではなく、画面に表示されていたフィブリルを組み直せる
-（`lib.connect_selection` を参照）。
+（`afm_nanofiber_analyzer.connect_selection` を参照）。
 
 Feature points (kinks, the bends too close to an end to judge, and endpoints;
 decomposition points on a bundle of format 1.0) are recomputed on the
@@ -153,7 +153,7 @@ class ConnectParams:
 
     Examples
     --------
-    >>> from lib.fiber_connector import ConnectParams
+    >>> from afm_nanofiber_analyzer.fiber_connector import ConnectParams
     >>> params = ConnectParams(clusters_range=12)
     >>> params.clusters_range, params.angle_threshold
     (12, 110.0)
@@ -188,7 +188,7 @@ def angle_between_three_points(A: ArrayLike, B: ArrayLike, D: ArrayLike) -> floa
 
     Examples
     --------
-    >>> from lib.fiber_connector import angle_between_three_points
+    >>> from afm_nanofiber_analyzer.fiber_connector import angle_between_three_points
     >>> angle_between_three_points((0, 0), (0, 1), (0, 2))
     180.0
     >>> angle_between_three_points((0, 0), (0, 1), (1, 1))
@@ -223,9 +223,9 @@ def _aspect_of(image: FiberTrackingImage) -> float:
     Pixel aspect the connection gates are evaluated in.
     連結のゲートを評価する画素の縦横比。
 
-    `FiberTrackingImage.pixel_aspect`, which `lib.measure` sets from the
+    `FiberTrackingImage.pixel_aspect`, which `afm_nanofiber_analyzer.measure` sets from the
     bundle; 1 for a container without it.
-    `lib.measure` がバンドルから設定する `FiberTrackingImage.pixel_aspect`。
+    `afm_nanofiber_analyzer.measure` がバンドルから設定する `FiberTrackingImage.pixel_aspect`。
     それを持たないコンテナでは 1。
     """
     return float(getattr(image, "pixel_aspect", 1.0))
@@ -239,10 +239,10 @@ def _detector_for(image: FiberTrackingImage) -> KinkDetector:
     Parameters
     ----------
     image
-        Tracking container carrying the thresholds `lib.measure` read from the
+        Tracking container carrying the thresholds `afm_nanofiber_analyzer.measure` read from the
         bundle. A field left at ``None`` means the bundle records no usable
         value and the detector's own default applies.
-        `lib.measure` がバンドルから読み取ったしきい値を保持する追跡コンテナ。
+        `afm_nanofiber_analyzer.measure` がバンドルから読み取ったしきい値を保持する追跡コンテナ。
         ``None`` のフィールドは、使用可能な値がバンドルに無いことを意味し、
         検出器自身の既定値を使う。
 
@@ -444,13 +444,13 @@ def connection_candidate_flags(
     real ends rather than cuts. It is not proof: in a dense tangle the
     connector also finds no candidate when the continuation is ambiguous, so
     "no candidate" conflates "complete" with "gave up". That is why
-    `lib.measure.isolated_fiber_flags` uses it only in conjunction with the
+    `afm_nanofiber_analyzer.measure.isolated_fiber_flags` uses it only in conjunction with the
     branch-point and frame tests, never alone.
     候補が無い断片とは、連結器が付け足すものを持たない断片であり、その 2 端が
     切断ではなくファイバー本来の端であることを示す、利用可能な範囲で最も近い
     言明である。ただし証明ではない。密に絡んだ領域では、続きが曖昧なときにも
     連結器は候補を見つけられないため、「候補なし」は「完結している」と「諦めた」
-    を混同する。`lib.measure.isolated_fiber_flags` がこれを分岐点・枠の判定と
+    を混同する。`afm_nanofiber_analyzer.measure.isolated_fiber_flags` がこれを分岐点・枠の判定と
     併用し、単独では使わないのはそのためである。
 
     Examples
@@ -460,9 +460,9 @@ def connection_candidate_flags(
     repository root:
 
     >>> import tempfile
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import measure_bundle
-    >>> from lib.fiber_connector import connection_candidate_flags
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.measure import measure_bundle
+    >>> from afm_nanofiber_analyzer.fiber_connector import connection_candidate_flags
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
     ...                           ProcParams(), output_dir=folder,
@@ -538,10 +538,10 @@ def plan_from_auto_connect(
     image
         Tracking container providing ``calibrated_image`` (for height sampling)
         and the resolved ``size_per_pixel`` / ``y_size_per_pixel`` (for path
-        length). Populated by `lib.measure`.
+        length). Populated by `afm_nanofiber_analyzer.measure`.
         高さ取得用の ``calibrated_image`` と、経路長用に解決済みの
         ``size_per_pixel`` / ``y_size_per_pixel`` を提供する追跡コンテナ。
-        `lib.measure` が設定する。
+        `afm_nanofiber_analyzer.measure` が設定する。
     fragments
         Skeleton fragments to search, typically the output of
         `FiberTrackingImage.fibers_in_image_parallel`.
@@ -607,9 +607,9 @@ def plan_from_auto_connect(
     relative to the repository root:
 
     >>> import tempfile
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import measure_bundle
-    >>> from lib.fiber_connector import plan_from_auto_connect
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.measure import measure_bundle
+    >>> from afm_nanofiber_analyzer.fiber_connector import plan_from_auto_connect
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
     ...                           ProcParams(), output_dir=folder,
@@ -932,9 +932,9 @@ def build_connected_fibers(
     the repository root:
 
     >>> import tempfile
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import measure_bundle
-    >>> from lib.fiber_connector import (build_connected_fibers,
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.measure import measure_bundle
+    >>> from afm_nanofiber_analyzer.fiber_connector import (build_connected_fibers,
     ...                                  plan_from_auto_connect)
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
@@ -1378,9 +1378,9 @@ def connection_candidates(
     repository root:
 
     >>> import tempfile
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import measure_bundle
-    >>> from lib.fiber_connector import connection_candidates
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.measure import measure_bundle
+    >>> from afm_nanofiber_analyzer.fiber_connector import connection_candidates
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
     ...                           ProcParams(), output_dir=folder,
@@ -1464,9 +1464,9 @@ def connection_candidates_by_index(
     repository root:
 
     >>> import tempfile
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import measure_bundle
-    >>> from lib.fiber_connector import (connection_candidates,
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.measure import measure_bundle
+    >>> from afm_nanofiber_analyzer.fiber_connector import (connection_candidates,
     ...                                  connection_candidates_by_index)
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
@@ -1552,7 +1552,7 @@ def chain_for_manual_join(
     Joining the tail of fiber 0 to the head of fiber 2 among three bare
     fragments:
 
-    >>> from lib.fiber_connector import chain_for_manual_join
+    >>> from afm_nanofiber_analyzer.fiber_connector import chain_for_manual_join
     >>> chains = [[(0, False)], [(1, False)], [(2, False)]]
     >>> chain_for_manual_join(chains, 0, 1, 2, 0)
     [[(0, False), (2, False)], [(1, False)]]
@@ -1633,9 +1633,9 @@ def connect_fiber_fragments(
     The input path is relative to the repository root:
 
     >>> import tempfile
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import measure_bundle
-    >>> from lib.fiber_connector import connect_fiber_fragments
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.measure import measure_bundle
+    >>> from afm_nanofiber_analyzer.fiber_connector import connect_fiber_fragments
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
     ...                           ProcParams(), output_dir=folder,
@@ -1919,9 +1919,9 @@ def filter_fibers_by_height(
 
     >>> import tempfile
     >>> import numpy as np
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import measure_bundle
-    >>> from lib.fiber_connector import (connect_fiber_fragments,
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.measure import measure_bundle
+    >>> from afm_nanofiber_analyzer.fiber_connector import (connect_fiber_fragments,
     ...                                  filter_fibers_by_height)
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",

@@ -8,12 +8,12 @@ it. That is deliberately all it asserts: the widget tree, its labels, and its
 layout are free to change, and a test that pinned them down would fail on every
 cosmetic edit. What it does catch is the largest class of real GUI regressions
 — the window no longer builds at all, because an option name is wrong, an asset
-is missing, a callback is misspelled, or a `lib.ui_tools` helper changed shape.
+is missing, a callback is misspelled, or a `afm_nanofiber_analyzer.ui_tools` helper changed shape.
 各テストはウィンドウを構築し、Tk にレイアウトさせ、破棄する。検証をこれだけに
 留めるのは意図的で、ウィジェット構成・ラベル・レイアウトは自由に変更されるため、
 それらを固定するテストは見た目の変更のたびに壊れる。一方でこのテストは、実際に
 起こる GUI リグレッションの最大の類型——オプション名の誤り、アセットの欠落、
-コールバック名の typo、`lib.ui_tools` ヘルパーのシグネチャ変更などにより
+コールバック名の typo、`afm_nanofiber_analyzer.ui_tools` ヘルパーのシグネチャ変更などにより
 ウィンドウがそもそも構築できない——を確実に捕捉する。
 """
 
@@ -24,12 +24,12 @@ import pytest
 
 from conftest import pump_until, requires_tk
 
-from lib import gwy_convert
-from lib.connect_selection import (
+from afm_nanofiber_analyzer import gwy_convert
+from afm_nanofiber_analyzer.connect_selection import (
     ChainMember, ConnectionPlan, connect_path_for, load_connect_plan,
     save_connect_plan,
 )
-from lib.fiber_selection import exclusion_path_for, load_exclusions
+from afm_nanofiber_analyzer.fiber_selection import exclusion_path_for, load_exclusions
 
 import guis.GUI00_Format_Converter as gui00
 import guis.GUI01_Image_Preprocessor as gui01
@@ -76,7 +76,7 @@ def test_gui00_lists_the_folder_and_shows_each_outcome(tk_app, tmp_path, monkeyp
     GUI00 は変換対象だけを一覧にし、各行を変換結果で埋める。
 
     The converter is replaced by a stub, so this checks the window's handling
-    of `lib.gwy_convert` results, not Gwyddion (tests/test_gwy_convert.py).
+    of `afm_nanofiber_analyzer.gwy_convert` results, not Gwyddion (tests/test_gwy_convert.py).
     変換プログラムは代替に置き換えるため、ここで確かめるのは結果の扱いで、
     Gwyddion の変換ではない（tests/test_gwy_convert.py が担う）。
     """
@@ -786,7 +786,7 @@ def test_gui01_hand_over_buttons_follow_the_preview(
     見ていないファイルを渡すことはない。GUI03 には、フォルダ直下の全バンドルを
     一覧ファイルで渡し、そこにある他のファイルは渡さない。
     """
-    from lib import plugin_launch
+    from afm_nanofiber_analyzer import plugin_launch
 
     launched = []
     monkeypatch.setattr(
@@ -1183,8 +1183,8 @@ def _range_bundle(path, sha, rows=None):
     Write a bundle carrying only the provenance the overlap check reads.
     重なりの検査が読む来歴だけを持つバンドルを書く。
     """
-    from lib.blosc2_io import save_bundle
-    from lib.bundle_schema import SOURCE_REGION_KEY
+    from afm_nanofiber_analyzer.blosc2_io import save_bundle
+    from afm_nanofiber_analyzer.bundle_schema import SOURCE_REGION_KEY
 
     meta = {"input_sha256": sha} if sha else {}
     if rows is not None:
@@ -1323,9 +1323,9 @@ def test_gui03_keeps_traced_fibers_between_runs(tk_app, monkeypatch):
 
     Changing the quantity, the unit or the frame mode only reads the same fibers
     differently, so the bundles are not traced again
-    (`lib.measure._measure_curated` decides when an entry is still valid).
+    (`afm_nanofiber_analyzer.measure._measure_curated` decides when an entry is still valid).
     計測量・集計単位・枠の扱いの変更は同じファイバーの読み方を変えるだけなので、
-    バンドルを追跡し直さない（項目がまだ有効かは `lib.measure._measure_curated`
+    バンドルを追跡し直さない（項目がまだ有効かは `afm_nanofiber_analyzer.measure._measure_curated`
     が決める）。
     """
     app = tk_app(gui03.App)
@@ -1449,8 +1449,8 @@ def test_gui04_fiber_table_shows_straightness_and_curvature(tk_app, tmp_path):
     対象のファイバーの隣に並べることだけが、描画されたファイバーと照合する手段
     である。よって列が存在し値が入ることが、固定すべき性質である。
     """
-    from lib.measure import measure_bundle
-    from lib.pipeline import ProcParams, process_file
+    from afm_nanofiber_analyzer.measure import measure_bundle
+    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
     from conftest import write_synthetic_fiber_txt
 
     txt = write_synthetic_fiber_txt(tmp_path)
@@ -1530,7 +1530,7 @@ def test_gui03_compares_kink_density_per_image_only():
 
 def _kink_stat(length_nm, angles):
     """Return a fiber row with the given contour length and kink angles."""
-    from lib.measure import FiberStats
+    from afm_nanofiber_analyzer.measure import FiberStats
 
     return FiberStats(
         index=0, length_nm=length_nm, height_median_nm=1.0, height_max_nm=2.0,
@@ -1614,7 +1614,7 @@ def test_gui03_names_pairs_too_small_to_reach_significance():
     A pair of three samples against three is named; four against four is not.
     3 標本対 3 標本のペアは挙げ、4 対 4 は挙げない。
     """
-    from lib.group_compare import compare_groups
+    from afm_nanofiber_analyzer.group_compare import compare_groups
 
     small = compare_groups([("A", np.arange(3.0)), ("B", np.arange(3.0, 6.0))])
     note = gui03._attainable_p_note(small)
@@ -1736,8 +1736,8 @@ def test_gui04_fiber_table_reports_width_reliability_and_unjudged(tk_app, tmp_pa
     一覧は各ファイバーをどの尺度で判定し、どれだけを位置決めできたかを示し、
     数値を正しい理由で疑えるようにする。
     """
-    from lib.measure import measure_bundle
-    from lib.pipeline import ProcParams, process_file
+    from afm_nanofiber_analyzer.measure import measure_bundle
+    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
     from conftest import write_synthetic_fiber_txt
 
     txt = write_synthetic_fiber_txt(tmp_path)
@@ -1772,7 +1772,7 @@ def _frame_stat(length_nm, touches_frame, cut_end_count, frame_weight):
     Build a per-fiber row carrying only what the frame mode reads.
     枠の扱いが読む項目だけを持つファイバー単位の行を作る。
     """
-    from lib.measure import FiberStats
+    from afm_nanofiber_analyzer.measure import FiberStats
 
     return FiberStats(
         index=0, length_nm=length_nm, height_median_nm=1.0,
@@ -2079,7 +2079,7 @@ def test_gui03_kink_report_warns_only_below_the_noise_limit():
     Noise warns at the limit the analysis warns at, not at any difference.
     ノイズは解析が警告する限度で警告し、差があるだけでは警告しない。
     """
-    from lib.pipeline import MIN_FIBER_SNR
+    from afm_nanofiber_analyzer.pipeline import MIN_FIBER_SNR
 
     report = gui03._kink_condition_report
     above = _kink_condition(height_nm=2.0, noise_nm=2.0 / (MIN_FIBER_SNR + 1))
@@ -2376,8 +2376,8 @@ def _write_gui05_bundle(path, shape=(40, 60), scan_um=(1.5, 1.0), peak=10.0):
     GUI05 が読む内容だけを持つ小さなバンドルを書く。明るい線が 1 本ある高さ像、
     そのスケルトン、および任意で記録された走査範囲。
     """
-    from lib.blosc2_io import save_bundle
-    from lib.bundle_schema import SPATIAL_CALIBRATION_KEY, make_spatial_calibration
+    from afm_nanofiber_analyzer.blosc2_io import save_bundle
+    from afm_nanofiber_analyzer.bundle_schema import SPATIAL_CALIBRATION_KEY, make_spatial_calibration
 
     rng = np.random.default_rng(0)
     image = rng.normal(0.0, 0.2, shape)
@@ -3078,7 +3078,7 @@ def test_gui05_opens_the_selection_in_one_gui03_window(gui05_app, tmp_path,
     GUI03 はグループをまとめて集計するため、選択の件数にかかわらず起動は 1 回で、
     バンドルごとにウィンドウを開くときの確認は出さない。読めないファイルは渡さない。
     """
-    from lib import plugin_launch
+    from afm_nanofiber_analyzer import plugin_launch
 
     for name in ("a.b2z", "b.b2z", "c.b2z", "d.b2z"):
         _write_gui05_bundle(tmp_path / name)

@@ -107,9 +107,8 @@ run_install() {
     echo
     echo "Installing the package and dependencies..."
     # Editable install resolves dependencies from pyproject.toml (the single source
-    # of truth) and registers the afm-analyzer / afm-analyzer-cli console commands.
-    # 編集可能インストールは依存関係を単一の真実の源である pyproject.toml から解決し、
-    # afm-analyzer / afm-analyzer-cli コマンドを登録する。
+    # of truth).
+    # 編集可能インストールは依存関係を単一の真実の源である pyproject.toml から解決する。
     "$VENV_PY" -m pip install -e .
     if [ $? -ne 0 ]; then
         echo "Failed to install the package."

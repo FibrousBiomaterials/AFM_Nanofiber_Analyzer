@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Tests for lib/group_compare.py.
-lib/group_compare.py のテスト。
+Tests for afm_nanofiber_analyzer/group_compare.py.
+afm_nanofiber_analyzer/group_compare.py のテスト。
 
 The effect size is checked against its brute-force definition and the Holm
 correction against a worked textbook example, so both stay verifiable without
@@ -13,7 +13,7 @@ trusting the implementation they are testing.
 import numpy as np
 import pytest
 
-from lib.group_compare import (
+from afm_nanofiber_analyzer.group_compare import (
     MAGNITUDE_LARGE,
     PairComparison,
     cliffs_delta,
@@ -228,7 +228,7 @@ def test_counted_pvalues_match_scipy_exact_without_ties(n_a, n_b):
     """
     from scipy.stats import ks_2samp, mannwhitneyu
 
-    from lib.group_compare import _exact_pvalues
+    from afm_nanofiber_analyzer.group_compare import _exact_pvalues
 
     rng = np.random.default_rng(n_a * 10 + n_b)
     for _ in range(10):
@@ -255,7 +255,7 @@ def test_random_splits_read_close_to_counting_every_split():
     The bound is four standard errors at p = 0.5, the largest error they have.
     許容幅は、誤差が最大になる p = 0.5 での標準誤差の 4 倍である。
     """
-    from lib.group_compare import (
+    from afm_nanofiber_analyzer.group_compare import (
         _SAMPLED_SPLITS, _exact_pvalues, _sampled_pvalues,
     )
 
@@ -273,7 +273,7 @@ def test_random_splits_repeat_and_never_read_zero():
     A pair reads the same on every run, and never below the sampling floor.
     ペアはどの実行でも同じ値になり、抽出の下限を下回らない。
     """
-    from lib.group_compare import _SAMPLED_SPLITS, _sampled_pvalues
+    from afm_nanofiber_analyzer.group_compare import _SAMPLED_SPLITS, _sampled_pvalues
 
     a, b = _tied_pair(1)
     assert _sampled_pvalues(a, b) == _sampled_pvalues(a, b)
@@ -288,7 +288,7 @@ def test_pair_method_follows_size_and_ties(monkeypatch):
     """
     from scipy.stats import ks_2samp, mannwhitneyu
 
-    from lib import group_compare as gc
+    from afm_nanofiber_analyzer import group_compare as gc
 
     calls = []
     monkeypatch.setattr(gc, "_exact_pvalues",

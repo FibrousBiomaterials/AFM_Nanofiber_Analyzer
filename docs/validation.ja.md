@@ -68,14 +68,14 @@ Bruker NDTOC のスキャンは同じ分散液を測ったもので、後者は 
 から 1.7<!--m:bg_fill.none.inpaint.fill_error_median_nm--> nm 外れた。1.0.0 のリリースの背景補正（タグ `v1.0.0` から実行）を、
 0.24<!--m:bg_legacy_halo.slope_nm_per_px--> nm/px の平面の上に高さ 8<!--m:bg_legacy_halo.fiber_height_nm--> nm の繊維を 1<!--n:count--> 本置いた合成走査にかけると
 （実験 bg_legacy_halo）、繊維の脇の補正後の背景は −0.76<!--m:bg_legacy_halo.v1_0_0.beside_min_nm-->〜+0.77<!--m:bg_legacy_halo.v1_0_0.beside_max_nm--> nm となり、
-二値化しきい値の既定 0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm を超えた。現在のコードではそこは
+二値化しきい値の既定 0.3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.global_threshold--> nm を超えた。現在のコードではそこは
 −0.21<!--m:bg_legacy_halo.current.beside_min_nm-->〜+0.18<!--m:bg_legacy_halo.current.beside_max_nm--> nm である。
 
 ### 1.4 縁での `tophat`
 
 同梱スキャンで最も急な平面の傾き（0.23<!--m:bg_stats.tunicate.plane_slope_nm_per_px--> nm/px、§1.1）より少し急な 0.24<!--m:tophat_border.slope_nm_per_px--> nm/px の斜面に、
-直径 25<!--c:lib/pipeline.py::ProcParams.tophat_se_size--> px の要素で生の高さに opening をかけると、上り側の端から 12<!--n:definition--> px
-以内に高さ**3.1<!--m:tophat_border.raw.uphill_band_max_nm--> nm** の帯が残る。二値化しきい値 0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm を大きく超える
+直径 25<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.tophat_se_size--> px の要素で生の高さに opening をかけると、上り側の端から 12<!--n:definition--> px
+以内に高さ**3.1<!--m:tophat_border.raw.uphill_band_max_nm--> nm** の帯が残る。二値化しきい値 0.3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.global_threshold--> nm を大きく超える
 値である。デトレンドした高さに opening をかけると 0.29<!--m:tophat_border.detrended.uphill_band_max_nm--> nm になる
 （実験 tophat_border）。
 
@@ -151,7 +151,7 @@ X 方向だけのときには無い横方向の筋が全体に出る。Bruker �
 | Bruker NDTOC | 0.000<!--m:spline1d_trend_order.NDTOC.max_difference_nm--> |
 平滑化は線形なので、2<!--n:count--> つの順番の違いは、トレンドそのものとそれをならしたものの差
 だけになり、トレンドが X 方向に大きく曲がっている所ほど大きい。どの入力でも、違いは
-二値化のしきい値 0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm よりずっと小さい。
+二値化のしきい値 0.3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.global_threshold--> nm よりずっと小さい。
 
 ### 1.8 繊維が多くの画素にまたがる走査
 
@@ -179,7 +179,7 @@ zoomed_background）。各同梱スキャンについて、既定の補正後の
 | 3<!--n:value tried--> | 0.13〜0.96<!--m:zoomed_background.trendfill.x3.kept_range--> | 0.27〜0.99<!--m:zoomed_background.spline1d.x3.kept_range--> | 0.31〜0.49<!--m:zoomed_background.tophat.x3.kept_range--> |
 | 4<!--n:value tried--> | 0.08〜0.18<!--m:zoomed_background.trendfill.x4.kept_range--> | 0.13〜0.93<!--m:zoomed_background.spline1d.x4.kept_range--> | 0.17〜0.28<!--m:zoomed_background.tophat.x4.kept_range--> |
 
-すべての実行で `background_warnings`（`lib/pipeline.py`）を確かめ、勧める設定を伴う
+すべての実行で `background_warnings`（`afm_nanofiber_analyzer/pipeline.py`）を確かめ、勧める設定を伴う
 警告が出た実行は、その設定で解析し直した。
 
 | 拡大率 | 実行数 | 残った高さ 0.9<!--n:definition--> 未満 | うち警告なし | 警告あり | 警告ありで 0.97<!--n:definition--> 以上残った |
@@ -242,11 +242,11 @@ zoomed_background）。各同梱スキャンについて、既定の補正後の
 
 ### 1.10 予測による背景の警告と実測による背景の警告
 
-`background_warnings`（`lib/pipeline.py`）の警告には 2<!--n:count--> 種類ある。3<!--n:count--> つは見かけ幅を
+`background_warnings`（`afm_nanofiber_analyzer/pipeline.py`）の警告には 2<!--n:count--> 種類ある。3<!--n:count--> つは見かけ幅を
 §1.8 の限界と比べ、高さの損失を予測する。`element_small`、`flank_step_low`、
 `width_unchecked` である。残る 2<!--n:count--> つは補正後の画像を測る。`relief_absorbed` は、繊維
-マスクの上で、入力が示した起伏の 0.1<!--c:lib/pipeline.py::_MAX_ABSORBED_FRACTION--> 以上が、マスクの脇（マスクから見かけ幅の 2<!--c:lib/pipeline.py::_ABSORBED_RING_WIDTHS--> 倍
-以内、幅の 3<!--c:lib/pipeline.py::_ABSORBED_SMOOTH_WIDTHS--> 倍で平均）の背景より高い背景として引かれたときに出る。
+マスクの上で、入力が示した起伏の 0.1<!--c:afm_nanofiber_analyzer/pipeline.py::_MAX_ABSORBED_FRACTION--> 以上が、マスクの脇（マスクから見かけ幅の 2<!--c:afm_nanofiber_analyzer/pipeline.py::_ABSORBED_RING_WIDTHS--> 倍
+以内、幅の 3<!--c:afm_nanofiber_analyzer/pipeline.py::_ABSORBED_SMOOTH_WIDTHS--> 倍で平均）の背景より高い背景として引かれたときに出る。
 `width_unmeasured` は、大半の成分で見かけ幅を測れず、他の検査をどれも行えなかった
 ときに出る。2<!--n:count--> つの長さと限界は下の実行を見て選んだので、これらの実行は独立した
 検証ではなく開発用のデータである。
@@ -413,7 +413,7 @@ linearity_large_exemption。両方の実行時間も記録している）。
 ### 2.7 高さフィルタ
 
 高さフィルタ（`Segmenter.remove_low_component`）は、最大の高さが `low_threshold`
-（既定値 1.8<!--c:lib/pipeline.py::ProcParams.low_threshold--> nm）に届かないかたまりを消す。二値化のほかの段の後に動き、それらが
+（既定値 1.8<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.low_threshold--> nm）に届かないかたまりを消す。二値化のほかの段の後に動き、それらが
 残したかたまりだけを見る（`Segmenter.__call__`）。各テスト入力を既定値で解析し
 （実験 low_threshold_removal）、フィルタが消したかたまりをすべて補正後の高さ画像
 （−0.5<!--n:display range-->〜3<!--n:display range--> nm で表示）に重ねて描き、目視で判断した。
@@ -508,13 +508,13 @@ length_floor_completeness）。
 同梱スキャンでは、端を複製しない場合、画像の外へ抜けるトラックの最後の
 5<!--n:definition--> 点が、法線方向に測って高さの稜線から中央値で 3.9<!--m:border_drift.plain.end_median_px--> px 離れており、繊維の
 中ほどの 0.9<!--m:border_drift.plain.middle_median_px--> px と対比される。複製すると、端の点は稜線から 1.1<!--m:border_drift.padded.end_median_px--> px になる
-（実験 border_drift）。12<!--c:lib/skeletonizer.py::DEFAULT_BORDER_PAD--> px の縁帯より内側のスケルトンは、同梱スキャン
+（実験 border_drift）。12<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_BORDER_PAD--> px の縁帯より内側のスケルトンは、同梱スキャン
 3<!--m:border_padding.identical_inside_band--> 枚すべてで本補正の有無によらず完全に一致した（実験 border_padding）。ただし
 これは保証ではない。
 
 ### 3.2 `bp_height` と繊維の高さ
 
-既定の `bp_height` 10<!--c:lib/pipeline.py::ProcParams.bp_height--> nm は、どの同梱スキャンでもスケルトン下の高さの
+既定の `bp_height` 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.bp_height--> nm は、どの同梱スキャンでもスケルトン下の高さの
 中央値（1.7<!--m:bg_stats.hplantTOC.skeleton_height_median_nm-->〜7.9<!--m:bg_stats.tunicate.skeleton_height_median_nm--> nm、§1.1）より高い。最初のスケルトンの分岐点の高さ
 （実験 branch_pruning）は、チュニケートのスキャンでは中央値 9.2<!--m:branch_pruning.tunicate.bp_height_median_nm--> nm で、分岐点の
 41<!--m:branch_pruning.tunicate.bp_at_or_above_percent--> % が `bp_height` に届く。ほかのスキャンではひとつも届かない（中央値は高等植物の
@@ -554,18 +554,18 @@ length_floor_completeness）。
 24<!--m:loop_sliver.scans--> 枚（断面は高さ 4<!--n:value tried--> nm、標準偏差 1.5<!--n:value tried-->・2<!--n:value tried-->・3<!--n:value tried--> px のガウス形、隙間の幅は 4<!--n:value tried-->〜12<!--n:value tried--> px。
 実験 loop_sliver）では、`collapse_skeleton_loops` が調べる大きさの囲みが 4<!--m:loop_sliver.candidates--> 個できた。
 内側の高さの中央値は、周りの尾根の 63<!--m:loop_sliver.ratio_percent_range[0]-->〜98<!--m:loop_sliver.ratio_percent_range[1]--> % であった。近い 2<!--n:count--> 本の繊維の斜面が
-重なるからである。そのため 4<!--m:loop_sliver.filled--> 個とも 0.3<!--c:lib/skeletonizer.py::DEFAULT_LOOP_HEIGHT_RATIO--> のチェックを通って塗りつぶされ、描いて
+重なるからである。そのため 4<!--m:loop_sliver.filled--> 個とも 0.3<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_LOOP_HEIGHT_RATIO--> のチェックを通って塗りつぶされ、描いて
 みると、2<!--n:count--> 本の繊維は隙間の真ん中を通る 1<!--n:count--> 本の線にまとめられていた。隙間がもっと
 広いと、囲みが `max_loop_area` より大きくなり、2<!--n:count--> 本のまま残った。これらの画像では、
 このチェックが塗りつぶしを止めたことは 1<!--n:count--> 度も無かった。
 
 ### 3.5 2 つの刈り取りの端の幅
 
-枝刈り（解析アルゴリズムの §3.3）は、画像の端から `branch_length`（12<!--c:lib/pipeline.py::ProcParams.branch_length--> px）以内の端点を
-調べず、とげ刈り（同 §3.5）は、端から 2<!--c:lib/skeletonizer.py::prune_short_spurs(border_margin)--> px 以内の腕を刈らない。各テスト入力を、片方の
+枝刈り（解析アルゴリズムの §3.3）は、画像の端から `branch_length`（12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.branch_length--> px）以内の端点を
+調べず、とげ刈り（同 §3.5）は、端から 2<!--c:afm_nanofiber_analyzer/skeletonizer.py::prune_short_spurs(border_margin)--> px 以内の腕を刈らない。各テスト入力を、片方の
 幅を相手の値に変えて 1<!--n:count--> つずつ細線化した（実験 border_margins）。
 
-| 入力 | 枝刈りを 2<!--c:lib/skeletonizer.py::prune_short_spurs(border_margin)--> px にしたとき変わった画素 | 端からの最大の距離 (px) | とげ刈りを 12<!--c:lib/pipeline.py::ProcParams.branch_length--> px にしたとき変わった画素 | 端からの最大の距離 (px) |
+| 入力 | 枝刈りを 2<!--c:afm_nanofiber_analyzer/skeletonizer.py::prune_short_spurs(border_margin)--> px にしたとき変わった画素 | 端からの最大の距離 (px) | とげ刈りを 12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.branch_length--> px にしたとき変わった画素 | 端からの最大の距離 (px) |
 |---|---|---|---|---|
 | チュニケート CNF | 0<!--m:border_margins.tunicate.branch_margin_2.changed_px--> | 0<!--m:border_margins.tunicate.branch_margin_2.farthest_from_border_px--> | 8<!--m:border_margins.tunicate.spur_margin_wide.changed_px--> | 12<!--m:border_margins.tunicate.spur_margin_wide.farthest_from_border_px--> |
 | 高等植物 TOC | 0<!--m:border_margins.hplantTOC.branch_margin_2.changed_px--> | 0<!--m:border_margins.hplantTOC.branch_margin_2.farthest_from_border_px--> | 0<!--m:border_margins.hplantTOC.spur_margin_wide.changed_px--> | 0<!--m:border_margins.hplantTOC.spur_margin_wide.farthest_from_border_px--> |
@@ -705,7 +705,7 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 
 以前の規則の行は、同じ画像の追跡済みスケルトントラックに、形式 1.0<!--n:bundle format version--> の
 バンドルのために残してある `KinkDetector.kinks_and_decomposed_from_track`
-（`kink_decompose_px` = 3<!--c:lib/pipeline.py::ProcParams.kink_decompose_px--> px、`kinkangle_deg` = 150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg--> 度）を適用して採点した。
+（`kink_decompose_px` = 3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kink_decompose_px--> px、`kinkangle_deg` = 150<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg--> 度）を適用して採点した。
 
 基準が曖昧な折れまたは合流点とした印から $W$ 以内の報告された折れは、検出にも
 一致なしにも数えない。超過回転規則が報告した 139<!--m:kink_reference.default.detections--> 件の折れのうち、26<!--m:kink_reference.default.exempt--> 件がこれにあたる。
@@ -731,11 +731,11 @@ synthetic_centerline）。半値より低いレベルが一様に良かったわ
 | 長さ | 既定値 | 試した隣の値 |
 |---|---|---|
 | 中心線の平滑化 | W/4 | ×0.6<!--n:value tried-->、×1.4<!--n:value tried--> |
-| 折れの区間の半長 $c$ | 0.75<!--c:lib/kink_detector.py::_CORE_WIDTHS--> W | 0.6<!--n:value tried--> W、0.9<!--n:value tried--> W |
-| 前後の区間の長さ $f$ | 1.0<!--c:lib/kink_detector.py::_FLANK_WIDTHS--> W | 0.75<!--n:value tried--> W、1.5<!--n:value tried--> W |
-| 向きの平滑化 $\sigma$ | 0.25<!--c:lib/kink_detector.py::_HEADING_SIGMA_WIDTHS--> W | 0.15<!--n:value tried--> W、0.35<!--n:value tried--> W |
-| 端の範囲 | 1.5<!--c:lib/kink_detector.py::END_MARGIN_WIDTHS--> W | 1.0<!--n:value tried--> W、2.0<!--n:value tried--> W |
-| 抑制半径 | 0.75<!--c:lib/kink_detector.py::_SUPPRESS_WIDTHS--> W | 0.5<!--n:value tried--> W、1.0<!--n:value tried--> W |
+| 折れの区間の半長 $c$ | 0.75<!--c:afm_nanofiber_analyzer/kink_detector.py::_CORE_WIDTHS--> W | 0.6<!--n:value tried--> W、0.9<!--n:value tried--> W |
+| 前後の区間の長さ $f$ | 1.0<!--c:afm_nanofiber_analyzer/kink_detector.py::_FLANK_WIDTHS--> W | 0.75<!--n:value tried--> W、1.5<!--n:value tried--> W |
+| 向きの平滑化 $\sigma$ | 0.25<!--c:afm_nanofiber_analyzer/kink_detector.py::_HEADING_SIGMA_WIDTHS--> W | 0.15<!--n:value tried--> W、0.35<!--n:value tried--> W |
+| 端の範囲 | 1.5<!--c:afm_nanofiber_analyzer/kink_detector.py::END_MARGIN_WIDTHS--> W | 1.0<!--n:value tried--> W、2.0<!--n:value tried--> W |
+| 抑制半径 | 0.75<!--c:afm_nanofiber_analyzer/kink_detector.py::_SUPPRESS_WIDTHS--> W | 0.5<!--n:value tried--> W、1.0<!--n:value tried--> W |
 
 折れの区間での回転そのものの極大から取る候補を除くと、明瞭な基準キンクの検出は
 49<!--m:turn_maxima.with.found--> 件から 47<!--m:turn_maxima.without.found--> 件に減り、一致しない折れは 63<!--m:turn_maxima.with.false--> 件から 49<!--m:turn_maxima.without.false--> 件に減った（実験
@@ -805,7 +805,7 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
   報告しなかった。
 - 40<!--n:value tried--> 度以上の孤立したコーナーはすべて見つけた（8<!--m:synthetic_kinks.corners_40_up.clear--> 件中 8<!--m:synthetic_kinks.corners_40_up.found--> 件）。
 - 最小曲率半径が 1.6〜1.8<!--m:synthetic_kinks.sines.tightest_radius_w_range--> $W$ の正弦波状の蛇行 4<!--m:synthetic_kinks.sines.scans--> 枚では、11<!--m:synthetic_kinks.sines.reported--> 件の折れを
-  報告した。半径が約 $2.9\,W$ を下回ると折れの区間だけで 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度を超えて回り、
+  報告した。半径が約 $2.9\,W$ を下回ると折れの区間だけで 30<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度を超えて回り、
   曲率が急に変わる場所では前後の区間の回転でそれを打ち消しきれないためである。
 - 以前の折れ線規則は、同じ円弧と蛇行で 31<!--m:synthetic_kinks.old_rule.arcs_sines_reported--> 件を報告した（実験 synthetic_kinks）。
 
@@ -822,8 +822,8 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 
 これらのスキャンの誤検出は、丸みのある曲がり、絡まり、交差の近くの折れ、淡い筋の
 上の折れ、それに超過回転がしきい値を
-わずかに上回るだけの浅い折れであって、ノイズではない。63<!--m:kink_reference.default.false--> 件のうち 23<!--m:kink_reference.default.false_excess_30_40--> 件は超過回転が 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->〜40<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|190 - v--> 度である。そのうち
-13<!--m:kink_reference.default.false_arm_turn_below_threshold--> 件は、腕から読んだ回転（180<!--n:definition--> 度 − `ka`）が 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度を下回る。腕の角度は
+わずかに上回るだけの浅い折れであって、ノイズではない。63<!--m:kink_reference.default.false--> 件のうち 23<!--m:kink_reference.default.false_excess_30_40--> 件は超過回転が 30<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg|180 - v-->〜40<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg|190 - v--> 度である。そのうち
+13<!--m:kink_reference.default.false_arm_turn_below_threshold--> 件は、腕から読んだ回転（180<!--n:definition--> 度 − `ka`）が 30<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度を下回る。腕の角度は
 判定に使う超過回転とは別に測るためである。また強く折れ曲がった繊維では、その
 繊維自身のキンクがノイズ床を押し上げる。失われた明瞭なキンクはそうした繊維に
 あった。合成データの掃引では、ノイズ床が直線・円弧・正弦波の繊維の偽の折れを変えたのは、
@@ -854,7 +854,7 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 - 細かい方の 3<!--n:count--> つの画素サイズでは、画素ノイズ 0.15<!--n:value tried--> nm までの直線・円弧・蛇行に
   偽陽性は無く、165<!--n:example--> 度の曲がりにも無かった。
 - 掃引で最も粗い画素サイズ（5.2<!--c:scripts/kink_rule_sweep.py::APPARENT_WIDTH_NM|v / 3--> nm。繊維が占める画素は 3.5<!--m:kink_rule_sweep.W5.measured_width_px--> px の設定より
-  少ない）では、幅は 2<!--c:lib/centerline.py::_MIN_WIDTH_PX--> px 未満と測られて 2<!--m:kink_rule_sweep.W3.measured_width_px--> px に引き上げられた。120<!--n:example--> 度の
+  少ない）では、幅は 2<!--c:afm_nanofiber_analyzer/centerline.py::_MIN_WIDTH_PX--> px 未満と測られて 2<!--m:kink_rule_sweep.W3.measured_width_px--> px に引き上げられた。120<!--n:example--> 度の
   コーナーは 6<!--m:kink_rule_sweep.W3.kink120.cases--> 枚中 6<!--m:kink_rule_sweep.W3.kink120.found--> 枚、145<!--n:example--> 度は 5<!--m:kink_rule_sweep.W3.kink145.found--> 枚、140<!--n:example--> 度は 5<!--m:kink_rule_sweep.W3.kink140.found--> 枚で見つかった。描いてみると、
   140<!--n:example--> 度の 6<!--n:count--> 枚はどれもコーナーを途切れずに追跡しており、そこで規則が報告した
   ほかの折れは斜めの腕の端にある。幅が 2<!--m:kink_rule_sweep.W3.measured_width_px--> px なので、判定しないのは
@@ -908,8 +908,8 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 
 ### 4.12 断面の幅の上限
 
-`centerline._refine` は、半値全幅が 1.5<!--c:lib/centerline.py::_MAX_SECTION_WIDTHS--> W 以下の断面だけをこの繊維のものとみなす。
-上限は断面の各半分には課さない。代わりに頂点から各半分を 0.75<!--c:lib/centerline.py::_MAX_SECTION_WIDTHS|v / 2--> W 以内に制限すると
+`centerline._refine` は、半値全幅が 1.5<!--c:afm_nanofiber_analyzer/centerline.py::_MAX_SECTION_WIDTHS--> W 以下の断面だけをこの繊維のものとみなす。
+上限は断面の各半分には課さない。代わりに頂点から各半分を 0.75<!--c:afm_nanofiber_analyzer/centerline.py::_MAX_SECTION_WIDTHS|v / 2--> W 以内に制限すると
 （実験 section_width_limit）、自身の断面で位置を決めた中心線の点の割合は、どの
 テスト入力でも下がり、上がった入力は無かった。
 
@@ -922,7 +922,7 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 チュニケートのスキャンで最も多くの点を失う繊維（920<!--m:section_width_limit.tunicate.most_lost.points--> 点中 141<!--m:section_width_limit.tunicate.most_lost.lost--> 点）を、補正後の
 高さ画像に断面とともに描いた。失う点の大半は、角から右端までの直線区間にある。この
 区間は他の繊維に 1<!--n:count--> 回交差されるだけの 1<!--n:count--> 本の繊維で、断面は単峰だが頂点が中央から少し
-ずれている。そのため全幅は 1.5<!--c:lib/centerline.py::_MAX_SECTION_WIDTHS--> W 以内に収まるのに、片側の半分が 0.75<!--c:lib/centerline.py::_MAX_SECTION_WIDTHS|v / 2--> W を超える。
+ずれている。そのため全幅は 1.5<!--c:afm_nanofiber_analyzer/centerline.py::_MAX_SECTION_WIDTHS--> W 以内に収まるのに、片側の半分が 0.75<!--c:afm_nanofiber_analyzer/centerline.py::_MAX_SECTION_WIDTHS|v / 2--> W を超える。
 
 ### 4.13 まっすぐな繊維の曲率
 
@@ -1008,7 +1008,7 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 | 32<!--n:value tried--> | 31.83<!--m:width_noise.W32.n0.05.width_px--> (100<!--m:width_noise.W32.n0.05.located_percent--> %) | 31.75<!--m:width_noise.W32.n0.1.width_px--> (100<!--m:width_noise.W32.n0.1.located_percent--> %) | 10.33<!--m:width_noise.W32.n0.15.width_px--> (2<!--m:width_noise.W32.n0.15.located_percent--> %) | 8.33<!--m:width_noise.W32.n0.2.width_px--> (34<!--m:width_noise.W32.n0.2.located_percent--> %) | 6.00<!--m:width_noise.W32.n0.3.width_px--> (59<!--m:width_noise.W32.n0.3.located_percent--> %) |
 
 ノイズが 0.15<!--n:value tried--> nm 以上になると、24<!--n:value tried--> 画素と 32<!--n:value tried--> 画素の幅は半分程度以下に読まれ、置けた点も
-わずかになった。最初の範囲 ±12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> 画素が幅の 1.25<!--c:lib/centerline.py::_WIDTH_RANGE_MIN_WIDTHS--> 倍より短いときは、より長い範囲で断面を読み直し、
+わずかになった。最初の範囲 ±12<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_SEARCH_PX--> 画素が幅の 1.25<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_RANGE_MIN_WIDTHS--> 倍より短いときは、より長い範囲で断面を読み直し、
 その読み取りは大半の断面が頂点を 1<!--n:count--> つしか含まないときだけ使われる
 （`centerline.measure_apparent_width`）。ふもとから見た頂点の高さの十分の一を超えて立ち上がる
 ノイズの山があるとこの判定に通らず、ふもとが繊維の裾に来る狭い最初の読み取りが残る。中心線の配置とキンク規則の長さは
@@ -1017,8 +1017,8 @@ $2\,W$ 離れており、この回転は差し引かれない。回転 40<!--n:v
 ### 4.17 ノイズの警告
 
 `pipeline.noise_warnings` は、スケルトン上の補正後の高さの中央値が、補正後の背景の
-画素ノイズの 20<!--c:lib/pipeline.py::MIN_FIBER_SNR--> 倍に満たないときに警告する（`pipeline.fiber_snr`）。画素ノイズは、
-二値化マスクから 4<!--c:lib/pipeline.py::_NOISE_MASK_MARGIN_PX--> 画素より離れた、横に隣り合う画素の差の中央絶対偏差の 1.4826<!--n:definition--> 倍を
+画素ノイズの 20<!--c:afm_nanofiber_analyzer/pipeline.py::MIN_FIBER_SNR--> 倍に満たないときに警告する（`pipeline.fiber_snr`）。画素ノイズは、
+二値化マスクから 4<!--c:afm_nanofiber_analyzer/pipeline.py::_NOISE_MASK_MARGIN_PX--> 画素より離れた、横に隣り合う画素の差の中央絶対偏差の 1.4826<!--n:definition--> 倍を
 $\sqrt{2}$ で割ったものである。この限界は §4.15〜§4.16 から決めた。ノイズが高さの
 二十分の一のとき、頂点高さの高めのずれは最大 +0.061<!--m:crest_noise.arc.W24.n0.1_nm--> nm（円弧の 24<!--n:value tried--> 画素）で、どの幅も保たれ、
 それよりノイズが大きいと頂点高さはさらに高く出て、24<!--n:value tried--> 画素と 32<!--n:value tried--> 画素の幅は崩れた。
@@ -1089,7 +1089,7 @@ $W$ 以内にある報告された折れの件数である。規則が報告し�
 対しては 43<!--m:kink_reference_human.all.both.false--> 件のうち 42<!--m:kink_reference_human.NDTOC.both.false--> 件で、このスキャンではその印 11<!--m:kink_reference_human.NDTOC.both.ref--> 件をすべて検出している。
 
 見落とした印は、次の判定のうち最初に当てはまるもので分けた。$W$ 以内に中心線が無い。
-中心線の端から 1.5<!--c:lib/kink_detector.py::END_MARGIN_WIDTHS--> W の範囲内にある（規則はここの折れを判定しない）。画像の縁から $W$ 以内に
+中心線の端から 1.5<!--c:afm_nanofiber_analyzer/kink_detector.py::END_MARGIN_WIDTHS--> W の範囲内にある（規則はここの折れを判定しない）。画像の縁から $W$ 以内に
 ある。分岐点から 2<!--n:definition--> W 以内にある。別の明瞭な印から 1.5<!--n:definition--> W 以内にある。いずれでもなければ
 その他とする。画像の縁と分岐点の判定で分けられた印は、どの基準にも無かった。
 
@@ -1121,7 +1121,7 @@ B の明瞭な印があるものは 50<!--m:kink_reference_human.all.ai.by_b--> 
 
 ### 5.1 段差のしきい値
 
-`stripe_noise.evaluate_scan_lines` は、中央値の高さが 3<!--c:lib/stripe_noise.py::DEFAULT_STEP_THRESHOLD_NM--> nm を超えて違う 2<!--n:count--> 本の
+`stripe_noise.evaluate_scan_lines` は、中央値の高さが 3<!--c:afm_nanofiber_analyzer/stripe_noise.py::DEFAULT_STEP_THRESHOLD_NM--> nm を超えて違う 2<!--n:count--> 本の
 走査線の境界を検出する。GUI01 が検査するのと同じく、各テスト入力の生の高さで調べた
 （実験 stripe_threshold）。
 

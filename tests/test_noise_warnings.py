@@ -18,7 +18,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from lib.pipeline import MIN_FIBER_SNR, fiber_snr, noise_warnings
+from afm_nanofiber_analyzer.pipeline import MIN_FIBER_SNR, fiber_snr, noise_warnings
 
 SHAPE = (200, 200)
 HEIGHT = 2.0

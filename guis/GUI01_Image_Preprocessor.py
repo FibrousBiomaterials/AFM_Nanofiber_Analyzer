@@ -36,10 +36,10 @@ PLUGIN_INFO = {
     "name": "Image Preprocessor",
     "description": (
         "AFMで撮影したナノファイバー画像に対して、以下の前処理を順に実行します。\n"
-        "・バックグラウンド補正（lib/bg_calibrator.py）\n"
-        "・二値化（lib/segmenter.py）\n"
-        "・細線化（lib/skeletonizer.py）\n"
-        "・EP（端点）、BP（分岐点）、DP（分解点）、KP（キンク点）、KA（キンク角）の抽出（lib/kink_detector.py）\n"
+        "・バックグラウンド補正（afm_nanofiber_analyzer/bg_calibrator.py）\n"
+        "・二値化（afm_nanofiber_analyzer/segmenter.py）\n"
+        "・細線化（afm_nanofiber_analyzer/skeletonizer.py）\n"
+        "・EP（端点）、BP（分岐点）、DP（分解点）、KP（キンク点）、KA（キンク角）の抽出（afm_nanofiber_analyzer/kink_detector.py）\n"
         "処理結果は1解析ファイルにつき1つの .b2z バンドル（blosc2 TreeStore）に統合保存されます。\n"
         "解析パラメータは同名の _param.json としても併せて出力されます。\n"
         "解析は別スレッド、UI更新はQueue経由です。\n"
@@ -88,29 +88,29 @@ from matplotlib.collections import PolyCollection
 from matplotlib.transforms import blended_transform_factory
 
 # ===== Project libraries =====
-# lib.pipeline drives the AFM preprocessing pipeline shared with the CLI;
+# afm_nanofiber_analyzer.pipeline drives the AFM preprocessing pipeline shared with the CLI;
 # this GUI only adds batch policy (skip/overwrite/stop) and UI reporting.
-# lib.pipeline が CLI と共通の前処理パイプラインを駆動する。本 GUI は
+# afm_nanofiber_analyzer.pipeline が CLI と共通の前処理パイプラインを駆動する。本 GUI は
 # バッチ方針（スキップ/上書き/停止）と UI 表示のみを担当する。
-from lib.pipeline import (
+from afm_nanofiber_analyzer.pipeline import (
     BACKGROUND_CHECKED_MAX_WIDTH_PX, MIN_FIBER_SNR, MIN_FLANK_STEP_RATIO,
     BackgroundWarning, NoiseWarning, ProcParams, PipelineStages, STAGE_KEYS, build_stages, process_file,
     bundle_path_for, existing_min_set, merge_params_dict, param_path_for,
     row_range_suffix, validate_params,
 )
-from lib.blosc2_io import BUNDLE_EXT, bundle_has_keys, load_bundle, load_bundle_meta
-from lib.bundle_schema import (
+from afm_nanofiber_analyzer.blosc2_io import BUNDLE_EXT, bundle_has_keys, load_bundle, load_bundle_meta
+from afm_nanofiber_analyzer.bundle_schema import (
     SCAN_SIZE_SOURCES, SPATIAL_CALIBRATION_KEY, scan_size_um_from_meta,
 )
-from lib.afm_io import load_afm_image, read_scan_size
-from lib.centerline import CENTERLINE_METHODS
-from lib.stripe_noise import (
+from afm_nanofiber_analyzer.afm_io import load_afm_image, read_scan_size
+from afm_nanofiber_analyzer.centerline import CENTERLINE_METHODS
+from afm_nanofiber_analyzer.stripe_noise import (
     DEFAULT_STEP_THRESHOLD_NM, StripeNoise, evaluate_scan_lines,
     propose_clean_ranges,
 )
-from lib.plugin_launch import launch_plugin, path_list_arguments
-from lib.translator import _
-from lib.ui_tools import (
+from afm_nanofiber_analyzer.plugin_launch import launch_plugin, path_list_arguments
+from afm_nanofiber_analyzer.translator import _
+from afm_nanofiber_analyzer.ui_tools import (
     apply_window_size, ToolTip, setup_matplotlib_style,
     save_figure_with_dialog, PLOT_FS_DEFAULTS, setup_ttk_theme,
     save_text_widget_log,
@@ -127,9 +127,9 @@ STATUS_RUNNING  = "running"    # Analysis in progress.
 STATUS_ANALYZED = "analyzed"   # Analysis complete.
 
 # ===== Plugins this window opens on its results =====
-# Import paths handed to `lib.plugin_launch.launch_plugin`, the same form the
+# Import paths handed to `afm_nanofiber_analyzer.plugin_launch.launch_plugin`, the same form the
 # launcher uses for its buttons.
-# `lib.plugin_launch.launch_plugin` に渡す import パス。ランチャーのボタンと
+# `afm_nanofiber_analyzer.plugin_launch.launch_plugin` に渡す import パス。ランチャーのボタンと
 # 同じ形である。
 PROFILER_MODULE   = "guis.GUI02_PlotProfiler"
 STATISTICS_MODULE = "guis.GUI03_Fiber_Morphology_Statistics"
@@ -209,12 +209,12 @@ def discover_row_ranges(txt_path: str) -> List[Tuple[int, int]]:
     it is recovered from the file name here: the table has to be built before
     any bundle is opened, and opening every candidate to read its metadata
     would stall the folder scan on exactly the large scans this feature exists
-    for. The name is written by `lib.pipeline.row_range_suffix`, so the two
+    for. The name is written by `afm_nanofiber_analyzer.pipeline.row_range_suffix`, so the two
     cannot drift apart.
     解析範囲は各バンドル内に ``source_region`` として記録されているが、ここでは
     ファイル名から復元する。表はバンドルを 1 つも開く前に構築する必要があり、
     候補すべてを開いてメタデータを読むと、まさにこの機能が対象とする大きな走査で
-    フォルダ走査が停滞するためである。名前は `lib.pipeline.row_range_suffix` が
+    フォルダ走査が停滞するためである。名前は `afm_nanofiber_analyzer.pipeline.row_range_suffix` が
     書くので、両者が食い違うことはない。
     """
     stem = os.path.splitext(txt_path)[0]
@@ -318,14 +318,14 @@ def status_label(status: str) -> str:
 
 def stage_label(stage: str) -> str:
     """
-    Convert a pipeline stage key from `lib.pipeline` to a translated label.
-    `lib.pipeline` のステージキーを翻訳済みの表示ラベルへ変換する。
+    Convert a pipeline stage key from `afm_nanofiber_analyzer.pipeline` to a translated label.
+    `afm_nanofiber_analyzer.pipeline` のステージキーを翻訳済みの表示ラベルへ変換する。
 
     Parameters
     ----------
     stage
-        One of `lib.pipeline.STAGE_KEYS`.
-        `lib.pipeline.STAGE_KEYS` のいずれかの値。
+        One of `afm_nanofiber_analyzer.pipeline.STAGE_KEYS`.
+        `afm_nanofiber_analyzer.pipeline.STAGE_KEYS` のいずれかの値。
 
     Returns
     -------
@@ -345,8 +345,8 @@ def stage_label(stage: str) -> str:
 
 def _format_background_warning(fname: str, warning: BackgroundWarning) -> str:
     """
-    Turn a `lib.pipeline.BackgroundWarning` into a translated log line.
-    `lib.pipeline.BackgroundWarning` を翻訳済みのログ行にする。
+    Turn a `afm_nanofiber_analyzer.pipeline.BackgroundWarning` into a translated log line.
+    `afm_nanofiber_analyzer.pipeline.BackgroundWarning` を翻訳済みのログ行にする。
 
     Parameters
     ----------
@@ -409,8 +409,8 @@ def _format_background_warning(fname: str, warning: BackgroundWarning) -> str:
 
 def _format_noise_warning(fname: str, warning: NoiseWarning) -> str:
     """
-    Turn a `lib.pipeline.NoiseWarning` into a translated log line.
-    `lib.pipeline.NoiseWarning` を翻訳済みのログ行にする。
+    Turn a `afm_nanofiber_analyzer.pipeline.NoiseWarning` into a translated log line.
+    `afm_nanofiber_analyzer.pipeline.NoiseWarning` を翻訳済みのログ行にする。
 
     Parameters
     ----------
@@ -437,10 +437,10 @@ def _format_noise_warning(fname: str, warning: NoiseWarning) -> str:
 
 
 # ===== Settings =====
-# `ProcParams` (the analysis-parameter schema) lives in lib/pipeline.py so the
+# `ProcParams` (the analysis-parameter schema) lives in afm_nanofiber_analyzer/pipeline.py so the
 # GUI and the CLI share one definition; this file keeps only UI-state settings.
 # 解析パラメータスキーマ `ProcParams` は GUI と CLI で定義を共有するため
-# lib/pipeline.py にあり、このファイルは UI 状態の設定のみを持つ。
+# afm_nanofiber_analyzer/pipeline.py にあり、このファイルは UI 状態の設定のみを持つ。
 
 # Settings filename stored next to this GUI script.
 SETTINGS_FILENAME = "afmpp_settings.json"
@@ -597,8 +597,8 @@ def load_or_create_startup_params() -> Tuple[ProcParams, List[str]]:
             d = json.load(f)
 
         # Missing/unknown-key reconciliation is shared with the CLI through
-        # lib.pipeline; this function only translates the reports for the UI.
-        # 欠損・未知キーの整合処理は lib.pipeline 経由で CLI と共有し、
+        # afm_nanofiber_analyzer.pipeline; this function only translates the reports for the UI.
+        # 欠損・未知キーの整合処理は afm_nanofiber_analyzer.pipeline 経由で CLI と共有し、
         # この関数は UI 向けの翻訳メッセージ化のみを行う。
         params, missing, obsolete = merge_params_dict(d)
         if missing:
@@ -833,11 +833,11 @@ class FileItem:
         input file: several ranges of one scan are separate analyses that must
         not overwrite each other. The suffix therefore belongs here, where
         every output path and the existing-output check derive from it, and it
-        matches what `lib.pipeline.process_file` writes.
+        matches what `afm_nanofiber_analyzer.pipeline.process_file` writes.
         走査線範囲は入力ファイルではなく出力の同一性の一部である。1 つの走査の
         複数範囲は互いを上書きしてはならない別々の解析だからである。したがって
         接尾辞はここに属する。全ての出力パスと既存出力の判定がここから導かれ、
-        `lib.pipeline.process_file` が書き出すものとも一致する。
+        `afm_nanofiber_analyzer.pipeline.process_file` が書き出すものとも一致する。
         """
         return os.path.splitext(self.txt_path)[0] + row_range_suffix(self.row_range)
 
@@ -895,9 +895,9 @@ class FileItem:
 
 
 # The .b2z bundle key contract (REQUIRED_BUNDLE_KEYS / OPTIONAL_BUNDLE_KEYS)
-# and the analyzed-state check `existing_min_set` live in lib/pipeline.py.
+# and the analyzed-state check `existing_min_set` live in afm_nanofiber_analyzer/pipeline.py.
 # .b2z バンドルのキー契約（REQUIRED_BUNDLE_KEYS / OPTIONAL_BUNDLE_KEYS）と
-# 解析済み判定 `existing_min_set` は lib/pipeline.py にある。
+# 解析済み判定 `existing_min_set` は afm_nanofiber_analyzer/pipeline.py にある。
 
 
 def open_folder_in_os(path: str) -> None:
@@ -2519,10 +2519,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Y（高さ）スケール欄の "= X" ゴーストの表示/非表示を切り替える。
 
         The ghost tells the user that a blank Y follows X (square scan, see
-        `lib.ui_tools.scale_xy_um`); when it is shown is decided by
-        `lib.ui_tools.refresh_entry_placeholder`.
-        ゴーストは、空の Y が X に従う（正方スキャン、`lib.ui_tools.scale_xy_um`
-        参照）ことを示す。表示する条件は `lib.ui_tools.refresh_entry_placeholder`
+        `afm_nanofiber_analyzer.ui_tools.scale_xy_um`); when it is shown is decided by
+        `afm_nanofiber_analyzer.ui_tools.refresh_entry_placeholder`.
+        ゴーストは、空の Y が X に従う（正方スキャン、`afm_nanofiber_analyzer.ui_tools.scale_xy_um`
+        参照）ことを示す。表示する条件は `afm_nanofiber_analyzer.ui_tools.refresh_entry_placeholder`
         が決める。
         """
         refresh_entry_placeholder(self.ent_scale_y_um, self._scale_y_ph)
@@ -3543,9 +3543,9 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Worker threads must report all UI changes through self.ui_queue.
         try:
             # Reuse processing objects across the batch after parameters are frozen.
-            # Stage construction is shared with the CLI through lib.pipeline.
+            # Stage construction is shared with the CLI through afm_nanofiber_analyzer.pipeline.
             # パラメータ固定後、ステージをバッチ全体で再利用する。
-            # ステージ構築は lib.pipeline 経由で CLI と共有する。
+            # ステージ構築は afm_nanofiber_analyzer.pipeline 経由で CLI と共有する。
             stages = build_stages(self.params_active)
 
             for it in targets:
@@ -3588,10 +3588,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         共有パイプラインを 1 ファイルに実行し、進捗を UI へ通知する。
 
         The pipeline itself (stage order, output bundle, sidecar JSON) lives in
-        `lib.pipeline.process_file`; this method only maps stage keys to
+        `afm_nanofiber_analyzer.pipeline.process_file`; this method only maps stage keys to
         translated progress labels and converts the outcome into UI events.
         パイプライン本体（ステージ順序・バンドル出力・サイドカー JSON）は
-        `lib.pipeline.process_file` にあり、このメソッドはステージキーの
+        `afm_nanofiber_analyzer.pipeline.process_file` にあり、このメソッドはステージキーの
         翻訳ラベル変換と結果の UI イベント化のみを行う。
         """
         # Each stage reports both its key (to advance the progress bar within a
@@ -4136,12 +4136,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # axes differently, so the argument order legitimately differs below:
         # `np.where` on the ep/bp masks yields (row, col), while the bundle
         # stores kp/dp as (2, N) with row 0 = x (col) and row 1 = y (row)
-        # per lib/bundle_schema.py. Do not "unify" these — it transposes the
+        # per afm_nanofiber_analyzer/bundle_schema.py. Do not "unify" these — it transposes the
         # overlay.
         # `overlay_xy` は (列, 行) を取る。2 つの特徴点ソースは軸の順序が異なる
         # ため、下記で引数の順序が違うのは正しい。ep/bp マスクへの `np.where` は
         # (行, 列) を返すのに対し、バンドルの kp/dp は形状 (2, N) で行 0 が x
-        # （列）、行 1 が y（行）である（lib/bundle_schema.py 参照）。両者を
+        # （列）、行 1 が y（行）である（afm_nanofiber_analyzer/bundle_schema.py 参照）。両者を
         # 「揃える」と重ね表示が転置されるので行わないこと。
         def overlay_xy(col, row):
             return feature_overlay_xy(col, row, sk_img.shape, extent)
@@ -4680,10 +4680,10 @@ class SettingsDialog(tk.Toplevel):
         #   spline1d    : row/column 1D B-spline; the ends hold that line's level.
         #   spline1d    : 行/列ごとの 1D B-スプライン (端はそのラインの水準を保持)
         # A parameter file holding the retired spelling "inpaint" is translated
-        # to "trendfill" on load by `lib.pipeline.canonical_bg_method`, so only
+        # to "trendfill" on load by `afm_nanofiber_analyzer.pipeline.canonical_bg_method`, so only
         # the canonical names are offered here.
         # 廃止済みの綴り "inpaint" を持つパラメータファイルは、読み込み時に
-        # `lib.pipeline.canonical_bg_method` が "trendfill" へ変換するため、
+        # `afm_nanofiber_analyzer.pipeline.canonical_bg_method` が "trendfill" へ変換するため、
         # ここでは正規の名前のみを提示する。
         self._add_choice(lf_bg, "bg_method", _("bg_method"),
                          _("背景推定方式（下の説明参照）。選択に応じて使うパラメータのみ有効化されます"),
@@ -5631,7 +5631,7 @@ class SingleViewDialog(tk.Toplevel, UnconfirmedEntryMixin):
         if mode in ("original", "calibrated"):
             self._cbar = self.fig.colorbar(im, ax=self.ax, fraction=0.046, pad=0.04)
             self._cbar.ax.tick_params(labelsize=cfs)
-            # Heights are stored in nanometers (`lib.afm_io.load_afm_text`).
+            # Heights are stored in nanometers (`afm_nanofiber_analyzer.afm_io.load_afm_text`).
             self._cbar.set_label("(nm)", fontsize=cfs)
 
         if self.show_title_var.get():

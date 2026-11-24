@@ -55,10 +55,10 @@ ROOT = Path(__file__).resolve().parent
 TARGET_FILES = [ROOT / "Main.py"]
 
 # Runtime package directories to scan for `requirements.txt`.
-TARGET_DIRS = [ROOT / "guis", ROOT / "lib"]
+TARGET_DIRS = [ROOT / "guis", ROOT / "afm_nanofiber_analyzer"]
 
 # Ignore local project packages from external dependency list.
-IGNORE_TOPLEVEL = {"guis", "lib"}
+IGNORE_TOPLEVEL = {"guis", "afm_nanofiber_analyzer"}
 
 # Imports of optional dependencies, declared under
 # `[project.optional-dependencies]` rather than `[project] dependencies`, so
@@ -68,7 +68,7 @@ IGNORE_TOPLEVEL = {"guis", "lib"}
 # `[project.optional-dependencies]` に宣言するため、`requirements.txt` と
 # pyproject 整合性検査の対象から外す。import する側が ImportError を処理する。
 OPTIONAL_TOPLEVEL = {
-    "gwyddionpy_converter",  # extra "convert"; lib/gwy_convert.py
+    "gwyddionpy_converter",  # extra "convert"; afm_nanofiber_analyzer/gwy_convert.py
 }
 
 # Map common import-name/package-name mismatches with a minimal explicit list.

@@ -1,7 +1,7 @@
 {
   "_comment": "SHA-256 of each definition of each algorithm module, with comments and docstrings removed (scripts/doc_excerpts.code_symbol_digests). Refresh with `python tests/test_algorithm_docs.py --update` only after reviewing docs/algorithms.md against the change.",
   "modules": {
-    "lib/bg_calibrator.py": {
+    "afm_nanofiber_analyzer/bg_calibrator.py": {
       "import:TYPE_CHECKING": "12625d9103204a9baa1840ccd343fcedcfde9f76bd5abf4ae9a2d917e43009b4",
       "import:Optional": "21a5abaaaba25fbb00f8728d6f0d5907b4cb88821d6348308d353bfb3b8e5511",
       "import:Tuple": "89fd5e70faac9af55b736c676d7f782a64fd7a7209953eba73f9f82e3c69f4e9",
@@ -36,7 +36,7 @@
       "BGCalibrator.<body>": "546aa2e3d9295dbb84bcd66d00dba7b34b92301e4bf2a307a5edebbf5c31e867",
       "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
-    "lib/segmenter.py": {
+    "afm_nanofiber_analyzer/segmenter.py": {
       "import:TYPE_CHECKING": "12625d9103204a9baa1840ccd343fcedcfde9f76bd5abf4ae9a2d917e43009b4",
       "import:Optional": "21a5abaaaba25fbb00f8728d6f0d5907b4cb88821d6348308d353bfb3b8e5511",
       "import:cv2": "b4caacfd8630519788f04f84f209c314ba6dedf55dda5d373ea59274d0328800",
@@ -76,7 +76,7 @@
       "Segmenter.<body>": "225bc29ad0d31da37d7ee6a332e12b61c912686f883b47acca719dd52930a151",
       "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
-    "lib/skeletonizer.py": {
+    "afm_nanofiber_analyzer/skeletonizer.py": {
       "import:Optional": "21a5abaaaba25fbb00f8728d6f0d5907b4cb88821d6348308d353bfb3b8e5511",
       "import:cv2": "b4caacfd8630519788f04f84f209c314ba6dedf55dda5d373ea59274d0328800",
       "import:np": "73dd0baf8e5438da8816254a073ee43b61f8b2cdef6f393e0059cdbc55cb8d9c",
@@ -112,7 +112,7 @@
       "Skeletonizer.<body>": "97e0f4f802323a5116e43e4168ac0da676686fbf1e394d6ba9c2db40f7235055",
       "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
-    "lib/kink_detector.py": {
+    "afm_nanofiber_analyzer/kink_detector.py": {
       "import:logging": "0a149844a7c9f4cff948bf39833fcc5429ce2325e43d6b3873a22a76e956e470",
       "import:dataclass": "686681ef23de32a10c533bbf238394c112abd31fcf7aa9b1fd3a765df37a8e99",
       "import:field": "2399ebd299f1256472edf2091a562de21945b969a8bfcfaf57c417725256759a",
@@ -168,7 +168,7 @@
       "KinkDetector.<body>": "179675a0d9faba96c460db240b48dd590e0869901bc53220b81f2afd5270630a",
       "<module statements>": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
-    "lib/centerline.py": {
+    "afm_nanofiber_analyzer/centerline.py": {
       "import:dataclass": "686681ef23de32a10c533bbf238394c112abd31fcf7aa9b1fd3a765df37a8e99",
       "import:Optional": "21a5abaaaba25fbb00f8728d6f0d5907b4cb88821d6348308d353bfb3b8e5511",
       "import:Tuple": "89fd5e70faac9af55b736c676d7f782a64fd7a7209953eba73f9f82e3c69f4e9",
@@ -187,7 +187,7 @@
       "CENTERLINE_METHODS": "40105a75cae5dcdb35a9d35d5060ed633822670f7a45139e9c559fd185186482",
       "DEFAULT_CENTERLINE_METHOD": "475bbbe5fb8f4dae0638e3f88660560120bdf9e4e2dd411b49094957c89db6b4",
       "_DEPRECATED_ALIASES": "f668e06e3c4ccc952598c1b0b2f49a015cc44d9e00ad4d3801b4e962ed68d3b6",
-      "__getattr__": "57ca3343518013ea890444a1dfc46903a3fac867f8c5693e41c961edf1a8bcb7",
+      "__getattr__": "eec6d841e0bfa122a670a1bc604a2825c3f6b7c55f742b6bcf141476293670ad",
       "PIXEL_CHAIN_LINES": "d961be48254028c538b8977c9d7a88f19024c7125f2677f78c0395b3f5d7f79f",
       "_SKELETON_SMOOTH_WIDTHS": "4a8dba2b308953dd250ba44ab9773c27aef410a05b91ef3d0c01b418f18cc3f3",
       "_WIDE_SMOOTH_WIDTHS": "119254672146f6cbe5a27affb47fd00c96824fb782507944927c7e5b5e60321c",

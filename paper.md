@@ -152,13 +152,13 @@ launcher discovers these tools in `guis/`, together with the *Format Converter*
 (GUI00), which converts files GUI01 cannot read into `.gwy` by running the
 separately installed, optional `gwyconvert` converter.
 
-Modules in `lib/` implement the input handling, background calibration,
+Modules in `afm_nanofiber_analyzer/` implement the input handling, background calibration,
 segmentation, skeletonization, kink detection, and per-fiber measurement. A
 command-line interface provides batch preprocessing, validation, measurement,
 skeleton-height extraction, and bundle export. The GUI preprocessor and the CLI
 call the same pipeline function, and the GUI measurement views and the CLI call
 the same measurement routines, so equivalent runs produce identical numerical
-results — keeping the analysis in `lib/` and the interfaces thin is a deliberate
+results — keeping the analysis in `afm_nanofiber_analyzer/` and the interfaces thin is a deliberate
 choice that prevents the front ends from drifting apart.
 
 Results are persisted as one compressed bundle per input (`.b2z`, built on

@@ -66,21 +66,21 @@ import matplotlib.pyplot as plt
 from matplotlib.backend_bases import MouseEvent
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # FigureCanvasTkAgg embeds matplotlib figures in tkinter windows.
-# The pan/zoom toolbar itself comes from lib.ui_tools.build_pan_zoom_toolbar.
+# The pan/zoom toolbar itself comes from afm_nanofiber_analyzer.ui_tools.build_pan_zoom_toolbar.
 from matplotlib.patches import Polygon
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # ===== Project libraries =====
 # These modules provide project-level data loading, plotting defaults, and UI helpers.
 # これらのモジュールは本プロジェクト共通の読み込み、描画既定値、UI 補助機能を提供する。
-from lib.blosc2_io import load_blosc2, load_bundle, BUNDLE_EXT
-from lib.afm_io import load_afm_text, read_scan_size
-from lib.bundle_schema import pixel_size_nm
-from lib.gwy_io import GWY_EXT, list_gwy_channels, load_gwy_image, select_default_channel
-from lib.measure import read_scan_size_from_bundle
-from lib.plugin_launch import call_when_shown
-from lib.translator import _
-from lib.ui_tools import (
+from afm_nanofiber_analyzer.blosc2_io import load_blosc2, load_bundle, BUNDLE_EXT
+from afm_nanofiber_analyzer.afm_io import load_afm_text, read_scan_size
+from afm_nanofiber_analyzer.bundle_schema import pixel_size_nm
+from afm_nanofiber_analyzer.gwy_io import GWY_EXT, list_gwy_channels, load_gwy_image, select_default_channel
+from afm_nanofiber_analyzer.measure import read_scan_size_from_bundle
+from afm_nanofiber_analyzer.plugin_launch import call_when_shown
+from afm_nanofiber_analyzer.translator import _
+from afm_nanofiber_analyzer.ui_tools import (
     apply_window_size, ToolTip, setup_matplotlib_style,
     save_figure_with_dialog, PLOT_FS_DEFAULTS, setup_ttk_theme,
     UNIT_MICROMETER, extent_scale_and_unit, extent_scales_xy_and_unit,
@@ -1021,9 +1021,9 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         # Keep only Pan/Zoom from the matplotlib toolbar; custom buttons handle reset/save.
         # matplotlib ツールバーは Pan/Zoom だけ残し、リセット/保存は独自ボタンで扱う。
         # The shared helper also folds in the pack-propagation, clam-background,
-        # and do-not-destroy-Back/Forward workarounds (see lib/ui_tools.py).
+        # and do-not-destroy-Back/Forward workarounds (see afm_nanofiber_analyzer/ui_tools.py).
         # 共通ヘルパーが pack 伝播・clam 背景・Back/Forward を破棄しない回避策も
-        # まとめて適用する（lib/ui_tools.py 参照）。
+        # まとめて適用する（afm_nanofiber_analyzer/ui_tools.py 参照）。
         toolbar_frame, _toolbar = build_pan_zoom_toolbar(
             heatmap_tb_row, self.canvas, clam_bg=self._clam_bg)
 
@@ -1208,10 +1208,10 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         Y（高さ）スケール欄の "= X" ゴーストの表示/非表示を切り替える。
 
         The ghost tells the user that a blank Y follows X (square scan, see
-        `lib.ui_tools.scale_xy_um`); when it is shown is decided by
-        `lib.ui_tools.refresh_entry_placeholder`.
-        ゴーストは、空の Y が X に従う（正方スキャン、`lib.ui_tools.scale_xy_um`
-        参照）ことを示す。表示する条件は `lib.ui_tools.refresh_entry_placeholder`
+        `afm_nanofiber_analyzer.ui_tools.scale_xy_um`); when it is shown is decided by
+        `afm_nanofiber_analyzer.ui_tools.refresh_entry_placeholder`.
+        ゴーストは、空の Y が X に従う（正方スキャン、`afm_nanofiber_analyzer.ui_tools.scale_xy_um`
+        参照）ことを示す。表示する条件は `afm_nanofiber_analyzer.ui_tools.refresh_entry_placeholder`
         が決める。
         """
         refresh_entry_placeholder(self.entry_scale_y, self._scale_y_ph)
@@ -1231,13 +1231,13 @@ class App(tk.Tk, UnconfirmedEntryMixin):
         For a GUI01 bundle the scale entries hold the recorded scan size, which
         spans one pixel more per axis than the stored ``calibrated`` array,
         because the background calibrator trims the first row and column.
-        `lib.bundle_schema.pixel_size_nm` converts it, as `lib.measure` does, so
+        `afm_nanofiber_analyzer.bundle_schema.pixel_size_nm` converts it, as `afm_nanofiber_analyzer.measure` does, so
         a profile measures distances with the same pixel size as GUI03 and
         GUI04. Other inputs are not trimmed, and their scan size is the extent
         of the array itself.
         GUI01 バンドルでは、スケール欄は記録された走査範囲を保持する。背景補正器が
         先頭の 1 行 1 列を削るため、走査範囲は保存された ``calibrated`` 配列より
-        各軸 1 画素分広い。`lib.measure` と同じく `lib.bundle_schema.pixel_size_nm`
+        各軸 1 画素分広い。`afm_nanofiber_analyzer.measure` と同じく `afm_nanofiber_analyzer.bundle_schema.pixel_size_nm`
         で換算し、プロファイルの距離を GUI03・GUI04 と同じ画素サイズで測る。
         その他の入力は削られていないため、走査範囲がそのまま配列の範囲になる。
         """
@@ -1522,12 +1522,12 @@ class App(tk.Tk, UnconfirmedEntryMixin):
                 # unit when the file holds no height; its values (volts,
                 # degrees, or values whose unit was not recorded) would then be
                 # shown and saved as Height (nm). Refuse it, as
-                # lib.pipeline.process_file does; a channel picked in the
+                # afm_nanofiber_analyzer.pipeline.process_file does; a channel picked in the
                 # dropdown is let through.
                 # 自動選択は、ファイルに高さが無いとき長さの単位を持たないチャンネル
                 # へ落ちる。その値（ボルト、度、単位が記録されていない値）が
                 # Height (nm) として表示・保存されてしまうため、
-                # lib.pipeline.process_file と同じく拒否する。ドロップダウンで
+                # afm_nanofiber_analyzer.pipeline.process_file と同じく拒否する。ドロップダウンで
                 # 選んだチャンネルは通す。
                 selected = gwy.channel
                 if (self._gwy_channel_id is None
@@ -1602,9 +1602,9 @@ class App(tk.Tk, UnconfirmedEntryMixin):
             Input file whose scan size is read.
             走査範囲を読み取る入力ファイル。
         scan_size
-            A scan size (`lib.afm_io.ScanSize`) already read, applied instead of
+            A scan size (`afm_nanofiber_analyzer.afm_io.ScanSize`) already read, applied instead of
             reading `path`; a channel switch passes the new channel's.
-            読み取り済みの走査範囲（`lib.afm_io.ScanSize`）。指定時は `path` を
+            読み取り済みの走査範囲（`afm_nanofiber_analyzer.afm_io.ScanSize`）。指定時は `path` を
             読まずにこれを適用する。チャンネル切替は新しいチャンネルの値を渡す。
 
         Returns
@@ -2641,9 +2641,9 @@ def main() -> None:
     Plot Profiler GUI を起動し、コマンドラインで指定されたファイルを開く。
 
     GUI01's "GUI02で開く" passes the bundle it is showing as the first
-    argument (`lib.plugin_launch`); without one the window opens empty.
+    argument (`afm_nanofiber_analyzer.plugin_launch`); without one the window opens empty.
     GUI01 の「GUI02で開く」は表示中のバンドルを第 1 引数として渡す
-    （`lib.plugin_launch`）。引数が無ければ空のウインドウで開く。
+    （`afm_nanofiber_analyzer.plugin_launch`）。引数が無ければ空のウインドウで開く。
     """
     app = App()
     if len(sys.argv) > 1:

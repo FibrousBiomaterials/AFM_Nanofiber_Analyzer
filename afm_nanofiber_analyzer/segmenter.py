@@ -202,7 +202,7 @@ def _skeleton_path_length_px(skeleton: np.ndarray) -> float:
     which the longest path leaves out:
 
     >>> import numpy as np
-    >>> from lib.segmenter import _skeleton_path_length_px
+    >>> from afm_nanofiber_analyzer.segmenter import _skeleton_path_length_px
     >>> row = np.zeros((6, 12), bool); row[2, 1:11] = True
     >>> diagonal = np.eye(10, dtype=bool)
     >>> branched = row.copy(); branched[3:6, 5] = True
@@ -285,9 +285,9 @@ class Segmenter:
     first. Without `nm_per_px` the ridge-recovery step is skipped. The input
     path is relative to the repository root:
 
-    >>> from lib.afm_io import load_afm_text
-    >>> from lib.pipeline import ProcParams, build_stages
-    >>> from lib.processed_image import ProcessedImage
+    >>> from afm_nanofiber_analyzer.afm_io import load_afm_text
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    >>> from afm_nanofiber_analyzer.processed_image import ProcessedImage
     >>> heights = load_afm_text("testdata_artificial/sample_isotropic.txt")
     >>> image = ProcessedImage(original_AFM=heights, name="sample_isotropic")
     >>> stages = build_stages(ProcParams())

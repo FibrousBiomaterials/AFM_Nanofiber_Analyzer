@@ -4,14 +4,14 @@ AFM の骨格画像から追跡した各繊維の線の上でキンクを検出�
 
 A kink is a bend concentrated within about one apparent fiber width W, where
 the fiber's heading turns by more than its own smooth curvature there accounts
-for. It is judged on the fiber's half-maximum centerline (`lib.centerline`),
+for. It is judged on the fiber's half-maximum centerline (`afm_nanofiber_analyzer.centerline`),
 the same line the fiber is later drawn and measured along, so a bend the
 skeleton makes only because the mask is asymmetric about the fiber is not
 reported. Every length the rule uses is a multiple of W, so the rule means the
 same thing at any scan size.
 キンクとは、見かけの繊維幅 W 1 本分程度の範囲に集中した折れで、繊維の向きが、
 その場所での繊維自身の滑らかな曲率では説明できないほど回る点である。判定は繊維の
-半値中点線（`lib.centerline`）上で行う。これは後で繊維を描画・計測するのと同じ線で
+半値中点線（`afm_nanofiber_analyzer.centerline`）上で行う。これは後で繊維を描画・計測するのと同じ線で
 あり、マスクが繊維に対して非対称なためだけにスケルトンが作る折れは報告されない。
 規則が使う長さはすべて W の倍数であり、どの走査サイズでも同じ意味を持つ。
 
@@ -493,9 +493,9 @@ class KinkDetector:
     kink coordinate. The input path is relative to the repository root:
 
     >>> import numpy as np
-    >>> from lib.afm_io import load_afm_text
-    >>> from lib.pipeline import ProcParams, build_stages
-    >>> from lib.processed_image import ProcessedImage
+    >>> from afm_nanofiber_analyzer.afm_io import load_afm_text
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    >>> from afm_nanofiber_analyzer.processed_image import ProcessedImage
     >>> heights = load_afm_text("testdata_artificial/sample_isotropic.txt")
     >>> image = ProcessedImage(original_AFM=heights, name="sample_isotropic")
     >>> stages = build_stages(ProcParams())
@@ -912,7 +912,7 @@ class KinkDetector:
         A line with one right-angle corner, sampled every 0.5 px, on a fiber
         4 px wide:
 
-        >>> from lib.kink_detector import KinkDetector
+        >>> from afm_nanofiber_analyzer.kink_detector import KinkDetector
         >>> x = np.r_[np.arange(0, 40, 0.5), np.full(80, 40.0)]
         >>> y = np.r_[np.zeros(80), np.arange(0, 40, 0.5)]
         >>> judgement = KinkDetector().judge_line(x, y, width_px=4.0)

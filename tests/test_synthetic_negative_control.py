@@ -47,8 +47,8 @@ import pytest
 from scipy.spatial import cKDTree
 
 import synthetic_fibers as sf
-from lib import measure
-from lib.pipeline import ProcParams, process_file
+from afm_nanofiber_analyzer import measure
+from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 
 # Geometry shared by every case. 2 nm/px with a 3 nm fiber puts the pixel size
 # to fiber width ratio in the same regime as the bundled Shimadzu and Bruker

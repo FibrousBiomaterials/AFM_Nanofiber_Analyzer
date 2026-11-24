@@ -9,8 +9,8 @@ from dataclasses import asdict
 
 import pytest
 
-from lib.bg_calibrator import BG_METHOD_REMOVED, BGCalibrator
-from lib.pipeline import (
+from afm_nanofiber_analyzer.bg_calibrator import BG_METHOD_REMOVED, BGCalibrator
+from afm_nanofiber_analyzer.pipeline import (
     ProcParams, canonical_bg_method, merge_params_dict, process_file, validate_params,
 )
 
@@ -96,8 +96,8 @@ def test_default_params_are_valid():
 
 def test_every_centerline_method_is_valid_and_reaches_the_detector():
     """Each selectable line validates and is the line the kink stage places."""
-    from lib.centerline import CENTERLINE_METHODS, DEFAULT_CENTERLINE_METHOD
-    from lib.pipeline import build_stages
+    from afm_nanofiber_analyzer.centerline import CENTERLINE_METHODS, DEFAULT_CENTERLINE_METHOD
+    from afm_nanofiber_analyzer.pipeline import build_stages
     assert ProcParams().centerline_method == DEFAULT_CENTERLINE_METHOD
     for method in CENTERLINE_METHODS:
         p = ProcParams(centerline_method=method)

@@ -22,9 +22,9 @@ GUI04 で全件をフィルターなしに出力すれば、同じバンドル�
 ファイバー部分だけの統計を出力する。GUI03 と `heights` コマンドは
 `skeleton_height_values` を共有する。
 
-Like `lib.pipeline`, this module reports errors as fixed English strings and
+Like `afm_nanofiber_analyzer.pipeline`, this module reports errors as fixed English strings and
 keeps gettext out of the analysis layer; callers translate as needed.
-`lib.pipeline` と同様、エラーは固定の英語文字列で返し、解析層に gettext を
+`afm_nanofiber_analyzer.pipeline` と同様、エラーは固定の英語文字列で返し、解析層に gettext を
 持ち込まない。翻訳は呼び出し側で行う。
 
 Notes
@@ -390,8 +390,8 @@ class FiberStats:
     is relative to the repository root:
 
     >>> import tempfile
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import measure_bundle
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.measure import measure_bundle
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
@@ -816,7 +816,7 @@ def kaplan_meier_length_weights(
     Two fibers seen whole and one cut short at 2: the cut fiber is longer than
     2, so its share goes to the fiber seen whole beyond it, at 3.
 
-    >>> from lib.measure import kaplan_meier_length_weights
+    >>> from afm_nanofiber_analyzer.measure import kaplan_meier_length_weights
     >>> w, rest = kaplan_meier_length_weights([1.0, 3.0, 2.0], [2, 2, 1])
     >>> [round(float(v), 3) for v in w], round(rest, 3)
     ([1.0, 1.5, 0.0], 0.0)
@@ -966,8 +966,8 @@ def isolated_fiber_flags(
     passed. The input path is relative to the repository root:
 
     >>> import tempfile
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import isolated_fiber_flags, measure_bundle
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.measure import isolated_fiber_flags, measure_bundle
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
@@ -1117,14 +1117,14 @@ def fiber_straightness(
     Everything above describes a pixel-chain line: the skeleton track of a
     bundle older than format 1.1, or the skeleton pixel line chosen for an
     analysis (`centerline.SKELETON_PIXEL_LINE`). A fiber on any other line,
-    such as the half-maximum centerline (`lib.centerline`), is a sub-pixel
+    such as the half-maximum centerline (`afm_nanofiber_analyzer.centerline`), is a sub-pixel
     line whose length is the plain Euclidean polyline length, so
     there is no chain-code bias to cancel and the ratio is the Euclidean chord
     over that length. The small lateral noise of the line is all that keeps a
     straight fiber just below 1.0.
     以上は画素鎖の線、すなわち形式 1.1 より古いバンドルのスケルトントラック、
     または解析に選んだスケルトン画素の線（`centerline.SKELETON_PIXEL_LINE`）に
-    ついての記述である。それ以外の線、たとえば半値中点線（`lib.centerline`）上の
+    ついての記述である。それ以外の線、たとえば半値中点線（`afm_nanofiber_analyzer.centerline`）上の
     ファイバーは小数座標の線で、長さは単純な
     ユークリッド折れ線長なので、打ち消すべきチェーンコードの偏りが無く、比は
     ユークリッド弦をその長さで割ったものになる。直線状のファイバーを 1.0 のわずか
@@ -1136,9 +1136,9 @@ def fiber_straightness(
     its arc. The fibers are built by hand on a 5 nm pixel grid:
 
     >>> import numpy as np
-    >>> from lib.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
-    >>> from lib.fiber import Fiber
-    >>> from lib.measure import fiber_straightness
+    >>> from afm_nanofiber_analyzer.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
+    >>> from afm_nanofiber_analyzer.fiber import Fiber
+    >>> from afm_nanofiber_analyzer.measure import fiber_straightness
     >>> def fiber_on(x, y):
     ...     none = np.zeros(0, dtype=int)
     ...     return Fiber(fiber_image=np.zeros((1, 1)), data=(0, 0),
@@ -1274,9 +1274,9 @@ def fiber_curvature_profile(
     at every point the window fits around:
 
     >>> import numpy as np
-    >>> from lib.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
-    >>> from lib.fiber import Fiber
-    >>> from lib.measure import fiber_curvature_profile
+    >>> from afm_nanofiber_analyzer.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
+    >>> from afm_nanofiber_analyzer.fiber import Fiber
+    >>> from afm_nanofiber_analyzer.measure import fiber_curvature_profile
     >>> theta = np.arange(150) / 100.0
     >>> x, y = 100 * np.cos(theta), 100 * np.sin(theta)
     >>> none = np.zeros(0, dtype=int)
@@ -1413,9 +1413,9 @@ def fiber_mean_curvature(
     window reads NaN. The fibers are built by hand on a 5 nm pixel grid:
 
     >>> import numpy as np
-    >>> from lib.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
-    >>> from lib.fiber import Fiber
-    >>> from lib.measure import fiber_mean_curvature
+    >>> from afm_nanofiber_analyzer.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
+    >>> from afm_nanofiber_analyzer.fiber import Fiber
+    >>> from afm_nanofiber_analyzer.measure import fiber_mean_curvature
     >>> def straight_fiber(points):
     ...     x = np.arange(points, dtype=float)
     ...     y = np.zeros_like(x)
@@ -1484,9 +1484,9 @@ def compute_fiber_stats(
     Straightness needs the pixel size:
 
     >>> import numpy as np
-    >>> from lib.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
-    >>> from lib.fiber import Fiber
-    >>> from lib.measure import compute_fiber_stats
+    >>> from afm_nanofiber_analyzer.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
+    >>> from afm_nanofiber_analyzer.fiber import Fiber
+    >>> from afm_nanofiber_analyzer.measure import compute_fiber_stats
     >>> x = np.arange(201, dtype=float)
     >>> y = np.zeros_like(x)
     >>> none = np.zeros(0, dtype=int)
@@ -1623,9 +1623,9 @@ def height_sample_mask(fiber: Fiber) -> np.ndarray:
     the first width, and the bridge with less than a width on each side:
 
     >>> import numpy as np
-    >>> from lib.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
-    >>> from lib.fiber import Fiber
-    >>> from lib.measure import height_sample_mask
+    >>> from afm_nanofiber_analyzer.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
+    >>> from afm_nanofiber_analyzer.fiber import Fiber
+    >>> from afm_nanofiber_analyzer.measure import height_sample_mask
     >>> x = np.arange(41, dtype=float)
     >>> y = np.zeros_like(x)
     >>> measured = np.ones(x.size, dtype=bool)
@@ -1698,7 +1698,7 @@ def _fiber_kink_angle(stat: FiberStats) -> float:
 
     Examples
     --------
-    >>> from lib.measure import FiberStats, _fiber_kink_angle
+    >>> from afm_nanofiber_analyzer.measure import FiberStats, _fiber_kink_angle
     >>> def row(angles):
     ...     return FiberStats(index=0, length_nm=2000.0, height_median_nm=2.0,
     ...                       height_max_nm=3.0, ep_count=2,
@@ -1760,7 +1760,7 @@ def __getattr__(name: str):
         import warnings
         current, removed_in = _DEPRECATED_ALIASES[name]
         warnings.warn(
-            f"lib.measure.{name} is deprecated and will be removed in "
+            f"afm_nanofiber_analyzer.measure.{name} is deprecated and will be removed in "
             f"{removed_in}; {_DEPRECATION_ADVICE[name]}",
             DeprecationWarning, stacklevel=2,
         )
@@ -1805,7 +1805,7 @@ def fiber_judged_length_um(stat: FiberStats) -> float:
     --------
     A 2 µm fiber 50 nm wide loses 1.5 widths at each end:
 
-    >>> from lib.measure import FiberStats, fiber_judged_length_um
+    >>> from afm_nanofiber_analyzer.measure import FiberStats, fiber_judged_length_um
     >>> row = FiberStats(index=0, length_nm=2000.0, height_median_nm=2.0,
     ...                  height_max_nm=3.0, ep_count=2, kink_count=0,
     ...                  kink_angles_deg=(), width_nm=50.0)
@@ -1906,7 +1906,7 @@ def fiber_kink_density(stat: FiberStats) -> float:
     judged, so the judged length is 2 - 2 * 1.5 * 0.05 = 1.85 µm. Without a
     width the whole contour is used:
 
-    >>> from lib.measure import FiberStats, fiber_kink_density
+    >>> from afm_nanofiber_analyzer.measure import FiberStats, fiber_kink_density
     >>> def row(kinks, width_nm=float("nan")):
     ...     return FiberStats(index=0, length_nm=2000.0, height_median_nm=2.0,
     ...                       height_max_nm=3.0, ep_count=2, kink_count=kinks,
@@ -2068,8 +2068,9 @@ def _tracking_image_from_arrays(
         size_per_pixel=size_per_pixel,
         y_size_per_pixel=y_size_per_pixel,
     )
-    # Assign GUI01 analysis outputs directly; no lib processing module is rerun.
-    # GUI01 の解析結果を属性へ直接代入する。lib の処理モジュールは再実行しない。
+    # Assign GUI01 analysis outputs directly; no processing module of this
+    # package is rerun.
+    # GUI01 の解析結果を属性へ直接代入する。本パッケージの処理モジュールは再実行しない。
     image.calibrated_image = cal
     image.skeleton_image = skl
     image.bp = bp
@@ -2139,7 +2140,7 @@ def load_tracking_image(
     ------
     ValueError
         If the bundle violates the ``.b2z`` contract (see
-        `lib.bundle_schema.validate_bundle`).
+        `afm_nanofiber_analyzer.bundle_schema.validate_bundle`).
     """
     # Load all required bundle keys in one call so the dataset is reconstructed atomically.
     # データセットを一貫して再構築できるよう、必要キーを 1 回でまとめて読み込む。
@@ -2279,8 +2280,8 @@ def read_centerline_from_bundle(bundle_path: str) -> str:
     repository root:
 
     >>> import tempfile
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import read_centerline_from_bundle
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.measure import read_centerline_from_bundle
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
@@ -2313,8 +2314,8 @@ def curate_fibers(
         キュレーション適用前の追跡済み骨格断片。
     exclude_anchors
         Anchor pixels of manually excluded fibers, as recorded by
-        `lib.fiber_selection`. Empty means nothing was excluded.
-        `lib.fiber_selection` が記録した、手動除外ファイバーのアンカー画素。
+        `afm_nanofiber_analyzer.fiber_selection`. Empty means nothing was excluded.
+        `afm_nanofiber_analyzer.fiber_selection` が記録した、手動除外ファイバーのアンカー画素。
         空の場合は除外なしを意味する。
     plan
         Recorded connection result naming which surviving fragments form one
@@ -2346,11 +2347,11 @@ def curate_fibers(
     その何倍もの長さの実在のフィブリルが失われうる。
 
     The height filter deliberately keeps the opposite order — connect, then
-    filter, see `lib.fiber_connector.filter_fibers_by_height` — because it
+    filter, see `afm_nanofiber_analyzer.fiber_connector.filter_fibers_by_height` — because it
     selects a height band *inside* a real fibril, which only has a meaning
     once the fibril is whole.
     高さフィルターは意図的に逆の順序（連結してからフィルター、
-    `lib.fiber_connector.filter_fibers_by_height` 参照）を保つ。実在する
+    `afm_nanofiber_analyzer.fiber_connector.filter_fibers_by_height` 参照）を保つ。実在する
     フィブリルの*内部*で高さ帯を選ぶ操作であり、フィブリルが 1 本に揃って初めて
     意味を持つためである。
 
@@ -2488,7 +2489,7 @@ def measure_bundle(
     ValueError
         If `scale_um` is ``None`` and the bundle records no scan size, if a
         resolved scale is not a positive number, or if the bundle violates
-        the ``.b2z`` contract (see `lib.bundle_schema.validate_bundle`).
+        the ``.b2z`` contract (see `afm_nanofiber_analyzer.bundle_schema.validate_bundle`).
 
     Notes
     -----
@@ -2506,8 +2507,8 @@ def measure_bundle(
     is relative to the repository root:
 
     >>> import tempfile
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import measure_bundle
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.measure import measure_bundle
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
@@ -2987,8 +2988,8 @@ def collect_fiber_stats(
     measured. The input path is relative to the repository root:
 
     >>> import os, tempfile
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import collect_fiber_stats
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.measure import collect_fiber_stats
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
@@ -3034,8 +3035,8 @@ def contour_length_weights(horizon: np.ndarray) -> np.ndarray:
     ----------
     horizon
         Cumulative distance along one fiber's skeleton path, as stored in
-        `lib.fiber.Fiber.horizon`.
-        1 本のファイバーの骨格経路に沿った累積距離。`lib.fiber.Fiber.horizon`
+        `afm_nanofiber_analyzer.fiber.Fiber.horizon`.
+        1 本のファイバーの骨格経路に沿った累積距離。`afm_nanofiber_analyzer.fiber.Fiber.horizon`
         に格納されているもの。
 
     Returns
@@ -3071,7 +3072,7 @@ def contour_length_weights(horizon: np.ndarray) -> np.ndarray:
 
     Examples
     --------
-    >>> from lib.measure import contour_length_weights
+    >>> from afm_nanofiber_analyzer.measure import contour_length_weights
     >>> contour_length_weights(np.array([0.0, 2.0, 3.0]))
     array([1. , 1.5, 0.5])
     """
@@ -3305,8 +3306,8 @@ def collect_fiber_curvature(
     is relative to the repository root:
 
     >>> import tempfile
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import collect_fiber_curvature, measure_bundle
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.measure import collect_fiber_curvature, measure_bundle
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
@@ -3396,8 +3397,8 @@ def read_fiber_csv(path: str) -> List[FiberStats]:
     repository root:
 
     >>> import os, tempfile
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import measure_bundle, read_fiber_csv, write_fiber_csv
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.measure import measure_bundle, read_fiber_csv, write_fiber_csv
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
@@ -3586,7 +3587,7 @@ def write_fiber_csv(
     as an empty cell:
 
     >>> import os, tempfile
-    >>> from lib.measure import FIBER_CSV_COLUMNS, FiberStats, write_fiber_csv
+    >>> from afm_nanofiber_analyzer.measure import FIBER_CSV_COLUMNS, FiberStats, write_fiber_csv
     >>> row = FiberStats(index=0, length_nm=812.34, height_median_nm=2.5,
     ...                  height_max_nm=3.1, ep_count=2, kink_count=1,
     ...                  kink_angles_deg=(121.0,))
@@ -3750,8 +3751,8 @@ def skeleton_height_values(
     root:
 
     >>> import tempfile
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.measure import skeleton_height_values
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.measure import skeleton_height_values
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
@@ -3972,7 +3973,7 @@ def write_heights_csv(
 
     >>> import os, tempfile
     >>> import numpy as np
-    >>> from lib.measure import write_heights_csv
+    >>> from afm_nanofiber_analyzer.measure import write_heights_csv
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     path = os.path.join(folder, "heights.csv")
     ...     write_heights_csv(path, [("scan_a", np.array([1.2, 3.4]))])

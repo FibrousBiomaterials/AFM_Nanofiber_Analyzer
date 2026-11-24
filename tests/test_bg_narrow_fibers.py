@@ -21,8 +21,8 @@ import math
 import numpy as np
 import pytest
 
-from lib.pipeline import ProcParams, build_stages
-from lib.processed_image import ProcessedImage
+from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
 N = 200
 NM_PER_PX = 5.0

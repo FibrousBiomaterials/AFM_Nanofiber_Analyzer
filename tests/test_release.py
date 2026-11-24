@@ -123,7 +123,7 @@ CLI_OLD = ('def build(sub):\n    p = sub.add_parser("process")\n'
 
 def _state(pipe=PIPE_OLD, schema=SCHEMA_OLD, cli=CLI_OLD, lib="def f():\n    pass\n",
            py='requires-python = ">=3.11"\n', changelog="## [Unreleased]\n\n- fix\n"):
-    return {cv.PIPELINE: pipe, cv.SCHEMA: schema, rel.CLI: cli, "lib/mod.py": lib,
+    return {cv.PIPELINE: pipe, cv.SCHEMA: schema, rel.CLI: cli, "afm_nanofiber_analyzer/mod.py": lib,
             rel.PYPROJECT: py, rel.CHANGELOG: changelog}
 
 
@@ -152,13 +152,32 @@ def test_breaking_changes_are_major():
         (_state(pipe="class ProcParams:\n    a: int = 1\n"), "removed or renamed: b"),
         (_state(schema='BUNDLE_FORMAT_VERSION = "1.1"\nSUPPORTED_BUNDLE_VERSIONS = ("1.1",)\n'),
          "no longer readable: 1.0"),
-        (_state(lib="def g():\n    pass\n"), "removed from lib/mod.py: f"),
+        (_state(lib="def g():\n    pass\n"), "removed from afm_nanofiber_analyzer/mod.py: f"),
         (_state(cli=CLI_OLD.replace('    p.add_argument("--rows")\n', "")), "process --rows"),
         (_state(py='requires-python = ">=3.12"\n'), "3.11 -> 3.12"),
     ]:
         level, reasons = _level(after)
         assert level == rel.MAJOR, needle
         assert any(needle in r for _, r in reasons), needle
+
+
+def test_a_renamed_package_is_major():
+    level, reasons = rel.suggest_level(_state(), _state(), [], False, package_renamed=True)
+    assert level == rel.MAJOR
+    assert any("package lib renamed to afm_nanofiber_analyzer" in r for _, r in reasons)
+
+
+def test_a_legacy_package_path_is_read_at_its_old_name(monkeypatch):
+    calls = []
+
+    def fake_git(*args, allow_fail=False):
+        calls.append(args[1])
+        return "old" if args[1] == "v2.0.1:lib/pipeline.py" else None
+
+    monkeypatch.setattr(cv, "_git", fake_git)
+    assert cv._read("v2.0.1", cv.PIPELINE) == "old"
+    assert calls == ["v2.0.1:afm_nanofiber_analyzer/pipeline.py", "v2.0.1:lib/pipeline.py"]
+    assert cv._read("v2.0.1", "README.md") is None
 
 
 def test_notes_do_not_raise_the_level():
@@ -181,9 +200,9 @@ def test_next_version_steps():
 # ----- Deprecated aliases and their removal -----
 
 def test_a_marker_is_due_at_its_version_and_not_before():
-    files = {"lib/m.py": 'A = {"OLD": ("NEW", "3.0.0")}  # remove-in: 3.0.0\n'}
+    files = {"afm_nanofiber_analyzer/m.py": 'A = {"OLD": ("NEW", "3.0.0")}  # remove-in: 3.0.0\n'}
     assert rel.due_removals(files, "2.1.0") == []
-    assert rel.due_removals(files, "3.0.0") == ['lib/m.py:1: A = {"OLD": ("NEW", "3.0.0")}  # remove-in: 3.0.0']
+    assert rel.due_removals(files, "3.0.0") == ['afm_nanofiber_analyzer/m.py:1: A = {"OLD": ("NEW", "3.0.0")}  # remove-in: 3.0.0']
     assert len(rel.due_removals(files, "3.1.0")) == 1
 
 

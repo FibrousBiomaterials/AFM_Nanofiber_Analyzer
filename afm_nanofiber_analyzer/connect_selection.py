@@ -64,10 +64,10 @@ import numpy as np
 from .fiber_connector import ConnectParams
 from .fiber_selection import fiber_anchor, fiber_track_pixels
 
-# Sidecar file naming, matching `lib.fiber_selection.EXCLUSION_SUFFIX`'s
+# Sidecar file naming, matching `afm_nanofiber_analyzer.fiber_selection.EXCLUSION_SUFFIX`'s
 # convention of a suffix on the bundle stem.
 # サイドカーファイルの命名。バンドル stem に接尾辞を付ける
-# `lib.fiber_selection.EXCLUSION_SUFFIX` の規約に合わせる。
+# `afm_nanofiber_analyzer.fiber_selection.EXCLUSION_SUFFIX` の規約に合わせる。
 CONNECT_SUFFIX = "_connect.json"
 
 # Value of the "format" key, so a reader can tell this file apart from the
@@ -127,7 +127,7 @@ class ChainMember:
 
     Examples
     --------
-    >>> from lib.connect_selection import ChainMember
+    >>> from afm_nanofiber_analyzer.connect_selection import ChainMember
     >>> ChainMember(anchor=(5, 0), flip=False)
     ChainMember(anchor=(5, 0), flip=False)
     """
@@ -172,7 +172,7 @@ class ConnectionPlan:
     One fibril built from the two fragments anchored at ``(5, 0)`` and
     ``(15, 0)``:
 
-    >>> from lib.connect_selection import ChainMember, ConnectionPlan
+    >>> from afm_nanofiber_analyzer.connect_selection import ChainMember, ConnectionPlan
     >>> plan = ConnectionPlan(chains=((ChainMember((5, 0), False),
     ...                                ChainMember((15, 0), False)),))
     >>> plan.joined_fragment_count()
@@ -197,7 +197,7 @@ class ConnectionPlan:
 
         Examples
         --------
-        >>> from lib.connect_selection import ConnectionPlan
+        >>> from afm_nanofiber_analyzer.connect_selection import ConnectionPlan
         >>> ConnectionPlan().joined_fragment_count()
         0
         """
@@ -223,7 +223,7 @@ def connect_path_for(bundle_path: str) -> str:
 
     Examples
     --------
-    >>> from lib.connect_selection import connect_path_for
+    >>> from afm_nanofiber_analyzer.connect_selection import connect_path_for
     >>> connect_path_for("scan_001.b2z")
     'scan_001_connect.json'
     """
@@ -264,7 +264,7 @@ def skeleton_digest(skeletonized: np.ndarray) -> str:
     The same skeleton gives the same digest; moving one line of it does not:
 
     >>> import numpy as np
-    >>> from lib.connect_selection import skeleton_digest
+    >>> from afm_nanofiber_analyzer.connect_selection import skeleton_digest
     >>> skeleton = np.zeros((4, 4), dtype=bool)
     >>> skeleton[1, :] = True
     >>> digest = skeleton_digest(skeleton)
@@ -301,8 +301,8 @@ def params_to_dict(params: ConnectParams) -> Dict:
 
     Examples
     --------
-    >>> from lib.connect_selection import params_to_dict
-    >>> from lib.fiber_connector import ConnectParams
+    >>> from afm_nanofiber_analyzer.connect_selection import params_to_dict
+    >>> from afm_nanofiber_analyzer.fiber_connector import ConnectParams
     >>> stored = params_to_dict(ConnectParams(clusters_range=12))
     >>> stored["clusters_range"], stored["trim_points"]
     (12.0, 5)
@@ -346,7 +346,7 @@ def params_from_dict(raw: Dict) -> ConnectParams:
     --------
     A field the file does not carry keeps its default:
 
-    >>> from lib.connect_selection import params_from_dict
+    >>> from afm_nanofiber_analyzer.connect_selection import params_from_dict
     >>> params = params_from_dict({"clusters_range": 12})
     >>> params.clusters_range, params.trim_points
     (12.0, 5)
@@ -426,8 +426,8 @@ def plan_from_chains(
 
     >>> from types import SimpleNamespace
     >>> import numpy as np
-    >>> from lib.connect_selection import plan_from_chains
-    >>> from lib.fiber_connector import ConnectParams
+    >>> from afm_nanofiber_analyzer.connect_selection import plan_from_chains
+    >>> from afm_nanofiber_analyzer.fiber_connector import ConnectParams
     >>> def fragment(x0):
     ...     return SimpleNamespace(data=(x0, 0), xtrack=np.arange(10),
     ...                            ytrack=np.zeros(10, dtype=int))
@@ -487,11 +487,11 @@ def resolve_plan_chains(
     -------
     tuple
         ``(chains, missing, splits)``: chains in index space ready for
-        `lib.fiber_connector.build_connected_fibers`, how many members no
+        `afm_nanofiber_analyzer.fiber_connector.build_connected_fibers`, how many members no
         longer resolve to a fragment, and how many stored chains came apart
         into more than one piece or vanished.
         ``(連鎖, 欠落数, 分割数)``。連鎖は
-        `lib.fiber_connector.build_connected_fibers` へ渡せるインデックス空間の
+        `afm_nanofiber_analyzer.fiber_connector.build_connected_fibers` へ渡せるインデックス空間の
         もの、欠落数はどの断片にも対応しなくなったメンバー数、分割数は 2 つ以上に
         割れた、または消滅した保存済み連鎖の本数である。
 
@@ -500,14 +500,14 @@ def resolve_plan_chains(
     A chain whose member was excluded is **split, not discarded**. Discarding
     it would delete real fibers: dropping one speck of debris out of the middle
     of a fibril would take the whole fibril with it, which is the same failure
-    `lib.measure.curate_fibers` avoids by ordering exclusion before connection.
+    `afm_nanofiber_analyzer.measure.curate_fibers` avoids by ordering exclusion before connection.
     Splitting removes exactly the excluded fragment and leaves the surviving
     runs joined, so an exclusion can subtract from a connection but never
     create one — removing the middle of ``A-B-C`` leaves ``A`` and ``C``
     separate rather than joining them, because nobody decided they were one.
     メンバーが除外された連鎖は**破棄せず分割する**。破棄すると実在のファイバーが
     消える。フィブリルの途中からゴミを 1 粒落としただけでフィブリル全体が巻き添えに
-    なり、これは `lib.measure.curate_fibers` が除外を連結より前に置くことで避けて
+    なり、これは `afm_nanofiber_analyzer.measure.curate_fibers` が除外を連結より前に置くことで避けて
     いるのと同じ失敗である。分割は除外された断片だけを取り除き、残った連続部分の
     連結を保つ。したがって除外は連結を削ることはできても作ることはできない。
     ``A-B-C`` の中央を取り除くと ``A`` と ``C`` は別々に残り、繋がることはない。
@@ -536,8 +536,8 @@ def resolve_plan_chains(
 
     >>> from types import SimpleNamespace
     >>> import numpy as np
-    >>> from lib.connect_selection import plan_from_chains, resolve_plan_chains
-    >>> from lib.fiber_connector import ConnectParams
+    >>> from afm_nanofiber_analyzer.connect_selection import plan_from_chains, resolve_plan_chains
+    >>> from afm_nanofiber_analyzer.fiber_connector import ConnectParams
     >>> def fragment(x0):
     ...     return SimpleNamespace(data=(x0, 0), xtrack=np.arange(10),
     ...                            ytrack=np.zeros(10, dtype=int))
@@ -647,7 +647,7 @@ def plan_with_chain(
     --------
     Joining ``C`` to ``D`` takes it out of ``A-B-C``; ``A-B`` stays joined:
 
-    >>> from lib.connect_selection import (ChainMember, ConnectionPlan,
+    >>> from afm_nanofiber_analyzer.connect_selection import (ChainMember, ConnectionPlan,
     ...                                    plan_with_chain)
     >>> A, B, C, D = (ChainMember((x, 0), False) for x in (5, 15, 25, 35))
     >>> plan = plan_with_chain(ConnectionPlan(chains=((A, B, C),)), (C, D))
@@ -716,7 +716,7 @@ def plan_without_anchors(
     --------
     Pointing at ``B`` dissolves the whole fibril ``A-B``; ``C-D`` is kept:
 
-    >>> from lib.connect_selection import (ChainMember, ConnectionPlan,
+    >>> from afm_nanofiber_analyzer.connect_selection import (ChainMember, ConnectionPlan,
     ...                                    plan_without_anchors)
     >>> A, B, C, D = (ChainMember((x, 0), False) for x in (5, 15, 25, 35))
     >>> plan = plan_without_anchors(ConnectionPlan(chains=((A, B), (C, D))),
@@ -785,7 +785,7 @@ def plan_without_junctions(
     Cutting the junction between ``B`` and ``C`` in ``A-B-C-D`` leaves the
     two runs on either side joined:
 
-    >>> from lib.connect_selection import (ChainMember, ConnectionPlan,
+    >>> from afm_nanofiber_analyzer.connect_selection import (ChainMember, ConnectionPlan,
     ...                                    plan_without_junctions)
     >>> A, B, C, D = (ChainMember((x, 0), False) for x in (5, 15, 25, 35))
     >>> plan = plan_without_junctions(ConnectionPlan(chains=((A, B, C, D),)),
@@ -857,7 +857,7 @@ def plan_state_key(plan: Optional[ConnectionPlan]) -> str:
 
     Examples
     --------
-    >>> from lib.connect_selection import (ChainMember, ConnectionPlan,
+    >>> from afm_nanofiber_analyzer.connect_selection import (ChainMember, ConnectionPlan,
     ...                                    plan_state_key)
     >>> plan_state_key(None) == plan_state_key(ConnectionPlan())
     True
@@ -914,7 +914,7 @@ def load_connect_plan(path: str) -> Optional[ConnectionPlan]:
     A bundle nobody has connected has no sidecar:
 
     >>> import os, tempfile
-    >>> from lib.connect_selection import load_connect_plan
+    >>> from afm_nanofiber_analyzer.connect_selection import load_connect_plan
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     print(load_connect_plan(os.path.join(folder, "scan_connect.json")))
     None
@@ -1034,13 +1034,13 @@ def save_connect_plan(path: str, bundle_name: str, plan: ConnectionPlan) -> None
 
     Notes
     -----
-    Unlike `lib.fiber_selection.save_exclusions`, a plan with no chains writes
+    Unlike `afm_nanofiber_analyzer.fiber_selection.save_exclusions`, a plan with no chains writes
     the file instead of deleting it. Deleting is right for exclusions because a
     stale file would restore fibers the user rejected; here the two states
     measure identically, and keeping the file preserves the thresholds the user
     tuned as well as the fact that "nothing in this bundle connects" was a
     decision rather than an omission.
-    `lib.fiber_selection.save_exclusions` と異なり、連鎖の無いプランでもファイルを
+    `afm_nanofiber_analyzer.fiber_selection.save_exclusions` と異なり、連鎖の無いプランでもファイルを
     削除せず書き出す。除外で削除が正しいのは、古いファイルがユーザーの却下した
     ファイバーを復活させるからである。ここでは両者の計測結果は同じであり、ファイルを
     残すことでユーザーが調整したしきい値と、「このバンドルでは何も繋がらない」が
@@ -1052,7 +1052,7 @@ def save_connect_plan(path: str, bundle_name: str, plan: ConnectionPlan) -> None
     written:
 
     >>> import os, tempfile
-    >>> from lib.connect_selection import (ChainMember, ConnectionPlan,
+    >>> from afm_nanofiber_analyzer.connect_selection import (ChainMember, ConnectionPlan,
     ...                                    load_connect_plan, save_connect_plan)
     >>> pair = (ChainMember((5, 0), False), ChainMember((15, 0), True))
     >>> plan = ConnectionPlan(chains=(pair,))

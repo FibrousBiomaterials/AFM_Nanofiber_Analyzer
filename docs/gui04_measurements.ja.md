@@ -16,7 +16,7 @@
 各コードブロックの先頭には、出典を示すヘッダがある。
 
 ```text
-# source: lib/measure.py::compute_fiber_stats
+# source: afm_nanofiber_analyzer/measure.py::compute_fiber_stats
 ```
 
 これは、その行が属するファイルと、関数・メソッド（`Class.method`）・モジュール
@@ -75,12 +75,12 @@ GUI04 は、中心線とキンクは置かれた幾何のまま変わらない�
 関数を使うため、切り出した画像と画像全体は同じ画素サイズで測られる。
 
 ```python
-# source: lib/bundle_schema.py::pixel_size_nm
+# source: afm_nanofiber_analyzer/bundle_schema.py::pixel_size_nm
 return float(scan_size_um) * 1000.0 / (int(stored_pixels) + 1)
 ```
 
 ```python
-# source: lib/measure.py::measure_bundle
+# source: afm_nanofiber_analyzer/measure.py::measure_bundle
 data, meta = _load_validated_arrays(
     bundle_path, TRACKING_BUNDLE_KEYS, optional=_TRACKING_OPTIONAL_KEYS,
 )
@@ -113,7 +113,7 @@ GUI04 は `measure_bundle` に下限長を渡さない（それを使うのは G
 これにより、その長さがバンドルだけから再現できるかをファイル自体が示す。
 
 ```python
-# source: lib/measure.py::measure_bundle
+# source: afm_nanofiber_analyzer/measure.py::measure_bundle
 scale_source = (
     SCALE_SOURCE_RECORDED
     if recorded is not None
@@ -159,7 +159,7 @@ GUI04 はその名前をログに出す。数値がどの中心線に沿って�
 バンドルの規則で中心線を置く（`bundle_schema.symmetric_section_from_meta`）。
 
 ```python
-# source: lib/fiber_tracking_image.py::_build_fiber
+# source: afm_nanofiber_analyzer/fiber_tracking_image.py::_build_fiber
 y0, x0 = max(int(y) - 1, 0), max(int(x) - 1, 0)
 sub_label = label_image[y0: y + h + 1, x0: x + w + 1]
 target_image = (sub_label == label).astype(np.uint8)
@@ -240,7 +240,7 @@ for i, (px, py) in enumerate(zip(xtrack_prcimg.tolist(), ytrack_prcimg.tolist())
 `centerline.place_centerline` は幅を測ってから中心線を置く。
 
 ```python
-# source: lib/centerline.py::place_centerline
+# source: afm_nanofiber_analyzer/centerline.py::place_centerline
 width, measured = measure_apparent_width(
     height, x, y, return_measured=True, aspect=aspect, peak=width_peak,
     adaptive_range=width_adaptive, symmetric_section=symmetric_section)
@@ -262,7 +262,7 @@ return CenterlineResult(lx, ly, float(width), bool(measured), reliable, crest)
 どの画素サイズでも同じ意味を持つ。
 
 ```python
-# source: lib/centerline.py::_WIDTH_SEARCH_PX, _WIDTH_STEP_PX, _WIDTH_RANGE_MIN_WIDTHS, _WIDTH_RANGE_WIDTHS, _WIDTH_SEARCH_MAX_PX, _WIDTH_SECOND_CREST_FRAC, _WIDTH_TANGENT_HALF, FALLBACK_WIDTH_PX, _MIN_WIDTH_PX, _CREST_WINDOW_WIDTHS, _FRAME_SIGMA_WIDTHS, _CREST_REACH_WIDTHS, _HALF_MAX_REACH_WIDTHS, _MAX_SECTION_WIDTHS, _OFFSET_SMOOTH_WIDTHS, _JUNCTION_WIDTHS, _MIN_CREST_AMPLITUDE_FRAC
+# source: afm_nanofiber_analyzer/centerline.py::_WIDTH_SEARCH_PX, _WIDTH_STEP_PX, _WIDTH_RANGE_MIN_WIDTHS, _WIDTH_RANGE_WIDTHS, _WIDTH_SEARCH_MAX_PX, _WIDTH_SECOND_CREST_FRAC, _WIDTH_TANGENT_HALF, FALLBACK_WIDTH_PX, _MIN_WIDTH_PX, _CREST_WINDOW_WIDTHS, _FRAME_SIGMA_WIDTHS, _CREST_REACH_WIDTHS, _HALF_MAX_REACH_WIDTHS, _MAX_SECTION_WIDTHS, _OFFSET_SMOOTH_WIDTHS, _JUNCTION_WIDTHS, _MIN_CREST_AMPLITUDE_FRAC
 _WIDTH_SEARCH_PX = 12.0
 _WIDTH_STEP_PX = 0.25
 _WIDTH_RANGE_MIN_WIDTHS = 1.25
@@ -294,7 +294,7 @@ _MIN_CREST_AMPLITUDE_FRAC = 0.25
 二値化マスクは使わない。
 
 ```python
-# source: lib/centerline.py::measure_apparent_width, _width_in_range
+# source: afm_nanofiber_analyzer/centerline.py::measure_apparent_width, _width_in_range
 if peak not in WIDTH_PEAKS:
     raise ValueError(f"peak must be one of {WIDTH_PEAKS}, got {peak!r}")
 x = np.asarray(xtrack, dtype=np.float64)
@@ -417,7 +417,7 @@ return max(width, _MIN_WIDTH_PX), single_frac
 決してない。そうすると本物のコーナーが丸まってしまう。
 
 ```python
-# source: lib/centerline.py::_refine
+# source: afm_nanofiber_analyzer/centerline.py::_refine
 a = float(aspect)
 y = y * a
 width = float(width_px)
@@ -459,7 +459,7 @@ prof = _bilinear(img, (fy[:, None] + ny[:, None] * s[None, :]) / a,
 `_climb_to_maximum` で、形式 1.4 のバンドルの幅の測定（§2.1）と同じである。
 
 ```python
-# source: lib/centerline.py::_refine
+# source: afm_nanofiber_analyzer/centerline.py::_refine
 c = int(np.argmin(np.abs(s)))
 k = _climb_to_maximum(prof, c, symmetric_section)
 peak = prof[rows, k]
@@ -467,7 +467,7 @@ within_reach = np.abs(s[k]) < reach - 0.5 * _WIDTH_STEP_PX
 ```
 
 ```python
-# source: lib/centerline.py::_climb_to_maximum
+# source: afm_nanofiber_analyzer/centerline.py::_climb_to_maximum
 n, ns = prof.shape
 dif = np.diff(prof, axis=1)
 k = np.full(n, c)
@@ -511,7 +511,7 @@ return np.where(rises_left & (~rises_right | left_wins), left_end, k)
 2 つの交点の中点に置く。
 
 ```python
-# source: lib/centerline.py::_refine
+# source: afm_nanofiber_analyzer/centerline.py::_refine
 window = np.abs(s[None, :] - s[k][:, None]) <= half_reach
 left = window & (col < k[:, None])
 right = window & (col > k[:, None])
@@ -564,7 +564,7 @@ $$
 からも 1 W より離れていることである。
 
 ```python
-# source: lib/centerline.py::_refine
+# source: afm_nanofiber_analyzer/centerline.py::_refine
 typical = float(np.median(amplitude[resolved])) if resolved.any() else float(np.median(amplitude))
 weight = (resolved & (amplitude >= _MIN_CREST_AMPLITUDE_FRAC * typical)).astype(np.float64)
 ...
@@ -587,7 +587,7 @@ $$
 $$
 
 ```python
-# source: lib/centerline.py::_whittaker_first_order
+# source: afm_nanofiber_analyzer/centerline.py::_whittaker_first_order
 n = target.size
 if n == 1:
     return target.astype(np.float64).copy()
@@ -610,7 +610,7 @@ return _solve_tridiagonal(off, main, off, weight * target)
 高さは低めに出てしまう。そこで、繊維の高さは断面の**頂点**とする。
 
 ```python
-# source: lib/centerline.py::_refine
+# source: afm_nanofiber_analyzer/centerline.py::_refine
 near = np.abs(s[None, :] - lateral[:, None]) <= _CREST_WINDOW_WIDTHS * width
 crest_near = np.where(near, prof, -np.inf).max(1)
 line_x = fx + nx * lateral
@@ -639,7 +639,7 @@ return line_x, line_y, reliable, crest.astype(np.float64)
 画素座標へ戻る（`line_y / a`）。
 
 ```python
-# source: lib/centerline.py::_refine
+# source: afm_nanofiber_analyzer/centerline.py::_refine
 line_x = np.clip(line_x, 0.0, img.shape[1] - 1.0)
 line_y = np.clip(line_y / a, 0.0, img.shape[0] - 1.0)
 ```
@@ -653,7 +653,7 @@ line_y = np.clip(line_y / a, 0.0, img.shape[0] - 1.0)
 画素サイズで換算する。
 
 ```python
-# source: lib/centerline.py::polyline_distance
+# source: afm_nanofiber_analyzer/centerline.py::polyline_distance
 x = np.asarray(xtrack, dtype=np.float64)
 y = np.asarray(ytrack, dtype=np.float64)
 x_step = float(pixel_step_size)
@@ -672,7 +672,7 @@ $$
 この配列が `Fiber.horizon` で、ファイバーの長さはその末尾の値である。
 
 ```python
-# source: lib/fiber.py::Fiber.length
+# source: afm_nanofiber_analyzer/fiber.py::Fiber.length
 @property
 def length(self) -> float:
 ...
@@ -708,7 +708,7 @@ def length(self) -> float:
 平滑化の幅とレベルは次のとおりである。
 
 ```python
-# source: lib/centerline.py::_SKELETON_SMOOTH_WIDTHS, _WIDE_SMOOTH_WIDTHS, _QUARTER_LEVEL, _CENTROID_LEVEL
+# source: afm_nanofiber_analyzer/centerline.py::_SKELETON_SMOOTH_WIDTHS, _WIDE_SMOOTH_WIDTHS, _QUARTER_LEVEL, _CENTROID_LEVEL
 _SKELETON_SMOOTH_WIDTHS = {
     SMOOTHED_SKELETON_05W: 0.5,
     SMOOTHED_SKELETON_1W: 1.0,
@@ -722,7 +722,7 @@ _CENTROID_LEVEL = 0.10
 抜粋）。方式 D・E・F は、信頼性の判定を済ませた後で §2.4 のオフセットを置き換える。
 
 ```python
-# source: lib/centerline.py::_refine
+# source: afm_nanofiber_analyzer/centerline.py::_refine
 if method == QUARTER_MAX_CENTERLINE:
     ql, qr, qok = _level_crossings(
         prof, s, left, right, base + _QUARTER_LEVEL * amplitude)
@@ -755,7 +755,7 @@ elif method == CREST_CENTERLINE:
 あるレベルの 2 つの交点を求める。
 
 ```python
-# source: lib/centerline.py::_level_crossings
+# source: afm_nanofiber_analyzer/centerline.py::_level_crossings
 n, ns = prof.shape
 rows = np.arange(n)
 col = np.arange(ns)[None, :]
@@ -793,7 +793,7 @@ D と E では、低いレベルが最大値から 1.5 W 以内で閉じない�
 したもので置き換えられる。
 
 ```python
-# source: lib/centerline.py::_refine
+# source: afm_nanofiber_analyzer/centerline.py::_refine
 if method == SKELETON_PIXEL_LINE:
     line_x, line_y = x.copy(), y.copy()
 elif method in _SKELETON_SMOOTH_WIDTHS:
@@ -827,7 +827,7 @@ cols = ("#", "length (nm)", "median (nm)", "max (nm)", "p90 (nm)",
         "unjudged", "W (nm)", "reliable")
 ```
 
-`#`・`EP count`・`Kink count` 以外の列はすべて `lib/measure.py` が計算する。CSV
+`#`・`EP count`・`Kink count` 以外の列はすべて `afm_nanofiber_analyzer/measure.py` が計算する。CSV
 出力・GUI03・`cli.py measure` も同じ関数を呼ぶので、ここで確認した値はそれらが
 報告する値と同じである。
 
@@ -920,7 +920,7 @@ return bool(stat.touches_frame) or bool(stat.cut_end_count)
 2 つの条件は、`compute_fiber_stats` が画像の形状とファイバーの端点から記録する。
 
 ```python
-# source: lib/measure.py::compute_fiber_stats
+# source: afm_nanofiber_analyzer/measure.py::compute_fiber_stats
 touches_frame=(None if frame_shape is None
                else _reaches_frame(f, frame_shape)),
 cut_end_count=_cut_end_count(f),
@@ -933,7 +933,7 @@ cut_end_count=_cut_end_count(f),
   [個別データでの評価](validation.ja.md) §6.1 にある。
 
   ```python
-  # source: lib/measure.py::_reaches_frame
+  # source: afm_nanofiber_analyzer/measure.py::_reaches_frame
   if frame is None:
       return False
   height, width = frame
@@ -954,7 +954,7 @@ cut_end_count=_cut_end_count(f),
   スケルトンの端点で終わるため、枠が二重に数えられることはない。
 
   ```python
-  # source: lib/measure.py::_cut_end_count
+  # source: afm_nanofiber_analyzer/measure.py::_cut_end_count
   n = len(fiber.xtrack)
   if n == 0:
       return 0
@@ -977,13 +977,13 @@ cut_end_count=_cut_end_count(f),
 `measure.height_sample_mask` は 3 種類の標本を外す。
 
 ```python
-# source: lib/measure.py::CUT_END_EXCLUSION_WIDTHS, HEIGHT_UPPER_PERCENTILE
+# source: afm_nanofiber_analyzer/measure.py::CUT_END_EXCLUSION_WIDTHS, HEIGHT_UPPER_PERCENTILE
 CUT_END_EXCLUSION_WIDTHS = 1.0
 HEIGHT_UPPER_PERCENTILE = 90.0
 ```
 
 ```python
-# source: lib/measure.py::height_sample_mask
+# source: afm_nanofiber_analyzer/measure.py::height_sample_mask
 n = len(fiber.height)
 if n == 0:
     return np.zeros(0, dtype=bool)
@@ -1029,7 +1029,7 @@ return mask
 ### 3.4 `median (nm)`、`max (nm)`、`p90 (nm)`
 
 ```python
-# source: lib/measure.py::compute_fiber_stats
+# source: afm_nanofiber_analyzer/measure.py::compute_fiber_stats
 for i, f in enumerate(fibers):
     samples = np.asarray(f.height, dtype=float)
     if samples.size:
@@ -1049,7 +1049,7 @@ for i, f in enumerate(fibers):
 ### 3.5 `straightness`
 
 ```python
-# source: lib/measure.py::fiber_straightness
+# source: afm_nanofiber_analyzer/measure.py::fiber_straightness
 length = float(fiber.length)
 if not (length > 0.0):
     return float("nan")
@@ -1098,12 +1098,12 @@ $$
 ### 3.6 `curvature (rad/µm)`
 
 ```python
-# source: lib/measure.py::DEFAULT_CURVATURE_WINDOW_NM
+# source: afm_nanofiber_analyzer/measure.py::DEFAULT_CURVATURE_WINDOW_NM
 DEFAULT_CURVATURE_WINDOW_NM = 100.0
 ```
 
 ```python
-# source: lib/measure.py::fiber_curvature_profile
+# source: afm_nanofiber_analyzer/measure.py::fiber_curvature_profile
 if y_size_per_pixel is None:
     y_size_per_pixel = x_size_per_pixel
 horizon = np.asarray(fiber.horizon, dtype=float)
@@ -1136,7 +1136,7 @@ return (turn[good] / arc[good]) * 1000.0
 ```
 
 ```python
-# source: lib/measure.py::fiber_mean_curvature
+# source: afm_nanofiber_analyzer/measure.py::fiber_mean_curvature
 profile = fiber_curvature_profile(
     fiber, x_size_per_pixel, y_size_per_pixel, window_nm=window_nm,
 )
@@ -1215,12 +1215,12 @@ CSV には、そのうち橋渡し部にかかった数（`unjudged_bridge_count
 ### 3.9 `kink density (1/µm)`
 
 ```python
-# source: lib/kink_detector.py::END_MARGIN_WIDTHS
+# source: afm_nanofiber_analyzer/kink_detector.py::END_MARGIN_WIDTHS
 END_MARGIN_WIDTHS = 1.5
 ```
 
 ```python
-# source: lib/measure.py::fiber_judged_length_um
+# source: afm_nanofiber_analyzer/measure.py::fiber_judged_length_um
 length_um = float(stat.length_nm) / 1000.0
 width_nm = float(getattr(stat, "width_nm", float("nan")))
 if np.isfinite(width_nm) and width_nm > 0.0:
@@ -1234,7 +1234,7 @@ return length_um
 ```
 
 ```python
-# source: lib/measure.py::fiber_kink_density
+# source: afm_nanofiber_analyzer/measure.py::fiber_kink_density
 length_um = fiber_judged_length_um(stat)
 if not np.isfinite(length_um):
     return float("nan")
@@ -1269,7 +1269,7 @@ $L_\text{bridge}$ は `FiberStats.bridge_excluded_nm` で、橋渡し部の無�
 ### 3.10 `W (nm)`
 
 ```python
-# source: lib/measure.py::compute_fiber_stats
+# source: afm_nanofiber_analyzer/measure.py::compute_fiber_stats
 width_px = float(getattr(f, "width_px", float("nan")))
 width_nm = (
     width_px * x_size_per_pixel
@@ -1292,7 +1292,7 @@ W はそのファイバーのキンクを判定した尺度であり、探針に
 ### 3.11 `reliable`
 
 ```python
-# source: lib/measure.py::compute_fiber_stats
+# source: afm_nanofiber_analyzer/measure.py::compute_fiber_stats
 reliable = getattr(f, "line_reliable", None)
 reliable_fraction = (
     float("nan") if reliable is None or len(reliable) == 0
@@ -1419,7 +1419,7 @@ GUI01 はスケルトンを交差と分岐のたびに切断するので、1 本
 ### 5.1 候補の値
 
 ```python
-# source: lib/fiber_connector.py::ConnectParams
+# source: afm_nanofiber_analyzer/fiber_connector.py::ConnectParams
 clusters_range: float = 20.0
 angle_threshold: float = 110.0
 lookback_length: int = 15
@@ -1440,7 +1440,7 @@ judge_bridge_kinks: bool = True
 断片のもう一方の端になる。
 
 ```python
-# source: lib/fiber_connector.py::_fragment_end_geometry
+# source: afm_nanofiber_analyzer/fiber_connector.py::_fragment_end_geometry
 sx, sy = skeleton_track(frag)
 xs = sx + frag.data[0]
 ys = sy + frag.data[1]
@@ -1452,7 +1452,7 @@ backs[i, 1] = _physical((ys[-step], xs[-step]), aspect)
 ```
 
 ```python
-# source: lib/fiber_connector.py::_physical
+# source: afm_nanofiber_analyzer/fiber_connector.py::_physical
 return (float(point[0]) * float(aspect), float(point[1]))
 ```
 
@@ -1460,19 +1460,19 @@ return (float(point[0]) * float(aspect), float(point[1]))
 §2.6 の頂点高さではない。
 
 ```python
-# source: lib/fiber_connector.py::_fragment_median_heights
+# source: afm_nanofiber_analyzer/fiber_connector.py::_fragment_median_heights
 medians[i] = float(np.median(calibrated[ys, xs]))
 ```
 
 ダイアログは `clusters_range` の 2 倍（既定 40 px）以内を探す。
 
 ```python
-# source: lib/fiber_connector.py::MANUAL_RANGE_FACTOR
+# source: afm_nanofiber_analyzer/fiber_connector.py::MANUAL_RANGE_FACTOR
 MANUAL_RANGE_FACTOR = 2.0
 ```
 
 ```python
-# source: lib/fiber_connector.py::_manual_reach
+# source: afm_nanofiber_analyzer/fiber_connector.py::_manual_reach
 if radius is None:
     return float(params.clusters_range * MANUAL_RANGE_FACTOR)
 return float(radius)
@@ -1482,7 +1482,7 @@ return float(radius)
 次の値を報告する。
 
 ```python
-# source: lib/fiber_connector.py::_candidates_for
+# source: afm_nanofiber_analyzer/fiber_connector.py::_candidates_for
 dist = float(np.hypot(B[0] - C[0], B[1] - C[1]))
 if dist > reach:
     continue
@@ -1527,7 +1527,7 @@ $\theta = \arccos\dfrac{(A-B)\cdot(D-B)}{\lVert A-B\rVert\,\lVert D-B\rVert}$
 2 回目の呼び出しでは $C$ を中央の点として渡す。
 
 ```python
-# source: lib/fiber_connector.py::angle_between_three_points
+# source: afm_nanofiber_analyzer/fiber_connector.py::angle_between_three_points
 ba = np.array(A) - np.array(B)
 bd = np.array(D) - np.array(B)
 denom = np.linalg.norm(ba) * np.linalg.norm(bd)
@@ -1549,7 +1549,7 @@ return float(np.degrees(np.arccos(np.clip(cosine_angle, -1.0, 1.0))))
 先に、次に距離の順で返る。
 
 ```python
-# source: lib/fiber_connector.py::connection_candidates
+# source: afm_nanofiber_analyzer/fiber_connector.py::connection_candidates
 ends, backs = _fragment_end_geometry(
     fibers, params.lookback_length, _aspect_of(image))
 medians = _fragment_median_heights(image.calibrated_image, fibers)
@@ -1566,7 +1566,7 @@ return _candidates_for(index, ends, backs, medians, params, reach)
 `_build_chain_fiber` は断片を端と端でつなぐ。
 
 ```python
-# source: lib/fiber_connector.py::_build_chain_fiber
+# source: afm_nanofiber_analyzer/fiber_connector.py::_build_chain_fiber
 long_enough = len(fh) > trim + n_avg
 head_trim = trim if (k > 0 and long_enough) else 0
 tail_trim = trim if (k < last and long_enough) else 0
@@ -1613,7 +1613,7 @@ if xs:
 つないだ中心線は、次に `Fiber` になる。
 
 ```python
-# source: lib/fiber_connector.py::_rebuild_connected_fiber
+# source: afm_nanofiber_analyzer/fiber_connector.py::_rebuild_connected_fiber
 if is_placed_line(kind):
     if is_pixel_chain_line(kind):
         horizon = imp_tools.convert_track_to_distance(
@@ -1665,7 +1665,7 @@ ep_indices = np.array([
   （`bridge_excluded_px`）を報告し、キンク密度はそれを分母から除く（§3.9）。
 
 ```python
-# source: lib/kink_detector.py::_bridge_intervals
+# source: afm_nanofiber_analyzer/kink_detector.py::_bridge_intervals
 if observed is None:
     return []
 unobserved = ~np.asarray(observed, dtype=bool)
@@ -1680,7 +1680,7 @@ return [(float(arc[max(a - 1, 0)]), float(arc[min(b + 1, last)]))
 ```
 
 ```python
-# source: lib/kink_detector.py::KinkDetector.judge_line
+# source: afm_nanofiber_analyzer/kink_detector.py::KinkDetector.judge_line
 ...
 point_arc = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
 bridges = _bridge_intervals(observed, point_arc)
@@ -1705,7 +1705,7 @@ GUI04 の高さフィルターは連結のあとに走る。各ファイバー�
 `_rebuild_connected_fiber` で組み立て直す。
 
 ```python
-# source: lib/fiber_connector.py::filter_fibers_by_height
+# source: afm_nanofiber_analyzer/fiber_connector.py::filter_fibers_by_height
 h = np.asarray(fib.height)
 lower_cond = (h >= lower_height) if include_lower_limit else (h > lower_height)
 upper_cond = (h <= upper_height) if include_upper_limit else (h < upper_height)

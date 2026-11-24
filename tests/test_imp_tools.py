@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Tests for lib/imp_tools.py skeleton morphology helpers.
-lib/imp_tools.py の骨格モルフォロジー補助関数のテスト。
+Tests for afm_nanofiber_analyzer/imp_tools.py skeleton morphology helpers.
+afm_nanofiber_analyzer/imp_tools.py の骨格モルフォロジー補助関数のテスト。
 
 The cases here pin down behavior at the image border, which is where the
 neighborhood arithmetic stops being symmetric. `remove_bp` cuts the skeleton
@@ -19,7 +19,7 @@ measuring part of it.
 import numpy as np
 import pytest
 
-from lib import imp_tools
+from afm_nanofiber_analyzer import imp_tools
 
 
 def _t_junction(row: int, col: int, size: int = 12) -> np.ndarray:

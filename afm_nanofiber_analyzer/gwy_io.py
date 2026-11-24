@@ -49,11 +49,11 @@ import numpy as np
 # Reuse the text loader's ScanSize so the pipeline and GUIs treat a scan size
 # read from a .gwy and one read from a text header identically.
 # check_input_file_size applies the project-wide input file-size cap
-# (`lib.afm_io.MAX_INPUT_FILE_BYTES`) to .gwy inputs as well.
+# (`afm_nanofiber_analyzer.afm_io.MAX_INPUT_FILE_BYTES`) to .gwy inputs as well.
 # テキストローダの ScanSize を再利用し、.gwy から読んだ走査範囲とテキスト
 # ヘッダから読んだ走査範囲をパイプライン・GUI が同一に扱えるようにする。
 # check_input_file_size はプロジェクト共通の入力ファイルサイズ上限
-# （`lib.afm_io.MAX_INPUT_FILE_BYTES`）を .gwy 入力にも適用する。
+# （`afm_nanofiber_analyzer.afm_io.MAX_INPUT_FILE_BYTES`）を .gwy 入力にも適用する。
 # `_length_unit_nm` is the single reading of length units, shared with the text
 # loaders so a unit means the same thing in a .gwy and in a text header.
 # `_length_unit_nm` は長さ単位の唯一の解釈で、テキストローダと共有し、単位が
@@ -266,7 +266,7 @@ def _load_container(path: str):
     ImportError
         When the ``gwyfile`` package required for `.gwy` input is not installed.
     ValueError
-        When the file exceeds `lib.afm_io.MAX_INPUT_FILE_BYTES`.
+        When the file exceeds `afm_nanofiber_analyzer.afm_io.MAX_INPUT_FILE_BYTES`.
     """
     # Apply the project-wide input size cap before gwyfile parses the whole
     # container into memory. A .gwy stores channel data as raw double arrays,
@@ -368,7 +368,7 @@ def select_default_channel(channels: List[GwyChannel]) -> GwyChannel:
     A length-unit channel titled like a height wins over a phase channel
     listed before it:
 
-    >>> from lib.gwy_io import GwyChannel, select_default_channel
+    >>> from afm_nanofiber_analyzer.gwy_io import GwyChannel, select_default_channel
     >>> channels = [GwyChannel(channel_id=0, title="Phase", n_rows=256,
     ...                        n_cols=256, z_unit="deg"),
     ...             GwyChannel(channel_id=1, title="Height", n_rows=256,
@@ -540,7 +540,7 @@ def list_gwy_channels(path: str) -> List[GwyChannel]:
     The bundled Gwyddion file holds one channel. The path is relative to the
     repository root:
 
-    >>> from lib.gwy_io import list_gwy_channels
+    >>> from afm_nanofiber_analyzer.gwy_io import list_gwy_channels
     >>> list_gwy_channels("testdata_Gwyddion_gwy/_20250318-164122_T.ssp.gwy")
     [GwyChannel(channel_id=0, title='Topography', n_rows=1024, n_cols=1024, z_unit='m')]
     """
@@ -589,7 +589,7 @@ def load_gwy_image(
     The path is relative to the repository root, where the test scans are
     stored:
 
-    >>> from lib.gwy_io import load_gwy_image
+    >>> from afm_nanofiber_analyzer.gwy_io import load_gwy_image
     >>> gwy = load_gwy_image("testdata_Gwyddion_gwy/_20250318-164122_T.ssp.gwy")
     >>> gwy.channel.title, gwy.data.shape
     ('Topography', (1024, 1024))

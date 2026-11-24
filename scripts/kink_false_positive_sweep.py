@@ -95,8 +95,8 @@ if _TESTS_DIR not in sys.path:
     sys.path.insert(0, _TESTS_DIR)
 
 import synthetic_fibers as sf  # noqa: E402
-from lib import measure  # noqa: E402
-from lib.pipeline import ProcParams, process_file  # noqa: E402
+from afm_nanofiber_analyzer import measure  # noqa: E402
+from afm_nanofiber_analyzer.pipeline import ProcParams, process_file  # noqa: E402
 
 # Default geometry of a generated scan. 2 nm/px with a 3 nm fiber reproduces
 # the pixel-size-to-fiber-width ratio of the bundled Shimadzu and Bruker
@@ -657,7 +657,7 @@ def render_overlays(
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from lib.blosc2_io import load_bundle
+    from afm_nanofiber_analyzer.blosc2_io import load_bundle
 
     # Show each family's worst runs, not its first ones. A figure of the runs
     # that happened to be generated first would document the easy cases; the

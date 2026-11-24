@@ -40,7 +40,7 @@ VERSIONS = {"python": "3.13.0", "numpy": "2.3.0"}
 
 def _fp(source: str, versions=VERSIONS) -> str:
     return bundle_cache.fingerprint_of(
-        {"lib/stage.py": doc_excerpts.code_symbol_digests(source)}, versions)
+        {"afm_nanofiber_analyzer/stage.py": doc_excerpts.code_symbol_digests(source)}, versions)
 
 
 def test_a_computation_change_selects_a_new_folder():
@@ -61,8 +61,8 @@ def test_a_library_upgrade_selects_a_new_folder():
 def test_the_pipeline_fingerprint_covers_every_stage():
     """Every analysis stage module is part of the fingerprinted code."""
     reached = set(bundle_cache.closure(bundle_cache.PIPELINE_ROOTS))
-    for rel in ("lib/bg_calibrator.py", "lib/segmenter.py", "lib/skeletonizer.py",
-                "lib/kink_detector.py", "lib/centerline.py"):
+    for rel in ("afm_nanofiber_analyzer/bg_calibrator.py", "afm_nanofiber_analyzer/segmenter.py", "afm_nanofiber_analyzer/skeletonizer.py",
+                "afm_nanofiber_analyzer/kink_detector.py", "afm_nanofiber_analyzer/centerline.py"):
         assert rel in reached
 
 

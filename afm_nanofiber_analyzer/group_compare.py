@@ -453,7 +453,7 @@ def _min_attainable_p(n_a: int, n_b: int) -> float:
 
     Examples
     --------
-    >>> from lib.group_compare import _min_attainable_p
+    >>> from afm_nanofiber_analyzer.group_compare import _min_attainable_p
     >>> round(_min_attainable_p(3, 3), 3), round(_min_attainable_p(4, 4), 4)
     (0.1, 0.0286)
     """
@@ -494,7 +494,7 @@ def delta_magnitude(delta: float) -> str:
 
     Examples
     --------
-    >>> from lib.group_compare import delta_magnitude
+    >>> from afm_nanofiber_analyzer.group_compare import delta_magnitude
     >>> [delta_magnitude(d) for d in (0.1, -0.2, 0.4, 0.9)]
     ['negligible', 'small', 'medium', 'large']
     >>> delta_magnitude(float("nan"))
@@ -560,7 +560,7 @@ def cliffs_delta(a: np.ndarray, b: np.ndarray) -> float:
 
     Examples
     --------
-    >>> from lib.group_compare import cliffs_delta
+    >>> from afm_nanofiber_analyzer.group_compare import cliffs_delta
     >>> cliffs_delta([1, 2, 3], [4, 5, 6])
     -1.0
     >>> cliffs_delta([1, 2, 3, 4], [2, 3])
@@ -623,7 +623,7 @@ def holm_adjusted(pvalues: Sequence[float]) -> List[float]:
 
     Examples
     --------
-    >>> from lib.group_compare import holm_adjusted
+    >>> from afm_nanofiber_analyzer.group_compare import holm_adjusted
     >>> holm_adjusted([0.01, 0.04, 0.03])
     [0.03, 0.06, 0.06]
     """
@@ -722,7 +722,7 @@ def compare_groups(
     `MIN_SAMPLES_FOR_TEST` samples, so its pairs are listed untested:
 
     >>> import numpy as np
-    >>> from lib.group_compare import compare_groups
+    >>> from afm_nanofiber_analyzer.group_compare import compare_groups
     >>> pairs = compare_groups([("A", np.array([1.0, 2, 3, 4, 5])),
     ...                         ("B", np.array([6.0, 7, 8, 9, 10])),
     ...                         ("C", np.array([1.0, 2]))])

@@ -135,10 +135,10 @@ AFM Nanofiber Analyzer の主な変更は、すべてこのファイルに記録
   プレビューに表示中のバンドルを Plot Profiler または Fiber Tracker で開き、ファイル一覧の
   見出しにある「このフォルダをGUI03で解析」は、フォルダ直下の全バンドルを最初のグループに
   登録した状態で Fiber Morphology Statistics を開く。パスは一覧ファイルで渡す
-  （`lib.plugin_launch.path_list_arguments`）。コマンドラインに入る文字数には上限があるため
+  （`afm_nanofiber_analyzer.plugin_launch.path_list_arguments`）。コマンドラインに入る文字数には上限があるため
   である。押すたびに新しいウインドウが開く。プラグインはランチャーの
   `--run-plugin` を通して起動し、このサブコマンドはモジュール名の後ろの引数を `sys.argv[1:]` として
-  プラグインに渡すようになった（`lib.plugin_launch`）。プレビューの 2 つのボタンは「画像を保存」
+  プラグインに渡すようになった（`afm_nanofiber_analyzer.plugin_launch`）。プレビューの 2 つのボタンは「画像を保存」
   「個別表示」の隣に並ぶ。その行に場所を空けるため、プレビューの 4 つのフォントサイズは
   「フォントサイズ…」で開くウインドウで設定する。解析結果は変わらない。
 - GUI05「Thumbnail Viewer」（`guis/GUI05_Thumbnail_Viewer.py`）は、多数の `.b2z` バンドルの
@@ -175,6 +175,14 @@ AFM Nanofiber Analyzer の主な変更は、すべてこのファイルに記録
 
 ### 変更
 
+- 解析パッケージ `lib` の名前を `afm_nanofiber_analyzer` に変えた。これにより
+  `pip install` でインストールし、Jupyter notebook などチェックアウトの外の Python
+  コードから import できる（`from afm_nanofiber_analyzer import bg_calibrator`）。
+  **`lib` を import しているコードは、代わりに `afm_nanofiber_analyzer` を import
+  しなければならない**。旧名を使い続けられるようにする別名は置いていない。
+  `pip install` がインストールするのはこのパッケージだけで、ランチャー・GUI・CLI は
+  インストールされず、チェックアウトから実行する（`python Main.py`、`python cli.py`）。
+  解析結果は変わらない。
 - GUI03 は各バンドルの追跡結果を実行の間で保持するようになり、計測量・集計単位・
   枠の扱いを変えても全バンドルを追跡し直さなくなった。バンドル、その除外・連結の
   サイドカー、計測が依存する設定のいずれかが変わったときは計測し直す。
@@ -244,7 +252,7 @@ AFM Nanofiber Analyzer の主な変更は、すべてこのファイルに記録
   半値の線で判定したものとして読むので、判定されていない線の上にキンクを描かないよう、1.2 の
   バンドルを拒否する。形式 1.1 と 1.0 のバンドルは従来どおり読める。
 - バンドル形式 **1.3**: 中心線・見かけの幅・キンク規則は、記録されたスキャンサイズから得た
-  画素の縦横比（`lib.bundle_schema.pixel_aspect`）で Y を尺度変更した、スキャンの物理的な
+  画素の縦横比（`afm_nanofiber_analyzer.bundle_schema.pixel_aspect`）で Y を尺度変更した、スキャンの物理的な
   幾何で働く。X と Y の画素サイズが異なるスキャンではこれらが画素の幾何で働いていたので、
   キンク角と幅は試料のものではなく画素格子のものだった。高さが幅の半分の画素の上にある 120° の
   角は 109° と読めた。**画素が正方形でないスキャンでは、キンク角・キンク数・幅・中心線がこの
@@ -486,18 +494,18 @@ AFM Nanofiber Analyzer の主な変更は、すべてこのファイルに記録
   版から変わる**。同梱のスキャンにそこまで細い追跡成分は無いので、その結果は変わらない。
 - スキャンの一部の行を解析するとき（GUI01 の走査線範囲、`cli.py process
   --rows`）、画素が X より Y で短くなるような Y のスキャンサイズを記録しなくなった。スキャンサイズは
-  保存された行数で割る計測に合わせて尺度変更されていたが、`lib.measure` はその行数に 1 を足して
+  保存された行数で割る計測に合わせて尺度変更されていたが、`afm_nanofiber_analyzer.measure` はその行数に 1 を足して
   割るので、N 行のうち k 行を残す切り抜きの Y の画素サイズは係数 N(k-1)/((N-1)k) だけ小さく出て
   いた。256 走査線のスキャンでは、90 行の切り抜きで 0.7%、32 行で 2.7% である。画素サイズは
-  現在 1 か所、`lib.bundle_schema.pixel_size_nm` で計算し、パイプラインと `lib.measure` の両方が
+  現在 1 か所、`afm_nanofiber_analyzer.bundle_schema.pixel_size_nm` で計算し、パイプラインと `afm_nanofiber_analyzer.measure` の両方が
   これを使う。**切り抜いた解析のファイバーの長さ・曲率・キンク密度はこの版から変わり**、切り
   抜いた解析は画像全体と同じ画素サイズで計測するようになった。切り抜いた解析が書いたバンドルは、
   修正されたスキャンサイズを得るために再解析する必要がある。尾根回復（`ridge_recovery`）は、
   ナノメートルの設定を、保存された列数で割った画素サイズで変換していた。W 画素幅のスキャンでは
   1/(W-1) だけ大きすぎる値である（256 px で 0.4%、1024 px で 0.1%）。**尾根回復をオンにしたマスクは
   この版から変わることがある**。既定の設定での画像全体の解析は変わらない。
-- GUI02 は、バンドルの高さプロファイルを `lib.measure` と同じ画素サイズ
-  （`lib.bundle_schema.pixel_size_nm`）で計測する。以前は記録されたスキャンサイズを、保存された
+- GUI02 は、バンドルの高さプロファイルを `afm_nanofiber_analyzer.measure` と同じ画素サイズ
+  （`afm_nanofiber_analyzer.bundle_schema.pixel_size_nm`）で計測する。以前は記録されたスキャンサイズを、保存された
   画素数に 1 を足した値ではなく画素数そのもので割っていたので、その軸の保存画素数が N のとき、
   バンドルのプロファイルに沿ったすべての距離が (N+1)/N 倍長く、ヒートマップもその分だけ広く描かれて
   いた。2 µm で解析した同梱のホヤのスキャンと高等植物スキャンでは、画像全体のバンドルの距離が
@@ -523,7 +531,7 @@ AFM Nanofiber Analyzer の主な変更は、すべてこのファイルに記録
   `connection_candidates_by_index` もそれに合わせて相手ごとに 1 項目を返す。計測量は変わらない。
 - GUI04 の「連結を解除…」は、画像内のすべての継ぎ目の一覧を開くので、フィブリル内の誤った連結を
   1 つ、フィブリル全体を解体せずに切ることができ、すべての連結を一度に解除することもできる
-  （`lib.connect_selection` の `plan_without_junctions`）。取り消しボタンの名前を「連結を取消」から
+  （`afm_nanofiber_analyzer.connect_selection` の `plan_without_junctions`）。取り消しボタンの名前を「連結を取消」から
   「元に戻す」に変え、ログは取り消した操作を名指しする。「連結を解除」の隣では古い名前が 2 つ目の
   連結解除の方法に読め、連結解除を取り消す（フィブリルを再び連結する）操作が、求めたものと逆に
   見えたためである。
@@ -565,7 +573,7 @@ AFM Nanofiber Analyzer の主な変更は、すべてこのファイルに記録
   なのは Y に沿って走るファイバーだけだと述べていた。それが成り立つのは、画素の幾何で計測した形式
   1.2 以前のバンドルだけである。結果は変わらない。
 - GUI03 の `image` のキンク密度は、スキャンの総キンク数をそのファイバーの総判定長で割った値である
-  （`lib.measure.fiber_judged_length_um`、`fiber_kink_density` の除数）。以前はファイバーごとの
+  （`afm_nanofiber_analyzer.measure.fiber_judged_length_um`、`fiber_kink_density` の除数）。以前はファイバーごとの
   密度の中央値で、スキャンのファイバーの半数超がキンクを持たないと、他のファイバーのキンクがいくつ
   あっても 0 だった。**GUI03 の `image` のキンク密度はこの版から変わる。**
 - GUI03 の重みなし標本の標準偏差は、n ではなく n − 1 で割る（標本標準偏差）。標本が 1 つのときは
@@ -573,7 +581,7 @@ AFM Nanofiber Analyzer の主な変更は、すべてこのファイルに記録
   総重みで割る。結果表の見出しがどちらかを示し（`SD (n-1)` または
   `weighted SD`）、統計 CSV には既存の列の後に `std definition` 列が加わる。**GUI03 が報告する重みなし
   標本の標準偏差はこの版から変わり**、その係数は sqrt(n / (n − 1)) である。他の統計は変わらない。
-- `lib.group_compare` の docstring は、4 グループを補正なしで総当たりに検定すると「およそ 4 分の 1 の
+- `afm_nanofiber_analyzer.group_compare` の docstring は、4 グループを補正なしで総当たりに検定すると「およそ 4 分の 1 の
   確率で」誤った差が見つかると述べていた。この数字は 6 つの検定が独立であることを仮定している。現在は、
   その確率が名目の 5% を超えるとだけ述べる。また、同順位のある標本では KS の p 値が保守的である
   ことも記した。結果は変わらない。
@@ -654,26 +662,29 @@ AFM Nanofiber Analyzer の主な変更は、すべてこのファイルに記録
 
 ### 非推奨
 
-- `lib.centerline.HALF_MAX_CENTERLINE` は `HALF_MAX_025W_CENTERLINE` になった。すべての線の名前が
+- `afm_nanofiber_analyzer.centerline.HALF_MAX_CENTERLINE` は `HALF_MAX_025W_CENTERLINE` になった。すべての線の名前が
   その平滑化を示すようにするためである。古い名前は今も動作し `DeprecationWarning` を出す。3.0.0 で
   削除する。
-- `lib.bundle_schema.PIXEL_LENGTHS_KEY`、`lib.pipeline.pixel_lengths_nm`、
+- `afm_nanofiber_analyzer.bundle_schema.PIXEL_LENGTHS_KEY`、`afm_nanofiber_analyzer.pipeline.pixel_lengths_nm`、
   `PipelineResult.pixel_lengths_nm` フィールドは非推奨である。パイプラインがこれらの値を書かず報告も
   しなくなったためである（「変更」を参照）。2 つの名前は今も動作して `DeprecationWarning` を出し、
   フィールドは `None` のまま残る。3 つとも 3.0.0 で削除する。
-- `lib.measure.fiber_kink_angle` は非推奨である。キンク角のファイバーごとの中央値はファイバーの特性を
+- `afm_nanofiber_analyzer.measure.fiber_kink_angle` は非推奨である。キンク角のファイバーごとの中央値はファイバーの特性を
   何も述べず、解析内で呼ぶものも無くなった（「変更」を参照）。名前は今も動作し
   `DeprecationWarning` を出す。3.0.0 で削除する。
-- `lib.measure.collect_skeleton_height_profiles` は非推奨である。これが支えていた長さ重み付きの
+- `afm_nanofiber_analyzer.measure.collect_skeleton_height_profiles` は非推奨である。これが支えていた長さ重み付きの
   高さ分布を GUI03 が提供しなくなったためである（「削除」を参照）。名前は今も動作し
   `DeprecationWarning` を出す。3.0.0 で削除する。
 
 ### 削除
 
+- `Main.py` と `cli.py` を起動していたコンソールコマンド `afm-analyzer` と
+  `afm-analyzer-cli`。どちらのファイルもインストールされなくなったためである（「変更」を参照）。
+  代わりにチェックアウトから `python Main.py` と `python cli.py` を実行する。
 - GUI03 の `height` の集計単位 `length`。各スケルトン画素を、それが表す輪郭長で重み付けしていた。
   スケルトン画素を数えれば、ファイバーはすでに長さで重み付けされる。重み付けが加えていたのは、
   斜めのステップが長いことと、画素サイズをまたいだ共通の尺度であり、GUI03 は代わりに画素サイズの
-  混在を警告する（「修正」を参照）。`lib.measure.HEIGHT_ONLY_SCALE_UM` は、それを使っていた追跡による
+  混在を警告する（「修正」を参照）。`afm_nanofiber_analyzer.measure.HEIGHT_ONLY_SCALE_UM` は、それを使っていた追跡による
   高さの収集とともに削除した。
 - GUI03 は、GUI04 が書き出すファイバー単位の CSV（入力タイプ `fiber csv`）を読まなくなった。
   GUI04 でキュレーションした母集団は、バンドルの `_excluded.json` と `_connect.json` の

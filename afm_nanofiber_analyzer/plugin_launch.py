@@ -56,9 +56,9 @@ def app_base_dir() -> Path:
     -------
     Path
         Repository root for a source run; the folder of the executable for a
-        frozen build, where `build.py` copies `lib/` and `guis/`.
+        frozen build, where `build.py` copies `afm_nanofiber_analyzer/` and `guis/`.
         ソース実行ではリポジトリのルート。凍結ビルドでは実行ファイルのフォルダ
-        で、`build.py` が `lib/` と `guis/` をそこへコピーする。
+        で、`build.py` が `afm_nanofiber_analyzer/` と `guis/` をそこへコピーする。
     """
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent

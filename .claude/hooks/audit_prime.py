@@ -68,7 +68,7 @@ NOTE = (
     "of the places you judge suspicious. Follow this procedure (AGENTS.md, "
     "Editing Rules, exhaustive reviews):\n"
     "1. Fix the scope from the request before reading anything. 'The software' "
-    "or 'the processing' means lib/, guis/, cli.py and Main.py with --outputs. "
+    "or 'the processing' means afm_nanofiber_analyzer/, guis/, cli.py and Main.py with --outputs. "
     "Anything you leave out goes in --exclude PATH::REASON and is named in the "
     "report.\n"
     "2. Build the item list from the code: `.venv/Scripts/python.exe "

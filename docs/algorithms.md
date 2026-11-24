@@ -24,7 +24,7 @@ do not read the code, skip to "Conventions used throughout".
 
 Code is referenced **by symbol name**, never by line number, because line
 numbers go stale on the first unrelated edit. A reference such as
-`Segmenter._binaryzation` means the method of that name in `lib/segmenter.py`;
+`Segmenter._binaryzation` means the method of that name in `afm_nanofiber_analyzer/segmenter.py`;
 `bg_calibrator.BG_METHOD_NAMES` means the module-level constant. Every symbol
 named on this page is checked against the source by
 `tests/test_algorithm_docs.py` on every run of the test suite, so a rename or
@@ -38,7 +38,7 @@ measures and inspects fibers one at a time) §2, so only the entry function is
 quoted here. Every code block starts with a header naming where it comes from:
 
 ```text
-# source: lib/segmenter.py::Segmenter._binaryzation
+# source: afm_nanofiber_analyzer/segmenter.py::Segmenter._binaryzation
 ```
 
 That is the file and the function, method (`Class.method`), or module constant
@@ -52,7 +52,7 @@ Japanese pages must quote identical code, so an excerpt cannot silently differ
 from what the software runs.
 
 The same test guards the reverse direction: it hashes the algorithm modules —
-the four stages and `lib/centerline.py`, which places the centerline kinks are
+the four stages and `afm_nanofiber_analyzer/centerline.py`, which places the centerline kinks are
 judged on — with comments and docstrings stripped, so any change to what the
 code computes fails until the recorded hashes are refreshed. The test checks
 only that the code matches the record; it cannot tell whether this page was
@@ -144,7 +144,7 @@ rather than failing somewhere inside OpenCV.
 
 ## 1. Background correction
 
-**Code:** `lib/bg_calibrator.py` — `BGCalibrator.__call__`, dispatching to
+**Code:** `afm_nanofiber_analyzer/bg_calibrator.py` — `BGCalibrator.__call__`, dispatching to
 `_call_trendfill`, `_call_tophat`, or `_call_spline1d`.
 **Reads:** `original_image`. **Writes:** `calibrated_image`.
 
@@ -153,7 +153,7 @@ chosen with the parameter `bg_method` (default `trendfill`).
 `BGCalibrator.__call__` itself only dispatches to the chosen method:
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator.__call__
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator.__call__
 if self.bg_method == 'tophat':
     self._call_tophat(image)
 elif self.bg_method == 'spline1d':
@@ -188,9 +188,9 @@ one method at a time. This section covers only what every method uses.
 **Savitzky–Golay smoothing.** The Savitzky–Golay filter smooths data by fitting
 a polynomial within a small window slid along it. Every method smooths its
 estimated background with this filter. The window is `savgol_window` pixels
-wide (default 31<!--c:lib/pipeline.py::ProcParams.savgol_window-->; on an image 1024<!--n:example--> pixels square, about 3<!--x:31 / 1024 * 100--> % of its
+wide (default 31<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.savgol_window-->; on an image 1024<!--n:example--> pixels square, about 3<!--x:31 / 1024 * 100--> % of its
 width), and the polynomial fitted in the window has degree `savgol_polyorder`
-(default 1<!--c:lib/pipeline.py::ProcParams.savgol_polyorder-->, a straight line). It runs along X (along the rows) only and does
+(default 1<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.savgol_polyorder-->, a straight line). It runs along X (along the rows) only and does
 not smooth between rows (along Y). In the code, `signal.savgol_filter` is called
 with its default axis, the image's last axis, which runs along the rows.
 
@@ -215,7 +215,7 @@ from which the centerline and every height are read, is never filtered.
 `BGCalibrator._store` is the last step of every method:
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._store
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._store
 image.calibrated_image = calibrated_image
 image.detection_image = (
     cv2.medianBlur(np.asarray(calibrated_image, dtype=np.float32), ksize=3)
@@ -257,7 +257,7 @@ solved by least squares over the background pixels only (`valid_mask` in the
 code; which pixels count as background differs by method, §1.3–§1.5):
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._fit_trend_surface
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._fit_trend_surface
 h, w = image.shape
 y_grid, x_grid = np.mgrid[0:h, 0:w]
 x_n = x_grid / max(w - 1, 1) * 2.0 - 1.0
@@ -289,7 +289,7 @@ background.
 `_call_trendfill` makes these calls:
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._call_trendfill
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._call_trendfill
 self._detect_fiber_mask(image.original_image)
 self.bg_only, self.bg_sm = self._bg_generate(image.original_image, self.tri_difx_fill, self.tri_dify_fill)
 ...
@@ -312,7 +312,7 @@ Where each line is explained:
 `BGCalibrator._detect_fiber_mask` runs four helpers in sequence.
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._detect_fiber_mask
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._detect_fiber_mask
 self.dif_x, self.dif_y = self._difXY(original)
 self.histx, self.histy, self.outx, self.outy = self._bg_fit(self.dif_x, self.dif_y)
 self.tri_difx, self.tri_dify = self._dif_sep(self.dif_x, self.dif_y, self.outx, self.outy)
@@ -324,13 +324,13 @@ Large absolute differences mark edges, which on this specimen means fiber
 flanks.
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._difXY
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._difXY
 dif_x = image[:, 1:] - image[:, 0:-1]
 dif_y = image[1:, :] - image[0:-1, :]
 return dif_x, dif_y
 ```
 
-`_bg_fit` histograms each difference image into 150<!--c:lib/bg_calibrator.py::BGCalibrator._bg_fit(bin_n)--> bins, counting how often
+`_bg_fit` histograms each difference image into 150<!--c:afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._bg_fit(bin_n)--> bins, counting how often
 each difference value occurs. Most of the image is flat substrate, so most
 neighbouring-pixel differences are small, noise-sized values that pile up into a
 tall peak near zero. Where a step crosses a fiber flank the difference is large,
@@ -359,14 +359,14 @@ would then be set by the largest step in the image, a particle edge or a
 feedback glitch, rather than by the noise, and the peak would fall into a few
 bins, so the fitted width, and every threshold taken from it, would depend on
 the most extreme pixel pair. `BGCalibrator._noise_range` instead spans the
-median plus and minus 8<!--c:lib/bg_calibrator.py::_NOISE_RANGE_SIGMAS--> robust standard deviations (the median absolute
+median plus and minus 8<!--c:afm_nanofiber_analyzer/bg_calibrator.py::_NOISE_RANGE_SIGMAS--> robust standard deviations (the median absolute
 deviation times 1.4826<!--n:literal in the quoted code-->, which neither the steps nor the fibers move), so
-each of the 150<!--c:lib/bg_calibrator.py::BGCalibrator._bg_fit(bin_n)--> bins is about 0.11<!--x:2 * 8 / 150--> of a deviation wide and the whole peak
+each of the 150<!--c:afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._bg_fit(bin_n)--> bins is about 0.11<!--x:2 * 8 / 150--> of a deviation wide and the whole peak
 lies inside. The differences outside the range only leave the fit: the next
 step still classifies every pixel.
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._noise_range
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._noise_range
 values = np.ravel(dif)
 center = float(np.median(values))
 scale = 1.4826 * float(np.median(np.abs(values - center)))
@@ -377,7 +377,7 @@ return center - half, center + half
 ```
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._bg_fit
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._bg_fit
 histx = np.histogram(np.ravel(dif_x), bins=bin_n,
                      range=BGCalibrator._noise_range(dif_x))
 ...
@@ -406,7 +406,7 @@ $$
 \end{cases}
 $$
 
-where $\kappa$ is `threshold_factor` (default 2.0<!--c:lib/pipeline.py::ProcParams.threshold_factor-->). So $\pm 1$ marks "this step is
+where $\kappa$ is `threshold_factor` (default 2.0<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.threshold_factor-->). So $\pm 1$ marks "this step is
 too large to be substrate noise", calibrated per image rather than by a fixed
 nm value. $\Delta$ is the height of the right (lower) pixel minus that of the
 left (upper) one, so $+1$ is a step that rises when read from left to right (top
@@ -415,7 +415,7 @@ to bottom) and $-1$ one that falls; they are called a rise and a fall below.
 The Y map is built the same way from the Y fit.
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._dif_sep
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._dif_sep
 outx_min = outx.best_values['pv1_center'] - self.threshold_factor * outx.best_values['pv1_sigma']
 outx_max = outx.best_values['pv1_center'] + self.threshold_factor * outx.best_values['pv1_sigma']
 ...
@@ -431,10 +431,10 @@ marked right up to the edge.
 
 - **Pattern 1<!--n:label--> — `[+1, 0, -1]`**: up the flank, flat over the crest, down the
   far flank. Accepted when the flat run is shorter than `fiber_detect_factor`
-  (default 10<!--c:lib/pipeline.py::ProcParams.fiber_detect_factor--> pixels), i.e. the crest is narrow enough to be a fiber.
+  (default 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.fiber_detect_factor--> pixels), i.e. the crest is narrow enough to be a fiber.
 - **Pattern 2<!--n:label--> — `[+1, -1]`**: a sharp ridge with no resolved flat crest.
-  Accepted when the span exceeds `noise_detect_factor` (default 10<!--c:lib/pipeline.py::ProcParams.noise_detect_factor--> pixels); this
-  condition rejects short steps, spans of 10<!--c:lib/pipeline.py::ProcParams.noise_detect_factor--> pixels or less by default, as
+  Accepted when the span exceeds `noise_detect_factor` (default 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.noise_detect_factor--> pixels); this
+  condition rejects short steps, spans of 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.noise_detect_factor--> pixels or less by default, as
   noise. A shorter span is still accepted when its mark lines up with the
   other marks of the same scan direction into an object longer than
   `noise_detect_factor` (explained below the code).
@@ -481,7 +481,7 @@ pattern-2<!--n:label--> mark with a shorter span goes to `short_x` instead. The 
 same code with rows and columns swapped:
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._extract_fiber
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._extract_fiber
 tri_difx_fill = np.zeros(tri_difx.shape)
 short_x = np.zeros(tri_difx.shape, dtype=bool)
 for j in range(tri_difx.shape[0]):
@@ -530,7 +530,7 @@ length. How the fibers along the axes fare is in
 [Evaluation on particular data](validation.md) §1.12.
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._lined_up_marks
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._lined_up_marks
 keep = np.zeros(short.shape, dtype=bool)
 if not short.any():
     return keep
@@ -566,15 +566,15 @@ these small marks come from pattern 1<!--n:label-->. Within one row, pattern 1<!
 2<!--x:1 + 1 + 1 - 1--> pixels (rise, flat and fall one pixel each, the last pixel left unmarked)
 and a pattern-2<!--n:label--> mark accepted by its span at least
 `noise_detect_factor` pixels. Such a mark therefore runs for at least
-`noise_detect_factor` (default 10<!--c:lib/pipeline.py::ProcParams.noise_detect_factor-->) pixels within a single row, which already
-gives it an area of at least `min_mask_component_area` (default 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area--> pixels,
+`noise_detect_factor` (default 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.noise_detect_factor-->) pixels within a single row, which already
+gives it an area of at least `min_mask_component_area` (default 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.min_mask_component_area--> pixels,
 explained next). A shorter pattern-2<!--n:label--> mark is kept only as part of an object
 longer than `noise_detect_factor`, which can still have a smaller area when it
 is a thin diagonal; otherwise, with the two defaults, the components smaller
-than that come from pattern 1<!--n:label-->. The two defaults are both 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area-->, but they are separate parameters.
+than that come from pattern 1<!--n:label-->. The two defaults are both 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.min_mask_component_area-->, but they are separate parameters.
 Pattern 2<!--n:label--> makes small components too when `noise_detect_factor` is lowered (the stage-class
-constructor default is 2<!--c:lib/bg_calibrator.py::BGCalibrator.__init__(noise_detect_factor)-->). Components
-smaller than `min_mask_component_area` (default 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area-->, 8<!--n:literal in the quoted code-->-connected) are dropped.
+constructor default is 2<!--c:afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator.__init__(noise_detect_factor)-->). Components
+smaller than `min_mask_component_area` (default 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.min_mask_component_area-->, 8<!--n:literal in the quoted code-->-connected) are dropped.
 Without this, the dilation below expands each false positive into a square
 $2d+1$ pixels on a side ($d$ is the dilation width `mask_dilation`, explained
 next). Masked pixels are left out of the background candidates in Step 3<!--n:label-->
@@ -583,7 +583,7 @@ and filled from the surrounding background (such a masked region is called a
 image, the reconstructed background acquires a salt-and-pepper field, visible
 as a tiled or cellular artefact.
 
-**Mask dilation.** The mask is dilated by `mask_dilation` px (default 3<!--c:lib/pipeline.py::ProcParams.mask_dilation-->). Fiber
+**Mask dilation.** The mask is dilated by `mask_dilation` px (default 3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.mask_dilation-->). Fiber
 *shoulder* pixels that `_extract_fiber` does not catch still carry residual
 fiber height; leaving them in the background pool biases the estimate upward
 and produces over-subtraction — a dark halo — on both sides of every fiber.
@@ -598,7 +598,7 @@ rows are still those of the raw scan, so its first row is dropped; the Y map is
 the other way round and drops its first column.
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._bg_generate
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._bg_generate
 raw_mask = (np.abs(tri_difx_fill[1:, :]) + np.abs(tri_dify_fill[:, 1:])) > 0
 if self.mask_dilation > 0 and self.min_mask_component_area > 1:
     n_cc, cc_labels, cc_stats, _cc_centroids = cv2.connectedComponentsWithStats(
@@ -634,7 +634,7 @@ the trend is added back. This is the background, and `_bg_calibrate` subtracts i
 from the original image.
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._bg_generate
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._bg_generate
 crop = original[1:, 1:]
 bg_only = np.where(~fiber_mask, crop, float('nan'))
 valid_mask = ~fiber_mask
@@ -653,7 +653,7 @@ return bg_only, bg_sm
 ```
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._bg_calibrate
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._bg_calibrate
 height_bgcalib = original[1:, 1:] - bg_sm
 return height_bgcalib
 ```
@@ -662,7 +662,7 @@ return height_bgcalib
 
 `_call_tophat` estimates the background as a morphological **opening** with a
 disk-shaped structuring element (a `cv2.MORPH_ELLIPSE` with equal axes) of
-diameter `tophat_se_size` (default 25<!--c:lib/pipeline.py::ProcParams.tophat_se_size--> px).
+diameter `tophat_se_size` (default 25<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.tophat_se_size--> px).
 
 An opening is two steps run one after the other. It removes narrow bumps and
 leaves everything else as it was. The erosion and dilation here act on height
@@ -699,7 +699,7 @@ pixel, fibers included. The opening is taken of the detrended image and smoothed
 along X before the trend is restored:
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._call_tophat
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._call_tophat
 se = cv2.getStructuringElement(
     cv2.MORPH_ELLIPSE,
     (self.tophat_se_size, self.tophat_se_size),
@@ -757,7 +757,7 @@ instead of returning the wrong image.
 ### 1.5 `spline1d` — for line-noise-dominated scans
 
 `_call_spline1d` reuses `trendfill`'s fiber mask, then fills each line
-independently with a 1<!--n:definition-->-D B-spline of degree `spline1d_degree` (default 2<!--c:lib/pipeline.py::ProcParams.spline1d_degree-->),
+independently with a 1<!--n:definition-->-D B-spline of degree `spline1d_degree` (default 2<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.spline1d_degree-->),
 along the axis named by `spline1d_axis` (the cases filled with straight lines
 instead are given below). Where the spline is used, it is not a curve forced
 through the points but a smooth curve passing near them (a smoothing spline):
@@ -801,7 +801,7 @@ ramp — is fitted to that single line, its error grows with the length of the
 run, and it is uncorrelated with the neighbouring lines, so each line paints its
 own band. `_spline1d_fill` instead holds, across each end run, the **mean of
 that line's nearest `end_window` background samples**, with `end_window` set to
-`savgol_window` (default 31<!--c:lib/pipeline.py::ProcParams.savgol_window-->). With the default `'x'`, what remains specific to
+`savgol_window` (default 31<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.savgol_window-->). With the default `'x'`, what remains specific to
 one line of a detrended image is essentially its scan-line offset, which is
 constant along the line, so holding a level estimates it without extrapolating
 a slope (with `'y'`, the level held is that column's). Averaging many
@@ -810,7 +810,7 @@ valid samples is left unfilled; its pixels are filled from the nearest
 background pixel in 2<!--n:definition-->-D.
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._call_spline1d
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._call_spline1d
 self._detect_fiber_mask(original)
 self.bg_only, _ = self._bg_generate(original, self.tri_difx_fill, self.tri_dify_fill)
 ...
@@ -848,7 +848,7 @@ Where each line is explained:
 | `calibrated_image = ...` | Subtracts the background from the original ("Conventions used throughout") |
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._spline1d_fill
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._spline1d_fill
 if n_valid < 2:
     continue
 s = pd.Series(line)
@@ -882,7 +882,7 @@ method would change the numbers a stored `_param.json` reproduces.
 
 ## 2. Binarization
 
-**Code:** `lib/segmenter.py` — `Segmenter.__call__`.
+**Code:** `afm_nanofiber_analyzer/segmenter.py` — `Segmenter.__call__`.
 **Reads:** `calibrated_image`. **Writes:** `binarized_image`.
 
 This stage decides, for every pixel of the background-corrected height image,
@@ -909,7 +909,7 @@ can be inspected while tuning:
 (§1.2):
 
 ```python
-# source: lib/segmenter.py::Segmenter.__call__
+# source: afm_nanofiber_analyzer/segmenter.py::Segmenter.__call__
 heights = getattr(image, "detection_image", None)
 if heights is None:
     heights = image.calibrated_image
@@ -945,11 +945,11 @@ $$
 \text{mask} = (h > t_{\text{global}}) \;\wedge\; (h > t_{\text{local}}(x,y))
 $$
 
-The global threshold `global_threshold` (default 0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm) is an absolute height
+The global threshold `global_threshold` (default 0.3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.global_threshold--> nm) is an absolute height
 above the substrate — this is the number that makes background correction
 load-bearing. The local threshold comes from
 `skimage.filters.threshold_local` over a window of `wsize_localbin` px
-(default 17<!--c:lib/pipeline.py::ProcParams.wsize_localbin-->): a weighted mean of the pixel's surroundings, so it changes
+(default 17<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.wsize_localbin-->): a weighted mean of the pixel's surroundings, so it changes
 from place to place.
 
 Requiring both is deliberate: the local test alone would promote noise in an
@@ -974,7 +974,7 @@ Gaussian-weighted mean over the window, and a pixel is compared with that mean
 directly, with nothing added to it (an offset of 0<!--n:library default (skimage.filters.threshold_local offset)-->):
 
 ```python
-# source: lib/segmenter.py::Segmenter._binaryzation
+# source: afm_nanofiber_analyzer/segmenter.py::Segmenter._binaryzation
 binary_global = image > global_threshold
 local_threshold = threshold_local(image, wsize_localbin)
 binary_local = image > local_threshold
@@ -985,11 +985,11 @@ return binary_final
 ### 2.2 Area filter
 
 `_remove_small_fragments` drops 8<!--n:literal in the quoted code-->-connected components with area
-$\le$ `area_min` (default 100<!--c:lib/pipeline.py::ProcParams.area_min--> pixels) and then applies a 3<!--n:literal in the quoted code-->×3<!--n:literal in the quoted code--> median blur, which
+$\le$ `area_min` (default 100<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.area_min--> pixels) and then applies a 3<!--n:literal in the quoted code-->×3<!--n:literal in the quoted code--> median blur, which
 removes isolated single pixels and smooths ragged component edges.
 
 ```python
-# source: lib/segmenter.py::Segmenter._remove_small_fragments
+# source: afm_nanofiber_analyzer/segmenter.py::Segmenter._remove_small_fragments
 out_binary_image = binary_image.copy()
 n_labels, label_image, stats, centers = cv2.connectedComponentsWithStats(
     np.uint8(out_binary_image), 8
@@ -1013,7 +1013,7 @@ Fibers do; contamination particles and tip artefacts do not.
   of them, so skipping the test did not change the result
   ([Evaluation on particular data](validation.md) §2.6). A large non-linear
   object, such as a big contamination blob, is still kept untested.
-- Components whose largest extent is shorter than `h_length` (default 20<!--c:lib/pipeline.py::ProcParams.h_length--> px)
+- Components whose largest extent is shorter than `h_length` (default 20<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.h_length--> px)
   are removed: they cannot contain a line of the required length. The largest
   extent (`_max_extent_px`, the maximum Feret diameter) is the longest distance
   between two corners of the component's pixels. It is used rather than the
@@ -1039,7 +1039,7 @@ Fibers do; contamination particles and tip artefacts do not.
   fraction: one outline point votes for many lines at slightly different angles
   and offsets, so the summed votes can exceed the number of outline pixels and
   $s_{\text{ratio}} > 1$ can occur. A component is removed when $s_{\text{ratio}} <$ `h_sratio`
-  (default 0.5<!--c:lib/pipeline.py::ProcParams.h_sratio-->). (The code also requires a pixel count below 1000<!--n:literal in the quoted code-->,
+  (default 0.5<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.h_sratio-->). (The code also requires a pixel count below 1000<!--n:literal in the quoted code-->,
   but the first item has already set aside components of 1000<!--n:literal in the quoted code--> pixels or more,
   so this does not change the result.)
 
@@ -1054,7 +1054,7 @@ The largest extent is the longest distance between two vertices of the convex
 hull of the corners of the component's pixels:
 
 ```python
-# source: lib/segmenter.py::_max_extent_px
+# source: afm_nanofiber_analyzer/segmenter.py::_max_extent_px
 ys, xs = np.nonzero(mask)
 corners = np.concatenate(
     [np.column_stack((xs + dx, ys + dy)) for dx in (0, 1) for dy in (0, 1)]
@@ -1099,7 +1099,7 @@ filter removed on the test inputs, real fiber pieces included, is shown in
 short fiber pieces should keep this in mind.
 
 ```python
-# source: lib/segmenter.py::Segmenter._remove_nonlinear_objects
+# source: afm_nanofiber_analyzer/segmenter.py::Segmenter._remove_nonlinear_objects
 for i in range(1, n_labels):
     left, top, width, height, area = stats[i]
     if area >= 1000:
@@ -1136,7 +1136,7 @@ strict — a line whose votes equal the threshold at its angle is not taken —
 which is also how `skimage.transform.hough_line_peaks` applies its own
 `threshold` argument.
 
-`linegap` in the code is an argument of this function with a default of 1<!--c:lib/segmenter.py::Segmenter._remove_nonlinear_objects(linegap)-->
+`linegap` in the code is an argument of this function with a default of 1<!--c:afm_nanofiber_analyzer/segmenter.py::Segmenter._remove_nonlinear_objects(linegap)-->
 (`Segmenter.__call__` does not pass it, so the default always applies). In
 `skimage.transform.hough_line_peaks`, the arguments min_distance and min_angle
 give how close two lines may be and still count as separate peaks, in steps of
@@ -1155,12 +1155,12 @@ $s_{\text{ratio}} > 1$ can occur.
 
 `_remove_connecting_fragments` erodes the mask (by one pixel up, down, left and
 right, the default of `skimage.morphology.binary_erosion`), drops components at or below
-`area_min_connecting` pixels (default 3<!--c:lib/pipeline.py::ProcParams.area_min_connecting-->), dilates back, and applies a closing (§2.7). The intent is
+`area_min_connecting` pixels (default 3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.area_min_connecting-->), dilates back, and applies a closing (§2.7). The intent is
 to break fragments joined by a one-pixel-wide bridge. It runs only when
 `apply_no_connecting` is true, which is **not** the default.
 
 ```python
-# source: lib/segmenter.py::Segmenter._remove_connecting_fragments
+# source: afm_nanofiber_analyzer/segmenter.py::Segmenter._remove_connecting_fragments
 out_binary_image = binary_image.copy()
 out_binary_image = binary_erosion(out_binary_image)
 n_labels, label_image, stats, centers = cv2.connectedComponentsWithStats(
@@ -1178,7 +1178,7 @@ return out_binary_image
 ### 2.5 Height filter
 
 `remove_low_component` removes any component whose **maximum** height over the
-calibrated image is below `low_threshold` (default 1.8<!--c:lib/pipeline.py::ProcParams.low_threshold--> nm). A component is kept
+calibrated image is below `low_threshold` (default 1.8<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.low_threshold--> nm). A component is kept
 as soon as one of its pixels reaches `low_threshold`, so the test asks how high
 the component rises at its highest point, not how high it is along its length.
 A low strand that lies in the same component as a fiber reaching the threshold,
@@ -1188,7 +1188,7 @@ whatever its shape. What the filter removes from the bundled scans is described
 in [Evaluation on particular data](validation.md) §2.7.
 
 ```python
-# source: lib/segmenter.py::Segmenter.remove_low_component
+# source: afm_nanofiber_analyzer/segmenter.py::Segmenter.remove_low_component
 labels = np.arange(1, n_labels)
 max_heights = ndi_maximum(height_image, labels=label_image, index=labels)
 low_labels = labels[np.asarray(max_heights) < self.low_threshold]
@@ -1225,7 +1225,7 @@ when the scan size is recorded, for example in the input file.
    components that do not touch the existing mask at all would discard such a
    fiber whole — and the longer a fiber, the more likely it touches.
 4. Surviving components are kept when the length of their skeleton times the
-   pixel size reaches `ridge_min_length_nm` (default 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm). Each component
+   pixel size reaches `ridge_min_length_nm` (default 100<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.ridge_min_length_nm--> nm). Each component
    is thinned with `skimage.morphology.thin`, as the binarized mask is (§3.1),
    inside its bounding box with an empty margin of one pixel. The length
    (`_skeleton_path_length_px`) is taken along the longest path through that
@@ -1234,7 +1234,7 @@ when the scan size is recorded, for example in the input file.
    so the side branches that thinning grows near the ends of a wide region,
    whose number changes with the ridge's direction, are not counted. Along the
    path it is the corner-count estimate of Vossepoel and Smeulders (1982<!--n:citation-->):
-   0.980<!--c:lib/segmenter.py::_LENGTH_WEIGHT_ORTHOGONAL--> per orthogonal step and 1.406<!--c:lib/segmenter.py::_LENGTH_WEIGHT_DIAGONAL--> per diagonal step, less 0.091<!--c:lib/segmenter.py::_LENGTH_WEIGHT_CORNER|-v--> per
+   0.980<!--c:afm_nanofiber_analyzer/segmenter.py::_LENGTH_WEIGHT_ORTHOGONAL--> per orthogonal step and 1.406<!--c:afm_nanofiber_analyzer/segmenter.py::_LENGTH_WEIGHT_DIAGONAL--> per diagonal step, less 0.091<!--c:afm_nanofiber_analyzer/segmenter.py::_LENGTH_WEIGHT_CORNER|-v--> per
    step whose direction differs from the one before, which corrects for the
    staircase a line between the axes and the diagonal forms. A count of its
    pixels reads a diagonal segment about $\sqrt{2}$ times short; this length does
@@ -1252,8 +1252,8 @@ by the nearest row), all four steps run there, and the recovered mask is mapped
 back onto the scan's rows (`segmenter._from_square_pixels`), less the pixels
 already accepted. On square pixels nothing is resampled.
 
-The scale range of the Frangi filter defaults to `ridge_min_width_nm` = 3.0<!--c:lib/pipeline.py::ProcParams.ridge_min_width_nm--> nm
-and `ridge_max_width_nm` = 20.0<!--c:lib/pipeline.py::ProcParams.ridge_max_width_nm--> nm.
+The scale range of the Frangi filter defaults to `ridge_min_width_nm` = 3.0<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.ridge_min_width_nm--> nm
+and `ridge_max_width_nm` = 20.0<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.ridge_max_width_nm--> nm.
 
 It is off by default so that re-analysing with an older parameter file does not
 change the numbers. A field missing from a parameter file is filled with the
@@ -1267,7 +1267,7 @@ least 1.5<!--n:literal in the quoted code--> times the smallest, and when the tr
 level the low level falls back to 0.3<!--n:literal in the quoted code--> of the high one:
 
 ```python
-# source: lib/segmenter.py::Segmenter._recover_missed_ridges
+# source: afm_nanofiber_analyzer/segmenter.py::Segmenter._recover_missed_ridges
 if not self.ridge_recovery or not nm_per_px or nm_per_px <= 0:
     return empty
 rows = np.asarray(binary_image).shape[0]
@@ -1315,7 +1315,7 @@ return recovered
 The length of step 4<!--n:label-->:
 
 ```python
-# source: lib/segmenter.py::_skeleton_path_length_px
+# source: afm_nanofiber_analyzer/segmenter.py::_skeleton_path_length_px
 s = np.asarray(skeleton, dtype=bool)
 labels, n_pieces = ndi_label(s, structure=np.ones((3, 3), dtype=bool))
 longest = 0.0
@@ -1372,7 +1372,7 @@ fiber.
 
 ## 3. Skeletonization
 
-**Code:** `lib/skeletonizer.py` (with `lib/imp_tools.py` for the morphology).
+**Code:** `afm_nanofiber_analyzer/skeletonizer.py` (with `afm_nanofiber_analyzer/imp_tools.py` for the morphology).
 **Reads:** `binarized_image`, `calibrated_image`.
 **Writes:** `skeleton_image` (the skeleton), `ep` (the map of endpoints), `bp` (the
 map of branch points; §3.8 says how endpoints and branch points are told), and the skeleton split into connected components
@@ -1393,7 +1393,7 @@ would cause that split.
 reads its heights from `detection_image` (§1.2).
 
 ```python
-# source: lib/skeletonizer.py::Skeletonizer.__call__
+# source: afm_nanofiber_analyzer/skeletonizer.py::Skeletonizer.__call__
 heights = getattr(image, "detection_image", None)
 if heights is None:
     heights = image.calibrated_image
@@ -1446,7 +1446,7 @@ The initial skeleton comes from `thin_ignoring_image_border`. The code runs in
 this order:
 
 1. Thin the mask as it is, and call the result `plain`.
-2. If the pad width `pad` (`DEFAULT_BORDER_PAD` = 12<!--c:lib/skeletonizer.py::DEFAULT_BORDER_PAD--> px; a fixed value, not a
+2. If the pad width `pad` (`DEFAULT_BORDER_PAD` = 12<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_BORDER_PAD--> px; a fixed value, not a
    parameter the user changes) is 0<!--n:literal in the quoted code--> or less, return `plain`.
 3. Pad the image by repeating its outermost pixel values `pad` pixels outward
    (`np.pad` with `mode='edge'`), thin it, crop the padding off again, and call
@@ -1518,7 +1518,7 @@ Green is the mask edge, red the skeleton. As in Figure 1<!--n:label-->, the mask
 pixels higher than half the fiber height, for illustration.
 
 ```python
-# source: lib/skeletonizer.py::thin_ignoring_image_border
+# source: afm_nanofiber_analyzer/skeletonizer.py::thin_ignoring_image_border
 mask = (np.asarray(binary_image) > 0).astype(np.uint8)
 plain = thin(mask).astype(np.uint8)
 if pad <= 0:
@@ -1653,7 +1653,7 @@ Height is also used by the loop height guard of §3.4 and the hook pruning of
 §3.6, but this is the only step that classifies branch points by height.
 
 `set_low_bp_coor` splits the skeleton's branch points into **low** and **high**
-by comparing the calibrated height against `bp_height` (default 10<!--c:lib/pipeline.py::ProcParams.bp_height--> nm). In
+by comparing the calibrated height against `bp_height` (default 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.bp_height--> nm). In
 §3.3–§3.5 an **arm** is the line from an endpoint to a branch point (an arm chosen
 for pruning is a **branch**). An arm is pruned below only when its walk reaches a
 low branch point or dead-ends;
@@ -1664,22 +1664,22 @@ one lies on the other and their heights add up, so the branch point there stands
 higher than either fiber. Whether the split works therefore depends on how high
 the fibers are: when they are well below `bp_height`, every branch point,
 crossings included, is low, and the split does nothing. Also, the spur pruning
-of §3.5 removes spurs up to `spur_length` (default 12<!--c:lib/pipeline.py::ProcParams.spur_length--> px) whatever their
+of §3.5 removes spurs up to `spur_length` (default 12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.spur_length--> px) whatever their
 height, and the arms this step looks at are also at most `branch_length`
-(default 12<!--c:lib/pipeline.py::ProcParams.branch_length--> px) long, so an arm kept here because it meets a high branch
+(default 12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.branch_length--> px) long, so an arm kept here because it meets a high branch
 point can still be removed in §3.5. On the bundled scans the final skeleton
 therefore changes little whether this step runs or not
 ([Evaluation on particular data](validation.md) §3.2; with the spur pruning
 switched off, this step does make a difference).
 
 ```python
-# source: lib/skeletonizer.py::Skeletonizer.set_low_bp_coor
+# source: afm_nanofiber_analyzer/skeletonizer.py::Skeletonizer.set_low_bp_coor
 all_bps = imp_tools.branchedPoints(init_skeleton_image)
 low_bp_coor = np.where(all_bps & (calibrated_image < bp_height))
 high_bp_coor = np.where(all_bps & (calibrated_image >= bp_height))
 ```
 
-`get_close_eps` then finds endpoints within `branch_length` px (default 12<!--c:lib/pipeline.py::ProcParams.branch_length-->) of
+`get_close_eps` then finds endpoints within `branch_length` px (default 12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.branch_length-->) of
 a low branch point — only those can plausibly be short spurious branches.
 
 "Within" means inside a square about $2k$ pixels on a side centred on each low
@@ -1688,7 +1688,7 @@ The code builds it by applying `scipy.ndimage.maximum_filter` (a filter taking
 the largest value in a $2k$-pixel square) to the map of low branch points:
 
 ```python
-# source: lib/skeletonizer.py::Skeletonizer.get_close_eps
+# source: afm_nanofiber_analyzer/skeletonizer.py::Skeletonizer.get_close_eps
 all_eps_image = imp_tools.endPoints(self._init_skeleton_image)
 _low_bps_image = np.zeros_like(self._init_skeleton_image, dtype=np.uint8)
 _low_bps_image[self._coor_low_bps] = 1
@@ -1712,7 +1712,7 @@ pixels walked so far are recorded as the branch when the arm is pruned. In the
 code below, `x` is the row index and `y` the column index:
 
 ```python
-# source: lib/skeletonizer.py::Skeletonizer.track_branches
+# source: afm_nanofiber_analyzer/skeletonizer.py::Skeletonizer.track_branches
 def touches(mask: np.ndarray, row: int, col: int) -> bool:
     return bool(mask[max(0, row - 1): row + 2, max(0, col - 1): col + 2].any())
 starts_x, starts_y = self._coor_close_eps
@@ -1767,7 +1767,7 @@ keeps such a fiber from being taken for a short branch and pruned.
 the skeleton:
 
 ```python
-# source: lib/skeletonizer.py::Skeletonizer.prune_branches
+# source: afm_nanofiber_analyzer/skeletonizer.py::Skeletonizer.prune_branches
 branches_image = self.calc_branches_image(init_skeleton_image)
 return init_skeleton_image - branches_image
 ```
@@ -1796,7 +1796,7 @@ If the background were connected diagonally too, then wherever the skeleton
 takes a diagonal step the background inside and outside the line would touch at
 a corner and join, and the inside of a loop could not be told from the outside.
 Of the components so found, one whose bounding box avoids the image border is a
-true hole. A hole of area up to `max_loop_area` (default 100<!--c:lib/pipeline.py::ProcParams.max_loop_area--> pixels) is filled
+true hole. A hole of area up to `max_loop_area` (default 100<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.max_loop_area--> pixels) is filled
 and the result re-thinned, merging the double path back into one line. The line
 re-thinned here has already been through `skimage.morphology.skeletonize` at the
 end of §3.3, so no pixel is left that this thinning can delete, and skeleton
@@ -1811,7 +1811,7 @@ its surroundings, so holes also open inside a fiber body or a crossing. Such a
 loop artefact keeps an elevated interior (values on the bundled scans in
 [Evaluation on particular data](validation.md) §3.3). The enclosure is filled
 only when its median interior height is at least `DEFAULT_LOOP_HEIGHT_RATIO` =
-0.3<!--c:lib/skeletonizer.py::DEFAULT_LOOP_HEIGHT_RATIO--> of the surrounding ridge's median. Filling the wrong one would fuse two
+0.3<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_LOOP_HEIGHT_RATIO--> of the surrounding ridge's median. Filling the wrong one would fuse two
 fibers and fabricate a path down the middle of the groove between them.
 
 The guard, however, stops only enclosures whose interior lies near the
@@ -1827,7 +1827,7 @@ The ring is the skeleton within a 5<!--n:literal in the quoted code-->×5<!--n:l
 medians:
 
 ```python
-# source: lib/skeletonizer.py::collapse_skeleton_loops
+# source: afm_nanofiber_analyzer/skeletonizer.py::collapse_skeleton_loops
 inv = (skel == 0).astype(np.uint8)
 n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
     inv, connectivity=4
@@ -1863,7 +1863,7 @@ return skeletonize(filled).astype(np.uint8)
 ### 3.5 Prune short spurs
 
 `prune_short_spurs` removes dead-end arms at most `spur_length` long
-(default 12<!--c:lib/pipeline.py::ProcParams.spur_length--> px) that start at an endpoint and reach a branch point.
+(default 12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.spur_length--> px) that start at an endpoint and reach a branch point.
 
 Unlike §3.3 this is **purely geometric**, and that is the point. The branch
 point at the root of a spur growing from the fiber body lies on the fiber, so it
@@ -1871,21 +1871,21 @@ sits at about fiber height. As §3.3 explains, whether a branch point's height
 tells a crossing apart depends on the fiber heights, so a single height
 threshold does not necessarily separate spurs from crossings on every image.
 A length limit does, whatever the fiber height — a real fiber arm is rarely that
-short (though what 12<!--c:lib/pipeline.py::ProcParams.spur_length--> px amounts to in nm depends on the pixel
+short (though what 12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.spur_length--> px amounts to in nm depends on the pixel
 size, §5).
 
 Isolated short segments with no branch point in reach are not handled here.
 Such a segment is pruned by §3.3 when it meets that section's conditions, and
 removed by §3.7 when its area is below `min_area`.
 
-Arms whose endpoint lies within `border_margin` = 2<!--c:lib/skeletonizer.py::prune_short_spurs(border_margin)--> px of the image border are
+Arms whose endpoint lies within `border_margin` = 2<!--c:afm_nanofiber_analyzer/skeletonizer.py::prune_short_spurs(border_margin)--> px of the image border are
 never pruned. As in §3.3, an arm ending at the border can be a fiber that
 continues outside the view. For example, two fibers that touch just before
 exiting the scan form a genuine junction, leaving a short arm out to the border.
 Pruning that arm removes the junction, and the two remaining arms join into one
 line.
 
-The margin is narrower than §3.3's `branch_length` (default 12<!--c:lib/pipeline.py::ProcParams.branch_length--> px). A narrower
+The margin is narrower than §3.3's `branch_length` (default 12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.branch_length--> px). A narrower
 margin also prunes short spurs right next to the border; a wider one keeps short
 arms running into it. No reason for the two margins to differ was found; with
 either set to the other's value, the test inputs changed by at most a few tens
@@ -1908,7 +1908,7 @@ The walk from the endpoint stops at the first of these:
 The whole pass repeats until no spur is removed:
 
 ```python
-# source: lib/skeletonizer.py::prune_short_spurs
+# source: afm_nanofiber_analyzer/skeletonizer.py::prune_short_spurs
 while True:
     bp = imp_tools.branchedPoints(skel).astype(bool)
     if not bp.any():
@@ -1977,19 +1977,19 @@ high as the body, so the trim stopped there. Drawn by `scripts/make_doc_figures.
 `thin_ignoring_image_border` and `prune_terminal_hooks`.
 
 A hook is recognised by a direction reversal near an endpoint: an interior apex
-angle below `DEFAULT_HOOK_APEX_ANGLE_DEG` = 120<!--c:lib/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG-->° within
-`DEFAULT_HOOK_LENGTH` = 12<!--c:lib/skeletonizer.py::DEFAULT_HOOK_LENGTH--> px of the end (how this angle is measured is explained later in
+angle below `DEFAULT_HOOK_APEX_ANGLE_DEG` = 120<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG-->° within
+`DEFAULT_HOOK_LENGTH` = 12<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_HOOK_LENGTH--> px of the end (how this angle is measured is explained later in
 this section). It is trimmed only where the
-calibrated height has fallen below `DEFAULT_HOOK_HEIGHT_RATIO` = 0.5<!--c:lib/skeletonizer.py::DEFAULT_HOOK_HEIGHT_RATIO--> of the
+calibrated height has fallen below `DEFAULT_HOOK_HEIGHT_RATIO` = 0.5<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_HOOK_HEIGHT_RATIO--> of the
 adjacent fiber body's median height, so a bent end whose height stays at or
 above that fraction of the body is not cut.
 
-This 120<!--c:lib/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG-->° is the angle between vectors joining pixel points (how it
+This 120<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG-->° is the angle between vectors joining pixel points (how it
 is measured is explained later in this section). A kink, by contrast, is judged
 (§4.3) by whether the centerline's excess turning reaches
 180<!--n:definition-->° − `kinkangle_deg` (30<!--x:180 - 150-->° by default). The two are measured differently and
 cannot be compared directly by size. Still, a reversal with an interior angle
-below 120<!--c:lib/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG-->° turns the line by more than 60<!--x:180 - 120-->°, which is sharp enough to be
+below 120<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG-->° turns the line by more than 60<!--x:180 - 120-->°, which is sharp enough to be
 judged a kink. This step still does not remove real kinks, because how far it
 cuts is decided by height, not by angle: it removes only the pixels that run on
 from the endpoint below half the body height, and stops at the first pixel at or
@@ -2006,17 +2006,17 @@ fiber must lie on the height ridge" and trims only the pixels that have left
 the ridge and become low.
 
 In the code the walk from each endpoint (`_walk_from_endpoint`) is followed for
-up to 30<!--x:12 + 6 + 12--> px: 12<!--c:lib/skeletonizer.py::DEFAULT_HOOK_LENGTH--> px from the end in which the apex is searched, the
-6<!--c:lib/skeletonizer.py::_HOOK_DIRECTION_WINDOW--> steps beyond the apex that give its direction, and the 12<!--c:lib/skeletonizer.py::_HOOK_BODY_WINDOW--> pixels the body
+up to 30<!--x:12 + 6 + 12--> px: 12<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_HOOK_LENGTH--> px from the end in which the apex is searched, the
+6<!--c:afm_nanofiber_analyzer/skeletonizer.py::_HOOK_DIRECTION_WINDOW--> steps beyond the apex that give its direction, and the 12<!--c:afm_nanofiber_analyzer/skeletonizer.py::_HOOK_BODY_WINDOW--> pixels the body
 height is measured over. At walk index $j \le 12$, the apex angle is the angle between the
-vector to the point 6<!--c:lib/skeletonizer.py::_HOOK_DIRECTION_WINDOW--> steps further along ($j + 6$) and the vector back to the
-endpoint; the deepest $j$ with an angle below 120<!--c:lib/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG-->° is the apex. The body height
-is the median over the 12<!--c:lib/skeletonizer.py::_HOOK_BODY_WINDOW--> pixels after the apex (at least 4<!--n:literal in the quoted code--> are needed), and the
+vector to the point 6<!--c:afm_nanofiber_analyzer/skeletonizer.py::_HOOK_DIRECTION_WINDOW--> steps further along ($j + 6$) and the vector back to the
+endpoint; the deepest $j$ with an angle below 120<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG-->° is the apex. The body height
+is the median over the 12<!--c:afm_nanofiber_analyzer/skeletonizer.py::_HOOK_BODY_WINDOW--> pixels after the apex (at least 4<!--n:literal in the quoted code--> are needed), and the
 leading pixels are removed while their height stays below half of it, never past
 the apex:
 
 ```python
-# source: lib/skeletonizer.py::DEFAULT_HOOK_LENGTH, DEFAULT_HOOK_APEX_ANGLE_DEG, DEFAULT_HOOK_HEIGHT_RATIO, _HOOK_DIRECTION_WINDOW, _HOOK_BODY_WINDOW
+# source: afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_HOOK_LENGTH, DEFAULT_HOOK_APEX_ANGLE_DEG, DEFAULT_HOOK_HEIGHT_RATIO, _HOOK_DIRECTION_WINDOW, _HOOK_BODY_WINDOW
 DEFAULT_HOOK_LENGTH = 12
 DEFAULT_HOOK_APEX_ANGLE_DEG = 120.0
 DEFAULT_HOOK_HEIGHT_RATIO = 0.5
@@ -2025,7 +2025,7 @@ _HOOK_BODY_WINDOW = 12
 ```
 
 ```python
-# source: lib/skeletonizer.py::prune_terminal_hooks
+# source: afm_nanofiber_analyzer/skeletonizer.py::prune_terminal_hooks
 path = _walk_from_endpoint(skel, int(sy), int(sx), walk_cap)
 n = len(path)
 py = np.array([p[0] for p in path], dtype=float)
@@ -2069,7 +2069,7 @@ had it been that short when §3.5 ran, so `Skeletonizer.__call__` runs
 
 ### 3.7 Remove small and ring components
 
-`remove_small_and_ring` drops components below `min_area` (default 10<!--c:lib/pipeline.py::ProcParams.min_area--> pixels) and
+`remove_small_and_ring` drops components below `min_area` (default 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.min_area--> pixels) and
 components with **no endpoints at all**. An endpoint-free component is a closed
 ring, which no fiber tracing can traverse. A fiber that really is ring-shaped is
 therefore removed here as well, and so are the sections of several fibers that
@@ -2078,7 +2078,7 @@ attached to them. The rings removed on the bundled scans are in
 [Evaluation on particular data](validation.md) §3.7.
 
 ```python
-# source: lib/skeletonizer.py::Skeletonizer.remove_small_and_ring
+# source: afm_nanofiber_analyzer/skeletonizer.py::Skeletonizer.remove_small_and_ring
 returned_image = np.copy(skeleton_image)
 nLabels, label_Images, data, center = cv2.connectedComponentsWithStats(returned_image)
 ep = imp_tools.endPoints(returned_image)
@@ -2115,7 +2115,7 @@ may be either (`_to_cv2_hitmiss_kernel` converts the table to OpenCV's form).
   diagonal), and a 2<!--n:definition-->×2<!--n:definition--> block.
 
 ```python
-# source: lib/imp_tools.py::_build_branch_patterns, _build_end_patterns
+# source: afm_nanofiber_analyzer/imp_tools.py::_build_branch_patterns, _build_end_patterns
 vh_xbranch = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
 diagonal_xbranch = np.array([[1, 0, 1], [0, 1, 0], [1, 0, 1]])
 vh_ybranch = np.array([[1, 0, 1], [0, 1, 0], [2, 1, 2]])
@@ -2146,7 +2146,7 @@ The skeleton is padded by one background pixel first, so a pixel on the image
 border is classified as if the scan ended there:
 
 ```python
-# source: lib/imp_tools.py::_hitmiss_union, branchedPoints, endPoints
+# source: afm_nanofiber_analyzer/imp_tools.py::_hitmiss_union, branchedPoints, endPoints
 padded = np.pad(skel, pad_width=1, mode='constant', constant_values=0).astype(np.uint8)
 hits = np.zeros_like(padded, dtype=np.uint8)
 for p in patterns:
@@ -2162,8 +2162,8 @@ return _hitmiss_union(skel, _END_PATTERNS)
 
 ## 4. Kink detection
 
-**Code:** `lib/kink_detector.py` — `KinkDetector.__call__` and
-`KinkDetector.kinks_on_line`, on the centerline placed by `lib/centerline.py`
+**Code:** `afm_nanofiber_analyzer/kink_detector.py` — `KinkDetector.__call__` and
+`KinkDetector.kinks_on_line`, on the centerline placed by `afm_nanofiber_analyzer/centerline.py`
 (§4.2).
 **Reads:** `skeleton_image`, `calibrated_image` and `bp`. **Writes:** the kink
 positions and angles per fiber, the positions of the bends left unjudged next to
@@ -2184,7 +2184,7 @@ kinks on it. Each centerline point corresponds one-to-one to a skeleton point
 (§4.2), so a kink is stored as the position of the corresponding skeleton pixel:
 
 ```python
-# source: lib/kink_detector.py::KinkDetector.__call__
+# source: afm_nanofiber_analyzer/kink_detector.py::KinkDetector.__call__
 no_bp_skel = imp_tools.remove_bp(image.skeleton_image)
 no_Lcorner_skel = imp_tools.remove_Lcorner(no_bp_skel)
 nLabels, label_image, data, center = cv2.connectedComponentsWithStats(no_Lcorner_skel)
@@ -2220,9 +2220,9 @@ for label in range(1, nLabels):
 ### 4.1 Prepare traceable tracks
 
 `imp_tools.remove_bp` clears a $(2r+1)$-square neighbourhood ($r$ =
-`remove_size` = 1<!--c:lib/imp_tools.py::remove_bp(remove_size)-->) around every branch point, cutting the skeleton at crossings
+`remove_size` = 1<!--c:afm_nanofiber_analyzer/imp_tools.py::remove_bp(remove_size)-->) around every branch point, cutting the skeleton at crossings
 so that each remaining component is a single unbranched line. Components with
-an area below `min_area` = 10<!--c:lib/imp_tools.py::remove_bp(min_area)--> pixels are dropped (a fixed value, separate from
+an area below `min_area` = 10<!--c:afm_nanofiber_analyzer/imp_tools.py::remove_bp(min_area)--> pixels are dropped (a fixed value, separate from
 the parameter `min_area` of §3.7).
 
 `imp_tools.remove_Lcorner` then removes the corner pixel of each L (a pixel
@@ -2242,7 +2242,7 @@ cannot be traced; it is logged and skipped rather than aborting the image, and
 it is left out of both kink detection and measurement:
 
 ```python
-# source: lib/imp_tools.py::remove_bp
+# source: afm_nanofiber_analyzer/imp_tools.py::remove_bp
 bp = branchedPoints(imgcopy)
 bp_coor = np.where(bp)
 for bp_x, bp_y in zip(bp_coor[0], bp_coor[1]):
@@ -2259,7 +2259,7 @@ if min_area != 0:
 ```
 
 ```python
-# source: lib/imp_tools.py::remove_Lcorner
+# source: afm_nanofiber_analyzer/imp_tools.py::remove_Lcorner
 corner = np.array([[0, 1, 0],
                    [1, 1, 0],
                    [0, 0, 0]])
@@ -2271,7 +2271,7 @@ Lremoved_img = imgcopy - hits
 ```
 
 ```python
-# source: lib/imp_tools.py::tracking
+# source: afm_nanofiber_analyzer/imp_tools.py::tracking
 ep = endPoints(imgcopy)
 ep_y, ep_x = np.where(ep)
 if len(ep_y) != 2:
@@ -2303,7 +2303,7 @@ single fiber.
 
 ### 4.2 Place the fiber's centerline from its height cross-sections
 
-**Code:** `lib/centerline.py` — `centerline.place_centerline`.
+**Code:** `afm_nanofiber_analyzer/centerline.py` — `centerline.place_centerline`.
 
 The traced skeleton decides which pixels form one fiber and in what order, but
 it is a poor estimate of *where* the fiber runs. The skeleton is the medial
@@ -2329,15 +2329,15 @@ in five steps:
 
 1. `centerline.measure_apparent_width` measures the fiber's apparent width
    $W$. At each track point it takes the height cross-section across the track,
-   12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px to either side. The track's direction there is the direction between
-   the points 3<!--c:lib/centerline.py::_WIDTH_TANGENT_HALF--> steps before and after it (`_unit_tangents`); it comes from the
+   12<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_SEARCH_PX--> px to either side. The track's direction there is the direction between
+   the points 3<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_TANGENT_HALF--> steps before and after it (`_unit_tangents`); it comes from the
    skeleton track alone and does not use $W$, so it is available before step 2<!--n:label-->,
    which does. Each section gives its full width at half maximum (the width of
    the part at least half-way from the base to the crest). The base height here is
    the value 10<!--n:literal percentile in centerline.measure_apparent_width--> % of the way up the section's values sorted from lowest. The crest
    is the first maximum reached by climbing uphill from the track point
    (`_climb_to_maximum`, the same climb as step 3<!--n:label-->), not the highest value of
-   the section, so a taller fiber elsewhere within 12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px on either side does not set the
+   the section, so a taller fiber elsewhere within 12<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_SEARCH_PX--> px on either side does not set the
    half maximum as long as the fiber has a maximum of its own (a faint fiber
    that is only a shoulder on a taller one's flank climbs to the taller one's
    crest). A taller fiber so close that the section between them stays above
@@ -2345,14 +2345,14 @@ in five steps:
    lies below that half maximum is on the flank rather than on the fiber, and
    its section is not used. $W$ is the
    median of this width over the track, one value per fiber. If the range read
-   is shorter than 1.25<!--c:lib/centerline.py::_WIDTH_RANGE_MIN_WIDTHS--> $W$, the cross-sections are read again over 2<!--c:lib/centerline.py::_WIDTH_RANGE_WIDTHS--> $W$ to either side
-   (at most 96<!--c:lib/centerline.py::_WIDTH_SEARCH_MAX_PX--> px) and $W$ is measured again: the base is a low value of
+   is shorter than 1.25<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_RANGE_MIN_WIDTHS--> $W$, the cross-sections are read again over 2<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_RANGE_WIDTHS--> $W$ to either side
+   (at most 96<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_SEARCH_MAX_PX--> px) and $W$ is measured again: the base is a low value of
    the section, so it lies on the background only while the range reaches well
    beyond the fiber, and a fiber spread over many pixels, as at a fine pixel
    size, would otherwise take its base on its own skirt and read narrow. The
    longer reading is kept only if, in at least half the sections used, the
    part above the half maximum holds a single crest: from the crest outward the
-   section never rises again by more than 0.1<!--c:lib/centerline.py::_WIDTH_SECOND_CREST_FRAC--> of the crest's height above the
+   section never rises again by more than 0.1<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_SECOND_CREST_FRAC--> of the crest's height above the
    base. A longer range also lowers the base beside a neighbouring fiber, whose
    crest the width could then take in; when that happens, the shorter reading is
    kept (`_width_in_range`). Every length in the steps that follow is a multiple of $W$,
@@ -2392,9 +2392,9 @@ in five steps:
    - sections whose crest, found by climbing, does not lie within $0.75\,W$ of
      the reference point (`_CREST_REACH_WIDTHS`; a distant crest belongs to
      another object; the limit is taken inside $0.75\,W$ by half the step at
-     which the section is read, a step of 0.25<!--c:lib/centerline.py::_WIDTH_STEP_PX--> px);
+     which the section is read, a step of 0.25<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_STEP_PX--> px);
    - sections whose hill height (crest minus base) is below
-     0.25<!--c:lib/centerline.py::_MIN_CREST_AMPLITUDE_FRAC--> of the median over this fiber's sections (too faint).
+     0.25<!--c:afm_nanofiber_analyzer/centerline.py::_MIN_CREST_AMPLITUDE_FRAC--> of the median over this fiber's sections (too faint).
 
    The offsets are joined along the track by Whittaker smoothing: the smoothed
    offsets $z_i$ are kept close to the measured offsets $y_i$ and change little
@@ -2423,7 +2423,7 @@ The computation is shown step by step, with its code, in
 same function:
 
 ```python
-# source: lib/centerline.py::place_centerline
+# source: afm_nanofiber_analyzer/centerline.py::place_centerline
 width, measured = measure_apparent_width(
     height, x, y, return_measured=True, aspect=aspect, peak=width_peak,
     adaptive_range=width_adaptive, symmetric_section=symmetric_section)
@@ -2443,7 +2443,7 @@ including $W$, and the centerline is returned in pixel coordinates. A scan
 with no recorded scan size is treated as having square pixels:
 
 ```python
-# source: lib/bundle_schema.py::pixel_aspect
+# source: afm_nanofiber_analyzer/bundle_schema.py::pixel_aspect
 if not scan_size_um:
     return 1.0
 rows, cols = int(stored_shape[0]), int(stored_shape[1])
@@ -2502,9 +2502,9 @@ the numbers built on it depend on, as a `centerline.CenterlineResult`:
   with. $W$ includes the probe's broadening as well as the fiber's own width.
   When fewer than half of the track points have a cross-section whose
   half-maximum run could be measured, or the measured $W$ is zero or not
-  finite, `centerline.FALLBACK_WIDTH_PX` (8<!--c:lib/centerline.py::FALLBACK_WIDTH_PX--> px) is substituted. A fiber
-  measured narrower than 2<!--c:lib/centerline.py::_MIN_WIDTH_PX--> px (`centerline._MIN_WIDTH_PX`) is instead given
-  2<!--c:lib/centerline.py::_MIN_WIDTH_PX--> px: the fallback would judge its kinks at several times its own width,
+  finite, `centerline.FALLBACK_WIDTH_PX` (8<!--c:afm_nanofiber_analyzer/centerline.py::FALLBACK_WIDTH_PX--> px) is substituted. A fiber
+  measured narrower than 2<!--c:afm_nanofiber_analyzer/centerline.py::_MIN_WIDTH_PX--> px (`centerline._MIN_WIDTH_PX`) is instead given
+  2<!--c:afm_nanofiber_analyzer/centerline.py::_MIN_WIDTH_PX--> px: the fallback would judge its kinks at several times its own width,
   and its measured $W$ would shrink the rule's window to one step of the pixel
   staircase, where the staircase and pixel noise read as bends. The fallback is a pixel count,
   not a multiple of the fiber's width, so the substitution is reported rather
@@ -2541,7 +2541,7 @@ the numbers built on it depend on, as a `centerline.CenterlineResult`:
 
 The half-maximum midpoint smoothed with a standard deviation of $W/4$ is the
 default, but `centerline_method` (GUI01's Kinkdetector group,
-`cli.py process --centerline`) selects one of the 8<!--c:lib/centerline.py::len(CENTERLINE_METHODS)--> centerlines in
+`cli.py process --centerline`) selects one of the 8<!--c:afm_nanofiber_analyzer/centerline.py::len(CENTERLINE_METHODS)--> centerlines in
 `centerline.CENTERLINE_METHODS`. The default is an empirical choice, made from
 comparisons on synthetic data and the bundled scans
 ([Evaluation on particular data](validation.md) §4.2, §4.3); the others remain
@@ -2620,7 +2620,7 @@ The difference between the headings at two positions is the **turning**
 between them.
 
 The heading is computed as follows (`kink_detector._heading_profile`). The
-centerline is resampled every 0.5<!--c:lib/kink_detector.py::_HEADING_STEP_PX--> px of arc length, the direction from each point
+centerline is resampled every 0.5<!--c:afm_nanofiber_analyzer/kink_detector.py::_HEADING_STEP_PX--> px of arc length, the direction from each point
 to the next is taken, and the sequence is smoothed with a Gaussian of standard
 deviation $W/4$, because wiggles of the centerline shorter than $W/4$ are not
 the fiber's shape.
@@ -2663,7 +2663,7 @@ at the corner and stays near 0<!--n:analytic (a straight line does not turn)--> 
 But this turning appears wherever the fiber curves, corner or not. On a piece
 that curves with radius $R$, the headings at the two ends of the window differ
 by $2c/R$ radians. A gentle curve of radius $3\,W$ already gives 29<!--x:degrees(2 * 0.75 / 3)-->°, and a
-slightly tighter curve would pass the default threshold of 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->° at every
+slightly tighter curve would pass the default threshold of 30<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg|180 - v-->° at every
 position along it, although it has no corner at all. A corner on a curve also
 reads larger than it is, because the curve's share is added to it.
 
@@ -2820,8 +2820,8 @@ $$
 E \ge 180^\circ - \phi_{\text{max}}
 $$
 
-with $\phi_{\text{max}}$ = `kinkangle_deg`, default 150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg-->°, so by default a kink
-needs 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->° of excess turning. `pipeline.build_stages` converts it to radians for
+with $\phi_{\text{max}}$ = `kinkangle_deg`, default 150<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg-->°, so by default a kink
+needs 30<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg|180 - v-->° of excess turning. `pipeline.build_stages` converts it to radians for
 the detector. The polyline rule used for bundles of format 1.0<!--n:bundle format version--> (§4.6) reads the
 same `kinkangle_deg` as an interior-angle threshold. The angle *stored* for a
 kink is measured separately, from its arms (see *The angle stored for a kink*
@@ -2840,7 +2840,7 @@ settings.
 
 - **Take the centerline and the width** (a, b): the centerline placed in §4.2
   and the apparent width $W$ measured on the same cross-sections. The window is
-  then 1.5<!--c:lib/kink_detector.py::_CORE_WIDTHS|2 * v--> widths long and each flank one width.
+  then 1.5<!--c:afm_nanofiber_analyzer/kink_detector.py::_CORE_WIDTHS|2 * v--> widths long and each flank one width.
 - **Compute the heading** (c): at the corner the heading falls, but not in a
   step, because the probe rounds the corner and the smoothing spreads it
   further. Along the arms the heading wavers by a few degrees.
@@ -2848,17 +2848,17 @@ settings.
   corners are. It takes as candidates the positions where the curvature
   $|d\theta/ds|$ (how fast the heading changes per length) has a maximum, and
   the maxima of $|T|$, except where a curvature-maximum candidate with at least
-  the same excess lies within 0.75<!--c:lib/kink_detector.py::_SUPPRESS_WIDTHS--> $W$ (*Finding candidates* below). Panel d
+  the same excess lies within 0.75<!--c:afm_nanofiber_analyzer/kink_detector.py::_SUPPRESS_WIDTHS--> $W$ (*Finding candidates* below). Panel d
   draws $|T|$ and $E$ at every position, but the detector judges only the
   candidates.
 - **Compute the turning and the excess at each candidate** (b, c): at the
   corner of this fiber the left flank turns slightly the other way, so nothing
   is subtracted, the dashed line in c is level, and $E = T$. A candidate whose
   $|T|$ or $E$ stays below a fixed search floor is dropped, and of candidates
-  closer than 0.75<!--c:lib/kink_detector.py::_SUPPRESS_WIDTHS--> $W$ only the one with the larger excess is kept (both
+  closer than 0.75<!--c:afm_nanofiber_analyzer/kink_detector.py::_SUPPRESS_WIDTHS--> $W$ only the one with the larger excess is kept (both
   described below).
 - **Compare with the threshold** (d): a candidate whose $E$ reaches the
-  threshold is a kink, unless it lies within 1.5<!--c:lib/kink_detector.py::END_MARGIN_WIDTHS--> $W$ of an end, where bends
+  threshold is a kink, unless it lies within 1.5<!--c:afm_nanofiber_analyzer/kink_detector.py::END_MARGIN_WIDTHS--> $W$ of an end, where bends
   are not judged (§4.4; grey in d). On this fiber only the corner reaches the
   threshold; elsewhere $|T|$ stays far below it.
 
@@ -2876,7 +2876,7 @@ smaller by that length's fraction of $f$ ($= W$); when $W$ is much larger than
 $\delta$, the fraction is about $1/4$.
 
 Bends are searched for not at the threshold but down to a fixed **search
-floor** $F$ of excess turning: `_SEARCH_FLOOR_DEG` = 10<!--c:lib/kink_detector.py::_SEARCH_FLOOR_DEG-->°, or the
+floor** $F$ of excess turning: `_SEARCH_FLOOR_DEG` = 10<!--c:afm_nanofiber_analyzer/kink_detector.py::_SEARCH_FLOOR_DEG-->°, or the
 threshold's excess when that is lower (`search`). A
 position $p$ is kept as a bend only when all of the following hold:
 
@@ -2894,7 +2894,7 @@ position $p$ is kept as a bend only when all of the following hold:
 
 A kept bend is a **kink** when $E(p)$ reaches both the threshold and the noise
 floor (described in "Scale and the noise floor" below; by default no noise
-floor is used, it is 0<!--c:lib/kink_detector.py::NOISE_SIGMAS-->). The others are discarded. The depth of the
+floor is used, it is 0<!--c:afm_nanofiber_analyzer/kink_detector.py::NOISE_SIGMAS-->). The others are discarded. The depth of the
 search still matters: $F$ also sets the curvature floor of *Finding candidates*
 below, so a lower $F$ admits more candidates, and which candidate stands for a
 bend above the threshold can change with it.
@@ -2902,14 +2902,14 @@ bend above the threshold can change with it.
 The threshold is $\pi - \phi_{\text{max}}$ in radians (`turn_threshold`):
 
 ```python
-# source: lib/kink_detector.py::_CORE_WIDTHS, _FLANK_WIDTHS, _HEADING_SIGMA_WIDTHS
+# source: afm_nanofiber_analyzer/kink_detector.py::_CORE_WIDTHS, _FLANK_WIDTHS, _HEADING_SIGMA_WIDTHS
 _CORE_WIDTHS = 0.75
 _FLANK_WIDTHS = 1.0
 _HEADING_SIGMA_WIDTHS = 0.25
 ```
 
 ```python
-# source: lib/kink_detector.py::_heading_profile
+# source: afm_nanofiber_analyzer/kink_detector.py::_heading_profile
 seg = np.hypot(np.diff(x), np.diff(y))
 keep = np.concatenate([[True], seg > 1e-9])
 orig = np.nonzero(keep)[0]
@@ -2932,7 +2932,7 @@ return orig, s, length, sm, heading
 ```
 
 ```python
-# source: lib/kink_detector.py::KinkDetector.judge_line
+# source: afm_nanofiber_analyzer/kink_detector.py::KinkDetector.judge_line
 width = float(width_px)
 c = _CORE_WIDTHS * width
 f = _FLANK_WIDTHS * width
@@ -2966,7 +2966,7 @@ def excess_at(p: float) -> Optional[float]:
 ```
 
 ```python
-# source: lib/kink_detector.py::_SEARCH_FLOOR_DEG
+# source: afm_nanofiber_analyzer/kink_detector.py::_SEARCH_FLOOR_DEG
 _SEARCH_FLOOR_DEG = 10.0
 ```
 
@@ -2988,7 +2988,7 @@ $E$ is evaluated only at candidate positions, which are of two kinds:
 - **Curvature maxima.** The curvature $|d\theta/ds|$ is how fast the heading
   changes per unit length. Its maxima are candidates when they reach a floor: half the mean curvature that a bend exactly at the search floor has
   across the window, $0.5 \times F / (2c)$
-  (`_CURVATURE_FLOOR_FRAC` = 0.5<!--c:lib/kink_detector.py::_CURVATURE_FLOOR_FRAC-->).
+  (`_CURVATURE_FLOOR_FRAC` = 0.5<!--c:afm_nanofiber_analyzer/kink_detector.py::_CURVATURE_FLOOR_FRAC-->).
 - **Maxima of $|T|$ itself**, added wherever no candidate accepted from the
   curvature maxima above, with an excess at least as large, lies within $0.75\,W$. A corner whose curvature peak is split in two by noise, or whose
   turning runs straight into a curve, has no single curvature maximum at its
@@ -3004,7 +3004,7 @@ decreasing order of excess, so of such a group the one with the largest excess
 is kept:
 
 ```python
-# source: lib/kink_detector.py::KinkDetector.judge_line
+# source: afm_nanofiber_analyzer/kink_detector.py::KinkDetector.judge_line
 fine: List[Tuple[float, float]] = []
 for i in range(1, curvature.size - 1):
     if (curvature[i] >= curvature[i - 1] and curvature[i] > curvature[i + 1]
@@ -3040,7 +3040,7 @@ The value stored in the bundle as a kink's angle (`ka`) is not 180<!--n:definiti
 excess but the interior angle between the two parts of the line on either side
 of the bend (called **arms** in this section; not the arms of §3.3–§3.5)
 (`KinkDetector.judge_line`). Each arm's direction is the
-mean heading over a stretch 1<!--c:lib/kink_detector.py::_ARM_LENGTH_WIDTHS--> $W$ long, starting $W/2$ beyond the bend (outside
+mean heading over a stretch 1<!--c:afm_nanofiber_analyzer/kink_detector.py::_ARM_LENGTH_WIDTHS--> $W$ long, starting $W/2$ beyond the bend (outside
 the range over which the probe rounds the bend) and cut short at the next bend,
 so that the turning of a nearby next bend (for example the second bend of a jog,
 where two bends turn back against each other to form a step) does not enter the
@@ -3113,14 +3113,14 @@ histograms, by aggregation unit, every kink's angle as it is (kink), or the
 median of all kink angles in each image (image):
 
 ```python
-# source: lib/kink_detector.py::_ARM_GAP_WIDTHS, _ARM_LENGTH_WIDTHS, _ARM_MIN_WIDTHS
+# source: afm_nanofiber_analyzer/kink_detector.py::_ARM_GAP_WIDTHS, _ARM_LENGTH_WIDTHS, _ARM_MIN_WIDTHS
 _ARM_GAP_WIDTHS = 0.5
 _ARM_LENGTH_WIDTHS = 1.0
 _ARM_MIN_WIDTHS = 0.25
 ```
 
 ```python
-# source: lib/kink_detector.py::_arm_interior_angle
+# source: afm_nanofiber_analyzer/kink_detector.py::_arm_interior_angle
 gap = _ARM_GAP_WIDTHS * width
 arm = _ARM_LENGTH_WIDTHS * width
 left_lo = max(float(sm[0]), p - gap - arm)
@@ -3141,7 +3141,7 @@ return max(np.pi - turn, 0.0)
 ```
 
 ```python
-# source: lib/kink_detector.py::KinkDetector.judge_line
+# source: afm_nanofiber_analyzer/kink_detector.py::KinkDetector.judge_line
 margin = END_MARGIN_WIDTHS * width
 positions = sorted(q for e, q in kept if e >= kink_level)
 ...
@@ -3184,7 +3184,7 @@ A bend below the kink level is not kept anywhere, and is not reported as
 unjudged either.
 
 ```python
-# source: lib/measure.py::compute_fiber_stats
+# source: afm_nanofiber_analyzer/measure.py::compute_fiber_stats
 angles = tuple(float(np.degrees(a)) for a in f.kink_angles)
 ```
 
@@ -3207,10 +3207,10 @@ empirical, checked against a visual reference on the bundled scans
 Fixed in pixels rather than in multiples of $W$ are:
 
 - lengths inside the procedure that measures $W$: the range over which a
-  cross-section is first read (±12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px from the track, widened with $W$ up to
-  96<!--c:lib/centerline.py::_WIDTH_SEARCH_MAX_PX--> px), the fallback used when
-  $W$ cannot be measured, `centerline.FALLBACK_WIDTH_PX` (8<!--c:lib/centerline.py::FALLBACK_WIDTH_PX--> px), and others;
-- the sampling steps: 0.25<!--c:lib/centerline.py::_WIDTH_STEP_PX--> px across a cross-section, 0.5<!--c:lib/kink_detector.py::_HEADING_STEP_PX--> px along the heading.
+  cross-section is first read (±12<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_SEARCH_PX--> px from the track, widened with $W$ up to
+  96<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_SEARCH_MAX_PX--> px), the fallback used when
+  $W$ cannot be measured, `centerline.FALLBACK_WIDTH_PX` (8<!--c:afm_nanofiber_analyzer/centerline.py::FALLBACK_WIDTH_PX--> px), and others;
+- the sampling steps: 0.25<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_STEP_PX--> px across a cross-section, 0.5<!--c:afm_nanofiber_analyzer/kink_detector.py::_HEADING_STEP_PX--> px along the heading.
 
 `kink_decompose_px` is not used by this rule; only the polyline rule for format
 1.0<!--n:bundle format version--> bundles uses it (§4.6).
@@ -3222,7 +3222,7 @@ along the whole centerline, taken as 1.4826<!--n:literal in KinkDetector.judge_l
 (the median of the absolute deviations from the median; for normally distributed
 values this equals the standard deviation), which a bend's excess would then
 have to exceed `NOISE_SIGMAS` times over. It is **off** by default
-(`NOISE_SIGMAS` = 0<!--c:lib/kink_detector.py::NOISE_SIGMAS-->); why is in [Evaluation on particular data](validation.md) §4.7.
+(`NOISE_SIGMAS` = 0<!--c:afm_nanofiber_analyzer/kink_detector.py::NOISE_SIGMAS-->); why is in [Evaluation on particular data](validation.md) §4.7.
 
 ### 4.4 Bends next to an end are shown, not judged
 
@@ -3261,7 +3261,7 @@ stops being judged.
 
 A reconnected fibril also has bridges: the straight segments the connector
 draws across the gaps between its fragments, where no fiber was observed
-(`lib/fiber_connector.py`). Their corners are made by the connection rather than seen
+(`afm_nanofiber_analyzer/fiber_connector.py`). Their corners are made by the connection rather than seen
 in the image, so whether a bend whose window reaches a bridge is judged is the
 user's choice, saved with the connection (`ConnectParams.judge_bridge_kinks`,
 on by default). When it is off, such a bend is returned unjudged with the
@@ -3270,7 +3270,7 @@ reason `UNJUDGED_AT_BRIDGE`; the reason of each unjudged bend is in
 (the `bridges` test in the excerpt above) as a magenta hollow diamond. A bundle never
 holds such a bend, because the analysis that writes it does not connect
 fragments; bridges exist only in fibrils built from a connection plan, which
-GUI04, GUI03 and `lib/measure.py` given a plan do. Either way the
+GUI04, GUI03 and `afm_nanofiber_analyzer/measure.py` given a plan do. Either way the
 bridges are left out of the length a kink density divides by
 ([GUI04 fiber measurements](gui04_measurements.md) §3.9).
 
@@ -3278,7 +3278,7 @@ bridges are left out of the length a kink density divides by
 
 The kink parameters are written into the bundle as the settings of the analysis
 (`params`), and `bundle_schema.kink_params_from_meta` reads them back later.
-(`lib.measure` reads them when it opens a bundle and passes them to
+(`afm_nanofiber_analyzer.measure` reads them when it opens a bundle and passes them to
 `fiber_tracking_image.FiberTrackingImage`.) When kinks are recomputed after a
 bundle is opened, `kinkangle_deg` is the analysis field acted on, and it has to
 be: anything that recomputes kinks on a track the
@@ -3302,7 +3302,7 @@ a kink can be audited against the threshold without re-running the rule.
 The kinks of a bundle of format 1.0<!--n:bundle format version--> are judged by a polyline rule, on the
 skeleton track. `KinkDetector._binary_decompose_simple` reduces the track to a
 polyline by the **Douglas–Peucker** idea, inserting a vertex wherever a track
-point lies at least `kink_decompose_px` (default 3.0<!--c:lib/pipeline.py::ProcParams.kink_decompose_px--> px) from its chord, and
+point lies at least `kink_decompose_px` (default 3.0<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kink_decompose_px--> px) from its chord, and
 `KinkDetector._detect_kink_from_decomposed_indices` keeps a vertex whose
 interior angle $\phi$ is at most `kinkangle_deg` and whose distance below
 straight, $\pi - \phi$, exceeds the angular error that the vertex position's
@@ -3334,7 +3334,7 @@ than `threshold_distance` (`kink_decompose_px`) to its chord; the angle at each
 interior vertex is then tested:
 
 ```python
-# source: lib/kink_detector.py::KinkDetector._binary_decompose_simple
+# source: afm_nanofiber_analyzer/kink_detector.py::KinkDetector._binary_decompose_simple
 decomposed_indices = [0, n_pts - 1]
 updated = True
 while updated:
@@ -3364,7 +3364,7 @@ while updated:
 ```
 
 ```python
-# source: lib/kink_detector.py::KinkDetector._detect_kink_from_decomposed_indices
+# source: afm_nanofiber_analyzer/kink_detector.py::KinkDetector._detect_kink_from_decomposed_indices
 v1x = cx[prev_idx] - cx[mid_idx]
 v1y = cy[prev_idx] - cy[mid_idx]
 v2x = cx[next_idx] - cx[mid_idx]
@@ -3393,7 +3393,7 @@ into numbers happens elsewhere, and keeping the boundary sharp is what lets a
 measurement be redone without re-analysing an image:
 
 - **Per-fiber measurement** — contour length, height statistics, straightness,
-  curvature, kink density — lives in `lib/measure.py`, shared by GUI03, GUI04,
+  curvature, kink density — lives in `afm_nanofiber_analyzer/measure.py`, shared by GUI03, GUI04,
   and `cli.py measure`. It reads every fiber along the centerline of §4.2 (along
   the skeleton track for a format 1.0<!--n:bundle format version--> bundle, as the table in §4.2 shows),
   which `fiber_tracking_image.FiberTrackingImage` rebuilds from the stored
@@ -3402,7 +3402,7 @@ measurement be redone without re-analysing an image:
   - **Height statistics**: taken over the crest heights of §4.2, leaving out the
     last $W$ at an end that is a cut rather than a fiber end
     (`measure.height_sample_mask`): §4.1 clears only
-    a 3<!--c:lib/imp_tools.py::remove_bp(remove_size)|2 * v + 1-->×3<!--c:lib/imp_tools.py::remove_bp(remove_size)|2 * v + 1--> neighbourhood around a branch point, while the other fiber's skirt at
+    a 3<!--c:afm_nanofiber_analyzer/imp_tools.py::remove_bp(remove_size)|2 * v + 1-->×3<!--c:afm_nanofiber_analyzer/imp_tools.py::remove_bp(remove_size)|2 * v + 1--> neighbourhood around a branch point, while the other fiber's skirt at
     a crossing extends past it, so the samples near a cut are partly the other
     fiber's height. On the test inputs the height at a cut end was raised above
     the fiber's own height and fell back within about one width
@@ -3418,16 +3418,16 @@ measurement be redone without re-analysing an image:
     A connected fibril's bridges, where no fiber was observed, are left out of
     that length too (§4.4).
 - **Reconnecting fragments** split at crossings lives in
-  `lib/fiber_connector.py`, and only GUI04 runs the search; other readers apply
+  `afm_nanofiber_analyzer/fiber_connector.py`, and only GUI04 runs the search; other readers apply
   the chains that search recorded.
-- **Manual exclusions** live in `lib/fiber_selection.py`.
+- **Manual exclusions** live in `afm_nanofiber_analyzer/fiber_selection.py`.
 - **The pixel size** enters only at measurement time. Every stage above is
   pixel-based, except ridge recovery (§2.6, off by default, whose settings are
   in nm and which does not run without a pixel size), which is why a stage
   parameter means the same thing regardless of whether the scan size was
   recorded. The other side of that choice is that the same parameter file acts
   at a different physical scale on every scan size — on a scan 1024<!--n:example--> pixels on
-  a side, a 12<!--c:lib/pipeline.py::ProcParams.spur_length--> px spur limit is about 23<!--x:12 * 2000 / 1024--> nm for a 2<!--n:example--> µm scan range and about
+  a side, a 12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.spur_length--> px spur limit is about 23<!--x:12 * 2000 / 1024--> nm for a 2<!--n:example--> µm scan range and about
   117<!--x:12 * 10000 / 1024--> nm for a 10<!--n:example--> µm one. The bundle records the settings the analysis ran
   with (`bundle_schema.PARAMS_KEY`) and the scan size
   (`bundle_schema.SPATIAL_CALIBRATION_KEY`), so what each pixel

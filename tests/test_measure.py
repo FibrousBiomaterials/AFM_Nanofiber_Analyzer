@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Tests for lib/measure.py using the synthetic bent-fiber image.
-合成の折れ繊維画像を用いた lib/measure.py のテスト。
+Tests for afm_nanofiber_analyzer/measure.py using the synthetic bent-fiber image.
+合成の折れ繊維画像を用いた afm_nanofiber_analyzer/measure.py のテスト。
 
 Like test_pipeline.py, these tests assert physically self-evident properties
 of the synthetic input (one fiber, drawn length, drawn height, one kink at the
@@ -12,9 +12,9 @@ test_pipeline.py と同様、合成入力の物理的に自明な性質（繊維
 
 The CSV identity test additionally guarantees that `cli.py measure` and the
 GUI04 export path produce byte-identical files, because both call
-`lib.measure.write_fiber_csv`.
+`afm_nanofiber_analyzer.measure.write_fiber_csv`.
 CSV 同一性テストは、`cli.py measure` と GUI04 のエクスポート経路がともに
-`lib.measure.write_fiber_csv` を呼ぶことで、バイト単位で同一のファイルを
+`afm_nanofiber_analyzer.measure.write_fiber_csv` を呼ぶことで、バイト単位で同一のファイルを
 出力することを保証する。
 """
 
@@ -26,26 +26,26 @@ import numpy as np
 import pytest
 
 import cli
-from lib import imp_tools
-from lib import measure as measure_module
-from lib.blosc2_io import load_bundle, load_bundle_meta, save_bundle
-from lib.bundle_schema import (
+from afm_nanofiber_analyzer import imp_tools
+from afm_nanofiber_analyzer import measure as measure_module
+from afm_nanofiber_analyzer.blosc2_io import load_bundle, load_bundle_meta, save_bundle
+from afm_nanofiber_analyzer.bundle_schema import (
     APPARENT_WIDTH_KEY, BUNDLE_FORMAT_VERSION, CENTERLINE_KEY, make_spatial_calibration,
 )
-from lib.centerline import DEFAULT_CENTERLINE_METHOD
-from lib.fiber import Fiber
-from lib.fiber_tracking_image import FiberTrackingImage
-from lib.connect_selection import (
+from afm_nanofiber_analyzer.centerline import DEFAULT_CENTERLINE_METHOD
+from afm_nanofiber_analyzer.fiber import Fiber
+from afm_nanofiber_analyzer.fiber_tracking_image import FiberTrackingImage
+from afm_nanofiber_analyzer.connect_selection import (
     ConnectionPlan,
     connect_path_for,
     plan_from_chains,
     save_connect_plan,
 )
-from lib.fiber_connector import ConnectParams
-from lib.fiber_selection import (
+from afm_nanofiber_analyzer.fiber_connector import ConnectParams
+from afm_nanofiber_analyzer.fiber_selection import (
     exclusion_path_for, fiber_anchor, fiber_track_pixels, save_exclusions,
 )
-from lib.measure import (
+from afm_nanofiber_analyzer.measure import (
     FIBER_CSV_COLUMNS,
     SCALE_SOURCE_ENTERED,
     SCALE_SOURCE_RECORDED,
@@ -72,7 +72,7 @@ from lib.measure import (
     write_fiber_csv,
     write_heights_csv,
 )
-from lib.pipeline import ProcParams, process_file
+from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 from tests.conftest import write_synthetic_fiber_txt
 
 # tophat keeps the test fast; physical assertions do not depend on bg_method.
@@ -134,7 +134,7 @@ def _auto_plan(bundle_path: str, params: ConnectParams = ConnectParams()):
     サイドカーは結果を保存するため、連結済みの母集団を使うテストはまずそれを作る
     必要がある。保存前のファイバートラッカーと同じ手順である。
     """
-    from lib.fiber_connector import plan_from_auto_connect
+    from afm_nanofiber_analyzer.fiber_connector import plan_from_auto_connect
 
     result = measure_bundle(bundle_path, scale_um=SCALE_UM)
     chains = plan_from_auto_connect(result.image, result.fragments, params)
@@ -1061,7 +1061,7 @@ def test_curvature_window_quantisation_belongs_to_pixel_chains():
     """
     from types import SimpleNamespace
 
-    from lib.centerline import polyline_distance
+    from afm_nanofiber_analyzer.centerline import polyline_distance
 
     spp = 1.953
     for radius_px in (100, 250):
@@ -1152,7 +1152,7 @@ def test_fiber_kink_angle_is_a_deprecated_alias():
     呼ばない。2.x 向けに書かれたスクリプトが動き続けるよう、3.0.0 まで名前は
     import できる。
     """
-    import lib.measure as measure
+    import afm_nanofiber_analyzer.measure as measure
 
     with pytest.warns(DeprecationWarning, match="removed in 3.0.0"):
         alias = measure.fiber_kink_angle
@@ -1654,7 +1654,7 @@ def test_height_sample_mask_excludes_cut_ends_and_bridges():
     ため、その脇の 1 幅も同じ理由で外す。本物の端は標本を残す。繊維は実際にそこで
     終わっている。
     """
-    from lib.measure import height_sample_mask
+    from afm_nanofiber_analyzer.measure import height_sample_mask
 
     mask = height_sample_mask(_flagged_fiber(ends=(39,), bridge=(20, 21, 22)))
     assert not mask[:4].any(), "the last width at the cut head is excluded"
@@ -1680,7 +1680,7 @@ def test_height_sample_mask_leaves_a_fragment_inside_its_zones_without_samples()
     そのような断片の標本はどれも交差を読むため、どれも戻さない。中央値・最大値・
     p90 は交差の値ではなく NaN になる。
     """
-    from lib.measure import compute_fiber_stats, height_sample_mask
+    from afm_nanofiber_analyzer.measure import compute_fiber_stats, height_sample_mask
 
     short = _flagged_fiber(n=6, ends=(), bridge=(2,))
     assert not height_sample_mask(short).any()
@@ -1758,7 +1758,7 @@ def test_fiber_height_is_the_crest_of_the_cross_section(measured):
     asymmetric section; the height reported is the top.
     線は半値中点にあり、非対称な断面では頂部の脇にある。報告する高さは頂部である。
     """
-    from lib.centerline import sample_height
+    from afm_nanofiber_analyzer.centerline import sample_height
 
     _bundle_path, result = measured
     cal = result.image.calibrated_image
@@ -1789,7 +1789,7 @@ def test_read_fiber_csv_accepts_the_development_column_set(measured, tmp_path):
     A CSV with the straightness column but none of the later ones still reads.
     straightness 列はあるが後の列が無い CSV も読める。
     """
-    from lib.measure import FIBER_CSV_COLUMNS_V2
+    from afm_nanofiber_analyzer.measure import FIBER_CSV_COLUMNS_V2
 
     _bundle_path, result = measured
     path = os.path.join(tmp_path, "v2_fibers.csv")
@@ -1853,7 +1853,7 @@ def test_frame_end_count_tells_the_frame_from_a_fiber_end():
     1 つしか持たない。
     """
     import dataclasses
-    from lib.measure import fiber_real_end_count
+    from afm_nanofiber_analyzer.measure import fiber_real_end_count
 
     inside = _straight_fiber(x0=5, x1=15, y=5)
     one_on_frame = _straight_fiber(x0=20, x1=39, y=10)
@@ -1889,7 +1889,7 @@ def test_kaplan_meier_weights_recover_lengths_cut_at_crossings():
     短く出るが、全長を見たファイバーの重み付き中央値は真の中央値へ戻らなければ
     ならない。
     """
-    from lib.measure import kaplan_meier_length_weights
+    from afm_nanofiber_analyzer.measure import kaplan_meier_length_weights
 
     rng = np.random.default_rng(0)
     true = 100.0 * np.exp(rng.normal(0.0, 0.6, 20000))
@@ -1945,7 +1945,7 @@ def test_frame_weight_recovers_the_length_distribution():
     しかない。長いファイバーほど収まりにくいためである。Miles-Lantuejoul 重みは
     それを真の 50 % へ戻さなければならない。
     """
-    from lib.measure import _frame_weight, _reaches_frame
+    from afm_nanofiber_analyzer.measure import _frame_weight, _reaches_frame
 
     rng = np.random.default_rng(0)
     size = 100
@@ -2006,7 +2006,7 @@ def test_read_fiber_csv_leaves_the_frame_unrecorded_in_an_older_csv(
     「記録なし」は「枠に触れない」と区別できなければならない。さもないと GUI03
     は古い出力の全ファイバーを、判定済みであるかのように残してしまう。
     """
-    from lib.measure import FIBER_CSV_COLUMNS_V3
+    from afm_nanofiber_analyzer.measure import FIBER_CSV_COLUMNS_V3
 
     _bundle_path, result = measured
     full = os.path.join(tmp_path, "full_fibers.csv")
@@ -2032,7 +2032,7 @@ def test_kink_density_leaves_the_bridges_out_of_its_divisor():
     A connected fibril's bridges were not observed, so the kink density divides by the length without them.
     連結フィブリルの橋渡し部は観測していないため、キンク密度はそれを除いた長さで割る。
     """
-    from lib.measure import FiberStats, fiber_kink_density
+    from afm_nanofiber_analyzer.measure import FiberStats, fiber_kink_density
     row = dict(index=0, length_nm=2000.0, height_median_nm=2.0, height_max_nm=3.0,
                ep_count=2, kink_count=2, kink_angles_deg=(150.0, 150.0), width_nm=50.0)
     plain = fiber_kink_density(FiberStats(**row))
@@ -2046,7 +2046,7 @@ def test_kink_density_is_blank_when_bridges_take_the_whole_judged_span():
     Bridges covering the whole judged span leave only a rounding residue, which reads as nothing judged.
     判定範囲全体を覆う橋渡し部は丸め誤差しか残さないため、何も判定していないとして空欄にする。
     """
-    from lib.measure import FiberStats, fiber_kink_density
+    from afm_nanofiber_analyzer.measure import FiberStats, fiber_kink_density
     # 200 nm less 2 x 1.5 x 50 nm leaves 50 nm judged; 50 nm of bridges take all of
     # it, and 0.2 - 0.15 - 0.05 is not exactly 0 in floating point.
     row = dict(index=0, length_nm=200.0, height_median_nm=2.0, height_max_nm=3.0,
@@ -2057,7 +2057,7 @@ def test_kink_density_is_blank_when_bridges_take_the_whole_judged_span():
 
 def test_the_bridge_columns_round_trip_through_the_csv(tmp_path):
     """The bridge columns are written and read back, and an older CSV reads as having no bridge."""
-    from lib.measure import (FIBER_CSV_COLUMNS, FIBER_CSV_COLUMNS_V4, FiberStats,
+    from afm_nanofiber_analyzer.measure import (FIBER_CSV_COLUMNS, FIBER_CSV_COLUMNS_V4, FiberStats,
                              read_fiber_csv, write_fiber_csv)
     row = FiberStats(index=0, length_nm=812.3, height_median_nm=2.5, height_max_nm=3.1,
                      ep_count=2, kink_count=1, kink_angles_deg=(121.0,),

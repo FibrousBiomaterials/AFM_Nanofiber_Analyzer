@@ -19,7 +19,7 @@ import os
 import numpy as np
 import pytest
 
-from lib.pipeline import ProcParams, process_file
+from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 from tests.conftest import REAL_DATA
 
 # Baseline statistics recorded with the default parameters (bg_method=trendfill)

@@ -19,8 +19,8 @@ import os
 import numpy as np
 
 import cli
-from lib.blosc2_io import load_bundle
-from lib.pipeline import ProcParams, process_file
+from afm_nanofiber_analyzer.blosc2_io import load_bundle
+from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 
 # tophat keeps these tests fast, mirroring tests/test_pipeline.py.
 FAST_PARAMS = ProcParams(bg_method="tophat")

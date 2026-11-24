@@ -28,10 +28,10 @@ import numpy as np
 # ===== Test / project libraries =====
 import pytest
 
-from lib.bg_calibrator import BG_METHOD_NAMES
-from lib.bundle_schema import pixel_size_nm
-from lib.pipeline import ProcParams, build_stages
-from lib.processed_image import ProcessedImage
+from afm_nanofiber_analyzer.bg_calibrator import BG_METHOD_NAMES
+from afm_nanofiber_analyzer.bundle_schema import pixel_size_nm
+from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
 ROWS, COLS = 64, 96
 

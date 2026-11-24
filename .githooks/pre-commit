@@ -16,7 +16,7 @@
 #      pending list of unverified lines may only shrink
 #      (scripts/check_doc_numbers.py).
 #   6. Versions — the package version must be later than the last release tag
-#      and the same in pyproject.toml and lib/__init__.py; a bundle-format bump
+#      and the same in pyproject.toml and afm_nanofiber_analyzer/__init__.py; a bundle-format bump
 #      must be listed in SUPPORTED_BUNDLE_VERSIONS, CHANGELOG.md [Unreleased]
 #      and both READMEs, with at least a MINOR version step; removing a
 #      ProcParams field needs a MAJOR step (scripts/check_versions.py).
@@ -43,7 +43,7 @@
 #      一致する出典の印が要る。未検証の行の一覧は減る方向にしか変えられない
 #      (scripts/check_doc_numbers.py)。
 #   6. バージョン — パッケージの版は最新のリリースタグより後で、pyproject.toml と
-#      lib/__init__.py で一致していなければならない。バンドル形式を上げたら
+#      afm_nanofiber_analyzer/__init__.py で一致していなければならない。バンドル形式を上げたら
 #      SUPPORTED_BUNDLE_VERSIONS・CHANGELOG.md の [Unreleased]・両 README に記載し、
 #      版を少なくとも MINOR 上げる。ProcParams のフィールド削除には MAJOR が要る
 #      (scripts/check_versions.py)。

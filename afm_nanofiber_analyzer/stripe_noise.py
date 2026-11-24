@@ -185,7 +185,7 @@ def evaluate_scan_lines(
     --------
     Ten scan lines raised by 10 nm, as when the feedback loop is lost:
 
-    >>> from lib.stripe_noise import evaluate_scan_lines
+    >>> from afm_nanofiber_analyzer.stripe_noise import evaluate_scan_lines
     >>> image = np.zeros((40, 32))
     >>> image[20:30] += 10.0
     >>> quality = evaluate_scan_lines(image)
@@ -287,7 +287,7 @@ def propose_clean_ranges(
 
     Examples
     --------
-    >>> from lib.stripe_noise import evaluate_scan_lines, propose_clean_ranges
+    >>> from afm_nanofiber_analyzer.stripe_noise import evaluate_scan_lines, propose_clean_ranges
     >>> image = np.zeros((40, 32))
     >>> image[20:30] += 10.0
     >>> propose_clean_ranges(evaluate_scan_lines(image))

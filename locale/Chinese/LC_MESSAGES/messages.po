@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-11-19 16:12+0900\n"
+"POT-Creation-Date: 2026-11-24 10:34+0900\n"
 "PO-Revision-Date: 2026-04-27 14:35+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh\n"
@@ -17,6 +17,159 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
+
+#: afm_nanofiber_analyzer/ui_tools.py:406
+msgid "ログ無し"
+msgstr "无日志"
+
+#: afm_nanofiber_analyzer/ui_tools.py:407
+msgid "保存するログがありません。"
+msgstr "没有可保存的日志。"
+
+#: afm_nanofiber_analyzer/ui_tools.py:414 guis/GUI00_Format_Converter.py:178
+#: guis/GUI01_Image_Preprocessor.py:1598
+#: guis/GUI03_Fiber_Morphology_Statistics.py:2321
+#: guis/GUI04_Tracking_fiber.py:1869 guis/GUI05_Thumbnail_Viewer.py:1609
+msgid "ログを保存"
+msgstr "保存日志"
+
+#: afm_nanofiber_analyzer/ui_tools.py:417
+msgid "Text"
+msgstr "文本"
+
+#: afm_nanofiber_analyzer/ui_tools.py:417
+msgid "All"
+msgstr "全部"
+
+#: afm_nanofiber_analyzer/ui_tools.py:430
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6592
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6653
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6791
+#: guis/GUI04_Tracking_fiber.py:3641 guis/GUI04_Tracking_fiber.py:3667
+msgid "保存失敗"
+msgstr "保存失败"
+
+#: afm_nanofiber_analyzer/ui_tools.py:431
+#, python-brace-format
+msgid ""
+"ログの保存に失敗しました:\n"
+"{e}"
+msgstr ""
+"日志保存失败:\n"
+"{e}"
+
+#: afm_nanofiber_analyzer/ui_tools.py:437
+#, python-brace-format
+msgid "ログを保存しました: {path}"
+msgstr "日志已保存: {path}"
+
+#: afm_nanofiber_analyzer/ui_tools.py:910
+msgid "CSV"
+msgstr "CSV"
+
+#: afm_nanofiber_analyzer/ui_tools.py:910
+msgid "All files"
+msgstr "所有文件"
+
+#: afm_nanofiber_analyzer/ui_tools.py:972 guis/GUI04_Tracking_fiber.py:1615
+#: guis/GUI04_Tracking_fiber.py:6263
+msgid "CSVで保存"
+msgstr "保存为 CSV"
+
+#: afm_nanofiber_analyzer/ui_tools.py:984
+#: afm_nanofiber_analyzer/ui_tools.py:2518 guis/GUI05_Thumbnail_Viewer.py:2046
+#: guis/GUI05_Thumbnail_Viewer.py:2903
+msgid "保存エラー"
+msgstr "保存错误"
+
+#: afm_nanofiber_analyzer/ui_tools.py:985
+#: guis/GUI03_Fiber_Morphology_Statistics.py:6592
+#, python-brace-format
+msgid ""
+"CSVの保存に失敗しました:\n"
+"{e}"
+msgstr ""
+"CSV 保存失败:\n"
+"{e}"
+
+#: afm_nanofiber_analyzer/ui_tools.py:990
+#, python-brace-format
+msgid "CSV 保存完了: {path}"
+msgstr "CSV 保存完成: {path}"
+
+#: afm_nanofiber_analyzer/ui_tools.py:1102
+msgid "パラメータを変更しました。Enter キーで確定するとグラフに反映されます。"
+msgstr "参数已更改。按 Enter 键确认后会反映到图表中。"
+
+#: afm_nanofiber_analyzer/ui_tools.py:1159
+#: guis/GUI01_Image_Preprocessor.py:2307
+msgid "Enter キーで確定します"
+msgstr "按 Enter 键确认"
+
+#: afm_nanofiber_analyzer/ui_tools.py:1345
+#: afm_nanofiber_analyzer/ui_tools.py:1355
+#: guis/GUI01_Image_Preprocessor.py:2442 guis/GUI01_Image_Preprocessor.py:2446
+#: guis/GUI01_Image_Preprocessor.py:3297 guis/GUI01_Image_Preprocessor.py:3461
+#: guis/GUI01_Image_Preprocessor.py:3477 guis/GUI01_Image_Preprocessor.py:3494
+#: guis/GUI01_Image_Preprocessor.py:4994 guis/GUI01_Image_Preprocessor.py:4999
+#: guis/GUI01_Image_Preprocessor.py:5103 guis/GUI01_Image_Preprocessor.py:5152
+#: guis/GUI01_Image_Preprocessor.py:5172 guis/GUI02_PlotProfiler.py:1184
+#: guis/GUI02_PlotProfiler.py:1188 guis/GUI02_PlotProfiler.py:1556
+#: guis/GUI02_PlotProfiler.py:1570 guis/GUI02_PlotProfiler.py:1805
+#: guis/GUI02_PlotProfiler.py:2293 guis/GUI02_PlotProfiler.py:2312
+#: guis/GUI02_PlotProfiler.py:2323 guis/GUI02_PlotProfiler.py:2331
+#: guis/GUI02_PlotProfiler.py:2475
+#: guis/GUI03_Fiber_Morphology_Statistics.py:5926
+#: guis/GUI04_Tracking_fiber.py:2050 guis/GUI04_Tracking_fiber.py:2054
+#: guis/GUI04_Tracking_fiber.py:2370 guis/GUI04_Tracking_fiber.py:2386
+#: guis/GUI04_Tracking_fiber.py:6933 guis/GUI04_Tracking_fiber.py:6936
+#: guis/GUI04_Tracking_fiber.py:6940 guis/GUI04_Tracking_fiber.py:6975
+#: guis/GUI04_Tracking_fiber.py:6978 guis/GUI05_Thumbnail_Viewer.py:2711
+#: guis/GUI05_Thumbnail_Viewer.py:2726 tests/test_gui02_profile_state.py:486
+msgid "エラー"
+msgstr "错误"
+
+#: afm_nanofiber_analyzer/ui_tools.py:1345
+#: guis/GUI01_Image_Preprocessor.py:2442 guis/GUI02_PlotProfiler.py:1184
+#: guis/GUI04_Tracking_fiber.py:2050 guis/GUI05_Thumbnail_Viewer.py:2711
+msgid "数値を入力してください"
+msgstr "请输入数值"
+
+#: afm_nanofiber_analyzer/ui_tools.py:1442
+#, python-brace-format
+msgid "vmin/vmax を自動設定: {lo} / {hi}"
+msgstr "自动设置 vmin/vmax: {lo} / {hi}"
+
+#: afm_nanofiber_analyzer/ui_tools.py:1506
+#, python-brace-format
+msgid ""
+"{0}: {1}\n"
+"{2}"
+msgstr ""
+"{0}: {1}\n"
+"{2}"
+
+#: afm_nanofiber_analyzer/ui_tools.py:2507
+msgid "図を保存"
+msgstr "保存图表"
+
+#: afm_nanofiber_analyzer/ui_tools.py:2519 guis/GUI05_Thumbnail_Viewer.py:2046
+#, python-brace-format
+msgid ""
+"保存に失敗しました:\n"
+"{e}"
+msgstr ""
+"图表保存失败:\n"
+"{e}"
+
+#: afm_nanofiber_analyzer/ui_tools.py:2522 guis/GUI05_Thumbnail_Viewer.py:2034
+#, python-brace-format
+msgid "保存: {path}"
+msgstr "已保存: {path}"
+
+#: afm_nanofiber_analyzer/ui_tools.py:2526
+msgid "保存完了"
+msgstr "保存完成"
 
 #: guis/GUI00_Format_Converter.py:119
 msgid "フォルダを選択してください。"
@@ -58,13 +211,6 @@ msgstr "详情"
 #: guis/GUI00_Format_Converter.py:174 guis/GUI05_Thumbnail_Viewer.py:1605
 msgid "ログ"
 msgstr "日志"
-
-#: guis/GUI00_Format_Converter.py:178 guis/GUI01_Image_Preprocessor.py:1598
-#: guis/GUI03_Fiber_Morphology_Statistics.py:2321
-#: guis/GUI04_Tracking_fiber.py:1869 guis/GUI05_Thumbnail_Viewer.py:1609
-#: lib/ui_tools.py:414
-msgid "ログを保存"
-msgstr "保存日志"
 
 #: guis/GUI00_Format_Converter.py:192
 msgid "未変換"
@@ -569,10 +715,6 @@ msgstr "坐标轴刻度"
 msgid "凡例"
 msgstr "图例"
 
-#: guis/GUI01_Image_Preprocessor.py:2307 lib/ui_tools.py:1159
-msgid "Enter キーで確定します"
-msgstr "按 Enter 键确认"
-
 #: guis/GUI01_Image_Preprocessor.py:2310 guis/GUI04_Tracking_fiber.py:7499
 #: guis/GUI04_Tracking_fiber.py:7664 guis/GUI04_Tracking_fiber.py:7788
 #: guis/GUI04_Tracking_fiber.py:7973 guis/GUI04_Tracking_fiber.py:8088
@@ -600,34 +742,6 @@ msgstr "比例尺"
 #: guis/GUI02_PlotProfiler.py:1152 guis/GUI02_PlotProfiler.py:1189
 msgid "は正の数を入力してください"
 msgstr "必须输入正数"
-
-#: guis/GUI01_Image_Preprocessor.py:2442 guis/GUI01_Image_Preprocessor.py:2446
-#: guis/GUI01_Image_Preprocessor.py:3297 guis/GUI01_Image_Preprocessor.py:3461
-#: guis/GUI01_Image_Preprocessor.py:3477 guis/GUI01_Image_Preprocessor.py:3494
-#: guis/GUI01_Image_Preprocessor.py:4994 guis/GUI01_Image_Preprocessor.py:4999
-#: guis/GUI01_Image_Preprocessor.py:5103 guis/GUI01_Image_Preprocessor.py:5152
-#: guis/GUI01_Image_Preprocessor.py:5172 guis/GUI02_PlotProfiler.py:1184
-#: guis/GUI02_PlotProfiler.py:1188 guis/GUI02_PlotProfiler.py:1556
-#: guis/GUI02_PlotProfiler.py:1570 guis/GUI02_PlotProfiler.py:1805
-#: guis/GUI02_PlotProfiler.py:2293 guis/GUI02_PlotProfiler.py:2312
-#: guis/GUI02_PlotProfiler.py:2323 guis/GUI02_PlotProfiler.py:2331
-#: guis/GUI02_PlotProfiler.py:2475
-#: guis/GUI03_Fiber_Morphology_Statistics.py:5926
-#: guis/GUI04_Tracking_fiber.py:2050 guis/GUI04_Tracking_fiber.py:2054
-#: guis/GUI04_Tracking_fiber.py:2370 guis/GUI04_Tracking_fiber.py:2386
-#: guis/GUI04_Tracking_fiber.py:6933 guis/GUI04_Tracking_fiber.py:6936
-#: guis/GUI04_Tracking_fiber.py:6940 guis/GUI04_Tracking_fiber.py:6975
-#: guis/GUI04_Tracking_fiber.py:6978 guis/GUI05_Thumbnail_Viewer.py:2711
-#: guis/GUI05_Thumbnail_Viewer.py:2726 lib/ui_tools.py:1345
-#: lib/ui_tools.py:1355 tests/test_gui02_profile_state.py:486
-msgid "エラー"
-msgstr "错误"
-
-#: guis/GUI01_Image_Preprocessor.py:2442 guis/GUI02_PlotProfiler.py:1184
-#: guis/GUI04_Tracking_fiber.py:2050 guis/GUI05_Thumbnail_Viewer.py:2711
-#: lib/ui_tools.py:1345
-msgid "数値を入力してください"
-msgstr "请输入数值"
 
 #: guis/GUI01_Image_Preprocessor.py:2776
 msgid "既存ファイル: 上書きON（解析開始前に上書き対象数をログ表示）"
@@ -2578,23 +2692,6 @@ msgstr "选择 CSV 保存目标文件夹"
 msgid "{n} 個のCSVを保存しました → {dir}"
 msgstr "已保存 {n} 个 CSV → {dir}"
 
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6592
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6653
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6791
-#: guis/GUI04_Tracking_fiber.py:3641 guis/GUI04_Tracking_fiber.py:3667
-#: lib/ui_tools.py:430
-msgid "保存失敗"
-msgstr "保存失败"
-
-#: guis/GUI03_Fiber_Morphology_Statistics.py:6592 lib/ui_tools.py:985
-#, python-brace-format
-msgid ""
-"CSVの保存に失敗しました:\n"
-"{e}"
-msgstr ""
-"CSV 保存失败:\n"
-"{e}"
-
 #: guis/GUI03_Fiber_Morphology_Statistics.py:6612
 msgid "先に群間比較を実行してください。"
 msgstr "请先执行组间比较。"
@@ -2981,11 +3078,6 @@ msgstr ""
 #: guis/GUI04_Tracking_fiber.py:1614
 msgid "ファイバー一覧"
 msgstr "纤维列表"
-
-#: guis/GUI04_Tracking_fiber.py:1615 guis/GUI04_Tracking_fiber.py:6263
-#: lib/ui_tools.py:972
-msgid "CSVで保存"
-msgstr "保存为 CSV"
 
 #: guis/GUI04_Tracking_fiber.py:1616
 msgid "計測値の説明"
@@ -4100,11 +4192,6 @@ msgstr "{name}: 无法读取 ({reason})"
 msgid "シートを保存中… {page} / {n_pages} ページ"
 msgstr "正在保存总览页… 第 {page} / {n_pages} 页"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2034 lib/ui_tools.py:2522
-#, python-brace-format
-msgid "保存: {path}"
-msgstr "已保存: {path}"
-
 #: guis/GUI05_Thumbnail_Viewer.py:2037
 #, python-brace-format
 msgid "{n} 件の画像は読み直せなかったため、シートでは空欄です: {names}"
@@ -4114,20 +4201,6 @@ msgstr "有 {n} 幅图像无法重新读取，在总览页中为空白: {names}"
 #, python-brace-format
 msgid "シートを保存できませんでした: {reason}"
 msgstr "无法保存总览页: {reason}"
-
-#: guis/GUI05_Thumbnail_Viewer.py:2046 guis/GUI05_Thumbnail_Viewer.py:2903
-#: lib/ui_tools.py:984 lib/ui_tools.py:2518
-msgid "保存エラー"
-msgstr "保存错误"
-
-#: guis/GUI05_Thumbnail_Viewer.py:2046 lib/ui_tools.py:2519
-#, python-brace-format
-msgid ""
-"保存に失敗しました:\n"
-"{e}"
-msgstr ""
-"图表保存失败:\n"
-"{e}"
 
 #: guis/GUI05_Thumbnail_Viewer.py:2050
 #, python-brace-format
@@ -4237,75 +4310,6 @@ msgstr "大小为保存的总览页上的磅值。超出单元格宽度的文件
 msgid "既定に戻す"
 msgstr "恢复默认值"
 
-#: lib/ui_tools.py:406
-msgid "ログ無し"
-msgstr "无日志"
-
-#: lib/ui_tools.py:407
-msgid "保存するログがありません。"
-msgstr "没有可保存的日志。"
-
-#: lib/ui_tools.py:417
-msgid "Text"
-msgstr "文本"
-
-#: lib/ui_tools.py:417
-msgid "All"
-msgstr "全部"
-
-#: lib/ui_tools.py:431
-#, python-brace-format
-msgid ""
-"ログの保存に失敗しました:\n"
-"{e}"
-msgstr ""
-"日志保存失败:\n"
-"{e}"
-
-#: lib/ui_tools.py:437
-#, python-brace-format
-msgid "ログを保存しました: {path}"
-msgstr "日志已保存: {path}"
-
-#: lib/ui_tools.py:910
-msgid "CSV"
-msgstr "CSV"
-
-#: lib/ui_tools.py:910
-msgid "All files"
-msgstr "所有文件"
-
-#: lib/ui_tools.py:990
-#, python-brace-format
-msgid "CSV 保存完了: {path}"
-msgstr "CSV 保存完成: {path}"
-
-#: lib/ui_tools.py:1102
-msgid "パラメータを変更しました。Enter キーで確定するとグラフに反映されます。"
-msgstr "参数已更改。按 Enter 键确认后会反映到图表中。"
-
-#: lib/ui_tools.py:1442
-#, python-brace-format
-msgid "vmin/vmax を自動設定: {lo} / {hi}"
-msgstr "自动设置 vmin/vmax: {lo} / {hi}"
-
-#: lib/ui_tools.py:1506
-#, python-brace-format
-msgid ""
-"{0}: {1}\n"
-"{2}"
-msgstr ""
-"{0}: {1}\n"
-"{2}"
-
-#: lib/ui_tools.py:2507
-msgid "図を保存"
-msgstr "保存图表"
-
-#: lib/ui_tools.py:2526
-msgid "保存完了"
-msgstr "保存完成"
-
 #: guis/GUI00_Format_Converter.py:39
 msgid ""
 "Image Preprocessor で読めない形式の AFM 測定ファイルを、Gwyddion のファイル読み込み機能で .gwy "
@@ -4324,10 +4328,11 @@ msgstr ""
 #: guis/GUI01_Image_Preprocessor.py:38
 msgid ""
 "AFMで撮影したナノファイバー画像に対して、以下の前処理を順に実行します。\n"
-"・バックグラウンド補正（lib/bg_calibrator.py）\n"
-"・二値化（lib/segmenter.py）\n"
-"・細線化（lib/skeletonizer.py）\n"
-"・EP（端点）、BP（分岐点）、DP（分解点）、KP（キンク点）、KA（キンク角）の抽出（lib/kink_detector.py）\n"
+"・バックグラウンド補正（afm_nanofiber_analyzer/bg_calibrator.py）\n"
+"・二値化（afm_nanofiber_analyzer/segmenter.py）\n"
+"・細線化（afm_nanofiber_analyzer/skeletonizer.py）\n"
+"・EP（端点）、BP（分岐点）、DP（分解点）、KP（キンク点）、KA（キンク角）の抽出（afm_nanofiber_analyzer/kink_detector.py）"
+"\n"
 "処理結果は1解析ファイルにつき1つの .b2z バンドル（blosc2 TreeStore）に統合保存されます。\n"
 "解析パラメータは同名の _param.json としても併せて出力されます。\n"
 "解析は別スレッド、UI更新はQueue経由です。\n"
@@ -4338,10 +4343,10 @@ msgid ""
 "  - 'spline1d'    : 行/列ごとの 1D B-スプライン補間 (端はそのラインの水準を保持)。\n"
 msgstr ""
 "对 AFM 拍摄的纳米纤维图像依次执行以下预处理。\n"
-"- 背景校正（lib/bg_calibrator.py）\n"
-"- 二值化（lib/segmenter.py）\n"
-"- 细线化/骨架化（lib/skeletonizer.py）\n"
-"- 提取 EP（端点）、BP（分支点）、DP（分解点）、KP（扭结点）、KA（扭结角）（lib/kink_detector.py）\n"
+"- 背景校正（afm_nanofiber_analyzer/bg_calibrator.py）\n"
+"- 二值化（afm_nanofiber_analyzer/segmenter.py）\n"
+"- 细线化/骨架化（afm_nanofiber_analyzer/skeletonizer.py）\n"
+"- 提取 EP（端点）、BP（分支点）、DP（分解点）、KP（扭结点）、KA（扭结角）（afm_nanofiber_analyzer/kink_detector.py）\n"
 "处理结果会按每个解析文件整合保存为一个 .b2z 包（blosc2 TreeStore）。\n"
 "解析参数也会作为同名的 _param.json 一并输出。\n"
 "解析在单独线程中运行，UI 更新通过 Queue 传递。\n"

@@ -46,15 +46,15 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir))
 
-from lib import measure  # noqa: E402
-from lib.afm_io import FORMAT_KINDS  # noqa: E402
-from lib.blosc2_io import BUNDLE_EXT, load_bundle, load_bundle_meta  # noqa: E402
-from lib.bundle_schema import (  # noqa: E402
+from afm_nanofiber_analyzer import measure  # noqa: E402
+from afm_nanofiber_analyzer.afm_io import FORMAT_KINDS  # noqa: E402
+from afm_nanofiber_analyzer.blosc2_io import BUNDLE_EXT, load_bundle, load_bundle_meta  # noqa: E402
+from afm_nanofiber_analyzer.bundle_schema import (  # noqa: E402
     PARAMS_KEY,
     SOURCE_REGION_KEY,
     SPATIAL_CALIBRATION_KEY,
 )
-from lib.pipeline import ProcParams, _sha256_of_file, merge_params_dict, process_file  # noqa: E402
+from afm_nanofiber_analyzer.pipeline import ProcParams, _sha256_of_file, merge_params_dict, process_file  # noqa: E402
 
 
 # ----------------------------------------------------------------------------

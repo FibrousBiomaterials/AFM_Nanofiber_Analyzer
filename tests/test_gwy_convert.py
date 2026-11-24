@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Tests for lib/gwy_convert.py and the ``cli.py convert`` subcommand.
-lib/gwy_convert.py と ``cli.py convert`` サブコマンドのテスト。
+Tests for afm_nanofiber_analyzer/gwy_convert.py and the ``cli.py convert`` subcommand.
+afm_nanofiber_analyzer/gwy_convert.py と ``cli.py convert`` サブコマンドのテスト。
 
 The selection rules and the converter lookup run everywhere. The conversions
 themselves need the optional ``gwyddionpy-converter`` package and are skipped
@@ -19,9 +19,9 @@ import numpy as np
 import pytest
 
 import cli
-from lib import gwy_convert
-from lib.afm_io import load_afm_image
-from lib.gwy_io import load_gwy_image
+from afm_nanofiber_analyzer import gwy_convert
+from afm_nanofiber_analyzer.afm_io import load_afm_image
+from afm_nanofiber_analyzer.gwy_io import load_gwy_image
 from tests.conftest import HIGHER_PLANT_DATA, PROJECT_ROOT
 
 

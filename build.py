@@ -2,10 +2,10 @@
 Build helper script for generating a PyInstaller bundle.
 PyInstaller バンドルを生成するためのビルド補助スクリプト。
 
-This script scans imports in `Main.py`, `guis/`, and `lib/`, collects
+This script scans imports in `Main.py`, `guis/`, and `afm_nanofiber_analyzer/`, collects
 PyInstaller materials for external packages, writes a spec, runs the build,
 and copies project and third-party license materials into the bundle.
-このスクリプトは `Main.py`、`guis/`、`lib/` の import を走査し、
+このスクリプトは `Main.py`、`guis/`、`afm_nanofiber_analyzer/` の import を走査し、
 外部パッケージの PyInstaller 材料を収集して spec を書き出し、ビルドを
 実行した後、プロジェクトと第三者依存のライセンス資料をバンドルへコピーする。
 
@@ -47,7 +47,7 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 PROJECT_DIR = Path(__file__).resolve().parent
 GUIS_DIR = PROJECT_DIR / "guis"
-LIB_DIR = PROJECT_DIR / "lib"
+LIB_DIR = PROJECT_DIR / "afm_nanofiber_analyzer"
 LOCALE_DIR = PROJECT_DIR / "locale"
 MAIN_PY = PROJECT_DIR / "Main.py"
 ASSETS_DIR = PROJECT_DIR / "assets"
@@ -57,7 +57,7 @@ SPEC_OUT = PROJECT_DIR / "Main.auto.spec"
 DIST_DIR = PROJECT_DIR / "dist"
 BUILD_DIR = PROJECT_DIR / "build"
 
-LOCAL_TOP_LEVEL = {"guis", "lib"}
+LOCAL_TOP_LEVEL = {"guis", "afm_nanofiber_analyzer"}
 LICENSE_DIR_NAME = "licenses"
 THIRD_PARTY_NOTICES_NAME = "THIRD_PARTY_NOTICES.txt"
 MISSING_LICENSE_TEXTS_NAME = "MISSING_LICENSE_TEXTS.txt"
@@ -75,13 +75,13 @@ EXTRA_HIDDENIMPORTS = {
 # Optional packages the project imports but the frozen build must not contain.
 # gwyddionpy_converter carries gwyconvert, a GPL program with about fifty
 # third-party DLLs; shipping it would make each release a GPL redistribution
-# (license texts and matching source for all of them). lib/gwy_convert.py
+# (license texts and matching source for all of them). afm_nanofiber_analyzer/gwy_convert.py
 # imports it only to locate the program, so the frozen GUI00 reports the
 # converter as missing unless GWYDDIONPY_CONVERT names one.
 # プロジェクトが import するが、凍結ビルドに含めてはならない任意パッケージ。
 # gwyddionpy_converter は GPL のプログラム gwyconvert と約 50 個の第三者 DLL を
 # 含み、同梱すると毎リリースが GPL の再配布になる（全部のライセンス本文と対応
-# するソースが必要）。lib/gwy_convert.py は場所を調べるためにだけ import するので、
+# するソースが必要）。afm_nanofiber_analyzer/gwy_convert.py は場所を調べるためにだけ import するので、
 # 凍結版の GUI00 は GWYDDIONPY_CONVERT で指定しない限り変換プログラムなしと報告する。
 OPTIONAL_EXCLUDED_PACKAGES = {
     "gwyddionpy_converter",
@@ -569,8 +569,8 @@ def _module_names_from_import(node: ast.AST) -> set[str]:
 
 def collect_project_imports() -> set[str]:
     """
-    Collect import names used by Main.py and project GUI/lib modules.
-    Main.py とプロジェクトの GUI/lib モジュールが使う import 名を収集する。
+    Collect import names used by Main.py and the project's GUI and package modules.
+    Main.py とプロジェクトの GUI・パッケージのモジュールが使う import 名を収集する。
 
     Returns
     -------
@@ -607,10 +607,10 @@ def _is_external_top_level(name: str, stdlib: set[str]) -> bool:
     ドット区切りの import 名が外部パッケージに属するかを返す。
 
     External means the top-level package is neither a local project package
-    (`guis`, `lib`) nor part of the Python standard library, so PyInstaller
-    must collect it.
+    (`guis`, `afm_nanofiber_analyzer`) nor part of the Python standard
+    library, so PyInstaller must collect it.
     外部とは、トップレベルパッケージがローカルのプロジェクトパッケージ
-    (`guis`, `lib`) でも Python 標準ライブラリでもないことを指し、
+    (`guis`, `afm_nanofiber_analyzer`) でも Python 標準ライブラリでもないことを指し、
     PyInstaller による収集が必要となる。
     """
     top_level = name.split(".", 1)[0]
@@ -653,8 +653,8 @@ def ensure_project_on_syspath() -> None:
 
 def verify_project_modules_importable() -> None:
     """
-    Import GUI/lib modules to surface missing dependencies early.
-    GUI/lib モジュールを実際に import し、依存不足を早期に顕在化させる。
+    Import the GUI and package modules to surface missing dependencies early.
+    GUI・パッケージのモジュールを実際に import し、依存不足を早期に顕在化させる。
 
     This is a pre-flight sanity check independent from dependency
     collection: if a module fails to import, the build cannot succeed,
@@ -672,7 +672,7 @@ def verify_project_modules_importable() -> None:
 
     errors: list[tuple[str, Exception]] = []
 
-    for folder, prefix in ((GUIS_DIR, "guis"), (LIB_DIR, "lib")):
+    for folder, prefix in ((GUIS_DIR, "guis"), (LIB_DIR, "afm_nanofiber_analyzer")):
         if not folder.exists():
             print(f"  [SKIP] {folder.name}/ not found.")
             continue

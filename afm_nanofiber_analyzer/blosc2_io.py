@@ -119,7 +119,7 @@ def _check_size_limit(declared_bytes: int, limit: int | None, path: str) -> None
         raise ValueError(
             f"array declares {declared_bytes} decompressed bytes, exceeding "
             f"the {limit}-byte limit (raise "
-            f"lib.blosc2_io.MAX_ARRAY_DECOMPRESSED_BYTES to load larger "
+            f"afm_nanofiber_analyzer.blosc2_io.MAX_ARRAY_DECOMPRESSED_BYTES to load larger "
             f"arrays): {path}"
         )
 
@@ -582,7 +582,7 @@ def save_bundle(path: str, arrays: dict, vlmeta: dict | None = None) -> None:
     Examples
     --------
     >>> import os, tempfile
-    >>> from lib.blosc2_io import save_bundle, load_bundle
+    >>> from afm_nanofiber_analyzer.blosc2_io import save_bundle, load_bundle
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     path = os.path.join(folder, "demo.b2z")
     ...     save_bundle(path, {"calibrated": np.arange(6.0).reshape(2, 3)})
@@ -675,7 +675,7 @@ def load_bundle(
     Loading only the keys a caller needs:
 
     >>> import os, tempfile
-    >>> from lib.blosc2_io import save_bundle, load_bundle
+    >>> from afm_nanofiber_analyzer.blosc2_io import save_bundle, load_bundle
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     path = os.path.join(folder, "demo.b2z")
     ...     save_bundle(path, {"calibrated": np.zeros((2, 2)),
@@ -759,8 +759,8 @@ def load_bundle_meta(path: str) -> dict:
     root:
 
     >>> import tempfile
-    >>> from lib.pipeline import ProcParams, process_file
-    >>> from lib.blosc2_io import load_bundle_meta
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.blosc2_io import load_bundle_meta
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder,
@@ -807,7 +807,7 @@ def bundle_array_shape(path: str, key: str) -> tuple[int, ...]:
     Examples
     --------
     >>> import os, tempfile
-    >>> from lib.blosc2_io import save_bundle, bundle_array_shape
+    >>> from afm_nanofiber_analyzer.blosc2_io import save_bundle, bundle_array_shape
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     path = os.path.join(folder, "demo.b2z")
     ...     save_bundle(path, {"calibrated": np.zeros((2, 3))})

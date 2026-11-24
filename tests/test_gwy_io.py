@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Tests for lib/gwy_io.py Gwyddion .gwy loading and the afm_io/pipeline dispatch.
-lib/gwy_io.py の Gwyddion .gwy 読み込みと afm_io/pipeline 振り分けのテスト。
+Tests for afm_nanofiber_analyzer/gwy_io.py Gwyddion .gwy loading and the afm_io/pipeline dispatch.
+afm_nanofiber_analyzer/gwy_io.py の Gwyddion .gwy 読み込みと afm_io/pipeline 振り分けのテスト。
 """
 
 import numpy as np
@@ -13,8 +13,8 @@ import pytest
 # ため、未インストール時はモジュール全体をスキップする。
 pytest.importorskip("gwyfile")
 
-from lib.afm_io import ScanSize, load_afm_image, read_scan_size
-from lib.gwy_io import (
+from afm_nanofiber_analyzer.afm_io import ScanSize, load_afm_image, read_scan_size
+from afm_nanofiber_analyzer.gwy_io import (
     list_gwy_channels,
     load_gwy_image,
     read_gwy_scan_size,
@@ -140,9 +140,9 @@ def test_afm_io_dispatch(synthetic_fiber_gwy):
 
 def test_pipeline_processes_gwy(synthetic_fiber_gwy, tmp_path):
     """process_file analyzes a .gwy and records gwy provenance + scan size."""
-    from lib.blosc2_io import load_bundle, load_bundle_meta
-    from lib.bundle_schema import REQUIRED_BUNDLE_KEYS, validate_bundle
-    from lib.pipeline import ProcParams, process_file
+    from afm_nanofiber_analyzer.blosc2_io import load_bundle, load_bundle_meta
+    from afm_nanofiber_analyzer.bundle_schema import REQUIRED_BUNDLE_KEYS, validate_bundle
+    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 
     result = process_file(synthetic_fiber_gwy, ProcParams(), output_dir=str(tmp_path))
 
@@ -163,8 +163,8 @@ def test_pipeline_processes_gwy(synthetic_fiber_gwy, tmp_path):
 
 def test_pipeline_channel_override(synthetic_fiber_gwy, tmp_path):
     """A gwy_channel override selects a non-default channel for analysis."""
-    from lib.blosc2_io import load_bundle_meta
-    from lib.pipeline import ProcParams, process_file
+    from afm_nanofiber_analyzer.blosc2_io import load_bundle_meta
+    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 
     result = process_file(
         synthetic_fiber_gwy, ProcParams(), output_dir=str(tmp_path),
@@ -176,7 +176,7 @@ def test_pipeline_channel_override(synthetic_fiber_gwy, tmp_path):
 
 def test_gwy_input_file_size_limit(synthetic_fiber_gwy, monkeypatch):
     """A .gwy larger than the shared input cap is rejected before parsing."""
-    import lib.afm_io as afm_io
+    import afm_nanofiber_analyzer.afm_io as afm_io
 
     monkeypatch.setattr(afm_io, "MAX_INPUT_FILE_BYTES", 16)
     with pytest.raises(ValueError, match="exceeding"):
@@ -213,7 +213,7 @@ def test_pipeline_refuses_gwy_without_a_length_channel(tmp_path, z_unit):
     A channel that records no unit at all is refused too: its values may be a
     height in metres or no height at all, and neither is a value in nm.
     """
-    from lib.pipeline import ProcParams, process_file
+    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 
     path = _write_single_channel_gwy(tmp_path / "no_height.gwy", z_unit=z_unit)
     with pytest.raises(ValueError, match="no channel with a length unit"):

@@ -21,12 +21,12 @@ import pytest
 
 from conftest import requires_tk
 
-from lib.blosc2_io import save_bundle
-from lib.bundle_schema import (
+from afm_nanofiber_analyzer.blosc2_io import save_bundle
+from afm_nanofiber_analyzer.bundle_schema import (
     BUNDLE_FORMAT_VERSION, CENTERLINE_KEY, SPATIAL_CALIBRATION_KEY,
     make_spatial_calibration,
 )
-from lib.centerline import DEFAULT_CENTERLINE_METHOD
+from afm_nanofiber_analyzer.centerline import DEFAULT_CENTERLINE_METHOD
 
 import guis.GUI02_PlotProfiler as gui02
 
@@ -274,11 +274,11 @@ def test_a_gwy_without_a_length_channel_is_refused(
 def test_gui02_refuses_the_gwy_files_the_pipeline_refuses(
     tk_app, tmp_path, dialogs, name,
 ):
-    # The rule is written in lib.pipeline.process_file and in GUI02; this
+    # The rule is written in afm_nanofiber_analyzer.pipeline.process_file and in GUI02; this
     # keeps the two from drifting apart.
-    # 規則は lib.pipeline.process_file と GUI02 の 2 か所にあるため、
+    # 規則は afm_nanofiber_analyzer.pipeline.process_file と GUI02 の 2 か所にあるため、
     # 両者がずれないことをここで確かめる。
-    from lib.pipeline import ProcParams, process_file
+    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 
     channels = NO_LENGTH_CHANNEL.get(name) or [
         ("Height", _ridge(64, 5.0) * 1e-9, 2.0, "m"),

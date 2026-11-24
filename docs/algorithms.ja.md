@@ -24,7 +24,7 @@
 
 コードは**シンボル名**（関数名やクラス名）で指し、行番号では指さない。行番号は、
 関係のない編集が 1<!--n:count--> 回入っただけでずれてしまうからである。たとえば
-`Segmenter._binaryzation` は `lib/segmenter.py` の中にある同じ名前のメソッド（クラスに
+`Segmenter._binaryzation` は `afm_nanofiber_analyzer/segmenter.py` の中にある同じ名前のメソッド（クラスに
 属する関数）を、`bg_calibrator.BG_METHOD_NAMES` はファイルに直接書かれた定数を指す。このページに
 出てくるシンボルは、テストを実行するたびに `tests/test_algorithm_docs.py` が
 ソースコードと突き合わせる。名前が変わったり消えたりするとテストが失敗するので、
@@ -37,7 +37,7 @@
 そのコードがどこから来たかを示す見出し行（ヘッダ）がある。
 
 ```text
-# source: lib/segmenter.py::Segmenter._binaryzation
+# source: afm_nanofiber_analyzer/segmenter.py::Segmenter._binaryzation
 ```
 
 ヘッダには、コードのあるファイルと、関数・メソッド（`Class.method` の形）・
@@ -51,7 +51,7 @@
 コードが実際に動くコードと食い違ったまま残ることはない。
 
 同じテストは、逆に、コードだけが変わって文書が古いまま残るずれも検査する。
-アルゴリズムのファイル（4<!--n:count--> つの段階と、中心線を置く `lib/centerline.py`）について、
+アルゴリズムのファイル（4<!--n:count--> つの段階と、中心線を置く `afm_nanofiber_analyzer/centerline.py`）について、
 コメントと説明文（docstring）を除いたコードから、内容が変われば必ず変わる短い
 識別値（ハッシュ）を作って記録している。コードの計算内容が変わると、記録を更新する
 までテストが通らない。テストが確かめるのは、コードが記録と一致することだけで、
@@ -140,7 +140,7 @@ Gwyddion .gwy            ->  gwy_io.load_gwy_image()     /  -> 高さ配列 (nm)
 
 ## 1. 背景補正
 
-**コード:** `lib/bg_calibrator.py` — `BGCalibrator.__call__` が
+**コード:** `afm_nanofiber_analyzer/bg_calibrator.py` — `BGCalibrator.__call__` が
 `_call_trendfill` / `_call_tophat` / `_call_spline1d` へ振り分ける。
 **入力:** `original_image`。**出力:** `calibrated_image`。
 
@@ -149,7 +149,7 @@ Gwyddion .gwy            ->  gwy_io.load_gwy_image()     /  -> 高さ配列 (nm)
 振り分けるだけである。
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator.__call__
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator.__call__
 if self.bg_method == 'tophat':
     self._call_tophat(image)
 elif self.bg_method == 'spline1d':
@@ -184,8 +184,8 @@ else:
 
 Savitzky–Golay フィルタは、少しずつずらした小さな窓の中で多項式を当てはめて、
 データをなめらかにするフィルタである。どの方式も、見積もった背景をこのフィルタで
-なめらかにする。窓の幅は `savgol_window`（既定 31<!--c:lib/pipeline.py::ProcParams.savgol_window--> 画素。1024<!--n:example--> 画素四方の画像なら、
-横幅のおよそ 3<!--x:31 / 1024 * 100--> %）、窓の中で当てはめる多項式の次数は `savgol_polyorder`（既定 1<!--c:lib/pipeline.py::ProcParams.savgol_polyorder-->、
+なめらかにする。窓の幅は `savgol_window`（既定 31<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.savgol_window--> 画素。1024<!--n:example--> 画素四方の画像なら、
+横幅のおよそ 3<!--x:31 / 1024 * 100--> %）、窓の中で当てはめる多項式の次数は `savgol_polyorder`（既定 1<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.savgol_polyorder-->、
 つまり直線）である。かけるのは X 方向（行に沿った方向）だけで、行と行の間（Y 方向）は
 ならさない。コードでは、`signal.savgol_filter` を、画像の最後の軸（行に沿った方向）に
 かかる既定の向きのまま呼んでいる。
@@ -210,7 +210,7 @@ X 方向だけにかけるのは、走査ライン（行）ごとの高さの水
 `BGCalibrator._store` を呼ぶ。
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._store
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._store
 image.calibrated_image = calibrated_image
 image.detection_image = (
     cv2.medianBlur(np.asarray(calibrated_image, dtype=np.float32), ksize=3)
@@ -249,7 +249,7 @@ $$
 違う。§1.3〜§1.5）だけを使って、最小二乗法で係数を求める。
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._fit_trend_surface
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._fit_trend_surface
 h, w = image.shape
 y_grid, x_grid = np.mgrid[0:h, 0:w]
 x_n = x_grid / max(w - 1, 1) * 2.0 - 1.0
@@ -280,7 +280,7 @@ return np.full(image.shape, float(np.mean(z)), dtype=np.float64)
 `_call_trendfill` は、次のように処理を呼び出す。
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._call_trendfill
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._call_trendfill
 self._detect_fiber_mask(image.original_image)
 self.bg_only, self.bg_sm = self._bg_generate(image.original_image, self.tri_difx_fill, self.tri_dify_fill)
 ...
@@ -303,7 +303,7 @@ self._store(image, calibrated_image)
 `BGCalibrator._detect_fiber_mask` が、4<!--n:count--> つの補助関数を順に呼ぶ。
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._detect_fiber_mask
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._detect_fiber_mask
 self.dif_x, self.dif_y = self._difXY(original)
 self.histx, self.histy, self.outx, self.outy = self._bg_fit(self.dif_x, self.dif_y)
 self.tri_difx, self.tri_dify = self._dif_sep(self.dif_x, self.dif_y, self.outx, self.outy)
@@ -315,13 +315,13 @@ self.tri_difx_fill, self.tri_dify_fill = self._extract_fiber(self.tri_difx, self
 この試料では繊維の側面にあたる。
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._difXY
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._difXY
 dif_x = image[:, 1:] - image[:, 0:-1]
 dif_y = image[1:, :] - image[0:-1, :]
 return dif_x, dif_y
 ```
 
-`_bg_fit` は、差分画像ごとに、高さの差の値がどのくらいの頻度で現れるかを 150<!--c:lib/bg_calibrator.py::BGCalibrator._bg_fit(bin_n)--> 区間の
+`_bg_fit` は、差分画像ごとに、高さの差の値がどのくらいの頻度で現れるかを 150<!--c:afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._bg_fit(bin_n)--> 区間の
 ヒストグラムにする。画像の大部分は平らな基板なので、隣り合う画素の差はほとんどが
 ノイズ程度の小さな値になり、ゼロ付近に高い山を作る。一方、繊維の斜面をまたぐ
 ところでは差が大きくなるので、山から離れた両側の裾に少しだけ現れる。この山に、
@@ -346,13 +346,13 @@ AFM は、探針を 1<!--n:count--> 本の走査ラインに沿って往復さ�
 ではなく画像中の最大の段差（粒子の縁やフィードバックの乱れ）で決まり、山が
 わずかな区間に収まってしまう。そうなると当てはめた幅と、そこから取るすべての
 しきい値が、最も極端な画素の組に左右される。そこで `BGCalibrator._noise_range` は、
-中央値 ± 8<!--c:lib/bg_calibrator.py::_NOISE_RANGE_SIGMAS--> 個分の頑健な標準偏差（中央絶対偏差の 1.4826<!--n:literal in the quoted code--> 倍。段差にも繊維にも
-動かされない）の範囲を取る。これで 150<!--c:lib/bg_calibrator.py::BGCalibrator._bg_fit(bin_n)--> 区間のそれぞれの幅は標準偏差の約 0.11<!--x:2 * 8 / 150--> 倍になり、
+中央値 ± 8<!--c:afm_nanofiber_analyzer/bg_calibrator.py::_NOISE_RANGE_SIGMAS--> 個分の頑健な標準偏差（中央絶対偏差の 1.4826<!--n:literal in the quoted code--> 倍。段差にも繊維にも
+動かされない）の範囲を取る。これで 150<!--c:afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._bg_fit(bin_n)--> 区間のそれぞれの幅は標準偏差の約 0.11<!--x:2 * 8 / 150--> 倍になり、
 山全体が範囲に収まる。範囲外の差は当てはめから外れるだけで、次の手順は引き続き
 すべての画素を分類する。
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._noise_range
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._noise_range
 values = np.ravel(dif)
 center = float(np.median(values))
 scale = 1.4826 * float(np.median(np.abs(values - center)))
@@ -363,7 +363,7 @@ return center - half, center + half
 ```
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._bg_fit
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._bg_fit
 histx = np.histogram(np.ravel(dif_x), bins=bin_n,
                      range=BGCalibrator._noise_range(dif_x))
 ...
@@ -392,7 +392,7 @@ $$
 \end{cases}
 $$
 
-ここで $\kappa$ は `threshold_factor`（既定 2.0<!--c:lib/pipeline.py::ProcParams.threshold_factor-->）である。つまり $\pm 1$ は「この段差は
+ここで $\kappa$ は `threshold_factor`（既定 2.0<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.threshold_factor-->）である。つまり $\pm 1$ は「この段差は
 基板のノイズにしては大きすぎる」という意味である。その境目は決まった nm の値
 ではなく、画像ごとのノイズの幅から決まる。$\Delta$ は右（下）の画素の高さから
 左（上）の画素の高さを引いた差なので、$+1$ は左から右（上から下）へ読み進めたときに
@@ -401,7 +401,7 @@ $$
 Y の地図も、Y の当てはめ結果から同じやり方で作る。
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._dif_sep
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._dif_sep
 outx_min = outx.best_values['pv1_center'] - self.threshold_factor * outx.best_values['pv1_sigma']
 outx_max = outx.best_values['pv1_center'] + self.threshold_factor * outx.best_values['pv1_sigma']
 ...
@@ -415,11 +415,11 @@ tri_difx = np.where(dif_x < outx_min, -1, 0) + np.where(dif_x > outx_max, 1, 0)
 画像の端を横切る繊維にも、端まで印が付く。
 
 - **パターン 1<!--n:label--> — `[+1, 0, -1]`**: 繊維の片側の斜面を上り、てっぺんで平らになり、
-  反対側の斜面を下る並び。平らな区間の長さが `fiber_detect_factor`（既定 10<!--c:lib/pipeline.py::ProcParams.fiber_detect_factor--> 画素）より
+  反対側の斜面を下る並び。平らな区間の長さが `fiber_detect_factor`（既定 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.fiber_detect_factor--> 画素）より
   短いときに繊維とみなす。つまり、てっぺんが繊維と言えるくらい狭い場合である。
 - **パターン 2<!--n:label--> — `[+1, -1]`**: てっぺんの平らな部分が見えないほど尖った山。
-  上りと下りを合わせた長さが `noise_detect_factor`（既定 10<!--c:lib/pipeline.py::ProcParams.noise_detect_factor--> 画素）を超えるときに
-  繊維とみなす。この条件によって、その長さが既定で 10<!--c:lib/pipeline.py::ProcParams.noise_detect_factor--> 画素以下の短い段差は
+  上りと下りを合わせた長さが `noise_detect_factor`（既定 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.noise_detect_factor--> 画素）を超えるときに
+  繊維とみなす。この条件によって、その長さが既定で 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.noise_detect_factor--> 画素以下の短い段差は
   ノイズとして捨てられる。それより短くても、同じ走査方向のほかの印とつながって
   `noise_detect_factor` より長い物体をなす印は繊維とみなす（コードの後で説明する）。
 
@@ -458,7 +458,7 @@ tri_difx = np.where(dif_x < outx_min, -1, 0) + np.where(dif_x > outx_max, 1, 0)
 代わりに `short_x` に入れる。Y の走査は、行と列を入れ替えただけの同じコードである。
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._extract_fiber
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._extract_fiber
 tri_difx_fill = np.zeros(tri_difx.shape)
 short_x = np.zeros(tri_difx.shape, dtype=bool)
 for j in range(tri_difx.shape[0]):
@@ -502,7 +502,7 @@ tri_dify_fill[self._lined_up_marks(tri_dify_fill, short_y)] = 1
 軸に沿う繊維がどうなるかは[個別データでの評価](validation.ja.md) §1.12 にある。
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._lined_up_marks
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._lined_up_marks
 keep = np.zeros(short.shape, dtype=bool)
 if not short.any():
     return keep
@@ -540,16 +540,16 @@ return keep
 この小さな印は、ほとんどがパターン 1<!--n:label--> から来る。1<!--n:count--> 行の中で印が付く長さは、パターン 1<!--n:label-->
 では最短で 2<!--x:1 + 1 + 1 - 1--> 画素（上り・平ら・下りが 1<!--n:definition--> 画素ずつで、最後の 1<!--n:definition--> 画素は印に含めない）、
 長さの判定で採ったパターン 2<!--n:label--> の印では `noise_detect_factor` 画素以上だからである。そうした印は、1<!--n:count--> 行
-だけでも `noise_detect_factor`（既定 10<!--c:lib/pipeline.py::ProcParams.noise_detect_factor-->）画素以上つながるので、面積がすでに次に説明する
-`min_mask_component_area`（既定 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area--> 画素）以上になる。それより短いパターン 2<!--n:label--> の印は、
+だけでも `noise_detect_factor`（既定 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.noise_detect_factor-->）画素以上つながるので、面積がすでに次に説明する
+`min_mask_component_area`（既定 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.min_mask_component_area--> 画素）以上になる。それより短いパターン 2<!--n:label--> の印は、
 `noise_detect_factor` より長い物体の一部としてだけ残るが、その物体が細く斜めに続くと
 面積はこれより小さくなりうる。それを除けば、既定の値どうしでは、面積がこれより
-小さなかたまりはパターン 1<!--n:label--> から来る。2<!--n:count--> つの既定値はどちらも 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area--> だが、
+小さなかたまりはパターン 1<!--n:label--> から来る。2<!--n:count--> つの既定値はどちらも 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.min_mask_component_area--> だが、
 別々のパラメータである（`noise_detect_factor` を小さくすると、パターン 2<!--n:label--> も小さなかたまりを作る。
-`BGCalibrator` をプログラムから直接作るときの既定値は 2<!--c:lib/bg_calibrator.py::BGCalibrator.__init__(noise_detect_factor)--> なので、この場合にあたる）。
+`BGCalibrator` をプログラムから直接作るときの既定値は 2<!--c:afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator.__init__(noise_detect_factor)--> なので、この場合にあたる）。
 
 そこで、斜め隣も含めてつながった（8<!--n:literal in the quoted code--> 連結の）かたまりのうち、面積が
-`min_mask_component_area`（既定 10<!--c:lib/pipeline.py::ProcParams.min_mask_component_area--> 画素）より小さいものを消す。これをしないと、
+`min_mask_component_area`（既定 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.min_mask_component_area--> 画素）より小さいものを消す。これをしないと、
 次の膨張で 1<!--n:count--> つの誤検出が一辺 $2d+1$ 画素の正方形に広がる（$d$ は次に説明する
 膨張の幅 `mask_dilation`）。マスクの部分は手順 3<!--n:label--> で背景の候補から外され、まわりの
 背景の値で埋められる（以下ではこの部分を「穴」と呼ぶ）。誤検出が広がった穴が
@@ -558,7 +558,7 @@ return keep
 
 **マスクの膨張**
 
-マスクを `mask_dilation` px（既定 3<!--c:lib/pipeline.py::ProcParams.mask_dilation-->）だけ外側へ太らせる。
+マスクを `mask_dilation` px（既定 3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.mask_dilation-->）だけ外側へ太らせる。
 繊維の「肩」（斜面のすそ）の画素は `_extract_fiber` では拾いきれず、まだ繊維の
 高さが少し残っている。これを背景の候補に残すと背景の推定が持ち上がり、
 繊維の両脇を引きすぎて、暗い縁取り（ハロー）ができる。
@@ -572,7 +572,7 @@ return keep
 落とす。Y の地図はその逆で、最初の列を落とす。
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._bg_generate
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._bg_generate
 raw_mask = (np.abs(tri_difx_fill[1:, :]) + np.abs(tri_dify_fill[:, 1:])) > 0
 if self.mask_dilation > 0 and self.min_mask_component_area > 1:
     n_cc, cc_labels, cc_stats, _cc_centroids = cv2.connectedComponentsWithStats(
@@ -606,7 +606,7 @@ else:
 足し戻す。これが背景になり、`_bg_calibrate` が元の画像から背景を引く。
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._bg_generate
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._bg_generate
 crop = original[1:, 1:]
 bg_only = np.where(~fiber_mask, crop, float('nan'))
 valid_mask = ~fiber_mask
@@ -625,14 +625,14 @@ return bg_only, bg_sm
 ```
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._bg_calibrate
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._bg_calibrate
 height_bgcalib = original[1:, 1:] - bg_sm
 return height_bgcalib
 ```
 
 ### 1.4 `tophat` — 高速・マスク不要
 
-`_call_tophat` は、直径 `tophat_se_size`（既定 25<!--c:lib/pipeline.py::ProcParams.tophat_se_size--> px）の円盤（コードでは
+`_call_tophat` は、直径 `tophat_se_size`（既定 25<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.tophat_se_size--> px）の円盤（コードでは
 `cv2.MORPH_ELLIPSE`）を使った**オープニング**（opening）で背景を見積もる。
 
 オープニングは、次の 2<!--n:count--> つの操作を続けて行う処理である。細い出っ張りだけを消し、
@@ -668,7 +668,7 @@ white top-hat と呼ばれる操作にあたる。
 トレンドを戻す。
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._call_tophat
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._call_tophat
 se = cv2.getStructuringElement(
     cv2.MORPH_ELLIPSE,
     (self.tophat_se_size, self.tophat_se_size),
@@ -724,7 +724,7 @@ calibrated_image -= np.median(calibrated_image)
 ### 1.5 `spline1d` — ラインノイズの目立つ測定データ向きの方式
 
 `_call_spline1d` は、`trendfill` と同じ繊維のマスクを使う。そのうえで、
-`spline1d_axis` が指す向きのライン 1<!--n:count--> 本ごとに、次数 `spline1d_degree`（既定 2<!--c:lib/pipeline.py::ProcParams.spline1d_degree-->）の
+`spline1d_axis` が指す向きのライン 1<!--n:count--> 本ごとに、次数 `spline1d_degree`（既定 2<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.spline1d_degree-->）の
 1<!--n:definition--> 次元 B スプラインで穴を埋める（直線で埋める場合は後で述べる）。スプラインで埋めるとき、
 その曲線は、点を必ず通るのではなく、点の近くをなめらかに通る曲線（平滑化スプライン）である。コードは pandas の `interpolate(method='spline')` を
 呼び、pandas はこれを `scipy.interpolate.UnivariateSpline` で計算する。そのとき平滑化の
@@ -761,7 +761,7 @@ Savitzky–Golay フィルタをかける。この順番の違いに、結果を
 しかも隣のラインとは無関係に出るので、ラインごとに勝手な帯模様ができてしまう。
 そこで `_spline1d_fill` は、両端の区間を**そのライン自身の、端にいちばん近い背景の
 値の平均**で一定に埋める。平均する値の数（`end_window`）には `savgol_window`
-（既定 31<!--c:lib/pipeline.py::ProcParams.savgol_window-->）を使う。既定の `'x'` では、トレンドを引いた後の画像で
+（既定 31<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.savgol_window-->）を使う。既定の `'x'` では、トレンドを引いた後の画像で
 ラインごとに残る量は、ほぼ走査ラインの高さのずれだけである。これはラインに
 沿って一定なので、平均の高さで一定に埋めれば、傾きを延ばさずにこのずれを
 見積もれる（`'y'` のときは、走査ラインではなく画像の列ごとに、その列の平均の高さで
@@ -771,7 +771,7 @@ Savitzky–Golay フィルタをかける。この順番の違いに、結果を
 背景の画素の値で埋める。
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._call_spline1d
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._call_spline1d
 self._detect_fiber_mask(original)
 self.bg_only, _ = self._bg_generate(original, self.tri_difx_fill, self.tri_dify_fill)
 ...
@@ -809,7 +809,7 @@ calibrated_image = original[1:, 1:] - self.bg_sm
 | `calibrated_image = ...` | 元の画像から背景を引く（「全体を通じた表記規則」） |
 
 ```python
-# source: lib/bg_calibrator.py::BGCalibrator._spline1d_fill
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._spline1d_fill
 if n_valid < 2:
     continue
 s = pd.Series(line)
@@ -843,7 +843,7 @@ filled[last + 1:] = np.mean(line[valid_pos[-k:]])
 
 ## 2. 二値化
 
-**コード:** `lib/segmenter.py` — `Segmenter.__call__`。
+**コード:** `afm_nanofiber_analyzer/segmenter.py` — `Segmenter.__call__`。
 **入力:** `calibrated_image`。**出力:** `binarized_image`。
 
 この段階は、背景補正後の高さ画像の各画素を、繊維かそれ以外かに分ける。結果は、
@@ -868,7 +868,7 @@ filled[last + 1:] = np.mean(line[valid_pos[-k:]])
 `detection_image`（任意の中央値フィルタをかけた後の補正済み高さ、§1.2）から取る。
 
 ```python
-# source: lib/segmenter.py::Segmenter.__call__
+# source: afm_nanofiber_analyzer/segmenter.py::Segmenter.__call__
 heights = getattr(image, "detection_image", None)
 if heights is None:
     heights = image.calibrated_image
@@ -904,9 +904,9 @@ $$
 \text{mask} = (h > t_{\text{global}}) \;\wedge\; (h > t_{\text{local}}(x,y))
 $$
 
-全体のしきい値 `global_threshold`（既定 0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm）は、基板から測った高さそのもので
+全体のしきい値 `global_threshold`（既定 0.3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.global_threshold--> nm）は、基板から測った高さそのもので
 ある。背景補正が欠かせないのは、この値のためである。局所のしきい値は、
-`skimage.filters.threshold_local` を窓の幅 `wsize_localbin` px（既定 17<!--c:lib/pipeline.py::ProcParams.wsize_localbin-->）で使ったもので、
+`skimage.filters.threshold_local` を窓の幅 `wsize_localbin` px（既定 17<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.wsize_localbin-->）で使ったもので、
 その画素の周りの重み付き平均であり、場所ごとに変わる。
 
 両方を満たすことを求めるのは、わざとである。局所のしきい値だけでは、何もない
@@ -929,7 +929,7 @@ $$
 （オフセット 0<!--n:library default (skimage.filters.threshold_local offset)-->）。
 
 ```python
-# source: lib/segmenter.py::Segmenter._binaryzation
+# source: afm_nanofiber_analyzer/segmenter.py::Segmenter._binaryzation
 binary_global = image > global_threshold
 local_threshold = threshold_local(image, wsize_localbin)
 binary_local = image > local_threshold
@@ -940,12 +940,12 @@ return binary_final
 ### 2.2 面積フィルタ
 
 `_remove_small_fragments` は、斜め隣も含めてつながった（8<!--n:literal in the quoted code--> 連結の）かたまりの
-うち、面積が `area_min`（既定 100<!--c:lib/pipeline.py::ProcParams.area_min--> 画素）以下のものを消す。続けて 3<!--n:literal in the quoted code-->×3<!--n:literal in the quoted code--> の
+うち、面積が `area_min`（既定 100<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.area_min--> 画素）以下のものを消す。続けて 3<!--n:literal in the quoted code-->×3<!--n:literal in the quoted code--> の
 中央値フィルタをかける。これで、ぽつんと孤立した画素が消え、かたまりの縁の
 ギザギザがならされる。
 
 ```python
-# source: lib/segmenter.py::Segmenter._remove_small_fragments
+# source: afm_nanofiber_analyzer/segmenter.py::Segmenter._remove_small_fragments
 out_binary_image = binary_image.copy()
 n_labels, label_image, stats, centers = cv2.connectedComponentsWithStats(
     np.uint8(out_binary_image), 8
@@ -969,7 +969,7 @@ return out_binary_image.astype(bool)
   入力では、大きなかたまりを検査しても消えるものは無く、検査を省いても結果は
   変わらなかった（[個別データでの評価](validation.ja.md) §2.6）。ただし、大きな汚れの
   かたまりのような、線の形をしていない大きなものも、検査されずに残る。
-- 最大の差し渡しが `h_length`（既定 20<!--c:lib/pipeline.py::ProcParams.h_length--> px）より短いかたまりは消す。必要な長さの
+- 最大の差し渡しが `h_length`（既定 20<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.h_length--> px）より短いかたまりは消す。必要な長さの
   線が入りようがないからである。最大の差し渡し（`_max_extent_px`、最大フェレ径）は、
   かたまりの画素の角どうしの最長の距離である。かたまりを囲む長方形（バウンディング
   ボックス）の辺を使わないのは、長方形が縦横の向きにそろっているためである。斜めに
@@ -991,7 +991,7 @@ return out_binary_image.astype(bool)
   である。輪郭が長い直線に沿うほど大きくなる。ただし割合ではない。輪郭の点
   1<!--n:count--> つは、傾きや位置が少しずつ違う何本もの直線に票を入れるので、投票数の合計は
   輪郭の画素数を超えることがあり、$s_{\text{ratio}} > 1$ にもなりうる。
-  $s_{\text{ratio}}$ が `h_sratio`（既定 0.5<!--c:lib/pipeline.py::ProcParams.h_sratio-->）より小さいかたまりを消す（コードには
+  $s_{\text{ratio}}$ が `h_sratio`（既定 0.5<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.h_sratio-->）より小さいかたまりを消す（コードには
   「画素数が 1000<!--n:literal in the quoted code--> より少ない」という条件も書いてあるが、1<!--n:label--> つ目の項目で 1000<!--n:literal in the quoted code--> 画素以上は
   すでに除いてあるので、結果は変わらない）。
 
@@ -1005,7 +1005,7 @@ return out_binary_image.astype(bool)
 最大の差し渡しは、かたまりの画素の角を囲む凸包の頂点どうしの最長の距離である。
 
 ```python
-# source: lib/segmenter.py::_max_extent_px
+# source: afm_nanofiber_analyzer/segmenter.py::_max_extent_px
 ys, xs = np.nonzero(mask)
 corners = np.concatenate(
     [np.column_stack((xs + dx, ys + dy)) for dx in (0, 1) for dy in (0, 1)]
@@ -1045,7 +1045,7 @@ $h_{\text{length}} / \sqrt{2}$（45<!--n:definition--> 度の直線）を渡し�
 数える解析では、この性質に注意してほしい。
 
 ```python
-# source: lib/segmenter.py::Segmenter._remove_nonlinear_objects
+# source: afm_nanofiber_analyzer/segmenter.py::Segmenter._remove_nonlinear_objects
 for i in range(1, n_labels):
     left, top, width, height, area = stats[i]
     if area >= 1000:
@@ -1080,7 +1080,7 @@ for i in range(1, n_labels):
 比較は厳密で、投票数がその角度でのしきい値と等しい直線は拾わない。
 `skimage.transform.hough_line_peaks` も、自分の `threshold` 引数を同じように扱う。
 
-コードの `linegap` は、この関数の引数で、既定は 1<!--c:lib/segmenter.py::Segmenter._remove_nonlinear_objects(linegap)--> である（`Segmenter.__call__` はこの引数を
+コードの `linegap` は、この関数の引数で、既定は 1<!--c:afm_nanofiber_analyzer/segmenter.py::Segmenter._remove_nonlinear_objects(linegap)--> である（`Segmenter.__call__` はこの引数を
 渡さないので、いつも既定値が使われる）。`skimage.transform.hough_line_peaks` の引数
 min_distance と min_angle は、直線どうしを別のピークとして区別する近さを、原点からの
 距離の目盛りと角度の目盛りで表したものである。まず、距離で ±min_distance 目盛り、
@@ -1095,13 +1095,13 @@ min_distance と min_angle は、直線どうしを別のピークとして区�
 
 `_remove_connecting_fragments` は、マスクを一回り縮め（収縮。`skimage.morphology.binary_erosion` の
 既定のとおり、上下左右に 1<!--n:definition--> 画素ずつ削る）、面積が
-`area_min_connecting`（既定 3<!--c:lib/pipeline.py::ProcParams.area_min_connecting--> 画素）以下のかたまりを消し、膨張で元の太さに
+`area_min_connecting`（既定 3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.area_min_connecting--> 画素）以下のかたまりを消し、膨張で元の太さに
 戻してからクロージング（§2.7）をかける。ねらいは、幅 1<!--n:intent--> 画素の細い橋でつながった破片を
 切り離すことである。これが実行されるのは `apply_no_connecting` が有効なときだけで、
 既定では**無効**である。
 
 ```python
-# source: lib/segmenter.py::Segmenter._remove_connecting_fragments
+# source: afm_nanofiber_analyzer/segmenter.py::Segmenter._remove_connecting_fragments
 out_binary_image = binary_image.copy()
 out_binary_image = binary_erosion(out_binary_image)
 n_labels, label_image, stats, centers = cv2.connectedComponentsWithStats(
@@ -1119,7 +1119,7 @@ return out_binary_image
 ### 2.5 高さフィルタ
 
 `remove_low_component` は、背景補正後の画像で見たときに、**いちばん高い点**の
-高さが `low_threshold`（既定 1.8<!--c:lib/pipeline.py::ProcParams.low_threshold--> nm）に届かないかたまりを消す。かたまりは、
+高さが `low_threshold`（既定 1.8<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.low_threshold--> nm）に届かないかたまりを消す。かたまりは、
 どれか一つの画素でも `low_threshold` に届けば残る。つまりこの判定が見るのは、
 かたまりの最も高い点がどれだけ高いかであり、かたまりに沿った高さではない。
 そのため、しきい値に届く繊維と同じかたまりにある低い筋や、しきい値に届く粒子が
@@ -1128,7 +1128,7 @@ return out_binary_image
 [個別データでの評価](validation.ja.md) §2.7 に記した。
 
 ```python
-# source: lib/segmenter.py::Segmenter.remove_low_component
+# source: afm_nanofiber_analyzer/segmenter.py::Segmenter.remove_low_component
 labels = np.arange(1, n_labels)
 max_heights = ndi_maximum(height_image, labels=label_image, index=labels)
 low_labels = labels[np.asarray(max_heights) < self.low_threshold]
@@ -1163,15 +1163,15 @@ return out_binary_image
    すでにある繊維にまったく触れていないかたまりだけを拾うやり方では、そうした
    繊維は丸ごと捨てられてしまう。しかも長い繊維ほど触れやすい。
 4. 残ったかたまりのうち、スケルトンの長さに画素の大きさを掛けた値が
-   `ridge_min_length_nm`（既定 100<!--c:lib/pipeline.py::ProcParams.ridge_min_length_nm--> nm）以上のものだけを採る。各かたまりは、
+   `ridge_min_length_nm`（既定 100<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.ridge_min_length_nm--> nm）以上のものだけを採る。各かたまりは、
    二値マスクと同じく `skimage.morphology.thin` で細線化する（§3.1）。その範囲は、
    外接矩形に 1<!--n:definition--> 画素の空の余白を付けたものである。長さ
    （`_skeleton_path_length_px`）は、そのスケルトンを通る最も長い経路に沿って測る。
    経路は、8<!--n:definition--> 連結の画素上の 2<!--n:count--> 回の最短経路探索で求める（任意の画素から
    最も遠い画素へ、そこからさらに最も遠い画素へ）。そのため、幅のある領域を細線化すると
    端の近くに生え、本数がリッジの向きで変わる横枝は数えない。経路に沿った長さは
-   Vossepoel と Smeulders（1982<!--n:citation-->）の角数え推定で、縦横の一歩を 0.980<!--c:lib/segmenter.py::_LENGTH_WEIGHT_ORTHOGONAL-->、斜めの一歩を
-   1.406<!--c:lib/segmenter.py::_LENGTH_WEIGHT_DIAGONAL--> と数え、一つ前と向きの違う一歩ごとに 0.091<!--c:lib/segmenter.py::_LENGTH_WEIGHT_CORNER|-v--> を引く。この引き算が、軸と対角の
+   Vossepoel と Smeulders（1982<!--n:citation-->）の角数え推定で、縦横の一歩を 0.980<!--c:afm_nanofiber_analyzer/segmenter.py::_LENGTH_WEIGHT_ORTHOGONAL-->、斜めの一歩を
+   1.406<!--c:afm_nanofiber_analyzer/segmenter.py::_LENGTH_WEIGHT_DIAGONAL--> と数え、一つ前と向きの違う一歩ごとに 0.091<!--c:afm_nanofiber_analyzer/segmenter.py::_LENGTH_WEIGHT_CORNER|-v--> を引く。この引き算が、軸と対角の
    間の向きの直線が作る階段を補正する。画素の数で数えると、斜めの区間はおよそ
    $\sqrt{2}$ 分の 1<!--n:definition--> に短く読まれるが、この長さではそうならない。ただし、画素から
    求めるどの推定も、全方向をまったく同じ長さには読めない。
@@ -1186,8 +1186,8 @@ Frangi フィルタは等方的で、1<!--n:count--> つのスケールはどの
 手順はすべてそこで行い、回収したマスクを走査の行へ戻してから
 （`segmenter._from_square_pixels`）、採用済みの画素を除く。正方画素では何も描き直さない。
 
-Frangi フィルタのスケールの範囲の既定は、`ridge_min_width_nm` = 3.0<!--c:lib/pipeline.py::ProcParams.ridge_min_width_nm--> nm、
-`ridge_max_width_nm` = 20.0<!--c:lib/pipeline.py::ProcParams.ridge_max_width_nm--> nm である。
+Frangi フィルタのスケールの範囲の既定は、`ridge_min_width_nm` = 3.0<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.ridge_min_width_nm--> nm、
+`ridge_max_width_nm` = 20.0<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.ridge_max_width_nm--> nm である。
 
 既定で無効にしているのは、古いパラメータファイルで解析し直したときに数値が
 変わらないようにするためである。パラメータファイルに無い項目は、読み込むときに
@@ -1202,7 +1202,7 @@ Frangi フィルタのスケールの範囲の既定は、`ridge_min_width_nm` =
 高いしきい値の 0.3<!--n:literal in the quoted code--> 倍に置き換える。
 
 ```python
-# source: lib/segmenter.py::Segmenter._recover_missed_ridges
+# source: afm_nanofiber_analyzer/segmenter.py::Segmenter._recover_missed_ridges
 if not self.ridge_recovery or not nm_per_px or nm_per_px <= 0:
     return empty
 rows = np.asarray(binary_image).shape[0]
@@ -1250,7 +1250,7 @@ return recovered
 手順 4<!--n:label--> の長さ：
 
 ```python
-# source: lib/segmenter.py::_skeleton_path_length_px
+# source: afm_nanofiber_analyzer/segmenter.py::_skeleton_path_length_px
 s = np.asarray(skeleton, dtype=bool)
 labels, n_pieces = ndi_label(s, structure=np.ones((3, 3), dtype=bool))
 longest = 0.0
@@ -1305,7 +1305,7 @@ return longest
 
 ## 3. 細線化
 
-**コード:** `lib/skeletonizer.py`（端点・分岐点の判定などの補助関数は `lib/imp_tools.py`）。
+**コード:** `afm_nanofiber_analyzer/skeletonizer.py`（端点・分岐点の判定などの補助関数は `afm_nanofiber_analyzer/imp_tools.py`）。
 **入力:** `binarized_image`、`calibrated_image`。
 **出力:** `skeleton_image`（スケルトン）、`ep`（端点の地図）、`bp`（分岐点の地図。端点と分岐点を
 どう判定するかは §3.8）、
@@ -1327,7 +1327,7 @@ return longest
 `detection_image` から読む（§1.2）。
 
 ```python
-# source: lib/skeletonizer.py::Skeletonizer.__call__
+# source: afm_nanofiber_analyzer/skeletonizer.py::Skeletonizer.__call__
 heights = getattr(image, "detection_image", None)
 if heights is None:
     heights = image.calibrated_image
@@ -1379,7 +1379,7 @@ image.bp = imp_tools.branchedPoints(nosmall_skeleton_image)
 最初のスケルトンは `thin_ignoring_image_border` が作る。処理の順番は次のとおりである。
 
 1. マスクをそのまま細線化し、その結果を `plain` とする。
-2. 拡張する幅 `pad`（`DEFAULT_BORDER_PAD` = 12<!--c:lib/skeletonizer.py::DEFAULT_BORDER_PAD--> px。利用者が変えるパラメータではなく、固定の
+2. 拡張する幅 `pad`（`DEFAULT_BORDER_PAD` = 12<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_BORDER_PAD--> px。利用者が変えるパラメータではなく、固定の
    値）が 0<!--n:literal in the quoted code--> 以下なら、`plain` を返して終わる。
 3. 画像のいちばん外側の画素の値を、外へ `pad` 画素分くり返して並べて画像を拡張する
    （`np.pad` の `mode='edge'`）。これを細線化してから拡張した部分を切り落とし、
@@ -1445,7 +1445,7 @@ cropped off）は拡張した部分を切り落とした結果（`padded`）で�
 画素として作った。
 
 ```python
-# source: lib/skeletonizer.py::thin_ignoring_image_border
+# source: afm_nanofiber_analyzer/skeletonizer.py::thin_ignoring_image_border
 mask = (np.asarray(binary_image) > 0).astype(np.uint8)
 plain = thin(mask).astype(np.uint8)
 if pad <= 0:
@@ -1575,7 +1575,7 @@ mask                        thin
 §3.4 のループの高さチェックと §3.6 のフック切除があるが、分岐点を高さで分ける
 のはここだけである。
 
-`set_low_bp_coor` は、背景補正後の高さを `bp_height`（既定 10<!--c:lib/pipeline.py::ProcParams.bp_height--> nm）と比べて、
+`set_low_bp_coor` は、背景補正後の高さを `bp_height`（既定 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.bp_height--> nm）と比べて、
 スケルトンの分岐点を**低い**ものと**高い**ものに分ける。§3.3〜§3.5 では、端点から
 分岐点までの線を**腕**と呼び、刈ると決めた腕を**枝**と呼ぶ。後で説明する探索で
 腕が刈られるのは、低い分岐点にたどり着いたか、行き止まりになったときだけである。
@@ -1585,20 +1585,20 @@ mask                        thin
 一方が他方の上に乗り、高さが足し合わされるので、そこの分岐点はどちらの繊維よりも
 高くなる。したがって、この区別が働くかどうかは繊維の高さによる。繊維が `bp_height`
 よりずっと低いと、交差も含めてすべての分岐点が「低い」になり、区別は何もしない。
-また、§3.5 のとげ刈りは、長さ `spur_length`（既定 12<!--c:lib/pipeline.py::ProcParams.spur_length--> px）以下のとげを、高さに関係なく
-刈る。この処理が調べる腕も長さ `branch_length`（既定 12<!--c:lib/pipeline.py::ProcParams.branch_length--> px）以下なので、高い分岐点に
+また、§3.5 のとげ刈りは、長さ `spur_length`（既定 12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.spur_length--> px）以下のとげを、高さに関係なく
+刈る。この処理が調べる腕も長さ `branch_length`（既定 12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.branch_length--> px）以下なので、高い分岐点に
 接していてここで残った腕も、§3.5 で刈られうる。そのため同梱のスキャンでは、この
 処理があってもなくても、最終的なスケルトンはほとんど変わらない（[個別データでの評価](validation.ja.md)
 §3.2。§3.5 のとげ刈りを止めると、この処理の有無で差が出る）。
 
 ```python
-# source: lib/skeletonizer.py::Skeletonizer.set_low_bp_coor
+# source: afm_nanofiber_analyzer/skeletonizer.py::Skeletonizer.set_low_bp_coor
 all_bps = imp_tools.branchedPoints(init_skeleton_image)
 low_bp_coor = np.where(all_bps & (calibrated_image < bp_height))
 high_bp_coor = np.where(all_bps & (calibrated_image >= bp_height))
 ```
 
-`get_close_eps` は、低い分岐点から `branch_length` px（既定 12<!--c:lib/pipeline.py::ProcParams.branch_length-->）以内にある
+`get_close_eps` は、低い分岐点から `branch_length` px（既定 12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.branch_length-->）以内にある
 端点を探す。短い偽物の枝でありうるのは、そうした端点から伸びる枝だけだから
 である。
 
@@ -1608,7 +1608,7 @@ high_bp_coor = np.where(all_bps & (calibrated_image >= bp_height))
 取るフィルタ）をかけて作る。
 
 ```python
-# source: lib/skeletonizer.py::Skeletonizer.get_close_eps
+# source: afm_nanofiber_analyzer/skeletonizer.py::Skeletonizer.get_close_eps
 all_eps_image = imp_tools.endPoints(self._init_skeleton_image)
 _low_bps_image = np.zeros_like(self._init_skeleton_image, dtype=np.uint8)
 _low_bps_image[self._coor_low_bps] = 1
@@ -1631,7 +1631,7 @@ self._coor_close_eps = np.where(close_eps)
 `x` が行番号、`y` が列番号である。
 
 ```python
-# source: lib/skeletonizer.py::Skeletonizer.track_branches
+# source: afm_nanofiber_analyzer/skeletonizer.py::Skeletonizer.track_branches
 def touches(mask: np.ndarray, row: int, col: int) -> bool:
     return bool(mask[max(0, row - 1): row + 2, max(0, col - 1): col + 2].any())
 starts_x, starts_y = self._coor_close_eps
@@ -1681,7 +1681,7 @@ for start_x, start_y in zip(starts_x, starts_y):
 `prune_branches` は、刈ると決めた枝の画素をスケルトンから引く。
 
 ```python
-# source: lib/skeletonizer.py::Skeletonizer.prune_branches
+# source: afm_nanofiber_analyzer/skeletonizer.py::Skeletonizer.prune_branches
 branches_image = self.calc_branches_image(init_skeleton_image)
 return init_skeleton_image - branches_image
 ```
@@ -1707,7 +1707,7 @@ return init_skeleton_image - branches_image
 スケルトンが斜めに 1<!--n:count--> 歩進むところで、線の内側と外側の背景が角で触れてつながって
 しまい、輪の内側を外側と区別できないからである。こうして分けたかたまりのうち、
 囲む長方形が画像の端に触れていないものが、本当の穴である。面積が `max_loop_area`
-（既定 100<!--c:lib/pipeline.py::ProcParams.max_loop_area--> 画素）以下の穴を塗りつぶしてから細線化し直し、二重の経路を
+（既定 100<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.max_loop_area--> 画素）以下の穴を塗りつぶしてから細線化し直し、二重の経路を
 1<!--n:count--> 本の線に戻す。ここで細線化し直す線は、§3.3 の最後にすでに
 `skimage.morphology.skeletonize` を通っていて、この細線化で消せる画素はもう残っていない。そのため、
 塗りつぶした場所から離れたスケルトンの画素は、同じ位置に残る。キンクや端点の
@@ -1719,7 +1719,7 @@ return init_skeleton_image - branches_image
 マスクから落ちるので、繊維の本体の中や交差の中にも穴ができる。そうしたループの
 アーティファクトは、囲まれた内側も高いままである（同梱のスキャンでの値は
 [個別データでの評価](validation.ja.md) §3.3）。そこで、内側の高さの中央値が、周りの
-尾根（スケルトン）の高さの中央値の `DEFAULT_LOOP_HEIGHT_RATIO` = 0.3<!--c:lib/skeletonizer.py::DEFAULT_LOOP_HEIGHT_RATIO--> 倍以上の
+尾根（スケルトン）の高さの中央値の `DEFAULT_LOOP_HEIGHT_RATIO` = 0.3<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_LOOP_HEIGHT_RATIO--> 倍以上の
 ときだけ塗りつぶす。間違って塗りつぶすと 2<!--n:count--> 本がくっつき、その間の溝の真ん中に、
 実在しない経路ができてしまう。
 
@@ -1734,7 +1734,7 @@ return init_skeleton_image - branches_image
 画素とする。比べる 2<!--n:count--> つの高さは、どちらも中央値である。
 
 ```python
-# source: lib/skeletonizer.py::collapse_skeleton_loops
+# source: afm_nanofiber_analyzer/skeletonizer.py::collapse_skeleton_loops
 inv = (skel == 0).astype(np.uint8)
 n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
     inv, connectivity=4
@@ -1770,27 +1770,27 @@ return skeletonize(filled).astype(np.uint8)
 ### 3.5 短いとげ（スパー）を刈る
 
 `prune_short_spurs` は、片方が行き止まりの端点で、もう片方が分岐点につながって
-いる、長さ `spur_length`（既定 12<!--c:lib/pipeline.py::ProcParams.spur_length--> px）以下の短いとげ（スパー）を取り除く。
+いる、長さ `spur_length`（既定 12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.spur_length--> px）以下の短いとげ（スパー）を取り除く。
 
 §3.3 と違って高さを使わず、**形（長さ）だけで判断する**。ここが肝心な点である。
 繊維の本体から生えたとげの根もとの分岐点は、繊維の上にあるので繊維とほぼ同じ高さに
 ある。§3.3 のとおり、分岐点の高さで交差と見分けられるかどうかは繊維の高さによるので、
 1<!--n:count--> つの高さのしきい値で、どの画像でもとげと交差を見分けられるとは限らない。しかし
 長さの上限なら、繊維の高さによらず見分けられる。本物の繊維の腕が
-そこまで短いことはめったにないからである（ただし、12<!--c:lib/pipeline.py::ProcParams.spur_length--> px が何 nm にあたるかは
+そこまで短いことはめったにないからである（ただし、12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.spur_length--> px が何 nm にあたるかは
 画素の大きさで変わる。§5）。
 
 届く範囲に分岐点が無い、ぽつんと離れた短い切れ端は、ここでは扱わない。そうした
 切れ端は、§3.3 の条件に当たれば刈られ、面積が `min_area` より小さければ §3.7 で
 取り除かれる。
 
-端点が画像の端から `border_margin` = 2<!--c:lib/skeletonizer.py::prune_short_spurs(border_margin)--> px 以内にある腕は、決して刈らない。§3.3 と
+端点が画像の端から `border_margin` = 2<!--c:afm_nanofiber_analyzer/skeletonizer.py::prune_short_spurs(border_margin)--> px 以内にある腕は、決して刈らない。§3.3 と
 同じく、端で終わる腕は、画像の外へ続く繊維であることがあるからである。たとえば、
 2<!--n:count--> 本の繊維が画像の端のすぐ手前で触れ合うと、そこに本物の合流点ができ、端までの
 短い腕が残る。この腕を刈ると合流点が無くなり、残った 2<!--n:count--> 本の腕が 1<!--n:count--> 本の線として
 つながってしまう。
 
-端からの幅は、§3.3 の `branch_length`（既定 12<!--c:lib/pipeline.py::ProcParams.branch_length--> px）より狭い。この幅が狭いほど、端の
+端からの幅は、§3.3 の `branch_length`（既定 12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.branch_length--> px）より狭い。この幅が狭いほど、端の
 すぐそばの短いとげも刈られ、広いほど、端へ向かう短い腕が残る。2<!--n:count--> つの幅が違う理由は
 見つからなかった。互いの幅にそろえて比べても、テスト入力で変わったのは、端に沿った
 帯の中の数十画素以下であった（[個別データでの評価](validation.ja.md) §3.5）。
@@ -1808,7 +1808,7 @@ return skeletonize(filled).astype(np.uint8)
 とげが 1<!--n:count--> 本も取り除かれなくなるまで、画像全体についてこれを繰り返す。
 
 ```python
-# source: lib/skeletonizer.py::prune_short_spurs
+# source: afm_nanofiber_analyzer/skeletonizer.py::prune_short_spurs
 while True:
     bp = imp_tools.branchedPoints(skel).astype(bool)
     if not bp.any():
@@ -1874,17 +1874,17 @@ while True:
 `prune_terminal_hooks` で描く。）
 
 フックは、端点の近くで線の向きが折り返していることで見つける。端から
-`DEFAULT_HOOK_LENGTH` = 12<!--c:lib/skeletonizer.py::DEFAULT_HOOK_LENGTH--> px 以内で、線が折り返す点（折り返し点）の内角が
-`DEFAULT_HOOK_APEX_ANGLE_DEG` = 120<!--c:lib/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG--> 度より小さくなる場合である（この内角の測り方は、この節の
+`DEFAULT_HOOK_LENGTH` = 12<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_HOOK_LENGTH--> px 以内で、線が折り返す点（折り返し点）の内角が
+`DEFAULT_HOOK_APEX_ANGLE_DEG` = 120<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG--> 度より小さくなる場合である（この内角の測り方は、この節の
 後半で説明する）。切り取るのは、背景補正後の
-高さが、隣に続く繊維本体の高さの中央値の `DEFAULT_HOOK_HEIGHT_RATIO` = 0.5<!--c:lib/skeletonizer.py::DEFAULT_HOOK_HEIGHT_RATIO--> 倍より
+高さが、隣に続く繊維本体の高さの中央値の `DEFAULT_HOOK_HEIGHT_RATIO` = 0.5<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_HOOK_HEIGHT_RATIO--> 倍より
 低くなっている画素だけである。したがって、折れ曲がっていても高さが本体のこの
 割合以上ある端は切られない。
 
-この 120<!--c:lib/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG--> 度は、画素の点どうしを結んだベクトルのなす角である（測り方はこの節の
+この 120<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG--> 度は、画素の点どうしを結んだベクトルのなす角である（測り方はこの節の
 後半で説明する）。一方、キンクの判定（§4.3）は、中心線の向きの変わり方（超過回転）が
 180<!--n:definition--> 度 − `kinkangle_deg`（既定で 30<!--x:180 - 150--> 度）以上かどうかで決まる。測り方が違うので、2<!--n:count--> つの
-角度を大小で直接比べることはできない。ただ、内角が 120<!--c:lib/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG--> 度より小さく折り返すなら、
+角度を大小で直接比べることはできない。ただ、内角が 120<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG--> 度より小さく折り返すなら、
 向きは 60<!--x:180 - 120--> 度より大きく変わるので、キンクと判定されうる鋭さではある。それでもこの
 処理が本物のキンクを消さないのは、どこまで切るかを角度ではなく高さで決めているから
 である。切り取るのは、端点から続いていて本体の高さの半分より低い画素だけで、半分
@@ -1901,16 +1901,16 @@ while True:
 低くなった画素だけを切り取る。
 
 コードでは、各端点から線を最大 30<!--x:12 + 6 + 12--> px たどる（`_walk_from_endpoint`）。内訳は、
-折り返し点を探す端から 12<!--c:lib/skeletonizer.py::DEFAULT_HOOK_LENGTH--> px、その点の 6<!--c:lib/skeletonizer.py::_HOOK_DIRECTION_WINDOW--> 歩先の向きを見る分、本体の高さを
-測る 12<!--c:lib/skeletonizer.py::_HOOK_BODY_WINDOW--> 画素である。たどった
-経路の $j$ 番目の点（$j \le 12$）での折り返しの角度は、6<!--c:lib/skeletonizer.py::_HOOK_DIRECTION_WINDOW--> 歩先の点（$j + 6$）へ向かう
-ベクトルと、端点へ戻るベクトルとのなす角である。この角度が 120<!--c:lib/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG--> 度より小さく
+折り返し点を探す端から 12<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_HOOK_LENGTH--> px、その点の 6<!--c:afm_nanofiber_analyzer/skeletonizer.py::_HOOK_DIRECTION_WINDOW--> 歩先の向きを見る分、本体の高さを
+測る 12<!--c:afm_nanofiber_analyzer/skeletonizer.py::_HOOK_BODY_WINDOW--> 画素である。たどった
+経路の $j$ 番目の点（$j \le 12$）での折り返しの角度は、6<!--c:afm_nanofiber_analyzer/skeletonizer.py::_HOOK_DIRECTION_WINDOW--> 歩先の点（$j + 6$）へ向かう
+ベクトルと、端点へ戻るベクトルとのなす角である。この角度が 120<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_HOOK_APEX_ANGLE_DEG--> 度より小さく
 なる $j$ のうち、いちばん奥のものを折り返し点とする。本体の高さは、折り返し点より先の
-12<!--c:lib/skeletonizer.py::_HOOK_BODY_WINDOW--> 画素の高さの中央値である（4<!--n:literal in the quoted code--> 画素以上必要）。端点から順に、高さがその半分
+12<!--c:afm_nanofiber_analyzer/skeletonizer.py::_HOOK_BODY_WINDOW--> 画素の高さの中央値である（4<!--n:literal in the quoted code--> 画素以上必要）。端点から順に、高さがその半分
 より低いあいだだけ画素を取り除く。ただし折り返し点とそれより先は取り除かない。
 
 ```python
-# source: lib/skeletonizer.py::DEFAULT_HOOK_LENGTH, DEFAULT_HOOK_APEX_ANGLE_DEG, DEFAULT_HOOK_HEIGHT_RATIO, _HOOK_DIRECTION_WINDOW, _HOOK_BODY_WINDOW
+# source: afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_HOOK_LENGTH, DEFAULT_HOOK_APEX_ANGLE_DEG, DEFAULT_HOOK_HEIGHT_RATIO, _HOOK_DIRECTION_WINDOW, _HOOK_BODY_WINDOW
 DEFAULT_HOOK_LENGTH = 12
 DEFAULT_HOOK_APEX_ANGLE_DEG = 120.0
 DEFAULT_HOOK_HEIGHT_RATIO = 0.5
@@ -1919,7 +1919,7 @@ _HOOK_BODY_WINDOW = 12
 ```
 
 ```python
-# source: lib/skeletonizer.py::prune_terminal_hooks
+# source: afm_nanofiber_analyzer/skeletonizer.py::prune_terminal_hooks
 path = _walk_from_endpoint(skel, int(sy), int(sx), walk_cap)
 n = len(path)
 py = np.array([p[0] for p in path], dtype=float)
@@ -1963,7 +1963,7 @@ for i in range(run):
 
 ### 3.7 小さなかたまりと輪を取り除く
 
-`remove_small_and_ring` は、`min_area`（既定 10<!--c:lib/pipeline.py::ProcParams.min_area--> 画素）より小さいかたまりと、
+`remove_small_and_ring` は、`min_area`（既定 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.min_area--> 画素）より小さいかたまりと、
 **端点を 1<!--n:count--> つも持たない**かたまりを取り除く。端点の無いかたまりは閉じた輪であり、
 端から端へたどる繊維の追跡ではたどれない。そのため、本当に輪の形をした繊維も
 ここで取り除かれる。網目の 1<!--n:count--> つの目を囲んで閉じた、何本もの繊維の区間も、スケルトンの
@@ -1971,7 +1971,7 @@ for i in range(run):
 取り除かれた輪は [個別データでの評価](validation.ja.md) §3.7 にある。
 
 ```python
-# source: lib/skeletonizer.py::Skeletonizer.remove_small_and_ring
+# source: afm_nanofiber_analyzer/skeletonizer.py::Skeletonizer.remove_small_and_ring
 returned_image = np.copy(skeleton_image)
 nLabels, label_Images, data, center = cv2.connectedComponentsWithStats(returned_image)
 ep = imp_tools.endPoints(returned_image)
@@ -2003,7 +2003,7 @@ OpenCV の形に直す）。
   正方形のかたまり。
 
 ```python
-# source: lib/imp_tools.py::_build_branch_patterns, _build_end_patterns
+# source: afm_nanofiber_analyzer/imp_tools.py::_build_branch_patterns, _build_end_patterns
 vh_xbranch = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
 diagonal_xbranch = np.array([[1, 0, 1], [0, 1, 0], [1, 0, 1]])
 vh_ybranch = np.array([[1, 0, 1], [0, 1, 0], [2, 1, 2]])
@@ -2034,7 +2034,7 @@ return patterns
 画像の縁にある画素は、スキャンがそこで終わっているものとして分類される。
 
 ```python
-# source: lib/imp_tools.py::_hitmiss_union, branchedPoints, endPoints
+# source: afm_nanofiber_analyzer/imp_tools.py::_hitmiss_union, branchedPoints, endPoints
 padded = np.pad(skel, pad_width=1, mode='constant', constant_values=0).astype(np.uint8)
 hits = np.zeros_like(padded, dtype=np.uint8)
 for p in patterns:
@@ -2050,8 +2050,8 @@ return _hitmiss_union(skel, _END_PATTERNS)
 
 ## 4. キンク検出
 
-**コード:** `lib/kink_detector.py` — `KinkDetector.__call__` と
-`KinkDetector.kinks_on_line`。判定は、`lib/centerline.py` が置く中心線（§4.2）の
+**コード:** `afm_nanofiber_analyzer/kink_detector.py` — `KinkDetector.__call__` と
+`KinkDetector.kinks_on_line`。判定は、`afm_nanofiber_analyzer/centerline.py` が置く中心線（§4.2）の
 上で行う。
 **入力:** `skeleton_image`、`calibrated_image`、`bp`。**出力:** 繊維ごとのキンクの
 位置と角度、端のそばで判定しなかった折れの位置（§4.4）、およびそれらを画像全体で
@@ -2071,7 +2071,7 @@ return _hitmiss_union(skel, _END_PATTERNS)
 対応するスケルトンの画素の位置として保存する。
 
 ```python
-# source: lib/kink_detector.py::KinkDetector.__call__
+# source: afm_nanofiber_analyzer/kink_detector.py::KinkDetector.__call__
 no_bp_skel = imp_tools.remove_bp(image.skeleton_image)
 no_Lcorner_skel = imp_tools.remove_Lcorner(no_bp_skel)
 nLabels, label_image, data, center = cv2.connectedComponentsWithStats(no_Lcorner_skel)
@@ -2107,8 +2107,8 @@ for label in range(1, nLabels):
 ### 4.1 たどれる線（トラック）を用意する
 
 `imp_tools.remove_bp` は、各分岐点を中心とする一辺 $(2r+1)$ の正方形（$r$ =
-`remove_size` = 1<!--c:lib/imp_tools.py::remove_bp(remove_size)-->）の画素を消す。こうして交差のところでスケルトンを切り、残った
-かたまりがどれも枝分かれの無い 1<!--n:count--> 本の線になるようにする。面積が `min_area` = 10<!--c:lib/imp_tools.py::remove_bp(min_area)--> 画素
+`remove_size` = 1<!--c:afm_nanofiber_analyzer/imp_tools.py::remove_bp(remove_size)-->）の画素を消す。こうして交差のところでスケルトンを切り、残った
+かたまりがどれも枝分かれの無い 1<!--n:count--> 本の線になるようにする。面積が `min_area` = 10<!--c:afm_nanofiber_analyzer/imp_tools.py::remove_bp(min_area)--> 画素
 より小さいかたまりは捨てる（§3.7 のパラメータ `min_area` とは別の、固定の値）。
 
 続いて `imp_tools.remove_Lcorner` が、L 字の角の画素（上と左のように、直角を
@@ -2125,7 +2125,7 @@ for label in range(1, nLabels):
 飛ばしたかたまりは、キンク判定からも計測からも外れる。
 
 ```python
-# source: lib/imp_tools.py::remove_bp
+# source: afm_nanofiber_analyzer/imp_tools.py::remove_bp
 bp = branchedPoints(imgcopy)
 bp_coor = np.where(bp)
 for bp_x, bp_y in zip(bp_coor[0], bp_coor[1]):
@@ -2142,7 +2142,7 @@ if min_area != 0:
 ```
 
 ```python
-# source: lib/imp_tools.py::remove_Lcorner
+# source: afm_nanofiber_analyzer/imp_tools.py::remove_Lcorner
 corner = np.array([[0, 1, 0],
                    [1, 1, 0],
                    [0, 0, 0]])
@@ -2154,7 +2154,7 @@ Lremoved_img = imgcopy - hits
 ```
 
 ```python
-# source: lib/imp_tools.py::tracking
+# source: afm_nanofiber_analyzer/imp_tools.py::tracking
 ep = endPoints(imgcopy)
 ep_y, ep_x = np.where(ep)
 if len(ep_y) != 2:
@@ -2186,7 +2186,7 @@ for i in range(np.sum(imgcopy)):
 
 ### 4.2 繊維の中心線を高さの断面から決める
 
-**コード:** `lib/centerline.py` — `centerline.place_centerline`。
+**コード:** `afm_nanofiber_analyzer/centerline.py` — `centerline.place_centerline`。
 
 追跡したスケルトンは、どの画素が 1<!--n:count--> 本の繊維に属し、どんな順に並ぶかを決める。
 しかし、繊維が*どこを*通っているかを表すものとしては正確ではない。スケルトンは
@@ -2209,26 +2209,26 @@ for i in range(np.sum(imgcopy)):
 幅を測る手順 1<!--n:label--> と、位置を決める手順 3<!--n:label--> とで違う（それぞれの手順で説明する）。
 
 1. `centerline.measure_apparent_width` が、繊維の見かけの幅 $W$ を測る。トラックの
-   各点で、トラックの向きに直角な方向に、その点から左右 12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px の範囲で高さの
-   断面をとる。トラックの向きは、その点の前後 3<!--c:lib/centerline.py::_WIDTH_TANGENT_HALF--> 点目どうしを結んだ向きである
+   各点で、トラックの向きに直角な方向に、その点から左右 12<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_SEARCH_PX--> px の範囲で高さの
+   断面をとる。トラックの向きは、その点の前後 3<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_TANGENT_HALF--> 点目どうしを結んだ向きである
    （`_unit_tangents`）。この向きはスケルトントラックだけから決まり、$W$ を使わない
    ので、$W$ を使う手順 2<!--n:label--> より先に求められる。各断面で半値全幅（ふもとから
    測って、頂点までの高さの半分以上ある部分の幅）を求める。ここでのふもとの高さには、
    断面の値を低い順に並べて下から 10<!--n:literal percentile in centerline.measure_apparent_width--> % の位置にある値を使う。頂点は、
    断面のいちばん高い値ではなく、トラックの点から坂を上って最初に着く極大
    （`_climb_to_maximum`。手順 3<!--n:label--> と同じ上り方）である。そのため、左右
-   12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px の中の別の場所にある高い繊維が、繊維が自身の極大を持つ限り、半値を決める
+   12<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_SEARCH_PX--> px の中の別の場所にある高い繊維が、繊維が自身の極大を持つ限り、半値を決める
    ことはない（高い繊維の斜面の肩にすぎない淡い繊維は、高い繊維の頂点まで上る）。間の
    断面が半値より下がらないほど近い高い繊維があると、幅は両方にまたがって広がる。
    トラックの点がその半値より低ければ、その点は繊維の上ではなく斜面にあり、その断面は
    使わない。$W$ は、
    トラック全体でのこの幅の中央値で、繊維ごとに 1<!--n:count--> つの値である。読んだ範囲が
-   1.25<!--c:lib/centerline.py::_WIDTH_RANGE_MIN_WIDTHS--> $W$ より短ければ、左右 2<!--c:lib/centerline.py::_WIDTH_RANGE_WIDTHS--> $W$ の範囲（最大 96<!--c:lib/centerline.py::_WIDTH_SEARCH_MAX_PX--> px）で断面を読み直して $W$ を
+   1.25<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_RANGE_MIN_WIDTHS--> $W$ より短ければ、左右 2<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_RANGE_WIDTHS--> $W$ の範囲（最大 96<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_SEARCH_MAX_PX--> px）で断面を読み直して $W$ を
    測り直す。ふもとは断面の低い方の値なので、範囲が繊維の外まで十分に届いているときだけ
    背景の上に来る。そうしないと、細かい画素で撮った場合のように多くの画素にまたがる繊維では、
    ふもとが自身の裾に来て幅が細く読まれる。長い範囲での読み取りは、使った断面の半数以上で、
    半値より上の部分が頂点を 1<!--n:count--> つしか含まないときだけ使う。頂点から外側へ向かって、断面が
-   ふもとからの頂点の高さの 0.1<!--c:lib/centerline.py::_WIDTH_SECOND_CREST_FRAC--> 倍を超えて再び上がることがなければ、頂点は 1<!--n:count--> つとする。
+   ふもとからの頂点の高さの 0.1<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_SECOND_CREST_FRAC--> 倍を超えて再び上がることがなければ、頂点は 1<!--n:count--> つとする。
    範囲を長くすると隣の繊維の脇でもふもとが下がり、幅がその頂点まで取り込みうるためで、
    そうなったときは短い範囲での読み取りを残す（`_width_in_range`）。この後の手順の長さはすべて $W$ の何倍かで決めるので、
    スキャンの大きさが違っても同じ意味になる。
@@ -2258,9 +2258,9 @@ for i in range(np.sum(imgcopy)):
    - 頂点から $1.5\,W$ 以内に、半値まで下がる位置が左右のどちらか一方でも見つからない断面
    - 坂を上って見つけた頂点が、基準線の点から $0.75\,W$ の範囲（`_CREST_REACH_WIDTHS`）の
      中に無い断面（離れた頂点は別の物体のもの。境目は $0.75\,W$ から、断面を読む間隔
-     0.25<!--c:lib/centerline.py::_WIDTH_STEP_PX--> px の半分だけ内側にとる）
+     0.25<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_STEP_PX--> px の半分だけ内側にとる）
    - 山の高さ（頂点とふもとの差）が、この繊維の断面での中央値の
-     0.25<!--c:lib/centerline.py::_MIN_CREST_AMPLITUDE_FRAC--> 倍に届かない断面（信号が弱すぎる）
+     0.25<!--c:afm_nanofiber_analyzer/centerline.py::_MIN_CREST_AMPLITUDE_FRAC--> 倍に届かない断面（信号が弱すぎる）
 
    各点のオフセットは、Whittaker 平滑化で、トラックに沿ってなめらかにつなぐ。これは、
    測ったオフセット $y_i$ から、ならしたオフセット $z_i$ が離れることと、$z_i$ が隣り合う
@@ -2285,7 +2285,7 @@ for i in range(np.sum(imgcopy)):
 §2 で説明している。キンク検出も同じ関数を呼ぶ。
 
 ```python
-# source: lib/centerline.py::place_centerline
+# source: afm_nanofiber_analyzer/centerline.py::place_centerline
 width, measured = measure_apparent_width(
     height, x, y, return_measured=True, aspect=aspect, peak=width_peak,
     adaptive_range=width_adaptive, symmetric_section=symmetric_section)
@@ -2303,7 +2303,7 @@ X と Y の画素サイズが違う走査でこれを画素座標のまま行う
 記録されていない走査は正方画素として扱う。
 
 ```python
-# source: lib/bundle_schema.py::pixel_aspect
+# source: afm_nanofiber_analyzer/bundle_schema.py::pixel_aspect
 if not scan_size_um:
     return 1.0
 rows, cols = int(stored_shape[0]), int(stored_shape[1])
@@ -2357,8 +2357,8 @@ return (pixel_size_nm(scan_size_um[1], rows)
   物差しになる。$W$ には繊維そのものの幅だけでなく、探針による広がりも含まれる。
   半値まで下がる区間を測れた断面が、トラックの点の半分に満たないとき、または測った $W$ が
   ゼロか有限の値でないときは、代わりに
-  `centerline.FALLBACK_WIDTH_PX`（8<!--c:lib/centerline.py::FALLBACK_WIDTH_PX--> px）を使う。2<!--c:lib/centerline.py::_MIN_WIDTH_PX--> px
-  （`centerline._MIN_WIDTH_PX`）より細く測られた繊維には、代わりに 2<!--c:lib/centerline.py::_MIN_WIDTH_PX--> px を与える。
+  `centerline.FALLBACK_WIDTH_PX`（8<!--c:afm_nanofiber_analyzer/centerline.py::FALLBACK_WIDTH_PX--> px）を使う。2<!--c:afm_nanofiber_analyzer/centerline.py::_MIN_WIDTH_PX--> px
+  （`centerline._MIN_WIDTH_PX`）より細く測られた繊維には、代わりに 2<!--c:afm_nanofiber_analyzer/centerline.py::_MIN_WIDTH_PX--> px を与える。
   代わりの値では自身の幅の数倍の尺度でキンクを判定してしまい、測った $W$ のままでは
   キンク規則の折れの区間（§4.3）が画素の階段の一段ほどの大きさまで縮み、階段や画素のノイズが折れとして読まれる
   からである。代わりの値は繊維の幅をもとにした値では
@@ -2391,7 +2391,7 @@ return (pixel_size_nm(scan_size_um[1], rows)
 
 標準偏差 $W/4$ でなめらかにする半値の中点は既定の方式だが、`centerline_method`
 （GUI01 の Kinkdetector グループ、`cli.py process --centerline`）で、
-`centerline.CENTERLINE_METHODS` にある 8<!--c:lib/centerline.py::len(CENTERLINE_METHODS)--> 種類の中心線から 1<!--n:count--> つを選べる。
+`centerline.CENTERLINE_METHODS` にある 8<!--c:afm_nanofiber_analyzer/centerline.py::len(CENTERLINE_METHODS)--> 種類の中心線から 1<!--n:count--> つを選べる。
 既定の方式は、合成データと同梱スキャンでの比較を見て、経験的に選んだもので
 ある（[個別データでの評価](validation.ja.md) §4.2、§4.3）。ほかの方式も選べるのは、
 利用者が自分の画像でこの選び方を確かめられるようにするためである。
@@ -2459,7 +2459,7 @@ $\theta(s)$ と呼ぶ。$s$ は、中心線の端から中心線に沿って測�
 距離のうちに大きく変わる。2<!--n:count--> つの位置の向きの差を、そのあいだの**回転**と呼ぶ。
 
 向きは次のように求める（`kink_detector._heading_profile`）。中心線の上に、弧長で
-0.5<!--c:lib/kink_detector.py::_HEADING_STEP_PX--> px ごとに点を取り直し、各点から次の点へ進む方向を並べる。それを標準偏差 $W/4$ の
+0.5<!--c:afm_nanofiber_analyzer/kink_detector.py::_HEADING_STEP_PX--> px ごとに点を取り直し、各点から次の点へ進む方向を並べる。それを標準偏差 $W/4$ の
 ガウス関数でなめらかにする。$W/4$ より短い中心線の揺れは、繊維の形ではないからである。
 
 **一点で角度を測ると、丸まった角を見落とす**
@@ -2492,7 +2492,7 @@ $T(p) = \theta(p + c) - \theta(p - c)$ を、折れの区間での回転とす�
 ところがこの回転は、角が無くても、繊維が曲がっていれば生じる。半径 $R$ で曲がる部分では、
 折れの区間の両端で向きが $2c/R$ ラジアン違う。半径 $3\,W$ のゆるいカーブでも 29<!--x:degrees(2 * 0.75 / 3)--> 度になり、
 それより少しきついカーブでは、角が一つも無いのに、カーブ上のどの位置でも既定のしきい値
-30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度を超えてしまう。曲がっている所にある角も、カーブの分が上乗せされて、実際より大きく
+30<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度を超えてしまう。曲がっている所にある角も、カーブの分が上乗せされて、実際より大きく
 読まれる。
 
 **曲がりの分を、すぐ外側から見積もって差し引く**
@@ -2618,7 +2618,7 @@ E \ge 180^\circ - \phi_{\text{max}}
 $$
 
 のときキンクと判定する。$\phi_{\text{max}}$ は `kinkangle_deg`（既定
-150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg--> 度）なので、既定では超過回転が 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度以上必要である。`pipeline.build_stages` が、
+150<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg--> 度）なので、既定では超過回転が 30<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg|180 - v--> 度以上必要である。`pipeline.build_stages` が、
 検出器に渡す前にラジアンに直す。形式 1.0<!--n:bundle format version--> のバンドルに使う折れ線規則（§4.6）も、同じ
 `kinkangle_deg` を内角のしきい値として読む。キンクとして*保存する*角度は、これとは別に、
 折れの両側の腕の向きから測る（後の「キンクとして保存する角度」を参照）。
@@ -2634,20 +2634,20 @@ $$
 （`testdata_tunicateCNF/TunicateACTOCCNF.txt`）の繊維 1<!--n:count--> 本。
 
 - **中心線と幅を受け取る**（a、b）: §4.2 で置いた中心線と、同じ断面から測った見かけの幅
-  $W$ を使う。折れの区間は幅 1.5<!--c:lib/kink_detector.py::_CORE_WIDTHS|2 * v--> 本分、前後の区間はそれぞれ幅 1<!--n:count--> 本分の長さになる。
+  $W$ を使う。折れの区間は幅 1.5<!--c:afm_nanofiber_analyzer/kink_detector.py::_CORE_WIDTHS|2 * v--> 本分、前後の区間はそれぞれ幅 1<!--n:count--> 本分の長さになる。
 - **向きを求める**（c）: 角で向きは下がるが、段にはならない。探針が角を丸め、なめらかに
   する処理がさらに広げるからである。腕の上でも、向きは数度ほど揺れる。
 - **候補の位置を選ぶ**（d）: 検出器は、角がどこにあるかを知らない。曲率 $|d\theta/ds|$（向きが
   長さあたりに変わる速さ）が極大になる位置と、$|T|$ が極大になる位置を候補にする。ただし
-  後者は、超過回転が同じ以上の、曲率の極大の候補が 0.75<!--c:lib/kink_detector.py::_SUPPRESS_WIDTHS--> $W$ 以内にある所では採らない
+  後者は、超過回転が同じ以上の、曲率の極大の候補が 0.75<!--c:afm_nanofiber_analyzer/kink_detector.py::_SUPPRESS_WIDTHS--> $W$ 以内にある所では採らない
   （後の「候補の探し方」）。d はどの位置でも $|T|$ と $E$ を描いているが、検出器が判定するのは
   候補の位置だけである。
 - **候補ごとに回転と超過回転を計算する**（b、c）: この繊維の角では、左の前後の区間が
   わずかに逆向きに回っているので何も差し引かず、c の破線は水平で、$E = T$ になる。$|T|$ か
-  $E$ が一定の探索の下限に届かない候補は捨て、0.75<!--c:lib/kink_detector.py::_SUPPRESS_WIDTHS--> $W$ より近い候補どうしは超過回転の
+  $E$ が一定の探索の下限に届かない候補は捨て、0.75<!--c:afm_nanofiber_analyzer/kink_detector.py::_SUPPRESS_WIDTHS--> $W$ より近い候補どうしは超過回転の
   大きいほうだけを残す（どちらも後で述べる）。
 - **しきい値と比べる**（d）: $E$ がしきい値に届いた候補をキンクとする。ただし端から
-  1.5<!--c:lib/kink_detector.py::END_MARGIN_WIDTHS--> $W$ 以内の折れは判定しない（§4.4。d の灰色）。この繊維でしきい値に届くのは角だけで、
+  1.5<!--c:afm_nanofiber_analyzer/kink_detector.py::END_MARGIN_WIDTHS--> $W$ 以内の折れは判定しない（§4.4。d の灰色）。この繊維でしきい値に届くのは角だけで、
   ほかの位置の $|T|$ はしきい値よりずっと小さい。
 
 コードでは、`_heading_profile` が点の取り直し・向きの計算・なめらかにする処理を
@@ -2664,7 +2664,7 @@ $s_0$ と $s_1$）で、端から $\delta$ だけ内側にある（$0.25 \le \de
 $1/4$ である。
 
 折れは、しきい値ではなく、超過回転の固定の**探索の下限** $F$ まで探す。$F$ は
-`_SEARCH_FLOOR_DEG` = 10<!--c:lib/kink_detector.py::_SEARCH_FLOOR_DEG--> 度で、しきい値の超過回転のほうが低ければそちらである
+`_SEARCH_FLOOR_DEG` = 10<!--c:afm_nanofiber_analyzer/kink_detector.py::_SEARCH_FLOOR_DEG--> 度で、しきい値の超過回転のほうが低ければそちらである
 （`search`）。位置 $p$ を折れとして残すのは、次の
 条件をすべて満たすときだけである。
 
@@ -2680,7 +2680,7 @@ $1/4$ である。
 - $E(p)$ が $F$ 以上である。
 
 残した折れのうち、$E(p)$ がしきい値とノイズ床（後の「尺度とノイズ床」で説明する。
-既定ではノイズ床を使わず、0<!--c:lib/kink_detector.py::NOISE_SIGMAS--> である）の両方以上のものを**キンク**とする。
+既定ではノイズ床を使わず、0<!--c:afm_nanofiber_analyzer/kink_detector.py::NOISE_SIGMAS--> である）の両方以上のものを**キンク**とする。
 残りは捨てる。それでも探す深さには意味がある。$F$ は後の「候補の探し方」の曲率の
 下限も決めるため、$F$ が低いほど候補が増え、しきい値を超える折れをどの候補が
 代表するかがそれによって変わりうる。
@@ -2688,14 +2688,14 @@ $1/4$ である。
 しきい値は、ラジアンで表した $\pi - \phi_{\text{max}}$（`turn_threshold`）である。
 
 ```python
-# source: lib/kink_detector.py::_CORE_WIDTHS, _FLANK_WIDTHS, _HEADING_SIGMA_WIDTHS
+# source: afm_nanofiber_analyzer/kink_detector.py::_CORE_WIDTHS, _FLANK_WIDTHS, _HEADING_SIGMA_WIDTHS
 _CORE_WIDTHS = 0.75
 _FLANK_WIDTHS = 1.0
 _HEADING_SIGMA_WIDTHS = 0.25
 ```
 
 ```python
-# source: lib/kink_detector.py::_heading_profile
+# source: afm_nanofiber_analyzer/kink_detector.py::_heading_profile
 seg = np.hypot(np.diff(x), np.diff(y))
 keep = np.concatenate([[True], seg > 1e-9])
 orig = np.nonzero(keep)[0]
@@ -2718,7 +2718,7 @@ return orig, s, length, sm, heading
 ```
 
 ```python
-# source: lib/kink_detector.py::KinkDetector.judge_line
+# source: afm_nanofiber_analyzer/kink_detector.py::KinkDetector.judge_line
 width = float(width_px)
 c = _CORE_WIDTHS * width
 f = _FLANK_WIDTHS * width
@@ -2752,7 +2752,7 @@ def excess_at(p: float) -> Optional[float]:
 ```
 
 ```python
-# source: lib/kink_detector.py::_SEARCH_FLOOR_DEG
+# source: afm_nanofiber_analyzer/kink_detector.py::_SEARCH_FLOOR_DEG
 _SEARCH_FLOOR_DEG = 10.0
 ```
 
@@ -2773,7 +2773,7 @@ $E$ は、候補の位置でだけ計算する。候補は 2<!--n:count--> 種�
   変わる速さ $|d\theta/ds|$ のことである。曲率の極大のうち、下限以上のものを候補に
   する。下限は、探索の下限ちょうどの折れが折れの区間全体で持つ平均の曲率の半分、つまり
   $0.5 \times F / (2c)$ である
-  （`_CURVATURE_FLOOR_FRAC` = 0.5<!--c:lib/kink_detector.py::_CURVATURE_FLOOR_FRAC-->）。
+  （`_CURVATURE_FLOOR_FRAC` = 0.5<!--c:afm_nanofiber_analyzer/kink_detector.py::_CURVATURE_FLOOR_FRAC-->）。
 - **$|T|$ そのものの極大**: ただし、$0.75\,W$ 以内に、上の曲率の極大から採った
   候補のうち超過回転が同じかそれより大きいものが無い場所だけに加える。ノイズで曲率の山が 2<!--n:count--> つに割れてしまった角や、
   回転がそのまま曲線へ続いていく角では、真ん中に曲率の極大が 1<!--n:count--> つも無いから
@@ -2787,7 +2787,7 @@ $0.75\,W$ より近い候補どうしは、1<!--n:count--> つの折れとみな
 順に処理するので、そうした組の中では超過回転がいちばん大きいものが残る。
 
 ```python
-# source: lib/kink_detector.py::KinkDetector.judge_line
+# source: afm_nanofiber_analyzer/kink_detector.py::KinkDetector.judge_line
 fine: List[Tuple[float, float]] = []
 for i in range(1, curvature.size - 1):
     if (curvature[i] >= curvature[i - 1] and curvature[i] > curvature[i + 1]
@@ -2822,7 +2822,7 @@ for excess, p in sorted(fine + coarse, key=lambda t: -t[0]):
 バンドルにキンクの角度として保存する値（`ka`）は、180<!--n:definition--> 度から超過回転を引いた値では
 ない。折れの両側にのびる 2<!--n:count--> 本の部分（この節では**腕**と呼ぶ。§3.3〜§3.5 の腕とは別の
 もの）がなす内角である（`KinkDetector.judge_line`）。各腕の向きは、折れの位置から $W$ の
-半分だけ離れたところ（探針が折れを丸めてしまう範囲の外側）から、$W$ 1<!--c:lib/kink_detector.py::_ARM_LENGTH_WIDTHS--> 個分の長さの
+半分だけ離れたところ（探針が折れを丸めてしまう範囲の外側）から、$W$ 1<!--c:afm_nanofiber_analyzer/kink_detector.py::_ARM_LENGTH_WIDTHS--> 個分の長さの
 区間で平均した向きである。区間は次の折れの手前で打ち切る。こうして、近くにある
 次の折れ（たとえば、2<!--n:count--> つの折れが向きを戻し合って段差をつくるときの 2<!--n:label--> つ目の折れ）
 の曲がりが、腕の向きに入り込まないようにする（図 9<!--n:label-->）。判定に使った超過回転も、
@@ -2890,14 +2890,14 @@ $\phi$ は折れでの接線のなす角よりおよそ $2W/R$ rad 鋭くなり�
 角度の中央値を、ヒストグラムにする。
 
 ```python
-# source: lib/kink_detector.py::_ARM_GAP_WIDTHS, _ARM_LENGTH_WIDTHS, _ARM_MIN_WIDTHS
+# source: afm_nanofiber_analyzer/kink_detector.py::_ARM_GAP_WIDTHS, _ARM_LENGTH_WIDTHS, _ARM_MIN_WIDTHS
 _ARM_GAP_WIDTHS = 0.5
 _ARM_LENGTH_WIDTHS = 1.0
 _ARM_MIN_WIDTHS = 0.25
 ```
 
 ```python
-# source: lib/kink_detector.py::_arm_interior_angle
+# source: afm_nanofiber_analyzer/kink_detector.py::_arm_interior_angle
 gap = _ARM_GAP_WIDTHS * width
 arm = _ARM_LENGTH_WIDTHS * width
 left_lo = max(float(sm[0]), p - gap - arm)
@@ -2918,7 +2918,7 @@ return max(np.pi - turn, 0.0)
 ```
 
 ```python
-# source: lib/kink_detector.py::KinkDetector.judge_line
+# source: afm_nanofiber_analyzer/kink_detector.py::KinkDetector.judge_line
 margin = END_MARGIN_WIDTHS * width
 positions = sorted(q for e, q in kept if e >= kink_level)
 ...
@@ -2960,7 +2960,7 @@ kink_indices, kink_angles, kink_excess = columns(kinks)
 キンクの水準に届かない折れは、どこにも残さず、判定しなかった折れとしても報告しない。
 
 ```python
-# source: lib/measure.py::compute_fiber_stats
+# source: afm_nanofiber_analyzer/measure.py::compute_fiber_stats
 angles = tuple(float(np.degrees(a)) for a in f.kink_angles)
 ```
 
@@ -2981,9 +2981,9 @@ angles = tuple(float(np.degrees(a)) for a in f.kink_angles)
 $W$ ではなく画素の数で決まっているのは、次のものである。
 
 - $W$ を測る手順の中の長さ: 幅を測るときに最初に断面を読む範囲（トラックから
-  ±12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px。$W$ に合わせて最大 96<!--c:lib/centerline.py::_WIDTH_SEARCH_MAX_PX--> px まで広げる）、$W$ を測れなかったときの代わりの値 `centerline.FALLBACK_WIDTH_PX`
-  （8<!--c:lib/centerline.py::FALLBACK_WIDTH_PX--> px）など
-- 点を取る間隔: 断面は 0.25<!--c:lib/centerline.py::_WIDTH_STEP_PX--> px、向きは 0.5<!--c:lib/kink_detector.py::_HEADING_STEP_PX--> px
+  ±12<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_SEARCH_PX--> px。$W$ に合わせて最大 96<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_SEARCH_MAX_PX--> px まで広げる）、$W$ を測れなかったときの代わりの値 `centerline.FALLBACK_WIDTH_PX`
+  （8<!--c:afm_nanofiber_analyzer/centerline.py::FALLBACK_WIDTH_PX--> px）など
+- 点を取る間隔: 断面は 0.25<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_STEP_PX--> px、向きは 0.5<!--c:afm_nanofiber_analyzer/kink_detector.py::_HEADING_STEP_PX--> px
 
 `kink_decompose_px` は、この規則では使わない。使うのは形式 1.0<!--n:bundle format version--> のバンドルの
 折れ線規則だけである（§4.6）。
@@ -2995,7 +2995,7 @@ $W$ ではなく画素の数で決まっているのは、次のものである�
 （`NOISE_SIGMAS`、`KinkJudgement.noise_excess`）。中心線全体で超過回転がどれくらい
 ばらつくかを、中央絶対偏差（中央値からのずれの絶対値の中央値）の 1.4826<!--n:literal in KinkDetector.judge_line; MAD to Gaussian standard deviation--> 倍
 （ばらつきが正規分布なら、その標準偏差にあたる）として求め、折れの超過回転が
-そのばらつきの `NOISE_SIGMAS` 倍を超えることを求めるものである。既定では**無効**である（`NOISE_SIGMAS` = 0<!--c:lib/kink_detector.py::NOISE_SIGMAS-->）。
+そのばらつきの `NOISE_SIGMAS` 倍を超えることを求めるものである。既定では**無効**である（`NOISE_SIGMAS` = 0<!--c:afm_nanofiber_analyzer/kink_detector.py::NOISE_SIGMAS-->）。
 無効にした理由は [個別データでの評価](validation.ja.md) §4.7 にある。
 
 ### 4.4 端のそばの折れは判定せずに示す
@@ -3030,20 +3030,20 @@ GUI04 では、繊維を連結したときと、高さによる絞り込みを�
 切るので、新しくできた端のそばの折れは判定されなくなる。
 
 連結した繊維には橋渡し部もある。連結処理が断片の間の隙間に引く直線で、そこでは
-繊維を観測していない（`lib/fiber_connector.py`）。その角は画像で見えたものではなく連結に
+繊維を観測していない（`afm_nanofiber_analyzer/fiber_connector.py`）。その角は画像で見えたものではなく連結に
 よって生じるので、折れの区間が橋渡し部にかかる折れを判定するかはユーザーが選び、連結と一緒に
 保存する（`ConnectParams.judge_bridge_kinks`。既定はオン）。オフのとき、そうした
 折れは理由 `UNJUDGED_AT_BRIDGE` の判定しない折れとして返る。判定しなかった各折れの理由は
 `KinkJudgement.unjudged_reasons` にある。橋渡し部で判定しなかった折れ（上のコード片の `bridges` の判定）は、GUI04 がマゼンタの中が空いた菱形で描く。バンドルを書く
 解析は断片を連結しないので、バンドルがこうした折れを持つことはない。橋渡し部が
 あるのは、連結プランから組み立てるフィブリルだけで、それを組み立てるのは GUI04、
-GUI03、およびプランを渡された `lib/measure.py` である。どちらの場合も、橋渡し部は
+GUI03、およびプランを渡された `afm_nanofiber_analyzer/measure.py` である。どちらの場合も、橋渡し部は
 キンク密度の分母の長さから除く（[GUI04 のファイバー計測](gui04_measurements.ja.md) §3.9）。
 
 ### 4.5 キンクのしきい値も結果と一緒にバンドルに保存する
 
 キンクのパラメータは、解析時の設定としてバンドルの中に書き込まれ（`params`）、
-後で `bundle_schema.kink_params_from_meta` がそれを読み出す（`lib.measure` がバンドルを
+後で `bundle_schema.kink_params_from_meta` がそれを読み出す（`afm_nanofiber_analyzer.measure` がバンドルを
 開くときに読み、`fiber_tracking_image.FiberTrackingImage` に渡す）。バンドルを開いた後で
 キンクを計算し直すときは、このうち `kinkangle_deg` を必ず使う。バンドルに入っていない
 トラック（交差をまたいで連結した
@@ -3068,7 +3068,7 @@ GUI03、およびプランを渡された `lib/measure.py` である。どちら
 形式 1.0<!--n:bundle format version--> のバンドルのキンクは、スケルトントラックの上で、折れ線規則によって
 判定されている。`KinkDetector._binary_decompose_simple` が、**Douglas–Peucker** 法の
 考え方でトラックを折れ線に単純化する。弦（折れ線の辺）から
-`kink_decompose_px`（既定 3.0<!--c:lib/pipeline.py::ProcParams.kink_decompose_px--> px）以上離れたトラックの点があれば、そこに頂点を
+`kink_decompose_px`（既定 3.0<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kink_decompose_px--> px）以上離れたトラックの点があれば、そこに頂点を
 加える。`KinkDetector._detect_kink_from_decomposed_indices` は、頂点のうち、内角
 $\phi$ が `kinkangle_deg` 以下で、しかも直線から曲がっている分 $\pi - \phi$ が、頂点の
 位置の誤差から来る角度の誤差より大きいものを残す。
@@ -3097,7 +3097,7 @@ $$
 まで繰り返す。その後、内側の各頂点の角度を調べる。
 
 ```python
-# source: lib/kink_detector.py::KinkDetector._binary_decompose_simple
+# source: afm_nanofiber_analyzer/kink_detector.py::KinkDetector._binary_decompose_simple
 decomposed_indices = [0, n_pts - 1]
 updated = True
 while updated:
@@ -3127,7 +3127,7 @@ while updated:
 ```
 
 ```python
-# source: lib/kink_detector.py::KinkDetector._detect_kink_from_decomposed_indices
+# source: afm_nanofiber_analyzer/kink_detector.py::KinkDetector._detect_kink_from_decomposed_indices
 v1x = cx[prev_idx] - cx[mid_idx]
 v1y = cy[prev_idx] - cy[mid_idx]
 v2x = cx[next_idx] - cx[mid_idx]
@@ -3156,7 +3156,7 @@ return mid_idx[mask], angles[mask]
 やり直せる。
 
 - **繊維ごとの計測**（繊維に沿った長さ、高さの統計、まっすぐさ、曲率、キンクの密度）は
-  `lib/measure.py` にあり、GUI03、GUI04、`cli.py measure` が同じものを使う。どの
+  `afm_nanofiber_analyzer/measure.py` にあり、GUI03、GUI04、`cli.py measure` が同じものを使う。どの
   繊維も §4.2 の中心線に沿って測る（形式 1.0<!--n:bundle format version--> のバンドルでは、§4.2 の表の
   とおりスケルトントラックに沿って測る）。中心線は、バンドルを開くときに
   `fiber_tracking_image.FiberTrackingImage` が、保存してあるスケルトンと高さから
@@ -3164,7 +3164,7 @@ return mid_idx[mask], angles[mask]
   ある。
   - **高さの統計**: §4.2 の頂点高さについて取り、繊維の本当の端ではなく切り口で
     ある端では、最後の $W$ の分を除く（`measure.height_sample_mask`）。
-    §4.1 が消すのは分岐点の周りの 3<!--c:lib/imp_tools.py::remove_bp(remove_size)|2 * v + 1-->×3<!--c:lib/imp_tools.py::remove_bp(remove_size)|2 * v + 1--> 画素だけだが、
+    §4.1 が消すのは分岐点の周りの 3<!--c:afm_nanofiber_analyzer/imp_tools.py::remove_bp(remove_size)|2 * v + 1-->×3<!--c:afm_nanofiber_analyzer/imp_tools.py::remove_bp(remove_size)|2 * v + 1--> 画素だけだが、
     交差での相手繊維の裾はその先まで広がるため、切り口の近くの標本は一部が相手の
     繊維の高さである。テスト入力では、切り口の高さは繊維自身の高さより持ち上がり、
     幅ひとつ分ほどのうちに戻った（[個別データでの評価](validation.ja.md) §4.11）。中央値は
@@ -3176,16 +3176,16 @@ return mid_idx[mask], angles[mask]
     端に近い折れは判定しないからである。繊維全体の長さで割ると、判定していない
     両端の分だけ値が小さく出て、繊維が短いほどそのずれは大きくなる。連結した
     繊維の橋渡し部も、繊維を観測していないので、この長さから除く（§4.4）。
-- 交差で切れた**断片をつなぎ直す処理**は `lib/fiber_connector.py` にある。つなぐ
+- 交差で切れた**断片をつなぎ直す処理**は `afm_nanofiber_analyzer/fiber_connector.py` にある。つなぐ
   相手を探すのは GUI04 だけで、ほかのところは、その探索で記録した連結の情報を
   そのまま使う。
-- **手で除外する処理**は `lib/fiber_selection.py` にある。
+- **手で除外する処理**は `afm_nanofiber_analyzer/fiber_selection.py` にある。
 - **画素の大きさ**を使うのは計測のときだけである。ここまでの各段階は、既定では
   使わないリッジ回収（§2.6。設定値が nm なので、画素の大きさが分からなければ
   実行しない）を除いて、画素を単位にしている。だからこそ、スキャンの大きさが
   記録されていてもいなくても、各段階のパラメータは同じ意味を持つ。その裏返しとして、
   同じパラメータファイルでも、スキャンの大きさによって実際の長さは変わる。たとえば
-  とげの長さの上限 12<!--c:lib/pipeline.py::ProcParams.spur_length--> px は、1<!--n:count--> 辺 1024<!--n:example--> 画素で撮った場合、走査範囲が 2<!--n:example--> µm なら
+  とげの長さの上限 12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.spur_length--> px は、1<!--n:count--> 辺 1024<!--n:example--> 画素で撮った場合、走査範囲が 2<!--n:example--> µm なら
   約 23<!--x:12 * 2000 / 1024--> nm、10<!--n:example--> µm なら約 117<!--x:12 * 10000 / 1024--> nm にあたる。バンドルには、解析に使った
   設定（`bundle_schema.PARAMS_KEY`）とスキャンの大きさ（`bundle_schema.SPATIAL_CALIBRATION_KEY`）が記録されるので、画素で
   決めた各設定が何 nm にあたったかは、そこから計算できる。走査範囲の違う画像どうしを

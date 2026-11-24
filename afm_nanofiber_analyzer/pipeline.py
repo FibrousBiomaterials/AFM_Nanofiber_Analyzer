@@ -6,10 +6,10 @@ GUI に依存しない AFM ナノファイバー前処理パイプラインの�
 This module owns the analysis-side responsibilities shared by GUI01 and the
 CLI: the `ProcParams` parameter schema, stage construction, and
 single-file processing with output saving. The executable `.b2z` contract is
-owned by `lib.bundle_schema` and enforced here before saving.
+owned by `afm_nanofiber_analyzer.bundle_schema` and enforced here before saving.
 GUI01 と CLI が共有する解析側の責務（`ProcParams` スキーマ、ステージ構築、
 1 ファイル処理と出力保存）をこのモジュールが持つ。実行可能な `.b2z` 契約は
-`lib.bundle_schema` が管理し、本モジュールは保存前にそれを適用する。
+`afm_nanofiber_analyzer.bundle_schema` が管理し、本モジュールは保存前にそれを適用する。
 
 GUI01 and the command-line interface both call `process_file`, so the two
 entry points produce the same analysis arrays and parameter sidecar for the
@@ -237,7 +237,7 @@ class ProcParams:
 
     Examples
     --------
-    >>> from lib.pipeline import ProcParams
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams
     >>> params = ProcParams(bg_method="tophat")
     >>> params.bg_method, params.kinkangle_deg
     ('tophat', 150.0)
@@ -381,7 +381,7 @@ def row_range_suffix(row_range: Optional[Tuple[int, int]]) -> str:
 
     Examples
     --------
-    >>> from lib.pipeline import row_range_suffix
+    >>> from afm_nanofiber_analyzer.pipeline import row_range_suffix
     >>> row_range_suffix((0, 256))
     '_r0-256'
     >>> row_range_suffix(None)
@@ -411,7 +411,7 @@ def bundle_path_for(stem: str) -> str:
 
     Examples
     --------
-    >>> from lib.pipeline import bundle_path_for
+    >>> from afm_nanofiber_analyzer.pipeline import bundle_path_for
     >>> bundle_path_for("scans/sample01")
     'scans/sample01.b2z'
     """
@@ -467,7 +467,7 @@ def existing_min_set(stem: str) -> Tuple[bool, List[str]]:
     relative to the repository root:
 
     >>> import os, tempfile
-    >>> from lib.pipeline import ProcParams, existing_min_set, process_file
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, existing_min_set, process_file
     >>> existing_min_set("no/such/scan")[0]
     False
     >>> with tempfile.TemporaryDirectory() as folder:
@@ -516,7 +516,7 @@ def merge_params_dict(d: Dict) -> Tuple[ProcParams, List[str], List[str]]:
     A retired `bg_method` spelling is translated, a key the schema does not
     know is reported, and every absent field takes its default:
 
-    >>> from lib.pipeline import merge_params_dict
+    >>> from afm_nanofiber_analyzer.pipeline import merge_params_dict
     >>> params, missing, unknown = merge_params_dict(
     ...     {"bg_method": "inpaint", "old_key": 1})
     >>> params.bg_method
@@ -591,7 +591,7 @@ def validate_params(p: ProcParams) -> List[str]:
 
     Examples
     --------
-    >>> from lib.pipeline import ProcParams, validate_params
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, validate_params
     >>> validate_params(ProcParams())
     []
     >>> problems = validate_params(ProcParams(wsize_localbin=50))
@@ -785,7 +785,7 @@ def build_stages(p: ProcParams) -> PipelineStages:
 
     Examples
     --------
-    >>> from lib.pipeline import ProcParams, build_stages
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
     >>> stages = build_stages(ProcParams(bg_method="tophat"))
     >>> type(stages.bg_calibrator).__name__, stages.bg_calibrator.bg_method
     ('BGCalibrator', 'tophat')
@@ -1422,14 +1422,14 @@ def process_file(
         ``"input_header"`` として記録される。
     gwy_channel
         Channel selector for a ``.gwy`` input, forwarded to
-        `lib.gwy_io.load_gwy_image`: ``None`` auto-selects the topography
+        `afm_nanofiber_analyzer.gwy_io.load_gwy_image`: ``None`` auto-selects the topography
         channel, an integer selects by channel id, a string by title. When
         ``None`` and the file holds no channel with a length unit, the input
         is refused (`ValueError`) instead of analyzing whichever channel the
         automatic choice falls back to. Explicitly selected non-length channels
         retain their native values and are not suitable for this height-in-nm
         pipeline. Ignored for text/CSV inputs.
-        ``.gwy`` 入力のチャンネル指定で `lib.gwy_io.load_gwy_image` へ渡す。
+        ``.gwy`` 入力のチャンネル指定で `afm_nanofiber_analyzer.gwy_io.load_gwy_image` へ渡す。
         ``None`` は地形チャンネルを自動選択、整数はチャンネル id、文字列は
         タイトルで選択する。``None`` で、長さ単位のチャンネルがファイルに無い
         ときは、自動選択が落ちた先のチャンネルを解析せず、入力を拒否する
@@ -1467,11 +1467,11 @@ def process_file(
         If `params` fails `validate_params`; the message lists every problem.
         Also if a ``.gwy`` input analyzed without `gwy_channel` holds no channel
         with a length unit, or if a text input declares a value unit that is not
-        a length (`lib.afm_io.load_afm_text`).
+        a length (`afm_nanofiber_analyzer.afm_io.load_afm_text`).
         `params` が `validate_params` に通らない場合。メッセージに全問題を
         列挙する。`gwy_channel` を指定せずに解析した ``.gwy`` 入力に長さ単位の
         チャンネルが無い場合と、テキスト入力が長さでない値の単位を宣言している
-        場合（`lib.afm_io.load_afm_text`）も送出する。
+        場合（`afm_nanofiber_analyzer.afm_io.load_afm_text`）も送出する。
     Exception
         Any stage or I/O failure propagates unchanged; batch callers decide
         whether to continue with remaining files.
@@ -1484,7 +1484,7 @@ def process_file(
     are stored:
 
     >>> import os, tempfile
-    >>> from lib.pipeline import ProcParams, process_file
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     result = process_file("testdata_artificial/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder)
@@ -1512,13 +1512,13 @@ def process_file(
     report("load")
     # Load the height image and capture how it was parsed, branching on the
     # input format: a Gwyddion native .gwy (binary, multi-channel) reads through
-    # lib.gwy_io; everything else is a text/CSV export read through afm_io.
+    # afm_nanofiber_analyzer.gwy_io; everything else is a text/CSV export read through afm_io.
     # Normal height channels yield nm values; an explicitly selected non-length
     # .gwy channel retains native values (and is unsuitable for this pipeline).
     # Both branches also yield an optional scan size and "input_format"
     # provenance.
     # 入力形式で分岐して高さ画像と解釈方法を取得する。Gwyddion ネイティブの .gwy
-    # （バイナリ・複数チャンネル）は lib.gwy_io で、それ以外のテキスト/CSV
+    # （バイナリ・複数チャンネル）は afm_nanofiber_analyzer.gwy_io で、それ以外のテキスト/CSV
     # エクスポートは afm_io で読み込む。通常の高さチャンネルは nm で返り、長さ
     # 以外の .gwy チャンネルを明示選択した場合は元単位のまま（本処理には不適切）。
     # どちらも任意の走査範囲と vlmeta "input_format" 用の来歴を併せて返す。
@@ -1611,7 +1611,7 @@ def process_file(
 
     # Scale the recorded Y extent to the cropped image. Both sources above
     # describe the *whole* scan, while the stored arrays cover the kept lines,
-    # and `lib.measure` derives the pixel size from the recorded scan size and
+    # and `afm_nanofiber_analyzer.measure` derives the pixel size from the recorded scan size and
     # the stored shape through `bundle_schema.pixel_size_nm`. It is done as
     # soon as the stored shape is known, so the kink stage's pixel aspect is
     # taken from the value the bundle records.
@@ -1620,18 +1620,18 @@ def process_file(
     # gives the crop's stored rows the pixel size the whole image's stored
     # rows would have had. Deriving it through the function, rather than
     # writing out a ratio of row counts here, keeps the crop in step with the
-    # convention `lib.measure` applies; the whole-image path is untouched.
+    # convention `afm_nanofiber_analyzer.measure` applies; the whole-image path is untouched.
     # Rows dropped by the stages are taken from this run, not assumed.
     # 記録する Y 方向の実寸を切り出し後の画像へ合わせる。上記のどちらの取得元も
     # 走査 *全体* を表す一方、保存される配列は残した走査線分しかなく、
-    # `lib.measure` は記録された走査範囲と保存形状から
+    # `afm_nanofiber_analyzer.measure` は記録された走査範囲と保存形状から
     # `bundle_schema.pixel_size_nm` を通して画素サイズを求める。保存形状が分かった
     # 時点で行い、キンク段の画素の縦横比がバンドルに記録される値から取られるように
     # する。
     #
     # 切り出しに記録する Y 方向の実寸は、その関数が切り出しの保存行数に対して、
     # 画像全体の保存行数が持つはずだった画素サイズを返すような値とする。ここで
-    # 行数の比を書き下さず関数を通して求めることで、切り出しは `lib.measure` が
+    # 行数の比を書き下さず関数を通して求めることで、切り出しは `afm_nanofiber_analyzer.measure` が
     # 適用する約束事と常にそろう。全体解析の経路には手を加えない。各段が落とす
     # 行数は決め打ちせず、この実行から求める。
     if row_range is not None and resolved_scan_size is not None:
@@ -1924,7 +1924,7 @@ def __getattr__(name: str):
         import warnings
         current, removed_in = _DEPRECATED_ALIASES[name]
         warnings.warn(
-            f"lib.pipeline.{name} is deprecated and will be removed in "
+            f"afm_nanofiber_analyzer.pipeline.{name} is deprecated and will be removed in "
             f"{removed_in}; the values follow from a bundle's params and "
             f"spatial_calibration",
             DeprecationWarning, stacklevel=2,

@@ -6,14 +6,14 @@ Invoked by ``.githooks/pre-commit`` (enable it once per clone with
 ``git config core.hooksPath .githooks``). Three rules, each a bookkeeping step
 RELEASING.md and AGENTS.md §8.2 require and that is easy to forget:
 
-1. **Package version.** ``pyproject.toml`` and ``lib/__init__.py`` must carry
+1. **Package version.** ``pyproject.toml`` and ``afm_nanofiber_analyzer/__init__.py`` must carry
    the same version, and it must be later than the newest release tag
    reachable from HEAD. The version is written into every bundle as
    ``software_version``, so code left under a released number records its
    bundles as made by that release (RELEASING.md, "リリース間の開発版表記").
    Right after a release this means the next commit must set ``X.Y.Z.devN``.
 2. **Bundle format.** When ``BUNDLE_FORMAT_VERSION`` in
-   ``lib/bundle_schema.py`` changes, the new version must be listed in
+   ``afm_nanofiber_analyzer/bundle_schema.py`` changes, the new version must be listed in
    ``SUPPORTED_BUNDLE_VERSIONS``, named in the ``## [Unreleased]`` section of
    ``CHANGELOG.md``, and named in both README files; and the package version
    must be at least a MINOR step above the last release, because an older
@@ -45,9 +45,17 @@ import sys
 from typing import Dict, List, Optional, Sequence, Tuple
 
 PYPROJECT = "pyproject.toml"
-INIT = "lib/__init__.py"
-SCHEMA = "lib/bundle_schema.py"
-PIPELINE = "lib/pipeline.py"
+# Older revisions, every 2.x release among them, keep the package in `lib/`;
+# `_read` reads a package path there when the revision has no
+# `afm_nanofiber_analyzer/`.
+# 古いリビジョン（2.x のリリースはすべてそうである）はパッケージを `lib/` に置く。
+# `afm_nanofiber_analyzer/` を持たないリビジョンでは、`_read` がパッケージのパスを
+# そちらで読む。
+PACKAGE_DIR = "afm_nanofiber_analyzer/"
+LEGACY_PACKAGE_DIR = "lib/"
+INIT = "afm_nanofiber_analyzer/__init__.py"
+SCHEMA = "afm_nanofiber_analyzer/bundle_schema.py"
+PIPELINE = "afm_nanofiber_analyzer/pipeline.py"
 CHANGELOG = "CHANGELOG.md"
 READMES = ("README.md", "README.ja.md")
 WATCHED = (PYPROJECT, INIT, SCHEMA, PIPELINE, CHANGELOG) + READMES
@@ -283,8 +291,19 @@ def _git(*args: str, allow_fail: bool = False) -> Optional[str]:
 
 
 def _read(rev: str, path: str) -> Optional[str]:
-    """Read `path` at `rev` ("" = the index), or None when it does not exist."""
-    return _git("show", f"{rev}:{path}", allow_fail=True)
+    """Read `path` at `rev` ("" = the index), or None when it does not exist.
+
+    A package path missing at `rev` is read at `LEGACY_PACKAGE_DIR`, so a
+    revision that keeps the package there is compared file by file with the
+    current code.
+    `rev` に無いパッケージのパスは `LEGACY_PACKAGE_DIR` で読むので、パッケージを
+    そこに置くリビジョンも現在のコードとファイルごとに比べられる。
+    """
+    text = _git("show", f"{rev}:{path}", allow_fail=True)
+    if text is None and path.startswith(PACKAGE_DIR):
+        legacy = LEGACY_PACKAGE_DIR + path[len(PACKAGE_DIR):]
+        text = _git("show", f"{rev}:{legacy}", allow_fail=True)
+    return text
 
 
 def _last_release(rev: str, skip_own: bool = False) -> Optional[str]:

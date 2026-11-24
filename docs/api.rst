@@ -1,7 +1,7 @@
 API reference
 =============
 
-The modules below make up ``lib/``, the analysis library shared by the GUI
+The modules below make up ``afm_nanofiber_analyzer/``, the analysis library shared by the GUI
 plugins and the command-line interface. The grouping follows the stages of the
 preprocessing pipeline: input, background calibration, segmentation,
 skeletonization, kink detection, and per-fiber measurement.
@@ -9,117 +9,117 @@ skeletonization, kink detection, and per-fiber measurement.
 Pipeline
 --------
 
-.. automodule:: lib.pipeline
+.. automodule:: afm_nanofiber_analyzer.pipeline
    :members:
    :show-inheritance:
 
-.. automodule:: lib.processed_image
+.. automodule:: afm_nanofiber_analyzer.processed_image
    :members:
    :show-inheritance:
 
 Input and output
 ----------------
 
-.. automodule:: lib.afm_io
+.. automodule:: afm_nanofiber_analyzer.afm_io
    :members:
    :show-inheritance:
 
-.. automodule:: lib.gwy_io
+.. automodule:: afm_nanofiber_analyzer.gwy_io
    :members:
    :show-inheritance:
 
-.. automodule:: lib.gwy_convert
+.. automodule:: afm_nanofiber_analyzer.gwy_convert
    :members:
    :show-inheritance:
 
-.. automodule:: lib.blosc2_io
+.. automodule:: afm_nanofiber_analyzer.blosc2_io
    :members:
    :show-inheritance:
 
-.. automodule:: lib.bundle_schema
+.. automodule:: afm_nanofiber_analyzer.bundle_schema
    :members:
    :show-inheritance:
 
-.. automodule:: lib.stripe_noise
+.. automodule:: afm_nanofiber_analyzer.stripe_noise
    :members:
    :show-inheritance:
 
 Analysis stages
 ---------------
 
-.. automodule:: lib.bg_calibrator
+.. automodule:: afm_nanofiber_analyzer.bg_calibrator
    :members:
    :show-inheritance:
 
-.. automodule:: lib.segmenter
+.. automodule:: afm_nanofiber_analyzer.segmenter
    :members:
    :show-inheritance:
 
-.. automodule:: lib.skeletonizer
+.. automodule:: afm_nanofiber_analyzer.skeletonizer
    :members:
    :show-inheritance:
 
-.. automodule:: lib.centerline
+.. automodule:: afm_nanofiber_analyzer.centerline
    :members:
    :show-inheritance:
 
-.. automodule:: lib.kink_detector
+.. automodule:: afm_nanofiber_analyzer.kink_detector
    :members:
    :show-inheritance:
 
-.. automodule:: lib.imp_tools
+.. automodule:: afm_nanofiber_analyzer.imp_tools
    :members:
    :show-inheritance:
 
 Measurement
 -----------
 
-.. automodule:: lib.measure
+.. automodule:: afm_nanofiber_analyzer.measure
    :members:
    :show-inheritance:
 
-.. automodule:: lib.fiber
+.. automodule:: afm_nanofiber_analyzer.fiber
    :members:
    :show-inheritance:
 
-.. automodule:: lib.fiber_tracking_image
+.. automodule:: afm_nanofiber_analyzer.fiber_tracking_image
    :members:
    :show-inheritance:
 
-.. automodule:: lib.fiber_connector
+.. automodule:: afm_nanofiber_analyzer.fiber_connector
    :members:
    :show-inheritance:
 
-.. automodule:: lib.fiber_selection
+.. automodule:: afm_nanofiber_analyzer.fiber_selection
    :members:
    :show-inheritance:
 
-.. automodule:: lib.connect_selection
+.. automodule:: afm_nanofiber_analyzer.connect_selection
    :members:
    :show-inheritance:
 
-.. automodule:: lib.group_compare
+.. automodule:: afm_nanofiber_analyzer.group_compare
    :members:
    :show-inheritance:
 
 Support modules
 ---------------
 
-.. automodule:: lib.translator
+.. automodule:: afm_nanofiber_analyzer.translator
    :members:
    :show-inheritance:
 
-.. automodule:: lib.ui_tools
+.. automodule:: afm_nanofiber_analyzer.ui_tools
    :members:
    :show-inheritance:
 
-.. automodule:: lib.plugin_launch
+.. automodule:: afm_nanofiber_analyzer.plugin_launch
    :members:
    :show-inheritance:
 
 Compatibility
 -------------
 
-.. automodule:: lib.bg_calibrator_shimadzu
+.. automodule:: afm_nanofiber_analyzer.bg_calibrator_shimadzu
    :members:
    :show-inheritance:

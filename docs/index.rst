@@ -7,7 +7,7 @@ Gwyddion ``.gwy`` files, removes the instrument background, segments and
 skeletonizes the fibers, detects kinks, and reports per-fiber statistics such as
 length, height, and kink geometry.
 
-These pages document the analysis library in ``lib/``, which is the layer shared
+These pages document the analysis library in ``afm_nanofiber_analyzer/``, which is the layer shared
 by the interactive tools in ``guis/`` and by the ``cli.py`` batch interface. The
 graphical and command-line front ends call the same pipeline and measurement
 routines, so equivalent runs produce identical numerical results.

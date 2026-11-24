@@ -60,13 +60,13 @@ import doc_excerpts  # noqa: E402
 # The modules of the GUI01 analysis stages whose computation needs a review.
 # 計算の変更に確認が要る、GUI01 の解析段階のモジュール。
 VISUAL_MODULES = (
-    "lib/bg_calibrator.py",
-    "lib/segmenter.py",
-    "lib/skeletonizer.py",
-    "lib/centerline.py",
-    "lib/kink_detector.py",
-    "lib/imp_tools.py",
-    "lib/pipeline.py",
+    "afm_nanofiber_analyzer/bg_calibrator.py",
+    "afm_nanofiber_analyzer/segmenter.py",
+    "afm_nanofiber_analyzer/skeletonizer.py",
+    "afm_nanofiber_analyzer/centerline.py",
+    "afm_nanofiber_analyzer/kink_detector.py",
+    "afm_nanofiber_analyzer/imp_tools.py",
+    "afm_nanofiber_analyzer/pipeline.py",
 )
 RECORD = "tests/visual_review.json"
 COVERING_STATUSES = ("approved", "identical", "baseline")

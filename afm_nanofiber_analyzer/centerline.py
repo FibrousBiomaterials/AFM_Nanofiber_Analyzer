@@ -56,10 +56,10 @@ the axis there.
 探針が太い場合、ねじれた繊維のずれは画像そのものに入っており、どの推定量も
 一緒に動く。高さから読む線では、そこで軸を取り戻すことはできない。
 
-This module depends only on NumPy, because `lib.fiber_connector`,
-`lib.fiber_tracking_image` and `lib.kink_detector` all import it.
-本モジュールの依存は NumPy のみとする。`lib.fiber_connector`・
-`lib.fiber_tracking_image`・`lib.kink_detector` がいずれも import するため。
+This module depends only on NumPy, because `afm_nanofiber_analyzer.fiber_connector`,
+`afm_nanofiber_analyzer.fiber_tracking_image` and `afm_nanofiber_analyzer.kink_detector` all import it.
+本モジュールの依存は NumPy のみとする。`afm_nanofiber_analyzer.fiber_connector`・
+`afm_nanofiber_analyzer.fiber_tracking_image`・`afm_nanofiber_analyzer.kink_detector` がいずれも import するため。
 """
 
 # ===== Standard library =====
@@ -168,7 +168,7 @@ def __getattr__(name: str):
         import warnings
         current, removed_in = _DEPRECATED_ALIASES[name]
         warnings.warn(
-            f"lib.centerline.{name} is deprecated and will be removed in "
+            f"afm_nanofiber_analyzer.centerline.{name} is deprecated and will be removed in "
             f"{removed_in}; use {current}",
             DeprecationWarning, stacklevel=2,
         )
@@ -510,7 +510,7 @@ def polyline_distance(
 
     Examples
     --------
-    >>> from lib.centerline import polyline_distance
+    >>> from afm_nanofiber_analyzer.centerline import polyline_distance
     >>> polyline_distance(np.array([0, 3, 3]), np.array([0, 0, 4]), 10.0)
     array([ 0., 30., 70.])
     """
@@ -771,7 +771,7 @@ def measure_apparent_width(
     slightly under the 4.71 px full width at half maximum:
 
     >>> import numpy as np
-    >>> from lib.centerline import measure_apparent_width
+    >>> from afm_nanofiber_analyzer.centerline import measure_apparent_width
     >>> rows, cols = np.mgrid[0:40, 0:60]
     >>> ridge = 3.0 * np.exp(-((rows - 20.0) ** 2) / (2 * 2.0 ** 2))
     >>> xtrack = np.arange(5, 55)
@@ -1506,8 +1506,8 @@ class CenterlineResult:
         画像座標系での線の座標。トラック点ごとに 1 点、トラック順。
     width_px
         Apparent width W in pixels the line was placed with, which the kink
-        rule of `lib.kink_detector` scales every length by.
-        線を置くのに使った見かけ幅 W（画素）。`lib.kink_detector` のキンク規則は
+        rule of `afm_nanofiber_analyzer.kink_detector` scales every length by.
+        線を置くのに使った見かけ幅 W（画素）。`afm_nanofiber_analyzer.kink_detector` のキンク規則は
         すべての長さをこれで尺度付けする。
     width_measured
         Whether `width_px` was read from the fiber's own cross-sections.
@@ -1647,7 +1647,7 @@ def place_centerline(
     --------
     A straight ridge whose crest lies 0.3 px below the skeleton row:
 
-    >>> from lib.centerline import place_centerline
+    >>> from afm_nanofiber_analyzer.centerline import place_centerline
     >>> yy, xx = np.mgrid[0:21, 0:40]
     >>> height = 5.0 * np.exp(-((yy - 10.3) ** 2) / (2 * 1.5 ** 2))
     >>> xtrack = np.arange(5, 35)
@@ -1703,8 +1703,8 @@ def half_max_centerline(
         同じ座標系の分岐点マスク。無ければ ``None``。
     return_width
         Also return the apparent width the line was placed with, which the
-        kink rule of `lib.kink_detector` scales every length by.
-        線を置くのに使った見かけ幅も返す。`lib.kink_detector` のキンク規則は
+        kink rule of `afm_nanofiber_analyzer.kink_detector` scales every length by.
+        線を置くのに使った見かけ幅も返す。`afm_nanofiber_analyzer.kink_detector` のキンク規則は
         すべての長さをこれで尺度付けする。
     aspect
         Y pixel size over X pixel size, as in `place_centerline`.
@@ -1732,7 +1732,7 @@ def half_max_centerline(
     onto the crest at row 20:
 
     >>> import numpy as np
-    >>> from lib.centerline import half_max_centerline
+    >>> from afm_nanofiber_analyzer.centerline import half_max_centerline
     >>> rows, cols = np.mgrid[0:40, 0:60]
     >>> ridge = 3.0 * np.exp(-((rows - 20.0) ** 2) / (2 * 2.0 ** 2))
     >>> xtrack = np.arange(5, 55)

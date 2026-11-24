@@ -7,7 +7,7 @@ software does not already read (anything except ``.txt``, ``.csv``, ``.gwy``)
 or write (``.b2z``, ``.json``, ``.npy``) is converted through Gwyddion's file
 modules into ``<input file name>_converted.gwy`` in the same folder, which
 GUI01 then analyzes. Inputs whose ``.gwy`` already exists are skipped. The
-conversion is `lib.gwy_convert.convert_file`, the same code as
+conversion is `afm_nanofiber_analyzer.gwy_convert.convert_file`, the same code as
 ``cli.py convert``.
 ユーザーがフォルダを選ぶと、その直下のファイルのうち、本ソフトが既に読める
 拡張子（``.txt``・``.csv``・``.gwy``）でも書き出す拡張子（``.b2z``・
@@ -15,16 +15,16 @@ conversion is `lib.gwy_convert.convert_file`, the same code as
 フォルダの ``<入力ファイル名>_converted.gwy`` へ変換する。変換結果は GUI01 で
 解析できる。
 ``.gwy`` が既にある入力は飛ばす。変換処理は ``cli.py convert`` と同じ
-`lib.gwy_convert.convert_file` である。
+`afm_nanofiber_analyzer.gwy_convert.convert_file` である。
 
 The converter comes from the optional ``convert`` dependency, which the
 ``run_venv`` / ``run_conda`` launchers install; without it the window opens
-and reports how to install it (`lib.gwy_convert.INSTALL_COMMAND`). Nothing but
+and reports how to install it (`afm_nanofiber_analyzer.gwy_convert.INSTALL_COMMAND`). Nothing but
 the ``.gwy`` files is written automatically; the log is saved through a file
 dialog.
 変換プログラムは任意依存の ``convert`` に含まれ、``run_venv`` / ``run_conda``
 の起動スクリプトが入れる。無い場合もウィンドウは開き、インストール方法
-（`lib.gwy_convert.INSTALL_COMMAND`）を表示する。自動で書き出すのは ``.gwy``
+（`afm_nanofiber_analyzer.gwy_convert.INSTALL_COMMAND`）を表示する。自動で書き出すのは ``.gwy``
 ファイルだけで、ログはファイルダイアログから保存する。
 """
 
@@ -58,17 +58,17 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 # ===== Project libraries =====
-from lib import gwy_convert
-from lib.translator import _
-from lib.ui_tools import (
+from afm_nanofiber_analyzer import gwy_convert
+from afm_nanofiber_analyzer.translator import _
+from afm_nanofiber_analyzer.ui_tools import (
     LogMixin, apply_window_size, create_scrolled_text, create_scrolled_treeview,
     drain_ui_queue, save_text_widget_log, setup_ttk_theme,
 )
 
 # ===== Internal state keys =====
 # Row state before its file has been processed; the other states are the
-# `lib.gwy_convert` STATUS_* keys.
-# ファイルを処理する前の行の状態。それ以外の状態は `lib.gwy_convert` の
+# `afm_nanofiber_analyzer.gwy_convert` STATUS_* keys.
+# ファイルを処理する前の行の状態。それ以外の状態は `afm_nanofiber_analyzer.gwy_convert` の
 # STATUS_* キーを使う。
 STATUS_PENDING = "pending"
 

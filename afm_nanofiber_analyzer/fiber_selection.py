@@ -36,10 +36,10 @@ from typing import Dict, Iterable, List, Sequence, Set, Tuple
 # ===== Project libraries =====
 from .fiber import Fiber, skeleton_track
 
-# Sidecar file naming, matching `lib.pipeline.param_path_for`'s convention of
+# Sidecar file naming, matching `afm_nanofiber_analyzer.pipeline.param_path_for`'s convention of
 # a suffix on the bundle stem.
 # サイドカーファイルの命名。バンドル stem に接尾辞を付ける
-# `lib.pipeline.param_path_for` の規約に合わせる。
+# `afm_nanofiber_analyzer.pipeline.param_path_for` の規約に合わせる。
 EXCLUSION_SUFFIX = "_excluded.json"
 
 # Value of the "format" key, so a reader can tell this file apart from any
@@ -71,7 +71,7 @@ def exclusion_path_for(bundle_path: str) -> str:
 
     Examples
     --------
-    >>> from lib.fiber_selection import exclusion_path_for
+    >>> from afm_nanofiber_analyzer.fiber_selection import exclusion_path_for
     >>> exclusion_path_for("scan_001.b2z")
     'scan_001_excluded.json'
     """
@@ -120,7 +120,7 @@ def fiber_anchor(fiber: Fiber) -> Tuple[int, int]:
 
     >>> from types import SimpleNamespace
     >>> import numpy as np
-    >>> from lib.fiber_selection import fiber_anchor
+    >>> from afm_nanofiber_analyzer.fiber_selection import fiber_anchor
     >>> fiber = SimpleNamespace(data=(100, 50), xtrack=np.arange(5),
     ...                         ytrack=np.zeros(5, dtype=int))
     >>> fiber_anchor(fiber)
@@ -160,7 +160,7 @@ def fiber_track_pixels(fiber: Fiber) -> Set[Tuple[int, int]]:
     --------
     >>> from types import SimpleNamespace
     >>> import numpy as np
-    >>> from lib.fiber_selection import fiber_track_pixels
+    >>> from afm_nanofiber_analyzer.fiber_selection import fiber_track_pixels
     >>> fiber = SimpleNamespace(data=(10, 20), xtrack=np.array([0, 1, 2]),
     ...                         ytrack=np.array([0, 0, 1]))
     >>> sorted(fiber_track_pixels(fiber))
@@ -203,13 +203,13 @@ def constituent_anchors(fiber: Fiber, fragments: Sequence = ()) -> List[Tuple[in
     -----
     One anchor per constituent fragment, not one for the displayed fiber,
     because exclusions are applied to the fragments before reconnection (see
-    `lib.measure.curate_fibers`). A connected fibril's own midpoint lies on
+    `afm_nanofiber_analyzer.measure.curate_fibers`). A connected fibril's own midpoint lies on
     only one of the fragments it was built from, so recording that single
     anchor would remove one fragment and let the others reconnect into a
     shorter fibril — the object the user rejected would partly come back, and
     the anchor would no longer match it.
     表示中のファイバーに 1 つではなく、構成断片ごとに 1 つのアンカーを記録する。
-    除外は再結合より前に断片へ適用されるためである（`lib.measure.curate_fibers`
+    除外は再結合より前に断片へ適用されるためである（`afm_nanofiber_analyzer.measure.curate_fibers`
     参照）。連結済みフィブリルの中点は構成断片のうち 1 本の上にしか無いため、その
     1 つだけを記録すると断片 1 本が消えるだけで、残りが再結合してより短い
     フィブリルとして復活する。ユーザーが却下した対象が部分的に戻り、しかも
@@ -230,7 +230,7 @@ def constituent_anchors(fiber: Fiber, fragments: Sequence = ()) -> List[Tuple[in
 
     >>> from types import SimpleNamespace
     >>> import numpy as np
-    >>> from lib.fiber_selection import constituent_anchors
+    >>> from afm_nanofiber_analyzer.fiber_selection import constituent_anchors
     >>> def track(x0, y0, xs, ys):
     ...     return SimpleNamespace(data=(x0, y0), xtrack=np.asarray(xs),
     ...                            ytrack=np.asarray(ys))
@@ -298,7 +298,7 @@ def excluded_flags(
 
     >>> from types import SimpleNamespace
     >>> import numpy as np
-    >>> from lib.fiber_selection import excluded_flags
+    >>> from afm_nanofiber_analyzer.fiber_selection import excluded_flags
     >>> def track(x0, y0, xs, ys):
     ...     return SimpleNamespace(data=(x0, y0), xtrack=np.asarray(xs),
     ...                            ytrack=np.asarray(ys))
@@ -352,7 +352,7 @@ def load_exclusions(path: str) -> List[Dict]:
     excluded:
 
     >>> import os, tempfile
-    >>> from lib.fiber_selection import load_exclusions
+    >>> from afm_nanofiber_analyzer.fiber_selection import load_exclusions
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     load_exclusions(os.path.join(folder, "scan_excluded.json"))
     []
@@ -435,7 +435,7 @@ def save_exclusions(path: str, bundle_name: str, records: Sequence[Dict]) -> Non
     Examples
     --------
     >>> import os, tempfile
-    >>> from lib.fiber_selection import load_exclusions, save_exclusions
+    >>> from afm_nanofiber_analyzer.fiber_selection import load_exclusions, save_exclusions
     >>> with tempfile.TemporaryDirectory() as folder:
     ...     path = os.path.join(folder, "scan_excluded.json")
     ...     save_exclusions(path, "scan.b2z", [{"x": 15, "y": 0, "note": "debris"}])

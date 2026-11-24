@@ -96,9 +96,9 @@ def canonical_bg_method(value: str) -> str:
     -----
     Unknown values pass through untouched so that reporting an invalid method
     stays the caller's job (`BGCalibrator.__init__` and
-    `lib.pipeline.validate_params`).
+    `afm_nanofiber_analyzer.pipeline.validate_params`).
     未知の値はそのまま通し、不正な方式の報告は呼び出し側
-    (`BGCalibrator.__init__` と `lib.pipeline.validate_params`) の責務に保つ。
+    (`BGCalibrator.__init__` と `afm_nanofiber_analyzer.pipeline.validate_params`) の責務に保つ。
     """
     return BG_METHOD_ALIASES.get(value, value)
 
@@ -116,13 +116,13 @@ class BGCalibrator:
     Notes
     -----
     When run through the preprocessing pipeline, every constructor argument is
-    supplied explicitly from `lib.pipeline.ProcParams` (via
+    supplied explicitly from `afm_nanofiber_analyzer.pipeline.ProcParams` (via
     `pipeline.build_stages`), so `ProcParams` is the source of truth for
     pipeline, GUI, and CLI runs. The constructor defaults below apply only to
     direct, standalone construction and intentionally differ from some
     `ProcParams` defaults; do not assume the two default sets match.
     前処理パイプライン経由で使う場合、全コンストラクタ引数は
-    `lib.pipeline.ProcParams` から `pipeline.build_stages` を介して明示的に
+    `afm_nanofiber_analyzer.pipeline.ProcParams` から `pipeline.build_stages` を介して明示的に
     渡されるため、パイプライン／GUI／CLI 実行では `ProcParams` がソース・
     オブ・トゥルースとなる。以下のコンストラクタ既定値は直接単体構築した
     ときにのみ効き、一部は `ProcParams` の既定値と意図的に異なる。両者の
@@ -134,9 +134,9 @@ class BGCalibrator:
     `pipeline.build_stages`. The input path is relative to the repository
     root:
 
-    >>> from lib.afm_io import load_afm_text
-    >>> from lib.pipeline import ProcParams, build_stages
-    >>> from lib.processed_image import ProcessedImage
+    >>> from afm_nanofiber_analyzer.afm_io import load_afm_text
+    >>> from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    >>> from afm_nanofiber_analyzer.processed_image import ProcessedImage
     >>> heights = load_afm_text("testdata_artificial/sample_isotropic.txt")
     >>> image = ProcessedImage(original_AFM=heights, name="sample_isotropic")
     >>> calibrator = build_stages(ProcParams()).bg_calibrator

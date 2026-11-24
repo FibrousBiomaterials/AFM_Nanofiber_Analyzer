@@ -51,17 +51,17 @@ if str(PROJECT_ROOT) not in sys.path:
 DOC_EN = PROJECT_ROOT / "docs" / "algorithms.md"
 DOC_JA = PROJECT_ROOT / "docs" / "algorithms.ja.md"
 MANIFEST = Path(__file__).with_name("algorithm_doc_manifest.json")
-LIB_DIR = PROJECT_ROOT / "lib"
+LIB_DIR = PROJECT_ROOT / "afm_nanofiber_analyzer"
 
 # The four stages the document explains. A change inside one of these is what
 # the fingerprint check reacts to.
 # 文書が説明する 4 ステージ。指紋検査が反応するのはこれらの内部変更である。
 ALGORITHM_MODULES = (
-    "lib/bg_calibrator.py",
-    "lib/segmenter.py",
-    "lib/skeletonizer.py",
-    "lib/kink_detector.py",
-    "lib/centerline.py",
+    "afm_nanofiber_analyzer/bg_calibrator.py",
+    "afm_nanofiber_analyzer/segmenter.py",
+    "afm_nanofiber_analyzer/skeletonizer.py",
+    "afm_nanofiber_analyzer/kink_detector.py",
+    "afm_nanofiber_analyzer/centerline.py",
 )
 
 # A backticked span that is a dotted Python path, e.g. `Segmenter._binaryzation`
@@ -95,8 +95,8 @@ def _iter_code_spans(text: str) -> list[str]:
 
 def _index_lib() -> tuple[dict[str, set[str]], dict[str, set[str]], set[str]]:
     """
-    Index every name defined under `lib/`, without importing anything.
-    `lib/` 配下で定義された名前を、import せずに索引化する。
+    Index every name defined under `afm_nanofiber_analyzer/`, without importing anything.
+    `afm_nanofiber_analyzer/` 配下で定義された名前を、import せずに索引化する。
 
     Returns
     -------
@@ -110,10 +110,10 @@ def _index_lib() -> tuple[dict[str, set[str]], dict[str, set[str]], set[str]]:
     Notes
     -----
     Parsing rather than importing keeps this test independent of optional and
-    heavy dependencies: `lib.ui_tools` imports tkinter at module level, which is
+    heavy dependencies: `afm_nanofiber_analyzer.ui_tools` imports tkinter at module level, which is
     absent on headless runners.
     import ではなく解析するのは、任意依存・重量依存からテストを独立させるため
-    である。`lib.ui_tools` はモジュールレベルで tkinter を import するが、
+    である。`afm_nanofiber_analyzer.ui_tools` はモジュールレベルで tkinter を import するが、
     ヘッドレス環境には存在しない。
     """
     modules: dict[str, set[str]] = {}
@@ -175,13 +175,13 @@ def _unresolved_symbols(text: str) -> list[str]:
 
     Notes
     -----
-    A dotted span is checked only when its first component is a `lib/` module or
+    A dotted span is checked only when its first component is a `afm_nanofiber_analyzer/` module or
     a class defined there; anything else is a third-party reference such as
     `skimage.filters.threshold_local` and is out of scope. A bare snake_case
     span is checked against the flat name index. Both rules are conservative by
     design: they never invent a requirement the document did not make, so a
     failure always means a real reference went stale.
-    ドット付きスパンは、先頭要素が `lib/` のモジュールかそこで定義されたクラスの
+    ドット付きスパンは、先頭要素が `afm_nanofiber_analyzer/` のモジュールかそこで定義されたクラスの
     場合にのみ検査する。それ以外は `skimage.filters.threshold_local` のような
     サードパーティ参照であり対象外である。素の snake_case スパンは平坦な名称索引
     と照合する。どちらの規則も意図的に保守的であり、文書がしていない要求を作り
@@ -264,7 +264,7 @@ def test_every_proc_params_field_is_documented(language, doc_en, doc_ja):
     Every user-settable analysis parameter appears in the document.
     利用者が設定できる解析パラメータがすべて文書に登場する。
     """
-    from lib.pipeline import ProcParams
+    from afm_nanofiber_analyzer.pipeline import ProcParams
 
     text = doc_en if language == "en" else doc_ja
     missing = [
@@ -285,7 +285,7 @@ def test_every_proc_params_field_is_documented(language, doc_en, doc_ja):
 @pytest.mark.parametrize("language", ["en", "ja"])
 def test_every_background_method_is_documented(language, doc_en, doc_ja):
     """Each selectable background method has an explanation."""
-    from lib.bg_calibrator import BG_METHOD_NAMES, BG_METHOD_REMOVED
+    from afm_nanofiber_analyzer.bg_calibrator import BG_METHOD_NAMES, BG_METHOD_REMOVED
 
     text = doc_en if language == "en" else doc_ja
     missing = [name for name in BG_METHOD_NAMES if name not in text]
@@ -348,12 +348,12 @@ def test_quoted_code_matches_the_source(doc_en, doc_ja):
     # 各段はコードとともに説明するため、各段の入口は引用対象に含まれていなければ
     # ならない。空集合ではこの検査が空振りになる。
     for key in (
-        "lib/bg_calibrator.py::BGCalibrator.__call__",
-        "lib/segmenter.py::Segmenter.__call__",
-        "lib/skeletonizer.py::Skeletonizer.__call__",
-        "lib/kink_detector.py::KinkDetector.__call__",
-        "lib/kink_detector.py::KinkDetector.judge_line",
-        "lib/kink_detector.py::_arm_interior_angle",
+        "afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator.__call__",
+        "afm_nanofiber_analyzer/segmenter.py::Segmenter.__call__",
+        "afm_nanofiber_analyzer/skeletonizer.py::Skeletonizer.__call__",
+        "afm_nanofiber_analyzer/kink_detector.py::KinkDetector.__call__",
+        "afm_nanofiber_analyzer/kink_detector.py::KinkDetector.judge_line",
+        "afm_nanofiber_analyzer/kink_detector.py::_arm_interior_angle",
     ):
         assert key in quoted["docs/algorithms.md"], f"{key} is not quoted"
 
@@ -364,7 +364,7 @@ def test_stale_excerpt_is_detected(doc_en, doc_ja):
 
     def reader(rel):
         text = excerpts.read_worktree(rel)
-        if rel == "lib/kink_detector.py":
+        if rel == "afm_nanofiber_analyzer/kink_detector.py":
             text = text.replace("_ARM_GAP_WIDTHS = 0.5", "_ARM_GAP_WIDTHS = 0.4")
         return text
 

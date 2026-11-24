@@ -292,7 +292,7 @@ def build(out_dir: Path) -> List[dict]:
 
 def analyze(entry: dict, out_dir: Path, params=None) -> str:
     """The bundle of one scan, processed with `params` (default ProcParams), cached."""
-    from lib.pipeline import ProcParams, process_file
+    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
     bundle = out_dir / f"{entry['tag']}.b2z"
     if not bundle.is_file():
         process_file(str(out_dir / f"{entry['tag']}.txt"), params or ProcParams(),
@@ -306,7 +306,7 @@ def fibers_of(bundle: str, centerline: Optional[str] = None):
     The traced fibers of a bundle, built on `centerline` (the bundle's own line if None).
     バンドルの追跡済み繊維。`centerline` の線の上に組み立てる（None ならバンドル自身の線）。
     """
-    from lib import measure
+    from afm_nanofiber_analyzer import measure
     image = measure.load_tracking_image(bundle, NMPX, NMPX)   # nm per pixel
     if centerline is not None:
         image.centerline = centerline

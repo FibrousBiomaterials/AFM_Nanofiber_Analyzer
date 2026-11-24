@@ -16,7 +16,7 @@ every angle.
 import numpy as np
 import pytest
 
-from lib.segmenter import Segmenter, _max_extent_px
+from afm_nanofiber_analyzer.segmenter import Segmenter, _max_extent_px
 
 H_LENGTH = 20
 H_SRATIO = 0.5

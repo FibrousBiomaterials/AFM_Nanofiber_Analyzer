@@ -37,6 +37,7 @@ the figures show (`check_attributions`, `check_tophat_stripes`).
 
 # ===== Standard library =====
 import argparse
+import importlib
 import io
 import subprocess
 import sys
@@ -45,6 +46,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC_BASE = ROOT / ".tmp" / "history" / "src"
+# The analysis package a version holds: `afm_nanofiber_analyzer`, or `lib` in
+# older versions, the pinned commits below among them.
+# 版が持つ解析パッケージ。`afm_nanofiber_analyzer` か、古い版では `lib` で、
+# 下で固定するコミットは後者を持つ。
+PACKAGE = "afm_nanofiber_analyzer"
+LEGACY_PACKAGE = "lib"
 CACHE_BASE = ROOT / ".tmp" / "history" / "cache"
 FULL_DIR = ROOT / ".tmp" / "history" / "full"
 OUT_DIR = ROOT / "docs" / "images" / "history"
@@ -83,21 +90,30 @@ REDUCED_DPI = 55
 FULL_DPI = 120
 
 
+def _use_version(src: str) -> str:
+    """
+    Put `src` first on ``sys.path`` and return the analysis package it holds.
+    `src` を ``sys.path`` の先頭に置き、そこにある解析パッケージの名前を返す。
+    """
+    sys.path.insert(0, src)
+    return PACKAGE if (Path(src) / PACKAGE / "__init__.py").is_file() else LEGACY_PACKAGE
+
+
 def run_era(src: str, input_path: str, out_path: str, bg_method: str = "") -> None:
     """
     Run one version's background calibration on one scan and save the arrays.
     1 つの版の背景補正を 1 スキャンに実行し、配列を保存する。
 
-    Called in a separate ``python -I`` process with that version's ``lib``
+    Called in a separate ``python -I`` process with that version's analysis package
     first on ``sys.path``, so nothing of the current code is imported.
-    その版の ``lib`` を ``sys.path`` の先頭に置いた別の ``python -I`` プロセスで
+    その版の解析パッケージを ``sys.path`` の先頭に置いた別の ``python -I`` プロセスで
     呼ばれるので、現在のコードは何も import されない。
 
     Parameters
     ----------
     src
-        Folder holding the version's ``lib`` package.
-        その版の ``lib`` パッケージを含むフォルダ。
+        Folder holding the version's analysis package.
+        その版の解析パッケージを含むフォルダ。
     input_path
         Raw scan to analyze.
         解析する生のスキャン。
@@ -108,16 +124,16 @@ def run_era(src: str, input_path: str, out_path: str, bg_method: str = "") -> No
         Background method to use; empty keeps the version's default.
         使う背景補正の方式。空ならその版の既定のまま。
     """
-    sys.path.insert(0, src)
+    pkg = _use_version(src)
     import numpy as np
-    from lib import pipeline
-    from lib.processed_image import ProcessedImage
+    pipeline = importlib.import_module(f"{pkg}.pipeline")
+    ProcessedImage = importlib.import_module(f"{pkg}.processed_image").ProcessedImage
 
     params = pipeline.ProcParams(bg_method=bg_method) if bg_method else pipeline.ProcParams()
     stages = pipeline.build_stages(params)
     loader = getattr(pipeline, "load_afm_text", None)
     if loader is None:
-        from lib.afm_io import load_afm_text as loader
+        loader = importlib.import_module(f"{pkg}.afm_io").load_afm_text
     height = loader(input_path)
     image = ProcessedImage(original_AFM=height, name="scan")
     stages.bg_calibrator(image)
@@ -141,8 +157,8 @@ def run_segmenter(src: str, calibrated_path: str, out_path: str) -> None:
     Parameters
     ----------
     src
-        Folder holding the version's ``lib`` package.
-        その版の ``lib`` パッケージを含むフォルダ。
+        Folder holding the version's analysis package.
+        その版の解析パッケージを含むフォルダ。
     calibrated_path
         ``.npz`` written by `run_era`, whose ``calibrated`` array is binarized.
         `run_era` が書いた ``.npz``。その ``calibrated`` を二値化する。
@@ -150,10 +166,10 @@ def run_segmenter(src: str, calibrated_path: str, out_path: str) -> None:
         ``.npz`` file to write: ``binarized``.
         書き出す ``.npz``。``binarized``。
     """
-    sys.path.insert(0, src)
+    pkg = _use_version(src)
     import numpy as np
-    from lib import pipeline
-    from lib.processed_image import ProcessedImage
+    pipeline = importlib.import_module(f"{pkg}.pipeline")
+    ProcessedImage = importlib.import_module(f"{pkg}.processed_image").ProcessedImage
 
     calibrated = np.load(calibrated_path)["calibrated"].astype(np.float64)
     image = ProcessedImage(original_AFM=calibrated, name="scan")
@@ -175,8 +191,8 @@ def run_skeletonizer(src: str, calibrated_path: str, binarized_path: str, out_pa
     Parameters
     ----------
     src
-        Folder holding the version's ``lib`` package.
-        その版の ``lib`` パッケージを含むフォルダ。
+        Folder holding the version's analysis package.
+        その版の解析パッケージを含むフォルダ。
     calibrated_path
         ``.npz`` written by `run_era`, whose ``calibrated`` array gives the heights.
         `run_era` が書いた ``.npz``。その ``calibrated`` が高さを与える。
@@ -187,10 +203,10 @@ def run_skeletonizer(src: str, calibrated_path: str, binarized_path: str, out_pa
         ``.npz`` file to write: ``skeleton``.
         書き出す ``.npz``。``skeleton``。
     """
-    sys.path.insert(0, src)
+    pkg = _use_version(src)
     import numpy as np
-    from lib import pipeline
-    from lib.processed_image import ProcessedImage
+    pipeline = importlib.import_module(f"{pkg}.pipeline")
+    ProcessedImage = importlib.import_module(f"{pkg}.processed_image").ProcessedImage
 
     calibrated = np.load(calibrated_path)["calibrated"].astype(np.float64)
     image = ProcessedImage(original_AFM=calibrated, name="scan")
@@ -219,8 +235,8 @@ def run_kink_detector(src: str, calibrated_path: str, skeleton_path: str, out_pa
     Parameters
     ----------
     src
-        Folder holding the version's ``lib`` package.
-        その版の ``lib`` パッケージを含むフォルダ。
+        Folder holding the version's analysis package.
+        その版の解析パッケージを含むフォルダ。
     calibrated_path
         ``.npz`` written by `run_era`, whose ``calibrated`` array gives the heights.
         `run_era` が書いた ``.npz``。その ``calibrated`` が高さを与える。
@@ -242,10 +258,11 @@ def run_kink_detector(src: str, calibrated_path: str, skeleton_path: str, out_pa
         the version's default.
         キンクを判定する線（``ProcParams.centerline_method``）。空ならその版の既定。
     """
-    sys.path.insert(0, src)
+    pkg = _use_version(src)
     import numpy as np
-    from lib import imp_tools, kink_detector, pipeline
-    from lib.processed_image import ProcessedImage
+    imp_tools, kink_detector, pipeline = (importlib.import_module(f"{pkg}.{name}") for name in
+                                          ("imp_tools", "kink_detector", "pipeline"))
+    ProcessedImage = importlib.import_module(f"{pkg}.processed_image").ProcessedImage
 
     lines = []
     if hasattr(kink_detector, "place_centerline"):
@@ -296,8 +313,8 @@ def run_polyline_rule(src: str, lines_path: str, out_path: str) -> None:
     Parameters
     ----------
     src
-        Folder holding the version's ``lib`` package.
-        その版の ``lib`` パッケージを含むフォルダ。
+        Folder holding the version's analysis package.
+        その版の解析パッケージを含むフォルダ。
     lines_path
         ``.npz`` written by `run_kink_detector`, whose lines are judged.
         `run_kink_detector` が書いた ``.npz``。その線を判定する。
@@ -305,9 +322,9 @@ def run_polyline_rule(src: str, lines_path: str, out_path: str) -> None:
         ``.npz`` file to write: ``kinks`` (2, N) as (x = column, y = row).
         書き出す ``.npz``。``kinks``（2, N、x = 列、y = 行）。
     """
-    sys.path.insert(0, src)
+    pkg = _use_version(src)
     import numpy as np
-    from lib.kink_detector import KinkDetector
+    KinkDetector = importlib.import_module(f"{pkg}.kink_detector").KinkDetector
 
     detector = KinkDetector()
     data = np.load(lines_path)
@@ -325,12 +342,15 @@ def run_polyline_rule(src: str, lines_path: str, out_path: str) -> None:
 
 def _source(commit: str) -> Path:
     """
-    Extract a commit's ``lib`` into ``SRC_BASE`` once and return the folder.
-    コミットの ``lib`` を一度だけ ``SRC_BASE`` に取り出し、そのフォルダを返す。
+    Extract a commit's analysis package into ``SRC_BASE`` once and return the folder.
+    コミットの解析パッケージを一度だけ ``SRC_BASE`` に取り出し、そのフォルダを返す。
     """
     folder = SRC_BASE / commit
-    if not (folder / "lib" / "pipeline.py").is_file():
-        archive = subprocess.run(["git", "archive", commit, "lib"], cwd=ROOT,
+    has_package = subprocess.run(["git", "ls-tree", "--name-only", commit, PACKAGE], cwd=ROOT,
+                                 check=True, capture_output=True, text=True).stdout.strip()
+    pkg = PACKAGE if has_package else LEGACY_PACKAGE
+    if not (folder / pkg / "pipeline.py").is_file():
+        archive = subprocess.run(["git", "archive", commit, pkg], cwd=ROOT,
                                  check=True, capture_output=True).stdout
         folder.mkdir(parents=True, exist_ok=True)
         with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
@@ -825,7 +845,7 @@ def figure_background(cache: Path, out_dir: Path, dpi: int, bg_method: str = "")
     import matplotlib.pyplot as plt
     import numpy as np
     sys.path.insert(0, str(ROOT))
-    from lib.ui_tools import compute_auto_vrange
+    from afm_nanofiber_analyzer.ui_tools import compute_auto_vrange
 
     for scan_key, scan_path, title in SCANS:
         data = [(label, np.load(_analyzed(cache, commit, scan_key, scan_path, bg_method)))
@@ -1315,11 +1335,11 @@ def run_synthetic_tophat(src: str) -> None:
     上がるもの（Tunicate のスキャンの傾きとほぼ同じ）である。平面ごとに、補正後の
     画像に残ったずれの標準偏差を表示する。`run_era` と同じく別プロセスで呼ばれる。
     """
-    sys.path.insert(0, src)
+    pkg = _use_version(src)
     import numpy as np
     from scipy.ndimage import gaussian_filter1d
-    from lib import pipeline
-    from lib.processed_image import ProcessedImage
+    pipeline = importlib.import_module(f"{pkg}.pipeline")
+    ProcessedImage = importlib.import_module(f"{pkg}.processed_image").ProcessedImage
 
     rng = np.random.default_rng(0)
     n = 512

@@ -1,5 +1,5 @@
-"""Tests for `lib.pipeline.background_warnings` and `flank_step_ratio`.
-`lib.pipeline.background_warnings` と `flank_step_ratio` のテスト。
+"""Tests for `afm_nanofiber_analyzer.pipeline.background_warnings` and `flank_step_ratio`.
+`afm_nanofiber_analyzer.pipeline.background_warnings` と `flank_step_ratio` のテスト。
 """
 
 from types import SimpleNamespace
@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from lib.pipeline import (
+from afm_nanofiber_analyzer.pipeline import (
     BACKGROUND_CHECKED_MAX_WIDTH_PX,
     MIN_FLANK_STEP_RATIO,
     TOPHAT_MIN_ELEMENT_WIDTHS,

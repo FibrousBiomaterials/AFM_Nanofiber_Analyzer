@@ -229,11 +229,11 @@ def _is_tk_startup_glitch(exc: BaseException) -> bool:
     ``exc`` が Tcl/Tk ライブラリ読み取りの一時的失敗かどうかを返す。
 
     Matching on the message keeps the retry narrow: a real GUI regression (a
-    misspelled widget option, a missing callback, a changed ``lib.ui_tools``
+    misspelled widget option, a missing callback, a changed ``afm_nanofiber_analyzer.ui_tools``
     helper) also raises ``TclError``, but with different wording, and must fail
     on the first attempt rather than being retried into a slower failure.
     メッセージで判定して再試行の対象を絞る。GUI の実バグ（ウィジェットオプション
-    の綴り誤り、コールバックの欠落、``lib.ui_tools`` ヘルパーの変更）も
+    の綴り誤り、コールバックの欠落、``afm_nanofiber_analyzer.ui_tools`` ヘルパーの変更）も
     ``TclError`` を送出するが文言が異なり、再試行で遅く失敗させるのではなく
     初回で失敗させる必要がある。
     """

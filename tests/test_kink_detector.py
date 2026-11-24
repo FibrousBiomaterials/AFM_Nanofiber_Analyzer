@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Tests for the excess-turning kink rule of `lib.kink_detector` on analytic lines.
-`lib.kink_detector` の超過回転キンク規則を、解析的な線の上で検証するテスト。
+Tests for the excess-turning kink rule of `afm_nanofiber_analyzer.kink_detector` on analytic lines.
+`afm_nanofiber_analyzer.kink_detector` の超過回転キンク規則を、解析的な線の上で検証するテスト。
 
 The rule is given lines whose geometry is known exactly -- straight arms,
 corners of known turn, arcs of known radius -- so each test states the correct
@@ -15,7 +15,7 @@ image before it is judged is covered by `test_centerline.py`.
 import numpy as np
 import pytest
 
-from lib.kink_detector import KinkDetector
+from afm_nanofiber_analyzer.kink_detector import KinkDetector
 
 # Apparent width in pixels, as on the synthetic scans (2 nm pixels, 4 nm fiber,
 # 15 nm probe), and the line's point spacing: one point per skeleton pixel.

@@ -93,7 +93,7 @@ def test_fiber_table_columns_are_read_from_the_source():
 
 def test_behavioral_change_breaks_the_fingerprint():
     """A changed computation in a watched symbol is detected."""
-    reader = _overlay({"lib/measure.py": lambda t: t.replace(
+    reader = _overlay({"afm_nanofiber_analyzer/measure.py": lambda t: t.replace(
         "HEIGHT_UPPER_PERCENTILE = 90.0", "HEIGHT_UPPER_PERCENTILE = 95.0")})
     problems = docs.check_fingerprints(reader)
     assert any("HEIGHT_UPPER_PERCENTILE" in p for p in problems), problems
@@ -117,7 +117,7 @@ def test_comment_only_change_keeps_the_fingerprint():
 
 def test_stale_excerpt_is_detected():
     """An excerpt that no longer matches its symbol is reported."""
-    reader = _overlay({"lib/fiber_connector.py": lambda t: t.replace(
+    reader = _overlay({"afm_nanofiber_analyzer/fiber_connector.py": lambda t: t.replace(
         "MANUAL_RANGE_FACTOR = 2.0", "MANUAL_RANGE_FACTOR = 3.0")})
     problems = docs.check_documents(reader)
     assert any("MANUAL_RANGE_FACTOR" in p and "no longer matches" in p
@@ -202,7 +202,7 @@ def test_diverging_language_versions_are_detected():
 def test_excerpt_of_unwatched_symbol_is_refused():
     """Quoting a symbol that is not fingerprinted is refused."""
     block = (
-        "\n```python\n# source: lib/measure.py::fiber_kink_angle\n"
+        "\n```python\n# source: afm_nanofiber_analyzer/measure.py::fiber_kink_angle\n"
         "if not stat.kink_angles_deg:\n    return float(\"nan\")\n```\n"
     )
     reader = _overlay({"docs/gui04_measurements.md": lambda t: t + block})

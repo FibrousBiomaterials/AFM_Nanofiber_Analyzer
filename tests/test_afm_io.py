@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Tests for lib/afm_io.py text loading.
-lib/afm_io.py のテキスト読み込みテスト。
+Tests for afm_nanofiber_analyzer/afm_io.py text loading.
+afm_nanofiber_analyzer/afm_io.py のテキスト読み込みテスト。
 """
 
 import numpy as np
 import pytest
 
-from lib.afm_io import (
+from afm_nanofiber_analyzer.afm_io import (
     AfmTextFormat,
     ScanSize,
     detect_afm_format,
@@ -323,7 +323,7 @@ def test_read_scan_size_on_bundled_shimadzu_scan():
 
 def test_input_file_size_limit(tmp_path, monkeypatch):
     """Oversized input files are rejected before any content is parsed."""
-    import lib.afm_io as afm_io
+    import afm_nanofiber_analyzer.afm_io as afm_io
 
     path = tmp_path / "big.txt"
     rows = "\n".join(",".join("1.0" for _ in range(16)) for _ in range(16))
@@ -348,7 +348,7 @@ def test_input_file_size_limit(tmp_path, monkeypatch):
 
 def test_input_file_size_limit_missing_file(tmp_path, monkeypatch):
     """A missing file still reports the loader's usual error, not the cap's."""
-    import lib.afm_io as afm_io
+    import afm_nanofiber_analyzer.afm_io as afm_io
 
     monkeypatch.setattr(afm_io, "MAX_INPUT_FILE_BYTES", 16)
     with pytest.raises(ValueError, match="読み込めません"):
@@ -369,7 +369,7 @@ def test_length_unit_spellings(unit, nm):
     No prefix beyond milli, micro, nano and pico is read, so ``MM`` and ``Mm``
     can only be millimetres and ``PM`` picometres.
     """
-    from lib.afm_io import _length_unit_nm
+    from afm_nanofiber_analyzer.afm_io import _length_unit_nm
 
     assert _length_unit_nm(unit) == pytest.approx(nm, rel=1e-12)
 
@@ -378,7 +378,7 @@ def test_length_unit_spellings(unit, nm):
                                   "Gm", "Em", "m^2", "px", "Pa", "xm"])
 def test_non_length_units_are_not_lengths(unit):
     """Units that are not a length, and lengths with a prefix AFM data do not use, read as None."""
-    from lib.afm_io import _length_unit_nm
+    from afm_nanofiber_analyzer.afm_io import _length_unit_nm
 
     assert _length_unit_nm(unit) is None
 

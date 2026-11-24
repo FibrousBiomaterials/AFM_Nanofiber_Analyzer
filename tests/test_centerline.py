@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Tests for the half-maximum centerline (`lib.centerline`) and for the fibers
+Tests for the half-maximum centerline (`afm_nanofiber_analyzer.centerline`) and for the fibers
 built on it.
-半値中点線（`lib.centerline`）と、その上に組み立てる繊維のテスト。
+半値中点線（`afm_nanofiber_analyzer.centerline`）と、その上に組み立てる繊維のテスト。
 
 The unit tests use analytic height ridges whose centre is known exactly, so the
 line is compared with the geometry itself rather than with another pipeline
@@ -20,8 +20,8 @@ import os
 import numpy as np
 import pytest
 
-from lib import blosc2_io, measure
-from lib.centerline import (
+from afm_nanofiber_analyzer import blosc2_io, measure
+from afm_nanofiber_analyzer.centerline import (
     CENTERLINE_METHODS,
     FALLBACK_WIDTH_PX,
     HALF_MAX_025W_CENTERLINE,
@@ -34,11 +34,11 @@ from lib.centerline import (
     polyline_distance,
     refine_centerline,
 )
-from lib.fiber import skeleton_track
-from lib.fiber_selection import fiber_anchor, fiber_track_pixels
-from lib.imp_tools import convert_track_to_distance
-from lib.kink_detector import KinkDetector
-from lib.pipeline import ProcParams, process_file
+from afm_nanofiber_analyzer.fiber import skeleton_track
+from afm_nanofiber_analyzer.fiber_selection import fiber_anchor, fiber_track_pixels
+from afm_nanofiber_analyzer.imp_tools import convert_track_to_distance
+from afm_nanofiber_analyzer.kink_detector import KinkDetector
+from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 
 import synthetic_fibers as sf
 
@@ -308,7 +308,7 @@ def test_a_format_1_1_bundle_is_built_on_the_centerline(synthetic_bundle):
     Fibers of a new bundle carry the centerline and the skeleton pixels under it.
     新しいバンドルの繊維は中心線と、その元になったスケルトン画素を持つ。
     """
-    from lib.bundle_schema import BUNDLE_FORMAT_VERSION
+    from afm_nanofiber_analyzer.bundle_schema import BUNDLE_FORMAT_VERSION
 
     assert blosc2_io.load_bundle_meta(synthetic_bundle)["version"] == BUNDLE_FORMAT_VERSION
     result = measure.measure_bundle(synthetic_bundle)
@@ -437,7 +437,7 @@ def test_place_centerline_reports_width_reliability_and_crest():
     頂点高さが繊維の高さの意味である。線の位置で補間した高さは線が頂部の脇にある
     ところで低く読むので、頂点高さがその標本を下回ることはあってはならない。
     """
-    from lib.centerline import FALLBACK_WIDTH_PX, place_centerline, sample_height
+    from afm_nanofiber_analyzer.centerline import FALLBACK_WIDTH_PX, place_centerline, sample_height
 
     height = _ridge(5.0, FWHM, 0.0)
     x, y = _track(1.5)
@@ -499,7 +499,7 @@ def test_each_line_is_recorded_and_is_the_line_fibers_are_built_on(bundle_per_li
     置く線、すなわち GUI01 がキンクを判定した線と厳密に一致しなければならない。
     そうでなければ、判定に使っていない線の上にキンクが描かれる。
     """
-    from lib.bundle_schema import CENTERLINE_KEY
+    from afm_nanofiber_analyzer.bundle_schema import CENTERLINE_KEY
 
     method, bundle = bundle_per_line
     meta = blosc2_io.load_bundle_meta(bundle)
@@ -557,7 +557,7 @@ def test_each_line_reconnects_and_filters_on_its_own_line(bundle_per_line):
     Fibrils rebuilt by connection or the height filter keep the analysis's line.
     連結や高さ絞り込みで組み立て直したフィブリルは、解析の線を保つ。
     """
-    from lib.fiber_connector import connect_fiber_fragments, filter_fibers_by_height
+    from afm_nanofiber_analyzer.fiber_connector import connect_fiber_fragments, filter_fibers_by_height
 
     method, bundle = bundle_per_line
     result = measure.measure_bundle(bundle)
@@ -573,7 +573,7 @@ def test_each_line_reconnects_and_filters_on_its_own_line(bundle_per_line):
 
 def test_the_name_used_up_to_2_0_1_still_resolves_and_warns():
     """`HALF_MAX_CENTERLINE` stays importable until 3.0.0 (AGENTS.md §8.7)."""
-    import lib.centerline as cl
+    import afm_nanofiber_analyzer.centerline as cl
     with pytest.warns(DeprecationWarning, match="removed in 3.0.0"):
         assert cl.HALF_MAX_CENTERLINE == cl.HALF_MAX_025W_CENTERLINE
     with pytest.raises(AttributeError):

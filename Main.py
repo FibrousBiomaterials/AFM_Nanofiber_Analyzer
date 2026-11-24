@@ -59,9 +59,9 @@ BASE_DIR = (
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from lib.ui_tools import apply_window_size
-from lib.translator import _, current_language, set_language, SUPPORTED
-from lib.plugin_launch import RUN_PLUGIN_FLAG, launch_plugin
+from afm_nanofiber_analyzer.ui_tools import apply_window_size
+from afm_nanofiber_analyzer.translator import _, current_language, set_language, SUPPORTED
+from afm_nanofiber_analyzer.plugin_launch import RUN_PLUGIN_FLAG, launch_plugin
 
 # =========================
 # Configuration constants
@@ -704,13 +704,13 @@ class MainApp(tk.Tk):
           ``Main.py`` file is re-invoked with the same subcommand. Keeping both
           paths on ``--run-plugin`` centralizes splash handling and explicit
           ``main()`` invocation in `_run_plugin_and_exit`. The command is
-          built by `lib.plugin_launch.plugin_command`.
+          built by `afm_nanofiber_analyzer.plugin_launch.plugin_command`.
           凍結ビルドでもソース実行でも、本プロジェクト独自の
           ``--run-plugin`` サブコマンドを使う。凍結時は ``sys.executable`` が
           ``Main.exe``、ソース実行時はこの ``Main.py`` を同じサブコマンド付きで
           再起動する。これにより、スプラッシュ表示と ``main()`` の明示呼び出しを
           `_run_plugin_and_exit` に集約できる。コマンドは
-          `lib.plugin_launch.plugin_command` が組み立てる。
+          `afm_nanofiber_analyzer.plugin_launch.plugin_command` が組み立てる。
         """
         self._set_status("Launching...")
         try:

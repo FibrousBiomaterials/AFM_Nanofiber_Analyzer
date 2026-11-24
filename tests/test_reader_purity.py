@@ -44,24 +44,24 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 # 対象になる。
 STAGE_MODULES = ("bg_calibrator", "bg_calibrator_shimadzu", "segmenter", "skeletonizer")
 
-# The pipeline's own stage drivers; the rest of `lib.pipeline` (`ProcParams`,
+# The pipeline's own stage drivers; the rest of `afm_nanofiber_analyzer.pipeline` (`ProcParams`,
 # parameter helpers) only describes an analysis and may be read.
-# パイプライン自身の段の実行関数。`lib.pipeline` の残り（`ProcParams` と
+# パイプライン自身の段の実行関数。`afm_nanofiber_analyzer.pipeline` の残り（`ProcParams` と
 # パラメータの補助関数）は解析を記述するだけなので読んでよい。
 PIPELINE_DRIVERS = {"process_file", "build_stages", "PipelineStages"}
 
 # Modules that only read bundles, checked whole.
 # バンドルを読むだけのモジュール。全体を調べる。
 READER_MODULES = (
-    "lib/blosc2_io.py",
-    "lib/bundle_schema.py",
-    "lib/centerline.py",
-    "lib/connect_selection.py",
-    "lib/fiber.py",
-    "lib/fiber_connector.py",
-    "lib/fiber_selection.py",
-    "lib/fiber_tracking_image.py",
-    "lib/measure.py",
+    "afm_nanofiber_analyzer/blosc2_io.py",
+    "afm_nanofiber_analyzer/bundle_schema.py",
+    "afm_nanofiber_analyzer/centerline.py",
+    "afm_nanofiber_analyzer/connect_selection.py",
+    "afm_nanofiber_analyzer/fiber.py",
+    "afm_nanofiber_analyzer/fiber_connector.py",
+    "afm_nanofiber_analyzer/fiber_selection.py",
+    "afm_nanofiber_analyzer/fiber_tracking_image.py",
+    "afm_nanofiber_analyzer/measure.py",
     "guis/GUI02_PlotProfiler.py",
     "guis/GUI03_Fiber_Morphology_Statistics.py",
     "guis/GUI04_Tracking_fiber.py",
@@ -81,7 +81,7 @@ def _stage_module(module: str, level: int) -> bool:
     import のモジュールパスが解析段のモジュールを指すかを判定する。
     """
     parts = module.split(".") if module else []
-    if level == 0 and parts[:1] != ["lib"]:
+    if level == 0 and parts[:1] != ["afm_nanofiber_analyzer"]:
         return False
     name = parts[-1] if parts else ""
     return name in STAGE_MODULES
@@ -89,10 +89,10 @@ def _stage_module(module: str, level: int) -> bool:
 
 def _pipeline_module(module: str, level: int) -> bool:
     """
-    Tell whether an import's module path names `lib.pipeline`.
-    import のモジュールパスが `lib.pipeline` を指すかを判定する。
+    Tell whether an import's module path names `afm_nanofiber_analyzer.pipeline`.
+    import のモジュールパスが `afm_nanofiber_analyzer.pipeline` を指すかを判定する。
     """
-    return (level == 0 and module == "lib.pipeline") or (level >= 1 and module == "pipeline")
+    return (level == 0 and module == "afm_nanofiber_analyzer.pipeline") or (level >= 1 and module == "pipeline")
 
 
 def forbidden_imports(source: str) -> list:
@@ -117,15 +117,15 @@ def forbidden_imports(source: str) -> list:
                 for alias in node.names:
                     if alias.name in PIPELINE_DRIVERS:
                         found.append((node.lineno, f"{alias.name} from {'.' * level}{module}"))
-            elif (level == 0 and module == "lib") or (level == 1 and not module):
+            elif (level == 0 and module == "afm_nanofiber_analyzer") or (level == 1 and not module):
                 for alias in node.names:
                     if alias.name in STAGE_MODULES or alias.name == "pipeline":
                         found.append((node.lineno, f"module {alias.name}"))
         elif isinstance(node, ast.Import):
             for alias in node.names:
-                if alias.name.split(".")[0] == "lib" and (
+                if alias.name.split(".")[0] == "afm_nanofiber_analyzer" and (
                         alias.name.split(".")[-1] in STAGE_MODULES
-                        or alias.name == "lib.pipeline"):
+                        or alias.name == "afm_nanofiber_analyzer.pipeline"):
                     found.append((node.lineno, f"import {alias.name}"))
     return found
 
@@ -182,8 +182,8 @@ def test_the_check_catches_a_load_time_cleanup():
         "    return collapse_skeleton_loops(skeleton_image)\n"
     )
     assert forbidden_imports(source) == [(2, "from .skeletonizer import ...")]
-    assert forbidden_imports("from lib.pipeline import ProcParams\n") == []
-    assert forbidden_imports("from lib.pipeline import process_file\n") != []
+    assert forbidden_imports("from afm_nanofiber_analyzer.pipeline import ProcParams\n") == []
+    assert forbidden_imports("from afm_nanofiber_analyzer.pipeline import process_file\n") != []
     assert forbidden_calls(
         "def cmd_measure(args):\n    process_file(args.x)\n", ("cmd_measure",)
     ) == [(2, "cmd_measure calls process_file")]

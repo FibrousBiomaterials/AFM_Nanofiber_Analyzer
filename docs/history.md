@@ -40,7 +40,7 @@ a change to one commit or explain where it comes from.
 
 Each figure has two rows. Row A shows the raw scan, with its own colour range,
 and the calibrated image of each version, all three at the automatic display
-range `lib.ui_tools.compute_auto_vrange` computes from the c43409b result. Row
+range `afm_nanofiber_analyzer.ui_tools.compute_auto_vrange` computes from the c43409b result. Row
 B shows the same calibrated images at −1 to +1 nm, where what is left of the
 background becomes visible and the fibers saturate to white.
 

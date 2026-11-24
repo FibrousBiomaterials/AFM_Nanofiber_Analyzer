@@ -33,9 +33,10 @@ jobs:
           python-version: "3.13"
           cache: pip
 
-      # autodoc imports every lib module, so the runtime dependencies must be
-      # present; opencv-python (non-headless) needs libGL at import time.
-      # autodoc は lib の各モジュールを実 import するため実行時依存が必要で、
+      # autodoc imports every afm_nanofiber_analyzer module, so the runtime
+      # dependencies must be present; opencv-python (non-headless) needs libGL
+      # at import time.
+      # autodoc は afm_nanofiber_analyzer の各モジュールを実 import するため実行時依存が必要で、
       # Linux では opencv-python (非 headless) の import に libGL が要る。
       - name: Install OpenCV system libraries
         run: |

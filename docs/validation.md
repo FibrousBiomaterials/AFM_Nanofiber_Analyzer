@@ -75,15 +75,15 @@ background by 1.7<!--m:bg_fill.none.inpaint.fill_error_median_nm--> nm on the tu
 1.0.0 (from tag `v1.0.0`) on a synthetic scan with one 8<!--m:bg_legacy_halo.fiber_height_nm--> nm fiber across a
 0.24<!--m:bg_legacy_halo.slope_nm_per_px--> nm/px plane (experiment bg_legacy_halo), the calibrated background beside
 the fiber ranged from −0.76<!--m:bg_legacy_halo.v1_0_0.beside_min_nm--> to +0.77<!--m:bg_legacy_halo.v1_0_0.beside_max_nm--> nm, beyond the default binarization
-threshold of 0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm; the current code leaves −0.21<!--m:bg_legacy_halo.current.beside_min_nm--> to +0.18<!--m:bg_legacy_halo.current.beside_max_nm--> nm there.
+threshold of 0.3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.global_threshold--> nm; the current code leaves −0.21<!--m:bg_legacy_halo.current.beside_min_nm--> to +0.18<!--m:bg_legacy_halo.current.beside_max_nm--> nm there.
 
 ### 1.4 `tophat` at the border
 
 On a ramp of 0.24<!--m:tophat_border.slope_nm_per_px--> nm/px, a little steeper than the steepest plane of the bundled
 scans (0.23<!--m:bg_stats.tunicate.plane_slope_nm_per_px--> nm/px, §1.1),
-opening the raw heights with the 25<!--c:lib/pipeline.py::ProcParams.tophat_se_size-->-px element leaves a band
+opening the raw heights with the 25<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.tophat_se_size-->-px element leaves a band
 **3.1<!--m:tophat_border.raw.uphill_band_max_nm--> nm** high within 12<!--n:definition--> px of the uphill edge, far above the
-0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm binarization threshold; opening the detrended heights leaves
+0.3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.global_threshold--> nm binarization threshold; opening the detrended heights leaves
 0.29<!--m:tophat_border.detrended.uphill_band_max_nm--> nm (experiment tophat_border).
 
 ### 1.5 The axis of `spline1d`
@@ -167,7 +167,7 @@ height (nm).
 | Bruker NDTOC | 0.000<!--m:spline1d_trend_order.NDTOC.max_difference_nm--> |
 Because the smoothing is linear, the two orders differ only by the trend minus
 its smoothed self, which is largest where the trend curves most along X. On
-every input the difference stays far below the 0.3<!--c:lib/pipeline.py::ProcParams.global_threshold--> nm binarization threshold.
+every input the difference stays far below the 0.3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.global_threshold--> nm binarization threshold.
 
 ### 1.8 Scans whose fibers span many pixels
 
@@ -197,7 +197,7 @@ skeleton's points, ranged here over the tiles.
 | 3<!--n:value tried--> | 0.13–0.96<!--m:zoomed_background.trendfill.x3.kept_range--> | 0.27–0.99<!--m:zoomed_background.spline1d.x3.kept_range--> | 0.31–0.49<!--m:zoomed_background.tophat.x3.kept_range--> |
 | 4<!--n:value tried--> | 0.08–0.18<!--m:zoomed_background.trendfill.x4.kept_range--> | 0.13–0.93<!--m:zoomed_background.spline1d.x4.kept_range--> | 0.17–0.28<!--m:zoomed_background.tophat.x4.kept_range--> |
 
-`background_warnings` (`lib/pipeline.py`) was checked on every run; a run it
+`background_warnings` (`afm_nanofiber_analyzer/pipeline.py`) was checked on every run; a run it
 warned on with a suggested setting was analyzed again with that setting.
 
 | Zoom | Runs | Kept below 0.9<!--n:definition--> | of which not warned | Warned | Warned with 0.97<!--n:definition--> or more kept |
@@ -265,12 +265,12 @@ in §1.10.
 
 ### 1.10 Predicted and measured background warnings
 
-`background_warnings` (`lib/pipeline.py`) raises two kinds of warning. Three
+`background_warnings` (`afm_nanofiber_analyzer/pipeline.py`) raises two kinds of warning. Three
 compare the apparent width with the limits of §1.8 and so predict a loss:
 `element_small`, `flank_step_low` and `width_unchecked`. Two measure the
-calibrated image. `relief_absorbed` fires when, on the fiber mask, 0.1<!--c:lib/pipeline.py::_MAX_ABSORBED_FRACTION--> or more
+calibrated image. `relief_absorbed` fires when, on the fiber mask, 0.1<!--c:afm_nanofiber_analyzer/pipeline.py::_MAX_ABSORBED_FRACTION--> or more
 of the relief the input showed was subtracted as background standing above the
-background beside the mask (within 2<!--c:lib/pipeline.py::_ABSORBED_RING_WIDTHS--> apparent widths of it, averaged over 3<!--c:lib/pipeline.py::_ABSORBED_SMOOTH_WIDTHS--> widths);
+background beside the mask (within 2<!--c:afm_nanofiber_analyzer/pipeline.py::_ABSORBED_RING_WIDTHS--> apparent widths of it, averaged over 3<!--c:afm_nanofiber_analyzer/pipeline.py::_ABSORBED_SMOOTH_WIDTHS--> widths);
 `width_unmeasured` fires when no apparent width could be measured for most
 components, so that no other check could run. The two lengths and the limit
 were chosen by looking at the runs below, so these runs served as a development
@@ -452,7 +452,7 @@ non-linear object, such as a big contamination blob, is still kept untested.
 ### 2.7 The height filter
 
 The height filter (`Segmenter.remove_low_component`) removes a component whose
-maximum height is below `low_threshold` (default 1.8<!--c:lib/pipeline.py::ProcParams.low_threshold--> nm). It runs after the
+maximum height is below `low_threshold` (default 1.8<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.low_threshold--> nm). It runs after the
 other steps of binarization and sees only the components they left
 (`Segmenter.__call__`). Each test input was analyzed at the defaults (experiment
 low_threshold_removal), and every component the filter removed was rendered
@@ -557,12 +557,12 @@ On the bundled scans, without the replicated border, the last 5<!--n:definition-
 tracks that run off the image lie a median 3.9<!--m:border_drift.plain.end_median_px--> px from the height crest along
 their normal, against 0.9<!--m:border_drift.plain.middle_median_px--> px in the middle of fibers; with it, the ends lie
 1.1<!--m:border_drift.padded.end_median_px--> px from the crest (experiment border_drift). On all 3<!--m:border_padding.identical_inside_band--> bundled scans the
-skeleton outside a 12<!--c:lib/skeletonizer.py::DEFAULT_BORDER_PAD--> px border band was identical with and without the
+skeleton outside a 12<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_BORDER_PAD--> px border band was identical with and without the
 correction (experiment border_padding), but that is not a guarantee.
 
 ### 3.2 `bp_height` against the fiber heights
 
-The default `bp_height` of 10<!--c:lib/pipeline.py::ProcParams.bp_height--> nm lies above the median height under the
+The default `bp_height` of 10<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.bp_height--> nm lies above the median height under the
 skeleton on every bundled scan (1.7<!--m:bg_stats.hplantTOC.skeleton_height_median_nm--> to 7.9<!--m:bg_stats.tunicate.skeleton_height_median_nm--> nm, §1.1). At the branch points of
 the first skeleton (experiment branch_pruning) the median height is 9.2<!--m:branch_pruning.tunicate.bp_height_median_nm--> nm on
 the tunicate scan, where 41<!--m:branch_pruning.tunicate.bp_at_or_above_percent--> % of the branch points reach `bp_height`. On the other
@@ -606,7 +606,7 @@ gap and rejoin (Gaussian sections 4<!--n:value tried--> nm high with standard de
 and 3<!--n:value tried--> px, gaps of 4<!--n:value tried--> to 12<!--n:value tried--> px; experiment loop_sliver), 4<!--m:loop_sliver.candidates--> enclosures were small
 enough for `collapse_skeleton_loops` to consider. Their median interior height
 was 63<!--m:loop_sliver.ratio_percent_range[0]-->–98<!--m:loop_sliver.ratio_percent_range[1]--> % of the surrounding ridge's, because the flanks of two close
-fibers overlap, so all 4<!--m:loop_sliver.filled--> passed the 0.3<!--c:lib/skeletonizer.py::DEFAULT_LOOP_HEIGHT_RATIO--> guard and were filled; rendered,
+fibers overlap, so all 4<!--m:loop_sliver.filled--> passed the 0.3<!--c:afm_nanofiber_analyzer/skeletonizer.py::DEFAULT_LOOP_HEIGHT_RATIO--> guard and were filled; rendered,
 the two fibers were then joined into one line running down the middle of the
 gap. Wider gaps enclosed more than `max_loop_area` and kept both fibers. On these
 scans the guard never stopped a fill.
@@ -614,11 +614,11 @@ scans the guard never stopped a fill.
 ### 3.5 The border margins of the two prunings
 
 The branch pruning (§3.3 of the algorithm page) skips endpoints within
-`branch_length` (12<!--c:lib/pipeline.py::ProcParams.branch_length--> px) of the border, the spur pruning (§3.5 there) spares
-arms within 2<!--c:lib/skeletonizer.py::prune_short_spurs(border_margin)--> px. Each test input was skeletonized with one margin at a time
+`branch_length` (12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.branch_length--> px) of the border, the spur pruning (§3.5 there) spares
+arms within 2<!--c:afm_nanofiber_analyzer/skeletonizer.py::prune_short_spurs(border_margin)--> px. Each test input was skeletonized with one margin at a time
 set to the other's value (experiment border_margins):
 
-| Input | Branch pruning at 2<!--c:lib/skeletonizer.py::prune_short_spurs(border_margin)--> px: pixels changed | farthest from the border (px) | Spur pruning at 12<!--c:lib/pipeline.py::ProcParams.branch_length--> px: pixels changed | farthest from the border (px) |
+| Input | Branch pruning at 2<!--c:afm_nanofiber_analyzer/skeletonizer.py::prune_short_spurs(border_margin)--> px: pixels changed | farthest from the border (px) | Spur pruning at 12<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.branch_length--> px: pixels changed | farthest from the border (px) |
 |---|---|---|---|---|
 | tunicate CNF | 0<!--m:border_margins.tunicate.branch_margin_2.changed_px--> | 0<!--m:border_margins.tunicate.branch_margin_2.farthest_from_border_px--> | 8<!--m:border_margins.tunicate.spur_margin_wide.changed_px--> | 12<!--m:border_margins.tunicate.spur_margin_wide.farthest_from_border_px--> |
 | higher-plant TOC | 0<!--m:border_margins.hplantTOC.branch_margin_2.changed_px--> | 0<!--m:border_margins.hplantTOC.branch_margin_2.farthest_from_border_px--> | 0<!--m:border_margins.hplantTOC.spur_margin_wide.changed_px--> | 0<!--m:border_margins.hplantTOC.spur_margin_wide.farthest_from_border_px--> |
@@ -771,8 +771,8 @@ false detections referred to below.
 | Earlier polyline rule, on the skeleton track | 42<!--m:kink_reference.old_rule.found--> | 3<!--m:kink_reference.old_rule.displaced--> | 8<!--m:kink_reference.old_rule.missed--> | 76<!--m:kink_reference.old_rule.false--> |
 
 The earlier rule's row applies `KinkDetector.kinks_and_decomposed_from_track`,
-kept for bundles of format 1.0<!--n:bundle format version--> (`kink_decompose_px` = 3<!--c:lib/pipeline.py::ProcParams.kink_decompose_px--> px, `kinkangle_deg` =
-150<!--c:lib/pipeline.py::ProcParams.kinkangle_deg-->°), to the traced skeleton tracks of the same images.
+kept for bundles of format 1.0<!--n:bundle format version--> (`kink_decompose_px` = 3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kink_decompose_px--> px, `kinkangle_deg` =
+150<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg-->°), to the traced skeleton tracks of the same images.
 
 A reported bend within $W$ of a mark the reference calls ambiguous or a
 junction is counted neither as found nor as unmatched. Of the 139<!--m:kink_reference.default.detections--> bends the
@@ -800,11 +800,11 @@ smoothing of the heading: 48<!--m:kink_reference.sens_heading_0.35.found--> with
 | Length | Default | Neighbouring values tried |
 |---|---|---|
 | centerline smoothing | W/4 | ×0.6<!--n:value tried-->, ×1.4<!--n:value tried--> |
-| window half-length $c$ | 0.75<!--c:lib/kink_detector.py::_CORE_WIDTHS--> W | 0.6<!--n:value tried--> W, 0.9<!--n:value tried--> W |
-| flank length $f$ | 1.0<!--c:lib/kink_detector.py::_FLANK_WIDTHS--> W | 0.75<!--n:value tried--> W, 1.5<!--n:value tried--> W |
-| heading smoothing $\sigma$ | 0.25<!--c:lib/kink_detector.py::_HEADING_SIGMA_WIDTHS--> W | 0.15<!--n:value tried--> W, 0.35<!--n:value tried--> W |
-| end margin | 1.5<!--c:lib/kink_detector.py::END_MARGIN_WIDTHS--> W | 1.0<!--n:value tried--> W, 2.0<!--n:value tried--> W |
-| suppression radius | 0.75<!--c:lib/kink_detector.py::_SUPPRESS_WIDTHS--> W | 0.5<!--n:value tried--> W, 1.0<!--n:value tried--> W |
+| window half-length $c$ | 0.75<!--c:afm_nanofiber_analyzer/kink_detector.py::_CORE_WIDTHS--> W | 0.6<!--n:value tried--> W, 0.9<!--n:value tried--> W |
+| flank length $f$ | 1.0<!--c:afm_nanofiber_analyzer/kink_detector.py::_FLANK_WIDTHS--> W | 0.75<!--n:value tried--> W, 1.5<!--n:value tried--> W |
+| heading smoothing $\sigma$ | 0.25<!--c:afm_nanofiber_analyzer/kink_detector.py::_HEADING_SIGMA_WIDTHS--> W | 0.15<!--n:value tried--> W, 0.35<!--n:value tried--> W |
+| end margin | 1.5<!--c:afm_nanofiber_analyzer/kink_detector.py::END_MARGIN_WIDTHS--> W | 1.0<!--n:value tried--> W, 2.0<!--n:value tried--> W |
+| suppression radius | 0.75<!--c:afm_nanofiber_analyzer/kink_detector.py::_SUPPRESS_WIDTHS--> W | 0.5<!--n:value tried--> W, 1.0<!--n:value tried--> W |
 
 Without the candidates taken from the maxima of the window turning itself, the
 rule found 47<!--m:turn_maxima.without.found--> instead of 49<!--m:turn_maxima.with.found--> of the clear reference kinks, and reported
@@ -878,7 +878,7 @@ fiber with a step beside a crossing, and at the tip of a hairpin turn.
 - Every isolated corner of 40<!--n:value tried-->° or more was found (8<!--m:synthetic_kinks.corners_40_up.found--> of 8<!--m:synthetic_kinks.corners_40_up.clear-->).
 - 11<!--m:synthetic_kinks.sines.reported--> bends were reported on 4<!--m:synthetic_kinks.sines.scans--> sine meanders whose tightest radius is
   1.6–1.8<!--m:synthetic_kinks.sines.tightest_radius_w_range--> $W$. Below a radius of about $2.9\,W$ the window alone turns more than
-  30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->°, and where the curvature changes quickly the flanks do not account for it.
+  30<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg|180 - v-->°, and where the curvature changes quickly the flanks do not account for it.
 - The earlier polyline rule reported 31<!--m:synthetic_kinks.old_rule.arcs_sines_reported--> bends on the same arcs and meanders
   (experiment synthetic_kinks).
 
@@ -895,9 +895,9 @@ the real kinks. Scored against the visual reference
 
 The false detections on these scans are rounded bends, tangles, bends next to
 crossings, bends on faint strands, and shallow bends whose excess turning only just clears
-the threshold, not noise: 23<!--m:kink_reference.default.false_excess_30_40--> of the 63<!--m:kink_reference.default.false--> have an excess of 30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->–40<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|190 - v-->°. For
+the threshold, not noise: 23<!--m:kink_reference.default.false_excess_30_40--> of the 63<!--m:kink_reference.default.false--> have an excess of 30<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg|180 - v-->–40<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg|190 - v-->°. For
 13<!--m:kink_reference.default.false_arm_turn_below_threshold--> of them the turning read from the arms (180<!--n:definition-->° − `ka`) falls below
-30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->°, because the arm angle is measured apart from the excess turning the rule
+30<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg|180 - v-->°, because the arm angle is measured apart from the excess turning the rule
 tests. A heavily bent fiber's own kinks raise its floor, which is where the
 lost clear kinks lay. On the synthetic sweep the floor changed the false bends
 on the straight, arc and sine fibers only at the finest pixel size with the
@@ -935,7 +935,7 @@ width.
   165<!--n:example-->° bend.
 - At the coarsest pixel size of the sweep (5.2<!--c:scripts/kink_rule_sweep.py::APPARENT_WIDTH_NM|v / 3--> nm, where the fiber spans
   fewer pixels than at the 3.5<!--m:kink_rule_sweep.W5.measured_width_px--> px setting), the width measured below
-  2<!--c:lib/centerline.py::_MIN_WIDTH_PX--> px and was raised to 2<!--m:kink_rule_sweep.W3.measured_width_px--> px. The 120<!--n:example-->° corner was found in 6<!--m:kink_rule_sweep.W3.kink120.found--> of
+  2<!--c:afm_nanofiber_analyzer/centerline.py::_MIN_WIDTH_PX--> px and was raised to 2<!--m:kink_rule_sweep.W3.measured_width_px--> px. The 120<!--n:example-->° corner was found in 6<!--m:kink_rule_sweep.W3.kink120.found--> of
   6<!--m:kink_rule_sweep.W3.kink120.cases--> scans, the 145<!--n:example-->° corner in 5<!--m:kink_rule_sweep.W3.kink145.found--> and the 140<!--n:example-->° corner in 5<!--m:kink_rule_sweep.W3.kink140.found-->. Rendered, the
   six 140<!--n:example-->° scans are traced unbroken through the corner, and the other bends the
   rule reported there lie at the end of the diagonal arm: with the
@@ -995,8 +995,8 @@ the branch point.
 ### 4.12 The width limit of a cross-section
 
 `centerline._refine` takes a cross-section as this fiber's only when its full
-width at half maximum is at most 1.5<!--c:lib/centerline.py::_MAX_SECTION_WIDTHS--> W; the limit is not applied to each half
-of it. With each half limited instead to 0.75<!--c:lib/centerline.py::_MAX_SECTION_WIDTHS|v / 2--> W from the crest (experiment
+width at half maximum is at most 1.5<!--c:afm_nanofiber_analyzer/centerline.py::_MAX_SECTION_WIDTHS--> W; the limit is not applied to each half
+of it. With each half limited instead to 0.75<!--c:afm_nanofiber_analyzer/centerline.py::_MAX_SECTION_WIDTHS|v / 2--> W from the crest (experiment
 section_width_limit), the share of centerline points located on their own
 section fell on every test input and rose on none:
 
@@ -1010,8 +1010,8 @@ The fiber of the tunicate scan that loses the most points, 141<!--m:section_widt
 was rendered over the calibrated height image with its cross-sections. Most of
 the points it loses are the straight stretch from its corner to the right border: a
 single fiber, crossed once by another, whose sections are single-peaked with the
-crest a little off the middle, so that one half is wider than 0.75<!--c:lib/centerline.py::_MAX_SECTION_WIDTHS|v / 2--> W while the
-full width stays within 1.5<!--c:lib/centerline.py::_MAX_SECTION_WIDTHS--> W.
+crest a little off the middle, so that one half is wider than 0.75<!--c:afm_nanofiber_analyzer/centerline.py::_MAX_SECTION_WIDTHS|v / 2--> W while the
+full width stays within 1.5<!--c:afm_nanofiber_analyzer/centerline.py::_MAX_SECTION_WIDTHS--> W.
 
 ### 4.13 Curvature of a straight fiber
 
@@ -1109,8 +1109,8 @@ own cross-section:
 | 32<!--n:value tried--> | 31.83<!--m:width_noise.W32.n0.05.width_px--> (100<!--m:width_noise.W32.n0.05.located_percent--> %) | 31.75<!--m:width_noise.W32.n0.1.width_px--> (100<!--m:width_noise.W32.n0.1.located_percent--> %) | 10.33<!--m:width_noise.W32.n0.15.width_px--> (2<!--m:width_noise.W32.n0.15.located_percent--> %) | 8.33<!--m:width_noise.W32.n0.2.width_px--> (34<!--m:width_noise.W32.n0.2.located_percent--> %) | 6.00<!--m:width_noise.W32.n0.3.width_px--> (59<!--m:width_noise.W32.n0.3.located_percent--> %) |
 
 From 0.15<!--n:value tried--> nm of noise on, the widths of 24<!--n:value tried--> and 32<!--n:value tried--> px were read at about half or
-less, and few of the points were located. When the first range of ±12<!--c:lib/centerline.py::_WIDTH_SEARCH_PX--> px is
-shorter than 1.25<!--c:lib/centerline.py::_WIDTH_RANGE_MIN_WIDTHS--> widths, the profiles are read again over a longer range, and that
+less, and few of the points were located. When the first range of ±12<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_SEARCH_PX--> px is
+shorter than 1.25<!--c:afm_nanofiber_analyzer/centerline.py::_WIDTH_RANGE_MIN_WIDTHS--> widths, the profiles are read again over a longer range, and that
 reading is kept only when most of its sections hold a single crest
 (`centerline.measure_apparent_width`); a noise peak rising more than a tenth of
 the crest above the base fails that test, so the narrower first reading, whose base lies on the
@@ -1120,9 +1120,9 @@ rule is a multiple of $W$, so on such a scan both work at the wrong scale.
 ### 4.17 The noise warning
 
 `pipeline.noise_warnings` warns when the median calibrated height under the
-skeleton is less than 20<!--c:lib/pipeline.py::MIN_FIBER_SNR--> times the pixel noise of the calibrated background
+skeleton is less than 20<!--c:afm_nanofiber_analyzer/pipeline.py::MIN_FIBER_SNR--> times the pixel noise of the calibrated background
 (`pipeline.fiber_snr`): 1.4826<!--n:definition--> times the median absolute deviation of the differences
-between horizontally adjacent pixels more than 4<!--c:lib/pipeline.py::_NOISE_MASK_MARGIN_PX--> px from the binarized mask,
+between horizontally adjacent pixels more than 4<!--c:afm_nanofiber_analyzer/pipeline.py::_NOISE_MASK_MARGIN_PX--> px from the binarized mask,
 divided by $\sqrt{2}$. The limit was set from §4.15–§4.16: with the noise at a
 twentieth of the height, the crest read at most +0.061<!--m:crest_noise.arc.W24.n0.1_nm--> nm high (the arc at 24<!--n:value tried--> px) and every
 width held, and with more noise the crests read higher and the widths of 24<!--n:value tried-->
@@ -1203,7 +1203,7 @@ Under every reference the unmatched bends are mostly on the Bruker NDTOC scan:
 11<!--m:kink_reference_human.NDTOC.both.ref--> of those marks were found.
 
 Each missed mark is sorted below by the first test it passes: no centerline
-within $W$; within the end margin of 1.5<!--c:lib/kink_detector.py::END_MARGIN_WIDTHS--> W of its centerline, where the rule
+within $W$; within the end margin of 1.5<!--c:afm_nanofiber_analyzer/kink_detector.py::END_MARGIN_WIDTHS--> W of its centerline, where the rule
 judges no bend; within $W$ of the image edge; within 2<!--n:definition--> W of a branch point;
 within 1.5<!--n:definition--> W of another clear mark; otherwise elsewhere. No missed mark stopped
 at the image edge or branch-point test under any reference.
@@ -1239,7 +1239,7 @@ sense. 9<!--m:kink_neighbour_flanks.near_end--> marks lie within the end margin 
 ### 5.1 The step threshold
 
 `stripe_noise.evaluate_scan_lines` flags the boundary between two scan lines
-whose median heights differ by more than 3<!--c:lib/stripe_noise.py::DEFAULT_STEP_THRESHOLD_NM--> nm. On the raw heights of each test
+whose median heights differ by more than 3<!--c:afm_nanofiber_analyzer/stripe_noise.py::DEFAULT_STEP_THRESHOLD_NM--> nm. On the raw heights of each test
 input, as GUI01 screens them (experiment stripe_threshold):
 
 | Input | Flagged boundaries | Smallest flagged step (nm) | Largest unflagged step (nm) | Unflagged steps, percentile 99<!--n:definition--> (nm) |

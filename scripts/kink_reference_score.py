@@ -61,9 +61,9 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from lib import measure  # noqa: E402
-from lib.kink_detector import KinkDetector  # noqa: E402
-from lib.pipeline import ProcParams, process_file  # noqa: E402
+from afm_nanofiber_analyzer import measure  # noqa: E402
+from afm_nanofiber_analyzer.kink_detector import KinkDetector  # noqa: E402
+from afm_nanofiber_analyzer.pipeline import ProcParams, process_file  # noqa: E402
 
 # Bends an AI coding agent marked on the same scans: scan, fiber (the index in
 # the fragment list of the analysis it marked), kind (``clear``, ``ambiguous``

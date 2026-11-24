@@ -41,11 +41,11 @@ class Fiber:
         X-coordinate sequence of the line the fiber is drawn and measured
         along (px, relative to the bounding-box origin in ``data``). For a
         bundle of format 1.1 or later this is the line the analysis chose from
-        `lib.centerline` (by default the half-maximum centerline, with
+        `afm_nanofiber_analyzer.centerline` (by default the half-maximum centerline, with
         sub-pixel values); for an older bundle it is the skeleton pixel chain
         (see `centerline`).
         繊維を描画し計測する線の x 座標列（px、``data`` の外接矩形原点基準）。
-        形式 1.1 以降のバンドルでは解析が `lib.centerline` から選んだ線（既定は
+        形式 1.1 以降のバンドルでは解析が `afm_nanofiber_analyzer.centerline` から選んだ線（既定は
         小数値を持つ半値中点線）、それより古いバンドルではスケルトンの画素鎖で
         ある（`centerline` 参照）。
     ytrack
@@ -67,10 +67,10 @@ class Fiber:
     kink_angles
         Interior angles at kink points in radians, same unit as the bundle
         ``ka`` key. Degrees appear only in user-facing output; the conversion
-        is centralized in `lib.measure.FiberStats.kink_angles_deg`.
+        is centralized in `afm_nanofiber_analyzer.measure.FiberStats.kink_angles_deg`.
         各キンク点における内角列（ラジアン）。バンドルの ``ka`` キーと同じ
         単位で保持する。度数値はユーザー向け出力でのみ使い、変換は
-        `lib.measure.FiberStats.kink_angles_deg` に一元化されている。
+        `afm_nanofiber_analyzer.measure.FiberStats.kink_angles_deg` に一元化されている。
     decomposed_point_indices
         Indices of the vertices of the polyline a bundle of format 1.0 judged
         kinks on; empty from format 1.1, whose kink rule does not decompose
@@ -179,13 +179,13 @@ class Fiber:
 
     Examples
     --------
-    `lib.measure` builds fibers from a bundle; one built by hand needs the
+    `afm_nanofiber_analyzer.measure` builds fibers from a bundle; one built by hand needs the
     track, its cumulative length and the per-point heights. A straight
     11-point fiber on a 5 nm pixel grid:
 
     >>> import numpy as np
-    >>> from lib.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
-    >>> from lib.fiber import Fiber
+    >>> from afm_nanofiber_analyzer.centerline import HALF_MAX_025W_CENTERLINE, polyline_distance
+    >>> from afm_nanofiber_analyzer.fiber import Fiber
     >>> x = np.arange(11, dtype=float)
     >>> y = np.zeros_like(x)
     >>> none = np.zeros(0, dtype=int)
@@ -283,7 +283,7 @@ def skeleton_track(fiber: Fiber) -> Tuple[np.ndarray, np.ndarray]:
 
     >>> from types import SimpleNamespace
     >>> import numpy as np
-    >>> from lib.fiber import skeleton_track
+    >>> from afm_nanofiber_analyzer.fiber import skeleton_track
     >>> placed = SimpleNamespace(xtrack=np.array([0.4, 1.3]),
     ...                          ytrack=np.array([2.2, 2.6]),
     ...                          skeleton_xtrack=np.array([0, 1]),

@@ -17,11 +17,11 @@ cv2/scipy/skimage の深部で無関係な NoneType エラーになる代わり�
 import numpy as np
 import pytest
 
-from lib.bg_calibrator import BGCalibrator
-from lib.kink_detector import KinkDetector
-from lib.processed_image import ProcessedImage
-from lib.segmenter import Segmenter
-from lib.skeletonizer import Skeletonizer
+from afm_nanofiber_analyzer.bg_calibrator import BGCalibrator
+from afm_nanofiber_analyzer.kink_detector import KinkDetector
+from afm_nanofiber_analyzer.processed_image import ProcessedImage
+from afm_nanofiber_analyzer.segmenter import Segmenter
+from afm_nanofiber_analyzer.skeletonizer import Skeletonizer
 
 
 def _fresh_image() -> ProcessedImage:
@@ -44,7 +44,7 @@ def test_historical_calibrator_name_still_importable():
     既存のスクリプトや保存済み設定は `BG_Calibrator_shimadzu` を参照する
     ため、互換シムが旧名を機能させ続けなければならない。
     """
-    from lib.bg_calibrator_shimadzu import BG_Calibrator_shimadzu
+    from afm_nanofiber_analyzer.bg_calibrator_shimadzu import BG_Calibrator_shimadzu
     assert BG_Calibrator_shimadzu is BGCalibrator
 
 

@@ -35,7 +35,7 @@ Contract summary / 契約の要約
   側は表示するが、キンクとしては数えない。
 - ``ka``: shape ``(N,)`` kink interior angles in **radians**, strictly inside
   ``(0, pi)``; ``N`` equals ``kp.shape[1]``. Degrees appear only in user-facing
-  output (see `lib.measure.FiberStats.kink_angles_deg`).
+  output (see `afm_nanofiber_analyzer.measure.FiberStats.kink_angles_deg`).
   ``ka`` は形状 ``(N,)`` のキンク内角（**ラジアン**、開区間 ``(0, pi)``）で、
   ``N`` は ``kp.shape[1]`` と一致する。度数値はユーザー向け出力のみで使う。
 - ``original`` (optional): the raw height image **before** the one-pixel trim
@@ -61,11 +61,11 @@ format 2.0.
 形式 1.0 では維持し、フルサイズ出力への復元（トリム端のパディング等）を
 バンドル形式 2.0 の変更候補の筆頭とする。
 
-This module depends only on NumPy and on `lib.centerline`, which is itself
-NumPy-only, so GUI plugins and `lib.measure` can import it without pulling in
+This module depends only on NumPy and on `afm_nanofiber_analyzer.centerline`, which is itself
+NumPy-only, so GUI plugins and `afm_nanofiber_analyzer.measure` can import it without pulling in
 the heavy preprocessing stack.
-本モジュールの依存は NumPy と、それ自体 NumPy のみに依存する `lib.centerline`
-だけとし、GUI プラグインや `lib.measure` が重い前処理スタックを読み込まずに
+本モジュールの依存は NumPy と、それ自体 NumPy のみに依存する `afm_nanofiber_analyzer.centerline`
+だけとし、GUI プラグインや `afm_nanofiber_analyzer.measure` が重い前処理スタックを読み込まずに
 import できるようにする。
 """
 
@@ -95,7 +95,7 @@ from .centerline import (
 # 旧リリースにバンドルを拒否させられるのは未知のバージョンだけである。
 #
 # 1.1: `kp` and `ka` are judged on the half-maximum centerline of
-#      `lib.centerline` by the excess-turning rule of `lib.kink_detector`,
+#      `afm_nanofiber_analyzer.centerline` by the excess-turning rule of `afm_nanofiber_analyzer.kink_detector`,
 #      instead of on the skeleton track by a polyline decomposition, and a
 #      reader draws and measures fibers along that line
 #      (`centerline_from_meta`). `ka` is the interior angle between the arms
@@ -109,7 +109,7 @@ from .centerline import (
 #      existed carry 1.1 with `ka` = pi minus the excess and no `ke`; they
 #      are told apart by the missing key and should be re-analyzed.)
 # 1.1: `kp`・`ka` は、スケルトントラック上の折れ線分解ではなく、
-#      `lib.centerline` の半値中点線上で `lib.kink_detector` の超過回転規則に
+#      `afm_nanofiber_analyzer.centerline` の半値中点線上で `afm_nanofiber_analyzer.kink_detector` の超過回転規則に
 #      より判定したものであり、読み取り側はその線に沿って繊維を描画・計測する
 #      （`centerline_from_meta`）。`ka` は各折れの脇で読んだ腕のなす内角
 #      （`KinkDetector.judge_line`）で、任意キー `ke` は各キンクを判定した
@@ -424,7 +424,7 @@ def __getattr__(name: str):
         import warnings
         current, removed_in = _DEPRECATED_ALIASES[name]
         warnings.warn(
-            f"lib.bundle_schema.{name} is deprecated and will be removed in "
+            f"afm_nanofiber_analyzer.bundle_schema.{name} is deprecated and will be removed in "
             f"{removed_in}; new bundles no longer record this entry",
             DeprecationWarning, stacklevel=2,
         )
@@ -454,9 +454,9 @@ def __getattr__(name: str):
 # 呼び出し側はその実行が使った検出器既定値へフォールバックする。
 PARAMS_KEY = "params"
 
-# Keys needed to rebuild a FiberTrackingImage (GUI04 / lib.measure contract).
+# Keys needed to rebuild a FiberTrackingImage (GUI04 / afm_nanofiber_analyzer.measure contract).
 # Unlike REQUIRED_BUNDLE_KEYS, `binarized` is not needed for tracking.
-# FiberTrackingImage の再構築に必要なキー（GUI04 / lib.measure 契約）。
+# FiberTrackingImage の再構築に必要なキー（GUI04 / afm_nanofiber_analyzer.measure 契約）。
 # REQUIRED_BUNDLE_KEYS と異なり、追跡に `binarized` は不要。
 TRACKING_BUNDLE_KEYS = [
     "calibrated", "skeletonized",
@@ -547,7 +547,7 @@ def validate_bundle(
 
     Examples
     --------
-    >>> from lib.bundle_schema import validate_bundle
+    >>> from afm_nanofiber_analyzer.bundle_schema import validate_bundle
     >>> calibrated = np.zeros((4, 4))
     >>> validate_bundle({"calibrated": calibrated,
     ...                  "skeletonized": np.zeros((4, 4), dtype=bool)})
@@ -781,7 +781,7 @@ def scan_size_um_from_meta(
 
     Examples
     --------
-    >>> from lib.bundle_schema import (SPATIAL_CALIBRATION_KEY,
+    >>> from afm_nanofiber_analyzer.bundle_schema import (SPATIAL_CALIBRATION_KEY,
     ...                                make_spatial_calibration,
     ...                                scan_size_um_from_meta)
     >>> meta = {SPATIAL_CALIBRATION_KEY:
@@ -836,18 +836,18 @@ def pixel_size_nm(scan_size_um: float, stored_pixels: int) -> float:
     scan size and a pixel size goes through this function, so the convention
     exists in one place: when it was written out at each call site, code
     added later copied the stored count without the trim and measured lengths
-    differently from `lib.measure`.
+    differently from `afm_nanofiber_analyzer.measure`.
     記録された走査範囲は、背景補正器が 1 画素削る前の解析画像の寸法であるため、
     それがまたがる画素数は保存画素数に 1 を足したものになる。記録された走査範囲と
     画素サイズを相互に換算する呼び出し側はすべてこの関数を通し、この約束事を
     1 か所に置く。呼び出し側ごとに書き下していたときは、後から加えたコードが
-    トリミングを考えずに保存画素数で割り、`lib.measure` と異なる長さを測った。
+    トリミングを考えずに保存画素数で割り、`afm_nanofiber_analyzer.measure` と異なる長さを測った。
 
     Examples
     --------
     A 2 um scan of 256 lines is stored as 255 rows:
 
-    >>> from lib.bundle_schema import pixel_size_nm
+    >>> from afm_nanofiber_analyzer.bundle_schema import pixel_size_nm
     >>> pixel_size_nm(2.0, 255)
     7.8125
     """
@@ -891,7 +891,7 @@ def pixel_aspect(
     A 2 x 1 um scan stored as 255 x 255 pixels has pixels half as tall as
     they are wide:
 
-    >>> from lib.bundle_schema import pixel_aspect
+    >>> from afm_nanofiber_analyzer.bundle_schema import pixel_aspect
     >>> pixel_aspect((2.0, 1.0), (255, 255))
     0.5
     >>> pixel_aspect(None, (255, 255))
@@ -1061,11 +1061,11 @@ def kink_params_from_meta(
         ``(kinkangle_deg, kink_decompose_px)``, each ``None`` when the bundle
         does not record a valid value for it. The angle is in degrees, as
         stored; converting to the radians `KinkDetector` takes is the caller's
-        job, and is done in exactly one place (`lib.pipeline.build_stages`).
+        job, and is done in exactly one place (`afm_nanofiber_analyzer.pipeline.build_stages`).
         ``(kinkangle_deg, kink_decompose_px)``。有効な値が記録されていない項目は
         ``None``。角度は保存形式どおり度で返す。`KinkDetector` が受け取る
         ラジアンへの変換は呼び出し側の役割で、変換箇所は 1 つだけである
-        （`lib.pipeline.build_stages`）。
+        （`afm_nanofiber_analyzer.pipeline.build_stages`）。
 
     Notes
     -----
@@ -1081,12 +1081,12 @@ def kink_params_from_meta(
     呼び出し側はその状態をそのまま再現できる。一括で「全部あるか無しか」にすると、
     バンドルが実際に記録している角度まで捨てることになる。
 
-    Bounds match `lib.pipeline.validate_params`, so a value this function
+    Bounds match `afm_nanofiber_analyzer.pipeline.validate_params`, so a value this function
     accepts is one the pipeline would have accepted. An out-of-range or
     non-numeric entry reads as "not recorded" rather than raising: it is
     provenance written by an unknown release, and refusing to open the bundle
     over it would block measurement that does not depend on it.
-    値域は `lib.pipeline.validate_params` と一致させてあり、本関数が受け入れる値は
+    値域は `afm_nanofiber_analyzer.pipeline.validate_params` と一致させてあり、本関数が受け入れる値は
     パイプラインが受け入れたはずの値である。範囲外や非数値は例外ではなく
     「未記録」として扱う。これは未知のリリースが書いた来歴情報であり、それを理由に
     バンドルを開けなくすると、その値に依存しない計測まで止めてしまうためである。
@@ -1165,7 +1165,7 @@ def centerline_from_meta(meta: Optional[Dict]) -> str:
 
     Examples
     --------
-    >>> from lib.bundle_schema import centerline_from_meta
+    >>> from afm_nanofiber_analyzer.bundle_schema import centerline_from_meta
     >>> centerline_from_meta({"version": "1.2", "centerline": "crest"})
     'crest'
     >>> centerline_from_meta({"version": "1.1"})

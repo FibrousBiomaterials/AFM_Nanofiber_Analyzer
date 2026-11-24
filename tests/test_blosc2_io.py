@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Tests for lib/blosc2_io.py array and bundle round trips.
-lib/blosc2_io.py の配列・バンドル往復テスト。
+Tests for afm_nanofiber_analyzer/blosc2_io.py array and bundle round trips.
+afm_nanofiber_analyzer/blosc2_io.py の配列・バンドル往復テスト。
 """
 
 import os
@@ -9,8 +9,8 @@ import os
 import numpy as np
 import pytest
 
-import lib.blosc2_io as blosc2_io
-from lib.blosc2_io import (
+import afm_nanofiber_analyzer.blosc2_io as blosc2_io
+from afm_nanofiber_analyzer.blosc2_io import (
     save_blosc2, load_blosc2,
     save_bundle, load_bundle, load_bundle_meta,
     bundle_keys, bundle_has_keys,

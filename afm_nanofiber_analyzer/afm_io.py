@@ -41,12 +41,12 @@ Gwyddion は高さ行列を SI 単位（メートル）で、走査サイズと�
 読み取り正規化する（高さを nm、サイズを µm へ）。
 
 Gwyddion native ``.gwy`` files can also be read directly, without the manual
-"Export Text" step, through `lib.gwy_io`. Because ``.gwy`` is a binary,
+"Export Text" step, through `afm_nanofiber_analyzer.gwy_io`. Because ``.gwy`` is a binary,
 multi-channel container, that path lives in its own module; `load_afm_image`
 and `read_scan_size` here dispatch ``.gwy`` paths to it, keeping the
 feature-specific ``gwyfile`` dependency out of text-only workflows.
 Gwyddion ネイティブの ``.gwy`` ファイルは、手動の「Export Text」工程を経ずに
-`lib.gwy_io` 経由で直接読み込むこともできる。``.gwy`` はバイナリの複数チャンネル
+`afm_nanofiber_analyzer.gwy_io` 経由で直接読み込むこともできる。``.gwy`` はバイナリの複数チャンネル
 コンテナのため、その処理は専用モジュールに置き、本モジュールの `load_afm_image`
 と `read_scan_size` が ``.gwy`` パスをそこへ振り分ける。これにより `.gwy` 用の
 ``gwyfile`` 依存をテキスト専用ワークフローから排除する。
@@ -107,10 +107,10 @@ class AfmTextFormat:
 
     Notes
     -----
-    `lib.pipeline.process_file` records this information in the bundle
+    `afm_nanofiber_analyzer.pipeline.process_file` records this information in the bundle
     provenance metadata (vlmeta ``input_format``) so a suspected mis-parse
     can be audited after the fact.
-    `lib.pipeline.process_file` はこの情報をバンドルの来歴メタデータ
+    `afm_nanofiber_analyzer.pipeline.process_file` はこの情報をバンドルの来歴メタデータ
     （vlmeta ``input_format``）へ記録し、誤判定が疑われた際に事後監査
     できるようにする。
     """
@@ -264,7 +264,7 @@ def _length_unit_nm(unit: Optional[str]) -> Optional[float]:
 
     Examples
     --------
-    >>> from lib.afm_io import _length_unit_nm
+    >>> from afm_nanofiber_analyzer.afm_io import _length_unit_nm
     >>> _length_unit_nm("m"), _length_unit_nm("µm"), _length_unit_nm("UM")
     (1000000000.0, 1000.0, 1000.0)
     >>> _length_unit_nm("Å"), _length_unit_nm("Nanometers"), _length_unit_nm("MM")
@@ -287,13 +287,13 @@ _SCAN_SIZE_HEADER_SCAN_LIMIT = 200
 # so an oversized or wrongly selected input (e.g. a multi-gigabyte log file)
 # would exhaust memory long before any layout error surfaces. The cap sits far
 # above real AFM exports — an 8192x8192 multi-column text matrix is about
-# 1 GiB — and `lib.gwy_io` applies the same cap to `.gwy` files. Set to None
+# 1 GiB — and `afm_nanofiber_analyzer.gwy_io` applies the same cap to `.gwy` files. Set to None
 # to disable the check.
 # ローダが受け付ける入力ファイルサイズの上限（バイト）。解析時にはファイル
 # 全体（行リスト、続いて float 配列）をメモリへ実体化するため、巨大な入力や
 # 誤選択された入力（数 GB のログファイル等）はレイアウトエラーより先に
 # メモリを枯渇させる。上限は実際の AFM 出力（8192x8192 の多列テキスト行列で
-# 約 1 GiB）より十分大きく、`lib.gwy_io` も同じ上限を `.gwy` に適用する。
+# 約 1 GiB）より十分大きく、`afm_nanofiber_analyzer.gwy_io` も同じ上限を `.gwy` に適用する。
 # None で検査を無効化できる。
 MAX_INPUT_FILE_BYTES = 2 * 1024**3  # 2 GiB
 
@@ -304,10 +304,10 @@ def check_input_file_size(path: str) -> None:
     `MAX_INPUT_FILE_BYTES` を超える入力ファイルを読み込み前に拒否する。
 
     Shared by the text loaders in this module and the ``.gwy`` loader in
-    `lib.gwy_io`, so every input format applies the same file-size policy.
+    `afm_nanofiber_analyzer.gwy_io`, so every input format applies the same file-size policy.
     The limit is read at call time; callers with legitimately larger files can
     raise `MAX_INPUT_FILE_BYTES` on this module or set it to ``None``.
-    本モジュールのテキストローダと `lib.gwy_io` の ``.gwy`` ローダが共用し、
+    本モジュールのテキストローダと `afm_nanofiber_analyzer.gwy_io` の ``.gwy`` ローダが共用し、
     全入力形式に同じファイルサイズ方針を適用する。上限は呼び出し時に参照する
     ため、正当に大きなファイルを扱う場合は本モジュールの
     `MAX_INPUT_FILE_BYTES` を引き上げるか ``None`` にできる。
@@ -337,7 +337,7 @@ def check_input_file_size(path: str) -> None:
     if size > limit:
         raise ValueError(
             f"input file is {size} bytes, exceeding the {limit}-byte limit "
-            f"(raise lib.afm_io.MAX_INPUT_FILE_BYTES to load larger files): "
+            f"(raise afm_nanofiber_analyzer.afm_io.MAX_INPUT_FILE_BYTES to load larger files): "
             f"{path}"
         )
 
@@ -604,7 +604,7 @@ def detect_afm_format(path: str, fmt: str = "auto") -> AfmTextFormat:
     export is one column of values after one header line. The paths are
     relative to the repository root:
 
-    >>> from lib.afm_io import detect_afm_format
+    >>> from afm_nanofiber_analyzer.afm_io import detect_afm_format
     >>> detect_afm_format("testdata_artificial/sample_isotropic.txt")
     AfmTextFormat(kind='multi-column', skiprows=0, n_cols=256, encoding='utf-8-sig')
     >>> detect_afm_format("testdata_Bruker_txt/NDTOC250306.000.txt")
@@ -1004,24 +1004,24 @@ def read_scan_size(path: str) -> Optional[ScanSize]:
     では両方向の長さを較正できず、実走査よりもヘッダ不整合である可能性が高い。
 
     For a Gwyddion native ``.gwy`` file the size is read from the channel's
-    ``xreal`` / ``yreal`` extents instead of a text header (see `lib.gwy_io`).
+    ``xreal`` / ``yreal`` extents instead of a text header (see `afm_nanofiber_analyzer.gwy_io`).
     Gwyddion ネイティブの ``.gwy`` ファイルではテキストヘッダではなくチャンネルの
-    ``xreal`` / ``yreal`` 範囲から読み取る（`lib.gwy_io` を参照）。
+    ``xreal`` / ``yreal`` 範囲から読み取る（`afm_nanofiber_analyzer.gwy_io` を参照）。
 
     Examples
     --------
     A Gwyddion text export records its size; the Bruker single-column export
     does not. The paths are relative to the repository root:
 
-    >>> from lib.afm_io import read_scan_size
+    >>> from afm_nanofiber_analyzer.afm_io import read_scan_size
     >>> read_scan_size("testdata_Gwyddion_txt/_20250318-164122_T.ssp.txt")
     ScanSize(x_um=2.0, y_um=2.0)
     >>> read_scan_size("testdata_Bruker_txt/NDTOC250306.000.txt") is None
     True
     """
     # Dispatch binary .gwy to the Gwyddion reader; the gwyfile dependency is
-    # imported only inside lib.gwy_io, so text-only callers never need it.
-    # バイナリの .gwy は Gwyddion リーダへ振り分ける。gwyfile 依存は lib.gwy_io
+    # imported only inside afm_nanofiber_analyzer.gwy_io, so text-only callers never need it.
+    # バイナリの .gwy は Gwyddion リーダへ振り分ける。gwyfile 依存は afm_nanofiber_analyzer.gwy_io
     # 内でのみ import するため、テキスト専用の呼び出し側には不要。
     if os.path.splitext(path)[1].lower() == ".gwy":
         from . import gwy_io
@@ -1116,7 +1116,7 @@ def load_afm_text(
     The path is relative to the repository root, where the test scans are
     stored:
 
-    >>> from lib.afm_io import load_afm_text
+    >>> from afm_nanofiber_analyzer.afm_io import load_afm_text
     >>> image = load_afm_text("testdata_artificial/sample_isotropic.txt")
     >>> image.shape, image.dtype
     ((256, 256), dtype('float64'))
@@ -1210,12 +1210,12 @@ def load_afm_image(
     This is the format-agnostic entry point for callers that only need the
     height image and do not care whether the source is a text export or a
     native ``.gwy`` file (e.g. GUI image previews). Text inputs delegate to
-    `load_afm_text`; ``.gwy`` inputs delegate to `lib.gwy_io.load_gwy_image`,
+    `load_afm_text`; ``.gwy`` inputs delegate to `afm_nanofiber_analyzer.gwy_io.load_gwy_image`,
     whose selected channel's height matrix is returned. Both return heights in
     nanometers.
     高さ画像だけが必要で、入力がテキストエクスポートかネイティブ ``.gwy`` かを
     問わない呼び出し側（GUI の画像プレビュー等）のための形式非依存の入口。
-    テキスト入力は `load_afm_text` に、``.gwy`` 入力は `lib.gwy_io.load_gwy_image`
+    テキスト入力は `load_afm_text` に、``.gwy`` 入力は `afm_nanofiber_analyzer.gwy_io.load_gwy_image`
     に委譲し、選択チャンネルの高さ行列を返す。いずれも nm 単位で返す。
 
     Parameters
@@ -1227,9 +1227,9 @@ def load_afm_image(
         Text-layout selector forwarded to `load_afm_text`; ignored for ``.gwy``.
         `load_afm_text` へ渡すテキストレイアウト指定。``.gwy`` では無視される。
     channel
-        Channel selector forwarded to `lib.gwy_io.load_gwy_image` for ``.gwy``
+        Channel selector forwarded to `afm_nanofiber_analyzer.gwy_io.load_gwy_image` for ``.gwy``
         inputs (``None`` auto-selects topography); ignored for text inputs.
-        ``.gwy`` 入力で `lib.gwy_io.load_gwy_image` へ渡すチャンネル指定
+        ``.gwy`` 入力で `afm_nanofiber_analyzer.gwy_io.load_gwy_image` へ渡すチャンネル指定
         （``None`` は地形を自動選択）。テキスト入力では無視される。
 
     Returns
@@ -1243,7 +1243,7 @@ def load_afm_image(
     A Gwyddion text export and a native ``.gwy`` file; the paths are relative
     to the repository root, where the test scans are stored:
 
-    >>> from lib.afm_io import load_afm_image
+    >>> from afm_nanofiber_analyzer.afm_io import load_afm_image
     >>> load_afm_image("testdata_Gwyddion_txt/_20250318-164122_T.ssp.txt").shape
     (1024, 1024)
     >>> load_afm_image("testdata_Gwyddion_gwy/_20250318-164122_T.ssp.gwy").shape

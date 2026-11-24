@@ -56,7 +56,7 @@ import numpy as np
 # ===== Test / project libraries =====
 import pytest
 
-from lib.pipeline import ProcParams, process_file
+from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 GOLDEN_PATH = Path(__file__).resolve().parent / "strict_regression_golden.json"

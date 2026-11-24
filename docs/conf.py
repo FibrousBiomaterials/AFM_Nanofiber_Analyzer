@@ -8,7 +8,7 @@ from pathlib import Path
 # editable install (e.g. a clean `pip install sphinx furo` in a fresh venv).
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from lib import __version__  # noqa: E402  (needs the sys.path entry above)
+from afm_nanofiber_analyzer import __version__  # noqa: E402  (needs the sys.path entry above)
 
 project = "AFM Nanofiber Analyzer"
 copyright = "2026, Shingo Kiyoto, Tomoki Ito, Keita Mayumi, Kayoko Kobayashi"
@@ -41,7 +41,7 @@ napoleon_google_docstring = False
 autodoc_member_order = "bysource"
 autodoc_typehints = "signature"
 
-# lib/ui_tools.py imports tkinter at module level. Mocking it keeps the doc
+# afm_nanofiber_analyzer/ui_tools.py imports tkinter at module level. Mocking it keeps the doc
 # build independent of a Tk installation and of a display, which matters on
 # headless CI runners.
 autodoc_mock_imports = ["tkinter"]
@@ -68,8 +68,8 @@ html_static_path = []
 # Napoleon writes each dataclass field's annotation into a `:type:` field, and
 # a field body is parsed as reStructuredText. Under docutils.conf's
 # character-level inline markup, a dotted type name such as
-# `lib.connect_selection.ChainMember` then reads as a hyperlink reference
-# (`lib.connect_`) and renders as an error, so the underscores of these
+# `afm_nanofiber_analyzer.connect_selection.ChainMember` then reads as a hyperlink reference
+# (`afm_nanofiber_analyzer.connect_`) and renders as an error, so the underscores of these
 # generated type names are escaped. Running after Napoleon (priority 500) is
 # what makes the lines it generated visible here.
 _TYPE_FIELD = re.compile(r"^(\s*:r?type:\s*)(.+)$")

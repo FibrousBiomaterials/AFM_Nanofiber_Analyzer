@@ -12,7 +12,7 @@ from pathlib import Path
 # ----------------------------------------------------------------------
 # In frozen PyInstaller builds, use the executable directory as the base.
 # PyInstaller の凍結環境では exe と同じディレクトリを基点にする。
-# In source mode, this file is at <project>/lib/translator.py,
+# In source mode, this file is at <project>/afm_nanofiber_analyzer/translator.py,
 # so the project root is the parent of this file's directory.
 if getattr(sys, "frozen", False):
     BASE_DIR = Path(sys.executable).resolve().parent

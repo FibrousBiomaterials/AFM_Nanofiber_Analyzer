@@ -54,9 +54,9 @@ if _TESTS_DIR not in sys.path:
     sys.path.insert(0, _TESTS_DIR)
 
 import synthetic_fibers as sf  # noqa: E402
-from lib import measure  # noqa: E402
-from lib.kink_detector import KinkDetector  # noqa: E402
-from lib.pipeline import ProcParams, process_file  # noqa: E402
+from afm_nanofiber_analyzer import measure  # noqa: E402
+from afm_nanofiber_analyzer.kink_detector import KinkDetector  # noqa: E402
+from afm_nanofiber_analyzer.pipeline import ProcParams, process_file  # noqa: E402
 
 # Apparent width of the modelled fiber (3 nm cylinder, 10 nm tip) is about
 # 15.5 nm on the bundled generator settings; the pixel size is chosen from it.

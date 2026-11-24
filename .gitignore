@@ -112,7 +112,7 @@ testdata_Bruker_txt/*
 *.npy
 # cli.py "export" writes one .npz archive per bundle by default.
 *.npz
-# Leftovers from interrupted atomic writes (lib/pipeline.py, lib/blosc2_io.py).
+# Leftovers from interrupted atomic writes (afm_nanofiber_analyzer/pipeline.py, afm_nanofiber_analyzer/blosc2_io.py).
 *.tmp
 # Per-file CSV exports from GUI02/GUI03/GUI04 and cli.py measure/heights.
 *_fibers.csv

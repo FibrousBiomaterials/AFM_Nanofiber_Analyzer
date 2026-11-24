@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Tests for lib/bundle_schema.py and its enforcement at the IO boundaries.
-lib/bundle_schema.py と入出力境界での契約強制のテスト。
+Tests for afm_nanofiber_analyzer/bundle_schema.py and its enforcement at the IO boundaries.
+afm_nanofiber_analyzer/bundle_schema.py と入出力境界での契約強制のテスト。
 
 Unit tests build tiny handmade arrays so each contract rule can be violated
 in isolation. Integration tests confirm that real pipeline output conforms,
-that `lib.measure` rejects malformed bundles at load time, and that
+that `afm_nanofiber_analyzer.measure` rejects malformed bundles at load time, and that
 `cli.py validate` reports them.
 単体テストは小さな手作り配列で契約規則を 1 つずつ違反させて検証する。統合
-テストでは、実パイプライン出力が契約に適合すること、`lib.measure` が読み込み
+テストでは、実パイプライン出力が契約に適合すること、`afm_nanofiber_analyzer.measure` が読み込み
 時に不正バンドルを拒否すること、`cli.py validate` がそれを報告することを確認
 する。
 """
@@ -20,8 +20,8 @@ import numpy as np
 import pytest
 
 import cli
-from lib.blosc2_io import load_bundle, load_bundle_meta, save_bundle
-from lib.bundle_schema import (
+from afm_nanofiber_analyzer.blosc2_io import load_bundle, load_bundle_meta, save_bundle
+from afm_nanofiber_analyzer.bundle_schema import (
     BUNDLE_FORMAT_VERSION,
     CENTERLINE_KEY,
     PARAMS_KEY,
@@ -36,14 +36,14 @@ from lib.bundle_schema import (
     validate_bundle,
     centerline_from_meta,
 )
-from lib.centerline import (
+from afm_nanofiber_analyzer.centerline import (
     CENTERLINE_METHODS,
     DEFAULT_CENTERLINE_METHOD,
     HALF_MAX_025W_CENTERLINE,
     SKELETON_TRACK,
 )
-from lib.measure import load_tracking_image, skeleton_height_values
-from lib.pipeline import ProcParams, process_file
+from afm_nanofiber_analyzer.measure import load_tracking_image, skeleton_height_values
+from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 from tests.conftest import write_synthetic_fiber_txt
 
 FAST_PARAMS = ProcParams(bg_method="tophat")
@@ -450,7 +450,7 @@ def test_kink_params_from_meta_handles_missing_and_malformed():
     assert kink_params_from_meta({}) == (None, None)
     assert kink_params_from_meta({PARAMS_KEY: "x"}) == (None, None)
     assert kink_params_from_meta({PARAMS_KEY: {"kinkangle_deg": "wide"}}) == (None, None)
-    # Bounds match lib.pipeline.validate_params: the angle is in [0, 180]
+    # Bounds match afm_nanofiber_analyzer.pipeline.validate_params: the angle is in [0, 180]
     # degrees and the decomposition tolerance is strictly positive.
     assert kink_params_from_meta({PARAMS_KEY: {"kinkangle_deg": 181.0}}) == (None, None)
     assert kink_params_from_meta({PARAMS_KEY: {"kink_decompose_px": 0.0}}) == (None, None)
@@ -512,7 +512,7 @@ def test_pixel_aspect_is_physical_only_from_format_1_3():
     古いバンドルの線とキンクは画素座標の幾何で計算されているため、記録された
     走査範囲によらず縦横比 1 で読む。
     """
-    from lib.bundle_schema import pixel_aspect, pixel_aspect_from_meta
+    from afm_nanofiber_analyzer.bundle_schema import pixel_aspect, pixel_aspect_from_meta
 
     calibration = {SPATIAL_CALIBRATION_KEY: make_spatial_calibration(2.0, 1.0, "manual")}
     shape = (255, 255)
@@ -530,8 +530,8 @@ def test_the_width_definition_follows_the_format_version():
     A 1.4 bundle was judged at the width read from the first crest uphill, an older one at the overall maximum, and each is read as judged.
     1.4 のバンドルは坂を上って最初に着く頂点の幅で、それより古いものは全体の最大値で判定されており、それぞれ判定どおりに読む。
     """
-    from lib.bundle_schema import width_peak_from_meta
-    from lib.centerline import WIDTH_PEAK_GLOBAL, WIDTH_PEAK_NEAREST
+    from afm_nanofiber_analyzer.bundle_schema import width_peak_from_meta
+    from afm_nanofiber_analyzer.centerline import WIDTH_PEAK_GLOBAL, WIDTH_PEAK_NEAREST
     for newer in ("1.4", "1.5", "1.6"):
         assert width_peak_from_meta({"version": newer}) == WIDTH_PEAK_NEAREST
     for older in ("1.0", "1.1", "1.2", "1.3"):
@@ -544,7 +544,7 @@ def test_the_width_range_follows_the_format_version():
     A 1.5 bundle was judged with the width read over a growing range, an older one over the fixed range, and each is read as judged.
     1.5 のバンドルは広がる範囲で読んだ幅で、それより古いものは固定の範囲で判定されており、それぞれ判定どおりに読む。
     """
-    from lib.bundle_schema import width_range_adaptive_from_meta
+    from afm_nanofiber_analyzer.bundle_schema import width_range_adaptive_from_meta
     for newer in ("1.5", "1.6"):
         assert width_range_adaptive_from_meta({"version": newer}) is True
     for older in ("1.0", "1.1", "1.2", "1.3", "1.4"):

@@ -81,8 +81,8 @@ def test_a_measured_number_must_equal_its_recording(checker):
 
 def test_a_code_constant_is_read_from_the_code(checker):
     """``c:`` resolves a dataclass field default and a transform of it."""
-    ok = ("3<!--c:lib/pipeline.py::ProcParams.mask_dilation--> "
-          "30<!--c:lib/pipeline.py::ProcParams.kinkangle_deg|180 - v-->\n")
+    ok = ("3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.mask_dilation--> "
+          "30<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kinkangle_deg|180 - v-->\n")
     # Only the first pair is under test; the other documents are present and empty.
     others = {doc: "" for doc in checker.DOCS[2:]}
     files = {checker.DOCS[0]: ok, checker.DOCS[1]: ok, **others}
@@ -95,7 +95,7 @@ def test_a_code_constant_is_read_from_the_code(checker):
         return checker.doc_excerpts.read_worktree(rel)
 
     assert checker.check(read) == []
-    wrong = "4<!--c:lib/pipeline.py::ProcParams.mask_dilation-->\n"
+    wrong = "4<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.mask_dilation-->\n"
     files = {checker.DOCS[0]: wrong, checker.DOCS[1]: wrong, **others}
     assert sum("does not match" in p for p in checker.check(read)) == 2
 
@@ -154,7 +154,7 @@ def test_a_recording_is_stale_only_when_code_and_goldens_both_moved(checker):
     測り直せば全実験の実行時間がかかる。ゴールデンのダイジェストを持たない記録は、
     コードだけで判定する。
     """
-    rel = "lib/fiber.py"
+    rel = "afm_nanofiber_analyzer/fiber.py"
     current = checker.doc_excerpts.code_symbol_digests(
         checker.doc_excerpts.read_worktree(rel))
     symbol = sorted(current)[0]
@@ -188,7 +188,7 @@ def test_a_recording_that_lists_its_definitions_is_stale_only_through_them(check
     A recording without ``depends`` is still judged on the whole module.
     ``depends`` を持たない記録は、これまでどおりモジュール全体で判定する。
     """
-    rel = "lib/fiber.py"
+    rel = "afm_nanofiber_analyzer/fiber.py"
     current = checker.doc_excerpts.code_symbol_digests(
         checker.doc_excerpts.read_worktree(rel))
     ran, other = sorted(k for k in current if not k.startswith("<"))[:2]
@@ -205,7 +205,7 @@ def test_a_recording_that_lists_its_definitions_is_stale_only_through_them(check
 
     assert stale(other, {rel: [ran]}) == {}
     assert stale(ran, {rel: [ran]}) == {"e": [f"{rel}: changed {ran}"]}
-    assert stale(ran, {"lib/imp_tools.py": []}) == {}
+    assert stale(ran, {"afm_nanofiber_analyzer/imp_tools.py": []}) == {}
     assert stale(other, None) == {"e": [f"{rel}: changed {other}"]}
 
 
@@ -219,7 +219,7 @@ def test_a_stale_recording_blocks_only_a_release(checker, capsys):
     測り直しには数十分かかるため、それはコミットごとではなくリリースの前に求める。
     """
     measurements = json.dumps({
-        "snapshots": {"s": {"lib/fiber.py": {"Fiber": "a digest of another day"}}},
+        "snapshots": {"s": {"afm_nanofiber_analyzer/fiber.py": {"Fiber": "a digest of another day"}}},
         "experiments": {"e": {"snapshot": "s", "values": {"a": 0.5},
                               "goldens": "the goldens of another day"}},
     })
@@ -247,7 +247,7 @@ def test_a_measurement_lists_the_definitions_it_ran(tmp_path, monkeypatch):
     import subprocess
 
     import numpy as np
-    from lib import imp_tools
+    from afm_nanofiber_analyzer import imp_tools
 
     measure_docs = _measure_docs()
     path = tmp_path / "doc_measurements.json"
@@ -268,7 +268,7 @@ def test_a_measurement_lists_the_definitions_it_ran(tmp_path, monkeypatch):
                         dict(func=spawns, roots=[], description="d"))
     measure_docs.record(["ends", "spawns"])
     data = json.loads(path.read_text(encoding="utf-8"))
-    ran = data["experiments"]["ends"]["depends"]["lib/imp_tools.py"]
+    ran = data["experiments"]["ends"]["depends"]["afm_nanofiber_analyzer/imp_tools.py"]
     assert "endPoints" in ran
     assert "_hitmiss_union" in ran
     assert "remove_Lcorner" not in ran

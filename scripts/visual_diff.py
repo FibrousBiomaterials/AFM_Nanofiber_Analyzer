@@ -69,8 +69,8 @@ def _resolve(base: str) -> str:
 
 def _src(version: str) -> Path:
     """
-    Return the folder holding `version`'s ``lib`` (the repository for the working tree).
-    `version` の ``lib`` を含むフォルダを返す（作業ツリーならリポジトリ）。
+    Return the folder holding `version`'s analysis package (the repository for the working tree).
+    `version` の解析パッケージを含むフォルダを返す（作業ツリーならリポジトリ）。
     """
     return ROOT if version == WORKTREE else history._source(version)
 
@@ -190,7 +190,7 @@ def _draw(out: Path, arrays: Dict, base: str) -> List[Path]:
     from matplotlib.patches import Patch
     from scipy import ndimage
     sys.path.insert(0, str(ROOT))
-    from lib.ui_tools import compute_auto_vrange
+    from afm_nanofiber_analyzer.ui_tools import compute_auto_vrange
 
     labels = (f"base {base[:7]}", "working tree")
     blue, green, magenta, yellow = (0.30, 0.55, 1.00), "#00e000", "#ff00ff", "#ffd000"

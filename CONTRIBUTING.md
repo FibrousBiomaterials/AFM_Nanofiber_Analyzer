@@ -47,8 +47,10 @@ with the development dependencies:
 python -m pip install -e ".[dev]"
 ```
 
-This installs the launcher (`afm-analyzer`), the CLI (`afm-analyzer-cli`), and
-the development tools (`pytest`, `pytest-xdist`, `Babel`, and Ruff). End-user
+This installs the analysis package `afm_nanofiber_analyzer` with its
+dependencies, and the development tools (`pytest`, `pytest-xdist`, `Babel`, and
+Ruff). The launcher and the CLI run from the checkout (`python Main.py`,
+`python cli.py`). End-user
 distribution is the standalone Windows bundle produced by `build.py`; see the
 README for details.
 
@@ -162,18 +164,18 @@ before making non-trivial changes. Highlights:
   editor; do not rewrite a whole file through shell redirection, which can save
   mojibake.
 - **Data contract.** The `.b2z` bundle format is defined in
-  `lib/bundle_schema.py`, which is the source of truth. Changing keys, shapes,
+  `afm_nanofiber_analyzer/bundle_schema.py`, which is the source of truth. Changing keys, shapes,
   or units requires bumping the format version and updating the dependent files
   listed in `AGENTS.md` (§8). Because such a change can break cross-tool
   workflows (GUI01–GUI04, the CLI, and external readers), please open an issue
   to discuss it before submitting the pull request.
 - **GUI/CLI parity.** GUI plugins and the CLI share the pipeline in
-  `lib/pipeline.py` and the measurement code in `lib/measure.py`. Keep analysis
-  logic in `lib/` so both front ends stay numerically identical.
+  `afm_nanofiber_analyzer/pipeline.py` and the measurement code in `afm_nanofiber_analyzer/measure.py`. Keep analysis
+  logic in `afm_nanofiber_analyzer/` so both front ends stay numerically identical.
 - **GUI plugins.** New GUI tools live under `guis/` and follow the plugin
   conventions in `AGENTS.md` §7: a literal `PLUGIN_INFO` dictionary, a typed
   `main() -> None` entry point guarded by `if __name__ == "__main__":`, shared
-  helpers from `lib/ui_tools.py`, and no GUI launch at import time. The
+  helpers from `afm_nanofiber_analyzer/ui_tools.py`, and no GUI launch at import time. The
   "Adding a GUI Plugin" section of the README shows a minimal template.
 - **Localization.** Operational UI strings (menus, buttons, dialogs, status
   messages, tooltips) are translated with gettext: wrap them in `_()`, then

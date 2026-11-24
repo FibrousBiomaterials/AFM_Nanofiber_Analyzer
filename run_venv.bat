@@ -66,7 +66,7 @@ goto install
 echo.
 echo Installing the package and dependencies...
 REM Editable install resolves dependencies from pyproject.toml (the single source
-REM of truth) and registers the afm-analyzer / afm-analyzer-cli console commands.
+REM of truth).
 call ".venv\Scripts\python.exe" -m pip install -e .
 if errorlevel 1 (
     echo Failed to install the package.

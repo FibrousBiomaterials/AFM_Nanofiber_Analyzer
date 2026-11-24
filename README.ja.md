@@ -72,7 +72,7 @@ chmod +x run_venv.sh
 `run_venv` はセットアップと起動を兼ねる冪等ランチャーです。初回実行時に `.venv` を作成し、`pip` を
 更新したうえで、プロジェクトを編集可能モード(`pip install -e .`)でインストール
 します。これにより依存関係はすべて単一の真実の源である `pyproject.toml` から
-解決され、`afm-analyzer` / `afm-analyzer-cli` コマンドが登録されます。続けて
+解決されます。続けて
 `Main.py` を起動し、2 回目以降は完了済みのセットアップを検出して再インストール
 せずにその `.venv` から直接起動します。誤操作などで後から `.venv` が壊れた場合は、
 次回起動時に自動修復します。インタプリタが失われていればクリーン再構築（壊れた
@@ -198,19 +198,23 @@ python Main.py
 ### 開発用 editable インストール (pip)
 
 開発用インストールのために `pyproject.toml` を同梱しています。editable モードで
-インストールすると、全実行時依存が宣言どおりに解決され、コンソールコマンドが
-2 つ登録されます。`[dev]` を付けると開発ツール (pytest、pytest-xdist、Babel、
-ruff) も同時にインストールされます:
+インストールすると、全実行時依存が宣言どおりに解決され、解析パッケージ
+`afm_nanofiber_analyzer` を import できるようになります。`[dev]` を付けると
+開発ツール (pytest、pytest-xdist、Babel、ruff) も同時にインストールされます。
+ランチャーと CLI はチェックアウトから実行します:
 
 ```powershell
 python -m pip install -e ".[dev]"
 
-afm-analyzer                          # ランチャー GUI (python Main.py と同じ)
-afm-analyzer-cli process data\*.txt   # バッチパイプライン (python cli.py と同じ)
+python Main.py                        # ランチャー GUI
+python cli.py process data\*.txt      # バッチパイプライン
 ```
 
-editable インストールはチェックアウトからの開発を対象としています。
-エンドユーザー向け配布は引き続き後述の PyInstaller バンドルです。
+`pip install` がインストールするのは解析パッケージ `afm_nanofiber_analyzer`
+だけなので、`-e` を付けないインストールはチェックアウトの外の Python コード、
+たとえば Jupyter notebook から使うためのものです
+(`from afm_nanofiber_analyzer import bg_calibrator`)。GUI と CLI はインストール
+されません。GUI のエンドユーザー向け配布は引き続き後述の PyInstaller バンドルです。
 
 ### Windows 用スタンドアロンバンドルをビルドする
 
@@ -481,7 +485,7 @@ w × h 画素の骨格外接矩形に対し、重みは (W − 2)(H − 2) / ((W
 して数えられ、残った長さのうちそうした下限値が何本あるかをログに出します。
 
 `Kaplan-Meier` は、交差で切れたファイバーも取り込みます。自身の端を持つ全ファイバー
-から、ファイバーの長さの分布を推定します（`lib.measure.kaplan_meier_length_weights`）。
+から、ファイバーの長さの分布を推定します（`afm_nanofiber_analyzer.measure.kaplan_meier_length_weights`）。
 両端とも自身の端（交差で切れても枠上にもない端）であるファイバーは全長を見た長さ、
 自身の端が 1 つだけのファイバーは計測した長さ以上であることだけが分かっている長さ
 として打ち切りの観測に入り、自身の端の無いファイバーは使いません。図には全長を見た
@@ -589,7 +593,7 @@ CSV 出力を行います。一度に開くバンドルは 1 つで、ウイン�
 `straightness`、`curvature`、端点数・キンク数、`kink density`、測ったが判定しな
 かった折れの数（`unjudged`）、キンク規則を尺度付けした見かけ幅 `W`、ファイバーの
 線のうち実際に繊維上で位置決めできた割合（`reliable`）が並びます。これらは GUI03
-がヒストグラム化するのと同じ値で、同じ `lib.measure` の関数で計算し、対象の
+がヒストグラム化するのと同じ値で、同じ `afm_nanofiber_analyzer.measure` の関数で計算し、対象の
 ファイバーの隣に表示します。集約された分布からは個々の値が正しいかを判断できない
 ためです。行を選ぶと全体像でそのファイバーが強調されるので、数値を実際の形状と
 照合できます。一覧は横スクロールするため、全体像を圧迫せずに全ての列へ到達
@@ -614,7 +618,7 @@ CSV 出力を行います。一度に開くバンドルは 1 つで、ウイン�
 曲率のセルは空欄になることがあります。曲率窓より短いファイバーには曲率が無く、
 0 と表示すると完全な直線と読まれてしまうためです。一方でキンク密度の 0 は空欄に
 しません。判定済みの輪郭長に対するキンク 0 本は実在の計測値だからです。曲率窓が
-除外した本数はログに出ます。窓の値は `lib.measure` の既定値であり、GUI03 の
+除外した本数はログに出ます。窓の値は `afm_nanofiber_analyzer.measure` の既定値であり、GUI03 の
 既定値と同一です。
 
 キンクは、個別表示と全体像のどちらでも、ファイバーの線の上に水色の塗りつぶした
@@ -682,7 +686,7 @@ GUI03 が集計対象を決めるための解析入力であり、誤クリッ�
 され、任意の 1 件または全件を解除できます。
 
 「非孤立を除外」は「選択を除外」の一括版です。全長を計測できなかったファイバー
-（`lib.measure.isolated_fiber_flags`）を 1 回の操作でまとめて除外します。対象は、
+（`afm_nanofiber_analyzer.measure.isolated_fiber_flags`）を 1 回の操作でまとめて除外します。対象は、
 経路上のどこかで他のファイバーに接しているファイバー、走査範囲の外へ出ていく
 ファイバー、連結器から見て続きのあるファイバーです。他のファイバーとの交差部で
 切断されたファイバーの長さは「短い」のではなく「切り詰められている」ため、その
@@ -753,7 +757,7 @@ AFM 全体像には Plot Profiler と同じパン/ズームのツールバーに
 残す画素の間に落ちた部分で消えてしまうためです。
 
 各画像は、それぞれの自動範囲（バンドルのスケルトンを使って求めた
-`lib.ui_tools.compute_auto_vrange`）で着色します。どの画像でもファイバーがはっきり
+`afm_nanofiber_analyzer.ui_tools.compute_auto_vrange`）で着色します。どの画像でもファイバーがはっきり
 見えますが、2 つのサムネイルの同じ色は異なる高さを表します。範囲を変えるには、
 サムネイルを選択して vmin / vmax を入力します。すべてのサムネイルを選択（Ctrl+A）して
 入力すると、全画像が同じ範囲になり、色で高さを比べられます。複数選択で値が揃って
@@ -783,7 +787,7 @@ Fiber Tracker で、それぞれ別のウィンドウに開きます。4 件以�
 
 ## 対応入力フォーマット
 
-`lib/afm_io.py` はテキスト/CSV 形式の高さデータを読み込み、ヘッダ行数・
+`afm_nanofiber_analyzer/afm_io.py` はテキスト/CSV 形式の高さデータを読み込み、ヘッダ行数・
 列数・区切り文字・エンコーディング（UTF-8、cp932/Shift-JIS、保険として latin-1）
 を自動判定するため、読み込み設定は不要です。次の 2 レイアウトを認識します
 （多列形式の区切り文字はカンマ・空白/タブを自動判定）。
@@ -863,7 +867,7 @@ python cli.py convert raw_scans\
 設定します。Bruker の `.spm` バイナリも同様に NanoScope からテキスト出力すれば、
 上記の 1 列形式で読み込めます。
 
-背景補正器（`lib/bg_calibrator.py` の `BGCalibrator`）はラインスキャン AFM
+背景補正器（`afm_nanofiber_analyzer/bg_calibrator.py` の `BGCalibrator`）はラインスキャン AFM
 一般の背景補正を実装しており、両フォーマットに適用されます。本手法は島津
 SPM-9600 のスキャンを対象に開発され、歴史的に `BG_Calibrator_shimadzu` と
 命名されていました。従来の import パスとクラス名は互換シム経由で引き続き
@@ -875,7 +879,7 @@ SPM-9600 のスキャンを対象に開発され、歴史的に `BG_Calibrator_s
 
 テキスト / CSV 出力は `afm_io.load_afm_text()` が、ネイティブな Gwyddion ファイルは
 `gwy_io.load_gwy_image()` が読み込みます。いずれも GUI01 と `cli.py` が共有する
-コードパスである `lib.pipeline.process_file` に渡され、`BGCalibrator`、`Segmenter`、
+コードパスである `afm_nanofiber_analyzer.pipeline.process_file` に渡され、`BGCalibrator`、`Segmenter`、
 `Skeletonizer`、`KinkDetector` をこの順に適用したうえで、入力 1 件につき圧縮
 TreeStore バンドル `<input_stem>.b2z` と `<input_stem>_param.json` を 1 つずつ
 書き出します。Plot Profiler（GUI02）、Fiber Morphology Statistics（GUI03）、
@@ -888,7 +892,7 @@ Fiber Tracker（GUI04）、Thumbnail Viewer（GUI05）はこれらのバンド�
 ### コマンドラインでのバッチ処理
 
 同じパイプラインを GUI なしで `cli.py` から実行できます。`cli.py` は GUI01 と
-同一のコードパスである `lib.pipeline.process_file` を呼び出すため、同じ入力と
+同一のコードパスである `afm_nanofiber_analyzer.pipeline.process_file` を呼び出すため、同じ入力と
 設定に対して CLI と GUI の解析配列・パラメータは一致します。`created_utc` など
 実行ごとの来歴情報は当然異なります。スクリプトによるバッチ実行と再現可能な解析に
 利用できます。
@@ -922,7 +926,7 @@ python cli.py process scan.txt --params my_param.json --output-dir results --ove
 ### バンドルの検証
 
 `.b2z` 契約（必須キー、配列形状、マスク値、キンク角の単位、形式バージョン）は
-`lib/bundle_schema.py` がコードとして定義しています。パイプラインは保存前に
+`afm_nanofiber_analyzer/bundle_schema.py` がコードとして定義しています。パイプラインは保存前に
 全バンドルを検証し、計測層は読み込み時に検証します。`validate` は同じ検査を
 任意のタイミングで実行します:
 
@@ -939,7 +943,7 @@ python cli.py validate results\*.b2z
 
 GUI04 が表示するファイバー単位の計測値は `measure` で、GUI03 が使う
 スケルトン画素高さは `heights` で取得できます。どちらも GUI と同じ解析層
-`lib.measure` を使います。GUI04 で全件をフィルターなしに出力した CSV は、
+`afm_nanofiber_analyzer.measure` を使います。GUI04 で全件をフィルターなしに出力した CSV は、
 同じバンドルとスケールに対する `measure` と同じ writer を使うためバイト単位で
 一致します。高さフィルターが有効な GUI04 の出力は、意図どおりフィルター後の
 ファイバー部分だけを含みます。
@@ -1028,7 +1032,7 @@ xvfb-run -a python -m pytest tests/
 
 ### API ドキュメント
 
-`lib/` 以下のモジュールは Sphinx でドキュメント化されており、docstring から
+`afm_nanofiber_analyzer/` 以下のモジュールは Sphinx でドキュメント化されており、docstring から
 API リファレンスが生成されます。上記のアルゴリズム解説と同じサイトに収録され
 ます。公開版は `.github/workflows/docs.yml` が `main` からビルドし、
 GitHub Pages で配信します。
@@ -1049,7 +1053,7 @@ python -m sphinx -b html . _build/html
 ## データ形式
 
 現在の解析出力は、入力ファイルごとに 1 つの `.b2z` バンドルです。
-バンドルは `lib/blosc2_io.py` が `blosc2.TreeStore` を使って書き込みます。
+バンドルは `afm_nanofiber_analyzer/blosc2_io.py` が `blosc2.TreeStore` を使って書き込みます。
 本プロジェクトのコードなしでもバンドルを読めるよう、以下にレイアウトを
 文書化しています。また `cli.py export` で標準形式へ変換できます
 （本節末尾を参照）。
@@ -1137,7 +1141,7 @@ python cli.py export results\*.b2z --format csv   # 配列キーごとに 1 つ�
 
 - `Main.py` は `guis/` 内の GUI プラグインを検出して起動します。
 - `guis/` にはユーザーが操作する tkinter ツールが入っています。
-- `lib/` には AFM 入出力、背景補正、二値化、スケルトン処理、キンク検出、
+- `afm_nanofiber_analyzer/` には AFM 入出力、背景補正、二値化、スケルトン処理、キンク検出、
   ファイバーコンテナ、バンドル入出力、翻訳、共通 UI ヘルパーが入っています。
 
 GUI01 は解析対象の入力ファイルごとに、圧縮された `.b2z` バンドルを 1 つ
@@ -1168,7 +1172,7 @@ AFM_Nanofiber_Analyzer/
 |   |-- GUI04_Tracking_fiber.py
 |   |-- GUI05_Thumbnail_Viewer.py
 |   `-- __init__.py
-|-- lib/
+|-- afm_nanofiber_analyzer/
 |   |-- afm_io.py
 |   |-- bg_calibrator.py
 |   |-- bg_calibrator_shimadzu.py
@@ -1219,29 +1223,29 @@ Windows の `.bat` 補助スクリプトは、意図的に ASCII のみにして
 
 | モジュール | 主な内容 |
 |---|---|
-| `lib/afm_io.py` | ヘッダー、列数、エンコーディングを自動検出する AFM テキスト / CSV ローダー。形式の明示指定とレイアウト整合検証に対応。 |
-| `lib/bg_calibrator.py` | `trendfill`、`tophat`、`spline1d` 背景補正方式を持つ `BGCalibrator`。（`inpaint` は `trendfill` の旧名で、保存済みパラメータファイルでは引き続き受け付けられる。`spline2d` は 1.0.0 より後に削除された。） |
-| `lib/bg_calibrator_shimadzu.py` | 従来名 `BG_Calibrator_shimadzu` を import 可能に保つ互換シム。 |
-| `lib/blosc2_io.py` | Blosc2 配列保存と `.b2z` TreeStore バンドルの入出力ヘルパー。 |
-| `lib/bundle_schema.py` | `.b2z` 契約の実行可能スキーマ。必須キー、配列形状、値域、単位、座標規約、形式バージョンを定義し、`validate_bundle` が書き込み時と読み込み時に強制する。 |
-| `lib/connect_selection.py` | バンドル横の `<stem>_connect.json` に保存するファイバー連結結果。GUI04 が書き出し、`lib/measure.py` が適用する。保存するのは、どの断片がどの順序と向きで繋がっているか。断片はアンカー画素で指し、見つけた骨格の指紋を添えるため、再解析されたバンドルは、既に持っていない骨格を記述したプランで計測されるのではなく拒否される。連結が自動か手動かは意図的に記録しない。 |
-| `lib/fiber.py` | ファイバー形状、高さプロファイル、キンクインデックス、端点インデックスを保持する不変 `Fiber` dataclass。 |
-| `lib/fiber_connector.py` | 交差・分岐で分断された骨格断片を 1 本のフィブリルへ再結合する。探索（`plan_from_auto_connect`）と構築（`build_connected_fibers`）に分割し、探索が到達した決定を保存して、再探索なしに組み立て直せるようにしている。`connection_candidates` は GUI04 の手動連結を支える。 |
-| `lib/group_compare.py` | GUI03 用の群間比較。全ペアに Holm 補正を適用した Mann-Whitney U 検定、2 標本 KS 検定、および標本数とともに増大しない効果量として Cliff's delta を提供する。 |
-| `lib/fiber_selection.py` | バンドル横の `<stem>_excluded.json` に保存する手動ファイバー除外。GUI04 が書き出し、`lib/measure.py` が適用する。除外はリストのインデックスではなく除外対象のトラック上のアンカー画素であり、ファイバー連結による採番変更後も意味を保つ。 |
-| `lib/fiber_tracking_image.py` | GUI04 が GUI01 のバンドル出力からファイバーを再構築・追跡するための `FiberTrackingImage`。 |
-| `lib/gwy_convert.py` | 本ソフトが読めないファイルを Gwyddion の `gwyconvert`（任意依存 `convert`）で `.gwy` へ変換する処理。GUI00 と `cli.py convert` が共有する。拡張子による対象の選択、`<元のファイル名>_converted.gwy` への出力、既存の出力の省略、長さ単位のチャンネルを持たない結果の除外を行う。 |
-| `lib/gwy_io.py` | ネイティブな複数チャンネル Gwyddion `.gwy` を遅延読み込みし、チャンネル選択、長さチャンネルの nm 換算、走査範囲抽出を行うローダー。 |
-| `lib/imp_tools.py` | スケルトン形態処理、端点・分岐点検出、線追跡、経路距離変換のヘルパー。 |
-| `lib/kink_detector.py` | 追跡されたスケルトン成分からキンク点を検出する `KinkDetector`。 |
-| `lib/measure.py` | `.b2z` バンドルに対する GUI 非依存のファイバー計測。`measure_bundle`、ファイバーごとの `FiberStats`、`collect_fiber_stats`（複数バンドルにまたがるファイバー単位統計）、`isolated_fiber_flags`（他のファイバーに接していないファイバーの判定）、スケルトン画素高さの収集、および GUI03/GUI04 と `cli.py` が共有する CSV 書き出し。 |
-| `lib/pipeline.py` | `ProcParams` パラメータスキーマ、ステージ構築、および GUI01 と `cli.py` が共有する GUI 非依存のパイプライン駆動関数 `process_file`。`.b2z` 契約自体は `lib/bundle_schema.py` にあります。 |
-| `lib/plugin_launch.py` | GUI プラグインを `Main.py --run-plugin` 経由で別プロセスとして起動し、必要ならファイルを渡す。多数のファイルは一覧ファイルで渡す。ランチャー、解析結果を GUI02・GUI03・GUI04 で開く GUI01 のボタン、選択したバンドルを GUI02・GUI03・GUI04 で開く GUI05 のボタンが使う。 |
-| `lib/processed_image.py` | GUI01 の前処理パイプラインで使う `ProcessedImage` コンテナ。 |
-| `lib/segmenter.py` | 背景補正済み AFM 画像からナノファイバー二値マスクを作成する `Segmenter`。 |
-| `lib/skeletonizer.py` | 二値マスクを細線化し、枝刈りとスケルトン成分ラベル付けを行う `Skeletonizer`。 |
-| `lib/translator.py` | gettext の言語選択ヘルパー。 |
-| `lib/ui_tools.py` | GUI プラグインで共有する tkinter、matplotlib、ログ、ダイアログ、出力ヘルパー。 |
+| `afm_nanofiber_analyzer/afm_io.py` | ヘッダー、列数、エンコーディングを自動検出する AFM テキスト / CSV ローダー。形式の明示指定とレイアウト整合検証に対応。 |
+| `afm_nanofiber_analyzer/bg_calibrator.py` | `trendfill`、`tophat`、`spline1d` 背景補正方式を持つ `BGCalibrator`。（`inpaint` は `trendfill` の旧名で、保存済みパラメータファイルでは引き続き受け付けられる。`spline2d` は 1.0.0 より後に削除された。） |
+| `afm_nanofiber_analyzer/bg_calibrator_shimadzu.py` | 従来名 `BG_Calibrator_shimadzu` を import 可能に保つ互換シム。 |
+| `afm_nanofiber_analyzer/blosc2_io.py` | Blosc2 配列保存と `.b2z` TreeStore バンドルの入出力ヘルパー。 |
+| `afm_nanofiber_analyzer/bundle_schema.py` | `.b2z` 契約の実行可能スキーマ。必須キー、配列形状、値域、単位、座標規約、形式バージョンを定義し、`validate_bundle` が書き込み時と読み込み時に強制する。 |
+| `afm_nanofiber_analyzer/connect_selection.py` | バンドル横の `<stem>_connect.json` に保存するファイバー連結結果。GUI04 が書き出し、`afm_nanofiber_analyzer/measure.py` が適用する。保存するのは、どの断片がどの順序と向きで繋がっているか。断片はアンカー画素で指し、見つけた骨格の指紋を添えるため、再解析されたバンドルは、既に持っていない骨格を記述したプランで計測されるのではなく拒否される。連結が自動か手動かは意図的に記録しない。 |
+| `afm_nanofiber_analyzer/fiber.py` | ファイバー形状、高さプロファイル、キンクインデックス、端点インデックスを保持する不変 `Fiber` dataclass。 |
+| `afm_nanofiber_analyzer/fiber_connector.py` | 交差・分岐で分断された骨格断片を 1 本のフィブリルへ再結合する。探索（`plan_from_auto_connect`）と構築（`build_connected_fibers`）に分割し、探索が到達した決定を保存して、再探索なしに組み立て直せるようにしている。`connection_candidates` は GUI04 の手動連結を支える。 |
+| `afm_nanofiber_analyzer/group_compare.py` | GUI03 用の群間比較。全ペアに Holm 補正を適用した Mann-Whitney U 検定、2 標本 KS 検定、および標本数とともに増大しない効果量として Cliff's delta を提供する。 |
+| `afm_nanofiber_analyzer/fiber_selection.py` | バンドル横の `<stem>_excluded.json` に保存する手動ファイバー除外。GUI04 が書き出し、`afm_nanofiber_analyzer/measure.py` が適用する。除外はリストのインデックスではなく除外対象のトラック上のアンカー画素であり、ファイバー連結による採番変更後も意味を保つ。 |
+| `afm_nanofiber_analyzer/fiber_tracking_image.py` | GUI04 が GUI01 のバンドル出力からファイバーを再構築・追跡するための `FiberTrackingImage`。 |
+| `afm_nanofiber_analyzer/gwy_convert.py` | 本ソフトが読めないファイルを Gwyddion の `gwyconvert`（任意依存 `convert`）で `.gwy` へ変換する処理。GUI00 と `cli.py convert` が共有する。拡張子による対象の選択、`<元のファイル名>_converted.gwy` への出力、既存の出力の省略、長さ単位のチャンネルを持たない結果の除外を行う。 |
+| `afm_nanofiber_analyzer/gwy_io.py` | ネイティブな複数チャンネル Gwyddion `.gwy` を遅延読み込みし、チャンネル選択、長さチャンネルの nm 換算、走査範囲抽出を行うローダー。 |
+| `afm_nanofiber_analyzer/imp_tools.py` | スケルトン形態処理、端点・分岐点検出、線追跡、経路距離変換のヘルパー。 |
+| `afm_nanofiber_analyzer/kink_detector.py` | 追跡されたスケルトン成分からキンク点を検出する `KinkDetector`。 |
+| `afm_nanofiber_analyzer/measure.py` | `.b2z` バンドルに対する GUI 非依存のファイバー計測。`measure_bundle`、ファイバーごとの `FiberStats`、`collect_fiber_stats`（複数バンドルにまたがるファイバー単位統計）、`isolated_fiber_flags`（他のファイバーに接していないファイバーの判定）、スケルトン画素高さの収集、および GUI03/GUI04 と `cli.py` が共有する CSV 書き出し。 |
+| `afm_nanofiber_analyzer/pipeline.py` | `ProcParams` パラメータスキーマ、ステージ構築、および GUI01 と `cli.py` が共有する GUI 非依存のパイプライン駆動関数 `process_file`。`.b2z` 契約自体は `afm_nanofiber_analyzer/bundle_schema.py` にあります。 |
+| `afm_nanofiber_analyzer/plugin_launch.py` | GUI プラグインを `Main.py --run-plugin` 経由で別プロセスとして起動し、必要ならファイルを渡す。多数のファイルは一覧ファイルで渡す。ランチャー、解析結果を GUI02・GUI03・GUI04 で開く GUI01 のボタン、選択したバンドルを GUI02・GUI03・GUI04 で開く GUI05 のボタンが使う。 |
+| `afm_nanofiber_analyzer/processed_image.py` | GUI01 の前処理パイプラインで使う `ProcessedImage` コンテナ。 |
+| `afm_nanofiber_analyzer/segmenter.py` | 背景補正済み AFM 画像からナノファイバー二値マスクを作成する `Segmenter`。 |
+| `afm_nanofiber_analyzer/skeletonizer.py` | 二値マスクを細線化し、枝刈りとスケルトン成分ラベル付けを行う `Skeletonizer`。 |
+| `afm_nanofiber_analyzer/translator.py` | gettext の言語選択ヘルパー。 |
+| `afm_nanofiber_analyzer/ui_tools.py` | GUI プラグインで共有する tkinter、matplotlib、ログ、ダイアログ、出力ヘルパー。 |
 
 ## GUI プラグインを追加する
 

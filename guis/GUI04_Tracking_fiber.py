@@ -24,10 +24,10 @@ Notes
 -----
 Each analyzed dataset is represented by one ``*.b2z`` file in the GUI01 output
 folder. The bundle must contain the keys in
-`lib.bundle_schema.TRACKING_BUNDLE_KEYS`; the optional ``up`` and ``ke``
+`afm_nanofiber_analyzer.bundle_schema.TRACKING_BUNDLE_KEYS`; the optional ``up`` and ``ke``
 are read when present.
 GUI01 の出力フォルダ内では、1 解析対象につき 1 つの ``*.b2z`` ファイルを
-使用する。バンドルには `lib.bundle_schema.TRACKING_BUNDLE_KEYS` のキーが必要で、
+使用する。バンドルには `afm_nanofiber_analyzer.bundle_schema.TRACKING_BUNDLE_KEYS` のキーが必要で、
 任意キー ``up``・``ke`` があれば読む。
 """
 
@@ -82,9 +82,9 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.widgets import RectangleSelector
 
 # ===== Project libraries =====
-# Import the lib modules that provide the AFM image-processing core.
-# lib/ フォルダ内の各モジュールをインポートする。これらが AFM 画像処理の本体。
-from lib.centerline import (
+# Import the afm_nanofiber_analyzer modules that provide the AFM image-processing core.
+# afm_nanofiber_analyzer/ フォルダ内の各モジュールをインポートする。これらが AFM 画像処理の本体。
+from afm_nanofiber_analyzer.centerline import (
     DEFAULT_CENTERLINE_METHOD, FALLBACK_WIDTH_PX, SKELETON_PIXEL_LINE,
     SKELETON_TRACK,
 )
@@ -92,31 +92,31 @@ from lib.centerline import (
 # so the numbers they state are the ones the computation uses.
 # 列の説明（`fiber_column_help`）はこれらの非公開定数を引用し、述べる数値が計算で
 # 使われる値と一致するようにする。
-from lib.centerline import (
+from afm_nanofiber_analyzer.centerline import (
     _JUNCTION_WIDTHS as _CENTERLINE_JUNCTION_WIDTHS,
     _MIN_CREST_AMPLITUDE_FRAC as _CENTERLINE_MIN_AMPLITUDE_FRAC,
 )
-from lib.imp_tools import _CHAIN_STEP_DIAGONAL, _CHAIN_STEP_ORTHOGONAL
-from lib.fiber_tracking_image import FiberTrackingImage
-from lib.fiber import Fiber, skeleton_track
-from lib.fiber_connector import (
+from afm_nanofiber_analyzer.imp_tools import _CHAIN_STEP_DIAGONAL, _CHAIN_STEP_ORTHOGONAL
+from afm_nanofiber_analyzer.fiber_tracking_image import FiberTrackingImage
+from afm_nanofiber_analyzer.fiber import Fiber, skeleton_track
+from afm_nanofiber_analyzer.fiber_connector import (
     ConnectParams, chain_for_manual_join, connection_candidates_by_index,
     filter_fibers_by_height, plan_from_auto_connect,
 )
-from lib.blosc2_io import bundle_has_keys, load_bundle, load_bundle_meta, BUNDLE_EXT
-from lib.bundle_schema import BUNDLE_FORMAT_VERSION
-from lib.connect_selection import (
+from afm_nanofiber_analyzer.blosc2_io import bundle_has_keys, load_bundle, load_bundle_meta, BUNDLE_EXT
+from afm_nanofiber_analyzer.bundle_schema import BUNDLE_FORMAT_VERSION
+from afm_nanofiber_analyzer.connect_selection import (
     CONNECT_SUFFIX, ChainMember, ConnectionPlan, connect_path_for,
     load_connect_plan, plan_from_chains, plan_state_key, plan_with_chain,
     plan_without_junctions, resolve_plan_chains, save_connect_plan,
     skeleton_digest,
 )
-from lib.fiber_selection import (
+from afm_nanofiber_analyzer.fiber_selection import (
     EXCLUSION_SUFFIX, constituent_anchors, exclusion_path_for, excluded_flags,
     fiber_anchor, fiber_track_pixels, load_exclusions, save_exclusions,
 )
-from lib.kink_detector import END_MARGIN_WIDTHS, UNJUDGED_AT_BRIDGE
-from lib.measure import (
+from afm_nanofiber_analyzer.kink_detector import END_MARGIN_WIDTHS, UNJUDGED_AT_BRIDGE
+from afm_nanofiber_analyzer.measure import (
     CUT_END_EXCLUSION_WIDTHS,
     DEFAULT_CURVATURE_WINDOW_NM, TRACKING_BUNDLE_KEYS, compute_fiber_stats,
     FiberStats, MeasureResult,
@@ -124,9 +124,9 @@ from lib.measure import (
     height_sample_mask, isolated_fiber_flags, measure_bundle,
     read_scan_size_from_bundle, write_fiber_csv,
 )
-from lib.plugin_launch import call_when_shown
-from lib.translator import _, current_language
-from lib.ui_tools import (
+from afm_nanofiber_analyzer.plugin_launch import call_when_shown
+from afm_nanofiber_analyzer.translator import _, current_language
+from afm_nanofiber_analyzer.ui_tools import (
     apply_window_size, setup_matplotlib_style, save_figure_with_dialog, ToolTip,
     HeadingToolTip,
     setup_ttk_theme, rewrite_entries, mark_entry_state, replace_log_tail,
@@ -145,9 +145,9 @@ from lib.ui_tools import (
 # GUI01 が出力するバンドル内に含まれるべきキー（存在チェックに使用）。
 # A .b2z bundle is treated as analyzed data only when all keys are present.
 # .b2z バンドル内にこれら全てが揃っていれば解析済みデータとして扱う。
-# The key list is owned by lib.bundle_schema and re-exported by lib.measure so
+# The key list is owned by afm_nanofiber_analyzer.bundle_schema and re-exported by afm_nanofiber_analyzer.measure so
 # the CLI and this GUI stay in sync.
-# キー一覧は lib.bundle_schema が管理し、lib.measure から再公開することで
+# キー一覧は afm_nanofiber_analyzer.bundle_schema が管理し、afm_nanofiber_analyzer.measure から再公開することで
 # CLI と本 GUI の整合を保つ。
 REQUIRED_BUNDLE_KEYS = TRACKING_BUNDLE_KEYS
 
@@ -351,8 +351,8 @@ def length_is_lower_bound(stat: FiberStats) -> bool:
     Parameters
     ----------
     stat
-        Per-fiber statistics row from `lib.measure.compute_fiber_stats`.
-        `lib.measure.compute_fiber_stats` が返すファイバー単位の統計行。
+        Per-fiber statistics row from `afm_nanofiber_analyzer.measure.compute_fiber_stats`.
+        `afm_nanofiber_analyzer.measure.compute_fiber_stats` が返すファイバー単位の統計行。
 
     Returns
     -------
@@ -2080,10 +2080,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Y（高さ）スケール欄の "= X" ゴーストの表示/非表示を切り替える。
 
         The ghost tells the user that a blank Y follows X (square scan, see
-        `lib.ui_tools.scale_xy_um`); when it is shown is decided by
-        `lib.ui_tools.refresh_entry_placeholder`.
-        ゴーストは、空の Y が X に従う（正方スキャン、`lib.ui_tools.scale_xy_um`
-        参照）ことを示す。表示する条件は `lib.ui_tools.refresh_entry_placeholder`
+        `afm_nanofiber_analyzer.ui_tools.scale_xy_um`); when it is shown is decided by
+        `afm_nanofiber_analyzer.ui_tools.refresh_entry_placeholder`.
+        ゴーストは、空の Y が X に従う（正方スキャン、`afm_nanofiber_analyzer.ui_tools.scale_xy_um`
+        参照）ことを示す。表示する条件は `afm_nanofiber_analyzer.ui_tools.refresh_entry_placeholder`
         が決める。
         """
         refresh_entry_placeholder(self.ent_scale_y_um, self._scale_y_ph)
@@ -2420,14 +2420,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Notes
         -----
         The entered scale sets every length, but the centerline is placed and
-        the kinks are judged in the geometry `lib.measure` reads from the
+        the kinks are judged in the geometry `afm_nanofiber_analyzer.measure` reads from the
         bundle (`bundle_schema.pixel_aspect_from_meta`), because the stored
         kinks were judged there. A scale with the recorded aspect only rescales
         the lengths; one with another aspect measures the lengths in a geometry
         the centerline and the kinks were not placed in, so that case is warned
         about in a dialog as well as the log, once per dataset and scale.
         入力したスケールはすべての長さを決めるが、中心線の配置とキンクの判定は、
-        `lib.measure` がバンドルから読む幾何（`bundle_schema.pixel_aspect_from_meta`）
+        `afm_nanofiber_analyzer.measure` がバンドルから読む幾何（`bundle_schema.pixel_aspect_from_meta`）
         で行う。保存されたキンクがその幾何で判定されたためである。記録と同じ縦横比の
         スケールは長さを拡大縮小するだけだが、縦横比の異なるスケールでは、中心線と
         キンクを置いた幾何とは別の幾何で長さを測ることになる。そこでその場合は、
@@ -2654,10 +2654,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             Tk メインスレッド外で 1 つのバンドル読み込みとファイバー解析を実行する。
 
             Loading, tracing, and statistics are delegated to
-            `lib.measure.measure_bundle`, the same code path as `cli.py
+            `afm_nanofiber_analyzer.measure.measure_bundle`, the same code path as `cli.py
             measure`, so GUI and CLI results are identical.
             読み込み・追跡・統計は `cli.py measure` と同一経路の
-            `lib.measure.measure_bundle` へ委譲し、GUI と CLI の結果を一致させる。
+            `afm_nanofiber_analyzer.measure.measure_bundle` へ委譲し、GUI と CLI の結果を一致させる。
             """
             try:
                 # Fiber analysis always runs in a ThreadPoolExecutor inside
@@ -3052,10 +3052,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             and len(self._fiber_stats) == len(fibers)
         )
         if not use_cache:
-            # Recompute through lib.measure so filtered rows use the same
+            # Recompute through afm_nanofiber_analyzer.measure so filtered rows use the same
             # statistic definitions as the worker and the CSV export.
             # フィルター後の行もワーカー・CSV 出力と同じ統計定義になるよう、
-            # lib.measure 経由で再計算する。
+            # afm_nanofiber_analyzer.measure 経由で再計算する。
             x_spp = self.current_image.size_per_pixel
             y_spp = self.current_image.y_size_per_pixel
             fresh = _table_values(
@@ -3214,11 +3214,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Manual exclusions are not applied here — neither the ones picked in the
         table nor the ones "非孤立を除外" records. They act on the fragments,
         before reconnection, so `current_fibers` already excludes them; see
-        `lib.measure.curate_fibers` for why that order is required.
+        `afm_nanofiber_analyzer.measure.curate_fibers` for why that order is required.
         手動除外はここでは適用しない。一覧で選んだものも「非孤立を除外」が記録
         したものも同様である。除外は再結合より前に断片へ作用するため、
         `current_fibers` の時点で既に除かれている。その順序が必要な理由は
-        `lib.measure.curate_fibers` を参照。
+        `afm_nanofiber_analyzer.measure.curate_fibers` を参照。
         """
         return self._filtered_fibers if self._filter_active else self.current_fibers
 
@@ -3595,14 +3595,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Notes
         -----
         Both sidecars are written together and there is no way to write only
-        one, because they are read together: `lib.measure.curate_fibers`
+        one, because they are read together: `afm_nanofiber_analyzer.measure.curate_fibers`
         applies the exclusions to the fragments and then connects the
         survivors, so a pair recorded at different moments describes a
         population that was never on screen. Saving them separately produced
         exactly that -- 29 aggregated fibrils against 56 displayed fragments,
         with nothing to say so.
         2 つのサイドカーは常にまとめて書き出し、片方だけを書く手段は設けない。
-        読む側がまとめて読むためである。`lib.measure.curate_fibers` は除外を断片へ
+        読む側がまとめて読むためである。`afm_nanofiber_analyzer.measure.curate_fibers` は除外を断片へ
         適用してから残りを連結するので、別々の時点で記録された組は画面に一度も
         存在しなかった母集団を記述する。実際、別々に保存できた時点では、表示中の
         断片 56 本に対して集計側が 29 本のフィブリルを数え、それを知らせるものが
@@ -3611,11 +3611,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         An exclusion set that became empty removes its file rather than
         writing an empty list, so "no sidecar" always means "nothing
         excluded". The connection file is kept either way; see
-        `lib.connect_selection.save_connect_plan` for why the two differ.
+        `afm_nanofiber_analyzer.connect_selection.save_connect_plan` for why the two differ.
         空になった除外集合は空リストを書かずファイルを削除する。これにより
         「サイドカーが無い」は常に「除外なし」を意味する。連結ファイルはどちらの
         場合も残す。両者が異なる理由は
-        `lib.connect_selection.save_connect_plan` を参照。
+        `afm_nanofiber_analyzer.connect_selection.save_connect_plan` を参照。
 
         The exclusion file is written first. If the connection write then
         fails, the baselines are left untouched, so the button stays enabled
@@ -3867,14 +3867,14 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         -----
         One anchor is recorded per fragment of each fiber's chain
         (`_display_chains`), so that excluding a connected fibril removes all
-        of it; `lib.fiber_selection` explains why the fibril's own midpoint is
+        of it; `afm_nanofiber_analyzer.fiber_selection` explains why the fibril's own midpoint is
         not enough. The fragments are read from the chain rather than found by
         overlap (`fiber_selection.constituent_anchors`), because a short
         fragment trimmed at both of its junctions keeps less than half of its
         pixels on the fibril and would not be found.
         各ファイバーの連鎖（`_display_chains`）の断片ごとに 1 つのアンカーを記録し、
         連結済みフィブリルを除外したときにその全体が取り除かれるようにする。
-        フィブリル自身の中点では不十分な理由は `lib.fiber_selection` に記載して
+        フィブリル自身の中点では不十分な理由は `afm_nanofiber_analyzer.fiber_selection` に記載して
         いる。断片は重なり（`fiber_selection.constituent_anchors`）で探すのではなく
         連鎖から読む。両方の接合部で切り詰められた短い断片は、画素の半分以上が
         フィブリル上に残らず、重なりでは見つからないためである。
@@ -3939,7 +3939,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         Notes
         -----
-        The same act as "選択を除外", decided by `lib.measure.isolated_fiber_flags`
+        The same act as "選択を除外", decided by `afm_nanofiber_analyzer.measure.isolated_fiber_flags`
         instead of by pointing at rows: a fiber cut where it crosses another
         one, a fiber running off the scan, or one the connector can see a
         continuation past has a truncated length rather than a short one.
@@ -3947,7 +3947,7 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         「除外設定」, undoable in one press, and persistent in the sidecar,
         exactly like a hand-picked one.
         「選択を除外」と同じ操作であり、対象を行で指す代わりに
-        `lib.measure.isolated_fiber_flags` が判定する。他のファイバーとの交差部で
+        `afm_nanofiber_analyzer.measure.isolated_fiber_flags` が判定する。他のファイバーとの交差部で
         切断されたファイバー、走査範囲の外へ出ていくファイバー、連結器から見て
         続きのあるファイバーは、長さが「短い」のではなく「切り詰められている」。
         これを除外として記録することで、手で選んだ除外と同じように「除外設定」
@@ -5426,11 +5426,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         Notes
         -----
-        The same list `lib.measure.curate_fibers` builds the population from,
+        The same list `afm_nanofiber_analyzer.measure.curate_fibers` builds the population from,
         so a chain index here means the same fragment it does there. Deriving
         it rather than caching it is what keeps the two from drifting when an
         exclusion changes.
-        `lib.measure.curate_fibers` が母集団を組み立てる際に使うものと同じリスト
+        `afm_nanofiber_analyzer.measure.curate_fibers` が母集団を組み立てる際に使うものと同じリスト
         であり、ここでの連鎖インデックスは向こうと同じ断片を指す。保持せず毎回
         導出することで、除外が変わったときに両者がずれない。
         """
@@ -5461,11 +5461,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Notes
         -----
         Built to the same ordering rule
-        `lib.fiber_connector.build_connected_fibers` uses — a chain sits at its
+        `afm_nanofiber_analyzer.fiber_connector.build_connected_fibers` uses — a chain sits at its
         lowest member index — so entry ``i`` here is the chain behind displayed
         fiber ``i``. Any other rule would connect the wrong pair of fibers
         while showing the right ones.
-        `lib.fiber_connector.build_connected_fibers` と同じ並び順の規則（連鎖は
+        `afm_nanofiber_analyzer.fiber_connector.build_connected_fibers` と同じ並び順の規則（連鎖は
         その最小メンバーインデックスの位置に入る）で構築するため、ここでの要素
         ``i`` は表示中のファイバー ``i`` の背後にある連鎖である。他の規則にすると、
         正しいファイバーを表示しながら誤った組を連結することになる。
@@ -5684,8 +5684,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             Position in the displayed population of the fiber being extended.
             延長する側のファイバーの、表示中の母集団での位置。
         candidate
-            One entry from `lib.fiber_connector.connection_candidates`.
-            `lib.fiber_connector.connection_candidates` の要素 1 つ。
+            One entry from `afm_nanofiber_analyzer.fiber_connector.connection_candidates`.
+            `afm_nanofiber_analyzer.fiber_connector.connection_candidates` の要素 1 つ。
         """
         fragments = self._surviving_fragments()
         chains = self._display_chains()
@@ -6220,13 +6220,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
 
         name = self.current_image.name
         def _write_csv(path):
-            # Columns and formatting are owned by lib.measure. A complete,
+            # Columns and formatting are owned by afm_nanofiber_analyzer.measure. A complete,
             # unfiltered export is byte-identical to `cli.py measure`; an
             # active height filter intentionally writes only retained portions,
             # and any exclusion has already removed its fibers from the
             # population. Either way the rows are renumbered from the exported
             # list, so the `index` column matches the fiber table.
-            # 列と書式は lib.measure が管理する。全件・フィルターなしなら
+            # 列と書式は afm_nanofiber_analyzer.measure が管理する。全件・フィルターなしなら
             # `cli.py measure` とバイト単位で一致し、高さフィルター有効時は
             # 意図どおり残った部分だけを書き出す。除外されたファイバーはこの時点
             # で既に母集団から外れている。いずれの場合も出力リストで採番し直す
@@ -7088,11 +7088,11 @@ class FiberDetailWindow(tk.Toplevel, UnconfirmedEntryMixin):
         # not flush with the frame and the surroundings (a real end point vs. a
         # crossing with a neighbor) stay visible. This is display only: the
         # cached Fiber.fiber_image and the bounding-box-relative xtrack/ytrack
-        # that lib/ measures from are left untouched, so overlays are shifted by
+        # that afm_nanofiber_analyzer/ measures from are left untouched, so overlays are shifted by
         # the crop origin instead.
         # 同じ補正画像を余白付きで切り直し、ファイバー端が枠に密着せず周囲の
         # 状況（本当の端点か、隣接ファイバーとの交差か）を確認できるようにする。
-        # これは表示専用で、キャッシュ済みの Fiber.fiber_image と lib/ が計測に
+        # これは表示専用で、キャッシュ済みの Fiber.fiber_image と afm_nanofiber_analyzer/ が計測に
         # 使う外接矩形基準の xtrack/ytrack は変更しない。そのぶん重ね描き側を
         # 切り出し原点だけずらす。
         bbox_x, bbox_y, bbox_w, bbox_h = (int(v) for v in fiber.data[:4])
@@ -7418,13 +7418,13 @@ class ConnectSettingsWindow(tk.Toplevel):
 
     Notes
     -----
-    Fields map one-to-one onto `lib.fiber_connector.ConnectParams`: six entries
+    Fields map one-to-one onto `afm_nanofiber_analyzer.fiber_connector.ConnectParams`: six entries
     (the four that gate the automatic search and the two that shape a bridge,
     its trim and its height averaging) and one checkbox for
     `ConnectParams.judge_bridge_kinks`. Applying validates every value and
     stores a new immutable `ConnectParams` on the main window
     (`App._apply_connect_params`).
-    各入力欄は `lib.fiber_connector.ConnectParams` と 1 対 1 に対応する。6 つの
+    各入力欄は `afm_nanofiber_analyzer.fiber_connector.ConnectParams` と 1 対 1 に対応する。6 つの
     入力欄（自動探索の 4 つのゲートと、橋渡しの形を決める 2 つ、すなわち切り落としと
     高さの平均）と、`ConnectParams.judge_bridge_kinks` の 1 つのチェックボックスがある。適用時にすべての値を検証し、新しい不変
     `ConnectParams` をメインウインドウへ保存する（`App._apply_connect_params`）。
@@ -8141,9 +8141,9 @@ def main() -> None:
     GUI04 ファイバー追跡アプリケーションを起動し、コマンドラインで指定されたバンドルを開く。
 
     GUI01's "GUI04で開く" passes the bundle it is showing as the first
-    argument (`lib.plugin_launch`); without one the window opens empty.
+    argument (`afm_nanofiber_analyzer.plugin_launch`); without one the window opens empty.
     GUI01 の「GUI04で開く」は表示中のバンドルを第 1 引数として渡す
-    （`lib.plugin_launch`）。引数が無ければ空のウインドウで開く。
+    （`afm_nanofiber_analyzer.plugin_launch`）。引数が無ければ空のウインドウで開く。
     """
     app = App()
     if len(sys.argv) > 1:

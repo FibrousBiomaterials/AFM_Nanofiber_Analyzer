@@ -145,5 +145,5 @@ def test_a_dataclass_field_annotation_still_counts():
 
 def test_the_project_code_scan_stays_out_of_environments():
     paths = d.project_code_paths()
-    assert "lib/centerline.py" in paths and "cli.py" in paths
+    assert "afm_nanofiber_analyzer/centerline.py" in paths and "cli.py" in paths
     assert not any(p.startswith((".venv", ".tmp", "tests/", "scripts/")) for p in paths)

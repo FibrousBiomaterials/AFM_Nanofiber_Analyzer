@@ -5,22 +5,22 @@ AFM ナノファイバー前処理パイプラインのコマンドラインイ�
 
 Runs the same pipeline as the GUI01 Image Preprocessor (background
 calibration, segmentation, skeletonization, kink detection) through
-`lib.pipeline.process_file`, so CLI and GUI analysis arrays and parameter
+`afm_nanofiber_analyzer.pipeline.process_file`, so CLI and GUI analysis arrays and parameter
 sidecars match for the same input and settings. Run-specific provenance
 metadata, such as timestamps, differs. This enables scripted batch processing
 and reproducible analysis without the GUI.
 GUI01 Image Preprocessor と同じパイプライン（背景補正・二値化・細線化・
-キンク検出）を `lib.pipeline.process_file` 経由で実行するため、同じ入力と設定に
+キンク検出）を `afm_nanofiber_analyzer.pipeline.process_file` 経由で実行するため、同じ入力と設定に
 対して CLI と GUI の解析配列・パラメータサイドカーは一致する。タイムスタンプ
 など実行固有の来歴情報は異なる。GUI なしでのバッチ処理と再現可能な解析を
 可能にする。
 
-Fiber measurement is also exposed through `lib.measure`: `measure` shares the
+Fiber measurement is also exposed through `afm_nanofiber_analyzer.measure`: `measure` shares the
 GUI04 analysis and CSV writer, while `heights` shares GUI03's skeleton-height
 collection. A complete, unfiltered GUI04 CSV is byte-identical to `measure` for
 the same bundle and scale; a filtered GUI04 export intentionally contains only
 the retained fiber portions.
-ファイバー計測も `lib.measure` 経由で提供する。`measure` は GUI04 の解析と CSV
+ファイバー計測も `afm_nanofiber_analyzer.measure` 経由で提供する。`measure` は GUI04 の解析と CSV
 writer を、`heights` は GUI03 のスケルトン高さ収集を共有する。GUI04 の全件・
 フィルターなし CSV は同じバンドルとスケールに対する `measure` とバイト単位で
 一致するが、フィルター後の GUI04 出力は残ったファイバー部分だけを含む。
@@ -37,10 +37,10 @@ Usage examples
     python cli.py convert raw_data/
 
 ``convert`` turns vendor files this software cannot read into ``.gwy`` files
-through Gwyddion's file modules (`lib.gwy_convert`, the same code GUI00 runs);
+through Gwyddion's file modules (`afm_nanofiber_analyzer.gwy_convert`, the same code GUI00 runs);
 it needs the optional ``convert`` dependency.
 ``convert`` は、本ソフトが読めない各社のファイルを Gwyddion のファイル
-モジュールで ``.gwy`` へ変換する（GUI00 と同じ `lib.gwy_convert` を使う）。
+モジュールで ``.gwy`` へ変換する（GUI00 と同じ `afm_nanofiber_analyzer.gwy_convert` を使う）。
 任意依存の ``convert`` が必要。
 
 Output messages are fixed English strings; this interface is intended for
@@ -65,11 +65,11 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 # ===== Project libraries =====
-from lib.blosc2_io import BUNDLE_EXT, load_bundle, load_bundle_meta
-from lib.bundle_schema import REQUIRED_BUNDLE_KEYS, validate_bundle
-from lib.centerline import CENTERLINE_METHODS, SKELETON_TRACK
-from lib import gwy_convert
-from lib.measure import (
+from afm_nanofiber_analyzer.blosc2_io import BUNDLE_EXT, load_bundle, load_bundle_meta
+from afm_nanofiber_analyzer.bundle_schema import REQUIRED_BUNDLE_KEYS, validate_bundle
+from afm_nanofiber_analyzer.centerline import CENTERLINE_METHODS, SKELETON_TRACK
+from afm_nanofiber_analyzer import gwy_convert
+from afm_nanofiber_analyzer.measure import (
     length_floor_nm,
     measure_bundle,
     read_centerline_from_bundle,
@@ -77,7 +77,7 @@ from lib.measure import (
     write_fiber_csv,
     write_heights_csv,
 )
-from lib.pipeline import (
+from afm_nanofiber_analyzer.pipeline import (
     BACKGROUND_CHECKED_MAX_WIDTH_PX,
     MIN_FIBER_SNR,
     MIN_FLANK_STEP_RATIO,
@@ -144,8 +144,8 @@ def _load_params(path: str, strict: bool = False) -> ProcParams:
 
 def _background_warning_text(warning) -> str:
     """
-    One line for a `lib.pipeline.BackgroundWarning`, with what to rerun with.
-    `lib.pipeline.BackgroundWarning` 1 件を、解析し直す設定とともに 1 行にする。
+    One line for a `afm_nanofiber_analyzer.pipeline.BackgroundWarning`, with what to rerun with.
+    `afm_nanofiber_analyzer.pipeline.BackgroundWarning` 1 件を、解析し直す設定とともに 1 行にする。
     """
     if warning.suggest_method == "tophat":
         advice = (f'rerun with "bg_method": "tophat", "tophat_se_size": '
@@ -180,8 +180,8 @@ def _background_warning_text(warning) -> str:
 
 def _noise_warning_text(warning) -> str:
     """
-    One line for a `lib.pipeline.NoiseWarning`.
-    `lib.pipeline.NoiseWarning` 1 件を 1 行にする。
+    One line for a `afm_nanofiber_analyzer.pipeline.NoiseWarning`.
+    `afm_nanofiber_analyzer.pipeline.NoiseWarning` 1 件を 1 行にする。
     """
     return (f"warning: the typical fiber height ({warning.height_nm:.2f} nm) is only "
             f"{warning.snr:.1f} times the pixel noise ({warning.noise_nm:.3f} nm), below "
@@ -530,9 +530,9 @@ def cmd_measure(args: argparse.Namespace) -> int:
     `.b2z` バンドル内のファイバーを追跡し、ファイバー統計 CSV を書き出す。
 
     Each bundle produces one `<stem>_fibers.csv` through
-    `lib.measure.write_fiber_csv`, the same writer used by the GUI04 export.
+    `afm_nanofiber_analyzer.measure.write_fiber_csv`, the same writer used by the GUI04 export.
     各バンドルにつき `<stem>_fibers.csv` を 1 つ、GUI04 のエクスポートと同じ
-    `lib.measure.write_fiber_csv` 経由で出力する。
+    `afm_nanofiber_analyzer.measure.write_fiber_csv` 経由で出力する。
 
     Parameters
     ----------
@@ -717,11 +717,11 @@ def cmd_validate(args: argparse.Namespace) -> int:
     `.b2z` バンドルを契約と照合し、問題を報告する。
 
     Verifies required keys, array shapes, mask values, kink-angle units, and
-    the recorded format version through `lib.bundle_schema.validate_bundle`.
+    the recorded format version through `afm_nanofiber_analyzer.bundle_schema.validate_bundle`.
     Provenance metadata presence is reported as information, not as a
     failure, because bundles from old releases legitimately lack it.
     必須キー、配列形状、マスク値、キンク角の単位、記録された形式バージョンを
-    `lib.bundle_schema.validate_bundle` で検証する。来歴メタデータの有無は
+    `afm_nanofiber_analyzer.bundle_schema.validate_bundle` で検証する。来歴メタデータの有無は
     情報として表示するだけで失敗にはしない。旧リリースのバンドルには来歴が
     無いのが正常なためである。
 
@@ -788,12 +788,12 @@ def cmd_convert(args: argparse.Namespace) -> int:
     本ソフトが読めないファイルを、同じフォルダの ``.gwy`` ファイルへ変換する。
 
     A folder argument takes every conversion candidate directly inside it
-    (`lib.gwy_convert.list_conversion_candidates`); a file argument whose
+    (`afm_nanofiber_analyzer.gwy_convert.list_conversion_candidates`); a file argument whose
     extension the software already reads, or writes, is reported and skipped.
     An input whose ``.gwy`` already exists is skipped, so a folder can be
     converted again after new files are added.
     フォルダ引数は直下の変換対象をすべて取る
-    （`lib.gwy_convert.list_conversion_candidates`）。本ソフトが既に読める、
+    （`afm_nanofiber_analyzer.gwy_convert.list_conversion_candidates`）。本ソフトが既に読める、
     または書き出す拡張子のファイル引数は報告して飛ばす。``.gwy`` が既にある
     入力は飛ばすため、新しいファイルを追加した後に同じフォルダを再変換できる。
 

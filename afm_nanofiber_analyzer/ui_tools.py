@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import ArrayLike
 
-from lib.translator import _
+from afm_nanofiber_analyzer.translator import _
 
 if TYPE_CHECKING:
     # Annotation only: the Tk backend is imported at run time inside
@@ -2272,7 +2272,7 @@ def read_height_image(bundle_path: str) -> tuple:
     # included, does not load the bundle reader.
     # ここでインポートする。バンドルの画像を表示しないウィンドウ（ランチャーを
     # 含む）が、バンドルの読み込み処理を読み込まずに済むようにするためである。
-    from lib.blosc2_io import load_bundle
+    from afm_nanofiber_analyzer.blosc2_io import load_bundle
 
     try:
         arrays = load_bundle(bundle_path, keys=["calibrated", "skeletonized"])

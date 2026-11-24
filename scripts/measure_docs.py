@@ -367,7 +367,7 @@ def reading_each_bundle_once(func: Callable[[], dict]) -> Callable[[], dict]:
     """
     @functools.wraps(func)
     def wrapper() -> dict:
-        from lib import measure
+        from afm_nanofiber_analyzer import measure
         real = measure.load_tracking_image
         first: dict = {}
 
@@ -385,7 +385,7 @@ def reading_each_bundle_once(func: Callable[[], dict]) -> Callable[[], dict]:
 
 @experiment(
     "kink_reference",
-    ["lib/pipeline.py", "lib/measure.py", "lib/kink_detector.py", "lib/centerline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/kink_detector.py", "afm_nanofiber_analyzer/centerline.py"],
     "Score the kink rule, its variants and the earlier polyline rule against the "
     "visual reference of clear kinks on the three bundled scans "
     "(scripts/kink_reference_score.py procedure).",
@@ -393,10 +393,10 @@ def reading_each_bundle_once(func: Callable[[], dict]) -> Callable[[], dict]:
 def kink_reference() -> dict:
     import numpy as np
     import kink_reference_score as krs
-    from lib import centerline as cl
-    from lib import kink_detector as kd
-    from lib.kink_detector import KinkDetector
-    from lib.pipeline import ProcParams
+    from afm_nanofiber_analyzer import centerline as cl
+    from afm_nanofiber_analyzer import kink_detector as kd
+    from afm_nanofiber_analyzer.kink_detector import KinkDetector
+    from afm_nanofiber_analyzer.pipeline import ProcParams
 
     refs = krs.load_reference()
     keys = ("ref", "found", "displaced", "merged", "missed", "false", "exempt",
@@ -504,7 +504,7 @@ def kink_reference() -> dict:
 
 @experiment(
     "kink_rule_sweep",
-    ["lib/pipeline.py", "lib/measure.py", "lib/kink_detector.py", "lib/centerline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/kink_detector.py", "afm_nanofiber_analyzer/centerline.py"],
     "Synthetic kinked, straight, arc and sine fibers over apparent width and "
     "pixel noise, scored against the analytic centerline "
     "(scripts/kink_rule_sweep.py with the base rule and a 3-sigma noise floor).",
@@ -564,15 +564,15 @@ def kink_rule_sweep() -> dict:
 
 @experiment(
     "bg_timing",
-    ["lib/pipeline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py"],
     "Wall time of the three background methods on the bundled 1024 x 1024 "
     "Bruker scan, second of two runs, on the machine that ran this script.",
 )
 def bg_timing() -> dict:
     from dataclasses import replace
-    from lib.afm_io import load_afm_text
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer.afm_io import load_afm_text
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     arr = load_afm_text(str(ROOT / "testdata_Bruker_txt" / "NDTOC250306.000.txt"))
     arr = arr[0] if isinstance(arr, tuple) else arr
@@ -602,7 +602,7 @@ def bg_timing() -> dict:
 
 @experiment(
     "thinning_example",
-    ["lib/skeletonizer.py"],
+    ["afm_nanofiber_analyzer/skeletonizer.py"],
     "The five-pixel band with a one-pixel hole and a two-pixel bump drawn in "
     "section 3.1, thinned by skimage.morphology.thin.",
 )
@@ -640,7 +640,7 @@ def thinning_example() -> dict:
 
 @experiment(
     "border_padding",
-    ["lib/pipeline.py", "lib/skeletonizer.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/skeletonizer.py"],
     "Thinning with and without the replicated border, compared outside the "
     "border band, on the binarized masks of the three bundled scans.",
 )
@@ -648,9 +648,9 @@ def border_padding() -> dict:
     import numpy as np
     import kink_reference_score as krs
     from skimage.morphology import thin
-    from lib.blosc2_io import load_bundle
-    from lib.pipeline import ProcParams, process_file
-    from lib.skeletonizer import DEFAULT_BORDER_PAD as pad, thin_ignoring_image_border
+    from afm_nanofiber_analyzer.blosc2_io import load_bundle
+    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    from afm_nanofiber_analyzer.skeletonizer import DEFAULT_BORDER_PAD as pad, thin_ignoring_image_border
 
     identical = 0
     cache = cache_dir("kink_reference_half_max_025w")
@@ -671,7 +671,7 @@ def border_padding() -> dict:
 
 
 def _raw_scan(rel: str):
-    from lib.afm_io import load_afm_text
+    from afm_nanofiber_analyzer.afm_io import load_afm_text
     arr = load_afm_text(str(ROOT / rel))
     return arr[0] if isinstance(arr, tuple) else arr
 
@@ -679,7 +679,7 @@ def _raw_scan(rel: str):
 def _trendfill_mask(arr):
     """The dilated fiber mask `_bg_generate` fills, on the [1:, 1:] grid."""
     import numpy as np
-    from lib.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
     bg = build_stages(ProcParams()).bg_calibrator
     bg._detect_fiber_mask(arr)
     bg_only, _ = bg._bg_generate(arr, bg.tri_difx_fill, bg.tri_dify_fill)
@@ -688,8 +688,8 @@ def _trendfill_mask(arr):
 
 def _default_bundle(rel: str):
     """The default-parameter bundle of a bundled scan (shared with kink_reference)."""
-    from lib.blosc2_io import load_bundle
-    from lib.pipeline import ProcParams, process_file
+    from afm_nanofiber_analyzer.blosc2_io import load_bundle
+    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
     cache = cache_dir("kink_reference_half_max_025w")
     bundle = cache / (Path(rel).stem + ".b2z")
     if not bundle.is_file():
@@ -701,7 +701,7 @@ def _default_bundle(rel: str):
 
 @experiment(
     "bg_stats",
-    ["lib/pipeline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py"],
     "Per bundled scan: the slope of the least-squares plane through the raw heights, "
     "the median width of the dilated trendfill fiber mask (twice the distance to its "
     "edge along its medial axis), the height the plane falls across that width, the "
@@ -744,7 +744,7 @@ def bg_stats() -> dict:
 
 @experiment(
     "line_steps",
-    ["lib/pipeline.py", "lib/bg_calibrator.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/bg_calibrator.py"],
     "Per bundled scan: the median absolute step between the median heights of "
     "adjacent rows (scan lines), each row's median taken over its lowest 60 % of "
     "pixels so that fibers stay out of it, after a least-squares plane is removed, "
@@ -754,8 +754,8 @@ def bg_stats() -> dict:
 def line_steps() -> dict:
     import numpy as np
     import kink_reference_score as krs
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     def step(img):
         h, w = img.shape
@@ -785,7 +785,7 @@ def line_steps() -> dict:
 
 @experiment(
     "bg_fill",
-    ["lib/bg_calibrator.py"],
+    ["afm_nanofiber_analyzer/bg_calibrator.py"],
     "Square holes of 21 px cut into fiber-free background of the tunicate scan: how far "
     "the smoothed background estimate inside each hole, and on the genuine background "
     "beside it, moves from the estimate made with those pixels known, for each "
@@ -798,7 +798,7 @@ def bg_fill() -> dict:
     import kink_reference_score as krs
     from scipy import signal
     from scipy.ndimage import distance_transform_edt, binary_dilation
-    from lib.pipeline import ProcParams
+    from afm_nanofiber_analyzer.pipeline import ProcParams
 
     params = ProcParams()
     half = 10          # a 21-px hole
@@ -878,6 +878,8 @@ def bg_fill() -> dict:
     return values
 
 
+# Runs in a worktree of tag v1.0.0, whose package is named `lib`.
+# タグ v1.0.0 の作業ツリーで動く。その版のパッケージ名は `lib` である。
 _LEGACY_SCRIPT = """
 import sys, numpy as np
 sys.path.insert(0, sys.argv[1])
@@ -892,7 +894,7 @@ np.save(sys.argv[3], np.asarray(image.calibrated_image, dtype=float))
 
 @experiment(
     "bg_legacy_halo",
-    ["lib/pipeline.py", "lib/bg_calibrator.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/bg_calibrator.py"],
     "A synthetic 512 x 512 scan: a plane rising along X at the steepest slope of the "
     "bundled scans (0.24 nm/px), one straight fiber across it (Gaussian section, 8 nm "
     "high, sigma 3 px) and 0.05 nm noise, calibrated by the default background method "
@@ -902,8 +904,8 @@ np.save(sys.argv[3], np.asarray(image.calibrated_image, dtype=float))
 def bg_legacy_halo() -> dict:
     import subprocess
     import numpy as np
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     n, slope, height, sigma = 512, 0.24, 8.0, 3.0
     xx = np.tile(np.arange(n, dtype=float), (n, 1))
@@ -985,7 +987,7 @@ LOOP_LABELS = {
 
 @experiment(
     "loop_candidates",
-    ["lib/pipeline.py", "lib/skeletonizer.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/skeletonizer.py"],
     "Every region enclosed by the skeleton that collapse_skeleton_loops considers on "
     "the bundled scans (at most max_loop_area, clear of the border): the median "
     "height inside over the median height of the skeleton ring around it, the branch "
@@ -995,10 +997,10 @@ def loop_candidates() -> dict:
     import cv2
     import numpy as np
     import kink_reference_score as krs
-    from lib import imp_tools
-    from lib import skeletonizer as sk
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer import imp_tools
+    from afm_nanofiber_analyzer import skeletonizer as sk
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     found = []
     current = {"name": None}
@@ -1058,14 +1060,14 @@ def loop_candidates() -> dict:
 
 def _skeleton_counts(skel) -> dict:
     import numpy as np
-    from lib import imp_tools
+    from afm_nanofiber_analyzer import imp_tools
     s = (np.asarray(skel) > 0).astype(np.uint8)
     return {"pixels": int(s.sum()), "branch_points": int(imp_tools.branchedPoints(s).sum())}
 
 
 @experiment(
     "local_threshold",
-    ["lib/pipeline.py", "lib/segmenter.py", "lib/skeletonizer.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/segmenter.py", "afm_nanofiber_analyzer/skeletonizer.py"],
     "Binarization with the global threshold alone against the default global AND local "
     "threshold, everything else at the defaults, on each bundled scan: the height of the "
     "pixels the local threshold removes and keeps relative to the highest height within "
@@ -1076,9 +1078,9 @@ def local_threshold() -> dict:
     import numpy as np
     import kink_reference_score as krs
     from scipy import ndimage as ndi
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
-    from lib.segmenter import Segmenter
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer.segmenter import Segmenter
 
     class GlobalOnly(Segmenter):
         @staticmethod
@@ -1124,7 +1126,7 @@ def local_threshold() -> dict:
 
 @experiment(
     "branch_pruning",
-    ["lib/pipeline.py", "lib/skeletonizer.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/skeletonizer.py"],
     "The height-gated pruning of Skeletonizer (set_low_bp_coor to prune_branches) on the "
     "default binarized mask of each bundled scan: the calibrated height at the branch "
     "points of the first skeleton and the share at or above bp_height, the pixels the "
@@ -1136,11 +1138,11 @@ def local_threshold() -> dict:
 def branch_pruning() -> dict:
     import numpy as np
     import kink_reference_score as krs
-    from lib import imp_tools
-    from lib import skeletonizer as sk_module
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
-    from lib.skeletonizer import Skeletonizer, thin_ignoring_image_border
+    from afm_nanofiber_analyzer import imp_tools
+    from afm_nanofiber_analyzer import skeletonizer as sk_module
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer.skeletonizer import Skeletonizer, thin_ignoring_image_border
 
     params = ProcParams()
     values: dict = {"bp_height_nm": params.bp_height}
@@ -1250,7 +1252,7 @@ LINEARITY_FIBER_PIECES = {
 
 @experiment(
     "linearity_filter",
-    ["lib/pipeline.py", "lib/segmenter.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/segmenter.py"],
     "The linearity filter of Segmenter (_remove_nonlinear_objects) at the defaults: on "
     "every test input, the largest s_ratio and how many components score above 1, and "
     "the components it removes whose largest extent reaches h_length, against the visual "
@@ -1264,10 +1266,10 @@ def linearity_filter() -> dict:
     import numpy as np
     from scipy import ndimage as ndi
     from skimage.feature import canny
-    from lib.afm_io import load_afm_image
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
-    from lib.segmenter import _max_extent_px
+    from afm_nanofiber_analyzer.afm_io import load_afm_image
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer.segmenter import _max_extent_px
 
     params = ProcParams()
     values: dict = {}
@@ -1336,7 +1338,7 @@ LINEARITY_AXIS_FIBERS = {"a": ("NDTOC", (961, 925)), "b": ("NDTOC", (891, 462))}
 
 @experiment(
     "linearity_axis_fibers",
-    ["lib/pipeline.py", "lib/segmenter.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/segmenter.py"],
     "The fibers of LINEARITY_AXIS_FIBERS in their original orientation and with the "
     "whole raw scan rotated (cubic interpolation, edges extended) so the principal "
     "axis of the fiber's component runs along the columns and, after a further exact "
@@ -1352,9 +1354,9 @@ def linearity_axis_fibers() -> dict:
     import numpy as np
     from scipy import ndimage as ndi
     from skimage.feature import canny
-    from lib.afm_io import load_afm_image
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer.afm_io import load_afm_image
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     params = ProcParams()
 
@@ -1446,7 +1448,7 @@ ROD_OFFSETS = 3
 
 @experiment(
     "linearity_rotated_rods",
-    ["lib/pipeline.py", "lib/segmenter.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/segmenter.py"],
     "Synthetic rods with round ends (stadium shapes) of each length in ROD_LENGTHS and "
     "width in ROD_WIDTHS, drawn at every angle in ROD_ANGLES with ROD_OFFSETS random "
     "sub-pixel placements (seeded), each passed alone through the linearity filter at "
@@ -1454,7 +1456,7 @@ ROD_OFFSETS = 3
 )
 def linearity_rotated_rods() -> dict:
     import numpy as np
-    from lib.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
 
     params = ProcParams()
     seg = build_stages(params).segmenter
@@ -1487,7 +1489,7 @@ def linearity_rotated_rods() -> dict:
 
 @experiment(
     "spline1d_axis",
-    ["lib/pipeline.py", "lib/bg_calibrator.py", "lib/segmenter.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/bg_calibrator.py", "afm_nanofiber_analyzer/segmenter.py"],
     "Every test input calibrated by trendfill and by spline1d along 'x' and along 'y', "
     "everything else at the defaults: on the background (pixels more than 5 px from the "
     "union of the three binarized masks), the spread (standard deviation) of the per-row "
@@ -1498,9 +1500,9 @@ def spline1d_axis() -> dict:
     import numpy as np
     from dataclasses import replace
     from scipy import ndimage as ndi
-    from lib.afm_io import load_afm_image
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer.afm_io import load_afm_image
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     base = ProcParams()
     variants = {"trendfill": base,
@@ -1531,7 +1533,7 @@ def spline1d_axis() -> dict:
 
 @experiment(
     "spline1d_axis_rotated",
-    ["lib/pipeline.py", "lib/bg_calibrator.py", "lib/segmenter.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/bg_calibrator.py", "afm_nanofiber_analyzer/segmenter.py"],
     "Every test input rotated by 90 degrees (np.rot90, so its scan lines become "
     "columns and its line offsets vertical stripes) and calibrated by trendfill and by "
     "spline1d along 'x' and along 'y', everything else at the defaults: on the "
@@ -1542,9 +1544,9 @@ def spline1d_axis_rotated() -> dict:
     import numpy as np
     from dataclasses import replace
     from scipy import ndimage as ndi
-    from lib.afm_io import load_afm_image
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer.afm_io import load_afm_image
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     base = ProcParams()
     variants = {"trendfill": base,
@@ -1581,7 +1583,7 @@ def _background_spread(cal, background) -> tuple:
 
 @experiment(
     "savgol_axis",
-    ["lib/pipeline.py", "lib/bg_calibrator.py", "lib/segmenter.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/bg_calibrator.py", "afm_nanofiber_analyzer/segmenter.py"],
     "Every test input calibrated by the default trendfill with the Savitzky-Golay "
     "smoothing of the background along X only (the code) and along X and then Y: on the "
     "background (pixels more than 5 px from the union of the two binarized masks), the "
@@ -1592,10 +1594,10 @@ def savgol_axis() -> dict:
     import numpy as np
     from scipy import ndimage as ndi
     from scipy import signal as scipy_signal
-    from lib import bg_calibrator as bg_module
-    from lib.afm_io import load_afm_image
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer import bg_calibrator as bg_module
+    from afm_nanofiber_analyzer.afm_io import load_afm_image
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     both_axes = types.SimpleNamespace(savgol_filter=lambda a, w, o, **k: scipy_signal.savgol_filter(
         scipy_signal.savgol_filter(a, w, o, **k), w, o, axis=0))
@@ -1624,7 +1626,7 @@ def savgol_axis() -> dict:
 
 @experiment(
     "spline1d_trend_order",
-    ["lib/pipeline.py", "lib/bg_calibrator.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/bg_calibrator.py"],
     "Every test input calibrated by spline1d as in the code (the trend added back before "
     "the Savitzky-Golay smoothing) and with the trend added back after it, as trendfill "
     "does: the largest difference in calibrated height.",
@@ -1634,10 +1636,10 @@ def spline1d_trend_order() -> dict:
     import textwrap
     import numpy as np
     from dataclasses import replace
-    from lib import bg_calibrator as bg_module
-    from lib.afm_io import load_afm_image
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer import bg_calibrator as bg_module
+    from afm_nanofiber_analyzer.afm_io import load_afm_image
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     src = textwrap.dedent(inspect.getsource(bg_module.BGCalibrator._call_spline1d))
     add_back = "        bg_int = bg_int + bg_trend\n"
@@ -1663,7 +1665,7 @@ def spline1d_trend_order() -> dict:
 
 @experiment(
     "linearity_large_exemption",
-    ["lib/pipeline.py", "lib/segmenter.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/segmenter.py"],
     "The linearity filter of every test input as in the code (components of 1000 px or "
     "more are kept untested) and with every component tested: how many components reach "
     "1000 px, how many of them testing would remove, and the wall time of the filter each "
@@ -1675,10 +1677,10 @@ def linearity_large_exemption() -> dict:
     import time
     import numpy as np
     from scipy import ndimage as ndi
-    from lib import segmenter as seg_module
-    from lib.afm_io import load_afm_image
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer import segmenter as seg_module
+    from afm_nanofiber_analyzer.afm_io import load_afm_image
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     src = textwrap.dedent(inspect.getsource(seg_module.Segmenter._remove_nonlinear_objects))
     skip = "        if area >= 1000:\n            continue\n"
@@ -1721,7 +1723,7 @@ LOOP_SLIVER_GAPS = (4, 5, 6, 7, 8, 9, 10, 12)
 
 @experiment(
     "loop_sliver",
-    ["lib/pipeline.py", "lib/skeletonizer.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/skeletonizer.py"],
     "Synthetic 200 x 200 scans of two straight fibers (Gaussian section, 4 nm high, sigma "
     "1.5, 2 or 3 px) that part over 30 px into a lens-shaped gap of 4-12 px and rejoin, "
     "with 0.05 nm noise and a slight slope, run through the default pipeline: the "
@@ -1731,9 +1733,9 @@ LOOP_SLIVER_GAPS = (4, 5, 6, 7, 8, 9, 10, 12)
 def loop_sliver() -> dict:
     import cv2
     import numpy as np
-    from lib import skeletonizer as sk
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer import skeletonizer as sk
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     n = 200
     yy, xx = np.mgrid[0:n, 0:n].astype(float)
@@ -1782,7 +1784,7 @@ def loop_sliver() -> dict:
 
 @experiment(
     "border_margins",
-    ["lib/pipeline.py", "lib/skeletonizer.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/skeletonizer.py"],
     "The skeleton of every test input with the two border margins of the skeletonizer "
     "swapped one at a time: the branch pruning skipping endpoints within 2 px of the "
     "border instead of branch_length, and the spur pruning sparing arms within "
@@ -1794,10 +1796,10 @@ def border_margins() -> dict:
     import inspect
     import textwrap
     import numpy as np
-    from lib import skeletonizer as sk
-    from lib.afm_io import load_afm_image
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer import skeletonizer as sk
+    from afm_nanofiber_analyzer.afm_io import load_afm_image
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     params = ProcParams()
     src = textwrap.dedent(inspect.getsource(sk.Skeletonizer.track_branches))
@@ -1840,7 +1842,7 @@ def border_margins() -> dict:
 
 @experiment(
     "crest_height",
-    ["lib/pipeline.py", "lib/centerline.py", "lib/imp_tools.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/centerline.py", "afm_nanofiber_analyzer/imp_tools.py"],
     "Every traceable skeleton component of every test input, its default centerline "
     "placed as KinkDetector places it: at the reliable points, the crest height "
     "(CenterlineResult.crest) minus the calibrated height read at the centerline, in nm "
@@ -1850,11 +1852,11 @@ def border_margins() -> dict:
 def crest_height() -> dict:
     import cv2
     import numpy as np
-    from lib import imp_tools
-    from lib.afm_io import load_afm_image
-    from lib.centerline import place_centerline, sample_height
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer import imp_tools
+    from afm_nanofiber_analyzer.afm_io import load_afm_image
+    from afm_nanofiber_analyzer.centerline import place_centerline, sample_height
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     params = ProcParams()
     values: dict = {}
@@ -1893,7 +1895,7 @@ def crest_height() -> dict:
 
 @experiment(
     "cut_end_skirt",
-    ["lib/pipeline.py", "lib/centerline.py", "lib/imp_tools.py", "lib/skeletonizer.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/centerline.py", "afm_nanofiber_analyzer/imp_tools.py", "afm_nanofiber_analyzer/skeletonizer.py"],
     "On every test input, the tracks at least 5 W long of the default centerline: the "
     "crest height near each end, in steps of W/4, over the track's median crest height "
     "(away from 2 W at each end), pooled by median over the ends cut at a crossing (within "
@@ -1904,11 +1906,11 @@ def cut_end_skirt() -> dict:
     import cv2
     import numpy as np
     from scipy import ndimage as ndi
-    from lib import imp_tools
-    from lib.afm_io import load_afm_image
-    from lib.centerline import place_centerline
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer import imp_tools
+    from afm_nanofiber_analyzer.afm_io import load_afm_image
+    from afm_nanofiber_analyzer.centerline import place_centerline
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     params = ProcParams()
     steps = np.arange(0.0, 3.0001, 0.25)
@@ -1977,7 +1979,7 @@ def _synthetic():
 
 @experiment(
     "synthetic_centerline",
-    ["lib/pipeline.py", "lib/measure.py", "lib/centerline.py", "lib/kink_detector.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/centerline.py", "afm_nanofiber_analyzer/kink_detector.py"],
     "On the synthetic suite of scripts/synthetic_suite.py (groups A-F: 60 scans, 2 nm "
     "pixels, W = 8 px; group G: twisted ribbons): the distance of each centerline "
     "method from the true centerline, the contour-length error, the same-sense corner "
@@ -1986,9 +1988,9 @@ def _synthetic():
 @reading_each_bundle_once
 def synthetic_centerline() -> dict:
     import numpy as np
-    from lib import centerline as cl
-    from lib.imp_tools import convert_track_to_distance
-    from lib.kink_detector import KinkDetector
+    from afm_nanofiber_analyzer import centerline as cl
+    from afm_nanofiber_analyzer.imp_tools import convert_track_to_distance
+    from afm_nanofiber_analyzer.kink_detector import KinkDetector
 
     ss, entries = _synthetic()
     af = [e for e in entries if e["group"] != "G"]
@@ -2143,7 +2145,7 @@ def synthetic_centerline() -> dict:
 
 @experiment(
     "ribbon_tip_swing",
-    ["lib/centerline.py"],
+    ["afm_nanofiber_analyzer/centerline.py"],
     "Twisted ribbons of scripts/synthetic_suite.py (rectangular sections 16 x 3, 10 x 3 "
     "and 6 x 2 nm, twist period 300 nm, 2 nm pixels) drawn without noise, tilt or "
     "roughness and dilated by a spherical apex of radius 0, 10 and 40 nm (0: no "
@@ -2156,7 +2158,7 @@ def ribbon_tip_swing() -> dict:
     import numpy as np
     import synthetic_fibers as sf
     import synthetic_suite as ss
-    from lib import centerline as cl
+    from afm_nanofiber_analyzer import centerline as cl
 
     shape, length = (384, 384), 600.0
     line = sf.straight_centerline(length, angle_deg=20.0, shape=shape, nm_per_px=ss.NMPX)
@@ -2210,7 +2212,7 @@ def ribbon_tip_swing() -> dict:
 
 @experiment(
     "synthetic_kinks",
-    ["lib/pipeline.py", "lib/measure.py", "lib/centerline.py", "lib/kink_detector.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/centerline.py", "afm_nanofiber_analyzer/kink_detector.py"],
     "The kink rule on the synthetic suite of scripts/synthetic_suite.py (default "
     "centerline): the excess read at isolated corners, corners found in zigzags, "
     "bends reported on straight fibers, arcs, meanders, crossings and branches, the "
@@ -2220,8 +2222,8 @@ def ribbon_tip_swing() -> dict:
 @reading_each_bundle_once
 def synthetic_kinks() -> dict:
     import math
-    from lib import kink_detector as kd
-    from lib.kink_detector import KinkDetector
+    from afm_nanofiber_analyzer import kink_detector as kd
+    from afm_nanofiber_analyzer.kink_detector import KinkDetector
 
     ss, entries = _synthetic()
     detector = KinkDetector()
@@ -2348,7 +2350,7 @@ def closing_gaps() -> dict:
 
 @experiment(
     "ridge_hysteresis",
-    ["lib/pipeline.py", "lib/segmenter.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/segmenter.py"],
     "On the bundled tunicate scan (5 um): the ridge filter of _recover_missed_ridges and "
     "the calibrated heights themselves, each thresholded by hysteresis with the Otsu "
     "high and triangle low levels; the fraction of the image each covers, and the "
@@ -2360,8 +2362,8 @@ def ridge_hysteresis() -> dict:
     import kink_reference_score as krs
     from scipy.ndimage import distance_transform_edt
     from skimage.filters import apply_hysteresis_threshold, frangi, threshold_otsu, threshold_triangle
-    from lib.bundle_schema import pixel_size_nm
-    from lib.pipeline import ProcParams
+    from afm_nanofiber_analyzer.bundle_schema import pixel_size_nm
+    from afm_nanofiber_analyzer.pipeline import ProcParams
 
     base = ProcParams()
     data = _default_bundle(krs.SCANS["tunicate"])
@@ -2389,7 +2391,7 @@ def ridge_hysteresis() -> dict:
 
 @experiment(
     "turn_maxima",
-    ["lib/pipeline.py", "lib/measure.py", "lib/kink_detector.py", "lib/centerline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/kink_detector.py", "afm_nanofiber_analyzer/centerline.py"],
     "The visual reference of kink_reference scored with the rule as it is and with its "
     "second kind of candidate (maxima of |T| away from any accepted curvature maximum at "
     "least as strong) disabled: the clear kinks found and the unmatched bends of each.",
@@ -2398,9 +2400,9 @@ def turn_maxima() -> dict:
     import inspect
     import textwrap
     import kink_reference_score as krs
-    from lib import kink_detector as kd
-    from lib.kink_detector import KinkDetector
-    from lib.pipeline import ProcParams
+    from afm_nanofiber_analyzer import kink_detector as kd
+    from afm_nanofiber_analyzer.kink_detector import KinkDetector
+    from afm_nanofiber_analyzer.pipeline import ProcParams
 
     refs = krs.load_reference()
     cache = str(cache_dir("kink_reference_half_max_025w"))
@@ -2435,7 +2437,7 @@ def turn_maxima() -> dict:
 
 @experiment(
     "y_branch_kink",
-    ["lib/pipeline.py", "lib/measure.py", "lib/kink_detector.py", "lib/centerline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/kink_detector.py", "afm_nanofiber_analyzer/centerline.py"],
     "On the bundled higher-plant TOC scan, the bend the earlier polyline rule reports "
     "on the skeleton track below the Y-branch near pixel (288, 695) (viewed on the "
     "height image, 2026-09-30: two fibers join and the trunk below does not bend), and "
@@ -2445,8 +2447,8 @@ def y_branch_kink() -> dict:
     import math
     import numpy as np
     import kink_reference_score as krs
-    from lib.kink_detector import KinkDetector
-    from lib.pipeline import ProcParams
+    from afm_nanofiber_analyzer.kink_detector import KinkDetector
+    from afm_nanofiber_analyzer.pipeline import ProcParams
 
     target = (288.0, 695.0)
     _image, fibers = krs.prepare_scan("hplantTOC", str(cache_dir("kink_reference_half_max_025w")),
@@ -2600,8 +2602,8 @@ def _synthetic_height_runs(out, tag: str, nmpx: float, diam: float, noise: float
     import numpy as np
     from scipy.spatial import cKDTree
     import synthetic_suite as ss
-    from lib import measure
-    from lib.pipeline import ProcParams, process_file
+    from afm_nanofiber_analyzer import measure
+    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 
     h, w = SYNTH_HEIGHT_SHAPE
     size = (w * nmpx / 1000.0, h * nmpx / 1000.0)
@@ -2672,7 +2674,7 @@ END_LOSS_FIELD_NM = 900.0
 
 @experiment(
     "end_loss",
-    ["lib/pipeline.py", "lib/measure.py", "lib/centerline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/centerline.py"],
     "One straight fiber 600 nm long (a cylinder of diameter 3 nm under a 10 nm "
     "spherical apex, with square ends or ends tapering to 0.3 of the diameter over "
     "20 nm) in the middle of a 900 nm scan at 1, 2 and 4 nm pixels, with the "
@@ -2688,8 +2690,8 @@ def end_loss() -> dict:
     import numpy as np
     import kink_rule_sweep as sweep
     import synthetic_fibers as sf
-    from lib import measure
-    from lib.pipeline import ProcParams, process_file
+    from afm_nanofiber_analyzer import measure
+    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 
     out = cache_dir("end_loss")
     out.mkdir(parents=True, exist_ok=True)
@@ -2745,7 +2747,7 @@ def end_loss() -> dict:
 
 @experiment(
     "synthetic_height",
-    ["lib/pipeline.py", "lib/measure.py", "lib/centerline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/centerline.py"],
     "Three parallel straight fibers of known height (cylinders of diameter 2, 4 and 8 "
     "nm under the synthetic suite's 15 nm spherical apex, point-sampled from the "
     "analytic dilated surface, with the suite's tilt, roughness and line noise) in "
@@ -2807,7 +2809,7 @@ SYNTH_HEIGHT_ANGLES_DEG = (0.0, 23.0, 45.0, 90.0)
 
 @experiment(
     "synthetic_height_orientation",
-    ["lib/pipeline.py", "lib/measure.py", "lib/centerline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/centerline.py"],
     "The scenes of synthetic_height at 0.05 nm pixel noise, drawn with the fibers "
     "running at 0, 23, 45 and 90 degrees to the scan lines (23 is synthetic_height "
     "itself): per orientation, method, pixel size and diameter, what background "
@@ -2872,7 +2874,7 @@ NARROW_AXIS_METHODS = ("trendfill", "spline1d")
 
 @experiment(
     "narrow_axis_fibers",
-    ["lib/pipeline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py"],
     "Three straight fibers point-sampled from a cylinder dilated by a 15 nm "
     "spherical apex (diameter 4 or 8 nm at 5 nm pixels, 2 nm at 2 nm pixels), on a "
     "320 x 320 px scan with a plane tilt, at each angle to the scan lines in "
@@ -2885,8 +2887,8 @@ NARROW_AXIS_METHODS = ("trendfill", "spline1d")
 def narrow_axis_fibers() -> dict:
     import math
     import numpy as np
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     n = 320
     apex = 15.0
@@ -2989,7 +2991,7 @@ CREST_NOISE_SEEDS = (0, 1, 2)
 
 @experiment(
     "crest_noise",
-    ["lib/centerline.py"],
+    ["afm_nanofiber_analyzer/centerline.py"],
     "A fiber point-sampled from a cylinder 2 nm in diameter dilated by a 15 nm "
     "spherical apex (_noisy_cylinder_scene), straight at 20 degrees to the rows and "
     "along an arc of radius 4 W, at each apparent width in CREST_NOISE_WIDTHS_PX and "
@@ -2999,7 +3001,7 @@ CREST_NOISE_SEEDS = (0, 1, 2)
 )
 def crest_noise() -> dict:
     import numpy as np
-    from lib.centerline import place_centerline
+    from afm_nanofiber_analyzer.centerline import place_centerline
 
     values: dict = {}
     for shape in ("line", "arc"):
@@ -3024,7 +3026,7 @@ WIDTH_NOISE_SEEDS = (0, 1, 2)
 
 @experiment(
     "width_noise",
-    ["lib/centerline.py"],
+    ["afm_nanofiber_analyzer/centerline.py"],
     "The straight fiber of crest_noise (_noisy_cylinder_scene) at each apparent width "
     "in WIDTH_NOISE_WIDTHS_PX and pixel noise in WIDTH_NOISE_NM (3 seeds): the "
     "apparent width place_centerline measures and the share of centerline points "
@@ -3032,7 +3034,7 @@ WIDTH_NOISE_SEEDS = (0, 1, 2)
 )
 def width_noise() -> dict:
     import numpy as np
-    from lib.centerline import place_centerline
+    from afm_nanofiber_analyzer.centerline import place_centerline
 
     values: dict = {}
     for w in WIDTH_NOISE_WIDTHS_PX:
@@ -3050,7 +3052,7 @@ def width_noise() -> dict:
 
 @experiment(
     "noise_warning",
-    ["lib/pipeline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py"],
     "pipeline.fiber_snr and pipeline.noise_warnings: the typical fiber height over the "
     "pixel noise of every test input analyzed at the defaults, and, on the straight "
     "fiber of crest_noise (_noisy_cylinder_scene, seed 0) at apparent widths of 8 and "
@@ -3062,8 +3064,8 @@ def width_noise() -> dict:
 def noise_warning() -> dict:
     import tempfile
     import numpy as np
-    from lib.pipeline import ProcParams, build_stages, fiber_snr, process_file
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages, fiber_snr, process_file
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     values: dict = {}
     snrs = []
@@ -3110,7 +3112,7 @@ def noise_warning() -> dict:
 
 @experiment(
     "test_suite_bend",
-    ["lib/pipeline.py", "lib/kink_detector.py", "lib/centerline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/kink_detector.py", "afm_nanofiber_analyzer/centerline.py"],
     "The bent fiber of tests/conftest.write_synthetic_fiber_txt (two segments meeting "
     "at a 146.5 degree interior angle, a 33.5 degree turn), analyzed as "
     "tests/test_pipeline.test_detects_the_drawn_kink does (tophat, kinkangle_deg 155): "
@@ -3120,7 +3122,7 @@ def test_suite_bend() -> dict:
     import math
     import conftest
     import numpy as np
-    from lib.pipeline import ProcParams, process_file
+    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 
     out = cache_dir("test_suite_bend")
     out.mkdir(parents=True, exist_ok=True)
@@ -3156,7 +3158,7 @@ def _arm_curvature_shares(fiber, aspect: float) -> list:
     """
     import math
     import numpy as np
-    from lib import kink_detector as kd
+    from afm_nanofiber_analyzer import kink_detector as kd
 
     x = np.asarray(fiber.xtrack, float)
     y = np.asarray(fiber.ytrack, float) * aspect
@@ -3196,7 +3198,7 @@ def _arm_curvature_shares(fiber, aspect: float) -> list:
 
 @experiment(
     "kink_angle_on_arcs",
-    ["lib/pipeline.py", "lib/kink_detector.py", "lib/centerline.py", "lib/measure.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/kink_detector.py", "afm_nanofiber_analyzer/centerline.py", "afm_nanofiber_analyzer/measure.py"],
     "A corner of known turning (40, 60 and 90 degrees) placed on a fiber that curves at "
     "radius ARC_KINK_RADII_W apparent widths (ARC_KINK_ARC_TURN_DEG degrees on each side "
     "of the corner, then straight), curving the same way as the corner or the opposite "
@@ -3214,8 +3216,8 @@ def kink_angle_on_arcs() -> dict:
     import kink_reference_score as krs
     import kink_rule_sweep as sweep
     import synthetic_fibers as sf
-    from lib import measure
-    from lib.pipeline import ProcParams, process_file
+    from afm_nanofiber_analyzer import measure
+    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 
     nm_per_px = sweep.APPARENT_WIDTH_NM / 8.0
     shape = sweep._shape_for(nm_per_px)
@@ -3316,7 +3318,7 @@ def kink_angle_on_arcs() -> dict:
 
 @experiment(
     "border_drift",
-    ["lib/pipeline.py", "lib/skeletonizer.py", "lib/measure.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/skeletonizer.py", "afm_nanofiber_analyzer/measure.py"],
     "Per bundled scan, thinned without and with the replicated border: the lateral "
     "distance from each skeleton point to the height crest along the point's normal "
     "(within half the fiber's apparent width), for the last 5 points of tracks that "
@@ -3326,10 +3328,10 @@ def border_drift() -> dict:
     import numpy as np
     import kink_reference_score as krs
     from skimage.morphology import thin
-    from lib import skeletonizer as sk_mod
-    from lib.centerline import sample_height
-    from lib.fiber import skeleton_track
-    from lib.pipeline import ProcParams
+    from afm_nanofiber_analyzer import skeletonizer as sk_mod
+    from afm_nanofiber_analyzer.centerline import sample_height
+    from afm_nanofiber_analyzer.fiber import skeleton_track
+    from afm_nanofiber_analyzer.pipeline import ProcParams
 
     def offsets(image, fibers):
         cal = np.asarray(image.calibrated_image, float)
@@ -3383,7 +3385,7 @@ def border_drift() -> dict:
 
 @experiment(
     "hough_edge_map",
-    ["lib/pipeline.py", "lib/segmenter.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/segmenter.py"],
     "Per bundled scan: whether the final binarized mask is identical when the "
     "linearity filter builds each component's edge map from the component alone (the "
     "current code) or, as up to release 1.0.0, from the whole working mask inside the "
@@ -3394,9 +3396,9 @@ def hough_edge_map() -> dict:
     import textwrap
     import numpy as np
     import kink_reference_score as krs
-    from lib import segmenter as seg_mod
-    from lib.pipeline import ProcParams, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer import segmenter as seg_mod
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
     current = seg_mod.Segmenter._remove_nonlinear_objects
     import re
@@ -3433,7 +3435,7 @@ def hough_edge_map() -> dict:
 
 @experiment(
     "tophat_border",
-    ["lib/bg_calibrator.py"],
+    ["afm_nanofiber_analyzer/bg_calibrator.py"],
     "A 256 x 256 plane rising along X at the steepest slope found on the bundled "
     "scans (0.24 nm/px), opened with the default 25-px ellipse: the largest residual "
     "within 12 px of the uphill edge, opening the raw ramp (before the fix) and the "
@@ -3442,7 +3444,7 @@ def hough_edge_map() -> dict:
 def tophat_border() -> dict:
     import cv2
     import numpy as np
-    from lib.pipeline import ProcParams
+    from afm_nanofiber_analyzer.pipeline import ProcParams
 
     slope = 0.24
     size = ProcParams().tophat_se_size | 1
@@ -3467,7 +3469,7 @@ def tophat_border() -> dict:
 
 @experiment(
     "track_ends",
-    ["lib/pipeline.py", "lib/measure.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py"],
     "Per bundled scan: the fraction of traced track ends that lie within 3 px of a "
     "branch point of the skeleton.",
 )
@@ -3475,8 +3477,8 @@ def track_ends() -> dict:
     import numpy as np
     import kink_reference_score as krs
     from scipy.ndimage import distance_transform_edt
-    from lib.fiber import skeleton_track
-    from lib.pipeline import ProcParams
+    from afm_nanofiber_analyzer.fiber import skeleton_track
+    from afm_nanofiber_analyzer.pipeline import ProcParams
 
     values: dict = {}
     cache = str(cache_dir("kink_reference_half_max_025w"))
@@ -3496,7 +3498,7 @@ def track_ends() -> dict:
 
 @experiment(
     "ridge_recovery_bundled",
-    ["lib/pipeline.py", "lib/segmenter.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/segmenter.py"],
     "Ridge recovery switched on for each bundled scan at its recorded scan size: the "
     "candidate components outside the thresholded mask whose skeleton reaches "
     "ridge_min_length_nm, how many of them touch that mask (the earlier rule dropped "
@@ -3509,10 +3511,10 @@ def ridge_recovery_bundled() -> dict:
     from scipy.ndimage import binary_dilation
     from skimage.filters import apply_hysteresis_threshold, frangi, threshold_otsu, threshold_triangle
     from skimage.morphology import thin
-    from lib.bundle_schema import pixel_size_nm, scan_size_um_from_meta
-    from lib import blosc2_io
-    from lib.pipeline import ProcParams
-    from lib.segmenter import _skeleton_path_length_px
+    from afm_nanofiber_analyzer.bundle_schema import pixel_size_nm, scan_size_um_from_meta
+    from afm_nanofiber_analyzer import blosc2_io
+    from afm_nanofiber_analyzer.pipeline import ProcParams
+    from afm_nanofiber_analyzer.segmenter import _skeleton_path_length_px
 
     values: dict = {}
     base = ProcParams()
@@ -3533,8 +3535,8 @@ def ridge_recovery_bundled() -> dict:
         # The thresholded mask the recovery runs against: re-run segmentation with
         # recovery off up to the low-height filter (the default bundle's binarized
         # image is exactly that mask closed).
-        from lib.pipeline import build_stages
-        from lib.processed_image import ProcessedImage
+        from afm_nanofiber_analyzer.pipeline import build_stages
+        from afm_nanofiber_analyzer.processed_image import ProcessedImage
         seg = build_stages(base).segmenter
         img = ProcessedImage(_raw_scan(rel), name)
         img.calibrated_image = cal
@@ -3569,7 +3571,7 @@ def ridge_recovery_bundled() -> dict:
 
 @experiment(
     "diagonal_ybranch",
-    ["lib/pipeline.py", "lib/imp_tools.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/imp_tools.py"],
     "On the default skeleton of each test input: the branch points imp_tools.branchedPoints "
     "finds, those only the four rotations of the diagonal Y kernel find, and the number of "
     "8-connected skeleton neighbours of each of the latter.",
@@ -3577,7 +3579,7 @@ def ridge_recovery_bundled() -> dict:
 def diagonal_ybranch() -> dict:
     import numpy as np
     from scipy import ndimage as ndi
-    from lib import imp_tools
+    from afm_nanofiber_analyzer import imp_tools
 
     kernel = np.array([[0, 1, 2], [1, 1, 2], [2, 2, 1]])
     rotations = [imp_tools._to_cv2_hitmiss_kernel(np.rot90(kernel, k=r)) for r in range(4)]
@@ -3622,7 +3624,7 @@ RING_COMPONENTS_INSPECTED = {
 
 @experiment(
     "ring_components",
-    ["lib/pipeline.py", "lib/skeletonizer.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/skeletonizer.py"],
     "On every test input analyzed at the defaults: the skeleton components entering "
     "Skeletonizer.remove_small_and_ring, those with no endpoint (which the step removes) "
     "and their pixels in total, checked against RING_COMPONENTS_INSPECTED.",
@@ -3630,8 +3632,8 @@ RING_COMPONENTS_INSPECTED = {
 def ring_components() -> dict:
     import cv2
     import numpy as np
-    from lib import imp_tools
-    from lib.pipeline import ProcParams, build_stages, process_file
+    from afm_nanofiber_analyzer import imp_tools
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages, process_file
 
     values: dict = {}
     found = set()
@@ -3663,7 +3665,7 @@ def ring_components() -> dict:
 
 
 # The fiber a frame margin of 3 to 5 px adds on the Bruker scan, by its anchor
-# (`lib.fiber_selection.fiber_anchor`), as judged when rendered over the
+# (`afm_nanofiber_analyzer.fiber_selection.fiber_anchor`), as judged when rendered over the
 # calibrated height image (2026-10-13): a 14-pixel fragment between crossings
 # that runs along the left border 3-8 px from it rather than out of the scan.
 # A different set fails the experiment, so a change in which fibers a margin
@@ -3677,7 +3679,7 @@ FRAME_MARGIN_ADDED_INSPECTED = {("NDTOC", (4, 174))}
 
 @experiment(
     "frame_margin",
-    ["lib/pipeline.py", "lib/measure.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py"],
     "The frame test of measure.isolated_fiber_flags on the traced fibers of each test "
     "input, with the frame widened to a margin of 0 to 5 px: how many fibers reach it, and "
     "how many verdicts differ from the margin of 0 px the code uses; the fibers a margin "
@@ -3686,10 +3688,10 @@ FRAME_MARGIN_ADDED_INSPECTED = {("NDTOC", (4, 174))}
 def frame_margin() -> dict:
     import numpy as np
     import kink_reference_score as krs
-    from lib import measure
-    from lib.fiber import skeleton_track
-    from lib.fiber_selection import fiber_anchor
-    from lib.pipeline import ProcParams
+    from afm_nanofiber_analyzer import measure
+    from afm_nanofiber_analyzer.fiber import skeleton_track
+    from afm_nanofiber_analyzer.fiber_selection import fiber_anchor
+    from afm_nanofiber_analyzer.pipeline import ProcParams
 
     values: dict = {}
     added = set()
@@ -3786,7 +3788,7 @@ KAPLAN_MEIER_QUANTILES = (0.25, 0.5, 0.75, 0.9)
 
 @experiment(
     "kaplan_meier_length",
-    ["lib/measure.py"],
+    ["afm_nanofiber_analyzer/measure.py"],
     "Straight segments with log-normal lengths (median ISOLATION_MEDIAN_LENGTH, "
     "log-sigma ISOLATION_LOG_SIGMA) at uniformly random centres and angles over a "
     "region extending 0.6 beyond each side of the unit square, KAPLAN_MEIER_DENSITIES "
@@ -3801,7 +3803,7 @@ KAPLAN_MEIER_QUANTILES = (0.25, 0.5, 0.75, 0.9)
 def kaplan_meier_length() -> dict:
     import math
     import numpy as np
-    from lib.measure import kaplan_meier_length_weights
+    from afm_nanofiber_analyzer.measure import kaplan_meier_length_weights
 
     rng = np.random.default_rng(0)
     margin = 0.6
@@ -3908,7 +3910,7 @@ STRIPE_GLITCH_BOUNDARIES_INSPECTED = {
 
 @experiment(
     "stripe_threshold",
-    ["lib/stripe_noise.py", "lib/afm_io.py"],
+    ["afm_nanofiber_analyzer/stripe_noise.py", "afm_nanofiber_analyzer/afm_io.py"],
     "stripe_noise.evaluate_scan_lines at the default threshold on the raw heights of each "
     "test input, as GUI01 screens them: the flagged line boundaries (checked against "
     "STRIPE_GLITCH_BOUNDARIES_INSPECTED), the smallest flagged step, and the largest and "
@@ -3916,8 +3918,8 @@ STRIPE_GLITCH_BOUNDARIES_INSPECTED = {
 )
 def stripe_threshold() -> dict:
     import numpy as np
-    from lib.afm_io import load_afm_image
-    from lib.stripe_noise import evaluate_scan_lines
+    from afm_nanofiber_analyzer.afm_io import load_afm_image
+    from afm_nanofiber_analyzer.stripe_noise import evaluate_scan_lines
 
     values: dict = {}
     for name, rel in _all_test_inputs().items():
@@ -3950,7 +3952,7 @@ SECTION_MOST_LOST_INSPECTED = ("tunicate", (567, 375))
 
 @experiment(
     "section_width_limit",
-    ["lib/pipeline.py", "lib/measure.py", "lib/centerline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/centerline.py"],
     "The share of centerline points located on their own cross-section (Fiber.line_reliable) "
     "on each test input, with the width limit of centerline._refine applied to the full "
     "width at half maximum, as the code does, and to each half (0.75 widths from the "
@@ -3962,9 +3964,9 @@ def section_width_limit() -> dict:
     import textwrap
     import numpy as np
     import kink_reference_score as krs
-    from lib import centerline as cl
-    from lib.fiber_selection import fiber_anchor
-    from lib.pipeline import ProcParams
+    from afm_nanofiber_analyzer import centerline as cl
+    from afm_nanofiber_analyzer.fiber_selection import fiber_anchor
+    from afm_nanofiber_analyzer.pipeline import ProcParams
 
     source = textwrap.dedent(inspect.getsource(cl._refine))
     full = "narrow = (xr - xl) <= _MAX_SECTION_WIDTHS * width"
@@ -4009,7 +4011,7 @@ def section_width_limit() -> dict:
 
 @experiment(
     "curvature_noise_floor",
-    ["lib/centerline.py", "lib/measure.py"],
+    ["afm_nanofiber_analyzer/centerline.py", "afm_nanofiber_analyzer/measure.py"],
     "A straight synthetic fiber 2 nm high with a Gaussian cross-section 20 nm wide at "
     "half maximum, 1200 nm long at 20 degrees to the rows, imaged at 2, 5 and 10 nm "
     "pixels with Gaussian height noise of 0, 0.05 and 0.15 nm (5 noise draws each, "
@@ -4022,8 +4024,8 @@ def curvature_noise_floor() -> dict:
     import math
     from types import SimpleNamespace
     import numpy as np
-    from lib import centerline as cl
-    from lib.measure import DEFAULT_CURVATURE_WINDOW_NM, fiber_mean_curvature
+    from afm_nanofiber_analyzer import centerline as cl
+    from afm_nanofiber_analyzer.measure import DEFAULT_CURVATURE_WINDOW_NM, fiber_mean_curvature
 
     height_nm, fwhm_nm, length_nm, angle = 2.0, 20.0, 1200.0, math.radians(20.0)
     sigma_nm = fwhm_nm / (2.0 * math.sqrt(2.0 * math.log(2.0)))
@@ -4086,8 +4088,8 @@ def _zoom_tiles(skel, shape, size, count):
 def _zoom_run(img, params):
     """Run all four stages on one synthetic scan and check it."""
     import numpy as np
-    from lib.pipeline import background_warnings, build_stages
-    from lib.processed_image import ProcessedImage
+    from afm_nanofiber_analyzer.pipeline import background_warnings, build_stages
+    from afm_nanofiber_analyzer.processed_image import ProcessedImage
     st = build_stages(params)
     im = ProcessedImage(img, "zoom")
     st.bg_calibrator(im)
@@ -4101,7 +4103,7 @@ def _zoom_run(img, params):
 
 @experiment(
     "zoomed_background",
-    ["lib/pipeline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py"],
     "Synthetic zoomed scans built from the bundled scans: the default calibrated "
     "image smoothed by a 1-px Gaussian is the true height and the subtracted "
     "background the background; tiles are upsampled by each zoom factor (same "
@@ -4116,7 +4118,7 @@ def zoomed_background() -> dict:
     import numpy as np
     import kink_reference_score as krs
     from scipy import ndimage as ndi
-    from lib.pipeline import ProcParams
+    from afm_nanofiber_analyzer.pipeline import ProcParams
 
     def up(a, k, order=3):
         return a if k == 1 else ndi.zoom(a, k, order=order, mode="nearest", grid_mode=True)
@@ -4139,8 +4141,8 @@ def zoomed_background() -> dict:
         noise = 1.4826 * mad / np.sqrt(1 - 1 / np.pi + 1 / (4 * np.pi))
         truth = ndi.gaussian_filter(cal, 1.0)
         values[f"{name}.noise_nm"] = float(noise)
-        from lib.blosc2_io import load_bundle_meta
-        from lib.bundle_schema import APPARENT_WIDTH_KEY
+        from afm_nanofiber_analyzer.blosc2_io import load_bundle_meta
+        from afm_nanofiber_analyzer.bundle_schema import APPARENT_WIDTH_KEY
         meta = load_bundle_meta(str(cache_dir("kink_reference_half_max_025w")
                                     / (Path(rel).stem + ".b2z")))
         values[f"{name}.width_px"] = float(meta[APPARENT_WIDTH_KEY]["median_px"])
@@ -4298,7 +4300,7 @@ LOW_THRESHOLD_KEPT_LOW_NM = 2.6
 
 @experiment(
     "low_threshold_removal",
-    ["lib/pipeline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py"],
     "remove_low_component at the default low_threshold on each test input: the components "
     "it tests and removes, the range of the removed components' maximum height, the lowest "
     "maximum among the kept ones and how many kept ones stay below "
@@ -4311,8 +4313,8 @@ def low_threshold_removal() -> dict:
     import cv2
     import numpy as np
     from scipy import ndimage as ndi
-    from lib.blosc2_io import load_bundle
-    from lib.pipeline import ProcParams, build_stages, process_file
+    from afm_nanofiber_analyzer.blosc2_io import load_bundle
+    from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages, process_file
 
     values: dict = {}
     for name, rel in _all_test_inputs().items():
@@ -4421,8 +4423,8 @@ LENGTH_FLOOR_OFFSETS_PX = ((0.0, 0.0), (0.37, 0.61), (0.71, 0.23))
 
 @experiment(
     "length_floor_completeness",
-    ["lib/pipeline.py", "lib/measure.py", "lib/segmenter.py", "lib/skeletonizer.py",
-     "lib/centerline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/segmenter.py", "afm_nanofiber_analyzer/skeletonizer.py",
+     "afm_nanofiber_analyzer/centerline.py"],
     "Straight synthetic fibers (scripts/kink_rule_sweep.py fiber and background, 0.05 nm "
     "pixel noise) of every length in LENGTH_FLOOR_LENGTHS_PX, drawn at every angle in "
     "LENGTH_FLOOR_ANGLES_DEG and offset in LENGTH_FLOOR_OFFSETS_PX, one scan per apparent "
@@ -4437,8 +4439,8 @@ def length_floor_completeness() -> dict:
     import numpy as np
     import kink_rule_sweep as sweep
     import synthetic_fibers as sf
-    from lib import measure
-    from lib.pipeline import ProcParams, process_file
+    from afm_nanofiber_analyzer import measure
+    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 
     out = cache_dir("length_floor_completeness")
     out.mkdir(parents=True, exist_ok=True)
@@ -4518,7 +4520,7 @@ def length_floor_completeness() -> dict:
 
 @experiment(
     "weak_bend_noise",
-    ["lib/pipeline.py", "lib/measure.py", "lib/kink_detector.py", "lib/centerline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/kink_detector.py", "afm_nanofiber_analyzer/centerline.py"],
     "The kink-free families of scripts/kink_rule_sweep.py (straight, arc of 60 degrees, "
     "sine) at apparent widths 5, 8 and 16 px, pixel noise 0.05 and 0.15 nm and seeds 1 "
     "and 2, analyzed at the defaults; every traced line is judged again at a threshold "
@@ -4530,9 +4532,9 @@ def weak_bend_noise() -> dict:
     import numpy as np
     import kink_rule_sweep as sweep
     import synthetic_fibers as sf
-    from lib import measure
-    from lib.kink_detector import KinkDetector
-    from lib.pipeline import ProcParams, process_file
+    from afm_nanofiber_analyzer import measure
+    from afm_nanofiber_analyzer.kink_detector import KinkDetector
+    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 
     out = cache_dir("weak_bend_noise")
     out.mkdir(parents=True, exist_ok=True)
@@ -4579,7 +4581,7 @@ def weak_bend_noise() -> dict:
 
 @experiment(
     "kink_reference_human",
-    ["lib/pipeline.py", "lib/measure.py", "lib/kink_detector.py", "lib/centerline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/kink_detector.py", "afm_nanofiber_analyzer/centerline.py"],
     "Score the kink rule at the defaults against the kinks two people marked on the "
     "three bundled scans (docs/data/human_kink_marks.csv), by the procedure of "
     "scripts/kink_reference_score.py: against each person's clear marks, and against "
@@ -4593,7 +4595,7 @@ def weak_bend_noise() -> dict:
 def kink_reference_human() -> dict:
     import numpy as np
     import kink_reference_score as krs
-    from lib.kink_detector import END_MARGIN_WIDTHS, KinkDetector
+    from afm_nanofiber_analyzer.kink_detector import END_MARGIN_WIDTHS, KinkDetector
 
     categories = ("no_centerline", "near_end", "near_edge", "near_branch", "near_mark",
                   "elsewhere")
@@ -4698,7 +4700,7 @@ def kink_reference_human() -> dict:
 
 @experiment(
     "kink_neighbour_flanks",
-    ["lib/pipeline.py", "lib/measure.py", "lib/kink_detector.py", "lib/centerline.py"],
+    ["afm_nanofiber_analyzer/pipeline.py", "afm_nanofiber_analyzer/measure.py", "afm_nanofiber_analyzer/kink_detector.py", "afm_nanofiber_analyzer/centerline.py"],
     "At each kink both people called clear on the three bundled scans (the consensus "
     "marks of kink_reference_human), how far each flank turns over its length W in the "
     "window's sense, read at the position of the largest window turning within W/2 of "
@@ -4710,7 +4712,7 @@ def kink_reference_human() -> dict:
 def kink_neighbour_flanks() -> dict:
     import numpy as np
     import kink_reference_score as krs
-    import lib.kink_detector as kd
+    import afm_nanofiber_analyzer.kink_detector as kd
 
     level = 10.0
     human = krs.load_human_reference()

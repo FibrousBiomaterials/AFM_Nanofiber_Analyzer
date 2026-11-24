@@ -87,7 +87,7 @@ and never let the two files diverge.
   Repository-relative paths are fine.
 - A request to find, list or check problems — or to confirm there are none —
   is an exhaustive review, not a search of the places you judge suspicious.
-  Fix the scope from the request first ("the software" means `lib/`, `guis/`,
+  Fix the scope from the request first ("the software" means `afm_nanofiber_analyzer/`, `guis/`,
   `cli.py` and `Main.py`, with `--outputs`) and build the item list from the
   code with `scripts/audit_ledger.py init`; name anything left out with
   `--exclude PATH::REASON`. Mark every item (`mark`, with evidence a reader can
@@ -550,7 +550,7 @@ newlines only for meaningful line breaks.
 
 ### 7.4 Shared GUI helpers and constants
 
-Prefer project-level helpers from `lib.ui_tools` for behavior shared across
+Prefer project-level helpers from `afm_nanofiber_analyzer.ui_tools` for behavior shared across
 GUI plugins, such as:
 
 - window sizing via `apply_window_size`
@@ -569,7 +569,7 @@ GUI plugins, such as:
   array, and `skeletonized` when present, which `compute_auto_vrange` takes as
   its mask); GUI03's preview and GUI05's thumbnails both call it, so the two
   draw the same pixels over the same color range. It lives here and not in
-  `lib/measure.py`, because adding a function there that other code calls
+  `afm_nanofiber_analyzer/measure.py`, because adding a function there that other code calls
   marks every measurement recorded on that module as stale (§8.15)
 - the X/Y scale-entry contract via `scale_xy_um` (a blank Y follows X, so the
   scan is square) and `extent_scales_xy_and_unit` (X takes the width scale and
@@ -578,7 +578,7 @@ GUI plugins, such as:
 
 When adding a new GUI, reuse these helpers before introducing another local
 implementation. If a new helper would be useful to more than one GUI file, ask
-before touching `lib/ui_tools.py`.
+before touching `afm_nanofiber_analyzer/ui_tools.py`.
 
 ### 7.5 Initialization pattern
 
@@ -645,7 +645,7 @@ When creating a new GUI plugin, ensure that:
 - `PLUGIN_INFO` is a literal dictionary parseable by `ast.literal_eval()`
 - imports follow the standard grouping
 - GUI launch is guarded by `if __name__ == "__main__"`
-- common behavior uses `lib.ui_tools` helpers where applicable
+- common behavior uses `afm_nanofiber_analyzer.ui_tools` helpers where applicable
 - operational user-facing strings use `_()` per §6.2; plot text, exported
   labels, scientific units, `PLUGIN_INFO` values, and internal state keys
   stay fixed English
@@ -690,16 +690,16 @@ disagree with what the user sees, so treat them as hints, not proof.
 
 These project-level contracts prevent local edits from breaking cross-GUI
 workflows. Where a contract also exists in code, **the code is the source of
-truth**: `lib/bundle_schema.py` defines the `.b2z` contract and
-`lib/pipeline.py` defines `ProcParams` and the stage pipeline. If this
+truth**: `afm_nanofiber_analyzer/bundle_schema.py` defines the `.b2z` contract and
+`afm_nanofiber_analyzer/pipeline.py` defines `ProcParams` and the stage pipeline. If this
 document and the code disagree, trust the code and update this document in
 the same change.
 
-### 8.1 Preprocessing pipeline (`lib/pipeline.py`)
+### 8.1 Preprocessing pipeline (`afm_nanofiber_analyzer/pipeline.py`)
 
-The preprocessing pipeline is implemented in `lib/pipeline.py`.
+The preprocessing pipeline is implemented in `afm_nanofiber_analyzer/pipeline.py`.
 `guis/GUI01_Image_Preprocessor.py` and `cli.py process` both call
-`lib.pipeline.process_file`, so the GUI and CLI entry points produce
+`afm_nanofiber_analyzer.pipeline.process_file`, so the GUI and CLI entry points produce
 identical analysis outputs for the same input and parameters. Each input AFM
 file is processed in this order:
 
@@ -726,21 +726,21 @@ fiber measures the same either way. GUI01 exposes this as the scan-line-range
 column and `cli.py process` as `--rows`.
 
 `process_file` dispatches by extension: `.gwy` inputs load through
-`lib/gwy_io.py` (selecting one channel), everything else loads through
-`lib/afm_io.py`. Both yield a nm height array and an optional scan size, so the
+`afm_nanofiber_analyzer/gwy_io.py` (selecting one channel), everything else loads through
+`afm_nanofiber_analyzer/afm_io.py`. Both yield a nm height array and an optional scan size, so the
 stages downstream are identical regardless of input format.
 
 Keep background calibration, segmentation, skeletonization, and kink detection
 as separate responsibilities.
 
 Analysis parameters are defined by the `ProcParams` dataclass in
-`lib/pipeline.py` and saved beside the bundle as `<input_stem>_param.json`.
+`afm_nanofiber_analyzer/pipeline.py` and saved beside the bundle as `<input_stem>_param.json`.
 Field names are serialized verbatim into that file, so **every `ProcParams`
 field name is frozen** — a rename silently breaks parameter reload. The
 authoritative field list is the dataclass itself; do not maintain copies of it
 in documentation.
 
-`BGCalibrator` (in `lib/bg_calibrator.py`; the historical name
+`BGCalibrator` (in `afm_nanofiber_analyzer/bg_calibrator.py`; the historical name
 `BG_Calibrator_shimadzu` remains importable through a compatibility shim)
 supports three `bg_method` values. Retired spellings are listed in
 `bg_calibrator.BG_METHOD_ALIASES` and translated by `canonical_bg_method`, so a
@@ -769,13 +769,13 @@ explicitly requests a format migration.
 
 The executable contract — required and optional keys, array shapes, units,
 coordinate convention, and the bundle format version — is defined in
-`lib/bundle_schema.py` (`REQUIRED_BUNDLE_KEYS`, `OPTIONAL_BUNDLE_KEYS`,
+`afm_nanofiber_analyzer/bundle_schema.py` (`REQUIRED_BUNDLE_KEYS`, `OPTIONAL_BUNDLE_KEYS`,
 `TRACKING_BUNDLE_KEYS`, `validate_bundle`, `BUNDLE_FORMAT_VERSION`,
 `SUPPORTED_BUNDLE_VERSIONS`), along with the optional vlmeta entries
 `SPATIAL_CALIBRATION_KEY` and `SOURCE_REGION_KEY` (which scan lines of the
 input were analyzed; absent means the whole image). Read the key list, shapes, and units there;
 this document intentionally does not duplicate them. The pipeline validates
-before saving, `lib/measure.py` validates at load time, and `cli.py validate`
+before saving, `afm_nanofiber_analyzer/measure.py` validates at load time, and `cli.py validate`
 checks bundles on demand. Bump `BUNDLE_FORMAT_VERSION` (recorded in vlmeta as
 `version`) when keys, shapes, or units change, and also when a stored array
 keeps its shape but changes meaning: an older release would otherwise misread
@@ -790,14 +790,14 @@ that bumps `BUNDLE_FORMAT_VERSION` without listing the new version in
 `CHANGELOG.md`, and in both READMEs, or without a package version at least one
 MINOR step above the last release tag. It also blocks a package version that is
 not later than the last release tag or differs between `pyproject.toml` and
-`lib/__init__.py`, and a removed or renamed `ProcParams` field without a MAJOR
+`afm_nanofiber_analyzer/__init__.py`, and a removed or renamed `ProcParams` field without a MAJOR
 step. Do not bypass it with `--no-verify`; add what it names.
 `scripts/release.py prepare X.Y.Z` writes a release into every file that
 records the version (RELEASING.md checklist) and `start-dev X.Y.Z` sets the
 next `.dev0`; use them rather than editing those files by hand.
 A public name listed in §8.7 is renamed, not removed, by keeping the old name
 in the module's `_DEPRECATED_ALIASES` (resolved with a `DeprecationWarning` by
-the module's `__getattr__`, as `lib/centerline.py` does) with a
+the module's `__getattr__`, as `afm_nanofiber_analyzer/centerline.py` does) with a
 `# remove-in: X.Y.Z` marker naming the next MAJOR release, and by a CHANGELOG
 `### Deprecated` entry. `release.py prepare` refuses to release that version
 while the marker remains, so the alias is deleted then and not carried on.
@@ -816,15 +816,15 @@ the bundle has it.
 If a `.b2z` key, shape, unit, or meaning changes, ask before touching
 additional files and keep at least these files consistent:
 
-- `lib/bundle_schema.py` (schema, format version, and validation rules)
-- `lib/pipeline.py`
-- `lib/measure.py`
+- `afm_nanofiber_analyzer/bundle_schema.py` (schema, format version, and validation rules)
+- `afm_nanofiber_analyzer/pipeline.py`
+- `afm_nanofiber_analyzer/measure.py`
 - `guis/GUI01_Image_Preprocessor.py`
 - `guis/GUI02_PlotProfiler.py`
 - `guis/GUI03_Fiber_Morphology_Statistics.py`
 - `guis/GUI04_Tracking_fiber.py`
 - `guis/GUI05_Thumbnail_Viewer.py`
-- `lib/blosc2_io.py`
+- `afm_nanofiber_analyzer/blosc2_io.py`
 - `README.md` / `README.ja.md`
 
 ### 8.3 GUI-specific data expectations
@@ -837,12 +837,12 @@ additional files and keep at least these files consistent:
 - GUI02 accepts `.b2z`, `.npy`, `.csv`, `.txt`, and Gwyddion `.gwy` inputs. For
   `.b2z`, it reads the `calibrated` key and extracts line profiles with
   `skimage.measure.profile_line`. For `.gwy` it reads the selected channel
-  through `lib/gwy_io.py` (auto-selected topography by default; a channel
+  through `afm_nanofiber_analyzer/gwy_io.py` (auto-selected topography by default; a channel
   dropdown appears for multi-channel files).
 - GUI03 expects GUI01 `.b2z` bundles, registered file by file in groups; a
   group stands for one specimen and its bundles are aggregated together. It has
   no folder registration and reads no fiber CSV. It measures the bundles through
-  `lib.measure` and compares the distribution of one quantity across the
+  `afm_nanofiber_analyzer.measure` and compares the distribution of one quantity across the
   groups, per skeleton pixel, fiber, kink or image. It draws the `calibrated`
   image of the selected bundle through `ui_tools.read_height_image`, the reader
   GUI05 uses, and shows the statistics and the between-group comparison in a
@@ -870,13 +870,13 @@ additional files and keep at least these files consistent:
 
 Analysis and file loading must not block the Tk main loop. Run long operations
 in a worker thread, pass results or log events through `queue.Queue`, and poll
-from the main thread with `after()`. Prefer `lib/ui_tools.py` helpers such
+from the main thread with `after()`. Prefer `afm_nanofiber_analyzer/ui_tools.py` helpers such
 as `drain_ui_queue` for shared queue-draining behavior.
 
 ### 8.5 Renames and imports
 
-Do not rename `lib/` modules casually. If a module filename or public import
-path changes, check at least `lib/` imports, `guis/*.py`, `README.md`, and
+Do not rename `afm_nanofiber_analyzer/` modules casually. If a module filename or public import
+path changes, check at least `afm_nanofiber_analyzer/` imports, `guis/*.py`, `README.md`, and
 `README.ja.md`.
 
 `Main.py` launches each plugin through its `--run-plugin` subcommand, which
@@ -885,7 +885,7 @@ PyInstaller builds must keep using this subcommand because the PyInstaller
 bootloader does not honor `-c` or `-m`. Keep libraries that are heavy to
 import and needed only by a specific feature (e.g. lmfit, pandas) as
 function-local imports so plugin startup stays fast. The `gwyfile` package
-(read `.gwy` files in `lib/gwy_io.py`) follows the same rule: it is imported
+(read `.gwy` files in `afm_nanofiber_analyzer/gwy_io.py`) follows the same rule: it is imported
 inside the functions that open a `.gwy`, so text-only workflows and plugin
 startup never load it.
 
@@ -893,7 +893,7 @@ startup never load it.
 
 `check.py` scans project imports and regenerates `requirements.txt`. `build.py`
 performs PyInstaller-oriented import checks, spec generation, build execution,
-and copies `guis/`, `lib/`, `locale/`, and `assets/` into `dist/Main/`.
+and copies `guis/`, `afm_nanofiber_analyzer/`, `locale/`, and `assets/` into `dist/Main/`.
 Distribution should treat the entire `dist/Main/` folder as the deliverable.
 
 Both scan every import statement, function-local ones included, so an optional
@@ -904,10 +904,10 @@ frozen build. `gwyddionpy_converter` is listed in both: its `gwyconvert` is GPL
 and ships with its own third-party libraries, so bundling it would make every
 release a GPL redistribution.
 
-### 8.7 lib module APIs
+### 8.7 afm_nanofiber_analyzer module APIs
 
 Do not rename the public classes and functions listed below without updating
-all call sites in `guis/`, `Main.py`, `cli.py`, `tests/`, and `lib/` imports.
+all call sites in `guis/`, `Main.py`, `cli.py`, `tests/`, and `afm_nanofiber_analyzer/` imports.
 Why each module is built as it is, and what was measured when its design was
 chosen, is in `docs/design_notes.md`; read a module's notes there before
 changing what it does. Keep a note in this table to one or two sentences.
@@ -925,7 +925,7 @@ changing what it does. Keep a note in this table to one or two sentences.
 | `fiber_connector.py` | `ConnectParams`, `MANUAL_RANGE_FACTOR`, `plan_from_auto_connect`, `build_connected_fibers`, `connect_fiber_fragments`, `connection_candidate_flags`, `connection_candidates`, `connection_candidates_by_index`, `chain_for_manual_join`, `filter_fibers_by_height`, `angle_between_three_points` | Reconnection of skeleton fragments into fibrils, split into a **search** (`plan_from_auto_connect`, run only by GUI04's 「自動連結」) and a **construction** (`build_connected_fibers`) so a stored plan rebuilds exactly the fibrils that were on screen; candidate lists for manual connection; `filter_fibers_by_height` (connect, then filter). Reads the fragments' skeleton pixels, never the drawn line. |
 | `fiber_selection.py` | `EXCLUSION_SUFFIX`, `EXCLUSION_FORMAT`, `EXCLUSION_VERSION`, `exclusion_path_for`, `fiber_anchor`, `constituent_anchors`, `fiber_track_pixels`, `excluded_flags`, `load_exclusions`, `save_exclusions` | Manual exclusions in `<stem>_excluded.json`, written by GUI04: an **anchor pixel on the skeleton track, never a list index**, applied to the fragments before connection (`measure.curate_fibers`). A malformed or newer-version sidecar is refused, never read as empty. |
 | `group_compare.py` | `PairComparison`, `compare_groups`, `cliffs_delta`, `holm_adjusted`, `delta_magnitude`, `MAGNITUDE_THRESHOLDS`, `MAGNITUDE_LARGE`, `MIN_SAMPLES_FOR_TEST` | Between-group tests for GUI03: Mann-Whitney U (primary) and KS (reference) with Holm correction, and Cliff's delta. **The caller owns the independence assumption**: GUI03 tests only its `fiber` and `image` units. Imports `scipy.stats` inside its functions (§8.5). |
-| `fiber_tracking_image.py` | `FiberTrackingImage` | GUI04 data container; builds `Fiber` instances from a bundle on the line the bundle records, carrying the kink settings the bundle was analyzed with (filled in by `lib.measure` from the bundle, never hard-coded). |
+| `fiber_tracking_image.py` | `FiberTrackingImage` | GUI04 data container; builds `Fiber` instances from a bundle on the line the bundle records, carrying the kink settings the bundle was analyzed with (filled in by `afm_nanofiber_analyzer.measure` from the bundle, never hard-coded). |
 | `gwy_convert.py` | `SKIPPED_EXTENSIONS`, `STATUS_CONVERTED`, `STATUS_EXISTS`, `STATUS_FAILED`, `CONVERTED_SUFFIX`, `DEFAULT_TIMEOUT_S`, `CONVERTER_ENV_VAR`, `INSTALL_COMMAND`, `INSTALL_HINT`, `ConverterNotFoundError`, `ConversionResult`, `converted_path_for`, `is_conversion_candidate`, `list_conversion_candidates`, `find_converter`, `convert_file` | Converts files this software cannot read into `<input file name>_converted.gwy` by running `gwyconvert` (optional `convert` dependency) as a separate process; shared by GUI00 and `cli.py convert`. The converter is GPL: `gwyddionpy_converter` is imported only to locate it and is excluded from the frozen build (§8.6). |
 | `gwy_io.py` | `GWY_EXT`, `GwyChannel`, `GwyImage`, `list_gwy_channels`, `load_gwy_image`, `read_gwy_scan_size`, `select_default_channel` | Reads Gwyddion `.gwy` files (selected channel in nm, scan size in µm); imports `gwyfile` lazily. Callers test for a `.gwy` path inline, before importing this module, because `gwy_io` imports from `afm_io`. |
 | `imp_tools.py` | `branchedPoints`, `endPoints`, `tracking`, `convert_track_to_distance` | `convert_track_to_distance` applies the corrected chain-code weights of an 8-connected pixel chain. It measures the skeleton track of a bundle older than format 1.1; a centerline is measured with `centerline.polyline_distance`. |
@@ -1024,9 +1024,9 @@ there cannot leak into the deliverable:
 - `.gitignore` ignores `.tmp/`
 - `[tool.ruff] extend-exclude` in `pyproject.toml` skips `.tmp`
 - `[tool.pytest.ini_options] testpaths = ["tests"]` never collects it
-- `check.py` scans only `Main.py`, `guis/`, and `lib/`, so `.tmp/` cannot
+- `check.py` scans only `Main.py`, `guis/`, and `afm_nanofiber_analyzer/`, so `.tmp/` cannot
   pollute the regenerated `requirements.txt`
-- `build.py` copies only `guis/`, `lib/`, `locale/`, and `assets/`
+- `build.py` copies only `guis/`, `afm_nanofiber_analyzer/`, `locale/`, and `assets/`
 
 Keeping scratch files inside the repository also means an agent needs no read
 permission outside the project directory, which keeps the permission allowlist
@@ -1041,7 +1041,7 @@ silent change in output is a reproducibility break even when no API breaks.
 
 The triggers are two golden files: `tests/strict_regression_golden.json`, the
 arrays the pipeline stores, and `tests/measurement_regression_golden.json`, the
-values `lib/measure.py` reports from them
+values `afm_nanofiber_analyzer/measure.py` reports from them
 (`tests/test_measurement_regression.py`; the three bundled scans, analyzed with
 the defaults and with each skeleton cleanup turned off). The second exists
 because a change made only when a bundle is read leaves every pipeline golden
@@ -1146,11 +1146,11 @@ is **part of that change**, not a follow-up task.
 
 The trigger is a change to any of:
 
-- `lib/bg_calibrator.py`
-- `lib/segmenter.py`
-- `lib/skeletonizer.py`
-- `lib/kink_detector.py`
-- `lib/centerline.py` (the fiber's line, which kink detection and every
+- `afm_nanofiber_analyzer/bg_calibrator.py`
+- `afm_nanofiber_analyzer/segmenter.py`
+- `afm_nanofiber_analyzer/skeletonizer.py`
+- `afm_nanofiber_analyzer/kink_detector.py`
+- `afm_nanofiber_analyzer/centerline.py` (the fiber's line, which kink detection and every
   measurement read; explained in §4.2 of the documents)
 
 A stale explanation is worse than a missing one, because it is read as
@@ -1237,8 +1237,8 @@ excerpts — is **part of that change**, not a follow-up task.
 
 The trigger is a change to any symbol listed in `WATCHED_SYMBOLS` in
 `scripts/check_gui04_docs.py`, which is the authoritative list (functions in
-`lib/centerline.py`, `lib/measure.py`, `lib/fiber_tracking_image.py`,
-`lib/fiber.py`, `lib/fiber_connector.py`, `lib/kink_detector.py`, and
+`afm_nanofiber_analyzer/centerline.py`, `afm_nanofiber_analyzer/measure.py`, `afm_nanofiber_analyzer/fiber_tracking_image.py`,
+`afm_nanofiber_analyzer/fiber.py`, `afm_nanofiber_analyzer/fiber_connector.py`, `afm_nanofiber_analyzer/kink_detector.py`, and
 `guis/GUI04_Tracking_fiber.py`). **Every column of GUI04's fiber table must be
 explained**: adding a column requires a subsection of §3 in both documents
 whose heading names the column in backticks — how the value is computed, its
@@ -1305,7 +1305,7 @@ evaluation section; they do not restate the result.
 | Marker | Meaning | Checked against |
 |---|---|---|
 | `64<!--m:kink_reference.default.false-->` | measured | the value under that key in `tests/doc_measurements.json` |
-| `3<!--c:lib/pipeline.py::ProcParams.mask_dilation-->` | a constant or default in the code (`path::NAME`, `path::Class.name`, `path::func(param)`; `\|expr` with `v` transforms it) | the code, read with `ast` |
+| `3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.mask_dilation-->` | a constant or default in the code (`path::NAME`, `path::Class.name`, `path::func(param)`; `\|expr` with `v` transforms it) | the code, read with `ast` |
 | `23<!--x:12 * 2000 / 1024-->` | arithmetic on stated numbers | evaluated |
 | `1989<!--n:citation-->` | not a result (citation, label, a count in a definition, a value an example is built with); the reason is required | nothing — the reason is reviewed |
 
@@ -1385,8 +1385,8 @@ recordings are measured again before a release, not at every commit.
 ### 8.16 Readers measure the stored record
 
 A bundle is the record of one analysis, made with the settings it ran with.
-Code that reads bundles — `lib/measure.py`, `lib/fiber_tracking_image.py`,
-`lib/fiber_connector.py`, `lib/connect_selection.py`, `lib/fiber_selection.py`,
+Code that reads bundles — `afm_nanofiber_analyzer/measure.py`, `afm_nanofiber_analyzer/fiber_tracking_image.py`,
+`afm_nanofiber_analyzer/fiber_connector.py`, `afm_nanofiber_analyzer/connect_selection.py`, `afm_nanofiber_analyzer/fiber_selection.py`,
 GUI02–GUI05, and the bundle-reading commands of `cli.py` — measures that record
 as stored. It never runs a stage that produces or rewrites the stored arrays:
 background calibration, segmentation, skeletonization or any of its cleanup
@@ -1581,7 +1581,7 @@ Where each rule is. The rules themselves are stated once, in their section.
 | Long-running GUI work | §8.4 |
 | Renames, imports, the launcher | §8.5 |
 | Build and dependency helpers | §8.6 |
-| `lib/` public APIs (design notes in `docs/design_notes.md`) | §8.7 |
+| `afm_nanofiber_analyzer/` public APIs (design notes in `docs/design_notes.md`) | §8.7 |
 | Translation catalogs | §8.8 |
 | Python interpreter spelling | §8.9 |
 | Scratch files | §8.10 |

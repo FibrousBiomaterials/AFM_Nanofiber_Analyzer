@@ -72,20 +72,20 @@ from doc_excerpts import (  # noqa: E402
 )
 
 # The four preprocessing stages the document explains. Changing one of these is
-# what makes the explanation potentially wrong. `lib/pipeline.py` is
+# what makes the explanation potentially wrong. `afm_nanofiber_analyzer/pipeline.py` is
 # deliberately absent: it wires the stages together and owns `ProcParams`, but a
 # new parameter there is already caught by the test suite's coverage check, and
 # including it would fire the hook on every unrelated pipeline edit.
 # 文書が説明する前処理 4 ステージ。説明が誤りになりうるのはここが変わるとき
-# である。`lib/pipeline.py` は意図的に含めない。各段の結線と `ProcParams` を
+# である。`afm_nanofiber_analyzer/pipeline.py` は意図的に含めない。各段の結線と `ProcParams` を
 # 担うが、そこへのパラメータ追加はテストスイートの網羅検査が既に捕捉するうえ、
 # 含めると無関係なパイプライン編集のたびにフックが発火してしまう。
 ALGORITHM_PATHS = (
-    "lib/bg_calibrator.py",
-    "lib/segmenter.py",
-    "lib/skeletonizer.py",
-    "lib/kink_detector.py",
-    "lib/centerline.py",
+    "afm_nanofiber_analyzer/bg_calibrator.py",
+    "afm_nanofiber_analyzer/segmenter.py",
+    "afm_nanofiber_analyzer/skeletonizer.py",
+    "afm_nanofiber_analyzer/kink_detector.py",
+    "afm_nanofiber_analyzer/centerline.py",
 )
 
 DOC_PATHS = (

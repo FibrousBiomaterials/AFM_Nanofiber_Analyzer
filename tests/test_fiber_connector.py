@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Tests for lib/fiber_connector.py fragment reconnection.
-lib/fiber_connector.py の断片再結合のテスト。
+Tests for afm_nanofiber_analyzer/fiber_connector.py fragment reconnection.
+afm_nanofiber_analyzer/fiber_connector.py の断片再結合のテスト。
 
 These assert self-evident geometric properties: two near-collinear fragments a
 short gap apart are reconnected into a single fiber, while fragments that are
@@ -29,9 +29,9 @@ import os
 
 import numpy as np
 
-from lib.connect_selection import plan_from_chains, resolve_plan_chains
-from lib.fiber import Fiber
-from lib.fiber_connector import (
+from afm_nanofiber_analyzer.connect_selection import plan_from_chains, resolve_plan_chains
+from afm_nanofiber_analyzer.fiber import Fiber
+from afm_nanofiber_analyzer.fiber_connector import (
     ConnectParams,
     angle_between_three_points,
     build_connected_fibers,
@@ -42,14 +42,14 @@ from lib.fiber_connector import (
     connection_candidates_by_index,
     plan_from_auto_connect,
 )
-from lib.fiber_selection import (
+from afm_nanofiber_analyzer.fiber_selection import (
     constituent_anchors,
     fiber_anchor,
     fiber_track_pixels,
 )
-from lib.fiber_tracking_image import FiberTrackingImage
-from lib.measure import curate_fibers, measure_bundle
-from lib.pipeline import ProcParams, process_file
+from afm_nanofiber_analyzer.fiber_tracking_image import FiberTrackingImage
+from afm_nanofiber_analyzer.measure import curate_fibers, measure_bundle
+from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 from tests.conftest import write_synthetic_fiber_txt
 
 

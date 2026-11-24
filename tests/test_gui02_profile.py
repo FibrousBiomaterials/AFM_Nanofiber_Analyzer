@@ -5,11 +5,11 @@ GUI02 の高さプロファイルの距離とスケールの扱いのテスト�
 
 A profile's distance axis is computed from the scale entries and the array
 size, so it has to use the pixel size the rest of the project measures with:
-for a bundle, `lib.bundle_schema.pixel_size_nm`, because the stored arrays are
+for a bundle, `afm_nanofiber_analyzer.bundle_schema.pixel_size_nm`, because the stored arrays are
 one pixel smaller per axis than the scan the recorded scan size describes.
 プロファイルの距離軸はスケール欄と配列の大きさから計算されるため、プロジェクト
 の他の計測と同じ画素サイズを使う必要がある。バンドルでは保存配列が記録された走査
-範囲より各軸 1 画素小さいため、`lib.bundle_schema.pixel_size_nm` を使う。
+範囲より各軸 1 画素小さいため、`afm_nanofiber_analyzer.bundle_schema.pixel_size_nm` を使う。
 """
 
 import math
@@ -19,12 +19,12 @@ import pytest
 
 from conftest import requires_tk
 
-from lib.blosc2_io import save_bundle
-from lib.bundle_schema import (
+from afm_nanofiber_analyzer.blosc2_io import save_bundle
+from afm_nanofiber_analyzer.bundle_schema import (
     BUNDLE_FORMAT_VERSION, CENTERLINE_KEY, SPATIAL_CALIBRATION_KEY,
     make_spatial_calibration, pixel_size_nm,
 )
-from lib.centerline import DEFAULT_CENTERLINE_METHOD
+from afm_nanofiber_analyzer.centerline import DEFAULT_CENTERLINE_METHOD
 
 import guis.GUI02_PlotProfiler as gui02
 

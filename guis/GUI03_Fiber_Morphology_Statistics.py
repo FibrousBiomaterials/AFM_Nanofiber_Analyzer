@@ -83,28 +83,28 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # ===== Project libraries =====
-from lib.blosc2_io import BUNDLE_EXT, bundle_array_shape, load_bundle, load_bundle_meta
-from lib.bundle_schema import (
+from afm_nanofiber_analyzer.blosc2_io import BUNDLE_EXT, bundle_array_shape, load_bundle, load_bundle_meta
+from afm_nanofiber_analyzer.bundle_schema import (
     APPARENT_WIDTH_KEY, SOURCE_REGION_KEY, centerline_from_meta,
     kink_params_from_meta, pixel_size_nm, scan_size_um_from_meta,
 )
-from lib.centerline import (
+from afm_nanofiber_analyzer.centerline import (
     DEFAULT_CENTERLINE_METHOD, SKELETON_PIXEL_LINE, SKELETON_TRACK,
 )
-from lib.connect_selection import (
+from afm_nanofiber_analyzer.connect_selection import (
     CONNECT_SUFFIX, connect_path_for, load_connect_plan,
 )
-from lib.group_compare import compare_groups
-from lib.measure import (
+from afm_nanofiber_analyzer.group_compare import compare_groups
+from afm_nanofiber_analyzer.measure import (
     DEFAULT_CURVATURE_WINDOW_NM,
     collect_fiber_curvature, collect_fiber_stats,
     fiber_judged_length_um,
     fiber_real_end_count, kaplan_meier_length_weights, length_floor_nm,
     read_scan_size_from_bundle, skeleton_height_values,
 )
-from lib.plugin_launch import read_path_arguments
-from lib.translator import _
-from lib.ui_tools import (
+from afm_nanofiber_analyzer.plugin_launch import read_path_arguments
+from afm_nanofiber_analyzer.translator import _
+from afm_nanofiber_analyzer.ui_tools import (
     apply_window_size, setup_matplotlib_style, save_figure_with_dialog,
     setup_ttk_theme,
     save_text_widget_log, create_scrolled_text, create_scrolled_treeview,
@@ -129,10 +129,10 @@ UNIT_PIXEL = "pixel"
 UNIT_FIBER = "fiber"
 UNIT_IMAGE = "image"
 
-# Name of a scan-line-range analysis, as `lib.pipeline.row_range_suffix` writes
+# Name of a scan-line-range analysis, as `afm_nanofiber_analyzer.pipeline.row_range_suffix` writes
 # it after the input's stem (the bundle extension removed). Parsed here rather
 # than imported because a reader must not import the pipeline.
-# `lib.pipeline.row_range_suffix` が入力のステムの後ろに書く、走査線範囲の解析の
+# `afm_nanofiber_analyzer.pipeline.row_range_suffix` が入力のステムの後ろに書く、走査線範囲の解析の
 # 名前（バンドルの拡張子は除く）。読み取り側はパイプラインを import しては
 # ならないため、ここで解析する。
 _ROW_RANGE_NAME = re.compile(r"^(?P<stem>.+)_r(?P<start>\d+)-(?P<stop>\d+)$")
@@ -326,7 +326,7 @@ PARAM_ORDER = (
 # likely to reach the frame, under-represents long fibers; the
 # Miles-Lantuejoul weight (`FiberStats.frame_weight`) corrects that. Fibers
 # cut at a crossing are lower bounds too, which only the Kaplan-Meier estimate
-# (`lib.measure.kaplan_meier_length_weights`) takes into account: it uses every
+# (`afm_nanofiber_analyzer.measure.kaplan_meier_length_weights`) takes into account: it uses every
 # fiber with an end of its own, treating one cut at the other end as known to
 # be at least as long as measured. Internal state keys shown verbatim, like the
 # quantity and unit keys.
@@ -336,7 +336,7 @@ PARAM_ORDER = (
 # バーほど枠に達しやすいため長いファイバーが過小になる。Miles-Lantuejoul 重み
 # （`FiberStats.frame_weight`）がそれを補正する。交差で切れたファイバーの長さも
 # 下限値であり、それを扱うのは Kaplan-Meier 推定
-# （`lib.measure.kaplan_meier_length_weights`）だけである。自身の端を持つ全ファイバー
+# （`afm_nanofiber_analyzer.measure.kaplan_meier_length_weights`）だけである。自身の端を持つ全ファイバー
 # を使い、もう一方の端が切れたものは、計測した長さ以上であることが分かっている
 # ものとして扱う。計測量・集計単位のキーと同じく、そのまま表示する内部状態キー。
 FRAME_INCLUDE = "include"
@@ -362,9 +362,9 @@ KM_RESAMPLE_SEED = 20261104
 QUARTILE_KEYS = ((0.25, "q1"), (0.5, "median"), (0.75, "q3"))
 # The kink threshold of a bundle that records none: the detector default
 # (`pipeline.ProcParams.kinkangle_deg`), which is what such a run used. Written
-# out because importing `lib.pipeline` loads the analysis stages.
+# out because importing `afm_nanofiber_analyzer.pipeline` loads the analysis stages.
 # しきい値を記録していないバンドルのキンクしきい値。そのような実行が使った検出器の
-# 既定値（`pipeline.ProcParams.kinkangle_deg`）である。`lib.pipeline` を読み込むと
+# 既定値（`pipeline.ProcParams.kinkangle_deg`）である。`afm_nanofiber_analyzer.pipeline` を読み込むと
 # 解析段まで読み込まれるため、値を書き出している。
 UNRECORDED_KINK_ANGLE_DEG = 150.0
 
@@ -567,7 +567,7 @@ def _kink_condition_report(conditions_by_group: dict) -> list:
         ).format(versions=", ".join(versions)))
     # Local import: see `App._bundle_height_and_noise`.
     # 局所インポート。`App._bundle_height_and_noise` を参照。
-    from lib.pipeline import MIN_FIBER_SNR
+    from afm_nanofiber_analyzer.pipeline import MIN_FIBER_SNR
 
     ratios = [c["height_nm"] / c["noise_nm"] for c in conditions
               if c.get("height_nm") is not None and c.get("noise_nm")]
@@ -739,8 +739,8 @@ def _fiber_value(stat, param: str):
     Parameters
     ----------
     stat
-        Per-fiber statistics row from `lib.measure.compute_fiber_stats`.
-        `lib.measure.compute_fiber_stats` が返すファイバー単位の統計行。
+        Per-fiber statistics row from `afm_nanofiber_analyzer.measure.compute_fiber_stats`.
+        `afm_nanofiber_analyzer.measure.compute_fiber_stats` が返すファイバー単位の統計行。
     param
         Measured-quantity key from `PARAM_SPECS`.
         `PARAM_SPECS` の計測量キー。
@@ -789,8 +789,8 @@ def _fiber_samples(stat, param: str, unit: str) -> list:
     Parameters
     ----------
     stat
-        Per-fiber statistics row from `lib.measure.compute_fiber_stats`.
-        `lib.measure.compute_fiber_stats` が返すファイバー単位の統計行。
+        Per-fiber statistics row from `afm_nanofiber_analyzer.measure.compute_fiber_stats`.
+        `afm_nanofiber_analyzer.measure.compute_fiber_stats` が返すファイバー単位の統計行。
     param
         Measured-quantity key from `PARAM_SPECS`.
         `PARAM_SPECS` の計測量キー。
@@ -1307,9 +1307,9 @@ def _kink_totals(stats) -> tuple:
     tuple
         ``(kinks, judged_um, n_fibers)``: the kinks on the fibers that had a
         judged length, the sum of those lengths in micrometers
-        (`lib.measure.fiber_judged_length_um`), and how many fibers they are.
+        (`afm_nanofiber_analyzer.measure.fiber_judged_length_um`), and how many fibers they are.
         ``(キンク数, 判定長 µm, ファイバー数)``。判定長を持つファイバー上の
-        キンク数、その長さの合計（`lib.measure.fiber_judged_length_um`）、
+        キンク数、その長さの合計（`afm_nanofiber_analyzer.measure.fiber_judged_length_um`）、
         その本数。
 
     Notes
@@ -1468,8 +1468,8 @@ def _attainable_p_note(comparisons) -> str:
     Parameters
     ----------
     comparisons
-        `lib.group_compare.PairComparison` rows.
-        `lib.group_compare.PairComparison` の行。
+        `afm_nanofiber_analyzer.group_compare.PairComparison` rows.
+        `afm_nanofiber_analyzer.group_compare.PairComparison` の行。
 
     Returns
     -------
@@ -1808,12 +1808,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # Each bundle's traced fibers, kept between runs so changing the
         # quantity, the unit or the frame mode does not trace every bundle
         # again; an entry is reused only while the bundle, its sidecars and the
-        # measurement settings are unchanged (`lib.measure._measure_curated`).
+        # measurement settings are unchanged (`afm_nanofiber_analyzer.measure._measure_curated`).
         # Read and written only by the worker thread.
         # 各バンドルの追跡結果。実行の間で保持し、計測量・集計単位・枠の扱いを
         # 変えても全バンドルを追跡し直さないようにする。項目を使い回すのは、
         # バンドル、そのサイドカー、計測の設定が変わっていない間だけである
-        # （`lib.measure._measure_curated`）。ワーカースレッドだけが読み書きする。
+        # （`afm_nanofiber_analyzer.measure._measure_curated`）。ワーカースレッドだけが読み書きする。
         self._measure_cache: dict = {}
 
         # Keep committed values separate from Entry text so edits can be confirmed with Enter.
@@ -4374,10 +4374,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             輪郭長について `_apply_frame_mode` の報告で埋める dict。呼び出し側が
             グループ名を付けてログに出せるようにするため。
         curation_report
-            List passed to the `lib.measure` collector as its
+            List passed to the `afm_nanofiber_analyzer.measure` collector as its
             ``curation_report``, so the caller can log how many fibers the
             manual exclusions removed.
-            `lib.measure` のコレクタへ ``curation_report`` として渡すリスト。
+            `afm_nanofiber_analyzer.measure` のコレクタへ ``curation_report`` として渡すリスト。
             手動除外で何本外れたかを呼び出し側がログに出せるようにするため。
         min_length_nm
             Common length floor in nanometers (`_common_length_floor`), or
@@ -4728,13 +4728,13 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Notes
         -----
         This measures the stored record and runs no analysis stage. The import
-        is local because `lib.pipeline` brings the stage modules with it, which
+        is local because `afm_nanofiber_analyzer.pipeline` brings the stage modules with it, which
         a run that compares no kinks has no need to load.
         保存された記録を測るだけで、解析段は実行しない。局所インポートなのは、
-        `lib.pipeline` が解析段のモジュールを伴って読み込まれ、キンクを比べない実行には
+        `afm_nanofiber_analyzer.pipeline` が解析段のモジュールを伴って読み込まれ、キンクを比べない実行には
         不要なためである。
         """
-        from lib.pipeline import fiber_snr
+        from afm_nanofiber_analyzer.pipeline import fiber_snr
 
         try:
             arrays = load_bundle(
@@ -4975,8 +4975,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ----------
         per_fiber
             ``(bundle_path, curvature)`` pairs from
-            `lib.measure.collect_fiber_curvature`.
-            `lib.measure.collect_fiber_curvature` が返す
+            `afm_nanofiber_analyzer.measure.collect_fiber_curvature`.
+            `afm_nanofiber_analyzer.measure.collect_fiber_curvature` が返す
             ``(バンドルパス, 曲率)`` の列。
         unit
             Aggregation-unit key.
@@ -5293,12 +5293,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 )
                 continue
 
-            # Loading and measurement are delegated to lib.measure, the same
+            # Loading and measurement are delegated to afm_nanofiber_analyzer.measure, the same
             # code path as `cli.py heights` / `cli.py measure`. Per-bundle
             # errors come back as fixed English strings and are wrapped in
             # translated group context here.
             # 読み込みと計測は `cli.py heights` / `cli.py measure` と同一経路の
-            # lib.measure へ委譲する。バンドルごとのエラーは固定英語文字列で返り、
+            # afm_nanofiber_analyzer.measure へ委譲する。バンドルごとのエラーは固定英語文字列で返り、
             # ここで翻訳済みのグループ文脈を付けて表示する。
             # Every path but the skeleton-pixel heights traces fibers, which
             # is too slow to leave the log silent while it runs.
@@ -6003,8 +6003,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Parameters
         ----------
         comparisons
-            `lib.group_compare.PairComparison` rows, possibly empty.
-            `lib.group_compare.PairComparison` の行。空の場合もある。
+            `afm_nanofiber_analyzer.group_compare.PairComparison` rows, possibly empty.
+            `afm_nanofiber_analyzer.group_compare.PairComparison` の行。空の場合もある。
         note
             Explanation shown when no comparison was run.
             比較を実行しなかった場合に表示する説明。
@@ -6840,12 +6840,12 @@ def main() -> None:
 
     GUI01's "このフォルダをGUI03で解析" and GUI05's "GUI03で開く" hand their
     bundles over through a list file, and paths given as plain arguments are
-    read the same way (`lib.plugin_launch.read_path_arguments`). The bundles
+    read the same way (`afm_nanofiber_analyzer.plugin_launch.read_path_arguments`). The bundles
     join the group the window starts with; without any the window opens with
     that group empty.
     GUI01 の「このフォルダをGUI03で解析」と GUI05 の「GUI03で開く」は、バンドルを
     一覧ファイルで渡す。パスをそのまま引数に書いた場合も同じ方法で読む
-    （`lib.plugin_launch.read_path_arguments`）。バンドルは起動時のグループに登録
+    （`afm_nanofiber_analyzer.plugin_launch.read_path_arguments`）。バンドルは起動時のグループに登録
     される。1 つも無ければ、そのグループが空のままウインドウが開く。
     """
     app = App()

@@ -4,10 +4,10 @@ Tests for launching a plugin with a path handed to it.
 パスを渡してプラグインを起動する処理のテスト。
 
 GUI01 opens GUI02, GUI03 and GUI04 on what it has analyzed through
-`lib.plugin_launch`, the same code the launcher uses, so the command has to
+`afm_nanofiber_analyzer.plugin_launch`, the same code the launcher uses, so the command has to
 reach `Main.py`'s ``--run-plugin`` in both a source run and a frozen build, and
 the path has to arrive in the plugin's ``sys.argv``.
-GUI01 は解析した結果を `lib.plugin_launch` で GUI02・GUI03・GUI04 に開かせる。
+GUI01 は解析した結果を `afm_nanofiber_analyzer.plugin_launch` で GUI02・GUI03・GUI04 に開かせる。
 ランチャーと同じコードであるため、コマンドはソース実行でも凍結ビルドでも
 `Main.py` の ``--run-plugin`` に届き、パスはプラグインの ``sys.argv`` に届く
 必要がある。
@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 import Main
-from lib import plugin_launch
+from afm_nanofiber_analyzer import plugin_launch
 
 ROOT = Path(__file__).resolve().parent.parent
 

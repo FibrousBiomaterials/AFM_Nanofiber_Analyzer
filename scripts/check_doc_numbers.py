@@ -31,7 +31,7 @@ directly after it, and this script checks each one:
     測り直すまでその記録の値はすべて古いものとして扱われる（`stale_experiments`）。
     古い記録は、コミットでは警告であり、``--release`` を付けたとき
     （`scripts/release.py prepare` が付ける）だけ誤りになる。
-``3<!--c:lib/pipeline.py::ProcParams.mask_dilation-->``
+``3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.mask_dilation-->``
     A constant or default in the code: a module constant (``path::NAME``), a
     class attribute or dataclass field (``path::Class.name``), or a parameter
     default (``path::func(param)``, ``path::Class.method(param)``). A trailing
@@ -115,12 +115,28 @@ MEASUREMENTS = "tests/doc_measurements.json"
 PENDING = "tests/doc_numbers_pending.json"
 # The files whose change means the analysis gives different numbers on the
 # bundled scans (AGENTS.md section 8.11): the arrays the pipeline stores, and
-# the values `lib/measure.py` reports from them.
+# the values `afm_nanofiber_analyzer/measure.py` reports from them.
 # 変われば、同梱スキャンで解析の出す数値が変わったことを意味するファイル
-# （AGENTS.md §8.11）。パイプラインが保存する配列と、そこから `lib/measure.py` が
+# （AGENTS.md §8.11）。パイプラインが保存する配列と、そこから `afm_nanofiber_analyzer/measure.py` が
 # 報告する値。
 GOLDENS = ("tests/strict_regression_golden.json",
            "tests/measurement_regression_golden.json")
+# A recording made while the package was named `lib` names its modules
+# `lib/...`; the same module is now read under `afm_nanofiber_analyzer/`.
+# パッケージ名が `lib` だった間の記録はモジュールを `lib/...` と記す。同じ
+# モジュールは今は `afm_nanofiber_analyzer/` の下で読む。
+_LEGACY_PACKAGE_DIR = "lib/"
+_PACKAGE_DIR = "afm_nanofiber_analyzer/"
+
+
+def _current_path(rel: str) -> str:
+    """
+    The repository path a recorded module path names now.
+    記録されたモジュールのパスが、今指しているリポジトリのパス。
+    """
+    if rel.startswith(_LEGACY_PACKAGE_DIR):
+        return _PACKAGE_DIR + rel[len(_LEGACY_PACKAGE_DIR):]
+    return rel
 
 _MARKER = re.compile(r"<!--([mcxn]):(.*?)-->")
 _NUMBER = r"[+\-−±]?\d+(?:\.\d+)?"
@@ -293,7 +309,7 @@ def _imported_from(tree: ast.Module, rel: str, name: str) -> Optional[str]:
         if isinstance(stmt, ast.ImportFrom) and any(a.name == name for a in stmt.names):
             if stmt.level == 1 and stmt.module:
                 return str(Path(rel).parent / (stmt.module.replace(".", "/") + ".py")).replace("\\", "/")
-            if stmt.module and stmt.module.startswith("lib."):
+            if stmt.module and stmt.module.startswith("afm_nanofiber_analyzer."):
                 return stmt.module.replace(".", "/") + ".py"
     return None
 
@@ -476,11 +492,12 @@ def stale_experiments(measurements: dict, used: set,
     def changes_of(snap_id: str, rel: str, digests: Dict[str, str]) -> List[str]:
         key = (snap_id, rel)
         if key not in compared:
-            source = sources[rel] if rel in sources else read(rel)
+            now = _current_path(rel)
+            source = sources[now] if now in sources else read(now)
             if source is None:
                 compared[key] = [f"{rel} removed"]
             else:
-                external = set().union(*(n for p, n in names.items() if p != rel))
+                external = set().union(*(n for p, n in names.items() if p != now))
                 found = doc_excerpts.computation_changes(digests, source, external)
                 compared[key] = [f"{rel}: {c}" for c in found[:3]]
         return compared[key]
@@ -498,7 +515,8 @@ def stale_experiments(measurements: dict, used: set,
             if depends is None:
                 problems += changes_of(snap_id, rel, digests)
             elif rel in depends:
-                source = sources[rel] if rel in sources else read(rel)
+                now = _current_path(rel)
+                source = sources[now] if now in sources else read(now)
                 found = (_dependency_changes(digests, depends[rel], source)
                          if source is not None else ["removed"])
                 problems += [f"{rel}: {c}" for c in found[:3]]

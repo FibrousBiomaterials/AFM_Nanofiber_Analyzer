@@ -55,8 +55,8 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
 # ===== Project libraries =====
-from lib import kink_detector as kd  # noqa: E402
-from lib.skeletonizer import (  # noqa: E402
+from afm_nanofiber_analyzer import kink_detector as kd  # noqa: E402
+from afm_nanofiber_analyzer.skeletonizer import (  # noqa: E402
     DEFAULT_BORDER_PAD,
     prune_terminal_hooks,
     thin_ignoring_image_border,
@@ -1443,7 +1443,7 @@ def _real_fiber(scan, point):
 
     import bundle_cache
     import kink_reference_score as krs
-    from lib.pipeline import ProcParams
+    from afm_nanofiber_analyzer.pipeline import ProcParams
 
     cache = str(bundle_cache.cache_root(Path(PROJECT_ROOT) / ".tmp" / "kink_reference_cache"))
     image, fibers = krs.prepare_scan(scan, cache, ProcParams())

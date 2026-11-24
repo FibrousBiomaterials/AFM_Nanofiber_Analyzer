@@ -11,7 +11,7 @@ is checked against it:
 なるため、各コード片は出典を名乗り、その出典と照合される。
 
 ```text
-# source: lib/kink_detector.py::KinkDetector.judge_line
+# source: afm_nanofiber_analyzer/kink_detector.py::KinkDetector.judge_line
 ```
 
 The header names a file and a function, method (``Class.method``) or module
@@ -592,7 +592,7 @@ def computation_changes(
 # Tests and scripts are left out: they exercise the analysis, they are not it.
 # あるモジュールの新しい定義を使いうる、そのモジュール以外のプロジェクトコード。
 # テストとスクリプトは除く。解析を試すものであって、解析そのものではない。
-PROJECT_CODE_PREFIXES = ("lib/", "guis/")
+PROJECT_CODE_PREFIXES = ("afm_nanofiber_analyzer/", "guis/")
 PROJECT_CODE_FILES = ("cli.py", "Main.py")
 
 
@@ -674,9 +674,9 @@ def excerpts(text: str) -> List[Tuple[List[str], List[str]]]:
     Return ``(symbol keys, excerpt lines)`` for each block with a source header.
     出典ヘッダを持つ各ブロックについて ``(シンボルキー, 引用行)`` を返す。
 
-    The header ``# source: lib/x.py::a, b`` may name several symbols of one
+    The header ``# source: afm_nanofiber_analyzer/x.py::a, b`` may name several symbols of one
     file; the excerpt is then matched against their sources in that order.
-    ヘッダ ``# source: lib/x.py::a, b`` は 1 ファイルの複数シンボルを指定でき、
+    ヘッダ ``# source: afm_nanofiber_analyzer/x.py::a, b`` は 1 ファイルの複数シンボルを指定でき、
     その場合は引用をそれらのソースを順に連結したものと照合する。
     """
     out = []

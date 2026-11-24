@@ -21,10 +21,10 @@ import os
 import numpy as np
 import pytest
 
-from lib.blosc2_io import load_bundle, load_bundle_meta
-from lib.bundle_schema import SOURCE_REGION_KEY
-from lib.measure import measure_bundle
-from lib.pipeline import ProcParams, process_file, row_range_suffix
+from afm_nanofiber_analyzer.blosc2_io import load_bundle, load_bundle_meta
+from afm_nanofiber_analyzer.bundle_schema import SOURCE_REGION_KEY
+from afm_nanofiber_analyzer.measure import measure_bundle
+from afm_nanofiber_analyzer.pipeline import ProcParams, process_file, row_range_suffix
 from tests.conftest import write_synthetic_fiber_txt
 
 # tophat needs no gradient-histogram fit, so these tests stay fast.
@@ -48,10 +48,10 @@ def _pixel_size_nm(bundle_path):
     Return the (x, y) pixel size a measurement derives from a bundle.
     バンドルから計測時に導かれる (x, y) 画素サイズを返す。
 
-    Read from `lib.measure.measure_bundle` itself rather than recomputed here:
+    Read from `afm_nanofiber_analyzer.measure.measure_bundle` itself rather than recomputed here:
     a test that writes out its own division checks the pipeline against the
     test's assumption about the convention, not against what measurement does.
-    ここで計算し直さず `lib.measure.measure_bundle` そのものから読む。テストが
+    ここで計算し直さず `afm_nanofiber_analyzer.measure.measure_bundle` そのものから読む。テストが
     自前の割り算を書くと、計測が実際に行うことではなく、約束事についてのテスト
     自身の想定とパイプラインを照合することになるためである。
     """
@@ -144,7 +144,7 @@ def test_crop_content_matches_the_same_lines_of_the_source(scan):
                         row_range=(40, 130), save_original=True)
     original = load_bundle(part.bundle_path, keys=["original"])["original"]
 
-    from lib.afm_io import load_afm_image
+    from afm_nanofiber_analyzer.afm_io import load_afm_image
     expected = load_afm_image(path)[40:130]
     assert original.shape == expected.shape
     assert np.allclose(original, expected)
@@ -168,7 +168,7 @@ def test_full_range_matches_the_uncropped_run(scan):
     全走査線を明示的に指定した場合、解析される画素が同じであること。
     """
     path, out = scan
-    from lib.afm_io import load_afm_image
+    from afm_nanofiber_analyzer.afm_io import load_afm_image
     n_rows = load_afm_image(path).shape[0]
 
     whole = process_file(path, FAST_PARAMS, output_dir=out, scan_size_um=(2.0, 2.0))

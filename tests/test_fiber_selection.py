@@ -9,7 +9,7 @@ import os
 
 import pytest
 
-from lib.fiber_selection import (
+from afm_nanofiber_analyzer.fiber_selection import (
     EXCLUSION_FORMAT,
     EXCLUSION_VERSION,
     exclusion_path_for,
@@ -19,8 +19,8 @@ from lib.fiber_selection import (
     load_exclusions,
     save_exclusions,
 )
-from lib.measure import measure_bundle
-from lib.pipeline import ProcParams, process_file
+from afm_nanofiber_analyzer.measure import measure_bundle
+from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 from tests.conftest import write_synthetic_fiber_txt
 
 FAST_PARAMS = ProcParams(bg_method="tophat")
@@ -190,8 +190,8 @@ def test_anchor_survives_fiber_connection(traced):
     ファイバーリストを採番し直すため、保存したインデックスはモード変更後に別の
     対象を指してしまう。
     """
-    from lib.connect_selection import plan_from_chains
-    from lib.fiber_connector import ConnectParams, plan_from_auto_connect
+    from afm_nanofiber_analyzer.connect_selection import plan_from_chains
+    from afm_nanofiber_analyzer.fiber_connector import ConnectParams, plan_from_auto_connect
 
     bundle_path, measured = traced
     anchors = [fiber_anchor(measured.fibers[0])]

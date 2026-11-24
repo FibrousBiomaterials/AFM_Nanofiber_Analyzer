@@ -35,13 +35,13 @@ its scan. A scale bar and a color bar under it state its size and the height
 range its colors span, because thumbnails colored per image cannot be compared
 by color; both are shown unless turned off. The selected bundles can be opened
 in GUI02 or GUI04, each in a window of its own, or all together in one GUI03
-window as one group (`lib.plugin_launch`).
+window as one group (`afm_nanofiber_analyzer.plugin_launch`).
 各サムネイルは、ファイル名の下に、走査の物理アスペクト比で描く。その下の
 スケールバーとカラーバーが、大きさと色が表す高さの範囲を示す。画像ごとに色を
 決めたサムネイルは、色では互いに比べられないため。どちらも、外さない限り表示する。
 選択したバンドルは GUI02 または GUI04 で開ける。バンドルごとに別のウィンドウで
 開く。GUI03 では、選択した全バンドルを 1 つのグループとして 1 つのウィンドウで
-開く（`lib.plugin_launch`）。
+開く（`afm_nanofiber_analyzer.plugin_launch`）。
 
 Dropping files needs the ``tkinterdnd2`` package; without it the window still
 opens and the two buttons remain.
@@ -96,11 +96,11 @@ from matplotlib import colormaps
 from matplotlib.colors import Normalize
 
 # ===== Project libraries =====
-from lib.blosc2_io import BUNDLE_EXT, load_bundle_meta
-from lib.bundle_schema import pixel_size_nm, scan_size_um_from_meta
-from lib.plugin_launch import call_when_shown, launch_plugin, path_list_arguments
-from lib.translator import _
-from lib.ui_tools import (
+from afm_nanofiber_analyzer.blosc2_io import BUNDLE_EXT, load_bundle_meta
+from afm_nanofiber_analyzer.bundle_schema import pixel_size_nm, scan_size_um_from_meta
+from afm_nanofiber_analyzer.plugin_launch import call_when_shown, launch_plugin, path_list_arguments
+from afm_nanofiber_analyzer.translator import _
+from afm_nanofiber_analyzer.ui_tools import (
     DEFAULT_VMAX, DEFAULT_VMIN, FIGURE_SAVE_DPI, UNIT_MICROMETER, LogMixin,
     ToolTip, UnconfirmedEntryMixin, apply_window_size, bind_mousewheel_scroll,
     compute_auto_vrange, create_scrolled_text, drain_ui_queue,
@@ -109,11 +109,11 @@ from lib.ui_tools import (
 )
 
 # ===== Plugins the selected bundles can be opened in =====
-# Import paths handed to `lib.plugin_launch.launch_plugin`, and the number of
+# Import paths handed to `afm_nanofiber_analyzer.plugin_launch.launch_plugin`, and the number of
 # selected bundles from which opening them in GUI02 or GUI04 asks first: there
 # each opens a window of its own, in a process of its own. GUI03 takes every
 # selected bundle into one window.
-# `lib.plugin_launch.launch_plugin` に渡す import パスと、GUI02・GUI04 で開く前に
+# `afm_nanofiber_analyzer.plugin_launch.launch_plugin` に渡す import パスと、GUI02・GUI04 で開く前に
 # 確認する選択数。この 2 つでは、バンドル 1 つごとに独立したプロセスのウィンドウが
 # 1 つ開く。GUI03 は選択した全バンドルを 1 つのウィンドウで受け取る。
 PROFILER_MODULE = "guis.GUI02_PlotProfiler"
@@ -655,10 +655,10 @@ def image_extent_um(scan_size_um: Optional[Tuple[float, float]],
     Notes
     -----
     The recorded scan size spans one pixel more per axis than the stored
-    array, so the pixel size comes from `lib.bundle_schema.pixel_size_nm`, as
+    array, so the pixel size comes from `afm_nanofiber_analyzer.bundle_schema.pixel_size_nm`, as
     in GUI02.
     記録された走査範囲は保存配列より各軸 1 画素分広いため、GUI02 と同じく画素
-    サイズは `lib.bundle_schema.pixel_size_nm` で求める。
+    サイズは `afm_nanofiber_analyzer.bundle_schema.pixel_size_nm` で求める。
     """
     if scan_size_um is None:
         return None
@@ -3011,8 +3011,8 @@ def main() -> None:
     Thumbnail Viewer を起動し、コマンドラインで指定されたパスを追加する。
 
     Each argument is a bundle file or a folder of bundles
-    (`lib.plugin_launch`); without one the window opens empty.
-    各引数はバンドルファイルまたはバンドルのフォルダ（`lib.plugin_launch`）。
+    (`afm_nanofiber_analyzer.plugin_launch`); without one the window opens empty.
+    各引数はバンドルファイルまたはバンドルのフォルダ（`afm_nanofiber_analyzer.plugin_launch`）。
     引数が無ければ空のウィンドウで開く。
     """
     app = App()

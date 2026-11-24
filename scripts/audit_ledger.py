@@ -233,7 +233,7 @@ def _output_items() -> Iterator[Dict]:
     import importlib
 
     g3 = importlib.import_module("guis.GUI03_Fiber_Morphology_Statistics")
-    from lib import bundle_schema, measure
+    from afm_nanofiber_analyzer import bundle_schema, measure
     import check_gui04_docs
 
     def out(name: str, kind: str) -> Dict:

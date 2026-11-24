@@ -5,10 +5,10 @@ Container for processed AFM image data and derived fiber metadata.
 This module stores the intermediate images and analysis outputs produced by
 the preprocessing pipeline stages. It is a passive data container; Fiber
 objects are built from this data by
-`lib.fiber_tracking_image.FiberTrackingImage`.
+`afm_nanofiber_analyzer.fiber_tracking_image.FiberTrackingImage`.
 このモジュールは前処理パイプライン各段階が生成する中間画像と解析結果を
 保持する。受動的なデータコンテナであり、Fiber オブジェクトの構築は
-`lib.fiber_tracking_image.FiberTrackingImage` が本データから行う。
+`afm_nanofiber_analyzer.fiber_tracking_image.FiberTrackingImage` が本データから行う。
 """
 
 from typing import Optional
@@ -101,7 +101,7 @@ class ProcessedImage:
     in its own field:
 
     >>> import numpy as np
-    >>> from lib.processed_image import ProcessedImage
+    >>> from afm_nanofiber_analyzer.processed_image import ProcessedImage
     >>> image = ProcessedImage(original_AFM=np.zeros((64, 64)), name="scan")
     >>> image.original_image.shape
     (64, 64)

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Tests for the optional ridge-recovery step in `lib.segmenter`.
-`lib.segmenter` の任意リッジ回収段のテスト。
+Tests for the optional ridge-recovery step in `afm_nanofiber_analyzer.segmenter`.
+`afm_nanofiber_analyzer.segmenter` の任意リッジ回収段のテスト。
 
 Recovery adds fibers that thresholding missed entirely. It is off by default
 because enabling it changes analysis output, so the tests pin both the
@@ -17,9 +17,9 @@ different segmentation.
 import numpy as np
 import pytest
 
-from lib.pipeline import ProcParams, validate_params
-from lib.processed_image import ProcessedImage
-from lib.segmenter import Segmenter
+from afm_nanofiber_analyzer.pipeline import ProcParams, validate_params
+from afm_nanofiber_analyzer.processed_image import ProcessedImage
+from afm_nanofiber_analyzer.segmenter import Segmenter
 
 
 def _two_fiber_image() -> np.ndarray:
@@ -206,7 +206,7 @@ def test_skeleton_path_length_does_not_depend_on_direction():
     """
     from skimage.morphology import thin
 
-    from lib.segmenter import _skeleton_path_length_px
+    from afm_nanofiber_analyzer.segmenter import _skeleton_path_length_px
 
     for angle in range(0, 91, 5):
         t = np.radians(angle)
@@ -234,7 +234,7 @@ def test_skeleton_length_leaves_side_branches_out():
     import cv2
     from skimage.morphology import thin
 
-    from lib.segmenter import _skeleton_path_length_px
+    from afm_nanofiber_analyzer.segmenter import _skeleton_path_length_px
 
     seg = Segmenter(ridge_recovery=True, ridge_min_length_nm=1.0)
     for angle in (0.0, 45.0):

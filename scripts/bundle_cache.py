@@ -40,15 +40,15 @@ import doc_excerpts  # noqa: E402
 # from it through its imports.
 # パイプラインの実行モジュール。バンドルが依存する解析モジュールはすべて、
 # ここから import をたどって到達する。
-PIPELINE_ROOTS = ("lib/pipeline.py",)
+PIPELINE_ROOTS = ("afm_nanofiber_analyzer/pipeline.py",)
 
-# Code outside lib/ that writes cached inputs: the synthetic suite, the
+# Code outside afm_nanofiber_analyzer/ that writes cached inputs: the synthetic suite, the
 # synthetic fiber of the test fixtures, the renderer every synthetic scan is
 # drawn with, and the kink rule sweep, whose fiber, background and image sizes
 # several experiments draw their scans with and whose own bundles are cached.
 # A scan drawn differently has to be analyzed again, so a change to any of
 # them selects a new folder like a change to the pipeline does.
-# lib/ の外でキャッシュされる入力を書くコード。合成スイート、テストの
+# afm_nanofiber_analyzer/ の外でキャッシュされる入力を書くコード。合成スイート、テストの
 # フィクスチャの合成繊維、すべての合成画像を描く描画器、そしてキンク規則の掃引
 # （いくつもの実験がその繊維・背景・画像サイズで画像を描き、掃引自身のバンドルも
 # キャッシュされる）。描き方の違う画像は解析し直す必要があるため、これらのどれかが
@@ -90,8 +90,8 @@ _FOLDER_RE = re.compile(rf"[0-9a-f]{{{FINGERPRINT_LENGTH}}}")
 
 def _lib_imports(rel: str) -> List[str]:
     """
-    List the lib modules one module imports, as repository paths.
-    1 つのモジュールが import する lib モジュールを、リポジトリのパスで列挙する。
+    List the afm_nanofiber_analyzer modules one module imports, as repository paths.
+    1 つのモジュールが import する afm_nanofiber_analyzer のモジュールを、リポジトリのパスで列挙する。
     """
     tree = ast.parse((ROOT / rel).read_text(encoding="utf-8"))
     out = []
@@ -99,24 +99,24 @@ def _lib_imports(rel: str) -> List[str]:
         if isinstance(node, ast.ImportFrom):
             if node.level == 1:
                 if node.module:
-                    out.append(f"lib/{node.module.replace('.', '/')}.py")
+                    out.append(f"afm_nanofiber_analyzer/{node.module.replace('.', '/')}.py")
                 else:
-                    out += [f"lib/{a.name}.py" for a in node.names]
-            elif node.module and node.module.startswith("lib"):
-                if node.module == "lib":
-                    out += [f"lib/{a.name}.py" for a in node.names]
+                    out += [f"afm_nanofiber_analyzer/{a.name}.py" for a in node.names]
+            elif node.module and node.module.startswith("afm_nanofiber_analyzer"):
+                if node.module == "afm_nanofiber_analyzer":
+                    out += [f"afm_nanofiber_analyzer/{a.name}.py" for a in node.names]
                 else:
                     out.append(node.module.replace(".", "/") + ".py")
         elif isinstance(node, ast.Import):
             out += [a.name.replace(".", "/") + ".py" for a in node.names
-                    if a.name.startswith("lib.")]
+                    if a.name.startswith("afm_nanofiber_analyzer.")]
     return [p for p in out if (ROOT / p).is_file()]
 
 
 def closure(roots: Sequence[str]) -> List[str]:
     """
-    List every lib module the given modules reach through their imports.
-    指定したモジュールから import をたどって到達する lib モジュールをすべて列挙する。
+    List every afm_nanofiber_analyzer module the given modules reach through their imports.
+    指定したモジュールから import をたどって到達する afm_nanofiber_analyzer のモジュールをすべて列挙する。
     """
     seen: set = set()
     todo = list(roots)
