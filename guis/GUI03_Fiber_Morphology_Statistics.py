@@ -183,15 +183,13 @@ PLOT_BOX = "box"
 
 PLOT_TYPES = (PLOT_HISTOGRAM, PLOT_ECDF, PLOT_BOX)
 
-# Aggregation units whose samples support a between-group test. The others are
-# excluded on principle rather than for convenience: skeleton pixels are not
-# independent observations of a specimen, and several kinks come from one
-# fiber, so a p-value over them measures how finely the images were sampled
-# instead of whether the specimens differ.
-# 群間検定を適用できる集計単位。他を外すのは便宜ではなく原理による。骨格画素は
-# 試料の独立観測ではなく、複数のキンクは 1 本のファイバーから来る。それらに
-# 対する p 値は、試料が異なるかどうかではなく、画像をどれだけ細かくサンプリング
-# したかを測ってしまう。
+# Aggregation units whose samples support a between-group test. The pixel unit
+# is excluded on principle rather than for convenience: skeleton pixels are not
+# independent observations of a specimen, so a p-value over them measures how
+# finely the images were sampled instead of whether the specimens differ.
+# 群間検定を適用できる集計単位。pixel 単位を外すのは便宜ではなく原理による。
+# 骨格画素は試料の独立観測ではないため、それらに対する p 値は、試料が異なるか
+# どうかではなく、画像をどれだけ細かくサンプリングしたかを測ってしまう。
 # The two testable units differ in what they treat as independent: the fiber
 # unit counts the fibers of one image as independent, which the image unit
 # does not, and the comparison note says so for the fiber unit
@@ -4593,13 +4591,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         -------
         tuple
             ``(values, weights, n_fibers, n_images, load_errors)``. `weights`
-            is None unless the unit weights its samples (Miles-Lantuejoul,
-            judged length). `n_fibers` counts the fibers that contributed at
+            is None except for contour length aggregated per fiber under a
+            frame mode that weights the fibers (Miles-Lantuejoul,
+            Kaplan-Meier). `n_fibers` counts the fibers that contributed at
             least one sample and is 0 in the skeleton-pixel path, where fibers
             are not individuated. `load_errors` holds ``(bundle_path,
             message)`` pairs.
-            ``(値リスト, 重み, ファイバー数, 画像数, 読込エラー)``。`weights` は
-            標本を重み付けする単位（Miles-Lantuejoul、判定長）以外では None。
+            ``(値リスト, 重み, ファイバー数, 画像数, 読込エラー)``。`weights` は、
+            ファイバーを重み付けする枠の扱い（Miles-Lantuejoul、Kaplan-Meier）で
+            輪郭長をファイバー単位に集計したとき以外は None。
             `n_fibers` は 1 標本以上を出したファイバーの数で、ファイバーを個体と
             して扱わない骨格画素経路では 0。`load_errors` は
             ``(バンドルパス, メッセージ)``。
@@ -6328,11 +6328,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
                 weights = np.ones(sorted_values.shape, dtype=float)
             else:
                 weights = np.asarray(r["weights"], dtype=float)[order]
-            # Weighted cumulative fraction, so the length unit's curve is the
-            # fraction of observed contour length below each value rather than
-            # the fraction of sampled points.
-            # 重み付き累積割合。length 単位の曲線が、サンプル点の割合ではなく、
-            # 各値以下にある観測輪郭長の割合を表すようにする。
+            # Weighted cumulative fraction, so a contour-length curve under a
+            # frame mode that weights the fibers (Miles-Lantuejoul,
+            # Kaplan-Meier) counts each fiber by its weight rather than once.
+            # 重み付き累積割合。ファイバーを重み付けする枠の扱い（Miles-Lantuejoul、
+            # Kaplan-Meier）での輪郭長の曲線が、各ファイバーを 1 回ではなく、その重みで
+            # 数えるようにする。
             # Under Kaplan-Meier the curve stops short of one by the part of
             # the distribution beyond the longest fiber seen whole.
             # Kaplan-Meier では、全長を見た最長のファイバーより長い側の分だけ、
@@ -6362,12 +6363,15 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         -----
         The boxes are drawn from precomputed quartiles rather than by handing
         Matplotlib the raw samples, so the box and the statistics table can
-        never disagree -- and so the length unit's boxes use its weighted
-        quartiles, which Matplotlib's own boxplot has no way to compute.
+        never disagree -- and so the boxes of contour length under a frame
+        mode that weights the fibers (Miles-Lantuejoul, Kaplan-Meier) use the
+        weighted quartiles, which Matplotlib's own boxplot has no way to
+        compute.
         箱は生の標本を Matplotlib に渡すのではなく、あらかじめ計算した四分位数
-        から描く。これにより箱と統計量テーブルが食い違うことがなく、また length
-        単位では重み付き四分位数を使える。Matplotlib の boxplot 自身にはこれを
-        計算する手段が無い。
+        から描く。これにより箱と統計量テーブルが食い違うことがなく、またファイバーを
+        重み付けする枠の扱い（Miles-Lantuejoul、Kaplan-Meier）での輪郭長の箱には
+        重み付き四分位数を使える。Matplotlib の boxplot 自身にはこれを計算する手段が
+        無い。
         """
         self.fig.clf()
         self.fig.set_size_inches(fig_w, fig_h, forward=True)

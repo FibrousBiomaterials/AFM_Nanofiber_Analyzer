@@ -1028,6 +1028,12 @@ xvfb-run -a python -m pytest tests/
 なる測定値は `scripts/make_history_figures.py` が作ります。英語版は
 [`docs/history.md`](docs/history.md) です。
 
+[`docs/gui03_statistics.ja.md`](docs/gui03_statistics.ja.md) は、GUI03 が報告する
+統計、すなわち各集計単位で 1 標本とは何か、要約統計量、輪郭長の枠補正、群間検定を、
+それを計算するコードと、従っている既発表の手法の参考文献とともに説明します。
+`scripts/check_gui03_docs.py` が、そのコード片をコードと照合します。英語版は
+[`docs/gui03_statistics.md`](docs/gui03_statistics.md) です。
+
 ### API ドキュメント
 
 `afm_nanofiber_analyzer/` 以下のモジュールは Sphinx でドキュメント化されており、docstring から

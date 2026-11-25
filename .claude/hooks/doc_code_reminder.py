@@ -14,17 +14,18 @@ configuration for Claude Code, the AI coding agent used on this repository.
 
 Why it exists
 -------------
-Two document pairs explain the analysis with the code that performs it:
-`docs/algorithms.md` (the four preprocessing stages and the centerline) and
-`docs/gui04_measurements.md` (GUI04's centerline and every value it shows),
-each with a Japanese counterpart. The pre-commit hook and CI catch a stale
+Three document pairs explain the analysis with the code that performs it:
+`docs/algorithms.md` (the four preprocessing stages and the centerline),
+`docs/gui04_measurements.md` (GUI04's centerline and every value it shows) and
+`docs/gui03_statistics.md` (the statistics GUI03 computes), each with a
+Japanese counterpart. The pre-commit hook and CI catch a stale
 page, but only at commit time, after the agent has moved on. This hook reports
 the drift right after the edit that caused it, while the change is still in the
 agent's context, so the documents are updated as part of the same change.
 
-コードとともに解析を説明する文書が 2 組ある。`docs/algorithms.md`（前処理 4 段階と
-中心線）と `docs/gui04_measurements.md`（GUI04 の中心線と表示する全数値）で、
-それぞれ日本語版を持つ。古くなったページは pre-commit フックと CI が捕らえるが、
+コードとともに解析を説明する文書が 3 組ある。`docs/algorithms.md`（前処理 4 段階と
+中心線）、`docs/gui04_measurements.md`（GUI04 の中心線と表示する全数値）、
+`docs/gui03_statistics.md`（GUI03 が計算する統計）で、それぞれ日本語版を持つ。古くなったページは pre-commit フックと CI が捕らえるが、
 それはコミット時であり、エージェントが次の作業へ移った後である。このフックは
 ずれを生んだ編集の直後に報告する。変更がまだエージェントの文脈にあるうちに伝え、
 文書の更新を同じ変更の一部にするためである。
@@ -33,10 +34,11 @@ How it decides
 --------------
 After an Edit / Write / MultiEdit / NotebookEdit of a project file:
 
-- GUI04 document: if the file holds a symbol that document quotes,
-  `scripts/check_gui04_docs.drifted_symbols` compares the quoted symbols'
-  fingerprints (comments and docstrings ignored) with
-  `tests/gui04_doc_manifest.json`.
+- GUI04 and GUI03 documents: if the file holds a symbol one of them quotes,
+  `drifted_symbols` of `scripts/check_gui04_docs.py` or
+  `scripts/check_gui03_docs.py` compares the quoted symbols' fingerprints
+  (comments and docstrings ignored) with `tests/gui04_doc_manifest.json` or
+  `tests/gui03_doc_manifest.json`.
 - Algorithm document: if the file is one of the fingerprinted algorithm modules,
   `scripts/doc_excerpts.computation_changes` compares each of its definitions
   with `tests/algorithm_doc_manifest.json`, the rule the pre-commit hook and
@@ -51,9 +53,10 @@ A comment-only edit reports nothing. Each finding is reported once per session.
 
 プロジェクト内のファイルを Edit / Write / MultiEdit / NotebookEdit した後、
 
-- GUI04 文書：そのファイルが文書の引用するシンボルを含むなら、
-  `scripts/check_gui04_docs.drifted_symbols` が引用シンボルの指紋（コメントと
-  docstring を無視）を `tests/gui04_doc_manifest.json` と比べる。
+- GUI04・GUI03 文書：そのファイルがどちらかの文書の引用するシンボルを含むなら、
+  `scripts/check_gui04_docs.py` または `scripts/check_gui03_docs.py` の
+  `drifted_symbols` が引用シンボルの指紋（コメントと docstring を無視）を
+  `tests/gui04_doc_manifest.json` または `tests/gui03_doc_manifest.json` と比べる。
 - アルゴリズム文書：そのファイルが指紋化対象のアルゴリズムモジュールなら、
   `scripts/doc_excerpts.computation_changes` が各定義を
   `tests/algorithm_doc_manifest.json` と比べる。pre-commit フックと CI と同じ
@@ -141,9 +144,18 @@ def _sections_quoting(excerpts, text, keys):
     return found
 
 
-def _gui04_findings(root, rel):
-    """Return ``(state key, message)`` pairs for the GUI04 document."""
-    checker = _load_script(root, "check_gui04_docs")
+def _symbol_doc_findings(root, rel, script, label):
+    """
+    Return ``(state key, message)`` pairs for a document fingerprinted per symbol.
+    シンボル単位で指紋化した文書について ``(状態キー, メッセージ)`` の組を返す。
+
+    `script` is the checker in `scripts/` (`check_gui04_docs` or
+    `check_gui03_docs`); both expose the same `watched_paths`,
+    `drifted_symbols`, `read_worktree` and `DOC_EN`.
+    `script` は `scripts/` の検査スクリプト（`check_gui04_docs` か
+    `check_gui03_docs`）で、どちらも同じ関数と定数を持つ。
+    """
+    checker = _load_script(root, script)
     if rel not in checker.watched_paths():
         return []
     drifted = checker.drifted_symbols(rel)
@@ -155,13 +167,23 @@ def _gui04_findings(root, rel):
     for key in drifted:
         where = "; ".join(sections.get(key) or []) or "no section found"
         out.append((
-            f"gui04:{key}",
-            f"- docs/gui04_measurements.md: {key} changed (quoted in: {where}). "
+            f"{label}:{key}",
+            f"- {checker.DOC_EN}: {key} changed (quoted in: {where}). "
             "Update prose and excerpts in both language versions, then run "
-            "`.venv/Scripts/python.exe scripts/check_gui04_docs.py --update` "
-            "and `.venv/Scripts/python.exe scripts/check_gui04_docs.py`.",
+            f"`.venv/Scripts/python.exe scripts/{script}.py --update` "
+            f"and `.venv/Scripts/python.exe scripts/{script}.py`.",
         ))
     return out
+
+
+def _gui04_findings(root, rel):
+    """Return ``(state key, message)`` pairs for the GUI04 document."""
+    return _symbol_doc_findings(root, rel, "check_gui04_docs", "gui04")
+
+
+def _gui03_findings(root, rel):
+    """Return ``(state key, message)`` pairs for the GUI03 statistics document."""
+    return _symbol_doc_findings(root, rel, "check_gui03_docs", "gui03")
 
 
 def _algorithm_findings(root, rel):
@@ -269,7 +291,8 @@ def main() -> int:
         if rel == CHANGELOG:
             findings = _changelog_findings(root)
         else:
-            findings = (_gui04_findings(root, rel) + _algorithm_findings(root, rel)
+            findings = (_gui04_findings(root, rel) + _gui03_findings(root, rel)
+                        + _algorithm_findings(root, rel)
                         + _visual_findings(root, rel))
         if not findings:
             return 0
@@ -302,7 +325,7 @@ def main() -> int:
                 "(comments and docstrings are ignored by this check):",
                 *(message for _, message in fresh),
                 "Updating the documents, and the visual review, are part of this "
-                "change (AGENTS.md §8.13, §8.14, §8.18). If the edit is not "
+                "change (AGENTS.md §8.13, §8.14, §8.18, §8.21). If the edit is not "
                 "finished yet, do it once it is.",
             ]
         print(json.dumps({

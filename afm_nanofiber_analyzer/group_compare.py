@@ -694,15 +694,15 @@ def compare_groups(
     `scipy.stats.mannwhitneyu` と `scipy.stats.ks_2samp` で計算する。
 
     In the scipy path the Kolmogorov-Smirnov p-value assumes continuous
-    distributions. Tied values -- for example the zeros of a per-fiber kink
-    density, where a fiber without a kink reads 0 -- make it conservative:
+    distributions. Tied values, which reach this path only in a pair of more
+    than `_SAMPLED_MAX_VALUES` values, make it conservative:
     with no difference present it rejects less often than its nominal level,
     so a small KS p-value still stands while a large one may miss a real
     difference. The Mann-Whitney p-value is computed there with a tie
     correction.
     scipy の経路では、Kolmogorov-Smirnov の p 値は連続分布を仮定している。同順位
-    （例えばファイバー単位のキンク密度で、キンクの無いファイバーが 0 となるもの）
-    があると保守的になり、差が無いときに名目の水準より少なくしか棄却しない。
+    （この経路に来るのは、値が `_SAMPLED_MAX_VALUES` 個を超えるペアだけ）が
+    あると保守的になり、差が無いときに名目の水準より少なくしか棄却しない。
     したがって小さい KS の p 値はそのまま有効だが、大きい値は実在の差を見逃して
     いることがある。そこでの Mann-Whitney の p 値は同順位の補正を入れて計算する。
 

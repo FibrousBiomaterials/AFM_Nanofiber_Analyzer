@@ -1127,6 +1127,14 @@ this software. Its figures, and the measurements behind its statements, come
 from `scripts/make_history_figures.py`.
 [`docs/history.ja.md`](docs/history.ja.md) is the Japanese counterpart.
 
+[`docs/gui03_statistics.md`](docs/gui03_statistics.md) explains the statistics
+GUI03 reports — what one sample is at each aggregation unit, the summary
+statistics, the frame corrections of contour length, and the between-group
+tests — with the code that computes them and references to the published
+methods they follow. `scripts/check_gui03_docs.py` checks its code excerpts
+against the code. [`docs/gui03_statistics.ja.md`](docs/gui03_statistics.ja.md)
+is the Japanese counterpart.
+
 ### API documentation
 
 The modules in `afm_nanofiber_analyzer/` are documented with Sphinx, which renders their

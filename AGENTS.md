@@ -1601,6 +1601,35 @@ held for how this project's specimens are imaged.
 - **When this rule is introduced or tightened, search the existing code for
   steps it covers in the same change.**
 
+### 8.21 GUI03 statistics and `docs/gui03_statistics.md`
+
+`docs/gui03_statistics.md` and its Japanese counterpart
+`docs/gui03_statistics.ja.md` explain the statistics GUI03 reports — what one
+sample is at each aggregation unit, the summary statistics and figures, the
+frame corrections of contour length, and the between-group tests — quoting the
+code that computes them and citing the published method each follows. They
+exist for the same reason as the documents of §8.13 and §8.14. When a change
+alters what one of the quoted symbols computes, updating both language
+versions — prose **and** the quoted excerpts — is **part of that change**.
+
+The trigger is a change to any symbol listed in `WATCHED_SYMBOLS` in
+`scripts/check_gui03_docs.py`, which is the authoritative list (functions and
+constants in `guis/GUI03_Fiber_Morphology_Statistics.py`,
+`afm_nanofiber_analyzer/group_compare.py` and `afm_nanofiber_analyzer/measure.py`). The
+documents follow the verified-excerpt contract of §8.13
+(`scripts/doc_excerpts.py`), and every watched symbol must be quoted, so add a
+symbol to `WATCHED_SYMBOLS` before quoting it and remove it when it is no
+longer quoted. A reference is added only after its bibliographic record has
+been checked against a source; what could not be checked is marked
+`<!-- TODO(review): ... -->` (§4.4).
+
+Enforced by `scripts/check_gui03_docs.py --staged` in `.githooks/pre-commit`,
+`tests/test_gui03_docs.py` (CI), and the Claude Code hook
+`.claude/hooks/doc_code_reminder.py`, on the same terms as §8.14. Refresh the
+fingerprints with `.venv\Scripts\python.exe scripts\check_gui03_docs.py --update`
+only after rereading the affected sections of both documents. The two
+documents are a synchronized pair on the same terms as the README pair.
+
 ## 9. Index
 
 Where each rule is. The rules themselves are stated once, in their section.
@@ -1632,3 +1661,4 @@ Where each rule is. The rules themselves are stated once, in their section.
 | Visual review of analysis changes | §8.18 |
 | Running the tests | §8.19 |
 | Steps that change what is compared | §8.20 |
+| GUI03 statistics document | §8.21 |
