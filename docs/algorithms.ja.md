@@ -592,6 +592,19 @@ else:
     fiber_mask = raw_mask
 ```
 
+マスクそのものを、呼び出し側が与えることもできる。`BGCalibrator.calibrate_with_mask`
+は、与えたマスクで同じ補正を実行する。与えたマスクは、検出して掃除と膨張を済ませた
+マスクに、この時点で取って代わる。その後の手順 3<!--n:label--> は変わらない。与えた
+マスクはそのまま使い、上の掃除と膨張は行わない。バンドル編集ツール
+（`guis/GUI06_Bundle_Editor.py`）は、手で直したマスクで補正をやり直すためにこれを使う。
+解析そのものがマスクを与えることはない。
+
+```python
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._bg_generate
+if self._given_fiber_mask is not None:
+    fiber_mask = self._given_fiber_mask
+```
+
 #### 手順 3 — 穴を埋めて背景を作り、元の画像から引く
 
 穴は、**いちばん近い背景の画素**の値で埋める（いちばん近い画素を探すのには

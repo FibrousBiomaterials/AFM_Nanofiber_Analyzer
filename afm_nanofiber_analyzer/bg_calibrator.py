@@ -401,6 +401,12 @@ class BGCalibrator:
         self.spline1d_axis = spline1d_axis
         self.spline1d_degree = int(spline1d_degree)
 
+        # A fiber mask the caller supplies in place of the detected one; set
+        # only while `calibrate_with_mask` runs.
+        # 検出したマスクの代わりに呼び出し側が与える繊維マスク。
+        # `calibrate_with_mask` の実行中だけ設定される。
+        self._given_fiber_mask: Optional[np.ndarray] = None
+
     def __call__(self, image: ProcessedImage) -> None:
         """
         Execute the full background calibration pipeline on one image.
@@ -474,6 +480,66 @@ class BGCalibrator:
             self._call_spline1d(image)
         else:
             self._call_trendfill(image)
+
+    def calibrate_with_mask(self, image: ProcessedImage, fiber_mask: np.ndarray) -> None:
+        """
+        Run the background correction with a fiber mask the caller supplies.
+        呼び出し側が与える繊維マスクで、背景補正を実行する。
+
+        Parameters
+        ----------
+        image
+            Image data container. The result is written in-place to
+            `image.calibrated_image`, as by `__call__`.
+            画像データコンテナ。結果は `__call__` と同じく
+            `image.calibrated_image` にインプレースで格納される。
+        fiber_mask
+            Pixels to exclude from the background as fiber, already cleaned
+            and dilated as wanted: it is used as given. Its shape is that of
+            the corrected image, one row and one column smaller than
+            `image.original_image`.
+            繊維として背景から除外する画素。必要な整形と膨張は済ませたもので、
+            与えられたまま使う。形状は補正後の画像と同じで、
+            `image.original_image` より 1 行 1 列小さい。
+
+        Raises
+        ------
+        ValueError
+            If ``bg_method`` is ``'tophat'``, which uses no fiber mask, if
+            `image.original_image` is None, or if `fiber_mask` has another
+            shape.
+
+        Notes
+        -----
+        Everything except the mask is computed as by `__call__` with the same
+        settings: the given mask takes the place of the one `_bg_generate`
+        builds from the gradient ridges, and the fill, the smoothing and the
+        subtraction follow unchanged. This is how a mask corrected by hand is
+        turned into a background correction (the bundle editor, GUI06).
+        マスク以外は、同じ設定の `__call__` と同じように計算する。与えたマスクが、
+        `_bg_generate` が勾配リッジから作るマスクに取って代わり、充填・平滑化・減算は
+        そのまま続く。手で直したマスクを背景補正に反映するための入口である
+        （バンドル編集ツール GUI06）。
+        """
+        if self.bg_method == 'tophat':
+            raise ValueError("bg_method 'tophat' uses no fiber mask")
+        if image.original_image is None:
+            raise ValueError(
+                "BGCalibrator requires image.original_image; "
+                "construct ProcessedImage with the raw AFM height array."
+            )
+        mask = np.asarray(fiber_mask, dtype=bool)
+        expected = tuple(size - 1 for size in np.asarray(image.original_image).shape)
+        if mask.shape != expected:
+            raise ValueError(
+                f"fiber_mask shape {mask.shape} differs from the corrected "
+                f"image shape {expected}"
+            )
+        self._given_fiber_mask = mask
+        try:
+            self(image)
+        finally:
+            self._given_fiber_mask = None
 
     def _detect_fiber_mask(self, original: np.ndarray) -> None:
         """
@@ -1524,6 +1590,13 @@ class BGCalibrator:
             fiber_mask = cv2.dilate(raw_mask.astype(np.uint8), kernel).astype(bool)
         else:
             fiber_mask = raw_mask
+
+        # A mask the caller supplied replaces the detected one
+        # (`calibrate_with_mask`).
+        # 呼び出し側が与えたマスクが、検出したマスクに取って代わる
+        # （`calibrate_with_mask`）。
+        if self._given_fiber_mask is not None:
+            fiber_mask = self._given_fiber_mask
 
         crop = original[1:, 1:]
         bg_only = np.where(~fiber_mask, crop, float('nan'))

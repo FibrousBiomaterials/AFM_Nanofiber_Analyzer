@@ -363,6 +363,82 @@ SCAN_SIZE_SOURCES = ("input_header", "manifest", "manual")
 # 表しているためである。
 SOURCE_REGION_KEY = "source_region"
 
+# vlmeta key marking a bundle whose arrays a person changed by hand in GUI06
+# (`bundle_edit.save_edited_bundle`). It holds a list with one record per
+# save, oldest first. A record states how the bundle stood when it was saved,
+# in the result names of `bundle_edit.RESULTS`: `edited_layers` (results that
+# hold changes made by hand), `stale_layers` (results not computed again
+# after something they are computed from changed) and `rerun_stages` (stages
+# run again in that session); and where it came from: `source_bundle` and
+# `source_sha256` (the bundle the edit started from), `edited_utc`,
+# `software_version`, and `editor` when a name was entered. A bundle written
+# by the pipeline does not have the key, and its absence means every array is
+# what the analysis computed.
+# The key does not bump `BUNDLE_FORMAT_VERSION`: no array key, shape or unit
+# changes, and a reader measures the arrays as stored whoever placed their
+# values. What the key adds is the statement that the bundle can no longer
+# be reproduced from its input file and `params` alone.
+# GUI06 で人が配列を手で変更したバンドルであることを示す vlmeta キー
+# （`bundle_edit.save_edited_bundle`）。保存 1 回につき 1 件の記録を、古い順の
+# リストで持つ。記録は、保存時のバンドルの状態を、`bundle_edit.RESULTS` の結果の
+# 名前で示す。`edited_layers`（手で変更した内容を持つ結果）、`stale_layers`（計算の
+# 元になるものが変わったあと計算し直していない結果）、`rerun_stages`（その
+# セッションで再実行した段）である。あわせて由来を示す。`source_bundle` と
+# `source_sha256`（編集の元になったバンドル）、`edited_utc`、`software_version`、
+# および名前が入力された場合の `editor` である。パイプラインが書いたバンドルは
+# このキーを持たず、キーが無いことは、すべての配列が解析の計算結果であることを
+# 意味する。
+# このキーで `BUNDLE_FORMAT_VERSION` は上げない。配列キー・形状・単位のいずれも
+# 変わらず、読み取り側は、値を誰が置いたかによらず配列を保存されたとおりに計測する。
+# このキーが加えるのは、そのバンドルがもはや入力ファイルと `params` だけからは
+# 再現できない、という表明である。
+MANUAL_EDIT_KEY = "manual_edit"
+
+# vlmeta key listing the kinks whose angle a person set in GUI06
+# (`bundle_edit.KinkEditor`). Each entry is six integers,
+# ``[kink_x, kink_y, first_x, first_y, second_x, second_y]``: the kink's pixel
+# and the two skeleton pixels of its fiber, one on either side, that the
+# person chose as the ends of its arms. For such a kink `ka` is the angle
+# between its two arms, each running to its end from a point of the fiber's
+# line a set distance from the kink (`bundle_edit.ARM_GAP_WIDTHS`), read at
+# the points of the line that belong to the pixels, and `ke` is pi minus that
+# angle. A kink that is not listed keeps what the kink rule stored: the angle
+# between the arms the rule read, and the excess turning it tested.
+# The entry exists only in a bundle that has `MANUAL_EDIT_KEY`, and like that
+# key it does not bump `BUNDLE_FORMAT_VERSION`: the arrays keep their keys,
+# shapes and units, and it is with this list that a reader can tell which of
+# the two ways an angle was obtained.
+# GUI06 で人が角度を決めたキンクの一覧を持つ vlmeta キー
+# （`bundle_edit.KinkEditor`）。各項目は 6 つの整数
+# ``[kink_x, kink_y, first_x, first_y, second_x, second_y]`` で、キンクの画素と、
+# その繊維のスケルトン画素のうち、人が腕の端として選んだ両側の 2 つである。
+# こうしたキンクでは、`ka` は 2 本の腕のなす角である。各腕は、繊維の線の上で
+# キンクから決まった距離（`bundle_edit.ARM_GAP_WIDTHS`）だけ離れた点から端までで、
+# 画素に対応する線の点で読む。`ke` は pi からその角を引いたものである。一覧に無い
+# キンクは、キンク規則が保存したもの（規則が読んだ腕のなす角と、検定した超過回転）を
+# 保つ。
+# この項目は `MANUAL_EDIT_KEY` を持つバンドルにだけ存在し、そのキーと同じく
+# `BUNDLE_FORMAT_VERSION` は上げない。配列はキー・形状・単位を保ち、角度が 2 通りの
+# どちらで得られたかは、読み取り側がこの一覧で見分けられる。
+KINK_ARMS_KEY = "kink_arms"
+
+# Array key under which a bundle edited in GUI06 stores the fiber mask of its
+# background stage: the pixels the fill excluded as fiber, 1 where masked,
+# with the shape of `calibrated`. The pipeline does not write it, because the
+# mask of an analysis follows from its input file and `params`; a mask a
+# person corrected does not, so the edited bundle carries it
+# (`bundle_edit.BundleEditor.save`). The key exists only in a bundle that has
+# `MANUAL_EDIT_KEY`. It is outside `OPTIONAL_BUNDLE_KEYS`, no reader loads it,
+# and like that key it does not bump `BUNDLE_FORMAT_VERSION`.
+# GUI06 で編集したバンドルが、背景補正の繊維マスクを保存する配列キー。穴埋めが
+# 繊維として除外した画素で、マスクした画素が 1、形状は `calibrated` と同じ。
+# パイプラインはこれを書かない。解析のマスクは入力ファイルと `params` から決まる
+# ためである。人が直したマスクはそうではないので、編集したバンドルがそれを持つ
+# （`bundle_edit.BundleEditor.save`）。このキーは `MANUAL_EDIT_KEY` を持つバンドルに
+# だけ存在する。`OPTIONAL_BUNDLE_KEYS` には含めず、読み取り側はこれを読み込まない。
+# `MANUAL_EDIT_KEY` と同じく `BUNDLE_FORMAT_VERSION` は上げない。
+FIBER_MASK_KEY = "fiber_mask"
+
 # vlmeta key holding the apparent widths the kink rule scaled its lengths by
 # (`centerline.measure_apparent_width`): `median_px`, the median over the
 # traced components; `component_count`; `fallback_count`, how many components

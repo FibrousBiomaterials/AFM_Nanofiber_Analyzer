@@ -211,6 +211,49 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   group already holds is not moved, every move is logged, and when the list
   changes after a result was produced, a note beside the run button and in the
   statistics window says that the histogram has to be created again.
+- GUI06, Bundle Editor (`guis/GUI06_Bundle_Editor.py`), corrects the results
+  of an analysis by hand. It opens one `.b2z` bundle written by GUI01 and
+  draws the result of every stage as layers over one another: the kinks, the
+  centerlines, the skeletonized image, the binarized image, the ridge mask
+  (the fiber mask the background calibration excludes from its fill), the
+  background-corrected image and the original data. Each layer has a checkbox,
+  an opacity slider and a place in the stack that dragging changes. 「鉛筆」
+  and 「消しゴム」 edit the ridge mask and the binarized image, and the
+  skeletonized image takes 「消しゴム」 alone. 「キンク追加」, 「キンク消去」
+  and 「キンク移動」 place kinks on the skeleton pixels of a traced fiber.
+  「キンクの編集」 sets the angle of a kink by two end points dragged along the
+  skeleton: the angle is the one between two arms, each running from the
+  centerline point half an apparent width from the kink to its end point. A
+  kink the analysis found keeps the stored angle until an end point is moved.
+  The buttons after 「再実行」 run one stage again on the results as they stand
+  (ridge mask detection, background correction, binarization, skeletonization,
+  kink detection), and 「設定…」 changes the parameters of background
+  correction and binarization. A result is marked 「古い」 when something it is
+  computed from has changed since. 「元に戻す」 and 「やり直す」 cover every
+  change. 「編集を保存…」 writes a bundle and its `_param.json` under another
+  name, by default with `_edited` appended; a bundle written by the analysis
+  is never overwritten. The original data comes from the bundle's `original`
+  key or from the input file in the bundle's folder, which is checked against
+  the recorded SHA-256 digest; without it the ridge mask cannot be detected
+  again and the background correction cannot be run again. Only a bundle of
+  the current format can be edited. Analysis results do not change.
+- A bundle saved by GUI06 records the edit without a new format version, in
+  three additions: the metadata entry `manual_edit` (one record per save: the
+  results changed by hand, the results that were not computed again after
+  something they are computed from changed, the stages run again, the bundle
+  the edit started from, the time, the release and, when entered, the name of
+  the editor), the metadata entry `kink_arms` (the kinks whose angle was set
+  by end points; for these `ka` is the angle between the arms and `ke` is π
+  minus it) and the array key `fiber_mask` (the ridge mask). GUI02 to GUI05
+  and `cli.py` read such a bundle as they read any other and do not mark it
+  as edited. GUI03 and GUI04 judge the kinks again by the kink rule on a
+  fibril reconnected from fragments and on a sub-fiber cut out by the height
+  filter, so a kink placed by hand on such a fiber is not carried over.
+- `BGCalibrator.calibrate_with_mask` repeats the background calibration with a
+  given fiber mask in place of the detected one, for the `trendfill` and
+  `spline1d` methods. GUI06 uses it to apply a ridge mask corrected by hand,
+  and `afm_nanofiber_analyzer/bundle_edit.py` holds the part of the editor
+  that does not depend on the GUI. Analysis results do not change.
 
 ### Changed
 

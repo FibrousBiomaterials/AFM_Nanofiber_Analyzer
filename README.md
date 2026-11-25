@@ -9,7 +9,8 @@
 AFM Nanofiber Analyzer is a tkinter-based desktop toolkit for preprocessing
 atomic force microscopy (AFM) height images and inspecting nanofiber morphology.
 It provides a plugin launcher, a preprocessing pipeline, profile and histogram
-tools, and a fiber-tracking viewer for bundle files produced by the pipeline.
+tools, a fiber-tracking viewer for bundle files produced by the pipeline, and
+an editor for correcting those results by hand.
 
 It is intended for materials-science and polymer researchers — in particular
 those studying cellulose and other nanofibers — who need consistent,
@@ -869,6 +870,93 @@ from the bundles for the sheet rather than enlarged from the thumbnails. The
 window has no print command: with "Open after saving" the saved sheet opens in
 the system's default application, and it is printed from there.
 
+### Bundle Editor — `guis/GUI06_Bundle_Editor.py`
+
+Correct an analysis by hand where the algorithms get it wrong. The window
+opens one `.b2z` bundle written by GUI01, draws the result of every analysis
+stage as layers over one another, lets the ridge mask, the binarized image,
+the skeleton and the kinks be edited, runs the stages again on the edited
+results, and saves the outcome as a new bundle that records that a person
+changed it. The bundle the analysis wrote is never overwritten.
+
+The layers are, from the top, the kinks (with the bends the kink rule measured
+and did not judge, drawn hollow), the centerlines, the skeletonized image, the
+binarized image, the ridge mask, the background-corrected image and the
+original data; the binarized image, the ridge mask and the original data start
+hidden. Each row of the layer list has a checkbox that shows or hides the
+layer and an opacity slider, and dragging a row changes the stacking order.
+Height images are drawn in grey, and a mask is drawn in one color where it is
+set and is transparent elsewhere. The mouse wheel zooms, dragging with the
+right or middle button moves the view, and "Show Whole Image" returns to the
+full image.
+
+The ridge mask is the fiber mask the background calibration excludes from its
+fill (`trendfill` and `spline1d`; `tophat` uses none). A bundle written by
+GUI01 does not store it, and stores the original data only when "Save original
+data during analysis" was on. The original data is taken from the bundle's
+`original` key or, without one, from the input file the bundle records, when a
+file of that name is in the bundle's folder; a file whose SHA-256 digest
+differs from the recorded one is refused. The ridge mask is then obtained by
+repeating the background calibration with the recorded settings, and the log
+says when the repeated calibration does not reproduce the stored `calibrated`
+image, because the mask shown is then not the one the analysis used. Without
+the original data its layer is left out, the ridge mask cannot be detected
+again, and the background calibration cannot be run again.
+
+Clicking the name of a layer makes it the one the tools act on. The kinks, the
+skeletonized image, the binarized image and the ridge mask can be edited; the
+original data, the background-corrected image and the centerlines are shown
+only. "Pencil" adds the pixels dragged over to the ridge mask or the binarized
+image and "Eraser" removes them, with a brush 1 to 99 pixels across. The
+skeletonized image takes the eraser only, so that its lines stay one pixel
+wide. After the skeleton changes, the fibers are traced again in the
+background. "Undo" and "Redo" step through every change, including a stage
+that was run again and a change of settings.
+
+Kinks are added, erased and moved on the skeleton pixels of a traced fiber,
+which is where a bundle stores them; the first and last pixel of a fiber take
+none. "Erase Kink" also removes a bend the kink rule did not judge, and a kink
+added on such a bend replaces it. "Edit Kink" shows, in red, the two end
+points that set the angle of the kink that is clicked, and they are dragged
+along the skeleton. The angle is the one between two arms, measured on the
+centerline: each arm starts half an apparent width W from the kink (nearer
+when its end point is closer than W) and runs to its end point. The end points
+start 1.5 W from the kink, or at the end of the fiber or at the next kink or
+unjudged bend when that comes first. A kink the analysis found keeps the angle
+and the excess turning the kink rule stored (`ka`, `ke`) until one of its end
+points is moved; its end points are drawn dashed until then. For a kink whose
+angle was set by its end points, `ka` is the angle between the arms and `ke`
+is π minus it. The two angles are defined differently, so the saved bundle
+lists the kinks of the second kind (`kink_arms`, see Data Format).
+
+The buttons after "Re-run" run one stage again on the results as they stand:
+"Ridge mask detection" (from the original data), "Background correction" (from
+the original data, with the current ridge mask for the methods that use one),
+"Binarization" (from the background-corrected image), "Skeletonization" (from
+the binarized image) and "Kink detection" (from the skeletonized and the
+background-corrected image). "Settings…" beside background correction and
+binarization changes the parameters of that stage, which are the ones GUI01
+offers for it. A result is marked "Stale" in the layer list when something it
+is computed from has changed and its stage has not been run since. A stage
+that would replace changes made by hand asks first.
+
+"Save Edits…" writes a bundle and its `_param.json` under a name of the user's
+choice, by default the opened bundle's name followed by `_edited`, and then
+opens the saved bundle. Only a bundle of the current format can be edited; an
+older one is shown, and is analyzed again in GUI01 to be edited. The saved
+bundle has the array keys of a GUI01 bundle, with the branch points and end
+points of the skeleton as edited, so the other tools and `cli.py` read it as
+they read any bundle; they do not mark it as edited. Its metadata records the
+edit (`manual_edit`, see Data Format), with the name entered under "Editor
+(optional)" when there is one. Results still marked "Stale" can be saved after
+a confirmation, and the record names them.
+
+GUI03 and GUI04 keep a kink placed by hand on a fiber they take from the
+bundle as stored. They judge the kinks again by the kink rule on a track the
+bundle does not contain — a fibril reconnected from fragments, or a sub-fiber
+cut out by the height filter — so a kink placed by hand on such a fiber is not
+carried over.
+
 ## Supported Input Formats
 
 `afm_nanofiber_analyzer/afm_io.py` loads text/CSV height exports and auto-detects the header
@@ -976,7 +1064,8 @@ path shared by GUI01 and `cli.py` — which applies `BGCalibrator`, `Segmenter`,
 `<input_stem>.b2z` compressed TreeStore bundle and one
 `<input_stem>_param.json` per input. The Plot Profiler (GUI02), Fiber Morphology
 Statistics (GUI03), Fiber Tracker (GUI04), and Thumbnail Viewer (GUI05) then
-read those bundles.
+read those bundles. The Bundle Editor (GUI06) opens one bundle and saves a
+copy corrected by hand, which the same tools read.
 
 The preprocessing parameters are stored in the generated
 `<input_stem>_param.json` file. They cover background calibration, segmentation,
@@ -1227,6 +1316,24 @@ GUI01 also writes `<input_stem>_param.json` for analysis parameters. The raw
 AFM image is not duplicated in the bundle by default because it can be
 reloaded from the source input file.
 
+### Bundles edited by hand
+
+A bundle saved by the Bundle Editor (GUI06) has the array keys above and the
+same format version, and three additions that a bundle written by the analysis
+does not have:
+
+| Where | Key | Content |
+|---|---|---|
+| metadata | `manual_edit` | A list with one record per save, oldest first. A record names the results that hold changes made by hand (`edited_layers`), the results that had not been computed again after something they are computed from changed (`stale_layers`), and the stages run again in that session (`rerun_stages`). Results are named `fiber_mask`, `calibrated`, `binarized`, `skeletonized` and `kinks`; stages are named `mask`, `bg`, `binarize`, `skeletonize` and `kink`. It also records the bundle the edit started from (`source_bundle`, `source_sha256`), the time (`edited_utc`), the release (`software_version`) and, when a name was entered, the `editor`. |
+| metadata | `kink_arms` | The kinks whose angle a person set, each as `[kink_x, kink_y, first_x, first_y, second_x, second_y]`: the pixel of the kink and the two skeleton pixels chosen as the ends of its arms. For these kinks `ka` is the angle between the two arms and `ke` is π minus it; every other kink keeps what the kink rule stored. |
+| array | `fiber_mask` | `(H, W)`, nonzero = masked. The ridge mask of the background calibration, stored when it is known to belong to the bundle: it was edited, detected or used in the session, the opened bundle stored it, or the repeated calibration reproduced the stored heights with it. Only GUI06 reads it. |
+
+The presence of `manual_edit` states that the bundle can no longer be
+reproduced from its input file and `params` alone. These keys do not raise the
+format version, because no array of a GUI01 bundle changes its key, shape or
+unit. `cli.py validate` accepts an edited bundle, and `cli.py export` writes
+the additions with the rest.
+
 ### Exporting bundles to standard formats
 
 `.b2z` is a project-specific container. To use analysis results outside this
@@ -1252,7 +1359,8 @@ The application separates GUI plugins from the reusable modules they call:
   and shared UI helpers.
 
 GUI01 writes one compressed `.b2z` bundle per analyzed input file. Downstream
-GUIs read those bundles directly.
+GUIs read those bundles directly. GUI06 saves a bundle corrected by hand under
+another name and never overwrites the one GUI01 wrote.
 
 ## Selected Directory Structure
 
@@ -1278,12 +1386,14 @@ AFM_Nanofiber_Analyzer/
 |   |-- GUI03_Fiber_Morphology_Statistics.py
 |   |-- GUI04_Tracking_fiber.py
 |   |-- GUI05_Thumbnail_Viewer.py
+|   |-- GUI06_Bundle_Editor.py
 |   `-- __init__.py
 |-- afm_nanofiber_analyzer/
 |   |-- afm_io.py
 |   |-- bg_calibrator.py
 |   |-- bg_calibrator_shimadzu.py
 |   |-- blosc2_io.py
+|   |-- bundle_edit.py
 |   |-- bundle_schema.py
 |   |-- fiber.py
 |   |-- fiber_tracking_image.py
@@ -1331,9 +1441,10 @@ Markdown documentation such as this README's Japanese counterpart, `README.ja.md
 | Module | Main contents |
 |---|---|
 | `afm_nanofiber_analyzer/afm_io.py` | Text/CSV AFM loader with automatic header, column, and encoding detection, explicit format override, and layout-consistency verification. |
-| `afm_nanofiber_analyzer/bg_calibrator.py` | `BGCalibrator`, with `trendfill`, `tophat`, and `spline1d` background methods (`inpaint` is the retired name for `trendfill` and is still accepted in saved parameter files; `spline2d` was removed after 1.0.0). |
+| `afm_nanofiber_analyzer/bg_calibrator.py` | `BGCalibrator`, with `trendfill`, `tophat`, and `spline1d` background methods (`inpaint` is the retired name for `trendfill` and is still accepted in saved parameter files; `spline2d` was removed after 1.0.0). `BGCalibrator.calibrate_with_mask` repeats the calibration with a given fiber mask in place of the detected one, for GUI06. |
 | `afm_nanofiber_analyzer/bg_calibrator_shimadzu.py` | Compatibility shim keeping the historical `BG_Calibrator_shimadzu` name importable. |
 | `afm_nanofiber_analyzer/blosc2_io.py` | Blosc2 array storage and `.b2z` TreeStore bundle helpers. |
+| `afm_nanofiber_analyzer/bundle_edit.py` | GUI-independent state of the Bundle Editor (GUI06): finding the original data of a bundle and recomputing its ridge mask (`load_edit_session`), hand edits of the masks and kinks with undo and re-running single analysis stages on the edited results (`BundleEditor`, `KinkEditor`), and saving an edited bundle with its `manual_edit` record (`save_edited_bundle`). |
 | `afm_nanofiber_analyzer/bundle_schema.py` | Executable `.b2z` contract: required keys, array shapes, value ranges, units, coordinate convention, and format version, with `validate_bundle` enforcing them at write and load time. |
 | `afm_nanofiber_analyzer/connect_selection.py` | Fiber-connection results stored in `<stem>_connect.json` beside the bundle: written by GUI04, applied by `afm_nanofiber_analyzer/measure.py`. What is stored is which fragments are joined, in what order and orientation — named by anchor pixels, with a fingerprint of the skeleton they were found on, so a re-analyzed bundle is refused rather than measured against a plan describing a skeleton it no longer has. Whether a join was automatic or manual is deliberately not recorded. |
 | `afm_nanofiber_analyzer/fiber.py` | Immutable `Fiber` dataclass for fiber geometry, height profile, kink indices, and endpoint indices. |

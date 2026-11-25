@@ -824,8 +824,16 @@ additional files and keep at least these files consistent:
 - `guis/GUI03_Fiber_Morphology_Statistics.py`
 - `guis/GUI04_Tracking_fiber.py`
 - `guis/GUI05_Thumbnail_Viewer.py`
+- `guis/GUI06_Bundle_Editor.py` and `afm_nanofiber_analyzer/bundle_edit.py`
+  (the editor reads every array key and writes an edited bundle)
 - `afm_nanofiber_analyzer/blosc2_io.py`
 - `README.md` / `README.ja.md`
+
+A bundle saved by GUI06 keeps the format version and adds the vlmeta entries
+`MANUAL_EDIT_KEY` and `KINK_ARMS_KEY` and the array key `FIBER_MASK_KEY`
+(`bundle_schema.py`, where each is described). They mark a bundle that can no
+longer be reproduced from its input file and `params` alone; a bundle written
+by the pipeline never has them.
 
 ### 8.3 GUI-specific data expectations
 
@@ -865,6 +873,21 @@ additional files and keep at least these files consistent:
   `SheetLayout.cell_parts`, so a setting that changes the sheet changes the
   screen with it; keep new sheet elements in that one geometry. Dropping files
   needs the `tkinterdnd2` package, and the window opens without it.
+- GUI06 expects one GUI01 `.b2z` bundle and is the only plugin besides GUI01
+  that runs analysis stages and writes a bundle. Its state and every
+  computation are in `afm_nanofiber_analyzer/bundle_edit.py`; the plugin file
+  draws and handles events. It shows the stored arrays as layers, with the raw
+  data (the `original` key, or the recorded input file in the bundle's folder
+  unless its SHA-256 digest differs from the recorded one) and the ridge mask,
+  which it obtains by repeating the background stage with the recorded
+  settings. It edits the ridge mask, `binarized`, `skeletonized` and the
+  kinks, runs single stages again on the edited results, and saves under
+  another name: `save_edited_bundle` refuses to overwrite a bundle that has no
+  `MANUAL_EDIT_KEY` record. Only a bundle of the current format is edited; an
+  older one is shown. A stage run again on unchanged results has to give the
+  stored arrays (`tests/test_bundle_editor.py`), so the editor calls the stage
+  objects of `pipeline.build_stages` as `process_file` does and builds its
+  fibers with `measure.load_tracking_image`; do not reimplement either there.
 
 ### 8.4 Long-running GUI work
 
@@ -915,10 +938,11 @@ changing what it does. Keep a note in this table to one or two sentences.
 | Module | Public API | Notes |
 |---|---|---|
 | `afm_io.py` | `load_afm_text`, `load_afm_image`, `detect_afm_format`, `read_scan_size`, `AfmTextFormat`, `ScanSize`, `FORMAT_KINDS` | Loads AFM text/CSV as NumPy array; auto-detects header rows, column count, and encoding. `detect_afm_format` reports the detected layout without loading the data. `read_scan_size` reads the physical scan size from the instrument header (Shimadzu `SizeX`/`SizeY`) when present. `load_afm_image` and `read_scan_size` dispatch `.gwy` paths to `gwy_io.py` (importing `gwyfile` only there), so callers handle text and `.gwy` inputs uniformly. |
-| `bg_calibrator.py` | `BGCalibrator`, `BG_METHOD_NAMES`, `BG_METHOD_ALIASES`, `BG_METHOD_REMOVED`, `canonical_bg_method` | See §8.1 for `bg_method` options. `BG_METHOD_NAMES` is the canonical method list; `canonical_bg_method` translates a retired spelling from `BG_METHOD_ALIASES` so a `_param.json` written by an older version still loads. `BG_METHOD_REMOVED` maps a deleted method to the message shown when a stored parameter file still selects it; removed methods are reported, never aliased to a survivor. |
+| `bg_calibrator.py` | `BGCalibrator`, `BG_METHOD_NAMES`, `BG_METHOD_ALIASES`, `BG_METHOD_REMOVED`, `canonical_bg_method` | See §8.1 for `bg_method` options. `BG_METHOD_NAMES` is the canonical method list; `canonical_bg_method` translates a retired spelling from `BG_METHOD_ALIASES` so a `_param.json` written by an older version still loads. `BG_METHOD_REMOVED` maps a deleted method to the message shown when a stored parameter file still selects it; removed methods are reported, never aliased to a survivor. `BGCalibrator.calibrate_with_mask` repeats the calibration with a given fiber mask in place of the detected one; only `bundle_edit.py` calls it, for GUI06, and it is covered by §8.13 like the rest of the module. |
 | `bg_calibrator_shimadzu.py` | `BG_Calibrator_shimadzu` | Compatibility shim; alias of `BGCalibrator`. Do not add new code here. |
 | `blosc2_io.py` | `save_blosc2`, `load_blosc2`, `save_bundle`, `load_bundle` | |
-| `bundle_schema.py` | `validate_bundle`, `BUNDLE_FORMAT_VERSION`, `SUPPORTED_BUNDLE_VERSIONS`, `REQUIRED_BUNDLE_KEYS`, `OPTIONAL_BUNDLE_KEYS`, `TRACKING_BUNDLE_KEYS`, `SPATIAL_CALIBRATION_KEY`, `SOURCE_REGION_KEY`, `PARAMS_KEY`, `SCAN_SIZE_SOURCES`, `make_spatial_calibration`, `scan_size_um_from_meta`, `pixel_size_nm`, `pixel_aspect`, `pixel_aspect_from_meta`, `kink_params_from_meta`, `HALF_MAX_CENTERLINE_VERSIONS`, `CENTERLINE_KEY_VERSIONS`, `PHYSICAL_GEOMETRY_VERSIONS`, `NEAREST_PEAK_WIDTH_VERSIONS`, `width_peak_from_meta`, `ADAPTIVE_WIDTH_RANGE_VERSIONS`, `width_range_adaptive_from_meta`, `SYMMETRIC_SECTION_VERSIONS`, `symmetric_section_from_meta`, `CENTERLINE_KEY`, `centerline_from_meta`, `APPARENT_WIDTH_KEY`; deprecated alias `PIXEL_LENGTHS_KEY` (removed in 3.0.0) | Executable `.b2z` contract (§8.2): keys, shapes, units, format version, validation, and the `*_from_meta` readers that say how each older format was analyzed; readers take every analysis setting from the bundle, never from `_param.json`. Depends only on NumPy. |
+| `bundle_edit.py` | `EditSession`, `RawHeight`, `BackgroundRebuild`, `load_edit_session`, `find_raw_height`, `load_input_height`, `align_raw`, `rebuild_background`, `trace_fibers`, `fiber_line`, `fiber_pixels`, `arm_angle`, `KinkEditor`, `BundleEditor`, `edited_path_for`, `save_edited_bundle`, `EDITED_SUFFIX`, `RESULTS`, `DOWNSTREAM`, `STAGE_RESULT`, `PAINTABLE`, `MASK_BG_METHODS`, `ARM_GAP_WIDTHS`, `DEFAULT_ARM_WIDTHS` | GUI-independent state of GUI06 (§8.3): the raw data and ridge mask of a bundle, hand edits of masks and kinks with undo, single stages run again on the edited results, and the edited bundle with its `MANUAL_EDIT_KEY` record. **Kinks stay on skeleton pixels of a traced fiber**, and the names a record holds (`RESULTS`, the stage keys) are frozen like `ProcParams` field names (§8.1). |
+| `bundle_schema.py` | `validate_bundle`, `BUNDLE_FORMAT_VERSION`, `SUPPORTED_BUNDLE_VERSIONS`, `REQUIRED_BUNDLE_KEYS`, `OPTIONAL_BUNDLE_KEYS`, `TRACKING_BUNDLE_KEYS`, `SPATIAL_CALIBRATION_KEY`, `SOURCE_REGION_KEY`, `PARAMS_KEY`, `SCAN_SIZE_SOURCES`, `make_spatial_calibration`, `scan_size_um_from_meta`, `pixel_size_nm`, `pixel_aspect`, `pixel_aspect_from_meta`, `kink_params_from_meta`, `HALF_MAX_CENTERLINE_VERSIONS`, `CENTERLINE_KEY_VERSIONS`, `PHYSICAL_GEOMETRY_VERSIONS`, `NEAREST_PEAK_WIDTH_VERSIONS`, `width_peak_from_meta`, `ADAPTIVE_WIDTH_RANGE_VERSIONS`, `width_range_adaptive_from_meta`, `SYMMETRIC_SECTION_VERSIONS`, `symmetric_section_from_meta`, `CENTERLINE_KEY`, `centerline_from_meta`, `APPARENT_WIDTH_KEY`, `MANUAL_EDIT_KEY`, `KINK_ARMS_KEY`, `FIBER_MASK_KEY`; deprecated alias `PIXEL_LENGTHS_KEY` (removed in 3.0.0) | Executable `.b2z` contract (§8.2): keys, shapes, units, format version, validation, and the `*_from_meta` readers that say how each older format was analyzed; readers take every analysis setting from the bundle, never from `_param.json`. Depends only on NumPy. |
 | `connect_selection.py` | `CONNECT_SUFFIX`, `CONNECT_FORMAT`, `CONNECT_VERSION`, `CONNECT_PARAM_FIELDS`, `ChainMember`, `ConnectionPlan`, `connect_path_for`, `skeleton_digest`, `params_to_dict`, `params_from_dict`, `plan_from_chains`, `resolve_plan_chains`, `plan_with_chain`, `plan_without_anchors`, `plan_without_junctions`, `plan_state_key`, `load_connect_plan`, `save_connect_plan` | Fiber-connection **result** in `<stem>_connect.json`, written with the exclusion sidecar by GUI04's 「除外・連結を保存」 and applied by `measure.curate_fibers`: the join structure the user accepted (one chain of `(anchor pixel, flip)` per fibril), never re-derived by searching. `CONNECT_PARAM_FIELDS` names are frozen (§8.1). |
 | `fiber.py` | `Fiber`, `skeleton_track` | Immutable per-fiber dataclass. `xtrack` / `ytrack` are the line the fiber is measured along; **everything that identifies a fiber (anchors, track pixels, branch-point and frame tests) reads `skeleton_track`, never the drawn line**. |
 | `centerline.py` | `place_centerline`, `CenterlineResult`, `half_max_centerline`, `refine_centerline`, `measure_apparent_width`, `polyline_distance`, `sample_height`, `WIDTH_PEAK_NEAREST`, `WIDTH_PEAK_GLOBAL`, `WIDTH_PEAKS`, `HALF_MAX_025W_CENTERLINE`, `SKELETON_TRACK`, `FALLBACK_WIDTH_PX`, `CENTERLINE_METHODS`, `DEFAULT_CENTERLINE_METHOD`, `SKELETON_PIXEL_LINE`, `SMOOTHED_SKELETON_05W`, `SMOOTHED_SKELETON_1W`, `HALF_MAX_05W_CENTERLINE`, `QUARTER_MAX_CENTERLINE`, `CENTROID_CENTERLINE`, `CREST_CENTERLINE`, `PIXEL_CHAIN_LINES`, `is_pixel_chain_line`, `is_placed_line`; deprecated alias `HALF_MAX_CENTERLINE` (removed in 3.0.0) | The single definition of each selectable centerline (`place_centerline(method=...)`), of the apparent width W and of the crest height. **Do not change the default without re-running the comparison in `docs/validation.md` §4.2–§4.3**: every result of a default analysis moves with it. Covered by §8.13. Depends only on NumPy. |
@@ -1391,6 +1415,11 @@ GUI02–GUI05, and the bundle-reading commands of `cli.py` — measures that rec
 as stored. It never runs a stage that produces or rewrites the stored arrays:
 background calibration, segmentation, skeletonization or any of its cleanup
 passes, `pipeline.process_file`, `pipeline.build_stages`.
+
+GUI06 and `afm_nanofiber_analyzer/bundle_edit.py` are not readers in this
+sense. They exist to change the stored arrays and to run stages when the user
+asks, and what they save is a different bundle that says so (`MANUAL_EDIT_KEY`,
+§8.3); they never write over the record of an analysis.
 
 The reason is what happened without the rule. A loop-collapse and spur-prune
 pass was added to `FiberTrackingImage` so that bundles written before the

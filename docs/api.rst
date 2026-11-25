@@ -102,6 +102,13 @@ Measurement
    :members:
    :show-inheritance:
 
+Editing bundles by hand
+-----------------------
+
+.. automodule:: afm_nanofiber_analyzer.bundle_edit
+   :members:
+   :show-inheritance:
+
 Support modules
 ---------------
 

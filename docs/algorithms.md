@@ -618,6 +618,20 @@ else:
     fiber_mask = raw_mask
 ```
 
+A caller can also supply the mask itself. `BGCalibrator.calibrate_with_mask`
+runs the same correction with a given mask, which takes the place of the
+detected, cleaned and dilated one at this point; Step 3<!--n:label--> then follows
+unchanged. The given mask is used as it is, without the cleanup or the dilation
+above. The bundle editor (`guis/GUI06_Bundle_Editor.py`) uses this to repeat the
+correction with a mask corrected by hand; the analysis itself never supplies
+one.
+
+```python
+# source: afm_nanofiber_analyzer/bg_calibrator.py::BGCalibrator._bg_generate
+if self._given_fiber_mask is not None:
+    fiber_mask = self._given_fiber_mask
+```
+
 #### Step 3 — Fill, smooth, subtract
 
 The holes are filled from their **nearest background pixel**, found with
