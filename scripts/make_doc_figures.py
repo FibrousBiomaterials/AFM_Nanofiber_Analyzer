@@ -16,11 +16,12 @@ about that fiber and fail to build when they no longer hold.
 
 The PNG files are written to ``docs/images/`` and are shared by
 ``docs/algorithms.md`` and ``docs/algorithms.ja.md``; their labels are fixed
-English, as for every plot in this project. The exceptions are the three
-figures explaining the kink rule that carry several sentences of reading
+English, as for every plot in this project. The exceptions are the figures
+explaining the kink rules that carry several sentences of reading
 instructions and are drawn once in each language (``kink_point_angles``,
-``kink_heading`` and ``kink_real_fiber``, with ``.ja.png`` for Japanese);
-the Japanese ones need a Japanese font.
+``kink_heading``, ``kink_real_fiber``, ``polyline_steps`` and
+``polyline_angles``, with ``.ja.png`` for Japanese); the Japanese ones need a
+Japanese font.
 各図は、文書が説明するコードに合成の高さ画像や線を通して描くため、そのコードが
 変わったときはいつでも作り直せる。
 
@@ -30,10 +31,10 @@ the Japanese ones need a Japanese font.
 作れない。
 
 PNG は ``docs/images/`` に書き出し、英語版と日本語版の両方が共有する。図中の
-文字は、このプロジェクトの他の図と同じく英語で固定する。例外はキンク規則を
-説明する 3 つの図で、読み方の文をいくつも含むため言語ごとに描く
-（``kink_point_angles``・``kink_heading``・``kink_real_fiber``。日本語版は ``.ja.png``）。
-日本語版には日本語フォントが要る。
+文字は、このプロジェクトの他の図と同じく英語で固定する。例外はキンクの規則を
+説明する図で、読み方の文をいくつも含むため言語ごとに描く
+（``kink_point_angles``・``kink_heading``・``kink_real_fiber``・``polyline_steps``・
+``polyline_angles``。日本語版は ``.ja.png``）。日本語版には日本語フォントが要る。
 """
 
 # ===== Standard library =====
@@ -55,6 +56,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
 # ===== Project libraries =====
+from afm_nanofiber_analyzer import imp_tools  # noqa: E402
 from afm_nanofiber_analyzer import kink_detector as kd  # noqa: E402
 from afm_nanofiber_analyzer.skeletonizer import (  # noqa: E402
     DEFAULT_BORDER_PAD,
@@ -1767,6 +1769,385 @@ def _draw_point_angles(path, lang):
         plt.close(fig)
 
 
+def _font_context(lang):
+    """
+    Matplotlib settings that give a Japanese figure a Japanese font.
+    日本語の図に日本語フォントを与える Matplotlib の設定。
+    """
+    if lang != "ja":
+        return {}
+    from matplotlib import font_manager
+    available = {f.name for f in font_manager.fontManager.ttflist}
+    family = next((name for name in _JAPANESE_FONTS if name in available), None)
+    if family is None:
+        raise RuntimeError("no Japanese font found for the Japanese figure")
+    return {"font.family": family}
+
+
+def _polyline_rule_track():
+    """
+    Trace a synthetic skeleton and judge it by the polyline rule.
+    合成のスケルトンをたどり、折れ線規則で判定する。
+
+    The skeleton is thinned from a band drawn along a hand-made path: a short
+    hook at one end, a straight run, an arc of radius 18 px, a straight run, a
+    corner and a straight run. It is traced with the `imp_tools` steps that
+    precede the rule and judged by `KinkDetector.kinks_and_decomposed_from_track`
+    with the detector's default thresholds.
+    スケルトンは、手で決めた経路に沿った帯を細線化して作る。経路は、一方の端の
+    短い折れ返し、直線、半径 18 px の円弧、直線、角、直線である。規則の前に
+    行う `imp_tools` の手順でたどり、検出器の既定のしきい値で
+    `KinkDetector.kinks_and_decomposed_from_track` が判定する。
+
+    Returns
+    -------
+    dict
+        ``x`` / ``y`` (the track), ``kinks`` and ``decomposed`` (indices into
+        the track), ``detector``, and ``arc`` (points of the arc, used to check
+        that a vertex lies on it).
+        ``x`` / ``y``（トラック）、``kinks`` と ``decomposed``（トラックの
+        インデックス）、``detector``、``arc``（円弧の点。頂点が円弧の上に
+        あることの確認に使う）。
+    """
+    corner = np.array([6.0, 66.0])
+    p1 = np.array([56.0, 57.0])
+    h0 = np.deg2rad(-75.0)
+    p2 = p1 + 30.0 * np.array([np.cos(h0), np.sin(h0)])
+    h1 = np.deg2rad(-5.0)
+    hs = np.linspace(h0, h1, 300)
+    step = 18.0 * (h1 - h0) / (hs.size - 1)
+    arc = p2 + np.cumsum(step * np.stack([np.cos(hs), np.sin(hs)], axis=1), axis=0)
+    tail_end = arc[-1] + 26.0 * np.array([np.cos(h1), np.sin(h1)])
+    h2 = h1 + np.deg2rad(60.0)
+    hook_end = tail_end + 6.0 * np.array([np.cos(h2), np.sin(h2)])
+    path = np.concatenate([np.linspace(corner, p1, 300), np.linspace(p1, p2, 200), arc,
+                           np.linspace(arc[-1], tail_end, 150),
+                           np.linspace(tail_end, hook_end, 80)])
+    yy, xx = np.mgrid[0:80, 0:124]
+    d2 = (xx[..., None] - path[:, 0]) ** 2 + (yy[..., None] - path[:, 1]) ** 2
+    skeleton = thin(d2.min(axis=2) < 2.3 ** 2).astype(np.uint8)
+    traceable = imp_tools.remove_Lcorner(imp_tools.remove_bp(skeleton))
+    if cv2.connectedComponents(traceable)[0] != 2:
+        raise RuntimeError("the polyline figure's skeleton is no longer one line")
+    x, y = imp_tools.tracking(traceable)
+    detector = kd.KinkDetector()
+    kinks, _, decomposed = detector.kinks_and_decomposed_from_track(x, y)
+    return dict(x=np.asarray(x, float), y=np.asarray(y, float), kinks=kinks,
+                decomposed=decomposed, detector=detector, arc=arc)
+
+
+def _polyline_steps(x, y, distance, decomposed):
+    """
+    Record each vertex `KinkDetector._binary_decompose_simple` inserts.
+    `KinkDetector._binary_decompose_simple` が加える頂点を 1 つずつ記録する。
+
+    Notes
+    -----
+    The function returns only the final vertices, so its loop is repeated here
+    with the steps kept, and the result is checked against the vertices the
+    function returned, so the figure cannot drift from the code.
+    関数は最終的な頂点しか返さないため、ここで同じループを手順を残して繰り返し、
+    結果を関数が返した頂点と照合して、図がコードからずれないようにする。
+
+    Returns
+    -------
+    tuple
+        ``(steps, final)``: for each insertion the vertices before it, the
+        chord tested and the farthest point with its distance; and for the
+        final polyline each chord with its farthest point and distance.
+        ``(steps, final)``。各挿入について、その前の頂点、調べた弦、いちばん遠い
+        点とその距離。最終の折れ線について、各弦といちばん遠い点とその距離。
+    """
+    vertices = [0, x.size - 1]
+    steps = []
+    while True:
+        chords = []
+        inserted = False
+        for n, (i, j) in enumerate(zip(vertices[:-1], vertices[1:])):
+            if j - i < 2:
+                continue
+            ab = np.array([x[j] - x[i], y[j] - y[i]])
+            length = float(np.hypot(*ab))
+            if length == 0.0:
+                continue
+            dist = np.abs(ab[0] * (y[i + 1:j] - y[i]) - ab[1] * (x[i + 1:j] - x[i])) / length
+            k = int(dist.argmax())
+            if dist[k] == 0:
+                continue
+            if dist[k] >= distance:
+                steps.append(dict(before=list(vertices), chord=(i, j), far=k + i + 1,
+                                  distance=float(dist[k])))
+                vertices = vertices[:n + 1] + [k + i + 1] + vertices[n + 1:]
+                inserted = True
+                break
+            chords.append((i, j, k + i + 1, float(dist[k])))
+        if not inserted:
+            break
+    if not np.array_equal(np.array(sorted(vertices)), decomposed):
+        raise RuntimeError("figure no longer matches KinkDetector._binary_decompose_simple")
+    return steps, chords
+
+
+_POLYLINE_TEXT = {
+    "en": dict(
+        step="Step %d: the pixel farthest from the thick chord (indices %d–%d) lies %.1f px away;\n"
+             "that is %g px or more, so index %d becomes a vertex",
+        done="Done: on every chord the farthest pixel lies less than %g px away;\n"
+             "%d vertices (indices %s)",
+        index="index %d", far="max %.1f px",
+        steps_key="grey: skeleton track   blue: polyline and its vertices   "
+                  "orange: the farthest pixel of a chord and its distance to the chord",
+        angles_title="At each interior vertex: the interior angle φ between the edges to its "
+                     "neighbouring vertices",
+        vertex="index %d:  φ = %.0f°\n180° − φ = %.0f°,  2d/A = %.0f°",
+        kink="→ kink", by_angle="→ not a kink: φ > %g°",
+        by_error="→ not a kink: 180° − φ ≤ 2d/A",
+        end=" (end; no angle is measured)",
+        angles_key="A kink needs both φ ≤ %g° (kinkangle_deg) and 180° − φ > 2d/A.  Red: kink\n"
+                   "d = %g px (kink_decompose_px);  A: the shorter of the two edges at the "
+                   "vertex"),
+    "ja": dict(
+        step="手順 %d：太い弦（番号 %d–%d）からいちばん遠い画素は %.1f px\n"
+             "%g px 以上なので、番号 %d を頂点に加える",
+        done="終了：どの弦でも、いちばん遠い画素が %g px 未満\n頂点は %d 個（番号 %s）",
+        index="番号 %d", far="最大 %.1f px",
+        steps_key="灰：スケルトントラック   青：折れ線とその頂点   "
+                  "橙：弦からいちばん遠い画素と、弦までの距離",
+        angles_title="内側の各頂点で、両隣の頂点へ向かう 2 本の辺のなす内角 φ を測る",
+        vertex="番号 %d：φ = %.0f°\n180° − φ = %.0f°、2d/A = %.0f°",
+        kink="→ キンク", by_angle="→ キンクでない（φ が %g° より大きい）",
+        by_error="→ キンクでない（180° − φ が 2d/A 以下）",
+        end="（端。角度は測らない）",
+        angles_key="キンクとするのは、φ ≤ %g°（kinkangle_deg）と 180° − φ > 2d/A の両方を満たす頂点。"
+                   "赤：キンク\n"
+                   "d = %g px（kink_decompose_px）、A：頂点の前後の辺のうち短いほうの長さ"),
+}
+
+# One colour, one meaning, in both polyline figures.
+# 2 つの折れ線の図で、1 つの色は 1 つの意味だけを持つ。
+_TRACK_COLOUR = "#c9c9c9"
+_POLY_COLOUR = "#1f5fbf"
+_FAR_COLOUR = "#e07b00"
+_POLY_KINK_COLOUR = "#d1001f"
+
+
+def _draw_track_pixels(ax, x, y):
+    """
+    Draw the track's pixels as grey squares.
+    トラックの画素を灰色の正方形で描く。
+    """
+    image = np.zeros((int(y.max()) + 1, int(x.max()) + 1))
+    image[y.astype(int), x.astype(int)] = 1.0
+    ax.imshow(np.ma.masked_where(image == 0, image), interpolation="nearest",
+              cmap=matplotlib.colors.ListedColormap([_TRACK_COLOUR]), zorder=1)
+
+
+def _label_track_ends(ax, x, y, label, outline):
+    """
+    Write ``label % index`` beyond each end of the track, along its direction.
+    トラックの両端の先に、トラックの向きに沿って ``label % index`` を書く。
+    """
+    for i, inner in ((0, min(5, x.size - 1)), (x.size - 1, max(x.size - 6, 0))):
+        out = np.array([x[i] - x[inner], y[i] - y[inner]])
+        out = out / max(float(np.hypot(*out)), 1e-9)
+        t = np.array([x[i], y[i]]) + 3.0 * out
+        ax.text(t[0], t[1], label % i, color=_POLY_COLOUR, fontsize=13,
+                ha="left" if out[0] > 0.3 else "right" if out[0] < -0.3 else "center",
+                va="top" if out[1] > 0.3 else "bottom" if out[1] < -0.3 else "center",
+                path_effects=outline, zorder=10)
+
+
+def _foot(a, b, p):
+    """
+    Foot of the perpendicular from ``p`` on the line through ``a`` and ``b``.
+    ``p`` から ``a`` と ``b`` を通る直線へ下ろした垂線の足。
+    """
+    t = np.dot(p - a, b - a) / np.dot(b - a, b - a)
+    return a + t * (b - a)
+
+
+def _draw_polyline_steps(path, lang):
+    """
+    Draw how the polyline rule simplifies a skeleton track, one inserted vertex per panel.
+    折れ線規則がスケルトントラックを単純化する様子を、加える頂点 1 つごとに 1 枚で描く。
+
+    Notes
+    -----
+    The steps come from `_polyline_steps`, which checks them against
+    `KinkDetector._binary_decompose_simple`.
+    手順は `_polyline_steps` が作り、`KinkDetector._binary_decompose_simple` と照合する。
+    """
+    import matplotlib.patheffects as pe
+
+    text = _POLYLINE_TEXT[lang]
+    rule = _polyline_rule_track()
+    x, y = rule["x"], rule["y"]
+    d = rule["detector"].threshold_distance
+    steps, final = _polyline_steps(x, y, d, rule["decomposed"])
+    outline = [pe.withStroke(linewidth=4, foreground="white")]
+
+    with plt.rc_context(_font_context(lang)):
+        panels = steps + [None]
+        ncol = 2
+        nrow = int(np.ceil(len(panels) / ncol))
+        fig, axes = plt.subplots(nrow, ncol, figsize=(9.0 * ncol, 6.2 * nrow))
+        axes = np.atleast_1d(axes).ravel()
+        for ax in axes[len(panels):]:
+            ax.axis("off")
+        for n, (ax, step) in enumerate(zip(axes, panels)):
+            _draw_track_pixels(ax, x, y)
+            vertices = step["before"] if step else list(rule["decomposed"])
+            ax.plot(x[vertices], y[vertices], "-o", color=_POLY_COLOUR, lw=2.2, ms=9, zorder=4)
+            _label_track_ends(ax, x, y, text["index"], outline)
+            if step:
+                i, j = step["chord"]
+                k = step["far"]
+                a, b, p = (np.array([x[q], y[q]]) for q in (i, j, k))
+                f = _foot(a, b, p)
+                ax.plot([a[0], b[0]], [a[1], b[1]], color=_POLY_COLOUR, lw=5.5, zorder=5,
+                        solid_capstyle="round")
+                ax.plot([p[0], f[0]], [p[1], f[1]], color=_FAR_COLOUR, lw=3.5, zorder=7)
+                ax.plot(p[0], p[1], "o", color=_FAR_COLOUR, ms=13, mec="white", mew=1.5,
+                        zorder=8)
+                away = (p - f) / np.hypot(*(p - f))
+                t = p + 5.0 * away
+                ax.text(t[0], t[1], (text["index"] % k) + "\n" + "%.1f px" % step["distance"],
+                        color=_FAR_COLOUR, fontsize=14, ha="right" if away[0] < 0 else "left",
+                        va="center", path_effects=outline, zorder=10)
+                ax.set_title(text["step"] % (n + 1, i, j, step["distance"], d, k), fontsize=14)
+            else:
+                for i, j, k, dist in final:
+                    a, b, p = (np.array([x[q], y[q]]) for q in (i, j, k))
+                    f = _foot(a, b, p)
+                    ax.plot([p[0], f[0]], [p[1], f[1]], color=_FAR_COLOUR, lw=3.5, zorder=7)
+                    normal = np.array([-(b - a)[1], (b - a)[0]]) / np.hypot(*(b - a))
+                    # Distances right of (or below) each chord, vertex numbers left of it.
+                    # 距離は弦の右（または下）に、頂点の番号は左に置く。
+                    if normal[0] < 0 or (abs(normal[0]) < 0.35 and normal[1] < 0):
+                        normal = -normal
+                    t = (a + b) / 2 + 8.0 * normal
+                    ax.text(t[0], t[1], text["far"] % dist, color=_FAR_COLOUR, fontsize=14,
+                            ha="center", va="center", path_effects=outline, zorder=10)
+                for v in vertices[1:-1]:
+                    ax.text(x[v] - 2.5, y[v] - 2.5, text["index"] % v, color=_POLY_COLOUR,
+                            fontsize=13, ha="right", va="bottom", path_effects=outline,
+                            zorder=10)
+                ax.set_title(text["done"] % (d, len(vertices),
+                                             ", ".join(str(v) for v in vertices)), fontsize=14)
+            ax.set_xlim(x.min() - 12, x.max() + 16)
+            ax.set_ylim(y.max() + 10, y.min() - 9)
+            ax.set_aspect("equal")
+            ax.set_xticks([])
+            ax.set_yticks([])
+        fig.tight_layout(rect=(0, 0.03, 1, 1), h_pad=3.0)
+        fig.text(0.5, 0.01, text["steps_key"], ha="center", va="bottom", fontsize=13)
+        fig.savefig(path, dpi=75, bbox_inches="tight", pad_inches=0.05)
+        plt.close(fig)
+
+
+def _draw_polyline_angles(path, lang):
+    """
+    Draw the angle test of the polyline rule at each interior vertex.
+    折れ線規則の角度の判定を、内側の各頂点で描く。
+
+    Notes
+    -----
+    The text says that on this track the arc carries two vertices, one reported
+    as a kink and one dropped because its angle is above the threshold, and
+    that the vertex of the short hook at the end is dropped by the error
+    condition alone; the figure fails to build when any of these no longer
+    holds, or when its verdicts differ from
+    `KinkDetector.kinks_and_decomposed_from_track`.
+    本文は、このトラックで円弧の上に頂点が 2 つでき、1 つはキンクとされ、1 つは
+    角度がしきい値より大きいために落ちること、端の短い折れ返しの頂点が誤差の
+    条件だけで落ちることを述べる。どれかが成り立たなくなるか、判定が
+    `KinkDetector.kinks_and_decomposed_from_track` と食い違えば図は作れない。
+    """
+    import matplotlib.patheffects as pe
+
+    text = _POLYLINE_TEXT[lang]
+    rule = _polyline_rule_track()
+    x, y = rule["x"], rule["y"]
+    detector = rule["detector"]
+    d = detector.threshold_distance
+    limit = float(detector.threshold_angle_from_decomposed_indices)
+    vertices = rule["decomposed"]
+    outline = [pe.withStroke(linewidth=4, foreground="white")]
+
+    judged = []
+    for m in range(1, vertices.size - 1):
+        a, v, b = vertices[m - 1], vertices[m], vertices[m + 1]
+        pv = np.array([x[v], y[v]])
+        v1 = np.array([x[a], y[a]]) - pv
+        v2 = np.array([x[b], y[b]]) - pv
+        n1, n2 = float(np.hypot(*v1)), float(np.hypot(*v2))
+        phi = float(np.arccos(np.dot(v1, v2) / (n1 * n2)))
+        error = 2.0 * d / min(n1, n2)
+        reason = ("kink" if phi <= limit and np.pi - phi > error
+                  else "by_angle" if phi > limit else "by_error")
+        on_arc = float(np.min(np.hypot(*(rule["arc"] - pv).T))) <= 1.5
+        judged.append(dict(v=int(v), pv=pv, v1=v1, v2=v2, n1=n1, n2=n2, phi=phi, error=error,
+                           reason=reason, on_arc=on_arc))
+    if sorted(j["v"] for j in judged if j["reason"] == "kink") != sorted(rule["kinks"].tolist()):
+        raise RuntimeError("figure no longer matches KinkDetector.kinks_and_decomposed_from_track")
+    on_arc = sorted(j["reason"] for j in judged if j["on_arc"])
+    hook = judged[0] if judged[0]["v"] < judged[-1]["v"] else judged[-1]
+    hook_end = min(hook["v"], x.size - 1 - hook["v"])
+    if (on_arc != ["by_angle", "kink"]
+            or hook["reason"] != "by_error" or hook["phi"] > limit or hook_end > 10):
+        raise RuntimeError("the text on the polyline figure no longer matches the track")
+
+    with plt.rc_context(_font_context(lang)):
+        fig, (ax, listing) = plt.subplots(1, 2, figsize=(19.0, 8.2),
+                                          gridspec_kw=dict(width_ratios=(2.5, 1.0)))
+        _draw_track_pixels(ax, x, y)
+        ax.plot(x[vertices], y[vertices], "-o", color=_POLY_COLOUR, lw=2.4, ms=10, zorder=4)
+        # Each vertex carries only its index; what was measured there is
+        # listed beside the drawing, in the same colour.
+        # 各頂点には番号だけを書き、そこで測った値は図の横に同じ色で並べる。
+        listing.axis("off")
+        row = 0.98
+        for j in judged:
+            colour = _POLY_KINK_COLOUR if j["reason"] == "kink" else _POLY_COLOUR
+            t1 = np.arctan2(j["v1"][1], j["v1"][0])
+            t2 = np.arctan2(j["v2"][1], j["v2"][0])
+            ts = t1 + np.linspace(0.0, (t2 - t1 + np.pi) % (2.0 * np.pi) - np.pi, 60)
+            r = min(6.0, 0.45 * min(j["n1"], j["n2"]))
+            ax.plot(j["pv"][0] + r * np.cos(ts), j["pv"][1] + r * np.sin(ts), color=colour,
+                    lw=3, zorder=7)
+            if j["reason"] == "kink":
+                ax.plot(*j["pv"], "o", ms=24, mfc="none", mec=_POLY_KINK_COLOUR, mew=3.5,
+                        zorder=8)
+            verdict = text[j["reason"]] % ((np.degrees(limit),) if j["reason"] == "by_angle"
+                                           else ())
+            label = (text["vertex"] % (j["v"], np.degrees(j["phi"]), np.degrees(np.pi - j["phi"]),
+                                       np.degrees(j["error"])) + "\n" + verdict)
+            # The index goes on the outer side of the bend.
+            # 番号は折れの外側に置く。
+            out = -(j["v1"] / j["n1"] + j["v2"] / j["n2"])
+            out = out / np.hypot(*out)
+            t = j["pv"] + 4.0 * out
+            ax.text(t[0], t[1], text["index"] % j["v"], color=colour, fontsize=15,
+                    fontweight="bold", path_effects=outline, zorder=10,
+                    ha="left" if out[0] > 0.3 else "right" if out[0] < -0.3 else "center",
+                    va="top" if out[1] > 0.3 else "bottom" if out[1] < -0.3 else "center")
+            listing.text(0.0, row, label, color=colour, fontsize=15, ha="left", va="top",
+                         transform=listing.transAxes)
+            row -= 0.25
+        _label_track_ends(ax, x, y, text["index"] + text["end"], outline)
+        ax.set_xlim(x.min() - 4, x.max() + 26)
+        ax.set_ylim(y.max() + 8, y.min() - 7)
+        ax.set_aspect("equal")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        fig.suptitle(text["angles_title"], fontsize=16)
+        fig.tight_layout(rect=(0, 0.07, 1, 1))
+        fig.text(0.5, 0.01, text["angles_key"] % (np.degrees(limit), d), ha="center",
+                 va="bottom", fontsize=13)
+        fig.savefig(path, dpi=75, bbox_inches="tight", pad_inches=0.05)
+        plt.close(fig)
+
+
 def main() -> None:
     os.makedirs(OUT_DIR, exist_ok=True)
     note = ("blue line: image edge   green: mask edge (half maximum)   "
@@ -1818,6 +2199,12 @@ def main() -> None:
     _draw_real_fiber(os.path.join(OUT_DIR, "kink_real_fiber.ja.png"), "ja")
     _draw_point_angles(os.path.join(OUT_DIR, "kink_point_angles.png"), "en")
     _draw_point_angles(os.path.join(OUT_DIR, "kink_point_angles.ja.png"), "ja")
+
+    # The polyline rule of format 1.0 bundles, on a synthetic skeleton track.
+    # 形式 1.0 のバンドルの折れ線規則を、合成のスケルトントラックで示す。
+    for suffix, lang in (("", "en"), (".ja", "ja")):
+        _draw_polyline_steps(os.path.join(OUT_DIR, "polyline_steps%s.png" % suffix), lang)
+        _draw_polyline_angles(os.path.join(OUT_DIR, "polyline_angles%s.png" % suffix), lang)
 
 
 if __name__ == "__main__":

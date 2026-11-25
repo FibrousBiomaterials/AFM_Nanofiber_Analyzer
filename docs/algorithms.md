@@ -3319,6 +3319,39 @@ $d$ tilts an arm of length $A$ by about $d/A$ radians. A vertex has an arm on
 each side, so the interior angle moves by about $2d/A$; the right-hand side is
 that error.
 
+Figures 10<!--n:label--> and 11<!--n:label--> apply the rule to a synthetic skeleton track: Figure 10<!--n:label-->
+shows the simplification one vertex at a time, and Figure 11<!--n:label--> the test at each
+interior vertex.
+
+![How a skeleton track is simplified to a polyline](images/polyline_steps.png)
+
+Figure 10<!--n:label-->: a synthetic skeleton track (grey pixels), thinned from a band along a
+path made of a short hook at one end, a straight run, an arc of radius 18<!--n:example--> px, a
+straight run, a corner and a straight run, and traced by the steps of §4.1, reduced to
+a polyline by `KinkDetector._binary_decompose_simple`. An index is a pixel's position
+along the track, counted from 0<!--n:definition-->. Each panel inserts one vertex: the thick blue
+line is the chord tested, the orange dot the pixel farthest from it, and the orange
+line that pixel's distance to the chord. The last panel is the polyline on which every
+chord's farthest pixel lies closer than `kink_decompose_px` (3<!--c:afm_nanofiber_analyzer/pipeline.py::ProcParams.kink_decompose_px--> px); the orange
+labels give each chord's distance to its farthest pixel. (Drawn by
+`scripts/make_doc_figures.py`, which checks the steps against the vertices the
+function returns.)
+
+![The test at each interior vertex of the polyline](images/polyline_angles.png)
+
+Figure 11<!--n:label-->: the test at each interior vertex of the polyline of Figure 10<!--n:label-->
+(`KinkDetector._detect_kink_from_decomposed_indices`). The arcs mark each vertex's
+interior angle $\phi$, and the list on the right gives each vertex's $\phi$,
+$180^\circ - \phi$, $2d/A$ and verdict, where $A$ is the shorter of the two edges
+(arms) at the vertex, $\min(A_{\text{prev}},\, A_{\text{next}})$. Kinks are drawn in
+red. The arc carries two vertices: one is reported as a kink, and the other is
+dropped because its $\phi$ is larger than `kinkangle_deg`. The vertex of the short
+hook at the end has $\phi$ at most `kinkangle_deg`, but its shorter arm is short, so
+$180^\circ - \phi$ does not exceed $2d/A$ and the vertex is dropped. (Drawn by
+`scripts/make_doc_figures.py`, which checks the verdicts against
+`KinkDetector.kinks_and_decomposed_from_track` and fails to build when what is said
+here no longer holds.)
+
 That rule has no scale beyond a pixel tolerance, so it can split a smooth arc
 into vertices and report them as kinks, and because it judges the skeleton it
 can also report the staircase and the swings at wide spots, which are bends the

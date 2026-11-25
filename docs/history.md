@@ -335,6 +335,13 @@ the fiber to the midpoint of the two points where the height cross-section
 falls to half its maximum, along a direction smoothed over a quarter of the
 fiber's apparent width W (`centerline.place_centerline`).
 
+Kinks are judged on the centerline because, as [`algorithms.md`](algorithms.md)
+§4.2 explains, the skeleton is a poor estimate of where a fiber runs. The skeleton
+is the medial axis of the binarized mask, so where a neighbour, a junction skirt
+or background roughness widens the mask on one side, the axis moves with it, and
+the 8-connected pixel chain adds a staircase on top. A straight fiber whose mask
+happens to widen then reports a bend.
+
 The figure below enlarges one fiber of each scan, chosen as the centerline
 with the most marks both authors call clear; the left panel shows the
 skeleton pixels with the kinks of 1.0.0, the right one the centerline with
@@ -370,7 +377,14 @@ pixel chain recursively into a polyline whose points lie within 3 px
 candidate: it measured the angle between the neighbouring vertices there and
 reported a kink when the angle was 150° or less
 (`KinkDetector._binary_decompose_simple` and
-`KinkDetector._detect_kink_from_decomposed_indices` at `v1.0.0`).
+`KinkDetector._detect_kink_from_decomposed_indices` at `v1.0.0`). This
+simplification and angle are those of the polyline rule the current code keeps
+for format 1.0 bundles, shown in Figures 10 and 11 of
+[`algorithms.md`](algorithms.md) §4.6. The current rule differs in two ways. It
+also requires the bend away from straight to exceed the angular error the vertex
+position's error produces (the formula of §4.6), a condition added in 2.0.0
+(`04bc91a`). And the 3 px is the analysis setting `kink_decompose_px` (default
+3 px).
 
 From 2.0.0 a bend is a kink when its turning within ±0.75 W of the fiber's
 apparent width W, less what the fiber's own curvature on either side accounts
