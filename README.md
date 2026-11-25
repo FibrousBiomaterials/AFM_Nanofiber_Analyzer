@@ -984,10 +984,11 @@ Gwyddion `# Width` / `# Height`, or native `.gwy` channel extents) and stored
 in the bundle as the spatial calibration. Inputs without a recorded scan size
 (e.g. bare Bruker NanoScope exports) take it from the GUI/CLI instead.
 
-Representative inputs are bundled under `testdata_tunicateCNF/` and
-`testdata_higherplantTOC/` (multi-column scans), `testdata_Bruker_txt/`
-(single-column Bruker export), `testdata_Gwyddion_txt/` (Gwyddion Export
-Text), and `testdata_Gwyddion_gwy/` (native `.gwy`).
+Representative inputs are bundled in `testdata/`: `TunicateACTOCCNF.txt` and
+`_20250318-164122_T.ssp .txt` (multi-column scans), `NDTOC250306.000.txt`
+(single-column Bruker export), `_20250318-164122_T.ssp_gwyddion_ja.txt` and
+`_20250318-164122_T.ssp_gwyddion_en.txt` (Gwyddion Export Text), and
+`_20250318-164122_T.ssp.gwy` (native `.gwy`).
 
 These example AFM datasets were acquired experimentally by the project authors
 and are included as reproducible example inputs. The authors confirm that they
@@ -1086,7 +1087,7 @@ scripted batch runs and reproducible analyses.
 python cli.py show-params > my_param.json
 
 # Process files with default or customized parameters.
-python cli.py process testdata_tunicateCNF\*.txt
+python cli.py process testdata\TunicateACTOCCNF.txt
 python cli.py process scan.txt --params my_param.json --output-dir results --overwrite
 ```
 

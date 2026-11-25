@@ -17,9 +17,9 @@
 
 | スキャン | ファイル |
 |---|---|
-| Tunicate CNF | `testdata_tunicateCNF/TunicateACTOCCNF.txt` |
-| Higher-plant TOC-CNF | `testdata_higherplantTOC/_20250318-164122_T.ssp .txt` |
-| NDTOC (Bruker) | `testdata_Bruker_txt/NDTOC250306.000.txt` |
+| Tunicate CNF | `testdata/TunicateACTOCCNF.txt` |
+| Higher-plant TOC-CNF | `testdata/_20250318-164122_T.ssp .txt` |
+| NDTOC (Bruker) | `testdata/NDTOC250306.000.txt` |
 
 比べる版は次のとおり。
 

@@ -27,32 +27,30 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # Real Shimadzu test scans bundled with the repository.
 # リポジトリに同梱された島津機の実測テストデータ。
-REAL_DATA = PROJECT_ROOT / "testdata_tunicateCNF" / "TunicateACTOCCNF.txt"
+REAL_DATA = PROJECT_ROOT / "testdata" / "TunicateACTOCCNF.txt"
 HIGHER_PLANT_DATA = (
-    PROJECT_ROOT / "testdata_higherplantTOC" / "_20250318-164122_T.ssp .txt"
+    PROJECT_ROOT / "testdata" / "_20250318-164122_T.ssp .txt"
 )
 
-# Representative Bruker NanoScope single-column export (one file is bundled;
-# the rest of the folder is gitignored for clone-size reasons).
-# 代表の Bruker NanoScope 1 列形式エクスポート（クローンサイズの都合で
-# このフォルダは 1 ファイルのみバージョン管理されている）。
-BRUKER_DATA = PROJECT_ROOT / "testdata_Bruker_txt" / "NDTOC250306.000.txt"
+# Representative Bruker NanoScope single-column export.
+# 代表の Bruker NanoScope 1 列形式エクスポート。
+BRUKER_DATA = PROJECT_ROOT / "testdata" / "NDTOC250306.000.txt"
 
 # Gwyddion "Export Text" matrices with Japanese and English localized headers.
 # Both contain whitespace-separated heights in meters from the same scan.
 # Gwyddion「Export Text」の日本語・英語ヘッダ版。同一スキャンの高さを
 # メートル単位の空白区切り行列として保持する。
 GWYDDION_DATA = (
-    PROJECT_ROOT / "testdata_Gwyddion_txt" / "_20250318-164122_T.ssp.txt"
+    PROJECT_ROOT / "testdata" / "_20250318-164122_T.ssp_gwyddion_ja.txt"
 )
 GWYDDION_ENGLISH_DATA = (
-    PROJECT_ROOT / "testdata_Gwyddion_txt" / "_20250318-164122_T.ssp2.txt"
+    PROJECT_ROOT / "testdata" / "_20250318-164122_T.ssp_gwyddion_en.txt"
 )
 
 # Gwyddion native file exported from the same scan as the text samples.
 # 上記テキスト試料と同じスキャンを保存した Gwyddion ネイティブファイル。
 REAL_GWY_DATA = (
-    PROJECT_ROOT / "testdata_Gwyddion_gwy" / "_20250318-164122_T.ssp.gwy"
+    PROJECT_ROOT / "testdata" / "_20250318-164122_T.ssp.gwy"
 )
 
 

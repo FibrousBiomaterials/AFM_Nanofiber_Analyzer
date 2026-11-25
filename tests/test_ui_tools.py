@@ -241,7 +241,7 @@ def test_real_bundles_put_the_fibers_in_the_bright_half():
     Bruker 試料のファイバーが範囲の 22 % に留まり、本テストはその「暗い画像」を
     防ぐ。
     """
-    bundles = sorted(glob.glob(os.path.join(str(PROJECT_ROOT), "testdata_*", "*.b2z")))
+    bundles = sorted(glob.glob(os.path.join(str(PROJECT_ROOT), "testdata", "*.b2z")))
     if not bundles:
         pytest.skip("no test bundles available")
 

@@ -486,6 +486,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   all build their fibers this way. On the three bundled scans, analyzed with
   the default settings, the 220 fibers built are identical in every field, and
   building them took 5.1 s instead of 9.8 s. No measured quantity changes.
+- The bundled test data are in one folder, `testdata/`, instead of one folder
+  per specimen and format. The Gwyddion text exports of the higher-plant scan
+  are renamed `_20250318-164122_T.ssp_gwyddion_ja.txt` and
+  `_20250318-164122_T.ssp_gwyddion_en.txt` (Japanese and English headers), so
+  their bundles no longer take the name of the `.gwy` file's bundle, and the
+  scale tables are merged into `testdata/scale_table_sample.csv`. The
+  regression goldens are keyed by the new paths; their values are unchanged,
+  so no analysis result changes.
 
 ### Fixed
 

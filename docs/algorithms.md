@@ -2660,7 +2660,7 @@ shared among several points before and after it (Figure 4<!--n:label-->, red in 
 ![The angle at each point and the turning across the window at a corner of a real fiber](images/kink_point_angles.png)
 
 Figure 4<!--n:label-->: a corner of one fiber of the bundled tunicate scan
-(`testdata_tunicateCNF/TunicateACTOCCNF.txt`), analyzed with the default
+(`testdata/TunicateACTOCCNF.txt`), analyzed with the default
 settings; the same fiber as in Figure 8<!--n:label-->.
 
 **Measuring across a longer piece picks up gentle curving too**
@@ -2849,7 +2849,7 @@ here on one fiber of a bundled scan (Figure 8<!--n:label-->):
 ![The kink rule on one fiber of a bundled scan](images/kink_real_fiber.png)
 
 Figure 8<!--n:label-->: one fiber of the bundled tunicate scan
-(`testdata_tunicateCNF/TunicateACTOCCNF.txt`), analyzed with the default
+(`testdata/TunicateACTOCCNF.txt`), analyzed with the default
 settings.
 
 - **Take the centerline and the width** (a, b): the centerline placed in §4.2

@@ -84,13 +84,13 @@ HUMAN_REFERENCE_PATH = os.path.join(PROJECT_ROOT, "docs", "data", "human_kink_ma
 # 基準の節名 -> 同梱スキャン。高等植物スキャンの Gwyddion テキスト出力は同じ
 # 基準を共有し、別には採点しない。
 SCANS: Dict[str, str] = {
-    "hplantTOC": os.path.join("testdata_higherplantTOC", "_20250318-164122_T.ssp .txt"),
-    "tunicate": os.path.join("testdata_tunicateCNF", "TunicateACTOCCNF.txt"),
-    "NDTOC": os.path.join("testdata_Bruker_txt", "NDTOC250306.000.txt"),
+    "hplantTOC": os.path.join("testdata", "_20250318-164122_T.ssp .txt"),
+    "tunicate": os.path.join("testdata", "TunicateACTOCCNF.txt"),
+    "NDTOC": os.path.join("testdata", "NDTOC250306.000.txt"),
 }
-# testdata_artificial is left out: both samples are exact crops of the tunicate
-# scan, so scoring them would count the same fibers again.
-# testdata_artificial は除く。2 つの試料はどちらも tunicate スキャンをそのまま
+# sample_anisotropic.txt and sample_isotropic.txt are left out: both are exact
+# crops of the tunicate scan, so scoring them would count the same fibers again.
+# sample_anisotropic.txt と sample_isotropic.txt は除く。どちらも tunicate スキャンをそのまま
 # 切り抜いたもので、採点すれば同じ繊維を重ねて数えることになる。
 
 # Detector configurations compared by default: no noise test (the rule as

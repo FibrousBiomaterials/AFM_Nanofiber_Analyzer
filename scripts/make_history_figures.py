@@ -69,9 +69,9 @@ ERAS = (
 # Bundled test scans: (key, path, title).
 # 同梱のテストスキャン: (キー, パス, 表題)。
 SCANS = (
-    ("tunicate", "testdata_tunicateCNF/TunicateACTOCCNF.txt", "Tunicate CNF"),
-    ("higherplant", "testdata_higherplantTOC/_20250318-164122_T.ssp .txt", "Higher-plant TOC-CNF"),
-    ("ndtoc", "testdata_Bruker_txt/NDTOC250306.000.txt", "NDTOC (Bruker)"),
+    ("tunicate", "testdata/TunicateACTOCCNF.txt", "Tunicate CNF"),
+    ("higherplant", "testdata/_20250318-164122_T.ssp .txt", "Higher-plant TOC-CNF"),
+    ("ndtoc", "testdata/NDTOC250306.000.txt", "NDTOC (Bruker)"),
 )
 
 # Background methods drawn for the document; "default" is each version's own.

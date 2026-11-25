@@ -471,7 +471,7 @@ def existing_min_set(stem: str) -> Tuple[bool, List[str]]:
     >>> existing_min_set("no/such/scan")[0]
     False
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     _ = process_file("testdata_artificial/sample_isotropic.txt",
+    ...     _ = process_file("testdata/sample_isotropic.txt",
     ...                      ProcParams(), output_dir=folder)
     ...     found = existing_min_set(os.path.join(folder, "sample_isotropic"))
     >>> found
@@ -1486,7 +1486,7 @@ def process_file(
     >>> import os, tempfile
     >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     result = process_file("testdata_artificial/sample_isotropic.txt",
+    ...     result = process_file("testdata/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder)
     ...     written = sorted(os.listdir(folder))
     >>> written

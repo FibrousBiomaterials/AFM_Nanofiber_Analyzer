@@ -394,14 +394,14 @@ class FiberTrackingImage:
     `afm_nanofiber_analyzer.measure.measure_bundle` rebuilds the container from a bundle and
     records the line its fibers are built on. The synthetic test scan records
     no scan size, so the 1.25 µm listed for it in
-    ``testdata_artificial/scale_table_sample.csv`` is passed. The input path
+    ``testdata/scale_table_sample.csv`` is passed. The input path
     is relative to the repository root:
 
     >>> import tempfile
     >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
     >>> from afm_nanofiber_analyzer.measure import measure_bundle
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...     bundle = process_file("testdata/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
     ...     image = measure_bundle(bundle, scale_um=1.25).image
     >>> image.centerline

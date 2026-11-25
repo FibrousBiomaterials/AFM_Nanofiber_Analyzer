@@ -496,7 +496,7 @@ class KinkDetector:
     >>> from afm_nanofiber_analyzer.afm_io import load_afm_text
     >>> from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
     >>> from afm_nanofiber_analyzer.processed_image import ProcessedImage
-    >>> heights = load_afm_text("testdata_artificial/sample_isotropic.txt")
+    >>> heights = load_afm_text("testdata/sample_isotropic.txt")
     >>> image = ProcessedImage(original_AFM=heights, name="sample_isotropic")
     >>> stages = build_stages(ProcParams())
     >>> for stage in (stages.bg_calibrator, stages.segmenter,

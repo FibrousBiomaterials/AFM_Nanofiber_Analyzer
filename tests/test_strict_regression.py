@@ -6,8 +6,8 @@ Strict (exact) pipeline-output regression test on the bundled real scans.
 Unlike `test_integration.py`, which checks a few summary statistics with a 5%
 tolerance, this test pins every output array of the preprocessing pipeline
 (`calibrated`, `binarized`, `skeletonized`, `bp`, `ep`, `kp`, `dp`, `ka`, `up`,
-`ke`) to a recorded SHA-256 baseline, for every bundled sample file in
-``testdata_tunicateCNF`` and ``testdata_higherplantTOC`` and for every
+`ke`) to a recorded SHA-256 baseline, for the bundled tunicate CNF and
+higher-plant TOC scans listed in ``SAMPLE_FILES`` and for every
 ``bg_method`` value, with the other parameters at their defaults. Any code
 change that alters a single output value of these runs — including
 ``calibrated`` heights that the tolerant golden test could mask — makes this
@@ -15,8 +15,8 @@ test fail; a change that only affects other parameter values is not exercised.
 `test_integration.py` が要約統計を 5% 許容で照合するのに対し、本テストは
 前処理パイプラインの全出力配列（``calibrated``・``binarized``・
 ``skeletonized``・``bp``・``ep``・``kp``・``dp``・``ka``・``up``・``ke``）を
-記録済みの SHA-256 ベースラインに固定する。対象は ``testdata_tunicateCNF`` と
-``testdata_higherplantTOC`` の同梱サンプル全ファイル × 全 ``bg_method`` で、
+記録済みの SHA-256 ベースラインに固定する。対象は ``SAMPLE_FILES`` に挙げた
+同梱のチュニケート CNF と高等植物 TOC のスキャン × 全 ``bg_method`` で、
 他のパラメータは既定値とする。これらの実行の出力を 1 要素でも変える変更は、
 ``calibrated`` の高さ（許容付きゴールデンテストでは見逃しうる）を含め、必ず
 失敗させる。他のパラメータ値でだけ現れる変更は試さない。
@@ -43,7 +43,6 @@ record the reason in the commit message::
 """
 
 # ===== Standard library =====
-import glob
 import hashlib
 import json
 import os
@@ -61,9 +60,15 @@ from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 GOLDEN_PATH = Path(__file__).resolve().parent / "strict_regression_golden.json"
 
-# Folders whose bundled .txt scans are used as regression samples.
-# 回帰サンプルに使う、同梱 .txt スキャンのフォルダ。
-SAMPLE_DIRS = ("testdata_tunicateCNF", "testdata_higherplantTOC")
+# Bundled .txt scans used as regression samples, relative to the repository
+# root. They are named one by one because testdata/ also holds other formats
+# and exports of the same scan.
+# 回帰サンプルに使う同梱 .txt スキャン（リポジトリルートからの相対パス）。
+# testdata/ には他の形式や同じスキャンの書き出しも置かれているため、1 つずつ挙げる。
+SAMPLE_FILES = (
+    "testdata/TunicateACTOCCNF.txt",
+    "testdata/_20250318-164122_T.ssp .txt",
+)
 
 # All background-estimation methods are exercised so the strict baseline also
 # guards the spline and tophat code paths, not just the default trendfill.
@@ -83,13 +88,12 @@ ARRAY_KEYS = (
 
 def _sample_files() -> list:
     """
-    Return all bundled sample ``.txt`` scans across the regression folders.
-    回帰用フォルダ群に含まれる全サンプル ``.txt`` スキャンを返す。
+    Return the regression sample scans of ``SAMPLE_FILES`` that are present.
+    ``SAMPLE_FILES`` のうち存在する回帰サンプルスキャンを返す。
     """
-    files: list = []
-    for d in SAMPLE_DIRS:
-        files += sorted(glob.glob(str(PROJECT_ROOT / d / "*.txt")))
-    return files
+    return [
+        str(PROJECT_ROOT / f) for f in SAMPLE_FILES if (PROJECT_ROOT / f).exists()
+    ]
 
 
 def _rel(path: str) -> str:

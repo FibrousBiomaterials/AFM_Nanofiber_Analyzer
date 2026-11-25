@@ -541,7 +541,7 @@ def list_gwy_channels(path: str) -> List[GwyChannel]:
     repository root:
 
     >>> from afm_nanofiber_analyzer.gwy_io import list_gwy_channels
-    >>> list_gwy_channels("testdata_Gwyddion_gwy/_20250318-164122_T.ssp.gwy")
+    >>> list_gwy_channels("testdata/_20250318-164122_T.ssp.gwy")
     [GwyChannel(channel_id=0, title='Topography', n_rows=1024, n_cols=1024, z_unit='m')]
     """
     pairs = _channels_from_container(_load_container(path))
@@ -590,7 +590,7 @@ def load_gwy_image(
     stored:
 
     >>> from afm_nanofiber_analyzer.gwy_io import load_gwy_image
-    >>> gwy = load_gwy_image("testdata_Gwyddion_gwy/_20250318-164122_T.ssp.gwy")
+    >>> gwy = load_gwy_image("testdata/_20250318-164122_T.ssp.gwy")
     >>> gwy.channel.title, gwy.data.shape
     ('Topography', (1024, 1024))
     >>> round(gwy.scan_size.x_um, 6), round(gwy.scan_size.y_um, 6)

@@ -888,10 +888,11 @@ GUI03 と GUI04 は、バンドルに保存されたとおりに取り出す繊�
 スキャンサイズが記録されていない入力（ヘッダを持たない Bruker NanoScope
 エクスポート等）は、代わりに GUI／CLI から与えます。
 
-代表入力は `testdata_tunicateCNF/` と `testdata_higherplantTOC/`（多列形式）、
-`testdata_Bruker_txt/`（Bruker 1 列形式）、`testdata_Gwyddion_txt/`
-（Gwyddion Export Text）、`testdata_Gwyddion_gwy/`（ネイティブ `.gwy`）に
-同梱されています。
+代表入力は `testdata/` に同梱されています。`TunicateACTOCCNF.txt` と
+`_20250318-164122_T.ssp .txt`（多列形式）、`NDTOC250306.000.txt`
+（Bruker 1 列形式）、`_20250318-164122_T.ssp_gwyddion_ja.txt` と
+`_20250318-164122_T.ssp_gwyddion_en.txt`（Gwyddion Export Text）、
+`_20250318-164122_T.ssp.gwy`（ネイティブ `.gwy`）です。
 
 これらのサンプル AFM データセットは、本プロジェクトの著者らが実験で取得し、
 再現可能な入力例として収録しています。著者らは、これらのデータセットを
@@ -981,7 +982,7 @@ Bundle Editor（GUI06）はバンドルを 1 つ開き、手で修正したコ�
 python cli.py show-params > my_param.json
 
 # 既定またはカスタマイズしたパラメータでファイルを処理する。
-python cli.py process testdata_tunicateCNF\*.txt
+python cli.py process testdata\TunicateACTOCCNF.txt
 python cli.py process scan.txt --params my_param.json --output-dir results --overwrite
 ```
 

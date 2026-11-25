@@ -605,9 +605,9 @@ def detect_afm_format(path: str, fmt: str = "auto") -> AfmTextFormat:
     relative to the repository root:
 
     >>> from afm_nanofiber_analyzer.afm_io import detect_afm_format
-    >>> detect_afm_format("testdata_artificial/sample_isotropic.txt")
+    >>> detect_afm_format("testdata/sample_isotropic.txt")
     AfmTextFormat(kind='multi-column', skiprows=0, n_cols=256, encoding='utf-8-sig')
-    >>> detect_afm_format("testdata_Bruker_txt/NDTOC250306.000.txt")
+    >>> detect_afm_format("testdata/NDTOC250306.000.txt")
     AfmTextFormat(kind='single-column', skiprows=1, n_cols=1, encoding='utf-8-sig')
     """
     if fmt not in FORMAT_KINDS:
@@ -1014,9 +1014,9 @@ def read_scan_size(path: str) -> Optional[ScanSize]:
     does not. The paths are relative to the repository root:
 
     >>> from afm_nanofiber_analyzer.afm_io import read_scan_size
-    >>> read_scan_size("testdata_Gwyddion_txt/_20250318-164122_T.ssp.txt")
+    >>> read_scan_size("testdata/_20250318-164122_T.ssp_gwyddion_ja.txt")
     ScanSize(x_um=2.0, y_um=2.0)
-    >>> read_scan_size("testdata_Bruker_txt/NDTOC250306.000.txt") is None
+    >>> read_scan_size("testdata/NDTOC250306.000.txt") is None
     True
     """
     # Dispatch binary .gwy to the Gwyddion reader; the gwyfile dependency is
@@ -1117,7 +1117,7 @@ def load_afm_text(
     stored:
 
     >>> from afm_nanofiber_analyzer.afm_io import load_afm_text
-    >>> image = load_afm_text("testdata_artificial/sample_isotropic.txt")
+    >>> image = load_afm_text("testdata/sample_isotropic.txt")
     >>> image.shape, image.dtype
     ((256, 256), dtype('float64'))
     """
@@ -1244,9 +1244,9 @@ def load_afm_image(
     to the repository root, where the test scans are stored:
 
     >>> from afm_nanofiber_analyzer.afm_io import load_afm_image
-    >>> load_afm_image("testdata_Gwyddion_txt/_20250318-164122_T.ssp.txt").shape
+    >>> load_afm_image("testdata/_20250318-164122_T.ssp_gwyddion_ja.txt").shape
     (1024, 1024)
-    >>> load_afm_image("testdata_Gwyddion_gwy/_20250318-164122_T.ssp.gwy").shape
+    >>> load_afm_image("testdata/_20250318-164122_T.ssp.gwy").shape
     (1024, 1024)
     """
     if os.path.splitext(path)[1].lower() == ".gwy":

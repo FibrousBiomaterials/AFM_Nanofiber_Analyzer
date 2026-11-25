@@ -386,14 +386,14 @@ class FiberStats:
     --------
     One `FiberStats` per measured fiber, from `measure_bundle`. The synthetic
     test scan records no scan size, so the 1.25 µm listed for it in
-    ``testdata_artificial/scale_table_sample.csv`` is passed. The input path
+    ``testdata/scale_table_sample.csv`` is passed. The input path
     is relative to the repository root:
 
     >>> import tempfile
     >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
     >>> from afm_nanofiber_analyzer.measure import measure_bundle
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...     bundle = process_file("testdata/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
     ...     stats = measure_bundle(bundle, scale_um=1.25).stats
     >>> first = stats[0]
@@ -955,14 +955,14 @@ def isolated_fiber_flags(
     --------
     One flag per fiber, from the container and fibers `measure_bundle`
     returns. The synthetic test scan records no scan size, so the 1.25 µm
-    listed for it in ``testdata_artificial/scale_table_sample.csv`` is
+    listed for it in ``testdata/scale_table_sample.csv`` is
     passed. The input path is relative to the repository root:
 
     >>> import tempfile
     >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
     >>> from afm_nanofiber_analyzer.measure import isolated_fiber_flags, measure_bundle
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...     bundle = process_file("testdata/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
     ...     result = measure_bundle(bundle, scale_um=1.25)
     >>> flags = isolated_fiber_flags(result.image, result.fibers)
@@ -2274,7 +2274,7 @@ def read_centerline_from_bundle(bundle_path: str) -> str:
     >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
     >>> from afm_nanofiber_analyzer.measure import read_centerline_from_bundle
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...     bundle = process_file("testdata/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
     ...     line = read_centerline_from_bundle(bundle)
     >>> line == ProcParams().centerline_method
@@ -2485,14 +2485,14 @@ def measure_bundle(
     Examples
     --------
     The synthetic test scan records no scan size, so the 1.25 µm listed for
-    it in ``testdata_artificial/scale_table_sample.csv`` is passed. The path
+    it in ``testdata/scale_table_sample.csv`` is passed. The path
     is relative to the repository root:
 
     >>> import tempfile
     >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
     >>> from afm_nanofiber_analyzer.measure import measure_bundle
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...     bundle = process_file("testdata/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
     ...     result = measure_bundle(bundle, scale_um=1.25)
     >>> len(result.stats) == len(result.fibers)
@@ -2909,7 +2909,7 @@ def collect_fiber_stats(
     >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
     >>> from afm_nanofiber_analyzer.measure import collect_fiber_stats
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...     bundle = process_file("testdata/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
     ...     missing = os.path.join(folder, "missing.b2z")
     ...     per_bundle, errors = collect_fiber_stats([bundle, missing],
@@ -3198,14 +3198,14 @@ def collect_fiber_curvature(
     --------
     One mean curvature per fiber `measure_bundle` returns. The synthetic test
     scan records no scan size, so the 1.25 µm listed for it in
-    ``testdata_artificial/scale_table_sample.csv`` is passed. The input path
+    ``testdata/scale_table_sample.csv`` is passed. The input path
     is relative to the repository root:
 
     >>> import tempfile
     >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
     >>> from afm_nanofiber_analyzer.measure import collect_fiber_curvature, measure_bundle
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...     bundle = process_file("testdata/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
     ...     per_bundle, errors = collect_fiber_curvature([bundle],
     ...                                                  scale_um=1.25)
@@ -3294,7 +3294,7 @@ def read_fiber_csv(path: str) -> List[FiberStats]:
     >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
     >>> from afm_nanofiber_analyzer.measure import measure_bundle, read_fiber_csv, write_fiber_csv
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...     bundle = process_file("testdata/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
     ...     stats = measure_bundle(bundle, scale_um=1.25).stats
     ...     csv_path = os.path.join(folder, "fibers.csv")
@@ -3648,7 +3648,7 @@ def skeleton_height_values(
     >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
     >>> from afm_nanofiber_analyzer.measure import skeleton_height_values
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...     bundle = process_file("testdata/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder).bundle_path
     ...     heights_nm, errors = skeleton_height_values([bundle])
     >>> heights_nm.ndim, errors

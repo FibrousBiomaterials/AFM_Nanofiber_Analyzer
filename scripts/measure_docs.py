@@ -574,7 +574,7 @@ def bg_timing() -> dict:
     from afm_nanofiber_analyzer.pipeline import ProcParams, build_stages
     from afm_nanofiber_analyzer.processed_image import ProcessedImage
 
-    arr = load_afm_text(str(ROOT / "testdata_Bruker_txt" / "NDTOC250306.000.txt"))
+    arr = load_afm_text(str(ROOT / "testdata" / "NDTOC250306.000.txt"))
     arr = arr[0] if isinstance(arr, tuple) else arr
     values = {"image_rows": int(arr.shape[0]), "image_cols": int(arr.shape[1])}
     for method in ("trendfill", "tophat", "spline1d"):
@@ -1189,15 +1189,15 @@ def branch_pruning() -> dict:
     return values
 
 
-# The distinct test inputs of the repository: the bundled scans. The files in
-# testdata_Gwyddion_gwy and testdata_Gwyddion_txt are Gwyddion exports of the
+# The distinct test inputs of the repository: the bundled scans. The .gwy file
+# and the two _gwyddion_*.txt files in testdata are Gwyddion exports of the
 # higher-plant scan; after background correction they give the same image, so
-# they are left out rather than counted as further specimens. The two samples in
-# testdata_artificial are exact crops of the tunicate scan and are left out too.
-# リポジトリの互いに異なるテスト入力、すなわち同梱スキャン。testdata_Gwyddion_gwy と
-# testdata_Gwyddion_txt のファイルは高等植物のスキャンを Gwyddion で書き出したもので、
-# 背景補正の後は同じ画像になるため、別の試料として数えずに除く。testdata_artificial の
-# 2 つの試料は tunicate スキャンをそのまま切り抜いたものなので、これも除く。
+# they are left out rather than counted as further specimens. sample_anisotropic.txt
+# and sample_isotropic.txt are exact crops of the tunicate scan and are left out too.
+# リポジトリの互いに異なるテスト入力、すなわち同梱スキャン。testdata の .gwy ファイルと
+# 2 つの _gwyddion_*.txt ファイルは高等植物のスキャンを Gwyddion で書き出したもので、
+# 背景補正の後は同じ画像になるため、別の試料として数えずに除く。sample_anisotropic.txt と
+# sample_isotropic.txt は tunicate スキャンをそのまま切り抜いたものなので、これも除く。
 def _all_test_inputs() -> Dict[str, str]:
     import kink_reference_score as krs
     return dict(krs.SCANS)

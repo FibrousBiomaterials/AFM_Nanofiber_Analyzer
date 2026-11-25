@@ -762,7 +762,7 @@ def load_bundle_meta(path: str) -> dict:
     >>> from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
     >>> from afm_nanofiber_analyzer.blosc2_io import load_bundle_meta
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_artificial/sample_isotropic.txt",
+    ...     bundle = process_file("testdata/sample_isotropic.txt",
     ...                           ProcParams(), output_dir=folder,
     ...                           scan_size_um=(1.25, 1.25)).bundle_path
     ...     meta = load_bundle_meta(bundle)

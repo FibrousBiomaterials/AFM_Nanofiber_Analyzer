@@ -2491,7 +2491,7 @@ $\theta(s)$ と呼ぶ。$s$ は、中心線の端から中心線に沿って測�
 ![実際の繊維の角で、隣の点との角度と折れの区間での回転を比べる](images/kink_point_angles.ja.png)
 
 図 4<!--n:label-->: 既定の設定で解析した同梱の tunicate スキャン
-（`testdata_tunicateCNF/TunicateACTOCCNF.txt`）の繊維 1<!--n:count--> 本の角。図 8<!--n:label--> と同じ繊維である。
+（`testdata/TunicateACTOCCNF.txt`）の繊維 1<!--n:count--> 本の角。図 8<!--n:label--> と同じ繊維である。
 
 **長めの部分の両端で測ると、ゆるやかな曲がりまで拾う**
 
@@ -2644,7 +2644,7 @@ $$
 ![同梱スキャンの繊維一本にキンク規則を当てはめる](images/kink_real_fiber.ja.png)
 
 図 8<!--n:label-->: 既定の設定で解析した同梱の tunicate スキャン
-（`testdata_tunicateCNF/TunicateACTOCCNF.txt`）の繊維 1<!--n:count--> 本。
+（`testdata/TunicateACTOCCNF.txt`）の繊維 1<!--n:count--> 本。
 
 - **中心線と幅を受け取る**（a、b）: §4.2 で置いた中心線と、同じ断面から測った見かけの幅
   $W$ を使う。折れの区間は幅 1.5<!--c:afm_nanofiber_analyzer/kink_detector.py::_CORE_WIDTHS|2 * v--> 本分、前後の区間はそれぞれ幅 1<!--n:count--> 本分の長さになる。

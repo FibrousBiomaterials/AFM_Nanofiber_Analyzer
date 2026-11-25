@@ -66,12 +66,6 @@ desktop.ini
 # ===== GUI local settings (machine-specific, regenerated at runtime) =====
 guis/afmpp_settings.json
 
-# ===== Sample data =====
-# Bruker NanoScope sample scans are 33 MB each; only one representative file
-# is version-controlled to keep clone size reasonable.
-testdata_Bruker_txt/*
-!testdata_Bruker_txt/NDTOC250306.000.txt
-
 # ===== Analysis outputs =====
 # Exclude large or sensitive analysis results unless they are sample data
 # intentionally checked in under examples/.

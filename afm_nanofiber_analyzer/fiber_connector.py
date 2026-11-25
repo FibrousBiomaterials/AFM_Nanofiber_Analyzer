@@ -464,7 +464,7 @@ def connection_candidate_flags(
     >>> from afm_nanofiber_analyzer.measure import measure_bundle
     >>> from afm_nanofiber_analyzer.fiber_connector import connection_candidate_flags
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
+    ...     bundle = process_file("testdata/TunicateACTOCCNF.txt",
     ...                           ProcParams(), output_dir=folder,
     ...                           scan_size_um=(5.0, 5.0),
     ...                           row_range=(0, 64)).bundle_path
@@ -603,7 +603,7 @@ def plan_from_auto_connect(
     The synthetic test scans contain no fragments to join, so a strip of 64
     scan lines of the tunicate CNF scan is analyzed, where the search joins
     fragments. Its scan size, 5 µm, is listed in
-    ``testdata_tunicateCNF/scale_table_sample.csv``. The input path is
+    ``testdata/scale_table_sample.csv``. The input path is
     relative to the repository root:
 
     >>> import tempfile
@@ -611,7 +611,7 @@ def plan_from_auto_connect(
     >>> from afm_nanofiber_analyzer.measure import measure_bundle
     >>> from afm_nanofiber_analyzer.fiber_connector import plan_from_auto_connect
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
+    ...     bundle = process_file("testdata/TunicateACTOCCNF.txt",
     ...                           ProcParams(), output_dir=folder,
     ...                           scan_size_um=(5.0, 5.0),
     ...                           row_range=(0, 64)).bundle_path
@@ -937,7 +937,7 @@ def build_connected_fibers(
     >>> from afm_nanofiber_analyzer.fiber_connector import (build_connected_fibers,
     ...                                  plan_from_auto_connect)
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
+    ...     bundle = process_file("testdata/TunicateACTOCCNF.txt",
     ...                           ProcParams(), output_dir=folder,
     ...                           scan_size_um=(5.0, 5.0),
     ...                           row_range=(0, 64)).bundle_path
@@ -1382,7 +1382,7 @@ def connection_candidates(
     >>> from afm_nanofiber_analyzer.measure import measure_bundle
     >>> from afm_nanofiber_analyzer.fiber_connector import connection_candidates
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
+    ...     bundle = process_file("testdata/TunicateACTOCCNF.txt",
     ...                           ProcParams(), output_dir=folder,
     ...                           scan_size_um=(5.0, 5.0),
     ...                           row_range=(0, 64)).bundle_path
@@ -1469,7 +1469,7 @@ def connection_candidates_by_index(
     >>> from afm_nanofiber_analyzer.fiber_connector import (connection_candidates,
     ...                                  connection_candidates_by_index)
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
+    ...     bundle = process_file("testdata/TunicateACTOCCNF.txt",
     ...                           ProcParams(), output_dir=folder,
     ...                           scan_size_um=(5.0, 5.0),
     ...                           row_range=(0, 64)).bundle_path
@@ -1637,7 +1637,7 @@ def connect_fiber_fragments(
     >>> from afm_nanofiber_analyzer.measure import measure_bundle
     >>> from afm_nanofiber_analyzer.fiber_connector import connect_fiber_fragments
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
+    ...     bundle = process_file("testdata/TunicateACTOCCNF.txt",
     ...                           ProcParams(), output_dir=folder,
     ...                           scan_size_um=(5.0, 5.0),
     ...                           row_range=(0, 64)).bundle_path
@@ -1924,7 +1924,7 @@ def filter_fibers_by_height(
     >>> from afm_nanofiber_analyzer.fiber_connector import (connect_fiber_fragments,
     ...                                  filter_fibers_by_height)
     >>> with tempfile.TemporaryDirectory() as folder:
-    ...     bundle = process_file("testdata_tunicateCNF/TunicateACTOCCNF.txt",
+    ...     bundle = process_file("testdata/TunicateACTOCCNF.txt",
     ...                           ProcParams(), output_dir=folder,
     ...                           scan_size_um=(5.0, 5.0),
     ...                           row_range=(0, 64)).bundle_path
