@@ -108,6 +108,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `convert` (`gwyddionpy-converter`, GPL-2.0-or-later), which the `run_venv` /
   `run_conda` launchers install and which is not part of the standalone build.
   Environments set up by an earlier launcher install it on their next start.
+  GUI00's 「GUI01で開く」 opens the selected folder in Image Preprocessor.
   Analysis results do not change.
 
 - GUI04's connection settings gain the checkbox 「継ぎ目の折れもキンクとして判定する」
@@ -159,17 +160,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   scan size was otherwise recorded nowhere but GUI04's log. Earlier CSVs still
   read. No measured value changes, but the CSV written for the same bundle is
   no longer byte-identical.
-- GUI01 opens its results in the measuring tools. 「GUI02で開く」 and
-  「GUI04で開く」, above the preview, open the bundle the preview shows in Plot
-  Profiler or Fiber Tracker, and 「このフォルダをGUI03で解析」, at the head of the
-  file list, opens Fiber Morphology Statistics with every bundle directly
+- GUI01 opens its results in the other tools. 「GUI02で開く」, 「GUI04で開く」
+  and 「GUI06で開く」, above the preview, open the bundle the preview shows in
+  Plot Profiler, Fiber Tracker or Bundle Editor. At the head of the file list,
+  「GUI03で解析」 opens Fiber Morphology Statistics with every bundle directly
   inside the folder registered in its first group; the paths are handed over
   through a list file (`afm_nanofiber_analyzer.plugin_launch.path_list_arguments`), because a
-  command line holds a limited number of characters. Each press opens a new
-  window. The plugins are started
+  command line holds a limited number of characters. 「GUI05で開く」 beside it
+  hands the folder to Thumbnail Viewer, which adds the bundles directly inside
+  it. Each press opens a new window. The plugins are started
   through the launcher's `--run-plugin`, which now hands the arguments after
   the module name to the plugin as `sys.argv[1:]` (`afm_nanofiber_analyzer.plugin_launch`). The
-  two preview buttons stand beside 「画像を保存」 and 「個別表示」; to make room on
+  three preview buttons stand beside 「画像を保存」 and 「個別表示」; to make room on
   that row, the preview's four font sizes are set in a window opened by
   「フォントサイズ…」. Analysis results do not change.
 - GUI05, Thumbnail Viewer (`guis/GUI05_Thumbnail_Viewer.py`), shows the
@@ -230,9 +232,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   kink detection), and 「設定…」 changes the parameters of background
   correction and binarization. A result is marked 「古い」 when something it is
   computed from has changed since. 「元に戻す」 and 「やり直す」 cover every
-  change. 「編集を保存…」 writes a bundle and its `_param.json` under another
-  name, by default with `_edited` appended; a bundle written by the analysis
-  is never overwritten. The original data comes from the bundle's `original`
+  change. 「名前を付けて保存…」 (Ctrl+Shift+S) writes a bundle and its
+  `_param.json` under another name, by default with `_edited` appended; a
+  bundle written by the analysis is never overwritten. 「上書き保存」 (Ctrl+S)
+  writes the edits over the opened bundle after a confirmation, only when that
+  bundle is an edited one and something has changed since it was opened or
+  saved; while a bundle written by the analysis is edited, Ctrl+S opens
+  「名前を付けて保存…」 instead. The original data comes from the bundle's `original`
   key or from the input file in the bundle's folder, which is checked against
   the recorded SHA-256 digest; without it the ridge mask cannot be detected
   again and the background correction cannot be run again. Only a bundle of

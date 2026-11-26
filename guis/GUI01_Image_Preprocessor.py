@@ -108,7 +108,9 @@ from afm_nanofiber_analyzer.stripe_noise import (
     DEFAULT_STEP_THRESHOLD_NM, StripeNoise, evaluate_scan_lines,
     propose_clean_ranges,
 )
-from afm_nanofiber_analyzer.plugin_launch import launch_plugin, path_list_arguments
+from afm_nanofiber_analyzer.plugin_launch import (
+    call_when_shown, launch_plugin, path_list_arguments,
+)
 from afm_nanofiber_analyzer.translator import _
 from afm_nanofiber_analyzer.ui_tools import (
     apply_window_size, ToolTip, setup_matplotlib_style,
@@ -134,6 +136,8 @@ STATUS_ANALYZED = "analyzed"   # Analysis complete.
 PROFILER_MODULE   = "guis.GUI02_PlotProfiler"
 STATISTICS_MODULE = "guis.GUI03_Fiber_Morphology_Statistics"
 TRACKER_MODULE    = "guis.GUI04_Tracking_fiber"
+THUMBNAIL_MODULE  = "guis.GUI05_Thumbnail_Viewer"
+EDITOR_MODULE     = "guis.GUI06_Bundle_Editor"
 
 # ===== File-table column layout =====
 # Fixed column order of the tksheet file table; rows are append-only and the
@@ -1123,12 +1127,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         self._preview_row: Optional[int] = None
         self._preview_redraw_pending = False
         # Item whose bundle the preview is drawing now, None while it is blank.
-        # "GUI02で開く" / "GUI04で開く" open this bundle and are enabled only
-        # while there is one, so they never hand over a file the user is not
-        # looking at.
+        # "GUI02で開く" / "GUI04で開く" / "GUI06で開く" open this bundle and are
+        # enabled only while there is one, so they never hand over a file the
+        # user is not looking at.
         # プレビューが現在描画しているバンドルの項目。空白のときは None。
-        # 「GUI02で開く」「GUI04で開く」はこのバンドルを開き、これがあるときだけ
-        # 押せる。ユーザーが見ていないファイルを渡すことはない。
+        # 「GUI02で開く」「GUI04で開く」「GUI06で開く」はこのバンドルを開き、これが
+        # あるときだけ押せる。ユーザーが見ていないファイルを渡すことはない。
         self._preview_shown_item: Optional[FileItem] = None
 
         # Scale display is applied immediately to all preview panels.
@@ -1267,20 +1271,34 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             text=_("X / Y セルは直接入力・Excel から貼り付け可"),
             foreground="#8a8a8a",
         ).pack(side="left", padx=(8, 0))
-        # The hand-over to GUI03 acts on the whole folder, so it sits on the
-        # list's own header rather than with the per-file preview controls.
-        # GUI03 への受け渡しはフォルダ全体に対する操作なので、ファイル単位の
-        # プレビュー操作ではなく一覧の見出し行に置く。
+        # The hand-overs to GUI03 and GUI05 act on the whole folder, so they
+        # sit on the list's own header rather than with the per-file preview
+        # controls. Packed from the right, GUI05 first, so GUI03 is on its left.
+        # GUI03・GUI05 への受け渡しはフォルダ全体に対する操作なので、ファイル単位の
+        # プレビュー操作ではなく一覧の見出し行に置く。右から詰めるので、GUI05 を
+        # 先に置くと GUI03 がその左に並ぶ。
+        self.btn_open_gui05 = ttk.Button(
+            list_header, text=_("GUI05で開く"),
+            command=self.on_open_folder_in_gui05,
+        )
+        self.btn_open_gui05.pack(side="right")
         self.btn_open_gui03 = ttk.Button(
-            list_header, text=_("このフォルダをGUI03で解析"),
+            list_header, text=_("GUI03で解析"),
             command=self.on_open_folder_in_gui03,
         )
-        self.btn_open_gui03.pack(side="right")
+        self.btn_open_gui03.pack(side="right", padx=(0, 4))
+        no_bundle = _("解析済みのファイルが無いとき、または解析の実行中は押せません。")
         ToolTip(
             self.btn_open_gui03,
             _("Fiber Morphology Statistics (GUI03) を新しいウインドウで開き、"
               "このフォルダのバンドルを最初のグループに登録します。") + "\n"
-            + _("解析済みのファイルが無いとき、または解析の実行中は押せません。"),
+            + no_bundle,
+        )
+        ToolTip(
+            self.btn_open_gui05,
+            _("Thumbnail Viewer (GUI05) を新しいウインドウで開き、"
+              "このフォルダのバンドルをサムネイルで表示します。") + "\n"
+            + no_bundle,
         )
 
         # Inner frame hosts the spreadsheet-style file table.
@@ -2241,6 +2259,10 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             ctrl2, text=_("GUI04で開く"),
             command=lambda: self._open_shown_bundle_in(TRACKER_MODULE))
         self.btn_open_gui04.pack(side="left", padx=4)
+        self.btn_open_gui06 = ttk.Button(
+            ctrl2, text=_("GUI06で開く"),
+            command=lambda: self._open_shown_bundle_in(EDITOR_MODULE))
+        self.btn_open_gui06.pack(side="left", padx=4)
         not_shown = _("プレビューに画像が表示されていないとき、または解析の実行中は押せません。")
         ToolTip(
             self.btn_open_gui02,
@@ -2250,6 +2272,11 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         ToolTip(
             self.btn_open_gui04,
             _("表示中の解析結果 (.b2z) を Fiber Tracker (GUI04) で新しいウインドウに開きます。")
+            + "\n" + not_shown,
+        )
+        ToolTip(
+            self.btn_open_gui06,
+            _("表示中の解析結果 (.b2z) を Bundle Editor (GUI06) で新しいウインドウに開きます。")
             + "\n" + not_shown,
         )
 
@@ -2715,12 +2742,12 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         # 書き換えている可能性があり、途中で集計したフォルダにはバンドルの一部しか
         # 無いためである。
         shown = self._preview_shown_item is not None
-        _set([self.btn_open_gui02, self.btn_open_gui04],
+        _set([self.btn_open_gui02, self.btn_open_gui04, self.btn_open_gui06],
              "!disabled" if shown and not running else "disabled")
         has_analyzed = bool(self.folder_path) and any(
             it.status == STATUS_ANALYZED for it in self.items
         )
-        _set([self.btn_open_gui03],
+        _set([self.btn_open_gui03, self.btn_open_gui05],
              "!disabled" if has_analyzed and not running else "disabled")
 
     def _on_sheet_select(self) -> None:
@@ -2784,9 +2811,24 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         入力フォルダを選択し、一括処理用ファイル一覧を作成する。
         """
         folder = filedialog.askdirectory(title=_("入力フォルダを選択（.txt / .gwy を含む）"))
-        if not folder:
-            return
+        if folder:
+            self.load_folder(folder)
 
+    def load_folder(self, folder: str) -> None:
+        """
+        List a folder's inputs in the batch file table.
+        フォルダの入力ファイルを一括処理用のファイル表に並べる。
+
+        Parameters
+        ----------
+        folder
+            Folder chosen in the dialog, or handed over by GUI00's
+            "GUI01で開く".
+            ダイアログで選んだフォルダ、または GUI00 の「GUI01で開く」から渡された
+            フォルダ。
+        """
+        if self.is_running:
+            return
         self.folder_path = folder
         self._log(_("フォルダ選択: %s") % folder)
 
@@ -4229,8 +4271,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         Parameters
         ----------
         module_import_path
-            `PROFILER_MODULE` or `TRACKER_MODULE`.
-            `PROFILER_MODULE` または `TRACKER_MODULE`。
+            `PROFILER_MODULE`, `TRACKER_MODULE` or `EDITOR_MODULE`.
+            `PROFILER_MODULE`・`TRACKER_MODULE`・`EDITOR_MODULE` のいずれか。
 
         Notes
         -----
@@ -4274,21 +4316,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
         パスは一覧ファイルで渡す（`path_list_arguments`）。フォルダはコマンド
         ラインに入る数より多くのパスを持ちうるためである。
         """
-        if not self.folder_path or self.is_running:
-            return
-        try:
-            bundles = sorted(
-                os.path.join(self.folder_path, name)
-                for name in os.listdir(self.folder_path)
-                if name.endswith(BUNDLE_EXT)
-                and os.path.isfile(os.path.join(self.folder_path, name))
-            )
-        except OSError as e:
-            self._log_exception(_("起動に失敗しました"), e)
-            return
+        bundles = self._folder_bundles()
         if not bundles:
-            self._log(_("フォルダにバンドル (*{ext}) がありません: {path}").format(
-                ext=BUNDLE_EXT, path=self.folder_path))
             return
         try:
             launch_plugin(STATISTICS_MODULE, path_list_arguments(
@@ -4298,6 +4327,63 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             return
         self._log(_("フォルダの {n} 個のバンドルを GUI03 で開きます: {path}").format(
             n=len(bundles), path=self.folder_path))
+
+    def on_open_folder_in_gui05(self) -> None:
+        """
+        Open the current folder's bundles in GUI05 (Thumbnail Viewer).
+        現在のフォルダのバンドルを GUI05（Thumbnail Viewer）で開く。
+
+        Notes
+        -----
+        GUI05 takes a folder as an argument and adds the bundles directly
+        inside it, so the folder itself is handed over rather than a list of
+        its bundles. The check for bundles here only keeps an empty window
+        from opening.
+        GUI05 はフォルダを引数に取り、その直下のバンドルを加えるため、バンドルの
+        一覧ではなくフォルダそのものを渡す。ここでバンドルの有無を確かめるのは、
+        空のウインドウが開かないようにするためだけである。
+        """
+        bundles = self._folder_bundles()
+        if not bundles:
+            return
+        try:
+            launch_plugin(THUMBNAIL_MODULE, [os.path.abspath(self.folder_path)])
+        except Exception as e:
+            self._log_exception(_("起動に失敗しました"), e)
+            return
+        self._log(_("フォルダの {n} 個のバンドルを GUI05 で開きます: {path}").format(
+            n=len(bundles), path=self.folder_path))
+
+    def _folder_bundles(self) -> List[str]:
+        """
+        Return the bundles directly inside the current folder, in name order.
+        現在のフォルダの直下にあるバンドルを、名前順に返す。
+
+        Returns
+        -------
+        list of str
+            The bundle paths; empty, with the reason logged, when there is no
+            folder, an analysis runs, the folder cannot be read, or it holds
+            no bundle.
+            バンドルのパス。フォルダが無い、解析の実行中、フォルダを読めない、
+            バンドルが無い、のいずれかのときは空で、その理由をログに出す。
+        """
+        if not self.folder_path or self.is_running:
+            return []
+        try:
+            bundles = sorted(
+                os.path.join(self.folder_path, name)
+                for name in os.listdir(self.folder_path)
+                if name.endswith(BUNDLE_EXT)
+                and os.path.isfile(os.path.join(self.folder_path, name))
+            )
+        except OSError as e:
+            self._log_exception(_("起動に失敗しました"), e)
+            return []
+        if not bundles:
+            self._log(_("フォルダにバンドル (*{ext}) がありません: {path}").format(
+                ext=BUNDLE_EXT, path=self.folder_path))
+        return bundles
 
     # ---------- Save Log ----------
     def on_save_log(self) -> None:
@@ -5658,8 +5744,20 @@ def main() -> None:
     """
     Start the image preprocessor GUI application.
     画像前処理 GUI アプリケーションを起動する。
+
+    A folder named as the first argument, as GUI00's "GUI01で開く" passes it,
+    is listed in the file table (`afm_nanofiber_analyzer.plugin_launch`);
+    without one the window opens empty.
+    第 1 引数にフォルダがあれば（GUI00 の「GUI01で開く」が渡す）、それをファイル表に
+    並べる（`afm_nanofiber_analyzer.plugin_launch`）。引数が無ければ空のウインドウで開く。
     """
     app = App()
+    if len(sys.argv) > 1 and os.path.isdir(sys.argv[1]):
+        # Listed once the window is on screen, as the other plugins open what
+        # they are handed, so the rows appear in a visible table.
+        # 他のプラグインが渡されたものを開くのと同じく、ウインドウの表示後に並べる。
+        # 行は表示済みの表に現れる。
+        call_when_shown(app, app.load_folder, sys.argv[1])
     app.mainloop()
 
 

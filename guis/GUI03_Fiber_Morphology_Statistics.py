@@ -3579,8 +3579,8 @@ class App(tk.Tk, UnconfirmedEntryMixin, LogMixin):
             ファイルを登録するグループ。
         paths
             Paths chosen in the dialog, or handed over by GUI01's
-            "このフォルダをGUI03で解析" or GUI05's "GUI03で開く".
-            ダイアログで選んだパス、または GUI01 の「このフォルダをGUI03で解析」や
+            "GUI03で解析" or GUI05's "GUI03で開く".
+            ダイアログで選んだパス、または GUI01 の「GUI03で解析」や
             GUI05 の「GUI03で開く」から渡されたパス。
 
         Notes
@@ -7038,12 +7038,12 @@ def main() -> None:
     Launch the fiber morphology statistics GUI with any bundles named on the command line.
     繊維形態統計 GUI を起動し、コマンドラインで指定されたバンドルがあれば登録する。
 
-    GUI01's "このフォルダをGUI03で解析" and GUI05's "GUI03で開く" hand their
+    GUI01's "GUI03で解析" and GUI05's "GUI03で開く" hand their
     bundles over through a list file, and paths given as plain arguments are
     read the same way (`afm_nanofiber_analyzer.plugin_launch.read_path_arguments`). The bundles
     join the group the window starts with; without any the window opens with
     that group empty.
-    GUI01 の「このフォルダをGUI03で解析」と GUI05 の「GUI03で開く」は、バンドルを
+    GUI01 の「GUI03で解析」と GUI05 の「GUI03で開く」は、バンドルを
     一覧ファイルで渡す。パスをそのまま引数に書いた場合も同じ方法で読む
     （`afm_nanofiber_analyzer.plugin_launch.read_path_arguments`）。バンドルは起動時のグループに登録
     される。1 つも無ければ、そのグループが空のままウインドウが開く。

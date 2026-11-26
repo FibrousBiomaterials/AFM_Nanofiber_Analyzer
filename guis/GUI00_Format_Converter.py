@@ -8,14 +8,15 @@ or write (``.b2z``, ``.json``, ``.npy``) is converted through Gwyddion's file
 modules into ``<input file name>_converted.gwy`` in the same folder, which
 GUI01 then analyzes. Inputs whose ``.gwy`` already exists are skipped. The
 conversion is `afm_nanofiber_analyzer.gwy_convert.convert_file`, the same code as
-``cli.py convert``.
+``cli.py convert``. "GUI01で開く" opens the folder in GUI01.
 ユーザーがフォルダを選ぶと、その直下のファイルのうち、本ソフトが既に読める
 拡張子（``.txt``・``.csv``・``.gwy``）でも書き出す拡張子（``.b2z``・
 ``.json``・``.npy``）でもないものを、Gwyddion のファイルモジュールで同じ
 フォルダの ``<入力ファイル名>_converted.gwy`` へ変換する。変換結果は GUI01 で
 解析できる。
 ``.gwy`` が既にある入力は飛ばす。変換処理は ``cli.py convert`` と同じ
-`afm_nanofiber_analyzer.gwy_convert.convert_file` である。
+`afm_nanofiber_analyzer.gwy_convert.convert_file` である。「GUI01で開く」は、
+そのフォルダを GUI01 で開く。
 
 The converter comes from the optional ``convert`` dependency, which the
 ``run_venv`` / ``run_conda`` launchers install; without it the window opens
@@ -59,10 +60,12 @@ from tkinter import filedialog, messagebox, ttk
 
 # ===== Project libraries =====
 from afm_nanofiber_analyzer import gwy_convert
+from afm_nanofiber_analyzer.plugin_launch import launch_plugin
 from afm_nanofiber_analyzer.translator import _
 from afm_nanofiber_analyzer.ui_tools import (
-    LogMixin, apply_window_size, create_scrolled_text, create_scrolled_treeview,
-    drain_ui_queue, save_text_widget_log, setup_ttk_theme,
+    LogMixin, ToolTip, apply_window_size, create_scrolled_text,
+    create_scrolled_treeview, drain_ui_queue, save_text_widget_log,
+    setup_ttk_theme,
 )
 
 # ===== Internal state keys =====
@@ -71,6 +74,12 @@ from afm_nanofiber_analyzer.ui_tools import (
 # ファイルを処理する前の行の状態。それ以外の状態は `afm_nanofiber_analyzer.gwy_convert` の
 # STATUS_* キーを使う。
 STATUS_PENDING = "pending"
+
+# Import path of the plugin that analyzes the converted files, handed to
+# `afm_nanofiber_analyzer.plugin_launch.launch_plugin`.
+# 変換したファイルを解析するプラグインの import パス。
+# `afm_nanofiber_analyzer.plugin_launch.launch_plugin` に渡す。
+PREPROCESSOR_MODULE = "guis.GUI01_Image_Preprocessor"
 
 # Treeview tags that color a finished row by its outcome.
 # 処理済みの行を結果ごとに色分けする Treeview タグ。
@@ -136,6 +145,14 @@ class App(tk.Tk, LogMixin):
         self.btn_convert = ttk.Button(frm_top, text=_("変換開始"),
                                       command=self.on_convert, state="disabled")
         self.btn_convert.pack(side=tk.LEFT, padx=(6, 0))
+        self.btn_open_gui01 = ttk.Button(frm_top, text=_("GUI01で開く"),
+                                         command=self.on_open_in_gui01,
+                                         state="disabled")
+        self.btn_open_gui01.pack(side=tk.LEFT, padx=(6, 0))
+        ToolTip(self.btn_open_gui01, _(
+            "Image Preprocessor (GUI01) を新しいウインドウで開き、"
+            "このフォルダのファイルを一覧に並べます。\n"
+            "フォルダを選んでいないとき、または変換の実行中は押せません。"))
 
         ttk.Label(
             self,
@@ -204,6 +221,11 @@ class App(tk.Tk, LogMixin):
         self.btn_folder.configure(state="disabled" if running else "normal")
         self.btn_convert.configure(
             state="disabled" if running or not self.paths else "normal")
+        # Any selected folder can be opened, even one without conversion
+        # candidates: its .txt and .gwy files are still GUI01 input.
+        # 変換対象の無いフォルダも開ける。その .txt と .gwy は GUI01 の入力になる。
+        self.btn_open_gui01.configure(
+            state="disabled" if running or not self.folder_var.get() else "normal")
 
     # ----- Actions -----
 
@@ -321,6 +343,26 @@ class App(tk.Tk, LogMixin):
 
         if drain_ui_queue(self.ui_queue, {"row": on_row, "done": on_done}):
             self.after(50, self._poll_ui_queue)
+
+    def on_open_in_gui01(self) -> None:
+        """
+        Open the selected folder in GUI01 (Image Preprocessor).
+        選択中のフォルダを GUI01（Image Preprocessor）で開く。
+
+        GUI01 lists every ``.txt`` and ``.gwy`` file directly inside the
+        folder, the converted files among them. Each press starts a new window.
+        GUI01 はフォルダ直下の ``.txt`` と ``.gwy`` をすべて並べる。変換した
+        ファイルもその中に入る。押すたびに新しいウインドウが開く。
+        """
+        folder = self.folder_var.get()
+        if self._running or not folder:
+            return
+        try:
+            launch_plugin(PREPROCESSOR_MODULE, [os.path.abspath(folder)])
+        except Exception as e:  # noqa: BLE001 - shown to the user in the log
+            self._log(_("起動に失敗しました: {error}").format(error=e))
+            return
+        self._log(_("フォルダを GUI01 で開きます: {folder}").format(folder=folder))
 
     def on_save_log(self) -> None:
         """

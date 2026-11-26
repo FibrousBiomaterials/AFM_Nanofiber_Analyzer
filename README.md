@@ -311,7 +311,9 @@ names a bundle after its input less only the last extension, so a plain
 `scan.ssp.gwy` would be analyzed into the same `scan.ssp.b2z`. Files whose
 `.gwy` already exists are skipped, so a folder can be converted again after new
 scans are added. The table shows each file's outcome and the Gwyddion module
-that read it.
+that read it. "Open in GUI01" opens the folder in Image Preprocessor, which
+lists every `.txt` and `.gwy` file directly inside it; it is unavailable while
+no folder is selected and while a conversion runs.
 
 A converted file is kept only when it contains a channel with a length unit:
 Gwyddion also opens ordinary images such as PNG screenshots, which would
@@ -377,14 +379,15 @@ be measured again with less noise against the fibers. How the limit was set, on
 synthetic fibers, is in §4.15–§4.17 of the evaluation document.
 
 The results open in the measuring tools without choosing the files again.
-"Open in GUI02" and "Open in GUI04", above the preview, open the bundle the
-preview shows in Plot Profiler or Fiber Tracker; "Analyze Folder in GUI03", at
-the head of the file list, opens Fiber Morphology Statistics with every bundle
-directly inside the folder registered in its first group, where bundles to
-compare with are added. Each
-press opens a new window. The three buttons are unavailable while an analysis
-runs, the GUI03 one while no file in the folder has been analyzed, and the two
-preview ones while the preview shows no image.
+"Open in GUI02", "Open in GUI04" and "Open in GUI06", above the preview, open
+the bundle the preview shows in Plot Profiler, Fiber Tracker or Bundle Editor.
+At the head of the file list, "Analyze in GUI03" opens Fiber Morphology
+Statistics with every bundle directly inside the folder registered in its first
+group, where bundles to compare with are added, and "Open in GUI05" shows those
+bundles in Thumbnail Viewer. Each
+press opens a new window. The five buttons are unavailable while an analysis
+runs, the two at the head of the list while no file in the folder has been
+analyzed, and the three preview ones while the preview shows no image.
 
 ### Plot Profiler — `guis/GUI02_PlotProfiler.py`
 
@@ -940,9 +943,13 @@ offers for it. A result is marked "Stale" in the layer list when something it
 is computed from has changed and its stage has not been run since. A stage
 that would replace changes made by hand asks first.
 
-"Save Edits…" writes a bundle and its `_param.json` under a name of the user's
-choice, by default the opened bundle's name followed by `_edited`, and then
-opens the saved bundle. Only a bundle of the current format can be edited; an
+"Save As…" (Ctrl+Shift+S) writes a bundle and its `_param.json` under a name
+of the user's choice, by default the opened bundle's name followed by
+`_edited`, and then opens the saved bundle. "Save" (Ctrl+S) writes the edits
+over the opened bundle, after a confirmation, when that bundle is an edited
+one, including one just saved, and something has changed since it was opened
+or saved; the bundle the analysis wrote is never saved over, and while it is
+being edited Ctrl+S opens "Save As…" instead. Only a bundle of the current format can be edited; an
 older one is shown, and is analyzed again in GUI01 to be edited. The saved
 bundle has the array keys of a GUI01 bundle, with the branch points and end
 points of the skeleton as edited, so the other tools and `cli.py` read it as

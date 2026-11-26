@@ -2,15 +2,18 @@
 Launch a GUI plugin in its own process, optionally handing it a path.
 GUI プラグインを別プロセスで起動し、必要ならパスを渡す。
 
-Both the launcher (`Main.py`) and GUI01, which opens GUI02, GUI03 and GUI04 on
-what it has just analyzed, start plugins through `launch_plugin`, so the two
-build the same command. The command always goes through `Main.py`'s
+The launcher (`Main.py`) and the plugins that open another plugin start
+plugins through `launch_plugin`, so all of them build the same command: GUI00
+opens GUI01 on the folder it converted, GUI01 opens GUI02 to GUI06 on what it
+has analyzed, and GUI05 opens GUI02, GUI03 and GUI04 on the bundles selected
+in it. The command always goes through `Main.py`'s
 ``--run-plugin`` subcommand: a frozen PyInstaller build cannot run a module
 with ``-c`` or ``-m``, and the subcommand is where the splash window and the
 plugin's ``main()`` call live.
-ランチャー（`Main.py`）と、解析した結果を GUI02・GUI03・GUI04 で開く GUI01 は、
-どちらも `launch_plugin` でプラグインを起動するため、両者は同じコマンドを組み
-立てる。コマンドは常に `Main.py` の ``--run-plugin`` サブコマンドを経由する。
+ランチャー（`Main.py`）と、別のプラグインを開くプラグインは、どれも
+`launch_plugin` でプラグインを起動するため、すべて同じコマンドを組み立てる。
+GUI00 は変換したフォルダを GUI01 で、GUI01 は解析した結果を GUI02〜GUI06 で、
+GUI05 は選択したバンドルを GUI02・GUI03・GUI04 で開く。コマンドは常に `Main.py` の ``--run-plugin`` サブコマンドを経由する。
 凍結した PyInstaller ビルドは ``-c`` や ``-m`` でモジュールを実行できず、
 スプラッシュウィンドウとプラグインの ``main()`` 呼び出しもこのサブコマンドに
 あるためである。

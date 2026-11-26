@@ -340,6 +340,79 @@ def test_reordered_layer_rows_stay_drawn(window, workspace):
             assert all(child.winfo_ismapped() for child in part.winfo_children())
 
 
+def test_save_shortcuts_follow_the_opened_bundle(window, workspace, monkeypatch):
+    """
+    Ctrl+S saves over an edited bundle and asks for a name otherwise; Ctrl+Shift+S asks.
+    Ctrl+S は編集済みのバンドルには上書き保存し、それ以外は名前を尋ねる。Ctrl+Shift+S は尋ねる。
+
+    The bundle the analysis wrote is never saved over, so while it is edited
+    "上書き保存" stays off and Ctrl+S opens the save dialog, as Save does for a
+    document never saved. Neither shortcut acts while nothing has changed.
+    解析が書いたバンドルには上書きしないため、それを編集している間「上書き保存」は
+    押せず、Ctrl+S は保存ダイアログを開く。一度も保存していない文書に対する
+    「上書き保存」と同じ動きである。変更が無い間は、どちらのショートカットも何もしない。
+    """
+    app, dialogs = window
+    stem = os.path.splitext(workspace)[0]
+    edited, copy = stem + "_edited.b2z", stem + "_copy.b2z"
+    targets = [edited, copy]
+    offered = []
+
+    def ask_name(**kwargs):
+        offered.append(kwargs.get("initialfile"))
+        return targets.pop(0)
+
+    monkeypatch.setattr(gui06.filedialog, "asksaveasfilename", ask_name)
+    _open(app, workspace)
+    app.focus_force()
+    app.update()
+
+    def paint(add):
+        x, y = _fiber_middle(app)
+        app.state.begin_stroke(gui06.LAYER_FIBER_MASK, add)
+        app.state.paint(x - 3, y, x + 3, y, 5.0)
+        app.state.end_stroke()
+        app._update_controls()
+
+    def usable(button):
+        return str(button.cget("state")) == "normal"
+
+    app.event_generate("<Control-s>")
+    app.event_generate("<Control-Shift-S>")
+    assert offered == [] and dialogs == []
+    assert not usable(app.overwrite_button) and not usable(app.save_button)
+
+    paint(False)
+    assert not usable(app.overwrite_button) and usable(app.save_button)
+    app.event_generate("<Control-s>")
+    _settle(app)
+    assert offered == [os.path.basename(edited)]
+    assert app.session.bundle_path == edited
+    assert not usable(app.overwrite_button)
+
+    paint(True)
+    assert usable(app.overwrite_button)
+    dialogs.clear()
+    app.event_generate("<Control-s>")
+    _settle(app)
+    # Saved over after its own confirmation, without asking for a name.
+    # 名前を尋ねず、上書きの確認のあとで上書き保存した。
+    assert offered == [os.path.basename(edited)]
+    assert dialogs[0] == ("askyesno", gui06._("確認"), gui06._(
+        "{name} に上書き保存しますか？").format(name=os.path.basename(edited)))
+    assert len(load_bundle_meta(edited)[MANUAL_EDIT_KEY]) == 2
+    assert app.session.bundle_path == edited and not app.state.modified
+
+    paint(False)
+    app.event_generate("<Control-Shift-S>")
+    _settle(app)
+    # An edited bundle is offered its own name, and another one was chosen.
+    # 編集済みのバンドルには自分の名前が提案され、ここでは別の名前を選んだ。
+    assert offered == [os.path.basename(edited)] * 2
+    assert app.session.bundle_path == copy
+    assert len(load_bundle_meta(copy)[MANUAL_EDIT_KEY]) == 3
+
+
 def test_saved_edit_is_reopened_with_its_mask(window, workspace):
     """
     Saving writes the edited bundle beside the analysis and opens it.

@@ -12,21 +12,29 @@ that file sits in the bundle's folder (`afm_nanofiber_analyzer.bundle_edit`).
 読む（`afm_nanofiber_analyzer.bundle_edit`）。
 
 Output: an edited bundle and its ``_param.json``, written through a save
-dialog; the default name is the opened bundle's stem followed by ``_edited``.
+dialog ("名前を付けて保存…", Ctrl+Shift+S); the default name is the opened
+bundle's stem followed by ``_edited``.
 The edited bundle has the keys of a GUI01 bundle and records in its metadata
 that a person changed it (`bundle_schema.MANUAL_EDIT_KEY`), together with the
 points that set the angle of each kink given one by hand
 (`bundle_schema.KINK_ARMS_KEY`). It also stores the ridge mask
 (`bundle_schema.FIBER_MASK_KEY`) when that mask is known to belong to the
 bundle (`bundle_edit.BundleEditor.save`). The bundle GUI01 wrote is never
-overwritten.
-出力は、編集したバンドルとその ``_param.json`` で、保存ダイアログから書き出す。
+overwritten. An edited bundle that is open, including one just saved, can be
+saved over with "上書き保存" (Ctrl+S) once something has changed, after a
+confirmation. While a bundle GUI01 wrote is being edited, Ctrl+S opens the
+save dialog instead.
+出力は、編集したバンドルとその ``_param.json`` で、保存ダイアログ（「名前を付けて
+保存…」、Ctrl+Shift+S）から書き出す。
 既定の名前は、開いたバンドルの stem に ``_edited`` を付けたもの。編集したバンドルは
 GUI01 のバンドルと同じキーを持ち、人が変更したことをメタデータに記録する
 （`bundle_schema.MANUAL_EDIT_KEY`）。手で角度を決めたキンクについては、その角度を
 決める点も記録する（`bundle_schema.KINK_ARMS_KEY`）。リッジマスクも、そのバンドルの
 ものだと分かっているときに保存する（`bundle_schema.FIBER_MASK_KEY`、
 `bundle_edit.BundleEditor.save`）。GUI01 が書いたバンドルには上書きしない。
+開いている編集済みのバンドル（保存した直後のものを含む）には、何かを変更したあと、
+確認のうえ「上書き保存」（Ctrl+S）で上書きできる。GUI01 が書いたバンドルを編集して
+いる間の Ctrl+S は、代わりに保存ダイアログを開く。
 
 The image pane draws the results of every analysis stage over one another: the
 raw height image, the fiber mask the background stage excluded from its fill
@@ -115,6 +123,7 @@ PLUGIN_INFO = {
         "入力にして再実行できます。背景補正と二値化は設定を変更できます。元になる"
         "レイヤーが変わったあと計算し直していないレイヤーには「古い」の印が付きます。\n"
         "編集した結果は別名のバンドルとして保存し、手で編集したことを記録します。"
+        "編集済みのバンドルを開いているときは、上書き保存もできます。"
         "解析で書き出したバンドルには上書きしません。\n"
         "元データは、バンドルに含まれていなければ、バンドルと同じフォルダにある"
         "元ファイルから読み込みます。リッジマスクは、元データと記録された解析条件から"
@@ -891,6 +900,20 @@ class App(tk.Tk, LogMixin):
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.bind("<Control-z>", lambda _event: self.on_undo())
         self.bind("<Control-y>", lambda _event: self.on_redo())
+        # Ctrl+S saves over an edited bundle and asks for a name otherwise, as
+        # Save does for a document that has never been saved. Caps Lock swaps
+        # the case Tk reports ("S" for Ctrl+S, "s" for Ctrl+Shift+S), so both
+        # cases are bound; a binding naming Shift is the more specific one and
+        # is chosen whenever Shift is held.
+        # Ctrl+S は、編集済みのバンドルには上書き保存し、それ以外では名前を尋ねる。
+        # 一度も保存していない文書に対する一般的な「上書き保存」と同じ動きである。
+        # Caps Lock が有効だと Tk が報告する大文字・小文字が入れ替わる（Ctrl+S が
+        # "S"、Ctrl+Shift+S が "s"）ため、両方に割り当てる。Shift を名指しした
+        # 割り当てのほうが限定的なので、Shift を押している間はそちらが選ばれる。
+        self.bind("<Control-s>", lambda _event: self.on_save_shortcut())
+        self.bind("<Control-S>", lambda _event: self.on_save_shortcut())
+        self.bind("<Control-Shift-S>", lambda _event: self.on_save_as_shortcut())
+        self.bind("<Control-Shift-s>", lambda _event: self.on_save_as_shortcut())
         self._update_controls()
         self._log(_("バンドルを開いてください。"))
 
@@ -909,12 +932,21 @@ class App(tk.Tk, LogMixin):
         self.name_var = tk.StringVar(value="")
         ttk.Label(top, textvariable=self.name_var).pack(side=tk.LEFT, padx=(10, 0))
         self.save_button = ttk.Button(
-            top, text=_("編集を保存…"), command=self.on_save)
+            top, text=_("名前を付けて保存…"), command=self.on_save)
         self.save_button.pack(side=tk.RIGHT)
         ToolTip(self.save_button, _(
-            "編集した結果を、別名のバンドルとして保存します。\n"
+            "編集した結果を、名前を付けてバンドルとして保存します（Ctrl+Shift+S）。\n"
             "保存したバンドルには、手で編集したことが記録されます。\n"
             "解析で書き出したバンドルには上書きしません。"
+        ))
+        self.overwrite_button = ttk.Button(
+            top, text=_("上書き保存"), command=self.on_overwrite)
+        self.overwrite_button.pack(side=tk.RIGHT, padx=(0, 4))
+        ToolTip(self.overwrite_button, _(
+            "開いている編集済みのバンドルに、編集を上書きして保存します（Ctrl+S）。\n"
+            "解析で書き出したバンドルを開いているとき、または保存していない編集が"
+            "無いときは押せません。解析で書き出したバンドルを編集しているときの"
+            "Ctrl+S は「名前を付けて保存…」を開きます。"
         ))
         self.editor_name_var = tk.StringVar(value="")
         self.editor_entry = ttk.Entry(top, textvariable=self.editor_name_var, width=14)
@@ -1134,7 +1166,8 @@ class App(tk.Tk, LogMixin):
             button.configure(state=state(free and current.can_run(stage)))
         for button in self.settings_buttons.values():
             button.configure(state=state(free))
-        self.save_button.configure(state=state(free and current.modified))
+        self.save_button.configure(state=state(self._can_save_as()))
+        self.overwrite_button.configure(state=state(self._can_overwrite()))
         self.editor_entry.configure(state=state(current is not None))
 
     # ----- Opening a bundle -----
@@ -2291,6 +2324,78 @@ class App(tk.Tk, LogMixin):
             self._toolbar.zoom()
 
     # ----- Saving -----
+
+    def _can_overwrite(self) -> bool:
+        """
+        Whether the edits may be saved over the opened bundle.
+        編集を、開いているバンドルに上書き保存してよいかどうか。
+
+        Only an edited bundle (one with a `MANUAL_EDIT_KEY` record) is saved
+        over, never the bundle the analysis wrote, and only when something
+        differs from what was last opened or saved. A bundle saved under
+        another name is opened afterwards (`save_to`), so after a first save
+        the edited bundle is the opened one.
+        上書きするのは編集済みのバンドル（`MANUAL_EDIT_KEY` の記録を持つもの）だけで、
+        解析が書いたバンドルには上書きしない。最後に開いた、または保存した状態から
+        違いがあるときに限る。別名で保存したバンドルは保存後に開く（`save_to`）ため、
+        一度保存すれば、開いているのはその編集済みのバンドルである。
+        """
+        current = self.state
+        return (current is not None and self.session is not None
+                and not self._busy and not self._loading and current.modified
+                and bool(self.session.meta.get(MANUAL_EDIT_KEY)))
+
+    def _can_save_as(self) -> bool:
+        """
+        Whether the edits may be saved under a name, as the save button allows.
+        「名前を付けて保存…」のボタンと同じく、編集を名前を付けて保存してよいかどうか。
+        """
+        current = self.state
+        return (current is not None and not self._busy and not self._loading
+                and current.modified)
+
+    def on_save_shortcut(self) -> None:
+        """
+        Handle Ctrl+S: save over an edited bundle, otherwise ask for a name.
+        Ctrl+S を処理する。編集済みのバンドルには上書き保存し、それ以外は名前を尋ねる。
+
+        An edited bundle that has changed is saved over after a confirmation
+        (`on_overwrite`). A bundle the analysis wrote is never saved over, so
+        its edits are saved under a name (`on_save`), as Save does for a
+        document that has never been saved. Nothing happens while nothing has
+        changed.
+        変更のある編集済みのバンドルは、確認のうえ上書き保存する（`on_overwrite`）。
+        解析が書いたバンドルには上書きしないため、その編集は名前を付けて保存する
+        （`on_save`）。一度も保存していない文書に対する一般的な「上書き保存」と同じ
+        動きである。変更が無いときは何もしない。
+        """
+        if self._can_overwrite():
+            self.on_overwrite()
+        elif self._can_save_as():
+            self.on_save()
+
+    def on_save_as_shortcut(self) -> None:
+        """
+        Handle Ctrl+Shift+S: save the edits under a name when the button allows it.
+        Ctrl+Shift+S を処理する。ボタンが押せるときに、編集を名前を付けて保存する。
+        """
+        if self._can_save_as():
+            self.on_save()
+
+    def on_overwrite(self) -> None:
+        """
+        Save the edits over the opened edited bundle, after asking.
+        確認のうえ、開いている編集済みのバンドルに編集を上書き保存する。
+        """
+        if not self._can_overwrite():
+            return
+        path = self.session.bundle_path
+        if not messagebox.askyesno(
+                _("確認"),
+                _("{name} に上書き保存しますか？").format(name=os.path.basename(path)),
+                parent=self):
+            return
+        self.save_to(path)
 
     def on_save(self) -> None:
         """

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-11-25 15:17+0900\n"
+"POT-Creation-Date: 2026-11-26 11:09+0900\n"
 "PO-Revision-Date: 2026-04-27 14:35+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh\n"
@@ -26,11 +26,11 @@ msgstr "无日志"
 msgid "保存するログがありません。"
 msgstr "没有可保存的日志。"
 
-#: afm_nanofiber_analyzer/ui_tools.py:414 guis/GUI00_Format_Converter.py:178
-#: guis/GUI01_Image_Preprocessor.py:1598
+#: afm_nanofiber_analyzer/ui_tools.py:414 guis/GUI00_Format_Converter.py:195
+#: guis/GUI01_Image_Preprocessor.py:1616
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2387
 #: guis/GUI04_Tracking_fiber.py:1869 guis/GUI05_Thumbnail_Viewer.py:1609
-#: guis/GUI06_Bundle_Editor.py:932
+#: guis/GUI06_Bundle_Editor.py:964
 msgid "ログを保存"
 msgstr "保存日志"
 
@@ -79,8 +79,8 @@ msgstr "保存为 CSV"
 
 #: afm_nanofiber_analyzer/ui_tools.py:984
 #: afm_nanofiber_analyzer/ui_tools.py:2518 guis/GUI05_Thumbnail_Viewer.py:2046
-#: guis/GUI05_Thumbnail_Viewer.py:2903 guis/GUI06_Bundle_Editor.py:2343
-#: guis/GUI06_Bundle_Editor.py:2371
+#: guis/GUI05_Thumbnail_Viewer.py:2903 guis/GUI06_Bundle_Editor.py:2448
+#: guis/GUI06_Bundle_Editor.py:2476
 msgid "保存エラー"
 msgstr "保存错误"
 
@@ -104,18 +104,18 @@ msgid "パラメータを変更しました。Enter キーで確定するとグ�
 msgstr "参数已更改。按 Enter 键确认后会反映到图表中。"
 
 #: afm_nanofiber_analyzer/ui_tools.py:1159
-#: guis/GUI01_Image_Preprocessor.py:2307
+#: guis/GUI01_Image_Preprocessor.py:2334
 msgid "Enter キーで確定します"
 msgstr "按 Enter 键确认"
 
 #: afm_nanofiber_analyzer/ui_tools.py:1345
 #: afm_nanofiber_analyzer/ui_tools.py:1355
-#: guis/GUI01_Image_Preprocessor.py:2442 guis/GUI01_Image_Preprocessor.py:2446
-#: guis/GUI01_Image_Preprocessor.py:3297 guis/GUI01_Image_Preprocessor.py:3461
-#: guis/GUI01_Image_Preprocessor.py:3477 guis/GUI01_Image_Preprocessor.py:3494
-#: guis/GUI01_Image_Preprocessor.py:4994 guis/GUI01_Image_Preprocessor.py:4999
-#: guis/GUI01_Image_Preprocessor.py:5103 guis/GUI01_Image_Preprocessor.py:5152
-#: guis/GUI01_Image_Preprocessor.py:5172 guis/GUI02_PlotProfiler.py:1184
+#: guis/GUI01_Image_Preprocessor.py:2469 guis/GUI01_Image_Preprocessor.py:2473
+#: guis/GUI01_Image_Preprocessor.py:3339 guis/GUI01_Image_Preprocessor.py:3503
+#: guis/GUI01_Image_Preprocessor.py:3519 guis/GUI01_Image_Preprocessor.py:3536
+#: guis/GUI01_Image_Preprocessor.py:5080 guis/GUI01_Image_Preprocessor.py:5085
+#: guis/GUI01_Image_Preprocessor.py:5189 guis/GUI01_Image_Preprocessor.py:5238
+#: guis/GUI01_Image_Preprocessor.py:5258 guis/GUI02_PlotProfiler.py:1184
 #: guis/GUI02_PlotProfiler.py:1188 guis/GUI02_PlotProfiler.py:1556
 #: guis/GUI02_PlotProfiler.py:1570 guis/GUI02_PlotProfiler.py:1805
 #: guis/GUI02_PlotProfiler.py:2293 guis/GUI02_PlotProfiler.py:2312
@@ -134,7 +134,7 @@ msgid "エラー"
 msgstr "错误"
 
 #: afm_nanofiber_analyzer/ui_tools.py:1345
-#: guis/GUI01_Image_Preprocessor.py:2442 guis/GUI02_PlotProfiler.py:1184
+#: guis/GUI01_Image_Preprocessor.py:2469 guis/GUI02_PlotProfiler.py:1184
 #: guis/GUI03_Fiber_Morphology_Statistics.py:4258
 #: guis/GUI04_Tracking_fiber.py:2050 guis/GUI05_Thumbnail_Viewer.py:2711
 msgid "数値を入力してください"
@@ -168,7 +168,7 @@ msgstr ""
 "{e}"
 
 #: afm_nanofiber_analyzer/ui_tools.py:2522 guis/GUI05_Thumbnail_Viewer.py:2034
-#: guis/GUI06_Bundle_Editor.py:2375 guis/GUI06_Bundle_Editor.py:2376
+#: guis/GUI06_Bundle_Editor.py:2480 guis/GUI06_Bundle_Editor.py:2481
 #, python-brace-format
 msgid "保存: {path}"
 msgstr "已保存: {path}"
@@ -177,88 +177,100 @@ msgstr "已保存: {path}"
 msgid "保存完了"
 msgstr "保存完成"
 
-#: guis/GUI00_Format_Converter.py:119
+#: guis/GUI00_Format_Converter.py:128
 msgid "フォルダを選択してください。"
 msgstr "请选择文件夹。"
 
-#: guis/GUI00_Format_Converter.py:130
+#: guis/GUI00_Format_Converter.py:139
 msgid "入力フォルダ"
 msgstr "输入文件夹"
 
-#: guis/GUI00_Format_Converter.py:133
+#: guis/GUI00_Format_Converter.py:142
 msgid "フォルダを選択"
 msgstr "选择文件夹"
 
-#: guis/GUI00_Format_Converter.py:136
+#: guis/GUI00_Format_Converter.py:145
 msgid "変換開始"
 msgstr "开始转换"
 
-#: guis/GUI00_Format_Converter.py:143
+#: guis/GUI00_Format_Converter.py:148
+msgid "GUI01で開く"
+msgstr "在 GUI01 中打开"
+
+#: guis/GUI00_Format_Converter.py:153
+msgid ""
+"Image Preprocessor (GUI01) を新しいウインドウで開き、このフォルダのファイルを一覧に並べます。\n"
+"フォルダを選んでいないとき、または変換の実行中は押せません。"
+msgstr ""
+"在新窗口中打开 Image Preprocessor (GUI01)，并列出此文件夹中的文件。\n"
+"未选择文件夹或正在转换时不可用。"
+
+#: guis/GUI00_Format_Converter.py:160
 #, python-brace-format
 msgid "変換対象: {skipped} 以外の拡張子のファイル。出力: 同じフォルダの <元のファイル名>{suffix}.gwy（既にあれば変換しない）。"
 msgstr "转换对象：扩展名不是 {skipped} 的文件。输出：同一文件夹中的 <原文件名>{suffix}.gwy（已存在时不再转换）。"
 
-#: guis/GUI00_Format_Converter.py:156
+#: guis/GUI00_Format_Converter.py:173
 msgid "ファイル"
 msgstr "文件"
 
-#: guis/GUI00_Format_Converter.py:157 guis/GUI01_Image_Preprocessor.py:1320
+#: guis/GUI00_Format_Converter.py:174 guis/GUI01_Image_Preprocessor.py:1338
 msgid "状態"
 msgstr "状态"
 
-#: guis/GUI00_Format_Converter.py:158
+#: guis/GUI00_Format_Converter.py:175
 msgid "読み込んだ Gwyddion モジュール"
 msgstr "读取所用的 Gwyddion 模块"
 
-#: guis/GUI00_Format_Converter.py:159
+#: guis/GUI00_Format_Converter.py:176
 msgid "詳細"
 msgstr "详情"
 
-#: guis/GUI00_Format_Converter.py:174 guis/GUI05_Thumbnail_Viewer.py:1605
-#: guis/GUI06_Bundle_Editor.py:928
+#: guis/GUI00_Format_Converter.py:191 guis/GUI05_Thumbnail_Viewer.py:1605
+#: guis/GUI06_Bundle_Editor.py:960
 msgid "ログ"
 msgstr "日志"
 
-#: guis/GUI00_Format_Converter.py:192
+#: guis/GUI00_Format_Converter.py:209
 msgid "未変換"
 msgstr "未转换"
 
-#: guis/GUI00_Format_Converter.py:193
+#: guis/GUI00_Format_Converter.py:210
 msgid "変換しました"
 msgstr "已转换"
 
-#: guis/GUI00_Format_Converter.py:194
+#: guis/GUI00_Format_Converter.py:211
 msgid "変換済み（.gwy あり）"
 msgstr "已转换过（存在 .gwy）"
 
-#: guis/GUI00_Format_Converter.py:195
+#: guis/GUI00_Format_Converter.py:212
 msgid "変換できませんでした"
 msgstr "无法转换"
 
-#: guis/GUI00_Format_Converter.py:216
+#: guis/GUI00_Format_Converter.py:238
 msgid "変換するファイルを含むフォルダを選択"
 msgstr "选择包含待转换文件的文件夹"
 
-#: guis/GUI00_Format_Converter.py:222
+#: guis/GUI00_Format_Converter.py:244
 #, python-brace-format
 msgid "フォルダを読み込めませんでした: {error}"
 msgstr "无法读取文件夹: {error}"
 
-#: guis/GUI00_Format_Converter.py:239
+#: guis/GUI00_Format_Converter.py:261
 #, python-brace-format
 msgid "フォルダ選択: {folder}"
 msgstr "已选择文件夹: {folder}"
 
-#: guis/GUI00_Format_Converter.py:240
+#: guis/GUI00_Format_Converter.py:262
 #, python-brace-format
 msgid "変換対象 {n} 件（うち .gwy が既にあるもの {n_exists} 件）"
 msgstr "待转换 {n} 个（其中已有 .gwy 的 {n_exists} 个）"
 
-#: guis/GUI00_Format_Converter.py:256
+#: guis/GUI00_Format_Converter.py:278
 msgid "変換プログラムが見つかりません"
 msgstr "未找到转换程序"
 
-#: guis/GUI00_Format_Converter.py:258
+#: guis/GUI00_Format_Converter.py:280
 #, python-brace-format
 msgid ""
 "Gwyddion の変換プログラム gwyconvert が見つかりません。\n"
@@ -269,97 +281,107 @@ msgstr ""
 "请用以下命令安装后再试一次。\n"
 "{command}"
 
-#: guis/GUI00_Format_Converter.py:267
+#: guis/GUI00_Format_Converter.py:289
 #, python-brace-format
 msgid "変換を開始します（{n} 件）。"
 msgstr "开始转换（{n} 个）。"
 
-#: guis/GUI00_Format_Converter.py:305
+#: guis/GUI00_Format_Converter.py:327
 #, python-brace-format
 msgid "{name}: 変換できませんでした ({reason})"
 msgstr "{name}: 无法转换（{reason}）"
 
-#: guis/GUI00_Format_Converter.py:311
+#: guis/GUI00_Format_Converter.py:333
 #, python-brace-format
 msgid "完了: 変換 {converted} 件、変換済みのため省略 {exists} 件、変換できず {failed} 件"
 msgstr "完成：转换 {converted} 个，已转换而跳过 {exists} 个，无法转换 {failed} 个"
 
-#: guis/GUI00_Format_Converter.py:318
+#: guis/GUI00_Format_Converter.py:340
 msgid "Image Preprocessor でこのフォルダを選ぶと、変換した .gwy ファイルを解析できます。"
 msgstr "在 Image Preprocessor 中选择此文件夹，即可分析转换后的 .gwy 文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:313
+#: guis/GUI00_Format_Converter.py:363
+#, python-brace-format
+msgid "起動に失敗しました: {error}"
+msgstr "启动失败: {error}"
+
+#: guis/GUI00_Format_Converter.py:365
+#, python-brace-format
+msgid "フォルダを GUI01 で開きます: {folder}"
+msgstr "正在用 GUI01 打开文件夹：{folder}"
+
+#: guis/GUI01_Image_Preprocessor.py:317
 msgid "未解析"
 msgstr "未解析"
 
-#: guis/GUI01_Image_Preprocessor.py:314
+#: guis/GUI01_Image_Preprocessor.py:318
 msgid "解析中"
 msgstr "解析中"
 
-#: guis/GUI01_Image_Preprocessor.py:315
+#: guis/GUI01_Image_Preprocessor.py:319
 msgid "解析済み"
 msgstr "已解析"
 
-#: guis/GUI01_Image_Preprocessor.py:337
+#: guis/GUI01_Image_Preprocessor.py:341
 msgid "読み込み"
 msgstr "读取"
 
-#: guis/GUI01_Image_Preprocessor.py:338
+#: guis/GUI01_Image_Preprocessor.py:342
 msgid "BG補正"
 msgstr "背景校正"
 
-#: guis/GUI01_Image_Preprocessor.py:339
+#: guis/GUI01_Image_Preprocessor.py:343
 msgid "二値化/成分処理"
 msgstr "二值化/成分处理"
 
-#: guis/GUI01_Image_Preprocessor.py:340 guis/GUI06_Bundle_Editor.py:693
+#: guis/GUI01_Image_Preprocessor.py:344 guis/GUI06_Bundle_Editor.py:702
 msgid "細線化"
 msgstr "细线化（骨架化）"
 
-#: guis/GUI01_Image_Preprocessor.py:341
+#: guis/GUI01_Image_Preprocessor.py:345
 msgid "kink検出"
 msgstr "扭结（kink）检测"
 
-#: guis/GUI01_Image_Preprocessor.py:342
+#: guis/GUI01_Image_Preprocessor.py:346
 msgid "保存"
 msgstr "保存"
 
-#: guis/GUI01_Image_Preprocessor.py:368
+#: guis/GUI01_Image_Preprocessor.py:372
 #, python-brace-format
 msgid "bg_method を tophat、tophat_se_size を {se} にして解析し直してください。"
 msgstr "请将 bg_method 设为 tophat、tophat_se_size 设为 {se} 后重新分析。"
 
-#: guis/GUI01_Image_Preprocessor.py:370
+#: guis/GUI01_Image_Preprocessor.py:374
 msgid "tophat は走査線ごとの高さの段差を trendfill ほど取り除かないため、補正後の画像に横縞が残ることがあります。"
 msgstr "tophat 去除扫描线之间高度台阶的程度不及 trendfill，因此校正后的图像中可能残留横向条纹。"
 
-#: guis/GUI01_Image_Preprocessor.py:374
+#: guis/GUI01_Image_Preprocessor.py:378
 #, python-brace-format
 msgid "bg_method を {method} にして解析し直してください。"
 msgstr "请将 bg_method 设为 {method} 后重新分析。"
 
-#: guis/GUI01_Image_Preprocessor.py:377
+#: guis/GUI01_Image_Preprocessor.py:381
 msgid "補正後の画像で、繊維が残っているか確かめてください。"
 msgstr "请在校正后的图像中确认纤维是否仍然存在。"
 
-#: guis/GUI01_Image_Preprocessor.py:380
+#: guis/GUI01_Image_Preprocessor.py:384
 #, python-brace-format
 msgid "警告: {name}: 大半の繊維で見かけ幅を測れなかったため、背景補正の検査を行えませんでした。補正が繊維を取り除いた場合もこの状態になります。"
 msgstr "警告：{name}：大多数纤维的表观宽度无法测量，因此无法检查背景校正。校正去除了纤维时也会出现这种状态。"
 
-#: guis/GUI01_Image_Preprocessor.py:385
+#: guis/GUI01_Image_Preprocessor.py:389
 #, python-brace-format
 msgid "警告: {name}: 繊維の起伏の {fraction:.0%} が、すぐ脇の背景より高い背景として引かれており、繊維の高さが低く出ています。"
 msgstr "警告：{name}：纤维起伏的 {fraction:.0%} 作为高于其紧邻背景的背景被扣除，纤维高度偏低。"
 
-#: guis/GUI01_Image_Preprocessor.py:390
+#: guis/GUI01_Image_Preprocessor.py:394
 #, python-brace-format
 msgid ""
 "警告: {name}: 繊維の見かけ幅（中央値 {width:.1f} px）に対して tophat_se_size "
 "が小さく、繊維の高さが低く出ているおそれがあります。"
 msgstr "警告：{name}：相对于纤维的表观宽度（中位数 {width:.1f} px），tophat_se_size 偏小，纤维高度可能偏低。"
 
-#: guis/GUI01_Image_Preprocessor.py:395
+#: guis/GUI01_Image_Preprocessor.py:399
 #, python-brace-format
 msgid ""
 "警告: {name}: 繊維の斜面の段差がノイズに比べて小さく（斜面段差比 {ratio:.2f}、{method} の目安は {limit:g}"
@@ -368,7 +390,7 @@ msgstr ""
 "警告：{name}：纤维侧面的台阶相对于噪声较小（侧面台阶比 {ratio:.2f}，{method} 的参考值为 {limit:g} "
 "以上），{method} 可能将纤维的一部分作为背景扣除，纤维高度可能偏低。"
 
-#: guis/GUI01_Image_Preprocessor.py:402
+#: guis/GUI01_Image_Preprocessor.py:406
 #, python-brace-format
 msgid ""
 "警告: {name}: 繊維の見かけ幅（中央値 {width:.1f} px）が、{method} を確かめた範囲（{limit:g} px "
@@ -377,7 +399,7 @@ msgstr ""
 "警告：{name}：纤维的表观宽度（中位数 {width:.1f} px）超出了 {method} 的已验证范围（最多 {limit:g} "
 "px），纤维高度可能偏低。"
 
-#: guis/GUI01_Image_Preprocessor.py:431
+#: guis/GUI01_Image_Preprocessor.py:435
 #, python-brace-format
 msgid ""
 "警告: {name}: 繊維の典型的な高さ（{height:.2f} nm）が画素ノイズ（{noise:.3f} nm）の{snr:.1f} "
@@ -387,34 +409,34 @@ msgstr ""
 "警告：{name}：纤维的典型高度（{height:.2f} nm）仅为像素噪声（{noise:.3f} nm）的 {snr:.1f} 倍，未达到"
 " {limit:g} 倍。纤维高度可能偏高，较粗纤维的表观宽度可能偏窄。请分析相对于纤维噪声较小的扫描图像。"
 
-#: guis/GUI01_Image_Preprocessor.py:590
+#: guis/GUI01_Image_Preprocessor.py:594
 #, python-format
 msgid "起動時設定ファイルを作成しました: %s"
 msgstr "已创建启动时配置文件: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:592
+#: guis/GUI01_Image_Preprocessor.py:596
 #, python-format
 msgid "起動時設定ファイルの作成に失敗しました（デフォルトで起動します）: %s"
 msgstr "创建启动时配置文件失败（将使用默认设置启动）: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:605
+#: guis/GUI01_Image_Preprocessor.py:609
 #, python-format
 msgid "起動時設定ファイルに不足キーがありました（デフォルトで補完）: %s"
 msgstr "启动时配置文件缺少键（已用默认值补全）: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:608
+#: guis/GUI01_Image_Preprocessor.py:612
 #, python-format
 msgid "起動時設定ファイルに使われていないキーがありました（無視）: %s"
 msgstr "启动时配置文件包含未使用的键（已忽略）: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:615
+#: guis/GUI01_Image_Preprocessor.py:619
 #, python-format
 msgid "起動時設定ファイルの読み込みに失敗しました（デフォルトにフォールバック）: %s"
 msgstr "读取启动时配置文件失败（回退至默认设置）: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:1154 guis/GUI01_Image_Preprocessor.py:2179
-#: guis/GUI01_Image_Preprocessor.py:2188 guis/GUI01_Image_Preprocessor.py:5353
-#: guis/GUI01_Image_Preprocessor.py:5362
+#: guis/GUI01_Image_Preprocessor.py:1158 guis/GUI01_Image_Preprocessor.py:2197
+#: guis/GUI01_Image_Preprocessor.py:2206 guis/GUI01_Image_Preprocessor.py:5439
+#: guis/GUI01_Image_Preprocessor.py:5448
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2890
 #: guis/GUI03_Fiber_Morphology_Statistics.py:4374
 #: guis/GUI03_Fiber_Morphology_Statistics.py:6477
@@ -424,243 +446,251 @@ msgstr "读取启动时配置文件失败（回退至默认设置）: %s"
 msgid "非表示"
 msgstr "隐藏"
 
-#: guis/GUI01_Image_Preprocessor.py:1211
+#: guis/GUI01_Image_Preprocessor.py:1215
 msgid "フォルダ選択"
 msgstr "选择文件夹"
 
-#: guis/GUI01_Image_Preprocessor.py:1218
+#: guis/GUI01_Image_Preprocessor.py:1222
 msgid "解析済みを上書き"
 msgstr "覆盖已解析文件"
 
-#: guis/GUI01_Image_Preprocessor.py:1222
+#: guis/GUI01_Image_Preprocessor.py:1226
 msgid "全て解析"
 msgstr "全部解析"
 
-#: guis/GUI01_Image_Preprocessor.py:1225
+#: guis/GUI01_Image_Preprocessor.py:1229
 msgid "解析"
 msgstr "解析"
 
-#: guis/GUI01_Image_Preprocessor.py:1228
+#: guis/GUI01_Image_Preprocessor.py:1232
 msgid "停止"
 msgstr "停止"
 
-#: guis/GUI01_Image_Preprocessor.py:1234 guis/GUI01_Image_Preprocessor.py:4408
+#: guis/GUI01_Image_Preprocessor.py:1238 guis/GUI01_Image_Preprocessor.py:4494
 msgid "設定"
 msgstr "设置"
 
-#: guis/GUI01_Image_Preprocessor.py:1237
+#: guis/GUI01_Image_Preprocessor.py:1241
 msgid "出力先を開く"
 msgstr "打开输出文件夹"
 
-#: guis/GUI01_Image_Preprocessor.py:1259
+#: guis/GUI01_Image_Preprocessor.py:1263
 msgid "ファイル一覧"
 msgstr "文件列表"
 
-#: guis/GUI01_Image_Preprocessor.py:1267
+#: guis/GUI01_Image_Preprocessor.py:1271
 msgid "X / Y セルは直接入力・Excel から貼り付け可"
 msgstr "可直接在 X / Y 单元格中输入，或从 Excel 粘贴"
 
-#: guis/GUI01_Image_Preprocessor.py:1275
-msgid "このフォルダをGUI03で解析"
-msgstr "用 GUI03 分析此文件夹"
-
 #: guis/GUI01_Image_Preprocessor.py:1281
+msgid "GUI05で開く"
+msgstr "在 GUI05 中打开"
+
+#: guis/GUI01_Image_Preprocessor.py:1286
+msgid "GUI03で解析"
+msgstr "用 GUI03 分析"
+
+#: guis/GUI01_Image_Preprocessor.py:1290
+msgid "解析済みのファイルが無いとき、または解析の実行中は押せません。"
+msgstr "没有已分析的文件或正在分析时不可用。"
+
+#: guis/GUI01_Image_Preprocessor.py:1293
 msgid ""
 "Fiber Morphology Statistics (GUI03) "
 "を新しいウインドウで開き、このフォルダのバンドルを最初のグループに登録します。"
 msgstr "在新窗口中打开 Fiber Morphology Statistics (GUI03)，并将此文件夹中的包文件登记到第一个组。"
 
-#: guis/GUI01_Image_Preprocessor.py:1283
-msgid "解析済みのファイルが無いとき、または解析の実行中は押せません。"
-msgstr "没有已分析的文件或正在分析时不可用。"
+#: guis/GUI01_Image_Preprocessor.py:1299
+msgid "Thumbnail Viewer (GUI05) を新しいウインドウで開き、このフォルダのバンドルをサムネイルで表示します。"
+msgstr "在新窗口中打开 Thumbnail Viewer (GUI05)，并以缩略图显示此文件夹中的包文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:1303 guis/GUI05_Thumbnail_Viewer.py:2974
+#: guis/GUI01_Image_Preprocessor.py:1321 guis/GUI05_Thumbnail_Viewer.py:2974
 msgid "ファイル名"
 msgstr "文件名"
 
-#: guis/GUI01_Image_Preprocessor.py:1318
+#: guis/GUI01_Image_Preprocessor.py:1336
 msgid "縞ノイズ率"
 msgstr "条纹噪声率"
 
-#: guis/GUI01_Image_Preprocessor.py:1319
+#: guis/GUI01_Image_Preprocessor.py:1337
 msgid "走査線範囲"
 msgstr "扫描线范围"
 
-#: guis/GUI01_Image_Preprocessor.py:1321
+#: guis/GUI01_Image_Preprocessor.py:1339
 msgid "処理時間"
 msgstr "处理时间"
 
-#: guis/GUI01_Image_Preprocessor.py:1382
+#: guis/GUI01_Image_Preprocessor.py:1400
 msgid "セルを編集"
 msgstr "编辑单元格"
 
-#: guis/GUI01_Image_Preprocessor.py:1383
+#: guis/GUI01_Image_Preprocessor.py:1401
 msgid "コピー"
 msgstr "复制"
 
-#: guis/GUI01_Image_Preprocessor.py:1384
+#: guis/GUI01_Image_Preprocessor.py:1402
 msgid "貼り付け"
 msgstr "粘贴"
 
-#: guis/GUI01_Image_Preprocessor.py:1385 guis/GUI05_Thumbnail_Viewer.py:1390
+#: guis/GUI01_Image_Preprocessor.py:1403 guis/GUI05_Thumbnail_Viewer.py:1390
 msgid "削除"
 msgstr "删除"
 
-#: guis/GUI01_Image_Preprocessor.py:1386 guis/GUI04_Tracking_fiber.py:1413
-#: guis/GUI06_Bundle_Editor.py:1004
+#: guis/GUI01_Image_Preprocessor.py:1404 guis/GUI04_Tracking_fiber.py:1413
+#: guis/GUI06_Bundle_Editor.py:1036
 msgid "元に戻す"
 msgstr "撤销"
 
-#: guis/GUI01_Image_Preprocessor.py:1484 guis/GUI02_PlotProfiler.py:735
+#: guis/GUI01_Image_Preprocessor.py:1502 guis/GUI02_PlotProfiler.py:735
 #: guis/GUI04_Tracking_fiber.py:1240
 msgid "AFM 画像の X（幅）方向の実寸"
 msgstr "AFM 图像 X（宽度）方向的实际尺寸"
 
-#: guis/GUI01_Image_Preprocessor.py:1485
+#: guis/GUI01_Image_Preprocessor.py:1503
 msgid "プレビューの軸目盛と、ファイルへ適用したときの長さ計測の基準に使われる。"
 msgstr "用于预览的坐标轴刻度，并在应用到文件后作为长度测量的基准。"
 
-#: guis/GUI01_Image_Preprocessor.py:1507 guis/GUI02_PlotProfiler.py:757
+#: guis/GUI01_Image_Preprocessor.py:1525 guis/GUI02_PlotProfiler.py:757
 #: guis/GUI04_Tracking_fiber.py:1262
 msgid "AFM 画像の Y（高さ）方向の実寸"
 msgstr "AFM 图像 Y（高度）方向的实际尺寸"
 
-#: guis/GUI01_Image_Preprocessor.py:1508 guis/GUI02_PlotProfiler.py:758
+#: guis/GUI01_Image_Preprocessor.py:1526 guis/GUI02_PlotProfiler.py:758
 #: guis/GUI04_Tracking_fiber.py:1263
 msgid "空欄なら X（幅）と同じ（正方スキャン）。"
 msgstr "留空则与 X（宽度）相同（正方扫描）。"
 
-#: guis/GUI01_Image_Preprocessor.py:1546
+#: guis/GUI01_Image_Preprocessor.py:1564
 msgid "選択ファイルに適用"
 msgstr "应用到所选文件"
 
-#: guis/GUI01_Image_Preprocessor.py:1551
+#: guis/GUI01_Image_Preprocessor.py:1569
 msgid "全ファイルに適用"
 msgstr "应用到全部文件"
 
-#: guis/GUI01_Image_Preprocessor.py:1556
+#: guis/GUI01_Image_Preprocessor.py:1574
 msgid "スケール表(CSV)読込"
 msgstr "载入比例表(CSV)"
 
-#: guis/GUI01_Image_Preprocessor.py:1561
+#: guis/GUI01_Image_Preprocessor.py:1579
 msgid "縞ノイズで分割"
 msgstr "按条纹噪声分割"
 
-#: guis/GUI01_Image_Preprocessor.py:1566
+#: guis/GUI01_Image_Preprocessor.py:1584
 msgid "分割を解除"
 msgstr "取消分割"
 
-#: guis/GUI01_Image_Preprocessor.py:1572
+#: guis/GUI01_Image_Preprocessor.py:1590
 msgid "分割した項目を画像全体の 1 項目へ戻します。"
 msgstr "将分割后的项目合并回整幅图像的单个项目。"
 
-#: guis/GUI01_Image_Preprocessor.py:1573
+#: guis/GUI01_Image_Preprocessor.py:1591
 msgid "分割時に作成した .b2z を削除するかは実行時に確認します。"
 msgstr "执行时会询问是否删除分割生成的 .b2z 文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:1577
+#: guis/GUI01_Image_Preprocessor.py:1595
 msgid "走査を縞ノイズの無い走査線範囲へ分割し、「走査線範囲」列へ入れます。"
 msgstr "将扫描分割为没有条纹噪声的扫描线范围，并填入“扫描线范围”列。"
 
-#: guis/GUI01_Image_Preprocessor.py:1578
+#: guis/GUI01_Image_Preprocessor.py:1596
 msgid "選択中のファイル、選択が無ければ縞ノイズのある全ファイルが対象です。"
 msgstr "作用于所选文件；若未选择，则作用于所有存在条纹噪声的文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:1582
+#: guis/GUI01_Image_Preprocessor.py:1600
 msgid "スケール入力欄の値を選択ファイルへ適用します。"
 msgstr "将比例输入框的值应用到选中文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:1583
+#: guis/GUI01_Image_Preprocessor.py:1601
 msgid "ヘッダから取得できないファイルにスケールを与えるときに使います。"
 msgstr "用于为头部没有扫描尺寸的文件设置比例。"
 
-#: guis/GUI01_Image_Preprocessor.py:1587
+#: guis/GUI01_Image_Preprocessor.py:1605
 msgid "ファイル名とスケールを対応付けた CSV を読み込みます。"
 msgstr "载入将文件名与比例对应的 CSV。"
 
-#: guis/GUI01_Image_Preprocessor.py:1588
+#: guis/GUI01_Image_Preprocessor.py:1606
 msgid "列: filename, scale_um もしくは scale_x_um, scale_y_um。"
 msgstr "列: filename, scale_um 或 scale_x_um, scale_y_um。"
 
-#: guis/GUI01_Image_Preprocessor.py:1600
+#: guis/GUI01_Image_Preprocessor.py:1618
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2389
 #: guis/GUI04_Tracking_fiber.py:1872
 msgid "ログをクリア"
 msgstr "清除日志"
 
-#: guis/GUI01_Image_Preprocessor.py:1615
+#: guis/GUI01_Image_Preprocessor.py:1633
 msgid "-/- 完了"
 msgstr "-/- 已完成"
 
-#: guis/GUI01_Image_Preprocessor.py:1631 guis/GUI01_Image_Preprocessor.py:3528
+#: guis/GUI01_Image_Preprocessor.py:1649 guis/GUI01_Image_Preprocessor.py:3570
 msgid "-"
 msgstr "-"
 
-#: guis/GUI01_Image_Preprocessor.py:2075 guis/GUI01_Image_Preprocessor.py:2851
+#: guis/GUI01_Image_Preprocessor.py:2093 guis/GUI01_Image_Preprocessor.py:2893
 msgid "欠損: "
 msgstr "缺失: "
 
-#: guis/GUI01_Image_Preprocessor.py:2129 guis/GUI01_Image_Preprocessor.py:5306
+#: guis/GUI01_Image_Preprocessor.py:2147 guis/GUI01_Image_Preprocessor.py:5392
 msgid "タイトル表示"
 msgstr "显示标题"
 
-#: guis/GUI01_Image_Preprocessor.py:2135 guis/GUI01_Image_Preprocessor.py:5307
+#: guis/GUI01_Image_Preprocessor.py:2153 guis/GUI01_Image_Preprocessor.py:5393
 msgid "スケール表示"
 msgstr "显示比例尺"
 
-#: guis/GUI01_Image_Preprocessor.py:2145 guis/GUI01_Image_Preprocessor.py:5310
+#: guis/GUI01_Image_Preprocessor.py:2163 guis/GUI01_Image_Preprocessor.py:5396
 #: guis/GUI04_Tracking_fiber.py:1297
 msgid "軸目盛単位"
 msgstr "坐标轴刻度单位"
 
-#: guis/GUI01_Image_Preprocessor.py:2156 guis/GUI01_Image_Preprocessor.py:5321
+#: guis/GUI01_Image_Preprocessor.py:2174 guis/GUI01_Image_Preprocessor.py:5407
 #: guis/GUI04_Tracking_fiber.py:1830
 msgid "vmin"
 msgstr "vmin"
 
-#: guis/GUI01_Image_Preprocessor.py:2165 guis/GUI01_Image_Preprocessor.py:5330
+#: guis/GUI01_Image_Preprocessor.py:2183 guis/GUI01_Image_Preprocessor.py:5416
 #: guis/GUI04_Tracking_fiber.py:1838
 msgid "vmax"
 msgstr "vmax"
 
-#: guis/GUI01_Image_Preprocessor.py:2175 guis/GUI01_Image_Preprocessor.py:5347
+#: guis/GUI01_Image_Preprocessor.py:2193 guis/GUI01_Image_Preprocessor.py:5433
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2904
 msgid "重ね表示"
 msgstr "叠加显示"
 
-#: guis/GUI01_Image_Preprocessor.py:2187 guis/GUI01_Image_Preprocessor.py:5361
+#: guis/GUI01_Image_Preprocessor.py:2205 guis/GUI01_Image_Preprocessor.py:5447
 msgid "Skeletonized 画像に重ねる特徴点の種類を選択します。"
 msgstr "选择要叠加到骨架化图像上的特征点类型。"
 
-#: guis/GUI01_Image_Preprocessor.py:2188
+#: guis/GUI01_Image_Preprocessor.py:2206
 msgid "重ね表示しません"
 msgstr "不叠加显示"
 
-#: guis/GUI01_Image_Preprocessor.py:2189 guis/GUI01_Image_Preprocessor.py:5363
+#: guis/GUI01_Image_Preprocessor.py:2207 guis/GUI01_Image_Preprocessor.py:5449
 msgid "ファイバーの端点（青）"
 msgstr "纤维端点（蓝色）"
 
-#: guis/GUI01_Image_Preprocessor.py:2190 guis/GUI01_Image_Preprocessor.py:5364
+#: guis/GUI01_Image_Preprocessor.py:2208 guis/GUI01_Image_Preprocessor.py:5450
 msgid "ファイバーの分岐点（赤）"
 msgstr "纤维分支点（红色）"
 
-#: guis/GUI01_Image_Preprocessor.py:2191 guis/GUI01_Image_Preprocessor.py:5365
+#: guis/GUI01_Image_Preprocessor.py:2209 guis/GUI01_Image_Preprocessor.py:5451
 msgid "ファイバーのキンク点（シアン）"
 msgstr "纤维扭结点（青色）"
 
-#: guis/GUI01_Image_Preprocessor.py:2192 guis/GUI01_Image_Preprocessor.py:5366
+#: guis/GUI01_Image_Preprocessor.py:2210 guis/GUI01_Image_Preprocessor.py:5452
 msgid "ファイバーの分解点（オレンジ）"
 msgstr "纤维分解点（橙色）"
 
-#: guis/GUI01_Image_Preprocessor.py:2210 guis/GUI05_Thumbnail_Viewer.py:1527
+#: guis/GUI01_Image_Preprocessor.py:2228 guis/GUI05_Thumbnail_Viewer.py:1527
 msgid "フォントサイズ…"
 msgstr "字体大小…"
 
-#: guis/GUI01_Image_Preprocessor.py:2214
+#: guis/GUI01_Image_Preprocessor.py:2232
 msgid "プレビューのタイトル・軸ラベル・軸目盛・凡例のフォントサイズを設定するウインドウを開きます。"
 msgstr "打开用于设置预览的标题、坐标轴标签、刻度和图例字体大小的窗口。"
 
-#: guis/GUI01_Image_Preprocessor.py:2227 guis/GUI01_Image_Preprocessor.py:5429
+#: guis/GUI01_Image_Preprocessor.py:2245 guis/GUI01_Image_Preprocessor.py:5515
 #: guis/GUI02_PlotProfiler.py:281 guis/GUI02_PlotProfiler.py:1018
 #: guis/GUI02_PlotProfiler.py:2497
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2439
@@ -671,46 +701,54 @@ msgstr "打开用于设置预览的标题、坐标轴标签、刻度和图例字
 msgid "画像を保存"
 msgstr "保存图像"
 
-#: guis/GUI01_Image_Preprocessor.py:2231 guis/GUI04_Tracking_fiber.py:1763
+#: guis/GUI01_Image_Preprocessor.py:2249 guis/GUI04_Tracking_fiber.py:1763
 msgid "個別表示"
 msgstr "单独显示"
 
-#: guis/GUI01_Image_Preprocessor.py:2237 guis/GUI05_Thumbnail_Viewer.py:1536
+#: guis/GUI01_Image_Preprocessor.py:2255 guis/GUI05_Thumbnail_Viewer.py:1536
 msgid "GUI02で開く"
 msgstr "在 GUI02 中打开"
 
-#: guis/GUI01_Image_Preprocessor.py:2241 guis/GUI05_Thumbnail_Viewer.py:1549
+#: guis/GUI01_Image_Preprocessor.py:2259 guis/GUI05_Thumbnail_Viewer.py:1549
 msgid "GUI04で開く"
 msgstr "在 GUI04 中打开"
 
-#: guis/GUI01_Image_Preprocessor.py:2244
+#: guis/GUI01_Image_Preprocessor.py:2263
+msgid "GUI06で開く"
+msgstr "在 GUI06 中打开"
+
+#: guis/GUI01_Image_Preprocessor.py:2266
 msgid "プレビューに画像が表示されていないとき、または解析の実行中は押せません。"
 msgstr "预览未显示图像或正在分析时不可用。"
 
-#: guis/GUI01_Image_Preprocessor.py:2247
+#: guis/GUI01_Image_Preprocessor.py:2269
 msgid "表示中の解析結果 (.b2z) を Plot Profiler (GUI02) で新しいウインドウに開きます。"
 msgstr "在新窗口中用 Plot Profiler (GUI02) 打开当前显示的分析结果 (.b2z)。"
 
-#: guis/GUI01_Image_Preprocessor.py:2252
+#: guis/GUI01_Image_Preprocessor.py:2274
 msgid "表示中の解析結果 (.b2z) を Fiber Tracker (GUI04) で新しいウインドウに開きます。"
 msgstr "在新窗口中用 Fiber Tracker (GUI04) 打开当前显示的分析结果 (.b2z)。"
 
-#: guis/GUI01_Image_Preprocessor.py:2276 guis/GUI05_Thumbnail_Viewer.py:2968
+#: guis/GUI01_Image_Preprocessor.py:2279
+msgid "表示中の解析結果 (.b2z) を Bundle Editor (GUI06) で新しいウインドウに開きます。"
+msgstr "在新窗口中用 Bundle Editor (GUI06) 打开当前显示的分析结果 (.b2z)。"
+
+#: guis/GUI01_Image_Preprocessor.py:2303 guis/GUI05_Thumbnail_Viewer.py:2968
 msgid "フォントサイズ"
 msgstr "字体大小"
 
-#: guis/GUI01_Image_Preprocessor.py:2289
+#: guis/GUI01_Image_Preprocessor.py:2316
 msgid "タイトル"
 msgstr "标题"
 
-#: guis/GUI01_Image_Preprocessor.py:2290 guis/GUI01_Image_Preprocessor.py:5399
+#: guis/GUI01_Image_Preprocessor.py:2317 guis/GUI01_Image_Preprocessor.py:5485
 #: guis/GUI02_PlotProfiler.py:901
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2967
 #: guis/GUI04_Tracking_fiber.py:1786
 msgid "軸ラベル"
 msgstr "坐标轴标签"
 
-#: guis/GUI01_Image_Preprocessor.py:2291 guis/GUI01_Image_Preprocessor.py:5409
+#: guis/GUI01_Image_Preprocessor.py:2318 guis/GUI01_Image_Preprocessor.py:5495
 #: guis/GUI02_PlotProfiler.py:913
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2976
 #: guis/GUI04_Tracking_fiber.py:1795 guis/GUI04_Tracking_fiber.py:6686
@@ -718,124 +756,125 @@ msgstr "坐标轴标签"
 msgid "軸目盛"
 msgstr "坐标轴刻度"
 
-#: guis/GUI01_Image_Preprocessor.py:2292 guis/GUI01_Image_Preprocessor.py:5419
+#: guis/GUI01_Image_Preprocessor.py:2319 guis/GUI01_Image_Preprocessor.py:5505
 #: guis/GUI04_Tracking_fiber.py:6828
 msgid "凡例"
 msgstr "图例"
 
-#: guis/GUI01_Image_Preprocessor.py:2310 guis/GUI04_Tracking_fiber.py:7499
+#: guis/GUI01_Image_Preprocessor.py:2337 guis/GUI04_Tracking_fiber.py:7499
 #: guis/GUI04_Tracking_fiber.py:7664 guis/GUI04_Tracking_fiber.py:7788
 #: guis/GUI04_Tracking_fiber.py:7973 guis/GUI04_Tracking_fiber.py:8088
 #: guis/GUI05_Thumbnail_Viewer.py:2999
 msgid "閉じる"
 msgstr "关闭"
 
-#: guis/GUI01_Image_Preprocessor.py:2366 guis/GUI01_Image_Preprocessor.py:5478
+#: guis/GUI01_Image_Preprocessor.py:2393 guis/GUI01_Image_Preprocessor.py:5564
 msgid "vmin は vmax 以下にしてください"
 msgstr "vmin 必须小于或等于 vmax"
 
-#: guis/GUI01_Image_Preprocessor.py:2390 guis/GUI01_Image_Preprocessor.py:5452
+#: guis/GUI01_Image_Preprocessor.py:2417 guis/GUI01_Image_Preprocessor.py:5538
 #: guis/GUI02_PlotProfiler.py:1117
 msgid "フォントサイズは 1〜60 の範囲で入力してください"
 msgstr "请输入 1-60 范围内的字体大小。"
 
-#: guis/GUI01_Image_Preprocessor.py:2409 guis/GUI01_Image_Preprocessor.py:2447
+#: guis/GUI01_Image_Preprocessor.py:2436 guis/GUI01_Image_Preprocessor.py:2474
 #: guis/GUI02_PlotProfiler.py:719 guis/GUI02_PlotProfiler.py:1152
 #: guis/GUI02_PlotProfiler.py:1189 guis/GUI04_Tracking_fiber.py:1225
 #: guis/GUI04_Tracking_fiber.py:2023 guis/GUI04_Tracking_fiber.py:2055
 msgid "スケール"
 msgstr "比例尺"
 
-#: guis/GUI01_Image_Preprocessor.py:2409 guis/GUI01_Image_Preprocessor.py:2447
+#: guis/GUI01_Image_Preprocessor.py:2436 guis/GUI01_Image_Preprocessor.py:2474
 #: guis/GUI02_PlotProfiler.py:1152 guis/GUI02_PlotProfiler.py:1189
 msgid "は正の数を入力してください"
 msgstr "必须输入正数"
 
-#: guis/GUI01_Image_Preprocessor.py:2776
+#: guis/GUI01_Image_Preprocessor.py:2803
 msgid "既存ファイル: 上書きON（解析開始前に上書き対象数をログ表示）"
 msgstr "现有文件：开启覆盖（解析开始前在日志中显示覆盖目标数量）"
 
-#: guis/GUI01_Image_Preprocessor.py:2778
+#: guis/GUI01_Image_Preprocessor.py:2805
 msgid "既存ファイル: スキップ（再計算・上書きしない）"
 msgstr "现有文件：跳过（不重新计算、不覆盖）"
 
-#: guis/GUI01_Image_Preprocessor.py:2786
+#: guis/GUI01_Image_Preprocessor.py:2813
 msgid "入力フォルダを選択（.txt / .gwy を含む）"
 msgstr "选择输入文件夹（包含 .txt / .gwy 文件）"
 
-#: guis/GUI01_Image_Preprocessor.py:2791
+#: guis/GUI01_Image_Preprocessor.py:2833
 #, python-format
 msgid "フォルダ選択: %s"
 msgstr "已选择文件夹: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:2804
+#: guis/GUI01_Image_Preprocessor.py:2846
 #, python-format
 msgid "フォルダ読み込み失敗: %s"
 msgstr "文件夹读取失败: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:2852
+#: guis/GUI01_Image_Preprocessor.py:2894
 #, python-format
 msgid "%s: 未解析（%s）"
 msgstr "%s: 未解析（%s）"
 
-#: guis/GUI01_Image_Preprocessor.py:2873
+#: guis/GUI01_Image_Preprocessor.py:2915
 msgid "対象ファイル（.txt / .gwy）がありません。"
 msgstr "没有找到目标 .txt / .gwy 文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:2876
+#: guis/GUI01_Image_Preprocessor.py:2918
 #, python-brace-format
 msgid "走査線範囲の項目を {0} 件復元しました。"
 msgstr "已恢复 {0} 个扫描线范围项目。"
 
-#: guis/GUI01_Image_Preprocessor.py:2879
+#: guis/GUI01_Image_Preprocessor.py:2921
 #, python-format
 msgid "スケール: バンドル記録 %d 件 / ヘッダ取得 %d 件 / 未設定 %d 件"
 msgstr "比例: bundle 记录 %d 个 / 头部获取 %d 个 / 未设置 %d 个"
 
-#: guis/GUI01_Image_Preprocessor.py:2884
+#: guis/GUI01_Image_Preprocessor.py:2926
 msgid "スケール（画像の実寸 µm）が未設定のファイルがあります。「適用」または「スケール表(CSV)読込」で設定してください。"
 msgstr "有文件未设置比例（图像实际尺寸 µm）。请用「应用」或「载入比例表(CSV)」进行设置。"
 
-#: guis/GUI01_Image_Preprocessor.py:2968
+#: guis/GUI01_Image_Preprocessor.py:3010
 #, python-brace-format
 msgid "縞ノイズ率を判定できません: {0} ({1})"
 msgstr "无法判定条纹噪声: {0} ({1})"
 
-#: guis/GUI01_Image_Preprocessor.py:2980
+#: guis/GUI01_Image_Preprocessor.py:3022
 #, python-brace-format
 msgid "{0}: 走査線の {1:.0f}% がフィードバック不良の影響下（最大段差 {2:.0f} nm）"
 msgstr "{0}: {1:.0f}% 的扫描线受反馈失控影响（最大台阶 {2:.0f} nm）"
 
-#: guis/GUI01_Image_Preprocessor.py:2992
+#: guis/GUI01_Image_Preprocessor.py:3034
 #, python-brace-format
 msgid "  グリッチのない走査線範囲: {0}"
 msgstr "  无故障的扫描线范围: {0}"
 
-#: guis/GUI01_Image_Preprocessor.py:2997
+#: guis/GUI01_Image_Preprocessor.py:3039
 msgid "  解析に足る長さのグリッチのない範囲がありません。再測定を推奨します。"
 msgstr "  没有足够长度的无故障范围。建议重新测量。"
 
-#: guis/GUI01_Image_Preprocessor.py:3001
+#: guis/GUI01_Image_Preprocessor.py:3043
 #, python-brace-format
 msgid "縞ノイズ: {0} 件のファイルに走査の乱れがあります。"
 msgstr "条纹噪声: {0} 个文件存在扫描扰动。"
 
-#: guis/GUI01_Image_Preprocessor.py:3106
+#: guis/GUI01_Image_Preprocessor.py:3148
 msgid "分割された項目がありません。"
 msgstr "没有可合并的分割项目。"
 
-#: guis/GUI01_Image_Preprocessor.py:3122 guis/GUI01_Image_Preprocessor.py:5065
-#: guis/GUI01_Image_Preprocessor.py:5120
+#: guis/GUI01_Image_Preprocessor.py:3164 guis/GUI01_Image_Preprocessor.py:5151
+#: guis/GUI01_Image_Preprocessor.py:5206
 #: guis/GUI03_Fiber_Morphology_Statistics.py:3493
 #: guis/GUI03_Fiber_Morphology_Statistics.py:3538
 #: guis/GUI04_Tracking_fiber.py:4017 guis/GUI04_Tracking_fiber.py:5569
 #: guis/GUI04_Tracking_fiber.py:7892 guis/GUI04_Tracking_fiber.py:8028
-#: guis/GUI05_Thumbnail_Viewer.py:2803 guis/GUI06_Bundle_Editor.py:1150
-#: guis/GUI06_Bundle_Editor.py:2224 guis/GUI06_Bundle_Editor.py:2356
+#: guis/GUI05_Thumbnail_Viewer.py:2803 guis/GUI06_Bundle_Editor.py:1183
+#: guis/GUI06_Bundle_Editor.py:2257 guis/GUI06_Bundle_Editor.py:2394
+#: guis/GUI06_Bundle_Editor.py:2461
 msgid "確認"
 msgstr "确认"
 
-#: guis/GUI01_Image_Preprocessor.py:3123
+#: guis/GUI01_Image_Preprocessor.py:3165
 #, python-brace-format
 msgid ""
 "分割を解除します。分割時に作成した出力 {0} 件も削除しますか？\n"
@@ -844,135 +883,135 @@ msgstr ""
 "将取消分割。是否同时删除分割生成的 {0} 个输出文件？\n"
 "选择“否”将保留文件，下次打开该文件夹时分割项目会再次出现在列表中。"
 
-#: guis/GUI01_Image_Preprocessor.py:3147
+#: guis/GUI01_Image_Preprocessor.py:3189
 #, python-brace-format
 msgid "削除できません: {0} ({1})"
 msgstr "无法删除: {0} ({1})"
 
-#: guis/GUI01_Image_Preprocessor.py:3150
+#: guis/GUI01_Image_Preprocessor.py:3192
 #, python-brace-format
 msgid "分割時の出力を {0} 件削除しました。"
 msgstr "已删除分割生成的 {0} 个输出文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:3162
+#: guis/GUI01_Image_Preprocessor.py:3204
 #, python-brace-format
 msgid "分割時の出力 {0} 件はそのまま残しました。"
 msgstr "已保留分割生成的 {0} 个输出文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:3163
+#: guis/GUI01_Image_Preprocessor.py:3205
 #, python-brace-format
 msgid "{0} 件のファイルの分割を解除しました。"
 msgstr "已取消 {0} 个文件的分割。"
 
-#: guis/GUI01_Image_Preprocessor.py:3193
+#: guis/GUI01_Image_Preprocessor.py:3235
 msgid "分割できるファイルがありません（縞ノイズ検査が未完了か、乱れがありません）。"
 msgstr "没有可分割的文件（条纹噪声检查尚未完成，或不存在扰动）。"
 
-#: guis/GUI01_Image_Preprocessor.py:3210
+#: guis/GUI01_Image_Preprocessor.py:3252
 #, python-brace-format
 msgid "{0}: 解析に足る長さのグリッチのない範囲がありません。"
 msgstr "{0}: 没有足够长度的无故障范围。"
 
-#: guis/GUI01_Image_Preprocessor.py:3213
+#: guis/GUI01_Image_Preprocessor.py:3255
 #, python-brace-format
 msgid "{0}: 全体が使えるため範囲は不要です。"
 msgstr "{0}: 整幅图像均可使用，无需设置范围。"
 
-#: guis/GUI01_Image_Preprocessor.py:3220
+#: guis/GUI01_Image_Preprocessor.py:3262
 #, python-brace-format
 msgid "{0}: 縞ノイズの無い {1} 件の範囲へ分割しました: {2}"
 msgstr "{0}: 已分割为 {1} 个无条纹噪声的范围: {2}"
 
-#: guis/GUI01_Image_Preprocessor.py:3225
+#: guis/GUI01_Image_Preprocessor.py:3267
 msgid "範囲はセルを直接編集して調整できます（空にすると画像全体）。"
 msgstr "可直接编辑单元格调整范围（清空则表示整幅图像）。"
 
-#: guis/GUI01_Image_Preprocessor.py:3249 guis/GUI01_Image_Preprocessor.py:3300
-#: guis/GUI01_Image_Preprocessor.py:3377 guis/GUI02_PlotProfiler.py:2037
+#: guis/GUI01_Image_Preprocessor.py:3291 guis/GUI01_Image_Preprocessor.py:3342
+#: guis/GUI01_Image_Preprocessor.py:3419 guis/GUI02_PlotProfiler.py:2037
 msgid "注意"
 msgstr "注意"
 
-#: guis/GUI01_Image_Preprocessor.py:3249
+#: guis/GUI01_Image_Preprocessor.py:3291
 msgid "適用するファイルを選択してください。"
 msgstr "请选择要应用的文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:3265
+#: guis/GUI01_Image_Preprocessor.py:3307
 #, python-format
 msgid "スケール %g µm を %d 件に適用しました。"
 msgstr "已将比例 %g µm 应用到 %d 个文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:3268
+#: guis/GUI01_Image_Preprocessor.py:3310
 #, python-format
 msgid "スケール %g×%g µm を %d 件に適用しました。"
 msgstr "已将比例 %g×%g µm 应用到 %d 个文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:3289
+#: guis/GUI01_Image_Preprocessor.py:3331
 msgid "スケール表(CSV)を選択"
 msgstr "选择比例表(CSV)"
 
-#: guis/GUI01_Image_Preprocessor.py:3297
+#: guis/GUI01_Image_Preprocessor.py:3339
 #, python-format
 msgid "スケール表の読み込みに失敗しました: %s"
 msgstr "比例表载入失败: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:3300
+#: guis/GUI01_Image_Preprocessor.py:3342
 msgid "スケール表に有効な行がありませんでした。"
 msgstr "比例表中没有有效行。"
 
-#: guis/GUI01_Image_Preprocessor.py:3322
+#: guis/GUI01_Image_Preprocessor.py:3364
 #, python-format
 msgid "スケール表を適用しました: 一致 %d 件 / 未一致 %d 件"
 msgstr "已应用比例表: 匹配 %d 个 / 未匹配 %d 个"
 
-#: guis/GUI01_Image_Preprocessor.py:3377
+#: guis/GUI01_Image_Preprocessor.py:3419
 msgid "先にフォルダを選択してください。"
 msgstr "请先选择文件夹。"
 
-#: guis/GUI01_Image_Preprocessor.py:3412
+#: guis/GUI01_Image_Preprocessor.py:3454
 msgid "停止要求を受け付けました（安全に中断します）"
 msgstr "已接收停止请求（将安全中断）"
 
-#: guis/GUI01_Image_Preprocessor.py:3413
+#: guis/GUI01_Image_Preprocessor.py:3455
 msgid "停止要求を送信しました…"
 msgstr "已发送停止请求…"
 
-#: guis/GUI01_Image_Preprocessor.py:3459
+#: guis/GUI01_Image_Preprocessor.py:3501
 msgid "スケール未設定のファイルがあります。先にスケールを設定してください:"
 msgstr "有文件未设置比例。请先设置比例:"
 
-#: guis/GUI01_Image_Preprocessor.py:3477 guis/GUI01_Image_Preprocessor.py:4219
+#: guis/GUI01_Image_Preprocessor.py:3519 guis/GUI01_Image_Preprocessor.py:4261
 msgid "フォルダが選択されていません。"
 msgstr "尚未选择文件夹。"
 
-#: guis/GUI01_Image_Preprocessor.py:3492 guis/GUI01_Image_Preprocessor.py:3495
+#: guis/GUI01_Image_Preprocessor.py:3534 guis/GUI01_Image_Preprocessor.py:3537
 msgid "解析パラメータが不正なため開始できません。"
 msgstr "解析参数无效，无法开始。"
 
-#: guis/GUI01_Image_Preprocessor.py:3513
+#: guis/GUI01_Image_Preprocessor.py:3555
 #, python-format
 msgid "上書き対象ファイル数: %d"
 msgstr "覆盖目标文件数: %d"
 
-#: guis/GUI01_Image_Preprocessor.py:3527 guis/GUI01_Image_Preprocessor.py:3705
+#: guis/GUI01_Image_Preprocessor.py:3569 guis/GUI01_Image_Preprocessor.py:3747
 #, python-brace-format
 msgid "{0}/{1} 完了"
 msgstr "{0}/{1} 已完成"
 
-#: guis/GUI01_Image_Preprocessor.py:3553
+#: guis/GUI01_Image_Preprocessor.py:3595
 msgid "停止しました。"
 msgstr "已停止。"
 
-#: guis/GUI01_Image_Preprocessor.py:3566
+#: guis/GUI01_Image_Preprocessor.py:3608
 #, python-format
 msgid "%s: 既存データのためスキップ"
 msgstr "%s: 因已存在数据而跳过"
 
-#: guis/GUI01_Image_Preprocessor.py:3570 guis/GUI01_Image_Preprocessor.py:3631
+#: guis/GUI01_Image_Preprocessor.py:3612 guis/GUI01_Image_Preprocessor.py:3673
 #: guis/GUI03_Fiber_Morphology_Statistics.py:6096
 msgid "完了"
 msgstr "完成"
 
-#: guis/GUI01_Image_Preprocessor.py:3636
+#: guis/GUI01_Image_Preprocessor.py:3678
 #, python-format
 msgid ""
 "解析失敗: %s\n"
@@ -983,25 +1022,25 @@ msgstr ""
 "%s\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:3640
+#: guis/GUI01_Image_Preprocessor.py:3682
 msgid "失敗"
 msgstr "失败"
 
-#: guis/GUI01_Image_Preprocessor.py:3645
+#: guis/GUI01_Image_Preprocessor.py:3687
 #, python-format
 msgid "解析完了: %s (%ss)"
 msgstr "解析完成: %s (%s秒)"
 
-#: guis/GUI01_Image_Preprocessor.py:3738
+#: guis/GUI01_Image_Preprocessor.py:3780
 #, python-brace-format
 msgid "{0} / {1}"
 msgstr "{0} / {1}"
 
-#: guis/GUI01_Image_Preprocessor.py:3955
+#: guis/GUI01_Image_Preprocessor.py:3997
 msgid "プレビュー読み込み失敗"
 msgstr "预览图像读取失败"
 
-#: guis/GUI01_Image_Preprocessor.py:4191 guis/GUI01_Image_Preprocessor.py:4219
+#: guis/GUI01_Image_Preprocessor.py:4233 guis/GUI01_Image_Preprocessor.py:4261
 #: guis/GUI02_PlotProfiler.py:1311 guis/GUI02_PlotProfiler.py:1326
 #: guis/GUI04_Tracking_fiber.py:3629 guis/GUI04_Tracking_fiber.py:3844
 #: guis/GUI04_Tracking_fiber.py:3902 guis/GUI04_Tracking_fiber.py:3910
@@ -1019,69 +1058,74 @@ msgstr "预览图像读取失败"
 msgid "情報"
 msgstr "信息"
 
-#: guis/GUI01_Image_Preprocessor.py:4191
+#: guis/GUI01_Image_Preprocessor.py:4233
 msgid "解析済みファイルを選択してください。"
 msgstr "请选择已解析的文件。"
 
-#: guis/GUI01_Image_Preprocessor.py:4208
+#: guis/GUI01_Image_Preprocessor.py:4250
 msgid "プレビュー画像を保存"
 msgstr "保存预览图像"
 
-#: guis/GUI01_Image_Preprocessor.py:4253 guis/GUI01_Image_Preprocessor.py:4287
-#: guis/GUI01_Image_Preprocessor.py:4297 guis/GUI05_Thumbnail_Viewer.py:2816
-#: guis/GUI05_Thumbnail_Viewer.py:2849
+#: guis/GUI01_Image_Preprocessor.py:4295 guis/GUI01_Image_Preprocessor.py:4326
+#: guis/GUI01_Image_Preprocessor.py:4352 guis/GUI01_Image_Preprocessor.py:4381
+#: guis/GUI05_Thumbnail_Viewer.py:2816 guis/GUI05_Thumbnail_Viewer.py:2849
 msgid "起動に失敗しました"
 msgstr "启动失败"
 
-#: guis/GUI01_Image_Preprocessor.py:4255 guis/GUI05_Thumbnail_Viewer.py:2818
+#: guis/GUI01_Image_Preprocessor.py:4297 guis/GUI05_Thumbnail_Viewer.py:2818
 #, python-brace-format
 msgid "{name} を新しいウインドウで開きます。"
 msgstr "正在新窗口中打开 {name}。"
 
-#: guis/GUI01_Image_Preprocessor.py:4290
-#, python-brace-format
-msgid "フォルダにバンドル (*{ext}) がありません: {path}"
-msgstr "文件夹中没有包文件 (*{ext})：{path}"
-
-#: guis/GUI01_Image_Preprocessor.py:4299
+#: guis/GUI01_Image_Preprocessor.py:4328
 #, python-brace-format
 msgid "フォルダの {n} 個のバンドルを GUI03 で開きます: {path}"
 msgstr "正在用 GUI03 打开文件夹中的 {n} 个包文件：{path}"
 
-#: guis/GUI01_Image_Preprocessor.py:4314 guis/GUI04_Tracking_fiber.py:2130
+#: guis/GUI01_Image_Preprocessor.py:4354
+#, python-brace-format
+msgid "フォルダの {n} 個のバンドルを GUI05 で開きます: {path}"
+msgstr "正在用 GUI05 打开文件夹中的 {n} 个包文件：{path}"
+
+#: guis/GUI01_Image_Preprocessor.py:4384
+#, python-brace-format
+msgid "フォルダにバンドル (*{ext}) がありません: {path}"
+msgstr "文件夹中没有包文件 (*{ext})：{path}"
+
+#: guis/GUI01_Image_Preprocessor.py:4400 guis/GUI04_Tracking_fiber.py:2130
 #, python-brace-format
 msgid "ログ保存: {path}"
 msgstr "日志已保存: {path}"
 
-#: guis/GUI01_Image_Preprocessor.py:4315 guis/GUI04_Tracking_fiber.py:2131
+#: guis/GUI01_Image_Preprocessor.py:4401 guis/GUI04_Tracking_fiber.py:2131
 msgid "ログ保存失敗"
 msgstr "日志保存失败"
 
-#: guis/GUI01_Image_Preprocessor.py:4344
+#: guis/GUI01_Image_Preprocessor.py:4430
 msgid "[Tkコールバック例外]\n"
 msgstr "[Tk 回调异常]\n"
 
-#: guis/GUI01_Image_Preprocessor.py:4348
+#: guis/GUI01_Image_Preprocessor.py:4434
 msgid "内部エラー"
 msgstr "内部错误"
 
-#: guis/GUI01_Image_Preprocessor.py:4562
+#: guis/GUI01_Image_Preprocessor.py:4648
 msgid "解析条件（次回解析時にのみ反映）"
 msgstr "解析条件（仅在下次解析时生效）"
 
-#: guis/GUI01_Image_Preprocessor.py:4673
+#: guis/GUI01_Image_Preprocessor.py:4759
 msgid "BGCalibrator"
 msgstr "BGCalibrator"
 
-#: guis/GUI01_Image_Preprocessor.py:4688
+#: guis/GUI01_Image_Preprocessor.py:4774
 msgid "bg_method"
 msgstr "bg_method"
 
-#: guis/GUI01_Image_Preprocessor.py:4689
+#: guis/GUI01_Image_Preprocessor.py:4775
 msgid "背景推定方式（下の説明参照）。選択に応じて使うパラメータのみ有効化されます"
 msgstr "背景估计方法（见下方说明）。只启用所选方法使用的参数。"
 
-#: guis/GUI01_Image_Preprocessor.py:4695
+#: guis/GUI01_Image_Preprocessor.py:4781
 msgid ""
 "trendfill : 勾配リッジ検出 + 2次トレンド除去 + "
 "最近傍充填。勾配で繊維マスクを作り、試料傾斜を2次曲面で除いてから穴を埋める。汎用だがリッジ検出パラメータの調整が必要（1.0.0 では "
@@ -1091,7 +1135,7 @@ msgstr ""
 "最近邻背景填充。根据梯度生成纤维掩膜，先用二次曲面去除样品倾斜，再填充空洞。通用性高，但需要调整脊线检测参数（在 1.0.0 中名为 "
 "'inpaint'）。"
 
-#: guis/GUI01_Image_Preprocessor.py:4696
+#: guis/GUI01_Image_Preprocessor.py:4782
 msgid ""
 "tophat : 形態学的opening。tophat_se_size "
 "より細い明るい構造を前景として除去。マスク不要・高速。拡大して撮った画像など、繊維が多くの画素にまたがる画像では他の方式より高さを保ちやすい。そのときは"
@@ -1101,7 +1145,7 @@ msgstr ""
 "细的明亮结构作为前景去除。无需掩膜，速度快。对于纤维跨越许多像素的扫描（例如以细小像素拍摄的小范围），它比其他方法更能保留纤维高度；此时请将 "
 "tophat_se_size 设为纤维表观宽度的约 3 倍（分析后如有需要，日志会显示建议值）"
 
-#: guis/GUI01_Image_Preprocessor.py:4697
+#: guis/GUI01_Image_Preprocessor.py:4783
 msgid ""
 "spline1d : 2次トレンド除去 + 行/列ごとの1D "
 "B-スプライン補間。ライン端は外挿せず自ラインの水準を保持。spline1d_axis "
@@ -1110,15 +1154,15 @@ msgstr ""
 "spline1d：二次趋势面去除 + 按行/列进行 1D B 样条插值。两端不做外推，而是保持该行/列自身的基准水平。通过 "
 "spline1d_axis 选择插值方向；'x'（默认）时，若图像的行为扫描线，则同时去除各扫描线的上下偏移（横向条纹）。"
 
-#: guis/GUI01_Image_Preprocessor.py:4710 guis/GUI06_Bundle_Editor.py:734
+#: guis/GUI01_Image_Preprocessor.py:4796 guis/GUI06_Bundle_Editor.py:743
 msgid "[tophat時のみ] 構造要素直径"
 msgstr "[仅 tophat] 结构元素直径"
 
-#: guis/GUI01_Image_Preprocessor.py:4711 guis/GUI06_Bundle_Editor.py:735
+#: guis/GUI01_Image_Preprocessor.py:4797 guis/GUI06_Bundle_Editor.py:744
 msgid "最大ファイバー幅の2〜3倍。奇数(偶数は+1)"
 msgstr "设为最大纤维宽度的 2-3 倍。使用奇数（偶数会 +1）。"
 
-#: guis/GUI01_Image_Preprocessor.py:4714 guis/GUI06_Bundle_Editor.py:737
+#: guis/GUI01_Image_Preprocessor.py:4800 guis/GUI06_Bundle_Editor.py:746
 msgid ""
 "[spline1d時のみ] "
 "補間の向き。'x'=各行を横に補間し、画像の行が走査ラインのときは走査ラインごとの上下のずれ(横縞)も除去。'y'=各列を縦に補間し、横縞は除去しない"
@@ -1126,23 +1170,23 @@ msgstr ""
 "[仅 spline1d] 插值方向。'x' 对各行横向插值；当图像的行为扫描线时，同时去除各扫描线的上下偏移（横向条纹）。'y' "
 "对各列纵向插值，不去除横向条纹。"
 
-#: guis/GUI01_Image_Preprocessor.py:4717 guis/GUI06_Bundle_Editor.py:740
+#: guis/GUI01_Image_Preprocessor.py:4803 guis/GUI06_Bundle_Editor.py:749
 msgid "[spline1d時のみ] 行/列スプライン order。実用範囲1〜3 (2=旧pandas互換)。点数不足の行は線形に自動フォールバック"
 msgstr "[仅 spline1d] 行/列样条 order。实用范围 1-3（2=旧 pandas 兼容）。点数不足的行会自动回退为线性。"
 
-#: guis/GUI01_Image_Preprocessor.py:4720 guis/GUI06_Bundle_Editor.py:742
+#: guis/GUI01_Image_Preprocessor.py:4806 guis/GUI06_Bundle_Editor.py:751
 msgid "[trendfill, spline1d時] 背景範囲（中心±sigma*係数）を決める係数"
 msgstr "[trendfill, spline1d] 决定背景范围（中心 ± sigma * 系数）的系数。"
 
-#: guis/GUI01_Image_Preprocessor.py:4722 guis/GUI06_Bundle_Editor.py:744
+#: guis/GUI01_Image_Preprocessor.py:4808 guis/GUI06_Bundle_Editor.py:753
 msgid "[trendfill, spline1d時] [1,0,-1]の急変を繊維として除外する距離しきい値"
 msgstr "[trendfill, spline1d] 将 [1,0,-1] 等急变作为纤维排除的距离阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4724 guis/GUI06_Bundle_Editor.py:746
+#: guis/GUI01_Image_Preprocessor.py:4810 guis/GUI06_Bundle_Editor.py:755
 msgid "[trendfill, spline1d時] [1,-1]の急変が一定以上離れている場合に構造とみなすしきい値"
 msgstr "[trendfill, spline1d] 当 [1,-1] 急变相隔一定距离以上时将其视为结构的阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4727 guis/GUI06_Bundle_Editor.py:748
+#: guis/GUI01_Image_Preprocessor.py:4813 guis/GUI06_Bundle_Editor.py:757
 msgid ""
 "[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの窓幅（平滑化範囲）。spline1d "
 "ではライン端に保持する水準の平均本数も兼ねる"
@@ -1150,115 +1194,115 @@ msgstr ""
 "[trendfill, tophat, spline1d] Savitzky-Golay 滤波器的窗口宽度（平滑范围）。在 spline1d "
 "中还决定两端保持水平时的平均样本数。"
 
-#: guis/GUI01_Image_Preprocessor.py:4729 guis/GUI06_Bundle_Editor.py:750
+#: guis/GUI01_Image_Preprocessor.py:4815 guis/GUI06_Bundle_Editor.py:759
 msgid "[trendfill, tophat, spline1d時] Savitzky-Golayフィルタの多項式次数"
 msgstr "[trendfill, tophat, spline1d] Savitzky-Golay 滤波器的多项式次数"
 
-#: guis/GUI01_Image_Preprocessor.py:4732 guis/GUI06_Bundle_Editor.py:751
+#: guis/GUI01_Image_Preprocessor.py:4818 guis/GUI06_Bundle_Editor.py:760
 msgid "中央値フィルタを最後にかける（点ノイズに強い）"
 msgstr "最后应用中值滤波器（对点噪声鲁棒）"
 
-#: guis/GUI01_Image_Preprocessor.py:4735 guis/GUI06_Bundle_Editor.py:753
+#: guis/GUI01_Image_Preprocessor.py:4821 guis/GUI06_Bundle_Editor.py:762
 msgid "[trendfill, spline1d時] 繊維マスクを膨張させる画素数（0でdilationなし）"
 msgstr "[trendfill, spline1d] 纤维掩膜膨胀的像素数（0 表示不膨胀）"
 
-#: guis/GUI01_Image_Preprocessor.py:4737 guis/GUI06_Bundle_Editor.py:755
+#: guis/GUI01_Image_Preprocessor.py:4823 guis/GUI06_Bundle_Editor.py:764
 msgid "[trendfill, spline1d時] dilation前にマスクから除外する連結成分の最小面積"
 msgstr "[trendfill, spline1d] dilation 前从掩膜中排除的连通成分最小面积"
 
-#: guis/GUI01_Image_Preprocessor.py:4738 guis/GUI06_Bundle_Editor.py:756
+#: guis/GUI01_Image_Preprocessor.py:4824 guis/GUI06_Bundle_Editor.py:765
 msgid "1でフィルタ無効"
 msgstr "设为 1 时禁用过滤器"
 
-#: guis/GUI01_Image_Preprocessor.py:4748
+#: guis/GUI01_Image_Preprocessor.py:4834
 msgid "Segmenter"
 msgstr "Segmenter"
 
-#: guis/GUI01_Image_Preprocessor.py:4749 guis/GUI06_Bundle_Editor.py:759
+#: guis/GUI01_Image_Preprocessor.py:4835 guis/GUI06_Bundle_Editor.py:768
 msgid "局所しきい値の計算に使う窓サイズ"
 msgstr "计算局部阈值使用的窗口大小"
 
-#: guis/GUI01_Image_Preprocessor.py:4750 guis/GUI06_Bundle_Editor.py:760
+#: guis/GUI01_Image_Preprocessor.py:4836 guis/GUI06_Bundle_Editor.py:769
 msgid "全体一律の2値化しきい値"
 msgstr "全局统一的二值化阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4751 guis/GUI06_Bundle_Editor.py:761
+#: guis/GUI01_Image_Preprocessor.py:4837 guis/GUI06_Bundle_Editor.py:770
 msgid "小さい連結成分を消す面積しきい値"
 msgstr "删除小连通成分的面积阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4752 guis/GUI06_Bundle_Editor.py:762
+#: guis/GUI01_Image_Preprocessor.py:4838 guis/GUI06_Bundle_Editor.py:771
 msgid "つながり成分を除くときの面積しきい値"
 msgstr "去除连接成分时的面积阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4753 guis/GUI06_Bundle_Editor.py:763
+#: guis/GUI01_Image_Preprocessor.py:4839 guis/GUI06_Bundle_Editor.py:772
 msgid "つながり除去を実行するかどうか"
 msgstr "是否执行连接去除"
 
-#: guis/GUI01_Image_Preprocessor.py:4761 guis/GUI06_Bundle_Editor.py:764
+#: guis/GUI01_Image_Preprocessor.py:4847 guis/GUI06_Bundle_Editor.py:773
 msgid "線分検出で線分とみなす最小長さ"
 msgstr "线段检测中视为线段的最小长度"
 
-#: guis/GUI01_Image_Preprocessor.py:4762 guis/GUI06_Bundle_Editor.py:765
+#: guis/GUI01_Image_Preprocessor.py:4848 guis/GUI06_Bundle_Editor.py:774
 msgid "線っぽさ"
 msgstr "线状程度"
 
-#: guis/GUI01_Image_Preprocessor.py:4762 guis/GUI06_Bundle_Editor.py:765
+#: guis/GUI01_Image_Preprocessor.py:4848 guis/GUI06_Bundle_Editor.py:774
 msgid "のしきい値"
 msgstr "的阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4763 guis/GUI06_Bundle_Editor.py:766
+#: guis/GUI01_Image_Preprocessor.py:4849 guis/GUI06_Bundle_Editor.py:775
 msgid "高さが低い成分を消すしきい値"
 msgstr "删除高度较低成分的阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4765 guis/GUI06_Bundle_Editor.py:768
+#: guis/GUI01_Image_Preprocessor.py:4851 guis/GUI06_Bundle_Editor.py:777
 msgid "しきい値で拾えなかった繊維をリッジフィルタで検出して追加する。1画像あたり数秒〜30秒遅くなる"
 msgstr "用脊线滤波器检测阈值未能提取的纤维并补充。每张图像会慢数秒～30 秒"
 
-#: guis/GUI01_Image_Preprocessor.py:4768 guis/GUI06_Bundle_Editor.py:771
+#: guis/GUI01_Image_Preprocessor.py:4854 guis/GUI06_Bundle_Editor.py:780
 msgid "[ridge_recovery時] 追加するセグメントの最小長"
 msgstr "[ridge_recovery] 补充线段的最小长度"
 
-#: guis/GUI01_Image_Preprocessor.py:4770 guis/GUI06_Bundle_Editor.py:773
+#: guis/GUI01_Image_Preprocessor.py:4856 guis/GUI06_Bundle_Editor.py:782
 msgid "[ridge_recovery時] リッジフィルタが探索する繊維半幅の下限"
 msgstr "[ridge_recovery] 脊线滤波器搜索的纤维半宽下限"
 
-#: guis/GUI01_Image_Preprocessor.py:4772 guis/GUI06_Bundle_Editor.py:775
+#: guis/GUI01_Image_Preprocessor.py:4858 guis/GUI06_Bundle_Editor.py:784
 msgid "[ridge_recovery時] リッジフィルタが探索する繊維半幅の上限"
 msgstr "[ridge_recovery] 脊线滤波器搜索的纤维半宽上限"
 
-#: guis/GUI01_Image_Preprocessor.py:4774
+#: guis/GUI01_Image_Preprocessor.py:4860
 msgid "Skeletonizer"
 msgstr "Skeletonizer"
 
-#: guis/GUI01_Image_Preprocessor.py:4775
+#: guis/GUI01_Image_Preprocessor.py:4861
 msgid "分岐点が低い高さか判定するしきい値"
 msgstr "判断分支部点是否为低高度的阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4776
+#: guis/GUI01_Image_Preprocessor.py:4862
 msgid "枝とみなす短い線を追跡する最大長"
 msgstr "视为分支的短线最大追踪长度"
 
-#: guis/GUI01_Image_Preprocessor.py:4777
+#: guis/GUI01_Image_Preprocessor.py:4863
 msgid "小さすぎる線分（ノイズ）を削除する面積しきい値"
 msgstr "删除过小线段（噪声）的面积阈值"
 
-#: guis/GUI01_Image_Preprocessor.py:4778
+#: guis/GUI01_Image_Preprocessor.py:4864
 msgid "骨格上の小ループ（マスクの穴由来の二重線）を1本に潰す最大囲み面積。0で無効"
 msgstr "将骨架上的小环（掩膜孔洞造成的双线）压缩为单线的最大包围面积。0 为禁用"
 
-#: guis/GUI01_Image_Preprocessor.py:4779
+#: guis/GUI01_Image_Preprocessor.py:4865
 msgid "高さに関係なく除去する行き止まりの短い枝の最大長。画素単位のためサンプリング間隔（nm/px）に応じて調整。0で無効"
 msgstr "不论高度一律移除的短小末端分支的最大长度。以像素为单位，请根据像素尺寸（nm/px）调整。0 为禁用"
 
-#: guis/GUI01_Image_Preprocessor.py:4781
+#: guis/GUI01_Image_Preprocessor.py:4867
 msgid "Kinkdetector"
 msgstr "Kinkdetector"
 
-#: guis/GUI01_Image_Preprocessor.py:4782
+#: guis/GUI01_Image_Preprocessor.py:4868
 msgid "折れ線近似の3点のなす角がこの値以下ならkink判定"
 msgstr "折线逼近中3点夹角小于此值则判定为扭结（kink）"
 
-#: guis/GUI01_Image_Preprocessor.py:4794
+#: guis/GUI01_Image_Preprocessor.py:4880
 msgid ""
 "キンク判定と、長さ・高さ・曲率などすべての計測に使う中心線（W は繊維の見かけ幅）\n"
 "half_max_025w：高さ断面の半値中点、W/4 で平滑化（既定）\n"
@@ -1278,55 +1322,55 @@ msgstr ""
 "centroid：高度重心\n"
 "crest：截面顶点（在扭转纤维上偏离轴线最远）"
 
-#: guis/GUI01_Image_Preprocessor.py:4823
+#: guis/GUI01_Image_Preprocessor.py:4909
 msgid "縞ノイズの判定"
 msgstr "条纹噪声的判定"
 
-#: guis/GUI01_Image_Preprocessor.py:4827
+#: guis/GUI01_Image_Preprocessor.py:4913
 msgid "フィードバック不良とみなす段差"
 msgstr "视为反馈失控的台阶"
 
-#: guis/GUI01_Image_Preprocessor.py:4841
+#: guis/GUI01_Image_Preprocessor.py:4927
 msgid "隣接走査線間の高さ段差がこの値を超える箇所を走査の乱れとして数え、影響を受けた走査線の割合を一覧の「縞ノイズ率」列に表示します（解析条件には含まれません）"
 msgstr "相邻扫描线之间的高度台阶超过此值的位置将被计为扫描扰动，受影响扫描线的比例显示在列表的“条纹噪声率”列中（不属于分析条件）"
 
-#: guis/GUI01_Image_Preprocessor.py:4858
+#: guis/GUI01_Image_Preprocessor.py:4944
 msgid "保存オプション"
 msgstr "保存选项"
 
-#: guis/GUI01_Image_Preprocessor.py:4863
+#: guis/GUI01_Image_Preprocessor.py:4949
 msgid "解析時に元データを保存"
 msgstr "解析时保存原始数据"
 
-#: guis/GUI01_Image_Preprocessor.py:4869
+#: guis/GUI01_Image_Preprocessor.py:4955
 msgid "ONのとき、背景補正前の元データも解析後の .b2z に original として同梱します（解析条件には含まれません）"
 msgstr "开启时，背景校正前的原始数据也会作为 original 打包到解析后的 .b2z 中（不包含在解析条件中）"
 
-#: guis/GUI01_Image_Preprocessor.py:4881 guis/GUI06_Bundle_Editor.py:2820
+#: guis/GUI01_Image_Preprocessor.py:4967 guis/GUI06_Bundle_Editor.py:2925
 msgid "OK"
 msgstr "确定"
 
-#: guis/GUI01_Image_Preprocessor.py:4882
+#: guis/GUI01_Image_Preprocessor.py:4968
 msgid "設定の保存"
 msgstr "保存设置"
 
-#: guis/GUI01_Image_Preprocessor.py:4883
+#: guis/GUI01_Image_Preprocessor.py:4969
 msgid "設定の読み込み"
 msgstr "加载设置"
 
-#: guis/GUI01_Image_Preprocessor.py:4884 guis/GUI06_Bundle_Editor.py:2819
+#: guis/GUI01_Image_Preprocessor.py:4970 guis/GUI06_Bundle_Editor.py:2924
 msgid "キャンセル"
 msgstr "取消"
 
-#: guis/GUI01_Image_Preprocessor.py:4888
+#: guis/GUI01_Image_Preprocessor.py:4974
 msgid "現在値を既定値として保存"
 msgstr "将当前值保存为默认值"
 
-#: guis/GUI01_Image_Preprocessor.py:4890
+#: guis/GUI01_Image_Preprocessor.py:4976
 msgid "初期値に戻す"
 msgstr "恢复初始值"
 
-#: guis/GUI01_Image_Preprocessor.py:4994
+#: guis/GUI01_Image_Preprocessor.py:5080
 #, python-format
 msgid ""
 "設定値の読み取りに失敗しました。\n"
@@ -1335,20 +1379,20 @@ msgstr ""
 "读取设置值失败。\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:5009
+#: guis/GUI01_Image_Preprocessor.py:5095
 msgid "設定を更新しました（次回解析時に反映）"
 msgstr "设置已更新（下次解析时生效）"
 
-#: guis/GUI01_Image_Preprocessor.py:5034 guis/GUI01_Image_Preprocessor.py:5039
+#: guis/GUI01_Image_Preprocessor.py:5120 guis/GUI01_Image_Preprocessor.py:5125
 #, python-brace-format
 msgid "「フィードバック不良とみなす段差」には正の数値を入力してください: {0}"
 msgstr "请为“视为反馈失控的台阶”输入正数: {0}"
 
-#: guis/GUI01_Image_Preprocessor.py:5049
+#: guis/GUI01_Image_Preprocessor.py:5135
 msgid "設定変更をキャンセルしました"
 msgstr "已取消设置更改"
 
-#: guis/GUI01_Image_Preprocessor.py:5066
+#: guis/GUI01_Image_Preprocessor.py:5152
 msgid ""
 "現在のダイアログ値を起動時の既定値として保存します。\n"
 "起動時設定ファイルを上書きします。よろしいですか？"
@@ -1356,12 +1400,12 @@ msgstr ""
 "将当前对话框值保存为启动时默认值。\n"
 "这将覆盖启动时配置文件。是否继续？"
 
-#: guis/GUI01_Image_Preprocessor.py:5101
+#: guis/GUI01_Image_Preprocessor.py:5187
 #, python-format
 msgid "現在値を既定値として保存しました: %s"
 msgstr "已将当前值保存为默认值: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:5103
+#: guis/GUI01_Image_Preprocessor.py:5189
 #, python-format
 msgid ""
 "既定値の保存に失敗しました。\n"
@@ -1370,7 +1414,7 @@ msgstr ""
 "默认值保存失败。\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:5121
+#: guis/GUI01_Image_Preprocessor.py:5207
 msgid ""
 "ダイアログの全パラメータと「元データを保存」「縞ノイズの判定」を初期値に戻します。\n"
 "（この操作では設定ファイルは変更されません）\n"
@@ -1380,24 +1424,24 @@ msgstr ""
 "（此操作不会更改设置文件。）\n"
 "确定吗？"
 
-#: guis/GUI01_Image_Preprocessor.py:5130
+#: guis/GUI01_Image_Preprocessor.py:5216
 msgid "ダイアログを初期値に戻しました（未保存）"
 msgstr "已将对话框恢复为初始值（未保存）"
 
-#: guis/GUI01_Image_Preprocessor.py:5138
+#: guis/GUI01_Image_Preprocessor.py:5224
 msgid "設定の保存（JSON）"
 msgstr "保存设置（JSON）"
 
-#: guis/GUI01_Image_Preprocessor.py:5142 guis/GUI01_Image_Preprocessor.py:5161
+#: guis/GUI01_Image_Preprocessor.py:5228 guis/GUI01_Image_Preprocessor.py:5247
 msgid "JSON"
 msgstr "JSON"
 
-#: guis/GUI01_Image_Preprocessor.py:5150
+#: guis/GUI01_Image_Preprocessor.py:5236
 #, python-format
 msgid "設定を保存しました: %s"
 msgstr "设置已保存: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:5152
+#: guis/GUI01_Image_Preprocessor.py:5238
 #, python-format
 msgid ""
 "保存に失敗しました。\n"
@@ -1406,16 +1450,16 @@ msgstr ""
 "保存失败。\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:5160
+#: guis/GUI01_Image_Preprocessor.py:5246
 msgid "設定の読み込み（JSON）"
 msgstr "加载设置（JSON）"
 
-#: guis/GUI01_Image_Preprocessor.py:5170
+#: guis/GUI01_Image_Preprocessor.py:5256
 #, python-format
 msgid "設定を読み込みました: %s"
 msgstr "设置已加载: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:5172
+#: guis/GUI01_Image_Preprocessor.py:5258
 #, python-format
 msgid ""
 "読み込みに失敗しました。\n"
@@ -1424,33 +1468,33 @@ msgstr ""
 "加载失败。\n"
 "%s"
 
-#: guis/GUI01_Image_Preprocessor.py:5218
+#: guis/GUI01_Image_Preprocessor.py:5304
 #, python-format
 msgid "個別表示: %s"
 msgstr "单独显示: %s"
 
-#: guis/GUI01_Image_Preprocessor.py:5296
+#: guis/GUI01_Image_Preprocessor.py:5382
 #: guis/GUI03_Fiber_Morphology_Statistics.py:2896
 #: guis/GUI05_Thumbnail_Viewer.py:1439
 msgid "表示"
 msgstr "显示"
 
-#: guis/GUI01_Image_Preprocessor.py:5362
+#: guis/GUI01_Image_Preprocessor.py:5448
 msgid "重ね描きしません"
 msgstr "不叠加绘制"
 
-#: guis/GUI01_Image_Preprocessor.py:5379 guis/GUI02_PlotProfiler.py:888
+#: guis/GUI01_Image_Preprocessor.py:5465 guis/GUI02_PlotProfiler.py:888
 #: guis/GUI04_Tracking_fiber.py:1777
 msgid "フォントサイズ：タイトル"
 msgstr "字体大小：标题"
 
-#: guis/GUI01_Image_Preprocessor.py:5389 guis/GUI02_PlotProfiler.py:925
+#: guis/GUI01_Image_Preprocessor.py:5475 guis/GUI02_PlotProfiler.py:925
 #: guis/GUI04_Tracking_fiber.py:1804 guis/GUI04_Tracking_fiber.py:6696
 #: guis/GUI05_Thumbnail_Viewer.py:1518 guis/GUI05_Thumbnail_Viewer.py:2976
 msgid "カラーバー"
 msgstr "颜色条"
 
-#: guis/GUI01_Image_Preprocessor.py:5652
+#: guis/GUI01_Image_Preprocessor.py:5738
 msgid "個別表示画像を保存"
 msgstr "保存单独显示图像"
 
@@ -2267,7 +2311,7 @@ msgid "ファイルを追加する先のグループを Treeview で選択して
 msgstr "请在 Treeview 中选择要添加文件的目标组。"
 
 #: guis/GUI03_Fiber_Morphology_Statistics.py:3561
-#: guis/GUI05_Thumbnail_Viewer.py:1804 guis/GUI06_Bundle_Editor.py:1161
+#: guis/GUI05_Thumbnail_Viewer.py:1804 guis/GUI06_Bundle_Editor.py:1194
 msgid ".b2z バンドルを選択"
 msgstr "选择 .b2z 数据包"
 
@@ -2348,7 +2392,7 @@ msgid "ファイル名をコピーしました: {name}"
 msgstr "已复制文件名：{name}"
 
 #: guis/GUI03_Fiber_Morphology_Statistics.py:4059
-#: guis/GUI06_Bundle_Editor.py:1181
+#: guis/GUI06_Bundle_Editor.py:1214
 #, python-brace-format
 msgid "読み込み中: {name}"
 msgstr "正在读取: {name}"
@@ -3752,11 +3796,11 @@ msgid "表示："
 msgstr "显示："
 
 #: guis/GUI04_Tracking_fiber.py:6716 guis/GUI04_Tracking_fiber.py:6879
-#: guis/GUI06_Bundle_Editor.py:330
+#: guis/GUI06_Bundle_Editor.py:339
 msgid "キンク"
 msgstr "扭结"
 
-#: guis/GUI04_Tracking_fiber.py:6721 guis/GUI06_Bundle_Editor.py:329
+#: guis/GUI04_Tracking_fiber.py:6721 guis/GUI06_Bundle_Editor.py:338
 msgid "中心線"
 msgstr "中心线"
 
@@ -3900,8 +3944,8 @@ msgstr "必须输入不小于 1 的整数。"
 msgid "0 以上の整数を入力してください。"
 msgstr "必须输入不小于 0 的整数。"
 
-#: guis/GUI04_Tracking_fiber.py:7550 guis/GUI06_Bundle_Editor.py:2864
-#: guis/GUI06_Bundle_Editor.py:2868
+#: guis/GUI04_Tracking_fiber.py:7550 guis/GUI06_Bundle_Editor.py:2969
+#: guis/GUI06_Bundle_Editor.py:2973
 msgid "入力エラー"
 msgstr "输入错误"
 
@@ -4205,7 +4249,7 @@ msgstr "已按修改时间从旧到新排序。"
 msgid "名前順に並べ替えました。"
 msgstr "已按名称排序。"
 
-#: guis/GUI05_Thumbnail_Viewer.py:2021 guis/GUI06_Bundle_Editor.py:1310
+#: guis/GUI05_Thumbnail_Viewer.py:2021 guis/GUI06_Bundle_Editor.py:1343
 #, python-brace-format
 msgid "{name}: 読み込めませんでした ({reason})"
 msgstr "{name}: 无法读取 ({reason})"
@@ -4329,27 +4373,27 @@ msgstr "大小为保存的总览页上的磅值。超出单元格宽度的文件
 msgid "既定に戻す"
 msgstr "恢复默认值"
 
-#: guis/GUI06_Bundle_Editor.py:324
+#: guis/GUI06_Bundle_Editor.py:333
 msgid "元データ"
 msgstr "原始数据"
 
-#: guis/GUI06_Bundle_Editor.py:325
+#: guis/GUI06_Bundle_Editor.py:334
 msgid "背景補正画像"
 msgstr "背景校正图像"
 
-#: guis/GUI06_Bundle_Editor.py:326
+#: guis/GUI06_Bundle_Editor.py:335
 msgid "リッジマスク"
 msgstr "脊线掩膜"
 
-#: guis/GUI06_Bundle_Editor.py:327
+#: guis/GUI06_Bundle_Editor.py:336
 msgid "二値化画像"
 msgstr "二值化图像"
 
-#: guis/GUI06_Bundle_Editor.py:328
+#: guis/GUI06_Bundle_Editor.py:337
 msgid "細線化画像"
 msgstr "细线化图像"
 
-#: guis/GUI06_Bundle_Editor.py:603
+#: guis/GUI06_Bundle_Editor.py:612
 #, python-brace-format
 msgid ""
 "このバンドルは形式 {version} のため、表示だけできます。編集して保存するには、Image Preprocessor で解析し直した形式 "
@@ -4358,67 +4402,67 @@ msgstr ""
 "此数据包的格式为 {version}，因此只能查看。要编辑并保存，请打开用 Image Preprocessor 重新分析得到的格式 "
 "{current} 的数据包。"
 
-#: guis/GUI06_Bundle_Editor.py:610
+#: guis/GUI06_Bundle_Editor.py:619
 #, python-brace-format
 msgid "このバンドルは手で編集されたものです（保存 {n} 回）。"
 msgstr "此数据包经过手动编辑（已保存 {n} 次）。"
 
-#: guis/GUI06_Bundle_Editor.py:616
+#: guis/GUI06_Bundle_Editor.py:625
 #, python-brace-format
 msgid "元データ: バンドル内の {key}"
 msgstr "原始数据: 数据包内的 {key}"
 
-#: guis/GUI06_Bundle_Editor.py:618
+#: guis/GUI06_Bundle_Editor.py:627
 #, python-brace-format
 msgid "元データ: {name}（バンドルと同じフォルダ）"
 msgstr "原始数据: {name}（与数据包位于同一文件夹）"
 
-#: guis/GUI06_Bundle_Editor.py:623
+#: guis/GUI06_Bundle_Editor.py:632
 msgid "バンドルに元データのファイル名が記録されていません。"
 msgstr "数据包中未记录原始数据的文件名。"
 
-#: guis/GUI06_Bundle_Editor.py:625
+#: guis/GUI06_Bundle_Editor.py:634
 #, python-brace-format
 msgid "元データ {name} が、バンドルと同じフォルダにありません。"
 msgstr "原始数据 {name} 不在数据包所在的文件夹中。"
 
-#: guis/GUI06_Bundle_Editor.py:627
+#: guis/GUI06_Bundle_Editor.py:636
 #, python-brace-format
 msgid "バンドルと同じフォルダの {name} は、解析時の元データと内容が異なります。"
 msgstr "数据包所在文件夹中的 {name} 与分析时的原始数据内容不同。"
 
-#: guis/GUI06_Bundle_Editor.py:628
+#: guis/GUI06_Bundle_Editor.py:637
 #, python-brace-format
 msgid "元データを読み込めませんでした: {name}"
 msgstr "无法读取原始数据: {name}"
 
-#: guis/GUI06_Bundle_Editor.py:630
+#: guis/GUI06_Bundle_Editor.py:639
 #, python-brace-format
 msgid "元データ {name} の大きさが、バンドルの画像と合いません。"
 msgstr "原始数据 {name} 的大小与数据包中的图像不一致。"
 
-#: guis/GUI06_Bundle_Editor.py:638
+#: guis/GUI06_Bundle_Editor.py:647
 msgid "元データとリッジマスクは表示できません。"
 msgstr "无法显示原始数据和脊线掩膜。"
 
-#: guis/GUI06_Bundle_Editor.py:640
+#: guis/GUI06_Bundle_Editor.py:649
 msgid "元データは表示できず、背景補正の再実行もできません。"
 msgstr "无法显示原始数据，也无法重新执行背景校正。"
 
-#: guis/GUI06_Bundle_Editor.py:646
+#: guis/GUI06_Bundle_Editor.py:655
 #, python-brace-format
 msgid "バンドルの解析条件を使えないため、リッジマスクは表示できません: {reason}"
 msgstr "由于无法使用数据包的解析条件，无法显示脊线掩膜: {reason}"
 
-#: guis/GUI06_Bundle_Editor.py:660
+#: guis/GUI06_Bundle_Editor.py:669
 msgid "背景補正画像は、保存時に「古い」と記録されています。保存されているリッジマスクと設定から計算し直したものではありません。"
 msgstr "背景校正图像在保存时被记录为“已过期”。它不是根据所保存的脊线掩膜和设置重新计算得到的。"
 
-#: guis/GUI06_Bundle_Editor.py:664
+#: guis/GUI06_Bundle_Editor.py:673
 msgid "記録された解析条件で背景補正をやり直しましたが、保存されている背景補正画像と大きさが一致しません。"
 msgstr "已按记录的解析条件重新进行背景校正，但其大小与所保存的背景校正图像不一致。"
 
-#: guis/GUI06_Bundle_Editor.py:668
+#: guis/GUI06_Bundle_Editor.py:677
 #, python-brace-format
 msgid ""
 "記録された解析条件で背景補正をやり直しましたが、保存されている背景補正画像と一致しません（最大の差 {difference} "
@@ -4427,59 +4471,73 @@ msgstr ""
 "已按记录的解析条件重新进行背景校正，但结果与所保存的背景校正图像不一致（最大差值 {difference} "
 "{unit}）。所显示的脊线掩膜可能与分析时使用的不同。"
 
-#: guis/GUI06_Bundle_Editor.py:674
+#: guis/GUI06_Bundle_Editor.py:683
 #, python-brace-format
 msgid "記録された解析条件で背景補正をやり直しましたが、保存されている背景補正画像と一致しません（最大の差 {difference} {unit}）。"
 msgstr "已按记录的解析条件重新进行背景校正，但结果与所保存的背景校正图像不一致（最大差值 {difference} {unit}）。"
 
-#: guis/GUI06_Bundle_Editor.py:679
+#: guis/GUI06_Bundle_Editor.py:688
 #, python-brace-format
 msgid "背景補正の方式が {method} のため、リッジマスクはありません。"
 msgstr "背景校正方法为 {method}，因此没有脊线掩膜。"
 
-#: guis/GUI06_Bundle_Editor.py:690
+#: guis/GUI06_Bundle_Editor.py:699
 msgid "リッジマスクの検出"
 msgstr "脊线掩膜检测"
 
-#: guis/GUI06_Bundle_Editor.py:691
+#: guis/GUI06_Bundle_Editor.py:700
 msgid "背景補正"
 msgstr "背景校正"
 
-#: guis/GUI06_Bundle_Editor.py:692
+#: guis/GUI06_Bundle_Editor.py:701
 msgid "二値化"
 msgstr "二值化"
 
-#: guis/GUI06_Bundle_Editor.py:694
+#: guis/GUI06_Bundle_Editor.py:703
 msgid "キンク検出"
 msgstr "扭结检测"
 
-#: guis/GUI06_Bundle_Editor.py:732
+#: guis/GUI06_Bundle_Editor.py:741
 msgid "背景補正の方式"
 msgstr "背景校正方法"
 
-#: guis/GUI06_Bundle_Editor.py:895
+#: guis/GUI06_Bundle_Editor.py:918
 msgid "バンドルを開いてください。"
 msgstr "请打开数据包。"
 
-#: guis/GUI06_Bundle_Editor.py:907
+#: guis/GUI06_Bundle_Editor.py:930
 msgid "バンドルを開く…"
 msgstr "打开数据包…"
 
-#: guis/GUI06_Bundle_Editor.py:912
-msgid "編集を保存…"
-msgstr "保存编辑…"
+#: guis/GUI06_Bundle_Editor.py:935
+msgid "名前を付けて保存…"
+msgstr "另存为…"
 
-#: guis/GUI06_Bundle_Editor.py:915
+#: guis/GUI06_Bundle_Editor.py:938
 msgid ""
-"編集した結果を、別名のバンドルとして保存します。\n"
+"編集した結果を、名前を付けてバンドルとして保存します（Ctrl+Shift+S）。\n"
 "保存したバンドルには、手で編集したことが記録されます。\n"
 "解析で書き出したバンドルには上書きしません。"
 msgstr ""
-"将编辑结果另存为一个数据包。\n"
+"将编辑结果以指定的名称另存为一个数据包（Ctrl+Shift+S）。\n"
 "保存的数据包中会记录其经过手动编辑。\n"
 "不会覆盖由分析写出的数据包。"
 
-#: guis/GUI06_Bundle_Editor.py:923
+#: guis/GUI06_Bundle_Editor.py:943
+msgid "上書き保存"
+msgstr "保存"
+
+#: guis/GUI06_Bundle_Editor.py:946
+msgid ""
+"開いている編集済みのバンドルに、編集を上書きして保存します（Ctrl+S）。\n"
+"解析で書き出したバンドルを開いているとき、または保存していない編集が無いときは押せません。解析で書き出したバンドルを編集しているときのCtrl+S"
+" は「名前を付けて保存…」を開きます。"
+msgstr ""
+"将编辑覆盖保存到当前打开的已编辑包文件（Ctrl+S）。\n"
+"打开的是分析写出的包文件，或没有未保存的编辑时不可用。编辑分析写出的包文件时，Ctrl+S "
+"会打开“另存为…”。"
+
+#: guis/GUI06_Bundle_Editor.py:955
 msgid ""
 "保存するバンドルに、編集した人の名前として記録します。\n"
 "空欄なら記録しません。"
@@ -4487,35 +4545,35 @@ msgstr ""
 "作为编辑者的姓名记录在保存的数据包中。\n"
 "留空则不记录。"
 
-#: guis/GUI06_Bundle_Editor.py:926
+#: guis/GUI06_Bundle_Editor.py:958
 msgid "編集者（任意）"
 msgstr "编辑者（可选）"
 
-#: guis/GUI06_Bundle_Editor.py:943
+#: guis/GUI06_Bundle_Editor.py:975
 msgid "レイヤー"
 msgstr "图层"
 
-#: guis/GUI06_Bundle_Editor.py:954
+#: guis/GUI06_Bundle_Editor.py:986
 msgid "名前をクリックすると、編集するレイヤーを選べます（編集できるのは、キンク・細線化画像・二値化画像・リッジマスクです）。ドラッグすると重ね順が変わります。「古い」と付いたレイヤーは、元になるレイヤーが変わったあと計算し直していません。"
 msgstr "点击名称可选择要编辑的图层（可编辑的是扭结、细线化图像、二值化图像和脊线掩膜）。拖动可改变叠放顺序。标有“已过期”的图层在其来源图层改变后尚未重新计算。"
 
-#: guis/GUI06_Bundle_Editor.py:966
+#: guis/GUI06_Bundle_Editor.py:998
 msgid "ツール"
 msgstr "工具"
 
-#: guis/GUI06_Bundle_Editor.py:970
+#: guis/GUI06_Bundle_Editor.py:1002
 msgid "表示のみ"
 msgstr "仅查看"
 
-#: guis/GUI06_Bundle_Editor.py:971
+#: guis/GUI06_Bundle_Editor.py:1003
 msgid "画像をクリックしても、何も変更しません。"
 msgstr "点击图像不会做任何更改。"
 
-#: guis/GUI06_Bundle_Editor.py:972
+#: guis/GUI06_Bundle_Editor.py:1004
 msgid "鉛筆"
 msgstr "铅笔"
 
-#: guis/GUI06_Bundle_Editor.py:973
+#: guis/GUI06_Bundle_Editor.py:1005
 msgid ""
 "ドラッグした画素を、選んだマスクに加えます。\n"
 "リッジマスクと二値化画像で使えます。細線化画像には使えません（線の太さを 1 画素に保つためです）。"
@@ -4523,11 +4581,11 @@ msgstr ""
 "将拖过的像素加入所选掩膜。\n"
 "可用于脊线掩膜和二值化图像，不能用于细线化图像（以保持线宽为 1 个像素）。"
 
-#: guis/GUI06_Bundle_Editor.py:976
+#: guis/GUI06_Bundle_Editor.py:1008
 msgid "消しゴム"
 msgstr "橡皮擦"
 
-#: guis/GUI06_Bundle_Editor.py:977
+#: guis/GUI06_Bundle_Editor.py:1009
 msgid ""
 "ドラッグした画素を、選んだマスクから除きます。\n"
 "リッジマスク・二値化画像・細線化画像で使えます。"
@@ -4535,11 +4593,11 @@ msgstr ""
 "将拖过的像素从所选掩膜中去除。\n"
 "可用于脊线掩膜、二值化图像和细线化图像。"
 
-#: guis/GUI06_Bundle_Editor.py:979
+#: guis/GUI06_Bundle_Editor.py:1011
 msgid "キンク追加"
 msgstr "添加扭结"
 
-#: guis/GUI06_Bundle_Editor.py:980
+#: guis/GUI06_Bundle_Editor.py:1012
 msgid ""
 "繊維の上をクリックすると、最も近い細線化画素にキンクを置きます。\n"
 "角度を決める 2 つの端点は、キンクの両側に自動で置かれます。\n"
@@ -4549,19 +4607,19 @@ msgstr ""
 "决定角度的 2 个端点会自动放置在扭结的两侧。\n"
 "端点可通过“编辑扭结”移动。"
 
-#: guis/GUI06_Bundle_Editor.py:983
+#: guis/GUI06_Bundle_Editor.py:1015
 msgid "キンク消去"
 msgstr "删除扭结"
 
-#: guis/GUI06_Bundle_Editor.py:984
+#: guis/GUI06_Bundle_Editor.py:1016
 msgid "キンク、または判定しなかった折れ（中抜きの印）をクリックすると消します。"
 msgstr "点击扭结或未判定的弯折（空心标记）即可将其删除。"
 
-#: guis/GUI06_Bundle_Editor.py:985
+#: guis/GUI06_Bundle_Editor.py:1017
 msgid "キンク移動"
 msgstr "移动扭结"
 
-#: guis/GUI06_Bundle_Editor.py:986
+#: guis/GUI06_Bundle_Editor.py:1018
 msgid ""
 "キンクをドラッグすると、繊維の細線化画素の上を動かせます。\n"
 "動かしたキンクの端点は、自動で置き直されます。"
@@ -4569,11 +4627,11 @@ msgstr ""
 "拖动扭结，可使其沿纤维的细线化像素移动。\n"
 "移动后的扭结，其端点会自动重新放置。"
 
-#: guis/GUI06_Bundle_Editor.py:988
+#: guis/GUI06_Bundle_Editor.py:1020
 msgid "キンクの編集"
 msgstr "编辑扭结"
 
-#: guis/GUI06_Bundle_Editor.py:989
+#: guis/GUI06_Bundle_Editor.py:1021
 msgid ""
 "キンクをクリックすると、その角度を決める 2 つの端点が赤で表示されます。\n"
 "端点をドラッグすると、繊維の細線化画素の上を動かせます。\n"
@@ -4585,19 +4643,19 @@ msgstr ""
 "角度是 2 条红线（臂）之间的夹角。每条臂从距扭结半个表观宽度的点延伸到端点，并在中心线的点上测量。\n"
 "由分析找到的扭结在移动端点之前保持分析给出的角度（此时端点以虚线显示）。"
 
-#: guis/GUI06_Bundle_Editor.py:1007
+#: guis/GUI06_Bundle_Editor.py:1039
 msgid "やり直す"
 msgstr "重做"
 
-#: guis/GUI06_Bundle_Editor.py:1016
+#: guis/GUI06_Bundle_Editor.py:1048
 msgid "ブラシの太さ"
 msgstr "画笔粗细"
 
-#: guis/GUI06_Bundle_Editor.py:1022
+#: guis/GUI06_Bundle_Editor.py:1054
 msgid "再実行"
 msgstr "重新执行"
 
-#: guis/GUI06_Bundle_Editor.py:1027
+#: guis/GUI06_Bundle_Editor.py:1059
 msgid ""
 "現在の設定で、元データからリッジマスクを検出し直します。\n"
 "手で直したリッジマスクは、検出結果で置き換わります。"
@@ -4605,7 +4663,7 @@ msgstr ""
 "按当前设置从原始数据重新检测脊线掩膜。\n"
 "手动修正过的脊线掩膜将被检测结果替换。"
 
-#: guis/GUI06_Bundle_Editor.py:1030
+#: guis/GUI06_Bundle_Editor.py:1062
 msgid ""
 "現在のリッジマスクと設定で、元データから背景補正をやり直します。\n"
 "方式が tophat のときは、マスクを使わずに実行します。"
@@ -4613,15 +4671,15 @@ msgstr ""
 "使用当前的脊线掩膜和设置，从原始数据重新进行背景校正。\n"
 "方法为 tophat 时，不使用掩膜执行。"
 
-#: guis/GUI06_Bundle_Editor.py:1032
+#: guis/GUI06_Bundle_Editor.py:1064
 msgid "現在の背景補正画像と設定から、二値化をやり直します。"
 msgstr "根据当前的背景校正图像和设置重新进行二值化。"
 
-#: guis/GUI06_Bundle_Editor.py:1033
+#: guis/GUI06_Bundle_Editor.py:1065
 msgid "現在の二値化画像から、細線化をやり直します。"
 msgstr "根据当前的二值化图像重新进行细线化。"
 
-#: guis/GUI06_Bundle_Editor.py:1035
+#: guis/GUI06_Bundle_Editor.py:1067
 msgid ""
 "現在の細線化画像と背景補正画像から、キンクを検出し直します。\n"
 "手で置いたキンクは、検出結果で置き換わります。"
@@ -4629,20 +4687,20 @@ msgstr ""
 "根据当前的细线化图像和背景校正图像重新检测扭结。\n"
 "手动放置的扭结将被检测结果替换。"
 
-#: guis/GUI06_Bundle_Editor.py:1050
+#: guis/GUI06_Bundle_Editor.py:1082
 msgid "設定…"
 msgstr "设置…"
 
-#: guis/GUI06_Bundle_Editor.py:1053
+#: guis/GUI06_Bundle_Editor.py:1085
 #, python-brace-format
 msgid "{stage} の設定を変更します。"
 msgstr "更改{stage}的设置。"
 
-#: guis/GUI06_Bundle_Editor.py:1082
+#: guis/GUI06_Bundle_Editor.py:1114
 msgid "全体を表示"
 msgstr "显示全图"
 
-#: guis/GUI06_Bundle_Editor.py:1085
+#: guis/GUI06_Bundle_Editor.py:1117
 msgid ""
 "画像全体が見える表示に戻します。\n"
 "拡大・縮小はマウスホイール、またはツールバーの Zoom で行えます。\n"
@@ -4652,51 +4710,51 @@ msgstr ""
 "可用鼠标滚轮或工具栏的 Zoom 进行缩放。\n"
 "用右键或中键拖动可移动显示范围。"
 
-#: guis/GUI06_Bundle_Editor.py:1150
+#: guis/GUI06_Bundle_Editor.py:1183
 msgid "保存していない編集があります。破棄しますか？"
 msgstr "有未保存的编辑。要放弃吗？"
 
-#: guis/GUI06_Bundle_Editor.py:1233
+#: guis/GUI06_Bundle_Editor.py:1266
 msgid "バンドルを読み込んでいます…"
 msgstr "正在读取数据包…"
 
-#: guis/GUI06_Bundle_Editor.py:1234
+#: guis/GUI06_Bundle_Editor.py:1267
 msgid "元データを探しています…"
 msgstr "正在查找原始数据…"
 
-#: guis/GUI06_Bundle_Editor.py:1235
+#: guis/GUI06_Bundle_Editor.py:1268
 msgid "背景補正をやり直しています…"
 msgstr "正在重新进行背景校正…"
 
-#: guis/GUI06_Bundle_Editor.py:1236
+#: guis/GUI06_Bundle_Editor.py:1269
 msgid "中心線を求めています…"
 msgstr "正在求取中心线…"
 
-#: guis/GUI06_Bundle_Editor.py:1257
+#: guis/GUI06_Bundle_Editor.py:1290
 #, python-brace-format
 msgid "{stage} を再実行しました。"
 msgstr "已重新执行{stage}。"
 
-#: guis/GUI06_Bundle_Editor.py:1276 guis/GUI06_Bundle_Editor.py:1388
+#: guis/GUI06_Bundle_Editor.py:1309 guis/GUI06_Bundle_Editor.py:1421
 #, python-brace-format
 msgid "{n} 個のキンクは、追跡した繊維の画素の上にありません。これらは消去だけできます。"
 msgstr "有 {n} 个扭结不在所追踪纤维的像素上。这些扭结只能删除。"
 
-#: guis/GUI06_Bundle_Editor.py:1287
+#: guis/GUI06_Bundle_Editor.py:1320
 #, python-brace-format
 msgid "繊維を追跡できませんでした: {reason}"
 msgstr "无法追踪纤维: {reason}"
 
-#: guis/GUI06_Bundle_Editor.py:1295
+#: guis/GUI06_Bundle_Editor.py:1328
 #, python-brace-format
 msgid "{stage} を実行できませんでした: {reason}"
 msgstr "无法执行{stage}: {reason}"
 
-#: guis/GUI06_Bundle_Editor.py:1298
+#: guis/GUI06_Bundle_Editor.py:1331
 msgid "実行エラー"
 msgstr "执行错误"
 
-#: guis/GUI06_Bundle_Editor.py:1299
+#: guis/GUI06_Bundle_Editor.py:1332
 #, python-brace-format
 msgid ""
 "{stage} を実行できませんでした:\n"
@@ -4705,11 +4763,11 @@ msgstr ""
 "无法执行{stage}:\n"
 "{e}"
 
-#: guis/GUI06_Bundle_Editor.py:1313
+#: guis/GUI06_Bundle_Editor.py:1346
 msgid "読み込みエラー"
 msgstr "读取错误"
 
-#: guis/GUI06_Bundle_Editor.py:1314
+#: guis/GUI06_Bundle_Editor.py:1347
 #, python-brace-format
 msgid ""
 "バンドルを読み込めませんでした:\n"
@@ -4718,153 +4776,158 @@ msgstr ""
 "无法读取数据包:\n"
 "{e}"
 
-#: guis/GUI06_Bundle_Editor.py:1379
+#: guis/GUI06_Bundle_Editor.py:1412
 #, python-brace-format
 msgid "読み込み完了: {name}（{columns} × {rows} 画素、繊維 {n_fibers} 本、キンク {n_kinks} 個）"
 msgstr "读取完成: {name}（{columns} × {rows} 像素，纤维 {n_fibers} 根，扭结 {n_kinks} 个）"
 
-#: guis/GUI06_Bundle_Editor.py:1396
+#: guis/GUI06_Bundle_Editor.py:1429
 msgid "警告"
 msgstr "警告"
 
-#: guis/GUI06_Bundle_Editor.py:1532
+#: guis/GUI06_Bundle_Editor.py:1565
 msgid "繊維を追跡し直しています…"
 msgstr "正在重新追踪纤维…"
 
-#: guis/GUI06_Bundle_Editor.py:1803
+#: guis/GUI06_Bundle_Editor.py:1836
 #, python-brace-format
 msgid "内角 {angle} {unit}"
 msgstr "内角 {angle} {unit}"
 
-#: guis/GUI06_Bundle_Editor.py:1807
+#: guis/GUI06_Bundle_Editor.py:1840
 #, python-brace-format
 msgid "x={x}, y={y}、内角 {angle} {unit}（端点で決めた角度）"
 msgstr "x={x}, y={y}，内角 {angle} {unit}（由端点决定的角度）"
 
-#: guis/GUI06_Bundle_Editor.py:1812
+#: guis/GUI06_Bundle_Editor.py:1845
 #, python-brace-format
 msgid "x={x}, y={y}、内角 {angle} {unit}（解析の角度。このキンクには端点を置けません）"
 msgstr "x={x}, y={y}，内角 {angle} {unit}（分析给出的角度。此扭结无法放置端点）"
 
-#: guis/GUI06_Bundle_Editor.py:1818
+#: guis/GUI06_Bundle_Editor.py:1851
 #, python-brace-format
 msgid "x={x}, y={y}、内角 {angle} {unit}（解析の角度。破線の端点を動かすと、端点で決めた角度に置き換わります）"
 msgstr "x={x}, y={y}，内角 {angle} {unit}（分析给出的角度。移动虚线端点后，将替换为由端点决定的角度）"
 
-#: guis/GUI06_Bundle_Editor.py:1856
+#: guis/GUI06_Bundle_Editor.py:1889
 msgid "キンクのレイヤーが非表示です。表示してから編集してください。"
 msgstr "扭结图层已隐藏。请先显示再编辑。"
 
-#: guis/GUI06_Bundle_Editor.py:1864
+#: guis/GUI06_Bundle_Editor.py:1897
 msgid "細線化画像が変わったので、繊維を追跡し直しています。少し待ってください。"
 msgstr "细线化图像已改变，正在重新追踪纤维。请稍候。"
 
-#: guis/GUI06_Bundle_Editor.py:1890
+#: guis/GUI06_Bundle_Editor.py:1923
 #, python-brace-format
 msgid "{layer} が非表示です。表示してから編集してください。"
 msgstr "{layer}已隐藏。请先显示再编辑。"
 
-#: guis/GUI06_Bundle_Editor.py:1938
+#: guis/GUI06_Bundle_Editor.py:1971
 msgid "動かすキンクの上で押してください。"
 msgstr "请在要移动的扭结上按下。"
 
-#: guis/GUI06_Bundle_Editor.py:1952
+#: guis/GUI06_Bundle_Editor.py:1985
 msgid "角度を決めるキンクをクリックしてください。"
 msgstr "请点击要设定角度的扭结。"
 
-#: guis/GUI06_Bundle_Editor.py:2031
+#: guis/GUI06_Bundle_Editor.py:2064
 #, python-brace-format
 msgid "{layer} に画素を加えました。"
 msgstr "已向{layer}添加像素。"
 
-#: guis/GUI06_Bundle_Editor.py:2032
+#: guis/GUI06_Bundle_Editor.py:2065
 #, python-brace-format
 msgid "{layer} から画素を除きました。"
 msgstr "已从{layer}去除像素。"
 
-#: guis/GUI06_Bundle_Editor.py:2048
+#: guis/GUI06_Bundle_Editor.py:2081
 #, python-brace-format
 msgid "キンクの角度を設定: {detail}"
 msgstr "已设定扭结角度: {detail}"
 
-#: guis/GUI06_Bundle_Editor.py:2058
+#: guis/GUI06_Bundle_Editor.py:2091
 #, python-brace-format
 msgid "キンクを移動: x={x}, y={y} → {detail}"
 msgstr "已移动扭结: x={x}, y={y} → {detail}"
 
-#: guis/GUI06_Bundle_Editor.py:2062
+#: guis/GUI06_Bundle_Editor.py:2095
 msgid "そこへはキンクを動かせません。"
 msgstr "扭结无法移动到该处。"
 
-#: guis/GUI06_Bundle_Editor.py:2073
+#: guis/GUI06_Bundle_Editor.py:2106
 #, python-brace-format
 msgid "x={x}, y={y}、内角 {angle} {unit}"
 msgstr "x={x}, y={y}，内角 {angle} {unit}"
 
-#: guis/GUI06_Bundle_Editor.py:2077
+#: guis/GUI06_Bundle_Editor.py:2110
 #, python-brace-format
 msgid "、端点 ({x1}, {y1}) と ({x2}, {y2})"
 msgstr "，端点 ({x1}, {y1}) 和 ({x2}, {y2})"
 
-#: guis/GUI06_Bundle_Editor.py:2135
+#: guis/GUI06_Bundle_Editor.py:2168
 msgid "繊維（細線化画像の線）の上をクリックしてください。"
 msgstr "请点击纤维（细线化图像中的线）。"
 
-#: guis/GUI06_Bundle_Editor.py:2138
+#: guis/GUI06_Bundle_Editor.py:2171
 msgid "そこにはキンクを置けません。"
 msgstr "该处无法放置扭结。"
 
-#: guis/GUI06_Bundle_Editor.py:2141
+#: guis/GUI06_Bundle_Editor.py:2174
 #, python-brace-format
 msgid "キンクを追加: {detail}"
 msgstr "已添加扭结: {detail}"
 
-#: guis/GUI06_Bundle_Editor.py:2166
+#: guis/GUI06_Bundle_Editor.py:2199
 msgid "消す印の上をクリックしてください。"
 msgstr "请点击要删除的标记。"
 
-#: guis/GUI06_Bundle_Editor.py:2172
+#: guis/GUI06_Bundle_Editor.py:2205
 #, python-brace-format
 msgid "キンクを消去: x={x}, y={y}"
 msgstr "已删除扭结: x={x}, y={y}"
 
-#: guis/GUI06_Bundle_Editor.py:2173
+#: guis/GUI06_Bundle_Editor.py:2206
 #, python-brace-format
 msgid "判定しなかった折れを消去: x={x}, y={y}"
 msgstr "已删除未判定的弯折: x={x}, y={y}"
 
-#: guis/GUI06_Bundle_Editor.py:2184
+#: guis/GUI06_Bundle_Editor.py:2217
 msgid "元に戻しました。"
 msgstr "已撤销。"
 
-#: guis/GUI06_Bundle_Editor.py:2193
+#: guis/GUI06_Bundle_Editor.py:2226
 msgid "やり直しました。"
 msgstr "已重做。"
 
-#: guis/GUI06_Bundle_Editor.py:2225
+#: guis/GUI06_Bundle_Editor.py:2258
 #, python-brace-format
 msgid "手で変更した {layer} は、{stage} の結果で置き換わります。続けますか？"
 msgstr "手动更改过的{layer}将被{stage}的结果替换。是否继续？"
 
-#: guis/GUI06_Bundle_Editor.py:2229
+#: guis/GUI06_Bundle_Editor.py:2262
 #, python-brace-format
 msgid "{stage} を実行しています…"
 msgstr "正在执行{stage}…"
 
-#: guis/GUI06_Bundle_Editor.py:2267
+#: guis/GUI06_Bundle_Editor.py:2300
 #, python-brace-format
 msgid "{stage} の設定を変更しました。"
 msgstr "已更改{stage}的设置。"
 
-#: guis/GUI06_Bundle_Editor.py:2304
+#: guis/GUI06_Bundle_Editor.py:2395
+#, python-brace-format
+msgid "{name} に上書き保存しますか？"
+msgstr "要覆盖保存到 {name} 吗？"
+
+#: guis/GUI06_Bundle_Editor.py:2409
 msgid "編集したバンドルの保存先"
 msgstr "编辑后数据包的保存位置"
 
-#: guis/GUI06_Bundle_Editor.py:2344
+#: guis/GUI06_Bundle_Editor.py:2449
 msgid "解析で書き出したバンドルには上書きできません。別の名前で保存してください。"
 msgstr "不能覆盖由分析写出的数据包。请用其他名称保存。"
 
-#: guis/GUI06_Bundle_Editor.py:2357
+#: guis/GUI06_Bundle_Editor.py:2462
 #, python-brace-format
 msgid ""
 "次のレイヤーは、元になるレイヤーや設定が変わったあと、計算し直していません:\n"
@@ -4877,16 +4940,16 @@ msgstr ""
 "\n"
 "仍要保存吗？（保存的数据包中会记录这些图层已过期）"
 
-#: guis/GUI06_Bundle_Editor.py:2362
+#: guis/GUI06_Bundle_Editor.py:2467
 msgid "保存しています…"
 msgstr "正在保存…"
 
-#: guis/GUI06_Bundle_Editor.py:2369
+#: guis/GUI06_Bundle_Editor.py:2474
 #, python-brace-format
 msgid "保存できませんでした: {reason}"
 msgstr "无法保存: {reason}"
 
-#: guis/GUI06_Bundle_Editor.py:2372
+#: guis/GUI06_Bundle_Editor.py:2477
 #, python-brace-format
 msgid ""
 "バンドルを保存できませんでした:\n"
@@ -4895,33 +4958,33 @@ msgstr ""
 "无法保存数据包:\n"
 "{e}"
 
-#: guis/GUI06_Bundle_Editor.py:2447
+#: guis/GUI06_Bundle_Editor.py:2552
 msgid "このレイヤーは編集できません。"
 msgstr "此图层无法编辑。"
 
-#: guis/GUI06_Bundle_Editor.py:2450
+#: guis/GUI06_Bundle_Editor.py:2555
 msgid "このバンドルは表示だけできます。"
 msgstr "此数据包只能查看。"
 
-#: guis/GUI06_Bundle_Editor.py:2687
+#: guis/GUI06_Bundle_Editor.py:2792
 msgid "ドラッグすると、レイヤーの重ね順を変えられます。"
 msgstr "拖动可改变图层的叠放顺序。"
 
-#: guis/GUI06_Bundle_Editor.py:2710
+#: guis/GUI06_Bundle_Editor.py:2815
 msgid "古い"
 msgstr "已过期"
 
-#: guis/GUI06_Bundle_Editor.py:2782
+#: guis/GUI06_Bundle_Editor.py:2887
 #, python-brace-format
 msgid "{stage} の設定"
 msgstr "{stage}的设置"
 
-#: guis/GUI06_Bundle_Editor.py:2852
+#: guis/GUI06_Bundle_Editor.py:2957
 #, python-brace-format
 msgid "{field} の値を読み取れません: {value}"
 msgstr "无法读取 {field} 的值: {value}"
 
-#: guis/GUI00_Format_Converter.py:39
+#: guis/GUI00_Format_Converter.py:40
 msgid ""
 "Image Preprocessor で読めない形式の AFM 測定ファイルを、Gwyddion のファイル読み込み機能で .gwy "
 "ファイルへ一括変換します。\n"
@@ -5043,7 +5106,7 @@ msgstr ""
 "列表以待保存总览页的页面形式显示，拖动缩略图即可重新排列。可以为每幅图像调节颜色范围，并为每幅图像添加比例尺和颜色条。\n"
 "列表可以保存为按 A4 排版的总览页（PNG 或 PDF）。请在打开所保存文件的应用中打印。"
 
-#: guis/GUI06_Bundle_Editor.py:106
+#: guis/GUI06_Bundle_Editor.py:114
 msgid ""
 "Image Preprocessor で解析した .b2z バンドルを 1 つ読み込み、解析の各段階の結果をレイヤーとして重ねて表示します。\n"
 "レイヤーは、元データ、背景補正に使ったリッジマスク、背景補正画像、二値化画像、細線化画像、中心線、キンクです。レイヤーごとに表示・非表示と不透明度を切り替えられ、ドラッグで重ね順を変えられます。"
@@ -5052,7 +5115,8 @@ msgid ""
 " 2 つの端点をドラッグして決められます。\n"
 "リッジマスクの検出・背景補正・二値化・細線化・キンク検出は、現在のレイヤーを入力にして再実行できます。背景補正と二値化は設定を変更できます。元になるレイヤーが変わったあと計算し直していないレイヤーには「古い」の印が付きます。"
 "\n"
-"編集した結果は別名のバンドルとして保存し、手で編集したことを記録します。解析で書き出したバンドルには上書きしません。\n"
+"編集した結果は別名のバンドルとして保存し、手で編集したことを記録します。編集済みのバンドルを開いているときは、上書き保存もできます。解析で書き出したバンドルには上書きしません。"
+"\n"
 "元データは、バンドルに含まれていなければ、バンドルと同じフォルダにある元ファイルから読み込みます。リッジマスクは、元データと記録された解析条件から計算し直して表示します。"
 msgstr ""
 "读取 1 个由 Image Preprocessor 分析得到的 .b2z 数据包，并将各分析阶段的结果作为图层叠加显示。\n"
@@ -5062,6 +5126,5 @@ msgstr ""
 " 2 个端点来决定。\n"
 "脊线掩膜检测、背景校正、二值化、细线化和扭结检测可以以当前图层为输入重新执行。背景校正和二值化的设置可以更改。来源图层改变后尚未重新计算的图层会标上“已过期”。"
 "\n"
-"编辑结果另存为一个数据包，并记录其经过手动编辑。不会覆盖由分析写出的数据包。\n"
+"编辑结果另存为一个数据包，并记录其经过手动编辑。打开已编辑的数据包时，也可以覆盖保存。不会覆盖由分析写出的数据包。\n"
 "如果数据包中不含原始数据，则从数据包所在文件夹中的原始文件读取。脊线掩膜根据原始数据和所记录的解析条件重新计算后显示。"
-

@@ -18,6 +18,7 @@ is missing, a callback is misspelled, or a `afm_nanofiber_analyzer.ui_tools` hel
 """
 
 import os
+import sys
 
 import numpy as np
 import pytest
@@ -129,6 +130,65 @@ def test_gui00_reports_a_missing_converter(tk_app, tmp_path, monkeypatch, silenc
     assert [kind for kind, _title, _msg in dialogs] == ["showerror"]
     assert gwy_convert.INSTALL_COMMAND in dialogs[0][2]
     assert not app._running
+
+
+def test_gui00_opens_the_chosen_folder_in_gui01(tk_app, tmp_path, monkeypatch):
+    """
+    "GUI01で開く" hands GUI01 the chosen folder, and only while none converts.
+    「GUI01で開く」は選んだフォルダを GUI01 に渡し、変換中でないときだけ押せる。
+
+    A folder without conversion candidates still opens, since its .txt and
+    .gwy files are GUI01 input.
+    変換対象の無いフォルダも開ける。その .txt と .gwy は GUI01 の入力である。
+    """
+    launched = []
+    monkeypatch.setattr(
+        gui00, "launch_plugin", lambda module, args=(): launched.append((module, list(args)))
+    )
+    (tmp_path / "scan.txt").write_bytes(b"x")
+    monkeypatch.setattr(gui00.filedialog, "askdirectory", lambda **kw: str(tmp_path))
+    app = tk_app(gui00.App)
+    assert app.btn_open_gui01.instate(["disabled"])
+
+    app.on_choose_folder()
+    assert app.paths == []
+    assert not app.btn_open_gui01.instate(["disabled"])
+    app.btn_open_gui01.invoke()
+    assert launched == [(gui00.PREPROCESSOR_MODULE, [os.path.abspath(str(tmp_path))])]
+
+    app._set_controls(True)
+    assert app.btn_open_gui01.instate(["disabled"])
+
+
+def test_gui01_lists_a_folder_named_on_the_command_line(
+    tk_app, isolated_gui01_settings, tmp_path, monkeypatch
+):
+    """
+    GUI01's main() lists a folder handed as its first argument, as GUI00 passes it.
+    GUI01 の main() は、第 1 引数で渡されたフォルダ（GUI00 が渡す形）を一覧に並べる。
+    """
+    (tmp_path / "scan.txt").write_text("0 0\n0 0\n", encoding="utf-8")
+    (tmp_path / "notes.csv").write_text("x", encoding="utf-8")
+    shown = []
+
+    def run(window, callback, *args):
+        shown.append(window)
+        callback(*args)
+
+    # main() builds its own window and enters its main loop; the window is
+    # taken over by tk_app so it is destroyed and checked like any other.
+    # main() は自分でウインドウを作ってメインループに入る。そのウインドウを
+    # tk_app に引き取らせ、他と同じく破棄と確認の対象にする。
+    real_app = gui01.App
+    monkeypatch.setattr(real_app, "mainloop", lambda self: None, raising=False)
+    monkeypatch.setattr(gui01, "App", lambda: tk_app(real_app))
+    monkeypatch.setattr(gui01, "call_when_shown", run)
+    monkeypatch.setattr(sys, "argv", ["guis.GUI01_Image_Preprocessor", str(tmp_path)])
+    gui01.main()
+
+    (app,) = shown
+    assert app.folder_path == str(tmp_path)
+    assert [os.path.basename(it.txt_path) for it in app.items] == ["scan.txt"]
 
 
 def test_gui01_window_builds(tk_app, isolated_gui01_settings):
@@ -775,16 +835,18 @@ def test_gui01_hand_over_buttons_follow_the_preview(
     tk_app, isolated_gui01_settings, tmp_path, monkeypatch
 ):
     """
-    GUI02/GUI04 open the bundle on screen; GUI03 opens the folder's bundles.
-    GUI02/GUI04 は画面上のバンドルを、GUI03 はフォルダのバンドルを開く。
+    GUI02/GUI04/GUI06 open the bundle on screen; GUI03/GUI05 open the folder's bundles.
+    GUI02/GUI04/GUI06 は画面上のバンドルを、GUI03/GUI05 はフォルダのバンドルを開く。
 
     The buttons are off without something to hand over and while an analysis
     may be rewriting it, so they never pass a file the user is not looking at.
     GUI03 is handed every bundle directly inside the folder through a list
-    file, and nothing else that sits there.
+    file, and nothing else that sits there; GUI05 is handed the folder, whose
+    bundles it adds itself.
     渡すものが無いとき、および解析がそれを書き換えうる間は押せない。ユーザーが
     見ていないファイルを渡すことはない。GUI03 には、フォルダ直下の全バンドルを
-    一覧ファイルで渡し、そこにある他のファイルは渡さない。
+    一覧ファイルで渡し、そこにある他のファイルは渡さない。GUI05 にはフォルダを
+    渡し、GUI05 がその中のバンドルを自分で加える。
     """
     from afm_nanofiber_analyzer import plugin_launch
 
@@ -793,24 +855,27 @@ def test_gui01_hand_over_buttons_follow_the_preview(
         gui01, "launch_plugin", lambda module, args=(): launched.append((module, list(args)))
     )
     app = tk_app(gui01.App)
-    buttons = (app.btn_open_gui02, app.btn_open_gui03, app.btn_open_gui04)
+    # Ordered as the buttons stand: the preview row, then the list header.
+    # ボタンの並び順（プレビューの行、一覧の見出し）に並べる。
+    buttons = (app.btn_open_gui02, app.btn_open_gui04, app.btn_open_gui06,
+               app.btn_open_gui03, app.btn_open_gui05)
 
     def enabled():
         return tuple(not b.instate(["disabled"]) for b in buttons)
 
     app._update_controls_state()
-    assert enabled() == (False, False, False)
+    assert enabled() == (False,) * 5
 
     item = gui01.FileItem(txt_path=str(tmp_path / "scan.txt"))
     item.status = gui01.STATUS_ANALYZED
     app.folder_path = str(tmp_path)
     app.items = [item]
     app._update_controls_state()
-    assert enabled() == (False, True, False)
+    assert enabled() == (False, False, False, True, True)
 
     app._preview_shown_item = item
     app._update_controls_state()
-    assert enabled() == (True, True, True)
+    assert enabled() == (True,) * 5
 
     bundle = str(tmp_path / "scan") + gui01.BUNDLE_EXT
     other = str(tmp_path / "other_r0-256") + gui01.BUNDLE_EXT
@@ -820,19 +885,23 @@ def test_gui01_hand_over_buttons_follow_the_preview(
 
     app.btn_open_gui04.invoke()
     app.btn_open_gui02.invoke()
+    app.btn_open_gui06.invoke()
+    app.btn_open_gui05.invoke()
     app.btn_open_gui03.invoke()
-    assert launched[:2] == [
+    assert launched[:4] == [
         (gui01.TRACKER_MODULE, [bundle]),
         (gui01.PROFILER_MODULE, [bundle]),
+        (gui01.EDITOR_MODULE, [bundle]),
+        (gui01.THUMBNAIL_MODULE, [os.path.abspath(str(tmp_path))]),
     ]
-    module, args = launched[2]
+    module, args = launched[4]
     assert module == gui01.STATISTICS_MODULE
     assert args[0] == plugin_launch.PATH_LIST_FLAG
     assert plugin_launch.read_path_arguments(args) == [other, bundle]
 
     app.is_running = True
     app._update_controls_state()
-    assert enabled() == (False, False, False)
+    assert enabled() == (False,) * 5
 
 
 def test_gui01_font_sizes_are_set_in_their_own_window(

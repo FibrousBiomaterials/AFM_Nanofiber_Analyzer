@@ -855,7 +855,7 @@ by the pipeline never has them.
   image of the selected bundle through `ui_tools.read_height_image`, the reader
   GUI05 uses, and shows the statistics and the between-group comparison in a
   window of its own (`StatisticsWindow`), which is hidden, not destroyed, when
-  closed. GUI01's "このフォルダをGUI03で解析" and GUI05's "GUI03で開く" hand it
+  closed. GUI01's "GUI03で解析" and GUI05's "GUI03で開く" hand it
   bundle paths through a list file (`plugin_launch.path_list_arguments`, read
   with `read_path_arguments`), because a command line holds a limited number of
   characters.
