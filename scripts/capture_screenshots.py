@@ -40,6 +40,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from ctypes import wintypes
 from pathlib import Path
@@ -51,6 +52,12 @@ DATA_DIR = ROOT / ".tmp" / "example_scans"
 # GUI00 には解析が自分では読まない形式のファイルが要る。同梱スキャンを
 # Gwyddion Simple Field（.gsf）として書き出して使う。
 VENDOR_DIR = ROOT / ".tmp" / "example_vendor_files"
+RANGE_DIR = ROOT / ".tmp" / "example_ranges"
+# Bundled bundles GUI05 shows besides the ones analyzed here: a rectangular
+# scan, and the scan of another instrument (Bruker).
+# GUI05 で、ここで解析したものに加えて表示する同梱バンドル。長方形の走査と、
+# 別の装置（Bruker）の走査。
+GALLERY_EXTRA = ("sample_anisotropic.b2z", "NDTOC250306.000.b2z")
 OUT_DIR = ROOT / ".tmp" / "screens"
 
 # The bundled scans the screenshots show, with the scan size of a file whose
@@ -69,12 +76,19 @@ MODULES = {
     "gui02": "guis.GUI02_PlotProfiler",
     "gui03": "guis.GUI03_Fiber_Morphology_Statistics",
     "gui04": "guis.GUI04_Tracking_fiber",
+    "gui05": "guis.GUI05_Thumbnail_Viewer",
+    "gui06": "guis.GUI06_Bundle_Editor",
 }
 WINDOW_SIZE = (1450, 880)
 # A small window keeps its own default size, which its layout was made for.
 # 小さなウィンドウは、配置の前提である自身の既定の大きさのままにする。
-WINDOW_SIZES = {"gui00": (960, 620)}
+# None leaves a window that sizes itself to its controls as it opens.
+# None は、開くときに操作欄に合わせて自分で大きさを決めるウィンドウをそのままにする。
+WINDOW_SIZES = {"gui00": (960, 620), "gui05": None}
 CHILD_TIMEOUT_S = 300
+# Longest time one scenario step may wait before the child gives up.
+# シナリオの 1 段階が待てる最長の時間。超えたら子プロセスは諦める。
+WAIT_TIMEOUT_S = 60
 
 
 # ----- Preparation (parent process) -----
@@ -127,23 +141,52 @@ def prepare_vendor_files() -> None:
         write_gsf(VENDOR_DIR / f"{stem}.gsf", load_afm_text(str(src)), *size)
 
 
-def prepare_data() -> dict:
+def prepare_data(fresh: bool) -> dict:
     """
     Copy and analyze the scans, and choose the fiber the screenshots point at.
     スキャンを複製・解析し、スクリーンショットで指す繊維を選ぶ。
+
+    Parameters
+    ----------
+    fresh
+        Analyze again even where a bundle is already there.
+        バンドルが既にあっても解析し直すかどうか。
     """
     sys.path.insert(0, str(ROOT))
     from afm_nanofiber_analyzer.measure import measure_bundle
-    from afm_nanofiber_analyzer.pipeline import ProcParams, process_file
+    from afm_nanofiber_analyzer.pipeline import (
+        ProcParams, bundle_path_for, process_file, row_range_suffix,
+    )
+
+    def analyzed(path: Path, size=None, rows=None) -> str:
+        bundle = bundle_path_for(os.path.splitext(str(path))[0] + row_range_suffix(rows))
+        if fresh or not os.path.exists(bundle):
+            print(f"analyzing {path.name} {rows or ''}", flush=True)
+            process_file(str(path), ProcParams(), scan_size_um=size, row_range=rows)
+        return bundle
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     bundles = {}
     for name, size in SCANS.items():
-        src = ROOT / "testdata" / name
         dst = DATA_DIR / name
-        shutil.copyfile(src, dst)
-        result = process_file(str(dst), ProcParams(), scan_size_um=size)
-        bundles[name] = result.bundle_path
+        shutil.copyfile(ROOT / "testdata" / name, dst)
+        bundles[name] = analyzed(dst, size)
+
+    # The higher-plant scan analyzed as the two glitch-free scan-line ranges
+    # GUI01 proposes for it, in a folder of their own so GUI01's folder keeps
+    # one entry per scan.
+    # 高等植物のスキャンを、GUI01 が提案する縞ノイズの無い 2 つの走査線範囲として
+    # 解析する。GUI01 のフォルダが 1 スキャン 1 項目のままになるよう、別の
+    # フォルダに置く。
+    RANGE_DIR.mkdir(parents=True, exist_ok=True)
+    other = next(name for name in SCANS if name != MAIN_SCAN)
+    shutil.copyfile(ROOT / "testdata" / other, RANGE_DIR / other)
+    range_bundles = [analyzed(RANGE_DIR / other, rows=rows)
+                     for rows in ((0, 817), (834, 1024))]
+    gallery = (
+        [bundles[MAIN_SCAN], bundles[other]] + range_bundles
+        + [str(ROOT / "testdata" / name) for name in GALLERY_EXTRA]
+    )
 
     # A long, nearly straight fiber that stays inside the scan shows a profile
     # along one fiber and a highlighted row that is easy to find.
@@ -156,12 +199,26 @@ def prepare_data() -> dict:
     fiber = measured.fibers[best.index]
     x = fiber.xtrack + fiber.data[0]
     y = fiber.ytrack + fiber.data[1]
+    # GUI06 edits the kinks the bundle stores (`kp`, on skeleton pixels): the
+    # one nearest to this fiber's first kink is the one clicked there.
+    # GUI06 はバンドルに記録されたキンク（`kp`、細線化画素の上）を編集する。この
+    # 繊維の最初のキンクに最も近いものを、そこでクリックする。
+    import numpy as np
+    from afm_nanofiber_analyzer.blosc2_io import load_bundle
+
+    kp = load_bundle(bundles[MAIN_SCAN], keys=["kp"])["kp"]
+    first = int(np.asarray(fiber.kink_indices, dtype=int)[0])
+    nearest = int(np.argmin(np.hypot(kp[0] - x[first], kp[1] - y[first])))
+    kink_pixel = [int(kp[0][nearest]), int(kp[1][nearest])]
+
     # Points close enough together that the polyline follows the fiber's bends.
     # 折れ線が繊維の曲がりに沿うだけの間隔で点を置く。
     picks = [round(i * (len(x) - 1) / 15) for i in range(16)]
     return {
         "bundles": bundles,
+        "gallery": gallery,
         "fiber_index": best.index,
+        "kink_pixel": kink_pixel,
         "fiber_pixels": [[float(x[i]), float(y[i])] for i in picks],
     }
 
@@ -205,6 +262,79 @@ def scenario_gui01(app, info):
     app.overlay_mode_var.set("KP")
     app.on_redraw_preview()
     yield 2.0
+
+
+def scenario_gui01_settings(app, info):
+    from guis.GUI01_Image_Preprocessor import SettingsDialog
+
+    app.load_folder(str(DATA_DIR))
+    yield 1.0
+    # The dialog is modal and waits in a nested event loop, so the button is
+    # pressed from a callback of its own and this scenario keeps ticking.
+    # ダイアログはモーダルで、入れ子のイベントループで待つ。そのためボタンは別の
+    # コールバックから押し、このシナリオは進み続ける。
+    app.after(0, app.btn_settings.invoke)
+    yield lambda: any(isinstance(w, SettingsDialog) for w in app.winfo_children())
+    yield 1.5
+    app._capture_window = next(w for w in app.winfo_children()
+                               if isinstance(w, SettingsDialog))
+
+
+def scenario_gui01_split(app, info):
+    from guis.GUI01_Image_Preprocessor import COL_NAME
+
+    app.load_folder(str(DATA_DIR))
+    yield lambda: all(it.stripe_noise is not None for it in app.items)
+    row = next(iid for iid, item in app.item_by_iid.items()
+               if os.path.basename(item.txt_path) != MAIN_SCAN)
+    app.sheet.select_cell(row, COL_NAME, redraw=True)
+    app._on_sheet_select()
+    yield lambda: app._preview_shown_item is not None
+    yield 1.0
+    app.btn_split_rows.invoke()
+    yield 2.0
+
+
+def scenario_gui05(app, info):
+    app.add_paths(info["gallery"])
+    yield lambda: len(app.readable_items()) == len(info["gallery"])
+    yield 2.0
+
+
+def scenario_gui06(app, info):
+    import guis.GUI06_Bundle_Editor as plugin
+
+    app.open_bundle(info["bundles"][MAIN_SCAN])
+    yield lambda: app.session is not None and not app._loading
+    yield 1.0
+    kx, ky = info["kink_pixel"]
+    # Close enough that the two arms of the kink, about 1.5 apparent widths
+    # long, are clearly drawn.
+    # キンクの 2 本の腕（見かけ幅の 1.5 倍ほどの長さ）がはっきり見える拡大率。
+    half = 45
+    app.ax.set_xlim(kx - half, kx + half)
+    app.ax.set_ylim(ky + half, ky - half)
+    app.canvas.draw()
+    yield 0.5
+    # The tools act on the layer whose name was clicked, as the layer pane says.
+    # ツールは、名前をクリックしたレイヤーに働く（レイヤー欄の説明のとおり）。
+    app.select_layer(plugin.LAYER_KINKS)
+    yield 0.5
+    app.tool_var.set(plugin.TOOL_EDIT_KINK)
+    app._on_tool_chosen()
+    yield 0.5
+    # A real left click on the kink, as for the points in GUI02.
+    # GUI02 の点と同じく、キンクの上で本物の左クリックをする。
+    canvas = app.canvas
+    widget = canvas.get_tk_widget()
+    ratio = getattr(canvas, "device_pixel_ratio", 1.0) or 1.0
+    dx, dy = app.ax.transData.transform((kx, ky))
+    wx = int(round(dx / ratio))
+    wy = int(round((canvas.figure.bbox.height - dy) / ratio))
+    widget.event_generate("<ButtonPress-1>", x=wx, y=wy)
+    widget.event_generate("<ButtonRelease-1>", x=wx, y=wy)
+    yield lambda: app._selected_kink is not None
+    yield 1.5
 
 
 def scenario_gui02(app, info):
@@ -252,6 +382,32 @@ def scenario_gui03(app, info):
     yield 2.0
 
 
+def scenario_gui03_stats(app, info):
+    main = info["bundles"][MAIN_SCAN]
+    other = next(p for name, p in info["bundles"].items() if name != MAIN_SCAN)
+    app.add_files(app.groups[0], [main])
+    app.on_add_group()
+    app.add_files(app.groups[1], [other])
+    yield 1.0
+    # One fiber per sample: the between-group tests run for the fiber and
+    # image units only, and each group here holds one scan, fewer than the
+    # three scans a test per image needs.
+    # 1 本の繊維を 1 標本とする。群間の検定は fiber と image の単位でだけ行われ、
+    # ここでは各群が 1 スキャンしか持たず、image 単位の検定に要る 3 スキャンに
+    # 足りないためである。
+    app.unit_var.set("fiber")
+    app.cmb_unit.event_generate("<<ComboboxSelected>>")
+    yield 0.5
+    app.max_var.set("20")
+    app.on_run()
+    yield lambda: app.is_running
+    yield lambda: not app.is_running
+    yield 1.0
+    app.on_show_statistics()
+    yield 2.0
+    app._capture_window = app.stats_window
+
+
 def scenario_gui04(app, info):
     app.open_bundle(info["bundles"][MAIN_SCAN])
     yield lambda: bool(app.fiber_tree.get_children())
@@ -267,9 +423,14 @@ def scenario_gui04(app, info):
 SCENARIOS = {
     "gui00": scenario_gui00,
     "gui01": scenario_gui01,
+    "gui01_settings": scenario_gui01_settings,
+    "gui01_split": scenario_gui01_split,
     "gui02": scenario_gui02,
     "gui03": scenario_gui03,
+    "gui03_stats": scenario_gui03_stats,
     "gui04": scenario_gui04,
+    "gui05": scenario_gui05,
+    "gui06": scenario_gui06,
 }
 
 
@@ -323,6 +484,32 @@ def capture_window(hwnd: int, path: Path) -> None:
     image.crop((cols[0], rows[0], cols[-1] + 1, rows[-1] + 1)).save(path)
 
 
+def own_windows() -> list:
+    """
+    Return the visible top-level windows of this process, dialogs included.
+    このプロセスの見えているトップレベルウィンドウを、ダイアログを含めて返す。
+
+    Windows are told apart by process id, never by title, so a window of
+    another program with the same title is never taken.
+    ウィンドウはタイトルではなくプロセス ID で見分ける。同じタイトルの別の
+    プログラムのウィンドウを撮ることはない。
+    """
+    user32 = ctypes.windll.user32
+    found = []
+    pid = os.getpid()
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def visit(hwnd, _lparam):
+        owner = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+        if owner.value == pid and user32.IsWindowVisible(hwnd):
+            found.append(hwnd)
+        return True
+
+    user32.EnumWindows(visit, 0)
+    return found
+
+
 def run_child(target: str, lang: str, out: Path, info_path: Path) -> None:
     """
     Start one plugin in `lang`, play its scenario, and capture its window.
@@ -333,7 +520,8 @@ def run_child(target: str, lang: str, out: Path, info_path: Path) -> None:
 
     translator.set_language(lang)
     info = json.loads(info_path.read_text(encoding="utf-8"))
-    module = importlib.import_module(MODULES[target])
+    # "gui01_settings" is another view of the plugin "gui01".
+    module = importlib.import_module(MODULES[target.split("_")[0]])
     if hasattr(module, "_settings_path"):
         # GUI01 starts from its settings file beside the plugin, which holds
         # this PC's choices; a fresh file under .tmp/ gives the defaults and
@@ -347,9 +535,30 @@ def run_child(target: str, lang: str, out: Path, info_path: Path) -> None:
             trash.send_to_trash([settings])
         module._settings_path = lambda: str(settings)
     app = module.App()
-    app.geometry("{0}x{1}+40+40".format(*WINDOW_SIZES.get(target, WINDOW_SIZE)))
+    size = WINDOW_SIZES.get(target, WINDOW_SIZE)
+    if size is not None:
+        app.geometry("{0}x{1}+40+40".format(*size))
     steps = SCENARIOS[target](app, info)
-    state = {"wait": None, "until": 0.0}
+    state = {"wait": None, "until": 0.0, "step": 0, "since": time.monotonic()}
+
+    def watchdog() -> None:
+        # Runs in a thread of its own, so a modal dialog that stops the Tk
+        # callbacks cannot stop it. The windows are captured for a look at
+        # what the scenario was waiting on.
+        # 別スレッドで動くので、Tk のコールバックを止めるモーダルなダイアログが
+        # 出ても止まらない。シナリオが何を待っていたかを見るためにウィンドウを撮る。
+        while True:
+            time.sleep(1.0)
+            if time.monotonic() - state["since"] > WAIT_TIMEOUT_S:
+                print(f"timed out after {WAIT_TIMEOUT_S} s at step {state['step']}",
+                      flush=True)
+                for i, hwnd in enumerate(own_windows()):
+                    path = out.with_name(f"{out.stem}_timeout{i}.png")
+                    capture_window(hwnd, path)
+                    print(f"  captured {path}", flush=True)
+                os._exit(2)
+
+    threading.Thread(target=watchdog, daemon=True).start()
 
     def tick() -> None:
         try:
@@ -361,9 +570,14 @@ def run_child(target: str, lang: str, out: Path, info_path: Path) -> None:
                 app.after(100, tick)
                 return
             step = next(steps)
+            state["step"] += 1
+            state["since"] = time.monotonic()
         except StopIteration:
             app.update_idletasks()
-            capture_window(int(app.wm_frame(), 16), out)
+            # A scenario that opened a dialog names it as the window to take.
+            # ダイアログを開いたシナリオは、撮るウィンドウとしてそれを指定する。
+            window = getattr(app, "_capture_window", app)
+            capture_window(int(window.wm_frame(), 16), out)
             print(f"captured {out}", flush=True)
             # A plugin's worker threads or pending callbacks can keep the
             # process alive after destroy(); the image is saved, so it ends here.
@@ -374,8 +588,8 @@ def run_child(target: str, lang: str, out: Path, info_path: Path) -> None:
         except Exception:
             import traceback
             traceback.print_exc()
-            app.destroy()
-            sys.exit(1)
+            # sys.exit inside a Tk callback would only be reported by Tk.
+            os._exit(1)
         if callable(step):
             state["wait"] = step
         else:
@@ -414,7 +628,9 @@ def make_panel(images, out: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     parser.add_argument("--lang", nargs="+", default=["English", "Japanese"])
-    parser.add_argument("--only", nargs="+", choices=sorted(MODULES))
+    parser.add_argument("--only", nargs="+", choices=sorted(SCENARIOS))
+    parser.add_argument("--fresh", action="store_true",
+                        help="analyze the example scans again even where bundles exist")
     parser.add_argument("--child", nargs=4, metavar=("TARGET", "LANG", "OUT", "INFO"),
                         help=argparse.SUPPRESS)
     args = parser.parse_args()
@@ -423,11 +639,11 @@ def main() -> None:
         run_child(target, lang, Path(out), Path(info))
         return
 
-    info = prepare_data()
+    info = prepare_data(args.fresh)
     info_path = OUT_DIR / "info.json"
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     info_path.write_text(json.dumps(info, indent=2), encoding="utf-8")
-    targets = args.only or sorted(MODULES)
+    targets = args.only or sorted(SCENARIOS)
     failed = []
     for lang in args.lang:
         folder = OUT_DIR / lang

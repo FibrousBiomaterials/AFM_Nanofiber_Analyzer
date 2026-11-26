@@ -27,6 +27,12 @@ project README.
 
    manual/overview
    manual/gui00_format_converter
+   manual/gui01_image_preprocessor
+   manual/gui05_thumbnail_viewer
+   manual/gui02_plot_profiler
+   manual/gui06_bundle_editor
+   manual/gui04_fiber_tracker
+   manual/gui03_fiber_morphology_statistics
    algorithms
    gui04_measurements
    gui03_statistics

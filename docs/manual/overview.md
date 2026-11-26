@@ -12,6 +12,18 @@ Each tool is started from the launcher (`python Main.py`, or the `run_venv` /
 
 - [Format Converter (GUI00)](gui00_format_converter.md): converts files in
   formats this software cannot read into `.gwy` files for GUI01.
+- [Image Preprocessor (GUI01)](gui01_image_preprocessor.md): analyzes AFM
+  height images into the `.b2z` bundles the other tools read.
+- [Thumbnail Viewer (GUI05)](gui05_thumbnail_viewer.md): shows many bundles
+  side by side and saves them as A4 sheets.
+- [Plot Profiler (GUI02)](gui02_plot_profiler.md): extracts a height profile
+  along a line drawn on a height image.
+- [Bundle Editor (GUI06)](gui06_bundle_editor.md): corrects an analysis by
+  hand and saves it as a new bundle.
+- [Fiber Tracker (GUI04)](gui04_fiber_tracker.md): lists the fibers of a bundle
+  with their values, and joins or excludes fibers before they are aggregated.
+- [Fiber Morphology Statistics (GUI03)](gui03_fiber_morphology_statistics.md):
+  compares the distribution of one fiber quantity between groups of bundles.
 
 ## Analyzing in Python with Jupyter
 
