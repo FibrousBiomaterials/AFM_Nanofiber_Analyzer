@@ -60,7 +60,7 @@ templates_path = ["_templates"]
 # `related_afm_tools.md` is a local-only guide (it is listed in .gitignore and
 # is absent from a fresh clone), so it is not part of the published site
 # either; naming it here keeps a local build warning-free.
-exclude_patterns = ["_build", "*.ja.md", "related_afm_tools.md"]
+exclude_patterns = ["_build", "*.ja.md", "**/*.ja.md", "related_afm_tools.md"]
 
 html_theme = "furo"
 html_static_path = []

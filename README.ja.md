@@ -216,6 +216,8 @@ python cli.py process data\*.txt      # バッチパイプライン
 たとえば Jupyter notebook から使うためのものです
 (`from afm_nanofiber_analyzer import bg_calibrator`)。GUI と CLI はインストール
 されません。GUI のエンドユーザー向け配布は引き続き後述の PyInstaller バンドルです。
+同梱のスキャンを Python から解析・計測する例のノートブックについては
+[docs/manual/overview.ja.md](docs/manual/overview.ja.md) で説明しています。
 
 ### Windows 用スタンドアロンバンドルをビルドする
 

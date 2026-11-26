@@ -77,7 +77,9 @@ dependencies = [
 # regression suite; see [tool.pytest.ini_options] addopts.
 # pytest needs the `faulthandler_exit_on_timeout` setting used below; it was
 # checked with 9.1.1.
-dev = ["pytest>=9.1", "pytest-xdist", "Babel", "ruff"]
+# nbclient and ipykernel run the manual's example notebooks
+# (tests/test_manual_notebooks.py).
+dev = ["pytest>=9.1", "pytest-xdist", "Babel", "ruff", "nbclient", "ipykernel"]
 # Sphinx renders the afm_nanofiber_analyzer/ docstrings into the API reference under docs/.
 # Napoleon (NumPy-style parsing) ships with Sphinx; furo is the HTML theme.
 # myst-parser renders the Markdown narrative pages (docs/algorithms.md).

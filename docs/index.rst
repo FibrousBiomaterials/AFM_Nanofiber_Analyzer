@@ -25,6 +25,7 @@ project README.
    :maxdepth: 2
    :caption: Contents
 
+   manual/overview
    algorithms
    gui04_measurements
    gui03_statistics

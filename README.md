@@ -222,7 +222,9 @@ python cli.py process data\*.txt      # batch pipeline
 an install without `-e` serves Python code outside the checkout, such as a
 Jupyter notebook (`from afm_nanofiber_analyzer import bg_calibrator`); the GUIs
 and the CLI are not installed. End-user distribution of the GUIs remains the
-PyInstaller bundle described below.
+PyInstaller bundle described below. An example notebook that analyzes and
+measures the bundled scans from Python is described in
+[docs/manual/overview.md](docs/manual/overview.md).
 
 ### Build a standalone Windows bundle
 

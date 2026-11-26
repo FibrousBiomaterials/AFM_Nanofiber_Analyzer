@@ -7,6 +7,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .tmp/
+# Jupyter's autosave copies, which keep the outputs the notebooks under
+# docs/manual/notebooks/ are stored without.
+.ipynb_checkpoints/
 
 # ===== Virtual environments =====
 .venv/

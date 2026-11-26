@@ -10,6 +10,11 @@ AFM Nanofiber Analyzer の主な変更は、すべてこのファイルに記録
 
 ### 追加
 
+- `docs/manual/` に操作マニュアル（`docs/manual/overview.md`）を追加した。最初の
+  内容は例のノートブック `docs/manual/notebooks/quickstart.ipynb` で、GUI と
+  `cli.py` が呼ぶ関数を使い、同梱のスキャンを Python から解析・計測する。
+  ノートブックは出力なしで保存し、`tests/test_manual_notebooks.py` が実行する。
+  解析結果は変わらない。
 - GUI03 は、サンプリング間隔（nm/px）や解析設定の違うバンドルのように、長さの下限の違うバンドルを 1 つの
   グループにまとめると警告し、最も短い下限と最も長い下限をログに出す。粗いスキャンには
   細かいスキャンに残る短いファイバーが含まれ得ないため、そのグループの分布には撮像条件の

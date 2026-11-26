@@ -10,6 +10,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A user manual in `docs/manual/` (`docs/manual/overview.md`), starting with an
+  example notebook, `docs/manual/notebooks/quickstart.ipynb`, that analyzes and
+  measures the bundled scans from Python with the functions the GUIs and
+  `cli.py` call. It is stored without outputs, and
+  `tests/test_manual_notebooks.py` runs it. Analysis results do not change.
 - GUI03 warns when one group pools bundles whose length floors differ, as
   bundles of different resolution or analysis settings do, and logs the
   shortest and the longest floor: a coarser scan cannot contain the short
