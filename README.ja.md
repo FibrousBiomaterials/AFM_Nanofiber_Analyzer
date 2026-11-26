@@ -387,9 +387,7 @@ Fiber Morphology Statistics を開きます。比較するバンドルはそこ�
 
 ### Fiber Morphology Statistics — `guis/GUI03_Fiber_Morphology_Statistics.py`
 
-![Fiber Morphology Statistics のウインドウ: 2 つの試料グループの高さ分布と、グループごとの統計量テーブル。](figures/gui03.png)
-<!-- TODO(review): figures/gui03.png は、統計量テーブルを別ウィンドウへ移し、バンドルの
-プレビューを加える前のウインドウを写している。撮り直すこと。 -->
+![Fiber Morphology Statistics のウインドウ: 2 つの試料グループの高さ分布と要約統計量、およびグループ一覧の下に表示した、選択中のバンドルの補正後画像。](figures/gui03.png)
 
 ユーザー定義グループごとに、入力群から 1 つの形態パラメータの分布を比較します。
 入力は GUI01 が出力する `.b2z` バンドルで、「ファイル追加」からグループへファイル

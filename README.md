@@ -408,9 +408,7 @@ samples that lie beyond the image edge.
 
 ### Fiber Morphology Statistics — `guis/GUI03_Fiber_Morphology_Statistics.py`
 
-![Fiber Morphology Statistics window: two sample groups with their height distributions and a per-group statistics table.](figures/gui03.png)
-<!-- TODO(review): figures/gui03.png shows the window before the statistics table
-moved to its own window and the bundle preview was added; retake it. -->
+![Fiber Morphology Statistics window: two sample groups with their height distributions and summary statistics, and the calibrated image of the selected bundle under the group list.](figures/gui03.png)
 
 Compare the distribution of one morphological quantity across user-defined
 groups of inputs. The inputs are GUI01's `.b2z` bundles, registered file by file

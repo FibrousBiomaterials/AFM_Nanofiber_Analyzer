@@ -5,6 +5,15 @@
 [gui04_measurements.ja.md](../gui04_measurements.ja.md)、
 [gui03_statistics.ja.md](../gui03_statistics.ja.md) で説明しています。
 
+## GUI を使う
+
+各ツールはランチャー（`python Main.py`、または README で説明している起動スクリプト
+`run_venv` / `run_conda`）から起動します。ランチャーにはツールごとのボタンが
+あります。
+
+- [Format Converter（GUI00）](gui00_format_converter.ja.md): このソフトが読めない
+  形式のファイルを、GUI01 で解析できる `.gwy` ファイルに変換する。
+
 ## Jupyter を使って Python で解析する
 
 [`notebooks/quickstart.ja.ipynb`](notebooks/quickstart.ja.ipynb) は、GUI を使わずに

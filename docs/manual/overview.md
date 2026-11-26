@@ -5,6 +5,14 @@ computes is explained in [algorithms.md](../algorithms.md),
 [gui04_measurements.md](../gui04_measurements.md) and
 [gui03_statistics.md](../gui03_statistics.md).
 
+## Using the GUIs
+
+Each tool is started from the launcher (`python Main.py`, or the `run_venv` /
+`run_conda` launchers described in the README), which has one button per tool.
+
+- [Format Converter (GUI00)](gui00_format_converter.md): converts files in
+  formats this software cannot read into `.gwy` files for GUI01.
+
 ## Analyzing in Python with Jupyter
 
 [`notebooks/quickstart.ipynb`](notebooks/quickstart.ipynb) runs the analysis

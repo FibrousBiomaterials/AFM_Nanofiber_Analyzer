@@ -26,6 +26,7 @@ project README.
    :caption: Contents
 
    manual/overview
+   manual/gui00_format_converter
    algorithms
    gui04_measurements
    gui03_statistics
